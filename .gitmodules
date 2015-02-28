@@ -1,0 +1,15 @@
+[submodule "glew"]
+	path = glew
+	url = git@github.com:et1337/glew.git
+[submodule "glfw"]
+	path = glfw
+	url = git@github.com:et1337/glfw.git
+[submodule "glm"]
+	path = glm
+	url = git@github.com:et1337/glm.git
+[submodule "cmake-modules"]
+	path = cmake-modules
+	url = git@github.com:et1337/cmake-modules.git
+[submodule "assimp"]
+	path = assimp
+	url = git@github.com:et1337/assimp.git

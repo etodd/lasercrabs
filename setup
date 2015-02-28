@@ -1,0 +1,3 @@
+#!/bin/bash
+
+sudo apt-get install cmake make libx11-dev libxi-dev libgl1-mesa-dev libglu1-mesa-dev libxrandr-dev libxext-dev

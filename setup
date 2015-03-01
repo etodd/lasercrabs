@@ -4,6 +4,7 @@ set -o pipefail
 
 sudo apt-get install cmake make libx11-dev libxi-dev libgl1-mesa-dev libglu1-mesa-dev libxrandr-dev libxext-dev libXmu-dev
 git submodule update --init --recursive
+mkdir build
 cd build
 cmake ..
 make grepr

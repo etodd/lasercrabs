@@ -15,12 +15,23 @@ add_subdirectory(external/glm)
 
 set(ASSIMP_LIB_INSTALL_DIR "lib")
 set(LIBASSIMP_COMPONENT libassimp)
-set(ZLIB_LIBRARIES zlib)
 set(BUILD_STATIC_LIB ON)
 
 # Compile without boost
 include_directories(external/assimp/code/BoostWorkaround)
 add_definitions(-DASSIMP_BUILD_BOOST_WORKAROUND)
+
+# Search for external dependencies, and build them from source if not found
+# Search for zlib
+include(CheckIncludeFile)
+include(CheckTypeSize)
+include(CheckFunctionExists)
+# compile from sources
+add_subdirectory(external/assimp/contrib/zlib)
+set(ZLIB_FOUND 1)
+set(ZLIB_LIBRARIES zlibstatic)
+set(ZLIB_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/external/assimp/contrib/zlib ${CMAKE_CURRENT_BINARY_DIR}/external/assimp/contrib/zlib)
+INCLUDE_DIRECTORIES(${ZLIB_INCLUDE_DIR})
 
 set(GIT_COMMIT_HASH 0)
 configure_file(
@@ -28,9 +39,6 @@ configure_file(
   ${CMAKE_SOURCE_DIR}/external/assimp/code/revision.h
 )
 add_subdirectory(external/assimp/code)
-
-## zlib
-add_subdirectory(external/zlib)
 
 ## Includes
  

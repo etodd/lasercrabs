@@ -10,7 +10,3 @@
 [submodule "external/glm"]
 	path = external/glm
 	url = git@github.com:et1337/glm.git
-[submodule "external/zlib"]
-	path = external/zlib
-	url = git@github.com:et1337/zlib.git
-	ignore = dirty

@@ -57,6 +57,8 @@ set(shaders
 	shaders/StandardShading.vertexshader
 )
 
+add_definitions(-DGLEW_STATIC)
+
 add_executable(grepr
 	src/main.cpp
 	src/controls.cpp

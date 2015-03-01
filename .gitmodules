@@ -13,3 +13,4 @@
 [submodule "external/zlib"]
 	path = external/zlib
 	url = git@github.com:et1337/zlib.git
+	ignore = dirty

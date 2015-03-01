@@ -1,15 +1,15 @@
-[submodule "glew"]
-	path = glew
+[submodule "external/glew_src"]
+	path = external/glew_src
 	url = git@github.com:et1337/glew.git
-[submodule "glfw"]
-	path = glfw
-	url = git@github.com:et1337/glfw.git
-[submodule "glm"]
-	path = glm
-	url = git@github.com:et1337/glm.git
-[submodule "cmake-modules"]
-	path = cmake-modules
-	url = git@github.com:et1337/cmake-modules.git
-[submodule "assimp"]
-	path = assimp
+[submodule "external/assimp"]
+	path = external/assimp
 	url = git@github.com:et1337/assimp.git
+[submodule "external/glfw"]
+	path = external/glfw
+	url = git@github.com:et1337/glfw.git
+[submodule "external/glm"]
+	path = external/glm
+	url = git@github.com:et1337/glm.git
+[submodule "external/zlib"]
+	path = external/zlib
+	url = git@github.com:et1337/zlib.git

@@ -76,7 +76,6 @@ add_executable(grepr
 )
 
 source_group(shaders REGULAR_EXPRESSION ".*/.*shader$")
-file(COPY ${shaders} DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
 
 ## Libraries
 

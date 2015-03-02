@@ -127,7 +127,7 @@ bool loadAssImp(
 
 	const aiScene* scene = importer.ReadFile(path, 0/*aiProcess_JoinIdenticalVertices | aiProcess_SortByPType*/);
 	if( !scene) {
-		fprintf( stderr, importer.GetErrorString());
+		fprintf( stderr, "%s", importer.GetErrorString());
 		getchar();
 		return false;
 	}
@@ -165,5 +165,5 @@ bool loadAssImp(
 	}
 	
 	// The "scene" pointer will be deleted automatically by "importer"
-
+	return true;
 }

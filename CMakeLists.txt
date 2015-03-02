@@ -1,6 +1,7 @@
 # CMake entry point
 cmake_minimum_required (VERSION 2.6)
 project (grepr)
+set(AMD64 ON)
 
 find_package(OpenGL REQUIRED)
 
@@ -42,13 +43,17 @@ add_subdirectory(external/assimp/code)
 
 ## Includes
  
-include_directories(
+set(ALL_INCLUDES
 	external/glew/include
 	external/glfw/include
 	external/glm
 	external/assimp/include
 	src
 )
+string(REPLACE ";" "," ALL_INCLUDES_COMMA "${ALL_INCLUDES}")
+include_directories(${ALL_INCLUDES})
+configure_file(.includes.in .includes)
+configure_file(.exrc.in ${CMAKE_CURRENT_SOURCE_DIR}/.exrc)
 
 ## Source
 

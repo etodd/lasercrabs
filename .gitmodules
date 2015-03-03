@@ -10,3 +10,6 @@
 [submodule "external/glm"]
 	path = external/glm
 	url = git@github.com:et1337/glm.git
+[submodule "external/lodepng"]
+	path = external/lodepng
+	url = git@github.com:et1337/lodepng.git

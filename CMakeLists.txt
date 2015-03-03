@@ -41,6 +41,9 @@ configure_file(
 )
 add_subdirectory(external/assimp/code)
 
+## lodepng
+add_library(lodepng STATIC external/lodepng/lodepng.cpp)
+
 ## Includes
  
 set(ALL_INCLUDES
@@ -48,6 +51,7 @@ set(ALL_INCLUDES
 	external/glfw/include
 	external/glm
 	external/assimp/include
+	external/lodepng
 	src
 )
 string(REPLACE ";" "," ALL_INCLUDES_COMMA "${ALL_INCLUDES}")
@@ -85,4 +89,5 @@ target_link_libraries(grepr
 	glfw
 	assimp
 	GLEW_static
+	lodepng
 )

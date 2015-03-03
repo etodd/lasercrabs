@@ -96,15 +96,15 @@ def GetSystemIncludePaths():
 				elif status == 2:
 					flags.append('-isystem')
 				flags.append(os.path.normpath(l))
-		fp = open('build/.includes', 'r')
-		if fp:
-			workingDir = DirectoryOfThisScript()
-			for x in fp.read().split(';'):
-				flags.append('-I')
-				flags.append(os.path.join(workingDir, x))
-			fp.close()
 		fp = open(cache, 'w')
 		fp.write('\n'.join(flags))
+		fp.close()
+	fp = open('build/.includes', 'r')
+	if fp:
+		workingDir = DirectoryOfThisScript()
+		for x in fp.read().split(';'):
+			flags.append('-I')
+			flags.append(os.path.join(workingDir, x))
 		fp.close()
 	return flags
 

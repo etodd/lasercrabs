@@ -21,6 +21,9 @@ using namespace glm;
 #include <objloader.hpp>
 #include <vboindexer.hpp>
 
+#include "array.hpp"
+#include "systems.hpp"
+
 void resize(GLFWwindow* window, int width, int height)
 {
 	glViewport(0, 0, width, height);
@@ -99,34 +102,34 @@ int main()
 	GLuint TextureID  = glGetUniformLocation(programID, "myTextureSampler");
 
 	// Read our .obj file
-	std::vector<unsigned short> indices;
-	std::vector<glm::vec3> indexed_vertices;
-	std::vector<glm::vec2> indexed_uvs;
-	std::vector<glm::vec3> indexed_normals;
-	bool res = loadAssImp("../assets/city3.mdl", &indices, &indexed_vertices, &indexed_uvs, &indexed_normals);
+	Array<unsigned short> indices;
+	Array<glm::vec3> indexed_vertices;
+	Array<glm::vec2> indexed_uvs;
+	Array<glm::vec3> indexed_normals;
+	bool res = loadAssImp("../assets/city3.mdl", indices, indexed_vertices, indexed_uvs, indexed_normals);
 
 	// Load it into a VBO
 
 	GLuint vertexbuffer;
 	glGenBuffers(1, &vertexbuffer);
 	glBindBuffer(GL_ARRAY_BUFFER, vertexbuffer);
-	glBufferData(GL_ARRAY_BUFFER, indexed_vertices.size() * sizeof(glm::vec3), &indexed_vertices[0], GL_STATIC_DRAW);
+	glBufferData(GL_ARRAY_BUFFER, indexed_vertices.length * sizeof(glm::vec3), indexed_vertices.d, GL_STATIC_DRAW);
 
 	GLuint uvbuffer;
 	glGenBuffers(1, &uvbuffer);
 	glBindBuffer(GL_ARRAY_BUFFER, uvbuffer);
-	glBufferData(GL_ARRAY_BUFFER, indexed_uvs.size() * sizeof(glm::vec2), &indexed_uvs[0], GL_STATIC_DRAW);
+	glBufferData(GL_ARRAY_BUFFER, indexed_uvs.length * sizeof(glm::vec2), indexed_uvs.d, GL_STATIC_DRAW);
 
 	GLuint normalbuffer;
 	glGenBuffers(1, &normalbuffer);
 	glBindBuffer(GL_ARRAY_BUFFER, normalbuffer);
-	glBufferData(GL_ARRAY_BUFFER, indexed_normals.size() * sizeof(glm::vec3), &indexed_normals[0], GL_STATIC_DRAW);
+	glBufferData(GL_ARRAY_BUFFER, indexed_normals.length * sizeof(glm::vec3), indexed_normals.d, GL_STATIC_DRAW);
 
 	// Generate a buffer for the indices as well
 	GLuint elementbuffer;
 	glGenBuffers(1, &elementbuffer);
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, elementbuffer);
-	glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(unsigned short), &indices[0] , GL_STATIC_DRAW);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.length * sizeof(unsigned short), indices.d, GL_STATIC_DRAW);
 
 	// Get a handle for our "LightPosition" uniform
 	glUseProgram(programID);
@@ -134,19 +137,18 @@ int main()
 
 	// For speed computation
 	double lastTime = glfwGetTime();
-	int nbFrames = 0;
 
-	do{
+	UpdateSystem updateSystem;
+	updateSystem.add(&computeMatricesFromInputs);
 
+	do
+	{
 		// Measure speed
 		double currentTime = glfwGetTime();
-		nbFrames++;
-		if ( currentTime - lastTime >= 1.0 ){ // If last prinf() was more than 1sec ago
-			// printf and reset
-			printf("%f ms/frame\n", 1000.0/double(nbFrames));
-			nbFrames = 0;
-			lastTime += 1.0;
-		}
+		float dt = currentTime - lastTime;
+		lastTime = currentTime;
+
+		updateSystem.go(dt);
 
 		// Clear the screen
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -154,8 +156,6 @@ int main()
 		// Use our shader
 		glUseProgram(programID);
 
-		// Compute the MVP matrix from keyboard and mouse input
-		computeMatricesFromInputs();
 		glm::mat4 ProjectionMatrix = getProjectionMatrix();
 		glm::mat4 ViewMatrix = getViewMatrix();
 		glm::mat4 ModelMatrix = glm::mat4(1.0);
@@ -218,7 +218,7 @@ int main()
 		// Draw the triangles !
 		glDrawElements(
 			GL_TRIANGLES,      // mode
-			indices.size(),    // count
+			indices.length,    // count
 			GL_UNSIGNED_SHORT,   // type
 			(void*)0           // element array buffer offset
 		);

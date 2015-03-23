@@ -34,8 +34,8 @@ float mouseSpeed = 0.0025f;
 
 
 
-void computeMatricesFromInputs(){
-
+void computeMatricesFromInputs(float dt)
+{
 	// glfwGetTime is called only once, the first time this function is called
 	static double lastTime = glfwGetTime();
 

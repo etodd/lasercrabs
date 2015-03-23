@@ -7,12 +7,20 @@ find_package(OpenGL REQUIRED)
 
 ## GLEW
 add_subdirectory(external/glew)
+add_definitions(-DGLEW_STATIC)
 ## GLFW
 add_subdirectory(external/glfw)
 ## GLM
 add_subdirectory(external/glm)
 ## libevent
 add_subdirectory(external/libevent)
+## bullet
+set(USE_GLUT OFF)
+set(BUILD_BULLET2_DEMOS OFF)
+set(BUILD_BULLET3 ON)
+add_subdirectory(external/bullet)
+add_definitions(${BULLET_DEFINITIONS})
+link_directories(${BULLET_LIBRARY_DIRS})
 
 ## AssImp
 
@@ -55,6 +63,7 @@ set(ALL_INCLUDES
 	external/assimp/include
 	external/lodepng
 	${LIBEVENT_INCLUDE_DIRS}
+	${BULLET_INCLUDE_DIRS}
 	src
 )
 string(REPLACE ";" "," ALL_INCLUDES_COMMA "${ALL_INCLUDES}")
@@ -69,7 +78,7 @@ set(shaders
 	shaders/StandardShading.vertexshader
 )
 
-add_definitions(-DGLEW_STATIC)
+source_group(shaders REGULAR_EXPRESSION ".*/.*shader$")
 
 add_executable(grepr
 	src/main.cpp
@@ -82,16 +91,22 @@ add_executable(grepr
 	${shaders}
 )
 
-source_group(shaders REGULAR_EXPRESSION ".*/.*shader$")
-
 ## Libraries
 
 target_link_libraries(grepr
 	${OPENGL_LIBRARIES}
 	${GLFW_LIBRARIES}
 	glfw
-	assimp
 	GLEW_static
-	lodepng
 	${LIBEVENT_LIBRARIES}
+	Bullet3Dynamics
+	lodepng
+)
+
+add_executable(import
+	src/import.cpp
+)
+
+target_link_libraries(import
+	assimp
 )

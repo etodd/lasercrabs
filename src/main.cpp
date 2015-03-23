@@ -103,7 +103,7 @@ int main()
 	std::vector<glm::vec3> indexed_vertices;
 	std::vector<glm::vec2> indexed_uvs;
 	std::vector<glm::vec3> indexed_normals;
-	bool res = loadAssImp("../assets/suzanne.obj", &indices, &indexed_vertices, &indexed_uvs, &indexed_normals);
+	bool res = loadAssImp("../assets/city3.fbx", &indices, &indexed_vertices, &indexed_uvs, &indexed_normals);
 
 	// Load it into a VBO
 

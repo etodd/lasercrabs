@@ -19,9 +19,16 @@ bool loadAssImp(
 
 	Assimp::Importer importer;
 
-	const aiScene* scene = importer.ReadFile(path, 0/*aiProcess_JoinIdenticalVertices | aiProcess_SortByPType*/);
-	if( !scene) {
-		fprintf( stderr, "%s", importer.GetErrorString());
+	const aiScene* scene = importer.ReadFile
+	(
+		path,
+		aiProcess_JoinIdenticalVertices
+		| aiProcess_SortByPType
+		| aiProcess_Triangulate
+	);
+	if (!scene)
+	{
+		fprintf( stderr, "%s\n", importer.GetErrorString());
 		getchar();
 		return false;
 	}

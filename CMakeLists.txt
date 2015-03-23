@@ -11,6 +11,8 @@ add_subdirectory(external/glew)
 add_subdirectory(external/glfw)
 ## GLM
 add_subdirectory(external/glm)
+## libevent
+add_subdirectory(external/libevent)
 
 ## AssImp
 
@@ -52,6 +54,7 @@ set(ALL_INCLUDES
 	external/glm
 	external/assimp/include
 	external/lodepng
+	${LIBEVENT_INCLUDE_DIRS}
 	src
 )
 string(REPLACE ";" "," ALL_INCLUDES_COMMA "${ALL_INCLUDES}")
@@ -90,4 +93,5 @@ target_link_libraries(grepr
 	assimp
 	GLEW_static
 	lodepng
+	${LIBEVENT_LIBRARIES}
 )

@@ -13,3 +13,6 @@
 [submodule "external/lodepng"]
 	path = external/lodepng
 	url = git@github.com:et1337/lodepng.git
+[submodule "external/libevent"]
+	path = external/libevent
+	url = git@github.com:et1337/libevent.git

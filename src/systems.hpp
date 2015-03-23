@@ -4,18 +4,16 @@
 #include "array.hpp"
 #include <climits>
 
-typedef void (*Update)(float);
-
-struct UpdateEntry
+template<typename T>
+class Exec
 {
-	Update update;
+public:
 	int order;
-	unsigned int index;
-	UpdateEntry* previous;
-	UpdateEntry* next;
+	Exec<T>* previous;
+	Exec<T>* next;
 
-	UpdateEntry(Update u = 0, int o = 0)
-	: update(u), order(o), previous(0), next(0)
+	Exec(int o = 0)
+	: order(o), previous(0), next(0)
 	{
 	}
 
@@ -28,7 +26,7 @@ struct UpdateEntry
 		next = previous = 0;
 	}
 
-	void insertAfter(UpdateEntry* i)
+	void insert_after(Exec<T>* i)
 	{
 		if (next)
 			next->previous = i;
@@ -36,57 +34,42 @@ struct UpdateEntry
 		i->next = next;
 		next = i;
 	}
+
+	virtual void exec(T t) { }
 };
 
-struct UpdateSystem
+template <typename T>
+struct ExecSystem
 {
-	UpdateEntry head;
-	Array<UpdateEntry> array;
+	Exec<T> head;
 
-	UpdateSystem()
-		: head(), array()
+	ExecSystem()
+		: head()
 	{
 		head.order = INT_MIN;
 	}
 
-	void add(UpdateEntry* e)
+	void add(Exec<T>* exec)
 	{
-		UpdateEntry* i = &head;
-		while (i->next && i->order > e->order)
+		Exec<T>* i = &head;
+		while (i->next && i->order <= exec->order)
 			i = i->next;
-		i->insertAfter(e);
+		i->insert_after(exec);
 	}
 
-	void remove(UpdateEntry* e)
+	void remove(Exec<T>* e)
 	{
 		e->remove();
-		array.remove(e->index);
-	}
-
-	void reorder(UpdateEntry* e)
-	{
-		e->remove();
-		add(e);
-	}
-
-	UpdateEntry* add(Update update, int order = 0)
-	{
-		unsigned int index = array.add();
-		UpdateEntry* e = &array.d[index];
-		*e = UpdateEntry(update, order);
-		e->index = index;
-		add(e);
-		return e;
 	}
 
 	void go(float dt)
 	{
-		UpdateEntry* update = head.next;
-		while (update)
+		Exec<T>* exec = head.next;
+		while (exec)
 		{
-			UpdateEntry* n = update->next;
-			update->update(dt);
-			update = n;
+			Exec<T>* n = exec->next;
+			exec->exec(dt);
+			exec = n;
 		}
 	}
 };

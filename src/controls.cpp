@@ -9,40 +9,18 @@ using namespace glm;
 
 #include "controls.hpp"
 
-glm::mat4 ViewMatrix;
-glm::mat4 ProjectionMatrix;
-
-glm::mat4 getViewMatrix(){
-	return ViewMatrix;
-}
-glm::mat4 getProjectionMatrix(){
-	return ProjectionMatrix;
-}
-
-
-// Initial position : on +Z
-glm::vec3 position = glm::vec3( 0, 0, 5 ); 
-// Initial horizontal angle : toward -Z
-float horizontalAngle = 3.14f;
-// Initial vertical angle : none
-float verticalAngle = 0.0f;
-// Initial Field of View
-float initialFoV = 40.0f;
-
-float speed = 10.0f; // 3 units / second
-float mouseSpeed = 0.0025f;
-
-
-
-void computeMatricesFromInputs(float dt)
+Controls::Controls()
 {
-	// glfwGetTime is called only once, the first time this function is called
-	static double lastTime = glfwGetTime();
+	position = glm::vec3(0, 0, 5); 
+	angle_horizontal = 3.14f;
+	angle_vertical = 0.0f;
+	fov_initial = 40.0f;
+	speed = 10.0f; // 3 units / second
+	speed_mouse = 0.0025f;
+}
 
-	// Compute time difference between current and last frame
-	double currentTime = glfwGetTime();
-	float deltaTime = float(currentTime - lastTime);
-
+void Controls::exec(float dt)
+{
 	// Get mouse position
 	double xpos, ypos;
 	glfwGetCursorPos(window, &xpos, &ypos);
@@ -51,21 +29,41 @@ void computeMatricesFromInputs(float dt)
 	glfwSetCursorPos(window, 1024/2, 768/2);
 
 	// Compute new orientation
-	horizontalAngle += mouseSpeed * float(1024/2 - xpos );
-	verticalAngle   += mouseSpeed * float( 768/2 - ypos );
+	angle_horizontal += speed_mouse * float(1024/2 - xpos );
+	angle_vertical   += speed_mouse * float( 768/2 - ypos );
 
 	// Direction : Spherical coordinates to Cartesian coordinates conversion
 	glm::vec3 direction(
-		cos(verticalAngle) * sin(horizontalAngle), 
-		sin(verticalAngle),
-		cos(verticalAngle) * cos(horizontalAngle)
+		cos(angle_vertical) * sin(angle_horizontal), 
+		sin(angle_vertical),
+		cos(angle_vertical) * cos(angle_horizontal)
 	);
+
+	
+	if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT))
+	{
+		const float radius = 10000.0f;
+		btVector3 rayStart(position.x, position.y, position.z);
+		btVector3 rayEnd(position.x + direction.x * radius, position.y + direction.y * radius, position.z + direction.z * radius);
+		btCollisionWorld::ClosestRayResultCallback rayCallback(rayStart, rayEnd);
+
+		// Perform raycast
+		world->rayTest(rayStart, rayEnd, rayCallback);
+
+		if (rayCallback.hasHit())
+		{
+			rayEnd = rayCallback.m_hitPointWorld;
+			position.x = rayEnd.x();
+			position.y = rayEnd.y();
+			position.z = rayEnd.z();
+		}
+	}
 	
 	// Right vector
 	glm::vec3 right = glm::vec3(
-		sin(horizontalAngle - 3.14f/2.0f), 
+		sin(angle_horizontal - 3.14f/2.0f), 
 		0,
-		cos(horizontalAngle - 3.14f/2.0f)
+		cos(angle_horizontal - 3.14f/2.0f)
 	);
 	
 	// Up vector
@@ -73,34 +71,31 @@ void computeMatricesFromInputs(float dt)
 
 	// Move forward
 	if (glfwGetKey( window, GLFW_KEY_W ) == GLFW_PRESS){
-		position += direction * deltaTime * speed;
+		position += direction * dt * speed;
 	}
 	// Move backward
 	if (glfwGetKey( window, GLFW_KEY_S ) == GLFW_PRESS){
-		position -= direction * deltaTime * speed;
+		position -= direction * dt * speed;
 	}
 	// Strafe right
 	if (glfwGetKey( window, GLFW_KEY_D ) == GLFW_PRESS){
-		position += right * deltaTime * speed;
+		position += right * dt * speed;
 	}
 	// Strafe left
 	if (glfwGetKey( window, GLFW_KEY_A ) == GLFW_PRESS){
-		position -= right * deltaTime * speed;
+		position -= right * dt * speed;
 	}
 
-	float FoV = initialFoV;// - 5 * glfwGetMouseWheel(); // Now GLFW 3 requires setting up a callback for this. It's a bit too complicated for this beginner's tutorial, so it's disabled instead.
+	float FoV = fov_initial;// - 5 * glfwGetMouseWheel(); // Now GLFW 3 requires setting up a callback for this. It's a bit too complicated for this beginner's tutorial, so it's disabled instead.
 
 	// Projection matrix : 45° Field of View, 4:3 ratio, display range : 0.1 unit <-> 100 units
 	int width, height;
 	glfwGetFramebufferSize(window, &width, &height);
-	ProjectionMatrix = glm::perspective(FoV, (float)width / (float)height, 0.1f, 1000.0f);
+	projection = glm::perspective(FoV, (float)width / (float)height, 0.1f, 1000.0f);
 	// Camera matrix
-	ViewMatrix       = glm::lookAt(
+	view       = glm::lookAt(
 								position,           // Camera is here
 								position+direction, // and looks here : at the same position, plus "direction"
 								up                  // Head is up (set to 0,-1,0 to look upside-down)
 						   );
-
-	// For the next frame, the "last time" will be "now"
-	lastTime = currentTime;
 }

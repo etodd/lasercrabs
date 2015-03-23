@@ -6,7 +6,7 @@
 
 bool loadAssImp(
 	const char * path, 
-	Array<unsigned short>& indices,
+	Array<int>& indices,
 	Array<glm::vec3>& vertices,
 	Array<glm::vec2>& uvs,
 	Array<glm::vec3>& normals

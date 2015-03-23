@@ -19,10 +19,13 @@ using namespace glm;
 #include <texture.hpp>
 #include <controls.hpp>
 #include <objloader.hpp>
-#include <vboindexer.hpp>
 
 #include "array.hpp"
 #include "systems.hpp"
+#include "physics.hpp"
+
+#include <BulletCollision/CollisionShapes/btBvhTriangleMeshShape.h>
+#include <BulletCollision/CollisionShapes/btTriangleIndexVertexArray.h>
 
 void resize(GLFWwindow* window, int width, int height)
 {
@@ -101,35 +104,50 @@ int main()
 	// Get a handle for our "myTextureSampler" uniform
 	GLuint TextureID  = glGetUniformLocation(programID, "myTextureSampler");
 
+	Physics physics;
+
 	// Read our .obj file
-	Array<unsigned short> indices;
-	Array<glm::vec3> indexed_vertices;
-	Array<glm::vec2> indexed_uvs;
-	Array<glm::vec3> indexed_normals;
-	bool res = loadAssImp("../assets/city3.mdl", indices, indexed_vertices, indexed_uvs, indexed_normals);
+	Array<int> indices;
+	Array<glm::vec3> vertices;
+	Array<glm::vec2> uvs;
+	Array<glm::vec3> normals;
+	bool res = loadAssImp("../assets/city3.mdl", indices, vertices, uvs, normals);
+
+	btTriangleIndexVertexArray* meshData = new btTriangleIndexVertexArray(indices.length / 3, indices.d, 3 * sizeof(int), vertices.length, (btScalar*)vertices.d, sizeof(glm::vec3));
+	btBvhTriangleMeshShape* mesh  = new btBvhTriangleMeshShape(meshData, true, btVector3(-1000,-1000,-1000), btVector3(1000,1000,1000));
+
+	btTransform startTransform;
+	startTransform.setIdentity();
+	btDefaultMotionState* myMotionState = new btDefaultMotionState(startTransform);
+
+	btRigidBody::btRigidBodyConstructionInfo cInfo(0.0f, myMotionState, mesh, btVector3(0, 0, 0));
+
+	btRigidBody* body = new btRigidBody(cInfo);
+	body->setContactProcessingThreshold(BT_LARGE_FLOAT);
+	physics.world->addRigidBody(body);
 
 	// Load it into a VBO
 
 	GLuint vertexbuffer;
 	glGenBuffers(1, &vertexbuffer);
 	glBindBuffer(GL_ARRAY_BUFFER, vertexbuffer);
-	glBufferData(GL_ARRAY_BUFFER, indexed_vertices.length * sizeof(glm::vec3), indexed_vertices.d, GL_STATIC_DRAW);
+	glBufferData(GL_ARRAY_BUFFER, vertices.length * sizeof(glm::vec3), vertices.d, GL_STATIC_DRAW);
 
 	GLuint uvbuffer;
 	glGenBuffers(1, &uvbuffer);
 	glBindBuffer(GL_ARRAY_BUFFER, uvbuffer);
-	glBufferData(GL_ARRAY_BUFFER, indexed_uvs.length * sizeof(glm::vec2), indexed_uvs.d, GL_STATIC_DRAW);
+	glBufferData(GL_ARRAY_BUFFER, uvs.length * sizeof(glm::vec2), uvs.d, GL_STATIC_DRAW);
 
 	GLuint normalbuffer;
 	glGenBuffers(1, &normalbuffer);
 	glBindBuffer(GL_ARRAY_BUFFER, normalbuffer);
-	glBufferData(GL_ARRAY_BUFFER, indexed_normals.length * sizeof(glm::vec3), indexed_normals.d, GL_STATIC_DRAW);
+	glBufferData(GL_ARRAY_BUFFER, normals.length * sizeof(glm::vec3), normals.d, GL_STATIC_DRAW);
 
 	// Generate a buffer for the indices as well
 	GLuint elementbuffer;
 	glGenBuffers(1, &elementbuffer);
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, elementbuffer);
-	glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.length * sizeof(unsigned short), indices.d, GL_STATIC_DRAW);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.length * sizeof(int), indices.d, GL_STATIC_DRAW);
 
 	// Get a handle for our "LightPosition" uniform
 	glUseProgram(programID);
@@ -138,8 +156,11 @@ int main()
 	// For speed computation
 	double lastTime = glfwGetTime();
 
-	UpdateSystem updateSystem;
-	updateSystem.add(&computeMatricesFromInputs);
+	ExecSystem<float> update;
+
+	Controls controls;
+	controls.world = physics.world;
+	update.add(&controls);
 
 	do
 	{
@@ -148,7 +169,8 @@ int main()
 		float dt = currentTime - lastTime;
 		lastTime = currentTime;
 
-		updateSystem.go(dt);
+		update.go(dt);
+		physics.world->stepSimulation(dt, 10);
 
 		// Clear the screen
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -156,8 +178,8 @@ int main()
 		// Use our shader
 		glUseProgram(programID);
 
-		glm::mat4 ProjectionMatrix = getProjectionMatrix();
-		glm::mat4 ViewMatrix = getViewMatrix();
+		glm::mat4 ProjectionMatrix = controls.projection;
+		glm::mat4 ViewMatrix = controls.view;
 		glm::mat4 ModelMatrix = glm::mat4(1.0);
 		glm::mat4 MVP = ProjectionMatrix * ViewMatrix * ModelMatrix;
 
@@ -219,7 +241,7 @@ int main()
 		glDrawElements(
 			GL_TRIANGLES,      // mode
 			indices.length,    // count
-			GL_UNSIGNED_SHORT,   // type
+			GL_UNSIGNED_INT,   // type
 			(void*)0           // element array buffer offset
 		);
 
@@ -242,6 +264,9 @@ int main()
 	glDeleteProgram(programID);
 	glDeleteTextures(1, &Texture);
 	glDeleteVertexArrays(1, &VertexArrayID);
+	
+	delete mesh;
+	delete meshData;
 
 	// Close OpenGL window and terminate GLFW
 	glfwTerminate();

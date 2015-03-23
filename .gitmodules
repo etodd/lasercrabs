@@ -16,3 +16,6 @@
 [submodule "external/libevent"]
 	path = external/libevent
 	url = git@github.com:et1337/libevent.git
+[submodule "external/bullet"]
+	path = external/bullet
+	url = git@github.com:et1337/bullet3.git

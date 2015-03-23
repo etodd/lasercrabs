@@ -17,10 +17,10 @@ add_subdirectory(external/libevent)
 ## bullet
 set(USE_GLUT OFF)
 set(BUILD_BULLET2_DEMOS OFF)
-set(BUILD_BULLET3 ON)
+set(BUILD_BULLET3 OFF)
 add_subdirectory(external/bullet)
+include(${CMAKE_CURRENT_BINARY_DIR}/external/bullet/BulletConfig.cmake)
 add_definitions(${BULLET_DEFINITIONS})
-link_directories(${BULLET_LIBRARY_DIRS})
 
 ## AssImp
 
@@ -63,7 +63,7 @@ set(ALL_INCLUDES
 	external/assimp/include
 	external/lodepng
 	${LIBEVENT_INCLUDE_DIRS}
-	${BULLET_INCLUDE_DIRS}
+	external/bullet/src
 	src
 )
 string(REPLACE ";" "," ALL_INCLUDES_COMMA "${ALL_INCLUDES}")
@@ -86,7 +86,7 @@ add_executable(grepr
 	src/objloader.cpp
 	src/shader.cpp
 	src/texture.cpp
-	src/vboindexer.cpp
+	src/physics.cpp
 
 	${shaders}
 )
@@ -99,7 +99,10 @@ target_link_libraries(grepr
 	glfw
 	GLEW_static
 	${LIBEVENT_LIBRARIES}
-	Bullet3Dynamics
+	BulletDynamics
+	BulletCollision
+	BulletSoftBody
+	LinearMath
 	lodepng
 )
 

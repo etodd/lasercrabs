@@ -9,7 +9,7 @@
 
 bool loadAssImp(
 	const char* path, 
-	std::vector<unsigned short>* indices,
+	std::vector<int>* indices,
 	std::vector<glm::vec3>* vertices,
 	std::vector<glm::vec2>* uvs,
 	std::vector<glm::vec3>* normals
@@ -71,19 +71,19 @@ bool loadAssImp(
 
 int main()
 {
-	std::vector<unsigned short> indices;
+	std::vector<int> indices;
 	std::vector<glm::vec3> indexed_vertices;
 	std::vector<glm::vec2> indexed_uvs;
 	std::vector<glm::vec3> indexed_normals;
 	loadAssImp("../assets/city3.fbx", &indices, &indexed_vertices, &indexed_uvs, &indexed_normals);
 	FILE* f = fopen("../assets/city3.mdl", "w+b");
-	unsigned short i = indices.size();
-	fwrite(&i, sizeof(unsigned short), 1, f);
+	int i = indices.size();
+	fwrite(&i, sizeof(int), 1, f);
 	printf("Indices: %u\n", i);
-	fwrite(&indices[0], sizeof(unsigned short), i, f);
+	fwrite(&indices[0], sizeof(int), i, f);
 	i = indexed_vertices.size();
 	printf("Vertices: %u\n", i);
-	fwrite(&i, sizeof(unsigned short), 1, f);
+	fwrite(&i, sizeof(int), 1, f);
 	fwrite(&indexed_vertices[0], sizeof(glm::vec3), i, f);
 	fwrite(&indexed_uvs[0], sizeof(glm::vec2), i, f);
 	fwrite(&indexed_normals[0], sizeof(glm::vec3), i, f);

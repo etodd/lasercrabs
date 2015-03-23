@@ -6,7 +6,7 @@
 
 bool loadAssImp(
 	const char* path, 
-	Array<unsigned short>& indices,
+	Array<int>& indices,
 	Array<glm::vec3>& vertices,
 	Array<glm::vec2>& uvs,
 	Array<glm::vec3>& normals
@@ -19,16 +19,16 @@ bool loadAssImp(
 	}
 
 	// Read indices
-	unsigned short count;
-	fread(&count, sizeof(unsigned short), 1, f);
+	int count;
+	fread(&count, sizeof(int), 1, f);
 	fprintf(stderr, "Indices: %u\n", count);
 
 	// Fill face indices
 	indices.grow(count);
 	indices.length = count;
-	fread(indices.d, sizeof(unsigned short), count, f);
+	fread(indices.d, sizeof(int), count, f);
 
-	fread(&count, sizeof(unsigned short), 1, f);
+	fread(&count, sizeof(int), 1, f);
 	fprintf(stderr, "Vertices: %u\n", count);
 
 	// Fill vertices positions

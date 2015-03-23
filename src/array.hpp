@@ -61,16 +61,18 @@ public:
 		d[i] = t;
 	}
 
-	void add(T& t)
+	T* add(T& t)
 	{
 		grow(++length);
-		d[length - 1] = t;
+		T* p = &d[length - 1];
+		*p = t;
+		return p;
 	}
 
-	unsigned int add()
+	T* add()
 	{
 		grow(++length);
-		return length - 1;
+		return &d[length - 1];
 	}
 };
 

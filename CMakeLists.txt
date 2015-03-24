@@ -3,6 +3,8 @@ cmake_minimum_required (VERSION 2.6)
 project (grepr)
 set(AMD64 ON)
 
+set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -DDEBUG")
+
 find_package(OpenGL REQUIRED)
 
 ## GLEW
@@ -84,10 +86,10 @@ add_executable(grepr
 	src/main.cpp
 	src/controls.cpp
 	src/load.cpp
-	src/shader.cpp
 	src/model.cpp
 	src/physics.cpp
 	src/render.cpp
+	src/entity.cpp
 
 	${shaders}
 )

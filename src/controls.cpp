@@ -2,16 +2,13 @@
 #include <GLFW/glfw3.h>
 extern GLFWwindow* window; // The "extern" keyword here is to access the variable "window" declared in tutorialXXX.cpp. This is a hack to keep the tutorials simple. Please avoid this.
 
-// Include GLM
-#include <glm/glm.hpp>
+#include "types.h"
+#include "controls.h"
 #include <glm/gtc/matrix_transform.hpp>
-using namespace glm;
-
-#include "controls.hpp"
 
 Controls::Controls()
 {
-	position = glm::vec3(0, 0, 5); 
+	position = Vec3(0, 0, 5); 
 	angle_horizontal = 3.14f;
 	angle_vertical = 0.0f;
 	fov_initial = 40.0f;
@@ -19,7 +16,7 @@ Controls::Controls()
 	speed_mouse = 0.0025f;
 }
 
-void Controls::exec(float dt)
+void Controls::exec(GameTime t)
 {
 	// Get mouse position
 	double xpos, ypos;
@@ -33,7 +30,7 @@ void Controls::exec(float dt)
 	angle_vertical   += speed_mouse * float( 768/2 - ypos );
 
 	// Direction : Spherical coordinates to Cartesian coordinates conversion
-	glm::vec3 direction(
+	Vec3 direction(
 		cos(angle_vertical) * sin(angle_horizontal), 
 		sin(angle_vertical),
 		cos(angle_vertical) * cos(angle_horizontal)
@@ -60,30 +57,30 @@ void Controls::exec(float dt)
 	}
 	
 	// Right vector
-	glm::vec3 right = glm::vec3(
+	Vec3 right = Vec3(
 		sin(angle_horizontal - 3.14f/2.0f), 
 		0,
 		cos(angle_horizontal - 3.14f/2.0f)
 	);
 	
 	// Up vector
-	glm::vec3 up = glm::cross( right, direction );
+	Vec3 up = cross( right, direction );
 
 	// Move forward
 	if (glfwGetKey( window, GLFW_KEY_W ) == GLFW_PRESS){
-		position += direction * dt * speed;
+		position += direction * t.delta * speed;
 	}
 	// Move backward
 	if (glfwGetKey( window, GLFW_KEY_S ) == GLFW_PRESS){
-		position -= direction * dt * speed;
+		position -= direction * t.delta * speed;
 	}
 	// Strafe right
 	if (glfwGetKey( window, GLFW_KEY_D ) == GLFW_PRESS){
-		position += right * dt * speed;
+		position += right * t.delta * speed;
 	}
 	// Strafe left
 	if (glfwGetKey( window, GLFW_KEY_A ) == GLFW_PRESS){
-		position -= right * dt * speed;
+		position -= right * t.delta * speed;
 	}
 
 	float FoV = fov_initial;// - 5 * glfwGetMouseWheel(); // Now GLFW 3 requires setting up a callback for this. It's a bit too complicated for this beginner's tutorial, so it's disabled instead.

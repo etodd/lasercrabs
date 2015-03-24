@@ -1,10 +1,8 @@
-#ifndef MODEL_H
-#define MODEL_H
+#pragma once
 
-#include "exec.hpp"
-#include "render.hpp"
-#include "array.hpp"
-
+#include "exec.h"
+#include "render.h"
+#include "array.h"
 
 class Model : public Exec<RenderParams*>
 {
@@ -21,7 +19,6 @@ public:
 	public:
 		Data();
 		~Data();
-		void cleanup();
 		Array<Attrib> attribs;
 		GLuint gl_index_buffer;
 		GLuint gl_vertex_array;
@@ -35,7 +32,7 @@ public:
 			glBindVertexArray(gl_vertex_array);
 			glGenBuffers(1, &a.gl_buffer);
 			glBindBuffer(GL_ARRAY_BUFFER, a.gl_buffer);
-			glBufferData(GL_ARRAY_BUFFER, data.length * sizeof(T), data.d, GL_STATIC_DRAW);
+			glBufferData(GL_ARRAY_BUFFER, data.length * sizeof(T), data.data, GL_STATIC_DRAW);
 			attribs.add(a);
 		}
 
@@ -48,5 +45,3 @@ public:
 	Data* data;
 	void exec(RenderParams*);
 };
-
-#endif

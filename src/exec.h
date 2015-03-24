@@ -1,13 +1,11 @@
-#ifndef EXEC_H
-#define EXEC_H
+#pragma once
 
-#include "array.hpp"
+#include "array.h"
 #include <climits>
 
 template<typename T>
-class Exec
+struct Exec
 {
-public:
 	int order;
 	Exec<T>* previous;
 	Exec<T>* next;
@@ -73,5 +71,3 @@ struct ExecSystem
 		}
 	}
 };
-
-#endif

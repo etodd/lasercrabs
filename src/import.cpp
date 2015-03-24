@@ -1,18 +1,18 @@
-#include <vector>
-#include <glm/glm.hpp>
 #include <stdio.h>
 
 // Include AssImp
 #include <assimp/Importer.hpp>      // C++ importer interface
 #include <assimp/scene.h>           // Output data structure
 #include <assimp/postprocess.h>     // Post processing flags
+#include "types.h"
+#include "array.h"
 
-bool loadAssImp(
+bool load_model(
 	const char* path, 
-	std::vector<int>* indices,
-	std::vector<glm::vec3>* vertices,
-	std::vector<glm::vec2>* uvs,
-	std::vector<glm::vec3>* normals
+	Array<int>& indices,
+	Array<Vec3>& vertices,
+	Array<Vec2>& uvs,
+	Array<Vec3>& normals
 )
 {
 	Assimp::Importer importer;
@@ -26,44 +26,50 @@ bool loadAssImp(
 	);
 	if (!scene)
 	{
-		fprintf( stderr, "%s\n", importer.GetErrorString());
+		fprintf(stderr, "%s\n", importer.GetErrorString());
 		return false;
 	}
 	const aiMesh* mesh = scene->mMeshes[0]; // In this simple example code we always use the 1rst mesh (in OBJ files there is often only one anyway)
 
 	// Fill vertices positions
-	vertices->reserve(mesh->mNumVertices);
+	vertices.reserve(mesh->mNumVertices);
 	for(unsigned int i=0; i<mesh->mNumVertices; i++)
 	{
 		aiVector3D pos = mesh->mVertices[i];
-		vertices->push_back(glm::vec3(pos.x, pos.y, pos.z));
+		Vec3 v = Vec3(pos.x, pos.y, pos.z);
+		vertices.add(v);
 	}
 
 	// Fill vertices texture coordinates
-	uvs->reserve(mesh->mNumVertices);
+	uvs.reserve(mesh->mNumVertices);
 	for(unsigned int i=0; i<mesh->mNumVertices; i++)
 	{
 		aiVector3D UVW = mesh->mTextureCoords[0][i]; // Assume only 1 set of UV coords; AssImp supports 8 UV sets.
-		uvs->push_back(glm::vec2(UVW.x, UVW.y));
+		Vec2 v = Vec2(UVW.x, UVW.y);
+		uvs.add(v);
 	}
 
 	// Fill vertices normals
-	normals->reserve(mesh->mNumVertices);
+	normals.reserve(mesh->mNumVertices);
 	for(unsigned int i=0; i<mesh->mNumVertices; i++)
 	{
 		aiVector3D n = mesh->mNormals[i];
-		normals->push_back(glm::vec3(n.x, n.y, n.z));
+		Vec3 v = Vec3(n.x, n.y, n.z);
+		normals.add(v);
 	}
 
 	// Fill face indices
-	indices->reserve(3*mesh->mNumFaces);
-	for (unsigned int i=0; i<mesh->mNumFaces; i++){
+	indices.reserve(3*mesh->mNumFaces);
+	for (unsigned int i=0; i<mesh->mNumFaces; i++)
+	{
 		// Assume the model has only triangles.
-		indices->push_back(mesh->mFaces[i].mIndices[0]);
-		indices->push_back(mesh->mFaces[i].mIndices[1]);
-		indices->push_back(mesh->mFaces[i].mIndices[2]);
+		int j = mesh->mFaces[i].mIndices[0];
+		indices.add(j);
+		j = mesh->mFaces[i].mIndices[1];
+		indices.add(j);
+		j = mesh->mFaces[i].mIndices[2];
+		indices.add(j);
 	}
-
 	
 	// The "scene" pointer will be deleted automatically by "importer"
 	return true;
@@ -71,22 +77,20 @@ bool loadAssImp(
 
 int main()
 {
-	std::vector<int> indices;
-	std::vector<glm::vec3> indexed_vertices;
-	std::vector<glm::vec2> indexed_uvs;
-	std::vector<glm::vec3> indexed_normals;
-	loadAssImp("../assets/city3.fbx", &indices, &indexed_vertices, &indexed_uvs, &indexed_normals);
+	Array<int> indices;
+	Array<Vec3> vertices;
+	Array<Vec2> uvs;
+	Array<Vec3> normals;
+	load_model("../assets/city3.fbx", indices, vertices, uvs, normals);
 	FILE* f = fopen("../assets/city3.mdl", "w+b");
-	int i = indices.size();
-	fwrite(&i, sizeof(int), 1, f);
-	printf("Indices: %u\n", i);
-	fwrite(&indices[0], sizeof(int), i, f);
-	i = indexed_vertices.size();
-	printf("Vertices: %u\n", i);
-	fwrite(&i, sizeof(int), 1, f);
-	fwrite(&indexed_vertices[0], sizeof(glm::vec3), i, f);
-	fwrite(&indexed_uvs[0], sizeof(glm::vec2), i, f);
-	fwrite(&indexed_normals[0], sizeof(glm::vec3), i, f);
+	fwrite(&indices.length, sizeof(int), 1, f);
+	printf("Indices: %u\n", indices.length);
+	fwrite(indices.d, sizeof(int), indices.length, f);
+	printf("Vertices: %u\n", vertices.length);
+	fwrite(&vertices.length, sizeof(int), 1, f);
+	fwrite(vertices.d, sizeof(Vec3), vertices.length, f);
+	fwrite(uvs.d, sizeof(Vec2), vertices.length, f);
+	fwrite(normals.d, sizeof(Vec3), vertices.length, f);
 	fclose(f);
 	return 0;
 }

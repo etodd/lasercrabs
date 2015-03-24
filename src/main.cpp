@@ -1,27 +1,53 @@
-// Include standard headers
+#include "types.h"
+#include "vi_assert.h"
+
 #include <stdio.h>
 #include <stdlib.h>
-#include <vector>
 
-// Include GLEW
 #include <GL/glew.h>
-
-// Include GLFW
 #include <GLFW/glfw3.h>
+
 GLFWwindow* window;
 
-// Include GLM
-#include <glm/glm.hpp>
-#include <glm/gtc/matrix_transform.hpp>
+#include "model.h"
+#include "controls.h"
+#include "load.h"
+#include "array.h"
+#include "exec.h"
+#include "physics.h"
+#include "render.h"
+#include "entity.h"
 
-#include "shader.hpp"
-#include "model.hpp"
-#include "controls.hpp"
-#include "load.hpp"
-#include "array.hpp"
-#include "exec.hpp"
-#include "physics.hpp"
-#include "render.hpp"
+struct Transform : public Component<Transform>
+{
+	Vec3 pos;
+	Quat rot;
+};
+
+struct Test : public Component<Test>
+{
+	bool is_this_real;
+};
+
+struct Empty : public Entity
+{
+	Empty(Entities* e, ID id)
+		: Entity(id)
+	{
+		e->add<Transform>(this);
+	}
+};
+
+struct TestEntity : public Entity
+{
+	TestEntity(Entities* e, ID id)
+		: Entity(id)
+	{
+		fprintf(stderr, "test\n");
+		e->add<Transform>(this);
+		e->add<Test>(this);
+	}
+};
 
 #include <BulletCollision/CollisionShapes/btBvhTriangleMeshShape.h>
 #include <BulletCollision/CollisionShapes/btTriangleIndexVertexArray.h>
@@ -34,9 +60,9 @@ void resize(GLFWwindow* window, int width, int height)
 int main()
 {
 	// Initialise GLFW
-	if( !glfwInit() )
+	if (!glfwInit())
 	{
-		fprintf( stderr, "Failed to initialize GLFW\n" );
+		fprintf(stderr, "Failed to initialize GLFW\n");
 		return -1;
 	}
 
@@ -64,6 +90,29 @@ int main()
 		return -1;
 	}
 
+	Entities e;
+	Entity* a = e.create<Empty>();
+	fprintf(stderr, "A %d\n", a->id);
+	fprintf(stderr, "A1 %d\n", a->get<Transform>()->id);
+	e.remove(a);
+
+	Entity* b = e.create<TestEntity>();
+	fprintf(stderr, "B %d\n", b->id);
+	fprintf(stderr, "B1 %d\n", b->get<Transform>()->id);
+	fprintf(stderr, "B2 %d\n", b->get<Test>()->id);
+
+	Entity* c = e.create<Empty>();
+	fprintf(stderr, "C %d\n", c->id);
+	fprintf(stderr, "C1 %d\n", c->get<Transform>()->id);
+	fprintf(stderr, "C2 %d\n", c->get<Test>());
+
+	Entity* d = e.create<Empty>();
+	fprintf(stderr, "D %d\n", d->id);
+	fprintf(stderr, "D1 %d\n", d->get<Transform>()->id);
+	e.remove(d);
+
+	e.remove(b);
+
 	// Ensure we can capture the escape key being pressed below
 	glfwSetInputMode(window, GLFW_STICKY_KEYS, GL_TRUE);
 	glfwSetCursorPos(window, 1024/2, 768/2);
@@ -85,7 +134,7 @@ int main()
 	glBindVertexArray(VertexArrayID);
 
 	// Create and compile our GLSL program from the shaders
-	GLuint programID = LoadShaders( "../shaders/StandardShading.vertexshader", "../shaders/StandardShading.fragmentshader" );
+	GLuint programID = load_shader("../shaders/StandardShading.vertexshader", "../shaders/StandardShading.fragmentshader");
 
 	// Get a handle for our "MVP" uniform
 	GLuint MatrixID = glGetUniformLocation(programID, "MVP");
@@ -115,17 +164,17 @@ int main()
 	btBvhTriangleMeshShape* mesh;
 	{
 		Array<int> indices;
-		Array<glm::vec3> vertices;
-		Array<glm::vec2> uvs;
-		Array<glm::vec3> normals;
+		Array<Vec3> vertices;
+		Array<Vec2> uvs;
+		Array<Vec3> normals;
 		load_mdl("../assets/city3.mdl", indices, vertices, uvs, normals);
 
-		model_data.add_attrib<glm::vec3>(vertices, GL_FLOAT);
-		model_data.add_attrib<glm::vec2>(uvs, GL_FLOAT);
-		model_data.add_attrib<glm::vec3>(normals, GL_FLOAT);
+		model_data.add_attrib<Vec3>(vertices, GL_FLOAT);
+		model_data.add_attrib<Vec2>(uvs, GL_FLOAT);
+		model_data.add_attrib<Vec3>(normals, GL_FLOAT);
 		model_data.set_indices(indices);
 
-		meshData = new btTriangleIndexVertexArray(indices.length / 3, indices.d, 3 * sizeof(int), vertices.length, (btScalar*)vertices.d, sizeof(glm::vec3));
+		meshData = new btTriangleIndexVertexArray(indices.length / 3, indices.data, 3 * sizeof(int), vertices.length, (btScalar*)vertices.data, sizeof(Vec3));
 		mesh = new btBvhTriangleMeshShape(meshData, true, btVector3(-1000,-1000,-1000), btVector3(1000,1000,1000));
 	}
 
@@ -141,7 +190,7 @@ int main()
 	glUseProgram(programID);
 	GLuint LightID = glGetUniformLocation(programID, "LightPosition_worldspace");
 
-	ExecSystem<float> update;
+	ExecSystem<GameTime> update;
 	RenderParams render_params;
 	ExecSystem<RenderParams*> draw;
 
@@ -152,14 +201,16 @@ int main()
 	draw.add(&model);
 
 	double lastTime = glfwGetTime();
+	GameTime t;
 	do
 	{
 		double currentTime = glfwGetTime();
-		float dt = currentTime - lastTime;
+		t.total = currentTime;
+		t.delta = currentTime - lastTime;
 		lastTime = currentTime;
 
-		update.go(dt);
-		physics.world->stepSimulation(dt, 10);
+		update.go(t);
+		physics.world->stepSimulation(t.delta, 10);
 
 		// Clear the screen
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -167,10 +218,10 @@ int main()
 		// Use our shader
 		glUseProgram(programID);
 
-		glm::mat4 ProjectionMatrix = controls.projection;
-		glm::mat4 ViewMatrix = controls.view;
-		glm::mat4 ModelMatrix = glm::mat4(1.0);
-		glm::mat4 MVP = ProjectionMatrix * ViewMatrix * ModelMatrix;
+		Mat4 ProjectionMatrix = controls.projection;
+		Mat4 ViewMatrix = controls.view;
+		Mat4 ModelMatrix = Mat4(1.0);
+		Mat4 MVP = ProjectionMatrix * ViewMatrix * ModelMatrix;
 
 		// Send our transformation to the currently bound shader, 
 		// in the "MVP" uniform
@@ -178,7 +229,7 @@ int main()
 		glUniformMatrix4fv(ModelMatrixID, 1, GL_FALSE, &ModelMatrix[0][0]);
 		glUniformMatrix4fv(ViewMatrixID, 1, GL_FALSE, &ViewMatrix[0][0]);
 
-		glm::vec3 lightPos = glm::vec3(4,4,4);
+		Vec3 lightPos = Vec3(4,4,4);
 		glUniform3f(LightID, lightPos.x, lightPos.y, lightPos.z);
 
 		// Bind our texture in Texture Unit 0

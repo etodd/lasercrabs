@@ -1,5 +1,4 @@
-#ifndef PHYSICS_H
-#define PHYSICS_H
+#pragma once
 
 #include <btBulletDynamicsCommon.h>
 
@@ -14,5 +13,3 @@ public:
     btSequentialImpulseConstraintSolver* solver;
     btDiscreteDynamicsWorld* world;
 };
-
-#endif

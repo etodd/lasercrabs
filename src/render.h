@@ -1,8 +1,7 @@
-#ifndef RENDER_H
-#define RENDER_H
+#pragma once
 
 #include <GL/glew.h>
-#include <glm/glm.hpp>
+#include "types.h"
 
 enum RenderTechnique
 {
@@ -11,10 +10,8 @@ enum RenderTechnique
 
 struct RenderParams
 {
-	glm::mat4 view;
-	glm::mat4 projection;
+	Mat4 view;
+	Mat4 projection;
 	GLbitfield clear;
 	RenderTechnique technique;
 };
-
-#endif

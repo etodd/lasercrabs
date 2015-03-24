@@ -1,5 +1,5 @@
-#ifndef SYSTEMS_H
-#define SYSTEMS_H
+#ifndef EXEC_H
+#define EXEC_H
 
 #include "array.hpp"
 #include <climits>
@@ -62,13 +62,13 @@ struct ExecSystem
 		e->remove();
 	}
 
-	void go(float dt)
+	void go(T t)
 	{
 		Exec<T>* exec = head.next;
 		while (exec)
 		{
 			Exec<T>* n = exec->next;
-			exec->exec(dt);
+			exec->exec(t);
 			exec = n;
 		}
 	}

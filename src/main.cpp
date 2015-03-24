@@ -13,16 +13,15 @@ GLFWwindow* window;
 // Include GLM
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
-using namespace glm;
 
-#include <shader.hpp>
-#include <texture.hpp>
-#include <controls.hpp>
-#include <objloader.hpp>
-
+#include "shader.hpp"
+#include "model.hpp"
+#include "controls.hpp"
+#include "load.hpp"
 #include "array.hpp"
-#include "systems.hpp"
+#include "exec.hpp"
 #include "physics.hpp"
+#include "render.hpp"
 
 #include <BulletCollision/CollisionShapes/btBvhTriangleMeshShape.h>
 #include <BulletCollision/CollisionShapes/btTriangleIndexVertexArray.h>
@@ -94,7 +93,7 @@ int main()
 	GLuint ModelMatrixID = glGetUniformLocation(programID, "M");
 
 	// Load the texture
-	GLuint Texture = loadPNG("../assets/test.png");
+	GLuint Texture = load_png("../assets/test.png");
 	if (!Texture)
 	{
 		fprintf(stderr, "Error loading texture!");
@@ -107,64 +106,54 @@ int main()
 	Physics physics;
 
 	// Read our .obj file
-	Array<int> indices;
-	Array<glm::vec3> vertices;
-	Array<glm::vec2> uvs;
-	Array<glm::vec3> normals;
-	bool res = loadAssImp("../assets/city3.mdl", indices, vertices, uvs, normals);
+	Model::Data model_data;
 
-	btTriangleIndexVertexArray* meshData = new btTriangleIndexVertexArray(indices.length / 3, indices.d, 3 * sizeof(int), vertices.length, (btScalar*)vertices.d, sizeof(glm::vec3));
-	btBvhTriangleMeshShape* mesh  = new btBvhTriangleMeshShape(meshData, true, btVector3(-1000,-1000,-1000), btVector3(1000,1000,1000));
+	Model model;
+	model.data = &model_data;
+
+	btTriangleIndexVertexArray* meshData;
+	btBvhTriangleMeshShape* mesh;
+	{
+		Array<int> indices;
+		Array<glm::vec3> vertices;
+		Array<glm::vec2> uvs;
+		Array<glm::vec3> normals;
+		load_mdl("../assets/city3.mdl", indices, vertices, uvs, normals);
+
+		model_data.add_attrib<glm::vec3>(vertices, GL_FLOAT);
+		model_data.add_attrib<glm::vec2>(uvs, GL_FLOAT);
+		model_data.add_attrib<glm::vec3>(normals, GL_FLOAT);
+		model_data.set_indices(indices);
+
+		meshData = new btTriangleIndexVertexArray(indices.length / 3, indices.d, 3 * sizeof(int), vertices.length, (btScalar*)vertices.d, sizeof(glm::vec3));
+		mesh = new btBvhTriangleMeshShape(meshData, true, btVector3(-1000,-1000,-1000), btVector3(1000,1000,1000));
+	}
 
 	btTransform startTransform;
 	startTransform.setIdentity();
 	btDefaultMotionState* myMotionState = new btDefaultMotionState(startTransform);
-
 	btRigidBody::btRigidBodyConstructionInfo cInfo(0.0f, myMotionState, mesh, btVector3(0, 0, 0));
-
 	btRigidBody* body = new btRigidBody(cInfo);
 	body->setContactProcessingThreshold(BT_LARGE_FLOAT);
 	physics.world->addRigidBody(body);
-
-	// Load it into a VBO
-
-	GLuint vertexbuffer;
-	glGenBuffers(1, &vertexbuffer);
-	glBindBuffer(GL_ARRAY_BUFFER, vertexbuffer);
-	glBufferData(GL_ARRAY_BUFFER, vertices.length * sizeof(glm::vec3), vertices.d, GL_STATIC_DRAW);
-
-	GLuint uvbuffer;
-	glGenBuffers(1, &uvbuffer);
-	glBindBuffer(GL_ARRAY_BUFFER, uvbuffer);
-	glBufferData(GL_ARRAY_BUFFER, uvs.length * sizeof(glm::vec2), uvs.d, GL_STATIC_DRAW);
-
-	GLuint normalbuffer;
-	glGenBuffers(1, &normalbuffer);
-	glBindBuffer(GL_ARRAY_BUFFER, normalbuffer);
-	glBufferData(GL_ARRAY_BUFFER, normals.length * sizeof(glm::vec3), normals.d, GL_STATIC_DRAW);
-
-	// Generate a buffer for the indices as well
-	GLuint elementbuffer;
-	glGenBuffers(1, &elementbuffer);
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, elementbuffer);
-	glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.length * sizeof(int), indices.d, GL_STATIC_DRAW);
 
 	// Get a handle for our "LightPosition" uniform
 	glUseProgram(programID);
 	GLuint LightID = glGetUniformLocation(programID, "LightPosition_worldspace");
 
-	// For speed computation
-	double lastTime = glfwGetTime();
-
 	ExecSystem<float> update;
+	RenderParams render_params;
+	ExecSystem<RenderParams*> draw;
 
 	Controls controls;
 	controls.world = physics.world;
-	update.add(&controls);
 
+	update.add(&controls);
+	draw.add(&model);
+
+	double lastTime = glfwGetTime();
 	do
 	{
-		// Measure speed
 		double currentTime = glfwGetTime();
 		float dt = currentTime - lastTime;
 		lastTime = currentTime;
@@ -198,56 +187,7 @@ int main()
 		// Set our "myTextureSampler" sampler to user Texture Unit 0
 		glUniform1i(TextureID, 0);
 
-		// 1rst attribute buffer : vertices
-		glEnableVertexAttribArray(0);
-		glBindBuffer(GL_ARRAY_BUFFER, vertexbuffer);
-		glVertexAttribPointer(
-			0,                  // attribute
-			3,                  // size
-			GL_FLOAT,           // type
-			GL_FALSE,           // normalized?
-			0,                  // stride
-			(void*)0            // array buffer offset
-		);
-
-		// 2nd attribute buffer : UVs
-		glEnableVertexAttribArray(1);
-		glBindBuffer(GL_ARRAY_BUFFER, uvbuffer);
-		glVertexAttribPointer(
-			1,                                // attribute
-			2,                                // size
-			GL_FLOAT,                         // type
-			GL_FALSE,                         // normalized?
-			0,                                // stride
-			(void*)0                          // array buffer offset
-		);
-
-		// 3rd attribute buffer : normals
-		glEnableVertexAttribArray(2);
-		glBindBuffer(GL_ARRAY_BUFFER, normalbuffer);
-		glVertexAttribPointer(
-			2,                                // attribute
-			3,                                // size
-			GL_FLOAT,                         // type
-			GL_FALSE,                         // normalized?
-			0,                                // stride
-			(void*)0                          // array buffer offset
-		);
-
-		// Index buffer
-		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, elementbuffer);
-
-		// Draw the triangles !
-		glDrawElements(
-			GL_TRIANGLES,      // mode
-			indices.length,    // count
-			GL_UNSIGNED_INT,   // type
-			(void*)0           // element array buffer offset
-		);
-
-		glDisableVertexAttribArray(0);
-		glDisableVertexAttribArray(1);
-		glDisableVertexAttribArray(2);
+		draw.go(&render_params);
 
 		// Swap buffers
 		glfwSwapBuffers(window);
@@ -257,13 +197,8 @@ int main()
 	while (glfwGetKey(window, GLFW_KEY_ESCAPE) != GLFW_PRESS && !glfwWindowShouldClose(window));
 
 	// Cleanup VBO and shader
-	glDeleteBuffers(1, &vertexbuffer);
-	glDeleteBuffers(1, &uvbuffer);
-	glDeleteBuffers(1, &normalbuffer);
-	glDeleteBuffers(1, &elementbuffer);
 	glDeleteProgram(programID);
 	glDeleteTextures(1, &Texture);
-	glDeleteVertexArrays(1, &VertexArrayID);
 	
 	delete mesh;
 	delete meshData;

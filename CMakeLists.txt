@@ -83,10 +83,11 @@ source_group(shaders REGULAR_EXPRESSION ".*/.*shader$")
 add_executable(grepr
 	src/main.cpp
 	src/controls.cpp
-	src/objloader.cpp
+	src/load.cpp
 	src/shader.cpp
-	src/texture.cpp
+	src/model.cpp
 	src/physics.cpp
+	src/render.cpp
 
 	${shaders}
 )

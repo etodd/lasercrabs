@@ -1,1 +1,2 @@
 set path=.,@ALL_INCLUDES_COMMA@
+map <F3> :make -C build grepr<CR>

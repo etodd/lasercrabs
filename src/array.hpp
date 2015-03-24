@@ -25,6 +25,21 @@ public:
 			d = 0;
 	}
 
+	~Array()
+	{
+		cleanup();
+	}
+
+	void cleanup()
+	{
+		_alloced = length = 0;
+		if (d)
+		{
+			free(d);
+			d = 0;
+		}
+	}
+
 	void grow(unsigned int size)
 	{
 		if (size > _alloced)

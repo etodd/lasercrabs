@@ -15,8 +15,6 @@ add_definitions(-DGLEW_STATIC)
 add_subdirectory(external/glfw)
 ## GLM
 add_subdirectory(external/glm)
-## libevent
-add_subdirectory(external/libevent)
 ## bullet
 set(USE_GLUT OFF)
 set(BUILD_BULLET2_DEMOS OFF)
@@ -65,7 +63,6 @@ set(ALL_INCLUDES
 	external/glm
 	external/assimp/include
 	external/lodepng
-	${LIBEVENT_INCLUDE_DIRS}
 	external/bullet/src
 	src
 )
@@ -141,7 +138,6 @@ target_link_libraries(grepr
 	${GLFW_LIBRARIES}
 	glfw
 	GLEW_static
-	${LIBEVENT_LIBRARIES}
 	BulletDynamics
 	BulletCollision
 	BulletSoftBody

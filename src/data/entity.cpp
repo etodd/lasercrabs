@@ -3,10 +3,6 @@
 
 Family Entity::families = 0;
 
-Entity::~Entity()
-{
-}
-
 void Entity::exec(UpdateParams up)
 {
 }

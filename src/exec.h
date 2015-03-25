@@ -3,14 +3,14 @@
 #include "data/array.h"
 #include <climits>
 
-template<typename T>
-struct Exec
+template<typename Derived, typename T>
+struct ExecStatic
 {
 	int order;
-	Exec<T>* previous;
-	Exec<T>* next;
+	Derived* previous;
+	Derived* next;
 
-	Exec(int o = 0)
+	ExecStatic(int o = 0)
 	: order(o), previous(0), next(0)
 	{
 	}
@@ -24,50 +24,73 @@ struct Exec
 		next = previous = 0;
 	}
 
-	void insert_after_exec(Exec<T>* i)
+	void insert_after_exec(Derived* i)
 	{
 		if (next)
 			next->previous = i;
-		i->previous = this;
+		i->previous = (Derived*)this;
 		i->next = next;
 		next = i;
 	}
+};
 
+template<typename T>
+struct ExecDynamic : public ExecStatic<ExecDynamic<T>, T>
+{
 	virtual void exec(T t) { }
 };
 
-template <typename T>
-struct ExecSystem : Exec<T>
+template <typename T, typename T2>
+struct ExecSystemStatic : ExecDynamic<T2>
 {
-	Exec<T> head;
+	T head;
 
-	ExecSystem()
+	ExecSystemStatic()
 		: head()
 	{
 		head.order = INT_MIN;
 	}
 
-	void add(Exec<T>* exec)
+	void reorder(T* e)
 	{
-		Exec<T>* i = &head;
-		while (i->next && i->order <= exec->order)
+		T* i = e;
+		while (i->next && i->next->order < e->order)
+			i = i->next;
+		while (i->previous && i->previous->order > e->order)
+			i = i->previous;
+		if (i != e)
+		{
+			e->remove_exec();
+			i->insert_after_exec(e);
+		}
+	}
+
+	void add(T* exec)
+	{
+		T* i = &head;
+		while (i->next && i->next->order <= exec->order)
 			i = i->next;
 		i->insert_after_exec(exec);
 	}
 
-	void remove(Exec<T>* e)
+	void remove(T* e)
 	{
 		e->remove_exec();
 	}
 
-	void exec(T t)
+	void exec(T2 t)
 	{
-		Exec<T>* exec = head.next;
+		T* exec = head.next;
 		while (exec)
 		{
-			Exec<T>* n = exec->next;
+			T* n = exec->next;
 			exec->exec(t);
 			exec = n;
 		}
 	}
+};
+
+template<typename T>
+struct ExecSystemDynamic : ExecSystemStatic<ExecDynamic<T>, T>
+{
 };

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cmath>
+#include <cstdlib>
 #include <cstring>
 
 #define ARRAY_GROWTH_FACTOR 1.5
@@ -14,12 +15,18 @@ struct Array
 	size_t reserved;
 
 	Array(size_t size = 0)
-		: reserved(size), length(0)
+		: length(0)
 	{
 		if (size > 0)
+		{
+			if (size < ARRAY_INITIAL_RESERVATION)
+				size = ARRAY_INITIAL_RESERVATION;
 			data = (T*)malloc(size * sizeof(T));
+		}
 		else
 			data = 0;
+
+		reserved = size;
 	}
 
 	~Array()
@@ -101,7 +108,7 @@ struct ArrayNonRelocating
 			if (data.data[i].active)
 				return i;
 		}
-		return data.length;
+		return -1;
 	}
 
 	T* get(size_t i)

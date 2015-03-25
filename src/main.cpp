@@ -1,6 +1,8 @@
 #include "types.h"
 #include "vi_assert.h"
 
+#include <thread>
+
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -22,29 +24,27 @@ GLFWwindow* window;
 
 struct Empty : public Entity
 {
-	Empty(Entities* e, ID id)
-		: Entity(id)
+	Empty(Entities* e)
 	{
 		e->add<Transform>(this);
 	}
-	void awake() {}
+	void awake(Entities* e) {}
 };
 
 struct StaticGeom : public Entity
 {
-	StaticGeom(Entities* e, ID id)
-		: Entity(id)
+	StaticGeom(Entities* e)
 	{
 		e->add<Transform>(this);
 		e->add<View>(this);
 	}
-	void awake()
+
+	void awake(Entities* e)
 	{
 	}
 };
 
 #include <BulletCollision/CollisionShapes/btBvhTriangleMeshShape.h>
-#include <BulletCollision/CollisionShapes/btTriangleIndexVertexArray.h>
 
 void resize(GLFWwindow* window, int width, int height)
 {
@@ -85,8 +85,6 @@ int main()
 	}
 
 	Entities e;
-	Entity* a = e.create<Empty>();
-	e.remove(a);
 
 	// Ensure we can capture the escape key being pressed below
 	glfwSetInputMode(window, GLFW_STICKY_KEYS, GL_TRUE);
@@ -112,6 +110,11 @@ int main()
 
 	// Create and compile our GLSL program from the shaders
 	GLuint programID = loader.shader(Asset::Shader::Standard);
+	if (!programID)
+	{
+		fprintf(stderr, "Failed to load shader\n");
+		return -1;
+	}
 
 	// Get a handle for our "MVP" uniform
 	GLuint MatrixID = glGetUniformLocation(programID, "MVP");
@@ -132,23 +135,18 @@ int main()
 	Physics physics;
 
 	// Read our .obj file
-	View::Data model_data;
-
-	View model;
-	model.data = &model_data;
 
 	btTriangleIndexVertexArray* btMeshData;
 	btBvhTriangleMeshShape* btMesh;
 
 	Mesh* mesh = loader.mesh(Asset::Model::city3);
+	if (!mesh)
+	{
+		fprintf(stderr, "Error loading mesh!");
+		return -1;
+	}
 
-	model_data.add_attrib<Vec3>(mesh->vertices, GL_FLOAT);
-	model_data.add_attrib<Vec2>(mesh->uvs, GL_FLOAT);
-	model_data.add_attrib<Vec3>(mesh->normals, GL_FLOAT);
-	model_data.set_indices(mesh->indices);
-
-	btMeshData = new btTriangleIndexVertexArray(mesh->indices.length / 3, mesh->indices.data, 3 * sizeof(int), mesh->vertices.length, (btScalar*)mesh->vertices.data, sizeof(Vec3));
-	btMesh = new btBvhTriangleMeshShape(btMeshData, true, btVector3(-1000, -1000, -1000), btVector3(1000, 1000, 1000));
+	btMesh = new btBvhTriangleMeshShape(&mesh->physics, true, btVector3(-1000, -1000, -1000), btVector3(1000, 1000, 1000));
 
 	btTransform startTransform;
 	startTransform.setIdentity();
@@ -162,29 +160,33 @@ int main()
 	glUseProgram(programID);
 	GLuint LightID = glGetUniformLocation(programID, "LightPosition_worldspace");
 
-	ExecSystem<UpdateParams> update;
+	ExecSystemDynamic<GameTime> update;
 	RenderParams render_params;
-	ExecSystem<RenderParams*> draw;
+	ExecSystemDynamic<RenderParams*> draw;
 
 	Controls controls;
 	controls.world = physics.world;
 
 	update.add(&controls);
-	update.add(&e.update);
-	draw.add(&model);
+	update.add(&e);
+	draw.add(&e.draw);
+
+	StaticGeom* a = e.create<StaticGeom>();
+	View* model = a->get<View>();
+	model->data = &mesh->gl;
 
 	double lastTime = glfwGetTime();
-	UpdateParams up;
-	up.entities = &e;
-	do
+
+	GameTime time;
+	while (glfwGetKey(window, GLFW_KEY_ESCAPE) != GLFW_PRESS && !glfwWindowShouldClose(window))
 	{
 		double currentTime = glfwGetTime();
-		up.time.total = currentTime;
-		up.time.delta = currentTime - lastTime;
+		time.total = currentTime;
+		time.delta = currentTime - lastTime;
 		lastTime = currentTime;
 
-		update.exec(up);
-		physics.world->stepSimulation(up.time.delta, 10);
+		update.exec(time);
+		physics.world->stepSimulation(time.delta, 10);
 
 		// Clear the screen
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -219,14 +221,12 @@ int main()
 		glfwPollEvents();
 
 	} // Check if the ESC key was pressed or the window was closed
-	while (glfwGetKey(window, GLFW_KEY_ESCAPE) != GLFW_PRESS && !glfwWindowShouldClose(window));
 
 	// Cleanup VBO and shader
-	glDeleteProgram(programID);
-	glDeleteTextures(1, &Texture);
+	loader.unload_shader(Asset::Shader::Standard);
+	loader.unload_texture(Asset::Texture::test);
 	
 	delete btMesh;
-	delete btMeshData;
 	delete myMotionState;
 	physics.world->removeRigidBody(body);
 	delete body;

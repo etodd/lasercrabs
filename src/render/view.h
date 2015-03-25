@@ -1,47 +1,20 @@
 #pragma once
 
 #include "data/entity.h"
-#include "data/array.h"
 #include "exec.h"
 #include "render.h"
+#include "data/mesh.h"
 
-struct View : public Component<View>, Exec<RenderParams*>
+struct View : public Component<View>, ExecStatic<View, RenderParams*>
 {
-	struct Attrib
-	{
-		int element_size;
-		GLuint type;
-		GLuint gl_buffer;
-	};
-
-	struct Data
-	{
-		Data();
-		~Data();
-		Array<Attrib> attribs;
-		GLuint gl_index_buffer;
-		GLuint gl_vertex_array;
-		int index_count;
-
-		template<typename T> void add_attrib(Array<T>& data, GLuint type)
-		{
-			Attrib a;
-			a.element_size = sizeof(T) / 4;
-			a.type = type;
-			glBindVertexArray(gl_vertex_array);
-			glGenBuffers(1, &a.gl_buffer);
-			glBindBuffer(GL_ARRAY_BUFFER, a.gl_buffer);
-			glBufferData(GL_ARRAY_BUFFER, data.length * sizeof(T), data.data, GL_STATIC_DRAW);
-			attribs.add(a);
-		}
-
-		void set_indices(Array<int>&);
-
-		void bind();
-		void unbind();
-	};
-
-	Data* data;
+	Mesh::GL* data;
+	static void bind(Mesh::GL*);
+	static void unbind(Mesh::GL*);
 	void exec(RenderParams*);
-	void awake();
+	void awake(Entities*);
+};
+
+struct ViewSys : View::System, ExecSystemStatic<View, RenderParams*>
+{
+	ViewSys(Entities*);
 };

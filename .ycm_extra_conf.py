@@ -115,15 +115,17 @@ def FlagsForFile( filename, **kwargs ):
 		if compilation_info:
 			final_flags = MakeRelativePathsInFlagsAbsolute(
 				compilation_info.compiler_flags_,
-				compilation_info.compiler_working_dir_ )
-			sys_incs = GetSystemIncludePaths()
-			if sys_incs:
-					final_flags += sys_incs
+				compilation_info.compiler_working_dir_
+			)
 		else:
 			final_flags = ['-Wall']
 	else:
 		relative_to = DirectoryOfThisScript()
-		final_flags = MakeRelativePathsInFlagsAbsolute( flags, relative_to )
+		final_flags = []
+
+	sys_incs = GetSystemIncludePaths()
+	if sys_incs:
+		final_flags += sys_incs
 
 	return {
 		'flags': final_flags,

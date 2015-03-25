@@ -4,6 +4,9 @@
 #include "array.h"
 #include "vi_assert.h"
 #include "exec.h"
+#include "render/render.h"
+
+#include <stdio.h>
 
 typedef unsigned int Family;
 typedef size_t ID;
@@ -20,18 +23,23 @@ struct ComponentBase
 
 struct Entities;
 
+struct UpdateParams
+{
+	Entities* entities;
+	GameTime time;
+};
+
 // If you inherit this, do not add any data
 // Create a component instead
-struct Entity : public Exec<UpdateParams>
+struct Entity : public ExecDynamic<UpdateParams>
 {
 	static Family families;
 	ID id;
 	ComponentBase* components[MAX_FAMILIES];
-	Entity(ID i)
+	Entity()
+		: components(), id()
 	{
-		id = i;
 	}
-	virtual ~Entity();
 	virtual void exec(UpdateParams);
 	template<typename T> T* get()
 	{
@@ -42,6 +50,13 @@ struct Entity : public Exec<UpdateParams>
 template<typename Derived>
 struct Component : public ComponentBase
 {
+	struct System
+	{
+		static Family family()
+		{
+			return Derived::family();
+		}
+	};
 	static Family family()
 	{
 		static Family f = Entity::families++;
@@ -52,19 +67,23 @@ struct Component : public ComponentBase
 
 struct Transform : public Component<Transform>
 {
+	Transform* parent;
 	Vec3 pos;
 	Quat rot;
-	void awake() {}
+	void awake(Entities* e)
+	{
+	}
 };
 
 struct ComponentPoolBase;
 
-typedef void (*ComponentPoolFunction)(ComponentPoolBase*, size_t);
+typedef void (*ComponentPoolRemove)(ComponentPoolBase*, size_t);
+typedef void (*ComponentPoolAwake)(ComponentPoolBase*, size_t, Entities*);
 
 struct ComponentPoolBase
 {
-	ComponentPoolFunction remove_function;
-	ComponentPoolFunction awake_function;
+	ComponentPoolRemove remove_function;
+	ComponentPoolAwake awake_function;
 
 	// This gets reinterpreted as an ArrayNonRelocating<T> in ComponentPool.
 	// Embrace the madness.
@@ -84,9 +103,9 @@ struct ComponentPool : public ComponentPoolBase
 		return reinterpret_cast<ArrayNonRelocating<T>*>(&data)->get(id);
 	}
 
-	static void awake(ComponentPoolBase* pool, size_t id)
+	static void awake(ComponentPoolBase* pool, size_t id, Entities* e)
 	{
-		reinterpret_cast<ArrayNonRelocating<T>*>(&pool->data)->get(id)->awake();
+		reinterpret_cast<ArrayNonRelocating<T>*>(&pool->data)->get(id)->awake(e);
 	}
 
 	static void remove(ComponentPoolBase* pool, size_t id)
@@ -96,37 +115,65 @@ struct ComponentPool : public ComponentPoolBase
 	}
 };
 
-struct Entities
+struct Entities : ExecDynamic<GameTime>
 {
 	ArrayNonRelocating<Entity> all;
-	Array<ComponentPoolBase> component_pools;
-	ExecSystem<UpdateParams> update;
+	ComponentPoolBase component_pools[MAX_FAMILIES];
+	void* systems[MAX_FAMILIES];
+	ExecSystemDynamic<UpdateParams> update;
+	ExecSystemDynamic<RenderParams*> draw;
 
 	Entities()
-		: all(), component_pools()
+		: all(), component_pools(), systems(), update(), draw()
 	{
-		component_pools.reserve(MAX_FAMILIES);
-		component_pools.length = MAX_FAMILIES;
+	}
+
+	void exec(GameTime t)
+	{
+		UpdateParams up;
+		up.entities = this;
+		up.time = t;
+		update.exec(up);
+	}
+
+	~Entities()
+	{
+		size_t i = 0;
+		while ((i = all.next(i)) != -1)
+		{
+			remove(all.get(i));
+			i++;
+		}
+		// TODO: systems are never cleaned up
 	}
 
 	template<typename T> T* create()
 	{
 		ID id = all.add();
 		T* e = (T*)all.get(id);
-		new (e) T(this, id);
+		new (e) T(this);
+		e->id = id;
 		awake(e);
 		return e;
 	}
 
+	template<typename SystemType> SystemType* system()
+	{
+		Family f = SystemType::family();
+		if (!systems[f])
+			systems[f] = new SystemType(this);
+		return (SystemType*)systems[f];
+	}
+
 	template<typename T> ArrayNonRelocating<T>* components()
 	{
-		return ((ComponentPool<T>*)&component_pools.data[T::family])->data;
+		return ((ComponentPool<T>*)&component_pools[T::family()])->data;
 	}
 
 	template<typename T> T* add(Entity* e)
 	{
 		Family f = T::family();
-		ComponentPool<T>* pool = (ComponentPool<T>*)&component_pools.data[f];
+		ComponentPool<T>* pool = (ComponentPool<T>*)&component_pools[f];
 		if (!pool->remove_function)
 		{
 			new (pool) ComponentPool<T>();
@@ -148,11 +195,11 @@ struct Entities
 		{
 			if (e->components[i])
 			{
-				ComponentPoolBase* pool = &component_pools.data[i];
-				pool->awake_function(pool, e->components[i]->id);
+				ComponentPoolBase* pool = &component_pools[i];
+				pool->awake_function(pool, e->components[i]->id, this);
 			}
 		}
-		e->awake();
+		e->awake(this);
 	}
 
 	void remove(Entity* e)
@@ -162,7 +209,7 @@ struct Entities
 		{
 			if (e->components[i])
 			{
-				ComponentPoolBase* pool = &component_pools.data[i];
+				ComponentPoolBase* pool = &component_pools[i];
 				pool->remove_function(pool, e->components[i]->id);
 			}
 		}

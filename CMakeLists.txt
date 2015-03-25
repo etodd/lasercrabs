@@ -3,7 +3,8 @@ cmake_minimum_required (VERSION 2.6)
 project (grepr)
 set(AMD64 ON)
 
-set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -DDEBUG")
+set(CMAKE_CXX_FLAGS "-std=c++11 -Wno-deprecated-register -Wno-deprecated-declarations")
+set(CMAKE_CXX_FLAGS_DEBUG "-DDEBUG")
 
 find_package(OpenGL REQUIRED)
 
@@ -122,13 +123,14 @@ configure_file(src/asset.cpp.in ${CMAKE_CURRENT_SOURCE_DIR}/src/asset.cpp)
 source_group(shaders REGULAR_EXPRESSION ".*/.*shader$")
 
 add_executable(grepr
+	src/data/mesh.cpp
+	src/data/entity.cpp
+	src/render/view.cpp
+	src/render/render.cpp
 	src/main.cpp
 	src/controls.cpp
 	src/load.cpp
-	src/render/view.cpp
 	src/physics.cpp
-	src/render/render.cpp
-	src/data/entity.cpp
 	src/asset.cpp
 )
 

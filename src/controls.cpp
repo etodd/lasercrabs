@@ -16,7 +16,7 @@ Controls::Controls()
 	speed_mouse = 0.0025f;
 }
 
-void Controls::exec(UpdateParams update)
+void Controls::exec(GameTime time)
 {
 	// Get mouse position
 	double xpos, ypos;
@@ -68,19 +68,19 @@ void Controls::exec(UpdateParams update)
 
 	// Move forward
 	if (glfwGetKey( window, GLFW_KEY_W ) == GLFW_PRESS){
-		position += direction * update.time.delta * speed;
+		position += direction * time.delta * speed;
 	}
 	// Move backward
 	if (glfwGetKey( window, GLFW_KEY_S ) == GLFW_PRESS){
-		position -= direction * update.time.delta * speed;
+		position -= direction * time.delta * speed;
 	}
 	// Strafe right
 	if (glfwGetKey( window, GLFW_KEY_D ) == GLFW_PRESS){
-		position += right * update.time.delta * speed;
+		position += right * time.delta * speed;
 	}
 	// Strafe left
 	if (glfwGetKey( window, GLFW_KEY_A ) == GLFW_PRESS){
-		position -= right * update.time.delta * speed;
+		position -= right * time.delta * speed;
 	}
 
 	float FoV = fov_initial;// - 5 * glfwGetMouseWheel(); // Now GLFW 3 requires setting up a callback for this. It's a bit too complicated for this beginner's tutorial, so it's disabled instead.

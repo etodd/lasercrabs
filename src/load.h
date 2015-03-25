@@ -2,17 +2,17 @@
 
 #include "types.h"
 #include <GL/glew.h>
+#include "data/mesh.h"
+#include "asset.h"
 
-#include "array.h"
+struct Loader
+{
+	Loader();
+	Mesh meshes[Asset::Model::count];
+	GLuint textures[Asset::Texture::count];
+	GLuint shaders[Asset::Shader::count];
 
-bool load_mdl(
-	const char* path, 
-	Array<int>& indices,
-	Array<Vec3>& vertices,
-	Array<Vec2>& uvs,
-	Array<Vec3>& normals
-);
-
-GLuint load_png(const char* imagepath);
-
-GLuint load_shader(const char* vertex_file_path, const char* fragment_file_path);
+	Mesh* mesh(Asset::ID);
+	GLuint texture(Asset::ID);
+	GLuint shader(Asset::ID);
+};

@@ -1,6 +1,6 @@
-#include "model.h"
+#include "view.h"
 
-Model::Data::Data()
+View::Data::Data()
 	: attribs()
 {
 	glGenVertexArrays(1, &gl_vertex_array);
@@ -8,14 +8,14 @@ Model::Data::Data()
 	glGenBuffers(1, &gl_index_buffer);
 }
 
-Model::Data::~Data()
+View::Data::~Data()
 {
 	for (int i = 0; i < attribs.length; i++)
 		glDeleteBuffers(1, &attribs.data[i].gl_buffer);
 	glDeleteVertexArrays(1, &gl_vertex_array);
 }
 
-void Model::Data::set_indices(Array<int>& indices)
+void View::Data::set_indices(Array<int>& indices)
 {
 	glBindVertexArray(gl_vertex_array);
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, gl_index_buffer);
@@ -23,7 +23,7 @@ void Model::Data::set_indices(Array<int>& indices)
 	index_count = indices.length;
 }
 
-void Model::Data::bind()
+void View::Data::bind()
 {
 	for (int i = 0; i < attribs.length; i++)
 	{
@@ -42,13 +42,13 @@ void Model::Data::bind()
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, gl_index_buffer);
 }
 
-void Model::Data::unbind()
+void View::Data::unbind()
 {
 	for (int i = 0; i < attribs.length; i++)
 		glDisableVertexAttribArray(i);
 }
 
-void Model::exec(RenderParams* params)
+void View::exec(RenderParams* params)
 {
 	if (data)
 	{

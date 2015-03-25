@@ -1,12 +1,12 @@
 #pragma once
 
+#include "data/entity.h"
+#include "data/array.h"
 #include "exec.h"
 #include "render.h"
-#include "array.h"
 
-class Model : public Exec<RenderParams*>
+struct View : public Component<View>, Exec<RenderParams*>
 {
-public:
 	struct Attrib
 	{
 		int element_size;
@@ -14,9 +14,8 @@ public:
 		GLuint gl_buffer;
 	};
 
-	class Data
+	struct Data
 	{
-	public:
 		Data();
 		~Data();
 		Array<Attrib> attribs;
@@ -44,4 +43,5 @@ public:
 
 	Data* data;
 	void exec(RenderParams*);
+	void awake();
 };

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "array.h"
+#include "data/array.h"
 #include <climits>
 
 template<typename T>
@@ -15,7 +15,7 @@ struct Exec
 	{
 	}
 
-	void remove()
+	void remove_exec()
 	{
 		if (next)
 			next->previous = previous;
@@ -24,7 +24,7 @@ struct Exec
 		next = previous = 0;
 	}
 
-	void insert_after(Exec<T>* i)
+	void insert_after_exec(Exec<T>* i)
 	{
 		if (next)
 			next->previous = i;
@@ -37,7 +37,7 @@ struct Exec
 };
 
 template <typename T>
-struct ExecSystem
+struct ExecSystem : Exec<T>
 {
 	Exec<T> head;
 
@@ -52,15 +52,15 @@ struct ExecSystem
 		Exec<T>* i = &head;
 		while (i->next && i->order <= exec->order)
 			i = i->next;
-		i->insert_after(exec);
+		i->insert_after_exec(exec);
 	}
 
 	void remove(Exec<T>* e)
 	{
-		e->remove();
+		e->remove_exec();
 	}
 
-	void go(T t)
+	void exec(T t)
 	{
 		Exec<T>* exec = head.next;
 		while (exec)

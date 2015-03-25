@@ -4,9 +4,9 @@ set -o pipefail
 
 sudo apt-get install clang lldb-3.5 cmake make libx11-dev libxi-dev libgl1-mesa-dev libglu1-mesa-dev libxrandr-dev libxext-dev libXmu-dev
 git submodule update --init --recursive
-mkdir build
+mkdir -p build
 cd build
 export CC=/usr/bin/clang
 export CXX=/usr/bin/clang++
-cmake ..
+cmake .. -DCMAKE_BUILD_TYPE=Debug
 make grepr

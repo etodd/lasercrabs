@@ -73,12 +73,51 @@ include_directories(${ALL_INCLUDES})
 configure_file(.includes.in .includes)
 configure_file(.exrc.in ${CMAKE_CURRENT_SOURCE_DIR}/.exrc)
 
-## Source
+set(asset_prefix "../")
 
-set(shaders
-	shaders/StandardShading.fragmentshader
-	shaders/StandardShading.vertexshader
-)
+## Models
+set(models "")
+set(model_files "")
+set(i 0)
+file(GLOB files "assets/*.mdl")
+foreach(file ${files})
+	get_filename_component(name ${file} NAME_WE)
+	set(model_files "${model_files}\t\"${asset_prefix}assets/${name}.mdl\",\n")
+	set(models "${models}\t\tASSET(${name}, ${i})\n")
+	math(EXPR i "${i} + 1")
+endforeach()
+set(model_count ${i})
+
+## Textures
+set(textures "")
+set(texture_files "")
+set(i 0)
+file(GLOB files "assets/*.png")
+foreach(file ${files})
+	get_filename_component(name ${file} NAME_WE)
+	set(texture_files "${texture_files}\t\"${asset_prefix}assets/${name}.png\",\n")
+	set(textures "${textures}\t\tASSET(${name}, ${i})\n")
+	math(EXPR i "${i} + 1")
+endforeach()
+set(texture_count ${i})
+
+## Shaders
+set(shaders "")
+set(shader_files "")
+set(i 0)
+file(GLOB files "shaders/*.glsl")
+foreach(file ${files})
+	get_filename_component(name ${file} NAME_WE)
+	set(shader_files "${shader_files}\t\"${asset_prefix}shaders/${name}.glsl\",\n")
+	set(shaders "${shaders}\t\tASSET(${name}, ${i})\n")
+	math(EXPR i "${i} + 1")
+endforeach()
+set(shader_count ${i})
+
+configure_file(src/asset.h.in ${CMAKE_CURRENT_SOURCE_DIR}/src/asset.h)
+configure_file(src/asset.cpp.in ${CMAKE_CURRENT_SOURCE_DIR}/src/asset.cpp)
+
+## Source
 
 source_group(shaders REGULAR_EXPRESSION ".*/.*shader$")
 
@@ -86,12 +125,11 @@ add_executable(grepr
 	src/main.cpp
 	src/controls.cpp
 	src/load.cpp
-	src/model.cpp
+	src/render/view.cpp
 	src/physics.cpp
-	src/render.cpp
-	src/entity.cpp
-
-	${shaders}
+	src/render/render.cpp
+	src/data/entity.cpp
+	src/asset.cpp
 )
 
 ## Libraries

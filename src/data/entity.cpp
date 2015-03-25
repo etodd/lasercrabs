@@ -7,6 +7,6 @@ Entity::~Entity()
 {
 }
 
-void Entity::exec(GameTime time)
+void Entity::exec(UpdateParams up)
 {
 }

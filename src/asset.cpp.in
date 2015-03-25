@@ -1,0 +1,13 @@
+#include "asset.h"
+
+const char* Asset::Model::filenames[] =
+{
+@model_files@};
+
+const char* Asset::Texture::filenames[] =
+{
+@texture_files@};
+
+const char* Asset::Shader::filenames[] =
+{
+@shader_files@};

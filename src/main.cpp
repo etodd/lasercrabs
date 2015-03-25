@@ -9,25 +9,16 @@
 
 GLFWwindow* window;
 
-#include "model.h"
+#include "render/view.h"
 #include "controls.h"
 #include "load.h"
-#include "array.h"
+#include "data/array.h"
+#include "data/entity.h"
+#include "data/mesh.h"
 #include "exec.h"
 #include "physics.h"
-#include "render.h"
-#include "entity.h"
-
-struct Transform : public Component<Transform>
-{
-	Vec3 pos;
-	Quat rot;
-};
-
-struct Test : public Component<Test>
-{
-	bool is_this_real;
-};
+#include "render/render.h"
+#include "asset.h"
 
 struct Empty : public Entity
 {
@@ -36,16 +27,19 @@ struct Empty : public Entity
 	{
 		e->add<Transform>(this);
 	}
+	void awake() {}
 };
 
-struct TestEntity : public Entity
+struct StaticGeom : public Entity
 {
-	TestEntity(Entities* e, ID id)
+	StaticGeom(Entities* e, ID id)
 		: Entity(id)
 	{
-		fprintf(stderr, "test\n");
 		e->add<Transform>(this);
-		e->add<Test>(this);
+		e->add<View>(this);
+	}
+	void awake()
+	{
 	}
 };
 
@@ -92,31 +86,12 @@ int main()
 
 	Entities e;
 	Entity* a = e.create<Empty>();
-	fprintf(stderr, "A %d\n", a->id);
-	fprintf(stderr, "A1 %d\n", a->get<Transform>()->id);
 	e.remove(a);
-
-	Entity* b = e.create<TestEntity>();
-	fprintf(stderr, "B %d\n", b->id);
-	fprintf(stderr, "B1 %d\n", b->get<Transform>()->id);
-	fprintf(stderr, "B2 %d\n", b->get<Test>()->id);
-
-	Entity* c = e.create<Empty>();
-	fprintf(stderr, "C %d\n", c->id);
-	fprintf(stderr, "C1 %d\n", c->get<Transform>()->id);
-	fprintf(stderr, "C2 %d\n", c->get<Test>());
-
-	Entity* d = e.create<Empty>();
-	fprintf(stderr, "D %d\n", d->id);
-	fprintf(stderr, "D1 %d\n", d->get<Transform>()->id);
-	e.remove(d);
-
-	e.remove(b);
 
 	// Ensure we can capture the escape key being pressed below
 	glfwSetInputMode(window, GLFW_STICKY_KEYS, GL_TRUE);
 	glfwSetCursorPos(window, 1024/2, 768/2);
-	glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_HIDDEN);
+	glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
 	// Dark blue background
 	glClearColor(0.0f, 0.0f, 0.4f, 0.0f);
@@ -133,8 +108,10 @@ int main()
 	glGenVertexArrays(1, &VertexArrayID);
 	glBindVertexArray(VertexArrayID);
 
+	Loader loader;
+
 	// Create and compile our GLSL program from the shaders
-	GLuint programID = load_shader("../shaders/StandardShading.vertexshader", "../shaders/StandardShading.fragmentshader");
+	GLuint programID = loader.shader(Asset::Shader::Standard);
 
 	// Get a handle for our "MVP" uniform
 	GLuint MatrixID = glGetUniformLocation(programID, "MVP");
@@ -142,7 +119,7 @@ int main()
 	GLuint ModelMatrixID = glGetUniformLocation(programID, "M");
 
 	// Load the texture
-	GLuint Texture = load_png("../assets/test.png");
+	GLuint Texture = loader.texture(Asset::Texture::test);
 	if (!Texture)
 	{
 		fprintf(stderr, "Error loading texture!");
@@ -155,33 +132,28 @@ int main()
 	Physics physics;
 
 	// Read our .obj file
-	Model::Data model_data;
+	View::Data model_data;
 
-	Model model;
+	View model;
 	model.data = &model_data;
 
-	btTriangleIndexVertexArray* meshData;
-	btBvhTriangleMeshShape* mesh;
-	{
-		Array<int> indices;
-		Array<Vec3> vertices;
-		Array<Vec2> uvs;
-		Array<Vec3> normals;
-		load_mdl("../assets/city3.mdl", indices, vertices, uvs, normals);
+	btTriangleIndexVertexArray* btMeshData;
+	btBvhTriangleMeshShape* btMesh;
 
-		model_data.add_attrib<Vec3>(vertices, GL_FLOAT);
-		model_data.add_attrib<Vec2>(uvs, GL_FLOAT);
-		model_data.add_attrib<Vec3>(normals, GL_FLOAT);
-		model_data.set_indices(indices);
+	Mesh* mesh = loader.mesh(Asset::Model::city3);
 
-		meshData = new btTriangleIndexVertexArray(indices.length / 3, indices.data, 3 * sizeof(int), vertices.length, (btScalar*)vertices.data, sizeof(Vec3));
-		mesh = new btBvhTriangleMeshShape(meshData, true, btVector3(-1000,-1000,-1000), btVector3(1000,1000,1000));
-	}
+	model_data.add_attrib<Vec3>(mesh->vertices, GL_FLOAT);
+	model_data.add_attrib<Vec2>(mesh->uvs, GL_FLOAT);
+	model_data.add_attrib<Vec3>(mesh->normals, GL_FLOAT);
+	model_data.set_indices(mesh->indices);
+
+	btMeshData = new btTriangleIndexVertexArray(mesh->indices.length / 3, mesh->indices.data, 3 * sizeof(int), mesh->vertices.length, (btScalar*)mesh->vertices.data, sizeof(Vec3));
+	btMesh = new btBvhTriangleMeshShape(btMeshData, true, btVector3(-1000, -1000, -1000), btVector3(1000, 1000, 1000));
 
 	btTransform startTransform;
 	startTransform.setIdentity();
 	btDefaultMotionState* myMotionState = new btDefaultMotionState(startTransform);
-	btRigidBody::btRigidBodyConstructionInfo cInfo(0.0f, myMotionState, mesh, btVector3(0, 0, 0));
+	btRigidBody::btRigidBodyConstructionInfo cInfo(0.0f, myMotionState, btMesh, btVector3(0, 0, 0));
 	btRigidBody* body = new btRigidBody(cInfo);
 	body->setContactProcessingThreshold(BT_LARGE_FLOAT);
 	physics.world->addRigidBody(body);
@@ -190,7 +162,7 @@ int main()
 	glUseProgram(programID);
 	GLuint LightID = glGetUniformLocation(programID, "LightPosition_worldspace");
 
-	ExecSystem<GameTime> update;
+	ExecSystem<UpdateParams> update;
 	RenderParams render_params;
 	ExecSystem<RenderParams*> draw;
 
@@ -198,19 +170,21 @@ int main()
 	controls.world = physics.world;
 
 	update.add(&controls);
+	update.add(&e.update);
 	draw.add(&model);
 
 	double lastTime = glfwGetTime();
-	GameTime t;
+	UpdateParams up;
+	up.entities = &e;
 	do
 	{
 		double currentTime = glfwGetTime();
-		t.total = currentTime;
-		t.delta = currentTime - lastTime;
+		up.time.total = currentTime;
+		up.time.delta = currentTime - lastTime;
 		lastTime = currentTime;
 
-		update.go(t);
-		physics.world->stepSimulation(t.delta, 10);
+		update.exec(up);
+		physics.world->stepSimulation(up.time.delta, 10);
 
 		// Clear the screen
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -238,7 +212,7 @@ int main()
 		// Set our "myTextureSampler" sampler to user Texture Unit 0
 		glUniform1i(TextureID, 0);
 
-		draw.go(&render_params);
+		draw.exec(&render_params);
 
 		// Swap buffers
 		glfwSwapBuffers(window);
@@ -251,8 +225,11 @@ int main()
 	glDeleteProgram(programID);
 	glDeleteTextures(1, &Texture);
 	
-	delete mesh;
-	delete meshData;
+	delete btMesh;
+	delete btMeshData;
+	delete myMotionState;
+	physics.world->removeRigidBody(body);
+	delete body;
 
 	// Close OpenGL window and terminate GLFW
 	glfwTerminate();

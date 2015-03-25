@@ -1,8 +1,6 @@
 #pragma once
 
-#include <cstdlib>
 #include <cmath>
-#include <stdio.h>
 #include <cstring>
 
 #define ARRAY_GROWTH_FACTOR 1.5

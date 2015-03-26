@@ -32,6 +32,21 @@ struct ExecStatic
 		i->next = next;
 		next = i;
 	}
+
+	void reorder_exec(int o)
+	{
+		order = o;
+		T* i = this;
+		while (i->next && i->next->order < o)
+			i = i->next;
+		while (i->previous && i->previous->order > o)
+			i = i->previous;
+		if (i != this)
+		{
+			remove_exec();
+			i->insert_after_exec(this);
+		}
+	}
 };
 
 template<typename T>
@@ -51,24 +66,10 @@ struct ExecSystemStatic : ExecDynamic<T2>
 		head.order = INT_MIN;
 	}
 
-	void reorder(T* e)
-	{
-		T* i = e;
-		while (i->next && i->next->order < e->order)
-			i = i->next;
-		while (i->previous && i->previous->order > e->order)
-			i = i->previous;
-		if (i != e)
-		{
-			e->remove_exec();
-			i->insert_after_exec(e);
-		}
-	}
-
 	void add(T* exec)
 	{
 		T* i = &head;
-		while (i->next && i->next->order <= exec->order)
+		while (i->next && i->next->order < exec->order)
 			i = i->next;
 		i->insert_after_exec(exec);
 	}

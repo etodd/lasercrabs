@@ -26,7 +26,7 @@ struct Empty : public Entity
 {
 	Empty(Entities* e)
 	{
-		e->add<Transform>(this);
+		e->create<Transform>(this);
 	}
 	void awake(Entities* e) {}
 };
@@ -35,8 +35,8 @@ struct StaticGeom : public Entity
 {
 	StaticGeom(Entities* e)
 	{
-		e->add<Transform>(this);
-		e->add<View>(this);
+		e->create<Transform>(this);
+		e->create<View>(this);
 	}
 
 	void awake(Entities* e)
@@ -49,6 +49,76 @@ struct StaticGeom : public Entity
 void resize(GLFWwindow* window, int width, int height)
 {
 	glViewport(0, 0, width, height);
+}
+
+void update_loop(Loader* loader, Swapper* swapper)
+{
+	Entities e;
+
+	Physics physics;
+
+	ExecSystemDynamic<GameTime> update;
+	ExecSystemDynamic<RenderParams*> draw;
+
+	Controls controls;
+	controls.world = physics.world;
+
+	update.add(&controls);
+	update.add(&e);
+	update.add(&physics);
+	draw.add(&e.draw);
+
+	StaticGeom* a = e.create<StaticGeom>();
+	View* model = a->get<View>();
+	model->mesh = loader->mesh(Asset::Model::city3);
+	model->shader = loader->shader(Asset::Shader::Standard);
+	model->texture = loader->texture(Asset::Texture::test);
+
+	btTriangleIndexVertexArray* btMeshData;
+	btBvhTriangleMeshShape* btMesh;
+
+	Mesh* mesh = &loader->meshes[loader->mesh(model->mesh)].data;
+	if (!mesh)
+	{
+		fprintf(stderr, "Error loading mesh!");
+		return;
+	}
+
+	btMesh = new btBvhTriangleMeshShape(&mesh->physics, true, btVector3(-1000, -1000, -1000), btVector3(1000, 1000, 1000));
+
+	btTransform startTransform;
+	startTransform.setIdentity();
+	btDefaultMotionState* myMotionState = new btDefaultMotionState(startTransform);
+	btRigidBody::btRigidBodyConstructionInfo cInfo(0.0f, myMotionState, btMesh, btVector3(0, 0, 0));
+	btRigidBody* body = new btRigidBody(cInfo);
+	body->setContactProcessingThreshold(BT_LARGE_FLOAT);
+	physics.world->addRigidBody(body);
+
+	RenderParams render_params;
+
+	SyncData* sync = swapper->data();
+
+	while (!sync->quit)
+	{
+		update.exec(sync->time);
+
+		render_params.sync = sync;
+
+		render_params.projection = controls.projection;
+		render_params.view = controls.view;
+
+		draw.exec(&render_params);
+
+		sync = swapper->swap<SwapType_Write>();
+		sync->queue.length = 0;
+	}
+
+	loader->unload_mesh(model->mesh);
+	
+	delete btMesh;
+	delete myMotionState;
+	physics.world->removeRigidBody(body);
+	delete body;
 }
 
 int main()
@@ -66,7 +136,7 @@ int main()
 	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
 	// Open a window and create its OpenGL context
-	window = glfwCreateWindow( 1024, 768, "grepr", NULL, NULL);
+	window = glfwCreateWindow(1024, 768, "grepr", NULL, NULL);
 	if (!window)
 	{
 		fprintf(stderr, "Failed to open GLFW window. If you have an Intel GPU, they are not 3.3 compatible. Sorry.\n");
@@ -84,11 +154,8 @@ int main()
 		return -1;
 	}
 
-	Entities e;
-
 	// Ensure we can capture the escape key being pressed below
 	glfwSetInputMode(window, GLFW_STICKY_KEYS, GL_TRUE);
-	glfwSetCursorPos(window, 1024/2, 768/2);
 	glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
 	// Dark blue background
@@ -102,136 +169,49 @@ int main()
 	// Cull triangles which normal is not towards the camera
 	glEnable(GL_CULL_FACE);
 
-	GLuint VertexArrayID;
-	glGenVertexArrays(1, &VertexArrayID);
-	glBindVertexArray(VertexArrayID);
+	RenderSync render_sync;
 
-	Loader loader;
+	Swapper update_swapper = render_sync.swapper(0);
+	Swapper render_swapper = render_sync.swapper(1);
 
-	// Create and compile our GLSL program from the shaders
-	GLuint programID = loader.shader(Asset::Shader::Standard);
-	if (!programID)
-	{
-		fprintf(stderr, "Failed to load shader\n");
-		return -1;
-	}
+	Loader loader(&update_swapper);
 
-	// Get a handle for our "MVP" uniform
-	GLuint MatrixID = glGetUniformLocation(programID, "MVP");
-	GLuint ViewMatrixID = glGetUniformLocation(programID, "V");
-	GLuint ModelMatrixID = glGetUniformLocation(programID, "M");
+	std::thread update_thread(update_loop, &loader, &update_swapper);
 
-	// Load the texture
-	GLuint Texture = loader.texture(Asset::Texture::test);
-	if (!Texture)
-	{
-		fprintf(stderr, "Error loading texture!");
-		return -1;
-	}
-	
-	// Get a handle for our "myTextureSampler" uniform
-	GLuint TextureID  = glGetUniformLocation(programID, "myTextureSampler");
-
-	Physics physics;
-
-	// Read our .obj file
-
-	btTriangleIndexVertexArray* btMeshData;
-	btBvhTriangleMeshShape* btMesh;
-
-	Mesh* mesh = loader.mesh(Asset::Model::city3);
-	if (!mesh)
-	{
-		fprintf(stderr, "Error loading mesh!");
-		return -1;
-	}
-
-	btMesh = new btBvhTriangleMeshShape(&mesh->physics, true, btVector3(-1000, -1000, -1000), btVector3(1000, 1000, 1000));
-
-	btTransform startTransform;
-	startTransform.setIdentity();
-	btDefaultMotionState* myMotionState = new btDefaultMotionState(startTransform);
-	btRigidBody::btRigidBodyConstructionInfo cInfo(0.0f, myMotionState, btMesh, btVector3(0, 0, 0));
-	btRigidBody* body = new btRigidBody(cInfo);
-	body->setContactProcessingThreshold(BT_LARGE_FLOAT);
-	physics.world->addRigidBody(body);
-
-	// Get a handle for our "LightPosition" uniform
-	glUseProgram(programID);
-	GLuint LightID = glGetUniformLocation(programID, "LightPosition_worldspace");
-
-	ExecSystemDynamic<GameTime> update;
-	RenderParams render_params;
-	ExecSystemDynamic<RenderParams*> draw;
-
-	Controls controls;
-	controls.world = physics.world;
-
-	update.add(&controls);
-	update.add(&e);
-	draw.add(&e.draw);
-
-	StaticGeom* a = e.create<StaticGeom>();
-	View* model = a->get<View>();
-	model->data = &mesh->gl;
+	SyncData* sync = render_swapper.data();
 
 	double lastTime = glfwGetTime();
-
-	GameTime time;
-	while (glfwGetKey(window, GLFW_KEY_ESCAPE) != GLFW_PRESS && !glfwWindowShouldClose(window))
+	while (true)
 	{
-		double currentTime = glfwGetTime();
-		time.total = currentTime;
-		time.delta = currentTime - lastTime;
-		lastTime = currentTime;
-
-		update.exec(time);
-		physics.world->stepSimulation(time.delta, 10);
-
 		// Clear the screen
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-		// Use our shader
-		glUseProgram(programID);
-
-		Mat4 ProjectionMatrix = controls.projection;
-		Mat4 ViewMatrix = controls.view;
-		Mat4 ModelMatrix = Mat4(1.0);
-		Mat4 MVP = ProjectionMatrix * ViewMatrix * ModelMatrix;
-
-		// Send our transformation to the currently bound shader, 
-		// in the "MVP" uniform
-		glUniformMatrix4fv(MatrixID, 1, GL_FALSE, &MVP[0][0]);
-		glUniformMatrix4fv(ModelMatrixID, 1, GL_FALSE, &ModelMatrix[0][0]);
-		glUniformMatrix4fv(ViewMatrixID, 1, GL_FALSE, &ViewMatrix[0][0]);
-
-		Vec3 lightPos = Vec3(4,4,4);
-		glUniform3f(LightID, lightPos.x, lightPos.y, lightPos.z);
-
-		// Bind our texture in Texture Unit 0
-		glActiveTexture(GL_TEXTURE0);
-		glBindTexture(GL_TEXTURE_2D, Texture);
-		// Set our "myTextureSampler" sampler to user Texture Unit 0
-		glUniform1i(TextureID, 0);
-
-		draw.exec(&render_params);
+		render(sync, &loader);
 
 		// Swap buffers
 		glfwSwapBuffers(window);
+
 		glfwPollEvents();
 
-	} // Check if the ESC key was pressed or the window was closed
+		bool quit = sync->quit = glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS || glfwWindowShouldClose(window);
 
-	// Cleanup VBO and shader
-	loader.unload_shader(Asset::Shader::Standard);
-	loader.unload_texture(Asset::Texture::test);
-	
-	delete btMesh;
-	delete myMotionState;
-	physics.world->removeRigidBody(body);
-	delete body;
+		// TODO: keyboard input
+		//memcpy(sync->keys, window->keys, sizeof(sync->keys));
 
-	// Close OpenGL window and terminate GLFW
+		glfwGetCursorPos(window, &sync->cursor_x, &sync->cursor_y);
+		glfwSetCursorPos(window, 1024/2, 768/2);
+		sync->mouse = glfwGetMouseButton(window, 0);
+		sync->time.total = glfwGetTime();
+		sync->time.delta = sync->time.total - lastTime;
+
+		sync = render_swapper.swap<SwapType_Read>();
+
+		if (quit)
+			break;
+	}
+
+	update_thread.join();
+
 	glfwTerminate();
 
 	return 0;

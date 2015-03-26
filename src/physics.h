@@ -1,10 +1,12 @@
 #pragma once
 
+#include "exec.h"
+#include "types.h"
+
 #include <btBulletDynamicsCommon.h>
 
-class Physics
+struct Physics : public ExecDynamic<GameTime>
 {
-public:
 	Physics();
 	~Physics();
     btBroadphaseInterface* broadphase;
@@ -12,4 +14,5 @@ public:
     btCollisionDispatcher* dispatcher;
     btSequentialImpulseConstraintSolver* solver;
     btDiscreteDynamicsWorld* world;
+    void exec(GameTime);
 };

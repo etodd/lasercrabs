@@ -3,13 +3,13 @@
 #include "data/entity.h"
 #include "exec.h"
 #include "render.h"
-#include "data/mesh.h"
+#include "asset.h"
 
 struct View : public Component<View>, ExecStatic<View, RenderParams*>
 {
-	Mesh::GL* data;
-	static void bind(Mesh::GL*);
-	static void unbind(Mesh::GL*);
+	Asset::ID mesh;
+	Asset::ID shader;
+	Asset::ID texture;
 	void exec(RenderParams*);
 	void awake(Entities*);
 };

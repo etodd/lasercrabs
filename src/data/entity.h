@@ -170,7 +170,7 @@ struct Entities : ExecDynamic<GameTime>
 		return ((ComponentPool<T>*)&component_pools[T::family()])->data;
 	}
 
-	template<typename T> T* add(Entity* e)
+	template<typename T> T* create(Entity* e)
 	{
 		Family f = T::family();
 		ComponentPool<T>* pool = (ComponentPool<T>*)&component_pools[f];
@@ -187,6 +187,13 @@ struct Entities : ExecDynamic<GameTime>
 		t->entity = e;
 		e->components[f] = t;
 		return t;
+	}
+
+	template<typename T> T* add(Entity* e)
+	{
+		T* component = create<T>(e);
+		ComponentPoolBase* pool = &component_pools[T::family()];
+		pool->awake_function(pool, component->id, this);
 	}
 
 	template<typename T> void awake(T* e)

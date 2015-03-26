@@ -8,21 +8,21 @@ struct Asset
 	typedef size_t ID;
 	struct Model
 	{
-		static const char* filenames[];
-		static const size_t count = 1;
-		ASSET(city3, 0)
+		static const size_t count = 2;
+		static const char* filenames[count];
+		ASSET(city3, 1)
 	};
 	struct Texture
 	{
-		static const char* filenames[];
-		static const size_t count = 1;
-		ASSET(test, 0)
+		static const size_t count = 2;
+		static const char* filenames[count];
+		ASSET(test, 1)
 	};
 	struct Shader
 	{
-		static const char* filenames[];
-		static const size_t count = 1;
-		ASSET(Standard, 0)
+		static const size_t count = 2;
+		static const char* filenames[count];
+		ASSET(Standard, 1)
 	};
 };
 #undef ASSET

@@ -4,7 +4,7 @@ project (grepr)
 set(AMD64 ON)
 
 set(CMAKE_CXX_FLAGS "-std=c++11 -Wno-deprecated-register -Wno-deprecated-declarations")
-set(CMAKE_CXX_FLAGS_DEBUG "-DDEBUG")
+set(CMAKE_CXX_FLAGS_DEBUG "-g -DDEBUG")
 
 find_package(OpenGL REQUIRED)
 
@@ -75,8 +75,8 @@ set(asset_prefix "../")
 
 ## Models
 set(models "")
-set(model_files "")
-set(i 0)
+set(model_files "\t\"\",\n")
+set(i 1)
 file(GLOB files "assets/*.mdl")
 foreach(file ${files})
 	get_filename_component(name ${file} NAME_WE)
@@ -88,8 +88,8 @@ set(model_count ${i})
 
 ## Textures
 set(textures "")
-set(texture_files "")
-set(i 0)
+set(texture_files  "\t\"\",\n")
+set(i 1)
 file(GLOB files "assets/*.png")
 foreach(file ${files})
 	get_filename_component(name ${file} NAME_WE)
@@ -101,8 +101,8 @@ set(texture_count ${i})
 
 ## Shaders
 set(shaders "")
-set(shader_files "")
-set(i 0)
+set(shader_files "\t\"\",\n")
+set(i 1)
 file(GLOB files "shaders/*.glsl")
 foreach(file ${files})
 	get_filename_component(name ${file} NAME_WE)
@@ -120,7 +120,6 @@ configure_file(src/asset.cpp.in ${CMAKE_CURRENT_SOURCE_DIR}/src/asset.cpp)
 source_group(shaders REGULAR_EXPRESSION ".*/.*shader$")
 
 add_executable(grepr
-	src/data/mesh.cpp
 	src/data/entity.cpp
 	src/render/view.cpp
 	src/render/render.cpp

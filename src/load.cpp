@@ -4,14 +4,14 @@
 #include "lodepng.h"
 #include "vi_assert.h"
 
-Loader::Loader()
+Loader::Loader(Swapper* s)
+	: swapper(s), meshes(), gl_meshes(), textures(), shaders()
 {
-	memset(this, 0, sizeof(Loader));
 }
 
-Mesh* Loader::mesh(Asset::ID id)
+Asset::ID Loader::mesh(Asset::ID id)
 {
-	if (!meshes[id].refs)
+	if (id && !meshes[id].refs)
 	{
 		const char* path = Asset::Model::filenames[id];
 		FILE* f = fopen(path, "rb");
@@ -56,25 +56,38 @@ Mesh* Loader::mesh(Asset::ID id)
 		new (&mesh->physics) btTriangleIndexVertexArray(mesh->indices.length / 3, mesh->indices.data, 3 * sizeof(int), mesh->vertices.length, (btScalar*)mesh->vertices.data, sizeof(Vec3));
 
 		// GL
-		mesh->gl.add_attrib<Vec3>(&mesh->vertices, GL_FLOAT);
-		mesh->gl.add_attrib<Vec2>(&mesh->uvs, GL_FLOAT);
-		mesh->gl.add_attrib<Vec3>(&mesh->normals, GL_FLOAT);
-		mesh->gl.set_indices(&mesh->indices);
+		SyncData* sync = swapper->data();
+		sync->op(RenderOp_LoadMesh);
+		sync->send<Asset::ID>(&id);
+		sync->send<size_t>(&mesh->vertices.length);
+		sync->send<Vec3>(mesh->vertices.data, mesh->vertices.length);
+		sync->send<Vec2>(mesh->uvs.data, mesh->uvs.length);
+		sync->send<Vec3>(mesh->normals.data, mesh->normals.length);
+		sync->send<size_t>(&mesh->indices.length);
+		sync->send<int>(mesh->indices.data, mesh->indices.length);
 	}
 	meshes[id].refs++;
-	return &meshes[id].data;
+	return id;
 }
 
 void Loader::unload_mesh(Asset::ID id)
 {
-	vi_assert(meshes[id].refs > 0);
-	if (--meshes[id].refs == 0)
-		meshes[id].data.~Mesh();
+	if (id)
+	{
+		vi_assert(meshes[id].refs > 0);
+		if (--meshes[id].refs == 0)
+		{
+			meshes[id].data.~Mesh();
+			SyncData* sync = swapper->data();
+			sync->op(RenderOp_UnloadMesh);
+			sync->send<Asset::ID>(&id);
+		}
+	}
 }
 
-GLuint Loader::texture(Asset::ID id)
+Asset::ID Loader::texture(Asset::ID id)
 {
-	if (!textures[id].refs)
+	if (id && !textures[id].refs)
 	{
 		const char* path = Asset::Texture::filenames[id];
 		unsigned char* buffer;
@@ -88,40 +101,35 @@ GLuint Loader::texture(Asset::ID id)
 			return 0;
 		}
 
-		// Make power of two version of the image.
-
-		GLuint textureID;
-		glGenTextures(1, &textureID);
-		
-		// "Bind" the newly created texture : all future texture functions will modify this texture
-		glBindTexture(GL_TEXTURE_2D, textureID);
-
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, buffer);
-
+		SyncData* sync = swapper->data();
+		sync->op(RenderOp_LoadTexture);
+		sync->send<Asset::ID>(&id);
+		sync->send<unsigned>(&width);
+		sync->send<unsigned>(&height);
+		sync->send<unsigned char>(buffer, 4 * width * height);
 		free(buffer);
-
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR); 
-		glGenerateMipmap(GL_TEXTURE_2D);
-
-		textures[id].data = textureID;
 	}
 	textures[id].refs++;
-	return textures[id].data;
+	return id;
 }
 
 void Loader::unload_texture(Asset::ID id)
 {
-	vi_assert(textures[id].refs > 0);
-	if (--textures[id].refs == 0)
-		glDeleteTextures(1, &textures[id].data);
+	if (id)
+	{
+		vi_assert(textures[id].refs > 0);
+		if (--textures[id].refs == 0)
+		{
+			SyncData* sync = swapper->data();
+			sync->op(RenderOp_UnloadTexture);
+			sync->send<Asset::ID>(&id);
+		}
+	}
 }
 
-GLuint Loader::shader(Asset::ID id)
+Asset::ID Loader::shader(Asset::ID id)
 {
-	if (!shaders[id].refs)
+	if (id && !shaders[id].refs)
 	{
 		const char* path = Asset::Shader::filenames[id];
 
@@ -148,70 +156,26 @@ GLuint Loader::shader(Asset::ID id)
 		}
 		fclose(f);
 
-		// Create the shaders
-		GLuint vertex_id = glCreateShader(GL_VERTEX_SHADER);
-		GLuint frag_id = glCreateShader(GL_FRAGMENT_SHADER);
-
-		// Compile Vertex Shader
-		char const* vertex_code[] = { "#version 330 core\n#define VERTEX\n", code.data };
-		glShaderSource(vertex_id, 2, vertex_code, NULL);
-		glCompileShader(vertex_id);
-
-		// Check Vertex Shader
-		GLint result;
-		glGetShaderiv(vertex_id, GL_COMPILE_STATUS, &result);
-		int msg_length;
-		glGetShaderiv(vertex_id, GL_INFO_LOG_LENGTH, &msg_length);
-		if (msg_length > 1)
-		{
-			Array<char> msg(msg_length);
-			glGetShaderInfoLog(vertex_id, msg_length, NULL, msg.data);
-			fprintf(stderr, "Vertex shader error in '%s': %s\n", path, msg.data);
-		}
-
-		// Compile Fragment Shader
-		const char* frag_code[2] = { "#version 330 core\n", code.data };
-		glShaderSource(frag_id, 2, frag_code, NULL);
-		glCompileShader(frag_id);
-
-		// Check Fragment Shader
-		glGetShaderiv(frag_id, GL_COMPILE_STATUS, &result);
-		glGetShaderiv(frag_id, GL_INFO_LOG_LENGTH, &msg_length);
-		if (msg_length > 1)
-		{
-			Array<char> msg(msg_length + 1);
-			glGetShaderInfoLog(frag_id, msg_length, NULL, msg.data);
-			fprintf(stderr, "Fragment shader error in '%s': %s\n", path, msg.data);
-		}
-
-		// Link the program
-		GLuint program_id = glCreateProgram();
-		glAttachShader(program_id, vertex_id);
-		glAttachShader(program_id, frag_id);
-		glLinkProgram(program_id);
-
-		// Check the program
-		glGetProgramiv(program_id, GL_LINK_STATUS, &result);
-		glGetProgramiv(program_id, GL_INFO_LOG_LENGTH, &msg_length);
-		if (msg_length > 1)
-		{
-			Array<char> msg(msg_length);
-			glGetProgramInfoLog(program_id, msg_length, NULL, msg.data);
-			fprintf(stderr, "Error creating shader program '%s': %s\n", path, msg.data);
-		}
-
-		glDeleteShader(vertex_id);
-		glDeleteShader(frag_id);
-
-		shaders[id].data = program_id;;
+		SyncData* sync = swapper->data();
+		sync->op(RenderOp_LoadShader);
+		sync->send<Asset::ID>(&id);
+		sync->send<size_t>(&code.length);
+		sync->send<char>(code.data, code.length);
 	}
 	shaders[id].refs++;
-	return shaders[id].data;
+	return id;
 }
 
 void Loader::unload_shader(Asset::ID id)
 {
-	vi_assert(shaders[id].refs > 0);
-	if (--shaders[id].refs == 0)
-		glDeleteProgram(shaders[id].data);
+	if (id)
+	{
+		vi_assert(shaders[id].refs > 0);
+		if (--shaders[id].refs == 0)
+		{
+			SyncData* sync = swapper->data();
+			sync->op(RenderOp_UnloadShader);
+			sync->send<Asset::ID>(&id);
+		}
+	}
 }

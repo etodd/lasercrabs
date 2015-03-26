@@ -4,6 +4,7 @@
 #include <GL/glew.h>
 #include "data/mesh.h"
 #include "asset.h"
+#include "render/render.h"
 
 struct Loader
 {
@@ -14,16 +15,18 @@ struct Loader
 		T data;
 	};
 
-	Loader();
-	void clear();
+	Swapper* swapper;
 	Entry<Mesh> meshes[Asset::Model::count];
+	MeshGL gl_meshes[Asset::Model::count];
 	Entry<GLuint> textures[Asset::Texture::count];
 	Entry<GLuint> shaders[Asset::Shader::count];
 
-	Mesh* mesh(Asset::ID);
+	Loader(Swapper*);
+
+	Asset::ID mesh(Asset::ID);
 	void unload_mesh(Asset::ID);
-	GLuint texture(Asset::ID);
+	Asset::ID texture(Asset::ID);
 	void unload_texture(Asset::ID);
-	GLuint shader(Asset::ID);
+	Asset::ID shader(Asset::ID);
 	void unload_shader(Asset::ID);
 };

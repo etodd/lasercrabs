@@ -3,6 +3,6 @@
 
 Family Entity::families = 0;
 
-void Entity::exec(UpdateParams up)
+void Entity::exec(EntityUpdate up)
 {
 }

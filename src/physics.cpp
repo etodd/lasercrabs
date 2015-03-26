@@ -17,9 +17,9 @@ Physics::Physics()
     world->setGravity(btVector3(0, -9.8, 0));
 }
 
-void Physics::exec(GameTime time)
+void Physics::exec(Update u)
 {
-	world->stepSimulation(time.delta, 10);
+	world->stepSimulation(u.time.delta, 10);
 }
 
 Physics::~Physics()

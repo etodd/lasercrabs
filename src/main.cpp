@@ -8,6 +8,8 @@
 
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
+#include "glfw_config.h"
+#include <GLFW/../../src/internal.h>
 
 GLFWwindow* window;
 
@@ -57,7 +59,7 @@ void update_loop(Loader* loader, Swapper* swapper)
 
 	Physics physics;
 
-	ExecSystemDynamic<GameTime> update;
+	ExecSystemDynamic<Update> update;
 	ExecSystemDynamic<RenderParams*> draw;
 
 	Controls controls;
@@ -98,9 +100,13 @@ void update_loop(Loader* loader, Swapper* swapper)
 
 	SyncData* sync = swapper->data();
 
+	Update u;
+
 	while (!sync->quit)
 	{
-		update.exec(sync->time);
+		u.input = &sync->input;
+		u.time = sync->time;
+		update.exec(u);
 
 		render_params.sync = sync;
 
@@ -196,13 +202,16 @@ int main()
 		bool quit = sync->quit = glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS || glfwWindowShouldClose(window);
 
 		// TODO: keyboard input
-		//memcpy(sync->keys, window->keys, sizeof(sync->keys));
+		_GLFWwindow* _window = (_GLFWwindow*)window;
+		memcpy(sync->input.keys, _window->keys, sizeof(sync->input.keys));
 
-		glfwGetCursorPos(window, &sync->cursor_x, &sync->cursor_y);
+		glfwGetCursorPos(window, &sync->input.cursor_x, &sync->input.cursor_y);
 		glfwSetCursorPos(window, 1024/2, 768/2);
-		sync->mouse = glfwGetMouseButton(window, 0);
+		sync->input.mouse = glfwGetMouseButton(window, 0);
 		sync->time.total = glfwGetTime();
 		sync->time.delta = sync->time.total - lastTime;
+		lastTime = sync->time.total;
+		glfwGetFramebufferSize(window, &sync->input.width, &sync->input.height);
 
 		sync = render_swapper.swap<SwapType_Read>();
 

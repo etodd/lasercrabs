@@ -35,11 +35,8 @@ enum SwapType
 struct SyncData
 {
 	bool quit;
-	char keys[GLFW_KEY_LAST + 1];
-	double cursor_x;
-	double cursor_y;
-	bool mouse;
 	GameTime time;
+	InputState input;
 	Array<char> queue;
 	size_t read_pos;
 	bool ready[SwapType_count];

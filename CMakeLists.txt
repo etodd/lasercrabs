@@ -13,6 +13,7 @@ add_subdirectory(external/glew)
 add_definitions(-DGLEW_STATIC)
 ## GLFW
 add_subdirectory(external/glfw)
+include_directories(${GLFW_BINARY_DIR}/src)
 ## GLM
 add_subdirectory(external/glm)
 ## bullet
@@ -43,7 +44,7 @@ add_subdirectory(external/assimp/contrib/zlib)
 set(ZLIB_FOUND 1)
 set(ZLIB_LIBRARIES zlibstatic)
 set(ZLIB_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/external/assimp/contrib/zlib ${CMAKE_CURRENT_BINARY_DIR}/external/assimp/contrib/zlib)
-INCLUDE_DIRECTORIES(${ZLIB_INCLUDE_DIR})
+include_directories(${ZLIB_INCLUDE_DIR})
 
 set(GIT_COMMIT_HASH 0)
 configure_file(

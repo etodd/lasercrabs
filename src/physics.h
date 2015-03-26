@@ -5,7 +5,7 @@
 
 #include <btBulletDynamicsCommon.h>
 
-struct Physics : public ExecDynamic<GameTime>
+struct Physics : public ExecDynamic<Update>
 {
 	Physics();
 	~Physics();
@@ -14,5 +14,5 @@ struct Physics : public ExecDynamic<GameTime>
     btCollisionDispatcher* dispatcher;
     btSequentialImpulseConstraintSolver* solver;
     btDiscreteDynamicsWorld* world;
-    void exec(GameTime);
+    void exec(Update);
 };

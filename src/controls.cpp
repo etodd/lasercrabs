@@ -1,6 +1,4 @@
-// Include GLFW
 #include <GLFW/glfw3.h>
-extern GLFWwindow* window; // The "extern" keyword here is to access the variable "window" declared in tutorialXXX.cpp. This is a hack to keep the tutorials simple. Please avoid this.
 
 #include "types.h"
 #include "controls.h"
@@ -16,18 +14,11 @@ Controls::Controls()
 	speed_mouse = 0.0025f;
 }
 
-void Controls::exec(GameTime time)
+void Controls::exec(Update u)
 {
-	// Get mouse position
-	double xpos, ypos;
-	glfwGetCursorPos(window, &xpos, &ypos);
-
-	// Reset mouse position for next frame
-	glfwSetCursorPos(window, 1024/2, 768/2);
-
 	// Compute new orientation
-	angle_horizontal += speed_mouse * float(1024/2 - xpos );
-	angle_vertical   += speed_mouse * float( 768/2 - ypos );
+	angle_horizontal += speed_mouse * float(1024/2 - u.input->cursor_x );
+	angle_vertical   += speed_mouse * float( 768/2 - u.input->cursor_y );
 
 	// Direction : Spherical coordinates to Cartesian coordinates conversion
 	Vec3 direction(
@@ -37,7 +28,7 @@ void Controls::exec(GameTime time)
 	);
 
 	
-	if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT))
+	if (u.input->mouse)
 	{
 		const float radius = 10000.0f;
 		btVector3 rayStart(position.x, position.y, position.z);
@@ -67,28 +58,23 @@ void Controls::exec(GameTime time)
 	Vec3 up = cross( right, direction );
 
 	// Move forward
-	if (glfwGetKey( window, GLFW_KEY_W ) == GLFW_PRESS){
-		position += direction * time.delta * speed;
-	}
+	if (u.input->keys[GLFW_KEY_W] == GLFW_PRESS)
+		position += direction * u.time.delta * speed;
 	// Move backward
-	if (glfwGetKey( window, GLFW_KEY_S ) == GLFW_PRESS){
-		position -= direction * time.delta * speed;
-	}
+	if (u.input->keys[GLFW_KEY_S] == GLFW_PRESS)
+		position -= direction * u.time.delta * speed;
 	// Strafe right
-	if (glfwGetKey( window, GLFW_KEY_D ) == GLFW_PRESS){
-		position += right * time.delta * speed;
-	}
+	if (u.input->keys[GLFW_KEY_D] == GLFW_PRESS)
+		position += right * u.time.delta * speed;
 	// Strafe left
-	if (glfwGetKey( window, GLFW_KEY_A ) == GLFW_PRESS){
-		position -= right * time.delta * speed;
-	}
+	if (u.input->keys[GLFW_KEY_A] == GLFW_PRESS)
+		position -= right * u.time.delta * speed;
 
-	float FoV = fov_initial;// - 5 * glfwGetMouseWheel(); // Now GLFW 3 requires setting up a callback for this. It's a bit too complicated for this beginner's tutorial, so it's disabled instead.
+	float FoV = fov_initial;
 
 	// Projection matrix : 45° Field of View, 4:3 ratio, display range : 0.1 unit <-> 100 units
-	int width, height;
-	glfwGetFramebufferSize(window, &width, &height);
-	projection = glm::perspective(FoV, (float)width / (float)height, 0.1f, 1000.0f);
+	float aspect = u.input->height == 0 ? 1 : (float)u.input->width / (float)u.input->height;
+	projection = glm::perspective(FoV, aspect, 0.1f, 1000.0f);
 	// Camera matrix
 	view       = glm::lookAt(
 								position,           // Camera is here

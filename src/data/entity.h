@@ -23,15 +23,16 @@ struct ComponentBase
 
 struct Entities;
 
-struct UpdateParams
+struct EntityUpdate
 {
 	Entities* entities;
+	InputState* input;
 	GameTime time;
 };
 
 // If you inherit this, do not add any data
 // Create a component instead
-struct Entity : public ExecDynamic<UpdateParams>
+struct Entity : public ExecDynamic<EntityUpdate>
 {
 	static Family families;
 	ID id;
@@ -40,7 +41,7 @@ struct Entity : public ExecDynamic<UpdateParams>
 		: components(), id()
 	{
 	}
-	virtual void exec(UpdateParams);
+	virtual void exec(EntityUpdate);
 	template<typename T> T* get()
 	{
 		return (T*)components[T::family()];
@@ -115,12 +116,12 @@ struct ComponentPool : public ComponentPoolBase
 	}
 };
 
-struct Entities : ExecDynamic<GameTime>
+struct Entities : ExecDynamic<Update>
 {
 	ArrayNonRelocating<Entity> all;
 	ComponentPoolBase component_pools[MAX_FAMILIES];
 	void* systems[MAX_FAMILIES];
-	ExecSystemDynamic<UpdateParams> update;
+	ExecSystemDynamic<EntityUpdate> update;
 	ExecSystemDynamic<RenderParams*> draw;
 
 	Entities()
@@ -128,11 +129,12 @@ struct Entities : ExecDynamic<GameTime>
 	{
 	}
 
-	void exec(GameTime t)
+	void exec(Update t)
 	{
-		UpdateParams up;
+		EntityUpdate up;
 		up.entities = this;
-		up.time = t;
+		up.input = t.input;
+		up.time = t.time;
 		update.exec(up);
 	}
 

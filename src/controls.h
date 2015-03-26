@@ -4,7 +4,7 @@
 #include "exec.h"
 #include "physics.h"
 
-class Controls : public ExecDynamic<GameTime>
+class Controls : public ExecDynamic<Update>
 {
 public:
 	Controls();
@@ -19,7 +19,7 @@ public:
 	float speed;
 	float speed_mouse;
 
-	void exec(GameTime);
+	void exec(Update);
 
 	btDiscreteDynamicsWorld* world;
 };

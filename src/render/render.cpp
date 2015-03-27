@@ -181,6 +181,13 @@ void render(SyncData* sync, Loader* loader)
 				glDeleteProgram(loader->shaders[id].data);
 				break;
 			}
+			case RenderOp_Clear:
+			{
+				// Clear the screen
+				GLbitfield clear_flags = *(sync->read<GLbitfield>());
+				glClear(clear_flags);
+				break;
+			}
 			case RenderOp_View:
 			{
 				Asset::ID id = *(sync->read<Asset::ID>());
@@ -213,7 +220,7 @@ void render(SyncData* sync, Loader* loader)
 				glUniformMatrix4fv(ModelMatrixID, 1, GL_FALSE, (float*)ModelMatrix);
 				glUniformMatrix4fv(ViewMatrixID, 1, GL_FALSE, (float*)ViewMatrix);
 
-				Vec3 lightPos = Vec3(4,4,4);
+				Vec3 lightPos = Vec3(4, 4, 4);
 				glUniform3f(LightID, lightPos.x, lightPos.y, lightPos.z);
 
 				// Bind our texture in Texture Unit 0

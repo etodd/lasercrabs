@@ -58,13 +58,13 @@ Asset::ID Loader::mesh(Asset::ID id)
 		// GL
 		SyncData* sync = swapper->data();
 		sync->op(RenderOp_LoadMesh);
-		sync->send<Asset::ID>(&id);
-		sync->send<size_t>(&mesh->vertices.length);
-		sync->send<Vec3>(mesh->vertices.data, mesh->vertices.length);
-		sync->send<Vec2>(mesh->uvs.data, mesh->uvs.length);
-		sync->send<Vec3>(mesh->normals.data, mesh->normals.length);
-		sync->send<size_t>(&mesh->indices.length);
-		sync->send<int>(mesh->indices.data, mesh->indices.length);
+		sync->write<Asset::ID>(&id);
+		sync->write<size_t>(&mesh->vertices.length);
+		sync->write<Vec3>(mesh->vertices.data, mesh->vertices.length);
+		sync->write<Vec2>(mesh->uvs.data, mesh->uvs.length);
+		sync->write<Vec3>(mesh->normals.data, mesh->normals.length);
+		sync->write<size_t>(&mesh->indices.length);
+		sync->write<int>(mesh->indices.data, mesh->indices.length);
 	}
 	meshes[id].refs++;
 	return id;
@@ -80,7 +80,7 @@ void Loader::unload_mesh(Asset::ID id)
 			meshes[id].data.~Mesh();
 			SyncData* sync = swapper->data();
 			sync->op(RenderOp_UnloadMesh);
-			sync->send<Asset::ID>(&id);
+			sync->write<Asset::ID>(&id);
 		}
 	}
 }
@@ -103,10 +103,10 @@ Asset::ID Loader::texture(Asset::ID id)
 
 		SyncData* sync = swapper->data();
 		sync->op(RenderOp_LoadTexture);
-		sync->send<Asset::ID>(&id);
-		sync->send<unsigned>(&width);
-		sync->send<unsigned>(&height);
-		sync->send<unsigned char>(buffer, 4 * width * height);
+		sync->write<Asset::ID>(&id);
+		sync->write<unsigned>(&width);
+		sync->write<unsigned>(&height);
+		sync->write<unsigned char>(buffer, 4 * width * height);
 		free(buffer);
 	}
 	textures[id].refs++;
@@ -122,7 +122,7 @@ void Loader::unload_texture(Asset::ID id)
 		{
 			SyncData* sync = swapper->data();
 			sync->op(RenderOp_UnloadTexture);
-			sync->send<Asset::ID>(&id);
+			sync->write<Asset::ID>(&id);
 		}
 	}
 }
@@ -158,9 +158,9 @@ Asset::ID Loader::shader(Asset::ID id)
 
 		SyncData* sync = swapper->data();
 		sync->op(RenderOp_LoadShader);
-		sync->send<Asset::ID>(&id);
-		sync->send<size_t>(&code.length);
-		sync->send<char>(code.data, code.length);
+		sync->write<Asset::ID>(&id);
+		sync->write<size_t>(&code.length);
+		sync->write<char>(code.data, code.length);
 	}
 	shaders[id].refs++;
 	return id;
@@ -175,7 +175,7 @@ void Loader::unload_shader(Asset::ID id)
 		{
 			SyncData* sync = swapper->data();
 			sync->op(RenderOp_UnloadShader);
-			sync->send<Asset::ID>(&id);
+			sync->write<Asset::ID>(&id);
 		}
 	}
 }

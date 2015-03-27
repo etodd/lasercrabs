@@ -1,15 +1,13 @@
 #include <GLFW/glfw3.h>
 
-#include "types.h"
 #include "controls.h"
-#include <glm/gtc/matrix_transform.hpp>
 
 Controls::Controls()
 {
-	position = Vec3(0, 0, 5); 
+	position = { 0, 0, 5 }; 
 	angle_horizontal = 3.14f;
 	angle_vertical = 0.0f;
-	fov_initial = 40.0f;
+	fov_initial = PI * 0.25f;
 	speed = 10.0f; // 3 units / second
 	speed_mouse = 0.0025f;
 }
@@ -21,12 +19,11 @@ void Controls::exec(Update u)
 	angle_vertical   += speed_mouse * float( 768/2 - u.input->cursor_y );
 
 	// Direction : Spherical coordinates to Cartesian coordinates conversion
-	Vec3 direction(
-		cos(angle_vertical) * sin(angle_horizontal), 
-		sin(angle_vertical),
-		cos(angle_vertical) * cos(angle_horizontal)
+	Vec3 direction = Vec3(
+		(float)(cos(angle_vertical) * sin(angle_horizontal)),
+		(float)(sin(angle_vertical)),
+		(float)(cos(angle_vertical) * cos(angle_horizontal))
 	);
-
 	
 	if (u.input->mouse)
 	{
@@ -49,13 +46,13 @@ void Controls::exec(Update u)
 	
 	// Right vector
 	Vec3 right = Vec3(
-		sin(angle_horizontal - 3.14f/2.0f), 
+		(float)(sin(angle_horizontal - 3.14f/2.0f)),
 		0,
-		cos(angle_horizontal - 3.14f/2.0f)
+		(float)(cos(angle_horizontal - 3.14f/2.0f))
 	);
 	
 	// Up vector
-	Vec3 up = cross( right, direction );
+	Vec3 up = right.cross(direction);
 
 	// Move forward
 	if (u.input->keys[GLFW_KEY_W] == GLFW_PRESS)
@@ -74,9 +71,9 @@ void Controls::exec(Update u)
 
 	// Projection matrix : 45° Field of View, 4:3 ratio, display range : 0.1 unit <-> 100 units
 	float aspect = u.input->height == 0 ? 1 : (float)u.input->width / (float)u.input->height;
-	projection = glm::perspective(FoV, aspect, 0.1f, 1000.0f);
+	projection = Mat4::perspective(FoV, aspect, 0.1f, 1000.0f);
 	// Camera matrix
-	view       = glm::lookAt(
+	view       = Mat4::look_at(
 								position,           // Camera is here
 								position+direction, // and looks here : at the same position, plus "direction"
 								up                  // Head is up (set to 0,-1,0 to look upside-down)

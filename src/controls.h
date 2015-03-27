@@ -3,6 +3,7 @@
 #include "types.h"
 #include "exec.h"
 #include "physics.h"
+#include "lmath.h"
 
 class Controls : public ExecDynamic<Update>
 {

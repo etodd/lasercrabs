@@ -7,12 +7,12 @@
 [submodule "external/glfw"]
 	path = external/glfw
 	url = git@github.com:et1337/glfw.git
-[submodule "external/glm"]
-	path = external/glm
-	url = git@github.com:et1337/glm.git
 [submodule "external/lodepng"]
 	path = external/lodepng
 	url = git@github.com:et1337/lodepng.git
 [submodule "external/bullet"]
 	path = external/bullet
 	url = git@github.com:et1337/bullet3.git
+[submodule "external/cereal"]
+	path = external/cereal
+	url = git@github.com:et1337/cereal.git

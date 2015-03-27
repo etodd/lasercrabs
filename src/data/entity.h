@@ -1,6 +1,7 @@
 #pragma once
 
 #include "types.h"
+#include "lmath.h"
 #include "array.h"
 #include "vi_assert.h"
 #include "exec.h"
@@ -73,6 +74,12 @@ struct Transform : public Component<Transform>
 	Quat rot;
 	void awake(Entities* e)
 	{
+	}
+	void mat(Mat4*);
+
+	template<class Archive> void serialize(Archive& ar)
+	{
+		ar(pos, rot);
 	}
 };
 

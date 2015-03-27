@@ -6,6 +6,7 @@
 #include "data/array.h"
 #include <mutex>
 #include <condition_variable>
+#include "lmath.h"
 
 enum RenderTechnique
 {
@@ -23,6 +24,7 @@ enum RenderOp
 	RenderOp_LoadShader,
 	RenderOp_UnloadShader,
 	RenderOp_View,
+	RenderOp_Clear,
 };
 
 enum SwapType
@@ -44,7 +46,7 @@ struct SyncData
 	std::condition_variable condition;
 
 	template<typename T>
-	void send(T* data, size_t count = 1)
+	void write(T* data, size_t count = 1)
 	{
 		size_t size = sizeof(T) * count;
 
@@ -59,7 +61,7 @@ struct SyncData
 
 	void op(RenderOp op)
 	{
-		send<RenderOp>(&op);
+		write<RenderOp>(&op);
 	}
 
 	template<typename T>

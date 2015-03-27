@@ -14,8 +14,6 @@ add_definitions(-DGLEW_STATIC)
 ## GLFW
 add_subdirectory(external/glfw)
 include_directories(${GLFW_BINARY_DIR}/src)
-## GLM
-add_subdirectory(external/glm)
 ## bullet
 set(USE_GLUT OFF)
 set(BUILD_BULLET2_DEMOS OFF)
@@ -23,6 +21,9 @@ set(BUILD_BULLET3 OFF)
 add_subdirectory(external/bullet)
 include(${CMAKE_CURRENT_BINARY_DIR}/external/bullet/BulletConfig.cmake)
 add_definitions(${BULLET_DEFINITIONS})
+
+## cereal
+add_subdirectory(external/cereal)
 
 ## AssImp
 
@@ -61,10 +62,10 @@ add_library(lodepng STATIC external/lodepng/lodepng.cpp)
 set(ALL_INCLUDES
 	external/glew/include
 	external/glfw/include
-	external/glm
 	external/assimp/include
 	external/lodepng
 	external/bullet/src
+	external/cereal/include
 	src
 )
 string(REPLACE ";" "," ALL_INCLUDES_COMMA "${ALL_INCLUDES}")
@@ -129,6 +130,7 @@ add_executable(grepr
 	src/load.cpp
 	src/physics.cpp
 	src/asset.cpp
+	src/lmath.cpp
 )
 
 ## Libraries

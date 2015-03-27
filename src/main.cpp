@@ -5,6 +5,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <iostream>
 
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
@@ -23,6 +24,7 @@ GLFWwindow* window;
 #include "physics.h"
 #include "render/render.h"
 #include "asset.h"
+#include <cereal/archives/binary.hpp>
 
 struct Empty : public Entity
 {
@@ -71,6 +73,11 @@ void update_loop(Loader* loader, Swapper* swapper)
 	draw.add(&e.draw);
 
 	StaticGeom* a = e.create<StaticGeom>();
+
+	Transform* t = a->get<Transform>();
+	cereal::BinaryOutputArchive archive(std::cout);
+	archive(*t);
+
 	View* model = a->get<View>();
 	model->mesh = loader->mesh(Asset::Model::city3);
 	model->shader = loader->shader(Asset::Shader::Standard);
@@ -112,6 +119,11 @@ void update_loop(Loader* loader, Swapper* swapper)
 
 		render_params.projection = controls.projection;
 		render_params.view = controls.view;
+
+		sync->op(RenderOp_Clear);
+		
+		GLbitfield clear_flags = GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT;
+		sync->write<GLbitfield>(&clear_flags);
 
 		draw.exec(&render_params);
 
@@ -189,9 +201,6 @@ int main()
 	double lastTime = glfwGetTime();
 	while (true)
 	{
-		// Clear the screen
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
 		render(sync, &loader);
 
 		// Swap buffers
@@ -201,7 +210,6 @@ int main()
 
 		bool quit = sync->quit = glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS || glfwWindowShouldClose(window);
 
-		// TODO: keyboard input
 		_GLFWwindow* _window = (_GLFWwindow*)window;
 		memcpy(sync->input.keys, _window->keys, sizeof(sync->input.keys));
 

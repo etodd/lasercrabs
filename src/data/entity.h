@@ -5,7 +5,7 @@
 #include "array.h"
 #include "vi_assert.h"
 #include "exec.h"
-#include "render/render.h"
+#include <GL/glew.h>
 
 #include <stdio.h>
 
@@ -29,6 +29,21 @@ struct EntityUpdate
 	Entities* entities;
 	InputState* input;
 	GameTime time;
+};
+
+enum RenderTechnique
+{
+	RenderTechnique_Default,
+};
+
+struct SyncData;
+struct RenderParams
+{
+	Mat4 view;
+	Mat4 projection;
+	GLbitfield clear;
+	RenderTechnique technique;
+	SyncData* sync;
 };
 
 // If you inherit this, do not add any data

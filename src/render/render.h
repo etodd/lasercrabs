@@ -7,11 +7,7 @@
 #include <mutex>
 #include <condition_variable>
 #include "lmath.h"
-
-enum RenderTechnique
-{
-	RenderTechnique_Default,
-};
+#include "asset.h"
 
 struct RenderSync;
 
@@ -73,15 +69,6 @@ struct SyncData
 	}
 };
 
-struct RenderParams
-{
-	Mat4 view;
-	Mat4 projection;
-	GLbitfield clear;
-	RenderTechnique technique;
-	SyncData* sync;
-};
-
 struct Swapper;
 
 struct RenderSync
@@ -118,4 +105,26 @@ struct Swapper
 
 struct Loader;
 
-void render(SyncData*, Loader*);
+struct GLData
+{
+	struct Mesh
+	{
+		struct Attrib
+		{
+			int element_size;
+			GLuint type;
+			GLuint handle;
+		};
+
+		Array<Attrib> attribs;
+		GLuint index_buffer;
+		GLuint vertex_array;
+		size_t index_count;
+	};
+
+	Mesh meshes[Asset::Model::count];
+	GLuint textures[Asset::Texture::count];
+	GLuint shaders[Asset::Shader::count];
+};
+
+void render(SyncData*, GLData*);

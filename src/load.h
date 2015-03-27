@@ -11,15 +11,14 @@ struct Loader
 	template<typename T>
 	struct Entry
 	{
-		unsigned int refs;
+		size_t refs;
 		T data;
 	};
 
 	Swapper* swapper;
 	Entry<Mesh> meshes[Asset::Model::count];
-	MeshGL gl_meshes[Asset::Model::count];
-	Entry<GLuint> textures[Asset::Texture::count];
-	Entry<GLuint> shaders[Asset::Shader::count];
+	Entry<void*> textures[Asset::Texture::count];
+	Entry<void*> shaders[Asset::Shader::count];
 
 	Loader(Swapper*);
 

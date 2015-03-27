@@ -15,18 +15,3 @@ struct Mesh
 	Array<Vec3> normals;
 	btTriangleIndexVertexArray physics;
 };
-
-struct MeshGL
-{
-	struct Attrib
-	{
-		int element_size;
-		GLuint type;
-		GLuint handle;
-	};
-
-	Array<Attrib> attribs;
-	GLuint index_buffer;
-	GLuint vertex_array;
-	size_t index_count;
-};

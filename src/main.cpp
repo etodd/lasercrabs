@@ -198,10 +198,12 @@ int main()
 
 	SyncData* sync = render_swapper.data();
 
+	GLData gl_data;
+
 	double lastTime = glfwGetTime();
 	while (true)
 	{
-		render(sync, &loader);
+		render(sync, &gl_data);
 
 		// Swap buffers
 		glfwSwapBuffers(window);

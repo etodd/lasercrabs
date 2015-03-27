@@ -5,7 +5,7 @@
 #include "vi_assert.h"
 
 Loader::Loader(Swapper* s)
-	: swapper(s), meshes(), gl_meshes(), textures(), shaders()
+	: swapper(s), meshes(), textures(), shaders()
 {
 }
 

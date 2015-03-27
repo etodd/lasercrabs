@@ -20,9 +20,9 @@ SyncData* Swapper::data()
 	return &sync->data[current];
 }
 
-template<typename T> void add_attrib(MeshGL* gl, T* data, size_t count, GLuint type)
+template<typename T> void add_attrib(GLData::Mesh* gl, T* data, size_t count, GLuint type)
 {
-	MeshGL::Attrib a;
+	GLData::Mesh::Attrib a;
 	a.element_size = sizeof(T) / 4;
 	a.type = type;
 	glBindVertexArray(gl->vertex_array);
@@ -32,7 +32,7 @@ template<typename T> void add_attrib(MeshGL* gl, T* data, size_t count, GLuint t
 	gl->attribs.add(a);
 }
 
-void render(SyncData* sync, Loader* loader)
+void render(SyncData* sync, GLData* data)
 {
 	sync->read_pos = 0;
 	while (sync->read_pos < sync->queue.length)
@@ -50,8 +50,8 @@ void render(SyncData* sync, Loader* loader)
 				size_t index_count = *(sync->read<size_t>());
 				int* indices = sync->read<int>(index_count);
 
-				MeshGL* mesh = &loader->gl_meshes[id];
-				new (mesh) MeshGL();
+				GLData::Mesh* mesh = &data->meshes[id];
+				new (mesh) GLData::Mesh();
 
 				glGenVertexArrays(1, &mesh->vertex_array);
 				glBindVertexArray(mesh->vertex_array);
@@ -70,11 +70,11 @@ void render(SyncData* sync, Loader* loader)
 			case RenderOp_UnloadMesh:
 			{
 				Asset::ID id = *(sync->read<Asset::ID>());
-				MeshGL* mesh = &loader->gl_meshes[id];
+				GLData::Mesh* mesh = &data->meshes[id];
 				for (int i = 0; i < mesh->attribs.length; i++)
 					glDeleteBuffers(1, &mesh->attribs.data[i].handle);
 				glDeleteVertexArrays(1, &mesh->vertex_array);
-				mesh->~MeshGL();
+				mesh->~Mesh();
 				break;
 			}
 			case RenderOp_LoadTexture:
@@ -99,13 +99,13 @@ void render(SyncData* sync, Loader* loader)
 				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR); 
 				glGenerateMipmap(GL_TEXTURE_2D);
 
-				loader->textures[id].data = textureID;
+				data->textures[id] = textureID;
 				break;
 			}
 			case RenderOp_UnloadTexture:
 			{
 				Asset::ID id = *(sync->read<Asset::ID>());
-				glDeleteTextures(1, &loader->textures[id].data);
+				glDeleteTextures(1, &data->textures[id]);
 				break;
 			}
 			case RenderOp_LoadShader:
@@ -172,13 +172,13 @@ void render(SyncData* sync, Loader* loader)
 				glDeleteShader(vertex_id);
 				glDeleteShader(frag_id);
 
-				loader->shaders[id].data = program_id;
+				data->shaders[id] = program_id;
 				break;
 			}
 			case RenderOp_UnloadShader:
 			{
 				Asset::ID id = *(sync->read<Asset::ID>());
-				glDeleteProgram(loader->shaders[id].data);
+				glDeleteProgram(data->shaders[id]);
 				break;
 			}
 			case RenderOp_Clear:
@@ -191,15 +191,15 @@ void render(SyncData* sync, Loader* loader)
 			case RenderOp_View:
 			{
 				Asset::ID id = *(sync->read<Asset::ID>());
-				MeshGL* gl = &loader->gl_meshes[id];
+				GLData::Mesh* gl = &data->meshes[id];
 				Asset::ID shader_asset = *(sync->read<Asset::ID>());
 				Asset::ID texture_asset = *(sync->read<Asset::ID>());
 				Mat4* MVP = sync->read<Mat4>();
 				Mat4* ModelMatrix = sync->read<Mat4>();
 				Mat4* ViewMatrix = sync->read<Mat4>();
 
-				GLuint programID = loader->shaders[shader_asset].data;
-				GLuint Texture = loader->textures[texture_asset].data;
+				GLuint programID = data->shaders[shader_asset];
+				GLuint Texture = data->textures[texture_asset];
 
 				// Get a handle for our "MVP" uniform
 				GLuint MatrixID = glGetUniformLocation(programID, "MVP");

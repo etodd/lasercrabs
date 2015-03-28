@@ -5,6 +5,7 @@
 #include <assimp/scene.h>           // Output data structure
 #include <assimp/postprocess.h>     // Post processing flags
 #include "types.h"
+#include "lmath.h"
 #include "data/array.h"
 
 struct Mesh
@@ -114,14 +115,20 @@ int main(int argc, char* argv[])
 
 		printf("Exporting %s...\n", path);
 
-		FILE* f = fopen(path, "w+b");
-		fwrite(&mesh.indices.length, sizeof(int), 1, f);
-		fwrite(mesh.indices.data, sizeof(int), mesh.indices.length, f);
-		fwrite(&mesh.vertices.length, sizeof(int), 1, f);
-		fwrite(mesh.vertices.data, sizeof(Vec3), mesh.vertices.length, f);
-		fwrite(mesh.uvs.data, sizeof(Vec2), mesh.vertices.length, f);
-		fwrite(mesh.normals.data, sizeof(Vec3), mesh.vertices.length, f);
-		fclose(f);
+		FILE* f;
+		fopen_s(&f, path, "w+b");
+		if (f)
+		{
+			fwrite(&mesh.indices.length, sizeof(int), 1, f);
+			fwrite(mesh.indices.data, sizeof(int), mesh.indices.length, f);
+			fwrite(&mesh.vertices.length, sizeof(int), 1, f);
+			fwrite(mesh.vertices.data, sizeof(Vec3), mesh.vertices.length, f);
+			fwrite(mesh.uvs.data, sizeof(Vec2), mesh.vertices.length, f);
+			fwrite(mesh.normals.data, sizeof(Vec3), mesh.vertices.length, f);
+			fclose(f);
+		}
+		else
+			fprintf(stderr, "Warning: failed to open % for writing.\n", path);
 	}
 	return 0;
 }

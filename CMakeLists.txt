@@ -3,8 +3,9 @@ cmake_minimum_required (VERSION 2.6)
 project (grepr)
 set(AMD64 ON)
 
-set(CMAKE_CXX_FLAGS "-std=c++11 -Wno-deprecated-register -Wno-deprecated-declarations")
-set(CMAKE_CXX_FLAGS_DEBUG "-g -DDEBUG")
+if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+	set(CMAKE_CXX_FLAGS "-std=c++11 -Wno-deprecated-register -Wno-deprecated-declarations")
+endif()
 
 find_package(OpenGL REQUIRED)
 
@@ -12,18 +13,27 @@ find_package(OpenGL REQUIRED)
 add_subdirectory(external/glew)
 add_definitions(-DGLEW_STATIC)
 ## GLFW
+set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+set(GLFW_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+set(GLFW_BUILD_DOCS OFF CACHE BOOL "" FORCE)
 add_subdirectory(external/glfw)
 include_directories(${GLFW_BINARY_DIR}/src)
+
 ## bullet
-set(USE_GLUT OFF)
-set(BUILD_BULLET2_DEMOS OFF)
-set(BUILD_BULLET3 OFF)
+set(USE_GLUT OFF CACHE BOOL "" FORCE)
+set(BUILD_BULLET2_DEMOS OFF CACHE BOOL "" FORCE)
+set(BUILD_OPENGL3_DEMOS OFF CACHE BOOL "" FORCE)
+set(BUILD_CPU_DEMOS OFF CACHE BOOL "" FORCE)
+set(BUILD_BULLET3 OFF CACHE BOOL "" FORCE)
+set(BUILD_EXTRAS OFF CACHE BOOL "" FORCE)
+set(BUILD_UNIT_TESTS OFF CACHE BOOL "" FORCE)
 add_subdirectory(external/bullet)
 include(${CMAKE_CURRENT_BINARY_DIR}/external/bullet/BulletConfig.cmake)
+
 add_definitions(${BULLET_DEFINITIONS})
 
 ## cereal
-add_subdirectory(external/cereal)
+add_subdirectory(external/cereal EXCLUDE_FROM_ALL)
 
 ## AssImp
 
@@ -119,18 +129,33 @@ configure_file(src/asset.cpp.in ${CMAKE_CURRENT_SOURCE_DIR}/src/asset.cpp)
 
 ## Source
 
-source_group(shaders REGULAR_EXPRESSION ".*/.*shader$")
+source_group(h REGULAR_EXPRESSION ".*\\.h$")
+source_group(cpp REGULAR_EXPRESSION ".*\\.cpp$")
 
 add_executable(grepr
+	src/data/array.h
+	src/data/mesh.h
+	src/data/entity.h
 	src/data/entity.cpp
-	src/render/view.cpp
+	src/render/render.h
+	src/render/view.h
 	src/render/render.cpp
-	src/main.cpp
+	src/render/view.cpp
+	src/asset.h
+	src/sync.h
+	src/types.h
+	src/vi_assert.h
+	src/physics.h
+	src/lmath.h
+	src/load.h
+	src/exec.h
+	src/controls.h
 	src/controls.cpp
 	src/load.cpp
 	src/physics.cpp
 	src/asset.cpp
 	src/lmath.cpp
+	src/main.cpp
 )
 
 ## Libraries
@@ -154,3 +179,5 @@ add_executable(import
 target_link_libraries(import
 	assimp
 )
+
+set_target_properties(uninstall PROPERTIES EXCLUDE_FROM_ALL TRUE)

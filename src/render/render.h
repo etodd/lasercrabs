@@ -33,6 +33,12 @@ struct SyncData
 	mutable std::mutex mutex;
 	std::condition_variable condition;
 
+	SyncData()
+		: quit(), time(), input(), queue(), read_pos(), ready(), mutex(), condition()
+	{
+
+	}
+
 	template<typename T>
 	void write(T* data, size_t count = 1)
 	{
@@ -68,7 +74,11 @@ struct RenderSync
 	typedef Swapper<SyncData, count> Swapper;
 	SyncData data[count];
 
-	RenderSync();
+	RenderSync()
+		: data()
+	{
+	}
+
 	Swapper swapper(size_t);
 };
 
@@ -89,11 +99,23 @@ struct GLData
 		GLuint index_buffer;
 		GLuint vertex_array;
 		size_t index_count;
+
+		Mesh()
+			: attribs(), index_buffer(), vertex_array(), index_count()
+		{
+			
+		}
 	};
 
 	Mesh meshes[Asset::Model::count];
 	GLuint textures[Asset::Texture::count];
 	GLuint shaders[Asset::Shader::count];
+
+	GLData()
+		: meshes(), textures(), shaders()
+	{
+
+	}
 };
 
 void render(SyncData*, GLData*);

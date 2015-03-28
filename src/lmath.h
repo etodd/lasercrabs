@@ -4,8 +4,8 @@
 #include <math.h>
 #include <cstring>
 
-#define PI 3.1415926535897
-#define HALF_PI (3.1415926535897 * 0.5)
+#define PI 3.1415926535897f
+#define HALF_PI (3.1415926535897f * 0.5f)
 
 // Mostly stolen from Ogre3D
 
@@ -1015,9 +1015,6 @@ struct Mat3
 	void from_euler_angles_zyx (const float& fYAngle, const float& fPAngle, const float& fRAngle);
 
 	static void tensor_product (const Vec3& rkU, const Vec3& rkV, Mat3& rkProduct);
-
-	// for faster access
-	friend class Mat4;
 };
 
 struct Quat

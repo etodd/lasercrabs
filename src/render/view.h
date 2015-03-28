@@ -13,6 +13,10 @@ struct View : public Component<View>, ExecStatic<View, RenderParams*>
 	Transform* transform;
 	void exec(RenderParams*);
 	void awake(Entities*);
+	View()
+		: mesh(), shader(), texture()
+	{
+	}
 };
 
 struct ViewSys : View::System, ExecSystemStatic<View, RenderParams*>

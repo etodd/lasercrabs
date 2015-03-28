@@ -6,7 +6,7 @@ const Vec4 Vec4::zero(0, 0, 0, 0);
 
 const Quat Quat::zero(0, 0, 0, 0);
 const Quat Quat::identity(1, 0, 0, 0);
-const float Quat::epsilon = 1e-03;
+const float Quat::epsilon = 1e-03f;
 
 const Mat3 Mat3::zero(
         0, 0, 0,
@@ -995,7 +995,7 @@ void Quat::from_angle_axis(const float& rfAngle, const Vec3& rkAxis)
 	// The Quat representing the rotation is
 	//   q = cos(A/2)+sin(A/2)*(x*i+y*j+z*k)
 
-	float fHalfAngle ( 0.5*rfAngle );
+	float fHalfAngle ( 0.5f*rfAngle );
 	float fSin = sin(fHalfAngle);
 	w = cos(fHalfAngle);
 	x = fSin*rkAxis.x;
@@ -1009,9 +1009,9 @@ void Quat::to_angle_axis(float& rfAngle, Vec3& rkAxis) const
 	//   q = cos(A/2)+sin(A/2)*(x*i+y*j+z*k)
 
 	float fSqrLength = x*x+y*y+z*z;
-	if ( fSqrLength > 0.0 )
+	if ( fSqrLength > 0.0f )
 	{
-		rfAngle = 2.0*acos(w);
+		rfAngle = 2.0f*acos(w);
 		float fInvLength = 1.0f / sqrt(fSqrLength);
 		rkAxis.x = x*fInvLength;
 		rkAxis.y = y*fInvLength;

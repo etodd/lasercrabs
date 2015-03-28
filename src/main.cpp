@@ -83,7 +83,6 @@ void update_loop(Loader* loader, RenderSync::Swapper* swapper)
 	model->shader = loader->shader(Asset::Shader::Standard);
 	model->texture = loader->texture(Asset::Texture::test);
 
-	btTriangleIndexVertexArray* btMeshData;
 	btBvhTriangleMeshShape* btMesh;
 
 	Mesh* mesh = &loader->meshes[loader->mesh(model->mesh)].data;

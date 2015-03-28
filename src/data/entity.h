@@ -9,7 +9,7 @@
 
 #include <stdio.h>
 
-typedef unsigned int Family;
+typedef size_t Family;
 typedef size_t ID;
 typedef unsigned long ComponentMask;
 const Family MAX_FAMILIES = sizeof(ComponentMask) * 8;
@@ -110,6 +110,11 @@ struct ComponentPoolBase
 	// This gets reinterpreted as an ArrayNonRelocating<T> in ComponentPool.
 	// Embrace the madness.
 	ArrayNonRelocating<char> data;
+
+	ComponentPoolBase()
+		: initialized(), data()
+	{
+	}
 
 	virtual void awake(size_t, Entities*) {}
 	virtual void remove(size_t) {}
@@ -221,7 +226,7 @@ struct Entities : ExecDynamic<Update>
 
 	template<typename T> void awake(T* e)
 	{
-		for (int i = 0; i < Entity::families; i++)
+		for (size_t i = 0; i < Entity::families; i++)
 		{
 			if (e->components[i])
 			{
@@ -235,7 +240,7 @@ struct Entities : ExecDynamic<Update>
 	void remove(Entity* e)
 	{
 		e->~Entity();
-		for (int i = 0; i < Entity::families; i++)
+		for (size_t i = 0; i < Entity::families; i++)
 		{
 			if (e->components[i])
 			{

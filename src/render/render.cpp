@@ -2,11 +2,6 @@
 #include "load.h"
 #include "data/mesh.h"
 
-RenderSync::RenderSync()
-	: data()
-{
-}
-
 RenderSync::Swapper RenderSync::swapper(size_t index)
 {
 	RenderSync::Swapper q;
@@ -66,7 +61,7 @@ void render(SyncData* sync, GLData* data)
 			{
 				Asset::ID id = *(sync->read<Asset::ID>());
 				GLData::Mesh* mesh = &data->meshes[id];
-				for (int i = 0; i < mesh->attribs.length; i++)
+				for (size_t i = 0; i < mesh->attribs.length; i++)
 					glDeleteBuffers(1, &mesh->attribs.data[i].handle);
 				glDeleteVertexArrays(1, &mesh->vertex_array);
 				mesh->~Mesh();
@@ -224,7 +219,7 @@ void render(SyncData* sync, GLData* data)
 				// Set our "myTextureSampler" sampler to user Texture Unit 0
 				glUniform1i(TextureID, 0);
 
-				for (int i = 0; i < gl->attribs.length; i++)
+				for (size_t i = 0; i < gl->attribs.length; i++)
 				{
 					glEnableVertexAttribArray(i);
 					glBindBuffer(GL_ARRAY_BUFFER, gl->attribs.data[i].handle);
@@ -247,7 +242,7 @@ void render(SyncData* sync, GLData* data)
 					(void*)0            // element array buffer offset
 				);
 
-				for (int i = 0; i < gl->attribs.length; i++)
+				for (size_t i = 0; i < gl->attribs.length; i++)
 					glDisableVertexAttribArray(i);
 
 				break;

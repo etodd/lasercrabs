@@ -13,6 +13,10 @@ struct Loader
 	{
 		size_t refs;
 		T data;
+		Entry()
+			: refs(), data()
+		{
+		}
 	};
 
 	RenderSync::Swapper* swapper;

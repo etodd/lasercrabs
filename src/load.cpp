@@ -14,8 +14,7 @@ Asset::ID Loader::mesh(Asset::ID id)
 	if (id && !meshes[id].refs)
 	{
 		const char* path = Asset::Model::filenames[id];
-		FILE* f;
-		fopen_s(&f, path, "rb");
+		FILE* f = fopen(path, "rb");
 		if (!f)
 		{
 			fprintf(stderr, "Can't open mdl file '%s'\n", path);
@@ -135,8 +134,7 @@ Asset::ID Loader::shader(Asset::ID id)
 		const char* path = Asset::Shader::filenames[id];
 
 		Array<char> code;
-		FILE* f;
-		fopen_s(&f, path, "r");
+		FILE* f = fopen(path, "r");
 		if (!f)
 		{
 			fprintf(stderr, "Can't open shader source file '%s'", path);

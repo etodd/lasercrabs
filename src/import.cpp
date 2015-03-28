@@ -115,8 +115,7 @@ int main(int argc, char* argv[])
 
 		printf("Exporting %s...\n", path);
 
-		FILE* f;
-		fopen_s(&f, path, "w+b");
+		FILE* f = fopen(path, "w+b");
 		if (f)
 		{
 			fwrite(&mesh.indices.length, sizeof(int), 1, f);
@@ -128,7 +127,7 @@ int main(int argc, char* argv[])
 			fclose(f);
 		}
 		else
-			fprintf(stderr, "Warning: failed to open % for writing.\n", path);
+			fprintf(stderr, "Warning: failed to open %s for writing.\n", path);
 	}
 	return 0;
 }

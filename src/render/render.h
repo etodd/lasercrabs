@@ -4,10 +4,9 @@
 #include <GLFW/glfw3.h>
 #include "types.h"
 #include "data/array.h"
-#include <mutex>
-#include <condition_variable>
 #include "lmath.h"
 #include "asset.h"
+#include "sync.h"
 
 struct RenderSync;
 
@@ -21,13 +20,6 @@ enum RenderOp
 	RenderOp_UnloadShader,
 	RenderOp_View,
 	RenderOp_Clear,
-};
-
-enum SwapType
-{
-	SwapType_Read,
-	SwapType_Write,
-	SwapType_count,
 };
 
 struct SyncData
@@ -69,38 +61,15 @@ struct SyncData
 	}
 };
 
-struct Swapper;
 
 struct RenderSync
 {
 	static const size_t count = 2;
+	typedef Swapper<SyncData, count> Swapper;
 	SyncData data[count];
 
 	RenderSync();
 	Swapper swapper(size_t);
-};
-
-struct Swapper
-{
-	RenderSync* sync;
-	size_t current;
-	SyncData* data();
-	template<SwapType swap_type> SyncData* swap()
-	{
-		{
-			std::lock_guard<std::mutex> lock(sync->data[current].mutex);
-			sync->data[current].ready[!swap_type] = true;
-		}
-		sync->data[current].condition.notify_all();
-
-		size_t next = (current + 1) % RenderSync::count;
-		std::unique_lock<std::mutex> lock(sync->data[next].mutex);
-		while (!sync->data[next].ready[swap_type])
-			sync->data[next].condition.wait(lock);
-		sync->data[next].ready[swap_type] = false;
-		current = next;
-		return &sync->data[next];
-	}
 };
 
 struct Loader;

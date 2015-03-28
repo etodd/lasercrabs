@@ -7,17 +7,12 @@ RenderSync::RenderSync()
 {
 }
 
-Swapper RenderSync::swapper(size_t index)
+RenderSync::Swapper RenderSync::swapper(size_t index)
 {
-	Swapper q;
-	q.sync = this;
+	RenderSync::Swapper q;
+	q.data = data;
 	q.current = index;
 	return q;
-}
-
-SyncData* Swapper::data()
-{
-	return &sync->data[current];
 }
 
 template<typename T> void add_attrib(GLData::Mesh* gl, T* data, size_t count, GLuint type)

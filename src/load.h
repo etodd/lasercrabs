@@ -15,12 +15,12 @@ struct Loader
 		T data;
 	};
 
-	Swapper* swapper;
+	RenderSync::Swapper* swapper;
 	Entry<Mesh> meshes[Asset::Model::count];
 	Entry<void*> textures[Asset::Texture::count];
 	Entry<void*> shaders[Asset::Shader::count];
 
-	Loader(Swapper*);
+	Loader(RenderSync::Swapper*);
 
 	Asset::ID mesh(Asset::ID);
 	void unload_mesh(Asset::ID);

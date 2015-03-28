@@ -4,33 +4,13 @@
 #include <climits>
 
 template<typename Derived, typename T>
-struct ExecStatic
+struct ExecStatic : public IntrusiveLinkedList<Derived>
 {
 	int order;
-	Derived* previous;
-	Derived* next;
 
 	ExecStatic(int o = 0)
-	: order(o), previous(0), next(0)
+	: order(o)
 	{
-	}
-
-	void remove_exec()
-	{
-		if (next)
-			next->previous = previous;
-		if (previous)
-			previous->next = next;
-		next = previous = 0;
-	}
-
-	void insert_after_exec(Derived* i)
-	{
-		if (next)
-			next->previous = i;
-		i->previous = (Derived*)this;
-		i->next = next;
-		next = i;
 	}
 
 	void reorder_exec(int o)
@@ -43,8 +23,8 @@ struct ExecStatic
 			i = i->previous;
 		if (i != this)
 		{
-			remove_exec();
-			i->insert_after_exec(this);
+			this->remove();
+			i->insert_after(this);
 		}
 	}
 };
@@ -71,12 +51,12 @@ struct ExecSystemStatic : ExecDynamic<T2>
 		T* i = &head;
 		while (i->next && i->next->order < exec->order)
 			i = i->next;
-		i->insert_after_exec(exec);
+		i->insert_after(exec);
 	}
 
 	void remove(T* e)
 	{
-		e->remove_exec();
+		e->remove();
 	}
 
 	void exec(T2 t)

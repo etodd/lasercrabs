@@ -4,7 +4,7 @@
 #include "lodepng.h"
 #include "vi_assert.h"
 
-Loader::Loader(Swapper* s)
+Loader::Loader(RenderSync::Swapper* s)
 	: swapper(s), meshes(), textures(), shaders()
 {
 }
@@ -56,7 +56,7 @@ Asset::ID Loader::mesh(Asset::ID id)
 		new (&mesh->physics) btTriangleIndexVertexArray(mesh->indices.length / 3, mesh->indices.data, 3 * sizeof(int), mesh->vertices.length, (btScalar*)mesh->vertices.data, sizeof(Vec3));
 
 		// GL
-		SyncData* sync = swapper->data();
+		SyncData* sync = swapper->get();
 		sync->op(RenderOp_LoadMesh);
 		sync->write<Asset::ID>(&id);
 		sync->write<size_t>(&mesh->vertices.length);
@@ -78,7 +78,7 @@ void Loader::unload_mesh(Asset::ID id)
 		if (--meshes[id].refs == 0)
 		{
 			meshes[id].data.~Mesh();
-			SyncData* sync = swapper->data();
+			SyncData* sync = swapper->get();
 			sync->op(RenderOp_UnloadMesh);
 			sync->write<Asset::ID>(&id);
 		}
@@ -101,7 +101,7 @@ Asset::ID Loader::texture(Asset::ID id)
 			return 0;
 		}
 
-		SyncData* sync = swapper->data();
+		SyncData* sync = swapper->get();
 		sync->op(RenderOp_LoadTexture);
 		sync->write<Asset::ID>(&id);
 		sync->write<unsigned>(&width);
@@ -120,7 +120,7 @@ void Loader::unload_texture(Asset::ID id)
 		vi_assert(textures[id].refs > 0);
 		if (--textures[id].refs == 0)
 		{
-			SyncData* sync = swapper->data();
+			SyncData* sync = swapper->get();
 			sync->op(RenderOp_UnloadTexture);
 			sync->write<Asset::ID>(&id);
 		}
@@ -156,7 +156,7 @@ Asset::ID Loader::shader(Asset::ID id)
 		}
 		fclose(f);
 
-		SyncData* sync = swapper->data();
+		SyncData* sync = swapper->get();
 		sync->op(RenderOp_LoadShader);
 		sync->write<Asset::ID>(&id);
 		sync->write<size_t>(&code.length);
@@ -173,7 +173,7 @@ void Loader::unload_shader(Asset::ID id)
 		vi_assert(shaders[id].refs > 0);
 		if (--shaders[id].refs == 0)
 		{
-			SyncData* sync = swapper->data();
+			SyncData* sync = swapper->get();
 			sync->op(RenderOp_UnloadShader);
 			sync->write<Asset::ID>(&id);
 		}

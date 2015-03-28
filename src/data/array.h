@@ -75,11 +75,19 @@ struct Array
 		length--;
 	}
 
-	void insert(size_t i, T& t)
+	T* insert(size_t i, T& t)
 	{
 		reserve(++length);
 		memmove(&data[i], &data[i + 1]);
 		data[i] = t;
+		return &data[i];
+	}
+
+	T* insert(size_t i)
+	{
+		reserve(++length);
+		memmove(&data[i], &data[i + 1]);
+		return &data[i];
 	}
 
 	T* add()
@@ -96,35 +104,59 @@ struct Array
 	}
 };
 
-template<typename T>
-struct ArrayNonRelocating
+// Don't throw this into a field in your struct.
+// You have to derive from it.
+template<typename Derived>
+struct IntrusiveLinkedList
 {
-	struct Entry
-	{
-		bool active;
-		T data;
-	};
-	Array<Entry> data;
-	Array<size_t> free_list;
+	Derived* previous;
+	Derived* next;
 
-	ArrayNonRelocating(size_t size = 0)
-		: data(size), free_list()
+	IntrusiveLinkedList()
+		: previous(0), next(0)
 	{
 	}
 
-	size_t next(size_t index)
+	void remove()
 	{
-		for (size_t i = index; i < data.length; i++)
-		{
-			if (data.data[i].active)
-				return i;
-		}
-		return -1;
+		if (next)
+			next->previous = previous;
+		if (previous)
+			previous->next = next;
+		next = previous = 0;
+	}
+
+	void insert_after(Derived* i)
+	{
+		if (next)
+			next->previous = i;
+		i->previous = (Derived*)this;
+		i->next = next;
+		next = i;
+	}
+};
+
+template<typename T, size_t chunk_size = 4096>
+struct ArrayNonRelocating
+{
+	size_t reserved;
+	Array<T*> chunks;
+	Array<size_t> free_list;
+
+	ArrayNonRelocating(size_t size = 0)
+		: chunks(size / chunk_size), free_list(), reserved()
+	{
+	}
+
+	~ArrayNonRelocating()
+	{
+		for (size_t i = 0; i < chunks.length; i++)
+			free(chunks.data[i]);
 	}
 
 	T* get(size_t i)
 	{
-		return &data.data[i].data;
+		return &((chunks.data[i / chunk_size])[i % chunk_size]);
 	}
 
 	size_t add()
@@ -133,26 +165,81 @@ struct ArrayNonRelocating
 		{
 			size_t index = free_list.data[0];
 			free_list.remove(0);
-			data.data[index].active = true;
 			return index;
 		}
 		else
 		{
-			data.add();
-			return data.length - 1;
+			size_t index = reserved;
+			size_t chunk_index = index / chunk_size;
+			while (chunks.length < chunk_index + 1)
+			{
+				T* chunk = (T*)malloc(sizeof(T) * chunk_size);
+				chunks.add(chunk);
+			}
+			reserved++;
+			return index;
 		}
 	}
 
 	size_t add(T& t)
 	{
 		size_t index = add();
-		&data.data[index] = t;
+		(chunks.data[index / chunk_size])[index % chunk_size] = t;
 		return index;
 	}
 
 	void remove(size_t i)
 	{
-		data.data[i].active = false;
 		free_list.add(i);
+	}
+};
+
+template<typename T>
+struct Queue
+{
+	struct Entry
+	{
+		T data;
+		Entry* next;
+		size_t index;
+	};
+	ArrayNonRelocating<T> array;
+	Entry* head;
+	Entry* tail;
+
+	Queue()
+		: array(), head(), tail()
+	{
+	}
+
+	bool empty()
+	{
+		return head == 0;
+	}
+
+	void enqueue(T& t)
+	{
+		size_t index = array.add(t);
+
+		Entry* entry = array.get(index);
+		entry->data = t;
+		entry->index = index;
+		entry->next = 0;
+
+		if (!head)
+			head = entry;
+
+		if (tail)
+			tail->next = entry;
+
+		tail = entry;
+	}
+
+	T dequeue()
+	{
+		Entry* result = head;
+		head = head->next;
+		array.remove(result->index);
+		return result->data;
 	}
 };

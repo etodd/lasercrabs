@@ -55,7 +55,7 @@ void resize(GLFWwindow* window, int width, int height)
 	glViewport(0, 0, width, height);
 }
 
-void update_loop(Loader* loader, Swapper* swapper)
+void update_loop(Loader* loader, RenderSync::Swapper* swapper)
 {
 	Entities e;
 
@@ -105,7 +105,7 @@ void update_loop(Loader* loader, Swapper* swapper)
 
 	RenderParams render_params;
 
-	SyncData* sync = swapper->data();
+	SyncData* sync = swapper->get();
 
 	Update u;
 
@@ -189,14 +189,14 @@ int main()
 
 	RenderSync render_sync;
 
-	Swapper update_swapper = render_sync.swapper(0);
-	Swapper render_swapper = render_sync.swapper(1);
+	RenderSync::Swapper update_swapper = render_sync.swapper(0);
+	RenderSync::Swapper render_swapper = render_sync.swapper(1);
 
 	Loader loader(&update_swapper);
 
 	std::thread update_thread(update_loop, &loader, &update_swapper);
 
-	SyncData* sync = render_swapper.data();
+	SyncData* sync = render_swapper.get();
 
 	GLData gl_data;
 

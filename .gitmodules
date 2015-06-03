@@ -13,6 +13,3 @@
 [submodule "external/bullet"]
 	path = external/bullet
 	url = git@github.com:et1337/bullet3.git
-[submodule "external/cereal"]
-	path = external/cereal
-	url = git@github.com:et1337/cereal.git

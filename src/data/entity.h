@@ -65,7 +65,7 @@ struct Entity : public ExecDynamic<EntityUpdate>
 };
 
 template<typename Derived>
-struct Component : public ComponentBase
+struct ComponentType : public ComponentBase
 {
 	struct System
 	{
@@ -82,7 +82,7 @@ struct Component : public ComponentBase
 	}
 };
 
-struct Transform : public Component<Transform>
+struct Transform : public ComponentType<Transform>
 {
 	Transform* parent;
 	Vec3 pos;

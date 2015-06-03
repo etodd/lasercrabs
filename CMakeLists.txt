@@ -3,6 +3,10 @@ cmake_minimum_required (VERSION 2.6)
 project (grepr)
 set(AMD64 ON)
 
+if (APPLE)
+	set(ENV{PKG_CONFIG_PATH} ${CMAKE_SOURCE_DIR}/pkgconfig) # so pkg-config can find our custom gl.pc
+endif()
+
 if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
 	set(CMAKE_CXX_FLAGS "-std=c++11 -Wno-deprecated-register -Wno-deprecated-declarations")
 endif()
@@ -31,9 +35,6 @@ add_subdirectory(external/bullet)
 include(${CMAKE_CURRENT_BINARY_DIR}/external/bullet/BulletConfig.cmake)
 
 add_definitions(${BULLET_DEFINITIONS})
-
-## cereal
-add_subdirectory(external/cereal EXCLUDE_FROM_ALL)
 
 ## AssImp
 
@@ -75,7 +76,6 @@ set(ALL_INCLUDES
 	external/assimp/include
 	external/lodepng
 	external/bullet/src
-	external/cereal/include
 	src
 )
 string(REPLACE ";" "," ALL_INCLUDES_COMMA "${ALL_INCLUDES}")

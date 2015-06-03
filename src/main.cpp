@@ -24,7 +24,6 @@ GLFWwindow* window;
 #include "physics.h"
 #include "render/render.h"
 #include "asset.h"
-#include <cereal/archives/binary.hpp>
 
 struct Empty : public Entity
 {
@@ -75,8 +74,6 @@ void update_loop(Loader* loader, RenderSync::Swapper* swapper)
 	StaticGeom* a = e.create<StaticGeom>();
 
 	Transform* t = a->get<Transform>();
-	cereal::BinaryOutputArchive archive(std::cout);
-	archive(*t);
 
 	View* model = a->get<View>();
 	model->mesh = loader->mesh(Asset::Model::city3);
@@ -148,6 +145,7 @@ int main()
 	}
 
 	glfwWindowHint(GLFW_SAMPLES, 4);
+	glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
 	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);

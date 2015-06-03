@@ -1,0 +1,10 @@
+#!/bin/bash
+set -e
+set -o pipefail
+
+brew install cmake pkg-config
+git submodule update --init --recursive
+mkdir -p build
+cd build
+cmake .. -DCMAKE_BUILD_TYPE=Debug
+make grepr

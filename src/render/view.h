@@ -5,7 +5,7 @@
 #include "render.h"
 #include "asset.h"
 
-struct View : public Component<View>, ExecStatic<View, RenderParams*>
+struct View : public ComponentType<View>, ExecStatic<View, RenderParams*>
 {
 	Asset::ID mesh;
 	Asset::ID shader;

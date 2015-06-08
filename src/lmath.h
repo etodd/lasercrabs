@@ -17,11 +17,6 @@ struct Vec2
 
 	static const Vec2 zero;
 
-	template<class S> void serialize(S& s)
-	{
-		s(x, y);
-	}
-
 	inline Vec2(const float fX, const float fY)
 		: x(fX), y(fY)
 	{
@@ -284,11 +279,6 @@ struct Vec3
 	float x, y, z;
 
 	static const Vec3 zero;
-
-	template<class S> void serialize(S& s)
-	{
-		s(x, y, z);
-	}
 
 	inline Vec3() : x(0), y(0), z(0) {}
 
@@ -578,11 +568,6 @@ struct Vec4
 
 	inline Vec4() : x(0), y(0), z(0), w(0) {}
 
-	template<class S> void serialize(S& s)
-	{
-		s(x, y, z, w);
-	}
-
 	inline Vec4(const float fX, const float fY, const float fZ, const float fW)
 		: x(fX), y(fY), z(fZ), w(fW)
 	{
@@ -871,11 +856,6 @@ struct Plane
 	Vec3 normal;
 	float d;
 
-	template<class S> void serialize(S& s)
-	{
-		s(normal, d);
-	}
-
 	Plane();
 	Plane(const Plane& rhs);
 	Plane(const Vec3& rkNormal, float fConstant);
@@ -908,11 +888,6 @@ struct Mat3
 {
 	/// Indexed by [row][col].
 	float m[3][3];
-
-	template<class S> void serialize(S& s)
-	{
-		s(m);
-	}
 
 	static const Mat3 zero;
 	static const Mat3 identity;
@@ -1025,11 +1000,6 @@ struct Quat
 	static const Quat identity;
 	static const float epsilon;
 
-	template<class S> void serialize(S& s)
-	{
-		s(w, x, y, z);
-	}
-
 	inline Quat()
 		: w(1), x(0), y(0), z(0)
 	{
@@ -1141,11 +1111,6 @@ struct Mat4
 		float m[4][4];
 		float _m[16];
 	};
-
-	template<class S> void serialize(S& s)
-	{
-		s(m);
-	}
 
 	static const Mat4 zero;
 	static const Mat4 identity;

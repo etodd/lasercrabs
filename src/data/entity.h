@@ -91,11 +91,6 @@ struct Transform : public ComponentType<Transform>
 	{
 	}
 	void mat(Mat4*);
-
-	template<class Archive> void serialize(Archive& ar)
-	{
-		ar(pos, rot);
-	}
 };
 
 struct ComponentPoolBase;
@@ -176,11 +171,11 @@ struct Entities : ExecDynamic<Update>
 		// TODO: entities and systems are never cleaned up
 	}
 
-	template<typename T> T* create()
+	template<typename T, typename... Args> T* create(Args... args)
 	{
 		ID id = all.add();
 		T* e = (T*)all.get(id);
-		new (e) T(this);
+		new (e) T(this, args...);
 		e->id = id;
 		awake(e);
 		return e;
@@ -199,7 +194,7 @@ struct Entities : ExecDynamic<Update>
 		return ((ComponentPool<T>*)&component_pools[T::family()])->data;
 	}
 
-	template<typename T> T* create(Entity* e)
+	template<typename T> T* component(Entity* e)
 	{
 		Family f = T::family();
 		ComponentPool<T>* pool = (ComponentPool<T>*)&component_pools[f];

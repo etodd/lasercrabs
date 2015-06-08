@@ -8,18 +8,21 @@
 
 struct Loader
 {
+	enum AssetType { AssetNone, AssetTransient, AssetPermanent };
 	template<typename T>
 	struct Entry
 	{
-		size_t refs;
+		AssetType type;
 		T data;
 		Entry()
-			: refs(), data()
+			: type(), data()
 		{
 		}
 	};
 
 	RenderSync::Swapper* swapper;
+
+	// First entry in each array is empty
 	Entry<Mesh> meshes[Asset::Model::count];
 	Entry<void*> textures[Asset::Texture::count];
 	Entry<void*> shaders[Asset::Shader::count];
@@ -27,9 +30,13 @@ struct Loader
 	Loader(RenderSync::Swapper*);
 
 	Asset::ID mesh(Asset::ID);
+	Asset::ID mesh_permanent(Asset::ID);
 	void unload_mesh(Asset::ID);
 	Asset::ID texture(Asset::ID);
+	Asset::ID texture_permanent(Asset::ID);
 	void unload_texture(Asset::ID);
 	Asset::ID shader(Asset::ID);
+	Asset::ID shader_permanent(Asset::ID);
 	void unload_shader(Asset::ID);
+	void unload_transients();
 };

@@ -29,21 +29,54 @@ struct Empty : public Entity
 {
 	Empty(Entities* e)
 	{
-		e->create<Transform>(this);
+		e->component<Transform>(this);
 	}
 	void awake(Entities* e) {}
 };
 
 struct StaticGeom : public Entity
 {
-	StaticGeom(Entities* e)
+	StaticGeom(Entities* e, Loader* loader, Physics* physics, Asset::ID id)
 	{
-		e->create<Transform>(this);
-		e->create<View>(this);
+		e->component<Transform>(this);
+		View* model = e->component<View>(this);
+
+		model->mesh = loader->mesh(Asset::Model::city3);
+		model->shader = loader->shader(Asset::Shader::Standard);
+		model->texture = loader->texture(Asset::Texture::test);
+
+		btBvhTriangleMeshShape* btMesh;
+
+		Mesh* mesh = &loader->meshes[loader->mesh(model->mesh)].data;
+		if (!mesh)
+		{
+			fprintf(stderr, "Error loading mesh!");
+			return;
+		}
+
+		btMesh = new btBvhTriangleMeshShape(&mesh->physics, true, btVector3(-1000, -1000, -1000), btVector3(1000, 1000, 1000));
+
+		btTransform startTransform;
+		startTransform.setIdentity();
+		btDefaultMotionState* myMotionState = new btDefaultMotionState(startTransform);
+		btRigidBody::btRigidBodyConstructionInfo cInfo(0.0f, myMotionState, btMesh, btVector3(0, 0, 0));
+		btRigidBody* body = new btRigidBody(cInfo);
+		body->setContactProcessingThreshold(BT_LARGE_FLOAT);
+		physics->world->addRigidBody(body);
 	}
 
 	void awake(Entities* e)
 	{
+	}
+
+	~StaticGeom()
+	{
+		/*
+		delete btMesh;
+		delete myMotionState;
+		physics->world->removeRigidBody(body);
+		delete body;
+		*/
 	}
 };
 
@@ -71,33 +104,9 @@ void update_loop(Loader* loader, RenderSync::Swapper* swapper)
 	update.add(&physics);
 	draw.add(&e.draw);
 
-	StaticGeom* a = e.create<StaticGeom>();
+	StaticGeom* a = e.create<StaticGeom>(loader, &physics, Asset::Model::city3);
 
 	Transform* t = a->get<Transform>();
-
-	View* model = a->get<View>();
-	model->mesh = loader->mesh(Asset::Model::city3);
-	model->shader = loader->shader(Asset::Shader::Standard);
-	model->texture = loader->texture(Asset::Texture::test);
-
-	btBvhTriangleMeshShape* btMesh;
-
-	Mesh* mesh = &loader->meshes[loader->mesh(model->mesh)].data;
-	if (!mesh)
-	{
-		fprintf(stderr, "Error loading mesh!");
-		return;
-	}
-
-	btMesh = new btBvhTriangleMeshShape(&mesh->physics, true, btVector3(-1000, -1000, -1000), btVector3(1000, 1000, 1000));
-
-	btTransform startTransform;
-	startTransform.setIdentity();
-	btDefaultMotionState* myMotionState = new btDefaultMotionState(startTransform);
-	btRigidBody::btRigidBodyConstructionInfo cInfo(0.0f, myMotionState, btMesh, btVector3(0, 0, 0));
-	btRigidBody* body = new btRigidBody(cInfo);
-	body->setContactProcessingThreshold(BT_LARGE_FLOAT);
-	physics.world->addRigidBody(body);
 
 	RenderParams render_params;
 
@@ -126,13 +135,6 @@ void update_loop(Loader* loader, RenderSync::Swapper* swapper)
 		sync = swapper->swap<SwapType_Write>();
 		sync->queue.length = 0;
 	}
-
-	loader->unload_mesh(model->mesh);
-	
-	delete btMesh;
-	delete myMotionState;
-	physics.world->removeRigidBody(body);
-	delete body;
 }
 
 int main()
@@ -151,7 +153,7 @@ int main()
 	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
 	// Open a window and create its OpenGL context
-	window = glfwCreateWindow(1024, 768, "grepr", NULL, NULL);
+	window = glfwCreateWindow(1024, 768, "MK-ZEBRA", NULL, NULL);
 	if (!window)
 	{
 		fprintf(stderr, "Failed to open GLFW window. If you have an Intel GPU, they are not 3.3 compatible. Sorry.\n");

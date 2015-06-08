@@ -11,7 +11,7 @@ Loader::Loader(RenderSync::Swapper* s)
 
 Asset::ID Loader::mesh(Asset::ID id)
 {
-	if (id && !meshes[id].refs)
+	if (id && meshes[id].type == AssetNone)
 	{
 		const char* path = Asset::Model::filenames[id];
 		FILE* f = fopen(path, "rb");
@@ -65,8 +65,17 @@ Asset::ID Loader::mesh(Asset::ID id)
 		sync->write<Vec3>(mesh->normals.data, mesh->normals.length);
 		sync->write<size_t>(&mesh->indices.length);
 		sync->write<int>(mesh->indices.data, mesh->indices.length);
+
+		meshes[id].type = AssetTransient;
 	}
-	meshes[id].refs++;
+	return id;
+}
+
+Asset::ID Loader::mesh_permanent(Asset::ID id)
+{
+	id = mesh(id);
+	if (id)
+		meshes[id].type = AssetPermanent;
 	return id;
 }
 
@@ -75,19 +84,20 @@ void Loader::unload_mesh(Asset::ID id)
 	if (id)
 	{
 		vi_assert(meshes[id].refs > 0);
-		if (--meshes[id].refs == 0)
+		if (meshes[id].type != AssetNone)
 		{
 			meshes[id].data.~Mesh();
 			SyncData* sync = swapper->get();
 			sync->op(RenderOp_UnloadMesh);
 			sync->write<Asset::ID>(&id);
+			meshes[id].type = AssetNone;
 		}
 	}
 }
 
 Asset::ID Loader::texture(Asset::ID id)
 {
-	if (id && !textures[id].refs)
+	if (id && textures[id].type == AssetNone)
 	{
 		const char* path = Asset::Texture::filenames[id];
 		unsigned char* buffer;
@@ -108,8 +118,17 @@ Asset::ID Loader::texture(Asset::ID id)
 		sync->write<unsigned>(&height);
 		sync->write<unsigned char>(buffer, 4 * width * height);
 		free(buffer);
+
+		textures[id].type = AssetTransient;
 	}
-	textures[id].refs++;
+	return id;
+}
+
+Asset::ID Loader::texture_permanent(Asset::ID id)
+{
+	id = texture(id);
+	if (id)
+		textures[id].type = AssetPermanent;
 	return id;
 }
 
@@ -118,18 +137,19 @@ void Loader::unload_texture(Asset::ID id)
 	if (id)
 	{
 		vi_assert(textures[id].refs > 0);
-		if (--textures[id].refs == 0)
+		if (textures[id].type != AssetNone)
 		{
 			SyncData* sync = swapper->get();
 			sync->op(RenderOp_UnloadTexture);
 			sync->write<Asset::ID>(&id);
+			textures[id].type = AssetNone;
 		}
 	}
 }
 
 Asset::ID Loader::shader(Asset::ID id)
 {
-	if (id && !shaders[id].refs)
+	if (id && shaders[id].type == AssetNone)
 	{
 		const char* path = Asset::Shader::filenames[id];
 
@@ -161,8 +181,17 @@ Asset::ID Loader::shader(Asset::ID id)
 		sync->write<Asset::ID>(&id);
 		sync->write<size_t>(&code.length);
 		sync->write<char>(code.data, code.length);
+
+		shaders[id].type = AssetTransient;
 	}
-	shaders[id].refs++;
+	return id;
+}
+
+Asset::ID Loader::shader_permanent(Asset::ID id)
+{
+	id = shader(id);
+	if (id)
+		shaders[id].type = AssetPermanent;
 	return id;
 }
 
@@ -171,11 +200,36 @@ void Loader::unload_shader(Asset::ID id)
 	if (id)
 	{
 		vi_assert(shaders[id].refs > 0);
-		if (--shaders[id].refs == 0)
+		if (shaders[id].type != AssetNone)
 		{
 			SyncData* sync = swapper->get();
 			sync->op(RenderOp_UnloadShader);
 			sync->write<Asset::ID>(&id);
+			shaders[id].type = AssetNone;
 		}
+	}
+}
+
+void Loader::unload_transients()
+{
+	// First entry in each array is empty
+	// That way ID 0 is invalid, and we don't have to do [id - 1] all the time
+
+	for (Asset::ID i = 1; i < Asset::Model::count; i++)
+	{
+		if (meshes[i].type == AssetTransient)
+			unload_mesh(i);
+	}
+
+	for (Asset::ID i = 1; i < Asset::Texture::count; i++)
+	{
+		if (textures[i].type == AssetTransient)
+			unload_texture(i);
+	}
+
+	for (Asset::ID i = 1; i < Asset::Shader::count; i++)
+	{
+		if (shaders[i].type == AssetTransient)
+			unload_shader(i);
 	}
 }

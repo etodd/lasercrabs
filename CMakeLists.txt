@@ -1,6 +1,6 @@
 # CMake entry point
 cmake_minimum_required (VERSION 2.6)
-project (grepr)
+project (mkzebra)
 set(AMD64 ON)
 
 if (APPLE)
@@ -132,7 +132,7 @@ configure_file(src/asset.cpp.in ${CMAKE_CURRENT_SOURCE_DIR}/src/asset.cpp)
 source_group(h REGULAR_EXPRESSION ".*\\.h$")
 source_group(cpp REGULAR_EXPRESSION ".*\\.cpp$")
 
-add_executable(grepr
+add_executable(mkzebra
 	src/data/array.h
 	src/data/mesh.h
 	src/data/entity.h
@@ -160,7 +160,7 @@ add_executable(grepr
 
 ## Libraries
 
-target_link_libraries(grepr
+target_link_libraries(mkzebra
 	${OPENGL_LIBRARIES}
 	${GLFW_LIBRARIES}
 	glfw

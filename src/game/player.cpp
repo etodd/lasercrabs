@@ -1,18 +1,27 @@
 #include "player.h"
 #include <GLFW/glfw3.h>
 #include "physics.h"
+#include "data/components.h"
 
 #define fov_initial PI * 0.25f
-#define speed 10.0f
+#define speed 5.0f
 #define speed_mouse 0.0025f
 
 Player::Player()
 {
+	Transform* transform = Entities::all.component<Transform>(this);
+
+	btBoxShape* shape = new btBoxShape(btVector3(5.0f, 5.0f, 5.0f));
+	btRigidBody::btRigidBodyConstructionInfo cInfo(5.0f, transform, shape, btVector3(0, 0, 0));
+
+	RigidBody* body = Entities::all.component<RigidBody>(this, shape, cInfo);
 }
 
 void Player::awake()
 {
 	Entities::all.update.add(this);
+	transform = get<Transform>();
+	body = get<RigidBody>();
 }
 
 Player::~Player()
@@ -33,11 +42,13 @@ void Player::exec(EntityUpdate u)
 		(float)(cos(angle_vertical) * cos(angle_horizontal))
 	);
 	
+	Vec3 force = Vec3::zero;
+
 	if (u.input->mouse)
 	{
 		const float radius = 10000.0f;
-		btVector3 rayStart(position.x, position.y, position.z);
-		btVector3 rayEnd(position.x + direction.x * radius, position.y + direction.y * radius, position.z + direction.z * radius);
+		btVector3 rayStart(transform->pos.x, transform->pos.y, transform->pos.z);
+		btVector3 rayEnd(transform->pos.x + direction.x * radius, transform->pos.y + direction.y * radius, transform->pos.z + direction.z * radius);
 		btCollisionWorld::ClosestRayResultCallback rayCallback(rayStart, rayEnd);
 
 		// Perform raycast
@@ -46,9 +57,7 @@ void Player::exec(EntityUpdate u)
 		if (rayCallback.hasHit())
 		{
 			rayEnd = rayCallback.m_hitPointWorld;
-			position.x = rayEnd.x();
-			position.y = rayEnd.y();
-			position.z = rayEnd.z();
+			force = direction * speed;
 		}
 	}
 	
@@ -64,16 +73,18 @@ void Player::exec(EntityUpdate u)
 
 	// Move forward
 	if (u.input->keys[GLFW_KEY_W] == GLFW_PRESS)
-		position += direction * u.time.delta * speed;
+		force += direction * u.time.delta * speed;
 	// Move backward
 	if (u.input->keys[GLFW_KEY_S] == GLFW_PRESS)
-		position -= direction * u.time.delta * speed;
+		force -= direction * u.time.delta * speed;
 	// Strafe right
 	if (u.input->keys[GLFW_KEY_D] == GLFW_PRESS)
-		position += right * u.time.delta * speed;
+		force += right * u.time.delta * speed;
 	// Strafe left
 	if (u.input->keys[GLFW_KEY_A] == GLFW_PRESS)
-		position -= right * u.time.delta * speed;
+		force -= right * u.time.delta * speed;
+	
+	body->btBody.applyCentralImpulse(force);
 
 	float FoV = fov_initial;
 
@@ -82,8 +93,8 @@ void Player::exec(EntityUpdate u)
 	projection = Mat4::perspective(FoV, aspect, 0.1f, 1000.0f);
 	// Camera matrix
 	view       = Mat4::look_at(
-								position,           // Camera is here
-								position+direction, // and looks here : at the same position, plus "direction"
+								transform->pos,           // Camera is here
+								transform->pos+direction, // and looks here : at the same position, plus "direction"
 								up                  // Head is up (set to 0,-1,0 to look upside-down)
 						   );
 }

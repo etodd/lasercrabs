@@ -4,6 +4,7 @@
 #include "types.h"
 
 #include <btBulletDynamicsCommon.h>
+#include "data/entity.h"
 
 struct Physics : public ExecDynamic<Update>
 {
@@ -16,4 +17,14 @@ struct Physics : public ExecDynamic<Update>
     btSequentialImpulseConstraintSolver* solver;
     btDiscreteDynamicsWorld* btWorld;
     void exec(Update);
+};
+
+struct RigidBody : public ComponentType<RigidBody>
+{
+	RigidBody(btCollisionShape* shape, btRigidBody::btRigidBodyConstructionInfo);
+	btCollisionShape* btShape;
+	btRigidBody btBody;
+	void awake();
+	~RigidBody();
+	void set_kinematic();
 };

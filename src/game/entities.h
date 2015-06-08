@@ -16,7 +16,5 @@ struct Empty : public EntityType<Empty>
 struct StaticGeom : public EntityType<StaticGeom>, public ExecDynamic<EntityUpdate>
 {
 	StaticGeom(Loader*, AssetID);
-	~StaticGeom();
 	void awake();
-	virtual void exec(EntityUpdate);
 };

@@ -1,4 +1,5 @@
 #include "components.h"
+#include "physics.h"
 
 Transform::Transform()
 	: pos(Vec3::zero), rot(Quat::identity)
@@ -26,19 +27,4 @@ void Transform::setWorldTransform(const btTransform& world)
 {
 	pos = world.getOrigin();
 	rot = world.getRotation();
-}
-
-RigidBody::RigidBody(btRigidBody::btRigidBodyConstructionInfo& info)
-	: btBody(info)
-{
-
-}
-
-void RigidBody::awake()
-{
-}
-
-RigidBody::~RigidBody()
-{
-	btBody.~btRigidBody();
 }

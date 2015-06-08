@@ -3,11 +3,15 @@
 #include "data/entity.h"
 #include "lmath.h"
 
+class RigidBody;
+class Transform;
+
 struct Player : public EntityType<Player>, public ExecDynamic<EntityUpdate>
 {
-	Vec3 position; 
 	float angle_horizontal;
 	float angle_vertical;
+	Transform* transform;
+	RigidBody* body;
 	Player();
 	~Player();
 	void awake();

@@ -43,6 +43,7 @@ void update_loop(Loader* loader, RenderSync::Swapper* swapper)
 	draw.add(&Entities::all.draw);
 
 	StaticGeom* a = Entities::all.create<StaticGeom>(loader, Asset::Model::city3);
+	a->get<Transform>()->rot = Quat(PI * -0.5f, Vec3(1, 0, 0));
 
 	Player* player = Entities::all.create<Player>();
 

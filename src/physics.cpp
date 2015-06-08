@@ -32,3 +32,27 @@ Physics::~Physics()
     delete solver;
     delete btWorld;
 }
+
+RigidBody::RigidBody(btCollisionShape* shape, btRigidBody::btRigidBodyConstructionInfo cInfo)
+	: btShape(shape), btBody(cInfo)
+{
+
+}
+
+void RigidBody::awake()
+{
+	Physics::world.btWorld->addRigidBody(&btBody);
+}
+
+RigidBody::~RigidBody()
+{
+	delete btShape;
+	btBody.~btRigidBody();
+	Physics::world.btWorld->removeRigidBody(&btBody);
+}
+
+void RigidBody::set_kinematic()
+{
+	btBody.setCollisionFlags(btBody.getCollisionFlags() | btCollisionObject::CF_KINEMATIC_OBJECT);
+	btBody.setActivationState(DISABLE_DEACTIVATION);
+}

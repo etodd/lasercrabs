@@ -4,9 +4,9 @@ void View::exec(RenderParams* params)
 {
 	SyncData* sync = params->sync;
 	sync->op(RenderOp_View);
-	sync->write<Asset::ID>(&mesh);
-	sync->write<Asset::ID>(&shader);
-	sync->write<Asset::ID>(&texture);
+	sync->write<AssetID>(&mesh);
+	sync->write<AssetID>(&shader);
+	sync->write<AssetID>(&texture);
 
 	Mat4 m;
 	transform->mat(&m);
@@ -16,13 +16,18 @@ void View::exec(RenderParams* params)
 	sync->write<Mat4>(&params->view);
 }
 
-void View::awake(Entities* e)
+void View::awake()
 {
-	e->system<ViewSys>()->add(this);
+	Entities::all.system<ViewSys>()->add(this);
 	transform = entity->get<Transform>();
 }
 
-ViewSys::ViewSys(Entities* e)
+View::~View()
 {
-	e->draw.add(this);
+	Entities::all.system<ViewSys>()->remove(this);
+}
+
+ViewSys::ViewSys()
+{
+	Entities::all.draw.add(this);
 }

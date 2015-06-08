@@ -3,6 +3,8 @@
 #include <cstddef>
 #include <math.h>
 #include <cstring>
+#include "LinearMath/btVector3.h"
+#include "LinearMath/btQuaternion.h"
 
 #define PI 3.1415926535897f
 #define HALF_PI (3.1415926535897f * 0.5f)
@@ -286,6 +288,13 @@ struct Vec3
 		: x(fX), y(fY), z(fZ)
 	{
 	}
+
+	inline Vec3(btVector3 v)
+		: x(v.getX()), y(v.getY()), z(v.getZ())
+	{
+	}
+
+	operator btVector3() const { return btVector3(x, y, z); }
 
 	inline explicit Vec3(const float afCoordinate[3])
 		: x(afCoordinate[0]),
@@ -886,7 +895,7 @@ struct Plane
 
 struct Mat3
 {
-	/// Indexed by [row][col].
+	/// Indexed by [col][row].
 	float m[3][3];
 
 	static const Mat3 zero;
@@ -1002,6 +1011,13 @@ struct Quat
 
 	inline Quat()
 		: w(1), x(0), y(0), z(0)
+	{
+	}
+
+	operator btQuaternion() const { return btQuaternion(x, y, z, w); }
+
+	inline Quat(const btQuaternion& q)
+		: w(q.getW()), x(q.getX()), y(q.getY()), z(q.getZ())
 	{
 	}
 
@@ -1157,14 +1173,14 @@ struct Mat4
 		operator=(m3x3);
 	}
 
-	inline float* operator [] (size_t iRow)
+	inline float* operator [] (size_t column)
 	{
-		return m[iRow];
+		return m[column];
 	}
 
-	inline const float* operator [] (size_t iRow) const
+	inline const float* operator [] (size_t column) const
 	{
-		return m[iRow];
+		return m[column];
 	}
 
 	inline Mat4 concatenate(const Mat4 &m2) const
@@ -1347,28 +1363,28 @@ struct Mat4
 	
 	inline void make_translate(const Vec3& v)
 	{
-		m[0][0] = 1.0; m[0][1] = 0.0; m[0][2] = 0.0; m[0][3] = v.x;
-		m[1][0] = 0.0; m[1][1] = 1.0; m[1][2] = 0.0; m[1][3] = v.y;
-		m[2][0] = 0.0; m[2][1] = 0.0; m[2][2] = 1.0; m[2][3] = v.z;
-		m[3][0] = 0.0; m[3][1] = 0.0; m[3][2] = 0.0; m[3][3] = 1.0;
+		m[0][0] = 1.0; m[1][0] = 0.0; m[2][0] = 0.0; m[3][0] = v.x;
+		m[0][1] = 0.0; m[1][1] = 1.0; m[2][1] = 0.0; m[3][1] = v.y;
+		m[0][2] = 0.0; m[1][2] = 0.0; m[2][2] = 1.0; m[3][2] = v.z;
+		m[0][3] = 0.0; m[1][3] = 0.0; m[2][3] = 0.0; m[3][3] = 1.0;
 	}
 
 	inline void make_translate(float tx, float ty, float tz)
 	{
-		m[0][0] = 1.0; m[0][1] = 0.0; m[0][2] = 0.0; m[0][3] = tx;
-		m[1][0] = 0.0; m[1][1] = 1.0; m[1][2] = 0.0; m[1][3] = ty;
-		m[2][0] = 0.0; m[2][1] = 0.0; m[2][2] = 1.0; m[2][3] = tz;
-		m[3][0] = 0.0; m[3][1] = 0.0; m[3][2] = 0.0; m[3][3] = 1.0;
+		m[0][0] = 1.0; m[1][0] = 0.0; m[2][0] = 0.0; m[3][0] = tx;
+		m[0][1] = 0.0; m[1][1] = 1.0; m[2][1] = 0.0; m[3][1] = ty;
+		m[0][2] = 0.0; m[1][2] = 0.0; m[2][2] = 1.0; m[3][2] = tz;
+		m[0][3] = 0.0; m[1][3] = 0.0; m[2][3] = 0.0; m[3][3] = 1.0;
 	}
 
 	inline static Mat4 make_translation(const Vec3& v)
 	{
 		Mat4 r;
 
-		r.m[0][0] = 1.0; r.m[0][1] = 0.0; r.m[0][2] = 0.0; r.m[0][3] = v.x;
-		r.m[1][0] = 0.0; r.m[1][1] = 1.0; r.m[1][2] = 0.0; r.m[1][3] = v.y;
-		r.m[2][0] = 0.0; r.m[2][1] = 0.0; r.m[2][2] = 1.0; r.m[2][3] = v.z;
-		r.m[3][0] = 0.0; r.m[3][1] = 0.0; r.m[3][2] = 0.0; r.m[3][3] = 1.0;
+		r.m[0][0] = 1.0; r.m[1][0] = 0.0; r.m[2][0] = 0.0; r.m[3][0] = v.x;
+		r.m[0][1] = 0.0; r.m[1][1] = 1.0; r.m[2][1] = 0.0; r.m[3][1] = v.y;
+		r.m[0][2] = 0.0; r.m[1][2] = 0.0; r.m[2][2] = 1.0; r.m[3][2] = v.z;
+		r.m[0][3] = 0.0; r.m[1][3] = 0.0; r.m[2][3] = 0.0; r.m[3][3] = 1.0;
 
 		return r;
 	}
@@ -1377,28 +1393,28 @@ struct Mat4
 	{
 		Mat4 r;
 
-		r.m[0][0] = 1.0; r.m[0][1] = 0.0; r.m[0][2] = 0.0; r.m[0][3] = t_x;
-		r.m[1][0] = 0.0; r.m[1][1] = 1.0; r.m[1][2] = 0.0; r.m[1][3] = t_y;
-		r.m[2][0] = 0.0; r.m[2][1] = 0.0; r.m[2][2] = 1.0; r.m[2][3] = t_z;
-		r.m[3][0] = 0.0; r.m[3][1] = 0.0; r.m[3][2] = 0.0; r.m[3][3] = 1.0;
+		r.m[0][0] = 1.0; r.m[1][0] = 0.0; r.m[2][0] = 0.0; r.m[3][0] = t_x;
+		r.m[0][1] = 0.0; r.m[1][1] = 1.0; r.m[2][1] = 0.0; r.m[3][1] = t_y;
+		r.m[0][2] = 0.0; r.m[1][2] = 0.0; r.m[2][2] = 1.0; r.m[3][2] = t_z;
+		r.m[0][3] = 0.0; r.m[1][3] = 0.0; r.m[2][3] = 0.0; r.m[3][3] = 1.0;
 
 		return r;
 	}
 
 	inline void scale(const Vec3& v)
 	{
-		m[0][0] *= v.x; m[0][1] *= v.y; m[0][2] *= v.z;
-		m[1][0] *= v.x; m[1][1] *= v.y; m[1][2] *= v.z;
-		m[2][0] *= v.x; m[2][1] *= v.y; m[2][2] *= v.z;
+		m[0][0] *= v.x; m[1][0] *= v.y; m[2][0] *= v.z;
+		m[0][1] *= v.x; m[1][1] *= v.y; m[2][1] *= v.z;
+		m[0][2] *= v.x; m[1][2] *= v.y; m[2][2] *= v.z;
 	}
 
 	inline static Mat4 make_scale(const Vec3& v)
 	{
 		Mat4 r;
-		r.m[0][0] = v.x; r.m[0][1] = 0.0; r.m[0][2] = 0.0; r.m[0][3] = 0.0;
-		r.m[1][0] = 0.0; r.m[1][1] = v.y; r.m[1][2] = 0.0; r.m[1][3] = 0.0;
-		r.m[2][0] = 0.0; r.m[2][1] = 0.0; r.m[2][2] = v.z; r.m[2][3] = 0.0;
-		r.m[3][0] = 0.0; r.m[3][1] = 0.0; r.m[3][2] = 0.0; r.m[3][3] = 1.0;
+		r.m[0][0] = v.x; r.m[1][0] = 0.0; r.m[2][0] = 0.0; r.m[3][0] = 0.0;
+		r.m[0][1] = 0.0; r.m[1][1] = v.y; r.m[2][1] = 0.0; r.m[3][1] = 0.0;
+		r.m[0][2] = 0.0; r.m[1][2] = 0.0; r.m[2][2] = v.z; r.m[3][2] = 0.0;
+		r.m[0][3] = 0.0; r.m[1][3] = 0.0; r.m[2][3] = 0.0; r.m[3][3] = 1.0;
 
 		return r;
 	}
@@ -1406,10 +1422,10 @@ struct Mat4
 	inline static Mat4 make_scale(float s_x, float s_y, float s_z)
 	{
 		Mat4 r;
-		r.m[0][0] = s_x; r.m[0][1] = 0.0; r.m[0][2] = 0.0; r.m[0][3] = 0.0;
-		r.m[1][0] = 0.0; r.m[1][1] = s_y; r.m[1][2] = 0.0; r.m[1][3] = 0.0;
-		r.m[2][0] = 0.0; r.m[2][1] = 0.0; r.m[2][2] = s_z; r.m[2][3] = 0.0;
-		r.m[3][0] = 0.0; r.m[3][1] = 0.0; r.m[3][2] = 0.0; r.m[3][3] = 1.0;
+		r.m[0][0] = s_x; r.m[1][0] = 0.0; r.m[2][0] = 0.0; r.m[3][0] = 0.0;
+		r.m[0][1] = 0.0; r.m[1][1] = s_y; r.m[2][1] = 0.0; r.m[3][1] = 0.0;
+		r.m[0][2] = 0.0; r.m[1][2] = 0.0; r.m[2][2] = s_z; r.m[3][2] = 0.0;
+		r.m[0][3] = 0.0; r.m[1][3] = 0.0; r.m[2][3] = 0.0; r.m[3][3] = 1.0;
 
 		return r;
 	}
@@ -1425,7 +1441,6 @@ struct Mat4
 		m3x3.m[2][0] = m[2][0];
 		m3x3.m[2][1] = m[2][1];
 		m3x3.m[2][2] = m[2][2];
-
 	}
 
 	inline Quat extract_quat() const

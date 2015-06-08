@@ -15,72 +15,18 @@
 GLFWwindow* window;
 
 #include "render/view.h"
-#include "controls.h"
 #include "load.h"
 #include "data/array.h"
 #include "data/entity.h"
+#include "data/components.h"
 #include "data/mesh.h"
 #include "exec.h"
 #include "physics.h"
 #include "render/render.h"
 #include "asset.h"
 
-struct Empty : public Entity
-{
-	Empty(Entities* e)
-	{
-		e->component<Transform>(this);
-	}
-	void awake(Entities* e) {}
-};
-
-struct StaticGeom : public Entity
-{
-	StaticGeom(Entities* e, Loader* loader, Physics* physics, Asset::ID id)
-	{
-		e->component<Transform>(this);
-		View* model = e->component<View>(this);
-
-		model->mesh = loader->mesh(Asset::Model::city3);
-		model->shader = loader->shader(Asset::Shader::Standard);
-		model->texture = loader->texture(Asset::Texture::test);
-
-		btBvhTriangleMeshShape* btMesh;
-
-		Mesh* mesh = &loader->meshes[loader->mesh(model->mesh)].data;
-		if (!mesh)
-		{
-			fprintf(stderr, "Error loading mesh!");
-			return;
-		}
-
-		btMesh = new btBvhTriangleMeshShape(&mesh->physics, true, btVector3(-1000, -1000, -1000), btVector3(1000, 1000, 1000));
-
-		btTransform startTransform;
-		startTransform.setIdentity();
-		btDefaultMotionState* myMotionState = new btDefaultMotionState(startTransform);
-		btRigidBody::btRigidBodyConstructionInfo cInfo(0.0f, myMotionState, btMesh, btVector3(0, 0, 0));
-		btRigidBody* body = new btRigidBody(cInfo);
-		body->setContactProcessingThreshold(BT_LARGE_FLOAT);
-		physics->world->addRigidBody(body);
-	}
-
-	void awake(Entities* e)
-	{
-	}
-
-	~StaticGeom()
-	{
-		/*
-		delete btMesh;
-		delete myMotionState;
-		physics->world->removeRigidBody(body);
-		delete body;
-		*/
-	}
-};
-
-#include <BulletCollision/CollisionShapes/btBvhTriangleMeshShape.h>
+#include "game/entities.h"
+#include "game/player.h"
 
 void resize(GLFWwindow* window, int width, int height)
 {
@@ -89,24 +35,16 @@ void resize(GLFWwindow* window, int width, int height)
 
 void update_loop(Loader* loader, RenderSync::Swapper* swapper)
 {
-	Entities e;
-
-	Physics physics;
-
 	ExecSystemDynamic<Update> update;
 	ExecSystemDynamic<RenderParams*> draw;
 
-	Controls controls;
-	controls.world = physics.world;
+	update.add(&Entities::all);
+	update.add(&Physics::world);
+	draw.add(&Entities::all.draw);
 
-	update.add(&controls);
-	update.add(&e);
-	update.add(&physics);
-	draw.add(&e.draw);
+	StaticGeom* a = Entities::all.create<StaticGeom>(loader, Asset::Model::city3);
 
-	StaticGeom* a = e.create<StaticGeom>(loader, &physics, Asset::Model::city3);
-
-	Transform* t = a->get<Transform>();
+	Player* player = Entities::all.create<Player>();
 
 	RenderParams render_params;
 
@@ -122,8 +60,8 @@ void update_loop(Loader* loader, RenderSync::Swapper* swapper)
 
 		render_params.sync = sync;
 
-		render_params.projection = controls.projection;
-		render_params.view = controls.view;
+		render_params.projection = player->projection;
+		render_params.view = player->view;
 
 		sync->op(RenderOp_Clear);
 		

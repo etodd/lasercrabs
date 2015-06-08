@@ -32,7 +32,7 @@ void render(SyncData* sync, GLData* data)
 		{
 			case RenderOp_LoadMesh:
 			{
-				Asset::ID id = *(sync->read<Asset::ID>());
+				AssetID id = *(sync->read<AssetID>());
 				size_t vertex_count = *(sync->read<size_t>());
 				Vec3* vertices = sync->read<Vec3>(vertex_count);
 				Vec2* uvs = sync->read<Vec2>(vertex_count);
@@ -59,7 +59,7 @@ void render(SyncData* sync, GLData* data)
 			}
 			case RenderOp_UnloadMesh:
 			{
-				Asset::ID id = *(sync->read<Asset::ID>());
+				AssetID id = *(sync->read<AssetID>());
 				GLData::Mesh* mesh = &data->meshes[id];
 				for (size_t i = 0; i < mesh->attribs.length; i++)
 					glDeleteBuffers(1, &mesh->attribs.data[i].handle);
@@ -69,7 +69,7 @@ void render(SyncData* sync, GLData* data)
 			}
 			case RenderOp_LoadTexture:
 			{
-				Asset::ID id = *(sync->read<Asset::ID>());
+				AssetID id = *(sync->read<AssetID>());
 				unsigned width = *(sync->read<unsigned>());
 				unsigned height = *(sync->read<unsigned>());
 				unsigned char* buffer = sync->read<unsigned char>(4 * width * height);
@@ -94,13 +94,13 @@ void render(SyncData* sync, GLData* data)
 			}
 			case RenderOp_UnloadTexture:
 			{
-				Asset::ID id = *(sync->read<Asset::ID>());
+				AssetID id = *(sync->read<AssetID>());
 				glDeleteTextures(1, &data->textures[id]);
 				break;
 			}
 			case RenderOp_LoadShader:
 			{
-				Asset::ID id = *(sync->read<Asset::ID>());
+				AssetID id = *(sync->read<AssetID>());
 				const char* path = Asset::Shader::filenames[id];
 				size_t code_length = *(sync->read<size_t>());
 				char* code = sync->read<char>(code_length);
@@ -167,7 +167,7 @@ void render(SyncData* sync, GLData* data)
 			}
 			case RenderOp_UnloadShader:
 			{
-				Asset::ID id = *(sync->read<Asset::ID>());
+				AssetID id = *(sync->read<AssetID>());
 				glDeleteProgram(data->shaders[id]);
 				break;
 			}
@@ -180,10 +180,10 @@ void render(SyncData* sync, GLData* data)
 			}
 			case RenderOp_View:
 			{
-				Asset::ID id = *(sync->read<Asset::ID>());
+				AssetID id = *(sync->read<AssetID>());
 				GLData::Mesh* gl = &data->meshes[id];
-				Asset::ID shader_asset = *(sync->read<Asset::ID>());
-				Asset::ID texture_asset = *(sync->read<Asset::ID>());
+				AssetID shader_asset = *(sync->read<AssetID>());
+				AssetID texture_asset = *(sync->read<AssetID>());
 				Mat4* MVP = sync->read<Mat4>();
 				Mat4* ModelMatrix = sync->read<Mat4>();
 				Mat4* ViewMatrix = sync->read<Mat4>();

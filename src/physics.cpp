@@ -1,5 +1,7 @@
 #include "physics.h"
 
+Physics Physics::world = Physics();
+
 Physics::Physics()
 {
 	// Build the broadphase
@@ -13,13 +15,13 @@ Physics::Physics()
     solver = new btSequentialImpulseConstraintSolver;
 
     // The world.
-    world = new btDiscreteDynamicsWorld(dispatcher, broadphase, solver, collision_config);
-    world->setGravity(btVector3(0, -9.8, 0));
+    btWorld = new btDiscreteDynamicsWorld(dispatcher, broadphase, solver, collision_config);
+    btWorld->setGravity(btVector3(0, -9.8, 0));
 }
 
 void Physics::exec(Update u)
 {
-	world->stepSimulation(u.time.delta, 10);
+	btWorld->stepSimulation(u.time.delta, 10);
 }
 
 Physics::~Physics()
@@ -28,5 +30,5 @@ Physics::~Physics()
     delete collision_config;
     delete dispatcher;
     delete solver;
-    delete world;
+    delete btWorld;
 }

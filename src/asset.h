@@ -1,11 +1,10 @@
 #pragma once
 
-#include <cstdlib>
+#include "types.h"
 
-#define ASSET(x, y) static const ID x = { y };
+#define ASSET(x, y) static const AssetID x = { y };
 struct Asset
 {
-	typedef size_t ID;
 	struct Model
 	{
 		static const size_t count = 2;

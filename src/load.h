@@ -3,8 +3,8 @@
 #include "types.h"
 #include <GL/glew.h>
 #include "data/mesh.h"
-#include "asset.h"
 #include "render/render.h"
+#include "asset.h"
 
 struct Loader
 {
@@ -29,14 +29,14 @@ struct Loader
 
 	Loader(RenderSync::Swapper*);
 
-	Asset::ID mesh(Asset::ID);
-	Asset::ID mesh_permanent(Asset::ID);
-	void unload_mesh(Asset::ID);
-	Asset::ID texture(Asset::ID);
-	Asset::ID texture_permanent(Asset::ID);
-	void unload_texture(Asset::ID);
-	Asset::ID shader(Asset::ID);
-	Asset::ID shader_permanent(Asset::ID);
-	void unload_shader(Asset::ID);
+	AssetID mesh(AssetID);
+	AssetID mesh_permanent(AssetID);
+	void unload_mesh(AssetID);
+	AssetID texture(AssetID);
+	AssetID texture_permanent(AssetID);
+	void unload_texture(AssetID);
+	AssetID shader(AssetID);
+	AssetID shader_permanent(AssetID);
+	void unload_shader(AssetID);
 	void unload_transients();
 };

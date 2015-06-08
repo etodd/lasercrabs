@@ -1,18 +1,26 @@
+#include "player.h"
 #include <GLFW/glfw3.h>
+#include "physics.h"
 
-#include "controls.h"
+#define fov_initial PI * 0.25f
+#define speed 10.0f
+#define speed_mouse 0.0025f
 
-Controls::Controls()
+Player::Player()
 {
-	position = { 0, 0, 5 }; 
-	angle_horizontal = 3.14f;
-	angle_vertical = 0.0f;
-	fov_initial = PI * 0.25f;
-	speed = 10.0f; // 3 units / second
-	speed_mouse = 0.0025f;
 }
 
-void Controls::exec(Update u)
+void Player::awake()
+{
+	Entities::all.update.add(this);
+}
+
+Player::~Player()
+{
+	Entities::all.update.remove(this);
+}
+
+void Player::exec(EntityUpdate u)
 {
 	// Compute new orientation
 	angle_horizontal += speed_mouse * float(1024/2 - u.input->cursor_x );
@@ -33,7 +41,7 @@ void Controls::exec(Update u)
 		btCollisionWorld::ClosestRayResultCallback rayCallback(rayStart, rayEnd);
 
 		// Perform raycast
-		world->rayTest(rayStart, rayEnd, rayCallback);
+		Physics::world.btWorld->rayTest(rayStart, rayEnd, rayCallback);
 
 		if (rayCallback.hasHit())
 		{
@@ -69,7 +77,7 @@ void Controls::exec(Update u)
 
 	float FoV = fov_initial;
 
-	// Projection matrix : 45° Field of View, 4:3 ratio, display range : 0.1 unit <-> 100 units
+	// Projection matrix : 45Â° Field of View, 4:3 ratio, display range : 0.1 unit <-> 100 units
 	float aspect = u.input->height == 0 ? 1 : (float)u.input->width / (float)u.input->height;
 	projection = Mat4::perspective(FoV, aspect, 0.1f, 1000.0f);
 	// Camera matrix

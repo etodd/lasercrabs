@@ -936,9 +936,9 @@ void Quat::from_rotation_matrix(const Mat3& kRot)
 		fRoot = sqrt(fTrace + 1.0f);  // 2w
 		w = 0.5f*fRoot;
 		fRoot = 0.5f/fRoot;  // 1/(4w)
-		x = (kRot[2][1]-kRot[1][2])*fRoot;
-		y = (kRot[0][2]-kRot[2][0])*fRoot;
-		z = (kRot[1][0]-kRot[0][1])*fRoot;
+		x = (kRot[1][2]-kRot[2][1])*fRoot;
+		y = (kRot[2][0]-kRot[0][2])*fRoot;
+		z = (kRot[0][1]-kRot[1][0])*fRoot;
 	}
 	else
 	{
@@ -956,9 +956,9 @@ void Quat::from_rotation_matrix(const Mat3& kRot)
 		float* apkQuat[3] = { &x, &y, &z };
 		*apkQuat[i] = 0.5f*fRoot;
 		fRoot = 0.5f/fRoot;
-		w = (kRot[k][j]-kRot[j][k])*fRoot;
-		*apkQuat[j] = (kRot[j][i]+kRot[i][j])*fRoot;
-		*apkQuat[k] = (kRot[k][i]+kRot[i][k])*fRoot;
+		w = (kRot[j][k]-kRot[k][j])*fRoot;
+		*apkQuat[j] = (kRot[i][j]+kRot[j][i])*fRoot;
+		*apkQuat[k] = (kRot[i][k]+kRot[k][i])*fRoot;
 	}
 }
 
@@ -978,13 +978,13 @@ void Quat::to_rotation_matrix(Mat3& kRot) const
 	float fTzz = fTz*z;
 
 	kRot[0][0] = 1.0f-(fTyy+fTzz);
-	kRot[0][1] = fTxy-fTwz;
-	kRot[0][2] = fTxz+fTwy;
-	kRot[1][0] = fTxy+fTwz;
+	kRot[1][0] = fTxy-fTwz;
+	kRot[2][0] = fTxz+fTwy;
+	kRot[0][1] = fTxy+fTwz;
 	kRot[1][1] = 1.0f-(fTxx+fTzz);
-	kRot[1][2] = fTyz-fTwx;
-	kRot[2][0] = fTxz-fTwy;
-	kRot[2][1] = fTyz+fTwx;
+	kRot[2][1] = fTyz-fTwx;
+	kRot[0][2] = fTxz-fTwy;
+	kRot[1][2] = fTyz+fTwx;
 	kRot[2][2] = 1.0f-(fTxx+fTyy);
 }
 

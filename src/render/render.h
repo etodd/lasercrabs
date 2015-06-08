@@ -5,8 +5,8 @@
 #include "types.h"
 #include "data/array.h"
 #include "lmath.h"
-#include "asset.h"
 #include "sync.h"
+#include "asset.h"
 
 struct RenderSync;
 

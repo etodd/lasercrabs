@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cstdlib>
+
 struct GameTime
 {
 	float total;
@@ -21,3 +23,5 @@ struct Update
 	InputState* input;
 	GameTime time;
 };
+
+typedef size_t AssetID;

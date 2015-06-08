@@ -1,25 +1,26 @@
 #pragma once
 
 #include "data/entity.h"
+#include "data/components.h"
 #include "exec.h"
 #include "render.h"
-#include "asset.h"
 
 struct View : public ComponentType<View>, ExecStatic<View, RenderParams*>
 {
-	Asset::ID mesh;
-	Asset::ID shader;
-	Asset::ID texture;
+	AssetID mesh;
+	AssetID shader;
+	AssetID texture;
 	Transform* transform;
 	void exec(RenderParams*);
-	void awake(Entities*);
+	void awake();
 	View()
 		: mesh(), shader(), texture()
 	{
 	}
+	~View();
 };
 
 struct ViewSys : View::System, ExecSystemStatic<View, RenderParams*>
 {
-	ViewSys(Entities*);
+	ViewSys();
 };

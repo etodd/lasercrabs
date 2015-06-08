@@ -137,10 +137,16 @@ add_executable(mkzebra
 	src/data/mesh.h
 	src/data/entity.h
 	src/data/entity.cpp
+	src/data/components.h
+	src/data/components.cpp
 	src/render/render.h
 	src/render/view.h
 	src/render/render.cpp
 	src/render/view.cpp
+	src/game/entities.h
+	src/game/entities.cpp
+	src/game/player.h
+	src/game/player.cpp
 	src/asset.h
 	src/sync.h
 	src/types.h
@@ -149,8 +155,6 @@ add_executable(mkzebra
 	src/lmath.h
 	src/load.h
 	src/exec.h
-	src/controls.h
-	src/controls.cpp
 	src/load.cpp
 	src/physics.cpp
 	src/asset.cpp

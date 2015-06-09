@@ -26,17 +26,18 @@ void Physics::exec(Update u)
 
 Physics::~Physics()
 {
+	/*
     delete broadphase;
     delete collision_config;
     delete dispatcher;
     delete solver;
     delete btWorld;
+	*/
 }
 
-RigidBody::RigidBody(btCollisionShape* shape, btRigidBody::btRigidBodyConstructionInfo cInfo)
-	: btShape(shape), btBody(cInfo)
+RigidBody::RigidBody(float mass, btMotionState* motion_state, btCollisionShape* shape)
+	: btShape(shape), btBody(0.0f, motion_state, shape, btVector3(0, 0, 0))
 {
-
 }
 
 void RigidBody::awake()
@@ -47,9 +48,9 @@ void RigidBody::awake()
 
 RigidBody::~RigidBody()
 {
+	Physics::world.btWorld->removeRigidBody(&btBody);
 	delete btShape;
 	btBody.~btRigidBody();
-	Physics::world.btWorld->removeRigidBody(&btBody);
 }
 
 void RigidBody::set_kinematic()

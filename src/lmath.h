@@ -289,7 +289,7 @@ struct Vec3
 	{
 	}
 
-	inline Vec3(btVector3 v)
+	inline Vec3(const btVector3& v)
 		: x(v.getX()), y(v.getY()), z(v.getZ())
 	{
 	}

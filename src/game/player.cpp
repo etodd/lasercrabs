@@ -9,10 +9,10 @@
 #define speed_mouse 0.0025f
 
 Player::Player()
-	: velocity()
+	: velocity(), angle_horizontal(), angle_vertical(), view(), projection()
 {
 	Transform* transform = Entities::all.component<Transform>(this);
-	transform->pos = Vec3(0, 100, 0);
+	transform->pos = Vec3(0, 10, 0);
 }
 
 void Player::awake()
@@ -28,10 +28,13 @@ Player::~Player()
 void Player::exec(EntityUpdate u)
 {
 	// Compute new orientation
-	angle_horizontal += speed_mouse * float(1024/2 - u.input->cursor_x );
-	angle_vertical   += speed_mouse * float( 768/2 - u.input->cursor_y );
+	angle_horizontal += speed_mouse * ((u.input->width / 2) - (float)u.input->cursor_x);
+	angle_vertical += speed_mouse * ((u.input->height / 2) - (float)u.input->cursor_y);
 
-	angle_vertical = fmin(fmax(angle_vertical, PI * -0.495f), PI * 0.495f);
+	if (angle_vertical < PI * -0.495f)
+		angle_vertical = PI * -0.495f;
+	if (angle_vertical > PI * 0.495f)
+		angle_vertical = PI * 0.495f;
 
 	// Direction : Spherical coordinates to Cartesian coordinates conversion
 	Vec3 direction = Vec3(

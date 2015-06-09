@@ -14,7 +14,7 @@ StaticGeom::StaticGeom(Loader* loader, AssetID id)
 
 	btBvhTriangleMeshShape* btMesh = new btBvhTriangleMeshShape(&mesh->physics, true, btVector3(-1000, -1000, -1000), btVector3(1000, 1000, 1000));
 	
-	RigidBody* body = Entities::all.component<RigidBody>(this, btMesh, btRigidBody::btRigidBodyConstructionInfo(0.0f, transform, btMesh, btVector3(0, 0, 0)));
+	RigidBody* body = Entities::all.component<RigidBody>(this, 0.0f, transform, btMesh);
 	body->set_kinematic();
 }
 

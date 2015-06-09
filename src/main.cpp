@@ -75,7 +75,15 @@ void update_loop(Loader* loader, RenderSync::Swapper* swapper)
 	}
 }
 
+#if WIN32 && !_CONSOLE
+int CALLBACK WinMain(
+	__in  HINSTANCE hInstance,
+	__in  HINSTANCE hPrevInstance,
+	__in  LPSTR lpCmdLine,
+	__in  int nCmdShow)
+#else
 int main()
+#endif
 {
 	// Initialise GLFW
 	if (!glfwInit())
@@ -111,7 +119,7 @@ int main()
 
 	// Ensure we can capture the escape key being pressed below
 	glfwSetInputMode(window, GLFW_STICKY_KEYS, GL_TRUE);
-	glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+	glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_HIDDEN);
 
 	// Dark blue background
 	glClearColor(0.0f, 0.0f, 0.4f, 0.0f);
@@ -152,13 +160,14 @@ int main()
 		_GLFWwindow* _window = (_GLFWwindow*)window;
 		memcpy(sync->input.keys, _window->keys, sizeof(sync->input.keys));
 
+		glfwGetFramebufferSize(window, &sync->input.width, &sync->input.height);
+
 		glfwGetCursorPos(window, &sync->input.cursor_x, &sync->input.cursor_y);
-		glfwSetCursorPos(window, 1024/2, 768/2);
+		glfwSetCursorPos(window, sync->input.width / 2, sync->input.height / 2);
 		sync->input.mouse = glfwGetMouseButton(window, 0);
 		sync->time.total = glfwGetTime();
 		sync->time.delta = sync->time.total - lastTime;
 		lastTime = sync->time.total;
-		glfwGetFramebufferSize(window, &sync->input.width, &sync->input.height);
 
 		sync = render_swapper.swap<SwapType_Read>();
 

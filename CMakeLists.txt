@@ -162,6 +162,14 @@ add_executable(mkzebra
 	src/main.cpp
 )
 
+if(WIN32)
+	set_target_properties(mkzebra PROPERTIES LINK_FLAGS_DEBUG "/SUBSYSTEM:CONSOLE")
+	set_target_properties(mkzebra PROPERTIES COMPILE_DEFINITIONS_DEBUG "_CONSOLE")
+	set_target_properties(mkzebra PROPERTIES LINK_FLAGS_RELWITHDEBINFO "/SUBSYSTEM:windows")
+	set_target_properties(mkzebra PROPERTIES LINK_FLAGS_RELEASE "/SUBSYSTEM:windows")
+	set_target_properties(mkzebra PROPERTIES LINK_FLAGS_MINSIZEREL "/SUBSYSTEM:windows")
+endif(WIN32)
+
 ## Libraries
 
 target_link_libraries(mkzebra

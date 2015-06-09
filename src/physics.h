@@ -21,7 +21,7 @@ struct Physics : public ExecDynamic<Update>
 
 struct RigidBody : public ComponentType<RigidBody>
 {
-	RigidBody(btCollisionShape* shape, btRigidBody::btRigidBodyConstructionInfo);
+	RigidBody(float, btMotionState*, btCollisionShape*);
 	btCollisionShape* btShape;
 	btRigidBody btBody;
 	void awake();

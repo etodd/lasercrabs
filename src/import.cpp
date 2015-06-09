@@ -54,12 +54,20 @@ bool load_model(const char* path, Mesh* out)
 	}
 
 	// Fill vertices normals
-	out->normals.reserve(mesh->mNumVertices);
-	for (unsigned int i = 0; i < mesh->mNumVertices; i++)
+	if (mesh->mNormals)
 	{
-		aiVector3D n = mesh->mNormals[i];
-		Vec3 v = rot * Vec3(n.x, n.y, n.z);
-		out->normals.add(v);
+		out->normals.reserve(mesh->mNumVertices);
+		for (unsigned int i = 0; i < mesh->mNumVertices; i++)
+		{
+			aiVector3D n = mesh->mNormals[i];
+			Vec3 v = rot * Vec3(n.x, n.y, n.z);
+			out->normals.add(v);
+		}
+	}
+	else
+	{
+		fprintf(stderr, "Error: %s has no normals.\n", path);
+		return false;
 	}
 
 	// Fill face indices
@@ -108,27 +116,28 @@ int main(int argc, char* argv[])
 
 		printf("Importing %s...\n", path);
 
-		load_model(path, &mesh);
-
-		printf("Indices: %lu Vertices: %lu\n", mesh.indices.length, mesh.vertices.length);
-		
-		strcpy(path + path_length - strlen(in_extension), out_extension);
-
-		printf("Exporting %s...\n", path);
-
-		FILE* f = fopen(path, "w+b");
-		if (f)
+		if (load_model(path, &mesh))
 		{
-			fwrite(&mesh.indices.length, sizeof(int), 1, f);
-			fwrite(mesh.indices.data, sizeof(int), mesh.indices.length, f);
-			fwrite(&mesh.vertices.length, sizeof(int), 1, f);
-			fwrite(mesh.vertices.data, sizeof(Vec3), mesh.vertices.length, f);
-			fwrite(mesh.uvs.data, sizeof(Vec2), mesh.vertices.length, f);
-			fwrite(mesh.normals.data, sizeof(Vec3), mesh.vertices.length, f);
-			fclose(f);
+			printf("Indices: %lu Vertices: %lu\n", mesh.indices.length, mesh.vertices.length);
+
+			strcpy(path + path_length - strlen(in_extension), out_extension);
+
+			printf("Exporting %s...\n", path);
+
+			FILE* f = fopen(path, "w+b");
+			if (f)
+			{
+				fwrite(&mesh.indices.length, sizeof(int), 1, f);
+				fwrite(mesh.indices.data, sizeof(int), mesh.indices.length, f);
+				fwrite(&mesh.vertices.length, sizeof(int), 1, f);
+				fwrite(mesh.vertices.data, sizeof(Vec3), mesh.vertices.length, f);
+				fwrite(mesh.uvs.data, sizeof(Vec2), mesh.vertices.length, f);
+				fwrite(mesh.normals.data, sizeof(Vec3), mesh.vertices.length, f);
+				fclose(f);
+			}
+			else
+				fprintf(stderr, "Warning: failed to open %s for writing.\n", path);
 		}
-		else
-			fprintf(stderr, "Warning: failed to open %s for writing.\n", path);
 	}
 	return 0;
 }

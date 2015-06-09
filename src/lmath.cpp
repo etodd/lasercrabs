@@ -1302,13 +1302,40 @@ Quat Quat::euler(float pitch, float yaw, float roll)
 	);
 }
 
-Quat Quat::slerp(float fT, const Quat& rkP, const Quat& rkQ, bool shortestPath)
+float Quat::angle(const Quat& a, const Quat& b)
+{
+	Quat c = a.inverse() * b;
+	float angle;
+	Vec3 axis;
+	c.to_angle_axis(angle, axis);
+	return angle;
+}
+
+Quat Quat::look(const Vec3& dir)
+{
+	float dot = Vec3(0, 0, 1).dot(dir);
+
+    if (fabs(dot + 1.0f) < 0.000001f)
+        return Quat(0, 1, 0, PI);
+    if (fabs(dot - 1.0f) < 0.000001f)
+		return Quat::identity;
+
+    float angle = acosf(dot);
+    Vec3 axis = Vec3(0, 0, 1).cross(dir);
+	axis.normalize();
+
+	Quat result;
+    result.from_angle_axis(angle, axis);
+	return result;
+}
+
+Quat Quat::slerp(float fT, const Quat& rkP, const Quat& rkQ)
 {
 	float fCos = rkP.dot(rkQ);
 	Quat rkT;
 
 	// Do we need to invert rotation?
-	if (fCos < 0.0f && shortestPath)
+	if (fCos < 0.0f)
 	{
 		fCos = -fCos;
 		rkT = -rkQ;
@@ -1374,10 +1401,10 @@ void Quat::intermediate(const Quat& rkQ0, const Quat& rkQ1, const Quat& rkQ2, Qu
 	rkB = rkQ1*kMinusArg.exp();
 }
 
-Quat Quat::squad(float fT, const Quat& rkP, const Quat& rkA, const Quat& rkB, const Quat& rkQ, bool shortestPath)
+Quat Quat::squad(float fT, const Quat& rkP, const Quat& rkA, const Quat& rkB, const Quat& rkQ)
 {
 	float fSlerpT = 2.0f*fT*(1.0f-fT);
-	Quat kSlerpP = slerp(fT, rkP, rkQ, shortestPath);
+	Quat kSlerpP = slerp(fT, rkP, rkQ);
 	Quat kSlerpQ = slerp(fT, rkA, rkB);
 	return slerp(fSlerpT, kSlerpP ,kSlerpQ);
 }
@@ -1388,6 +1415,13 @@ float Quat::normalize(void)
 	float factor = 1.0f / sqrt(len);
 	*this = *this * factor;
 	return len;
+}
+
+Quat Quat::normalize(const Quat& q)
+{
+	float len = q.length();
+	float factor = 1.0f / sqrt(len);
+	return q * factor;
 }
 
 Quat Quat::nlerp(float fT, const Quat& rkP, const Quat& rkQ, bool shortestPath)

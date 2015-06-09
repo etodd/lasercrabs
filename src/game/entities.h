@@ -13,8 +13,10 @@ struct Empty : public EntityType<Empty>
 
 #include <BulletCollision/CollisionShapes/btBvhTriangleMeshShape.h>
 
-struct StaticGeom : public EntityType<StaticGeom>
+struct StaticGeom : public EntityType<StaticGeom>, public ExecDynamic<EntityUpdate>
 {
 	StaticGeom(Loader*, AssetID);
 	void awake();
+	~StaticGeom();
+	virtual void exec(EntityUpdate);
 };

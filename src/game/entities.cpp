@@ -20,4 +20,15 @@ StaticGeom::StaticGeom(Loader* loader, AssetID id)
 
 void StaticGeom::awake()
 {
+	Entities::all.update.add(this);
+}
+
+StaticGeom::~StaticGeom()
+{
+	Entities::all.update.remove(this);
+}
+
+void StaticGeom::exec(EntityUpdate up)
+{
+	//get<Transform>()->rot = Quat::normalize(get<Transform>()->rot * Quat::euler(0, up.time.delta * 0.1f, 0));
 }

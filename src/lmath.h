@@ -1299,7 +1299,7 @@ struct Quat
 
 struct Mat4
 {
-	/// Indexed by [row][col].
+	/// Indexed by [col][row].
 	union {
 		float m[4][4];
 		float _m[16];
@@ -1521,21 +1521,33 @@ struct Mat4
 
 	inline void translation(const Vec3& v)
 	{
-		m[0][3] = v.x;
-		m[1][3] = v.y;
-		m[2][3] = v.z;
+		m[3][0] = v.x;
+		m[3][1] = v.y;
+		m[3][2] = v.z;
 	}
 
 	inline void translate(const Vec3& v)
 	{
-		m[0][3] += v.x;
-		m[1][3] += v.y;
-		m[2][3] += v.z;
+		m[3][0] += v.x;
+		m[3][1] += v.y;
+		m[3][2] += v.z;
+	}
+
+	inline void rotation(const Quat& q)
+	{
+		Mat3 r;
+		q.to_rotation_matrix(r);
+		operator=(r);
+	}
+
+	inline void rotation(const Mat3& r)
+	{
+		operator=(r);
 	}
 
 	inline Vec3 translation() const
 	{
-		return Vec3(m[0][3], m[1][3], m[2][3]);
+		return Vec3(m[3][0], m[3][1], m[3][2]);
 	}
 	
 	inline void make_translate(const Vec3& v)
@@ -1641,7 +1653,7 @@ struct Mat4
 	Mat4 inverse() const;
 
 	static Mat4 perspective(float fov, float aspect, float near, float far);
-	static Mat4 look_at(const Vec3& eye, const Vec3& center, const Vec3& up);
+	static Mat4 look(const Vec3& eye, const Vec3& forward);
 
 	void make_transform(const Vec3& position, const Vec3& scale, const Quat& orientation);
 

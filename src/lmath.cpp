@@ -1185,7 +1185,7 @@ float Quat::dot(const Quat& rkQ) const
 
 float Quat::length() const
 {
-	return w*w+x*x+y*y+z*z;
+	return sqrtf(w * w + x * x + y * y + z * z);
 }
 
 Quat Quat::inverse() const
@@ -1313,14 +1313,12 @@ float Quat::angle(const Quat& a, const Quat& b)
 
 Quat Quat::look(const Vec3& dir)
 {
-	float dot = Vec3(0, 0, 1).dot(dir);
-
-    if (fabs(dot + 1.0f) < 0.000001f)
-        return Quat(0, 1, 0, PI);
-    if (fabs(dot - 1.0f) < 0.000001f)
+    if (fabs(dir.z + 1.0f) < epsilon)
+        return Quat(0, 0, 1, 0);
+    if (fabs(dir.z - 1.0f) < epsilon)
 		return Quat::identity;
 
-    float angle = acosf(dot);
+    float angle = acosf(dir.z);
     Vec3 axis = Vec3(0, 0, 1).cross(dir);
 	axis.normalize();
 
@@ -1329,45 +1327,35 @@ Quat Quat::look(const Vec3& dir)
 	return result;
 }
 
-Quat Quat::slerp(float fT, const Quat& rkP, const Quat& rkQ)
+Quat Quat::slerp(float amount, const Quat& quaternion1, const Quat& quaternion2)
 {
-	float fCos = rkP.dot(rkQ);
-	Quat rkT;
-
-	// Do we need to invert rotation?
-	if (fCos < 0.0f)
+	float num = quaternion1.x * quaternion2.x + quaternion1.y * quaternion2.y + quaternion1.z * quaternion2.z + quaternion1.w * quaternion2.w;
+	bool flag = false;
+	if (num < 0.0f)
 	{
-		fCos = -fCos;
-		rkT = -rkQ;
+		flag = true;
+		num = -num;
+	}
+	float num2;
+	float num3;
+	if (num > 0.999999f)
+	{
+		num2 = 1.0f - amount;
+		num3 = (flag ? (-amount) : amount);
 	}
 	else
 	{
-		rkT = rkQ;
+		float num4 = acosf(num);
+		float num5 = 1.0f / sinf(num4);
+		num2 = sinf((1.0f - amount) * num4) * num5;
+		num3 = flag ? (-sinf(amount * num4) * num5) : (sinf(amount * num4) * num5);
 	}
-
-	if (fabs(fCos) < 1 - epsilon)
-	{
-		// Standard case (slerp)
-		float fSin = sqrt(1 - (fCos * fCos));
-		float fAngle = atan2(fSin, fCos);
-		float fInvSin = 1.0f / fSin;
-		float fCoeff0 = sin((1.0f - fT) * fAngle) * fInvSin;
-		float fCoeff1 = sin(fT * fAngle) * fInvSin;
-		return fCoeff0 * rkP + fCoeff1 * rkT;
-	}
-	else
-	{
-		// There are two situations:
-		// 1. "rkP" and "rkQ" are very close (fCos ~= +1), so we can do a linear
-		//    interpolation safely.
-		// 2. "rkP" and "rkQ" are almost inverse of each other (fCos ~= -1), there
-		//    are an infinite number of possibilities interpolation. but we haven't
-		//    have method to fix this case, so just use linear interpolation here.
-		Quat t = (1.0f - fT) * rkP + fT * rkT;
-		// taking the complement requires renormalisation
-		t.normalize();
-		return t;
-	}
+	Quat result;
+	result.x = num2 * quaternion1.x + num3 * quaternion2.x;
+	result.y = num2 * quaternion1.y + num3 * quaternion2.y;
+	result.z = num2 * quaternion1.z + num3 * quaternion2.z;
+	result.w = num2 * quaternion1.w + num3 * quaternion2.w;
+	return result;
 }
 
 Quat Quat::slerp_extra_spins(float fT, const Quat& rkP, const Quat& rkQ, int iExtraSpins)
@@ -1412,15 +1400,13 @@ Quat Quat::squad(float fT, const Quat& rkP, const Quat& rkA, const Quat& rkB, co
 float Quat::normalize(void)
 {
 	float len = length();
-	float factor = 1.0f / sqrt(len);
-	*this = *this * factor;
+	*this = *this * (1.0f / len);
 	return len;
 }
 
 Quat Quat::normalize(const Quat& q)
 {
-	float len = q.length();
-	float factor = 1.0f / sqrt(len);
+	float factor = 1.0f / q.length();
 	return q * factor;
 }
 
@@ -1595,12 +1581,12 @@ void Mat4::make_transform(const Vec3& position, const Vec3& scale, const Quat& o
 	orientation.to_rotation_matrix(rot3x3);
 
 	// Set up final matrix with scale, rotation and translation
-	m[0][0] = scale.x * rot3x3[0][0]; m[0][1] = scale.y * rot3x3[0][1]; m[0][2] = scale.z * rot3x3[0][2]; m[0][3] = position.x;
-	m[1][0] = scale.x * rot3x3[1][0]; m[1][1] = scale.y * rot3x3[1][1]; m[1][2] = scale.z * rot3x3[1][2]; m[1][3] = position.y;
-	m[2][0] = scale.x * rot3x3[2][0]; m[2][1] = scale.y * rot3x3[2][1]; m[2][2] = scale.z * rot3x3[2][2]; m[2][3] = position.z;
+	m[0][0] = scale.x * rot3x3[0][0]; m[1][0] = scale.y * rot3x3[1][0]; m[2][0] = scale.z * rot3x3[2][0]; m[3][0] = position.x;
+	m[0][1] = scale.x * rot3x3[0][1]; m[1][1] = scale.y * rot3x3[1][1]; m[2][1] = scale.z * rot3x3[2][1]; m[3][1] = position.y;
+	m[0][2] = scale.x * rot3x3[0][2]; m[1][2] = scale.y * rot3x3[1][2]; m[2][2] = scale.z * rot3x3[2][2]; m[3][2] = position.z;
 
 	// No projection term
-	m[3][0] = 0; m[3][1] = 0; m[3][2] = 0; m[3][3] = 1;
+	m[0][3] = 0; m[1][3] = 0; m[2][3] = 0; m[3][3] = 1;
 }
 
 void Mat4::make_inverse_transform(const Vec3& position, const Vec3& scale, const Quat& orientation)
@@ -1620,12 +1606,12 @@ void Mat4::make_inverse_transform(const Vec3& position, const Vec3& scale, const
 	invRot.to_rotation_matrix(rot3x3);
 
 	// Set up final matrix with scale, rotation and translation
-	m[0][0] = invScale.x * rot3x3[0][0]; m[0][1] = invScale.x * rot3x3[0][1]; m[0][2] = invScale.x * rot3x3[0][2]; m[0][3] = invTranslate.x;
-	m[1][0] = invScale.y * rot3x3[1][0]; m[1][1] = invScale.y * rot3x3[1][1]; m[1][2] = invScale.y * rot3x3[1][2]; m[1][3] = invTranslate.y;
-	m[2][0] = invScale.z * rot3x3[2][0]; m[2][1] = invScale.z * rot3x3[2][1]; m[2][2] = invScale.z * rot3x3[2][2]; m[2][3] = invTranslate.z;        
+	m[0][0] = invScale.x * rot3x3[0][0]; m[1][0] = invScale.x * rot3x3[1][0]; m[2][0] = invScale.x * rot3x3[2][0]; m[3][0] = invTranslate.x;
+	m[0][1] = invScale.y * rot3x3[0][1]; m[1][1] = invScale.y * rot3x3[1][1]; m[2][1] = invScale.y * rot3x3[2][1]; m[3][1] = invTranslate.y;
+	m[0][2] = invScale.z * rot3x3[0][2]; m[1][2] = invScale.z * rot3x3[1][2]; m[2][2] = invScale.z * rot3x3[2][2]; m[3][2] = invTranslate.z;        
 
 	// No projection term
-	m[3][0] = 0; m[3][1] = 0; m[3][2] = 0; m[3][3] = 1;
+	m[0][3] = 0; m[1][3] = 0; m[2][3] = 0; m[3][3] = 1;
 }
 
 void Mat4::decomposition(Vec3& position, Vec3& scale, Quat& orientation) const
@@ -1658,11 +1644,13 @@ Mat4 Mat4::perspective(float fov, float aspect, float near, float far)
     return result;
 }
 
-Mat4 Mat4::look_at(Vec3 const & eye, Vec3 const & center, Vec3 const & up)
+Mat4 Mat4::look(Vec3 const & eye, Vec3 const &forward)
 {
-	Vec3 const f(Vec3::normalize(eye - center));
-	Vec3 const s(Vec3::normalize(f.cross(up)));
-	Vec3 const u(s.cross(f));
+	Vec3 const f(Vec3::normalize(-forward));
+	Vec3 const s(Vec3::normalize(f.cross(Vec3(0, 1, 0))));
+	Vec3 u(s.cross(f));
+	if (u.y < 0.0f)
+		u = -u;
 
 	Mat4 Result = Mat4::identity;
 	Result[0][0] = s.x;

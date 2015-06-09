@@ -53,7 +53,7 @@ void Transform::absolute(Quat* abs_rot, Vec3* abs_pos)
 	Transform* t = this;
 	while (t)
 	{ 
-		*abs_rot = *abs_rot * t->rot;
+		*abs_rot = t->rot * *abs_rot;
 		*abs_pos = (t->rot * *abs_pos) + t->pos;
 
 		t = t->parent;
@@ -66,7 +66,7 @@ Quat Transform::absolute_rot()
 	Transform* t = this;
 	while (t)
 	{ 
-		q = q * t->rot;
+		q = t->rot * q;
 		t = t->parent;
 	}
 	return q;

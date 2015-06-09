@@ -7,7 +7,7 @@
 #define fov_initial PI * 0.25f
 #define speed 15.0f
 #define speed_mouse 0.0025f
-#define player_radius 0.1f
+#define player_radius 0.05f
 #define attach_speed 2.0f
 #define max_attach_time 0.25f
 
@@ -15,12 +15,12 @@ Player::Player()
 	: velocity(),
 	angle_horizontal(),
 	angle_vertical(),
-	view(),
-	projection(),
+	view(Mat4::identity),
+	projection(Mat4::identity),
 	attach_timer(1.0f),
 	attach_time(),
-	attach_quat(),
-	attach_quat_start()
+	attach_quat(Quat::identity),
+	attach_quat_start(Quat::identity)
 {
 	Transform* transform = Entities::all.component<Transform>(this);
 	transform->pos = Vec3(0, 10, 0);
@@ -43,7 +43,7 @@ void Player::exec(EntityUpdate u)
 	{
 		if (attach_timer < attach_time)
 		{
-			Quat attach_quat_absolute = get<Transform>()->parent->absolute_rot() * attach_quat;
+			Quat attach_quat_absolute = Quat::normalize(get<Transform>()->parent->absolute_rot() * attach_quat);
 
 			attach_timer += u.time.delta;
 			if (attach_timer >= attach_time)
@@ -51,11 +51,14 @@ void Player::exec(EntityUpdate u)
 				look_quat = attach_quat_absolute;
 
 				Vec3 forward = look_quat * Vec3(0, 0, 1);
-				angle_horizontal = atan2f(forward.x, forward.z);
-				angle_vertical = -asinf(forward.y);
+				if (fabs(forward.y) < 0.99f)
+				{
+					angle_horizontal = atan2f(forward.x, forward.z);
+					angle_vertical = -asinf(forward.y);
+				}
 			}
 			else
-				look_quat = Quat::slerp(Ease::quad_out<float>(attach_timer / attach_time), attach_quat_start, attach_quat_absolute);
+				look_quat = Quat::slerp(Ease::cubic_out<float>(attach_timer / attach_time), attach_quat_start, attach_quat_absolute);
 		}
 		else
 		{
@@ -103,7 +106,6 @@ void Player::exec(EntityUpdate u)
 
 			btCollisionWorld::ClosestRayResultCallback rayCallback(position, next_position + Vec3::normalize(velocity) * player_radius);
 
-			// Perform raycast
 			Physics::world.btWorld->rayTest(position, next_position, rayCallback);
 
 			if (rayCallback.hasHit())
@@ -128,16 +130,6 @@ void Player::exec(EntityUpdate u)
 			get<Transform>()->pos = next_position;
 	}
 	
-	// Right vector
-	Vec3 right = Vec3(
-		(float)(sin(angle_horizontal - 3.14f/2.0f)),
-		0,
-		(float)(cos(angle_horizontal - 3.14f/2.0f))
-	);
-	
-	Vec3 direction = look_quat * Vec3(0, 0, 1);
-	Vec3 up = right.cross(direction);
-
 	/*
 	// Move forward
 	if (u.input->keys[GLFW_KEY_W] == GLFW_PRESS)
@@ -158,10 +150,9 @@ void Player::exec(EntityUpdate u)
 	// Projection matrix : 45° Field of View, 4:3 ratio, display range : 0.1 unit <-> 100 units
 	float aspect = u.input->height == 0 ? 1 : (float)u.input->width / (float)u.input->height;
 	projection = Mat4::perspective(FoV, aspect, 0.01f, 1000.0f);
+
 	// Camera matrix
-	view       = Mat4::look_at(
-								get<Transform>()->absolute_pos(),           // Camera is here
-								get<Transform>()->absolute_pos() + direction, // and looks here : at the same position, plus "direction"
-								up                  // Head is up (set to 0,-1,0 to look upside-down)
-						   );
+	Vec3 pos = get<Transform>()->absolute_pos();
+	Vec3 look = look_quat * Vec3(0, 0, 1);
+	view = Mat4::look(pos, look);
 }

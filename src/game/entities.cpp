@@ -30,5 +30,5 @@ StaticGeom::~StaticGeom()
 
 void StaticGeom::exec(EntityUpdate up)
 {
-	//get<Transform>()->rot = Quat::normalize(get<Transform>()->rot * Quat::euler(0, up.time.delta * 0.1f, 0));
+	get<Transform>()->rot = Quat::normalize(get<Transform>()->rot * Quat::euler(0, up.time.delta * 0.1f, 0));
 }

@@ -7,6 +7,7 @@
 #include "types.h"
 #include "lmath.h"
 #include "data/array.h"
+#include <dirent.h>
 
 struct Mesh
 {
@@ -24,8 +25,11 @@ bool load_model(const char* path, Mesh* out)
 	(
 		path,
 		aiProcess_JoinIdenticalVertices
-		| aiProcess_SortByPType
 		| aiProcess_Triangulate
+		| aiProcess_GenNormals
+		| aiProcess_ValidateDataStructure
+		| aiProcess_OptimizeMeshes
+		| aiProcess_OptimizeGraph
 	);
 	if (!scene)
 	{
@@ -54,7 +58,7 @@ bool load_model(const char* path, Mesh* out)
 	}
 
 	// Fill vertices normals
-	if (mesh->mNormals)
+	if (mesh->HasNormals())
 	{
 		out->normals.reserve(mesh->mNumVertices);
 		for (unsigned int i = 0; i < mesh->mNumVertices; i++)
@@ -71,7 +75,7 @@ bool load_model(const char* path, Mesh* out)
 	}
 
 	// Fill face indices
-	out->indices.reserve(3*mesh->mNumFaces);
+	out->indices.reserve(3 * mesh->mNumFaces);
 	for (unsigned int i = 0; i < mesh->mNumFaces; i++)
 	{
 		// Assume the model has only triangles.
@@ -92,27 +96,39 @@ int main(int argc, char* argv[])
 	// Extensions must be same length
 	static const char* in_extension = ".fbx";
 	static const char* out_extension = ".mdl";
+	static const char* asset_folder = "../assets/";
 
 	Mesh mesh;
-	for (int i = 1; i < argc; i++)
+	DIR* dir = opendir(asset_folder);
+	if (!dir)
 	{
+		fprintf(stderr, "Failed to open asset directory.");
+		return 1;
+	}
+
+	struct dirent* entry;
+	while (entry = readdir(dir))
+	{
+		if (entry->d_type != DT_REG)
+			continue; // Not a file
+
 		mesh.indices.length = 0;
 		mesh.vertices.length = 0;
 		mesh.uvs.length = 0;
 		mesh.normals.length = 0;
-		char* path = argv[i];
-		size_t path_length = strlen(path);
+		size_t path_length = sizeof(char) * (strlen(asset_folder) + entry->d_namlen);
+		char* path = (char*)malloc(path_length + 1);
+		memset(path, 0, path_length);
+		strcat(path, asset_folder);
+		strncat(path + strlen(asset_folder), entry->d_name, entry->d_namlen);
+
 		if (path_length > strlen(in_extension))
 		{
 			if (strncmp(path + path_length - strlen(in_extension), in_extension, strlen(in_extension)) != 0)
-				goto fail;
+				continue;
 		}
 		else
-		{
-			fail:
-			fprintf(stderr, "Warning: %s is not a valid model file. Skipping.\n", path);
 			continue;
-		}
 
 		printf("Importing %s...\n", path);
 
@@ -121,8 +137,6 @@ int main(int argc, char* argv[])
 			printf("Indices: %lu Vertices: %lu\n", mesh.indices.length, mesh.vertices.length);
 
 			strcpy(path + path_length - strlen(in_extension), out_extension);
-
-			printf("Exporting %s...\n", path);
 
 			FILE* f = fopen(path, "w+b");
 			if (f)
@@ -138,6 +152,8 @@ int main(int argc, char* argv[])
 			else
 				fprintf(stderr, "Warning: failed to open %s for writing.\n", path);
 		}
+		free(path);
 	}
+	closedir(dir);
 	return 0;
 }

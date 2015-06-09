@@ -4,8 +4,8 @@
 #include "lmath.h"
 #include "physics.h"
 
-class RigidBody;
-class Transform;
+struct RigidBody;
+struct Transform;
 
 struct Player : public EntityType<Player>, public ExecDynamic<EntityUpdate>
 {

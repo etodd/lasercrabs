@@ -42,6 +42,7 @@ RigidBody::RigidBody(btCollisionShape* shape, btRigidBody::btRigidBodyConstructi
 void RigidBody::awake()
 {
 	Physics::world.btWorld->addRigidBody(&btBody);
+	btBody.setUserPointer(entity);
 }
 
 RigidBody::~RigidBody()

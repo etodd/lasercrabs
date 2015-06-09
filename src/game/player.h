@@ -11,10 +11,10 @@ struct Player : public EntityType<Player>, public ExecDynamic<EntityUpdate>
 {
 	float angle_horizontal;
 	float angle_vertical;
-	Vec3 last_position;
+
+	Vec3 velocity;
 	Mat4 view;
 	Mat4 projection;
-	btGeneric6DofConstraint* joint;
 
 	Player();
 	~Player();

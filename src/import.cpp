@@ -36,16 +36,17 @@ bool load_model(const char* path, Mesh* out)
 
 	// Fill vertices positions
 	out->vertices.reserve(mesh->mNumVertices);
-	for(unsigned int i=0; i<mesh->mNumVertices; i++)
+	Quat rot = Quat(PI * -0.5f, Vec3(1, 0, 0));
+	for (unsigned int i = 0; i < mesh->mNumVertices; i++)
 	{
 		aiVector3D pos = mesh->mVertices[i];
-		Vec3 v = Vec3(pos.x, pos.y, pos.z);
+		Vec3 v = rot * Vec3(pos.x, pos.y, pos.z);
 		out->vertices.add(v);
 	}
 
 	// Fill vertices texture coordinates
 	out->uvs.reserve(mesh->mNumVertices);
-	for(unsigned int i=0; i<mesh->mNumVertices; i++)
+	for (unsigned int i = 0; i < mesh->mNumVertices; i++)
 	{
 		aiVector3D UVW = mesh->mTextureCoords[0][i]; // Assume only 1 set of UV coords; AssImp supports 8 UV sets.
 		Vec2 v = Vec2(UVW.x, UVW.y);
@@ -54,16 +55,16 @@ bool load_model(const char* path, Mesh* out)
 
 	// Fill vertices normals
 	out->normals.reserve(mesh->mNumVertices);
-	for(unsigned int i=0; i<mesh->mNumVertices; i++)
+	for (unsigned int i = 0; i < mesh->mNumVertices; i++)
 	{
 		aiVector3D n = mesh->mNormals[i];
-		Vec3 v = Vec3(n.x, n.y, n.z);
+		Vec3 v = rot * Vec3(n.x, n.y, n.z);
 		out->normals.add(v);
 	}
 
 	// Fill face indices
 	out->indices.reserve(3*mesh->mNumFaces);
-	for (unsigned int i=0; i<mesh->mNumFaces; i++)
+	for (unsigned int i = 0; i < mesh->mNumFaces; i++)
 	{
 		// Assume the model has only triangles.
 		int j = mesh->mFaces[i].mIndices[0];

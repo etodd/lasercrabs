@@ -5,18 +5,14 @@
 #include "BulletCollision/CollisionDispatch/btCollisionObject.h"
 
 #define fov_initial PI * 0.25f
-#define speed 5.0f
+#define speed 15.0f
 #define speed_mouse 0.0025f
 
 Player::Player()
+	: velocity()
 {
 	Transform* transform = Entities::all.component<Transform>(this);
-
-	btSphereShape* shape = new btSphereShape(1.0f);
-	btRigidBody::btRigidBodyConstructionInfo cInfo(5.0f, transform, shape, btVector3(0, 0, 0));
-
-	RigidBody* body = Entities::all.component<RigidBody>(this, shape, cInfo);
-	body->btBody.setCollisionFlags(btCollisionObject::CF_NO_CONTACT_RESPONSE);
+	transform->pos = Vec3(0, 100, 0);
 }
 
 void Player::awake()
@@ -35,35 +31,51 @@ void Player::exec(EntityUpdate u)
 	angle_horizontal += speed_mouse * float(1024/2 - u.input->cursor_x );
 	angle_vertical   += speed_mouse * float( 768/2 - u.input->cursor_y );
 
+	angle_vertical = fmin(fmax(angle_vertical, PI * -0.495f), PI * 0.495f);
+
 	// Direction : Spherical coordinates to Cartesian coordinates conversion
 	Vec3 direction = Vec3(
 		(float)(cos(angle_vertical) * sin(angle_horizontal)),
 		(float)(sin(angle_vertical)),
 		(float)(cos(angle_vertical) * cos(angle_horizontal))
 	);
-	
-	Vec3 force = Vec3::zero;
 
-	if (u.input->mouse)
+	if (get<Transform>()->parent)
 	{
-		force = direction * speed;
-	}
-
-	if ((get<Transform>()->pos - last_position).length() > 0)
-	{
-		btCollisionWorld::ClosestRayResultCallback rayCallback(last_position, get<Transform>()->pos);
-
-		// Perform raycast
-		Physics::world.btWorld->rayTest(last_position, get<Transform>()->pos, rayCallback);
-
-		if (rayCallback.hasHit())
+		if (u.input->mouse)
 		{
-			get<Transform>()->pos = rayCallback.m_hitPointWorld;
-			get<RigidBody>()->btBody.setLinearVelocity(Vec3::zero);
+			velocity = direction * speed;
+			get<Transform>()->reparent(0);
+			get<Transform>()->pos += direction;
 		}
 	}
+	else
+	{
+		velocity.y -= u.time.delta * 9.8f;
 
-	last_position = get<Transform>()->pos;
+		Vec3 position = get<Transform>()->pos;
+		Vec3 next_position = position + velocity * u.time.delta;
+
+		if (!btVector3(next_position - position).fuzzyZero())
+		{
+			btCollisionWorld::ClosestRayResultCallback rayCallback(position, next_position);
+
+			// Perform raycast
+			Physics::world.btWorld->rayTest(position, next_position, rayCallback);
+
+			if (rayCallback.hasHit())
+			{
+				Entity* entity = (Entity*)rayCallback.m_collisionObject->getUserPointer();
+				get<Transform>()->pos = rayCallback.m_hitPointWorld;
+				get<Transform>()->reparent(entity->get<Transform>());
+				velocity = Vec3::zero;
+			}
+			else
+				get<Transform>()->pos = next_position;
+		}
+		else
+			get<Transform>()->pos = next_position;
+	}
 	
 	// Right vector
 	Vec3 right = Vec3(
@@ -75,6 +87,7 @@ void Player::exec(EntityUpdate u)
 	// Up vector
 	Vec3 up = right.cross(direction);
 
+	/*
 	// Move forward
 	if (u.input->keys[GLFW_KEY_W] == GLFW_PRESS)
 		force += direction * u.time.delta * speed;
@@ -87,9 +100,8 @@ void Player::exec(EntityUpdate u)
 	// Strafe left
 	if (u.input->keys[GLFW_KEY_A] == GLFW_PRESS)
 		force -= right * u.time.delta * speed;
+	*/
 	
-	get<RigidBody>()->btBody.applyCentralImpulse(force);
-
 	float FoV = fov_initial;
 
 	// Projection matrix : 45° Field of View, 4:3 ratio, display range : 0.1 unit <-> 100 units
@@ -97,8 +109,8 @@ void Player::exec(EntityUpdate u)
 	projection = Mat4::perspective(FoV, aspect, 0.1f, 1000.0f);
 	// Camera matrix
 	view       = Mat4::look_at(
-								get<Transform>()->pos,           // Camera is here
-								get<Transform>()->pos+direction, // and looks here : at the same position, plus "direction"
+								get<Transform>()->absolute_pos(),           // Camera is here
+								get<Transform>()->absolute_pos() + direction, // and looks here : at the same position, plus "direction"
 								up                  // Head is up (set to 0,-1,0 to look upside-down)
 						   );
 }

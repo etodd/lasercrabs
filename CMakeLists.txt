@@ -177,6 +177,10 @@ target_link_libraries(mkzebra
 )
 
 add_executable(import
+	src/data/array.h
+	src/types.h
+	src/lmath.h
+	src/lmath.cpp
 	src/import.cpp
 )
 

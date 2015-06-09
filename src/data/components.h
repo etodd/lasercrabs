@@ -5,6 +5,7 @@
 
 struct Transform : public ComponentType<Transform>, public btMotionState
 {
+	Transform* parent;
 	Vec3 pos;
 	Quat rot;
 
@@ -15,4 +16,9 @@ struct Transform : public ComponentType<Transform>, public btMotionState
 	virtual void setWorldTransform(const btTransform&);
 
 	void mat(Mat4*);
+
+	void absolute(Quat*, Vec3*);
+	Vec3 absolute_pos();
+	Quat absolute_rot();
+	void reparent(Transform*);
 };

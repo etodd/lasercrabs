@@ -107,7 +107,7 @@ int main(int argc, char* argv[])
 	}
 
 	struct dirent* entry;
-	while (entry = readdir(dir))
+	while ((entry = readdir(dir)))
 	{
 		if (entry->d_type != DT_REG)
 			continue; // Not a file
@@ -116,11 +116,11 @@ int main(int argc, char* argv[])
 		mesh.vertices.length = 0;
 		mesh.uvs.length = 0;
 		mesh.normals.length = 0;
-		size_t path_length = sizeof(char) * (strlen(asset_folder) + entry->d_namlen);
+		size_t path_length = sizeof(char) * (strlen(asset_folder) + strlen(entry->d_name));
 		char* path = (char*)malloc(path_length + 1);
 		memset(path, 0, path_length);
 		strcat(path, asset_folder);
-		strncat(path + strlen(asset_folder), entry->d_name, entry->d_namlen);
+		strncat(path + strlen(asset_folder), entry->d_name, strlen(entry->d_name));
 
 		if (path_length > strlen(in_extension))
 		{

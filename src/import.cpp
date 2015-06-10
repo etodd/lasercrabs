@@ -352,7 +352,8 @@ int main(int argc, char* argv[])
 
 	if (error)
 		return 1;
-	else if (modified)
+	
+	if (modified || filemtime(asset_header_path) == 0 || filemtime(asset_src_path) == 0)
 	{
 		printf("Writing asset file...\n");
 		FILE* asset_header_file = fopen(asset_header_path, "w+");

@@ -3,3 +3,5 @@ build
 .exrc
 *.blend1
 *.blend2
+/src/asset.h
+/src/asset.cpp

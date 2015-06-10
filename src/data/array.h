@@ -35,13 +35,13 @@ struct Array
 			free(data);
 	}
 
-	inline float operator [] (const size_t i) const
+	inline T operator [] (const size_t i) const
 	{
 		return *(data + i);
 	}
 
 	/// Array accessor operator
-	inline float& operator [] (const size_t i)
+	inline T& operator [] (const size_t i)
 	{
 		return *(data + i);
 	}

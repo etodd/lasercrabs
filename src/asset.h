@@ -1,27 +1,25 @@
 #pragma once
-
 #include "types.h"
 
-#define ASSET(x, y) static const AssetID x = { y };
 struct Asset
 {
 	struct Model
 	{
-		static const size_t count = 2;
-		static const char* filenames[count];
-		ASSET(city3, 1)
+		static const size_t count = 3;
+		static const char* filenames[3];
+		static const AssetID Alpha = 1;
+		static const AssetID city3 = 2;
 	};
 	struct Texture
 	{
 		static const size_t count = 2;
-		static const char* filenames[count];
-		ASSET(test, 1)
+		static const char* filenames[2];
+		static const AssetID test = 1;
 	};
 	struct Shader
 	{
 		static const size_t count = 2;
-		static const char* filenames[count];
-		ASSET(Standard, 1)
+		static const char* filenames[2];
+		static const AssetID Standard = 1;
 	};
 };
-#undef ASSET

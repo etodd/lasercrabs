@@ -75,69 +75,6 @@ void update_loop(Loader* loader, RenderSync::Swapper* swapper)
 	}
 }
 
-#if WIN32
-#include "Shlwapi.h"
-VOID execute(LPCTSTR lpApplicationName)
-{
-	// additional information
-	STARTUPINFO si;     
-	PROCESS_INFORMATION pi;
-
-	// set the size of the structures
-	ZeroMemory( &si, sizeof(si) );
-	si.cb = sizeof(si);
-	ZeroMemory( &pi, sizeof(pi) );
-
-	wchar_t module_filename[512];
-	GetModuleFileName(NULL, module_filename, 512);
-	for (int i = 511; i >= 0; i--)
-	{
-		if (module_filename[i] == '\\')
-		{
-			module_filename[i + 1] = L'\0';
-			break;
-		}
-	}
-	wchar_t final_path[MAX_PATH];
-	PathCombineW(final_path, module_filename, lpApplicationName);
-
-	// start the program up
-	if (!CreateProcess(final_path,   // the path
-		L"",        // Command line
-		NULL,           // Process handle not inheritable
-		NULL,           // Thread handle not inheritable
-		FALSE,          // Set handle inheritance to FALSE
-		0,              // No creation flags
-		NULL,           // Use parent's environment block
-		NULL,           // Use parent's starting directory 
-		&si,            // Pointer to STARTUPINFO structure
-		&pi))           // Pointer to PROCESS_INFORMATION structure
-	{
-		fprintf(stderr, "Failed to launch executable.\n");
-	}
-
-	WaitForSingleObject(pi.hProcess, INFINITE);
-	// Close process and thread handles. 
-	CloseHandle(pi.hProcess);
-	CloseHandle(pi.hThread);
-}
-#else
-#include <sys/wait.h>
-void execute(char* program)
-{
-    pid_t pid = fork();
-    if (pid == 0)
-	{
-		// child process
-        static char* argv[] = { program, NULL};
-        execv(program, argv);
-        exit(127); // only if execv fails */
-    }
-    else
-        waitpid(pid, 0, 0); // wait for child to exit
-}
-#endif
-
 #if WIN32 && !_CONSOLE
 int CALLBACK WinMain(
 	__in  HINSTANCE hInstance,
@@ -148,16 +85,6 @@ int CALLBACK WinMain(
 int main()
 #endif
 {
-#if _DEBUG
-
-#if WIN32
-	execute(L"import.exe");
-#else
-	execute("import");
-#endif
-
-#endif
-
 	// Initialise GLFW
 	if (!glfwInit())
 	{

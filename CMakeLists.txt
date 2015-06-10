@@ -3,6 +3,8 @@ cmake_minimum_required (VERSION 2.6)
 project (mkzebra)
 set(AMD64 ON)
 
+file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/assets)
+
 if (APPLE)
 	set(ENV{PKG_CONFIG_PATH} ${CMAKE_SOURCE_DIR}/pkgconfig) # so pkg-config can find our custom gl.pc
 endif()
@@ -125,50 +127,6 @@ include_directories(${ALL_INCLUDES})
 configure_file(.includes.in .includes)
 configure_file(.exrc.in ${CMAKE_CURRENT_SOURCE_DIR}/.exrc)
 
-set(asset_prefix "../")
-
-## Models
-set(models "")
-set(model_files "\t\"\",\n")
-set(i 1)
-file(GLOB files "assets/*.fbx")
-foreach(file ${files})
-	get_filename_component(name ${file} NAME_WE)
-	set(model_files "${model_files}\t\"${asset_prefix}assets/${name}.mdl\",\n")
-	set(models "${models}\t\tASSET(${name}, ${i})\n")
-	math(EXPR i "${i} + 1")
-endforeach()
-set(model_count ${i})
-
-## Textures
-set(textures "")
-set(texture_files  "\t\"\",\n")
-set(i 1)
-file(GLOB files "assets/*.png")
-foreach(file ${files})
-	get_filename_component(name ${file} NAME_WE)
-	set(texture_files "${texture_files}\t\"${asset_prefix}assets/${name}.png\",\n")
-	set(textures "${textures}\t\tASSET(${name}, ${i})\n")
-	math(EXPR i "${i} + 1")
-endforeach()
-set(texture_count ${i})
-
-## Shaders
-set(shaders "")
-set(shader_files "\t\"\",\n")
-set(i 1)
-file(GLOB files "shaders/*.glsl")
-foreach(file ${files})
-	get_filename_component(name ${file} NAME_WE)
-	set(shader_files "${shader_files}\t\"${asset_prefix}shaders/${name}.glsl\",\n")
-	set(shaders "${shaders}\t\tASSET(${name}, ${i})\n")
-	math(EXPR i "${i} + 1")
-endforeach()
-set(shader_count ${i})
-
-configure_file(src/asset.h.in ${CMAKE_CURRENT_SOURCE_DIR}/src/asset.h)
-configure_file(src/asset.cpp.in ${CMAKE_CURRENT_SOURCE_DIR}/src/asset.cpp)
-
 ## Source
 
 source_group(h REGULAR_EXPRESSION ".*\\.h$")
@@ -205,12 +163,11 @@ add_executable(mkzebra
 )
 
 if(WIN32)
-	target_link_libraries(mkzebra shlwapi)
 	set_target_properties(mkzebra PROPERTIES LINK_FLAGS_DEBUG "/SUBSYSTEM:CONSOLE")
 	set_target_properties(mkzebra PROPERTIES COMPILE_DEFINITIONS_DEBUG "_CONSOLE")
-	set_target_properties(mkzebra PROPERTIES LINK_FLAGS_RELWITHDEBINFO "/SUBSYSTEM:windows")
-	set_target_properties(mkzebra PROPERTIES LINK_FLAGS_RELEASE "/SUBSYSTEM:windows")
-	set_target_properties(mkzebra PROPERTIES LINK_FLAGS_MINSIZEREL "/SUBSYSTEM:windows")
+	set_target_properties(mkzebra PROPERTIES LINK_FLAGS_RELWITHDEBINFO "/SUBSYSTEM:WINDOWS")
+	set_target_properties(mkzebra PROPERTIES LINK_FLAGS_RELEASE "/SUBSYSTEM:WINDOWS")
+	set_target_properties(mkzebra PROPERTIES LINK_FLAGS_MINSIZEREL "/SUBSYSTEM:WINDOWS")
 endif(WIN32)
 
 ## Libraries
@@ -238,5 +195,14 @@ add_executable(import
 target_link_libraries(import
 	assimp
 )
+
+get_property(import_location TARGET import PROPERTY LOCATION) 
+add_custom_target(
+	assets ALL
+	COMMAND ${import_location}
+	DEPENDS import
+	WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+)
+add_dependencies(mkzebra assets)
 
 set_target_properties(uninstall PROPERTIES EXCLUDE_FROM_ALL TRUE)

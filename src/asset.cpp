@@ -3,17 +3,16 @@
 const char* Asset::Model::filenames[] =
 {
 	"",
-	"../assets/city3.mdl",
+	"assets/Alpha.mdl",
+	"assets/city3.mdl",
 };
-
 const char* Asset::Texture::filenames[] =
 {
 	"",
-	"../assets/test.png",
+	"assets/test.png",
 };
-
 const char* Asset::Shader::filenames[] =
 {
 	"",
-	"../shaders/Standard.glsl",
+	"assets/Standard.glsl",
 };

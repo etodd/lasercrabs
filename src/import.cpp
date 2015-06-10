@@ -120,7 +120,7 @@ bool has_extension(char* filename, const char* extension)
 	return false;
 }
 
-void write_asset_headers(FILE* file, char* name, Array<size_t>& list, Array<char>& heap)
+void write_asset_headers(FILE* file, const char* name, Array<size_t>& list, Array<char>& heap)
 {
 	int asset_count = (list.length / 2) + 1;
 	fprintf(file, "\tstruct %s\n\t{\n\t\tstatic const size_t count = %d;\n\t\tstatic const char* filenames[%d];\n", name, asset_count, asset_count);
@@ -133,7 +133,7 @@ void write_asset_headers(FILE* file, char* name, Array<size_t>& list, Array<char
 	fprintf(file, "\t};\n");
 }
 
-void write_asset_filenames(FILE* file, char* name, Array<size_t>& list, Array<char>& heap)
+void write_asset_filenames(FILE* file, const char* name, Array<size_t>& list, Array<char>& heap)
 {
 	fprintf(file, "const char* Asset::%s::filenames[] =\n{\n\t\"\",\n", name);
 	for (unsigned int i = 0; i < list.length; i += 2)
@@ -190,6 +190,14 @@ LONGLONG filemtime(const char* file)
 	}
 }
 #else
+#include <sys/stat.h>
+long long filemtime(const char* file)
+{
+	struct stat st;
+	if (stat(file, &st))
+		return 0;
+	return st.st_mtime;
+}
 #endif
 
 bool cp(const char* from, const char* to)
@@ -207,7 +215,7 @@ bool cp(const char* from, const char* to)
 		return false;
 	}
 
-    while (size = fread(buf, 1, 4096, source))
+    while ((size = fread(buf, 1, 4096, source)))
         fwrite(buf, 1, size, dest);
 
     fclose(source);

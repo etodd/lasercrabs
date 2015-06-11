@@ -49,9 +49,10 @@ void Awk::exec(EntityUpdate u)
 				get<Transform>()->pos = rayCallback.m_hitPointWorld + rayCallback.m_hitNormalWorld * awk_radius;
 				get<Transform>()->rot = Quat::look(rayCallback.m_hitNormalWorld);
 				get<Transform>()->reparent(entity->get<Transform>());
-				velocity = Vec3::zero;
 
-				attached.fire(direction);
+				(&attached)->fire();
+
+				velocity = Vec3::zero;
 			}
 			else
 				get<Transform>()->pos = next_position;

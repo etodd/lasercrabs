@@ -9,7 +9,6 @@
 #include "data/mesh.h"
 #include "exec.h"
 #include "physics.h"
-#include "asset.h"
 #include "game/entities.h"
 #include "game/player.h"
 

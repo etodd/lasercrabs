@@ -35,35 +35,6 @@ struct RenderParams
 	SyncData* sync;
 };
 
-struct Entity
-{
-	ID id;
-	ID components[MAX_FAMILIES];
-	ComponentMask component_mask;
-	Entity(ID id)
-		: components(), id(id)
-	{
-	}
-
-	template<typename T, typename... Args> T* create(Args... args)
-	{
-		return Entities::main.create_component<T>(this, args...);
-	}
-
-	template<typename T, typename... Args> T* add(Args... args)
-	{
-		return Entities::main.add_component<T>(this, args...);
-	}
-
-	template<typename T> inline T* get()
-	{
-		if (component_mask & (1 << T::family()))
-			return &(Entities::main.component_list<T>())[components[T::family()]];
-		else
-			return 0;
-	}
-};
-
 struct ComponentBase;
 
 struct PoolBase
@@ -116,6 +87,20 @@ struct Pool : public PoolBase
 		reinterpret_cast<ArrayNonRelocating<T>*>(&data)->get(id)->~T();
 		reinterpret_cast<ArrayNonRelocating<T>*>(&data)->remove(id);
 	}
+};
+
+struct Entity
+{
+	ID id;
+	ID components[MAX_FAMILIES];
+	ComponentMask component_mask;
+	Entity(ID id)
+		: components(), id(id)
+	{
+	}
+	template<typename T, typename... Args> T* create(Args... args);
+	template<typename T, typename... Args> T* add(Args... args);
+	template<typename T> inline T* get();
 };
 
 struct Entities : ExecDynamic<Update>
@@ -202,7 +187,7 @@ struct Entities : ExecDynamic<Update>
 
 	template<typename T, typename... Args> T* add_component(Entity* e, Args... args)
 	{
-		T* component = component<T>(e, args...);
+		T* component = create_component<T>(e, args...);
 		PoolBase* pool = &component_pools[T::family()];
 		pool->awake(component->id);
 	}
@@ -233,6 +218,24 @@ struct Entities : ExecDynamic<Update>
 		}
 	}
 };
+
+template<typename T, typename... Args> T* Entity::create(Args... args)
+{
+	return Entities::main.create_component<T>(this, args...);
+}
+
+template<typename T, typename... Args> T* Entity::add(Args... args)
+{
+	return Entities::main.add_component<T>(this, args...);
+}
+
+template<typename T> inline T* Entity::get()
+{
+	if (component_mask & (1 << T::family()))
+		return &(Entities::main.component_list<T>())[components[T::family()]];
+	else
+		return 0;
+}
 
 struct ComponentBase
 {
@@ -266,7 +269,7 @@ struct Link
 
 	}
 
-	virtual void fire() {}
+	virtual void fire() { }
 };
 
 template<typename T, void (T::*Method)()> struct InstantiatedLink : public Link
@@ -274,47 +277,14 @@ template<typename T, void (T::*Method)()> struct InstantiatedLink : public Link
 	InstantiatedLink(ID entity)
 		: Link(entity)
 	{
-		
+
 	}
 
 	virtual void fire()
 	{
-		T* t = Entities::main.list[entity].get<T>();
+		Entity* e = &Entities::main.list[entity];
+		T* t = e->get<T>();
 		(t->*Method)();
-	}
-};
-
-template<typename T> struct LinkArg
-{
-	ID entity;
-
-	LinkArg()
-		: entity()
-	{
-
-	}
-
-	LinkArg(ID entity)
-		: entity(entity)
-	{
-
-	}
-
-	virtual void fire(T arg) {}
-};
-
-template<typename T, typename Arg, void (T::*Method)(Arg)> struct InstantiatedLinkArg : public LinkArg<Arg>
-{
-	InstantiatedLinkArg(ID entity)
-		: LinkArg(entity)
-	{
-		
-	}
-
-	virtual void fire(Arg arg)
-	{
-		T* t = Entities::main.list[entity].get<T>();
-		(t->*Method)(arg);
 	}
 };
 
@@ -339,10 +309,5 @@ struct ComponentType : public ComponentBase
 	template<void (Derived::*Method)()> void link(Link* link)
 	{
 		new (link) InstantiatedLink<Derived, Method>(entity_id);
-	}
-
-	template<typename Arg, void (Derived::*Method)(Arg)> void link(LinkArg<Arg>* link)
-	{
-		new (link) InstantiatedLinkArg<Derived, Arg, Method>(entity_id);
 	}
 };

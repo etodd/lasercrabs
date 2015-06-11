@@ -10,7 +10,7 @@ struct Transform;
 struct Awk : public ComponentType<Awk>, public ExecDynamic<EntityUpdate>
 {
 	Vec3 velocity;
-	LinkArg<Vec3> attached;
+	Link attached;
 	Awk();
 	~Awk();
 	void awake();

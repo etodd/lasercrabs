@@ -30,7 +30,7 @@ struct PlayerControl : public ComponentType<PlayerControl>, public ExecDynamic<E
 	~PlayerControl();
 	void awake();
 
-	void awk_attached(Vec3);
+	void awk_attached();
 
 	virtual void exec(EntityUpdate);
 };

@@ -22,8 +22,9 @@ void Player::awake()
 {
 }
 
-void PlayerControl::awk_attached(Vec3 direction)
+void PlayerControl::awk_attached()
 {
+	Vec3 direction = Vec3::normalize(get<Awk>()->velocity);
 	attach_quat_start = Quat::look(direction);
 
 	Quat attach_quat_absolute = Quat::look(direction.reflect(get<Transform>()->absolute_rot() * Vec3(0, 0, 1)));
@@ -46,7 +47,7 @@ PlayerControl::PlayerControl()
 void PlayerControl::awake()
 {
 	Entities::main.update.add(this);
-	link<Vec3, &PlayerControl::awk_attached>(&get<Awk>()->attached);
+	link<&PlayerControl::awk_attached>(&get<Awk>()->attached);
 }
 
 PlayerControl::~PlayerControl()

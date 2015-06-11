@@ -1,49 +1,67 @@
 #include "player.h"
-#include <GLFW/glfw3.h>
+#include "awk.h"
 #include "data/components.h"
-#include "BulletCollision/CollisionShapes/btSphereShape.h"
-#include "BulletCollision/CollisionDispatch/btCollisionObject.h"
+#include <GLFW/glfw3.h>
 
 #define fov_initial PI * 0.25f
-#define speed 15.0f
 #define speed_mouse 0.0025f
-#define player_radius 0.05f
+#define crawl_speed 1.0f
 #define attach_speed 2.0f
 #define max_attach_time 0.25f
 
-Player::Player()
-	: velocity(),
-	angle_horizontal(),
+Player::Player(ID id)
+	: Entity(id)
+{
+	Transform* transform = create<Transform>();
+	transform->pos = Vec3(0, 10, 0);
+	create<Awk>();
+	create<PlayerControl>();
+}
+
+void Player::awake()
+{
+}
+
+void PlayerControl::awk_attached(Vec3 direction)
+{
+	attach_quat_start = Quat::look(direction);
+
+	Quat attach_quat_absolute = Quat::look(direction.reflect(get<Transform>()->absolute_rot() * Vec3(0, 0, 1)));
+	attach_quat = get<Transform>()->parent()->absolute_rot().inverse() * attach_quat_absolute;
+	attach_time = fmin(max_attach_time, Quat::angle(attach_quat_start, attach_quat_absolute) / attach_speed);
+	attach_timer = 0.0f;
+}
+
+PlayerControl::PlayerControl()
+	: angle_horizontal(),
 	angle_vertical(),
 	view(Mat4::identity),
 	projection(Mat4::identity),
 	attach_timer(1.0f),
 	attach_time(),
-	attach_quat(Quat::identity),
 	attach_quat_start(Quat::identity)
 {
-	Transform* transform = Entities::all.component<Transform>(this);
-	transform->pos = Vec3(0, 10, 0);
 }
 
-void Player::awake()
+void PlayerControl::awake()
 {
-	Entities::all.update.add(this);
+	Entities::main.update.add(this);
+	link<Vec3, &PlayerControl::awk_attached>(&get<Awk>()->attached);
 }
 
-Player::~Player()
+PlayerControl::~PlayerControl()
 {
-	Entities::all.update.remove(this);
+	Entities::main.update.remove(this);
 }
 
-void Player::exec(EntityUpdate u)
+void PlayerControl::exec(EntityUpdate u)
 {
 	Quat look_quat = Quat::euler(0, angle_horizontal, angle_vertical);
-	if (get<Transform>()->parent)
+	if (get<Transform>()->has_parent)
 	{
 		if (attach_timer < attach_time)
 		{
-			Quat attach_quat_absolute = Quat::normalize(get<Transform>()->parent->absolute_rot() * attach_quat);
+			Quat attach_quat_absolute = Quat::normalize(get<Transform>()->parent()->absolute_rot() * attach_quat);
 
 			attach_timer += u.time.delta;
 			if (attach_timer >= attach_time)
@@ -82,68 +100,28 @@ void Player::exec(EntityUpdate u)
 				angle_vertical = -asinf(forward.y);
 				look_quat = Quat::euler(0, angle_horizontal, angle_vertical);
 			}
+
+			if (u.input->keys[GLFW_KEY_W] == GLFW_PRESS)
+				get<Transform>()->pos += Vec3(0, 0, 1) * u.time.delta * crawl_speed;
+			if (u.input->keys[GLFW_KEY_S] == GLFW_PRESS)
+				get<Transform>()->pos += Vec3(0, 0, -1) * u.time.delta * crawl_speed;
+			if (u.input->keys[GLFW_KEY_D] == GLFW_PRESS)
+				get<Transform>()->pos += Vec3(1, 0, 0) * u.time.delta * crawl_speed;
+			if (u.input->keys[GLFW_KEY_A] == GLFW_PRESS)
+				get<Transform>()->pos += Vec3(-1, 0, 0) * u.time.delta * crawl_speed;
 		}
 
 		if (u.input->mouse)
-		{
-			Vec3 direction = look_quat * Vec3(0, 0, 1);
-			velocity = direction * speed;
-			get<Transform>()->reparent(0);
-			get<Transform>()->pos += direction * player_radius;
-		}
+			get<Awk>()->detach(look_quat * Vec3(0, 0, 1));
 	}
 	else
 	{
-		velocity.y -= u.time.delta * 9.8f;
-
-		Vec3 position = get<Transform>()->pos;
-		Vec3 next_position = position + velocity * u.time.delta;
-
-		if (!btVector3(velocity).fuzzyZero())
+		if (!btVector3(get<Awk>()->velocity).fuzzyZero())
 		{
-			Vec3 direction = Vec3::normalize(velocity);
+			Vec3 direction = Vec3::normalize(get<Awk>()->velocity);
 			look_quat = Quat::look(direction);
-
-			btCollisionWorld::ClosestRayResultCallback rayCallback(position, next_position + Vec3::normalize(velocity) * player_radius);
-
-			Physics::world.btWorld->rayTest(position, next_position, rayCallback);
-
-			if (rayCallback.hasHit())
-			{
-				Entity* entity = (Entity*)rayCallback.m_collisionObject->getUserPointer();
-				get<Transform>()->pos = rayCallback.m_hitPointWorld + rayCallback.m_hitNormalWorld * player_radius;
-				get<Transform>()->rot = Quat::look(rayCallback.m_hitNormalWorld);
-				get<Transform>()->reparent(entity->get<Transform>());
-
-				attach_quat_start = look_quat;
-
-				Quat attach_quat_absolute = Quat::look(direction.reflect(rayCallback.m_hitNormalWorld));
-				attach_quat = entity->get<Transform>()->absolute_rot().inverse() * attach_quat_absolute;
-				attach_time = fmin(max_attach_time, Quat::angle(look_quat, attach_quat_absolute) / attach_speed);
-				attach_timer = 0.0f;
-				velocity = Vec3::zero;
-			}
-			else
-				get<Transform>()->pos = next_position;
 		}
-		else
-			get<Transform>()->pos = next_position;
 	}
-	
-	/*
-	// Move forward
-	if (u.input->keys[GLFW_KEY_W] == GLFW_PRESS)
-		force += direction * u.time.delta * speed;
-	// Move backward
-	if (u.input->keys[GLFW_KEY_S] == GLFW_PRESS)
-		force -= direction * u.time.delta * speed;
-	// Strafe right
-	if (u.input->keys[GLFW_KEY_D] == GLFW_PRESS)
-		force += right * u.time.delta * speed;
-	// Strafe left
-	if (u.input->keys[GLFW_KEY_A] == GLFW_PRESS)
-		force -= right * u.time.delta * speed;
-	*/
 	
 	float FoV = fov_initial;
 

@@ -10,7 +10,6 @@ struct View : public ComponentType<View>, ExecStatic<View, RenderParams*>
 	AssetID mesh;
 	AssetID shader;
 	AssetID texture;
-	Transform* transform;
 	void exec(RenderParams*);
 	void awake();
 	View()

@@ -10,7 +10,7 @@ struct GameTime
 
 struct InputState
 {
-	char keys[348 + 1]; // GLFW_KEY_LAST + 1
+	char keys[348 + 1];
 	double cursor_x;
 	double cursor_y;
 	bool mouse;

@@ -4,8 +4,10 @@
 #include "lodepng.h"
 #include "vi_assert.h"
 
-Loader::Loader(RenderSync::Swapper* s)
-	: swapper(s), meshes(), textures(), shaders()
+Loader Loader::main = Loader();
+
+Loader::Loader()
+	: swapper(), meshes(), textures(), shaders()
 {
 }
 

@@ -9,21 +9,10 @@
 
 #include <stdio.h>
 
-typedef size_t Family;
-typedef size_t ID;
+typedef unsigned int Family;
+typedef unsigned int ID;
 typedef unsigned long ComponentMask;
 const Family MAX_FAMILIES = sizeof(ComponentMask) * 8;
-
-struct Entity;
-
-struct ComponentBase
-{
-	ID id;
-	Entity* entity;
-	static Family families;
-};
-
-struct Entities;
 
 struct EntityUpdate
 {
@@ -48,55 +37,34 @@ struct RenderParams
 
 struct Entity
 {
-	static Family families;
 	ID id;
-	ComponentBase* components[MAX_FAMILIES];
-	Entity()
-		: components(), id()
+	ID components[MAX_FAMILIES];
+	ComponentMask component_mask;
+	Entity(ID id)
+		: components(), id(id)
 	{
 	}
 
-	template<typename T> T* get()
+	template<typename T, typename... Args> T* create(Args... args)
 	{
-		return (T*)components[T::family()];
+		return Entities::main.create_component<T>(this, args...);
 	}
 
-	virtual Family instance_family() = 0;
-};
-
-template<typename Derived>
-struct EntityType : Entity
-{
-	static Family family()
+	template<typename T, typename... Args> T* add(Args... args)
 	{
-		static Family f = Entity::families++;
-		vi_assert(f <= MAX_FAMILIES);
-		return f;
+		return Entities::main.add_component<T>(this, args...);
 	}
 
-	virtual Family instance_family()
+	template<typename T> inline T* get()
 	{
-		return Derived::family();
+		if (component_mask & (1 << T::family()))
+			return &(Entities::main.component_list<T>())[components[T::family()]];
+		else
+			return 0;
 	}
 };
 
-template<typename Derived>
-struct ComponentType : public ComponentBase
-{
-	struct System
-	{
-		static Family family()
-		{
-			return Derived::family();
-		}
-	};
-	static Family family()
-	{
-		static Family f = ComponentBase::families++;
-		vi_assert(f <= MAX_FAMILIES);
-		return f;
-	}
-};
+struct ComponentBase;
 
 struct PoolBase
 {
@@ -111,6 +79,7 @@ struct PoolBase
 	{
 	}
 
+	virtual ComponentBase* virtual_get(size_t) { return 0; }
 	virtual void awake(size_t) {}
 	virtual void remove(size_t) {}
 };
@@ -120,6 +89,11 @@ struct Pool : public PoolBase
 {
 	Pool()
 	{
+	}
+
+	virtual ComponentBase* virtual_get(size_t id)
+	{
+		return reinterpret_cast<ArrayNonRelocating<T>*>(&data)->get(id);
 	}
 
 	size_t add()
@@ -146,15 +120,16 @@ struct Pool : public PoolBase
 
 struct Entities : ExecDynamic<Update>
 {
-	static Entities all;
-	PoolBase entity_pools[MAX_FAMILIES];
+	static Family component_families;
+	static Entities main;
+	ArrayNonRelocating<Entity> list;
 	PoolBase component_pools[MAX_FAMILIES];
 	void* systems[MAX_FAMILIES];
 	ExecSystemDynamic<EntityUpdate> update;
 	ExecSystemDynamic<RenderParams*> draw;
 
 	Entities()
-		: entity_pools(), component_pools(), systems(), update(), draw()
+		: list(), component_pools(), systems(), update(), draw()
 	{
 	}
 
@@ -173,18 +148,9 @@ struct Entities : ExecDynamic<Update>
 
 	template<typename T, typename... Args> T* create(Args... args)
 	{
-		Family f = T::family();
-		Pool<T>* pool = (Pool<T>*)&entity_pools[f];
-		if (!pool->initialized)
-		{
-			new (pool) Pool<T>();
-			pool->initialized = true;
-		}
-		
-		ID id = pool->add();
-		T* e = (T*)pool->get(id);
-		new (e) T(args...);
-		e->id = id;
+		ID id = list.add();
+		T* e = (T*)&list[id];
+		new (e) T(id, args...);
 		awake(e);
 		return e;
 	}
@@ -197,12 +163,25 @@ struct Entities : ExecDynamic<Update>
 		return (SystemType*)systems[f];
 	}
 
-	template<typename T> ArrayNonRelocating<T>* components()
+	template<typename T> ArrayNonRelocating<T>& component_list()
 	{
-		return ((Pool<T>*)&component_pools[T::family()])->data;
+		Pool<T>* pool = (Pool<T>*)&component_pools[T::family()];
+		return *(reinterpret_cast<ArrayNonRelocating<T>*>(&pool->data));
 	}
 
-	template<typename T, typename... Args> T* component(Entity* e, Args... args)
+	ComponentBase* get_component(ID entity, Family family)
+	{
+		Entity* e = &list[entity];
+		if (e->component_mask & (1 << family))
+		{
+			PoolBase* pool = &component_pools[family];
+			return pool->virtual_get(e->components[family]);
+		}
+		else
+			return 0;
+	}
+
+	template<typename T, typename... Args> T* create_component(Entity* e, Args... args)
 	{
 		Family f = T::family();
 		Pool<T>* pool = (Pool<T>*)&component_pools[f];
@@ -215,26 +194,27 @@ struct Entities : ExecDynamic<Update>
 		T* t = pool->get(id);
 		new(t) T(args...);
 		t->id = id;
-		t->entity = e;
-		e->components[f] = t;
+		t->entity_id = e->id;
+		e->components[f] = id;
+		e->component_mask |= 1 << f;
 		return t;
 	}
 
-	template<typename T> T* add(Entity* e)
+	template<typename T, typename... Args> T* add_component(Entity* e, Args... args)
 	{
-		T* component = create<T>(e);
+		T* component = component<T>(e, args...);
 		PoolBase* pool = &component_pools[T::family()];
 		pool->awake(component->id);
 	}
 
 	template<typename T> void awake(T* e)
 	{
-		for (size_t i = 0; i < ComponentBase::families; i++)
+		for (ID i = 0; i < Entities::component_families; i++)
 		{
-			if (e->components[i])
+			if (e->component_mask & (1 << i))
 			{
 				PoolBase* pool = &component_pools[i];
-				pool->awake(e->components[i]->id);
+				pool->awake(e->components[i]);
 			}
 		}
 		e->awake();
@@ -242,15 +222,127 @@ struct Entities : ExecDynamic<Update>
 
 	void remove(Entity* e)
 	{
-		PoolBase* pool = &entity_pools[e->instance_family()];
-		pool->remove(e->id);
-		for (size_t i = 0; i < ComponentBase::families; i++)
+		list.remove(e->id);
+		for (ID i = 0; i < Entities::component_families; i++)
 		{
-			if (e->components[i])
+			if (e->component_mask & (1 << i))
 			{
 				PoolBase* pool = &component_pools[i];
-				pool->remove(e->components[i]->id);
+				pool->remove(e->components[i]);
 			}
 		}
+	}
+};
+
+struct ComponentBase
+{
+	ID id;
+	ID entity_id;
+
+	inline Entity* entity()
+	{
+		return Entities::main.list.get(entity_id);
+	}
+
+	template<typename T> inline T* get()
+	{
+		return Entities::main.list.get(entity_id)->get<T>();
+	}
+};
+
+struct Link
+{
+	ID entity;
+
+	Link()
+		: entity()
+	{
+
+	}
+
+	Link(ID entity)
+		: entity(entity)
+	{
+
+	}
+
+	virtual void fire() {}
+};
+
+template<typename T, void (T::*Method)()> struct InstantiatedLink : public Link
+{
+	InstantiatedLink(ID entity)
+		: Link(entity)
+	{
+		
+	}
+
+	virtual void fire()
+	{
+		T* t = Entities::main.list[entity].get<T>();
+		(t->*Method)();
+	}
+};
+
+template<typename T> struct LinkArg
+{
+	ID entity;
+
+	LinkArg()
+		: entity()
+	{
+
+	}
+
+	LinkArg(ID entity)
+		: entity(entity)
+	{
+
+	}
+
+	virtual void fire(T arg) {}
+};
+
+template<typename T, typename Arg, void (T::*Method)(Arg)> struct InstantiatedLinkArg : public LinkArg<Arg>
+{
+	InstantiatedLinkArg(ID entity)
+		: LinkArg(entity)
+	{
+		
+	}
+
+	virtual void fire(Arg arg)
+	{
+		T* t = Entities::main.list[entity].get<T>();
+		(t->*Method)(arg);
+	}
+};
+
+template<typename Derived>
+struct ComponentType : public ComponentBase
+{
+	struct System
+	{
+		static Family family()
+		{
+			return Derived::family();
+		}
+	};
+
+	static Family family()
+	{
+		static Family f = Entities::component_families++;
+		vi_assert(f <= MAX_FAMILIES);
+		return f;
+	}
+
+	template<void (Derived::*Method)()> void link(Link* link)
+	{
+		new (link) InstantiatedLink<Derived, Method>(entity_id);
+	}
+
+	template<typename Arg, void (Derived::*Method)(Arg)> void link(LinkArg<Arg>* link)
+	{
+		new (link) InstantiatedLinkArg<Derived, Arg, Method>(entity_id);
 	}
 };

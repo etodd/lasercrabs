@@ -1,6 +1,6 @@
 #include "physics.h"
 
-Physics Physics::world = Physics();
+Physics Physics::main = Physics();
 
 Physics::Physics()
 {
@@ -16,7 +16,7 @@ Physics::Physics()
 
     // The world.
     btWorld = new btDiscreteDynamicsWorld(dispatcher, broadphase, solver, collision_config);
-    btWorld->setGravity(btVector3(0, -9.8, 0));
+    btWorld->setGravity(btVector3(0, -9.8f, 0));
 }
 
 void Physics::exec(Update u)
@@ -42,13 +42,13 @@ RigidBody::RigidBody(float mass, btMotionState* motion_state, btCollisionShape* 
 
 void RigidBody::awake()
 {
-	Physics::world.btWorld->addRigidBody(&btBody);
-	btBody.setUserPointer(entity);
+	Physics::main.btWorld->addRigidBody(&btBody);
+	btBody.setUserIndex(entity_id);
 }
 
 RigidBody::~RigidBody()
 {
-	Physics::world.btWorld->removeRigidBody(&btBody);
+	Physics::main.btWorld->removeRigidBody(&btBody);
 	delete btShape;
 	btBody.~btRigidBody();
 }

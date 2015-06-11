@@ -5,18 +5,14 @@
 #include "load.h"
 #include "physics.h"
 
-struct Empty : public EntityType<Empty>
+struct Empty : public Entity
 {
-	Empty();
+	Empty(ID);
 	void awake();
 };
 
-#include <BulletCollision/CollisionShapes/btBvhTriangleMeshShape.h>
-
-struct StaticGeom : public EntityType<StaticGeom>, public ExecDynamic<EntityUpdate>
+struct StaticGeom : public Entity
 {
-	StaticGeom(Loader*, AssetID);
+	StaticGeom(ID, AssetID);
 	void awake();
-	~StaticGeom();
-	virtual void exec(EntityUpdate);
 };

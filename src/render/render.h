@@ -1,7 +1,6 @@
 #pragma once
 
 #include <GL/glew.h>
-#include <GLFW/glfw3.h>
 #include "types.h"
 #include "data/array.h"
 #include "lmath.h"

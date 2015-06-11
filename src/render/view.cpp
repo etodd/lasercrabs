@@ -9,7 +9,7 @@ void View::exec(RenderParams* params)
 	sync->write<AssetID>(&texture);
 
 	Mat4 m;
-	transform->mat(&m);
+	get<Transform>()->mat(&m);
 	Mat4 mvp = m * params->view * params->projection;
 	sync->write<Mat4>(&mvp);
 	sync->write<Mat4>(&m);
@@ -18,16 +18,15 @@ void View::exec(RenderParams* params)
 
 void View::awake()
 {
-	Entities::all.system<ViewSys>()->add(this);
-	transform = entity->get<Transform>();
+	Entities::main.system<ViewSys>()->add(this);
 }
 
 View::~View()
 {
-	Entities::all.system<ViewSys>()->remove(this);
+	Entities::main.system<ViewSys>()->remove(this);
 }
 
 ViewSys::ViewSys()
 {
-	Entities::all.draw.add(this);
+	Entities::main.draw.add(this);
 }

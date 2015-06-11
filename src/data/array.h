@@ -40,7 +40,6 @@ struct Array
 		return *(data + i);
 	}
 
-	/// Array accessor operator
 	inline T& operator [] (const size_t i)
 	{
 		return *(data + i);
@@ -136,61 +135,77 @@ struct IntrusiveLinkedList
 	}
 };
 
-template<typename T, size_t chunk_size = 4096>
+template<typename T> struct ArrayNonRelocatingEntry
+{
+	bool active;
+	T item;
+};
+
+template<typename T>
 struct ArrayNonRelocating
 {
-	size_t reserved;
-	Array<T*> chunks;
+	Array<ArrayNonRelocatingEntry<T>> data;
 	Array<size_t> free_list;
 
 	ArrayNonRelocating(size_t size = 0)
-		: chunks(size / chunk_size), free_list(), reserved()
+		: data(), free_list()
 	{
 	}
 
-	~ArrayNonRelocating()
+	inline T operator [] (const size_t i) const
 	{
-		for (size_t i = 0; i < chunks.length; i++)
-			free(chunks.data[i]);
+		return (data.data + i)->item;
 	}
 
-	T* get(size_t i)
+	inline T& operator [] (const size_t i)
 	{
-		return &((chunks.data[i / chunk_size])[i % chunk_size]);
+		return (data.data + i)->item;
+	}
+
+	T* get(const size_t i)
+	{
+		return &(data.data + i)->item;
 	}
 
 	size_t add()
 	{
+		size_t index;
 		if (free_list.length > 0)
 		{
-			size_t index = free_list.data[0];
+			index = free_list.data[0];
 			free_list.remove(0);
-			return index;
 		}
 		else
 		{
-			size_t index = reserved;
-			size_t chunk_index = index / chunk_size;
-			while (chunks.length < chunk_index + 1)
-			{
-				T* chunk = (T*)malloc(sizeof(T) * chunk_size);
-				chunks.add(chunk);
-			}
-			reserved++;
-			return index;
+			data.add();
+			index = data.length - 1;
 		}
+		data[index].active = true;
+		return index;
 	}
 
 	size_t add(T& t)
 	{
 		size_t index = add();
-		(chunks.data[index / chunk_size])[index % chunk_size] = t;
+		data[index].item = t;
 		return index;
+	}
+
+	size_t next(size_t index)
+	{
+		while (index < data.length)
+		{
+			if (data[index].active)
+				return index;
+			index++;
+		}
+		return -1;
 	}
 
 	void remove(size_t i)
 	{
 		free_list.add(i);
+		data[i].active = false;
 	}
 };
 

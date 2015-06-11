@@ -7,22 +7,30 @@
 struct RigidBody;
 struct Transform;
 
-struct Player : public EntityType<Player>, public ExecDynamic<EntityUpdate>
+struct Player : public Entity
+{
+	Player(ID id);
+	void awake();
+};
+
+struct PlayerControl : public ComponentType<PlayerControl>, public ExecDynamic<EntityUpdate>
 {
 	float angle_horizontal;
 	float angle_vertical;
 
 	float attach_timer;
 	float attach_time;
-	Quat attach_quat_start;
 	Quat attach_quat;
+	Quat attach_quat_start;
 
-	Vec3 velocity;
 	Mat4 view;
 	Mat4 projection;
 
-	Player();
-	~Player();
+	PlayerControl();
+	~PlayerControl();
 	void awake();
+
+	void awk_attached(Vec3);
+
 	virtual void exec(EntityUpdate);
 };

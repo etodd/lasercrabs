@@ -8,7 +8,7 @@
 
 struct Physics : public ExecDynamic<Update>
 {
-	static Physics world;
+	static Physics main;
 	Physics();
 	~Physics();
     btBroadphaseInterface* broadphase;

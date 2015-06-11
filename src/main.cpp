@@ -14,65 +14,13 @@
 
 GLFWwindow* window;
 
-#include "render/view.h"
 #include "load.h"
-#include "data/array.h"
-#include "data/entity.h"
-#include "data/components.h"
-#include "data/mesh.h"
-#include "exec.h"
-#include "physics.h"
 #include "render/render.h"
-#include "asset.h"
-
-#include "game/entities.h"
-#include "game/player.h"
+#include "game.h"
 
 void resize(GLFWwindow* window, int width, int height)
 {
 	glViewport(0, 0, width, height);
-}
-
-void update_loop(Loader* loader, RenderSync::Swapper* swapper)
-{
-	ExecSystemDynamic<Update> update;
-	ExecSystemDynamic<RenderParams*> draw;
-
-	update.add(&Entities::all);
-	update.add(&Physics::world);
-	draw.add(&Entities::all.draw);
-
-	StaticGeom* a = Entities::all.create<StaticGeom>(loader, Asset::Model::city3);
-
-	Player* player = Entities::all.create<Player>();
-
-	RenderParams render_params;
-
-	SyncData* sync = swapper->get();
-
-	Update u;
-
-	while (!sync->quit)
-	{
-		u.input = &sync->input;
-		u.time = sync->time;
-		update.exec(u);
-
-		render_params.sync = sync;
-
-		render_params.projection = player->projection;
-		render_params.view = player->view;
-
-		sync->op(RenderOp_Clear);
-		
-		GLbitfield clear_flags = GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT;
-		sync->write<GLbitfield>(&clear_flags);
-
-		draw.exec(&render_params);
-
-		sync = swapper->swap<SwapType_Write>();
-		sync->queue.length = 0;
-	}
 }
 
 #if WIN32 && !_CONSOLE
@@ -137,9 +85,7 @@ int main()
 	RenderSync::Swapper update_swapper = render_sync.swapper(0);
 	RenderSync::Swapper render_swapper = render_sync.swapper(1);
 
-	Loader loader(&update_swapper);
-
-	std::thread update_thread(update_loop, &loader, &update_swapper);
+	std::thread update_thread(game_loop, &update_swapper);
 
 	SyncData* sync = render_swapper.get();
 

@@ -5,9 +5,12 @@
 
 struct Transform : public ComponentType<Transform>, public btMotionState
 {
-	Transform* parent;
+	ID parent_id;
+	bool has_parent;
 	Vec3 pos;
 	Quat rot;
+
+	Transform* parent();
 
 	Transform();
 

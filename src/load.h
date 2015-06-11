@@ -8,6 +8,7 @@
 
 struct Loader
 {
+	static Loader main;
 	enum AssetType { AssetNone, AssetTransient, AssetPermanent };
 	template<typename T>
 	struct Entry
@@ -27,7 +28,7 @@ struct Loader
 	Entry<void*> textures[Asset::Texture::count];
 	Entry<void*> shaders[Asset::Shader::count];
 
-	Loader(RenderSync::Swapper*);
+	Loader();
 
 	AssetID mesh(AssetID);
 	AssetID mesh_permanent(AssetID);

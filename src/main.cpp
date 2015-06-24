@@ -46,8 +46,23 @@ int main()
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
 	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
+	GLFWmonitor* monitor = glfwGetPrimaryMonitor();
+	bool fullscreen = false;
+	if (fullscreen)
+	{
+		const GLFWvidmode* mode = glfwGetVideoMode(monitor);
+		glfwWindowHint(GLFW_RED_BITS, mode->redBits);
+		glfwWindowHint(GLFW_GREEN_BITS, mode->greenBits);
+		glfwWindowHint(GLFW_BLUE_BITS, mode->blueBits);
+		glfwWindowHint(GLFW_REFRESH_RATE, mode->refreshRate);
+		window = glfwCreateWindow(mode->width, mode->height, "MK-ZEBRA", monitor, NULL);
+	}
+	else
+	{
+		window = glfwCreateWindow(1024, 768, "MK-ZEBRA", NULL, NULL);
+	}
+
 	// Open a window and create its OpenGL context
-	window = glfwCreateWindow(1024, 768, "MK-ZEBRA", NULL, NULL);
 	if (!window)
 	{
 		fprintf(stderr, "Failed to open GLFW window. If you have an Intel GPU, they are not 3.3 compatible. Sorry.\n");

@@ -16,11 +16,11 @@ StaticGeom::StaticGeom(ID id, AssetID mesh_id)
 	Transform* transform = create<Transform>();
 	View* model = create<View>();
 
-	model->mesh = Loader::main.mesh(mesh_id);
-	model->shader = Loader::main.shader(Asset::Shader::Standard);
-	model->texture = Loader::main.texture(Asset::Texture::test);
+	model->mesh = Loader::mesh(mesh_id);
+	model->shader = Loader::shader(Asset::Shader::Standard);
+	model->texture = Loader::texture(Asset::Texture::test);
 
-	Mesh* mesh = &Loader::main.meshes[mesh_id].data;
+	Mesh* mesh = &Loader::meshes[mesh_id].data;
 
 	btBvhTriangleMeshShape* btMesh = new btBvhTriangleMeshShape(&mesh->physics, true, btVector3(-1000, -1000, -1000), btVector3(1000, 1000, 1000));
 	

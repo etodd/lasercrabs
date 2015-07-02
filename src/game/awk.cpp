@@ -35,11 +35,11 @@ void Awk::update(Update u)
 
 			btCollisionWorld::ClosestRayResultCallback rayCallback(position, next_position + direction * awk_radius);
 
-			Physics::main.btWorld->rayTest(position, next_position, rayCallback);
+			Physics::btWorld->rayTest(position, next_position, rayCallback);
 
 			if (rayCallback.hasHit())
 			{
-				Entity* entity = &Entities::main.list[rayCallback.m_collisionObject->getUserIndex()];
+				Entity* entity = &World::list[rayCallback.m_collisionObject->getUserIndex()];
 				get<Transform>()->pos = rayCallback.m_hitPointWorld + rayCallback.m_hitNormalWorld * awk_radius;
 				get<Transform>()->rot = Quat::look(rayCallback.m_hitNormalWorld);
 				get<Transform>()->reparent(entity->get<Transform>());

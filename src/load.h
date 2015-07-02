@@ -8,7 +8,6 @@
 
 struct Loader
 {
-	static Loader main;
 	enum AssetType { AssetNone, AssetTransient, AssetPermanent };
 	template<typename T>
 	struct Entry
@@ -21,23 +20,20 @@ struct Loader
 		}
 	};
 
-	RenderSync::Swapper* swapper;
-
+	static RenderSync::Swapper* swapper;
 	// First entry in each array is empty
-	Entry<Mesh> meshes[Asset::Model::count];
-	Entry<void*> textures[Asset::Texture::count];
-	Entry<void*> shaders[Asset::Shader::count];
+	static Entry<Mesh> meshes[Asset::Model::count];
+	static Entry<void*> textures[Asset::Texture::count];
+	static Entry<void*> shaders[Asset::Shader::count];
 
-	Loader();
-
-	AssetID mesh(AssetID);
-	AssetID mesh_permanent(AssetID);
-	void unload_mesh(AssetID);
-	AssetID texture(AssetID);
-	AssetID texture_permanent(AssetID);
-	void unload_texture(AssetID);
-	AssetID shader(AssetID);
-	AssetID shader_permanent(AssetID);
-	void unload_shader(AssetID);
-	void unload_transients();
+	static AssetID mesh(AssetID);
+	static AssetID mesh_permanent(AssetID);
+	static void unload_mesh(AssetID);
+	static AssetID texture(AssetID);
+	static AssetID texture_permanent(AssetID);
+	static void unload_texture(AssetID);
+	static AssetID shader(AssetID);
+	static AssetID shader_permanent(AssetID);
+	static void unload_shader(AssetID);
+	static void unload_transients();
 };

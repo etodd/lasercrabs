@@ -135,19 +135,52 @@ struct IntrusiveLinkedList
 	}
 };
 
-template<typename T> struct ArrayNonRelocatingEntry
+template<typename T> struct PinArrayEntry
 {
 	bool active;
 	T item;
 };
 
 template<typename T>
-struct ArrayNonRelocating
+struct PinArray
 {
-	Array<ArrayNonRelocatingEntry<T>> data;
+	Array<PinArrayEntry<T>> data;
 	Array<size_t> free_list;
 
-	ArrayNonRelocating(size_t size = 0)
+	struct Entry
+	{
+		size_t index;
+		T* item;
+	};
+
+	struct Iterator
+	{
+		size_t index;
+		PinArray<T>* array;
+		void next()
+		{
+			index++;
+			while (index < array->data.length)
+			{
+				if (array->data[index].active)
+					return;
+				index++;
+			}
+			index = -1;
+		}
+
+		bool is_last()
+		{
+			return index == -1;
+		}
+
+		T* item()
+		{
+			return &array->data[index].item;
+		}
+	};
+
+	PinArray(size_t size = 0)
 		: data(), free_list()
 	{
 	}
@@ -167,45 +200,38 @@ struct ArrayNonRelocating
 		return &(data.data + i)->item;
 	}
 
-	size_t add()
+	Entry add()
 	{
-		size_t index;
+		Entry e;
 		if (free_list.length > 0)
 		{
-			index = free_list.data[0];
+			e.index = free_list.data[0];
 			free_list.remove(0);
 		}
 		else
 		{
 			data.add();
-			index = data.length - 1;
+			e.index = data.length - 1;
 		}
-		data[index].active = true;
-		return index;
+		data[e.index].active = true;
+		e.item = &data[e.index].item;
+		return e;
 	}
 
-	size_t add(T& t)
+	Entry add(T& t)
 	{
-		size_t index = add();
-		data[index].item = t;
-		return index;
+		Entry i = add();
+		*(i.item) = t;
+		return i;
 	}
 
-	size_t first()
+	Iterator iterator()
 	{
-		return next(-1);
-	}
-
-	size_t next(size_t index)
-	{
-		index++;
-		while (index < data.length)
-		{
-			if (data[index].active)
-				return index;
-			index++;
-		}
-		return -1;
+		Iterator i;
+		i.index = -1;
+		i.array = this;
+		i.next();
+		return i;
 	}
 
 	void remove(size_t i)
@@ -224,7 +250,7 @@ struct Queue
 		Entry* next;
 		size_t index;
 	};
-	ArrayNonRelocating<T> array;
+	PinArray<T> array;
 	Entry* head;
 	Entry* tail;
 

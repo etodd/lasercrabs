@@ -4,7 +4,6 @@
 #include "lmath.h"
 #include "array.h"
 #include "vi_assert.h"
-#include "exec.h"
 #include <GL/glew.h>
 
 #include <stdio.h>
@@ -35,9 +34,9 @@ struct PoolBase
 {
 	bool initialized;
 
-	// This gets reinterpreted as an ArrayNonRelocating<T> in ComponentPool.
+	// This gets reinterpreted as an PinArray<T> in ComponentPool.
 	// Embrace the madness.
-	ArrayNonRelocating<char> data;
+	PinArray<char> data;
 
 	PoolBase()
 		: initialized(), data()
@@ -58,28 +57,28 @@ struct Pool : public PoolBase
 
 	virtual ComponentBase* virtual_get(size_t id)
 	{
-		return reinterpret_cast<ArrayNonRelocating<T>*>(&data)->get(id);
+		return reinterpret_cast<PinArray<T>*>(&data)->get(id);
 	}
 
-	size_t add()
+	typename PinArray<T>::Entry add()
 	{
-		return reinterpret_cast<ArrayNonRelocating<T>*>(&data)->add();
+		return reinterpret_cast<PinArray<T>*>(&data)->add();
 	}
 
 	T* get(size_t id)
 	{
-		return reinterpret_cast<ArrayNonRelocating<T>*>(&data)->get(id);
+		return reinterpret_cast<PinArray<T>*>(&data)->get(id);
 	}
 
 	void awake(size_t id)
 	{
-		reinterpret_cast<ArrayNonRelocating<T>*>(&data)->get(id)->awake();
+		reinterpret_cast<PinArray<T>*>(&data)->get(id)->awake();
 	}
 
 	void remove(size_t id)
 	{
-		reinterpret_cast<ArrayNonRelocating<T>*>(&data)->get(id)->~T();
-		reinterpret_cast<ArrayNonRelocating<T>*>(&data)->remove(id);
+		reinterpret_cast<PinArray<T>*>(&data)->get(id)->~T();
+		reinterpret_cast<PinArray<T>*>(&data)->remove(id);
 	}
 };
 
@@ -97,34 +96,22 @@ struct Entity
 	template<typename T> inline T* get();
 };
 
-struct Entities
+struct World
 {
 	static Family component_families;
-	static Entities main;
-	ArrayNonRelocating<Entity> list;
-	PoolBase component_pools[MAX_FAMILIES];
-	void* systems[MAX_FAMILIES];
+	static PinArray<Entity> list;
+	static PoolBase component_pools[MAX_FAMILIES];
+	static void* systems[MAX_FAMILIES];
 
-	Entities()
-		: list(), component_pools(), systems()
+	template<typename T, typename... Args> static T* create(Args... args)
 	{
+		PinArray<Entity>::Entry entry = list.add();
+		new (entry.item) T(entry.index, args...);
+		awake((T*)entry.item);
+		return (T*)entry.item;
 	}
 
-	~Entities()
-	{
-		// TODO: entities and systems are never cleaned up
-	}
-
-	template<typename T, typename... Args> T* create(Args... args)
-	{
-		ID id = list.add();
-		T* e = (T*)&list[id];
-		new (e) T(id, args...);
-		awake(e);
-		return e;
-	}
-
-	template<typename SystemType> SystemType* system()
+	template<typename SystemType> static SystemType* system()
 	{
 		Family f = SystemType::family();
 		if (!systems[f])
@@ -132,13 +119,13 @@ struct Entities
 		return (SystemType*)systems[f];
 	}
 
-	template<typename T> ArrayNonRelocating<T>& component_list()
+	template<typename T> static PinArray<T>& components()
 	{
 		Pool<T>* pool = (Pool<T>*)&component_pools[T::family()];
-		return *(reinterpret_cast<ArrayNonRelocating<T>*>(&pool->data));
+		return *(reinterpret_cast<PinArray<T>*>(&pool->data));
 	}
 
-	ComponentBase* get_component(ID entity, Family family)
+	static ComponentBase* get_component(ID entity, Family family)
 	{
 		Entity* e = &list[entity];
 		if (e->component_mask & (1 << family))
@@ -150,7 +137,7 @@ struct Entities
 			return 0;
 	}
 
-	template<typename T, typename... Args> T* create_component(Entity* e, Args... args)
+	template<typename T, typename... Args> static T* create_component(Entity* e, Args... args)
 	{
 		Family f = T::family();
 		Pool<T>* pool = (Pool<T>*)&component_pools[f];
@@ -159,26 +146,25 @@ struct Entities
 			new (pool) Pool<T>();
 			pool->initialized = true;
 		}
-		size_t id = pool->add();
-		T* t = pool->get(id);
-		new(t) T(args...);
-		t->id = id;
-		t->entity_id = e->id;
-		e->components[f] = id;
+		PinArray<T>::Entry entry = pool->add();
+		new(entry.item) T(args...);
+		entry.item->id = entry.index;
+		entry.item->entity_id = e->id;
+		e->components[f] = entry.index;
 		e->component_mask |= 1 << f;
-		return t;
+		return entry.item;
 	}
 
-	template<typename T, typename... Args> T* add_component(Entity* e, Args... args)
+	template<typename T, typename... Args> static T* add_component(Entity* e, Args... args)
 	{
 		T* component = create_component<T>(e, args...);
 		PoolBase* pool = &component_pools[T::family()];
 		pool->awake(component->id);
 	}
 
-	template<typename T> void awake(T* e)
+	template<typename T> static void awake(T* e)
 	{
-		for (ID i = 0; i < Entities::component_families; i++)
+		for (ID i = 0; i < World::component_families; i++)
 		{
 			if (e->component_mask & (1 << i))
 			{
@@ -189,10 +175,10 @@ struct Entities
 		e->awake();
 	}
 
-	void remove(Entity* e)
+	static void remove(Entity* e)
 	{
 		list.remove(e->id);
-		for (ID i = 0; i < Entities::component_families; i++)
+		for (ID i = 0; i < World::component_families; i++)
 		{
 			if (e->component_mask & (1 << i))
 			{
@@ -205,18 +191,18 @@ struct Entities
 
 template<typename T, typename... Args> T* Entity::create(Args... args)
 {
-	return Entities::main.create_component<T>(this, args...);
+	return World::create_component<T>(this, args...);
 }
 
 template<typename T, typename... Args> T* Entity::add(Args... args)
 {
-	return Entities::main.add_component<T>(this, args...);
+	return World::add_component<T>(this, args...);
 }
 
 template<typename T> inline T* Entity::get()
 {
 	if (component_mask & (1 << T::family()))
-		return &(Entities::main.component_list<T>())[components[T::family()]];
+		return &World::components<T>()[components[T::family()]];
 	else
 		return 0;
 }
@@ -228,12 +214,12 @@ struct ComponentBase
 
 	inline Entity* entity()
 	{
-		return Entities::main.list.get(entity_id);
+		return World::list.get(entity_id);
 	}
 
 	template<typename T> inline T* get()
 	{
-		return Entities::main.list.get(entity_id)->get<T>();
+		return World::list.get(entity_id)->get<T>();
 	}
 };
 
@@ -266,7 +252,7 @@ template<typename T, void (T::*Method)()> struct InstantiatedLink : public Link
 
 	virtual void fire()
 	{
-		Entity* e = &Entities::main.list[entity];
+		Entity* e = &World::list[entity];
 		T* t = e->get<T>();
 		(t->*Method)();
 	}
@@ -281,22 +267,11 @@ struct ComponentType : public ComponentBase
 		{
 			return Derived::family();
 		}
-
-		template<typename T2, void (Derived::*Method)(T2)>
-		void execute(T2 param)
-		{
-			ArrayNonRelocating<Derived>* components = &Entities::main.component_list<Derived>();
-			for (size_t i = components->first(); i != -1; i = components->next(i))
-			{
-				Derived* component = components->get(i);
-				(component->*Method)(param);
-			}
-		}
 	};
 
 	static Family family()
 	{
-		static Family f = Entities::component_families++;
+		static Family f = World::component_families++;
 		vi_assert(f <= MAX_FAMILIES);
 		return f;
 	}

@@ -16,11 +16,13 @@
 
 void game_loop(RenderSync::Swapper* swapper)
 {
-	Loader::main.swapper = swapper;
+	Physics::btWorld->setGravity(btVector3(0, -9.8f, 0));
 
-	StaticGeom* a = Entities::main.create<StaticGeom>(Asset::Model::city3);
+	Loader::swapper = swapper;
 
-	Player* player = Entities::main.create<Player>();
+	StaticGeom* a = World::create<StaticGeom>(Asset::Model::city3);
+
+	Player* player = World::create<Player>();
 
 	RenderParams render_params;
 
@@ -35,9 +37,11 @@ void game_loop(RenderSync::Swapper* swapper)
 
 		// Update
 		{
-			Physics::main.update(u);
-			Entities::main.system<Awk::System>()->execute<Update, &Awk::update>(u);
-			Entities::main.system<PlayerControl::System>()->execute<Update, &PlayerControl::update>(u);
+			Physics::update(u);
+			for (auto i = World::components<Awk>().iterator(); !i.is_last(); i.next())
+				i.item()->update(u);
+			for (auto i = World::components<PlayerControl>().iterator(); !i.is_last(); i.next())
+				i.item()->update(u);
 		}
 
 		render_params.sync = sync;
@@ -52,7 +56,8 @@ void game_loop(RenderSync::Swapper* swapper)
 
 		// Draw
 		{
-			Entities::main.system<View::System>()->execute<RenderParams*, &View::draw>(&render_params);
+			for (auto i = World::components<View>().iterator(); !i.is_last(); i.next())
+				i.item()->draw(&render_params);
 		}
 
 		sync = swapper->swap<SwapType_Write>();

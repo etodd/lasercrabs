@@ -4,12 +4,11 @@
 #include "lodepng.h"
 #include "vi_assert.h"
 
-Loader Loader::main = Loader();
-
-Loader::Loader()
-	: swapper(), meshes(), textures(), shaders()
-{
-}
+RenderSync::Swapper* Loader::swapper;
+// First entry in each array is empty
+Loader::Entry<Mesh> Loader::meshes[Asset::Model::count];
+Loader::Entry<void*> Loader::textures[Asset::Texture::count];
+Loader::Entry<void*> Loader::shaders[Asset::Shader::count];
 
 AssetID Loader::mesh(AssetID id)
 {

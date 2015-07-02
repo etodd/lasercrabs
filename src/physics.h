@@ -8,15 +8,12 @@
 
 struct Physics
 {
-	static Physics main;
-	Physics();
-	~Physics();
-    btBroadphaseInterface* broadphase;
-    btDefaultCollisionConfiguration* collision_config;
-    btCollisionDispatcher* dispatcher;
-    btSequentialImpulseConstraintSolver* solver;
-    btDiscreteDynamicsWorld* btWorld;
-    void update(Update);
+    static btDbvtBroadphase* broadphase;
+    static btDefaultCollisionConfiguration* collision_config;
+    static btCollisionDispatcher* dispatcher;
+    static btSequentialImpulseConstraintSolver* solver;
+    static btDiscreteDynamicsWorld* btWorld;
+    static void update(Update);
 };
 
 struct RigidBody : public ComponentType<RigidBody>

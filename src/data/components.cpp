@@ -47,7 +47,7 @@ void Transform::setWorldTransform(const btTransform& world)
 Transform* Transform::parent()
 {
 	if (has_parent)
-		return &Entities::main.component_list<Transform>()[parent_id];
+		return &World::components<Transform>()[parent_id];
 	else
 		return 0;
 }

@@ -146,7 +146,7 @@ struct World
 			new (pool) Pool<T>();
 			pool->initialized = true;
 		}
-		PinArray<T>::Entry entry = pool->add();
+		typename PinArray<T>::Entry entry = pool->add();
 		new(entry.item) T(args...);
 		entry.item->id = entry.index;
 		entry.item->entity_id = e->id;

@@ -65,7 +65,10 @@ bool load_anim(const char* path, Animation* out)
 	if (scene->HasAnimations())
 	{
 
+		return true;
 	}
+
+	return false;
 }
 
 bool load_model(const char* path, Mesh* out)

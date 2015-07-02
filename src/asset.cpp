@@ -14,5 +14,10 @@ const char* Asset::Texture::filenames[] =
 const char* Asset::Shader::filenames[] =
 {
 	"",
+	"assets/Armature.glsl",
 	"assets/Standard.glsl",
+};
+const char* Asset::Animation::filenames[] =
+{
+	"",
 };

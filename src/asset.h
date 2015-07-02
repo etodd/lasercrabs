@@ -18,8 +18,14 @@ struct Asset
 	};
 	struct Shader
 	{
-		static const size_t count = 2;
-		static const char* filenames[2];
-		static const AssetID Standard = 1;
+		static const size_t count = 3;
+		static const char* filenames[3];
+		static const AssetID Armature = 1;
+		static const AssetID Standard = 2;
+	};
+	struct Animation
+	{
+		static const size_t count = 1;
+		static const char* filenames[1];
 	};
 };

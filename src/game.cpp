@@ -2,6 +2,7 @@
 #include "vi_assert.h"
 
 #include "render/view.h"
+#include "render/armature.h"
 #include "render/render.h"
 #include "data/array.h"
 #include "data/entity.h"
@@ -9,7 +10,6 @@
 #include "game/awk.h"
 #include "game/player.h"
 #include "data/mesh.h"
-#include "exec.h"
 #include "physics.h"
 #include "game/entities.h"
 #include "game/player.h"
@@ -21,6 +21,8 @@ void game_loop(RenderSync::Swapper* swapper)
 	Loader::swapper = swapper;
 
 	StaticGeom* a = World::create<StaticGeom>(Asset::Model::city3);
+
+	Prop* prop = World::create<Prop>(Asset::Model::Alpha);
 
 	Player* player = World::create<Player>();
 
@@ -57,6 +59,8 @@ void game_loop(RenderSync::Swapper* swapper)
 		// Draw
 		{
 			for (auto i = World::components<View>().iterator(); !i.is_last(); i.next())
+				i.item()->draw(&render_params);
+			for (auto i = World::components<Armature>().iterator(); !i.is_last(); i.next())
 				i.item()->draw(&render_params);
 		}
 

@@ -16,3 +16,9 @@ struct StaticGeom : public Entity
 	StaticGeom(ID, AssetID);
 	void awake();
 };
+
+struct Prop : public Entity
+{
+	Prop(ID, AssetID);
+	void awake();
+};

@@ -8,9 +8,16 @@
 #include "lmath.h"
 #include "data/array.h"
 #include <dirent.h>
-#include "uthash.h"
+#include <unordered_map>
 
 #define MAX_BONE_WEIGHTS 4
+
+enum LoadResult
+{
+	LoadResult_ok,
+	LoadResult_error,
+	LoadResult_skip,
+};
 
 struct Mesh
 {
@@ -21,19 +28,22 @@ struct Mesh
 	Array<int> bone_indices[MAX_BONE_WEIGHTS];
 	Array<float> bone_weights[MAX_BONE_WEIGHTS];
 	Array<Mat4> inverse_bind_pose;
+	Array<int> bone_hierarchy;
 };
 
-struct Armature
+template<typename T>
+struct Keyframe
 {
-	Array<int> bone_hierarchy;
+	float time;
+	T value;
 };
 
 struct Channel
 {
 	int bone_index;
-	Array<Vec3> positions;
-	Array<Quat> rotations;
-	Array<Vec3> scales;
+	Array<Keyframe<Vec3> > positions;
+	Array<Keyframe<Quat> > rotations;
+	Array<Keyframe<Vec3> > scales;
 };
 
 struct Animation
@@ -42,39 +52,58 @@ struct Animation
 	Array<Channel> channels;
 };
 
-bool load_anim(const char* path, Animation* out)
+LoadResult load_anim(const aiScene* scene, Animation* out, std::unordered_map<std::string, int>& bone_map)
 {
-	Assimp::Importer importer;
-
-	const aiScene* scene = importer.ReadFile
-	(
-		path,
-		aiProcess_JoinIdenticalVertices
-		| aiProcess_Triangulate
-		| aiProcess_GenNormals
-		| aiProcess_ValidateDataStructure
-		| aiProcess_OptimizeMeshes
-		| aiProcess_OptimizeGraph
-	);
-	if (!scene)
-	{
-		fprintf(stderr, "%s\n", importer.GetErrorString());
-		return false;
-	}
-	
 	if (scene->HasAnimations())
 	{
+		return LoadResult_ok;
+		/*
+		aiAnimation* anim = scene->mAnimations[0];
+		out->duration = anim->mDuration / anim->mTicksPerSecond;
+		out->channels.reserve(anim->mNumChannels);
+		out->channels.length = anim->mNumChannels;
+		for (int i = 0; i < anim->mNumChannels; i++)
+		{
+			aiNodeAnim* in_channel = anim->mChannels[i];
+			Channel* out_channel = &out->channels[i];
+			out_channel->bone_index = bone_map[in_channel->mNodeName.C_Str()];
 
-		return true;
+			out_channel->positions.reserve(in_channel->mNumPositionKeys);
+			out_channel->positions.length = in_channel->mNumPositionKeys;
+			for (int j = 0; j < in_channel->mNumPositionKeys; j++)
+			{
+				out_channel->positions[j].time = in_channel->mPositionKeys[j].mTime / anim->mTicksPerSecond;
+				aiVector3D value = in_channel->mPositionKeys[j].mValue;
+				out_channel->positions[j].value = Vec3(value.x, value.y, value.z);
+			}
+
+			out_channel->rotations.reserve(in_channel->mNumRotationKeys);
+			out_channel->rotations.length = in_channel->mNumRotationKeys;
+			for (int j = 0; j < in_channel->mNumRotationKeys; j++)
+			{
+				out_channel->rotations[j].time = in_channel->mRotationKeys[j].mTime / anim->mTicksPerSecond;
+				aiQuaternion value = in_channel->mRotationKeys[j].mValue;
+				out_channel->rotations[j].value = Quat(value.w, value.x, value.y, value.z);
+			}
+
+			out_channel->scales.reserve(in_channel->mNumScalingKeys);
+			out_channel->scales.length = in_channel->mNumScalingKeys;
+			for (int j = 0; j < in_channel->mNumScalingKeys; j++)
+			{
+				out_channel->scales[j].time = in_channel->mScalingKeys[j].mTime / anim->mTicksPerSecond;
+				aiVector3D value = in_channel->mScalingKeys[j].mValue;
+				out_channel->scales[j].value = Vec3(value.x, value.y, value.z);
+			}
+		}
+		return LoadResult_ok;
+		*/
 	}
 
-	return false;
+	return LoadResult_skip;
 }
 
-bool load_model(const char* path, Mesh* out)
+const aiScene* import_fbx(Assimp::Importer& importer, const char* path)
 {
-	Assimp::Importer importer;
-
 	const aiScene* scene = importer.ReadFile
 	(
 		path,
@@ -86,11 +115,20 @@ bool load_model(const char* path, Mesh* out)
 		| aiProcess_OptimizeGraph
 	);
 	if (!scene)
-	{
 		fprintf(stderr, "%s\n", importer.GetErrorString());
-		return false;
-	}
+	return scene;
+}
 
+void build_node_hierarchy(Array<int>& output, std::unordered_map<std::string, int>& bone_map, aiNode* node, int parent_index)
+{
+	int bone_index = bone_map[node->mName.C_Str()];
+	output[bone_index] = parent_index;
+	for (int i = 0; i < node->mNumChildren; i++)
+		build_node_hierarchy(output, bone_map, node->mChildren[i], bone_index);
+}
+
+LoadResult load_model(const aiScene* scene, Mesh* out, std::unordered_map<std::string, int>& bone_map)
+{
 	if (scene->HasMeshes())
 	{
 		const aiMesh* mesh = scene->mMeshes[0]; // In this simple example code we always use the 1rst mesh (in OBJ files there is often only one anyway)
@@ -127,8 +165,8 @@ bool load_model(const char* path, Mesh* out)
 		}
 		else
 		{
-			fprintf(stderr, "Error: %s has no normals.\n", path);
-			return false;
+			fprintf(stderr, "Error: model has no normals.\n");
+			return LoadResult_error;
 		}
 
 		// Fill face indices
@@ -162,6 +200,8 @@ bool load_model(const char* path, Mesh* out)
 				aiVector3D ai_position;
 				aiQuaternion ai_rotation;
 				aiVector3D ai_scale;
+				
+				bone_map[bone->mName.C_Str()] = bone_index;
 				bone->mOffsetMatrix.Decompose(ai_scale, ai_rotation, ai_position);
 				Vec3 position = Vec3(ai_position.x, ai_position.y, ai_position.z);
 				Quat rotation = Quat(ai_rotation.w, ai_rotation.x, ai_rotation.y, ai_rotation.z);
@@ -181,22 +221,21 @@ bool load_model(const char* path, Mesh* out)
 						}
 						else if (weight_index == MAX_BONE_WEIGHTS - 1)
 						{
-							fprintf(stderr, "Error: %s has a vertex affected by more than %d bones", path, MAX_BONE_WEIGHTS);
-							return false;
+							fprintf(stderr, "Error: vertex affected by more than %d bones", MAX_BONE_WEIGHTS);
+							return LoadResult_error;
 						}
 					}
 				}
 			}
+			out->bone_hierarchy.reserve(mesh->mNumBones);
+			out->bone_hierarchy.length = mesh->mNumBones;
+			build_node_hierarchy(out->bone_hierarchy, bone_map, scene->mRootNode, -1);
 		}
 	}
 	else
-	{
-		fprintf(stderr, "Error: %s has no meshes.\n", path);
-		return false;
-	}
+		return LoadResult_skip; // No meshes
 	
-	// The "scene" pointer will be deleted automatically by "importer"
-	return true;
+	return LoadResult_ok;
 }
 
 void add_string(char* string, Array<size_t>& list, Array<char>& heap)
@@ -332,6 +371,7 @@ int main(int argc, char* argv[])
 	// Extensions must be same length
 	static const char* model_in_extension = ".fbx";
 	static const char* model_out_extension = ".mdl";
+	static const char* anim_out_extension = ".anm";
 	static const char* texture_extension = ".png";
 	static const char* shader_extension = ".glsl";
 	static const char* asset_in_folder = "../assets/";
@@ -340,6 +380,8 @@ int main(int argc, char* argv[])
 	static const char* asset_header_path = "../src/asset.h";
 
 	Mesh mesh;
+	std::unordered_map<std::string, int> bone_map;
+
 	DIR* dir = opendir(asset_in_folder);
 	if (!dir)
 	{
@@ -353,8 +395,8 @@ int main(int argc, char* argv[])
 	Array<size_t> textures;
 	Array<size_t> shaders;
 
-	const int max_path = 512;
-	char asset_in_path[max_path], asset_out_path[max_path], asset_name[max_path];
+	const int MAX_PATH = 512;
+	char asset_in_path[MAX_PATH], asset_out_path[MAX_PATH], asset_name[MAX_PATH];
 
 	bool error = false;
 	bool modified = false;
@@ -364,18 +406,18 @@ int main(int argc, char* argv[])
 		if (entry->d_type != DT_REG)
 			continue; // Not a file
 
-		if (strlen(asset_in_folder) + strlen(entry->d_name) > max_path
-			|| strlen(asset_out_folder) + strlen(entry->d_name) > max_path)
+		if (strlen(asset_in_folder) + strlen(entry->d_name) > MAX_PATH
+			|| strlen(asset_out_folder) + strlen(entry->d_name) > MAX_PATH)
 		{
 			fprintf(stderr, "Error: path name for %s too long.\n", entry->d_name);
 			error = true;
 			break;
 		}
-		memset(asset_in_path, 0, max_path);
+		memset(asset_in_path, 0, MAX_PATH);
 		strcat(asset_in_path, asset_in_folder);
 		strcat(asset_in_path + strlen(asset_in_folder), entry->d_name);
 
-		memset(asset_out_path, 0, max_path);
+		memset(asset_out_path, 0, MAX_PATH);
 		strcat(asset_out_path, asset_out_folder);
 		strcat(asset_out_path + strlen(asset_out_folder), entry->d_name);
 
@@ -416,22 +458,53 @@ int main(int argc, char* argv[])
 		else if (has_extension(entry->d_name, model_in_extension))
 		{
 			strcpy(asset_out_path + strlen(asset_out_path) - strlen(model_in_extension), model_out_extension);
+			char anim_out_path[MAX_PATH];
+			memset(anim_out_path, 0, MAX_PATH);
+			strcpy(anim_out_path, asset_out_path);
+			strcpy(anim_out_path + strlen(asset_out_path) - strlen(model_out_extension), anim_out_extension);
 
 			get_name_from_filename(entry->d_name, asset_name);
-			add_string(asset_name, models, string_heap);
-			add_string(asset_out_path, models, string_heap);
 
-			if (filemtime(asset_out_path) < filemtime(asset_in_path))
+			auto asset_out_mtime = filemtime(asset_out_path);
+			auto anim_out_mtime = filemtime(anim_out_path);
+			auto asset_in_mtime = filemtime(asset_in_path);
+
+			if (asset_out_mtime > 0)
+			{
+				// Model file was created, it must be a model
+				add_string(asset_name, models, string_heap);
+				add_string(asset_out_path, models, string_heap);
+			}
+			else if (anim_out_mtime > 0)
+			{
+				// Must be an animation
+				add_string(asset_name, anims, string_heap);
+				add_string(asset_out_path, anims, string_heap);
+			}
+
+			if (asset_out_mtime < asset_in_mtime
+				&& anim_out_mtime < asset_in_mtime)
 			{
 				mesh.indices.length = 0;
 				mesh.vertices.length = 0;
 				mesh.uvs.length = 0;
 				mesh.normals.length = 0;
 
-				if (load_model(asset_in_path, &mesh))
+				Assimp::Importer importer;
+				const aiScene* scene = import_fbx(importer, asset_in_path);
+
+				LoadResult result = load_model(scene, &mesh, bone_map);
+				if (result == LoadResult_ok)
 				{
 					modified = true;
-					printf("%s Indices: %lu Vertices: %lu\n", asset_out_path, mesh.indices.length, mesh.vertices.length);
+					printf("%s Indices: %lu Vertices: %lu\n", asset_name, mesh.indices.length, mesh.vertices.length);
+
+					if (asset_out_mtime == 0)
+					{
+						// This was never added to the model list
+						add_string(asset_name, models, string_heap);
+						add_string(asset_out_path, models, string_heap);
+					}
 
 					FILE* f = fopen(asset_out_path, "w+b");
 					if (f)
@@ -442,6 +515,16 @@ int main(int argc, char* argv[])
 						fwrite(mesh.vertices.data, sizeof(Vec3), mesh.vertices.length, f);
 						fwrite(mesh.uvs.data, sizeof(Vec2), mesh.vertices.length, f);
 						fwrite(mesh.normals.data, sizeof(Vec3), mesh.vertices.length, f);
+						fwrite(&mesh.bone_hierarchy.length, sizeof(int), 1, f);
+						if (mesh.bone_hierarchy.length > 0)
+						{
+							for (int i = 0; i < MAX_BONE_WEIGHTS; i++)
+								fwrite(mesh.bone_indices[i].data, sizeof(int), mesh.vertices.length, f);
+							for (int i = 0; i < MAX_BONE_WEIGHTS; i++)
+								fwrite(mesh.bone_weights[i].data, sizeof(float), mesh.vertices.length, f);
+							fwrite(mesh.bone_hierarchy.data, sizeof(int), mesh.bone_hierarchy.length, f);
+							fwrite(mesh.inverse_bind_pose.data, sizeof(Mat4), mesh.bone_hierarchy.length, f);
+						}
 						fclose(f);
 					}
 					else
@@ -451,11 +534,60 @@ int main(int argc, char* argv[])
 						break;
 					}
 				}
-				else
+				else if (result == LoadResult_error)
 				{
 					fprintf(stderr, "Error: failed to load model %s.\n", asset_in_path);
 					error = true;
 					break;
+				}
+				else if (result == LoadResult_skip)
+				{
+					// Try to load animation
+					Animation anim;
+					LoadResult anim_result = load_anim(scene, &anim, bone_map);
+					if (anim_result == LoadResult_ok)
+					{
+						modified = true;
+						printf("%s Duration: %f Channels: %lu\n", asset_name, anim.duration, anim.channels.length);
+
+						if (anim_out_mtime == 0)
+						{
+							// This was never added to the anim list
+							add_string(asset_name, anims, string_heap);
+							add_string(asset_out_path, anims, string_heap);
+						}
+
+						FILE* f = fopen(anim_out_path, "w+b");
+						if (f)
+						{
+							fwrite(&anim.duration, sizeof(float), 1, f);
+							fwrite(&anim.channels.length, sizeof(int), 1, f);
+							for (int i = 0; i < anim.channels.length; i++)
+							{
+								Channel* channel = &anim.channels[i];
+								fwrite(&channel->bone_index, sizeof(int), 1, f);
+								fwrite(&channel->positions.length, sizeof(int), 1, f);
+								fwrite(channel->positions.data, sizeof(Keyframe<Vec3>), channel->positions.length, f);
+								fwrite(&channel->rotations.length, sizeof(int), 1, f);
+								fwrite(channel->rotations.data, sizeof(Keyframe<Quat>), channel->rotations.length, f);
+								fwrite(&channel->scales.length, sizeof(int), 1, f);
+								fwrite(channel->scales.data, sizeof(Keyframe<Vec3>), channel->scales.length, f);
+							}
+							fclose(f);
+						}
+						else
+						{
+							fprintf(stderr, "Error: failed to open %s for writing.\n", anim_out_path);
+							error = true;
+							break;
+						}
+					}
+					else if (anim_result == LoadResult_error)
+					{
+						fprintf(stderr, "Error: failed to load animation %s.\n", asset_in_path);
+						error = true;
+						break;
+					}
 				}
 			}
 		}
@@ -478,6 +610,7 @@ int main(int argc, char* argv[])
 		write_asset_headers(asset_header_file, "Model", models, string_heap);
 		write_asset_headers(asset_header_file, "Texture", textures, string_heap);
 		write_asset_headers(asset_header_file, "Shader", shaders, string_heap);
+		write_asset_headers(asset_header_file, "Animation", anims, string_heap);
 		fprintf(asset_header_file, "};\n");
 		fclose(asset_header_file);
 
@@ -491,6 +624,7 @@ int main(int argc, char* argv[])
 		write_asset_filenames(asset_src_file, "Model", models, string_heap);
 		write_asset_filenames(asset_src_file, "Texture", textures, string_heap);
 		write_asset_filenames(asset_src_file, "Shader", shaders, string_heap);
+		write_asset_filenames(asset_src_file, "Animation", anims, string_heap);
 		fclose(asset_src_file);
 	}
 

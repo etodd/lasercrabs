@@ -26,30 +26,54 @@ AssetID Loader::mesh(AssetID id)
 		new (mesh) Mesh();
 
 		// Read indices
-		int count;
-		fread(&count, sizeof(int), 1, f);
+		int index_count;
+		fread(&index_count, sizeof(int), 1, f);
 
 		// Fill face indices
-		mesh->indices.reserve(count);
-		mesh->indices.length = count;
-		fread(mesh->indices.data, sizeof(int), count, f);
+		mesh->indices.reserve(index_count);
+		mesh->indices.length = index_count;
+		fread(mesh->indices.data, sizeof(int), index_count, f);
 
-		fread(&count, sizeof(int), 1, f);
+		int vertex_count;
+		fread(&vertex_count, sizeof(int), 1, f);
 
 		// Fill vertices positions
-		mesh->vertices.reserve(count);
-		mesh->vertices.length = count;
-		fread(mesh->vertices.data, sizeof(Vec3), count, f);
+		mesh->vertices.reserve(vertex_count);
+		mesh->vertices.length = vertex_count;
+		fread(mesh->vertices.data, sizeof(Vec3), vertex_count, f);
 
 		// Fill vertices texture coordinates
-		mesh->uvs.reserve(count);
-		mesh->uvs.length = count;
-		fread(mesh->uvs.data, sizeof(Vec2), count, f);
+		mesh->uvs.reserve(vertex_count);
+		mesh->uvs.length = vertex_count;
+		fread(mesh->uvs.data, sizeof(Vec2), vertex_count, f);
 
 		// Fill vertices normals
-		mesh->normals.reserve(count);
-		mesh->normals.length = count;
-		fread(mesh->normals.data, sizeof(Vec3), count, f);
+		mesh->normals.reserve(vertex_count);
+		mesh->normals.length = vertex_count;
+		fread(mesh->normals.data, sizeof(Vec3), vertex_count, f);
+
+		int bone_count;
+		fread(&bone_count, sizeof(int), 1, f);
+
+		if (bone_count > 0)
+		{
+			for (int i = 0; i < MAX_BONE_WEIGHTS; i++)
+			{
+				mesh->bone_indices[i].reserve(mesh->vertices.length);
+				fread(mesh->bone_indices[i].data, sizeof(int), vertex_count, f);
+			}
+			for (int i = 0; i < MAX_BONE_WEIGHTS; i++)
+			{
+				mesh->bone_weights[i].reserve(mesh->vertices.length);
+				fread(mesh->bone_weights[i].data, sizeof(float), vertex_count, f);
+			}
+			mesh->bone_hierarchy.reserve(bone_count);
+			mesh->bone_hierarchy.length = bone_count;
+			fread(mesh->bone_hierarchy.data, sizeof(int), bone_count, f);
+			mesh->inverse_bind_pose.reserve(bone_count);
+			mesh->inverse_bind_pose.length = bone_count;
+			fread(mesh->inverse_bind_pose.data, sizeof(Mat4), bone_count, f);
+		}
 
 		fclose(f);
 

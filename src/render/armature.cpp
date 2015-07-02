@@ -1,11 +1,11 @@
-#include "view.h"
+#include "armature.h"
 
-View::View()
+Armature::Armature()
 	: mesh(), shader(), texture()
 {
 }
 
-void View::draw(RenderParams* params)
+void Armature::draw(RenderParams* params)
 {
 	SyncData* sync = params->sync;
 	sync->op(RenderOp_View);
@@ -21,6 +21,6 @@ void View::draw(RenderParams* params)
 	sync->write<Mat4>(&params->view);
 }
 
-void View::awake()
+void Armature::awake()
 {
 }

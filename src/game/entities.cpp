@@ -1,5 +1,6 @@
 #include "entities.h"
 #include "render/view.h"
+#include "render/armature.h"
 
 Empty::Empty(ID id)
 	: Entity(id)
@@ -29,5 +30,21 @@ StaticGeom::StaticGeom(ID id, AssetID mesh_id)
 }
 
 void StaticGeom::awake()
+{
+}
+
+Prop::Prop(ID id, AssetID mesh_id)
+	: Entity(id)
+{
+	Transform* transform = create<Transform>();
+
+	Armature* armature = create<Armature>();
+
+	armature->mesh = Loader::mesh(mesh_id);
+	armature->shader = Loader::shader(Asset::Shader::Armature);
+	armature->texture = Loader::texture(Asset::Texture::test);
+}
+
+void Prop::awake()
 {
 }

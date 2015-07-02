@@ -4,12 +4,12 @@
 #include "data/components.h"
 #include "render.h"
 
-struct View : public ComponentType<View>
+struct Armature : public ComponentType<Armature>
 {
 	AssetID mesh;
 	AssetID shader;
 	AssetID texture;
 	void draw(RenderParams*);
 	void awake();
-	View();
+	Armature();
 };

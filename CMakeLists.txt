@@ -115,7 +115,6 @@ set(ALL_INCLUDES
 	external/assimp/include
 	external/lodepng
 	external/bullet/src
-	external/uthash/src
 	src
 )
 
@@ -141,9 +140,11 @@ add_executable(mkzebra
 	src/data/components.h
 	src/data/components.cpp
 	src/render/render.h
-	src/render/view.h
 	src/render/render.cpp
+	src/render/view.h
 	src/render/view.cpp
+	src/render/armature.h
+	src/render/armature.cpp
 	src/game/entities.h
 	src/game/entities.cpp
 	src/game/player.h
@@ -157,7 +158,6 @@ add_executable(mkzebra
 	src/physics.h
 	src/lmath.h
 	src/load.h
-	src/exec.h
 	src/game.h
 	src/load.cpp
 	src/physics.cpp

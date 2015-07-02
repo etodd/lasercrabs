@@ -13,3 +13,6 @@
 [submodule "external/bullet"]
 	path = external/bullet
 	url = git@github.com:et1337/bullet3.git
+[submodule "external/uthash"]
+	path = external/uthash
+	url = git@github.com:et1337/uthash.git

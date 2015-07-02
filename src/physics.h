@@ -6,7 +6,7 @@
 #include <btBulletDynamicsCommon.h>
 #include "data/entity.h"
 
-struct Physics : public ExecDynamic<Update>
+struct Physics
 {
 	static Physics main;
 	Physics();
@@ -16,7 +16,7 @@ struct Physics : public ExecDynamic<Update>
     btCollisionDispatcher* dispatcher;
     btSequentialImpulseConstraintSolver* solver;
     btDiscreteDynamicsWorld* btWorld;
-    void exec(Update);
+    void update(Update);
 };
 
 struct RigidBody : public ComponentType<RigidBody>

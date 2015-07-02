@@ -1,6 +1,6 @@
 #include "view.h"
 
-void View::exec(RenderParams* params)
+void View::draw(RenderParams* params)
 {
 	SyncData* sync = params->sync;
 	sync->op(RenderOp_View);
@@ -18,15 +18,4 @@ void View::exec(RenderParams* params)
 
 void View::awake()
 {
-	Entities::main.system<ViewSys>()->add(this);
-}
-
-View::~View()
-{
-	Entities::main.system<ViewSys>()->remove(this);
-}
-
-ViewSys::ViewSys()
-{
-	Entities::main.draw.add(this);
 }

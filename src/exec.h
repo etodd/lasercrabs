@@ -16,7 +16,7 @@ struct ExecStatic : public IntrusiveLinkedList<Derived>
 	void reorder_exec(int o)
 	{
 		order = o;
-		T* i = this;
+		Derived* i = this;
 		while (i->next && i->next->order < o)
 			i = i->next;
 		while (i->previous && i->previous->order > o)

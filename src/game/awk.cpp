@@ -11,22 +11,16 @@ Awk::Awk()
 
 void Awk::awake()
 {
-	Entities::main.update.add(this);
-}
-
-Awk::~Awk()
-{
-	Entities::main.update.remove(this);
 }
 
 void Awk::detach(Vec3 direction)
 {
 	velocity = direction * speed;
 	get<Transform>()->reparent(0);
-	get<Transform>()->pos += direction * awk_radius;
+	get<Transform>()->pos += direction * awk_radius * 0.5f;
 }
 
-void Awk::exec(EntityUpdate u)
+void Awk::update(Update u)
 {
 	if (!get<Transform>()->has_parent)
 	{

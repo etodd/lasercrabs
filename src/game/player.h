@@ -13,7 +13,7 @@ struct Player : public Entity
 	void awake();
 };
 
-struct PlayerControl : public ComponentType<PlayerControl>, public ExecDynamic<EntityUpdate>
+struct PlayerControl : public ComponentType<PlayerControl>
 {
 	float angle_horizontal;
 	float angle_vertical;
@@ -23,14 +23,10 @@ struct PlayerControl : public ComponentType<PlayerControl>, public ExecDynamic<E
 	Quat attach_quat;
 	Quat attach_quat_start;
 
-	Mat4 view;
-	Mat4 projection;
-
 	PlayerControl();
-	~PlayerControl();
 	void awake();
 
 	void awk_attached();
 
-	virtual void exec(EntityUpdate);
+	void update(Update);
 };

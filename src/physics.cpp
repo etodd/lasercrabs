@@ -19,7 +19,7 @@ Physics::Physics()
     btWorld->setGravity(btVector3(0, -9.8f, 0));
 }
 
-void Physics::exec(Update u)
+void Physics::update(Update u)
 {
 	btWorld->stepSimulation(u.time.delta, 10);
 }

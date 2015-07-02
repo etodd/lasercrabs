@@ -5,21 +5,15 @@
 #include "exec.h"
 #include "render.h"
 
-struct View : public ComponentType<View>, ExecStatic<View, RenderParams*>
+struct View : public ComponentType<View>
 {
 	AssetID mesh;
 	AssetID shader;
 	AssetID texture;
-	void exec(RenderParams*);
+	void draw(RenderParams*);
 	void awake();
 	View()
 		: mesh(), shader(), texture()
 	{
 	}
-	~View();
-};
-
-struct ViewSys : View::System, ExecSystemStatic<View, RenderParams*>
-{
-	ViewSys();
 };

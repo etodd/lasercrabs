@@ -6,6 +6,8 @@
 #include "data/array.h"
 #include "data/entity.h"
 #include "data/components.h"
+#include "game/awk.h"
+#include "game/player.h"
 #include "data/mesh.h"
 #include "exec.h"
 #include "physics.h"
@@ -15,13 +17,6 @@
 void game_loop(RenderSync::Swapper* swapper)
 {
 	Loader::main.swapper = swapper;
-
-	ExecSystemDynamic<Update> update;
-	ExecSystemDynamic<RenderParams*> draw;
-
-	update.add(&Entities::main);
-	update.add(&Physics::main);
-	draw.add(&Entities::main.draw);
 
 	StaticGeom* a = Entities::main.create<StaticGeom>(Asset::Model::city3);
 
@@ -37,19 +32,28 @@ void game_loop(RenderSync::Swapper* swapper)
 	{
 		u.input = &sync->input;
 		u.time = sync->time;
-		update.exec(u);
+
+		// Update
+		{
+			Physics::main.update(u);
+			Entities::main.system<Awk::System>()->execute<Update, &Awk::update>(u);
+			Entities::main.system<PlayerControl::System>()->execute<Update, &PlayerControl::update>(u);
+		}
 
 		render_params.sync = sync;
 
-		render_params.projection = player->get<PlayerControl>()->projection;
-		render_params.view = player->get<PlayerControl>()->view;
+		render_params.projection = Camera::main.projection;
+		render_params.view = Camera::main.view;
 
 		sync->op(RenderOp_Clear);
 		
 		GLbitfield clear_flags = GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT;
 		sync->write<GLbitfield>(&clear_flags);
 
-		draw.exec(&render_params);
+		// Draw
+		{
+			Entities::main.system<View::System>()->execute<RenderParams*, &View::draw>(&render_params);
+		}
 
 		sync = swapper->swap<SwapType_Write>();
 		sync->queue.length = 0;

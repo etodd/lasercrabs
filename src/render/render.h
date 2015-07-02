@@ -7,6 +7,18 @@
 #include "sync.h"
 #include "asset.h"
 
+struct Camera
+{
+	static Camera main;
+	Camera()
+		: projection(), view()
+	{
+
+	}
+	Mat4 projection;
+	Mat4 view;
+};
+
 struct RenderSync;
 
 enum RenderOp

@@ -8,6 +8,9 @@
 #include "lmath.h"
 #include "data/array.h"
 #include <dirent.h>
+#include "uthash.h"
+
+#define MAX_BONE_WEIGHTS 4
 
 struct Mesh
 {
@@ -15,7 +18,55 @@ struct Mesh
 	Array<Vec3> vertices;
 	Array<Vec2> uvs;
 	Array<Vec3> normals;
+	Array<int> bone_indices[MAX_BONE_WEIGHTS];
+	Array<float> bone_weights[MAX_BONE_WEIGHTS];
+	Array<Mat4> inverse_bind_pose;
 };
+
+struct Armature
+{
+	Array<int> bone_hierarchy;
+};
+
+struct Channel
+{
+	int bone_index;
+	Array<Vec3> positions;
+	Array<Quat> rotations;
+	Array<Vec3> scales;
+};
+
+struct Animation
+{
+	float duration;
+	Array<Channel> channels;
+};
+
+bool load_anim(const char* path, Animation* out)
+{
+	Assimp::Importer importer;
+
+	const aiScene* scene = importer.ReadFile
+	(
+		path,
+		aiProcess_JoinIdenticalVertices
+		| aiProcess_Triangulate
+		| aiProcess_GenNormals
+		| aiProcess_ValidateDataStructure
+		| aiProcess_OptimizeMeshes
+		| aiProcess_OptimizeGraph
+	);
+	if (!scene)
+	{
+		fprintf(stderr, "%s\n", importer.GetErrorString());
+		return false;
+	}
+	
+	if (scene->HasAnimations())
+	{
+
+	}
+}
 
 bool load_model(const char* path, Mesh* out)
 {
@@ -37,58 +88,108 @@ bool load_model(const char* path, Mesh* out)
 		return false;
 	}
 
-	if (!scene->HasMeshes())
-		return false;
-
-	const aiMesh* mesh = scene->mMeshes[0]; // In this simple example code we always use the 1rst mesh (in OBJ files there is often only one anyway)
-
-	// Fill vertices positions
-	out->vertices.reserve(mesh->mNumVertices);
-	Quat rot = Quat(PI * -0.5f, Vec3(1, 0, 0));
-	for (unsigned int i = 0; i < mesh->mNumVertices; i++)
+	if (scene->HasMeshes())
 	{
-		aiVector3D pos = mesh->mVertices[i];
-		Vec3 v = rot * Vec3(pos.x, pos.y, pos.z);
-		out->vertices.add(v);
-	}
+		const aiMesh* mesh = scene->mMeshes[0]; // In this simple example code we always use the 1rst mesh (in OBJ files there is often only one anyway)
 
-	// Fill vertices texture coordinates
-	out->uvs.reserve(mesh->mNumVertices);
-	for (unsigned int i = 0; i < mesh->mNumVertices; i++)
-	{
-		aiVector3D UVW = mesh->mTextureCoords[0][i]; // Assume only 1 set of UV coords; AssImp supports 8 UV sets.
-		Vec2 v = Vec2(UVW.x, UVW.y);
-		out->uvs.add(v);
-	}
-
-	// Fill vertices normals
-	if (mesh->HasNormals())
-	{
-		out->normals.reserve(mesh->mNumVertices);
+		// Fill vertices positions
+		out->vertices.reserve(mesh->mNumVertices);
+		Quat rot = Quat(PI * -0.5f, Vec3(1, 0, 0));
 		for (unsigned int i = 0; i < mesh->mNumVertices; i++)
 		{
-			aiVector3D n = mesh->mNormals[i];
-			Vec3 v = rot * Vec3(n.x, n.y, n.z);
-			out->normals.add(v);
+			aiVector3D pos = mesh->mVertices[i];
+			Vec3 v = rot * Vec3(pos.x, pos.y, pos.z);
+			out->vertices.add(v);
+		}
+
+		// Fill vertices texture coordinates
+		out->uvs.reserve(mesh->mNumVertices);
+		for (unsigned int i = 0; i < mesh->mNumVertices; i++)
+		{
+			aiVector3D UVW = mesh->mTextureCoords[0][i]; // Assume only 1 set of UV coords; AssImp supports 8 UV sets.
+			Vec2 v = Vec2(UVW.x, UVW.y);
+			out->uvs.add(v);
+		}
+
+		// Fill vertices normals
+		if (mesh->HasNormals())
+		{
+			out->normals.reserve(mesh->mNumVertices);
+			for (unsigned int i = 0; i < mesh->mNumVertices; i++)
+			{
+				aiVector3D n = mesh->mNormals[i];
+				Vec3 v = rot * Vec3(n.x, n.y, n.z);
+				out->normals.add(v);
+			}
+		}
+		else
+		{
+			fprintf(stderr, "Error: %s has no normals.\n", path);
+			return false;
+		}
+
+		// Fill face indices
+		out->indices.reserve(3 * mesh->mNumFaces);
+		for (unsigned int i = 0; i < mesh->mNumFaces; i++)
+		{
+			// Assume the model has only triangles.
+			int j = mesh->mFaces[i].mIndices[0];
+			out->indices.add(j);
+			j = mesh->mFaces[i].mIndices[1];
+			out->indices.add(j);
+			j = mesh->mFaces[i].mIndices[2];
+			out->indices.add(j);
+		}
+
+		if (mesh->HasBones())
+		{
+			for (int i = 0; i < MAX_BONE_WEIGHTS; i++)
+			{
+				out->bone_weights[i].reserve(mesh->mNumVertices);
+				out->bone_weights[i].length = mesh->mNumVertices;
+				out->bone_indices[i].reserve(mesh->mNumVertices);
+				out->bone_indices[i].length = mesh->mNumVertices;
+			}
+
+			out->inverse_bind_pose.reserve(mesh->mNumBones);
+			out->inverse_bind_pose.length = mesh->mNumBones;
+			for (unsigned int bone_index = 0; bone_index < mesh->mNumBones; bone_index++)
+			{
+				aiBone* bone = mesh->mBones[bone_index];
+				aiVector3D ai_position;
+				aiQuaternion ai_rotation;
+				aiVector3D ai_scale;
+				bone->mOffsetMatrix.Decompose(ai_scale, ai_rotation, ai_position);
+				Vec3 position = Vec3(ai_position.x, ai_position.y, ai_position.z);
+				Quat rotation = Quat(ai_rotation.w, ai_rotation.x, ai_rotation.y, ai_rotation.z);
+				Vec3 scale = Vec3(ai_scale.x, ai_scale.y, ai_scale.z);
+				out->inverse_bind_pose[bone_index].make_transform(position, scale, rotation);
+				for (unsigned int bone_weight_index = 0; bone_weight_index < bone->mNumWeights; bone_weight_index++)
+				{
+					int vertex_id = bone->mWeights[bone_weight_index].mVertexId;
+					float weight = bone->mWeights[bone_weight_index].mWeight;
+					for (int weight_index = 0; weight_index < MAX_BONE_WEIGHTS; weight_index++)
+					{
+						if (out->bone_weights[weight_index][vertex_id] == 0)
+						{
+							out->bone_weights[weight_index][vertex_id] = weight;
+							out->bone_indices[weight_index][vertex_id] = bone_index;
+							break;
+						}
+						else if (weight_index == MAX_BONE_WEIGHTS - 1)
+						{
+							fprintf(stderr, "Error: %s has a vertex affected by more than %d bones", path, MAX_BONE_WEIGHTS);
+							return false;
+						}
+					}
+				}
+			}
 		}
 	}
 	else
 	{
-		fprintf(stderr, "Error: %s has no normals.\n", path);
+		fprintf(stderr, "Error: %s has no meshes.\n", path);
 		return false;
-	}
-
-	// Fill face indices
-	out->indices.reserve(3 * mesh->mNumFaces);
-	for (unsigned int i = 0; i < mesh->mNumFaces; i++)
-	{
-		// Assume the model has only triangles.
-		int j = mesh->mFaces[i].mIndices[0];
-		out->indices.add(j);
-		j = mesh->mFaces[i].mIndices[1];
-		out->indices.add(j);
-		j = mesh->mFaces[i].mIndices[2];
-		out->indices.add(j);
 	}
 	
 	// The "scene" pointer will be deleted automatically by "importer"

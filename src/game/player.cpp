@@ -1,6 +1,7 @@
 #include "player.h"
 #include "awk.h"
 #include "data/components.h"
+#include "render/render.h"
 #include <GLFW/glfw3.h>
 
 #define fov_initial PI * 0.25f
@@ -36,8 +37,6 @@ void PlayerControl::awk_attached()
 PlayerControl::PlayerControl()
 	: angle_horizontal(),
 	angle_vertical(),
-	view(Mat4::identity),
-	projection(Mat4::identity),
 	attach_timer(1.0f),
 	attach_time(),
 	attach_quat_start(Quat::identity)
@@ -46,16 +45,10 @@ PlayerControl::PlayerControl()
 
 void PlayerControl::awake()
 {
-	Entities::main.update.add(this);
 	link<&PlayerControl::awk_attached>(&get<Awk>()->attached);
 }
 
-PlayerControl::~PlayerControl()
-{
-	Entities::main.update.remove(this);
-}
-
-void PlayerControl::exec(EntityUpdate u)
+void PlayerControl::update(Update u)
 {
 	Quat look_quat = Quat::euler(0, angle_horizontal, angle_vertical);
 	if (get<Transform>()->has_parent)
@@ -128,10 +121,10 @@ void PlayerControl::exec(EntityUpdate u)
 
 	// Projection matrix : 45° Field of View, 4:3 ratio, display range : 0.1 unit <-> 100 units
 	float aspect = u.input->height == 0 ? 1 : (float)u.input->width / (float)u.input->height;
-	projection = Mat4::perspective(FoV, aspect, 0.01f, 1000.0f);
+	Camera::main.projection = Mat4::perspective(FoV, aspect, 0.01f, 1000.0f);
 
 	// Camera matrix
 	Vec3 pos = get<Transform>()->absolute_pos();
 	Vec3 look = look_quat * Vec3(0, 0, 1);
-	view = Mat4::look(pos, look);
+	Camera::main.view = Mat4::look(pos, look);
 }

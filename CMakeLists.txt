@@ -115,6 +115,7 @@ set(ALL_INCLUDES
 	external/assimp/include
 	external/lodepng
 	external/bullet/src
+	external/uthash/src
 	src
 )
 

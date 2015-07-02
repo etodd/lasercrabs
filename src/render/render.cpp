@@ -2,6 +2,8 @@
 #include "load.h"
 #include "data/mesh.h"
 
+Camera Camera::main = Camera();
+
 RenderSync::Swapper RenderSync::swapper(size_t index)
 {
 	RenderSync::Swapper q;

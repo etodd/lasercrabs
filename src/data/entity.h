@@ -14,12 +14,6 @@ typedef unsigned int ID;
 typedef unsigned long ComponentMask;
 const Family MAX_FAMILIES = sizeof(ComponentMask) * 8;
 
-struct EntityUpdate
-{
-	InputState* input;
-	GameTime time;
-};
-
 enum RenderTechnique
 {
 	RenderTechnique_Default,
@@ -103,27 +97,17 @@ struct Entity
 	template<typename T> inline T* get();
 };
 
-struct Entities : ExecDynamic<Update>
+struct Entities
 {
 	static Family component_families;
 	static Entities main;
 	ArrayNonRelocating<Entity> list;
 	PoolBase component_pools[MAX_FAMILIES];
 	void* systems[MAX_FAMILIES];
-	ExecSystemDynamic<EntityUpdate> update;
-	ExecSystemDynamic<RenderParams*> draw;
 
 	Entities()
-		: list(), component_pools(), systems(), update(), draw()
+		: list(), component_pools(), systems()
 	{
-	}
-
-	void exec(Update t)
-	{
-		EntityUpdate up;
-		up.input = t.input;
-		up.time = t.time;
-		update.exec(up);
 	}
 
 	~Entities()
@@ -296,6 +280,17 @@ struct ComponentType : public ComponentBase
 		static Family family()
 		{
 			return Derived::family();
+		}
+
+		template<typename T2, void (Derived::*Method)(T2)>
+		void execute(T2 param)
+		{
+			ArrayNonRelocating<Derived>* components = &Entities::main.component_list<Derived>();
+			for (size_t i = components->first(); i != -1; i = components->next(i))
+			{
+				Derived* component = components->get(i);
+				(component->*Method)(param);
+			}
 		}
 	};
 

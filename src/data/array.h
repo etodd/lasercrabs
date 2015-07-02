@@ -191,8 +191,14 @@ struct ArrayNonRelocating
 		return index;
 	}
 
+	size_t first()
+	{
+		return next(-1);
+	}
+
 	size_t next(size_t index)
 	{
+		index++;
 		while (index < data.length)
 		{
 			if (data[index].active)

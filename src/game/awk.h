@@ -7,15 +7,14 @@
 struct RigidBody;
 struct Transform;
 
-struct Awk : public ComponentType<Awk>, public ExecDynamic<EntityUpdate>
+struct Awk : public ComponentType<Awk>
 {
 	Vec3 velocity;
 	Link attached;
 	Awk();
-	~Awk();
 	void awake();
 
 	void detach(Vec3);
 
-	virtual void exec(EntityUpdate);
+	void update(Update);
 };

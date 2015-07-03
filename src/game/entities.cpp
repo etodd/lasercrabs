@@ -21,7 +21,7 @@ StaticGeom::StaticGeom(ID id, AssetID mesh_id)
 	model->shader = Loader::shader(Asset::Shader::Standard);
 	model->texture = Loader::texture(Asset::Texture::test);
 
-	Mesh* mesh = &Loader::meshes[mesh_id].data;
+	Mesh* mesh = Loader::get_mesh(mesh_id);
 
 	btBvhTriangleMeshShape* btMesh = new btBvhTriangleMeshShape(&mesh->physics, true, btVector3(-1000, -1000, -1000), btVector3(1000, 1000, 1000));
 	
@@ -33,12 +33,16 @@ void StaticGeom::awake()
 {
 }
 
-Prop::Prop(ID id, AssetID mesh_id)
+Prop::Prop(ID id, AssetID mesh_id, AssetID anim_id)
 	: Entity(id)
 {
 	Transform* transform = create<Transform>();
 
 	Armature* armature = create<Armature>();
+
+	Loader::animation(Asset::Animation::idle);
+
+	Animation* anim = Loader::get_animation(anim_id);
 
 	armature->mesh = Loader::mesh(mesh_id);
 	armature->shader = Loader::shader(Asset::Shader::Armature);

@@ -23,12 +23,18 @@ struct Loader
 	static RenderSync::Swapper* swapper;
 	// First entry in each array is empty
 	static Entry<Mesh> meshes[Asset::Model::count];
+	static Entry<Animation> animations[Asset::Animation::count];
 	static Entry<void*> textures[Asset::Texture::count];
 	static Entry<void*> shaders[Asset::Shader::count];
 
 	static AssetID mesh(AssetID);
 	static AssetID mesh_permanent(AssetID);
+	static Mesh* get_mesh(AssetID);
 	static void unload_mesh(AssetID);
+	static AssetID animation(AssetID);
+	static AssetID animation_permanent(AssetID);
+	static Animation* get_animation(AssetID);
+	static void unload_animation(AssetID);
 	static AssetID texture(AssetID);
 	static AssetID texture_permanent(AssetID);
 	static void unload_texture(AssetID);

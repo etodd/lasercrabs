@@ -21,3 +21,24 @@ struct Mesh
 	Array<int> bone_hierarchy;
 	btTriangleIndexVertexArray physics;
 };
+
+template<typename T>
+struct Keyframe
+{
+	float time;
+	T value;
+};
+
+struct Channel
+{
+	int bone_index;
+	Array<Keyframe<Vec3> > positions;
+	Array<Keyframe<Quat> > rotations;
+	Array<Keyframe<Vec3> > scales;
+};
+
+struct Animation
+{
+	float duration;
+	Array<Channel> channels;
+};

@@ -56,8 +56,6 @@ LoadResult load_anim(const aiScene* scene, Animation* out, std::unordered_map<st
 {
 	if (scene->HasAnimations())
 	{
-		return LoadResult_ok;
-		/*
 		aiAnimation* anim = scene->mAnimations[0];
 		out->duration = anim->mDuration / anim->mTicksPerSecond;
 		out->channels.reserve(anim->mNumChannels);
@@ -96,7 +94,6 @@ LoadResult load_anim(const aiScene* scene, Animation* out, std::unordered_map<st
 			}
 		}
 		return LoadResult_ok;
-		*/
 	}
 
 	return LoadResult_skip;
@@ -238,20 +235,6 @@ LoadResult load_model(const aiScene* scene, Mesh* out, std::unordered_map<std::s
 	return LoadResult_ok;
 }
 
-void add_string(char* string, Array<size_t>& list, Array<char>& heap)
-{
-	size_t len = strlen(string);
-
-	size_t new_heap_size = heap.length + len + 1;
-	heap.reserve(new_heap_size);
-
-	strcpy(&heap[heap.length], string);
-
-	list.add(heap.length);
-
-	heap.length = new_heap_size;
-}
-
 bool has_extension(char* filename, const char* extension)
 {
 	size_t path_length = strlen(filename), extension_length = strlen(extension);
@@ -263,28 +246,24 @@ bool has_extension(char* filename, const char* extension)
 	return false;
 }
 
-void write_asset_headers(FILE* file, const char* name, Array<size_t>& list, Array<char>& heap)
+void write_asset_headers(FILE* file, const char* name, std::unordered_map<std::string, std::string>& assets)
 {
-	int asset_count = (list.length / 2) + 1;
+	int asset_count = assets.size() + 1;
 	fprintf(file, "\tstruct %s\n\t{\n\t\tstatic const size_t count = %d;\n\t\tstatic const char* filenames[%d];\n", name, asset_count, asset_count);
-	for (unsigned int i = 0; i < list.length; i += 2)
+	int i = 1;
+	for (auto asset : assets)
 	{
-		char* name = &heap[list[i]];
-		char* path = &heap[list[i + 1]];
-		fprintf(file, "\t\tstatic const AssetID %s = %d;\n", name, (i / 2) + 1);
+		fprintf(file, "\t\tstatic const AssetID %s = %d;\n", asset.first.c_str(), i);
+		i++;
 	}
 	fprintf(file, "\t};\n");
 }
 
-void write_asset_filenames(FILE* file, const char* name, Array<size_t>& list, Array<char>& heap)
+void write_asset_filenames(FILE* file, const char* name, std::unordered_map<std::string, std::string>& assets)
 {
 	fprintf(file, "const char* Asset::%s::filenames[] =\n{\n\t\"\",\n", name);
-	for (unsigned int i = 0; i < list.length; i += 2)
-	{
-		char* name = &heap[list[i]];
-		char* path = &heap[list[i + 1]];
-		fprintf(file, "\t\"%s\",\n", path);
-	}
+	for (auto asset : assets)
+		fprintf(file, "\t\"%s\",\n", asset.second.c_str());
 	fprintf(file, "};\n");
 }
 
@@ -389,11 +368,10 @@ int main(int argc, char* argv[])
 		return 1;
 	}
 
-	Array<char> string_heap;
-	Array<size_t> models;
-	Array<size_t> anims;
-	Array<size_t> textures;
-	Array<size_t> shaders;
+	std::unordered_map<std::string, std::string> models;
+	std::unordered_map<std::string, std::string> anims;
+	std::unordered_map<std::string, std::string> textures;
+	std::unordered_map<std::string, std::string> shaders;
 
 	const int MAX_PATH = 512;
 	char asset_in_path[MAX_PATH], asset_out_path[MAX_PATH], asset_name[MAX_PATH];
@@ -424,8 +402,7 @@ int main(int argc, char* argv[])
 		if (has_extension(entry->d_name, texture_extension))
 		{
 			get_name_from_filename(entry->d_name, asset_name);
-			add_string(asset_name, textures, string_heap);
-			add_string(asset_out_path, textures, string_heap);
+			textures[asset_name] = asset_out_path;
 			if (filemtime(asset_out_path) < filemtime(asset_in_path))
 			{
 				modified = true;
@@ -441,8 +418,7 @@ int main(int argc, char* argv[])
 		else if (has_extension(entry->d_name, shader_extension))
 		{
 			get_name_from_filename(entry->d_name, asset_name);
-			add_string(asset_name, shaders, string_heap);
-			add_string(asset_out_path, shaders, string_heap);
+			shaders[asset_name] = asset_out_path;
 			if (filemtime(asset_out_path) < filemtime(asset_in_path))
 			{
 				modified = true;
@@ -472,14 +448,12 @@ int main(int argc, char* argv[])
 			if (asset_out_mtime > 0)
 			{
 				// Model file was created, it must be a model
-				add_string(asset_name, models, string_heap);
-				add_string(asset_out_path, models, string_heap);
+				models[asset_name] = asset_out_path;
 			}
 			else if (anim_out_mtime > 0)
 			{
 				// Must be an animation
-				add_string(asset_name, anims, string_heap);
-				add_string(asset_out_path, anims, string_heap);
+				anims[asset_name] = anim_out_path;
 			}
 
 			if (asset_out_mtime < asset_in_mtime
@@ -502,8 +476,7 @@ int main(int argc, char* argv[])
 					if (asset_out_mtime == 0)
 					{
 						// This was never added to the model list
-						add_string(asset_name, models, string_heap);
-						add_string(asset_out_path, models, string_heap);
+						models[asset_name] = asset_out_path;
 					}
 
 					FILE* f = fopen(asset_out_path, "w+b");
@@ -550,12 +523,7 @@ int main(int argc, char* argv[])
 						modified = true;
 						printf("%s Duration: %f Channels: %lu\n", asset_name, anim.duration, anim.channels.length);
 
-						if (anim_out_mtime == 0)
-						{
-							// This was never added to the anim list
-							add_string(asset_name, anims, string_heap);
-							add_string(asset_out_path, anims, string_heap);
-						}
+						anims[asset_name] = anim_out_path;
 
 						FILE* f = fopen(anim_out_path, "w+b");
 						if (f)
@@ -607,10 +575,10 @@ int main(int argc, char* argv[])
 			return 1;
 		}
 		fprintf(asset_header_file, "#pragma once\n#include \"types.h\"\n\nstruct Asset\n{\n");
-		write_asset_headers(asset_header_file, "Model", models, string_heap);
-		write_asset_headers(asset_header_file, "Texture", textures, string_heap);
-		write_asset_headers(asset_header_file, "Shader", shaders, string_heap);
-		write_asset_headers(asset_header_file, "Animation", anims, string_heap);
+		write_asset_headers(asset_header_file, "Model", models);
+		write_asset_headers(asset_header_file, "Texture", textures);
+		write_asset_headers(asset_header_file, "Shader", shaders);
+		write_asset_headers(asset_header_file, "Animation", anims);
 		fprintf(asset_header_file, "};\n");
 		fclose(asset_header_file);
 
@@ -621,10 +589,10 @@ int main(int argc, char* argv[])
 			return 1;
 		}
 		fprintf(asset_src_file, "#include \"asset.h\"\n\n");
-		write_asset_filenames(asset_src_file, "Model", models, string_heap);
-		write_asset_filenames(asset_src_file, "Texture", textures, string_heap);
-		write_asset_filenames(asset_src_file, "Shader", shaders, string_heap);
-		write_asset_filenames(asset_src_file, "Animation", anims, string_heap);
+		write_asset_filenames(asset_src_file, "Model", models);
+		write_asset_filenames(asset_src_file, "Texture", textures);
+		write_asset_filenames(asset_src_file, "Shader", shaders);
+		write_asset_filenames(asset_src_file, "Animation", anims);
 		fclose(asset_src_file);
 	}
 

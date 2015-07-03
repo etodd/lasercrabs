@@ -19,6 +19,6 @@ struct StaticGeom : public Entity
 
 struct Prop : public Entity
 {
-	Prop(ID, AssetID);
+	Prop(ID, AssetID, AssetID);
 	void awake();
 };

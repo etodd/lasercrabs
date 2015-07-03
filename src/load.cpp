@@ -7,6 +7,7 @@
 RenderSync::Swapper* Loader::swapper;
 // First entry in each array is empty
 Loader::Entry<Mesh> Loader::meshes[Asset::Model::count];
+Loader::Entry<Animation> Loader::animations[Asset::Animation::count];
 Loader::Entry<void*> Loader::textures[Asset::Texture::count];
 Loader::Entry<void*> Loader::shaders[Asset::Shader::count];
 
@@ -104,11 +105,15 @@ AssetID Loader::mesh_permanent(AssetID id)
 	return id;
 }
 
+Mesh* Loader::get_mesh(AssetID id)
+{
+	return &meshes[id].data;
+}
+
 void Loader::unload_mesh(AssetID id)
 {
 	if (id)
 	{
-		vi_assert(meshes[id].refs > 0);
 		if (meshes[id].type != AssetNone)
 		{
 			meshes[id].data.~Mesh();
@@ -116,6 +121,86 @@ void Loader::unload_mesh(AssetID id)
 			sync->op(RenderOp_UnloadMesh);
 			sync->write<AssetID>(&id);
 			meshes[id].type = AssetNone;
+		}
+	}
+}
+
+AssetID Loader::animation(AssetID id)
+{
+	if (id && animations[id].type == AssetNone)
+	{
+		const char* path = Asset::Animation::filenames[id];
+		FILE* f = fopen(path, "rb");
+		if (!f)
+		{
+			fprintf(stderr, "Can't open anm file '%s'\n", path);
+			return 0;
+		}
+
+		Animation* anim = &animations[id].data;
+		new (anim) Animation();
+
+		fread(&anim->duration, sizeof(float), 1, f);
+
+		int channel_count;
+		fread(&channel_count, sizeof(int), 1, f);
+		anim->channels.reserve(channel_count);
+		anim->channels.length = channel_count;
+
+		for (int i = 0; i < channel_count; i++)
+		{
+			Channel* channel = &anim->channels[i];
+			fread(&channel->bone_index, sizeof(int), 1, f);
+			int position_count;
+			fread(&position_count, sizeof(int), 1, f);
+			channel->positions.reserve(position_count);
+			channel->positions.length = position_count;
+			fread(channel->positions.data, sizeof(Keyframe<Vec3>), position_count, f);
+
+			int rotation_count;
+			fread(&rotation_count, sizeof(int), 1, f);
+			channel->rotations.reserve(rotation_count);
+			channel->rotations.length = rotation_count;
+			fread(channel->rotations.data, sizeof(Keyframe<Quat>), rotation_count, f);
+
+			int scale_count;
+			fread(&scale_count, sizeof(int), 1, f);
+			channel->scales.reserve(scale_count);
+			channel->scales.length = scale_count;
+			fread(channel->scales.data, sizeof(Keyframe<Vec3>), scale_count, f);
+		}
+
+		fclose(f);
+
+		animations[id].type = AssetTransient;
+	}
+	return id;
+}
+
+AssetID Loader::animation_permanent(AssetID id)
+{
+	id = animation(id);
+	if (id)
+		animations[id].type = AssetPermanent;
+	return id;
+}
+
+Animation* Loader::get_animation(AssetID id)
+{
+	return &animations[id].data;
+}
+
+void Loader::unload_animation(AssetID id)
+{
+	if (id)
+	{
+		if (animations[id].type != AssetNone)
+		{
+			animations[id].data.~Animation();
+			SyncData* sync = swapper->get();
+			sync->op(RenderOp_UnloadMesh);
+			sync->write<AssetID>(&id);
+			animations[id].type = AssetNone;
 		}
 	}
 }
@@ -161,7 +246,6 @@ void Loader::unload_texture(AssetID id)
 {
 	if (id)
 	{
-		vi_assert(textures[id].refs > 0);
 		if (textures[id].type != AssetNone)
 		{
 			SyncData* sync = swapper->get();
@@ -224,7 +308,6 @@ void Loader::unload_shader(AssetID id)
 {
 	if (id)
 	{
-		vi_assert(shaders[id].refs > 0);
 		if (shaders[id].type != AssetNone)
 		{
 			SyncData* sync = swapper->get();

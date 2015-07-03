@@ -8,7 +8,7 @@
 #include "lmath.h"
 #include "data/array.h"
 #include <dirent.h>
-#include <unordered_map>
+#include <map>
 
 #define MAX_BONE_WEIGHTS 4
 
@@ -52,7 +52,7 @@ struct Animation
 	Array<Channel> channels;
 };
 
-LoadResult load_anim(const aiScene* scene, Animation* out, std::unordered_map<std::string, int>& bone_map)
+LoadResult load_anim(const aiScene* scene, Animation* out, std::map<std::string, int>& bone_map)
 {
 	if (scene->HasAnimations())
 	{
@@ -116,7 +116,7 @@ const aiScene* import_fbx(Assimp::Importer& importer, const char* path)
 	return scene;
 }
 
-void build_node_hierarchy(Array<int>& output, std::unordered_map<std::string, int>& bone_map, aiNode* node, int parent_index)
+void build_node_hierarchy(Array<int>& output, std::map<std::string, int>& bone_map, aiNode* node, int parent_index)
 {
 	int bone_index = bone_map[node->mName.C_Str()];
 	output[bone_index] = parent_index;
@@ -124,7 +124,7 @@ void build_node_hierarchy(Array<int>& output, std::unordered_map<std::string, in
 		build_node_hierarchy(output, bone_map, node->mChildren[i], bone_index);
 }
 
-LoadResult load_model(const aiScene* scene, Mesh* out, std::unordered_map<std::string, int>& bone_map)
+LoadResult load_model(const aiScene* scene, Mesh* out, std::map<std::string, int>& bone_map)
 {
 	if (scene->HasMeshes())
 	{
@@ -246,7 +246,7 @@ bool has_extension(char* filename, const char* extension)
 	return false;
 }
 
-void write_asset_headers(FILE* file, const char* name, std::unordered_map<std::string, std::string>& assets)
+void write_asset_headers(FILE* file, const char* name, std::map<std::string, std::string>& assets)
 {
 	int asset_count = assets.size() + 1;
 	fprintf(file, "\tstruct %s\n\t{\n\t\tstatic const size_t count = %d;\n\t\tstatic const char* filenames[%d];\n", name, asset_count, asset_count);
@@ -259,7 +259,7 @@ void write_asset_headers(FILE* file, const char* name, std::unordered_map<std::s
 	fprintf(file, "\t};\n");
 }
 
-void write_asset_filenames(FILE* file, const char* name, std::unordered_map<std::string, std::string>& assets)
+void write_asset_filenames(FILE* file, const char* name, std::map<std::string, std::string>& assets)
 {
 	fprintf(file, "const char* Asset::%s::filenames[] =\n{\n\t\"\",\n", name);
 	for (auto asset : assets)
@@ -359,7 +359,7 @@ int main(int argc, char* argv[])
 	static const char* asset_header_path = "../src/asset.h";
 
 	Mesh mesh;
-	std::unordered_map<std::string, int> bone_map;
+	std::map<std::string, int> bone_map;
 
 	DIR* dir = opendir(asset_in_folder);
 	if (!dir)
@@ -368,13 +368,13 @@ int main(int argc, char* argv[])
 		return 1;
 	}
 
-	std::unordered_map<std::string, std::string> models;
-	std::unordered_map<std::string, std::string> anims;
-	std::unordered_map<std::string, std::string> textures;
-	std::unordered_map<std::string, std::string> shaders;
+	std::map<std::string, std::string> models;
+	std::map<std::string, std::string> anims;
+	std::map<std::string, std::string> textures;
+	std::map<std::string, std::string> shaders;
 
-	const int MAX_PATH = 512;
-	char asset_in_path[MAX_PATH], asset_out_path[MAX_PATH], asset_name[MAX_PATH];
+	const int MAX_PATH_LENGTH = 512;
+	char asset_in_path[MAX_PATH_LENGTH], asset_out_path[MAX_PATH_LENGTH], asset_name[MAX_PATH_LENGTH];
 
 	bool error = false;
 	bool modified = false;
@@ -384,18 +384,18 @@ int main(int argc, char* argv[])
 		if (entry->d_type != DT_REG)
 			continue; // Not a file
 
-		if (strlen(asset_in_folder) + strlen(entry->d_name) > MAX_PATH
-			|| strlen(asset_out_folder) + strlen(entry->d_name) > MAX_PATH)
+		if (strlen(asset_in_folder) + strlen(entry->d_name) > MAX_PATH_LENGTH
+			|| strlen(asset_out_folder) + strlen(entry->d_name) > MAX_PATH_LENGTH)
 		{
 			fprintf(stderr, "Error: path name for %s too long.\n", entry->d_name);
 			error = true;
 			break;
 		}
-		memset(asset_in_path, 0, MAX_PATH);
+		memset(asset_in_path, 0, MAX_PATH_LENGTH);
 		strcat(asset_in_path, asset_in_folder);
 		strcat(asset_in_path + strlen(asset_in_folder), entry->d_name);
 
-		memset(asset_out_path, 0, MAX_PATH);
+		memset(asset_out_path, 0, MAX_PATH_LENGTH);
 		strcat(asset_out_path, asset_out_folder);
 		strcat(asset_out_path + strlen(asset_out_folder), entry->d_name);
 
@@ -434,8 +434,8 @@ int main(int argc, char* argv[])
 		else if (has_extension(entry->d_name, model_in_extension))
 		{
 			strcpy(asset_out_path + strlen(asset_out_path) - strlen(model_in_extension), model_out_extension);
-			char anim_out_path[MAX_PATH];
-			memset(anim_out_path, 0, MAX_PATH);
+			char anim_out_path[MAX_PATH_LENGTH];
+			memset(anim_out_path, 0, MAX_PATH_LENGTH);
 			strcpy(anim_out_path, asset_out_path);
 			strcpy(anim_out_path + strlen(asset_out_path) - strlen(model_out_extension), anim_out_extension);
 

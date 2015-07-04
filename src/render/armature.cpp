@@ -8,11 +8,11 @@ Armature::Armature()
 void Armature::draw(RenderParams* params)
 {
 	SyncData* sync = params->sync;
+
 	sync->op(RenderOp_View);
 	sync->write<AssetID>(&mesh);
 	sync->write<AssetID>(&shader);
 	sync->write<AssetID>(&texture);
-
 	Mat4 m;
 	get<Transform>()->mat(&m);
 	Mat4 mvp = m * params->view * params->projection;

@@ -58,7 +58,7 @@ struct Array
 			else
 				data = (T*)realloc(data, nextSize * sizeof(T));
 
-			memset((void*)(data + reserved * sizeof(T)), 0, (nextSize - reserved) * sizeof(T));
+			memset((void*)&data[reserved], 0, (nextSize - reserved) * sizeof(T));
 			reserved = nextSize;
 		}
 	}
@@ -70,14 +70,14 @@ struct Array
 
 	void remove_ordered(size_t i)
 	{
-		memmove(&data[i + 1], &data[i]);
+		memmove(&data[i + 1], &data[i], sizeof(T) * (length - (i + 1)));
 		length--;
 	}
 
 	T* insert(size_t i, T& t)
 	{
 		reserve(++length);
-		memmove(&data[i], &data[i + 1]);
+		memmove(&data[i], &data[i + 1], sizeof(T) * (length - i));
 		data[i] = t;
 		return &data[i];
 	}
@@ -85,8 +85,14 @@ struct Array
 	T* insert(size_t i)
 	{
 		reserve(++length);
-		memmove(&data[i], &data[i + 1]);
+		memmove(&data[i], &data[i + 1], sizeof(T) * (length - i));
 		return &data[i];
+	}
+
+	void resize(size_t i)
+	{
+		reserve(i);
+		length = i;
 	}
 
 	T* add()

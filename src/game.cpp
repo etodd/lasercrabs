@@ -22,7 +22,7 @@ void game_loop(RenderSync::Swapper* swapper)
 
 	StaticGeom* a = World::create<StaticGeom>(Asset::Model::city3);
 
-	Prop* prop = World::create<Prop>(Asset::Model::Alpha, Asset::Animation::AnimStack__Armature_idle);
+	Prop* prop = World::create<Prop>(Asset::Model::Alpha, Asset::Animation::idle);
 
 	Player* player = World::create<Player>();
 

@@ -215,6 +215,19 @@ bool load_model(const aiScene* scene, Mesh* out, std::map<std::string, int>& bon
 	return true;
 }
 
+bool maps_equal(std::map<std::string, std::string>& a, std::map<std::string, std::string>& b)
+{
+	if (a.size() != b.size())
+		return false;
+	for (auto i = a.begin(); i != a.end(); i++)
+	{
+		auto j = b.find(i->first);
+		if (j == b.end() || i->second.compare(j->second))
+			return false;
+	}
+	return true;
+}
+
 bool has_extension(char* filename, const char* extension)
 {
 	size_t path_length = strlen(filename), extension_length = strlen(extension);
@@ -231,9 +244,9 @@ void write_asset_headers(FILE* file, const char* name, std::map<std::string, std
 	int asset_count = assets.size() + 1;
 	fprintf(file, "\tstruct %s\n\t{\n\t\tstatic const size_t count = %d;\n\t\tstatic const char* filenames[%d];\n", name, asset_count, asset_count);
 	int i = 1;
-	for (auto asset : assets)
+	for (auto asset = assets.begin(); asset != assets.end(); asset++)
 	{
-		fprintf(file, "\t\tstatic const AssetID %s = %d;\n", asset.first.c_str(), i);
+		fprintf(file, "\t\tstatic const AssetID %s = %d;\n", asset->first.c_str(), i);
 		i++;
 	}
 	fprintf(file, "\t};\n");
@@ -242,8 +255,8 @@ void write_asset_headers(FILE* file, const char* name, std::map<std::string, std
 void write_asset_filenames(FILE* file, const char* name, std::map<std::string, std::string>& assets)
 {
 	fprintf(file, "const char* Asset::%s::filenames[] =\n{\n\t\"\",\n", name);
-	for (auto asset : assets)
-		fprintf(file, "\t\"%s\",\n", asset.second.c_str());
+	for (auto i = assets.begin(); i != assets.end(); i++)
+		fprintf(file, "\t\"%s\",\n", i->second.c_str());
 	fprintf(file, "};\n");
 }
 
@@ -327,14 +340,18 @@ bool cp(const char* from, const char* to)
 
 int main(int argc, char* argv[])
 {
-	// Extensions must be same length
+	const int MAX_PATH_LENGTH = 512;
+
+	// In/out extensions must be same length
 	static const char* model_in_extension = ".fbx";
 	static const char* model_out_extension = ".mdl";
+
 	static const char* anim_out_extension = ".anm";
 	static const char* texture_extension = ".png";
 	static const char* shader_extension = ".glsl";
 	static const char* asset_in_folder = "../assets/";
 	static const char* asset_out_folder = "assets/";
+	static const char* asset_cache_path = "assets/.build";
 	static const char* asset_src_path = "../src/asset.cpp";
 	static const char* asset_header_path = "../src/asset.h";
 
@@ -347,16 +364,94 @@ int main(int argc, char* argv[])
 		return 1;
 	}
 
+	std::map<std::string, std::string> loaded_models;
+	std::map<std::string, std::map<std::string, std::string> > loaded_anims;
+	std::map<std::string, std::string> loaded_textures;
+	std::map<std::string, std::string> loaded_shaders;
+
+	bool rebuild = false;
+	FILE* f = fopen(asset_cache_path, "rb");
+	if (f)
+	{
+		int count;
+		fread(&count, sizeof(int), 1, f);
+		for (int i = 0; i < count; i++)
+		{
+			char asset_name[MAX_PATH_LENGTH];
+			char asset_path[MAX_PATH_LENGTH];
+			memset(asset_name, 0, MAX_PATH_LENGTH);
+			memset(asset_path, 0, MAX_PATH_LENGTH);
+			int length;
+			fread(&length, sizeof(int), 1, f);
+			fread(asset_name, sizeof(char), length, f);
+			fread(&length, sizeof(int), 1, f);
+			fread(asset_path, sizeof(char), length, f);
+			loaded_models[asset_name] = asset_path;
+
+			loaded_anims[asset_name] = std::map<std::string, std::string>();
+
+			std::map<std::string, std::string>* asset_anims = &loaded_anims[asset_name];
+
+			int anim_count;
+			fread(&anim_count, sizeof(int), 1, f);
+			for (int j = 0; j < anim_count; j++)
+			{
+				char anim_name[MAX_PATH_LENGTH];
+				char anim_path[MAX_PATH_LENGTH];
+				memset(anim_name, 0, MAX_PATH_LENGTH);
+				memset(anim_path, 0, MAX_PATH_LENGTH);
+				int length;
+				fread(&length, sizeof(int), 1, f);
+				fread(anim_name, sizeof(char), length, f);
+				fread(&length, sizeof(int), 1, f);
+				fread(anim_path, sizeof(char), length, f);
+				(*asset_anims)[anim_name] = anim_path;
+			}
+		}
+
+		fread(&count, sizeof(int), 1, f);
+		for (int i = 0; i < count; i++)
+		{
+			char asset_name[MAX_PATH_LENGTH];
+			char asset_path[MAX_PATH_LENGTH];
+			memset(asset_name, 0, MAX_PATH_LENGTH);
+			memset(asset_path, 0, MAX_PATH_LENGTH);
+			int length;
+			fread(&length, sizeof(int), 1, f);
+			fread(asset_name, sizeof(char), length, f);
+			fread(&length, sizeof(int), 1, f);
+			fread(asset_path, sizeof(char), length, f);
+			loaded_textures[asset_name] = asset_path;
+		}
+
+		fread(&count, sizeof(int), 1, f);
+		for (int i = 0; i < count; i++)
+		{
+			char asset_name[MAX_PATH_LENGTH];
+			char asset_path[MAX_PATH_LENGTH];
+			memset(asset_name, 0, MAX_PATH_LENGTH);
+			memset(asset_path, 0, MAX_PATH_LENGTH);
+			int length;
+			fread(&length, sizeof(int), 1, f);
+			fread(asset_name, sizeof(char), length, f);
+			fread(&length, sizeof(int), 1, f);
+			fread(asset_path, sizeof(char), length, f);
+			loaded_shaders[asset_name] = asset_path;
+		}
+
+		fclose(f);
+	}
+	else
+		rebuild = true;
+
 	std::map<std::string, std::string> models;
-	std::map<std::string, std::string> anims;
+	std::map<std::string, std::map<std::string, std::string> > anims;
 	std::map<std::string, std::string> textures;
 	std::map<std::string, std::string> shaders;
 
-	const int MAX_PATH_LENGTH = 512;
 	char asset_in_path[MAX_PATH_LENGTH], asset_out_path[MAX_PATH_LENGTH], asset_name[MAX_PATH_LENGTH];
 
 	bool error = false;
-	bool modified = false;
 	struct dirent* entry;
 	while ((entry = readdir(dir)))
 	{
@@ -382,9 +477,8 @@ int main(int argc, char* argv[])
 		{
 			get_name_from_filename(entry->d_name, asset_name);
 			textures[asset_name] = asset_out_path;
-			if (filemtime(asset_out_path) < filemtime(asset_in_path))
+			if (rebuild || filemtime(asset_out_path) < filemtime(asset_in_path))
 			{
-				modified = true;
 				printf("%s\n", asset_out_path);
 				if (!cp(asset_in_path, asset_out_path))
 				{
@@ -398,9 +492,8 @@ int main(int argc, char* argv[])
 		{
 			get_name_from_filename(entry->d_name, asset_name);
 			shaders[asset_name] = asset_out_path;
-			if (filemtime(asset_out_path) < filemtime(asset_in_path))
+			if (rebuild || filemtime(asset_out_path) < filemtime(asset_in_path))
 			{
-				modified = true;
 				printf("%s\n", asset_out_path);
 				if (!cp(asset_in_path, asset_out_path))
 				{
@@ -418,8 +511,12 @@ int main(int argc, char* argv[])
 
 			models[asset_name] = asset_out_path;
 
-			if (filemtime(asset_out_path) < filemtime(asset_in_path))
+			if (rebuild || filemtime(asset_out_path) < filemtime(asset_in_path))
 			{
+				anims[asset_name] = std::map<std::string, std::string>();
+
+				std::map<std::string, std::string>* asset_anims = &anims[asset_name];
+
 				mesh.indices.length = 0;
 				mesh.vertices.length = 0;
 				mesh.uvs.length = 0;
@@ -432,7 +529,6 @@ int main(int argc, char* argv[])
 
 				if (load_model(scene, &mesh, bone_map))
 				{
-					modified = true;
 					printf("%s Indices: %lu Vertices: %lu Bones: %lu\n", asset_name, mesh.indices.length, mesh.vertices.length, mesh.bone_hierarchy.length);
 
 					for (unsigned int i = 0; i < scene->mNumAnimations; i++)
@@ -455,8 +551,12 @@ int main(int argc, char* argv[])
 							}
 							char anim_name[MAX_PATH_LENGTH];
 							memset(anim_name, 0, MAX_PATH_LENGTH);
-							strcpy(anim_name, ai_anim->mName.C_Str());
-							for (int i = 0; i < ai_anim->mName.length; i++)
+							if (strstr(ai_anim->mName.C_Str(), "AnimStack") == ai_anim->mName.C_Str())
+								strcpy(anim_name, &strstr(ai_anim->mName.C_Str(), "|")[1]);
+							else
+								strcpy(anim_name, ai_anim->mName.C_Str());
+							int anim_name_length = strlen(anim_name);
+							for (int i = 0; i < anim_name_length; i++)
 							{
 								char c = anim_name[i];
 								if ((c < 'A' || c > 'Z')
@@ -467,7 +567,7 @@ int main(int argc, char* argv[])
 							strcat(anim_out_path, anim_name);
 							strcat(anim_out_path, anim_out_extension);
 
-							anims[anim_name] = anim_out_path;
+							(*asset_anims)[anim_name] = anim_out_path;
 
 							FILE* f = fopen(anim_out_path, "w+b");
 							if (f)
@@ -537,6 +637,12 @@ int main(int argc, char* argv[])
 					break;
 				}
 			}
+			else
+			{
+				auto existing_anim_map = loaded_anims.find(asset_name);
+				if (existing_anim_map != loaded_anims.end())
+					anims[asset_name] = existing_anim_map->second;
+			}
 		}
 	}
 	closedir(dir);
@@ -544,7 +650,24 @@ int main(int argc, char* argv[])
 	if (error)
 		return 1;
 	
-	if (modified || filemtime(asset_header_path) == 0 || filemtime(asset_src_path) == 0)
+	bool modified = !maps_equal(loaded_models, models)
+		|| !maps_equal(loaded_textures, textures)
+		|| !maps_equal(loaded_shaders, shaders);
+
+	if (!modified)
+	{
+		for (auto i = loaded_anims.begin(); i != loaded_anims.end(); i++)
+		{
+			auto j = anims.find(i->first);
+			if (j == anims.end() || !maps_equal(i->second, j->second))
+			{
+				modified = true;
+				break;
+			}
+		}
+	}
+	
+	if (rebuild || modified || filemtime(asset_header_path) == 0 || filemtime(asset_src_path) == 0)
 	{
 		printf("Writing asset file...\n");
 		FILE* asset_header_file = fopen(asset_header_path, "w+");
@@ -557,7 +680,14 @@ int main(int argc, char* argv[])
 		write_asset_headers(asset_header_file, "Model", models);
 		write_asset_headers(asset_header_file, "Texture", textures);
 		write_asset_headers(asset_header_file, "Shader", shaders);
-		write_asset_headers(asset_header_file, "Animation", anims);
+		std::map<std::string, std::string> flattened_anims;
+		for (auto i = models.begin(); i != models.end(); i++)
+		{
+			std::map<std::string, std::string>* asset_anims = &anims[i->first];
+			for (auto j = asset_anims->begin(); j != asset_anims->end(); j++)
+				flattened_anims[j->first] = j->second;
+		}
+		write_asset_headers(asset_header_file, "Animation", flattened_anims);
 		fprintf(asset_header_file, "};\n");
 		fclose(asset_header_file);
 
@@ -571,8 +701,67 @@ int main(int argc, char* argv[])
 		write_asset_filenames(asset_src_file, "Model", models);
 		write_asset_filenames(asset_src_file, "Texture", textures);
 		write_asset_filenames(asset_src_file, "Shader", shaders);
-		write_asset_filenames(asset_src_file, "Animation", anims);
+		write_asset_filenames(asset_src_file, "Animation", flattened_anims);
 		fclose(asset_src_file);
+
+		FILE* cache_file = fopen(asset_cache_path, "w+b");
+		if (!cache_file)
+		{
+			fprintf(stderr, "Error: failed to open asset cache file %s for writing.\n", asset_cache_path);
+			return 1;
+		}
+		int count = models.size();
+		fwrite(&count, sizeof(int), 1, cache_file);
+		for (auto i = models.begin(); i != models.end(); i++)
+		{
+			int length = i->first.length();
+			fwrite(&length, sizeof(int), 1, cache_file);
+			fwrite(&i->first[0], sizeof(char), length, cache_file);
+
+			length = i->second.length();
+			fwrite(&length, sizeof(int), 1, cache_file);
+			fwrite(&i->second[0], sizeof(char), length, cache_file);
+			
+			std::map<std::string, std::string>* asset_anims = &anims[i->first];
+			int anim_count = asset_anims->size();
+			fwrite(&anim_count, sizeof(int), 1, cache_file);
+			for (auto j = asset_anims->begin(); j != asset_anims->end(); j++)
+			{
+				int length = j->first.length();
+				fwrite(&length, sizeof(int), 1, cache_file);
+				fwrite(&j->first[0], sizeof(char), length, cache_file);
+
+				length = j->second.length();
+				fwrite(&length, sizeof(int), 1, cache_file);
+				fwrite(&j->second[0], sizeof(char), length, cache_file);
+			}
+		}
+
+		count = textures.size();
+		fwrite(&count, sizeof(int), 1, cache_file);
+		for (auto i = textures.begin(); i != textures.end(); i++)
+		{
+			int length = i->first.length();
+			fwrite(&length, sizeof(int), 1, cache_file);
+			fwrite(&i->first[0], sizeof(char), length, cache_file);
+
+			length = i->second.length();
+			fwrite(&length, sizeof(int), 1, cache_file);
+			fwrite(&i->second[0], sizeof(char), length, cache_file);
+		}
+
+		count = shaders.size();
+		fwrite(&count, sizeof(int), 1, cache_file);
+		for (auto i = shaders.begin(); i != shaders.end(); i++)
+		{
+			int length = i->first.length();
+			fwrite(&length, sizeof(int), 1, cache_file);
+			fwrite(&i->first[0], sizeof(char), length, cache_file);
+
+			length = i->second.length();
+			fwrite(&length, sizeof(int), 1, cache_file);
+			fwrite(&i->second[0], sizeof(char), length, cache_file);
+		}
 	}
 
 	return 0;

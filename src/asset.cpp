@@ -20,4 +20,12 @@ const char* Asset::Shader::filenames[] =
 const char* Asset::Animation::filenames[] =
 {
 	"",
+	"assets/idle.anm",
+	"assets/jump.anm",
+	"assets/run.anm",
+	"assets/strafe_left.anm",
+	"assets/strafe_right.anm",
+	"assets/turn_left.anm",
+	"assets/turn_right.anm",
+	"assets/walk.anm",
 };

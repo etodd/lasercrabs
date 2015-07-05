@@ -40,7 +40,7 @@ Prop::Prop(ID id, AssetID mesh_id, AssetID anim_id)
 
 	Armature* armature = create<Armature>();
 
-	Loader::animation(Asset::Animation::idle);
+	Loader::animation(anim_id);
 
 	Animation* anim = Loader::get_animation(anim_id);
 

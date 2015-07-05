@@ -12,13 +12,6 @@
 
 #define MAX_BONE_WEIGHTS 4
 
-enum LoadResult
-{
-	LoadResult_ok,
-	LoadResult_error,
-	LoadResult_skip,
-};
-
 struct Mesh
 {
 	Array<int> indices;
@@ -52,7 +45,7 @@ struct Animation
 	Array<Channel> channels;
 };
 
-LoadResult load_anim(aiAnimation* in, Animation* out, std::map<std::string, int>& bone_map)
+bool load_anim(aiAnimation* in, Animation* out, std::map<std::string, int>& bone_map)
 {
 	out->duration = (float)(in->mDuration / in->mTicksPerSecond);
 	for (unsigned int i = 0; i < in->mNumChannels; i++)
@@ -89,7 +82,7 @@ LoadResult load_anim(aiAnimation* in, Animation* out, std::map<std::string, int>
 			}
 		}
 	}
-	return LoadResult_ok;
+	return true;
 }
 
 const aiScene* import_fbx(Assimp::Importer& importer, const char* path)
@@ -117,10 +110,10 @@ void build_node_hierarchy(Array<int>& output, std::map<std::string, int>& bone_m
 		build_node_hierarchy(output, bone_map, node->mChildren[i], bone_index);
 }
 
-LoadResult load_model(const aiScene* scene, Mesh* out, std::map<std::string, int>& bone_map)
+bool load_model(const aiScene* scene, Mesh* out, std::map<std::string, int>& bone_map)
 {
 	if (!scene)
-		return LoadResult_error;
+		return false;
 
 	if (scene->HasMeshes())
 	{
@@ -159,7 +152,7 @@ LoadResult load_model(const aiScene* scene, Mesh* out, std::map<std::string, int
 		else
 		{
 			fprintf(stderr, "Error: model has no normals.\n");
-			return LoadResult_error;
+			return false;
 		}
 
 		// Fill face indices
@@ -218,10 +211,8 @@ LoadResult load_model(const aiScene* scene, Mesh* out, std::map<std::string, int
 			build_node_hierarchy(out->bone_hierarchy, bone_map, scene->mRootNode, -1);
 		}
 	}
-	else
-		return LoadResult_skip; // No meshes
 	
-	return LoadResult_ok;
+	return true;
 }
 
 bool has_extension(char* filename, const char* extension)
@@ -425,6 +416,8 @@ int main(int argc, char* argv[])
 
 			get_name_from_filename(entry->d_name, asset_name);
 
+			models[asset_name] = asset_out_path;
+
 			if (filemtime(asset_out_path) < filemtime(asset_in_path))
 			{
 				mesh.indices.length = 0;
@@ -437,38 +430,44 @@ int main(int argc, char* argv[])
 
 				std::map<std::string, int> bone_map;
 
-				LoadResult result = load_model(scene, &mesh, bone_map);
-				if (result == LoadResult_ok)
+				if (load_model(scene, &mesh, bone_map))
 				{
 					modified = true;
 					printf("%s Indices: %lu Vertices: %lu Bones: %lu\n", asset_name, mesh.indices.length, mesh.vertices.length, mesh.bone_hierarchy.length);
-
-					models[asset_name] = asset_out_path;
 
 					for (unsigned int i = 0; i < scene->mNumAnimations; i++)
 					{
 						aiAnimation* ai_anim = scene->mAnimations[i];
 						Animation anim;
-						LoadResult anim_result = load_anim(ai_anim, &anim, bone_map);
-						if (anim_result == LoadResult_ok)
+						if (load_anim(ai_anim, &anim, bone_map))
 						{
-							modified = true;
-							printf("%s Duration: %f Channels: %lu\n", asset_name, anim.duration, anim.channels.length);
+							printf("%s Duration: %f Channels: %lu\n", ai_anim->mName.C_Str(), anim.duration, anim.channels.length);
 
 							char anim_out_path[MAX_PATH_LENGTH];
 
-							memset(asset_out_path, 0, MAX_PATH_LENGTH);
-							strcpy(asset_out_path, asset_out_folder);
+							memset(anim_out_path, 0, MAX_PATH_LENGTH);
+							strcpy(anim_out_path, asset_out_folder);
 							if (strlen(asset_out_folder) + ai_anim->mName.length + strlen(anim_out_extension) + 1 >= MAX_PATH_LENGTH)
 							{
 								fprintf(stderr, "Error: animation name too long: %s.\n", ai_anim->mName.C_Str());
 								error = true;
 								break;
 							}
-							strcat(asset_out_path, ai_anim->mName.C_Str());
-							strcat(asset_out_path, anim_out_extension);
+							char anim_name[MAX_PATH_LENGTH];
+							memset(anim_name, 0, MAX_PATH_LENGTH);
+							strcpy(anim_name, ai_anim->mName.C_Str());
+							for (int i = 0; i < ai_anim->mName.length; i++)
+							{
+								char c = anim_name[i];
+								if ((c < 'A' || c > 'Z')
+									&& (c < 'a' || c > 'z')
+									&& c != '_')
+									anim_name[i] = '_';
+							}
+							strcat(anim_out_path, anim_name);
+							strcat(anim_out_path, anim_out_extension);
 
-							anims[ai_anim->mName.C_Str()] = anim_out_path;
+							anims[anim_name] = anim_out_path;
 
 							FILE* f = fopen(anim_out_path, "w+b");
 							if (f)
@@ -495,7 +494,7 @@ int main(int argc, char* argv[])
 								break;
 							}
 						}
-						else if (anim_result == LoadResult_error)
+						else
 						{
 							fprintf(stderr, "Error: failed to load animation %s.\n", ai_anim->mName.C_Str());
 							error = true;
@@ -531,7 +530,7 @@ int main(int argc, char* argv[])
 						break;
 					}
 				}
-				else if (result == LoadResult_error)
+				else
 				{
 					fprintf(stderr, "Error: failed to load model %s.\n", asset_in_path);
 					error = true;

@@ -25,17 +25,7 @@ struct Asset
 	};
 	struct Animation
 	{
-		static const size_t count = 11;
-		static const char* filenames[11];
-		static const AssetID idle = 1;
-		static const AssetID jump = 2;
-		static const AssetID left_strafe = 3;
-		static const AssetID left_strafe_walking = 4;
-		static const AssetID left_turn_90 = 5;
-		static const AssetID right_strafe = 6;
-		static const AssetID right_strafe_walking = 7;
-		static const AssetID right_turn_90 = 8;
-		static const AssetID standard_run = 9;
-		static const AssetID walking = 10;
+		static const size_t count = 1;
+		static const char* filenames[1];
 	};
 };

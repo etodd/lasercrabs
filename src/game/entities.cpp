@@ -17,12 +17,11 @@ StaticGeom::StaticGeom(ID id, AssetID mesh_id)
 	Transform* transform = create<Transform>();
 	View* model = create<View>();
 
-	model->mesh = Loader::mesh(mesh_id);
-	model->shader = Loader::shader(Asset::Shader::Standard);
-	model->texture = Loader::texture(Asset::Texture::test);
+	model->mesh = mesh_id;
+	model->shader = Asset::Shader::Standard;
+	model->texture = Asset::Texture::test;
 
-	Mesh* mesh = Loader::get_mesh(mesh_id);
-
+	Mesh* mesh = Loader::mesh(model->mesh);
 	btBvhTriangleMeshShape* btMesh = new btBvhTriangleMeshShape(&mesh->physics, true, btVector3(-1000, -1000, -1000), btVector3(1000, 1000, 1000));
 	
 	RigidBody* body = create<RigidBody>(0.0f, transform, btMesh);
@@ -40,13 +39,11 @@ Prop::Prop(ID id, AssetID mesh_id, AssetID anim_id)
 
 	Armature* armature = create<Armature>();
 
-	Loader::animation(anim_id);
+	armature->animation = Loader::animation(anim_id);
 
-	Animation* anim = Loader::get_animation(anim_id);
-
-	armature->mesh = Loader::mesh(mesh_id);
-	armature->shader = Loader::shader(Asset::Shader::Armature);
-	armature->texture = Loader::texture(Asset::Texture::test);
+	armature->mesh = mesh_id;
+	armature->shader = Asset::Shader::Armature;
+	armature->texture = Asset::Texture::test;
 }
 
 void Prop::awake()

@@ -4,6 +4,7 @@
 #include "types.h"
 #include <GL/glew.h>
 #include "lmath.h"
+#include <array>
 
 #include <BulletCollision/CollisionShapes/btTriangleIndexVertexArray.h>
 
@@ -15,8 +16,8 @@ struct Mesh
 	Array<Vec3> vertices;
 	Array<Vec2> uvs;
 	Array<Vec3> normals;
-	Array<int> bone_indices[MAX_BONE_WEIGHTS];
-	Array<float> bone_weights[MAX_BONE_WEIGHTS];
+	Array<std::array<int, MAX_BONE_WEIGHTS> > bone_indices;
+	Array<std::array<float, MAX_BONE_WEIGHTS> > bone_weights;
 	Array<Mat4> inverse_bind_pose;
 	Array<int> bone_hierarchy;
 	btTriangleIndexVertexArray physics;

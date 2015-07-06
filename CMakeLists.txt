@@ -198,6 +198,10 @@ add_executable(import
 )
 
 target_link_libraries(import
+	${OPENGL_LIBRARIES}
+	${GLFW_LIBRARIES}
+	glfw
+	GLEW_static
 	assimp
 )
 

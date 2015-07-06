@@ -9,6 +9,9 @@
 #include "data/array.h"
 #include <dirent.h>
 #include <map>
+#include <array>
+#include <GL/glew.h>
+#include <GLFW/glfw3.h>
 
 #define MAX_BONE_WEIGHTS 4
 
@@ -18,8 +21,8 @@ struct Mesh
 	Array<Vec3> vertices;
 	Array<Vec2> uvs;
 	Array<Vec3> normals;
-	Array<int> bone_indices[MAX_BONE_WEIGHTS];
-	Array<float> bone_weights[MAX_BONE_WEIGHTS];
+	Array<std::array<int, MAX_BONE_WEIGHTS> > bone_indices;
+	Array<std::array<float, MAX_BONE_WEIGHTS> > bone_weights;
 	Array<Mat4> inverse_bind_pose;
 	Array<int> bone_hierarchy;
 };
@@ -44,6 +47,12 @@ struct Animation
 	float duration;
 	Array<Channel> channels;
 };
+
+int exit_error()
+{
+	glfwTerminate();
+	return 1;
+}
 
 bool load_anim(aiAnimation* in, Animation* out, std::map<std::string, int>& bone_map)
 {
@@ -170,11 +179,8 @@ bool load_model(const aiScene* scene, Mesh* out, std::map<std::string, int>& bon
 
 		if (mesh->HasBones())
 		{
-			for (int i = 0; i < MAX_BONE_WEIGHTS; i++)
-			{
-				out->bone_weights[i].resize(mesh->mNumVertices);
-				out->bone_indices[i].resize(mesh->mNumVertices);
-			}
+			out->bone_weights.resize(mesh->mNumVertices);
+			out->bone_indices.resize(mesh->mNumVertices);
 
 			out->inverse_bind_pose.resize(mesh->mNumBones);
 			for (unsigned int bone_index = 0; bone_index < mesh->mNumBones; bone_index++)
@@ -196,10 +202,10 @@ bool load_model(const aiScene* scene, Mesh* out, std::map<std::string, int>& bon
 					float weight = bone->mWeights[bone_weight_index].mWeight;
 					for (int weight_index = 0; weight_index < MAX_BONE_WEIGHTS; weight_index++)
 					{
-						if (out->bone_weights[weight_index][vertex_id] == 0)
+						if (out->bone_weights[vertex_id][weight_index] == 0)
 						{
-							out->bone_weights[weight_index][vertex_id] = weight;
-							out->bone_indices[weight_index][vertex_id] = bone_index;
+							out->bone_weights[vertex_id][weight_index] = weight;
+							out->bone_indices[vertex_id][weight_index] = bone_index;
 							break;
 						}
 						else if (weight_index == MAX_BONE_WEIGHTS - 1)
@@ -241,9 +247,9 @@ bool has_extension(char* filename, const char* extension)
 
 void write_asset_headers(FILE* file, const char* name, std::map<std::string, std::string>& assets)
 {
-	int asset_count = assets.size() + 1;
+	int asset_count = assets.size();
 	fprintf(file, "\tstruct %s\n\t{\n\t\tstatic const size_t count = %d;\n\t\tstatic const char* filenames[%d];\n", name, asset_count, asset_count);
-	int i = 1;
+	int i = 0;
 	for (auto asset = assets.begin(); asset != assets.end(); asset++)
 	{
 		fprintf(file, "\t\tstatic const AssetID %s = %d;\n", asset->first.c_str(), i);
@@ -254,7 +260,7 @@ void write_asset_headers(FILE* file, const char* name, std::map<std::string, std
 
 void write_asset_filenames(FILE* file, const char* name, std::map<std::string, std::string>& assets)
 {
-	fprintf(file, "const char* Asset::%s::filenames[] =\n{\n\t\"\",\n", name);
+	fprintf(file, "const char* Asset::%s::filenames[] =\n{\n", name);
 	for (auto i = assets.begin(); i != assets.end(); i++)
 		fprintf(file, "\t\"%s\",\n", i->second.c_str());
 	fprintf(file, "};\n");
@@ -340,6 +346,36 @@ bool cp(const char* from, const char* to)
 
 int main(int argc, char* argv[])
 {
+	if (!glfwInit())
+	{
+		fprintf(stderr, "Failed to initialize GLFW\n");
+		return 1;
+	}
+
+	glfwWindowHint(GLFW_SAMPLES, 1);
+	glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
+	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
+	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+	glfwWindowHint(GLFW_VISIBLE, GL_FALSE);
+
+	GLFWmonitor* monitor = glfwGetPrimaryMonitor();
+	GLFWwindow* window = glfwCreateWindow(1, 1, "", NULL, NULL);
+
+	// Open a window and create its OpenGL context
+	if (!window)
+	{
+		fprintf(stderr, "Failed to open GLFW window. If you have an Intel GPU, they are not 3.3 compatible. Sorry.\n");
+		return exit_error();
+	}
+	glfwMakeContextCurrent(window);
+	glewExperimental = true; // Needed for core profile
+	if (glewInit() != GLEW_OK)
+	{
+		fprintf(stderr, "Failed to initialize GLEW\n");
+		return exit_error();
+	}
+
 	const int MAX_PATH_LENGTH = 512;
 
 	// In/out extensions must be same length
@@ -361,13 +397,14 @@ int main(int argc, char* argv[])
 	if (!dir)
 	{
 		fprintf(stderr, "Failed to open asset directory.\n");
-		return 1;
+		return exit_error();
 	}
 
 	std::map<std::string, std::string> loaded_models;
 	std::map<std::string, std::map<std::string, std::string> > loaded_anims;
 	std::map<std::string, std::string> loaded_textures;
 	std::map<std::string, std::string> loaded_shaders;
+	std::map<std::string, std::map<std::string, std::string> > loaded_uniforms;
 
 	bool rebuild = false;
 	FILE* f = fopen(asset_cache_path, "rb");
@@ -437,6 +474,22 @@ int main(int argc, char* argv[])
 			fread(&length, sizeof(int), 1, f);
 			fread(asset_path, sizeof(char), length, f);
 			loaded_shaders[asset_name] = asset_path;
+
+			loaded_uniforms[asset_name] = std::map<std::string, std::string>();
+
+			std::map<std::string, std::string>* asset_uniforms = &loaded_uniforms[asset_name];
+
+			int uniform_count;
+			fread(&uniform_count, sizeof(int), 1, f);
+			for (int j = 0; j < uniform_count; j++)
+			{
+				char uniform_name[MAX_PATH_LENGTH];
+				memset(uniform_name, 0, MAX_PATH_LENGTH);
+				int length;
+				fread(&length, sizeof(int), 1, f);
+				fread(uniform_name, sizeof(char), length, f);
+				(*asset_uniforms)[uniform_name] = uniform_name;
+			}
 		}
 
 		fclose(f);
@@ -448,6 +501,7 @@ int main(int argc, char* argv[])
 	std::map<std::string, std::map<std::string, std::string> > anims;
 	std::map<std::string, std::string> textures;
 	std::map<std::string, std::string> shaders;
+	std::map<std::string, std::map<std::string, std::string> > uniforms;
 
 	char asset_in_path[MAX_PATH_LENGTH], asset_out_path[MAX_PATH_LENGTH], asset_name[MAX_PATH_LENGTH];
 
@@ -495,12 +549,104 @@ int main(int argc, char* argv[])
 			if (rebuild || filemtime(asset_out_path) < filemtime(asset_in_path))
 			{
 				printf("%s\n", asset_out_path);
+
+				uniforms[asset_name] = std::map<std::string, std::string>();
+				std::map<std::string, std::string>* asset_uniforms = &uniforms[asset_name];
+
+				FILE* f = fopen(asset_in_path, "rb");
+				if (!f)
+				{
+					fprintf(stderr, "Error: failed to open %s.\n", asset_in_path);
+					error = true;
+					break;
+				}
+
+				fseek(f, 0, SEEK_END);
+				long fsize = ftell(f);
+				fseek(f, 0, SEEK_SET);
+
+				Array<char> code;
+				code.resize(fsize + 1); // One extra character for the null terminator
+				fread(code.data, fsize, 1, f);
+				fclose(f);
+
+				// Create the shaders
+				GLuint vertex_id = glCreateShader(GL_VERTEX_SHADER);
+				GLuint frag_id = glCreateShader(GL_FRAGMENT_SHADER);
+
+				// Compile Vertex Shader
+				char const* vertex_code[] = { "#version 330 core\n#define VERTEX\n", code.data };
+				const GLint vertex_code_length[] = { 33, (GLint)code.length };
+				glShaderSource(vertex_id, 2, vertex_code, vertex_code_length);
+				glCompileShader(vertex_id);
+
+				// Check Vertex Shader
+				GLint result;
+				glGetShaderiv(vertex_id, GL_COMPILE_STATUS, &result);
+				int msg_length;
+				glGetShaderiv(vertex_id, GL_INFO_LOG_LENGTH, &msg_length);
+				if (msg_length > 1)
+				{
+					Array<char> msg(msg_length);
+					glGetShaderInfoLog(vertex_id, msg_length, NULL, msg.data);
+					fprintf(stderr, "Vertex shader error in '%s': %s\n", asset_in_path, msg.data);
+					error = true;
+					break;
+				}
+
+				// Compile Fragment Shader
+				const char* frag_code[2] = { "#version 330 core\n", code.data };
+				const GLint frag_code_length[] = { 18, (GLint)code.length };
+				glShaderSource(frag_id, 2, frag_code, frag_code_length);
+				glCompileShader(frag_id);
+
+				// Check Fragment Shader
+				glGetShaderiv(frag_id, GL_COMPILE_STATUS, &result);
+				glGetShaderiv(frag_id, GL_INFO_LOG_LENGTH, &msg_length);
+				if (msg_length > 1)
+				{
+					Array<char> msg(msg_length + 1);
+					glGetShaderInfoLog(frag_id, msg_length, NULL, msg.data);
+					fprintf(stderr, "Fragment shader error in '%s': %s\n", asset_in_path, msg.data);
+					error = true;
+					break;
+				}
+
+				// Link the program
+				GLuint program_id = glCreateProgram();
+				glAttachShader(program_id, vertex_id);
+				glAttachShader(program_id, frag_id);
+				glLinkProgram(program_id);
+
+				glDeleteShader(vertex_id);
+				glDeleteShader(frag_id);
+
+				// Get uniforms
+				GLint uniform_count;
+				glGetProgramiv(program_id, GL_ACTIVE_UNIFORMS, &uniform_count);
+				for (int i = 0; i < uniform_count; i++)
+				{
+					char name[MAX_PATH_LENGTH + 1];
+					memset(name, 0, MAX_PATH_LENGTH + 1);
+					int name_length;
+					glGetActiveUniformName(program_id, i, MAX_PATH_LENGTH, &name_length, name);
+					(*asset_uniforms)[name] = name;
+				}
+
+				glDeleteProgram(program_id);
+
 				if (!cp(asset_in_path, asset_out_path))
 				{
 					fprintf(stderr, "Error: failed to copy %s to %s.\n", asset_in_path, asset_out_path);
 					error = true;
 					break;
 				}
+			}
+			else
+			{
+				auto existing_asset_uniforms = loaded_uniforms.find(asset_name);
+				if (existing_asset_uniforms != loaded_uniforms.end())
+					uniforms[asset_name] = existing_asset_uniforms->second;
 			}
 		}
 		else if (has_extension(entry->d_name, model_in_extension))
@@ -514,7 +660,6 @@ int main(int argc, char* argv[])
 			if (rebuild || filemtime(asset_out_path) < filemtime(asset_in_path))
 			{
 				anims[asset_name] = std::map<std::string, std::string>();
-
 				std::map<std::string, std::string>* asset_anims = &anims[asset_name];
 
 				mesh.indices.length = 0;
@@ -614,10 +759,8 @@ int main(int argc, char* argv[])
 						fwrite(&mesh.bone_hierarchy.length, sizeof(int), 1, f);
 						if (mesh.bone_hierarchy.length > 0)
 						{
-							for (int i = 0; i < MAX_BONE_WEIGHTS; i++)
-								fwrite(mesh.bone_indices[i].data, sizeof(int), mesh.vertices.length, f);
-							for (int i = 0; i < MAX_BONE_WEIGHTS; i++)
-								fwrite(mesh.bone_weights[i].data, sizeof(float), mesh.vertices.length, f);
+							fwrite(mesh.bone_indices.data, sizeof(int[MAX_BONE_WEIGHTS]), mesh.vertices.length, f);
+							fwrite(mesh.bone_weights.data, sizeof(float[MAX_BONE_WEIGHTS]), mesh.vertices.length, f);
 							fwrite(mesh.bone_hierarchy.data, sizeof(int), mesh.bone_hierarchy.length, f);
 							fwrite(mesh.inverse_bind_pose.data, sizeof(Mat4), mesh.bone_hierarchy.length, f);
 						}
@@ -648,7 +791,7 @@ int main(int argc, char* argv[])
 	closedir(dir);
 
 	if (error)
-		return 1;
+		return exit_error();
 	
 	bool modified = !maps_equal(loaded_models, models)
 		|| !maps_equal(loaded_textures, textures)
@@ -665,6 +808,15 @@ int main(int argc, char* argv[])
 				break;
 			}
 		}
+		for (auto i = loaded_uniforms.begin(); i != loaded_uniforms.end(); i++)
+		{
+			auto j = uniforms.find(i->first);
+			if (j == uniforms.end() || !maps_equal(i->second, j->second))
+			{
+				modified = true;
+				break;
+			}
+		}
 	}
 	
 	if (rebuild || modified || filemtime(asset_header_path) == 0 || filemtime(asset_src_path) == 0)
@@ -674,9 +826,9 @@ int main(int argc, char* argv[])
 		if (!asset_header_file)
 		{
 			fprintf(stderr, "Error: failed to open asset header file %s for writing.\n", asset_header_path);
-			return 1;
+			return exit_error();
 		}
-		fprintf(asset_header_file, "#pragma once\n#include \"types.h\"\n\nstruct Asset\n{\n");
+		fprintf(asset_header_file, "#pragma once\n#include \"types.h\"\n\nstruct Asset\n{\n\tstatic const AssetID None = -1;\n");
 		write_asset_headers(asset_header_file, "Model", models);
 		write_asset_headers(asset_header_file, "Texture", textures);
 		write_asset_headers(asset_header_file, "Shader", shaders);
@@ -688,6 +840,14 @@ int main(int argc, char* argv[])
 				flattened_anims[j->first] = j->second;
 		}
 		write_asset_headers(asset_header_file, "Animation", flattened_anims);
+		std::map<std::string, std::string> flattened_uniforms;
+		for (auto i = shaders.begin(); i != shaders.end(); i++)
+		{
+			std::map<std::string, std::string>* asset_uniforms = &uniforms[i->first];
+			for (auto j = asset_uniforms->begin(); j != asset_uniforms->end(); j++)
+				flattened_uniforms[j->first] = j->second;
+		}
+		write_asset_headers(asset_header_file, "Uniform", flattened_uniforms);
 		fprintf(asset_header_file, "};\n");
 		fclose(asset_header_file);
 
@@ -695,20 +855,21 @@ int main(int argc, char* argv[])
 		if (!asset_src_file)
 		{
 			fprintf(stderr, "Error: failed to open asset source file %s for writing.\n", asset_src_path);
-			return 1;
+			return exit_error();
 		}
 		fprintf(asset_src_file, "#include \"asset.h\"\n\n");
 		write_asset_filenames(asset_src_file, "Model", models);
 		write_asset_filenames(asset_src_file, "Texture", textures);
 		write_asset_filenames(asset_src_file, "Shader", shaders);
 		write_asset_filenames(asset_src_file, "Animation", flattened_anims);
+		write_asset_filenames(asset_src_file, "Uniform", flattened_uniforms);
 		fclose(asset_src_file);
 
 		FILE* cache_file = fopen(asset_cache_path, "w+b");
 		if (!cache_file)
 		{
 			fprintf(stderr, "Error: failed to open asset cache file %s for writing.\n", asset_cache_path);
-			return 1;
+			return exit_error();
 		}
 		int count = models.size();
 		fwrite(&count, sizeof(int), 1, cache_file);
@@ -761,6 +922,16 @@ int main(int argc, char* argv[])
 			length = i->second.length();
 			fwrite(&length, sizeof(int), 1, cache_file);
 			fwrite(&i->second[0], sizeof(char), length, cache_file);
+
+			std::map<std::string, std::string>* asset_uniforms = &uniforms[i->first];
+			int uniform_count = asset_uniforms->size();
+			fwrite(&uniform_count, sizeof(int), 1, cache_file);
+			for (auto j = asset_uniforms->begin(); j != asset_uniforms->end(); j++)
+			{
+				int length = j->first.length();
+				fwrite(&length, sizeof(int), 1, cache_file);
+				fwrite(&j->first[0], sizeof(char), length, cache_file);
+			}
 		}
 	}
 

@@ -24,22 +24,20 @@ struct Loader
 	// First entry in each array is empty
 	static Entry<Mesh> meshes[Asset::Model::count];
 	static Entry<Animation> animations[Asset::Animation::count];
-	static Entry<void*> textures[Asset::Texture::count];
-	static Entry<void*> shaders[Asset::Shader::count];
+	static Entry<void*> textures[Asset::Texture::count]; // Nothing actually stored
+	static Entry<void*> shaders[Asset::Shader::count]; // Nothing actually stored
 
-	static AssetID mesh(AssetID);
-	static AssetID mesh_permanent(AssetID);
-	static Mesh* get_mesh(AssetID);
+	static Mesh* mesh(AssetID);
+	static Mesh* mesh_permanent(AssetID);
 	static void unload_mesh(AssetID);
-	static AssetID animation(AssetID);
-	static AssetID animation_permanent(AssetID);
-	static Animation* get_animation(AssetID);
+	static Animation* animation(AssetID);
+	static Animation* animation_permanent(AssetID);
 	static void unload_animation(AssetID);
-	static AssetID texture(AssetID);
-	static AssetID texture_permanent(AssetID);
+	static void texture(AssetID);
+	static void texture_permanent(AssetID);
 	static void unload_texture(AssetID);
-	static AssetID shader(AssetID);
-	static AssetID shader_permanent(AssetID);
+	static void shader(AssetID);
+	static void shader_permanent(AssetID);
 	static void unload_shader(AssetID);
 	static void unload_transients();
 };

@@ -51,10 +51,9 @@ void game_loop(RenderSync::Swapper* swapper)
 		render_params.projection = Camera::main.projection;
 		render_params.view = Camera::main.view;
 
-		sync->op(RenderOp_Clear);
+		sync->write(RenderOp_Clear);
 		
-		GLbitfield clear_flags = GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT;
-		sync->write<GLbitfield>(&clear_flags);
+		sync->write<GLbitfield>(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 		// Draw
 		{

@@ -12,15 +12,15 @@ RenderSync::Swapper RenderSync::swapper(size_t index)
 	return q;
 }
 
-template<typename T> void add_attrib(GLData::Mesh* gl, T* data, size_t count, GLuint type)
+template<typename T> void add_attrib(GLData::Mesh* gl, T* data, size_t count, size_t element_count, GLuint type)
 {
 	GLData::Mesh::Attrib a;
-	a.element_size = sizeof(T) / 4;
+	a.element_size = sizeof(T) * element_count / 4;
 	a.type = type;
 	glBindVertexArray(gl->vertex_array);
 	glGenBuffers(1, &a.handle);
 	glBindBuffer(GL_ARRAY_BUFFER, a.handle);
-	glBufferData(GL_ARRAY_BUFFER, count * sizeof(T), data, GL_STATIC_DRAW);
+	glBufferData(GL_ARRAY_BUFFER, count * sizeof(T) * element_count, data, GL_STATIC_DRAW);
 	gl->attribs.add(a);
 }
 
@@ -36,23 +36,63 @@ void render(SyncData* sync, GLData* data)
 			{
 				AssetID id = *(sync->read<AssetID>());
 				size_t vertex_count = *(sync->read<size_t>());
-				Vec3* vertices = sync->read<Vec3>(vertex_count);
-				Vec2* uvs = sync->read<Vec2>(vertex_count);
-				Vec3* normals = sync->read<Vec3>(vertex_count);
-				size_t index_count = *(sync->read<size_t>());
-				int* indices = sync->read<int>(index_count);
 
 				GLData::Mesh* mesh = &data->meshes[id];
 				new (mesh) GLData::Mesh();
 
 				glGenVertexArrays(1, &mesh->vertex_array);
 				glBindVertexArray(mesh->vertex_array);
-				glGenBuffers(1, &mesh->index_buffer);
 
-				add_attrib<Vec3>(mesh, vertices, vertex_count, GL_FLOAT);
-				add_attrib<Vec2>(mesh, uvs, vertex_count, GL_FLOAT);
-				add_attrib<Vec3>(mesh, normals, vertex_count, GL_FLOAT);
-				
+				size_t attrib_count = *(sync->read<size_t>());
+				for (size_t i = 0; i < attrib_count; i++)
+				{
+					RenderDataType attrib_type = *(sync->read<RenderDataType>());
+					size_t attrib_element_count = *(sync->read<size_t>());
+					switch (attrib_type)
+					{
+						case RenderDataType_Float:
+						{
+							float* data = sync->read<float>(vertex_count * attrib_element_count);
+							add_attrib<float>(mesh, data, vertex_count, attrib_element_count, GL_FLOAT);
+							break;
+						}
+						case RenderDataType_Vec2:
+						{
+							Vec2* data = sync->read<Vec2>(vertex_count * attrib_element_count);
+							add_attrib<Vec2>(mesh, data, vertex_count, attrib_element_count, GL_FLOAT);
+							break;
+						}
+						case RenderDataType_Vec3:
+						{
+							Vec3* data = sync->read<Vec3>(vertex_count * attrib_element_count);
+							add_attrib<Vec3>(mesh, data, vertex_count, attrib_element_count, GL_FLOAT);
+							break;
+						}
+						case RenderDataType_Vec4:
+						{
+							Vec4* data = sync->read<Vec4>(vertex_count * attrib_element_count);
+							add_attrib<Vec4>(mesh, data, vertex_count, attrib_element_count, GL_FLOAT);
+							break;
+						}
+						case RenderDataType_Int:
+						{
+							int* data = sync->read<int>(vertex_count * attrib_element_count);
+							add_attrib<int>(mesh, data, vertex_count, attrib_element_count, GL_INT);
+							break;
+						}
+						case RenderDataType_Mat4:
+						{
+							Mat4* data = sync->read<Mat4>(vertex_count * attrib_element_count);
+							add_attrib<Mat4>(mesh, data, vertex_count, attrib_element_count, GL_FLOAT);
+							break;
+						}
+					}
+				}
+
+				size_t index_count = *(sync->read<size_t>());
+				int* indices = sync->read<int>(index_count);
+
+				glGenBuffers(1, &mesh->index_buffer);
 				glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh->index_buffer);
 				glBufferData(GL_ELEMENT_ARRAY_BUFFER, index_count * sizeof(int), indices, GL_STATIC_DRAW);
 				mesh->index_count = index_count;
@@ -161,16 +201,19 @@ void render(SyncData* sync, GLData* data)
 					fprintf(stderr, "Error creating shader program '%s': %s\n", path, msg.data);
 				}
 
+				for (int i = 0; i < Asset::Uniform::count; i++)
+					data->shaders[id].uniforms[i] = glGetUniformLocation(program_id, Asset::Uniform::filenames[i]);
+
 				glDeleteShader(vertex_id);
 				glDeleteShader(frag_id);
 
-				data->shaders[id] = program_id;
+				data->shaders[id].handle = program_id;
 				break;
 			}
 			case RenderOp_UnloadShader:
 			{
 				AssetID id = *(sync->read<AssetID>());
-				glDeleteProgram(data->shaders[id]);
+				glDeleteProgram(data->shaders[id].handle);
 				break;
 			}
 			case RenderOp_Clear:
@@ -186,17 +229,9 @@ void render(SyncData* sync, GLData* data)
 				GLData::Mesh* gl = &data->meshes[id];
 				AssetID shader_asset = *(sync->read<AssetID>());
 				AssetID texture_asset = *(sync->read<AssetID>());
-				Mat4* MVP = sync->read<Mat4>();
-				Mat4* ModelMatrix = sync->read<Mat4>();
-				Mat4* ViewMatrix = sync->read<Mat4>();
 
-				GLuint programID = data->shaders[shader_asset];
+				GLuint programID = data->shaders[shader_asset].handle;
 				GLuint Texture = data->textures[texture_asset];
-
-				// Get a handle for our "MVP" uniform
-				GLuint MatrixID = glGetUniformLocation(programID, "MVP");
-				GLuint ViewMatrixID = glGetUniformLocation(programID, "V");
-				GLuint ModelMatrixID = glGetUniformLocation(programID, "M");
 
 				// Get a handle for our "myTextureSampler" uniform
 				GLuint TextureID  = glGetUniformLocation(programID, "myTextureSampler");
@@ -208,9 +243,34 @@ void render(SyncData* sync, GLData* data)
 
 				// Send our transformation to the currently bound shader, 
 				// in the "MVP" uniform
-				glUniformMatrix4fv(MatrixID, 1, GL_FALSE, (float*)MVP);
-				glUniformMatrix4fv(ModelMatrixID, 1, GL_FALSE, (float*)ModelMatrix);
-				glUniformMatrix4fv(ViewMatrixID, 1, GL_FALSE, (float*)ViewMatrix);
+				int uniform_count = *(sync->read<int>());
+				for (int i = 0; i < uniform_count; i++)
+				{
+					AssetID uniform_id = *(sync->read<AssetID>());
+					RenderDataType uniform_type = *(sync->read<RenderDataType>());
+					int uniform_count = *(sync->read<int>());
+					switch (uniform_type)
+					{
+						case RenderDataType_Float:
+							glUniform1fv(data->shaders[shader_asset].uniforms[uniform_id], uniform_count, sync->read<float>(uniform_count));
+							break;
+						case RenderDataType_Vec2:
+							glUniform2fv(data->shaders[shader_asset].uniforms[uniform_id], uniform_count, (float*)sync->read<Vec2>(uniform_count));
+							break;
+						case RenderDataType_Vec3:
+							glUniform3fv(data->shaders[shader_asset].uniforms[uniform_id], uniform_count, (float*)sync->read<Vec3>(uniform_count));
+							break;
+						case RenderDataType_Vec4:
+							glUniform4fv(data->shaders[shader_asset].uniforms[uniform_id], uniform_count, (float*)sync->read<Vec4>(uniform_count));
+							break;
+						case RenderDataType_Int:
+							glUniform1iv(data->shaders[shader_asset].uniforms[uniform_id], uniform_count, sync->read<int>(uniform_count));
+							break;
+						case RenderDataType_Mat4:
+							glUniformMatrix4fv(data->shaders[shader_asset].uniforms[uniform_id], uniform_count, GL_FALSE, (float*)sync->read<Mat4>(uniform_count));
+							break;
+					}
+				}
 
 				Vec3 lightPos = Vec3(4, 4, 4);
 				glUniform3f(LightID, lightPos.x, lightPos.y, lightPos.z);
@@ -225,14 +285,29 @@ void render(SyncData* sync, GLData* data)
 				{
 					glEnableVertexAttribArray(i);
 					glBindBuffer(GL_ARRAY_BUFFER, gl->attribs.data[i].handle);
-					glVertexAttribPointer(
-						i,                                    // attribute
-						gl->attribs.data[i].element_size,     // size
-						gl->attribs.data[i].type,             // type
-						GL_FALSE,                             // normalized?
-						0,                                    // stride
-						(void*)0                              // array buffer offset
-					);
+					if (gl->attribs.data[i].type == GL_INT)
+					{
+						glVertexAttribIPointer
+						(
+							i,                                    // attribute
+							gl->attribs.data[i].element_size,     // size
+							gl->attribs.data[i].type,             // type
+							0,                                    // stride
+							(void*)0                              // array buffer offset
+						);
+					}
+					else
+					{
+						glVertexAttribPointer
+						(
+							i,                                    // attribute
+							gl->attribs.data[i].element_size,     // size
+							gl->attribs.data[i].type,             // type
+							GL_FALSE,                             // normalized?
+							0,                                    // stride
+							(void*)0                              // array buffer offset
+						);
+					}
 				}
 
 				glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, gl->index_buffer);

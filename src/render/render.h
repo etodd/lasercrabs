@@ -33,6 +33,16 @@ enum RenderOp
 	RenderOp_Clear,
 };
 
+enum RenderDataType
+{
+	RenderDataType_Float,
+	RenderDataType_Vec2,
+	RenderDataType_Vec3,
+	RenderDataType_Vec4,
+	RenderDataType_Int,
+	RenderDataType_Mat4,
+};
+
 struct SyncData
 {
 	bool quit;
@@ -64,9 +74,10 @@ struct SyncData
 		memcpy(destination, data, size);
 	}
 
-	void op(RenderOp op)
+	template<typename T>
+	void write(const T& data)
 	{
-		write<RenderOp>(&op);
+		write(&data);
 	}
 
 	template<typename T>
@@ -118,9 +129,15 @@ struct GLData
 		}
 	};
 
+	struct Shader
+	{
+		GLuint handle;
+		GLuint uniforms[Asset::Uniform::count];
+	};
+
 	Mesh meshes[Asset::Model::count];
 	GLuint textures[Asset::Texture::count];
-	GLuint shaders[Asset::Shader::count];
+	Shader shaders[Asset::Shader::count];
 
 	GLData()
 		: meshes(), textures(), shaders()

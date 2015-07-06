@@ -15,6 +15,8 @@
 
 #define MAX_BONE_WEIGHTS 4
 
+Quat import_rotation = Quat(PI * -0.5f, Vec3(1, 0, 0));
+
 struct Mesh
 {
 	Array<int> indices;
@@ -36,7 +38,6 @@ struct Keyframe
 
 struct Channel
 {
-	int bone_index;
 	Array<Keyframe<Vec3> > positions;
 	Array<Keyframe<Quat> > rotations;
 	Array<Keyframe<Vec3> > scales;
@@ -57,21 +58,22 @@ int exit_error()
 bool load_anim(aiAnimation* in, Animation* out, std::map<std::string, int>& bone_map)
 {
 	out->duration = (float)(in->mDuration / in->mTicksPerSecond);
+	out->channels.resize(bone_map.size());
 	for (unsigned int i = 0; i < in->mNumChannels; i++)
 	{
 		aiNodeAnim* in_channel = in->mChannels[i];
 		auto bone_index_entry = bone_map.find(in_channel->mNodeName.C_Str());
 		if (bone_index_entry != bone_map.end())
 		{
-			Channel* out_channel = out->channels.add();
-			out_channel->bone_index = bone_index_entry->second;
+			int bone_index = bone_index_entry->second;
+			Channel* out_channel = &out->channels[bone_index];
 
 			out_channel->positions.resize(in_channel->mNumPositionKeys);
 			for (unsigned int j = 0; j < in_channel->mNumPositionKeys; j++)
 			{
 				out_channel->positions[j].time = (float)(in_channel->mPositionKeys[j].mTime / in->mTicksPerSecond);
 				aiVector3D value = in_channel->mPositionKeys[j].mValue;
-				out_channel->positions[j].value = Vec3(value.x, value.y, value.z);
+				out_channel->positions[j].value = import_rotation * Vec3(value.x, value.y, value.z);
 			}
 
 			out_channel->rotations.resize(in_channel->mNumRotationKeys);
@@ -79,7 +81,7 @@ bool load_anim(aiAnimation* in, Animation* out, std::map<std::string, int>& bone
 			{
 				out_channel->rotations[j].time = (float)(in_channel->mRotationKeys[j].mTime / in->mTicksPerSecond);
 				aiQuaternion value = in_channel->mRotationKeys[j].mValue;
-				out_channel->rotations[j].value = Quat(value.w, value.x, value.y, value.z);
+				out_channel->rotations[j].value = import_rotation * Quat(value.w, value.x, value.y, value.z);
 			}
 
 			out_channel->scales.resize(in_channel->mNumScalingKeys);
@@ -87,7 +89,7 @@ bool load_anim(aiAnimation* in, Animation* out, std::map<std::string, int>& bone
 			{
 				out_channel->scales[j].time = (float)(in_channel->mScalingKeys[j].mTime / in->mTicksPerSecond);
 				aiVector3D value = in_channel->mScalingKeys[j].mValue;
-				out_channel->scales[j].value = Vec3(value.x, value.y, value.z);
+				out_channel->scales[j].value = import_rotation * Vec3(value.x, value.y, value.z);
 			}
 		}
 	}
@@ -111,12 +113,23 @@ const aiScene* import_fbx(Assimp::Importer& importer, const char* path)
 	return scene;
 }
 
-void build_node_hierarchy(Array<int>& output, std::map<std::string, int>& bone_map, aiNode* node, int parent_index)
+void build_node_hierarchy(Array<int>& output, std::map<std::string, int>& bone_map, aiNode* node, int parent_index, int& counter)
 {
-	int bone_index = bone_map[node->mName.C_Str()];
-	output[bone_index] = parent_index;
+	auto bone_index_entry = bone_map.find(node->mName.C_Str());
+	int current_bone_index;
+	if (bone_index_entry != bone_map.end())
+	{
+		bone_map[node->mName.C_Str()] = counter;
+		output[counter] = parent_index;
+		current_bone_index = counter;
+		counter++;
+	}
+	else if (parent_index == -1)
+		current_bone_index = -1;
+	else
+		current_bone_index = counter;
 	for (unsigned int i = 0; i < node->mNumChildren; i++)
-		build_node_hierarchy(output, bone_map, node->mChildren[i], bone_index);
+		build_node_hierarchy(output, bone_map, node->mChildren[i], current_bone_index, counter);
 }
 
 bool load_model(const aiScene* scene, Mesh* out, std::map<std::string, int>& bone_map)
@@ -130,11 +143,10 @@ bool load_model(const aiScene* scene, Mesh* out, std::map<std::string, int>& bon
 
 		// Fill vertices positions
 		out->vertices.reserve(mesh->mNumVertices);
-		Quat rot = Quat(PI * -0.5f, Vec3(1, 0, 0));
 		for (unsigned int i = 0; i < mesh->mNumVertices; i++)
 		{
 			aiVector3D pos = mesh->mVertices[i];
-			Vec3 v = rot * Vec3(pos.x, pos.y, pos.z);
+			Vec3 v = import_rotation * Vec3(pos.x, pos.y, pos.z);
 			out->vertices.add(v);
 		}
 
@@ -154,7 +166,7 @@ bool load_model(const aiScene* scene, Mesh* out, std::map<std::string, int>& bon
 			for (unsigned int i = 0; i < mesh->mNumVertices; i++)
 			{
 				aiVector3D n = mesh->mNormals[i];
-				Vec3 v = rot * Vec3(n.x, n.y, n.z);
+				Vec3 v = import_rotation * Vec3(n.x, n.y, n.z);
 				out->normals.add(v);
 			}
 		}
@@ -183,18 +195,32 @@ bool load_model(const aiScene* scene, Mesh* out, std::map<std::string, int>& bon
 			out->bone_indices.resize(mesh->mNumVertices);
 
 			out->inverse_bind_pose.resize(mesh->mNumBones);
+
+			// Build the bone hierarchy.
+			// First we fill the bone map with all the bones,
+			// so that build_node_hierarchy can tell which nodes are bones.
 			for (unsigned int bone_index = 0; bone_index < mesh->mNumBones; bone_index++)
 			{
 				aiBone* bone = mesh->mBones[bone_index];
+				bone_map[bone->mName.C_Str()] = -1;
+			}
+			out->bone_hierarchy.resize(mesh->mNumBones);
+			int node_hierarchy_counter = 0;
+			build_node_hierarchy(out->bone_hierarchy, bone_map, scene->mRootNode, -1, node_hierarchy_counter);
+
+			for (unsigned int i = 0; i < mesh->mNumBones; i++)
+			{
+				aiBone* bone = mesh->mBones[i];
+				int bone_index = bone_map[bone->mName.C_Str()];
+
 				aiVector3D ai_position;
 				aiQuaternion ai_rotation;
 				aiVector3D ai_scale;
-				
-				bone_map[bone->mName.C_Str()] = bone_index;
 				bone->mOffsetMatrix.Decompose(ai_scale, ai_rotation, ai_position);
-				Vec3 position = Vec3(ai_position.x, ai_position.y, ai_position.z);
-				Quat rotation = Quat(ai_rotation.w, ai_rotation.x, ai_rotation.y, ai_rotation.z);
-				Vec3 scale = Vec3(ai_scale.x, ai_scale.y, ai_scale.z);
+				
+				Vec3 position = import_rotation * Vec3(ai_position.x, ai_position.y, ai_position.z);
+				Quat rotation = import_rotation * Quat(ai_rotation.w, ai_rotation.x, ai_rotation.y, ai_rotation.z);
+				Vec3 scale = import_rotation * Vec3(ai_scale.x, ai_scale.y, ai_scale.z);
 				out->inverse_bind_pose[bone_index].make_transform(position, scale, rotation);
 				for (unsigned int bone_weight_index = 0; bone_weight_index < bone->mNumWeights; bone_weight_index++)
 				{
@@ -213,8 +239,6 @@ bool load_model(const aiScene* scene, Mesh* out, std::map<std::string, int>& bon
 					}
 				}
 			}
-			out->bone_hierarchy.resize(mesh->mNumBones);
-			build_node_hierarchy(out->bone_hierarchy, bone_map, scene->mRootNode, -1);
 		}
 	}
 	
@@ -630,6 +654,11 @@ int main(int argc, char* argv[])
 					memset(name, 0, MAX_PATH_LENGTH + 1);
 					int name_length;
 					glGetActiveUniformName(program_id, i, MAX_PATH_LENGTH, &name_length, name);
+
+					char* bracket_character = strchr(name, '[');
+					if (bracket_character)
+						*bracket_character = '\0'; // Remove array brackets
+
 					(*asset_uniforms)[name] = name;
 				}
 
@@ -722,7 +751,6 @@ int main(int argc, char* argv[])
 								for (unsigned int i = 0; i < anim.channels.length; i++)
 								{
 									Channel* channel = &anim.channels[i];
-									fwrite(&channel->bone_index, sizeof(int), 1, f);
 									fwrite(&channel->positions.length, sizeof(int), 1, f);
 									fwrite(channel->positions.data, sizeof(Keyframe<Vec3>), channel->positions.length, f);
 									fwrite(&channel->rotations.length, sizeof(int), 1, f);

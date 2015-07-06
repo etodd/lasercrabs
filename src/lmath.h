@@ -446,6 +446,11 @@ struct Vec2
 	{
 		return Vec2(*this - (2 * this->dot(normal) * normal));
 	}
+
+	static inline Vec2 lerp(float x, const Vec2& a, const Vec2& b)
+	{
+		return (a * (1.0f - x)) + (b * x);
+	}
 };
 
 struct Vec3
@@ -739,6 +744,11 @@ struct Vec3
 	{
 		return Vec3(*this - (2 * this->dot(normal) * normal));
 	}
+
+	static inline Vec3 lerp(float x, const Vec3& a, const Vec3& b)
+	{
+		return (a * (1.0f - x)) + (b * x);
+	}
 };
 
 struct Vec4
@@ -1029,6 +1039,11 @@ struct Vec4
 	inline float dot(const Vec4& vec) const
 	{
 		return x * vec.x + y * vec.y + z * vec.z + w * vec.w;
+	}
+
+	static inline Vec4 lerp(float x, const Vec4& a, const Vec4& b)
+	{
+		return (a * (1.0f - x)) + (b * x);
 	}
 };
 

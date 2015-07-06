@@ -27,6 +27,7 @@ const char* Asset::Animation::filenames[] =
 };
 const char* Asset::Uniform::filenames[] =
 {
+	"Bones",
 	"LightPosition_worldspace",
 	"M",
 	"MVP",

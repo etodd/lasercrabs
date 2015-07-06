@@ -39,12 +39,13 @@ struct Asset
 	};
 	struct Uniform
 	{
-		static const size_t count = 5;
-		static const char* filenames[5];
-		static const AssetID LightPosition_worldspace = 0;
-		static const AssetID M = 1;
-		static const AssetID MVP = 2;
-		static const AssetID V = 3;
-		static const AssetID myTextureSampler = 4;
+		static const size_t count = 6;
+		static const char* filenames[6];
+		static const AssetID Bones = 0;
+		static const AssetID LightPosition_worldspace = 1;
+		static const AssetID M = 2;
+		static const AssetID MVP = 3;
+		static const AssetID V = 4;
+		static const AssetID myTextureSampler = 5;
 	};
 };

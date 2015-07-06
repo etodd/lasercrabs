@@ -61,17 +61,15 @@ Mesh* Loader::mesh(AssetID id)
 
 		if (bone_count > 0)
 		{
-			mesh->bone_indices.reserve(mesh->vertices.length);
-			fread(mesh->bone_indices.data, sizeof(int), vertex_count, f);
+			mesh->bone_indices.reserve(vertex_count);
+			fread(mesh->bone_indices.data, sizeof(int[MAX_BONE_WEIGHTS]), vertex_count, f);
 
-			mesh->bone_weights.reserve(mesh->vertices.length);
-			fread(mesh->bone_weights.data, sizeof(float), vertex_count, f);
+			mesh->bone_weights.reserve(vertex_count);
+			fread(mesh->bone_weights.data, sizeof(float[MAX_BONE_WEIGHTS]), vertex_count, f);
 
-			mesh->bone_hierarchy.reserve(bone_count);
-			mesh->bone_hierarchy.length = bone_count;
+			mesh->bone_hierarchy.resize(bone_count);
 			fread(mesh->bone_hierarchy.data, sizeof(int), bone_count, f);
-			mesh->inverse_bind_pose.reserve(bone_count);
-			mesh->inverse_bind_pose.length = bone_count;
+			mesh->inverse_bind_pose.resize(bone_count);
 			fread(mesh->inverse_bind_pose.data, sizeof(Mat4), bone_count, f);
 		}
 
@@ -174,7 +172,6 @@ Animation* Loader::animation(AssetID id)
 		for (int i = 0; i < channel_count; i++)
 		{
 			Channel* channel = &anim->channels[i];
-			fread(&channel->bone_index, sizeof(int), 1, f);
 			int position_count;
 			fread(&position_count, sizeof(int), 1, f);
 			channel->positions.reserve(position_count);
@@ -288,7 +285,7 @@ void Loader::shader(AssetID id)
 		while (true)
 		{
 			code.reserve(i * chunk_size + 1); // extra char since this will be a null-terminated string
-			size_t read = fread(code.data, sizeof(char), chunk_size, f);
+			size_t read = fread(&code.data[(i - 1) * chunk_size], sizeof(char), chunk_size, f);
 			if (read < chunk_size)
 			{
 				code.length = ((i - 1) * chunk_size) + read;
@@ -300,8 +297,8 @@ void Loader::shader(AssetID id)
 
 		SyncData* sync = swapper->get();
 		sync->write(RenderOp_LoadShader);
-		sync->write(&id);
-		sync->write(&code.length);
+		sync->write<AssetID>(&id);
+		sync->write<size_t>(&code.length);
 		sync->write(code.data, code.length);
 	}
 }

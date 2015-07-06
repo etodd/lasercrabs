@@ -22,7 +22,8 @@ void game_loop(RenderSync::Swapper* swapper)
 
 	StaticGeom* a = World::create<StaticGeom>(Asset::Model::city3);
 
-	Prop* prop = World::create<Prop>(Asset::Model::Alpha, Asset::Animation::idle);
+	Prop* prop = World::create<Prop>(Asset::Model::Alpha, Asset::Animation::walk);
+	prop->get<Transform>()->pos += Vec3(0, 0, 50);
 
 	Player* player = World::create<Player>();
 
@@ -43,6 +44,8 @@ void game_loop(RenderSync::Swapper* swapper)
 			for (auto i = World::components<Awk>().iterator(); !i.is_last(); i.next())
 				i.item()->update(u);
 			for (auto i = World::components<PlayerControl>().iterator(); !i.is_last(); i.next())
+				i.item()->update(u);
+			for (auto i = World::components<Armature>().iterator(); !i.is_last(); i.next())
 				i.item()->update(u);
 		}
 

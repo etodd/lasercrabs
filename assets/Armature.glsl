@@ -4,6 +4,8 @@
 layout(location = 0) in vec3 vertexPosition_modelspace;
 layout(location = 1) in vec2 vertexUV;
 layout(location = 2) in vec3 vertexNormal_modelspace;
+layout (location = 3) in ivec4 BoneIDs;
+layout (location = 4) in vec4 Weights;
 
 // Output data ; will be interpolated for each fragment.
 out vec2 UV;
@@ -17,18 +19,26 @@ uniform mat4 MVP;
 uniform mat4 V;
 uniform mat4 M;
 uniform vec3 LightPosition_worldspace;
+const int MAX_BONES = 100;
+uniform mat4 Bones[MAX_BONES];
 
-void main(){
+void main()
+{
+	mat4 bone_transform = Bones[BoneIDs[0]] * Weights[0];
+    bone_transform += Bones[BoneIDs[1]] * Weights[1];
+    bone_transform += Bones[BoneIDs[2]] * Weights[2];
+    bone_transform += Bones[BoneIDs[3]] * Weights[3];
 
 	// Output position of the vertex, in clip space : MVP * position
-	gl_Position =  MVP * vec4(vertexPosition_modelspace, 1);
+	vec4 pos_model = (bone_transform * vec4(vertexPosition_modelspace, 1));
+	gl_Position =  MVP * pos_model;
 	
 	// Position of the vertex, in worldspace : M * position
-	Position_worldspace = (M * vec4(vertexPosition_modelspace, 1)).xyz;
+	Position_worldspace = (M * pos_model).xyz;
 	
 	// Vector that goes from the vertex to the camera, in camera space.
 	// In camera space, the camera is at the origin (0,0,0).
-	vec3 vertexPosition_cameraspace = ( V * M * vec4(vertexPosition_modelspace,1)).xyz;
+	vec3 vertexPosition_cameraspace = ( V * M * pos_model).xyz;
 	EyeDirection_cameraspace = vec3(0,0,0) - vertexPosition_cameraspace;
 
 	// Vector that goes from the vertex to the light, in camera space. M is ommited because it's identity.
@@ -36,7 +46,7 @@ void main(){
 	LightDirection_cameraspace = LightPosition_cameraspace + EyeDirection_cameraspace;
 	
 	// Normal of the the vertex, in camera space
-	Normal_cameraspace = ( V * M * vec4(vertexNormal_modelspace,0)).xyz; // Only correct if ModelMatrix does not scale the model ! Use its inverse transpose if not.
+	Normal_cameraspace = ( V * M * (bone_transform * vec4(vertexNormal_modelspace, 0))).xyz; // Only correct if ModelMatrix does not scale the model ! Use its inverse transpose if not.
 	
 	// UV of the vertex. No special space for this one.
 	UV = vertexUV;

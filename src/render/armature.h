@@ -11,7 +11,13 @@ struct Armature : public ComponentType<Armature>
 	AssetID shader;
 	AssetID texture;
 	Animation* animation;
+	Array<Mat4> bones;
+	Array<Mat4> skin_transforms;
+	float time;
+
 	void draw(RenderParams*);
+	void update(Update);
+	void update_world_transforms();
 	void awake();
 	Armature();
 };

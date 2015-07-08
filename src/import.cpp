@@ -27,6 +27,17 @@ struct Mesh
 	Array<std::array<float, MAX_BONE_WEIGHTS> > bone_weights;
 	Array<Mat4> inverse_bind_pose;
 	Array<int> bone_hierarchy;
+	void reset()
+	{
+		indices.length = 0;
+		vertices.length = 0;
+		uvs.length = 0;
+		normals.length = 0;
+		bone_indices.length = 0;
+		bone_weights.length = 0;
+		inverse_bind_pose.length = 0;
+		bone_hierarchy.length = 0;
+	}
 };
 
 template<typename T>
@@ -273,21 +284,23 @@ void write_asset_headers(FILE* file, const char* name, std::map<std::string, std
 {
 	int asset_count = assets.size();
 	fprintf(file, "\tstruct %s\n\t{\n\t\tstatic const size_t count = %d;\n\t\tstatic const char* filenames[%d];\n", name, asset_count, asset_count);
-	int i = 0;
-	for (auto asset = assets.begin(); asset != assets.end(); asset++)
-	{
-		fprintf(file, "\t\tstatic const AssetID %s = %d;\n", asset->first.c_str(), i);
-		i++;
-	}
+	for (auto i = assets.begin(); i != assets.end(); i++)
+		fprintf(file, "\t\tstatic const AssetID %s;\n", i->first.c_str());
 	fprintf(file, "\t};\n");
 }
 
 void write_asset_filenames(FILE* file, const char* name, std::map<std::string, std::string>& assets)
 {
-	fprintf(file, "const char* Asset::%s::filenames[] =\n{\n", name);
+	int index = 0;
+	for (auto i = assets.begin(); i != assets.end(); i++)
+	{
+		fprintf(file, "AssetID const Asset::%s::%s = %d;\n", name, i->first.c_str(), index);
+		index++;
+	}
+	fprintf(file, "\nconst char* Asset::%s::filenames[] =\n{\n", name);
 	for (auto i = assets.begin(); i != assets.end(); i++)
 		fprintf(file, "\t\"%s\",\n", i->second.c_str());
-	fprintf(file, "};\n");
+	fprintf(file, "};\n\n");
 }
 
 void get_name_from_filename(char* filename, char* output)
@@ -691,10 +704,7 @@ int main(int argc, char* argv[])
 				anims[asset_name] = std::map<std::string, std::string>();
 				std::map<std::string, std::string>* asset_anims = &anims[asset_name];
 
-				mesh.indices.length = 0;
-				mesh.vertices.length = 0;
-				mesh.uvs.length = 0;
-				mesh.normals.length = 0;
+				mesh.reset();
 
 				Assimp::Importer importer;
 				const aiScene* scene = import_fbx(importer, asset_in_path);
@@ -856,7 +866,7 @@ int main(int argc, char* argv[])
 			fprintf(stderr, "Error: failed to open asset header file %s for writing.\n", asset_header_path);
 			return exit_error();
 		}
-		fprintf(asset_header_file, "#pragma once\n#include \"types.h\"\n\nstruct Asset\n{\n\tstatic const AssetID None = -1;\n");
+		fprintf(asset_header_file, "#pragma once\n#include \"types.h\"\n\nstruct Asset\n{\n\tstatic const AssetID Nothing = -1;\n");
 		write_asset_headers(asset_header_file, "Model", models);
 		write_asset_headers(asset_header_file, "Texture", textures);
 		write_asset_headers(asset_header_file, "Shader", shaders);

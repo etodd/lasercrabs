@@ -13,7 +13,7 @@ Loader::Entry<void*> Loader::shaders[Asset::Shader::count];
 
 Mesh* Loader::mesh(AssetID id)
 {
-	if (id == Asset::None)
+	if (id == Asset::Nothing)
 		return 0;
 
 	if (meshes[id].type == AssetNone)
@@ -84,35 +84,28 @@ Mesh* Loader::mesh(AssetID id)
 		sync->write(&id);
 		sync->write(&mesh->vertices.length);
 
-		size_t attrib_count = bone_count > 0 ? 5 : 3;
+		sync->write<size_t>(bone_count > 0 ? 5 : 3);
 
-		sync->write(&attrib_count);
-
-		RenderDataType attrib_type = RenderDataType_Vec3;
-		sync->write(&attrib_type);
-		sync->write(1); // Number of data elements per vertex
+		sync->write(RenderDataType_Vec3);
+		sync->write<size_t>(1); // Number of data elements per vertex
 		sync->write(mesh->vertices.data, mesh->vertices.length);
 
-		attrib_type = RenderDataType_Vec2;
-		sync->write(&attrib_type);
-		sync->write(1); // Number of data elements per vertex
+		sync->write(RenderDataType_Vec2);
+		sync->write<size_t>(1); // Number of data elements per vertex
 		sync->write(mesh->uvs.data, mesh->vertices.length);
 
-		attrib_type = RenderDataType_Vec3;
-		sync->write(&attrib_type);
-		sync->write(1); // Number of data elements per vertex
+		sync->write(RenderDataType_Vec3);
+		sync->write<size_t>(1); // Number of data elements per vertex
 		sync->write(mesh->normals.data, mesh->vertices.length);
 
 		if (bone_count > 0)
 		{
-			attrib_type = RenderDataType_Int;
-			sync->write(&attrib_type);
-			sync->write(MAX_BONE_WEIGHTS); // Number of data elements per vertex
+			sync->write(RenderDataType_Int);
+			sync->write<size_t>(MAX_BONE_WEIGHTS); // Number of data elements per vertex
 			sync->write(mesh->bone_indices.data, mesh->vertices.length);
 
-			attrib_type = RenderDataType_Float;
-			sync->write(&attrib_type);
-			sync->write(MAX_BONE_WEIGHTS); // Number of data elements per vertex
+			sync->write(RenderDataType_Float);
+			sync->write<size_t>(MAX_BONE_WEIGHTS); // Number of data elements per vertex
 			sync->write(mesh->bone_weights.data, mesh->vertices.length);
 		}
 
@@ -134,7 +127,7 @@ Mesh* Loader::mesh_permanent(AssetID id)
 
 void Loader::unload_mesh(AssetID id)
 {
-	if (id != Asset::None && meshes[id].type != AssetNone)
+	if (id != Asset::Nothing && meshes[id].type != AssetNone)
 	{
 		meshes[id].data.~Mesh();
 		SyncData* sync = swapper->get();
@@ -146,7 +139,7 @@ void Loader::unload_mesh(AssetID id)
 
 Animation* Loader::animation(AssetID id)
 {
-	if (id == Asset::None)
+	if (id == Asset::Nothing)
 		return 0;
 
 	if (animations[id].type == AssetNone)
@@ -208,7 +201,7 @@ Animation* Loader::animation_permanent(AssetID id)
 
 void Loader::unload_animation(AssetID id)
 {
-	if (id != Asset::None && animations[id].type != AssetNone)
+	if (id != Asset::Nothing && animations[id].type != AssetNone)
 	{
 		animations[id].data.~Animation();
 		SyncData* sync = swapper->get();
@@ -220,7 +213,7 @@ void Loader::unload_animation(AssetID id)
 
 void Loader::texture(AssetID id)
 {
-	if (id != Asset::None && textures[id].type == AssetNone)
+	if (id != Asset::Nothing && textures[id].type == AssetNone)
 	{
 		textures[id].type = AssetTransient;
 
@@ -249,13 +242,13 @@ void Loader::texture(AssetID id)
 void Loader::texture_permanent(AssetID id)
 {
 	texture(id);
-	if (id != Asset::None)
+	if (id != Asset::Nothing)
 		textures[id].type = AssetPermanent;
 }
 
 void Loader::unload_texture(AssetID id)
 {
-	if (id != Asset::None && textures[id].type != AssetNone)
+	if (id != Asset::Nothing && textures[id].type != AssetNone)
 	{
 		SyncData* sync = swapper->get();
 		sync->write(RenderOp_UnloadTexture);
@@ -266,7 +259,7 @@ void Loader::unload_texture(AssetID id)
 
 void Loader::shader(AssetID id)
 {
-	if (id != Asset::None && shaders[id].type == AssetNone)
+	if (id != Asset::Nothing && shaders[id].type == AssetNone)
 	{
 		shaders[id].type = AssetTransient;
 
@@ -306,13 +299,13 @@ void Loader::shader(AssetID id)
 void Loader::shader_permanent(AssetID id)
 {
 	shader(id);
-	if (id != Asset::None)
+	if (id != Asset::Nothing)
 		shaders[id].type = AssetPermanent;
 }
 
 void Loader::unload_shader(AssetID id)
 {
-	if (id != Asset::None && shaders[id].type != AssetNone)
+	if (id != Asset::Nothing && shaders[id].type != AssetNone)
 	{
 		SyncData* sync = swapper->get();
 		sync->write(RenderOp_UnloadShader);

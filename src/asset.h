@@ -3,49 +3,49 @@
 
 struct Asset
 {
-	static const AssetID None = -1;
+	static const AssetID Nothing = -1;
 	struct Model
 	{
 		static const size_t count = 2;
 		static const char* filenames[2];
-		static const AssetID Alpha = 0;
-		static const AssetID city3 = 1;
+		static const AssetID Alpha;
+		static const AssetID city3;
 	};
 	struct Texture
 	{
 		static const size_t count = 1;
 		static const char* filenames[1];
-		static const AssetID test = 0;
+		static const AssetID test;
 	};
 	struct Shader
 	{
 		static const size_t count = 2;
 		static const char* filenames[2];
-		static const AssetID Armature = 0;
-		static const AssetID Standard = 1;
+		static const AssetID Armature;
+		static const AssetID Standard;
 	};
 	struct Animation
 	{
 		static const size_t count = 8;
 		static const char* filenames[8];
-		static const AssetID idle = 0;
-		static const AssetID jump = 1;
-		static const AssetID run = 2;
-		static const AssetID strafe_left = 3;
-		static const AssetID strafe_right = 4;
-		static const AssetID turn_left = 5;
-		static const AssetID turn_right = 6;
-		static const AssetID walk = 7;
+		static const AssetID idle;
+		static const AssetID jump;
+		static const AssetID run;
+		static const AssetID strafe_left;
+		static const AssetID strafe_right;
+		static const AssetID turn_left;
+		static const AssetID turn_right;
+		static const AssetID walk;
 	};
 	struct Uniform
 	{
 		static const size_t count = 6;
 		static const char* filenames[6];
-		static const AssetID Bones = 0;
-		static const AssetID LightPosition_worldspace = 1;
-		static const AssetID M = 2;
-		static const AssetID MVP = 3;
-		static const AssetID V = 4;
-		static const AssetID myTextureSampler = 5;
+		static const AssetID Bones;
+		static const AssetID LightPosition_worldspace;
+		static const AssetID M;
+		static const AssetID MVP;
+		static const AssetID V;
+		static const AssetID myTextureSampler;
 	};
 };

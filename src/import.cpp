@@ -429,6 +429,11 @@ long long filemtime(const char* file)
 		return 0;
 	return st.st_mtime;
 }
+
+bool run_cmd(char* cmd)
+{
+	return system(cmd) == 0;
+}
 #endif
 
 bool cp(const char* from, const char* to)

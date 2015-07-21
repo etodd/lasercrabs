@@ -24,7 +24,7 @@ void Transform::mat(Mat4* m)
 	}
 }
 
-void Transform::getWorldTransform(btTransform& world) const
+void Transform::get_bullet(btTransform& world) const
 {
 	Transform* t = (Transform*)this;
 	world.setIdentity();
@@ -38,7 +38,7 @@ void Transform::getWorldTransform(btTransform& world) const
 	}
 }
 
-void Transform::setWorldTransform(const btTransform& world)
+void Transform::set_bullet(const btTransform& world)
 {
 	pos = world.getOrigin();
 	rot = world.getRotation();

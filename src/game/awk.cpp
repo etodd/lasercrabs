@@ -1,7 +1,7 @@
 #include "awk.h"
 #include "data/components.h"
 
-#define speed 15.0f
+#define speed 25.0f
 #define awk_radius 0.05f
 
 Awk::Awk()
@@ -33,9 +33,10 @@ void Awk::update(Update u)
 		{
 			Vec3 direction = Vec3::normalize(velocity);
 
-			btCollisionWorld::ClosestRayResultCallback rayCallback(position, next_position + direction * awk_radius);
+			Vec3 ray_start = position - direction * awk_radius;
+			btCollisionWorld::ClosestRayResultCallback rayCallback(ray_start, next_position);
 
-			Physics::btWorld->rayTest(position, next_position, rayCallback);
+			Physics::btWorld->rayTest(ray_start, next_position, rayCallback);
 
 			if (rayCallback.hasHit())
 			{

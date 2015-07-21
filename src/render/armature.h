@@ -13,6 +13,7 @@ struct Armature : public ComponentType<Armature>
 	Animation* animation;
 	Array<Mat4> bones;
 	Array<Mat4> skin_transforms;
+	Vec3 scale;
 	float time;
 
 	void draw(RenderParams*);

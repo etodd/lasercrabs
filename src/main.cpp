@@ -125,7 +125,7 @@ int main()
 
 		glfwGetCursorPos(window, &sync->input.cursor_x, &sync->input.cursor_y);
 		glfwSetCursorPos(window, sync->input.width / 2, sync->input.height / 2);
-		sync->input.mouse = glfwGetMouseButton(window, 0) == 1;
+		memcpy(sync->input.mouse_buttons, _window->mouseButtons, sizeof(bool) * 8);
 		sync->time.total = (float)glfwGetTime();
 		sync->time.delta = sync->time.total - lastTime;
 		lastTime = sync->time.total;

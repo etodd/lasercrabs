@@ -22,11 +22,30 @@ struct PlayerControl : public ComponentType<PlayerControl>
 	float attach_time;
 	Quat attach_quat;
 	Quat attach_quat_start;
+	
+	float fire_time;
 
 	PlayerControl();
 	void awake();
 
 	void awk_attached();
+
+	void update(Update);
+};
+
+struct Noclip : public Entity
+{
+	Noclip(ID id);
+	void awake();
+};
+
+struct NoclipControl : public ComponentType<NoclipControl>
+{
+	float angle_horizontal;
+	float angle_vertical;
+
+	NoclipControl();
+	void awake();
 
 	void update(Update);
 };

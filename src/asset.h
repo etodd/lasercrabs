@@ -27,15 +27,8 @@ struct Asset
 	};
 	struct Animation
 	{
-		static const size_t count = 8;
-		static const char* filenames[8];
-		static const AssetID idle;
-		static const AssetID jump;
-		static const AssetID run;
-		static const AssetID strafe_left;
-		static const AssetID strafe_right;
-		static const AssetID turn_left;
-		static const AssetID turn_right;
+		static const size_t count = 1;
+		static const char* filenames[1];
 		static const AssetID walk;
 	};
 	struct Uniform

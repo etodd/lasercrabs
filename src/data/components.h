@@ -1,9 +1,9 @@
 #pragma once
 
 #include "entity.h"
-#include "LinearMath/btMotionState.h"
+#include "LinearMath/btTransform.h"
 
-struct Transform : public ComponentType<Transform>, public btMotionState
+struct Transform : public ComponentType<Transform>
 {
 	ID parent_id;
 	bool has_parent;
@@ -15,8 +15,8 @@ struct Transform : public ComponentType<Transform>, public btMotionState
 	Transform();
 
 	void awake();
-	virtual void getWorldTransform(btTransform&) const;
-	virtual void setWorldTransform(const btTransform&);
+	void get_bullet(btTransform&) const;
+	void set_bullet(const btTransform&);
 
 	void mat(Mat4*);
 

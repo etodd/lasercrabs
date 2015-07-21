@@ -27,24 +27,10 @@ const char* Asset::Shader::filenames[] =
 	"assets/Standard.glsl",
 };
 
-AssetID const Asset::Animation::idle = 0;
-AssetID const Asset::Animation::jump = 1;
-AssetID const Asset::Animation::run = 2;
-AssetID const Asset::Animation::strafe_left = 3;
-AssetID const Asset::Animation::strafe_right = 4;
-AssetID const Asset::Animation::turn_left = 5;
-AssetID const Asset::Animation::turn_right = 6;
-AssetID const Asset::Animation::walk = 7;
+AssetID const Asset::Animation::walk = 0;
 
 const char* Asset::Animation::filenames[] =
 {
-	"assets/idle.anm",
-	"assets/jump.anm",
-	"assets/run.anm",
-	"assets/strafe_left.anm",
-	"assets/strafe_right.anm",
-	"assets/turn_left.anm",
-	"assets/turn_right.anm",
 	"assets/walk.anm",
 };
 

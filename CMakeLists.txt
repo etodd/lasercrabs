@@ -12,7 +12,8 @@ endif()
 if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
 	set(CMAKE_CXX_FLAGS "-std=c++11 -Wno-deprecated-register -Wno-deprecated-declarations")
 elseif (CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
-	set(CMAKE_CXX_FLAGS "-wd4351 -D_CRT_SECURE_NO_WARNINGS")
+	set(CMAKE_CXX_FLAGS "-wd4351")
+	add_definitions(-D_CRT_SECURE_NO_WARNINGS)
 endif()
 
 find_package(OpenGL REQUIRED)
@@ -154,6 +155,8 @@ add_executable(mkzebra
 	src/game/player.cpp
 	src/game/awk.h
 	src/game/awk.cpp
+	src/game/walker.h
+	src/game/walker.cpp
 	src/asset.h
 	src/sync.h
 	src/types.h

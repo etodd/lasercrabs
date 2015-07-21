@@ -5,6 +5,12 @@
 #include <btBulletDynamicsCommon.h>
 #include "data/entity.h"
 
+enum CollisionGroup
+{
+	CollisionNothing = 0,
+	CollisionWalker = 1 << 0,
+};
+
 struct Physics
 {
     static btDbvtBroadphase* broadphase;
@@ -17,10 +23,11 @@ struct Physics
 
 struct RigidBody : public ComponentType<RigidBody>
 {
-	RigidBody(float, btMotionState*, btCollisionShape*);
+	RigidBody(Vec3, Quat, float, btCollisionShape*);
+	RigidBody(Vec3, Quat, float, btCollisionShape*, short, short);
+	void init(Vec3, Quat, float);
 	btCollisionShape* btShape;
-	btRigidBody btBody;
+	btRigidBody* btBody;
 	void awake();
 	~RigidBody();
-	void set_kinematic();
 };

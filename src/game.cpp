@@ -13,6 +13,8 @@
 #include "physics.h"
 #include "game/entities.h"
 #include "game/player.h"
+#include "game/walker.h"
+#include "windows.h"
 
 void game_loop(RenderSync::Swapper* swapper)
 {
@@ -22,10 +24,12 @@ void game_loop(RenderSync::Swapper* swapper)
 
 	StaticGeom* a = World::create<StaticGeom>(Asset::Model::city3);
 
-	Prop* prop = World::create<Prop>(Asset::Model::Alpha, Asset::Animation::walk);
-	prop->get<Transform>()->pos += Vec3(0, 0, 20);
+	Sentinel* sentinel = World::create<Sentinel>(Vec3(0, -1.5f, -9), Quat::identity);
 
-	Player* player = World::create<Player>();
+	//Player* player = World::create<Player>();
+
+	Noclip* noclip = World::create<Noclip>();
+	noclip->get<Transform>()->pos = Vec3(2, -1.5f, -7);
 
 	RenderParams render_params;
 
@@ -41,13 +45,19 @@ void game_loop(RenderSync::Swapper* swapper)
 		// Update
 		{
 			Physics::update(u);
+			for (auto i = World::components<Walker>().iterator(); !i.is_last(); i.next())
+				i.item()->update(u);
 			for (auto i = World::components<Awk>().iterator(); !i.is_last(); i.next())
 				i.item()->update(u);
 			for (auto i = World::components<PlayerControl>().iterator(); !i.is_last(); i.next())
 				i.item()->update(u);
+			for (auto i = World::components<NoclipControl>().iterator(); !i.is_last(); i.next())
+				i.item()->update(u);
 			for (auto i = World::components<Armature>().iterator(); !i.is_last(); i.next())
 				i.item()->update(u);
 		}
+
+		Sleep(20);
 
 		render_params.sync = sync;
 

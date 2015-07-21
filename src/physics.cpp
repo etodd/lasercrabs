@@ -1,4 +1,5 @@
 #include "physics.h"
+#include "data/components.h"
 
 btDbvtBroadphase* Physics::broadphase = new btDbvtBroadphase();
 btDefaultCollisionConfiguration* Physics::collision_config = new btDefaultCollisionConfiguration();
@@ -8,29 +9,61 @@ btDiscreteDynamicsWorld* Physics::btWorld = new btDiscreteDynamicsWorld(dispatch
 
 void Physics::update(Update u)
 {
-	btWorld->stepSimulation(u.time.delta, 10);
+	btWorld->stepSimulation(u.time.delta > 0.1f ? 0.1f : u.time.delta, 0);
+	for (auto i = World::components<RigidBody>().iterator(); !i.is_last(); i.next())
+	{
+		btRigidBody* body = i.item()->btBody;
+		if (body->isActive())
+		{
+			if (body->isStaticOrKinematicObject())
+			{
+				btTransform transform;
+				i.item()->get<Transform>()->get_bullet(transform);
+				body->setWorldTransform(transform);
+			}
+			else
+				i.item()->get<Transform>()->set_bullet(body->getWorldTransform());
+		}
+	}
 }
 
-RigidBody::RigidBody(float mass, btMotionState* motion_state, btCollisionShape* shape)
-	: btShape(shape), btBody(0.0f, motion_state, shape, btVector3(0, 0, 0))
+void RigidBody::init(Vec3 pos, Quat quat, float mass)
 {
+	btVector3 localInertia(0, 0, 0);
+	if (mass > 0.0f)
+		btShape->calculateLocalInertia(mass, localInertia);
+	btBody = new btRigidBody(mass, 0, btShape, localInertia);
+	btBody->setWorldTransform(btTransform(quat, pos));
+
+	if (mass == 0.0f)
+	{
+		btBody->setCollisionFlags(btCollisionObject::CF_STATIC_OBJECT | btCollisionObject::CF_KINEMATIC_OBJECT);
+		btBody->setActivationState(DISABLE_DEACTIVATION);
+	}
+}
+
+RigidBody::RigidBody(Vec3 pos, Quat quat, float mass, btCollisionShape* shape)
+	: btShape(shape)
+{
+	init(pos, quat, mass);
+	Physics::btWorld->addRigidBody(btBody);
+}
+
+RigidBody::RigidBody(Vec3 pos, Quat quat, float mass, btCollisionShape* shape, short group, short mask)
+	: btShape(shape)
+{
+	init(pos, quat, mass);
+	Physics::btWorld->addRigidBody(btBody, group, mask);
 }
 
 void RigidBody::awake()
 {
-	Physics::btWorld->addRigidBody(&btBody);
-	btBody.setUserIndex(entity_id);
+	btBody->setUserIndex(entity_id);
 }
 
 RigidBody::~RigidBody()
 {
-	Physics::btWorld->removeRigidBody(&btBody);
+	Physics::btWorld->removeRigidBody(btBody);
 	delete btShape;
-	btBody.~btRigidBody();
-}
-
-void RigidBody::set_kinematic()
-{
-	btBody.setCollisionFlags(btBody.getCollisionFlags() | btCollisionObject::CF_KINEMATIC_OBJECT);
-	btBody.setActivationState(DISABLE_DEACTIVATION);
+	delete btBody;
 }

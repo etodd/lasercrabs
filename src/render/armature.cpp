@@ -2,7 +2,7 @@
 #include "load.h"
 
 Armature::Armature()
-	: mesh(), shader(), texture(), bones(), time(), animation()
+	: mesh(), shader(), texture(), bones(), time(), animation(), scale(1, 1, 1)
 {
 }
 
@@ -102,7 +102,6 @@ void Armature::draw(RenderParams* params)
 
 	Mat4 m;
 	get<Transform>()->mat(&m);
-	Vec3 scale(0.1f, 0.1f, 0.1f);
 	m.scale(scale);
 
 	sync->write(RenderOp_View);

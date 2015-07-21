@@ -160,6 +160,7 @@ struct World
 		T* component = create_component<T>(e, args...);
 		PoolBase* pool = &component_pools[T::family()];
 		pool->awake(component->id);
+		return component;
 	}
 
 	template<typename T> static void awake(T* e)

@@ -2,7 +2,7 @@
 #include "load.h"
 
 View::View()
-	: mesh(), shader(), texture()
+	: mesh(), shader(), texture(), scale(1, 1, 1)
 {
 }
 
@@ -16,6 +16,7 @@ void View::draw(RenderParams* params)
 
 	Mat4 m;
 	get<Transform>()->mat(&m);
+	m.scale(scale);
 	Mat4 mvp = m * params->view * params->projection;
 
 	sync->write<int>(3); // Uniform count

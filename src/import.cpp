@@ -371,22 +371,28 @@ bool run_cmd(char* cmd)
 	ZeroMemory(&siStartInfo, sizeof(STARTUPINFO));
 	siStartInfo.cb = sizeof(STARTUPINFO); 
 
+	HANDLE current_process = GetCurrentProcess();
+	HANDLE child_stdin;
+	if (!DuplicateHandle(current_process, GetStdHandle(STD_INPUT_HANDLE), current_process, &child_stdin, 0, TRUE, DUPLICATE_SAME_ACCESS))
+		return false;
+	siStartInfo.hStdInput = child_stdin;
+
+	HANDLE stderr_read, stderr_write;
+
 	SECURITY_ATTRIBUTES security_attributes;
 	security_attributes.nLength = sizeof(SECURITY_ATTRIBUTES);
 	security_attributes.bInheritHandle = true;
 	security_attributes.lpSecurityDescriptor = 0;
 
-	HANDLE current_process = GetCurrentProcess();
-	HANDLE child_stderr, child_stdout, child_stdin;
-	if (!DuplicateHandle(current_process, GetStdHandle(STD_ERROR_HANDLE), current_process, &child_stderr, 0, TRUE, DUPLICATE_SAME_ACCESS))
+	if (!CreatePipe(&stderr_read, &stderr_write, &security_attributes, 0))
 		return false;
-	if (!DuplicateHandle(current_process, GetStdHandle(STD_OUTPUT_HANDLE), current_process, &child_stdout, 0, TRUE, DUPLICATE_SAME_ACCESS))
+
+	if (!SetHandleInformation(stderr_read, HANDLE_FLAG_INHERIT, 0))
 		return false;
-	if (!DuplicateHandle(current_process, GetStdHandle(STD_INPUT_HANDLE), current_process, &child_stdin, 0, TRUE, DUPLICATE_SAME_ACCESS))
-		return false;
-	siStartInfo.hStdError = child_stderr;
-	siStartInfo.hStdOutput = child_stdout;
-	siStartInfo.hStdInput = child_stdin;
+
+	siStartInfo.hStdError = stderr_write;
+	siStartInfo.hStdOutput = stderr_write;
+
 	siStartInfo.dwFlags |= STARTF_USESTDHANDLES;
 
 	// Create the child process. 
@@ -404,21 +410,44 @@ bool run_cmd(char* cmd)
 	{
 		return false;
 	}
-	else 
+
+	WaitForSingleObject(piProcInfo.hProcess, INFINITE);
+	DWORD exit_code;
+
+	bool success;
+	if (GetExitCodeProcess(piProcInfo.hProcess, &exit_code))
 	{
-		WaitForSingleObject(piProcInfo.hProcess, INFINITE);
-		DWORD exit_code;
+		success = exit_code == 0;
+		if (!success)
+		{
+			// Copy child stderr to our stderr
+			DWORD dwRead, dwWritten; 
+			const int BUFSIZE = 4096;
+			CHAR chBuf[BUFSIZE]; 
+			BOOL bSuccess = FALSE;
+			HANDLE hParentStdErr = GetStdHandle(STD_ERROR_HANDLE);
 
-		bool success;
-		if (GetExitCodeProcess(piProcInfo.hProcess, &exit_code))
-			success = exit_code == 0;
-		else
-			success = false;
-		CloseHandle(piProcInfo.hProcess);
-		CloseHandle(piProcInfo.hThread);
+			for (;;) 
+			{ 
+				bSuccess = ReadFile(stderr_read, chBuf, BUFSIZE, &dwRead, NULL);
+				if (!bSuccess || dwRead == 0)
+					break;
 
-		return success;
+				bSuccess = WriteFile(hParentStdErr, chBuf, dwRead, &dwWritten, NULL);
+				if (!bSuccess)
+					break;
+			}
+		}
 	}
+	else
+		success = false;
+
+	CloseHandle(stderr_read);
+	CloseHandle(stderr_write);
+	CloseHandle(piProcInfo.hProcess);
+	CloseHandle(piProcInfo.hThread);
+
+	return success;
 }
 #else
 #include <sys/stat.h>

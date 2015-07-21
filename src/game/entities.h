@@ -17,8 +17,14 @@ struct StaticGeom : public Entity
 	void awake();
 };
 
-struct Prop : public Entity
+struct Box : public Entity
 {
-	Prop(ID, AssetID, AssetID);
+	Box(ID, Vec3, Quat, float, Vec3);
+	void awake();
+};
+
+struct Sentinel : public Entity
+{
+	Sentinel(ID, Vec3, Quat);
 	void awake();
 };

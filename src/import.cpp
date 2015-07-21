@@ -84,7 +84,7 @@ bool load_anim(aiAnimation* in, Animation* out, std::map<std::string, int>& bone
 			{
 				out_channel->positions[j].time = (float)(in_channel->mPositionKeys[j].mTime / in->mTicksPerSecond);
 				aiVector3D value = in_channel->mPositionKeys[j].mValue;
-				out_channel->positions[j].value = import_rotation * Vec3(value.x, value.y, value.z);
+				out_channel->positions[j].value = Vec3(value.x, value.y, value.z);
 			}
 
 			out_channel->rotations.resize(in_channel->mNumRotationKeys);
@@ -92,7 +92,7 @@ bool load_anim(aiAnimation* in, Animation* out, std::map<std::string, int>& bone
 			{
 				out_channel->rotations[j].time = (float)(in_channel->mRotationKeys[j].mTime / in->mTicksPerSecond);
 				aiQuaternion value = in_channel->mRotationKeys[j].mValue;
-				out_channel->rotations[j].value = import_rotation * Quat(value.w, value.x, value.y, value.z);
+				out_channel->rotations[j].value = Quat(value.w, value.x, value.y, value.z);
 			}
 
 			out_channel->scales.resize(in_channel->mNumScalingKeys);
@@ -100,7 +100,7 @@ bool load_anim(aiAnimation* in, Animation* out, std::map<std::string, int>& bone
 			{
 				out_channel->scales[j].time = (float)(in_channel->mScalingKeys[j].mTime / in->mTicksPerSecond);
 				aiVector3D value = in_channel->mScalingKeys[j].mValue;
-				out_channel->scales[j].value = import_rotation * Vec3(value.x, value.y, value.z);
+				out_channel->scales[j].value = Vec3(value.x, value.y, value.z);
 			}
 		}
 	}
@@ -161,13 +161,21 @@ bool load_model(const aiScene* scene, Mesh* out, std::map<std::string, int>& bon
 			out->vertices.add(v);
 		}
 
-		// Fill vertices texture coordinates
-		out->uvs.reserve(mesh->mNumVertices);
-		for (unsigned int i = 0; i < mesh->mNumVertices; i++)
+		if (mesh->mNumUVComponents[0] > 0)
 		{
-			aiVector3D UVW = mesh->mTextureCoords[0][i]; // Assume only 1 set of UV coords; AssImp supports 8 UV sets.
-			Vec2 v = Vec2(UVW.x, UVW.y);
-			out->uvs.add(v);
+			// Fill vertices texture coordinates
+			out->uvs.reserve(mesh->mNumVertices);
+			for (unsigned int i = 0; i < mesh->mNumVertices; i++)
+			{
+				aiVector3D UVW = mesh->mTextureCoords[0][i]; // Assume only 1 set of UV coords; AssImp supports 8 UV sets.
+				Vec2 v = Vec2(UVW.x, UVW.y);
+				out->uvs.add(v);
+			}
+		}
+		else
+		{
+			fprintf(stderr, "Error: model has no UV coordinates.\n");
+			return false;
 		}
 
 		// Fill vertices normals
@@ -229,9 +237,9 @@ bool load_model(const aiScene* scene, Mesh* out, std::map<std::string, int>& bon
 				aiVector3D ai_scale;
 				bone->mOffsetMatrix.Decompose(ai_scale, ai_rotation, ai_position);
 				
-				Vec3 position = import_rotation * Vec3(ai_position.x, ai_position.y, ai_position.z);
-				Quat rotation = import_rotation * Quat(ai_rotation.w, ai_rotation.x, ai_rotation.y, ai_rotation.z);
-				Vec3 scale = import_rotation * Vec3(ai_scale.x, ai_scale.y, ai_scale.z);
+				Vec3 position = Vec3(ai_position.x, ai_position.y, ai_position.z);
+				Quat rotation = import_rotation.inverse() * Quat(ai_rotation.w, ai_rotation.x, ai_rotation.y, ai_rotation.z);
+				Vec3 scale = Vec3(ai_scale.x, ai_scale.y, ai_scale.z);
 				out->inverse_bind_pose[bone_index].make_transform(position, scale, rotation);
 				for (unsigned int bone_weight_index = 0; bone_weight_index < bone->mNumWeights; bone_weight_index++)
 				{
@@ -317,7 +325,7 @@ void get_name_from_filename(char* filename, char* output)
 	strncpy(output, start, end - start);
 }
 
-#if WIN32
+#if defined WIN32
 LONGLONG filetime_to_posix(FILETIME ft)
 {
 	// takes the last modified date
@@ -345,6 +353,71 @@ LONGLONG filemtime(const char* file)
 	{
 		FindClose(handle);
 		return filetime_to_posix(FindFileData.ftLastWriteTime);
+	}
+}
+
+bool run_cmd(char* cmd)
+{
+	PROCESS_INFORMATION piProcInfo; 
+	STARTUPINFO siStartInfo;
+
+	// Set up members of the PROCESS_INFORMATION structure. 
+
+	ZeroMemory(&piProcInfo, sizeof(PROCESS_INFORMATION));
+
+	// Set up members of the STARTUPINFO structure. 
+	// This structure specifies the STDIN and STDOUT handles for redirection.
+
+	ZeroMemory(&siStartInfo, sizeof(STARTUPINFO));
+	siStartInfo.cb = sizeof(STARTUPINFO); 
+
+	SECURITY_ATTRIBUTES security_attributes;
+	security_attributes.nLength = sizeof(SECURITY_ATTRIBUTES);
+	security_attributes.bInheritHandle = true;
+	security_attributes.lpSecurityDescriptor = 0;
+
+	HANDLE current_process = GetCurrentProcess();
+	HANDLE child_stderr, child_stdout, child_stdin;
+	if (!DuplicateHandle(current_process, GetStdHandle(STD_ERROR_HANDLE), current_process, &child_stderr, 0, TRUE, DUPLICATE_SAME_ACCESS))
+		return false;
+	if (!DuplicateHandle(current_process, GetStdHandle(STD_OUTPUT_HANDLE), current_process, &child_stdout, 0, TRUE, DUPLICATE_SAME_ACCESS))
+		return false;
+	if (!DuplicateHandle(current_process, GetStdHandle(STD_INPUT_HANDLE), current_process, &child_stdin, 0, TRUE, DUPLICATE_SAME_ACCESS))
+		return false;
+	siStartInfo.hStdError = child_stderr;
+	siStartInfo.hStdOutput = child_stdout;
+	siStartInfo.hStdInput = child_stdin;
+	siStartInfo.dwFlags |= STARTF_USESTDHANDLES;
+
+	// Create the child process. 
+
+	if (!CreateProcess(NULL,
+		cmd,     // command line 
+		NULL,          // process security attributes 
+		NULL,          // primary thread security attributes 
+		TRUE,          // handles are inherited 
+		0,             // creation flags 
+		NULL,          // use parent's environment 
+		NULL,          // use parent's current directory 
+		&siStartInfo,  // STARTUPINFO pointer 
+		&piProcInfo))  // receives PROCESS_INFORMATION 
+	{
+		return false;
+	}
+	else 
+	{
+		WaitForSingleObject(piProcInfo.hProcess, INFINITE);
+		DWORD exit_code;
+
+		bool success;
+		if (GetExitCodeProcess(piProcInfo.hProcess, &exit_code))
+			success = exit_code == 0;
+		else
+			success = false;
+		CloseHandle(piProcInfo.hProcess);
+		CloseHandle(piProcInfo.hThread);
+
+		return success;
 	}
 }
 #else
@@ -415,8 +488,8 @@ int main(int argc, char* argv[])
 
 	const int MAX_PATH_LENGTH = 512;
 
-	// In/out extensions must be same length
-	static const char* model_in_extension = ".fbx";
+	static const char* model_in_extension = ".blend";
+	static const char* model_intermediate_extension = ".fbx";
 	static const char* model_out_extension = ".mdl";
 
 	static const char* anim_out_extension = ".anm";
@@ -557,12 +630,12 @@ int main(int argc, char* argv[])
 			break;
 		}
 		memset(asset_in_path, 0, MAX_PATH_LENGTH);
-		strcat(asset_in_path, asset_in_folder);
-		strcat(asset_in_path + strlen(asset_in_folder), entry->d_name);
+		strcpy(asset_in_path, asset_in_folder);
+		strcat(asset_in_path, entry->d_name);
 
 		memset(asset_out_path, 0, MAX_PATH_LENGTH);
-		strcat(asset_out_path, asset_out_folder);
-		strcat(asset_out_path + strlen(asset_out_folder), entry->d_name);
+		strcpy(asset_out_path, asset_out_folder);
+		strcat(asset_out_path, entry->d_name);
 
 		if (has_extension(entry->d_name, texture_extension))
 		{
@@ -701,18 +774,43 @@ int main(int argc, char* argv[])
 
 			if (rebuild || filemtime(asset_out_path) < filemtime(asset_in_path))
 			{
+				char asset_intermediate_path[MAX_PATH_LENGTH];
+
+				memset(asset_intermediate_path, 0, MAX_PATH_LENGTH);
+				strcpy(asset_intermediate_path, asset_out_path);
+				strcpy(asset_intermediate_path + strlen(asset_intermediate_path) - strlen(model_out_extension), model_intermediate_extension);
+
+				// Export to FBX first
+				char cmd[MAX_PATH_LENGTH + 512];
+				sprintf(cmd, "blender %s --background --python %sblend_to_fbx.py -- %s", asset_in_path, asset_in_folder, asset_intermediate_path);
+
+				if (!run_cmd(cmd))
+				{
+					fprintf(stderr, "Error: failed to export Blender model %s to FBX.\n", asset_in_path);
+					fprintf(stderr, "Command: %s.\n", cmd);
+					error = true;
+					break;
+				}
+
 				anims[asset_name] = std::map<std::string, std::string>();
 				std::map<std::string, std::string>* asset_anims = &anims[asset_name];
 
 				mesh.reset();
 
 				Assimp::Importer importer;
-				const aiScene* scene = import_fbx(importer, asset_in_path);
+				const aiScene* scene = import_fbx(importer, asset_intermediate_path);
 
 				std::map<std::string, int> bone_map;
 
 				if (load_model(scene, &mesh, bone_map))
 				{
+					if (remove(asset_intermediate_path))
+					{
+						fprintf(stderr, "Error: failed to remove intermediate file %s.\n", asset_intermediate_path);
+						error = true;
+						break;
+					}
+
 					printf("%s Indices: %lu Vertices: %lu Bones: %lu\n", asset_name, mesh.indices.length, mesh.vertices.length, mesh.bone_hierarchy.length);
 
 					for (unsigned int i = 0; i < scene->mNumAnimations; i++)

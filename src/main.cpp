@@ -23,7 +23,7 @@ void resize(GLFWwindow* window, int width, int height)
 	glViewport(0, 0, width, height);
 }
 
-#if WIN32 && !_CONSOLE
+#if defined WIN32 && !_CONSOLE
 int CALLBACK WinMain(
 	__in  HINSTANCE hInstance,
 	__in  HINSTANCE hPrevInstance,

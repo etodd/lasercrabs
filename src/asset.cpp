@@ -2,11 +2,13 @@
 
 AssetID const Asset::Model::Alpha = 0;
 AssetID const Asset::Model::city3 = 1;
+AssetID const Asset::Model::cube = 2;
 
 const char* Asset::Model::filenames[] =
 {
 	"assets/Alpha.mdl",
 	"assets/city3.mdl",
+	"assets/cube.mdl",
 };
 
 AssetID const Asset::Texture::test = 0;

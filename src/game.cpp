@@ -23,7 +23,7 @@ void game_loop(RenderSync::Swapper* swapper)
 	StaticGeom* a = World::create<StaticGeom>(Asset::Model::city3);
 
 	Prop* prop = World::create<Prop>(Asset::Model::Alpha, Asset::Animation::walk);
-	prop->get<Transform>()->pos += Vec3(0, 0, 50);
+	prop->get<Transform>()->pos += Vec3(0, 0, 20);
 
 	Player* player = World::create<Player>();
 

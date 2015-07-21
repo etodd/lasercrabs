@@ -20,7 +20,10 @@ static size_t find_keyframe_index(Array<T>& keyframes, float time)
 
 void Armature::update(Update u)
 {
-	time += u.time.delta * 0.1f;
+	time += u.time.delta;
+	while (time > animation->duration)
+		time -= animation->duration;
+
 	for (size_t i = 0; i < animation->channels.length; i++)
 	{
 		Channel* c = &animation->channels[i];
@@ -97,14 +100,15 @@ void Armature::draw(RenderParams* params)
 {
 	SyncData* sync = params->sync;
 
-	sync->write(RenderOp_View);
-	sync->write(&mesh);
-	sync->write(&shader);
-	sync->write(&texture);
 	Mat4 m;
 	get<Transform>()->mat(&m);
 	Vec3 scale(0.1f, 0.1f, 0.1f);
 	m.scale(scale);
+
+	sync->write(RenderOp_View);
+	sync->write(&mesh);
+	sync->write(&shader);
+	sync->write(&texture);
 	Mat4 mvp = m * params->view * params->projection;
 
 	sync->write<int>(4); // Uniform count

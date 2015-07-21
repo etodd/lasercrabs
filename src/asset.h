@@ -6,10 +6,11 @@ struct Asset
 	static const AssetID Nothing = -1;
 	struct Model
 	{
-		static const size_t count = 2;
-		static const char* filenames[2];
+		static const size_t count = 3;
+		static const char* filenames[3];
 		static const AssetID Alpha;
 		static const AssetID city3;
+		static const AssetID cube;
 	};
 	struct Texture
 	{

@@ -11,6 +11,8 @@ endif()
 
 if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
 	set(CMAKE_CXX_FLAGS "-std=c++11 -Wno-deprecated-register -Wno-deprecated-declarations")
+elseif (CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
+	set(CMAKE_CXX_FLAGS "-wd4351 -D_CRT_SECURE_NO_WARNINGS")
 endif()
 
 find_package(OpenGL REQUIRED)
@@ -96,6 +98,7 @@ set(ZLIB_FOUND 1)
 set(ZLIB_LIBRARIES zlibstatic)
 set(ZLIB_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/external/assimp/contrib/zlib ${CMAKE_CURRENT_BINARY_DIR}/external/assimp/contrib/zlib)
 include_directories(${ZLIB_INCLUDE_DIR})
+set_target_properties(zlibstatic PROPERTIES LINKER_LANGUAGE CXX)
 
 set(GIT_COMMIT_HASH 0)
 configure_file(

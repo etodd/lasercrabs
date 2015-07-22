@@ -282,14 +282,14 @@ struct LinkArg
 template<typename T, typename T2, void (T::*Method)(T2)> struct InstantiatedLinkArg : public LinkArg<T2>
 {
 	InstantiatedLinkArg(ID entity)
-		: LinkArg(entity)
+		: LinkArg<T2>(entity)
 	{
 
 	}
 
 	virtual void fire(T2 arg)
 	{
-		Entity* e = &World::list[entity];
+		Entity* e = &World::list[LinkArg<T2>::entity];
 		T* t = e->get<T>();
 		(t->*Method)(arg);
 	}

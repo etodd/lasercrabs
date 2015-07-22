@@ -2,7 +2,7 @@
 #include "load.h"
 
 View::View()
-	: mesh(), shader(), texture(), scale(1, 1, 1)
+	: mesh(), shader(), texture(), offset(Mat4::identity)
 {
 }
 
@@ -16,7 +16,7 @@ void View::draw(RenderParams* params)
 
 	Mat4 m;
 	get<Transform>()->mat(&m);
-	m.scale(scale);
+	m = offset * m;
 	Mat4 mvp = m * params->view * params->projection;
 
 	sync->write<int>(3); // Uniform count

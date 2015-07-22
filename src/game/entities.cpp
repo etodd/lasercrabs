@@ -40,7 +40,7 @@ Box::Box(ID id, Vec3 pos, Quat quat, float mass, Vec3 scale)
 	transform->rot = quat;
 
 	View* model = create<View>();
-	model->scale = scale;
+	model->offset = Mat4::make_scale(scale);
 	model->mesh = Asset::Model::cube;
 	model->shader = Asset::Shader::Standard;
 	model->texture = Asset::Texture::test;
@@ -66,9 +66,9 @@ Sentinel::Sentinel(ID id, Vec3 pos, Quat quat)
 	armature->mesh = Asset::Model::Alpha;
 	armature->shader = Asset::Shader::Armature;
 	armature->texture = Asset::Texture::test;
-	armature->scale = Vec3(0.01f, 0.01f, 0.01f);
+	armature->offset.make_transform(Vec3(0, -1.1f, 0), Vec3(0.01f, 0.01f, 0.01f), Quat::identity);
 	
-	Walker* walker = create<Walker>(1.2f, 0.5f, 0.25f, 1.0f);
+	Walker* walker = create<Walker>(1.2f, 0.5f, 0.35f, 1.0f);
 }
 
 void Sentinel::awake()

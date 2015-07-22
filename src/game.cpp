@@ -26,10 +26,11 @@ void game_loop(RenderSync::Swapper* swapper)
 
 	Sentinel* sentinel = World::create<Sentinel>(Vec3(0, -1.5f, -9), Quat::identity);
 
-	//Player* player = World::create<Player>();
+	Player* player = World::create<Player>();
+	player->get<Transform>()->pos = Vec3(2, -1.5f, -7);
 
-	Noclip* noclip = World::create<Noclip>();
-	noclip->get<Transform>()->pos = Vec3(2, -1.5f, -7);
+	//Noclip* noclip = World::create<Noclip>();
+	//noclip->get<Transform>()->pos = Vec3(2, -1.5f, -7);
 
 	RenderParams render_params;
 
@@ -56,8 +57,6 @@ void game_loop(RenderSync::Swapper* swapper)
 			for (auto i = World::components<Armature>().iterator(); !i.is_last(); i.next())
 				i.item()->update(u);
 		}
-
-		Sleep(20);
 
 		render_params.sync = sync;
 

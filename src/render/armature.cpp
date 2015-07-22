@@ -2,7 +2,7 @@
 #include "load.h"
 
 Armature::Armature()
-	: mesh(), shader(), texture(), bones(), time(), animation(), scale(1, 1, 1)
+	: mesh(), shader(), texture(), bones(), time(), animation(), offset(Mat4::identity)
 {
 }
 
@@ -102,7 +102,7 @@ void Armature::draw(RenderParams* params)
 
 	Mat4 m;
 	get<Transform>()->mat(&m);
-	m.scale(scale);
+	m = offset * m;
 
 	sync->write(RenderOp_View);
 	sync->write(&mesh);

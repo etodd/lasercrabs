@@ -9,7 +9,7 @@ struct View : public ComponentType<View>
 	AssetID mesh;
 	AssetID shader;
 	AssetID texture;
-	Vec3 scale;
+	Mat4 offset;
 	void draw(RenderParams*);
 	void awake();
 	View();

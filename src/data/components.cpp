@@ -52,6 +52,17 @@ Transform* Transform::parent()
 		return 0;
 }
 
+void Transform::parent(const Transform* p)
+{
+	if (p)
+	{
+		parent_id = p->id;
+		has_parent = true;
+	}
+	else
+		has_parent = false;
+}
+
 void Transform::absolute(Quat* abs_rot, Vec3* abs_pos)
 {
 	*abs_rot = Quat::identity;
@@ -62,6 +73,24 @@ void Transform::absolute(Quat* abs_rot, Vec3* abs_pos)
 		*abs_rot = t->rot * *abs_rot;
 		*abs_pos = (t->rot * *abs_pos) + t->pos;
 		t = t->parent();
+	}
+}
+
+void Transform::absolute(const Quat& abs_rot, const Vec3& abs_pos)
+{
+	if (has_parent)
+	{
+		Quat parent_rot;
+		Vec3 parent_pos;
+		parent()->absolute(&parent_rot, &parent_pos);
+		Quat parent_rot_inverse = parent_rot.inverse();
+		pos = parent_rot_inverse * (abs_pos - parent_pos);
+		rot = parent_rot_inverse * abs_rot;
+	}
+	else
+	{
+		rot = abs_rot;
+		pos = abs_pos;
 	}
 }
 
@@ -77,6 +106,14 @@ Quat Transform::absolute_rot()
 	return q;
 }
 
+void Transform::absolute_rot(const Quat& q)
+{
+	if (has_parent)
+		rot = parent()->absolute_rot().inverse() * q;
+	else
+		rot = q;
+}
+
 Vec3 Transform::absolute_pos()
 {
 	Vec3 abs_pos = Vec3::zero;
@@ -87,6 +124,18 @@ Vec3 Transform::absolute_pos()
 		t = t->parent();
 	}
 	return abs_pos;
+}
+
+void Transform::absolute_pos(const Vec3& p)
+{
+	if (has_parent)
+	{
+		Quat abs_rot;
+		Vec3 abs_pos;
+		parent()->absolute(&abs_rot, &abs_pos);
+	}
+	else
+		pos = p;
 }
 
 void Transform::reparent(Transform* p)

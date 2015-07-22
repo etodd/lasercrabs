@@ -10,6 +10,7 @@ struct Transform : public ComponentType<Transform>
 	Vec3 pos;
 	Quat rot;
 
+	void parent(const Transform*);
 	Transform* parent();
 
 	Transform();
@@ -21,7 +22,10 @@ struct Transform : public ComponentType<Transform>
 	void mat(Mat4*);
 
 	void absolute(Quat*, Vec3*);
+	void absolute(const Quat&, const Vec3&);
 	Vec3 absolute_pos();
+	void absolute_pos(const Vec3&);
 	Quat absolute_rot();
+	void absolute_rot(const Quat&);
 	void reparent(Transform*);
 };

@@ -29,6 +29,7 @@ struct PlayerControl : public ComponentType<PlayerControl>
 	void awake();
 
 	void awk_attached();
+	void awk_reattached(Quat);
 
 	void update(Update);
 };

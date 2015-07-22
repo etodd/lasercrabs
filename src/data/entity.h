@@ -259,6 +259,42 @@ template<typename T, void (T::*Method)()> struct InstantiatedLink : public Link
 	}
 };
 
+template<typename T>
+struct LinkArg
+{
+	ID entity;
+
+	LinkArg()
+		: entity()
+	{
+
+	}
+
+	LinkArg(ID entity)
+		: entity(entity)
+	{
+
+	}
+
+	virtual void fire(T t) { }
+};
+
+template<typename T, typename T2, void (T::*Method)(T2)> struct InstantiatedLinkArg : public LinkArg<T2>
+{
+	InstantiatedLinkArg(ID entity)
+		: LinkArg(entity)
+	{
+
+	}
+
+	virtual void fire(T2 arg)
+	{
+		Entity* e = &World::list[entity];
+		T* t = e->get<T>();
+		(t->*Method)(arg);
+	}
+};
+
 template<typename Derived>
 struct ComponentType : public ComponentBase
 {
@@ -280,5 +316,10 @@ struct ComponentType : public ComponentBase
 	template<void (Derived::*Method)()> void link(Link* link)
 	{
 		new (link) InstantiatedLink<Derived, Method>(entity_id);
+	}
+
+	template<typename T2, void (Derived::*Method)(T2)> void link_arg(LinkArg<T2>* link)
+	{
+		new (link) InstantiatedLinkArg<Derived, T2, Method>(entity_id);
 	}
 };

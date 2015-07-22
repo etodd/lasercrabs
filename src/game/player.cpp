@@ -7,7 +7,6 @@
 
 #define fov_initial PI * 0.25f
 #define speed_mouse 0.0025f
-#define crawl_speed 10.0f
 #define attach_speed 2.0f
 #define max_attach_time 0.25f
 
@@ -35,6 +34,31 @@ void PlayerControl::awk_attached()
 	attach_timer = 0.0f;
 }
 
+void PlayerControl::awk_reattached(Quat old_quat)
+{
+	Quat new_quat = get<Transform>()->absolute_rot();
+
+	Quat look_quat = Quat::euler(0, angle_horizontal, angle_vertical);
+
+	Vec3 forward = look_quat * Vec3(0, 0, 1);
+	float dot = forward.dot(new_quat * Vec3(0, 0, 1));
+	if (dot < 0.0f)
+	{
+		// We are staring straight into the wall; rotate the camera
+
+		attach_quat_start = look_quat;
+
+		Quat rotation_diff = old_quat.inverse() * new_quat;
+
+		Quat attach_quat_absolute = attach_quat_start * rotation_diff;
+
+		attach_quat = get<Transform>()->parent()->absolute_rot().inverse() * attach_quat_absolute;
+
+		attach_time = fmin(max_attach_time, Quat::angle(attach_quat_start, attach_quat_absolute) / attach_speed);
+		attach_timer = 0.0f;
+	}
+}
+
 PlayerControl::PlayerControl()
 	: angle_horizontal(),
 	angle_vertical(),
@@ -47,6 +71,7 @@ PlayerControl::PlayerControl()
 void PlayerControl::awake()
 {
 	link<&PlayerControl::awk_attached>(&get<Awk>()->attached);
+	link_arg<Quat, &PlayerControl::awk_reattached>(&get<Awk>()->reattached);
 }
 
 void PlayerControl::update(Update u)
@@ -54,6 +79,8 @@ void PlayerControl::update(Update u)
 	Quat look_quat = Quat::euler(0, angle_horizontal, angle_vertical);
 	if (get<Transform>()->has_parent)
 	{
+		Vec3 wall_normal = get<Transform>()->absolute_rot() * Vec3(0, 0, 1);
+
 		if (attach_timer < attach_time)
 		{
 			Quat attach_quat_absolute = Quat::normalize(get<Transform>()->parent()->absolute_rot() * attach_quat);
@@ -86,7 +113,6 @@ void PlayerControl::update(Update u)
 			look_quat = Quat::euler(0, angle_horizontal, angle_vertical);
 
 			Vec3 forward = look_quat * Vec3(0, 0, 1);
-			Vec3 wall_normal = get<Transform>()->absolute_rot() * Vec3(0, 0, 1);
 			float dot = forward.dot(wall_normal);
 			if (dot < 0.0f)
 			{
@@ -95,19 +121,31 @@ void PlayerControl::update(Update u)
 				angle_vertical = -asinf(forward.y);
 				look_quat = Quat::euler(0, angle_horizontal, angle_vertical);
 			}
-
-			if (u.input->keys[GLFW_KEY_W] == GLFW_PRESS)
-				get<Transform>()->pos += Vec3(0, 0, 1) * u.time.delta * crawl_speed;
-			if (u.input->keys[GLFW_KEY_S] == GLFW_PRESS)
-				get<Transform>()->pos += Vec3(0, 0, -1) * u.time.delta * crawl_speed;
-			if (u.input->keys[GLFW_KEY_D] == GLFW_PRESS)
-				get<Transform>()->pos += Vec3(1, 0, 0) * u.time.delta * crawl_speed;
-			if (u.input->keys[GLFW_KEY_A] == GLFW_PRESS)
-				get<Transform>()->pos += Vec3(-1, 0, 0) * u.time.delta * crawl_speed;
 		}
+
+		// Input handling
+
+		Vec3 movement = Vec3::zero;
+		if (u.input->keys[GLFW_KEY_W] == GLFW_PRESS)
+			movement += look_quat * Vec3(0, 0, 1);
+		if (u.input->keys[GLFW_KEY_S] == GLFW_PRESS)
+			movement += look_quat * Vec3(0, 0, -1);
+		if (u.input->keys[GLFW_KEY_D] == GLFW_PRESS)
+			movement += look_quat * Vec3(-1, 0, 0);
+		if (u.input->keys[GLFW_KEY_A] == GLFW_PRESS)
+			movement += look_quat * Vec3(1, 0, 0);
+		if (u.input->keys[GLFW_KEY_SPACE] == GLFW_PRESS)
+			movement.y += 1;
+		if (u.input->keys[GLFW_KEY_LEFT_CONTROL] == GLFW_PRESS)
+			movement += Vec3(0, -1, 0);
+		movement -= wall_normal * wall_normal.dot(movement);
+		float movement_length = movement.length();
+		if (movement_length > 0.1f)
+			get<Awk>()->crawl(movement / movement_length, u);
 
 		if (u.input->mouse_buttons[0])
 			get<Awk>()->detach(look_quat * Vec3(0, 0, 1));
+
 		if (u.input->mouse_buttons[1] && u.time.total - fire_time > 0.1f)
 		{
 			fire_time = u.time.total;
@@ -169,18 +207,19 @@ void NoclipControl::update(Update u)
 
 	Quat look_quat = Quat::euler(0, angle_horizontal, angle_vertical);
 
+	const float speed = 8.0f;
 	if (u.input->keys[GLFW_KEY_SPACE] == GLFW_PRESS)
-		get<Transform>()->pos += Vec3(0, 1, 0) * u.time.delta * crawl_speed;
+		get<Transform>()->pos += Vec3(0, 1, 0) * u.time.delta * speed;
 	if (u.input->keys[GLFW_KEY_LEFT_CONTROL] == GLFW_PRESS)
-		get<Transform>()->pos += Vec3(0, -1, 0) * u.time.delta * crawl_speed;
+		get<Transform>()->pos += Vec3(0, -1, 0) * u.time.delta * speed;
 	if (u.input->keys[GLFW_KEY_W] == GLFW_PRESS)
-		get<Transform>()->pos += look_quat * Vec3(0, 0, 1) * u.time.delta * crawl_speed;
+		get<Transform>()->pos += look_quat * Vec3(0, 0, 1) * u.time.delta * speed;
 	if (u.input->keys[GLFW_KEY_S] == GLFW_PRESS)
-		get<Transform>()->pos += look_quat * Vec3(0, 0, -1) * u.time.delta * crawl_speed;
+		get<Transform>()->pos += look_quat * Vec3(0, 0, -1) * u.time.delta * speed;
 	if (u.input->keys[GLFW_KEY_D] == GLFW_PRESS)
-		get<Transform>()->pos += look_quat * Vec3(-1, 0, 0) * u.time.delta * crawl_speed;
+		get<Transform>()->pos += look_quat * Vec3(-1, 0, 0) * u.time.delta * speed;
 	if (u.input->keys[GLFW_KEY_A] == GLFW_PRESS)
-		get<Transform>()->pos += look_quat * Vec3(1, 0, 0) * u.time.delta * crawl_speed;
+		get<Transform>()->pos += look_quat * Vec3(1, 0, 0) * u.time.delta * speed;
 	
 	float FoV = fov_initial;
 

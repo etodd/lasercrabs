@@ -59,7 +59,7 @@ int main()
 	}
 	else
 	{
-		window = glfwCreateWindow(1024, 768, "MK-ZEBRA", NULL, NULL);
+		window = glfwCreateWindow(640, 480, "MK-ZEBRA", NULL, NULL);
 	}
 
 	// Open a window and create its OpenGL context

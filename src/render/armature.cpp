@@ -136,6 +136,38 @@ void Armature::draw(RenderParams* params)
 	sync->write(RenderDataType_Mat4);
 	sync->write<int>(skin_transforms.length);
 	sync->write(skin_transforms.data, skin_transforms.length);
+
+	/*
+	// Debug
+	Loader::mesh(Asset::Model::cube);
+	Loader::shader(Asset::Shader::Standard);
+	Loader::texture(Asset::Texture::test);
+	for (size_t i = 0; i < bones.length; i++)
+	{
+		sync->write(RenderOp_View);
+		sync->write(Asset::Model::cube);
+		sync->write(Asset::Shader::Standard);
+		sync->write(Asset::Texture::test);
+		Mat4 mvp = bones[i] * m * params->view * params->projection;
+
+		sync->write<int>(3); // Uniform count
+
+		sync->write(Asset::Uniform::MVP);
+		sync->write(RenderDataType_Mat4);
+		sync->write<int>(1);
+		sync->write(&mvp);
+
+		sync->write(Asset::Uniform::M);
+		sync->write(RenderDataType_Mat4);
+		sync->write<int>(1);
+		sync->write(&m);
+
+		sync->write(Asset::Uniform::V);
+		sync->write(RenderDataType_Mat4);
+		sync->write<int>(1);
+		sync->write(&params->view);
+	}
+	*/
 }
 
 void Armature::awake()

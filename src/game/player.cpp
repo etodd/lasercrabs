@@ -174,13 +174,13 @@ void NoclipControl::update(Update u)
 	if (u.input->keys[GLFW_KEY_LEFT_CONTROL] == GLFW_PRESS)
 		get<Transform>()->pos += Vec3(0, -1, 0) * u.time.delta * crawl_speed;
 	if (u.input->keys[GLFW_KEY_W] == GLFW_PRESS)
-		get<Transform>()->pos += Vec3(0, 0, 1) * u.time.delta * crawl_speed;
+		get<Transform>()->pos += look_quat * Vec3(0, 0, 1) * u.time.delta * crawl_speed;
 	if (u.input->keys[GLFW_KEY_S] == GLFW_PRESS)
-		get<Transform>()->pos += Vec3(0, 0, -1) * u.time.delta * crawl_speed;
+		get<Transform>()->pos += look_quat * Vec3(0, 0, -1) * u.time.delta * crawl_speed;
 	if (u.input->keys[GLFW_KEY_D] == GLFW_PRESS)
-		get<Transform>()->pos += Vec3(1, 0, 0) * u.time.delta * crawl_speed;
+		get<Transform>()->pos += look_quat * Vec3(-1, 0, 0) * u.time.delta * crawl_speed;
 	if (u.input->keys[GLFW_KEY_A] == GLFW_PRESS)
-		get<Transform>()->pos += Vec3(-1, 0, 0) * u.time.delta * crawl_speed;
+		get<Transform>()->pos += look_quat * Vec3(1, 0, 0) * u.time.delta * crawl_speed;
 	
 	float FoV = fov_initial;
 

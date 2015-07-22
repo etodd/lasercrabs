@@ -227,6 +227,7 @@ bool load_model(const aiScene* scene, Mesh* out, std::map<std::string, int>& bon
 			int node_hierarchy_counter = 0;
 			build_node_hierarchy(out->bone_hierarchy, bone_map, scene->mRootNode, -1, node_hierarchy_counter);
 
+			Quat rotation = import_rotation.inverse();
 			for (unsigned int i = 0; i < mesh->mNumBones; i++)
 			{
 				aiBone* bone = mesh->mBones[i];
@@ -238,7 +239,6 @@ bool load_model(const aiScene* scene, Mesh* out, std::map<std::string, int>& bon
 				bone->mOffsetMatrix.Decompose(ai_scale, ai_rotation, ai_position);
 				
 				Vec3 position = Vec3(ai_position.x, ai_position.y, ai_position.z);
-				Quat rotation = import_rotation.inverse() * Quat(ai_rotation.w, ai_rotation.x, ai_rotation.y, ai_rotation.z);
 				Vec3 scale = Vec3(ai_scale.x, ai_scale.y, ai_scale.z);
 				out->inverse_bind_pose[bone_index].make_transform(position, scale, rotation);
 				for (unsigned int bone_weight_index = 0; bone_weight_index < bone->mNumWeights; bone_weight_index++)

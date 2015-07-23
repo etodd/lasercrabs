@@ -10,6 +10,7 @@ Loader::Entry<Mesh> Loader::meshes[Asset::Model::count];
 Loader::Entry<Animation> Loader::animations[Asset::Animation::count];
 Loader::Entry<void*> Loader::textures[Asset::Texture::count];
 Loader::Entry<void*> Loader::shaders[Asset::Shader::count];
+Loader::Entry<Font> Loader::fonts[Asset::Font::count];
 
 Mesh* Loader::mesh(AssetID id)
 {
@@ -125,7 +126,7 @@ Mesh* Loader::mesh_permanent(AssetID id)
 	return m;
 }
 
-void Loader::unload_mesh(AssetID id)
+void Loader::mesh_unload(AssetID id)
 {
 	if (id != Asset::Nothing && meshes[id].type != AssetNone)
 	{
@@ -199,14 +200,11 @@ Animation* Loader::animation_permanent(AssetID id)
 	return anim;
 }
 
-void Loader::unload_animation(AssetID id)
+void Loader::animation_unload(AssetID id)
 {
 	if (id != Asset::Nothing && animations[id].type != AssetNone)
 	{
 		animations[id].data.~Animation();
-		SyncData* sync = swapper->get();
-		sync->write(RenderOp_UnloadMesh);
-		sync->write<AssetID>(&id);
 		animations[id].type = AssetNone;
 	}
 }
@@ -246,7 +244,7 @@ void Loader::texture_permanent(AssetID id)
 		textures[id].type = AssetPermanent;
 }
 
-void Loader::unload_texture(AssetID id)
+void Loader::texture_unload(AssetID id)
 {
 	if (id != Asset::Nothing && textures[id].type != AssetNone)
 	{
@@ -303,7 +301,7 @@ void Loader::shader_permanent(AssetID id)
 		shaders[id].type = AssetPermanent;
 }
 
-void Loader::unload_shader(AssetID id)
+void Loader::shader_unload(AssetID id)
 {
 	if (id != Asset::Nothing && shaders[id].type != AssetNone)
 	{
@@ -311,6 +309,60 @@ void Loader::unload_shader(AssetID id)
 		sync->write(RenderOp_UnloadShader);
 		sync->write(&id);
 		shaders[id].type = AssetNone;
+	}
+}
+
+Font* Loader::font(AssetID id)
+{
+	if (id == Asset::Nothing)
+		return 0;
+
+	if (fonts[id].type == AssetNone)
+	{
+		const char* path = Asset::Font::filenames[id];
+		FILE* f = fopen(path, "rb");
+		if (!f)
+		{
+			fprintf(stderr, "Can't open fnt file '%s'\n", path);
+			return 0;
+		}
+
+		Font* font = &fonts[id].data;
+		new (font)Font();
+
+		int j;
+
+		fread(&j, sizeof(int), 1, f);
+		font->indices.resize(j);
+		fread(font->indices.data, sizeof(int), font->indices.length, f);
+
+		fread(&j, sizeof(int), 1, f);
+		font->vertices.resize(j);
+		fread(font->vertices.data, sizeof(Vec3), font->vertices.length, f);
+
+		fread(&j, sizeof(int), 1, f);
+		font->characters.resize(j);
+		fread(font->characters.data, sizeof(Font::Character), font->characters.length, f);
+
+		fclose(f);
+	}
+	return &fonts[id].data;
+}
+
+Font* Loader::font_permanent(AssetID id)
+{
+	Font* f = font(id);
+	if (f)
+		fonts[id].type = AssetPermanent;
+	return f;
+}
+
+void Loader::font_unload(AssetID id)
+{
+	if (id != Asset::Nothing && fonts[id].type != AssetNone)
+	{
+		fonts[id].data.~Font();
+		fonts[id].type = AssetNone;
 	}
 }
 
@@ -322,18 +374,24 @@ void Loader::unload_transients()
 	for (AssetID i = 0; i < Asset::Model::count; i++)
 	{
 		if (meshes[i].type == AssetTransient)
-			unload_mesh(i);
+			mesh_unload(i);
 	}
 
 	for (AssetID i = 0; i < Asset::Texture::count; i++)
 	{
 		if (textures[i].type == AssetTransient)
-			unload_texture(i);
+			texture_unload(i);
 	}
 
 	for (AssetID i = 0; i < Asset::Shader::count; i++)
 	{
 		if (shaders[i].type == AssetTransient)
-			unload_shader(i);
+			shader_unload(i);
+	}
+
+	for (AssetID i = 0; i < Asset::Font::count; i++)
+	{
+		if (fonts[i].type == AssetTransient)
+			font_unload(i);
 	}
 }

@@ -43,3 +43,18 @@ struct Animation
 	float duration;
 	Array<Channel> channels;
 };
+
+struct Font
+{
+	struct Character
+	{
+		char code;
+		int start_index;
+		int indices;
+		Vec2 min;
+		Vec2 max;
+	};
+	Array<Character> characters;
+	Array<int> indices;
+	Array<Vec3> vertices;
+};

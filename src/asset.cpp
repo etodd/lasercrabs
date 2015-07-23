@@ -51,3 +51,10 @@ const char* Asset::Uniform::filenames[] =
 	"myTextureSampler",
 };
 
+AssetID const Asset::Font::Planer_Reg = 0;
+
+const char* Asset::Font::filenames[] =
+{
+	"assets/Planer_Reg.fnt",
+};
+

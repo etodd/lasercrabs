@@ -62,9 +62,11 @@ struct Animation
 
 struct FontCharacter
 {
+	char code;
 	int start_index;
 	int indices;
-	Vec2 size;
+	Vec2 min;
+	Vec2 max;
 };
 
 int exit_error()
@@ -283,11 +285,11 @@ bool load_font(const aiScene* scene, Mesh& mesh, Array<FontCharacter>& character
 		for (unsigned int j = 0; j < ai_mesh->mNumVertices; j++)
 		{
 			aiVector3D pos = ai_mesh->mVertices[i];
-			Vec3 vertex = import_rotation * Vec3(pos.x, pos.y, pos.z);
+			Vec3 vertex = Vec3(pos.x, pos.y, pos.z);
 			min_vertex.x = fmin(min_vertex.x, vertex.x);
-			min_vertex.y = fmin(min_vertex.y, vertex.z);
+			min_vertex.y = fmin(min_vertex.y, vertex.y);
 			max_vertex.x = fmax(max_vertex.x, vertex.x);
-			max_vertex.y = fmax(max_vertex.y, vertex.z);
+			max_vertex.y = fmax(max_vertex.y, vertex.y);
 			mesh.vertices.add(vertex);
 		}
 
@@ -304,9 +306,11 @@ bool load_font(const aiScene* scene, Mesh& mesh, Array<FontCharacter>& character
 		}
 
 		FontCharacter c;
+		c.code = ai_mesh->mName.data[0];
 		c.start_index = current_mesh_vertex;
 		c.indices = mesh.indices.length - current_mesh_vertex;
-		c.size = max_vertex - min_vertex;
+		c.min = min_vertex;
+		c.max = max_vertex;
 		characters.add(c);
 
 		current_mesh_vertex = mesh.vertices.length;
@@ -1075,8 +1079,12 @@ int main(int argc, char* argv[])
 					FILE* f = fopen(asset_out_path, "w+b");
 					if (f)
 					{
+						fwrite(&mesh.indices.length, sizeof(int), 1, f);
+						fwrite(mesh.indices.data, sizeof(int), mesh.indices.length, f);
+						fwrite(&mesh.vertices.length, sizeof(int), 1, f);
+						fwrite(mesh.vertices.data, sizeof(Vec3), mesh.vertices.length, f);
 						fwrite(&characters.length, sizeof(int), 1, f);
-
+						fwrite(characters.data, sizeof(FontCharacter), characters.length, f);
 						fclose(f);
 					}
 					else
@@ -1247,7 +1255,7 @@ int main(int argc, char* argv[])
 
 		count = fonts.size();
 		fwrite(&count, sizeof(int), 1, cache_file);
-		for (auto i = fonts.begin(); i != textures.end(); i++)
+		for (auto i = fonts.begin(); i != fonts.end(); i++)
 		{
 			int length = i->first.length();
 			fwrite(&length, sizeof(int), 1, cache_file);

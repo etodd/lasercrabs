@@ -138,10 +138,7 @@ void PlayerControl::update(Update u)
 			movement.y += 1;
 		if (u.input->keys[GLFW_KEY_LEFT_CONTROL] == GLFW_PRESS)
 			movement += Vec3(0, -1, 0);
-		movement -= wall_normal * wall_normal.dot(movement);
-		float movement_length = movement.length();
-		if (movement_length > 0.1f)
-			get<Awk>()->crawl(movement / movement_length, u);
+		get<Awk>()->crawl(movement, u);
 
 		if (u.input->mouse_buttons[0])
 			get<Awk>()->detach(look_quat * Vec3(0, 0, 1));

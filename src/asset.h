@@ -42,4 +42,10 @@ struct Asset
 		static const AssetID V;
 		static const AssetID myTextureSampler;
 	};
+	struct Font
+	{
+		static const size_t count = 1;
+		static const char* filenames[1];
+		static const AssetID Planer_Reg;
+	};
 };

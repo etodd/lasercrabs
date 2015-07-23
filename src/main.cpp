@@ -59,8 +59,7 @@ int main()
 	}
 	else
 	{
-		window = glfwCreateWindow(500, 286, "MK-ZEBRA", NULL, NULL);
-		//window = glfwCreateWindow(1024, 768, "MK-ZEBRA", NULL, NULL);
+		window = glfwCreateWindow(1024, 768, "MK-ZEBRA", NULL, NULL);
 	}
 
 	// Open a window and create its OpenGL context
@@ -118,6 +117,12 @@ int main()
 		glfwPollEvents();
 
 		bool quit = sync->quit = glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS || glfwWindowShouldClose(window);
+
+#if DEBUG
+		// Convenience function for recording gifs
+		if (glfwGetKey(window, GLFW_KEY_G) == GLFW_PRESS)
+			glfwSetWindowSize(window, 500, 286);
+#endif
 
 		_GLFWwindow* _window = (_GLFWwindow*)window;
 		memcpy(sync->input.keys, _window->keys, sizeof(sync->input.keys));

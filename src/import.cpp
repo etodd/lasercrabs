@@ -1,6 +1,5 @@
 #include <stdio.h>
 
-// Include AssImp
 #include <assimp/Importer.hpp>      // C++ importer interface
 #include <assimp/scene.h>           // Output data structure
 #include <assimp/postprocess.h>     // Post processing flags
@@ -12,6 +11,7 @@
 #include <array>
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
+#include <cfloat>
 
 #define MAX_BONE_WEIGHTS 4
 
@@ -58,6 +58,13 @@ struct Animation
 {
 	float duration;
 	Array<Channel> channels;
+};
+
+struct FontCharacter
+{
+	int start_index;
+	int indices;
+	Vec2 size;
 };
 
 int exit_error()
@@ -116,7 +123,6 @@ const aiScene* import_fbx(Assimp::Importer& importer, const char* path)
 		| aiProcess_Triangulate
 		| aiProcess_GenNormals
 		| aiProcess_ValidateDataStructure
-		| aiProcess_OptimizeMeshes
 		| aiProcess_OptimizeGraph
 	);
 	if (!scene)
@@ -264,6 +270,51 @@ bool load_model(const aiScene* scene, Mesh* out, std::map<std::string, int>& bon
 	return true;
 }
 
+bool load_font(const aiScene* scene, Mesh& mesh, Array<FontCharacter>& characters)
+{
+	mesh.reset();
+	size_t current_mesh_vertex = 0;
+	size_t current_mesh_index = 0;
+	for (unsigned int i = 0; i < scene->mNumMeshes; i++)
+	{
+		aiMesh* ai_mesh = scene->mMeshes[i];
+		mesh.vertices.reserve(current_mesh_vertex + ai_mesh->mNumVertices);
+		Vec2 min_vertex(FLT_MAX, FLT_MAX), max_vertex(FLT_MIN, FLT_MIN);
+		for (unsigned int j = 0; j < ai_mesh->mNumVertices; j++)
+		{
+			aiVector3D pos = ai_mesh->mVertices[i];
+			Vec3 vertex = import_rotation * Vec3(pos.x, pos.y, pos.z);
+			min_vertex.x = fmin(min_vertex.x, vertex.x);
+			min_vertex.y = fmin(min_vertex.y, vertex.z);
+			max_vertex.x = fmax(max_vertex.x, vertex.x);
+			max_vertex.y = fmax(max_vertex.y, vertex.z);
+			mesh.vertices.add(vertex);
+		}
+
+		mesh.indices.reserve(current_mesh_index + ai_mesh->mNumFaces * 3);
+		for (unsigned int i = 0; i < ai_mesh->mNumFaces; i++)
+		{
+			// Assume the model has only triangles.
+			int j = current_mesh_vertex + ai_mesh->mFaces[i].mIndices[0];
+			mesh.indices.add(j);
+			j = current_mesh_vertex + ai_mesh->mFaces[i].mIndices[1];
+			mesh.indices.add(j);
+			j = current_mesh_vertex + ai_mesh->mFaces[i].mIndices[2];
+			mesh.indices.add(j);
+		}
+
+		FontCharacter c;
+		c.start_index = current_mesh_vertex;
+		c.indices = mesh.indices.length - current_mesh_vertex;
+		c.size = max_vertex - min_vertex;
+		characters.add(c);
+
+		current_mesh_vertex = mesh.vertices.length;
+		current_mesh_index = mesh.indices.length;
+	}
+	return true;
+}
+
 bool maps_equal(std::map<std::string, std::string>& a, std::map<std::string, std::string>& b)
 {
 	if (a.size() != b.size())
@@ -326,6 +377,7 @@ void get_name_from_filename(char* filename, char* output)
 }
 
 #if defined WIN32
+#include "windows.h"
 LONGLONG filetime_to_posix(FILETIME ft)
 {
 	// takes the last modified date
@@ -371,18 +423,20 @@ bool run_cmd(char* cmd)
 	ZeroMemory(&siStartInfo, sizeof(STARTUPINFO));
 	siStartInfo.cb = sizeof(STARTUPINFO); 
 
-	HANDLE current_process = GetCurrentProcess();
-	HANDLE child_stdin;
-	if (!DuplicateHandle(current_process, GetStdHandle(STD_INPUT_HANDLE), current_process, &child_stdin, 0, TRUE, DUPLICATE_SAME_ACCESS))
-		return false;
-	siStartInfo.hStdInput = child_stdin;
-
-	HANDLE stderr_read, stderr_write;
-
 	SECURITY_ATTRIBUTES security_attributes;
 	security_attributes.nLength = sizeof(SECURITY_ATTRIBUTES);
 	security_attributes.bInheritHandle = true;
 	security_attributes.lpSecurityDescriptor = 0;
+
+	HANDLE stdin_read, stdin_write;
+	if (!CreatePipe(&stdin_read, &stdin_write, &security_attributes, 0))
+		return false;
+	siStartInfo.hStdInput = stdin_read;
+
+	if (!SetHandleInformation(stdin_write, HANDLE_FLAG_INHERIT, 0))
+		return false;
+
+	HANDLE stderr_read, stderr_write;
 
 	if (!CreatePipe(&stderr_read, &stderr_write, &security_attributes, 0))
 		return false;
@@ -391,7 +445,8 @@ bool run_cmd(char* cmd)
 		return false;
 
 	siStartInfo.hStdError = stderr_write;
-	siStartInfo.hStdOutput = stderr_write;
+
+	siStartInfo.hStdOutput = NULL;
 
 	siStartInfo.dwFlags |= STARTF_USESTDHANDLES;
 
@@ -402,7 +457,7 @@ bool run_cmd(char* cmd)
 		NULL,          // process security attributes 
 		NULL,          // primary thread security attributes 
 		TRUE,          // handles are inherited 
-		0,             // creation flags 
+		NORMAL_PRIORITY_CLASS | CREATE_NO_WINDOW,             // creation flags 
 		NULL,          // use parent's environment 
 		NULL,          // use parent's current directory 
 		&siStartInfo,  // STARTUPINFO pointer 
@@ -411,7 +466,9 @@ bool run_cmd(char* cmd)
 		return false;
 	}
 
-	WaitForSingleObject(piProcInfo.hProcess, INFINITE);
+	if (WaitForSingleObject(piProcInfo.hProcess, INFINITE) == WAIT_FAILED)
+		return false;
+
 	DWORD exit_code;
 
 	bool success;
@@ -442,6 +499,8 @@ bool run_cmd(char* cmd)
 	else
 		success = false;
 
+	CloseHandle(stdin_read);
+	CloseHandle(stdin_write);
 	CloseHandle(stderr_read);
 	CloseHandle(stderr_write);
 	CloseHandle(piProcInfo.hProcess);
@@ -526,6 +585,9 @@ int main(int argc, char* argv[])
 	static const char* model_intermediate_extension = ".fbx";
 	static const char* model_out_extension = ".mdl";
 
+	static const char* font_in_extension = ".ttf";
+	static const char* font_out_extension = ".fnt";
+
 	static const char* anim_out_extension = ".anm";
 	static const char* texture_extension = ".png";
 	static const char* shader_extension = ".glsl";
@@ -549,6 +611,7 @@ int main(int argc, char* argv[])
 	std::map<std::string, std::string> loaded_textures;
 	std::map<std::string, std::string> loaded_shaders;
 	std::map<std::string, std::map<std::string, std::string> > loaded_uniforms;
+	std::map<std::string, std::string> loaded_fonts;
 
 	bool rebuild = false;
 	FILE* f = fopen(asset_cache_path, "rb");
@@ -636,6 +699,21 @@ int main(int argc, char* argv[])
 			}
 		}
 
+		fread(&count, sizeof(int), 1, f);
+		for (int i = 0; i < count; i++)
+		{
+			char asset_name[MAX_PATH_LENGTH];
+			char asset_path[MAX_PATH_LENGTH];
+			memset(asset_name, 0, MAX_PATH_LENGTH);
+			memset(asset_path, 0, MAX_PATH_LENGTH);
+			int length;
+			fread(&length, sizeof(int), 1, f);
+			fread(asset_name, sizeof(char), length, f);
+			fread(&length, sizeof(int), 1, f);
+			fread(asset_path, sizeof(char), length, f);
+			loaded_fonts[asset_name] = asset_path;
+		}
+
 		fclose(f);
 	}
 	else
@@ -646,6 +724,7 @@ int main(int argc, char* argv[])
 	std::map<std::string, std::string> textures;
 	std::map<std::string, std::string> shaders;
 	std::map<std::string, std::map<std::string, std::string> > uniforms;
+	std::map<std::string, std::string> fonts;
 
 	char asset_in_path[MAX_PATH_LENGTH], asset_out_path[MAX_PATH_LENGTH], asset_name[MAX_PATH_LENGTH];
 
@@ -957,6 +1036,65 @@ int main(int argc, char* argv[])
 					anims[asset_name] = existing_anim_map->second;
 			}
 		}
+		else if (has_extension(entry->d_name, font_in_extension))
+		{
+			strcpy(asset_out_path + strlen(asset_out_path) - strlen(font_in_extension), font_out_extension);
+
+			get_name_from_filename(entry->d_name, asset_name);
+
+			fonts[asset_name] = asset_out_path;
+
+			if (rebuild || filemtime(asset_out_path) < filemtime(asset_in_path))
+			{
+				char asset_intermediate_path[MAX_PATH_LENGTH];
+
+				memset(asset_intermediate_path, 0, MAX_PATH_LENGTH);
+				strcpy(asset_intermediate_path, asset_out_path);
+				strcpy(asset_intermediate_path + strlen(asset_intermediate_path) - strlen(font_out_extension), model_intermediate_extension);
+
+				// Export to FBX first
+				char cmd[MAX_PATH_LENGTH + 512];
+				sprintf(cmd, "blender --background --python %sttf_to_fbx.py -- %s %s", asset_in_folder, asset_in_path, asset_intermediate_path);
+
+				if (!run_cmd(cmd))
+				{
+					fprintf(stderr, "Error: failed to export TTF font %s to FBX.\n", asset_in_path);
+					fprintf(stderr, "Command: %s.\n", cmd);
+					error = true;
+					break;
+				}
+
+				Assimp::Importer importer;
+				const aiScene* scene = import_fbx(importer, asset_intermediate_path);
+
+				remove(asset_intermediate_path);
+
+				Array<FontCharacter> characters;
+				if (load_font(scene, mesh, characters))
+				{
+					FILE* f = fopen(asset_out_path, "w+b");
+					if (f)
+					{
+						fwrite(&characters.length, sizeof(int), 1, f);
+
+						fclose(f);
+					}
+					else
+					{
+						fprintf(stderr, "Error: failed to open %s for writing.\n", asset_out_path);
+						error = true;
+						break;
+					}
+				}
+				else
+				{
+					fprintf(stderr, "Error: failed to load font %s.\n", asset_in_path);
+					error = true;
+					break;
+				}
+
+			}
+		}
 	}
 	closedir(dir);
 
@@ -965,7 +1103,8 @@ int main(int argc, char* argv[])
 	
 	bool modified = !maps_equal(loaded_models, models)
 		|| !maps_equal(loaded_textures, textures)
-		|| !maps_equal(loaded_shaders, shaders);
+		|| !maps_equal(loaded_shaders, shaders)
+		|| !maps_equal(loaded_fonts, fonts);
 
 	if (!modified)
 	{
@@ -1018,6 +1157,7 @@ int main(int argc, char* argv[])
 				flattened_uniforms[j->first] = j->second;
 		}
 		write_asset_headers(asset_header_file, "Uniform", flattened_uniforms);
+		write_asset_headers(asset_header_file, "Font", fonts);
 		fprintf(asset_header_file, "};\n");
 		fclose(asset_header_file);
 
@@ -1033,6 +1173,7 @@ int main(int argc, char* argv[])
 		write_asset_filenames(asset_src_file, "Shader", shaders);
 		write_asset_filenames(asset_src_file, "Animation", flattened_anims);
 		write_asset_filenames(asset_src_file, "Uniform", flattened_uniforms);
+		write_asset_filenames(asset_src_file, "Font", fonts);
 		fclose(asset_src_file);
 
 		FILE* cache_file = fopen(asset_cache_path, "w+b");
@@ -1102,6 +1243,19 @@ int main(int argc, char* argv[])
 				fwrite(&length, sizeof(int), 1, cache_file);
 				fwrite(&j->first[0], sizeof(char), length, cache_file);
 			}
+		}
+
+		count = fonts.size();
+		fwrite(&count, sizeof(int), 1, cache_file);
+		for (auto i = fonts.begin(); i != textures.end(); i++)
+		{
+			int length = i->first.length();
+			fwrite(&length, sizeof(int), 1, cache_file);
+			fwrite(&i->first[0], sizeof(char), length, cache_file);
+
+			length = i->second.length();
+			fwrite(&length, sizeof(int), 1, cache_file);
+			fwrite(&i->second[0], sizeof(char), length, cache_file);
 		}
 	}
 

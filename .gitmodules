@@ -13,3 +13,9 @@
 [submodule "external/bullet"]
 	path = external/bullet
 	url = git@github.com:et1337/bullet3.git
+[submodule "external/recast"]
+	path = external/recast
+	url = git@github.com:et1337/recastnavigation.git
+[submodule "src/game"]
+	path = src/game
+	url = git@bitbucket.org:et1337/mkzebra_private.git

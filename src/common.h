@@ -5,6 +5,9 @@
 #include "load.h"
 #include "physics.h"
 
+namespace VI
+{
+
 struct Empty : public Entity
 {
 	Empty(ID);
@@ -23,8 +26,21 @@ struct Box : public Entity
 	void awake();
 };
 
-struct Sentinel : public Entity
+struct Noclip : public Entity
 {
-	Sentinel(ID, Vec3, Quat);
+	Noclip(ID id);
 	void awake();
 };
+
+struct NoclipControl : public ComponentType<NoclipControl>
+{
+	float angle_horizontal;
+	float angle_vertical;
+
+	NoclipControl();
+	void awake();
+
+	void update(Update);
+};
+
+}

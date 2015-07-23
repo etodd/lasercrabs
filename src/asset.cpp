@@ -1,5 +1,8 @@
 #include "asset.h"
 
+namespace VI
+{
+
 AssetID const Asset::Model::Alpha = 0;
 AssetID const Asset::Model::city3 = 1;
 AssetID const Asset::Model::cube = 2;
@@ -58,3 +61,6 @@ const char* Asset::Font::filenames[] =
 	"assets/Planer_Reg.fnt",
 };
 
+
+
+}

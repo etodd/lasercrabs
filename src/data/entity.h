@@ -8,6 +8,9 @@
 
 #include <stdio.h>
 
+namespace VI
+{
+
 typedef unsigned int Family;
 typedef unsigned int ID;
 typedef unsigned long ComponentMask;
@@ -143,7 +146,7 @@ struct World
 		Pool<T>* pool = (Pool<T>*)&component_pools[f];
 		if (!pool->initialized)
 		{
-			new (pool) Pool<T>();
+			new (pool)Pool<T>();
 			pool->initialized = true;
 		}
 		typename PinArray<T>::Entry entry = pool->add();
@@ -315,11 +318,13 @@ struct ComponentType : public ComponentBase
 
 	template<void (Derived::*Method)()> void link(Link* link)
 	{
-		new (link) InstantiatedLink<Derived, Method>(entity_id);
+		new (link)InstantiatedLink<Derived, Method>(entity_id);
 	}
 
 	template<typename T2, void (Derived::*Method)(T2)> void link_arg(LinkArg<T2>* link)
 	{
-		new (link) InstantiatedLinkArg<Derived, T2, Method>(entity_id);
+		new (link)InstantiatedLinkArg<Derived, T2, Method>(entity_id);
 	}
 };
+
+}

@@ -1,5 +1,8 @@
 #include "lmath.h"
 
+namespace VI
+{
+
 const Vec2 Vec2::zero(0, 0);
 const Vec3 Vec3::zero(0, 0, 0);
 const Vec4 Vec4::zero(0, 0, 0, 0);
@@ -1666,4 +1669,6 @@ Mat4 Mat4::look(Vec3 const & eye, Vec3 const &forward)
 	Result[3][1] = -u.dot(eye);
 	Result[3][2] = f.dot(eye);
 	return Result;
+}
+
 }

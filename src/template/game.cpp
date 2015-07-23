@@ -7,13 +7,13 @@
 #include "data/array.h"
 #include "data/entity.h"
 #include "data/components.h"
-#include "game/awk.h"
-#include "game/player.h"
 #include "data/mesh.h"
 #include "physics.h"
-#include "game/entities.h"
-#include "game/player.h"
-#include "game/walker.h"
+#include "load.h"
+#include "common.h"
+
+namespace VI
+{
 
 void game_loop(RenderSync::Swapper* swapper)
 {
@@ -23,13 +23,8 @@ void game_loop(RenderSync::Swapper* swapper)
 
 	StaticGeom* a = World::create<StaticGeom>(Asset::Model::city3);
 
-	Sentinel* sentinel = World::create<Sentinel>(Vec3(0, -1.5f, -9), Quat::identity);
-
-	Player* player = World::create<Player>();
-	player->get<Transform>()->pos = Vec3(2, -1.5f, -7);
-
-	//Noclip* noclip = World::create<Noclip>();
-	//noclip->get<Transform>()->pos = Vec3(2, -1.5f, -7);
+	Noclip* noclip = World::create<Noclip>();
+	noclip->get<Transform>()->pos = Vec3(2, -1.5f, -7);
 
 	RenderParams render_params;
 
@@ -45,12 +40,6 @@ void game_loop(RenderSync::Swapper* swapper)
 		// Update
 		{
 			Physics::update(u);
-			for (auto i = World::components<Walker>().iterator(); !i.is_last(); i.next())
-				i.item()->update(u);
-			for (auto i = World::components<Awk>().iterator(); !i.is_last(); i.next())
-				i.item()->update(u);
-			for (auto i = World::components<PlayerControl>().iterator(); !i.is_last(); i.next())
-				i.item()->update(u);
 			for (auto i = World::components<NoclipControl>().iterator(); !i.is_last(); i.next())
 				i.item()->update(u);
 			for (auto i = World::components<Armature>().iterator(); !i.is_last(); i.next())
@@ -63,7 +52,7 @@ void game_loop(RenderSync::Swapper* swapper)
 		render_params.view = Camera::main.view;
 
 		sync->write(RenderOp_Clear);
-		
+
 		sync->write<GLbitfield>(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 		// Draw
@@ -77,4 +66,6 @@ void game_loop(RenderSync::Swapper* swapper)
 		sync = swapper->swap<SwapType_Write>();
 		sync->queue.length = 0;
 	}
+}
+
 }

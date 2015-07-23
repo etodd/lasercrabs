@@ -4,6 +4,9 @@
 #include <mutex>
 #include <condition_variable>
 
+namespace VI
+{
+
 enum SwapType
 {
 	SwapType_Read,
@@ -66,3 +69,5 @@ class SyncQueue
 		return q.dequeue();
 	}
 };
+
+}

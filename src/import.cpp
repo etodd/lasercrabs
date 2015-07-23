@@ -12,6 +12,10 @@
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
 #include <cfloat>
+#include "Recast.h"
+
+namespace VI
+{
 
 #define MAX_BONE_WEIGHTS 4
 
@@ -551,7 +555,7 @@ bool cp(const char* from, const char* to)
 	return true;
 }
 
-int main(int argc, char* argv[])
+int proc(int argc, char* argv[])
 {
 	if (!glfwInit())
 	{
@@ -1145,7 +1149,7 @@ int main(int argc, char* argv[])
 			fprintf(stderr, "Error: failed to open asset header file %s for writing.\n", asset_header_path);
 			return exit_error();
 		}
-		fprintf(asset_header_file, "#pragma once\n#include \"types.h\"\n\nstruct Asset\n{\n\tstatic const AssetID Nothing = -1;\n");
+		fprintf(asset_header_file, "#pragma once\n#include \"types.h\"\n\nnamespace VI\n{\n\nstruct Asset\n{\n\tstatic const AssetID Nothing = -1;\n");
 		write_asset_headers(asset_header_file, "Model", models);
 		write_asset_headers(asset_header_file, "Texture", textures);
 		write_asset_headers(asset_header_file, "Shader", shaders);
@@ -1166,7 +1170,7 @@ int main(int argc, char* argv[])
 		}
 		write_asset_headers(asset_header_file, "Uniform", flattened_uniforms);
 		write_asset_headers(asset_header_file, "Font", fonts);
-		fprintf(asset_header_file, "};\n");
+		fprintf(asset_header_file, "};\n\n}");
 		fclose(asset_header_file);
 
 		FILE* asset_src_file = fopen(asset_src_path, "w+");
@@ -1175,13 +1179,14 @@ int main(int argc, char* argv[])
 			fprintf(stderr, "Error: failed to open asset source file %s for writing.\n", asset_src_path);
 			return exit_error();
 		}
-		fprintf(asset_src_file, "#include \"asset.h\"\n\n");
+		fprintf(asset_src_file, "#include \"asset.h\"\n\nnamespace VI\n{\n\n");
 		write_asset_filenames(asset_src_file, "Model", models);
 		write_asset_filenames(asset_src_file, "Texture", textures);
 		write_asset_filenames(asset_src_file, "Shader", shaders);
 		write_asset_filenames(asset_src_file, "Animation", flattened_anims);
 		write_asset_filenames(asset_src_file, "Uniform", flattened_uniforms);
 		write_asset_filenames(asset_src_file, "Font", fonts);
+		fprintf(asset_src_file, "\n\n}");
 		fclose(asset_src_file);
 
 		FILE* cache_file = fopen(asset_cache_path, "w+b");
@@ -1268,4 +1273,11 @@ int main(int argc, char* argv[])
 	}
 
 	return 0;
+}
+
+}
+
+int main(int argc, char* argv[])
+{
+	return VI::proc(argc, argv);
 }

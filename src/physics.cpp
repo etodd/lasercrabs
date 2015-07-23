@@ -1,6 +1,9 @@
 #include "physics.h"
 #include "data/components.h"
 
+namespace VI
+{
+
 btDbvtBroadphase* Physics::broadphase = new btDbvtBroadphase();
 btDefaultCollisionConfiguration* Physics::collision_config = new btDefaultCollisionConfiguration();
 btCollisionDispatcher* Physics::dispatcher = new btCollisionDispatcher(Physics::collision_config);
@@ -66,4 +69,6 @@ RigidBody::~RigidBody()
 	Physics::btWorld->removeRigidBody(btBody);
 	delete btShape;
 	delete btBody;
+}
+
 }

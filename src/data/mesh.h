@@ -8,7 +8,11 @@
 
 #include <BulletCollision/CollisionShapes/btTriangleIndexVertexArray.h>
 
+namespace VI
+{
+
 #define MAX_BONE_WEIGHTS 4
+
 
 struct Mesh
 {
@@ -54,7 +58,9 @@ struct Font
 		Vec2 min;
 		Vec2 max;
 	};
-	Array<Character> characters;
+	Character characters[sizeof(char)];
 	Array<int> indices;
 	Array<Vec3> vertices;
 };
+
+}

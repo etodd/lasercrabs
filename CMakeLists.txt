@@ -113,6 +113,20 @@ add_subdirectory(external/assimp/code)
 ## lodepng
 add_library(lodepng STATIC external/lodepng/lodepng.cpp)
 
+## Recast
+add_library(recast STATIC
+	external/recast/Recast/Source/Recast.cpp
+	external/recast/Recast/Source/RecastAlloc.cpp
+	external/recast/Recast/Source/RecastArea.cpp
+	external/recast/Recast/Source/RecastContour.cpp
+	external/recast/Recast/Source/RecastFilter.cpp
+	external/recast/Recast/Source/RecastLayers.cpp
+	external/recast/Recast/Source/RecastMesh.cpp
+	external/recast/Recast/Source/RecastMeshDetail.cpp
+	external/recast/Recast/Source/RecastRasterization.cpp
+	external/recast/Recast/Source/RecastRegion.cpp
+)
+
 ## Includes
  
 set(ALL_INCLUDES
@@ -121,6 +135,7 @@ set(ALL_INCLUDES
 	external/assimp/include
 	external/lodepng
 	external/bullet/src
+	external/recast/Recast/Include
 	src
 )
 
@@ -138,6 +153,17 @@ configure_file(.exrc.in ${CMAKE_CURRENT_SOURCE_DIR}/.exrc)
 source_group(h REGULAR_EXPRESSION ".*\\.h$")
 source_group(cpp REGULAR_EXPRESSION ".*\\.cpp$")
 
+if (NOT EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/src/game/CMakeLists.txt)
+	set(template_files
+		src/template/CMakeLists.txt
+		src/template/game.cpp
+		src/template/game.h
+	)
+	file(COPY ${template_files} DESTINATION ${CMAKE_CURRENT_SOURCE_DIR}/src/game/)
+endif()
+
+include(src/game/CMakeLists.txt)
+
 add_executable(mkzebra
 	src/data/array.h
 	src/data/mesh.h
@@ -151,28 +177,23 @@ add_executable(mkzebra
 	src/render/view.cpp
 	src/render/armature.h
 	src/render/armature.cpp
-	src/game/entities.h
-	src/game/entities.cpp
-	src/game/player.h
-	src/game/player.cpp
-	src/game/awk.h
-	src/game/awk.cpp
-	src/game/walker.h
-	src/game/walker.cpp
+	src/render/ui.h
+	src/render/ui.cpp
 	src/asset.h
 	src/sync.h
 	src/types.h
 	src/vi_assert.h
 	src/physics.h
 	src/lmath.h
+	src/common.h
+	src/common.cpp
 	src/load.h
-	src/game.h
 	src/load.cpp
 	src/physics.cpp
 	src/asset.cpp
 	src/lmath.cpp
-	src/game.cpp
 	src/main.cpp
+	${GAME_SRC_FILES}
 )
 
 if(WIN32)
@@ -211,6 +232,7 @@ target_link_libraries(import
 	glfw
 	GLEW_static
 	assimp
+	recast
 )
 
 get_property(import_location TARGET import PROPERTY LOCATION) 

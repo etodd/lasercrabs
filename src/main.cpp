@@ -12,26 +12,21 @@
 #include "glfw_config.h"
 #include <GLFW/../../src/internal.h>
 
-GLFWwindow* window;
-
 #include "load.h"
 #include "render/render.h"
-#include "game.h"
+#include "game/game.h"
+
+namespace VI
+{
+
+GLFWwindow* window;
 
 void resize(GLFWwindow* window, int width, int height)
 {
 	glViewport(0, 0, width, height);
 }
 
-#if defined WIN32 && !_CONSOLE
-int CALLBACK WinMain(
-	__in  HINSTANCE hInstance,
-	__in  HINSTANCE hPrevInstance,
-	__in  LPSTR lpCmdLine,
-	__in  int nCmdShow)
-#else
-int main()
-#endif
+int proc()
 {
 	// Initialise GLFW
 	if (!glfwInit())
@@ -121,7 +116,7 @@ int main()
 #if DEBUG
 		// Convenience function for recording gifs
 		if (glfwGetKey(window, GLFW_KEY_G) == GLFW_PRESS)
-			glfwSetWindowSize(window, 500, 286);
+			glfwSetWindowSize(window, 500, 281);
 #endif
 
 		_GLFWwindow* _window = (_GLFWwindow*)window;
@@ -147,4 +142,19 @@ int main()
 	glfwTerminate();
 
 	return 0;
+}
+
+}
+
+#if defined WIN32 && !_CONSOLE
+int CALLBACK WinMain(
+	__in  HINSTANCE hInstance,
+	__in  HINSTANCE hPrevInstance,
+	__in  LPSTR lpCmdLine,
+	__in  int nCmdShow)
+#else
+int main()
+#endif
+{
+	return VI::proc();
 }

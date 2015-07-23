@@ -6,6 +6,9 @@
 #include "LinearMath/btVector3.h"
 #include "LinearMath/btQuaternion.h"
 
+namespace VI
+{
+
 #define PI 3.1415926535897f
 #define HALF_PI (3.1415926535897f * 0.5f)
 
@@ -1730,4 +1733,6 @@ inline Vec4 operator * (const Vec4& v, const Mat4& mat)
 		v.x*mat[0][2] + v.y*mat[1][2] + v.z*mat[2][2] + v.w*mat[3][2],
 		v.x*mat[0][3] + v.y*mat[1][3] + v.z*mat[2][3] + v.w*mat[3][3]
 		);
+}
+
 }

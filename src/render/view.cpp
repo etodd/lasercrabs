@@ -1,6 +1,9 @@
 #include "view.h"
 #include "load.h"
 
+namespace VI
+{
+
 View::View()
 	: mesh(), shader(), texture(), offset(Mat4::identity)
 {
@@ -9,17 +12,16 @@ View::View()
 void View::draw(RenderParams* params)
 {
 	SyncData* sync = params->sync;
-	sync->write(RenderOp_View);
+	sync->write(RenderOp_Mesh);
 	sync->write(&mesh);
 	sync->write(&shader);
-	sync->write(&texture);
 
 	Mat4 m;
 	get<Transform>()->mat(&m);
 	m = offset * m;
 	Mat4 mvp = m * params->view * params->projection;
 
-	sync->write<int>(3); // Uniform count
+	sync->write<int>(4); // Uniform count
 
 	sync->write(Asset::Uniform::MVP);
 	sync->write(RenderDataType_Mat4);
@@ -35,6 +37,12 @@ void View::draw(RenderParams* params)
 	sync->write(RenderDataType_Mat4);
 	sync->write<int>(1);
 	sync->write(&params->view);
+
+	sync->write(Asset::Uniform::myTextureSampler);
+	sync->write(RenderDataType_Texture);
+	sync->write<int>(1);
+	sync->write(&texture);
+	sync->write<GLenum>(GL_TEXTURE_2D);
 }
 
 void View::awake()
@@ -42,4 +50,6 @@ void View::awake()
 	Loader::mesh(mesh);
 	Loader::shader(shader);
 	Loader::texture(texture);
+}
+
 }

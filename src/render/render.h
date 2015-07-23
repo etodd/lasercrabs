@@ -7,6 +7,9 @@
 #include "sync.h"
 #include "asset.h"
 
+namespace VI
+{
+
 struct Camera
 {
 	static Camera main;
@@ -25,11 +28,14 @@ enum RenderOp
 {
 	RenderOp_LoadMesh,
 	RenderOp_UnloadMesh,
+	RenderOp_LoadDynamicMesh,
+	RenderOp_UnloadDynamicMesh,
 	RenderOp_LoadTexture,
 	RenderOp_UnloadTexture,
 	RenderOp_LoadShader,
 	RenderOp_UnloadShader,
-	RenderOp_View,
+	RenderOp_Mesh,
+	RenderOp_DynamicMesh,
 	RenderOp_Clear,
 };
 
@@ -41,6 +47,7 @@ enum RenderDataType
 	RenderDataType_Vec4,
 	RenderDataType_Int,
 	RenderDataType_Mat4,
+	RenderDataType_Texture,
 };
 
 struct SyncData
@@ -138,12 +145,15 @@ struct GLData
 	Mesh meshes[Asset::Model::count];
 	GLuint textures[Asset::Texture::count];
 	Shader shaders[Asset::Shader::count];
+	Array<Mesh> dynamic_meshes;
 
 	GLData()
-		: meshes(), textures(), shaders()
+		: meshes(), textures(), shaders(), dynamic_meshes()
 	{
 
 	}
 };
 
 void render(SyncData*, GLData*);
+
+}

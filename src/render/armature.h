@@ -5,6 +5,9 @@
 #include "render.h"
 #include "data/mesh.h"
 
+namespace VI
+{
+
 struct Armature : public ComponentType<Armature>
 {
 	AssetID mesh;
@@ -22,3 +25,5 @@ struct Armature : public ComponentType<Armature>
 	void awake();
 	Armature();
 };
+
+}

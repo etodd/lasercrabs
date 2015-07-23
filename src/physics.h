@@ -5,6 +5,9 @@
 #include <btBulletDynamicsCommon.h>
 #include "data/entity.h"
 
+namespace VI
+{
+
 enum CollisionGroup
 {
 	CollisionNothing = 0,
@@ -31,3 +34,5 @@ struct RigidBody : public ComponentType<RigidBody>
 	void awake();
 	~RigidBody();
 };
+
+}

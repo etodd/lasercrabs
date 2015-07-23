@@ -1,6 +1,9 @@
 #include "components.h"
 #include "physics.h"
 
+namespace VI
+{
+
 Transform::Transform()
 	: parent_id(), has_parent(false), pos(Vec3::zero), rot(Quat::identity)
 {
@@ -161,4 +164,6 @@ void Transform::reparent(Transform* p)
 		pos = abs_pos;
 		has_parent = false;
 	}
+}
+
 }

@@ -4,6 +4,9 @@
 #include "lodepng.h"
 #include "vi_assert.h"
 
+namespace VI
+{
+
 RenderSync::Swapper* Loader::swapper;
 // First entry in each array is empty
 Loader::Entry<Mesh> Loader::meshes[Asset::Model::count];
@@ -11,6 +14,7 @@ Loader::Entry<Animation> Loader::animations[Asset::Animation::count];
 Loader::Entry<void*> Loader::textures[Asset::Texture::count];
 Loader::Entry<void*> Loader::shaders[Asset::Shader::count];
 Loader::Entry<Font> Loader::fonts[Asset::Font::count];
+Array<Loader::Entry<void*>> Loader::dynamic_meshes = Array<Loader::Entry<void*>>();
 
 Mesh* Loader::mesh(AssetID id)
 {
@@ -28,7 +32,7 @@ Mesh* Loader::mesh(AssetID id)
 		}
 
 		Mesh* mesh = &meshes[id].data;
-		new (mesh) Mesh();
+		new (mesh)Mesh();
 
 		// Read indices
 		int index_count;
@@ -154,7 +158,7 @@ Animation* Loader::animation(AssetID id)
 		}
 
 		Animation* anim = &animations[id].data;
-		new (anim) Animation();
+		new (anim)Animation();
 
 		fread(&anim->duration, sizeof(float), 1, f);
 
@@ -341,8 +345,14 @@ Font* Loader::font(AssetID id)
 		fread(font->vertices.data, sizeof(Vec3), font->vertices.length, f);
 
 		fread(&j, sizeof(int), 1, f);
-		font->characters.resize(j);
-		fread(font->characters.data, sizeof(Font::Character), font->characters.length, f);
+		Array<Font::Character> characters;
+		characters.resize(j);
+		fread(characters.data, sizeof(Font::Character), characters.length, f);
+		for (size_t i = 0; i < characters.length; i++)
+		{
+			Font::Character* c = &characters[i];
+			font->characters[c->code] = *c;
+		}
 
 		fclose(f);
 	}
@@ -394,4 +404,6 @@ void Loader::unload_transients()
 		if (fonts[i].type == AssetTransient)
 			font_unload(i);
 	}
+}
+
 }

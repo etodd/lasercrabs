@@ -3,6 +3,9 @@
 #include "entity.h"
 #include "LinearMath/btTransform.h"
 
+namespace VI
+{
+
 struct Transform : public ComponentType<Transform>
 {
 	ID parent_id;
@@ -29,3 +32,5 @@ struct Transform : public ComponentType<Transform>
 	void absolute_rot(const Quat&);
 	void reparent(Transform*);
 };
+
+}

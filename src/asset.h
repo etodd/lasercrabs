@@ -1,6 +1,9 @@
 #pragma once
 #include "types.h"
 
+namespace VI
+{
+
 struct Asset
 {
 	static const AssetID Nothing = -1;
@@ -49,3 +52,5 @@ struct Asset
 		static const AssetID Planer_Reg;
 	};
 };
+
+}

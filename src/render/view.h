@@ -4,6 +4,9 @@
 #include "data/components.h"
 #include "render.h"
 
+namespace VI
+{
+
 struct View : public ComponentType<View>
 {
 	AssetID mesh;
@@ -14,3 +17,5 @@ struct View : public ComponentType<View>
 	void awake();
 	View();
 };
+
+}

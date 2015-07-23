@@ -6,6 +6,9 @@
 #include "render/render.h"
 #include "asset.h"
 
+namespace VI
+{
+
 struct Loader
 {
 	enum AssetType { AssetNone, AssetTransient, AssetPermanent };
@@ -26,6 +29,7 @@ struct Loader
 	static Entry<void*> textures[Asset::Texture::count]; // Nothing actually stored
 	static Entry<void*> shaders[Asset::Shader::count]; // Nothing actually stored
 	static Entry<Font> fonts[Asset::Font::count];
+	static Array<Entry<void*>> dynamic_meshes; // Nothing actually stored
 
 	static Mesh* mesh(AssetID);
 	static Mesh* mesh_permanent(AssetID);
@@ -44,3 +48,5 @@ struct Loader
 	static void font_unload(AssetID);
 	static void unload_transients();
 };
+
+}

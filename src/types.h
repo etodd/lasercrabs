@@ -2,6 +2,9 @@
 
 #include <cstdlib>
 
+namespace VI
+{
+
 struct GameTime
 {
 	float total;
@@ -25,3 +28,5 @@ struct Update
 };
 
 typedef size_t AssetID;
+
+}

@@ -4,6 +4,9 @@
 #include <cstdlib>
 #include <cstring>
 
+namespace VI
+{
+
 #define ARRAY_GROWTH_FACTOR 1.5
 #define ARRAY_INITIAL_RESERVATION 4
 
@@ -62,7 +65,7 @@ struct Array
 			reserved = nextSize;
 		}
 	}
-	
+
 	void remove(size_t i)
 	{
 		data[i] = data[length--];
@@ -296,3 +299,5 @@ struct Queue
 		return result->data;
 	}
 };
+
+}

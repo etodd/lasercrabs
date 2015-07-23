@@ -1,6 +1,9 @@
 #include "armature.h"
 #include "load.h"
 
+namespace VI
+{
+
 Armature::Armature()
 	: mesh(), shader(), texture(), bones(), time(), animation(), offset(Mat4::identity)
 {
@@ -104,13 +107,12 @@ void Armature::draw(RenderParams* params)
 	get<Transform>()->mat(&m);
 	m = offset * m;
 
-	sync->write(RenderOp_View);
+	sync->write(RenderOp_Mesh);
 	sync->write(&mesh);
 	sync->write(&shader);
-	sync->write(&texture);
 	Mat4 mvp = m * params->view * params->projection;
 
-	sync->write<int>(4); // Uniform count
+	sync->write<int>(5); // Uniform count
 
 	sync->write(Asset::Uniform::MVP);
 	sync->write(RenderDataType_Mat4);
@@ -126,6 +128,12 @@ void Armature::draw(RenderParams* params)
 	sync->write(RenderDataType_Mat4);
 	sync->write<int>(1);
 	sync->write(&params->view);
+
+	sync->write(Asset::Uniform::myTextureSampler);
+	sync->write(RenderDataType_Texture);
+	sync->write<int>(1);
+	sync->write(&texture);
+	sync->write<GLenum>(GL_TEXTURE_2D);
 
 	Mesh* m2 = Loader::mesh(mesh);
 	skin_transforms.resize(bones.length);
@@ -144,7 +152,7 @@ void Armature::draw(RenderParams* params)
 	Loader::texture(Asset::Texture::test);
 	for (size_t i = 0; i < bones.length; i++)
 	{
-		sync->write(RenderOp_View);
+		sync->write(RenderOp_Mesh);
 		sync->write(Asset::Model::cube);
 		sync->write(Asset::Shader::Standard);
 		sync->write(Asset::Texture::test);
@@ -175,4 +183,6 @@ void Armature::awake()
 	Loader::mesh(mesh);
 	Loader::shader(shader);
 	Loader::texture(texture);
+}
+
 }

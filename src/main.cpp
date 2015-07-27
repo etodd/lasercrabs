@@ -77,7 +77,7 @@ int proc()
 
 	// Ensure we can capture the escape key being pressed below
 	glfwSetInputMode(window, GLFW_STICKY_KEYS, GL_TRUE);
-	glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+	glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_HIDDEN);
 
 	// Dark blue background
 	glClearColor(0.0f, 0.0f, 0.4f, 0.0f);
@@ -113,6 +113,8 @@ int proc()
 
 		bool quit = sync->quit = glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS || glfwWindowShouldClose(window);
 
+		bool focus = sync->focus = glfwGetWindowAttrib(window, GLFW_FOCUSED);
+
 #if DEBUG
 		// Convenience function for recording gifs
 		if (glfwGetKey(window, GLFW_KEY_G) == GLFW_PRESS)
@@ -125,7 +127,8 @@ int proc()
 		glfwGetFramebufferSize(window, &sync->input.width, &sync->input.height);
 
 		glfwGetCursorPos(window, &sync->input.cursor_x, &sync->input.cursor_y);
-		glfwSetCursorPos(window, sync->input.width / 2, sync->input.height / 2);
+		if (focus)
+			glfwSetCursorPos(window, sync->input.width / 2, sync->input.height / 2);
 		memcpy(sync->input.mouse_buttons, _window->mouseButtons, sizeof(bool) * 8);
 		sync->time.total = (float)glfwGetTime();
 		sync->time.delta = sync->time.total - lastTime;

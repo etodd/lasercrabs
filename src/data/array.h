@@ -104,7 +104,7 @@ struct Array
 		return &data[length - 1];
 	}
 
-	T* add(T& t)
+	T* add(const T& t)
 	{
 		T* p = add();
 		*p = t;

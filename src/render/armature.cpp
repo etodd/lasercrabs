@@ -105,12 +105,13 @@ void Armature::draw(const RenderParams& params)
 
 	Mat4 m;
 	get<Transform>()->mat(&m);
+	
 	m = offset * m;
 
 	sync->write(RenderOp_Mesh);
 	sync->write(&mesh);
 	sync->write(&shader);
-	Mat4 mvp = m * params.view * params.projection;
+	Mat4 mvp = m * params.view_projection;
 
 	sync->write<int>(5); // Uniform count
 

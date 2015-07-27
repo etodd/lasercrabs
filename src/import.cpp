@@ -67,8 +67,10 @@ struct Animation
 struct FontCharacter
 {
 	char code;
-	int start_index;
-	int indices;
+	int index_start;
+	int index_count;
+	int vertex_start;
+	int vertex_count;
 	Vec2 min;
 	Vec2 max;
 };
@@ -311,8 +313,10 @@ bool load_font(const aiScene* scene, Mesh& mesh, Array<FontCharacter>& character
 
 		FontCharacter c;
 		c.code = ai_mesh->mName.data[0];
-		c.start_index = current_mesh_vertex;
-		c.indices = mesh.indices.length - current_mesh_vertex;
+		c.vertex_start = current_mesh_vertex;
+		c.vertex_count = ai_mesh->mNumVertices;
+		c.index_start = current_mesh_index;
+		c.index_count = ai_mesh->mNumFaces * 3;
 		c.min = min_vertex;
 		c.max = max_vertex;
 		characters.add(c);
@@ -903,7 +907,7 @@ int proc(int argc, char* argv[])
 
 				// Export to FBX first
 				char cmd[MAX_PATH_LENGTH + 512];
-				sprintf(cmd, "blender %s --background --python %sblend_to_fbx.py -- %s", asset_in_path, asset_in_folder, asset_intermediate_path);
+				sprintf(cmd, "blender %s --background --factory-startup --python %sblend_to_fbx.py -- %s", asset_in_path, asset_in_folder, asset_intermediate_path);
 
 				if (!run_cmd(cmd))
 				{
@@ -1062,7 +1066,7 @@ int proc(int argc, char* argv[])
 
 				// Export to FBX first
 				char cmd[MAX_PATH_LENGTH + 512];
-				sprintf(cmd, "blender --background --python %sttf_to_fbx.py -- %s %s", asset_in_folder, asset_in_path, asset_intermediate_path);
+				sprintf(cmd, "blender --background --factory-startup --python %sttf_to_fbx.py -- %s %s", asset_in_folder, asset_in_path, asset_intermediate_path);
 
 				if (!run_cmd(cmd))
 				{

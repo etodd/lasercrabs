@@ -33,20 +33,30 @@ struct Loader
 
 	static Mesh* mesh(AssetID);
 	static Mesh* mesh_permanent(AssetID);
-	static void mesh_unload(AssetID);
+	static void mesh_free(size_t);
+
+	static size_t dynamic_mesh(int);
+	static void dynamic_mesh_attrib(RenderDataType, int = 1);
+	static size_t dynamic_mesh_permanent(int);
+	static void dynamic_mesh_free(size_t);
+
 	static Animation* animation(AssetID);
 	static Animation* animation_permanent(AssetID);
-	static void animation_unload(AssetID);
+	static void animation_free(AssetID);
+
 	static void texture(AssetID);
 	static void texture_permanent(AssetID);
-	static void texture_unload(AssetID);
+	static void texture_free(AssetID);
+
 	static void shader(AssetID);
 	static void shader_permanent(AssetID);
-	static void shader_unload(AssetID);
+	static void shader_free(AssetID);
+
 	static Font* font(AssetID);
 	static Font* font_permanent(AssetID);
-	static void font_unload(AssetID);
-	static void unload_transients();
+	static void font_free(AssetID);
+
+	static void transients_free();
 };
 
 }

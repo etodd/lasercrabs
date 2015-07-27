@@ -16,98 +16,6 @@ RenderSync::Swapper RenderSync::swapper(size_t index)
 	return q;
 }
 
-void render_mesh(SyncData* sync, GLData* data, GLData::Mesh* mesh)
-{
-	AssetID shader_asset = *(sync->read<AssetID>());
-
-	GLuint programID = data->shaders[shader_asset].handle;
-
-	glUseProgram(programID);
-
-	int texture_index = 0;
-
-	int uniform_count = *(sync->read<int>());
-	for (int i = 0; i < uniform_count; i++)
-	{
-		AssetID uniform_asset = *(sync->read<AssetID>());
-		GLuint uniform_id = data->shaders[shader_asset].uniforms[uniform_asset];
-		RenderDataType uniform_type = *(sync->read<RenderDataType>());
-		int uniform_count = *(sync->read<int>());
-		switch (uniform_type)
-		{
-			case RenderDataType_Float:
-				glUniform1fv(uniform_id, uniform_count, sync->read<float>(uniform_count));
-				break;
-			case RenderDataType_Vec2:
-				glUniform2fv(uniform_id, uniform_count, (float*)sync->read<Vec2>(uniform_count));
-				break;
-			case RenderDataType_Vec3:
-				glUniform3fv(uniform_id, uniform_count, (float*)sync->read<Vec3>(uniform_count));
-				break;
-			case RenderDataType_Vec4:
-				glUniform4fv(uniform_id, uniform_count, (float*)sync->read<Vec4>(uniform_count));
-				break;
-			case RenderDataType_Int:
-				glUniform1iv(uniform_id, uniform_count, sync->read<int>(uniform_count));
-				break;
-			case RenderDataType_Mat4:
-				glUniformMatrix4fv(uniform_id, uniform_count, GL_FALSE, (float*)sync->read<Mat4>(uniform_count));
-				break;
-			case RenderDataType_Texture:
-				vi_assert(uniform_count == 1); // Only single textures supported for now
-				AssetID texture_asset = *(sync->read<AssetID>(uniform_count));
-				GLuint texture_id = data->textures[texture_asset];
-				glActiveTexture(GL_TEXTURE0 + texture_index);
-				GLenum texture_type = *(sync->read<GLenum>(uniform_count));
-				glBindTexture(texture_type, texture_id);
-				glUniform1i(uniform_id, texture_index);
-				texture_index++;
-				break;
-		}
-	}
-
-	for (size_t i = 0; i < mesh->attribs.length; i++)
-	{
-		glEnableVertexAttribArray(i);
-		glBindBuffer(GL_ARRAY_BUFFER, mesh->attribs.data[i].handle);
-		if (mesh->attribs.data[i].gl_type == GL_INT)
-		{
-			glVertexAttribIPointer
-			(
-				i,                                    // attribute
-				mesh->attribs.data[i].total_element_size,     // size
-				mesh->attribs.data[i].gl_type,             // type
-				0,                                    // stride
-				(void*)0                              // array buffer offset
-			);
-		}
-		else
-		{
-			glVertexAttribPointer
-			(
-				i,                                    // attribute
-				mesh->attribs.data[i].total_element_size,     // size
-				mesh->attribs.data[i].gl_type,             // type
-				GL_FALSE,                             // normalized?
-				0,                                    // stride
-				(void*)0                              // array buffer offset
-			);
-		}
-	}
-
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh->index_buffer);
-
-	glDrawElements(
-		GL_TRIANGLES,       // mode
-		mesh->index_count,    // count
-		GL_UNSIGNED_INT,    // type
-		(void*)0            // element array buffer offset
-	);
-
-	for (size_t i = 0; i < mesh->attribs.length; i++)
-		glDisableVertexAttribArray(i);
-}
-
 void render(SyncData* sync, GLData* data)
 {
 	sync->read_pos = 0;
@@ -234,7 +142,7 @@ void render(SyncData* sync, GLData* data)
 				mesh->index_count = index_count;
 				break;
 			}
-			case RenderOp_DeallocMesh:
+			case RenderOp_FreeMesh:
 			{
 				AssetID id = *(sync->read<AssetID>());
 				GLData::Mesh* mesh = &data->meshes[id];
@@ -269,7 +177,7 @@ void render(SyncData* sync, GLData* data)
 				data->textures[id] = textureID;
 				break;
 			}
-			case RenderOp_UnloadTexture:
+			case RenderOp_FreeTexture:
 			{
 				AssetID id = *(sync->read<AssetID>());
 				glDeleteTextures(1, &data->textures[id]);
@@ -345,7 +253,7 @@ void render(SyncData* sync, GLData* data)
 				data->shaders[id].handle = program_id;
 				break;
 			}
-			case RenderOp_UnloadShader:
+			case RenderOp_FreeShader:
 			{
 				AssetID id = *(sync->read<AssetID>());
 				glDeleteProgram(data->shaders[id].handle);
@@ -360,9 +268,96 @@ void render(SyncData* sync, GLData* data)
 			}
 			case RenderOp_Mesh:
 			{
-				AssetID id = *(sync->read<AssetID>());
-				GLData::Mesh* gl_mesh = &data->meshes[id];
-				render_mesh(sync, data, gl_mesh);
+				size_t id = *(sync->read<size_t>());
+				GLData::Mesh* mesh = &data->meshes[id];
+				AssetID shader_asset = *(sync->read<AssetID>());
+
+				GLuint programID = data->shaders[shader_asset].handle;
+
+				glUseProgram(programID);
+
+				int texture_index = 0;
+
+				int uniform_count = *(sync->read<int>());
+				for (int i = 0; i < uniform_count; i++)
+				{
+					AssetID uniform_asset = *(sync->read<AssetID>());
+					GLuint uniform_id = data->shaders[shader_asset].uniforms[uniform_asset];
+					RenderDataType uniform_type = *(sync->read<RenderDataType>());
+					int uniform_count = *(sync->read<int>());
+					switch (uniform_type)
+					{
+						case RenderDataType_Float:
+							glUniform1fv(uniform_id, uniform_count, sync->read<float>(uniform_count));
+							break;
+						case RenderDataType_Vec2:
+							glUniform2fv(uniform_id, uniform_count, (float*)sync->read<Vec2>(uniform_count));
+							break;
+						case RenderDataType_Vec3:
+							glUniform3fv(uniform_id, uniform_count, (float*)sync->read<Vec3>(uniform_count));
+							break;
+						case RenderDataType_Vec4:
+							glUniform4fv(uniform_id, uniform_count, (float*)sync->read<Vec4>(uniform_count));
+							break;
+						case RenderDataType_Int:
+							glUniform1iv(uniform_id, uniform_count, sync->read<int>(uniform_count));
+							break;
+						case RenderDataType_Mat4:
+							glUniformMatrix4fv(uniform_id, uniform_count, GL_FALSE, (float*)sync->read<Mat4>(uniform_count));
+							break;
+						case RenderDataType_Texture:
+							vi_assert(uniform_count == 1); // Only single textures supported for now
+							AssetID texture_asset = *(sync->read<AssetID>(uniform_count));
+							GLuint texture_id = data->textures[texture_asset];
+							glActiveTexture(GL_TEXTURE0 + texture_index);
+							GLenum texture_type = *(sync->read<GLenum>(uniform_count));
+							glBindTexture(texture_type, texture_id);
+							glUniform1i(uniform_id, texture_index);
+							texture_index++;
+							break;
+					}
+				}
+
+				for (size_t i = 0; i < mesh->attribs.length; i++)
+				{
+					glEnableVertexAttribArray(i);
+					glBindBuffer(GL_ARRAY_BUFFER, mesh->attribs.data[i].handle);
+					if (mesh->attribs.data[i].gl_type == GL_INT)
+					{
+						glVertexAttribIPointer
+						(
+							i,                                    // attribute
+							mesh->attribs.data[i].total_element_size,     // size
+							mesh->attribs.data[i].gl_type,             // type
+							0,                                    // stride
+							(void*)0                              // array buffer offset
+						);
+					}
+					else
+					{
+						glVertexAttribPointer
+						(
+							i,                                    // attribute
+							mesh->attribs.data[i].total_element_size,     // size
+							mesh->attribs.data[i].gl_type,             // type
+							GL_FALSE,                             // normalized?
+							0,                                    // stride
+							(void*)0                              // array buffer offset
+						);
+					}
+				}
+
+				glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh->index_buffer);
+
+				glDrawElements(
+					GL_TRIANGLES,       // mode
+					mesh->index_count,    // count
+					GL_UNSIGNED_INT,    // type
+					(void*)0            // element array buffer offset
+				);
+
+				for (size_t i = 0; i < mesh->attribs.length; i++)
+					glDisableVertexAttribArray(i);
 				break;
 			}
 		}

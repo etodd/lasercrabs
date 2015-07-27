@@ -27,13 +27,13 @@ struct RenderSync;
 enum RenderOp
 {
 	RenderOp_AllocMesh,
-	RenderOp_DeallocMesh,
+	RenderOp_FreeMesh,
 	RenderOp_UpdateAttribBuffers,
 	RenderOp_UpdateIndexBuffer,
 	RenderOp_LoadTexture,
-	RenderOp_UnloadTexture,
+	RenderOp_FreeTexture,
 	RenderOp_LoadShader,
-	RenderOp_UnloadShader,
+	RenderOp_FreeShader,
 	RenderOp_Mesh,
 	RenderOp_Clear,
 };
@@ -52,6 +52,7 @@ enum RenderDataType
 struct SyncData
 {
 	bool quit;
+	bool focus;
 	GameTime time;
 	InputState input;
 	Array<char> queue;
@@ -164,6 +165,7 @@ struct RenderParams
 {
 	Mat4 view;
 	Mat4 projection;
+	Mat4 view_projection;
 	GLbitfield clear;
 	RenderTechnique technique;
 	SyncData* sync;

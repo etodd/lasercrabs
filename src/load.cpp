@@ -140,15 +140,68 @@ Mesh* Loader::mesh_permanent(AssetID id)
 	return m;
 }
 
-void Loader::mesh_unload(AssetID id)
+void Loader::mesh_free(AssetID id)
 {
 	if (id != Asset::Nothing && meshes[id].type != AssetNone)
 	{
 		meshes[id].data.~Mesh();
 		SyncData* sync = swapper->get();
-		sync->write(RenderOp_DeallocMesh);
+		sync->write(RenderOp_FreeMesh);
 		sync->write<size_t>(id);
 		meshes[id].type = AssetNone;
+	}
+}
+
+size_t Loader::dynamic_mesh(int attribs)
+{
+	size_t index = Asset::Nothing;
+	for (size_t i = 0; i < dynamic_meshes.length; i++)
+	{
+		if (dynamic_meshes[i].type == AssetNone)
+		{
+			index = Asset::Model::count + i;
+			break;
+		}
+	}
+
+	if (index == Asset::Nothing)
+	{
+		index = Asset::Model::count + dynamic_meshes.length;
+		dynamic_meshes.add();
+	}
+
+	dynamic_meshes[index - Asset::Model::count].type = AssetTransient;
+
+	SyncData* sync = swapper->get();
+	sync->write(RenderOp_AllocMesh);
+	sync->write<size_t>(index);
+	sync->write<int>(attribs);
+
+	return index;
+}
+
+void Loader::dynamic_mesh_attrib(RenderDataType type, int count)
+{
+	SyncData* sync = swapper->get();
+	sync->write(type);
+	sync->write(count);
+}
+
+size_t Loader::dynamic_mesh_permanent(int attribs)
+{
+	size_t result = dynamic_mesh(attribs);
+	dynamic_meshes[result - Asset::Model::count].type = AssetPermanent;
+	return result;
+}
+
+void Loader::dynamic_mesh_free(size_t id)
+{
+	if (id != Asset::Nothing && dynamic_meshes[id].type != AssetNone)
+	{
+		SyncData* sync = swapper->get();
+		sync->write(RenderOp_FreeMesh);
+		sync->write<size_t>(id);
+		dynamic_meshes[id - Asset::Model::count].type = AssetNone;
 	}
 }
 
@@ -214,7 +267,7 @@ Animation* Loader::animation_permanent(AssetID id)
 	return anim;
 }
 
-void Loader::animation_unload(AssetID id)
+void Loader::animation_free(AssetID id)
 {
 	if (id != Asset::Nothing && animations[id].type != AssetNone)
 	{
@@ -258,12 +311,12 @@ void Loader::texture_permanent(AssetID id)
 		textures[id].type = AssetPermanent;
 }
 
-void Loader::texture_unload(AssetID id)
+void Loader::texture_free(AssetID id)
 {
 	if (id != Asset::Nothing && textures[id].type != AssetNone)
 	{
 		SyncData* sync = swapper->get();
-		sync->write(RenderOp_UnloadTexture);
+		sync->write(RenderOp_FreeTexture);
 		sync->write<AssetID>(&id);
 		textures[id].type = AssetNone;
 	}
@@ -315,12 +368,12 @@ void Loader::shader_permanent(AssetID id)
 		shaders[id].type = AssetPermanent;
 }
 
-void Loader::shader_unload(AssetID id)
+void Loader::shader_free(AssetID id)
 {
 	if (id != Asset::Nothing && shaders[id].type != AssetNone)
 	{
 		SyncData* sync = swapper->get();
-		sync->write(RenderOp_UnloadShader);
+		sync->write(RenderOp_FreeShader);
 		sync->write(&id);
 		shaders[id].type = AssetNone;
 	}
@@ -377,7 +430,7 @@ Font* Loader::font_permanent(AssetID id)
 	return f;
 }
 
-void Loader::font_unload(AssetID id)
+void Loader::font_free(AssetID id)
 {
 	if (id != Asset::Nothing && fonts[id].type != AssetNone)
 	{
@@ -386,7 +439,7 @@ void Loader::font_unload(AssetID id)
 	}
 }
 
-void Loader::unload_transients()
+void Loader::transients_free()
 {
 	// First entry in each array is empty
 	// That way ID 0 is invalid, and we don't have to do [id - 1] all the time
@@ -394,25 +447,31 @@ void Loader::unload_transients()
 	for (AssetID i = 0; i < Asset::Model::count; i++)
 	{
 		if (meshes[i].type == AssetTransient)
-			mesh_unload(i);
+			mesh_free(i);
 	}
 
 	for (AssetID i = 0; i < Asset::Texture::count; i++)
 	{
 		if (textures[i].type == AssetTransient)
-			texture_unload(i);
+			texture_free(i);
 	}
 
 	for (AssetID i = 0; i < Asset::Shader::count; i++)
 	{
 		if (shaders[i].type == AssetTransient)
-			shader_unload(i);
+			shader_free(i);
 	}
 
 	for (AssetID i = 0; i < Asset::Font::count; i++)
 	{
 		if (fonts[i].type == AssetTransient)
-			font_unload(i);
+			font_free(i);
+	}
+
+	for (size_t i = 0; i < dynamic_meshes.length; i++)
+	{
+		if (dynamic_meshes[i].type == AssetTransient)
+			dynamic_mesh_free(Asset::Model::count + i);
 	}
 }
 

@@ -53,8 +53,10 @@ struct Font
 	struct Character
 	{
 		char code;
-		int start_index;
-		int indices;
+		int index_start;
+		int index_count;
+		int vertex_start;
+		int vertex_count;
 		Vec2 min;
 		Vec2 max;
 	};

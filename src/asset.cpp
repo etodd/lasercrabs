@@ -23,11 +23,13 @@ const char* Asset::Texture::filenames[] =
 
 AssetID const Asset::Shader::Armature = 0;
 AssetID const Asset::Shader::Standard = 1;
+AssetID const Asset::Shader::UI = 2;
 
 const char* Asset::Shader::filenames[] =
 {
 	"assets/Armature.glsl",
 	"assets/Standard.glsl",
+	"assets/UI.glsl",
 };
 
 AssetID const Asset::Animation::walk = 0;

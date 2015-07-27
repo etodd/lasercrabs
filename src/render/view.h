@@ -13,7 +13,7 @@ struct View : public ComponentType<View>
 	AssetID shader;
 	AssetID texture;
 	Mat4 offset;
-	void draw(RenderParams*);
+	void draw(const RenderParams&);
 	void awake();
 	View();
 };

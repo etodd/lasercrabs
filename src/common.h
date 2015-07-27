@@ -40,7 +40,7 @@ struct NoclipControl : public ComponentType<NoclipControl>
 	NoclipControl();
 	void awake();
 
-	void update(Update);
+	void update(const Update&);
 };
 
 }

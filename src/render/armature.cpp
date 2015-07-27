@@ -21,7 +21,7 @@ static size_t find_keyframe_index(Array<T>& keyframes, float time)
 	return index;
 }
 
-void Armature::update(Update u)
+void Armature::update(const Update& u)
 {
 	time += u.time.delta;
 	while (time > animation->duration)
@@ -99,9 +99,9 @@ void Armature::update_world_transforms()
 	}
 }
 
-void Armature::draw(RenderParams* params)
+void Armature::draw(const RenderParams& params)
 {
-	SyncData* sync = params->sync;
+	SyncData* sync = params.sync;
 
 	Mat4 m;
 	get<Transform>()->mat(&m);
@@ -110,7 +110,7 @@ void Armature::draw(RenderParams* params)
 	sync->write(RenderOp_Mesh);
 	sync->write(&mesh);
 	sync->write(&shader);
-	Mat4 mvp = m * params->view * params->projection;
+	Mat4 mvp = m * params.view * params.projection;
 
 	sync->write<int>(5); // Uniform count
 
@@ -127,7 +127,7 @@ void Armature::draw(RenderParams* params)
 	sync->write(Asset::Uniform::V);
 	sync->write(RenderDataType_Mat4);
 	sync->write<int>(1);
-	sync->write(&params->view);
+	sync->write(&params.view);
 
 	sync->write(Asset::Uniform::myTextureSampler);
 	sync->write(RenderDataType_Texture);
@@ -156,7 +156,7 @@ void Armature::draw(RenderParams* params)
 		sync->write(Asset::Model::cube);
 		sync->write(Asset::Shader::Standard);
 		sync->write(Asset::Texture::test);
-		Mat4 mvp = bones[i] * m * params->view * params->projection;
+		Mat4 mvp = bones[i] * m * params.view * params.projection;
 
 		sync->write<int>(3); // Uniform count
 
@@ -173,7 +173,7 @@ void Armature::draw(RenderParams* params)
 		sync->write(Asset::Uniform::V);
 		sync->write(RenderDataType_Mat4);
 		sync->write<int>(1);
-		sync->write(&params->view);
+		sync->write(&params.view);
 	}
 	*/
 }

@@ -79,7 +79,7 @@ void NoclipControl::awake()
 {
 }
 
-void NoclipControl::update(Update u)
+void NoclipControl::update(const Update& u)
 {
 	angle_horizontal += speed_mouse * ((u.input->width / 2) - (float)u.input->cursor_x);
 	angle_vertical -= speed_mouse * ((u.input->height / 2) - (float)u.input->cursor_y);

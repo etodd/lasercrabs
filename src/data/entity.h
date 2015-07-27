@@ -16,21 +16,6 @@ typedef unsigned int ID;
 typedef unsigned long ComponentMask;
 const Family MAX_FAMILIES = sizeof(ComponentMask) * 8;
 
-enum RenderTechnique
-{
-	RenderTechnique_Default,
-};
-
-struct SyncData;
-struct RenderParams
-{
-	Mat4 view;
-	Mat4 projection;
-	GLbitfield clear;
-	RenderTechnique technique;
-	SyncData* sync;
-};
-
 struct ComponentBase;
 
 struct PoolBase

@@ -19,8 +19,8 @@ struct Armature : public ComponentType<Armature>
 	Mat4 offset;
 	float time;
 
-	void draw(RenderParams*);
-	void update(Update);
+	void draw(const RenderParams&);
+	void update(const Update&);
 	void update_world_transforms();
 	void awake();
 	Armature();

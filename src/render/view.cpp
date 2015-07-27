@@ -9,9 +9,9 @@ View::View()
 {
 }
 
-void View::draw(RenderParams* params)
+void View::draw(const RenderParams& params)
 {
-	SyncData* sync = params->sync;
+	SyncData* sync = params.sync;
 	sync->write(RenderOp_Mesh);
 	sync->write(&mesh);
 	sync->write(&shader);
@@ -19,7 +19,7 @@ void View::draw(RenderParams* params)
 	Mat4 m;
 	get<Transform>()->mat(&m);
 	m = offset * m;
-	Mat4 mvp = m * params->view * params->projection;
+	Mat4 mvp = m * params.view * params.projection;
 
 	sync->write<int>(4); // Uniform count
 
@@ -36,7 +36,7 @@ void View::draw(RenderParams* params)
 	sync->write(Asset::Uniform::V);
 	sync->write(RenderDataType_Mat4);
 	sync->write<int>(1);
-	sync->write(&params->view);
+	sync->write(&params.view);
 
 	sync->write(Asset::Uniform::myTextureSampler);
 	sync->write(RenderDataType_Texture);

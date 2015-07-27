@@ -26,16 +26,15 @@ struct RenderSync;
 
 enum RenderOp
 {
-	RenderOp_LoadMesh,
-	RenderOp_UnloadMesh,
-	RenderOp_LoadDynamicMesh,
-	RenderOp_UnloadDynamicMesh,
+	RenderOp_AllocMesh,
+	RenderOp_DeallocMesh,
+	RenderOp_UpdateAttribBuffers,
+	RenderOp_UpdateIndexBuffer,
 	RenderOp_LoadTexture,
 	RenderOp_UnloadTexture,
 	RenderOp_LoadShader,
 	RenderOp_UnloadShader,
 	RenderOp_Mesh,
-	RenderOp_DynamicMesh,
 	RenderOp_Clear,
 };
 
@@ -119,8 +118,10 @@ struct GLData
 	{
 		struct Attrib
 		{
-			int element_size;
-			GLuint type;
+			int total_element_size;
+			int element_count;
+			RenderDataType data_type;
+			GLuint gl_type;
 			GLuint handle;
 		};
 
@@ -142,16 +143,30 @@ struct GLData
 		GLuint uniforms[Asset::Uniform::count];
 	};
 
-	Mesh meshes[Asset::Model::count];
 	GLuint textures[Asset::Texture::count];
 	Shader shaders[Asset::Shader::count];
-	Array<Mesh> dynamic_meshes;
+	Array<Mesh> meshes;
 
 	GLData()
-		: meshes(), textures(), shaders(), dynamic_meshes()
+		: meshes(), textures(), shaders()
 	{
 
 	}
+};
+
+enum RenderTechnique
+{
+	RenderTechnique_Default,
+};
+
+struct SyncData;
+struct RenderParams
+{
+	Mat4 view;
+	Mat4 projection;
+	GLbitfield clear;
+	RenderTechnique technique;
+	SyncData* sync;
 };
 
 void render(SyncData*, GLData*);

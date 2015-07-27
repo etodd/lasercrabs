@@ -85,36 +85,46 @@ Mesh* Loader::mesh(AssetID id)
 
 		// GL
 		SyncData* sync = swapper->get();
-		sync->write(RenderOp_LoadMesh);
-		sync->write(&id);
-		sync->write(&mesh->vertices.length);
+		sync->write(RenderOp_AllocMesh);
+		sync->write<size_t>(id);
 
-		sync->write<size_t>(bone_count > 0 ? 5 : 3);
+		sync->write<int>(bone_count > 0 ? 5 : 3); // Attribute count
 
 		sync->write(RenderDataType_Vec3);
-		sync->write<size_t>(1); // Number of data elements per vertex
-		sync->write(mesh->vertices.data, mesh->vertices.length);
+		sync->write<int>(1); // Number of data elements per vertex
 
 		sync->write(RenderDataType_Vec2);
-		sync->write<size_t>(1); // Number of data elements per vertex
-		sync->write(mesh->uvs.data, mesh->vertices.length);
+		sync->write<int>(1); // Number of data elements per vertex
 
 		sync->write(RenderDataType_Vec3);
-		sync->write<size_t>(1); // Number of data elements per vertex
-		sync->write(mesh->normals.data, mesh->vertices.length);
+		sync->write<int>(1); // Number of data elements per vertex
 
 		if (bone_count > 0)
 		{
 			sync->write(RenderDataType_Int);
-			sync->write<size_t>(MAX_BONE_WEIGHTS); // Number of data elements per vertex
-			sync->write(mesh->bone_indices.data, mesh->vertices.length);
+			sync->write<int>(MAX_BONE_WEIGHTS); // Number of data elements per vertex
 
 			sync->write(RenderDataType_Float);
-			sync->write<size_t>(MAX_BONE_WEIGHTS); // Number of data elements per vertex
+			sync->write<int>(MAX_BONE_WEIGHTS); // Number of data elements per vertex
+		}
+
+		sync->write(RenderOp_UpdateAttribBuffers);
+		sync->write<size_t>(id);
+
+		sync->write<int>(mesh->vertices.length);
+		sync->write(mesh->vertices.data, mesh->vertices.length);
+		sync->write(mesh->uvs.data, mesh->vertices.length);
+		sync->write(mesh->normals.data, mesh->vertices.length);
+
+		if (bone_count > 0)
+		{
+			sync->write(mesh->bone_indices.data, mesh->vertices.length);
 			sync->write(mesh->bone_weights.data, mesh->vertices.length);
 		}
 
-		sync->write(&mesh->indices.length);
+		sync->write(RenderOp_UpdateIndexBuffer);
+		sync->write<size_t>(id);
+		sync->write<int>(mesh->indices.length);
 		sync->write(mesh->indices.data, mesh->indices.length);
 
 		meshes[id].type = AssetTransient;
@@ -136,8 +146,8 @@ void Loader::mesh_unload(AssetID id)
 	{
 		meshes[id].data.~Mesh();
 		SyncData* sync = swapper->get();
-		sync->write(RenderOp_UnloadMesh);
-		sync->write<AssetID>(&id);
+		sync->write(RenderOp_DeallocMesh);
+		sync->write<size_t>(id);
 		meshes[id].type = AssetNone;
 	}
 }

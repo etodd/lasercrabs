@@ -16,88 +16,6 @@ RenderSync::Swapper RenderSync::swapper(size_t index)
 	return q;
 }
 
-template<typename T> void add_attrib(GLData::Mesh* gl, T* data, size_t count, size_t element_count, GLuint type)
-{
-	GLData::Mesh::Attrib a;
-	a.element_size = sizeof(T) * element_count / 4;
-	a.type = type;
-	glBindVertexArray(gl->vertex_array);
-	glGenBuffers(1, &a.handle);
-	glBindBuffer(GL_ARRAY_BUFFER, a.handle);
-	glBufferData(GL_ARRAY_BUFFER, count * sizeof(T) * element_count, data, GL_STATIC_DRAW);
-	gl->attribs.add(a);
-}
-
-void load_mesh(SyncData* sync, GLData* data, GLData::Mesh* mesh)
-{
-	size_t vertex_count = *(sync->read<size_t>());
-
-	glGenVertexArrays(1, &mesh->vertex_array);
-	glBindVertexArray(mesh->vertex_array);
-
-	size_t attrib_count = *(sync->read<size_t>());
-	for (size_t i = 0; i < attrib_count; i++)
-	{
-		RenderDataType attrib_type = *(sync->read<RenderDataType>());
-		size_t attrib_element_count = *(sync->read<size_t>());
-		switch (attrib_type)
-		{
-			case RenderDataType_Float:
-			{
-				float* data = sync->read<float>(vertex_count * attrib_element_count);
-				add_attrib<float>(mesh, data, vertex_count, attrib_element_count, GL_FLOAT);
-				break;
-			}
-			case RenderDataType_Vec2:
-			{
-				Vec2* data = sync->read<Vec2>(vertex_count * attrib_element_count);
-				add_attrib<Vec2>(mesh, data, vertex_count, attrib_element_count, GL_FLOAT);
-				break;
-			}
-			case RenderDataType_Vec3:
-			{
-				Vec3* data = sync->read<Vec3>(vertex_count * attrib_element_count);
-				add_attrib<Vec3>(mesh, data, vertex_count, attrib_element_count, GL_FLOAT);
-				break;
-			}
-			case RenderDataType_Vec4:
-			{
-				Vec4* data = sync->read<Vec4>(vertex_count * attrib_element_count);
-				add_attrib<Vec4>(mesh, data, vertex_count, attrib_element_count, GL_FLOAT);
-				break;
-			}
-			case RenderDataType_Int:
-			{
-				int* data = sync->read<int>(vertex_count * attrib_element_count);
-				add_attrib<int>(mesh, data, vertex_count, attrib_element_count, GL_INT);
-				break;
-			}
-			case RenderDataType_Mat4:
-			{
-				Mat4* data = sync->read<Mat4>(vertex_count * attrib_element_count);
-				add_attrib<Mat4>(mesh, data, vertex_count, attrib_element_count, GL_FLOAT);
-				break;
-			}
-		}
-	}
-
-	size_t index_count = *(sync->read<size_t>());
-	int* indices = sync->read<int>(index_count);
-
-	glGenBuffers(1, &mesh->index_buffer);
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh->index_buffer);
-	glBufferData(GL_ELEMENT_ARRAY_BUFFER, index_count * sizeof(int), indices, GL_STATIC_DRAW);
-	mesh->index_count = index_count;
-}
-
-void unload_mesh(GLData::Mesh* mesh)
-{
-	for (size_t i = 0; i < mesh->attribs.length; i++)
-		glDeleteBuffers(1, &mesh->attribs.data[i].handle);
-	glDeleteVertexArrays(1, &mesh->vertex_array);
-	mesh->~Mesh();
-}
-
 void render_mesh(SyncData* sync, GLData* data, GLData::Mesh* mesh)
 {
 	AssetID shader_asset = *(sync->read<AssetID>());
@@ -152,13 +70,13 @@ void render_mesh(SyncData* sync, GLData* data, GLData::Mesh* mesh)
 	{
 		glEnableVertexAttribArray(i);
 		glBindBuffer(GL_ARRAY_BUFFER, mesh->attribs.data[i].handle);
-		if (mesh->attribs.data[i].type == GL_INT)
+		if (mesh->attribs.data[i].gl_type == GL_INT)
 		{
 			glVertexAttribIPointer
 			(
 				i,                                    // attribute
-				mesh->attribs.data[i].element_size,     // size
-				mesh->attribs.data[i].type,             // type
+				mesh->attribs.data[i].total_element_size,     // size
+				mesh->attribs.data[i].gl_type,             // type
 				0,                                    // stride
 				(void*)0                              // array buffer offset
 			);
@@ -168,8 +86,8 @@ void render_mesh(SyncData* sync, GLData* data, GLData::Mesh* mesh)
 			glVertexAttribPointer
 			(
 				i,                                    // attribute
-				mesh->attribs.data[i].element_size,     // size
-				mesh->attribs.data[i].type,             // type
+				mesh->attribs.data[i].total_element_size,     // size
+				mesh->attribs.data[i].gl_type,             // type
 				GL_FALSE,                             // normalized?
 				0,                                    // stride
 				(void*)0                              // array buffer offset
@@ -198,34 +116,132 @@ void render(SyncData* sync, GLData* data)
 		RenderOp op = *(sync->read<RenderOp>());
 		switch (op)
 		{
-			case RenderOp_LoadMesh:
+			case RenderOp_AllocMesh:
+			{
+				size_t id = *(sync->read<size_t>());
+				data->meshes.resize(id + 1);
+				GLData::Mesh* mesh = &data->meshes[id];
+				new (mesh) GLData::Mesh();
+
+				glGenVertexArrays(1, &mesh->vertex_array);
+				glBindVertexArray(mesh->vertex_array);
+
+				int attrib_count = *(sync->read<int>());
+				for (int i = 0; i < attrib_count; i++)
+				{
+					GLData::Mesh::Attrib a;
+					a.data_type = *(sync->read<RenderDataType>());
+					a.element_count = *(sync->read<int>());
+					switch (a.data_type)
+					{
+						case RenderDataType_Int:
+							a.total_element_size = a.element_count;
+							a.gl_type = GL_INT;
+							break;
+						case RenderDataType_Float:
+							a.total_element_size = a.element_count;
+							a.gl_type = GL_FLOAT;
+							break;
+						case RenderDataType_Vec2:
+							a.total_element_size = a.element_count * sizeof(Vec2) / 4;
+							a.gl_type = GL_FLOAT;
+							break;
+						case RenderDataType_Vec3:
+							a.total_element_size = a.element_count * sizeof(Vec3) / 4;
+							a.gl_type = GL_FLOAT;
+							break;
+						case RenderDataType_Vec4:
+							a.total_element_size = a.element_count * sizeof(Vec4) / 4;
+							a.gl_type = GL_FLOAT;
+							break;
+						case RenderDataType_Mat4:
+							a.total_element_size = a.element_count * sizeof(Mat4) / 4;
+							a.gl_type = GL_FLOAT;
+							break;
+						default:
+							vi_assert(false);
+							break;
+					}
+					glGenBuffers(1, &a.handle);
+					mesh->attribs.add(a);
+				}
+				glGenBuffers(1, &mesh->index_buffer);
+
+				break;
+			}
+			case RenderOp_UpdateAttribBuffers:
+			{
+				size_t id = *(sync->read<size_t>());
+				GLData::Mesh* mesh = &data->meshes[id];
+				glBindVertexArray(mesh->vertex_array);
+
+				int count = *(sync->read<int>());
+
+				for (int i = 0; i < mesh->attribs.length; i++)
+				{
+					GLData::Mesh::Attrib* attrib = &mesh->attribs[i];
+
+					glBindBuffer(GL_ARRAY_BUFFER, attrib->handle);
+					switch (attrib->data_type)
+					{
+						case RenderDataType_Float:
+						{
+							glBufferData(GL_ARRAY_BUFFER, count * sizeof(float) * attrib->element_count, sync->read<float>(count * attrib->element_count), GL_STATIC_DRAW);
+							break;
+						}
+						case RenderDataType_Vec2:
+						{
+							glBufferData(GL_ARRAY_BUFFER, count * sizeof(Vec2) * attrib->element_count, sync->read<Vec2>(count * attrib->element_count), GL_STATIC_DRAW);
+							break;
+						}
+						case RenderDataType_Vec3:
+						{
+							glBufferData(GL_ARRAY_BUFFER, count * sizeof(Vec3) * attrib->element_count, sync->read<Vec3>(count * attrib->element_count), GL_STATIC_DRAW);
+							break;
+						}
+						case RenderDataType_Vec4:
+						{
+							glBufferData(GL_ARRAY_BUFFER, count * sizeof(Vec4) * attrib->element_count, sync->read<Vec4>(count * attrib->element_count), GL_STATIC_DRAW);
+							break;
+						}
+						case RenderDataType_Int:
+						{
+							glBufferData(GL_ARRAY_BUFFER, count * sizeof(int) * attrib->element_count, sync->read<int>(count * attrib->element_count), GL_STATIC_DRAW);
+							break;
+						}
+						case RenderDataType_Mat4:
+						{
+							glBufferData(GL_ARRAY_BUFFER, count * sizeof(Mat4) * attrib->element_count, sync->read<Mat4>(count * attrib->element_count), GL_STATIC_DRAW);
+							break;
+						}
+						default:
+							vi_assert(false);
+							break;
+					}
+				}
+				break;
+			}
+			case RenderOp_UpdateIndexBuffer:
+			{
+				size_t id = *(sync->read<size_t>());
+				GLData::Mesh* mesh = &data->meshes[id];
+				int index_count = *(sync->read<int>());
+				int* indices = sync->read<int>(index_count);
+
+				glBindVertexArray(mesh->vertex_array);
+				glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh->index_buffer);
+				glBufferData(GL_ELEMENT_ARRAY_BUFFER, index_count * sizeof(int), indices, GL_STATIC_DRAW);
+				mesh->index_count = index_count;
+				break;
+			}
+			case RenderOp_DeallocMesh:
 			{
 				AssetID id = *(sync->read<AssetID>());
 				GLData::Mesh* mesh = &data->meshes[id];
-				new (mesh) GLData::Mesh();
-				load_mesh(sync, data, mesh);
-				break;
-			}
-			case RenderOp_UnloadMesh:
-			{
-				AssetID id = *(sync->read<AssetID>());
-				GLData::Mesh* mesh = &data->meshes[id];
-				unload_mesh(mesh);
-				break;
-			}
-			case RenderOp_LoadDynamicMesh:
-			{
-				size_t id = *(sync->read<size_t>());
-				GLData::Mesh* mesh = &data->dynamic_meshes[id];
-				new (mesh) GLData::Mesh();
-				load_mesh(sync, data, mesh);
-				break;
-			}
-			case RenderOp_UnloadDynamicMesh:
-			{
-				size_t id = *(sync->read<size_t>());
-				GLData::Mesh* mesh = &data->dynamic_meshes[id];
-				unload_mesh(mesh);
+				for (size_t i = 0; i < mesh->attribs.length; i++)
+					glDeleteBuffers(1, &mesh->attribs.data[i].handle);
+				glDeleteVertexArrays(1, &mesh->vertex_array);
+				mesh->~Mesh();
 				break;
 			}
 			case RenderOp_LoadTexture:
@@ -345,15 +361,8 @@ void render(SyncData* sync, GLData* data)
 			case RenderOp_Mesh:
 			{
 				AssetID id = *(sync->read<AssetID>());
-				GLData::Mesh* gl = &data->meshes[id];
-				render_mesh(sync, data, gl);
-				break;
-			}
-			case RenderOp_DynamicMesh:
-			{
-				size_t id = *(sync->read<size_t>());
-				GLData::Mesh* gl = &data->dynamic_meshes[id];
-				render_mesh(sync, data, gl);
+				GLData::Mesh* gl_mesh = &data->meshes[id];
+				render_mesh(sync, data, gl_mesh);
 				break;
 			}
 		}

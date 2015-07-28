@@ -28,7 +28,6 @@ struct UI
 	static Array<Vec3> vertices;
 	static Array<Vec4> colors;
 	static Array<int> indices;
-	static void test(const Vec3&);
 	static void draw(const RenderParams&);
 };
 

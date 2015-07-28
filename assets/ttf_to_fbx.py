@@ -43,15 +43,16 @@ try:
 		rotation=(0, 0, 0)
 		)
 		ob = bpy.context.object
-		ob.name = character
 		# TextCurve attributes
 		ob.data.name = 'TextData{}'.format(ord(character))
 		ob.data.body = character
 		fnt = bpy.data.fonts.load(os.path.join(os.getcwd(), ttf_input))
 		ob.data.font = fnt
 		ob.data.size = 1
+		ob.data.resolution_u = 2
 		# Inherited Curve attributes
 		bpy.ops.object.convert(target='MESH', keep_original=False)
+		bpy.context.object.data.name = character
 
 	bpy.ops.export_scene.fbx(filepath=fbx_output, axis_forward='-Z', axis_up='Y')
 except Exception as e:

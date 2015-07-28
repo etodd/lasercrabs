@@ -60,7 +60,7 @@ struct Font
 		Vec2 min;
 		Vec2 max;
 	};
-	Character characters[sizeof(char)];
+	Character characters[1 << (8 * sizeof(char))];
 	Array<int> indices;
 	Array<Vec3> vertices;
 };

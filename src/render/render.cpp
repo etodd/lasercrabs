@@ -38,6 +38,7 @@ void render(SyncData* sync, GLData* data)
 				for (int i = 0; i < attrib_count; i++)
 				{
 					GLData::Mesh::Attrib a;
+					glGenBuffers(1, &a.handle);
 					a.data_type = *(sync->read<RenderDataType>());
 					a.element_count = *(sync->read<int>());
 					switch (a.data_type)
@@ -70,7 +71,6 @@ void render(SyncData* sync, GLData* data)
 							vi_assert(false);
 							break;
 					}
-					glGenBuffers(1, &a.handle);
 					mesh->attribs.add(a);
 				}
 				glGenBuffers(1, &mesh->index_buffer);

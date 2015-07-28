@@ -400,12 +400,12 @@ Font* Loader::font(AssetID id)
 		int j;
 
 		fread(&j, sizeof(int), 1, f);
-		font->indices.resize(j);
-		fread(font->indices.data, sizeof(int), font->indices.length, f);
-
-		fread(&j, sizeof(int), 1, f);
 		font->vertices.resize(j);
 		fread(font->vertices.data, sizeof(Vec3), font->vertices.length, f);
+
+		fread(&j, sizeof(int), 1, f);
+		font->indices.resize(j);
+		fread(font->indices.data, sizeof(int), font->indices.length, f);
 
 		fread(&j, sizeof(int), 1, f);
 		Array<Font::Character> characters;

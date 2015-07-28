@@ -290,7 +290,7 @@ bool load_font(const aiScene* scene, Mesh& mesh, Array<FontCharacter>& character
 		Vec2 min_vertex(FLT_MAX, FLT_MAX), max_vertex(FLT_MIN, FLT_MIN);
 		for (unsigned int j = 0; j < ai_mesh->mNumVertices; j++)
 		{
-			aiVector3D pos = ai_mesh->mVertices[i];
+			aiVector3D pos = ai_mesh->mVertices[j];
 			Vec3 vertex = Vec3(pos.x, pos.y, pos.z);
 			min_vertex.x = fmin(min_vertex.x, vertex.x);
 			min_vertex.y = fmin(min_vertex.y, vertex.y);
@@ -300,15 +300,12 @@ bool load_font(const aiScene* scene, Mesh& mesh, Array<FontCharacter>& character
 		}
 
 		mesh.indices.reserve(current_mesh_index + ai_mesh->mNumFaces * 3);
-		for (unsigned int i = 0; i < ai_mesh->mNumFaces; i++)
+		for (unsigned int j = 0; j < ai_mesh->mNumFaces; j++)
 		{
 			// Assume the model has only triangles.
-			int j = current_mesh_vertex + ai_mesh->mFaces[i].mIndices[0];
-			mesh.indices.add(j);
-			j = current_mesh_vertex + ai_mesh->mFaces[i].mIndices[1];
-			mesh.indices.add(j);
-			j = current_mesh_vertex + ai_mesh->mFaces[i].mIndices[2];
-			mesh.indices.add(j);
+			mesh.indices.add(current_mesh_vertex + ai_mesh->mFaces[j].mIndices[0]);
+			mesh.indices.add(current_mesh_vertex + ai_mesh->mFaces[j].mIndices[1]);
+			mesh.indices.add(current_mesh_vertex + ai_mesh->mFaces[j].mIndices[2]);
 		}
 
 		FontCharacter c;
@@ -1087,10 +1084,10 @@ int proc(int argc, char* argv[])
 					FILE* f = fopen(asset_out_path, "w+b");
 					if (f)
 					{
-						fwrite(&mesh.indices.length, sizeof(int), 1, f);
-						fwrite(mesh.indices.data, sizeof(int), mesh.indices.length, f);
 						fwrite(&mesh.vertices.length, sizeof(int), 1, f);
 						fwrite(mesh.vertices.data, sizeof(Vec3), mesh.vertices.length, f);
+						fwrite(&mesh.indices.length, sizeof(int), 1, f);
+						fwrite(mesh.indices.data, sizeof(int), mesh.indices.length, f);
 						fwrite(&characters.length, sizeof(int), 1, f);
 						fwrite(characters.data, sizeof(FontCharacter), characters.length, f);
 						fclose(f);

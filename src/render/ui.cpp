@@ -9,7 +9,7 @@ namespace VI
 UIText::UIText()
 	: indices(),
 	vertices(),
-	color(),
+	color(Vec4(1, 1, 1, 1)),
 	font(),
 	string(),
 	transform(Mat4::identity)
@@ -18,8 +18,6 @@ UIText::UIText()
 
 void UIText::text(const char* string)
 {
-	/*
-	colors.length = 0;
 	vertices.length = 0;
 	indices.length = 0;
 
@@ -30,16 +28,20 @@ void UIText::text(const char* string)
 	while (true)
 	{
 		char c = string[char_index];
-		FontCharacter* character = font->characters[c];
+		if (!c)
+			break;
+		Font::Character* character = &font->characters[c];
 		if (character->code == c)
 		{
-			vertices.resize(vertex_index + character->vertices);
-			for (int i = 0; i < character->vertices; i++)
-				vertices[vertex_index] = font->vertices[character->vertex_start + i] + pos;
+			vertices.resize(vertex_index + character->vertex_count);
+			for (int i = 0; i < character->vertex_count; i++)
+				vertices[vertex_index + i] = font->vertices[character->vertex_start + i] + pos;
 
-			indices.resize(index_index + character->indices);
-			for (int i = 0; i < character->indices; i++)
-				indices[index_index + i] = font->indices[character->index_start + i];
+			pos += Vec3(character->max.x - character->min.x, 0, 0);
+
+			indices.resize(index_index + character->index_count);
+			for (int i = 0; i < character->index_count; i++)
+				indices[index_index + i] = vertex_index + font->indices[character->index_start + i] - character->vertex_start;
 		}
 		else
 		{
@@ -47,17 +49,33 @@ void UIText::text(const char* string)
 		}
 		vertex_index = vertices.length;
 		index_index = indices.length;
+		char_index++;
 	}
-	*/
 }
 
 void UIText::draw(const Vec3& pos)
 {
-	/*
-	UI::vertices.add(
+	int vertex_start = UI::vertices.length;
+	for (int i = 0; i < vertices.length; i++)
+		UI::vertices.add(vertices[i] + pos);
 
-	int index_index = UI::indices.length;
-	UI::indices.resize(UI::indices.length + indices.length);
+	for (int i = 0; i < vertices.length; i++)
+		UI::colors.add(color);
+
+	UI::indices.reserve(UI::indices.length + indices.length);
+	for (int i = 0; i < indices.length; i++)
+		UI::indices.add(indices[i] + vertex_start);
+
+	/*
+	UI::vertices.add(pos + Vec3(1, 0, 0));
+	UI::vertices.add(pos + Vec3(0, 1, 0));
+	UI::vertices.add(pos + Vec3(0, 0, 0));
+	UI::colors.add(Vec4(1, 1, 1, 1));
+	UI::colors.add(Vec4(1, 1, 1, 1));
+	UI::colors.add(Vec4(1, 1, 1, 1));
+	UI::indices.add(vertex_start + 0);
+	UI::indices.add(vertex_start + 1);
+	UI::indices.add(vertex_start + 2);
 	*/
 }
 
@@ -65,19 +83,6 @@ size_t UI::mesh = Asset::Nothing;
 Array<Vec3> UI::vertices = Array<Vec3>();
 Array<Vec4> UI::colors = Array<Vec4>();
 Array<int> UI::indices = Array<int>();
-
-void UI::test(const Vec3& pos)
-{
-	vertices.add(pos + Vec3(1, 0, 0));
-	vertices.add(pos + Vec3(0, 1, 0));
-	vertices.add(pos + Vec3(0, 0, 0));
-	colors.add(Vec4(1, 1, 1, 1));
-	colors.add(Vec4(1, 1, 1, 1));
-	colors.add(Vec4(1, 1, 1, 1));
-	indices.add(0);
-	indices.add(1);
-	indices.add(2);
-}
 
 void UI::draw(const RenderParams& p)
 {

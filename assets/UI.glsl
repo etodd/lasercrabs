@@ -24,10 +24,11 @@ void main()
 
 // Interpolated values from the vertex shaders
 in vec4 color;
+out vec4 out_color;
 
 void main()
 {
-	gl_FragColor = color;
+	out_color = color;
 }
 
 #endif

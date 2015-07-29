@@ -3,7 +3,7 @@ set -e
 set -o pipefail
 
 if which blender >/dev/null; then
-    # We have blender
+    echo "Good news, Blender is set up correctly on the path!"
 else
 	echo "Please install Blender and make sure it's on the system path!"
     exit 1

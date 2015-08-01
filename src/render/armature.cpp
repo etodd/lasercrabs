@@ -10,9 +10,9 @@ Armature::Armature()
 }
 
 template<typename T>
-static size_t find_keyframe_index(Array<T>& keyframes, float time)
+static int find_keyframe_index(Array<T>& keyframes, float time)
 {
-	size_t index;
+	int index;
 	for (index = 0; index < keyframes.length - 2; index++)
 	{
 		if (time < keyframes[index + 1].time)
@@ -27,7 +27,7 @@ void Armature::update(const Update& u)
 	while (time > animation->duration)
 		time -= animation->duration;
 
-	for (size_t i = 0; i < animation->channels.length; i++)
+	for (int i = 0; i < animation->channels.length; i++)
 	{
 		Channel* c = &animation->channels[i];
 
@@ -35,7 +35,7 @@ void Armature::update(const Update& u)
 		Vec3 scale;
 		Quat rotation;
 
-		size_t index;
+		int index;
 		float last_time;
 		float next_time;
 		float blend;
@@ -89,7 +89,7 @@ void Armature::update_world_transforms()
 {
 	Mesh* m = Loader::mesh(mesh);
 	bones.resize(animation->channels.length);
-	for (size_t i = 0; i < bones.length; i++)
+	for (int i = 0; i < bones.length; i++)
 	{
 		int parent = m->bone_hierarchy[i];
 		if (parent == -1)
@@ -138,7 +138,7 @@ void Armature::draw(const RenderParams& params)
 
 	Mesh* m2 = Loader::mesh(mesh);
 	skin_transforms.resize(bones.length);
-	for (size_t i = 0; i < bones.length; i++)
+	for (int i = 0; i < bones.length; i++)
 		skin_transforms[i] = m2->inverse_bind_pose[i] * bones[i];
 
 	sync->write(Asset::Uniform::Bones);
@@ -151,7 +151,7 @@ void Armature::draw(const RenderParams& params)
 	Loader::mesh(Asset::Model::cube);
 	Loader::shader(Asset::Shader::Standard);
 	Loader::texture(Asset::Texture::test);
-	for (size_t i = 0; i < bones.length; i++)
+	for (int i = 0; i < bones.length; i++)
 	{
 		sync->write(RenderOp_Mesh);
 		sync->write(Asset::Model::cube);

@@ -67,8 +67,10 @@ void RigidBody::awake()
 RigidBody::~RigidBody()
 {
 	Physics::btWorld->removeRigidBody(btBody);
-	delete btShape;
 	delete btBody;
+	delete btShape;
+	if (btMesh)
+		delete btMesh;
 }
 
 }

@@ -14,11 +14,11 @@ enum SwapType
 	SwapType_count,
 };
 
-template<typename T, size_t count>
+template<typename T, int count>
 struct Swapper
 {
 	T* data;
-	size_t current;
+	int current;
 	T* get()
 	{
 		return &data[current];
@@ -31,7 +31,7 @@ struct Swapper
 		}
 		data[current].condition.notify_all();
 
-		size_t next = (current + 1) % count;
+		int next = (current + 1) % count;
 		std::unique_lock<std::mutex> lock(data[next].mutex);
 		while (!data[next].ready[swap_type])
 			data[next].condition.wait(lock);

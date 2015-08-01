@@ -3,6 +3,8 @@
 #include "render/armature.h"
 #include <GLFW/glfw3.h>
 
+#include <BulletCollision/CollisionShapes/btTriangleIndexVertexArray.h>
+
 namespace VI
 {
 
@@ -29,9 +31,12 @@ StaticGeom::StaticGeom(ID id, AssetID mesh_id)
 	model->texture = Asset::Texture::test;
 
 	Mesh* mesh = Loader::mesh(model->mesh);
-	btBvhTriangleMeshShape* btMesh = new btBvhTriangleMeshShape(&mesh->physics, true, btVector3(-1000, -1000, -1000), btVector3(1000, 1000, 1000));
+
+	btTriangleIndexVertexArray* mesh_data = new btTriangleIndexVertexArray(mesh->indices.length / 3, mesh->indices.data, 3 * sizeof(int), mesh->vertices.length, (btScalar*)mesh->vertices.data, sizeof(Vec3));
+	btBvhTriangleMeshShape* shape = new btBvhTriangleMeshShape(mesh_data, true, btVector3(-1000, -1000, -1000), btVector3(1000, 1000, 1000));
 	
-	RigidBody* body = create<RigidBody>(transform->pos, Quat::identity, 0.0f, btMesh);
+	RigidBody* body = create<RigidBody>(transform->pos, Quat::identity, 0.0f, shape);
+	body->btMesh = mesh_data;
 }
 
 void StaticGeom::awake()

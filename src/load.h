@@ -33,12 +33,12 @@ struct Loader
 
 	static Mesh* mesh(AssetID);
 	static Mesh* mesh_permanent(AssetID);
-	static void mesh_free(size_t);
+	static void mesh_free(int);
 
-	static size_t dynamic_mesh(int);
+	static int dynamic_mesh(int);
 	static void dynamic_mesh_attrib(RenderDataType, int = 1);
-	static size_t dynamic_mesh_permanent(int);
-	static void dynamic_mesh_free(size_t);
+	static int dynamic_mesh_permanent(int);
+	static void dynamic_mesh_free(int);
 
 	static Animation* animation(AssetID);
 	static Animation* animation_permanent(AssetID);

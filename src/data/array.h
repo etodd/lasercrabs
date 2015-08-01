@@ -4,6 +4,8 @@
 #include <cstdlib>
 #include <cstring>
 
+#include "vi_assert.h"
+
 namespace VI
 {
 
@@ -14,12 +16,13 @@ template <typename T>
 struct Array
 {
 	T* data;
-	size_t length;
-	size_t reserved;
+	int length;
+	int reserved;
 
-	Array(size_t size = 0)
+	Array(int size = 0)
 		: length(0)
 	{
+		vi_assert(size >= 0);
 		if (size > 0)
 		{
 			if (size < ARRAY_INITIAL_RESERVATION)
@@ -38,21 +41,24 @@ struct Array
 			free(data);
 	}
 
-	inline T operator [] (const size_t i) const
+	inline T operator [] (const int i) const
 	{
+		vi_assert(i >= 0 && i < length);
 		return *(data + i);
 	}
 
-	inline T& operator [] (const size_t i)
+	inline T& operator [] (const int i)
 	{
+		vi_assert(i >= 0 && i < length);
 		return *(data + i);
 	}
 
-	void reserve(size_t size)
+	void reserve(int size)
 	{
+		vi_assert(size >= 0);
 		if (size > reserved)
 		{
-			size_t nextSize = (unsigned int)pow(ARRAY_GROWTH_FACTOR, (size_t)(log(size) / log(ARRAY_GROWTH_FACTOR)) + 1);
+			int nextSize = (unsigned int)pow(ARRAY_GROWTH_FACTOR, (int)(log(size) / log(ARRAY_GROWTH_FACTOR)) + 1);
 			if (!reserved)
 			{
 				nextSize = nextSize > ARRAY_INITIAL_RESERVATION ? nextSize : ARRAY_INITIAL_RESERVATION;
@@ -66,33 +72,37 @@ struct Array
 		}
 	}
 
-	void remove(size_t i)
+	void remove(int i)
 	{
+		vi_assert(i >= 0 && i < length);
 		data[i] = data[length--];
 	}
 
-	void remove_ordered(size_t i)
+	void remove_ordered(int i)
 	{
+		vi_assert(i >= 0 && i < length);
 		memmove(&data[i + 1], &data[i], sizeof(T) * (length - (i + 1)));
 		length--;
 	}
 
-	T* insert(size_t i, T& t)
+	T* insert(int i, T& t)
 	{
+		vi_assert(i >= 0 && i <= length);
 		reserve(++length);
 		memmove(&data[i], &data[i + 1], sizeof(T) * (length - i));
 		data[i] = t;
 		return &data[i];
 	}
 
-	T* insert(size_t i)
+	T* insert(int i)
 	{
+		vi_assert(i >= 0 && i <= length);
 		reserve(++length);
 		memmove(&data[i], &data[i + 1], sizeof(T) * (length - i));
 		return &data[i];
 	}
 
-	void resize(size_t i)
+	void resize(int i)
 	{
 		reserve(i);
 		length = i;
@@ -154,17 +164,17 @@ template<typename T>
 struct PinArray
 {
 	Array<PinArrayEntry<T>> data;
-	Array<size_t> free_list;
+	Array<int> free_list;
 
 	struct Entry
 	{
-		size_t index;
+		int index;
 		T* item;
 	};
 
 	struct Iterator
 	{
-		size_t index;
+		int index;
 		PinArray<T>* array;
 		void next()
 		{
@@ -189,23 +199,26 @@ struct PinArray
 		}
 	};
 
-	PinArray(size_t size = 0)
+	PinArray(int size = 0)
 		: data(), free_list()
 	{
 	}
 
-	inline T operator [] (const size_t i) const
+	inline T operator [] (const int i) const
 	{
+		vi_assert(i >= 0 && i < data.length);
 		return (data.data + i)->item;
 	}
 
-	inline T& operator [] (const size_t i)
+	inline T& operator [] (const int i)
 	{
+		vi_assert(i >= 0 && i < data.length);
 		return (data.data + i)->item;
 	}
 
-	T* get(const size_t i)
+	T* get(const int i)
 	{
+		vi_assert(i >= 0 && i < data.length);
 		return &(data.data + i)->item;
 	}
 
@@ -243,8 +256,9 @@ struct PinArray
 		return i;
 	}
 
-	void remove(size_t i)
+	void remove(int i)
 	{
+		vi_assert(i >= 0 && i < data.length);
 		free_list.add(i);
 		data[i].active = false;
 	}
@@ -257,7 +271,7 @@ struct Queue
 	{
 		T data;
 		Entry* next;
-		size_t index;
+		int index;
 	};
 	PinArray<T> array;
 	Entry* head;
@@ -275,7 +289,7 @@ struct Queue
 
 	void enqueue(T& t)
 	{
-		size_t index = array.add(t);
+		int index = array.add(t);
 
 		Entry* entry = array.get(index);
 		entry->data = t;

@@ -56,11 +56,11 @@ const char* Asset::Uniform::filenames[] =
 	"myTextureSampler",
 };
 
-AssetID const Asset::Font::Planer_Reg = 0;
+AssetID const Asset::Font::lowpoly = 0;
 
 const char* Asset::Font::filenames[] =
 {
-	"assets/Planer_Reg.fnt",
+	"assets/lowpoly.fnt",
 };
 
 

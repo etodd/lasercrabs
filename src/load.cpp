@@ -80,13 +80,10 @@ Mesh* Loader::mesh(AssetID id)
 
 		fclose(f);
 
-		// Physics
-		new (&mesh->physics) btTriangleIndexVertexArray(mesh->indices.length / 3, mesh->indices.data, 3 * sizeof(int), mesh->vertices.length, (btScalar*)mesh->vertices.data, sizeof(Vec3));
-
 		// GL
 		SyncData* sync = swapper->get();
 		sync->write(RenderOp_AllocMesh);
-		sync->write<size_t>(id);
+		sync->write<int>(id);
 
 		sync->write<int>(bone_count > 0 ? 5 : 3); // Attribute count
 
@@ -109,7 +106,7 @@ Mesh* Loader::mesh(AssetID id)
 		}
 
 		sync->write(RenderOp_UpdateAttribBuffers);
-		sync->write<size_t>(id);
+		sync->write<int>(id);
 
 		sync->write<int>(mesh->vertices.length);
 		sync->write(mesh->vertices.data, mesh->vertices.length);
@@ -123,7 +120,7 @@ Mesh* Loader::mesh(AssetID id)
 		}
 
 		sync->write(RenderOp_UpdateIndexBuffer);
-		sync->write<size_t>(id);
+		sync->write<int>(id);
 		sync->write<int>(mesh->indices.length);
 		sync->write(mesh->indices.data, mesh->indices.length);
 
@@ -147,15 +144,15 @@ void Loader::mesh_free(AssetID id)
 		meshes[id].data.~Mesh();
 		SyncData* sync = swapper->get();
 		sync->write(RenderOp_FreeMesh);
-		sync->write<size_t>(id);
+		sync->write<int>(id);
 		meshes[id].type = AssetNone;
 	}
 }
 
-size_t Loader::dynamic_mesh(int attribs)
+int Loader::dynamic_mesh(int attribs)
 {
-	size_t index = Asset::Nothing;
-	for (size_t i = 0; i < dynamic_meshes.length; i++)
+	int index = Asset::Nothing;
+	for (int i = 0; i < dynamic_meshes.length; i++)
 	{
 		if (dynamic_meshes[i].type == AssetNone)
 		{
@@ -174,7 +171,7 @@ size_t Loader::dynamic_mesh(int attribs)
 
 	SyncData* sync = swapper->get();
 	sync->write(RenderOp_AllocMesh);
-	sync->write<size_t>(index);
+	sync->write<int>(index);
 	sync->write<int>(attribs);
 
 	return index;
@@ -187,20 +184,20 @@ void Loader::dynamic_mesh_attrib(RenderDataType type, int count)
 	sync->write(count);
 }
 
-size_t Loader::dynamic_mesh_permanent(int attribs)
+int Loader::dynamic_mesh_permanent(int attribs)
 {
-	size_t result = dynamic_mesh(attribs);
+	int result = dynamic_mesh(attribs);
 	dynamic_meshes[result - Asset::Model::count].type = AssetPermanent;
 	return result;
 }
 
-void Loader::dynamic_mesh_free(size_t id)
+void Loader::dynamic_mesh_free(int id)
 {
 	if (id != Asset::Nothing && dynamic_meshes[id].type != AssetNone)
 	{
 		SyncData* sync = swapper->get();
 		sync->write(RenderOp_FreeMesh);
-		sync->write<size_t>(id);
+		sync->write<int>(id);
 		dynamic_meshes[id - Asset::Model::count].type = AssetNone;
 	}
 }
@@ -338,12 +335,12 @@ void Loader::shader(AssetID id)
 			return;
 		}
 
-		const size_t chunk_size = 4096;
+		const int chunk_size = 4096;
 		int i = 1;
 		while (true)
 		{
 			code.reserve(i * chunk_size + 1); // extra char since this will be a null-terminated string
-			size_t read = fread(&code.data[(i - 1) * chunk_size], sizeof(char), chunk_size, f);
+			int read = fread(&code.data[(i - 1) * chunk_size], sizeof(char), chunk_size, f);
 			if (read < chunk_size)
 			{
 				code.length = ((i - 1) * chunk_size) + read;
@@ -356,7 +353,7 @@ void Loader::shader(AssetID id)
 		SyncData* sync = swapper->get();
 		sync->write(RenderOp_LoadShader);
 		sync->write<AssetID>(&id);
-		sync->write<size_t>(&code.length);
+		sync->write<int>(&code.length);
 		sync->write(code.data, code.length);
 	}
 }
@@ -411,7 +408,7 @@ Font* Loader::font(AssetID id)
 		Array<Font::Character> characters;
 		characters.resize(j);
 		fread(characters.data, sizeof(Font::Character), characters.length, f);
-		for (size_t i = 0; i < characters.length; i++)
+		for (int i = 0; i < characters.length; i++)
 		{
 			Font::Character* c = &characters[i];
 			font->characters[c->code] = *c;
@@ -468,7 +465,7 @@ void Loader::transients_free()
 			font_free(i);
 	}
 
-	for (size_t i = 0; i < dynamic_meshes.length; i++)
+	for (int i = 0; i < dynamic_meshes.length; i++)
 	{
 		if (dynamic_meshes[i].type == AssetTransient)
 			dynamic_mesh_free(Asset::Model::count + i);

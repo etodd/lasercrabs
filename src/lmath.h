@@ -221,12 +221,12 @@ struct Vec2
 	{
 	}
 
-	inline float operator [] (const size_t i) const
+	inline float operator [] (const int i) const
 	{
 		return *(&x+i);
 	}
 
-	inline float& operator [] (const size_t i)
+	inline float& operator [] (const int i)
 	{
 		return *(&x+i);
 	}
@@ -502,12 +502,12 @@ struct Vec3
 	{
 	}
 
-	inline float operator [] (const size_t i) const
+	inline float operator [] (const int i) const
 	{
 		return *(&x + i);
 	}
 
-	inline float& operator [] (const size_t i)
+	inline float& operator [] (const int i)
 	{
 		return *(&x + i);
 	}
@@ -801,12 +801,12 @@ struct Vec4
 	{
 	}
 
-	inline float operator [] (const size_t i) const
+	inline float operator [] (const int i) const
 	{
 		return *(&x + i);
 	}
 
-	inline float& operator [] (const size_t i)
+	inline float& operator [] (const int i)
 	{
 		return *(&x + i);
 	}
@@ -1120,18 +1120,18 @@ struct Mat3
 		m[2][2] = fEntry22;
 	}
 
-	inline const float* operator[] (size_t iRow) const
+	inline const float* operator[] (int iRow) const
 	{
 		return m[iRow];
 	}
 
-	inline float* operator[] (size_t iRow)
+	inline float* operator[] (int iRow)
 	{
 		return m[iRow];
 	}
 
-	Vec3 get_column (size_t iCol) const;
-	void set_column(size_t iCol, const Vec3& vec);
+	Vec3 get_column (int iCol) const;
+	void set_column(int iCol, const Vec3& vec);
 	void from_axes(const Vec3& xAxis, const Vec3& yAxis, const Vec3& zAxis);
 
 	inline Mat3& operator= (const Mat3& rkMatrix)
@@ -1242,12 +1242,12 @@ struct Quat
 		memcpy(&w, valptr, sizeof(float)*4);
 	}
 
-	inline float operator [] (const size_t i) const
+	inline float operator [] (const int i) const
 	{
 		return *(&w + i);
 	}
 
-	inline float& operator [] (const size_t i)
+	inline float& operator [] (const int i)
 	{
 		return *(&w + i);
 	}
@@ -1368,12 +1368,12 @@ struct Mat4
 		operator=(m3x3);
 	}
 
-	inline float* operator [] (size_t column)
+	inline float* operator [] (int column)
 	{
 		return m[column];
 	}
 
-	inline const float* operator [] (size_t column) const
+	inline const float* operator [] (int column) const
 	{
 		return m[column];
 	}

@@ -30,6 +30,7 @@ struct RigidBody : public ComponentType<RigidBody>
 	RigidBody(Vec3, Quat, float, btCollisionShape*, short, short);
 	void init(Vec3, Quat, float);
 	btCollisionShape* btShape;
+	btStridingMeshInterface* btMesh;
 	btRigidBody* btBody;
 	void awake();
 	~RigidBody();

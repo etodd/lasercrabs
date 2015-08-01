@@ -16,15 +16,17 @@ struct UIText
 	Vec4 color;
 	Font* font;
 	Array<char> string;
-	Mat4 transform;
+	Vec2 pos;
+	float rot;
+	float size;
 	void text(const char*);
-	void draw(const Vec3&);
+	void draw(const RenderParams&);
 	UIText();
 };
 
 struct UI
 {
-	static size_t mesh;
+	static int mesh;
 	static Array<Vec3> vertices;
 	static Array<Vec4> colors;
 	static Array<int> indices;

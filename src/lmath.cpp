@@ -120,13 +120,13 @@ float Plane::normalize(void)
 	return fLength;
 }
 
-Vec3 Mat3::get_column(size_t iCol) const
+Vec3 Mat3::get_column(int iCol) const
 {
 	return Vec3(m[0][iCol],m[1][iCol],
 		m[2][iCol]);
 }
 
-void Mat3::set_column(size_t iCol, const Vec3& vec)
+void Mat3::set_column(int iCol, const Vec3& vec)
 {
 	m[0][iCol] = vec.x;
 	m[1][iCol] = vec.y;
@@ -143,9 +143,9 @@ void Mat3::from_axes(const Vec3& xAxis, const Vec3& yAxis, const Vec3& zAxis)
 
 bool Mat3::operator== (const Mat3& rkMatrix) const
 {
-	for (size_t iRow = 0; iRow < 3; iRow++)
+	for (int iRow = 0; iRow < 3; iRow++)
 	{
-		for (size_t iCol = 0; iCol < 3; iCol++)
+		for (int iCol = 0; iCol < 3; iCol++)
 		{
 			if (m[iRow][iCol] != rkMatrix.m[iRow][iCol])
 				return false;
@@ -158,9 +158,9 @@ bool Mat3::operator== (const Mat3& rkMatrix) const
 Mat3 Mat3::operator+ (const Mat3& rkMatrix) const
 {
 	Mat3 kSum;
-	for (size_t iRow = 0; iRow < 3; iRow++)
+	for (int iRow = 0; iRow < 3; iRow++)
 	{
-		for (size_t iCol = 0; iCol < 3; iCol++)
+		for (int iCol = 0; iCol < 3; iCol++)
 			kSum.m[iRow][iCol] = m[iRow][iCol] + rkMatrix.m[iRow][iCol];
 	}
 	return kSum;
@@ -169,9 +169,9 @@ Mat3 Mat3::operator+ (const Mat3& rkMatrix) const
 Mat3 Mat3::operator- (const Mat3& rkMatrix) const
 {
 	Mat3 kDiff;
-	for (size_t iRow = 0; iRow < 3; iRow++)
+	for (int iRow = 0; iRow < 3; iRow++)
 	{
-		for (size_t iCol = 0; iCol < 3; iCol++)
+		for (int iCol = 0; iCol < 3; iCol++)
 			kDiff.m[iRow][iCol] = m[iRow][iCol] - rkMatrix.m[iRow][iCol];
 	}
 	return kDiff;
@@ -180,9 +180,9 @@ Mat3 Mat3::operator- (const Mat3& rkMatrix) const
 Mat3 Mat3::operator* (const Mat3& rkMatrix) const
 {
 	Mat3 kProd;
-	for (size_t iRow = 0; iRow < 3; iRow++)
+	for (int iRow = 0; iRow < 3; iRow++)
 	{
-		for (size_t iCol = 0; iCol < 3; iCol++)
+		for (int iCol = 0; iCol < 3; iCol++)
 		{
 			kProd.m[iRow][iCol] =
 				m[iRow][0]*rkMatrix.m[0][iCol] +
@@ -196,7 +196,7 @@ Mat3 Mat3::operator* (const Mat3& rkMatrix) const
 Vec3 Mat3::operator* (const Vec3& rkPoint) const
 {
 	Vec3 kProd;
-	for (size_t iRow = 0; iRow < 3; iRow++)
+	for (int iRow = 0; iRow < 3; iRow++)
 	{
 		kProd[iRow] =
 			m[iRow][0]*rkPoint[0] +
@@ -209,7 +209,7 @@ Vec3 Mat3::operator* (const Vec3& rkPoint) const
 Vec3 operator* (const Vec3& rkPoint, const Mat3& rkMatrix)
 {
 	Vec3 kProd;
-	for (size_t iRow = 0; iRow < 3; iRow++)
+	for (int iRow = 0; iRow < 3; iRow++)
 	{
 		kProd[iRow] =
 			rkPoint[0]*rkMatrix.m[0][iRow] +
@@ -222,9 +222,9 @@ Vec3 operator* (const Vec3& rkPoint, const Mat3& rkMatrix)
 Mat3 Mat3::operator- () const
 {
 	Mat3 kNeg;
-	for (size_t iRow = 0; iRow < 3; iRow++)
+	for (int iRow = 0; iRow < 3; iRow++)
 	{
-		for (size_t iCol = 0; iCol < 3; iCol++)
+		for (int iCol = 0; iCol < 3; iCol++)
 			kNeg[iRow][iCol] = -m[iRow][iCol];
 	}
 	return kNeg;
@@ -233,9 +233,9 @@ Mat3 Mat3::operator- () const
 Mat3 Mat3::operator* (float fScalar) const
 {
 	Mat3 kProd;
-	for (size_t iRow = 0; iRow < 3; iRow++)
+	for (int iRow = 0; iRow < 3; iRow++)
 	{
-		for (size_t iCol = 0; iCol < 3; iCol++)
+		for (int iCol = 0; iCol < 3; iCol++)
 			kProd[iRow][iCol] = fScalar*m[iRow][iCol];
 	}
 	return kProd;
@@ -244,9 +244,9 @@ Mat3 Mat3::operator* (float fScalar) const
 Mat3 operator* (float fScalar, const Mat3& rkMatrix)
 {
 	Mat3 kProd;
-	for (size_t iRow = 0; iRow < 3; iRow++)
+	for (int iRow = 0; iRow < 3; iRow++)
 	{
-		for (size_t iCol = 0; iCol < 3; iCol++)
+		for (int iCol = 0; iCol < 3; iCol++)
 			kProd[iRow][iCol] = fScalar*rkMatrix.m[iRow][iCol];
 	}
 	return kProd;
@@ -255,9 +255,9 @@ Mat3 operator* (float fScalar, const Mat3& rkMatrix)
 Mat3 Mat3::transpose() const
 {
 	Mat3 kTranspose;
-	for (size_t iRow = 0; iRow < 3; iRow++)
+	for (int iRow = 0; iRow < 3; iRow++)
 	{
-		for (size_t iCol = 0; iCol < 3; iCol++)
+		for (int iCol = 0; iCol < 3; iCol++)
 			kTranspose[iRow][iCol] = m[iCol][iRow];
 	}
 	return kTranspose;
@@ -287,9 +287,9 @@ bool Mat3::inverse(Mat3& rkInverse, float fTolerance) const
 		return false;
 
 	float fInvDet = 1.0f/fDet;
-	for (size_t iRow = 0; iRow < 3; iRow++)
+	for (int iRow = 0; iRow < 3; iRow++)
 	{
-		for (size_t iCol = 0; iCol < 3; iCol++)
+		for (int iCol = 0; iCol < 3; iCol++)
 			rkInverse[iRow][iCol] *= fInvDet;
 	}
 
@@ -449,8 +449,8 @@ void Mat3::qdu_decomposition(Mat3& kQ, Vec3& kD, Vec3& kU) const
 
 	if ( fDet < 0.0 )
 	{
-		for (size_t iRow = 0; iRow < 3; iRow++)
-			for (size_t iCol = 0; iCol < 3; iCol++)
+		for (int iRow = 0; iRow < 3; iRow++)
+			for (int iCol = 0; iCol < 3; iCol++)
 				kQ[iRow][iCol] = -kQ[iRow][iCol];
 	}
 
@@ -918,9 +918,9 @@ void Mat3::from_euler_angles_zyx(const float& fYAngle, const float& fPAngle, con
 
 void Mat3::tensor_product(const Vec3& rkU, const Vec3& rkV, Mat3& rkProduct)
 {
-	for (size_t iRow = 0; iRow < 3; iRow++)
+	for (int iRow = 0; iRow < 3; iRow++)
 	{
-		for (size_t iCol = 0; iCol < 3; iCol++)
+		for (int iCol = 0; iCol < 3; iCol++)
 			rkProduct[iRow][iCol] = rkU[iRow]*rkV[iCol];
 	}
 }
@@ -946,14 +946,14 @@ void Quat::from_rotation_matrix(const Mat3& kRot)
 	else
 	{
 		// |w| <= 1/2
-		static size_t s_iNext[3] = { 1, 2, 0 };
-		size_t i = 0;
+		static int s_iNext[3] = { 1, 2, 0 };
+		int i = 0;
 		if ( kRot[1][1] > kRot[0][0] )
 			i = 1;
 		if ( kRot[2][2] > kRot[i][i] )
 			i = 2;
-		size_t j = s_iNext[i];
-		size_t k = s_iNext[j];
+		int j = s_iNext[i];
+		int k = s_iNext[j];
 
 		fRoot = sqrt(kRot[i][i]-kRot[j][j]-kRot[k][k] + 1.0f);
 		float* apkQuat[3] = { &x, &y, &z };
@@ -1034,7 +1034,7 @@ void Quat::from_axes(const Vec3* akAxis)
 {
 	Mat3 kRot;
 
-	for (size_t iCol = 0; iCol < 3; iCol++)
+	for (int iCol = 0; iCol < 3; iCol++)
 	{
 		kRot[0][iCol] = akAxis[iCol].x;
 		kRot[1][iCol] = akAxis[iCol].y;
@@ -1069,7 +1069,7 @@ void Quat::to_axes(Vec3* akAxis) const
 
 	to_rotation_matrix(kRot);
 
-	for (size_t iCol = 0; iCol < 3; iCol++)
+	for (int iCol = 0; iCol < 3; iCol++)
 	{
 		akAxis[iCol].x = kRot[0][iCol];
 		akAxis[iCol].y = kRot[1][iCol];
@@ -1430,8 +1430,8 @@ Quat Quat::nlerp(float fT, const Quat& rkP, const Quat& rkQ, bool shortestPath)
 }
 
 inline static float
-	MINOR(const Mat4& m, const size_t r0, const size_t r1, const size_t r2, 
-							const size_t c0, const size_t c1, const size_t c2)
+	MINOR(const Mat4& m, const int r0, const int r1, const int r2, 
+							const int c0, const int c1, const int c2)
 {
 	return m[r0][c0] * (m[r1][c1] * m[r2][c2] - m[r2][c1] * m[r1][c2]) -
 		m[r0][c1] * (m[r1][c0] * m[r2][c2] - m[r2][c0] * m[r1][c2]) +

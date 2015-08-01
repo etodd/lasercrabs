@@ -13,67 +13,12 @@
 #include <GLFW/glfw3.h>
 #include <cfloat>
 #include "Recast.h"
+#include "data/mesh.h"
 
 namespace VI
 {
 
-#define MAX_BONE_WEIGHTS 4
-
 Quat import_rotation = Quat(PI * -0.5f, Vec3(1, 0, 0));
-
-struct Mesh
-{
-	Array<int> indices;
-	Array<Vec3> vertices;
-	Array<Vec2> uvs;
-	Array<Vec3> normals;
-	Array<std::array<int, MAX_BONE_WEIGHTS> > bone_indices;
-	Array<std::array<float, MAX_BONE_WEIGHTS> > bone_weights;
-	Array<Mat4> inverse_bind_pose;
-	Array<int> bone_hierarchy;
-	void reset()
-	{
-		indices.length = 0;
-		vertices.length = 0;
-		uvs.length = 0;
-		normals.length = 0;
-		bone_indices.length = 0;
-		bone_weights.length = 0;
-		inverse_bind_pose.length = 0;
-		bone_hierarchy.length = 0;
-	}
-};
-
-template<typename T>
-struct Keyframe
-{
-	float time;
-	T value;
-};
-
-struct Channel
-{
-	Array<Keyframe<Vec3> > positions;
-	Array<Keyframe<Quat> > rotations;
-	Array<Keyframe<Vec3> > scales;
-};
-
-struct Animation
-{
-	float duration;
-	Array<Channel> channels;
-};
-
-struct FontCharacter
-{
-	char code;
-	int index_start;
-	int index_count;
-	int vertex_start;
-	int vertex_count;
-	Vec2 min;
-	Vec2 max;
-};
 
 int exit_error()
 {
@@ -278,11 +223,31 @@ bool load_model(const aiScene* scene, Mesh* out, std::map<std::string, int>& bon
 	return true;
 }
 
-bool load_font(const aiScene* scene, Mesh& mesh, Array<FontCharacter>& characters)
+bool load_font(const aiScene* scene, Mesh& mesh, Array<Font::Character>& characters)
 {
 	mesh.reset();
-	size_t current_mesh_vertex = 0;
-	size_t current_mesh_index = 0;
+	int current_mesh_vertex = 0;
+	int current_mesh_index = 0;
+
+	// Determine tallest character
+	float scale = 1.0f;
+	{
+		float min_height = FLT_MAX, max_height = FLT_MIN;
+		for (unsigned int i = 0; i < scene->mNumMeshes; i++)
+		{
+			aiMesh* ai_mesh = scene->mMeshes[i];
+			mesh.vertices.reserve(current_mesh_vertex + ai_mesh->mNumVertices);
+			for (unsigned int j = 0; j < ai_mesh->mNumVertices; j++)
+			{
+				aiVector3D pos = ai_mesh->mVertices[j];
+				min_height = fmin(min_height, pos.y);
+				max_height = fmax(max_height, pos.y);
+			}
+		}
+		if (max_height > min_height)
+			scale = 1.0f / (max_height - min_height);
+	}
+
 	for (unsigned int i = 0; i < scene->mNumMeshes; i++)
 	{
 		aiMesh* ai_mesh = scene->mMeshes[i];
@@ -291,7 +256,7 @@ bool load_font(const aiScene* scene, Mesh& mesh, Array<FontCharacter>& character
 		for (unsigned int j = 0; j < ai_mesh->mNumVertices; j++)
 		{
 			aiVector3D pos = ai_mesh->mVertices[j];
-			Vec3 vertex = Vec3(pos.x, pos.y, pos.z);
+			Vec3 vertex = Vec3(pos.x * scale, pos.y * scale, pos.z * scale);
 			min_vertex.x = fmin(min_vertex.x, vertex.x);
 			min_vertex.y = fmin(min_vertex.y, vertex.y);
 			max_vertex.x = fmax(max_vertex.x, vertex.x);
@@ -308,7 +273,7 @@ bool load_font(const aiScene* scene, Mesh& mesh, Array<FontCharacter>& character
 			mesh.indices.add(current_mesh_vertex + ai_mesh->mFaces[j].mIndices[2]);
 		}
 
-		FontCharacter c;
+		Font::Character c;
 		c.code = ai_mesh->mName.data[0];
 		c.vertex_start = current_mesh_vertex;
 		c.vertex_count = ai_mesh->mNumVertices;
@@ -351,7 +316,7 @@ bool has_extension(char* filename, const char* extension)
 void write_asset_headers(FILE* file, const char* name, std::map<std::string, std::string>& assets)
 {
 	int asset_count = assets.size();
-	fprintf(file, "\tstruct %s\n\t{\n\t\tstatic const size_t count = %d;\n\t\tstatic const char* filenames[%d];\n", name, asset_count, asset_count);
+	fprintf(file, "\tstruct %s\n\t{\n\t\tstatic const int count = %d;\n\t\tstatic const char* filenames[%d];\n", name, asset_count, asset_count);
 	for (auto i = assets.begin(); i != assets.end(); i++)
 		fprintf(file, "\t\tstatic const AssetID %s;\n", i->first.c_str());
 	fprintf(file, "\t};\n");
@@ -595,6 +560,7 @@ int proc(int argc, char* argv[])
 	static const char* model_out_extension = ".mdl";
 
 	static const char* font_in_extension = ".ttf";
+	static const char* font_in_extension_2 = ".otf"; // Must be same length
 	static const char* font_out_extension = ".fnt";
 
 	static const char* anim_out_extension = ".anm";
@@ -1045,7 +1011,7 @@ int proc(int argc, char* argv[])
 					anims[asset_name] = existing_anim_map->second;
 			}
 		}
-		else if (has_extension(entry->d_name, font_in_extension))
+		else if (has_extension(entry->d_name, font_in_extension) || has_extension(entry->d_name, font_in_extension_2))
 		{
 			strcpy(asset_out_path + strlen(asset_out_path) - strlen(font_in_extension), font_out_extension);
 
@@ -1078,7 +1044,7 @@ int proc(int argc, char* argv[])
 
 				remove(asset_intermediate_path);
 
-				Array<FontCharacter> characters;
+				Array<Font::Character> characters;
 				if (load_font(scene, mesh, characters))
 				{
 					FILE* f = fopen(asset_out_path, "w+b");
@@ -1089,7 +1055,7 @@ int proc(int argc, char* argv[])
 						fwrite(&mesh.indices.length, sizeof(int), 1, f);
 						fwrite(mesh.indices.data, sizeof(int), mesh.indices.length, f);
 						fwrite(&characters.length, sizeof(int), 1, f);
-						fwrite(characters.data, sizeof(FontCharacter), characters.length, f);
+						fwrite(characters.data, sizeof(Font::Character), characters.length, f);
 						fclose(f);
 					}
 					else

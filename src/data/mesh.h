@@ -6,8 +6,6 @@
 #include "lmath.h"
 #include <array>
 
-#include <BulletCollision/CollisionShapes/btTriangleIndexVertexArray.h>
-
 namespace VI
 {
 
@@ -24,7 +22,17 @@ struct Mesh
 	Array<std::array<float, MAX_BONE_WEIGHTS> > bone_weights;
 	Array<Mat4> inverse_bind_pose;
 	Array<int> bone_hierarchy;
-	btTriangleIndexVertexArray physics;
+	void reset()
+	{
+		indices.length = 0;
+		vertices.length = 0;
+		uvs.length = 0;
+		normals.length = 0;
+		bone_indices.length = 0;
+		bone_weights.length = 0;
+		inverse_bind_pose.length = 0;
+		bone_hierarchy.length = 0;
+	}
 };
 
 template<typename T>

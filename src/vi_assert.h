@@ -22,8 +22,7 @@
 #ifdef DEBUG
 inline void vi_assert(bool x)
 {
-	if (!x)
-		vi_debug_break();
+	if (!x) { vi_debug_break(); }
 }
 #else
 #define vi_assert(x)

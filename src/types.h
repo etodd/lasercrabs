@@ -27,6 +27,6 @@ struct Update
 	GameTime time;
 };
 
-typedef size_t AssetID;
+typedef int AssetID;
 
 }

@@ -8,7 +8,7 @@ namespace VI
 
 Camera Camera::main = Camera();
 
-RenderSync::Swapper RenderSync::swapper(size_t index)
+RenderSync::Swapper RenderSync::swapper(int index)
 {
 	RenderSync::Swapper q;
 	q.data = data;
@@ -26,8 +26,9 @@ void render(SyncData* sync, GLData* data)
 		{
 			case RenderOp_AllocMesh:
 			{
-				size_t id = *(sync->read<size_t>());
-				data->meshes.resize(id + 1);
+				int id = *(sync->read<int>());
+				if (id >= data->meshes.length)
+					data->meshes.resize(id + 1);
 				GLData::Mesh* mesh = &data->meshes[id];
 				new (mesh) GLData::Mesh();
 
@@ -79,7 +80,7 @@ void render(SyncData* sync, GLData* data)
 			}
 			case RenderOp_UpdateAttribBuffers:
 			{
-				size_t id = *(sync->read<size_t>());
+				int id = *(sync->read<int>());
 				GLData::Mesh* mesh = &data->meshes[id];
 				glBindVertexArray(mesh->vertex_array);
 
@@ -131,7 +132,7 @@ void render(SyncData* sync, GLData* data)
 			}
 			case RenderOp_UpdateIndexBuffer:
 			{
-				size_t id = *(sync->read<size_t>());
+				int id = *(sync->read<int>());
 				GLData::Mesh* mesh = &data->meshes[id];
 				int index_count = *(sync->read<int>());
 				int* indices = sync->read<int>(index_count);
@@ -146,7 +147,7 @@ void render(SyncData* sync, GLData* data)
 			{
 				AssetID id = *(sync->read<AssetID>());
 				GLData::Mesh* mesh = &data->meshes[id];
-				for (size_t i = 0; i < mesh->attribs.length; i++)
+				for (int i = 0; i < mesh->attribs.length; i++)
 					glDeleteBuffers(1, &mesh->attribs.data[i].handle);
 				glDeleteVertexArrays(1, &mesh->vertex_array);
 				mesh->~Mesh();
@@ -187,7 +188,7 @@ void render(SyncData* sync, GLData* data)
 			{
 				AssetID id = *(sync->read<AssetID>());
 				const char* path = Asset::Shader::filenames[id];
-				size_t code_length = *(sync->read<size_t>());
+				int code_length = *(sync->read<int>());
 				char* code = sync->read<char>(code_length);
 
 				// Create the shaders
@@ -268,7 +269,7 @@ void render(SyncData* sync, GLData* data)
 			}
 			case RenderOp_Mesh:
 			{
-				size_t id = *(sync->read<size_t>());
+				int id = *(sync->read<int>());
 				GLData::Mesh* mesh = &data->meshes[id];
 				AssetID shader_asset = *(sync->read<AssetID>());
 
@@ -318,7 +319,7 @@ void render(SyncData* sync, GLData* data)
 					}
 				}
 
-				for (size_t i = 0; i < mesh->attribs.length; i++)
+				for (int i = 0; i < mesh->attribs.length; i++)
 				{
 					glEnableVertexAttribArray(i);
 					glBindBuffer(GL_ARRAY_BUFFER, mesh->attribs.data[i].handle);
@@ -356,7 +357,7 @@ void render(SyncData* sync, GLData* data)
 					(void*)0            // element array buffer offset
 				);
 
-				for (size_t i = 0; i < mesh->attribs.length; i++)
+				for (int i = 0; i < mesh->attribs.length; i++)
 					glDisableVertexAttribArray(i);
 				break;
 			}

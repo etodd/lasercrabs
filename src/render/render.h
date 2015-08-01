@@ -56,7 +56,7 @@ struct SyncData
 	GameTime time;
 	InputState input;
 	Array<char> queue;
-	size_t read_pos;
+	int read_pos;
 	bool ready[SwapType_count];
 	mutable std::mutex mutex;
 	std::condition_variable condition;
@@ -68,11 +68,11 @@ struct SyncData
 	}
 
 	template<typename T>
-	void write(T* data, size_t count = 1)
+	void write(T* data, int count = 1)
 	{
-		size_t size = sizeof(T) * count;
+		int size = sizeof(T) * count;
 
-		size_t pos = queue.length;
+		int pos = queue.length;
 		queue.length = pos + size;
 		queue.reserve(queue.length);
 		
@@ -88,7 +88,7 @@ struct SyncData
 	}
 
 	template<typename T>
-	T* read(size_t count = 1)
+	T* read(int count = 1)
 	{
 		T* result = (T*)(queue.data + read_pos);
 		read_pos += sizeof(T) * count;
@@ -99,7 +99,7 @@ struct SyncData
 
 struct RenderSync
 {
-	static const size_t count = 2;
+	static const int count = 2;
 	typedef Swapper<SyncData, count> Swapper;
 	SyncData data[count];
 
@@ -108,7 +108,7 @@ struct RenderSync
 	{
 	}
 
-	Swapper swapper(size_t);
+	Swapper swapper(int);
 };
 
 struct Loader;
@@ -129,7 +129,7 @@ struct GLData
 		Array<Attrib> attribs;
 		GLuint index_buffer;
 		GLuint vertex_array;
-		size_t index_count;
+		int index_count;
 
 		Mesh()
 			: attribs(), index_buffer(), vertex_array(), index_count()
@@ -165,6 +165,8 @@ struct RenderParams
 {
 	Mat4 view;
 	Mat4 projection;
+	int width;
+	int height;
 	Mat4 view_projection;
 	GLbitfield clear;
 	RenderTechnique technique;

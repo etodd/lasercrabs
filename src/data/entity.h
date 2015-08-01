@@ -31,9 +31,9 @@ struct PoolBase
 	{
 	}
 
-	virtual ComponentBase* virtual_get(size_t) { return 0; }
-	virtual void awake(size_t) {}
-	virtual void remove(size_t) {}
+	virtual ComponentBase* virtual_get(int) { return 0; }
+	virtual void awake(int) {}
+	virtual void remove(int) {}
 };
 
 template<typename T>
@@ -43,7 +43,7 @@ struct Pool : public PoolBase
 	{
 	}
 
-	virtual ComponentBase* virtual_get(size_t id)
+	virtual ComponentBase* virtual_get(int id)
 	{
 		return reinterpret_cast<PinArray<T>*>(&data)->get(id);
 	}
@@ -53,17 +53,17 @@ struct Pool : public PoolBase
 		return reinterpret_cast<PinArray<T>*>(&data)->add();
 	}
 
-	T* get(size_t id)
+	T* get(int id)
 	{
 		return reinterpret_cast<PinArray<T>*>(&data)->get(id);
 	}
 
-	void awake(size_t id)
+	void awake(int id)
 	{
 		reinterpret_cast<PinArray<T>*>(&data)->get(id)->awake();
 	}
 
-	void remove(size_t id)
+	void remove(int id)
 	{
 		reinterpret_cast<PinArray<T>*>(&data)->get(id)->~T();
 		reinterpret_cast<PinArray<T>*>(&data)->remove(id);

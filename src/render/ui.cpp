@@ -11,7 +11,6 @@ UIText::UIText()
 	vertices(),
 	color(Vec4(1, 1, 1, 1)),
 	font(),
-	string(),
 	pos(Vec2::zero),
 	rot(),
 	size(16)
@@ -32,11 +31,8 @@ void UIText::text(const char* string)
 		char c = string[char_index];
 		if (!c)
 			break;
-		if (c == ' ')
-			pos.x += 0.3f;
-		else if (c == '\t')
-			pos.x += 1.5f;
-		else if (c == '\n')
+
+		if (c == '\n')
 		{
 			pos.x = 0.0f;
 			pos.y -= 1.0f;
@@ -70,7 +66,7 @@ void UIText::text(const char* string)
 void UIText::draw(const RenderParams& params)
 {
 	int vertex_start = UI::vertices.length;
-	Vec2 screen = Vec2(params.sync->input.width, params.sync->input.height);
+	Vec2 screen = Vec2(params.sync->input.width * 0.5f, params.sync->input.height * 0.5f);
 	Vec2 offset = pos - screen;
 	Vec2 scale = Vec2(1.0f / screen.x, 1.0f / screen.y);
 	float cs = cosf(rot), sn = sinf(rot);

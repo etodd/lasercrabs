@@ -15,7 +15,6 @@ struct UIText
 	Array<Vec3> vertices;
 	Vec4 color;
 	Font* font;
-	Array<char> string;
 	Vec2 pos;
 	float rot;
 	float size;

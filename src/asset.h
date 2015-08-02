@@ -9,10 +9,11 @@ struct Asset
 	static const AssetID Nothing = -1;
 	struct Model
 	{
-		static const int count = 3;
-		static const char* filenames[3];
+		static const int count = 4;
+		static const char* filenames[4];
 		static const AssetID Alpha;
 		static const AssetID city3;
+		static const AssetID city4;
 		static const AssetID cube;
 	};
 	struct Texture
@@ -48,8 +49,9 @@ struct Asset
 	};
 	struct Font
 	{
-		static const int count = 1;
-		static const char* filenames[1];
+		static const int count = 2;
+		static const char* filenames[2];
+		static const AssetID SegoeUISymbol;
 		static const AssetID lowpoly;
 	};
 };

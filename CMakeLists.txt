@@ -187,11 +187,14 @@ add_executable(mkzebra
 	src/lmath.h
 	src/common.h
 	src/common.cpp
+	src/console.h
+	src/console.cpp
 	src/load.h
 	src/load.cpp
 	src/physics.cpp
 	src/asset.cpp
 	src/lmath.cpp
+	src/main.h
 	src/main.cpp
 	${GAME_SRC_FILES}
 )

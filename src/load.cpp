@@ -413,6 +413,10 @@ Font* Loader::font(AssetID id)
 			Font::Character* c = &characters[i];
 			font->characters[c->code] = *c;
 		}
+		font->characters[' '].code = ' ';
+		font->characters[' '].max.x = 0.3f;
+		font->characters['\t'].code = ' ';
+		font->characters['\t'].max.x = 1.5f;
 
 		fclose(f);
 	}

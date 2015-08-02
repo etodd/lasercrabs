@@ -9,8 +9,12 @@
 #include "data/components.h"
 #include "data/mesh.h"
 #include "physics.h"
-#include "load.h"
 #include "common.h"
+#include "render/ui.h"
+
+#if DEBUG
+	#include "console.h"
+#endif
 
 namespace VI
 {
@@ -21,7 +25,12 @@ void game_loop(RenderSync::Swapper* swapper)
 
 	Loader::swapper = swapper;
 
-	StaticGeom* a = World::create<StaticGeom>(Asset::Model::city3);
+#if DEBUG
+	Console::init();
+#endif
+
+	StaticGeom* a = World::create<StaticGeom>(Asset::Model::city4);
+	a->get<Transform>()->pos.y = -5.0f;
 
 	Noclip* noclip = World::create<Noclip>();
 	noclip->get<Transform>()->pos = Vec3(2, -1.5f, -7);
@@ -34,22 +43,30 @@ void game_loop(RenderSync::Swapper* swapper)
 
 	while (!sync->quit)
 	{
-		u.input = &sync->input;
-		u.time = sync->time;
-
 		// Update
+		if (sync->focus)
 		{
+			u.input = &sync->input;
+			u.time = sync->time;
+
 			Physics::update(u);
+			for (auto i = World::components<Walker>().iterator(); !i.is_last(); i.next())
+				i.item()->update(u);
 			for (auto i = World::components<NoclipControl>().iterator(); !i.is_last(); i.next())
 				i.item()->update(u);
 			for (auto i = World::components<Armature>().iterator(); !i.is_last(); i.next())
 				i.item()->update(u);
+
+#if DEBUG
+			Console::update(u);
+#endif
 		}
 
 		render_params.sync = sync;
 
 		render_params.projection = Camera::main.projection;
 		render_params.view = Camera::main.view;
+		render_params.view_projection = render_params.view * render_params.projection;
 
 		sync->write(RenderOp_Clear);
 
@@ -58,9 +75,15 @@ void game_loop(RenderSync::Swapper* swapper)
 		// Draw
 		{
 			for (auto i = World::components<View>().iterator(); !i.is_last(); i.next())
-				i.item()->draw(&render_params);
+				i.item()->draw(render_params);
 			for (auto i = World::components<Armature>().iterator(); !i.is_last(); i.next())
-				i.item()->draw(&render_params);
+				i.item()->draw(render_params);
+
+#if DEBUG
+			Console::draw(render_params);
+#endif
+
+			UI::draw(render_params);
 		}
 
 		sync = swapper->swap<SwapType_Write>();

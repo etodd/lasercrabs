@@ -3,30 +3,25 @@
 
 #include <thread>
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <iostream>
-
 #include <GL/glew.h>
-#include <GLFW/glfw3.h>
-#include "glfw_config.h"
-#include <GLFW/../../src/internal.h>
 
 #include "load.h"
 #include "render/render.h"
 #include "game/game.h"
+#include "main.h"
+#include <GLFW/../../src/internal.h>
 
 namespace VI
 {
 
-GLFWwindow* window;
+GLFWwindow* Main::window = 0;
 
-void resize(GLFWwindow* window, int width, int height)
+void Main::resize(GLFWwindow* window, int width, int height)
 {
 	glViewport(0, 0, width, height);
 }
 
-int proc()
+int Main::proc()
 {
 	// Initialise GLFW
 	if (!glfwInit())
@@ -65,7 +60,7 @@ int proc()
 		return -1;
 	}
 	glfwMakeContextCurrent(window);
-	glfwSetFramebufferSizeCallback(window, resize);
+	glfwSetFramebufferSizeCallback(window, Main::resize);
 
 	// Initialize GLEW
 	glewExperimental = true; // Needed for core profile
@@ -76,7 +71,7 @@ int proc()
 	}
 
 	// Ensure we can capture the escape key being pressed below
-	glfwSetInputMode(window, GLFW_STICKY_KEYS, GL_TRUE);
+	glfwSetInputMode(window, GLFW_STICKY_KEYS, GL_FALSE);
 	glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_HIDDEN);
 
 	// Dark blue background
@@ -102,6 +97,9 @@ int proc()
 	GLData gl_data;
 
 	float lastTime = (float)glfwGetTime();
+
+	char last_keys[GLFW_KEY_LAST + 1];
+
 	while (true)
 	{
 		render(sync, &gl_data);
@@ -111,18 +109,14 @@ int proc()
 
 		glfwPollEvents();
 
-		bool quit = sync->quit = glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS || glfwWindowShouldClose(window);
+		memcpy(sync->input.last_keys, last_keys, sizeof(last_keys));
+		_GLFWwindow* _window = (_GLFWwindow*)window;
+		memcpy(last_keys, _window->keys, sizeof(last_keys));
+		memcpy(sync->input.keys, _window->keys, sizeof(sync->input.keys));
+
+		bool quit = sync->quit = sync->input.keys[GLFW_KEY_ESCAPE] == GLFW_PRESS || glfwWindowShouldClose(window);
 
 		bool focus = sync->focus = glfwGetWindowAttrib(window, GLFW_FOCUSED);
-
-#if DEBUG
-		// Convenience function for recording gifs
-		if (glfwGetKey(window, GLFW_KEY_G) == GLFW_PRESS)
-			glfwSetWindowSize(window, 500, 281);
-#endif
-
-		_GLFWwindow* _window = (_GLFWwindow*)window;
-		memcpy(sync->input.keys, _window->keys, sizeof(sync->input.keys));
 
 		glfwGetFramebufferSize(window, &sync->input.width, &sync->input.height);
 
@@ -135,6 +129,13 @@ int proc()
 		lastTime = sync->time.total;
 
 		sync = render_swapper.swap<SwapType_Read>();
+
+		if (sync->input.set_width > 0)
+		{
+			glfwSetWindowSize(Main::window, sync->input.set_width, sync->input.set_height);
+			sync->input.set_width = 0;
+			sync->input.set_height = 0;
+		}
 
 		if (quit)
 			break;
@@ -159,5 +160,5 @@ int CALLBACK WinMain(
 int main()
 #endif
 {
-	return VI::proc();
+	return VI::Main::proc();
 }

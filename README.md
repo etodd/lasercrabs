@@ -49,6 +49,14 @@ Mac
 1. Run `./setup-mac`
 1. Run `./mkzebra` from the `build` folder.
 
+Third-party
+-----------
+
+The Segoe UI Symbol font is made available by Microsoft under the MIT license.
+
+All code and assets not including external submodules are available under the
+following license:
+
 The MIT License (MIT)
 ---------------------
 

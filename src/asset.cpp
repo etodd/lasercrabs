@@ -5,12 +5,14 @@ namespace VI
 
 AssetID const Asset::Model::Alpha = 0;
 AssetID const Asset::Model::city3 = 1;
-AssetID const Asset::Model::cube = 2;
+AssetID const Asset::Model::city4 = 2;
+AssetID const Asset::Model::cube = 3;
 
 const char* Asset::Model::filenames[] =
 {
 	"assets/Alpha.mdl",
 	"assets/city3.mdl",
+	"assets/city4.mdl",
 	"assets/cube.mdl",
 };
 
@@ -56,10 +58,12 @@ const char* Asset::Uniform::filenames[] =
 	"myTextureSampler",
 };
 
-AssetID const Asset::Font::lowpoly = 0;
+AssetID const Asset::Font::SegoeUISymbol = 0;
+AssetID const Asset::Font::lowpoly = 1;
 
 const char* Asset::Font::filenames[] =
 {
+	"assets/SegoeUISymbol.fnt",
 	"assets/lowpoly.fnt",
 };
 

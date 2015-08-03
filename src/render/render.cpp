@@ -8,6 +8,11 @@ namespace VI
 
 Camera Camera::main = Camera();
 
+Mat4 Camera::view()
+{
+	return Mat4::look(pos, rot * Vec3(0, 0, 1), rot * Vec3(0, 1, 0));
+}
+
 RenderSync::Swapper RenderSync::swapper(int index)
 {
 	RenderSync::Swapper q;

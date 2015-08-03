@@ -1,7 +1,6 @@
 # CMake entry point
 cmake_minimum_required (VERSION 2.6)
 project (mkzebra)
-set(AMD64 ON)
 
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/assets)
 
@@ -14,7 +13,7 @@ set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -DDEBUG=1")
 if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
 	set(CMAKE_CXX_FLAGS "-std=c++11 -Wno-deprecated-register -Wno-deprecated-declarations")
 elseif (CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
-	set(CMAKE_CXX_FLAGS "-wd4351")
+	set(CMAKE_CXX_FLAGS "-wd4351 -wd4530")
 	add_definitions(-D_CRT_SECURE_NO_WARNINGS)
 endif()
 
@@ -24,6 +23,7 @@ find_package(OpenGL REQUIRED)
 add_subdirectory(external/glew)
 add_definitions(-DGLEW_STATIC)
 ## GLFW
+set(GLFW_INSTALL OFF)
 set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
 set(GLFW_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 set(GLFW_BUILD_DOCS OFF CACHE BOOL "" FORCE)
@@ -95,11 +95,15 @@ add_definitions(-DASSIMP_BUILD_NO_XGL_IMPORTER)
 include(CheckIncludeFile)
 include(CheckTypeSize)
 include(CheckFunctionExists)
+set(AMD64 OFF)
 # compile from sources
 add_subdirectory(external/assimp/contrib/zlib)
 set(ZLIB_FOUND 1)
 set(ZLIB_LIBRARIES zlibstatic)
-set(ZLIB_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/external/assimp/contrib/zlib ${CMAKE_CURRENT_BINARY_DIR}/external/assimp/contrib/zlib)
+set(ZLIB_INCLUDE_DIR
+	${CMAKE_CURRENT_SOURCE_DIR}/external/assimp/contrib/zlib
+	${CMAKE_CURRENT_BINARY_DIR}/external/assimp/contrib/zlib
+)
 include_directories(${ZLIB_INCLUDE_DIR})
 set_target_properties(zlibstatic PROPERTIES LINKER_LANGUAGE CXX)
 
@@ -150,9 +154,6 @@ configure_file(.exrc.in ${CMAKE_CURRENT_SOURCE_DIR}/.exrc)
 
 ## Source
 
-source_group(h REGULAR_EXPRESSION ".*\\.h$")
-source_group(cpp REGULAR_EXPRESSION ".*\\.cpp$")
-
 if (NOT EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/src/game/CMakeLists.txt)
 	set(template_files
 		src/template/CMakeLists.txt
@@ -200,11 +201,11 @@ add_executable(mkzebra
 )
 
 if(WIN32)
-	set_target_properties(mkzebra PROPERTIES LINK_FLAGS_DEBUG "/SUBSYSTEM:CONSOLE")
-	set_target_properties(mkzebra PROPERTIES COMPILE_DEFINITIONS_DEBUG "_CONSOLE")
-	set_target_properties(mkzebra PROPERTIES LINK_FLAGS_RELWITHDEBINFO "/SUBSYSTEM:WINDOWS")
-	set_target_properties(mkzebra PROPERTIES LINK_FLAGS_RELEASE "/SUBSYSTEM:WINDOWS")
-	set_target_properties(mkzebra PROPERTIES LINK_FLAGS_MINSIZEREL "/SUBSYSTEM:WINDOWS")
+	set_property(TARGET mkzebra APPEND PROPERTY LINK_FLAGS_DEBUG "/SUBSYSTEM:CONSOLE")
+	set_property(TARGET mkzebra APPEND PROPERTY COMPILE_DEFINITIONS $<$<CONFIG:Debug>:_CONSOLE>)
+	set_property(TARGET mkzebra APPEND PROPERTY LINK_FLAGS_RELWITHDEBINFO "/SUBSYSTEM:WINDOWS")
+	set_property(TARGET mkzebra APPEND PROPERTY LINK_FLAGS_RELEASE "/SUBSYSTEM:WINDOWS")
+	set_property(TARGET mkzebra APPEND PROPERTY LINK_FLAGS_MINSIZEREL "/SUBSYSTEM:WINDOWS")
 endif(WIN32)
 
 ## Libraries
@@ -238,13 +239,10 @@ target_link_libraries(import
 	recast
 )
 
-get_property(import_location TARGET import PROPERTY LOCATION) 
 add_custom_target(
 	assets ALL
-	COMMAND ${import_location}
+	COMMAND $<TARGET_FILE:import>
 	DEPENDS import
 	WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
 )
 add_dependencies(mkzebra assets)
-
-set_target_properties(uninstall PROPERTIES EXCLUDE_FROM_ALL TRUE)

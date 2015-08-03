@@ -11,6 +11,7 @@
 #include "physics.h"
 #include "common.h"
 #include "render/ui.h"
+#include "game.h"
 
 #if DEBUG
 	#include "console.h"
@@ -19,7 +20,7 @@
 namespace VI
 {
 
-void game_loop(RenderSync::Swapper* swapper)
+void Game::loop(RenderSync::Swapper* swapper)
 {
 	Physics::btWorld->setGravity(btVector3(0, -9.8f, 0));
 
@@ -29,7 +30,7 @@ void game_loop(RenderSync::Swapper* swapper)
 	Console::init();
 #endif
 
-	StaticGeom* a = World::create<StaticGeom>(Asset::Model::city4);
+	StaticGeom* a = World::create<StaticGeom>(Asset::Model::city3);
 	a->get<Transform>()->pos.y = -5.0f;
 
 	Noclip* noclip = World::create<Noclip>();
@@ -50,8 +51,6 @@ void game_loop(RenderSync::Swapper* swapper)
 			u.time = sync->time;
 
 			Physics::update(u);
-			for (auto i = World::components<Walker>().iterator(); !i.is_last(); i.next())
-				i.item()->update(u);
 			for (auto i = World::components<NoclipControl>().iterator(); !i.is_last(); i.next())
 				i.item()->update(u);
 			for (auto i = World::components<Armature>().iterator(); !i.is_last(); i.next())
@@ -64,8 +63,10 @@ void game_loop(RenderSync::Swapper* swapper)
 
 		render_params.sync = sync;
 
+		render_params.camera_pos = Camera::main.pos;
+		render_params.camera_rot = Camera::main.rot;
 		render_params.projection = Camera::main.projection;
-		render_params.view = Camera::main.view;
+		render_params.view = Camera::main.view();
 		render_params.view_projection = render_params.view * render_params.projection;
 
 		sync->write(RenderOp_Clear);
@@ -88,6 +89,15 @@ void game_loop(RenderSync::Swapper* swapper)
 
 		sync = swapper->swap<SwapType_Write>();
 		sync->queue.length = 0;
+	}
+}
+
+void Game::execute(const Update& u, const char* cmd)
+{
+	if (strcmp(cmd, "gif") == 0) // Convenience function for recording gifs
+	{
+		u.input->set_width = 500;
+		u.input->set_height = 281;
 	}
 }
 

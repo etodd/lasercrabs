@@ -55,7 +55,7 @@ int Main::proc()
 	// Open a window and create its OpenGL context
 	if (!window)
 	{
-		fprintf(stderr, "Failed to open GLFW window. If you have an Intel GPU, they are not 3.3 compatible. Sorry.\n");
+		fprintf(stderr, "Failed to open GLFW window. Most likely your GPU is out of date!");
 		glfwTerminate();
 		return -1;
 	}
@@ -90,7 +90,7 @@ int Main::proc()
 	RenderSync::Swapper update_swapper = render_sync.swapper(0);
 	RenderSync::Swapper render_swapper = render_sync.swapper(1);
 
-	std::thread update_thread(game_loop, &update_swapper);
+	std::thread update_thread(Game::loop, &update_swapper);
 
 	SyncData* sync = render_swapper.get();
 
@@ -99,6 +99,7 @@ int Main::proc()
 	float lastTime = (float)glfwGetTime();
 
 	char last_keys[GLFW_KEY_LAST + 1];
+	bool last_mouse_buttons[8];
 
 	while (true)
 	{
@@ -110,9 +111,12 @@ int Main::proc()
 		glfwPollEvents();
 
 		memcpy(sync->input.last_keys, last_keys, sizeof(last_keys));
+		memcpy(sync->input.last_mouse_buttons, last_mouse_buttons, sizeof(last_mouse_buttons));
 		_GLFWwindow* _window = (_GLFWwindow*)window;
 		memcpy(last_keys, _window->keys, sizeof(last_keys));
+		memcpy(last_mouse_buttons, _window->mouseButtons, sizeof(last_mouse_buttons));
 		memcpy(sync->input.keys, _window->keys, sizeof(sync->input.keys));
+		memcpy(sync->input.mouse_buttons, _window->mouseButtons, sizeof(sync->input.mouse_buttons));
 
 		bool quit = sync->quit = sync->input.keys[GLFW_KEY_ESCAPE] == GLFW_PRESS || glfwWindowShouldClose(window);
 
@@ -123,7 +127,6 @@ int Main::proc()
 		glfwGetCursorPos(window, &sync->input.cursor_x, &sync->input.cursor_y);
 		if (focus)
 			glfwSetCursorPos(window, sync->input.width / 2, sync->input.height / 2);
-		memcpy(sync->input.mouse_buttons, _window->mouseButtons, sizeof(bool) * 8);
 		sync->time.total = (float)glfwGetTime();
 		sync->time.delta = sync->time.total - lastTime;
 		lastTime = sync->time.total;

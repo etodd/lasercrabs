@@ -4,13 +4,17 @@ namespace VI
 {
 
 AssetID const Asset::Model::Alpha = 0;
-AssetID const Asset::Model::city3 = 1;
-AssetID const Asset::Model::city4 = 2;
-AssetID const Asset::Model::cube = 3;
+AssetID const Asset::Model::city1 = 1;
+AssetID const Asset::Model::city2 = 2;
+AssetID const Asset::Model::city3 = 3;
+AssetID const Asset::Model::city4 = 4;
+AssetID const Asset::Model::cube = 5;
 
 const char* Asset::Model::filenames[] =
 {
 	"assets/Alpha.mdl",
+	"assets/city1.mdl",
+	"assets/city2.mdl",
 	"assets/city3.mdl",
 	"assets/city4.mdl",
 	"assets/cube.mdl",

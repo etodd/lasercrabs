@@ -22,7 +22,6 @@ struct Console
 	static void init();
 	static void update(const Update&);
 	static void draw(const RenderParams&);
-	static void execute(const Update&, const char*);
 };
 
 }

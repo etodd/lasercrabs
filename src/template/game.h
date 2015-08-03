@@ -3,6 +3,10 @@
 namespace VI
 {
 
-void game_loop(RenderSync::Swapper* swapper);
+struct Game
+{
+static void loop(RenderSync::Swapper*);
+static void execute(const Update&, const char*);
+};
 
 }

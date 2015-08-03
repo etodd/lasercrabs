@@ -9,9 +9,11 @@ struct Asset
 	static const AssetID Nothing = -1;
 	struct Model
 	{
-		static const int count = 4;
-		static const char* filenames[4];
+		static const int count = 6;
+		static const char* filenames[6];
 		static const AssetID Alpha;
+		static const AssetID city1;
+		static const AssetID city2;
 		static const AssetID city3;
 		static const AssetID city4;
 		static const AssetID cube;

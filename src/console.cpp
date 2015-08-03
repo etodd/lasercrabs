@@ -2,6 +2,7 @@
 #include "render/view.h"
 #include "render/armature.h"
 #include <GLFW/glfw3.h>
+#include "game/game.h"
 
 namespace VI
 {
@@ -132,22 +133,13 @@ void Console::update(const Update& u)
 		if (u.input->keys[GLFW_KEY_ENTER] == GLFW_PRESS)
 		{
 			visible = false;
-			execute(u, &command[1]);
+			Game::execute(u, &command[1]);
 			command.resize(2);
 			command[1] = '\0';
 			update = true;
 		}
 
 		text.text(command.data);
-	}
-}
-
-void Console::execute(const Update& u, const char* cmd)
-{
-	if (strcmp(cmd, "gif") == 0) // Convenience function for recording gifs
-	{
-		u.input->set_width = 500;
-		u.input->set_height = 281;
 	}
 }
 

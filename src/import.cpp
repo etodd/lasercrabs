@@ -19,6 +19,7 @@ namespace VI
 {
 
 Quat import_rotation = Quat(PI * -0.5f, Vec3(1, 0, 0));
+const int version = 1;
 
 int exit_error()
 {
@@ -592,104 +593,114 @@ int proc(int argc, char* argv[])
 	FILE* f = fopen(asset_cache_path, "rb");
 	if (f)
 	{
-		int count;
-		fread(&count, sizeof(int), 1, f);
-		for (int i = 0; i < count; i++)
+		int read_version;
+		fread(&read_version, sizeof(int), 1, f);
+		if (version != read_version)
 		{
-			char asset_name[MAX_PATH_LENGTH];
-			char asset_path[MAX_PATH_LENGTH];
-			memset(asset_name, 0, MAX_PATH_LENGTH);
-			memset(asset_path, 0, MAX_PATH_LENGTH);
-			int length;
-			fread(&length, sizeof(int), 1, f);
-			fread(asset_name, sizeof(char), length, f);
-			fread(&length, sizeof(int), 1, f);
-			fread(asset_path, sizeof(char), length, f);
-			loaded_models[asset_name] = asset_path;
-
-			loaded_anims[asset_name] = std::map<std::string, std::string>();
-
-			std::map<std::string, std::string>* asset_anims = &loaded_anims[asset_name];
-
-			int anim_count;
-			fread(&anim_count, sizeof(int), 1, f);
-			for (int j = 0; j < anim_count; j++)
+			rebuild = true;
+			fclose(f);
+		}
+		else
+		{
+			int count;
+			fread(&count, sizeof(int), 1, f);
+			for (int i = 0; i < count; i++)
 			{
-				char anim_name[MAX_PATH_LENGTH];
-				char anim_path[MAX_PATH_LENGTH];
-				memset(anim_name, 0, MAX_PATH_LENGTH);
-				memset(anim_path, 0, MAX_PATH_LENGTH);
+				char asset_name[MAX_PATH_LENGTH];
+				char asset_path[MAX_PATH_LENGTH];
+				memset(asset_name, 0, MAX_PATH_LENGTH);
+				memset(asset_path, 0, MAX_PATH_LENGTH);
 				int length;
 				fread(&length, sizeof(int), 1, f);
-				fread(anim_name, sizeof(char), length, f);
+				fread(asset_name, sizeof(char), length, f);
 				fread(&length, sizeof(int), 1, f);
-				fread(anim_path, sizeof(char), length, f);
-				(*asset_anims)[anim_name] = anim_path;
+				fread(asset_path, sizeof(char), length, f);
+				loaded_models[asset_name] = asset_path;
+
+				loaded_anims[asset_name] = std::map<std::string, std::string>();
+
+				std::map<std::string, std::string>* asset_anims = &loaded_anims[asset_name];
+
+				int anim_count;
+				fread(&anim_count, sizeof(int), 1, f);
+				for (int j = 0; j < anim_count; j++)
+				{
+					char anim_name[MAX_PATH_LENGTH];
+					char anim_path[MAX_PATH_LENGTH];
+					memset(anim_name, 0, MAX_PATH_LENGTH);
+					memset(anim_path, 0, MAX_PATH_LENGTH);
+					int length;
+					fread(&length, sizeof(int), 1, f);
+					fread(anim_name, sizeof(char), length, f);
+					fread(&length, sizeof(int), 1, f);
+					fread(anim_path, sizeof(char), length, f);
+					(*asset_anims)[anim_name] = anim_path;
+				}
 			}
-		}
 
-		fread(&count, sizeof(int), 1, f);
-		for (int i = 0; i < count; i++)
-		{
-			char asset_name[MAX_PATH_LENGTH];
-			char asset_path[MAX_PATH_LENGTH];
-			memset(asset_name, 0, MAX_PATH_LENGTH);
-			memset(asset_path, 0, MAX_PATH_LENGTH);
-			int length;
-			fread(&length, sizeof(int), 1, f);
-			fread(asset_name, sizeof(char), length, f);
-			fread(&length, sizeof(int), 1, f);
-			fread(asset_path, sizeof(char), length, f);
-			loaded_textures[asset_name] = asset_path;
-		}
-
-		fread(&count, sizeof(int), 1, f);
-		for (int i = 0; i < count; i++)
-		{
-			char asset_name[MAX_PATH_LENGTH];
-			char asset_path[MAX_PATH_LENGTH];
-			memset(asset_name, 0, MAX_PATH_LENGTH);
-			memset(asset_path, 0, MAX_PATH_LENGTH);
-			int length;
-			fread(&length, sizeof(int), 1, f);
-			fread(asset_name, sizeof(char), length, f);
-			fread(&length, sizeof(int), 1, f);
-			fread(asset_path, sizeof(char), length, f);
-			loaded_shaders[asset_name] = asset_path;
-
-			loaded_uniforms[asset_name] = std::map<std::string, std::string>();
-
-			std::map<std::string, std::string>* asset_uniforms = &loaded_uniforms[asset_name];
-
-			int uniform_count;
-			fread(&uniform_count, sizeof(int), 1, f);
-			for (int j = 0; j < uniform_count; j++)
+			fread(&count, sizeof(int), 1, f);
+			for (int i = 0; i < count; i++)
 			{
-				char uniform_name[MAX_PATH_LENGTH];
-				memset(uniform_name, 0, MAX_PATH_LENGTH);
+				char asset_name[MAX_PATH_LENGTH];
+				char asset_path[MAX_PATH_LENGTH];
+				memset(asset_name, 0, MAX_PATH_LENGTH);
+				memset(asset_path, 0, MAX_PATH_LENGTH);
 				int length;
 				fread(&length, sizeof(int), 1, f);
-				fread(uniform_name, sizeof(char), length, f);
-				(*asset_uniforms)[uniform_name] = uniform_name;
+				fread(asset_name, sizeof(char), length, f);
+				fread(&length, sizeof(int), 1, f);
+				fread(asset_path, sizeof(char), length, f);
+				loaded_textures[asset_name] = asset_path;
 			}
-		}
 
-		fread(&count, sizeof(int), 1, f);
-		for (int i = 0; i < count; i++)
-		{
-			char asset_name[MAX_PATH_LENGTH];
-			char asset_path[MAX_PATH_LENGTH];
-			memset(asset_name, 0, MAX_PATH_LENGTH);
-			memset(asset_path, 0, MAX_PATH_LENGTH);
-			int length;
-			fread(&length, sizeof(int), 1, f);
-			fread(asset_name, sizeof(char), length, f);
-			fread(&length, sizeof(int), 1, f);
-			fread(asset_path, sizeof(char), length, f);
-			loaded_fonts[asset_name] = asset_path;
-		}
+			fread(&count, sizeof(int), 1, f);
+			for (int i = 0; i < count; i++)
+			{
+				char asset_name[MAX_PATH_LENGTH];
+				char asset_path[MAX_PATH_LENGTH];
+				memset(asset_name, 0, MAX_PATH_LENGTH);
+				memset(asset_path, 0, MAX_PATH_LENGTH);
+				int length;
+				fread(&length, sizeof(int), 1, f);
+				fread(asset_name, sizeof(char), length, f);
+				fread(&length, sizeof(int), 1, f);
+				fread(asset_path, sizeof(char), length, f);
+				loaded_shaders[asset_name] = asset_path;
 
-		fclose(f);
+				loaded_uniforms[asset_name] = std::map<std::string, std::string>();
+
+				std::map<std::string, std::string>* asset_uniforms = &loaded_uniforms[asset_name];
+
+				int uniform_count;
+				fread(&uniform_count, sizeof(int), 1, f);
+				for (int j = 0; j < uniform_count; j++)
+				{
+					char uniform_name[MAX_PATH_LENGTH];
+					memset(uniform_name, 0, MAX_PATH_LENGTH);
+					int length;
+					fread(&length, sizeof(int), 1, f);
+					fread(uniform_name, sizeof(char), length, f);
+					(*asset_uniforms)[uniform_name] = uniform_name;
+				}
+			}
+
+			fread(&count, sizeof(int), 1, f);
+			for (int i = 0; i < count; i++)
+			{
+				char asset_name[MAX_PATH_LENGTH];
+				char asset_path[MAX_PATH_LENGTH];
+				memset(asset_name, 0, MAX_PATH_LENGTH);
+				memset(asset_path, 0, MAX_PATH_LENGTH);
+				int length;
+				fread(&length, sizeof(int), 1, f);
+				fread(asset_name, sizeof(char), length, f);
+				fread(&length, sizeof(int), 1, f);
+				fread(asset_path, sizeof(char), length, f);
+				loaded_fonts[asset_name] = asset_path;
+			}
+
+			fclose(f);
+		}
 	}
 	else
 		rebuild = true;
@@ -1162,6 +1173,7 @@ int proc(int argc, char* argv[])
 			fprintf(stderr, "Error: failed to open asset cache file %s for writing.\n", asset_cache_path);
 			return exit_error();
 		}
+		fwrite(&version, sizeof(int), 1, cache_file);
 		int count = models.size();
 		fwrite(&count, sizeof(int), 1, cache_file);
 		for (auto i = models.begin(); i != models.end(); i++)

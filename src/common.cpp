@@ -119,7 +119,8 @@ void NoclipControl::update(const Update& u)
 	// Camera matrix
 	Vec3 pos = get<Transform>()->absolute_pos();
 	Vec3 look = look_quat * Vec3(0, 0, 1);
-	Camera::main.view = Mat4::look(pos, look);
+	Camera::main.pos = pos;
+	Camera::main.rot = look_quat;
 }
 
 }

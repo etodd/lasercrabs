@@ -1425,10 +1425,10 @@ struct Mat4
 	inline Vec4 operator * (const Vec4& v) const
 	{
 		return Vec4(
-			m[0][0] * v.x + m[0][1] * v.y + m[0][2] * v.z + m[0][3] * v.w, 
-			m[1][0] * v.x + m[1][1] * v.y + m[1][2] * v.z + m[1][3] * v.w,
-			m[2][0] * v.x + m[2][1] * v.y + m[2][2] * v.z + m[2][3] * v.w,
-			m[3][0] * v.x + m[3][1] * v.y + m[3][2] * v.z + m[3][3] * v.w
+			m[0][0] * v.x + m[1][0] * v.y + m[2][0] * v.z + m[3][0] * v.w, 
+			m[0][1] * v.x + m[1][1] * v.y + m[2][1] * v.z + m[3][1] * v.w,
+			m[0][2] * v.x + m[1][2] * v.y + m[2][2] * v.z + m[3][2] * v.w,
+			m[0][3] * v.x + m[1][3] * v.y + m[2][3] * v.z + m[3][3] * v.w
 			);
 	}
 
@@ -1671,7 +1671,7 @@ struct Mat4
 	Mat4 inverse() const;
 
 	static Mat4 perspective(float fov, float aspect, float near, float far);
-	static Mat4 look(const Vec3& eye, const Vec3& forward);
+	static Mat4 look(const Vec3& eye, const Vec3& forward, const Vec3& up);
 
 	void make_transform(const Vec3& position, const Vec3& scale, const Quat& orientation);
 

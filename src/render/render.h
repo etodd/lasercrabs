@@ -14,12 +14,14 @@ struct Camera
 {
 	static Camera main;
 	Camera()
-		: projection(), view()
+		: projection(), pos(), rot()
 	{
 
 	}
+	Mat4 view();
 	Mat4 projection;
-	Mat4 view;
+	Vec3 pos;
+	Quat rot;
 };
 
 struct RenderSync;
@@ -165,6 +167,8 @@ struct RenderParams
 {
 	Mat4 view;
 	Mat4 projection;
+	Vec3 camera_pos;
+	Quat camera_rot;
 	int width;
 	int height;
 	Mat4 view_projection;

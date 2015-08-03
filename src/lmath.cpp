@@ -1316,18 +1316,7 @@ float Quat::angle(const Quat& a, const Quat& b)
 
 Quat Quat::look(const Vec3& dir)
 {
-    if (fabs(dir.z + 1.0f) < epsilon)
-        return Quat(0, 0, 1, 0);
-    if (fabs(dir.z - 1.0f) < epsilon)
-		return Quat::identity;
-
-    float angle = acosf(dir.z);
-    Vec3 axis = Vec3(0, 0, 1).cross(dir);
-	axis.normalize();
-
-	Quat result;
-    result.from_angle_axis(angle, axis);
-	return result;
+	return Quat::euler(0, atan2f(dir.x, dir.z), -asinf(dir.y));
 }
 
 Quat Quat::slerp(float amount, const Quat& quaternion1, const Quat& quaternion2)
@@ -1647,13 +1636,11 @@ Mat4 Mat4::perspective(float fov, float aspect, float near, float far)
     return result;
 }
 
-Mat4 Mat4::look(Vec3 const & eye, Vec3 const &forward)
+Mat4 Mat4::look(const Vec3& eye, const Vec3& forward, const Vec3& up)
 {
 	Vec3 const f(Vec3::normalize(-forward));
-	Vec3 const s(Vec3::normalize(f.cross(Vec3(0, 1, 0))));
-	Vec3 u(s.cross(f));
-	if (u.y < 0.0f)
-		u = -u;
+	Vec3 const s(Vec3::normalize(f.cross(up)));
+	Vec3 u(Vec3::normalize(up));
 
 	Mat4 Result = Mat4::identity;
 	Result[0][0] = s.x;

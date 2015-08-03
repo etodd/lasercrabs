@@ -91,6 +91,94 @@ Array<Vec3> UI::vertices = Array<Vec3>();
 Array<Vec4> UI::colors = Array<Vec4>();
 Array<int> UI::indices = Array<int>();
 
+void UI::box(const RenderParams& params, const Vec2& pos, const Vec2& size, const Vec4& color)
+{
+	if (size.x > 0 && size.y > 0 && color.w > 0)
+	{
+		int vertex_start = UI::vertices.length;
+		Vec2 screen = Vec2(params.sync->input.width * 0.5f, params.sync->input.height * 0.5f);
+		Vec2 scale = Vec2(1.0f / screen.x, 1.0f / screen.y);
+		Vec2 scaled_pos = (pos - screen) * scale;
+		Vec2 scaled_size = size * scale;
+
+		UI::vertices.add(Vec3(scaled_pos.x, scaled_pos.y, 0));
+		UI::vertices.add(Vec3(scaled_pos.x + scaled_size.x, scaled_pos.y, 0));
+		UI::vertices.add(Vec3(scaled_pos.x, scaled_pos.y + scaled_size.y, 0));
+		UI::vertices.add(Vec3(scaled_pos.x + scaled_size.x, scaled_pos.y + scaled_size.y, 0));
+		UI::colors.add(color);
+		UI::colors.add(color);
+		UI::colors.add(color);
+		UI::colors.add(color);
+		UI::indices.add(vertex_start + 0);
+		UI::indices.add(vertex_start + 1);
+		UI::indices.add(vertex_start + 2);
+		UI::indices.add(vertex_start + 1);
+		UI::indices.add(vertex_start + 3);
+		UI::indices.add(vertex_start + 2);
+	}
+}
+
+void UI::border(const RenderParams& params, const Vec2& pos, const Vec2& size, const Vec4& color, float thickness)
+{
+	if (size.x > 0 && size.y > 0 && color.w > 0)
+	{
+		int vertex_start = UI::vertices.length;
+		Vec2 screen = Vec2(params.sync->input.width * 0.5f, params.sync->input.height * 0.5f);
+		Vec2 scale = Vec2(1.0f / screen.x, 1.0f / screen.y);
+		Vec2 scaled_pos = (pos - screen) * scale;
+		Vec2 scaled_size = size * scale;
+		Vec2 scaled_thickness = Vec2(thickness, thickness) * scale;
+
+		UI::vertices.add(Vec3(scaled_pos.x, scaled_pos.y, 0));
+		UI::vertices.add(Vec3(scaled_pos.x + scaled_size.x, scaled_pos.y, 0));
+		UI::vertices.add(Vec3(scaled_pos.x, scaled_pos.y + scaled_size.y, 0));
+		UI::vertices.add(Vec3(scaled_pos.x + scaled_size.x, scaled_pos.y + scaled_size.y, 0));
+		UI::vertices.add(Vec3(scaled_pos.x - scaled_thickness.x, scaled_pos.y - scaled_thickness.y, 0));
+		UI::vertices.add(Vec3(scaled_pos.x + scaled_size.x + scaled_thickness.x, scaled_pos.y - scaled_thickness.y, 0));
+		UI::vertices.add(Vec3(scaled_pos.x - scaled_thickness.x, scaled_pos.y + scaled_size.y + scaled_thickness.y, 0));
+		UI::vertices.add(Vec3(scaled_pos.x + scaled_size.x + scaled_thickness.x, scaled_pos.y + scaled_size.y + scaled_thickness.y, 0));
+		UI::colors.add(color);
+		UI::colors.add(color);
+		UI::colors.add(color);
+		UI::colors.add(color);
+		UI::colors.add(color);
+		UI::colors.add(color);
+		UI::colors.add(color);
+		UI::colors.add(color);
+		UI::indices.add(vertex_start + 0);
+		UI::indices.add(vertex_start + 4);
+		UI::indices.add(vertex_start + 5);
+		UI::indices.add(vertex_start + 0);
+		UI::indices.add(vertex_start + 5);
+		UI::indices.add(vertex_start + 1);
+		UI::indices.add(vertex_start + 1);
+		UI::indices.add(vertex_start + 5);
+		UI::indices.add(vertex_start + 3);
+		UI::indices.add(vertex_start + 5);
+		UI::indices.add(vertex_start + 7);
+		UI::indices.add(vertex_start + 3);
+		UI::indices.add(vertex_start + 3);
+		UI::indices.add(vertex_start + 7);
+		UI::indices.add(vertex_start + 2);
+		UI::indices.add(vertex_start + 7);
+		UI::indices.add(vertex_start + 6);
+		UI::indices.add(vertex_start + 2);
+		UI::indices.add(vertex_start + 6);
+		UI::indices.add(vertex_start + 0);
+		UI::indices.add(vertex_start + 2);
+		UI::indices.add(vertex_start + 6);
+		UI::indices.add(vertex_start + 4);
+		UI::indices.add(vertex_start + 0);
+	}
+}
+
+Vec2 UI::project(const RenderParams& p, const Vec3& v)
+{
+	Vec4 projected = p.view_projection * Vec4(v.x, v.y, v.z, 1);
+	Vec2 screen = Vec2(p.sync->input.width * 0.5f, p.sync->input.height * 0.5f);
+	return Vec2((projected.x / projected.w + 1.0f) * screen.x, (projected.y / projected.w + 1.0f) * screen.y);
+}
+
 void UI::draw(const RenderParams& p)
 {
 	if (indices.length > 0)

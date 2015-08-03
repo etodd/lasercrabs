@@ -18,6 +18,7 @@ struct InputState
 	double cursor_x;
 	double cursor_y;
 	bool mouse_buttons[8];
+	bool last_mouse_buttons[8];
 	int width;
 	int height;
 	int set_width;

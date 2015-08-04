@@ -11,25 +11,53 @@ namespace VI
 
 #define MAX_BONE_WEIGHTS 4
 
+enum RenderDataType
+{
+	RenderDataType_Float,
+	RenderDataType_Vec2,
+	RenderDataType_Vec3,
+	RenderDataType_Vec4,
+	RenderDataType_Int,
+	RenderDataType_Mat4,
+	RenderDataType_Texture,
+};
+
+inline size_t render_data_type_size(RenderDataType type)
+{
+	switch (type)
+	{
+		case RenderDataType_Float:
+			return sizeof(float);
+		case RenderDataType_Vec2:
+			return sizeof(Vec2);
+		case RenderDataType_Vec3:
+			return sizeof(Vec3);
+		case RenderDataType_Vec4:
+			return sizeof(Vec4);
+		case RenderDataType_Int:
+			return sizeof(int);
+		case RenderDataType_Mat4:
+			return sizeof(Mat4);
+		case RenderDataType_Texture:
+			return sizeof(int);
+	}
+	vi_assert(false);
+	return 0;
+}
 
 struct Mesh
 {
 	Array<int> indices;
 	Array<Vec3> vertices;
-	Array<Vec2> uvs;
 	Array<Vec3> normals;
-	Array<std::array<int, MAX_BONE_WEIGHTS> > bone_indices;
-	Array<std::array<float, MAX_BONE_WEIGHTS> > bone_weights;
 	Array<Mat4> inverse_bind_pose;
 	Array<int> bone_hierarchy;
+	Vec4 color;
 	void reset()
 	{
 		indices.length = 0;
 		vertices.length = 0;
-		uvs.length = 0;
 		normals.length = 0;
-		bone_indices.length = 0;
-		bone_weights.length = 0;
 		inverse_bind_pose.length = 0;
 		bone_hierarchy.length = 0;
 	}

@@ -118,6 +118,41 @@ void UI::box(const RenderParams& params, const Vec2& pos, const Vec2& size, cons
 	}
 }
 
+void UI::centered_box(const RenderParams& params, const Vec2& pos, const Vec2& size, const Vec4& color, float rot)
+{
+	if (size.x > 0 && size.y > 0 && color.w > 0)
+	{
+		int vertex_start = UI::vertices.length;
+		Vec2 screen = Vec2(params.sync->input.width * 0.5f, params.sync->input.height * 0.5f);
+		Vec2 scale = Vec2(1.0f / screen.x, 1.0f / screen.y);
+		Vec2 scaled_pos = (pos - screen) * scale;
+
+		Vec2 corners[4] =
+		{
+			Vec2(size.x * -0.5f, size.y * -0.5f),
+			Vec2(size.x * 0.5f, size.y * -0.5f),
+			Vec2(size.x * -0.5f, size.y * 0.5f),
+			Vec2(size.x * 0.5f, size.y * 0.5f),
+		};
+
+		float cs = cosf(rot), sn = sinf(rot);
+		UI::vertices.add(Vec3(scaled_pos.x + (corners[0].x * cs - corners[0].y * sn) * scale.x, scaled_pos.y + (corners[0].x * sn + corners[0].y * cs) * scale.y, 0));
+		UI::vertices.add(Vec3(scaled_pos.x + (corners[1].x * cs - corners[1].y * sn) * scale.x, scaled_pos.y + (corners[1].x * sn + corners[1].y * cs) * scale.y, 0));
+		UI::vertices.add(Vec3(scaled_pos.x + (corners[2].x * cs - corners[2].y * sn) * scale.x, scaled_pos.y + (corners[2].x * sn + corners[2].y * cs) * scale.y, 0));
+		UI::vertices.add(Vec3(scaled_pos.x + (corners[3].x * cs - corners[3].y * sn) * scale.x, scaled_pos.y + (corners[3].x * sn + corners[3].y * cs) * scale.y, 0));
+		UI::colors.add(color);
+		UI::colors.add(color);
+		UI::colors.add(color);
+		UI::colors.add(color);
+		UI::indices.add(vertex_start + 0);
+		UI::indices.add(vertex_start + 1);
+		UI::indices.add(vertex_start + 2);
+		UI::indices.add(vertex_start + 1);
+		UI::indices.add(vertex_start + 3);
+		UI::indices.add(vertex_start + 2);
+	}
+}
+
 void UI::border(const RenderParams& params, const Vec2& pos, const Vec2& size, const Vec4& color, float thickness)
 {
 	if (size.x > 0 && size.y > 0 && color.w > 0)

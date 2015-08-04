@@ -5,7 +5,7 @@ namespace VI
 {
 
 Armature::Armature()
-	: mesh(), shader(), texture(), bones(), time(), animation(), offset(Mat4::identity)
+	: mesh(), shader(), texture(), bones(), time(), animation(), offset(Mat4::identity), color(1, 1, 1, 1)
 {
 }
 
@@ -115,22 +115,17 @@ void Armature::draw(const RenderParams& params)
 
 	sync->write<int>(5); // Uniform count
 
-	sync->write(Asset::Uniform::MVP);
+	sync->write(Asset::Uniform::mvp);
 	sync->write(RenderDataType_Mat4);
 	sync->write<int>(1);
 	sync->write(&mvp);
 
-	sync->write(Asset::Uniform::M);
+	sync->write(Asset::Uniform::m);
 	sync->write(RenderDataType_Mat4);
 	sync->write<int>(1);
 	sync->write(&m);
 
-	sync->write(Asset::Uniform::V);
-	sync->write(RenderDataType_Mat4);
-	sync->write<int>(1);
-	sync->write(&params.view);
-
-	sync->write(Asset::Uniform::myTextureSampler);
+	sync->write(Asset::Uniform::diffuse_map);
 	sync->write(RenderDataType_Texture);
 	sync->write<int>(1);
 	sync->write(&texture);
@@ -141,10 +136,15 @@ void Armature::draw(const RenderParams& params)
 	for (int i = 0; i < bones.length; i++)
 		skin_transforms[i] = m2->inverse_bind_pose[i] * bones[i];
 
-	sync->write(Asset::Uniform::Bones);
+	sync->write(Asset::Uniform::bones);
 	sync->write(RenderDataType_Mat4);
 	sync->write<int>(skin_transforms.length);
 	sync->write(skin_transforms.data, skin_transforms.length);
+
+	sync->write(Asset::Uniform::diffuse_color);
+	sync->write(RenderDataType_Vec4);
+	sync->write<int>(1);
+	sync->write(&color);
 
 	/*
 	// Debug
@@ -156,32 +156,32 @@ void Armature::draw(const RenderParams& params)
 		sync->write(RenderOp_Mesh);
 		sync->write(Asset::Model::cube);
 		sync->write(Asset::Shader::Standard);
-		sync->write(Asset::Texture::test);
 		Mat4 mvp = bones[i] * m * params.view * params.projection;
 
 		sync->write<int>(3); // Uniform count
 
-		sync->write(Asset::Uniform::MVP);
+		sync->write(Asset::Uniform::mvp);
 		sync->write(RenderDataType_Mat4);
 		sync->write<int>(1);
 		sync->write(&mvp);
 
-		sync->write(Asset::Uniform::M);
+		sync->write(Asset::Uniform::m);
 		sync->write(RenderDataType_Mat4);
 		sync->write<int>(1);
 		sync->write(&m);
 
-		sync->write(Asset::Uniform::V);
-		sync->write(RenderDataType_Mat4);
+		sync->write(Asset::Uniform::diffuse_color);
+		sync->write(RenderDataType_Vec4);
 		sync->write<int>(1);
-		sync->write(&params.view);
+		sync->write(&color);
 	}
 	*/
 }
 
 void Armature::awake()
 {
-	Loader::mesh(mesh);
+	Mesh* m = Loader::mesh(mesh);
+	color = m->color;
 	Loader::shader(shader);
 	Loader::texture(texture);
 }

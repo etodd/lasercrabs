@@ -16,6 +16,13 @@ Loader::Entry<void*> Loader::shaders[Asset::Shader::count];
 Loader::Entry<Font> Loader::fonts[Asset::Font::count];
 Array<Loader::Entry<void*>> Loader::dynamic_meshes = Array<Loader::Entry<void*>>();
 
+struct Attrib
+{
+	RenderDataType type;
+	int count;
+	Array<char> data;
+};
+
 Mesh* Loader::mesh(AssetID id)
 {
 	if (id == Asset::Nothing)
@@ -34,6 +41,9 @@ Mesh* Loader::mesh(AssetID id)
 		Mesh* mesh = &meshes[id].data;
 		new (mesh)Mesh();
 
+		// Read color
+		fread(&mesh->color, sizeof(Vec4), 1, f);
+
 		// Read indices
 		int index_count;
 		fread(&index_count, sizeof(int), 1, f);
@@ -51,27 +61,29 @@ Mesh* Loader::mesh(AssetID id)
 		mesh->vertices.length = vertex_count;
 		fread(mesh->vertices.data, sizeof(Vec3), vertex_count, f);
 
-		// Fill vertices texture coordinates
-		mesh->uvs.reserve(vertex_count);
-		mesh->uvs.length = vertex_count;
-		fread(mesh->uvs.data, sizeof(Vec2), vertex_count, f);
-
 		// Fill vertices normals
 		mesh->normals.reserve(vertex_count);
 		mesh->normals.length = vertex_count;
 		fread(mesh->normals.data, sizeof(Vec3), vertex_count, f);
+
+		int extra_attrib_count;
+		fread(&extra_attrib_count, sizeof(int), 1, f);
+		Array<Attrib> extra_attribs;
+		extra_attribs.resize(extra_attrib_count);
+		for (int i = 0; i < extra_attribs.length; i++)
+		{
+			Attrib a;
+			fread(&a.type, sizeof(RenderDataType), 1, f);
+			fread(&a.count, sizeof(int), 1, f);
+			a.data.resize(mesh->vertices.length * a.count * render_data_type_size(a.type));
+			fread(a.data.data, sizeof(char), a.data.length, f);
+		}
 
 		int bone_count;
 		fread(&bone_count, sizeof(int), 1, f);
 
 		if (bone_count > 0)
 		{
-			mesh->bone_indices.reserve(vertex_count);
-			fread(mesh->bone_indices.data, sizeof(int[MAX_BONE_WEIGHTS]), vertex_count, f);
-
-			mesh->bone_weights.reserve(vertex_count);
-			fread(mesh->bone_weights.data, sizeof(float[MAX_BONE_WEIGHTS]), vertex_count, f);
-
 			mesh->bone_hierarchy.resize(bone_count);
 			fread(mesh->bone_hierarchy.data, sizeof(int), bone_count, f);
 			mesh->inverse_bind_pose.resize(bone_count);
@@ -85,24 +97,19 @@ Mesh* Loader::mesh(AssetID id)
 		sync->write(RenderOp_AllocMesh);
 		sync->write<int>(id);
 
-		sync->write<int>(bone_count > 0 ? 5 : 3); // Attribute count
+		sync->write<int>(2 + extra_attribs.length); // Attribute count
 
-		sync->write(RenderDataType_Vec3);
+		sync->write(RenderDataType_Vec3); // Position
 		sync->write<int>(1); // Number of data elements per vertex
 
-		sync->write(RenderDataType_Vec2);
+		sync->write(RenderDataType_Vec3); // Normal
 		sync->write<int>(1); // Number of data elements per vertex
 
-		sync->write(RenderDataType_Vec3);
-		sync->write<int>(1); // Number of data elements per vertex
-
-		if (bone_count > 0)
+		for (int i = 0; i < extra_attribs.length; i++)
 		{
-			sync->write(RenderDataType_Int);
-			sync->write<int>(MAX_BONE_WEIGHTS); // Number of data elements per vertex
-
-			sync->write(RenderDataType_Float);
-			sync->write<int>(MAX_BONE_WEIGHTS); // Number of data elements per vertex
+			Attrib* a = &extra_attribs[i];
+			sync->write<RenderDataType>(a->type);
+			sync->write<int>(a->count);
 		}
 
 		sync->write(RenderOp_UpdateAttribBuffers);
@@ -110,13 +117,12 @@ Mesh* Loader::mesh(AssetID id)
 
 		sync->write<int>(mesh->vertices.length);
 		sync->write(mesh->vertices.data, mesh->vertices.length);
-		sync->write(mesh->uvs.data, mesh->vertices.length);
 		sync->write(mesh->normals.data, mesh->vertices.length);
 
-		if (bone_count > 0)
+		for (int i = 0; i < extra_attribs.length; i++)
 		{
-			sync->write(mesh->bone_indices.data, mesh->vertices.length);
-			sync->write(mesh->bone_weights.data, mesh->vertices.length);
+			Attrib* a = &extra_attribs[i];
+			sync->write(a->data.data, a->data.length);
 		}
 
 		sync->write(RenderOp_UpdateIndexBuffer);

@@ -8,7 +8,8 @@ AssetID const Asset::Model::city1 = 1;
 AssetID const Asset::Model::city2 = 2;
 AssetID const Asset::Model::city3 = 3;
 AssetID const Asset::Model::city4 = 4;
-AssetID const Asset::Model::cube = 5;
+AssetID const Asset::Model::city4_1 = 5;
+AssetID const Asset::Model::cube = 6;
 
 const char* Asset::Model::filenames[] =
 {
@@ -17,6 +18,7 @@ const char* Asset::Model::filenames[] =
 	"assets/city2.mdl",
 	"assets/city3.mdl",
 	"assets/city4.mdl",
+	"assets/city4_1.mdl",
 	"assets/cube.mdl",
 };
 
@@ -45,21 +47,27 @@ const char* Asset::Animation::filenames[] =
 	"assets/walk.anm",
 };
 
-AssetID const Asset::Uniform::Bones = 0;
-AssetID const Asset::Uniform::LightPosition_worldspace = 1;
-AssetID const Asset::Uniform::M = 2;
-AssetID const Asset::Uniform::MVP = 3;
-AssetID const Asset::Uniform::V = 4;
-AssetID const Asset::Uniform::myTextureSampler = 5;
+AssetID const Asset::Uniform::ambient_color = 0;
+AssetID const Asset::Uniform::bones = 1;
+AssetID const Asset::Uniform::diffuse_color = 2;
+AssetID const Asset::Uniform::diffuse_map = 3;
+AssetID const Asset::Uniform::light_color = 4;
+AssetID const Asset::Uniform::light_position = 5;
+AssetID const Asset::Uniform::light_radius = 6;
+AssetID const Asset::Uniform::m = 7;
+AssetID const Asset::Uniform::mvp = 8;
 
 const char* Asset::Uniform::filenames[] =
 {
-	"Bones",
-	"LightPosition_worldspace",
-	"M",
-	"MVP",
-	"V",
-	"myTextureSampler",
+	"ambient_color",
+	"bones",
+	"diffuse_color",
+	"diffuse_map",
+	"light_color",
+	"light_position",
+	"light_radius",
+	"m",
+	"mvp",
 };
 
 AssetID const Asset::Font::SegoeUISymbol = 0;

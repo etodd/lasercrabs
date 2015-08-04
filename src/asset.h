@@ -9,13 +9,14 @@ struct Asset
 	static const AssetID Nothing = -1;
 	struct Model
 	{
-		static const int count = 6;
-		static const char* filenames[6];
+		static const int count = 7;
+		static const char* filenames[7];
 		static const AssetID Alpha;
 		static const AssetID city1;
 		static const AssetID city2;
 		static const AssetID city3;
 		static const AssetID city4;
+		static const AssetID city4_1;
 		static const AssetID cube;
 	};
 	struct Texture
@@ -40,14 +41,17 @@ struct Asset
 	};
 	struct Uniform
 	{
-		static const int count = 6;
-		static const char* filenames[6];
-		static const AssetID Bones;
-		static const AssetID LightPosition_worldspace;
-		static const AssetID M;
-		static const AssetID MVP;
-		static const AssetID V;
-		static const AssetID myTextureSampler;
+		static const int count = 9;
+		static const char* filenames[9];
+		static const AssetID ambient_color;
+		static const AssetID bones;
+		static const AssetID diffuse_color;
+		static const AssetID diffuse_map;
+		static const AssetID light_color;
+		static const AssetID light_position;
+		static const AssetID light_radius;
+		static const AssetID m;
+		static const AssetID mvp;
 	};
 	struct Font
 	{

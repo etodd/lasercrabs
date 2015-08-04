@@ -18,6 +18,7 @@ struct Armature : public ComponentType<Armature>
 	Array<Mat4> skin_transforms;
 	Mat4 offset;
 	float time;
+	Vec4 color;
 
 	void draw(const RenderParams&);
 	void update(const Update&);

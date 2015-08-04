@@ -6,6 +6,7 @@
 #include "lmath.h"
 #include "sync.h"
 #include "asset.h"
+#include "data/mesh.h"
 
 namespace VI
 {
@@ -38,17 +39,6 @@ enum RenderOp
 	RenderOp_FreeShader,
 	RenderOp_Mesh,
 	RenderOp_Clear,
-};
-
-enum RenderDataType
-{
-	RenderDataType_Float,
-	RenderDataType_Vec2,
-	RenderDataType_Vec3,
-	RenderDataType_Vec4,
-	RenderDataType_Int,
-	RenderDataType_Mat4,
-	RenderDataType_Texture,
 };
 
 struct SyncData
@@ -169,8 +159,6 @@ struct RenderParams
 	Mat4 projection;
 	Vec3 camera_pos;
 	Quat camera_rot;
-	int width;
-	int height;
 	Mat4 view_projection;
 	GLbitfield clear;
 	RenderTechnique technique;

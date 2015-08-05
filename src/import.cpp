@@ -994,7 +994,7 @@ int proc(int argc, char* argv[])
 								Animation anim;
 								if (load_anim(ai_anim, &anim, bone_map))
 								{
-									printf("%s Duration: %f Channels: %lu\n", ai_anim->mName.C_Str(), anim.duration, anim.channels.length);
+									printf("%s Duration: %f Channels: %d\n", ai_anim->mName.C_Str(), anim.duration, anim.channels.length);
 
 									char anim_out_path[MAX_PATH_LENGTH];
 

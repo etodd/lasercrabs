@@ -96,8 +96,8 @@ void Game::execute(const Update& u, const char* cmd)
 {
 	if (strcmp(cmd, "gif") == 0) // Convenience function for recording gifs
 	{
-		u.input->set_width = 500;
-		u.input->set_height = 281;
+		u.input->set_width = 506;
+		u.input->set_height = 253;
 	}
 }
 

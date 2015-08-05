@@ -37,6 +37,7 @@ enum RenderOp
 	RenderOp_FreeTexture,
 	RenderOp_LoadShader,
 	RenderOp_FreeShader,
+	RenderOp_DepthMask,
 	RenderOp_Mesh,
 	RenderOp_Clear,
 };

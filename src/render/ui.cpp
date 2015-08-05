@@ -207,11 +207,12 @@ void UI::border(const RenderParams& params, const Vec2& pos, const Vec2& size, c
 	}
 }
 
-Vec2 UI::project(const RenderParams& p, const Vec3& v)
+bool UI::project(const RenderParams& p, const Vec3& v, Vec2& out)
 {
 	Vec4 projected = p.view_projection * Vec4(v.x, v.y, v.z, 1);
 	Vec2 screen = Vec2(p.sync->input.width * 0.5f, p.sync->input.height * 0.5f);
-	return Vec2((projected.x / projected.w + 1.0f) * screen.x, (projected.y / projected.w + 1.0f) * screen.y);
+	out = Vec2((projected.x / projected.w + 1.0f) * screen.x, (projected.y / projected.w + 1.0f) * screen.y);
+	return projected.z > -projected.w && projected.z < projected.w;
 }
 
 void UI::draw(const RenderParams& p)

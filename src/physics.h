@@ -10,8 +10,9 @@ namespace VI
 
 enum CollisionGroup
 {
-	CollisionNothing = 0,
-	CollisionWalker = 1 << 0,
+	CollisionNothing = btBroadphaseProxy::DefaultFilter,
+	CollisionWalker = 1 << 6,
+	CollisionReflective = 1 << 7,
 };
 
 struct Physics

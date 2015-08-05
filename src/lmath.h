@@ -447,7 +447,7 @@ struct Vec2
 
 	inline Vec2 reflect(const Vec2& normal) const
 	{
-		return Vec2(*this - (2 * this->dot(normal) * normal));
+		return *this - (2.0f * this->dot(normal) * normal);
 	}
 
 	static inline Vec2 lerp(float x, const Vec2& a, const Vec2& b)
@@ -745,7 +745,7 @@ struct Vec3
 
 	inline Vec3 reflect(const Vec3& normal) const
 	{
-		return Vec3(*this - (2 * this->dot(normal) * normal));
+		return *this - (2.0f * this->dot(normal) * normal);
 	}
 
 	static inline Vec3 lerp(float x, const Vec3& a, const Vec3& b)

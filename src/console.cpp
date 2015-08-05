@@ -1,5 +1,4 @@
 #include "console.h"
-#include "render/view.h"
 #include "render/armature.h"
 #include <GLFW/glfw3.h>
 #include "game/game.h"

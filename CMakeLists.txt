@@ -174,8 +174,8 @@ add_executable(mkzebra
 	src/data/components.cpp
 	src/render/render.h
 	src/render/render.cpp
-	src/render/view.h
-	src/render/view.cpp
+	src/render/views.h
+	src/render/views.cpp
 	src/render/armature.h
 	src/render/armature.cpp
 	src/render/ui.h

@@ -49,21 +49,18 @@ Mesh* Loader::mesh(AssetID id)
 		fread(&index_count, sizeof(int), 1, f);
 
 		// Fill face indices
-		mesh->indices.reserve(index_count);
-		mesh->indices.length = index_count;
+		mesh->indices.resize(index_count);
 		fread(mesh->indices.data, sizeof(int), index_count, f);
 
 		int vertex_count;
 		fread(&vertex_count, sizeof(int), 1, f);
 
 		// Fill vertices positions
-		mesh->vertices.reserve(vertex_count);
-		mesh->vertices.length = vertex_count;
+		mesh->vertices.resize(vertex_count);
 		fread(mesh->vertices.data, sizeof(Vec3), vertex_count, f);
 
 		// Fill vertices normals
-		mesh->normals.reserve(vertex_count);
-		mesh->normals.length = vertex_count;
+		mesh->normals.resize(vertex_count);
 		fread(mesh->normals.data, sizeof(Vec3), vertex_count, f);
 
 		int extra_attrib_count;
@@ -72,7 +69,7 @@ Mesh* Loader::mesh(AssetID id)
 		extra_attribs.resize(extra_attrib_count);
 		for (int i = 0; i < extra_attribs.length; i++)
 		{
-			Attrib a;
+			Attrib& a = extra_attribs[i];
 			fread(&a.type, sizeof(RenderDataType), 1, f);
 			fread(&a.count, sizeof(int), 1, f);
 			a.data.resize(mesh->vertices.length * a.count * render_data_type_size(a.type));

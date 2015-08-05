@@ -10,6 +10,7 @@ AssetID const Asset::Model::city3 = 3;
 AssetID const Asset::Model::city4 = 4;
 AssetID const Asset::Model::city4_1 = 5;
 AssetID const Asset::Model::cube = 6;
+AssetID const Asset::Model::skybox = 7;
 
 const char* Asset::Model::filenames[] =
 {
@@ -20,24 +21,29 @@ const char* Asset::Model::filenames[] =
 	"assets/city4.mdl",
 	"assets/city4_1.mdl",
 	"assets/cube.mdl",
+	"assets/skybox.mdl",
 };
 
-AssetID const Asset::Texture::test = 0;
+AssetID const Asset::Texture::skybox_horizon = 0;
+AssetID const Asset::Texture::test = 1;
 
 const char* Asset::Texture::filenames[] =
 {
+	"assets/skybox_horizon.png",
 	"assets/test.png",
 };
 
 AssetID const Asset::Shader::Armature = 0;
 AssetID const Asset::Shader::Standard = 1;
 AssetID const Asset::Shader::UI = 2;
+AssetID const Asset::Shader::flat_texture = 3;
 
 const char* Asset::Shader::filenames[] =
 {
 	"assets/Armature.glsl",
 	"assets/Standard.glsl",
 	"assets/UI.glsl",
+	"assets/flat_texture.glsl",
 };
 
 AssetID const Asset::Animation::walk = 0;

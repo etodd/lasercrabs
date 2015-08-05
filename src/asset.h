@@ -9,8 +9,8 @@ struct Asset
 	static const AssetID Nothing = -1;
 	struct Model
 	{
-		static const int count = 7;
-		static const char* filenames[7];
+		static const int count = 8;
+		static const char* filenames[8];
 		static const AssetID Alpha;
 		static const AssetID city1;
 		static const AssetID city2;
@@ -18,20 +18,23 @@ struct Asset
 		static const AssetID city4;
 		static const AssetID city4_1;
 		static const AssetID cube;
+		static const AssetID skybox;
 	};
 	struct Texture
 	{
-		static const int count = 1;
-		static const char* filenames[1];
+		static const int count = 2;
+		static const char* filenames[2];
+		static const AssetID skybox_horizon;
 		static const AssetID test;
 	};
 	struct Shader
 	{
-		static const int count = 3;
-		static const char* filenames[3];
+		static const int count = 4;
+		static const char* filenames[4];
 		static const AssetID Armature;
 		static const AssetID Standard;
 		static const AssetID UI;
+		static const AssetID flat_texture;
 	};
 	struct Animation
 	{

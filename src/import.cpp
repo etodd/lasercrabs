@@ -349,6 +349,7 @@ void get_name_from_filename(char* filename, char* output)
 		end = filename + strlen(filename);
 	memset(output, 0, sizeof(char) * (strlen(filename) + 1));
 	strncpy(output, start, end - start);
+	clean_name(output);
 }
 
 #if defined WIN32
@@ -522,6 +523,32 @@ bool cp(const char* from, const char* to)
 	return true;
 }
 
+long long asset_mtime(std::map<std::string, std::string> map, std::string asset_name)
+{
+	auto entry = map.find(asset_name);
+	if (entry == map.end())
+		return 0;
+	else
+		return filemtime(entry->second.c_str());
+}
+
+long long asset_mtime(std::map<std::string, std::map<std::string, std::string> > map, std::string asset_name)
+{
+	auto entry = map.find(asset_name);
+	if (entry == map.end())
+		return 0;
+	else
+	{
+		long long mtime = LLONG_MAX;
+		for (auto i = entry->second.begin(); i != entry->second.end(); i++)
+		{
+			long long t = filemtime(i->second.c_str());
+			mtime = t < mtime ? t : mtime;
+		}
+		return mtime;
+	}
+}
+
 int proc(int argc, char* argv[])
 {
 	if (!glfwInit())
@@ -569,7 +596,7 @@ int proc(int argc, char* argv[])
 	static const char* shader_extension = ".glsl";
 	static const char* asset_in_folder = "../assets/";
 	static const char* asset_out_folder = "assets/";
-	static const char* asset_cache_path = "assets/.build";
+	static const char* asset_cache_path = ".build";
 	static const char* asset_src_path = "../src/asset.cpp";
 	static const char* asset_header_path = "../src/asset.h";
 
@@ -586,8 +613,6 @@ int proc(int argc, char* argv[])
 	std::map<std::string, std::string> loaded_shaders;
 	std::map<std::string, std::map<std::string, std::string> > loaded_uniforms;
 	std::map<std::string, std::string> loaded_fonts;
-
-	auto last_build = filemtime(asset_cache_path);
 
 	bool rebuild = false;
 	FILE* f = fopen(asset_cache_path, "rb");
@@ -753,7 +778,7 @@ int proc(int argc, char* argv[])
 		{
 			get_name_from_filename(entry->d_name, asset_name);
 			textures[asset_name] = asset_out_path;
-			if (rebuild || filemtime(asset_in_path) > last_build)
+			if (rebuild || filemtime(asset_in_path) > asset_mtime(loaded_textures, asset_name))
 			{
 				printf("%s\n", asset_out_path);
 				if (!cp(asset_in_path, asset_out_path))
@@ -768,7 +793,7 @@ int proc(int argc, char* argv[])
 		{
 			get_name_from_filename(entry->d_name, asset_name);
 			shaders[asset_name] = asset_out_path;
-			if (rebuild || filemtime(asset_in_path) > last_build)
+			if (rebuild || filemtime(asset_in_path) > asset_mtime(loaded_shaders, asset_name))
 			{
 				printf("%s\n", asset_out_path);
 
@@ -885,7 +910,7 @@ int proc(int argc, char* argv[])
 			models[asset_name] = std::map<std::string, std::string>();
 			std::map<std::string, std::string>* asset_models = &models[asset_name];
 
-			if (rebuild || filemtime(asset_in_path) > last_build)
+			if (rebuild || filemtime(asset_in_path) > asset_mtime(loaded_models, asset_name))
 			{
 				char asset_intermediate_path[MAX_PATH_LENGTH];
 
@@ -1031,15 +1056,14 @@ int proc(int argc, char* argv[])
 						{
 							if (ai_mesh->mNumUVComponents[i] == 2)
 							{
-								Array<Vec2> uvs;
-								uvs.reserve(ai_mesh->mNumVertices);
+								Array<Vec2>* uvs = uv_layers.add();
+								uvs->reserve(ai_mesh->mNumVertices);
 								for (unsigned int j = 0; j < ai_mesh->mNumVertices; j++)
 								{
 									aiVector3D UVW = ai_mesh->mTextureCoords[i][j];
 									Vec2 v = Vec2(UVW.x, UVW.y);
-									uvs.add(v);
+									uvs->add(v);
 								}
-								uv_layers.add(uvs);
 							}
 						}
 
@@ -1147,7 +1171,7 @@ int proc(int argc, char* argv[])
 
 			fonts[asset_name] = asset_out_path;
 
-			if (rebuild || filemtime(asset_in_path) > last_build)
+			if (rebuild || filemtime(asset_in_path) > asset_mtime(loaded_fonts, asset_name))
 			{
 				char asset_intermediate_path[MAX_PATH_LENGTH];
 

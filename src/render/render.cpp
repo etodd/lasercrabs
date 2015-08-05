@@ -265,6 +265,12 @@ void render(SyncData* sync, GLData* data)
 				glDeleteProgram(data->shaders[id].handle);
 				break;
 			}
+			case RenderOp_DepthMask:
+			{
+				bool enable = *(sync->read<bool>());
+				glDepthMask(enable);
+				break;
+			}
 			case RenderOp_Clear:
 			{
 				// Clear the screen

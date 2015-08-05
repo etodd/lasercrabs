@@ -17,6 +17,8 @@ struct Empty : public Entity
 struct StaticGeom : public Entity
 {
 	StaticGeom(ID, AssetID);
+	StaticGeom(ID, AssetID, short, short);
+	void init(AssetID, btTriangleIndexVertexArray**, btBvhTriangleMeshShape**);
 	void awake();
 };
 

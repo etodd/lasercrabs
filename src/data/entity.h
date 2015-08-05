@@ -76,7 +76,7 @@ struct Entity
 	ID components[MAX_FAMILIES];
 	ComponentMask component_mask;
 	Entity(ID id)
-		: components(), id(id)
+		: components(), id(id), component_mask()
 	{
 	}
 	template<typename T, typename... Args> T* create(Args... args);

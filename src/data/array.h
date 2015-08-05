@@ -195,7 +195,10 @@ struct PinArray
 
 		T* item()
 		{
-			return &array->data[index].item;
+			if (index == -1)
+				return 0;
+			else
+				return &array->data[index].item;
 		}
 	};
 

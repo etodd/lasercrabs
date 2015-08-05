@@ -109,6 +109,8 @@ int Main::proc()
 
 		glfwPollEvents();
 
+		bool focus = sync->focus = glfwGetWindowAttrib(window, GLFW_FOCUSED);
+
 		memcpy(sync->input.last_keys, last_keys, sizeof(last_keys));
 		memcpy(sync->input.last_mouse_buttons, last_mouse_buttons, sizeof(last_mouse_buttons));
 		_GLFWwindow* _window = (_GLFWwindow*)window;
@@ -117,15 +119,14 @@ int Main::proc()
 		memcpy(sync->input.keys, _window->keys, sizeof(sync->input.keys));
 		memcpy(sync->input.mouse_buttons, _window->mouseButtons, sizeof(sync->input.mouse_buttons));
 
-		bool quit = sync->quit = sync->input.keys[GLFW_KEY_ESCAPE] == GLFW_PRESS || glfwWindowShouldClose(window);
-
-		bool focus = sync->focus = glfwGetWindowAttrib(window, GLFW_FOCUSED);
-
-		glfwGetFramebufferSize(window, &sync->input.width, &sync->input.height);
-
 		glfwGetCursorPos(window, &sync->input.cursor_x, &sync->input.cursor_y);
 		if (focus)
 			glfwSetCursorPos(window, sync->input.width / 2, sync->input.height / 2);
+
+		bool quit = sync->quit = sync->input.keys[GLFW_KEY_ESCAPE] == GLFW_PRESS || glfwWindowShouldClose(window);
+
+		glfwGetFramebufferSize(window, &sync->input.width, &sync->input.height);
+
 		sync->time.total = (float)glfwGetTime();
 		sync->time.delta = sync->time.total - lastTime;
 		lastTime = sync->time.total;

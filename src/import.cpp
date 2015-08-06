@@ -19,7 +19,7 @@ namespace VI
 {
 
 Quat import_rotation = Quat(PI * -0.5f, Vec3(1, 0, 0));
-const int version = 3;
+const int version = 4;
 
 int exit_error()
 {
@@ -1061,7 +1061,7 @@ int proc(int argc, char* argv[])
 								for (unsigned int j = 0; j < ai_mesh->mNumVertices; j++)
 								{
 									aiVector3D UVW = ai_mesh->mTextureCoords[i][j];
-									Vec2 v = Vec2(UVW.x, UVW.y);
+									Vec2 v = Vec2(1.0f - UVW.x, 1.0f - UVW.y);
 									uvs->add(v);
 								}
 							}

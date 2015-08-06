@@ -1311,6 +1311,8 @@ float Quat::angle(const Quat& a, const Quat& b)
 	float angle;
 	Vec3 axis;
 	c.to_angle_axis(angle, axis);
+	if (angle > PI)
+		angle = fabs(angle - (PI * 2.0f));
 	return angle;
 }
 

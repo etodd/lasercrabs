@@ -13,6 +13,7 @@ enum CollisionGroup
 	CollisionNothing = btBroadphaseProxy::DefaultFilter,
 	CollisionWalker = 1 << 6,
 	CollisionReflective = 1 << 7,
+	CollisionReflectiveMask = ~btBroadphaseProxy::StaticFilter && ~CollisionReflective,
 };
 
 struct Physics

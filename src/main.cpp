@@ -72,7 +72,11 @@ int Main::proc()
 
 	// Ensure we can capture the escape key being pressed below
 	glfwSetInputMode(window, GLFW_STICKY_KEYS, GL_FALSE);
+#if __APPLE__
+	glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+#else
 	glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_HIDDEN);
+#endif
 
 	glClearColor(1.0f, 1.0f, 1.0f, 0.0f);
 

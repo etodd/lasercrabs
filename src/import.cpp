@@ -929,7 +929,7 @@ void import_model(ImporterState& state, std::string asset_in_path, std::string o
 
 		if (remove(asset_intermediate_path.c_str()))
 		{
-			fprintf(stderr, "Error: failed to remove intermediate file %s.\n", asset_intermediate_path);
+			fprintf(stderr, "Error: failed to remove intermediate file %s.\n", asset_intermediate_path.c_str());
 			state.error = true;
 			return;
 		}
@@ -971,7 +971,7 @@ void import_model(ImporterState& state, std::string asset_in_path, std::string o
 				{
 					if (!build_armature(scene, ai_mesh, &mesh, bone_map))
 					{
-						fprintf(stderr, "Error: failed to process armature for %s.\n", asset_in_path);
+						fprintf(stderr, "Error: failed to process armature for %s.\n", asset_in_path.c_str());
 						state.error = true;
 						return;
 					}
@@ -1019,7 +1019,7 @@ void import_model(ImporterState& state, std::string asset_in_path, std::string o
 							}
 							else
 							{
-								fprintf(stderr, "Error: failed to open %s for writing.\n", anim_out_path);
+								fprintf(stderr, "Error: failed to open %s for writing.\n", anim_out_path.c_str());
 								state.error = true;
 								return;
 							}
@@ -1129,7 +1129,7 @@ void import_model(ImporterState& state, std::string asset_in_path, std::string o
 			}
 			else
 			{
-				fprintf(stderr, "Error: failed to load model %s.\n", asset_in_path);
+				fprintf(stderr, "Error: failed to load model %s.\n", asset_in_path.c_str());
 				state.error = true;
 				return;
 			}
@@ -1189,14 +1189,14 @@ void import_font(ImporterState& state, std::string asset_in_path, std::string ou
 			}
 			else
 			{
-				fprintf(stderr, "Error: failed to open %s for writing.\n", asset_out_path);
+				fprintf(stderr, "Error: failed to open %s for writing.\n", asset_out_path.c_str());
 				state.error = true;
 				return;
 			}
 		}
 		else
 		{
-			fprintf(stderr, "Error: failed to load font %s.\n", asset_in_path);
+			fprintf(stderr, "Error: failed to load font %s.\n", asset_in_path.c_str());
 			state.error = true;
 			return;
 		}

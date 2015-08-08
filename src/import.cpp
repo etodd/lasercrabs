@@ -28,16 +28,19 @@ const char* font_in_extension_2 = ".otf"; // Must be same length
 const char* font_out_extension = ".fnt";
 
 const char* anim_out_extension = ".anm";
+const char* arm_out_extension = ".arm";
 const char* texture_extension = ".png";
 const char* shader_extension = ".glsl";
 const char* asset_in_folder = "../assets/";
 const char* asset_out_folder = "assets/";
 
 Quat import_rotation = Quat(PI * -0.5f, Vec3(1, 0, 0));
-const int version = 4;
+const int version = 5;
 
-typedef std::map<std::string, std::string> Map;
-typedef std::map<std::string, Map> Map2;
+template<typename T>
+using Map = std::map<std::string, T>;
+template<typename T>
+using Map2 = std::map<std::string, Map<T> >;
 
 int exit_error()
 {
@@ -64,7 +67,7 @@ const aiNode* find_mesh_node(const aiScene* scene, const aiNode* node, const aiM
 }
 
 template<typename T>
-void clean_name(T name)
+void clean_name(T& name)
 {
 	for (int i = 0; ; i++)
 	{
@@ -79,7 +82,7 @@ void clean_name(T name)
 	}
 }
 
-bool load_anim(aiAnimation* in, Animation* out, std::map<std::string, int>& bone_map)
+bool load_anim(aiAnimation* in, Animation* out, const Map<int>& bone_map)
 {
 	out->duration = (float)(in->mDuration / in->mTicksPerSecond);
 	out->channels.resize(bone_map.size());
@@ -120,7 +123,7 @@ bool load_anim(aiAnimation* in, Animation* out, std::map<std::string, int>& bone
 	return true;
 }
 
-const aiScene* load_fbx(Assimp::Importer& importer, std::string path)
+const aiScene* load_fbx(Assimp::Importer& importer, const std::string& path)
 {
 	const aiScene* scene = importer.ReadFile
 	(
@@ -134,25 +137,6 @@ const aiScene* load_fbx(Assimp::Importer& importer, std::string path)
 	if (!scene)
 		fprintf(stderr, "%s\n", importer.GetErrorString());
 	return scene;
-}
-
-void build_node_hierarchy(Array<int>& output, std::map<std::string, int>& bone_map, aiNode* node, int parent_index, int& counter)
-{
-	auto bone_index_entry = bone_map.find(node->mName.C_Str());
-	int current_bone_index;
-	if (bone_index_entry != bone_map.end())
-	{
-		bone_map[node->mName.C_Str()] = counter;
-		output[counter] = parent_index;
-		current_bone_index = counter;
-		counter++;
-	}
-	else if (parent_index == -1)
-		current_bone_index = -1;
-	else
-		current_bone_index = counter;
-	for (unsigned int i = 0; i < node->mNumChildren; i++)
-		build_node_hierarchy(output, bone_map, node->mChildren[i], current_bone_index, counter);
 }
 
 bool load_vertices(const aiMesh* mesh, Mesh* out)
@@ -199,9 +183,42 @@ bool load_vertices(const aiMesh* mesh, Mesh* out)
 	return true;
 }
 
-bool build_armature(const aiScene* scene, const aiMesh* mesh, Mesh* out, std::map<std::string, int>& bone_map)
+// If skinned_model is true, only worry about bones already in the bone_map.
+// If skinned_model is false, add all the bones.
+void build_armature(Armature& armature, Map<int>& bone_map, aiNode* node, int parent_index, int& counter, bool skinned_model)
 {
-	if (mesh->HasBones())
+	int current_bone_index;
+	Map<int>::iterator bone_index_entry;
+	if (skinned_model)
+		bone_index_entry = bone_map.find(node->mName.C_Str());
+	if (!skinned_model || bone_index_entry != bone_map.end())
+	{
+		bone_map[node->mName.C_Str()] = counter;
+		if (counter >= armature.bones.length)
+			armature.bones.resize(counter + 1);
+		armature.bones[counter].parent = parent_index;
+		aiVector3D scale;
+		aiVector3D pos;
+		aiQuaternion rot;
+		node->mTransformation.Decompose(scale, rot, pos);
+		armature.bones[counter].scale = Vec3(scale.x, scale.y, scale.z);
+		armature.bones[counter].pos = Vec3(pos.x, pos.y, pos.z);
+		armature.bones[counter].rot = Quat(rot.w, rot.x, rot.y, rot.z);
+		current_bone_index = counter;
+		counter++;
+	}
+	else if (parent_index == -1)
+		current_bone_index = -1;
+	else
+		current_bone_index = counter;
+	for (unsigned int i = 0; i < node->mNumChildren; i++)
+		build_armature(armature, bone_map, node->mChildren[i], current_bone_index, counter, skinned_model);
+}
+
+// Build armature for a skinned mesh
+bool build_armature_skinned(const aiScene* scene, const aiMesh* ai_mesh, Mesh& mesh, Armature& armature, Map<int>& bone_map)
+{
+	if (ai_mesh->HasBones())
 	{
 		if (scene->mNumMeshes > 1)
 		{
@@ -209,24 +226,24 @@ bool build_armature(const aiScene* scene, const aiMesh* mesh, Mesh* out, std::ma
 			return false;
 		}
 	
-		out->inverse_bind_pose.resize(mesh->mNumBones);
+		mesh.inverse_bind_pose.resize(ai_mesh->mNumBones);
 
 		// Build the bone hierarchy.
 		// First we fill the bone map with all the bones,
-		// so that build_node_hierarchy can tell which nodes are bones.
-		for (unsigned int bone_index = 0; bone_index < mesh->mNumBones; bone_index++)
+		// so that build_armature can tell which nodes are bones.
+		for (unsigned int bone_index = 0; bone_index < ai_mesh->mNumBones; bone_index++)
 		{
-			aiBone* bone = mesh->mBones[bone_index];
+			aiBone* bone = ai_mesh->mBones[bone_index];
 			bone_map[bone->mName.C_Str()] = -1;
 		}
-		out->bone_hierarchy.resize(mesh->mNumBones);
+		armature.bones.resize(ai_mesh->mNumBones);
 		int node_hierarchy_counter = 0;
-		build_node_hierarchy(out->bone_hierarchy, bone_map, scene->mRootNode, -1, node_hierarchy_counter);
+		build_armature(armature, bone_map, scene->mRootNode, -1, node_hierarchy_counter, true);
 
 		Quat rotation = import_rotation.inverse();
-		for (unsigned int i = 0; i < mesh->mNumBones; i++)
+		for (unsigned int i = 0; i < ai_mesh->mNumBones; i++)
 		{
-			aiBone* bone = mesh->mBones[i];
+			aiBone* bone = ai_mesh->mBones[i];
 			int bone_index = bone_map[bone->mName.C_Str()];
 
 			aiVector3D ai_position;
@@ -236,16 +253,15 @@ bool build_armature(const aiScene* scene, const aiMesh* mesh, Mesh* out, std::ma
 			
 			Vec3 position = Vec3(ai_position.x, ai_position.y, ai_position.z);
 			Vec3 scale = Vec3(ai_scale.x, ai_scale.y, ai_scale.z);
-			out->inverse_bind_pose[bone_index].make_transform(position, scale, rotation);
+			mesh.inverse_bind_pose[bone_index].make_transform(position, scale, rotation);
 		}
 	}
 	
 	return true;
 }
 
-bool load_font(const aiScene* scene, Mesh& mesh, Array<Font::Character>& characters)
+bool load_font(const aiScene* scene, Font& font)
 {
-	mesh.reset();
 	int current_mesh_vertex = 0;
 	int current_mesh_index = 0;
 
@@ -256,7 +272,7 @@ bool load_font(const aiScene* scene, Mesh& mesh, Array<Font::Character>& charact
 		for (unsigned int i = 0; i < scene->mNumMeshes; i++)
 		{
 			aiMesh* ai_mesh = scene->mMeshes[i];
-			mesh.vertices.reserve(current_mesh_vertex + ai_mesh->mNumVertices);
+			font.vertices.reserve(current_mesh_vertex + ai_mesh->mNumVertices);
 			for (unsigned int j = 0; j < ai_mesh->mNumVertices; j++)
 			{
 				aiVector3D pos = ai_mesh->mVertices[j];
@@ -271,7 +287,7 @@ bool load_font(const aiScene* scene, Mesh& mesh, Array<Font::Character>& charact
 	for (unsigned int i = 0; i < scene->mNumMeshes; i++)
 	{
 		aiMesh* ai_mesh = scene->mMeshes[i];
-		mesh.vertices.reserve(current_mesh_vertex + ai_mesh->mNumVertices);
+		font.vertices.reserve(current_mesh_vertex + ai_mesh->mNumVertices);
 		Vec2 min_vertex(FLT_MAX, FLT_MAX), max_vertex(FLT_MIN, FLT_MIN);
 		for (unsigned int j = 0; j < ai_mesh->mNumVertices; j++)
 		{
@@ -281,16 +297,16 @@ bool load_font(const aiScene* scene, Mesh& mesh, Array<Font::Character>& charact
 			min_vertex.y = fmin(min_vertex.y, vertex.y);
 			max_vertex.x = fmax(max_vertex.x, vertex.x);
 			max_vertex.y = fmax(max_vertex.y, vertex.y);
-			mesh.vertices.add(vertex);
+			font.vertices.add(vertex);
 		}
 
-		mesh.indices.reserve(current_mesh_index + ai_mesh->mNumFaces * 3);
+		font.indices.reserve(current_mesh_index + ai_mesh->mNumFaces * 3);
 		for (unsigned int j = 0; j < ai_mesh->mNumFaces; j++)
 		{
 			// Assume the model has only triangles.
-			mesh.indices.add(current_mesh_vertex + ai_mesh->mFaces[j].mIndices[0]);
-			mesh.indices.add(current_mesh_vertex + ai_mesh->mFaces[j].mIndices[1]);
-			mesh.indices.add(current_mesh_vertex + ai_mesh->mFaces[j].mIndices[2]);
+			font.indices.add(current_mesh_vertex + ai_mesh->mFaces[j].mIndices[0]);
+			font.indices.add(current_mesh_vertex + ai_mesh->mFaces[j].mIndices[1]);
+			font.indices.add(current_mesh_vertex + ai_mesh->mFaces[j].mIndices[2]);
 		}
 
 		Font::Character c;
@@ -301,73 +317,15 @@ bool load_font(const aiScene* scene, Mesh& mesh, Array<Font::Character>& charact
 		c.index_count = ai_mesh->mNumFaces * 3;
 		c.min = min_vertex;
 		c.max = max_vertex;
-		characters.add(c);
+		font.characters.add(c);
 
-		current_mesh_vertex = mesh.vertices.length;
-		current_mesh_index = mesh.indices.length;
+		current_mesh_vertex = font.vertices.length;
+		current_mesh_index = font.indices.length;
 	}
 	return true;
 }
 
-bool maps_equal(Map& a, Map& b)
-{
-	if (a.size() != b.size())
-		return false;
-	for (auto i = a.begin(); i != a.end(); i++)
-	{
-		auto j = b.find(i->first);
-		if (j == b.end() || i->second.compare(j->second))
-			return false;
-	}
-	return true;
-}
-
-bool maps_equal(Map2& a, Map2& b)
-{
-	if (a.size() != b.size())
-		return false;
-	for (auto i = a.begin(); i != a.end(); i++)
-	{
-		auto j = b.find(i->first);
-		if (j == b.end() || !maps_equal(i->second, j->second))
-			return false;
-	}
-	return true;
-}
-
-void map_flatten(const Map2& input, Map& output)
-{
-	for (auto i = input.begin(); i != input.end(); i++)
-	{
-		for (auto j = i->second.begin(); j != i->second.end(); j++)
-			output[j->first] = j->second;
-	}
-}
-
-void map_add(Map& map, const std::string& key, const std::string& value)
-{
-	map[key] = value;
-}
-
-void map_copy(Map2& src, const std::string& key, Map2& dest)
-{
-	auto i = src.find(key);
-	if (i != src.end())
-		dest[key] = i->second;
-}
-
-void map_add(Map2& map, const std::string& key, const std::string& key2, const std::string& value)
-{
-	auto i = map.find(key);
-	if (i == map.end())
-	{
-		map[key] = Map();
-		i = map.find(key);
-	}
-	map_add(i->second, key2, value);
-}
-
-bool has_extension(std::string path, const char* extension)
+bool has_extension(const std::string& path, const char* extension)
 {
 	int extension_length = strlen(extension);
 	if (path.length() > extension_length)
@@ -378,16 +336,25 @@ bool has_extension(std::string path, const char* extension)
 	return false;
 }
 
-void write_asset_headers(FILE* file, std::string name, Map& assets)
+void write_asset_header(FILE* file, const std::string& name, const Map<std::string>& assets)
 {
 	int asset_count = assets.size();
-	fprintf(file, "\tstruct %s\n\t{\n\t\tstatic const int count = %d;\n\t\tstatic const char* filenames[%d];\n", name.c_str(), asset_count, asset_count);
+	fprintf(file, "\tstruct %s\n\t{\n\t\tstatic const int count = %d;\n\t\tstatic const char* values[%d];\n", name.c_str(), asset_count, asset_count);
 	for (auto i = assets.begin(); i != assets.end(); i++)
 		fprintf(file, "\t\tstatic const AssetID %s;\n", i->first.c_str());
 	fprintf(file, "\t};\n");
 }
 
-void write_asset_filenames(FILE* file, std::string name, Map& assets)
+void write_asset_header(FILE* file, const std::string& name, const Map<int>& assets)
+{
+	int asset_count = assets.size();
+	fprintf(file, "\tstruct %s\n\t{\n\t\tstatic const int count = %d;\n", name.c_str(), asset_count);
+	for (auto i = assets.begin(); i != assets.end(); i++)
+		fprintf(file, "\t\tstatic const AssetID %s;\n", i->first.c_str());
+	fprintf(file, "\t};\n");
+}
+
+void write_asset_source(FILE* file, const std::string& name, const Map<std::string>& assets)
 {
 	int index = 0;
 	for (auto i = assets.begin(); i != assets.end(); i++)
@@ -395,13 +362,19 @@ void write_asset_filenames(FILE* file, std::string name, Map& assets)
 		fprintf(file, "AssetID const Asset::%s::%s = %d;\n", name.c_str(), i->first.c_str(), index);
 		index++;
 	}
-	fprintf(file, "\nconst char* Asset::%s::filenames[] =\n{\n", name.c_str());
+	fprintf(file, "\nconst char* Asset::%s::values[] =\n{\n", name.c_str());
 	for (auto i = assets.begin(); i != assets.end(); i++)
 		fprintf(file, "\t\"%s\",\n", i->second.c_str());
 	fprintf(file, "};\n\n");
 }
 
-std::string get_asset_name(std::string filename)
+void write_asset_source(FILE* file, const std::string& name, const Map<int>& assets)
+{
+	for (auto i = assets.begin(); i != assets.end(); i++)
+		fprintf(file, "AssetID const Asset::%s::%s = %d;\n", name.c_str(), i->first.c_str(), i->second);
+}
+
+std::string get_asset_name(const std::string& filename)
 {
 	size_t start = filename.find_last_of("/");
 	if (start == std::string::npos)
@@ -433,7 +406,7 @@ LONGLONG filetime_to_posix(FILETIME ft)
 	return date.QuadPart / 10000000;
 }
 
-LONGLONG filemtime(std::string file)
+LONGLONG filemtime(const std::string& file)
 {
 	WIN32_FIND_DATA FindFileData;
 	HANDLE handle = FindFirstFile(file.c_str(), &FindFileData);
@@ -446,7 +419,7 @@ LONGLONG filemtime(std::string file)
 	}
 }
 
-bool run_cmd(std::string cmd)
+bool run_cmd(const std::string& cmd)
 {
 	PROCESS_INFORMATION piProcInfo; 
 	STARTUPINFO siStartInfo;
@@ -549,7 +522,7 @@ bool run_cmd(std::string cmd)
 }
 #else
 #include <sys/stat.h>
-long long filemtime(std::string file)
+long long filemtime(const std::string& file)
 {
 	struct stat st;
 	if (stat(file.c_str(), &st))
@@ -557,36 +530,36 @@ long long filemtime(std::string file)
 	return st.st_mtime;
 }
 
-bool run_cmd(std::string cmd)
+bool run_cmd(const std::string& cmd)
 {
 	return system(cmd.c_str()) == 0;
 }
 #endif
 
-bool cp(std::string from, std::string to)
+bool cp(const std::string& from, const std::string& to)
 {
 	char buf[4096];
-    size_t size;
+	size_t size;
 
-    FILE* source = fopen(from.c_str(), "rb");
+	FILE* source = fopen(from.c_str(), "rb");
 	if (!source)
 		return false;
-    FILE* dest = fopen(to.c_str(), "w+b");
+	FILE* dest = fopen(to.c_str(), "w+b");
 	if (!dest)
 	{
 		fclose(source);
 		return false;
 	}
 
-    while ((size = fread(buf, 1, 4096, source)))
-        fwrite(buf, 1, size, dest);
+	while ((size = fread(buf, 1, 4096, source)))
+		fwrite(buf, 1, size, dest);
 
-    fclose(source);
-    fclose(dest);
+	fclose(source);
+	fclose(dest);
 	return true;
 }
 
-long long asset_mtime(Map map, std::string asset_name)
+long long asset_mtime(const Map<std::string>& map, const std::string& asset_name)
 {
 	auto entry = map.find(asset_name);
 	if (entry == map.end())
@@ -595,12 +568,10 @@ long long asset_mtime(Map map, std::string asset_name)
 		return filemtime(entry->second);
 }
 
-long long asset_mtime(Map2 map, std::string asset_name)
+long long asset_mtime(const Map2<std::string>& map, const std::string& asset_name)
 {
 	auto entry = map.find(asset_name);
 	if (entry == map.end())
-		return 0;
-	else if (entry->second.size() == 0)
 		return 0;
 	else
 	{
@@ -613,45 +584,6 @@ long long asset_mtime(Map2 map, std::string asset_name)
 		return mtime;
 	}
 }
-
-struct Manifest
-{
-	Map2 models;
-	Map2 anims;
-	Map textures;
-	Map shaders;
-	Map2 uniforms;
-	Map fonts;
-
-	Manifest()
-		: models(),
-		anims(),
-		textures(),
-		shaders(),
-		uniforms(),
-		fonts()
-	{
-
-	}
-};
-
-struct ImporterState
-{
-	Manifest cached_manifest;
-	Manifest manifest;
-
-	bool rebuild;
-	bool error;
-
-	ImporterState()
-		: cached_manifest(),
-		manifest(),
-		rebuild(),
-		error()
-	{
-
-	}
-};
 
 template <typename T>
 T read(FILE* f)
@@ -678,7 +610,91 @@ void write_string(const std::string& str, FILE* f)
 	fwrite(str.c_str(), sizeof(char), length, f);
 }
 
-void map_read(FILE* f, Map& map)
+bool maps_equal(const Map<std::string>& a, const Map<std::string>& b)
+{
+	if (a.size() != b.size())
+		return false;
+	for (auto i = a.begin(); i != a.end(); i++)
+	{
+		auto j = b.find(i->first);
+		if (j == b.end() || i->second.compare(j->second))
+			return false;
+	}
+	return true;
+}
+
+bool maps_equal(const Map<int>& a, const Map<int>& b)
+{
+	if (a.size() != b.size())
+		return false;
+	for (auto i = a.begin(); i != a.end(); i++)
+	{
+		auto j = b.find(i->first);
+		if (j == b.end() || i->second != j->second)
+			return false;
+	}
+	return true;
+}
+
+template<typename T>
+bool maps_equal2(const Map2<T>& a, const Map2<T>& b)
+{
+	if (a.size() != b.size())
+		return false;
+	for (auto i = a.begin(); i != a.end(); i++)
+	{
+		auto j = b.find(i->first);
+		if (j == b.end() || !maps_equal(i->second, j->second))
+			return false;
+	}
+	return true;
+}
+
+template<typename T>
+void map_flatten(const Map2<T>& input, Map<T>& output)
+{
+	for (auto i = input.begin(); i != input.end(); i++)
+	{
+		for (auto j = i->second.begin(); j != i->second.end(); j++)
+			output[j->first] = j->second;
+	}
+}
+
+template<typename T>
+void map_init(Map2<T>& map, const std::string& key)
+{
+	auto i = map.find(key);
+	if (i == map.end())
+		map[key] = Map<T>();
+}
+
+template<typename T>
+void map_add(Map<T>& map, const std::string& key, const T& value)
+{
+	map[key] = value;
+}
+
+template<typename T>
+void map_add(Map2<T>& map, const std::string& key, const std::string& key2, const T& value)
+{
+	auto i = map.find(key);
+	if (i == map.end())
+	{
+		map[key] = Map<T>();
+		i = map.find(key);
+	}
+	map_add(i->second, key2, value);
+}
+
+template<typename T>
+void map_copy(const Map2<T>& src, const std::string& key, Map2<T>& dest)
+{
+	auto i = src.find(key);
+	if (i != src.end())
+		dest[key] = i->second;
+}
+
+void map_read(FILE* f, Map<std::string>& map)
 {
 	int count = read<int>(f);
 	for (int i = 0; i < count; i++)
@@ -689,19 +705,30 @@ void map_read(FILE* f, Map& map)
 	}
 }
 
-void map_read(FILE* f, Map2& map)
+void map_read(FILE* f, Map<int>& map)
 {
 	int count = read<int>(f);
 	for (int i = 0; i < count; i++)
 	{
 		std::string key = read_string(f);
-		map[key] = Map();
-		Map& inner = map[key];
+		map[key] = read<int>(f);
+	}
+}
+
+template<typename T>
+void map_read(FILE* f, Map2<T>& map)
+{
+	int count = read<int>(f);
+	for (int i = 0; i < count; i++)
+	{
+		std::string key = read_string(f);
+		map[key] = Map<T>();
+		Map<T>& inner = map[key];
 		map_read(f, inner);
 	}
 }
 
-void map_write(Map& map, FILE* f)
+void map_write(Map<std::string>& map, FILE* f)
 {
 	int count = map.size();
 	fwrite(&count, sizeof(int), 1, f);
@@ -709,15 +736,30 @@ void map_write(Map& map, FILE* f)
 	{
 		int length = j->first.length();
 		fwrite(&length, sizeof(int), 1, f);
-		fwrite(&j->first[0], sizeof(char), length, f);
+		fwrite(j->first.c_str(), sizeof(char), length, f);
 
 		length = j->second.length();
 		fwrite(&length, sizeof(int), 1, f);
-		fwrite(&j->second[0], sizeof(char), length, f);
+		fwrite(j->second.c_str(), sizeof(char), length, f);
 	}
 }
 
-void map_write(Map2& map, FILE* f)
+void map_write(Map<int>& map, FILE* f)
+{
+	int count = map.size();
+	fwrite(&count, sizeof(int), 1, f);
+	for (auto j = map.begin(); j != map.end(); j++)
+	{
+		int length = j->first.length();
+		fwrite(&length, sizeof(int), 1, f);
+		fwrite(j->first.c_str(), sizeof(char), length, f);
+
+		fwrite(&j->second, sizeof(int), 1, f);
+	}
+}
+
+template<typename T>
+void map_write(Map2<T>& map, FILE* f)
 {
 	int count = map.size();
 	fwrite(&count, sizeof(int), 1, f);
@@ -725,11 +767,48 @@ void map_write(Map2& map, FILE* f)
 	{
 		int length = i->first.length();
 		fwrite(&length, sizeof(int), 1, f);
-		fwrite(&i->first[0], sizeof(char), length, f);
+		fwrite(i->first.c_str(), sizeof(char), length, f);
 
-		Map& inner = map[i->first];
+		Map<T>& inner = map[i->first];
 		map_write(inner, f);
 	}
+}
+
+struct Manifest
+{
+	Map2<std::string> models;
+	Map2<std::string> animations;
+	Map2<std::string> armatures;
+	Map2<int> bones;
+	Map<std::string> textures;
+	Map<std::string> shaders;
+	Map2<std::string> uniforms;
+	Map<std::string> fonts;
+
+	Manifest()
+		: models(),
+		animations(),
+		armatures(),
+		bones(),
+		textures(),
+		shaders(),
+		uniforms(),
+		fonts()
+	{
+
+	}
+};
+
+bool manifests_equal(const Manifest& a, const Manifest& b)
+{
+	return maps_equal2(a.models, b.models)
+		&& maps_equal2(a.animations, b.animations)
+		&& maps_equal2(a.armatures, b.armatures)
+		&& maps_equal2(a.bones, b.bones)
+		&& maps_equal(a.textures, b.textures)
+		&& maps_equal(a.shaders, b.shaders)
+		&& maps_equal2(a.uniforms, b.uniforms)
+		&& maps_equal(a.fonts, b.fonts);
 }
 
 bool manifest_read(const char* path, Manifest& manifest)
@@ -746,7 +825,9 @@ bool manifest_read(const char* path, Manifest& manifest)
 		else
 		{
 			map_read(f, manifest.models);
-			map_read(f, manifest.anims);
+			map_read(f, manifest.armatures);
+			map_read(f, manifest.bones);
+			map_read(f, manifest.animations);
 			map_read(f, manifest.textures);
 			map_read(f, manifest.shaders);
 			map_read(f, manifest.uniforms);
@@ -769,7 +850,9 @@ bool manifest_write(Manifest& manifest, const char* path)
 	}
 	fwrite(&version, sizeof(int), 1, f);
 	map_write(manifest.models, f);
-	map_write(manifest.anims, f);
+	map_write(manifest.armatures, f);
+	map_write(manifest.bones, f);
+	map_write(manifest.animations, f);
 	map_write(manifest.textures, f);
 	map_write(manifest.shaders, f);
 	map_write(manifest.uniforms, f);
@@ -778,12 +861,36 @@ bool manifest_write(Manifest& manifest, const char* path)
 	return true;
 }
 
-void import_copy(ImporterState& state, Map& manifest, std::string asset_in_path, std::string out_folder, const char* extension)
+struct ImporterState
+{
+	Manifest cached_manifest;
+	Manifest manifest;
+
+	bool rebuild;
+	bool error;
+
+	long long manifest_mtime;
+
+	ImporterState()
+		: cached_manifest(),
+		manifest(),
+		rebuild(),
+		error(),
+		manifest_mtime()
+	{
+
+	}
+};
+
+void import_copy(ImporterState& state, Map<std::string>& manifest, const std::string& asset_in_path, const std::string& out_folder, const std::string& extension)
 {
 	std::string asset_name = get_asset_name(asset_in_path);
 	std::string asset_out_path = out_folder + asset_name + extension;
 	map_add(manifest, asset_name, asset_out_path);
-	if (state.rebuild || filemtime(asset_in_path) > asset_mtime(manifest, asset_name))
+	long long mtime = filemtime(asset_in_path);
+	if (state.rebuild
+		|| mtime > state.manifest_mtime
+		|| mtime > asset_mtime(manifest, asset_name))
 	{
 		printf("%s\n", asset_out_path.c_str());
 		if (!cp(asset_in_path, asset_out_path))
@@ -794,12 +901,15 @@ void import_copy(ImporterState& state, Map& manifest, std::string asset_in_path,
 	}
 }
 
-void import_shader(ImporterState& state, std::string asset_in_path, std::string out_folder)
+void import_shader(ImporterState& state, const std::string& asset_in_path, const std::string& out_folder)
 {
 	std::string asset_name = get_asset_name(asset_in_path);
 	std::string asset_out_path = out_folder + asset_name + shader_extension;
 	map_add(state.manifest.shaders, asset_name, asset_out_path);
-	if (state.rebuild || filemtime(asset_in_path) > asset_mtime(state.cached_manifest.shaders, asset_name))
+	long long mtime = filemtime(asset_in_path);
+	if (state.rebuild
+		|| mtime > state.manifest_mtime
+		|| mtime > asset_mtime(state.cached_manifest.shaders, asset_name))
 	{
 		printf("%s\n", asset_out_path.c_str());
 
@@ -885,7 +995,7 @@ void import_shader(ImporterState& state, std::string asset_in_path, std::string 
 			if (bracket_character)
 				*bracket_character = '\0'; // Remove array brackets
 
-			map_add(state.manifest.uniforms, asset_name, name, name);
+			map_add(state.manifest.uniforms, asset_name, name, std::string(name));
 		}
 
 		glDeleteProgram(program_id);
@@ -901,45 +1011,79 @@ void import_shader(ImporterState& state, std::string asset_in_path, std::string 
 		map_copy(state.cached_manifest.uniforms, asset_name, state.manifest.uniforms);
 }
 
-void import_model(ImporterState& state, std::string asset_in_path, std::string out_folder)
+const aiScene* load_blend(ImporterState& state, Assimp::Importer& importer, const std::string& asset_in_path, const std::string& out_folder)
+{
+	// Export to FBX first
+	std::string asset_intermediate_path = out_folder + get_asset_name(asset_in_path) + model_intermediate_extension;
+
+	std::ostringstream cmdbuilder;
+	cmdbuilder << "blender " << asset_in_path << " --background --factory-startup --python " << asset_in_folder << "blend_to_fbx.py -- ";
+	cmdbuilder << asset_intermediate_path;
+	std::string cmd = cmdbuilder.str();
+
+	if (!run_cmd(cmd))
+	{
+		fprintf(stderr, "Error: failed to export Blender model %s to FBX.\n", asset_in_path.c_str());
+		fprintf(stderr, "Command: %s.\n", cmd.c_str());
+		state.error = true;
+		return 0;
+	}
+
+	const aiScene* scene = load_fbx(importer, asset_intermediate_path);
+
+	if (remove(asset_intermediate_path.c_str()))
+	{
+		fprintf(stderr, "Error: failed to remove intermediate file %s.\n", asset_intermediate_path.c_str());
+		state.error = true;
+		return 0;
+	}
+
+	return scene;
+}
+
+bool write_armature(const Armature& armature, const std::string& path)
+{
+	FILE* f = fopen(path.c_str(), "w+b");
+	if (f)
+	{
+		fwrite(&armature.bones.length, sizeof(int), 1, f);
+		fwrite(armature.bones.data, sizeof(Bone), armature.bones.length, f);
+		fclose(f);
+		return true;
+	}
+	else
+	{
+		fprintf(stderr, "Error: failed to open %s for writing.\n", path.c_str());
+		return false;
+	}
+}
+
+void import_model(ImporterState& state, const std::string& asset_in_path, const std::string& out_folder)
 {
 	std::string asset_name = get_asset_name(asset_in_path);
 	std::string asset_out_path = out_folder + asset_name + model_out_extension;
 
-	if (state.rebuild || filemtime(asset_in_path) > asset_mtime(state.cached_manifest.models, asset_name))
+	long long mtime = filemtime(asset_in_path);
+	if (state.rebuild
+		|| mtime > state.manifest_mtime
+		|| mtime > asset_mtime(state.cached_manifest.models, asset_name)
+		|| mtime > asset_mtime(state.cached_manifest.armatures, asset_name)
+		|| mtime > asset_mtime(state.cached_manifest.animations, asset_name))
 	{
-		std::string asset_intermediate_path = out_folder + asset_name + model_intermediate_extension;
-
-		// Export to FBX first
-		std::ostringstream cmdbuilder;
-		cmdbuilder << "blender " << asset_in_path << " --background --factory-startup --python " << asset_in_folder << "blend_to_fbx.py -- ";
-		cmdbuilder << asset_intermediate_path;
-		std::string cmd = cmdbuilder.str();
-
-		if (!run_cmd(cmd))
-		{
-			fprintf(stderr, "Error: failed to export Blender model %s to FBX.\n", asset_in_path.c_str());
-			fprintf(stderr, "Command: %s.\n", cmd.c_str());
-			state.error = true;
-			return;
-		}
-
 		Assimp::Importer importer;
-		const aiScene* scene = load_fbx(importer, asset_intermediate_path);
+		const aiScene* scene = load_blend(state, importer, asset_in_path, out_folder);
+		map_init(state.manifest.models, asset_name);
+		map_init(state.manifest.armatures, asset_name);
+		map_init(state.manifest.animations, asset_name);
+		map_init(state.manifest.bones, asset_name);
 
-		if (remove(asset_intermediate_path.c_str()))
-		{
-			fprintf(stderr, "Error: failed to remove intermediate file %s.\n", asset_intermediate_path.c_str());
-			state.error = true;
-			return;
-		}
-
-		std::map<std::string, int> bone_map;
+		Map<int> bone_map;
 
 		for (int i = 0; i < scene->mNumMeshes; i++)
 		{
 			aiMesh* ai_mesh = scene->mMeshes[i];
 			Mesh mesh;
+			Armature armature;
 			mesh.color = Vec4(1, 1, 1, 1);
 			if (ai_mesh->mMaterialIndex < scene->mNumMaterials)
 			{
@@ -948,90 +1092,25 @@ void import_model(ImporterState& state, std::string asset_in_path, std::string o
 					mesh.color = Vec4(color.r, color.g, color.b, color.a);
 			}
 			const aiNode* mesh_node = find_mesh_node(scene, scene->mRootNode, ai_mesh);
-			Array<char> model_name;
-			model_name.resize(mesh_node->mName.length + 32);
+			std::string model_name;
 			if (scene->mNumMaterials > 1 && ai_mesh->mMaterialIndex > 0)
-				sprintf(model_name.data, "%s_%d", mesh_node->mName.C_Str(), ai_mesh->mMaterialIndex);
+			{
+				std::ostringstream model_name_builder;
+				model_name_builder << mesh_node->mName.C_Str() << "_" << ai_mesh->mMaterialIndex;
+				model_name = model_name_builder.str();
+			}
 			else
-				strcpy(model_name.data, mesh_node->mName.C_Str());
+				model_name = mesh_node->mName.C_Str();
 
-			clean_name(model_name.data);
-
-			Array<char> model_out_filename;
-			model_out_filename.resize(strlen(asset_out_folder) + strlen(model_name.data) + strlen(model_out_extension) + 1);
-			sprintf(model_out_filename.data, "%s%s%s", asset_out_folder, model_name.data, model_out_extension);
-
-			map_add(state.manifest.models, asset_name, model_name.data, model_out_filename.data);
+			clean_name(model_name);
 
 			if (load_vertices(ai_mesh, &mesh))
 			{
-				printf("%s Indices: %d Vertices: %d\n", model_name.data, mesh.indices.length, mesh.vertices.length);
+				std::string model_out_filename = asset_out_folder + model_name + model_out_extension;
 
-				if (i == 0)
-				{
-					if (!build_armature(scene, ai_mesh, &mesh, bone_map))
-					{
-						fprintf(stderr, "Error: failed to process armature for %s.\n", asset_in_path.c_str());
-						state.error = true;
-						return;
-					}
+				map_add(state.manifest.models, asset_name, model_name, model_out_filename);
 
-					if (mesh.bone_hierarchy.length > 0)
-						printf("Bones: %d\n", mesh.bone_hierarchy.length);
-
-					for (unsigned int j = 0; j < scene->mNumAnimations; j++)
-					{
-						aiAnimation* ai_anim = scene->mAnimations[j];
-						Animation anim;
-						if (load_anim(ai_anim, &anim, bone_map))
-						{
-							printf("%s Duration: %f Channels: %d\n", ai_anim->mName.C_Str(), anim.duration, anim.channels.length);
-
-							std::string anim_name(ai_anim->mName.C_Str());
-							if (anim_name.find("AnimStack") == 0)
-							{
-								size_t pipe = anim_name.find("|");
-								if (pipe != std::string::npos && pipe < anim_name.length() - 1)
-									anim_name = anim_name.substr(pipe + 1);
-							}
-							clean_name(anim_name);
-
-							std::string anim_out_path = asset_out_folder + anim_name + anim_out_extension;
-
-							map_add(state.manifest.anims, asset_name, anim_name, anim_out_path);
-
-							FILE* f = fopen(anim_out_path.c_str(), "w+b");
-							if (f)
-							{
-								fwrite(&anim.duration, sizeof(float), 1, f);
-								fwrite(&anim.channels.length, sizeof(int), 1, f);
-								for (unsigned int i = 0; i < anim.channels.length; i++)
-								{
-									Channel* channel = &anim.channels[i];
-									fwrite(&channel->positions.length, sizeof(int), 1, f);
-									fwrite(channel->positions.data, sizeof(Keyframe<Vec3>), channel->positions.length, f);
-									fwrite(&channel->rotations.length, sizeof(int), 1, f);
-									fwrite(channel->rotations.data, sizeof(Keyframe<Quat>), channel->rotations.length, f);
-									fwrite(&channel->scales.length, sizeof(int), 1, f);
-									fwrite(channel->scales.data, sizeof(Keyframe<Vec3>), channel->scales.length, f);
-								}
-								fclose(f);
-							}
-							else
-							{
-								fprintf(stderr, "Error: failed to open %s for writing.\n", anim_out_path.c_str());
-								state.error = true;
-								return;
-							}
-						}
-						else
-						{
-							fprintf(stderr, "Error: failed to load animation %s.\n", ai_anim->mName.C_Str());
-							state.error = true;
-							return;
-						}
-					}
-				}
+				printf("%s Indices: %d Vertices: %d\n", model_name.c_str(), mesh.indices.length, mesh.vertices.length);
 
 				Array<Array<Vec2>> uv_layers;
 				for (int i = 0; i < 8; i++)
@@ -1049,82 +1128,111 @@ void import_model(ImporterState& state, std::string asset_in_path, std::string o
 					}
 				}
 
+
 				Array<std::array<float, MAX_BONE_WEIGHTS> > bone_weights;
 				Array<std::array<int, MAX_BONE_WEIGHTS> > bone_indices;
-				if (ai_mesh->HasBones())
+				if (i == 0)
 				{
-					bone_weights.resize(ai_mesh->mNumVertices);
-					bone_indices.resize(ai_mesh->mNumVertices);
-
-					for (unsigned int i = 0; i < ai_mesh->mNumBones; i++)
+					if (!build_armature_skinned(scene, ai_mesh, mesh, armature, bone_map))
 					{
-						aiBone* bone = ai_mesh->mBones[i];
-						int bone_index = bone_map[bone->mName.C_Str()];
-						for (unsigned int bone_weight_index = 0; bone_weight_index < bone->mNumWeights; bone_weight_index++)
+						fprintf(stderr, "Error: failed to process armature for %s.\n", asset_in_path.c_str());
+						state.error = true;
+						return;
+					}
+
+					for (auto bone : bone_map)
+					{
+						std::string bone_name = asset_name + "_" + bone.first;
+						clean_name(bone_name);
+						map_add(state.manifest.bones, asset_name, bone_name, bone.second);
+					}
+
+					if (armature.bones.length > 0)
+					{
+						printf("Bones: %d\n", armature.bones.length);
+						bone_weights.resize(ai_mesh->mNumVertices);
+						bone_indices.resize(ai_mesh->mNumVertices);
+
+						for (unsigned int i = 0; i < ai_mesh->mNumBones; i++)
 						{
-							int vertex_id = bone->mWeights[bone_weight_index].mVertexId;
-							float weight = bone->mWeights[bone_weight_index].mWeight;
-							for (int weight_index = 0; weight_index < MAX_BONE_WEIGHTS; weight_index++)
+							aiBone* bone = ai_mesh->mBones[i];
+							int bone_index = bone_map[bone->mName.C_Str()];
+							for (unsigned int bone_weight_index = 0; bone_weight_index < bone->mNumWeights; bone_weight_index++)
 							{
-								if (bone_weights[vertex_id][weight_index] == 0)
+								int vertex_id = bone->mWeights[bone_weight_index].mVertexId;
+								float weight = bone->mWeights[bone_weight_index].mWeight;
+								for (int weight_index = 0; weight_index < MAX_BONE_WEIGHTS; weight_index++)
 								{
-									bone_weights[vertex_id][weight_index] = weight;
-									bone_indices[vertex_id][weight_index] = bone_index;
-									break;
+									if (bone_weights[vertex_id][weight_index] == 0)
+									{
+										bone_weights[vertex_id][weight_index] = weight;
+										bone_indices[vertex_id][weight_index] = bone_index;
+										break;
+									}
+									else if (weight_index == MAX_BONE_WEIGHTS - 1)
+										fprintf(stderr, "Warning: vertex affected by more than %d bones.\n", MAX_BONE_WEIGHTS);
 								}
-								else if (weight_index == MAX_BONE_WEIGHTS - 1)
-									fprintf(stderr, "Warning: vertex affected by more than %d bones.\n", MAX_BONE_WEIGHTS);
 							}
 						}
 					}
 				}
 
-				FILE* f = fopen(model_out_filename.data, "w+b");
-				if (f)
 				{
-					fwrite(&mesh.color, sizeof(Vec4), 1, f);
-					fwrite(&mesh.indices.length, sizeof(int), 1, f);
-					fwrite(mesh.indices.data, sizeof(int), mesh.indices.length, f);
-					fwrite(&mesh.vertices.length, sizeof(int), 1, f);
-					fwrite(mesh.vertices.data, sizeof(Vec3), mesh.vertices.length, f);
-					fwrite(mesh.normals.data, sizeof(Vec3), mesh.vertices.length, f);
-					int num_extra_attribs = uv_layers.length + (mesh.bone_hierarchy.length > 0 ? 2 : 0);
-					fwrite(&num_extra_attribs, sizeof(int), 1, f);
-					for (int i = 0; i < uv_layers.length; i++)
+					FILE* f = fopen(model_out_filename.c_str(), "w+b");
+					if (f)
 					{
-						RenderDataType type = RenderDataType_Vec2;
-						fwrite(&type, sizeof(RenderDataType), 1, f);
-						int count = 1;
-						fwrite(&count, sizeof(int), 1, f);
-						fwrite(uv_layers[i].data, sizeof(Vec2), mesh.vertices.length, f);
-					}
-					if (mesh.bone_hierarchy.length > 0)
-					{
-						RenderDataType type = RenderDataType_Int;
-						fwrite(&type, sizeof(RenderDataType), 1, f);
-						int count = MAX_BONE_WEIGHTS;
-						fwrite(&count, sizeof(int), 1, f);
-						fwrite(bone_indices.data, sizeof(int[MAX_BONE_WEIGHTS]), mesh.vertices.length, f);
+						fwrite(&mesh.color, sizeof(Vec4), 1, f);
+						fwrite(&mesh.indices.length, sizeof(int), 1, f);
+						fwrite(mesh.indices.data, sizeof(int), mesh.indices.length, f);
+						fwrite(&mesh.vertices.length, sizeof(int), 1, f);
+						fwrite(mesh.vertices.data, sizeof(Vec3), mesh.vertices.length, f);
+						fwrite(mesh.normals.data, sizeof(Vec3), mesh.vertices.length, f);
+						int num_extra_attribs = uv_layers.length + (mesh.inverse_bind_pose.length > 0 ? 2 : 0);
+						fwrite(&num_extra_attribs, sizeof(int), 1, f);
+						for (int i = 0; i < uv_layers.length; i++)
+						{
+							RenderDataType type = RenderDataType_Vec2;
+							fwrite(&type, sizeof(RenderDataType), 1, f);
+							int count = 1;
+							fwrite(&count, sizeof(int), 1, f);
+							fwrite(uv_layers[i].data, sizeof(Vec2), mesh.vertices.length, f);
+						}
+						if (mesh.inverse_bind_pose.length > 0)
+						{
+							RenderDataType type = RenderDataType_Int;
+							fwrite(&type, sizeof(RenderDataType), 1, f);
+							int count = MAX_BONE_WEIGHTS;
+							fwrite(&count, sizeof(int), 1, f);
+							fwrite(bone_indices.data, sizeof(int[MAX_BONE_WEIGHTS]), mesh.vertices.length, f);
 
-						type = RenderDataType_Float;
-						fwrite(&type, sizeof(RenderDataType), 1, f);
-						count = MAX_BONE_WEIGHTS;
-						fwrite(&count, sizeof(int), 1, f);
-						fwrite(bone_weights.data, sizeof(float[MAX_BONE_WEIGHTS]), mesh.vertices.length, f);
+							type = RenderDataType_Float;
+							fwrite(&type, sizeof(RenderDataType), 1, f);
+							count = MAX_BONE_WEIGHTS;
+							fwrite(&count, sizeof(int), 1, f);
+							fwrite(bone_weights.data, sizeof(float[MAX_BONE_WEIGHTS]), mesh.vertices.length, f);
+						}
+						fwrite(&mesh.inverse_bind_pose.length, sizeof(int), 1, f);
+						if (mesh.inverse_bind_pose.length > 0)
+							fwrite(mesh.inverse_bind_pose.data, sizeof(Mat4), mesh.inverse_bind_pose.length, f);
+						fclose(f);
 					}
-					fwrite(&mesh.bone_hierarchy.length, sizeof(int), 1, f);
-					if (mesh.bone_hierarchy.length > 0)
+					else
 					{
-						fwrite(mesh.bone_hierarchy.data, sizeof(int), mesh.bone_hierarchy.length, f);
-						fwrite(mesh.inverse_bind_pose.data, sizeof(Mat4), mesh.bone_hierarchy.length, f);
+						fprintf(stderr, "Error: failed to open %s for writing.\n", model_out_filename.c_str());
+						state.error = true;
+						return;
 					}
-					fclose(f);
 				}
-				else
+				
+				if (armature.bones.length > 0)
 				{
-					fprintf(stderr, "Error: failed to open %s for writing.\n", model_out_filename.data);
-					state.error = true;
-					return;
+					std::string armature_out_filename = asset_out_folder + model_name + arm_out_extension;
+					map_add(state.manifest.armatures, asset_name, model_name, armature_out_filename);
+					if (!write_armature(armature, armature_out_filename))
+					{
+						state.error = true;
+						return;
+					}
 				}
 			}
 			else
@@ -1134,22 +1242,105 @@ void import_model(ImporterState& state, std::string asset_in_path, std::string o
 				return;
 			}
 		}
+
+		// Armature
+		if (!scene->HasMeshes() || !scene->mMeshes[0]->HasBones())
+		{
+			Armature armature;
+			int counter = 0;
+			build_armature(armature, bone_map, scene->mRootNode, -1, counter, false);
+			if (armature.bones.length > 1 || scene->HasAnimations())
+			{
+				for (auto bone : bone_map)
+				{
+					std::string bone_name = asset_name + "_" + bone.first;
+					clean_name(bone_name);
+					map_add(state.manifest.bones, asset_name, bone_name, bone.second);
+				}
+
+				std::string armature_out_filename = asset_out_folder + asset_name + arm_out_extension;
+				map_add(state.manifest.armatures, asset_name, asset_name, armature_out_filename);
+				if (!write_armature(armature, armature_out_filename))
+				{
+					state.error = true;
+					return;
+				}
+			}
+		}
+
+		for (unsigned int j = 0; j < scene->mNumAnimations; j++)
+		{
+			aiAnimation* ai_anim = scene->mAnimations[j];
+			Animation anim;
+			if (load_anim(ai_anim, &anim, bone_map))
+			{
+				printf("%s Duration: %f Channels: %d\n", ai_anim->mName.C_Str(), anim.duration, anim.channels.length);
+
+				std::string anim_name(ai_anim->mName.C_Str());
+				if (anim_name.find("AnimStack") == 0)
+				{
+					size_t pipe = anim_name.find("|");
+					if (pipe != std::string::npos && pipe < anim_name.length() - 1)
+						anim_name = anim_name.substr(pipe + 1);
+				}
+				clean_name(anim_name);
+
+				std::string anim_out_path = asset_out_folder + anim_name + anim_out_extension;
+
+				map_add(state.manifest.animations, asset_name, anim_name, anim_out_path);
+
+				FILE* f = fopen(anim_out_path.c_str(), "w+b");
+				if (f)
+				{
+					fwrite(&anim.duration, sizeof(float), 1, f);
+					fwrite(&anim.channels.length, sizeof(int), 1, f);
+					for (unsigned int i = 0; i < anim.channels.length; i++)
+					{
+						Channel* channel = &anim.channels[i];
+						fwrite(&channel->positions.length, sizeof(int), 1, f);
+						fwrite(channel->positions.data, sizeof(Keyframe<Vec3>), channel->positions.length, f);
+						fwrite(&channel->rotations.length, sizeof(int), 1, f);
+						fwrite(channel->rotations.data, sizeof(Keyframe<Quat>), channel->rotations.length, f);
+						fwrite(&channel->scales.length, sizeof(int), 1, f);
+						fwrite(channel->scales.data, sizeof(Keyframe<Vec3>), channel->scales.length, f);
+					}
+					fclose(f);
+				}
+				else
+				{
+					fprintf(stderr, "Error: failed to open %s for writing.\n", anim_out_path.c_str());
+					state.error = true;
+					return;
+				}
+			}
+			else
+			{
+				fprintf(stderr, "Error: failed to load animation %s.\n", ai_anim->mName.C_Str());
+				state.error = true;
+				return;
+			}
+		}
 	}
 	else
 	{
 		map_copy(state.cached_manifest.models, asset_name, state.manifest.models);
-		map_copy(state.cached_manifest.anims, asset_name, state.manifest.anims);
+		map_copy(state.cached_manifest.armatures, asset_name, state.manifest.armatures);
+		map_copy(state.cached_manifest.animations, asset_name, state.manifest.animations);
+		map_copy(state.cached_manifest.bones, asset_name, state.manifest.bones);
 	}
 }
 
-void import_font(ImporterState& state, std::string asset_in_path, std::string out_folder)
+void import_font(ImporterState& state, const std::string& asset_in_path, const std::string& out_folder)
 {
 	std::string asset_name = get_asset_name(asset_in_path);
 	std::string asset_out_path = out_folder + asset_name + font_out_extension;
 
 	map_add(state.manifest.fonts, asset_name, asset_out_path);
 
-	if (state.rebuild || filemtime(asset_in_path) > asset_mtime(state.cached_manifest.fonts, asset_name))
+	long long mtime = filemtime(asset_in_path);
+	if (state.rebuild
+		|| mtime > state.manifest_mtime
+		|| mtime > asset_mtime(state.cached_manifest.fonts, asset_name))
 	{
 		std::string asset_intermediate_path = asset_out_folder + asset_name + model_intermediate_extension;
 
@@ -1172,19 +1363,18 @@ void import_font(ImporterState& state, std::string asset_in_path, std::string ou
 
 		remove(asset_intermediate_path.c_str());
 
-		Array<Font::Character> characters;
-		Mesh mesh;
-		if (load_font(scene, mesh, characters))
+		Font font;
+		if (load_font(scene, font))
 		{
 			FILE* f = fopen(asset_out_path.c_str(), "w+b");
 			if (f)
 			{
-				fwrite(&mesh.vertices.length, sizeof(int), 1, f);
-				fwrite(mesh.vertices.data, sizeof(Vec3), mesh.vertices.length, f);
-				fwrite(&mesh.indices.length, sizeof(int), 1, f);
-				fwrite(mesh.indices.data, sizeof(int), mesh.indices.length, f);
-				fwrite(&characters.length, sizeof(int), 1, f);
-				fwrite(characters.data, sizeof(Font::Character), characters.length, f);
+				fwrite(&font.vertices.length, sizeof(int), 1, f);
+				fwrite(font.vertices.data, sizeof(Vec3), font.vertices.length, f);
+				fwrite(&font.indices.length, sizeof(int), 1, f);
+				fwrite(font.indices.data, sizeof(int), font.indices.length, f);
+				fwrite(&font.characters.length, sizeof(int), 1, f);
+				fwrite(font.characters.data, sizeof(Font::Character), font.characters.length, f);
 				fclose(f);
 			}
 			else
@@ -1241,6 +1431,7 @@ int proc(int argc, char* argv[])
 	}
 
 	ImporterState state;
+	state.manifest_mtime = filemtime(manifest_path);
 
 	if (!manifest_read(manifest_path, state.cached_manifest))
 		state.rebuild = true;
@@ -1277,14 +1468,7 @@ int proc(int argc, char* argv[])
 	if (state.error)
 		return exit_error();
 	
-	bool modified = state.rebuild
-		|| !maps_equal(state.cached_manifest.models, state.manifest.models)
-		|| !maps_equal(state.cached_manifest.anims, state.manifest.anims)
-		|| !maps_equal(state.cached_manifest.textures, state.manifest.textures)
-		|| !maps_equal(state.cached_manifest.shaders, state.manifest.shaders)
-		|| !maps_equal(state.cached_manifest.fonts, state.manifest.fonts);
-
-	long long manifest_mtime = filemtime(manifest_path);
+	bool modified = state.rebuild || !manifests_equal(state.cached_manifest, state.manifest);
 
 	if (modified)
 	{
@@ -1292,7 +1476,7 @@ int proc(int argc, char* argv[])
 			return exit_error();
 	}
 	
-	if (modified || filemtime(asset_header_path) < manifest_mtime || filemtime(asset_src_path) < manifest_mtime)
+	if (modified || filemtime(asset_header_path) < state.manifest_mtime || filemtime(asset_src_path) < state.manifest_mtime)
 	{
 		printf("Writing asset file...\n");
 		FILE* asset_header_file = fopen(asset_header_path, "w+");
@@ -1302,18 +1486,24 @@ int proc(int argc, char* argv[])
 			return exit_error();
 		}
 		fprintf(asset_header_file, "#pragma once\n#include \"types.h\"\n\nnamespace VI\n{\n\nstruct Asset\n{\n\tstatic const AssetID Nothing = -1;\n");
-		Map flattened_models;
+		Map<std::string> flattened_models;
 		map_flatten(state.manifest.models, flattened_models);
-		write_asset_headers(asset_header_file, "Model", flattened_models);
-		write_asset_headers(asset_header_file, "Texture", state.manifest.textures);
-		write_asset_headers(asset_header_file, "Shader", state.manifest.shaders);
-		Map flattened_anims;
-		map_flatten(state.manifest.anims, flattened_anims);
-		write_asset_headers(asset_header_file, "Animation", flattened_anims);
-		Map flattened_uniforms;
+		write_asset_header(asset_header_file, "Model", flattened_models);
+		Map<std::string> flattened_animations;
+		map_flatten(state.manifest.animations, flattened_animations);
+		write_asset_header(asset_header_file, "Animation", flattened_animations);
+		Map<std::string> flattened_armatures;
+		map_flatten(state.manifest.armatures, flattened_armatures);
+		write_asset_header(asset_header_file, "Armature", flattened_armatures);
+		Map<int> flattened_bones;
+		map_flatten(state.manifest.bones, flattened_bones);
+		write_asset_header(asset_header_file, "Bone", flattened_bones);
+		write_asset_header(asset_header_file, "Texture", state.manifest.textures);
+		write_asset_header(asset_header_file, "Shader", state.manifest.shaders);
+		Map<std::string> flattened_uniforms;
 		map_flatten(state.manifest.uniforms, flattened_uniforms);
-		write_asset_headers(asset_header_file, "Uniform", flattened_uniforms);
-		write_asset_headers(asset_header_file, "Font", state.manifest.fonts);
+		write_asset_header(asset_header_file, "Uniform", flattened_uniforms);
+		write_asset_header(asset_header_file, "Font", state.manifest.fonts);
 		fprintf(asset_header_file, "};\n\n}");
 		fclose(asset_header_file);
 
@@ -1324,12 +1514,14 @@ int proc(int argc, char* argv[])
 			return exit_error();
 		}
 		fprintf(asset_src_file, "#include \"asset.h\"\n\nnamespace VI\n{\n\n");
-		write_asset_filenames(asset_src_file, "Model", flattened_models);
-		write_asset_filenames(asset_src_file, "Texture", state.manifest.textures);
-		write_asset_filenames(asset_src_file, "Shader", state.manifest.shaders);
-		write_asset_filenames(asset_src_file, "Animation", flattened_anims);
-		write_asset_filenames(asset_src_file, "Uniform", flattened_uniforms);
-		write_asset_filenames(asset_src_file, "Font", state.manifest.fonts);
+		write_asset_source(asset_src_file, "Model", flattened_models);
+		write_asset_source(asset_src_file, "Animation", flattened_animations);
+		write_asset_source(asset_src_file, "Armature", flattened_armatures);
+		write_asset_source(asset_src_file, "Bone", flattened_bones);
+		write_asset_source(asset_src_file, "Texture", state.manifest.textures);
+		write_asset_source(asset_src_file, "Shader", state.manifest.shaders);
+		write_asset_source(asset_src_file, "Uniform", flattened_uniforms);
+		write_asset_source(asset_src_file, "Font", state.manifest.fonts);
 		fprintf(asset_src_file, "\n\n}");
 		fclose(asset_src_file);
 	}

@@ -45,13 +45,29 @@ inline size_t render_data_type_size(RenderDataType type)
 	return 0;
 }
 
+// Can't have more than X meshes parented to a bone in a .arm file
+#define MAX_BONE_MESHES 8
+struct Bone
+{
+	int parent;
+	AssetRef meshes[MAX_BONE_MESHES];
+	Quat rot;
+	Vec3 pos;
+	Vec3 scale;
+};
+
+struct Armature
+{
+	Array<Bone> bones;
+};
+
 struct Mesh
 {
 	Array<int> indices;
 	Array<Vec3> vertices;
 	Array<Vec3> normals;
 	Array<Mat4> inverse_bind_pose;
-	Array<int> bone_hierarchy;
+	Armature armature;
 	Vec4 color;
 	void reset()
 	{
@@ -59,7 +75,7 @@ struct Mesh
 		vertices.length = 0;
 		normals.length = 0;
 		inverse_bind_pose.length = 0;
-		bone_hierarchy.length = 0;
+		armature.bones.length = 0;
 	}
 };
 
@@ -96,9 +112,13 @@ struct Font
 		Vec2 min;
 		Vec2 max;
 	};
-	Character characters[1 << (8 * sizeof(char))];
+	Array<Character> characters;
 	Array<int> indices;
 	Array<Vec3> vertices;
+	Font()
+		: characters(), indices(), vertices()
+	{
+	}
 };
 
 }

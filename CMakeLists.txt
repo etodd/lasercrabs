@@ -172,12 +172,14 @@ add_executable(mkzebra
 	src/data/entity.cpp
 	src/data/components.h
 	src/data/components.cpp
+	src/data/animator.h
+	src/data/animator.cpp
 	src/render/render.h
 	src/render/render.cpp
 	src/render/views.h
 	src/render/views.cpp
-	src/render/armature.h
-	src/render/armature.cpp
+	src/render/skinned_model.h
+	src/render/skinned_model.cpp
 	src/render/ui.h
 	src/render/ui.cpp
 	src/asset.h

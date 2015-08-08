@@ -2,29 +2,24 @@
 
 #include "data/entity.h"
 #include "data/components.h"
-#include "render.h"
 #include "data/mesh.h"
+#include "render.h"
 
 namespace VI
 {
 
-struct Armature : public ComponentType<Armature>
+struct SkinnedModel : public ComponentType<SkinnedModel>
 {
 	AssetID mesh;
 	AssetID shader;
 	AssetID texture;
-	Animation* animation;
-	Array<Mat4> bones;
 	Array<Mat4> skin_transforms;
 	Mat4 offset;
-	float time;
 	Vec4 color;
 
 	void draw(const RenderParams&);
-	void update(const Update&);
-	void update_world_transforms();
 	void awake();
-	Armature();
+	SkinnedModel();
 };
 
 }

@@ -102,7 +102,7 @@ int Main::proc()
 	float lastTime = (float)glfwGetTime();
 
 	char last_keys[GLFW_KEY_LAST + 1];
-	bool last_mouse_buttons[8];
+	char last_mouse_buttons[8];
 
 	while (true)
 	{

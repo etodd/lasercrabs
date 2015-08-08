@@ -26,6 +26,7 @@ struct Loader
 	static RenderSync::Swapper* swapper;
 	static Entry<Mesh> meshes[Asset::Model::count];
 	static Entry<Animation> animations[Asset::Animation::count];
+	static Entry<Armature> armatures[Asset::Armature::count];
 	static Entry<void*> textures[Asset::Texture::count]; // Nothing actually stored
 	static Entry<void*> shaders[Asset::Shader::count]; // Nothing actually stored
 	static Entry<Font> fonts[Asset::Font::count];
@@ -43,6 +44,10 @@ struct Loader
 	static Animation* animation(AssetID);
 	static Animation* animation_permanent(AssetID);
 	static void animation_free(AssetID);
+
+	static Armature* armature(AssetID);
+	static Armature* armature_permanent(AssetID);
+	static void armature_free(AssetID);
 
 	static void texture(AssetID);
 	static void texture_permanent(AssetID);

@@ -11,6 +11,7 @@ RenderSync::Swapper* Loader::swapper;
 // First entry in each array is empty
 Loader::Entry<Mesh> Loader::meshes[Asset::Model::count];
 Loader::Entry<Animation> Loader::animations[Asset::Animation::count];
+Loader::Entry<Armature> Loader::armatures[Asset::Armature::count];
 Loader::Entry<void*> Loader::textures[Asset::Texture::count];
 Loader::Entry<void*> Loader::shaders[Asset::Shader::count];
 Loader::Entry<Font> Loader::fonts[Asset::Font::count];
@@ -30,7 +31,7 @@ Mesh* Loader::mesh(AssetID id)
 
 	if (meshes[id].type == AssetNone)
 	{
-		const char* path = Asset::Model::filenames[id];
+		const char* path = Asset::Model::values[id];
 		FILE* f = fopen(path, "rb");
 		if (!f)
 		{
@@ -78,14 +79,8 @@ Mesh* Loader::mesh(AssetID id)
 
 		int bone_count;
 		fread(&bone_count, sizeof(int), 1, f);
-
-		if (bone_count > 0)
-		{
-			mesh->bone_hierarchy.resize(bone_count);
-			fread(mesh->bone_hierarchy.data, sizeof(int), bone_count, f);
-			mesh->inverse_bind_pose.resize(bone_count);
-			fread(mesh->inverse_bind_pose.data, sizeof(Mat4), bone_count, f);
-		}
+		mesh->inverse_bind_pose.resize(bone_count);
+		fread(mesh->inverse_bind_pose.data, sizeof(Mat4), bone_count, f);
 
 		fclose(f);
 
@@ -152,6 +147,51 @@ void Loader::mesh_free(AssetID id)
 	}
 }
 
+Armature* Loader::armature(AssetID id)
+{
+	if (id == Asset::Nothing)
+		return 0;
+
+	if (armatures[id].type == AssetNone)
+	{
+		const char* path = Asset::Armature::values[id];
+		FILE* f = fopen(path, "rb");
+		if (!f)
+		{
+			fprintf(stderr, "Can't open arm file '%s'\n", path);
+			return 0;
+		}
+
+		Armature* arm = &armatures[id].data;
+		new (arm) Armature();
+
+		int bones;
+		fread(&bones, sizeof(int), 1, f);
+		arm->bones.resize(bones);
+		fread(arm->bones.data, sizeof(Bone), bones, f);
+
+		fclose(f);
+	}
+	return &armatures[id].data;
+}
+
+Armature* Loader::armature_permanent(AssetID id)
+{
+	Armature* m = armature(id);
+	if (m)
+		armatures[id].type = AssetPermanent;
+	return m;
+}
+
+void Loader::armature_free(AssetID id)
+{
+	if (id != Asset::Nothing && armatures[id].type != AssetNone)
+	{
+		armatures[id].data.~Armature();
+		armatures[id].type = AssetNone;
+	}
+}
+
 int Loader::dynamic_mesh(int attribs)
 {
 	int index = Asset::Nothing;
@@ -212,7 +252,7 @@ Animation* Loader::animation(AssetID id)
 
 	if (animations[id].type == AssetNone)
 	{
-		const char* path = Asset::Animation::filenames[id];
+		const char* path = Asset::Animation::values[id];
 		FILE* f = fopen(path, "rb");
 		if (!f)
 		{
@@ -282,7 +322,7 @@ void Loader::texture(AssetID id)
 	{
 		textures[id].type = AssetTransient;
 
-		const char* path = Asset::Texture::filenames[id];
+		const char* path = Asset::Texture::values[id];
 		unsigned char* buffer;
 		unsigned width, height;
 
@@ -328,7 +368,7 @@ void Loader::shader(AssetID id)
 	{
 		shaders[id].type = AssetTransient;
 
-		const char* path = Asset::Shader::filenames[id];
+		const char* path = Asset::Shader::values[id];
 
 		Array<char> code;
 		FILE* f = fopen(path, "r");
@@ -386,7 +426,7 @@ Font* Loader::font(AssetID id)
 
 	if (fonts[id].type == AssetNone)
 	{
-		const char* path = Asset::Font::filenames[id];
+		const char* path = Asset::Font::values[id];
 		FILE* f = fopen(path, "rb");
 		if (!f)
 		{
@@ -414,6 +454,8 @@ Font* Loader::font(AssetID id)
 		for (int i = 0; i < characters.length; i++)
 		{
 			Font::Character* c = &characters[i];
+			if (c->code >= font->characters.length)
+				font->characters.resize(c->code + 1);
 			font->characters[c->code] = *c;
 		}
 		font->characters[' '].code = ' ';

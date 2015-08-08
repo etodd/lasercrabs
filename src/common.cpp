@@ -1,6 +1,5 @@
 #include "common.h"
 #include "render/views.h"
-#include "render/armature.h"
 #include <GLFW/glfw3.h>
 #include "console.h"
 
@@ -127,7 +126,7 @@ void NoclipControl::update(const Update& u)
 		if (u.input->keys[GLFW_KEY_A] == GLFW_PRESS)
 			get<Transform>()->pos += look_quat * Vec3(1, 0, 0) * u.time.delta * speed;
 
-		if (u.input->mouse_buttons[1] && !u.input->last_mouse_buttons[1])
+		if (u.input->mouse_buttons[1] == GLFW_PRESS && u.input->last_mouse_buttons[1] != GLFW_PRESS)
 		{
 			Entity* box = World::create<Box>(get<Transform>()->absolute_pos() + look_quat * Vec3(0, 0, 0.25f), look_quat, 1.0f, Vec3(0.1f, 0.2f, 0.1f));
 			box->get<RigidBody>()->btBody->setLinearVelocity(look_quat * Vec3(0, 0, 15));

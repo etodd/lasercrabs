@@ -12,7 +12,7 @@ AssetID const Asset::Model::city4_1 = 5;
 AssetID const Asset::Model::cube = 6;
 AssetID const Asset::Model::skybox = 7;
 
-const char* Asset::Model::filenames[] =
+const char* Asset::Model::values[] =
 {
 	"assets/Alpha.mdl",
 	"assets/city1.mdl",
@@ -24,10 +24,101 @@ const char* Asset::Model::filenames[] =
 	"assets/skybox.mdl",
 };
 
+AssetID const Asset::Animation::walk = 0;
+
+const char* Asset::Animation::values[] =
+{
+	"assets/walk.anm",
+};
+
+AssetID const Asset::Armature::Alpha = 0;
+AssetID const Asset::Armature::city1 = 1;
+AssetID const Asset::Armature::city3 = 2;
+AssetID const Asset::Armature::cube = 3;
+AssetID const Asset::Armature::skybox = 4;
+
+const char* Asset::Armature::values[] =
+{
+	"assets/Alpha.arm",
+	"assets/city1.arm",
+	"assets/city3.arm",
+	"assets/cube.arm",
+	"assets/skybox.arm",
+};
+
+AssetID const Asset::Bone::Alpha_Alpha_Head = 6;
+AssetID const Asset::Bone::Alpha_Alpha_Hips = 0;
+AssetID const Asset::Bone::Alpha_Alpha_Neck = 4;
+AssetID const Asset::Bone::Alpha_Alpha_Neck1 = 5;
+AssetID const Asset::Bone::Alpha_Alpha_Spine = 1;
+AssetID const Asset::Bone::Alpha_Alpha_Spine1 = 2;
+AssetID const Asset::Bone::Alpha_Alpha_Spine2 = 3;
+AssetID const Asset::Bone::Alpha_Left_Arm = 8;
+AssetID const Asset::Bone::Alpha_Left_Foot = 47;
+AssetID const Asset::Bone::Alpha_Left_ForeArm = 9;
+AssetID const Asset::Bone::Alpha_Left_Hand = 10;
+AssetID const Asset::Bone::Alpha_Left_HandIndex1 = 17;
+AssetID const Asset::Bone::Alpha_Left_HandIndex2 = 18;
+AssetID const Asset::Bone::Alpha_Left_HandIndex3 = 19;
+AssetID const Asset::Bone::Alpha_Left_HandMiddle1 = 14;
+AssetID const Asset::Bone::Alpha_Left_HandMiddle2 = 15;
+AssetID const Asset::Bone::Alpha_Left_HandMiddle3 = 16;
+AssetID const Asset::Bone::Alpha_Left_HandPinky1 = 23;
+AssetID const Asset::Bone::Alpha_Left_HandPinky2 = 24;
+AssetID const Asset::Bone::Alpha_Left_HandPinky3 = 25;
+AssetID const Asset::Bone::Alpha_Left_HandRing1 = 20;
+AssetID const Asset::Bone::Alpha_Left_HandRing2 = 21;
+AssetID const Asset::Bone::Alpha_Left_HandRing3 = 22;
+AssetID const Asset::Bone::Alpha_Left_HandThumb1 = 11;
+AssetID const Asset::Bone::Alpha_Left_HandThumb2 = 12;
+AssetID const Asset::Bone::Alpha_Left_HandThumb3 = 13;
+AssetID const Asset::Bone::Alpha_Left_Leg = 46;
+AssetID const Asset::Bone::Alpha_Left_Shoulder = 7;
+AssetID const Asset::Bone::Alpha_Left_ToeBase = 48;
+AssetID const Asset::Bone::Alpha_Left_UpLeg = 45;
+AssetID const Asset::Bone::Alpha_Right_Arm = 27;
+AssetID const Asset::Bone::Alpha_Right_Foot = 51;
+AssetID const Asset::Bone::Alpha_Right_ForeArm = 28;
+AssetID const Asset::Bone::Alpha_Right_Hand = 29;
+AssetID const Asset::Bone::Alpha_Right_HandIndex1 = 33;
+AssetID const Asset::Bone::Alpha_Right_HandIndex2 = 34;
+AssetID const Asset::Bone::Alpha_Right_HandIndex3 = 35;
+AssetID const Asset::Bone::Alpha_Right_HandMiddle1 = 36;
+AssetID const Asset::Bone::Alpha_Right_HandMiddle2 = 37;
+AssetID const Asset::Bone::Alpha_Right_HandMiddle3 = 38;
+AssetID const Asset::Bone::Alpha_Right_HandPinky1 = 42;
+AssetID const Asset::Bone::Alpha_Right_HandPinky2 = 43;
+AssetID const Asset::Bone::Alpha_Right_HandPinky3 = 44;
+AssetID const Asset::Bone::Alpha_Right_HandRing1 = 39;
+AssetID const Asset::Bone::Alpha_Right_HandRing2 = 40;
+AssetID const Asset::Bone::Alpha_Right_HandRing3 = 41;
+AssetID const Asset::Bone::Alpha_Right_HandThumb1 = 30;
+AssetID const Asset::Bone::Alpha_Right_HandThumb2 = 31;
+AssetID const Asset::Bone::Alpha_Right_HandThumb3 = 32;
+AssetID const Asset::Bone::Alpha_Right_Leg = 50;
+AssetID const Asset::Bone::Alpha_Right_Shoulder = 26;
+AssetID const Asset::Bone::Alpha_Right_ToeBase = 52;
+AssetID const Asset::Bone::Alpha_Right_UpLeg = 49;
+AssetID const Asset::Bone::city1_Camera = 4;
+AssetID const Asset::Bone::city1_Lamp = 3;
+AssetID const Asset::Bone::city1_RootNode = 2;
+AssetID const Asset::Bone::city1_city1 = 1;
+AssetID const Asset::Bone::city3_Camera = 4;
+AssetID const Asset::Bone::city3_Lamp = 3;
+AssetID const Asset::Bone::city3_RootNode = 2;
+AssetID const Asset::Bone::city3_city3 = 1;
+AssetID const Asset::Bone::cube_Camera = 4;
+AssetID const Asset::Bone::cube_Lamp = 3;
+AssetID const Asset::Bone::cube_RootNode = 2;
+AssetID const Asset::Bone::cube_cube = 1;
+AssetID const Asset::Bone::skybox_Camera = 4;
+AssetID const Asset::Bone::skybox_Lamp = 3;
+AssetID const Asset::Bone::skybox_RootNode = 2;
+AssetID const Asset::Bone::skybox_skybox = 1;
 AssetID const Asset::Texture::skybox_horizon = 0;
 AssetID const Asset::Texture::test = 1;
 
-const char* Asset::Texture::filenames[] =
+const char* Asset::Texture::values[] =
 {
 	"assets/skybox_horizon.png",
 	"assets/test.png",
@@ -38,19 +129,12 @@ AssetID const Asset::Shader::Standard = 1;
 AssetID const Asset::Shader::UI = 2;
 AssetID const Asset::Shader::flat_texture = 3;
 
-const char* Asset::Shader::filenames[] =
+const char* Asset::Shader::values[] =
 {
 	"assets/Armature.glsl",
 	"assets/Standard.glsl",
 	"assets/UI.glsl",
 	"assets/flat_texture.glsl",
-};
-
-AssetID const Asset::Animation::walk = 0;
-
-const char* Asset::Animation::filenames[] =
-{
-	"assets/walk.anm",
 };
 
 AssetID const Asset::Uniform::ambient_color = 0;
@@ -63,7 +147,7 @@ AssetID const Asset::Uniform::light_radius = 6;
 AssetID const Asset::Uniform::m = 7;
 AssetID const Asset::Uniform::mvp = 8;
 
-const char* Asset::Uniform::filenames[] =
+const char* Asset::Uniform::values[] =
 {
 	"ambient_color",
 	"bones",
@@ -79,7 +163,7 @@ const char* Asset::Uniform::filenames[] =
 AssetID const Asset::Font::SegoeUISymbol = 0;
 AssetID const Asset::Font::lowpoly = 1;
 
-const char* Asset::Font::filenames[] =
+const char* Asset::Font::values[] =
 {
 	"assets/SegoeUISymbol.fnt",
 	"assets/lowpoly.fnt",

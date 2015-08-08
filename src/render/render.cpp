@@ -192,7 +192,7 @@ void render(SyncData* sync, GLData* data)
 			case RenderOp_LoadShader:
 			{
 				AssetID id = *(sync->read<AssetID>());
-				const char* path = Asset::Shader::filenames[id];
+				const char* path = Asset::Shader::values[id];
 				int code_length = *(sync->read<int>());
 				char* code = sync->read<char>(code_length);
 
@@ -251,7 +251,7 @@ void render(SyncData* sync, GLData* data)
 				}
 
 				for (int i = 0; i < Asset::Uniform::count; i++)
-					data->shaders[id].uniforms[i] = glGetUniformLocation(program_id, Asset::Uniform::filenames[i]);
+					data->shaders[id].uniforms[i] = glGetUniformLocation(program_id, Asset::Uniform::values[i]);
 
 				glDeleteShader(vertex_id);
 				glDeleteShader(frag_id);

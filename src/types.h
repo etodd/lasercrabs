@@ -17,8 +17,8 @@ struct InputState
 	char last_keys[348 + 1];
 	double cursor_x;
 	double cursor_y;
-	bool mouse_buttons[8];
-	bool last_mouse_buttons[8];
+	char mouse_buttons[8];
+	char last_mouse_buttons[8];
 	int width;
 	int height;
 	int set_width;
@@ -32,5 +32,6 @@ struct Update
 };
 
 typedef int AssetID;
+typedef int AssetRef;
 
 }

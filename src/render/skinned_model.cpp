@@ -61,13 +61,13 @@ void SkinnedModel::draw(const RenderParams& params)
 
 	/*
 	// Debug
-	Loader::mesh(Asset::Model::cube);
+	Loader::mesh(Asset::Mesh::cube);
 	Loader::shader(Asset::Shader::Standard);
 	Loader::texture(Asset::Texture::test);
 	for (int i = 0; i < bones.length; i++)
 	{
 		sync->write(RenderOp_Mesh);
-		sync->write(Asset::Model::cube);
+		sync->write(Asset::Mesh::cube);
 		sync->write(Asset::Shader::Standard);
 		Mat4 mvp = bones[i] * m * params.view * params.projection;
 
@@ -94,7 +94,8 @@ void SkinnedModel::draw(const RenderParams& params)
 void SkinnedModel::awake()
 {
 	Mesh* m = Loader::mesh(mesh);
-	color = m->color;
+	if (m)
+		color = m->color;
 	Loader::shader(shader);
 	Loader::texture(texture);
 }

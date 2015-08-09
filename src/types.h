@@ -32,6 +32,7 @@ struct Update
 };
 
 typedef int AssetID;
+const AssetID AssetNull = -1;
 typedef int AssetRef;
 
 }

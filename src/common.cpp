@@ -67,7 +67,7 @@ Box::Box(ID id, Vec3 pos, Quat quat, float mass, Vec3 scale)
 
 	View* model = create<View>();
 	model->offset = Mat4::make_scale(scale);
-	model->mesh = Asset::Model::cube;
+	model->mesh = Asset::Mesh::cube;
 	model->shader = Asset::Shader::Standard;
 	
 	RigidBody* body = create<RigidBody>(pos, quat, mass, new btBoxShape(scale));

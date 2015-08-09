@@ -12,6 +12,7 @@ struct Animator : public ComponentType<Animator>
 	AssetID armature;
 	AssetID animation;
 	Array<Mat4> bones;
+	Array<Mat4> channels;
 	float time;
 
 	void update(const Update&);

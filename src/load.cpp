@@ -9,7 +9,7 @@ namespace VI
 
 RenderSync::Swapper* Loader::swapper;
 // First entry in each array is empty
-Loader::Entry<Mesh> Loader::meshes[Asset::Model::count];
+Loader::Entry<Mesh> Loader::meshes[Asset::Mesh::count];
 Loader::Entry<Animation> Loader::animations[Asset::Animation::count];
 Loader::Entry<Armature> Loader::armatures[Asset::Armature::count];
 Loader::Entry<void*> Loader::textures[Asset::Texture::count];
@@ -26,12 +26,12 @@ struct Attrib
 
 Mesh* Loader::mesh(AssetID id)
 {
-	if (id == Asset::Nothing)
+	if (id == AssetNull)
 		return 0;
 
 	if (meshes[id].type == AssetNone)
 	{
-		const char* path = Asset::Model::values[id];
+		const char* path = Asset::Mesh::values[id];
 		FILE* f = fopen(path, "rb");
 		if (!f)
 		{
@@ -137,7 +137,7 @@ Mesh* Loader::mesh_permanent(AssetID id)
 
 void Loader::mesh_free(AssetID id)
 {
-	if (id != Asset::Nothing && meshes[id].type != AssetNone)
+	if (id != AssetNull && meshes[id].type != AssetNone)
 	{
 		meshes[id].data.~Mesh();
 		SyncData* sync = swapper->get();
@@ -147,9 +147,14 @@ void Loader::mesh_free(AssetID id)
 	}
 }
 
+AssetID Loader::mesh_ref_to_id(AssetID model, AssetRef mesh)
+{
+	return Asset::mesh_refs[model][mesh];
+}
+
 Armature* Loader::armature(AssetID id)
 {
-	if (id == Asset::Nothing)
+	if (id == AssetNull)
 		return 0;
 
 	if (armatures[id].type == AssetNone)
@@ -167,8 +172,12 @@ Armature* Loader::armature(AssetID id)
 
 		int bones;
 		fread(&bones, sizeof(int), 1, f);
-		arm->bones.resize(bones);
-		fread(arm->bones.data, sizeof(Bone), bones, f);
+		arm->hierarchy.resize(bones);
+		fread(arm->hierarchy.data, sizeof(int), bones, f);
+		arm->bind_pose.resize(bones);
+		fread(arm->bind_pose.data, sizeof(Bone), bones, f);
+		arm->mesh_refs.resize(bones);
+		fread(arm->mesh_refs.data, sizeof(AssetRef[MAX_BONE_MESHES]), bones, f);
 
 		fclose(f);
 	}
@@ -185,7 +194,7 @@ Armature* Loader::armature_permanent(AssetID id)
 
 void Loader::armature_free(AssetID id)
 {
-	if (id != Asset::Nothing && armatures[id].type != AssetNone)
+	if (id != AssetNull && armatures[id].type != AssetNone)
 	{
 		armatures[id].data.~Armature();
 		armatures[id].type = AssetNone;
@@ -194,23 +203,23 @@ void Loader::armature_free(AssetID id)
 
 int Loader::dynamic_mesh(int attribs)
 {
-	int index = Asset::Nothing;
+	int index = AssetNull;
 	for (int i = 0; i < dynamic_meshes.length; i++)
 	{
 		if (dynamic_meshes[i].type == AssetNone)
 		{
-			index = Asset::Model::count + i;
+			index = Asset::Mesh::count + i;
 			break;
 		}
 	}
 
-	if (index == Asset::Nothing)
+	if (index == AssetNull)
 	{
-		index = Asset::Model::count + dynamic_meshes.length;
+		index = Asset::Mesh::count + dynamic_meshes.length;
 		dynamic_meshes.add();
 	}
 
-	dynamic_meshes[index - Asset::Model::count].type = AssetTransient;
+	dynamic_meshes[index - Asset::Mesh::count].type = AssetTransient;
 
 	SyncData* sync = swapper->get();
 	sync->write(RenderOp_AllocMesh);
@@ -230,24 +239,24 @@ void Loader::dynamic_mesh_attrib(RenderDataType type, int count)
 int Loader::dynamic_mesh_permanent(int attribs)
 {
 	int result = dynamic_mesh(attribs);
-	dynamic_meshes[result - Asset::Model::count].type = AssetPermanent;
+	dynamic_meshes[result - Asset::Mesh::count].type = AssetPermanent;
 	return result;
 }
 
 void Loader::dynamic_mesh_free(int id)
 {
-	if (id != Asset::Nothing && dynamic_meshes[id].type != AssetNone)
+	if (id != AssetNull && dynamic_meshes[id].type != AssetNone)
 	{
 		SyncData* sync = swapper->get();
 		sync->write(RenderOp_FreeMesh);
 		sync->write<int>(id);
-		dynamic_meshes[id - Asset::Model::count].type = AssetNone;
+		dynamic_meshes[id - Asset::Mesh::count].type = AssetNone;
 	}
 }
 
 Animation* Loader::animation(AssetID id)
 {
-	if (id == Asset::Nothing)
+	if (id == AssetNull)
 		return 0;
 
 	if (animations[id].type == AssetNone)
@@ -309,7 +318,7 @@ Animation* Loader::animation_permanent(AssetID id)
 
 void Loader::animation_free(AssetID id)
 {
-	if (id != Asset::Nothing && animations[id].type != AssetNone)
+	if (id != AssetNull && animations[id].type != AssetNone)
 	{
 		animations[id].data.~Animation();
 		animations[id].type = AssetNone;
@@ -318,7 +327,7 @@ void Loader::animation_free(AssetID id)
 
 void Loader::texture(AssetID id)
 {
-	if (id != Asset::Nothing && textures[id].type == AssetNone)
+	if (id != AssetNull && textures[id].type == AssetNone)
 	{
 		textures[id].type = AssetTransient;
 
@@ -347,13 +356,13 @@ void Loader::texture(AssetID id)
 void Loader::texture_permanent(AssetID id)
 {
 	texture(id);
-	if (id != Asset::Nothing)
+	if (id != AssetNull)
 		textures[id].type = AssetPermanent;
 }
 
 void Loader::texture_free(AssetID id)
 {
-	if (id != Asset::Nothing && textures[id].type != AssetNone)
+	if (id != AssetNull && textures[id].type != AssetNone)
 	{
 		SyncData* sync = swapper->get();
 		sync->write(RenderOp_FreeTexture);
@@ -364,7 +373,7 @@ void Loader::texture_free(AssetID id)
 
 void Loader::shader(AssetID id)
 {
-	if (id != Asset::Nothing && shaders[id].type == AssetNone)
+	if (id != AssetNull && shaders[id].type == AssetNone)
 	{
 		shaders[id].type = AssetTransient;
 
@@ -404,13 +413,13 @@ void Loader::shader(AssetID id)
 void Loader::shader_permanent(AssetID id)
 {
 	shader(id);
-	if (id != Asset::Nothing)
+	if (id != AssetNull)
 		shaders[id].type = AssetPermanent;
 }
 
 void Loader::shader_free(AssetID id)
 {
-	if (id != Asset::Nothing && shaders[id].type != AssetNone)
+	if (id != AssetNull && shaders[id].type != AssetNone)
 	{
 		SyncData* sync = swapper->get();
 		sync->write(RenderOp_FreeShader);
@@ -421,7 +430,7 @@ void Loader::shader_free(AssetID id)
 
 Font* Loader::font(AssetID id)
 {
-	if (id == Asset::Nothing)
+	if (id == AssetNull)
 		return 0;
 
 	if (fonts[id].type == AssetNone)
@@ -478,7 +487,7 @@ Font* Loader::font_permanent(AssetID id)
 
 void Loader::font_free(AssetID id)
 {
-	if (id != Asset::Nothing && fonts[id].type != AssetNone)
+	if (id != AssetNull && fonts[id].type != AssetNone)
 	{
 		fonts[id].data.~Font();
 		fonts[id].type = AssetNone;
@@ -490,7 +499,7 @@ void Loader::transients_free()
 	// First entry in each array is empty
 	// That way ID 0 is invalid, and we don't have to do [id - 1] all the time
 
-	for (AssetID i = 0; i < Asset::Model::count; i++)
+	for (AssetID i = 0; i < Asset::Mesh::count; i++)
 	{
 		if (meshes[i].type == AssetTransient)
 			mesh_free(i);
@@ -517,7 +526,7 @@ void Loader::transients_free()
 	for (int i = 0; i < dynamic_meshes.length; i++)
 	{
 		if (dynamic_meshes[i].type == AssetTransient)
-			dynamic_mesh_free(Asset::Model::count + i);
+			dynamic_mesh_free(Asset::Mesh::count + i);
 	}
 }
 

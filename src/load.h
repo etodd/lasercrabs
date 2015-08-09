@@ -24,7 +24,7 @@ struct Loader
 	};
 
 	static RenderSync::Swapper* swapper;
-	static Entry<Mesh> meshes[Asset::Model::count];
+	static Entry<Mesh> meshes[Asset::Mesh::count];
 	static Entry<Animation> animations[Asset::Animation::count];
 	static Entry<Armature> armatures[Asset::Armature::count];
 	static Entry<void*> textures[Asset::Texture::count]; // Nothing actually stored
@@ -35,6 +35,8 @@ struct Loader
 	static Mesh* mesh(AssetID);
 	static Mesh* mesh_permanent(AssetID);
 	static void mesh_free(int);
+
+	static AssetID mesh_ref_to_id(AssetID, AssetRef);
 
 	static int dynamic_mesh(int);
 	static void dynamic_mesh_attrib(RenderDataType, int = 1);

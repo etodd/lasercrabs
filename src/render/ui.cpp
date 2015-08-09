@@ -86,7 +86,7 @@ void UIText::draw(const RenderParams& params)
 		UI::indices.add(indices[i] + vertex_start);
 }
 
-int UI::mesh = Asset::Nothing;
+int UI::mesh = AssetNull;
 Array<Vec3> UI::vertices = Array<Vec3>();
 Array<Vec4> UI::colors = Array<Vec4>();
 Array<int> UI::indices = Array<int>();
@@ -219,7 +219,7 @@ void UI::draw(const RenderParams& p)
 {
 	if (indices.length > 0)
 	{
-		if (mesh == Asset::Nothing)
+		if (mesh == AssetNull)
 		{
 			mesh = Loader::dynamic_mesh_permanent(2);
 			Loader::dynamic_mesh_attrib(RenderDataType_Vec3);

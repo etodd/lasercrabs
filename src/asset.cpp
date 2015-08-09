@@ -3,25 +3,25 @@
 namespace VI
 {
 
-AssetID const Asset::Model::Alpha = 0;
-AssetID const Asset::Model::city1 = 1;
-AssetID const Asset::Model::city2 = 2;
-AssetID const Asset::Model::city3 = 3;
-AssetID const Asset::Model::city4 = 4;
-AssetID const Asset::Model::city4_1 = 5;
-AssetID const Asset::Model::cube = 6;
-AssetID const Asset::Model::skybox = 7;
+AssetID const Asset::Mesh::Alpha = 0;
+AssetID const Asset::Mesh::city1 = 1;
+AssetID const Asset::Mesh::city2 = 2;
+AssetID const Asset::Mesh::city3 = 3;
+AssetID const Asset::Mesh::city4 = 4;
+AssetID const Asset::Mesh::city4_1 = 5;
+AssetID const Asset::Mesh::cube = 6;
+AssetID const Asset::Mesh::skybox = 7;
 
-const char* Asset::Model::values[] =
+const char* Asset::Mesh::values[] =
 {
-	"assets/Alpha.mdl",
-	"assets/city1.mdl",
-	"assets/city2.mdl",
-	"assets/city3.mdl",
-	"assets/city4.mdl",
-	"assets/city4_1.mdl",
-	"assets/cube.mdl",
-	"assets/skybox.mdl",
+	"assets/Alpha.msh",
+	"assets/city1.msh",
+	"assets/city2.msh",
+	"assets/city3.msh",
+	"assets/city4.msh",
+	"assets/city4_1.msh",
+	"assets/cube.msh",
+	"assets/skybox.msh",
 };
 
 AssetID const Asset::Animation::walk = 0;
@@ -33,15 +33,19 @@ const char* Asset::Animation::values[] =
 
 AssetID const Asset::Armature::Alpha = 0;
 AssetID const Asset::Armature::city1 = 1;
-AssetID const Asset::Armature::city3 = 2;
-AssetID const Asset::Armature::cube = 3;
-AssetID const Asset::Armature::skybox = 4;
+AssetID const Asset::Armature::city2 = 2;
+AssetID const Asset::Armature::city3 = 3;
+AssetID const Asset::Armature::city4 = 4;
+AssetID const Asset::Armature::cube = 5;
+AssetID const Asset::Armature::skybox = 6;
 
 const char* Asset::Armature::values[] =
 {
 	"assets/Alpha.arm",
 	"assets/city1.arm",
+	"assets/city2.arm",
 	"assets/city3.arm",
+	"assets/city4.arm",
 	"assets/cube.arm",
 	"assets/skybox.arm",
 };
@@ -103,10 +107,12 @@ AssetID const Asset::Bone::city1_Camera = 4;
 AssetID const Asset::Bone::city1_Lamp = 3;
 AssetID const Asset::Bone::city1_RootNode = 2;
 AssetID const Asset::Bone::city1_city1 = 1;
+AssetID const Asset::Bone::city2_city2 = 0;
 AssetID const Asset::Bone::city3_Camera = 4;
 AssetID const Asset::Bone::city3_Lamp = 3;
 AssetID const Asset::Bone::city3_RootNode = 2;
 AssetID const Asset::Bone::city3_city3 = 1;
+AssetID const Asset::Bone::city4_city4 = 0;
 AssetID const Asset::Bone::cube_Camera = 4;
 AssetID const Asset::Bone::cube_Lamp = 3;
 AssetID const Asset::Bone::cube_RootNode = 2;
@@ -169,6 +175,30 @@ const char* Asset::Font::values[] =
 	"assets/lowpoly.fnt",
 };
 
-
+const AssetID Asset::mesh_refs[][2] =
+{
+	{
+		0,
+	},
+	{
+		1,
+	},
+	{
+		2,
+	},
+	{
+		3,
+	},
+	{
+		4,
+		5,
+	},
+	{
+		6,
+	},
+	{
+		7,
+	},
+};
 
 }

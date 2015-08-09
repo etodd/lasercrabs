@@ -49,16 +49,20 @@ inline size_t render_data_type_size(RenderDataType type)
 #define MAX_BONE_MESHES 8
 struct Bone
 {
-	int parent;
-	AssetRef meshes[MAX_BONE_MESHES];
 	Quat rot;
 	Vec3 pos;
-	Vec3 scale;
 };
 
 struct Armature
 {
-	Array<Bone> bones;
+	Array<int> hierarchy;
+	Array<Bone> bind_pose;
+	Array<std::array<AssetRef, MAX_BONE_MESHES> > mesh_refs;
+	Armature()
+		: hierarchy(), bind_pose(), mesh_refs()
+	{
+
+	}
 };
 
 struct Mesh
@@ -75,7 +79,9 @@ struct Mesh
 		vertices.length = 0;
 		normals.length = 0;
 		inverse_bind_pose.length = 0;
-		armature.bones.length = 0;
+		armature.hierarchy.length = 0;
+		armature.bind_pose.length = 0;
+		armature.mesh_refs.length = 0;
 	}
 };
 
@@ -91,7 +97,6 @@ struct Channel
 	Array<Keyframe<Vec3> > positions;
 	Array<Keyframe<Quat> > rotations;
 	Array<Keyframe<Vec3> > scales;
-	Mat4 current_transform;
 };
 
 struct Animation

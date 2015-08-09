@@ -5,7 +5,7 @@ namespace VI
 {
 
 View::View()
-	: mesh(Asset::Nothing), shader(Asset::Nothing), texture(Asset::Nothing), offset(Mat4::identity), color(1, 1, 1, 1)
+	: mesh(AssetNull), shader(AssetNull), texture(AssetNull), offset(Mat4::identity), color(1, 1, 1, 1)
 {
 }
 
@@ -21,7 +21,7 @@ void View::draw(const RenderParams& params)
 	m = offset * m;
 	Mat4 mvp = m * params.view_projection;
 
-	sync->write<int>(texture == Asset::Nothing ? 3 : 4); // Uniform count
+	sync->write<int>(texture == AssetNull ? 3 : 4); // Uniform count
 
 	sync->write(Asset::Uniform::mvp);
 	sync->write(RenderDataType_Mat4);
@@ -38,7 +38,7 @@ void View::draw(const RenderParams& params)
 	sync->write<int>(1);
 	sync->write(&color);
 
-	if (texture != Asset::Nothing)
+	if (texture != AssetNull)
 	{
 		sync->write(Asset::Uniform::diffuse_map);
 		sync->write(RenderDataType_Texture);
@@ -56,13 +56,13 @@ void View::awake()
 	Loader::texture(texture);
 }
 
-AssetID Skybox::texture = Asset::Nothing;
+AssetID Skybox::texture = AssetNull;
 Vec4 Skybox::color = Vec4(1, 1, 1, 1);
 
 void Skybox::set(const Vec4& c, const AssetID& t)
 {
 	color = c;
-	if (texture != Asset::Nothing)
+	if (texture != AssetNull)
 		Loader::texture_free(texture);
 	texture = t;
 	Loader::texture(t);
@@ -70,7 +70,7 @@ void Skybox::set(const Vec4& c, const AssetID& t)
 
 void Skybox::draw(const RenderParams& p)
 {
-	Loader::mesh(Asset::Model::skybox);
+	Loader::mesh(Asset::Mesh::skybox);
 	Loader::shader(Asset::Shader::flat_texture);
 
 	SyncData* sync = p.sync;
@@ -83,7 +83,7 @@ void Skybox::draw(const RenderParams& p)
 	sync->write<bool>(false);
 
 	sync->write(RenderOp_Mesh);
-	sync->write(Asset::Model::skybox);
+	sync->write(Asset::Mesh::skybox);
 	sync->write(Asset::Shader::flat_texture);
 
 	sync->write<int>(3); // Uniform count

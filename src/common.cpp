@@ -2,6 +2,7 @@
 #include "render/views.h"
 #include <GLFW/glfw3.h>
 #include "console.h"
+#include "data/animator.h"
 
 #include <BulletCollision/CollisionShapes/btTriangleIndexVertexArray.h>
 
@@ -56,6 +57,18 @@ StaticGeom::StaticGeom(ID id, AssetID mesh_id, short group, short mask)
 
 void StaticGeom::awake()
 {
+}
+
+Level::Level(ID id, AssetID armature_id)
+	: Entity(id)
+{
+	Animator* animator = create<Animator>();
+	animator->armature = armature_id;
+}
+
+void Level::awake()
+{
+
 }
 
 Box::Box(ID id, Vec3 pos, Quat quat, float mass, Vec3 scale)

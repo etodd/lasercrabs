@@ -8,21 +8,23 @@ struct Asset
 {
 	struct Mesh
 	{
-		static const int count = 8;
-		static const char* values[8];
+		static const int count = 9;
+		static const char* values[9];
 		static const AssetID Alpha;
 		static const AssetID city1;
 		static const AssetID city2;
 		static const AssetID city3;
-		static const AssetID city4;
-		static const AssetID city4_1;
+		static const AssetID city4_elevator;
+		static const AssetID city4_shell;
+		static const AssetID city4_shell_1;
 		static const AssetID cube;
 		static const AssetID skybox;
 	};
 	struct Animation
 	{
-		static const int count = 1;
-		static const char* values[1];
+		static const int count = 2;
+		static const char* values[2];
+		static const AssetID elevator1;
 		static const AssetID walk;
 	};
 	struct Armature
@@ -39,7 +41,7 @@ struct Asset
 	};
 	struct Bone
 	{
-		static const int count = 71;
+		static const int count = 68;
 		static const AssetID Alpha_Alpha_Head;
 		static const AssetID Alpha_Alpha_Hips;
 		static const AssetID Alpha_Alpha_Neck;
@@ -95,21 +97,18 @@ struct Asset
 		static const AssetID Alpha_Right_UpLeg;
 		static const AssetID city1_Camera;
 		static const AssetID city1_Lamp;
-		static const AssetID city1_RootNode;
 		static const AssetID city1_city1;
 		static const AssetID city2_city2;
 		static const AssetID city3_Camera;
 		static const AssetID city3_Lamp;
-		static const AssetID city3_RootNode;
 		static const AssetID city3_city3;
-		static const AssetID city4_city4;
+		static const AssetID city4_elevator;
+		static const AssetID city4_shell;
 		static const AssetID cube_Camera;
 		static const AssetID cube_Lamp;
-		static const AssetID cube_RootNode;
 		static const AssetID cube_cube;
 		static const AssetID skybox_Camera;
 		static const AssetID skybox_Lamp;
-		static const AssetID skybox_RootNode;
 		static const AssetID skybox_skybox;
 	};
 	struct Texture
@@ -149,7 +148,7 @@ struct Asset
 		static const AssetID SegoeUISymbol;
 		static const AssetID lowpoly;
 	};
-	static const AssetID mesh_refs[7][2];
+	static const AssetID mesh_refs[7][3];
 };
 
 }

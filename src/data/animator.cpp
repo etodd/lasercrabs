@@ -5,7 +5,7 @@ namespace VI
 {
 
 Animator::Animator()
-	: bones(), channels(), time(), animation(AssetNull), armature(AssetNull)
+	: bones(), channels(), time(), animation(AssetNull), armature(AssetNull), bindings()
 {
 }
 
@@ -84,7 +84,8 @@ void Animator::update(const Update& u)
 				rotation = Quat::slerp(blend, c->rotations[index].value, c->rotations[index + 1].value);
 			}
 
-			channels[i].make_transform(position, scale, rotation);
+			channels[i].bone = c->bone_index;
+			channels[i].transform.make_transform(position, scale, rotation);
 		}
 	}
 
@@ -95,13 +96,57 @@ void Animator::update_world_transforms()
 {
 	Armature* arm = Loader::armature(armature);
 	bones.resize(arm->hierarchy.length);
+	Mat4 transform;
+	get<Transform>()->mat(&transform);
+
+	for (int i = 0; i < channels.length; i++)
+	{
+		int bone_index = channels[i].bone;
+		int parent = arm->hierarchy[bone_index];
+		if (parent == -1)
+			bones[bone_index] = transform * channels[i].transform;
+		else
+			bones[bone_index] = channels[i].transform;
+	}
+
 	for (int i = 0; i < bones.length; i++)
 	{
 		int parent = arm->hierarchy[i];
-		if (parent == -1)
-			bones[i] = channels[i];
-		else
-			bones[i] = channels[i] * bones[parent];
+		if (parent != -1)
+			bones[i] = bones[i] * bones[parent];
+	}
+
+	for (int i = 0; i < bindings.length; i++)
+	{
+		BindEntry& binding = bindings[i];
+		Transform* t = &World::components<Transform>()[binding.transform];
+		Mat4& mat = bones[binding.bone];
+		Vec3 pos;
+		Quat quat;
+		Vec3 scale;
+		mat.decomposition(pos, scale, quat);
+		t->absolute(quat, pos);
+	}
+}
+
+void Animator::bind(const int bone, const Transform* transform)
+{
+	BindEntry* entry = bindings.add();
+	entry->bone = bone;
+	entry->transform = transform->id;
+}
+
+void Animator::unbind(const Transform* transform)
+{
+	int transform_id = transform->id;
+	for (int i = 0; i < bindings.length; i++)
+	{
+		BindEntry& entry = bindings[i];
+		if (entry.transform == transform_id)
+		{
+			bindings.remove(i);
+			i--;
+		}
 	}
 }
 

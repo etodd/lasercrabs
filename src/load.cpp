@@ -282,6 +282,7 @@ Animation* Loader::animation(AssetID id)
 		for (int i = 0; i < channel_count; i++)
 		{
 			Channel* channel = &anim->channels[i];
+			fread(&channel->bone_index, sizeof(int), 1, f);
 			int position_count;
 			fread(&position_count, sizeof(int), 1, f);
 			channel->positions.reserve(position_count);

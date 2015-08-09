@@ -658,17 +658,16 @@ void clean_name(T& name)
 	}
 }
 
-std::string get_mesh_name(const aiMesh* ai_mesh, const aiNode* mesh_node)
+std::string get_mesh_name(const aiScene* scene, const std::string& asset_name, const aiMesh* ai_mesh, const aiNode* mesh_node)
 {
-	std::string name;
+	std::ostringstream name_builder;
+	if (scene->mNumMeshes > 1)
+		name_builder << asset_name << "_";
 	if (ai_mesh->mMaterialIndex > 0)
-	{
-		std::ostringstream name_builder;
 		name_builder << mesh_node->mName.C_Str() << "_" << ai_mesh->mMaterialIndex;
-		name = name_builder.str();
-	}
 	else
-		name = mesh_node->mName.C_Str();
+		name_builder << mesh_node->mName.C_Str();
+	std::string name = name_builder.str();
 	clean_name(name);
 	return name;
 }
@@ -676,7 +675,7 @@ std::string get_mesh_name(const aiMesh* ai_mesh, const aiNode* mesh_node)
 bool load_anim(aiAnimation* in, Animation* out, const Map<int>& bone_map)
 {
 	out->duration = (float)(in->mDuration / in->mTicksPerSecond);
-	out->channels.resize(bone_map.size());
+	out->channels.resize(in->mNumChannels);
 	for (unsigned int i = 0; i < in->mNumChannels; i++)
 	{
 		aiNodeAnim* in_channel = in->mChannels[i];
@@ -684,7 +683,8 @@ bool load_anim(aiAnimation* in, Animation* out, const Map<int>& bone_map)
 		if (bone_index_entry != bone_map.end())
 		{
 			int bone_index = bone_index_entry->second;
-			Channel* out_channel = &out->channels[bone_index];
+			Channel* out_channel = &out->channels[i];
+			out_channel->bone_index = bone_index;
 
 			out_channel->positions.resize(in_channel->mNumPositionKeys);
 			for (unsigned int j = 0; j < in_channel->mNumPositionKeys; j++)
@@ -775,43 +775,49 @@ bool load_mesh(const aiMesh* mesh, Mesh* out)
 }
 
 // Build regular armature
-bool build_armature(const aiScene* scene, Map<std::string> meshes, Armature& armature, Map<int>& bone_map, aiNode* node, int parent_index, int& counter)
+bool build_armature(const aiScene* scene, const std::string& asset_name, const Map<std::string>& meshes, Armature& armature, Map<int>& bone_map, aiNode* node, int parent_index, int& counter)
 {
-	int current_bone_index = counter;
-	bone_map[node->mName.C_Str()] = counter;
-	if (counter >= armature.hierarchy.length)
+	int current_bone_index;
+	if (strcmp(node->mName.C_Str(), "RootNode") == 0)
+		current_bone_index = parent_index;
+	else
 	{
-		armature.hierarchy.resize(counter + 1);
-		armature.bind_pose.resize(counter + 1);
-		armature.mesh_refs.resize(counter + 1);
-	}
-	armature.hierarchy[counter] = parent_index;
-	aiVector3D scale;
-	aiVector3D pos;
-	aiQuaternion rot;
-	node->mTransformation.Decompose(scale, rot, pos);
-	armature.bind_pose[counter].pos = Vec3(pos.x / scale.x, pos.y / scale.y, pos.z / scale.z);
-	armature.bind_pose[counter].rot = Quat::euler(0, 0, PI * 0.5f) * Quat(rot.w, rot.x, rot.y, rot.z);
+		current_bone_index = counter;
+		bone_map[node->mName.C_Str()] = counter;
+		if (counter >= armature.hierarchy.length)
+		{
+			armature.hierarchy.resize(counter + 1);
+			armature.bind_pose.resize(counter + 1);
+			armature.mesh_refs.resize(counter + 1);
+		}
+		armature.hierarchy[counter] = parent_index;
+		aiVector3D scale;
+		aiVector3D pos;
+		aiQuaternion rot;
+		node->mTransformation.Decompose(scale, rot, pos);
+		armature.bind_pose[counter].pos = Vec3(pos.x / scale.x, pos.y / scale.y, pos.z / scale.z);
+		armature.bind_pose[counter].rot = Quat::euler(0, 0, PI * 0.5f) * Quat(rot.w, rot.x, rot.y, rot.z);
 
-	if (node->mNumMeshes > MAX_BONE_MESHES)
-	{
-		fprintf(stderr, "Node %s has more than the maximum of %d meshes attached.", node->mName.C_Str(), MAX_BONE_MESHES);
-		return false;
+		if (node->mNumMeshes > MAX_BONE_MESHES)
+		{
+			fprintf(stderr, "Node %s has more than the maximum of %d meshes attached.", node->mName.C_Str(), MAX_BONE_MESHES);
+			return false;
+		}
+		for (int i = 0; i < node->mNumMeshes; i++)
+		{
+			const aiMesh* ai_mesh = scene->mMeshes[node->mMeshes[i]];
+			std::string mesh_name = get_mesh_name(scene, asset_name, ai_mesh, node);
+			armature.mesh_refs[counter][i] = map_key_to_index(meshes, mesh_name);
+		}
+		for (int i = node->mNumMeshes; i < MAX_BONE_MESHES; i++)
+			armature.mesh_refs[counter][i] = AssetNull;
+		current_bone_index = counter;
+		counter++;
 	}
-	for (int i = 0; i < node->mNumMeshes; i++)
-	{
-		const aiMesh* ai_mesh = scene->mMeshes[node->mMeshes[i]];
-		std::string mesh_name = get_mesh_name(ai_mesh, node);
-		armature.mesh_refs[counter][i] = map_key_to_index(meshes, mesh_name);
-	}
-	for (int i = node->mNumMeshes; i < MAX_BONE_MESHES; i++)
-		armature.mesh_refs[counter][i] = AssetNull;
-	current_bone_index = counter;
-	counter++;
 
 	for (unsigned int i = 0; i < node->mNumChildren; i++)
 	{
-		if (!build_armature(scene, meshes, armature, bone_map, node->mChildren[i], current_bone_index, counter))
+		if (!build_armature(scene, asset_name, meshes, armature, bone_map, node->mChildren[i], current_bone_index, counter))
 			return false;
 	}
 
@@ -988,7 +994,7 @@ void import_model(ImporterState& state, const std::string& asset_in_path, const 
 					mesh.color = Vec4(color.r, color.g, color.b, color.a);
 			}
 			const aiNode* mesh_node = find_mesh_node(scene, scene->mRootNode, ai_mesh);
-			std::string mesh_name = get_mesh_name(ai_mesh, mesh_node);
+			std::string mesh_name = get_mesh_name(scene, asset_name, ai_mesh, mesh_node);
 
 			if (load_mesh(ai_mesh, &mesh))
 			{
@@ -1132,7 +1138,7 @@ void import_model(ImporterState& state, const std::string& asset_in_path, const 
 			// Armature for non-skinned meshes
 			Armature armature;
 			int counter = 0;
-			if (!build_armature(scene, map_get(state.manifest.meshes, asset_name), armature, bone_map, scene->mRootNode, -1, counter))
+			if (!build_armature(scene, asset_name, map_get(state.manifest.meshes, asset_name), armature, bone_map, scene->mRootNode, -1, counter))
 			{
 				state.error = true;
 				return;
@@ -1183,6 +1189,7 @@ void import_model(ImporterState& state, const std::string& asset_in_path, const 
 					for (unsigned int i = 0; i < anim.channels.length; i++)
 					{
 						Channel* channel = &anim.channels[i];
+						fwrite(&channel->bone_index, sizeof(int), 1, f);
 						fwrite(&channel->positions.length, sizeof(int), 1, f);
 						fwrite(channel->positions.data, sizeof(Keyframe<Vec3>), channel->positions.length, f);
 						fwrite(&channel->rotations.length, sizeof(int), 1, f);

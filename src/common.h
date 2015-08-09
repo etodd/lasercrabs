@@ -22,6 +22,12 @@ struct StaticGeom : public Entity
 	void awake();
 };
 
+struct Level : public Entity
+{
+	Level(ID, AssetID);
+	void awake();
+};
+
 struct Box : public Entity
 {
 	Box(ID, Vec3, Quat, float, Vec3);

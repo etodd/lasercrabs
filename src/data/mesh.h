@@ -94,6 +94,7 @@ struct Keyframe
 
 struct Channel
 {
+	int bone_index;
 	Array<Keyframe<Vec3> > positions;
 	Array<Keyframe<Quat> > rotations;
 	Array<Keyframe<Vec3> > scales;

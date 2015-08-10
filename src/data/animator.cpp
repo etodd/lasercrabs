@@ -99,6 +99,9 @@ void Animator::update_world_transforms()
 	Mat4 transform;
 	get<Transform>()->mat(&transform);
 
+	for (int i = 0; i < bones.length; i++)
+		bones[i].make_transform(arm->bind_pose[i].pos, Vec3(1, 1, 1), arm->bind_pose[i].rot);
+
 	for (int i = 0; i < channels.length; i++)
 	{
 		int bone_index = channels[i].bone;

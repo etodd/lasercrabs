@@ -672,7 +672,7 @@ std::string get_mesh_name(const aiScene* scene, const std::string& asset_name, c
 	return name;
 }
 
-bool load_anim(aiAnimation* in, Animation* out, const Map<int>& bone_map)
+bool load_anim(const aiAnimation* in, Animation* out, const Map<int>& bone_map, bool skinned_model)
 {
 	out->duration = (float)(in->mDuration / in->mTicksPerSecond);
 	out->channels.resize(in->mNumChannels);
@@ -691,7 +691,10 @@ bool load_anim(aiAnimation* in, Animation* out, const Map<int>& bone_map)
 			{
 				out_channel->positions[j].time = (float)(in_channel->mPositionKeys[j].mTime / in->mTicksPerSecond);
 				aiVector3D value = in_channel->mPositionKeys[j].mValue;
-				out_channel->positions[j].value = Vec3(value.x, value.y, value.z);
+				if (skinned_model)
+					out_channel->positions[j].value = Vec3(value.x, value.y, value.z);
+				else
+					out_channel->positions[j].value = Vec3(value.x / 100.0f, value.y / 100.0f, value.z / 100.0f);
 			}
 
 			out_channel->rotations.resize(in_channel->mNumRotationKeys);
@@ -699,7 +702,10 @@ bool load_anim(aiAnimation* in, Animation* out, const Map<int>& bone_map)
 			{
 				out_channel->rotations[j].time = (float)(in_channel->mRotationKeys[j].mTime / in->mTicksPerSecond);
 				aiQuaternion value = in_channel->mRotationKeys[j].mValue;
-				out_channel->rotations[j].value = Quat(value.w, value.x, value.y, value.z);
+				if (skinned_model)
+					out_channel->rotations[j].value = Quat(value.w, value.x, value.y, value.z);
+				else
+					out_channel->rotations[j].value = Quat::euler(0, 0, PI * 0.5f) * Quat(value.w, value.x, value.y, value.z);
 			}
 
 			out_channel->scales.resize(in_channel->mNumScalingKeys);
@@ -707,7 +713,10 @@ bool load_anim(aiAnimation* in, Animation* out, const Map<int>& bone_map)
 			{
 				out_channel->scales[j].time = (float)(in_channel->mScalingKeys[j].mTime / in->mTicksPerSecond);
 				aiVector3D value = in_channel->mScalingKeys[j].mValue;
-				out_channel->scales[j].value = Vec3(value.x, value.y, value.z);
+				if (skinned_model)
+					out_channel->scales[j].value = Vec3(value.x, value.y, value.z);
+				else
+					out_channel->scales[j].value = Vec3(value.x / 100.0f, value.y / 100.0f, value.z / 100.0f);
 			}
 		}
 	}
@@ -980,6 +989,7 @@ void import_model(ImporterState& state, const std::string& asset_in_path, const 
 		map_init(state.manifest.bones, asset_name);
 
 		Map<int> bone_map;
+		bool skinned_model = false;
 
 		for (int i = 0; i < scene->mNumMeshes; i++)
 		{
@@ -1039,6 +1049,7 @@ void import_model(ImporterState& state, const std::string& asset_in_path, const 
 
 					if (armature.hierarchy.length > 0)
 					{
+						skinned_model = true;
 						printf("Bones: %d\n", armature.hierarchy.length);
 						bone_weights.resize(ai_mesh->mNumVertices);
 						bone_indices.resize(ai_mesh->mNumVertices);
@@ -1133,7 +1144,7 @@ void import_model(ImporterState& state, const std::string& asset_in_path, const 
 			}
 		}
 
-		if (!scene->HasMeshes() || !scene->mMeshes[0]->HasBones())
+		if (!skinned_model)
 		{
 			// Armature for non-skinned meshes
 			Armature armature;
@@ -1164,7 +1175,7 @@ void import_model(ImporterState& state, const std::string& asset_in_path, const 
 		{
 			aiAnimation* ai_anim = scene->mAnimations[j];
 			Animation anim;
-			if (load_anim(ai_anim, &anim, bone_map))
+			if (load_anim(ai_anim, &anim, bone_map, skinned_model))
 			{
 				printf("%s Duration: %f Channels: %d\n", ai_anim->mName.C_Str(), anim.duration, anim.channels.length);
 

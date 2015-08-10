@@ -12,26 +12,26 @@ const Quat Quat::identity(1, 0, 0, 0);
 const float Quat::epsilon = 1e-03f;
 
 const Mat3 Mat3::zero(
-        0, 0, 0,
-        0, 0, 0,
-        0, 0, 0);
+		0, 0, 0,
+		0, 0, 0,
+		0, 0, 0);
 
 const Mat3 Mat3::identity(
-        1, 0, 0,
-        0, 1, 0,
-        0, 0, 1);
+		1, 0, 0,
+		0, 1, 0,
+		0, 0, 1);
 
 const Mat4 Mat4::zero(
-        0, 0, 0, 0,
-        0, 0, 0, 0,
-        0, 0, 0, 0,
-        0, 0, 0, 0 );
+		0, 0, 0, 0,
+		0, 0, 0, 0,
+		0, 0, 0, 0,
+		0, 0, 0, 0 );
 
 const Mat4 Mat4::identity(
-        1, 0, 0, 0,
-        0, 1, 0, 0,
-        0, 0, 1, 0,
-        0, 0, 0, 1 );
+		1, 0, 0, 0,
+		0, 1, 0, 0,
+		0, 0, 1, 0,
+		0, 0, 0, 1 );
 
 Plane::Plane()
 {
@@ -1287,17 +1287,17 @@ Vec3 Quat::operator* (const Vec3& v) const
 
 Quat Quat::euler(float pitch, float yaw, float roll)
 {
-    // Assuming the angles are in radians.
-    float c1 = cos(yaw * 0.5f);
-    float s1 = sin(yaw * 0.5f);
-    float c2 = cos(pitch * 0.5f);
-    float s2 = sin(pitch * 0.5f);
-    float c3 = cos(roll * 0.5f);
-    float s3 = sin(roll * 0.5f);
-    float c1c2 = c1*c2;
-    float s1s2 = s1*s2;
-    return Quat
-    (
+	// Assuming the angles are in radians.
+	float c1 = cos(yaw * 0.5f);
+	float s1 = sin(yaw * 0.5f);
+	float c2 = cos(pitch * 0.5f);
+	float s2 = sin(pitch * 0.5f);
+	float c3 = cos(roll * 0.5f);
+	float s3 = sin(roll * 0.5f);
+	float c1c2 = c1*c2;
+	float s1s2 = s1*s2;
+	return Quat
+	(
 		c1c2*c3 - s1s2*s3,
 		c1c2*s3 + s1s2*c3,
 		s1*c2*c3 + c1*s2*s3,
@@ -1618,7 +1618,7 @@ void Mat4::decomposition(Vec3& position, Vec3& scale, Quat& orientation) const
 	m3x3.qdu_decomposition( matQ, scale, vecU ); 
 
 	orientation = Quat(matQ);
-	position = Vec3(m[0][3], m[1][3], m[2][3]);
+	position = Vec3(m[3][0], m[3][1], m[3][2]);
 }
 
 Mat4 Mat4::perspective(float fov, float aspect, float near, float far)
@@ -1630,12 +1630,12 @@ Mat4 Mat4::perspective(float fov, float aspect, float near, float far)
 
 	result[1][1] = 1.0f / tan(fov);
 
-    result[0][0] = -1.0f * result[1][1] / aspect;
-    result[2][2] = far * inverse_depth;
-    result[3][2] = (-far * near) * inverse_depth;
-    result[2][3] = 1;
+	result[0][0] = -1.0f * result[1][1] / aspect;
+	result[2][2] = far * inverse_depth;
+	result[3][2] = (-far * near) * inverse_depth;
+	result[2][3] = 1;
 
-    return result;
+	return result;
 }
 
 Mat4 Mat4::look(const Vec3& eye, const Vec3& forward, const Vec3& up)

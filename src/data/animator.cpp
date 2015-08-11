@@ -122,30 +122,28 @@ void Animator::update_world_transforms()
 	for (int i = 0; i < bindings.length; i++)
 	{
 		BindEntry& binding = bindings[i];
-		Transform* t = &World::components<Transform>()[binding.transform];
 		Mat4& mat = bones[binding.bone];
 		Vec3 pos;
 		Quat quat;
 		Vec3 scale;
 		mat.decomposition(pos, scale, quat);
-		t->absolute(quat, pos);
+		binding.transform->absolute(quat, pos);
 	}
 }
 
-void Animator::bind(const int bone, const Transform* transform)
+void Animator::bind(const int bone, Transform* transform)
 {
 	BindEntry* entry = bindings.add();
 	entry->bone = bone;
-	entry->transform = transform->id;
+	entry->transform = transform;
 }
 
 void Animator::unbind(const Transform* transform)
 {
-	int transform_id = transform->id;
 	for (int i = 0; i < bindings.length; i++)
 	{
 		BindEntry& entry = bindings[i];
-		if (entry.transform == transform_id)
+		if (entry.transform == transform)
 		{
 			bindings.remove(i);
 			i--;

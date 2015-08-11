@@ -1,5 +1,6 @@
 #include "views.h"
 #include "load.h"
+#include "asset.h"
 
 namespace VI
 {
@@ -11,6 +12,10 @@ View::View()
 
 void View::draw(const RenderParams& params)
 {
+	Loader::mesh(mesh);
+	Loader::shader(shader);
+	Loader::texture(texture);
+
 	SyncData* sync = params.sync;
 	sync->write(RenderOp_Mesh);
 	sync->write(&mesh);
@@ -72,6 +77,7 @@ void Skybox::draw(const RenderParams& p)
 {
 	Loader::mesh(Asset::Mesh::skybox);
 	Loader::shader(Asset::Shader::flat_texture);
+	Loader::texture(texture);
 
 	SyncData* sync = p.sync;
 

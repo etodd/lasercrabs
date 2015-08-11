@@ -4,7 +4,6 @@
 #include <GL/glew.h>
 #include "data/mesh.h"
 #include "render/render.h"
-#include "asset.h"
 
 namespace VI
 {
@@ -24,13 +23,14 @@ struct Loader
 	};
 
 	static RenderSync::Swapper* swapper;
-	static Entry<Mesh> meshes[Asset::Mesh::count];
-	static Entry<Animation> animations[Asset::Animation::count];
-	static Entry<Armature> armatures[Asset::Armature::count];
-	static Entry<void*> textures[Asset::Texture::count]; // Nothing actually stored
-	static Entry<void*> shaders[Asset::Shader::count]; // Nothing actually stored
-	static Entry<Font> fonts[Asset::Font::count];
-	static Array<Entry<void*>> dynamic_meshes; // Nothing actually stored
+	static void init(RenderSync::Swapper*);
+	static Array<Entry<Mesh> > meshes;
+	static Array<Entry<Animation> > animations;
+	static Array<Entry<Armature> > armatures;
+	static Array<Entry<void*> > textures; // Nothing actually stored
+	static Array<Entry<void*> > shaders; // Nothing actually stored
+	static Array<Entry<Font> > fonts;
+	static Array<Entry<void*> > dynamic_meshes; // Nothing actually stored
 
 	static Mesh* mesh(AssetID);
 	static Mesh* mesh_permanent(AssetID);

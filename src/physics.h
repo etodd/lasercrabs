@@ -4,6 +4,7 @@
 
 #include <btBulletDynamicsCommon.h>
 #include "data/entity.h"
+#include "lmath.h"
 
 namespace VI
 {

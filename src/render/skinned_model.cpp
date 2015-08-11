@@ -1,6 +1,7 @@
 #include "skinned_model.h"
 #include "load.h"
 #include "data/animator.h"
+#include "asset.h"
 
 namespace VI
 {

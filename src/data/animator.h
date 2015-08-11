@@ -12,7 +12,7 @@ struct Animator : public ComponentType<Animator>
 	struct BindEntry
 	{
 		int bone;
-		ID transform;
+		Transform* transform;
 	};
 	struct AnimatorChannel
 	{
@@ -27,7 +27,7 @@ struct Animator : public ComponentType<Animator>
 	float time;
 
 	void update(const Update&);
-	void bind(const int, const Transform*);
+	void bind(const int, Transform*);
 	void unbind(const Transform*);
 	void update_world_transforms();
 	void get_bone(const int, Quat&, Vec3& pos);

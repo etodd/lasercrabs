@@ -2,6 +2,7 @@
 #include "load.h"
 #include "data/mesh.h"
 #include "vi_assert.h"
+#include "asset.h"
 
 namespace VI
 {
@@ -19,6 +20,13 @@ RenderSync::Swapper RenderSync::swapper(int index)
 	q.data = data;
 	q.current = index;
 	return q;
+}
+
+void render_init(GLData* data)
+{
+	data->meshes.resize(Asset::Mesh::count);
+	data->textures.resize(Asset::Texture::count);
+	data->shaders.resize(Asset::Shader::count);
 }
 
 void render(SyncData* sync, GLData* data)
@@ -250,6 +258,7 @@ void render(SyncData* sync, GLData* data)
 					fprintf(stderr, "Error creating shader program '%s': %s\n", path, msg.data);
 				}
 
+				data->shaders[id].uniforms.resize(Asset::Uniform::count);
 				for (int i = 0; i < Asset::Uniform::count; i++)
 					data->shaders[id].uniforms[i] = glGetUniformLocation(program_id, Asset::Uniform::values[i]);
 

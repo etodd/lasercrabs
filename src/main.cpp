@@ -99,6 +99,7 @@ int Main::proc()
 	SyncData* sync = render_swapper.get();
 
 	GLData gl_data;
+	render_init(&gl_data);
 
 	float lastTime = (float)glfwGetTime();
 

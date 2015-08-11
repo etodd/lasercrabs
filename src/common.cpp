@@ -3,6 +3,7 @@
 #include <GLFW/glfw3.h>
 #include "console.h"
 #include "data/animator.h"
+#include "asset.h"
 
 #include <BulletCollision/CollisionShapes/btTriangleIndexVertexArray.h>
 
@@ -74,6 +75,7 @@ void StaticGeom::awake()
 Level::Level(ID id, AssetID armature_id)
 	: Entity(id)
 {
+	create<Transform>();
 	Animator* animator = create<Animator>();
 	animator->armature = armature_id;
 }

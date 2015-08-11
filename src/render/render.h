@@ -5,7 +5,6 @@
 #include "data/array.h"
 #include "lmath.h"
 #include "sync.h"
-#include "asset.h"
 #include "data/mesh.h"
 
 namespace VI
@@ -134,11 +133,11 @@ struct GLData
 	struct Shader
 	{
 		GLuint handle;
-		GLuint uniforms[Asset::Uniform::count];
+		Array<GLuint> uniforms;
 	};
 
-	GLuint textures[Asset::Texture::count];
-	Shader shaders[Asset::Shader::count];
+	Array<GLuint> textures;
+	Array<Shader> shaders;
 	Array<Mesh> meshes;
 
 	GLData()
@@ -166,6 +165,7 @@ struct RenderParams
 	SyncData* sync;
 };
 
+void render_init(GLData*);
 void render(SyncData*, GLData*);
 
 }

@@ -1,12 +1,8 @@
 #pragma once
 
 #include "types.h"
-#include "lmath.h"
-#include "array.h"
 #include "vi_assert.h"
-#include <GL/glew.h>
-
-#include <stdio.h>
+#include "pin_array.h"
 
 namespace VI
 {
@@ -15,6 +11,7 @@ typedef unsigned int Family;
 typedef unsigned int ID;
 typedef unsigned long ComponentMask;
 const Family MAX_FAMILIES = sizeof(ComponentMask) * 8;
+const int MAX_ENTITIES = 4096;
 
 struct ComponentBase;
 
@@ -39,8 +36,11 @@ struct PoolBase
 template<typename T>
 struct Pool : public PoolBase
 {
-	Pool()
+	Pool(int size)
+		: PoolBase()
 	{
+		new ((PinArray<T>*)&data) PinArray<T>(size);
+		initialized = true;
 	}
 
 	virtual ComponentBase* virtual_get(int id)
@@ -89,7 +89,6 @@ struct World
 	static Family component_families;
 	static PinArray<Entity> list;
 	static PoolBase component_pools[MAX_FAMILIES];
-	static void* systems[MAX_FAMILIES];
 
 	template<typename T, typename... Args> static T* create(Args... args)
 	{
@@ -99,27 +98,19 @@ struct World
 		return (T*)entry.item;
 	}
 
-	template<typename SystemType> static SystemType* system()
-	{
-		Family f = SystemType::family();
-		if (!systems[f])
-			systems[f] = new SystemType();
-		return (SystemType*)systems[f];
-	}
-
 	template<typename T> static PinArray<T>& components()
 	{
 		Pool<T>* pool = (Pool<T>*)&component_pools[T::family()];
 		return *(reinterpret_cast<PinArray<T>*>(&pool->data));
 	}
 
-	static ComponentBase* get_component(ID entity, Family family)
+	template<typename T> static T* component(ID entity)
 	{
 		Entity* e = &list[entity];
 		if (e->component_mask & (1 << family))
 		{
-			PoolBase* pool = &component_pools[family];
-			return pool->virtual_get(e->components[family]);
+			Pool<T>* pool = &component_pools[family];
+			return pool->get(e->components[family]);
 		}
 		else
 			return 0;
@@ -135,14 +126,11 @@ struct World
 		Family f = T::family();
 		Pool<T>* pool = (Pool<T>*)&component_pools[f];
 		if (!pool->initialized)
-		{
-			new (pool)Pool<T>();
-			pool->initialized = true;
-		}
+			new (pool)Pool<T>(MAX_ENTITIES);
 		typename PinArray<T>::Entry entry = pool->add();
 		new(entry.item) T(args...);
-		entry.item->id = entry.index;
 		entry.item->entity_id = e->id;
+		entry.item->id = entry.index;
 		e->components[f] = entry.index;
 		e->component_mask |= 1 << f;
 		return entry.item;
@@ -291,14 +279,6 @@ template<typename T, typename T2, void (T::*Method)(T2)> struct InstantiatedLink
 template<typename Derived>
 struct ComponentType : public ComponentBase
 {
-	struct System
-	{
-		static Family family()
-		{
-			return Derived::family();
-		}
-	};
-
 	static Family family()
 	{
 		static Family f = World::component_families++;

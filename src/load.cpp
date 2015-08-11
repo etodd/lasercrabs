@@ -3,19 +3,32 @@
 #include <GL/glew.h>
 #include "lodepng.h"
 #include "vi_assert.h"
+#include "asset.h"
 
 namespace VI
 {
 
 RenderSync::Swapper* Loader::swapper;
 // First entry in each array is empty
-Loader::Entry<Mesh> Loader::meshes[Asset::Mesh::count];
-Loader::Entry<Animation> Loader::animations[Asset::Animation::count];
-Loader::Entry<Armature> Loader::armatures[Asset::Armature::count];
-Loader::Entry<void*> Loader::textures[Asset::Texture::count];
-Loader::Entry<void*> Loader::shaders[Asset::Shader::count];
-Loader::Entry<Font> Loader::fonts[Asset::Font::count];
-Array<Loader::Entry<void*>> Loader::dynamic_meshes = Array<Loader::Entry<void*>>();
+Array<Loader::Entry<Mesh> > Loader::meshes;
+Array<Loader::Entry<Animation> > Loader::animations;
+Array<Loader::Entry<Armature> > Loader::armatures;
+Array<Loader::Entry<void*> > Loader::textures;
+Array<Loader::Entry<void*> > Loader::shaders;
+Array<Loader::Entry<Font> > Loader::fonts;
+Array<Loader::Entry<void*> > Loader::dynamic_meshes;
+
+void Loader::init(RenderSync::Swapper* s)
+{
+	swapper = s;
+	meshes.resize(Asset::Mesh::count);
+	animations.resize(Asset::Animation::count);
+	armatures.resize(Asset::Armature::count);
+	textures.resize(Asset::Texture::count);
+	shaders.resize(Asset::Shader::count);
+	fonts.resize(Asset::Font::count);
+	dynamic_meshes = Array<Loader::Entry<void*> >();
+}
 
 struct Attrib
 {

@@ -1,6 +1,7 @@
 #include "console.h"
 #include <GLFW/glfw3.h>
 #include "game/game.h"
+#include "asset.h"
 
 namespace VI
 {

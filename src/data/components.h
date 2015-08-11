@@ -1,6 +1,7 @@
 #pragma once
 
 #include "entity.h"
+#include "lmath.h"
 #include "LinearMath/btTransform.h"
 
 namespace VI
@@ -8,13 +9,9 @@ namespace VI
 
 struct Transform : public ComponentType<Transform>
 {
-	ID parent_id;
-	bool has_parent;
+	Transform* parent;
 	Vec3 pos;
 	Quat rot;
-
-	void parent(const Transform*);
-	Transform* parent();
 
 	Transform();
 

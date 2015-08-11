@@ -1,6 +1,5 @@
 #pragma once
 
-#include "data/array.h"
 #include <mutex>
 #include <condition_variable>
 
@@ -38,35 +37,6 @@ struct Swapper
 		data[next].ready[swap_type] = false;
 		current = next;
 		return &data[next];
-	}
-};
-
-template<typename T>
-class SyncQueue
-{
-	Queue<T> q;
-	mutable std::mutex m;
-	std::condition_variable c;
-
-	SyncQueue()
-	: q(), m(), c()
-	{}
-
-	void enqueue(T& t)
-	{
-		{
-			std::lock_guard<std::mutex> lock(m);
-			q.enqueue(t);
-		}
-		c.notify_one();
-	}
-
-	T dequeue()
-	{
-		std::unique_lock<std::mutex> lock(m);
-		while(q.empty())
-			c.wait(lock);
-		return q.dequeue();
 	}
 };
 

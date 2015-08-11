@@ -14,6 +14,12 @@ struct Empty : public Entity
 	void awake();
 };
 
+struct Prop : public Entity
+{
+	Prop(ID, AssetID);
+	void awake();
+};
+
 struct StaticGeom : public Entity
 {
 	StaticGeom(ID, AssetID);

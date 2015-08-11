@@ -47,6 +47,7 @@ inline size_t render_data_type_size(RenderDataType type)
 
 // Can't have more than X meshes parented to a bone in a .arm file
 #define MAX_BONE_MESHES 8
+#define MAX_BONE_METADATA 8
 struct Bone
 {
 	Quat rot;
@@ -55,11 +56,17 @@ struct Bone
 
 struct Armature
 {
+	struct MetadataRef
+	{
+		AssetRef id;
+		float value;
+	};
 	Array<int> hierarchy;
 	Array<Bone> bind_pose;
 	Array<std::array<AssetRef, MAX_BONE_MESHES> > mesh_refs;
+	Array<std::array<MetadataRef, MAX_BONE_METADATA> > metadata_refs;
 	Armature()
-		: hierarchy(), bind_pose(), mesh_refs()
+		: hierarchy(), bind_pose(), mesh_refs(), metadata_refs()
 	{
 
 	}

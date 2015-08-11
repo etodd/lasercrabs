@@ -35,7 +35,7 @@ const char* asset_in_folder = "../assets/";
 const char* asset_out_folder = "assets/";
 
 Quat import_rotation = Quat(PI * -0.5f, Vec3(1, 0, 0));
-const int version = 6;
+const int version = 7;
 
 template <typename T>
 T read(FILE* f)
@@ -126,9 +126,9 @@ void map_flatten(const Map2<T>& input, Map<T>& output)
 }
 
 template<typename T>
-const T& map_get(const Map<T>& map, const std::string& key)
+T& map_get(Map<T>& map, const std::string& key)
 {
-	return map.at(key);
+	return map[key];
 }
 
 template<typename T>
@@ -516,6 +516,7 @@ struct Manifest
 	Map2<std::string> animations;
 	Map2<std::string> armatures;
 	Map2<int> bones;
+	Map2<std::string> metadata;
 	Map<std::string> textures;
 	Map<std::string> shaders;
 	Map2<std::string> uniforms;
@@ -529,7 +530,8 @@ struct Manifest
 		textures(),
 		shaders(),
 		uniforms(),
-		fonts()
+		fonts(),
+		metadata()
 	{
 
 	}
@@ -541,6 +543,7 @@ bool manifests_equal(const Manifest& a, const Manifest& b)
 		&& maps_equal2(a.animations, b.animations)
 		&& maps_equal2(a.armatures, b.armatures)
 		&& maps_equal2(a.bones, b.bones)
+		&& maps_equal2(a.metadata, b.metadata)
 		&& maps_equal(a.textures, b.textures)
 		&& maps_equal(a.shaders, b.shaders)
 		&& maps_equal2(a.uniforms, b.uniforms)
@@ -564,6 +567,7 @@ bool manifest_read(const char* path, Manifest& manifest)
 			map_read(f, manifest.animations);
 			map_read(f, manifest.armatures);
 			map_read(f, manifest.bones);
+			map_read(f, manifest.metadata);
 			map_read(f, manifest.textures);
 			map_read(f, manifest.shaders);
 			map_read(f, manifest.uniforms);
@@ -589,6 +593,7 @@ bool manifest_write(Manifest& manifest, const char* path)
 	map_write(manifest.animations, f);
 	map_write(manifest.armatures, f);
 	map_write(manifest.bones, f);
+	map_write(manifest.metadata, f);
 	map_write(manifest.textures, f);
 	map_write(manifest.shaders, f);
 	map_write(manifest.uniforms, f);
@@ -672,10 +677,10 @@ std::string get_mesh_name(const aiScene* scene, const std::string& asset_name, c
 	return name;
 }
 
-bool load_anim(const aiAnimation* in, Animation* out, const Map<int>& bone_map, bool skinned_model)
+bool load_anim(const Armature& armature, const aiAnimation* in, Animation* out, const Map<int>& bone_map, bool skinned_model)
 {
 	out->duration = (float)(in->mDuration / in->mTicksPerSecond);
-	out->channels.resize(in->mNumChannels);
+	out->channels.reserve(in->mNumChannels);
 	for (unsigned int i = 0; i < in->mNumChannels; i++)
 	{
 		aiNodeAnim* in_channel = in->mChannels[i];
@@ -683,10 +688,24 @@ bool load_anim(const aiAnimation* in, Animation* out, const Map<int>& bone_map, 
 		if (bone_index_entry != bone_map.end())
 		{
 			int bone_index = bone_index_entry->second;
-			Channel* out_channel = &out->channels[i];
+			Channel* out_channel = out->channels.add();
 			out_channel->bone_index = bone_index;
 
 			out_channel->positions.resize(in_channel->mNumPositionKeys);
+
+			bool axis_active[3] = { false, false, false };
+			Vec3 bind_pos = Vec3::zero;
+			if (!skinned_model)
+			{
+				for (unsigned int j = 0; j < in_channel->mNumPositionKeys; j++)
+				{
+					axis_active[0] |= in_channel->mPositionKeys[j].mValue.x != 0.0f;
+					axis_active[1] |= in_channel->mPositionKeys[j].mValue.y != 0.0f;
+					axis_active[2] |= in_channel->mPositionKeys[j].mValue.z != 0.0f;
+				}
+				bind_pos = armature.bind_pose[bone_index].pos;
+			}
+
 			for (unsigned int j = 0; j < in_channel->mNumPositionKeys; j++)
 			{
 				out_channel->positions[j].time = (float)(in_channel->mPositionKeys[j].mTime / in->mTicksPerSecond);
@@ -694,7 +713,12 @@ bool load_anim(const aiAnimation* in, Animation* out, const Map<int>& bone_map, 
 				if (skinned_model)
 					out_channel->positions[j].value = Vec3(value.x, value.y, value.z);
 				else
-					out_channel->positions[j].value = Vec3(value.x / 100.0f, value.y / 100.0f, value.z / 100.0f);
+				{
+					Vec3& out_pos = out_channel->positions[j].value;
+					out_pos.x = axis_active[0] ? value.x / 100.0f : bind_pos.x;
+					out_pos.y = axis_active[1] ? value.y / 100.0f : bind_pos.y;
+					out_pos.z = axis_active[2] ? value.z / 100.0f : bind_pos.z;
+				}
 			}
 
 			out_channel->rotations.resize(in_channel->mNumRotationKeys);
@@ -732,7 +756,6 @@ const aiScene* load_fbx(Assimp::Importer& importer, const std::string& path)
 		| aiProcess_Triangulate
 		| aiProcess_GenNormals
 		| aiProcess_ValidateDataStructure
-		| aiProcess_OptimizeGraph
 	);
 	if (!scene)
 		fprintf(stderr, "%s\n", importer.GetErrorString());
@@ -783,8 +806,35 @@ bool load_mesh(const aiMesh* mesh, Mesh* out)
 	return true;
 }
 
+void collect_metadata(const aiNode* node, Map<std::string>& metadata)
+{
+	if (node->mMetaData)
+	{
+		for (int i = 0; i < node->mMetaData->mNumProperties; i++)
+		{
+			// Only floats supported for now
+			if (node->mMetaData->mValues[i].mType == aiMetadataType::AI_FLOAT)
+			{
+				std::string key = node->mMetaData->mKeys[i].C_Str();
+				map_add(metadata, key, key);
+			}
+		}
+	}
+
+	for (int i = 0; i < node->mNumChildren; i++)
+		collect_metadata(node->mChildren[i], metadata);
+}
+
 // Build regular armature
-bool build_armature(const aiScene* scene, const std::string& asset_name, const Map<std::string>& meshes, Armature& armature, Map<int>& bone_map, aiNode* node, int parent_index, int& counter)
+bool build_armature(const aiScene* scene,
+	const std::string& asset_name,
+	const Map<std::string>& meshes,
+	const Map<std::string>& metadata,
+	Armature& armature,
+	Map<int>& bone_map,
+	aiNode* node,
+	int parent_index,
+	int& counter)
 {
 	int current_bone_index;
 	if (strcmp(node->mName.C_Str(), "RootNode") == 0)
@@ -798,6 +848,7 @@ bool build_armature(const aiScene* scene, const std::string& asset_name, const M
 			armature.hierarchy.resize(counter + 1);
 			armature.bind_pose.resize(counter + 1);
 			armature.mesh_refs.resize(counter + 1);
+			armature.metadata_refs.resize(counter + 1);
 		}
 		armature.hierarchy[counter] = parent_index;
 		aiVector3D scale;
@@ -820,13 +871,34 @@ bool build_armature(const aiScene* scene, const std::string& asset_name, const M
 		}
 		for (int i = node->mNumMeshes; i < MAX_BONE_MESHES; i++)
 			armature.mesh_refs[counter][i] = AssetNull;
+
+		int metadata_index = 0;
+		for (int i = 0; i < node->mMetaData->mNumProperties; i++)
+		{
+			// Only floats supported for now
+			if (node->mMetaData->mValues[i].mType == aiMetadataType::AI_FLOAT)
+			{
+				if (metadata_index >= MAX_BONE_METADATA)
+				{
+					fprintf(stderr, "Node %s has more than the maximum of %d metadata properties.", node->mName.C_Str(), MAX_BONE_METADATA);
+					return false;
+				}
+
+				armature.metadata_refs[counter][metadata_index].id = map_key_to_index(metadata, std::string(node->mMetaData->mKeys[i].C_Str()));
+				armature.metadata_refs[counter][metadata_index].value = *((float*)node->mMetaData->mValues[i].mData);
+				metadata_index++;
+			}
+		}
+		for (int i = metadata_index; i < MAX_BONE_METADATA; i++)
+			armature.metadata_refs[counter][i].id = AssetNull;
+
 		current_bone_index = counter;
 		counter++;
 	}
 
 	for (unsigned int i = 0; i < node->mNumChildren; i++)
 	{
-		if (!build_armature(scene, asset_name, meshes, armature, bone_map, node->mChildren[i], current_bone_index, counter))
+		if (!build_armature(scene, asset_name, meshes, metadata, armature, bone_map, node->mChildren[i], current_bone_index, counter))
 			return false;
 	}
 
@@ -846,6 +918,7 @@ bool build_armature(Armature& armature, Map<int>& bone_map, aiNode* node, int pa
 			armature.hierarchy.resize(counter + 1);
 			armature.bind_pose.resize(counter + 1);
 			armature.mesh_refs.resize(counter + 1);
+			armature.metadata_refs.resize(counter + 1);
 		}
 		armature.hierarchy[counter] = parent_index;
 		aiVector3D scale;
@@ -879,7 +952,7 @@ bool build_armature_skinned(const aiScene* scene, const aiMesh* ai_mesh, Mesh& m
 	{
 		if (scene->mNumMeshes > 1)
 		{
-			fprintf(stderr, "Animated scene contains multiple meshes.\n");
+			fprintf(stderr, "Animated scene contains a skinned mesh.\n");
 			return false;
 		}
 	
@@ -896,6 +969,7 @@ bool build_armature_skinned(const aiScene* scene, const aiMesh* ai_mesh, Mesh& m
 		armature.hierarchy.resize(ai_mesh->mNumBones);
 		armature.bind_pose.resize(ai_mesh->mNumBones);
 		armature.mesh_refs.resize(ai_mesh->mNumBones);
+		armature.metadata_refs.resize(ai_mesh->mNumBones);
 		int node_hierarchy_counter = 0;
 		if (!build_armature(armature, bone_map, scene->mRootNode, -1, node_hierarchy_counter))
 			return false;
@@ -929,6 +1003,7 @@ bool write_armature(const Armature& armature, const std::string& path)
 		fwrite(armature.hierarchy.data, sizeof(int), armature.hierarchy.length, f);
 		fwrite(armature.bind_pose.data, sizeof(Bone), armature.hierarchy.length, f);
 		fwrite(armature.mesh_refs.data, sizeof(AssetRef[MAX_BONE_MESHES]), armature.hierarchy.length, f);
+		fwrite(armature.metadata_refs.data, sizeof(Armature::MetadataRef[MAX_BONE_MESHES]), armature.hierarchy.length, f);
 		fclose(f);
 		return true;
 	}
@@ -987,15 +1062,16 @@ void import_model(ImporterState& state, const std::string& asset_in_path, const 
 		map_init(state.manifest.armatures, asset_name);
 		map_init(state.manifest.animations, asset_name);
 		map_init(state.manifest.bones, asset_name);
+		map_init(state.manifest.metadata, asset_name);
 
 		Map<int> bone_map;
+		Armature armature;
 		bool skinned_model = false;
 
 		for (int i = 0; i < scene->mNumMeshes; i++)
 		{
 			aiMesh* ai_mesh = scene->mMeshes[i];
 			Mesh mesh;
-			Armature armature;
 			mesh.color = Vec4(1, 1, 1, 1);
 			if (ai_mesh->mMaterialIndex < scene->mNumMaterials)
 			{
@@ -1147,9 +1223,10 @@ void import_model(ImporterState& state, const std::string& asset_in_path, const 
 		if (!skinned_model)
 		{
 			// Armature for non-skinned meshes
-			Armature armature;
 			int counter = 0;
-			if (!build_armature(scene, asset_name, map_get(state.manifest.meshes, asset_name), armature, bone_map, scene->mRootNode, -1, counter))
+			Map<std::string>& metadata = map_get(state.manifest.metadata, asset_name);
+			collect_metadata(scene->mRootNode, metadata);
+			if (!build_armature(scene, asset_name, map_get(state.manifest.meshes, asset_name), metadata, armature, bone_map, scene->mRootNode, -1, counter))
 			{
 				state.error = true;
 				return;
@@ -1175,7 +1252,7 @@ void import_model(ImporterState& state, const std::string& asset_in_path, const 
 		{
 			aiAnimation* ai_anim = scene->mAnimations[j];
 			Animation anim;
-			if (load_anim(ai_anim, &anim, bone_map, skinned_model))
+			if (load_anim(armature, ai_anim, &anim, bone_map, skinned_model))
 			{
 				printf("%s Duration: %f Channels: %d\n", ai_anim->mName.C_Str(), anim.duration, anim.channels.length);
 
@@ -1231,6 +1308,7 @@ void import_model(ImporterState& state, const std::string& asset_in_path, const 
 		map_copy(state.cached_manifest.armatures, asset_name, state.manifest.armatures);
 		map_copy(state.cached_manifest.animations, asset_name, state.manifest.animations);
 		map_copy(state.cached_manifest.bones, asset_name, state.manifest.bones);
+		map_copy(state.cached_manifest.metadata, asset_name, state.manifest.metadata);
 	}
 }
 
@@ -1596,6 +1674,19 @@ int proc(int argc, char* argv[])
 		Map<int> flattened_bones;
 		map_flatten(state.manifest.bones, flattened_bones);
 		write_asset_header(asset_header_file, "Bone", flattened_bones);
+
+		Map<std::string> flattened_metadata;
+		map_flatten(state.manifest.metadata, flattened_metadata);
+		Map<int> flattened_metadata_indices;
+		{
+			int index = 0;
+			for (auto i : flattened_metadata)
+			{
+				flattened_metadata_indices[i.first] = index;
+				index++;
+			}
+		}
+		write_asset_header(asset_header_file, "Metadata", flattened_metadata_indices);
 		write_asset_header(asset_header_file, "Texture", state.manifest.textures);
 		write_asset_header(asset_header_file, "Shader", state.manifest.shaders);
 		Map<std::string> flattened_uniforms;
@@ -1607,6 +1698,11 @@ int proc(int argc, char* argv[])
 		for (auto model : state.manifest.meshes)
 			max_mesh_count = max(max_mesh_count, model.second.size());
 		fprintf(asset_header_file, "\tstatic const AssetID mesh_refs[%d][%d];\n", state.manifest.armatures.size(), max_mesh_count);
+
+		int max_metadata_count = 0;
+		for (auto metadata : state.manifest.metadata)
+			max_metadata_count = max(max_metadata_count, metadata.second.size());
+		fprintf(asset_header_file, "\tstatic const AssetID metadata_refs[%d][%d];\n", state.manifest.armatures.size(), max_metadata_count);
 
 		fprintf(asset_header_file, "};\n\n}");
 		fclose(asset_header_file);
@@ -1622,6 +1718,7 @@ int proc(int argc, char* argv[])
 		write_asset_source(asset_src_file, "Animation", flattened_animations);
 		write_asset_source(asset_src_file, "Armature", flattened_armatures);
 		write_asset_source(asset_src_file, "Bone", flattened_bones);
+		write_asset_source(asset_src_file, "Metadata", flattened_metadata_indices);
 		write_asset_source(asset_src_file, "Texture", state.manifest.textures);
 		write_asset_source(asset_src_file, "Shader", state.manifest.shaders);
 		write_asset_source(asset_src_file, "Uniform", flattened_uniforms);
@@ -1636,8 +1733,8 @@ int proc(int argc, char* argv[])
 				index++;
 			}
 		}
-		fprintf(asset_src_file, "const AssetID Asset::mesh_refs[][%d] =\n{\n", max_mesh_count);
 
+		fprintf(asset_src_file, "const AssetID Asset::mesh_refs[][%d] =\n{\n", max_mesh_count);
 		for (auto armature : state.manifest.armatures)
 		{
 			fprintf(asset_src_file, "\t{\n");
@@ -1650,6 +1747,21 @@ int proc(int argc, char* argv[])
 			fprintf(asset_src_file, "\t},\n");
 		}
 		fprintf(asset_src_file, "};\n");
+
+		fprintf(asset_src_file, "const AssetID Asset::metadata_refs[][%d] =\n{\n", max_metadata_count);
+		for (auto armature : state.manifest.armatures)
+		{
+			fprintf(asset_src_file, "\t{\n");
+			Map<std::string>& metadata = state.manifest.metadata[armature.first];
+			for (auto metadata_entry : metadata)
+			{
+				int metadata_id = flattened_metadata_indices[metadata_entry.first];
+				fprintf(asset_src_file, "\t\t%d,\n", metadata_id);
+			}
+			fprintf(asset_src_file, "\t},\n");
+		}
+		fprintf(asset_src_file, "};\n");
+
 		fprintf(asset_src_file, "\n}");
 		fclose(asset_src_file);
 	}

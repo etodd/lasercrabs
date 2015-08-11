@@ -21,6 +21,18 @@ void Empty::awake()
 {
 }
 
+Prop::Prop(ID id, AssetID mesh_id)
+	: Entity(id)
+{
+	Transform* transform = create<Transform>();
+	View* model = create<View>();
+
+	model->mesh = mesh_id;
+	model->shader = Asset::Shader::Standard;
+}
+
+void Prop::awake() { }
+
 void StaticGeom::init(AssetID mesh_id, btTriangleIndexVertexArray** mesh_data, btBvhTriangleMeshShape** shape)
 {
 	Transform* transform = create<Transform>();
@@ -66,10 +78,7 @@ Level::Level(ID id, AssetID armature_id)
 	animator->armature = armature_id;
 }
 
-void Level::awake()
-{
-
-}
+void Level::awake() { }
 
 Box::Box(ID id, Vec3 pos, Quat quat, float mass, Vec3 scale)
 	: Entity(id)

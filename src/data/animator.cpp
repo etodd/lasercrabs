@@ -153,6 +153,12 @@ void Animator::unbind(const Transform* transform)
 	}
 }
 
+void Animator::get_bone(const int index, Quat& rot, Vec3& pos)
+{
+	Vec3 scale;
+	bones[index].decomposition(pos, scale, rot);
+}
+
 void Animator::awake()
 {
 	Loader::armature(armature);

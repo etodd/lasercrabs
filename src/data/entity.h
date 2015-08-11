@@ -124,6 +124,11 @@ struct World
 		else
 			return 0;
 	}
+	
+	static Entity* get(ID entity)
+	{
+		return &list[entity];
+	}
 
 	template<typename T, typename... Args> static T* create_component(Entity* e, Args... args)
 	{

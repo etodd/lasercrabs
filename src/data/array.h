@@ -10,7 +10,7 @@ namespace VI
 {
 
 #define ARRAY_GROWTH_FACTOR 1.5
-#define ARRAY_INITIAL_RESERVATION 4
+#define ARRAY_INITIAL_RESERVATION 1
 
 template <typename T>
 struct Array

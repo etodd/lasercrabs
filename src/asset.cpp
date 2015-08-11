@@ -115,13 +115,18 @@ AssetID const Asset::Bone::city3_Camera = 2;
 AssetID const Asset::Bone::city3_Lamp = 1;
 AssetID const Asset::Bone::city3_city3 = 0;
 AssetID const Asset::Bone::city4_elevator = 1;
-AssetID const Asset::Bone::city4_shell = 0;
+AssetID const Asset::Bone::city4_shell = 2;
+AssetID const Asset::Bone::city4_spawn = 0;
 AssetID const Asset::Bone::cube_Camera = 2;
 AssetID const Asset::Bone::cube_Lamp = 1;
 AssetID const Asset::Bone::cube_cube = 0;
 AssetID const Asset::Bone::skybox_Camera = 2;
 AssetID const Asset::Bone::skybox_Lamp = 1;
 AssetID const Asset::Bone::skybox_skybox = 0;
+AssetID const Asset::Metadata::AspectH = 0;
+AssetID const Asset::Metadata::AspectW = 1;
+AssetID const Asset::Metadata::Sentinel = 2;
+AssetID const Asset::Metadata::StaticGeom = 3;
 AssetID const Asset::Texture::skybox_horizon = 0;
 AssetID const Asset::Texture::test = 1;
 
@@ -200,6 +205,33 @@ const AssetID Asset::mesh_refs[][3] =
 	},
 	{
 		8,
+	},
+};
+const AssetID Asset::metadata_refs[][2] =
+{
+	{
+	},
+	{
+		0,
+		1,
+	},
+	{
+	},
+	{
+		0,
+		1,
+	},
+	{
+		2,
+		3,
+	},
+	{
+		0,
+		1,
+	},
+	{
+		0,
+		1,
 	},
 };
 

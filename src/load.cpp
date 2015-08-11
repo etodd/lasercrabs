@@ -178,6 +178,8 @@ Armature* Loader::armature(AssetID id)
 		fread(arm->bind_pose.data, sizeof(Bone), bones, f);
 		arm->mesh_refs.resize(bones);
 		fread(arm->mesh_refs.data, sizeof(AssetRef[MAX_BONE_MESHES]), bones, f);
+		arm->metadata_refs.resize(bones);
+		fread(arm->metadata_refs.data, sizeof(Armature::MetadataRef[MAX_BONE_METADATA]), bones, f);
 
 		fclose(f);
 	}
@@ -199,6 +201,31 @@ void Loader::armature_free(AssetID id)
 		armatures[id].data.~Armature();
 		armatures[id].type = AssetNone;
 	}
+}
+
+bool Loader::has_metadata(AssetID arm_id, AssetID bone, AssetID metadata)
+{
+	Armature* arm = armature(arm_id);
+	for (int i = 0; i < MAX_BONE_METADATA; i++)
+	{
+		Armature::MetadataRef& ref = arm->metadata_refs[bone][i];
+		if (ref.id == AssetNull)
+			break;
+		if (Asset::metadata_refs[arm_id][ref.id] == metadata)
+			return true;
+	}
+	return false;
+}
+
+bool Loader::get_metadata(AssetID arm_id, AssetID bone, int index, AssetID& metadata, float& value)
+{
+	Armature* arm = armature(arm_id);
+	Armature::MetadataRef& ref = arm->metadata_refs[bone][index];
+	if (ref.id == AssetNull)
+		return false;
+	metadata = Asset::metadata_refs[arm_id][ref.id];
+	value = ref.value;
+	return true;
 }
 
 int Loader::dynamic_mesh(int attribs)

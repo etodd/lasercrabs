@@ -30,6 +30,7 @@ struct Animator : public ComponentType<Animator>
 	void bind(const int, const Transform*);
 	void unbind(const Transform*);
 	void update_world_transforms();
+	void get_bone(const int, Quat&, Vec3& pos);
 	void awake();
 	Animator();
 };

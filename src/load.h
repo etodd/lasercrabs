@@ -51,6 +51,9 @@ struct Loader
 	static Armature* armature_permanent(AssetID);
 	static void armature_free(AssetID);
 
+	static bool has_metadata(AssetID, AssetID, AssetID);
+	static bool get_metadata(AssetID, AssetID, int, AssetID&, float&);
+
 	static void texture(AssetID);
 	static void texture_permanent(AssetID);
 	static void texture_free(AssetID);

@@ -188,6 +188,7 @@ add_executable(mkzebra
 	src/vi_assert.h
 	src/physics.h
 	src/lmath.h
+	src/input.h
 	src/common.h
 	src/common.cpp
 	src/console.h

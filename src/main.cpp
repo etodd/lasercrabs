@@ -125,6 +125,19 @@ int Main::proc()
 		memcpy(sync->input.keys, _window->keys, sizeof(sync->input.keys));
 		memcpy(sync->input.mouse_buttons, _window->mouseButtons, sizeof(sync->input.mouse_buttons));
 
+		sync->input.joystick = glfwJoystickPresent(GLFW_JOYSTICK_1);
+		if (sync->input.joystick)
+		{
+			int count;
+			const float* joystick_axes = glfwGetJoystickAxes(GLFW_JOYSTICK_1, &count);
+			sync->input.joystick_axes.resize(count);
+			memcpy(sync->input.joystick_axes.data, joystick_axes, sizeof(float) * count);
+
+			const unsigned char* joystick_buttons = glfwGetJoystickButtons(GLFW_JOYSTICK_1, &count);
+			sync->input.joystick_buttons.resize(count);
+			memcpy(sync->input.joystick_buttons.data, joystick_buttons, sizeof(unsigned char) * count);
+		}
+
 		glfwGetCursorPos(window, &sync->input.cursor_x, &sync->input.cursor_y);
 		if (focus)
 			glfwSetCursorPos(window, sync->input.width / 2, sync->input.height / 2);

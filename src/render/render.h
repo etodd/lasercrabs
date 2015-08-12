@@ -6,6 +6,7 @@
 #include "lmath.h"
 #include "sync.h"
 #include "data/mesh.h"
+#include "input.h"
 
 namespace VI
 {

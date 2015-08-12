@@ -3,6 +3,7 @@
 #include "types.h"
 #include "vi_assert.h"
 #include "pin_array.h"
+#include "input.h"
 
 namespace VI
 {
@@ -10,8 +11,15 @@ namespace VI
 typedef unsigned int Family;
 typedef unsigned int ID;
 typedef unsigned long ComponentMask;
+
 const Family MAX_FAMILIES = sizeof(ComponentMask) * 8;
 const int MAX_ENTITIES = 4096;
+
+struct Update
+{
+	InputState* input;
+	GameTime time;
+};
 
 struct ComponentBase;
 

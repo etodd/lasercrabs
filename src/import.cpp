@@ -1696,13 +1696,13 @@ int proc(int argc, char* argv[])
 
 		int max_mesh_count = 0;
 		for (auto model : state.manifest.meshes)
-			max_mesh_count = max(max_mesh_count, model.second.size());
-		fprintf(asset_header_file, "\tstatic const AssetID mesh_refs[%d][%d];\n", state.manifest.armatures.size(), max_mesh_count);
+			max_mesh_count = model.second.size() > max_mesh_count ? model.second.size() : max_mesh_count;
+		fprintf(asset_header_file, "\tstatic const AssetID mesh_refs[%lu][%d];\n", state.manifest.armatures.size(), max_mesh_count);
 
 		int max_metadata_count = 0;
 		for (auto metadata : state.manifest.metadata)
-			max_metadata_count = max(max_metadata_count, metadata.second.size());
-		fprintf(asset_header_file, "\tstatic const AssetID metadata_refs[%d][%d];\n", state.manifest.armatures.size(), max_metadata_count);
+			max_metadata_count = metadata.second.size() > max_metadata_count ? metadata.second.size() : max_metadata_count;
+		fprintf(asset_header_file, "\tstatic const AssetID metadata_refs[%lu][%d];\n", state.manifest.armatures.size(), max_metadata_count);
 
 		fprintf(asset_header_file, "};\n\n}");
 		fclose(asset_header_file);

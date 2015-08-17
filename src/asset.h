@@ -41,7 +41,7 @@ struct Asset
 	};
 	struct Bone
 	{
-		static const int count = 69;
+		static const int count = 70;
 		static const AssetID Alpha_Alpha_Head;
 		static const AssetID Alpha_Alpha_Hips;
 		static const AssetID Alpha_Alpha_Neck;
@@ -102,6 +102,7 @@ struct Asset
 		static const AssetID city3_Camera;
 		static const AssetID city3_Lamp;
 		static const AssetID city3_city3;
+		static const AssetID city4_Empty;
 		static const AssetID city4_elevator;
 		static const AssetID city4_shell;
 		static const AssetID city4_spawn;
@@ -114,9 +115,10 @@ struct Asset
 	};
 	struct Metadata
 	{
-		static const int count = 4;
+		static const int count = 5;
 		static const AssetID AspectH;
 		static const AssetID AspectW;
+		static const AssetID PlayerSpawn;
 		static const AssetID Sentinel;
 		static const AssetID StaticGeom;
 	};
@@ -158,7 +160,7 @@ struct Asset
 		static const AssetID lowpoly;
 	};
 	static const AssetID mesh_refs[7][3];
-	static const AssetID metadata_refs[7][2];
+	static const AssetID metadata_refs[7][3];
 };
 
 }

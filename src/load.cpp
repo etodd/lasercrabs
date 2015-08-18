@@ -3,7 +3,9 @@
 #include <GL/glew.h>
 #include "lodepng.h"
 #include "vi_assert.h"
-#include "asset.h"
+#include "asset/lookup.h"
+#include "asset/mesh.h"
+#include "asset/armature.h"
 
 namespace VI
 {
@@ -22,11 +24,6 @@ void Loader::init(RenderSync::Swapper* s)
 {
 	swapper = s;
 	meshes.resize(Asset::Mesh::count);
-	animations.resize(Asset::Animation::count);
-	armatures.resize(Asset::Armature::count);
-	textures.resize(Asset::Texture::count);
-	shaders.resize(Asset::Shader::count);
-	fonts.resize(Asset::Font::count);
 	dynamic_meshes = Array<Loader::Entry<void*> >();
 }
 
@@ -42,6 +39,8 @@ Mesh* Loader::mesh(AssetID id)
 	if (id == AssetNull)
 		return 0;
 
+	if (id >= meshes.length)
+		meshes.resize(id + 1);
 	if (meshes[id].type == AssetNone)
 	{
 		const char* path = Asset::Mesh::values[id];
@@ -170,6 +169,8 @@ Armature* Loader::armature(AssetID id)
 	if (id == AssetNull)
 		return 0;
 
+	if (id >= armatures.length)
+		armatures.resize(id + 1);
 	if (armatures[id].type == AssetNone)
 	{
 		const char* path = Asset::Armature::values[id];
@@ -299,6 +300,8 @@ Animation* Loader::animation(AssetID id)
 	if (id == AssetNull)
 		return 0;
 
+	if (id >= animations.length)
+		animations.resize(id + 1);
 	if (animations[id].type == AssetNone)
 	{
 		const char* path = Asset::Animation::values[id];
@@ -368,7 +371,12 @@ void Loader::animation_free(AssetID id)
 
 void Loader::texture(AssetID id)
 {
-	if (id != AssetNull && textures[id].type == AssetNone)
+	if (id == AssetNull)
+		return;
+
+	if (id >= textures.length)
+		textures.resize(id + 1);
+	if (textures[id].type == AssetNone)
 	{
 		textures[id].type = AssetTransient;
 
@@ -414,7 +422,12 @@ void Loader::texture_free(AssetID id)
 
 void Loader::shader(AssetID id)
 {
-	if (id != AssetNull && shaders[id].type == AssetNone)
+	if (id == AssetNull)
+		return;
+
+	if (id >= shaders.length)
+		shaders.resize(id + 1);
+	if (shaders[id].type == AssetNone)
 	{
 		shaders[id].type = AssetTransient;
 
@@ -474,6 +487,8 @@ Font* Loader::font(AssetID id)
 	if (id == AssetNull)
 		return 0;
 
+	if (id >= fonts.length)
+		fonts.resize(id + 1);
 	if (fonts[id].type == AssetNone)
 	{
 		const char* path = Asset::Font::values[id];
@@ -540,25 +555,25 @@ void Loader::transients_free()
 	// First entry in each array is empty
 	// That way ID 0 is invalid, and we don't have to do [id - 1] all the time
 
-	for (AssetID i = 0; i < Asset::Mesh::count; i++)
+	for (AssetID i = 0; i < meshes.length; i++)
 	{
 		if (meshes[i].type == AssetTransient)
 			mesh_free(i);
 	}
 
-	for (AssetID i = 0; i < Asset::Texture::count; i++)
+	for (AssetID i = 0; i < textures.length; i++)
 	{
 		if (textures[i].type == AssetTransient)
 			texture_free(i);
 	}
 
-	for (AssetID i = 0; i < Asset::Shader::count; i++)
+	for (AssetID i = 0; i < shaders.length; i++)
 	{
 		if (shaders[i].type == AssetTransient)
 			shader_free(i);
 	}
 
-	for (AssetID i = 0; i < Asset::Font::count; i++)
+	for (AssetID i = 0; i < fonts.length; i++)
 	{
 		if (fonts[i].type == AssetTransient)
 			font_free(i);

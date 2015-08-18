@@ -1,6 +1,6 @@
 #include "console.h"
 #include "game/game.h"
-#include "asset.h"
+#include "asset/font.h"
 
 namespace VI
 {

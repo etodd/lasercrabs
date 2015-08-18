@@ -194,7 +194,13 @@ add_executable(mkzebra
 	src/render/skinned_model.cpp
 	src/render/ui.h
 	src/render/ui.cpp
-	src/asset.h
+	src/asset/lookup.h
+	src/asset/animation.h
+	src/asset/armature.h
+	src/asset/font.h
+	src/asset/mesh.h
+	src/asset/shader.h
+	src/asset/values.cpp
 	src/sync.h
 	src/types.h
 	src/vi_assert.h
@@ -208,7 +214,6 @@ add_executable(mkzebra
 	src/load.h
 	src/load.cpp
 	src/physics.cpp
-	src/asset.cpp
 	src/lmath.cpp
 	src/main.h
 	src/main.cpp

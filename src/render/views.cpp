@@ -1,6 +1,7 @@
 #include "views.h"
 #include "load.h"
-#include "asset.h"
+#include "asset/shader.h"
+#include "asset/mesh.h"
 
 namespace VI
 {

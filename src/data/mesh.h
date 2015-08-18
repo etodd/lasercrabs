@@ -10,6 +10,8 @@ namespace VI
 {
 
 #define MAX_BONE_WEIGHTS 4
+#define MAX_BONE_MESHES 8
+#define MAX_BONE_METADATA 8
 
 enum RenderDataType
 {
@@ -46,8 +48,6 @@ inline size_t render_data_type_size(RenderDataType type)
 }
 
 // Can't have more than X meshes parented to a bone in a .arm file
-#define MAX_BONE_MESHES 8
-#define MAX_BONE_METADATA 8
 struct Bone
 {
 	Quat rot;

@@ -2,7 +2,7 @@
 #include "load.h"
 #include "data/mesh.h"
 #include "vi_assert.h"
-#include "asset.h"
+#include "asset/lookup.h"
 
 namespace VI
 {
@@ -24,9 +24,6 @@ RenderSync::Swapper RenderSync::swapper(int index)
 
 void render_init(GLData* data)
 {
-	data->meshes.resize(Asset::Mesh::count);
-	data->textures.resize(Asset::Texture::count);
-	data->shaders.resize(Asset::Shader::count);
 }
 
 void render(SyncData* sync, GLData* data)
@@ -188,6 +185,8 @@ void render(SyncData* sync, GLData* data)
 				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR); 
 				glGenerateMipmap(GL_TEXTURE_2D);
 
+				if (id >= data->textures.length)
+					data->textures.resize(id + 1);
 				data->textures[id] = textureID;
 				break;
 			}
@@ -258,13 +257,11 @@ void render(SyncData* sync, GLData* data)
 					fprintf(stderr, "Error creating shader program '%s': %s\n", path, msg.data);
 				}
 
-				data->shaders[id].uniforms.resize(Asset::Uniform::count);
-				for (int i = 0; i < Asset::Uniform::count; i++)
-					data->shaders[id].uniforms[i] = glGetUniformLocation(program_id, Asset::Uniform::values[i]);
-
 				glDeleteShader(vertex_id);
 				glDeleteShader(frag_id);
 
+				if (id >= data->shaders.length)
+					data->shaders.resize(id + 1);
 				data->shaders[id].handle = program_id;
 				break;
 			}
@@ -293,9 +290,9 @@ void render(SyncData* sync, GLData* data)
 				GLData::Mesh* mesh = &data->meshes[id];
 				AssetID shader_asset = *(sync->read<AssetID>());
 
-				GLuint programID = data->shaders[shader_asset].handle;
+				GLuint program_id = data->shaders[shader_asset].handle;
 
-				glUseProgram(programID);
+				glUseProgram(program_id);
 
 				int texture_index = 0;
 
@@ -303,6 +300,15 @@ void render(SyncData* sync, GLData* data)
 				for (int i = 0; i < uniform_count; i++)
 				{
 					AssetID uniform_asset = *(sync->read<AssetID>());
+
+					if (uniform_asset >= data->shaders[shader_asset].uniforms.length)
+					{
+						int old_length = data->shaders[shader_asset].uniforms.length;
+						data->shaders[shader_asset].uniforms.resize(uniform_asset + 1);
+						for (int j = old_length; j < uniform_asset + 1; j++)
+							data->shaders[shader_asset].uniforms[j] = glGetUniformLocation(program_id, Asset::Uniform::values[j]);
+					}
+
 					GLuint uniform_id = data->shaders[shader_asset].uniforms[uniform_asset];
 					RenderDataType uniform_type = *(sync->read<RenderDataType>());
 					int uniform_count = *(sync->read<int>());

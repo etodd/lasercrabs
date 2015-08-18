@@ -3,7 +3,8 @@
 #include "input.h"
 #include "console.h"
 #include "data/animator.h"
-#include "asset.h"
+#include "asset/shader.h"
+#include "asset/mesh.h"
 
 #include <BulletCollision/CollisionShapes/btTriangleIndexVertexArray.h>
 

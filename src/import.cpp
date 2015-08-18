@@ -265,39 +265,31 @@ bool has_extension(const std::string& path, const char* extension)
 void write_asset_header(FILE* file, const std::string& name, const Map<std::string>& assets)
 {
 	int asset_count = assets.size();
-	fprintf(file, "\tstruct %s\n\t{\n\t\tstatic const int count = %d;\n\t\tstatic const char* values[%d];\n", name.c_str(), asset_count, asset_count);
+	fprintf(file, "\tnamespace %s\n\t{\n\t\tconst int count = %d;\n", name.c_str(), asset_count);
+	int index = 0;
 	for (auto i = assets.begin(); i != assets.end(); i++)
-		fprintf(file, "\t\tstatic const AssetID %s;\n", i->first.c_str());
-	fprintf(file, "\t};\n");
+	{
+		fprintf(file, "\t\tconst AssetID %s = %d;\n", i->first.c_str(), index);
+		index++;
+	}
+	fprintf(file, "\t}\n");
 }
 
 void write_asset_header(FILE* file, const std::string& name, const Map<int>& assets)
 {
 	int asset_count = assets.size();
-	fprintf(file, "\tstruct %s\n\t{\n\t\tstatic const int count = %d;\n", name.c_str(), asset_count);
+	fprintf(file, "\tnamespace %s\n\t{\n\t\tconst int count = %d;\n", name.c_str(), asset_count);
 	for (auto i = assets.begin(); i != assets.end(); i++)
-		fprintf(file, "\t\tstatic const AssetID %s;\n", i->first.c_str());
-	fprintf(file, "\t};\n");
+		fprintf(file, "\t\tconst AssetID %s = %d;\n", i->first.c_str(), i->second);
+	fprintf(file, "\t}\n");
 }
 
 void write_asset_source(FILE* file, const std::string& name, const Map<std::string>& assets)
 {
-	int index = 0;
-	for (auto i = assets.begin(); i != assets.end(); i++)
-	{
-		fprintf(file, "AssetID const Asset::%s::%s = %d;\n", name.c_str(), i->first.c_str(), index);
-		index++;
-	}
 	fprintf(file, "\nconst char* Asset::%s::values[] =\n{\n", name.c_str());
 	for (auto i = assets.begin(); i != assets.end(); i++)
 		fprintf(file, "\t\"%s\",\n", i->second.c_str());
 	fprintf(file, "};\n\n");
-}
-
-void write_asset_source(FILE* file, const std::string& name, const Map<int>& assets)
-{
-	for (auto i = assets.begin(); i != assets.end(); i++)
-		fprintf(file, "AssetID const Asset::%s::%s = %d;\n", name.c_str(), i->first.c_str(), i->second);
 }
 
 std::string get_asset_name(const std::string& filename)
@@ -1571,11 +1563,34 @@ void import_font(ImporterState& state, const std::string& asset_in_path, const s
 	}
 }
 
+FILE* open_asset_header(const char* path)
+{
+	FILE* f = fopen(path, "w+");
+	if (!f)
+	{
+		fprintf(stderr, "Error: failed to open asset header file %s for writing.\n", path);
+		return 0;
+	}
+	fprintf(f, "#pragma once\n#include \"types.h\"\n#include \"lookup.h\"\n\nnamespace VI\n{\n\nnamespace Asset\n{\n");
+	return f;
+}
+
+void close_asset_header(FILE* f)
+{
+	fprintf(f, "}\n\n}");
+	fclose(f);
+}
+
 int proc(int argc, char* argv[])
 {
 	const char* manifest_path = ".manifest";
-	const char* asset_src_path = "../src/asset.cpp";
-	const char* asset_header_path = "../src/asset.h";
+	const char* asset_src_path = "../src/asset/values.cpp";
+	const char* mesh_header_path = "../src/asset/mesh.h";
+	const char* animation_header_path = "../src/asset/animation.h";
+	const char* texture_header_path = "../src/asset/texture.h";
+	const char* shader_header_path = "../src/asset/shader.h";
+	const char* armature_header_path = "../src/asset/armature.h";
+	const char* font_header_path = "../src/asset/font.h";
 
 	// Initialise SDL
 	if (SDL_Init(SDL_INIT_VIDEO) < 0)
@@ -1641,86 +1656,26 @@ int proc(int argc, char* argv[])
 	if (state.error)
 		return exit_error();
 	
-	bool modified = state.rebuild || !manifests_equal(state.cached_manifest, state.manifest);
-
-	if (modified)
+	bool modified = !manifests_equal(state.cached_manifest, state.manifest);
+	if (state.rebuild || modified)
 	{
 		if (!manifest_write(state.manifest, manifest_path))
 			return exit_error();
 	}
-	
-	if (modified || filemtime(asset_header_path) < state.manifest_mtime || filemtime(asset_src_path) < state.manifest_mtime)
+
 	{
-		printf("Writing asset file...\n");
-		FILE* asset_header_file = fopen(asset_header_path, "w+");
-		if (!asset_header_file)
-		{
-			fprintf(stderr, "Error: failed to open asset header file %s for writing.\n", asset_header_path);
-			return exit_error();
-		}
-		fprintf(asset_header_file, "#pragma once\n#include \"types.h\"\n\nnamespace VI\n{\n\nstruct Asset\n{\n");
 		Map<std::string> flattened_meshes;
 		map_flatten(state.manifest.meshes, flattened_meshes);
-		write_asset_header(asset_header_file, "Mesh", flattened_meshes);
-		Map<std::string> flattened_animations;
-		map_flatten(state.manifest.animations, flattened_animations);
-		write_asset_header(asset_header_file, "Animation", flattened_animations);
-		Map<std::string> flattened_armatures;
-		map_flatten(state.manifest.armatures, flattened_armatures);
-		write_asset_header(asset_header_file, "Armature", flattened_armatures);
-		Map<int> flattened_bones;
-		map_flatten(state.manifest.bones, flattened_bones);
-		write_asset_header(asset_header_file, "Bone", flattened_bones);
-
-		Map<std::string> flattened_metadata;
-		map_flatten(state.manifest.metadata, flattened_metadata);
-		Map<int> flattened_metadata_indices;
-		{
-			int index = 0;
-			for (auto i : flattened_metadata)
-			{
-				flattened_metadata_indices[i.first] = index;
-				index++;
-			}
-		}
-		write_asset_header(asset_header_file, "Metadata", flattened_metadata_indices);
-		write_asset_header(asset_header_file, "Texture", state.manifest.textures);
-		write_asset_header(asset_header_file, "Shader", state.manifest.shaders);
 		Map<std::string> flattened_uniforms;
 		map_flatten(state.manifest.uniforms, flattened_uniforms);
-		write_asset_header(asset_header_file, "Uniform", flattened_uniforms);
-		write_asset_header(asset_header_file, "Font", state.manifest.fonts);
-
-		int max_mesh_count = 0;
-		for (auto model : state.manifest.meshes)
-			max_mesh_count = model.second.size() > max_mesh_count ? model.second.size() : max_mesh_count;
-		fprintf(asset_header_file, "\tstatic const AssetID mesh_refs[%lu][%d];\n", state.manifest.armatures.size(), max_mesh_count);
-
-		int max_metadata_count = 0;
-		for (auto metadata : state.manifest.metadata)
-			max_metadata_count = metadata.second.size() > max_metadata_count ? metadata.second.size() : max_metadata_count;
-		fprintf(asset_header_file, "\tstatic const AssetID metadata_refs[%lu][%d];\n", state.manifest.armatures.size(), max_metadata_count);
-
-		fprintf(asset_header_file, "};\n\n}");
-		fclose(asset_header_file);
-
-		FILE* asset_src_file = fopen(asset_src_path, "w+");
-		if (!asset_src_file)
-		{
-			fprintf(stderr, "Error: failed to open asset source file %s for writing.\n", asset_src_path);
-			return exit_error();
-		}
-		fprintf(asset_src_file, "#include \"asset.h\"\n\nnamespace VI\n{\n\n");
-		write_asset_source(asset_src_file, "Mesh", flattened_meshes);
-		write_asset_source(asset_src_file, "Animation", flattened_animations);
-		write_asset_source(asset_src_file, "Armature", flattened_armatures);
-		write_asset_source(asset_src_file, "Bone", flattened_bones);
-		write_asset_source(asset_src_file, "Metadata", flattened_metadata_indices);
-		write_asset_source(asset_src_file, "Texture", state.manifest.textures);
-		write_asset_source(asset_src_file, "Shader", state.manifest.shaders);
-		write_asset_source(asset_src_file, "Uniform", flattened_uniforms);
-		write_asset_source(asset_src_file, "Font", state.manifest.fonts);
-
+		Map<std::string> flattened_animations;
+		map_flatten(state.manifest.animations, flattened_animations);
+		Map<std::string> flattened_armatures;
+		map_flatten(state.manifest.armatures, flattened_armatures);
+		Map<int> flattened_bones;
+		map_flatten(state.manifest.bones, flattened_bones);
+		Map<std::string> flattened_metadata;
+		map_flatten(state.manifest.metadata, flattened_metadata);
 		Map<int> flattened_model_indices;
 		{
 			int index = 0;
@@ -1730,37 +1685,154 @@ int proc(int argc, char* argv[])
 				index++;
 			}
 		}
-
-		fprintf(asset_src_file, "const AssetID Asset::mesh_refs[][%d] =\n{\n", max_mesh_count);
-		for (auto armature : state.manifest.armatures)
+		Map<int> flattened_metadata_indices;
 		{
-			fprintf(asset_src_file, "\t{\n");
-			Map<std::string>& meshes = state.manifest.meshes[armature.first];
-			for (auto mesh : meshes)
+			int index = 0;
+			for (auto i : flattened_metadata)
 			{
-				int mesh_asset_id = flattened_model_indices[mesh.first];
-				fprintf(asset_src_file, "\t\t%d,\n", mesh_asset_id);
+				flattened_metadata_indices[i.first] = index;
+				index++;
 			}
-			fprintf(asset_src_file, "\t},\n");
 		}
-		fprintf(asset_src_file, "};\n");
 
-		fprintf(asset_src_file, "const AssetID Asset::metadata_refs[][%d] =\n{\n", max_metadata_count);
-		for (auto armature : state.manifest.armatures)
+		if (state.rebuild
+			|| !maps_equal2(state.manifest.meshes, state.cached_manifest.meshes)
+			|| filemtime(mesh_header_path) < state.manifest_mtime)
 		{
-			fprintf(asset_src_file, "\t{\n");
-			Map<std::string>& metadata = state.manifest.metadata[armature.first];
-			for (auto metadata_entry : metadata)
-			{
-				int metadata_id = flattened_metadata_indices[metadata_entry.first];
-				fprintf(asset_src_file, "\t\t%d,\n", metadata_id);
-			}
-			fprintf(asset_src_file, "\t},\n");
+			FILE* f = open_asset_header(mesh_header_path);
+			if (!f)
+				return exit_error();
+			write_asset_header(f, "Mesh", flattened_meshes);
+			close_asset_header(f);
 		}
-		fprintf(asset_src_file, "};\n");
 
-		fprintf(asset_src_file, "\n}");
-		fclose(asset_src_file);
+		if (state.rebuild
+			|| !maps_equal2(state.manifest.animations, state.cached_manifest.animations)
+			|| filemtime(animation_header_path) < state.manifest_mtime)
+		{
+
+			FILE* f = open_asset_header(animation_header_path);
+			if (!f)
+				return exit_error();
+			write_asset_header(f, "Animation", flattened_animations);
+			close_asset_header(f);
+		}
+
+		if (state.rebuild
+			|| !maps_equal2(state.manifest.armatures, state.cached_manifest.armatures)
+			|| !maps_equal2(state.manifest.bones, state.cached_manifest.bones)
+			|| !maps_equal2(state.manifest.metadata, state.cached_manifest.metadata)
+			|| filemtime(armature_header_path) < state.manifest_mtime)
+		{
+			FILE* f = open_asset_header(armature_header_path);
+			if (!f)
+				return exit_error();
+
+			write_asset_header(f, "Armature", flattened_armatures);
+			write_asset_header(f, "Bone", flattened_bones);
+			write_asset_header(f, "Metadata", flattened_metadata_indices);
+
+			int max_mesh_count = 0;
+			for (auto model : state.manifest.meshes)
+				max_mesh_count = model.second.size() > max_mesh_count ? model.second.size() : max_mesh_count;
+			fprintf(f, "\tconst AssetID mesh_refs[%lu][%d] =\n\t{", state.manifest.armatures.size(), max_mesh_count);
+
+			for (auto armature : state.manifest.armatures)
+			{
+				fprintf(f, "\t{\n");
+				Map<std::string>& meshes = state.manifest.meshes[armature.first];
+				for (auto mesh : meshes)
+				{
+					int mesh_asset_id = flattened_model_indices[mesh.first];
+					fprintf(f, "\t\t%d,\n", mesh_asset_id);
+				}
+				fprintf(f, "\t},\n");
+			}
+			fprintf(f, "};\n");
+
+			int max_metadata_count = 0;
+			for (auto metadata : state.manifest.metadata)
+				max_metadata_count = metadata.second.size() > max_metadata_count ? metadata.second.size() : max_metadata_count;
+			fprintf(f, "\tconst AssetID metadata_refs[%lu][%d] =\n\t{", state.manifest.armatures.size(), max_metadata_count);
+			for (auto armature : state.manifest.armatures)
+			{
+				fprintf(f, "\t{\n");
+				Map<std::string>& metadata = state.manifest.metadata[armature.first];
+				for (auto metadata_entry : metadata)
+				{
+					int metadata_id = flattened_metadata_indices[metadata_entry.first];
+					fprintf(f, "\t\t%d,\n", metadata_id);
+				}
+				fprintf(f, "\t},\n");
+			}
+			fprintf(f, "};\n");
+
+			close_asset_header(f);
+		}
+
+		if (state.rebuild
+			|| !maps_equal(state.manifest.textures, state.cached_manifest.textures)
+			|| filemtime(texture_header_path) < state.manifest_mtime)
+		{
+			FILE* f = open_asset_header(texture_header_path);
+			if (!f)
+				return exit_error();
+
+			write_asset_header(f, "Texture", state.manifest.textures);
+			close_asset_header(f);
+		}
+
+		if (state.rebuild
+			|| !maps_equal2(state.manifest.uniforms, state.cached_manifest.uniforms)
+			|| !maps_equal(state.manifest.shaders, state.cached_manifest.shaders)
+			|| filemtime(shader_header_path) < state.manifest_mtime)
+		{
+
+			FILE* f = open_asset_header(shader_header_path);
+			if (!f)
+				return exit_error();
+			
+			write_asset_header(f, "Uniform", flattened_uniforms);
+			write_asset_header(f, "Shader", state.manifest.shaders);
+			close_asset_header(f);
+		}
+
+		if (state.rebuild || filemtime(font_header_path) < state.manifest_mtime)
+		{
+			FILE* f = open_asset_header(font_header_path);
+			if (!f)
+				return exit_error();
+
+			write_asset_header(f, "Font", state.manifest.fonts);
+			close_asset_header(f);
+		}
+
+		if (state.rebuild || modified || filemtime(asset_src_path) < state.manifest_mtime)
+		{
+			FILE* f = fopen(asset_src_path, "w+");
+			if (!f)
+			{
+				fprintf(stderr, "Error: failed to open asset source file %s for writing.\n", asset_src_path);
+				return exit_error();
+			}
+			fprintf(f, "#include \"animation.h\"\n");
+			fprintf(f, "#include \"armature.h\"\n");
+			fprintf(f, "#include \"font.h\"\n");
+			fprintf(f, "#include \"mesh.h\"\n");
+			fprintf(f, "#include \"shader.h\"\n");
+			fprintf(f, "#include \"lookup.h\"\n");
+			fprintf(f, "\nnamespace VI\n{ \n\n");
+			write_asset_source(f, "Mesh", flattened_meshes);
+			write_asset_source(f, "Animation", flattened_animations);
+			write_asset_source(f, "Armature", flattened_armatures);
+			write_asset_source(f, "Texture", state.manifest.textures);
+			write_asset_source(f, "Shader", state.manifest.shaders);
+			write_asset_source(f, "Uniform", flattened_uniforms);
+			write_asset_source(f, "Font", state.manifest.fonts);
+
+			fprintf(f, "\n}");
+			fclose(f);
+		}
 	}
 
 	SDL_GL_DeleteContext(context);

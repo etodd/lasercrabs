@@ -39,18 +39,19 @@ void UIText::text(const char* string)
 		}
 		else
 		{
-			Font::Character* character = &font->characters[c];
+			Font* f = Loader::font(font);
+			Font::Character* character = &f->characters[c];
 			if (character->code == c)
 			{
 				vertices.resize(vertex_index + character->vertex_count);
 				for (int i = 0; i < character->vertex_count; i++)
-					vertices[vertex_index + i] = font->vertices[character->vertex_start + i] + pos;
+					vertices[vertex_index + i] = f->vertices[character->vertex_start + i] + pos;
 
 				pos.x += 0.075f + character->max.x;
 
 				indices.resize(index_index + character->index_count);
 				for (int i = 0; i < character->index_count; i++)
-					indices[index_index + i] = vertex_index + font->indices[character->index_start + i] - character->vertex_start;
+					indices[index_index + i] = vertex_index + f->indices[character->index_start + i] - character->vertex_start;
 			}
 			else
 			{

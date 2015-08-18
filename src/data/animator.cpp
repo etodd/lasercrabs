@@ -136,6 +136,13 @@ void Animator::bind(const int bone, Transform* transform)
 	BindEntry* entry = bindings.add();
 	entry->bone = bone;
 	entry->transform = transform;
+
+	Mat4& mat = bones[bone];
+	Vec3 pos;
+	Quat quat;
+	Vec3 scale;
+	mat.decomposition(pos, scale, quat);
+	transform->absolute(quat, pos);
 }
 
 void Animator::unbind(const Transform* transform)

@@ -9,18 +9,12 @@ namespace Asset
 {
 	namespace Armature
 	{
-		const int count = 7;
+		const int count = 1;
 		const AssetID Alpha = 0;
-		const AssetID city1 = 1;
-		const AssetID city2 = 2;
-		const AssetID city3 = 3;
-		const AssetID city4 = 4;
-		const AssetID cube = 5;
-		const AssetID skybox = 6;
 	}
 	namespace Bone
 	{
-		const int count = 71;
+		const int count = 53;
 		const AssetID Alpha_Alpha_Head = 6;
 		const AssetID Alpha_Alpha_Hips = 0;
 		const AssetID Alpha_Alpha_Neck = 4;
@@ -74,87 +68,7 @@ namespace Asset
 		const AssetID Alpha_Right_Shoulder = 26;
 		const AssetID Alpha_Right_ToeBase = 52;
 		const AssetID Alpha_Right_UpLeg = 49;
-		const AssetID city1_Camera = 2;
-		const AssetID city1_Lamp = 1;
-		const AssetID city1_city1 = 0;
-		const AssetID city2_city2 = 0;
-		const AssetID city3_Camera = 2;
-		const AssetID city3_Lamp = 1;
-		const AssetID city3_city3 = 0;
-		const AssetID city4_Empty = 1;
-		const AssetID city4_elevator = 3;
-		const AssetID city4_shell = 4;
-		const AssetID city4_spawn = 2;
-		const AssetID city4_test = 0;
-		const AssetID cube_Camera = 2;
-		const AssetID cube_Lamp = 1;
-		const AssetID cube_cube = 0;
-		const AssetID skybox_Camera = 2;
-		const AssetID skybox_Lamp = 1;
-		const AssetID skybox_skybox = 0;
 	}
-	namespace Metadata
-	{
-		const int count = 5;
-		const AssetID AspectH = 0;
-		const AssetID AspectW = 1;
-		const AssetID PlayerSpawn = 2;
-		const AssetID Sentinel = 3;
-		const AssetID StaticGeom = 4;
-	}
-	const AssetID mesh_refs[7][4] =
-	{	{
-		0,
-	},
-	{
-		1,
-	},
-	{
-		2,
-	},
-	{
-		3,
-	},
-	{
-		4,
-		5,
-		6,
-		7,
-	},
-	{
-		8,
-	},
-	{
-		9,
-	},
-};
-	const AssetID metadata_refs[7][3] =
-	{	{
-	},
-	{
-		0,
-		1,
-	},
-	{
-	},
-	{
-		0,
-		1,
-	},
-	{
-		2,
-		3,
-		4,
-	},
-	{
-		0,
-		1,
-	},
-	{
-		0,
-		1,
-	},
-};
 }
 
 }

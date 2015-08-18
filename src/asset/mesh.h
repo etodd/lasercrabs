@@ -21,6 +21,32 @@ namespace Asset
 		const AssetID cube = 8;
 		const AssetID skybox = 9;
 	}
+	const AssetID mesh_refs[7][4] =
+	{	{
+		0,
+	},
+	{
+		1,
+	},
+	{
+		2,
+	},
+	{
+		3,
+	},
+	{
+		4,
+		5,
+		6,
+		7,
+	},
+	{
+		8,
+	},
+	{
+		9,
+	},
+};
 }
 
 }

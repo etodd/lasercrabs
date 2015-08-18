@@ -33,12 +33,6 @@ const char* Asset::Animation::values[] =
 const char* Asset::Armature::values[] =
 {
 	"assets/Alpha.arm",
-	"assets/city1.arm",
-	"assets/city2.arm",
-	"assets/city3.arm",
-	"assets/city4.arm",
-	"assets/cube.arm",
-	"assets/skybox.arm",
 };
 
 

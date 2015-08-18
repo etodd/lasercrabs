@@ -186,6 +186,7 @@ int Main::proc()
 		if (sync->input.set_width > 0)
 		{
 			SDL_SetWindowSize(window, sync->input.set_width, sync->input.set_height);
+			resize(window, sync->input.set_width, sync->input.set_height);
 			sync->input.set_width = 0;
 			sync->input.set_height = 0;
 		}

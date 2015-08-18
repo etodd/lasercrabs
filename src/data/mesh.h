@@ -10,8 +10,6 @@ namespace VI
 {
 
 #define MAX_BONE_WEIGHTS 4
-#define MAX_BONE_MESHES 8
-#define MAX_BONE_METADATA 8
 
 enum RenderDataType
 {
@@ -56,17 +54,10 @@ struct Bone
 
 struct Armature
 {
-	struct MetadataRef
-	{
-		AssetRef id;
-		float value;
-	};
 	Array<int> hierarchy;
 	Array<Bone> bind_pose;
-	Array<std::array<AssetRef, MAX_BONE_MESHES> > mesh_refs;
-	Array<std::array<MetadataRef, MAX_BONE_METADATA> > metadata_refs;
 	Armature()
-		: hierarchy(), bind_pose(), mesh_refs(), metadata_refs()
+		: hierarchy(), bind_pose()
 	{
 
 	}
@@ -88,7 +79,6 @@ struct Mesh
 		inverse_bind_pose.length = 0;
 		armature.hierarchy.length = 0;
 		armature.bind_pose.length = 0;
-		armature.mesh_refs.length = 0;
 	}
 };
 

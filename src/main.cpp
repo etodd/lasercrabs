@@ -1,5 +1,4 @@
 #include "main.h"
-#include <Xinput.h>
 
 #include "types.h"
 #include "vi_assert.h"

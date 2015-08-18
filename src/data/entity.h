@@ -115,6 +115,7 @@ struct World
 	template<typename T> static T* component(ID entity)
 	{
 		Entity* e = &list[entity];
+		Family family = T::family();
 		if (e->component_mask & (1 << family))
 		{
 			Pool<T>* pool = &component_pools[family];

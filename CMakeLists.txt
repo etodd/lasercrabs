@@ -22,15 +22,20 @@ find_package(OpenGL REQUIRED)
 ## GLEW
 add_subdirectory(external/glew)
 add_definitions(-DGLEW_STATIC)
-## GLFW
-set(GLFW_INSTALL OFF)
-set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
-set(GLFW_BUILD_TESTS OFF CACHE BOOL "" FORCE)
-set(GLFW_BUILD_DOCS OFF CACHE BOOL "" FORCE)
-add_subdirectory(external/glfw)
-include_directories(${GLFW_BINARY_DIR}/src)
+
+## SDL
+if (WIN32)
+	set(HAVE_XINPUT_H 1)
+    link_directories($ENV{DXSDK_DIR}Lib\\x64)
+endif (WIN32)
+set(DIRECTX ON CACHE BOOL "" FORCE)
+set(SDL_AUDIO OFF CACHE BOOL "" FORCE)
+set(SDL_SHARED OFF CACHE BOOL "" FORCE)
+set(SDL_STATIC ON CACHE BOOL "" FORCE)
+add_subdirectory(external/sdl)
 
 ## bullet
+set(USE_MSVC_RUNTIME_LIBRARY_DLL ON CACHE BOOL "" FORCE)
 set(USE_GLUT OFF CACHE BOOL "" FORCE)
 set(BUILD_BULLET2_DEMOS OFF CACHE BOOL "" FORCE)
 set(BUILD_OPENGL3_DEMOS OFF CACHE BOOL "" FORCE)
@@ -135,7 +140,8 @@ add_library(recast STATIC
  
 set(ALL_INCLUDES
 	external/glew/include
-	external/glfw/include
+	${SDL2_BINARY_DIR}/include
+	external/sdl/include
 	external/assimp/include
 	external/lodepng
 	external/bullet/src
@@ -164,6 +170,12 @@ if (NOT EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/src/game/CMakeLists.txt)
 endif()
 
 include(src/game/CMakeLists.txt)
+
+add_custom_command(
+    OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/gamecontrollerdb.txt
+    COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_SOURCE_DIR}/external/sdl_controllers/gamecontrollerdb.txt ${CMAKE_CURRENT_BINARY_DIR}/gamecontrollerdb.txt
+	MAIN_DEPENDENCY ${CMAKE_CURRENT_SOURCE_DIR}/external/sdl_controllers/gamecontrollerdb.txt
+)
 
 add_executable(mkzebra
 	src/data/array.h
@@ -201,6 +213,7 @@ add_executable(mkzebra
 	src/main.h
 	src/main.cpp
 	${GAME_SRC_FILES}
+	external/sdl_controllers/gamecontrollerdb.txt
 )
 
 if(WIN32)
@@ -215,8 +228,8 @@ endif(WIN32)
 
 target_link_libraries(mkzebra
 	${OPENGL_LIBRARIES}
-	${GLFW_LIBRARIES}
-	glfw
+	SDL2-static
+	SDL2main
 	GLEW_static
 	BulletDynamics
 	BulletCollision
@@ -224,6 +237,7 @@ target_link_libraries(mkzebra
 	LinearMath
 	lodepng
 )
+add_dependencies(mkzebra assets)
 
 add_executable(import
 	src/data/array.h
@@ -235,8 +249,8 @@ add_executable(import
 
 target_link_libraries(import
 	${OPENGL_LIBRARIES}
-	${GLFW_LIBRARIES}
-	glfw
+	SDL2-static
+	SDL2main
 	GLEW_static
 	assimp
 	recast

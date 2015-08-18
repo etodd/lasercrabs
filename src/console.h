@@ -5,6 +5,7 @@
 #include "load.h"
 #include "physics.h"
 #include "render/ui.h"
+#include "input.h"
 
 namespace VI
 {

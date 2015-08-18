@@ -55,9 +55,9 @@ struct SyncData
 	std::condition_variable condition;
 
 	SyncData()
-		: quit(), time(), input(), queue(), read_pos(), ready(), mutex(), condition()
+		: quit(), time(), queue(), read_pos(), ready(), mutex(), condition()
 	{
-
+		memset(&input, 0, sizeof(InputState));
 	}
 
 	template<typename T>

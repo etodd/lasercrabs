@@ -1,5 +1,4 @@
 #include "console.h"
-#include <GLFW/glfw3.h>
 #include "game/game.h"
 #include "asset.h"
 
@@ -27,27 +26,26 @@ void Console::init()
 	for (char c = 0; c < 127; c++)
 		shift_map[c] = normal_map[c] = c;
 
-	shift_map['0'] = ')';
-	shift_map['1'] = '!';
-	shift_map['2'] = '@';
-	shift_map['3'] = '#';
-	shift_map['4'] = '$';
-	shift_map['5'] = '%';
-	shift_map['6'] = '^';
-	shift_map['7'] = '&';
-	shift_map['8'] = '*';
-	shift_map['9'] = '(';
-	shift_map['-'] = '_';
-	shift_map['='] = '+';
-	shift_map['['] = '{';
-	shift_map[']'] = '}';
-	shift_map[','] = '<';
-	shift_map['.'] = '>';
-	shift_map['/'] = '?';
-	shift_map['`'] = '`';
-	shift_map[';'] = ':';
-	shift_map['\''] = '"';
-	shift_map['\\'] = '|';
+	shift_map[KEYCODE_0] = ')';
+	shift_map[KEYCODE_1] = '!';
+	shift_map[KEYCODE_2] = '@';
+	shift_map[KEYCODE_3] = '#';
+	shift_map[KEYCODE_4] = '$';
+	shift_map[KEYCODE_5] = '%';
+	shift_map[KEYCODE_6] = '^';
+	shift_map[KEYCODE_7] = '&';
+	shift_map[KEYCODE_8] = '*';
+	shift_map[KEYCODE_9] = '(';
+	shift_map[KEYCODE_MINUS] = '_';
+	shift_map[KEYCODE_EQUALS] = '+';
+	shift_map[KEYCODE_LEFTBRACKET] = '{';
+	shift_map[KEYCODE_RIGHTBRACKET] = '}';
+	shift_map[KEYCODE_COMMA] = '<';
+	shift_map[KEYCODE_PERIOD] = '>';
+	shift_map[KEYCODE_SLASH] = '?';
+	shift_map[KEYCODE_GRAVE] = '`';
+	shift_map[KEYCODE_SEMICOLON] = ':';
+	shift_map[KEYCODE_BACKSLASH] = '|';
 
 	for (char c = 'A'; c <= 'Z'; c++)
 		normal_map[c] = c + 32;
@@ -55,30 +53,30 @@ void Console::init()
 
 void Console::update(const Update& u)
 {
-	if (u.input->keys['`'] == GLFW_PRESS
-		&& u.input->last_keys['`'] != GLFW_PRESS)
+	if (u.input->keys[KEYCODE_GRAVE]
+		&& !u.input->last_keys[KEYCODE_GRAVE])
 		visible = !visible;
 
 	if (visible)
 	{
 		text.pos = Vec2(0, u.input->height - text.size);
 		bool update = false;
-		bool shift = u.input->keys[GLFW_KEY_LEFT_SHIFT] == GLFW_PRESS
-			|| u.input->keys[GLFW_KEY_RIGHT_SHIFT] == GLFW_PRESS;
-		bool any_key_pressed = false;
-		for (int i = 0; i < 127; i++)
+		bool shift = u.input->keys[KEYCODE_LSHIFT]
+			|| u.input->keys[KEYCODE_RSHIFT];
+		bool any_KEYCODE_pressed = false;
+		for (int i = 1; i < text.font->characters.length; i++)
 		{
-			if (i == '`')
+			if (i == KEYCODE_GRAVE)
 				continue;
 
 			char c = shift ? shift_map[i] : normal_map[i];
 			if (text.font->characters[c].code == c)
 			{
 				bool add = false;
-				if (u.input->keys[i] == GLFW_PRESS)
+				if (u.input->keys[i])
 				{
-					any_key_pressed = true;
-					if (u.input->last_keys[i] != GLFW_PRESS)
+					any_KEYCODE_pressed = true;
+					if (!u.input->last_keys[i])
 					{
 						repeat_start_time = u.time.total;
 						add = true;
@@ -101,12 +99,12 @@ void Console::update(const Update& u)
 			}
 		}
 
-		if (command.length > 2 && u.input->keys[GLFW_KEY_BACKSPACE] == GLFW_PRESS)
+		if (command.length > 2 && u.input->keys[KEYCODE_BACKSPACE])
 		{
-			any_key_pressed = true;
+			any_KEYCODE_pressed = true;
 
 			bool remove = false;
-			if (u.input->last_keys[GLFW_KEY_BACKSPACE] != GLFW_PRESS)
+			if (!u.input->last_keys[KEYCODE_BACKSPACE])
 			{
 				repeat_start_time = u.time.total;
 				remove = true;
@@ -126,10 +124,10 @@ void Console::update(const Update& u)
 			}
 		}
 
-		if (!any_key_pressed)
+		if (!any_KEYCODE_pressed)
 			repeat_start_time = 0.0f;
 
-		if (u.input->keys[GLFW_KEY_ENTER] == GLFW_PRESS)
+		if (u.input->keys[KEYCODE_RETURN])
 		{
 			visible = false;
 			Game::execute(u, &command[1]);

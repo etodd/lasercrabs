@@ -10,7 +10,8 @@
 #include <map>
 #include <array>
 #include <GL/glew.h>
-#include <GLFW/glfw3.h>
+#include <SDL.h>
+#undef main
 #include <cfloat>
 #include "Recast.h"
 #include "data/mesh.h"
@@ -625,7 +626,7 @@ struct ImporterState
 
 int exit_error()
 {
-	glfwTerminate();
+	SDL_Quit();
 	return 1;
 }
 
@@ -1576,21 +1577,17 @@ int proc(int argc, char* argv[])
 	const char* asset_src_path = "../src/asset.cpp";
 	const char* asset_header_path = "../src/asset.h";
 
-	if (!glfwInit())
+	// Initialise SDL
+	if (SDL_Init(SDL_INIT_VIDEO) < 0)
 	{
-		fprintf(stderr, "Failed to initialize GLFW\n");
+		fprintf(stderr, "Failed to initialize SDL\n");
 		return 1;
 	}
 
-	glfwWindowHint(GLFW_SAMPLES, 1);
-	glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
-	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
-	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 1);
-	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-	glfwWindowHint(GLFW_VISIBLE, GL_FALSE);
+	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 4);
+	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 1);
 
-	GLFWmonitor* monitor = glfwGetPrimaryMonitor();
-	GLFWwindow* window = glfwCreateWindow(1, 1, "", NULL, NULL);
+	SDL_Window* window = SDL_CreateWindow("", 0, 0, 1, 1, SDL_WINDOW_OPENGL | SDL_WINDOW_HIDDEN);
 
 	// Open a window and create its OpenGL context
 	if (!window)
@@ -1598,7 +1595,7 @@ int proc(int argc, char* argv[])
 		fprintf(stderr, "Failed to open GLFW window. Most likely your GPU is out of date!\n");
 		return exit_error();
 	}
-	glfwMakeContextCurrent(window);
+	SDL_GLContext context = SDL_GL_CreateContext(window);
 	glewExperimental = true; // Needed for core profile
 	if (glewInit() != GLEW_OK)
 	{
@@ -1766,7 +1763,9 @@ int proc(int argc, char* argv[])
 		fclose(asset_src_file);
 	}
 
-	glfwTerminate();
+	SDL_GL_DeleteContext(context);
+	SDL_DestroyWindow(window);
+	SDL_Quit();
 	return 0;
 }
 

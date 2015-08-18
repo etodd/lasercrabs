@@ -28,6 +28,7 @@ Windows
 -------
 
 1. Install [Visual Studio](https://www.visualstudio.com/en-us/downloads/download-visual-studio-vs.aspx)
+1. Install the [DirectX SDK](https://www.microsoft.com/en-us/download/confirmation.aspx?id=6812)
 1. Install [CMake](http://www.cmake.org/download/)
 1. Ensure [Blender](http://blender.org) is installed and
    [available on the path](http://www.computerhope.com/issues/ch000549.htm).

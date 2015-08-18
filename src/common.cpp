@@ -1,6 +1,6 @@
 #include "common.h"
 #include "render/views.h"
-#include <GLFW/glfw3.h>
+#include "input.h"
 #include "console.h"
 #include "data/animator.h"
 #include "asset.h"
@@ -124,8 +124,8 @@ void NoclipControl::awake()
 
 void NoclipControl::update(const Update& u)
 {
-	angle_horizontal += speed_mouse * ((u.input->width / 2) - (float)u.input->cursor_x);
-	angle_vertical -= speed_mouse * ((u.input->height / 2) - (float)u.input->cursor_y);
+	angle_horizontal -= speed_mouse * (float)u.input->cursor_x;
+	angle_vertical += speed_mouse * (float)u.input->cursor_y;
 
 	if (angle_vertical < PI * -0.495f)
 		angle_vertical = PI * -0.495f;
@@ -136,21 +136,21 @@ void NoclipControl::update(const Update& u)
 
 	if (!Console::visible)
 	{
-		float speed = u.input->keys[GLFW_KEY_LEFT_SHIFT] == GLFW_PRESS ? 16.0f : 8.0f;
-		if (u.input->keys[GLFW_KEY_SPACE] == GLFW_PRESS)
+		float speed = u.input->keys[KEYCODE_LSHIFT] ? 16.0f : 8.0f;
+		if (u.input->keys[KEYCODE_SPACE])
 			get<Transform>()->pos += Vec3(0, 1, 0) * u.time.delta * speed;
-		if (u.input->keys[GLFW_KEY_LEFT_CONTROL] == GLFW_PRESS)
+		if (u.input->keys[KEYCODE_LCTRL])
 			get<Transform>()->pos += Vec3(0, -1, 0) * u.time.delta * speed;
-		if (u.input->keys[GLFW_KEY_W] == GLFW_PRESS)
+		if (u.input->keys[KEYCODE_W])
 			get<Transform>()->pos += look_quat * Vec3(0, 0, 1) * u.time.delta * speed;
-		if (u.input->keys[GLFW_KEY_S] == GLFW_PRESS)
+		if (u.input->keys[KEYCODE_S])
 			get<Transform>()->pos += look_quat * Vec3(0, 0, -1) * u.time.delta * speed;
-		if (u.input->keys[GLFW_KEY_D] == GLFW_PRESS)
+		if (u.input->keys[KEYCODE_D])
 			get<Transform>()->pos += look_quat * Vec3(-1, 0, 0) * u.time.delta * speed;
-		if (u.input->keys[GLFW_KEY_A] == GLFW_PRESS)
+		if (u.input->keys[KEYCODE_A])
 			get<Transform>()->pos += look_quat * Vec3(1, 0, 0) * u.time.delta * speed;
 
-		if (u.input->mouse_buttons[1] == GLFW_PRESS && u.input->last_mouse_buttons[1] != GLFW_PRESS)
+		if ((u.input->mouse_buttons & 1) && (u.input->last_mouse_buttons | 1))
 		{
 			Entity* box = World::create<Box>(get<Transform>()->absolute_pos() + look_quat * Vec3(0, 0, 0.25f), look_quat, 1.0f, Vec3(0.1f, 0.2f, 0.1f));
 			box->get<RigidBody>()->btBody->setLinearVelocity(look_quat * Vec3(0, 0, 15));

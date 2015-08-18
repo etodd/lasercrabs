@@ -1,67 +1,83 @@
+#include "main.h"
+#include <Xinput.h>
+
 #include "types.h"
 #include "vi_assert.h"
 
 #include <thread>
 
-#include <GL/glew.h>
-
 #include "load.h"
 #include "render/render.h"
 #include "game/game.h"
-#include "main.h"
-#include <GLFW/../../src/internal.h>
 
 namespace VI
 {
 
-GLFWwindow* Main::window = 0;
+SDL_Window* Main::window = 0;
+SDL_GameController* Main::controller = 0;
 
-void Main::resize(GLFWwindow* window, int width, int height)
+void Main::resize(SDL_Window* window, int width, int height)
 {
 	glViewport(0, 0, width, height);
 }
 
+void Main::get_controller()
+{
+	if (controller)
+		SDL_GameControllerClose(controller);
+	controller = 0;
+	for (int i = 0; i < SDL_NumJoysticks(); ++i)
+	{
+		if (SDL_IsGameController(i))
+		{
+			controller = SDL_GameControllerOpen(i);
+			break;
+		}
+	}
+}
+
 int Main::proc()
 {
-	// Initialise GLFW
-	if (!glfwInit())
+	// Initialise SDL
+	if (SDL_Init(
+		SDL_INIT_VIDEO
+		| SDL_INIT_EVENTS
+		| SDL_INIT_GAMECONTROLLER
+		| SDL_INIT_HAPTIC
+		| SDL_INIT_TIMER
+		| SDL_INIT_JOYSTICK
+		) < 0)
 	{
-		fprintf(stderr, "Failed to initialize GLFW\n");
+		fprintf(stderr, "Failed to initialize SDL\n");
 		return -1;
 	}
 
-	glfwWindowHint(GLFW_SAMPLES, 8);
-	glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
-	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
-	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 1);
-	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+	SDL_GameControllerAddMappingsFromFile("gamecontrollerdb.txt");
 
-	GLFWmonitor* monitor = glfwGetPrimaryMonitor();
-	bool fullscreen = false;
-	if (fullscreen)
-	{
-		const GLFWvidmode* mode = glfwGetVideoMode(monitor);
-		glfwWindowHint(GLFW_DECORATED, GL_FALSE);
-		glfwWindowHint(GLFW_RED_BITS, mode->redBits);
-		glfwWindowHint(GLFW_GREEN_BITS, mode->greenBits);
-		glfwWindowHint(GLFW_BLUE_BITS, mode->blueBits);
-		glfwWindowHint(GLFW_REFRESH_RATE, mode->refreshRate);
-		window = glfwCreateWindow(mode->width, mode->height, "MK-ZEBRA", NULL, NULL);
-	}
-	else
-	{
-		window = glfwCreateWindow(1280, 720, "MK-ZEBRA", NULL, NULL);
-	}
+	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 4);
+	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 1);
+	SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
+
+	window = SDL_CreateWindow
+	(
+		"MK-ZEBRA",
+		SDL_WINDOWPOS_CENTERED,
+		SDL_WINDOWPOS_CENTERED,
+		1280, 720,
+		SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN
+	);
 
 	// Open a window and create its OpenGL context
 	if (!window)
 	{
-		fprintf(stderr, "Failed to open GLFW window. Most likely your GPU is out of date!\n");
-		glfwTerminate();
+		fprintf(stderr, "Failed to open SDL window. Most likely your GPU is out of date!\n");
+		SDL_Quit();
 		return -1;
 	}
-	glfwMakeContextCurrent(window);
-	glfwSetFramebufferSizeCallback(window, Main::resize);
+
+	SDL_GLContext context = SDL_GL_CreateContext(window);
+
+	SDL_SetRelativeMouseMode(SDL_TRUE);
 
 	// Initialize GLEW
 	glewExperimental = true; // Needed for core profile
@@ -72,12 +88,6 @@ int Main::proc()
 	}
 
 	// Ensure we can capture the escape key being pressed below
-	glfwSetInputMode(window, GLFW_STICKY_KEYS, GL_FALSE);
-#if __APPLE__
-	glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
-#else
-	glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_HIDDEN);
-#endif
 
 	glClearColor(1.0f, 1.0f, 1.0f, 0.0f);
 
@@ -101,52 +111,72 @@ int Main::proc()
 	GLData gl_data;
 	render_init(&gl_data);
 
-	float lastTime = (float)glfwGetTime();
+	float lastTime = (float)(SDL_GetTicks() / 1000.0);
 
-	char last_keys[GLFW_KEY_LAST + 1];
-	char last_mouse_buttons[8];
+	bool last_keys[KEYCODE_COUNT];
+	memset(last_keys, 0, sizeof(last_keys));
+	unsigned int last_mouse_buttons = 0;
+
+	bool has_focus = true;
+
+	SDL_PumpEvents();
+
+	const Uint8* sdl_keys = SDL_GetKeyboardState(0);
+
+	get_controller();
 
 	while (true)
 	{
 		render(sync, &gl_data);
 
 		// Swap buffers
-		glfwSwapBuffers(window);
+		SDL_GL_SwapWindow(window);
 
-		glfwPollEvents();
+		SDL_PumpEvents();
 
-		bool focus = sync->focus = glfwGetWindowAttrib(window, GLFW_FOCUSED);
-
-		memcpy(sync->input.last_keys, last_keys, sizeof(last_keys));
-		memcpy(sync->input.last_mouse_buttons, last_mouse_buttons, sizeof(last_mouse_buttons));
-		_GLFWwindow* _window = (_GLFWwindow*)window;
-		memcpy(last_keys, _window->keys, sizeof(last_keys));
-		memcpy(last_mouse_buttons, _window->mouseButtons, sizeof(last_mouse_buttons));
-		memcpy(sync->input.keys, _window->keys, sizeof(sync->input.keys));
-		memcpy(sync->input.mouse_buttons, _window->mouseButtons, sizeof(sync->input.mouse_buttons));
-
-		sync->input.joystick = glfwJoystickPresent(GLFW_JOYSTICK_1);
-		if (sync->input.joystick)
+		SDL_Event sdl_event;
+		while (SDL_PollEvent(&sdl_event))
 		{
-			int count;
-			const float* joystick_axes = glfwGetJoystickAxes(GLFW_JOYSTICK_1, &count);
-			sync->input.joystick_axes.resize(count);
-			memcpy(sync->input.joystick_axes.data, joystick_axes, sizeof(float) * count);
-
-			const unsigned char* joystick_buttons = glfwGetJoystickButtons(GLFW_JOYSTICK_1, &count);
-			sync->input.joystick_buttons.resize(count);
-			memcpy(sync->input.joystick_buttons.data, joystick_buttons, sizeof(unsigned char) * count);
+			if (sdl_event.type == SDL_QUIT)
+				sync->quit = true;
+			else if (sdl_event.type == SDL_JOYDEVICEADDED
+				|| sdl_event.type == SDL_JOYDEVICEREMOVED)
+				get_controller();
+			else if (sdl_event.type == SDL_WINDOWEVENT)
+			{
+				if (sdl_event.window.event == SDL_WINDOWEVENT_RESIZED)
+					resize(window, sync->input.width, sync->input.height);
+				else if (sdl_event.window.event == SDL_WINDOWEVENT_FOCUS_GAINED)
+					has_focus = true;
+				else if (sdl_event.window.event == SDL_WINDOWEVENT_FOCUS_LOST)
+					has_focus = false;
+			}
 		}
 
-		glfwGetCursorPos(window, &sync->input.cursor_x, &sync->input.cursor_y);
-		if (focus)
-			glfwSetCursorPos(window, sync->input.width / 2, sync->input.height / 2);
+		sync->focus = has_focus;
 
-		bool quit = sync->quit = sync->input.keys[GLFW_KEY_ESCAPE] == GLFW_PRESS || glfwWindowShouldClose(window);
+		memcpy(sync->input.last_keys, last_keys, sizeof(last_keys));
+		memcpy(last_keys, sdl_keys, sizeof(last_keys));
+		memcpy(sync->input.keys, sdl_keys, sizeof(sync->input.keys));
+		sync->input.last_mouse_buttons = last_mouse_buttons;
+		sync->input.mouse_buttons = last_mouse_buttons = SDL_GetRelativeMouseState(&sync->input.cursor_x, &sync->input.cursor_y);
 
-		glfwGetFramebufferSize(window, &sync->input.width, &sync->input.height);
+		sync->input.joystick = controller != 0;
+		if (sync->input.joystick)
+		{
+			sync->input.joystick_left_x = (float)SDL_GameControllerGetAxis(controller, SDL_CONTROLLER_AXIS_LEFTX) / 32767.0f;
+			sync->input.joystick_left_y = (float)SDL_GameControllerGetAxis(controller, SDL_CONTROLLER_AXIS_LEFTY) / 32767.0f;
+			sync->input.joystick_right_x = (float)SDL_GameControllerGetAxis(controller, SDL_CONTROLLER_AXIS_RIGHTX) / 32767.0f;
+			sync->input.joystick_right_y = (float)SDL_GameControllerGetAxis(controller, SDL_CONTROLLER_AXIS_RIGHTY) / 32767.0f;
+			sync->input.joystick_left_trigger = (float)SDL_GameControllerGetAxis(controller, SDL_CONTROLLER_AXIS_TRIGGERLEFT) / 32767.0f;
+			sync->input.joystick_right_trigger = (float)SDL_GameControllerGetAxis(controller, SDL_CONTROLLER_AXIS_TRIGGERRIGHT) / 32767.0f;
+		}
 
-		sync->time.total = (float)glfwGetTime();
+		bool quit = sync->quit = sync->input.keys[KEYCODE_ESCAPE];
+
+		SDL_GetWindowSize(window, &sync->input.width, &sync->input.height);
+
+		sync->time.total = (float)(SDL_GetTicks() / 1000.0);
 		sync->time.delta = sync->time.total - lastTime;
 		lastTime = sync->time.total;
 
@@ -154,7 +184,7 @@ int Main::proc()
 
 		if (sync->input.set_width > 0)
 		{
-			glfwSetWindowSize(Main::window, sync->input.set_width, sync->input.set_height);
+			SDL_SetWindowSize(window, sync->input.set_width, sync->input.set_height);
 			sync->input.set_width = 0;
 			sync->input.set_height = 0;
 		}
@@ -165,22 +195,16 @@ int Main::proc()
 
 	update_thread.join();
 
-	glfwTerminate();
+	SDL_GL_DeleteContext(context);
+	SDL_DestroyWindow(window);
+	SDL_Quit();
 
 	return 0;
 }
 
 }
 
-#if defined WIN32 && !_CONSOLE
-int CALLBACK WinMain(
-	__in  HINSTANCE hInstance,
-	__in  HINSTANCE hPrevInstance,
-	__in  LPSTR lpCmdLine,
-	__in  int nCmdShow)
-#else
-int main()
-#endif
+int main(int argc, char* argv[])
 {
 	return VI::Main::proc();
 }

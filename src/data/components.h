@@ -21,7 +21,7 @@ struct Transform : public ComponentType<Transform>
 
 	void mat(Mat4*);
 
-	void absolute(Quat*, Vec3*);
+	void absolute(Quat*, Vec3*) const;
 	void absolute(const Quat&, const Vec3&);
 	Vec3 absolute_pos();
 	void absolute_pos(const Vec3&);

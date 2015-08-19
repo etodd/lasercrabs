@@ -29,16 +29,11 @@ void Transform::mat(Mat4* m)
 
 void Transform::get_bullet(btTransform& world) const
 {
-	Transform* t = (Transform*)this;
-	world.setIdentity();
-	while (t)
-	{ 
-		btTransform local;
-		local.setRotation(t->rot);
-		local.setOrigin(t->pos);
-		world = world * local;
-		t = t->parent;
-	}
+	Quat abs_rot;
+	Vec3 abs_pos;
+	absolute(&abs_rot, &abs_pos);
+	world.setOrigin(abs_pos);
+	world.setRotation(abs_rot);
 }
 
 void Transform::set_bullet(const btTransform& world)
@@ -47,11 +42,11 @@ void Transform::set_bullet(const btTransform& world)
 	rot = world.getRotation();
 }
 
-void Transform::absolute(Quat* abs_rot, Vec3* abs_pos)
+void Transform::absolute(Quat* abs_rot, Vec3* abs_pos) const
 {
 	*abs_rot = Quat::identity;
 	*abs_pos = Vec3::zero;
-	Transform* t = this;
+	const Transform* t = this;
 	while (t)
 	{ 
 		*abs_rot = t->rot * *abs_rot;

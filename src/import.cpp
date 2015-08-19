@@ -673,7 +673,7 @@ std::string get_mesh_name(const aiScene* scene, const std::string& asset_name, c
 	return name;
 }
 
-bool load_anim(const Armature& armature, const aiAnimation* in, Animation* out, const Map<int>& bone_map, bool skinned_model)
+bool load_anim(const Armature& armature, const aiAnimation* in, Animation* out, const Map<int>& bone_map)
 {
 	out->duration = (float)(in->mDuration / in->mTicksPerSecond);
 	out->channels.reserve(in->mNumChannels);
@@ -689,32 +689,11 @@ bool load_anim(const Armature& armature, const aiAnimation* in, Animation* out, 
 
 			out_channel->positions.resize(in_channel->mNumPositionKeys);
 
-			bool axis_active[3] = { false, false, false };
-			Vec3 bind_pos = Vec3::zero;
-			if (!skinned_model)
-			{
-				for (unsigned int j = 0; j < in_channel->mNumPositionKeys; j++)
-				{
-					axis_active[0] |= in_channel->mPositionKeys[j].mValue.x != 0.0f;
-					axis_active[1] |= in_channel->mPositionKeys[j].mValue.y != 0.0f;
-					axis_active[2] |= in_channel->mPositionKeys[j].mValue.z != 0.0f;
-				}
-				bind_pos = armature.bind_pose[bone_index].pos;
-			}
-
 			for (unsigned int j = 0; j < in_channel->mNumPositionKeys; j++)
 			{
 				out_channel->positions[j].time = (float)(in_channel->mPositionKeys[j].mTime / in->mTicksPerSecond);
 				aiVector3D value = in_channel->mPositionKeys[j].mValue;
-				if (skinned_model)
-					out_channel->positions[j].value = Vec3(value.x, value.y, value.z);
-				else
-				{
-					Vec3& out_pos = out_channel->positions[j].value;
-					out_pos.x = axis_active[0] ? value.x / 100.0f : bind_pos.x;
-					out_pos.y = axis_active[1] ? value.y / 100.0f : bind_pos.y;
-					out_pos.z = axis_active[2] ? value.z / 100.0f : bind_pos.z;
-				}
+				out_channel->positions[j].value = Vec3(value.y, value.z, value.x);
 			}
 
 			out_channel->rotations.resize(in_channel->mNumRotationKeys);
@@ -722,10 +701,12 @@ bool load_anim(const Armature& armature, const aiAnimation* in, Animation* out, 
 			{
 				out_channel->rotations[j].time = (float)(in_channel->mRotationKeys[j].mTime / in->mTicksPerSecond);
 				aiQuaternion value = in_channel->mRotationKeys[j].mValue;
-				if (skinned_model)
-					out_channel->rotations[j].value = Quat(value.w, value.x, value.y, value.z);
-				else
-					out_channel->rotations[j].value = Quat::euler(0, 0, PI * 0.5f) * Quat(value.w, value.x, value.y, value.z);
+				Quat q = Quat(value.w, value.x, value.y, value.z);
+				Vec3 axis;
+				float angle;
+				q.to_angle_axis(angle, axis);
+				Vec3 corrected_axis = Vec3(axis.y, axis.z, axis.x);
+				out_channel->rotations[j].value = Quat(angle, corrected_axis);
 			}
 
 			out_channel->scales.resize(in_channel->mNumScalingKeys);
@@ -733,10 +714,7 @@ bool load_anim(const Armature& armature, const aiAnimation* in, Animation* out, 
 			{
 				out_channel->scales[j].time = (float)(in_channel->mScalingKeys[j].mTime / in->mTicksPerSecond);
 				aiVector3D value = in_channel->mScalingKeys[j].mValue;
-				if (skinned_model)
-					out_channel->scales[j].value = Vec3(value.x, value.y, value.z);
-				else
-					out_channel->scales[j].value = Vec3(value.x / 100.0f, value.y / 100.0f, value.z / 100.0f);
+				out_channel->scales[j].value = Vec3(value.y, value.z, value.x);
 			}
 		}
 	}
@@ -765,7 +743,7 @@ bool load_mesh(const aiMesh* mesh, Mesh* out)
 	for (unsigned int i = 0; i < mesh->mNumVertices; i++)
 	{
 		aiVector3D pos = mesh->mVertices[i];
-		Vec3 v = import_rotation * Vec3(pos.x, pos.y, pos.z);
+		Vec3 v = Vec3(pos.y, pos.z, pos.x);
 		out->vertices.add(v);
 	}
 
@@ -776,7 +754,7 @@ bool load_mesh(const aiMesh* mesh, Mesh* out)
 		for (unsigned int i = 0; i < mesh->mNumVertices; i++)
 		{
 			aiVector3D n = mesh->mNormals[i];
-			Vec3 v = import_rotation * Vec3(n.x, n.y, n.z);
+			Vec3 v = Vec3(n.y, n.z, n.x);
 			out->normals.add(v);
 		}
 	}
@@ -820,8 +798,13 @@ bool build_armature(Armature& armature, Map<int>& bone_map, aiNode* node, int pa
 		aiVector3D pos;
 		aiQuaternion rot;
 		node->mTransformation.Decompose(scale, rot, pos);
-		armature.bind_pose[counter].pos = Vec3(pos.x, pos.y, pos.z);
-		armature.bind_pose[counter].rot = Quat(rot.w, rot.x, rot.y, rot.z);
+		armature.bind_pose[counter].pos = Vec3(pos.y, pos.z, pos.x);
+		Quat q = Quat(rot.w, rot.x, rot.y, rot.z);
+		Vec3 axis;
+		float angle;
+		q.to_angle_axis(angle, axis);
+		Vec3 corrected_axis = Vec3(axis.y, axis.z, axis.x);
+		armature.bind_pose[counter].rot = Quat(angle, corrected_axis);
 		current_bone_index = counter;
 		counter++;
 	}
@@ -865,7 +848,6 @@ bool build_armature_skinned(const aiScene* scene, const aiMesh* ai_mesh, Mesh& m
 		if (!build_armature(armature, bone_map, scene->mRootNode, -1, node_hierarchy_counter))
 			return false;
 
-		Quat rotation = import_rotation.inverse();
 		for (unsigned int i = 0; i < ai_mesh->mNumBones; i++)
 		{
 			aiBone* bone = ai_mesh->mBones[i];
@@ -876,9 +858,9 @@ bool build_armature_skinned(const aiScene* scene, const aiMesh* ai_mesh, Mesh& m
 			aiVector3D ai_scale;
 			bone->mOffsetMatrix.Decompose(ai_scale, ai_rotation, ai_position);
 			
-			Vec3 position = Vec3(ai_position.x, ai_position.y, ai_position.z);
-			Vec3 scale = Vec3(ai_scale.x, ai_scale.y, ai_scale.z);
-			mesh.inverse_bind_pose[bone_index].make_transform(position, scale, rotation);
+			Vec3 position = Vec3(ai_position.y, ai_position.z, ai_position.x);
+			Vec3 scale = Vec3(ai_scale.y, ai_scale.z, ai_scale.x);
+			mesh.inverse_bind_pose[bone_index].make_transform(position, scale, Quat::identity);
 		}
 	}
 	
@@ -933,14 +915,13 @@ const aiScene* load_blend(ImporterState& state, Assimp::Importer& importer, cons
 	return scene;
 }
 
-void import_model(ImporterState& state, const std::string& asset_in_path, const std::string& out_folder)
+void import_meshes(ImporterState& state, const std::string& asset_in_path, const std::string& out_folder)
 {
 	std::string asset_name = get_asset_name(asset_in_path);
 	std::string asset_out_path = out_folder + asset_name + mesh_out_extension;
 
 	long long mtime = filemtime(asset_in_path);
 	if (state.rebuild
-		|| mtime > state.manifest_mtime
 		|| mtime > asset_mtime(state.cached_manifest.meshes, asset_name)
 		|| mtime > asset_mtime(state.cached_manifest.armatures, asset_name)
 		|| mtime > asset_mtime(state.cached_manifest.animations, asset_name))
@@ -954,7 +935,6 @@ void import_model(ImporterState& state, const std::string& asset_in_path, const 
 
 		Map<int> bone_map;
 		Armature armature;
-		bool skinned_model = false;
 
 		for (int i = 0; i < scene->mNumMeshes; i++)
 		{
@@ -972,7 +952,7 @@ void import_model(ImporterState& state, const std::string& asset_in_path, const 
 
 			if (load_mesh(ai_mesh, &mesh))
 			{
-				std::string mesh_out_filename = asset_out_folder + mesh_name + mesh_out_extension;
+				std::string mesh_out_filename = out_folder + mesh_name + mesh_out_extension;
 
 				map_add(state.manifest.meshes, asset_name, mesh_name, mesh_out_filename);
 
@@ -1013,7 +993,6 @@ void import_model(ImporterState& state, const std::string& asset_in_path, const 
 
 					if (armature.hierarchy.length > 0)
 					{
-						skinned_model = true;
 						printf("Bones: %d\n", armature.hierarchy.length);
 						bone_weights.resize(ai_mesh->mNumVertices);
 						bone_indices.resize(ai_mesh->mNumVertices);
@@ -1112,7 +1091,7 @@ void import_model(ImporterState& state, const std::string& asset_in_path, const 
 		{
 			aiAnimation* ai_anim = scene->mAnimations[j];
 			Animation anim;
-			if (load_anim(armature, ai_anim, &anim, bone_map, skinned_model))
+			if (load_anim(armature, ai_anim, &anim, bone_map))
 			{
 				printf("%s Duration: %f Channels: %d\n", ai_anim->mName.C_Str(), anim.duration, anim.channels.length);
 
@@ -1173,7 +1152,7 @@ void import_model(ImporterState& state, const std::string& asset_in_path, const 
 
 void import_level(ImporterState& state, const std::string& asset_in_path, const std::string& out_folder)
 {
-	import_model(state, asset_in_path, out_folder);
+	import_meshes(state, asset_in_path, out_folder);
 	if (state.error)
 		return;
 
@@ -1184,7 +1163,6 @@ void import_level(ImporterState& state, const std::string& asset_in_path, const 
 
 	long long mtime = filemtime(asset_in_path);
 	if (state.rebuild
-		|| mtime > state.manifest_mtime
 		|| mtime > asset_mtime(state.cached_manifest.levels, asset_name))
 	{
 		std::ostringstream cmdbuilder;
@@ -1210,7 +1188,6 @@ void import_copy(ImporterState& state, Map<std::string>& manifest, const std::st
 	map_add(manifest, asset_name, asset_out_path);
 	long long mtime = filemtime(asset_in_path);
 	if (state.rebuild
-		|| mtime > state.manifest_mtime
 		|| mtime > asset_mtime(manifest, asset_name))
 	{
 		printf("%s\n", asset_out_path.c_str());
@@ -1229,7 +1206,6 @@ void import_shader(ImporterState& state, const std::string& asset_in_path, const
 	map_add(state.manifest.shaders, asset_name, asset_out_path);
 	long long mtime = filemtime(asset_in_path);
 	if (state.rebuild
-		|| mtime > state.manifest_mtime
 		|| mtime > asset_mtime(state.cached_manifest.shaders, asset_name))
 	{
 		printf("%s\n", asset_out_path.c_str());
@@ -1406,7 +1382,6 @@ void import_font(ImporterState& state, const std::string& asset_in_path, const s
 
 	long long mtime = filemtime(asset_in_path);
 	if (state.rebuild
-		|| mtime > state.manifest_mtime
 		|| mtime > asset_mtime(state.cached_manifest.fonts, asset_name))
 	{
 		std::string asset_intermediate_path = asset_out_folder + asset_name + model_intermediate_extension;
@@ -1542,7 +1517,7 @@ int proc(int argc, char* argv[])
 			else if (has_extension(asset_in_path, shader_extension))
 				import_shader(state, asset_in_path, asset_out_folder);
 			else if (has_extension(asset_in_path, model_in_extension))
-				import_model(state, asset_in_path, asset_out_folder);
+				import_meshes(state, asset_in_path, asset_out_folder);
 			else if (has_extension(asset_in_path, font_in_extension) || has_extension(asset_in_path, font_in_extension_2))
 				import_font(state, asset_in_path, asset_out_folder);
 			if (state.error)
@@ -1610,9 +1585,10 @@ int proc(int argc, char* argv[])
 
 		if (state.rebuild
 			|| !maps_equal2(state.manifest.meshes, state.cached_manifest.meshes)
-			|| maps_equal(state.manifest.levels, state.cached_manifest.levels)
+			|| !maps_equal(state.manifest.levels, state.cached_manifest.levels)
 			|| filemtime(mesh_header_path) == 0)
 		{
+			printf("Writing mesh header\n");
 			FILE* f = open_asset_header(mesh_header_path);
 			if (!f)
 				return exit_error();
@@ -1643,7 +1619,7 @@ int proc(int argc, char* argv[])
 			|| !maps_equal2(state.manifest.animations, state.cached_manifest.animations)
 			|| filemtime(animation_header_path) == 0)
 		{
-
+			printf("Writing animation header\n");
 			FILE* f = open_asset_header(animation_header_path);
 			if (!f)
 				return exit_error();
@@ -1656,6 +1632,7 @@ int proc(int argc, char* argv[])
 			|| !maps_equal2(state.manifest.bones, state.cached_manifest.bones)
 			|| filemtime(armature_header_path) == 0)
 		{
+			printf("Writing armature header\n");
 			FILE* f = open_asset_header(armature_header_path);
 			if (!f)
 				return exit_error();
@@ -1670,6 +1647,7 @@ int proc(int argc, char* argv[])
 			|| !maps_equal(state.manifest.textures, state.cached_manifest.textures)
 			|| filemtime(texture_header_path) == 0)
 		{
+			printf("Writing texture header\n");
 			FILE* f = open_asset_header(texture_header_path);
 			if (!f)
 				return exit_error();
@@ -1683,7 +1661,7 @@ int proc(int argc, char* argv[])
 			|| !maps_equal(state.manifest.shaders, state.cached_manifest.shaders)
 			|| filemtime(shader_header_path) == 0)
 		{
-
+			printf("Writing shader header\n");
 			FILE* f = open_asset_header(shader_header_path);
 			if (!f)
 				return exit_error();
@@ -1697,6 +1675,7 @@ int proc(int argc, char* argv[])
 			|| !maps_equal(state.manifest.fonts, state.cached_manifest.fonts)
 			|| filemtime(font_header_path) == 0)
 		{
+			printf("Writing font header\n");
 			FILE* f = open_asset_header(font_header_path);
 			if (!f)
 				return exit_error();
@@ -1709,6 +1688,7 @@ int proc(int argc, char* argv[])
 			|| !maps_equal(state.manifest.levels, state.cached_manifest.levels)
 			|| filemtime(level_header_path) == 0)
 		{
+			printf("Writing level header\n");
 			FILE* f = open_asset_header(level_header_path);
 			if (!f)
 				return exit_error();
@@ -1720,6 +1700,7 @@ int proc(int argc, char* argv[])
 
 		if (state.rebuild || modified || filemtime(asset_src_path) < state.manifest_mtime)
 		{
+			printf("Writing asset values\n");
 			FILE* f = fopen(asset_src_path, "w+");
 			if (!f)
 			{

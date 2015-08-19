@@ -65,7 +65,7 @@ int Main::proc()
 		SDL_WINDOWPOS_CENTERED,
 		SDL_WINDOWPOS_CENTERED,
 		1280, 720,
-		SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN
+		SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN | SDL_WINDOW_BORDERLESS
 	);
 
 	// Open a window and create its OpenGL context
@@ -148,7 +148,7 @@ int Main::proc()
 			else if (sdl_event.type == SDL_WINDOWEVENT)
 			{
 				if (sdl_event.window.event == SDL_WINDOWEVENT_RESIZED)
-					resize(window, sync->input.width, sync->input.height);
+					resize(window, sdl_event.window.data1, sdl_event.window.data2);
 				else if (sdl_event.window.event == SDL_WINDOWEVENT_FOCUS_GAINED)
 					has_focus = true;
 				else if (sdl_event.window.event == SDL_WINDOWEVENT_FOCUS_LOST)

@@ -1,9 +1,6 @@
 import subprocess, os
 import ycm_core
 
-flags = ['-Wall']
-
-
 def DirectoryOfThisScript():
 	return os.path.dirname( os.path.abspath( __file__ ) )
 
@@ -108,6 +105,13 @@ def GetSystemIncludePaths():
 		fp.close()
 	return flags
 
+default_flags = [
+	'-std=c++11',
+	'-Wno-deprecated-register',
+	'-Wno-deprecated-declarations',
+	'-g',
+	'-DDEBUG=1'
+]
 
 def FlagsForFile( filename, **kwargs ):
 	if database:
@@ -118,10 +122,10 @@ def FlagsForFile( filename, **kwargs ):
 				compilation_info.compiler_working_dir_
 			)
 		else:
-			final_flags = ['-Wall']
+			final_flags = default_flags
 	else:
 		relative_to = DirectoryOfThisScript()
-		final_flags = []
+		final_flags = default_flags
 
 	sys_incs = GetSystemIncludePaths()
 	if sys_incs:

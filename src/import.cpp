@@ -28,12 +28,15 @@ const char* font_in_extension = ".ttf";
 const char* font_in_extension_2 = ".otf"; // Must be same length
 const char* font_out_extension = ".fnt";
 
+const char* level_out_extension = ".lvl";
 const char* anim_out_extension = ".anm";
 const char* arm_out_extension = ".arm";
 const char* texture_extension = ".png";
 const char* shader_extension = ".glsl";
 const char* asset_in_folder = "../assets/";
 const char* asset_out_folder = "assets/";
+const char* level_in_folder = "../assets/lvl/";
+const char* level_out_folder = "assets/lvl/";
 
 Quat import_rotation = Quat(PI * -0.5f, Vec3(1, 0, 0));
 const int version = 8;
@@ -286,7 +289,7 @@ void write_asset_header(FILE* file, const std::string& name, const Map<int>& ass
 
 void write_asset_source(FILE* file, const std::string& name, const Map<std::string>& assets)
 {
-	fprintf(file, "\nconst char* Asset::%s::values[] =\n{\n", name.c_str());
+	fprintf(file, "\nconst char* AssetLookup::%s::values[] =\n{\n", name.c_str());
 	for (auto i = assets.begin(); i != assets.end(); i++)
 		fprintf(file, "\t\"%s\",\n", i->second.c_str());
 	fprintf(file, "};\n\n");
@@ -513,6 +516,7 @@ struct Manifest
 	Map<std::string> shaders;
 	Map2<std::string> uniforms;
 	Map<std::string> fonts;
+	Map<std::string> levels;
 
 	Manifest()
 		: meshes(),
@@ -522,7 +526,8 @@ struct Manifest
 		textures(),
 		shaders(),
 		uniforms(),
-		fonts()
+		fonts(),
+		levels()
 	{
 
 	}
@@ -537,7 +542,8 @@ bool manifests_equal(const Manifest& a, const Manifest& b)
 		&& maps_equal(a.textures, b.textures)
 		&& maps_equal(a.shaders, b.shaders)
 		&& maps_equal2(a.uniforms, b.uniforms)
-		&& maps_equal(a.fonts, b.fonts);
+		&& maps_equal(a.fonts, b.fonts)
+		&& maps_equal(a.levels, b.levels);
 }
 
 bool manifest_read(const char* path, Manifest& manifest)
@@ -561,6 +567,7 @@ bool manifest_read(const char* path, Manifest& manifest)
 			map_read(f, manifest.shaders);
 			map_read(f, manifest.uniforms);
 			map_read(f, manifest.fonts);
+			map_read(f, manifest.levels);
 			fclose(f);
 			return true;
 		}
@@ -586,6 +593,7 @@ bool manifest_write(Manifest& manifest, const char* path)
 	map_write(manifest.shaders, f);
 	map_write(manifest.uniforms, f);
 	map_write(manifest.fonts, f);
+	map_write(manifest.levels, f);
 	fclose(f);
 	return true;
 }
@@ -1163,6 +1171,38 @@ void import_model(ImporterState& state, const std::string& asset_in_path, const 
 	}
 }
 
+void import_level(ImporterState& state, const std::string& asset_in_path, const std::string& out_folder)
+{
+	import_model(state, asset_in_path, out_folder);
+	if (state.error)
+		return;
+
+	std::string asset_name = get_asset_name(asset_in_path);
+	std::string asset_out_path = out_folder + asset_name + level_out_extension;
+
+	map_add(state.manifest.levels, asset_name, asset_out_path);
+
+	long long mtime = filemtime(asset_in_path);
+	if (state.rebuild
+		|| mtime > state.manifest_mtime
+		|| mtime > asset_mtime(state.cached_manifest.levels, asset_name))
+	{
+		std::ostringstream cmdbuilder;
+		cmdbuilder << "blender " << asset_in_path;
+		cmdbuilder << " --background --factory-startup --python " << asset_in_folder << "blend_to_lvl.py -- ";
+		cmdbuilder << asset_out_path;
+		std::string cmd = cmdbuilder.str();
+
+		if (!run_cmd(cmd))
+		{
+			fprintf(stderr, "Error: failed to export %s to lvl.\n", asset_in_path.c_str());
+			fprintf(stderr, "Command: %s.\n", cmd.c_str());
+			state.error = true;
+			return;
+		}
+	}
+}
+
 void import_copy(ImporterState& state, Map<std::string>& manifest, const std::string& asset_in_path, const std::string& out_folder, const std::string& extension)
 {
 	std::string asset_name = get_asset_name(asset_in_path);
@@ -1417,7 +1457,6 @@ void import_font(ImporterState& state, const std::string& asset_in_path, const s
 			state.error = true;
 			return;
 		}
-
 	}
 }
 
@@ -1429,7 +1468,7 @@ FILE* open_asset_header(const char* path)
 		fprintf(stderr, "Error: failed to open asset header file %s for writing.\n", path);
 		return 0;
 	}
-	fprintf(f, "#pragma once\n#include \"types.h\"\n#include \"lookup.h\"\n\nnamespace VI\n{\n\nnamespace Asset\n{\n");
+	fprintf(f, "#pragma once\n#include \"types.h\"\n\nnamespace VI\n{\n\nnamespace Asset\n{\n");
 	return f;
 }
 
@@ -1449,6 +1488,7 @@ int proc(int argc, char* argv[])
 	const char* shader_header_path = "../src/asset/shader.h";
 	const char* armature_header_path = "../src/asset/armature.h";
 	const char* font_header_path = "../src/asset/font.h";
+	const char* level_header_path = "../src/asset/level.h";
 
 	// Initialise SDL
 	if (SDL_Init(SDL_INIT_VIDEO) < 0)
@@ -1513,6 +1553,32 @@ int proc(int argc, char* argv[])
 
 	if (state.error)
 		return exit_error();
+
+	{
+		DIR* dir = opendir(level_in_folder);
+		if (!dir)
+		{
+			fprintf(stderr, "Failed to open level directory.\n");
+			return exit_error();
+		}
+		struct dirent* entry;
+		while ((entry = readdir(dir)))
+		{
+			if (entry->d_type != DT_REG)
+				continue; // Not a file
+
+			std::string asset_in_path = level_in_folder + std::string(entry->d_name);
+
+			if (has_extension(asset_in_path, model_in_extension))
+				import_level(state, asset_in_path, level_out_folder);
+			if (state.error)
+				break;
+		}
+		closedir(dir);
+	}
+
+	if (state.error)
+		return exit_error();
 	
 	bool modified = !manifests_equal(state.cached_manifest, state.manifest);
 	if (state.rebuild || modified)
@@ -1544,6 +1610,7 @@ int proc(int argc, char* argv[])
 
 		if (state.rebuild
 			|| !maps_equal2(state.manifest.meshes, state.cached_manifest.meshes)
+			|| maps_equal(state.manifest.levels, state.cached_manifest.levels)
 			|| filemtime(mesh_header_path) == 0)
 		{
 			FILE* f = open_asset_header(mesh_header_path);
@@ -1554,20 +1621,20 @@ int proc(int argc, char* argv[])
 			int max_mesh_count = 0;
 			for (auto model : state.manifest.meshes)
 				max_mesh_count = model.second.size() > max_mesh_count ? model.second.size() : max_mesh_count;
-			fprintf(f, "\tconst AssetID mesh_refs[%lu][%d] =\n\t{", state.manifest.armatures.size(), max_mesh_count);
+			fprintf(f, "\tconst AssetID mesh_refs[%lu][%d] =\n\t{\n", state.manifest.levels.size(), max_mesh_count);
 
-			for (auto armature : state.manifest.armatures)
+			for (auto level : state.manifest.levels)
 			{
-				fprintf(f, "\t{\n");
-				Map<std::string>& meshes = state.manifest.meshes[armature.first];
+				fprintf(f, "\t\t{\n");
+				Map<std::string>& meshes = state.manifest.meshes[level.first];
 				for (auto mesh : meshes)
 				{
 					int mesh_asset_id = flattened_model_indices[mesh.first];
-					fprintf(f, "\t\t%d,\n", mesh_asset_id);
+					fprintf(f, "\t\t\t%d,\n", mesh_asset_id);
 				}
-				fprintf(f, "\t},\n");
+				fprintf(f, "\t\t},\n");
 			}
-			fprintf(f, "};\n");
+			fprintf(f, "\t};\n");
 
 			close_asset_header(f);
 		}
@@ -1626,13 +1693,28 @@ int proc(int argc, char* argv[])
 			close_asset_header(f);
 		}
 
-		if (state.rebuild || filemtime(font_header_path) == 0)
+		if (state.rebuild
+			|| !maps_equal(state.manifest.fonts, state.cached_manifest.fonts)
+			|| filemtime(font_header_path) == 0)
 		{
 			FILE* f = open_asset_header(font_header_path);
 			if (!f)
 				return exit_error();
 
 			write_asset_header(f, "Font", state.manifest.fonts);
+			close_asset_header(f);
+		}
+
+		if (state.rebuild
+			|| !maps_equal(state.manifest.levels, state.cached_manifest.levels)
+			|| filemtime(level_header_path) == 0)
+		{
+			FILE* f = open_asset_header(level_header_path);
+			if (!f)
+				return exit_error();
+
+			write_asset_header(f, "Level", state.manifest.levels);
+
 			close_asset_header(f);
 		}
 
@@ -1649,6 +1731,7 @@ int proc(int argc, char* argv[])
 			fprintf(f, "#include \"font.h\"\n");
 			fprintf(f, "#include \"mesh.h\"\n");
 			fprintf(f, "#include \"shader.h\"\n");
+			fprintf(f, "#include \"level.h\"\n");
 			fprintf(f, "#include \"lookup.h\"\n");
 			fprintf(f, "\nnamespace VI\n{ \n\n");
 			write_asset_source(f, "Mesh", flattened_meshes);
@@ -1658,6 +1741,7 @@ int proc(int argc, char* argv[])
 			write_asset_source(f, "Shader", state.manifest.shaders);
 			write_asset_source(f, "Uniform", flattened_uniforms);
 			write_asset_source(f, "Font", state.manifest.fonts);
+			write_asset_source(f, "Level", state.manifest.levels);
 
 			fprintf(f, "\n}");
 			fclose(f);

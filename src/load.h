@@ -4,6 +4,7 @@
 #include <GL/glew.h>
 #include "data/mesh.h"
 #include "render/render.h"
+#include "cJSON.h"
 
 namespace VI
 {
@@ -65,6 +66,9 @@ struct Loader
 	static Font* font(AssetID);
 	static Font* font_permanent(AssetID);
 	static void font_free(AssetID);
+
+	static cJSON* level(AssetID);
+	static void level_free(cJSON*);
 
 	static void transients_free();
 };

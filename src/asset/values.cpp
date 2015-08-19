@@ -3,13 +3,14 @@
 #include "font.h"
 #include "mesh.h"
 #include "shader.h"
+#include "level.h"
 #include "lookup.h"
 
 namespace VI
 { 
 
 
-const char* Asset::Mesh::values[] =
+const char* AssetLookup::Mesh::values[] =
 {
 	"assets/Alpha.msh",
 	"assets/city1.msh",
@@ -24,26 +25,26 @@ const char* Asset::Mesh::values[] =
 };
 
 
-const char* Asset::Animation::values[] =
+const char* AssetLookup::Animation::values[] =
 {
 	"assets/walk.anm",
 };
 
 
-const char* Asset::Armature::values[] =
+const char* AssetLookup::Armature::values[] =
 {
 	"assets/Alpha.arm",
 };
 
 
-const char* Asset::Texture::values[] =
+const char* AssetLookup::Texture::values[] =
 {
 	"assets/skybox_horizon.png",
 	"assets/test.png",
 };
 
 
-const char* Asset::Shader::values[] =
+const char* AssetLookup::Shader::values[] =
 {
 	"assets/Armature.glsl",
 	"assets/Standard.glsl",
@@ -52,7 +53,7 @@ const char* Asset::Shader::values[] =
 };
 
 
-const char* Asset::Uniform::values[] =
+const char* AssetLookup::Uniform::values[] =
 {
 	"ambient_color",
 	"bones",
@@ -66,10 +67,19 @@ const char* Asset::Uniform::values[] =
 };
 
 
-const char* Asset::Font::values[] =
+const char* AssetLookup::Font::values[] =
 {
 	"assets/SegoeUISymbol.fnt",
 	"assets/lowpoly.fnt",
+};
+
+
+const char* AssetLookup::Level::values[] =
+{
+	"assets/lvl/city1.lvl",
+	"assets/lvl/city2.lvl",
+	"assets/lvl/city3.lvl",
+	"assets/lvl/city4.lvl",
 };
 
 

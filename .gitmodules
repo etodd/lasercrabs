@@ -22,3 +22,6 @@
 [submodule "external/sdl_controllers"]
 	path = external/sdl_controllers
 	url = git@github.com:etodd/SDL_GameControllerDB.git
+[submodule "external/cjson"]
+	path = external/cjson
+	url = git@github.com:etodd/cJSON.git

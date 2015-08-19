@@ -73,16 +73,6 @@ void StaticGeom::awake()
 {
 }
 
-Level::Level(ID id, AssetID armature_id)
-	: Entity(id)
-{
-	create<Transform>();
-	Animator* animator = create<Animator>();
-	animator->armature = armature_id;
-}
-
-void Level::awake() { }
-
 Box::Box(ID id, Vec3 pos, Quat quat, float mass, Vec3 scale)
 	: Entity(id)
 {

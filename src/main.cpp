@@ -135,11 +135,13 @@ int Main::proc()
 
 		SDL_PumpEvents();
 
+		bool quit = false;
+
 		SDL_Event sdl_event;
 		while (SDL_PollEvent(&sdl_event))
 		{
 			if (sdl_event.type == SDL_QUIT)
-				sync->quit = true;
+				quit = true;
 			else if (sdl_event.type == SDL_JOYDEVICEADDED
 				|| sdl_event.type == SDL_JOYDEVICEREMOVED)
 				get_controller();
@@ -173,7 +175,8 @@ int Main::proc()
 			sync->input.joystick_right_trigger = (float)SDL_GameControllerGetAxis(controller, SDL_CONTROLLER_AXIS_TRIGGERRIGHT) / 32767.0f;
 		}
 
-		bool quit = sync->quit = sync->input.keys[KEYCODE_ESCAPE];
+		quit |= sync->input.keys[KEYCODE_ESCAPE];
+		sync->quit = quit;
 
 		SDL_GetWindowSize(window, &sync->input.width, &sync->input.height);
 

@@ -1,44 +1,50 @@
+#pragma once
 #include "types.h"
 
 namespace VI
 {
 
-	namespace Asset
+	namespace AssetLookup
 	{
-		namespace Mesh
+		struct Mesh
 		{
-			const char* values[];
-		}
+			static const char* values[];
+		};
 
-		namespace Animation
+		struct Animation
 		{
-			const char* values[];
-		}
+			static const char* values[];
+		};
 
-		namespace Armature
+		struct Armature
 		{
-			const char* values[];
-		}
+			static const char* values[];
+		};
 
-		namespace Texture
+		struct Texture
 		{
-			const char* values[];
-		}
+			static const char* values[];
+		};
 
-		namespace Shader
+		struct Shader
 		{
-			const char* values[];
-		}
+			static const char* values[];
+		};
 
-		namespace Uniform
+		struct Uniform
 		{
-			const char* values[];
-		}
+			static const char* values[];
+		};
 
-		namespace Font
+		struct Font
 		{
-			const char* values[];
-		}
+			static const char* values[];
+		};
+
+		struct Level
+		{
+			static const char* values[];
+		};
 	}
 
 }

@@ -199,7 +199,7 @@ void render(SyncData* sync, GLData* data)
 			case RenderOp_LoadShader:
 			{
 				AssetID id = *(sync->read<AssetID>());
-				const char* path = Asset::Shader::values[id];
+				const char* path = AssetLookup::Shader::values[id];
 				int code_length = *(sync->read<int>());
 				char* code = sync->read<char>(code_length);
 
@@ -306,7 +306,7 @@ void render(SyncData* sync, GLData* data)
 						int old_length = data->shaders[shader_asset].uniforms.length;
 						data->shaders[shader_asset].uniforms.resize(uniform_asset + 1);
 						for (int j = old_length; j < uniform_asset + 1; j++)
-							data->shaders[shader_asset].uniforms[j] = glGetUniformLocation(program_id, Asset::Uniform::values[j]);
+							data->shaders[shader_asset].uniforms[j] = glGetUniformLocation(program_id, AssetLookup::Uniform::values[j]);
 					}
 
 					GLuint uniform_id = data->shaders[shader_asset].uniforms[uniform_asset];

@@ -2,7 +2,38 @@
 cmake_minimum_required (VERSION 2.6)
 project (mkzebra)
 
+## Includes
+
+set(ZLIB_INCLUDE_DIR
+	${CMAKE_CURRENT_SOURCE_DIR}/external/assimp/contrib/zlib
+	${CMAKE_CURRENT_BINARY_DIR}/external/assimp/contrib/zlib
+)
+ 
+set(ALL_INCLUDES
+	external/glew/include
+	${SDL2_BINARY_DIR}/include
+	external/sdl/include
+	external/assimp/include
+	external/lodepng
+	external/bullet/src
+	external/recast/Recast/Include
+	external/cjson
+	src
+	external/assimp/code/BoostWorkaround
+	${ZLIB_INCLUDE_DIR}
+)
+
+if (WIN32)
+	set(ALL_INCLUDES ${ALL_INCLUDES} external/dirent)
+endif(WIN32)
+
+string(REPLACE ";" "," ALL_INCLUDES_COMMA "${ALL_INCLUDES}")
+include_directories(${ALL_INCLUDES})
+configure_file(.includes.in .includes)
+configure_file(.exrc.in ${CMAKE_CURRENT_SOURCE_DIR}/.exrc)
+
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/assets)
+file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/assets/lvl)
 
 if (APPLE)
 	set(ENV{PKG_CONFIG_PATH} ${CMAKE_SOURCE_DIR}/pkgconfig) # so pkg-config can find our custom gl.pc
@@ -34,6 +65,9 @@ set(SDL_SHARED OFF CACHE BOOL "" FORCE)
 set(SDL_STATIC ON CACHE BOOL "" FORCE)
 add_subdirectory(external/sdl)
 
+## cJSON
+add_subdirectory(external/cjson)
+
 ## bullet
 set(USE_MSVC_RUNTIME_LIBRARY_DLL ON CACHE BOOL "" FORCE)
 set(USE_GLUT OFF CACHE BOOL "" FORCE)
@@ -55,7 +89,6 @@ set(LIBASSIMP_COMPONENT libassimp)
 set(BUILD_STATIC_LIB ON)
 
 # Compile without boost
-include_directories(external/assimp/code/BoostWorkaround)
 add_definitions(-DASSIMP_BUILD_BOOST_WORKAROUND)
 add_definitions(-DASSIMP_BUILD_NO_EXPORT)
 add_definitions(-DASSIMP_BUILD_NO_3DS_IMPORTER)
@@ -105,11 +138,6 @@ set(AMD64 OFF)
 add_subdirectory(external/assimp/contrib/zlib)
 set(ZLIB_FOUND 1)
 set(ZLIB_LIBRARIES zlibstatic)
-set(ZLIB_INCLUDE_DIR
-	${CMAKE_CURRENT_SOURCE_DIR}/external/assimp/contrib/zlib
-	${CMAKE_CURRENT_BINARY_DIR}/external/assimp/contrib/zlib
-)
-include_directories(${ZLIB_INCLUDE_DIR})
 set_target_properties(zlibstatic PROPERTIES LINKER_LANGUAGE CXX)
 
 set(GIT_COMMIT_HASH 0)
@@ -135,28 +163,6 @@ add_library(recast STATIC
 	external/recast/Recast/Source/RecastRasterization.cpp
 	external/recast/Recast/Source/RecastRegion.cpp
 )
-
-## Includes
- 
-set(ALL_INCLUDES
-	external/glew/include
-	${SDL2_BINARY_DIR}/include
-	external/sdl/include
-	external/assimp/include
-	external/lodepng
-	external/bullet/src
-	external/recast/Recast/Include
-	src
-)
-
-if (WIN32)
-	set(ALL_INCLUDES ${ALL_INCLUDES} external/dirent)
-endif(WIN32)
-
-string(REPLACE ";" "," ALL_INCLUDES_COMMA "${ALL_INCLUDES}")
-include_directories(${ALL_INCLUDES})
-configure_file(.includes.in .includes)
-configure_file(.exrc.in ${CMAKE_CURRENT_SOURCE_DIR}/.exrc)
 
 ## Source
 
@@ -200,6 +206,7 @@ add_executable(mkzebra
 	src/asset/font.h
 	src/asset/mesh.h
 	src/asset/shader.h
+	src/asset/level.h
 	src/asset/values.cpp
 	src/sync.h
 	src/types.h
@@ -241,6 +248,7 @@ target_link_libraries(mkzebra
 	BulletSoftBody
 	LinearMath
 	lodepng
+	cJSON
 )
 add_dependencies(mkzebra assets)
 

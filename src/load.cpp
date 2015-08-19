@@ -42,7 +42,7 @@ Mesh* Loader::mesh(AssetID id)
 		meshes.resize(id + 1);
 	if (meshes[id].type == AssetNone)
 	{
-		const char* path = Asset::Mesh::values[id];
+		const char* path = AssetLookup::Mesh::values[id];
 		FILE* f = fopen(path, "rb");
 		if (!f)
 		{
@@ -172,7 +172,7 @@ Armature* Loader::armature(AssetID id)
 		armatures.resize(id + 1);
 	if (armatures[id].type == AssetNone)
 	{
-		const char* path = Asset::Armature::values[id];
+		const char* path = AssetLookup::Armature::values[id];
 		FILE* f = fopen(path, "rb");
 		if (!f)
 		{
@@ -276,7 +276,7 @@ Animation* Loader::animation(AssetID id)
 		animations.resize(id + 1);
 	if (animations[id].type == AssetNone)
 	{
-		const char* path = Asset::Animation::values[id];
+		const char* path = AssetLookup::Animation::values[id];
 		FILE* f = fopen(path, "rb");
 		if (!f)
 		{
@@ -352,7 +352,7 @@ void Loader::texture(AssetID id)
 	{
 		textures[id].type = AssetTransient;
 
-		const char* path = Asset::Texture::values[id];
+		const char* path = AssetLookup::Texture::values[id];
 		unsigned char* buffer;
 		unsigned width, height;
 
@@ -403,7 +403,7 @@ void Loader::shader(AssetID id)
 	{
 		shaders[id].type = AssetTransient;
 
-		const char* path = Asset::Shader::values[id];
+		const char* path = AssetLookup::Shader::values[id];
 
 		Array<char> code;
 		FILE* f = fopen(path, "r");
@@ -463,7 +463,7 @@ Font* Loader::font(AssetID id)
 		fonts.resize(id + 1);
 	if (fonts[id].type == AssetNone)
 	{
-		const char* path = Asset::Font::values[id];
+		const char* path = AssetLookup::Font::values[id];
 		FILE* f = fopen(path, "rb");
 		if (!f)
 		{
@@ -522,6 +522,38 @@ void Loader::font_free(AssetID id)
 		fonts[id].data.~Font();
 		fonts[id].type = AssetNone;
 	}
+}
+
+cJSON* Loader::level(AssetID id)
+{
+	if (id == AssetNull)
+		return 0;
+	
+	const char* path = AssetLookup::Level::values[id];
+	FILE* f;
+	f = fopen(path, "rb");
+	if (!f)
+	{
+		fprintf(stderr, "Can't open lvl file '%s'\n", path);
+		return 0;
+	}
+	fseek(f, 0, SEEK_END);
+	long len = ftell(f);
+	fseek(f, 0, SEEK_SET);
+
+	char* data = (char*)malloc(len + 1);
+	fread(data, 1, len, f);
+	data[len] = '\0';
+	fclose(f);
+
+	cJSON* output = cJSON_Parse(data);
+	free(data);
+	return output;
+}
+
+void Loader::level_free(cJSON* json)
+{
+	cJSON_Delete(json);
 }
 
 void Loader::transients_free()

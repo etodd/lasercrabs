@@ -17,6 +17,7 @@ namespace VI
 Empty::Empty(ID id)
 	: Entity(id)
 {
+	create<Transform>();
 }
 
 void Empty::awake()

@@ -860,7 +860,7 @@ bool build_armature_skinned(const aiScene* scene, const aiMesh* ai_mesh, Mesh& m
 			
 			Vec3 position = Vec3(ai_position.y, ai_position.z, ai_position.x);
 			Vec3 scale = Vec3(ai_scale.y, ai_scale.z, ai_scale.x);
-			mesh.inverse_bind_pose[bone_index].make_transform(position, scale, Quat::identity);
+			mesh.inverse_bind_pose[bone_index].make_transform(position, scale, Quat::euler(PI * -0.5f, 0, 0));
 		}
 	}
 	

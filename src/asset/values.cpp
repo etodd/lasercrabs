@@ -16,6 +16,8 @@ const char* AssetLookup::Mesh::values[] =
 	"assets/lvl/city1.msh",
 	"assets/lvl/city2.msh",
 	"assets/lvl/city3.msh",
+	"assets/lvl/city4_city1.msh",
+	"assets/lvl/city4_city2.msh",
 	"assets/lvl/city4_elevator.msh",
 	"assets/lvl/city4_shell.msh",
 	"assets/lvl/city4_shell_1.msh",

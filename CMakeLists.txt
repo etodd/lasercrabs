@@ -17,6 +17,7 @@ set(ALL_INCLUDES
 	external/lodepng
 	external/bullet/src
 	external/recast/Recast/Include
+	external/recast/Detour/Include
 	external/cjson
 	src
 	external/assimp/code/BoostWorkaround
@@ -167,6 +168,25 @@ add_library(recast STATIC
 	external/recast/Recast/Source/RecastRegion.cpp
 )
 
+## Detour
+add_library(detour STATIC
+	external/recast/Detour/Include/DetourAlloc.h
+	external/recast/Detour/Include/DetourAssert.h
+	external/recast/Detour/Include/DetourCommon.h
+	external/recast/Detour/Include/DetourMath.h
+	external/recast/Detour/Include/DetourNavMesh.h
+	external/recast/Detour/Include/DetourNavMeshBuilder.h
+	external/recast/Detour/Include/DetourNavMeshQuery.h
+	external/recast/Detour/Include/DetourNode.h
+	external/recast/Detour/Include/DetourStatus.h
+	external/recast/Detour/Source/DetourAlloc.cpp
+	external/recast/Detour/Source/DetourCommon.cpp
+	external/recast/Detour/Source/DetourNavMesh.cpp
+	external/recast/Detour/Source/DetourNavMeshBuilder.cpp
+	external/recast/Detour/Source/DetourNavMeshQuery.cpp
+	external/recast/Detour/Source/DetourNode.cpp
+)
+
 ## Source
 
 if (NOT EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/src/game/CMakeLists.txt)
@@ -254,6 +274,7 @@ target_link_libraries(mkzebra
 	BulletSoftBody
 	LinearMath
 	lodepng
+	detour
 	cJSON
 )
 add_dependencies(mkzebra assets)
@@ -275,6 +296,7 @@ target_link_libraries(import
 	GLEW_static
 	assimp
 	recast
+	detour
 	cJSON
 )
 

@@ -41,7 +41,15 @@ const char* asset_out_folder = "assets/";
 const char* level_in_folder = "../assets/lvl/";
 const char* level_out_folder = "assets/lvl/";
 
-Quat import_rotation = Quat(PI * -0.5f, Vec3(1, 0, 0));
+const float nav_agent_height = 2.0f;
+const float nav_agent_max_climb = 0.9f;
+const float nav_agent_radius = 0.6f;
+const float nav_edge_max_length = 12.0f;
+const float nav_min_region_size = 8.0f;
+const float nav_merged_region_size = 20.0f;
+const float nav_detail_sample_distance = 6.0f;
+const float nav_detail_sample_max_error = 1.0f;
+
 const int version = 10;
 
 template <typename T>
@@ -990,14 +998,6 @@ bool write_mesh(
 		return false;
 }
 
-bool write_mesh(const Mesh* mesh, const std::string& path)
-{
-	Array<Array<Vec2>> uv_layers;
-	Array<std::array<float, MAX_BONE_WEIGHTS> > bone_weights;
-	Array<std::array<int, MAX_BONE_WEIGHTS> > bone_indices;
-	return write_mesh(mesh, path, uv_layers, bone_weights, bone_indices);
-}
-
 bool import_meshes(ImporterState& state, const std::string& asset_in_path, const std::string& out_folder, Array<Mesh>& meshes, bool force_rebuild)
 {
 	std::string asset_name = get_asset_name(asset_in_path);
@@ -1207,35 +1207,24 @@ bool import_meshes(ImporterState& state, const std::string& asset_in_path, const
 	}
 }
 
-bool build_nav_mesh(const Mesh& input, Mesh& output)
+bool build_nav_mesh(const Mesh& input, rcPolyMesh** output, rcPolyMeshDetail** output_detail)
 {
-	const float agent_height = 2.0f;
-	const float agent_max_climb = 0.9f;
-	const float agent_radius = 0.6f;
-	const float edge_max_length = 12.0f;
-	const float min_region_size = 8.0f;
-	const float merged_region_size = 20.0f;
-	const float detail_sample_distance = 6.0f;
-	const float detail_sample_max_error = 1.0f;
-
 	rcConfig cfg;
 	memset(&cfg, 0, sizeof(cfg));
 	cfg.cs = 0.2f;
 	cfg.ch = 0.2f;
 	cfg.walkableSlopeAngle = 45.0f;
-	cfg.walkableHeight = (int)ceilf(agent_height / cfg.ch);
-	cfg.walkableClimb = (int)floorf(agent_max_climb / cfg.ch);
-	cfg.walkableRadius = (int)ceilf(agent_radius / cfg.cs);
-	cfg.maxEdgeLen = (int)(edge_max_length / cfg.cs);
+	cfg.walkableHeight = (int)ceilf(nav_agent_height / cfg.ch);
+	cfg.walkableClimb = (int)floorf(nav_agent_max_climb / cfg.ch);
+	cfg.walkableRadius = (int)ceilf(nav_agent_radius / cfg.cs);
+	cfg.maxEdgeLen = (int)(nav_edge_max_length / cfg.cs);
 	cfg.maxSimplificationError = 2;
-	cfg.minRegionArea = (int)rcSqr(min_region_size);		// Note: area = size*size
-	cfg.mergeRegionArea = (int)rcSqr(merged_region_size);	// Note: area = size*size
+	cfg.minRegionArea = (int)rcSqr(nav_min_region_size);		// Note: area = size*size
+	cfg.mergeRegionArea = (int)rcSqr(nav_merged_region_size);	// Note: area = size*size
 	cfg.maxVertsPerPoly = 6;
-	cfg.detailSampleDist = detail_sample_distance < 0.9f ? 0 : cfg.cs * detail_sample_distance;
-	cfg.detailSampleMaxError = cfg.ch * detail_sample_max_error;
+	cfg.detailSampleDist = nav_detail_sample_distance < 0.9f ? 0 : cfg.cs * nav_detail_sample_distance;
+	cfg.detailSampleMaxError = cfg.ch * nav_detail_sample_max_error;
 
-	output.bounds_min = input.bounds_min;
-	output.bounds_max = input.bounds_max;
 	rcVcopy(cfg.bmin, (float*)&input.bounds_min);
 	rcVcopy(cfg.bmax, (float*)&input.bounds_max);
 	rcCalcGridSize(cfg.bmin, cfg.bmax, cfg.cs, &cfg.width, &cfg.height);
@@ -1304,55 +1293,21 @@ bool build_nav_mesh(const Mesh& input, Mesh& output)
 	if (!rcBuildPolyMesh(&ctx, *contour_set, cfg.maxVertsPerPoly, *nav_mesh))
 		return false;
 
-	rcFreeCompactHeightfield(compact_heightfield);
 	rcFreeContourSet(contour_set);
 
-	// Convert polygon navmesh to triangle mesh
+	// Create detail mesh which allows to access approximate height on each polygon.
+	
+	rcPolyMeshDetail* detail_mesh = rcAllocPolyMeshDetail();
+	if (!detail_mesh)
+		return false;
 
-	const float* mesh_origin = nav_mesh->bmin;
+	if (!rcBuildPolyMeshDetail(&ctx, *nav_mesh, *compact_heightfield, cfg.detailSampleDist, cfg.detailSampleMaxError, *detail_mesh))
+		return false;
 
-	output.vertices.reserve(nav_mesh->nverts);
-	for (int i = 0; i < nav_mesh->nverts; i++)
-	{
-		const unsigned short* v = &nav_mesh->verts[i * 3];
-		Vec3 vertex;
-		vertex.x = mesh_origin[0] + v[0] * nav_mesh->cs;
-		vertex.y = mesh_origin[1] + (v[1] + 1) * nav_mesh->ch;
-		vertex.z = mesh_origin[2] + v[2] * nav_mesh->cs;
-		output.vertices.add(vertex);
-	}
-
-	int num_triangles = 0;
-	for (int i = 0; i < nav_mesh->npolys; ++i)
-	{
-		const unsigned short* poly = &nav_mesh->polys[i * nav_mesh->nvp * 2];
-		for (int j = 2; j < nav_mesh->nvp; ++j)
-		{
-			if (poly[j] == RC_MESH_NULL_IDX)
-				break;
-			num_triangles++;
-		}
-	}
-
-	output.indices.reserve(num_triangles * 3);
-	for (int i = 0; i < nav_mesh->npolys; ++i)
-	{
-		const unsigned short* poly = &nav_mesh->polys[i * nav_mesh->nvp * 2];
-		
-		for (int j = 2; j < nav_mesh->nvp; ++j)
-		{
-			if (poly[j] == RC_MESH_NULL_IDX)
-				break;
-			output.indices.add(poly[0]);
-			output.indices.add(poly[j - 1]);
-			output.indices.add(poly[j]);
-		}
-	}
-
-	// Allocate space for the normals, but just leave them all zeroes.
-	output.normals.resize(output.vertices.length);
-
-	rcFreePolyMesh(nav_mesh);
+	rcFreeCompactHeightfield(compact_heightfield);
+	
+	*output = nav_mesh;
+	*output_detail = detail_mesh;
 
 	return true;
 }
@@ -1474,10 +1429,11 @@ void import_level(ImporterState& state, const std::string& asset_in_path, const 
 
 		Json::json_free(json);
 
-		Mesh nav_mesh_output;
+		rcPolyMesh* nav_mesh = 0;
+		rcPolyMeshDetail* nav_mesh_detail = 0;
 		if (nav_mesh_input.vertices.length > 0)
 		{
-			if (!build_nav_mesh(nav_mesh_input, nav_mesh_output))
+			if (!build_nav_mesh(nav_mesh_input, &nav_mesh, &nav_mesh_detail))
 			{
 				fprintf(stderr, "Error: nav mesh generation failed for file %s.\n", asset_in_path.c_str());
 				state.error = true;
@@ -1485,12 +1441,37 @@ void import_level(ImporterState& state, const std::string& asset_in_path, const 
 			}
 		}
 
-		if (!write_mesh(&nav_mesh_output, nav_mesh_out_path))
+			FILE* f = fopen(nav_mesh_out_path.c_str(), "w+b");
+			if (!f) // TODO: write nav mesh
+			{
+				fprintf(stderr, "Error: failed to write mesh file %s.\n", nav_mesh_out_path.c_str());
+				state.error = true;
+				return;
+			}
+
+		if (nav_mesh)
 		{
-			fprintf(stderr, "Error: failed to write mesh file %s.\n", nav_mesh_out_path.c_str());
-			state.error = true;
-			return;
+			fwrite(nav_mesh, sizeof(rcPolyMesh), 1, f);
+			fwrite(nav_mesh->verts, sizeof(unsigned short) * 3, nav_mesh->nverts, f);
+			fwrite(nav_mesh->polys, sizeof(unsigned short) * 2 * nav_mesh->nvp, nav_mesh->maxpolys, f);
+			fwrite(nav_mesh->regs, sizeof(unsigned short), nav_mesh->maxpolys, f);
+			fwrite(nav_mesh->flags, sizeof(unsigned short), nav_mesh->maxpolys, f);
+			fwrite(nav_mesh->areas, sizeof(unsigned char), nav_mesh->maxpolys, f);
+
+			fwrite(nav_mesh_detail, sizeof(rcPolyMeshDetail), 1, f);
+			fwrite(nav_mesh_detail->meshes, sizeof(unsigned int) * 4, nav_mesh_detail->nmeshes, f);
+			fwrite(nav_mesh_detail->verts, sizeof(float) * 3, nav_mesh_detail->nverts, f);
+			fwrite(nav_mesh_detail->tris, sizeof(unsigned char) * 4, nav_mesh_detail->ntris, f);
+
+			fwrite(&nav_agent_height, sizeof(float), 1, f);
+			fwrite(&nav_agent_radius, sizeof(float), 1, f);
+			fwrite(&nav_agent_max_climb, sizeof(float), 1, f);
+
+			rcFreePolyMesh(nav_mesh);
+			rcFreePolyMeshDetail(nav_mesh_detail);
 		}
+
+		fclose(f);
 	}
 
 	for (int i = 0; i < meshes.length; i++)

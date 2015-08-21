@@ -5,6 +5,8 @@
 #include "vi_assert.h"
 #include "asset/lookup.h"
 #include "asset/mesh.h"
+#include "DetourNavMesh.h"
+#include "DetourNavMeshBuilder.h"
 
 namespace VI
 {
@@ -18,7 +20,7 @@ Array<Loader::Entry<void*> > Loader::textures;
 Array<Loader::Entry<void*> > Loader::shaders;
 Array<Loader::Entry<Font> > Loader::fonts;
 Array<Loader::Entry<void*> > Loader::dynamic_meshes;
-Mesh Loader::current_nav_mesh;
+dtNavMesh* Loader::current_nav_mesh;
 AssetID Loader::current_nav_mesh_id = AssetNull;
 
 struct Attrib
@@ -28,6 +30,39 @@ struct Attrib
 	Array<char> data;
 };
 
+// Recast nav mesh structs
+
+/// Represents a polygon mesh suitable for use in building a navigation mesh. 
+struct rcPolyMesh
+{
+	unsigned short* verts;	///< The mesh vertices. [Form: (x, y, z) * #nverts]
+	unsigned short* polys;	///< Polygon and neighbor data. [Length: #maxpolys * 2 * #nvp]
+	unsigned short* regs;	///< The region id assigned to each polygon. [Length: #maxpolys]
+	unsigned short* flags;	///< The user defined flags for each polygon. [Length: #maxpolys]
+	unsigned char* areas;	///< The area id assigned to each polygon. [Length: #maxpolys]
+	int nverts;				///< The number of vertices.
+	int npolys;				///< The number of polygons.
+	int maxpolys;			///< The number of allocated polygons.
+	int nvp;				///< The maximum number of vertices per polygon.
+	float bmin[3];			///< The minimum bounds in world space. [(x, y, z)]
+	float bmax[3];			///< The maximum bounds in world space. [(x, y, z)]
+	float cs;				///< The size of each cell. (On the xz-plane.)
+	float ch;				///< The height of each cell. (The minimum increment along the y-axis.)
+	int borderSize;			///< The AABB border size used to generate the source data from which the mesh was derived.
+};
+
+/// Contains triangle meshes that represent detailed height data associated 
+/// with the polygons in its associated polygon mesh object.
+struct rcPolyMeshDetail
+{
+	unsigned int* meshes;	///< The sub-mesh data. [Size: 4*#nmeshes] 
+	float* verts;			///< The mesh vertices. [Size: 3*#nverts] 
+	unsigned char* tris;	///< The mesh triangles. [Size: 4*#ntris] 
+	int nmeshes;			///< The number of sub-meshes defined by #meshes.
+	int nverts;				///< The number of vertices in #verts.
+	int ntris;				///< The number of triangles in #tris.
+};
+
 void Loader::init(RenderSync::Swapper* s)
 {
 	swapper = s;
@@ -35,68 +70,76 @@ void Loader::init(RenderSync::Swapper* s)
 	dynamic_meshes = Array<Loader::Entry<void*> >();
 }
 
-bool load_mesh(RenderSync::Swapper* swapper, Mesh* mesh, Array<Attrib>& extra_attribs, const char* path, AssetID gl_id)
+Mesh* Loader::mesh(AssetID id)
 {
-	FILE* f = fopen(path, "rb");
-	if (!f)
+	if (id == AssetNull)
+		return 0;
+
+	if (id >= meshes.length)
+		meshes.resize(id + 1);
+	if (meshes[id].type == AssetNone)
 	{
-		fprintf(stderr, "Can't open mdl file '%s'\n", path);
-		return false;
-	}
+		const char* path = AssetLookup::Mesh::values[id];
+		Mesh* mesh = &meshes[id].data;
 
-	new (mesh)Mesh();
+		FILE* f = fopen(path, "rb");
+		if (!f)
+		{
+			fprintf(stderr, "Can't open mdl file '%s'\n", path);
+			return 0;
+		}
 
-	// Read color
-	fread(&mesh->color, sizeof(Vec4), 1, f);
+		new (mesh)Mesh();
 
-	// Read bounding box
-	fread(&mesh->bounds_min, sizeof(Vec3), 1, f);
-	fread(&mesh->bounds_max, sizeof(Vec3), 1, f);
+		// Read color
+		fread(&mesh->color, sizeof(Vec4), 1, f);
 
-	// Read indices
-	int index_count;
-	fread(&index_count, sizeof(int), 1, f);
+		// Read bounding box
+		fread(&mesh->bounds_min, sizeof(Vec3), 1, f);
+		fread(&mesh->bounds_max, sizeof(Vec3), 1, f);
 
-	// Fill face indices
-	mesh->indices.resize(index_count);
-	fread(mesh->indices.data, sizeof(int), index_count, f);
+		// Read indices
+		int index_count;
+		fread(&index_count, sizeof(int), 1, f);
 
-	int vertex_count;
-	fread(&vertex_count, sizeof(int), 1, f);
+		// Fill face indices
+		mesh->indices.resize(index_count);
+		fread(mesh->indices.data, sizeof(int), index_count, f);
 
-	// Fill vertices positions
-	mesh->vertices.resize(vertex_count);
-	fread(mesh->vertices.data, sizeof(Vec3), vertex_count, f);
+		int vertex_count;
+		fread(&vertex_count, sizeof(int), 1, f);
 
-	// Fill vertices normals
-	mesh->normals.resize(vertex_count);
-	fread(mesh->normals.data, sizeof(Vec3), vertex_count, f);
+		// Fill vertices positions
+		mesh->vertices.resize(vertex_count);
+		fread(mesh->vertices.data, sizeof(Vec3), vertex_count, f);
 
-	int extra_attrib_count;
-	fread(&extra_attrib_count, sizeof(int), 1, f);
-	extra_attribs.resize(extra_attrib_count);
-	for (int i = 0; i < extra_attribs.length; i++)
-	{
-		Attrib& a = extra_attribs[i];
-		fread(&a.type, sizeof(RenderDataType), 1, f);
-		fread(&a.count, sizeof(int), 1, f);
-		a.data.resize(mesh->vertices.length * a.count * render_data_type_size(a.type));
-		fread(a.data.data, sizeof(char), a.data.length, f);
-	}
+		// Fill vertices normals
+		mesh->normals.resize(vertex_count);
+		fread(mesh->normals.data, sizeof(Vec3), vertex_count, f);
 
-	int bone_count;
-	fread(&bone_count, sizeof(int), 1, f);
-	mesh->inverse_bind_pose.resize(bone_count);
-	fread(mesh->inverse_bind_pose.data, sizeof(Mat4), bone_count, f);
+		int extra_attrib_count;
+		fread(&extra_attrib_count, sizeof(int), 1, f);
+		Array<Attrib> extra_attribs(extra_attrib_count, extra_attrib_count);
+		for (int i = 0; i < extra_attribs.length; i++)
+		{
+			Attrib& a = extra_attribs[i];
+			fread(&a.type, sizeof(RenderDataType), 1, f);
+			fread(&a.count, sizeof(int), 1, f);
+			a.data.resize(mesh->vertices.length * a.count * render_data_type_size(a.type));
+			fread(a.data.data, sizeof(char), a.data.length, f);
+		}
 
-	fclose(f);
+		int bone_count;
+		fread(&bone_count, sizeof(int), 1, f);
+		mesh->inverse_bind_pose.resize(bone_count);
+		fread(mesh->inverse_bind_pose.data, sizeof(Mat4), bone_count, f);
 
-	if (gl_id != AssetNull)
-	{
+		fclose(f);
+
 		// GL
 		SyncData* sync = swapper->get();
 		sync->write(RenderOp_AllocMesh);
-		sync->write<int>(gl_id);
+		sync->write<int>(id);
 
 		sync->write<int>(2 + extra_attribs.length); // Attribute count
 
@@ -114,7 +157,7 @@ bool load_mesh(RenderSync::Swapper* swapper, Mesh* mesh, Array<Attrib>& extra_at
 		}
 
 		sync->write(RenderOp_UpdateAttribBuffers);
-		sync->write<int>(gl_id);
+		sync->write<int>(id);
 
 		sync->write<int>(mesh->vertices.length);
 		sync->write(mesh->vertices.data, mesh->vertices.length);
@@ -127,27 +170,9 @@ bool load_mesh(RenderSync::Swapper* swapper, Mesh* mesh, Array<Attrib>& extra_at
 		}
 
 		sync->write(RenderOp_UpdateIndexBuffer);
-		sync->write<int>(gl_id);
+		sync->write<int>(id);
 		sync->write<int>(mesh->indices.length);
 		sync->write(mesh->indices.data, mesh->indices.length);
-	}
-	return true;
-}
-
-Mesh* Loader::mesh(AssetID id)
-{
-	if (id == AssetNull)
-		return 0;
-
-	if (id >= meshes.length)
-		meshes.resize(id + 1);
-	if (meshes[id].type == AssetNone)
-	{
-		const char* path = AssetLookup::Mesh::values[id];
-		Mesh& mesh = meshes[id].data;
-		Array<Attrib> extra_attribs;
-		if (!load_mesh(swapper, &mesh, extra_attribs, path, id))
-			return 0;
 
 		meshes[id].type = AssetTransient;
 	}
@@ -553,8 +578,9 @@ void Loader::level_free(cJSON* json)
 	Json::json_free(json);
 }
 
-Mesh* Loader::nav_mesh(AssetID id)
+dtNavMesh* Loader::nav_mesh(AssetID id)
 {
+	// Only allow one nav mesh to be loaded at a time
 	vi_assert(current_nav_mesh_id == AssetNull || current_nav_mesh_id == id);
 
 	if (id == AssetNull)
@@ -563,21 +589,121 @@ Mesh* Loader::nav_mesh(AssetID id)
 	if (current_nav_mesh_id == AssetNull)
 	{
 		const char* path = AssetLookup::NavMesh::values[id];
-		Array<Attrib> extra_attribs;
-		if (load_mesh(swapper, &current_nav_mesh, extra_attribs, path, AssetNull))
-			current_nav_mesh_id = id;
-		else
+
+		FILE* f = fopen(path, "rb");
+		if (!f)
+		{
+			fprintf(stderr, "Can't open nav file '%s'\n", path);
 			return 0;
+		}
+
+		rcPolyMesh mesh;
+		fread(&mesh, sizeof(rcPolyMesh), 1, f);
+		mesh.verts = (unsigned short*)malloc(sizeof(unsigned short) * 3 * mesh.nverts);
+		mesh.polys = (unsigned short*)malloc(sizeof(unsigned short) * 2 * mesh.nvp * mesh.maxpolys);
+		mesh.regs = (unsigned short*)malloc(sizeof(unsigned short) * mesh.maxpolys);
+		mesh.flags = (unsigned short*)malloc(sizeof(unsigned short) * mesh.maxpolys);
+		mesh.areas = (unsigned char*)malloc(sizeof(unsigned char) * mesh.maxpolys);
+		fread(mesh.verts, sizeof(unsigned short) * 3, mesh.nverts, f);
+		fread(mesh.polys, sizeof(unsigned short) * 2 * mesh.nvp, mesh.maxpolys, f);
+		fread(mesh.regs, sizeof(unsigned short), mesh.maxpolys, f);
+		fread(mesh.flags, sizeof(unsigned short), mesh.maxpolys, f);
+		fread(mesh.areas, sizeof(unsigned char), mesh.maxpolys, f);
+
+		rcPolyMeshDetail mesh_detail;
+		fread(&mesh_detail, sizeof(rcPolyMeshDetail), 1, f);
+		mesh_detail.meshes = (unsigned int*)malloc(sizeof(unsigned int) * 4 * mesh_detail.nmeshes);
+		mesh_detail.verts = (float*)malloc(sizeof(float) * 3 * mesh_detail.nverts);
+		mesh_detail.tris = (unsigned char*)malloc(sizeof(unsigned char) * 4 * mesh_detail.ntris);
+		fread(mesh_detail.meshes, sizeof(unsigned int) * 4, mesh_detail.nmeshes, f);
+		fread(mesh_detail.verts, sizeof(float) * 3, mesh_detail.nverts, f);
+		fread(mesh_detail.tris, sizeof(unsigned char) * 4, mesh_detail.ntris, f);
+
+		float agent_height;
+		float agent_radius;
+		float agent_max_climb;
+
+		fread(&agent_height, sizeof(float), 1, f);
+		fread(&agent_radius, sizeof(float), 1, f);
+		fread(&agent_max_climb, sizeof(float), 1, f);
+
+		fclose(f);
+
+		unsigned char* navData = 0;
+		int navDataSize = 0;
+
+		dtNavMeshCreateParams params;
+		memset(&params, 0, sizeof(params));
+		params.verts = mesh.verts;
+		params.vertCount = mesh.nverts;
+		params.polys = mesh.polys;
+		params.polyAreas = mesh.areas;
+		params.polyFlags = mesh.flags;
+		params.polyCount = mesh.npolys;
+		params.nvp = mesh.nvp;
+		params.detailMeshes = mesh_detail.meshes;
+		params.detailVerts = mesh_detail.verts;
+		params.detailVertsCount = mesh_detail.nverts;
+		params.detailTris = mesh_detail.tris;
+		params.detailTriCount = mesh_detail.ntris;
+		params.offMeshConVerts = 0;
+		params.offMeshConRad = 0;
+		params.offMeshConDir = 0;
+		params.offMeshConAreas = 0;
+		params.offMeshConFlags = 0;
+		params.offMeshConUserID = 0;
+		params.offMeshConCount = 0;
+		params.walkableHeight = agent_height;
+		params.walkableRadius = agent_radius;
+		params.walkableClimb = agent_max_climb;
+		params.bmin[0] = mesh.bmin[0];
+		params.bmin[1] = mesh.bmin[1];
+		params.bmin[2] = mesh.bmin[2];
+		params.bmax[0] = mesh.bmax[0];
+		params.bmax[1] = mesh.bmax[1];
+		params.bmax[2] = mesh.bmax[2];
+		params.cs = mesh.cs;
+		params.ch = mesh.ch;
+		params.buildBvTree = true;
+		
+		if (!dtCreateNavMeshData(&params, &navData, &navDataSize))
+			return 0;
+		
+		current_nav_mesh = dtAllocNavMesh();
+		if (!current_nav_mesh)
+		{
+			dtFree(navData);
+			return 0;
+		}
+		
+		dtStatus status = current_nav_mesh->init(navData, navDataSize, DT_TILE_FREE_DATA);
+		if (dtStatusFailed(status))
+		{
+			dtFree(navData);
+			return 0;
+		}
+		
+		free(mesh.verts);
+		free(mesh.polys);
+		free(mesh.regs);
+		free(mesh.flags);
+		free(mesh.areas);
+		free(mesh_detail.meshes);
+		free(mesh_detail.verts);
+		free(mesh_detail.tris);
+
+		current_nav_mesh_id = id;
 	}
 
-	return &current_nav_mesh;
+	return current_nav_mesh;
 }
 
 void Loader::transients_free()
 {
-	if (current_nav_mesh_id != AssetNull)
+	if (current_nav_mesh)
 	{
-		current_nav_mesh.~Mesh();
+		dtFreeNavMesh(current_nav_mesh);
+		current_nav_mesh = 0;
 		current_nav_mesh_id = AssetNull;
 	}
 

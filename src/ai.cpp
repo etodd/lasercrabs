@@ -2,15 +2,16 @@
 #include "data/import_common.h"
 #include "load.h"
 #include "asset/shader.h"
+#include "DetourNavMesh.h"
 
-#define DRAW_NAV_MESH 1
+#define DRAW_NAV_MESH 0
 
 namespace VI
 {
 
 AssetID AI::render_mesh = AssetNull;
+AssetID AI::nav_mesh_id = AssetNull;
 bool AI::render_mesh_dirty = false;
-Mesh* AI::nav_mesh = 0;
 
 void AI::init()
 {
@@ -23,9 +24,9 @@ void AI::init()
 
 void AI::load_nav_mesh(AssetID id)
 {
-	nav_mesh = Loader::nav_mesh(id);
-	if (nav_mesh)
-		render_mesh_dirty = true;
+	nav_mesh_id = id;
+	Loader::nav_mesh(id);
+	render_mesh_dirty = true;
 }
 
 void AI::draw(const RenderParams& p)
@@ -33,6 +34,51 @@ void AI::draw(const RenderParams& p)
 #if DRAW_NAV_MESH
 	if (render_mesh_dirty)
 	{
+		// Convert polygon navmesh to triangle mesh
+
+		dtNavMesh* nav_mesh = Loader::nav_mesh(nav_mesh_id);
+
+		Array<Vec3>(nav_mesh->nverts);
+		for (int i = 0; i < nav_mesh->nverts; i++)
+		{
+			const unsigned short* v = &nav_mesh->verts[i * 3];
+			Vec3 vertex;
+			vertex.x = mesh_origin[0] + v[0] * nav_mesh->cs;
+			vertex.y = mesh_origin[1] + (v[1] + 1) * nav_mesh->ch;
+			vertex.z = mesh_origin[2] + v[2] * nav_mesh->cs;
+			output.vertices.add(vertex);
+		}
+
+		int num_triangles = 0;
+		for (int i = 0; i < nav_mesh->npolys; ++i)
+		{
+			const unsigned short* poly = &nav_mesh->polys[i * nav_mesh->nvp * 2];
+			for (int j = 2; j < nav_mesh->nvp; ++j)
+			{
+				if (poly[j] == RC_MESH_NULL_IDX)
+					break;
+				num_triangles++;
+			}
+		}
+
+		output.indices.reserve(num_triangles * 3);
+		for (int i = 0; i < nav_mesh->npolys; ++i)
+		{
+			const unsigned short* poly = &nav_mesh->polys[i * nav_mesh->nvp * 2];
+			
+			for (int j = 2; j < nav_mesh->nvp; ++j)
+			{
+				if (poly[j] == RC_MESH_NULL_IDX)
+					break;
+				output.indices.add(poly[0]);
+				output.indices.add(poly[j - 1]);
+				output.indices.add(poly[j]);
+			}
+		}
+
+		// Allocate space for the normals, but just leave them all zeroes.
+		output.normals.resize(output.vertices.length);
+
 		p.sync->write(RenderOp_UpdateAttribBuffers);
 		p.sync->write(render_mesh);
 

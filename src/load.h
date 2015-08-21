@@ -6,6 +6,8 @@
 #include "render/render.h"
 #include "cJSON.h"
 
+struct dtNavMesh;
+
 namespace VI
 {
 
@@ -32,7 +34,7 @@ struct Loader
 	static Array<Entry<void*> > shaders; // Nothing actually stored
 	static Array<Entry<Font> > fonts;
 	static Array<Entry<void*> > dynamic_meshes; // Nothing actually stored
-	static Mesh current_nav_mesh;
+	static dtNavMesh* current_nav_mesh;
 	static AssetID current_nav_mesh_id;
 
 	static Mesh* mesh(AssetID);
@@ -69,7 +71,7 @@ struct Loader
 	static Font* font_permanent(AssetID);
 	static void font_free(AssetID);
 
-	static Mesh* nav_mesh(AssetID);
+	static dtNavMesh* nav_mesh(AssetID);
 
 	static cJSON* level(AssetID);
 	static void level_free(cJSON*);

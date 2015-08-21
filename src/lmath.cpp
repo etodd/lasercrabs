@@ -3,6 +3,106 @@
 namespace VI
 {
 
+namespace LMath
+{
+	Vec3 triangle_closest_point(const Vec3& u, const Vec3& v, const Vec3& w, const Vec3& p)
+	{
+		Vec3 edge0 = v - u;
+		Vec3 edge1 = w - u;
+		Vec3 v0 = u - p;
+
+		float a = edge0.dot(edge0);
+		float b = edge0.dot(edge1);
+		float c = edge1.dot(edge1);
+		float d = edge0.dot(v0);
+		float e = edge1.dot(v0);
+
+		float det = a*c - b*b;
+		float s = b*e - c*d;
+		float t = b*d - a*e;
+
+		if (s + t < det)
+		{
+			if (s < 0.f)
+			{
+				if (t < 0.f)
+				{
+					if (d < 0.f)
+					{
+						s = clamp(-d/a, 0.f, 1.f);
+						t = 0.f;
+					}
+					else
+					{
+						s = 0.f;
+						t = clamp(-e/c, 0.f, 1.f);
+					}
+				}
+				else
+				{
+					s = 0.f;
+					t = clamp(-e/c, 0.f, 1.f);
+				}
+			}
+			else if (t < 0.f)
+			{
+				s = clamp(-d/a, 0.f, 1.f);
+				t = 0.f;
+			}
+			else
+			{
+				float invDet = 1.f / det;
+				s *= invDet;
+				t *= invDet;
+			}
+		}
+		else
+		{
+			if (s < 0.f)
+			{
+				float tmp0 = b+d;
+				float tmp1 = c+e;
+				if (tmp1 > tmp0)
+				{
+					float numer = tmp1 - tmp0;
+					float denom = a-2*b+c;
+					s = clamp(numer/denom, 0.f, 1.f);
+					t = 1-s;
+				}
+				else
+				{
+					t = clamp(-e/c, 0.f, 1.f);
+					s = 0.f;
+				}
+			}
+			else if (t < 0.f)
+			{
+				if (a+d > b+e)
+				{
+					float numer = c+e-b-d;
+					float denom = a-2*b+c;
+					s = clamp(numer/denom, 0.f, 1.f);
+					t = 1-s;
+				}
+				else
+				{
+					s = clamp(-e/c, 0.f, 1.f);
+					t = 0.f;
+				}
+			}
+			else
+			{
+				float numer = c+e-b-d;
+				float denom = a-2*b+c;
+				s = clamp(numer/denom, 0.f, 1.f);
+				t = 1.f - s;
+			}
+		}
+
+		return u + s * edge0 + t * edge1;
+	}
+}
+
 const Vec2 Vec2::zero(0, 0);
 const Vec3 Vec3::zero(0, 0, 0);
 const Vec4 Vec4::zero(0, 0, 0, 0);
@@ -25,13 +125,13 @@ const Mat4 Mat4::zero(
 		0, 0, 0, 0,
 		0, 0, 0, 0,
 		0, 0, 0, 0,
-		0, 0, 0, 0 );
+		0, 0, 0, 0);
 
 const Mat4 Mat4::identity(
 		1, 0, 0, 0,
 		0, 1, 0, 0,
 		0, 0, 1, 0,
-		0, 0, 0, 1 );
+		0, 0, 0, 1);
 
 Plane::Plane()
 {
@@ -110,7 +210,7 @@ float Plane::normalize(void)
 	// Will also work for zero-sized vectors, but will change nothing
 	// We're not using epsilons because we don't need to.
 	// Read http://www.ogre3d.org/forums/viewtopic.php?f=4&t=61259
-	if ( fLength > float(0.0f) )
+	if (fLength > float(0.0f))
 	{
 		float fInvLength = 1.0f / fLength;
 		normal *= fInvLength;
@@ -447,7 +547,7 @@ void Mat3::qdu_decomposition(Mat3& kQ, Vec3& kD, Vec3& kU) const
 		kQ[0][2]*kQ[1][0]*kQ[2][1] - kQ[0][2]*kQ[1][1]*kQ[2][0] -
 		kQ[0][1]*kQ[1][0]*kQ[2][2] - kQ[0][0]*kQ[1][2]*kQ[2][1];
 
-	if ( fDet < 0.0 )
+	if (fDet < 0.0)
 	{
 		for (int iRow = 0; iRow < 3; iRow++)
 			for (int iCol = 0; iCol < 3; iCol++)
@@ -503,9 +603,9 @@ void Mat3::to_angle_axis(Vec3& rkAxis, float& rffloats) const
 	float fCos = 0.5f*(fTrace-1.0f);
 	rffloats = acos(fCos);  // in [0,PI]
 
-	if ( rffloats > float(0.0) )
+	if (rffloats > float(0.0))
 	{
-		if ( rffloats < float(PI) )
+		if (rffloats < float(PI))
 		{
 			rkAxis.x = m[2][1]-m[1][2];
 			rkAxis.y = m[0][2]-m[2][0];
@@ -516,10 +616,10 @@ void Mat3::to_angle_axis(Vec3& rkAxis, float& rffloats) const
 		{
 			// angle is PI
 			float fHalfInverse;
-			if ( m[0][0] >= m[1][1] )
+			if (m[0][0] >= m[1][1])
 			{
 				// r00 >= r11
-				if ( m[0][0] >= m[2][2] )
+				if (m[0][0] >= m[2][2])
 				{
 					// r00 is maximum diagonal term
 					rkAxis.x = 0.5f*sqrt(m[0][0] -
@@ -541,7 +641,7 @@ void Mat3::to_angle_axis(Vec3& rkAxis, float& rffloats) const
 			else
 			{
 				// r11 > r00
-				if ( m[1][1] >= m[2][2] )
+				if (m[1][1] >= m[2][2])
 				{
 					// r11 is maximum diagonal term
 					rkAxis.y = 0.5f*sqrt(m[1][1] -
@@ -605,9 +705,9 @@ bool Mat3::to_euler_angles_xyz(float& rfYAngle, float& rfPAngle, float& rfRAngle
 	//       -cx*cz*sy+sx*sz  cz*sx+cx*sy*sz  cx*cy
 
 	rfPAngle = float(asin(m[0][2]));
-	if ( rfPAngle < float(HALF_PI) )
+	if (rfPAngle < float(HALF_PI))
 	{
-		if ( rfPAngle > float(-HALF_PI) )
+		if (rfPAngle > float(-HALF_PI))
 		{
 			rfYAngle = atan2(-m[1][2],m[2][2]);
 			rfRAngle = atan2(-m[0][1],m[0][0]);
@@ -639,9 +739,9 @@ bool Mat3::to_euler_angles_xzy(float& rfYAngle, float& rfPAngle, float& rfRAngle
 	//       -cx*sy+cy*sx*sz  cz*sx           cx*cy+sx*sy*sz
 
 	rfPAngle = asin(-m[0][1]);
-	if ( rfPAngle < float(HALF_PI) )
+	if (rfPAngle < float(HALF_PI))
 	{
-		if ( rfPAngle > float(-HALF_PI) )
+		if (rfPAngle > float(-HALF_PI))
 		{
 			rfYAngle = atan2(m[2][1],m[1][1]);
 			rfRAngle = atan2(m[0][2],m[0][0]);
@@ -673,9 +773,9 @@ bool Mat3::to_euler_angles_yxz(float& rfYAngle, float& rfPAngle, float& rfRAngle
 	//       -cz*sy+cy*sx*sz  cy*cz*sx+sy*sz  cx*cy
 
 	rfPAngle = asin(-m[1][2]);
-	if ( rfPAngle < float(HALF_PI) )
+	if (rfPAngle < float(HALF_PI))
 	{
-		if ( rfPAngle > float(-HALF_PI) )
+		if (rfPAngle > float(-HALF_PI))
 		{
 			rfYAngle = atan2(m[0][2],m[2][2]);
 			rfRAngle = atan2(m[1][0],m[1][1]);
@@ -707,9 +807,9 @@ bool Mat3::to_euler_angles_yzx(float& rfYAngle, float& rfPAngle, float& rfRAngle
 	//       -cz*sy           cy*sx+cx*sy*sz  cx*cy-sx*sy*sz
 
 	rfPAngle = asin(m[1][0]);
-	if ( rfPAngle < float(HALF_PI) )
+	if (rfPAngle < float(HALF_PI))
 	{
-		if ( rfPAngle > float(-HALF_PI) )
+		if (rfPAngle > float(-HALF_PI))
 		{
 			rfYAngle = atan2(-m[2][0],m[0][0]);
 			rfRAngle = atan2(-m[1][2],m[1][1]);
@@ -741,9 +841,9 @@ bool Mat3::to_euler_angles_zxy(float& rfYAngle, float& rfPAngle, float& rfRAngle
 	//       -cx*sy           sx              cx*cy
 
 	rfPAngle = asin(m[2][1]);
-	if ( rfPAngle < float(HALF_PI) )
+	if (rfPAngle < float(HALF_PI))
 	{
-		if ( rfPAngle > float(-HALF_PI) )
+		if (rfPAngle > float(-HALF_PI))
 		{
 			rfYAngle = atan2(-m[0][1],m[1][1]);
 			rfRAngle = atan2(-m[2][0],m[2][2]);
@@ -775,9 +875,9 @@ bool Mat3::to_euler_angles_zyx(float& rfYAngle, float& rfPAngle, float& rfRAngle
 	//       -sy              cy*sx           cx*cy
 
 	rfPAngle = asin(-m[2][0]);
-	if ( rfPAngle < float(HALF_PI) )
+	if (rfPAngle < float(HALF_PI))
 	{
-		if ( rfPAngle > float(-HALF_PI) )
+		if (rfPAngle > float(-HALF_PI))
 		{
 			rfYAngle = atan2(m[1][0],m[0][0]);
 			rfRAngle = atan2(m[2][1],m[2][2]);
@@ -933,7 +1033,7 @@ void Quat::from_rotation_matrix(const Mat3& kRot)
 	float fTrace = kRot[0][0]+kRot[1][1]+kRot[2][2];
 	float fRoot;
 
-	if ( fTrace > 0.0 )
+	if (fTrace > 0.0)
 	{
 		// |w| > 1/2, may as well choose w > 1/2
 		fRoot = sqrt(fTrace + 1.0f);  // 2w
@@ -948,9 +1048,9 @@ void Quat::from_rotation_matrix(const Mat3& kRot)
 		// |w| <= 1/2
 		static int s_iNext[3] = { 1, 2, 0 };
 		int i = 0;
-		if ( kRot[1][1] > kRot[0][0] )
+		if (kRot[1][1] > kRot[0][0])
 			i = 1;
-		if ( kRot[2][2] > kRot[i][i] )
+		if (kRot[2][2] > kRot[i][i])
 			i = 2;
 		int j = s_iNext[i];
 		int k = s_iNext[j];
@@ -998,7 +1098,7 @@ void Quat::from_angle_axis(const float& rfAngle, const Vec3& rkAxis)
 	// The Quat representing the rotation is
 	//   q = cos(A/2)+sin(A/2)*(x*i+y*j+z*k)
 
-	float fHalfAngle ( 0.5f*rfAngle );
+	float fHalfAngle (0.5f*rfAngle);
 	float fSin = sin(fHalfAngle);
 	w = cos(fHalfAngle);
 	x = fSin*rkAxis.x;
@@ -1012,7 +1112,7 @@ void Quat::to_angle_axis(float& rfAngle, Vec3& rkAxis) const
 	//   q = cos(A/2)+sin(A/2)*(x*i+y*j+z*k)
 
 	float fSqrLength = x*x+y*y+z*z;
-	if ( fSqrLength > 0.0f )
+	if (fSqrLength > 0.0f)
 	{
 		rfAngle = 2.0f*acos(w);
 		float fInvLength = 1.0f / sqrt(fSqrLength);
@@ -1194,7 +1294,7 @@ float Quat::length() const
 Quat Quat::inverse() const
 {
 	float fNorm = w*w+x*x+y*y+z*z;
-	if ( fNorm > 0.0 )
+	if (fNorm > 0.0)
 	{
 		float fInvNorm = 1.0f/fNorm;
 		return Quat(w*fInvNorm,-x*fInvNorm,-y*fInvNorm,-z*fInvNorm);
@@ -1218,7 +1318,7 @@ Quat Quat::exp() const
 	// exp(q) = cos(A)+sin(A)*(x*i+y*j+z*k).  If sin(A) is near zero,
 	// use exp(q) = cos(A)+A*(x*i+y*j+z*k) since A/sin(A) has limit 1.
 
-	float fAngle ( sqrt(x*x+y*y+z*z) );
+	float fAngle (sqrt(x*x+y*y+z*z));
 	float fSin = sin(fAngle);
 
 	Quat kResult;
@@ -1250,11 +1350,11 @@ Quat Quat::log() const
 	Quat kResult;
 	kResult.w = 0.0;
 
-	if ( fabs(w) < 1.0 )
+	if (fabs(w) < 1.0)
 	{
-		float fAngle ( acos(w) );
+		float fAngle (acos(w));
 		float fSin = sin(fAngle);
-		if ( fabs(fSin) >= epsilon )
+		if (fabs(fSin) >= epsilon)
 		{
 			float fCoeff = fAngle/fSin;
 			kResult.x = fCoeff*x;
@@ -1355,13 +1455,13 @@ Quat Quat::slerp(float amount, const Quat& quaternion1, const Quat& quaternion2)
 Quat Quat::slerp_extra_spins(float fT, const Quat& rkP, const Quat& rkQ, int iExtraSpins)
 {
 	float fCos = rkP.dot(rkQ);
-	float fAngle ( acos(fCos) );
+	float fAngle (acos(fCos));
 
 	if (fabs(fAngle) < epsilon)
 		return rkP;
 
 	float fSin = sin(fAngle);
-	float fPhase ( PI*iExtraSpins*fT );
+	float fPhase (PI*iExtraSpins*fT);
 	float fInvSin = 1.0f/fSin;
 	float fCoeff0 = sin((1.0f-fT)*fAngle - fPhase)*fInvSin;
 	float fCoeff1 = sin(fT*fAngle + fPhase)*fInvSin;
@@ -1431,7 +1531,7 @@ inline static float
 
 Mat4 Mat4::adjoint() const
 {
-	return Mat4( MINOR(*this, 1, 2, 3, 1, 2, 3),
+	return Mat4(MINOR(*this, 1, 2, 3, 1, 2, 3),
 		-MINOR(*this, 0, 2, 3, 1, 2, 3),
 		MINOR(*this, 0, 1, 3, 1, 2, 3),
 		-MINOR(*this, 0, 1, 2, 1, 2, 3),
@@ -1615,7 +1715,7 @@ void Mat4::decomposition(Vec3& position, Vec3& scale, Quat& orientation) const
 
 	Mat3 matQ;
 	Vec3 vecU;
-	m3x3.qdu_decomposition( matQ, scale, vecU ); 
+	m3x3.qdu_decomposition(matQ, scale, vecU); 
 
 	orientation = Quat(matQ);
 	position = Vec3(m[3][0], m[3][1], m[3][2]);

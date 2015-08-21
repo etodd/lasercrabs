@@ -2,7 +2,7 @@
 
 #include "data/entity.h"
 #include "data/components.h"
-#include "data/mesh.h"
+#include "data/import_common.h"
 #include "render.h"
 
 namespace VI

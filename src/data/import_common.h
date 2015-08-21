@@ -6,6 +6,8 @@
 #include "lmath.h"
 #include <array>
 
+struct cJSON;
+
 namespace VI
 {
 
@@ -20,6 +22,14 @@ enum RenderDataType
 	RenderDataType_Int,
 	RenderDataType_Mat4,
 	RenderDataType_Texture,
+};
+
+namespace Json
+{
+	cJSON* load(const char*);
+	void json_free(cJSON*);
+	Vec3 get_vec3(cJSON*);
+	Quat get_quat(cJSON*);
 };
 
 inline size_t render_data_type_size(RenderDataType type)

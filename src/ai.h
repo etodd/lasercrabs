@@ -2,18 +2,16 @@
 #include "types.h"
 #include "render/render.h"
 
-struct rcPolyMesh;
-
 namespace VI
 {
 
 struct AI
 {
-	static rcPolyMesh* nav_mesh;
-	static int render_mesh;
+	static AssetID render_mesh;
 	static bool render_mesh_dirty;
+	static Mesh* nav_mesh;
 	static void init();
-	static bool build_nav_mesh();
+	static void load_nav_mesh(AssetID);
 	static void draw(const RenderParams&);
 };
 

@@ -188,7 +188,8 @@ add_custom_command(
 
 add_executable(mkzebra
 	src/data/array.h
-	src/data/mesh.h
+	src/data/import_common.h
+	src/data/import_common.cpp
 	src/data/entity.h
 	src/data/entity.cpp
 	src/data/components.h
@@ -254,11 +255,12 @@ target_link_libraries(mkzebra
 	LinearMath
 	lodepng
 	cJSON
-	recast
 )
 add_dependencies(mkzebra assets)
 
 add_executable(import
+	src/data/import_common.h
+	src/data/import_common.cpp
 	src/data/array.h
 	src/types.h
 	src/lmath.h
@@ -272,6 +274,8 @@ target_link_libraries(import
 	SDL2main
 	GLEW_static
 	assimp
+	recast
+	cJSON
 )
 
 add_custom_target(

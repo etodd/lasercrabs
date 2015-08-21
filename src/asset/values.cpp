@@ -86,4 +86,13 @@ const char* AssetLookup::Level::values[] =
 };
 
 
+const char* AssetLookup::NavMesh::values[] =
+{
+	"assets/lvl/city1.nav",
+	"assets/lvl/city2.nav",
+	"assets/lvl/city3.nav",
+	"assets/lvl/city4.nav",
+};
+
+
 }

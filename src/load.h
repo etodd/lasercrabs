@@ -2,7 +2,7 @@
 
 #include "types.h"
 #include <GL/glew.h>
-#include "data/mesh.h"
+#include "data/import_common.h"
 #include "render/render.h"
 #include "cJSON.h"
 
@@ -32,6 +32,8 @@ struct Loader
 	static Array<Entry<void*> > shaders; // Nothing actually stored
 	static Array<Entry<Font> > fonts;
 	static Array<Entry<void*> > dynamic_meshes; // Nothing actually stored
+	static Mesh current_nav_mesh;
+	static AssetID current_nav_mesh_id;
 
 	static Mesh* mesh(AssetID);
 	static Mesh* mesh_permanent(AssetID);
@@ -66,6 +68,8 @@ struct Loader
 	static Font* font(AssetID);
 	static Font* font_permanent(AssetID);
 	static void font_free(AssetID);
+
+	static Mesh* nav_mesh(AssetID);
 
 	static cJSON* level(AssetID);
 	static void level_free(cJSON*);

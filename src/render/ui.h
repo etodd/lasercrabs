@@ -3,7 +3,6 @@
 #include "types.h"
 #include "lmath.h"
 #include "data/array.h"
-#include "data/mesh.h"
 #include "render.h"
 
 namespace VI

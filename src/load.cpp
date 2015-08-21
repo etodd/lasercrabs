@@ -18,13 +18,8 @@ Array<Loader::Entry<void*> > Loader::textures;
 Array<Loader::Entry<void*> > Loader::shaders;
 Array<Loader::Entry<Font> > Loader::fonts;
 Array<Loader::Entry<void*> > Loader::dynamic_meshes;
-
-void Loader::init(RenderSync::Swapper* s)
-{
-	swapper = s;
-	meshes.resize(Asset::Mesh::count);
-	dynamic_meshes = Array<Loader::Entry<void*> >();
-}
+Mesh Loader::current_nav_mesh;
+AssetID Loader::current_nav_mesh_id = AssetNull;
 
 struct Attrib
 {
@@ -33,76 +28,75 @@ struct Attrib
 	Array<char> data;
 };
 
-Mesh* Loader::mesh(AssetID id)
+void Loader::init(RenderSync::Swapper* s)
 {
-	if (id == AssetNull)
-		return 0;
+	swapper = s;
+	meshes.resize(Asset::Mesh::count);
+	dynamic_meshes = Array<Loader::Entry<void*> >();
+}
 
-	if (id >= meshes.length)
-		meshes.resize(id + 1);
-	if (meshes[id].type == AssetNone)
+bool load_mesh(RenderSync::Swapper* swapper, Mesh* mesh, Array<Attrib>& extra_attribs, const char* path, AssetID gl_id)
+{
+	FILE* f = fopen(path, "rb");
+	if (!f)
 	{
-		const char* path = AssetLookup::Mesh::values[id];
-		FILE* f = fopen(path, "rb");
-		if (!f)
-		{
-			fprintf(stderr, "Can't open mdl file '%s'\n", path);
-			return 0;
-		}
+		fprintf(stderr, "Can't open mdl file '%s'\n", path);
+		return false;
+	}
 
-		Mesh* mesh = &meshes[id].data;
-		new (mesh)Mesh();
+	new (mesh)Mesh();
 
-		// Read color
-		fread(&mesh->color, sizeof(Vec4), 1, f);
+	// Read color
+	fread(&mesh->color, sizeof(Vec4), 1, f);
 
-		// Read bounding box
-		fread(&mesh->bounds_min, sizeof(Vec3), 1, f);
-		fread(&mesh->bounds_max, sizeof(Vec3), 1, f);
+	// Read bounding box
+	fread(&mesh->bounds_min, sizeof(Vec3), 1, f);
+	fread(&mesh->bounds_max, sizeof(Vec3), 1, f);
 
-		// Read indices
-		int index_count;
-		fread(&index_count, sizeof(int), 1, f);
+	// Read indices
+	int index_count;
+	fread(&index_count, sizeof(int), 1, f);
 
-		// Fill face indices
-		mesh->indices.resize(index_count);
-		fread(mesh->indices.data, sizeof(int), index_count, f);
+	// Fill face indices
+	mesh->indices.resize(index_count);
+	fread(mesh->indices.data, sizeof(int), index_count, f);
 
-		int vertex_count;
-		fread(&vertex_count, sizeof(int), 1, f);
+	int vertex_count;
+	fread(&vertex_count, sizeof(int), 1, f);
 
-		// Fill vertices positions
-		mesh->vertices.resize(vertex_count);
-		fread(mesh->vertices.data, sizeof(Vec3), vertex_count, f);
+	// Fill vertices positions
+	mesh->vertices.resize(vertex_count);
+	fread(mesh->vertices.data, sizeof(Vec3), vertex_count, f);
 
-		// Fill vertices normals
-		mesh->normals.resize(vertex_count);
-		fread(mesh->normals.data, sizeof(Vec3), vertex_count, f);
+	// Fill vertices normals
+	mesh->normals.resize(vertex_count);
+	fread(mesh->normals.data, sizeof(Vec3), vertex_count, f);
 
-		int extra_attrib_count;
-		fread(&extra_attrib_count, sizeof(int), 1, f);
-		Array<Attrib> extra_attribs;
-		extra_attribs.resize(extra_attrib_count);
-		for (int i = 0; i < extra_attribs.length; i++)
-		{
-			Attrib& a = extra_attribs[i];
-			fread(&a.type, sizeof(RenderDataType), 1, f);
-			fread(&a.count, sizeof(int), 1, f);
-			a.data.resize(mesh->vertices.length * a.count * render_data_type_size(a.type));
-			fread(a.data.data, sizeof(char), a.data.length, f);
-		}
+	int extra_attrib_count;
+	fread(&extra_attrib_count, sizeof(int), 1, f);
+	extra_attribs.resize(extra_attrib_count);
+	for (int i = 0; i < extra_attribs.length; i++)
+	{
+		Attrib& a = extra_attribs[i];
+		fread(&a.type, sizeof(RenderDataType), 1, f);
+		fread(&a.count, sizeof(int), 1, f);
+		a.data.resize(mesh->vertices.length * a.count * render_data_type_size(a.type));
+		fread(a.data.data, sizeof(char), a.data.length, f);
+	}
 
-		int bone_count;
-		fread(&bone_count, sizeof(int), 1, f);
-		mesh->inverse_bind_pose.resize(bone_count);
-		fread(mesh->inverse_bind_pose.data, sizeof(Mat4), bone_count, f);
+	int bone_count;
+	fread(&bone_count, sizeof(int), 1, f);
+	mesh->inverse_bind_pose.resize(bone_count);
+	fread(mesh->inverse_bind_pose.data, sizeof(Mat4), bone_count, f);
 
-		fclose(f);
+	fclose(f);
 
+	if (gl_id != AssetNull)
+	{
 		// GL
 		SyncData* sync = swapper->get();
 		sync->write(RenderOp_AllocMesh);
-		sync->write<int>(id);
+		sync->write<int>(gl_id);
 
 		sync->write<int>(2 + extra_attribs.length); // Attribute count
 
@@ -120,7 +114,7 @@ Mesh* Loader::mesh(AssetID id)
 		}
 
 		sync->write(RenderOp_UpdateAttribBuffers);
-		sync->write<int>(id);
+		sync->write<int>(gl_id);
 
 		sync->write<int>(mesh->vertices.length);
 		sync->write(mesh->vertices.data, mesh->vertices.length);
@@ -133,9 +127,27 @@ Mesh* Loader::mesh(AssetID id)
 		}
 
 		sync->write(RenderOp_UpdateIndexBuffer);
-		sync->write<int>(id);
+		sync->write<int>(gl_id);
 		sync->write<int>(mesh->indices.length);
 		sync->write(mesh->indices.data, mesh->indices.length);
+	}
+	return true;
+}
+
+Mesh* Loader::mesh(AssetID id)
+{
+	if (id == AssetNull)
+		return 0;
+
+	if (id >= meshes.length)
+		meshes.resize(id + 1);
+	if (meshes[id].type == AssetNone)
+	{
+		const char* path = AssetLookup::Mesh::values[id];
+		Mesh& mesh = meshes[id].data;
+		Array<Attrib> extra_attribs;
+		if (!load_mesh(swapper, &mesh, extra_attribs, path, id))
+			return 0;
 
 		meshes[id].type = AssetTransient;
 	}
@@ -533,37 +545,41 @@ cJSON* Loader::level(AssetID id)
 	if (id == AssetNull)
 		return 0;
 	
-	const char* path = AssetLookup::Level::values[id];
-	FILE* f;
-	f = fopen(path, "rb");
-	if (!f)
-	{
-		fprintf(stderr, "Can't open lvl file '%s'\n", path);
-		return 0;
-	}
-	fseek(f, 0, SEEK_END);
-	long len = ftell(f);
-	fseek(f, 0, SEEK_SET);
-
-	char* data = (char*)malloc(len + 1);
-	fread(data, 1, len, f);
-	data[len] = '\0';
-	fclose(f);
-
-	cJSON* output = cJSON_Parse(data);
-	free(data);
-	return output;
+	return Json::load(AssetLookup::Level::values[id]);
 }
 
 void Loader::level_free(cJSON* json)
 {
-	cJSON_Delete(json);
+	Json::json_free(json);
+}
+
+Mesh* Loader::nav_mesh(AssetID id)
+{
+	vi_assert(current_nav_mesh_id == AssetNull || current_nav_mesh_id == id);
+
+	if (id == AssetNull)
+		return 0;
+	
+	if (current_nav_mesh_id == AssetNull)
+	{
+		const char* path = AssetLookup::NavMesh::values[id];
+		Array<Attrib> extra_attribs;
+		if (load_mesh(swapper, &current_nav_mesh, extra_attribs, path, AssetNull))
+			current_nav_mesh_id = id;
+		else
+			return 0;
+	}
+
+	return &current_nav_mesh;
 }
 
 void Loader::transients_free()
 {
-	// First entry in each array is empty
-	// That way ID 0 is invalid, and we don't have to do [id - 1] all the time
+	if (current_nav_mesh_id != AssetNull)
+	{
+		current_nav_mesh.~Mesh();
+		current_nav_mesh_id = AssetNull;
+	}
 
 	for (AssetID i = 0; i < meshes.length; i++)
 	{

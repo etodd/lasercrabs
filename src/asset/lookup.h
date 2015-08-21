@@ -45,6 +45,11 @@ namespace VI
 		{
 			static const char* values[];
 		};
+
+		struct NavMesh
+		{
+			static const char* values[];
+		};
 	}
 
 }

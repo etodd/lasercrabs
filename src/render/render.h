@@ -5,7 +5,7 @@
 #include "data/array.h"
 #include "lmath.h"
 #include "sync.h"
-#include "data/mesh.h"
+#include "data/import_common.h"
 #include "input.h"
 
 namespace VI

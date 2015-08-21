@@ -12,26 +12,32 @@ btDiscreteDynamicsWorld* Physics::btWorld = new btDiscreteDynamicsWorld(dispatch
 
 void Physics::update(Update u)
 {
+	sync_static();
 	btWorld->stepSimulation(u.time.delta > 0.1f ? 0.1f : u.time.delta, 0);
-	sync();
+	sync_dynamic();
 }
 
-void Physics::sync()
+void Physics::sync_static()
 {
 	for (auto i = World::components<RigidBody>().iterator(); !i.is_last(); i.next())
 	{
 		btRigidBody* body = i.item()->btBody;
-		if (body->isActive())
+		if (body->isActive() && body->isStaticOrKinematicObject())
 		{
-			if (body->isStaticOrKinematicObject())
-			{
-				btTransform transform;
-				i.item()->get<Transform>()->get_bullet(transform);
-				body->setWorldTransform(transform);
-			}
-			else
-				i.item()->get<Transform>()->set_bullet(body->getWorldTransform());
+			btTransform transform;
+			i.item()->get<Transform>()->get_bullet(transform);
+			body->setWorldTransform(transform);
 		}
+	}
+}
+
+void Physics::sync_dynamic()
+{
+	for (auto i = World::components<RigidBody>().iterator(); !i.is_last(); i.next())
+	{
+		btRigidBody* body = i.item()->btBody;
+		if (body->isActive() && !body->isStaticOrKinematicObject())
+			i.item()->get<Transform>()->set_bullet(body->getWorldTransform());
 	}
 }
 

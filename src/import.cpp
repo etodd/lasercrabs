@@ -14,8 +14,10 @@
 #undef main
 #include <cfloat>
 #include "Recast.h"
-#include "data/mesh.h"
+#include "data/import_common.h"
 #include <sstream>
+#include "Recast.h"
+#include "cJSON.h"
 
 namespace VI
 {
@@ -29,6 +31,7 @@ const char* font_in_extension_2 = ".otf"; // Must be same length
 const char* font_out_extension = ".fnt";
 
 const char* level_out_extension = ".lvl";
+const char* nav_mesh_out_extension = ".nav";
 const char* anim_out_extension = ".anm";
 const char* arm_out_extension = ".arm";
 const char* texture_extension = ".png";
@@ -39,7 +42,7 @@ const char* level_in_folder = "../assets/lvl/";
 const char* level_out_folder = "assets/lvl/";
 
 Quat import_rotation = Quat(PI * -0.5f, Vec3(1, 0, 0));
-const int version = 9;
+const int version = 10;
 
 template <typename T>
 T read(FILE* f)
@@ -517,6 +520,7 @@ struct Manifest
 	Map2<std::string> uniforms;
 	Map<std::string> fonts;
 	Map<std::string> levels;
+	Map<std::string> nav_meshes;
 
 	Manifest()
 		: meshes(),
@@ -527,7 +531,8 @@ struct Manifest
 		shaders(),
 		uniforms(),
 		fonts(),
-		levels()
+		levels(),
+		nav_meshes()
 	{
 
 	}
@@ -543,7 +548,8 @@ bool manifests_equal(const Manifest& a, const Manifest& b)
 		&& maps_equal(a.shaders, b.shaders)
 		&& maps_equal2(a.uniforms, b.uniforms)
 		&& maps_equal(a.fonts, b.fonts)
-		&& maps_equal(a.levels, b.levels);
+		&& maps_equal(a.levels, b.levels)
+		&& maps_equal(a.nav_meshes, b.nav_meshes);
 }
 
 bool manifest_read(const char* path, Manifest& manifest)
@@ -568,6 +574,7 @@ bool manifest_read(const char* path, Manifest& manifest)
 			map_read(f, manifest.uniforms);
 			map_read(f, manifest.fonts);
 			map_read(f, manifest.levels);
+			map_read(f, manifest.nav_meshes);
 			fclose(f);
 			return true;
 		}
@@ -594,6 +601,7 @@ bool manifest_write(Manifest& manifest, const char* path)
 	map_write(manifest.uniforms, f);
 	map_write(manifest.fonts, f);
 	map_write(manifest.levels, f);
+	map_write(manifest.nav_meshes, f);
 	fclose(f);
 	return true;
 }
@@ -923,13 +931,74 @@ const aiScene* load_blend(ImporterState& state, Assimp::Importer& importer, cons
 	return scene;
 }
 
-void import_meshes(ImporterState& state, const std::string& asset_in_path, const std::string& out_folder)
+bool write_mesh(
+	const Mesh* mesh,
+	const std::string& path,
+	const Array<Array<Vec2>>& uv_layers,
+	const Array<std::array<float, MAX_BONE_WEIGHTS> >& bone_weights,
+	const Array<std::array<int, MAX_BONE_WEIGHTS> >& bone_indices)
+{
+	FILE* f = fopen(path.c_str(), "w+b");
+	if (f)
+	{
+		fwrite(&mesh->color, sizeof(Vec4), 1, f);
+		fwrite(&mesh->bounds_min, sizeof(Vec3), 1, f);
+		fwrite(&mesh->bounds_max, sizeof(Vec3), 1, f);
+		fwrite(&mesh->indices.length, sizeof(int), 1, f);
+		fwrite(mesh->indices.data, sizeof(int), mesh->indices.length, f);
+		fwrite(&mesh->vertices.length, sizeof(int), 1, f);
+		fwrite(mesh->vertices.data, sizeof(Vec3), mesh->vertices.length, f);
+		fwrite(mesh->normals.data, sizeof(Vec3), mesh->vertices.length, f);
+		int num_extra_attribs = uv_layers.length + (mesh->inverse_bind_pose.length > 0 ? 2 : 0);
+		fwrite(&num_extra_attribs, sizeof(int), 1, f);
+		for (int i = 0; i < uv_layers.length; i++)
+		{
+			RenderDataType type = RenderDataType_Vec2;
+			fwrite(&type, sizeof(RenderDataType), 1, f);
+			int count = 1;
+			fwrite(&count, sizeof(int), 1, f);
+			fwrite(uv_layers[i].data, sizeof(Vec2), mesh->vertices.length, f);
+		}
+		if (mesh->inverse_bind_pose.length > 0)
+		{
+			RenderDataType type = RenderDataType_Int;
+			fwrite(&type, sizeof(RenderDataType), 1, f);
+			int count = MAX_BONE_WEIGHTS;
+			fwrite(&count, sizeof(int), 1, f);
+			fwrite(bone_indices.data, sizeof(int[MAX_BONE_WEIGHTS]), mesh->vertices.length, f);
+
+			type = RenderDataType_Float;
+			fwrite(&type, sizeof(RenderDataType), 1, f);
+			count = MAX_BONE_WEIGHTS;
+			fwrite(&count, sizeof(int), 1, f);
+			fwrite(bone_weights.data, sizeof(float[MAX_BONE_WEIGHTS]), mesh->vertices.length, f);
+		}
+		fwrite(&mesh->inverse_bind_pose.length, sizeof(int), 1, f);
+		if (mesh->inverse_bind_pose.length > 0)
+			fwrite(mesh->inverse_bind_pose.data, sizeof(Mat4), mesh->inverse_bind_pose.length, f);
+		fclose(f);
+		return true;
+	}
+	else
+		return false;
+}
+
+bool write_mesh(const Mesh* mesh, const std::string& path)
+{
+	Array<Array<Vec2>> uv_layers;
+	Array<std::array<float, MAX_BONE_WEIGHTS> > bone_weights;
+	Array<std::array<int, MAX_BONE_WEIGHTS> > bone_indices;
+	return write_mesh(mesh, path, uv_layers, bone_weights, bone_indices);
+}
+
+void import_meshes(ImporterState& state, const std::string& asset_in_path, const std::string& out_folder, Array<Mesh>& meshes, bool force_rebuild)
 {
 	std::string asset_name = get_asset_name(asset_in_path);
 	std::string asset_out_path = out_folder + asset_name + mesh_out_extension;
 
 	long long mtime = filemtime(asset_in_path);
-	if (state.rebuild
+	if (force_rebuild
+		|| state.rebuild
 		|| mtime > asset_mtime(state.cached_manifest.meshes, asset_name)
 		|| mtime > asset_mtime(state.cached_manifest.armatures, asset_name)
 		|| mtime > asset_mtime(state.cached_manifest.animations, asset_name))
@@ -947,24 +1016,24 @@ void import_meshes(ImporterState& state, const std::string& asset_in_path, const
 		for (int i = 0; i < scene->mNumMeshes; i++)
 		{
 			aiMesh* ai_mesh = scene->mMeshes[i];
-			Mesh mesh;
-			mesh.color = Vec4(1, 1, 1, 1);
+			Mesh* mesh = meshes.add();
+			mesh->color = Vec4(1, 1, 1, 1);
 			if (ai_mesh->mMaterialIndex < scene->mNumMaterials)
 			{
 				aiColor4D color;
 				if (scene->mMaterials[ai_mesh->mMaterialIndex]->Get(AI_MATKEY_COLOR_DIFFUSE, color) == AI_SUCCESS)
-					mesh.color = Vec4(color.r, color.g, color.b, color.a);
+					mesh->color = Vec4(color.r, color.g, color.b, color.a);
 			}
 			const aiNode* mesh_node = find_mesh_node(scene, scene->mRootNode, ai_mesh);
 			std::string mesh_name = get_mesh_name(scene, asset_name, ai_mesh, mesh_node);
 
-			if (load_mesh(ai_mesh, &mesh))
+			if (load_mesh(ai_mesh, mesh))
 			{
 				std::string mesh_out_filename = out_folder + mesh_name + mesh_out_extension;
 
 				map_add(state.manifest.meshes, asset_name, mesh_name, mesh_out_filename);
 
-				printf("%s Indices: %d Vertices: %d\n", mesh_name.c_str(), mesh.indices.length, mesh.vertices.length);
+				printf("%s Indices: %d Vertices: %d\n", mesh_name.c_str(), mesh->indices.length, mesh->vertices.length);
 
 				Array<Array<Vec2>> uv_layers;
 				for (int j = 0; j < 8; j++)
@@ -985,7 +1054,7 @@ void import_meshes(ImporterState& state, const std::string& asset_in_path, const
 				Array<std::array<int, MAX_BONE_WEIGHTS> > bone_indices;
 				if (i == 0)
 				{
-					if (!build_armature_skinned(scene, ai_mesh, mesh, armature, bone_map))
+					if (!build_armature_skinned(scene, ai_mesh, *mesh, armature, bone_map))
 					{
 						fprintf(stderr, "Error: failed to process armature for %s.\n", asset_in_path.c_str());
 						state.error = true;
@@ -1029,53 +1098,11 @@ void import_meshes(ImporterState& state, const std::string& asset_in_path, const
 					}
 				}
 
+				if (!write_mesh(mesh, mesh_out_filename, uv_layers, bone_weights, bone_indices))
 				{
-					FILE* f = fopen(mesh_out_filename.c_str(), "w+b");
-					if (f)
-					{
-						fwrite(&mesh.color, sizeof(Vec4), 1, f);
-						fwrite(&mesh.bounds_min, sizeof(Vec3), 1, f);
-						fwrite(&mesh.bounds_max, sizeof(Vec3), 1, f);
-						fwrite(&mesh.indices.length, sizeof(int), 1, f);
-						fwrite(mesh.indices.data, sizeof(int), mesh.indices.length, f);
-						fwrite(&mesh.vertices.length, sizeof(int), 1, f);
-						fwrite(mesh.vertices.data, sizeof(Vec3), mesh.vertices.length, f);
-						fwrite(mesh.normals.data, sizeof(Vec3), mesh.vertices.length, f);
-						int num_extra_attribs = uv_layers.length + (mesh.inverse_bind_pose.length > 0 ? 2 : 0);
-						fwrite(&num_extra_attribs, sizeof(int), 1, f);
-						for (int i = 0; i < uv_layers.length; i++)
-						{
-							RenderDataType type = RenderDataType_Vec2;
-							fwrite(&type, sizeof(RenderDataType), 1, f);
-							int count = 1;
-							fwrite(&count, sizeof(int), 1, f);
-							fwrite(uv_layers[i].data, sizeof(Vec2), mesh.vertices.length, f);
-						}
-						if (mesh.inverse_bind_pose.length > 0)
-						{
-							RenderDataType type = RenderDataType_Int;
-							fwrite(&type, sizeof(RenderDataType), 1, f);
-							int count = MAX_BONE_WEIGHTS;
-							fwrite(&count, sizeof(int), 1, f);
-							fwrite(bone_indices.data, sizeof(int[MAX_BONE_WEIGHTS]), mesh.vertices.length, f);
-
-							type = RenderDataType_Float;
-							fwrite(&type, sizeof(RenderDataType), 1, f);
-							count = MAX_BONE_WEIGHTS;
-							fwrite(&count, sizeof(int), 1, f);
-							fwrite(bone_weights.data, sizeof(float[MAX_BONE_WEIGHTS]), mesh.vertices.length, f);
-						}
-						fwrite(&mesh.inverse_bind_pose.length, sizeof(int), 1, f);
-						if (mesh.inverse_bind_pose.length > 0)
-							fwrite(mesh.inverse_bind_pose.data, sizeof(Mat4), mesh.inverse_bind_pose.length, f);
-						fclose(f);
-					}
-					else
-					{
-						fprintf(stderr, "Error: failed to open %s for writing.\n", mesh_out_filename.c_str());
-						state.error = true;
-						return;
-					}
+					fprintf(stderr, "Error: failed to write mesh file %s.\n", mesh_out_filename.c_str());
+					state.error = true;
+					return;
 				}
 				
 				if (armature.hierarchy.length > 0)
@@ -1160,21 +1187,178 @@ void import_meshes(ImporterState& state, const std::string& asset_in_path, const
 	}
 }
 
+bool build_nav_mesh(const Mesh& input, Mesh& output)
+{
+	const float agent_height = 2.0f;
+	const float agent_max_climb = 0.9f;
+	const float agent_radius = 0.6f;
+	const float edge_max_length = 12.0f;
+	const float min_region_size = 8.0f;
+	const float merged_region_size = 20.0f;
+	const float detail_sample_distance = 6.0f;
+	const float detail_sample_max_error = 1.0f;
+
+	rcConfig cfg;
+	memset(&cfg, 0, sizeof(cfg));
+	cfg.cs = 0.2f;
+	cfg.ch = 0.2f;
+	cfg.walkableSlopeAngle = 45.0f;
+	cfg.walkableHeight = (int)ceilf(agent_height / cfg.ch);
+	cfg.walkableClimb = (int)floorf(agent_max_climb / cfg.ch);
+	cfg.walkableRadius = (int)ceilf(agent_radius / cfg.cs);
+	cfg.maxEdgeLen = (int)(edge_max_length / cfg.cs);
+	cfg.maxSimplificationError = 2;
+	cfg.minRegionArea = (int)rcSqr(min_region_size);		// Note: area = size*size
+	cfg.mergeRegionArea = (int)rcSqr(merged_region_size);	// Note: area = size*size
+	cfg.maxVertsPerPoly = 6;
+	cfg.detailSampleDist = detail_sample_distance < 0.9f ? 0 : cfg.cs * detail_sample_distance;
+	cfg.detailSampleMaxError = cfg.ch * detail_sample_max_error;
+
+	output.bounds_min = input.bounds_min;
+	output.bounds_max = input.bounds_max;
+	rcVcopy(cfg.bmin, (float*)&input.bounds_min);
+	rcVcopy(cfg.bmax, (float*)&input.bounds_max);
+	rcCalcGridSize(cfg.bmin, cfg.bmax, cfg.cs, &cfg.width, &cfg.height);
+
+	rcContext ctx(false);
+
+	rcHeightfield* heightfield = rcAllocHeightfield();
+	if (!heightfield)
+		return false;
+
+	if (!rcCreateHeightfield(&ctx, *heightfield, cfg.width, cfg.height, cfg.bmin, cfg.bmax, cfg.cs, cfg.ch))
+		return false;
+
+	// Rasterize input polygon soup.
+	// Find triangles which are walkable based on their slope and rasterize them.
+	{
+		Array<unsigned char> tri_areas(input.indices.length / 3, input.indices.length / 3);
+		rcMarkWalkableTriangles(&ctx, cfg.walkableSlopeAngle, (float*)input.vertices.data, input.vertices.length, input.indices.data, input.indices.length / 3, tri_areas.data);
+		rcRasterizeTriangles(&ctx, (float*)input.vertices.data, input.vertices.length, input.indices.data, tri_areas.data, input.indices.length / 3, *heightfield, cfg.walkableClimb);
+	}
+
+	// Once all geoemtry is rasterized, we do initial pass of filtering to
+	// remove unwanted overhangs caused by the conservative rasterization
+	// as well as filter spans where the character cannot possibly stand.
+	rcFilterLowHangingWalkableObstacles(&ctx, cfg.walkableClimb, *heightfield);
+	rcFilterLedgeSpans(&ctx, cfg.walkableHeight, cfg.walkableClimb, *heightfield);
+	rcFilterWalkableLowHeightSpans(&ctx, cfg.walkableHeight, *heightfield);
+
+	// Partition walkable surface to simple regions.
+
+	// Compact the heightfield so that it is faster to handle from now on.
+	rcCompactHeightfield* compact_heightfield = rcAllocCompactHeightfield();
+	if (!compact_heightfield)
+		return false;
+	if (!rcBuildCompactHeightfield(&ctx, cfg.walkableHeight, cfg.walkableClimb, *heightfield, *compact_heightfield))
+		return false;
+	rcFreeHeightField(heightfield);
+
+	// Erode the walkable area by agent radius.
+	if (!rcErodeWalkableArea(&ctx, cfg.walkableRadius, *compact_heightfield))
+		return false;
+
+	// Prepare for region partitioning, by calculating distance field along the walkable surface.
+	if (!rcBuildDistanceField(&ctx, *compact_heightfield))
+		return false;
+	
+	// Partition the walkable surface into simple regions without holes.
+	if (!rcBuildRegions(&ctx, *compact_heightfield, 0, cfg.minRegionArea, cfg.mergeRegionArea))
+		return false;
+
+	// Trace and simplify region contours.
+	
+	// Create contours.
+	rcContourSet* contour_set = rcAllocContourSet();
+	if (!contour_set)
+		return false;
+
+	if (!rcBuildContours(&ctx, *compact_heightfield, cfg.maxSimplificationError, cfg.maxEdgeLen, *contour_set))
+		return false;
+	
+	// Build polygon navmesh from the contours.
+	rcPolyMesh* nav_mesh = rcAllocPolyMesh();
+	if (!nav_mesh)
+		return false;
+
+	if (!rcBuildPolyMesh(&ctx, *contour_set, cfg.maxVertsPerPoly, *nav_mesh))
+		return false;
+
+	rcFreeCompactHeightfield(compact_heightfield);
+	rcFreeContourSet(contour_set);
+
+	// Convert polygon navmesh to triangle mesh
+
+	const float* mesh_origin = nav_mesh->bmin;
+
+	output.vertices.reserve(nav_mesh->nverts);
+	for (int i = 0; i < nav_mesh->nverts; i++)
+	{
+		const unsigned short* v = &nav_mesh->verts[i * 3];
+		Vec3 vertex;
+		vertex.x = mesh_origin[0] + v[0] * nav_mesh->cs;
+		vertex.y = mesh_origin[1] + (v[1] + 1) * nav_mesh->ch;
+		vertex.z = mesh_origin[2] + v[2] * nav_mesh->cs;
+		output.vertices.add(vertex);
+	}
+
+	int num_triangles = 0;
+	for (int i = 0; i < nav_mesh->npolys; ++i)
+	{
+		const unsigned short* poly = &nav_mesh->polys[i * nav_mesh->nvp * 2];
+		for (int j = 2; j < nav_mesh->nvp; ++j)
+		{
+			if (poly[j] == RC_MESH_NULL_IDX)
+				break;
+			num_triangles++;
+		}
+	}
+
+	output.indices.reserve(num_triangles * 3);
+	for (int i = 0; i < nav_mesh->npolys; ++i)
+	{
+		const unsigned short* poly = &nav_mesh->polys[i * nav_mesh->nvp * 2];
+		
+		for (int j = 2; j < nav_mesh->nvp; ++j)
+		{
+			if (poly[j] == RC_MESH_NULL_IDX)
+				break;
+			output.indices.add(poly[0]);
+			output.indices.add(poly[j - 1]);
+			output.indices.add(poly[j]);
+		}
+	}
+
+	// Allocate space for the normals, but just leave them all zeroes.
+	output.normals.resize(output.vertices.length);
+
+	rcFreePolyMesh(nav_mesh);
+
+	return true;
+}
+
 void import_level(ImporterState& state, const std::string& asset_in_path, const std::string& out_folder)
 {
-	import_meshes(state, asset_in_path, out_folder);
+	std::string asset_name = get_asset_name(asset_in_path);
+	std::string asset_out_path = out_folder + asset_name + level_out_extension;
+	std::string nav_mesh_out_path = out_folder + asset_name + nav_mesh_out_extension;
+
+	long long mtime = filemtime(asset_in_path);
+	bool rebuild = state.rebuild
+		|| mtime > asset_mtime(state.cached_manifest.levels, asset_name)
+		|| mtime > asset_mtime(state.cached_manifest.nav_meshes, asset_name);
+
+	Array<Mesh> meshes;
+	import_meshes(state, asset_in_path, out_folder, meshes, rebuild);
 	if (state.error)
 		return;
 
-	std::string asset_name = get_asset_name(asset_in_path);
-	std::string asset_out_path = out_folder + asset_name + level_out_extension;
-
 	map_add(state.manifest.levels, asset_name, asset_out_path);
+	map_add(state.manifest.nav_meshes, asset_name, nav_mesh_out_path);
 
-	long long mtime = filemtime(asset_in_path);
-	if (state.rebuild
-		|| mtime > asset_mtime(state.cached_manifest.levels, asset_name))
+	if (rebuild)
 	{
+		printf("%s\n", asset_out_path.c_str());
 		std::ostringstream cmdbuilder;
 		cmdbuilder << "blender " << asset_in_path;
 		cmdbuilder << " --background --factory-startup --python " << asset_in_folder << "blend_to_lvl.py -- ";
@@ -1185,6 +1369,105 @@ void import_level(ImporterState& state, const std::string& asset_in_path, const 
 		{
 			fprintf(stderr, "Error: failed to export %s to lvl.\n", asset_in_path.c_str());
 			fprintf(stderr, "Command: %s.\n", cmd.c_str());
+			state.error = true;
+			return;
+		}
+
+		printf("%s\n", nav_mesh_out_path.c_str());
+
+		// Parse the scene graph and bake the nav mesh
+		cJSON* json = Json::load(asset_out_path.c_str());
+
+		Mesh nav_mesh_input;
+		nav_mesh_input.bounds_min = Vec3(FLT_MAX, FLT_MAX, FLT_MAX);
+		nav_mesh_input.bounds_max = Vec3(FLT_MIN, FLT_MIN, FLT_MIN);
+		int current_index = 0;
+
+		Array<Mat4> transforms;
+		cJSON* element = json->child;
+		while (element)
+		{
+			Vec3 pos = Json::get_vec3(cJSON_GetObjectItem(element, "pos"));
+			Quat rot = Json::get_quat(cJSON_GetObjectItem(element, "rot"));
+			Mat4 mat;
+			mat.make_transform(pos, Vec3(1, 1, 1), rot);
+
+			int parent = cJSON_GetObjectItem(element, "parent")->valueint;
+			if (parent != -1)
+				mat = transforms[parent] * mat;
+
+			if (cJSON_GetObjectItem(element, "StaticGeom"))
+			{
+				cJSON* mesh_refs = cJSON_GetObjectItem(element, "meshes");
+				cJSON* mesh_ref_json = mesh_refs->child;
+				while (mesh_ref_json)
+				{
+					int mesh_ref = mesh_ref_json->valueint;
+					Mesh& mesh = meshes[mesh_ref];
+
+					Vec3 min = mesh.bounds_min;
+					Vec3 max = mesh.bounds_max;
+
+					Vec4 corners[] =
+					{
+						mat * Vec4(min.x, min.y, min.z, 1),
+						mat * Vec4(min.x, min.y, max.z, 1),
+						mat * Vec4(min.x, max.y, min.z, 1),
+						mat * Vec4(min.x, max.y, max.z, 1),
+						mat * Vec4(max.x, min.y, min.z, 1),
+						mat * Vec4(max.x, min.y, max.z, 1),
+						mat * Vec4(max.x, max.y, min.z, 1),
+						mat * Vec4(max.x, max.y, max.z, 1),
+					};
+
+					for (int i = 0; i < 8; i++)
+					{
+						nav_mesh_input.bounds_min.x = fmin(corners[i].x, nav_mesh_input.bounds_min.x);
+						nav_mesh_input.bounds_min.y = fmin(corners[i].y, nav_mesh_input.bounds_min.y);
+						nav_mesh_input.bounds_min.z = fmin(corners[i].z, nav_mesh_input.bounds_min.z);
+						nav_mesh_input.bounds_max.x = fmax(corners[i].x, nav_mesh_input.bounds_max.x);
+						nav_mesh_input.bounds_max.y = fmax(corners[i].y, nav_mesh_input.bounds_max.y);
+						nav_mesh_input.bounds_max.z = fmax(corners[i].z, nav_mesh_input.bounds_max.z);
+					}
+
+					nav_mesh_input.vertices.reserve(nav_mesh_input.vertices.length + mesh.vertices.length);
+					nav_mesh_input.indices.reserve(nav_mesh_input.indices.length + mesh.indices.length);
+
+					for (int i = 0; i < mesh.vertices.length; i++)
+					{
+						Vec3 v = mesh.vertices[i];
+						Vec4 v2 = mat * Vec4(v.x, v.y, v.z, 1);
+						nav_mesh_input.vertices.add(Vec3(v2.x, v2.y, v2.z));
+					}
+					for (int i = 0; i < mesh.indices.length; i++)
+						nav_mesh_input.indices.add(current_index + mesh.indices[i]);
+					current_index = nav_mesh_input.vertices.length;
+
+					mesh_ref_json = mesh_ref_json->next;
+				}
+			}
+
+			transforms.add(mat);
+
+			element = element->next;
+		}
+
+		Json::json_free(json);
+
+		Mesh nav_mesh_output;
+		if (nav_mesh_input.vertices.length > 0)
+		{
+			if (!build_nav_mesh(nav_mesh_input, nav_mesh_output))
+			{
+				fprintf(stderr, "Error: nav mesh generation failed for file %s.\n", asset_in_path.c_str());
+				state.error = true;
+				return;
+			}
+		}
+
+		if (!write_mesh(&nav_mesh_output, nav_mesh_out_path))
+		{
+			fprintf(stderr, "Error: failed to write mesh file %s.\n", nav_mesh_out_path.c_str());
 			state.error = true;
 			return;
 		}
@@ -1527,7 +1810,10 @@ int proc(int argc, char* argv[])
 			else if (has_extension(asset_in_path, shader_extension))
 				import_shader(state, asset_in_path, asset_out_folder);
 			else if (has_extension(asset_in_path, model_in_extension))
-				import_meshes(state, asset_in_path, asset_out_folder);
+			{
+				Array<Mesh> meshes;
+				import_meshes(state, asset_in_path, asset_out_folder, meshes, false);
+			}
 			else if (has_extension(asset_in_path, font_in_extension) || has_extension(asset_in_path, font_in_extension_2))
 				import_font(state, asset_in_path, asset_out_folder);
 			if (state.error)
@@ -1612,7 +1898,7 @@ int proc(int argc, char* argv[])
 			for (auto level : state.manifest.levels)
 			{
 				fprintf(f, "\t\t{\n");
-				Map<std::string>& meshes = state.manifest.meshes[level.first];
+				Map<std::string>& meshes = map_get(state.manifest.meshes, level.first);
 				for (auto mesh : meshes)
 				{
 					int mesh_asset_id = flattened_model_indices[mesh.first];
@@ -1704,6 +1990,7 @@ int proc(int argc, char* argv[])
 				return exit_error();
 
 			write_asset_header(f, "Level", state.manifest.levels);
+			// No need to write nav meshes. There's always one nav mesh per level.
 
 			close_asset_header(f);
 		}
@@ -1733,6 +2020,7 @@ int proc(int argc, char* argv[])
 			write_asset_source(f, "Uniform", flattened_uniforms);
 			write_asset_source(f, "Font", state.manifest.fonts);
 			write_asset_source(f, "Level", state.manifest.levels);
+			write_asset_source(f, "NavMesh", state.manifest.nav_meshes);
 
 			fprintf(f, "\n}");
 			fclose(f);

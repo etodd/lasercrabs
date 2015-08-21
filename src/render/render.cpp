@@ -1,6 +1,5 @@
 #include "render.h"
 #include "load.h"
-#include "data/mesh.h"
 #include "vi_assert.h"
 #include "asset/lookup.h"
 

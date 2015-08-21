@@ -2,7 +2,7 @@
 
 #include "entity.h"
 #include "components.h"
-#include "mesh.h"
+#include "import_common.h"
 
 namespace VI
 {

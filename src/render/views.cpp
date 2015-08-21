@@ -1,7 +1,6 @@
 #include "views.h"
 #include "load.h"
 #include "asset/shader.h"
-#include "asset/mesh.h"
 
 namespace VI
 {
@@ -27,7 +26,7 @@ void View::draw(const RenderParams& params)
 	m = offset * m;
 	Mat4 mvp = m * params.view_projection;
 
-	sync->write<int>(texture == AssetNull ? 3 : 4); // Uniform count
+	sync->write<int>(texture == AssetNull ? 4 : 5); // Uniform count
 
 	sync->write(Asset::Uniform::mvp);
 	sync->write(RenderDataType_Mat4);
@@ -43,6 +42,11 @@ void View::draw(const RenderParams& params)
 	sync->write(RenderDataType_Vec4);
 	sync->write<int>(1);
 	sync->write(&color);
+
+	sync->write(Asset::Uniform::light_position);
+	sync->write(RenderDataType_Vec3);
+	sync->write<int>(1);
+	sync->write(&params.camera_pos);
 
 	if (texture != AssetNull)
 	{
@@ -63,11 +67,24 @@ void View::awake()
 }
 
 AssetID Skybox::texture = AssetNull;
+AssetID Skybox::mesh = AssetNull;
+AssetID Skybox::shader = AssetNull;
 Vec4 Skybox::color = Vec4(1, 1, 1, 1);
 
-void Skybox::set(const Vec4& c, const AssetID& t)
+void Skybox::set(const Vec4& c, const AssetID& s, const AssetID& m, const AssetID& t)
 {
 	color = c;
+
+	if (shader != AssetNull)
+		Loader::shader_free(shader);
+	shader = s;
+	Loader::shader(s);
+
+	if (mesh != AssetNull)
+		Loader::mesh_free(mesh);
+	mesh = m;
+	Loader::mesh(m);
+
 	if (texture != AssetNull)
 		Loader::texture_free(texture);
 	texture = t;
@@ -76,8 +93,8 @@ void Skybox::set(const Vec4& c, const AssetID& t)
 
 void Skybox::draw(const RenderParams& p)
 {
-	Loader::mesh(Asset::Mesh::skybox);
-	Loader::shader(Asset::Shader::flat_texture);
+	Loader::shader(shader);
+	Loader::mesh(mesh);
 	Loader::texture(texture);
 
 	SyncData* sync = p.sync;
@@ -90,8 +107,8 @@ void Skybox::draw(const RenderParams& p)
 	sync->write<bool>(false);
 
 	sync->write(RenderOp_Mesh);
-	sync->write(Asset::Mesh::skybox);
-	sync->write(Asset::Shader::flat_texture);
+	sync->write(mesh);
+	sync->write(shader);
 
 	sync->write<int>(3); // Uniform count
 

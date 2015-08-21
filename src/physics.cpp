@@ -13,6 +13,11 @@ btDiscreteDynamicsWorld* Physics::btWorld = new btDiscreteDynamicsWorld(dispatch
 void Physics::update(Update u)
 {
 	btWorld->stepSimulation(u.time.delta > 0.1f ? 0.1f : u.time.delta, 0);
+	sync();
+}
+
+void Physics::sync()
+{
 	for (auto i = World::components<RigidBody>().iterator(); !i.is_last(); i.next())
 	{
 		btRigidBody* body = i.item()->btBody;

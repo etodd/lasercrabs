@@ -23,7 +23,9 @@ struct Skybox
 {
 	static Vec4 color;
 	static AssetID texture;
-	static void set(const Vec4&, const AssetID&);
+	static AssetID mesh;
+	static AssetID shader;
+	static void set(const Vec4&, const AssetID&, const AssetID&, const AssetID&);
 	static void draw(const RenderParams&);
 };
 

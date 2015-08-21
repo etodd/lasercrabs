@@ -6,8 +6,6 @@
 #include "asset/shader.h"
 #include "asset/mesh.h"
 
-#include <BulletCollision/CollisionShapes/btTriangleIndexVertexArray.h>
-
 namespace VI
 {
 
@@ -47,7 +45,8 @@ void StaticGeom::init(AssetID mesh_id, btTriangleIndexVertexArray** mesh_data, b
 	Mesh* mesh = Loader::mesh(model->mesh);
 
 	*mesh_data = new btTriangleIndexVertexArray(mesh->indices.length / 3, mesh->indices.data, 3 * sizeof(int), mesh->vertices.length, (btScalar*)mesh->vertices.data, sizeof(Vec3));
-	*shape = new btBvhTriangleMeshShape(*mesh_data, true, btVector3(-1000, -1000, -1000), btVector3(1000, 1000, 1000));
+	*shape = new btBvhTriangleMeshShape(*mesh_data, true, mesh->bounds_min, mesh->bounds_max);
+	(*shape)->setUserIndex(model->mesh);
 }
 
 StaticGeom::StaticGeom(ID id, AssetID mesh_id)

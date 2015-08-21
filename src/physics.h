@@ -25,6 +25,7 @@ struct Physics
     static btSequentialImpulseConstraintSolver* solver;
     static btDiscreteDynamicsWorld* btWorld;
     static void update(Update);
+    static void sync();
 };
 
 struct RigidBody : public ComponentType<RigidBody>

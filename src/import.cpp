@@ -39,7 +39,7 @@ const char* level_in_folder = "../assets/lvl/";
 const char* level_out_folder = "assets/lvl/";
 
 Quat import_rotation = Quat(PI * -0.5f, Vec3(1, 0, 0));
-const int version = 8;
+const int version = 9;
 
 template <typename T>
 T read(FILE* f)
@@ -738,12 +738,20 @@ const aiScene* load_fbx(Assimp::Importer& importer, const std::string& path)
 
 bool load_mesh(const aiMesh* mesh, Mesh* out)
 {
+	out->bounds_min = Vec3(FLT_MAX, FLT_MAX, FLT_MAX);
+	out->bounds_max = Vec3(FLT_MIN, FLT_MIN, FLT_MIN);
 	// Fill vertices positions
 	out->vertices.reserve(mesh->mNumVertices);
 	for (unsigned int i = 0; i < mesh->mNumVertices; i++)
 	{
 		aiVector3D pos = mesh->mVertices[i];
 		Vec3 v = Vec3(pos.y, pos.z, pos.x);
+		out->bounds_min.x = fmin(v.x, out->bounds_min.x);
+		out->bounds_min.y = fmin(v.y, out->bounds_min.y);
+		out->bounds_min.z = fmin(v.z, out->bounds_min.z);
+		out->bounds_max.x = fmax(v.x, out->bounds_max.x);
+		out->bounds_max.y = fmax(v.y, out->bounds_max.y);
+		out->bounds_max.z = fmax(v.z, out->bounds_max.z);
 		out->vertices.add(v);
 	}
 
@@ -1026,6 +1034,8 @@ void import_meshes(ImporterState& state, const std::string& asset_in_path, const
 					if (f)
 					{
 						fwrite(&mesh.color, sizeof(Vec4), 1, f);
+						fwrite(&mesh.bounds_min, sizeof(Vec3), 1, f);
+						fwrite(&mesh.bounds_max, sizeof(Vec3), 1, f);
 						fwrite(&mesh.indices.length, sizeof(int), 1, f);
 						fwrite(mesh.indices.data, sizeof(int), mesh.indices.length, f);
 						fwrite(&mesh.vertices.length, sizeof(int), 1, f);

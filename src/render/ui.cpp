@@ -216,18 +216,18 @@ bool UI::project(const RenderParams& p, const Vec3& v, Vec2& out)
 	return projected.z > -projected.w && projected.z < projected.w;
 }
 
+void UI::init()
+{
+	mesh = Loader::dynamic_mesh_permanent(2);
+	Loader::dynamic_mesh_attrib(RenderDataType_Vec3);
+	Loader::dynamic_mesh_attrib(RenderDataType_Vec4);
+	Loader::shader_permanent(Asset::Shader::UI);
+}
+
 void UI::draw(const RenderParams& p)
 {
 	if (indices.length > 0)
 	{
-		if (mesh == AssetNull)
-		{
-			mesh = Loader::dynamic_mesh_permanent(2);
-			Loader::dynamic_mesh_attrib(RenderDataType_Vec3);
-			Loader::dynamic_mesh_attrib(RenderDataType_Vec4);
-			Loader::shader_permanent(Asset::Shader::UI);
-		}
-
 		p.sync->write(RenderOp_UpdateAttribBuffers);
 		p.sync->write(mesh);
 		p.sync->write<int>(vertices.length);

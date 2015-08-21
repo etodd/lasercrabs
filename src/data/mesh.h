@@ -70,6 +70,8 @@ struct Mesh
 	Array<Vec3> normals;
 	Array<Mat4> inverse_bind_pose;
 	Armature armature;
+	Vec3 bounds_min;
+	Vec3 bounds_max;
 	Vec4 color;
 	void reset()
 	{

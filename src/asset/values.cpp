@@ -51,6 +51,7 @@ const char* AssetLookup::Shader::values[] =
 	"assets/Armature.glsl",
 	"assets/Standard.glsl",
 	"assets/UI.glsl",
+	"assets/flat.glsl",
 	"assets/flat_texture.glsl",
 };
 

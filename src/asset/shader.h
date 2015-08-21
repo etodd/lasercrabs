@@ -21,11 +21,12 @@ namespace Asset
 	}
 	namespace Shader
 	{
-		const int count = 4;
+		const int count = 5;
 		const AssetID Armature = 0;
 		const AssetID Standard = 1;
 		const AssetID UI = 2;
-		const AssetID flat_texture = 3;
+		const AssetID flat = 3;
+		const AssetID flat_texture = 4;
 	}
 }
 

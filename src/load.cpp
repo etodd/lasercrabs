@@ -56,6 +56,10 @@ Mesh* Loader::mesh(AssetID id)
 		// Read color
 		fread(&mesh->color, sizeof(Vec4), 1, f);
 
+		// Read bounding box
+		fread(&mesh->bounds_min, sizeof(Vec3), 1, f);
+		fread(&mesh->bounds_max, sizeof(Vec3), 1, f);
+
 		// Read indices
 		int index_count;
 		fread(&index_count, sizeof(int), 1, f);

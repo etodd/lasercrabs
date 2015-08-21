@@ -152,6 +152,9 @@ add_library(lodepng STATIC external/lodepng/lodepng.cpp)
 
 ## Recast
 add_library(recast STATIC
+	external/recast/Recast/Include/RecastAlloc.h
+	external/recast/Recast/Include/Recast.h
+	external/recast/Recast/Include/RecastAssert.h
 	external/recast/Recast/Source/Recast.cpp
 	external/recast/Recast/Source/RecastAlloc.cpp
 	external/recast/Recast/Source/RecastArea.cpp
@@ -224,6 +227,8 @@ add_executable(mkzebra
 	src/lmath.cpp
 	src/main.h
 	src/main.cpp
+	src/ai.h
+	src/ai.cpp
 	${GAME_SRC_FILES}
 	external/sdl_controllers/gamecontrollerdb.txt
 )
@@ -249,6 +254,7 @@ target_link_libraries(mkzebra
 	LinearMath
 	lodepng
 	cJSON
+	recast
 )
 add_dependencies(mkzebra assets)
 
@@ -266,7 +272,6 @@ target_link_libraries(import
 	SDL2main
 	GLEW_static
 	assimp
-	recast
 )
 
 add_custom_target(

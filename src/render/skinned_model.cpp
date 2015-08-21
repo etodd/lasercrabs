@@ -26,7 +26,7 @@ void SkinnedModel::draw(const RenderParams& params)
 	sync->write(&shader);
 	Mat4 mvp = m * params.view_projection;
 
-	sync->write<int>(5); // Uniform count
+	sync->write<int>(6); // Uniform count
 
 	sync->write(Asset::Uniform::mvp);
 	sync->write(RenderDataType_Mat4);
@@ -59,6 +59,11 @@ void SkinnedModel::draw(const RenderParams& params)
 	sync->write(RenderDataType_Vec4);
 	sync->write<int>(1);
 	sync->write(&color);
+
+	sync->write(Asset::Uniform::light_position);
+	sync->write(RenderDataType_Vec3);
+	sync->write<int>(1);
+	sync->write(&params.camera_pos);
 
 	/*
 	// Debug

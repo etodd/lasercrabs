@@ -5,6 +5,8 @@
 #include "load.h"
 #include "physics.h"
 
+#include <BulletCollision/CollisionShapes/btBvhTriangleMeshShape.h>
+
 namespace VI
 {
 

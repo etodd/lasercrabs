@@ -139,6 +139,13 @@ T& map_get(Map<T>& map, const std::string& key)
 }
 
 template<typename T>
+T& map_get(Map2<T>& map, const std::string& key, const std::string& key2)
+{
+	Map<T>& map2 = map[key];
+	return map2[key2];
+}
+
+template<typename T>
 int map_key_to_index(const Map<T>& map, const std::string& key)
 {
 	int index = 0;
@@ -991,7 +998,7 @@ bool write_mesh(const Mesh* mesh, const std::string& path)
 	return write_mesh(mesh, path, uv_layers, bone_weights, bone_indices);
 }
 
-void import_meshes(ImporterState& state, const std::string& asset_in_path, const std::string& out_folder, Array<Mesh>& meshes, bool force_rebuild)
+bool import_meshes(ImporterState& state, const std::string& asset_in_path, const std::string& out_folder, Array<Mesh>& meshes, bool force_rebuild)
 {
 	std::string asset_name = get_asset_name(asset_in_path);
 	std::string asset_out_path = out_folder + asset_name + mesh_out_extension;
@@ -1013,9 +1020,28 @@ void import_meshes(ImporterState& state, const std::string& asset_in_path, const
 		Map<int> bone_map;
 		Armature armature;
 
+		meshes.reserve(scene->mNumMeshes);
+
+		// This nonsense is so that the meshes are added in alphabetical order
+		// Same order as they are stored in the manifest.
+		Map<int> mesh_indices;
 		for (int i = 0; i < scene->mNumMeshes; i++)
 		{
 			aiMesh* ai_mesh = scene->mMeshes[i];
+			const aiNode* mesh_node = find_mesh_node(scene, scene->mRootNode, ai_mesh);
+			std::string mesh_name = get_mesh_name(scene, asset_name, ai_mesh, mesh_node);
+			std::string mesh_out_filename = out_folder + mesh_name + mesh_out_extension;
+			map_add(state.manifest.meshes, asset_name, mesh_name, mesh_out_filename);
+			map_add(mesh_indices, mesh_name, i);
+		}
+
+		for (auto mesh_entry : mesh_indices)
+		{
+			const std::string& mesh_name = mesh_entry.first;
+			int mesh_index = mesh_entry.second;
+			const std::string& mesh_out_filename = map_get(state.manifest.meshes, asset_name, mesh_name);
+
+			aiMesh* ai_mesh = scene->mMeshes[mesh_index];
 			Mesh* mesh = meshes.add();
 			mesh->color = Vec4(1, 1, 1, 1);
 			if (ai_mesh->mMaterialIndex < scene->mNumMaterials)
@@ -1024,15 +1050,9 @@ void import_meshes(ImporterState& state, const std::string& asset_in_path, const
 				if (scene->mMaterials[ai_mesh->mMaterialIndex]->Get(AI_MATKEY_COLOR_DIFFUSE, color) == AI_SUCCESS)
 					mesh->color = Vec4(color.r, color.g, color.b, color.a);
 			}
-			const aiNode* mesh_node = find_mesh_node(scene, scene->mRootNode, ai_mesh);
-			std::string mesh_name = get_mesh_name(scene, asset_name, ai_mesh, mesh_node);
 
 			if (load_mesh(ai_mesh, mesh))
 			{
-				std::string mesh_out_filename = out_folder + mesh_name + mesh_out_extension;
-
-				map_add(state.manifest.meshes, asset_name, mesh_name, mesh_out_filename);
-
 				printf("%s Indices: %d Vertices: %d\n", mesh_name.c_str(), mesh->indices.length, mesh->vertices.length);
 
 				Array<Array<Vec2>> uv_layers;
@@ -1052,47 +1072,45 @@ void import_meshes(ImporterState& state, const std::string& asset_in_path, const
 
 				Array<std::array<float, MAX_BONE_WEIGHTS> > bone_weights;
 				Array<std::array<int, MAX_BONE_WEIGHTS> > bone_indices;
-				if (i == 0)
+
+				if (!build_armature_skinned(scene, ai_mesh, *mesh, armature, bone_map))
 				{
-					if (!build_armature_skinned(scene, ai_mesh, *mesh, armature, bone_map))
-					{
-						fprintf(stderr, "Error: failed to process armature for %s.\n", asset_in_path.c_str());
-						state.error = true;
-						return;
-					}
+					fprintf(stderr, "Error: failed to process armature for %s.\n", asset_in_path.c_str());
+					state.error = true;
+					return false;
+				}
 
-					for (auto bone : bone_map)
-					{
-						std::string bone_name = asset_name + "_" + bone.first;
-						clean_name(bone_name);
-						map_add(state.manifest.bones, asset_name, bone_name, bone.second);
-					}
+				for (auto bone : bone_map)
+				{
+					std::string bone_name = asset_name + "_" + bone.first;
+					clean_name(bone_name);
+					map_add(state.manifest.bones, asset_name, bone_name, bone.second);
+				}
 
-					if (armature.hierarchy.length > 0)
-					{
-						printf("Bones: %d\n", armature.hierarchy.length);
-						bone_weights.resize(ai_mesh->mNumVertices);
-						bone_indices.resize(ai_mesh->mNumVertices);
+				if (armature.hierarchy.length > 0)
+				{
+					printf("Bones: %d\n", armature.hierarchy.length);
+					bone_weights.resize(ai_mesh->mNumVertices);
+					bone_indices.resize(ai_mesh->mNumVertices);
 
-						for (unsigned int i = 0; i < ai_mesh->mNumBones; i++)
+					for (unsigned int i = 0; i < ai_mesh->mNumBones; i++)
+					{
+						aiBone* bone = ai_mesh->mBones[i];
+						int bone_index = bone_map[bone->mName.C_Str()];
+						for (unsigned int bone_weight_index = 0; bone_weight_index < bone->mNumWeights; bone_weight_index++)
 						{
-							aiBone* bone = ai_mesh->mBones[i];
-							int bone_index = bone_map[bone->mName.C_Str()];
-							for (unsigned int bone_weight_index = 0; bone_weight_index < bone->mNumWeights; bone_weight_index++)
+							int vertex_id = bone->mWeights[bone_weight_index].mVertexId;
+							float weight = bone->mWeights[bone_weight_index].mWeight;
+							for (int weight_index = 0; weight_index < MAX_BONE_WEIGHTS; weight_index++)
 							{
-								int vertex_id = bone->mWeights[bone_weight_index].mVertexId;
-								float weight = bone->mWeights[bone_weight_index].mWeight;
-								for (int weight_index = 0; weight_index < MAX_BONE_WEIGHTS; weight_index++)
+								if (bone_weights[vertex_id][weight_index] == 0)
 								{
-									if (bone_weights[vertex_id][weight_index] == 0)
-									{
-										bone_weights[vertex_id][weight_index] = weight;
-										bone_indices[vertex_id][weight_index] = bone_index;
-										break;
-									}
-									else if (weight_index == MAX_BONE_WEIGHTS - 1)
-										fprintf(stderr, "Warning: vertex affected by more than %d bones.\n", MAX_BONE_WEIGHTS);
+									bone_weights[vertex_id][weight_index] = weight;
+									bone_indices[vertex_id][weight_index] = bone_index;
+									break;
 								}
+								else if (weight_index == MAX_BONE_WEIGHTS - 1)
+									fprintf(stderr, "Warning: vertex affected by more than %d bones.\n", MAX_BONE_WEIGHTS);
 							}
 						}
 					}
@@ -1102,7 +1120,7 @@ void import_meshes(ImporterState& state, const std::string& asset_in_path, const
 				{
 					fprintf(stderr, "Error: failed to write mesh file %s.\n", mesh_out_filename.c_str());
 					state.error = true;
-					return;
+					return false;
 				}
 				
 				if (armature.hierarchy.length > 0)
@@ -1112,7 +1130,7 @@ void import_meshes(ImporterState& state, const std::string& asset_in_path, const
 					if (!write_armature(armature, armature_out_filename))
 					{
 						state.error = true;
-						return;
+						return false;
 					}
 				}
 			}
@@ -1120,7 +1138,7 @@ void import_meshes(ImporterState& state, const std::string& asset_in_path, const
 			{
 				fprintf(stderr, "Error: failed to load model %s.\n", asset_in_path.c_str());
 				state.error = true;
-				return;
+				return false;
 			}
 		}
 
@@ -1167,16 +1185,17 @@ void import_meshes(ImporterState& state, const std::string& asset_in_path, const
 				{
 					fprintf(stderr, "Error: failed to open %s for writing.\n", anim_out_path.c_str());
 					state.error = true;
-					return;
+					return false;
 				}
 			}
 			else
 			{
 				fprintf(stderr, "Error: failed to load animation %s.\n", ai_anim->mName.C_Str());
 				state.error = true;
-				return;
+				return false;
 			}
 		}
+		return true;
 	}
 	else
 	{
@@ -1184,6 +1203,7 @@ void import_meshes(ImporterState& state, const std::string& asset_in_path, const
 		map_copy(state.cached_manifest.armatures, asset_name, state.manifest.armatures);
 		map_copy(state.cached_manifest.animations, asset_name, state.manifest.animations);
 		map_copy(state.cached_manifest.bones, asset_name, state.manifest.bones);
+		return false;
 	}
 }
 
@@ -1349,7 +1369,7 @@ void import_level(ImporterState& state, const std::string& asset_in_path, const 
 		|| mtime > asset_mtime(state.cached_manifest.nav_meshes, asset_name);
 
 	Array<Mesh> meshes;
-	import_meshes(state, asset_in_path, out_folder, meshes, rebuild);
+	rebuild |= import_meshes(state, asset_in_path, out_folder, meshes, rebuild);
 	if (state.error)
 		return;
 
@@ -1472,6 +1492,9 @@ void import_level(ImporterState& state, const std::string& asset_in_path, const 
 			return;
 		}
 	}
+
+	for (int i = 0; i < meshes.length; i++)
+		meshes[i].~Mesh();
 }
 
 void import_copy(ImporterState& state, Map<std::string>& manifest, const std::string& asset_in_path, const std::string& out_folder, const std::string& extension)
@@ -1813,6 +1836,8 @@ int proc(int argc, char* argv[])
 			{
 				Array<Mesh> meshes;
 				import_meshes(state, asset_in_path, asset_out_folder, meshes, false);
+				for (int i = 0; i < meshes.length; i++)
+					meshes[i].~Mesh();
 			}
 			else if (has_extension(asset_in_path, font_in_extension) || has_extension(asset_in_path, font_in_extension_2))
 				import_font(state, asset_in_path, asset_out_folder);

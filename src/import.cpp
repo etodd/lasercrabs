@@ -1305,6 +1305,9 @@ bool build_nav_mesh(const Mesh& input, rcPolyMesh** output, rcPolyMeshDetail** o
 		return false;
 
 	rcFreeCompactHeightfield(compact_heightfield);
+
+	for (int i = 0; i < nav_mesh->npolys; i++)
+		nav_mesh->flags[i] = 1;
 	
 	*output = nav_mesh;
 	*output_detail = detail_mesh;
@@ -1441,22 +1444,22 @@ void import_level(ImporterState& state, const std::string& asset_in_path, const 
 			}
 		}
 
-			FILE* f = fopen(nav_mesh_out_path.c_str(), "w+b");
-			if (!f) // TODO: write nav mesh
-			{
-				fprintf(stderr, "Error: failed to write mesh file %s.\n", nav_mesh_out_path.c_str());
-				state.error = true;
-				return;
-			}
+		FILE* f = fopen(nav_mesh_out_path.c_str(), "w+b");
+		if (!f)
+		{
+			fprintf(stderr, "Error: failed to write mesh file %s.\n", nav_mesh_out_path.c_str());
+			state.error = true;
+			return;
+		}
 
 		if (nav_mesh)
 		{
 			fwrite(nav_mesh, sizeof(rcPolyMesh), 1, f);
 			fwrite(nav_mesh->verts, sizeof(unsigned short) * 3, nav_mesh->nverts, f);
-			fwrite(nav_mesh->polys, sizeof(unsigned short) * 2 * nav_mesh->nvp, nav_mesh->maxpolys, f);
-			fwrite(nav_mesh->regs, sizeof(unsigned short), nav_mesh->maxpolys, f);
-			fwrite(nav_mesh->flags, sizeof(unsigned short), nav_mesh->maxpolys, f);
-			fwrite(nav_mesh->areas, sizeof(unsigned char), nav_mesh->maxpolys, f);
+			fwrite(nav_mesh->polys, sizeof(unsigned short) * 2 * nav_mesh->nvp, nav_mesh->npolys, f);
+			fwrite(nav_mesh->regs, sizeof(unsigned short), nav_mesh->npolys, f);
+			fwrite(nav_mesh->flags, sizeof(unsigned short), nav_mesh->npolys, f);
+			fwrite(nav_mesh->areas, sizeof(unsigned char), nav_mesh->npolys, f);
 
 			fwrite(nav_mesh_detail, sizeof(rcPolyMeshDetail), 1, f);
 			fwrite(nav_mesh_detail->meshes, sizeof(unsigned int) * 4, nav_mesh_detail->nmeshes, f);

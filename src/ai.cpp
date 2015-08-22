@@ -3,6 +3,7 @@
 #include "load.h"
 #include "asset/shader.h"
 #include "DetourNavMesh.h"
+#include "DetourNavMeshQuery.h"
 
 #define DRAW_NAV_MESH 0
 
@@ -10,11 +11,14 @@ namespace VI
 {
 
 AssetID AI::render_mesh = AssetNull;
-AssetID AI::nav_mesh_id = AssetNull;
+dtNavMesh* AI::nav_mesh = 0;
+dtNavMeshQuery* AI::nav_mesh_query = 0;
 bool AI::render_mesh_dirty = false;
 
 void AI::init()
 {
+	nav_mesh_query = dtAllocNavMeshQuery();
+
 #if DRAW_NAV_MESH
 	render_mesh = Loader::dynamic_mesh_permanent(1);
 	Loader::dynamic_mesh_attrib(RenderDataType_Vec3);
@@ -24,9 +28,11 @@ void AI::init()
 
 void AI::load_nav_mesh(AssetID id)
 {
-	nav_mesh_id = id;
-	Loader::nav_mesh(id);
+	nav_mesh = Loader::nav_mesh(id);
 	render_mesh_dirty = true;
+
+	dtStatus status = nav_mesh_query->init(nav_mesh, 2048);
+	vi_assert(!dtStatusFailed(status));
 }
 
 void AI::draw(const RenderParams& p)

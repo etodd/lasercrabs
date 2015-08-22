@@ -600,15 +600,15 @@ dtNavMesh* Loader::nav_mesh(AssetID id)
 		rcPolyMesh mesh;
 		fread(&mesh, sizeof(rcPolyMesh), 1, f);
 		mesh.verts = (unsigned short*)malloc(sizeof(unsigned short) * 3 * mesh.nverts);
-		mesh.polys = (unsigned short*)malloc(sizeof(unsigned short) * 2 * mesh.nvp * mesh.maxpolys);
-		mesh.regs = (unsigned short*)malloc(sizeof(unsigned short) * mesh.maxpolys);
-		mesh.flags = (unsigned short*)malloc(sizeof(unsigned short) * mesh.maxpolys);
-		mesh.areas = (unsigned char*)malloc(sizeof(unsigned char) * mesh.maxpolys);
+		mesh.polys = (unsigned short*)malloc(sizeof(unsigned short) * 2 * mesh.nvp * mesh.npolys);
+		mesh.regs = (unsigned short*)malloc(sizeof(unsigned short) * mesh.npolys);
+		mesh.flags = (unsigned short*)malloc(sizeof(unsigned short) * mesh.npolys);
+		mesh.areas = (unsigned char*)malloc(sizeof(unsigned char) * mesh.npolys);
 		fread(mesh.verts, sizeof(unsigned short) * 3, mesh.nverts, f);
-		fread(mesh.polys, sizeof(unsigned short) * 2 * mesh.nvp, mesh.maxpolys, f);
-		fread(mesh.regs, sizeof(unsigned short), mesh.maxpolys, f);
-		fread(mesh.flags, sizeof(unsigned short), mesh.maxpolys, f);
-		fread(mesh.areas, sizeof(unsigned char), mesh.maxpolys, f);
+		fread(mesh.polys, sizeof(unsigned short) * 2 * mesh.nvp, mesh.npolys, f);
+		fread(mesh.regs, sizeof(unsigned short), mesh.npolys, f);
+		fread(mesh.flags, sizeof(unsigned short), mesh.npolys, f);
+		fread(mesh.areas, sizeof(unsigned char), mesh.npolys, f);
 
 		rcPolyMeshDetail mesh_detail;
 		fread(&mesh_detail, sizeof(rcPolyMeshDetail), 1, f);
@@ -666,22 +666,13 @@ dtNavMesh* Loader::nav_mesh(AssetID id)
 		params.ch = mesh.ch;
 		params.buildBvTree = true;
 		
-		if (!dtCreateNavMeshData(&params, &navData, &navDataSize))
-			return 0;
+		vi_assert(dtCreateNavMeshData(&params, &navData, &navDataSize));
 		
 		current_nav_mesh = dtAllocNavMesh();
-		if (!current_nav_mesh)
-		{
-			dtFree(navData);
-			return 0;
-		}
+		vi_assert(current_nav_mesh);
 		
 		dtStatus status = current_nav_mesh->init(navData, navDataSize, DT_TILE_FREE_DATA);
-		if (dtStatusFailed(status))
-		{
-			dtFree(navData);
-			return 0;
-		}
+		vi_assert(!dtStatusFailed(status));
 		
 		free(mesh.verts);
 		free(mesh.polys);

@@ -105,11 +105,7 @@ void Animator::update_world_transforms()
 	for (int i = 0; i < channels.length; i++)
 	{
 		int bone_index = channels[i].bone;
-		int parent = arm->hierarchy[bone_index];
-		if (parent == -1)
-			bones[bone_index] = transform * channels[i].transform;
-		else
-			bones[bone_index] = channels[i].transform;
+		bones[bone_index] = channels[i].transform;
 	}
 
 	for (int i = 0; i < bones.length; i++)
@@ -122,7 +118,7 @@ void Animator::update_world_transforms()
 	for (int i = 0; i < bindings.length; i++)
 	{
 		BindEntry& binding = bindings[i];
-		Mat4& mat = bones[binding.bone];
+		Mat4 mat = transform * bones[binding.bone];
 		Vec3 pos;
 		Quat quat;
 		Vec3 scale;
@@ -137,7 +133,9 @@ void Animator::bind(const int bone, Transform* transform)
 	entry->bone = bone;
 	entry->transform = transform;
 
-	Mat4& mat = bones[bone];
+	Mat4 world_matrix;
+	get<Transform>()->mat(&world_matrix);
+	Mat4 mat = world_matrix * bones[bone];
 	Vec3 pos;
 	Quat quat;
 	Vec3 scale;

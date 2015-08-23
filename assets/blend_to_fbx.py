@@ -10,8 +10,11 @@ try:
 	bpy.ops.export_scene.fbx(filepath=fbx_out,
 		axis_forward='-Z',
 		axis_up='Y',
-		use_custom_props = True,
 		object_types = {'EMPTY', 'CAMERA', 'LAMP', 'ARMATURE', 'MESH', 'OTHER'},
+		bake_anim=True,
+		bake_anim_use_all_bones=True,
+		bake_anim_use_nla_strips=True,
+		bake_anim_use_all_actions=True,
 	)
 except Exception as e:
 	print(str(e), file = sys.stderr)

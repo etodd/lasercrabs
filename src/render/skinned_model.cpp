@@ -44,11 +44,11 @@ void SkinnedModel::draw(const RenderParams& params)
 	sync->write(&texture);
 	sync->write<GLenum>(GL_TEXTURE_2D);
 
-	Mesh* m2 = Loader::mesh(mesh);
+	Armature* arm = Loader::armature(get<Animator>()->armature);
 	Array<Mat4>& bones = get<Animator>()->bones;
 	skin_transforms.resize(bones.length);
 	for (int i = 0; i < bones.length; i++)
-		skin_transforms[i] = m2->inverse_bind_pose[i] * bones[i];
+		skin_transforms[i] = arm->inverse_bind_pose[i] * bones[i];
 
 	sync->write(Asset::Uniform::bones);
 	sync->write(RenderDataType_Mat4);

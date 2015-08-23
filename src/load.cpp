@@ -85,7 +85,7 @@ Mesh* Loader::mesh(AssetID id)
 		FILE* f = fopen(path, "rb");
 		if (!f)
 		{
-			fprintf(stderr, "Can't open mdl file '%s'\n", path);
+			fprintf(stderr, "Can't open msh file '%s'\n", path);
 			return 0;
 		}
 
@@ -128,11 +128,6 @@ Mesh* Loader::mesh(AssetID id)
 			a.data.resize(mesh->vertices.length * a.count * render_data_type_size(a.type));
 			fread(a.data.data, sizeof(char), a.data.length, f);
 		}
-
-		int bone_count;
-		fread(&bone_count, sizeof(int), 1, f);
-		mesh->inverse_bind_pose.resize(bone_count);
-		fread(mesh->inverse_bind_pose.data, sizeof(Mat4), bone_count, f);
 
 		fclose(f);
 
@@ -229,7 +224,9 @@ Armature* Loader::armature(AssetID id)
 		arm->hierarchy.resize(bones);
 		fread(arm->hierarchy.data, sizeof(int), bones, f);
 		arm->bind_pose.resize(bones);
+		arm->inverse_bind_pose.resize(bones);
 		fread(arm->bind_pose.data, sizeof(Bone), bones, f);
+		fread(arm->inverse_bind_pose.data, sizeof(Mat4), bones, f);
 
 		fclose(f);
 

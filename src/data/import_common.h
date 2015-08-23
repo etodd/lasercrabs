@@ -66,8 +66,9 @@ struct Armature
 {
 	Array<int> hierarchy;
 	Array<Bone> bind_pose;
+	Array<Mat4> inverse_bind_pose;
 	Armature()
-		: hierarchy(), bind_pose()
+		: hierarchy(), bind_pose(), inverse_bind_pose()
 	{
 
 	}
@@ -78,7 +79,6 @@ struct Mesh
 	Array<int> indices;
 	Array<Vec3> vertices;
 	Array<Vec3> normals;
-	Array<Mat4> inverse_bind_pose;
 	Armature armature;
 	Vec3 bounds_min;
 	Vec3 bounds_max;
@@ -88,9 +88,9 @@ struct Mesh
 		indices.length = 0;
 		vertices.length = 0;
 		normals.length = 0;
-		inverse_bind_pose.length = 0;
 		armature.hierarchy.length = 0;
 		armature.bind_pose.length = 0;
+		armature.inverse_bind_pose.length = 0;
 	}
 };
 

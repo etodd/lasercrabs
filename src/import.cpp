@@ -729,7 +729,8 @@ bool load_anim(const Armature& armature, const aiAnimation* in, Animation* out, 
 				float angle;
 				q.to_angle_axis(angle, axis);
 				Vec3 corrected_axis = Vec3(axis.y, axis.z, axis.x);
-				out_channel->rotations[j].value = Quat(angle, corrected_axis);
+				Quat corrected_q = Quat(angle, corrected_axis);
+				out_channel->rotations[j].value = corrected_q;
 			}
 
 			out_channel->scales.resize(in_channel->mNumScalingKeys);
@@ -862,8 +863,6 @@ bool build_armature_skinned(const aiScene* scene, const aiMesh* ai_mesh, Mesh& m
 			fprintf(stderr, "Animated scene contains a skinned mesh.\n");
 			return false;
 		}
-	
-		mesh.inverse_bind_pose.resize(ai_mesh->mNumBones);
 
 		// Build the bone hierarchy.
 		// First we fill the bone map with all the bones,
@@ -875,6 +874,7 @@ bool build_armature_skinned(const aiScene* scene, const aiMesh* ai_mesh, Mesh& m
 		}
 		armature.hierarchy.resize(ai_mesh->mNumBones);
 		armature.bind_pose.resize(ai_mesh->mNumBones);
+		armature.inverse_bind_pose.resize(ai_mesh->mNumBones);
 		int node_hierarchy_counter = 0;
 		if (!build_armature(armature, bone_map, scene->mRootNode, -1, node_hierarchy_counter))
 			return false;
@@ -891,7 +891,7 @@ bool build_armature_skinned(const aiScene* scene, const aiMesh* ai_mesh, Mesh& m
 			
 			Vec3 position = Vec3(ai_position.y, ai_position.z, ai_position.x);
 			Vec3 scale = Vec3(ai_scale.y, ai_scale.z, ai_scale.x);
-			mesh.inverse_bind_pose[bone_index].make_transform(position, scale, Quat::euler(PI * -0.5f, 0, 0));
+			armature.inverse_bind_pose[bone_index].make_transform(position, scale, Quat::euler(PI * -0.5f, 0, 0));
 		}
 	}
 	
@@ -906,6 +906,7 @@ bool write_armature(const Armature& armature, const std::string& path)
 		fwrite(&armature.hierarchy.length, sizeof(int), 1, f);
 		fwrite(armature.hierarchy.data, sizeof(int), armature.hierarchy.length, f);
 		fwrite(armature.bind_pose.data, sizeof(Bone), armature.hierarchy.length, f);
+		fwrite(armature.inverse_bind_pose.data, sizeof(Mat4), armature.hierarchy.length, f);
 		fclose(f);
 		return true;
 	}
@@ -964,7 +965,7 @@ bool write_mesh(
 		fwrite(&mesh->vertices.length, sizeof(int), 1, f);
 		fwrite(mesh->vertices.data, sizeof(Vec3), mesh->vertices.length, f);
 		fwrite(mesh->normals.data, sizeof(Vec3), mesh->vertices.length, f);
-		int num_extra_attribs = uv_layers.length + (mesh->inverse_bind_pose.length > 0 ? 2 : 0);
+		int num_extra_attribs = uv_layers.length + (bone_weights.length > 0 ? 2 : 0);
 		fwrite(&num_extra_attribs, sizeof(int), 1, f);
 		for (int i = 0; i < uv_layers.length; i++)
 		{
@@ -974,7 +975,7 @@ bool write_mesh(
 			fwrite(&count, sizeof(int), 1, f);
 			fwrite(uv_layers[i].data, sizeof(Vec2), mesh->vertices.length, f);
 		}
-		if (mesh->inverse_bind_pose.length > 0)
+		if (bone_weights.length > 0)
 		{
 			RenderDataType type = RenderDataType_Int;
 			fwrite(&type, sizeof(RenderDataType), 1, f);
@@ -988,9 +989,6 @@ bool write_mesh(
 			fwrite(&count, sizeof(int), 1, f);
 			fwrite(bone_weights.data, sizeof(float[MAX_BONE_WEIGHTS]), mesh->vertices.length, f);
 		}
-		fwrite(&mesh->inverse_bind_pose.length, sizeof(int), 1, f);
-		if (mesh->inverse_bind_pose.length > 0)
-			fwrite(mesh->inverse_bind_pose.data, sizeof(Mat4), mesh->inverse_bind_pose.length, f);
 		fclose(f);
 		return true;
 	}
@@ -1148,44 +1146,47 @@ bool import_meshes(ImporterState& state, const std::string& asset_in_path, const
 			Animation anim;
 			if (load_anim(armature, ai_anim, &anim, bone_map))
 			{
-				printf("%s Duration: %f Channels: %d\n", ai_anim->mName.C_Str(), anim.duration, anim.channels.length);
-
-				std::string anim_name(ai_anim->mName.C_Str());
-				if (anim_name.find("AnimStack") == 0)
+				if (anim.channels.length > 0)
 				{
-					size_t pipe = anim_name.find("|");
-					if (pipe != std::string::npos && pipe < anim_name.length() - 1)
-						anim_name = anim_name.substr(pipe + 1);
-				}
-				clean_name(anim_name);
+					printf("%s Duration: %f Channels: %d\n", ai_anim->mName.C_Str(), anim.duration, anim.channels.length);
 
-				std::string anim_out_path = asset_out_folder + anim_name + anim_out_extension;
-
-				map_add(state.manifest.animations, asset_name, anim_name, anim_out_path);
-
-				FILE* f = fopen(anim_out_path.c_str(), "w+b");
-				if (f)
-				{
-					fwrite(&anim.duration, sizeof(float), 1, f);
-					fwrite(&anim.channels.length, sizeof(int), 1, f);
-					for (unsigned int i = 0; i < anim.channels.length; i++)
+					std::string anim_name(ai_anim->mName.C_Str());
+					if (anim_name.find("AnimStack") == 0)
 					{
-						Channel* channel = &anim.channels[i];
-						fwrite(&channel->bone_index, sizeof(int), 1, f);
-						fwrite(&channel->positions.length, sizeof(int), 1, f);
-						fwrite(channel->positions.data, sizeof(Keyframe<Vec3>), channel->positions.length, f);
-						fwrite(&channel->rotations.length, sizeof(int), 1, f);
-						fwrite(channel->rotations.data, sizeof(Keyframe<Quat>), channel->rotations.length, f);
-						fwrite(&channel->scales.length, sizeof(int), 1, f);
-						fwrite(channel->scales.data, sizeof(Keyframe<Vec3>), channel->scales.length, f);
+						size_t pipe = anim_name.find("|");
+						if (pipe != std::string::npos && pipe < anim_name.length() - 1)
+							anim_name = anim_name.substr(pipe + 1);
 					}
-					fclose(f);
-				}
-				else
-				{
-					fprintf(stderr, "Error: failed to open %s for writing.\n", anim_out_path.c_str());
-					state.error = true;
-					return false;
+					clean_name(anim_name);
+
+					std::string anim_out_path = asset_out_folder + anim_name + anim_out_extension;
+
+					map_add(state.manifest.animations, asset_name, anim_name, anim_out_path);
+
+					FILE* f = fopen(anim_out_path.c_str(), "w+b");
+					if (f)
+					{
+						fwrite(&anim.duration, sizeof(float), 1, f);
+						fwrite(&anim.channels.length, sizeof(int), 1, f);
+						for (unsigned int i = 0; i < anim.channels.length; i++)
+						{
+							Channel* channel = &anim.channels[i];
+							fwrite(&channel->bone_index, sizeof(int), 1, f);
+							fwrite(&channel->positions.length, sizeof(int), 1, f);
+							fwrite(channel->positions.data, sizeof(Keyframe<Vec3>), channel->positions.length, f);
+							fwrite(&channel->rotations.length, sizeof(int), 1, f);
+							fwrite(channel->rotations.data, sizeof(Keyframe<Quat>), channel->rotations.length, f);
+							fwrite(&channel->scales.length, sizeof(int), 1, f);
+							fwrite(channel->scales.data, sizeof(Keyframe<Vec3>), channel->scales.length, f);
+						}
+						fclose(f);
+					}
+					else
+					{
+						fprintf(stderr, "Error: failed to open %s for writing.\n", anim_out_path.c_str());
+						state.error = true;
+						return false;
+					}
 				}
 			}
 			else

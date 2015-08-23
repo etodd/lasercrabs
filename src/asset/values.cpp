@@ -29,6 +29,7 @@ const char* AssetLookup::Mesh::values[] =
 
 const char* AssetLookup::Animation::values[] =
 {
+	"assets/idle.anm",
 	"assets/walk.anm",
 };
 

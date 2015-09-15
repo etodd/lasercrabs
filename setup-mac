@@ -5,7 +5,7 @@ set -o pipefail
 if which blender >/dev/null; then
     echo "Good news, Blender is set up correctly on the path!"
 else
-	echo "Please install Blender and make sure it's on the system path!"
+	echo "Please install Blender 2.75a or higher and make sure it's on the system path!"
     exit 1
 fi
 

@@ -2,7 +2,14 @@
 set -e
 set -o pipefail
 
-sudo apt-get install clang lldb-3.5 cmake make libx11-dev libxi-dev libgl1-mesa-dev libglu1-mesa-dev libxrandr-dev libxext-dev libXmu-dev libxinerama-dev libxcursor-dev blender
+if which blender >/dev/null; then
+    echo "Good news, Blender is set up correctly on the path!"
+else
+	echo "Please install Blender 2.75a or higher and make sure it's on the system path!"
+    exit 1
+fi
+
+sudo apt-get install clang lldb-3.5 cmake make libx11-dev libxi-dev libgl1-mesa-dev libglu1-mesa-dev libxrandr-dev libxext-dev libXmu-dev libxinerama-dev libxcursor-dev
 git submodule update --init --recursive
 mkdir -p build
 cd build

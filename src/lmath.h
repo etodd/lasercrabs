@@ -14,6 +14,11 @@ namespace VI
 
 // Mostly stolen from Ogre3D
 
+inline float clampf(float t, float a, float b)
+{
+	return fmin(b, fmax(a, t));
+}
+
 struct Vec2
 {
 	float x, y;

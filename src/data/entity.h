@@ -83,7 +83,7 @@ struct Entity
 	ID id;
 	ID components[MAX_FAMILIES];
 	ComponentMask component_mask;
-	Entity(ID id)
+	Entity(const ID id)
 		: components(), id(id), component_mask()
 	{
 	}

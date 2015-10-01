@@ -19,7 +19,7 @@ float Console::repeat_last_time = 0.0f;
 void Console::init()
 {
 	text.font = Asset::Font::SegoeUISymbol;
-	text.size = 16.0f;
+	text.size = 16.0f * UI::scale;
 	command.resize(2);
 	command[0] = '$';
 

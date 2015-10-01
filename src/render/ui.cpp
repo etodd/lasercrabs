@@ -87,6 +87,7 @@ void UIText::draw(const RenderParams& params)
 		UI::indices.add(indices[i] + vertex_start);
 }
 
+float UI::scale = 1.0f;
 int UI::mesh = AssetNull;
 Array<Vec3> UI::vertices = Array<Vec3>();
 Array<Vec4> UI::colors = Array<Vec4>();
@@ -208,6 +209,72 @@ void UI::border(const RenderParams& params, const Vec2& pos, const Vec2& size, c
 	}
 }
 
+void UI::centered_border(const RenderParams& params, const Vec2& pos, const Vec2& size, const Vec4& color, float thickness, float rot)
+{
+	if (size.x > 0 && size.y > 0 && color.w > 0)
+	{
+		int vertex_start = UI::vertices.length;
+		Vec2 screen = Vec2(params.sync->input.width * 0.5f, params.sync->input.height * 0.5f);
+		Vec2 scale = Vec2(1.0f / screen.x, 1.0f / screen.y);
+		Vec2 scaled_pos = (pos - screen) * scale;
+
+		Vec2 corners[8] =
+		{
+			Vec2(size.x * -0.5f, size.y * -0.5f),
+			Vec2(size.x * 0.5f, size.y * -0.5f),
+			Vec2(size.x * -0.5f, size.y * 0.5f),
+			Vec2(size.x * 0.5f, size.y * 0.5f),
+			Vec2(size.x * -0.5f - thickness, size.y * -0.5f - thickness),
+			Vec2(size.x * 0.5f + thickness, size.y * -0.5f - thickness),
+			Vec2(size.x * -0.5f - thickness, size.y * 0.5f + thickness),
+			Vec2(size.x * 0.5f + thickness, size.y * 0.5f + thickness),
+		};
+
+		float cs = cosf(rot), sn = sinf(rot);
+		UI::vertices.add(Vec3(scaled_pos.x + (corners[0].x * cs - corners[0].y * sn) * scale.x, scaled_pos.y + (corners[0].x * sn + corners[0].y * cs) * scale.y, 0));
+		UI::vertices.add(Vec3(scaled_pos.x + (corners[1].x * cs - corners[1].y * sn) * scale.x, scaled_pos.y + (corners[1].x * sn + corners[1].y * cs) * scale.y, 0));
+		UI::vertices.add(Vec3(scaled_pos.x + (corners[2].x * cs - corners[2].y * sn) * scale.x, scaled_pos.y + (corners[2].x * sn + corners[2].y * cs) * scale.y, 0));
+		UI::vertices.add(Vec3(scaled_pos.x + (corners[3].x * cs - corners[3].y * sn) * scale.x, scaled_pos.y + (corners[3].x * sn + corners[3].y * cs) * scale.y, 0));
+		UI::vertices.add(Vec3(scaled_pos.x + (corners[4].x * cs - corners[4].y * sn) * scale.x, scaled_pos.y + (corners[4].x * sn + corners[4].y * cs) * scale.y, 0));
+		UI::vertices.add(Vec3(scaled_pos.x + (corners[5].x * cs - corners[5].y * sn) * scale.x, scaled_pos.y + (corners[5].x * sn + corners[5].y * cs) * scale.y, 0));
+		UI::vertices.add(Vec3(scaled_pos.x + (corners[6].x * cs - corners[6].y * sn) * scale.x, scaled_pos.y + (corners[6].x * sn + corners[6].y * cs) * scale.y, 0));
+		UI::vertices.add(Vec3(scaled_pos.x + (corners[7].x * cs - corners[7].y * sn) * scale.x, scaled_pos.y + (corners[7].x * sn + corners[7].y * cs) * scale.y, 0));
+
+		UI::colors.add(color);
+		UI::colors.add(color);
+		UI::colors.add(color);
+		UI::colors.add(color);
+		UI::colors.add(color);
+		UI::colors.add(color);
+		UI::colors.add(color);
+		UI::colors.add(color);
+		UI::indices.add(vertex_start + 0);
+		UI::indices.add(vertex_start + 4);
+		UI::indices.add(vertex_start + 5);
+		UI::indices.add(vertex_start + 0);
+		UI::indices.add(vertex_start + 5);
+		UI::indices.add(vertex_start + 1);
+		UI::indices.add(vertex_start + 1);
+		UI::indices.add(vertex_start + 5);
+		UI::indices.add(vertex_start + 3);
+		UI::indices.add(vertex_start + 5);
+		UI::indices.add(vertex_start + 7);
+		UI::indices.add(vertex_start + 3);
+		UI::indices.add(vertex_start + 3);
+		UI::indices.add(vertex_start + 7);
+		UI::indices.add(vertex_start + 2);
+		UI::indices.add(vertex_start + 7);
+		UI::indices.add(vertex_start + 6);
+		UI::indices.add(vertex_start + 2);
+		UI::indices.add(vertex_start + 6);
+		UI::indices.add(vertex_start + 0);
+		UI::indices.add(vertex_start + 2);
+		UI::indices.add(vertex_start + 6);
+		UI::indices.add(vertex_start + 4);
+		UI::indices.add(vertex_start + 0);
+	}
+}
+
 bool UI::project(const RenderParams& p, const Vec3& v, Vec2& out)
 {
 	Vec4 projected = p.view_projection * Vec4(v.x, v.y, v.z, 1);
@@ -216,12 +283,22 @@ bool UI::project(const RenderParams& p, const Vec3& v, Vec2& out)
 	return projected.z > -projected.w && projected.z < projected.w;
 }
 
-void UI::init()
+void UI::init(int width, int height)
 {
 	mesh = Loader::dynamic_mesh_permanent(2);
 	Loader::dynamic_mesh_attrib(RenderDataType_Vec3);
 	Loader::dynamic_mesh_attrib(RenderDataType_Vec4);
 	Loader::shader_permanent(Asset::Shader::UI);
+	scale = get_scale(width, height);
+}
+
+float UI::get_scale(int width, int height)
+{
+	int area = width * height;
+	if (area >= 1680 * 1050)
+		return 2.0f;
+	else
+		return 1.0f;
 }
 
 void UI::draw(const RenderParams& p)

@@ -19,6 +19,7 @@ set(ALL_INCLUDES
 	external/recast/Recast/Include
 	external/recast/Detour/Include
 	external/cjson
+	external/mersenne
 	src
 	external/assimp/code/BoostWorkaround
 	${ZLIB_INCLUDE_DIR}
@@ -187,6 +188,12 @@ add_library(detour STATIC
 	external/recast/Detour/Source/DetourNode.cpp
 )
 
+## Mersenne Twister
+add_library(mersenne STATIC
+	external/mersenne/mersenne-twister.cpp
+	external/mersenne/mersenne-twister.h
+)
+
 ## Source
 
 if (NOT EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/src/game/CMakeLists.txt)
@@ -208,6 +215,7 @@ add_custom_command(
 
 add_executable(mkzebra
 	src/data/array.h
+	src/data/pin_array.h
 	src/data/import_common.h
 	src/data/import_common.cpp
 	src/data/entity.h
@@ -276,6 +284,7 @@ target_link_libraries(mkzebra
 	lodepng
 	detour
 	cJSON
+	mersenne
 )
 add_dependencies(mkzebra assets)
 

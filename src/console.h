@@ -15,12 +15,16 @@ struct Console
 	static Array<char> command;
 	static bool visible;
 	static UIText text;
+	static UIText fps_text;
+	static int fps_count;
+	static float fps_accumulator;
+	static bool fps_visible;
 	static char shift_map[127];
 	static char normal_map[127];
 	static float repeat_start_time;
 	static float repeat_last_time;
 
-	static void init();
+	static void init(int, int);
 	static void update(const Update&);
 	static void draw(const RenderParams&);
 };

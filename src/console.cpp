@@ -7,6 +7,10 @@ namespace VI
 
 Array<char> Console::command = Array<char>();
 UIText Console::text = UIText();
+UIText Console::fps_text = UIText();
+bool Console::fps_visible = false;
+int Console::fps_count = 0;
+float Console::fps_accumulator = 0;
 bool Console::visible = false;
 char Console::shift_map[127];
 char Console::normal_map[127];
@@ -16,10 +20,12 @@ float Console::repeat_last_time = 0.0f;
 #define REPEAT_DELAY 0.2f
 #define REPEAT_INTERVAL 0.03f
 
-void Console::init()
+void Console::init(int width, int height)
 {
 	text.font = Asset::Font::SegoeUISymbol;
 	text.size = 16.0f * UI::scale;
+	fps_text.font = Asset::Font::SegoeUISymbol;
+	fps_text.size = 16.0f * UI::scale;
 	command.resize(2);
 	command[0] = '$';
 
@@ -88,6 +94,20 @@ void Console::update(const Update& u)
 	if (u.input->keys[KEYCODE_GRAVE]
 		&& !u.input->last_keys[KEYCODE_GRAVE])
 		visible = !visible;
+
+	if (fps_visible)
+	{
+		fps_count += 1;
+		fps_accumulator += u.time.delta;
+		if (fps_accumulator > 0.5f)
+		{
+			char fps_label[256];
+			sprintf(fps_label, "%.0f %.0fms", fps_count / fps_accumulator, (fps_accumulator / fps_count) * 1000.0f);
+			fps_text.text(fps_label);
+			fps_accumulator = 0.0f;
+			fps_count = 0;
+		}
+	}
 
 	if (visible)
 	{
@@ -163,7 +183,16 @@ void Console::update(const Update& u)
 		if (u.input->keys[KEYCODE_RETURN])
 		{
 			visible = false;
-			Game::execute(u, &command[1]);
+
+			if (strcmp(&command[1], "fps") == 0)
+			{
+				fps_visible = !fps_visible;
+				fps_count = 0;
+				fps_accumulator = 0.0f;
+			}
+			else
+				Game::execute(u, &command[1]);
+
 			command.resize(2);
 			command[1] = '\0';
 			update = true;
@@ -178,6 +207,8 @@ void Console::draw(const RenderParams& p)
 {
 	if (visible)
 		text.draw(p);
+	if (fps_visible)
+		fps_text.draw(p);
 }
 
 }

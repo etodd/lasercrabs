@@ -173,6 +173,10 @@ int Main::proc()
 			sync->input.joystick_right_y = (float)SDL_GameControllerGetAxis(controller, SDL_CONTROLLER_AXIS_RIGHTY) / 32767.0f;
 			sync->input.joystick_left_trigger = (float)SDL_GameControllerGetAxis(controller, SDL_CONTROLLER_AXIS_TRIGGERLEFT) / 32767.0f;
 			sync->input.joystick_right_trigger = (float)SDL_GameControllerGetAxis(controller, SDL_CONTROLLER_AXIS_TRIGGERRIGHT) / 32767.0f;
+			sync->input.joystick_left_shoulder = (bool)SDL_GameControllerGetButton(controller, SDL_CONTROLLER_BUTTON_LEFTSHOULDER);
+			sync->input.joystick_right_shoulder = (bool)SDL_GameControllerGetButton(controller, SDL_CONTROLLER_BUTTON_RIGHTSHOULDER);
+			sync->input.joystick_left_click = (bool)SDL_GameControllerGetButton(controller, SDL_CONTROLLER_BUTTON_LEFTSTICK);
+			sync->input.joystick_right_click = (bool)SDL_GameControllerGetButton(controller, SDL_CONTROLLER_BUTTON_RIGHTSTICK);
 		}
 
 		quit |= sync->input.keys[KEYCODE_ESCAPE];

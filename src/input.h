@@ -263,6 +263,10 @@ struct InputState
 	float joystick_right_y;
 	float joystick_left_trigger;
 	float joystick_right_trigger;
+	bool joystick_left_shoulder;
+	bool joystick_right_shoulder;
+	bool joystick_left_click;
+	bool joystick_right_click;
 };
 
 }

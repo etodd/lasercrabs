@@ -158,6 +158,8 @@ void Animator::unbind(const Transform* transform)
 
 void Animator::get_bone(const int index, Quat& rot, Vec3& pos)
 {
+	if (bones.length == 0)
+		update_world_transforms();
 	Vec3 scale;
 	bones[index].decomposition(pos, scale, rot);
 }

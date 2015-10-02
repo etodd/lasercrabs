@@ -14,6 +14,7 @@ enum CollisionGroup
 	CollisionNothing = btBroadphaseProxy::DefaultFilter,
 	CollisionWalker = 1 << 6,
 	CollisionReflective = 1 << 7,
+	CollisionTarget = 1 << 8,
 	CollisionReflectiveMask = ~btBroadphaseProxy::StaticFilter & ~CollisionReflective,
 };
 
@@ -32,7 +33,7 @@ struct Physics
 struct RigidBody : public ComponentType<RigidBody>
 {
 	RigidBody(Vec3, Quat, float, btCollisionShape*);
-	RigidBody(Vec3, Quat, float, btCollisionShape*, short, short);
+	RigidBody(Vec3, Quat, float, btCollisionShape*, short, short, ID = -1);
 	void init(Vec3, Quat, float);
 	btCollisionShape* btShape;
 	btStridingMeshInterface* btMesh;

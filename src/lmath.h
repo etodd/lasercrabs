@@ -653,6 +653,11 @@ struct Vec4
 		return *this;
 	}
 
+	inline Vec3 xyz() const
+	{
+		return Vec3(x, y, z);
+	}
+
 	inline bool operator == (const Vec4& rkVector) const
 	{
 		return x == rkVector.x && y == rkVector.y && z == rkVector.z && w == rkVector.w;

@@ -63,16 +63,18 @@ RigidBody::RigidBody(Vec3 pos, Quat quat, float mass, btCollisionShape* shape)
 	Physics::btWorld->addRigidBody(btBody);
 }
 
-RigidBody::RigidBody(Vec3 pos, Quat quat, float mass, btCollisionShape* shape, short group, short mask)
+RigidBody::RigidBody(Vec3 pos, Quat quat, float mass, btCollisionShape* shape, short group, short mask, ID linked_entity)
 	: btShape(shape)
 {
 	init(pos, quat, mass);
 	Physics::btWorld->addRigidBody(btBody, group, mask);
+	btBody->setUserIndex(linked_entity);
 }
 
 void RigidBody::awake()
 {
-	btBody->setUserIndex(entity_id);
+	if (btBody->getUserIndex() < 0)
+		btBody->setUserIndex(entity_id);
 }
 
 RigidBody::~RigidBody()

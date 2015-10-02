@@ -14,10 +14,10 @@ void Transform::awake()
 {
 }
 
-void Transform::mat(Mat4* m)
+void Transform::mat(Mat4* m) const
 {
 	*m = Mat4::identity;
-	Transform* t = this;
+	const Transform* t = this;
 	while (t)
 	{ 
 		Mat4 local = Mat4(t->rot);
@@ -73,10 +73,10 @@ void Transform::absolute(const Quat& abs_rot, const Vec3& abs_pos)
 	}
 }
 
-Quat Transform::absolute_rot()
+Quat Transform::absolute_rot() const
 {
 	Quat q = Quat::identity;
-	Transform* t = this;
+	const Transform* t = this;
 	while (t)
 	{ 
 		q = t->rot * q;
@@ -93,10 +93,10 @@ void Transform::absolute_rot(const Quat& q)
 		rot = q;
 }
 
-Vec3 Transform::absolute_pos()
+Vec3 Transform::absolute_pos() const
 {
 	Vec3 abs_pos = Vec3::zero;
-	Transform* t = this;
+	const Transform* t = this;
 	while (t)
 	{ 
 		abs_pos = (t->rot * abs_pos) + t->pos;
@@ -115,6 +115,22 @@ void Transform::absolute_pos(const Vec3& p)
 	}
 	else
 		pos = p;
+}
+
+Vec3 Transform::to_world(const Vec3& p) const
+{
+	Mat4 m;
+	mat(&m);
+	Vec4 result = m * Vec4(p);
+	return Vec3(result.x, result.y, result.z);
+}
+
+Vec3 Transform::to_local(const Vec3& p) const
+{
+	Mat4 m;
+	mat(&m);
+	Vec4 result = m.inverse() * Vec4(p);
+	return Vec3(result.x, result.y, result.z);
 }
 
 void Transform::reparent(Transform* p)

@@ -275,6 +275,35 @@ void UI::centered_border(const RenderParams& params, const Vec2& pos, const Vec2
 	}
 }
 
+void UI::triangle(const RenderParams& params, const Vec2& pos, const Vec2& size, const Vec4& color, float rot)
+{
+	if (size.x > 0 && size.y > 0 && color.w > 0)
+	{
+		int vertex_start = UI::vertices.length;
+		Vec2 screen = Vec2(params.sync->input.width * 0.5f, params.sync->input.height * 0.5f);
+		Vec2 scale = Vec2(1.0f / screen.x, 1.0f / screen.y);
+		Vec2 scaled_pos = (pos - screen) * scale;
+
+		Vec2 corners[3] =
+		{
+			Vec2(size.x * 0.5f, size.y * -0.5f),
+			Vec2(0, size.y * 0.5f * 0.8660254037844386f),
+			Vec2(size.x * -0.5f, size.y * -0.5f),
+		};
+
+		float cs = cosf(rot), sn = sinf(rot);
+		UI::vertices.add(Vec3(scaled_pos.x + (corners[0].x * cs - corners[0].y * sn) * scale.x, scaled_pos.y + (corners[0].x * sn + corners[0].y * cs) * scale.y, 0));
+		UI::vertices.add(Vec3(scaled_pos.x + (corners[1].x * cs - corners[1].y * sn) * scale.x, scaled_pos.y + (corners[1].x * sn + corners[1].y * cs) * scale.y, 0));
+		UI::vertices.add(Vec3(scaled_pos.x + (corners[2].x * cs - corners[2].y * sn) * scale.x, scaled_pos.y + (corners[2].x * sn + corners[2].y * cs) * scale.y, 0));
+		UI::colors.add(color);
+		UI::colors.add(color);
+		UI::colors.add(color);
+		UI::indices.add(vertex_start + 0);
+		UI::indices.add(vertex_start + 1);
+		UI::indices.add(vertex_start + 2);
+	}
+}
+
 bool UI::project(const RenderParams& p, const Vec3& v, Vec2& out)
 {
 	Vec4 projected = p.view_projection * Vec4(v.x, v.y, v.z, 1);
@@ -283,7 +312,7 @@ bool UI::project(const RenderParams& p, const Vec3& v, Vec2& out)
 	return projected.z > -projected.w && projected.z < projected.w;
 }
 
-void UI::init(int width, int height)
+void UI::init(const int width, const int height)
 {
 	mesh = Loader::dynamic_mesh_permanent(2);
 	Loader::dynamic_mesh_attrib(RenderDataType_Vec3);
@@ -292,7 +321,7 @@ void UI::init(int width, int height)
 	scale = get_scale(width, height);
 }
 
-float UI::get_scale(int width, int height)
+float UI::get_scale(const int width, const int height)
 {
 	int area = width * height;
 	if (area >= 1680 * 1050)

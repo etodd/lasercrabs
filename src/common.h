@@ -53,4 +53,10 @@ struct NoclipControl : public ComponentType<NoclipControl>
 	void update(const Update&);
 };
 
+struct Debug : public ComponentType<Debug>
+{
+	void awake();
+	void draw(const RenderParams&);
+};
+
 }

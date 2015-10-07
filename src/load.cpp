@@ -32,25 +32,6 @@ struct Attrib
 
 // Recast nav mesh structs
 
-/// Represents a polygon mesh suitable for use in building a navigation mesh. 
-struct rcPolyMesh
-{
-	unsigned short* verts;	///< The mesh vertices. [Form: (x, y, z) * #nverts]
-	unsigned short* polys;	///< Polygon and neighbor data. [Length: #maxpolys * 2 * #nvp]
-	unsigned short* regs;	///< The region id assigned to each polygon. [Length: #maxpolys]
-	unsigned short* flags;	///< The user defined flags for each polygon. [Length: #maxpolys]
-	unsigned char* areas;	///< The area id assigned to each polygon. [Length: #maxpolys]
-	int nverts;				///< The number of vertices.
-	int npolys;				///< The number of polygons.
-	int maxpolys;			///< The number of allocated polygons.
-	int nvp;				///< The maximum number of vertices per polygon.
-	float bmin[3];			///< The minimum bounds in world space. [(x, y, z)]
-	float bmax[3];			///< The maximum bounds in world space. [(x, y, z)]
-	float cs;				///< The size of each cell. (On the xz-plane.)
-	float ch;				///< The height of each cell. (The minimum increment along the y-axis.)
-	int borderSize;			///< The AABB border size used to generate the source data from which the mesh was derived.
-};
-
 /// Contains triangle meshes that represent detailed height data associated 
 /// with the polygons in its associated polygon mesh object.
 struct rcPolyMeshDetail
@@ -575,6 +556,51 @@ void Loader::level_free(cJSON* json)
 	Json::json_free(json);
 }
 
+void base_nav_mesh_read(FILE* f, rcPolyMesh* mesh)
+{
+	fread(mesh, sizeof(rcPolyMesh), 1, f);
+	mesh->verts = (unsigned short*)malloc(sizeof(unsigned short) * 3 * mesh->nverts);
+	mesh->polys = (unsigned short*)malloc(sizeof(unsigned short) * 2 * mesh->nvp * mesh->npolys);
+	mesh->regs = (unsigned short*)malloc(sizeof(unsigned short) * mesh->npolys);
+	mesh->flags = (unsigned short*)malloc(sizeof(unsigned short) * mesh->npolys);
+	mesh->areas = (unsigned char*)malloc(sizeof(unsigned char) * mesh->npolys);
+	fread(mesh->verts, sizeof(unsigned short) * 3, mesh->nverts, f);
+	fread(mesh->polys, sizeof(unsigned short) * 2 * mesh->nvp, mesh->npolys, f);
+	fread(mesh->regs, sizeof(unsigned short), mesh->npolys, f);
+	fread(mesh->flags, sizeof(unsigned short), mesh->npolys, f);
+	fread(mesh->areas, sizeof(unsigned char), mesh->npolys, f);
+}
+
+// Debug function for rendering the nav mesh.
+// You're responsible for keeping track of the result.
+void Loader::base_nav_mesh(AssetID id, rcPolyMesh* mesh)
+{
+	if (id == AssetNull)
+		return;
+
+	const char* path = AssetLookup::NavMesh::values[id];
+
+	FILE* f = fopen(path, "rb");
+	if (!f)
+	{
+		fprintf(stderr, "Can't open nav file '%s'\n", path);
+		return;
+	}
+
+	base_nav_mesh_read(f, mesh);
+
+	fclose(f);
+}
+
+void Loader::base_nav_mesh_free(rcPolyMesh* mesh)
+{
+	free(mesh->verts);
+	free(mesh->polys);
+	free(mesh->regs);
+	free(mesh->flags);
+	free(mesh->areas);
+}
+
 dtNavMesh* Loader::nav_mesh(AssetID id)
 {
 	// Only allow one nav mesh to be loaded at a time
@@ -595,17 +621,7 @@ dtNavMesh* Loader::nav_mesh(AssetID id)
 		}
 
 		rcPolyMesh mesh;
-		fread(&mesh, sizeof(rcPolyMesh), 1, f);
-		mesh.verts = (unsigned short*)malloc(sizeof(unsigned short) * 3 * mesh.nverts);
-		mesh.polys = (unsigned short*)malloc(sizeof(unsigned short) * 2 * mesh.nvp * mesh.npolys);
-		mesh.regs = (unsigned short*)malloc(sizeof(unsigned short) * mesh.npolys);
-		mesh.flags = (unsigned short*)malloc(sizeof(unsigned short) * mesh.npolys);
-		mesh.areas = (unsigned char*)malloc(sizeof(unsigned char) * mesh.npolys);
-		fread(mesh.verts, sizeof(unsigned short) * 3, mesh.nverts, f);
-		fread(mesh.polys, sizeof(unsigned short) * 2 * mesh.nvp, mesh.npolys, f);
-		fread(mesh.regs, sizeof(unsigned short), mesh.npolys, f);
-		fread(mesh.flags, sizeof(unsigned short), mesh.npolys, f);
-		fread(mesh.areas, sizeof(unsigned char), mesh.npolys, f);
+		base_nav_mesh_read(f, &mesh);
 
 		rcPolyMeshDetail mesh_detail;
 		fread(&mesh_detail, sizeof(rcPolyMeshDetail), 1, f);
@@ -671,11 +687,7 @@ dtNavMesh* Loader::nav_mesh(AssetID id)
 		dtStatus status = current_nav_mesh->init(navData, navDataSize, DT_TILE_FREE_DATA);
 		vi_assert(!dtStatusFailed(status));
 		
-		free(mesh.verts);
-		free(mesh.polys);
-		free(mesh.regs);
-		free(mesh.flags);
-		free(mesh.areas);
+		base_nav_mesh_free(&mesh);
 		free(mesh_detail.meshes);
 		free(mesh_detail.verts);
 		free(mesh_detail.tris);

@@ -18,6 +18,8 @@ dtQueryFilter AI::default_query_filter = dtQueryFilter();
 const float AI::default_search_extents[] = { 8, 8, 8 };
 bool AI::render_mesh_dirty = false;
 
+static const unsigned short RC_MESH_NULL_IDX = 0xffff;
+
 void AI::init()
 {
 	nav_mesh_query = dtAllocNavMeshQuery();
@@ -47,24 +49,28 @@ void AI::draw(const RenderParams& p)
 	{
 		// Convert polygon navmesh to triangle mesh
 
-		dtNavMesh* nav_mesh = Loader::nav_mesh(nav_mesh_id);
+		rcPolyMesh mesh;
+		Loader::base_nav_mesh(Loader::current_nav_mesh_id, &mesh);
 
-		Array<Vec3>(nav_mesh->nverts);
-		for (int i = 0; i < nav_mesh->nverts; i++)
+		p.sync->write(RenderOp_UpdateAttribBuffers);
+		p.sync->write(render_mesh);
+
+		p.sync->write<int>(mesh.nverts);
+		for (int i = 0; i < mesh.nverts; i++)
 		{
-			const unsigned short* v = &nav_mesh->verts[i * 3];
+			const unsigned short* v = &mesh.verts[i * 3];
 			Vec3 vertex;
-			vertex.x = mesh_origin[0] + v[0] * nav_mesh->cs;
-			vertex.y = mesh_origin[1] + (v[1] + 1) * nav_mesh->ch;
-			vertex.z = mesh_origin[2] + v[2] * nav_mesh->cs;
-			output.vertices.add(vertex);
+			vertex.x = mesh.bmin[0] + v[0] * mesh.cs;
+			vertex.y = mesh.bmin[1] + (v[1] + 1) * mesh.ch;
+			vertex.z = mesh.bmin[2] + v[2] * mesh.cs;
+			p.sync->write<Vec3>(vertex);
 		}
 
 		int num_triangles = 0;
-		for (int i = 0; i < nav_mesh->npolys; ++i)
+		for (int i = 0; i < mesh.npolys; ++i)
 		{
-			const unsigned short* poly = &nav_mesh->polys[i * nav_mesh->nvp * 2];
-			for (int j = 2; j < nav_mesh->nvp; ++j)
+			const unsigned short* poly = &mesh.polys[i * mesh.nvp * 2];
+			for (int j = 2; j < mesh.nvp; ++j)
 			{
 				if (poly[j] == RC_MESH_NULL_IDX)
 					break;
@@ -72,37 +78,28 @@ void AI::draw(const RenderParams& p)
 			}
 		}
 
-		output.indices.reserve(num_triangles * 3);
-		for (int i = 0; i < nav_mesh->npolys; ++i)
-		{
-			const unsigned short* poly = &nav_mesh->polys[i * nav_mesh->nvp * 2];
-			
-			for (int j = 2; j < nav_mesh->nvp; ++j)
-			{
-				if (poly[j] == RC_MESH_NULL_IDX)
-					break;
-				output.indices.add(poly[0]);
-				output.indices.add(poly[j - 1]);
-				output.indices.add(poly[j]);
-			}
-		}
-
-		// Allocate space for the normals, but just leave them all zeroes.
-		output.normals.resize(output.vertices.length);
-
-		p.sync->write(RenderOp_UpdateAttribBuffers);
-		p.sync->write(render_mesh);
-
-		p.sync->write<int>(nav_mesh->vertices.length);
-		p.sync->write<Vec3>(nav_mesh->vertices.data, nav_mesh->vertices.length);
-
 		p.sync->write(RenderOp_UpdateIndexBuffer);
 		p.sync->write(render_mesh);
 
-		p.sync->write<int>(nav_mesh->indices.length);
-		p.sync->write<int>(nav_mesh->indices.data, nav_mesh->indices.length);
+		p.sync->write<int>(num_triangles * 3);
 		
+		for (int i = 0; i < mesh.npolys; ++i)
+		{
+			const unsigned short* poly = &mesh.polys[i * mesh.nvp * 2];
+			
+			for (int j = 2; j < mesh.nvp; ++j)
+			{
+				if (poly[j] == RC_MESH_NULL_IDX)
+					break;
+				p.sync->write<int>(poly[0]);
+				p.sync->write<int>(poly[j - 1]);
+				p.sync->write<int>(poly[j]);
+			}
+		}
+
 		render_mesh_dirty = false;
+
+		Loader::base_nav_mesh_free(&mesh);
 	}
 
 	p.sync->write(RenderOp_Mesh);

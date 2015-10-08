@@ -241,7 +241,7 @@ struct Vec2
 		return sqrt(x * x + y * y);
 	}
 
-	inline float squared_length() const
+	inline float length_squared() const
 	{
 		return x * x + y * y;
 	}
@@ -540,7 +540,7 @@ struct Vec3
 		return sqrt(x * x + y * y + z * z);
 	}
 
-	inline float squared_length() const
+	inline float length_squared() const
 	{
 		return x * x + y * y + z * z;
 	}

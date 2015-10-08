@@ -13,9 +13,11 @@ namespace VI
 struct Console
 {
 	static Array<char> command;
+	static Array<char> debug_buffer;
 	static bool visible;
 	static UIText text;
 	static UIText fps_text;
+	static UIText debug_text;
 	static int fps_count;
 	static float fps_accumulator;
 	static bool fps_visible;
@@ -27,6 +29,7 @@ struct Console
 	static void init(int, int);
 	static void update(const Update&);
 	static void draw(const RenderParams&);
+	static void debug(const char*, ...);
 };
 
 }

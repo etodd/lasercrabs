@@ -1,13 +1,16 @@
 #include "console.h"
 #include "game/game.h"
 #include "asset/font.h"
+#include <cstdio>
 
 namespace VI
 {
 
 Array<char> Console::command = Array<char>();
+Array<char> Console::debug_buffer = Array<char>();
 UIText Console::text = UIText();
 UIText Console::fps_text = UIText();
+UIText Console::debug_text = UIText();
 bool Console::fps_visible = false;
 int Console::fps_count = 0;
 float Console::fps_accumulator = 0;
@@ -26,6 +29,11 @@ void Console::init(int width, int height)
 	text.size = 16.0f * UI::scale;
 	fps_text.font = Asset::Font::SegoeUISymbol;
 	fps_text.size = 16.0f * UI::scale;
+	debug_text.font = Asset::Font::SegoeUISymbol;
+	debug_text.size = 16.0f * UI::scale;
+
+	debug_buffer.resize(1);
+
 	command.resize(2);
 	command[0] = '$';
 
@@ -108,6 +116,8 @@ void Console::update(const Update& u)
 			fps_count = 0;
 		}
 	}
+
+	debug_text.pos = Vec2(0, u.input->height - text.size * 2.0f);
 
 	if (visible)
 	{
@@ -203,12 +213,42 @@ void Console::update(const Update& u)
 	}
 }
 
+
+void Console::debug(const char* format, ...)
+{
+    va_list args;
+    va_start(args, format);
+	char buffer[255];
+
+#if defined(_WIN32)
+    vsprintf_s(buffer, 255, format, args);
+#else
+    vsnprintf(buffer, 255, format, args);
+#endif
+
+    va_end(args);
+
+	int buffer_start = debug_buffer.length;
+	int buffer_length = strlen(buffer);
+	if (debug_buffer.length > 0)
+		debug_buffer[debug_buffer.length - 1] = '\n';
+
+	debug_buffer.resize(debug_buffer.length + buffer_length + 1);
+
+	memcpy(&debug_buffer[buffer_start], buffer, sizeof(char) * buffer_length);
+	debug_buffer[debug_buffer.length - 1] = '\0';
+}
+
 void Console::draw(const RenderParams& p)
 {
 	if (visible)
 		text.draw(p);
 	if (fps_visible)
 		fps_text.draw(p);
+
+	debug_text.text(debug_buffer.data);
+	debug_text.draw(p);
+	debug_buffer.length = 0;
 }
 
 }

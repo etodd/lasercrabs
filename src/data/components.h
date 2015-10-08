@@ -24,6 +24,8 @@ struct Transform : public ComponentType<Transform>
 	Vec3 to_world(const Vec3&) const;
 	Vec3 to_local(const Vec3&) const;
 
+	void to_world(Quat*, Vec3*) const;
+
 	void absolute(Quat*, Vec3*) const;
 	void absolute(const Quat&, const Vec3&);
 	Vec3 absolute_pos() const;

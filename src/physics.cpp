@@ -46,7 +46,9 @@ void RigidBody::init(Vec3 pos, Quat quat, float mass)
 	btVector3 localInertia(0, 0, 0);
 	if (mass > 0.0f)
 		btShape->calculateLocalInertia(mass, localInertia);
-	btBody = new btRigidBody(mass, 0, btShape, localInertia);
+	btRigidBody::btRigidBodyConstructionInfo info(mass, 0, btShape, localInertia);
+	info.m_startWorldTransform = btTransform(quat, pos);
+	btBody = new btRigidBody(info);
 	btBody->setWorldTransform(btTransform(quat, pos));
 
 	if (mass == 0.0f)

@@ -24,9 +24,9 @@ struct Prop : public Entity
 
 struct StaticGeom : public Entity
 {
-	StaticGeom(ID, AssetID);
-	StaticGeom(ID, AssetID, short, short);
-	void init(AssetID, btTriangleIndexVertexArray**, btBvhTriangleMeshShape**);
+	StaticGeom(const ID, const AssetID, const Vec3&, const Quat&);
+	StaticGeom(const ID, const AssetID, const Vec3&, const Quat&, const short, const short);
+	void init(const AssetID, btTriangleIndexVertexArray**, btBvhTriangleMeshShape**);
 	void awake();
 };
 

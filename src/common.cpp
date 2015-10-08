@@ -34,7 +34,7 @@ Prop::Prop(ID id, AssetID mesh_id)
 
 void Prop::awake() { }
 
-void StaticGeom::init(AssetID mesh_id, btTriangleIndexVertexArray** mesh_data, btBvhTriangleMeshShape** shape)
+void StaticGeom::init(const AssetID mesh_id, btTriangleIndexVertexArray** mesh_data, btBvhTriangleMeshShape** shape)
 {
 	Transform* transform = create<Transform>();
 	View* model = create<View>();
@@ -49,23 +49,25 @@ void StaticGeom::init(AssetID mesh_id, btTriangleIndexVertexArray** mesh_data, b
 	(*shape)->setUserIndex(model->mesh);
 }
 
-StaticGeom::StaticGeom(ID id, AssetID mesh_id)
+StaticGeom::StaticGeom(const ID id, const AssetID mesh_id, const Vec3& absolute_pos, const Quat& absolute_rot)
 	: Entity(id)
 {
 	btTriangleIndexVertexArray* mesh_data;
 	btBvhTriangleMeshShape* shape;
 	init(mesh_id, &mesh_data, &shape);
-	RigidBody* body = create<RigidBody>(get<Transform>()->pos, Quat::identity, 0.0f, shape);
+	get<Transform>()->absolute(absolute_rot, absolute_pos);
+	RigidBody* body = create<RigidBody>(absolute_pos, absolute_rot, 0.0f, shape);
 	body->btMesh = mesh_data;
 }
 
-StaticGeom::StaticGeom(ID id, AssetID mesh_id, short group, short mask)
+StaticGeom::StaticGeom(const ID id, const AssetID mesh_id, const Vec3& absolute_pos, const Quat& absolute_rot, const short group, const short mask)
 	: Entity(id)
 {
 	btTriangleIndexVertexArray* mesh_data;
 	btBvhTriangleMeshShape* shape;
 	init(mesh_id, &mesh_data, &shape);
-	RigidBody* body = create<RigidBody>(get<Transform>()->pos, Quat::identity, 0.0f, shape, group, mask);
+	get<Transform>()->absolute(absolute_rot, absolute_pos);
+	RigidBody* body = create<RigidBody>(absolute_pos, absolute_rot, 0.0f, shape, group, mask);
 	body->btMesh = mesh_data;
 }
 

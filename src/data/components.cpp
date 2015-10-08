@@ -133,6 +133,17 @@ Vec3 Transform::to_local(const Vec3& p) const
 	return Vec3(result.x, result.y, result.z);
 }
 
+void Transform::to_world(Quat* q, Vec3* p) const
+{
+	const Transform* t = this;
+	while (t)
+	{ 
+		*q = t->rot * *q;
+		*p = (t->rot * *p) + t->pos;
+		t = t->parent;
+	}
+}
+
 void Transform::reparent(Transform* p)
 {
 	Quat abs_rot;

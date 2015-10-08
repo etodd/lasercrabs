@@ -26,11 +26,9 @@ void AI::init()
 	default_query_filter.setIncludeFlags((unsigned short)-1);
 	default_query_filter.setExcludeFlags(0);
 
-#if DRAW_NAV_MESH
 	render_mesh = Loader::dynamic_mesh_permanent(1);
 	Loader::dynamic_mesh_attrib(RenderDataType_Vec3);
 	Loader::shader_permanent(Asset::Shader::flat);
-#endif
 }
 
 void AI::load_nav_mesh(AssetID id)
@@ -42,9 +40,9 @@ void AI::load_nav_mesh(AssetID id)
 	vi_assert(!dtStatusFailed(status));
 }
 
-void AI::draw(const RenderParams& p)
+void AI::debug_draw(const RenderParams& p)
 {
-#if DRAW_NAV_MESH
+#if DEBUG
 	if (render_mesh_dirty)
 	{
 		// Convert polygon navmesh to triangle mesh

@@ -1375,7 +1375,7 @@ void import_level(ImporterState& state, const std::string& asset_in_path, const 
 			if (parent != -1)
 				mat = transforms[parent] * mat;
 
-			if (cJSON_GetObjectItem(element, "StaticGeom"))
+			if (cJSON_GetObjectItem(element, "StaticGeom") && cJSON_GetObjectItem(element, "nav"))
 			{
 				cJSON* mesh_refs = cJSON_GetObjectItem(element, "meshes");
 				cJSON* mesh_ref_json = mesh_refs->child;

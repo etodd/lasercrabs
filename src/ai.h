@@ -28,7 +28,7 @@ struct AI
 	static bool render_mesh_dirty;
 	static void init();
 	static void load_nav_mesh(AssetID);
-	static void draw(const RenderParams&);
+	static void debug_draw(const RenderParams&);
 
 	static Entity* get_enemy(const AI::Team&, const Vec3&, const Vec3&);
 

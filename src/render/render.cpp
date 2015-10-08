@@ -6,11 +6,30 @@
 namespace VI
 {
 
-Camera Camera::main = Camera();
+Camera Camera::all[Camera::max_cameras];
 
-Mat4 Camera::view()
+Camera* Camera::add()
+{
+	for (int i = 0; i < max_cameras; i++)
+	{
+		if (!all[i].active)
+		{
+			all[i].active = true;
+			return &all[i];
+		}
+	}
+	vi_assert(false);
+	return 0;
+}
+
+Mat4 Camera::view() const
 {
 	return Mat4::look(pos, rot * Vec3(0, 0, 1), rot * Vec3(0, 1, 0));
+}
+
+void Camera::remove()
+{
+	active = false;
 }
 
 RenderSync::Swapper RenderSync::swapper(int index)
@@ -21,10 +40,6 @@ RenderSync::Swapper RenderSync::swapper(int index)
 	return q;
 }
 
-void render_init(GLData* data)
-{
-}
-
 void render(SyncData* sync, GLData* data)
 {
 	sync->read_pos = 0;
@@ -33,6 +48,12 @@ void render(SyncData* sync, GLData* data)
 		RenderOp op = *(sync->read<RenderOp>());
 		switch (op)
 		{
+			case RenderOp_Viewport:
+			{
+				ScreenRect* rect = sync->read<ScreenRect>();
+				glViewport(rect->x, rect->y, rect->width, rect->height);
+				break;
+			}
 			case RenderOp_AllocMesh:
 			{
 				int id = *(sync->read<int>());

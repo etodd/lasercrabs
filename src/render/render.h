@@ -11,24 +11,38 @@
 namespace VI
 {
 
+struct ScreenRect
+{
+	int x, y, width, height;
+};
+
 struct Camera
 {
-	static Camera main;
-	Camera()
-		: projection(), pos(), rot()
-	{
+	static const int max_cameras = 4;
+	static Camera all[max_cameras];
 
-	}
-	Mat4 view();
+	static Camera* add();
+
+	bool active;
 	Mat4 projection;
 	Vec3 pos;
 	Quat rot;
+	ScreenRect viewport;
+
+	Camera()
+		: active(), projection(), pos(), rot(), viewport()
+	{
+
+	}
+	Mat4 view() const;
+	void remove();
 };
 
 struct RenderSync;
 
 enum RenderOp
 {
+	RenderOp_Viewport,
 	RenderOp_AllocMesh,
 	RenderOp_FreeMesh,
 	RenderOp_UpdateAttribBuffers,
@@ -156,17 +170,14 @@ enum RenderTechnique
 struct SyncData;
 struct RenderParams
 {
+	const Camera* camera;
 	Mat4 view;
-	Mat4 projection;
-	Vec3 camera_pos;
-	Quat camera_rot;
 	Mat4 view_projection;
 	GLbitfield clear;
 	RenderTechnique technique;
 	SyncData* sync;
 };
 
-void render_init(GLData*);
 void render(SyncData*, GLData*);
 
 }

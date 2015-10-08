@@ -13,6 +13,7 @@ namespace VI
 const char* AssetLookup::Mesh::values[] =
 {
 	"assets/Alpha.msh",
+	"assets/awk.msh",
 	"assets/lvl/city1.msh",
 	"assets/lvl/city2.msh",
 	"assets/lvl/city3_city3.msh",

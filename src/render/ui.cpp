@@ -6,6 +6,8 @@
 namespace VI
 {
 
+Array<UIText*> UIText::instances = Array<UIText*>();
+
 UIText::UIText()
 	: indices(),
 	vertices(),
@@ -13,12 +15,49 @@ UIText::UIText()
 	font(),
 	pos(Vec2::zero),
 	rot(),
-	size(16)
+	size(16),
+	string()
 {
+	instances.add(this);
 }
 
-void UIText::text(const char* string)
+UIText::~UIText()
 {
+	for (int i = 0; i < instances.length; i++)
+	{
+		if (instances[i] == this)
+		{
+			instances.remove(i);
+			break;
+		}
+	}
+}
+
+void UIText::reeval()
+{
+	if (string)
+		text(string);
+}
+
+void UIText::reeval_all()
+{
+	for (int i = 0; i < instances.length; i++)
+		instances[i]->reeval();
+}
+
+void UIText::text(const char* s)
+{
+	if (string != s)
+	{
+		if (string)
+			free(string);
+
+		int length = strlen(s);
+
+		string = (char*)malloc(sizeof(char) * (length + 1));
+		memcpy(string, s, sizeof(char) * (length + 1));
+	}
+
 	vertices.length = 0;
 	indices.length = 0;
 
@@ -67,15 +106,15 @@ void UIText::text(const char* string)
 void UIText::draw(const RenderParams& params)
 {
 	int vertex_start = UI::vertices.length;
-	Vec2 screen = Vec2(params.sync->input.width * 0.5f, params.sync->input.height * 0.5f);
+	Vec2 screen = Vec2(params.camera->viewport.width * 0.5f, params.camera->viewport.height * 0.5f);
 	Vec2 offset = pos - screen;
 	Vec2 scale = Vec2(1.0f / screen.x, 1.0f / screen.y);
 	float cs = cosf(rot), sn = sinf(rot);
 	for (int i = 0; i < vertices.length; i++)
 	{
 		Vec3 vertex;
-		vertex.x = (offset.x + size * (vertices[i].x * cs - vertices[i].y * sn)) * scale.x;
-		vertex.y = (offset.y + size * (vertices[i].x * sn + vertices[i].y * cs)) * scale.y;
+		vertex.x = (offset.x + size * UI::scale * (vertices[i].x * cs - vertices[i].y * sn)) * scale.x;
+		vertex.y = (offset.y + size * UI::scale * (vertices[i].x * sn + vertices[i].y * cs)) * scale.y;
 		UI::vertices.add(vertex);
 	}
 
@@ -98,7 +137,7 @@ void UI::box(const RenderParams& params, const Vec2& pos, const Vec2& size, cons
 	if (size.x > 0 && size.y > 0 && color.w > 0)
 	{
 		int vertex_start = UI::vertices.length;
-		Vec2 screen = Vec2(params.sync->input.width * 0.5f, params.sync->input.height * 0.5f);
+		Vec2 screen = Vec2(params.camera->viewport.width * 0.5f, params.camera->viewport.height * 0.5f);
 		Vec2 scale = Vec2(1.0f / screen.x, 1.0f / screen.y);
 		Vec2 scaled_pos = (pos - screen) * scale;
 		Vec2 scaled_size = size * scale;
@@ -125,7 +164,7 @@ void UI::centered_box(const RenderParams& params, const Vec2& pos, const Vec2& s
 	if (size.x > 0 && size.y > 0 && color.w > 0)
 	{
 		int vertex_start = UI::vertices.length;
-		Vec2 screen = Vec2(params.sync->input.width * 0.5f, params.sync->input.height * 0.5f);
+		Vec2 screen = Vec2(params.camera->viewport.width * 0.5f, params.camera->viewport.height * 0.5f);
 		Vec2 scale = Vec2(1.0f / screen.x, 1.0f / screen.y);
 		Vec2 scaled_pos = (pos - screen) * scale;
 
@@ -160,7 +199,7 @@ void UI::border(const RenderParams& params, const Vec2& pos, const Vec2& size, c
 	if (size.x > 0 && size.y > 0 && color.w > 0)
 	{
 		int vertex_start = UI::vertices.length;
-		Vec2 screen = Vec2(params.sync->input.width * 0.5f, params.sync->input.height * 0.5f);
+		Vec2 screen = Vec2(params.camera->viewport.width * 0.5f, params.camera->viewport.height * 0.5f);
 		Vec2 scale = Vec2(1.0f / screen.x, 1.0f / screen.y);
 		Vec2 scaled_pos = (pos - screen) * scale;
 		Vec2 scaled_size = size * scale;
@@ -214,7 +253,7 @@ void UI::centered_border(const RenderParams& params, const Vec2& pos, const Vec2
 	if (size.x > 0 && size.y > 0 && color.w > 0)
 	{
 		int vertex_start = UI::vertices.length;
-		Vec2 screen = Vec2(params.sync->input.width * 0.5f, params.sync->input.height * 0.5f);
+		Vec2 screen = Vec2(params.camera->viewport.width * 0.5f, params.camera->viewport.height * 0.5f);
 		Vec2 scale = Vec2(1.0f / screen.x, 1.0f / screen.y);
 		Vec2 scaled_pos = (pos - screen) * scale;
 
@@ -280,7 +319,7 @@ void UI::triangle(const RenderParams& params, const Vec2& pos, const Vec2& size,
 	if (size.x > 0 && size.y > 0 && color.w > 0)
 	{
 		int vertex_start = UI::vertices.length;
-		Vec2 screen = Vec2(params.sync->input.width * 0.5f, params.sync->input.height * 0.5f);
+		Vec2 screen = Vec2(params.camera->viewport.width * 0.5f, params.camera->viewport.height * 0.5f);
 		Vec2 scale = Vec2(1.0f / screen.x, 1.0f / screen.y);
 		Vec2 scaled_pos = (pos - screen) * scale;
 
@@ -307,7 +346,7 @@ void UI::triangle(const RenderParams& params, const Vec2& pos, const Vec2& size,
 bool UI::project(const RenderParams& p, const Vec3& v, Vec2& out)
 {
 	Vec4 projected = p.view_projection * Vec4(v.x, v.y, v.z, 1);
-	Vec2 screen = Vec2(p.sync->input.width * 0.5f, p.sync->input.height * 0.5f);
+	Vec2 screen = Vec2(p.camera->viewport.width * 0.5f, p.camera->viewport.height * 0.5f);
 	out = Vec2((projected.x / projected.w + 1.0f) * screen.x, (projected.y / projected.w + 1.0f) * screen.y);
 	return projected.z > -projected.w && projected.z < projected.w;
 }
@@ -325,9 +364,14 @@ float UI::get_scale(const int width, const int height)
 {
 	int area = width * height;
 	if (area >= 1680 * 1050)
-		return 2.0f;
+		return 1.5f;
 	else
 		return 1.0f;
+}
+
+void UI::update(const RenderParams& p)
+{
+	scale = get_scale(p.camera->viewport.width, p.camera->viewport.height);
 }
 
 void UI::draw(const RenderParams& p)

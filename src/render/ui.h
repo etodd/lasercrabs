@@ -10,6 +10,8 @@ namespace VI
 
 struct UIText
 {
+	static Array<UIText*> instances;
+	char* string;
 	Array<int> indices;
 	Array<Vec3> vertices;
 	Vec4 color;
@@ -18,8 +20,11 @@ struct UIText
 	float rot;
 	float size;
 	void text(const char*);
+	void reeval();
+	static void reeval_all();
 	void draw(const RenderParams&);
 	UIText();
+	~UIText();
 };
 
 struct UI
@@ -36,6 +41,7 @@ struct UI
 	static void border(const RenderParams&, const Vec2&, const Vec2&, const Vec4&, float);
 	static void centered_border(const RenderParams&, const Vec2&, const Vec2&, const Vec4&, const float, const float);
 	static void triangle(const RenderParams&, const Vec2&, const Vec2&, const Vec4&, const float);
+	static void update(const RenderParams&);
 	static void draw(const RenderParams&);
 	static bool project(const RenderParams&, const Vec3&, Vec2&);
 };

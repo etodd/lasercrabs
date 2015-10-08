@@ -47,7 +47,10 @@ struct NoclipControl : public ComponentType<NoclipControl>
 	float angle_horizontal;
 	float angle_vertical;
 
+	Camera* camera;
+
 	NoclipControl();
+	~NoclipControl();
 	void awake();
 
 	void update(const Update&);

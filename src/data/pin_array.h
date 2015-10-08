@@ -99,6 +99,11 @@ struct PinArray
 		return e;
 	}
 
+	int count()
+	{
+		return data.length - free_list.length;
+	}
+
 	Entry add(T& t)
 	{
 		Entry i = add();

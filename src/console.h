@@ -26,7 +26,7 @@ struct Console
 	static float repeat_start_time;
 	static float repeat_last_time;
 
-	static void init(int, int);
+	static void init();
 	static void update(const Update&);
 	static void draw(const RenderParams&);
 	static void debug(const char*, ...);

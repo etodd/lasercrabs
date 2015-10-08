@@ -13,25 +13,23 @@ namespace VI
 {
 
 SDL_Window* Main::window = 0;
-SDL_GameController* Main::controller = 0;
+SDL_GameController* Main::controllers[] = {};
 
-void Main::resize(SDL_Window* window, int width, int height)
+void Main::refresh_controllers()
 {
-	glViewport(0, 0, width, height);
-}
+	for (int i = 0; i < MAX_GAMEPADS; i++)
+	{
+		if (controllers[i])
+		{
+			SDL_GameControllerClose(controllers[i]);
+			controllers[i] = nullptr;
+		}
+	}
 
-void Main::get_controller()
-{
-	if (controller)
-		SDL_GameControllerClose(controller);
-	controller = 0;
-	for (int i = 0; i < SDL_NumJoysticks(); ++i)
+	for (int i = 0; i < SDL_NumJoysticks(); i++)
 	{
 		if (SDL_IsGameController(i))
-		{
-			controller = SDL_GameControllerOpen(i);
-			break;
-		}
+			controllers[i] = SDL_GameControllerOpen(i);
 	}
 }
 
@@ -90,7 +88,7 @@ int Main::proc()
 
 	// Ensure we can capture the escape key being pressed below
 
-	glClearColor(1.0f, 1.0f, 1.0f, 0.0f);
+	glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
 
 	// Enable depth test
 	glEnable(GL_DEPTH_TEST);
@@ -110,7 +108,6 @@ int Main::proc()
 	SyncData* sync = render_swapper.get();
 
 	GLData gl_data;
-	render_init(&gl_data);
 
 	float lastTime = (float)(SDL_GetTicks() / 1000.0);
 
@@ -124,7 +121,9 @@ int Main::proc()
 
 	const Uint8* sdl_keys = SDL_GetKeyboardState(0);
 
-	get_controller();
+	refresh_controllers();
+
+	int player_count = 1;
 
 	while (true)
 	{
@@ -144,12 +143,10 @@ int Main::proc()
 				quit = true;
 			else if (sdl_event.type == SDL_JOYDEVICEADDED
 				|| sdl_event.type == SDL_JOYDEVICEREMOVED)
-				get_controller();
+				refresh_controllers();
 			else if (sdl_event.type == SDL_WINDOWEVENT)
 			{
-				if (sdl_event.window.event == SDL_WINDOWEVENT_RESIZED)
-					resize(window, sdl_event.window.data1, sdl_event.window.data2);
-				else if (sdl_event.window.event == SDL_WINDOWEVENT_FOCUS_GAINED)
+				if (sdl_event.window.event == SDL_WINDOWEVENT_FOCUS_GAINED)
 					has_focus = true;
 				else if (sdl_event.window.event == SDL_WINDOWEVENT_FOCUS_LOST)
 					has_focus = false;
@@ -164,20 +161,31 @@ int Main::proc()
 		sync->input.last_mouse_buttons = last_mouse_buttons;
 		sync->input.mouse_buttons = last_mouse_buttons = SDL_GetRelativeMouseState(&sync->input.cursor_x, &sync->input.cursor_y);
 
-		sync->input.joystick = controller != 0;
-		if (sync->input.joystick)
+		int active_gamepads = 0;
+		for (int i = 0; i < MAX_GAMEPADS; i++)
 		{
-			sync->input.joystick_left_x = (float)SDL_GameControllerGetAxis(controller, SDL_CONTROLLER_AXIS_LEFTX) / 32767.0f;
-			sync->input.joystick_left_y = (float)SDL_GameControllerGetAxis(controller, SDL_CONTROLLER_AXIS_LEFTY) / 32767.0f;
-			sync->input.joystick_right_x = (float)SDL_GameControllerGetAxis(controller, SDL_CONTROLLER_AXIS_RIGHTX) / 32767.0f;
-			sync->input.joystick_right_y = (float)SDL_GameControllerGetAxis(controller, SDL_CONTROLLER_AXIS_RIGHTY) / 32767.0f;
-			sync->input.joystick_left_trigger = (float)SDL_GameControllerGetAxis(controller, SDL_CONTROLLER_AXIS_TRIGGERLEFT) / 32767.0f;
-			sync->input.joystick_right_trigger = (float)SDL_GameControllerGetAxis(controller, SDL_CONTROLLER_AXIS_TRIGGERRIGHT) / 32767.0f;
-			sync->input.joystick_left_shoulder = (bool)SDL_GameControllerGetButton(controller, SDL_CONTROLLER_BUTTON_LEFTSHOULDER);
-			sync->input.joystick_right_shoulder = (bool)SDL_GameControllerGetButton(controller, SDL_CONTROLLER_BUTTON_RIGHTSHOULDER);
-			sync->input.joystick_left_click = (bool)SDL_GameControllerGetButton(controller, SDL_CONTROLLER_BUTTON_LEFTSTICK);
-			sync->input.joystick_right_click = (bool)SDL_GameControllerGetButton(controller, SDL_CONTROLLER_BUTTON_RIGHTSTICK);
+			SDL_GameController* controller = controllers[i];
+			Gamepad* gamepad = &sync->input.gamepads[i];
+			gamepad->active = controller != 0;
+			if (gamepad->active)
+			{
+				gamepad->left_x = (float)SDL_GameControllerGetAxis(controller, SDL_CONTROLLER_AXIS_LEFTX) / 32767.0f;
+				gamepad->left_y = (float)SDL_GameControllerGetAxis(controller, SDL_CONTROLLER_AXIS_LEFTY) / 32767.0f;
+				gamepad->right_x = (float)SDL_GameControllerGetAxis(controller, SDL_CONTROLLER_AXIS_RIGHTX) / 32767.0f;
+				gamepad->right_y = (float)SDL_GameControllerGetAxis(controller, SDL_CONTROLLER_AXIS_RIGHTY) / 32767.0f;
+				gamepad->left_trigger = (float)SDL_GameControllerGetAxis(controller, SDL_CONTROLLER_AXIS_TRIGGERLEFT) / 32767.0f;
+				gamepad->right_trigger = (float)SDL_GameControllerGetAxis(controller, SDL_CONTROLLER_AXIS_TRIGGERRIGHT) / 32767.0f;
+				gamepad->left_shoulder = (bool)SDL_GameControllerGetButton(controller, SDL_CONTROLLER_BUTTON_LEFTSHOULDER);
+				gamepad->right_shoulder = (bool)SDL_GameControllerGetButton(controller, SDL_CONTROLLER_BUTTON_RIGHTSHOULDER);
+				gamepad->left_click = (bool)SDL_GameControllerGetButton(controller, SDL_CONTROLLER_BUTTON_LEFTSTICK);
+				gamepad->right_click = (bool)SDL_GameControllerGetButton(controller, SDL_CONTROLLER_BUTTON_RIGHTSTICK);
+				active_gamepads++;
+			}
 		}
+
+		if (active_gamepads > player_count)
+			player_count = active_gamepads;
+		sync->input.player_count = player_count;
 
 		quit |= sync->input.keys[KEYCODE_ESCAPE];
 		sync->quit = quit;
@@ -193,7 +201,8 @@ int Main::proc()
 		if (sync->input.set_width > 0)
 		{
 			SDL_SetWindowSize(window, sync->input.set_width, sync->input.set_height);
-			resize(window, sync->input.set_width, sync->input.set_height);
+			sync->input.width = sync->input.set_width;
+			sync->input.height = sync->input.set_height;
 			sync->input.set_width = 0;
 			sync->input.set_height = 0;
 		}

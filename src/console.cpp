@@ -23,14 +23,14 @@ float Console::repeat_last_time = 0.0f;
 #define REPEAT_DELAY 0.2f
 #define REPEAT_INTERVAL 0.03f
 
-void Console::init(int width, int height)
+void Console::init()
 {
 	text.font = Asset::Font::SegoeUISymbol;
-	text.size = 16.0f * UI::scale;
+	text.size = 16.0f;
 	fps_text.font = Asset::Font::SegoeUISymbol;
-	fps_text.size = 16.0f * UI::scale;
+	fps_text.size = 16.0f;
 	debug_text.font = Asset::Font::SegoeUISymbol;
-	debug_text.size = 16.0f * UI::scale;
+	debug_text.size = 16.0f;
 
 	debug_buffer.resize(1);
 
@@ -117,12 +117,12 @@ void Console::update(const Update& u)
 		}
 	}
 
-	debug_text.pos = Vec2(0, u.input->height - text.size * 2.0f);
+	debug_text.pos = Vec2(0, u.input->height - text.size * UI::scale * 2.0f);
 
 	if (visible)
 	{
 		Font* font = Loader::font(Asset::Font::SegoeUISymbol);
-		text.pos = Vec2(0, u.input->height - text.size);
+		text.pos = Vec2(0, u.input->height - text.size * UI::scale);
 		bool update = false;
 		bool shift = u.input->keys[KEYCODE_LSHIFT]
 			|| u.input->keys[KEYCODE_RSHIFT];

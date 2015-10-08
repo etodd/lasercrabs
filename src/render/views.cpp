@@ -46,7 +46,7 @@ void View::draw(const RenderParams& params)
 	sync->write(Asset::Uniform::light_position);
 	sync->write(RenderDataType_Vec3);
 	sync->write<int>(1);
-	sync->write(&params.camera_pos);
+	sync->write(&params.camera->pos);
 
 	if (texture != AssetNull)
 	{
@@ -99,10 +99,6 @@ void Skybox::draw(const RenderParams& p)
 
 	SyncData* sync = p.sync;
 
-	sync->write(RenderOp_Clear);
-
-	sync->write<GLbitfield>(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
 	sync->write(RenderOp_DepthMask);
 	sync->write<bool>(false);
 
@@ -114,7 +110,7 @@ void Skybox::draw(const RenderParams& p)
 
 	Mat4 mvp = p.view;
 	mvp.translation(Vec3::zero);
-	mvp = mvp * p.projection;
+	mvp = mvp * p.camera->projection;
 
 	sync->write(Asset::Uniform::mvp);
 	sync->write(RenderDataType_Mat4);

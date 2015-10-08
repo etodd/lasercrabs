@@ -244,6 +244,23 @@ enum KeyCode
 	KEYCODE_COUNT = KEYCODE_SLEEP + 1,
 };
 
+struct Gamepad
+{
+	bool active;
+	float left_x;
+	float left_y;
+	float right_x;
+	float right_y;
+	float left_trigger;
+	float right_trigger;
+	bool left_shoulder;
+	bool right_shoulder;
+	bool left_click;
+	bool right_click;
+};
+
+#define MAX_GAMEPADS 4
+
 struct InputState
 {
 	bool keys[KEYCODE_COUNT];
@@ -256,17 +273,8 @@ struct InputState
 	int height;
 	int set_width;
 	int set_height;
-	bool joystick;
-	float joystick_left_x;
-	float joystick_left_y;
-	float joystick_right_x;
-	float joystick_right_y;
-	float joystick_left_trigger;
-	float joystick_right_trigger;
-	bool joystick_left_shoulder;
-	bool joystick_right_shoulder;
-	bool joystick_left_click;
-	bool joystick_right_click;
+	Gamepad gamepads[MAX_GAMEPADS];
+	int player_count;
 };
 
 }

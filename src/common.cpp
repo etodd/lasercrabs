@@ -109,6 +109,12 @@ NoclipControl::NoclipControl()
 	: angle_horizontal(),
 	angle_vertical()
 {
+	camera = Camera::add();
+}
+
+NoclipControl::~NoclipControl()
+{
+	camera->remove();
 }
 
 void NoclipControl::awake()
@@ -152,14 +158,15 @@ void NoclipControl::update(const Update& u)
 	
 	float FoV = fov_initial;
 
-	float aspect = u.input->height == 0 ? 1 : (float)u.input->width / (float)u.input->height;
-	Camera::main.projection = Mat4::perspective(FoV, aspect, 0.01f, 1000.0f);
+	camera->viewport = { 0, 0, u.input->width, u.input->height };
+	float aspect = camera->viewport.height == 0 ? 1 : (float)camera->viewport.width / (float)camera->viewport.height;
+	camera->projection = Mat4::perspective(FoV, aspect, 0.01f, 1000.0f);
 
 	// Camera matrix
 	Vec3 pos = get<Transform>()->absolute_pos();
 	Vec3 look = look_quat * Vec3(0, 0, 1);
-	Camera::main.pos = pos;
-	Camera::main.rot = look_quat;
+	camera->pos = pos;
+	camera->rot = look_quat;
 }
 
 void Debug::awake()

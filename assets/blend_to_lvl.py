@@ -15,8 +15,8 @@ for o in sorted((x for x in bpy.data.objects if x.type == 'MESH'), key = lambda 
 
 result = []
 def add(obj, parent_index):
-	pos = obj.matrix_basis.translation
-	axis, angle = obj.matrix_basis.to_quaternion().to_axis_angle()
+	pos = obj.matrix_local.translation
+	axis, angle = obj.matrix_local.to_quaternion().to_axis_angle()
 	rot = mathutils.Quaternion(mathutils.Vector([axis.y, axis.z, axis.x]), angle)
 	node = {
 		'pos': [pos.y, pos.z, pos.x],

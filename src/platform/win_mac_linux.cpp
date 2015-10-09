@@ -1,22 +1,22 @@
-#include "main.h"
+#define _AMD64_
 
-#include "types.h"
-#include "vi_assert.h"
+#include "gl.h"
+#include "load.h"
+
+#include <SDL.h>
+#undef main // Fix SDL nonsense
 
 #include <thread>
-
-#include "load.h"
-#include "render/render.h"
 #include "physics.h"
 #include "game/game.h"
 
 namespace VI
 {
 
-SDL_Window* Main::window = 0;
-SDL_GameController* Main::controllers[] = {};
+SDL_Window* window = 0;
+SDL_GameController* controllers[MAX_GAMEPADS] = {};
 
-void Main::refresh_controllers()
+void refresh_controllers()
 {
 	for (int i = 0; i < MAX_GAMEPADS; i++)
 	{
@@ -34,7 +34,7 @@ void Main::refresh_controllers()
 	}
 }
 
-int Main::proc()
+int proc()
 {
 	// Initialise SDL
 	if (SDL_Init(
@@ -109,8 +109,6 @@ int Main::proc()
 
 	RenderSync* sync = render_swapper.get();
 
-	GLData gl_data;
-
 	float lastTime = (float)(SDL_GetTicks() / 1000.0);
 
 	bool last_keys[KEYCODE_COUNT];
@@ -129,7 +127,7 @@ int Main::proc()
 
 	while (true)
 	{
-		render(sync, &gl_data);
+		render(sync);
 
 		// Swap buffers
 		SDL_GL_SwapWindow(window);
@@ -227,5 +225,5 @@ int Main::proc()
 
 int main(int argc, char* argv[])
 {
-	return VI::Main::proc();
+	return VI::proc();
 }

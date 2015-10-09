@@ -59,14 +59,14 @@ void RigidBody::init(Vec3 pos, Quat quat, float mass)
 }
 
 RigidBody::RigidBody(Vec3 pos, Quat quat, float mass, btCollisionShape* shape)
-	: btShape(shape)
+	: btShape(shape), btMesh()
 {
 	init(pos, quat, mass);
 	Physics::btWorld->addRigidBody(btBody);
 }
 
 RigidBody::RigidBody(Vec3 pos, Quat quat, float mass, btCollisionShape* shape, short group, short mask, ID linked_entity)
-	: btShape(shape)
+	: btShape(shape), btMesh()
 {
 	init(pos, quat, mass);
 	Physics::btWorld->addRigidBody(btBody, group, mask);

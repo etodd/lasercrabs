@@ -2,8 +2,6 @@
 
 #include "SDL_keycode.h"
 
-#include "data/array.h"
-
 namespace VI
 {
 

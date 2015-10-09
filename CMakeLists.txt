@@ -240,6 +240,8 @@ add_executable(mkzebra
 	src/asset/shader.h
 	src/asset/level.h
 	src/asset/values.cpp
+	src/platform/gl.h
+	src/platform/win_mac_linux.cpp
 	src/sync.h
 	src/types.h
 	src/vi_assert.h
@@ -254,8 +256,6 @@ add_executable(mkzebra
 	src/load.cpp
 	src/physics.cpp
 	src/lmath.cpp
-	src/main.h
-	src/main.cpp
 	src/ai.h
 	src/ai.cpp
 	${GAME_SRC_FILES}

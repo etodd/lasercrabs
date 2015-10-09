@@ -310,7 +310,12 @@ void write_asset_source(FILE* file, const std::string& name, const Map<std::stri
 	fprintf(file, "\nconst char* AssetLookup::%s::values[] =\n{\n", name.c_str());
 	for (auto i = assets.begin(); i != assets.end(); i++)
 		fprintf(file, "\t\"%s\",\n", i->second.c_str());
-	fprintf(file, "};\n\n");
+	fprintf(file, "\t0,\n};\n\n");
+
+	fprintf(file, "\nconst char* AssetLookup::%s::names[] =\n{\n", name.c_str());
+	for (auto i = assets.begin(); i != assets.end(); i++)
+		fprintf(file, "\t\"%s\",\n", i->first.c_str());
+	fprintf(file, "\t0,\n};\n\n");
 }
 
 std::string get_asset_name(const std::string& filename)

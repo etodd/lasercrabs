@@ -34,6 +34,7 @@ struct Physics
     static btCollisionDispatcher* dispatcher;
     static btSequentialImpulseConstraintSolver* solver;
     static btDiscreteDynamicsWorld* btWorld;
+
 	static void loop(PhysicsSwapper*);
 	static void sync_static();
     static void sync_dynamic();
@@ -41,14 +42,15 @@ struct Physics
 
 struct RigidBody : public ComponentType<RigidBody>
 {
-	RigidBody(Vec3, Quat, float, btCollisionShape*);
-	RigidBody(Vec3, Quat, float, btCollisionShape*, short, short, ID = -1);
-	void init(Vec3, Quat, float);
 	btCollisionShape* btShape;
 	btStridingMeshInterface* btMesh;
 	btRigidBody* btBody;
-	void awake();
+
+	RigidBody(Vec3, Quat, float, btCollisionShape*);
+	RigidBody(Vec3, Quat, float, btCollisionShape*, short, short, ID = -1);
 	~RigidBody();
+	void init(Vec3, Quat, float);
+	void awake();
 };
 
 }

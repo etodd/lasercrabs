@@ -42,7 +42,7 @@ void SkinnedModel::draw(const RenderParams& params)
 	sync->write(RenderDataType_Texture);
 	sync->write<int>(1);
 	sync->write(&texture);
-	sync->write<GLenum>(GL_TEXTURE_2D);
+	sync->write<RenderTextureType>(RenderTexture2D);
 
 	Armature* arm = Loader::armature(get<Animator>()->armature);
 	Array<Mat4>& bones = get<Animator>()->bones;

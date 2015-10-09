@@ -1,6 +1,5 @@
 #include "load.h"
 #include <stdio.h>
-#include <GL/glew.h>
 #include "lodepng.h"
 #include "vi_assert.h"
 #include "asset/lookup.h"
@@ -560,17 +559,21 @@ void Loader::level_free(cJSON* json)
 
 void base_nav_mesh_read(FILE* f, rcPolyMesh* mesh)
 {
-	fread(mesh, sizeof(rcPolyMesh), 1, f);
-	mesh->verts = (unsigned short*)malloc(sizeof(unsigned short) * 3 * mesh->nverts);
-	mesh->polys = (unsigned short*)malloc(sizeof(unsigned short) * 2 * mesh->nvp * mesh->npolys);
-	mesh->regs = (unsigned short*)malloc(sizeof(unsigned short) * mesh->npolys);
-	mesh->flags = (unsigned short*)malloc(sizeof(unsigned short) * mesh->npolys);
-	mesh->areas = (unsigned char*)malloc(sizeof(unsigned char) * mesh->npolys);
-	fread(mesh->verts, sizeof(unsigned short) * 3, mesh->nverts, f);
-	fread(mesh->polys, sizeof(unsigned short) * 2 * mesh->nvp, mesh->npolys, f);
-	fread(mesh->regs, sizeof(unsigned short), mesh->npolys, f);
-	fread(mesh->flags, sizeof(unsigned short), mesh->npolys, f);
-	fread(mesh->areas, sizeof(unsigned char), mesh->npolys, f);
+	if (!fread(mesh, sizeof(rcPolyMesh), 1, f))
+		memset(mesh, 0, sizeof(rcPolyMesh));
+	else
+	{
+		mesh->verts = (unsigned short*)malloc(sizeof(unsigned short) * 3 * mesh->nverts);
+		mesh->polys = (unsigned short*)malloc(sizeof(unsigned short) * 2 * mesh->nvp * mesh->npolys);
+		mesh->regs = (unsigned short*)malloc(sizeof(unsigned short) * mesh->npolys);
+		mesh->flags = (unsigned short*)malloc(sizeof(unsigned short) * mesh->npolys);
+		mesh->areas = (unsigned char*)malloc(sizeof(unsigned char) * mesh->npolys);
+		fread(mesh->verts, sizeof(unsigned short) * 3, mesh->nverts, f);
+		fread(mesh->polys, sizeof(unsigned short) * 2 * mesh->nvp, mesh->npolys, f);
+		fread(mesh->regs, sizeof(unsigned short), mesh->npolys, f);
+		fread(mesh->flags, sizeof(unsigned short), mesh->npolys, f);
+		fread(mesh->areas, sizeof(unsigned char), mesh->npolys, f);
+	}
 }
 
 // Debug function for rendering the nav mesh.
@@ -625,74 +628,79 @@ dtNavMesh* Loader::nav_mesh(AssetID id)
 		rcPolyMesh mesh;
 		base_nav_mesh_read(f, &mesh);
 
-		rcPolyMeshDetail mesh_detail;
-		fread(&mesh_detail, sizeof(rcPolyMeshDetail), 1, f);
-		mesh_detail.meshes = (unsigned int*)malloc(sizeof(unsigned int) * 4 * mesh_detail.nmeshes);
-		mesh_detail.verts = (float*)malloc(sizeof(float) * 3 * mesh_detail.nverts);
-		mesh_detail.tris = (unsigned char*)malloc(sizeof(unsigned char) * 4 * mesh_detail.ntris);
-		fread(mesh_detail.meshes, sizeof(unsigned int) * 4, mesh_detail.nmeshes, f);
-		fread(mesh_detail.verts, sizeof(float) * 3, mesh_detail.nverts, f);
-		fread(mesh_detail.tris, sizeof(unsigned char) * 4, mesh_detail.ntris, f);
+		if (mesh.npolys > 0)
+		{
+			rcPolyMeshDetail mesh_detail;
+			fread(&mesh_detail, sizeof(rcPolyMeshDetail), 1, f);
+			mesh_detail.meshes = (unsigned int*)malloc(sizeof(unsigned int) * 4 * mesh_detail.nmeshes);
+			mesh_detail.verts = (float*)malloc(sizeof(float) * 3 * mesh_detail.nverts);
+			mesh_detail.tris = (unsigned char*)malloc(sizeof(unsigned char) * 4 * mesh_detail.ntris);
+			fread(mesh_detail.meshes, sizeof(unsigned int) * 4, mesh_detail.nmeshes, f);
+			fread(mesh_detail.verts, sizeof(float) * 3, mesh_detail.nverts, f);
+			fread(mesh_detail.tris, sizeof(unsigned char) * 4, mesh_detail.ntris, f);
 
-		float agent_height;
-		float agent_radius;
-		float agent_max_climb;
+			float agent_height;
+			float agent_radius;
+			float agent_max_climb;
 
-		fread(&agent_height, sizeof(float), 1, f);
-		fread(&agent_radius, sizeof(float), 1, f);
-		fread(&agent_max_climb, sizeof(float), 1, f);
+			fread(&agent_height, sizeof(float), 1, f);
+			fread(&agent_radius, sizeof(float), 1, f);
+			fread(&agent_max_climb, sizeof(float), 1, f);
 
-		fclose(f);
+			fclose(f);
 
-		unsigned char* navData = 0;
-		int navDataSize = 0;
+			unsigned char* navData = 0;
+			int navDataSize = 0;
 
-		dtNavMeshCreateParams params;
-		memset(&params, 0, sizeof(params));
-		params.verts = mesh.verts;
-		params.vertCount = mesh.nverts;
-		params.polys = mesh.polys;
-		params.polyAreas = mesh.areas;
-		params.polyFlags = mesh.flags;
-		params.polyCount = mesh.npolys;
-		params.nvp = mesh.nvp;
-		params.detailMeshes = mesh_detail.meshes;
-		params.detailVerts = mesh_detail.verts;
-		params.detailVertsCount = mesh_detail.nverts;
-		params.detailTris = mesh_detail.tris;
-		params.detailTriCount = mesh_detail.ntris;
-		params.offMeshConVerts = 0;
-		params.offMeshConRad = 0;
-		params.offMeshConDir = 0;
-		params.offMeshConAreas = 0;
-		params.offMeshConFlags = 0;
-		params.offMeshConUserID = 0;
-		params.offMeshConCount = 0;
-		params.walkableHeight = agent_height;
-		params.walkableRadius = agent_radius;
-		params.walkableClimb = agent_max_climb;
-		params.bmin[0] = mesh.bmin[0];
-		params.bmin[1] = mesh.bmin[1];
-		params.bmin[2] = mesh.bmin[2];
-		params.bmax[0] = mesh.bmax[0];
-		params.bmax[1] = mesh.bmax[1];
-		params.bmax[2] = mesh.bmax[2];
-		params.cs = mesh.cs;
-		params.ch = mesh.ch;
-		params.buildBvTree = true;
-		
-		vi_assert(dtCreateNavMeshData(&params, &navData, &navDataSize));
-		
-		current_nav_mesh = dtAllocNavMesh();
-		vi_assert(current_nav_mesh);
-		
-		dtStatus status = current_nav_mesh->init(navData, navDataSize, DT_TILE_FREE_DATA);
-		vi_assert(!dtStatusFailed(status));
-		
-		base_nav_mesh_free(&mesh);
-		free(mesh_detail.meshes);
-		free(mesh_detail.verts);
-		free(mesh_detail.tris);
+			dtNavMeshCreateParams params;
+			memset(&params, 0, sizeof(params));
+			params.verts = mesh.verts;
+			params.vertCount = mesh.nverts;
+			params.polys = mesh.polys;
+			params.polyAreas = mesh.areas;
+			params.polyFlags = mesh.flags;
+			params.polyCount = mesh.npolys;
+			params.nvp = mesh.nvp;
+			params.detailMeshes = mesh_detail.meshes;
+			params.detailVerts = mesh_detail.verts;
+			params.detailVertsCount = mesh_detail.nverts;
+			params.detailTris = mesh_detail.tris;
+			params.detailTriCount = mesh_detail.ntris;
+			params.offMeshConVerts = 0;
+			params.offMeshConRad = 0;
+			params.offMeshConDir = 0;
+			params.offMeshConAreas = 0;
+			params.offMeshConFlags = 0;
+			params.offMeshConUserID = 0;
+			params.offMeshConCount = 0;
+			params.walkableHeight = agent_height;
+			params.walkableRadius = agent_radius;
+			params.walkableClimb = agent_max_climb;
+			params.bmin[0] = mesh.bmin[0];
+			params.bmin[1] = mesh.bmin[1];
+			params.bmin[2] = mesh.bmin[2];
+			params.bmax[0] = mesh.bmax[0];
+			params.bmax[1] = mesh.bmax[1];
+			params.bmax[2] = mesh.bmax[2];
+			params.cs = mesh.cs;
+			params.ch = mesh.ch;
+			params.buildBvTree = true;
+
+			vi_assert(dtCreateNavMeshData(&params, &navData, &navDataSize));
+
+			current_nav_mesh = dtAllocNavMesh();
+			vi_assert(current_nav_mesh);
+
+			dtStatus status = current_nav_mesh->init(navData, navDataSize, DT_TILE_FREE_DATA);
+			vi_assert(!dtStatusFailed(status));
+
+			base_nav_mesh_free(&mesh);
+			free(mesh_detail.meshes);
+			free(mesh_detail.verts);
+			free(mesh_detail.tris);
+		}
+		else
+			current_nav_mesh = 0;
 
 		current_nav_mesh_id = id;
 	}
@@ -738,6 +746,19 @@ void Loader::transients_free()
 		if (dynamic_meshes[i].type == AssetTransient)
 			dynamic_mesh_free(Asset::Mesh::count + i);
 	}
+}
+
+AssetID Loader::find(const char* name, const char** list)
+{
+	const char* p;
+	int i = 0;
+	while ((p = list[i]))
+	{
+		if (strcmp(name, p) == 0)
+			return i;
+		i++;
+	}
+	return AssetNull;
 }
 
 }

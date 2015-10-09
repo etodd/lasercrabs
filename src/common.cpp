@@ -32,8 +32,6 @@ Prop::Prop(ID id, AssetID mesh_id)
 	model->shader = Asset::Shader::Standard;
 }
 
-void Prop::awake() { }
-
 void StaticGeom::init(const AssetID mesh_id, btTriangleIndexVertexArray** mesh_data, btBvhTriangleMeshShape** shape)
 {
 	Transform* transform = create<Transform>();

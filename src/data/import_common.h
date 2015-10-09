@@ -2,7 +2,6 @@
 
 #include "array.h"
 #include "types.h"
-#include <GL/glew.h>
 #include "lmath.h"
 #include <array>
 

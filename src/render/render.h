@@ -1,6 +1,5 @@
 #pragma once
 
-#include <GL/glew.h>
 #include "types.h"
 #include "data/array.h"
 #include "lmath.h"
@@ -100,49 +99,9 @@ struct RenderSync
 
 typedef Sync<RenderSync>::Swapper RenderSwapper;
 
-struct Loader;
-
-struct GLData
+enum RenderTextureType
 {
-	struct Mesh
-	{
-		struct Attrib
-		{
-			int total_element_size;
-			int element_count;
-			RenderDataType data_type;
-			GLuint gl_type;
-			GLuint handle;
-		};
-
-		Array<Attrib> attribs;
-		GLuint index_buffer;
-		GLuint vertex_array;
-		int index_count;
-		bool dynamic;
-
-		Mesh()
-			: attribs(), index_buffer(), vertex_array(), index_count()
-		{
-			
-		}
-	};
-
-	struct Shader
-	{
-		GLuint handle;
-		Array<GLuint> uniforms;
-	};
-
-	Array<GLuint> textures;
-	Array<Shader> shaders;
-	Array<Mesh> meshes;
-
-	GLData()
-		: meshes(), textures(), shaders()
-	{
-
-	}
+	RenderTexture2D,
 };
 
 enum RenderTechnique
@@ -156,11 +115,10 @@ struct RenderParams
 	const Camera* camera;
 	Mat4 view;
 	Mat4 view_projection;
-	GLbitfield clear;
 	RenderTechnique technique;
 	RenderSync* sync;
 };
 
-void render(RenderSync*, GLData*);
+void render(RenderSync*);
 
 }

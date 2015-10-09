@@ -89,6 +89,7 @@ struct Entity
 	}
 	template<typename T, typename... Args> T* create(Args... args);
 	template<typename T, typename... Args> T* add(Args... args);
+	template<typename T> inline bool has();
 	template<typename T> inline T* get();
 };
 
@@ -110,19 +111,6 @@ struct World
 	{
 		Pool<T>* pool = (Pool<T>*)&component_pools[T::family()];
 		return *(reinterpret_cast<PinArray<T>*>(&pool->data));
-	}
-
-	template<typename T> static T* component(ID entity)
-	{
-		Entity* e = &list[entity];
-		Family family = T::family();
-		if (e->component_mask & (1 << family))
-		{
-			Pool<T>* pool = &component_pools[family];
-			return pool->get(e->components[family]);
-		}
-		else
-			return 0;
 	}
 	
 	static Entity* get(ID entity)
@@ -177,6 +165,7 @@ struct World
 				pool->remove(e->components[i]);
 			}
 		}
+		e->component_mask = 0;
 	}
 };
 
@@ -188,6 +177,11 @@ template<typename T, typename... Args> T* Entity::create(Args... args)
 template<typename T, typename... Args> T* Entity::add(Args... args)
 {
 	return World::add_component<T>(this, args...);
+}
+
+template<typename T> inline bool Entity::has()
+{
+	return component_mask & (1 << T::family());
 }
 
 template<typename T> inline T* Entity::get()

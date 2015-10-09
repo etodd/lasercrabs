@@ -1,12 +1,11 @@
 #pragma once
 
 #include "types.h"
-#include <GL/glew.h>
 #include "data/import_common.h"
 #include "render/render.h"
-#include "cJSON.h"
 
 struct dtNavMesh;
+struct cJSON;
 
 namespace VI
 {
@@ -98,6 +97,8 @@ struct Loader
 	static void level_free(cJSON*);
 
 	static void transients_free();
+
+	static AssetID find(const char*, const char**);
 };
 
 }

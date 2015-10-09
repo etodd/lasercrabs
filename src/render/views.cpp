@@ -54,7 +54,7 @@ void View::draw(const RenderParams& params)
 		sync->write(RenderDataType_Texture);
 		sync->write<int>(1);
 		sync->write(&texture);
-		sync->write<GLenum>(GL_TEXTURE_2D);
+		sync->write<RenderTextureType>(RenderTexture2D);
 	}
 }
 
@@ -126,7 +126,7 @@ void Skybox::draw(const RenderParams& p)
 	sync->write(RenderDataType_Texture);
 	sync->write<int>(1);
 	sync->write(&texture);
-	sync->write<GLenum>(GL_TEXTURE_2D);
+	sync->write<RenderTextureType>(RenderTexture2D);
 
 	sync->write(RenderOp_DepthMask);
 	sync->write<bool>(true);

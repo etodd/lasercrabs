@@ -55,10 +55,7 @@ void RigidBody::init(Vec3 pos, Quat quat, float mass)
 	btBody->setWorldTransform(btTransform(quat, pos));
 
 	if (mass == 0.0f)
-	{
 		btBody->setCollisionFlags(btCollisionObject::CF_STATIC_OBJECT | btCollisionObject::CF_KINEMATIC_OBJECT);
-		btBody->setActivationState(DISABLE_DEACTIVATION);
-	}
 }
 
 RigidBody::RigidBody(Vec3 pos, Quat quat, float mass, btCollisionShape* shape)

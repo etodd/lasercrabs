@@ -123,7 +123,7 @@ void Animator::update_world_transforms()
 		Quat quat;
 		Vec3 scale;
 		mat.decomposition(pos, scale, quat);
-		binding.transform->absolute(quat, pos);
+		binding.transform->absolute(pos, quat);
 	}
 }
 
@@ -140,7 +140,7 @@ void Animator::bind(const int bone, Transform* transform)
 	Quat quat;
 	Vec3 scale;
 	mat.decomposition(pos, scale, quat);
-	transform->absolute(quat, pos);
+	transform->absolute(pos, quat);
 }
 
 void Animator::unbind(const Transform* transform)

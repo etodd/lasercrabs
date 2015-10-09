@@ -116,6 +116,7 @@ Mesh* Loader::mesh(AssetID id)
 		RenderSync* sync = swapper->get();
 		sync->write(RenderOp_AllocMesh);
 		sync->write<int>(id);
+		sync->write<bool>(false); // Whether the buffers should be dynamic or not
 
 		sync->write<int>(2 + extra_attribs.length); // Attribute count
 
@@ -256,6 +257,7 @@ int Loader::dynamic_mesh(int attribs)
 	RenderSync* sync = swapper->get();
 	sync->write(RenderOp_AllocMesh);
 	sync->write<int>(index);
+	sync->write<bool>(true); // Buffers should be dynamic
 	sync->write<int>(attribs);
 
 	return index;

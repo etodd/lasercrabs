@@ -53,6 +53,7 @@ void render(RenderSync* sync, GLData* data)
 					data->meshes.resize(id + 1);
 				GLData::Mesh* mesh = &data->meshes[id];
 				new (mesh) GLData::Mesh();
+				mesh->dynamic = sync->read<bool>();
 
 				glGenVertexArrays(1, &mesh->vertex_array);
 				glBindVertexArray(mesh->vertex_array);
@@ -106,6 +107,8 @@ void render(RenderSync* sync, GLData* data)
 				GLData::Mesh* mesh = &data->meshes[id];
 				glBindVertexArray(mesh->vertex_array);
 
+				GLenum usage = mesh->dynamic ? GL_DYNAMIC_DRAW : GL_STATIC_DRAW;
+
 				int count = *(sync->read<int>());
 
 				for (int i = 0; i < mesh->attribs.length; i++)
@@ -117,32 +120,32 @@ void render(RenderSync* sync, GLData* data)
 					{
 						case RenderDataType_Float:
 						{
-							glBufferData(GL_ARRAY_BUFFER, count * sizeof(float) * attrib->element_count, sync->read<float>(count * attrib->element_count), GL_STATIC_DRAW);
+							glBufferData(GL_ARRAY_BUFFER, count * sizeof(float) * attrib->element_count, sync->read<float>(count * attrib->element_count), usage);
 							break;
 						}
 						case RenderDataType_Vec2:
 						{
-							glBufferData(GL_ARRAY_BUFFER, count * sizeof(Vec2) * attrib->element_count, sync->read<Vec2>(count * attrib->element_count), GL_STATIC_DRAW);
+							glBufferData(GL_ARRAY_BUFFER, count * sizeof(Vec2) * attrib->element_count, sync->read<Vec2>(count * attrib->element_count), usage);
 							break;
 						}
 						case RenderDataType_Vec3:
 						{
-							glBufferData(GL_ARRAY_BUFFER, count * sizeof(Vec3) * attrib->element_count, sync->read<Vec3>(count * attrib->element_count), GL_STATIC_DRAW);
+							glBufferData(GL_ARRAY_BUFFER, count * sizeof(Vec3) * attrib->element_count, sync->read<Vec3>(count * attrib->element_count), usage);
 							break;
 						}
 						case RenderDataType_Vec4:
 						{
-							glBufferData(GL_ARRAY_BUFFER, count * sizeof(Vec4) * attrib->element_count, sync->read<Vec4>(count * attrib->element_count), GL_STATIC_DRAW);
+							glBufferData(GL_ARRAY_BUFFER, count * sizeof(Vec4) * attrib->element_count, sync->read<Vec4>(count * attrib->element_count), usage);
 							break;
 						}
 						case RenderDataType_Int:
 						{
-							glBufferData(GL_ARRAY_BUFFER, count * sizeof(int) * attrib->element_count, sync->read<int>(count * attrib->element_count), GL_STATIC_DRAW);
+							glBufferData(GL_ARRAY_BUFFER, count * sizeof(int) * attrib->element_count, sync->read<int>(count * attrib->element_count), usage);
 							break;
 						}
 						case RenderDataType_Mat4:
 						{
-							glBufferData(GL_ARRAY_BUFFER, count * sizeof(Mat4) * attrib->element_count, sync->read<Mat4>(count * attrib->element_count), GL_STATIC_DRAW);
+							glBufferData(GL_ARRAY_BUFFER, count * sizeof(Mat4) * attrib->element_count, sync->read<Mat4>(count * attrib->element_count), usage);
 							break;
 						}
 						default:
@@ -161,7 +164,7 @@ void render(RenderSync* sync, GLData* data)
 
 				glBindVertexArray(mesh->vertex_array);
 				glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh->index_buffer);
-				glBufferData(GL_ELEMENT_ARRAY_BUFFER, index_count * sizeof(int), indices, GL_STATIC_DRAW);
+				glBufferData(GL_ELEMENT_ARRAY_BUFFER, index_count * sizeof(int), indices, mesh->dynamic ? GL_DYNAMIC_DRAW : GL_STATIC_DRAW);
 				mesh->index_count = index_count;
 				break;
 			}

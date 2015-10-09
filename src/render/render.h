@@ -119,6 +119,7 @@ struct GLData
 		GLuint index_buffer;
 		GLuint vertex_array;
 		int index_count;
+		bool dynamic;
 
 		Mesh()
 			: attribs(), index_buffer(), vertex_array(), index_count()

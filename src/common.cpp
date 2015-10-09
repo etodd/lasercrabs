@@ -55,7 +55,7 @@ StaticGeom::StaticGeom(const ID id, const AssetID mesh_id, const Vec3& absolute_
 	btTriangleIndexVertexArray* mesh_data;
 	btBvhTriangleMeshShape* shape;
 	init(mesh_id, &mesh_data, &shape);
-	get<Transform>()->absolute(absolute_rot, absolute_pos);
+	get<Transform>()->absolute(absolute_pos, absolute_rot);
 	RigidBody* body = create<RigidBody>(absolute_pos, absolute_rot, 0.0f, shape);
 	body->btMesh = mesh_data;
 }
@@ -66,7 +66,7 @@ StaticGeom::StaticGeom(const ID id, const AssetID mesh_id, const Vec3& absolute_
 	btTriangleIndexVertexArray* mesh_data;
 	btBvhTriangleMeshShape* shape;
 	init(mesh_id, &mesh_data, &shape);
-	get<Transform>()->absolute(absolute_rot, absolute_pos);
+	get<Transform>()->absolute(absolute_pos, absolute_rot);
 	RigidBody* body = create<RigidBody>(absolute_pos, absolute_rot, 0.0f, shape, group, mask);
 	body->btMesh = mesh_data;
 }

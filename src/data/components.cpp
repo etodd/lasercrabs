@@ -31,7 +31,7 @@ void Transform::get_bullet(btTransform& world) const
 {
 	Quat abs_rot;
 	Vec3 abs_pos;
-	absolute(&abs_rot, &abs_pos);
+	absolute(&abs_pos, &abs_rot);
 	world.setOrigin(abs_pos);
 	world.setRotation(abs_rot);
 }
@@ -42,7 +42,7 @@ void Transform::set_bullet(const btTransform& world)
 	rot = world.getRotation();
 }
 
-void Transform::absolute(Quat* abs_rot, Vec3* abs_pos) const
+void Transform::absolute(Vec3* abs_pos, Quat* abs_rot) const
 {
 	*abs_rot = Quat::identity;
 	*abs_pos = Vec3::zero;
@@ -55,13 +55,13 @@ void Transform::absolute(Quat* abs_rot, Vec3* abs_pos) const
 	}
 }
 
-void Transform::absolute(const Quat& abs_rot, const Vec3& abs_pos)
+void Transform::absolute(const Vec3& abs_pos, const Quat& abs_rot)
 {
 	if (parent)
 	{
 		Quat parent_rot;
 		Vec3 parent_pos;
-		parent->absolute(&parent_rot, &parent_pos);
+		parent->absolute(&parent_pos, &parent_rot);
 		Quat parent_rot_inverse = parent_rot.inverse();
 		pos = parent_rot_inverse * (abs_pos - parent_pos);
 		rot = parent_rot_inverse * abs_rot;
@@ -108,32 +108,35 @@ Vec3 Transform::absolute_pos() const
 void Transform::absolute_pos(const Vec3& p)
 {
 	if (parent)
-	{
-		Quat abs_rot;
-		Vec3 abs_pos;
-		parent->absolute(&abs_rot, &abs_pos);
-	}
+		pos = parent->to_local(p);
 	else
 		pos = p;
 }
 
 Vec3 Transform::to_world(const Vec3& p) const
 {
-	Mat4 m;
-	mat(&m);
-	Vec4 result = m * Vec4(p);
-	return Vec3(result.x, result.y, result.z);
+	Quat abs_rot = Quat::identity;
+	Vec3 abs_pos = p;
+	const Transform* t = this;
+	while (t)
+	{ 
+		abs_rot = t->rot * abs_rot;
+		abs_pos = (t->rot * abs_pos) + t->pos;
+		t = t->parent;
+	}
+	return abs_pos;
 }
 
 Vec3 Transform::to_local(const Vec3& p) const
 {
-	Mat4 m;
-	mat(&m);
-	Vec4 result = m.inverse() * Vec4(p);
-	return Vec3(result.x, result.y, result.z);
+	Quat abs_rot;
+	Vec3 abs_pos;
+	absolute(&abs_pos, &abs_rot);
+
+	return abs_rot.inverse() * (p - abs_pos);
 }
 
-void Transform::to_world(Quat* q, Vec3* p) const
+void Transform::to_world(Vec3* p, Quat* q) const
 {
 	const Transform* t = this;
 	while (t)
@@ -144,20 +147,34 @@ void Transform::to_world(Quat* q, Vec3* p) const
 	}
 }
 
+void Transform::to_local(Vec3* p, Quat* q) const
+{
+	Quat abs_rot;
+	Vec3 abs_pos;
+	absolute(&abs_pos, &abs_rot);
+
+	Quat abs_rot_inverse = abs_rot.inverse();
+
+	*q = abs_rot_inverse * *q;
+	*p = abs_rot_inverse * (*p - abs_pos);
+}
+
 void Transform::reparent(Transform* p)
 {
 	Quat abs_rot;
 	Vec3 abs_pos;
-	absolute(&abs_rot, &abs_pos);
+	absolute(&abs_pos, &abs_rot);
 
 	if (p)
 	{
 		Quat parent_rot;
 		Vec3 parent_pos;
-		p->absolute(&parent_rot, &parent_pos);
+		p->absolute(&parent_pos, &parent_rot);
 
-		rot = parent_rot.inverse() * abs_rot;
-		pos = parent_rot.inverse() * (abs_pos - parent_pos);
+		Quat parent_rot_inverse = parent_rot.inverse();
+
+		rot = parent_rot_inverse * abs_rot;
+		pos = parent_rot_inverse * (abs_pos - parent_pos);
 	}
 	else
 	{

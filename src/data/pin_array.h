@@ -16,6 +16,8 @@ struct PinArray
 {
 	Array<PinArrayEntry<T>> data;
 	Array<int> free_list;
+	int start;
+	int end;
 
 	struct Entry
 	{
@@ -30,23 +32,22 @@ struct PinArray
 		void next()
 		{
 			index++;
-			while (index < array->data.length)
+			while (index < array->end)
 			{
 				if (array->data[index].active)
 					return;
 				index++;
 			}
-			index = -1;
 		}
 
 		bool is_last()
 		{
-			return index == -1;
+			return index >= array->end;
 		}
 
 		T* item()
 		{
-			if (index == -1)
+			if (is_last())
 				return 0;
 			else
 				return &array->data[index].item;
@@ -54,13 +55,13 @@ struct PinArray
 	};
 
 	PinArray()
-		: data(), free_list()
+		: data(), free_list(), start(), end()
 	{
 
 	}
 
 	PinArray(int size)
-		: data(size, size), free_list(size, size)
+		: data(size, size), free_list(size, size), start(size), end(0)
 	{
 		for (int i = 0; i < size; i++)
 			free_list[i] = (size - 1) - i;
@@ -93,6 +94,8 @@ struct PinArray
 		vi_assert(free_list.length > 0);
 		Entry e;
 		e.index = free_list[free_list.length - 1];
+		start = start < e.index ? start : e.index;
+		end = end > e.index + 1 ? end : e.index + 1;
 		free_list.remove(free_list.length - 1);
 		data[e.index].active = true;
 		e.item = &data[e.index].item;
@@ -114,17 +117,41 @@ struct PinArray
 	Iterator iterator()
 	{
 		Iterator i;
-		i.index = -1;
+		i.index = start;
 		i.array = this;
-		i.next();
 		return i;
 	}
 
 	void remove(int i)
 	{
-		vi_assert(i >= 0 && i < data.length && data[i].active);
+		vi_assert(i >= start && i < end && data[i].active);
 		free_list.add(i);
 		data[i].active = false;
+		if (i == end)
+		{
+			int j;
+			for (j = i - 1; j > start; j--)
+			{
+				if (data[j].active)
+					break;
+			}
+			end = j;
+		}
+		if (i == start)
+		{
+			int j;
+			for (j = i + 1; j < end; j++)
+			{
+				if (data[j].active)
+					break;
+			}
+			start = j;
+		}
+		if (start >= end)
+		{
+			start = data.length;
+			end = 0;
+		}
 	}
 };
 

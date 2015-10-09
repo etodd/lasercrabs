@@ -10,11 +10,14 @@ btCollisionDispatcher* Physics::dispatcher = new btCollisionDispatcher(Physics::
 btSequentialImpulseConstraintSolver* Physics::solver = new btSequentialImpulseConstraintSolver;
 btDiscreteDynamicsWorld* Physics::btWorld = new btDiscreteDynamicsWorld(dispatcher, broadphase, solver, collision_config);
 
-void Physics::update(Update u)
+void Physics::loop(PhysicsSwapper* swapper)
 {
-	sync_static();
-	btWorld->stepSimulation(u.time.delta > 0.1f ? 0.1f : u.time.delta, 0);
-	sync_dynamic();
+	PhysicsSync* data = swapper->swap<SwapType_Read>();
+	while (!data->quit)
+	{
+		btWorld->stepSimulation(data->time.delta > 0.1f ? 0.1f : data->time.delta, 0);
+		data = swapper->swap<SwapType_Read>();
+	}
 }
 
 void Physics::sync_static()

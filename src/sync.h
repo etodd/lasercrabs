@@ -13,30 +13,68 @@ enum SwapType
 	SwapType_count,
 };
 
-template<typename T, int count>
-struct Swapper
+template<typename T, int count = 2>
+struct Sync
 {
-	T* data;
-	int current;
-	T* get()
+	struct Swapper
 	{
-		return &data[current];
-	}
-	template<SwapType swap_type> T* swap()
-	{
-		{
-			std::lock_guard<std::mutex> lock(data[current].mutex);
-			data[current].ready[!swap_type] = true;
-		}
-		data[current].condition.notify_all();
+		int current;
+		Sync<T, count>* common;
 
-		int next = (current + 1) % count;
-		std::unique_lock<std::mutex> lock(data[next].mutex);
-		while (!data[next].ready[swap_type])
-			data[next].condition.wait(lock);
-		data[next].ready[swap_type] = false;
-		current = next;
-		return &data[next];
+		Swapper()
+			: current(), common()
+		{
+
+		}
+
+		T* get()
+		{
+			return &common->data[current];
+		}
+
+		template<SwapType swap_type> void done()
+		{
+			{
+				std::lock_guard<std::mutex> lock(common->mutex[current]);
+				common->ready[current][!swap_type] = true;
+			}
+			common->condition[current].notify_all();
+		}
+
+		template<SwapType swap_type> T* next()
+		{
+			int next = (current + 1) % count;
+			std::unique_lock<std::mutex> lock(common->mutex[next]);
+			while (!common->ready[next][swap_type])
+				common->condition[next].wait(lock);
+			common->ready[next][swap_type] = false;
+			current = next;
+			return &common->data[next];
+		}
+
+		template<SwapType swap_type> T* swap()
+		{
+			done<swap_type>();
+			return next<swap_type>();
+		}
+	};
+
+	T data[count];
+	bool ready[count][SwapType_count];
+	mutable std::mutex mutex[count];
+	std::condition_variable condition[count];
+
+	Sync()
+		: data(), ready(), mutex(), condition()
+	{
+	}
+
+	Swapper swapper(int index = 0)
+	{
+		Swapper swapper;
+		swapper.current = index;
+		swapper.common = this;
+		return swapper;
 	}
 };
 

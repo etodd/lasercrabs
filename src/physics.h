@@ -5,6 +5,7 @@
 #include <btBulletDynamicsCommon.h>
 #include "data/entity.h"
 #include "lmath.h"
+#include "sync.h"
 
 namespace VI
 {
@@ -18,6 +19,14 @@ enum CollisionGroup
 	CollisionReflectiveMask = ~btBroadphaseProxy::StaticFilter & ~CollisionReflective,
 };
 
+struct PhysicsSync
+{
+	bool quit;
+	GameTime time;
+};
+
+typedef Sync<PhysicsSync, 1>::Swapper PhysicsSwapper;
+
 struct Physics
 {
     static btDbvtBroadphase* broadphase;
@@ -25,8 +34,8 @@ struct Physics
     static btCollisionDispatcher* dispatcher;
     static btSequentialImpulseConstraintSolver* solver;
     static btDiscreteDynamicsWorld* btWorld;
-    static void update(Update);
-    static void sync_static();
+	static void loop(PhysicsSwapper*);
+	static void sync_static();
     static void sync_dynamic();
 };
 

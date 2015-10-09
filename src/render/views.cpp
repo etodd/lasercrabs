@@ -16,7 +16,7 @@ void View::draw(const RenderParams& params)
 	Loader::shader(shader);
 	Loader::texture(texture);
 
-	SyncData* sync = params.sync;
+	RenderSync* sync = params.sync;
 	sync->write(RenderOp_Mesh);
 	sync->write(&mesh);
 	sync->write(&shader);
@@ -97,7 +97,7 @@ void Skybox::draw(const RenderParams& p)
 	Loader::mesh(mesh);
 	Loader::texture(texture);
 
-	SyncData* sync = p.sync;
+	RenderSync* sync = p.sync;
 
 	sync->write(RenderOp_DepthMask);
 	sync->write<bool>(false);

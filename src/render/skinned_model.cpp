@@ -14,7 +14,7 @@ SkinnedModel::SkinnedModel()
 
 void SkinnedModel::draw(const RenderParams& params)
 {
-	SyncData* sync = params.sync;
+	RenderSync* sync = params.sync;
 
 	Mat4 m;
 	get<Transform>()->mat(&m);

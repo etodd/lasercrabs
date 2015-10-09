@@ -7,6 +7,7 @@
 
 #include "load.h"
 #include "render/render.h"
+#include "physics.h"
 #include "game/game.h"
 
 namespace VI
@@ -98,14 +99,21 @@ int Main::proc()
 	// Cull triangles which normal is not towards the camera
 	glEnable(GL_CULL_FACE);
 
-	RenderSync render_sync;
+	Sync<RenderSync> render_sync;
 
-	RenderSync::Swapper update_swapper = render_sync.swapper(0);
-	RenderSync::Swapper render_swapper = render_sync.swapper(1);
+	RenderSwapper update_swapper = render_sync.swapper(0);
+	RenderSwapper render_swapper = render_sync.swapper(1);
 
-	std::thread update_thread(Game::loop, &update_swapper);
+	Sync<PhysicsSync, 1> physics_sync;
 
-	SyncData* sync = render_swapper.get();
+	PhysicsSwapper physics_swapper = physics_sync.swapper();
+	PhysicsSwapper physics_update_swapper = physics_sync.swapper();
+
+	std::thread physics_thread(Physics::loop, &physics_swapper);
+
+	std::thread update_thread(Game::loop, &update_swapper, &physics_update_swapper);
+
+	RenderSync* sync = render_swapper.get();
 
 	GLData gl_data;
 
@@ -212,6 +220,7 @@ int Main::proc()
 	}
 
 	update_thread.join();
+	physics_thread.join();
 
 	SDL_GL_DeleteContext(context);
 	SDL_DestroyWindow(window);

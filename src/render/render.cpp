@@ -32,15 +32,7 @@ void Camera::remove()
 	active = false;
 }
 
-RenderSync::Swapper RenderSync::swapper(int index)
-{
-	RenderSync::Swapper q;
-	q.data = data;
-	q.current = index;
-	return q;
-}
-
-void render(SyncData* sync, GLData* data)
+void render(RenderSync* sync, GLData* data)
 {
 	sync->read_pos = 0;
 	while (sync->read_pos < sync->queue.length)

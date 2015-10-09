@@ -38,8 +38,6 @@ struct Camera
 	void remove();
 };
 
-struct RenderSync;
-
 enum RenderOp
 {
 	RenderOp_Viewport,
@@ -56,7 +54,7 @@ enum RenderOp
 	RenderOp_Clear,
 };
 
-struct SyncData
+struct RenderSync
 {
 	bool quit;
 	bool focus;
@@ -64,12 +62,9 @@ struct SyncData
 	InputState input;
 	Array<char> queue;
 	int read_pos;
-	bool ready[SwapType_count];
-	mutable std::mutex mutex;
-	std::condition_variable condition;
 
-	SyncData()
-		: quit(), time(), queue(), read_pos(), ready(), mutex(), condition()
+	RenderSync()
+		: quit(), time(), queue(), read_pos()
 	{
 		memset(&input, 0, sizeof(InputState));
 	}
@@ -103,20 +98,7 @@ struct SyncData
 	}
 };
 
-
-struct RenderSync
-{
-	static const int count = 2;
-	typedef Swapper<SyncData, count> Swapper;
-	SyncData data[count];
-
-	RenderSync()
-		: data()
-	{
-	}
-
-	Swapper swapper(int);
-};
+typedef Sync<RenderSync>::Swapper RenderSwapper;
 
 struct Loader;
 
@@ -167,7 +149,7 @@ enum RenderTechnique
 	RenderTechnique_Default,
 };
 
-struct SyncData;
+struct RenderSync;
 struct RenderParams
 {
 	const Camera* camera;
@@ -175,9 +157,9 @@ struct RenderParams
 	Mat4 view_projection;
 	GLbitfield clear;
 	RenderTechnique technique;
-	SyncData* sync;
+	RenderSync* sync;
 };
 
-void render(SyncData*, GLData*);
+void render(RenderSync*, GLData*);
 
 }

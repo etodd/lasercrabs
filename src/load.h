@@ -44,8 +44,8 @@ struct Loader
 		}
 	};
 
-	static RenderSync::Swapper* swapper;
-	static void init(RenderSync::Swapper*);
+	static RenderSwapper* swapper;
+	static void init(RenderSwapper*);
 	static Array<Entry<Mesh> > meshes;
 	static Array<Entry<Animation> > animations;
 	static Array<Entry<Armature> > armatures;

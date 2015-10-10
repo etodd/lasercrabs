@@ -595,6 +595,11 @@ struct Vec4
 
 	inline Vec4() : x(0), y(0), z(0), w(0) {}
 
+	inline Vec4(const Vec3& v, const float fW)
+		: x(v.x), y(v.y), z(v.z), w(fW)
+	{
+	}
+
 	inline Vec4(const float fX, const float fY, const float fZ, const float fW)
 		: x(fX), y(fY), z(fZ), w(fW)
 	{

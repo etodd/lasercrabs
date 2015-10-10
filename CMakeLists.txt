@@ -9,6 +9,8 @@ set(ZLIB_INCLUDE_DIR
 	${CMAKE_CURRENT_BINARY_DIR}/external/assimp/contrib/zlib
 )
  
+include(src/game/CMakeLists.txt)
+
 set(ALL_INCLUDES
 	external/glew/include
 	${SDL2_BINARY_DIR}/include
@@ -23,6 +25,7 @@ set(ALL_INCLUDES
 	src
 	external/assimp/code/BoostWorkaround
 	${ZLIB_INCLUDE_DIR}
+	${GAME_INCLUDE_PATHS}
 )
 
 if (WIN32)
@@ -42,11 +45,12 @@ if (APPLE)
 endif()
 
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -DDEBUG=1")
+set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -DAK_OPTIMIZED=1")
 
 if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
 	set(CMAKE_CXX_FLAGS "-std=c++11 -Wno-deprecated-register -Wno-deprecated-declarations")
 elseif (CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
-	set(CMAKE_CXX_FLAGS "-wd4351 -wd4530")
+	set(CMAKE_CXX_FLAGS "-wd4351 -wd4530 -DWIN64=1")
 	add_definitions(-D_CRT_SECURE_NO_WARNINGS)
 endif()
 
@@ -63,6 +67,10 @@ if (WIN32)
 endif (WIN32)
 set(DIRECTX ON CACHE BOOL "" FORCE)
 set(SDL_AUDIO OFF CACHE BOOL "" FORCE)
+set(SDL_RENDER OFF CACHE BOOL "" FORCE)
+set(SDL_POWER ON CACHE BOOL "" FORCE)
+set(SDL_THREADS ON CACHE BOOL "" FORCE)
+set(SDL_FILE OFF CACHE BOOL "" FORCE)
 set(SDL_SHARED OFF CACHE BOOL "" FORCE)
 set(SDL_STATIC ON CACHE BOOL "" FORCE)
 add_subdirectory(external/sdl)
@@ -205,8 +213,6 @@ if (NOT EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/src/game/CMakeLists.txt)
 	file(COPY ${template_files} DESTINATION ${CMAKE_CURRENT_SOURCE_DIR}/src/game/)
 endif()
 
-include(src/game/CMakeLists.txt)
-
 add_custom_command(
     OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/gamecontrollerdb.txt
     COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_SOURCE_DIR}/external/sdl_controllers/gamecontrollerdb.txt ${CMAKE_CURRENT_BINARY_DIR}/gamecontrollerdb.txt
@@ -285,6 +291,7 @@ target_link_libraries(mkzebra
 	detour
 	cJSON
 	mersenne
+	${GAME_LIBRARIES}
 )
 add_dependencies(mkzebra assets)
 

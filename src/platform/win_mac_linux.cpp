@@ -46,7 +46,8 @@ int proc()
 		| SDL_INIT_JOYSTICK
 		) < 0)
 	{
-		fprintf(stderr, "Failed to initialize SDL\n");
+		
+		fprintf(stderr, "Failed to initialize SDL: %s\n", SDL_GetError());
 		return -1;
 	}
 
@@ -93,6 +94,14 @@ int proc()
 	glDepthFunc(GL_LESS); 
 	glEnable(GL_CULL_FACE);
 
+	if (!Game::init())
+	{
+		fprintf(stderr, "Failed to initialize game.\n");
+		return -1;
+	}
+
+	// Launch threads
+
 	Sync<RenderSync> render_sync;
 
 	RenderSwapper update_swapper = render_sync.swapper(0);
@@ -122,8 +131,6 @@ int proc()
 	const Uint8* sdl_keys = SDL_GetKeyboardState(0);
 
 	refresh_controllers();
-
-	int player_count = 1;
 
 	while (true)
 	{
@@ -182,10 +189,6 @@ int proc()
 				active_gamepads++;
 			}
 		}
-
-		if (active_gamepads > player_count)
-			player_count = active_gamepads;
-		sync->input.player_count = player_count;
 
 		quit |= sync->input.keys[KEYCODE_ESCAPE];
 		sync->quit = quit;

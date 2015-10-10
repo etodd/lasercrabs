@@ -27,8 +27,11 @@ namespace Json
 {
 	cJSON* load(const char*);
 	void json_free(cJSON*);
-	Vec3 get_vec3(cJSON*);
-	Quat get_quat(cJSON*);
+	Vec3 get_vec3(cJSON*, const char*, const Vec3& = Vec3::zero);
+	Vec4 get_vec4(cJSON*, const char*, const Vec4& = Vec4::zero);
+	Quat get_quat(cJSON*, const char*, const Quat& = Quat::identity);
+	const int get_int(cJSON*, const char*, const int = 0);
+	const char* get_string(cJSON*, const char*, const char* = 0);
 };
 
 inline size_t render_data_type_size(RenderDataType type)

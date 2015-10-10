@@ -1,8 +1,8 @@
 #include <stdio.h>
 
-#include <assimp/Importer.hpp>      // C++ importer interface
-#include <assimp/scene.h>           // Output data structure
-#include <assimp/postprocess.h>     // Post processing flags
+#include <assimp/Importer.hpp>
+#include <assimp/scene.h>
+#include <assimp/postprocess.h>
 #include "types.h"
 #include "lmath.h"
 #include "data/array.h"
@@ -10,17 +10,20 @@
 #include <map>
 #include <array>
 #include <GL/glew.h>
+
 #include <SDL.h>
 #undef main
+
 #include <cfloat>
-#include "Recast.h"
-#include "data/import_common.h"
 #include <sstream>
 #include "Recast.h"
+#include "data/import_common.h"
 #include "cJSON.h"
 
 namespace VI
 {
+
+const int version = 11;
 
 const char* model_in_extension = ".blend";
 const char* model_intermediate_extension = ".fbx";
@@ -29,6 +32,8 @@ const char* mesh_out_extension = ".msh";
 const char* font_in_extension = ".ttf";
 const char* font_in_extension_2 = ".otf"; // Must be same length
 const char* font_out_extension = ".fnt";
+
+const char* soundbank_extension = ".bnk";
 
 const char* level_out_extension = ".lvl";
 const char* nav_mesh_out_extension = ".nav";
@@ -40,6 +45,18 @@ const char* asset_in_folder = "../assets/";
 const char* asset_out_folder = "assets/";
 const char* level_in_folder = "../assets/lvl/";
 const char* level_out_folder = "assets/lvl/";
+const char* wwise_project_path = "../src/game/audio/audio.wproj";
+const char* wwise_header_in_path = "../src/game/audio/GeneratedSoundBanks/Wwise_IDs.h";
+#if _WIN32
+const char* soundbank_in_folder = "../src/game/audio/GeneratedSoundBanks/Windows/";
+#else
+#if defined(__APPLE__)
+const char* soundbank_in_folder = "../src/game/audio/GeneratedSoundBanks/Mac/";
+#else
+const char* soundbank_in_folder = "../src/game/audio/GeneratedSoundBanks/Linux/";
+#endif
+#endif
+
 
 const float nav_agent_height = 2.0f;
 const float nav_agent_max_climb = 0.9f;
@@ -49,8 +66,6 @@ const float nav_min_region_size = 8.0f;
 const float nav_merged_region_size = 20.0f;
 const float nav_detail_sample_distance = 6.0f;
 const float nav_detail_sample_max_error = 1.0f;
-
-const int version = 10;
 
 template <typename T>
 T read(FILE* f)
@@ -536,6 +551,7 @@ struct Manifest
 	Map2<std::string> armatures;
 	Map2<int> bones;
 	Map<std::string> textures;
+	Map<std::string> soundbanks;
 	Map<std::string> shaders;
 	Map2<std::string> uniforms;
 	Map<std::string> fonts;
@@ -548,6 +564,7 @@ struct Manifest
 		armatures(),
 		bones(),
 		textures(),
+		soundbanks(),
 		shaders(),
 		uniforms(),
 		fonts(),
@@ -565,6 +582,7 @@ bool manifests_equal(const Manifest& a, const Manifest& b)
 		&& maps_equal2(a.armatures, b.armatures)
 		&& maps_equal2(a.bones, b.bones)
 		&& maps_equal(a.textures, b.textures)
+		&& maps_equal(a.soundbanks, b.soundbanks)
 		&& maps_equal(a.shaders, b.shaders)
 		&& maps_equal2(a.uniforms, b.uniforms)
 		&& maps_equal(a.fonts, b.fonts)
@@ -590,6 +608,7 @@ bool manifest_read(const char* path, Manifest& manifest)
 			map_read(f, manifest.armatures);
 			map_read(f, manifest.bones);
 			map_read(f, manifest.textures);
+			map_read(f, manifest.soundbanks);
 			map_read(f, manifest.shaders);
 			map_read(f, manifest.uniforms);
 			map_read(f, manifest.fonts);
@@ -617,6 +636,7 @@ bool manifest_write(Manifest& manifest, const char* path)
 	map_write(manifest.armatures, f);
 	map_write(manifest.bones, f);
 	map_write(manifest.textures, f);
+	map_write(manifest.soundbanks, f);
 	map_write(manifest.shaders, f);
 	map_write(manifest.uniforms, f);
 	map_write(manifest.fonts, f);
@@ -1371,8 +1391,8 @@ void import_level(ImporterState& state, const std::string& asset_in_path, const 
 		cJSON* element = json->child;
 		while (element)
 		{
-			Vec3 pos = Json::get_vec3(cJSON_GetObjectItem(element, "pos"));
-			Quat rot = Json::get_quat(cJSON_GetObjectItem(element, "rot"));
+			Vec3 pos = Json::get_vec3(element, "pos");
+			Quat rot = Json::get_quat(element, "rot");
 			Mat4 mat;
 			mat.make_transform(pos, Vec3(1, 1, 1), rot);
 
@@ -1766,10 +1786,12 @@ int proc(int argc, char* argv[])
 	const char* mesh_header_path = "../src/asset/mesh.h";
 	const char* animation_header_path = "../src/asset/animation.h";
 	const char* texture_header_path = "../src/asset/texture.h";
+	const char* soundbank_header_path = "../src/game/wwise/soundbank.h";
 	const char* shader_header_path = "../src/asset/shader.h";
 	const char* armature_header_path = "../src/asset/armature.h";
 	const char* font_header_path = "../src/asset/font.h";
 	const char* level_header_path = "../src/asset/level.h";
+	const char* wwise_header_out_path = "../src/game/wwise/Wwise_IDs.h";
 
 	// Initialise SDL
 	if (SDL_Init(SDL_INIT_VIDEO) < 0)
@@ -1804,6 +1826,7 @@ int proc(int argc, char* argv[])
 		state.rebuild = true;
 
 	{
+		// Import textures, shaders, models, fonts, etc.
 		DIR* dir = opendir(asset_in_folder);
 		if (!dir)
 		{
@@ -1841,10 +1864,11 @@ int proc(int argc, char* argv[])
 		return exit_error();
 
 	{
+		// Import levels
 		DIR* dir = opendir(level_in_folder);
 		if (!dir)
 		{
-			fprintf(stderr, "Failed to open level directory.\n");
+			fprintf(stderr, "Failed to open input level directory.\n");
 			return exit_error();
 		}
 		struct dirent* entry;
@@ -1865,6 +1889,75 @@ int proc(int argc, char* argv[])
 
 	if (state.error)
 		return exit_error();
+
+	{
+		// Wwise build
+		std::ostringstream cmdbuilder;
+		bool success;
+#if _WIN32
+		cmdbuilder << "WwiseCLI " << wwise_project_path << " -GenerateSoundBanks";
+		success = run_cmd(cmdbuilder.str());
+#elif defined(__APPLE__)
+		cmdbuilder << "WwiseCLI.sh " << wwise_project_path << " -GenerateSoundBanks";
+		success = run_cmd(cmdbuilder.str());
+#else
+		success = true;
+#endif
+		if (!success)
+		{
+			fprintf(stderr, "Wwise build failed.\n");
+			state.error = true;
+		}
+	}
+
+	if (state.error)
+		return exit_error();
+
+	{
+		// Copy soundbanks
+		DIR* dir = opendir(soundbank_in_folder);
+		if (!dir)
+		{
+			fprintf(stderr, "Failed to open input soundbank directory.\n");
+			return exit_error();
+		}
+		struct dirent* entry;
+		while ((entry = readdir(dir)))
+		{
+			if (entry->d_type != DT_REG)
+				continue; // Not a file
+
+			std::string asset_in_path = soundbank_in_folder + std::string(entry->d_name);
+
+			if (has_extension(asset_in_path, soundbank_extension))
+				import_copy(state, state.manifest.soundbanks, asset_in_path, asset_out_folder, soundbank_extension);
+
+			if (state.error)
+				break;
+		}
+		closedir(dir);
+	}
+
+	if (state.error)
+		return exit_error();
+
+	{
+		// Copy Wwise header
+		long long mtime = filemtime(wwise_header_in_path);
+		if (state.rebuild
+			|| mtime > filemtime(wwise_header_out_path))
+		{
+			if (!cp(wwise_header_in_path, wwise_header_out_path))
+			{
+				fprintf(stderr, "Error: failed to copy %s to %s.\n", wwise_header_in_path, wwise_header_out_path);
+				state.error = true;
+			}
+		}
+	}
+
+	if (state.error)
+		return exit_error();
+
 	
 	bool modified = !manifests_equal(state.cached_manifest, state.manifest);
 	if (state.rebuild || modified)
@@ -1968,6 +2061,19 @@ int proc(int argc, char* argv[])
 		}
 
 		if (state.rebuild
+			|| !maps_equal(state.manifest.soundbanks, state.cached_manifest.soundbanks)
+			|| filemtime(soundbank_header_path) == 0)
+		{
+			printf("Writing soundbank header\n");
+			FILE* f = open_asset_header(soundbank_header_path);
+			if (!f)
+				return exit_error();
+
+			write_asset_header(f, "Soundbank", state.manifest.soundbanks);
+			close_asset_header(f);
+		}
+
+		if (state.rebuild
 			|| !maps_equal2(state.manifest.uniforms, state.cached_manifest.uniforms)
 			|| !maps_equal(state.manifest.shaders, state.cached_manifest.shaders)
 			|| filemtime(shader_header_path) == 0)
@@ -2019,18 +2125,13 @@ int proc(int argc, char* argv[])
 				fprintf(stderr, "Error: failed to open asset source file %s for writing.\n", asset_src_path);
 				return exit_error();
 			}
-			fprintf(f, "#include \"animation.h\"\n");
-			fprintf(f, "#include \"armature.h\"\n");
-			fprintf(f, "#include \"font.h\"\n");
-			fprintf(f, "#include \"mesh.h\"\n");
-			fprintf(f, "#include \"shader.h\"\n");
-			fprintf(f, "#include \"level.h\"\n");
 			fprintf(f, "#include \"lookup.h\"\n");
 			fprintf(f, "\nnamespace VI\n{ \n\n");
 			write_asset_source(f, "Mesh", flattened_meshes);
 			write_asset_source(f, "Animation", flattened_animations);
 			write_asset_source(f, "Armature", flattened_armatures);
 			write_asset_source(f, "Texture", state.manifest.textures);
+			write_asset_source(f, "Soundbank", state.manifest.soundbanks);
 			write_asset_source(f, "Shader", state.manifest.shaders);
 			write_asset_source(f, "Uniform", flattened_uniforms);
 			write_asset_source(f, "Font", state.manifest.fonts);

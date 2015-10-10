@@ -6,6 +6,7 @@
 #include "asset/mesh.h"
 #include "DetourNavMesh.h"
 #include "DetourNavMeshBuilder.h"
+#include <AK/SoundEngine/Common/AkSoundEngine.h>
 
 namespace VI
 {
@@ -19,6 +20,7 @@ Array<Loader::Entry<void*> > Loader::textures;
 Array<Loader::Entry<void*> > Loader::shaders;
 Array<Loader::Entry<Font> > Loader::fonts;
 Array<Loader::Entry<void*> > Loader::dynamic_meshes;
+Array<Loader::Entry<AkBankID> > Loader::soundbanks;
 dtNavMesh* Loader::current_nav_mesh;
 AssetID Loader::current_nav_mesh_id = AssetNull;
 
@@ -708,6 +710,46 @@ dtNavMesh* Loader::nav_mesh(AssetID id)
 	return current_nav_mesh;
 }
 
+bool Loader::soundbank(AssetID id)
+{
+	if (id == AssetNull)
+		return false;
+
+	if (id >= soundbanks.length)
+		soundbanks.resize(id + 1);
+	if (soundbanks[id].type == AssetNone)
+	{
+		soundbanks[id].type = AssetTransient;
+
+		const char* path = AssetLookup::Soundbank::values[id];
+
+		if (AK::SoundEngine::LoadBank(AssetLookup::Soundbank::values[id], AK_DEFAULT_POOL_ID, soundbanks[id].data) != AK_Success)
+		{
+			fprintf(stderr, "Failed to load soundbank '%s'\n", path);
+			return false;
+		}
+	}
+
+	return true;
+}
+
+bool Loader::soundbank_permanent(AssetID id)
+{
+	bool success = soundbank(id);
+	if (success)
+		soundbanks[id].type = AssetPermanent;
+	return success;
+}
+
+void Loader::soundbank_free(AssetID id)
+{
+	if (id != AssetNull && soundbanks[id].type != AssetNone)
+	{
+		soundbanks[id].type = AssetNone;
+		AK::SoundEngine::UnloadBank(soundbanks[id].data, nullptr);
+	}
+}
+
 void Loader::transients_free()
 {
 	if (current_nav_mesh)
@@ -741,15 +783,23 @@ void Loader::transients_free()
 			font_free(i);
 	}
 
-	for (int i = 0; i < dynamic_meshes.length; i++)
+	for (AssetID i = 0; i < dynamic_meshes.length; i++)
 	{
 		if (dynamic_meshes[i].type == AssetTransient)
 			dynamic_mesh_free(Asset::Mesh::count + i);
+	}
+
+	for (AssetID i = 0; i < soundbanks.length; i++)
+	{
+		if (soundbanks[i].type == AssetTransient)
+			soundbank_free(i);
 	}
 }
 
 AssetID Loader::find(const char* name, const char** list)
 {
+	if (!name)
+		return AssetNull;
 	const char* p;
 	int i = 0;
 	while ((p = list[i]))

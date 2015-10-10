@@ -1,9 +1,3 @@
-#include "animation.h"
-#include "armature.h"
-#include "font.h"
-#include "mesh.h"
-#include "shader.h"
-#include "level.h"
 #include "lookup.h"
 
 namespace VI
@@ -86,6 +80,22 @@ const char* AssetLookup::Texture::names[] =
 {
 	"skybox_horizon",
 	"test",
+	0,
+};
+
+
+const char* AssetLookup::Soundbank::values[] =
+{
+	"assets/Init.bnk",
+	"assets/SOUNDBANK.bnk",
+	0,
+};
+
+
+const char* AssetLookup::Soundbank::names[] =
+{
+	"Init",
+	"SOUNDBANK",
 	0,
 };
 

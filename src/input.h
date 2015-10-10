@@ -272,7 +272,6 @@ struct InputState
 	int set_width;
 	int set_height;
 	Gamepad gamepads[MAX_GAMEPADS];
-	int player_count;
 };
 
 }

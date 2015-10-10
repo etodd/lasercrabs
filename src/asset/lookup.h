@@ -30,6 +30,12 @@ namespace VI
 			static const char* names[];
 		};
 
+		struct Soundbank
+		{
+			static const char* values[];
+			static const char* names[];
+		};
+
 		struct Shader
 		{
 			static const char* values[];

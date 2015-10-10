@@ -3,6 +3,7 @@
 #include "types.h"
 #include "data/import_common.h"
 #include "render/render.h"
+#include <AK/SoundEngine/Common/AkTypes.h>
 
 struct dtNavMesh;
 struct cJSON;
@@ -52,6 +53,7 @@ struct Loader
 	static Array<Entry<void*> > shaders; // Nothing actually stored
 	static Array<Entry<Font> > fonts;
 	static Array<Entry<void*> > dynamic_meshes; // Nothing actually stored
+	static Array<Entry<AkBankID> > soundbanks;
 	static dtNavMesh* current_nav_mesh;
 	static AssetID current_nav_mesh_id;
 
@@ -95,6 +97,10 @@ struct Loader
 
 	static cJSON* level(AssetID);
 	static void level_free(cJSON*);
+
+	static bool soundbank(AssetID);
+	static bool soundbank_permanent(AssetID);
+	static void soundbank_free(AssetID);
 
 	static void transients_free();
 

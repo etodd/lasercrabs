@@ -75,17 +75,17 @@ void Skybox::set(const Vec4& c, const AssetID& s, const AssetID& m, const AssetI
 {
 	color = c;
 
-	if (shader != AssetNull)
+	if (shader != AssetNull && shader != s)
 		Loader::shader_free(shader);
 	shader = s;
 	Loader::shader(s);
 
-	if (mesh != AssetNull)
+	if (mesh != AssetNull && mesh != m)
 		Loader::mesh_free(mesh);
 	mesh = m;
 	Loader::mesh(m);
 
-	if (texture != AssetNull)
+	if (texture != AssetNull && texture != t)
 		Loader::texture_free(texture);
 	texture = t;
 	Loader::texture(t);
@@ -93,6 +93,9 @@ void Skybox::set(const Vec4& c, const AssetID& s, const AssetID& m, const AssetI
 
 void Skybox::draw(const RenderParams& p)
 {
+	if (shader == AssetNull || mesh == AssetNull)
+		return;
+
 	Loader::shader(shader);
 	Loader::mesh(mesh);
 	Loader::texture(texture);
@@ -106,7 +109,7 @@ void Skybox::draw(const RenderParams& p)
 	sync->write(mesh);
 	sync->write(shader);
 
-	sync->write<int>(3); // Uniform count
+	sync->write<int>(texture == AssetNull ? 2 : 3); // Uniform count
 
 	Mat4 mvp = p.view;
 	mvp.translation(Vec3::zero);
@@ -122,11 +125,14 @@ void Skybox::draw(const RenderParams& p)
 	sync->write<int>(1);
 	sync->write(&color);
 
-	sync->write(Asset::Uniform::diffuse_map);
-	sync->write(RenderDataType_Texture);
-	sync->write<int>(1);
-	sync->write(&texture);
-	sync->write<RenderTextureType>(RenderTexture2D);
+	if (texture != AssetNull)
+	{
+		sync->write(Asset::Uniform::diffuse_map);
+		sync->write(RenderDataType_Texture);
+		sync->write<int>(1);
+		sync->write(&texture);
+		sync->write<RenderTextureType>(RenderTexture2D);
+	}
 
 	sync->write(RenderOp_DepthMask);
 	sync->write<bool>(true);

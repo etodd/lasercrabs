@@ -1,7 +1,13 @@
 @echo off
 call where /q blender
 if not %errorlevel% == 0 (
-	echo Please install Blender and make sure it's on the system path!
+	echo Please install Blender 2.75a or higher and make sure it's on the system path!
+	pause
+	goto :eof
+)
+call where /q WwiseCLI
+if not %errorlevel% == 0 (
+	echo Please install Wwise and make sure it's on the system path!
 	pause
 	goto :eof
 )

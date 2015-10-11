@@ -67,10 +67,12 @@ if (WIN32)
 endif (WIN32)
 set(DIRECTX ON CACHE BOOL "" FORCE)
 set(SDL_AUDIO OFF CACHE BOOL "" FORCE)
+set(DISKAUDIO OFF CACHE BOOL "" FORCE)
+set(DUMMYAUDIO OFF CACHE BOOL "" FORCE)
 set(SDL_RENDER OFF CACHE BOOL "" FORCE)
 set(SDL_POWER ON CACHE BOOL "" FORCE)
 set(SDL_THREADS ON CACHE BOOL "" FORCE)
-set(SDL_FILE OFF CACHE BOOL "" FORCE)
+set(SDL_FILE ON CACHE BOOL "" FORCE)
 set(SDL_SHARED OFF CACHE BOOL "" FORCE)
 set(SDL_STATIC ON CACHE BOOL "" FORCE)
 add_subdirectory(external/sdl)
@@ -293,6 +295,11 @@ target_link_libraries(mkzebra
 	mersenne
 	${GAME_LIBRARIES}
 )
+
+if(APPLE)
+target_link_libraries(mkzebra "-framework AudioToolbox" "-framework CoreAudio")
+endif()
+
 add_dependencies(mkzebra assets)
 
 add_executable(import

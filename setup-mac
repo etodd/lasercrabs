@@ -9,6 +9,13 @@ else
     exit 1
 fi
 
+if which WwiseCLI.sh >/dev/null; then
+    echo "Good news, Wwise is set up correctly on the path!"
+else
+	echo "Please install Wwise and make sure it's on the system path!"
+    exit 1
+fi
+
 brew install cmake pkg-config
 git submodule update --init --recursive
 mkdir -p build

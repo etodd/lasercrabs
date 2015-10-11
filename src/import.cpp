@@ -1796,10 +1796,11 @@ int proc(int argc, char* argv[])
 	// Initialise SDL
 	if (SDL_Init(SDL_INIT_VIDEO) < 0)
 	{
-		fprintf(stderr, "Failed to initialize SDL\n");
+		fprintf(stderr, "Failed to initialize SDL: %s\n", SDL_GetError());
 		return 1;
 	}
 
+	SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 4);
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 1);
 
@@ -1808,15 +1809,26 @@ int proc(int argc, char* argv[])
 	// Open a window and create its OpenGL context
 	if (!window)
 	{
-		fprintf(stderr, "Failed to open GLFW window. Most likely your GPU is out of date!\n");
+		fprintf(stderr, "Failed to open SDL window. Most likely your GPU is out of date!\n");
 		return exit_error();
 	}
+
 	SDL_GLContext context = SDL_GL_CreateContext(window);
-	glewExperimental = true; // Needed for core profile
-	if (glewInit() != GLEW_OK)
+	if (!context)
 	{
-		fprintf(stderr, "Failed to initialize GLEW\n");
+		fprintf(stderr, "Failed to create GL context: %s\n", SDL_GetError());
 		return exit_error();
+	}
+
+	{
+		glewExperimental = true; // Needed for core profile
+
+		GLenum glew_result = glewInit();
+		if (glew_result != GLEW_OK)
+		{
+			fprintf(stderr, "Failed to initialize GLEW: %s\n", glewGetErrorString(glew_result));
+			return exit_error();
+		}
 	}
 
 	ImporterState state;

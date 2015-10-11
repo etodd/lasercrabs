@@ -53,6 +53,7 @@ int proc()
 
 	SDL_GameControllerAddMappingsFromFile("gamecontrollerdb.txt");
 
+	SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 4);
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 1);
 	SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
@@ -77,15 +78,23 @@ int proc()
 	}
 
 	SDL_GLContext context = SDL_GL_CreateContext(window);
+	if (!context)
+	{
+		fprintf(stderr, "Failed to create GL context: %s\n", SDL_GetError());
+		return -1;
+	}
 
 	SDL_SetRelativeMouseMode(SDL_TRUE);
 
-	// Initialize GLEW
-	glewExperimental = true; // Needed for core profile
-	if (glewInit() != GLEW_OK)
 	{
-		fprintf(stderr, "Failed to initialize GLEW\n");
-		return -1;
+		glewExperimental = true; // Needed for core profile
+
+		GLenum glew_result = glewInit();
+		if (glew_result != GLEW_OK)
+		{
+			fprintf(stderr, "Failed to initialize GLEW: %s\n", glewGetErrorString(glew_result));
+			return -1;
+		}
 	}
 
 	glClearColor(0.0f, 0.0f, 0.0f, 0.0f);

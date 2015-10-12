@@ -14,14 +14,14 @@ void main()
 #else
 
 // Ouput data
-out vec3 color;
+out vec4 color;
 
 // Values that stay constant for the whole mesh.
 uniform vec4 diffuse_color;
 
 void main()
 {
-	color = diffuse_color.rgb;
+	color = diffuse_color;
 }
 
 #endif

@@ -1,11 +1,10 @@
 #pragma once
 
 #include "data/entity.h"
-#include "data/components.h"
-#include "load.h"
-#include "physics.h"
+#include "render/render.h"
 
-#include <BulletCollision/CollisionShapes/btBvhTriangleMeshShape.h>
+class btTriangleIndexVertexArray;
+class btBvhTriangleMeshShape;
 
 namespace VI
 {
@@ -13,13 +12,13 @@ namespace VI
 struct Empty : public Entity
 {
 	Empty(ID);
-	void awake();
+	void awake() {}
 };
 
 struct Prop : public Entity
 {
 	Prop(ID, AssetID);
-	void awake();
+	void awake() {}
 };
 
 struct StaticGeom : public Entity
@@ -27,19 +26,19 @@ struct StaticGeom : public Entity
 	StaticGeom(const ID, const AssetID, const Vec3&, const Quat&);
 	StaticGeom(const ID, const AssetID, const Vec3&, const Quat&, const short, const short);
 	void init(const AssetID, btTriangleIndexVertexArray**, btBvhTriangleMeshShape**);
-	void awake();
+	void awake() {}
 };
 
 struct Box : public Entity
 {
 	Box(ID, Vec3, Quat, float, Vec3);
-	void awake();
+	void awake() {}
 };
 
 struct Noclip : public Entity
 {
 	Noclip(ID id);
-	void awake();
+	void awake() {}
 };
 
 struct NoclipControl : public ComponentType<NoclipControl>
@@ -51,14 +50,14 @@ struct NoclipControl : public ComponentType<NoclipControl>
 
 	NoclipControl();
 	~NoclipControl();
-	void awake();
+	void awake() {}
 
 	void update(const Update&);
 };
 
 struct Debug : public ComponentType<Debug>
 {
-	void awake();
+	void awake() {}
 	void draw(const RenderParams&);
 };
 

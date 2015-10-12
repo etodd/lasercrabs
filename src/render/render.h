@@ -51,6 +51,22 @@ enum RenderOp
 	RenderOp_DepthMask,
 	RenderOp_Mesh,
 	RenderOp_Clear,
+	RenderOp_BlendMode,
+	RenderOp_CullMode,
+};
+
+enum RenderBlendMode
+{
+	RenderBlend_Opaque,
+	RenderBlend_Alpha,
+	RenderBlend_Additive,
+};
+
+enum RenderCullMode
+{
+	RenderCull_Back,
+	RenderCull_Front,
+	RenderCull_None,
 };
 
 struct RenderSync

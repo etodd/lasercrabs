@@ -120,8 +120,9 @@ void AI::debug_draw(const RenderParams& p)
 #endif
 }
 
-Entity* AI::get_enemy(const AI::Team& team, const Vec3& pos, const Vec3& forward)
+Entity* AI::get_enemy(const AI::Team& team, const Vec3& pos, const Vec3& forward, const float radius, const float angle)
 {
+	float angle_dot = acosf(angle);
 	for (auto i = World::components<AIAgent>().iterator(); !i.is_last(); i.next())
 	{
 		AIAgent* agent = i.item();
@@ -134,12 +135,12 @@ Entity* AI::get_enemy(const AI::Team& team, const Vec3& pos, const Vec3& forward
 		float distance_to_enemy = to_enemy.length();
 
 		bool visible = false;
-		if (distance_to_enemy < 30.0f)
+		if (distance_to_enemy < radius)
 		{
 			to_enemy /= distance_to_enemy;
 
 			float dot = forward.dot(to_enemy);
-			if (dot > 0.5)
+			if (dot > angle_dot)
 			{
 				btCollisionWorld::ClosestRayResultCallback rayCallback(pos, enemy_pos);
 				rayCallback.m_flags = btTriangleRaycastCallback::EFlags::kF_FilterBackfaces

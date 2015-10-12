@@ -25,7 +25,7 @@ in vec3 Position_worldspace;
 in vec3 Normal_worldspace;
 
 // Ouput data
-out vec3 color;
+out vec4 color;
 
 // Values that stay constant for the whole mesh.
 uniform vec4 diffuse_color;
@@ -44,7 +44,7 @@ void main()
 
 	float cosTheta = clamp(dot(n, l), 0, 1);
 	
-	color = diffuse_color.rgb * (ambient_color + light_color * cosTheta * max(0, 1.0 - (distance / light_radius)));
+	color = diffuse_color * vec4(ambient_color + light_color * cosTheta * max(0, 1.0 - (distance / light_radius)), 1.0);
 }
 
 #endif

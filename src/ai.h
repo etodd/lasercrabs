@@ -30,7 +30,7 @@ struct AI
 	static void load_nav_mesh(AssetID);
 	static void debug_draw(const RenderParams&);
 
-	static Entity* get_enemy(const AI::Team&, const Vec3&, const Vec3&);
+	static Entity* get_enemy(const AI::Team&, const Vec3&, const Vec3&, const float, const float);
 
 	static dtPolyRef get_poly(const Vec3&, const float*);
 };

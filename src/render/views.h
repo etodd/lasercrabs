@@ -3,20 +3,31 @@
 #include "data/entity.h"
 #include "data/components.h"
 #include "render.h"
+#include "data/intrusive_list.h"
 
 namespace VI
 {
 
-struct View : public ComponentType<View>
+struct View : public ComponentType<View>, public IntrusiveLinkedList<View>
 {
+	static View* first_alpha;
+
 	AssetID mesh;
 	AssetID shader;
 	AssetID texture;
 	Vec4 color;
 	Mat4 offset;
-	void draw(const RenderParams&);
-	void awake();
+
+	int alpha_order;
+	void alpha(const int = 0);
+	void alpha_disable();
+	
 	View();
+	~View();
+	static void draw_opaque(const RenderParams&);
+	static void draw_alpha(const RenderParams&);
+	void draw(const RenderParams&) const;
+	void awake();
 };
 
 struct Skybox
@@ -25,6 +36,7 @@ struct Skybox
 	static AssetID texture;
 	static AssetID mesh;
 	static AssetID shader;
+	static bool valid();
 	static void set(const Vec4&, const AssetID&, const AssetID&, const AssetID&);
 	static void draw(const RenderParams&);
 };

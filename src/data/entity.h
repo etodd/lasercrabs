@@ -89,8 +89,8 @@ struct Entity
 	}
 	template<typename T, typename... Args> T* create(Args... args);
 	template<typename T, typename... Args> T* add(Args... args);
-	template<typename T> inline bool has();
-	template<typename T> inline T* get();
+	template<typename T> inline bool has() const;
+	template<typename T> inline T* get() const;
 };
 
 struct World
@@ -179,12 +179,12 @@ template<typename T, typename... Args> T* Entity::add(Args... args)
 	return World::add_component<T>(this, args...);
 }
 
-template<typename T> inline bool Entity::has()
+template<typename T> inline bool Entity::has() const
 {
 	return component_mask & (1 << T::family());
 }
 
-template<typename T> inline T* Entity::get()
+template<typename T> inline T* Entity::get() const
 {
 	if (component_mask & (1 << T::family()))
 		return &World::components<T>()[components[T::family()]];
@@ -197,12 +197,12 @@ struct ComponentBase
 	ID id;
 	ID entity_id;
 
-	inline Entity* entity()
+	inline Entity* entity() const
 	{
 		return World::list.get(entity_id);
 	}
 
-	template<typename T> inline T* get()
+	template<typename T> inline T* get() const
 	{
 		return World::list.get(entity_id)->get<T>();
 	}

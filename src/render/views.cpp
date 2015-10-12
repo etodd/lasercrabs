@@ -5,12 +5,80 @@
 namespace VI
 {
 
+View* View::first_alpha = nullptr;
+
 View::View()
-	: mesh(AssetNull), shader(AssetNull), texture(AssetNull), offset(Mat4::identity), color(1, 1, 1, 1)
+	: mesh(AssetNull), shader(AssetNull), texture(AssetNull), offset(Mat4::identity), color(1, 1, 1, 1), alpha_order(-1)
 {
 }
 
-void View::draw(const RenderParams& params)
+View::~View()
+{
+	alpha_disable();
+}
+
+void View::draw_opaque(const RenderParams& params)
+{
+	for (auto i = World::components<View>().iterator(); !i.is_last(); i.next())
+	{
+		if (i.item()->alpha_order < 0)
+			i.item()->draw(params);
+	}
+}
+
+void View::draw_alpha(const RenderParams& params)
+{
+	const View* v = first_alpha;
+	while (v)
+	{
+		v->draw(params);
+		v = v->next;
+	}
+}
+
+void View::alpha(int order)
+{
+	vi_assert(order >= 0);
+
+	if (alpha_order != -1)
+		alpha_disable();
+
+	alpha_order = order;
+
+	if (first_alpha)
+	{
+		View* v = first_alpha;
+
+		if (alpha_order < v->alpha_order)
+		{
+			insert_before(first_alpha);
+			first_alpha = this;
+		}
+		else
+		{
+			while (v->next && v->next->alpha_order < alpha_order)
+				v = v->next;
+			insert_after(v);
+		}
+	}
+	else
+		first_alpha = this;
+}
+
+void View::alpha_disable()
+{
+	if (alpha_order != -1)
+	{
+		alpha_order = -1;
+		if (previous)
+			previous->next = next;
+		else
+			first_alpha = nullptr;
+		next = nullptr;
+	}
+}
+
+void View::draw(const RenderParams& params) const
 {
 	Loader::mesh(mesh);
 	Loader::shader(shader);
@@ -61,7 +129,8 @@ void View::draw(const RenderParams& params)
 void View::awake()
 {
 	Mesh* m = Loader::mesh(mesh);
-	color = m->color;
+	if (m)
+		color = m->color;
 	Loader::shader(shader);
 	Loader::texture(texture);
 }
@@ -91,6 +160,11 @@ void Skybox::set(const Vec4& c, const AssetID& s, const AssetID& m, const AssetI
 	Loader::texture(t);
 }
 
+bool Skybox::valid()
+{
+	return shader != AssetNull && mesh != AssetNull;
+}
+
 void Skybox::draw(const RenderParams& p)
 {
 	if (shader == AssetNull || mesh == AssetNull)
@@ -101,9 +175,6 @@ void Skybox::draw(const RenderParams& p)
 	Loader::texture(texture);
 
 	RenderSync* sync = p.sync;
-
-	sync->write(RenderOp_DepthMask);
-	sync->write<bool>(false);
 
 	sync->write(RenderOp_Mesh);
 	sync->write(mesh);
@@ -133,9 +204,6 @@ void Skybox::draw(const RenderParams& p)
 		sync->write(&texture);
 		sync->write<RenderTextureType>(RenderTexture2D);
 	}
-
-	sync->write(RenderOp_DepthMask);
-	sync->write<bool>(true);
 }
 
 }

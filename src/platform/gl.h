@@ -303,8 +303,7 @@ void render(RenderSync* sync)
 			}
 			case RenderOp_DepthMask:
 			{
-				bool enable = *(sync->read<bool>());
-				glDepthMask(enable);
+				glDepthMask(*(sync->read<bool>()));
 				break;
 			}
 			case RenderOp_Clear:
@@ -367,6 +366,7 @@ void render(RenderSync* sync)
 							glUniformMatrix4fv(uniform_id, uniform_count, GL_FALSE, (float*)sync->read<Mat4>(uniform_count));
 							break;
 						case RenderDataType_Texture:
+						{
 							vi_assert(uniform_count == 1); // Only single textures supported for now
 							AssetID texture_asset = *(sync->read<AssetID>(uniform_count));
 							GLuint texture_id;
@@ -390,6 +390,12 @@ void render(RenderSync* sync)
 							glUniform1i(uniform_id, texture_index);
 							texture_index++;
 							break;
+						}
+						default:
+						{
+							vi_assert(false);
+							break;
+						}
 					}
 				}
 
@@ -433,6 +439,55 @@ void render(RenderSync* sync)
 
 				for (int i = 0; i < mesh->attribs.length; i++)
 					glDisableVertexAttribArray(i);
+				break;
+			}
+			case RenderOp_BlendMode:
+			{
+				RenderBlendMode mode = *(sync->read<RenderBlendMode>());
+				switch (mode)
+				{
+					case RenderBlend_Opaque:
+						glDisablei(GL_BLEND, 0);
+						break;
+					case RenderBlend_Alpha:
+						glEnablei(GL_BLEND, 0);
+						glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+						break;
+					case RenderBlend_Additive:
+						glEnablei(GL_BLEND, 0);
+						glBlendFunc(GL_SRC_ALPHA, GL_ONE);
+						break;
+					default:
+						vi_assert(false);
+						break;
+				}
+				break;
+			}
+			case RenderOp_CullMode:
+			{
+				RenderCullMode mode = *(sync->read<RenderCullMode>());
+				switch (mode)
+				{
+					case RenderCull_Back:
+						glEnable(GL_CULL_FACE);
+						glCullFace(GL_BACK);
+						break;
+					case RenderCull_Front:
+						glEnable(GL_CULL_FACE);
+						glCullFace(GL_FRONT);
+						break;
+					case RenderCull_None:
+						glDisable(GL_CULL_FACE);
+						break;
+					default:
+						vi_assert(false);
+						break;
+				}
+				break;
+			}
+			default:
+			{
+				vi_assert(false);
 				break;
 			}
 		}

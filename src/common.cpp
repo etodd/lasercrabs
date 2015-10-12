@@ -2,9 +2,12 @@
 #include "render/views.h"
 #include "input.h"
 #include "console.h"
+#include "data/components.h"
 #include "data/animator.h"
 #include "asset/shader.h"
 #include "asset/mesh.h"
+
+#include <BulletCollision/CollisionShapes/btBvhTriangleMeshShape.h>
 
 namespace VI
 {
@@ -16,10 +19,6 @@ Empty::Empty(ID id)
 	: Entity(id)
 {
 	create<Transform>();
-}
-
-void Empty::awake()
-{
 }
 
 Prop::Prop(ID id, AssetID mesh_id)
@@ -69,10 +68,6 @@ StaticGeom::StaticGeom(const ID id, const AssetID mesh_id, const Vec3& absolute_
 	body->btMesh = mesh_data;
 }
 
-void StaticGeom::awake()
-{
-}
-
 Box::Box(ID id, Vec3 pos, Quat quat, float mass, Vec3 scale)
 	: Entity(id)
 {
@@ -88,19 +83,11 @@ Box::Box(ID id, Vec3 pos, Quat quat, float mass, Vec3 scale)
 	RigidBody* body = create<RigidBody>(pos, quat, mass, new btBoxShape(scale));
 }
 
-void Box::awake()
-{
-}
-
 Noclip::Noclip(ID id)
 	: Entity(id)
 {
 	Transform* transform = create<Transform>();
 	create<NoclipControl>();
-}
-
-void Noclip::awake()
-{
 }
 
 NoclipControl::NoclipControl()
@@ -113,10 +100,6 @@ NoclipControl::NoclipControl()
 NoclipControl::~NoclipControl()
 {
 	camera->remove();
-}
-
-void NoclipControl::awake()
-{
 }
 
 void NoclipControl::update(const Update& u)
@@ -165,10 +148,6 @@ void NoclipControl::update(const Update& u)
 	Vec3 look = look_quat * Vec3(0, 0, 1);
 	camera->pos = pos;
 	camera->rot = look_quat;
-}
-
-void Debug::awake()
-{
 }
 
 void Debug::draw(const RenderParams& params)

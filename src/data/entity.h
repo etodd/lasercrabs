@@ -156,16 +156,19 @@ struct World
 
 	static void remove(Entity* e)
 	{
-		list.remove(e->id);
-		for (ID i = 0; i < World::component_families; i++)
+		if (list.data[e->id].active)
 		{
-			if (e->component_mask & (1 << i))
+			list.remove(e->id);
+			for (ID i = 0; i < World::component_families; i++)
 			{
-				PoolBase* pool = &component_pools[i];
-				pool->remove(e->components[i]);
+				if (e->component_mask & (1 << i))
+				{
+					PoolBase* pool = &component_pools[i];
+					pool->remove(e->components[i]);
+				}
 			}
+			e->component_mask = 0;
 		}
-		e->component_mask = 0;
 	}
 };
 

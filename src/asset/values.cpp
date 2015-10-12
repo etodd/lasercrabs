@@ -72,6 +72,7 @@ const char* AssetLookup::Armature::names[] =
 
 const char* AssetLookup::Texture::values[] =
 {
+	"assets/gradient.png",
 	"assets/skybox_horizon.png",
 	"assets/test.png",
 	0,
@@ -80,6 +81,7 @@ const char* AssetLookup::Texture::values[] =
 
 const char* AssetLookup::Texture::names[] =
 {
+	"gradient",
 	"skybox_horizon",
 	"test",
 	0,

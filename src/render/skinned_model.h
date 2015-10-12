@@ -17,9 +17,9 @@ struct SkinnedModel : public ComponentType<SkinnedModel>
 	Mat4 offset;
 	Vec4 color;
 
-	void draw(const RenderParams&);
-	void awake();
 	SkinnedModel();
+	void awake();
+	void draw(const RenderParams&);
 };
 
 }

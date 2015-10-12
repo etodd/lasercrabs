@@ -5,7 +5,7 @@ namespace VI
 {
 
 Animator::Animator()
-	: bones(), channels(), time(), animation(AssetNull), armature(AssetNull), bindings()
+	: bones(), channels(), time(), animation(AssetNull), armature(AssetNull), bindings(), triggers()
 {
 }
 
@@ -27,9 +27,27 @@ void Animator::update(const Update& u)
 
 	if (anim)
 	{
+		float old_time = time;
 		time += u.time.delta;
+
+		bool looped = false;
 		while (time > anim->duration)
+		{
 			time -= anim->duration;
+			looped = true;
+		}
+
+		for (int i = 0; i < triggers.length; i++)
+		{
+			TriggerEntry* trigger = &triggers[i];
+			bool trigger_after_old_time = old_time <= trigger->time;
+			bool trigger_before_new_time = time >= trigger->time;
+			if (animation == trigger->animation &&
+				(((looped || trigger_after_old_time) && trigger_before_new_time) || (trigger_after_old_time && (looped || trigger_before_new_time))))
+			{
+				trigger->link.fire();
+			}
+		}
 
 		channels.resize(anim->channels.length);
 		for (int i = 0; i < anim->channels.length; i++)
@@ -156,18 +174,30 @@ void Animator::unbind(const Transform* transform)
 	}
 }
 
-void Animator::get_bone(const int index, Vec3* pos, Quat* rot)
+void Animator::bone_transform(const int index, Vec3* pos, Quat* rot)
 {
 	if (bones.length == 0)
 		update_world_transforms();
-	Vec3 scale;
-	bones[index].decomposition(*pos, scale, *rot);
+	Vec3 bone_scale;
+	Vec3 bone_pos;
+	Quat bone_rot;
+	bones[index].decomposition(bone_pos, bone_scale, bone_rot);
+	*rot = bone_rot * *rot;
+	*pos = (bone_rot * *pos) + bone_pos;
 }
 
 void Animator::awake()
 {
 	Loader::armature(armature);
 	Loader::animation(animation);
+}
+
+Link* Animator::trigger(const AssetID anim, const float time)
+{
+	TriggerEntry* entry = triggers.add();
+	entry->animation = anim;
+	entry->time = time;
+	return &entry->link;
 }
 
 }

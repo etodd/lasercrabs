@@ -11,6 +11,14 @@ SkinnedModel::SkinnedModel()
 {
 }
 
+void SkinnedModel::awake()
+{
+	Mesh* m = Loader::mesh(mesh);
+	if (m)
+		color = m->color;
+	Loader::shader(shader);
+	Loader::texture(texture);
+}
 
 void SkinnedModel::draw(const RenderParams& params)
 {
@@ -95,15 +103,6 @@ void SkinnedModel::draw(const RenderParams& params)
 		sync->write(&color);
 	}
 	*/
-}
-
-void SkinnedModel::awake()
-{
-	Mesh* m = Loader::mesh(mesh);
-	if (m)
-		color = m->color;
-	Loader::shader(shader);
-	Loader::texture(texture);
 }
 
 }

@@ -4,6 +4,7 @@
 #include "vi_assert.h"
 #include "asset/lookup.h"
 #include "asset/mesh.h"
+#include "asset/texture.h"
 #include "DetourNavMesh.h"
 #include "DetourNavMeshBuilder.h"
 #include <AK/SoundEngine/Common/AkSoundEngine.h>
@@ -13,14 +14,16 @@ namespace VI
 
 RenderSwapper* Loader::swapper;
 // First entry in each array is empty
-Array<Loader::Entry<Mesh> > Loader::meshes;
-Array<Loader::Entry<Animation> > Loader::animations;
-Array<Loader::Entry<Armature> > Loader::armatures;
-Array<Loader::Entry<void*> > Loader::textures;
-Array<Loader::Entry<void*> > Loader::shaders;
-Array<Loader::Entry<Font> > Loader::fonts;
-Array<Loader::Entry<void*> > Loader::dynamic_meshes;
-Array<Loader::Entry<AkBankID> > Loader::soundbanks;
+Array<Loader::Entry<Mesh> > Loader::meshes = Array<Loader::Entry<Mesh> >();
+Array<Loader::Entry<Animation> > Loader::animations = Array<Loader::Entry<Animation> >();
+Array<Loader::Entry<Armature> > Loader::armatures = Array<Loader::Entry<Armature> >();
+Array<Loader::Entry<void*> > Loader::textures = Array<Loader::Entry<void*> >();
+Array<Loader::Entry<void*> > Loader::shaders = Array<Loader::Entry<void*> >();
+Array<Loader::Entry<Font> > Loader::fonts = Array<Loader::Entry<Font> >();
+Array<Loader::Entry<void*> > Loader::dynamic_meshes = Array<Loader::Entry<void*> >();
+Array<Loader::Entry<void*> > Loader::dynamic_textures = Array<Loader::Entry<void*> >();
+Array<Loader::Entry<void*> > Loader::framebuffers = Array<Loader::Entry<void*> >();
+Array<Loader::Entry<AkBankID> > Loader::soundbanks = Array<Loader::Entry<AkBankID> >();
 dtNavMesh* Loader::current_nav_mesh;
 AssetID Loader::current_nav_mesh_id = AssetNull;
 
@@ -49,10 +52,10 @@ void Loader::init(RenderSwapper* s)
 {
 	swapper = s;
 	meshes.resize(Asset::Mesh::count);
-	dynamic_meshes = Array<Loader::Entry<void*> >();
+	textures.resize(Asset::Texture::count);
 }
 
-Mesh* Loader::mesh(AssetID id)
+Mesh* Loader::mesh(const AssetID id)
 {
 	if (id == AssetNull)
 		return 0;
@@ -157,7 +160,7 @@ Mesh* Loader::mesh(AssetID id)
 	return &meshes[id].data;
 }
 
-Mesh* Loader::mesh_permanent(AssetID id)
+Mesh* Loader::mesh_permanent(const AssetID id)
 {
 	Mesh* m = mesh(id);
 	if (m)
@@ -165,7 +168,7 @@ Mesh* Loader::mesh_permanent(AssetID id)
 	return m;
 }
 
-void Loader::mesh_free(AssetID id)
+void Loader::mesh_free(const AssetID id)
 {
 	if (id != AssetNull && meshes[id].type != AssetNone)
 	{
@@ -177,12 +180,12 @@ void Loader::mesh_free(AssetID id)
 	}
 }
 
-AssetID Loader::mesh_ref_to_id(AssetID model, AssetRef mesh)
+AssetID Loader::mesh_ref_to_id(const AssetID model, const AssetRef mesh)
 {
 	return Asset::mesh_refs[model][mesh];
 }
 
-Armature* Loader::armature(AssetID id)
+Armature* Loader::armature(const AssetID id)
 {
 	if (id == AssetNull)
 		return 0;
@@ -218,7 +221,7 @@ Armature* Loader::armature(AssetID id)
 	return &armatures[id].data;
 }
 
-Armature* Loader::armature_permanent(AssetID id)
+Armature* Loader::armature_permanent(const AssetID id)
 {
 	Armature* m = armature(id);
 	if (m)
@@ -226,7 +229,7 @@ Armature* Loader::armature_permanent(AssetID id)
 	return m;
 }
 
-void Loader::armature_free(AssetID id)
+void Loader::armature_free(const AssetID id)
 {
 	if (id != AssetNull && armatures[id].type != AssetNone)
 	{
@@ -264,6 +267,7 @@ int Loader::dynamic_mesh(int attribs)
 	return index;
 }
 
+// Must be called immediately after dynamic_mesh() or dynamic_mesh_permanent()
 void Loader::dynamic_mesh_attrib(RenderDataType type, int count)
 {
 	RenderSync* sync = swapper->get();
@@ -289,7 +293,7 @@ void Loader::dynamic_mesh_free(int id)
 	}
 }
 
-Animation* Loader::animation(AssetID id)
+Animation* Loader::animation(const AssetID id)
 {
 	if (id == AssetNull)
 		return 0;
@@ -346,7 +350,7 @@ Animation* Loader::animation(AssetID id)
 	return &animations[id].data;
 }
 
-Animation* Loader::animation_permanent(AssetID id)
+Animation* Loader::animation_permanent(const AssetID id)
 {
 	Animation* anim = animation(id);
 	if (anim)
@@ -354,7 +358,7 @@ Animation* Loader::animation_permanent(AssetID id)
 	return anim;
 }
 
-void Loader::animation_free(AssetID id)
+void Loader::animation_free(const AssetID id)
 {
 	if (id != AssetNull && animations[id].type != AssetNone)
 	{
@@ -363,7 +367,7 @@ void Loader::animation_free(AssetID id)
 	}
 }
 
-void Loader::texture(AssetID id)
+void Loader::texture(const AssetID id)
 {
 	if (id == AssetNull)
 		return;
@@ -387,8 +391,10 @@ void Loader::texture(AssetID id)
 		}
 
 		RenderSync* sync = swapper->get();
+		sync->write(RenderOp_AllocTexture);
+		sync->write<AssetID>(id);
 		sync->write(RenderOp_LoadTexture);
-		sync->write<AssetID>(&id);
+		sync->write<AssetID>(id);
 		sync->write<unsigned>(&width);
 		sync->write<unsigned>(&height);
 		sync->write<unsigned char>(buffer, 4 * width * height);
@@ -396,25 +402,131 @@ void Loader::texture(AssetID id)
 	}
 }
 
-void Loader::texture_permanent(AssetID id)
+void Loader::texture_permanent(const AssetID id)
 {
 	texture(id);
 	if (id != AssetNull)
 		textures[id].type = AssetPermanent;
 }
 
-void Loader::texture_free(AssetID id)
+void Loader::texture_free(const AssetID id)
 {
 	if (id != AssetNull && textures[id].type != AssetNone)
 	{
 		RenderSync* sync = swapper->get();
 		sync->write(RenderOp_FreeTexture);
-		sync->write<AssetID>(&id);
+		sync->write<AssetID>(id);
 		textures[id].type = AssetNone;
 	}
 }
 
-void Loader::shader(AssetID id)
+int Loader::dynamic_texture(const int width, const int height, const RenderDynamicTextureType type)
+{
+	int index = AssetNull;
+	for (int i = 0; i < dynamic_textures.length; i++)
+	{
+		if (dynamic_textures[i].type == AssetNone)
+		{
+			index = Asset::Texture::count + i;
+			break;
+		}
+	}
+
+	if (index == AssetNull)
+	{
+		index = Asset::Texture::count + dynamic_textures.length;
+		dynamic_textures.add();
+	}
+
+	dynamic_textures[index - Asset::Texture::count].type = AssetTransient;
+
+	RenderSync* sync = swapper->get();
+	sync->write(RenderOp_AllocTexture);
+	sync->write<AssetID>(index);
+	sync->write(RenderOp_DynamicTexture);
+	sync->write<AssetID>(index);
+	sync->write<unsigned>(width);
+	sync->write<unsigned>(height);
+	sync->write<RenderDynamicTextureType>(type);
+
+	return index;
+}
+
+int Loader::dynamic_texture_permanent(const int width, const int height, const RenderDynamicTextureType type)
+{
+	int id = dynamic_texture(width, height, type);
+	if (id != AssetNull)
+		dynamic_textures[id - Asset::Texture::count].type = AssetPermanent;
+	return id;
+}
+
+void Loader::dynamic_texture_free(const int id)
+{
+	if (id != AssetNull && dynamic_textures[id - Asset::Texture::count].type != AssetNone)
+	{
+		RenderSync* sync = swapper->get();
+		sync->write(RenderOp_FreeTexture);
+		sync->write<AssetID>(id);
+		dynamic_textures[id - Asset::Texture::count].type = AssetNone;
+	}
+}
+
+int Loader::framebuffer(const int attachments)
+{
+	int index = AssetNull;
+	for (int i = 0; i < framebuffers.length; i++)
+	{
+		if (framebuffers[i].type == AssetNone)
+		{
+			index = i;
+			break;
+		}
+	}
+
+	if (index == AssetNull)
+	{
+		index = framebuffers.length;
+		framebuffers.add();
+	}
+
+	framebuffers[index].type = AssetTransient;
+
+	RenderSync* sync = swapper->get();
+	sync->write(RenderOp_AllocFramebuffer);
+	sync->write<int>(index);
+	sync->write<int>(attachments);
+
+	return index;
+}
+
+// Must be called immediately after framebuffer() or framebuffer_permanent()
+void Loader::framebuffer_attach(const RenderFramebufferAttachment attachment_type, const int dynamic_texture)
+{
+	RenderSync* sync = swapper->get();
+	sync->write<RenderFramebufferAttachment>(attachment_type);
+	sync->write<int>(dynamic_texture);
+}
+
+int Loader::framebuffer_permanent(const int attachments)
+{
+	int id = framebuffer(attachments);
+	if (id != AssetNull)
+		framebuffers[id].type = AssetPermanent;
+	return id;
+}
+
+void Loader::framebuffer_free(const int id)
+{
+	if (id != AssetNull && framebuffers[id].type != AssetNone)
+	{
+		RenderSync* sync = swapper->get();
+		sync->write(RenderOp_FreeFramebuffer);
+		sync->write<int>(id);
+		framebuffers[id].type = AssetNone;
+	}
+}
+
+void Loader::shader(const AssetID id)
 {
 	if (id == AssetNull)
 		return;
@@ -452,31 +564,31 @@ void Loader::shader(AssetID id)
 
 		RenderSync* sync = swapper->get();
 		sync->write(RenderOp_LoadShader);
-		sync->write<AssetID>(&id);
+		sync->write<AssetID>(id);
 		sync->write<int>(&code.length);
 		sync->write(code.data, code.length);
 	}
 }
 
-void Loader::shader_permanent(AssetID id)
+void Loader::shader_permanent(const AssetID id)
 {
 	shader(id);
 	if (id != AssetNull)
 		shaders[id].type = AssetPermanent;
 }
 
-void Loader::shader_free(AssetID id)
+void Loader::shader_free(const AssetID id)
 {
 	if (id != AssetNull && shaders[id].type != AssetNone)
 	{
 		RenderSync* sync = swapper->get();
 		sync->write(RenderOp_FreeShader);
-		sync->write(&id);
+		sync->write<AssetID>(id);
 		shaders[id].type = AssetNone;
 	}
 }
 
-Font* Loader::font(AssetID id)
+Font* Loader::font(const AssetID id)
 {
 	if (id == AssetNull)
 		return 0;
@@ -529,7 +641,7 @@ Font* Loader::font(AssetID id)
 	return &fonts[id].data;
 }
 
-Font* Loader::font_permanent(AssetID id)
+Font* Loader::font_permanent(const AssetID id)
 {
 	Font* f = font(id);
 	if (f)
@@ -537,7 +649,7 @@ Font* Loader::font_permanent(AssetID id)
 	return f;
 }
 
-void Loader::font_free(AssetID id)
+void Loader::font_free(const AssetID id)
 {
 	if (id != AssetNull && fonts[id].type != AssetNone)
 	{
@@ -546,7 +658,7 @@ void Loader::font_free(AssetID id)
 	}
 }
 
-cJSON* Loader::level(AssetID id)
+cJSON* Loader::level(const AssetID id)
 {
 	if (id == AssetNull)
 		return 0;
@@ -608,7 +720,7 @@ void Loader::base_nav_mesh_free(rcPolyMesh* mesh)
 	free(mesh->areas);
 }
 
-dtNavMesh* Loader::nav_mesh(AssetID id)
+dtNavMesh* Loader::nav_mesh(const AssetID id)
 {
 	// Only allow one nav mesh to be loaded at a time
 	vi_assert(current_nav_mesh_id == AssetNull || current_nav_mesh_id == id);
@@ -710,7 +822,7 @@ dtNavMesh* Loader::nav_mesh(AssetID id)
 	return current_nav_mesh;
 }
 
-bool Loader::soundbank(AssetID id)
+bool Loader::soundbank(const AssetID id)
 {
 	if (id == AssetNull)
 		return false;
@@ -733,7 +845,7 @@ bool Loader::soundbank(AssetID id)
 	return true;
 }
 
-bool Loader::soundbank_permanent(AssetID id)
+bool Loader::soundbank_permanent(const AssetID id)
 {
 	bool success = soundbank(id);
 	if (success)
@@ -741,7 +853,7 @@ bool Loader::soundbank_permanent(AssetID id)
 	return success;
 }
 
-void Loader::soundbank_free(AssetID id)
+void Loader::soundbank_free(const AssetID id)
 {
 	if (id != AssetNull && soundbanks[id].type != AssetNone)
 	{
@@ -787,6 +899,18 @@ void Loader::transients_free()
 	{
 		if (dynamic_meshes[i].type == AssetTransient)
 			dynamic_mesh_free(Asset::Mesh::count + i);
+	}
+
+	for (int i = 0; i < dynamic_textures.length; i++)
+	{
+		if (dynamic_textures[i].type == AssetTransient)
+			dynamic_texture_free(Asset::Texture::count + i);
+	}
+
+	for (int i = 0; i < framebuffers.length; i++)
+	{
+		if (framebuffers[i].type == AssetTransient)
+			framebuffer_free(i);
 	}
 
 	for (AssetID i = 0; i < soundbanks.length; i++)

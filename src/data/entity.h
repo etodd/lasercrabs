@@ -205,6 +205,11 @@ struct ComponentBase
 		return World::list.get(entity_id);
 	}
 
+	template<typename T> inline bool has() const
+	{
+		return World::list.get(entity_id)->has<T>();
+	}
+
 	template<typename T> inline T* get() const
 	{
 		return World::list.get(entity_id)->get<T>();

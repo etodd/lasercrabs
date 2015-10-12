@@ -44,6 +44,8 @@ enum RenderOp
 	RenderOp_FreeMesh,
 	RenderOp_UpdateAttribBuffers,
 	RenderOp_UpdateIndexBuffer,
+	RenderOp_AllocTexture,
+	RenderOp_DynamicTexture,
 	RenderOp_LoadTexture,
 	RenderOp_FreeTexture,
 	RenderOp_LoadShader,
@@ -53,6 +55,9 @@ enum RenderOp
 	RenderOp_Clear,
 	RenderOp_BlendMode,
 	RenderOp_CullMode,
+	RenderOp_AllocFramebuffer,
+	RenderOp_BindFramebuffer,
+	RenderOp_FreeFramebuffer,
 };
 
 enum RenderBlendMode
@@ -60,6 +65,21 @@ enum RenderBlendMode
 	RenderBlend_Opaque,
 	RenderBlend_Alpha,
 	RenderBlend_Additive,
+};
+
+enum RenderDynamicTextureType
+{
+	RenderDynamicTexture_Color,
+	RenderDynamicTexture_Depth,
+};
+
+enum RenderFramebufferAttachment
+{
+	RenderFramebufferAttachment_Color0,
+	RenderFramebufferAttachment_Color1,
+	RenderFramebufferAttachment_Color2,
+	RenderFramebufferAttachment_Color3,
+	RenderFramebufferAttachment_Depth,
 };
 
 enum RenderCullMode
@@ -84,8 +104,18 @@ struct RenderSync
 		memset(&input, 0, sizeof(InputState));
 	}
 
+	// IMPORTANT: don't do this: T something; write(&something);
+	// It will resolve to write<T*> rather than write<T>, so you'll get the wrong size.
+	// Use write<T>(&something) or write(something)
+
 	template<typename T>
-	void write(T* data, int count = 1)
+	void write(const T& data)
+	{
+		write(&data);
+	}
+
+	template<typename T>
+	void write(const T* data, const int count = 1)
 	{
 		int size = sizeof(T) * count;
 
@@ -99,13 +129,7 @@ struct RenderSync
 	}
 
 	template<typename T>
-	void write(const T& data)
-	{
-		write(&data);
-	}
-
-	template<typename T>
-	T* read(int count = 1)
+	const T* read(int count = 1)
 	{
 		T* result = (T*)(queue.data + read_pos);
 		read_pos += sizeof(T) * count;

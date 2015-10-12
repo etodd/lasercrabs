@@ -30,8 +30,8 @@ void SkinnedModel::draw(const RenderParams& params)
 	m = offset * m;
 
 	sync->write(RenderOp_Mesh);
-	sync->write(&mesh);
-	sync->write(&shader);
+	sync->write(mesh);
+	sync->write(shader);
 	Mat4 mvp = m * params.view_projection;
 
 	sync->write<int>(6); // Uniform count
@@ -39,17 +39,17 @@ void SkinnedModel::draw(const RenderParams& params)
 	sync->write(Asset::Uniform::mvp);
 	sync->write(RenderDataType_Mat4);
 	sync->write<int>(1);
-	sync->write(&mvp);
+	sync->write<Mat4>(mvp);
 
 	sync->write(Asset::Uniform::m);
 	sync->write(RenderDataType_Mat4);
 	sync->write<int>(1);
-	sync->write(&m);
+	sync->write<Mat4>(m);
 
 	sync->write(Asset::Uniform::diffuse_map);
 	sync->write(RenderDataType_Texture);
 	sync->write<int>(1);
-	sync->write(&texture);
+	sync->write<AssetID>(texture);
 	sync->write<RenderTextureType>(RenderTexture2D);
 
 	Armature* arm = Loader::armature(get<Animator>()->armature);
@@ -66,12 +66,12 @@ void SkinnedModel::draw(const RenderParams& params)
 	sync->write(Asset::Uniform::diffuse_color);
 	sync->write(RenderDataType_Vec4);
 	sync->write<int>(1);
-	sync->write(&color);
+	sync->write<Vec4>(color);
 
 	sync->write(Asset::Uniform::light_position);
 	sync->write(RenderDataType_Vec3);
 	sync->write<int>(1);
-	sync->write(&params.camera->pos);
+	sync->write<Vec3>(params.camera->pos);
 
 	/*
 	// Debug
@@ -90,17 +90,17 @@ void SkinnedModel::draw(const RenderParams& params)
 		sync->write(Asset::Uniform::mvp);
 		sync->write(RenderDataType_Mat4);
 		sync->write<int>(1);
-		sync->write(&mvp);
+		sync->write<Mat4>(mvp);
 
 		sync->write(Asset::Uniform::m);
 		sync->write(RenderDataType_Mat4);
 		sync->write<int>(1);
-		sync->write(&m);
+		sync->write<Mat4>(m);
 
 		sync->write(Asset::Uniform::diffuse_color);
 		sync->write(RenderDataType_Vec4);
 		sync->write<int>(1);
-		sync->write(&color);
+		sync->write<Vec4>(color);
 	}
 	*/
 }

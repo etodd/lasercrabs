@@ -41,11 +41,13 @@ struct GLData
 	static Array<GLuint> textures;
 	static Array<Shader> shaders;
 	static Array<Mesh> meshes;
+	static Array<GLuint> framebuffers;
 };
 
 Array<GLuint> GLData::textures = Array<GLuint>();
 Array<GLData::Shader> GLData::shaders = Array<GLData::Shader>();
 Array<GLData::Mesh> GLData::meshes = Array<GLData::Mesh>();
+Array<GLuint> GLData::framebuffers = Array<GLuint>();
 
 void render(RenderSync* sync)
 {
@@ -57,7 +59,7 @@ void render(RenderSync* sync)
 		{
 			case RenderOp_Viewport:
 			{
-				ScreenRect* rect = sync->read<ScreenRect>();
+				const ScreenRect* rect = sync->read<ScreenRect>();
 				glViewport(rect->x, rect->y, rect->width, rect->height);
 				break;
 			}
@@ -175,7 +177,7 @@ void render(RenderSync* sync)
 				int id = *(sync->read<int>());
 				GLData::Mesh* mesh = &GLData::meshes[id];
 				int index_count = *(sync->read<int>());
-				int* indices = sync->read<int>(index_count);
+				const int* indices = sync->read<int>(index_count);
 
 				glBindVertexArray(mesh->vertex_array);
 				glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh->index_buffer);
@@ -193,19 +195,47 @@ void render(RenderSync* sync)
 				mesh->~Mesh();
 				break;
 			}
+			case RenderOp_AllocTexture:
+			{
+				AssetID id = *(sync->read<AssetID>());
+				if (id >= GLData::textures.length)
+					GLData::textures.resize(id + 1);
+				glGenTextures(1, &GLData::textures[id]);
+				break;
+			}
+			case RenderOp_DynamicTexture:
+			{
+				AssetID id = *(sync->read<AssetID>());
+				unsigned width = *(sync->read<unsigned>());
+				unsigned height = *(sync->read<unsigned>());
+				RenderDynamicTextureType type = *(sync->read<RenderDynamicTextureType>());
+				glBindTexture(GL_TEXTURE_2D, GLData::textures[id]);
+				switch (type)
+				{
+					case RenderDynamicTexture_Color:
+						glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, 0);
+						break;
+					case RenderDynamicTexture_Depth:
+						glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT24, width, height, 0, GL_DEPTH_COMPONENT, GL_UNSIGNED_INT, 0);
+						break;
+					default:
+						vi_assert(false);
+						break;
+				}
+
+				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
+				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
+				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST_MIPMAP_NEAREST); 
+				break;
+			}
 			case RenderOp_LoadTexture:
 			{
 				AssetID id = *(sync->read<AssetID>());
 				unsigned width = *(sync->read<unsigned>());
 				unsigned height = *(sync->read<unsigned>());
-				unsigned char* buffer = sync->read<unsigned char>(4 * width * height);
-				// Make power of two version of the image.
-
-				GLuint textureID;
-				glGenTextures(1, &textureID);
-				
-				// "Bind" the newly created texture : all future texture functions will modify this texture
-				glBindTexture(GL_TEXTURE_2D, textureID);
+				const unsigned char* buffer = sync->read<unsigned char>(4 * width * height);
+				glBindTexture(GL_TEXTURE_2D, GLData::textures[id]);
 
 				glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, buffer);
 
@@ -215,9 +245,6 @@ void render(RenderSync* sync)
 				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR); 
 				glGenerateMipmap(GL_TEXTURE_2D);
 
-				if (id >= GLData::textures.length)
-					GLData::textures.resize(id + 1);
-				GLData::textures[id] = textureID;
 				break;
 			}
 			case RenderOp_FreeTexture:
@@ -231,7 +258,7 @@ void render(RenderSync* sync)
 				AssetID id = *(sync->read<AssetID>());
 				const char* path = AssetLookup::Shader::values[id];
 				int code_length = *(sync->read<int>());
-				char* code = sync->read<char>(code_length);
+				const char* code = sync->read<char>(code_length);
 
 				// Create the shaders
 				GLuint vertex_id = glCreateShader(GL_VERTEX_SHADER);
@@ -483,6 +510,61 @@ void render(RenderSync* sync)
 						vi_assert(false);
 						break;
 				}
+				break;
+			}
+			case RenderOp_AllocFramebuffer:
+			{
+				int id = *(sync->read<int>());
+				if (id >= GLData::framebuffers.length)
+					GLData::framebuffers.resize(id + 1);
+
+				glGenFramebuffersEXT(1, &GLData::framebuffers[id]);
+				glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, GLData::framebuffers[id]);
+
+				int attachments = *(sync->read<int>());
+				for (int i = 0; i < attachments; i++)
+				{
+					RenderFramebufferAttachment attachment_type = *(sync->read<RenderFramebufferAttachment>());
+					int texture_id = *(sync->read<int>());
+					GLuint gl_texture_id = GLData::textures[texture_id];
+					switch (attachment_type)
+					{
+						case RenderFramebufferAttachment_Color0:
+							glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0_EXT, GL_TEXTURE_2D, gl_texture_id, 0);
+							break;
+						case RenderFramebufferAttachment_Color1:
+							glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT1_EXT, GL_TEXTURE_2D, gl_texture_id, 0);
+							break;
+						case RenderFramebufferAttachment_Color2:
+							glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT2_EXT, GL_TEXTURE_2D, gl_texture_id, 0);
+							break;
+						case RenderFramebufferAttachment_Color3:
+							glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT3_EXT, GL_TEXTURE_2D, gl_texture_id, 0);
+							break;
+						case RenderFramebufferAttachment_Depth:
+							glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, GL_DEPTH_ATTACHMENT_EXT, GL_TEXTURE_2D, gl_texture_id, 0);
+							break;
+						default:
+							vi_assert(false);
+							break;
+					}
+				}
+
+				vi_assert(glCheckFramebufferStatusEXT(GL_FRAMEBUFFER_EXT) == GL_FRAMEBUFFER_COMPLETE_EXT);
+
+				glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, 0);
+				break;
+			}
+			case RenderOp_BindFramebuffer:
+			{
+				int id = *(sync->read<int>());
+				glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, GLData::framebuffers[id]);
+				break;
+			}
+			case RenderOp_FreeFramebuffer:
+			{
+				int id = *(sync->read<int>());
+				glDeleteFramebuffersEXT(1, &GLData::framebuffers[id]);
 				break;
 			}
 			default:

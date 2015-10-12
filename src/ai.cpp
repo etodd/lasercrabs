@@ -116,7 +116,7 @@ void AI::debug_draw(const RenderParams& p)
 	p.sync->write(Asset::Uniform::mvp);
 	p.sync->write(RenderDataType_Mat4);
 	p.sync->write<int>(1);
-	p.sync->write(&mvp);
+	p.sync->write<Mat4>(mvp);
 #endif
 }
 

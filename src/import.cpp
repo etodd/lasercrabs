@@ -1553,75 +1553,35 @@ void import_shader(ImporterState& state, const std::string& asset_in_path, const
 		fread(code.data, fsize, 1, f);
 		fclose(f);
 
-		// Create the shaders
-		GLuint vertex_id = glCreateShader(GL_VERTEX_SHADER);
-		GLuint frag_id = glCreateShader(GL_FRAGMENT_SHADER);
-
-		// Compile Vertex Shader
-		char const* vertex_code[] = { "#version 330 core\n#define VERTEX\n", code.data };
-		const GLint vertex_code_length[] = { 33, (GLint)code.length };
-		glShaderSource(vertex_id, 2, vertex_code, vertex_code_length);
-		glCompileShader(vertex_id);
-
-		// Check Vertex Shader
-		GLint result;
-		glGetShaderiv(vertex_id, GL_COMPILE_STATUS, &result);
-		int msg_length;
-		glGetShaderiv(vertex_id, GL_INFO_LOG_LENGTH, &msg_length);
-		if (msg_length > 1)
+		for (int i = 0; i < RenderTechnique_count; i++)
 		{
-			Array<char> msg(msg_length);
-			glGetShaderInfoLog(vertex_id, msg_length, NULL, msg.data);
-			fprintf(stderr, "Vertex shader error in '%s': %s\n", asset_in_path.c_str(), msg.data);
-			state.error = true;
-			return;
+			GLuint program_id;
+			if (!compile_shader(technique_prefixes[i], code.data, code.length, &program_id, asset_out_path.c_str()))
+			{
+				glDeleteProgram(program_id);
+				state.error = true;
+				return;
+			}
+
+			// Get uniforms
+			GLint uniform_count;
+			glGetProgramiv(program_id, GL_ACTIVE_UNIFORMS, &uniform_count);
+			for (int i = 0; i < uniform_count; i++)
+			{
+				char name[128 + 1];
+				memset(name, 0, 128 + 1);
+				int name_length;
+				glGetActiveUniformName(program_id, i, 128, &name_length, name);
+
+				char* bracket_character = strchr(name, '[');
+				if (bracket_character)
+					*bracket_character = '\0'; // Remove array brackets
+
+				map_add(state.manifest.uniforms, asset_name, name, std::string(name));
+			}
+
+			glDeleteProgram(program_id);
 		}
-
-		// Compile Fragment Shader
-		const char* frag_code[2] = { "#version 330 core\n", code.data };
-		const GLint frag_code_length[] = { 18, (GLint)code.length };
-		glShaderSource(frag_id, 2, frag_code, frag_code_length);
-		glCompileShader(frag_id);
-
-		// Check Fragment Shader
-		glGetShaderiv(frag_id, GL_COMPILE_STATUS, &result);
-		glGetShaderiv(frag_id, GL_INFO_LOG_LENGTH, &msg_length);
-		if (msg_length > 1)
-		{
-			Array<char> msg(msg_length + 1);
-			glGetShaderInfoLog(frag_id, msg_length, NULL, msg.data);
-			fprintf(stderr, "Fragment shader error in '%s': %s\n", asset_in_path.c_str(), msg.data);
-			state.error = true;
-			return;
-		}
-
-		// Link the program
-		GLuint program_id = glCreateProgram();
-		glAttachShader(program_id, vertex_id);
-		glAttachShader(program_id, frag_id);
-		glLinkProgram(program_id);
-
-		glDeleteShader(vertex_id);
-		glDeleteShader(frag_id);
-
-		// Get uniforms
-		GLint uniform_count;
-		glGetProgramiv(program_id, GL_ACTIVE_UNIFORMS, &uniform_count);
-		for (int i = 0; i < uniform_count; i++)
-		{
-			char name[128 + 1];
-			memset(name, 0, 128 + 1);
-			int name_length;
-			glGetActiveUniformName(program_id, i, 128, &name_length, name);
-
-			char* bracket_character = strchr(name, '[');
-			if (bracket_character)
-				*bracket_character = '\0'; // Remove array brackets
-
-			map_add(state.manifest.uniforms, asset_name, name, std::string(name));
-		}
-
-		glDeleteProgram(program_id);
 
 		if (!cp(asset_in_path, asset_out_path))
 		{
@@ -2013,7 +1973,7 @@ int proc(int argc, char* argv[])
 			int max_mesh_count = 0;
 			for (auto model : state.manifest.meshes)
 				max_mesh_count = model.second.size() > max_mesh_count ? model.second.size() : max_mesh_count;
-			fprintf(f, "\tconst AssetID mesh_refs[%lu][%d] =\n\t{\n", state.manifest.levels.size(), max_mesh_count);
+			fprintf(f, "\tconst AssetID mesh_refs[%zu][%d] =\n\t{\n", state.manifest.levels.size(), max_mesh_count);
 
 			for (auto level : state.manifest.levels)
 			{

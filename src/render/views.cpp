@@ -88,6 +88,7 @@ void View::draw(const RenderParams& params) const
 	sync->write(RenderOp_Mesh);
 	sync->write(mesh);
 	sync->write(shader);
+	sync->write(params.technique);
 
 	Mat4 m;
 	get<Transform>()->mat(&m);
@@ -174,6 +175,7 @@ void Skybox::draw(const RenderParams& p)
 	sync->write(RenderOp_Mesh);
 	sync->write(mesh);
 	sync->write(shader);
+	sync->write(p.technique);
 
 	sync->write<int>(texture == AssetNull ? 2 : 3); // Uniform count
 

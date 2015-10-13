@@ -34,7 +34,7 @@ struct GLData
 
 	struct Shader
 	{
-		GLuint handle;
+		GLuint handles[RenderTechnique_count];
 		Array<GLuint> uniforms;
 	};
 
@@ -280,77 +280,24 @@ void render(RenderSync* sync)
 			case RenderOp_LoadShader:
 			{
 				AssetID id = *(sync->read<AssetID>());
-				const char* path = AssetLookup::Shader::values[id];
-				int code_length = *(sync->read<int>());
-				const char* code = sync->read<char>(code_length);
-
-				// Create the shaders
-				GLuint vertex_id = glCreateShader(GL_VERTEX_SHADER);
-				GLuint frag_id = glCreateShader(GL_FRAGMENT_SHADER);
-
-				// Compile Vertex Shader
-				char const* vertex_code[] = { "#version 330 core\n#define VERTEX\n", code };
-				const GLint vertex_code_length[] = { 33, (GLint)code_length };
-				glShaderSource(vertex_id, 2, vertex_code, vertex_code_length);
-				glCompileShader(vertex_id);
-
-				// Check Vertex Shader
-				GLint result;
-				glGetShaderiv(vertex_id, GL_COMPILE_STATUS, &result);
-				int msg_length;
-				glGetShaderiv(vertex_id, GL_INFO_LOG_LENGTH, &msg_length);
-				if (msg_length > 1)
-				{
-					Array<char> msg(msg_length);
-					glGetShaderInfoLog(vertex_id, msg_length, NULL, msg.data);
-					fprintf(stderr, "Vertex shader error in '%s': %s\n", path, msg.data);
-				}
-
-				// Compile Fragment Shader
-				const char* frag_code[2] = { "#version 330 core\n", code };
-				const GLint frag_code_length[] = { 18, (GLint)code_length };
-				glShaderSource(frag_id, 2, frag_code, frag_code_length);
-				glCompileShader(frag_id);
-
-				// Check Fragment Shader
-				glGetShaderiv(frag_id, GL_COMPILE_STATUS, &result);
-				glGetShaderiv(frag_id, GL_INFO_LOG_LENGTH, &msg_length);
-				if (msg_length > 1)
-				{
-					Array<char> msg(msg_length + 1);
-					glGetShaderInfoLog(frag_id, msg_length, NULL, msg.data);
-					fprintf(stderr, "Fragment shader error in '%s': %s\n", path, msg.data);
-				}
-
-				// Link the program
-				GLuint program_id = glCreateProgram();
-				glAttachShader(program_id, vertex_id);
-				glAttachShader(program_id, frag_id);
-				glLinkProgram(program_id);
-
-				// Check the program
-				glGetProgramiv(program_id, GL_LINK_STATUS, &result);
-				glGetProgramiv(program_id, GL_INFO_LOG_LENGTH, &msg_length);
-				if (msg_length > 1)
-				{
-					Array<char> msg(msg_length);
-					glGetProgramInfoLog(program_id, msg_length, NULL, msg.data);
-					fprintf(stderr, "Error creating shader program '%s': %s\n", path, msg.data);
-				}
-
-				glDeleteShader(vertex_id);
-				glDeleteShader(frag_id);
 
 				if (id >= GLData::shaders.length)
 					GLData::shaders.resize(id + 1);
-				GLData::shaders[id].handle = program_id;
+
+				int code_length = *(sync->read<int>());
+				const char* code = sync->read<char>(code_length);
+
+				for (int i = 0; i < RenderTechnique_count; i++)
+					compile_shader(technique_prefixes[i], code, code_length, &GLData::shaders[id].handles[i]);
+
 				debug_check();
 				break;
 			}
 			case RenderOp_FreeShader:
 			{
 				AssetID id = *(sync->read<AssetID>());
-				glDeleteProgram(GLData::shaders[id].handle);
+				for (int i = 0; i < RenderTechnique_count; i++)
+					glDeleteProgram(GLData::shaders[id].handles[i]);
 				debug_check();
 				break;
 			}
@@ -377,8 +324,9 @@ void render(RenderSync* sync)
 				int id = *(sync->read<int>());
 				GLData::Mesh* mesh = &GLData::meshes[id];
 				AssetID shader_asset = *(sync->read<AssetID>());
+				RenderTechnique technique = *(sync->read<RenderTechnique>());
 
-				GLuint program_id = GLData::shaders[shader_asset].handle;
+				GLuint program_id = GLData::shaders[shader_asset].handles[technique];
 
 				glUseProgram(program_id);
 

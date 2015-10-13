@@ -6,8 +6,6 @@
 #include "physics.h"
 #include "BulletCollision/NarrowPhaseCollision/btRaycastCallback.h"
 
-#define DRAW_NAV_MESH 0
-
 namespace VI
 {
 
@@ -103,6 +101,7 @@ void AI::debug_draw(const RenderParams& p)
 	p.sync->write(RenderOp_Mesh);
 	p.sync->write(render_mesh);
 	p.sync->write(Asset::Shader::flat);
+	p.sync->write(p.technique);
 
 	p.sync->write<int>(2); // Uniform count
 

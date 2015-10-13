@@ -32,6 +32,7 @@ void SkinnedModel::draw(const RenderParams& params)
 	sync->write(RenderOp_Mesh);
 	sync->write(mesh);
 	sync->write(shader);
+	sync->write(params.technique);
 	Mat4 mvp = m * params.view_projection;
 
 	sync->write<int>(5); // Uniform count
@@ -78,6 +79,7 @@ void SkinnedModel::draw(const RenderParams& params)
 		sync->write(RenderOp_Mesh);
 		sync->write(Asset::Mesh::cube);
 		sync->write(Asset::Shader::Standard);
+		sync->write(params.technique);
 		Mat4 mvp = bones[i] * m * params.view * params.camera->projection;
 
 		sync->write<int>(3); // Uniform count

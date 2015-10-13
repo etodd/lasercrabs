@@ -147,11 +147,6 @@ enum RenderTextureType
 	RenderTexture2D,
 };
 
-enum RenderTechnique
-{
-	RenderTechnique_Default,
-};
-
 struct RenderSync;
 struct RenderParams
 {

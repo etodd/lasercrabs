@@ -12,6 +12,16 @@ namespace VI
 
 #define MAX_BONE_WEIGHTS 4
 
+bool compile_shader(const char*, const char*, int, unsigned int*, const char* = 0);
+
+char* technique_prefixes[];
+enum RenderTechnique
+{
+	RenderTechnique_Default,
+	RenderTechnique_Shadow,
+	RenderTechnique_count,
+};
+
 enum RenderDataType
 {
 	RenderDataType_Float,

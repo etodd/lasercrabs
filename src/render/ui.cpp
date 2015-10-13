@@ -392,6 +392,7 @@ void UI::draw(const RenderParams& p)
 		p.sync->write(RenderOp_Mesh);
 		p.sync->write(mesh);
 		p.sync->write(Asset::Shader::ui);
+		p.sync->write(p.technique);
 
 		p.sync->write<int>(0); // Uniform count
 

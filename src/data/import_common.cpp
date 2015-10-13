@@ -73,7 +73,16 @@ namespace Json
 		return Quat(w->valuedouble, x->valuedouble, y->valuedouble, z->valuedouble);
 	}
 
-	const int get_int(cJSON* parent, const char* key, const int default_value)
+	float get_float(cJSON* parent, const char* key, const float default_value)
+	{
+		cJSON* json = cJSON_GetObjectItem(parent, key);
+		if (json)
+			return json->valuedouble;
+		else
+			return default_value;
+	}
+
+	int get_int(cJSON* parent, const char* key, const int default_value)
 	{
 		cJSON* json = cJSON_GetObjectItem(parent, key);
 		if (json)

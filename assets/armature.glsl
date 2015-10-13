@@ -48,7 +48,7 @@ uniform vec4 diffuse_color;
 void main()
 {
 	gl_FragData[0] = texture(diffuse_map, UV) * diffuse_color;
-	gl_FragData[1] = vec4(normalize(Normal_worldspace), 1.0);
+	gl_FragData[1] = vec4(normalize(Normal_worldspace) * 0.5 + 0.5, 1.0);
 }
 
 #endif

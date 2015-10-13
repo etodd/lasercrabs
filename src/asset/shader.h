@@ -8,17 +8,21 @@ namespace Asset
 {
 	namespace Uniform
 	{
-		const int count = 10;
+		const int count = 14;
 		const AssetID bones = 0;
-		const AssetID color_buffer = 1;
-		const AssetID depth_buffer = 2;
-		const AssetID diffuse_color = 3;
-		const AssetID diffuse_map = 4;
-		const AssetID lighting_buffer = 5;
-		const AssetID m = 6;
-		const AssetID mvp = 7;
-		const AssetID normal_buffer = 8;
-		const AssetID p = 9;
+		const AssetID camera_pos = 1;
+		const AssetID color_buffer = 2;
+		const AssetID depth_buffer = 3;
+		const AssetID diffuse_color = 4;
+		const AssetID diffuse_map = 5;
+		const AssetID light_color = 6;
+		const AssetID light_pos = 7;
+		const AssetID light_radius = 8;
+		const AssetID lighting_buffer = 9;
+		const AssetID m = 10;
+		const AssetID mvp = 11;
+		const AssetID normal_buffer = 12;
+		const AssetID p = 13;
 	}
 	namespace Shader
 	{

@@ -31,8 +31,15 @@ def add(obj, parent_index = -1):
 		if key != '_RNA_UI':
 			node[key] = obj[key]
 
-	if getattr(obj, 'type', None) == 'MESH':
+	obj_type = getattr(obj, 'type', None)
+	if obj_type == 'MESH':
 		node['meshes'] = meshes[obj]
+	elif obj_type == 'LAMP':
+		lamp_type = obj.data.type
+		if lamp_type == 'POINT':
+			node['PointLight'] = True
+			node['radius'] = obj.data.distance
+			node['color'] = list(obj.data.color)
 
 	result.append(node)
 	index = len(result) - 1

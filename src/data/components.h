@@ -36,4 +36,11 @@ struct Transform : public ComponentType<Transform>
 	void reparent(Transform*);
 };
 
+struct PointLight : public ComponentType<PointLight>
+{
+	float radius;
+	Vec3 color;
+	void awake() {}
+};
+
 }

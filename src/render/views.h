@@ -52,8 +52,8 @@ struct ScreenQuad
 {
 	ScreenQuad();
 	int mesh;
-	void init();
-	void set(RenderSync*, const Vec2&, const Vec2&);
+	void init(RenderSync*);
+	void set(RenderSync*, const Vec2&, const Vec2&, const Camera*, const Vec2& = Vec2::zero, const Vec2& = Vec2(1, 1));
 };
 
 }

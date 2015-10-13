@@ -206,39 +206,13 @@ ScreenQuad::ScreenQuad()
 {
 }
 
-void ScreenQuad::init()
+void ScreenQuad::init(RenderSync* sync)
 {
 	mesh = Loader::dynamic_mesh_permanent(3, false);
 	Loader::dynamic_mesh_attrib(RenderDataType_Vec3);
-	Loader::dynamic_mesh_attrib(RenderDataType_Vec4);
+	Loader::dynamic_mesh_attrib(RenderDataType_Vec3);
 	Loader::dynamic_mesh_attrib(RenderDataType_Vec2);
-}
 
-void ScreenQuad::set(RenderSync* sync, const Vec2& a, const Vec2& b)
-{
-	// Fullscreen quad
-
-	Vec3 vertices[] =
-	{
-		Vec3(a.x, a.y, 0),
-		Vec3(b.x, a.y, 0),
-		Vec3(a.x, b.y, 0),
-		Vec3(b.x, b.y, 0),
-	};
-	Vec4 colors[] =
-	{
-		Vec4(1, 1, 1, 1),
-		Vec4(1, 1, 1, 1),
-		Vec4(1, 1, 1, 1),
-		Vec4(1, 1, 1, 1),
-	};
-	Vec2 uvs[] =
-	{
-		Vec2(0, 0),
-		Vec2(1, 0),
-		Vec2(0, 1),
-		Vec2(1, 1),
-	};
 	int indices[] =
 	{
 		0,
@@ -248,17 +222,63 @@ void ScreenQuad::set(RenderSync* sync, const Vec2& a, const Vec2& b)
 		3,
 		2
 	};
-	sync->write(RenderOp_UpdateAttribBuffers);
-	sync->write(mesh);
-	sync->write<int>(4);
-	sync->write(vertices, 4);
-	sync->write(colors, 4);
-	sync->write(uvs, 4);
 
 	sync->write(RenderOp_UpdateIndexBuffer);
 	sync->write(mesh);
 	sync->write<int>(6);
 	sync->write(indices, 6);
+}
+
+void ScreenQuad::set(RenderSync* sync, const Vec2& a, const Vec2& b, const Camera* camera, const Vec2& uva, const Vec2& uvb)
+{
+	Vec3 vertices[] =
+	{
+		Vec3(a.x, a.y, 0),
+		Vec3(b.x, a.y, 0),
+		Vec3(a.x, b.y, 0),
+		Vec3(b.x, b.y, 0),
+	};
+
+	Mat4 p_inverse = camera->proj.inverse();
+
+	Vec4 rays[] =
+	{
+		p_inverse * Vec4(-1, -1, 0, 1),
+		p_inverse * Vec4(1, -1, 0, 1),
+		p_inverse * Vec4(-1, 1, 0, 1),
+		p_inverse * Vec4(1, 1, 0, 1),
+	};
+	rays[0] /= rays[0].w;
+	rays[0] /= rays[0].z;
+	rays[1] /= rays[1].w;
+	rays[1] /= rays[1].z;
+	rays[2] /= rays[2].w;
+	rays[2] /= rays[2].z;
+	rays[3] /= rays[3].w;
+	rays[3] /= rays[3].z;
+
+	Vec3 rays3[] =
+	{
+		camera->rot * rays[0].xyz(),
+		camera->rot * rays[1].xyz(),
+		camera->rot * rays[2].xyz(),
+		camera->rot * rays[3].xyz(),
+	};
+
+	Vec2 uvs[] =
+	{
+		Vec2(uva.x, uva.y),
+		Vec2(uvb.x, uva.y),
+		Vec2(uva.x, uvb.y),
+		Vec2(uvb.x, uvb.y),
+	};
+
+	sync->write(RenderOp_UpdateAttribBuffers);
+	sync->write(mesh);
+	sync->write<int>(4);
+	sync->write(vertices, 4);
+	sync->write(rays3, 4);
+	sync->write(uvs, 4);
 }
 
 }

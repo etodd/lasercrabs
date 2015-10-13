@@ -135,10 +135,14 @@ const char* AssetLookup::Shader::names[] =
 const char* AssetLookup::Uniform::values[] =
 {
 	"bones",
+	"camera_pos",
 	"color_buffer",
 	"depth_buffer",
 	"diffuse_color",
 	"diffuse_map",
+	"light_color",
+	"light_pos",
+	"light_radius",
 	"lighting_buffer",
 	"m",
 	"mvp",
@@ -151,10 +155,14 @@ const char* AssetLookup::Uniform::values[] =
 const char* AssetLookup::Uniform::names[] =
 {
 	"bones",
+	"camera_pos",
 	"color_buffer",
 	"depth_buffer",
 	"diffuse_color",
 	"diffuse_map",
+	"light_color",
+	"light_pos",
+	"light_radius",
 	"lighting_buffer",
 	"m",
 	"mvp",

@@ -8,6 +8,13 @@
 namespace VI
 {
 
+struct Uniform
+{
+	AssetID uniform;
+	Mat4 data_float;
+	int data_integer;
+};
+
 struct View : public ComponentType<View>, public IntrusiveLinkedList<View>
 {
 	static View* first_alpha;
@@ -45,11 +52,8 @@ struct ScreenQuad
 {
 	ScreenQuad();
 	int mesh;
-	int texture;
-	AssetID shader;
 	void init();
 	void set(RenderSync*, const Vec2&, const Vec2&);
-	void draw(RenderSync*);
 };
 
 }

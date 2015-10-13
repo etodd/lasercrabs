@@ -94,7 +94,7 @@ void View::draw(const RenderParams& params) const
 	m = offset * m;
 	Mat4 mvp = m * params.view_projection;
 
-	sync->write<int>(texture == AssetNull ? 4 : 5); // Uniform count
+	sync->write<int>(texture == AssetNull ? 3 : 4); // Uniform count
 
 	sync->write(Asset::Uniform::mvp);
 	sync->write(RenderDataType_Mat4);
@@ -110,11 +110,6 @@ void View::draw(const RenderParams& params) const
 	sync->write(RenderDataType_Vec4);
 	sync->write<int>(1);
 	sync->write<Vec4>(color);
-
-	sync->write(Asset::Uniform::light_position);
-	sync->write(RenderDataType_Vec3);
-	sync->write<int>(1);
-	sync->write<Vec3>(params.camera->pos);
 
 	if (texture != AssetNull)
 	{
@@ -184,7 +179,7 @@ void Skybox::draw(const RenderParams& p)
 
 	Mat4 mvp = p.view;
 	mvp.translation(Vec3::zero);
-	mvp = mvp * p.camera->projection;
+	mvp = mvp * p.camera->proj;
 
 	sync->write(Asset::Uniform::mvp);
 	sync->write(RenderDataType_Mat4);
@@ -207,7 +202,7 @@ void Skybox::draw(const RenderParams& p)
 }
 
 ScreenQuad::ScreenQuad()
-	: texture(AssetNull), mesh(AssetNull), shader(Asset::Shader::ui_texture)
+	: mesh(AssetNull)
 {
 }
 
@@ -264,26 +259,6 @@ void ScreenQuad::set(RenderSync* sync, const Vec2& a, const Vec2& b)
 	sync->write(mesh);
 	sync->write<int>(6);
 	sync->write(indices, 6);
-}
-
-void ScreenQuad::draw(RenderSync* sync)
-{
-	Loader::shader(shader);
-
-	sync->write(RenderOp_Mesh);
-	sync->write(mesh);
-	sync->write<AssetID>(shader);
-	if (texture == AssetNull)
-		sync->write<int>(0); // Uniform count
-	else
-	{
-		sync->write<int>(1); // Uniform count
-		sync->write(Asset::Uniform::diffuse_map);
-		sync->write(RenderDataType_Texture);
-		sync->write<int>(1);
-		sync->write<AssetID>(texture);
-		sync->write<RenderTextureType>(RenderTexture2D);
-	}
 }
 
 }

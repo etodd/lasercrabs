@@ -106,10 +106,12 @@ const char* AssetLookup::Soundbank::names[] =
 
 const char* AssetLookup::Shader::values[] =
 {
-	"assets/Armature.glsl",
-	"assets/Standard.glsl",
+	"assets/armature.glsl",
+	"assets/composite.glsl",
 	"assets/flat.glsl",
 	"assets/flat_texture.glsl",
+	"assets/lighting.glsl",
+	"assets/standard.glsl",
 	"assets/ui.glsl",
 	"assets/ui_texture.glsl",
 	0,
@@ -118,10 +120,12 @@ const char* AssetLookup::Shader::values[] =
 
 const char* AssetLookup::Shader::names[] =
 {
-	"Armature",
-	"Standard",
+	"armature",
+	"composite",
 	"flat",
 	"flat_texture",
+	"lighting",
+	"standard",
 	"ui",
 	"ui_texture",
 	0,
@@ -130,30 +134,32 @@ const char* AssetLookup::Shader::names[] =
 
 const char* AssetLookup::Uniform::values[] =
 {
-	"ambient_color",
 	"bones",
+	"color_buffer",
+	"depth_buffer",
 	"diffuse_color",
 	"diffuse_map",
-	"light_color",
-	"light_position",
-	"light_radius",
+	"lighting_buffer",
 	"m",
 	"mvp",
+	"normal_buffer",
+	"p",
 	0,
 };
 
 
 const char* AssetLookup::Uniform::names[] =
 {
-	"ambient_color",
 	"bones",
+	"color_buffer",
+	"depth_buffer",
 	"diffuse_color",
 	"diffuse_map",
-	"light_color",
-	"light_position",
-	"light_radius",
+	"lighting_buffer",
 	"m",
 	"mvp",
+	"normal_buffer",
+	"p",
 	0,
 };
 

@@ -28,7 +28,7 @@ Prop::Prop(ID id, AssetID mesh_id)
 	View* model = create<View>();
 
 	model->mesh = mesh_id;
-	model->shader = Asset::Shader::Standard;
+	model->shader = Asset::Shader::standard;
 }
 
 void StaticGeom::init(const AssetID mesh_id, btTriangleIndexVertexArray** mesh_data, btBvhTriangleMeshShape** shape)
@@ -37,7 +37,7 @@ void StaticGeom::init(const AssetID mesh_id, btTriangleIndexVertexArray** mesh_d
 	View* model = create<View>();
 
 	model->mesh = mesh_id;
-	model->shader = Asset::Shader::Standard;
+	model->shader = Asset::Shader::standard;
 
 	Mesh* mesh = Loader::mesh(model->mesh);
 
@@ -78,7 +78,7 @@ Box::Box(ID id, Vec3 pos, Quat quat, float mass, Vec3 scale)
 	View* model = create<View>();
 	model->offset = Mat4::make_scale(scale);
 	model->mesh = Asset::Mesh::cube;
-	model->shader = Asset::Shader::Standard;
+	model->shader = Asset::Shader::standard;
 	
 	RigidBody* body = create<RigidBody>(pos, quat, mass, new btBoxShape(scale));
 }
@@ -141,7 +141,7 @@ void NoclipControl::update(const Update& u)
 
 	camera->viewport = { 0, 0, u.input->width, u.input->height };
 	float aspect = camera->viewport.height == 0 ? 1 : (float)camera->viewport.width / (float)camera->viewport.height;
-	camera->projection = Mat4::perspective(FoV, aspect, 0.01f, 1000.0f);
+	camera->projection(FoV, aspect, 0.01f, 1000.0f);
 
 	// Camera matrix
 	Vec3 pos = get<Transform>()->absolute_pos();

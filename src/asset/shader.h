@@ -8,26 +8,29 @@ namespace Asset
 {
 	namespace Uniform
 	{
-		const int count = 9;
-		const AssetID ambient_color = 0;
-		const AssetID bones = 1;
-		const AssetID diffuse_color = 2;
-		const AssetID diffuse_map = 3;
-		const AssetID light_color = 4;
-		const AssetID light_position = 5;
-		const AssetID light_radius = 6;
-		const AssetID m = 7;
-		const AssetID mvp = 8;
+		const int count = 10;
+		const AssetID bones = 0;
+		const AssetID color_buffer = 1;
+		const AssetID depth_buffer = 2;
+		const AssetID diffuse_color = 3;
+		const AssetID diffuse_map = 4;
+		const AssetID lighting_buffer = 5;
+		const AssetID m = 6;
+		const AssetID mvp = 7;
+		const AssetID normal_buffer = 8;
+		const AssetID p = 9;
 	}
 	namespace Shader
 	{
-		const int count = 6;
-		const AssetID Armature = 0;
-		const AssetID Standard = 1;
+		const int count = 8;
+		const AssetID armature = 0;
+		const AssetID composite = 1;
 		const AssetID flat = 2;
 		const AssetID flat_texture = 3;
-		const AssetID ui = 4;
-		const AssetID ui_texture = 5;
+		const AssetID lighting = 4;
+		const AssetID standard = 5;
+		const AssetID ui = 6;
+		const AssetID ui_texture = 7;
 	}
 }
 

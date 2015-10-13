@@ -23,16 +23,19 @@ struct Camera
 	static Camera* add();
 
 	bool active;
-	Mat4 projection;
+	Mat4 proj;
+	float near_plane;
+	float far_plane;
 	Vec3 pos;
 	Quat rot;
 	ScreenRect viewport;
 
 	Camera()
-		: active(), projection(), pos(), rot(), viewport()
+		: active(), proj(), pos(), rot(), viewport(), near_plane(), far_plane()
 	{
 
 	}
+	void projection(const float, const float, const float, const float);
 	Mat4 view() const;
 	void remove();
 };

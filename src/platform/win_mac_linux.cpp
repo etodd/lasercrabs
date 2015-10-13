@@ -98,7 +98,7 @@ int proc()
 	glGetError(); // Clear initial error caused by GLEW
 	vi_assert(glGetError() == GL_NO_ERROR);
 
-	glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+	glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
 
 	glEnable(GL_DEPTH_TEST);
 	glDepthFunc(GL_LESS); 

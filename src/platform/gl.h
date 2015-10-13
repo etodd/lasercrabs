@@ -58,9 +58,12 @@ Array<GLuint> GLData::framebuffers = Array<GLuint>();
 
 void render(RenderSync* sync)
 {
+#define debug_check() vi_assert((error = glGetError()) == GL_NO_ERROR)
+//#define debug_check() {}
 	sync->read_pos = 0;
 	while (sync->read_pos < sync->queue.length)
 	{
+		GLenum error;
 		RenderOp op = *(sync->read<RenderOp>());
 		switch (op)
 		{
@@ -68,6 +71,7 @@ void render(RenderSync* sync)
 			{
 				const ScreenRect* rect = sync->read<ScreenRect>();
 				glViewport(rect->x, rect->y, rect->width, rect->height);
+				debug_check();
 				break;
 			}
 			case RenderOp_AllocMesh:
@@ -123,6 +127,7 @@ void render(RenderSync* sync)
 				}
 				glGenBuffers(1, &mesh->index_buffer);
 
+				debug_check();
 				break;
 			}
 			case RenderOp_UpdateAttribBuffers:
@@ -177,6 +182,7 @@ void render(RenderSync* sync)
 							break;
 					}
 				}
+				debug_check();
 				break;
 			}
 			case RenderOp_UpdateIndexBuffer:
@@ -190,6 +196,7 @@ void render(RenderSync* sync)
 				glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh->index_buffer);
 				glBufferData(GL_ELEMENT_ARRAY_BUFFER, index_count * sizeof(int), indices, mesh->dynamic ? GL_DYNAMIC_DRAW : GL_STATIC_DRAW);
 				mesh->index_count = index_count;
+				debug_check();
 				break;
 			}
 			case RenderOp_FreeMesh:
@@ -200,6 +207,7 @@ void render(RenderSync* sync)
 					glDeleteBuffers(1, &mesh->attribs.data[i].handle);
 				glDeleteVertexArrays(1, &mesh->vertex_array);
 				mesh->~Mesh();
+				debug_check();
 				break;
 			}
 			case RenderOp_AllocTexture:
@@ -208,6 +216,7 @@ void render(RenderSync* sync)
 				if (id >= GLData::textures.length)
 					GLData::textures.resize(id + 1);
 				glGenTextures(1, &GLData::textures[id].handle);
+				debug_check();
 				break;
 			}
 			case RenderOp_DynamicTexture:
@@ -239,6 +248,7 @@ void render(RenderSync* sync)
 					glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 					glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 				}
+				debug_check();
 				break;
 			}
 			case RenderOp_LoadTexture:
@@ -257,12 +267,14 @@ void render(RenderSync* sync)
 				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR); 
 				glGenerateMipmap(GL_TEXTURE_2D);
 
+				debug_check();
 				break;
 			}
 			case RenderOp_FreeTexture:
 			{
 				AssetID id = *(sync->read<AssetID>());
 				glDeleteTextures(1, &GLData::textures[id].handle);
+				debug_check();
 				break;
 			}
 			case RenderOp_LoadShader:
@@ -332,17 +344,20 @@ void render(RenderSync* sync)
 				if (id >= GLData::shaders.length)
 					GLData::shaders.resize(id + 1);
 				GLData::shaders[id].handle = program_id;
+				debug_check();
 				break;
 			}
 			case RenderOp_FreeShader:
 			{
 				AssetID id = *(sync->read<AssetID>());
 				glDeleteProgram(GLData::shaders[id].handle);
+				debug_check();
 				break;
 			}
 			case RenderOp_DepthMask:
 			{
 				glDepthMask(*(sync->read<bool>()));
+				debug_check();
 				break;
 			}
 			case RenderOp_Clear:
@@ -354,6 +369,7 @@ void render(RenderSync* sync)
 				if (*(sync->read<bool>()))
 					clear_flags |= GL_DEPTH_BUFFER_BIT;
 				glClear(clear_flags);
+				debug_check();
 				break;
 			}
 			case RenderOp_Mesh:
@@ -387,23 +403,47 @@ void render(RenderSync* sync)
 					switch (uniform_type)
 					{
 						case RenderDataType_Float:
-							glUniform1fv(uniform_id, uniform_count, sync->read<float>(uniform_count));
+						{
+							const float* value = sync->read<float>(uniform_count);
+							glUniform1fv(uniform_id, uniform_count, value);
+							debug_check();
 							break;
+						}
 						case RenderDataType_Vec2:
-							glUniform2fv(uniform_id, uniform_count, (float*)sync->read<Vec2>(uniform_count));
+						{
+							const float* value = (float*)sync->read<Vec2>(uniform_count);
+							glUniform2fv(uniform_id, uniform_count, value);
+							debug_check();
 							break;
+						}
 						case RenderDataType_Vec3:
-							glUniform3fv(uniform_id, uniform_count, (float*)sync->read<Vec3>(uniform_count));
+						{
+							const float* value = (float*)sync->read<Vec3>(uniform_count);
+							glUniform3fv(uniform_id, uniform_count, value);
+							debug_check();
 							break;
+						}
 						case RenderDataType_Vec4:
-							glUniform4fv(uniform_id, uniform_count, (float*)sync->read<Vec4>(uniform_count));
+						{
+							const float* value = (float*)sync->read<Vec4>(uniform_count);
+							glUniform4fv(uniform_id, uniform_count, value);
+							debug_check();
 							break;
+						}
 						case RenderDataType_Int:
-							glUniform1iv(uniform_id, uniform_count, sync->read<int>(uniform_count));
+						{
+							const int* value = sync->read<int>(uniform_count);
+							glUniform1iv(uniform_id, uniform_count, value);
+							debug_check();
 							break;
+						}
 						case RenderDataType_Mat4:
-							glUniformMatrix4fv(uniform_id, uniform_count, GL_FALSE, (float*)sync->read<Mat4>(uniform_count));
+						{
+							float* value = (float*)sync->read<Mat4>(uniform_count);
+							glUniformMatrix4fv(uniform_id, uniform_count, GL_FALSE, value);
+							debug_check();
 							break;
+						}
 						case RenderDataType_Texture:
 						{
 							vi_assert(uniform_count == 1); // Only single textures supported for now
@@ -428,6 +468,7 @@ void render(RenderSync* sync)
 							glBindTexture(gl_texture_type, texture_id);
 							glUniform1i(uniform_id, texture_index);
 							texture_index++;
+							debug_check();
 							break;
 						}
 						default:
@@ -465,6 +506,7 @@ void render(RenderSync* sync)
 							(void*)0                              // array buffer offset
 						);
 					}
+					debug_check();
 				}
 
 				glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh->index_buffer);
@@ -478,6 +520,7 @@ void render(RenderSync* sync)
 
 				for (int i = 0; i < mesh->attribs.length; i++)
 					glDisableVertexAttribArray(i);
+				debug_check();
 				break;
 			}
 			case RenderOp_BlendMode:
@@ -500,6 +543,7 @@ void render(RenderSync* sync)
 						vi_assert(false);
 						break;
 				}
+				debug_check();
 				break;
 			}
 			case RenderOp_CullMode:
@@ -522,6 +566,7 @@ void render(RenderSync* sync)
 						vi_assert(false);
 						break;
 				}
+				debug_check();
 				break;
 			}
 			case RenderOp_AllocFramebuffer:
@@ -580,6 +625,7 @@ void render(RenderSync* sync)
 				vi_assert(glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE);
 
 				glBindFramebuffer(GL_FRAMEBUFFER, 0);
+				debug_check();
 				break;
 			}
 			case RenderOp_BindFramebuffer:
@@ -589,12 +635,14 @@ void render(RenderSync* sync)
 					glBindFramebuffer(GL_FRAMEBUFFER, 0);
 				else
 					glBindFramebuffer(GL_FRAMEBUFFER, GLData::framebuffers[id]);
+				debug_check();
 				break;
 			}
 			case RenderOp_FreeFramebuffer:
 			{
 				int id = *(sync->read<int>());
 				glDeleteFramebuffers(1, &GLData::framebuffers[id]);
+				debug_check();
 				break;
 			}
 			default:
@@ -603,7 +651,6 @@ void render(RenderSync* sync)
 				break;
 			}
 		}
-		vi_assert(glGetError() == GL_NO_ERROR);
 	}
 }
 

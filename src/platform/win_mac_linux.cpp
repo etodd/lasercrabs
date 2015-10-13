@@ -57,8 +57,6 @@ int proc()
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 4);
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 1);
 	SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
-	SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS, 1);
-	SDL_GL_SetAttribute(SDL_GL_MULTISAMPLESAMPLES, 4);
 
 	window = SDL_CreateWindow
 	(
@@ -97,7 +95,10 @@ int proc()
 		}
 	}
 
-	glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+	glGetError(); // Clear initial error caused by GLEW
+	vi_assert(glGetError() == GL_NO_ERROR);
+
+	glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
 
 	glEnable(GL_DEPTH_TEST);
 	glDepthFunc(GL_LESS); 

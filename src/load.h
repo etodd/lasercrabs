@@ -65,9 +65,9 @@ struct Loader
 
 	static AssetID mesh_ref_to_id(const AssetID, const AssetRef);
 
-	static int dynamic_mesh(const int);
+	static int dynamic_mesh(const int, const bool dynamic = true);
 	static void dynamic_mesh_attrib(RenderDataType, const int = 1);
-	static int dynamic_mesh_permanent(const int);
+	static int dynamic_mesh_permanent(const int, const bool dynamic = true);
 	static void dynamic_mesh_free(const int);
 
 	static Animation* animation(const AssetID);

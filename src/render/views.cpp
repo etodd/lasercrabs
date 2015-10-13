@@ -206,4 +206,84 @@ void Skybox::draw(const RenderParams& p)
 	}
 }
 
+ScreenQuad::ScreenQuad()
+	: texture(AssetNull), mesh(AssetNull), shader(Asset::Shader::ui_texture)
+{
+}
+
+void ScreenQuad::init()
+{
+	mesh = Loader::dynamic_mesh_permanent(3, false);
+	Loader::dynamic_mesh_attrib(RenderDataType_Vec3);
+	Loader::dynamic_mesh_attrib(RenderDataType_Vec4);
+	Loader::dynamic_mesh_attrib(RenderDataType_Vec2);
+}
+
+void ScreenQuad::set(RenderSync* sync, const Vec2& a, const Vec2& b)
+{
+	// Fullscreen quad
+
+	Vec3 vertices[] =
+	{
+		Vec3(a.x, a.y, 0),
+		Vec3(b.x, a.y, 0),
+		Vec3(a.x, b.y, 0),
+		Vec3(b.x, b.y, 0),
+	};
+	Vec4 colors[] =
+	{
+		Vec4(1, 1, 1, 1),
+		Vec4(1, 1, 1, 1),
+		Vec4(1, 1, 1, 1),
+		Vec4(1, 1, 1, 1),
+	};
+	Vec2 uvs[] =
+	{
+		Vec2(0, 0),
+		Vec2(1, 0),
+		Vec2(0, 1),
+		Vec2(1, 1),
+	};
+	int indices[] =
+	{
+		0,
+		1,
+		2,
+		1,
+		3,
+		2
+	};
+	sync->write(RenderOp_UpdateAttribBuffers);
+	sync->write(mesh);
+	sync->write<int>(4);
+	sync->write(vertices, 4);
+	sync->write(colors, 4);
+	sync->write(uvs, 4);
+
+	sync->write(RenderOp_UpdateIndexBuffer);
+	sync->write(mesh);
+	sync->write<int>(6);
+	sync->write(indices, 6);
+}
+
+void ScreenQuad::draw(RenderSync* sync)
+{
+	Loader::shader(shader);
+
+	sync->write(RenderOp_Mesh);
+	sync->write(mesh);
+	sync->write<AssetID>(shader);
+	if (texture == AssetNull)
+		sync->write<int>(0); // Uniform count
+	else
+	{
+		sync->write<int>(1); // Uniform count
+		sync->write(Asset::Uniform::diffuse_map);
+		sync->write(RenderDataType_Texture);
+		sync->write<int>(1);
+		sync->write<AssetID>(texture);
+		sync->write<RenderTextureType>(RenderTexture2D);
+	}
+}
+
 }

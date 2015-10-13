@@ -238,7 +238,7 @@ void Loader::armature_free(const AssetID id)
 	}
 }
 
-int Loader::dynamic_mesh(int attribs)
+int Loader::dynamic_mesh(int attribs, const bool dynamic)
 {
 	int index = AssetNull;
 	for (int i = 0; i < dynamic_meshes.length; i++)
@@ -261,7 +261,7 @@ int Loader::dynamic_mesh(int attribs)
 	RenderSync* sync = swapper->get();
 	sync->write(RenderOp_AllocMesh);
 	sync->write<int>(index);
-	sync->write<bool>(true); // Buffers should be dynamic
+	sync->write<bool>(dynamic);
 	sync->write<int>(attribs);
 
 	return index;
@@ -275,9 +275,9 @@ void Loader::dynamic_mesh_attrib(RenderDataType type, int count)
 	sync->write(count);
 }
 
-int Loader::dynamic_mesh_permanent(int attribs)
+int Loader::dynamic_mesh_permanent(int attribs, const bool dynamic)
 {
-	int result = dynamic_mesh(attribs);
+	int result = dynamic_mesh(attribs, dynamic);
 	dynamic_meshes[result - Asset::Mesh::count].type = AssetPermanent;
 	return result;
 }

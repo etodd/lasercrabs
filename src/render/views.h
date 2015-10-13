@@ -41,4 +41,15 @@ struct Skybox
 	static void draw(const RenderParams&);
 };
 
+struct ScreenQuad
+{
+	ScreenQuad();
+	int mesh;
+	int texture;
+	AssetID shader;
+	void init();
+	void set(RenderSync*, const Vec2&, const Vec2&);
+	void draw(RenderSync*);
+};
+
 }

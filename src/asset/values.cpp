@@ -108,9 +108,10 @@ const char* AssetLookup::Shader::values[] =
 {
 	"assets/Armature.glsl",
 	"assets/Standard.glsl",
-	"assets/UI.glsl",
 	"assets/flat.glsl",
 	"assets/flat_texture.glsl",
+	"assets/ui.glsl",
+	"assets/ui_texture.glsl",
 	0,
 };
 
@@ -119,9 +120,10 @@ const char* AssetLookup::Shader::names[] =
 {
 	"Armature",
 	"Standard",
-	"UI",
 	"flat",
 	"flat_texture",
+	"ui",
+	"ui_texture",
 	0,
 };
 

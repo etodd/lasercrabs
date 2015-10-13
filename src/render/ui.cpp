@@ -356,7 +356,7 @@ void UI::init(const int width, const int height)
 	mesh = Loader::dynamic_mesh_permanent(2);
 	Loader::dynamic_mesh_attrib(RenderDataType_Vec3);
 	Loader::dynamic_mesh_attrib(RenderDataType_Vec4);
-	Loader::shader_permanent(Asset::Shader::UI);
+	Loader::shader_permanent(Asset::Shader::ui);
 	scale = get_scale(width, height);
 }
 
@@ -391,7 +391,7 @@ void UI::draw(const RenderParams& p)
 
 		p.sync->write(RenderOp_Mesh);
 		p.sync->write(mesh);
-		p.sync->write(Asset::Shader::UI);
+		p.sync->write(Asset::Shader::ui);
 
 		p.sync->write<int>(0); // Uniform count
 

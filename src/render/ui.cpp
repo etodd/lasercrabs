@@ -128,6 +128,7 @@ void UIText::draw(const RenderParams& params)
 
 float UI::scale = 1.0f;
 int UI::mesh = AssetNull;
+int UI::texture_mesh = AssetNull;
 Array<Vec3> UI::vertices = Array<Vec3>();
 Array<Vec4> UI::colors = Array<Vec4>();
 Array<int> UI::indices = Array<int>();
@@ -351,13 +352,35 @@ bool UI::project(const RenderParams& p, const Vec3& v, Vec2& out)
 	return projected.z > -projected.w && projected.z < projected.w;
 }
 
-void UI::init(const int width, const int height)
+void UI::init(RenderSync* sync)
 {
 	mesh = Loader::dynamic_mesh_permanent(2);
 	Loader::dynamic_mesh_attrib(RenderDataType_Vec3);
 	Loader::dynamic_mesh_attrib(RenderDataType_Vec4);
 	Loader::shader_permanent(Asset::Shader::ui);
-	scale = get_scale(width, height);
+
+	texture_mesh = Loader::dynamic_mesh_permanent(3);
+	Loader::dynamic_mesh_attrib(RenderDataType_Vec3);
+	Loader::dynamic_mesh_attrib(RenderDataType_Vec4);
+	Loader::dynamic_mesh_attrib(RenderDataType_Vec2);
+	Loader::shader_permanent(Asset::Shader::ui_texture);
+
+	int indices[] =
+	{
+		0,
+		1,
+		2,
+		1,
+		3,
+		2
+	};
+
+	sync->write(RenderOp_UpdateIndexBuffer);
+	sync->write(texture_mesh);
+	sync->write<int>(6);
+	sync->write(indices, 6);
+
+	scale = get_scale(sync->input.width, sync->input.height);
 }
 
 float UI::get_scale(const int width, const int height)
@@ -400,6 +423,59 @@ void UI::draw(const RenderParams& p)
 		colors.length = 0;
 		indices.length = 0;
 	}
+}
+
+void UI::texture(const RenderParams& p, const int texture, const Vec2& pos, const Vec2& size, const Vec4& color, const Vec2& uva, const Vec2& uvb)
+{
+	Vec2 screen = Vec2(p.camera->viewport.width * 0.5f, p.camera->viewport.height * 0.5f);
+	Vec2 scale = Vec2(1.0f / screen.x, 1.0f / screen.y);
+	Vec2 scaled_pos = (pos - screen) * scale;
+	Vec2 scaled_size = size * scale;
+
+	Vec3 vertices[] =
+	{
+		Vec3(scaled_pos.x, scaled_pos.y, 0),
+		Vec3(scaled_pos.x + scaled_size.x, scaled_pos.y, 0),
+		Vec3(scaled_pos.x, scaled_pos.y + scaled_size.y, 0),
+		Vec3(scaled_pos.x + scaled_size.x, scaled_pos.y + scaled_size.y, 0),
+	};
+
+	Vec4 colors[] =
+	{
+		color,
+		color,
+		color,
+		color,
+	};
+
+	Vec2 uvs[] =
+	{
+		Vec2(uva.x, uva.y),
+		Vec2(uvb.x, uva.y),
+		Vec2(uva.x, uvb.y),
+		Vec2(uvb.x, uvb.y),
+	};
+
+	p.sync->write(RenderOp_UpdateAttribBuffers);
+	p.sync->write(texture_mesh);
+	p.sync->write<int>(4);
+	p.sync->write(vertices, 4);
+	p.sync->write(colors, 4);
+	p.sync->write(uvs, 4);
+
+	p.sync->write(RenderOp_Shader);
+	p.sync->write(Asset::Shader::ui_texture);
+	p.sync->write(p.technique);
+
+	p.sync->write(RenderOp_Uniform);
+	p.sync->write(Asset::Uniform::color_buffer);
+	p.sync->write(RenderDataType_Texture);
+	p.sync->write<int>(1);
+	p.sync->write<AssetID>(texture);
+	p.sync->write<RenderTextureType>(RenderTexture2D);
+
+	p.sync->write(RenderOp_Mesh);
+	p.sync->write(texture_mesh);
 }
 
 }

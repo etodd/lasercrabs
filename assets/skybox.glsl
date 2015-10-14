@@ -34,12 +34,14 @@ uniform sampler2D diffuse_map;
 uniform sampler2D depth_buffer;
 uniform float fog_start;
 uniform float fog_extent;
+uniform vec2 uv_offset;
+uniform vec2 uv_scale;
 
 void main()
 {
 	vec4 color = texture(diffuse_map, uv) * diffuse_color;
 
-	vec2 screen_uv = (clip_position.xy / clip_position.w) * 0.5 + 0.5;
+	vec2 screen_uv = uv_offset + ((clip_position.xy / clip_position.w) * 0.5 + 0.5) * uv_scale;
 	float clip_depth = texture(depth_buffer, screen_uv).x * 2.0 - 1.0;
 	float depth = p[3][2] / (clip_depth - p[2][2]);
 	float final_depth = length(view_ray * depth);

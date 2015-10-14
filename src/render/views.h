@@ -15,9 +15,11 @@ struct Uniform
 	int data_integer;
 };
 
-struct View : public ComponentType<View>, public IntrusiveLinkedList<View>
+struct View : public ComponentType<View>
 {
-	static View* first_alpha;
+	IntrusiveLinkedList<View> alpha_entry;
+
+	static IntrusiveLinkedList<View>* first_alpha;
 
 	AssetID mesh;
 	AssetID shader;

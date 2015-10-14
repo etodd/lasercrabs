@@ -5,10 +5,10 @@
 namespace VI
 {
 
-View* View::first_alpha = nullptr;
+IntrusiveLinkedList<View>* View::first_alpha = nullptr;
 
 View::View()
-	: mesh(AssetNull), shader(AssetNull), texture(AssetNull), offset(Mat4::identity), color(1, 1, 1, 1), alpha_order(-1)
+	: mesh(AssetNull), shader(AssetNull), texture(AssetNull), offset(Mat4::identity), color(1, 1, 1, 1), alpha_order(-1), alpha_entry(this)
 {
 }
 
@@ -28,10 +28,10 @@ void View::draw_opaque(const RenderParams& params)
 
 void View::draw_alpha(const RenderParams& params)
 {
-	const View* v = first_alpha;
+	const IntrusiveLinkedList<View>* v = first_alpha;
 	while (v)
 	{
-		v->draw(params);
+		v->object->draw(params);
 		v = v->next;
 	}
 }
@@ -47,22 +47,22 @@ void View::alpha(int order)
 
 	if (first_alpha)
 	{
-		View* v = first_alpha;
+		IntrusiveLinkedList<View>* v = first_alpha;
 
-		if (alpha_order < v->alpha_order)
+		if (alpha_order < v->object->alpha_order)
 		{
-			insert_before(first_alpha);
-			first_alpha = this;
+			alpha_entry.insert_before(first_alpha);
+			first_alpha = &alpha_entry;
 		}
 		else
 		{
-			while (v->next && v->next->alpha_order < alpha_order)
+			while (v->next && v->next->object->alpha_order < alpha_order)
 				v = v->next;
-			insert_after(v);
+			alpha_entry.insert_after(v);
 		}
 	}
 	else
-		first_alpha = this;
+		first_alpha = &alpha_entry;
 }
 
 void View::alpha_disable()
@@ -70,11 +70,16 @@ void View::alpha_disable()
 	if (alpha_order != -1)
 	{
 		alpha_order = -1;
-		if (previous)
-			previous->next = next;
+
+		if (alpha_entry.next)
+			alpha_entry.next->previous = alpha_entry.previous;
+
+		if (alpha_entry.previous)
+			alpha_entry.previous->next = alpha_entry.next;
 		else
-			first_alpha = next;
-		next = nullptr;
+			first_alpha = alpha_entry.next;
+		alpha_entry.previous = nullptr;
+		alpha_entry.next = nullptr;
 	}
 }
 
@@ -200,6 +205,18 @@ void Skybox::draw(const RenderParams& p, const int depth_buffer)
 	sync->write(RenderDataType_Mat4);
 	sync->write<int>(1);
 	sync->write<Mat4>(p.view);
+
+	sync->write(RenderOp_Uniform);
+	sync->write(Asset::Uniform::uv_offset);
+	sync->write(RenderDataType_Vec2);
+	sync->write<int>(1);
+	sync->write(Vec2((float)p.camera->viewport.x / (float)p.sync->input.width, (float)p.camera->viewport.y / (float)p.sync->input.height));
+
+	sync->write(RenderOp_Uniform);
+	sync->write(Asset::Uniform::uv_scale);
+	sync->write(RenderDataType_Vec2);
+	sync->write<int>(1);
+	sync->write(Vec2((float)p.camera->viewport.width / (float)p.sync->input.width, (float)p.camera->viewport.height / (float)p.sync->input.height));
 
 	sync->write(RenderOp_Uniform);
 	sync->write(Asset::Uniform::p);

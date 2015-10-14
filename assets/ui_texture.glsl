@@ -25,11 +25,11 @@ in vec4 color;
 in vec2 uv;
 out vec4 out_color;
 
-uniform sampler2D diffuse_map;
+uniform sampler2D color_buffer;
 
 void main()
 {
-	out_color = texture(diffuse_map, uv) * color;
+	out_color = texture(color_buffer, uv) * color;
 }
 
 #endif

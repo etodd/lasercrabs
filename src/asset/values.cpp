@@ -107,7 +107,6 @@ const char* AssetLookup::Soundbank::names[] =
 const char* AssetLookup::Shader::values[] =
 {
 	"assets/armature.glsl",
-	"assets/buffer_debug.glsl",
 	"assets/composite.glsl",
 	"assets/flat.glsl",
 	"assets/flat_texture.glsl",
@@ -124,7 +123,6 @@ const char* AssetLookup::Shader::values[] =
 const char* AssetLookup::Shader::names[] =
 {
 	"armature",
-	"buffer_debug",
 	"composite",
 	"flat",
 	"flat_texture",
@@ -160,6 +158,8 @@ const char* AssetLookup::Uniform::values[] =
 	"normal_buffer",
 	"p",
 	"shadow_map",
+	"uv_offset",
+	"uv_scale",
 	"v",
 	0,
 };
@@ -187,6 +187,8 @@ const char* AssetLookup::Uniform::names[] =
 	"normal_buffer",
 	"p",
 	"shadow_map",
+	"uv_offset",
+	"uv_scale",
 	"v",
 	0,
 };

@@ -249,6 +249,7 @@ add_executable(mkzebra
 	src/asset/mesh.h
 	src/asset/shader.h
 	src/asset/level.h
+	src/asset/texture.h
 	src/asset/values.cpp
 	src/platform/gl.h
 	src/platform/win_mac_linux.cpp

@@ -7,11 +7,17 @@
 template<typename Derived>
 struct IntrusiveLinkedList
 {
-	Derived* previous;
-	Derived* next;
+	Derived* object;
+	IntrusiveLinkedList<Derived>* previous;
+	IntrusiveLinkedList<Derived>* next;
 
 	IntrusiveLinkedList()
-		: previous(nullptr), next(nullptr)
+		: previous(nullptr), next(nullptr), object(nullptr)
+	{
+	}
+
+	IntrusiveLinkedList(Derived* o)
+		: previous(nullptr), next(nullptr), object(o)
 	{
 	}
 
@@ -24,23 +30,23 @@ struct IntrusiveLinkedList
 		next = previous = nullptr;
 	}
 
-	void insert_after(Derived* i)
+	void insert_after(IntrusiveLinkedList<Derived>* i)
 	{
 		vi_assert(!next && !previous);
 		previous = i;
 		next = i->next;
-		previous->next = (Derived*)this;
+		previous->next = this;
 		if (next)
-			next->previous = (Derived*)this;
+			next->previous = this;
 	}
 
-	void insert_before(Derived* i)
+	void insert_before(IntrusiveLinkedList<Derived>* i)
 	{
 		vi_assert(!next && !previous);
 		previous = i->previous;
 		next = i;
 		if (previous)
-			previous->next = (Derived*)this;
-		next->previous = (Derived*)this;
+			previous->next = this;
+		next->previous = this;
 	}
 };

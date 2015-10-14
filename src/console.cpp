@@ -25,6 +25,7 @@ float Console::repeat_last_time = 0.0f;
 
 void Console::init()
 {
+	Loader::font_permanent(Asset::Font::SegoeUISymbol);
 	text.font = Asset::Font::SegoeUISymbol;
 	text.size = 16.0f;
 	fps_text.font = Asset::Font::SegoeUISymbol;
@@ -121,7 +122,7 @@ void Console::update(const Update& u)
 
 	if (visible)
 	{
-		Font* font = Loader::font(Asset::Font::SegoeUISymbol);
+		Font* font = Loader::font_permanent(Asset::Font::SegoeUISymbol);
 		text.pos = Vec2(0, u.input->height - text.size * UI::scale);
 		bool update = false;
 		bool shift = u.input->keys[KEYCODE_LSHIFT]
@@ -216,17 +217,17 @@ void Console::update(const Update& u)
 
 void Console::debug(const char* format, ...)
 {
-    va_list args;
-    va_start(args, format);
+	va_list args;
+	va_start(args, format);
 	char buffer[255];
 
 #if defined(_WIN32)
-    vsprintf_s(buffer, 255, format, args);
+	vsprintf_s(buffer, 255, format, args);
 #else
-    vsnprintf(buffer, 255, format, args);
+	vsnprintf(buffer, 255, format, args);
 #endif
 
-    va_end(args);
+	va_end(args);
 
 	int buffer_start = debug_buffer.length;
 	int buffer_length = strlen(buffer);

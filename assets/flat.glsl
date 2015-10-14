@@ -13,15 +13,12 @@ void main()
 
 #else
 
-// Ouput data
-out vec4 color;
-
 // Values that stay constant for the whole mesh.
 uniform vec4 diffuse_color;
 
 void main()
 {
-	color = diffuse_color;
+	gl_FragColor = diffuse_color;
 }
 
 #endif

@@ -389,12 +389,12 @@ void UI::draw(const RenderParams& p)
 		p.sync->write<int>(indices.length);
 		p.sync->write(indices.data, indices.length);
 
-		p.sync->write(RenderOp_Mesh);
-		p.sync->write(mesh);
+		p.sync->write(RenderOp_Shader);
 		p.sync->write(Asset::Shader::ui);
 		p.sync->write(p.technique);
 
-		p.sync->write<int>(0); // Uniform count
+		p.sync->write(RenderOp_Mesh);
+		p.sync->write(mesh);
 
 		vertices.length = 0;
 		colors.length = 0;

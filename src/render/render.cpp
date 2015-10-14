@@ -25,11 +25,20 @@ Mat4 Camera::view() const
 	return Mat4::look(pos, rot * Vec3(0, 0, 1), rot * Vec3(0, 1, 0));
 }
 
-void Camera::projection(const float fov, const float aspect, const float near, const float far)
+void Camera::perspective(const float fov, const float aspect, const float near, const float far)
 {
 	near_plane = near;
 	far_plane = far;
-	proj = Mat4::perspective(fov, aspect, near, far);
+	projection = Mat4::perspective(fov, aspect, near, far);
+	projection_inverse = projection.inverse();
+}
+
+void Camera::orthographic(const float width, const float height, const float near, const float far)
+{
+	near_plane = near;
+	far_plane = far;
+	projection = Mat4::orthographic(width, height, near, far);
+	projection_inverse = projection.inverse();
 }
 
 void Camera::remove()

@@ -33,15 +33,18 @@ uniform mat4 p;
 
 void main()
 {
-	vec3 color = texture(color_buffer, uv).rgb * texture(lighting_buffer, uv).rgb;
 	float clip_depth = texture(depth_buffer, uv).x;
 	float clip_depth_scaled = clip_depth * 2.0 - 1.0;
 	float depth = p[3][2] / (clip_depth_scaled - p[2][2]);
+	gl_FragDepth = clip_depth;
+
+	vec4 lighting = texture(lighting_buffer, uv);
+	vec4 color = texture(color_buffer, uv);
+	vec3 lighting_color = color.rgb * lighting.rgb;
 	vec3 pos = view_ray * depth;
 	const vec3 luminance_weights = vec3(0.3333, 0.3333, 0.3333);
-	vec3 final_color = length(pos) < 30.0f ? color : vec3(dot(color, luminance_weights));
+	vec3 final_color = length(pos) < 30.0f ? lighting_color : vec3(dot(lighting_color, luminance_weights));
 	out_color = vec4(final_color, 1);
-	gl_FragDepth = clip_depth;
 }
 
 #endif

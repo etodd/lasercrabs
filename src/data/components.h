@@ -45,9 +45,9 @@ struct PointLight : public ComponentType<PointLight>
 
 struct SpotLight : public ComponentType<SpotLight>
 {
-	float attenuation;
-	float fov;
+	float radius;
 	Vec3 color;
+	float fov;
 	void awake() {}
 };
 

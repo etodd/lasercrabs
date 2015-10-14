@@ -2,6 +2,7 @@
 #include "vi_assert.h"
 #include "asset/lookup.h"
 #include <GL/glew.h>
+#include <array>
 
 namespace VI
 {
@@ -32,11 +33,13 @@ struct GLData
 		}
 	};
 
-	struct Shader
+	struct ShaderTechnique
 	{
-		GLuint handles[RenderTechnique_count];
+		GLuint handle;
 		Array<GLuint> uniforms;
 	};
+
+	typedef std::array<ShaderTechnique, RenderTechnique_count> Shader;
 
 	struct Texture
 	{
@@ -49,17 +52,26 @@ struct GLData
 	static Array<Shader> shaders;
 	static Array<Mesh> meshes;
 	static Array<GLuint> framebuffers;
+	static AssetID current_shader_asset;
+	static RenderTechnique current_shader_technique;
+	static Array<AssetID> samplers;
 };
 
 Array<GLData::Texture> GLData::textures = Array<GLData::Texture>();
 Array<GLData::Shader> GLData::shaders = Array<GLData::Shader>();
 Array<GLData::Mesh> GLData::meshes = Array<GLData::Mesh>();
 Array<GLuint> GLData::framebuffers = Array<GLuint>();
+AssetID GLData::current_shader_asset = AssetNull;
+RenderTechnique GLData::current_shader_technique = RenderTechnique_Default;
+Array<AssetID> GLData::samplers = Array<AssetID>();
 
 void render(RenderSync* sync)
 {
+#if DEBUG
 #define debug_check() vi_assert((error = glGetError()) == GL_NO_ERROR)
-//#define debug_check() {}
+#else
+#define debug_check() {}
+#endif
 	sync->read_pos = 0;
 	while (sync->read_pos < sync->queue.length)
 	{
@@ -288,7 +300,7 @@ void render(RenderSync* sync)
 				const char* code = sync->read<char>(code_length);
 
 				for (int i = 0; i < RenderTechnique_count; i++)
-					compile_shader(technique_prefixes[i], code, code_length, &GLData::shaders[id].handles[i]);
+					compile_shader(technique_prefixes[i], code, code_length, &GLData::shaders[id][i].handle);
 
 				debug_check();
 				break;
@@ -297,7 +309,17 @@ void render(RenderSync* sync)
 			{
 				AssetID id = *(sync->read<AssetID>());
 				for (int i = 0; i < RenderTechnique_count; i++)
-					glDeleteProgram(GLData::shaders[id].handles[i]);
+					glDeleteProgram(GLData::shaders[id][i].handle);
+				debug_check();
+				break;
+			}
+			case RenderOp_DepthTest:
+			{
+				bool enable = *(sync->read<bool>());
+				if (enable)
+					glEnable(GL_DEPTH_TEST);
+				else
+					glDisable(GL_DEPTH_TEST);
 				debug_check();
 				break;
 			}
@@ -319,90 +341,109 @@ void render(RenderSync* sync)
 				debug_check();
 				break;
 			}
-			case RenderOp_Mesh:
+			case RenderOp_Shader:
 			{
-				int id = *(sync->read<int>());
-				GLData::Mesh* mesh = &GLData::meshes[id];
 				AssetID shader_asset = *(sync->read<AssetID>());
 				RenderTechnique technique = *(sync->read<RenderTechnique>());
-
-				GLuint program_id = GLData::shaders[shader_asset].handles[technique];
-
-				glUseProgram(program_id);
-
-				int texture_index = 0;
-
-				int uniform_count = *(sync->read<int>());
-				for (int i = 0; i < uniform_count; i++)
+				if (GLData::current_shader_asset != shader_asset || GLData::current_shader_technique != technique)
 				{
-					AssetID uniform_asset = *(sync->read<AssetID>());
+					GLData::current_shader_asset = shader_asset;
+					GLData::current_shader_technique = technique;
+					GLData::samplers.length = 0;
+					GLuint program_id = GLData::shaders[shader_asset][technique].handle;
+					glUseProgram(program_id);
+					debug_check();
+				}
+				break;
+			}
+			case RenderOp_Uniform:
+			{
+				AssetID uniform_asset = *(sync->read<AssetID>());
 
-					if (uniform_asset >= GLData::shaders[shader_asset].uniforms.length)
+				if (uniform_asset >= GLData::shaders[GLData::current_shader_asset][GLData::current_shader_technique].uniforms.length)
+				{
+					int old_length = GLData::shaders[GLData::current_shader_asset][GLData::current_shader_technique].uniforms.length;
+					GLData::shaders[GLData::current_shader_asset][GLData::current_shader_technique].uniforms.resize(uniform_asset + 1);
+					for (int j = old_length; j < uniform_asset + 1; j++)
 					{
-						int old_length = GLData::shaders[shader_asset].uniforms.length;
-						GLData::shaders[shader_asset].uniforms.resize(uniform_asset + 1);
-						for (int j = old_length; j < uniform_asset + 1; j++)
-							GLData::shaders[shader_asset].uniforms[j] = glGetUniformLocation(program_id, AssetLookup::Uniform::values[j]);
+						GLuint uniform = glGetUniformLocation(GLData::shaders[GLData::current_shader_asset][GLData::current_shader_technique].handle, AssetLookup::Uniform::values[j]);
+						GLData::shaders[GLData::current_shader_asset][GLData::current_shader_technique].uniforms[j] = uniform;
 					}
+				}
 
-					GLuint uniform_id = GLData::shaders[shader_asset].uniforms[uniform_asset];
-					RenderDataType uniform_type = *(sync->read<RenderDataType>());
-					int uniform_count = *(sync->read<int>());
-					switch (uniform_type)
+				GLuint uniform_id = GLData::shaders[GLData::current_shader_asset][GLData::current_shader_technique].uniforms[uniform_asset];
+				RenderDataType uniform_type = *(sync->read<RenderDataType>());
+				int uniform_count = *(sync->read<int>());
+				switch (uniform_type)
+				{
+					case RenderDataType_Float:
 					{
-						case RenderDataType_Float:
+						const float* value = sync->read<float>(uniform_count);
+						glUniform1fv(uniform_id, uniform_count, value);
+						debug_check();
+						break;
+					}
+					case RenderDataType_Vec2:
+					{
+						const float* value = (float*)sync->read<Vec2>(uniform_count);
+						glUniform2fv(uniform_id, uniform_count, value);
+						debug_check();
+						break;
+					}
+					case RenderDataType_Vec3:
+					{
+						const float* value = (float*)sync->read<Vec3>(uniform_count);
+						glUniform3fv(uniform_id, uniform_count, value);
+						debug_check();
+						break;
+					}
+					case RenderDataType_Vec4:
+					{
+						const float* value = (float*)sync->read<Vec4>(uniform_count);
+						glUniform4fv(uniform_id, uniform_count, value);
+						debug_check();
+						break;
+					}
+					case RenderDataType_Int:
+					{
+						const int* value = sync->read<int>(uniform_count);
+						glUniform1iv(uniform_id, uniform_count, value);
+						debug_check();
+						break;
+					}
+					case RenderDataType_Mat4:
+					{
+						float* value = (float*)sync->read<Mat4>(uniform_count);
+						glUniformMatrix4fv(uniform_id, uniform_count, GL_FALSE, value);
+						debug_check();
+						break;
+					}
+					case RenderDataType_Texture:
+					{
+						vi_assert(uniform_count == 1); // Only single textures supported for now
+						AssetID texture_asset = *(sync->read<AssetID>());
+						RenderTextureType texture_type = *(sync->read<RenderTextureType>());
+						GLuint texture_id;
+						if (texture_asset == AssetNull)
+							texture_id = 0;
+						else
+							texture_id = GLData::textures[texture_asset].handle;
+
+						int sampler_index = -1;
+						for (int i = 0; i < GLData::samplers.length; i++)
 						{
-							const float* value = sync->read<float>(uniform_count);
-							glUniform1fv(uniform_id, uniform_count, value);
-							debug_check();
-							break;
+							if (GLData::samplers[i] == texture_asset)
+							{
+								sampler_index = i;
+								break;
+							}
 						}
-						case RenderDataType_Vec2:
+						if (sampler_index == -1)
 						{
-							const float* value = (float*)sync->read<Vec2>(uniform_count);
-							glUniform2fv(uniform_id, uniform_count, value);
-							debug_check();
-							break;
-						}
-						case RenderDataType_Vec3:
-						{
-							const float* value = (float*)sync->read<Vec3>(uniform_count);
-							glUniform3fv(uniform_id, uniform_count, value);
-							debug_check();
-							break;
-						}
-						case RenderDataType_Vec4:
-						{
-							const float* value = (float*)sync->read<Vec4>(uniform_count);
-							glUniform4fv(uniform_id, uniform_count, value);
-							debug_check();
-							break;
-						}
-						case RenderDataType_Int:
-						{
-							const int* value = sync->read<int>(uniform_count);
-							glUniform1iv(uniform_id, uniform_count, value);
-							debug_check();
-							break;
-						}
-						case RenderDataType_Mat4:
-						{
-							float* value = (float*)sync->read<Mat4>(uniform_count);
-							glUniformMatrix4fv(uniform_id, uniform_count, GL_FALSE, value);
-							debug_check();
-							break;
-						}
-						case RenderDataType_Texture:
-						{
-							vi_assert(uniform_count == 1); // Only single textures supported for now
-							AssetID texture_asset = *(sync->read<AssetID>());
-							GLuint texture_id;
-							if (texture_asset == AssetNull)
-								texture_id = 0;
-							else
-								texture_id = GLData::textures[texture_asset].handle;
-							glActiveTexture(GL_TEXTURE0 + texture_index);
-							RenderTextureType texture_type = *(sync->read<RenderTextureType>());
+							sampler_index = GLData::samplers.length;
+							GLData::samplers.add(texture_asset);
+
+							glActiveTexture(GL_TEXTURE0 + sampler_index);
 							GLenum gl_texture_type;
 							switch (texture_type)
 							{
@@ -414,18 +455,24 @@ void render(RenderSync* sync)
 									break;
 							}
 							glBindTexture(gl_texture_type, texture_id);
-							glUniform1i(uniform_id, texture_index);
-							texture_index++;
+							glUniform1i(uniform_id, sampler_index);
 							debug_check();
-							break;
 						}
-						default:
-						{
-							vi_assert(false);
-							break;
-						}
+						break;
+					}
+					default:
+					{
+						vi_assert(false);
+						break;
 					}
 				}
+				debug_check();
+				break;
+			}
+			case RenderOp_Mesh:
+			{
+				int id = *(sync->read<int>());
+				GLData::Mesh* mesh = &GLData::meshes[id];
 
 				for (int i = 0; i < mesh->attribs.length; i++)
 				{

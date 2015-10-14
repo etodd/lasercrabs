@@ -29,24 +29,24 @@ void SkinnedModel::draw(const RenderParams& params)
 	
 	m = offset * m;
 
-	sync->write(RenderOp_Mesh);
-	sync->write(mesh);
+	sync->write(RenderOp_Shader);
 	sync->write(shader);
 	sync->write(params.technique);
 	Mat4 mvp = m * params.view_projection;
 
-	sync->write<int>(5); // Uniform count
-
+	sync->write(RenderOp_Uniform);
 	sync->write(Asset::Uniform::mvp);
 	sync->write(RenderDataType_Mat4);
 	sync->write<int>(1);
 	sync->write<Mat4>(mvp);
 
+	sync->write(RenderOp_Uniform);
 	sync->write(Asset::Uniform::m);
 	sync->write(RenderDataType_Mat4);
 	sync->write<int>(1);
 	sync->write<Mat4>(m);
 
+	sync->write(RenderOp_Uniform);
 	sync->write(Asset::Uniform::diffuse_map);
 	sync->write(RenderDataType_Texture);
 	sync->write<int>(1);
@@ -59,16 +59,20 @@ void SkinnedModel::draw(const RenderParams& params)
 	for (int i = 0; i < bones.length; i++)
 		skin_transforms[i] = arm->inverse_bind_pose[i] * bones[i];
 
+	sync->write(RenderOp_Uniform);
 	sync->write(Asset::Uniform::bones);
 	sync->write(RenderDataType_Mat4);
 	sync->write<int>(skin_transforms.length);
 	sync->write(skin_transforms.data, skin_transforms.length);
 
+	sync->write(RenderOp_Uniform);
 	sync->write(Asset::Uniform::diffuse_color);
 	sync->write(RenderDataType_Vec4);
 	sync->write<int>(1);
 	sync->write<Vec4>(color);
 
+	sync->write(RenderOp_Mesh);
+	sync->write(mesh);
 	/*
 	// Debug
 	Loader::mesh(Asset::Mesh::cube);
@@ -76,28 +80,30 @@ void SkinnedModel::draw(const RenderParams& params)
 	Loader::texture(Asset::Texture::test);
 	for (int i = 0; i < bones.length; i++)
 	{
-		sync->write(RenderOp_Mesh);
-		sync->write(Asset::Mesh::cube);
 		sync->write(Asset::Shader::Standard);
 		sync->write(params.technique);
 		Mat4 mvp = bones[i] * m * params.view * params.camera->projection;
 
-		sync->write<int>(3); // Uniform count
-
+		sync->write(RenderOp_Uniform);
 		sync->write(Asset::Uniform::mvp);
 		sync->write(RenderDataType_Mat4);
 		sync->write<int>(1);
 		sync->write<Mat4>(mvp);
 
+		sync->write(RenderOp_Uniform);
 		sync->write(Asset::Uniform::m);
 		sync->write(RenderDataType_Mat4);
 		sync->write<int>(1);
 		sync->write<Mat4>(m);
 
+		sync->write(RenderOp_Uniform);
 		sync->write(Asset::Uniform::diffuse_color);
 		sync->write(RenderDataType_Vec4);
 		sync->write<int>(1);
 		sync->write<Vec4>(color);
+
+		sync->write(RenderOp_Mesh);
+		sync->write(Asset::Mesh::cube);
 	}
 	*/
 }

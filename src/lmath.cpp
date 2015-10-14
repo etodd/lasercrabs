@@ -29,24 +29,24 @@ namespace LMath
 				{
 					if (d < 0.f)
 					{
-						s = clamp(-d/a, 0.f, 1.f);
+						s = clampf(-d/a, 0.f, 1.f);
 						t = 0.f;
 					}
 					else
 					{
 						s = 0.f;
-						t = clamp(-e/c, 0.f, 1.f);
+						t = clampf(-e/c, 0.f, 1.f);
 					}
 				}
 				else
 				{
 					s = 0.f;
-					t = clamp(-e/c, 0.f, 1.f);
+					t = clampf(-e/c, 0.f, 1.f);
 				}
 			}
 			else if (t < 0.f)
 			{
-				s = clamp(-d/a, 0.f, 1.f);
+				s = clampf(-d/a, 0.f, 1.f);
 				t = 0.f;
 			}
 			else
@@ -66,12 +66,12 @@ namespace LMath
 				{
 					float numer = tmp1 - tmp0;
 					float denom = a-2*b+c;
-					s = clamp(numer/denom, 0.f, 1.f);
+					s = clampf(numer/denom, 0.f, 1.f);
 					t = 1-s;
 				}
 				else
 				{
-					t = clamp(-e/c, 0.f, 1.f);
+					t = clampf(-e/c, 0.f, 1.f);
 					s = 0.f;
 				}
 			}
@@ -81,12 +81,12 @@ namespace LMath
 				{
 					float numer = c+e-b-d;
 					float denom = a-2*b+c;
-					s = clamp(numer/denom, 0.f, 1.f);
+					s = clampf(numer/denom, 0.f, 1.f);
 					t = 1-s;
 				}
 				else
 				{
-					s = clamp(-e/c, 0.f, 1.f);
+					s = clampf(-e/c, 0.f, 1.f);
 					t = 0.f;
 				}
 			}
@@ -94,7 +94,7 @@ namespace LMath
 			{
 				float numer = c+e-b-d;
 				float denom = a-2*b+c;
-				s = clamp(numer/denom, 0.f, 1.f);
+				s = clampf(numer/denom, 0.f, 1.f);
 				t = 1.f - s;
 			}
 		}
@@ -1721,7 +1721,7 @@ void Mat4::decomposition(Vec3& position, Vec3& scale, Quat& orientation) const
 	position = Vec3(m[3][0], m[3][1], m[3][2]);
 }
 
-Mat4 Mat4::perspective(float fov, float aspect, float near, float far)
+Mat4 Mat4::perspective(const float fov, const float aspect, const float near, const float far)
 {
 	Mat4 result = Mat4::zero;
 
@@ -1738,26 +1738,40 @@ Mat4 Mat4::perspective(float fov, float aspect, float near, float far)
 	return result;
 }
 
+Mat4 Mat4::orthographic(const float width, const float height, const float near, const float far)
+{
+	Mat4 result = Mat4::zero;
+
+	float inverse_depth = 1.0f / (far - near);
+	result[0][0] = 2.0f / width;
+	result[1][1] = 2.0f / height;
+	result[2][2] = -2.0f * inverse_depth;
+	result[3][3] = 1;
+	result[3][2] = -(far + near) * inverse_depth;
+
+	return result;
+}
+
 Mat4 Mat4::look(const Vec3& eye, const Vec3& forward, const Vec3& up)
 {
 	Vec3 const f(Vec3::normalize(-forward));
 	Vec3 const s(Vec3::normalize(f.cross(up)));
 	Vec3 u(Vec3::normalize(up));
 
-	Mat4 Result = Mat4::identity;
-	Result[0][0] = s.x;
-	Result[1][0] = s.y;
-	Result[2][0] = s.z;
-	Result[0][1] = u.x;
-	Result[1][1] = u.y;
-	Result[2][1] = u.z;
-	Result[0][2] = -f.x;
-	Result[1][2] = -f.y;
-	Result[2][2] = -f.z;
-	Result[3][0] = -s.dot(eye);
-	Result[3][1] = -u.dot(eye);
-	Result[3][2] = f.dot(eye);
-	return Result;
+	Mat4 result = Mat4::identity;
+	result[0][0] = s.x;
+	result[1][0] = s.y;
+	result[2][0] = s.z;
+	result[0][1] = u.x;
+	result[1][1] = u.y;
+	result[2][1] = u.z;
+	result[0][2] = -f.x;
+	result[1][2] = -f.y;
+	result[2][2] = -f.z;
+	result[3][0] = -s.dot(eye);
+	result[3][1] = -u.dot(eye);
+	result[3][2] = f.dot(eye);
+	return result;
 }
 
 }

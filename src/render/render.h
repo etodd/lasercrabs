@@ -23,7 +23,8 @@ struct Camera
 	static Camera* add();
 
 	bool active;
-	Mat4 proj;
+	Mat4 projection;
+	Mat4 projection_inverse;
 	float near_plane;
 	float far_plane;
 	Vec3 pos;
@@ -31,11 +32,12 @@ struct Camera
 	ScreenRect viewport;
 
 	Camera()
-		: active(), proj(), pos(), rot(), viewport(), near_plane(), far_plane()
+		: active(), projection(), projection_inverse(), pos(), rot(), viewport(), near_plane(), far_plane()
 	{
 
 	}
-	void projection(const float, const float, const float, const float);
+	void perspective(const float, const float, const float, const float);
+	void orthographic(const float, const float, const float, const float);
 	Mat4 view() const;
 	void remove();
 };
@@ -54,6 +56,9 @@ enum RenderOp
 	RenderOp_LoadShader,
 	RenderOp_FreeShader,
 	RenderOp_DepthMask,
+	RenderOp_DepthTest,
+	RenderOp_Shader,
+	RenderOp_Uniform,
 	RenderOp_Mesh,
 	RenderOp_Clear,
 	RenderOp_BlendMode,

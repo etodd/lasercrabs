@@ -18,16 +18,13 @@ void main()
 
 in vec2 UV;
 
-// Ouput data
-out vec4 color;
-
 // Values that stay constant for the whole mesh.
 uniform vec4 diffuse_color;
 uniform sampler2D diffuse_map;
 
 void main()
 {
-	color = texture(diffuse_map, UV) * diffuse_color;
+	gl_FragColor = texture(diffuse_map, UV) * diffuse_color;
 }
 
 #endif

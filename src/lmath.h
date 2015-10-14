@@ -14,11 +14,6 @@ namespace VI
 
 // Mostly stolen from Ogre3D
 
-inline float clampf(float t, float a, float b)
-{
-	return fmin(b, fmax(a, t));
-}
-
 struct Vec2
 {
 	float x, y;
@@ -928,7 +923,7 @@ struct Plane
 
 struct Mat3
 {
-	/// Indexed by [col][row].
+	/// Indexed by [row][col].
 	float m[3][3];
 
 	static const Mat3 zero;
@@ -1160,7 +1155,7 @@ struct Quat
 
 struct Mat4
 {
-	/// Indexed by [col][row].
+	/// Indexed by [row][col].
 	union {
 		float m[4][4];
 		float _m[16];
@@ -1512,7 +1507,8 @@ struct Mat4
 	float determinant() const;
 	Mat4 inverse() const;
 
-	static Mat4 perspective(float fov, float aspect, float near, float far);
+	static Mat4 perspective(const float fov, const float aspect, const float near, const float far);
+	static Mat4 orthographic(const float fov, const float aspect, const float near, const float far);
 	static Mat4 look(const Vec3& eye, const Vec3& forward, const Vec3& up);
 
 	void make_transform(const Vec3& position, const Vec3& scale, const Quat& orientation);
@@ -1580,9 +1576,10 @@ inline Vec4 operator * (const Vec4& v, const Mat4& mat)
 namespace LMath
 {
 	Vec3 triangle_closest_point(const Vec3&, const Vec3&, const Vec3&, const Vec3&);
-	inline float clamp(float x, float a, float b)
+
+	inline float clampf(float t, float a, float b)
 	{
-		return x < a ? a : (x > b ? b : x);
+		return fmin(b, fmax(a, t));
 	}
 }
 

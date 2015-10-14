@@ -63,7 +63,7 @@ add_definitions(-DGLEW_STATIC)
 ## SDL
 if (WIN32)
 	set(HAVE_XINPUT_H 1)
-    link_directories($ENV{DXSDK_DIR}Lib\\x64)
+	link_directories($ENV{DXSDK_DIR}Lib\\x64)
 endif (WIN32)
 set(DIRECTX ON CACHE BOOL "" FORCE)
 set(SDL_AUDIO OFF CACHE BOOL "" FORCE)
@@ -216,12 +216,13 @@ if (NOT EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/src/game/CMakeLists.txt)
 endif()
 
 add_custom_command(
-    OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/gamecontrollerdb.txt
-    COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_SOURCE_DIR}/external/sdl_controllers/gamecontrollerdb.txt ${CMAKE_CURRENT_BINARY_DIR}/gamecontrollerdb.txt
+	OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/gamecontrollerdb.txt
+	COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_SOURCE_DIR}/external/sdl_controllers/gamecontrollerdb.txt ${CMAKE_CURRENT_BINARY_DIR}/gamecontrollerdb.txt
 	MAIN_DEPENDENCY ${CMAKE_CURRENT_SOURCE_DIR}/external/sdl_controllers/gamecontrollerdb.txt
 )
 
 add_executable(mkzebra
+	CMakeLists.txt
 	src/data/array.h
 	src/data/intrusive_list.h
 	src/data/pin_array.h
@@ -269,6 +270,17 @@ add_executable(mkzebra
 	src/ai.cpp
 	${GAME_SRC_FILES}
 	external/sdl_controllers/gamecontrollerdb.txt
+	assets/armature.glsl
+	assets/composite.glsl
+	assets/flat.glsl
+	assets/flat_texture.glsl
+	assets/point_light.glsl
+	assets/spot_light.glsl
+	assets/standard.glsl
+	assets/ui.glsl
+	assets/ui_texture.glsl
+	assets/buffer_debug.glsl
+	assets/skybox.glsl
 )
 
 if(WIN32)

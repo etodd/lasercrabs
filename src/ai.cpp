@@ -98,13 +98,11 @@ void AI::debug_draw(const RenderParams& p)
 		Loader::base_nav_mesh_free(&mesh);
 	}
 
-	p.sync->write(RenderOp_Mesh);
-	p.sync->write(render_mesh);
+	p.sync->write(RenderOp_Shader);
 	p.sync->write(Asset::Shader::flat);
 	p.sync->write(p.technique);
 
-	p.sync->write<int>(2); // Uniform count
-
+	p.sync->write(RenderOp_Uniform);
 	p.sync->write(Asset::Uniform::diffuse_color);
 	p.sync->write(RenderDataType_Vec4);
 	p.sync->write<int>(1);
@@ -112,10 +110,14 @@ void AI::debug_draw(const RenderParams& p)
 
 	Mat4 mvp = p.view_projection;
 
+	p.sync->write(RenderOp_Uniform);
 	p.sync->write(Asset::Uniform::mvp);
 	p.sync->write(RenderDataType_Mat4);
 	p.sync->write<int>(1);
 	p.sync->write<Mat4>(mvp);
+
+	p.sync->write(RenderOp_Mesh);
+	p.sync->write(render_mesh);
 #endif
 }
 

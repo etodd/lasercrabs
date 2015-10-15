@@ -29,21 +29,21 @@ void main()
 layout(location = 0) in vec3 in_position;
 layout(location = 1) in vec3 in_normal;
 
-out vec3 normal_worldspace;
+out vec3 normal_viewspace;
 
 uniform mat4 mvp;
-uniform mat4 m;
+uniform mat4 mv;
 
 void main()
 {
 	gl_Position = mvp * vec4(in_position, 1);
 
-	normal_worldspace = (m * vec4(in_normal, 0)).xyz;
+	normal_viewspace = (mv * vec4(in_normal, 0)).xyz;
 }
 
 #else
 
-in vec3 normal_worldspace;
+in vec3 normal_viewspace;
 
 // Values that stay constant for the whole mesh.
 uniform vec4 diffuse_color;
@@ -51,7 +51,7 @@ uniform vec4 diffuse_color;
 void main()
 {
 	gl_FragData[0] = diffuse_color;
-	gl_FragData[1] = vec4(normalize(normal_worldspace) * 0.5 + 0.5, 1.0);
+	gl_FragData[1] = vec4(normalize(normal_viewspace) * 0.5 + 0.5, 1.0);
 }
 
 #endif

@@ -46,5 +46,29 @@ void Camera::remove()
 	active = false;
 }
 
+void Camera::projection_frustum(Vec3* out) const
+{
+	Vec4 rays[] =
+	{
+		projection_inverse * Vec4(-1, -1, 0, 1),
+		projection_inverse * Vec4(1, -1, 0, 1),
+		projection_inverse * Vec4(-1, 1, 0, 1),
+		projection_inverse * Vec4(1, 1, 0, 1),
+	};
+	rays[0] /= rays[0].w;
+	rays[0] /= rays[0].z;
+	rays[1] /= rays[1].w;
+	rays[1] /= rays[1].z;
+	rays[2] /= rays[2].w;
+	rays[2] /= rays[2].z;
+	rays[3] /= rays[3].w;
+	rays[3] /= rays[3].z;
+
+	out[0] = rays[0].xyz();
+	out[1] = rays[1].xyz();
+	out[2] = rays[2].xyz();
+	out[3] = rays[3].xyz();
+}
+
 
 }

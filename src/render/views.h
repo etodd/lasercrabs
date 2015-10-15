@@ -42,12 +42,13 @@ struct View : public ComponentType<View>
 struct Skybox
 {
 	static Vec4 color;
+	static Vec3 ambient_color;
 	static AssetID texture;
 	static AssetID mesh;
 	static AssetID shader;
 	static float fog_start;
 	static bool valid();
-	static void set(const Vec4&, const AssetID&, const AssetID&, const AssetID&);
+	static void set(const Vec4&, const Vec3&, const AssetID&, const AssetID&, const AssetID&);
 	static void draw(const RenderParams&, const int);
 };
 

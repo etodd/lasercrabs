@@ -1247,19 +1247,6 @@ struct Mat4
 		return concatenate( m2 );
 	}
 
-	inline Vec3 operator * (const Vec3 &v) const
-	{
-		Vec3 r;
-
-		float fInvW = 1.0f / ( m[3][0] * v.x + m[3][1] * v.y + m[3][2] * v.z + m[3][3] );
-
-		r.x = ( m[0][0] * v.x + m[0][1] * v.y + m[0][2] * v.z + m[0][3] ) * fInvW;
-		r.y = ( m[1][0] * v.x + m[1][1] * v.y + m[1][2] * v.z + m[1][3] ) * fInvW;
-		r.z = ( m[2][0] * v.x + m[2][1] * v.y + m[2][2] * v.z + m[2][3] ) * fInvW;
-
-		return r;
-	}
-
 	inline Vec4 operator * (const Vec4& v) const
 	{
 		return Vec4(

@@ -41,17 +41,17 @@ void SkinnedModel::draw(const RenderParams& params)
 	sync->write<Mat4>(mvp);
 
 	sync->write(RenderOp_Uniform);
-	sync->write(Asset::Uniform::m);
+	sync->write(Asset::Uniform::mv);
 	sync->write(RenderDataType_Mat4);
 	sync->write<int>(1);
-	sync->write<Mat4>(m);
+	sync->write<Mat4>(m * params.view);
 
 	sync->write(RenderOp_Uniform);
 	sync->write(Asset::Uniform::diffuse_map);
 	sync->write(RenderDataType_Texture);
 	sync->write<int>(1);
-	sync->write<AssetID>(texture);
 	sync->write<RenderTextureType>(RenderTexture2D);
+	sync->write<AssetID>(texture);
 
 	Armature* arm = Loader::armature(get<Animator>()->armature);
 	Array<Mat4>& bones = get<Animator>()->bones;

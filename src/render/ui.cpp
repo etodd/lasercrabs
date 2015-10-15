@@ -471,8 +471,8 @@ void UI::texture(const RenderParams& p, const int texture, const Vec2& pos, cons
 	p.sync->write(Asset::Uniform::color_buffer);
 	p.sync->write(RenderDataType_Texture);
 	p.sync->write<int>(1);
-	p.sync->write<AssetID>(texture);
 	p.sync->write<RenderTextureType>(RenderTexture2D);
+	p.sync->write<AssetID>(texture);
 
 	p.sync->write(RenderOp_Mesh);
 	p.sync->write(texture_mesh);

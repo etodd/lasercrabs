@@ -26,9 +26,11 @@ in vec2 uv;
 in vec3 view_ray;
 out vec4 out_color;
 
+uniform vec3 ambient_color;
 uniform sampler2D color_buffer;
 uniform sampler2D lighting_buffer;
 uniform sampler2D depth_buffer;
+uniform sampler2D ssao_buffer;
 uniform mat4 p;
 
 void main()
@@ -39,6 +41,7 @@ void main()
 	gl_FragDepth = clip_depth;
 
 	vec4 lighting = texture(lighting_buffer, uv);
+	lighting.rgb += ambient_color * texture(ssao_buffer, uv).x;
 	vec4 color = texture(color_buffer, uv);
 	vec3 lighting_color = color.rgb * lighting.rgb;
 	vec3 pos = view_ray * depth;

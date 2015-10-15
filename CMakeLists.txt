@@ -282,6 +282,11 @@ add_executable(mkzebra
 	assets/ui_texture.glsl
 	assets/buffer_debug.glsl
 	assets/skybox.glsl
+	assets/ssao.glsl
+	assets/ssao_blur.glsl
+	assets/ssao_downsample.glsl
+	assets/blend_to_fbx.py
+	assets/blend_to_lvl.py
 )
 
 if(WIN32)

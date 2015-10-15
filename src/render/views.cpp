@@ -106,10 +106,10 @@ void View::draw(const RenderParams& params) const
 	sync->write<Mat4>(mvp);
 
 	sync->write(RenderOp_Uniform);
-	sync->write(Asset::Uniform::m);
+	sync->write(Asset::Uniform::mv);
 	sync->write(RenderDataType_Mat4);
 	sync->write<int>(1);
-	sync->write<Mat4>(m);
+	sync->write<Mat4>(m * params.view);
 
 	sync->write(RenderOp_Uniform);
 	sync->write(Asset::Uniform::diffuse_color);
@@ -123,8 +123,8 @@ void View::draw(const RenderParams& params) const
 		sync->write(Asset::Uniform::diffuse_map);
 		sync->write(RenderDataType_Texture);
 		sync->write<int>(1);
-		sync->write<AssetID>(texture);
 		sync->write<RenderTextureType>(RenderTexture2D);
+		sync->write<AssetID>(texture);
 	}
 
 	sync->write(RenderOp_Mesh);
@@ -144,11 +144,13 @@ AssetID Skybox::texture = AssetNull;
 AssetID Skybox::mesh = AssetNull;
 AssetID Skybox::shader = AssetNull;
 Vec4 Skybox::color = Vec4(1, 1, 1, 1);
+Vec3 Skybox::ambient_color = Vec3(0.1f, 0.1f, 0.1f);
 float Skybox::fog_start = 30.0f;
 
-void Skybox::set(const Vec4& c, const AssetID& s, const AssetID& m, const AssetID& t)
+void Skybox::set(const Vec4& c, const Vec3& ambient, const AssetID& s, const AssetID& m, const AssetID& t)
 {
 	color = c;
+	ambient_color = ambient;
 
 	if (shader != AssetNull && shader != s)
 		Loader::shader_free(shader);
@@ -228,8 +230,8 @@ void Skybox::draw(const RenderParams& p, const int depth_buffer)
 	sync->write(Asset::Uniform::depth_buffer);
 	sync->write(RenderDataType_Texture);
 	sync->write<int>(1);
-	sync->write<AssetID>(depth_buffer);
 	sync->write<RenderTextureType>(RenderTexture2D);
+	sync->write<AssetID>(depth_buffer);
 
 	sync->write(RenderOp_Uniform);
 	sync->write(Asset::Uniform::diffuse_color);
@@ -255,8 +257,8 @@ void Skybox::draw(const RenderParams& p, const int depth_buffer)
 		sync->write(Asset::Uniform::diffuse_map);
 		sync->write(RenderDataType_Texture);
 		sync->write<int>(1);
-		sync->write<AssetID>(texture);
 		sync->write<RenderTextureType>(RenderTexture2D);
+		sync->write<AssetID>(texture);
 	}
 
 	sync->write(RenderOp_Mesh);
@@ -304,31 +306,8 @@ void ScreenQuad::set(RenderSync* sync, const Vec2& a, const Vec2& b, const Camer
 		Vec3(b.x, b.y, 0),
 	};
 
-	Mat4 p_inverse = camera->projection_inverse;
-
-	Vec4 rays[] =
-	{
-		p_inverse * Vec4(-1, -1, 0, 1),
-		p_inverse * Vec4(1, -1, 0, 1),
-		p_inverse * Vec4(-1, 1, 0, 1),
-		p_inverse * Vec4(1, 1, 0, 1),
-	};
-	rays[0] /= rays[0].w;
-	rays[0] /= rays[0].z;
-	rays[1] /= rays[1].w;
-	rays[1] /= rays[1].z;
-	rays[2] /= rays[2].w;
-	rays[2] /= rays[2].z;
-	rays[3] /= rays[3].w;
-	rays[3] /= rays[3].z;
-
-	Vec3 rays3[] =
-	{
-		camera->rot * rays[0].xyz(),
-		camera->rot * rays[1].xyz(),
-		camera->rot * rays[2].xyz(),
-		camera->rot * rays[3].xyz(),
-	};
+	Vec3 frustum[4];
+	camera->projection_frustum(frustum);
 
 	Vec2 uvs[] =
 	{
@@ -342,7 +321,7 @@ void ScreenQuad::set(RenderSync* sync, const Vec2& a, const Vec2& b, const Camer
 	sync->write(mesh);
 	sync->write<int>(4);
 	sync->write(vertices, 4);
-	sync->write(rays3, 4);
+	sync->write(frustum, 4);
 	sync->write(uvs, 4);
 }
 

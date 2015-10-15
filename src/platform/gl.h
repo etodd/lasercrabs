@@ -421,8 +421,8 @@ void render(RenderSync* sync)
 					case RenderDataType_Texture:
 					{
 						vi_assert(uniform_count == 1); // Only single textures supported for now
-						AssetID texture_asset = *(sync->read<AssetID>());
 						RenderTextureType texture_type = *(sync->read<RenderTextureType>());
+						AssetID texture_asset = *(sync->read<AssetID>());
 						GLuint texture_id;
 						if (texture_asset == AssetNull)
 							texture_id = 0;

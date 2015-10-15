@@ -30,7 +30,6 @@ uniform sampler2D normal_buffer;
 uniform sampler2D depth_buffer;
 uniform sampler2D shadow_map;
 uniform mat4 p;
-uniform vec3 camera_pos;
 uniform vec3 light_pos;
 uniform float light_radius;
 uniform vec3 light_color;
@@ -42,7 +41,7 @@ void main()
 {
 	float clip_depth = texture(depth_buffer, uv).x * 2.0 - 1.0;
 	float depth = p[3][2] / (clip_depth - p[2][2]);
-	vec3 pos = camera_pos + (view_ray * depth);
+	vec3 pos = view_ray * depth;
 	vec3 to_light = light_pos - pos;
 
 	vec4 light_projected = light_vp * vec4(pos, 1.0);
@@ -58,8 +57,8 @@ void main()
 	float light_strength =
 		float(light_dot > light_fov_dot)
 		* float(shadow_depth > ((light_projected.z - 0.001) / light_projected.w))
-		* float(distance_to_light < light_radius)
-		* float(dot(texture(normal_buffer, uv).xyz * 2.0 - 1.0, to_light) > 0.0);
+		* max(0, 1.0 - (distance_to_light / light_radius))
+		* max(0, dot(texture(normal_buffer, uv).xyz * 2.0 - 1.0, to_light));
 
 	out_color = vec4(light_color * light_strength, 1);
 }

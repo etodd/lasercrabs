@@ -38,6 +38,7 @@ struct Camera
 	}
 	void perspective(const float, const float, const float, const float);
 	void orthographic(const float, const float, const float, const float);
+	void projection_frustum(Vec3*) const;
 	Mat4 view() const;
 	void remove();
 };

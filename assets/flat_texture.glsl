@@ -24,7 +24,8 @@ uniform sampler2D diffuse_map;
 
 void main()
 {
-	gl_FragColor = texture(diffuse_map, UV) * diffuse_color;
+	gl_FragData[0] = texture(diffuse_map, UV) * diffuse_color;
+	gl_FragData[1] = vec4(1);
 }
 
 #endif

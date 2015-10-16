@@ -44,16 +44,12 @@ void main()
 	vec4 color = texture(color_buffer, uv);
 	vec3 final_color;
 	if (color.a == 0.0)
-	{
 		final_color = color.rgb;
-		gl_FragDepth = 0.99999;
-	}
 	else
 	{
 		float clip_depth = texture(depth_buffer, uv).x;
 		float clip_depth_scaled = clip_depth * 2.0 - 1.0;
 		float depth = p[3][2] / (clip_depth_scaled - p[2][2]);
-		gl_FragDepth = clip_depth;
 
 		vec4 lighting = texture(lighting_buffer, uv);
 		lighting.rgb += ambient_color * texture(ssao_buffer, uv).x;
@@ -63,7 +59,7 @@ void main()
 		const vec3 out_of_range_color = vec3(1.0, 0.2, 0.2);
 		final_color = length(pos) < 25.0f ? lighting_color : out_of_range_color * (0.2 + dot(lighting_color, luminance_weights));
 	}
-	gl_FragColor = vec4(final_color + (rand(uv_offset + uv * buffer_size * 0.01) - 0.5) * 0.15, 1);
+	gl_FragColor = vec4(final_color + (rand(uv_offset + uv * buffer_size * 0.01) - 0.5) * 0.1, 1);
 }
 
 #endif

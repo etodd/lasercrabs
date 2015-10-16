@@ -8,7 +8,7 @@ namespace VI
 IntrusiveLinkedList<View>* View::first_alpha = nullptr;
 
 View::View()
-	: mesh(AssetNull), shader(AssetNull), texture(AssetNull), offset(Mat4::identity), color(1, 1, 1, 1), alpha_order(-1), alpha_entry(this)
+	: mesh(AssetNull), shader(AssetNull), texture(AssetNull), offset(Mat4::identity), color(0, 0, 0, 0), alpha_order(-1), alpha_entry(this)
 {
 }
 
@@ -134,7 +134,7 @@ void View::draw(const RenderParams& params) const
 void View::awake()
 {
 	Mesh* m = Loader::mesh(mesh);
-	if (m)
+	if (m && color.dot(Vec4(1)) == 0.0f)
 		color = m->color;
 	Loader::shader(shader);
 	Loader::texture(texture);

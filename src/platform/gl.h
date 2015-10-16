@@ -246,6 +246,7 @@ void render(RenderSync* sync)
 				unsigned width = *(sync->read<unsigned>());
 				unsigned height = *(sync->read<unsigned>());
 				RenderDynamicTextureType type = *(sync->read<RenderDynamicTextureType>());
+				RenderTextureFilter filter = *(sync->read<RenderTextureFilter>());
 				if (GLData::textures[id].width != width || GLData::textures[id].height != height)
 				{
 					glBindTexture(GL_TEXTURE_2D, GLData::textures[id].handle);
@@ -266,8 +267,22 @@ void render(RenderSync* sync)
 
 					glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
 					glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-					glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-					glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+					
+					switch (filter)
+					{
+						case RenderTextureFilter_Nearest:
+						{
+							glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+							glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+							break;
+						}
+						case RenderTextureFilter_Linear:
+						{
+							glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+							glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+							break;
+						}
+					}
 				}
 				debug_check();
 				break;
@@ -322,6 +337,18 @@ void render(RenderSync* sync)
 				debug_check();
 				break;
 			}
+			case RenderOp_ColorMask:
+			{
+				glColorMask(*(sync->read<bool>()), *(sync->read<bool>()), *(sync->read<bool>()), *(sync->read<bool>()));
+				debug_check();
+				break;
+			}
+			case RenderOp_DepthMask:
+			{
+				glDepthMask(*(sync->read<bool>()));
+				debug_check();
+				break;
+			}
 			case RenderOp_DepthTest:
 			{
 				bool enable = *(sync->read<bool>());
@@ -329,12 +356,6 @@ void render(RenderSync* sync)
 					glEnable(GL_DEPTH_TEST);
 				else
 					glDisable(GL_DEPTH_TEST);
-				debug_check();
-				break;
-			}
-			case RenderOp_DepthMask:
-			{
-				glDepthMask(*(sync->read<bool>()));
 				debug_check();
 				break;
 			}

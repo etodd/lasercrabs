@@ -40,11 +40,9 @@ void main()
 
 layout(location = 0) in vec3 in_position;
 layout(location = 1) in vec3 in_normal;
-layout(location = 2) in vec2 in_uv;
 layout (location = 3) in ivec4 bone_ids;
 layout (location = 4) in vec4 bone_weights;
 
-out vec2 uv;
 out vec3 normal_viewspace;
 
 uniform mat4 mvp;
@@ -64,23 +62,17 @@ void main()
 	gl_Position =  mvp * pos_model;
 	
 	normal_viewspace = (mv * (bone_transform * vec4(in_normal, 0))).xyz;
-	
-	uv = in_uv;
 }
 
 #else
 
-// Interpolated values from the vertex shaders
-in vec2 uv;
 in vec3 normal_viewspace;
 
-// Values that stay constant for the whole mesh.
-uniform sampler2D diffuse_map;
 uniform vec4 diffuse_color;
 
 void main()
 {
-	gl_FragData[0] = texture(diffuse_map, uv) * diffuse_color;
+	gl_FragData[0] = diffuse_color;
 	gl_FragData[1] = vec4(normalize(normal_viewspace) * 0.5 + 0.5, 1.0);
 }
 

@@ -19,6 +19,8 @@ struct AI
 		D
 	};
 
+	static const Vec4 colors[];
+
 	static const float default_search_extents[];
 
 	static AssetID render_mesh;

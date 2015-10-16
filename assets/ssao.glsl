@@ -31,15 +31,15 @@ uniform sampler2D normal_buffer;
 uniform sampler2D depth_buffer;
 uniform mat4 p;
 
-const float max_distance_threshold = 1.0;
-const float noise_tile = 50.0;
+const float noise_tile = 10.0;
 
 uniform vec3 frustum[4];
 uniform float far_plane;
 uniform vec2 uv_offset;
 uniform vec2 inv_uv_scale;
 
-const float const_filter_radius = 2.0;
+const float max_distance_threshold = 2.0;
+const float const_filter_radius = 4.0;
 const int sample_count = 16;
 // These are the Poisson Disk Samples
 const vec2 poisson[sample_count] =
@@ -105,7 +105,7 @@ void main()
 		ao += attenuation_distance * attenuation_normal;
 	}
  
-	float final = 1.0 - (ao / sample_count);
+	float final = 1.0 - (ao / sample_count) * 2;
 	gl_FragColor = vec4(final, final, final, 1);
 }
 

@@ -7,14 +7,14 @@ namespace VI
 {
 
 SkinnedModel::SkinnedModel()
-	: mesh(), shader(), texture(), offset(Mat4::identity), color(1, 1, 1, 1)
+	: mesh(), shader(), texture(), offset(Mat4::identity), color(0, 0, 0, 0)
 {
 }
 
 void SkinnedModel::awake()
 {
 	Mesh* m = Loader::mesh(mesh);
-	if (m)
+	if (m && color.dot(Vec4(1)) == 0.0f)
 		color = m->color;
 	Loader::shader(shader);
 	Loader::texture(texture);

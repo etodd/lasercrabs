@@ -56,6 +56,7 @@ enum RenderOp
 	RenderOp_FreeTexture,
 	RenderOp_LoadShader,
 	RenderOp_FreeShader,
+	RenderOp_ColorMask,
 	RenderOp_DepthMask,
 	RenderOp_DepthTest,
 	RenderOp_Shader,
@@ -80,6 +81,12 @@ enum RenderDynamicTextureType
 {
 	RenderDynamicTexture_Color,
 	RenderDynamicTexture_Depth,
+};
+
+enum RenderTextureFilter
+{
+	RenderTextureFilter_Nearest,
+	RenderTextureFilter_Linear,
 };
 
 enum RenderFramebufferAttachment

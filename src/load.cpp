@@ -420,7 +420,7 @@ void Loader::texture_free(const AssetID id)
 	}
 }
 
-int Loader::dynamic_texture(const int width, const int height, const RenderDynamicTextureType type)
+int Loader::dynamic_texture(const int width, const int height, const RenderDynamicTextureType type, const RenderTextureFilter filter)
 {
 	int index = AssetNull;
 	for (int i = 0; i < dynamic_textures.length; i++)
@@ -448,13 +448,14 @@ int Loader::dynamic_texture(const int width, const int height, const RenderDynam
 	sync->write<unsigned>(width);
 	sync->write<unsigned>(height);
 	sync->write<RenderDynamicTextureType>(type);
+	sync->write<RenderTextureFilter>(filter);
 
 	return index;
 }
 
-int Loader::dynamic_texture_permanent(const int width, const int height, const RenderDynamicTextureType type)
+int Loader::dynamic_texture_permanent(const int width, const int height, const RenderDynamicTextureType type, const RenderTextureFilter filter)
 {
-	int id = dynamic_texture(width, height, type);
+	int id = dynamic_texture(width, height, type, filter);
 	if (id != AssetNull)
 		dynamic_textures[id - Asset::Texture::count].type = AssetPermanent;
 	return id;

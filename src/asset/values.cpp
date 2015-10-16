@@ -111,7 +111,11 @@ const char* AssetLookup::Soundbank::names[] =
 const char* AssetLookup::Shader::values[] =
 {
 	"assets/armature.glsl",
+	"assets/bloom_downsample.glsl",
+	"assets/blur.glsl",
 	"assets/composite.glsl",
+	"assets/depth_restore.glsl",
+	"assets/edge_detect.glsl",
 	"assets/flat.glsl",
 	"assets/flat_texture.glsl",
 	"assets/point_light.glsl",
@@ -129,7 +133,11 @@ const char* AssetLookup::Shader::values[] =
 const char* AssetLookup::Shader::names[] =
 {
 	"armature",
+	"bloom_downsample",
+	"blur",
 	"composite",
+	"depth_restore",
+	"edge_detect",
 	"flat",
 	"flat_texture",
 	"point_light",

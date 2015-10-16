@@ -284,6 +284,10 @@ add_executable(mkzebra
 	assets/ssao.glsl
 	assets/ssao_blur.glsl
 	assets/ssao_downsample.glsl
+	assets/edge_detect.glsl
+	assets/depth_restore.glsl
+	assets/bloom_downsample.glsl
+	assets/blur.glsl
 	assets/blend_to_fbx.py
 	assets/blend_to_lvl.py
 )

@@ -65,6 +65,15 @@ AssetID GLData::current_shader_asset = AssetNull;
 RenderTechnique GLData::current_shader_technique = RenderTechnique_Default;
 Array<AssetID> GLData::samplers = Array<AssetID>();
 
+void render_init()
+{
+	glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+
+	glEnable(GL_DEPTH_TEST);
+	glDepthFunc(GL_LESS); 
+	glEnable(GL_CULL_FACE);
+}
+
 void render(RenderSync* sync)
 {
 #if DEBUG

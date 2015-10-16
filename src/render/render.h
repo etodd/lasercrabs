@@ -163,6 +163,7 @@ struct RenderParams
 	RenderSync* sync;
 };
 
+void render_init();
 void render(RenderSync*);
 
 }

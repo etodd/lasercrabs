@@ -281,7 +281,6 @@ add_executable(mkzebra
 	assets/ui.glsl
 	assets/ui_texture.glsl
 	assets/buffer_debug.glsl
-	assets/skybox.glsl
 	assets/ssao.glsl
 	assets/ssao_blur.glsl
 	assets/ssao_downsample.glsl

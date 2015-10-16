@@ -96,13 +96,8 @@ int proc()
 	}
 
 	glGetError(); // Clear initial error caused by GLEW
-	vi_assert(glGetError() == GL_NO_ERROR);
 
-	glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
-
-	glEnable(GL_DEPTH_TEST);
-	glDepthFunc(GL_LESS); 
-	glEnable(GL_CULL_FACE);
+	render_init();
 
 	if (!Game::init())
 	{

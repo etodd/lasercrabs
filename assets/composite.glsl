@@ -24,30 +24,46 @@ void main()
 // Interpolated values from the vertex shaders
 in vec2 uv;
 in vec3 view_ray;
-out vec4 out_color;
 
 uniform vec3 ambient_color;
 uniform sampler2D color_buffer;
 uniform sampler2D lighting_buffer;
 uniform sampler2D depth_buffer;
 uniform sampler2D ssao_buffer;
+uniform vec2 uv_offset;
+uniform vec2 buffer_size;
 uniform mat4 p;
+
+float rand(vec2 co)
+{
+	return fract(sin(dot(co.xy, vec2(12.9898,78.233))) * 43758.5453);
+}
 
 void main()
 {
-	float clip_depth = texture(depth_buffer, uv).x;
-	float clip_depth_scaled = clip_depth * 2.0 - 1.0;
-	float depth = p[3][2] / (clip_depth_scaled - p[2][2]);
-	gl_FragDepth = clip_depth;
-
-	vec4 lighting = texture(lighting_buffer, uv);
-	lighting.rgb += ambient_color * texture(ssao_buffer, uv).x;
 	vec4 color = texture(color_buffer, uv);
-	vec3 lighting_color = color.rgb * lighting.rgb;
-	vec3 pos = view_ray * depth;
-	const vec3 luminance_weights = vec3(0.3333, 0.3333, 0.3333);
-	vec3 final_color = length(pos) < 30.0f ? lighting_color : vec3(dot(lighting_color, luminance_weights));
-	out_color = vec4(final_color, 1);
+	vec3 final_color;
+	if (color.a == 0.0)
+	{
+		final_color = color.rgb;
+		gl_FragDepth = 0.99999;
+	}
+	else
+	{
+		float clip_depth = texture(depth_buffer, uv).x;
+		float clip_depth_scaled = clip_depth * 2.0 - 1.0;
+		float depth = p[3][2] / (clip_depth_scaled - p[2][2]);
+		gl_FragDepth = clip_depth;
+
+		vec4 lighting = texture(lighting_buffer, uv);
+		lighting.rgb += ambient_color * texture(ssao_buffer, uv).x;
+		vec3 lighting_color = color.rgb * lighting.rgb;
+		vec3 pos = view_ray * depth;
+		const vec3 luminance_weights = vec3(0.3333, 0.3333, 0.3333);
+		const vec3 out_of_range_color = vec3(1.0, 0.2, 0.2);
+		final_color = length(pos) < 25.0f ? lighting_color : out_of_range_color * (0.2 + dot(lighting_color, luminance_weights));
+	}
+	gl_FragColor = vec4(final_color + (rand(uv_offset + uv * buffer_size * 0.01) - 0.5) * 0.15, 1);
 }
 
 #endif

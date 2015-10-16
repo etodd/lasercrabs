@@ -143,11 +143,10 @@ void View::awake()
 AssetID Skybox::texture = AssetNull;
 AssetID Skybox::mesh = AssetNull;
 AssetID Skybox::shader = AssetNull;
-Vec4 Skybox::color = Vec4(1, 1, 1, 1);
+Vec3 Skybox::color = Vec3(1, 1, 1);
 Vec3 Skybox::ambient_color = Vec3(0.1f, 0.1f, 0.1f);
-float Skybox::fog_start = 30.0f;
 
-void Skybox::set(const Vec4& c, const Vec3& ambient, const AssetID& s, const AssetID& m, const AssetID& t)
+void Skybox::set(const Vec3& c, const Vec3& ambient, const AssetID& s, const AssetID& m, const AssetID& t)
 {
 	color = c;
 	ambient_color = ambient;
@@ -174,9 +173,9 @@ bool Skybox::valid()
 	return shader != AssetNull && mesh != AssetNull;
 }
 
-void Skybox::draw(const RenderParams& p, const int depth_buffer)
+void Skybox::draw(const RenderParams& p)
 {
-	if (shader == AssetNull || mesh == AssetNull)
+	if (shader == AssetNull || mesh == AssetNull || p.technique != RenderTechnique_Default)
 		return;
 
 	Loader::shader(shader);
@@ -203,53 +202,10 @@ void Skybox::draw(const RenderParams& p, const int depth_buffer)
 	sync->write<Mat4>(mvp);
 
 	sync->write(RenderOp_Uniform);
-	sync->write(Asset::Uniform::v);
-	sync->write(RenderDataType_Mat4);
-	sync->write<int>(1);
-	sync->write<Mat4>(p.view);
-
-	sync->write(RenderOp_Uniform);
-	sync->write(Asset::Uniform::uv_offset);
-	sync->write(RenderDataType_Vec2);
-	sync->write<int>(1);
-	sync->write(Vec2((float)p.camera->viewport.x / (float)p.sync->input.width, (float)p.camera->viewport.y / (float)p.sync->input.height));
-
-	sync->write(RenderOp_Uniform);
-	sync->write(Asset::Uniform::uv_scale);
-	sync->write(RenderDataType_Vec2);
-	sync->write<int>(1);
-	sync->write(Vec2((float)p.camera->viewport.width / (float)p.sync->input.width, (float)p.camera->viewport.height / (float)p.sync->input.height));
-
-	sync->write(RenderOp_Uniform);
-	sync->write(Asset::Uniform::p);
-	sync->write(RenderDataType_Mat4);
-	sync->write<int>(1);
-	sync->write<Mat4>(p.camera->projection);
-
-	sync->write(RenderOp_Uniform);
-	sync->write(Asset::Uniform::depth_buffer);
-	sync->write(RenderDataType_Texture);
-	sync->write<int>(1);
-	sync->write<RenderTextureType>(RenderTexture2D);
-	sync->write<AssetID>(depth_buffer);
-
-	sync->write(RenderOp_Uniform);
 	sync->write(Asset::Uniform::diffuse_color);
 	sync->write(RenderDataType_Vec4);
 	sync->write<int>(1);
-	sync->write<Vec4>(color);
-
-	sync->write(RenderOp_Uniform);
-	sync->write(Asset::Uniform::fog_start);
-	sync->write(RenderDataType_Float);
-	sync->write<int>(1);
-	sync->write<float>(fog_start);
-
-	sync->write(RenderOp_Uniform);
-	sync->write(Asset::Uniform::fog_extent);
-	sync->write(RenderDataType_Float);
-	sync->write<int>(1);
-	sync->write<float>(p.camera->far_plane - fog_start);
+	sync->write<Vec4>(Vec4(color, 0)); // 0 alpha is a special flag for the compositor
 
 	if (texture != AssetNull)
 	{

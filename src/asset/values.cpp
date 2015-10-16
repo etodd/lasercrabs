@@ -18,6 +18,7 @@ const char* AssetLookup::Mesh::values[] =
 	"assets/cone.msh",
 	"assets/cube.msh",
 	"assets/skybox.msh",
+	"assets/sphere.msh",
 	0,
 };
 
@@ -36,6 +37,7 @@ const char* AssetLookup::Mesh::names[] =
 	"cone",
 	"cube",
 	"skybox",
+	"sphere",
 	0,
 };
 
@@ -113,7 +115,6 @@ const char* AssetLookup::Shader::values[] =
 	"assets/flat.glsl",
 	"assets/flat_texture.glsl",
 	"assets/point_light.glsl",
-	"assets/skybox.glsl",
 	"assets/spot_light.glsl",
 	"assets/ssao.glsl",
 	"assets/ssao_blur.glsl",
@@ -132,7 +133,6 @@ const char* AssetLookup::Shader::names[] =
 	"flat",
 	"flat_texture",
 	"point_light",
-	"skybox",
 	"spot_light",
 	"ssao",
 	"ssao_blur",
@@ -148,13 +148,12 @@ const char* AssetLookup::Uniform::values[] =
 {
 	"ambient_color",
 	"bones",
+	"buffer_size",
 	"color_buffer",
 	"depth_buffer",
 	"diffuse_color",
 	"diffuse_map",
 	"far_plane",
-	"fog_extent",
-	"fog_start",
 	"frustum",
 	"inv_buffer_size",
 	"inv_uv_scale",
@@ -174,7 +173,6 @@ const char* AssetLookup::Uniform::values[] =
 	"ssao_buffer",
 	"uv_offset",
 	"uv_scale",
-	"v",
 	0,
 };
 
@@ -183,13 +181,12 @@ const char* AssetLookup::Uniform::names[] =
 {
 	"ambient_color",
 	"bones",
+	"buffer_size",
 	"color_buffer",
 	"depth_buffer",
 	"diffuse_color",
 	"diffuse_map",
 	"far_plane",
-	"fog_extent",
-	"fog_start",
 	"frustum",
 	"inv_buffer_size",
 	"inv_uv_scale",
@@ -209,7 +206,6 @@ const char* AssetLookup::Uniform::names[] =
 	"ssao_buffer",
 	"uv_offset",
 	"uv_scale",
-	"v",
 	0,
 };
 

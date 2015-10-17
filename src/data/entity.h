@@ -41,6 +41,38 @@ struct PoolBase
 	virtual void remove(int) {}
 };
 
+template<typename T> struct Ref
+{
+private:
+	T* target;
+public:
+	int revision;
+
+	Ref()
+		: target(), revision()
+	{
+	}
+
+	Ref(T* t)
+		: target(t), revision(t ? t->revision : 0)
+	{
+	}
+
+	inline Ref<T>& operator= (T* t)
+	{
+		target = t;
+		revision = t ? t->revision : 0;
+		return *this;
+	}
+
+	inline T* ref()
+	{
+		if (target && target->revision != revision)
+			target = 0;
+		return target;
+	}
+};
+
 template<typename T>
 struct Pool : public PoolBase
 {
@@ -73,7 +105,9 @@ struct Pool : public PoolBase
 
 	void remove(int id)
 	{
-		reinterpret_cast<PinArray<T>*>(&data)->get(id)->~T();
+		T* item = reinterpret_cast<PinArray<T>*>(&data)->get(id);
+		item->~T();
+		item->revision++;
 		reinterpret_cast<PinArray<T>*>(&data)->remove(id);
 	}
 };
@@ -82,6 +116,7 @@ struct Entity
 {
 	ID id;
 	ID components[MAX_FAMILIES];
+	int revision;
 	ComponentMask component_mask;
 	Entity(const ID id)
 		: components(), id(id), component_mask()
@@ -168,6 +203,7 @@ struct World
 				}
 			}
 			e->component_mask = 0;
+			e->revision++;
 		}
 	}
 };
@@ -199,6 +235,7 @@ struct ComponentBase
 {
 	ID id;
 	ID entity_id;
+	int revision;
 
 	inline Entity* entity() const
 	{
@@ -216,17 +253,17 @@ struct ComponentBase
 	}
 };
 
-struct Link
+struct LinkEntry
 {
 	ID entity;
 
-	Link()
+	LinkEntry()
 		: entity()
 	{
 
 	}
 
-	Link(ID entity)
+	LinkEntry(ID entity)
 		: entity(entity)
 	{
 
@@ -235,10 +272,10 @@ struct Link
 	virtual void fire() { }
 };
 
-template<typename T, void (T::*Method)()> struct InstantiatedLink : public Link
+template<typename T, void (T::*Method)()> struct InstantiatedLinkEntry : public LinkEntry
 {
-	InstantiatedLink(ID entity)
-		: Link(entity)
+	InstantiatedLinkEntry(ID entity)
+		: LinkEntry(entity)
 	{
 
 	}
@@ -252,18 +289,19 @@ template<typename T, void (T::*Method)()> struct InstantiatedLink : public Link
 };
 
 template<typename T>
-struct LinkArg
+struct LinkEntryArg
 {
 	ID entity;
+	int revision;
 
-	LinkArg()
-		: entity()
+	LinkEntryArg()
+		: entity(), revision()
 	{
 
 	}
 
-	LinkArg(ID entity)
-		: entity(entity)
+	LinkEntryArg(ID entity)
+		: entity(entity), revision(World::list[entity].revision)
 	{
 
 	}
@@ -271,19 +309,45 @@ struct LinkArg
 	virtual void fire(T t) { }
 };
 
-template<typename T, typename T2, void (T::*Method)(T2)> struct InstantiatedLinkArg : public LinkArg<T2>
+template<typename T, typename T2, void (T::*Method)(T2)> struct InstantiatedLinkEntryArg : public LinkEntryArg<T2>
 {
-	InstantiatedLinkArg(ID entity)
-		: LinkArg<T2>(entity)
+	InstantiatedLinkEntryArg(ID entity)
+		: LinkEntryArg<T2>(entity)
 	{
 
 	}
 
 	virtual void fire(T2 arg)
 	{
-		Entity* e = &World::list[LinkArg<T2>::entity];
-		T* t = e->get<T>();
-		(t->*Method)(arg);
+		Entity* e = &World::list[LinkEntryArg<T2>::entity];
+		if (e->revision == revision)
+		{
+			T* t = e->get<T>();
+			(t->*Method)(arg);
+		}
+	}
+};
+
+#define LINK_MAX 4
+
+struct Link
+{
+	LinkEntry entries[LINK_MAX];
+	int entry_count;
+	Link();
+	void fire();
+};
+
+template<typename T>
+struct LinkArg
+{
+	LinkEntryArg<T> entries[LINK_MAX];
+	int entry_count;
+	LinkArg() : entries(), entry_count() {}
+	void fire(T t)
+	{
+		for (int i = 0; i < entry_count; i++)
+			(&entries[i])->fire(t);
 	}
 };
 
@@ -297,14 +361,20 @@ struct ComponentType : public ComponentBase
 		return f;
 	}
 
-	template<void (Derived::*Method)()> void link(Link* link)
+	template<void (Derived::*Method)()> void link(Link& link)
 	{
-		new (link)InstantiatedLink<Derived, Method>(entity_id);
+		vi_assert(link.entry_count < LINK_MAX);
+		LinkEntry* entry = &link.entries[link.entry_count];
+		link.entry_count++;
+		new (entry) InstantiatedLinkEntry<Derived, Method>(entity_id);
 	}
 
-	template<typename T2, void (Derived::*Method)(T2)> void link_arg(LinkArg<T2>* link)
+	template<typename T2, void (Derived::*Method)(T2)> void link_arg(LinkArg<T2>& link)
 	{
-		new (link)InstantiatedLinkArg<Derived, T2, Method>(entity_id);
+		vi_assert(link.entry_count < LINK_MAX);
+		LinkEntryArg<T2>* entry = &link.entries[link.entry_count];
+		link.entry_count++;
+		new (entry) InstantiatedLinkEntryArg<Derived, T2, Method>(entity_id);
 	}
 };
 

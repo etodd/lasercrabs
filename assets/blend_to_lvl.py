@@ -48,6 +48,11 @@ def add(obj, parent_index = -1):
 		for child in obj.children:
 			add(child, index)
 
+	if hasattr(obj, 'constraints'):
+		node['links'] = links = []
+		for constraint in obj.constraints:
+			links.append(constraint.target.name)
+
 	return node
 	
 for obj in (x for x in bpy.data.objects if x.parent is None):

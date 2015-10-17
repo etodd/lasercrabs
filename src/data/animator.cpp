@@ -192,12 +192,12 @@ void Animator::awake()
 	Loader::animation(animation);
 }
 
-Link* Animator::trigger(const AssetID anim, const float time)
+Link& Animator::trigger(const AssetID anim, const float time)
 {
 	TriggerEntry* entry = triggers.add();
 	entry->animation = anim;
 	entry->time = time;
-	return &entry->link;
+	return entry->link;
 }
 
 }

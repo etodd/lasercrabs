@@ -42,7 +42,7 @@ struct Animator : public ComponentType<Animator>
 	void update_world_transforms();
 	void bone_transform(const int, Vec3*, Quat*);
 	void awake();
-	Link* trigger(const AssetID, float);
+	Link& trigger(const AssetID, float);
 	Animator();
 };
 

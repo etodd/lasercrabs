@@ -29,15 +29,15 @@ typedef Sync<PhysicsSync, 1>::Swapper PhysicsSwapper;
 
 struct Physics
 {
-    static btDbvtBroadphase* broadphase;
-    static btDefaultCollisionConfiguration* collision_config;
-    static btCollisionDispatcher* dispatcher;
-    static btSequentialImpulseConstraintSolver* solver;
-    static btDiscreteDynamicsWorld* btWorld;
+	static btDbvtBroadphase* broadphase;
+	static btDefaultCollisionConfiguration* collision_config;
+	static btCollisionDispatcher* dispatcher;
+	static btSequentialImpulseConstraintSolver* solver;
+	static btDiscreteDynamicsWorld* btWorld;
 
 	static void loop(PhysicsSwapper*);
 	static void sync_static();
-    static void sync_dynamic();
+	static void sync_dynamic();
 };
 
 struct RigidBody : public ComponentType<RigidBody>

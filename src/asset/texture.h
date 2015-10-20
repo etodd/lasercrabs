@@ -9,10 +9,10 @@ namespace Asset
 	namespace Texture
 	{
 		const int count = 4;
-		const AssetID gradient = 0;
-		const AssetID noise = 1;
-		const AssetID skybox_horizon = 2;
-		const AssetID test = 3;
+		const AssetID blank = 0;
+		const AssetID gradient = 1;
+		const AssetID noise = 2;
+		const AssetID skybox_horizon = 3;
 	}
 }
 

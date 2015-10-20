@@ -46,6 +46,8 @@ struct GLData
 		GLuint handle;
 		unsigned width;
 		unsigned height;
+		RenderDynamicTextureType type;
+		RenderTextureFilter filter;
 	};
 
 	static Array<Texture> textures;
@@ -247,13 +249,21 @@ void render(RenderSync* sync)
 				unsigned height = *(sync->read<unsigned>());
 				RenderDynamicTextureType type = *(sync->read<RenderDynamicTextureType>());
 				RenderTextureFilter filter = *(sync->read<RenderTextureFilter>());
-				if (GLData::textures[id].width != width || GLData::textures[id].height != height)
+				if (GLData::textures[id].width != width
+					|| GLData::textures[id].height != height
+					|| type != GLData::textures[id].type
+					|| filter != GLData::textures[id].filter)
 				{
-					glBindTexture(GL_TEXTURE_2D, GLData::textures[id].handle);
+					glBindTexture(type == RenderDynamicTexture_ColorMultisample ? GL_TEXTURE_2D_MULTISAMPLE : GL_TEXTURE_2D, GLData::textures[id].handle);
 					GLData::textures[id].width = width;
 					GLData::textures[id].height = height;
+					GLData::textures[id].type = type;
+					GLData::textures[id].filter = filter;
 					switch (type)
 					{
+						case RenderDynamicTexture_ColorMultisample:
+							glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, 8, GL_RGBA8, width, height, false);
+							break;
 						case RenderDynamicTexture_Color:
 							glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, 0);
 							break;
@@ -657,9 +667,9 @@ void render(RenderSync* sync)
 			{
 				int id = *(sync->read<int>());
 				if (id == AssetNull)
-					glBindFramebuffer(GL_FRAMEBUFFER, 0);
+					glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
 				else
-					glBindFramebuffer(GL_FRAMEBUFFER, GLData::framebuffers[id]);
+					glBindFramebuffer(GL_DRAW_FRAMEBUFFER, GLData::framebuffers[id]);
 				debug_check();
 				break;
 			}
@@ -670,6 +680,16 @@ void render(RenderSync* sync)
 				debug_check();
 				break;
 			}
+			case RenderOp_BlitFramebuffer:
+			{
+				int id = *(sync->read<int>());
+				glBindFramebuffer(GL_READ_FRAMEBUFFER, GLData::framebuffers[id]);
+				const ScreenRect* src = sync->read<ScreenRect>();
+				const ScreenRect* dst = sync->read<ScreenRect>();
+				glBlitFramebuffer(src->x, src->y, src->x + src->width, src->y + src->height, dst->x, dst->y, dst->x + dst->width, dst->y + dst->height, GL_COLOR_BUFFER_BIT, GL_NEAREST);
+				debug_check();
+				break;
+			};
 			default:
 			{
 				vi_assert(false);

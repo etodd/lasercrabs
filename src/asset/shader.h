@@ -44,11 +44,11 @@ namespace Asset
 		const AssetID bloom_downsample = 1;
 		const AssetID blur = 2;
 		const AssetID composite = 3;
-		const AssetID depth_restore = 4;
-		const AssetID edge_detect = 5;
-		const AssetID flat = 6;
-		const AssetID flat_texture = 7;
-		const AssetID point_light = 8;
+		const AssetID edge_detect = 4;
+		const AssetID flat = 5;
+		const AssetID flat_texture = 6;
+		const AssetID point_light = 7;
+		const AssetID skybox = 8;
 		const AssetID spot_light = 9;
 		const AssetID ssao = 10;
 		const AssetID ssao_blur = 11;

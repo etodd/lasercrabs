@@ -68,6 +68,7 @@ enum RenderOp
 	RenderOp_AllocFramebuffer,
 	RenderOp_BindFramebuffer,
 	RenderOp_FreeFramebuffer,
+	RenderOp_BlitFramebuffer,
 };
 
 enum RenderBlendMode
@@ -80,6 +81,7 @@ enum RenderBlendMode
 enum RenderDynamicTextureType
 {
 	RenderDynamicTexture_Color,
+	RenderDynamicTexture_ColorMultisample,
 	RenderDynamicTexture_Depth,
 };
 

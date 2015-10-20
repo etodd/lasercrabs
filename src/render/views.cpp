@@ -184,9 +184,6 @@ void Skybox::draw(const RenderParams& p)
 
 	RenderSync* sync = p.sync;
 
-	sync->write(RenderOp_DepthTest);
-	sync->write(false);
-
 	sync->write(RenderOp_Shader);
 	sync->write(shader);
 	sync->write(p.technique);
@@ -219,9 +216,6 @@ void Skybox::draw(const RenderParams& p)
 
 	sync->write(RenderOp_Mesh);
 	sync->write(mesh);
-
-	sync->write(RenderOp_DepthTest);
-	sync->write(true);
 }
 
 ScreenQuad::ScreenQuad()

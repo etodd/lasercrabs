@@ -25,12 +25,12 @@ float Console::repeat_last_time = 0.0f;
 
 void Console::init()
 {
-	Loader::font_permanent(Asset::Font::SegoeUISymbol);
-	text.font = Asset::Font::SegoeUISymbol;
+	Loader::font_permanent(Asset::Font::lowpoly);
+	text.font = Asset::Font::lowpoly;
 	text.size = 16.0f;
-	fps_text.font = Asset::Font::SegoeUISymbol;
+	fps_text.font = Asset::Font::lowpoly;
 	fps_text.size = 16.0f;
-	debug_text.font = Asset::Font::SegoeUISymbol;
+	debug_text.font = Asset::Font::lowpoly;
 	debug_text.size = 16.0f;
 
 	debug_buffer.resize(1);

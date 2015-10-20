@@ -74,20 +74,20 @@ const char* AssetLookup::Armature::names[] =
 
 const char* AssetLookup::Texture::values[] =
 {
+	"assets/blank.png",
 	"assets/gradient.png",
 	"assets/noise.png",
 	"assets/skybox_horizon.png",
-	"assets/test.png",
 	0,
 };
 
 
 const char* AssetLookup::Texture::names[] =
 {
+	"blank",
 	"gradient",
 	"noise",
 	"skybox_horizon",
-	"test",
 	0,
 };
 
@@ -114,11 +114,11 @@ const char* AssetLookup::Shader::values[] =
 	"assets/bloom_downsample.glsl",
 	"assets/blur.glsl",
 	"assets/composite.glsl",
-	"assets/depth_restore.glsl",
 	"assets/edge_detect.glsl",
 	"assets/flat.glsl",
 	"assets/flat_texture.glsl",
 	"assets/point_light.glsl",
+	"assets/skybox.glsl",
 	"assets/spot_light.glsl",
 	"assets/ssao.glsl",
 	"assets/ssao_blur.glsl",
@@ -136,11 +136,11 @@ const char* AssetLookup::Shader::names[] =
 	"bloom_downsample",
 	"blur",
 	"composite",
-	"depth_restore",
 	"edge_detect",
 	"flat",
 	"flat_texture",
 	"point_light",
+	"skybox",
 	"spot_light",
 	"ssao",
 	"ssao_blur",

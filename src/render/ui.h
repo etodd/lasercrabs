@@ -38,9 +38,9 @@ struct UI
 	static void init(RenderSync*);
 	static float get_scale(const int, const int);
 	static void box(const RenderParams&, const Vec2&, const Vec2&, const Vec4&);
-	static void centered_box(const RenderParams&, const Vec2&, const Vec2&, const Vec4&, const float);
+	static void centered_box(const RenderParams&, const Vec2&, const Vec2&, const Vec4&, const float = 0.0f);
 	static void border(const RenderParams&, const Vec2&, const Vec2&, const Vec4&, float);
-	static void centered_border(const RenderParams&, const Vec2&, const Vec2&, const Vec4&, const float, const float);
+	static void centered_border(const RenderParams&, const Vec2&, const Vec2&, const Vec4&, const float, const float = 0.0f);
 	static void triangle(const RenderParams&, const Vec2&, const Vec2&, const Vec4&, const float);
 	static void update(const RenderParams&);
 	static void draw(const RenderParams&);

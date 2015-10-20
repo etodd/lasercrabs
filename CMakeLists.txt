@@ -252,7 +252,7 @@ add_executable(mkzebra
 	src/asset/texture.h
 	src/asset/values.cpp
 	src/platform/gl.h
-	src/platform/win_mac_linux.cpp
+	src/platform/sdl.cpp
 	src/sync.h
 	src/types.h
 	src/vi_assert.h
@@ -280,12 +280,10 @@ add_executable(mkzebra
 	assets/standard.glsl
 	assets/ui.glsl
 	assets/ui_texture.glsl
-	assets/buffer_debug.glsl
 	assets/ssao.glsl
 	assets/ssao_blur.glsl
 	assets/ssao_downsample.glsl
 	assets/edge_detect.glsl
-	assets/depth_restore.glsl
 	assets/bloom_downsample.glsl
 	assets/blur.glsl
 	assets/skybox.glsl

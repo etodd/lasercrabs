@@ -14,7 +14,11 @@ namespace VI
 
 bool compile_shader(const char*, const char*, int, unsigned int*, const char* = 0);
 
-char* technique_prefixes[];
+struct TechniquePrefixes
+{
+	static const char* all[];
+};
+
 enum RenderTechnique
 {
 	RenderTechnique_Default,

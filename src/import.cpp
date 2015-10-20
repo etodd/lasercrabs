@@ -1556,7 +1556,7 @@ void import_shader(ImporterState& state, const std::string& asset_in_path, const
 		for (int i = 0; i < RenderTechnique_count; i++)
 		{
 			GLuint program_id;
-			if (!compile_shader(technique_prefixes[i], code.data, code.length, &program_id, asset_out_path.c_str()))
+			if (!compile_shader(TechniquePrefixes::all[i], code.data, code.length, &program_id, asset_out_path.c_str()))
 			{
 				glDeleteProgram(program_id);
 				state.error = true;

@@ -8,7 +8,7 @@
 namespace VI
 {
 
-char* technique_prefixes[] =
+const char* TechniquePrefixes::all[] =
 {
 	"", // Default
 	"#define SHADOW\n", // Shadow

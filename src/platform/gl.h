@@ -334,7 +334,7 @@ void render(RenderSync* sync)
 				const char* code = sync->read<char>(code_length);
 
 				for (int i = 0; i < RenderTechnique_count; i++)
-					compile_shader(technique_prefixes[i], code, code_length, &GLData::shaders[id][i].handle);
+					compile_shader(TechniquePrefixes:all[i], code, code_length, &GLData::shaders[id][i].handle);
 
 				debug_check();
 				break;

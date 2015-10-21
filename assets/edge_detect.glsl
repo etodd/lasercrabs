@@ -6,11 +6,10 @@ layout(location = 2) in vec2 in_uv;
 
 out vec2 uv;
 out vec3 view_ray;
-out vec4 clip_position;
 
 void main()
 {
-	gl_Position = clip_position = vec4(in_position, 1);
+	gl_Position = vec4(in_position, 1);
 	uv = in_uv;
 	view_ray = in_ray;
 }
@@ -20,7 +19,6 @@ void main()
 // Interpolated values from the vertex shaders
 in vec2 uv;
 in vec3 view_ray;
-in vec4 clip_position;
 
 uniform vec2 inv_buffer_size;
 uniform mat4 p;
@@ -33,6 +31,8 @@ float linearize(float clip_depth)
 	float clip_depth_scaled = clip_depth * 2.0 - 1.0;
 	return p[3][2] / (clip_depth_scaled - p[2][2]);
 }
+
+out vec4 out_color;
 
 void main()
 {
@@ -55,7 +55,7 @@ void main()
 	float normal_delta = max(0, 4.0 - dot(vec4(dot(normal, normal1), dot(normal, normal2), dot(normal, normal3), dot(normal, normal4)), vec4(1)));
 
 	float depth_delta = (5.0 * dot(abs(vec4(depth) - depths), vec4(1)) / depth) * -dot(view_ray, normal);
-	gl_FragColor = color + (vec4(1) - color) * step(0.5, normal_delta + depth_delta);
+	out_color = color + (vec4(1) - color) * step(0.5, normal_delta + depth_delta);
 }
 
 #endif

@@ -1418,7 +1418,12 @@ float Quat::angle(const Quat& a, const Quat& b)
 
 Quat Quat::look(const Vec3& dir)
 {
-	return Quat::euler(0, atan2f(dir.x, dir.z), -asinf(dir.y));
+	if (fabs(dir.y - 1.0f) < epsilon)
+		return Quat::euler(0, 0, PI * -0.5f);
+	else if (fabs(dir.y + 1.0f) < epsilon)
+		return Quat::euler(0, 0, PI * 0.5f);
+	else
+		return Quat::euler(0, atan2f(dir.x, dir.z), -asinf(dir.y));
 }
 
 Quat Quat::slerp(float amount, const Quat& quaternion1, const Quat& quaternion2)

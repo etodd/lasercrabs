@@ -16,9 +16,11 @@ void main()
 // Values that stay constant for the whole mesh.
 uniform vec4 diffuse_color;
 
+out vec4 out_color;
+
 void main()
 {
-	gl_FragColor = diffuse_color;
+	out_color = diffuse_color;
 }
 
 #endif

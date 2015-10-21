@@ -57,6 +57,9 @@ int proc()
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 4);
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 1);
 	SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 0);
+#if defined(__APPLE__)
+	SDL_SetHint(SDL_HINT_MOUSE_RELATIVE_MODE_WARP, "1");
+#endif
 
 	window = SDL_CreateWindow
 	(
@@ -64,13 +67,23 @@ int proc()
 		SDL_WINDOWPOS_CENTERED,
 		SDL_WINDOWPOS_CENTERED,
 		1280, 720,
-		SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN | SDL_WINDOW_BORDERLESS
+		SDL_WINDOW_OPENGL
+		| SDL_WINDOW_SHOWN
+		| SDL_WINDOW_BORDERLESS
+		| SDL_WINDOW_INPUT_GRABBED
+		| SDL_WINDOW_INPUT_FOCUS
+		| SDL_WINDOW_MOUSE_FOCUS
+		| SDL_WINDOW_MOUSE_CAPTURE
 	);
+
+#if defined(__APPLE__)
+	SDL_SetWindowGrab(window, SDL_TRUE);
+#endif
 
 	// Open a window and create its OpenGL context
 	if (!window)
 	{
-		fprintf(stderr, "Failed to open SDL window. Most likely your GPU is out of date!\n");
+		fprintf(stderr, "Failed to open SDL window. Most likely your GPU is out of date! %s\n", SDL_GetError());
 		SDL_Quit();
 		return -1;
 	}
@@ -82,7 +95,11 @@ int proc()
 		return -1;
 	}
 
-	SDL_SetRelativeMouseMode(SDL_TRUE);
+	if (SDL_SetRelativeMouseMode(SDL_TRUE) != 0)
+	{
+		fprintf(stderr, "Failed to set relative mouse mode: %s\n", SDL_GetError());
+		return -1;
+	}
 
 	{
 		glewExperimental = true; // Needed for core profile

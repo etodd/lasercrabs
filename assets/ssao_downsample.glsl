@@ -21,6 +21,8 @@ uniform sampler2D normal_buffer;
 uniform sampler2D depth_buffer;
 uniform vec2 inv_buffer_size;
 
+out vec4 out_color;
+
 void main()
 {
 	float depth0 = texture(depth_buffer, uv).x;
@@ -29,7 +31,7 @@ void main()
 	float depth3 = texture(depth_buffer, uv + vec2(inv_buffer_size.x, inv_buffer_size.y)).x;
 	gl_FragDepth = max(max(depth0, depth1), max(depth2, depth3));
 
-	gl_FragColor = texture(normal_buffer, uv);
+	out_color = texture(normal_buffer, uv);
 }
 
 #endif

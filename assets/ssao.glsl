@@ -42,8 +42,8 @@ const float max_distance_threshold = 2.0;
 const float const_filter_radius = 4.0;
 const int sample_count = 16;
 // These are the Poisson Disk Samples
-const vec2 poisson[sample_count] =
-{
+const vec2 poisson[sample_count] = vec2[sample_count]
+(
 	vec2(-0.94201624, -0.39906216) * const_filter_radius,
 	vec2( 0.94558609, -0.76890725) * const_filter_radius,
 	vec2(-0.09418410, -0.92938870) * const_filter_radius,
@@ -59,13 +59,15 @@ const vec2 poisson[sample_count] =
 	vec2(-0.24188840,  0.99706507) * const_filter_radius,
 	vec2(-0.81409955,  0.91437590) * const_filter_radius,
 	vec2( 0.19984126,  0.78641367) * const_filter_radius,
-	vec2( 0.14383161, -0.14100790) * const_filter_radius,
-};
+	vec2( 0.14383161, -0.14100790) * const_filter_radius
+);
 
 vec3 lerp3(vec3 a, vec3 b, float w)
 {
 	return a + w * (b - a);
 }
+
+out vec4 out_color;
  
 void main()
 {
@@ -106,7 +108,7 @@ void main()
 	}
  
 	float final = 1.0 - (ao / sample_count) * 2;
-	gl_FragColor = vec4(final, final, final, 1);
+	out_color = vec4(final, final, final, 1);
 }
 
 #endif

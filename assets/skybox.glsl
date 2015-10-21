@@ -22,10 +22,13 @@ in vec2 UV;
 uniform vec4 diffuse_color;
 uniform sampler2D diffuse_map;
 
+layout (location = 0) out vec4 out_color;
+layout (location = 1) out vec4 out_normal;
+
 void main()
 {
-	gl_FragData[0] = texture(diffuse_map, UV) * diffuse_color;
-	gl_FragData[1] = vec4(1);
+	out_color = texture(diffuse_map, UV) * diffuse_color;
+	out_normal = vec4(1);
 	gl_FragDepth = 0.9999999;
 }
 

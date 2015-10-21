@@ -39,6 +39,8 @@ float rand(vec2 co)
 	return fract(sin(dot(co.xy, vec2(12.9898,78.233))) * 43758.5453);
 }
 
+out vec4 out_color;
+
 void main()
 {
 	vec4 color = texture(color_buffer, uv);
@@ -59,7 +61,7 @@ void main()
 		const vec3 out_of_range_color = vec3(0.6, 0.2, 0.7);
 		final_color = length(pos) < 25.0f ? lighting_color : out_of_range_color * (0.2 + dot(lighting_color, luminance_weights));
 	}
-	gl_FragColor = vec4(final_color + (rand(uv_offset + uv * buffer_size * 0.01) - 0.5) * 0.1, 1);
+	out_color = vec4(final_color + (rand(uv_offset + uv * buffer_size * 0.01) - 0.5) * 0.1, 1);
 }
 
 #endif

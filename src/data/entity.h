@@ -320,7 +320,7 @@ template<typename T, typename T2, void (T::*Method)(T2)> struct InstantiatedLink
 	virtual void fire(T2 arg)
 	{
 		Entity* e = &World::list[LinkEntryArg<T2>::entity];
-		if (e->revision == revision)
+		if (e->revision == LinkEntryArg<T2>::revision)
 		{
 			T* t = e->get<T>();
 			(t->*Method)(arg);
@@ -328,11 +328,11 @@ template<typename T, typename T2, void (T::*Method)(T2)> struct InstantiatedLink
 	}
 };
 
-#define LINK_MAX 4
+#define MAX_ENTITY_LINKS 4
 
 struct Link
 {
-	LinkEntry entries[LINK_MAX];
+	LinkEntry entries[MAX_ENTITY_LINKS];
 	int entry_count;
 	Link();
 	void fire();
@@ -341,7 +341,7 @@ struct Link
 template<typename T>
 struct LinkArg
 {
-	LinkEntryArg<T> entries[LINK_MAX];
+	LinkEntryArg<T> entries[MAX_ENTITY_LINKS];
 	int entry_count;
 	LinkArg() : entries(), entry_count() {}
 	void fire(T t)
@@ -363,7 +363,7 @@ struct ComponentType : public ComponentBase
 
 	template<void (Derived::*Method)()> void link(Link& link)
 	{
-		vi_assert(link.entry_count < LINK_MAX);
+		vi_assert(link.entry_count < MAX_ENTITY_LINKS);
 		LinkEntry* entry = &link.entries[link.entry_count];
 		link.entry_count++;
 		new (entry) InstantiatedLinkEntry<Derived, Method>(entity_id);
@@ -371,7 +371,7 @@ struct ComponentType : public ComponentBase
 
 	template<typename T2, void (Derived::*Method)(T2)> void link_arg(LinkArg<T2>& link)
 	{
-		vi_assert(link.entry_count < LINK_MAX);
+		vi_assert(link.entry_count < MAX_ENTITY_LINKS);
 		LinkEntryArg<T2>* entry = &link.entries[link.entry_count];
 		link.entry_count++;
 		new (entry) InstantiatedLinkEntryArg<Derived, T2, Method>(entity_id);

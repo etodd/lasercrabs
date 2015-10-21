@@ -13,9 +13,11 @@ void main()
 
 #else
 
+out vec4 out_color;
+
 void main()
 {
-	gl_FragColor = vec4(1, 1, 1, 1);
+	out_color = vec4(1, 1, 1, 1);
 }
 
 #endif
@@ -48,10 +50,13 @@ in vec3 normal_viewspace;
 // Values that stay constant for the whole mesh.
 uniform vec4 diffuse_color;
 
+layout (location = 0) out vec4 out_color;
+layout (location = 1) out vec4 out_normal;
+
 void main()
 {
-	gl_FragData[0] = diffuse_color;
-	gl_FragData[1] = vec4(normalize(normal_viewspace) * 0.5 + 0.5, 1.0);
+	out_color = diffuse_color;
+	out_normal = vec4(normalize(normal_viewspace) * 0.5 + 0.5, 1.0);
 }
 
 #endif

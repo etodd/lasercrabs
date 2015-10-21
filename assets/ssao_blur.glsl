@@ -16,8 +16,8 @@ void main()
 
 in vec2 uv;
 
-const float gaussian_kernel[16] =
-{
+const float gaussian_kernel[16] = float[16]
+(
 	0.003829872,
 	0.0088129551,
 	0.0181463396,
@@ -33,14 +33,16 @@ const float gaussian_kernel[16] =
 	0.0551230286,
 	0.03343381,
 	0.0181463396,
-	0.0088129551,
-};
+	0.0088129551
+);
 
 uniform sampler2D color_buffer;
 uniform sampler2D depth_buffer;
 uniform vec2 inv_buffer_size;
 
 const float blur_discard_threshold = 1;
+
+out vec4 out_color;
 
 void main()
 {
@@ -59,7 +61,7 @@ void main()
 	}
 	
 	sum /= count;
-	gl_FragColor = vec4(sum, sum, sum, 1.0);
+	out_color = vec4(sum, sum, sum, 1.0);
 }
 
 #endif

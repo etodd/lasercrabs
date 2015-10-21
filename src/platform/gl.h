@@ -334,7 +334,7 @@ void render(RenderSync* sync)
 				const char* code = sync->read<char>(code_length);
 
 				for (int i = 0; i < RenderTechnique_count; i++)
-					compile_shader(TechniquePrefixes:all[i], code, code_length, &GLData::shaders[id][i].handle);
+					compile_shader(TechniquePrefixes::all[i], code, code_length, &GLData::shaders[id][i].handle);
 
 				debug_check();
 				break;
@@ -623,30 +623,46 @@ void render(RenderSync* sync)
 					RenderFramebufferAttachment attachment_type = *(sync->read<RenderFramebufferAttachment>());
 					int texture_id = *(sync->read<int>());
 					GLuint gl_texture_id = GLData::textures[texture_id].handle;
+
+					GLenum gl_texture_type;
+					switch (GLData::textures[texture_id].type)
+					{
+						case RenderDynamicTexture_Color:
+						case RenderDynamicTexture_Depth:
+							gl_texture_type = GL_TEXTURE_2D;
+							break;
+						case RenderDynamicTexture_ColorMultisample:
+							gl_texture_type = GL_TEXTURE_2D_MULTISAMPLE;
+							break;
+						default:
+							vi_assert(false);
+							break;
+					}
+
 					switch (attachment_type)
 					{
 						case RenderFramebufferAttachment_Color0:
-							glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, gl_texture_id, 0);
+							glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, gl_texture_type, gl_texture_id, 0);
 							color_buffers[color_buffer_index] = GL_COLOR_ATTACHMENT0;
 							color_buffer_index++;
 							break;
 						case RenderFramebufferAttachment_Color1:
-							glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, GL_TEXTURE_2D, gl_texture_id, 0);
+							glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, gl_texture_type, gl_texture_id, 0);
 							color_buffers[color_buffer_index] = GL_COLOR_ATTACHMENT1;
 							color_buffer_index++;
 							break;
 						case RenderFramebufferAttachment_Color2:
-							glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT2, GL_TEXTURE_2D, gl_texture_id, 0);
+							glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT2, gl_texture_type, gl_texture_id, 0);
 							color_buffers[color_buffer_index] = GL_COLOR_ATTACHMENT2;
 							color_buffer_index++;
 							break;
 						case RenderFramebufferAttachment_Color3:
-							glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT3, GL_TEXTURE_2D, gl_texture_id, 0);
+							glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT3, gl_texture_type, gl_texture_id, 0);
 							color_buffers[color_buffer_index] = GL_COLOR_ATTACHMENT3;
 							color_buffer_index++;
 							break;
 						case RenderFramebufferAttachment_Depth:
-							glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, gl_texture_id, 0);
+							glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, gl_texture_type, gl_texture_id, 0);
 							break;
 						default:
 							vi_assert(false);
@@ -657,7 +673,8 @@ void render(RenderSync* sync)
 				vi_assert(color_buffer_index <= 4);
 				glDrawBuffers(color_buffer_index, color_buffers);
 
-				vi_assert(glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE);
+				GLenum framebuffer_status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+				vi_assert(framebuffer_status == GL_FRAMEBUFFER_COMPLETE);
 
 				glBindFramebuffer(GL_FRAMEBUFFER, 0);
 				debug_check();

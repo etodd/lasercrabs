@@ -131,7 +131,7 @@ void AI::debug_draw(const RenderParams& p)
 
 Entity* AI::get_enemy(const AI::Team& team, const Vec3& pos, const Vec3& forward, const float radius, const float angle)
 {
-	float angle_dot = acosf(angle);
+	float angle_dot = cosf(angle);
 	for (auto i = World::components<AIAgent>().iterator(); !i.is_last(); i.next())
 	{
 		AIAgent* agent = i.item();

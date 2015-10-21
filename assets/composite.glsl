@@ -58,8 +58,8 @@ void main()
 		vec3 lighting_color = color.rgb * lighting.rgb;
 		vec3 pos = view_ray * depth;
 		const vec3 luminance_weights = vec3(0.3333, 0.3333, 0.3333);
-		const vec3 out_of_range_color = vec3(0.6, 0.2, 0.7);
-		final_color = length(pos) < 25.0f ? lighting_color : out_of_range_color * (0.2 + dot(lighting_color, luminance_weights));
+		const vec3 out_of_range_color = vec3(1.0, 0.4, 0.9);
+		final_color = length(pos) < 25.0f ? lighting_color : out_of_range_color * (0.4 + dot(lighting_color, luminance_weights));
 	}
 	out_color = vec4(final_color + (rand(uv_offset + uv * buffer_size * 0.01) - 0.5) * 0.1, 1);
 }

@@ -1,14 +1,15 @@
 #include "views.h"
 #include "load.h"
 #include "asset/shader.h"
+#include "asset/mesh.h"
 
 namespace VI
 {
 
-IntrusiveLinkedList<View>* View::first_alpha = nullptr;
+IntrusiveLinkedList<View>* View::first_additive = nullptr;
 
 View::View()
-	: mesh(AssetNull), shader(AssetNull), texture(AssetNull), offset(Mat4::identity), color(0, 0, 0, 0), alpha_order(-1), alpha_entry(this)
+	: mesh(AssetNull), shader(AssetNull), texture(AssetNull), offset(Mat4::identity), color(0, 0, 0, 0), alpha_order(-1), additive_entry(this)
 {
 }
 
@@ -26,9 +27,9 @@ void View::draw_opaque(const RenderParams& params)
 	}
 }
 
-void View::draw_alpha(const RenderParams& params)
+void View::draw_additive(const RenderParams& params)
 {
-	const IntrusiveLinkedList<View>* v = first_alpha;
+	const IntrusiveLinkedList<View>* v = first_additive;
 	while (v)
 	{
 		v->object->draw(params);
@@ -45,24 +46,24 @@ void View::alpha(int order)
 
 	alpha_order = order;
 
-	if (first_alpha)
+	if (first_additive)
 	{
-		IntrusiveLinkedList<View>* v = first_alpha;
+		IntrusiveLinkedList<View>* v = first_additive;
 
 		if (alpha_order < v->object->alpha_order)
 		{
-			alpha_entry.insert_before(first_alpha);
-			first_alpha = &alpha_entry;
+			additive_entry.insert_before(first_additive);
+			first_additive = &additive_entry;
 		}
 		else
 		{
 			while (v->next && v->next->object->alpha_order < alpha_order)
 				v = v->next;
-			alpha_entry.insert_after(v);
+			additive_entry.insert_after(v);
 		}
 	}
 	else
-		first_alpha = &alpha_entry;
+		first_additive = &additive_entry;
 }
 
 void View::alpha_disable()
@@ -71,15 +72,15 @@ void View::alpha_disable()
 	{
 		alpha_order = -1;
 
-		if (alpha_entry.next)
-			alpha_entry.next->previous = alpha_entry.previous;
+		if (additive_entry.next)
+			additive_entry.next->previous = additive_entry.previous;
 
-		if (alpha_entry.previous)
-			alpha_entry.previous->next = alpha_entry.next;
+		if (additive_entry.previous)
+			additive_entry.previous->next = additive_entry.next;
 		else
-			first_alpha = alpha_entry.next;
-		alpha_entry.previous = nullptr;
-		alpha_entry.next = nullptr;
+			first_additive = additive_entry.next;
+		additive_entry.previous = nullptr;
+		additive_entry.next = nullptr;
 	}
 }
 
@@ -216,6 +217,39 @@ void Skybox::draw(const RenderParams& p)
 
 	sync->write(RenderOp_Mesh);
 	sync->write(mesh);
+}
+
+void Cube::draw(const RenderParams& params, const Vec3& pos, const Vec3& scale, const Quat& rot, const Vec4& color)
+{
+	if (params.technique != RenderTechnique_Default)
+		return;
+
+	Loader::mesh_permanent(Asset::Mesh::cube);
+	Loader::shader_permanent(Asset::Shader::flat);
+
+	RenderSync* sync = params.sync;
+	sync->write(RenderOp_Shader);
+	sync->write(Asset::Shader::flat);
+	sync->write(params.technique);
+
+	Mat4 m;
+	m.make_transform(pos, scale, rot);
+	Mat4 mvp = m * params.view_projection;
+
+	sync->write(RenderOp_Uniform);
+	sync->write(Asset::Uniform::mvp);
+	sync->write(RenderDataType_Mat4);
+	sync->write<int>(1);
+	sync->write<Mat4>(mvp);
+
+	sync->write(RenderOp_Uniform);
+	sync->write(Asset::Uniform::diffuse_color);
+	sync->write(RenderDataType_Vec4);
+	sync->write<int>(1);
+	sync->write<Vec4>(color);
+
+	sync->write(RenderOp_Mesh);
+	sync->write(Asset::Mesh::cube);
 }
 
 ScreenQuad::ScreenQuad()

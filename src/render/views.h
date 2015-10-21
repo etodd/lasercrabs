@@ -17,9 +17,9 @@ struct Uniform
 
 struct View : public ComponentType<View>
 {
-	IntrusiveLinkedList<View> alpha_entry;
+	IntrusiveLinkedList<View> additive_entry;
 
-	static IntrusiveLinkedList<View>* first_alpha;
+	static IntrusiveLinkedList<View>* first_additive;
 
 	AssetID mesh;
 	AssetID shader;
@@ -34,7 +34,7 @@ struct View : public ComponentType<View>
 	View();
 	~View();
 	static void draw_opaque(const RenderParams&);
-	static void draw_alpha(const RenderParams&);
+	static void draw_additive(const RenderParams&);
 	void draw(const RenderParams&) const;
 	void awake();
 };
@@ -50,6 +50,11 @@ struct Skybox
 	static bool valid();
 	static void set(const Vec3&, const Vec3&, const AssetID&, const AssetID&, const AssetID&);
 	static void draw(const RenderParams&);
+};
+
+struct Cube
+{
+	static void draw(const RenderParams&, const Vec3&, const Vec3& = Vec3(1), const Quat& = Quat::identity, const Vec4& = Vec4(1));
 };
 
 struct ScreenQuad

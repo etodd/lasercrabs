@@ -161,6 +161,7 @@ void Transform::to_local(Vec3* p, Quat* q) const
 
 void Transform::reparent(Transform* p)
 {
+	vi_assert(p != this);
 	Quat abs_rot;
 	Vec3 abs_pos;
 	absolute(&abs_pos, &abs_rot);

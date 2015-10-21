@@ -25,10 +25,11 @@ void Physics::sync_static()
 	for (auto i = World::components<RigidBody>().iterator(); !i.is_last(); i.next())
 	{
 		btRigidBody* body = i.item()->btBody;
-		if (body->isActive() && body->isStaticOrKinematicObject())
+		if (body->isStaticOrKinematicObject())
 		{
 			btTransform transform;
 			i.item()->get<Transform>()->get_bullet(transform);
+			btTransform existing_transform = body->getWorldTransform();
 			body->setWorldTransform(transform);
 		}
 	}

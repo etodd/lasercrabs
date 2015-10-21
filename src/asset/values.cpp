@@ -45,6 +45,7 @@ const char* AssetLookup::Mesh::names[] =
 const char* AssetLookup::Animation::values[] =
 {
 	"assets/idle.anm",
+	"assets/run.anm",
 	"assets/walk.anm",
 	0,
 };
@@ -53,6 +54,7 @@ const char* AssetLookup::Animation::values[] =
 const char* AssetLookup::Animation::names[] =
 {
 	"idle",
+	"run",
 	"walk",
 	0,
 };

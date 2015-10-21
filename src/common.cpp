@@ -154,7 +154,7 @@ void Debug::draw(const RenderParams& params)
 {
 	Vec2 pos;
 	if (UI::project(params, get<Transform>()->absolute_pos(), pos))
-		UI::centered_box(params, pos, Vec2(4, 4) * UI::scale, Vec4(1, 1, 1, 1), 0);
+		UI::centered_box(params, pos, Vec2(4, 4) * UI::scale, Vec4(1, 0, 0, 1), 0);
 }
 
 }

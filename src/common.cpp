@@ -8,6 +8,7 @@
 #include "asset/mesh.h"
 
 #include <BulletCollision/CollisionShapes/btBvhTriangleMeshShape.h>
+#include <btBulletDynamicsCommon.h>
 
 namespace VI
 {
@@ -68,7 +69,7 @@ StaticGeom::StaticGeom(const ID id, const AssetID mesh_id, const Vec3& absolute_
 	body->btMesh = mesh_data;
 }
 
-Box::Box(ID id, Vec3 pos, Quat quat, float mass, Vec3 scale)
+PhysicsEntity::PhysicsEntity(const ID id, const Vec3& pos, const Quat& quat, const AssetID mesh, const float mass, btCollisionShape* shape, const Vec3& scale)
 	: Entity(id)
 {
 	Transform* transform = create<Transform>();
@@ -77,10 +78,25 @@ Box::Box(ID id, Vec3 pos, Quat quat, float mass, Vec3 scale)
 
 	View* model = create<View>();
 	model->offset = Mat4::make_scale(scale);
-	model->mesh = Asset::Mesh::cube;
+	model->mesh = mesh;
 	model->shader = Asset::Shader::standard;
 	
-	RigidBody* body = create<RigidBody>(pos, quat, mass, new btBoxShape(scale));
+	RigidBody* body = create<RigidBody>(pos, quat, mass, shape);
+}
+
+PhysicsEntity::PhysicsEntity(const ID id, const Vec3& pos, const Quat& quat, const AssetID mesh, const float mass, btCollisionShape* shape, const Vec3& scale, const short filter_group, const short filter_mask)
+	: Entity(id)
+{
+	Transform* transform = create<Transform>();
+	transform->pos = pos;
+	transform->rot = quat;
+
+	View* model = create<View>();
+	model->offset = Mat4::make_scale(scale);
+	model->mesh = mesh;
+	model->shader = Asset::Shader::standard;
+	
+	RigidBody* body = create<RigidBody>(pos, quat, mass, shape, filter_group, filter_mask);
 }
 
 Noclip::Noclip(ID id)
@@ -132,7 +148,8 @@ void NoclipControl::update(const Update& u)
 
 		if ((u.input->mouse_buttons & 1) && (u.input->last_mouse_buttons | 1))
 		{
-			Entity* box = World::create<Box>(get<Transform>()->absolute_pos() + look_quat * Vec3(0, 0, 0.25f), look_quat, 1.0f, Vec3(0.1f, 0.2f, 0.1f));
+			static const Vec3 scale = Vec3(0.1f, 0.2f, 0.1f);
+			Entity* box = World::create<PhysicsEntity>(get<Transform>()->absolute_pos() + look_quat * Vec3(0, 0, 0.25f), look_quat, Asset::Mesh::cube, 1.0f, new btBoxShape(scale), scale);
 			box->get<RigidBody>()->btBody->setLinearVelocity(look_quat * Vec3(0, 0, 15));
 		}
 	}

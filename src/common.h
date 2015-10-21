@@ -5,6 +5,7 @@
 
 class btTriangleIndexVertexArray;
 class btBvhTriangleMeshShape;
+class btCollisionShape;
 
 namespace VI
 {
@@ -29,9 +30,10 @@ struct StaticGeom : public Entity
 	void awake() {}
 };
 
-struct Box : public Entity
+struct PhysicsEntity : public Entity
 {
-	Box(ID, Vec3, Quat, float, Vec3);
+	PhysicsEntity(const ID, const Vec3&, const Quat&, const AssetID, const float, btCollisionShape*, const Vec3&);
+	PhysicsEntity(const ID, const Vec3&, const Quat&, const AssetID, const float, btCollisionShape*, const Vec3&, const short, const short);
 	void awake() {}
 };
 

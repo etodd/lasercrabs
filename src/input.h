@@ -255,6 +255,9 @@ struct Gamepad
 	bool right_shoulder;
 	bool left_click;
 	bool right_click;
+	bool a;
+	bool b;
+	bool start;
 };
 
 #define MAX_GAMEPADS 4

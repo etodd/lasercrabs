@@ -869,8 +869,8 @@ void Loader::transients_free()
 	{
 		dtFreeNavMesh(current_nav_mesh);
 		current_nav_mesh = 0;
-		current_nav_mesh_id = AssetNull;
 	}
+	current_nav_mesh_id = AssetNull;
 
 	for (AssetID i = 0; i < meshes.length; i++)
 	{

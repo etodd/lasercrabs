@@ -17,8 +17,18 @@ struct ScreenRect
 
 struct Camera
 {
-	static const int max_cameras = 4;
+	static const int max_cameras = 8;
 	static Camera all[max_cameras];
+
+	struct ViewportBlueprint
+	{
+		float x, y, w, h;
+	};
+
+	static ViewportBlueprint one_player_viewports[1];
+	static ViewportBlueprint two_player_viewports[2];
+	static ViewportBlueprint three_player_viewports[3];
+	static ViewportBlueprint four_player_viewports[4];
 
 	static Camera* add();
 

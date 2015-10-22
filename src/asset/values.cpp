@@ -246,6 +246,7 @@ const char* AssetLookup::Level::values[] =
 	"assets/lvl/city2.lvl",
 	"assets/lvl/city3.lvl",
 	"assets/lvl/city4.lvl",
+	"assets/lvl/menu.lvl",
 	0,
 };
 
@@ -256,6 +257,7 @@ const char* AssetLookup::Level::names[] =
 	"city2",
 	"city3",
 	"city4",
+	"menu",
 	0,
 };
 
@@ -266,6 +268,7 @@ const char* AssetLookup::NavMesh::values[] =
 	"assets/lvl/city2.nav",
 	"assets/lvl/city3.nav",
 	"assets/lvl/city4.nav",
+	"assets/lvl/menu.nav",
 	0,
 };
 
@@ -276,6 +279,7 @@ const char* AssetLookup::NavMesh::names[] =
 	"city2",
 	"city3",
 	"city4",
+	"menu",
 	0,
 };
 

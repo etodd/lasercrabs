@@ -204,11 +204,13 @@ int proc()
 				gamepad->right_shoulder = (bool)SDL_GameControllerGetButton(controller, SDL_CONTROLLER_BUTTON_RIGHTSHOULDER);
 				gamepad->left_click = (bool)SDL_GameControllerGetButton(controller, SDL_CONTROLLER_BUTTON_LEFTSTICK);
 				gamepad->right_click = (bool)SDL_GameControllerGetButton(controller, SDL_CONTROLLER_BUTTON_RIGHTSTICK);
+				gamepad->a = (bool)SDL_GameControllerGetButton(controller, SDL_CONTROLLER_BUTTON_A);
+				gamepad->b = (bool)SDL_GameControllerGetButton(controller, SDL_CONTROLLER_BUTTON_B);
+				gamepad->start = (bool)SDL_GameControllerGetButton(controller, SDL_CONTROLLER_BUTTON_START);
 				active_gamepads++;
 			}
 		}
 
-		quit |= sync->input.keys[KEYCODE_ESCAPE];
 		sync->quit = quit;
 
 		SDL_GetWindowSize(window, &sync->input.width, &sync->input.height);

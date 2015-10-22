@@ -4,6 +4,32 @@ namespace VI
 {
 
 
+Camera::ViewportBlueprint Camera::one_player_viewports[] =
+{
+	{ 0, 0, 1, 1, },
+};
+
+Camera::ViewportBlueprint Camera::two_player_viewports[] =
+{
+	{ 0, 0, 0.5f, 1, },
+	{ 0.5f, 0, 0.5f, 1, },
+};
+
+Camera::ViewportBlueprint Camera::three_player_viewports[] =
+{
+	{ 0, 0, 0.5f, 0.5f, },
+	{ 0.5f, 0, 0.5f, 0.5f, },
+	{ 0, 0.5f, 0, 0.5f, },
+};
+
+Camera::ViewportBlueprint Camera::four_player_viewports[] =
+{
+	{ 0, 0, 0.25f, 0.25f, },
+	{ 0.25f, 0, 0.25f, 0.25f, },
+	{ 0, 0.25f, 0.25f, 0.25f, },
+	{ 0.25f, 0.25f, 0.25f, 0.25f, },
+};
+
 Camera Camera::all[Camera::max_cameras];
 
 Camera* Camera::add()

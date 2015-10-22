@@ -24,7 +24,7 @@ namespace Asset
 		const AssetID sphere = 12;
 		const AssetID tri_tube = 13;
 	}
-	const AssetID mesh_refs[4][3] =
+	const AssetID mesh_refs[5][3] =
 	{
 		{
 			2,
@@ -40,6 +40,8 @@ namespace Asset
 			6,
 			7,
 			8,
+		},
+		{
 		},
 	};
 }

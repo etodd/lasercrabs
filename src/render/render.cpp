@@ -30,6 +30,14 @@ Camera::ViewportBlueprint Camera::four_player_viewports[] =
 	{ 0.25f, 0.25f, 0.25f, 0.25f, },
 };
 
+Camera::ViewportBlueprint* Camera::viewport_blueprints[] =
+{
+	Camera::one_player_viewports,
+	Camera::two_player_viewports,
+	Camera::three_player_viewports,
+	Camera::four_player_viewports,
+};
+
 Camera Camera::all[Camera::max_cameras];
 
 Camera* Camera::add()
@@ -38,6 +46,7 @@ Camera* Camera::add()
 	{
 		if (!all[i].active)
 		{
+			new (&all[i]) Camera();
 			all[i].active = true;
 			return &all[i];
 		}

@@ -10,6 +10,12 @@ namespace VI
 
 struct UIText
 {
+	enum class Anchor
+	{
+		Min,
+		Center,
+		Max,
+	};
 	static Array<UIText*> instances;
 	char* string;
 	Array<int> indices;
@@ -19,10 +25,15 @@ struct UIText
 	Vec2 pos;
 	float rot;
 	float size;
+	Anchor anchor_x;
+	Anchor anchor_y;
+
+	Vec2 normalized_bounds;
+	Vec2 bounds() const;
 	void text(const char*);
 	void reeval();
 	static void reeval_all();
-	void draw(const RenderParams&);
+	void draw(const RenderParams&) const;
 	UIText();
 	~UIText();
 };

@@ -928,6 +928,10 @@ void loop(RenderSwapper* swapper, PhysicsSwapper* physics_swapper)
 
 		physics_swapper->done<SwapType_Write>();
 
+		sync->write(RenderOp_Clear);
+		sync->write(true);
+		sync->write(true);
+
 		for (int i = 0; i < Camera::max_cameras; i++)
 		{
 			if (Camera::all[i].active)

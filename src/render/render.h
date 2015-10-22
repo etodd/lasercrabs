@@ -30,6 +30,8 @@ struct Camera
 	static ViewportBlueprint three_player_viewports[3];
 	static ViewportBlueprint four_player_viewports[4];
 
+	static ViewportBlueprint* viewport_blueprints[4];
+
 	static Camera* add();
 
 	bool active;

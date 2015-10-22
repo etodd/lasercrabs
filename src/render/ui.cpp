@@ -16,7 +16,10 @@ UIText::UIText()
 	pos(Vec2::zero),
 	rot(),
 	size(16),
-	string()
+	string(),
+	normalized_bounds(),
+	anchor_x(),
+	anchor_y()
 {
 	instances.add(this);
 }
@@ -101,13 +104,48 @@ void UIText::text(const char* s)
 		}
 		char_index++;
 	}
+	normalized_bounds = Vec2(pos.x, 1.0f - pos.y);
 }
 
-void UIText::draw(const RenderParams& params)
+Vec2 UIText::bounds() const
+{
+	return normalized_bounds * size * UI::scale;
+}
+
+void UIText::draw(const RenderParams& params) const
 {
 	int vertex_start = UI::vertices.length;
 	Vec2 screen = Vec2(params.camera->viewport.width * 0.5f, params.camera->viewport.height * 0.5f);
 	Vec2 offset = pos - screen;
+	Vec2 bound = bounds();
+	switch (anchor_x)
+	{
+		case Anchor::Min:
+			break;
+		case Anchor::Center:
+			offset.x += bound.x * -0.5f;
+			break;
+		case Anchor::Max:
+			offset.x -= bound.x;
+			break;
+		default:
+			vi_assert(false);
+			break;
+	}
+	switch (anchor_y)
+	{
+		case Anchor::Min:
+			break;
+		case Anchor::Center:
+			offset.y += (bound.y - size) * 0.5f;
+			break;
+		case Anchor::Max:
+			offset.y += bound.y - size;
+			break;
+		default:
+			vi_assert(false);
+			break;
+	}
 	Vec2 scale = Vec2(1.0f / screen.x, 1.0f / screen.y);
 	float cs = cosf(rot), sn = sinf(rot);
 	for (int i = 0; i < vertices.length; i++)
@@ -324,11 +362,12 @@ void UI::triangle(const RenderParams& params, const Vec2& pos, const Vec2& size,
 		Vec2 scale = Vec2(1.0f / screen.x, 1.0f / screen.y);
 		Vec2 scaled_pos = (pos - screen) * scale;
 
+		const float ratio = 0.8660254037844386f;
 		Vec2 corners[3] =
 		{
-			Vec2(size.x * 0.5f, size.y * -0.5f),
-			Vec2(0, size.y * 0.5f * 0.8660254037844386f),
-			Vec2(size.x * -0.5f, size.y * -0.5f),
+			Vec2(size.x * 0.5f * ratio, size.y * -0.25f),
+			Vec2(0, size.y * 0.5f),
+			Vec2(size.x * -0.5f * ratio, size.y * -0.25f),
 		};
 
 		float cs = cosf(rot), sn = sinf(rot);

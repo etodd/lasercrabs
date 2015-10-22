@@ -244,6 +244,17 @@ enum KeyCode
 
 struct Gamepad
 {
+	enum Btn
+	{
+		LeftShoulder = 1 << 0,
+		RightShoulder = 1 << 1,
+		LeftClick = 1 << 2,
+		RightClick = 1 << 3,
+		A = 1 << 4,
+		B = 1 << 5,
+		Start = 1 << 6,
+	};
+
 	bool active;
 	float left_x;
 	float left_y;
@@ -251,13 +262,8 @@ struct Gamepad
 	float right_y;
 	float left_trigger;
 	float right_trigger;
-	bool left_shoulder;
-	bool right_shoulder;
-	bool left_click;
-	bool right_click;
-	bool a;
-	bool b;
-	bool start;
+	unsigned int btns;
+	unsigned int last_btns;
 };
 
 #define MAX_GAMEPADS 4

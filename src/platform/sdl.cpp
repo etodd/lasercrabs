@@ -192,6 +192,8 @@ int proc()
 			SDL_GameController* controller = controllers[i];
 			Gamepad* gamepad = &sync->input.gamepads[i];
 			gamepad->active = controller != 0;
+			gamepad->last_btns = gamepad->btns;
+			gamepad->btns = 0;
 			if (gamepad->active)
 			{
 				gamepad->left_x = (float)SDL_GameControllerGetAxis(controller, SDL_CONTROLLER_AXIS_LEFTX) / 32767.0f;
@@ -200,13 +202,20 @@ int proc()
 				gamepad->right_y = (float)SDL_GameControllerGetAxis(controller, SDL_CONTROLLER_AXIS_RIGHTY) / 32767.0f;
 				gamepad->left_trigger = (float)SDL_GameControllerGetAxis(controller, SDL_CONTROLLER_AXIS_TRIGGERLEFT) / 32767.0f;
 				gamepad->right_trigger = (float)SDL_GameControllerGetAxis(controller, SDL_CONTROLLER_AXIS_TRIGGERRIGHT) / 32767.0f;
-				gamepad->left_shoulder = (bool)SDL_GameControllerGetButton(controller, SDL_CONTROLLER_BUTTON_LEFTSHOULDER);
-				gamepad->right_shoulder = (bool)SDL_GameControllerGetButton(controller, SDL_CONTROLLER_BUTTON_RIGHTSHOULDER);
-				gamepad->left_click = (bool)SDL_GameControllerGetButton(controller, SDL_CONTROLLER_BUTTON_LEFTSTICK);
-				gamepad->right_click = (bool)SDL_GameControllerGetButton(controller, SDL_CONTROLLER_BUTTON_RIGHTSTICK);
-				gamepad->a = (bool)SDL_GameControllerGetButton(controller, SDL_CONTROLLER_BUTTON_A);
-				gamepad->b = (bool)SDL_GameControllerGetButton(controller, SDL_CONTROLLER_BUTTON_B);
-				gamepad->start = (bool)SDL_GameControllerGetButton(controller, SDL_CONTROLLER_BUTTON_START);
+				if (SDL_GameControllerGetButton(controller, SDL_CONTROLLER_BUTTON_LEFTSHOULDER))
+					gamepad->btns |= Gamepad::Btn::LeftShoulder;
+				if (SDL_GameControllerGetButton(controller, SDL_CONTROLLER_BUTTON_RIGHTSHOULDER))
+					gamepad->btns |= Gamepad::Btn::RightShoulder;
+				if (SDL_GameControllerGetButton(controller, SDL_CONTROLLER_BUTTON_LEFTSTICK))
+					gamepad->btns |= Gamepad::Btn::LeftClick;
+				if (SDL_GameControllerGetButton(controller, SDL_CONTROLLER_BUTTON_RIGHTSTICK))
+					gamepad->btns |= Gamepad::Btn::RightClick;
+				if (SDL_GameControllerGetButton(controller, SDL_CONTROLLER_BUTTON_A))
+					gamepad->btns |= Gamepad::Btn::A;
+				if (SDL_GameControllerGetButton(controller, SDL_CONTROLLER_BUTTON_B))
+					gamepad->btns |= Gamepad::Btn::B;
+				if (SDL_GameControllerGetButton(controller, SDL_CONTROLLER_BUTTON_START))
+					gamepad->btns |= Gamepad::Btn::Start;
 				active_gamepads++;
 			}
 		}

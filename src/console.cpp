@@ -118,12 +118,9 @@ void Console::update(const Update& u)
 		}
 	}
 
-	debug_text.pos = Vec2(0, u.input->height - text.size * UI::scale * 2.0f);
-
 	if (visible)
 	{
 		Font* font = Loader::font_permanent(Asset::Font::SegoeUISymbol);
-		text.pos = Vec2(0, u.input->height - text.size * UI::scale);
 		bool update = false;
 		bool shift = u.input->keys[KEYCODE_LSHIFT]
 			|| u.input->keys[KEYCODE_RSHIFT];
@@ -212,6 +209,9 @@ void Console::update(const Update& u)
 		if (update)
 			text.text(command.data);
 	}
+
+	debug_text.text(debug_buffer.data);
+	debug_buffer.length = 0;
 }
 
 
@@ -243,13 +243,11 @@ void Console::debug(const char* format, ...)
 void Console::draw(const RenderParams& p)
 {
 	if (visible)
-		text.draw(p);
+		text.draw(p, Vec2(0, p.camera->viewport.height - text.size * UI::scale));
 	if (fps_visible)
-		fps_text.draw(p);
+		fps_text.draw(p, Vec2::zero);
 
-	debug_text.text(debug_buffer.data);
-	debug_text.draw(p);
-	debug_buffer.length = 0;
+	debug_text.draw(p, Vec2(0, p.camera->viewport.height - text.size * UI::scale * 2.0f));
 }
 
 }

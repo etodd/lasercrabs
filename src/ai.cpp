@@ -130,13 +130,13 @@ void AI::debug_draw(const RenderParams& p)
 #endif
 }
 
-Entity* AI::get_enemy(const AI::Team& team, const Vec3& pos, const Vec3& forward, const float radius, const float angle)
+Entity* AI::get_enemy(const AI::Team& team, const Vec3& pos, const Vec3& forward, const float radius, const float angle, const ComponentMask component_mask)
 {
 	float angle_dot = cosf(angle);
 	for (auto i = World::components<AIAgent>().iterator(); !i.is_last(); i.next())
 	{
 		AIAgent* agent = i.item();
-		if (agent->team == team)
+		if (agent->team == team || !(agent->entity()->component_mask & component_mask))
 			continue;
 
 		Vec3 enemy_pos = agent->get<Transform>()->absolute_pos();

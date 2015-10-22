@@ -361,6 +361,11 @@ struct ComponentType : public ComponentBase
 		return f;
 	}
 
+	static ComponentMask mask()
+	{
+		return 1 << family();
+	}
+
 	template<void (Derived::*Method)()> void link(Link& link)
 	{
 		vi_assert(link.entry_count < MAX_ENTITY_LINKS);

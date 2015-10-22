@@ -82,6 +82,15 @@ void RigidBody::awake()
 
 RigidBody::~RigidBody()
 {
+	while (btBody->getNumConstraintRefs() > 0)
+	{
+		btTypedConstraint* constraint = btBody->getConstraintRef(0);
+		constraint->getRigidBodyA().removeConstraintRef(constraint);
+		constraint->getRigidBodyB().removeConstraintRef(constraint);
+		constraint->getRigidBodyA().activate(true);
+		constraint->getRigidBodyB().activate(true);
+		Physics::btWorld->removeConstraint(constraint);
+	}
 	Physics::btWorld->removeRigidBody(btBody);
 	delete btBody;
 	delete btShape;

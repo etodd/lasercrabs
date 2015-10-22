@@ -13,8 +13,6 @@ UIText::UIText()
 	vertices(),
 	color(Vec4(1, 1, 1, 1)),
 	font(),
-	pos(Vec2::zero),
-	rot(),
 	size(16),
 	string(),
 	normalized_bounds(),
@@ -112,7 +110,7 @@ Vec2 UIText::bounds() const
 	return normalized_bounds * size * UI::scale;
 }
 
-void UIText::draw(const RenderParams& params) const
+void UIText::draw(const RenderParams& params, const Vec2& pos, const float rot) const
 {
 	int vertex_start = UI::vertices.length;
 	Vec2 screen = Vec2(params.camera->viewport.width * 0.5f, params.camera->viewport.height * 0.5f);
@@ -165,8 +163,8 @@ void UIText::draw(const RenderParams& params) const
 }
 
 float UI::scale = 1.0f;
-int UI::mesh = AssetNull;
-int UI::texture_mesh = AssetNull;
+int UI::mesh_id = AssetNull;
+int UI::texture_mesh_id = AssetNull;
 Array<Vec3> UI::vertices = Array<Vec3>();
 Array<Vec4> UI::colors = Array<Vec4>();
 Array<int> UI::indices = Array<int>();
@@ -233,7 +231,7 @@ void UI::centered_box(const RenderParams& params, const Vec2& pos, const Vec2& s
 	}
 }
 
-void UI::border(const RenderParams& params, const Vec2& pos, const Vec2& size, const Vec4& color, float thickness)
+void UI::border(const RenderParams& params, const Vec2& pos, const Vec2& size, const float thickness, const Vec4& color)
 {
 	if (size.x > 0 && size.y > 0 && color.w > 0)
 	{
@@ -287,7 +285,7 @@ void UI::border(const RenderParams& params, const Vec2& pos, const Vec2& size, c
 	}
 }
 
-void UI::centered_border(const RenderParams& params, const Vec2& pos, const Vec2& size, const Vec4& color, float thickness, float rot)
+void UI::centered_border(const RenderParams& params, const Vec2& pos, const Vec2& size, const float thickness, const Vec4& color, const float rot)
 {
 	if (size.x > 0 && size.y > 0 && color.w > 0)
 	{
@@ -383,6 +381,29 @@ void UI::triangle(const RenderParams& params, const Vec2& pos, const Vec2& size,
 	}
 }
 
+void UI::mesh(const RenderParams& params, const AssetID mesh, const Vec2& pos, const Vec2& size, const Vec4& color, const float rot)
+{
+	if (size.x > 0 && size.y > 0 && color.w > 0)
+	{
+		int vertex_start = UI::vertices.length;
+		Vec2 screen = Vec2(params.camera->viewport.width * 0.5f, params.camera->viewport.height * 0.5f);
+		Vec2 scale = Vec2(1.0f / screen.x, 1.0f / screen.y);
+		Vec2 scaled_pos = (pos - screen) * scale;
+		scale *= size;
+
+		float cs = cosf(rot), sn = sinf(rot);
+
+		Mesh* m = Loader::mesh(mesh);
+		for (int i = 0; i < m->vertices.length; i++)
+		{
+			UI::vertices.add(Vec3(scaled_pos.x + (m->vertices[i].x * cs - m->vertices[i].y * sn) * scale.x, scaled_pos.y + (m->vertices[i].x * sn + m->vertices[i].y * cs) * scale.y, 0));
+			UI::colors.add(color);
+		}
+		for (int i = 0; i < m->indices.length; i++)
+			UI::indices.add(vertex_start + m->indices[i]);
+	}
+}
+
 bool UI::project(const RenderParams& p, const Vec3& v, Vec2& out)
 {
 	Vec4 projected = p.view_projection * Vec4(v.x, v.y, v.z, 1);
@@ -393,12 +414,12 @@ bool UI::project(const RenderParams& p, const Vec3& v, Vec2& out)
 
 void UI::init(RenderSync* sync)
 {
-	mesh = Loader::dynamic_mesh_permanent(2);
+	mesh_id = Loader::dynamic_mesh_permanent(2);
 	Loader::dynamic_mesh_attrib(RenderDataType_Vec3);
 	Loader::dynamic_mesh_attrib(RenderDataType_Vec4);
 	Loader::shader_permanent(Asset::Shader::ui);
 
-	texture_mesh = Loader::dynamic_mesh_permanent(3);
+	texture_mesh_id = Loader::dynamic_mesh_permanent(3);
 	Loader::dynamic_mesh_attrib(RenderDataType_Vec3);
 	Loader::dynamic_mesh_attrib(RenderDataType_Vec4);
 	Loader::dynamic_mesh_attrib(RenderDataType_Vec2);
@@ -415,7 +436,7 @@ void UI::init(RenderSync* sync)
 	};
 
 	sync->write(RenderOp_UpdateIndexBuffer);
-	sync->write(texture_mesh);
+	sync->write(texture_mesh_id);
 	sync->write<int>(6);
 	sync->write(indices, 6);
 
@@ -441,13 +462,13 @@ void UI::draw(const RenderParams& p)
 	if (indices.length > 0)
 	{
 		p.sync->write(RenderOp_UpdateAttribBuffers);
-		p.sync->write(mesh);
+		p.sync->write(mesh_id);
 		p.sync->write<int>(vertices.length);
 		p.sync->write(vertices.data, vertices.length);
 		p.sync->write(colors.data, colors.length);
 
 		p.sync->write(RenderOp_UpdateIndexBuffer);
-		p.sync->write(mesh);
+		p.sync->write(mesh_id);
 		p.sync->write<int>(indices.length);
 		p.sync->write(indices.data, indices.length);
 
@@ -456,7 +477,7 @@ void UI::draw(const RenderParams& p)
 		p.sync->write(p.technique);
 
 		p.sync->write(RenderOp_Mesh);
-		p.sync->write(mesh);
+		p.sync->write(mesh_id);
 
 		vertices.length = 0;
 		colors.length = 0;
@@ -496,7 +517,7 @@ void UI::texture(const RenderParams& p, const int texture, const Vec2& pos, cons
 	};
 
 	p.sync->write(RenderOp_UpdateAttribBuffers);
-	p.sync->write(texture_mesh);
+	p.sync->write(texture_mesh_id);
 	p.sync->write<int>(4);
 	p.sync->write(vertices, 4);
 	p.sync->write(colors, 4);
@@ -514,7 +535,7 @@ void UI::texture(const RenderParams& p, const int texture, const Vec2& pos, cons
 	p.sync->write<AssetID>(texture);
 
 	p.sync->write(RenderOp_Mesh);
-	p.sync->write(texture_mesh);
+	p.sync->write(texture_mesh_id);
 }
 
 }

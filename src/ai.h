@@ -11,7 +11,7 @@ namespace VI
 
 struct AI
 {
-	enum Team
+	enum class Team
 	{
 		A,
 		B,
@@ -33,7 +33,7 @@ struct AI
 	static void load_nav_mesh(AssetID);
 	static void debug_draw(const RenderParams&);
 
-	static Entity* get_enemy(const AI::Team&, const Vec3&, const Vec3&, const float, const float);
+	static Entity* get_enemy(const AI::Team&, const Vec3&, const Vec3&, const float, const float, const ComponentMask = -1);
 
 	static dtPolyRef get_poly(const Vec3&, const float*);
 };
@@ -49,7 +49,16 @@ struct FSM
 {
 	T current;
 	float time;
-	bool transition(T t)
+
+	FSM()
+		: current()
+	{
+	}
+	FSM(const T state)
+		: current(state)
+	{
+	}
+	bool transition(const T t)
 	{
 		if (t != current)
 		{

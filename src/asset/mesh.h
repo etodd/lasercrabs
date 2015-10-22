@@ -8,7 +8,7 @@ namespace Asset
 {
 	namespace Mesh
 	{
-		const int count = 14;
+		const int count = 15;
 		const AssetID Alpha = 0;
 		const AssetID awk = 1;
 		const AssetID city1 = 2;
@@ -20,9 +20,10 @@ namespace Asset
 		const AssetID city4_shell_1 = 8;
 		const AssetID cone = 9;
 		const AssetID cube = 10;
-		const AssetID skybox = 11;
-		const AssetID sphere = 12;
-		const AssetID tri_tube = 13;
+		const AssetID icon_power = 11;
+		const AssetID skybox = 12;
+		const AssetID sphere = 13;
+		const AssetID tri_tube = 14;
 	}
 	const AssetID mesh_refs[7][3] =
 	{

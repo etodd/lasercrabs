@@ -208,6 +208,9 @@ void draw(RenderSync* sync, const Camera* camera)
 		for (auto i = World::components<SpotLight>().iterator(); !i.is_last(); i.next())
 		{
 			SpotLight* light = i.item();
+			if (light->color.length_squared() == 0.0f || light->fov == 0.0f || light->radius == 0.0f)
+				continue;
+
 			Vec3 abs_pos;
 			Quat abs_rot;
 			light->get<Transform>()->absolute(&abs_pos, &abs_rot);

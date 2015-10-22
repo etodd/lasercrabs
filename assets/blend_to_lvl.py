@@ -62,6 +62,7 @@ world_node = add(bpy.data.worlds[0])
 world_node['World'] = True
 world_node['skybox_color'] = list(bpy.data.worlds[0].horizon_color)
 world_node['ambient_color'] = list(bpy.data.worlds[0].ambient_color)
+world_node['zenith_color'] = list(bpy.data.worlds[0].zenith_color)
 
 with open(output_file, 'w') as f:
 	json.dump(result, f)

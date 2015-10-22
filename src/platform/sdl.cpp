@@ -8,6 +8,7 @@
 
 #include <thread>
 #include "physics.h"
+#include "loop.h"
 #include "game/game.h"
 
 namespace VI
@@ -117,12 +118,6 @@ int proc()
 
 	render_init();
 
-	if (!Game::init())
-	{
-		fprintf(stderr, "Failed to initialize game.\n");
-		return -1;
-	}
-
 	// Launch threads
 
 	Sync<RenderSync> render_sync;
@@ -137,7 +132,7 @@ int proc()
 
 	std::thread physics_thread(Physics::loop, &physics_swapper);
 
-	std::thread update_thread(Game::loop, &update_swapper, &physics_update_swapper);
+	std::thread update_thread(Loop::loop, &update_swapper, &physics_update_swapper);
 
 	RenderSync* sync = render_swapper.get();
 

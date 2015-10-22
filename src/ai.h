@@ -16,7 +16,8 @@ struct AI
 		A,
 		B,
 		C,
-		D
+		D,
+		None
 	};
 
 	static const Vec4 colors[];

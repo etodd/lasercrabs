@@ -19,6 +19,7 @@ const char* AssetLookup::Mesh::values[] =
 	"assets/cube.msh",
 	"assets/skybox.msh",
 	"assets/sphere.msh",
+	"assets/tri_tube.msh",
 	0,
 };
 
@@ -38,6 +39,7 @@ const char* AssetLookup::Mesh::names[] =
 	"cube",
 	"skybox",
 	"sphere",
+	"tri_tube",
 	0,
 };
 
@@ -183,6 +185,7 @@ const char* AssetLookup::Uniform::values[] =
 	"ssao_buffer",
 	"uv_offset",
 	"uv_scale",
+	"zenith_color",
 	0,
 };
 
@@ -216,6 +219,7 @@ const char* AssetLookup::Uniform::names[] =
 	"ssao_buffer",
 	"uv_offset",
 	"uv_scale",
+	"zenith_color",
 	0,
 };
 

@@ -16,7 +16,7 @@ enum CollisionGroup
 	CollisionWalker = 1 << 6,
 	CollisionReflective = 1 << 7,
 	CollisionTarget = 1 << 8,
-	CollisionReflectiveMask = ~btBroadphaseProxy::StaticFilter & ~CollisionReflective,
+	CollisionReflectiveMask = CollisionReflective,
 };
 
 struct PhysicsSync

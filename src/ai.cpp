@@ -155,7 +155,7 @@ Entity* AI::get_enemy(const AI::Team& team, const Vec3& pos, const Vec3& forward
 				btCollisionWorld::ClosestRayResultCallback rayCallback(pos, enemy_pos);
 				rayCallback.m_flags = btTriangleRaycastCallback::EFlags::kF_FilterBackfaces
 					| btTriangleRaycastCallback::EFlags::kF_KeepUnflippedNormal;
-				rayCallback.m_collisionFilterMask = ~CollisionTarget;
+				rayCallback.m_collisionFilterMask = rayCallback.m_collisionFilterGroup = ~CollisionTarget;
 
 				Physics::btWorld->rayTest(pos, enemy_pos, rayCallback);
 

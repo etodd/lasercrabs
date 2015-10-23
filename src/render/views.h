@@ -18,8 +18,10 @@ struct Uniform
 struct View : public ComponentType<View>
 {
 	IntrusiveLinkedList<View> additive_entry;
-
 	static IntrusiveLinkedList<View>* first_additive;
+
+	IntrusiveLinkedList<View> alpha_entry;
+	static IntrusiveLinkedList<View>* first_alpha;
 
 	AssetID mesh;
 	AssetID shader;
@@ -28,12 +30,13 @@ struct View : public ComponentType<View>
 	Mat4 offset;
 
 	int alpha_order;
-	void alpha(const int = 0);
+	void alpha(const bool = false, const int = 0);
 	void alpha_disable();
 	
 	View();
 	~View();
 	static void draw_opaque(const RenderParams&);
+	static void draw_alpha(const RenderParams&);
 	static void draw_additive(const RenderParams&);
 	void draw(const RenderParams&) const;
 	void awake();

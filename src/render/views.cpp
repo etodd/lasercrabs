@@ -7,9 +7,10 @@ namespace VI
 {
 
 IntrusiveLinkedList<View>* View::first_additive = nullptr;
+IntrusiveLinkedList<View>* View::first_alpha = nullptr;
 
 View::View()
-	: mesh(AssetNull), shader(AssetNull), texture(AssetNull), offset(Mat4::identity), color(0, 0, 0, 0), alpha_order(-1), additive_entry(this)
+	: mesh(AssetNull), shader(AssetNull), texture(AssetNull), offset(Mat4::identity), color(0, 0, 0, 0), alpha_order(-1), additive_entry(this), alpha_entry(this)
 {
 }
 
@@ -37,7 +38,17 @@ void View::draw_additive(const RenderParams& params)
 	}
 }
 
-void View::alpha(int order)
+void View::draw_alpha(const RenderParams& params)
+{
+	const IntrusiveLinkedList<View>* v = first_alpha;
+	while (v)
+	{
+		v->object->draw(params);
+		v = v->next;
+	}
+}
+
+void View::alpha(const bool additive, const int order)
 {
 	vi_assert(order >= 0);
 
@@ -46,24 +57,27 @@ void View::alpha(int order)
 
 	alpha_order = order;
 
-	if (first_additive)
+	IntrusiveLinkedList<View>*& first = additive ? first_additive : first_alpha;
+	IntrusiveLinkedList<View>& entry = additive ? additive_entry : alpha_entry;
+
+	if (first)
 	{
-		IntrusiveLinkedList<View>* v = first_additive;
+		IntrusiveLinkedList<View>* v = first;
 
 		if (alpha_order < v->object->alpha_order)
 		{
-			additive_entry.insert_before(first_additive);
-			first_additive = &additive_entry;
+			entry.insert_before(first);
+			first = &additive_entry;
 		}
 		else
 		{
 			while (v->next && v->next->object->alpha_order < alpha_order)
 				v = v->next;
-			additive_entry.insert_after(v);
+			entry.insert_after(v);
 		}
 	}
 	else
-		first_additive = &additive_entry;
+		first = &entry;
 }
 
 void View::alpha_disable()
@@ -72,6 +86,7 @@ void View::alpha_disable()
 	{
 		alpha_order = -1;
 
+		// Remove additive entry
 		if (additive_entry.next)
 			additive_entry.next->previous = additive_entry.previous;
 
@@ -81,6 +96,17 @@ void View::alpha_disable()
 			first_additive = additive_entry.next;
 		additive_entry.previous = nullptr;
 		additive_entry.next = nullptr;
+
+		// Remove alpha entry
+		if (alpha_entry.next)
+			alpha_entry.next->previous = alpha_entry.previous;
+
+		if (alpha_entry.previous)
+			alpha_entry.previous->next = alpha_entry.next;
+		else
+			first_alpha = alpha_entry.next;
+		alpha_entry.previous = nullptr;
+		alpha_entry.next = nullptr;
 	}
 }
 

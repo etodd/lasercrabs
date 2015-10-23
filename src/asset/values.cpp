@@ -18,7 +18,10 @@ const char* AssetLookup::Mesh::values[] =
 	"assets/cone.msh",
 	"assets/cube.msh",
 	"assets/icon_power.msh",
+	"assets/logo.msh",
 	"assets/skybox.msh",
+	"assets/socket_socket.msh",
+	"assets/socket_socket_1.msh",
 	"assets/sphere.msh",
 	"assets/tri_tube.msh",
 	0,
@@ -39,7 +42,10 @@ const char* AssetLookup::Mesh::names[] =
 	"cone",
 	"cube",
 	"icon_power",
+	"logo",
 	"skybox",
+	"socket_socket",
+	"socket_socket_1",
 	"sphere",
 	"tri_tube",
 	0,
@@ -251,6 +257,7 @@ const char* AssetLookup::Level::values[] =
 	"assets/lvl/connect.lvl",
 	"assets/lvl/game_over.lvl",
 	"assets/lvl/menu.lvl",
+	"assets/lvl/title.lvl",
 	0,
 };
 
@@ -264,6 +271,7 @@ const char* AssetLookup::Level::names[] =
 	"connect",
 	"game_over",
 	"menu",
+	"title",
 	0,
 };
 
@@ -277,6 +285,7 @@ const char* AssetLookup::NavMesh::values[] =
 	"assets/lvl/connect.nav",
 	"assets/lvl/game_over.nav",
 	"assets/lvl/menu.nav",
+	"assets/lvl/title.nav",
 	0,
 };
 
@@ -290,6 +299,7 @@ const char* AssetLookup::NavMesh::names[] =
 	"connect",
 	"game_over",
 	"menu",
+	"title",
 	0,
 };
 

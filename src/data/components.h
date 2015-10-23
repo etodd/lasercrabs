@@ -9,7 +9,7 @@ namespace VI
 
 struct Transform : public ComponentType<Transform>
 {
-	Transform* parent;
+	Ref<Transform> parent;
 	Vec3 pos;
 	Quat rot;
 

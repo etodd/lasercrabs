@@ -232,15 +232,6 @@ int proc()
 
 		sync = render_swapper.swap<SwapType_Read>();
 
-		if (sync->input.set_width > 0)
-		{
-			SDL_SetWindowSize(window, sync->input.set_width, sync->input.set_height);
-			sync->input.width = sync->input.set_width;
-			sync->input.height = sync->input.set_height;
-			sync->input.set_width = 0;
-			sync->input.set_height = 0;
-		}
-
 		if (quit)
 			break;
 	}

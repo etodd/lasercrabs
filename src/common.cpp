@@ -32,8 +32,12 @@ Prop::Prop(ID id, AssetID mesh_id)
 	model->shader = Asset::Shader::standard;
 }
 
-void StaticGeom::init(const AssetID mesh_id, btTriangleIndexVertexArray** mesh_data, btBvhTriangleMeshShape** shape)
+StaticGeom::StaticGeom(const ID id, const AssetID mesh_id, const Vec3& absolute_pos, const Quat& absolute_rot, const short group, const short mask)
+	: Entity(id)
 {
+	btTriangleIndexVertexArray* mesh_data;
+	btBvhTriangleMeshShape* shape;
+
 	Transform* transform = create<Transform>();
 	View* model = create<View>();
 
@@ -42,28 +46,10 @@ void StaticGeom::init(const AssetID mesh_id, btTriangleIndexVertexArray** mesh_d
 
 	Mesh* mesh = Loader::mesh(model->mesh);
 
-	*mesh_data = new btTriangleIndexVertexArray(mesh->indices.length / 3, mesh->indices.data, 3 * sizeof(int), mesh->vertices.length, (btScalar*)mesh->vertices.data, sizeof(Vec3));
-	*shape = new btBvhTriangleMeshShape(*mesh_data, true, mesh->bounds_min, mesh->bounds_max);
-	(*shape)->setUserIndex(model->mesh);
-}
+	mesh_data = new btTriangleIndexVertexArray(mesh->indices.length / 3, mesh->indices.data, 3 * sizeof(int), mesh->vertices.length, (btScalar*)mesh->vertices.data, sizeof(Vec3));
+	shape = new btBvhTriangleMeshShape(mesh_data, true, mesh->bounds_min, mesh->bounds_max);
+	shape->setUserIndex(model->mesh);
 
-StaticGeom::StaticGeom(const ID id, const AssetID mesh_id, const Vec3& absolute_pos, const Quat& absolute_rot)
-	: Entity(id)
-{
-	btTriangleIndexVertexArray* mesh_data;
-	btBvhTriangleMeshShape* shape;
-	init(mesh_id, &mesh_data, &shape);
-	get<Transform>()->absolute(absolute_pos, absolute_rot);
-	RigidBody* body = create<RigidBody>(absolute_pos, absolute_rot, 0.0f, shape, btBroadphaseProxy::StaticFilter, ~btBroadphaseProxy::StaticFilter);
-	body->btMesh = mesh_data;
-}
-
-StaticGeom::StaticGeom(const ID id, const AssetID mesh_id, const Vec3& absolute_pos, const Quat& absolute_rot, const short group, const short mask)
-	: Entity(id)
-{
-	btTriangleIndexVertexArray* mesh_data;
-	btBvhTriangleMeshShape* shape;
-	init(mesh_id, &mesh_data, &shape);
 	get<Transform>()->absolute(absolute_pos, absolute_rot);
 	RigidBody* body = create<RigidBody>(absolute_pos, absolute_rot, 0.0f, shape, btBroadphaseProxy::StaticFilter | group, ~btBroadphaseProxy::StaticFilter & mask);
 	body->btMesh = mesh_data;

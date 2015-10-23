@@ -278,8 +278,6 @@ struct InputState
 	unsigned int last_mouse_buttons;
 	int width;
 	int height;
-	int set_width;
-	int set_height;
 	Gamepad gamepads[MAX_GAMEPADS];
 };
 

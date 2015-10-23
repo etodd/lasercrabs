@@ -2,6 +2,7 @@
 
 #include "data/entity.h"
 #include "render/render.h"
+#include <btBulletDynamicsCommon.h>
 
 class btTriangleIndexVertexArray;
 class btBvhTriangleMeshShape;
@@ -24,9 +25,7 @@ struct Prop : public Entity
 
 struct StaticGeom : public Entity
 {
-	StaticGeom(const ID, const AssetID, const Vec3&, const Quat&);
-	StaticGeom(const ID, const AssetID, const Vec3&, const Quat&, const short, const short);
-	void init(const AssetID, btTriangleIndexVertexArray**, btBvhTriangleMeshShape**);
+	StaticGeom(const ID, const AssetID, const Vec3&, const Quat&, const short = btBroadphaseProxy::StaticFilter, const short = ~btBroadphaseProxy::StaticFilter);
 	void awake() {}
 };
 

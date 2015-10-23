@@ -17,13 +17,13 @@ void Transform::awake()
 void Transform::mat(Mat4* m) const
 {
 	*m = Mat4::identity;
-	const Transform* t = this;
+	Transform* t = const_cast<Transform*>(this);
 	while (t)
 	{ 
 		Mat4 local = Mat4(t->rot);
 		local.translation(t->pos);
 		*m = *m * local;
-		t = t->parent;
+		t = t->parent.ref();
 	}
 }
 
@@ -46,22 +46,22 @@ void Transform::absolute(Vec3* abs_pos, Quat* abs_rot) const
 {
 	*abs_rot = Quat::identity;
 	*abs_pos = Vec3::zero;
-	const Transform* t = this;
+	Transform* t = const_cast<Transform*>(this);
 	while (t)
 	{ 
 		*abs_rot = t->rot * *abs_rot;
 		*abs_pos = (t->rot * *abs_pos) + t->pos;
-		t = t->parent;
+		t = t->parent.ref();
 	}
 }
 
 void Transform::absolute(const Vec3& abs_pos, const Quat& abs_rot)
 {
-	if (parent)
+	if (parent.ref())
 	{
 		Quat parent_rot;
 		Vec3 parent_pos;
-		parent->absolute(&parent_pos, &parent_rot);
+		parent.ref()->absolute(&parent_pos, &parent_rot);
 		Quat parent_rot_inverse = parent_rot.inverse();
 		pos = parent_rot_inverse * (abs_pos - parent_pos);
 		rot = parent_rot_inverse * abs_rot;
@@ -76,19 +76,19 @@ void Transform::absolute(const Vec3& abs_pos, const Quat& abs_rot)
 Quat Transform::absolute_rot() const
 {
 	Quat q = Quat::identity;
-	const Transform* t = this;
+	Transform* t = const_cast<Transform*>(this);
 	while (t)
 	{ 
 		q = t->rot * q;
-		t = t->parent;
+		t = t->parent.ref();
 	}
 	return q;
 }
 
 void Transform::absolute_rot(const Quat& q)
 {
-	if (parent)
-		rot = parent->absolute_rot().inverse() * q;
+	if (parent.ref())
+		rot = parent.ref()->absolute_rot().inverse() * q;
 	else
 		rot = q;
 }
@@ -96,19 +96,19 @@ void Transform::absolute_rot(const Quat& q)
 Vec3 Transform::absolute_pos() const
 {
 	Vec3 abs_pos = Vec3::zero;
-	const Transform* t = this;
+	Transform* t = const_cast<Transform*>(this);
 	while (t)
 	{ 
 		abs_pos = (t->rot * abs_pos) + t->pos;
-		t = t->parent;
+		t = t->parent.ref();
 	}
 	return abs_pos;
 }
 
 void Transform::absolute_pos(const Vec3& p)
 {
-	if (parent)
-		pos = parent->to_local(p);
+	if (parent.ref())
+		pos = parent.ref()->to_local(p);
 	else
 		pos = p;
 }
@@ -117,12 +117,12 @@ Vec3 Transform::to_world(const Vec3& p) const
 {
 	Quat abs_rot = Quat::identity;
 	Vec3 abs_pos = p;
-	const Transform* t = this;
+	Transform* t = const_cast<Transform*>(this);
 	while (t)
 	{ 
 		abs_rot = t->rot * abs_rot;
 		abs_pos = (t->rot * abs_pos) + t->pos;
-		t = t->parent;
+		t = t->parent.ref();
 	}
 	return abs_pos;
 }
@@ -138,12 +138,12 @@ Vec3 Transform::to_local(const Vec3& p) const
 
 void Transform::to_world(Vec3* p, Quat* q) const
 {
-	const Transform* t = this;
+	Transform* t = const_cast<Transform*>(this);
 	while (t)
 	{ 
 		*q = t->rot * *q;
 		*p = (t->rot * *p) + t->pos;
-		t = t->parent;
+		t = t->parent.ref();
 	}
 }
 

@@ -26,6 +26,7 @@ def add(obj, parent_index = -1):
 		rot = mathutils.Quaternion(mathutils.Vector([axis.y, axis.z, axis.x]), angle)
 		node['pos'] = [pos.y, pos.z, pos.x]
 		node['rot'] = [rot.w, rot.x, rot.y, rot.z]
+		node['scale'] = obj.scale.length
 
 	for key in obj.keys():
 		if key != '_RNA_UI':

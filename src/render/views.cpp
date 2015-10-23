@@ -112,6 +112,9 @@ void View::alpha_disable()
 
 void View::draw(const RenderParams& params) const
 {
+	if (mesh == AssetNull || shader == AssetNull)
+		return;
+
 	Loader::mesh(mesh);
 	Loader::shader(shader);
 	Loader::texture(texture);

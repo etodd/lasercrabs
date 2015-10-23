@@ -255,16 +255,28 @@ struct ComponentBase
 
 struct LinkEntry
 {
-	ID entity;
+	struct Data
+	{
+		ID entity;
+		int revision;
+		Data() : entity(), revision() {}
+		Data(ID e, int r) : entity(e), revision(r) { }
+	};
+
+	union
+	{
+		Data data;
+		void(*function_pointer)();
+	};
 
 	LinkEntry()
-		: entity()
+		: data()
 	{
 
 	}
 
 	LinkEntry(ID entity)
-		: entity(entity)
+		: data(entity, World::list[entity].revision)
 	{
 
 	}
@@ -272,9 +284,9 @@ struct LinkEntry
 	virtual void fire() { }
 };
 
-template<typename T, void (T::*Method)()> struct InstantiatedLinkEntry : public LinkEntry
+template<typename T, void (T::*Method)()> struct EntityLinkEntry : public LinkEntry
 {
-	InstantiatedLinkEntry(ID entity)
+	EntityLinkEntry(ID entity)
 		: LinkEntry(entity)
 	{
 
@@ -282,26 +294,40 @@ template<typename T, void (T::*Method)()> struct InstantiatedLinkEntry : public 
 
 	virtual void fire()
 	{
-		Entity* e = &World::list[entity];
-		T* t = e->get<T>();
-		(t->*Method)();
+		Entity* e = &World::list[data.entity];
+		if (e->revision == data.revision)
+		{
+			T* t = e->get<T>();
+			(t->*Method)();
+		}
 	}
 };
 
 template<typename T>
 struct LinkEntryArg
 {
-	ID entity;
-	int revision;
+	struct Data
+	{
+		ID entity;
+		int revision;
+		Data() : entity(), revision() {}
+		Data(ID e, int r) : entity(e), revision(r) {}
+	};
+	
+	union
+	{
+		Data data;
+		void (*function_pointer)(T);
+	};
 
 	LinkEntryArg()
-		: entity(), revision()
+		: data()
 	{
 
 	}
 
 	LinkEntryArg(ID entity)
-		: entity(entity), revision(World::list[entity].revision)
+		: data(entity, World::list[entity].revision)
 	{
 
 	}
@@ -309,22 +335,45 @@ struct LinkEntryArg
 	virtual void fire(T t) { }
 };
 
-template<typename T, typename T2, void (T::*Method)(T2)> struct InstantiatedLinkEntryArg : public LinkEntryArg<T2>
+template<typename T, typename T2, void (T::*Method)(T2)> struct EntityLinkEntryArg : public LinkEntryArg<T2>
 {
-	InstantiatedLinkEntryArg(ID entity)
-		: LinkEntryArg<T2>(entity)
-	{
-
-	}
+	EntityLinkEntryArg(ID entity) : LinkEntryArg<T2>(entity) { }
 
 	virtual void fire(T2 arg)
 	{
-		Entity* e = &World::list[LinkEntryArg<T2>::entity];
-		if (e->revision == LinkEntryArg<T2>::revision)
+		Entity* e = &World::list[LinkEntryArg<T2>::data.entity];
+		if (e->revision == LinkEntryArg<T2>::data.revision)
 		{
 			T* t = e->get<T>();
 			(t->*Method)(arg);
 		}
+	}
+};
+
+struct FunctionPointerLinkEntry : public LinkEntry
+{
+	FunctionPointerLinkEntry(void(*fp)())
+	{
+		function_pointer = fp;
+	}
+
+	virtual void fire()
+	{
+		(*function_pointer)();
+	}
+};
+
+template<typename T>
+struct FunctionPointerLinkEntryArg : public LinkEntryArg<T>
+{
+	FunctionPointerLinkEntryArg(void(*fp)(T))
+	{
+		function_pointer = fp;
+	}
+
+	virtual void fire(T arg)
+	{
+		(*function_pointer)(arg);
 	}
 };
 
@@ -336,6 +385,7 @@ struct Link
 	int entry_count;
 	Link();
 	void fire();
+	void link(void(*)());
 };
 
 template<typename T>
@@ -348,6 +398,14 @@ struct LinkArg
 	{
 		for (int i = 0; i < entry_count; i++)
 			(&entries[i])->fire(t);
+	}
+
+	void link(void(*fp)(T))
+	{
+		vi_assert(entry_count < MAX_ENTITY_LINKS);
+		LinkEntryArg<T>* entry = &entries[entry_count];
+		entry_count++;
+		new (entry) FunctionPointerLinkEntryArg<T>(fp);
 	}
 };
 
@@ -371,7 +429,7 @@ struct ComponentType : public ComponentBase
 		vi_assert(link.entry_count < MAX_ENTITY_LINKS);
 		LinkEntry* entry = &link.entries[link.entry_count];
 		link.entry_count++;
-		new (entry) InstantiatedLinkEntry<Derived, Method>(entity_id);
+		new (entry) EntityLinkEntry<Derived, Method>(entity_id);
 	}
 
 	template<typename T2, void (Derived::*Method)(T2)> void link_arg(LinkArg<T2>& link)
@@ -379,7 +437,7 @@ struct ComponentType : public ComponentBase
 		vi_assert(link.entry_count < MAX_ENTITY_LINKS);
 		LinkEntryArg<T2>* entry = &link.entries[link.entry_count];
 		link.entry_count++;
-		new (entry) InstantiatedLinkEntryArg<Derived, T2, Method>(entity_id);
+		new (entry) EntityLinkEntryArg<Derived, T2, Method>(entity_id);
 	}
 };
 

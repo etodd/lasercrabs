@@ -92,7 +92,7 @@ void View::alpha_disable()
 
 		if (additive_entry.previous)
 			additive_entry.previous->next = additive_entry.next;
-		else
+		else if (first_additive == &additive_entry)
 			first_additive = additive_entry.next;
 		additive_entry.previous = nullptr;
 		additive_entry.next = nullptr;
@@ -103,7 +103,7 @@ void View::alpha_disable()
 
 		if (alpha_entry.previous)
 			alpha_entry.previous->next = alpha_entry.next;
-		else
+		else if (first_alpha == &alpha_entry)
 			first_alpha = alpha_entry.next;
 		alpha_entry.previous = nullptr;
 		alpha_entry.next = nullptr;

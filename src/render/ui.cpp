@@ -72,7 +72,8 @@ void UIText::text(const char* s)
 		if (!c)
 			break;
 
-		if (c == '\n')
+		// HACK: two spaces = newline
+		if (c == '\n' || (char_index > 0 && c == ' ' && string[char_index - 1] == ' '))
 		{
 			pos.x = 0.0f;
 			pos.y -= 1.0f;
@@ -162,6 +163,7 @@ void UIText::draw(const RenderParams& params, const Vec2& pos, const float rot) 
 		UI::indices.add(indices[i] + vertex_start);
 }
 
+const Vec4 UI::default_color = Vec4(1, 1, 0, 1);
 float UI::scale = 1.0f;
 int UI::mesh_id = AssetNull;
 int UI::texture_mesh_id = AssetNull;

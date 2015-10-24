@@ -185,4 +185,9 @@ void Transform::reparent(Transform* p)
 	parent = p;
 }
 
+PointLight::PointLight()
+	: radius(), color(1, 1, 1)
+{
+}
+
 }

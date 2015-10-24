@@ -30,6 +30,7 @@ struct View : public ComponentType<View>
 	Mat4 offset;
 
 	int alpha_order;
+	bool alpha_enabled;
 	void alpha(const bool = false, const int = 0);
 	void alpha_disable();
 	
@@ -44,6 +45,7 @@ struct View : public ComponentType<View>
 
 struct Skybox
 {
+	static float far_plane;
 	static Vec3 color;
 	static Vec3 ambient_color;
 	static Vec3 zenith_color;
@@ -52,7 +54,7 @@ struct Skybox
 	static AssetID shader;
 	static float fog_start;
 	static bool valid();
-	static void set(const Vec3&, const Vec3&, const Vec3&, const AssetID&, const AssetID&, const AssetID&);
+	static void set(const float, const Vec3&, const Vec3&, const Vec3&, const AssetID&, const AssetID&, const AssetID&);
 	static void draw(const RenderParams&);
 };
 

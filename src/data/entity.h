@@ -239,17 +239,17 @@ struct ComponentBase
 
 	inline Entity* entity() const
 	{
-		return World::list.get(entity_id);
+		return &World::list[entity_id];
 	}
 
 	template<typename T> inline bool has() const
 	{
-		return World::list.get(entity_id)->has<T>();
+		return World::list[entity_id].has<T>();
 	}
 
 	template<typename T> inline T* get() const
 	{
-		return World::list.get(entity_id)->get<T>();
+		return World::list[entity_id].get<T>();
 	}
 };
 

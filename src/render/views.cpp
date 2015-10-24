@@ -10,7 +10,7 @@ IntrusiveLinkedList<View>* View::first_additive = nullptr;
 IntrusiveLinkedList<View>* View::first_alpha = nullptr;
 
 View::View()
-	: mesh(AssetNull), shader(AssetNull), texture(AssetNull), offset(Mat4::identity), color(0, 0, 0, 0), alpha_order(-1), additive_entry(this), alpha_entry(this)
+	: mesh(AssetNull), shader(AssetNull), texture(AssetNull), offset(Mat4::identity), color(0, 0, 0, 0), alpha_order(), alpha_enabled(), additive_entry(this), alpha_entry(this)
 {
 }
 
@@ -23,7 +23,7 @@ void View::draw_opaque(const RenderParams& params)
 {
 	for (auto i = World::components<View>().iterator(); !i.is_last(); i.next())
 	{
-		if (i.item()->alpha_order < 0)
+		if (!i.item()->alpha_enabled)
 			i.item()->draw(params);
 	}
 }
@@ -50,10 +50,10 @@ void View::draw_alpha(const RenderParams& params)
 
 void View::alpha(const bool additive, const int order)
 {
-	vi_assert(order >= 0);
-
-	if (alpha_order != -1)
+	if (alpha_enabled)
 		alpha_disable();
+
+	alpha_enabled = true;
 
 	alpha_order = order;
 
@@ -67,7 +67,7 @@ void View::alpha(const bool additive, const int order)
 		if (alpha_order < v->object->alpha_order)
 		{
 			entry.insert_before(first);
-			first = &additive_entry;
+			first = &entry;
 		}
 		else
 		{
@@ -82,9 +82,9 @@ void View::alpha(const bool additive, const int order)
 
 void View::alpha_disable()
 {
-	if (alpha_order != -1)
+	if (alpha_enabled)
 	{
-		alpha_order = -1;
+		alpha_enabled = false;
 
 		// Remove additive entry
 		if (additive_entry.next)
@@ -170,6 +170,7 @@ void View::awake()
 	Loader::texture(texture);
 }
 
+float Skybox::far_plane = 0.0f;
 AssetID Skybox::texture = AssetNull;
 AssetID Skybox::mesh = AssetNull;
 AssetID Skybox::shader = AssetNull;
@@ -177,8 +178,9 @@ Vec3 Skybox::color = Vec3(1, 1, 1);
 Vec3 Skybox::ambient_color = Vec3(0.1f, 0.1f, 0.1f);
 Vec3 Skybox::zenith_color = Vec3(1.0f, 0.4f, 0.9f);
 
-void Skybox::set(const Vec3& c, const Vec3& ambient, const Vec3& zenith, const AssetID& s, const AssetID& m, const AssetID& t)
+void Skybox::set(const float f, const Vec3& c, const Vec3& ambient, const Vec3& zenith, const AssetID& s, const AssetID& m, const AssetID& t)
 {
+	far_plane = f;
 	color = c;
 	ambient_color = ambient;
 	zenith_color = zenith;

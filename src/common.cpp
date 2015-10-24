@@ -144,7 +144,7 @@ void NoclipControl::update(const Update& u)
 
 	camera->viewport = { 0, 0, u.input->width, u.input->height };
 	float aspect = camera->viewport.height == 0 ? 1 : (float)camera->viewport.width / (float)camera->viewport.height;
-	camera->perspective(FoV, aspect, 0.01f, 100.0f);
+	camera->perspective(FoV, aspect, 0.01f, Skybox::far_plane);
 
 	// Camera matrix
 	Vec3 pos = get<Transform>()->absolute_pos();

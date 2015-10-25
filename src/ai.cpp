@@ -18,7 +18,7 @@ bool AI::render_mesh_dirty = false;
 
 const Vec4 AI::colors[] =
 {
-	Vec4(0.5f, 1, 0.75f, 1),
+	Vec4(0.5f, 1, 0.5f, 1),
 	Vec4(1, 0.5f, 0.5f, 1),
 	Vec4(0, 1, 1, 1),
 	Vec4(1, 0, 1, 1),

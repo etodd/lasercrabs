@@ -1,7 +1,7 @@
 MK-ZEBRA
 ========
 
-![MK-ZEBRA](http://i.imgur.com/9hJiC4ql.png)
+![MK-ZEBRA](http://i.imgur.com/BPueSA6.png)
 
 The engine and most assets for MK-ZEBRA are available under MIT license.
 Game code remains closed-source for top secret reasons.

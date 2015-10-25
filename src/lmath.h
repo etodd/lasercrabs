@@ -1568,6 +1568,11 @@ namespace LMath
 	{
 		return fmin(b, fmax(a, t));
 	}
+
+	inline float lerpf(float t, float a, float b)
+	{
+		return a + (b - a) * t;
+	}
 }
 
 }

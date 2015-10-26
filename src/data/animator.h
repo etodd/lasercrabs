@@ -19,7 +19,7 @@ struct Animator : public ComponentType<Animator>
 	struct BindEntry
 	{
 		int bone;
-		Transform* transform;
+		Ref<Transform> transform;
 	};
 
 	struct AnimatorChannel
@@ -31,6 +31,7 @@ struct Animator : public ComponentType<Animator>
 	AssetID armature;
 	AssetID animation;
 	Array<Mat4> bones;
+	Array<Mat4> offsets;
 	Array<AnimatorChannel> channels;
 	Array<BindEntry> bindings;
 	Array<TriggerEntry> triggers;
@@ -41,6 +42,7 @@ struct Animator : public ComponentType<Animator>
 	void unbind(const Transform*);
 	void update_world_transforms();
 	void bone_transform(const int, Vec3*, Quat*);
+	void offset_bone(const int, const Vec3&, const Quat&);
 	void awake();
 	Link& trigger(const AssetID, float);
 	Animator();

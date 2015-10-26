@@ -3,6 +3,12 @@
 #include "data/animator.h"
 #include "asset/shader.h"
 
+#define DEBUG_SKIN 0
+
+#if DEBUG_SKIN
+#include "render/views.h"
+#endif
+
 namespace VI
 {
 
@@ -73,39 +79,18 @@ void SkinnedModel::draw(const RenderParams& params)
 
 	sync->write(RenderOp_Mesh);
 	sync->write(mesh);
-	/*
-	// Debug
-	Loader::mesh(Asset::Mesh::cube);
-	Loader::shader(Asset::Shader::Standard);
-	Loader::texture(Asset::Texture::test);
+
+#if DEBUG_SKIN
 	for (int i = 0; i < bones.length; i++)
 	{
-		sync->write(Asset::Shader::Standard);
-		sync->write(params.technique);
-		Mat4 mvp = bones[i] * m * params.view * params.camera->projection;
-
-		sync->write(RenderOp_Uniform);
-		sync->write(Asset::Uniform::mvp);
-		sync->write(RenderDataType_Mat4);
-		sync->write<int>(1);
-		sync->write<Mat4>(mvp);
-
-		sync->write(RenderOp_Uniform);
-		sync->write(Asset::Uniform::m);
-		sync->write(RenderDataType_Mat4);
-		sync->write<int>(1);
-		sync->write<Mat4>(m);
-
-		sync->write(RenderOp_Uniform);
-		sync->write(Asset::Uniform::diffuse_color);
-		sync->write(RenderDataType_Vec4);
-		sync->write<int>(1);
-		sync->write<Vec4>(color);
-
-		sync->write(RenderOp_Mesh);
-		sync->write(Asset::Mesh::cube);
+		Mat4 bone_transform = bones[i] * m;
+		Vec3 pos;
+		Vec3 scale;
+		Quat rot;
+		bone_transform.decomposition(pos, scale, rot);
+		Cube::draw(params, pos, false, Vec3(0.02f), rot);
 	}
-	*/
+#endif
 }
 
 }

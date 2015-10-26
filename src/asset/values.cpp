@@ -91,6 +91,7 @@ const char* AssetLookup::Animation::names[] =
 const char* AssetLookup::Armature::values[] =
 {
 	"assets/Alpha.arm",
+	"assets/awk.arm",
 	0,
 };
 
@@ -98,6 +99,7 @@ const char* AssetLookup::Armature::values[] =
 const char* AssetLookup::Armature::names[] =
 {
 	"Alpha",
+	"awk",
 	0,
 };
 

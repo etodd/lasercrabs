@@ -60,7 +60,7 @@ struct Skybox
 
 struct Cube
 {
-	static void draw(const RenderParams&, const Vec3&, const Vec3& = Vec3(1), const Quat& = Quat::identity, const Vec4& = Vec4(1));
+	static void draw(const RenderParams&, const Vec3&, const bool = false, const Vec3& = Vec3(1), const Quat& = Quat::identity, const Vec4& = Vec4(1));
 };
 
 struct ScreenQuad

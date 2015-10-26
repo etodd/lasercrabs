@@ -916,7 +916,12 @@ bool build_armature_skinned(const aiScene* scene, const aiMesh* ai_mesh, Mesh& m
 			
 			Vec3 position = Vec3(ai_position.y, ai_position.z, ai_position.x);
 			Vec3 scale = Vec3(ai_scale.y, ai_scale.z, ai_scale.x);
-			armature.inverse_bind_pose[bone_index].make_transform(position, scale, Quat::euler(PI * -0.5f, 0, 0));
+			Quat q = Quat(ai_rotation.w, ai_rotation.x, ai_rotation.y, ai_rotation.z);
+			Vec3 axis;
+			float angle;
+			q.to_angle_axis(angle, axis);
+			Vec3 corrected_axis = Vec3(axis.y, axis.z, axis.x);
+			armature.inverse_bind_pose[bone_index].make_transform(position, scale, Quat(angle, corrected_axis));
 		}
 	}
 	

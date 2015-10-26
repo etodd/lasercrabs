@@ -84,8 +84,9 @@ struct Armature
 	Array<int> hierarchy;
 	Array<Bone> bind_pose;
 	Array<Mat4> inverse_bind_pose;
+	Array<Mat4> abs_bind_pose;
 	Armature()
-		: hierarchy(), bind_pose(), inverse_bind_pose()
+		: hierarchy(), bind_pose(), inverse_bind_pose(), abs_bind_pose()
 	{
 
 	}

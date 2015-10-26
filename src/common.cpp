@@ -6,6 +6,8 @@
 #include "data/animator.h"
 #include "asset/shader.h"
 #include "asset/mesh.h"
+#include "asset/armature.h"
+#include "render/skinned_model.h"
 
 #include <BulletCollision/CollisionShapes/btBvhTriangleMeshShape.h>
 #include <btBulletDynamicsCommon.h>
@@ -22,14 +24,25 @@ Empty::Empty(ID id)
 	create<Transform>();
 }
 
-Prop::Prop(ID id, AssetID mesh_id)
+Prop::Prop(const ID id, const AssetID mesh_id, const AssetID armature, const AssetID animation)
 	: Entity(id)
 {
 	Transform* transform = create<Transform>();
-	View* model = create<View>();
-
-	model->mesh = mesh_id;
-	model->shader = Asset::Shader::standard;
+	if (armature == AssetNull)
+	{
+		View* model = create<View>();
+		model->mesh = mesh_id;
+		model->shader = Asset::Shader::standard;
+	}
+	else
+	{
+		SkinnedModel* model = create<SkinnedModel>();
+		model->mesh = mesh_id;
+		model->shader = Asset::Shader::armature;
+		Animator* anim = create<Animator>();
+		anim->armature = armature;
+		anim->animation = animation;
+	}
 }
 
 StaticGeom::StaticGeom(const ID id, const AssetID mesh_id, const Vec3& absolute_pos, const Quat& absolute_rot, const short group, const short mask)

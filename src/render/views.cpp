@@ -252,17 +252,14 @@ void Skybox::draw(const RenderParams& p)
 	sync->write(mesh);
 }
 
-void Cube::draw(const RenderParams& params, const Vec3& pos, const Vec3& scale, const Quat& rot, const Vec4& color)
+void Cube::draw(const RenderParams& params, const Vec3& pos, const bool alpha, const Vec3& scale, const Quat& rot, const Vec4& color)
 {
-	if (params.technique != RenderTechnique_Default)
-		return;
-
 	Loader::mesh_permanent(Asset::Mesh::cube);
 	Loader::shader_permanent(Asset::Shader::flat);
 
 	RenderSync* sync = params.sync;
 	sync->write(RenderOp_Shader);
-	sync->write(Asset::Shader::flat);
+	sync->write(alpha ? Asset::Shader::flat : Asset::Shader::standard);
 	sync->write(params.technique);
 
 	Mat4 m;

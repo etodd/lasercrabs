@@ -211,8 +211,11 @@ Armature* Loader::armature(const AssetID id)
 		fread(arm->hierarchy.data, sizeof(int), bones, f);
 		arm->bind_pose.resize(bones);
 		arm->inverse_bind_pose.resize(bones);
+		arm->abs_bind_pose.resize(bones);
 		fread(arm->bind_pose.data, sizeof(Bone), bones, f);
 		fread(arm->inverse_bind_pose.data, sizeof(Mat4), bones, f);
+		for (int i = 0; i < arm->inverse_bind_pose.length; i++)
+			arm->abs_bind_pose[i] = arm->inverse_bind_pose[i].inverse();
 
 		fclose(f);
 

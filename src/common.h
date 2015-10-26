@@ -19,7 +19,7 @@ struct Empty : public Entity
 
 struct Prop : public Entity
 {
-	Prop(ID, AssetID);
+	Prop(const ID, const AssetID, const AssetID = AssetNull, const AssetID = AssetNull);
 	void awake() {}
 };
 

@@ -5,7 +5,7 @@ namespace VI
 {
 
 Animator::Animator()
-	: bones(), channels(), time(), animation(AssetNull), armature(AssetNull), bindings(), triggers()
+	: bones(), channels(), time(), animation(AssetNull), armature(AssetNull), bindings(), triggers(), offsets()
 {
 }
 
@@ -114,16 +114,26 @@ void Animator::update_world_transforms()
 {
 	Armature* arm = Loader::armature(armature);
 	bones.resize(arm->hierarchy.length);
+	if (offsets.length < arm->hierarchy.length)
+	{
+		int old_length = offsets.length;
+		offsets.resize(arm->hierarchy.length);
+		for (int i = old_length; i < offsets.length; i++)
+			offsets[i] = Mat4::identity;
+	}
 	Mat4 transform;
 	get<Transform>()->mat(&transform);
 
 	for (int i = 0; i < bones.length; i++)
+	{
 		bones[i].make_transform(arm->bind_pose[i].pos, Vec3(1, 1, 1), arm->bind_pose[i].rot);
+		bones[i] = offsets[i] * bones[i];
+	}
 
 	for (int i = 0; i < channels.length; i++)
 	{
 		int bone_index = channels[i].bone;
-		bones[bone_index] = channels[i].transform;
+		bones[bone_index] = offsets[i] * channels[i].transform;
 	}
 
 	for (int i = 0; i < bones.length; i++)
@@ -141,7 +151,14 @@ void Animator::update_world_transforms()
 		Quat quat;
 		Vec3 scale;
 		mat.decomposition(pos, scale, quat);
-		binding.transform->absolute(pos, quat);
+		Transform* t = binding.transform.ref();
+		if (t)
+			t->absolute(pos, quat);
+		else
+		{
+			bindings.remove(i);
+			i--;
+		}
 	}
 }
 
@@ -166,7 +183,7 @@ void Animator::unbind(const Transform* transform)
 	for (int i = 0; i < bindings.length; i++)
 	{
 		BindEntry& entry = bindings[i];
-		if (entry.transform == transform)
+		if (entry.transform.ref() == transform)
 		{
 			bindings.remove(i);
 			i--;
@@ -184,6 +201,14 @@ void Animator::bone_transform(const int index, Vec3* pos, Quat* rot)
 	bones[index].decomposition(bone_pos, bone_scale, bone_rot);
 	*rot = bone_rot * *rot;
 	*pos = (bone_rot * *pos) + bone_pos;
+}
+
+void Animator::offset_bone(const int index, const Vec3& pos, const Quat& rot)
+{
+	if (bones.length == 0)
+		update_world_transforms();
+	Armature* arm = Loader::armature(armature);
+	offsets[index].make_transform(pos, Vec3(1), rot);
 }
 
 void Animator::awake()

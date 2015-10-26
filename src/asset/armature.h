@@ -8,12 +8,13 @@ namespace Asset
 {
 	namespace Armature
 	{
-		const int count = 1;
+		const int count = 2;
 		const AssetID Alpha = 0;
+		const AssetID awk = 1;
 	}
 	namespace Bone
 	{
-		const int count = 53;
+		const int count = 62;
 		const AssetID Alpha_Alpha_Head = 6;
 		const AssetID Alpha_Alpha_Hips = 0;
 		const AssetID Alpha_Alpha_Neck = 4;
@@ -67,6 +68,15 @@ namespace Asset
 		const AssetID Alpha_Right_Shoulder = 26;
 		const AssetID Alpha_Right_ToeBase = 52;
 		const AssetID Alpha_Right_UpLeg = 49;
+		const AssetID awk_root = 0;
+		const AssetID awk_xn1 = 5;
+		const AssetID awk_xn2 = 6;
+		const AssetID awk_xp1 = 3;
+		const AssetID awk_xp2 = 4;
+		const AssetID awk_yn1 = 7;
+		const AssetID awk_yn2 = 8;
+		const AssetID awk_yp1 = 1;
+		const AssetID awk_yp2 = 2;
 	}
 }
 

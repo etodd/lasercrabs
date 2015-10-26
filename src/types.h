@@ -7,6 +7,7 @@ struct GameTime
 {
 	float total;
 	float delta;
+	float real;
 };
 
 typedef int AssetID;

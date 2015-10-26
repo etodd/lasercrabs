@@ -106,6 +106,8 @@ void Animator::update(const Update& u)
 			channels[i].transform.make_transform(position, scale, rotation);
 		}
 	}
+	else
+		channels.length = 0;
 
 	update_world_transforms();
 }

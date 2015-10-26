@@ -14,7 +14,7 @@ namespace Asset
 	}
 	namespace Bone
 	{
-		const int count = 62;
+		const int count = 60;
 		const AssetID Alpha_Alpha_Head = 6;
 		const AssetID Alpha_Alpha_Hips = 0;
 		const AssetID Alpha_Alpha_Neck = 4;
@@ -68,15 +68,13 @@ namespace Asset
 		const AssetID Alpha_Right_Shoulder = 26;
 		const AssetID Alpha_Right_ToeBase = 52;
 		const AssetID Alpha_Right_UpLeg = 49;
+		const AssetID awk_a1 = 5;
+		const AssetID awk_a2 = 6;
+		const AssetID awk_b1 = 1;
+		const AssetID awk_b2 = 2;
+		const AssetID awk_c1 = 3;
+		const AssetID awk_c2 = 4;
 		const AssetID awk_root = 0;
-		const AssetID awk_xn1 = 5;
-		const AssetID awk_xn2 = 6;
-		const AssetID awk_xp1 = 3;
-		const AssetID awk_xp2 = 4;
-		const AssetID awk_yn1 = 7;
-		const AssetID awk_yn2 = 8;
-		const AssetID awk_yp1 = 1;
-		const AssetID awk_yp2 = 2;
 	}
 }
 

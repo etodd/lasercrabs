@@ -72,6 +72,7 @@ const char* AssetLookup::Mesh::names[] =
 
 const char* AssetLookup::Animation::values[] =
 {
+	"assets/fly.anm",
 	"assets/idle.anm",
 	"assets/run.anm",
 	"assets/walk.anm",
@@ -81,6 +82,7 @@ const char* AssetLookup::Animation::values[] =
 
 const char* AssetLookup::Animation::names[] =
 {
+	"fly",
 	"idle",
 	"run",
 	"walk",
@@ -149,6 +151,7 @@ const char* AssetLookup::Shader::values[] =
 	"assets/edge_detect.glsl",
 	"assets/flat.glsl",
 	"assets/flat_texture.glsl",
+	"assets/point_grid.glsl",
 	"assets/point_light.glsl",
 	"assets/skybox.glsl",
 	"assets/spot_light.glsl",
@@ -171,6 +174,7 @@ const char* AssetLookup::Shader::names[] =
 	"edge_detect",
 	"flat",
 	"flat_texture",
+	"point_grid",
 	"point_light",
 	"skybox",
 	"spot_light",

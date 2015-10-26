@@ -136,7 +136,8 @@ int proc()
 
 	RenderSync* sync = render_swapper.get();
 
-	float lastTime = (float)(SDL_GetTicks() / 1000.0);
+	double last_time_real = SDL_GetTicks() / 1000.0;
+	double last_time = last_time_real;
 
 	bool last_keys[KEYCODE_COUNT];
 	memset(last_keys, 0, sizeof(last_keys));
@@ -226,9 +227,11 @@ int proc()
 
 		SDL_GetWindowSize(window, &sync->input.width, &sync->input.height);
 
-		sync->time.total = (float)(SDL_GetTicks() / 1000.0);
-		sync->time.delta = sync->time.total - lastTime;
-		lastTime = sync->time.total;
+		double real = (SDL_GetTicks() / 1000.0);
+		sync->time.real = (float)real;
+		sync->time.delta = (sync->time.real - last_time_real) * Game::time_scale;
+		last_time_real = sync->time.real;
+		last_time = sync->time.total = last_time + sync->time.delta;
 
 		sync = render_swapper.swap<SwapType_Read>();
 

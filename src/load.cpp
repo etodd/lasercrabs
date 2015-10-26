@@ -118,7 +118,7 @@ Mesh* Loader::mesh(const AssetID id)
 
 		// GL
 		RenderSync* sync = swapper->get();
-		sync->write(RenderOp_AllocMesh);
+		sync->write(RenderOp::AllocMesh);
 		sync->write<int>(id);
 		sync->write<bool>(false); // Whether the buffers should be dynamic or not
 
@@ -137,7 +137,7 @@ Mesh* Loader::mesh(const AssetID id)
 			sync->write<int>(a->count);
 		}
 
-		sync->write(RenderOp_UpdateAttribBuffers);
+		sync->write(RenderOp::UpdateAttribBuffers);
 		sync->write<int>(id);
 
 		sync->write<int>(mesh->vertices.length);
@@ -150,7 +150,7 @@ Mesh* Loader::mesh(const AssetID id)
 			sync->write(a->data.data, a->data.length);
 		}
 
-		sync->write(RenderOp_UpdateIndexBuffer);
+		sync->write(RenderOp::UpdateIndexBuffer);
 		sync->write<int>(id);
 		sync->write<int>(mesh->indices.length);
 		sync->write(mesh->indices.data, mesh->indices.length);
@@ -174,7 +174,7 @@ void Loader::mesh_free(const AssetID id)
 	{
 		meshes[id].data.~Mesh();
 		RenderSync* sync = swapper->get();
-		sync->write(RenderOp_FreeMesh);
+		sync->write(RenderOp::FreeMesh);
 		sync->write<int>(id);
 		meshes[id].type = AssetNone;
 	}
@@ -262,7 +262,7 @@ int Loader::dynamic_mesh(int attribs, const bool dynamic)
 	dynamic_meshes[index - Asset::Mesh::count].type = AssetTransient;
 
 	RenderSync* sync = swapper->get();
-	sync->write(RenderOp_AllocMesh);
+	sync->write(RenderOp::AllocMesh);
 	sync->write<int>(index);
 	sync->write<bool>(dynamic);
 	sync->write<int>(attribs);
@@ -290,7 +290,7 @@ void Loader::dynamic_mesh_free(int id)
 	if (id != AssetNull && dynamic_meshes[id].type != AssetNone)
 	{
 		RenderSync* sync = swapper->get();
-		sync->write(RenderOp_FreeMesh);
+		sync->write(RenderOp::FreeMesh);
 		sync->write<int>(id);
 		dynamic_meshes[id - Asset::Mesh::count].type = AssetNone;
 	}
@@ -394,9 +394,9 @@ void Loader::texture(const AssetID id)
 		}
 
 		RenderSync* sync = swapper->get();
-		sync->write(RenderOp_AllocTexture);
+		sync->write(RenderOp::AllocTexture);
 		sync->write<AssetID>(id);
-		sync->write(RenderOp_LoadTexture);
+		sync->write(RenderOp::LoadTexture);
 		sync->write<AssetID>(id);
 		sync->write<unsigned>(&width);
 		sync->write<unsigned>(&height);
@@ -417,7 +417,7 @@ void Loader::texture_free(const AssetID id)
 	if (id != AssetNull && textures[id].type != AssetNone)
 	{
 		RenderSync* sync = swapper->get();
-		sync->write(RenderOp_FreeTexture);
+		sync->write(RenderOp::FreeTexture);
 		sync->write<AssetID>(id);
 		textures[id].type = AssetNone;
 	}
@@ -444,9 +444,9 @@ int Loader::dynamic_texture(const int width, const int height, const RenderDynam
 	dynamic_textures[index - Asset::Texture::count].type = AssetTransient;
 
 	RenderSync* sync = swapper->get();
-	sync->write(RenderOp_AllocTexture);
+	sync->write(RenderOp::AllocTexture);
 	sync->write<AssetID>(index);
-	sync->write(RenderOp_DynamicTexture);
+	sync->write(RenderOp::DynamicTexture);
 	sync->write<AssetID>(index);
 	sync->write<unsigned>(width);
 	sync->write<unsigned>(height);
@@ -469,7 +469,7 @@ void Loader::dynamic_texture_free(const int id)
 	if (id != AssetNull && dynamic_textures[id - Asset::Texture::count].type != AssetNone)
 	{
 		RenderSync* sync = swapper->get();
-		sync->write(RenderOp_FreeTexture);
+		sync->write(RenderOp::FreeTexture);
 		sync->write<AssetID>(id);
 		dynamic_textures[id - Asset::Texture::count].type = AssetNone;
 	}
@@ -496,7 +496,7 @@ int Loader::framebuffer(const int attachments)
 	framebuffers[index].type = AssetTransient;
 
 	RenderSync* sync = swapper->get();
-	sync->write(RenderOp_AllocFramebuffer);
+	sync->write(RenderOp::AllocFramebuffer);
 	sync->write<int>(index);
 	sync->write<int>(attachments);
 
@@ -524,7 +524,7 @@ void Loader::framebuffer_free(const int id)
 	if (id != AssetNull && framebuffers[id].type != AssetNone)
 	{
 		RenderSync* sync = swapper->get();
-		sync->write(RenderOp_FreeFramebuffer);
+		sync->write(RenderOp::FreeFramebuffer);
 		sync->write<int>(id);
 		framebuffers[id].type = AssetNone;
 	}
@@ -567,7 +567,7 @@ void Loader::shader(const AssetID id)
 		fclose(f);
 
 		RenderSync* sync = swapper->get();
-		sync->write(RenderOp_LoadShader);
+		sync->write(RenderOp::LoadShader);
 		sync->write<AssetID>(id);
 		sync->write<int>(&code.length);
 		sync->write(code.data, code.length);
@@ -586,7 +586,7 @@ void Loader::shader_free(const AssetID id)
 	if (id != AssetNull && shaders[id].type != AssetNone)
 	{
 		RenderSync* sync = swapper->get();
-		sync->write(RenderOp_FreeShader);
+		sync->write(RenderOp::FreeShader);
 		sync->write<AssetID>(id);
 		shaders[id].type = AssetNone;
 	}

@@ -437,7 +437,7 @@ void UI::init(RenderSync* sync)
 		2
 	};
 
-	sync->write(RenderOp_UpdateIndexBuffer);
+	sync->write(RenderOp::UpdateIndexBuffer);
 	sync->write(texture_mesh_id);
 	sync->write<int>(6);
 	sync->write(indices, 6);
@@ -463,22 +463,22 @@ void UI::draw(const RenderParams& p)
 {
 	if (indices.length > 0)
 	{
-		p.sync->write(RenderOp_UpdateAttribBuffers);
+		p.sync->write(RenderOp::UpdateAttribBuffers);
 		p.sync->write(mesh_id);
 		p.sync->write<int>(vertices.length);
 		p.sync->write(vertices.data, vertices.length);
 		p.sync->write(colors.data, colors.length);
 
-		p.sync->write(RenderOp_UpdateIndexBuffer);
+		p.sync->write(RenderOp::UpdateIndexBuffer);
 		p.sync->write(mesh_id);
 		p.sync->write<int>(indices.length);
 		p.sync->write(indices.data, indices.length);
 
-		p.sync->write(RenderOp_Shader);
+		p.sync->write(RenderOp::Shader);
 		p.sync->write(Asset::Shader::ui);
 		p.sync->write(p.technique);
 
-		p.sync->write(RenderOp_Mesh);
+		p.sync->write(RenderOp::Mesh);
 		p.sync->write(mesh_id);
 
 		vertices.length = 0;
@@ -518,25 +518,25 @@ void UI::texture(const RenderParams& p, const int texture, const Vec2& pos, cons
 		Vec2(uvb.x, uvb.y),
 	};
 
-	p.sync->write(RenderOp_UpdateAttribBuffers);
+	p.sync->write(RenderOp::UpdateAttribBuffers);
 	p.sync->write(texture_mesh_id);
 	p.sync->write<int>(4);
 	p.sync->write(vertices, 4);
 	p.sync->write(colors, 4);
 	p.sync->write(uvs, 4);
 
-	p.sync->write(RenderOp_Shader);
+	p.sync->write(RenderOp::Shader);
 	p.sync->write(Asset::Shader::ui_texture);
 	p.sync->write(p.technique);
 
-	p.sync->write(RenderOp_Uniform);
+	p.sync->write(RenderOp::Uniform);
 	p.sync->write(Asset::Uniform::color_buffer);
 	p.sync->write(RenderDataType_Texture);
 	p.sync->write<int>(1);
 	p.sync->write<RenderTextureType>(RenderTexture2D);
 	p.sync->write<AssetID>(texture);
 
-	p.sync->write(RenderOp_Mesh);
+	p.sync->write(RenderOp::Mesh);
 	p.sync->write(texture_mesh_id);
 }
 

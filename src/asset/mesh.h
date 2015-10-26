@@ -31,9 +31,9 @@ namespace Asset
 		const AssetID level1_scenery1_2 = 19;
 		const AssetID logo = 20;
 		const AssetID msg = 21;
-		const AssetID skybox = 22;
-		const AssetID socket_socket = 23;
-		const AssetID socket_socket_1 = 24;
+		const AssetID point_grid = 22;
+		const AssetID skybox = 23;
+		const AssetID socket = 24;
 		const AssetID sphere = 25;
 		const AssetID tri_tube = 26;
 	}

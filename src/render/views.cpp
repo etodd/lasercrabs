@@ -120,7 +120,7 @@ void View::draw(const RenderParams& params) const
 	Loader::texture(texture);
 
 	RenderSync* sync = params.sync;
-	sync->write(RenderOp_Shader);
+	sync->write(RenderOp::Shader);
 	sync->write(shader);
 	sync->write(params.technique);
 
@@ -129,19 +129,19 @@ void View::draw(const RenderParams& params) const
 	m = offset * m;
 	Mat4 mvp = m * params.view_projection;
 
-	sync->write(RenderOp_Uniform);
+	sync->write(RenderOp::Uniform);
 	sync->write(Asset::Uniform::mvp);
 	sync->write(RenderDataType_Mat4);
 	sync->write<int>(1);
 	sync->write<Mat4>(mvp);
 
-	sync->write(RenderOp_Uniform);
+	sync->write(RenderOp::Uniform);
 	sync->write(Asset::Uniform::mv);
 	sync->write(RenderDataType_Mat4);
 	sync->write<int>(1);
 	sync->write<Mat4>(m * params.view);
 
-	sync->write(RenderOp_Uniform);
+	sync->write(RenderOp::Uniform);
 	sync->write(Asset::Uniform::diffuse_color);
 	sync->write(RenderDataType_Vec4);
 	sync->write<int>(1);
@@ -149,7 +149,7 @@ void View::draw(const RenderParams& params) const
 
 	if (texture != AssetNull)
 	{
-		sync->write(RenderOp_Uniform);
+		sync->write(RenderOp::Uniform);
 		sync->write(Asset::Uniform::diffuse_map);
 		sync->write(RenderDataType_Texture);
 		sync->write<int>(1);
@@ -157,7 +157,7 @@ void View::draw(const RenderParams& params) const
 		sync->write<AssetID>(texture);
 	}
 
-	sync->write(RenderOp_Mesh);
+	sync->write(RenderOp::Mesh);
 	sync->write(mesh);
 }
 
@@ -218,7 +218,7 @@ void Skybox::draw(const RenderParams& p)
 
 	RenderSync* sync = p.sync;
 
-	sync->write(RenderOp_Shader);
+	sync->write(RenderOp::Shader);
 	sync->write(shader);
 	sync->write(p.technique);
 
@@ -226,13 +226,13 @@ void Skybox::draw(const RenderParams& p)
 	mvp.translation(Vec3::zero);
 	mvp = mvp * p.camera->projection;
 
-	sync->write(RenderOp_Uniform);
+	sync->write(RenderOp::Uniform);
 	sync->write(Asset::Uniform::mvp);
 	sync->write(RenderDataType_Mat4);
 	sync->write<int>(1);
 	sync->write<Mat4>(mvp);
 
-	sync->write(RenderOp_Uniform);
+	sync->write(RenderOp::Uniform);
 	sync->write(Asset::Uniform::diffuse_color);
 	sync->write(RenderDataType_Vec4);
 	sync->write<int>(1);
@@ -240,7 +240,7 @@ void Skybox::draw(const RenderParams& p)
 
 	if (texture != AssetNull)
 	{
-		sync->write(RenderOp_Uniform);
+		sync->write(RenderOp::Uniform);
 		sync->write(Asset::Uniform::diffuse_map);
 		sync->write(RenderDataType_Texture);
 		sync->write<int>(1);
@@ -248,7 +248,7 @@ void Skybox::draw(const RenderParams& p)
 		sync->write<AssetID>(texture);
 	}
 
-	sync->write(RenderOp_Mesh);
+	sync->write(RenderOp::Mesh);
 	sync->write(mesh);
 }
 
@@ -258,7 +258,7 @@ void Cube::draw(const RenderParams& params, const Vec3& pos, const bool alpha, c
 	Loader::shader_permanent(Asset::Shader::flat);
 
 	RenderSync* sync = params.sync;
-	sync->write(RenderOp_Shader);
+	sync->write(RenderOp::Shader);
 	sync->write(alpha ? Asset::Shader::flat : Asset::Shader::standard);
 	sync->write(params.technique);
 
@@ -266,19 +266,19 @@ void Cube::draw(const RenderParams& params, const Vec3& pos, const bool alpha, c
 	m.make_transform(pos, scale, rot);
 	Mat4 mvp = m * params.view_projection;
 
-	sync->write(RenderOp_Uniform);
+	sync->write(RenderOp::Uniform);
 	sync->write(Asset::Uniform::mvp);
 	sync->write(RenderDataType_Mat4);
 	sync->write<int>(1);
 	sync->write<Mat4>(mvp);
 
-	sync->write(RenderOp_Uniform);
+	sync->write(RenderOp::Uniform);
 	sync->write(Asset::Uniform::diffuse_color);
 	sync->write(RenderDataType_Vec4);
 	sync->write<int>(1);
 	sync->write<Vec4>(color);
 
-	sync->write(RenderOp_Mesh);
+	sync->write(RenderOp::Mesh);
 	sync->write(Asset::Mesh::cube);
 }
 
@@ -304,7 +304,7 @@ void ScreenQuad::init(RenderSync* sync)
 		2
 	};
 
-	sync->write(RenderOp_UpdateIndexBuffer);
+	sync->write(RenderOp::UpdateIndexBuffer);
 	sync->write(mesh);
 	sync->write<int>(6);
 	sync->write(indices, 6);
@@ -331,7 +331,7 @@ void ScreenQuad::set(RenderSync* sync, const Vec2& a, const Vec2& b, const Camer
 		Vec2(uvb.x, uvb.y),
 	};
 
-	sync->write(RenderOp_UpdateAttribBuffers);
+	sync->write(RenderOp::UpdateAttribBuffers);
 	sync->write(mesh);
 	sync->write<int>(4);
 	sync->write(vertices, 4);

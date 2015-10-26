@@ -90,14 +90,14 @@ void render(RenderSync* sync)
 		RenderOp op = *(sync->read<RenderOp>());
 		switch (op)
 		{
-			case RenderOp_Viewport:
+			case RenderOp::Viewport:
 			{
 				const ScreenRect* rect = sync->read<ScreenRect>();
 				glViewport(rect->x, rect->y, rect->width, rect->height);
 				debug_check();
 				break;
 			}
-			case RenderOp_AllocMesh:
+			case RenderOp::AllocMesh:
 			{
 				int id = *(sync->read<int>());
 				if (id >= GLData::meshes.length)
@@ -153,7 +153,7 @@ void render(RenderSync* sync)
 				debug_check();
 				break;
 			}
-			case RenderOp_UpdateAttribBuffers:
+			case RenderOp::UpdateAttribBuffers:
 			{
 				int id = *(sync->read<int>());
 				GLData::Mesh* mesh = &GLData::meshes[id];
@@ -208,7 +208,7 @@ void render(RenderSync* sync)
 				debug_check();
 				break;
 			}
-			case RenderOp_UpdateIndexBuffer:
+			case RenderOp::UpdateIndexBuffer:
 			{
 				int id = *(sync->read<int>());
 				GLData::Mesh* mesh = &GLData::meshes[id];
@@ -222,7 +222,7 @@ void render(RenderSync* sync)
 				debug_check();
 				break;
 			}
-			case RenderOp_FreeMesh:
+			case RenderOp::FreeMesh:
 			{
 				AssetID id = *(sync->read<AssetID>());
 				GLData::Mesh* mesh = &GLData::meshes[id];
@@ -233,7 +233,7 @@ void render(RenderSync* sync)
 				debug_check();
 				break;
 			}
-			case RenderOp_AllocTexture:
+			case RenderOp::AllocTexture:
 			{
 				AssetID id = *(sync->read<AssetID>());
 				if (id >= GLData::textures.length)
@@ -242,7 +242,7 @@ void render(RenderSync* sync)
 				debug_check();
 				break;
 			}
-			case RenderOp_DynamicTexture:
+			case RenderOp::DynamicTexture:
 			{
 				AssetID id = *(sync->read<AssetID>());
 				unsigned width = *(sync->read<unsigned>());
@@ -254,20 +254,20 @@ void render(RenderSync* sync)
 					|| type != GLData::textures[id].type
 					|| filter != GLData::textures[id].filter)
 				{
-					glBindTexture(type == RenderDynamicTexture_ColorMultisample ? GL_TEXTURE_2D_MULTISAMPLE : GL_TEXTURE_2D, GLData::textures[id].handle);
+					glBindTexture(type == RenderDynamicTextureType::ColorMultisample ? GL_TEXTURE_2D_MULTISAMPLE : GL_TEXTURE_2D, GLData::textures[id].handle);
 					GLData::textures[id].width = width;
 					GLData::textures[id].height = height;
 					GLData::textures[id].type = type;
 					GLData::textures[id].filter = filter;
 					switch (type)
 					{
-						case RenderDynamicTexture_ColorMultisample:
+						case RenderDynamicTextureType::ColorMultisample:
 							glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, 8, GL_RGBA8, width, height, false);
 							break;
-						case RenderDynamicTexture_Color:
+						case RenderDynamicTextureType::Color:
 							glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, 0);
 							break;
-						case RenderDynamicTexture_Depth:
+						case RenderDynamicTextureType::Depth:
 							glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, width, height, 0, GL_DEPTH_COMPONENT, GL_FLOAT, 0);
 							break;
 						default:
@@ -280,13 +280,13 @@ void render(RenderSync* sync)
 					
 					switch (filter)
 					{
-						case RenderTextureFilter_Nearest:
+						case RenderTextureFilter::Nearest:
 						{
 							glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 							glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 							break;
 						}
-						case RenderTextureFilter_Linear:
+						case RenderTextureFilter::Linear:
 						{
 							glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 							glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
@@ -297,7 +297,7 @@ void render(RenderSync* sync)
 				debug_check();
 				break;
 			}
-			case RenderOp_LoadTexture:
+			case RenderOp::LoadTexture:
 			{
 				AssetID id = *(sync->read<AssetID>());
 				unsigned width = *(sync->read<unsigned>());
@@ -316,14 +316,14 @@ void render(RenderSync* sync)
 				debug_check();
 				break;
 			}
-			case RenderOp_FreeTexture:
+			case RenderOp::FreeTexture:
 			{
 				AssetID id = *(sync->read<AssetID>());
 				glDeleteTextures(1, &GLData::textures[id].handle);
 				debug_check();
 				break;
 			}
-			case RenderOp_LoadShader:
+			case RenderOp::LoadShader:
 			{
 				AssetID id = *(sync->read<AssetID>());
 
@@ -339,7 +339,7 @@ void render(RenderSync* sync)
 				debug_check();
 				break;
 			}
-			case RenderOp_FreeShader:
+			case RenderOp::FreeShader:
 			{
 				AssetID id = *(sync->read<AssetID>());
 				for (int i = 0; i < RenderTechnique_count; i++)
@@ -347,19 +347,19 @@ void render(RenderSync* sync)
 				debug_check();
 				break;
 			}
-			case RenderOp_ColorMask:
+			case RenderOp::ColorMask:
 			{
 				glColorMask(*(sync->read<bool>()), *(sync->read<bool>()), *(sync->read<bool>()), *(sync->read<bool>()));
 				debug_check();
 				break;
 			}
-			case RenderOp_DepthMask:
+			case RenderOp::DepthMask:
 			{
 				glDepthMask(*(sync->read<bool>()));
 				debug_check();
 				break;
 			}
-			case RenderOp_DepthTest:
+			case RenderOp::DepthTest:
 			{
 				bool enable = *(sync->read<bool>());
 				if (enable)
@@ -369,7 +369,7 @@ void render(RenderSync* sync)
 				debug_check();
 				break;
 			}
-			case RenderOp_Clear:
+			case RenderOp::Clear:
 			{
 				// Clear the screen
 				GLbitfield clear_flags = 0;
@@ -381,7 +381,7 @@ void render(RenderSync* sync)
 				debug_check();
 				break;
 			}
-			case RenderOp_Shader:
+			case RenderOp::Shader:
 			{
 				AssetID shader_asset = *(sync->read<AssetID>());
 				RenderTechnique technique = *(sync->read<RenderTechnique>());
@@ -396,7 +396,7 @@ void render(RenderSync* sync)
 				}
 				break;
 			}
-			case RenderOp_Uniform:
+			case RenderOp::Uniform:
 			{
 				AssetID uniform_asset = *(sync->read<AssetID>());
 
@@ -509,7 +509,7 @@ void render(RenderSync* sync)
 				debug_check();
 				break;
 			}
-			case RenderOp_Mesh:
+			case RenderOp::Mesh:
 			{
 				int id = *(sync->read<int>());
 				GLData::Mesh* mesh = &GLData::meshes[id];
@@ -558,19 +558,19 @@ void render(RenderSync* sync)
 				debug_check();
 				break;
 			}
-			case RenderOp_BlendMode:
+			case RenderOp::BlendMode:
 			{
 				RenderBlendMode mode = *(sync->read<RenderBlendMode>());
 				switch (mode)
 				{
-					case RenderBlend_Opaque:
+					case RenderBlendMode::Opaque:
 						glDisablei(GL_BLEND, 0);
 						break;
-					case RenderBlend_Alpha:
+					case RenderBlendMode::Alpha:
 						glEnablei(GL_BLEND, 0);
 						glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 						break;
-					case RenderBlend_Additive:
+					case RenderBlendMode::Additive:
 						glEnablei(GL_BLEND, 0);
 						glBlendFunc(GL_SRC_ALPHA, GL_ONE);
 						break;
@@ -581,20 +581,20 @@ void render(RenderSync* sync)
 				debug_check();
 				break;
 			}
-			case RenderOp_CullMode:
+			case RenderOp::CullMode:
 			{
 				RenderCullMode mode = *(sync->read<RenderCullMode>());
 				switch (mode)
 				{
-					case RenderCull_Back:
+					case RenderCullMode::Back:
 						glEnable(GL_CULL_FACE);
 						glCullFace(GL_BACK);
 						break;
-					case RenderCull_Front:
+					case RenderCullMode::Front:
 						glEnable(GL_CULL_FACE);
 						glCullFace(GL_FRONT);
 						break;
-					case RenderCull_None:
+					case RenderCullMode::None:
 						glDisable(GL_CULL_FACE);
 						break;
 					default:
@@ -604,7 +604,25 @@ void render(RenderSync* sync)
 				debug_check();
 				break;
 			}
-			case RenderOp_AllocFramebuffer:
+			case RenderOp::FillMode:
+			{
+				RenderFillMode mode = *(sync->read<RenderFillMode>());
+				switch (mode)
+				{
+					case RenderFillMode::Fill:
+						glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+						break;
+					case RenderFillMode::Line:
+						glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+						break;
+					case RenderFillMode::Point:
+						glPolygonMode(GL_FRONT_AND_BACK, GL_POINT);
+						break;
+				}
+				debug_check();
+				break;
+			}
+			case RenderOp::AllocFramebuffer:
 			{
 				int id = *(sync->read<int>());
 				if (id >= GLData::framebuffers.length)
@@ -627,11 +645,11 @@ void render(RenderSync* sync)
 					GLenum gl_texture_type;
 					switch (GLData::textures[texture_id].type)
 					{
-						case RenderDynamicTexture_Color:
-						case RenderDynamicTexture_Depth:
+						case RenderDynamicTextureType::Color:
+						case RenderDynamicTextureType::Depth:
 							gl_texture_type = GL_TEXTURE_2D;
 							break;
-						case RenderDynamicTexture_ColorMultisample:
+						case RenderDynamicTextureType::ColorMultisample:
 							gl_texture_type = GL_TEXTURE_2D_MULTISAMPLE;
 							break;
 						default:
@@ -641,27 +659,27 @@ void render(RenderSync* sync)
 
 					switch (attachment_type)
 					{
-						case RenderFramebufferAttachment_Color0:
+						case RenderFramebufferAttachment::Color0:
 							glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, gl_texture_type, gl_texture_id, 0);
 							color_buffers[color_buffer_index] = GL_COLOR_ATTACHMENT0;
 							color_buffer_index++;
 							break;
-						case RenderFramebufferAttachment_Color1:
+						case RenderFramebufferAttachment::Color1:
 							glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, gl_texture_type, gl_texture_id, 0);
 							color_buffers[color_buffer_index] = GL_COLOR_ATTACHMENT1;
 							color_buffer_index++;
 							break;
-						case RenderFramebufferAttachment_Color2:
+						case RenderFramebufferAttachment::Color2:
 							glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT2, gl_texture_type, gl_texture_id, 0);
 							color_buffers[color_buffer_index] = GL_COLOR_ATTACHMENT2;
 							color_buffer_index++;
 							break;
-						case RenderFramebufferAttachment_Color3:
+						case RenderFramebufferAttachment::Color3:
 							glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT3, gl_texture_type, gl_texture_id, 0);
 							color_buffers[color_buffer_index] = GL_COLOR_ATTACHMENT3;
 							color_buffer_index++;
 							break;
-						case RenderFramebufferAttachment_Depth:
+						case RenderFramebufferAttachment::Depth:
 							glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, gl_texture_type, gl_texture_id, 0);
 							break;
 						default:
@@ -680,7 +698,7 @@ void render(RenderSync* sync)
 				debug_check();
 				break;
 			}
-			case RenderOp_BindFramebuffer:
+			case RenderOp::BindFramebuffer:
 			{
 				int id = *(sync->read<int>());
 				if (id == AssetNull)
@@ -690,14 +708,14 @@ void render(RenderSync* sync)
 				debug_check();
 				break;
 			}
-			case RenderOp_FreeFramebuffer:
+			case RenderOp::FreeFramebuffer:
 			{
 				int id = *(sync->read<int>());
 				glDeleteFramebuffers(1, &GLData::framebuffers[id]);
 				debug_check();
 				break;
 			}
-			case RenderOp_BlitFramebuffer:
+			case RenderOp::BlitFramebuffer:
 			{
 				int id = *(sync->read<int>());
 				glBindFramebuffer(GL_READ_FRAMEBUFFER, GLData::framebuffers[id]);

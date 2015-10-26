@@ -35,24 +35,24 @@ void SkinnedModel::draw(const RenderParams& params)
 	
 	m = offset * m;
 
-	sync->write(RenderOp_Shader);
+	sync->write(RenderOp::Shader);
 	sync->write(shader);
 	sync->write(params.technique);
 	Mat4 mvp = m * params.view_projection;
 
-	sync->write(RenderOp_Uniform);
+	sync->write(RenderOp::Uniform);
 	sync->write(Asset::Uniform::mvp);
 	sync->write(RenderDataType_Mat4);
 	sync->write<int>(1);
 	sync->write<Mat4>(mvp);
 
-	sync->write(RenderOp_Uniform);
+	sync->write(RenderOp::Uniform);
 	sync->write(Asset::Uniform::mv);
 	sync->write(RenderDataType_Mat4);
 	sync->write<int>(1);
 	sync->write<Mat4>(m * params.view);
 
-	sync->write(RenderOp_Uniform);
+	sync->write(RenderOp::Uniform);
 	sync->write(Asset::Uniform::diffuse_map);
 	sync->write(RenderDataType_Texture);
 	sync->write<int>(1);
@@ -65,19 +65,19 @@ void SkinnedModel::draw(const RenderParams& params)
 	for (int i = 0; i < bones.length; i++)
 		skin_transforms[i] = arm->inverse_bind_pose[i] * bones[i];
 
-	sync->write(RenderOp_Uniform);
+	sync->write(RenderOp::Uniform);
 	sync->write(Asset::Uniform::bones);
 	sync->write(RenderDataType_Mat4);
 	sync->write<int>(skin_transforms.length);
 	sync->write(skin_transforms.data, skin_transforms.length);
 
-	sync->write(RenderOp_Uniform);
+	sync->write(RenderOp::Uniform);
 	sync->write(Asset::Uniform::diffuse_color);
 	sync->write(RenderDataType_Vec4);
 	sync->write<int>(1);
 	sync->write<Vec4>(color);
 
-	sync->write(RenderOp_Mesh);
+	sync->write(RenderOp::Mesh);
 	sync->write(mesh);
 
 #if DEBUG_SKIN

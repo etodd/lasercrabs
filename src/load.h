@@ -82,8 +82,8 @@ struct Loader
 	static void texture_permanent(const AssetID);
 	static void texture_free(const AssetID);
 
-	static int dynamic_texture(const int, const int, const RenderDynamicTextureType, const RenderTextureFilter = RenderTextureFilter_Nearest);
-	static int dynamic_texture_permanent(const int, const int, const RenderDynamicTextureType, const RenderTextureFilter = RenderTextureFilter_Nearest);
+	static int dynamic_texture(const int, const int, const RenderDynamicTextureType, const RenderTextureFilter = RenderTextureFilter::Nearest);
+	static int dynamic_texture_permanent(const int, const int, const RenderDynamicTextureType, const RenderTextureFilter = RenderTextureFilter::Nearest);
 	static void dynamic_texture_free(const int);
 
 	static int framebuffer(const int);

@@ -55,68 +55,76 @@ struct Camera
 	void remove();
 };
 
-enum RenderOp
+enum class RenderOp
 {
-	RenderOp_Viewport,
-	RenderOp_AllocMesh,
-	RenderOp_FreeMesh,
-	RenderOp_UpdateAttribBuffers,
-	RenderOp_UpdateIndexBuffer,
-	RenderOp_AllocTexture,
-	RenderOp_DynamicTexture,
-	RenderOp_LoadTexture,
-	RenderOp_FreeTexture,
-	RenderOp_LoadShader,
-	RenderOp_FreeShader,
-	RenderOp_ColorMask,
-	RenderOp_DepthMask,
-	RenderOp_DepthTest,
-	RenderOp_Shader,
-	RenderOp_Uniform,
-	RenderOp_Mesh,
-	RenderOp_Clear,
-	RenderOp_BlendMode,
-	RenderOp_CullMode,
-	RenderOp_AllocFramebuffer,
-	RenderOp_BindFramebuffer,
-	RenderOp_FreeFramebuffer,
-	RenderOp_BlitFramebuffer,
+	Viewport,
+	AllocMesh,
+	FreeMesh,
+	UpdateAttribBuffers,
+	UpdateIndexBuffer,
+	AllocTexture,
+	DynamicTexture,
+	LoadTexture,
+	FreeTexture,
+	LoadShader,
+	FreeShader,
+	ColorMask,
+	DepthMask,
+	DepthTest,
+	Shader,
+	Uniform,
+	Mesh,
+	Clear,
+	BlendMode,
+	CullMode,
+	FillMode,
+	AllocFramebuffer,
+	BindFramebuffer,
+	FreeFramebuffer,
+	BlitFramebuffer,
 };
 
-enum RenderBlendMode
+enum class RenderBlendMode
 {
-	RenderBlend_Opaque,
-	RenderBlend_Alpha,
-	RenderBlend_Additive,
+	Opaque,
+	Alpha,
+	Additive,
 };
 
-enum RenderDynamicTextureType
+enum class RenderDynamicTextureType
 {
-	RenderDynamicTexture_Color,
-	RenderDynamicTexture_ColorMultisample,
-	RenderDynamicTexture_Depth,
+	Color,
+	ColorMultisample,
+	Depth,
 };
 
-enum RenderTextureFilter
+enum class RenderTextureFilter
 {
-	RenderTextureFilter_Nearest,
-	RenderTextureFilter_Linear,
+	Nearest,
+	Linear,
 };
 
-enum RenderFramebufferAttachment
+enum class RenderFramebufferAttachment
 {
-	RenderFramebufferAttachment_Color0,
-	RenderFramebufferAttachment_Color1,
-	RenderFramebufferAttachment_Color2,
-	RenderFramebufferAttachment_Color3,
-	RenderFramebufferAttachment_Depth,
+	Color0,
+	Color1,
+	Color2,
+	Color3,
+	Depth,
 };
 
-enum RenderCullMode
+enum class RenderCullMode
 {
-	RenderCull_Back,
-	RenderCull_Front,
-	RenderCull_None,
+	Back,
+	Front,
+	None,
+};
+
+enum class RenderFillMode
+{
+	Fill,
+	Line,
+	Point,
 };
 
 struct RenderSync

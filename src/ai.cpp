@@ -57,7 +57,7 @@ void AI::debug_draw(const RenderParams& p)
 		rcPolyMesh mesh;
 		Loader::base_nav_mesh(Loader::current_nav_mesh_id, &mesh);
 
-		p.sync->write(RenderOp_UpdateAttribBuffers);
+		p.sync->write(RenderOp::UpdateAttribBuffers);
 		p.sync->write(render_mesh);
 
 		p.sync->write<int>(mesh.nverts);
@@ -83,7 +83,7 @@ void AI::debug_draw(const RenderParams& p)
 			}
 		}
 
-		p.sync->write(RenderOp_UpdateIndexBuffer);
+		p.sync->write(RenderOp::UpdateIndexBuffer);
 		p.sync->write(render_mesh);
 
 		p.sync->write<int>(num_triangles * 3);
@@ -107,11 +107,11 @@ void AI::debug_draw(const RenderParams& p)
 		Loader::base_nav_mesh_free(&mesh);
 	}
 
-	p.sync->write(RenderOp_Shader);
+	p.sync->write(RenderOp::Shader);
 	p.sync->write(Asset::Shader::flat);
 	p.sync->write(p.technique);
 
-	p.sync->write(RenderOp_Uniform);
+	p.sync->write(RenderOp::Uniform);
 	p.sync->write(Asset::Uniform::diffuse_color);
 	p.sync->write(RenderDataType_Vec4);
 	p.sync->write<int>(1);
@@ -119,13 +119,13 @@ void AI::debug_draw(const RenderParams& p)
 
 	Mat4 mvp = p.view_projection;
 
-	p.sync->write(RenderOp_Uniform);
+	p.sync->write(RenderOp::Uniform);
 	p.sync->write(Asset::Uniform::mvp);
 	p.sync->write(RenderDataType_Mat4);
 	p.sync->write<int>(1);
 	p.sync->write<Mat4>(mvp);
 
-	p.sync->write(RenderOp_Mesh);
+	p.sync->write(RenderOp::Mesh);
 	p.sync->write(render_mesh);
 #endif
 }

@@ -10,6 +10,16 @@ namespace VI
 
 struct UIText
 {
+	struct VariableEntry
+	{
+		char name[255];
+		char value[255];
+	};
+
+	static Array<VariableEntry> variables;
+
+	static void set_variable(const char*, const char*);
+
 	enum class Anchor
 	{
 		Min,

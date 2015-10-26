@@ -46,6 +46,29 @@ void UIText::reeval_all()
 		instances[i]->reeval();
 }
 
+Array<UIText::VariableEntry> UIText::variables = Array<UIText::VariableEntry>();
+
+void UIText::set_variable(const char* name, const char* value)
+{
+	vi_assert(strlen(name) < 255 && strlen(value) < 255);
+	bool found = false;
+	for (int i = 0; i < variables.length; i++)
+	{
+		if (strcmp(variables[i].name, name) == 0)
+		{
+			strcpy(variables[i].value, value);
+			found = true;
+			break;
+		}
+	}
+	if (!found)
+	{
+		VariableEntry* entry = variables.add();
+		strcpy(entry->name, name);
+		strcpy(entry->value, value);
+	}
+}
+
 void UIText::text(const char* s)
 {
 	if (string != s)
@@ -66,9 +89,32 @@ void UIText::text(const char* s)
 	int vertex_index = 0;
 	int index_index = 0;
 	Vec3 pos(0, 0, 0);
+
+	const char* variable = 0;
 	while (true)
 	{
-		char c = string[char_index];
+		char c = variable && *variable ? *variable : string[char_index];
+
+		if (c == '{' && string[char_index + 1] == '{')
+		{
+			char* start = &string[char_index + 2];
+			char* end = start;
+			while (*end != '}' || *(end + 1) != '}')
+				end = strchr(end + 1, '}');
+
+			for (int i = 0; i < variables.length; i++)
+			{
+				if (strncmp(variables[i].name, start, end - start) == 0)
+				{
+					variable = variables[i].value;
+					
+					c = *variable;
+					// set up char_index to resume at the end of the variable name once we're done with it
+					char_index = end + 2 - string;
+					break;
+				}
+			}
+		}
 		if (!c)
 			break;
 
@@ -101,7 +147,11 @@ void UIText::text(const char* s)
 			vertex_index = vertices.length;
 			index_index = indices.length;
 		}
-		char_index++;
+
+		if (variable && *variable)
+			variable++;
+		else
+			char_index++;
 	}
 	normalized_bounds = Vec2(pos.x, 1.0f - pos.y);
 }

@@ -8,7 +8,7 @@ namespace Asset
 {
 	namespace Mesh
 	{
-		const int count = 27;
+		const int count = 28;
 		const AssetID Alpha = 0;
 		const AssetID awk = 1;
 		const AssetID city1 = 2;
@@ -22,22 +22,23 @@ namespace Asset
 		const AssetID cone = 10;
 		const AssetID cube = 11;
 		const AssetID icon_power = 12;
-		const AssetID level1_Plane = 13;
-		const AssetID level1_city2_001_2 = 14;
-		const AssetID level1_city2_002_1 = 15;
-		const AssetID level1_city2_2 = 16;
-		const AssetID level1_city3_1 = 17;
-		const AssetID level1_city3_2 = 18;
-		const AssetID level1_scenery1_2 = 19;
-		const AssetID logo = 20;
-		const AssetID msg = 21;
-		const AssetID point_grid = 22;
-		const AssetID skybox = 23;
-		const AssetID socket = 24;
-		const AssetID sphere = 25;
-		const AssetID tri_tube = 26;
+		const AssetID level1_Plane_1 = 13;
+		const AssetID level1_city2 = 14;
+		const AssetID level1_city2_001 = 15;
+		const AssetID level1_city2_002_2 = 16;
+		const AssetID level1_main = 17;
+		const AssetID level1_main_2 = 18;
+		const AssetID level1_scenery1 = 19;
+		const AssetID level1_scenery2 = 20;
+		const AssetID logo = 21;
+		const AssetID msg = 22;
+		const AssetID point_grid = 23;
+		const AssetID skybox = 24;
+		const AssetID socket = 25;
+		const AssetID sphere = 26;
+		const AssetID tri_tube = 27;
 	}
-	const AssetID mesh_refs[9][7] =
+	const AssetID mesh_refs[9][8] =
 	{
 		{
 			2,
@@ -67,6 +68,7 @@ namespace Asset
 			17,
 			18,
 			19,
+			20,
 		},
 		{
 		},

@@ -11,10 +11,6 @@
 #include "loop.h"
 #include "game/game.h"
 
-#if _WIN32
-#include <Windows.h>
-#endif
-
 namespace VI
 {
 
@@ -41,10 +37,6 @@ void refresh_controllers()
 
 int proc()
 {
-#if _WIN32
-	SetProcessDPIAware();
-#endif
-
 	// Initialise SDL
 	if (SDL_Init(
 		SDL_INIT_VIDEO

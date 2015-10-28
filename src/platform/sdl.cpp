@@ -150,7 +150,7 @@ int proc()
 	bool last_keys[KEYCODE_COUNT];
 	memset(last_keys, 0, sizeof(last_keys));
 	unsigned int last_mouse_buttons = 0;
-	unsigned int gamepad_btns[MAX_GAMEPADS] = {};
+	Gamepad gamepads[MAX_GAMEPADS] = {};
 
 	bool has_focus = true;
 
@@ -200,9 +200,9 @@ int proc()
 		for (int i = 0; i < MAX_GAMEPADS; i++)
 		{
 			SDL_GameController* controller = controllers[i];
-			Gamepad* gamepad = &sync->input.gamepads[i];
+			sync->input.last_gamepads[i] = gamepads[i];
+			Gamepad* gamepad = &gamepads[i];
 			gamepad->active = controller != 0;
-			gamepad->last_btns = gamepad_btns[i];
 			gamepad->btns = 0;
 			if (gamepad->active)
 			{
@@ -228,7 +228,7 @@ int proc()
 					gamepad->btns |= Gamepad::Btn::Start;
 				active_gamepads++;
 			}
-			gamepad_btns[i] = gamepad->btns;
+			sync->input.gamepads[i] = gamepads[i];
 		}
 
 		sync->quit = quit;

@@ -263,7 +263,6 @@ struct Gamepad
 	float left_trigger;
 	float right_trigger;
 	unsigned int btns;
-	unsigned int last_btns;
 };
 
 #define MAX_GAMEPADS 4
@@ -279,6 +278,7 @@ struct InputState
 	int width;
 	int height;
 	Gamepad gamepads[MAX_GAMEPADS];
+	Gamepad last_gamepads[MAX_GAMEPADS];
 };
 
 }

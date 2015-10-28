@@ -75,10 +75,13 @@ PhysicsEntity::PhysicsEntity(const ID id, const Vec3& pos, const Quat& quat, con
 	transform->pos = pos;
 	transform->rot = quat;
 
-	View* model = create<View>();
-	model->offset = Mat4::make_scale(scale);
-	model->mesh = mesh;
-	model->shader = Asset::Shader::standard;
+	if (mesh != AssetNull)
+	{
+		View* model = create<View>();
+		model->offset = Mat4::make_scale(scale);
+		model->mesh = mesh;
+		model->shader = Asset::Shader::standard;
+	}
 	
 	RigidBody* body = create<RigidBody>(pos, quat, mass, shape);
 }
@@ -90,10 +93,13 @@ PhysicsEntity::PhysicsEntity(const ID id, const Vec3& pos, const Quat& quat, con
 	transform->pos = pos;
 	transform->rot = quat;
 
-	View* model = create<View>();
-	model->offset = Mat4::make_scale(scale);
-	model->mesh = mesh;
-	model->shader = Asset::Shader::standard;
+	if (mesh != AssetNull)
+	{
+		View* model = create<View>();
+		model->offset = Mat4::make_scale(scale);
+		model->mesh = mesh;
+		model->shader = Asset::Shader::standard;
+	}
 	
 	RigidBody* body = create<RigidBody>(pos, quat, mass, shape, filter_group, filter_mask);
 }
@@ -131,7 +137,7 @@ void NoclipControl::update(const Update& u)
 
 	if (!Console::visible)
 	{
-		float speed = u.input->keys[KEYCODE_LSHIFT] ? 16.0f : 8.0f;
+		float speed = u.input->keys[KEYCODE_LSHIFT] ? 24.0f : 4.0f;
 		if (u.input->keys[KEYCODE_SPACE])
 			get<Transform>()->pos += Vec3(0, 1, 0) * u.time.delta * speed;
 		if (u.input->keys[KEYCODE_LCTRL])
@@ -145,7 +151,7 @@ void NoclipControl::update(const Update& u)
 		if (u.input->keys[KEYCODE_A])
 			get<Transform>()->pos += look_quat * Vec3(1, 0, 0) * u.time.delta * speed;
 
-		if ((u.input->mouse_buttons & 1) && (u.input->last_mouse_buttons | 1))
+		if ((u.input->mouse_buttons & 1) && !(u.input->last_mouse_buttons & 1))
 		{
 			static const Vec3 scale = Vec3(0.1f, 0.2f, 0.1f);
 			Entity* box = World::create<PhysicsEntity>(get<Transform>()->absolute_pos() + look_quat * Vec3(0, 0, 0.25f), look_quat, Asset::Mesh::cube, 1.0f, new btBoxShape(scale), scale);

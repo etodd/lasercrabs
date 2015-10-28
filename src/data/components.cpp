@@ -10,10 +10,6 @@ Transform::Transform()
 
 }
 
-void Transform::awake()
-{
-}
-
 void Transform::mat(Mat4* m) const
 {
 	*m = Mat4::identity;

@@ -124,10 +124,10 @@ Mesh* Loader::mesh(const AssetID id)
 
 		sync->write<int>(2 + extra_attribs.length); // Attribute count
 
-		sync->write(RenderDataType_Vec3); // Position
+		sync->write(RenderDataType::Vec3); // Position
 		sync->write<int>(1); // Number of data elements per vertex
 
-		sync->write(RenderDataType_Vec3); // Normal
+		sync->write(RenderDataType::Vec3); // Normal
 		sync->write<int>(1); // Number of data elements per vertex
 
 		for (int i = 0; i < extra_attribs.length; i++)
@@ -216,6 +216,11 @@ Armature* Loader::armature(const AssetID id)
 		fread(arm->inverse_bind_pose.data, sizeof(Mat4), bones, f);
 		for (int i = 0; i < arm->inverse_bind_pose.length; i++)
 			arm->abs_bind_pose[i] = arm->inverse_bind_pose[i].inverse();
+
+		int bodies;
+		fread(&bodies, sizeof(int), 1, f);
+		arm->bodies.resize(bodies);
+		fread(arm->bodies.data, sizeof(BodyEntry), bodies, f);
 
 		fclose(f);
 

@@ -39,7 +39,7 @@ struct GLData
 		Array<GLuint> uniforms;
 	};
 
-	typedef std::array<ShaderTechnique, RenderTechnique_count> Shader;
+	typedef std::array<ShaderTechnique, (size_t)RenderTechnique::count> Shader;
 
 	struct Texture
 	{
@@ -64,7 +64,7 @@ Array<GLData::Shader> GLData::shaders = Array<GLData::Shader>();
 Array<GLData::Mesh> GLData::meshes = Array<GLData::Mesh>();
 Array<GLuint> GLData::framebuffers = Array<GLuint>();
 AssetID GLData::current_shader_asset = AssetNull;
-RenderTechnique GLData::current_shader_technique = RenderTechnique_Default;
+RenderTechnique GLData::current_shader_technique = RenderTechnique::Default;
 Array<AssetID> GLData::samplers = Array<AssetID>();
 
 void render_init()
@@ -118,27 +118,27 @@ void render(RenderSync* sync)
 					a.element_count = *(sync->read<int>());
 					switch (a.data_type)
 					{
-						case RenderDataType_Int:
+						case RenderDataType::Int:
 							a.total_element_size = a.element_count;
 							a.gl_type = GL_INT;
 							break;
-						case RenderDataType_Float:
+						case RenderDataType::Float:
 							a.total_element_size = a.element_count;
 							a.gl_type = GL_FLOAT;
 							break;
-						case RenderDataType_Vec2:
+						case RenderDataType::Vec2:
 							a.total_element_size = a.element_count * sizeof(Vec2) / 4;
 							a.gl_type = GL_FLOAT;
 							break;
-						case RenderDataType_Vec3:
+						case RenderDataType::Vec3:
 							a.total_element_size = a.element_count * sizeof(Vec3) / 4;
 							a.gl_type = GL_FLOAT;
 							break;
-						case RenderDataType_Vec4:
+						case RenderDataType::Vec4:
 							a.total_element_size = a.element_count * sizeof(Vec4) / 4;
 							a.gl_type = GL_FLOAT;
 							break;
-						case RenderDataType_Mat4:
+						case RenderDataType::Mat4:
 							a.total_element_size = a.element_count * sizeof(Mat4) / 4;
 							a.gl_type = GL_FLOAT;
 							break;
@@ -170,32 +170,32 @@ void render(RenderSync* sync)
 					glBindBuffer(GL_ARRAY_BUFFER, attrib->handle);
 					switch (attrib->data_type)
 					{
-						case RenderDataType_Float:
+						case RenderDataType::Float:
 						{
 							glBufferData(GL_ARRAY_BUFFER, count * sizeof(float) * attrib->element_count, sync->read<float>(count * attrib->element_count), usage);
 							break;
 						}
-						case RenderDataType_Vec2:
+						case RenderDataType::Vec2:
 						{
 							glBufferData(GL_ARRAY_BUFFER, count * sizeof(Vec2) * attrib->element_count, sync->read<Vec2>(count * attrib->element_count), usage);
 							break;
 						}
-						case RenderDataType_Vec3:
+						case RenderDataType::Vec3:
 						{
 							glBufferData(GL_ARRAY_BUFFER, count * sizeof(Vec3) * attrib->element_count, sync->read<Vec3>(count * attrib->element_count), usage);
 							break;
 						}
-						case RenderDataType_Vec4:
+						case RenderDataType::Vec4:
 						{
 							glBufferData(GL_ARRAY_BUFFER, count * sizeof(Vec4) * attrib->element_count, sync->read<Vec4>(count * attrib->element_count), usage);
 							break;
 						}
-						case RenderDataType_Int:
+						case RenderDataType::Int:
 						{
 							glBufferData(GL_ARRAY_BUFFER, count * sizeof(int) * attrib->element_count, sync->read<int>(count * attrib->element_count), usage);
 							break;
 						}
-						case RenderDataType_Mat4:
+						case RenderDataType::Mat4:
 						{
 							glBufferData(GL_ARRAY_BUFFER, count * sizeof(Mat4) * attrib->element_count, sync->read<Mat4>(count * attrib->element_count), usage);
 							break;
@@ -333,7 +333,7 @@ void render(RenderSync* sync)
 				int code_length = *(sync->read<int>());
 				const char* code = sync->read<char>(code_length);
 
-				for (int i = 0; i < RenderTechnique_count; i++)
+				for (int i = 0; i < (int)RenderTechnique::count; i++)
 					compile_shader(TechniquePrefixes::all[i], code, code_length, &GLData::shaders[id][i].handle);
 
 				debug_check();
@@ -342,7 +342,7 @@ void render(RenderSync* sync)
 			case RenderOp::FreeShader:
 			{
 				AssetID id = *(sync->read<AssetID>());
-				for (int i = 0; i < RenderTechnique_count; i++)
+				for (int i = 0; i < (int)RenderTechnique::count; i++)
 					glDeleteProgram(GLData::shaders[id][i].handle);
 				debug_check();
 				break;
@@ -390,7 +390,7 @@ void render(RenderSync* sync)
 					GLData::current_shader_asset = shader_asset;
 					GLData::current_shader_technique = technique;
 					GLData::samplers.length = 0;
-					GLuint program_id = GLData::shaders[shader_asset][technique].handle;
+					GLuint program_id = GLData::shaders[shader_asset][(int)technique].handle;
 					glUseProgram(program_id);
 					debug_check();
 				}
@@ -400,65 +400,65 @@ void render(RenderSync* sync)
 			{
 				AssetID uniform_asset = *(sync->read<AssetID>());
 
-				if (uniform_asset >= GLData::shaders[GLData::current_shader_asset][GLData::current_shader_technique].uniforms.length)
+				if (uniform_asset >= GLData::shaders[GLData::current_shader_asset][(int)GLData::current_shader_technique].uniforms.length)
 				{
-					int old_length = GLData::shaders[GLData::current_shader_asset][GLData::current_shader_technique].uniforms.length;
-					GLData::shaders[GLData::current_shader_asset][GLData::current_shader_technique].uniforms.resize(uniform_asset + 1);
+					int old_length = GLData::shaders[GLData::current_shader_asset][(int)GLData::current_shader_technique].uniforms.length;
+					GLData::shaders[GLData::current_shader_asset][(int)GLData::current_shader_technique].uniforms.resize(uniform_asset + 1);
 					for (int j = old_length; j < uniform_asset + 1; j++)
 					{
-						GLuint uniform = glGetUniformLocation(GLData::shaders[GLData::current_shader_asset][GLData::current_shader_technique].handle, AssetLookup::Uniform::values[j]);
-						GLData::shaders[GLData::current_shader_asset][GLData::current_shader_technique].uniforms[j] = uniform;
+						GLuint uniform = glGetUniformLocation(GLData::shaders[GLData::current_shader_asset][(int)GLData::current_shader_technique].handle, AssetLookup::Uniform::values[j]);
+						GLData::shaders[GLData::current_shader_asset][(int)GLData::current_shader_technique].uniforms[j] = uniform;
 					}
 				}
 
-				GLuint uniform_id = GLData::shaders[GLData::current_shader_asset][GLData::current_shader_technique].uniforms[uniform_asset];
+				GLuint uniform_id = GLData::shaders[GLData::current_shader_asset][(int)GLData::current_shader_technique].uniforms[uniform_asset];
 				RenderDataType uniform_type = *(sync->read<RenderDataType>());
 				int uniform_count = *(sync->read<int>());
 				switch (uniform_type)
 				{
-					case RenderDataType_Float:
+					case RenderDataType::Float:
 					{
 						const float* value = sync->read<float>(uniform_count);
 						glUniform1fv(uniform_id, uniform_count, value);
 						debug_check();
 						break;
 					}
-					case RenderDataType_Vec2:
+					case RenderDataType::Vec2:
 					{
 						const float* value = (float*)sync->read<Vec2>(uniform_count);
 						glUniform2fv(uniform_id, uniform_count, value);
 						debug_check();
 						break;
 					}
-					case RenderDataType_Vec3:
+					case RenderDataType::Vec3:
 					{
 						const float* value = (float*)sync->read<Vec3>(uniform_count);
 						glUniform3fv(uniform_id, uniform_count, value);
 						debug_check();
 						break;
 					}
-					case RenderDataType_Vec4:
+					case RenderDataType::Vec4:
 					{
 						const float* value = (float*)sync->read<Vec4>(uniform_count);
 						glUniform4fv(uniform_id, uniform_count, value);
 						debug_check();
 						break;
 					}
-					case RenderDataType_Int:
+					case RenderDataType::Int:
 					{
 						const int* value = sync->read<int>(uniform_count);
 						glUniform1iv(uniform_id, uniform_count, value);
 						debug_check();
 						break;
 					}
-					case RenderDataType_Mat4:
+					case RenderDataType::Mat4:
 					{
 						float* value = (float*)sync->read<Mat4>(uniform_count);
 						glUniformMatrix4fv(uniform_id, uniform_count, GL_FALSE, value);
 						debug_check();
 						break;
 					}
-					case RenderDataType_Texture:
+					case RenderDataType::Texture:
 					{
 						vi_assert(uniform_count == 1); // Only single textures supported for now
 						RenderTextureType texture_type = *(sync->read<RenderTextureType>());
@@ -619,6 +619,13 @@ void render(RenderSync* sync)
 						glPolygonMode(GL_FRONT_AND_BACK, GL_POINT);
 						break;
 				}
+				debug_check();
+				break;
+			}
+			case RenderOp::PointSize:
+			{
+				float size = *(sync->read<float>());
+				glPointSize(size);
 				debug_check();
 				break;
 			}

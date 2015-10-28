@@ -42,19 +42,19 @@ void SkinnedModel::draw(const RenderParams& params)
 
 	sync->write(RenderOp::Uniform);
 	sync->write(Asset::Uniform::mvp);
-	sync->write(RenderDataType_Mat4);
+	sync->write(RenderDataType::Mat4);
 	sync->write<int>(1);
 	sync->write<Mat4>(mvp);
 
 	sync->write(RenderOp::Uniform);
 	sync->write(Asset::Uniform::mv);
-	sync->write(RenderDataType_Mat4);
+	sync->write(RenderDataType::Mat4);
 	sync->write<int>(1);
 	sync->write<Mat4>(m * params.view);
 
 	sync->write(RenderOp::Uniform);
 	sync->write(Asset::Uniform::diffuse_map);
-	sync->write(RenderDataType_Texture);
+	sync->write(RenderDataType::Texture);
 	sync->write<int>(1);
 	sync->write<RenderTextureType>(RenderTexture2D);
 	sync->write<AssetID>(texture);
@@ -67,13 +67,13 @@ void SkinnedModel::draw(const RenderParams& params)
 
 	sync->write(RenderOp::Uniform);
 	sync->write(Asset::Uniform::bones);
-	sync->write(RenderDataType_Mat4);
+	sync->write(RenderDataType::Mat4);
 	sync->write<int>(skin_transforms.length);
 	sync->write(skin_transforms.data, skin_transforms.length);
 
 	sync->write(RenderOp::Uniform);
 	sync->write(Asset::Uniform::diffuse_color);
-	sync->write(RenderDataType_Vec4);
+	sync->write(RenderDataType::Vec4);
 	sync->write<int>(1);
 	sync->write<Vec4>(color);
 

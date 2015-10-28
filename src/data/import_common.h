@@ -19,22 +19,22 @@ struct TechniquePrefixes
 	static const char* all[];
 };
 
-enum RenderTechnique
+enum class RenderTechnique
 {
-	RenderTechnique_Default,
-	RenderTechnique_Shadow,
-	RenderTechnique_count,
+	Default,
+	Shadow,
+	count,
 };
 
-enum RenderDataType
+enum class RenderDataType
 {
-	RenderDataType_Float,
-	RenderDataType_Vec2,
-	RenderDataType_Vec3,
-	RenderDataType_Vec4,
-	RenderDataType_Int,
-	RenderDataType_Mat4,
-	RenderDataType_Texture,
+	Float,
+	Vec2,
+	Vec3,
+	Vec4,
+	Int,
+	Mat4,
+	Texture,
 };
 
 namespace Json
@@ -53,19 +53,19 @@ inline size_t render_data_type_size(RenderDataType type)
 {
 	switch (type)
 	{
-		case RenderDataType_Float:
+		case RenderDataType::Float:
 			return sizeof(float);
-		case RenderDataType_Vec2:
+		case RenderDataType::Vec2:
 			return sizeof(Vec2);
-		case RenderDataType_Vec3:
+		case RenderDataType::Vec3:
 			return sizeof(Vec3);
-		case RenderDataType_Vec4:
+		case RenderDataType::Vec4:
 			return sizeof(Vec4);
-		case RenderDataType_Int:
+		case RenderDataType::Int:
 			return sizeof(int);
-		case RenderDataType_Mat4:
+		case RenderDataType::Mat4:
 			return sizeof(Mat4);
-		case RenderDataType_Texture:
+		case RenderDataType::Texture:
 			return sizeof(int);
 	}
 	vi_assert(false);
@@ -79,14 +79,29 @@ struct Bone
 	Vec3 pos;
 };
 
+struct BodyEntry : Bone
+{
+	enum class Type
+	{
+		Box,
+		Capsule,
+		Sphere,
+	};
+
+	int bone;
+	Vec3 size;
+	Type type;
+};
+
 struct Armature
 {
 	Array<int> hierarchy;
 	Array<Bone> bind_pose;
 	Array<Mat4> inverse_bind_pose;
 	Array<Mat4> abs_bind_pose;
+	Array<BodyEntry> bodies;
 	Armature()
-		: hierarchy(), bind_pose(), inverse_bind_pose(), abs_bind_pose()
+		: hierarchy(), bind_pose(), inverse_bind_pose(), abs_bind_pose(), bodies()
 	{
 
 	}

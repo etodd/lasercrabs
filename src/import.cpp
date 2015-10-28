@@ -23,7 +23,7 @@
 namespace VI
 {
 
-const int version = 11;
+const int version = 12;
 
 const char* model_in_extension = ".blend";
 const char* model_intermediate_extension = ".fbx";
@@ -842,7 +842,46 @@ bool build_armature(Armature& armature, Map<int>& bone_map, aiNode* node, int pa
 {
 	int current_bone_index;
 	Map<int>::iterator bone_index_entry = bone_map.find(node->mName.C_Str());
-	if (bone_index_entry != bone_map.end())
+
+	aiVector3D ai_scale;
+	aiVector3D ai_pos;
+	aiQuaternion ai_rot;
+	node->mTransformation.Decompose(ai_scale, ai_rot, ai_pos);
+	Vec3 pos = Vec3(ai_pos.y, ai_pos.z, ai_pos.x);
+	Quat q = Quat(ai_rot.w, ai_rot.x, ai_rot.y, ai_rot.z);
+	Vec3 axis;
+	float angle;
+	q.to_angle_axis(angle, axis);
+	Vec3 corrected_axis = Vec3(axis.y, axis.z, axis.x);
+	Quat rot = Quat(angle, corrected_axis);
+	Vec3 scale = Vec3(ai_scale.y, ai_scale.z, ai_scale.x);
+
+	if (bone_index_entry == bone_map.end())
+	{
+		if (parent_index == -1)
+			current_bone_index = -1;
+		else
+		{
+			std::string name = node->mName.C_Str();
+			std::string parent_name = node->mParent->mName.C_Str();
+			if (name != parent_name + "_end")
+			{
+				current_bone_index = counter;
+				BodyEntry* body = armature.bodies.add();
+				body->bone = parent_index;
+				body->size = scale;
+				body->pos = pos;
+				body->rot = rot;
+				if (strstr(name.c_str(), "capsule") == name.c_str())
+					body->type = BodyEntry::Type::Capsule;
+				else if (strstr(name.c_str(), "sphere") == name.c_str())
+					body->type = BodyEntry::Type::Sphere;
+				else
+					body->type = BodyEntry::Type::Box;
+			}
+		}
+	}
+	else
 	{
 		bone_map[node->mName.C_Str()] = counter;
 		if (counter >= armature.hierarchy.length)
@@ -851,24 +890,12 @@ bool build_armature(Armature& armature, Map<int>& bone_map, aiNode* node, int pa
 			armature.bind_pose.resize(counter + 1);
 		}
 		armature.hierarchy[counter] = parent_index;
-		aiVector3D scale;
-		aiVector3D pos;
-		aiQuaternion rot;
-		node->mTransformation.Decompose(scale, rot, pos);
-		armature.bind_pose[counter].pos = Vec3(pos.y, pos.z, pos.x);
-		Quat q = Quat(rot.w, rot.x, rot.y, rot.z);
-		Vec3 axis;
-		float angle;
-		q.to_angle_axis(angle, axis);
-		Vec3 corrected_axis = Vec3(axis.y, axis.z, axis.x);
-		armature.bind_pose[counter].rot = Quat(angle, corrected_axis);
+		armature.bind_pose[counter].pos = pos;
+		armature.bind_pose[counter].rot = rot;
 		current_bone_index = counter;
 		counter++;
 	}
-	else if (parent_index == -1)
-		current_bone_index = -1;
-	else
-		current_bone_index = counter;
+
 	for (unsigned int i = 0; i < node->mNumChildren; i++)
 	{
 		if (!build_armature(armature, bone_map, node->mChildren[i], current_bone_index, counter))
@@ -883,12 +910,6 @@ bool build_armature_skinned(const aiScene* scene, const aiMesh* ai_mesh, Mesh& m
 {
 	if (ai_mesh->HasBones())
 	{
-		if (scene->mNumMeshes > 1)
-		{
-			fprintf(stderr, "Animated scene contains a skinned mesh.\n");
-			return false;
-		}
-
 		// Build the bone hierarchy.
 		// First we fill the bone map with all the bones,
 		// so that build_armature can tell which nodes are bones.
@@ -937,6 +958,8 @@ bool write_armature(const Armature& armature, const std::string& path)
 		fwrite(armature.hierarchy.data, sizeof(int), armature.hierarchy.length, f);
 		fwrite(armature.bind_pose.data, sizeof(Bone), armature.hierarchy.length, f);
 		fwrite(armature.inverse_bind_pose.data, sizeof(Mat4), armature.hierarchy.length, f);
+		fwrite(&armature.bodies.length, sizeof(int), 1, f);
+		fwrite(armature.bodies.data, sizeof(BodyEntry), armature.bodies.length, f);
 		fclose(f);
 		return true;
 	}
@@ -999,7 +1022,7 @@ bool write_mesh(
 		fwrite(&num_extra_attribs, sizeof(int), 1, f);
 		for (int i = 0; i < uv_layers.length; i++)
 		{
-			RenderDataType type = RenderDataType_Vec2;
+			RenderDataType type = RenderDataType::Vec2;
 			fwrite(&type, sizeof(RenderDataType), 1, f);
 			int count = 1;
 			fwrite(&count, sizeof(int), 1, f);
@@ -1007,13 +1030,13 @@ bool write_mesh(
 		}
 		if (bone_weights.length > 0)
 		{
-			RenderDataType type = RenderDataType_Int;
+			RenderDataType type = RenderDataType::Int;
 			fwrite(&type, sizeof(RenderDataType), 1, f);
 			int count = MAX_BONE_WEIGHTS;
 			fwrite(&count, sizeof(int), 1, f);
 			fwrite(bone_indices.data, sizeof(int[MAX_BONE_WEIGHTS]), mesh->vertices.length, f);
 
-			type = RenderDataType_Float;
+			type = RenderDataType::Float;
 			fwrite(&type, sizeof(RenderDataType), 1, f);
 			count = MAX_BONE_WEIGHTS;
 			fwrite(&count, sizeof(int), 1, f);
@@ -1558,7 +1581,7 @@ void import_shader(ImporterState& state, const std::string& asset_in_path, const
 		fread(code.data, fsize, 1, f);
 		fclose(f);
 
-		for (int i = 0; i < RenderTechnique_count; i++)
+		for (int i = 0; i < (int)RenderTechnique::count; i++)
 		{
 			GLuint program_id;
 			if (!compile_shader(TechniquePrefixes::all[i], code.data, code.length, &program_id, asset_out_path.c_str()))

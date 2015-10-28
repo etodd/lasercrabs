@@ -78,6 +78,7 @@ enum class RenderOp
 	BlendMode,
 	CullMode,
 	FillMode,
+	PointSize,
 	AllocFramebuffer,
 	BindFramebuffer,
 	FreeFramebuffer,

@@ -1,11 +1,12 @@
 #include "animator.h"
 #include "load.h"
+#include "render/skinned_model.h"
 
 namespace VI
 {
 
 Animator::Animator()
-	: bones(), channels(), time(), animation(AssetNull), armature(AssetNull), bindings(), triggers(), offsets()
+	: bones(), channels(), time(), animation(AssetNull), armature(AssetNull), bindings(), triggers(), offsets(), override_mode()
 {
 }
 
@@ -121,21 +122,32 @@ void Animator::update_world_transforms()
 		int old_length = offsets.length;
 		offsets.resize(arm->hierarchy.length);
 		for (int i = old_length; i < offsets.length; i++)
-			offsets[i] = Mat4::identity;
-	}
-	Mat4 transform;
-	get<Transform>()->mat(&transform);
-
-	for (int i = 0; i < bones.length; i++)
-	{
-		bones[i].make_transform(arm->bind_pose[i].pos, Vec3(1, 1, 1), arm->bind_pose[i].rot);
-		bones[i] = offsets[i] * bones[i];
+		{
+			if (override_mode == OverrideMode::Offset)
+				offsets[i] = Mat4::identity;
+			else
+				offsets[i].make_transform(arm->bind_pose[i].pos, Vec3(1, 1, 1), arm->bind_pose[i].rot);
+		}
 	}
 
-	for (int i = 0; i < channels.length; i++)
+	if (override_mode == OverrideMode::Offset)
 	{
-		int bone_index = channels[i].bone;
-		bones[bone_index] = offsets[i] * channels[i].transform;
+		for (int i = 0; i < bones.length; i++)
+		{
+			bones[i].make_transform(arm->bind_pose[i].pos, Vec3(1, 1, 1), arm->bind_pose[i].rot);
+			bones[i] = offsets[i] * bones[i];
+		}
+
+		for (int i = 0; i < channels.length; i++)
+		{
+			int bone_index = channels[i].bone;
+			bones[bone_index] = offsets[i] * channels[i].transform;
+		}
+	}
+	else
+	{
+		for (int i = 0; i < bones.length; i++)
+			bones[i] = offsets[i];
 	}
 
 	for (int i = 0; i < bones.length; i++)
@@ -145,6 +157,8 @@ void Animator::update_world_transforms()
 			bones[i] = bones[i] * bones[parent];
 	}
 
+	Mat4 transform;
+	get<Transform>()->mat(&transform);
 	for (int i = 0; i < bindings.length; i++)
 	{
 		BindEntry& binding = bindings[i];
@@ -205,12 +219,63 @@ void Animator::bone_transform(const int index, Vec3* pos, Quat* rot)
 	*pos = (bone_rot * *pos) + bone_pos;
 }
 
-void Animator::offset_bone(const int index, const Vec3& pos, const Quat& rot)
+void Animator::to_world(const int index, Vec3* pos, Quat* rot)
+{
+	bone_transform(index, pos, rot);
+	*pos = (get<SkinnedModel>()->offset * Vec4(*pos)).xyz();
+	*rot = get<SkinnedModel>()->offset.extract_quat() * *rot;
+	rot->normalize();
+	get<Transform>()->to_world(pos, rot);
+}
+
+void Animator::from_bone_body(const int index, const Vec3& pos, const Quat& rot, const Vec3& body_to_bone_pos, const Quat& body_to_bone_rot)
+{
+	update_world_transforms();
+
+	Mat4 offset_inverse = get<SkinnedModel>()->offset.inverse();
+	Quat offset_inverse_quat = offset_inverse.extract_quat();
+	offset_inverse_quat.normalize();
+
+	Vec3 offset_pos = (offset_inverse * Vec4(pos)).xyz();
+	Quat offset_rot = offset_inverse_quat * rot;
+
+	Vec3 parent_pos = Vec3::zero;
+	Quat parent_rot = Quat::identity;
+	Armature* arm = Loader::armature(armature);
+	int parent = arm->hierarchy[index];
+	if (parent != -1)
+		bone_transform(parent, &parent_pos, &parent_rot);
+	Quat parent_rot_inverse = parent_rot.inverse();
+
+	Vec3 local_pos = parent_rot_inverse * (offset_pos - parent_pos);
+	Quat local_rot = parent_rot_inverse * offset_rot;
+
+	Vec3 bone_pos = local_pos + local_rot * (body_to_bone_rot * body_to_bone_pos);
+	Quat bone_rot = local_rot * body_to_bone_rot;
+
+	override_bone(index, bone_pos, bone_rot);
+}
+
+void Animator::override_bone(const int index, const Vec3& pos, const Quat& rot)
 {
 	if (bones.length == 0)
 		update_world_transforms();
-	Armature* arm = Loader::armature(armature);
 	offsets[index].make_transform(pos, Vec3(1), rot);
+}
+
+void Animator::reset_overrides()
+{
+	Armature* arm = Loader::armature(armature);
+	if (override_mode == OverrideMode::Offset)
+	{
+		for (int i = 0; i < offsets.length; i++)
+			offsets[i] = Mat4::identity;
+	}
+	else
+	{
+		for (int i = 0; i < offsets.length; i++)
+			offsets[i].make_transform(arm->bind_pose[i].pos, Vec3(1, 1, 1), arm->bind_pose[i].rot);
+	}
 }
 
 void Animator::awake()

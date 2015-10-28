@@ -90,6 +90,8 @@ void UIText::text(const char* s)
 	int index_index = 0;
 	Vec3 pos(0, 0, 0);
 
+	normalized_bounds = Vec2::zero;
+
 	const char* variable = 0;
 	while (true)
 	{
@@ -152,8 +154,10 @@ void UIText::text(const char* s)
 			variable++;
 		else
 			char_index++;
+
+		normalized_bounds.x = fmax(normalized_bounds.x, pos.x);
+		normalized_bounds.y = fmax(normalized_bounds.y, 1.0f - pos.y);
 	}
-	normalized_bounds = Vec2(pos.x, 1.0f - pos.y);
 }
 
 Vec2 UIText::bounds() const
@@ -467,14 +471,14 @@ bool UI::project(const RenderParams& p, const Vec3& v, Vec2& out)
 void UI::init(RenderSync* sync)
 {
 	mesh_id = Loader::dynamic_mesh_permanent(2);
-	Loader::dynamic_mesh_attrib(RenderDataType_Vec3);
-	Loader::dynamic_mesh_attrib(RenderDataType_Vec4);
+	Loader::dynamic_mesh_attrib(RenderDataType::Vec3);
+	Loader::dynamic_mesh_attrib(RenderDataType::Vec4);
 	Loader::shader_permanent(Asset::Shader::ui);
 
 	texture_mesh_id = Loader::dynamic_mesh_permanent(3);
-	Loader::dynamic_mesh_attrib(RenderDataType_Vec3);
-	Loader::dynamic_mesh_attrib(RenderDataType_Vec4);
-	Loader::dynamic_mesh_attrib(RenderDataType_Vec2);
+	Loader::dynamic_mesh_attrib(RenderDataType::Vec3);
+	Loader::dynamic_mesh_attrib(RenderDataType::Vec4);
+	Loader::dynamic_mesh_attrib(RenderDataType::Vec2);
 	Loader::shader_permanent(Asset::Shader::ui_texture);
 
 	int indices[] =
@@ -581,7 +585,7 @@ void UI::texture(const RenderParams& p, const int texture, const Vec2& pos, cons
 
 	p.sync->write(RenderOp::Uniform);
 	p.sync->write(Asset::Uniform::color_buffer);
-	p.sync->write(RenderDataType_Texture);
+	p.sync->write(RenderDataType::Texture);
 	p.sync->write<int>(1);
 	p.sync->write<RenderTextureType>(RenderTexture2D);
 	p.sync->write<AssetID>(texture);

@@ -15,7 +15,7 @@ struct Transform : public ComponentType<Transform>
 
 	Transform();
 
-	void awake();
+	void awake() {}
 	void get_bullet(btTransform&) const;
 	void set_bullet(const btTransform&);
 

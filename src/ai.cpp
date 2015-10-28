@@ -34,7 +34,7 @@ void AI::init()
 	default_query_filter.setExcludeFlags(0);
 
 	render_mesh = Loader::dynamic_mesh_permanent(1);
-	Loader::dynamic_mesh_attrib(RenderDataType_Vec3);
+	Loader::dynamic_mesh_attrib(RenderDataType::Vec3);
 	Loader::shader_permanent(Asset::Shader::flat);
 }
 
@@ -113,7 +113,7 @@ void AI::debug_draw(const RenderParams& p)
 
 	p.sync->write(RenderOp::Uniform);
 	p.sync->write(Asset::Uniform::diffuse_color);
-	p.sync->write(RenderDataType_Vec4);
+	p.sync->write(RenderDataType::Vec4);
 	p.sync->write<int>(1);
 	p.sync->write(Vec4(0, 1, 0, 1));
 
@@ -121,7 +121,7 @@ void AI::debug_draw(const RenderParams& p)
 
 	p.sync->write(RenderOp::Uniform);
 	p.sync->write(Asset::Uniform::mvp);
-	p.sync->write(RenderDataType_Mat4);
+	p.sync->write(RenderDataType::Mat4);
 	p.sync->write<int>(1);
 	p.sync->write<Mat4>(mvp);
 

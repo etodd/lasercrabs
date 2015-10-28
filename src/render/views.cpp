@@ -131,19 +131,19 @@ void View::draw(const RenderParams& params) const
 
 	sync->write(RenderOp::Uniform);
 	sync->write(Asset::Uniform::mvp);
-	sync->write(RenderDataType_Mat4);
+	sync->write(RenderDataType::Mat4);
 	sync->write<int>(1);
 	sync->write<Mat4>(mvp);
 
 	sync->write(RenderOp::Uniform);
 	sync->write(Asset::Uniform::mv);
-	sync->write(RenderDataType_Mat4);
+	sync->write(RenderDataType::Mat4);
 	sync->write<int>(1);
 	sync->write<Mat4>(m * params.view);
 
 	sync->write(RenderOp::Uniform);
 	sync->write(Asset::Uniform::diffuse_color);
-	sync->write(RenderDataType_Vec4);
+	sync->write(RenderDataType::Vec4);
 	sync->write<int>(1);
 	sync->write<Vec4>(color);
 
@@ -151,7 +151,7 @@ void View::draw(const RenderParams& params) const
 	{
 		sync->write(RenderOp::Uniform);
 		sync->write(Asset::Uniform::diffuse_map);
-		sync->write(RenderDataType_Texture);
+		sync->write(RenderDataType::Texture);
 		sync->write<int>(1);
 		sync->write<RenderTextureType>(RenderTexture2D);
 		sync->write<AssetID>(texture);
@@ -166,8 +166,6 @@ void View::awake()
 	Mesh* m = Loader::mesh(mesh);
 	if (m && color.dot(Vec4(1)) == 0.0f)
 		color = m->color;
-	Loader::shader(shader);
-	Loader::texture(texture);
 }
 
 float Skybox::far_plane = 0.0f;
@@ -209,7 +207,7 @@ bool Skybox::valid()
 
 void Skybox::draw(const RenderParams& p)
 {
-	if (shader == AssetNull || mesh == AssetNull || p.technique != RenderTechnique_Default)
+	if (shader == AssetNull || mesh == AssetNull || p.technique != RenderTechnique::Default)
 		return;
 
 	Loader::shader(shader);
@@ -228,13 +226,13 @@ void Skybox::draw(const RenderParams& p)
 
 	sync->write(RenderOp::Uniform);
 	sync->write(Asset::Uniform::mvp);
-	sync->write(RenderDataType_Mat4);
+	sync->write(RenderDataType::Mat4);
 	sync->write<int>(1);
 	sync->write<Mat4>(mvp);
 
 	sync->write(RenderOp::Uniform);
 	sync->write(Asset::Uniform::diffuse_color);
-	sync->write(RenderDataType_Vec4);
+	sync->write(RenderDataType::Vec4);
 	sync->write<int>(1);
 	sync->write<Vec4>(Vec4(color, 0)); // 0 alpha is a special flag for the compositor
 
@@ -242,7 +240,7 @@ void Skybox::draw(const RenderParams& p)
 	{
 		sync->write(RenderOp::Uniform);
 		sync->write(Asset::Uniform::diffuse_map);
-		sync->write(RenderDataType_Texture);
+		sync->write(RenderDataType::Texture);
 		sync->write<int>(1);
 		sync->write<RenderTextureType>(RenderTexture2D);
 		sync->write<AssetID>(texture);
@@ -268,13 +266,13 @@ void Cube::draw(const RenderParams& params, const Vec3& pos, const bool alpha, c
 
 	sync->write(RenderOp::Uniform);
 	sync->write(Asset::Uniform::mvp);
-	sync->write(RenderDataType_Mat4);
+	sync->write(RenderDataType::Mat4);
 	sync->write<int>(1);
 	sync->write<Mat4>(mvp);
 
 	sync->write(RenderOp::Uniform);
 	sync->write(Asset::Uniform::diffuse_color);
-	sync->write(RenderDataType_Vec4);
+	sync->write(RenderDataType::Vec4);
 	sync->write<int>(1);
 	sync->write<Vec4>(color);
 
@@ -290,9 +288,9 @@ ScreenQuad::ScreenQuad()
 void ScreenQuad::init(RenderSync* sync)
 {
 	mesh = Loader::dynamic_mesh_permanent(3);
-	Loader::dynamic_mesh_attrib(RenderDataType_Vec3);
-	Loader::dynamic_mesh_attrib(RenderDataType_Vec3);
-	Loader::dynamic_mesh_attrib(RenderDataType_Vec2);
+	Loader::dynamic_mesh_attrib(RenderDataType::Vec3);
+	Loader::dynamic_mesh_attrib(RenderDataType::Vec3);
+	Loader::dynamic_mesh_attrib(RenderDataType::Vec2);
 
 	int indices[] =
 	{

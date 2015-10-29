@@ -10,9 +10,6 @@ const char* AssetLookup::Mesh::values[] =
 	"assets/awk.msh",
 	"assets/lvl/city1.msh",
 	"assets/lvl/city2.msh",
-	"assets/lvl/city3_city3.msh",
-	"assets/lvl/city3_city3_1.msh",
-	"assets/lvl/city3_elevator_2.msh",
 	"assets/cone.msh",
 	"assets/cube.msh",
 	"assets/icon_power.msh",
@@ -50,9 +47,6 @@ const char* AssetLookup::Mesh::names[] =
 	"awk",
 	"city1",
 	"city2",
-	"city3_city3",
-	"city3_city3_1",
-	"city3_elevator_2",
 	"cone",
 	"cube",
 	"icon_power",
@@ -290,7 +284,6 @@ const char* AssetLookup::Level::values[] =
 {
 	"assets/lvl/city1.lvl",
 	"assets/lvl/city2.lvl",
-	"assets/lvl/city3.lvl",
 	"assets/lvl/connect.lvl",
 	"assets/lvl/game_over.lvl",
 	"assets/lvl/level1.lvl",
@@ -306,7 +299,6 @@ const char* AssetLookup::Level::names[] =
 {
 	"city1",
 	"city2",
-	"city3",
 	"connect",
 	"game_over",
 	"level1",
@@ -322,7 +314,6 @@ const char* AssetLookup::NavMesh::values[] =
 {
 	"assets/lvl/city1.nav",
 	"assets/lvl/city2.nav",
-	"assets/lvl/city3.nav",
 	"assets/lvl/connect.nav",
 	"assets/lvl/game_over.nav",
 	"assets/lvl/level1.nav",
@@ -338,7 +329,6 @@ const char* AssetLookup::NavMesh::names[] =
 {
 	"city1",
 	"city2",
-	"city3",
 	"connect",
 	"game_over",
 	"level1",

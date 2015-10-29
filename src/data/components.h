@@ -41,6 +41,7 @@ struct PointLight : public ComponentType<PointLight>
 	PointLight();
 	float radius;
 	Vec3 color;
+	Vec3 offset;
 	void awake() {}
 };
 

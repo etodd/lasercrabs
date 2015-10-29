@@ -166,11 +166,12 @@ void draw(RenderSync* sync, const Camera* camera)
 		sync->write<int>(4);
 		sync->write<Vec3>(frustum, 4);
 
+		Loader::mesh_permanent(Asset::Mesh::sphere);
 		for (auto i = World::components<PointLight>().iterator(); !i.is_last(); i.next())
 		{
 			PointLight* light = i.item();
 
-			Vec3 light_pos = light->get<Transform>()->absolute_pos();
+			Vec3 light_pos = light->get<Transform>()->to_world(light->offset);
 			Mat4 light_transform = Mat4::make_translation(light_pos);
 			light_transform.scale(Vec3(light->radius));
 
@@ -198,7 +199,6 @@ void draw(RenderSync* sync, const Camera* camera)
 			sync->write<int>(1);
 			sync->write<float>(light->radius);
 
-			Loader::mesh_permanent(Asset::Mesh::sphere);
 			sync->write(RenderOp::Mesh);
 			sync->write(Asset::Mesh::sphere);
 		}

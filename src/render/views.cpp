@@ -2,6 +2,7 @@
 #include "load.h"
 #include "asset/shader.h"
 #include "asset/mesh.h"
+#include "console.h"
 
 namespace VI
 {
@@ -115,7 +116,18 @@ void View::draw(const RenderParams& params) const
 	if (mesh == AssetNull || shader == AssetNull)
 		return;
 
-	Loader::mesh(mesh);
+	Mesh* mesh_data = Loader::mesh(mesh);
+
+	Mat4 m;
+	get<Transform>()->mat(&m);
+	m = offset * m;
+
+	{
+		Vec3 radius = (offset * Vec4(mesh_data->bounds_radius, mesh_data->bounds_radius, mesh_data->bounds_radius, 0)).xyz();
+		if (!params.camera->visible_sphere(m.translation(), fmax(radius.x, fmax(radius.y, radius.z))))
+			return;
+	}
+
 	Loader::shader(shader);
 	Loader::texture(texture);
 
@@ -124,9 +136,6 @@ void View::draw(const RenderParams& params) const
 	sync->write(shader);
 	sync->write(params.technique);
 
-	Mat4 m;
-	get<Transform>()->mat(&m);
-	m = offset * m;
 	Mat4 mvp = m * params.view_projection;
 
 	sync->write(RenderOp::Uniform);
@@ -252,8 +261,12 @@ void Skybox::draw(const RenderParams& p)
 
 void Cube::draw(const RenderParams& params, const Vec3& pos, const bool alpha, const Vec3& scale, const Quat& rot, const Vec4& color)
 {
-	Loader::mesh_permanent(Asset::Mesh::cube);
+	Mesh* mesh = Loader::mesh_permanent(Asset::Mesh::cube);
 	Loader::shader_permanent(Asset::Shader::flat);
+
+	Vec3 radius = mesh->bounds_radius * scale;
+	if (!params.camera->visible_sphere(pos, fmax(radius.x, fmax(radius.y, radius.z))))
+		return;
 
 	RenderSync* sync = params.sync;
 	sync->write(RenderOp::Shader);
@@ -318,9 +331,6 @@ void ScreenQuad::set(RenderSync* sync, const Vec2& a, const Vec2& b, const Camer
 		Vec3(b.x, b.y, 0),
 	};
 
-	Vec3 frustum[4];
-	camera->projection_frustum(frustum);
-
 	Vec2 uvs[] =
 	{
 		Vec2(uva.x, uva.y),
@@ -333,7 +343,7 @@ void ScreenQuad::set(RenderSync* sync, const Vec2& a, const Vec2& b, const Camer
 	sync->write(mesh);
 	sync->write<int>(4);
 	sync->write(vertices, 4);
-	sync->write(frustum, 4);
+	sync->write(camera->frustum_rays, 4);
 	sync->write(uvs, 4);
 }
 

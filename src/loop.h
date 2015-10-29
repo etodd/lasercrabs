@@ -3,8 +3,6 @@
 
 #include "render/views.h"
 #include "render/render.h"
-#include "render/skinned_model.h"
-#include "data/animator.h"
 #include "data/array.h"
 #include "data/entity.h"
 #include "data/components.h"
@@ -16,8 +14,7 @@
 #include "input.h"
 #include "mersenne-twister.h"
 #include <time.h>
-#include "asset/lookup.h"
-#include "cJSON.h"
+#include "console.h"
 
 #if DEBUG
 	#define DEBUG_RENDER 0
@@ -69,8 +66,7 @@ void draw(RenderSync* sync, const Camera* camera)
 
 	Mat4 inverse_view = render_params.view.inverse();
 
-	Vec3 frustum[4];
-	render_params.camera->projection_frustum(frustum);
+	const Vec3* frustum = render_params.camera->frustum_rays;
 
 	Vec2 buffer_size(sync->input.width, sync->input.height);
 	Vec2 inv_buffer_size(1.0f / buffer_size.x, 1.0f / buffer_size.y);
@@ -172,6 +168,10 @@ void draw(RenderSync* sync, const Camera* camera)
 			PointLight* light = i.item();
 
 			Vec3 light_pos = light->get<Transform>()->to_world(light->offset);
+
+			if (!camera->visible_sphere(light_pos, light->radius))
+				continue;
+
 			Mat4 light_transform = Mat4::make_translation(light_pos);
 			light_transform.scale(Vec3(light->radius));
 
@@ -217,6 +217,15 @@ void draw(RenderSync* sync, const Camera* camera)
 			Vec3 abs_pos;
 			Quat abs_rot;
 			light->get<Transform>()->absolute(&abs_pos, &abs_rot);
+
+			{
+				Vec3 center = abs_pos + (abs_rot * Vec3(0, 0, light->radius * 0.5f));
+				float fov_size = light->radius * tanf(light->fov * 0.5f);
+				Vec3 corner(fov_size, fov_size, light->radius);
+				float radius = (corner - center).length();
+				if (!camera->visible_sphere(center, radius))
+					continue;
+			}
 
 			Mat4 light_vp;
 

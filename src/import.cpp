@@ -23,7 +23,7 @@
 namespace VI
 {
 
-const int version = 12;
+const int version = 13;
 
 const char* model_in_extension = ".blend";
 const char* model_intermediate_extension = ".fbx";
@@ -789,6 +789,7 @@ bool load_mesh(const aiMesh* mesh, Mesh* out)
 {
 	out->bounds_min = Vec3(FLT_MAX, FLT_MAX, FLT_MAX);
 	out->bounds_max = Vec3(FLT_MIN, FLT_MIN, FLT_MIN);
+	out->bounds_radius = 0.0f;
 	// Fill vertices positions
 	out->vertices.reserve(mesh->mNumVertices);
 	for (unsigned int i = 0; i < mesh->mNumVertices; i++)
@@ -801,8 +802,10 @@ bool load_mesh(const aiMesh* mesh, Mesh* out)
 		out->bounds_max.x = fmax(v.x, out->bounds_max.x);
 		out->bounds_max.y = fmax(v.y, out->bounds_max.y);
 		out->bounds_max.z = fmax(v.z, out->bounds_max.z);
+		out->bounds_radius = fmax(out->bounds_radius, v.length_squared());
 		out->vertices.add(v);
 	}
+	out->bounds_radius = sqrtf(out->bounds_radius);
 
 	// Fill vertices normals
 	if (mesh->HasNormals())
@@ -1013,6 +1016,7 @@ bool write_mesh(
 		fwrite(&mesh->color, sizeof(Vec4), 1, f);
 		fwrite(&mesh->bounds_min, sizeof(Vec3), 1, f);
 		fwrite(&mesh->bounds_max, sizeof(Vec3), 1, f);
+		fwrite(&mesh->bounds_radius, sizeof(float), 1, f);
 		fwrite(&mesh->indices.length, sizeof(int), 1, f);
 		fwrite(mesh->indices.data, sizeof(int), mesh->indices.length, f);
 		fwrite(&mesh->vertices.length, sizeof(int), 1, f);

@@ -292,6 +292,11 @@ struct Vec3
 
 	inline Vec3() : x(0), y(0), z(0) {}
 
+	inline Vec3(const Vec2& v, const float fZ)
+		: x(v.x), y(v.y), z(fZ)
+	{
+	}
+
 	inline Vec3(const float fX, const float fY, const float fZ)
 		: x(fX), y(fY), z(fZ)
 	{
@@ -580,6 +585,12 @@ struct Vec3
 	{
 		return (a * (1.0f - x)) + (b * x);
 	}
+};
+
+struct Ray
+{
+	Vec3 dir;
+	Vec3 pos;
 };
 
 struct Vec4

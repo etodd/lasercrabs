@@ -115,6 +115,7 @@ struct Mesh
 	Armature armature;
 	Vec3 bounds_min;
 	Vec3 bounds_max;
+	float bounds_radius;
 	Vec4 color;
 	void reset()
 	{

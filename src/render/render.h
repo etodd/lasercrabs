@@ -15,6 +15,11 @@ struct ScreenRect
 	int x, y, width, height;
 };
 
+struct Frustum
+{
+	Plane planes[6];
+};
+
 struct Camera
 {
 	static const int max_cameras = 8;
@@ -42,6 +47,8 @@ struct Camera
 	Vec3 pos;
 	Quat rot;
 	ScreenRect viewport;
+	Plane frustum[4];
+	Vec3 frustum_rays[4];
 
 	Camera()
 		: active(), projection(), projection_inverse(), pos(), rot(), viewport(), near_plane(), far_plane()
@@ -50,7 +57,8 @@ struct Camera
 	}
 	void perspective(const float, const float, const float, const float);
 	void orthographic(const float, const float, const float, const float);
-	void projection_frustum(Vec3*) const;
+	bool visible_sphere(const Vec3&, const float) const;
+	void update_frustum();
 	Mat4 view() const;
 	void remove();
 };

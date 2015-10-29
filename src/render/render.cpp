@@ -66,6 +66,7 @@ void Camera::perspective(const float fov, const float aspect, const float near, 
 	far_plane = far;
 	projection = Mat4::perspective(fov, aspect, near, far);
 	projection_inverse = projection.inverse();
+	update_frustum();
 }
 
 void Camera::orthographic(const float width, const float height, const float near, const float far)
@@ -74,6 +75,7 @@ void Camera::orthographic(const float width, const float height, const float nea
 	far_plane = far;
 	projection = Mat4::orthographic(width, height, near, far);
 	projection_inverse = projection.inverse();
+	update_frustum();
 }
 
 void Camera::remove()
@@ -81,29 +83,53 @@ void Camera::remove()
 	active = false;
 }
 
-void Camera::projection_frustum(Vec3* out) const
+bool Camera::visible_sphere(const Vec3& sphere_pos, const float sphere_radius) const
+{
+	Vec3 view_space = rot.inverse() * (sphere_pos - pos);
+	if (view_space.z + sphere_radius > near_plane && view_space.z - sphere_radius < far_plane)
+	{
+		if (view_space.length_squared() < sphere_radius * sphere_radius)
+			return true;
+
+		if (frustum[0].distance(view_space + Vec3(-sphere_radius, 0, 0)) < 0.0f) // left
+			return false;
+		if (frustum[1].distance(view_space + Vec3(0, sphere_radius, 0)) < 0.0f) // bottom
+			return false;
+		if (frustum[2].distance(view_space + Vec3(0, -sphere_radius, 0)) < 0.0f) // top
+			return false;
+		if (frustum[3].distance(view_space + Vec3(sphere_radius, 0, 0)) < 0.0f) // right
+			return false;
+		return true;
+	}
+	return false;
+}
+
+void Camera::update_frustum()
 {
 	Vec4 rays[] =
 	{
-		projection_inverse * Vec4(-1, -1, 0, 1),
-		projection_inverse * Vec4(1, -1, 0, 1),
-		projection_inverse * Vec4(-1, 1, 0, 1),
-		projection_inverse * Vec4(1, 1, 0, 1),
+		projection_inverse * Vec4(-1, -1, -1, 1),
+		projection_inverse * Vec4(1, -1, -1, 1),
+		projection_inverse * Vec4(-1, 1, -1, 1),
+		projection_inverse * Vec4(1, 1, -1, 1),
+		projection_inverse * Vec4(-1, -1, 1, 1),
+		projection_inverse * Vec4(1, -1, 1, 1),
+		projection_inverse * Vec4(-1, 1, 1, 1),
+		projection_inverse * Vec4(1, 1, 1, 1),
 	};
-	rays[0] /= rays[0].w;
-	rays[0] /= rays[0].z;
-	rays[1] /= rays[1].w;
-	rays[1] /= rays[1].z;
-	rays[2] /= rays[2].w;
-	rays[2] /= rays[2].z;
-	rays[3] /= rays[3].w;
-	rays[3] /= rays[3].z;
 
-	out[0] = rays[0].xyz();
-	out[1] = rays[1].xyz();
-	out[2] = rays[2].xyz();
-	out[3] = rays[3].xyz();
+	for (int i = 0; i < 8; i++)
+		rays[i] /= rays[i].w;
+
+	frustum[0] = Plane(rays[0].xyz(), rays[4].xyz(), rays[2].xyz()); // left
+	frustum[1] = Plane(rays[1].xyz(), rays[5].xyz(), rays[0].xyz()); // bottom
+	frustum[2] = Plane(rays[2].xyz(), rays[6].xyz(), rays[3].xyz()); // top
+	frustum[3] = Plane(rays[3].xyz(), rays[7].xyz(), rays[1].xyz()); // right
+
+	frustum_rays[0] = rays[4].xyz() / rays[4].z;
+	frustum_rays[1] = rays[5].xyz() / rays[5].z;
+	frustum_rays[2] = rays[6].xyz() / rays[6].z;
+	frustum_rays[3] = rays[7].xyz() / rays[7].z;
 }
-
 
 }

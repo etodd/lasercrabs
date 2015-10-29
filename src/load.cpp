@@ -82,6 +82,7 @@ Mesh* Loader::mesh(const AssetID id)
 		// Read bounding box
 		fread(&mesh->bounds_min, sizeof(Vec3), 1, f);
 		fread(&mesh->bounds_max, sizeof(Vec3), 1, f);
+		fread(&mesh->bounds_radius, sizeof(float), 1, f);
 
 		// Read indices
 		int index_count;

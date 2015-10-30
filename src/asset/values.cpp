@@ -167,6 +167,7 @@ const char* AssetLookup::Shader::values[] =
 	"assets/ssao_blur.glsl",
 	"assets/ssao_downsample.glsl",
 	"assets/standard.glsl",
+	"assets/standard_instanced.glsl",
 	"assets/ui.glsl",
 	"assets/ui_texture.glsl",
 	0,
@@ -190,6 +191,7 @@ const char* AssetLookup::Shader::names[] =
 	"ssao_blur",
 	"ssao_downsample",
 	"standard",
+	"standard_instanced",
 	"ui",
 	"ui_texture",
 	0,
@@ -225,6 +227,8 @@ const char* AssetLookup::Uniform::values[] =
 	"ssao_buffer",
 	"uv_offset",
 	"uv_scale",
+	"v",
+	"vp",
 	"zenith_color",
 	0,
 };
@@ -259,6 +263,8 @@ const char* AssetLookup::Uniform::names[] =
 	"ssao_buffer",
 	"uv_offset",
 	"uv_scale",
+	"v",
+	"vp",
 	"zenith_color",
 	0,
 };

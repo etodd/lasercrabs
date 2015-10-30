@@ -61,6 +61,7 @@ struct Loader
 
 	static Mesh* mesh(const AssetID);
 	static Mesh* mesh_permanent(const AssetID);
+	static Mesh* mesh_instanced(const AssetID);
 	static void mesh_free(const int);
 
 	static AssetID mesh_ref_to_id(const AssetID, const AssetRef);

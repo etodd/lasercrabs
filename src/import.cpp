@@ -1894,6 +1894,7 @@ int proc(int argc, char* argv[])
 	if (state.error)
 		return exit_error();
 
+	if (filemtime(wwise_project_path) > 0)
 	{
 		// Wwise build
 		std::ostringstream cmdbuilder;
@@ -1910,36 +1911,33 @@ int proc(int argc, char* argv[])
 		if (!success)
 		{
 			fprintf(stderr, "Wwise build failed.\n");
-			state.error = true;
-		}
-	}
-
-	if (state.error)
-		return exit_error();
-
-	{
-		// Copy soundbanks
-		DIR* dir = opendir(soundbank_in_folder);
-		if (!dir)
-		{
-			fprintf(stderr, "Failed to open input soundbank directory.\n");
 			return exit_error();
 		}
-		struct dirent* entry;
-		while ((entry = readdir(dir)))
+
 		{
-			if (entry->d_type != DT_REG)
-				continue; // Not a file
+			// Copy soundbanks
+			DIR* dir = opendir(soundbank_in_folder);
+			if (!dir)
+			{
+				fprintf(stderr, "Failed to open input soundbank directory.\n");
+				return exit_error();
+			}
+			struct dirent* entry;
+			while ((entry = readdir(dir)))
+			{
+				if (entry->d_type != DT_REG)
+					continue; // Not a file
 
-			std::string asset_in_path = soundbank_in_folder + std::string(entry->d_name);
+				std::string asset_in_path = soundbank_in_folder + std::string(entry->d_name);
 
-			if (has_extension(asset_in_path, soundbank_extension))
-				import_copy(state, state.manifest.soundbanks, asset_in_path, asset_out_folder, soundbank_extension);
+				if (has_extension(asset_in_path, soundbank_extension))
+					import_copy(state, state.manifest.soundbanks, asset_in_path, asset_out_folder, soundbank_extension);
 
-			if (state.error)
-				break;
+				if (state.error)
+					break;
+			}
+			closedir(dir);
 		}
-		closedir(dir);
 	}
 
 	if (state.error)

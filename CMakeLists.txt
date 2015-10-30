@@ -281,6 +281,7 @@ add_executable(mkzebra
 	assets/point_light.glsl
 	assets/spot_light.glsl
 	assets/standard.glsl
+	assets/standard_instanced.glsl
 	assets/ui.glsl
 	assets/ui_texture.glsl
 	assets/ssao.glsl

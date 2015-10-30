@@ -23,11 +23,13 @@ struct GLData
 		Array<Attrib> attribs;
 		GLuint index_buffer;
 		GLuint vertex_array;
+		GLuint instance_array;
+		GLuint instance_buffer;
 		int index_count;
 		bool dynamic;
 
 		Mesh()
-			: attribs(), index_buffer(), vertex_array(), index_count()
+			: attribs(), index_buffer(), vertex_array(), index_count(), instance_array(), instance_buffer()
 		{
 			
 		}
@@ -76,6 +78,40 @@ void render_init()
 	glEnable(GL_CULL_FACE);
 }
 
+void bind_attrib_pointers(Array<GLData::Mesh::Attrib>& attribs)
+{
+	for (int i = 0; i < attribs.length; i++)
+	{
+		glEnableVertexAttribArray(i);
+		const GLData::Mesh::Attrib& a = attribs[i];
+		glBindBuffer(GL_ARRAY_BUFFER, a.handle);
+
+		if (a.gl_type == GL_INT)
+		{
+			glVertexAttribIPointer
+			(
+				i,                                    // attribute
+				a.total_element_size,     // size
+				a.gl_type,             // type
+				0,                                    // stride
+				(void*)0                              // array buffer offset
+			);
+		}
+		else
+		{
+			glVertexAttribPointer
+			(
+				i,                                    // attribute
+				a.total_element_size,     // size
+				a.gl_type,             // type
+				GL_FALSE,                             // normalized?
+				0,                                    // stride
+				(void*)0                              // array buffer offset
+			);
+		}
+	}
+}
+
 void render(RenderSync* sync)
 {
 #if DEBUG
@@ -116,6 +152,7 @@ void render(RenderSync* sync)
 					glGenBuffers(1, &a.handle);
 					a.data_type = *(sync->read<RenderDataType>());
 					a.element_count = *(sync->read<int>());
+
 					switch (a.data_type)
 					{
 						case RenderDataType::Int:
@@ -139,16 +176,56 @@ void render(RenderSync* sync)
 							a.gl_type = GL_FLOAT;
 							break;
 						case RenderDataType::Mat4:
-							a.total_element_size = a.element_count * sizeof(Mat4) / 4;
-							a.gl_type = GL_FLOAT;
+							vi_assert(false); // Not supported yet
 							break;
 						default:
 							vi_assert(false);
 							break;
 					}
+
 					mesh->attribs.add(a);
+					debug_check();
 				}
+
+				bind_attrib_pointers(mesh->attribs);
+
 				glGenBuffers(1, &mesh->index_buffer);
+				glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh->index_buffer);
+
+				debug_check();
+				break;
+			}
+			case RenderOp::AllocInstances:
+			{
+				int id = *(sync->read<int>());
+
+				// Assume the mesh is already loaded
+				GLData::Mesh* mesh = &GLData::meshes[id];
+
+				glGenVertexArrays(1, &mesh->instance_array);
+				glBindVertexArray(mesh->instance_array);
+
+				bind_attrib_pointers(mesh->attribs);
+
+				glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh->index_buffer);
+
+				// Right now the only supported instanced attribute is the world matrix
+
+				glGenBuffers(1, &mesh->instance_buffer);
+				glBindBuffer(GL_ARRAY_BUFFER, mesh->instance_buffer);
+
+				glEnableVertexAttribArray(mesh->attribs.length + 0); 
+				glEnableVertexAttribArray(mesh->attribs.length + 1); 
+				glEnableVertexAttribArray(mesh->attribs.length + 2); 
+				glEnableVertexAttribArray(mesh->attribs.length + 3); 
+				glVertexAttribPointer(mesh->attribs.length + 0, 4, GL_FLOAT, GL_FALSE, 4 * sizeof(Vec4), (GLvoid*)(sizeof(Vec4) * 0));
+				glVertexAttribPointer(mesh->attribs.length + 1, 4, GL_FLOAT, GL_FALSE, 4 * sizeof(Vec4), (GLvoid*)(sizeof(Vec4) * 1));
+				glVertexAttribPointer(mesh->attribs.length + 2, 4, GL_FLOAT, GL_FALSE, 4 * sizeof(Vec4), (GLvoid*)(sizeof(Vec4) * 2));
+				glVertexAttribPointer(mesh->attribs.length + 3, 4, GL_FLOAT, GL_FALSE, 4 * sizeof(Vec4), (GLvoid*)(sizeof(Vec4) * 3));
+				glVertexAttribDivisor(mesh->attribs.length + 0, 1);
+				glVertexAttribDivisor(mesh->attribs.length + 1, 1);
+				glVertexAttribDivisor(mesh->attribs.length + 2, 1);
+				glVertexAttribDivisor(mesh->attribs.length + 3, 1);
 
 				debug_check();
 				break;
@@ -228,6 +305,9 @@ void render(RenderSync* sync)
 				GLData::Mesh* mesh = &GLData::meshes[id];
 				for (int i = 0; i < mesh->attribs.length; i++)
 					glDeleteBuffers(1, &mesh->attribs.data[i].handle);
+				glDeleteBuffers(1, &mesh->index_buffer);
+				glDeleteBuffers(1, &mesh->instance_buffer);
+				glDeleteVertexArrays(1, &mesh->instance_array);
 				glDeleteVertexArrays(1, &mesh->vertex_array);
 				mesh->~Mesh();
 				debug_check();
@@ -514,37 +594,7 @@ void render(RenderSync* sync)
 				int id = *(sync->read<int>());
 				GLData::Mesh* mesh = &GLData::meshes[id];
 
-				for (int i = 0; i < mesh->attribs.length; i++)
-				{
-					glEnableVertexAttribArray(i);
-					glBindBuffer(GL_ARRAY_BUFFER, mesh->attribs.data[i].handle);
-					if (mesh->attribs.data[i].gl_type == GL_INT)
-					{
-						glVertexAttribIPointer
-						(
-							i,                                    // attribute
-							mesh->attribs.data[i].total_element_size,     // size
-							mesh->attribs.data[i].gl_type,             // type
-							0,                                    // stride
-							(void*)0                              // array buffer offset
-						);
-					}
-					else
-					{
-						glVertexAttribPointer
-						(
-							i,                                    // attribute
-							mesh->attribs.data[i].total_element_size,     // size
-							mesh->attribs.data[i].gl_type,             // type
-							GL_FALSE,                             // normalized?
-							0,                                    // stride
-							(void*)0                              // array buffer offset
-						);
-					}
-					debug_check();
-				}
-
-				glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh->index_buffer);
+				glBindVertexArray(mesh->vertex_array);
 
 				glDrawElements(
 					GL_TRIANGLES,       // mode
@@ -553,8 +603,29 @@ void render(RenderSync* sync)
 					(void*)0            // element array buffer offset
 				);
 
-				for (int i = 0; i < mesh->attribs.length; i++)
-					glDisableVertexAttribArray(i);
+				debug_check();
+				break;
+			}
+			case RenderOp::Instances:
+			{
+				int id = *(sync->read<int>());
+				GLData::Mesh* mesh = &GLData::meshes[id];
+
+				int count = *(sync->read<int>());
+
+				glBindBuffer(GL_ARRAY_BUFFER, mesh->instance_buffer);
+				glBufferData(GL_ARRAY_BUFFER, sizeof(Mat4) * count, sync->read<Mat4>(count), GL_DYNAMIC_DRAW);
+
+				glBindVertexArray(mesh->instance_array);
+
+				glDrawElementsInstanced(
+					GL_TRIANGLES,       // mode
+					mesh->index_count,    // count
+					GL_UNSIGNED_INT,    // type
+					(void*)0,            // element array buffer offset
+					count
+				);
+
 				debug_check();
 				break;
 			}

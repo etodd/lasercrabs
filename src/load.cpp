@@ -169,6 +169,19 @@ Mesh* Loader::mesh_permanent(const AssetID id)
 	return m;
 }
 
+Mesh* Loader::mesh_instanced(const AssetID id)
+{
+	Mesh* m = mesh(id);
+	if (m && !m->instanced)
+	{
+		RenderSync* sync = swapper->get();
+		sync->write(RenderOp::AllocInstances);
+		sync->write<int>(id);
+		m->instanced = true;
+	}
+	return m;
+}
+
 void Loader::mesh_free(const AssetID id)
 {
 	if (id != AssetNull && meshes[id].type != AssetNone)

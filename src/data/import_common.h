@@ -117,6 +117,7 @@ struct Mesh
 	Vec3 bounds_max;
 	float bounds_radius;
 	Vec4 color;
+	bool instanced;
 	void reset()
 	{
 		indices.length = 0;
@@ -125,6 +126,7 @@ struct Mesh
 		armature.hierarchy.length = 0;
 		armature.bind_pose.length = 0;
 		armature.inverse_bind_pose.length = 0;
+		instanced = false;
 	}
 };
 

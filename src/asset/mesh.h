@@ -8,7 +8,7 @@ namespace Asset
 {
 	namespace Mesh
 	{
-		const int count = 31;
+		const int count = 32;
 		const AssetID Alpha = 0;
 		const AssetID awk = 1;
 		const AssetID city1 = 2;
@@ -24,22 +24,23 @@ namespace Asset
 		const AssetID level1_main_2 = 12;
 		const AssetID level1_scenery1 = 13;
 		const AssetID level1_scenery2 = 14;
-		const AssetID level2_Plane_001 = 15;
-		const AssetID level2_door_001_1 = 16;
-		const AssetID level2_door_002_1 = 17;
-		const AssetID level2_door_1 = 18;
-		const AssetID level2_env_1 = 19;
-		const AssetID level2_env_2 = 20;
-		const AssetID level3_city3 = 21;
-		const AssetID level3_city3_1 = 22;
-		const AssetID level3_elevator_2 = 23;
-		const AssetID logo = 24;
-		const AssetID msg = 25;
-		const AssetID point_grid = 26;
-		const AssetID skybox = 27;
-		const AssetID socket = 28;
-		const AssetID sphere = 29;
-		const AssetID tri_tube = 30;
+		const AssetID level2_Plane_000 = 15;
+		const AssetID level2_Plane_001 = 16;
+		const AssetID level2_door_001_1 = 17;
+		const AssetID level2_door_002_1 = 18;
+		const AssetID level2_door_1 = 19;
+		const AssetID level2_env_1 = 20;
+		const AssetID level2_env_2 = 21;
+		const AssetID level3_city3 = 22;
+		const AssetID level3_city3_1 = 23;
+		const AssetID level3_elevator_2 = 24;
+		const AssetID logo = 25;
+		const AssetID msg = 26;
+		const AssetID point_grid = 27;
+		const AssetID skybox = 28;
+		const AssetID socket = 29;
+		const AssetID sphere = 30;
+		const AssetID tri_tube = 31;
 	}
 	const AssetID mesh_refs[9][8] =
 	{
@@ -70,11 +71,12 @@ namespace Asset
 			18,
 			19,
 			20,
+			21,
 		},
 		{
-			21,
 			22,
 			23,
+			24,
 		},
 		{
 		},

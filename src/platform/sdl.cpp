@@ -9,7 +9,6 @@
 #include <thread>
 #include "physics.h"
 #include "loop.h"
-#include "game/game.h"
 
 namespace VI
 {
@@ -68,6 +67,7 @@ int proc()
 		SDL_WINDOWPOS_CENTERED,
 		SDL_WINDOWPOS_CENTERED,
 		1280, 720,
+		//1920, 1080,
 		//506, 253,
 		SDL_WINDOW_OPENGL
 		| SDL_WINDOW_SHOWN
@@ -136,8 +136,7 @@ int proc()
 
 	RenderSync* sync = render_swapper.get();
 
-	double last_time_real = SDL_GetTicks() / 1000.0;
-	double last_time = last_time_real;
+	double last_time = SDL_GetTicks() / 1000.0;
 
 	bool last_keys[KEYCODE_COUNT];
 	memset(last_keys, 0, sizeof(last_keys));
@@ -227,11 +226,10 @@ int proc()
 
 		SDL_GetWindowSize(window, &sync->input.width, &sync->input.height);
 
-		double real = (SDL_GetTicks() / 1000.0);
-		sync->time.real = (float)real;
-		sync->time.delta = (sync->time.real - last_time_real) * Game::time_scale;
-		last_time_real = sync->time.real;
-		last_time = sync->time.total = last_time + sync->time.delta;
+		double time = (SDL_GetTicks() / 1000.0);
+		sync->time.total = (float)time;
+		sync->time.delta = (float)(time - last_time);
+		last_time = time;
 
 		sync = render_swapper.swap<SwapType_Read>();
 

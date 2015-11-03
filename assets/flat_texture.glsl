@@ -1,34 +1,32 @@
 #ifdef VERTEX
 
-layout(location = 0) in vec3 vertexPosition_modelspace;
-layout(location = 2) in vec2 vertexUV;
+layout(location = 0) in vec3 in_position;
+layout(location = 2) in vec2 in_uv;
 
 uniform mat4 mvp;
 
-out vec2 UV;
+out vec2 uv;
 
 void main()
 {
-	gl_Position = mvp * vec4(vertexPosition_modelspace, 1);
+	gl_Position = mvp * vec4(in_position, 1);
 
-	UV = vertexUV;
+	uv = in_uv;
 }
 
 #else
 
-in vec2 UV;
+in vec2 uv;
 
 // Values that stay constant for the whole mesh.
 uniform vec4 diffuse_color;
 uniform sampler2D diffuse_map;
 
 layout (location = 0) out vec4 out_color;
-layout (location = 1) out vec4 out_normal;
 
 void main()
 {
-	out_color = texture(diffuse_map, UV) * diffuse_color;
-	out_normal = vec4(1);
+	out_color = texture(diffuse_map, uv) * diffuse_color;
 }
 
 #endif

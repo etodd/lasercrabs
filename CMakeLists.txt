@@ -272,6 +272,7 @@ add_executable(mkzebra
 	src/ai.h
 	src/ai.cpp
 	src/loop.h
+	src/ease.h
 	${GAME_SRC_FILES}
 	external/sdl_controllers/gamecontrollerdb.txt
 	assets/armature.glsl

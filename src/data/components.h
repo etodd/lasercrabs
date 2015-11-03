@@ -38,10 +38,12 @@ struct Transform : public ComponentType<Transform>
 
 struct PointLight : public ComponentType<PointLight>
 {
-	PointLight();
 	float radius;
 	Vec3 color;
 	Vec3 offset;
+	bool shockwave;
+
+	PointLight();
 	void awake() {}
 };
 
@@ -50,6 +52,7 @@ struct SpotLight : public ComponentType<SpotLight>
 	float radius;
 	Vec3 color;
 	float fov;
+
 	void awake() {}
 };
 

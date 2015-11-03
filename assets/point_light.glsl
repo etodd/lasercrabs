@@ -25,6 +25,7 @@ uniform vec3 light_pos;
 uniform float light_radius;
 uniform vec3 light_color;
 uniform vec3 frustum[4];
+uniform bool shockwave;
 
 vec3 lerp3(vec3 a, vec3 b, float w)
 {
@@ -47,7 +48,21 @@ void main()
 	float distance_to_light = length(to_light);
 	to_light /= distance_to_light;
 
-	float light_strength = max(0, 1.0 - (distance_to_light / light_radius)) * max(0, dot(texture(normal_buffer, uv).xyz * 2.0 - 1.0, to_light));
+	float normal_attenuation = dot(texture(normal_buffer, uv).xyz * 2.0 - 1.0, to_light);
+
+	float light_strength;
+	if (shockwave)
+	{
+		const float shockwave_size = 0.5f;
+		const float shockwave_multiplier = 1.0f / shockwave_size;
+		float distance_attenuation = (1.0f - step(light_radius, distance_to_light)) * (distance_to_light - (light_radius - shockwave_size)) * shockwave_multiplier;
+		light_strength = distance_attenuation * (normal_attenuation > 0.0f ? 1.0f : 0.0f);
+	}
+	else
+	{
+		float distance_attenuation = max(0, 1.0 - (distance_to_light / light_radius));
+		light_strength = distance_attenuation * max(0, normal_attenuation);
+	}
 	out_color = vec4(light_color * light_strength, 1);
 }
 

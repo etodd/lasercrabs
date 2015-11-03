@@ -65,10 +65,10 @@ public:
 		return *this;
 	}
 
-	inline T* ref()
+	inline T* ref() const
 	{
 		if (target && target->revision != revision)
-			target = 0;
+			return 0;
 		return target;
 	}
 };

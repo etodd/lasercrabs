@@ -118,89 +118,98 @@ void draw(RenderSync* sync, const Camera* camera)
 		sync->write<RenderOp>(RenderOp::CullMode);
 		sync->write<RenderCullMode>(RenderCullMode::Front);
 
-		Loader::shader_permanent(Asset::Shader::point_light);
-
-		sync->write(RenderOp::Shader);
-		sync->write<AssetID>(Asset::Shader::point_light);
-		sync->write(RenderTechnique::Default);
-
-		sync->write(RenderOp::Uniform);
-		sync->write(Asset::Uniform::p);
-		sync->write(RenderDataType::Mat4);
-		sync->write<int>(1);
-		sync->write<Mat4>(render_params.camera->projection);
-
-		sync->write(RenderOp::Uniform);
-		sync->write(Asset::Uniform::normal_buffer);
-		sync->write(RenderDataType::Texture);
-		sync->write<int>(1);
-		sync->write<RenderTextureType>(RenderTexture2D);
-		sync->write<AssetID>(normal_buffer);
-
-		sync->write(RenderOp::Uniform);
-		sync->write(Asset::Uniform::depth_buffer);
-		sync->write(RenderDataType::Texture);
-		sync->write<int>(1);
-		sync->write<RenderTextureType>(RenderTexture2D);
-		sync->write<AssetID>(depth_buffer);
-
-		sync->write(RenderOp::Uniform);
-		sync->write(Asset::Uniform::uv_offset);
-		sync->write(RenderDataType::Vec2);
-		sync->write<int>(1);
-		sync->write<Vec2>(Vec2(camera->viewport.x, camera->viewport.y) * inv_buffer_size);
-
-		sync->write(RenderOp::Uniform);
-		sync->write(Asset::Uniform::uv_scale);
-		sync->write(RenderDataType::Vec2);
-		sync->write<int>(1);
-		sync->write<Vec2>(Vec2(camera->viewport.width, camera->viewport.height) * inv_buffer_size);
-
-		sync->write(RenderOp::Uniform);
-		sync->write(Asset::Uniform::frustum);
-		sync->write(RenderDataType::Vec3);
-		sync->write<int>(4);
-		sync->write<Vec3>(frustum, 4);
-
-		Loader::mesh_permanent(Asset::Mesh::sphere);
-		for (auto i = World::components<PointLight>().iterator(); !i.is_last(); i.next())
 		{
-			PointLight* light = i.item();
+			// Point lights
+			Loader::shader_permanent(Asset::Shader::point_light);
 
-			Vec3 light_pos = light->get<Transform>()->to_world(light->offset);
-
-			if (!camera->visible_sphere(light_pos, light->radius))
-				continue;
-
-			Mat4 light_transform = Mat4::make_translation(light_pos);
-			light_transform.scale(Vec3(light->radius));
+			sync->write(RenderOp::Shader);
+			sync->write<AssetID>(Asset::Shader::point_light);
+			sync->write(RenderTechnique::Default);
 
 			sync->write(RenderOp::Uniform);
-			sync->write(Asset::Uniform::light_pos);
-			sync->write(RenderDataType::Vec3);
-			sync->write<int>(1);
-			sync->write<Vec3>((render_params.view * Vec4(light_pos, 1)).xyz());
-
-			sync->write(RenderOp::Uniform);
-			sync->write(Asset::Uniform::mvp);
+			sync->write(Asset::Uniform::p);
 			sync->write(RenderDataType::Mat4);
 			sync->write<int>(1);
-			sync->write<Mat4>(light_transform * render_params.view_projection);
+			sync->write<Mat4>(render_params.camera->projection);
 
 			sync->write(RenderOp::Uniform);
-			sync->write(Asset::Uniform::light_color);
+			sync->write(Asset::Uniform::normal_buffer);
+			sync->write(RenderDataType::Texture);
+			sync->write<int>(1);
+			sync->write<RenderTextureType>(RenderTexture2D);
+			sync->write<AssetID>(normal_buffer);
+
+			sync->write(RenderOp::Uniform);
+			sync->write(Asset::Uniform::depth_buffer);
+			sync->write(RenderDataType::Texture);
+			sync->write<int>(1);
+			sync->write<RenderTextureType>(RenderTexture2D);
+			sync->write<AssetID>(depth_buffer);
+
+			sync->write(RenderOp::Uniform);
+			sync->write(Asset::Uniform::uv_offset);
+			sync->write(RenderDataType::Vec2);
+			sync->write<int>(1);
+			sync->write<Vec2>(Vec2(camera->viewport.x, camera->viewport.y) * inv_buffer_size);
+
+			sync->write(RenderOp::Uniform);
+			sync->write(Asset::Uniform::uv_scale);
+			sync->write(RenderDataType::Vec2);
+			sync->write<int>(1);
+			sync->write<Vec2>(Vec2(camera->viewport.width, camera->viewport.height) * inv_buffer_size);
+
+			sync->write(RenderOp::Uniform);
+			sync->write(Asset::Uniform::frustum);
 			sync->write(RenderDataType::Vec3);
-			sync->write<int>(1);
-			sync->write<Vec3>(light->color);
+			sync->write<int>(4);
+			sync->write<Vec3>(frustum, 4);
 
-			sync->write(RenderOp::Uniform);
-			sync->write(Asset::Uniform::light_radius);
-			sync->write(RenderDataType::Float);
-			sync->write<int>(1);
-			sync->write<float>(light->radius);
+			Loader::mesh_permanent(Asset::Mesh::sphere);
+			for (auto i = World::components<PointLight>().iterator(); !i.is_last(); i.next())
+			{
+				PointLight* light = i.item();
 
-			sync->write(RenderOp::Mesh);
-			sync->write(Asset::Mesh::sphere);
+				Vec3 light_pos = light->get<Transform>()->to_world(light->offset);
+
+				if (!camera->visible_sphere(light_pos, light->radius))
+					continue;
+
+				Mat4 light_transform = Mat4::make_translation(light_pos);
+				light_transform.scale(Vec3(light->radius));
+
+				sync->write(RenderOp::Uniform);
+				sync->write(Asset::Uniform::light_pos);
+				sync->write(RenderDataType::Vec3);
+				sync->write<int>(1);
+				sync->write<Vec3>((render_params.view * Vec4(light_pos, 1)).xyz());
+
+				sync->write(RenderOp::Uniform);
+				sync->write(Asset::Uniform::mvp);
+				sync->write(RenderDataType::Mat4);
+				sync->write<int>(1);
+				sync->write<Mat4>(light_transform * render_params.view_projection);
+
+				sync->write(RenderOp::Uniform);
+				sync->write(Asset::Uniform::shockwave);
+				sync->write(RenderDataType::Int);
+				sync->write<int>(1);
+				sync->write<int>(light->shockwave);
+
+				sync->write(RenderOp::Uniform);
+				sync->write(Asset::Uniform::light_color);
+				sync->write(RenderDataType::Vec3);
+				sync->write<int>(1);
+				sync->write<Vec3>(light->color);
+
+				sync->write(RenderOp::Uniform);
+				sync->write(Asset::Uniform::light_radius);
+				sync->write(RenderDataType::Float);
+				sync->write<int>(1);
+				sync->write<float>(light->radius);
+
+				sync->write(RenderOp::Mesh);
+				sync->write(Asset::Mesh::sphere);
+			}
 		}
 
 		sync->write<RenderOp>(RenderOp::BlendMode);

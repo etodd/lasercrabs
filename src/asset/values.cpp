@@ -8,8 +8,8 @@ const char* AssetLookup::Mesh::values[] =
 {
 	"assets/Alpha.msh",
 	"assets/awk.msh",
-	"assets/lvl/city1.msh",
-	"assets/lvl/city2.msh",
+	"assets/compass_inner.msh",
+	"assets/compass_outer.msh",
 	"assets/cone.msh",
 	"assets/cube.msh",
 	"assets/icon_power.msh",
@@ -30,16 +30,34 @@ const char* AssetLookup::Mesh::values[] =
 	"assets/lvl/level2_env_001_1.msh",
 	"assets/lvl/level2_env_002.msh",
 	"assets/lvl/level2_env_002_1.msh",
-	"assets/lvl/level3_city3.msh",
-	"assets/lvl/level3_city3_1.msh",
+	"assets/lvl/level3_city2_door.msh",
+	"assets/lvl/level3_city2_scenery_2.msh",
+	"assets/lvl/level3_half1_1.msh",
+	"assets/lvl/level3_half1_2.msh",
+	"assets/lvl/level3_half2_1.msh",
+	"assets/lvl/level3_half2_2.msh",
+	"assets/lvl/level3_half3_1.msh",
+	"assets/lvl/level3_half3_2.msh",
 	"assets/lvl/level4_shell.msh",
 	"assets/lvl/level4_shell_1.msh",
 	"assets/logo.msh",
 	"assets/msg.msh",
 	"assets/point_grid.msh",
+	"assets/lvl/pvp_pvp_half1.msh",
+	"assets/lvl/pvp_pvp_half1_1.msh",
+	"assets/lvl/pvp_pvp_half2.msh",
+	"assets/lvl/pvp_pvp_half2_1.msh",
+	"assets/lvl/pvp_pvp_scenery_1.msh",
 	"assets/skybox.msh",
 	"assets/socket.msh",
 	"assets/sphere.msh",
+	"assets/lvl/title_city2_scenery.msh",
+	"assets/lvl/title_half1.msh",
+	"assets/lvl/title_half1_1.msh",
+	"assets/lvl/title_half2.msh",
+	"assets/lvl/title_half2_1.msh",
+	"assets/lvl/title_half3.msh",
+	"assets/lvl/title_half3_1.msh",
 	"assets/tri_tube.msh",
 	0,
 };
@@ -49,8 +67,8 @@ const char* AssetLookup::Mesh::names[] =
 {
 	"Alpha",
 	"awk",
-	"city1",
-	"city2",
+	"compass_inner",
+	"compass_outer",
 	"cone",
 	"cube",
 	"icon_power",
@@ -71,16 +89,34 @@ const char* AssetLookup::Mesh::names[] =
 	"level2_env_001_1",
 	"level2_env_002",
 	"level2_env_002_1",
-	"level3_city3",
-	"level3_city3_1",
+	"level3_city2_door",
+	"level3_city2_scenery_2",
+	"level3_half1_1",
+	"level3_half1_2",
+	"level3_half2_1",
+	"level3_half2_2",
+	"level3_half3_1",
+	"level3_half3_2",
 	"level4_shell",
 	"level4_shell_1",
 	"logo",
 	"msg",
 	"point_grid",
+	"pvp_pvp_half1",
+	"pvp_pvp_half1_1",
+	"pvp_pvp_half2",
+	"pvp_pvp_half2_1",
+	"pvp_pvp_scenery_1",
 	"skybox",
 	"socket",
 	"sphere",
+	"title_city2_scenery",
+	"title_half1",
+	"title_half1_1",
+	"title_half2",
+	"title_half2_1",
+	"title_half3",
+	"title_half3_1",
 	"tri_tube",
 	0,
 };
@@ -298,8 +334,6 @@ const char* AssetLookup::Font::names[] =
 
 const char* AssetLookup::Level::values[] =
 {
-	"assets/lvl/city1.lvl",
-	"assets/lvl/city2.lvl",
 	"assets/lvl/connect.lvl",
 	"assets/lvl/end.lvl",
 	"assets/lvl/game_over.lvl",
@@ -308,6 +342,7 @@ const char* AssetLookup::Level::values[] =
 	"assets/lvl/level3.lvl",
 	"assets/lvl/level4.lvl",
 	"assets/lvl/menu.lvl",
+	"assets/lvl/pvp.lvl",
 	"assets/lvl/title.lvl",
 	0,
 };
@@ -315,8 +350,6 @@ const char* AssetLookup::Level::values[] =
 
 const char* AssetLookup::Level::names[] =
 {
-	"city1",
-	"city2",
 	"connect",
 	"end",
 	"game_over",
@@ -325,6 +358,7 @@ const char* AssetLookup::Level::names[] =
 	"level3",
 	"level4",
 	"menu",
+	"pvp",
 	"title",
 	0,
 };
@@ -332,8 +366,6 @@ const char* AssetLookup::Level::names[] =
 
 const char* AssetLookup::NavMesh::values[] =
 {
-	"assets/lvl/city1.nav",
-	"assets/lvl/city2.nav",
 	"assets/lvl/connect.nav",
 	"assets/lvl/end.nav",
 	"assets/lvl/game_over.nav",
@@ -342,6 +374,7 @@ const char* AssetLookup::NavMesh::values[] =
 	"assets/lvl/level3.nav",
 	"assets/lvl/level4.nav",
 	"assets/lvl/menu.nav",
+	"assets/lvl/pvp.nav",
 	"assets/lvl/title.nav",
 	0,
 };
@@ -349,8 +382,6 @@ const char* AssetLookup::NavMesh::values[] =
 
 const char* AssetLookup::NavMesh::names[] =
 {
-	"city1",
-	"city2",
 	"connect",
 	"end",
 	"game_over",
@@ -359,6 +390,7 @@ const char* AssetLookup::NavMesh::names[] =
 	"level3",
 	"level4",
 	"menu",
+	"pvp",
 	"title",
 	0,
 };

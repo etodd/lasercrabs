@@ -23,7 +23,7 @@
 namespace VI
 {
 
-const int version = 13;
+const int version = 14;
 
 const char* model_in_extension = ".blend";
 const char* model_intermediate_extension = ".fbx";
@@ -60,7 +60,7 @@ const char* soundbank_in_folder = "../src/game/audio/GeneratedSoundBanks/Linux/"
 
 const float nav_agent_height = 2.0f;
 const float nav_agent_max_climb = 0.5f;
-const float nav_agent_radius = 0.4f;
+const float nav_agent_radius = 0.35f;
 const float nav_edge_max_length = 12.0f;
 const float nav_min_region_size = 8.0f;
 const float nav_merged_region_size = 20.0f;

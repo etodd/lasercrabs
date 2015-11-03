@@ -8,9 +8,11 @@ namespace VI
 
 Array<char> Console::command = Array<char>();
 Array<char> Console::debug_buffer = Array<char>();
+Array<Console::Log> Console::logs = Array<Console::Log>();
 UIText Console::text = UIText();
 UIText Console::fps_text = UIText();
 UIText Console::debug_text = UIText();
+UIText Console::log_text = UIText();
 bool Console::fps_visible = false;
 int Console::fps_count = 0;
 float Console::fps_accumulator = 0;
@@ -22,16 +24,22 @@ float Console::repeat_last_time = 0.0f;
 
 #define REPEAT_DELAY 0.2f
 #define REPEAT_INTERVAL 0.03f
+#define LOG_TIME 5.0f
 
 void Console::init()
 {
 	Loader::font_permanent(Asset::Font::lowpoly);
 	text.font = Asset::Font::lowpoly;
-	text.size = 16.0f;
+	text.size = 18.0f;
 	fps_text.font = Asset::Font::lowpoly;
-	fps_text.size = 16.0f;
+	fps_text.size = 18.0f;
 	debug_text.font = Asset::Font::lowpoly;
-	debug_text.size = 16.0f;
+	debug_text.size = 18.0f;
+	log_text.font = Asset::Font::lowpoly;
+	log_text.size = 18.0f;
+	log_text.color = UI::default_color;
+	log_text.anchor_x = UIText::Anchor::Max;
+	log_text.anchor_y = UIText::Anchor::Max;
 
 	debug_buffer.resize(1);
 
@@ -212,8 +220,65 @@ void Console::update(const Update& u)
 
 	debug_text.text(debug_buffer.data);
 	debug_buffer.length = 0;
+
+	bool update_log = false;
+	for (int i = 0; i < logs.length; i++)
+	{
+		logs[i].timer -= u.time.delta;
+		if (logs[i].timer < 0.0f)
+		{
+			logs.remove_ordered(i);
+			i--;
+			update_log = true;
+		}
+	}
+
+	if (update_log)
+		Console::update_log();
 }
 
+void Console::log(const char* format, ...)
+{
+	va_list args;
+	va_start(args, format);
+	Log* log_line = logs.add();
+
+	log_line->timer = LOG_TIME;
+
+#if defined(_WIN32)
+	log_line->length = vsprintf_s(log_line->string, 255, format, args);
+#else
+	log_line->length = vsnprintf(log_line->string, 255, format, args);
+#endif
+
+	va_end(args);
+
+	Console::update_log();
+}
+
+void Console::update_log()
+{
+	if (logs.length > 0)
+	{
+		int total_length = 0;
+		for (int i = 0; i < logs.length; i++)
+			total_length += logs[i].length + 1;
+		Array<char> string(total_length, total_length);
+
+		int index = 0;
+		for (int i = logs.length - 1; i >= 0; i--)
+		{
+			memcpy(&string[index], logs[i].string, logs[i].length);
+			index += logs[i].length;
+			string[index] = '\n';
+			index++;
+		}
+		string[index - 1] = '\0';
+		log_text.text(string.data);
+	}
+	else
+		log_text.text("");
+}
 
 void Console::debug(const char* format, ...)
 {
@@ -248,6 +313,8 @@ void Console::draw(const RenderParams& p)
 		fps_text.draw(p, Vec2::zero);
 
 	debug_text.draw(p, Vec2(0, p.camera->viewport.height - text.size * UI::scale * 2.0f));
+
+	log_text.draw(p, Vec2(p.camera->viewport.width - text.size * UI::scale * 2.0f, p.camera->viewport.height - text.size * UI::scale * 4.0f));
 }
 
 }

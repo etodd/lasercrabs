@@ -12,12 +12,20 @@ namespace VI
 
 struct Console
 {
+	struct Log
+	{
+		float timer;
+		int length;
+		char string[255];
+	};
 	static Array<char> command;
 	static Array<char> debug_buffer;
+	static Array<Log> logs;
 	static bool visible;
 	static UIText text;
 	static UIText fps_text;
 	static UIText debug_text;
+	static UIText log_text;
 	static int fps_count;
 	static float fps_accumulator;
 	static bool fps_visible;
@@ -29,6 +37,8 @@ struct Console
 	static void init();
 	static void update(const Update&);
 	static void draw(const RenderParams&);
+	static void log(const char*, ...);
+	static void update_log();
 	static void debug(const char*, ...);
 };
 

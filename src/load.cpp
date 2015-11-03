@@ -823,13 +823,18 @@ dtNavMesh* Loader::nav_mesh(const AssetID id)
 			params.ch = mesh.ch;
 			params.buildBvTree = true;
 
-			vi_assert(dtCreateNavMeshData(&params, &navData, &navDataSize));
+			{
+				bool status = dtCreateNavMeshData(&params, &navData, &navDataSize);
+				vi_assert(status);
+			}
 
 			current_nav_mesh = dtAllocNavMesh();
 			vi_assert(current_nav_mesh);
 
-			dtStatus status = current_nav_mesh->init(navData, navDataSize, DT_TILE_FREE_DATA);
-			vi_assert(!dtStatusFailed(status));
+			{
+				dtStatus status = current_nav_mesh->init(navData, navDataSize, DT_TILE_FREE_DATA);
+				vi_assert(!dtStatusFailed(status));
+			}
 
 			base_nav_mesh_free(&mesh);
 			free(mesh_detail.meshes);

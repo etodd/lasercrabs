@@ -49,6 +49,8 @@ struct UIText
 struct UI
 {
 	static const Vec4 default_color;
+	static const Vec4 alert_color;
+	static const Vec4 subtle_color;
 	static float scale;
 	static int mesh_id;
 	static int texture_mesh_id;

@@ -19,6 +19,7 @@ struct Ragdoll : public ComponentType<Ragdoll>
 	};
 
 	Array<BoneBody> bodies;
+	float timer;
 
 	Ragdoll();
 	~Ragdoll();
@@ -26,7 +27,6 @@ struct Ragdoll : public ComponentType<Ragdoll>
 
 	RigidBody* get_body(const AssetID);
 	void update(const Update&);
-	void sync_physics_to_armature();
 };
 
 }

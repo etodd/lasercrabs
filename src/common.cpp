@@ -15,7 +15,7 @@
 namespace VI
 {
 
-#define fov_initial PI * 0.25f
+#define fov_initial (PI * 0.25f)
 #define speed_mouse 0.0025f
 
 Empty::Empty(ID id)

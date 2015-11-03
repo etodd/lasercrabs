@@ -4,7 +4,6 @@
 #include "load.h"
 
 #include <SDL.h>
-#undef main // Fix SDL nonsense
 
 #include <thread>
 #include "physics.h"
@@ -61,6 +60,7 @@ int proc()
 	SDL_SetHint(SDL_HINT_MOUSE_RELATIVE_MODE_WARP, "1");
 #endif
 
+#if DEBUG
 	window = SDL_CreateWindow
 	(
 		"MK-ZEBRA",
@@ -77,6 +77,23 @@ int proc()
 		| SDL_WINDOW_MOUSE_FOCUS
 		| SDL_WINDOW_MOUSE_CAPTURE
 	);
+#else
+	window = SDL_CreateWindow
+	(
+		"MK-ZEBRA",
+		SDL_WINDOWPOS_CENTERED,
+		SDL_WINDOWPOS_CENTERED,
+		1280, 720,
+		SDL_WINDOW_OPENGL
+		| SDL_WINDOW_SHOWN
+		| SDL_WINDOW_BORDERLESS
+		| SDL_WINDOW_INPUT_GRABBED
+		| SDL_WINDOW_INPUT_FOCUS
+		| SDL_WINDOW_MOUSE_FOCUS
+		| SDL_WINDOW_MOUSE_CAPTURE
+		| SDL_WINDOW_FULLSCREEN
+	);
+#endif
 
 #if defined(__APPLE__)
 	SDL_SetWindowGrab(window, SDL_TRUE);

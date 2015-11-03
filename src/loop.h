@@ -750,6 +750,7 @@ void draw(RenderSync* sync, const Camera* camera)
 		sync->write(RenderOp::BindFramebuffer);
 		sync->write(color_fbo1);
 
+		// Overlay UI on to the color buffer
 		UI::texture(render_params, color_buffer2, Vec2(0, 0), Vec2(camera->viewport.width, camera->viewport.height), Vec4(1, 1, 1, 1), screen_quad_uva, screen_quad_uvb);
 
 		sync->write<RenderOp>(RenderOp::BlendMode);

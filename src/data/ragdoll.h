@@ -19,14 +19,14 @@ struct Ragdoll : public ComponentType<Ragdoll>
 	};
 
 	Array<BoneBody> bodies;
-	Vec3 offset;
-
-	RigidBody* get_body(const AssetID);
 
 	Ragdoll();
 	~Ragdoll();
 	void awake();
+
+	RigidBody* get_body(const AssetID);
 	void update(const Update&);
+	void sync_physics_to_armature();
 };
 
 }

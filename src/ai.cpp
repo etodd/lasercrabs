@@ -5,6 +5,7 @@
 #include "data/components.h"
 #include "physics.h"
 #include "BulletCollision/NarrowPhaseCollision/btRaycastCallback.h"
+#include "game/entities.h"
 
 namespace VI
 {
@@ -130,6 +131,18 @@ void AI::debug_draw(const RenderParams& p)
 #endif
 }
 
+bool vision_check(const Vec3& pos, const Vec3& enemy_pos, const AIAgent* agent)
+{
+	btCollisionWorld::ClosestRayResultCallback rayCallback(pos, enemy_pos);
+	rayCallback.m_flags = btTriangleRaycastCallback::EFlags::kF_FilterBackfaces
+		| btTriangleRaycastCallback::EFlags::kF_KeepUnflippedNormal;
+	rayCallback.m_collisionFilterMask = rayCallback.m_collisionFilterGroup = ~CollisionTarget;
+
+	Physics::btWorld->rayTest(pos, enemy_pos, rayCallback);
+
+	return !rayCallback.hasHit() || rayCallback.m_collisionObject->getUserIndex() == agent->entity_id;
+}
+
 Entity* AI::get_enemy(const AI::Team& team, const Vec3& pos, const Vec3& forward, const float radius, const float angle, const ComponentMask component_mask)
 {
 	float angle_dot = cosf(angle);
@@ -150,20 +163,26 @@ Entity* AI::get_enemy(const AI::Team& team, const Vec3& pos, const Vec3& forward
 			to_enemy /= distance_to_enemy;
 
 			float dot = forward.dot(to_enemy);
-			if (dot > angle_dot)
+			if (dot > angle_dot && vision_check(pos, enemy_pos, agent))
+				return agent->entity();
+		}
+	}
+
+	for (auto i = World::components<Shockwave>().iterator(); !i.is_last(); i.next())
+	{
+		float radius = fmin(SHOCKWAVE_AUDIO_RADIUS, i.item()->radius());
+		if ((i.item()->get<Transform>()->absolute_pos() - pos).length_squared() < radius * radius)
+		{
+			Entity* owner = i.item()->owner.ref();
+			if (owner && (owner->component_mask & component_mask) && owner->has<AIAgent>())
 			{
-				btCollisionWorld::ClosestRayResultCallback rayCallback(pos, enemy_pos);
-				rayCallback.m_flags = btTriangleRaycastCallback::EFlags::kF_FilterBackfaces
-					| btTriangleRaycastCallback::EFlags::kF_KeepUnflippedNormal;
-				rayCallback.m_collisionFilterMask = rayCallback.m_collisionFilterGroup = ~CollisionTarget;
-
-				Physics::btWorld->rayTest(pos, enemy_pos, rayCallback);
-
-				if (!rayCallback.hasHit() || rayCallback.m_collisionObject->getUserIndex() == agent->entity_id)
-					return agent->entity();
+				AIAgent* agent = owner->get<AIAgent>();
+				if (agent->team != team && vision_check(pos, agent->get<Transform>()->absolute_pos(), agent))
+					return owner;
 			}
 		}
 	}
+
 	return nullptr;
 }
 

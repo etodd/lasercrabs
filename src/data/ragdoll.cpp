@@ -10,7 +10,7 @@ namespace VI
 {
 
 Ragdoll::Ragdoll()
-	: bodies(), offset()
+	: bodies()
 {
 }
 
@@ -139,17 +139,6 @@ void Ragdoll::awake()
 			}
 		}
 	}
-
-	Vec3 pos = Vec3::zero;
-	Quat rot = Quat::identity;
-	int bone = bodies[0].bone;
-	while (bone != -1)
-	{
-		rot = arm->bind_pose[bone].rot * rot;
-		pos = (arm->bind_pose[bone].rot * pos) + arm->bind_pose[bone].pos;
-		bone = arm->hierarchy[bone];
-	}
-	offset = (get<SkinnedModel>()->offset * Vec4(pos)).xyz();
 }
 
 RigidBody* Ragdoll::get_body(const AssetID bone)
@@ -190,6 +179,23 @@ void Ragdoll::update(const Update& u)
 
 		anim->from_bone_body(bone_body.bone, pos, rot, bone_body.body_to_bone_pos, bone_body.body_to_bone_rot);
 	}
+}
+
+void Ragdoll::sync_physics_to_armature()
+{
+	/*
+	for (int i = 0; i < bodies.length; i++)
+	{
+		BoneBody& bone_body = bodies[i];
+		Quat rot;
+		Vec3 pos;
+		bone_body.body.ref()->absolute(&pos, &rot);
+
+		get<Transform>()->to_local(&pos, &rot);
+
+		anim->from_bone_body(bone_body.bone, pos, rot, bone_body.body_to_bone_pos, bone_body.body_to_bone_rot);
+	}
+	*/
 }
 
 }

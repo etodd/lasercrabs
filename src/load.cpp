@@ -27,6 +27,8 @@ Array<Loader::Entry<AkBankID> > Loader::soundbanks = Array<Loader::Entry<AkBankI
 dtNavMesh* Loader::current_nav_mesh;
 AssetID Loader::current_nav_mesh_id = AssetNull;
 
+Settings Loader::settings_data = Settings();
+
 struct Attrib
 {
 	RenderDataType type;
@@ -961,6 +963,15 @@ AssetID Loader::find(const char* name, const char** list)
 		i++;
 	}
 	return AssetNull;
+}
+
+Settings* Loader::settings()
+{
+	cJSON* json = Json::load("config.txt");
+	settings_data.width = Json::get_int(json, "width", 1920);
+	settings_data.height = Json::get_int(json, "height", 1080);
+	settings_data.fullscreen = (bool)Json::get_int(json, "fullscreen", 0);
+	return &settings_data;
 }
 
 }

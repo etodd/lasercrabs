@@ -297,6 +297,9 @@ add_executable(mkzebra
 	assets/blend_to_lvl.py
 )
 
+# Config file
+file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/config.txt DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/)
+
 if(WIN32)
 	set_property(TARGET mkzebra APPEND PROPERTY LINK_FLAGS_DEBUG "/SUBSYSTEM:CONSOLE")
 	set_property(TARGET mkzebra APPEND PROPERTY COMPILE_DEFINITIONS $<$<CONFIG:Debug>:_CONSOLE>)

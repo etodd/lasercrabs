@@ -59,16 +59,15 @@ int proc()
 #if defined(__APPLE__)
 	SDL_SetHint(SDL_HINT_MOUSE_RELATIVE_MODE_WARP, "1");
 #endif
+	
+	Settings* settings = Loader::settings();
 
-#if DEBUG
 	window = SDL_CreateWindow
 	(
 		"MK-ZEBRA",
 		SDL_WINDOWPOS_CENTERED,
 		SDL_WINDOWPOS_CENTERED,
-		1280, 720,
-		//1920, 1080,
-		//506, 253,
+		settings->width, settings->height,
 		SDL_WINDOW_OPENGL
 		| SDL_WINDOW_SHOWN
 		| SDL_WINDOW_BORDERLESS
@@ -76,24 +75,8 @@ int proc()
 		| SDL_WINDOW_INPUT_FOCUS
 		| SDL_WINDOW_MOUSE_FOCUS
 		| SDL_WINDOW_MOUSE_CAPTURE
+		| (settings->fullscreen ? SDL_WINDOW_FULLSCREEN : 0)
 	);
-#else
-	window = SDL_CreateWindow
-	(
-		"MK-ZEBRA",
-		SDL_WINDOWPOS_CENTERED,
-		SDL_WINDOWPOS_CENTERED,
-		1280, 720,
-		SDL_WINDOW_OPENGL
-		| SDL_WINDOW_SHOWN
-		| SDL_WINDOW_BORDERLESS
-		| SDL_WINDOW_INPUT_GRABBED
-		| SDL_WINDOW_INPUT_FOCUS
-		| SDL_WINDOW_MOUSE_FOCUS
-		| SDL_WINDOW_MOUSE_CAPTURE
-		| SDL_WINDOW_FULLSCREEN
-	);
-#endif
 
 #if defined(__APPLE__)
 	SDL_SetWindowGrab(window, SDL_TRUE);
@@ -177,13 +160,11 @@ int proc()
 
 		SDL_PumpEvents();
 
-		bool quit = false;
-
 		SDL_Event sdl_event;
 		while (SDL_PollEvent(&sdl_event))
 		{
 			if (sdl_event.type == SDL_QUIT)
-				quit = true;
+				sync->quit = true;
 			else if (sdl_event.type == SDL_JOYDEVICEADDED
 				|| sdl_event.type == SDL_JOYDEVICEREMOVED)
 				refresh_controllers();
@@ -239,8 +220,6 @@ int proc()
 			sync->input.gamepads[i] = gamepads[i];
 		}
 
-		sync->quit = quit;
-
 		SDL_GetWindowSize(window, &sync->input.width, &sync->input.height);
 
 		double time = (SDL_GetTicks() / 1000.0);
@@ -248,9 +227,11 @@ int proc()
 		sync->time.delta = (float)(time - last_time);
 		last_time = time;
 
+		bool quit = sync->quit;
+
 		sync = render_swapper.swap<SwapType_Read>();
 
-		if (quit)
+		if (quit || sync->quit)
 			break;
 	}
 

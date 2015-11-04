@@ -600,17 +600,18 @@ void draw(RenderSync* sync, const Camera* camera)
 		sync->write<int>(1);
 		sync->write<Vec3>(Skybox::zenith_color);
 
+		Vec2 film_grain_size = buffer_size * (0.5f / UI::scale);
 		sync->write(RenderOp::Uniform);
-		sync->write(Asset::Uniform::buffer_size);
+		sync->write(Asset::Uniform::film_grain_size);
 		sync->write(RenderDataType::Vec2);
 		sync->write<int>(1);
-		sync->write<Vec2>(buffer_size);
+		sync->write<Vec2>(film_grain_size);
 
 		sync->write(RenderOp::Uniform);
 		sync->write(Asset::Uniform::uv_offset);
 		sync->write(RenderDataType::Vec2);
 		sync->write<int>(1);
-		sync->write<Vec2>(Vec2(mersenne::randf_oo(), mersenne::randf_oo()));
+		sync->write<Vec2>(film_grain_size * Vec2(mersenne::randf_oo(), mersenne::randf_oo()));
 
 		sync->write(RenderOp::Uniform);
 		sync->write(Asset::Uniform::ssao_buffer);
@@ -930,7 +931,7 @@ void loop(RenderSwapper* swapper, PhysicsSwapper* physics_swapper)
 
 	PhysicsSync* physics_sync = nullptr;
 
-	while (!sync->quit)
+	while (!sync->quit && !Game::quit)
 	{
 		// Update
 		if (sync->focus)
@@ -962,6 +963,8 @@ void loop(RenderSwapper* swapper, PhysicsSwapper* physics_swapper)
 			if (Camera::all[i].active)
 				draw(sync, &Camera::all[i]);
 		}
+
+		sync->quit |= Game::quit;
 
 		sync = swapper->swap<SwapType_Write>();
 		sync->queue.length = 0;

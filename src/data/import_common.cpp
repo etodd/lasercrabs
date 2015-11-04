@@ -110,11 +110,15 @@ namespace Json
 
 	void json_free(cJSON* json)
 	{
-		cJSON_Delete(json);
+		if (json)
+			cJSON_Delete(json);
 	}
 
 	Vec3 get_vec3(cJSON* parent, const char* key, const Vec3& default_value)
 	{
+		if (!parent)
+			return default_value;
+
 		cJSON* json = cJSON_GetObjectItem(parent, key);
 		if (!json)
 			return default_value;
@@ -126,6 +130,9 @@ namespace Json
 
 	Vec4 get_vec4(cJSON* parent, const char* key, const Vec4& default_value)
 	{
+		if (!parent)
+			return default_value;
+
 		cJSON* json = cJSON_GetObjectItem(parent, key);
 		if (!json)
 			return default_value;
@@ -138,6 +145,9 @@ namespace Json
 
 	Quat get_quat(cJSON* parent, const char* key, const Quat& default_value)
 	{
+		if (!parent)
+			return default_value;
+
 		cJSON* json = cJSON_GetObjectItem(parent, key);
 		if (!json)
 			return default_value;
@@ -150,6 +160,9 @@ namespace Json
 
 	float get_float(cJSON* parent, const char* key, const float default_value)
 	{
+		if (!parent)
+			return default_value;
+
 		cJSON* json = cJSON_GetObjectItem(parent, key);
 		if (json)
 			return json->valuedouble;
@@ -159,6 +172,9 @@ namespace Json
 
 	int get_int(cJSON* parent, const char* key, const int default_value)
 	{
+		if (!parent)
+			return default_value;
+
 		cJSON* json = cJSON_GetObjectItem(parent, key);
 		if (json)
 			return json->valueint;
@@ -168,6 +184,9 @@ namespace Json
 
 	const char* get_string(cJSON* parent, const char* key, const char* default_value)
 	{
+		if (!parent)
+			return default_value;
+
 		cJSON* json = cJSON_GetObjectItem(parent, key);
 		if (json)
 			return json->valuestring;

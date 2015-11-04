@@ -30,6 +30,13 @@ struct rcPolyMesh
 	int borderSize;			///< The AABB border size used to generate the source data from which the mesh was derived.
 };
 
+struct Settings
+{
+	int width;
+	int height;
+	bool fullscreen;
+};
+
 struct Loader
 {
 	enum AssetType { AssetNone, AssetTransient, AssetPermanent };
@@ -56,6 +63,7 @@ struct Loader
 	static Array<Entry<void*> > dynamic_textures; // Nothing actually stored
 	static Array<Entry<void*> > framebuffers; // Nothing actually stored
 	static Array<Entry<AkBankID> > soundbanks;
+	static Settings settings_data;
 	static dtNavMesh* current_nav_mesh;
 	static AssetID current_nav_mesh_id;
 
@@ -110,6 +118,8 @@ struct Loader
 	static bool soundbank(const AssetID);
 	static bool soundbank_permanent(const AssetID);
 	static void soundbank_free(const AssetID);
+	
+	static Settings* settings();
 
 	static void transients_free();
 

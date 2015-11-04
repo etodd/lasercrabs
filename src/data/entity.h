@@ -368,12 +368,12 @@ struct FunctionPointerLinkEntryArg : public LinkEntryArg<T>
 {
 	FunctionPointerLinkEntryArg(void(*fp)(T))
 	{
-		function_pointer = fp;
+		FunctionPointerLinkEntryArg::function_pointer = fp;
 	}
 
 	virtual void fire(T arg)
 	{
-		(*function_pointer)(arg);
+		(*FunctionPointerLinkEntryArg::function_pointer)(arg);
 	}
 };
 

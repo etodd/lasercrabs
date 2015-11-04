@@ -2,6 +2,8 @@
 #include "game/game.h"
 #include "asset/font.h"
 #include <cstdio>
+#include "game/audio.h"
+#include "game/wwise/Wwise_IDs.h"
 
 namespace VI
 {
@@ -24,7 +26,7 @@ float Console::repeat_last_time = 0.0f;
 
 #define REPEAT_DELAY 0.2f
 #define REPEAT_INTERVAL 0.03f
-#define LOG_TIME 5.0f
+#define LOG_TIME 8.0f
 
 void Console::init()
 {
@@ -253,6 +255,8 @@ void Console::log(const char* format, ...)
 
 	va_end(args);
 
+	Audio::post_global_event(AK::EVENTS::PLAY_LOG);
+
 	Console::update_log();
 }
 
@@ -276,6 +280,7 @@ void Console::update_log()
 		string[index - 1] = '\0';
 		log_text.text(string.data);
 	}
+
 	else
 		log_text.text("");
 }

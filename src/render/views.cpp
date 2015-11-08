@@ -144,6 +144,14 @@ void View::draw(const RenderParams& params) const
 	sync->write<int>(1);
 	sync->write<Mat4>(mvp);
 
+	/*
+	sync->write(RenderOp::Uniform);
+	sync->write(Asset::Uniform::m);
+	sync->write(RenderDataType::Mat4);
+	sync->write<int>(1);
+	sync->write<Mat4>(m);
+	*/
+
 	sync->write(RenderOp::Uniform);
 	sync->write(Asset::Uniform::mv);
 	sync->write(RenderDataType::Mat4);

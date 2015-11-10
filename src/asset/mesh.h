@@ -8,7 +8,7 @@ namespace Asset
 {
 	namespace Mesh
 	{
-		const int count = 52;
+		const int count = 53;
 		const AssetID Alpha = 0;
 		const AssetID awk = 1;
 		const AssetID compass_inner = 2;
@@ -45,22 +45,23 @@ namespace Asset
 		const AssetID level4_shell_1 = 33;
 		const AssetID logo = 34;
 		const AssetID msg = 35;
-		const AssetID pvp_pvp_half1 = 36;
-		const AssetID pvp_pvp_half1_1 = 37;
-		const AssetID pvp_pvp_half2 = 38;
-		const AssetID pvp_pvp_half2_1 = 39;
-		const AssetID pvp_pvp_scenery_1 = 40;
-		const AssetID skybox = 41;
-		const AssetID socket = 42;
-		const AssetID sphere = 43;
-		const AssetID title_city2_scenery = 44;
-		const AssetID title_half1 = 45;
-		const AssetID title_half1_1 = 46;
-		const AssetID title_half2 = 47;
-		const AssetID title_half2_1 = 48;
-		const AssetID title_half3 = 49;
-		const AssetID title_half3_1 = 50;
-		const AssetID tri_tube = 51;
+		const AssetID point_grid = 36;
+		const AssetID pvp_pvp_half1 = 37;
+		const AssetID pvp_pvp_half1_1 = 38;
+		const AssetID pvp_pvp_half2 = 39;
+		const AssetID pvp_pvp_half2_1 = 40;
+		const AssetID pvp_pvp_scenery_1 = 41;
+		const AssetID skybox = 42;
+		const AssetID socket = 43;
+		const AssetID sphere = 44;
+		const AssetID title_city2_scenery = 45;
+		const AssetID title_half1 = 46;
+		const AssetID title_half1_1 = 47;
+		const AssetID title_half2 = 48;
+		const AssetID title_half2_1 = 49;
+		const AssetID title_half3 = 50;
+		const AssetID title_half3_1 = 51;
+		const AssetID tri_tube = 52;
 	}
 	const AssetID mesh_refs[10][9] =
 	{
@@ -108,20 +109,20 @@ namespace Asset
 		{
 		},
 		{
-			36,
 			37,
 			38,
 			39,
 			40,
+			41,
 		},
 		{
-			44,
 			45,
 			46,
 			47,
 			48,
 			49,
 			50,
+			51,
 		},
 	};
 }

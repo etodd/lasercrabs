@@ -101,7 +101,7 @@ Mesh* Loader::mesh(const AssetID id)
 		mesh->vertices.resize(vertex_count);
 		fread(mesh->vertices.data, sizeof(Vec3), vertex_count, f);
 
-		// Fill vertices normals
+		// Fill normals
 		mesh->normals.resize(vertex_count);
 		fread(mesh->normals.data, sizeof(Vec3), vertex_count, f);
 

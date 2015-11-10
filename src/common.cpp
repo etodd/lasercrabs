@@ -55,7 +55,7 @@ StaticGeom::StaticGeom(const ID id, const AssetID mesh_id, const Vec3& absolute_
 	View* model = create<View>();
 
 	model->mesh = mesh_id;
-	model->shader = Asset::Shader::point_grid;
+	model->shader = Asset::Shader::standard;
 
 	Mesh* mesh = Loader::mesh(model->mesh);
 

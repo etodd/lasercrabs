@@ -280,6 +280,7 @@ add_executable(mkzebra
 	assets/flat.glsl
 	assets/flat_texture.glsl
 	assets/point_light.glsl
+	assets/global_light.glsl
 	assets/spot_light.glsl
 	assets/standard.glsl
 	assets/standard_instanced.glsl

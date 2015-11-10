@@ -23,7 +23,7 @@
 namespace VI
 {
 
-const int version = 14;
+const int version = 15;
 
 const char* model_in_extension = ".blend";
 const char* model_intermediate_extension = ".fbx";
@@ -770,16 +770,16 @@ bool load_anim(const Armature& armature, const aiAnimation* in, Animation* out, 
 	return true;
 }
 
-const aiScene* load_fbx(Assimp::Importer& importer, const std::string& path)
+const aiScene* load_fbx(Assimp::Importer& importer, const std::string& path, bool tangents)
 {
-	const aiScene* scene = importer.ReadFile
-	(
-		path,
+	unsigned int flags =
 		aiProcess_JoinIdenticalVertices
 		| aiProcess_Triangulate
 		| aiProcess_GenNormals
-		| aiProcess_ValidateDataStructure
-	);
+		| aiProcess_ValidateDataStructure;
+	if (tangents)
+		flags |= aiProcess_CalcTangentSpace;
+	const aiScene* scene = importer.ReadFile(path, flags);
 	if (!scene)
 		fprintf(stderr, "%s\n", importer.GetErrorString());
 	return scene;
@@ -807,7 +807,7 @@ bool load_mesh(const aiMesh* mesh, Mesh* out)
 	}
 	out->bounds_radius = sqrtf(out->bounds_radius);
 
-	// Fill vertices normals
+	// Fill normals, binormals, tangents
 	if (mesh->HasNormals())
 	{
 		out->normals.reserve(mesh->mNumVertices);
@@ -973,7 +973,7 @@ bool write_armature(const Armature& armature, const std::string& path)
 	}
 }
 
-const aiScene* load_blend(ImporterState& state, Assimp::Importer& importer, const std::string& asset_in_path, const std::string& out_folder)
+const aiScene* load_blend(ImporterState& state, Assimp::Importer& importer, const std::string& asset_in_path, const std::string& out_folder, bool tangents)
 {
 	// Export to FBX first
 	std::string asset_intermediate_path = out_folder + get_asset_name(asset_in_path) + model_intermediate_extension;
@@ -991,7 +991,7 @@ const aiScene* load_blend(ImporterState& state, Assimp::Importer& importer, cons
 		return 0;
 	}
 
-	const aiScene* scene = load_fbx(importer, asset_intermediate_path);
+	const aiScene* scene = load_fbx(importer, asset_intermediate_path, tangents);
 
 	if (remove(asset_intermediate_path.c_str()))
 	{
@@ -1006,7 +1006,9 @@ const aiScene* load_blend(ImporterState& state, Assimp::Importer& importer, cons
 bool write_mesh(
 	const Mesh* mesh,
 	const std::string& path,
-	const Array<Array<Vec2>>& uv_layers,
+	const Array<Array<Vec2> >& uv_layers,
+	const Array<Vec3>& tangents,
+	const Array<Vec3>& bitangents,
 	const Array<std::array<float, MAX_BONE_WEIGHTS> >& bone_weights,
 	const Array<std::array<int, MAX_BONE_WEIGHTS> >& bone_indices)
 {
@@ -1022,7 +1024,7 @@ bool write_mesh(
 		fwrite(&mesh->vertices.length, sizeof(int), 1, f);
 		fwrite(mesh->vertices.data, sizeof(Vec3), mesh->vertices.length, f);
 		fwrite(mesh->normals.data, sizeof(Vec3), mesh->vertices.length, f);
-		int num_extra_attribs = uv_layers.length + (bone_weights.length > 0 ? 2 : 0);
+		int num_extra_attribs = uv_layers.length + (tangents.length > 0 ? 2 : 0) + (bone_weights.length > 0 ? 2 : 0);
 		fwrite(&num_extra_attribs, sizeof(int), 1, f);
 		for (int i = 0; i < uv_layers.length; i++)
 		{
@@ -1031,6 +1033,18 @@ bool write_mesh(
 			int count = 1;
 			fwrite(&count, sizeof(int), 1, f);
 			fwrite(uv_layers[i].data, sizeof(Vec2), mesh->vertices.length, f);
+		}
+		if (tangents.length > 0)
+		{
+			RenderDataType type = RenderDataType::Vec3;
+			fwrite(&type, sizeof(RenderDataType), 1, f);
+			int count = 1;
+			fwrite(&count, sizeof(int), 1, f);
+			fwrite(tangents.data, sizeof(Vec3), mesh->vertices.length, f);
+
+			fwrite(&type, sizeof(RenderDataType), 1, f);
+			fwrite(&count, sizeof(int), 1, f);
+			fwrite(bitangents.data, sizeof(Vec3), mesh->vertices.length, f);
 		}
 		if (bone_weights.length > 0)
 		{
@@ -1053,7 +1067,7 @@ bool write_mesh(
 		return false;
 }
 
-bool import_meshes(ImporterState& state, const std::string& asset_in_path, const std::string& out_folder, Array<Mesh>& meshes, bool force_rebuild)
+bool import_meshes(ImporterState& state, const std::string& asset_in_path, const std::string& out_folder, Array<Mesh>& meshes, bool force_rebuild, bool tangents)
 {
 	std::string asset_name = get_asset_name(asset_in_path);
 	std::string asset_out_path = out_folder + asset_name + mesh_out_extension;
@@ -1066,7 +1080,7 @@ bool import_meshes(ImporterState& state, const std::string& asset_in_path, const
 		|| mtime > asset_mtime(state.cached_manifest.animations, asset_name))
 	{
 		Assimp::Importer importer;
-		const aiScene* scene = load_blend(state, importer, asset_in_path, out_folder);
+		const aiScene* scene = load_blend(state, importer, asset_in_path, out_folder, tangents);
 		map_init(state.manifest.meshes, asset_name);
 		map_init(state.manifest.armatures, asset_name);
 		map_init(state.manifest.animations, asset_name);
@@ -1125,6 +1139,27 @@ bool import_meshes(ImporterState& state, const std::string& asset_in_path, const
 					}
 				}
 
+				Array<Vec3> tangents;
+				Array<Vec3> bitangents;
+
+				if (ai_mesh->HasTangentsAndBitangents())
+				{
+					tangents.resize(ai_mesh->mNumVertices);
+					for (unsigned int i = 0; i < ai_mesh->mNumVertices; i++)
+					{
+						aiVector3D n = ai_mesh->mTangents[i];
+						tangents[i] = Vec3(n.y, n.z, n.x);
+					}
+
+					bitangents.resize(ai_mesh->mNumVertices);
+					for (unsigned int i = 0; i < ai_mesh->mNumVertices; i++)
+					{
+						aiVector3D n = ai_mesh->mBitangents[i];
+						bitangents[i] = Vec3(n.y, n.z, n.x);
+					}
+				}
+
+
 				Array<std::array<float, MAX_BONE_WEIGHTS> > bone_weights;
 				Array<std::array<int, MAX_BONE_WEIGHTS> > bone_indices;
 
@@ -1171,7 +1206,7 @@ bool import_meshes(ImporterState& state, const std::string& asset_in_path, const
 					}
 				}
 
-				if (!write_mesh(mesh, mesh_out_filename, uv_layers, bone_weights, bone_indices))
+				if (!write_mesh(mesh, mesh_out_filename, uv_layers, tangents, bitangents, bone_weights, bone_indices))
 				{
 					fprintf(stderr, "Error: failed to write mesh file %s.\n", mesh_out_filename.c_str());
 					state.error = true;
@@ -1385,7 +1420,7 @@ void import_level(ImporterState& state, const std::string& asset_in_path, const 
 		|| mtime > asset_mtime(state.cached_manifest.nav_meshes, asset_name);
 
 	Array<Mesh> meshes;
-	rebuild |= import_meshes(state, asset_in_path, out_folder, meshes, rebuild);
+	rebuild |= import_meshes(state, asset_in_path, out_folder, meshes, rebuild, false);
 	if (state.error)
 		return;
 
@@ -1719,7 +1754,7 @@ void import_font(ImporterState& state, const std::string& asset_in_path, const s
 		}
 
 		Assimp::Importer importer;
-		const aiScene* scene = load_fbx(importer, asset_intermediate_path);
+		const aiScene* scene = load_fbx(importer, asset_intermediate_path, false);
 
 		remove(asset_intermediate_path.c_str());
 
@@ -1852,7 +1887,7 @@ int proc(int argc, char* argv[])
 			else if (has_extension(asset_in_path, model_in_extension))
 			{
 				Array<Mesh> meshes;
-				import_meshes(state, asset_in_path, asset_out_folder, meshes, false);
+				import_meshes(state, asset_in_path, asset_out_folder, meshes, false, false);
 				for (int i = 0; i < meshes.length; i++)
 					meshes[i].~Mesh();
 			}

@@ -3,10 +3,8 @@
 #ifdef VERTEX
 
 layout(location = 0) in vec3 in_position;
-layout (location = 3) in ivec4 bone_ids;
-layout (location = 4) in vec4 bone_weights;
-
-out vec2 uv;
+layout(location = 2) in ivec4 bone_ids;
+layout(location = 3) in vec4 bone_weights;
 
 uniform mat4 mvp;
 const int MAX_BONES = 100;
@@ -42,8 +40,8 @@ void main()
 
 layout(location = 0) in vec3 in_position;
 layout(location = 1) in vec3 in_normal;
-layout (location = 3) in ivec4 bone_ids;
-layout (location = 4) in vec4 bone_weights;
+layout(location = 2) in ivec4 bone_ids;
+layout(location = 3) in vec4 bone_weights;
 
 out vec3 normal_viewspace;
 
@@ -72,8 +70,8 @@ in vec3 normal_viewspace;
 
 uniform vec4 diffuse_color;
 
-layout (location = 0) out vec4 out_color;
-layout (location = 1) out vec4 out_normal;
+layout(location = 0) out vec4 out_color;
+layout(location = 1) out vec4 out_normal;
 
 void main()
 {

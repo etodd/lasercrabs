@@ -3,7 +3,7 @@
 #ifdef VERTEX
 
 layout(location = 0) in vec3 in_position;
-layout(location = 3) in mat4 in_model_matrix;
+layout(location = 2) in mat4 in_model_matrix;
 
 uniform mat4 vp;
 
@@ -31,7 +31,7 @@ void main()
 
 layout(location = 0) in vec3 in_position;
 layout(location = 1) in vec3 in_normal;
-layout(location = 3) in mat4 in_model_matrix;
+layout(location = 2) in mat4 in_model_matrix;
 
 out vec3 normal_viewspace;
 

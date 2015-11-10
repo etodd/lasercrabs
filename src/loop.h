@@ -115,11 +115,44 @@ void draw(RenderSync* sync, const Camera* camera)
 
 		sync->write<RenderOp>(RenderOp::BlendMode);
 		sync->write<RenderBlendMode>(RenderBlendMode::Additive);
-		sync->write<RenderOp>(RenderOp::CullMode);
-		sync->write<RenderCullMode>(RenderCullMode::Front);
+
+		{
+			// Global light (directional and player lights)
+			Loader::shader_permanent(Asset::Shader::global_light);
+
+			sync->write(RenderOp::Shader);
+			sync->write<AssetID>(Asset::Shader::global_light);
+			sync->write(RenderTechnique::Default);
+
+			sync->write(RenderOp::Uniform);
+			sync->write(Asset::Uniform::p);
+			sync->write(RenderDataType::Mat4);
+			sync->write<int>(1);
+			sync->write<Mat4>(render_params.camera->projection);
+
+			sync->write(RenderOp::Uniform);
+			sync->write(Asset::Uniform::normal_buffer);
+			sync->write(RenderDataType::Texture);
+			sync->write<int>(1);
+			sync->write<RenderTextureType>(RenderTexture2D);
+			sync->write<AssetID>(normal_buffer);
+
+			sync->write(RenderOp::Uniform);
+			sync->write(Asset::Uniform::depth_buffer);
+			sync->write(RenderDataType::Texture);
+			sync->write<int>(1);
+			sync->write<RenderTextureType>(RenderTexture2D);
+			sync->write<AssetID>(depth_buffer);
+
+			sync->write(RenderOp::Mesh);
+			sync->write(screen_quad.mesh);
+		}
 
 		{
 			// Point lights
+			sync->write<RenderOp>(RenderOp::CullMode);
+			sync->write<RenderCullMode>(RenderCullMode::Front);
+
 			Loader::shader_permanent(Asset::Shader::point_light);
 
 			sync->write(RenderOp::Shader);

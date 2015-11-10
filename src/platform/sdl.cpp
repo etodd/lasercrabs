@@ -45,7 +45,6 @@ int proc()
 		| SDL_INIT_JOYSTICK
 		) < 0)
 	{
-		
 		fprintf(stderr, "Failed to initialize SDL: %s\n", SDL_GetError());
 		return -1;
 	}

@@ -41,6 +41,10 @@ def add(obj, parent_index = -1):
 			node['PointLight'] = True
 			node['radius'] = obj.data.distance
 			node['color'] = list(obj.data.color)
+		elif lamp_type == 'SUN':
+			node['DirectionalLight'] = True
+			node['color'] = list(obj.data.color)
+			node['shadowed'] = obj.data.shadow_method != 'NOSHADOW'
 
 	result.append(node)
 	index = len(result) - 1

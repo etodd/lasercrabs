@@ -137,21 +137,21 @@ void NoclipControl::update(const Update& u)
 
 	if (!Console::visible)
 	{
-		float speed = u.input->keys[KEYCODE_LSHIFT] ? 24.0f : 4.0f;
-		if (u.input->keys[KEYCODE_SPACE])
+		float speed = u.input->keys[(int)KeyCode::LShift] ? 24.0f : 4.0f;
+		if (u.input->keys[(int)KeyCode::Space])
 			get<Transform>()->pos += Vec3(0, 1, 0) * u.time.delta * speed;
-		if (u.input->keys[KEYCODE_LCTRL])
+		if (u.input->keys[(int)KeyCode::LCtrl])
 			get<Transform>()->pos += Vec3(0, -1, 0) * u.time.delta * speed;
-		if (u.input->keys[KEYCODE_W])
+		if (u.input->keys[(int)KeyCode::W])
 			get<Transform>()->pos += look_quat * Vec3(0, 0, 1) * u.time.delta * speed;
-		if (u.input->keys[KEYCODE_S])
+		if (u.input->keys[(int)KeyCode::S])
 			get<Transform>()->pos += look_quat * Vec3(0, 0, -1) * u.time.delta * speed;
-		if (u.input->keys[KEYCODE_D])
+		if (u.input->keys[(int)KeyCode::D])
 			get<Transform>()->pos += look_quat * Vec3(-1, 0, 0) * u.time.delta * speed;
-		if (u.input->keys[KEYCODE_A])
+		if (u.input->keys[(int)KeyCode::A])
 			get<Transform>()->pos += look_quat * Vec3(1, 0, 0) * u.time.delta * speed;
 
-		if ((u.input->mouse_buttons & 1) && !(u.input->last_mouse_buttons & 1))
+		if (u.input->keys[(int)KeyCode::MouseLeft] && !u.last_input->keys[(int)KeyCode::MouseRight])
 		{
 			static const Vec3 scale = Vec3(0.1f, 0.2f, 0.1f);
 			Entity* box = World::create<PhysicsEntity>(get<Transform>()->absolute_pos() + look_quat * Vec3(0, 0, 0.25f), look_quat, Asset::Mesh::cube, 1.0f, new btBoxShape(scale), scale);

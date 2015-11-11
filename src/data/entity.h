@@ -18,6 +18,7 @@ const int MAX_ENTITIES = 4096;
 struct Update
 {
 	const InputState* input;
+	const InputState* last_input;
 	GameTime time;
 };
 

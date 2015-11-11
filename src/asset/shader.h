@@ -8,7 +8,7 @@ namespace Asset
 {
 	namespace Uniform
 	{
-		const int count = 31;
+		const int count = 32;
 		const AssetID ambient_color = 0;
 		const AssetID bones = 1;
 		const AssetID color_buffer = 2;
@@ -33,36 +33,38 @@ namespace Asset
 		const AssetID normal_buffer = 21;
 		const AssetID p = 22;
 		const AssetID shadow_map = 23;
-		const AssetID shockwave = 24;
-		const AssetID ssao_buffer = 25;
-		const AssetID uv_offset = 26;
-		const AssetID uv_scale = 27;
-		const AssetID v = 28;
-		const AssetID vp = 29;
-		const AssetID zenith_color = 30;
+		const AssetID shadowed = 24;
+		const AssetID shockwave = 25;
+		const AssetID ssao_buffer = 26;
+		const AssetID uv_offset = 27;
+		const AssetID uv_scale = 28;
+		const AssetID v = 29;
+		const AssetID vp = 30;
+		const AssetID zenith_color = 31;
 	}
 	namespace Shader
 	{
-		const int count = 19;
+		const int count = 20;
 		const AssetID armature = 0;
 		const AssetID bloom_downsample = 1;
 		const AssetID blur = 2;
 		const AssetID composite = 3;
-		const AssetID edge_detect = 4;
-		const AssetID flat = 5;
-		const AssetID flat_texture = 6;
-		const AssetID global_light = 7;
-		const AssetID point_grid = 8;
-		const AssetID point_light = 9;
-		const AssetID skybox = 10;
-		const AssetID spot_light = 11;
-		const AssetID ssao = 12;
-		const AssetID ssao_blur = 13;
-		const AssetID ssao_downsample = 14;
-		const AssetID standard = 15;
-		const AssetID standard_instanced = 16;
-		const AssetID ui = 17;
-		const AssetID ui_texture = 18;
+		const AssetID debug_depth = 4;
+		const AssetID edge_detect = 5;
+		const AssetID flat = 6;
+		const AssetID flat_texture = 7;
+		const AssetID global_light = 8;
+		const AssetID point_grid = 9;
+		const AssetID point_light = 10;
+		const AssetID skybox = 11;
+		const AssetID spot_light = 12;
+		const AssetID ssao = 13;
+		const AssetID ssao_blur = 14;
+		const AssetID ssao_downsample = 15;
+		const AssetID standard = 16;
+		const AssetID standard_instanced = 17;
+		const AssetID ui = 18;
+		const AssetID ui_texture = 19;
 	}
 }
 

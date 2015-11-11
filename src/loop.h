@@ -17,7 +17,7 @@
 #include "console.h"
 
 #if DEBUG
-	#define DEBUG_RENDER 0
+	#define DEBUG_RENDER 1
 #endif
 
 #include "game/game.h"
@@ -30,6 +30,14 @@ namespace Loop
 
 ScreenQuad screen_quad = ScreenQuad();
 
+#define SHADOW_MAP_CASCADES 2
+
+const int shadow_map_size[SHADOW_MAP_CASCADES] =
+{
+	512,
+	1024,
+};
+
 int color_buffer;
 int normal_buffer;
 int depth_buffer;
@@ -39,8 +47,8 @@ int lighting_buffer;
 int lighting_fbo;
 int color_buffer2;
 int color_fbo2;
-int shadow_buffer;
-int shadow_fbo;
+int shadow_buffer[SHADOW_MAP_CASCADES];
+int shadow_fbo[SHADOW_MAP_CASCADES];
 int half_depth_buffer;
 int half_buffer1;
 int half_fbo1;
@@ -50,7 +58,32 @@ int half_fbo3;
 int ui_buffer;
 int ui_fbo;
 
-#define SHADOW_MAP_SIZE 256
+Mat4 render_shadows(RenderSync* sync, int fbo, const Camera& camera)
+{
+	// Render shadows
+	sync->write<RenderOp>(RenderOp::BindFramebuffer);
+	sync->write<int>(shadow_fbo);
+
+	RenderParams shadow_render_params;
+	shadow_render_params.sync = sync;
+
+	sync->write<RenderOp>(RenderOp::Viewport);
+	sync->write<ScreenRect>(camera.viewport);
+
+	sync->write<RenderOp>(RenderOp::Clear);
+	sync->write<bool>(false); // Don't clear color
+	sync->write<bool>(true); // Clear depth
+
+	shadow_render_params.camera = &camera;
+	shadow_render_params.view = camera.view();
+	Mat4 light_vp;
+	shadow_render_params.view_projection = light_vp = shadow_render_params.view * camera.projection;
+	shadow_render_params.technique = RenderTechnique::Shadow;
+
+	Game::draw_opaque(shadow_render_params);
+
+	return light_vp;
+}
 
 void draw(RenderSync* sync, const Camera* camera)
 {
@@ -86,9 +119,6 @@ void draw(RenderSync* sync, const Camera* camera)
 
 	UI::update(render_params);
 
-	sync->write(RenderOp::PointSize);
-	sync->write<float>(UI::scale);
-
 	sync->write<RenderOp>(RenderOp::Viewport);
 	sync->write<ScreenRect>(camera->viewport);
 
@@ -106,18 +136,71 @@ void draw(RenderSync* sync, const Camera* camera)
 
 	// Lighting
 	{
-		sync->write<RenderOp>(RenderOp::BindFramebuffer);
-		sync->write<int>(lighting_fbo);
-
-		sync->write(RenderOp::Clear);
-		sync->write<bool>(true); // Clear color
-		sync->write<bool>(true); // Clear depth
-
-		sync->write<RenderOp>(RenderOp::BlendMode);
-		sync->write<RenderBlendMode>(RenderBlendMode::Additive);
-
 		{
 			// Global light (directional and player lights)
+			const int lights = 3;
+			Vec3 colors[lights];
+			Vec3 directions[lights];
+			Vec3 abs_directions[lights];
+			bool shadowed = false;
+			int j = 0;
+			for (auto i = World::components<DirectionalLight>().iterator(); !i.is_last(); i.next())
+			{
+				DirectionalLight* light = i.item();
+				colors[j] = light->color;
+				abs_directions[j] = light->get<Transform>()->absolute_rot() * Vec3(0, 1, 0);
+				directions[j] = (render_params.view * Vec4(abs_directions[j], 0)).xyz();
+				if (light->shadowed)
+				{
+					if (j > 0 && !shadowed)
+					{
+						Vec3 tmp;
+						tmp = colors[0];
+						colors[0] = colors[j];
+						colors[j] = tmp;
+						tmp = directions[0];
+						directions[0] = directions[j];
+						directions[j] = tmp;
+						tmp = abs_directions[0];
+						abs_directions[0] = abs_directions[j];
+						abs_directions[j] = tmp;
+					}
+					shadowed = true;
+				}
+
+				j++;
+				if (j >= lights)
+					break;
+			}
+
+			Mat4 light_vp;
+
+			if (shadowed)
+			{
+				// Render shadow map
+				Camera shadow_camera;
+				shadow_camera.viewport = { 0, 0, shadow_map_size[0], shadow_map_size[0] };
+				float size = render_params.camera->far_plane * 0.5f;
+				shadow_camera.orthographic(size, size, 1.0f, size * 2.0f);
+				shadow_camera.pos = render_params.camera->pos + abs_directions[0] * size * 0.1f;
+				shadow_camera.rot = Quat::look(-abs_directions[0]);
+
+				light_vp = render_shadows(sync, shadow_fbo[0], shadow_camera);
+
+				sync->write<RenderOp>(RenderOp::Viewport);
+				sync->write<ScreenRect>(camera->viewport);
+			}
+
+			sync->write<RenderOp>(RenderOp::BlendMode);
+			sync->write<RenderBlendMode>(RenderBlendMode::Additive);
+
+			sync->write<RenderOp>(RenderOp::BindFramebuffer);
+			sync->write<int>(lighting_fbo);
+
+			sync->write(RenderOp::Clear);
+			sync->write<bool>(true); // Clear color
+			sync->write<bool>(true); // Clear depth
+
 			Loader::shader_permanent(Asset::Shader::global_light);
 
 			sync->write(RenderOp::Shader);
@@ -129,6 +212,21 @@ void draw(RenderSync* sync, const Camera* camera)
 			sync->write(RenderDataType::Mat4);
 			sync->write<int>(1);
 			sync->write<Mat4>(render_params.camera->projection);
+
+			sync->write(RenderOp::Uniform);
+			sync->write(Asset::Uniform::shadowed);
+			sync->write(RenderDataType::Int);
+			sync->write<int>(1);
+			sync->write<int>(shadowed);
+
+			if (shadowed)
+			{
+				sync->write(RenderOp::Uniform);
+				sync->write(Asset::Uniform::light_vp);
+				sync->write(RenderDataType::Mat4);
+				sync->write<int>(1);
+				sync->write<Mat4>(inverse_view * light_vp);
+			}
 
 			sync->write(RenderOp::Uniform);
 			sync->write(Asset::Uniform::normal_buffer);
@@ -143,6 +241,18 @@ void draw(RenderSync* sync, const Camera* camera)
 			sync->write<int>(1);
 			sync->write<RenderTextureType>(RenderTexture2D);
 			sync->write<AssetID>(depth_buffer);
+
+			sync->write(RenderOp::Uniform);
+			sync->write(Asset::Uniform::light_color);
+			sync->write(RenderDataType::Vec3);
+			sync->write<int>(lights);
+			sync->write<Vec3>(colors, lights);
+
+			sync->write(RenderOp::Uniform);
+			sync->write(Asset::Uniform::light_direction);
+			sync->write(RenderDataType::Vec3);
+			sync->write<int>(lights);
+			sync->write<Vec3>(directions, lights);
 
 			sync->write(RenderOp::Mesh);
 			sync->write(screen_quad.mesh);
@@ -272,32 +382,12 @@ void draw(RenderSync* sync, const Camera* camera)
 			Mat4 light_vp;
 
 			{
-				// Render shadows
-				sync->write<RenderOp>(RenderOp::BindFramebuffer);
-				sync->write<int>(shadow_fbo);
-
-				RenderParams shadow_render_params;
-				shadow_render_params.sync = sync;
-
 				Camera shadow_camera;
-				shadow_camera.viewport = { 0, 0, SHADOW_MAP_SIZE, SHADOW_MAP_SIZE };
+				shadow_camera.viewport = { 0, 0, shadow_map_size[0], shadow_map_size[0] };
 				shadow_camera.perspective(light->fov, 1.0f, 0.1f, light->radius);
 				shadow_camera.pos = abs_pos;
 				shadow_camera.rot = abs_rot;
-
-				sync->write<RenderOp>(RenderOp::Viewport);
-				sync->write<ScreenRect>(shadow_camera.viewport);
-
-				sync->write<RenderOp>(RenderOp::Clear);
-				sync->write<bool>(false); // Don't clear color
-				sync->write<bool>(true); // Clear depth
-
-				shadow_render_params.camera = &shadow_camera;
-				shadow_render_params.view = shadow_camera.view();
-				shadow_render_params.view_projection = light_vp = shadow_render_params.view * shadow_camera.projection;
-				shadow_render_params.technique = RenderTechnique::Default;
-
-				Game::draw_opaque(shadow_render_params);
+				light_vp = render_shadows(sync, shadow_fbo[0], shadow_camera);
 			}
 
 			sync->write<RenderOp>(RenderOp::BindFramebuffer);
@@ -884,16 +974,21 @@ void draw(RenderSync* sync, const Camera* camera)
 
 #if DEBUG && DEBUG_RENDER
 	// Debug render buffers
+	Loader::shader_permanent(Asset::Shader::debug_depth);
 	const int buffer_count = 8;
 	Vec2 debug_buffer_size = Vec2(camera->viewport.width / (float)buffer_count, camera->viewport.height / (float)buffer_count);
 	UI::texture(render_params, color_buffer, Vec2(debug_buffer_size.x * 0, 0), debug_buffer_size, Vec4(1, 1, 1, 1), screen_quad_uva, screen_quad_uvb);
 	UI::texture(render_params, normal_buffer, Vec2(debug_buffer_size.x * 1, 0), debug_buffer_size, Vec4(1, 1, 1, 1), screen_quad_uva, screen_quad_uvb);
 	UI::texture(render_params, lighting_buffer, Vec2(debug_buffer_size.x * 2, 0), debug_buffer_size, Vec4(1, 1, 1, 1), screen_quad_uva, screen_quad_uvb);
-	UI::texture(render_params, depth_buffer, Vec2(debug_buffer_size.x * 3, 0), debug_buffer_size, Vec4(1, 1, 1, 1), screen_quad_uva, screen_quad_uvb);
+	UI::texture(render_params, depth_buffer, Vec2(debug_buffer_size.x * 3, 0), debug_buffer_size, Vec4(1, 1, 1, 1), screen_quad_uva, screen_quad_uvb, Asset::Shader::debug_depth);
 	UI::texture(render_params, color_buffer2, Vec2(debug_buffer_size.x * 4, 0), debug_buffer_size, Vec4(1, 1, 1, 1), screen_quad_uva, screen_quad_uvb);
 	UI::texture(render_params, half_buffer1, Vec2(debug_buffer_size.x * 5, 0), debug_buffer_size, Vec4(1, 1, 1, 1), screen_quad_uva, screen_quad_uvb);
 	UI::texture(render_params, half_buffer2, Vec2(debug_buffer_size.x * 6, 0), debug_buffer_size, Vec4(1, 1, 1, 1), screen_quad_uva, screen_quad_uvb);
-	UI::texture(render_params, half_depth_buffer, Vec2(debug_buffer_size.x * 7, 0), debug_buffer_size, Vec4(1, 1, 1, 1), screen_quad_uva, screen_quad_uvb);
+	UI::texture(render_params, half_depth_buffer, Vec2(debug_buffer_size.x * 7, 0), debug_buffer_size, Vec4(1, 1, 1, 1), screen_quad_uva, screen_quad_uvb, Asset::Shader::debug_depth);
+
+	Vec2 debug_buffer_shadow_map_size = Vec2(128.0f * UI::scale);
+	for (int i = 0; i < SHADOW_MAP_CASCADES; i++)
+		UI::texture(render_params, shadow_buffer[i], Vec2(debug_buffer_shadow_map_size.x * i, debug_buffer_size.y), debug_buffer_shadow_map_size, Vec4(1, 1, 1, 1), Vec2::zero, Vec2(1, 1), Asset::Shader::debug_depth);
 #endif
 
 	sync->write(RenderOp::DepthMask);
@@ -920,7 +1015,8 @@ void loop(RenderSwapper* swapper, PhysicsSwapper* physics_swapper)
 	color_buffer = Loader::dynamic_texture_permanent(sync->input.width, sync->input.height, RenderDynamicTextureType::Color);
 	normal_buffer = Loader::dynamic_texture_permanent(sync->input.width, sync->input.height, RenderDynamicTextureType::Color);
 	depth_buffer = Loader::dynamic_texture_permanent(sync->input.width, sync->input.height, RenderDynamicTextureType::Depth);
-	shadow_buffer = Loader::dynamic_texture_permanent(SHADOW_MAP_SIZE, SHADOW_MAP_SIZE, RenderDynamicTextureType::Depth);
+	for (int i = 0; i < SHADOW_MAP_CASCADES; i++)
+		shadow_buffer[i] = Loader::dynamic_texture_permanent(shadow_map_size[i], shadow_map_size[i], RenderDynamicTextureType::Depth);
 
 	g_fbo = Loader::framebuffer_permanent(3);
 	Loader::framebuffer_attach(RenderFramebufferAttachment::Color0, color_buffer);
@@ -942,8 +1038,11 @@ void loop(RenderSwapper* swapper, PhysicsSwapper* physics_swapper)
 	lighting_fbo = Loader::framebuffer_permanent(1);
 	Loader::framebuffer_attach(RenderFramebufferAttachment::Color0, lighting_buffer);
 
-	shadow_fbo = Loader::framebuffer_permanent(1);
-	Loader::framebuffer_attach(RenderFramebufferAttachment::Depth, shadow_buffer);
+	for (int i = 0; i < SHADOW_MAP_CASCADES; i++)
+	{
+		shadow_fbo[i] = Loader::framebuffer_permanent(1);
+		Loader::framebuffer_attach(RenderFramebufferAttachment::Depth, shadow_buffer[i]);
+	}
 
 	half_buffer1 = Loader::dynamic_texture_permanent(sync->input.width / 2, sync->input.height / 2, RenderDynamicTextureType::Color);
 	half_depth_buffer = Loader::dynamic_texture_permanent(sync->input.width / 2, sync->input.height / 2, RenderDynamicTextureType::Depth);
@@ -960,7 +1059,11 @@ void loop(RenderSwapper* swapper, PhysicsSwapper* physics_swapper)
 
 	screen_quad.init(sync);
 
+	InputState last_input;
+
 	Update u;
+	u.input = &sync->input;
+	u.last_input = &last_input;
 
 	PhysicsSync* physics_sync = nullptr;
 
@@ -973,7 +1076,7 @@ void loop(RenderSwapper* swapper, PhysicsSwapper* physics_swapper)
 			u.time = sync->time;
 
 #if DEBUG
-			if (u.input->keys[KEYCODE_F5])
+			if (u.input->keys[(int)KeyCode::F5])
 				vi_assert(false);
 #endif
 			if (physics_sync)
@@ -998,6 +1101,8 @@ void loop(RenderSwapper* swapper, PhysicsSwapper* physics_swapper)
 		}
 
 		sync->quit |= Game::quit;
+
+		memcpy(&last_input, &sync->input, sizeof(last_input));
 
 		sync = swapper->swap<SwapType_Write>();
 		sync->queue.length = 0;

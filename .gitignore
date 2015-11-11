@@ -3,3 +3,4 @@ build
 .exrc
 *.blend1
 *.blend2
+.p4config

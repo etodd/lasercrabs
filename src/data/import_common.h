@@ -40,6 +40,7 @@ enum class RenderDataType
 namespace Json
 {
 	cJSON* load(const char*);
+	void save(cJSON*, const char*);
 	void json_free(cJSON*);
 	Vec3 get_vec3(cJSON*, const char*, const Vec3& = Vec3::zero);
 	Vec4 get_vec4(cJSON*, const char*, const Vec4& = Vec4::zero);

@@ -85,8 +85,7 @@ namespace Json
 {
 	cJSON* load(const char* path)
 	{
-		FILE* f;
-		f = fopen(path, "rb");
+		FILE* f = fopen(path, "rb");
 		if (!f)
 		{
 			fprintf(stderr, "Can't open file '%s'\n", path);
@@ -106,6 +105,22 @@ namespace Json
 			fprintf(stderr, "Can't parse json file '%s': %s\n", path, cJSON_GetErrorPtr());
 		free(data);
 		return output;
+	}
+
+	void save(cJSON* json, const char* path)
+	{
+		FILE* f = fopen(path, "wb");
+		if (!f)
+		{
+			fprintf(stderr, "Can't open file '%s'\n", path);
+			vi_assert(false);
+		}
+
+		char* data = cJSON_Print(json);
+		fprintf(f, "%s", data);
+		fclose(f);
+
+		free(data);
 	}
 
 	void json_free(cJSON* json)

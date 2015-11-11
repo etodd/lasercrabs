@@ -107,7 +107,7 @@ void main()
 		ao += attenuation_distance * attenuation_normal;
 	}
  
-	float final = 1.0 - (ao / sample_count) * 2;
+	float final = 1.0 - ao * (2.5 / sample_count);
 	out_color = vec4(final, final, final, 1);
 }
 

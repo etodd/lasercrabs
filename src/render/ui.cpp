@@ -543,7 +543,7 @@ void UI::draw(const RenderParams& p)
 	}
 }
 
-void UI::texture(const RenderParams& p, const int texture, const Vec2& pos, const Vec2& size, const Vec4& color, const Vec2& uva, const Vec2& uvb)
+void UI::texture(const RenderParams& p, const int texture, const Vec2& pos, const Vec2& size, const Vec4& color, const Vec2& uva, const Vec2& uvb, const AssetID shader)
 {
 	Vec2 screen = Vec2(p.camera->viewport.width * 0.5f, p.camera->viewport.height * 0.5f);
 	Vec2 scale = Vec2(1.0f / screen.x, 1.0f / screen.y);
@@ -582,7 +582,7 @@ void UI::texture(const RenderParams& p, const int texture, const Vec2& pos, cons
 	p.sync->write(uvs, 4);
 
 	p.sync->write(RenderOp::Shader);
-	p.sync->write(Asset::Shader::ui_texture);
+	p.sync->write(shader == AssetNull ? Asset::Shader::ui_texture : shader);
 	p.sync->write(p.technique);
 
 	p.sync->write(RenderOp::Uniform);

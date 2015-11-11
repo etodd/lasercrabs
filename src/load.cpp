@@ -8,6 +8,7 @@
 #include "DetourNavMesh.h"
 #include "DetourNavMeshBuilder.h"
 #include <AK/SoundEngine/Common/AkSoundEngine.h>
+#include "cJSON.h"
 
 namespace VI
 {
@@ -965,13 +966,78 @@ AssetID Loader::find(const char* name, const char** list)
 	return AssetNull;
 }
 
-Settings* Loader::settings()
+InputBinding input_binding(cJSON* parent, const char* key, const InputBinding& default_value)
 {
-	cJSON* json = Json::load("config.txt");
-	settings_data.width = Json::get_int(json, "width", 1920);
-	settings_data.height = Json::get_int(json, "height", 1080);
-	settings_data.fullscreen = (bool)Json::get_int(json, "fullscreen", 0);
-	return &settings_data;
+	if (!parent)
+		return default_value;
+
+	cJSON* json = cJSON_GetObjectItem(parent, key);
+	if (!json)
+		return default_value;
+
+	InputBinding binding;
+	binding.key = (KeyCode)Json::get_int(json, "key", (int)default_value.key);
+	binding.btn = (Gamepad::Btn)Json::get_int(json, "btn", (int)default_value.btn);
+	return binding;
+}
+
+cJSON* input_binding_json(const InputBinding& binding)
+{
+	cJSON* json = cJSON_CreateObject();
+	if (binding.key != KeyCode::None)
+		cJSON_AddNumberToObject(json, "key", (int)binding.key);
+	if (binding.btn != Gamepad::Btn::None)
+		cJSON_AddNumberToObject(json, "btn", (int)binding.btn);
+	return json;
+}
+
+Settings& Loader::settings()
+{
+	if (!settings_data.valid)
+	{
+		cJSON* json = Json::load("config.txt");
+		settings_data.width = Json::get_int(json, "width", 1920);
+		settings_data.height = Json::get_int(json, "height", 1080);
+		settings_data.fullscreen = (bool)Json::get_int(json, "fullscreen", 0);
+		settings_data.valid = true;
+
+		cJSON* bindings = cJSON_GetObjectItem(json, "bindings");
+		settings_data.bindings.backward = input_binding(bindings, "backward", { KeyCode::S, Gamepad::Btn::None });
+		settings_data.bindings.forward = input_binding(bindings, "forward", { KeyCode::W, Gamepad::Btn::None });
+		settings_data.bindings.left = input_binding(bindings, "left", { KeyCode::A, Gamepad::Btn::None });
+		settings_data.bindings.right = input_binding(bindings, "right", { KeyCode::D, Gamepad::Btn::None });
+		settings_data.bindings.up = input_binding(bindings, "up", { KeyCode::Space, Gamepad::Btn::RightShoulder });
+		settings_data.bindings.down = input_binding(bindings, "down", { KeyCode::LCtrl, Gamepad::Btn::LeftShoulder });
+		settings_data.bindings.primary = input_binding(bindings, "primary", { KeyCode::MouseLeft, Gamepad::Btn::RightTrigger });
+		settings_data.bindings.secondary = input_binding(bindings, "secondary", { KeyCode::MouseRight, Gamepad::Btn::LeftTrigger });
+	}
+	return settings_data;
+}
+
+void Loader::settings_save()
+{
+	if (settings_data.valid)
+	{
+		cJSON* json = cJSON_CreateObject();
+		cJSON_AddNumberToObject(json, "width", settings_data.width);
+		cJSON_AddNumberToObject(json, "height", settings_data.height);
+		cJSON_AddNumberToObject(json, "fullscreen", settings_data.fullscreen);
+
+		cJSON* bindings = cJSON_CreateObject();
+		cJSON_AddItemToObject(json, "bindings", bindings);
+
+		cJSON_AddItemToObject(bindings, "backward", input_binding_json(settings_data.bindings.backward));
+		cJSON_AddItemToObject(bindings, "forward", input_binding_json(settings_data.bindings.forward));
+		cJSON_AddItemToObject(bindings, "left", input_binding_json(settings_data.bindings.left));
+		cJSON_AddItemToObject(bindings, "right", input_binding_json(settings_data.bindings.right));
+		cJSON_AddItemToObject(bindings, "up", input_binding_json(settings_data.bindings.up));
+		cJSON_AddItemToObject(bindings, "down", input_binding_json(settings_data.bindings.down));
+		cJSON_AddItemToObject(bindings, "primary", input_binding_json(settings_data.bindings.primary));
+		cJSON_AddItemToObject(bindings, "secondary", input_binding_json(settings_data.bindings.secondary));
+
+		Json::save(json, "config.txt");
+		Json::json_free(json);
+	}
 }
 
 }

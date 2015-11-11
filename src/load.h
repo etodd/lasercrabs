@@ -32,6 +32,20 @@ struct rcPolyMesh
 
 struct Settings
 {
+	struct Bindings
+	{
+		InputBinding forward;
+		InputBinding backward;
+		InputBinding left;
+		InputBinding right;
+		InputBinding up;
+		InputBinding down;
+		InputBinding primary;
+		InputBinding secondary;
+	};
+
+	Bindings bindings;
+	bool valid;
 	int width;
 	int height;
 	bool fullscreen;
@@ -119,7 +133,8 @@ struct Loader
 	static bool soundbank_permanent(const AssetID);
 	static void soundbank_free(const AssetID);
 	
-	static Settings* settings();
+	static Settings& settings();
+	static void settings_save();
 
 	static void transients_free();
 

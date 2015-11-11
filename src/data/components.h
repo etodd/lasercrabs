@@ -56,4 +56,12 @@ struct SpotLight : public ComponentType<SpotLight>
 	void awake() {}
 };
 
+struct DirectionalLight : public ComponentType<DirectionalLight>
+{
+	Vec3 color;
+	bool shadowed;
+
+	void awake() {}
+};
+
 }

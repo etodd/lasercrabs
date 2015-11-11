@@ -17,7 +17,7 @@
 #include "console.h"
 
 #if DEBUG
-	#define DEBUG_RENDER 1
+	#define DEBUG_RENDER 0
 #endif
 
 #include "game/game.h"
@@ -34,8 +34,8 @@ ScreenQuad screen_quad = ScreenQuad();
 
 const int shadow_map_size[SHADOW_MAP_CASCADES] =
 {
-	512,
-	1024,
+	1024, // detail
+	1024, // global
 };
 
 int color_buffer;
@@ -62,7 +62,7 @@ Mat4 render_shadows(RenderSync* sync, int fbo, const Camera& camera)
 {
 	// Render shadows
 	sync->write<RenderOp>(RenderOp::BindFramebuffer);
-	sync->write<int>(shadow_fbo);
+	sync->write<int>(fbo);
 
 	RenderParams shadow_render_params;
 	shadow_render_params.sync = sync;
@@ -174,18 +174,29 @@ void draw(RenderSync* sync, const Camera* camera)
 			}
 
 			Mat4 light_vp;
+			Mat4 detail_light_vp;
 
 			if (shadowed)
 			{
-				// Render shadow map
+				// Global shadow map
 				Camera shadow_camera;
-				shadow_camera.viewport = { 0, 0, shadow_map_size[0], shadow_map_size[0] };
-				float size = render_params.camera->far_plane * 0.5f;
-				shadow_camera.orthographic(size, size, 1.0f, size * 2.0f);
-				shadow_camera.pos = render_params.camera->pos + abs_directions[0] * size * 0.1f;
-				shadow_camera.rot = Quat::look(-abs_directions[0]);
+				shadow_camera.viewport = { 0, 0, shadow_map_size[1], shadow_map_size[1] };
+				float size = render_params.camera->far_plane;
+				Vec3 pos = render_params.camera->pos;
+				const float interval = size * 0.025f;
+				pos = Vec3((int)(pos.x / interval), (int)(pos.y / interval), (int)(pos.z / interval)) * interval;
+				shadow_camera.pos = pos + (abs_directions[0] * size * -0.5f);
+				shadow_camera.rot = Quat::look(abs_directions[0]);
 
-				light_vp = render_shadows(sync, shadow_fbo[0], shadow_camera);
+				shadow_camera.orthographic(size, size, 1.0f, size * 2.0f);
+
+				light_vp = render_shadows(sync, shadow_fbo[1], shadow_camera);
+
+				// Detail shadow map
+				shadow_camera.viewport = { 0, 0, shadow_map_size[0], shadow_map_size[0] };
+				shadow_camera.orthographic(size * 0.1f, size * 0.1f, 1.0f, size * 2.0f);
+
+				detail_light_vp = render_shadows(sync, shadow_fbo[0], shadow_camera);
 
 				sync->write<RenderOp>(RenderOp::Viewport);
 				sync->write<ScreenRect>(camera->viewport);
@@ -226,6 +237,26 @@ void draw(RenderSync* sync, const Camera* camera)
 				sync->write(RenderDataType::Mat4);
 				sync->write<int>(1);
 				sync->write<Mat4>(inverse_view * light_vp);
+
+				sync->write(RenderOp::Uniform);
+				sync->write(Asset::Uniform::shadow_map);
+				sync->write(RenderDataType::Texture);
+				sync->write<int>(1);
+				sync->write<RenderTextureType>(RenderTexture2D);
+				sync->write<int>(shadow_buffer[1]);
+
+				sync->write(RenderOp::Uniform);
+				sync->write(Asset::Uniform::detail_light_vp);
+				sync->write(RenderDataType::Mat4);
+				sync->write<int>(1);
+				sync->write<Mat4>(inverse_view * detail_light_vp);
+
+				sync->write(RenderOp::Uniform);
+				sync->write(Asset::Uniform::detail_shadow_map);
+				sync->write(RenderDataType::Texture);
+				sync->write<int>(1);
+				sync->write<RenderTextureType>(RenderTexture2D);
+				sync->write<int>(shadow_buffer[0]);
 			}
 
 			sync->write(RenderOp::Uniform);
@@ -479,7 +510,7 @@ void draw(RenderSync* sync, const Camera* camera)
 			sync->write(RenderDataType::Texture);
 			sync->write<int>(1);
 			sync->write<RenderTextureType>(RenderTexture2D);
-			sync->write<int>(shadow_buffer);
+			sync->write<int>(shadow_buffer[0]);
 
 			sync->write(RenderOp::Uniform);
 			sync->write(Asset::Uniform::mvp);

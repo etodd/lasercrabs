@@ -252,6 +252,8 @@ const char* AssetLookup::Uniform::values[] =
 	"bones",
 	"color_buffer",
 	"depth_buffer",
+	"detail_light_vp",
+	"detail_shadow_map",
 	"diffuse_color",
 	"diffuse_map",
 	"far_plane",
@@ -290,6 +292,8 @@ const char* AssetLookup::Uniform::names[] =
 	"bones",
 	"color_buffer",
 	"depth_buffer",
+	"detail_light_vp",
+	"detail_shadow_map",
 	"diffuse_color",
 	"diffuse_map",
 	"far_plane",
@@ -324,7 +328,6 @@ const char* AssetLookup::Uniform::names[] =
 
 const char* AssetLookup::Font::values[] =
 {
-	"assets/SegoeUISymbol.fnt",
 	"assets/lowpoly.fnt",
 	0,
 };
@@ -332,7 +335,6 @@ const char* AssetLookup::Font::values[] =
 
 const char* AssetLookup::Font::names[] =
 {
-	"SegoeUISymbol",
 	"lowpoly",
 	0,
 };

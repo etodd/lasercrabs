@@ -28,16 +28,18 @@ float Console::repeat_last_time = 0.0f;
 #define REPEAT_INTERVAL 0.03f
 #define LOG_TIME 8.0f
 
+#define font_asset Asset::Font::lowpoly
+
 void Console::init()
 {
-	Loader::font_permanent(Asset::Font::lowpoly);
-	text.font = Asset::Font::lowpoly;
+	Loader::font_permanent(font_asset);
+	text.font = font_asset;
 	text.size = 18.0f;
-	fps_text.font = Asset::Font::lowpoly;
+	fps_text.font = font_asset;
 	fps_text.size = 18.0f;
-	debug_text.font = Asset::Font::lowpoly;
+	debug_text.font = font_asset;
 	debug_text.size = 18.0f;
-	log_text.font = Asset::Font::lowpoly;
+	log_text.font = font_asset;
 	log_text.size = 18.0f;
 	log_text.color = UI::default_color;
 	log_text.anchor_x = UIText::Anchor::Max;
@@ -130,7 +132,7 @@ void Console::update(const Update& u)
 
 	if (visible)
 	{
-		Font* font = Loader::font_permanent(Asset::Font::SegoeUISymbol);
+		Font* font = Loader::font_permanent(font_asset);
 		bool update = false;
 		bool shift = u.input->keys[(int)KeyCode::LShift]
 			|| u.input->keys[(int)KeyCode::RShift];

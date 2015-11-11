@@ -9,13 +9,17 @@ Game code remains closed-source for top secret reasons.
 Features
 --------
 
-- Simple multi-threaded rendering architecture
+- Simple multi-threaded architecture - one thread for physics, one for rendering, one for game logic
 - Entity/component system
-- Content pipeline supporting GLSL, TTF, PNG, FBX with skinned animation
+- Linear math suite somewhat stolen from Ogre
+- Content pipeline supporting GLSL, TTF, PNG
+- Create levels, models, animations, and ragdoll rigs in Blender
+- Deferred rendering, cascading shadow maps, edge detection, film grain, bloom, SSAO
+- Geometry-based UI system
+- Keyboard/mouse/gamepad support thanks to SDL
 - Navmesh generation thanks to Recast
 - Physics thanks to Bullet
-- Complete linear math suite somewhat stolen from Ogre
-- Builds on Win/Mac/Linux
+- Builds and runs on Win/Mac/Linux
 
 Quickstart
 ----------
@@ -49,11 +53,6 @@ Mac
    [available on the path](http://www.computerhope.com/issues/ch000549.htm).
 1. Run `./setup-mac`
 1. Run `./mkzebra` from the `build` folder.
-
-Third-party
------------
-
-The Segoe UI Symbol font is made available by Microsoft under the MIT license.
 
 All code and assets not including external submodules are available under the
 following license:

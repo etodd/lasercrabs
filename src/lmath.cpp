@@ -1747,12 +1747,12 @@ Mat4 Mat4::orthographic(const float width, const float height, const float near,
 {
 	Mat4 result = Mat4::zero;
 
-	float inverse_depth = 1.0f / (far - near);
 	result[0][0] = 2.0f / width;
 	result[1][1] = 2.0f / height;
-	result[2][2] = -2.0f * inverse_depth;
+	float inverse_depth = 1.0f / (far - near);
+	result[2][2] = -1.0f * inverse_depth;
+	result[3][2] = -(near) * inverse_depth;
 	result[3][3] = 1;
-	result[3][2] = -(far + near) * inverse_depth;
 
 	return result;
 }

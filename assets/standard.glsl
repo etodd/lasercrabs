@@ -2,13 +2,13 @@
 
 #ifdef VERTEX
 
-layout(location = 0) in vec3 vertexPosition_modelspace;
+layout(location = 0) in vec3 in_position;
 
 uniform mat4 mvp;
 
 void main()
 {
-	gl_Position = mvp * vec4(vertexPosition_modelspace, 1);
+	gl_Position = mvp * vec4(in_position, 1);
 }
 
 #else

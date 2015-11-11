@@ -35,6 +35,8 @@ uniform vec3 light_direction[lights];
 uniform bool shadowed;
 uniform mat4 light_vp;
 uniform sampler2D shadow_map;
+uniform mat4 detail_light_vp;
+uniform sampler2D detail_shadow_map;
 
 out vec4 out_color;
 
@@ -50,19 +52,29 @@ void main()
 
 	out_color = vec4(0, 0, 0, 1);
 
-	/*
 	if (shadowed)
 	{
 		vec3 full_light = light_color[0] * max(0, dot(normal, light_direction[0]));
 
-		vec4 light_projected = light_vp * vec4(view_pos, 1.0);
-		vec2 light_clip = (light_projected.xy / light_projected.w) * 0.5 + 0.5;
+		float shadow;
 
-		float shadow_depth = texture(shadow_map, light_clip).x;
-
-		out_color.xyz += full_light * float(shadow_depth > ((light_projected.z - 0.00001) / light_projected.w));
+		vec4 detail_light_projected = detail_light_vp * vec4(view_pos, 1.0f);
+		detail_light_projected.xy /= detail_light_projected.w;
+		if (abs(detail_light_projected.x) < 1.0f && abs(detail_light_projected.y) < 1.0f)
+		{
+			vec2 light_clip = detail_light_projected.xy * 0.5f + 0.5f;
+			float shadow_clip_depth = texture(detail_shadow_map, light_clip).x * 2.0 - 1.0;
+			shadow = float(shadow_clip_depth > detail_light_projected.z - 0.001f);
+		}
+		else
+		{
+			vec4 light_projected = light_vp * vec4(view_pos, 1.0f);
+			vec2 light_clip = (light_projected.xy / light_projected.w) * 0.5f + 0.5f;
+			float shadow_clip_depth = texture(shadow_map, light_clip).x * 2.0 - 1.0;
+			shadow = float(shadow_clip_depth > light_projected.z - 0.005f);
+		}
+		out_color.xyz += full_light * shadow;
 	}
-	*/
 
 	for (int i = shadowed ? 1 : 0; i < lights; i++)
 		out_color.xyz += light_color[i] * max(0, dot(normal, light_direction[i]));
@@ -70,8 +82,8 @@ void main()
 	{
 		// Player light
 		float normal_attenuation = dot(normal, view_pos / -view_distance);
-		float distance_attenuation = max(0, 1.0 - (view_distance / 10.0f));
-		out_color.xyz += 0.5f * distance_attenuation * max(0, normal_attenuation);
+		float distance_attenuation = 1.0f - (view_distance / 10.0f);
+		out_color.xyz += 0.5f * max(0, distance_attenuation) * max(0, normal_attenuation);
 	}
 }
 

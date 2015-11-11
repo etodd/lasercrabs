@@ -8,9 +8,8 @@ namespace Asset
 {
 	namespace Font
 	{
-		const int count = 2;
-		const AssetID SegoeUISymbol = 0;
-		const AssetID lowpoly = 1;
+		const int count = 1;
+		const AssetID lowpoly = 0;
 	}
 }
 

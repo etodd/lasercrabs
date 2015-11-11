@@ -29,8 +29,11 @@ uniform sampler2D color_buffer;
 
 void main()
 {
+/*
 	float clip_depth = texture(color_buffer, uv).x * 2.0 - 1.0;
 	float d = (-0.01f / (clip_depth - 1.0f) * (1.0f / 20.0f));
+*/
+	float d = texture(color_buffer, uv).x;
 	out_color = vec4(d, d, d, 1) * color;
 }
 

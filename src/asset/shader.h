@@ -8,39 +8,41 @@ namespace Asset
 {
 	namespace Uniform
 	{
-		const int count = 32;
+		const int count = 34;
 		const AssetID ambient_color = 0;
 		const AssetID bones = 1;
 		const AssetID color_buffer = 2;
 		const AssetID depth_buffer = 3;
-		const AssetID diffuse_color = 4;
-		const AssetID diffuse_map = 5;
-		const AssetID far_plane = 6;
-		const AssetID film_grain_size = 7;
-		const AssetID frustum = 8;
-		const AssetID inv_buffer_size = 9;
-		const AssetID inv_uv_scale = 10;
-		const AssetID light_color = 11;
-		const AssetID light_direction = 12;
-		const AssetID light_fov_dot = 13;
-		const AssetID light_pos = 14;
-		const AssetID light_radius = 15;
-		const AssetID light_vp = 16;
-		const AssetID lighting_buffer = 17;
-		const AssetID mv = 18;
-		const AssetID mvp = 19;
-		const AssetID noise_sampler = 20;
-		const AssetID normal_buffer = 21;
-		const AssetID p = 22;
-		const AssetID shadow_map = 23;
-		const AssetID shadowed = 24;
-		const AssetID shockwave = 25;
-		const AssetID ssao_buffer = 26;
-		const AssetID uv_offset = 27;
-		const AssetID uv_scale = 28;
-		const AssetID v = 29;
-		const AssetID vp = 30;
-		const AssetID zenith_color = 31;
+		const AssetID detail_light_vp = 4;
+		const AssetID detail_shadow_map = 5;
+		const AssetID diffuse_color = 6;
+		const AssetID diffuse_map = 7;
+		const AssetID far_plane = 8;
+		const AssetID film_grain_size = 9;
+		const AssetID frustum = 10;
+		const AssetID inv_buffer_size = 11;
+		const AssetID inv_uv_scale = 12;
+		const AssetID light_color = 13;
+		const AssetID light_direction = 14;
+		const AssetID light_fov_dot = 15;
+		const AssetID light_pos = 16;
+		const AssetID light_radius = 17;
+		const AssetID light_vp = 18;
+		const AssetID lighting_buffer = 19;
+		const AssetID mv = 20;
+		const AssetID mvp = 21;
+		const AssetID noise_sampler = 22;
+		const AssetID normal_buffer = 23;
+		const AssetID p = 24;
+		const AssetID shadow_map = 25;
+		const AssetID shadowed = 26;
+		const AssetID shockwave = 27;
+		const AssetID ssao_buffer = 28;
+		const AssetID uv_offset = 29;
+		const AssetID uv_scale = 30;
+		const AssetID v = 31;
+		const AssetID vp = 32;
+		const AssetID zenith_color = 33;
 	}
 	namespace Shader
 	{

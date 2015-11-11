@@ -85,6 +85,7 @@ void Camera::remove()
 
 bool Camera::visible_sphere(const Vec3& sphere_pos, const float sphere_radius) const
 {
+	// TODO: fix frustum culling for orthographic projection
 	Vec3 view_space = rot.inverse() * (sphere_pos - pos);
 	if (view_space.z + sphere_radius > near_plane && view_space.z - sphere_radius < far_plane)
 	{

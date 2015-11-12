@@ -21,7 +21,7 @@ uniform vec2 uv_offset;
 uniform vec2 uv_scale;
 uniform sampler2D normal_buffer;
 uniform sampler2D depth_buffer;
-uniform sampler2D shadow_map;
+uniform sampler2DShadow shadow_map;
 uniform mat4 p;
 uniform vec3 light_pos;
 uniform float light_radius;
@@ -51,9 +51,10 @@ void main()
 	vec3 to_light = light_pos - pos;
 
 	vec4 light_projected = light_vp * vec4(pos, 1.0);
-	vec2 light_clip = (light_projected.xy / light_projected.w) * 0.5 + 0.5;
+	light_projected.z -= 0.001f;
+	light_projected.xyz /= light_projected.w;
 
-	float shadow_depth = texture(shadow_map, light_clip).x;
+	float shadow = texture(shadow_map, light_projected.xyz * 0.5 + 0.5);
 
 	float distance_to_light = length(to_light);
 	to_light /= distance_to_light;
@@ -62,7 +63,7 @@ void main()
 
 	float light_strength =
 		float(light_dot > light_fov_dot)
-		* float(shadow_depth > ((light_projected.z - 0.00001) / light_projected.w))
+		* shadow
 		* max(0, 1.0 - (distance_to_light / light_radius))
 		* max(0, dot(texture(normal_buffer, uv).xyz * 2.0 - 1.0, to_light));
 

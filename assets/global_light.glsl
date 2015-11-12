@@ -34,9 +34,9 @@ uniform vec3 light_color[lights];
 uniform vec3 light_direction[lights];
 uniform bool shadowed;
 uniform mat4 light_vp;
-uniform sampler2D shadow_map;
+uniform sampler2DShadow shadow_map;
 uniform mat4 detail_light_vp;
-uniform sampler2D detail_shadow_map;
+uniform sampler2DShadow detail_shadow_map;
 
 out vec4 out_color;
 
@@ -62,16 +62,15 @@ void main()
 		detail_light_projected.xy /= detail_light_projected.w;
 		if (abs(detail_light_projected.x) < 1.0f && abs(detail_light_projected.y) < 1.0f)
 		{
-			vec2 light_clip = detail_light_projected.xy * 0.5f + 0.5f;
-			float shadow_clip_depth = texture(detail_shadow_map, light_clip).x * 2.0 - 1.0;
-			shadow = float(shadow_clip_depth > detail_light_projected.z - 0.001f);
+			detail_light_projected.z -= 0.001f;
+			shadow = texture(detail_shadow_map, detail_light_projected.xyz * 0.5f + 0.5f);
 		}
 		else
 		{
 			vec4 light_projected = light_vp * vec4(view_pos, 1.0f);
-			vec2 light_clip = (light_projected.xy / light_projected.w) * 0.5f + 0.5f;
-			float shadow_clip_depth = texture(shadow_map, light_clip).x * 2.0 - 1.0;
-			shadow = float(shadow_clip_depth > light_projected.z - 0.005f);
+			light_projected.xy /= light_projected.w;
+			light_projected.z -= 0.003f;
+			shadow = texture(shadow_map, light_projected.xyz * 0.5f + 0.5f);
 		}
 		out_color.xyz += full_light * shadow;
 	}

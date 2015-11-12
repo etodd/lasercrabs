@@ -14,9 +14,9 @@ enum CollisionGroup
 {
 	CollisionNothing = btBroadphaseProxy::DefaultFilter,
 	CollisionWalker = 1 << 6,
-	CollisionReflective = 1 << 7,
+	CollisionInaccessible = 1 << 7,
 	CollisionTarget = 1 << 8,
-	CollisionReflectiveMask = CollisionReflective | CollisionTarget | CollisionWalker,
+	CollisionInaccessibleMask = CollisionTarget | CollisionWalker,
 };
 
 struct PhysicsSync

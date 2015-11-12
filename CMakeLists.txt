@@ -236,6 +236,8 @@ add_executable(mkzebra
 	src/data/animator.cpp
 	src/data/ragdoll.h
 	src/data/ragdoll.cpp
+	src/render/glvm.h
+	src/render/glvm.cpp
 	src/render/render.h
 	src/render/render.cpp
 	src/render/views.h
@@ -253,7 +255,6 @@ add_executable(mkzebra
 	src/asset/level.h
 	src/asset/texture.h
 	src/asset/values.cpp
-	src/platform/gl.h
 	src/platform/sdl.cpp
 	src/sync.h
 	src/types.h
@@ -337,6 +338,8 @@ add_dependencies(mkzebra assets)
 add_executable(import
 	src/data/import_common.h
 	src/data/import_common.cpp
+	src/render/glvm.h
+	src/render/glvm.cpp
 	src/data/array.h
 	src/types.h
 	src/lmath.h

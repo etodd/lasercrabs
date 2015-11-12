@@ -1,11 +1,85 @@
-#include "render/render.h"
-#include "vi_assert.h"
-#include "asset/lookup.h"
 #include <GL/glew.h>
 #include <array>
 
+#include "glvm.h"
+#include "vi_assert.h"
+#include "types.h"
+
 namespace VI
 {
+
+const char* TechniquePrefixes::all[] =
+{
+	"", // Default
+	"#define SHADOW\n", // Shadow
+};
+
+bool compile_shader(const char* prefix, const char* code, int code_length, unsigned int* program_id, const char* path)
+{
+	bool success = true;
+
+	GLuint vertex_id = glCreateShader(GL_VERTEX_SHADER);
+	GLuint frag_id = glCreateShader(GL_FRAGMENT_SHADER);
+
+	// Compile Vertex Shader
+	GLint prefix_length = strlen(prefix);
+	char const* vertex_code[] = { "#version 330 core\n#define VERTEX\n", prefix, code };
+	const GLint vertex_code_length[] = { 33, prefix_length, (GLint)code_length };
+	glShaderSource(vertex_id, 3, vertex_code, vertex_code_length);
+	glCompileShader(vertex_id);
+
+	// Check Vertex Shader
+	GLint result;
+	glGetShaderiv(vertex_id, GL_COMPILE_STATUS, &result);
+	int msg_length;
+	glGetShaderiv(vertex_id, GL_INFO_LOG_LENGTH, &msg_length);
+	if (msg_length > 1)
+	{
+		Array<char> msg(msg_length);
+		glGetShaderInfoLog(vertex_id, msg_length, NULL, msg.data);
+		fprintf(stderr, "Error: vertex shader '%s': %s\n", path, msg.data);
+		success = false;
+	}
+
+	// Compile Fragment Shader
+	const char* frag_code[] = { "#version 330 core\n", prefix, code };
+	const GLint frag_code_length[] = { 18, prefix_length, (GLint)code_length };
+	glShaderSource(frag_id, 3, frag_code, frag_code_length);
+	glCompileShader(frag_id);
+
+	// Check Fragment Shader
+	glGetShaderiv(frag_id, GL_COMPILE_STATUS, &result);
+	glGetShaderiv(frag_id, GL_INFO_LOG_LENGTH, &msg_length);
+	if (msg_length > 1)
+	{
+		Array<char> msg(msg_length + 1);
+		glGetShaderInfoLog(frag_id, msg_length, NULL, msg.data);
+		fprintf(stderr, "Error: fragment shader '%s': %s\n", path, msg.data);
+		success = false;
+	}
+
+	// Link the program
+	*program_id = glCreateProgram();
+	glAttachShader(*program_id, vertex_id);
+	glAttachShader(*program_id, frag_id);
+	glLinkProgram(*program_id);
+
+	// Check the program
+	glGetProgramiv(*program_id, GL_LINK_STATUS, &result);
+	glGetProgramiv(*program_id, GL_INFO_LOG_LENGTH, &msg_length);
+	if (msg_length > 1)
+	{
+		Array<char> msg(msg_length);
+		glGetProgramInfoLog(*program_id, msg_length, NULL, msg.data);
+		fprintf(stderr, "Error: shader program '%s': %s\n", path, msg.data);
+		success = false;
+	}
+
+	glDeleteShader(vertex_id);
+	glDeleteShader(frag_id);
+
+	return success;
+}
 
 struct GLData
 {
@@ -56,18 +130,29 @@ struct GLData
 	static Array<Shader> shaders;
 	static Array<Mesh> meshes;
 	static Array<GLuint> framebuffers;
-	static AssetID current_shader_asset;
+	static int current_shader_asset;
 	static RenderTechnique current_shader_technique;
-	static Array<AssetID> samplers;
+	static Array<int> samplers;
+
+	static Array<char> uniform_name_buffer;
+	static Array<int> uniform_names;
+
+	static const char* uniform_name(int index)
+	{
+		int buffer_index = GLData::uniform_names[index];
+		return &GLData::uniform_name_buffer[buffer_index];
+	}
 };
 
 Array<GLData::Texture> GLData::textures = Array<GLData::Texture>();
 Array<GLData::Shader> GLData::shaders = Array<GLData::Shader>();
 Array<GLData::Mesh> GLData::meshes = Array<GLData::Mesh>();
 Array<GLuint> GLData::framebuffers = Array<GLuint>();
-AssetID GLData::current_shader_asset = AssetNull;
+int GLData::current_shader_asset = AssetNull;
 RenderTechnique GLData::current_shader_technique = RenderTechnique::Default;
-Array<AssetID> GLData::samplers = Array<AssetID>();
+Array<int> GLData::samplers = Array<int>();
+Array<char> GLData::uniform_name_buffer = Array<char>();
+Array<int> GLData::uniform_names = Array<int>();
 
 void render_init()
 {
@@ -119,6 +204,7 @@ void render(RenderSync* sync)
 #else
 #define debug_check() {}
 #endif
+
 	sync->read_pos = 0;
 	while (sync->read_pos < sync->queue.length)
 	{
@@ -126,6 +212,21 @@ void render(RenderSync* sync)
 		RenderOp op = *(sync->read<RenderOp>());
 		switch (op)
 		{
+			case RenderOp::AllocUniform:
+			{
+				const int id = *sync->read<int>();
+				const int length = *sync->read<int>();
+				const char* name = sync->read<char>(length);
+
+				if (id + 1 > GLData::uniform_names.length)
+					GLData::uniform_names.resize(id + 1);
+
+				int buffer_index = GLData::uniform_name_buffer.length;
+				GLData::uniform_names[id] = buffer_index;
+				GLData::uniform_name_buffer.resize(GLData::uniform_name_buffer.length + length + 1); // Extra character - null-terminated string
+				memcpy(&GLData::uniform_name_buffer[buffer_index], name, length);
+				break;
+			}
 			case RenderOp::Viewport:
 			{
 				const ScreenRect* rect = sync->read<ScreenRect>();
@@ -301,7 +402,7 @@ void render(RenderSync* sync)
 			}
 			case RenderOp::FreeMesh:
 			{
-				AssetID id = *(sync->read<AssetID>());
+				int id = *(sync->read<int>());
 				GLData::Mesh* mesh = &GLData::meshes[id];
 				for (int i = 0; i < mesh->attribs.length; i++)
 					glDeleteBuffers(1, &mesh->attribs.data[i].handle);
@@ -315,7 +416,7 @@ void render(RenderSync* sync)
 			}
 			case RenderOp::AllocTexture:
 			{
-				AssetID id = *(sync->read<AssetID>());
+				int id = *(sync->read<int>());
 				if (id >= GLData::textures.length)
 					GLData::textures.resize(id + 1);
 				glGenTextures(1, &GLData::textures[id].handle);
@@ -324,7 +425,7 @@ void render(RenderSync* sync)
 			}
 			case RenderOp::DynamicTexture:
 			{
-				AssetID id = *(sync->read<AssetID>());
+				int id = *(sync->read<int>());
 				unsigned width = *(sync->read<unsigned>());
 				unsigned height = *(sync->read<unsigned>());
 				RenderDynamicTextureType type = *(sync->read<RenderDynamicTextureType>());
@@ -379,7 +480,7 @@ void render(RenderSync* sync)
 			}
 			case RenderOp::LoadTexture:
 			{
-				AssetID id = *(sync->read<AssetID>());
+				int id = *(sync->read<int>());
 				unsigned width = *(sync->read<unsigned>());
 				unsigned height = *(sync->read<unsigned>());
 				const unsigned char* buffer = sync->read<unsigned char>(4 * width * height);
@@ -398,14 +499,14 @@ void render(RenderSync* sync)
 			}
 			case RenderOp::FreeTexture:
 			{
-				AssetID id = *(sync->read<AssetID>());
+				int id = *(sync->read<int>());
 				glDeleteTextures(1, &GLData::textures[id].handle);
 				debug_check();
 				break;
 			}
 			case RenderOp::LoadShader:
 			{
-				AssetID id = *(sync->read<AssetID>());
+				int id = *(sync->read<int>());
 
 				if (id >= GLData::shaders.length)
 					GLData::shaders.resize(id + 1);
@@ -414,14 +515,20 @@ void render(RenderSync* sync)
 				const char* code = sync->read<char>(code_length);
 
 				for (int i = 0; i < (int)RenderTechnique::count; i++)
+				{
 					compile_shader(TechniquePrefixes::all[i], code, code_length, &GLData::shaders[id][i].handle);
+
+					GLData::shaders[id][i].uniforms.resize(GLData::uniform_names.length);
+					for (int j = 0; j < GLData::uniform_names.length; j++)
+						GLData::shaders[id][i].uniforms[j] = glGetUniformLocation(GLData::shaders[id][i].handle, GLData::uniform_name(j));
+				}
 
 				debug_check();
 				break;
 			}
 			case RenderOp::FreeShader:
 			{
-				AssetID id = *(sync->read<AssetID>());
+				int id = *(sync->read<int>());
 				for (int i = 0; i < (int)RenderTechnique::count; i++)
 					glDeleteProgram(GLData::shaders[id][i].handle);
 				debug_check();
@@ -463,7 +570,7 @@ void render(RenderSync* sync)
 			}
 			case RenderOp::Shader:
 			{
-				AssetID shader_asset = *(sync->read<AssetID>());
+				int shader_asset = *(sync->read<int>());
 				RenderTechnique technique = *(sync->read<RenderTechnique>());
 				if (GLData::current_shader_asset != shader_asset || GLData::current_shader_technique != technique)
 				{
@@ -478,18 +585,7 @@ void render(RenderSync* sync)
 			}
 			case RenderOp::Uniform:
 			{
-				AssetID uniform_asset = *(sync->read<AssetID>());
-
-				if (uniform_asset >= GLData::shaders[GLData::current_shader_asset][(int)GLData::current_shader_technique].uniforms.length)
-				{
-					int old_length = GLData::shaders[GLData::current_shader_asset][(int)GLData::current_shader_technique].uniforms.length;
-					GLData::shaders[GLData::current_shader_asset][(int)GLData::current_shader_technique].uniforms.resize(uniform_asset + 1);
-					for (int j = old_length; j < uniform_asset + 1; j++)
-					{
-						GLuint uniform = glGetUniformLocation(GLData::shaders[GLData::current_shader_asset][(int)GLData::current_shader_technique].handle, AssetLookup::Uniform::values[j]);
-						GLData::shaders[GLData::current_shader_asset][(int)GLData::current_shader_technique].uniforms[j] = uniform;
-					}
-				}
+				int uniform_asset = *(sync->read<int>());
 
 				GLuint uniform_id = GLData::shaders[GLData::current_shader_asset][(int)GLData::current_shader_technique].uniforms[uniform_asset];
 				RenderDataType uniform_type = *(sync->read<RenderDataType>());
@@ -542,7 +638,7 @@ void render(RenderSync* sync)
 					{
 						vi_assert(uniform_count == 1); // Only single textures supported for now
 						RenderTextureType texture_type = *(sync->read<RenderTextureType>());
-						AssetID texture_asset = *(sync->read<AssetID>());
+						int texture_asset = *(sync->read<int>());
 						GLuint texture_id;
 						if (texture_asset == AssetNull)
 							texture_id = 0;

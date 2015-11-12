@@ -58,7 +58,7 @@ int half_fbo3;
 int ui_buffer;
 int ui_fbo;
 
-Mat4 render_shadows(RenderSync* sync, int fbo, const Camera& camera)
+Mat4 render_shadows(LoopSync* sync, int fbo, const Camera& camera)
 {
 	// Render shadows
 	sync->write<RenderOp>(RenderOp::BindFramebuffer);
@@ -85,7 +85,7 @@ Mat4 render_shadows(RenderSync* sync, int fbo, const Camera& camera)
 	return light_vp;
 }
 
-void draw(RenderSync* sync, const Camera* camera)
+void draw(LoopSync* sync, const Camera* camera)
 {
 	RenderParams render_params;
 	render_params.sync = sync;
@@ -216,19 +216,13 @@ void draw(RenderSync* sync, const Camera* camera)
 
 			sync->write(RenderOp::Shader);
 			sync->write<AssetID>(Asset::Shader::global_light);
-			sync->write(RenderTechnique::Default);
+			sync->write(shadowed ? RenderTechnique::Shadow : RenderTechnique::Default);
 
 			sync->write(RenderOp::Uniform);
 			sync->write(Asset::Uniform::p);
 			sync->write(RenderDataType::Mat4);
 			sync->write<int>(1);
 			sync->write<Mat4>(render_params.camera->projection);
-
-			sync->write(RenderOp::Uniform);
-			sync->write(Asset::Uniform::shadowed);
-			sync->write(RenderDataType::Int);
-			sync->write<int>(1);
-			sync->write<int>(shadowed);
 
 			if (shadowed)
 			{
@@ -1028,11 +1022,11 @@ void draw(RenderSync* sync, const Camera* camera)
 	sync->write(true);
 }
 
-void loop(RenderSwapper* swapper, PhysicsSwapper* physics_swapper)
+void loop(LoopSwapper* swapper, PhysicsSwapper* physics_swapper)
 {
 	mersenne::srand(time(0));
 
-	RenderSync* sync = swapper->swap<SwapType_Write>();
+	LoopSync* sync = swapper->swap<SwapType_Write>();
 
 	Loader::init(swapper);
 

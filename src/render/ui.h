@@ -57,7 +57,7 @@ struct UI
 	static Array<Vec3> vertices;
 	static Array<Vec4> colors;
 	static Array<int> indices;
-	static void init(RenderSync*);
+	static void init(LoopSync*);
 	static float get_scale(const int, const int);
 	static void box(const RenderParams&, const Vec2&, const Vec2&, const Vec4& = Vec4(1, 1, 1, 1));
 	static void centered_box(const RenderParams&, const Vec2&, const Vec2&, const Vec4& = Vec4(1, 1, 1, 1), const float = 0.0f);

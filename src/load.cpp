@@ -13,7 +13,7 @@
 namespace VI
 {
 
-RenderSwapper* Loader::swapper;
+LoopSwapper* Loader::swapper;
 // First entry in each array is empty
 Array<Loader::Entry<Mesh> > Loader::meshes = Array<Loader::Entry<Mesh> >();
 Array<Loader::Entry<Animation> > Loader::animations = Array<Loader::Entry<Animation> >();
@@ -51,11 +51,24 @@ struct rcPolyMeshDetail
 	int ntris;				///< The number of triangles in #tris.
 };
 
-void Loader::init(RenderSwapper* s)
+void Loader::init(LoopSwapper* s)
 {
 	swapper = s;
 	meshes.resize(Asset::Mesh::count);
 	textures.resize(Asset::Texture::count);
+
+	RenderSync* sync = swapper->get();
+	int i = 0;
+	const char* uniform_name;
+	while ((uniform_name = AssetLookup::Uniform::names[i]))
+	{
+		sync->write(RenderOp::AllocUniform);
+		sync->write(i);
+		int length = strlen(uniform_name);
+		sync->write(length);
+		sync->write(uniform_name, length);
+		i++;
+	}
 }
 
 Mesh* Loader::mesh(const AssetID id)

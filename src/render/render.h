@@ -6,14 +6,10 @@
 #include "sync.h"
 #include "data/import_common.h"
 #include "input.h"
+#include "glvm.h"
 
 namespace VI
 {
-
-struct ScreenRect
-{
-	int x, y, width, height;
-};
 
 struct Frustum
 {
@@ -63,148 +59,23 @@ struct Camera
 	void remove();
 };
 
-enum class RenderOp
-{
-	Viewport,
-	AllocMesh,
-	FreeMesh,
-	AllocInstances,
-	FreeInstances,
-	UpdateAttribBuffers,
-	UpdateIndexBuffer,
-	AllocTexture,
-	DynamicTexture,
-	LoadTexture,
-	FreeTexture,
-	LoadShader,
-	FreeShader,
-	ColorMask,
-	DepthMask,
-	DepthTest,
-	Shader,
-	Uniform,
-	Mesh,
-	Instances,
-	Clear,
-	BlendMode,
-	CullMode,
-	FillMode,
-	PointSize,
-	AllocFramebuffer,
-	BindFramebuffer,
-	FreeFramebuffer,
-	BlitFramebuffer,
-};
-
-enum class RenderBlendMode
-{
-	Opaque,
-	Alpha,
-	Additive,
-};
-
-enum class RenderDynamicTextureType
-{
-	Color,
-	ColorMultisample,
-	Depth,
-};
-
-enum class RenderTextureFilter
-{
-	Nearest,
-	Linear,
-};
-
-enum class RenderFramebufferAttachment
-{
-	Color0,
-	Color1,
-	Color2,
-	Color3,
-	Depth,
-};
-
-enum class RenderCullMode
-{
-	Back,
-	Front,
-	None,
-};
-
-enum class RenderFillMode
-{
-	Fill,
-	Line,
-	Point,
-};
-
-struct RenderSync
+struct LoopSync : RenderSync
 {
 	bool quit;
 	bool focus;
 	GameTime time;
 	InputState input;
-	Array<char> queue;
-	int read_pos;
-
-	RenderSync()
-		: quit(), time(), queue(), read_pos()
-	{
-		memset(&input, 0, sizeof(InputState));
-	}
-
-	// IMPORTANT: don't do this: T something; write(&something);
-	// It will resolve to write<T*> rather than write<T>, so you'll get the wrong size.
-	// Use write<T>(&something) or write(something)
-
-	template<typename T>
-	void write(const T& data)
-	{
-		write(&data);
-	}
-
-	template<typename T>
-	void write(const T* data, const int count = 1)
-	{
-		int size = sizeof(T) * count;
-
-		int pos = queue.length;
-		queue.length = pos + size;
-		queue.reserve(queue.length);
-		
-		void* destination = (void*)(queue.data + pos);
-
-		memcpy(destination, data, size);
-	}
-
-	template<typename T>
-	const T* read(int count = 1)
-	{
-		T* result = (T*)(queue.data + read_pos);
-		read_pos += sizeof(T) * count;
-		return result;
-	}
 };
 
-typedef Sync<RenderSync>::Swapper RenderSwapper;
+typedef Sync<LoopSync>::Swapper LoopSwapper;
 
-enum RenderTextureType
-{
-	RenderTexture2D,
-};
-
-struct RenderSync;
 struct RenderParams
 {
 	const Camera* camera;
 	Mat4 view;
 	Mat4 view_projection;
 	RenderTechnique technique;
-	RenderSync* sync;
+	LoopSync* sync;
 };
-
-void render_init();
-void render(RenderSync*);
 
 }

@@ -4,6 +4,7 @@
 #include "types.h"
 #include "lmath.h"
 #include <array>
+#include "render/glvm.h"
 
 struct cJSON;
 
@@ -11,31 +12,6 @@ namespace VI
 {
 
 #define MAX_BONE_WEIGHTS 4
-
-bool compile_shader(const char*, const char*, int, unsigned int*, const char* = 0);
-
-struct TechniquePrefixes
-{
-	static const char* all[];
-};
-
-enum class RenderTechnique
-{
-	Default,
-	Shadow,
-	count,
-};
-
-enum class RenderDataType
-{
-	Float,
-	Vec2,
-	Vec3,
-	Vec4,
-	Int,
-	Mat4,
-	Texture,
-};
 
 namespace Json
 {
@@ -49,29 +25,6 @@ namespace Json
 	int get_int(cJSON*, const char*, const int = 0);
 	const char* get_string(cJSON*, const char*, const char* = 0);
 };
-
-inline size_t render_data_type_size(RenderDataType type)
-{
-	switch (type)
-	{
-		case RenderDataType::Float:
-			return sizeof(float);
-		case RenderDataType::Vec2:
-			return sizeof(Vec2);
-		case RenderDataType::Vec3:
-			return sizeof(Vec3);
-		case RenderDataType::Vec4:
-			return sizeof(Vec4);
-		case RenderDataType::Int:
-			return sizeof(int);
-		case RenderDataType::Mat4:
-			return sizeof(Mat4);
-		case RenderDataType::Texture:
-			return sizeof(int);
-	}
-	vi_assert(false);
-	return 0;
-}
 
 // Can't have more than X meshes parented to a bone in a .arm file
 struct Bone

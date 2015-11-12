@@ -470,7 +470,7 @@ bool UI::project(const RenderParams& p, const Vec3& v, Vec2& out)
 	return projected.z > -projected.w && projected.z < projected.w;
 }
 
-void UI::init(RenderSync* sync)
+void UI::init(LoopSync* sync)
 {
 	mesh_id = Loader::dynamic_mesh_permanent(2);
 	Loader::dynamic_mesh_attrib(RenderDataType::Vec3);

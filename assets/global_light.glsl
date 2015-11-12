@@ -32,7 +32,6 @@ uniform mat4 p;
 const int lights = 3;
 uniform vec3 light_color[lights];
 uniform vec3 light_direction[lights];
-uniform bool shadowed;
 uniform mat4 light_vp;
 uniform sampler2DShadow shadow_map;
 uniform mat4 detail_light_vp;
@@ -50,9 +49,15 @@ void main()
 	
 	vec3 normal = texture(normal_buffer, uv).xyz * 2.0 - 1.0;
 
-	out_color = vec4(0, 0, 0, 1);
+	{
+		// Player light
+		float normal_attenuation = dot(normal, view_pos / -view_distance);
+		float distance_attenuation = 1.0f - (view_distance / 10.0f);
+		float light = 0.5f * max(0, distance_attenuation) * max(0, normal_attenuation);
+		out_color = vec4(light, light, light, 1);
+	}
 
-	if (shadowed)
+#ifdef SHADOW
 	{
 		vec3 full_light = light_color[0] * max(0, dot(normal, light_direction[0]));
 
@@ -75,15 +80,13 @@ void main()
 		out_color.xyz += full_light * shadow;
 	}
 
-	for (int i = shadowed ? 1 : 0; i < lights; i++)
-		out_color.xyz += light_color[i] * max(0, dot(normal, light_direction[i]));
+	const int start_light_index = 1;
+#else
+	const int start_light_index = 0;
+#endif
 
-	{
-		// Player light
-		float normal_attenuation = dot(normal, view_pos / -view_distance);
-		float distance_attenuation = 1.0f - (view_distance / 10.0f);
-		out_color.xyz += 0.5f * max(0, distance_attenuation) * max(0, normal_attenuation);
-	}
+	for (int i = start_light_index; i < lights; i++)
+		out_color.xyz += light_color[i] * max(0, dot(normal, light_direction[i]));
 }
 
 #endif

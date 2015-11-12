@@ -1,9 +1,10 @@
 #define _AMD64_
 
-#include "gl.h"
-#include "load.h"
-
+#include <GL/glew.h>
 #include <SDL.h>
+
+#include "render/glvm.h"
+#include "load.h"
 
 #include <thread>
 #include "physics.h"
@@ -11,7 +12,6 @@
 
 namespace VI
 {
-
 	SDL_Window* window = 0;
 	SDL_GameController* controllers[MAX_GAMEPADS] = {};
 
@@ -119,10 +119,10 @@ namespace VI
 
 		// Launch threads
 
-		Sync<RenderSync> render_sync;
+		Sync<LoopSync> render_sync;
 
-		RenderSwapper update_swapper = render_sync.swapper(0);
-		RenderSwapper render_swapper = render_sync.swapper(1);
+		LoopSwapper update_swapper = render_sync.swapper(0);
+		LoopSwapper render_swapper = render_sync.swapper(1);
 
 		Sync<PhysicsSync, 1> physics_sync;
 
@@ -133,7 +133,7 @@ namespace VI
 
 		std::thread update_thread(Loop::loop, &update_swapper, &physics_update_swapper);
 
-		RenderSync* sync = render_swapper.get();
+		LoopSync* sync = render_swapper.get();
 
 		double last_time = SDL_GetTicks() / 1000.0;
 

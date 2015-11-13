@@ -3,8 +3,6 @@
 #include "lodepng.h"
 #include "vi_assert.h"
 #include "asset/lookup.h"
-#include "asset/mesh.h"
-#include "asset/texture.h"
 #include "DetourNavMesh.h"
 #include "DetourNavMeshBuilder.h"
 #include <AK/SoundEngine/Common/AkSoundEngine.h>
@@ -27,6 +25,9 @@ Array<Loader::Entry<void*> > Loader::framebuffers = Array<Loader::Entry<void*> >
 Array<Loader::Entry<AkBankID> > Loader::soundbanks = Array<Loader::Entry<AkBankID> >();
 dtNavMesh* Loader::current_nav_mesh;
 AssetID Loader::current_nav_mesh_id = AssetNull;
+
+int Loader::static_mesh_count = 0;
+int Loader::static_texture_count = 0;
 
 Settings Loader::settings_data = Settings();
 
@@ -54,8 +55,12 @@ struct rcPolyMeshDetail
 void Loader::init(LoopSwapper* s)
 {
 	swapper = s;
-	meshes.resize(Asset::Mesh::count);
-	textures.resize(Asset::Texture::count);
+
+	const char* p;
+	while ((p = AssetLookup::Mesh::names[static_mesh_count]))
+		static_mesh_count++;
+	while ((p = AssetLookup::Texture::names[static_texture_count]))
+		static_texture_count++;
 
 	RenderSync* sync = swapper->get();
 	int i = 0;
@@ -210,11 +215,6 @@ void Loader::mesh_free(const AssetID id)
 	}
 }
 
-AssetID Loader::mesh_ref_to_id(const AssetID model, const AssetRef mesh)
-{
-	return Asset::mesh_refs[model][mesh];
-}
-
 Armature* Loader::armature(const AssetID id)
 {
 	if (id == AssetNull)
@@ -283,18 +283,18 @@ int Loader::dynamic_mesh(int attribs, const bool dynamic)
 	{
 		if (dynamic_meshes[i].type == AssetNone)
 		{
-			index = Asset::Mesh::count + i;
+			index = static_mesh_count + i;
 			break;
 		}
 	}
 
 	if (index == AssetNull)
 	{
-		index = Asset::Mesh::count + dynamic_meshes.length;
+		index = static_mesh_count + dynamic_meshes.length;
 		dynamic_meshes.add();
 	}
 
-	dynamic_meshes[index - Asset::Mesh::count].type = AssetTransient;
+	dynamic_meshes[index - static_mesh_count].type = AssetTransient;
 
 	RenderSync* sync = swapper->get();
 	sync->write(RenderOp::AllocMesh);
@@ -316,7 +316,7 @@ void Loader::dynamic_mesh_attrib(RenderDataType type, int count)
 int Loader::dynamic_mesh_permanent(int attribs, const bool dynamic)
 {
 	int result = dynamic_mesh(attribs, dynamic);
-	dynamic_meshes[result - Asset::Mesh::count].type = AssetPermanent;
+	dynamic_meshes[result - static_mesh_count].type = AssetPermanent;
 	return result;
 }
 
@@ -327,7 +327,7 @@ void Loader::dynamic_mesh_free(int id)
 		RenderSync* sync = swapper->get();
 		sync->write(RenderOp::FreeMesh);
 		sync->write<int>(id);
-		dynamic_meshes[id - Asset::Mesh::count].type = AssetNone;
+		dynamic_meshes[id - static_mesh_count].type = AssetNone;
 	}
 }
 
@@ -465,18 +465,18 @@ int Loader::dynamic_texture(const int width, const int height, const RenderDynam
 	{
 		if (dynamic_textures[i].type == AssetNone)
 		{
-			index = Asset::Texture::count + i;
+			index = static_texture_count + i;
 			break;
 		}
 	}
 
 	if (index == AssetNull)
 	{
-		index = Asset::Texture::count + dynamic_textures.length;
+		index = static_texture_count + dynamic_textures.length;
 		dynamic_textures.add();
 	}
 
-	dynamic_textures[index - Asset::Texture::count].type = AssetTransient;
+	dynamic_textures[index - static_texture_count].type = AssetTransient;
 
 	RenderSync* sync = swapper->get();
 	sync->write(RenderOp::AllocTexture);
@@ -495,18 +495,18 @@ int Loader::dynamic_texture_permanent(const int width, const int height, const R
 {
 	int id = dynamic_texture(width, height, type, filter);
 	if (id != AssetNull)
-		dynamic_textures[id - Asset::Texture::count].type = AssetPermanent;
+		dynamic_textures[id - static_texture_count].type = AssetPermanent;
 	return id;
 }
 
 void Loader::dynamic_texture_free(const int id)
 {
-	if (id != AssetNull && dynamic_textures[id - Asset::Texture::count].type != AssetNone)
+	if (id != AssetNull && dynamic_textures[id - static_texture_count].type != AssetNone)
 	{
 		RenderSync* sync = swapper->get();
 		sync->write(RenderOp::FreeTexture);
 		sync->write<AssetID>(id);
-		dynamic_textures[id - Asset::Texture::count].type = AssetNone;
+		dynamic_textures[id - static_texture_count].type = AssetNone;
 	}
 }
 
@@ -942,13 +942,13 @@ void Loader::transients_free()
 	for (AssetID i = 0; i < dynamic_meshes.length; i++)
 	{
 		if (dynamic_meshes[i].type == AssetTransient)
-			dynamic_mesh_free(Asset::Mesh::count + i);
+			dynamic_mesh_free(static_mesh_count + i);
 	}
 
 	for (int i = 0; i < dynamic_textures.length; i++)
 	{
 		if (dynamic_textures[i].type == AssetTransient)
-			dynamic_texture_free(Asset::Texture::count + i);
+			dynamic_texture_free(static_texture_count + i);
 	}
 
 	for (int i = 0; i < framebuffers.length; i++)

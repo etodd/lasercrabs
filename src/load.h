@@ -65,6 +65,8 @@ struct Loader
 		}
 	};
 
+	static int static_mesh_count;
+	static int static_texture_count;
 	static LoopSwapper* swapper;
 	static void init(LoopSwapper*);
 	static Array<Entry<Mesh> > meshes;
@@ -85,8 +87,6 @@ struct Loader
 	static Mesh* mesh_permanent(const AssetID);
 	static Mesh* mesh_instanced(const AssetID);
 	static void mesh_free(const int);
-
-	static AssetID mesh_ref_to_id(const AssetID, const AssetRef);
 
 	static int dynamic_mesh(const int, const bool dynamic = true);
 	static void dynamic_mesh_attrib(RenderDataType, const int = 1);

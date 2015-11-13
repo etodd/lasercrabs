@@ -2,16 +2,25 @@ import json
 import bpy
 import sys
 import mathutils
+import os
+
+def clean_name(name):
+	result = []
+	for i in range(len(name)):
+		c = name[i]
+		if (c < 'A' or c > 'Z') \
+			and (c < 'a' or c > 'z') \
+			and (i == 0 or c < '0' or c > '9') \
+			and c != '_':
+			result.append('_')
+		else:
+			result.append(c)
+	return ''.join(result)
 
 argv = sys.argv[sys.argv.index("--") + 1:] # get all args after "--"
 output_file = argv[0]
 
-meshes = {}
-index = 0
-for o in sorted((x for x in bpy.data.objects if x.type == 'MESH'), key = lambda x: x.name):
-	materials = max(1, len(o.data.materials))
-	meshes[o] = list(range(index, index + materials))
-	index += materials
+output_asset_name = clean_name(os.path.basename(output_file)[:-4])
 
 result = []
 def add(obj, parent_index = -1):
@@ -34,7 +43,12 @@ def add(obj, parent_index = -1):
 
 	obj_type = getattr(obj, 'type', None)
 	if obj_type == 'MESH':
-		node['meshes'] = meshes[obj]
+		meshes = []
+		clean_obj_name = clean_name(obj.name)
+		meshes.append('{0}_{1}'.format(output_asset_name, clean_obj_name))
+		for i in range(1, len(obj.data.materials)):
+			meshes.append('{0}_{1}_{2}'.format(output_asset_name, clean_obj_name, i))
+		node['meshes'] = meshes
 	elif obj_type == 'LAMP':
 		lamp_type = obj.data.type
 		if lamp_type == 'POINT':

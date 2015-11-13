@@ -2,7 +2,6 @@
 #include "data/animator.h"
 #include "render/skinned_model.h"
 #include "common.h"
-#include "asset/mesh.h"
 #include "load.h"
 #include "components.h"
 

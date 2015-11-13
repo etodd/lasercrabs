@@ -23,7 +23,7 @@
 namespace VI
 {
 
-const int version = 15;
+const int version = 16;
 
 const char* model_in_extension = ".blend";
 const char* model_intermediate_extension = ".fbx";
@@ -162,23 +162,16 @@ T& map_get(Map<T>& map, const std::string& key)
 }
 
 template<typename T>
+bool map_has(Map<T>& map, const std::string& key)
+{
+	return map.find(key) != map.end();
+}
+
+template<typename T>
 T& map_get(Map2<T>& map, const std::string& key, const std::string& key2)
 {
 	Map<T>& map2 = map[key];
 	return map2[key2];
-}
-
-template<typename T>
-int map_key_to_index(const Map<T>& map, const std::string& key)
-{
-	int index = 0;
-	for (auto i : map)
-	{
-		if (!i.first.compare(key))
-			return index;
-		index++;
-	}
-	return AssetNull;
 }
 
 template<typename T>
@@ -329,6 +322,23 @@ void write_asset_source(FILE* file, const std::string& name, const Map<std::stri
 
 	fprintf(file, "\nconst char* AssetLookup::%s::names[] =\n{\n", name.c_str());
 	for (auto i = assets.begin(); i != assets.end(); i++)
+		fprintf(file, "\t\"%s\",\n", i->first.c_str());
+	fprintf(file, "\t0,\n};\n\n");
+}
+
+void write_asset_source(FILE* file, const std::string& name, const Map<std::string>& assets1, const Map<std::string>& assets2)
+{
+	fprintf(file, "\nconst char* AssetLookup::%s::values[] =\n{\n", name.c_str());
+	for (auto i = assets1.begin(); i != assets1.end(); i++)
+		fprintf(file, "\t\"%s\",\n", i->second.c_str());
+	for (auto i = assets2.begin(); i != assets2.end(); i++)
+		fprintf(file, "\t\"%s\",\n", i->second.c_str());
+	fprintf(file, "\t0,\n};\n\n");
+
+	fprintf(file, "\nconst char* AssetLookup::%s::names[] =\n{\n", name.c_str());
+	for (auto i = assets1.begin(); i != assets1.end(); i++)
+		fprintf(file, "\t\"%s\",\n", i->first.c_str());
+	for (auto i = assets2.begin(); i != assets2.end(); i++)
 		fprintf(file, "\t\"%s\",\n", i->first.c_str());
 	fprintf(file, "\t0,\n};\n\n");
 }
@@ -547,6 +557,7 @@ long long asset_mtime(const Map2<std::string>& map, const std::string& asset_nam
 struct Manifest
 {
 	Map2<std::string> meshes;
+	Map2<std::string> level_meshes;
 	Map2<std::string> animations;
 	Map2<std::string> armatures;
 	Map2<int> bones;
@@ -560,6 +571,7 @@ struct Manifest
 
 	Manifest()
 		: meshes(),
+		level_meshes(),
 		animations(),
 		armatures(),
 		bones(),
@@ -575,19 +587,20 @@ struct Manifest
 	}
 };
 
-bool manifests_equal(const Manifest& a, const Manifest& b)
+bool manifest_requires_update(const Manifest& a, const Manifest& b)
 {
-	return maps_equal2(a.meshes, b.meshes)
-		&& maps_equal2(a.animations, b.animations)
-		&& maps_equal2(a.armatures, b.armatures)
-		&& maps_equal2(a.bones, b.bones)
-		&& maps_equal(a.textures, b.textures)
-		&& maps_equal(a.soundbanks, b.soundbanks)
-		&& maps_equal(a.shaders, b.shaders)
-		&& maps_equal2(a.uniforms, b.uniforms)
-		&& maps_equal(a.fonts, b.fonts)
-		&& maps_equal(a.levels, b.levels)
-		&& maps_equal(a.nav_meshes, b.nav_meshes);
+	return !maps_equal2(a.meshes, b.meshes)
+		|| !maps_equal2(a.level_meshes, b.level_meshes)
+		|| !maps_equal2(a.animations, b.animations)
+		|| !maps_equal2(a.armatures, b.armatures)
+		|| !maps_equal2(a.bones, b.bones)
+		|| !maps_equal(a.textures, b.textures)
+		|| !maps_equal(a.soundbanks, b.soundbanks)
+		|| !maps_equal(a.shaders, b.shaders)
+		|| !maps_equal2(a.uniforms, b.uniforms)
+		|| !maps_equal(a.fonts, b.fonts)
+		|| !maps_equal(a.levels, b.levels)
+		|| !maps_equal(a.nav_meshes, b.nav_meshes);
 }
 
 bool manifest_read(const char* path, Manifest& manifest)
@@ -604,6 +617,7 @@ bool manifest_read(const char* path, Manifest& manifest)
 		else
 		{
 			map_read(f, manifest.meshes);
+			map_read(f, manifest.level_meshes);
 			map_read(f, manifest.animations);
 			map_read(f, manifest.armatures);
 			map_read(f, manifest.bones);
@@ -632,6 +646,7 @@ bool manifest_write(Manifest& manifest, const char* path)
 	}
 	fwrite(&version, sizeof(int), 1, f);
 	map_write(manifest.meshes, f);
+	map_write(manifest.level_meshes, f);
 	map_write(manifest.animations, f);
 	map_write(manifest.armatures, f);
 	map_write(manifest.bones, f);
@@ -709,11 +724,18 @@ void clean_name(T& name)
 
 std::string get_mesh_name(const aiScene* scene, const std::string& asset_name, const aiMesh* ai_mesh, const aiNode* mesh_node)
 {
+	int material_index = 0;
+	for (int i = 0; i < mesh_node->mNumMeshes; i++)
+	{
+		if (scene->mMeshes[mesh_node->mMeshes[i]] == ai_mesh)
+			break;
+		material_index++;
+	}
 	std::ostringstream name_builder;
 	if (scene->mNumMeshes > 1)
 		name_builder << asset_name << "_";
-	if (ai_mesh->mMaterialIndex > 0)
-		name_builder << mesh_node->mName.C_Str() << "_" << ai_mesh->mMaterialIndex;
+	if (material_index > 0)
+		name_builder << mesh_node->mName.C_Str() << "_" << material_index;
 	else
 		name_builder << mesh_node->mName.C_Str();
 	std::string name = name_builder.str();
@@ -973,7 +995,7 @@ bool write_armature(const Armature& armature, const std::string& path)
 	}
 }
 
-const aiScene* load_blend(ImporterState& state, Assimp::Importer& importer, const std::string& asset_in_path, const std::string& out_folder, bool tangents)
+const aiScene* load_blend(ImporterState& state, Assimp::Importer& importer, const std::string& asset_in_path, const std::string& out_folder, bool tangents = false)
 {
 	// Export to FBX first
 	std::string asset_intermediate_path = out_folder + get_asset_name(asset_in_path) + model_intermediate_extension;
@@ -1067,7 +1089,7 @@ bool write_mesh(
 		return false;
 }
 
-bool import_meshes(ImporterState& state, const std::string& asset_in_path, const std::string& out_folder, Array<Mesh>& meshes, bool force_rebuild, bool tangents)
+bool import_meshes(ImporterState& state, const std::string& asset_in_path, const std::string& out_folder, Array<Mesh>& meshes, bool force_rebuild, bool tangents = false)
 {
 	std::string asset_name = get_asset_name(asset_in_path);
 	std::string asset_out_path = out_folder + asset_name + mesh_out_extension;
@@ -1408,6 +1430,103 @@ bool build_nav_mesh(const Mesh& input, rcPolyMesh** output, rcPolyMeshDetail** o
 	return true;
 }
 
+bool import_level_meshes(ImporterState& state, const std::string& asset_in_path, const std::string& out_folder, Map<Mesh>& meshes, bool force_rebuild)
+{
+	std::string asset_name = get_asset_name(asset_in_path);
+	std::string asset_out_path = out_folder + asset_name + mesh_out_extension;
+
+	long long mtime = filemtime(asset_in_path);
+	if (force_rebuild
+		|| state.rebuild
+		|| mtime > asset_mtime(state.cached_manifest.level_meshes, asset_name))
+	{
+		Assimp::Importer importer;
+		const aiScene* scene = load_blend(state, importer, asset_in_path, out_folder);
+		map_init(state.manifest.level_meshes, asset_name);
+
+		for (int mesh_index = 0; mesh_index < scene->mNumMeshes; mesh_index++)
+		{
+			aiMesh* ai_mesh = scene->mMeshes[mesh_index];
+			const aiNode* mesh_node = find_mesh_node(scene, scene->mRootNode, ai_mesh);
+			std::string mesh_name = get_mesh_name(scene, asset_name, ai_mesh, mesh_node);
+			std::string mesh_out_filename = out_folder + mesh_name + mesh_out_extension;
+			map_add(state.manifest.level_meshes, asset_name, mesh_name, mesh_out_filename);
+
+			map_add(meshes, mesh_name, Mesh());
+			Mesh* mesh = &map_get(meshes, mesh_name);
+			mesh->color = Vec4(1, 1, 1, 1);
+			if (ai_mesh->mMaterialIndex < scene->mNumMaterials)
+			{
+				aiColor4D color;
+				if (scene->mMaterials[ai_mesh->mMaterialIndex]->Get(AI_MATKEY_COLOR_DIFFUSE, color) == AI_SUCCESS)
+					mesh->color = Vec4(color.r, color.g, color.b, color.a);
+			}
+
+			if (load_mesh(ai_mesh, mesh))
+			{
+				printf("%s Indices: %d Vertices: %d\n", mesh_name.c_str(), mesh->indices.length, mesh->vertices.length);
+
+				Array<Array<Vec2>> uv_layers;
+				for (int j = 0; j < 8; j++)
+				{
+					if (ai_mesh->mNumUVComponents[j] == 2)
+					{
+						Array<Vec2>* uvs = uv_layers.add();
+						uvs->reserve(ai_mesh->mNumVertices);
+						for (unsigned int k = 0; k < ai_mesh->mNumVertices; k++)
+						{
+							aiVector3D UVW = ai_mesh->mTextureCoords[j][k];
+							uvs->add(Vec2(1.0f - UVW.x, 1.0f - UVW.y));
+						}
+					}
+				}
+
+				Array<Vec3> tangents;
+				Array<Vec3> bitangents;
+
+				if (ai_mesh->HasTangentsAndBitangents())
+				{
+					tangents.resize(ai_mesh->mNumVertices);
+					for (unsigned int i = 0; i < ai_mesh->mNumVertices; i++)
+					{
+						aiVector3D n = ai_mesh->mTangents[i];
+						tangents[i] = Vec3(n.y, n.z, n.x);
+					}
+
+					bitangents.resize(ai_mesh->mNumVertices);
+					for (unsigned int i = 0; i < ai_mesh->mNumVertices; i++)
+					{
+						aiVector3D n = ai_mesh->mBitangents[i];
+						bitangents[i] = Vec3(n.y, n.z, n.x);
+					}
+				}
+
+				Array<std::array<float, MAX_BONE_WEIGHTS> > bone_weights;
+				Array<std::array<int, MAX_BONE_WEIGHTS> > bone_indices;
+
+				if (!write_mesh(mesh, mesh_out_filename, uv_layers, tangents, bitangents, bone_weights, bone_indices))
+				{
+					fprintf(stderr, "Error: failed to write mesh file %s.\n", mesh_out_filename.c_str());
+					state.error = true;
+					return false;
+				}
+			}
+			else
+			{
+				fprintf(stderr, "Error: failed to load model %s.\n", asset_in_path.c_str());
+				state.error = true;
+				return false;
+			}
+		}
+		return true;
+	}
+	else
+	{
+		map_copy(state.cached_manifest.level_meshes, asset_name, state.manifest.level_meshes);
+		return false;
+	}
+}
+
 void import_level(ImporterState& state, const std::string& asset_in_path, const std::string& out_folder)
 {
 	std::string asset_name = get_asset_name(asset_in_path);
@@ -1419,8 +1538,8 @@ void import_level(ImporterState& state, const std::string& asset_in_path, const 
 		|| mtime > asset_mtime(state.cached_manifest.levels, asset_name)
 		|| mtime > asset_mtime(state.cached_manifest.nav_meshes, asset_name);
 
-	Array<Mesh> meshes;
-	rebuild |= import_meshes(state, asset_in_path, out_folder, meshes, rebuild, false);
+	Map<Mesh> meshes;
+	rebuild |= import_level_meshes(state, asset_in_path, out_folder, meshes, rebuild);
 	if (state.error)
 		return;
 
@@ -1473,8 +1592,10 @@ void import_level(ImporterState& state, const std::string& asset_in_path, const 
 				cJSON* mesh_ref_json = mesh_refs->child;
 				while (mesh_ref_json)
 				{
-					int mesh_ref = mesh_ref_json->valueint;
-					Mesh& mesh = meshes[mesh_ref];
+					char* mesh_ref = mesh_ref_json->valuestring;
+					
+					vi_assert(map_has(meshes, mesh_ref));
+					Mesh& mesh = map_get(meshes, mesh_ref);
 
 					Vec3 min = mesh.bounds_min;
 					Vec3 max = mesh.bounds_max;
@@ -1569,9 +1690,6 @@ void import_level(ImporterState& state, const std::string& asset_in_path, const 
 
 		fclose(f);
 	}
-
-	for (int i = 0; i < meshes.length; i++)
-		meshes[i].~Mesh();
 }
 
 void import_copy(ImporterState& state, Map<std::string>& manifest, const std::string& asset_in_path, const std::string& out_folder, const std::string& extension)
@@ -1996,8 +2114,8 @@ int proc(int argc, char* argv[])
 		return exit_error();
 
 	
-	bool modified = !manifests_equal(state.cached_manifest, state.manifest);
-	if (state.rebuild || modified)
+	bool update_manifest = manifest_requires_update(state.cached_manifest, state.manifest);
+	if (state.rebuild || update_manifest)
 	{
 		if (!manifest_write(state.manifest, manifest_path))
 			return exit_error();
@@ -2006,6 +2124,8 @@ int proc(int argc, char* argv[])
 	{
 		Map<std::string> flattened_meshes;
 		map_flatten(state.manifest.meshes, flattened_meshes);
+		Map<std::string> flattened_level_meshes;
+		map_flatten(state.manifest.level_meshes, flattened_level_meshes);
 		Map<std::string> flattened_uniforms;
 		map_flatten(state.manifest.uniforms, flattened_uniforms);
 		Map<std::string> flattened_animations;
@@ -2014,15 +2134,6 @@ int proc(int argc, char* argv[])
 		map_flatten(state.manifest.armatures, flattened_armatures);
 		Map<int> flattened_bones;
 		map_flatten(state.manifest.bones, flattened_bones);
-		Map<int> flattened_model_indices;
-		{
-			int index = 0;
-			for (auto i : flattened_meshes)
-			{
-				flattened_model_indices[i.first] = index;
-				index++;
-			}
-		}
 
 		if (state.rebuild
 			|| !maps_equal2(state.manifest.meshes, state.cached_manifest.meshes)
@@ -2034,25 +2145,6 @@ int proc(int argc, char* argv[])
 			if (!f)
 				return exit_error();
 			write_asset_header(f, "Mesh", flattened_meshes);
-
-			int max_mesh_count = 0;
-			for (auto model : state.manifest.meshes)
-				max_mesh_count = model.second.size() > max_mesh_count ? model.second.size() : max_mesh_count;
-			fprintf(f, "\tconst AssetID mesh_refs[%zu][%d] =\n\t{\n", state.manifest.levels.size(), max_mesh_count);
-
-			for (auto level : state.manifest.levels)
-			{
-				fprintf(f, "\t\t{\n");
-				Map<std::string>& meshes = map_get(state.manifest.meshes, level.first);
-				for (auto mesh : meshes)
-				{
-					int mesh_asset_id = flattened_model_indices[mesh.first];
-					fprintf(f, "\t\t\t%d,\n", mesh_asset_id);
-				}
-				fprintf(f, "\t\t},\n");
-			}
-			fprintf(f, "\t};\n");
-
 			close_asset_header(f);
 		}
 
@@ -2153,7 +2245,7 @@ int proc(int argc, char* argv[])
 			close_asset_header(f);
 		}
 
-		if (state.rebuild || modified || filemtime(asset_src_path) < state.manifest_mtime)
+		if (state.rebuild || update_manifest || filemtime(asset_src_path) < state.manifest_mtime)
 		{
 			printf("Writing asset values\n");
 			FILE* f = fopen(asset_src_path, "w+");
@@ -2164,7 +2256,7 @@ int proc(int argc, char* argv[])
 			}
 			fprintf(f, "#include \"lookup.h\"\n");
 			fprintf(f, "\nnamespace VI\n{ \n\n");
-			write_asset_source(f, "Mesh", flattened_meshes);
+			write_asset_source(f, "Mesh", flattened_meshes, flattened_level_meshes);
 			write_asset_source(f, "Animation", flattened_animations);
 			write_asset_source(f, "Armature", flattened_armatures);
 			write_asset_source(f, "Texture", state.manifest.textures);

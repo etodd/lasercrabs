@@ -124,6 +124,7 @@ struct GLData
 		unsigned height;
 		RenderDynamicTextureType type;
 		RenderTextureFilter filter;
+		RenderTextureCompare compare;
 	};
 
 	static Array<Texture> textures;
@@ -430,16 +431,19 @@ void render(RenderSync* sync)
 				unsigned height = *(sync->read<unsigned>());
 				RenderDynamicTextureType type = *(sync->read<RenderDynamicTextureType>());
 				RenderTextureFilter filter = *(sync->read<RenderTextureFilter>());
+				RenderTextureCompare compare = *(sync->read<RenderTextureCompare>());
 				if (GLData::textures[id].width != width
 					|| GLData::textures[id].height != height
 					|| type != GLData::textures[id].type
-					|| filter != GLData::textures[id].filter)
+					|| filter != GLData::textures[id].filter
+					|| compare != GLData::textures[id].compare)
 				{
 					glBindTexture(type == RenderDynamicTextureType::ColorMultisample ? GL_TEXTURE_2D_MULTISAMPLE : GL_TEXTURE_2D, GLData::textures[id].handle);
 					GLData::textures[id].width = width;
 					GLData::textures[id].height = height;
 					GLData::textures[id].type = type;
 					GLData::textures[id].filter = filter;
+					GLData::textures[id].compare = compare;
 					switch (type)
 					{
 						case RenderDynamicTextureType::ColorMultisample:
@@ -474,6 +478,8 @@ void render(RenderSync* sync)
 							break;
 						}
 					}
+
+					glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_MODE, compare == RenderTextureCompare::RefToTexture ? GL_COMPARE_REF_TO_TEXTURE : GL_NONE);
 				}
 				debug_check();
 				break;

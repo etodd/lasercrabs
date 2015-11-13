@@ -1041,7 +1041,7 @@ void loop(LoopSwapper* swapper, PhysicsSwapper* physics_swapper)
 	normal_buffer = Loader::dynamic_texture_permanent(sync->input.width, sync->input.height, RenderDynamicTextureType::Color);
 	depth_buffer = Loader::dynamic_texture_permanent(sync->input.width, sync->input.height, RenderDynamicTextureType::Depth);
 	for (int i = 0; i < SHADOW_MAP_CASCADES; i++)
-		shadow_buffer[i] = Loader::dynamic_texture_permanent(shadow_map_size[i], shadow_map_size[i], RenderDynamicTextureType::Depth, RenderTextureFilter::Linear);
+		shadow_buffer[i] = Loader::dynamic_texture_permanent(shadow_map_size[i], shadow_map_size[i], RenderDynamicTextureType::Depth, RenderTextureFilter::Linear, RenderTextureCompare::RefToTexture);
 
 	g_fbo = Loader::framebuffer_permanent(3);
 	Loader::framebuffer_attach(RenderFramebufferAttachment::Color0, color_buffer);

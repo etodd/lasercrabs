@@ -66,6 +66,12 @@ enum class RenderTextureFilter
 	Linear,
 };
 
+enum class RenderTextureCompare
+{
+	None,
+	RefToTexture,
+};
+
 enum class RenderFramebufferAttachment
 {
 	Color0,

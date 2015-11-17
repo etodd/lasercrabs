@@ -144,7 +144,7 @@ void draw(LoopSync* sync, const Camera* camera)
 			Vec3 abs_directions[lights];
 			bool shadowed = false;
 			int j = 0;
-			for (auto i = World::components<DirectionalLight>().iterator(); !i.is_last(); i.next())
+			for (auto i = DirectionalLight::list().iterator(); !i.is_last(); i.next())
 			{
 				DirectionalLight* light = i.item();
 				colors[j] = light->color;
@@ -333,7 +333,7 @@ void draw(LoopSync* sync, const Camera* camera)
 			sync->write<Vec3>(frustum, 4);
 
 			Loader::mesh_permanent(Asset::Mesh::sphere);
-			for (auto i = World::components<PointLight>().iterator(); !i.is_last(); i.next())
+			for (auto i = PointLight::list().iterator(); !i.is_last(); i.next())
 			{
 				PointLight* light = i.item();
 
@@ -385,7 +385,7 @@ void draw(LoopSync* sync, const Camera* camera)
 		sync->write<RenderOp>(RenderOp::CullMode);
 		sync->write<RenderCullMode>(RenderCullMode::Back);
 
-		for (auto i = World::components<SpotLight>().iterator(); !i.is_last(); i.next())
+		for (auto i = SpotLight::list().iterator(); !i.is_last(); i.next())
 		{
 			SpotLight* light = i.item();
 			if (light->color.length_squared() == 0.0f || light->fov == 0.0f || light->radius == 0.0f)

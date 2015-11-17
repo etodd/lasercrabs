@@ -22,7 +22,7 @@ View::~View()
 
 void View::draw_opaque(const RenderParams& params)
 {
-	for (auto i = World::components<View>().iterator(); !i.is_last(); i.next())
+	for (auto i = View::list().iterator(); !i.is_last(); i.next())
 	{
 		if (!i.item()->alpha_enabled)
 			i.item()->draw(params);
@@ -200,7 +200,7 @@ void SkyDecal::draw(const RenderParams& p)
 	sync->write(p.technique);
 
 	Loader::mesh_permanent(Asset::Mesh::sky_decal);
-	for (auto i = World::components<SkyDecal>().iterator(); !i.is_last(); i.next())
+	for (auto i = SkyDecal::list().iterator(); !i.is_last(); i.next())
 	{
 		SkyDecal* d = i.item();
 

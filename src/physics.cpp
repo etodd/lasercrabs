@@ -22,7 +22,7 @@ void Physics::loop(PhysicsSwapper* swapper)
 
 void Physics::sync_static()
 {
-	for (auto i = World::components<RigidBody>().iterator(); !i.is_last(); i.next())
+	for (auto i = RigidBody::list().iterator(); !i.is_last(); i.next())
 	{
 		btRigidBody* body = i.item()->btBody;
 		if (body->isStaticOrKinematicObject())
@@ -37,7 +37,7 @@ void Physics::sync_static()
 
 void Physics::sync_dynamic()
 {
-	for (auto i = World::components<RigidBody>().iterator(); !i.is_last(); i.next())
+	for (auto i = RigidBody::list().iterator(); !i.is_last(); i.next())
 	{
 		btRigidBody* body = i.item()->btBody;
 		if (body->isActive() && !body->isStaticOrKinematicObject())
@@ -76,7 +76,7 @@ RigidBody::RigidBody(Vec3 pos, Quat quat, float mass, btCollisionShape* shape, s
 
 void RigidBody::awake()
 {
-	if (btBody->getUserIndex() < 0)
+	if (btBody->getUserIndex() == IDNull)
 		btBody->setUserIndex(entity_id);
 }
 

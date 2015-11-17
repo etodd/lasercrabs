@@ -8,8 +8,9 @@
 namespace VI
 {
 
-typedef unsigned int Family;
-typedef unsigned int ID;
+typedef unsigned char Family;
+typedef unsigned short ID;
+const ID IDNull = (ID)-1;
 typedef unsigned long long ComponentMask;
 
 const Family MAX_FAMILIES = sizeof(ComponentMask) * 8;
@@ -44,33 +45,37 @@ struct PoolBase
 
 template<typename T> struct Ref
 {
-private:
-	T* target;
-public:
+	ID id;
 	int revision;
 
 	Ref()
-		: target(), revision()
+		: id(IDNull), revision()
 	{
 	}
 
 	Ref(T* t)
-		: target(t), revision(t ? t->revision : 0)
 	{
+		operator=(t);
 	}
 
 	inline Ref<T>& operator= (T* t)
 	{
-		target = t;
-		revision = t ? t->revision : 0;
+		if (t)
+		{
+			id = t->id;
+			revision = t->revision;
+		}
+		else
+			id = IDNull;
 		return *this;
 	}
 
 	inline T* ref() const
 	{
-		if (target && target->revision != revision)
-			return 0;
-		return target;
+		if (id == IDNull)
+			return nullptr;
+		T* target = &T::list()[id];
+		return target->revision == revision ? target : nullptr;
 	}
 };
 
@@ -127,31 +132,26 @@ struct Entity
 	template<typename T, typename... Args> T* add(Args... args);
 	template<typename T> inline bool has() const;
 	template<typename T> inline T* get() const;
+	static PinArray<Entity>& list();
 };
 
 struct World
 {
 	static Family component_families;
-	static PinArray<Entity> list;
+	static PinArray<Entity> entities;
 	static PoolBase component_pools[MAX_FAMILIES];
 
 	template<typename T, typename... Args> static T* create(Args... args)
 	{
-		PinArray<Entity>::Entry entry = list.add();
+		PinArray<Entity>::Entry entry = entities.add();
 		new (entry.item) T(entry.index, args...);
 		awake((T*)entry.item);
 		return (T*)entry.item;
 	}
 
-	template<typename T> static PinArray<T>& components()
-	{
-		Pool<T>* pool = (Pool<T>*)&component_pools[T::family()];
-		return *(reinterpret_cast<PinArray<T>*>(&pool->data));
-	}
-	
 	static Entity* get(ID entity)
 	{
-		return &list[entity];
+		return &entities[entity];
 	}
 
 	template<typename T, typename... Args> static T* create_component(Entity* e, Args... args)
@@ -192,9 +192,9 @@ struct World
 
 	static void remove(Entity* e)
 	{
-		if (list.data[e->id].active)
+		if (entities.data[e->id].active)
 		{
-			list.remove(e->id);
+			entities.remove(e->id);
 			for (ID i = 0; i < World::component_families; i++)
 			{
 				if (e->component_mask & ((ComponentMask)1 << i))
@@ -208,6 +208,11 @@ struct World
 		}
 	}
 };
+
+inline PinArray<Entity>& Entity::list()
+{
+	return World::entities;
+}
 
 template<typename T, typename... Args> T* Entity::create(Args... args)
 {
@@ -226,10 +231,8 @@ template<typename T> inline bool Entity::has() const
 
 template<typename T> inline T* Entity::get() const
 {
-	if (component_mask & ((ComponentMask)1 << T::family()))
-		return &World::components<T>()[components[T::family()]];
-	else
-		return 0;
+	vi_assert(has<T>());
+	return &T::list()[components[T::family()]];
 }
 
 struct ComponentBase
@@ -240,17 +243,17 @@ struct ComponentBase
 
 	inline Entity* entity() const
 	{
-		return &World::list[entity_id];
+		return &World::entities[entity_id];
 	}
 
 	template<typename T> inline bool has() const
 	{
-		return World::list[entity_id].has<T>();
+		return World::entities[entity_id].has<T>();
 	}
 
 	template<typename T> inline T* get() const
 	{
-		return World::list[entity_id].get<T>();
+		return World::entities[entity_id].get<T>();
 	}
 };
 
@@ -277,7 +280,7 @@ struct LinkEntry
 	}
 
 	LinkEntry(ID entity)
-		: data(entity, World::list[entity].revision)
+		: data(entity, World::entities[entity].revision)
 	{
 
 	}
@@ -295,7 +298,7 @@ template<typename T, void (T::*Method)()> struct EntityLinkEntry : public LinkEn
 
 	virtual void fire()
 	{
-		Entity* e = &World::list[data.entity];
+		Entity* e = &World::entities[data.entity];
 		if (e->revision == data.revision)
 		{
 			T* t = e->get<T>();
@@ -328,7 +331,7 @@ struct LinkEntryArg
 	}
 
 	LinkEntryArg(ID entity)
-		: data(entity, World::list[entity].revision)
+		: data(entity, World::entities[entity].revision)
 	{
 
 	}
@@ -342,7 +345,7 @@ template<typename T, typename T2, void (T::*Method)(T2)> struct EntityLinkEntryA
 
 	virtual void fire(T2 arg)
 	{
-		Entity* e = &World::list[LinkEntryArg<T2>::data.entity];
+		Entity* e = &World::entities[LinkEntryArg<T2>::data.entity];
 		if (e->revision == LinkEntryArg<T2>::data.revision)
 		{
 			T* t = e->get<T>();
@@ -423,6 +426,12 @@ struct ComponentType : public ComponentBase
 	static ComponentMask mask()
 	{
 		return (ComponentMask)1 << family();
+	}
+
+	static PinArray<Derived>& list()
+	{
+		Pool<Derived>* pool = (Pool<Derived>*)&World::component_pools[Derived::family()];
+		return *(reinterpret_cast<PinArray<Derived>*>(&pool->data));
 	}
 
 	template<void (Derived::*Method)()> void link(Link& link)

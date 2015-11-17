@@ -146,7 +146,7 @@ bool vision_check(const Vec3& pos, const Vec3& enemy_pos, const AIAgent* agent)
 Entity* AI::get_enemy(const AI::Team& team, const Vec3& pos, const Vec3& forward, const float radius, const float angle, const ComponentMask component_mask)
 {
 	float angle_dot = cosf(angle);
-	for (auto i = World::components<AIAgent>().iterator(); !i.is_last(); i.next())
+	for (auto i = AIAgent::list().iterator(); !i.is_last(); i.next())
 	{
 		AIAgent* agent = i.item();
 		if (agent->team == team || !(agent->entity()->component_mask & component_mask))
@@ -168,7 +168,7 @@ Entity* AI::get_enemy(const AI::Team& team, const Vec3& pos, const Vec3& forward
 		}
 	}
 
-	for (auto i = World::components<Shockwave>().iterator(); !i.is_last(); i.next())
+	for (auto i = Shockwave::list().iterator(); !i.is_last(); i.next())
 	{
 		float radius = fmin(SHOCKWAVE_AUDIO_RADIUS, i.item()->radius());
 		if ((i.item()->get<Transform>()->absolute_pos() - pos).length_squared() < radius * radius)

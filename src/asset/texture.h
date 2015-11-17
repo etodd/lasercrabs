@@ -8,11 +8,12 @@ namespace Asset
 {
 	namespace Texture
 	{
-		const int count = 4;
+		const int count = 5;
 		const AssetID blank = 0;
-		const AssetID gradient = 1;
-		const AssetID noise = 2;
-		const AssetID skybox_horizon = 3;
+		const AssetID flare = 1;
+		const AssetID gradient = 2;
+		const AssetID noise = 3;
+		const AssetID skybox_horizon = 4;
 	}
 }
 

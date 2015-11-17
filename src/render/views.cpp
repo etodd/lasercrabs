@@ -162,7 +162,7 @@ void View::draw(const RenderParams& params) const
 		sync->write(Asset::Uniform::diffuse_map);
 		sync->write(RenderDataType::Texture);
 		sync->write<int>(1);
-		sync->write<RenderTextureType>(RenderTexture2D);
+		sync->write<RenderTextureType>(RenderTextureType::Texture2D);
 		sync->write<AssetID>(texture);
 	}
 
@@ -175,6 +175,79 @@ void View::awake()
 	Mesh* m = Loader::mesh(mesh);
 	if (m && color.dot(Vec4(1)) == 0.0f)
 		color = m->color;
+}
+
+void SkyDecal::draw(const RenderParams& p)
+{
+	RenderSync* sync = p.sync;
+
+	sync->write<RenderOp>(RenderOp::DepthMask);
+	sync->write<bool>(false);
+
+	sync->write<RenderOp>(RenderOp::ColorMask);
+	sync->write<bool>(true);
+	sync->write<bool>(true);
+	sync->write<bool>(true);
+	sync->write<bool>(false);
+
+	sync->write<RenderOp>(RenderOp::BlendMode);
+	sync->write<RenderBlendMode>(RenderBlendMode::Alpha);
+
+	Loader::shader_permanent(Asset::Shader::flat_texture);
+
+	sync->write(RenderOp::Shader);
+	sync->write(Asset::Shader::flat_texture);
+	sync->write(p.technique);
+
+	Loader::mesh_permanent(Asset::Mesh::sky_decal);
+	for (auto i = World::components<SkyDecal>().iterator(); !i.is_last(); i.next())
+	{
+		SkyDecal* d = i.item();
+
+		Loader::texture(d->texture);
+
+		Quat rot = d->get<Transform>()->absolute_rot();
+		Mat4 m;
+		m.make_transform(rot * Vec3(0, 0, 1), Vec3(d->scale), rot);
+		Mat4 v = p.view;
+		v.translation(Vec3::zero);
+
+		Mat4 mvp = m * (v * p.camera->projection);
+
+		sync->write(RenderOp::Uniform);
+		sync->write(Asset::Uniform::mvp);
+		sync->write(RenderDataType::Mat4);
+		sync->write<int>(1);
+		sync->write<Mat4>(mvp);
+
+		sync->write(RenderOp::Uniform);
+		sync->write(Asset::Uniform::diffuse_color);
+		sync->write(RenderDataType::Vec4);
+		sync->write<int>(1);
+		sync->write<Vec4>(d->color);
+
+		sync->write(RenderOp::Uniform);
+		sync->write(Asset::Uniform::diffuse_map);
+		sync->write(RenderDataType::Texture);
+		sync->write<int>(1);
+		sync->write<RenderTextureType>(RenderTextureType::Texture2D);
+		sync->write<AssetID>(d->texture);
+
+		sync->write(RenderOp::Mesh);
+		sync->write(Asset::Mesh::sky_decal);
+	}
+
+	sync->write<RenderOp>(RenderOp::DepthMask);
+	sync->write<bool>(true);
+
+	sync->write<RenderOp>(RenderOp::ColorMask);
+	sync->write<bool>(true);
+	sync->write<bool>(true);
+	sync->write<bool>(true);
+	sync->write<bool>(true);
+
+	sync->write<RenderOp>(RenderOp::BlendMode);
+	sync->write<RenderBlendMode>(RenderBlendMode::Opaque);
 }
 
 float Skybox::far_plane = 0.0f;
@@ -216,7 +289,7 @@ bool Skybox::valid()
 
 void Skybox::draw(const RenderParams& p)
 {
-	if (shader == AssetNull || mesh == AssetNull || p.technique != RenderTechnique::Default)
+	if (mesh == AssetNull || p.technique != RenderTechnique::Default)
 		return;
 
 	Loader::shader(shader);
@@ -229,7 +302,7 @@ void Skybox::draw(const RenderParams& p)
 	sync->write(shader);
 	sync->write(p.technique);
 
-	Mat4 mvp = p.view;
+	Mat4 mvp = p.view * Mat4::make_scale(Vec3(far_plane));
 	mvp.translation(Vec3::zero);
 	mvp = mvp * p.camera->projection;
 
@@ -251,7 +324,7 @@ void Skybox::draw(const RenderParams& p)
 		sync->write(Asset::Uniform::diffuse_map);
 		sync->write(RenderDataType::Texture);
 		sync->write<int>(1);
-		sync->write<RenderTextureType>(RenderTexture2D);
+		sync->write<RenderTextureType>(RenderTextureType::Texture2D);
 		sync->write<AssetID>(texture);
 	}
 

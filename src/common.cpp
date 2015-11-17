@@ -151,10 +151,10 @@ void NoclipControl::update(const Update& u)
 		if (u.input->keys[(int)KeyCode::A])
 			get<Transform>()->pos += look_quat * Vec3(1, 0, 0) * u.time.delta * speed;
 
-		if (u.input->keys[(int)KeyCode::MouseLeft] && !u.last_input->keys[(int)KeyCode::MouseRight])
+		if (u.input->keys[(int)KeyCode::MouseLeft] && !u.last_input->keys[(int)KeyCode::MouseLeft])
 		{
 			static const Vec3 scale = Vec3(0.1f, 0.2f, 0.1f);
-			Entity* box = World::create<PhysicsEntity>(get<Transform>()->absolute_pos() + look_quat * Vec3(0, 0, 0.25f), look_quat, Asset::Mesh::cube, 1.0f, new btBoxShape(scale), scale);
+			Entity* box = World::create<PhysicsEntity>(get<Transform>()->absolute_pos() + look_quat * Vec3(0, 0, 0.25f), look_quat, Asset::Mesh::cube, 1.0f, new btBoxShape(scale), scale, btBroadphaseProxy::AllFilter, btBroadphaseProxy::AllFilter);
 			box->get<RigidBody>()->btBody->setLinearVelocity(look_quat * Vec3(0, 0, 15));
 		}
 	}

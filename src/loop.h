@@ -236,7 +236,7 @@ void draw(LoopSync* sync, const Camera* camera)
 				sync->write(Asset::Uniform::shadow_map);
 				sync->write(RenderDataType::Texture);
 				sync->write<int>(1);
-				sync->write<RenderTextureType>(RenderTexture2D);
+				sync->write<RenderTextureType>(RenderTextureType::Texture2D);
 				sync->write<int>(shadow_buffer[1]);
 
 				sync->write(RenderOp::Uniform);
@@ -249,7 +249,7 @@ void draw(LoopSync* sync, const Camera* camera)
 				sync->write(Asset::Uniform::detail_shadow_map);
 				sync->write(RenderDataType::Texture);
 				sync->write<int>(1);
-				sync->write<RenderTextureType>(RenderTexture2D);
+				sync->write<RenderTextureType>(RenderTextureType::Texture2D);
 				sync->write<int>(shadow_buffer[0]);
 			}
 
@@ -257,14 +257,14 @@ void draw(LoopSync* sync, const Camera* camera)
 			sync->write(Asset::Uniform::normal_buffer);
 			sync->write(RenderDataType::Texture);
 			sync->write<int>(1);
-			sync->write<RenderTextureType>(RenderTexture2D);
+			sync->write<RenderTextureType>(RenderTextureType::Texture2D);
 			sync->write<AssetID>(normal_buffer);
 
 			sync->write(RenderOp::Uniform);
 			sync->write(Asset::Uniform::depth_buffer);
 			sync->write(RenderDataType::Texture);
 			sync->write<int>(1);
-			sync->write<RenderTextureType>(RenderTexture2D);
+			sync->write<RenderTextureType>(RenderTextureType::Texture2D);
 			sync->write<AssetID>(depth_buffer);
 
 			sync->write(RenderOp::Uniform);
@@ -304,14 +304,14 @@ void draw(LoopSync* sync, const Camera* camera)
 			sync->write(Asset::Uniform::normal_buffer);
 			sync->write(RenderDataType::Texture);
 			sync->write<int>(1);
-			sync->write<RenderTextureType>(RenderTexture2D);
+			sync->write<RenderTextureType>(RenderTextureType::Texture2D);
 			sync->write<AssetID>(normal_buffer);
 
 			sync->write(RenderOp::Uniform);
 			sync->write(Asset::Uniform::depth_buffer);
 			sync->write(RenderDataType::Texture);
 			sync->write<int>(1);
-			sync->write<RenderTextureType>(RenderTexture2D);
+			sync->write<RenderTextureType>(RenderTextureType::Texture2D);
 			sync->write<AssetID>(depth_buffer);
 
 			sync->write(RenderOp::Uniform);
@@ -453,14 +453,14 @@ void draw(LoopSync* sync, const Camera* camera)
 			sync->write(Asset::Uniform::normal_buffer);
 			sync->write(RenderDataType::Texture);
 			sync->write<int>(1);
-			sync->write<RenderTextureType>(RenderTexture2D);
+			sync->write<RenderTextureType>(RenderTextureType::Texture2D);
 			sync->write<AssetID>(normal_buffer);
 
 			sync->write(RenderOp::Uniform);
 			sync->write(Asset::Uniform::depth_buffer);
 			sync->write(RenderDataType::Texture);
 			sync->write<int>(1);
-			sync->write<RenderTextureType>(RenderTexture2D);
+			sync->write<RenderTextureType>(RenderTextureType::Texture2D);
 			sync->write<AssetID>(depth_buffer);
 
 			sync->write(RenderOp::Uniform);
@@ -503,7 +503,7 @@ void draw(LoopSync* sync, const Camera* camera)
 			sync->write(Asset::Uniform::shadow_map);
 			sync->write(RenderDataType::Texture);
 			sync->write<int>(1);
-			sync->write<RenderTextureType>(RenderTexture2D);
+			sync->write<RenderTextureType>(RenderTextureType::Texture2D);
 			sync->write<int>(shadow_buffer[0]);
 
 			sync->write(RenderOp::Uniform);
@@ -561,14 +561,14 @@ void draw(LoopSync* sync, const Camera* camera)
 			sync->write(Asset::Uniform::normal_buffer);
 			sync->write(RenderDataType::Texture);
 			sync->write<int>(1);
-			sync->write<RenderTextureType>(RenderTexture2D);
+			sync->write<RenderTextureType>(RenderTextureType::Texture2D);
 			sync->write<int>(normal_buffer);
 
 			sync->write(RenderOp::Uniform);
 			sync->write(Asset::Uniform::depth_buffer);
 			sync->write(RenderDataType::Texture);
 			sync->write<int>(1);
-			sync->write<RenderTextureType>(RenderTexture2D);
+			sync->write<RenderTextureType>(RenderTextureType::Texture2D);
 			sync->write<int>(depth_buffer);
 
 			sync->write(RenderOp::Uniform);
@@ -595,14 +595,14 @@ void draw(LoopSync* sync, const Camera* camera)
 			sync->write(Asset::Uniform::normal_buffer);
 			sync->write(RenderDataType::Texture);
 			sync->write<int>(1);
-			sync->write<RenderTextureType>(RenderTexture2D);
+			sync->write<RenderTextureType>(RenderTextureType::Texture2D);
 			sync->write<int>(half_buffer1);
 
 			sync->write(RenderOp::Uniform);
 			sync->write(Asset::Uniform::depth_buffer);
 			sync->write(RenderDataType::Texture);
 			sync->write<int>(1);
-			sync->write<RenderTextureType>(RenderTexture2D);
+			sync->write<RenderTextureType>(RenderTextureType::Texture2D);
 			sync->write<int>(half_depth_buffer);
 
 			Loader::texture_permanent(Asset::Texture::noise);
@@ -610,7 +610,7 @@ void draw(LoopSync* sync, const Camera* camera)
 			sync->write(Asset::Uniform::noise_sampler);
 			sync->write(RenderDataType::Texture);
 			sync->write<int>(1);
-			sync->write<RenderTextureType>(RenderTexture2D);
+			sync->write<RenderTextureType>(RenderTextureType::Texture2D);
 			sync->write<int>(Asset::Texture::noise);
 
 			sync->write(RenderOp::Uniform);
@@ -678,14 +678,14 @@ void draw(LoopSync* sync, const Camera* camera)
 			sync->write(Asset::Uniform::color_buffer);
 			sync->write(RenderDataType::Texture);
 			sync->write<int>(1);
-			sync->write<RenderTextureType>(RenderTexture2D);
+			sync->write<RenderTextureType>(RenderTextureType::Texture2D);
 			sync->write<int>(half_buffer2);
 
 			sync->write(RenderOp::Uniform);
 			sync->write(Asset::Uniform::depth_buffer);
 			sync->write(RenderDataType::Texture);
 			sync->write<int>(1);
-			sync->write<RenderTextureType>(RenderTexture2D);
+			sync->write<RenderTextureType>(RenderTextureType::Texture2D);
 			sync->write<int>(half_depth_buffer);
 
 			sync->write(RenderOp::Mesh);
@@ -707,7 +707,7 @@ void draw(LoopSync* sync, const Camera* camera)
 			sync->write(Asset::Uniform::color_buffer);
 			sync->write(RenderDataType::Texture);
 			sync->write<int>(1);
-			sync->write<RenderTextureType>(RenderTexture2D);
+			sync->write<RenderTextureType>(RenderTextureType::Texture2D);
 			sync->write<int>(half_buffer1);
 
 			sync->write(RenderOp::Mesh);
@@ -765,28 +765,28 @@ void draw(LoopSync* sync, const Camera* camera)
 		sync->write(Asset::Uniform::ssao_buffer);
 		sync->write(RenderDataType::Texture);
 		sync->write<int>(1);
-		sync->write<RenderTextureType>(RenderTexture2D);
+		sync->write<RenderTextureType>(RenderTextureType::Texture2D);
 		sync->write<AssetID>(half_buffer2);
 
 		sync->write(RenderOp::Uniform);
 		sync->write(Asset::Uniform::lighting_buffer);
 		sync->write(RenderDataType::Texture);
 		sync->write<int>(1);
-		sync->write<RenderTextureType>(RenderTexture2D);
+		sync->write<RenderTextureType>(RenderTextureType::Texture2D);
 		sync->write<AssetID>(lighting_buffer);
 
 		sync->write(RenderOp::Uniform);
 		sync->write(Asset::Uniform::color_buffer);
 		sync->write(RenderDataType::Texture);
 		sync->write<int>(1);
-		sync->write<RenderTextureType>(RenderTexture2D);
+		sync->write<RenderTextureType>(RenderTextureType::Texture2D);
 		sync->write<AssetID>(color_buffer);
 
 		sync->write(RenderOp::Uniform);
 		sync->write(Asset::Uniform::depth_buffer);
 		sync->write(RenderDataType::Texture);
 		sync->write<int>(1);
-		sync->write<RenderTextureType>(RenderTexture2D);
+		sync->write<RenderTextureType>(RenderTextureType::Texture2D);
 		sync->write<AssetID>(depth_buffer);
 
 		sync->write(RenderOp::Mesh);
@@ -819,21 +819,21 @@ void draw(LoopSync* sync, const Camera* camera)
 		sync->write(Asset::Uniform::color_buffer);
 		sync->write(RenderDataType::Texture);
 		sync->write<int>(1);
-		sync->write<RenderTextureType>(RenderTexture2D);
+		sync->write<RenderTextureType>(RenderTextureType::Texture2D);
 		sync->write<AssetID>(color_buffer2);
 
 		sync->write(RenderOp::Uniform);
 		sync->write(Asset::Uniform::depth_buffer);
 		sync->write(RenderDataType::Texture);
 		sync->write<int>(1);
-		sync->write<RenderTextureType>(RenderTexture2D);
+		sync->write<RenderTextureType>(RenderTextureType::Texture2D);
 		sync->write<AssetID>(depth_buffer);
 
 		sync->write(RenderOp::Uniform);
 		sync->write(Asset::Uniform::normal_buffer);
 		sync->write(RenderDataType::Texture);
 		sync->write<int>(1);
-		sync->write<RenderTextureType>(RenderTexture2D);
+		sync->write<RenderTextureType>(RenderTextureType::Texture2D);
 		sync->write<AssetID>(normal_buffer);
 
 		sync->write(RenderOp::Mesh);
@@ -924,7 +924,7 @@ void draw(LoopSync* sync, const Camera* camera)
 		sync->write(Asset::Uniform::color_buffer);
 		sync->write(RenderDataType::Texture);
 		sync->write<int>(1);
-		sync->write<RenderTextureType>(RenderTexture2D);
+		sync->write<RenderTextureType>(RenderTextureType::Texture2D);
 		sync->write<AssetID>(color_buffer);
 
 		sync->write(RenderOp::Uniform);
@@ -949,7 +949,7 @@ void draw(LoopSync* sync, const Camera* camera)
 		sync->write(Asset::Uniform::color_buffer);
 		sync->write(RenderDataType::Texture);
 		sync->write<int>(1);
-		sync->write<RenderTextureType>(RenderTexture2D);
+		sync->write<RenderTextureType>(RenderTextureType::Texture2D);
 		sync->write<AssetID>(half_buffer1);
 
 		sync->write(RenderOp::Uniform);
@@ -969,7 +969,7 @@ void draw(LoopSync* sync, const Camera* camera)
 		sync->write(Asset::Uniform::color_buffer);
 		sync->write(RenderDataType::Texture);
 		sync->write<int>(1);
-		sync->write<RenderTextureType>(RenderTexture2D);
+		sync->write<RenderTextureType>(RenderTextureType::Texture2D);
 		sync->write<AssetID>(half_buffer1);
 
 		sync->write(RenderOp::Uniform);

@@ -10,7 +10,7 @@ namespace VI
 
 typedef unsigned int Family;
 typedef unsigned int ID;
-typedef unsigned long ComponentMask;
+typedef unsigned long long ComponentMask;
 
 const Family MAX_FAMILIES = sizeof(ComponentMask) * 8;
 const int MAX_ENTITIES = 4096;
@@ -165,7 +165,7 @@ struct World
 		entry.item->entity_id = e->id;
 		entry.item->id = entry.index;
 		e->components[f] = entry.index;
-		e->component_mask |= 1 << f;
+		e->component_mask |= (ComponentMask)1 << f;
 		return entry.item;
 	}
 
@@ -181,7 +181,7 @@ struct World
 	{
 		for (ID i = 0; i < World::component_families; i++)
 		{
-			if (e->component_mask & (1 << i))
+			if (e->component_mask & ((ComponentMask)1 << i))
 			{
 				PoolBase* pool = &component_pools[i];
 				pool->awake(e->components[i]);
@@ -197,7 +197,7 @@ struct World
 			list.remove(e->id);
 			for (ID i = 0; i < World::component_families; i++)
 			{
-				if (e->component_mask & (1 << i))
+				if (e->component_mask & ((ComponentMask)1 << i))
 				{
 					PoolBase* pool = &component_pools[i];
 					pool->remove(e->components[i]);
@@ -221,12 +221,12 @@ template<typename T, typename... Args> T* Entity::add(Args... args)
 
 template<typename T> inline bool Entity::has() const
 {
-	return component_mask & (1 << T::family());
+	return component_mask & ((ComponentMask)1 << T::family());
 }
 
 template<typename T> inline T* Entity::get() const
 {
-	if (component_mask & (1 << T::family()))
+	if (component_mask & ((ComponentMask)1 << T::family()))
 		return &World::components<T>()[components[T::family()]];
 	else
 		return 0;
@@ -416,13 +416,13 @@ struct ComponentType : public ComponentBase
 	static Family family()
 	{
 		static Family f = World::component_families++;
-		vi_assert(f <= MAX_FAMILIES);
+		vi_assert(f < MAX_FAMILIES);
 		return f;
 	}
 
 	static ComponentMask mask()
 	{
-		return 1 << family();
+		return (ComponentMask)1 << family();
 	}
 
 	template<void (Derived::*Method)()> void link(Link& link)

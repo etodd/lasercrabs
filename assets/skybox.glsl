@@ -18,7 +18,6 @@ void main()
 
 in vec2 uv;
 
-// Values that stay constant for the whole mesh.
 uniform vec4 diffuse_color;
 uniform sampler2D diffuse_map;
 
@@ -29,7 +28,6 @@ void main()
 {
 	out_color = texture(diffuse_map, uv) * diffuse_color;
 	out_normal = vec4(0, 0, -1, 1);
-	gl_FragDepth = 0.9999999;
 }
 
 #endif

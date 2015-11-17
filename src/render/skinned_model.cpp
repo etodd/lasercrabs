@@ -63,7 +63,7 @@ void SkinnedModel::draw(const RenderParams& params)
 	sync->write(Asset::Uniform::diffuse_map);
 	sync->write(RenderDataType::Texture);
 	sync->write<int>(1);
-	sync->write<RenderTextureType>(RenderTexture2D);
+	sync->write<RenderTextureType>(RenderTextureType::Texture2D);
 	sync->write<AssetID>(texture);
 
 	Armature* arm = Loader::armature(get<Animator>()->armature);

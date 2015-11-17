@@ -731,16 +731,20 @@ std::string get_mesh_name(const aiScene* scene, const std::string& asset_name, c
 			break;
 		material_index++;
 	}
-	std::ostringstream name_builder;
 	if (scene->mNumMeshes > 1)
+	{
+		std::ostringstream name_builder;
 		name_builder << asset_name << "_";
-	if (material_index > 0)
-		name_builder << mesh_node->mName.C_Str() << "_" << material_index;
+		if (material_index > 0)
+			name_builder << mesh_node->mName.C_Str() << "_" << material_index;
+		else
+			name_builder << mesh_node->mName.C_Str();
+		std::string name = name_builder.str();
+		clean_name(name);
+		return name;
+	}
 	else
-		name_builder << mesh_node->mName.C_Str();
-	std::string name = name_builder.str();
-	clean_name(name);
-	return name;
+		return asset_name;
 }
 
 bool load_anim(const Armature& armature, const aiAnimation* in, Animation* out, const Map<int>& bone_map)

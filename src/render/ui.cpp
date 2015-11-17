@@ -217,9 +217,9 @@ void UIText::draw(const RenderParams& params, const Vec2& pos, const float rot) 
 		UI::indices.add(indices[i] + vertex_start);
 }
 
-const Vec4 UI::default_color = Vec4(1, 1, 0, 1);
+const Vec4 UI::default_color = Vec4(1, 1, 1, 1);
 const Vec4 UI::alert_color = Vec4(1.0f, 0.7f, 0.7f, 1.0f);
-const Vec4 UI::subtle_color = Vec4(0.6f, 0.8f, 1.0f, 0.75f);
+const Vec4 UI::subtle_color = Vec4(1.0f, 1.0f, 1.0f, 0.75f);
 float UI::scale = 1.0f;
 int UI::mesh_id = AssetNull;
 int UI::texture_mesh_id = AssetNull;
@@ -589,7 +589,7 @@ void UI::texture(const RenderParams& p, const int texture, const Vec2& pos, cons
 	p.sync->write(Asset::Uniform::color_buffer);
 	p.sync->write(RenderDataType::Texture);
 	p.sync->write<int>(1);
-	p.sync->write<RenderTextureType>(RenderTexture2D);
+	p.sync->write<RenderTextureType>(RenderTextureType::Texture2D);
 	p.sync->write<AssetID>(texture);
 
 	p.sync->write(RenderOp::Mesh);

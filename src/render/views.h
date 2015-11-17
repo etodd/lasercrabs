@@ -43,6 +43,15 @@ struct View : public ComponentType<View>
 	void awake();
 };
 
+struct SkyDecal : ComponentType<SkyDecal>
+{
+	void awake() {}
+	Vec4 color;
+	float scale;
+	AssetID texture;
+	static void draw(const RenderParams&);
+};
+
 struct Skybox
 {
 	static float far_plane;

@@ -542,7 +542,11 @@ void render(RenderSync* sync)
 			}
 			case RenderOp::ColorMask:
 			{
-				glColorMask(*(sync->read<bool>()), *(sync->read<bool>()), *(sync->read<bool>()), *(sync->read<bool>()));
+				bool r = *(sync->read<bool>());
+				bool g = *(sync->read<bool>());
+				bool b = *(sync->read<bool>());
+				bool a = *(sync->read<bool>());
+				glColorMask(r, g, b, a);
 				debug_check();
 				break;
 			}
@@ -669,7 +673,7 @@ void render(RenderSync* sync)
 							GLenum gl_texture_type;
 							switch (texture_type)
 							{
-								case RenderTexture2D:
+								case RenderTextureType::Texture2D:
 									gl_texture_type = GL_TEXTURE_2D;
 									break;
 								default:

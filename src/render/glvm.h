@@ -140,9 +140,9 @@ struct RenderSync
 	}
 };
 
-enum RenderTextureType
+enum class RenderTextureType
 {
-	RenderTexture2D,
+	Texture2D,
 };
 
 void render_init();

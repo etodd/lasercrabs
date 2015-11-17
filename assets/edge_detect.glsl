@@ -52,10 +52,10 @@ void main()
 	vec3 normal3 = texture(normal_buffer, uv + vec2(inv_buffer_size.x, 0)).xyz * 2.0 - 1.0;
 	vec3 normal4 = texture(normal_buffer, uv + vec2(0, inv_buffer_size.y)).xyz * 2.0 - 1.0;
 
-	float normal_delta = max(0, 4.0 - dot(vec4(dot(normal, normal1), dot(normal, normal2), dot(normal, normal3), dot(normal, normal4)), vec4(1)));
+	float normal_delta = max(0, 2.0 - dot(normal1, normal3) - dot(normal2, normal4));
 
 	float depth_delta = (5.0 * dot(abs(vec4(depth) - depths), vec4(1)) / depth) * -dot(view_ray, normal);
-	out_color = color + (vec4(1) - color) * step(0.5, normal_delta + depth_delta);
+	out_color = color + (vec4(1) - color) * step(0.5, normal_delta * 4.0f + depth_delta);
 }
 
 #endif

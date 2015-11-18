@@ -7,11 +7,22 @@
 namespace VI
 {
 
-IntrusiveLinkedList<View>* View::first_additive = nullptr;
-IntrusiveLinkedList<View>* View::first_alpha = nullptr;
+View::GlobalState* View::global;
+
+void View::init()
+{
+	global = pool.global<GlobalState>();
+	global->first_additive = IDNull;
+	global->first_alpha = IDNull;
+}
+
+View::IntrusiveLinkedList::IntrusiveLinkedList()
+	: previous(IDNull), next(IDNull)
+{
+}
 
 View::View()
-	: mesh(AssetNull), shader(AssetNull), texture(AssetNull), offset(Mat4::identity), color(0, 0, 0, 0), alpha_order(), alpha_enabled(), additive_entry(this), alpha_entry(this)
+	: mesh(AssetNull), shader(AssetNull), texture(AssetNull), offset(Mat4::identity), color(0, 0, 0, 0), alpha_order(), alpha_enabled(), additive_entry(), alpha_entry()
 {
 }
 
@@ -31,21 +42,23 @@ void View::draw_opaque(const RenderParams& params)
 
 void View::draw_additive(const RenderParams& params)
 {
-	const IntrusiveLinkedList<View>* v = first_additive;
-	while (v)
+	ID i = global->first_additive;
+	while (i != IDNull)
 	{
-		v->object->draw(params);
-		v = v->next;
+		View* v = &View::list()[i];
+		v->draw(params);
+		i = v->additive_entry.next;
 	}
 }
 
 void View::draw_alpha(const RenderParams& params)
 {
-	const IntrusiveLinkedList<View>* v = first_alpha;
-	while (v)
+	ID i = global->first_alpha;
+	while (i != IDNull)
 	{
-		v->object->draw(params);
-		v = v->next;
+		View* v = &View::list()[i];
+		v->draw(params);
+		i = v->alpha_entry.next;
 	}
 }
 
@@ -58,27 +71,45 @@ void View::alpha(const bool additive, const int order)
 
 	alpha_order = order;
 
-	IntrusiveLinkedList<View>*& first = additive ? first_additive : first_alpha;
-	IntrusiveLinkedList<View>& entry = additive ? additive_entry : alpha_entry;
+	ID& first = additive ? global->first_additive : global->first_alpha;
+	IntrusiveLinkedList* entry = additive ? &additive_entry : &alpha_entry;
 
-	if (first)
+	const ID me = id();
+
+	if (first == IDNull) // We're the first
+		first = id();
+	else
 	{
-		IntrusiveLinkedList<View>* v = first;
+		// Figure out where in the list we need to insert ourselves
 
-		if (alpha_order < v->object->alpha_order)
+		View* v = &View::list()[first];
+
+		IntrusiveLinkedList* v_entry = additive ? &v->additive_entry : &v->alpha_entry;
+
+		if (alpha_order < v->alpha_order)
 		{
-			entry.insert_before(first);
-			first = &entry;
+			// Insert ourselves before the first entry
+			entry->next = first;
+			v_entry->previous = me;
+			first = me;
 		}
 		else
 		{
-			while (v->next && v->next->object->alpha_order < alpha_order)
-				v = v->next;
-			entry.insert_after(v);
+			// Find the first entry with a higher alpha_order than us,
+			// and insert ourselves before them
+			while (v_entry->next != IDNull)
+			{
+				View* next_v = &View::list()[v_entry->next];
+				if (next_v->alpha_order < alpha_order)
+				{
+					v_entry = additive ? &next_v->additive_entry : &next_v->alpha_entry;
+					v = next_v;
+				}
+			}
+			entry->next = v->id();
+			v_entry->previous = me;
 		}
 	}
-	else
-		first = &entry;
 }
 
 void View::alpha_disable()
@@ -88,26 +119,28 @@ void View::alpha_disable()
 		alpha_enabled = false;
 
 		// Remove additive entry
-		if (additive_entry.next)
-			additive_entry.next->previous = additive_entry.previous;
+		if (additive_entry.next != IDNull)
+			View::list()[additive_entry.next].additive_entry.previous = additive_entry.previous;
 
-		if (additive_entry.previous)
-			additive_entry.previous->next = additive_entry.next;
-		else if (first_additive == &additive_entry)
-			first_additive = additive_entry.next;
-		additive_entry.previous = nullptr;
-		additive_entry.next = nullptr;
+		if (additive_entry.previous != IDNull)
+			View::list()[additive_entry.previous].additive_entry.next = additive_entry.next;
+
+		if (global->first_additive == id())
+			global->first_additive = additive_entry.next;
+		additive_entry.previous = IDNull;
+		additive_entry.next = IDNull;
 
 		// Remove alpha entry
-		if (alpha_entry.next)
-			alpha_entry.next->previous = alpha_entry.previous;
+		if (alpha_entry.next != IDNull)
+			View::list()[alpha_entry.next].alpha_entry.previous = alpha_entry.previous;
 
-		if (alpha_entry.previous)
-			alpha_entry.previous->next = alpha_entry.next;
-		else if (first_alpha == &alpha_entry)
-			first_alpha = alpha_entry.next;
-		alpha_entry.previous = nullptr;
-		alpha_entry.next = nullptr;
+		if (alpha_entry.previous != IDNull)
+			View::list()[alpha_entry.previous].alpha_entry.next = alpha_entry.next;
+
+		if (global->first_alpha == id())
+			global->first_alpha = alpha_entry.next;
+		alpha_entry.previous = IDNull;
+		alpha_entry.next = IDNull;
 	}
 }
 

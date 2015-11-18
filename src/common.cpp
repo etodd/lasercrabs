@@ -18,14 +18,12 @@ namespace VI
 #define fov_initial (PI * 0.25f)
 #define speed_mouse 0.0025f
 
-Empty::Empty(ID id)
-	: Entity(id)
+Empty::Empty()
 {
 	create<Transform>();
 }
 
-Prop::Prop(const ID id, const AssetID mesh_id, const AssetID armature, const AssetID animation)
-	: Entity(id)
+Prop::Prop(const AssetID mesh_id, const AssetID armature, const AssetID animation)
 {
 	Transform* transform = create<Transform>();
 	if (armature == AssetNull)
@@ -45,8 +43,7 @@ Prop::Prop(const ID id, const AssetID mesh_id, const AssetID armature, const Ass
 	}
 }
 
-StaticGeom::StaticGeom(const ID id, const AssetID mesh_id, const Vec3& absolute_pos, const Quat& absolute_rot, const short group, const short mask)
-	: Entity(id)
+StaticGeom::StaticGeom(const AssetID mesh_id, const Vec3& absolute_pos, const Quat& absolute_rot, const short group, const short mask)
 {
 	btTriangleIndexVertexArray* mesh_data;
 	btBvhTriangleMeshShape* shape;
@@ -68,8 +65,7 @@ StaticGeom::StaticGeom(const ID id, const AssetID mesh_id, const Vec3& absolute_
 	body->btMesh = mesh_data;
 }
 
-PhysicsEntity::PhysicsEntity(const ID id, const Vec3& pos, const Quat& quat, const AssetID mesh, const float mass, btCollisionShape* shape, const Vec3& scale)
-	: Entity(id)
+PhysicsEntity::PhysicsEntity(const Vec3& pos, const Quat& quat, const AssetID mesh, const float mass, btCollisionShape* shape, const Vec3& scale)
 {
 	Transform* transform = create<Transform>();
 	transform->pos = pos;
@@ -86,8 +82,7 @@ PhysicsEntity::PhysicsEntity(const ID id, const Vec3& pos, const Quat& quat, con
 	RigidBody* body = create<RigidBody>(pos, quat, mass, shape);
 }
 
-PhysicsEntity::PhysicsEntity(const ID id, const Vec3& pos, const Quat& quat, const AssetID mesh, const float mass, btCollisionShape* shape, const Vec3& scale, const short filter_group, const short filter_mask)
-	: Entity(id)
+PhysicsEntity::PhysicsEntity(const Vec3& pos, const Quat& quat, const AssetID mesh, const float mass, btCollisionShape* shape, const Vec3& scale, const short filter_group, const short filter_mask)
 {
 	Transform* transform = create<Transform>();
 	transform->pos = pos;
@@ -104,8 +99,7 @@ PhysicsEntity::PhysicsEntity(const ID id, const Vec3& pos, const Quat& quat, con
 	RigidBody* body = create<RigidBody>(pos, quat, mass, shape, filter_group, filter_mask);
 }
 
-Noclip::Noclip(ID id)
-	: Entity(id)
+Noclip::Noclip()
 {
 	Transform* transform = create<Transform>();
 	create<NoclipControl>();
@@ -114,6 +108,10 @@ Noclip::Noclip(ID id)
 NoclipControl::NoclipControl()
 	: angle_horizontal(),
 	angle_vertical()
+{
+}
+
+void NoclipControl::awake()
 {
 	camera = Camera::add();
 }
@@ -170,13 +168,6 @@ void NoclipControl::update(const Update& u)
 	Vec3 look = look_quat * Vec3(0, 0, 1);
 	camera->pos = pos;
 	camera->rot = look_quat;
-}
-
-void Debug::draw(const RenderParams& params)
-{
-	Vec2 pos;
-	if (UI::project(params, get<Transform>()->absolute_pos(), pos))
-		UI::centered_box(params, pos, Vec2(4, 4) * UI::scale, Vec4(1, 0, 0, 1), 0);
 }
 
 }

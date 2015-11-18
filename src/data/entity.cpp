@@ -5,10 +5,8 @@
 namespace VI
 {
 
-Family World::component_families = 0;
-
 PinArray<Entity> World::entities = PinArray<Entity>(MAX_ENTITIES);
-PoolBase World::component_pools[MAX_FAMILIES];
+ComponentPoolBase* World::component_pools[MAX_FAMILIES];
 
 Link::Link()
 	: entries(), entry_count()

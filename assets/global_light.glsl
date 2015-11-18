@@ -74,8 +74,13 @@ void main()
 		{
 			vec4 light_projected = light_vp * vec4(view_pos, 1.0f);
 			light_projected.xy /= light_projected.w;
-			light_projected.z -= 0.003f;
-			shadow = texture(shadow_map, light_projected.xyz * 0.5f + 0.5f);
+			if (abs(light_projected.x) < 1.0f && abs(light_projected.y) < 1.0f)
+			{
+				light_projected.z -= 0.003f;
+				shadow = texture(shadow_map, light_projected.xyz * 0.5f + 0.5f);
+			}
+			else
+				shadow = 1.0f;
 		}
 		out_color.xyz += full_light * shadow;
 	}

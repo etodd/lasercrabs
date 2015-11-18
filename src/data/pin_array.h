@@ -67,6 +67,15 @@ struct PinArray
 			free_list[i] = (size - 1) - i;
 	}
 
+	void resize(int size)
+	{
+		int old_size = data.length;
+		data.resize(size);
+		free_list.reserve(size);
+		for (int i = old_size; i < size; i++)
+			free_list.add((size - 1) - i);
+	}
+
 	inline T operator [] (const int i) const
 	{
 		vi_assert(i >= 0 && i < data.length);

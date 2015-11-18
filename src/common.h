@@ -13,33 +13,28 @@ namespace VI
 
 struct Empty : public Entity
 {
-	Empty(ID);
-	void awake() {}
+	Empty();
 };
 
 struct Prop : public Entity
 {
-	Prop(const ID, const AssetID, const AssetID = AssetNull, const AssetID = AssetNull);
-	void awake() {}
+	Prop(const AssetID, const AssetID = AssetNull, const AssetID = AssetNull);
 };
 
 struct StaticGeom : public Entity
 {
-	StaticGeom(const ID, const AssetID, const Vec3&, const Quat&, const short = btBroadphaseProxy::StaticFilter, const short = ~btBroadphaseProxy::StaticFilter);
-	void awake() {}
+	StaticGeom(const AssetID, const Vec3&, const Quat&, const short = btBroadphaseProxy::StaticFilter, const short = ~btBroadphaseProxy::StaticFilter);
 };
 
 struct PhysicsEntity : public Entity
 {
-	PhysicsEntity(const ID, const Vec3&, const Quat&, const AssetID, const float, btCollisionShape*, const Vec3&);
-	PhysicsEntity(const ID, const Vec3&, const Quat&, const AssetID, const float, btCollisionShape*, const Vec3&, const short, const short);
-	void awake() {}
+	PhysicsEntity(const Vec3&, const Quat&, const AssetID, const float, btCollisionShape*, const Vec3&);
+	PhysicsEntity(const Vec3&, const Quat&, const AssetID, const float, btCollisionShape*, const Vec3&, const short, const short);
 };
 
 struct Noclip : public Entity
 {
-	Noclip(ID id);
-	void awake() {}
+	Noclip();
 };
 
 struct NoclipControl : public ComponentType<NoclipControl>
@@ -51,15 +46,9 @@ struct NoclipControl : public ComponentType<NoclipControl>
 
 	NoclipControl();
 	~NoclipControl();
-	void awake() {}
 
 	void update(const Update&);
-};
-
-struct Debug : public ComponentType<Debug>
-{
-	void awake() {}
-	void draw(const RenderParams&);
+	void awake();
 };
 
 }

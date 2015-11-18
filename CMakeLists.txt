@@ -224,7 +224,6 @@ add_custom_command(
 add_executable(mkzebra
 	CMakeLists.txt
 	src/data/array.h
-	src/data/intrusive_list.h
 	src/data/pin_array.h
 	src/data/import_common.h
 	src/data/import_common.cpp

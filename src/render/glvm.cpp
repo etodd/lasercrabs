@@ -459,10 +459,10 @@ void render(RenderSync* sync)
 							vi_assert(false);
 							break;
 					}
-
+					
 					glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
 					glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-					
+
 					switch (filter)
 					{
 						case RenderTextureFilter::Nearest:

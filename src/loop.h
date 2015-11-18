@@ -181,7 +181,7 @@ void draw(LoopSync* sync, const Camera* camera)
 				// Global shadow map
 				Camera shadow_camera;
 				shadow_camera.viewport = { 0, 0, shadow_map_size[1], shadow_map_size[1] };
-				float size = render_params.camera->far_plane;
+				float size = fmin(1000.0f, render_params.camera->far_plane);
 				Vec3 pos = render_params.camera->pos;
 				const float interval = size * 0.025f;
 				pos = Vec3((int)(pos.x / interval), (int)(pos.y / interval), (int)(pos.z / interval)) * interval;

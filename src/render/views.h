@@ -3,25 +3,31 @@
 #include "data/entity.h"
 #include "data/components.h"
 #include "render.h"
-#include "data/intrusive_list.h"
 
 namespace VI
 {
 
-struct Uniform
-{
-	AssetID uniform;
-	Mat4 data_float;
-	int data_integer;
-};
-
 struct View : public ComponentType<View>
 {
-	IntrusiveLinkedList<View> additive_entry;
-	static IntrusiveLinkedList<View>* first_additive;
+	struct GlobalState
+	{
+		ID first_additive;
+		ID first_alpha;
+	};
+	
+	struct IntrusiveLinkedList
+	{
+		ID previous;
+		ID next;
 
-	IntrusiveLinkedList<View> alpha_entry;
-	static IntrusiveLinkedList<View>* first_alpha;
+		IntrusiveLinkedList();
+	};
+
+	static GlobalState* global;
+	static void init();
+
+	IntrusiveLinkedList additive_entry;
+	IntrusiveLinkedList alpha_entry;
 
 	AssetID mesh;
 	AssetID shader;

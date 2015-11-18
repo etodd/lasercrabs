@@ -1160,7 +1160,7 @@ bool import_meshes(ImporterState& state, const std::string& asset_in_path, const
 						for (unsigned int k = 0; k < ai_mesh->mNumVertices; k++)
 						{
 							aiVector3D UVW = ai_mesh->mTextureCoords[j][k];
-							uvs->add(Vec2(1.0f - UVW.x, 1.0f - UVW.y));
+							uvs->add(Vec2(UVW.x, 1.0f - UVW.y));
 						}
 					}
 				}

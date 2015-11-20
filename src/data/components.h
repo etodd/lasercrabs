@@ -38,10 +38,16 @@ struct Transform : public ComponentType<Transform>
 
 struct PointLight : public ComponentType<PointLight>
 {
+	enum class Type
+	{
+		Normal,
+		Shockwave,
+	};
+
 	float radius;
 	Vec3 color;
 	Vec3 offset;
-	bool shockwave;
+	Type type;
 
 	PointLight();
 	void awake() {}

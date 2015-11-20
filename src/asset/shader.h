@@ -35,8 +35,8 @@ namespace Asset
 		const AssetID normal_buffer = 23;
 		const AssetID p = 24;
 		const AssetID shadow_map = 25;
-		const AssetID shockwave = 26;
-		const AssetID ssao_buffer = 27;
+		const AssetID ssao_buffer = 26;
+		const AssetID type = 27;
 		const AssetID uv_offset = 28;
 		const AssetID uv_scale = 29;
 		const AssetID v = 30;

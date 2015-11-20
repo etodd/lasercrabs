@@ -182,7 +182,7 @@ void Transform::reparent(Transform* p)
 }
 
 PointLight::PointLight()
-	: radius(), color(1, 1, 1), offset(), shockwave()
+	: radius(), color(1, 1, 1), offset(), type()
 {
 }
 

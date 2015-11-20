@@ -25,7 +25,9 @@ uniform vec3 light_pos;
 uniform float light_radius;
 uniform vec3 light_color;
 uniform vec3 frustum[4];
-uniform bool shockwave;
+const int type_normal = 0;
+const int type_shockwave = 1;
+uniform int type;
 
 vec3 lerp3(vec3 a, vec3 b, float w)
 {
@@ -51,7 +53,7 @@ void main()
 	float normal_attenuation = dot(texture(normal_buffer, uv).xyz * 2.0 - 1.0, to_light);
 
 	float light_strength;
-	if (shockwave)
+	if (type == type_shockwave)
 	{
 		const float shockwave_size = 0.5f;
 		const float shockwave_multiplier = 1.0f / shockwave_size;

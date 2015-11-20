@@ -358,10 +358,10 @@ void draw(LoopSync* sync, const Camera* camera)
 				sync->write<Mat4>(light_transform * render_params.view_projection);
 
 				sync->write(RenderOp::Uniform);
-				sync->write(Asset::Uniform::shockwave);
+				sync->write(Asset::Uniform::type);
 				sync->write(RenderDataType::Int);
 				sync->write<int>(1);
-				sync->write<int>(light->shockwave);
+				sync->write<int>((int)light->type);
 
 				sync->write(RenderOp::Uniform);
 				sync->write(Asset::Uniform::light_color);

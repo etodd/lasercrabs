@@ -218,7 +218,7 @@ void UIText::draw(const RenderParams& params, const Vec2& pos, const float rot) 
 }
 
 const Vec4 UI::default_color = Vec4(1, 1, 1, 1);
-const Vec4 UI::alert_color = Vec4(1.0f, 0.7f, 0.7f, 1.0f);
+const Vec4 UI::alert_color = Vec4(1.0f, 0.2f, 0.2f, 1.0f);
 const Vec4 UI::subtle_color = Vec4(1.0f, 1.0f, 1.0f, 0.75f);
 float UI::scale = 1.0f;
 int UI::mesh_id = AssetNull;

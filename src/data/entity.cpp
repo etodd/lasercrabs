@@ -6,6 +6,7 @@ namespace VI
 {
 
 PinArray<Entity> World::entities = PinArray<Entity>(MAX_ENTITIES);
+Array<ID> World::remove_buffer = Array<ID>();
 ComponentPoolBase* World::component_pools[MAX_FAMILIES];
 
 Link::Link()

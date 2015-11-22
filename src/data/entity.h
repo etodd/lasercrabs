@@ -136,6 +136,7 @@ struct World
 {
 	static Family families;
 	static PinArray<Entity> entities;
+	static Array<ID> remove_buffer;
 	static ComponentPoolBase* component_pools[MAX_FAMILIES];
 
 	static void init();
@@ -191,6 +192,18 @@ struct World
 		e->component_mask = 0;
 		e->revision++;
 		entities.remove(id);
+	}
+
+	static void remove_deferred(Entity* e)
+	{
+		remove_buffer.add(e->id());
+	}
+
+	static void flush()
+	{
+		for (int i = 0; i < remove_buffer.length; i++)
+			World::remove(&World::entities[remove_buffer[i]]);
+		remove_buffer.length = 0;
 	}
 };
 

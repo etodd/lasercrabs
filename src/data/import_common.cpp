@@ -135,6 +135,28 @@ namespace Json
 		else
 			return default_value;
 	}
+
+	int get_enum(cJSON* parent, const char* key, const char** search, const int default_value)
+	{
+		if (!parent)
+			return default_value;
+
+		cJSON* json = cJSON_GetObjectItem(parent, key);
+		if (json)
+		{
+			const char* string = json->valuestring;
+			int i = 0;
+			while (search[i])
+			{
+				if (strcmp(string, search[i]) == 0)
+					return i;
+				i++;
+			}
+			return default_value;
+		}
+		else
+			return default_value;
+	}
 }
 
 }

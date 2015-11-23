@@ -24,6 +24,7 @@ namespace Json
 	float get_float(cJSON*, const char*, const float = 0.0f);
 	int get_int(cJSON*, const char*, const int = 0);
 	const char* get_string(cJSON*, const char*, const char* = 0);
+	int get_enum(cJSON*, const char*, const char**, const int = 0);
 };
 
 // Can't have more than X meshes parented to a bone in a .arm file

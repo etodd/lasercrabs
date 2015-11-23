@@ -26,7 +26,7 @@ layout(location = 1) out vec4 out_normal;
 
 void main()
 {
-	out_color = texture(diffuse_map, uv) * diffuse_color;
+	out_color = vec4(texture(diffuse_map, uv).rgb * diffuse_color.rgb, 0.0f);
 	out_normal = vec4(0, 0, -1, 1);
 }
 

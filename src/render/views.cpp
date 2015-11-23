@@ -105,6 +105,8 @@ void View::alpha(const bool additive, const int order)
 					v_entry = additive ? &next_v->additive_entry : &next_v->alpha_entry;
 					v = next_v;
 				}
+				else
+					break;
 			}
 			entry->next = v->id();
 			v_entry->previous = me;

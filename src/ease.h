@@ -8,6 +8,59 @@ namespace VI
 // Easing functions based on http://www.gizma.com/easing/
 namespace Ease
 {
+	enum class Type
+	{
+		Linear,
+		QuadIn,
+		QuadOut,
+		QuadInOut,
+		CubicIn,
+		CubicOut,
+		CubicInOut,
+		QuartIn,
+		QuartOut,
+		QuartInOut,
+		QuintIn,
+		QuintOut,
+		QuintInOut,
+		SinIn,
+		SinOut,
+		SinInOut,
+		ExpoIn,
+		ExpoOut,
+		ExpoInOut,
+		CircIn,
+		CircOut,
+		CircInOut,
+	};
+
+	static const char* type_names[] =
+	{
+		"Linear",
+		"QuadIn",
+		"QuadOut",
+		"QuadInOut",
+		"CubicIn",
+		"CubicOut",
+		"CubicInOut",
+		"QuartIn",
+		"QuartOut",
+		"QuartInOut",
+		"QuintIn",
+		"QuintOut",
+		"QuintInOut",
+		"SinIn",
+		"SinOut",
+		"SinInOut",
+		"ExpoIn",
+		"ExpoOut",
+		"ExpoInOut",
+		"CircIn",
+		"CircOut",
+		"CircInOut",
+		0,
+	};
+
 	template<typename T> T linear(float x, T start = 0.0f, T end = 1.0f)
 	{
 		return (end - start) * x + start;
@@ -174,6 +227,57 @@ namespace Ease
 			return -c / 2.0f * (sqrtf(1.0f - x * x) - 1.0f) + start;
 		x -= 2.0f;
 		return c / 2.0f * (sqrtf(1.0f - x * x) + 1.0f) + start;
+	}
+
+	template<typename T> T ease(Type t, float x, T start = 0.0f, T end = 1.0f)
+	{
+		switch (t)
+		{
+			case Type::Linear:
+				return linear(x, start, end);
+			case Type::QuadIn:
+				return quad_in(x, start, end);
+			case Type::QuadOut:
+				return quad_out(x, start, end);
+			case Type::QuadInOut:
+				return quad_in_out(x, start, end);
+			case Type::CubicIn:
+				return cubic_in(x, start, end);
+			case Type::CubicOut:
+				return cubic_out(x, start, end);
+			case Type::CubicInOut:
+				return cubic_in_out(x, start, end);
+			case Type::QuartIn:
+				return quart_in(x, start, end);
+			case Type::QuartOut:
+				return quart_out(x, start, end);
+			case Type::QuartInOut:
+				return quart_in_out(x, start, end);
+			case Type::QuintIn:
+				return quint_in(x, start, end);
+			case Type::QuintOut:
+				return quint_out(x, start, end);
+			case Type::QuintInOut:
+				return quint_in_out(x, start, end);
+			case Type::SinIn:
+				return sin_in(x, start, end);
+			case Type::SinOut:
+				return sin_out(x, start, end);
+			case Type::SinInOut:
+				return sin_in_out(x, start, end);
+			case Type::ExpoIn:
+				return expo_in(x, start, end);
+			case Type::ExpoOut:
+				return expo_out(x, start, end);
+			case Type::ExpoInOut:
+				return expo_in_out(x, start, end);
+			case Type::CircIn:
+				return circ_in(x, start, end);
+			case Type::CircOut:
+				return circ_out(x, start, end);
+			case Type::CircInOut:
+				return circ_in_out(x, start, end);
+		}
 	}
 }
 

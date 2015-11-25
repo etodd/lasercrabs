@@ -12,6 +12,86 @@ namespace VI
 #define ARRAY_GROWTH_FACTOR 1.5
 #define ARRAY_INITIAL_RESERVATION 1
 
+template <typename T, int size>
+struct StaticArray
+{
+	union
+	{
+		char _nil[size * sizeof(T)];
+		T data[size];
+	};
+	int length;
+
+	StaticArray()
+		: _nil(), length()
+	{
+	}
+
+	~StaticArray()
+	{
+	}
+
+	inline T operator [] (const int i) const
+	{
+		vi_assert(i >= 0 && i < length);
+		return data[i];
+	}
+
+	inline T& operator [] (const int i)
+	{
+		vi_assert(i >= 0 && i < length);
+		return data[i];
+	}
+
+	void remove(int i)
+	{
+		vi_assert(i >= 0 && i < length);
+		if (i != length - 1)
+			data[i] = data[length - 1];
+		length--;
+	}
+
+	void remove_ordered(int i)
+	{
+		vi_assert(i >= 0 && i < length);
+		memmove(&data[i + 1], &data[i], sizeof(T) * (length - (i + 1)));
+		length--;
+	}
+
+	T* insert(int i, T& t)
+	{
+		vi_assert(i >= 0 && i <= length);
+		length++;
+		vi_assert(length <= size);
+		memmove(&data[i], &data[i + 1], sizeof(T) * (length - i));
+		data[i] = t;
+		return &data[i];
+	}
+
+	T* insert(int i)
+	{
+		vi_assert(i >= 0 && i <= length);
+		length++;
+		vi_assert(length <= size);
+		memmove(&data[i], &data[i + 1], sizeof(T) * (length - i));
+		return &data[i];
+	}
+
+	T* add()
+	{
+		length++;
+		vi_assert(length <= size);
+		return &data[length - 1];
+	}
+
+	T* add(const T& t)
+	{
+		T* p = add();
+		*p = t;
+		return p;
+	}
+};
+
 template <typename T>
 struct Array
 {

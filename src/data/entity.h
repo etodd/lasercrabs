@@ -15,7 +15,7 @@ const ID IDNull = (ID)-1;
 typedef unsigned long long ComponentMask;
 
 const Family MAX_FAMILIES = sizeof(ComponentMask) * 8;
-const int MAX_ENTITIES = 4096;
+#define MAX_ENTITIES 4096
 
 struct Update
 {
@@ -31,9 +31,8 @@ struct ComponentPoolBase
 	void* global_state;
 	int global_state_size;
 
-	virtual ComponentBase* virtual_get(int) { return 0; }
-	virtual void awake(int) {}
-	virtual void remove(int) {}
+	virtual void awake(ID) {}
+	virtual void remove(ID) {}
 };
 
 template<typename T> struct Ref
@@ -75,31 +74,26 @@ template<typename T> struct Ref
 template<typename T>
 struct ComponentPool : public ComponentPoolBase
 {
-	PinArray<T> data;
+	PinArray<T, MAX_ENTITIES> data;
 
-	virtual ComponentBase* virtual_get(int id)
-	{
-		return data.get(id);
-	}
-
-	typename PinArray<T>::Entry add()
+	typename T* add()
 	{
 		return data.add();
 	}
 
-	T* get(int id)
+	T* get(ID id)
 	{
-		return data.get(id);
+		return &data[id];
 	}
 
-	virtual void awake(int id)
+	virtual void awake(ID id)
 	{
-		data.get(id)->awake();
+		data[id].awake();
 	}
 
-	virtual void remove(int id)
+	virtual void remove(ID id)
 	{
-		T* item = data.get(id);
+		T* item = &data[id];
 		item->~T();
 		item->revision++;
 		data.remove(id);
@@ -112,6 +106,12 @@ struct ComponentPool : public ComponentPoolBase
 		global_state_size = sizeof(T2);
 		return (T2*)global_state;
 	}
+
+	template<typename T2> void global(T2* p)
+	{
+		global_state = p;
+		global_state_size = sizeof(T2);
+	}
 };
 
 struct Entity
@@ -122,20 +122,20 @@ struct Entity
 	Revision revision;
 	ComponentMask component_mask;
 	Entity()
-		: components(), component_mask(), revision()
+		: component_mask()
 	{
 	}
 	template<typename T, typename... Args> T* create(Args... args);
 	template<typename T, typename... Args> T* add(Args... args);
 	template<typename T> inline bool has() const;
 	template<typename T> inline T* get() const;
-	static PinArray<Entity>& list();
+	static PinArray<Entity, MAX_ENTITIES>& list();
 };
 
 struct World
 {
 	static Family families;
-	static PinArray<Entity> entities;
+	static PinArray<Entity, MAX_ENTITIES> entities;
 	static Array<ID> remove_buffer;
 	static ComponentPoolBase* component_pools[MAX_FAMILIES];
 
@@ -143,25 +143,20 @@ struct World
 
 	template<typename T, typename... Args> static T* create(Args... args)
 	{
-		PinArray<Entity>::Entry entry = entities.add();
-		new (entry.item) T(args...);
-		awake((T*)entry.item);
-		return (T*)entry.item;
-	}
-
-	static Entity* get(ID entity)
-	{
-		return &entities[entity];
+		Entity* e = entities.add();
+		new (e) T(args...);
+		awake(e);
+		return (T*)e;
 	}
 
 	template<typename T, typename... Args> static T* create_component(Entity* e, Args... args)
 	{
-		typename PinArray<T>::Entry entry = T::pool.add();
-		new (entry.item) T(args...);
-		entry.item->entity_id = e->id();
-		e->components[T::family] = entry.index;
+		T* item = T::pool.add();
 		e->component_mask |= T::mask;
-		return entry.item;
+		e->components[T::family] = item->id();
+		new (item) T(args...);
+		item->entity_id = e->id();
+		return item;
 	}
 
 	template<typename T, typename... Args> static T* add_component(Entity* e, Args... args)
@@ -207,7 +202,7 @@ struct World
 	}
 };
 
-inline PinArray<Entity>& Entity::list()
+inline PinArray<Entity, MAX_ENTITIES>& Entity::list()
 {
 	return World::entities;
 }
@@ -317,7 +312,7 @@ struct LinkEntryArg
 		ID entity;
 		Revision revision;
 		Data() : entity(), revision() {}
-		Data(ID e, int r) : entity(e), revision(r) {}
+		Data(ID e, Revision r) : entity(e), revision(r) {}
 	};
 	
 	union
@@ -422,7 +417,7 @@ struct ComponentType : public ComponentBase
 	static const ComponentMask mask;
 	static ComponentPool<Derived> pool;
 
-	static inline PinArray<Derived>& list()
+	static inline PinArray<Derived, MAX_ENTITIES>& list()
 	{
 		return pool.data;
 	}

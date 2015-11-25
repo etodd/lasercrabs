@@ -1,5 +1,6 @@
 #include "physics.h"
 #include "data/components.h"
+#include "load.h"
 
 namespace VI
 {
@@ -45,52 +46,158 @@ void Physics::sync_dynamic()
 	}
 }
 
-void RigidBody::init(Vec3 pos, Quat quat, float mass)
+PinArray<RigidBody::Constraint, MAX_ENTITIES> RigidBody::global_constraints;
+
+void RigidBody::init()
 {
+	pool.global(&global_constraints);
+}
+
+RigidBody::RigidBody(Type type, const Vec3& size, float mass, short group, short mask, AssetID mesh_id, ID linked_entity)
+	: type(type), size(size), mass(mass), collision_group(group), collision_filter(mask), linked_entity(linked_entity), btBody(), btMesh(), btShape(), mesh_id(mesh_id)
+{
+}
+
+void RigidBody::awake()
+{
+	switch (type)
+	{
+		case Type::Box:
+			btShape = new btBoxShape(size);
+			break;
+		case Type::CapsuleX:
+			btShape = new btCapsuleShapeX(size.x, size.y);
+			break;
+		case Type::CapsuleY:
+			btShape = new btCapsuleShape(size.x, size.y);
+			break;
+		case Type::CapsuleZ:
+			btShape = new btCapsuleShapeZ(size.x, size.y);
+			break;
+		case Type::Sphere:
+			btShape = new btSphereShape(size.x);
+			break;
+		case Type::Mesh:
+		{
+			Mesh* mesh = Loader::mesh(mesh_id);
+			btMesh = new btTriangleIndexVertexArray(mesh->indices.length / 3, mesh->indices.data, 3 * sizeof(int), mesh->vertices.length, (btScalar*)mesh->vertices.data, sizeof(Vec3));
+			btShape = new btBvhTriangleMeshShape(btMesh, true, mesh->bounds_min, mesh->bounds_max);
+			break;
+		}
+		default:
+			vi_assert(false);
+			break;
+	}
+
 	btVector3 localInertia(0, 0, 0);
 	if (mass > 0.0f)
 		btShape->calculateLocalInertia(mass, localInertia);
+
 	btRigidBody::btRigidBodyConstructionInfo info(mass, 0, btShape, localInertia);
+
+	Quat quat;
+	Vec3 pos;
+	get<Transform>()->absolute(&pos, &quat);
+
 	info.m_startWorldTransform = btTransform(quat, pos);
 	btBody = new btRigidBody(info);
 	btBody->setWorldTransform(btTransform(quat, pos));
 
 	if (mass == 0.0f)
 		btBody->setCollisionFlags(btCollisionObject::CF_STATIC_OBJECT | btCollisionObject::CF_KINEMATIC_OBJECT);
+
+	btBody->setUserIndex(linked_entity == IDNull ? entity()->id() : linked_entity);
+	btBody->setDamping(damping.x, damping.y);
+
+	Physics::btWorld->addRigidBody(btBody, collision_group, collision_filter);
 }
 
-RigidBody::RigidBody(Vec3 pos, Quat quat, float mass, btCollisionShape* shape)
-	: btShape(shape), btMesh()
+void RigidBody::set_damping(float linear, float angular)
 {
-	init(pos, quat, mass);
-	Physics::btWorld->addRigidBody(btBody);
+	damping = Vec2(linear, angular);
+	if (btBody)
+		btBody->setDamping(linear, angular);
 }
 
-RigidBody::RigidBody(Vec3 pos, Quat quat, float mass, btCollisionShape* shape, short group, short mask, ID linked_entity)
-	: btShape(shape), btMesh()
+ID RigidBody::add_constraint(Constraint& constraint)
 {
-	init(pos, quat, mass);
-	Physics::btWorld->addRigidBody(btBody, group, mask);
-	btBody->setUserIndex(linked_entity);
+	switch (constraint.type)
+	{
+		case Constraint::Type::ConeTwist:
+			constraint.btPointer = new btConeTwistConstraint
+			(
+				*constraint.a.ref()->btBody,
+				*constraint.b.ref()->btBody,
+				constraint.frame_a,
+				constraint.frame_b
+			);
+			((btConeTwistConstraint*)constraint.btPointer)->setLimit(constraint.limits.x, constraint.limits.y, constraint.limits.z);
+			break;
+		case Constraint::Type::PointToPoint:
+			constraint.btPointer = new btPoint2PointConstraint
+			(
+				*constraint.a.ref()->btBody,
+				*constraint.b.ref()->btBody,
+				constraint.frame_a.getOrigin(),
+				constraint.frame_b.getOrigin()
+			);
+			break;
+		default:
+			vi_assert(false);
+			break;
+	}
+
+	int constraint_id = global_constraints.add(constraint);
+
+	constraint.btPointer->setUserConstraintId(constraint_id);
+	constraint.a.ref()->constraints.add(constraint_id);
+	constraint.b.ref()->constraints.add(constraint_id);
+
+	Physics::btWorld->addConstraint(constraint.btPointer);
+
+	return constraint_id;
 }
 
-void RigidBody::awake()
+void RigidBody::remove_constraint(ID id)
 {
-	if (btBody->getUserIndex() == IDNull)
-		btBody->setUserIndex(entity_id);
+	Constraint* constraint = &RigidBody::global_constraints[id];
+
+	RigidBody* a = constraint->a.ref();
+
+	for (int i = 0; i < a->constraints.length; i++)
+	{
+		if (a->constraints[i] == id)
+		{
+			a->constraints.remove(i);
+			break;
+		}
+	}
+
+	RigidBody* b = constraint->b.ref();
+
+	for (int i = 0; i < b->constraints.length; i++)
+	{
+		if (b->constraints[i] == id)
+		{
+			b->constraints.remove(i);
+			break;
+		}
+	}
+
+	a->btBody->activate(true);
+	b->btBody->activate(true);
+
+	Physics::btWorld->removeConstraint(constraint->btPointer);
+
+	delete constraint->btPointer;
+
+	global_constraints.remove(id);
 }
 
 RigidBody::~RigidBody()
 {
-	while (btBody->getNumConstraintRefs() > 0)
-	{
-		btTypedConstraint* constraint = btBody->getConstraintRef(0);
-		constraint->getRigidBodyA().removeConstraintRef(constraint);
-		constraint->getRigidBodyB().removeConstraintRef(constraint);
-		constraint->getRigidBodyA().activate(true);
-		constraint->getRigidBodyB().activate(true);
-		Physics::btWorld->removeConstraint(constraint);
-	}
+	while (constraints.length > 0)
+		remove_constraint(constraints[0]);
 	Physics::btWorld->removeRigidBody(btBody);
 	delete btBody;
 	delete btShape;

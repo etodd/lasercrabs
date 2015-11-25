@@ -2,6 +2,7 @@
 
 #include "data/entity.h"
 #include "render/render.h"
+#include "physics.h"
 #include <btBulletDynamicsCommon.h>
 
 class btTriangleIndexVertexArray;
@@ -23,13 +24,12 @@ struct Prop : public Entity
 
 struct StaticGeom : public Entity
 {
-	StaticGeom(const AssetID, const Vec3&, const Quat&, const short = btBroadphaseProxy::StaticFilter, const short = ~btBroadphaseProxy::StaticFilter);
+	StaticGeom(AssetID, const Vec3&, const Quat&, short = btBroadphaseProxy::StaticFilter, short = ~btBroadphaseProxy::StaticFilter);
 };
 
 struct PhysicsEntity : public Entity
 {
-	PhysicsEntity(const Vec3&, const Quat&, const AssetID, const float, btCollisionShape*, const Vec3&);
-	PhysicsEntity(const Vec3&, const Quat&, const AssetID, const float, btCollisionShape*, const Vec3&, const short, const short);
+	PhysicsEntity(AssetID, const Vec3&, const Quat&, RigidBody::Type, const Vec3&, float, short, short);
 };
 
 struct Noclip : public Entity

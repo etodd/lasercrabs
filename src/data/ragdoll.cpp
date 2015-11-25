@@ -27,6 +27,9 @@ void Ragdoll::awake()
 {
 	get<Animator>()->override_mode = Animator::OverrideMode::Override;
 
+	if (bodies.length > 0)
+		return; // everything's already set up
+
 	Vec3 mesh_offset_scale;
 	Quat mesh_offset_rot;
 	Vec3 mesh_offset_pos;
@@ -49,19 +52,19 @@ void Ragdoll::awake()
 		{
 			case BodyEntry::Type::Box:
 			{
-				entity = World::create<PhysicsEntity>(pos, rot, AssetNull, mass, new btBoxShape(size), size, CollisionTarget, btBroadphaseProxy::AllFilter);
+				entity = World::create<PhysicsEntity>(AssetNull, pos, rot, RigidBody::Type::Box, size, mass, CollisionTarget, btBroadphaseProxy::AllFilter);
 				break;
 			}
 			case BodyEntry::Type::Capsule:
 			{
 				float radius = fmax(size.y, size.z);
-				entity = World::create<PhysicsEntity>(pos, rot, AssetNull, mass, new btCapsuleShapeX(radius, size.x * 2.0f - radius * 2.0f), size, CollisionTarget, btBroadphaseProxy::AllFilter);
+				entity = World::create<PhysicsEntity>(AssetNull, pos, rot, RigidBody::Type::CapsuleX, Vec3(radius, size.x * 2.0f - radius * 2.0f, 0), mass, CollisionTarget, btBroadphaseProxy::AllFilter);
 				break;
 			}
 			case BodyEntry::Type::Sphere:
 			{
 				float radius = fmax(size.x, fmax(size.y, size.z));
-				entity = World::create<PhysicsEntity>(pos, rot, AssetNull, mass, new btSphereShape(radius), Vec3(radius), CollisionTarget, btBroadphaseProxy::AllFilter);
+				entity = World::create<PhysicsEntity>(AssetNull, pos, rot, RigidBody::Type::Sphere, Vec3(radius), mass, CollisionTarget, btBroadphaseProxy::AllFilter);
 				break;
 			}
 			default:
@@ -70,6 +73,9 @@ void Ragdoll::awake()
 				break;
 			}
 		}
+
+		entity->get<RigidBody>()->set_damping(0.5f, 0.5f);
+
 		bone_bodies[body.bone] = entity;
 
 		BoneBody* entry = bodies.add();
@@ -121,19 +127,14 @@ void Ragdoll::awake()
 					if (Quat::angle(a, b) > 0.1f)
 						frame_b.setRotation(frame_b.getRotation() * Quat::euler(0, 0, PI));
 
-					btConeTwistConstraint* constraint = new btConeTwistConstraint
-					(
-						*body,
-						*parent_body,
-						frame_a,
-						frame_b
-					);
-					constraint->setLimit(PI * 0.25f, PI * 0.25f, 0);
-					parent_body->setDamping(0.5f, 0.5f);
-					body->setDamping(0.5f, 0.5f);
-					Physics::btWorld->addConstraint(constraint);
-					body->addConstraintRef(constraint);
-					parent_body->addConstraintRef(constraint);
+					RigidBody::Constraint constraint;
+					constraint.type = RigidBody::Constraint::Type::ConeTwist;
+					constraint.frame_a = frame_a;
+					constraint.frame_b = frame_b;
+					constraint.limits = Vec3(PI * 0.25f, PI * 0.25f, 0);
+					constraint.a = entity->get<RigidBody>();
+					constraint.b = parent_entity->get<RigidBody>();
+					RigidBody::add_constraint(constraint);
 				}
 			}
 		}

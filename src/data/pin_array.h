@@ -9,26 +9,21 @@ template<typename T> struct PinArrayEntry
 {
 	bool active;
 	T item;
+	PinArrayEntry() : active() {}
 };
 
-template<typename T>
+template<typename T, int size>
 struct PinArray
 {
-	Array<PinArrayEntry<T>> data;
-	Array<int> free_list;
+	StaticArray<PinArrayEntry<T>, size> data;
+	StaticArray<int, size> free_list;
 	int start;
 	int end;
-
-	struct Entry
-	{
-		int index;
-		T* item;
-	};
 
 	struct Iterator
 	{
 		int index;
-		PinArray<T>* array;
+		PinArray<T, size>* array;
 		void next()
 		{
 			index++;
@@ -45,82 +40,37 @@ struct PinArray
 			return index >= array->end;
 		}
 
-		T* item()
+		inline T* item()
 		{
-			if (is_last())
-				return 0;
-			else
-				return &array->data[index].item;
+			vi_assert(!is_last());
+			return &array->data[index].item;
 		}
 	};
 
 	PinArray()
-		: data(), free_list(), start(), end()
+		: data(), start(size), end(0), free_list()
 	{
-
-	}
-
-	PinArray(int size)
-		: data(size, size), free_list(size, size), start(size), end(0)
-	{
+		data.length = size;
+		free_list.length = size;
 		for (int i = 0; i < size; i++)
 			free_list[i] = (size - 1) - i;
 	}
 
-	void resize(int size)
+	int count() const
 	{
-		int old_size = data.length;
-		data.resize(size);
-		free_list.reserve(size);
-		for (int i = old_size; i < size; i++)
-			free_list.add((size - 1) - i);
+		return size - free_list.length;
 	}
 
 	inline T operator [] (const int i) const
 	{
-		vi_assert(i >= 0 && i < data.length);
+		vi_assert(i >= 0 && i < size);
 		return (data.data + i)->item;
 	}
 
 	inline T& operator [] (const int i)
 	{
-		vi_assert(i >= 0 && i < data.length);
+		vi_assert(i >= 0 && i < size);
 		return (data.data + i)->item;
-	}
-
-	T* get(const int i)
-	{
-		vi_assert(i >= 0 && i < data.length);
-		PinArrayEntry<T>& e = *(data.data + i);
-		if (e.active)
-			return &e.item;
-		else
-			return 0;
-	}
-
-	Entry add()
-	{
-		vi_assert(free_list.length > 0);
-		Entry e;
-		e.index = free_list[free_list.length - 1];
-		start = start < e.index ? start : e.index;
-		end = end > e.index + 1 ? end : e.index + 1;
-		free_list.remove(free_list.length - 1);
-		data[e.index].active = true;
-		e.item = &data[e.index].item;
-		return e;
-	}
-
-	int count()
-	{
-		return data.length - free_list.length;
-	}
-
-	Entry add(T& t)
-	{
-		Entry i = add();
-		*(i.item) = t;
-		return i;
 	}
 
 	Iterator iterator()
@@ -129,6 +79,25 @@ struct PinArray
 		i.index = start;
 		i.array = this;
 		return i;
+	}
+
+	T* add()
+	{
+		vi_assert(free_list.length > 0);
+		int index = free_list[free_list.length - 1];
+		vi_assert(!data[index].active);
+		start = start < index ? start : index;
+		end = end > index + 1 ? end : index + 1;
+		free_list.remove(free_list.length - 1);
+		data[index].active = true;
+		return &data[index].item;
+	}
+
+	int add(const T& t)
+	{
+		T* i = add();
+		*i = t;
+		return ((char*)i - (char*)&data[0]) / sizeof(PinArrayEntry<T>);
 	}
 
 	void remove(int i)
@@ -158,7 +127,7 @@ struct PinArray
 		}
 		if (start >= end)
 		{
-			start = data.length;
+			start = size;
 			end = 0;
 		}
 	}

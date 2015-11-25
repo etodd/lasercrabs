@@ -43,11 +43,8 @@ Prop::Prop(const AssetID mesh_id, const AssetID armature, const AssetID animatio
 	}
 }
 
-StaticGeom::StaticGeom(const AssetID mesh_id, const Vec3& absolute_pos, const Quat& absolute_rot, const short group, const short mask)
+StaticGeom::StaticGeom(AssetID mesh_id, const Vec3& absolute_pos, const Quat& absolute_rot, short group, short mask)
 {
-	btTriangleIndexVertexArray* mesh_data;
-	btBvhTriangleMeshShape* shape;
-
 	Transform* transform = create<Transform>();
 	View* model = create<View>();
 
@@ -56,16 +53,11 @@ StaticGeom::StaticGeom(const AssetID mesh_id, const Vec3& absolute_pos, const Qu
 
 	Mesh* mesh = Loader::mesh(model->mesh);
 
-	mesh_data = new btTriangleIndexVertexArray(mesh->indices.length / 3, mesh->indices.data, 3 * sizeof(int), mesh->vertices.length, (btScalar*)mesh->vertices.data, sizeof(Vec3));
-	shape = new btBvhTriangleMeshShape(mesh_data, true, mesh->bounds_min, mesh->bounds_max);
-	shape->setUserIndex(model->mesh);
-
 	get<Transform>()->absolute(absolute_pos, absolute_rot);
-	RigidBody* body = create<RigidBody>(absolute_pos, absolute_rot, 0.0f, shape, btBroadphaseProxy::StaticFilter | group, ~btBroadphaseProxy::StaticFilter & mask);
-	body->btMesh = mesh_data;
+	RigidBody* body = create<RigidBody>(RigidBody::Type::Mesh, Vec3::zero, 0.0f, btBroadphaseProxy::StaticFilter | group, ~btBroadphaseProxy::StaticFilter & mask, mesh_id);
 }
 
-PhysicsEntity::PhysicsEntity(const Vec3& pos, const Quat& quat, const AssetID mesh, const float mass, btCollisionShape* shape, const Vec3& scale)
+PhysicsEntity::PhysicsEntity(AssetID mesh, const Vec3& pos, const Quat& quat, RigidBody::Type type, const Vec3& scale, float mass, short filter_group, short filter_mask)
 {
 	Transform* transform = create<Transform>();
 	transform->pos = pos;
@@ -79,24 +71,7 @@ PhysicsEntity::PhysicsEntity(const Vec3& pos, const Quat& quat, const AssetID me
 		model->shader = Asset::Shader::standard;
 	}
 	
-	RigidBody* body = create<RigidBody>(pos, quat, mass, shape);
-}
-
-PhysicsEntity::PhysicsEntity(const Vec3& pos, const Quat& quat, const AssetID mesh, const float mass, btCollisionShape* shape, const Vec3& scale, const short filter_group, const short filter_mask)
-{
-	Transform* transform = create<Transform>();
-	transform->pos = pos;
-	transform->rot = quat;
-
-	if (mesh != AssetNull)
-	{
-		View* model = create<View>();
-		model->offset = Mat4::make_scale(scale);
-		model->mesh = mesh;
-		model->shader = Asset::Shader::standard;
-	}
-	
-	RigidBody* body = create<RigidBody>(pos, quat, mass, shape, filter_group, filter_mask);
+	RigidBody* body = create<RigidBody>(type, scale, mass, filter_group, filter_mask, mesh);
 }
 
 Noclip::Noclip()
@@ -152,7 +127,7 @@ void NoclipControl::update(const Update& u)
 		if (u.input->keys[(int)KeyCode::MouseLeft] && !u.last_input->keys[(int)KeyCode::MouseLeft])
 		{
 			static const Vec3 scale = Vec3(0.1f, 0.2f, 0.1f);
-			Entity* box = World::create<PhysicsEntity>(get<Transform>()->absolute_pos() + look_quat * Vec3(0, 0, 0.25f), look_quat, Asset::Mesh::cube, 1.0f, new btBoxShape(scale), scale, btBroadphaseProxy::AllFilter, btBroadphaseProxy::AllFilter);
+			Entity* box = World::create<PhysicsEntity>(Asset::Mesh::cube, get<Transform>()->absolute_pos() + look_quat * Vec3(0, 0, 0.25f), look_quat, RigidBody::Type::Box, scale, 1.0f, btBroadphaseProxy::AllFilter, btBroadphaseProxy::AllFilter);
 			box->get<RigidBody>()->btBody->setLinearVelocity(look_quat * Vec3(0, 0, 15));
 		}
 	}

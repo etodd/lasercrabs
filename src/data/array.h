@@ -27,6 +27,11 @@ struct StaticArray
 	{
 	}
 
+	StaticArray(int l)
+		: _nil(), length(l)
+	{
+	}
+
 	~StaticArray()
 	{
 	}

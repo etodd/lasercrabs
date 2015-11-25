@@ -8,7 +8,7 @@ namespace Asset
 {
 	namespace Level
 	{
-		const int count = 11;
+		const int count = 12;
 		const AssetID connect = 0;
 		const AssetID end = 1;
 		const AssetID game_over = 2;
@@ -19,7 +19,8 @@ namespace Asset
 		const AssetID level5 = 7;
 		const AssetID menu = 8;
 		const AssetID pvp = 9;
-		const AssetID title = 10;
+		const AssetID start = 10;
+		const AssetID title = 11;
 	}
 }
 

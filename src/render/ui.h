@@ -27,19 +27,28 @@ struct UIText
 		Max,
 	};
 	static Array<UIText*> instances;
-	char* string;
+	char string[512];
+	char rendered_string[512];
 	Array<int> indices;
 	Array<Vec3> vertices;
 	Vec4 color;
 	AssetID font;
 	float size;
+	float wrap_width;
 	Anchor anchor_x;
 	Anchor anchor_y;
+	int clip_char;
+	int clip_vertex;
+	int clip_index;
 
 	Vec2 normalized_bounds;
 	Vec2 bounds() const;
 	void text(const char*);
 	void reeval();
+	void refresh_vertices();
+	void set_size(float);
+	void wrap(float);
+	void clip(int);
 	static void reeval_all();
 	void draw(const RenderParams&, const Vec2& pos, const float = 0.0f) const;
 	UIText();

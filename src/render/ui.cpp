@@ -71,72 +71,117 @@ void UIText::set_variable(const char* name, const char* value)
 
 void UIText::text(const char* s)
 {
-	if (string != s)
 	{
-		if (string)
-			free(string);
+		strncpy(string, s, 512);
+		int char_index = 0;
+		int rendered_index = 0;
 
-		int length = strlen(s);
+		const char* variable = 0;
+		while (true)
+		{
+			char c = variable && *variable ? *variable : string[char_index];
 
-		string = (char*)malloc(sizeof(char) * (length + 1));
-		memcpy(string, s, sizeof(char) * (length + 1));
+			if (c == '{' && string[char_index + 1] == '{')
+			{
+				char* start = &string[char_index + 2];
+				char* end = start;
+				while (*end != '}' || *(end + 1) != '}')
+					end = strchr(end + 1, '}');
+
+				for (int i = 0; i < variables.length; i++)
+				{
+					if (strncmp(variables[i].name, start, end - start) == 0)
+					{
+						variable = variables[i].value;
+
+						c = *variable;
+						// set up char_index to resume at the end of the variable name once we're done with it
+						char_index = end + 2 - string;
+						break;
+					}
+				}
+			}
+
+			if (!c)
+				break;
+
+			// Store the final result in rendered_string
+			rendered_string[rendered_index] = c;
+			rendered_index++;
+
+
+			if (variable && *variable)
+				variable++;
+			else
+				char_index++;
+		}
+		rendered_string[rendered_index] = 0;
 	}
 
+	refresh_vertices();
+
+	if (clip_char > 0) // clip is active; make sure to update it
+		clip(clip_char);
+}
+
+void UIText::refresh_vertices()
+{
+	Font* f = Loader::font(font);
+	normalized_bounds = Vec2::zero;
 	vertices.length = 0;
 	indices.length = 0;
-
-	int char_index = 0;
 	int vertex_index = 0;
 	int index_index = 0;
 	Vec3 pos(0, 0, 0);
-
-	normalized_bounds = Vec2::zero;
-
-	const char* variable = 0;
-	while (true)
+	int char_index = 0;
+	char c;
+	const float spacing = 0.075f;
+	float wrap = wrap_width / size;
+	while ((c = rendered_string[char_index]))
 	{
-		char c = variable && *variable ? *variable : string[char_index];
-
-		if (c == '{' && string[char_index + 1] == '{')
-		{
-			char* start = &string[char_index + 2];
-			char* end = start;
-			while (*end != '}' || *(end + 1) != '}')
-				end = strchr(end + 1, '}');
-
-			for (int i = 0; i < variables.length; i++)
-			{
-				if (strncmp(variables[i].name, start, end - start) == 0)
-				{
-					variable = variables[i].value;
-					
-					c = *variable;
-					// set up char_index to resume at the end of the variable name once we're done with it
-					char_index = end + 2 - string;
-					break;
-				}
-			}
-		}
-		if (!c)
-			break;
-
-		// HACK: two spaces = newline
-		if (c == '\n' || (char_index > 0 && c == ' ' && string[char_index - 1] == ' '))
+		Font::Character* character = &f->characters[c];
+		if (c == '\n')
 		{
 			pos.x = 0.0f;
-			pos.y -= 1.0f;
+			pos.y -= 1.0f + spacing;
+		}
+		else if (wrap > 0.0f && (c == ' ' || c == '\t'))
+		{
+			// Check if we need to put the next word on the next line
+
+			float end_of_next_word = pos.x + spacing + character->max.x;
+			int word_index = char_index + 1;
+			char word_char;
+			while (true)
+			{
+				word_char = rendered_string[word_index];
+				if (!word_char || word_char == ' ' || word_char == '\t' || word_char == '\n')
+					break;
+				end_of_next_word += spacing + f->characters[word_char].max.x;
+				word_index++;
+			}
+
+			if (end_of_next_word > wrap)
+			{
+				// New line
+				pos.x = 0.0f;
+				pos.y -= 1.0f + spacing;
+			}
+			else
+			{
+				// Just a regular whitespace character
+				pos.x += spacing + character->max.x;
+			}
 		}
 		else
 		{
-			Font* f = Loader::font(font);
-			Font::Character* character = &f->characters[c];
 			if (character->code == c)
 			{
 				vertices.resize(vertex_index + character->vertex_count);
 				for (int i = 0; i < character->vertex_count; i++)
 					vertices[vertex_index + i] = f->vertices[character->vertex_start + i] + pos;
 
-				pos.x += 0.075f + character->max.x;
+				pos.x += spacing + character->max.x;
 
 				indices.resize(index_index + character->index_count);
 				for (int i = 0; i < character->index_count; i++)
@@ -150,19 +195,56 @@ void UIText::text(const char* s)
 			index_index = indices.length;
 		}
 
-		if (variable && *variable)
-			variable++;
-		else
-			char_index++;
-
 		normalized_bounds.x = fmax(normalized_bounds.x, pos.x);
 		normalized_bounds.y = fmax(normalized_bounds.y, 1.0f - pos.y);
+
+		char_index++;
 	}
+}
+
+// Only render characters up to the specified index
+void UIText::clip(int index)
+{
+	clip_char = index;
+	clip_vertex = 0;
+	clip_index = 0;
+
+	Font* f = Loader::font(font);
+	for (int i = 0; i < index; i++)
+	{
+		char c = rendered_string[i];
+		if (!c)
+		{
+			// clip is longer than the current string; ignore it
+			clip_vertex = 0;
+			clip_index = 0;
+			break;
+		}
+
+		Font::Character* character = &f->characters[c];
+		clip_vertex += character->vertex_count;
+		clip_index += character->index_count;
+	}
+}
+
+void UIText::set_size(float s)
+{
+	size = s;
+	refresh_vertices();
+}
+
+void UIText::wrap(float w)
+{
+	wrap_width = w;
+	refresh_vertices();
 }
 
 Vec2 UIText::bounds() const
 {
-	return normalized_bounds * size * UI::scale;
+	Vec2 b = normalized_bounds * size * UI::scale;
+	if (wrap_width > 0.0f)
+		b.x = wrap_width;
+	return b;
 }
 
 void UIText::draw(const RenderParams& params, const Vec2& pos, const float rot) const
@@ -201,7 +283,10 @@ void UIText::draw(const RenderParams& params, const Vec2& pos, const float rot) 
 	}
 	Vec2 scale = Vec2(1.0f / screen.x, 1.0f / screen.y);
 	float cs = cosf(rot), sn = sinf(rot);
-	for (int i = 0; i < vertices.length; i++)
+
+	int vertex_count = clip_vertex > 0 ? clip_vertex : vertices.length;
+	UI::vertices.reserve(UI::vertices.length + vertex_count);
+	for (int i = 0; i < vertex_count; i++)
 	{
 		Vec3 vertex;
 		vertex.x = (offset.x + size * UI::scale * (vertices[i].x * cs - vertices[i].y * sn)) * scale.x;
@@ -209,11 +294,13 @@ void UIText::draw(const RenderParams& params, const Vec2& pos, const float rot) 
 		UI::vertices.add(vertex);
 	}
 
-	for (int i = 0; i < vertices.length; i++)
+	UI::colors.reserve(UI::colors.length + vertex_count);
+	for (int i = 0; i < vertex_count; i++)
 		UI::colors.add(color);
 
-	UI::indices.reserve(UI::indices.length + indices.length);
-	for (int i = 0; i < indices.length; i++)
+	int index_count = clip_index > 0 ? clip_index : indices.length;
+	UI::indices.reserve(UI::indices.length + index_count);
+	for (int i = 0; i < index_count; i++)
 		UI::indices.add(indices[i] + vertex_start);
 }
 

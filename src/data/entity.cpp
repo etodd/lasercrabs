@@ -10,21 +10,19 @@ Array<ID> World::remove_buffer = Array<ID>();
 ComponentPoolBase* World::component_pools[MAX_FAMILIES];
 
 Link::Link()
-	: entries(), entry_count()
+	: entries()
 {
 }
 
 void Link::link(void(*fp)())
 {
-	vi_assert(entry_count < MAX_ENTITY_LINKS);
-	LinkEntry* entry = &entries[entry_count];
-	entry_count++;
+	LinkEntry* entry = entries.add();
 	new (entry) FunctionPointerLinkEntry(fp);
 }
 
 void Link::fire()
 {
-	for (int i = 0; i < entry_count; i++)
+	for (int i = 0; i < entries.length; i++)
 		(&entries[i])->fire();
 }
 

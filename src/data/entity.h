@@ -382,8 +382,7 @@ struct FunctionPointerLinkEntryArg : public LinkEntryArg<T>
 
 struct Link
 {
-	LinkEntry entries[MAX_ENTITY_LINKS];
-	int entry_count;
+	StaticArray<LinkEntry, MAX_ENTITY_LINKS> entries;
 	Link();
 	void fire();
 	void link(void(*)());
@@ -392,20 +391,17 @@ struct Link
 template<typename T>
 struct LinkArg
 {
-	LinkEntryArg<T> entries[MAX_ENTITY_LINKS];
-	int entry_count;
-	LinkArg() : entries(), entry_count() {}
+	StaticArray<LinkEntryArg<T>, MAX_ENTITY_LINKS> entries;
+	LinkArg() : entries() {}
 	void fire(T t)
 	{
-		for (int i = 0; i < entry_count; i++)
+		for (int i = 0; i < entries.length; i++)
 			(&entries[i])->fire(t);
 	}
 
 	void link(void(*fp)(T))
 	{
-		vi_assert(entry_count < MAX_ENTITY_LINKS);
-		LinkEntryArg<T>* entry = &entries[entry_count];
-		entry_count++;
+		LinkEntryArg<T>* entry = entries.add();
 		new (entry) FunctionPointerLinkEntryArg<T>(fp);
 	}
 };
@@ -429,17 +425,13 @@ struct ComponentType : public ComponentBase
 
 	template<void (Derived::*Method)()> void link(Link& link)
 	{
-		vi_assert(link.entry_count < MAX_ENTITY_LINKS);
-		LinkEntry* entry = &link.entries[link.entry_count];
-		link.entry_count++;
+		LinkEntry* entry = link.entries.add();
 		new (entry) EntityLinkEntry<Derived, Method>(entity_id);
 	}
 
 	template<typename T2, void (Derived::*Method)(T2)> void link_arg(LinkArg<T2>& link)
 	{
-		vi_assert(link.entry_count < MAX_ENTITY_LINKS);
-		LinkEntryArg<T2>* entry = &link.entries[link.entry_count];
-		link.entry_count++;
+		LinkEntryArg<T2>* entry = link.entries.add();
 		new (entry) EntityLinkEntryArg<Derived, T2, Method>(entity_id);
 	}
 };

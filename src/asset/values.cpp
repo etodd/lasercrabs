@@ -13,7 +13,6 @@ const char* AssetLookup::Mesh::values[] =
 	"assets/cone.msh",
 	"assets/cube.msh",
 	"assets/icon_power.msh",
-	"assets/logo.msh",
 	"assets/msg.msh",
 	"assets/point_grid.msh",
 	"assets/sky_decal.msh",
@@ -126,7 +125,6 @@ const char* AssetLookup::Mesh::names[] =
 	"cone",
 	"cube",
 	"icon_power",
-	"logo",
 	"msg",
 	"point_grid",
 	"sky_decal",
@@ -462,6 +460,7 @@ const char* AssetLookup::Level::values[] =
 	"assets/lvl/level5.lvl",
 	"assets/lvl/menu.lvl",
 	"assets/lvl/pvp.lvl",
+	"assets/lvl/start.lvl",
 	"assets/lvl/title.lvl",
 	0,
 };
@@ -479,6 +478,7 @@ const char* AssetLookup::Level::names[] =
 	"level5",
 	"menu",
 	"pvp",
+	"start",
 	"title",
 	0,
 };
@@ -496,6 +496,7 @@ const char* AssetLookup::NavMesh::values[] =
 	"assets/lvl/level5.nav",
 	"assets/lvl/menu.nav",
 	"assets/lvl/pvp.nav",
+	"assets/lvl/start.nav",
 	"assets/lvl/title.nav",
 	0,
 };
@@ -513,6 +514,7 @@ const char* AssetLookup::NavMesh::names[] =
 	"level5",
 	"menu",
 	"pvp",
+	"start",
 	"title",
 	0,
 };

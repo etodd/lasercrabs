@@ -127,6 +127,7 @@ struct Entity
 	}
 	template<typename T, typename... Args> T* create(Args... args);
 	template<typename T, typename... Args> T* add(Args... args);
+	template<typename T> void attach(T*);
 	template<typename T> inline bool has() const;
 	template<typename T> inline T* get() const;
 	static PinArray<Entity, MAX_ENTITIES>& list();
@@ -164,6 +165,13 @@ struct World
 		T* component = create_component<T>(e, args...);
 		component->awake();
 		return component;
+	}
+
+	template<typename T> static void attach_component(Entity* e, T* t)
+	{
+		e->component_mask |= T::mask;
+		e->components[T::family] = t->id();
+		t->entity_id = e->id();
 	}
 
 	static void awake(Entity* e)
@@ -220,6 +228,11 @@ template<typename T, typename... Args> T* Entity::create(Args... args)
 template<typename T, typename... Args> T* Entity::add(Args... args)
 {
 	return World::add_component<T>(this, args...);
+}
+
+template<typename T> void Entity::attach(T* t)
+{
+	World::attach_component<T>(this, t);
 }
 
 template<typename T> inline bool Entity::has() const
@@ -433,6 +446,12 @@ struct ComponentType : public ComponentBase
 	{
 		LinkEntryArg<T2>* entry = link.entries.add();
 		new (entry) EntityLinkEntryArg<Derived, T2, Method>(entity_id);
+	}
+
+	void detach()
+	{
+		entity()->component_mask &= ~Derived::mask;
+		entity_id = IDNull;
 	}
 };
 

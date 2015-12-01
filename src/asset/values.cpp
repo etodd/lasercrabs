@@ -7,6 +7,7 @@ namespace VI
 const char* AssetLookup::Mesh::values[] =
 {
 	"assets/Alpha.msh",
+	"assets/Alpha_headless.msh",
 	"assets/awk.msh",
 	"assets/compass_inner.msh",
 	"assets/compass_outer.msh",
@@ -105,6 +106,9 @@ const char* AssetLookup::Mesh::values[] =
 	"assets/lvl/pvp_half2_1.msh",
 	"assets/lvl/pvp_half3.msh",
 	"assets/lvl/pvp_half3_1.msh",
+	"assets/lvl/test_city2_scenery.msh",
+	"assets/lvl/test_half1.msh",
+	"assets/lvl/test_half1_1.msh",
 	"assets/lvl/title_city2_scenery.msh",
 	"assets/lvl/title_half1.msh",
 	"assets/lvl/title_half1_1.msh",
@@ -119,6 +123,7 @@ const char* AssetLookup::Mesh::values[] =
 const char* AssetLookup::Mesh::names[] =
 {
 	"Alpha",
+	"Alpha_headless",
 	"awk",
 	"compass_inner",
 	"compass_outer",
@@ -217,6 +222,9 @@ const char* AssetLookup::Mesh::names[] =
 	"pvp_half2_1",
 	"pvp_half3",
 	"pvp_half3_1",
+	"test_city2_scenery",
+	"test_half1",
+	"test_half1_1",
 	"title_city2_scenery",
 	"title_half1",
 	"title_half1_1",
@@ -251,6 +259,7 @@ const char* AssetLookup::Animation::names[] =
 const char* AssetLookup::Armature::values[] =
 {
 	"assets/Alpha.arm",
+	"assets/Alpha_headless.arm",
 	"assets/awk.arm",
 	0,
 };
@@ -259,6 +268,7 @@ const char* AssetLookup::Armature::values[] =
 const char* AssetLookup::Armature::names[] =
 {
 	"Alpha",
+	"Alpha_headless",
 	"awk",
 	0,
 };
@@ -461,6 +471,7 @@ const char* AssetLookup::Level::values[] =
 	"assets/lvl/menu.lvl",
 	"assets/lvl/pvp.lvl",
 	"assets/lvl/start.lvl",
+	"assets/lvl/test.lvl",
 	"assets/lvl/title.lvl",
 	0,
 };
@@ -479,6 +490,7 @@ const char* AssetLookup::Level::names[] =
 	"menu",
 	"pvp",
 	"start",
+	"test",
 	"title",
 	0,
 };
@@ -497,6 +509,7 @@ const char* AssetLookup::NavMesh::values[] =
 	"assets/lvl/menu.nav",
 	"assets/lvl/pvp.nav",
 	"assets/lvl/start.nav",
+	"assets/lvl/test.nav",
 	"assets/lvl/title.nav",
 	0,
 };
@@ -515,6 +528,7 @@ const char* AssetLookup::NavMesh::names[] =
 	"menu",
 	"pvp",
 	"start",
+	"test",
 	"title",
 	0,
 };

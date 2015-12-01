@@ -205,6 +205,9 @@ void UIText::refresh_vertices()
 // Only render characters up to the specified index
 void UIText::clip(int index)
 {
+	if (index == clip_char)
+		return;
+
 	clip_char = index;
 	clip_vertex = 0;
 	clip_index = 0;
@@ -225,6 +228,11 @@ void UIText::clip(int index)
 		clip_vertex += character->vertex_count;
 		clip_index += character->index_count;
 	}
+}
+
+bool UIText::clipped() const
+{
+	return clip_index > 0;
 }
 
 void UIText::set_size(float s)

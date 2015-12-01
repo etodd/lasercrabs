@@ -1024,6 +1024,7 @@ Settings& Loader::settings()
 		settings_data.bindings.down = input_binding(bindings, "down", { KeyCode::LCtrl, Gamepad::Btn::LeftShoulder });
 		settings_data.bindings.primary = input_binding(bindings, "primary", { KeyCode::MouseLeft, Gamepad::Btn::RightTrigger });
 		settings_data.bindings.secondary = input_binding(bindings, "secondary", { KeyCode::MouseRight, Gamepad::Btn::LeftTrigger });
+		settings_data.bindings.sprint = input_binding(bindings, "sprint", { KeyCode::LShift, Gamepad::Btn::LeftClick });
 	}
 	return settings_data;
 }
@@ -1048,6 +1049,7 @@ void Loader::settings_save()
 		cJSON_AddItemToObject(bindings, "down", input_binding_json(settings_data.bindings.down));
 		cJSON_AddItemToObject(bindings, "primary", input_binding_json(settings_data.bindings.primary));
 		cJSON_AddItemToObject(bindings, "secondary", input_binding_json(settings_data.bindings.secondary));
+		cJSON_AddItemToObject(bindings, "sprint", input_binding_json(settings_data.bindings.sprint));
 
 		Json::save(json, "config.txt");
 		Json::json_free(json);

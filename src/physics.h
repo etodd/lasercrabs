@@ -16,7 +16,7 @@ enum CollisionGroup
 	CollisionWalker = 1 << 6,
 	CollisionInaccessible = 1 << 7,
 	CollisionTarget = 1 << 8,
-	CollisionInaccessibleMask = CollisionTarget | CollisionWalker,
+	CollisionInaccessibleMask = btBroadphaseProxy::AllFilter,
 };
 
 struct PhysicsSync

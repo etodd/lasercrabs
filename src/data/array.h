@@ -36,6 +36,11 @@ struct StaticArray
 	{
 	}
 
+	inline void resize(int l)
+	{
+		length = l;
+	}
+
 	inline T operator [] (const int i) const
 	{
 		vi_assert(i >= 0 && i < length);

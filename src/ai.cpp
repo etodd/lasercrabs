@@ -131,7 +131,7 @@ void AI::debug_draw(const RenderParams& p)
 #endif
 }
 
-bool vision_check(const Vec3& pos, const Vec3& enemy_pos, const AIAgent* agent)
+bool AI::vision_check(const Vec3& pos, const Vec3& enemy_pos, const AIAgent* agent)
 {
 	btCollisionWorld::ClosestRayResultCallback rayCallback(pos, enemy_pos);
 	rayCallback.m_flags = btTriangleRaycastCallback::EFlags::kF_FilterBackfaces
@@ -170,14 +170,14 @@ Entity* AI::get_enemy(const AI::Team& team, const Vec3& pos, const Vec3& forward
 
 	for (auto i = Shockwave::list().iterator(); !i.is_last(); i.next())
 	{
-		float radius = fmin(SHOCKWAVE_AUDIO_RADIUS, i.item()->radius());
+		float radius = i.item()->radius();
 		if ((i.item()->get<Transform>()->absolute_pos() - pos).length_squared() < radius * radius)
 		{
 			Entity* owner = i.item()->owner.ref();
 			if (owner && (owner->component_mask & component_mask) && owner->has<AIAgent>())
 			{
 				AIAgent* agent = owner->get<AIAgent>();
-				if (agent->team != team && vision_check(pos, agent->get<Transform>()->absolute_pos(), agent))
+				if (agent->team != team)
 					return owner;
 			}
 		}

@@ -48,6 +48,7 @@ struct UIText
 	void refresh_vertices();
 	void set_size(float);
 	void wrap(float);
+	bool clipped() const;
 	void clip(int);
 	static void reeval_all();
 	void draw(const RenderParams&, const Vec2& pos, const float = 0.0f) const;

@@ -6,7 +6,7 @@ namespace VI
 {
 
 Animator::Animator()
-	: bones(), channels(), time(), animation(AssetNull), armature(AssetNull), bindings(), triggers(), offsets(), override_mode()
+	: bones(), channels(), time(), animation(AssetNull), armature(AssetNull), last_animation(AssetNull), bindings(), triggers(), offsets(), override_mode(), last_animation_bones(), blend(1.0f), blend_time(0.25f)
 {
 }
 
@@ -26,10 +26,22 @@ void Animator::update(const Update& u)
 {
 	Animation* anim = Loader::animation(animation);
 
+	if (animation != last_animation)
+	{
+		if (bones.length > 0)
+		{
+			last_animation_bones.length = bones.length;
+			memcpy(&last_animation_bones[0], &bones[0], sizeof(Mat4) * bones.length);
+			blend = 0.0f;
+		}
+		last_animation = animation;
+	}
+
 	if (anim)
 	{
 		float old_time = time;
 		time += u.time.delta;
+		blend = fmin(1.0f, blend + u.time.delta / blend_time);
 
 		bool looped = false;
 		while (time > anim->duration)
@@ -108,7 +120,10 @@ void Animator::update(const Update& u)
 		}
 	}
 	else
-		channels.length = 0;
+	{
+		blend = 1.0f; // no animation active, don't do blending
+		channels.resize(0);
+	}
 
 	update_world_transforms();
 }
@@ -120,7 +135,7 @@ void Animator::update_world_transforms()
 	if (offsets.length < arm->hierarchy.length)
 	{
 		int old_length = offsets.length;
-		offsets.resize(arm->hierarchy.length);
+		offsets.length = arm->hierarchy.length;
 		for (int i = old_length; i < offsets.length; i++)
 		{
 			if (override_mode == OverrideMode::Offset)
@@ -155,6 +170,28 @@ void Animator::update_world_transforms()
 		int parent = arm->hierarchy[i];
 		if (parent != -1)
 			bones[i] = bones[i] * bones[parent];
+	}
+
+	if (blend < 1.0f)
+	{
+		for (int i = 0; i < last_animation_bones.length; i++)
+		{
+			Vec3 old_pos;
+			Quat old_rot;
+			Vec3 old_scale;
+			last_animation_bones[i].decomposition(old_pos, old_scale, old_rot);
+
+			Vec3 new_pos;
+			Quat new_rot;
+			Vec3 new_scale;
+			bones[i].decomposition(new_pos, new_scale, new_rot);
+
+			bones[i].make_transform(
+				Vec3::lerp(blend, old_pos, new_pos),
+				Vec3::lerp(blend, old_scale, new_scale),
+				Quat::slerp(blend, old_rot, new_rot)
+			);
+		}
 	}
 
 	Mat4 transform;

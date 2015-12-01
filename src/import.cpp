@@ -64,8 +64,10 @@ const float nav_agent_radius = 0.35f;
 const float nav_edge_max_length = 12.0f;
 const float nav_min_region_size = 8.0f;
 const float nav_merged_region_size = 20.0f;
-const float nav_detail_sample_distance = 6.0f;
-const float nav_detail_sample_max_error = 1.0f;
+const float nav_detail_sample_distance = 3.0f;
+const float nav_detail_sample_max_error = 0.2f;
+const float nav_resolution = 0.15f;
+const float nav_walkable_slope = 45.0f; // degrees
 
 template <typename T>
 T read(FILE* f)
@@ -1330,9 +1332,9 @@ bool build_nav_mesh(const Mesh& input, rcPolyMesh** output, rcPolyMeshDetail** o
 {
 	rcConfig cfg;
 	memset(&cfg, 0, sizeof(cfg));
-	cfg.cs = 0.2f;
-	cfg.ch = 0.2f;
-	cfg.walkableSlopeAngle = 45.0f;
+	cfg.cs = nav_resolution;
+	cfg.ch = nav_resolution;
+	cfg.walkableSlopeAngle = nav_walkable_slope;
 	cfg.walkableHeight = (int)ceilf(nav_agent_height / cfg.ch);
 	cfg.walkableClimb = (int)floorf(nav_agent_max_climb / cfg.ch);
 	cfg.walkableRadius = (int)ceilf(nav_agent_radius / cfg.cs);

@@ -337,7 +337,7 @@ void Skybox::draw(const RenderParams& p)
 	sync->write(shader);
 	sync->write(p.technique);
 
-	Mat4 mvp = p.view * Mat4::make_scale(Vec3(far_plane));
+	Mat4 mvp = p.view * Mat4::make_scale(Vec3(p.camera->far_plane));
 	mvp.translation(Vec3::zero);
 	mvp = mvp * p.camera->projection;
 

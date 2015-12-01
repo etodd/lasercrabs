@@ -9,6 +9,8 @@
 namespace VI
 {
 
+struct AIAgent;
+
 struct AI
 {
 	enum class Team
@@ -35,6 +37,7 @@ struct AI
 	static void debug_draw(const RenderParams&);
 
 	static Entity* get_enemy(const AI::Team&, const Vec3&, const Vec3&, const float, const float, const ComponentMask = -1);
+	static bool vision_check(const Vec3&, const Vec3&, const AIAgent*);
 
 	static dtPolyRef get_poly(const Vec3&, const float*);
 };

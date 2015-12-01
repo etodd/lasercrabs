@@ -277,6 +277,8 @@ namespace Ease
 				return circ_out(x, start, end);
 			case Type::CircInOut:
 				return circ_in_out(x, start, end);
+			default:
+				vi_assert(false);
 		}
 	}
 }

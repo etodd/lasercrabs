@@ -57,8 +57,7 @@ void main()
 	{
 		const float shockwave_size = 0.5f;
 		const float shockwave_multiplier = 1.0f / shockwave_size;
-		float distance_attenuation = (1.0f - step(light_radius, distance_to_light)) * (distance_to_light - (light_radius - shockwave_size)) * shockwave_multiplier;
-		light_strength = distance_attenuation * (normal_attenuation > 0.0f ? 1.0f : 0.0f);
+		light_strength = (1.0f - step(light_radius, distance_to_light)) * (distance_to_light - (light_radius - shockwave_size)) * shockwave_multiplier;
 	}
 	else
 	{

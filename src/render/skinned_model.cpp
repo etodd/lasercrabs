@@ -1,6 +1,5 @@
 #include "skinned_model.h"
 #include "load.h"
-#include "data/animator.h"
 #include "asset/shader.h"
 
 #define DEBUG_SKIN 0
@@ -67,7 +66,7 @@ void SkinnedModel::draw(const RenderParams& params)
 	sync->write<AssetID>(texture);
 
 	Armature* arm = Loader::armature(get<Animator>()->armature);
-	Array<Mat4>& bones = get<Animator>()->bones;
+	StaticArray<Mat4, MAX_BONES>& bones = get<Animator>()->bones;
 	skin_transforms.resize(bones.length);
 	for (int i = 0; i < bones.length; i++)
 		skin_transforms[i] = arm->inverse_bind_pose[i] * bones[i];

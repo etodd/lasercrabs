@@ -7,6 +7,8 @@
 namespace VI
 {
 
+#define MAX_BONES 100
+
 struct Animator : public ComponentType<Animator>
 {
 	struct TriggerEntry
@@ -36,11 +38,15 @@ struct Animator : public ComponentType<Animator>
 
 	AssetID armature;
 	AssetID animation;
-	Array<Mat4> bones;
-	Array<Mat4> offsets;
-	Array<AnimatorChannel> channels;
-	Array<BindEntry> bindings;
-	Array<TriggerEntry> triggers;
+	AssetID last_animation;
+	StaticArray<Mat4, MAX_BONES> bones;
+	StaticArray<Mat4, MAX_BONES> last_animation_bones;
+	StaticArray<Mat4, MAX_BONES> offsets;
+	StaticArray<AnimatorChannel, MAX_BONES> channels;
+	StaticArray<BindEntry, MAX_BONES> bindings;
+	StaticArray<TriggerEntry, MAX_BONES> triggers;
+	float blend;
+	float blend_time;
 	float time;
 	OverrideMode override_mode;
 

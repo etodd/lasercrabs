@@ -42,6 +42,7 @@ struct Settings
 		InputBinding down;
 		InputBinding primary;
 		InputBinding secondary;
+		InputBinding sprint;
 	};
 
 	Bindings bindings;

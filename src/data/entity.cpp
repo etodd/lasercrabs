@@ -9,11 +9,6 @@ PinArray<Entity, MAX_ENTITIES> World::entities = PinArray<Entity, MAX_ENTITIES>(
 Array<ID> World::remove_buffer = Array<ID>();
 ComponentPoolBase* World::component_pools[MAX_FAMILIES];
 
-Link::Link()
-	: entries()
-{
-}
-
 void Link::link(void(*fp)())
 {
 	LinkEntry* entry = entries.add();

@@ -8,11 +8,12 @@ namespace Asset
 {
 	namespace Animation
 	{
-		const int count = 4;
+		const int count = 5;
 		const AssetID fly = 0;
 		const AssetID idle = 1;
-		const AssetID run = 2;
-		const AssetID walk = 3;
+		const AssetID mantle = 2;
+		const AssetID run = 3;
+		const AssetID walk = 4;
 	}
 }
 

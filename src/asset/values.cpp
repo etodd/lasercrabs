@@ -240,6 +240,7 @@ const char* AssetLookup::Animation::values[] =
 {
 	"assets/fly.anm",
 	"assets/idle.anm",
+	"assets/mantle.anm",
 	"assets/run.anm",
 	"assets/walk.anm",
 	0,
@@ -250,6 +251,7 @@ const char* AssetLookup::Animation::names[] =
 {
 	"fly",
 	"idle",
+	"mantle",
 	"run",
 	"walk",
 	0,

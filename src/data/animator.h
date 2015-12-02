@@ -8,9 +8,42 @@ namespace VI
 {
 
 #define MAX_BONES 100
+#define MAX_ANIMATIONS 3
 
 struct Animator : public ComponentType<Animator>
 {
+	struct AnimatorTransform
+	{
+		Vec3 pos;
+		Quat rot;
+		Vec3 scale;
+
+		void blend(float, const AnimatorTransform&);
+	};
+
+	struct AnimatorChannel
+	{
+		int bone;
+		AnimatorTransform transform;
+	};
+
+	struct Layer
+	{
+		Layer();
+		AssetID animation;
+		AssetID last_animation;
+		StaticArray<AnimatorChannel, MAX_BONES> last_animation_channels;
+		StaticArray<AnimatorChannel, MAX_BONES> channels;
+		float weight;
+		float blend;
+		float blend_time;
+		float time;
+		bool loop;
+		void update(const Update&, const Animator&);
+		void changed_animation();
+		void play(AssetID);
+	};
+
 	struct TriggerEntry
 	{
 		Link link;
@@ -24,30 +57,18 @@ struct Animator : public ComponentType<Animator>
 		Ref<Transform> transform;
 	};
 
-	struct AnimatorChannel
-	{
-		int bone;
-		Mat4 transform;
-	};
-
 	enum class OverrideMode
 	{
 		Offset,
 		Override,
 	};
 
+	Layer layers[MAX_ANIMATIONS];
 	AssetID armature;
-	AssetID animation;
-	AssetID last_animation;
-	StaticArray<Mat4, MAX_BONES> bones;
-	StaticArray<Mat4, MAX_BONES> last_animation_bones;
 	StaticArray<Mat4, MAX_BONES> offsets;
-	StaticArray<AnimatorChannel, MAX_BONES> channels;
 	StaticArray<BindEntry, MAX_BONES> bindings;
 	StaticArray<TriggerEntry, MAX_BONES> triggers;
-	float blend;
-	float blend_time;
-	float time;
+	StaticArray<Mat4, MAX_BONES> bones;
 	OverrideMode override_mode;
 
 	void update(const Update&);

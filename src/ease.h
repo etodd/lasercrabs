@@ -278,7 +278,10 @@ namespace Ease
 			case Type::CircInOut:
 				return circ_in_out(x, start, end);
 			default:
+			{
 				vi_assert(false);
+				return 0.0f; // kill warning
+			}
 		}
 	}
 }

@@ -5,8 +5,34 @@
 namespace VI
 {
 
+void Animator::AnimatorTransform::blend(float x, const AnimatorTransform& b)
+{
+	pos = Vec3::lerp(x, pos, b.pos);
+	rot = Quat::slerp(x, rot, b.rot);
+	scale = Vec3::lerp(x, scale, b.scale);
+}
+
+Animator::Layer::Layer()
+	: channels(),
+	last_animation_channels(),
+	time(),
+	weight(1.0f),
+	blend(1.0f),
+	blend_time(0.25f),
+	animation(AssetNull),
+	last_animation(AssetNull),
+	loop(true)
+{
+}
+
 Animator::Animator()
-	: bones(), channels(), time(), animation(AssetNull), armature(AssetNull), last_animation(AssetNull), bindings(), triggers(), offsets(), override_mode(), last_animation_bones(), blend(1.0f), blend_time(0.25f)
+	: armature(AssetNull),
+	layers(),
+	bindings(),
+	triggers(),
+	offsets(),
+	override_mode(),
+	bones()
 {
 }
 
@@ -22,37 +48,46 @@ static int find_keyframe_index(Array<T>& keyframes, float time)
 	return index;
 }
 
-void Animator::update(const Update& u)
+void Animator::Layer::play(AssetID a)
+{
+	animation = a;
+	time = 0.0f;
+}
+
+void Animator::Layer::update(const Update& u, const Animator& animator)
 {
 	Animation* anim = Loader::animation(animation);
 
-	if (animation != last_animation)
-	{
-		if (bones.length > 0)
-		{
-			last_animation_bones.length = bones.length;
-			memcpy(&last_animation_bones[0], &bones[0], sizeof(Mat4) * bones.length);
-			blend = 0.0f;
-		}
-		last_animation = animation;
-	}
+	blend = fmin(1.0f, blend + u.time.delta / blend_time);
 
 	if (anim)
 	{
 		float old_time = time;
 		time += u.time.delta;
-		blend = fmin(1.0f, blend + u.time.delta / blend_time);
 
 		bool looped = false;
-		while (time > anim->duration)
+		if (time > anim->duration)
 		{
-			time -= anim->duration;
-			looped = true;
+			if (loop)
+			{
+				time = fmod(time, anim->duration);
+				looped = true;
+			}
+			else
+			{
+				animation = AssetNull;
+				changed_animation();
+				channels.resize(0);
+				return;
+			}
 		}
 
-		for (int i = 0; i < triggers.length; i++)
+		if (animation != last_animation)
+			changed_animation();
+
+		for (int i = 0; i < animator.triggers.length; i++)
 		{
-			TriggerEntry* trigger = &triggers[i];
+			TriggerEntry* trigger = &animator.triggers[i];
 			bool trigger_after_old_time = old_time <= trigger->time;
 			bool trigger_before_new_time = time >= trigger->time;
 			if (animation == trigger->animation &&
@@ -116,15 +151,30 @@ void Animator::update(const Update& u)
 			}
 
 			channels[i].bone = c->bone_index;
-			channels[i].transform.make_transform(position, scale, rotation);
+			channels[i].transform.pos = position;
+			channels[i].transform.rot = rotation;
+			channels[i].transform.scale = scale;
 		}
 	}
 	else
-	{
-		blend = 1.0f; // no animation active, don't do blending
 		channels.resize(0);
-	}
+}
 
+void Animator::Layer::changed_animation()
+{
+	if (channels.length > 0)
+	{
+		last_animation_channels.length = channels.length;
+		memcpy(&last_animation_channels[0], &channels[0], sizeof(AnimatorChannel) * channels.length);
+		blend = 0.0f;
+	}
+	last_animation = animation;
+}
+
+void Animator::update(const Update& u)
+{
+	for (int i = 0; i < MAX_ANIMATIONS; i++)
+		layers[i].update(u, *this);
 	update_world_transforms();
 }
 
@@ -147,16 +197,42 @@ void Animator::update_world_transforms()
 
 	if (override_mode == OverrideMode::Offset)
 	{
+		AnimatorTransform bone_channels[MAX_BONES];
 		for (int i = 0; i < bones.length; i++)
 		{
-			bones[i].make_transform(arm->bind_pose[i].pos, Vec3(1, 1, 1), arm->bind_pose[i].rot);
-			bones[i] = offsets[i] * bones[i];
+			bone_channels[i].pos = arm->bind_pose[i].pos;
+			bone_channels[i].rot = arm->bind_pose[i].rot;
+			bone_channels[i].scale = Vec3(1, 1, 1);
 		}
 
-		for (int i = 0; i < channels.length; i++)
+		for (int l = 0; l < MAX_ANIMATIONS; l++)
 		{
-			int bone_index = channels[i].bone;
-			bones[bone_index] = offsets[i] * channels[i].transform;
+			Layer& layer = layers[l];
+
+			if (layer.blend < 1.0f)
+			{
+				float blend = layer.weight * (1.0f - layer.blend);
+				for (int i = 0; i < layer.last_animation_channels.length; i++)
+				{
+					AnimatorChannel& channel = layer.last_animation_channels[i];
+					bone_channels[channel.bone].blend(blend * layer.weight, channel.transform);
+				}
+			}
+
+			{
+				float blend = layer.weight * layer.blend;
+				for (int i = 0; i < layer.channels.length; i++)
+				{
+					AnimatorChannel& channel = layer.channels[i];
+					bone_channels[channel.bone].blend(blend, channel.transform);
+				}
+			}
+		}
+
+		for (int i = 0; i < bones.length; i++)
+		{
+			bones[i].make_transform(bone_channels[i].pos, bone_channels[i].scale, bone_channels[i].rot);
+			bones[i] = offsets[i] * bones[i];
 		}
 	}
 	else
@@ -170,28 +246,6 @@ void Animator::update_world_transforms()
 		int parent = arm->hierarchy[i];
 		if (parent != -1)
 			bones[i] = bones[i] * bones[parent];
-	}
-
-	if (blend < 1.0f)
-	{
-		for (int i = 0; i < last_animation_bones.length; i++)
-		{
-			Vec3 old_pos;
-			Quat old_rot;
-			Vec3 old_scale;
-			last_animation_bones[i].decomposition(old_pos, old_scale, old_rot);
-
-			Vec3 new_pos;
-			Quat new_rot;
-			Vec3 new_scale;
-			bones[i].decomposition(new_pos, new_scale, new_rot);
-
-			bones[i].make_transform(
-				Vec3::lerp(blend, old_pos, new_pos),
-				Vec3::lerp(blend, old_scale, new_scale),
-				Quat::slerp(blend, old_rot, new_rot)
-			);
-		}
 	}
 
 	Mat4 transform;
@@ -318,7 +372,6 @@ void Animator::reset_overrides()
 void Animator::awake()
 {
 	Loader::armature(armature);
-	Loader::animation(animation);
 }
 
 Link& Animator::trigger(const AssetID anim, const float time)

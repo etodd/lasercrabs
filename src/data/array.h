@@ -32,6 +32,19 @@ struct StaticArray
 	{
 	}
 
+	const StaticArray& operator=(const StaticArray& other)
+	{
+		memcpy(_nil, other._nil, sizeof(_nil));
+		length = other.length;
+		return *this;
+	}
+
+	StaticArray(const StaticArray& other)
+		: length(other.length)
+	{
+		memcpy(_nil, other._nil, sizeof(_nil));
+	}
+
 	~StaticArray()
 	{
 	}

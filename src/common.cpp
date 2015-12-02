@@ -39,7 +39,7 @@ Prop::Prop(const AssetID mesh_id, const AssetID armature, const AssetID animatio
 		model->shader = Asset::Shader::armature;
 		Animator* anim = create<Animator>();
 		anim->armature = armature;
-		anim->animation = animation;
+		anim->layers[0].animation = animation;
 	}
 }
 

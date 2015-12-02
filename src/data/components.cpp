@@ -38,6 +38,12 @@ void Transform::set_bullet(const btTransform& world)
 	rot = world.getRotation();
 }
 
+void Transform::set(const Vec3& p, const Quat& r)
+{
+	pos = p;
+	rot = r;
+}
+
 void Transform::absolute(Vec3* abs_pos, Quat* abs_rot) const
 {
 	*abs_rot = Quat::identity;

@@ -295,6 +295,17 @@ struct LinkEntry
 
 	}
 
+	const LinkEntry& operator=(const LinkEntry& other)
+	{
+		data = other.data;
+		return *this;
+	}
+
+	LinkEntry(const LinkEntry& other)
+		: data(other.data)
+	{
+	}
+
 	virtual void fire() { }
 };
 
@@ -396,7 +407,6 @@ struct FunctionPointerLinkEntryArg : public LinkEntryArg<T>
 struct Link
 {
 	StaticArray<LinkEntry, MAX_ENTITY_LINKS> entries;
-	Link();
 	void fire();
 	void link(void(*)());
 };

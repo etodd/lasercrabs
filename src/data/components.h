@@ -19,6 +19,8 @@ struct Transform : public ComponentType<Transform>
 	void get_bullet(btTransform&) const;
 	void set_bullet(const btTransform&);
 
+	void set(const Vec3&, const Quat&);
+
 	void mat(Mat4*) const;
 
 	Vec3 to_world(const Vec3&) const;

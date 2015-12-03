@@ -612,6 +612,15 @@ void UI::update(const RenderParams& p)
 
 void UI::draw(const RenderParams& p)
 {
+#if DEBUG
+	for (int i = 0; i < debugs.length; i++)
+	{
+		Vec2 projected;
+		if (project(p, debugs[i], projected))
+			centered_box(p, projected, Vec2(4, 4) * scale);
+	}
+	debugs.length = 0;
+#endif
 	if (indices.length > 0)
 	{
 		p.sync->write(RenderOp::UpdateAttribBuffers);
@@ -690,5 +699,13 @@ void UI::texture(const RenderParams& p, const int texture, const Vec2& pos, cons
 	p.sync->write(RenderOp::Mesh);
 	p.sync->write(texture_mesh_id);
 }
+
+#if DEBUG
+Array<Vec3> UI::debugs = Array<Vec3>();
+void UI::debug(const Vec3& pos)
+{
+	debugs.add(pos);
+}
+#endif
 
 }

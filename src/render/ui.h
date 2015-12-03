@@ -79,6 +79,10 @@ struct UI
 	static void mesh(const RenderParams&, const AssetID, const Vec2&, const Vec2& = Vec2(1, 1), const Vec4& = Vec4(1, 1, 1, 1), const float = 0.0f);
 	static bool project(const RenderParams&, const Vec3&, Vec2&);
 	static void texture(const RenderParams&, const int, const Vec2&, const Vec2&, const Vec4& = Vec4(1, 1, 1, 1), const Vec2& = Vec2::zero, const Vec2& = Vec2(1, 1), const AssetID = AssetNull);
+#if DEBUG
+	static Array<Vec3> debugs;
+	static void debug(const Vec3&);
+#endif
 };
 
 }

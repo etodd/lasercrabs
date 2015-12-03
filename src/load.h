@@ -38,11 +38,12 @@ struct Settings
 		InputBinding backward;
 		InputBinding left;
 		InputBinding right;
-		InputBinding up;
+		InputBinding up_jump;
 		InputBinding down;
 		InputBinding primary;
 		InputBinding secondary;
-		InputBinding sprint;
+		InputBinding walk;
+		InputBinding parkour;
 	};
 
 	Bindings bindings;

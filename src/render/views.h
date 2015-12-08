@@ -29,6 +29,8 @@ struct View : public ComponentType<View>
 	IntrusiveLinkedList additive_entry;
 	IntrusiveLinkedList alpha_entry;
 
+	RenderMask mask;
+
 	AssetID mesh;
 	AssetID shader;
 	AssetID texture;

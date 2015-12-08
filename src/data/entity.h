@@ -128,6 +128,8 @@ struct Entity
 	template<typename T, typename... Args> T* create(Args... args);
 	template<typename T, typename... Args> T* add(Args... args);
 	template<typename T> void attach(T*);
+	template<typename T> void detach();
+	template<typename T> void remove();
 	template<typename T> inline bool has() const;
 	template<typename T> inline T* get() const;
 	static PinArray<Entity, MAX_ENTITIES>& list();
@@ -148,30 +150,6 @@ struct World
 		new (e) T(args...);
 		awake(e);
 		return (T*)e;
-	}
-
-	template<typename T, typename... Args> static T* create_component(Entity* e, Args... args)
-	{
-		T* item = T::pool.add();
-		e->component_mask |= T::mask;
-		e->components[T::family] = item->id();
-		new (item) T(args...);
-		item->entity_id = e->id();
-		return item;
-	}
-
-	template<typename T, typename... Args> static T* add_component(Entity* e, Args... args)
-	{
-		T* component = create_component<T>(e, args...);
-		component->awake();
-		return component;
-	}
-
-	template<typename T> static void attach_component(Entity* e, T* t)
-	{
-		e->component_mask |= T::mask;
-		e->components[T::family] = t->id();
-		t->entity_id = e->id();
 	}
 
 	static void awake(Entity* e)
@@ -222,22 +200,44 @@ inline ID Entity::id() const
 
 template<typename T, typename... Args> T* Entity::create(Args... args)
 {
-	return World::create_component<T>(this, args...);
+	T* item = T::pool.add();
+	component_mask |= T::component_mask;
+	components[T::family] = item->id();
+	new (item) T(args...);
+	item->entity_id = id();
+	return item;
 }
 
 template<typename T, typename... Args> T* Entity::add(Args... args)
 {
-	return World::add_component<T>(this, args...);
+	T* component = create<T>(args...);
+	component->awake();
+	return component;
 }
 
 template<typename T> void Entity::attach(T* t)
 {
-	World::attach_component<T>(this, t);
+	component_mask |= T::component_mask;
+	components[T::family] = t->id();
+	t->entity_id = id();
+}
+
+template<typename T> void Entity::detach()
+{
+	get<T>()->entity_id = IDNull;
+	component_mask &= ~T::component_mask;
+}
+
+template<typename T> void Entity::remove()
+{
+	vi_assert(has<T>());
+	T::pool.remove(components[T::family]);
+	component_mask &= ~T::component_mask;
 }
 
 template<typename T> inline bool Entity::has() const
 {
-	return component_mask & ((ComponentMask)1 << T::family);
+	return component_mask & T::component_mask;
 }
 
 template<typename T> inline T* Entity::get() const
@@ -433,7 +433,7 @@ template<typename Derived>
 struct ComponentType : public ComponentBase
 {
 	static const Family family;
-	static const ComponentMask mask;
+	static const ComponentMask component_mask;
 	static ComponentPool<Derived> pool;
 
 	static inline PinArray<Derived, MAX_ENTITIES>& list()
@@ -456,12 +456,6 @@ struct ComponentType : public ComponentBase
 	{
 		LinkEntryArg<T2>* entry = link.entries.add();
 		new (entry) EntityLinkEntryArg<Derived, T2, Method>(entity_id);
-	}
-
-	void detach()
-	{
-		entity()->component_mask &= ~Derived::mask;
-		entity_id = IDNull;
 	}
 };
 

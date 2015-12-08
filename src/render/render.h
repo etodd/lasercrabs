@@ -16,10 +16,16 @@ struct Frustum
 	Plane planes[6];
 };
 
+typedef unsigned short RenderMask;
+
+#define RENDER_MASK_SHADOW (1 << 15)
+
 struct Camera
 {
 	static const int max_cameras = 8;
 	static Camera all[max_cameras];
+
+	RenderMask mask;
 
 	struct ViewportBlueprint
 	{
@@ -47,10 +53,10 @@ struct Camera
 	Vec3 frustum_rays[4];
 
 	Camera()
-		: active(), projection(), projection_inverse(), pos(), rot(), viewport(), near_plane(), far_plane()
+		: active(), projection(), projection_inverse(), pos(), rot(), viewport(), near_plane(), far_plane(), mask((RenderMask)-1)
 	{
-
 	}
+
 	void perspective(const float, const float, const float, const float);
 	void orthographic(const float, const float, const float, const float);
 	bool visible_sphere(const Vec3&, const float) const;

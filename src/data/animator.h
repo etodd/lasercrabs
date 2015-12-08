@@ -38,6 +38,7 @@ struct Animator : public ComponentType<Animator>
 		float blend;
 		float blend_time;
 		float time;
+		float speed;
 		bool loop;
 		void update(const Update&, const Animator&);
 		void changed_animation();

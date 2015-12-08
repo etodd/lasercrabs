@@ -22,7 +22,16 @@ View::IntrusiveLinkedList::IntrusiveLinkedList()
 }
 
 View::View()
-	: mesh(AssetNull), shader(AssetNull), texture(AssetNull), offset(Mat4::identity), color(0, 0, 0, 0), alpha_order(), alpha_enabled(), additive_entry(), alpha_entry()
+	: mesh(AssetNull),
+	shader(AssetNull),
+	texture(AssetNull),
+	offset(Mat4::identity),
+	color(0, 0, 0, 0),
+	alpha_order(),
+	alpha_enabled(),
+	additive_entry(),
+	alpha_entry(),
+	mask((RenderMask)-1)
 {
 }
 
@@ -71,36 +80,36 @@ void View::alpha(const bool additive, const int order)
 
 	alpha_order = order;
 
-	ID& first = additive ? global->first_additive : global->first_alpha;
+	ID* first = additive ? &global->first_additive : &global->first_alpha;
 	IntrusiveLinkedList* entry = additive ? &additive_entry : &alpha_entry;
 
 	const ID me = id();
 
-	if (first == IDNull) // We're the first
-		first = id();
+	if (*first == IDNull) // We're the first
+		*first = me;
 	else
 	{
 		// Figure out where in the list we need to insert ourselves
 
-		View* v = &View::list()[first];
+		View* v = &View::list()[*first];
 
 		IntrusiveLinkedList* v_entry = additive ? &v->additive_entry : &v->alpha_entry;
 
 		if (alpha_order < v->alpha_order)
 		{
 			// Insert ourselves before the first entry
-			entry->next = first;
+			entry->next = *first;
 			v_entry->previous = me;
-			first = me;
+			*first = me;
 		}
 		else
 		{
-			// Find the first entry with a higher alpha_order than us,
-			// and insert ourselves before them
+			// Find the last entry where our alpha_order is higher,
+			// and insert ourselves after them
 			while (v_entry->next != IDNull)
 			{
 				View* next_v = &View::list()[v_entry->next];
-				if (next_v->alpha_order < alpha_order)
+				if (alpha_order > next_v->alpha_order)
 				{
 					v_entry = additive ? &next_v->additive_entry : &next_v->alpha_entry;
 					v = next_v;
@@ -108,8 +117,14 @@ void View::alpha(const bool additive, const int order)
 				else
 					break;
 			}
-			entry->next = v->id();
-			v_entry->previous = me;
+			entry->previous = v->id();
+			entry->next = v_entry->next;
+			if (v_entry->next != IDNull)
+			{
+				View* next_v = &View::list()[v_entry->next];
+				(additive ? &next_v->additive_entry : &next_v->alpha_entry)->previous = me;
+			}
+			v_entry->next = me;
 		}
 	}
 }
@@ -148,7 +163,7 @@ void View::alpha_disable()
 
 void View::draw(const RenderParams& params) const
 {
-	if (mesh == AssetNull || shader == AssetNull)
+	if (mesh == AssetNull || shader == AssetNull || !(mask & params.camera->mask))
 		return;
 
 	Mesh* mesh_data = Loader::mesh(mesh);

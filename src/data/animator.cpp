@@ -21,7 +21,8 @@ Animator::Layer::Layer()
 	blend_time(0.25f),
 	animation(AssetNull),
 	last_animation(AssetNull),
-	loop(true)
+	loop(true),
+	speed(1.0f)
 {
 }
 
@@ -63,7 +64,7 @@ void Animator::Layer::update(const Update& u, const Animator& animator)
 	if (anim)
 	{
 		float old_time = time;
-		time += u.time.delta;
+		time += u.time.delta * speed;
 
 		bool looped = false;
 		if (time > anim->duration)
@@ -166,7 +167,7 @@ void Animator::Layer::changed_animation()
 	{
 		last_animation_channels.length = channels.length;
 		memcpy(&last_animation_channels[0], &channels[0], sizeof(AnimatorChannel) * channels.length);
-		blend = 0.0f;
+		blend = 1.0f - blend;
 	}
 	last_animation = animation;
 }

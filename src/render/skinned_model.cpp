@@ -12,7 +12,12 @@ namespace VI
 {
 
 SkinnedModel::SkinnedModel()
-	: mesh(), shader(), texture(), offset(Mat4::identity), color(0, 0, 0, 0)
+	: mesh(),
+	shader(),
+	texture(),
+	offset(Mat4::identity),
+	color(0, 0, 0, 0),
+	mask((RenderMask)-1)
 {
 }
 
@@ -27,6 +32,9 @@ void SkinnedModel::awake()
 
 void SkinnedModel::draw(const RenderParams& params)
 {
+	if (!(params.camera->mask & mask))
+		return;
+
 	RenderSync* sync = params.sync;
 
 	Mat4 m;

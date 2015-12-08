@@ -189,6 +189,7 @@ void draw(LoopSync* sync, const Camera* camera)
 				shadow_camera.rot = Quat::look(abs_directions[0]);
 
 				shadow_camera.orthographic(size, size, 1.0f, size * 2.0f);
+				shadow_camera.mask = RENDER_MASK_SHADOW;
 
 				light_vp = render_shadows(sync, shadow_fbo[1], shadow_camera);
 

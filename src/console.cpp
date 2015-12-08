@@ -314,14 +314,22 @@ void Console::debug(const char* format, ...)
 
 void Console::draw(const RenderParams& p)
 {
+	const ScreenRect& vp = p.camera->viewport;
 	if (visible)
-		text.draw(p, Vec2(0, p.camera->viewport.height - text.size * UI::scale));
+	{
+		float height = text.size * UI::scale;
+		float padding = 2.0f * UI::scale;
+		UI::box(p, Vec2(vp.x, vp.y + vp.height - height - padding), Vec2(vp.width, height + padding), Vec4(0, 0, 0, 1));
+		text.draw(p, Vec2(vp.x, vp.y + vp.height - height));
+	}
 	if (fps_visible)
-		fps_text.draw(p, Vec2::zero);
+		fps_text.draw(p, Vec2(vp.x, vp.y));
 
-	debug_text.draw(p, Vec2(0, p.camera->viewport.height - text.size * UI::scale * 2.0f));
+	debug_text.draw(p, Vec2(vp.x, vp.y + vp.height - text.size * UI::scale * 2.0f));
 
-	log_text.draw(p, Vec2(p.camera->viewport.width - text.size * UI::scale * 2.0f, p.camera->viewport.height - text.size * UI::scale * 4.0f));
+	debug_text.draw(p, Vec2(vp.x, vp.y + vp.height - text.size * UI::scale * 2.0f));
+
+	log_text.draw(p, Vec2(vp.x + vp.width - text.size * UI::scale * 2.0f, vp.y + vp.height - text.size * UI::scale * 4.0f));
 }
 
 }

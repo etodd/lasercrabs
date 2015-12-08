@@ -1584,6 +1584,21 @@ namespace LMath
 	{
 		return a + (b - a) * t;
 	}
+
+	inline float closest_angle(float x, float y)
+	{
+		float result = x;
+		while (result > y + PI)
+			result -= PI * 2.0f;
+		while (result < y - PI)
+			result += PI * 2.0f;
+		return result;
+	}
+
+	inline float angle_range(float x)
+	{
+		return closest_angle(x, 0.0f);
+	}
 }
 
 }

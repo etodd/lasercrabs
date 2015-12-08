@@ -51,7 +51,7 @@ void main()
 	vec3 to_light = light_pos - pos;
 
 	vec4 light_projected = light_vp * vec4(pos, 1.0);
-	light_projected.z -= 0.001f;
+	light_projected.z -= 0.003f;
 	light_projected.xyz /= light_projected.w;
 
 	float shadow = texture(shadow_map, light_projected.xyz * 0.5 + 0.5);

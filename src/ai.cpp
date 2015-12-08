@@ -143,7 +143,7 @@ bool AI::vision_check(const Vec3& pos, const Vec3& enemy_pos, const AIAgent* age
 	return !rayCallback.hasHit() || rayCallback.m_collisionObject->getUserIndex() == agent->entity_id;
 }
 
-Entity* AI::get_enemy(const AI::Team& team, const Vec3& pos, const Vec3& forward, const float radius, const float angle, const ComponentMask component_mask)
+Entity* AI::get_enemy(AI::Team team, const Vec3& pos, const Vec3& forward, float radius, float angle, float max_height_diff, ComponentMask component_mask)
 {
 	float angle_dot = cosf(angle);
 	for (auto i = AIAgent::list().iterator(); !i.is_last(); i.next())
@@ -155,9 +155,11 @@ Entity* AI::get_enemy(const AI::Team& team, const Vec3& pos, const Vec3& forward
 		Vec3 enemy_pos = agent->get<Transform>()->absolute_pos();
 
 		Vec3 to_enemy = enemy_pos - pos;
+		if (max_height_diff > 0.0f && to_enemy.y > max_height_diff)
+			continue;
+
 		float distance_to_enemy = to_enemy.length();
 
-		bool visible = false;
 		if (distance_to_enemy < radius)
 		{
 			to_enemy /= distance_to_enemy;

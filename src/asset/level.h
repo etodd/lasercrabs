@@ -17,10 +17,10 @@ namespace Asset
 		const AssetID level3 = 5;
 		const AssetID level4 = 6;
 		const AssetID level5 = 7;
-		const AssetID menu = 8;
-		const AssetID pvp = 9;
-		const AssetID start = 10;
-		const AssetID test = 11;
+		const AssetID level6 = 8;
+		const AssetID menu = 9;
+		const AssetID pvp = 10;
+		const AssetID start = 11;
 		const AssetID title = 12;
 	}
 }

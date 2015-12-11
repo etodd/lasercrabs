@@ -58,7 +58,7 @@ int half_fbo3;
 int ui_buffer;
 int ui_fbo;
 
-Mat4 render_shadows(LoopSync* sync, int fbo, const Camera& camera)
+Mat4 render_shadows(LoopSync* sync, int fbo, const Camera& main_camera, const Camera& shadow_camera)
 {
 	// Render shadows
 	sync->write<RenderOp>(RenderOp::BindFramebuffer);
@@ -68,21 +68,25 @@ Mat4 render_shadows(LoopSync* sync, int fbo, const Camera& camera)
 	shadow_render_params.sync = sync;
 
 	sync->write<RenderOp>(RenderOp::Viewport);
-	sync->write<ScreenRect>(camera.viewport);
+	sync->write<ScreenRect>(shadow_camera.viewport);
 
 	sync->write<RenderOp>(RenderOp::Clear);
 	sync->write<bool>(false); // Don't clear color
 	sync->write<bool>(true); // Clear depth
 
-	shadow_render_params.camera = &camera;
-	shadow_render_params.view = camera.view();
-	Mat4 light_vp;
-	shadow_render_params.view_projection = light_vp = shadow_render_params.view * camera.projection;
+	shadow_render_params.camera = &shadow_camera;
+	shadow_render_params.view = shadow_camera.view();
+
+	shadow_render_params.view_projection = shadow_render_params.view * shadow_camera.projection;
 	shadow_render_params.technique = RenderTechnique::Shadow;
 
 	Game::draw_opaque(shadow_render_params);
 
-	return light_vp;
+	Camera view_offset_camera = shadow_camera;
+
+	view_offset_camera.pos = shadow_camera.pos - main_camera.pos;
+	
+	return view_offset_camera.view() * shadow_camera.projection;
 }
 
 void draw(LoopSync* sync, const Camera* camera)
@@ -98,6 +102,8 @@ void draw(LoopSync* sync, const Camera* camera)
 	ScreenRect half_viewport = { (int)(camera->viewport.x * 0.5f), (int)(camera->viewport.y * 0.5f), (int)(camera->viewport.width * 0.5f), (int)(camera->viewport.height * 0.5f) };
 
 	Mat4 inverse_view = render_params.view.inverse();
+	Mat4 inverse_view_rotation_only = inverse_view;
+	inverse_view_rotation_only.translation(Vec3::zero);
 
 	const Vec3* frustum = render_params.camera->frustum_rays;
 
@@ -181,7 +187,7 @@ void draw(LoopSync* sync, const Camera* camera)
 				// Global shadow map
 				Camera shadow_camera;
 				shadow_camera.viewport = { 0, 0, shadow_map_size[1], shadow_map_size[1] };
-				float size = fmin(1000.0f, render_params.camera->far_plane);
+				float size = fmin(800.0f, render_params.camera->far_plane);
 				Vec3 pos = render_params.camera->pos;
 				const float interval = size * 0.025f;
 				pos = Vec3((int)(pos.x / interval), (int)(pos.y / interval), (int)(pos.z / interval)) * interval;
@@ -191,13 +197,14 @@ void draw(LoopSync* sync, const Camera* camera)
 				shadow_camera.orthographic(size, size, 1.0f, size * 2.0f);
 				shadow_camera.mask = RENDER_MASK_SHADOW;
 
-				light_vp = render_shadows(sync, shadow_fbo[1], shadow_camera);
+				light_vp = render_params.shadow_vp = render_shadows(sync, shadow_fbo[1], *render_params.camera, shadow_camera);
+				render_params.shadow_buffer = shadow_buffer[1];
 
 				// Detail shadow map
 				shadow_camera.viewport = { 0, 0, shadow_map_size[0], shadow_map_size[0] };
 				shadow_camera.orthographic(size * 0.1f, size * 0.1f, 1.0f, size * 2.0f);
 
-				detail_light_vp = render_shadows(sync, shadow_fbo[0], shadow_camera);
+				detail_light_vp = render_shadows(sync, shadow_fbo[0], *render_params.camera, shadow_camera);
 
 				sync->write<RenderOp>(RenderOp::Viewport);
 				sync->write<ScreenRect>(camera->viewport);
@@ -231,7 +238,7 @@ void draw(LoopSync* sync, const Camera* camera)
 				sync->write(Asset::Uniform::light_vp);
 				sync->write(RenderDataType::Mat4);
 				sync->write<int>(1);
-				sync->write<Mat4>(inverse_view * light_vp);
+				sync->write<Mat4>(inverse_view_rotation_only * light_vp);
 
 				sync->write(RenderOp::Uniform);
 				sync->write(Asset::Uniform::shadow_map);
@@ -244,7 +251,7 @@ void draw(LoopSync* sync, const Camera* camera)
 				sync->write(Asset::Uniform::detail_light_vp);
 				sync->write(RenderDataType::Mat4);
 				sync->write<int>(1);
-				sync->write<Mat4>(inverse_view * detail_light_vp);
+				sync->write<Mat4>(inverse_view_rotation_only * detail_light_vp);
 
 				sync->write(RenderOp::Uniform);
 				sync->write(Asset::Uniform::detail_shadow_map);
@@ -413,7 +420,7 @@ void draw(LoopSync* sync, const Camera* camera)
 				shadow_camera.perspective(light->fov, 1.0f, 0.1f, light->radius);
 				shadow_camera.pos = abs_pos;
 				shadow_camera.rot = abs_rot;
-				light_vp = render_shadows(sync, shadow_fbo[0], shadow_camera);
+				light_vp = render_shadows(sync, shadow_fbo[0], *camera, shadow_camera);
 			}
 
 			sync->write<RenderOp>(RenderOp::BindFramebuffer);
@@ -474,7 +481,7 @@ void draw(LoopSync* sync, const Camera* camera)
 			sync->write(Asset::Uniform::light_vp);
 			sync->write(RenderDataType::Mat4);
 			sync->write<int>(1);
-			sync->write<Mat4>(inverse_view * light_vp);
+			sync->write<Mat4>(inverse_view_rotation_only * light_vp);
 
 			sync->write(RenderOp::Uniform);
 			sync->write(Asset::Uniform::light_color);
@@ -606,7 +613,7 @@ void draw(LoopSync* sync, const Camera* camera)
 			sync->write<RenderTextureType>(RenderTextureType::Texture2D);
 			sync->write<int>(half_depth_buffer);
 
-			Loader::texture_permanent(Asset::Texture::noise);
+			Loader::texture_permanent(Asset::Texture::noise, RenderTextureWrap::Repeat, RenderTextureFilter::Nearest);
 			sync->write(RenderOp::Uniform);
 			sync->write(Asset::Uniform::noise_sampler);
 			sync->write(RenderDataType::Texture);
@@ -721,6 +728,11 @@ void draw(LoopSync* sync, const Camera* camera)
 	sync->write<RenderOp>(RenderOp::Viewport);
 	sync->write<ScreenRect>(camera->viewport);
 
+	sync->write<RenderOp>(RenderOp::DepthMask);
+	sync->write<bool>(false);
+	sync->write<RenderOp>(RenderOp::DepthTest);
+	sync->write<bool>(false);
+
 	// Composite
 	{
 		sync->write<RenderOp>(RenderOp::BindFramebuffer);
@@ -748,19 +760,6 @@ void draw(LoopSync* sync, const Camera* camera)
 		sync->write(RenderDataType::Vec3);
 		sync->write<int>(1);
 		sync->write<Vec3>(Skybox::zenith_color);
-
-		Vec2 film_grain_size = buffer_size * (0.5f / UI::scale);
-		sync->write(RenderOp::Uniform);
-		sync->write(Asset::Uniform::film_grain_size);
-		sync->write(RenderDataType::Vec2);
-		sync->write<int>(1);
-		sync->write<Vec2>(film_grain_size);
-
-		sync->write(RenderOp::Uniform);
-		sync->write(Asset::Uniform::uv_offset);
-		sync->write(RenderDataType::Vec2);
-		sync->write<int>(1);
-		sync->write<Vec2>(film_grain_size * Vec2(mersenne::randf_oo(), mersenne::randf_oo()));
 
 		sync->write(RenderOp::Uniform);
 		sync->write(Asset::Uniform::ssao_buffer);
@@ -794,11 +793,11 @@ void draw(LoopSync* sync, const Camera* camera)
 		sync->write(screen_quad.mesh);
 	}
 
+	sync->write<RenderOp>(RenderOp::BindFramebuffer);
+	sync->write<int>(color_fbo1);
+
 	// Edge detect
 	{
-		sync->write<RenderOp>(RenderOp::BindFramebuffer);
-		sync->write<int>(color_fbo1);
-
 		Loader::shader_permanent(Asset::Shader::edge_detect);
 		sync->write(RenderOp::Shader);
 		sync->write<AssetID>(Asset::Shader::edge_detect);
@@ -809,6 +808,19 @@ void draw(LoopSync* sync, const Camera* camera)
 		sync->write(RenderDataType::Vec2);
 		sync->write<int>(1);
 		sync->write<Vec2>(inv_buffer_size);
+
+		Vec2 film_grain_size = buffer_size * (0.5f / UI::scale);
+		sync->write(RenderOp::Uniform);
+		sync->write(Asset::Uniform::film_grain_size);
+		sync->write(RenderDataType::Vec2);
+		sync->write<int>(1);
+		sync->write<Vec2>(film_grain_size);
+
+		sync->write(RenderOp::Uniform);
+		sync->write(Asset::Uniform::uv_offset);
+		sync->write(RenderDataType::Vec2);
+		sync->write<int>(1);
+		sync->write<Vec2>(film_grain_size * Vec2(mersenne::randf_oo(), mersenne::randf_oo()));
 
 		sync->write(RenderOp::Uniform);
 		sync->write(Asset::Uniform::p);
@@ -841,21 +853,18 @@ void draw(LoopSync* sync, const Camera* camera)
 		sync->write(screen_quad.mesh);
 	}
 
-	sync->write(RenderOp::Viewport);
-	sync->write<ScreenRect>(camera->viewport);
-
 	// Alpha components
 	{
-		sync->write<RenderOp>(RenderOp::CullMode);
-		sync->write<RenderCullMode>(RenderCullMode::None);
-		sync->write<RenderOp>(RenderOp::DepthMask);
-		sync->write<bool>(false);
-
 		sync->write<RenderOp>(RenderOp::BlendMode);
 		sync->write<RenderBlendMode>(RenderBlendMode::Alpha);
 
+		sync->write<RenderOp>(RenderOp::CullMode);
+		sync->write<RenderCullMode>(RenderCullMode::None);
+
 		sync->write<RenderOp>(RenderOp::DepthTest);
 		sync->write<bool>(true);
+
+		render_params.depth_buffer = depth_buffer;
 
 		Game::draw_alpha(render_params);
 
@@ -1042,7 +1051,7 @@ void loop(LoopSwapper* swapper, PhysicsSwapper* physics_swapper)
 	normal_buffer = Loader::dynamic_texture_permanent(sync->input.width, sync->input.height, RenderDynamicTextureType::Color);
 	depth_buffer = Loader::dynamic_texture_permanent(sync->input.width, sync->input.height, RenderDynamicTextureType::Depth);
 	for (int i = 0; i < SHADOW_MAP_CASCADES; i++)
-		shadow_buffer[i] = Loader::dynamic_texture_permanent(shadow_map_size[i], shadow_map_size[i], RenderDynamicTextureType::Depth, RenderTextureFilter::Linear, RenderTextureCompare::RefToTexture);
+		shadow_buffer[i] = Loader::dynamic_texture_permanent(shadow_map_size[i], shadow_map_size[i], RenderDynamicTextureType::Depth, RenderTextureWrap::Clamp, RenderTextureFilter::Linear, RenderTextureCompare::RefToTexture);
 
 	g_fbo = Loader::framebuffer_permanent(3);
 	Loader::framebuffer_attach(RenderFramebufferAttachment::Color0, color_buffer);
@@ -1076,7 +1085,7 @@ void loop(LoopSwapper* swapper, PhysicsSwapper* physics_swapper)
 	Loader::framebuffer_attach(RenderFramebufferAttachment::Color0, half_buffer1);
 	Loader::framebuffer_attach(RenderFramebufferAttachment::Depth, half_depth_buffer);
 
-	half_buffer2 = Loader::dynamic_texture_permanent(sync->input.width / 2, sync->input.height / 2, RenderDynamicTextureType::Color, RenderTextureFilter::Linear);
+	half_buffer2 = Loader::dynamic_texture_permanent(sync->input.width / 2, sync->input.height / 2, RenderDynamicTextureType::Color, RenderTextureWrap::Clamp, RenderTextureFilter::Linear);
 	half_fbo2 = Loader::framebuffer_permanent(1);
 	Loader::framebuffer_attach(RenderFramebufferAttachment::Color0, half_buffer2);
 
@@ -1096,21 +1105,18 @@ void loop(LoopSwapper* swapper, PhysicsSwapper* physics_swapper)
 	while (!sync->quit && !Game::quit)
 	{
 		// Update
-		if (sync->focus)
-		{
-			u.input = &sync->input;
-			u.time = sync->time;
+		u.input = &sync->input;
+		u.time = sync->time;
 
 #if DEBUG
-			if (u.input->keys[(int)KeyCode::F5])
-				vi_assert(false);
+		if (u.input->keys[(int)KeyCode::F5])
+			vi_assert(false);
 #endif
-			if (physics_sync)
-				physics_sync = physics_swapper->next<SwapType_Write>();
-			else
-				physics_sync = physics_swapper->get();
-			physics_sync->time = sync->time;
-		}
+		if (physics_sync)
+			physics_sync = physics_swapper->next<SwapType_Write>();
+		else
+			physics_sync = physics_swapper->get();
+		physics_sync->time = sync->time;
 
 		Game::update(u);
 

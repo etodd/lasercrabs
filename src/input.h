@@ -288,6 +288,7 @@ struct InputState
 	int cursor_y;
 	int width;
 	int height;
+	bool focus;
 
 	bool get(const InputBinding& binding, int index) const
 	{

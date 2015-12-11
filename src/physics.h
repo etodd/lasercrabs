@@ -80,7 +80,6 @@ struct RigidBody : public ComponentType<RigidBody>
 	int mesh_id;
 	ID linked_entity; // set the rigid body's user index to this. if IDNull, it's "this" entity's ID.
 	Vec2 damping; // use set_damping to ensure the btBody will be updated
-	StaticArray<ID, 4> constraints;
 	
 	btCollisionShape* btShape;
 	btStridingMeshInterface* btMesh;

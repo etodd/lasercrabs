@@ -51,6 +51,7 @@ struct StaticArray
 
 	inline void resize(int l)
 	{
+		vi_assert(l <= size);
 		length = l;
 	}
 

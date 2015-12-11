@@ -66,6 +66,12 @@ enum class RenderTextureFilter
 	Linear,
 };
 
+enum class RenderTextureWrap
+{
+	Repeat,
+	Clamp,
+};
+
 enum class RenderTextureCompare
 {
 	None,

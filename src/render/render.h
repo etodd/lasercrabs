@@ -68,7 +68,6 @@ struct Camera
 struct LoopSync : RenderSync
 {
 	bool quit;
-	bool focus;
 	GameTime time;
 	InputState input;
 };
@@ -82,6 +81,21 @@ struct RenderParams
 	Mat4 view_projection;
 	RenderTechnique technique;
 	LoopSync* sync;
+	int depth_buffer;
+	int shadow_buffer;
+	Mat4 shadow_vp;
+
+	RenderParams()
+		: camera(),
+		view(),
+		view_projection(),
+		technique(),
+		sync(),
+		depth_buffer(AssetNull),
+		shadow_buffer(AssetNull),
+		shadow_vp()
+	{
+	}
 };
 
 }

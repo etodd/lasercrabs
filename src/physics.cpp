@@ -150,8 +150,6 @@ ID RigidBody::add_constraint(Constraint& constraint)
 	int constraint_id = global_constraints.add(constraint);
 
 	constraint.btPointer->setUserConstraintId(constraint_id);
-	constraint.a.ref()->constraints.add(constraint_id);
-	constraint.b.ref()->constraints.add(constraint_id);
 
 	Physics::btWorld->addConstraint(constraint.btPointer);
 
@@ -160,32 +158,10 @@ ID RigidBody::add_constraint(Constraint& constraint)
 
 void RigidBody::remove_constraint(ID id)
 {
-	Constraint* constraint = &RigidBody::global_constraints[id];
+	Constraint* constraint = &global_constraints[id];
 
-	RigidBody* a = constraint->a.ref();
-
-	for (int i = 0; i < a->constraints.length; i++)
-	{
-		if (a->constraints[i] == id)
-		{
-			a->constraints.remove(i);
-			break;
-		}
-	}
-
-	RigidBody* b = constraint->b.ref();
-
-	for (int i = 0; i < b->constraints.length; i++)
-	{
-		if (b->constraints[i] == id)
-		{
-			b->constraints.remove(i);
-			break;
-		}
-	}
-
-	a->btBody->activate(true);
-	b->btBody->activate(true);
+	constraint->a.ref()->btBody->activate(true);
+	constraint->b.ref()->btBody->activate(true);
 
 	Physics::btWorld->removeConstraint(constraint->btPointer);
 
@@ -196,8 +172,13 @@ void RigidBody::remove_constraint(ID id)
 
 RigidBody::~RigidBody()
 {
-	while (constraints.length > 0)
-		remove_constraint(constraints[0]);
+	ID me = id();
+	for (auto i = global_constraints.iterator(); !i.is_last(); i.next())
+	{
+		Constraint* constraint = i.item();
+		if (constraint->a.id == me || constraint->b.id == me)
+			remove_constraint(i.index);
+	}
 	Physics::btWorld->removeRigidBody(btBody);
 	delete btBody;
 	delete btShape;

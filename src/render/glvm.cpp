@@ -123,6 +123,7 @@ struct GLData
 		unsigned width;
 		unsigned height;
 		RenderDynamicTextureType type;
+		RenderTextureWrap wrap;
 		RenderTextureFilter filter;
 		RenderTextureCompare compare;
 	};
@@ -430,11 +431,13 @@ void render(RenderSync* sync)
 				unsigned width = *(sync->read<unsigned>());
 				unsigned height = *(sync->read<unsigned>());
 				RenderDynamicTextureType type = *(sync->read<RenderDynamicTextureType>());
+				RenderTextureWrap wrap = *(sync->read<RenderTextureWrap>());
 				RenderTextureFilter filter = *(sync->read<RenderTextureFilter>());
 				RenderTextureCompare compare = *(sync->read<RenderTextureCompare>());
 				if (GLData::textures[id].width != width
 					|| GLData::textures[id].height != height
 					|| type != GLData::textures[id].type
+					|| wrap != GLData::textures[id].wrap
 					|| filter != GLData::textures[id].filter
 					|| compare != GLData::textures[id].compare)
 				{
@@ -442,6 +445,7 @@ void render(RenderSync* sync)
 					GLData::textures[id].width = width;
 					GLData::textures[id].height = height;
 					GLData::textures[id].type = type;
+					GLData::textures[id].wrap = wrap;
 					GLData::textures[id].filter = filter;
 					GLData::textures[id].compare = compare;
 					switch (type)
@@ -460,8 +464,21 @@ void render(RenderSync* sync)
 							break;
 					}
 					
-					glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-					glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+					switch (wrap)
+					{
+						case RenderTextureWrap::Clamp:
+						{
+							glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+							glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+							break;
+						}
+						case RenderTextureWrap::Repeat:
+						{
+							glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+							glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+							break;
+						}
+					}
 
 					switch (filter)
 					{
@@ -487,6 +504,8 @@ void render(RenderSync* sync)
 			case RenderOp::LoadTexture:
 			{
 				int id = *(sync->read<int>());
+				RenderTextureWrap wrap = *(sync->read<RenderTextureWrap>());
+				RenderTextureFilter filter = *(sync->read<RenderTextureFilter>());
 				unsigned width = *(sync->read<unsigned>());
 				unsigned height = *(sync->read<unsigned>());
 				const unsigned char* buffer = sync->read<unsigned char>(4 * width * height);
@@ -494,10 +513,38 @@ void render(RenderSync* sync)
 
 				glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, buffer);
 
-				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR); 
+				switch (wrap)
+				{
+					case RenderTextureWrap::Clamp:
+					{
+						glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+						glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+						break;
+					}
+					case RenderTextureWrap::Repeat:
+					{
+						glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+						glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+						break;
+					}
+				}
+
+				switch (filter)
+				{
+					case RenderTextureFilter::Nearest:
+					{
+						glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+						glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+						break;
+					}
+					case RenderTextureFilter::Linear:
+					{
+						glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+						glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+						break;
+					}
+				}
+
 				glGenerateMipmap(GL_TEXTURE_2D);
 
 				debug_check();

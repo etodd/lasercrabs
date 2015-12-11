@@ -76,7 +76,7 @@ void Loader::init(LoopSwapper* s)
 	}
 }
 
-Mesh* Loader::mesh(const AssetID id)
+Mesh* Loader::mesh(AssetID id)
 {
 	if (id == AssetNull)
 		return 0;
@@ -190,7 +190,7 @@ Mesh* Loader::mesh_permanent(const AssetID id)
 	return m;
 }
 
-Mesh* Loader::mesh_instanced(const AssetID id)
+Mesh* Loader::mesh_instanced(AssetID id)
 {
 	Mesh* m = mesh(id);
 	if (m && !m->instanced)
@@ -215,7 +215,7 @@ void Loader::mesh_free(const AssetID id)
 	}
 }
 
-Armature* Loader::armature(const AssetID id)
+Armature* Loader::armature(AssetID id)
 {
 	if (id == AssetNull)
 		return 0;
@@ -267,7 +267,7 @@ Armature* Loader::armature_permanent(const AssetID id)
 	return m;
 }
 
-void Loader::armature_free(const AssetID id)
+void Loader::armature_free(AssetID id)
 {
 	if (id != AssetNull && armatures[id].type != AssetNone)
 	{
@@ -276,7 +276,7 @@ void Loader::armature_free(const AssetID id)
 	}
 }
 
-int Loader::dynamic_mesh(int attribs, const bool dynamic)
+int Loader::dynamic_mesh(int attribs, bool dynamic)
 {
 	int index = AssetNull;
 	for (int i = 0; i < dynamic_meshes.length; i++)
@@ -313,7 +313,7 @@ void Loader::dynamic_mesh_attrib(RenderDataType type, int count)
 	sync->write(count);
 }
 
-int Loader::dynamic_mesh_permanent(int attribs, const bool dynamic)
+int Loader::dynamic_mesh_permanent(int attribs, bool dynamic)
 {
 	int result = dynamic_mesh(attribs, dynamic);
 	dynamic_meshes[result - static_mesh_count].type = AssetPermanent;
@@ -331,7 +331,7 @@ void Loader::dynamic_mesh_free(int id)
 	}
 }
 
-Animation* Loader::animation(const AssetID id)
+Animation* Loader::animation(AssetID id)
 {
 	if (id == AssetNull)
 		return 0;
@@ -388,7 +388,7 @@ Animation* Loader::animation(const AssetID id)
 	return &animations[id].data;
 }
 
-Animation* Loader::animation_permanent(const AssetID id)
+Animation* Loader::animation_permanent(AssetID id)
 {
 	Animation* anim = animation(id);
 	if (anim)
@@ -396,7 +396,7 @@ Animation* Loader::animation_permanent(const AssetID id)
 	return anim;
 }
 
-void Loader::animation_free(const AssetID id)
+void Loader::animation_free(AssetID id)
 {
 	if (id != AssetNull && animations[id].type != AssetNone)
 	{
@@ -405,7 +405,7 @@ void Loader::animation_free(const AssetID id)
 	}
 }
 
-void Loader::texture(const AssetID id)
+void Loader::texture(AssetID id, RenderTextureWrap wrap, RenderTextureFilter filter)
 {
 	if (id == AssetNull)
 		return;
@@ -433,6 +433,8 @@ void Loader::texture(const AssetID id)
 		sync->write<AssetID>(id);
 		sync->write(RenderOp::LoadTexture);
 		sync->write<AssetID>(id);
+		sync->write(wrap);
+		sync->write(filter);
 		sync->write<unsigned>(&width);
 		sync->write<unsigned>(&height);
 		sync->write<unsigned char>(buffer, 4 * width * height);
@@ -440,14 +442,14 @@ void Loader::texture(const AssetID id)
 	}
 }
 
-void Loader::texture_permanent(const AssetID id)
+void Loader::texture_permanent(AssetID id, RenderTextureWrap wrap, RenderTextureFilter filter)
 {
 	texture(id);
 	if (id != AssetNull)
 		textures[id].type = AssetPermanent;
 }
 
-void Loader::texture_free(const AssetID id)
+void Loader::texture_free(AssetID id)
 {
 	if (id != AssetNull && textures[id].type != AssetNone)
 	{
@@ -458,7 +460,7 @@ void Loader::texture_free(const AssetID id)
 	}
 }
 
-int Loader::dynamic_texture(const int width, const int height, const RenderDynamicTextureType type, const RenderTextureFilter filter, const RenderTextureCompare compare)
+int Loader::dynamic_texture(int width, int height, RenderDynamicTextureType type, RenderTextureWrap wrap, RenderTextureFilter filter, RenderTextureCompare compare)
 {
 	int index = AssetNull;
 	for (int i = 0; i < dynamic_textures.length; i++)
@@ -486,21 +488,22 @@ int Loader::dynamic_texture(const int width, const int height, const RenderDynam
 	sync->write<unsigned>(width);
 	sync->write<unsigned>(height);
 	sync->write<RenderDynamicTextureType>(type);
+	sync->write<RenderTextureWrap>(wrap);
 	sync->write<RenderTextureFilter>(filter);
 	sync->write<RenderTextureCompare>(compare);
 
 	return index;
 }
 
-int Loader::dynamic_texture_permanent(const int width, const int height, const RenderDynamicTextureType type, const RenderTextureFilter filter, const RenderTextureCompare compare)
+int Loader::dynamic_texture_permanent(int width, int height, RenderDynamicTextureType type, RenderTextureWrap wrap, RenderTextureFilter filter, RenderTextureCompare compare)
 {
-	int id = dynamic_texture(width, height, type, filter, compare);
+	int id = dynamic_texture(width, height, type, wrap, filter, compare);
 	if (id != AssetNull)
 		dynamic_textures[id - static_texture_count].type = AssetPermanent;
 	return id;
 }
 
-void Loader::dynamic_texture_free(const int id)
+void Loader::dynamic_texture_free(int id)
 {
 	if (id != AssetNull && dynamic_textures[id - static_texture_count].type != AssetNone)
 	{
@@ -511,7 +514,7 @@ void Loader::dynamic_texture_free(const int id)
 	}
 }
 
-int Loader::framebuffer(const int attachments)
+int Loader::framebuffer(int attachments)
 {
 	int index = AssetNull;
 	for (int i = 0; i < framebuffers.length; i++)
@@ -540,14 +543,14 @@ int Loader::framebuffer(const int attachments)
 }
 
 // Must be called immediately after framebuffer() or framebuffer_permanent()
-void Loader::framebuffer_attach(const RenderFramebufferAttachment attachment_type, const int dynamic_texture)
+void Loader::framebuffer_attach(RenderFramebufferAttachment attachment_type, int dynamic_texture)
 {
 	RenderSync* sync = swapper->get();
 	sync->write<RenderFramebufferAttachment>(attachment_type);
 	sync->write<int>(dynamic_texture);
 }
 
-int Loader::framebuffer_permanent(const int attachments)
+int Loader::framebuffer_permanent(int attachments)
 {
 	int id = framebuffer(attachments);
 	if (id != AssetNull)
@@ -555,7 +558,7 @@ int Loader::framebuffer_permanent(const int attachments)
 	return id;
 }
 
-void Loader::framebuffer_free(const int id)
+void Loader::framebuffer_free(int id)
 {
 	if (id != AssetNull && framebuffers[id].type != AssetNone)
 	{
@@ -566,7 +569,7 @@ void Loader::framebuffer_free(const int id)
 	}
 }
 
-void Loader::shader(const AssetID id)
+void Loader::shader(AssetID id)
 {
 	if (id == AssetNull)
 		return;
@@ -610,14 +613,14 @@ void Loader::shader(const AssetID id)
 	}
 }
 
-void Loader::shader_permanent(const AssetID id)
+void Loader::shader_permanent(AssetID id)
 {
 	shader(id);
 	if (id != AssetNull)
 		shaders[id].type = AssetPermanent;
 }
 
-void Loader::shader_free(const AssetID id)
+void Loader::shader_free(AssetID id)
 {
 	if (id != AssetNull && shaders[id].type != AssetNone)
 	{
@@ -628,7 +631,7 @@ void Loader::shader_free(const AssetID id)
 	}
 }
 
-Font* Loader::font(const AssetID id)
+Font* Loader::font(AssetID id)
 {
 	if (id == AssetNull)
 		return 0;
@@ -681,7 +684,7 @@ Font* Loader::font(const AssetID id)
 	return &fonts[id].data;
 }
 
-Font* Loader::font_permanent(const AssetID id)
+Font* Loader::font_permanent(AssetID id)
 {
 	Font* f = font(id);
 	if (f)
@@ -689,7 +692,7 @@ Font* Loader::font_permanent(const AssetID id)
 	return f;
 }
 
-void Loader::font_free(const AssetID id)
+void Loader::font_free(AssetID id)
 {
 	if (id != AssetNull && fonts[id].type != AssetNone)
 	{
@@ -698,7 +701,7 @@ void Loader::font_free(const AssetID id)
 	}
 }
 
-cJSON* Loader::level(const AssetID id)
+cJSON* Loader::level(AssetID id)
 {
 	if (id == AssetNull)
 		return 0;
@@ -760,7 +763,7 @@ void Loader::base_nav_mesh_free(rcPolyMesh* mesh)
 	free(mesh->areas);
 }
 
-dtNavMesh* Loader::nav_mesh(const AssetID id)
+dtNavMesh* Loader::nav_mesh(AssetID id)
 {
 	// Only allow one nav mesh to be loaded at a time
 	vi_assert(current_nav_mesh_id == AssetNull || current_nav_mesh_id == id);
@@ -867,7 +870,7 @@ dtNavMesh* Loader::nav_mesh(const AssetID id)
 	return current_nav_mesh;
 }
 
-bool Loader::soundbank(const AssetID id)
+bool Loader::soundbank(AssetID id)
 {
 	if (id == AssetNull)
 		return false;
@@ -890,7 +893,7 @@ bool Loader::soundbank(const AssetID id)
 	return true;
 }
 
-bool Loader::soundbank_permanent(const AssetID id)
+bool Loader::soundbank_permanent(AssetID id)
 {
 	bool success = soundbank(id);
 	if (success)
@@ -898,7 +901,7 @@ bool Loader::soundbank_permanent(const AssetID id)
 	return success;
 }
 
-void Loader::soundbank_free(const AssetID id)
+void Loader::soundbank_free(AssetID id)
 {
 	if (id != AssetNull && soundbanks[id].type != AssetNone)
 	{

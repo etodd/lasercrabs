@@ -85,55 +85,55 @@ struct Loader
 	static dtNavMesh* current_nav_mesh;
 	static AssetID current_nav_mesh_id;
 
-	static Mesh* mesh(const AssetID);
-	static Mesh* mesh_permanent(const AssetID);
-	static Mesh* mesh_instanced(const AssetID);
-	static void mesh_free(const int);
+	static Mesh* mesh(AssetID);
+	static Mesh* mesh_permanent(AssetID);
+	static Mesh* mesh_instanced(AssetID);
+	static void mesh_free(int);
 
-	static int dynamic_mesh(const int, const bool dynamic = true);
-	static void dynamic_mesh_attrib(RenderDataType, const int = 1);
-	static int dynamic_mesh_permanent(const int, const bool dynamic = true);
-	static void dynamic_mesh_free(const int);
+	static int dynamic_mesh(int, bool dynamic = true);
+	static void dynamic_mesh_attrib(RenderDataType, int = 1);
+	static int dynamic_mesh_permanent(int, bool dynamic = true);
+	static void dynamic_mesh_free(int);
 
-	static Animation* animation(const AssetID);
-	static Animation* animation_permanent(const AssetID);
-	static void animation_free(const AssetID);
+	static Animation* animation(AssetID);
+	static Animation* animation_permanent(AssetID);
+	static void animation_free(AssetID);
 
-	static Armature* armature(const AssetID);
-	static Armature* armature_permanent(const AssetID);
-	static void armature_free(const AssetID);
+	static Armature* armature(AssetID);
+	static Armature* armature_permanent(AssetID);
+	static void armature_free(AssetID);
 
-	static void texture(const AssetID);
-	static void texture_permanent(const AssetID);
-	static void texture_free(const AssetID);
+	static void texture(AssetID, RenderTextureWrap = RenderTextureWrap::Repeat, RenderTextureFilter = RenderTextureFilter::Linear);
+	static void texture_permanent(AssetID, RenderTextureWrap = RenderTextureWrap::Repeat, RenderTextureFilter = RenderTextureFilter::Linear);
+	static void texture_free(AssetID);
 
-	static int dynamic_texture(const int, const int, const RenderDynamicTextureType, const RenderTextureFilter = RenderTextureFilter::Nearest, const RenderTextureCompare = RenderTextureCompare::None);
-	static int dynamic_texture_permanent(const int, const int, const RenderDynamicTextureType, const RenderTextureFilter = RenderTextureFilter::Nearest, const RenderTextureCompare = RenderTextureCompare::None);
-	static void dynamic_texture_free(const int);
+	static int dynamic_texture(int, int, RenderDynamicTextureType, RenderTextureWrap = RenderTextureWrap::Clamp, RenderTextureFilter = RenderTextureFilter::Nearest, RenderTextureCompare = RenderTextureCompare::None);
+	static int dynamic_texture_permanent(int, int, RenderDynamicTextureType, RenderTextureWrap = RenderTextureWrap::Clamp, RenderTextureFilter = RenderTextureFilter::Nearest, RenderTextureCompare = RenderTextureCompare::None);
+	static void dynamic_texture_free(int);
 
-	static int framebuffer(const int);
-	static void framebuffer_attach(const RenderFramebufferAttachment, const int);
-	static int framebuffer_permanent(const int);
-	static void framebuffer_free(const int);
+	static int framebuffer(int);
+	static void framebuffer_attach(RenderFramebufferAttachment, int);
+	static int framebuffer_permanent(int);
+	static void framebuffer_free(int);
 
-	static void shader(const AssetID);
-	static void shader_permanent(const AssetID);
-	static void shader_free(const AssetID);
+	static void shader(AssetID);
+	static void shader_permanent(AssetID);
+	static void shader_free(AssetID);
 
-	static Font* font(const AssetID);
-	static Font* font_permanent(const AssetID);
-	static void font_free(const AssetID);
+	static Font* font(AssetID);
+	static Font* font_permanent(AssetID);
+	static void font_free(AssetID);
 
-	static dtNavMesh* nav_mesh(const AssetID);
-	static void base_nav_mesh(const AssetID, rcPolyMesh*);
+	static dtNavMesh* nav_mesh(AssetID);
+	static void base_nav_mesh(AssetID, rcPolyMesh*);
 	static void base_nav_mesh_free(rcPolyMesh*);
 
-	static cJSON* level(const AssetID);
+	static cJSON* level(AssetID);
 	static void level_free(cJSON*);
 
-	static bool soundbank(const AssetID);
-	static bool soundbank_permanent(const AssetID);
-	static void soundbank_free(const AssetID);
+	static bool soundbank(AssetID);
+	static bool soundbank_permanent(AssetID);
+	static void soundbank_free(AssetID);
 	
 	static Settings& settings();
 	static void settings_save();

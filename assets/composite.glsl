@@ -31,13 +31,11 @@ uniform sampler2D color_buffer;
 uniform sampler2D lighting_buffer;
 uniform sampler2D depth_buffer;
 uniform sampler2D ssao_buffer;
-uniform vec2 uv_offset;
 uniform mat4 p;
-uniform vec2 film_grain_size;
 
-float rand(vec2 co)
+float bump_contrast(float x)
 {
-	return fract(sin(dot(co.xy, vec2(12.9898,78.233))) * 43758.5453);
+	return ((x - 0.5f) * 1.5f) + 0.5f;
 }
 
 out vec4 out_color;
@@ -59,9 +57,9 @@ void main()
 		vec3 lighting_color = color.rgb * lighting.rgb;
 		vec3 pos = view_ray * depth;
 		const vec3 luminance_weights = vec3(0.3333, 0.3333, 0.3333);
-		final_color = length(pos) < 25.0f ? lighting_color : zenith_color * (0.4 + dot(lighting_color, luminance_weights));
+		final_color = length(pos) < 25.0f ? lighting_color : zenith_color * (0.4 + bump_contrast(dot(lighting_color, luminance_weights)));
 	}
-	out_color = vec4(final_color + (rand(floor(uv_offset + uv * film_grain_size) * 0.01f) - 0.5f) * 0.07f, 1);
+	out_color = vec4(final_color, 1);
 }
 
 #endif

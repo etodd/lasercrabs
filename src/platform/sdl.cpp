@@ -171,7 +171,7 @@ namespace VI
 				}
 			}
 
-			sync->focus = has_focus;
+			sync->input.focus = has_focus;
 
 			memcpy(sync->input.keys, sdl_keys, sizeof(sync->input.keys));
 

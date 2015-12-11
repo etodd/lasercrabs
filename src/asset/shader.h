@@ -8,7 +8,7 @@ namespace Asset
 {
 	namespace Uniform
 	{
-		const int count = 33;
+		const int count = 35;
 		const AssetID ambient_color = 0;
 		const AssetID bones = 1;
 		const AssetID color_buffer = 2;
@@ -19,29 +19,31 @@ namespace Asset
 		const AssetID diffuse_map = 7;
 		const AssetID far_plane = 8;
 		const AssetID film_grain_size = 9;
-		const AssetID frustum = 10;
-		const AssetID inv_buffer_size = 11;
-		const AssetID inv_uv_scale = 12;
-		const AssetID light_color = 13;
-		const AssetID light_direction = 14;
-		const AssetID light_fov_dot = 15;
-		const AssetID light_pos = 16;
-		const AssetID light_radius = 17;
-		const AssetID light_vp = 18;
-		const AssetID lighting_buffer = 19;
-		const AssetID mv = 20;
-		const AssetID mvp = 21;
-		const AssetID noise_sampler = 22;
-		const AssetID normal_buffer = 23;
-		const AssetID p = 24;
-		const AssetID shadow_map = 25;
-		const AssetID ssao_buffer = 26;
-		const AssetID type = 27;
-		const AssetID uv_offset = 28;
-		const AssetID uv_scale = 29;
-		const AssetID v = 30;
-		const AssetID vp = 31;
-		const AssetID zenith_color = 32;
+		const AssetID fog_extent = 10;
+		const AssetID fog_start = 11;
+		const AssetID frustum = 12;
+		const AssetID inv_buffer_size = 13;
+		const AssetID inv_uv_scale = 14;
+		const AssetID light_color = 15;
+		const AssetID light_direction = 16;
+		const AssetID light_fov_dot = 17;
+		const AssetID light_pos = 18;
+		const AssetID light_radius = 19;
+		const AssetID light_vp = 20;
+		const AssetID lighting_buffer = 21;
+		const AssetID mv = 22;
+		const AssetID mvp = 23;
+		const AssetID noise_sampler = 24;
+		const AssetID normal_buffer = 25;
+		const AssetID p = 26;
+		const AssetID shadow_map = 27;
+		const AssetID ssao_buffer = 28;
+		const AssetID type = 29;
+		const AssetID uv_offset = 30;
+		const AssetID uv_scale = 31;
+		const AssetID v = 32;
+		const AssetID vp = 33;
+		const AssetID zenith_color = 34;
 	}
 	namespace Shader
 	{
@@ -55,8 +57,8 @@ namespace Asset
 		const AssetID flat = 6;
 		const AssetID flat_texture = 7;
 		const AssetID global_light = 8;
-		const AssetID point_grid = 9;
-		const AssetID point_light = 10;
+		const AssetID point_light = 9;
+		const AssetID sky_decal = 10;
 		const AssetID skybox = 11;
 		const AssetID spot_light = 12;
 		const AssetID ssao = 13;

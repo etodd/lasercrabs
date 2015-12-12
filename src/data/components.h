@@ -25,6 +25,8 @@ struct Transform : public ComponentType<Transform>
 
 	Vec3 to_world(const Vec3&) const;
 	Vec3 to_local(const Vec3&) const;
+	Vec3 to_world_normal(const Vec3&) const;
+	Vec3 to_local_normal(const Vec3&) const;
 
 	void to_local(Vec3*, Quat*) const;
 	void to_world(Vec3*, Quat*) const;

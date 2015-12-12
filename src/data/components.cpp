@@ -138,6 +138,16 @@ Vec3 Transform::to_local(const Vec3& p) const
 	return abs_rot.inverse() * (p - abs_pos);
 }
 
+Vec3 Transform::to_world_normal(const Vec3& p) const
+{
+	return absolute_rot() * p;
+}
+
+Vec3 Transform::to_local_normal(const Vec3& p) const
+{
+	return absolute_rot().inverse() * p;
+}
+
 void Transform::to_world(Vec3* p, Quat* q) const
 {
 	Transform* t = const_cast<Transform*>(this);

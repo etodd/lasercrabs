@@ -793,10 +793,41 @@ void draw(LoopSync* sync, const Camera* camera)
 		sync->write(screen_quad.mesh);
 	}
 
+
+	// Alpha components
+	{
+		sync->write<RenderOp>(RenderOp::BlendMode);
+		sync->write<RenderBlendMode>(RenderBlendMode::Alpha);
+
+		sync->write<RenderOp>(RenderOp::CullMode);
+		sync->write<RenderCullMode>(RenderCullMode::None);
+
+		sync->write<RenderOp>(RenderOp::DepthTest);
+		sync->write<bool>(true);
+
+		render_params.depth_buffer = depth_buffer;
+
+		Game::draw_alpha(render_params);
+
+		sync->write<RenderOp>(RenderOp::BlendMode);
+		sync->write<RenderBlendMode>(RenderBlendMode::Additive);
+
+		Game::draw_additive(render_params);
+
+		sync->write<RenderOp>(RenderOp::DepthTest);
+		sync->write<bool>(false);
+
+		sync->write<RenderOp>(RenderOp::CullMode);
+		sync->write<RenderCullMode>(RenderCullMode::Back);
+
+		sync->write<RenderOp>(RenderOp::BlendMode);
+		sync->write<RenderBlendMode>(RenderBlendMode::Opaque);
+	}
+
 	sync->write<RenderOp>(RenderOp::BindFramebuffer);
 	sync->write<int>(color_fbo1);
 
-	// Edge detect
+	// Edge detect / film grain
 	{
 		Loader::shader_permanent(Asset::Shader::edge_detect);
 		sync->write(RenderOp::Shader);
@@ -851,33 +882,6 @@ void draw(LoopSync* sync, const Camera* camera)
 
 		sync->write(RenderOp::Mesh);
 		sync->write(screen_quad.mesh);
-	}
-
-	// Alpha components
-	{
-		sync->write<RenderOp>(RenderOp::BlendMode);
-		sync->write<RenderBlendMode>(RenderBlendMode::Alpha);
-
-		sync->write<RenderOp>(RenderOp::CullMode);
-		sync->write<RenderCullMode>(RenderCullMode::None);
-
-		sync->write<RenderOp>(RenderOp::DepthTest);
-		sync->write<bool>(true);
-
-		render_params.depth_buffer = depth_buffer;
-
-		Game::draw_alpha(render_params);
-
-		sync->write<RenderOp>(RenderOp::BlendMode);
-		sync->write<RenderBlendMode>(RenderBlendMode::Additive);
-
-		Game::draw_additive(render_params);
-
-		sync->write<RenderOp>(RenderOp::DepthTest);
-		sync->write<bool>(false);
-
-		sync->write<RenderOp>(RenderOp::CullMode);
-		sync->write<RenderCullMode>(RenderCullMode::Back);
 	}
 
 	// UI
@@ -1063,8 +1067,9 @@ void loop(LoopSwapper* swapper, PhysicsSwapper* physics_swapper)
 	Loader::framebuffer_attach(RenderFramebufferAttachment::Depth, depth_buffer);
 
 	color_buffer2 = Loader::dynamic_texture_permanent(sync->input.width, sync->input.height, RenderDynamicTextureType::Color);
-	color_fbo2 = Loader::framebuffer_permanent(1);
+	color_fbo2 = Loader::framebuffer_permanent(2);
 	Loader::framebuffer_attach(RenderFramebufferAttachment::Color0, color_buffer2);
+	Loader::framebuffer_attach(RenderFramebufferAttachment::Depth, depth_buffer);
 
 	ui_buffer = Loader::dynamic_texture_permanent(sync->input.width, sync->input.height, RenderDynamicTextureType::ColorMultisample);
 	ui_fbo = Loader::framebuffer_permanent(1);

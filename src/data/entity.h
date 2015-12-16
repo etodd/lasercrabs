@@ -164,7 +164,7 @@ struct World
 	static void remove(Entity* e)
 	{
 		ID id = e->id();
-		vi_assert(entities.data[id].active);
+		vi_assert(entities.is_active(id));
 		for (Family i = 0; i < World::families; i++)
 		{
 			if (e->component_mask & ((ComponentMask)1 << i))
@@ -195,7 +195,7 @@ inline PinArray<Entity, MAX_ENTITIES>& Entity::list()
 
 inline ID Entity::id() const
 {
-	return (ID)(((char*)this - (char*)&World::entities[0]) / sizeof(PinArrayEntry<Entity>));
+	return (ID)(((char*)this - (char*)&World::entities[0]) / sizeof(Entity));
 }
 
 template<typename T, typename... Args> T* Entity::create(Args... args)
@@ -443,7 +443,7 @@ struct ComponentType : public ComponentBase
 
 	inline ID id() const
 	{
-		return (ID)(((char*)this - (char*)&pool.data[0]) / sizeof(PinArrayEntry<Derived>));
+		return (ID)(((char*)this - (char*)&pool.data[0]) / sizeof(Derived));
 	}
 
 	template<void (Derived::*Method)()> void link(Link& link)

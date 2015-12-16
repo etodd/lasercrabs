@@ -5,17 +5,11 @@
 namespace VI
 {
 
-template<typename T> struct PinArrayEntry
-{
-	bool active;
-	T item;
-	PinArrayEntry() : active() {}
-};
-
 template<typename T, int size>
 struct PinArray
 {
-	StaticArray<PinArrayEntry<T>, size> data;
+	StaticArray<T, size> data;
+	unsigned int mask[size / sizeof(unsigned int)];
 	StaticArray<int, size> free_list;
 	int start;
 	int end;
@@ -29,26 +23,26 @@ struct PinArray
 			index++;
 			while (index < array->end)
 			{
-				if (array->data[index].active)
+				if (array->is_active(index))
 					return;
 				index++;
 			}
 		}
 
-		bool is_last()
+		inline bool is_last() const
 		{
 			return index >= array->end;
 		}
 
-		inline T* item()
+		inline T* item() const
 		{
-			vi_assert(!is_last());
-			return &array->data[index].item;
+			vi_assert(!is_last() && array->is_active(index));
+			return &array->data[index];
 		}
 	};
 
 	PinArray()
-		: data(), start(size), end(0), free_list()
+		: data(), mask(), start(size), end(0), free_list()
 	{
 		data.length = size;
 		free_list.length = size;
@@ -56,7 +50,25 @@ struct PinArray
 			free_list[i] = (size - 1) - i;
 	}
 
-	int count() const
+	inline bool is_active(int i) const
+	{
+		int index = i / sizeof(unsigned int);
+		return mask[index] & (1 << (i - index));
+	}
+
+	inline void activate(int i)
+	{
+		int index = i / sizeof(unsigned int);
+		mask[index] |= (1 << (i - index));
+	}
+
+	inline void deactivate(int i)
+	{
+		int index = i / sizeof(unsigned int);
+		mask[index] &= ~(1 << (i - index));
+	}
+
+	inline int count() const
 	{
 		return size - free_list.length;
 	}
@@ -64,13 +76,13 @@ struct PinArray
 	inline T operator [] (const int i) const
 	{
 		vi_assert(i >= 0 && i < size);
-		return (data.data + i)->item;
+		return data.data[i];
 	}
 
 	inline T& operator [] (const int i)
 	{
 		vi_assert(i >= 0 && i < size);
-		return (data.data + i)->item;
+		return data.data[i];
 	}
 
 	Iterator iterator()
@@ -85,32 +97,32 @@ struct PinArray
 	{
 		vi_assert(free_list.length > 0);
 		int index = free_list[free_list.length - 1];
-		vi_assert(!data[index].active);
+		vi_assert(!is_active(index));
 		start = start < index ? start : index;
 		end = end > index + 1 ? end : index + 1;
 		free_list.remove(free_list.length - 1);
-		data[index].active = true;
-		return &data[index].item;
+		activate(index);
+		return &data[index];
 	}
 
 	int add(const T& t)
 	{
 		T* i = add();
 		*i = t;
-		return ((char*)i - (char*)&data[0]) / sizeof(PinArrayEntry<T>);
+		return ((char*)i - (char*)&data[0]) / sizeof(T);
 	}
 
 	void remove(int i)
 	{
-		vi_assert(i >= start && i < end && data[i].active);
+		vi_assert(i >= start && i < end && is_active(i));
 		free_list.add(i);
-		data[i].active = false;
+		deactivate(i);
 		if (i == end)
 		{
 			int j;
 			for (j = i - 1; j > start; j--)
 			{
-				if (data[j].active)
+				if (is_active(j))
 					break;
 			}
 			end = j;
@@ -120,7 +132,7 @@ struct PinArray
 			int j;
 			for (j = i + 1; j < end; j++)
 			{
-				if (data[j].active)
+				if (is_active(j))
 					break;
 			}
 			start = j;

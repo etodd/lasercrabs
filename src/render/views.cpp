@@ -260,7 +260,7 @@ void SkyDecal::draw(const RenderParams& p)
 	sync->write(Asset::Uniform::fog_extent);
 	sync->write(RenderDataType::Float);
 	sync->write<int>(1);
-	sync->write<float>(Skybox::far_plane - Skybox::fog_start);
+	sync->write<float>(p.camera->far_plane - Skybox::fog_start);
 
 	Vec2 inv_buffer_size = Vec2(1.0f / (float)p.sync->input.width, 1.0f / (float)p.sync->input.height);
 
@@ -426,7 +426,19 @@ void Skybox::draw(const RenderParams& p)
 	sync->write(Asset::Uniform::fog_extent);
 	sync->write(RenderDataType::Float);
 	sync->write<int>(1);
-	sync->write<float>(far_plane - fog_start);
+	sync->write<float>(p.camera->far_plane - fog_start);
+
+	sync->write(RenderOp::Uniform);
+	sync->write(Asset::Uniform::far_plane);
+	sync->write(RenderDataType::Float);
+	sync->write<int>(1);
+	sync->write<float>(p.camera->far_plane);
+
+	sync->write(RenderOp::Uniform);
+	sync->write(Asset::Uniform::fog);
+	sync->write(RenderDataType::Int);
+	sync->write<int>(1);
+	sync->write<float>(p.camera->fog);
 
 	Vec2 inv_buffer_size = Vec2(1.0f / (float)p.sync->input.width, 1.0f / (float)p.sync->input.height);
 

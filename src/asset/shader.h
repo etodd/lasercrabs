@@ -8,7 +8,7 @@ namespace Asset
 {
 	namespace Uniform
 	{
-		const int count = 35;
+		const int count = 36;
 		const AssetID ambient_color = 0;
 		const AssetID bones = 1;
 		const AssetID color_buffer = 2;
@@ -19,31 +19,32 @@ namespace Asset
 		const AssetID diffuse_map = 7;
 		const AssetID far_plane = 8;
 		const AssetID film_grain_size = 9;
-		const AssetID fog_extent = 10;
-		const AssetID fog_start = 11;
-		const AssetID frustum = 12;
-		const AssetID inv_buffer_size = 13;
-		const AssetID inv_uv_scale = 14;
-		const AssetID light_color = 15;
-		const AssetID light_direction = 16;
-		const AssetID light_fov_dot = 17;
-		const AssetID light_pos = 18;
-		const AssetID light_radius = 19;
-		const AssetID light_vp = 20;
-		const AssetID lighting_buffer = 21;
-		const AssetID mv = 22;
-		const AssetID mvp = 23;
-		const AssetID noise_sampler = 24;
-		const AssetID normal_buffer = 25;
-		const AssetID p = 26;
-		const AssetID shadow_map = 27;
-		const AssetID ssao_buffer = 28;
-		const AssetID type = 29;
-		const AssetID uv_offset = 30;
-		const AssetID uv_scale = 31;
-		const AssetID v = 32;
-		const AssetID vp = 33;
-		const AssetID zenith_color = 34;
+		const AssetID fog = 10;
+		const AssetID fog_extent = 11;
+		const AssetID fog_start = 12;
+		const AssetID frustum = 13;
+		const AssetID inv_buffer_size = 14;
+		const AssetID inv_uv_scale = 15;
+		const AssetID light_color = 16;
+		const AssetID light_direction = 17;
+		const AssetID light_fov_dot = 18;
+		const AssetID light_pos = 19;
+		const AssetID light_radius = 20;
+		const AssetID light_vp = 21;
+		const AssetID lighting_buffer = 22;
+		const AssetID mv = 23;
+		const AssetID mvp = 24;
+		const AssetID noise_sampler = 25;
+		const AssetID normal_buffer = 26;
+		const AssetID p = 27;
+		const AssetID shadow_map = 28;
+		const AssetID ssao_buffer = 29;
+		const AssetID type = 30;
+		const AssetID uv_offset = 31;
+		const AssetID uv_scale = 32;
+		const AssetID v = 33;
+		const AssetID vp = 34;
+		const AssetID zenith_color = 35;
 	}
 	namespace Shader
 	{

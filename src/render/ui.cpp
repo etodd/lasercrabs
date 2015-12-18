@@ -280,7 +280,7 @@ void UIText::draw(const RenderParams& params, const Vec2& pos, const float rot) 
 		case Anchor::Min:
 			break;
 		case Anchor::Center:
-			offset.y += (bound.y - size) * 0.5f;
+			offset.y -= bound.y * 0.5f;
 			break;
 		case Anchor::Max:
 			offset.y += bound.y - size;
@@ -557,11 +557,11 @@ void UI::mesh(const RenderParams& params, const AssetID mesh, const Vec2& pos, c
 	}
 }
 
-bool UI::project(const RenderParams& p, const Vec3& v, Vec2& out)
+bool UI::project(const RenderParams& p, const Vec3& v, Vec2* out)
 {
 	Vec4 projected = p.view_projection * Vec4(v.x, v.y, v.z, 1);
 	Vec2 screen = Vec2(p.camera->viewport.width * 0.5f, p.camera->viewport.height * 0.5f);
-	out = Vec2((projected.x / projected.w + 1.0f) * screen.x, (projected.y / projected.w + 1.0f) * screen.y);
+	*out = Vec2((projected.x / projected.w + 1.0f) * screen.x, (projected.y / projected.w + 1.0f) * screen.y);
 	return projected.z > -projected.w && projected.z < projected.w;
 }
 
@@ -616,7 +616,7 @@ void UI::draw(const RenderParams& p)
 	for (int i = 0; i < debugs.length; i++)
 	{
 		Vec2 projected;
-		if (project(p, debugs[i], projected))
+		if (project(p, debugs[i], &projected))
 			centered_box(p, projected, Vec2(4, 4) * scale);
 	}
 	debugs.length = 0;

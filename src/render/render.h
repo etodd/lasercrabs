@@ -46,6 +46,7 @@ struct Camera
 	Mat4 projection_inverse;
 	float near_plane;
 	float far_plane;
+	bool fog;
 	Vec3 pos;
 	Quat rot;
 	ScreenRect viewport;
@@ -53,13 +54,22 @@ struct Camera
 	Vec3 frustum_rays[4];
 
 	Camera()
-		: active(), projection(), projection_inverse(), pos(), rot(), viewport(), near_plane(), far_plane(), mask((RenderMask)-1)
+		: active(),
+		projection(),
+		projection_inverse(),
+		pos(),
+		rot(),
+		viewport(),
+		near_plane(),
+		far_plane(),
+		mask((RenderMask)-1),
+		fog(true)
 	{
 	}
 
-	void perspective(const float, const float, const float, const float);
-	void orthographic(const float, const float, const float, const float);
-	bool visible_sphere(const Vec3&, const float) const;
+	void perspective(float, float, float, float);
+	void orthographic(float, float, float, float);
+	bool visible_sphere(const Vec3&, float) const;
 	void update_frustum();
 	Mat4 view() const;
 	void remove();

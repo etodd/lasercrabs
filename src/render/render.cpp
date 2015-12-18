@@ -60,7 +60,7 @@ Mat4 Camera::view() const
 	return Mat4::look(pos, rot * Vec3(0, 0, 1), rot * Vec3(0, 1, 0));
 }
 
-void Camera::perspective(const float fov, const float aspect, const float near, const float far)
+void Camera::perspective(float fov, float aspect, float near, float far)
 {
 	near_plane = near;
 	far_plane = far;
@@ -69,7 +69,7 @@ void Camera::perspective(const float fov, const float aspect, const float near, 
 	update_frustum();
 }
 
-void Camera::orthographic(const float width, const float height, const float near, const float far)
+void Camera::orthographic(float width, float height, float near, float far)
 {
 	near_plane = near;
 	far_plane = far;
@@ -83,7 +83,7 @@ void Camera::remove()
 	active = false;
 }
 
-bool Camera::visible_sphere(const Vec3& sphere_pos, const float sphere_radius) const
+bool Camera::visible_sphere(const Vec3& sphere_pos, float sphere_radius) const
 {
 	Vec3 view_space = rot.inverse() * (sphere_pos - pos);
 	if (view_space.z + sphere_radius > near_plane && view_space.z - sphere_radius < far_plane)

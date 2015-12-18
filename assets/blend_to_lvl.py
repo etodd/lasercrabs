@@ -59,6 +59,9 @@ def add(obj, parent_index = -1):
 			node['DirectionalLight'] = True
 			node['color'] = list(obj.data.color)
 			node['shadowed'] = obj.data.shadow_method != 'NOSHADOW'
+	elif obj_type == 'CAMERA':
+		node['Camera'] = True
+		node['far_plane'] = obj.data.clip_end
 
 	result.append(node)
 	index = len(result) - 1

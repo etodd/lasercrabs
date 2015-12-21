@@ -3,10 +3,11 @@
 #include "types.h"
 #include "lmath.h"
 #include "data/array.h"
-#include "render.h"
 
 namespace VI
 {
+
+struct RenderParams;
 
 struct UIText
 {
@@ -55,6 +56,8 @@ struct UIText
 	UIText();
 	~UIText();
 };
+
+struct LoopSync;
 
 struct UI
 {

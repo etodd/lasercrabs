@@ -1,13 +1,14 @@
 #pragma once
 
 #include "entity.h"
-#include "components.h"
-#include "import_common.h"
+#include "render/skinned_model.h"
+#include "lmath.h"
 
 namespace VI
 {
 
-#define MAX_BONES 100
+struct Transform;
+
 #define MAX_ANIMATIONS 3
 
 struct Animator : public ComponentType<Animator>

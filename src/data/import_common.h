@@ -1,10 +1,8 @@
 #pragma once
 
 #include "array.h"
-#include "types.h"
 #include "lmath.h"
 #include <array>
-#include "render/glvm.h"
 
 struct cJSON;
 

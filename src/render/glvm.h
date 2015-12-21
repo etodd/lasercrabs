@@ -2,7 +2,6 @@
 
 #include "data/array.h"
 #include "lmath.h"
-#include "sync.h"
 
 namespace VI
 {

@@ -3,7 +3,6 @@
 #include "types.h"
 #include "vi_assert.h"
 #include "pin_array.h"
-#include "input.h"
 
 namespace VI
 {
@@ -16,6 +15,8 @@ typedef unsigned long long ComponentMask;
 
 const Family MAX_FAMILIES = sizeof(ComponentMask) * 8;
 #define MAX_ENTITIES 4096
+
+struct InputState;
 
 struct Update
 {
@@ -116,15 +117,13 @@ struct ComponentPool : public ComponentPoolBase
 
 struct Entity
 {
-	ID id() const;
-
 	ID components[MAX_FAMILIES];
 	Revision revision;
 	ComponentMask component_mask;
-	Entity()
-		: component_mask()
-	{
-	}
+	Entity();
+
+	inline ID id() const;
+
 	template<typename T, typename... Args> T* create(Args... args);
 	template<typename T, typename... Args> T* add(Args... args);
 	template<typename T> void attach(T*);
@@ -132,7 +131,7 @@ struct Entity
 	template<typename T> void remove();
 	template<typename T> inline bool has() const;
 	template<typename T> inline T* get() const;
-	static PinArray<Entity, MAX_ENTITIES>& list();
+	static inline PinArray<Entity, MAX_ENTITIES>& list();
 };
 
 struct World
@@ -152,51 +151,11 @@ struct World
 		return (T*)e;
 	}
 
-	static void awake(Entity* e)
-	{
-		for (Family i = 0; i < World::families; i++)
-		{
-			if (e->component_mask & ((ComponentMask)1 << i))
-				component_pools[i]->awake(e->components[i]);
-		}
-	}
-
-	static void remove(Entity* e)
-	{
-		ID id = e->id();
-		vi_assert(entities.is_active(id));
-		for (Family i = 0; i < World::families; i++)
-		{
-			if (e->component_mask & ((ComponentMask)1 << i))
-				component_pools[i]->remove(e->components[i]);
-		}
-		e->component_mask = 0;
-		e->revision++;
-		entities.remove(id);
-	}
-
-	static void remove_deferred(Entity* e)
-	{
-		remove_buffer.add(e->id());
-	}
-
-	static void flush()
-	{
-		for (int i = 0; i < remove_buffer.length; i++)
-			World::remove(&World::entities[remove_buffer[i]]);
-		remove_buffer.length = 0;
-	}
+	static void remove(Entity*);
+	static void remove_deferred(Entity*);
+	static void awake(Entity*);
+	static void flush();
 };
-
-inline PinArray<Entity, MAX_ENTITIES>& Entity::list()
-{
-	return World::entities;
-}
-
-inline ID Entity::id() const
-{
-	return (ID)(((char*)this - (char*)&World::entities[0]) / sizeof(Entity));
-}
 
 template<typename T, typename... Args> T* Entity::create(Args... args)
 {
@@ -246,6 +205,11 @@ template<typename T> inline T* Entity::get() const
 	return &T::list()[components[T::family]];
 }
 
+inline PinArray<Entity, MAX_ENTITIES>& Entity::list()
+{
+	return World::entities;
+}
+
 struct ComponentBase
 {
 	ID entity_id;
@@ -273,8 +237,8 @@ struct LinkEntry
 	{
 		ID entity;
 		Revision revision;
-		Data() : entity(), revision() {}
-		Data(ID e, Revision r) : entity(e), revision(r) { }
+		Data();
+		Data(ID e, Revision r);
 	};
 
 	union
@@ -283,28 +247,11 @@ struct LinkEntry
 		void(*function_pointer)();
 	};
 
-	LinkEntry()
-		: data()
-	{
+	const LinkEntry& operator=(const LinkEntry& other);
 
-	}
-
-	LinkEntry(ID entity)
-		: data(entity, World::entities[entity].revision)
-	{
-
-	}
-
-	const LinkEntry& operator=(const LinkEntry& other)
-	{
-		data = other.data;
-		return *this;
-	}
-
-	LinkEntry(const LinkEntry& other)
-		: data(other.data)
-	{
-	}
+	LinkEntry();
+	LinkEntry(ID entity);
+	LinkEntry(const LinkEntry& other);
 
 	virtual void fire() { }
 };
@@ -377,15 +324,8 @@ template<typename T, typename T2, void (T::*Method)(T2)> struct EntityLinkEntryA
 
 struct FunctionPointerLinkEntry : public LinkEntry
 {
-	FunctionPointerLinkEntry(void(*fp)())
-	{
-		function_pointer = fp;
-	}
-
-	virtual void fire()
-	{
-		(*function_pointer)();
-	}
+	FunctionPointerLinkEntry(void(*fp)());
+	virtual void fire();
 };
 
 template<typename T>

@@ -1,7 +1,7 @@
 #pragma once
 #include "types.h"
-#include "render/render.h"
 #include "data/entity.h"
+#include "lmath.h"
 
 #include "DetourNavMesh.h"
 #include "DetourNavMeshQuery.h"
@@ -10,6 +10,7 @@ namespace VI
 {
 
 struct AIAgent;
+struct RenderParams;
 
 struct AI
 {

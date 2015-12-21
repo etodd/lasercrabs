@@ -1,12 +1,13 @@
 #pragma once
 #include "entity.h"
 #include "array.h"
-#include "physics.h"
+#include "lmath.h"
 
 namespace VI
 {
 
 struct Transform;
+struct RigidBody;
 
 struct Ragdoll : public ComponentType<Ragdoll>
 {

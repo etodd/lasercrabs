@@ -1,14 +1,11 @@
 #pragma once
 
-#include "data/entity.h"
-#include "data/components.h"
-#include "load.h"
-#include "physics.h"
 #include "render/ui.h"
-#include "input.h"
 
 namespace VI
 {
+
+struct Update;
 
 struct Console
 {

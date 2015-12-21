@@ -18,6 +18,7 @@
 #include <sstream>
 #include "Recast.h"
 #include "data/import_common.h"
+#include "render/glvm.h"
 #include "cJSON.h"
 
 namespace VI

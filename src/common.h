@@ -1,13 +1,8 @@
 #pragma once
 
 #include "data/entity.h"
-#include "render/render.h"
 #include "physics.h"
 #include <btBulletDynamicsCommon.h>
-
-class btTriangleIndexVertexArray;
-class btBvhTriangleMeshShape;
-class btCollisionShape;
 
 namespace VI
 {
@@ -36,6 +31,8 @@ struct Noclip : public Entity
 {
 	Noclip();
 };
+
+struct Camera;
 
 struct NoclipControl : public ComponentType<NoclipControl>
 {

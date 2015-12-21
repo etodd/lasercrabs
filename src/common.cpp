@@ -8,6 +8,7 @@
 #include "asset/mesh.h"
 #include "asset/armature.h"
 #include "render/skinned_model.h"
+#include "load.h"
 
 #include <BulletCollision/CollisionShapes/btBvhTriangleMeshShape.h>
 #include <btBulletDynamicsCommon.h>

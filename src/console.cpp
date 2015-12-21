@@ -4,6 +4,7 @@
 #include <cstdio>
 #include "game/audio.h"
 #include "game/wwise/Wwise_IDs.h"
+#include "load.h"
 
 namespace VI
 {

@@ -1,10 +1,8 @@
 #pragma once
 
 #include "data/entity.h"
-#include "data/components.h"
-#include "data/import_common.h"
-#include "data/animator.h"
 #include "render.h"
+#define MAX_BONES 100
 
 namespace VI
 {

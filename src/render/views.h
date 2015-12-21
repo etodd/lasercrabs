@@ -1,7 +1,6 @@
 #pragma once
 
 #include "data/entity.h"
-#include "data/components.h"
 #include "render.h"
 
 namespace VI

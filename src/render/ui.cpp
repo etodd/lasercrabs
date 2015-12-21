@@ -280,7 +280,7 @@ void UIText::draw(const RenderParams& params, const Vec2& pos, const float rot) 
 		case Anchor::Min:
 			break;
 		case Anchor::Center:
-			offset.y -= bound.y * 0.5f;
+			offset.y += (bound.y * 0.5f) - (size * 0.75f);
 			break;
 		case Anchor::Max:
 			offset.y += bound.y - size;

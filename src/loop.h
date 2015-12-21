@@ -3,7 +3,6 @@
 
 #include "render/views.h"
 #include "render/render.h"
-#include "data/array.h"
 #include "data/entity.h"
 #include "data/components.h"
 #include "asset/shader.h"
@@ -14,7 +13,6 @@
 #include "input.h"
 #include "mersenne-twister.h"
 #include <time.h>
-#include "console.h"
 
 #if DEBUG
 	#define DEBUG_RENDER 0

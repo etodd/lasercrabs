@@ -4,6 +4,7 @@
 #include "asset/mesh.h"
 #include "asset/texture.h"
 #include "console.h"
+#include "data/components.h"
 
 namespace VI
 {

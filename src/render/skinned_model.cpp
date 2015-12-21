@@ -1,6 +1,8 @@
 #include "skinned_model.h"
 #include "load.h"
 #include "asset/shader.h"
+#include "data/components.h"
+#include "data/animator.h"
 
 #define DEBUG_SKIN 0
 

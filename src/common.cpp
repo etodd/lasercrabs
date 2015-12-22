@@ -135,8 +135,12 @@ void NoclipControl::update(const Update& u)
 	
 	float FoV = fov_initial;
 
-	camera->viewport = { 0, 0, u.input->width, u.input->height };
-	float aspect = camera->viewport.height == 0 ? 1 : (float)camera->viewport.width / (float)camera->viewport.height;
+	camera->viewport =
+	{
+		Vec2(0, 0),
+		Vec2(u.input->width, u.input->height),
+	};
+	float aspect = camera->viewport.size.y == 0 ? 1 : (float)camera->viewport.size.x / (float)camera->viewport.size.y;
 	camera->perspective(FoV, aspect, 0.02f, Skybox::far_plane);
 
 	// Camera matrix

@@ -284,6 +284,31 @@ struct Vec2
 	}
 };
 
+struct Rect2
+{
+	Vec2 pos;
+	Vec2 size;
+
+	inline Rect2()
+		: pos(), size()
+	{
+	}
+
+	inline Rect2(const Vec2& p, const Vec2& s)
+		: pos(p), size(s)
+	{
+	}
+
+	inline Rect2(const Rect2& other)
+		: pos(other.pos), size(other.size)
+	{
+	}
+
+	Rect2 outset(float) const;
+
+	bool contains(const Vec2&) const;
+};
+
 struct Vec3
 {
 	float x, y, z;

@@ -6,11 +6,6 @@
 namespace VI
 {
 
-struct ScreenRect
-{
-	int x, y, width, height;
-};
-
 enum class RenderOp
 {
 	AllocUniform,

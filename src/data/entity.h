@@ -16,17 +16,6 @@ typedef unsigned long long ComponentMask;
 const Family MAX_FAMILIES = sizeof(ComponentMask) * 8;
 #define MAX_ENTITIES 4096
 
-struct InputState;
-
-struct Update
-{
-	const InputState* input;
-	const InputState* last_input;
-	GameTime time;
-};
-
-struct ComponentBase;
-
 struct ComponentPoolBase
 {
 	void* global_state;

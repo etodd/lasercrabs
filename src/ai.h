@@ -37,8 +37,9 @@ struct AI
 	static void load_nav_mesh(AssetID);
 	static void debug_draw(const RenderParams&);
 
-	static Entity* get_enemy(AI::Team, const Vec3&, const Vec3&, float, float, float = -1.0f, ComponentMask = -1);
-	static bool vision_check(const Vec3&, const Vec3&, const AIAgent*);
+	static Entity* vision_query(const AIAgent*, const Vec3&, const Vec3&, float, float, float = -1.0f, ComponentMask = -1);
+	static Entity* sound_query(AI::Team, const Vec3&, ComponentMask = -1);
+	static bool vision_check(const Vec3&, const Vec3&, const AIAgent*, const AIAgent*);
 
 	static dtPolyRef get_poly(const Vec3&, const float*);
 };

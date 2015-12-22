@@ -36,10 +36,12 @@ void Console::init()
 	Loader::font_permanent(font_asset);
 	text.font = font_asset;
 	text.size = 18.0f;
+	text.anchor_y = UIText::Anchor::Max;
 	fps_text.font = font_asset;
 	fps_text.size = 18.0f;
 	debug_text.font = font_asset;
 	debug_text.size = 18.0f;
+	debug_text.anchor_y = UIText::Anchor::Max;
 	log_text.font = font_asset;
 	log_text.size = 18.0f;
 	log_text.color = UI::default_color;
@@ -315,22 +317,26 @@ void Console::debug(const char* format, ...)
 
 void Console::draw(const RenderParams& p)
 {
-	const ScreenRect& vp = p.camera->viewport;
+	const Rect2& vp = p.camera->viewport;
+	float padding = 4.0f * UI::scale;
 	if (visible)
 	{
-		float height = text.size * UI::scale;
-		float padding = 2.0f * UI::scale;
-		UI::box(p, Vec2(vp.x, vp.y + vp.height - height - padding), Vec2(vp.width, height + padding), Vec4(0, 0, 0, 1));
-		text.draw(p, Vec2(vp.x, vp.y + vp.height - height));
+		text.wrap_width = vp.size.x;
+		float height = text.bounds().y + padding * 2.0f;
+		UI::box(p, { Vec2(vp.pos.x, vp.pos.y + vp.size.y - height), Vec2(vp.size.x, height) }, Vec4(0, 0, 0, 1));
+		text.draw(p, Vec2(vp.pos.x, vp.pos.y + vp.size.y - padding));
 	}
 	if (fps_visible)
-		fps_text.draw(p, Vec2(vp.x, vp.y));
+		fps_text.draw(p, Vec2(vp.pos.x, vp.pos.y));
 
-	debug_text.draw(p, Vec2(vp.x, vp.y + vp.height - text.size * UI::scale * 2.0f));
+	debug_text.draw(p, Vec2(vp.pos.x, vp.pos.y + vp.size.y - (text.bounds().y + padding * 3.0f)));
 
-	debug_text.draw(p, Vec2(vp.x, vp.y + vp.height - text.size * UI::scale * 2.0f));
-
-	log_text.draw(p, Vec2(vp.x + vp.width - text.size * UI::scale * 2.0f, vp.y + vp.height - text.size * UI::scale * 4.0f));
+	Vec2 pos = Vec2(vp.pos.x + vp.size.x - text.size * UI::scale * 2.0f, vp.pos.y + vp.size.y - text.size * UI::scale * 4.0f);
+	if (log_text.vertices.length > 0)
+	{
+		UI::box(p, log_text.rect(pos).outset(padding), Vec4(0, 0, 0, 1));
+		log_text.draw(p, pos);
+	}
 }
 
 }

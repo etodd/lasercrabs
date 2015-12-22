@@ -44,6 +44,7 @@ struct UIText
 
 	Vec2 normalized_bounds;
 	Vec2 bounds() const;
+	Rect2 rect(const Vec2&) const;
 	void text(const char*);
 	void reeval();
 	void refresh_vertices();
@@ -72,16 +73,16 @@ struct UI
 	static Array<int> indices;
 	static void init(LoopSync*);
 	static float get_scale(const int, const int);
-	static void box(const RenderParams&, const Vec2&, const Vec2&, const Vec4& = Vec4(1, 1, 1, 1));
-	static void centered_box(const RenderParams&, const Vec2&, const Vec2&, const Vec4& = Vec4(1, 1, 1, 1), const float = 0.0f);
-	static void border(const RenderParams&, const Vec2&, const Vec2&, const float, const Vec4& = Vec4(1, 1, 1, 1));
-	static void centered_border(const RenderParams&, const Vec2&, const Vec2&, const float, const Vec4& = Vec4(1, 1, 1, 1), const float = 0.0f);
-	static void triangle(const RenderParams&, const Vec2&, const Vec2&, const Vec4& = Vec4(1, 1, 1, 1), const float = 0.0f);
+	static void box(const RenderParams&, const Rect2&, const Vec4& = Vec4(1, 1, 1, 1));
+	static void centered_box(const RenderParams&, const Rect2&, const Vec4& = Vec4(1, 1, 1, 1), const float = 0.0f);
+	static void border(const RenderParams&, const Rect2&, const float, const Vec4& = Vec4(1, 1, 1, 1));
+	static void centered_border(const RenderParams&, const Rect2&, const float, const Vec4& = Vec4(1, 1, 1, 1), const float = 0.0f);
+	static void triangle(const RenderParams&, const Rect2&, const Vec4& = Vec4(1, 1, 1, 1), const float = 0.0f);
 	static void update(const RenderParams&);
 	static void draw(const RenderParams&);
 	static void mesh(const RenderParams&, const AssetID, const Vec2&, const Vec2& = Vec2(1, 1), const Vec4& = Vec4(1, 1, 1, 1), const float = 0.0f);
 	static bool project(const RenderParams&, const Vec3&, Vec2*);
-	static void texture(const RenderParams&, const int, const Vec2&, const Vec2&, const Vec4& = Vec4(1, 1, 1, 1), const Vec2& = Vec2::zero, const Vec2& = Vec2(1, 1), const AssetID = AssetNull);
+	static void texture(const RenderParams&, const int, const Rect2&, const Vec4& = Vec4(1, 1, 1, 1), const Rect2& = { Vec2::zero, Vec2(1, 1) }, const AssetID = AssetNull);
 #if DEBUG
 	static Array<Vec3> debugs;
 	static void debug(const Vec3&);

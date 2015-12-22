@@ -47,7 +47,7 @@ struct Camera
 	bool fog;
 	Vec3 pos;
 	Quat rot;
-	ScreenRect viewport;
+	Rect2 viewport;
 	Plane frustum[4];
 	Vec3 frustum_rays[4];
 

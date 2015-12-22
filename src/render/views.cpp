@@ -269,13 +269,13 @@ void SkyDecal::draw(const RenderParams& p)
 	sync->write(Asset::Uniform::uv_offset);
 	sync->write(RenderDataType::Vec2);
 	sync->write<int>(1);
-	sync->write<Vec2>(Vec2(p.camera->viewport.x, p.camera->viewport.y) * inv_buffer_size);
+	sync->write<Vec2>(p.camera->viewport.pos * inv_buffer_size);
 
 	sync->write(RenderOp::Uniform);
 	sync->write(Asset::Uniform::uv_scale);
 	sync->write(RenderDataType::Vec2);
 	sync->write<int>(1);
-	sync->write<Vec2>(Vec2(p.camera->viewport.width, p.camera->viewport.height) * inv_buffer_size);
+	sync->write<Vec2>(p.camera->viewport.size * inv_buffer_size);
 
 	sync->write(RenderOp::Uniform);
 	sync->write(Asset::Uniform::depth_buffer);
@@ -447,13 +447,13 @@ void Skybox::draw(const RenderParams& p)
 	sync->write(Asset::Uniform::uv_offset);
 	sync->write(RenderDataType::Vec2);
 	sync->write<int>(1);
-	sync->write<Vec2>(Vec2(p.camera->viewport.x, p.camera->viewport.y) * inv_buffer_size);
+	sync->write<Vec2>(p.camera->viewport.pos * inv_buffer_size);
 
 	sync->write(RenderOp::Uniform);
 	sync->write(Asset::Uniform::uv_scale);
 	sync->write(RenderDataType::Vec2);
 	sync->write<int>(1);
-	sync->write<Vec2>(Vec2(p.camera->viewport.width, p.camera->viewport.height) * inv_buffer_size);
+	sync->write<Vec2>(p.camera->viewport.size * inv_buffer_size);
 
 	sync->write(RenderOp::Uniform);
 	sync->write(Asset::Uniform::depth_buffer);
@@ -567,22 +567,22 @@ void ScreenQuad::init(RenderSync* sync)
 	sync->write(indices, 6);
 }
 
-void ScreenQuad::set(RenderSync* sync, const Vec2& a, const Vec2& b, const Camera* camera, const Vec2& uva, const Vec2& uvb)
+void ScreenQuad::set(RenderSync* sync, const Rect2& r, const Camera* camera, const Rect2& uv)
 {
 	Vec3 vertices[] =
 	{
-		Vec3(a.x, a.y, 0),
-		Vec3(b.x, a.y, 0),
-		Vec3(a.x, b.y, 0),
-		Vec3(b.x, b.y, 0),
+		Vec3(r.pos.x, r.pos.y, 0),
+		Vec3(r.pos.x + r.size.x, r.pos.y, 0),
+		Vec3(r.pos.x, r.pos.y + r.size.y, 0),
+		Vec3(r.pos.x + r.size.x, r.pos.y + r.size.y, 0),
 	};
 
 	Vec2 uvs[] =
 	{
-		Vec2(uva.x, uva.y),
-		Vec2(uvb.x, uva.y),
-		Vec2(uva.x, uvb.y),
-		Vec2(uvb.x, uvb.y),
+		Vec2(uv.pos.x, uv.pos.y),
+		Vec2(uv.pos.x + uv.size.x, uv.pos.y),
+		Vec2(uv.pos.x, uv.pos.y + uv.size.y),
+		Vec2(uv.pos.x + uv.size.x, uv.pos.y + uv.size.y),
 	};
 
 	sync->write(RenderOp::UpdateAttribBuffers);

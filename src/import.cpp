@@ -1791,24 +1791,7 @@ bool load_font(const aiScene* scene, Font& font)
 	int current_mesh_vertex = 0;
 	int current_mesh_index = 0;
 
-	// Determine tallest character
-	float scale = 1.0f;
-	{
-		float min_height = FLT_MAX, max_height = FLT_MIN;
-		for (unsigned int i = 0; i < scene->mNumMeshes; i++)
-		{
-			aiMesh* ai_mesh = scene->mMeshes[i];
-			font.vertices.reserve(current_mesh_vertex + ai_mesh->mNumVertices);
-			for (unsigned int j = 0; j < ai_mesh->mNumVertices; j++)
-			{
-				aiVector3D pos = ai_mesh->mVertices[j];
-				min_height = fmin(min_height, pos.y);
-				max_height = fmax(max_height, pos.y);
-			}
-		}
-		if (max_height > min_height)
-			scale = 1.0f / (max_height - min_height);
-	}
+	const float scale = 1.2f;
 
 	for (unsigned int i = 0; i < scene->mNumMeshes; i++)
 	{
@@ -1818,7 +1801,8 @@ bool load_font(const aiScene* scene, Font& font)
 		for (unsigned int j = 0; j < ai_mesh->mNumVertices; j++)
 		{
 			aiVector3D pos = ai_mesh->mVertices[j];
-			Vec3 vertex = Vec3(pos.x * scale, pos.y * scale, pos.z * scale);
+			Vec3 p = Vec3(pos.x, pos.y, pos.z);
+			Vec3 vertex = (p * scale) + Vec3(0, 0.05f, 0);
 			min_vertex.x = fmin(min_vertex.x, vertex.x);
 			min_vertex.y = fmin(min_vertex.y, vertex.y);
 			max_vertex.x = fmax(max_vertex.x, vertex.x);
@@ -2144,7 +2128,6 @@ int proc(int argc, char* argv[])
 
 		if (state.rebuild
 			|| !maps_equal2(state.manifest.meshes, state.cached_manifest.meshes)
-			|| !maps_equal(state.manifest.levels, state.cached_manifest.levels)
 			|| filemtime(mesh_header_path) == 0)
 		{
 			printf("Writing mesh header\n");

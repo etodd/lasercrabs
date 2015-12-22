@@ -231,8 +231,8 @@ void render(RenderSync* sync)
 			}
 			case RenderOp::Viewport:
 			{
-				const ScreenRect* rect = sync->read<ScreenRect>();
-				glViewport(rect->x, rect->y, rect->width, rect->height);
+				const Rect2* rect = sync->read<Rect2>();
+				glViewport(rect->pos.x, rect->pos.y, rect->size.x, rect->size.y);
 				debug_check();
 				break;
 			}
@@ -950,9 +950,9 @@ void render(RenderSync* sync)
 			{
 				int id = *(sync->read<int>());
 				glBindFramebuffer(GL_READ_FRAMEBUFFER, GLData::framebuffers[id]);
-				const ScreenRect* src = sync->read<ScreenRect>();
-				const ScreenRect* dst = sync->read<ScreenRect>();
-				glBlitFramebuffer(src->x, src->y, src->x + src->width, src->y + src->height, dst->x, dst->y, dst->x + dst->width, dst->y + dst->height, GL_COLOR_BUFFER_BIT, GL_NEAREST);
+				const Rect2* src = sync->read<Rect2>();
+				const Rect2* dst = sync->read<Rect2>();
+				glBlitFramebuffer(src->pos.x, src->pos.y, src->pos.x + src->size.x, src->pos.y + src->size.y, dst->pos.x, dst->pos.y, dst->pos.x + dst->size.x, dst->pos.y + dst->size.y, GL_COLOR_BUFFER_BIT, GL_NEAREST);
 				debug_check();
 				break;
 			};

@@ -66,7 +66,7 @@ Mat4 render_shadows(LoopSync* sync, int fbo, const Camera& main_camera, const Ca
 	shadow_render_params.sync = sync;
 
 	sync->write<RenderOp>(RenderOp::Viewport);
-	sync->write<ScreenRect>(shadow_camera.viewport);
+	sync->write<Rect2>(shadow_camera.viewport);
 
 	sync->write<RenderOp>(RenderOp::Clear);
 	sync->write<bool>(false); // Don't clear color
@@ -97,7 +97,11 @@ void draw(LoopSync* sync, const Camera* camera)
 	render_params.view_projection = render_params.view * camera->projection;
 	render_params.technique = RenderTechnique::Default;
 
-	ScreenRect half_viewport = { (int)(camera->viewport.x * 0.5f), (int)(camera->viewport.y * 0.5f), (int)(camera->viewport.width * 0.5f), (int)(camera->viewport.height * 0.5f) };
+	Rect2 half_viewport =
+	{
+		Vec2((int)(camera->viewport.pos.x * 0.5f), (int)(camera->viewport.pos.y * 0.5f)),
+		Vec2((int)(camera->viewport.size.x * 0.5f), (int)(camera->viewport.size.y * 0.5f)),
+	};
 
 	Mat4 inverse_view = render_params.view.inverse();
 	Mat4 inverse_view_rotation_only = inverse_view;
@@ -106,25 +110,26 @@ void draw(LoopSync* sync, const Camera* camera)
 	const Vec3* frustum = render_params.camera->frustum_rays;
 
 	Vec2 buffer_size(sync->input.width, sync->input.height);
-	Vec2 inv_buffer_size(1.0f / buffer_size.x, 1.0f / buffer_size.y);
+	Vec2 inv_buffer_size = 1.0f / buffer_size;
 	Vec2 inv_half_buffer_size = inv_buffer_size * 2.0f;
 
-	Vec2 screen_quad_uva = Vec2((float)camera->viewport.x / (float)sync->input.width, (float)camera->viewport.y / (float)sync->input.height);
-	Vec2 screen_quad_uvb = Vec2(((float)camera->viewport.x + (float)camera->viewport.width) / (float)sync->input.width, ((float)camera->viewport.y + (float)camera->viewport.height) / (float)sync->input.height);
+	Rect2 screen_quad_uv =
+	{
+		camera->viewport.pos / Vec2(sync->input.width, sync->input.height),
+		camera->viewport.size / Vec2(sync->input.width, sync->input.height),
+	};
 	screen_quad.set
 	(
 		sync,
-		Vec2(-1, -1),
-		Vec2(1, 1),
+		{ Vec2(-1, -1), Vec2(2, 2) },
 		camera,
-		screen_quad_uva,
-		screen_quad_uvb
+		screen_quad_uv
 	);
 
 	UI::update(render_params);
 
 	sync->write<RenderOp>(RenderOp::Viewport);
-	sync->write<ScreenRect>(camera->viewport);
+	sync->write<Rect2>(camera->viewport);
 
 	// Fill G buffer
 	{
@@ -184,7 +189,11 @@ void draw(LoopSync* sync, const Camera* camera)
 			{
 				// Global shadow map
 				Camera shadow_camera;
-				shadow_camera.viewport = { 0, 0, shadow_map_size[1], shadow_map_size[1] };
+				shadow_camera.viewport =
+				{
+					Vec2(0, 0),
+					Vec2(shadow_map_size[1], shadow_map_size[1]),
+				};
 				float size = fmin(800.0f, render_params.camera->far_plane);
 				Vec3 pos = render_params.camera->pos;
 				const float interval = size * 0.025f;
@@ -199,13 +208,17 @@ void draw(LoopSync* sync, const Camera* camera)
 				render_params.shadow_buffer = shadow_buffer[1];
 
 				// Detail shadow map
-				shadow_camera.viewport = { 0, 0, shadow_map_size[0], shadow_map_size[0] };
+				shadow_camera.viewport =
+				{
+					Vec2(0, 0),
+					Vec2(shadow_map_size[0], shadow_map_size[0]),
+				};
 				shadow_camera.orthographic(size * 0.1f, size * 0.1f, 1.0f, size * 2.0f);
 
 				detail_light_vp = render_shadows(sync, shadow_fbo[0], *render_params.camera, shadow_camera);
 
 				sync->write<RenderOp>(RenderOp::Viewport);
-				sync->write<ScreenRect>(camera->viewport);
+				sync->write<Rect2>(camera->viewport);
 			}
 
 			sync->write<RenderOp>(RenderOp::BlendMode);
@@ -324,13 +337,13 @@ void draw(LoopSync* sync, const Camera* camera)
 			sync->write(Asset::Uniform::uv_offset);
 			sync->write(RenderDataType::Vec2);
 			sync->write<int>(1);
-			sync->write<Vec2>(Vec2(camera->viewport.x, camera->viewport.y) * inv_buffer_size);
+			sync->write<Vec2>(camera->viewport.pos * inv_buffer_size);
 
 			sync->write(RenderOp::Uniform);
 			sync->write(Asset::Uniform::uv_scale);
 			sync->write(RenderDataType::Vec2);
 			sync->write<int>(1);
-			sync->write<Vec2>(Vec2(camera->viewport.width, camera->viewport.height) * inv_buffer_size);
+			sync->write<Vec2>(camera->viewport.size * inv_buffer_size);
 
 			sync->write(RenderOp::Uniform);
 			sync->write(Asset::Uniform::frustum);
@@ -414,7 +427,11 @@ void draw(LoopSync* sync, const Camera* camera)
 
 			{
 				Camera shadow_camera;
-				shadow_camera.viewport = { 0, 0, shadow_map_size[0], shadow_map_size[0] };
+				shadow_camera.viewport =
+				{
+					Vec2(0, 0),
+					Vec2(shadow_map_size[0], shadow_map_size[0]),
+				};
 				shadow_camera.perspective(light->fov, 1.0f, 0.1f, light->radius);
 				shadow_camera.pos = abs_pos;
 				shadow_camera.rot = abs_rot;
@@ -430,7 +447,7 @@ void draw(LoopSync* sync, const Camera* camera)
 			sync->write<RenderCullMode>(RenderCullMode::Front);
 
 			sync->write<RenderOp>(RenderOp::Viewport);
-			sync->write<ScreenRect>(camera->viewport);
+			sync->write<Rect2>(camera->viewport);
 
 			Loader::shader_permanent(Asset::Shader::spot_light);
 			sync->write(RenderOp::Shader);
@@ -441,13 +458,13 @@ void draw(LoopSync* sync, const Camera* camera)
 			sync->write(Asset::Uniform::uv_offset);
 			sync->write(RenderDataType::Vec2);
 			sync->write<int>(1);
-			sync->write<Vec2>(Vec2(camera->viewport.x, camera->viewport.y) * inv_buffer_size);
+			sync->write<Vec2>(camera->viewport.pos * inv_buffer_size);
 
 			sync->write(RenderOp::Uniform);
 			sync->write(Asset::Uniform::uv_scale);
 			sync->write(RenderDataType::Vec2);
 			sync->write<int>(1);
-			sync->write<Vec2>(Vec2(camera->viewport.width, camera->viewport.height) * inv_buffer_size);
+			sync->write<Vec2>(camera->viewport.size * inv_buffer_size);
 
 			sync->write(RenderOp::Uniform);
 			sync->write(Asset::Uniform::p);
@@ -519,11 +536,11 @@ void draw(LoopSync* sync, const Camera* camera)
 			Mat4 light_transform;
 			float width_scale = sinf(light->fov) * light->radius * 2.0f;
 			Vec3 light_model_scale
-			(
-				width_scale,
-				width_scale,
-				cosf(light->fov) * light->radius * 2.0f
-			);
+				(
+					width_scale,
+					width_scale,
+					cosf(light->fov) * light->radius * 2.0f
+					);
 			light_transform.make_transform(abs_pos, light_model_scale, abs_rot);
 			sync->write<Mat4>(light_transform * render_params.view_projection);
 
@@ -550,7 +567,7 @@ void draw(LoopSync* sync, const Camera* camera)
 		sync->write<int>(half_fbo1);
 
 		sync->write(RenderOp::Viewport);
-		sync->write<ScreenRect>(half_viewport);
+		sync->write<Rect2>(half_viewport);
 
 		// Downsample
 		{
@@ -635,13 +652,13 @@ void draw(LoopSync* sync, const Camera* camera)
 			sync->write(Asset::Uniform::uv_offset);
 			sync->write(RenderDataType::Vec2);
 			sync->write<int>(1);
-			sync->write<Vec2>(Vec2(camera->viewport.x, camera->viewport.y) * inv_buffer_size);
+			sync->write<Vec2>(camera->viewport.pos * inv_buffer_size);
 
 			sync->write(RenderOp::Uniform);
 			sync->write(Asset::Uniform::inv_uv_scale);
 			sync->write(RenderDataType::Vec2);
 			sync->write<int>(1);
-			sync->write<Vec2>(Vec2(1, 1) / (Vec2(camera->viewport.width, camera->viewport.height) * inv_buffer_size));
+			sync->write<Vec2>(Vec2(1, 1) / (camera->viewport.size * inv_buffer_size));
 
 			sync->write(RenderOp::Uniform);
 			sync->write(Asset::Uniform::far_plane);
@@ -724,7 +741,7 @@ void draw(LoopSync* sync, const Camera* camera)
 	// Post processing
 
 	sync->write<RenderOp>(RenderOp::Viewport);
-	sync->write<ScreenRect>(camera->viewport);
+	sync->write<Rect2>(camera->viewport);
 
 	sync->write<RenderOp>(RenderOp::DepthMask);
 	sync->write<bool>(false);
@@ -912,7 +929,7 @@ void draw(LoopSync* sync, const Camera* camera)
 		sync->write(color_fbo1);
 
 		// Overlay UI on to the color buffer
-		UI::texture(render_params, color_buffer2, Vec2(0, 0), Vec2(camera->viewport.width, camera->viewport.height), Vec4(1, 1, 1, 1), screen_quad_uva, screen_quad_uvb);
+		UI::texture(render_params, color_buffer2, camera->viewport, Vec4(1, 1, 1, 1), screen_quad_uv);
 
 		sync->write<RenderOp>(RenderOp::BlendMode);
 		sync->write<RenderBlendMode>(RenderBlendMode::Opaque);
@@ -925,7 +942,7 @@ void draw(LoopSync* sync, const Camera* camera)
 		sync->write<int>(half_fbo1);
 
 		sync->write(RenderOp::Viewport);
-		sync->write<ScreenRect>(half_viewport);
+		sync->write<Rect2>(half_viewport);
 
 		Loader::shader_permanent(Asset::Shader::bloom_downsample);
 		sync->write(RenderOp::Shader);
@@ -998,14 +1015,14 @@ void draw(LoopSync* sync, const Camera* camera)
 	sync->write(AssetNull);
 
 	sync->write(RenderOp::Viewport);
-	sync->write<ScreenRect>(camera->viewport);
+	sync->write<Rect2>(camera->viewport);
 
-	UI::texture(render_params, color_buffer, Vec2(0, 0), Vec2(camera->viewport.width, camera->viewport.height), Vec4(1, 1, 1, 1), screen_quad_uva, screen_quad_uvb);
+	UI::texture(render_params, color_buffer, camera->viewport, Vec4(1, 1, 1, 1), screen_quad_uv);
 
 	// Composite bloom
 	sync->write<RenderOp>(RenderOp::BlendMode);
 	sync->write<RenderBlendMode>(RenderBlendMode::Additive);
-	UI::texture(render_params, half_buffer2, Vec2(0, 0), Vec2(camera->viewport.width, camera->viewport.height), Vec4(1, 1, 1, 0.5f), screen_quad_uva, screen_quad_uvb);
+	UI::texture(render_params, half_buffer2, camera->viewport, Vec4(1, 1, 1, 0.5f), screen_quad_uv);
 	sync->write<RenderOp>(RenderOp::BlendMode);
 	sync->write<RenderBlendMode>(RenderBlendMode::Opaque);
 
@@ -1013,19 +1030,19 @@ void draw(LoopSync* sync, const Camera* camera)
 	// Debug render buffers
 	Loader::shader_permanent(Asset::Shader::debug_depth);
 	const int buffer_count = 8;
-	Vec2 debug_buffer_size = Vec2(camera->viewport.width / (float)buffer_count, camera->viewport.height / (float)buffer_count);
-	UI::texture(render_params, color_buffer, Vec2(debug_buffer_size.x * 0, 0), debug_buffer_size, Vec4(1, 1, 1, 1), screen_quad_uva, screen_quad_uvb);
-	UI::texture(render_params, normal_buffer, Vec2(debug_buffer_size.x * 1, 0), debug_buffer_size, Vec4(1, 1, 1, 1), screen_quad_uva, screen_quad_uvb);
-	UI::texture(render_params, lighting_buffer, Vec2(debug_buffer_size.x * 2, 0), debug_buffer_size, Vec4(1, 1, 1, 1), screen_quad_uva, screen_quad_uvb);
-	UI::texture(render_params, depth_buffer, Vec2(debug_buffer_size.x * 3, 0), debug_buffer_size, Vec4(1, 1, 1, 1), screen_quad_uva, screen_quad_uvb, Asset::Shader::debug_depth);
-	UI::texture(render_params, color_buffer2, Vec2(debug_buffer_size.x * 4, 0), debug_buffer_size, Vec4(1, 1, 1, 1), screen_quad_uva, screen_quad_uvb);
-	UI::texture(render_params, half_buffer1, Vec2(debug_buffer_size.x * 5, 0), debug_buffer_size, Vec4(1, 1, 1, 1), screen_quad_uva, screen_quad_uvb);
-	UI::texture(render_params, half_buffer2, Vec2(debug_buffer_size.x * 6, 0), debug_buffer_size, Vec4(1, 1, 1, 1), screen_quad_uva, screen_quad_uvb);
-	UI::texture(render_params, half_depth_buffer, Vec2(debug_buffer_size.x * 7, 0), debug_buffer_size, Vec4(1, 1, 1, 1), screen_quad_uva, screen_quad_uvb, Asset::Shader::debug_depth);
+	Vec2 debug_buffer_size = camera->viewport.size / buffer_count;
+	UI::texture(render_params, color_buffer, { Vec2(debug_buffer_size.x * 0, 0), debug_buffer_size }, Vec4(1, 1, 1, 1), screen_quad_uv);
+	UI::texture(render_params, normal_buffer, { Vec2(debug_buffer_size.x * 1, 0), debug_buffer_size }, Vec4(1, 1, 1, 1), screen_quad_uv);
+	UI::texture(render_params, lighting_buffer, { Vec2(debug_buffer_size.x * 2, 0), debug_buffer_size }, Vec4(1, 1, 1, 1), screen_quad_uv);
+	UI::texture(render_params, depth_buffer, { Vec2(debug_buffer_size.x * 3, 0), debug_buffer_size }, Vec4(1, 1, 1, 1), screen_quad_uv, Asset::Shader::debug_depth);
+	UI::texture(render_params, color_buffer2, { Vec2(debug_buffer_size.x * 4, 0), debug_buffer_size }, Vec4(1, 1, 1, 1), screen_quad_uv);
+	UI::texture(render_params, half_buffer1, { Vec2(debug_buffer_size.x * 5, 0), debug_buffer_size }, Vec4(1, 1, 1, 1), screen_quad_uv);
+	UI::texture(render_params, half_buffer2, { Vec2(debug_buffer_size.x * 6, 0), debug_buffer_size }, Vec4(1, 1, 1, 1), screen_quad_uv);
+	UI::texture(render_params, half_depth_buffer, { Vec2(debug_buffer_size.x * 7, 0), debug_buffer_size }, Vec4(1, 1, 1, 1), screen_quad_uv, Asset::Shader::debug_depth);
 
 	Vec2 debug_buffer_shadow_map_size = Vec2(128.0f * UI::scale);
 	for (int i = 0; i < SHADOW_MAP_CASCADES; i++)
-		UI::texture(render_params, shadow_buffer[i], Vec2(debug_buffer_shadow_map_size.x * i, debug_buffer_size.y), debug_buffer_shadow_map_size, Vec4(1, 1, 1, 1), Vec2::zero, Vec2(1, 1), Asset::Shader::debug_depth);
+		UI::texture(render_params, shadow_buffer[i], { Vec2(debug_buffer_shadow_map_size.x * i, debug_buffer_size.y), debug_buffer_shadow_map_size }, Vec4(1, 1, 1, 1), { Vec2::zero, Vec2(1, 1) }, Asset::Shader::debug_depth);
 #endif
 
 	sync->write(RenderOp::DepthMask);

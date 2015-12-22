@@ -132,10 +132,10 @@ void UIText::refresh_vertices()
 	indices.length = 0;
 	int vertex_index = 0;
 	int index_index = 0;
-	Vec3 pos(0, 0, 0);
+	Vec3 pos(0, -1.0f, 0);
 	int char_index = 0;
 	char c;
-	const float spacing = 0.075f;
+	const Vec2 spacing = Vec2(0.075f, 0.3f);
 	float wrap = wrap_width / size;
 	while ((c = rendered_string[char_index]))
 	{
@@ -143,13 +143,13 @@ void UIText::refresh_vertices()
 		if (c == '\n')
 		{
 			pos.x = 0.0f;
-			pos.y -= 1.0f + spacing;
+			pos.y -= 1.0f + spacing.y;
 		}
 		else if (wrap > 0.0f && (c == ' ' || c == '\t'))
 		{
 			// Check if we need to put the next word on the next line
 
-			float end_of_next_word = pos.x + spacing + character->max.x;
+			float end_of_next_word = pos.x + spacing.x + character->max.x;
 			int word_index = char_index + 1;
 			char word_char;
 			while (true)
@@ -157,7 +157,7 @@ void UIText::refresh_vertices()
 				word_char = rendered_string[word_index];
 				if (!word_char || word_char == ' ' || word_char == '\t' || word_char == '\n')
 					break;
-				end_of_next_word += spacing + f->characters[word_char].max.x;
+				end_of_next_word += spacing.x + f->characters[word_char].max.x;
 				word_index++;
 			}
 
@@ -165,12 +165,12 @@ void UIText::refresh_vertices()
 			{
 				// New line
 				pos.x = 0.0f;
-				pos.y -= 1.0f + spacing;
+				pos.y -= 1.0f + spacing.y;
 			}
 			else
 			{
 				// Just a regular whitespace character
-				pos.x += spacing + character->max.x;
+				pos.x += spacing.x + character->max.x;
 			}
 		}
 		else
@@ -181,7 +181,7 @@ void UIText::refresh_vertices()
 				for (int i = 0; i < character->vertex_count; i++)
 					vertices[vertex_index + i] = f->vertices[character->vertex_start + i] + pos;
 
-				pos.x += spacing + character->max.x;
+				pos.x += spacing.x + character->max.x;
 
 				indices.resize(index_index + character->index_count);
 				for (int i = 0; i < character->index_count; i++)
@@ -196,10 +196,11 @@ void UIText::refresh_vertices()
 		}
 
 		normalized_bounds.x = fmax(normalized_bounds.x, pos.x);
-		normalized_bounds.y = fmax(normalized_bounds.y, 1.0f - pos.y);
 
 		char_index++;
 	}
+
+	normalized_bounds.y = -pos.y;
 }
 
 // Only render characters up to the specified index
@@ -255,10 +256,47 @@ Vec2 UIText::bounds() const
 	return b;
 }
 
+Rect2 UIText::rect(const Vec2& pos) const
+{
+	Rect2 result;
+	result.size = bounds();
+	switch (anchor_x)
+	{
+		case Anchor::Min:
+			result.pos.x = pos.x;
+			break;
+		case Anchor::Center:
+			result.pos.x = pos.x + result.size.x * -0.5f;
+			break;
+		case Anchor::Max:
+			result.pos.x = pos.x - result.size.x;
+			break;
+		default:
+			vi_assert(false);
+			break;
+	}
+	switch (anchor_y)
+	{
+		case Anchor::Min:
+			result.pos.y = pos.y;
+			break;
+		case Anchor::Center:
+			result.pos.y = pos.y + result.size.y * -0.5f;
+			break;
+		case Anchor::Max:
+			result.pos.y = pos.y - result.size.y;
+			break;
+		default:
+			vi_assert(false);
+			break;
+	}
+	return result;
+}
+
 void UIText::draw(const RenderParams& params, const Vec2& pos, const float rot) const
 {
 	int vertex_start = UI::vertices.length;
-	Vec2 screen = Vec2(params.camera->viewport.width * 0.5f, params.camera->viewport.height * 0.5f);
+	Vec2 screen = params.camera->viewport.size * 0.5f;
 	Vec2 offset = pos - screen;
 	Vec2 bound = bounds();
 	switch (anchor_x)
@@ -278,12 +316,12 @@ void UIText::draw(const RenderParams& params, const Vec2& pos, const float rot) 
 	switch (anchor_y)
 	{
 		case Anchor::Min:
+			offset.y += bound.y;
 			break;
 		case Anchor::Center:
-			offset.y += (bound.y * 0.5f) - (size * 0.75f);
+			offset.y += bound.y * 0.5f;
 			break;
 		case Anchor::Max:
-			offset.y += bound.y - size;
 			break;
 		default:
 			vi_assert(false);
@@ -294,11 +332,12 @@ void UIText::draw(const RenderParams& params, const Vec2& pos, const float rot) 
 
 	int vertex_count = clip_vertex > 0 ? clip_vertex : vertices.length;
 	UI::vertices.reserve(UI::vertices.length + vertex_count);
+	float scaled_size = size * UI::scale;
 	for (int i = 0; i < vertex_count; i++)
 	{
 		Vec3 vertex;
-		vertex.x = (offset.x + size * UI::scale * (vertices[i].x * cs - vertices[i].y * sn)) * scale.x;
-		vertex.y = (offset.y + size * UI::scale * (vertices[i].x * sn + vertices[i].y * cs)) * scale.y;
+		vertex.x = (offset.x + scaled_size * (vertices[i].x * cs - vertices[i].y * sn)) * scale.x;
+		vertex.y = (offset.y + scaled_size * (vertices[i].x * sn + vertices[i].y * cs)) * scale.y;
 		UI::vertices.add(vertex);
 	}
 
@@ -314,7 +353,7 @@ void UIText::draw(const RenderParams& params, const Vec2& pos, const float rot) 
 
 const Vec4 UI::default_color = Vec4(1, 1, 1, 1);
 const Vec4 UI::alert_color = Vec4(1.0f, 0.2f, 0.2f, 1.0f);
-const Vec4 UI::subtle_color = Vec4(1.0f, 1.0f, 1.0f, 0.75f);
+const Vec4 UI::subtle_color = Vec4(0.044f, 0.279f, 0.445f, 1);
 float UI::scale = 1.0f;
 int UI::mesh_id = AssetNull;
 int UI::texture_mesh_id = AssetNull;
@@ -322,15 +361,15 @@ Array<Vec3> UI::vertices = Array<Vec3>();
 Array<Vec4> UI::colors = Array<Vec4>();
 Array<int> UI::indices = Array<int>();
 
-void UI::box(const RenderParams& params, const Vec2& pos, const Vec2& size, const Vec4& color)
+void UI::box(const RenderParams& params, const Rect2& r, const Vec4& color)
 {
-	if (size.x > 0 && size.y > 0 && color.w > 0)
+	if (r.size.x > 0 && r.size.y > 0 && color.w > 0)
 	{
 		int vertex_start = UI::vertices.length;
-		Vec2 screen = Vec2(params.camera->viewport.width * 0.5f, params.camera->viewport.height * 0.5f);
+		Vec2 screen = params.camera->viewport.size * 0.5f;
 		Vec2 scale = Vec2(1.0f / screen.x, 1.0f / screen.y);
-		Vec2 scaled_pos = (pos - screen) * scale;
-		Vec2 scaled_size = size * scale;
+		Vec2 scaled_pos = (r.pos - screen) * scale;
+		Vec2 scaled_size = r.size * scale;
 
 		UI::vertices.add(Vec3(scaled_pos.x, scaled_pos.y, 0));
 		UI::vertices.add(Vec3(scaled_pos.x + scaled_size.x, scaled_pos.y, 0));
@@ -349,21 +388,21 @@ void UI::box(const RenderParams& params, const Vec2& pos, const Vec2& size, cons
 	}
 }
 
-void UI::centered_box(const RenderParams& params, const Vec2& pos, const Vec2& size, const Vec4& color, float rot)
+void UI::centered_box(const RenderParams& params, const Rect2& r, const Vec4& color, float rot)
 {
-	if (size.x > 0 && size.y > 0 && color.w > 0)
+	if (r.size.x > 0 && r.size.y > 0 && color.w > 0)
 	{
 		int vertex_start = UI::vertices.length;
-		Vec2 screen = Vec2(params.camera->viewport.width * 0.5f, params.camera->viewport.height * 0.5f);
+		Vec2 screen = params.camera->viewport.size * 0.5f;
 		Vec2 scale = Vec2(1.0f / screen.x, 1.0f / screen.y);
-		Vec2 scaled_pos = (pos - screen) * scale;
+		Vec2 scaled_pos = (r.pos - screen) * scale;
 
 		Vec2 corners[4] =
 		{
-			Vec2(size.x * -0.5f, size.y * -0.5f),
-			Vec2(size.x * 0.5f, size.y * -0.5f),
-			Vec2(size.x * -0.5f, size.y * 0.5f),
-			Vec2(size.x * 0.5f, size.y * 0.5f),
+			Vec2(r.size.x * -0.5f, r.size.y * -0.5f),
+			Vec2(r.size.x * 0.5f, r.size.y * -0.5f),
+			Vec2(r.size.x * -0.5f, r.size.y * 0.5f),
+			Vec2(r.size.x * 0.5f, r.size.y * 0.5f),
 		};
 
 		float cs = cosf(rot), sn = sinf(rot);
@@ -384,15 +423,15 @@ void UI::centered_box(const RenderParams& params, const Vec2& pos, const Vec2& s
 	}
 }
 
-void UI::border(const RenderParams& params, const Vec2& pos, const Vec2& size, const float thickness, const Vec4& color)
+void UI::border(const RenderParams& params, const Rect2& r, const float thickness, const Vec4& color)
 {
-	if (size.x > 0 && size.y > 0 && color.w > 0)
+	if (r.size.x > 0 && r.size.y > 0 && color.w > 0)
 	{
 		int vertex_start = UI::vertices.length;
-		Vec2 screen = Vec2(params.camera->viewport.width * 0.5f, params.camera->viewport.height * 0.5f);
+		Vec2 screen = params.camera->viewport.size * 0.5f;
 		Vec2 scale = Vec2(1.0f / screen.x, 1.0f / screen.y);
-		Vec2 scaled_pos = (pos - screen) * scale;
-		Vec2 scaled_size = size * scale;
+		Vec2 scaled_pos = (r.pos - screen) * scale;
+		Vec2 scaled_size = r.size * scale;
 		Vec2 scaled_thickness = Vec2(thickness, thickness) * scale;
 
 		UI::vertices.add(Vec3(scaled_pos.x, scaled_pos.y, 0));
@@ -438,25 +477,25 @@ void UI::border(const RenderParams& params, const Vec2& pos, const Vec2& size, c
 	}
 }
 
-void UI::centered_border(const RenderParams& params, const Vec2& pos, const Vec2& size, const float thickness, const Vec4& color, const float rot)
+void UI::centered_border(const RenderParams& params, const Rect2& r, const float thickness, const Vec4& color, const float rot)
 {
-	if (size.x > 0 && size.y > 0 && color.w > 0)
+	if (r.size.x > 0 && r.size.y > 0 && color.w > 0)
 	{
 		int vertex_start = UI::vertices.length;
-		Vec2 screen = Vec2(params.camera->viewport.width * 0.5f, params.camera->viewport.height * 0.5f);
+		Vec2 screen = params.camera->viewport.size * 0.5f;
 		Vec2 scale = Vec2(1.0f / screen.x, 1.0f / screen.y);
-		Vec2 scaled_pos = (pos - screen) * scale;
+		Vec2 scaled_pos = (r.pos - screen) * scale;
 
 		Vec2 corners[8] =
 		{
-			Vec2(size.x * -0.5f, size.y * -0.5f),
-			Vec2(size.x * 0.5f, size.y * -0.5f),
-			Vec2(size.x * -0.5f, size.y * 0.5f),
-			Vec2(size.x * 0.5f, size.y * 0.5f),
-			Vec2(size.x * -0.5f - thickness, size.y * -0.5f - thickness),
-			Vec2(size.x * 0.5f + thickness, size.y * -0.5f - thickness),
-			Vec2(size.x * -0.5f - thickness, size.y * 0.5f + thickness),
-			Vec2(size.x * 0.5f + thickness, size.y * 0.5f + thickness),
+			Vec2(r.size.x * -0.5f, r.size.y * -0.5f),
+			Vec2(r.size.x * 0.5f, r.size.y * -0.5f),
+			Vec2(r.size.x * -0.5f, r.size.y * 0.5f),
+			Vec2(r.size.x * 0.5f, r.size.y * 0.5f),
+			Vec2(r.size.x * -0.5f - thickness, r.size.y * -0.5f - thickness),
+			Vec2(r.size.x * 0.5f + thickness, r.size.y * -0.5f - thickness),
+			Vec2(r.size.x * -0.5f - thickness, r.size.y * 0.5f + thickness),
+			Vec2(r.size.x * 0.5f + thickness, r.size.y * 0.5f + thickness),
 		};
 
 		float cs = cosf(rot), sn = sinf(rot);
@@ -504,21 +543,21 @@ void UI::centered_border(const RenderParams& params, const Vec2& pos, const Vec2
 	}
 }
 
-void UI::triangle(const RenderParams& params, const Vec2& pos, const Vec2& size, const Vec4& color, float rot)
+void UI::triangle(const RenderParams& params, const Rect2& r, const Vec4& color, float rot)
 {
-	if (size.x > 0 && size.y > 0 && color.w > 0)
+	if (r.size.x > 0 && r.size.y > 0 && color.w > 0)
 	{
 		int vertex_start = UI::vertices.length;
-		Vec2 screen = Vec2(params.camera->viewport.width * 0.5f, params.camera->viewport.height * 0.5f);
+		Vec2 screen = params.camera->viewport.size * 0.5f;
 		Vec2 scale = Vec2(1.0f / screen.x, 1.0f / screen.y);
-		Vec2 scaled_pos = (pos - screen) * scale;
+		Vec2 scaled_pos = (r.pos - screen) * scale;
 
 		const float ratio = 0.8660254037844386f;
 		Vec2 corners[3] =
 		{
-			Vec2(size.x * 0.5f * ratio, size.y * -0.25f),
-			Vec2(0, size.y * 0.5f),
-			Vec2(size.x * -0.5f * ratio, size.y * -0.25f),
+			Vec2(r.size.x * 0.5f * ratio, r.size.y * -0.25f),
+			Vec2(0, r.size.y * 0.5f),
+			Vec2(r.size.x * -0.5f * ratio, r.size.y * -0.25f),
 		};
 
 		float cs = cosf(rot), sn = sinf(rot);
@@ -539,7 +578,7 @@ void UI::mesh(const RenderParams& params, const AssetID mesh, const Vec2& pos, c
 	if (size.x > 0 && size.y > 0 && color.w > 0)
 	{
 		int vertex_start = UI::vertices.length;
-		Vec2 screen = Vec2(params.camera->viewport.width * 0.5f, params.camera->viewport.height * 0.5f);
+		Vec2 screen = params.camera->viewport.size * 0.5f;
 		Vec2 scale = Vec2(1.0f / screen.x, 1.0f / screen.y);
 		Vec2 scaled_pos = (pos - screen) * scale;
 		scale *= size;
@@ -560,7 +599,7 @@ void UI::mesh(const RenderParams& params, const AssetID mesh, const Vec2& pos, c
 bool UI::project(const RenderParams& p, const Vec3& v, Vec2* out)
 {
 	Vec4 projected = p.view_projection * Vec4(v.x, v.y, v.z, 1);
-	Vec2 screen = Vec2(p.camera->viewport.width * 0.5f, p.camera->viewport.height * 0.5f);
+	Vec2 screen = p.camera->viewport.size * 0.5f;
 	*out = Vec2((projected.x / projected.w + 1.0f) * screen.x, (projected.y / projected.w + 1.0f) * screen.y);
 	return projected.z > -projected.w && projected.z < projected.w;
 }
@@ -607,7 +646,7 @@ float UI::get_scale(const int width, const int height)
 
 void UI::update(const RenderParams& p)
 {
-	scale = get_scale(p.camera->viewport.width, p.camera->viewport.height);
+	scale = get_scale(p.camera->viewport.size.x, p.camera->viewport.size.y);
 }
 
 void UI::draw(const RenderParams& p)
@@ -617,7 +656,7 @@ void UI::draw(const RenderParams& p)
 	{
 		Vec2 projected;
 		if (project(p, debugs[i], &projected))
-			centered_box(p, projected, Vec2(4, 4) * scale);
+			centered_box(p, { projected, Vec2(4, 4) * scale });
 	}
 	debugs.length = 0;
 #endif
@@ -647,12 +686,12 @@ void UI::draw(const RenderParams& p)
 	}
 }
 
-void UI::texture(const RenderParams& p, const int texture, const Vec2& pos, const Vec2& size, const Vec4& color, const Vec2& uva, const Vec2& uvb, const AssetID shader)
+void UI::texture(const RenderParams& p, const int texture, const Rect2& r, const Vec4& color, const Rect2& uv, const AssetID shader)
 {
-	Vec2 screen = Vec2(p.camera->viewport.width * 0.5f, p.camera->viewport.height * 0.5f);
+	Vec2 screen = p.camera->viewport.size * 0.5f;
 	Vec2 scale = Vec2(1.0f / screen.x, 1.0f / screen.y);
-	Vec2 scaled_pos = (pos - screen) * scale;
-	Vec2 scaled_size = size * scale;
+	Vec2 scaled_pos = (r.pos - screen) * scale;
+	Vec2 scaled_size = r.size * scale;
 
 	Vec3 vertices[] =
 	{
@@ -672,10 +711,10 @@ void UI::texture(const RenderParams& p, const int texture, const Vec2& pos, cons
 
 	Vec2 uvs[] =
 	{
-		Vec2(uva.x, uva.y),
-		Vec2(uvb.x, uva.y),
-		Vec2(uva.x, uvb.y),
-		Vec2(uvb.x, uvb.y),
+		Vec2(uv.pos.x, uv.pos.y),
+		Vec2(uv.pos.x + uv.size.x, uv.pos.y),
+		Vec2(uv.pos.x, uv.pos.y + uv.size.y),
+		Vec2(uv.pos.x + uv.size.x, uv.pos.y + uv.size.y),
 	};
 
 	p.sync->write(RenderOp::UpdateAttribBuffers);

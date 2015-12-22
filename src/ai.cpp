@@ -131,7 +131,7 @@ void AI::debug_draw(const RenderParams& p)
 #endif
 }
 
-bool AI::vision_check(const Vec3& pos, const Vec3& enemy_pos, const AIAgent* agent)
+bool AI::vision_check(const Vec3& pos, const Vec3& enemy_pos, const AIAgent* a, const AIAgent* b)
 {
 	btCollisionWorld::ClosestRayResultCallback rayCallback(pos, enemy_pos);
 	rayCallback.m_flags = btTriangleRaycastCallback::EFlags::kF_FilterBackfaces
@@ -140,16 +140,20 @@ bool AI::vision_check(const Vec3& pos, const Vec3& enemy_pos, const AIAgent* age
 
 	Physics::btWorld->rayTest(pos, enemy_pos, rayCallback);
 
-	return !rayCallback.hasHit() || rayCallback.m_collisionObject->getUserIndex() == agent->entity_id;
+	if (!rayCallback.hasHit())
+		return true;
+
+	ID id = rayCallback.m_collisionObject->getUserIndex();
+	return id == a->entity_id || id == b->entity_id;
 }
 
-Entity* AI::get_enemy(AI::Team team, const Vec3& pos, const Vec3& forward, float radius, float angle, float max_height_diff, ComponentMask component_mask)
+Entity* AI::vision_query(const AIAgent* queryer, const Vec3& pos, const Vec3& forward, float radius, float angle, float max_height_diff, ComponentMask component_mask)
 {
 	float angle_dot = cosf(angle);
 	for (auto i = AIAgent::list().iterator(); !i.is_last(); i.next())
 	{
 		AIAgent* agent = i.item();
-		if (agent->team == team || !(agent->entity()->component_mask & component_mask))
+		if (agent->team == queryer->team || !(agent->entity()->component_mask & component_mask))
 			continue;
 
 		Vec3 enemy_pos = agent->get<Transform>()->absolute_pos();
@@ -165,11 +169,16 @@ Entity* AI::get_enemy(AI::Team team, const Vec3& pos, const Vec3& forward, float
 			to_enemy /= distance_to_enemy;
 
 			float dot = forward.dot(to_enemy);
-			if (dot > angle_dot && vision_check(pos, enemy_pos, agent))
+			if (dot > angle_dot && vision_check(pos, enemy_pos, queryer, agent))
 				return agent->entity();
 		}
 	}
 
+	return nullptr;
+}
+
+Entity* AI::sound_query(AI::Team team, const Vec3& pos, ComponentMask component_mask)
+{
 	for (auto i = Shockwave::list().iterator(); !i.is_last(); i.next())
 	{
 		float radius = i.item()->radius();
@@ -184,7 +193,6 @@ Entity* AI::get_enemy(AI::Team team, const Vec3& pos, const Vec3& forward, float
 			}
 		}
 	}
-
 	return nullptr;
 }
 

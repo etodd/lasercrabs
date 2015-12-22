@@ -107,6 +107,24 @@ const Vec2 Vec2::zero(0, 0);
 const Vec3 Vec3::zero(0, 0, 0);
 const Vec4 Vec4::zero(0, 0, 0, 0);
 
+Rect2 Rect2::outset(float padding) const
+{
+	Vec2 p(padding, padding);
+	return
+	{
+		pos - p,
+		size + p * 2.0f,
+	};
+}
+
+bool Rect2::contains(const Vec2& p) const
+{
+	return p.x > pos.x
+		&& p.y > pos.y
+		&& p.x < pos.x + size.x
+		&& p.y < pos.y + size.y;
+}
+
 const Quat Quat::zero(0, 0, 0, 0);
 const Quat Quat::identity(1, 0, 0, 0);
 const float Quat::epsilon = 1e-03f;

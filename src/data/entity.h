@@ -242,7 +242,7 @@ struct LinkEntry
 	LinkEntry(ID entity);
 	LinkEntry(const LinkEntry& other);
 
-	virtual void fire() { }
+	virtual void fire() const { }
 };
 
 template<typename T, void (T::*Method)()> struct EntityLinkEntry : public LinkEntry
@@ -253,7 +253,7 @@ template<typename T, void (T::*Method)()> struct EntityLinkEntry : public LinkEn
 
 	}
 
-	virtual void fire()
+	virtual void fire() const
 	{
 		Entity* e = &World::entities[data.entity];
 		if (e->revision == data.revision)
@@ -293,14 +293,14 @@ struct LinkEntryArg
 
 	}
 
-	virtual void fire(T t) { }
+	virtual void fire(T t) const { }
 };
 
 template<typename T, typename T2, void (T::*Method)(T2)> struct EntityLinkEntryArg : public LinkEntryArg<T2>
 {
 	EntityLinkEntryArg(ID entity) : LinkEntryArg<T2>(entity) { }
 
-	virtual void fire(T2 arg)
+	virtual void fire(T2 arg) const
 	{
 		Entity* e = &World::entities[LinkEntryArg<T2>::data.entity];
 		if (e->revision == LinkEntryArg<T2>::data.revision)
@@ -314,7 +314,7 @@ template<typename T, typename T2, void (T::*Method)(T2)> struct EntityLinkEntryA
 struct FunctionPointerLinkEntry : public LinkEntry
 {
 	FunctionPointerLinkEntry(void(*fp)());
-	virtual void fire();
+	virtual void fire() const;
 };
 
 template<typename T>
@@ -325,7 +325,7 @@ struct FunctionPointerLinkEntryArg : public LinkEntryArg<T>
 		FunctionPointerLinkEntryArg::function_pointer = fp;
 	}
 
-	virtual void fire(T arg)
+	virtual void fire(T arg) const
 	{
 		(*FunctionPointerLinkEntryArg::function_pointer)(arg);
 	}
@@ -336,7 +336,7 @@ struct FunctionPointerLinkEntryArg : public LinkEntryArg<T>
 struct Link
 {
 	StaticArray<LinkEntry, MAX_ENTITY_LINKS> entries;
-	void fire();
+	void fire() const;
 	void link(void(*)());
 };
 
@@ -345,7 +345,7 @@ struct LinkArg
 {
 	StaticArray<LinkEntryArg<T>, MAX_ENTITY_LINKS> entries;
 	LinkArg() : entries() {}
-	void fire(T t)
+	void fire(T t) const
 	{
 		for (int i = 0; i < entries.length; i++)
 			(&entries[i])->fire(t);

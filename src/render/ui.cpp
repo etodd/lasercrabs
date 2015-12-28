@@ -2,48 +2,21 @@
 #include "asset/shader.h"
 #include "load.h"
 #include "render/render.h"
+#include "utf8/utf8.h"
 
 namespace VI
 {
 
-Array<UIText*> UIText::instances = Array<UIText*>();
-
 UIText::UIText()
-	: indices(),
-	vertices(),
-	color(Vec4(1, 1, 1, 1)),
+	: color(Vec4(1, 1, 1, 1)),
 	font(),
 	size(16),
-	string(),
+	rendered_string(),
 	normalized_bounds(),
 	anchor_x(),
-	anchor_y()
+	anchor_y(),
+	clip()
 {
-	instances.add(this);
-}
-
-UIText::~UIText()
-{
-	for (int i = 0; i < instances.length; i++)
-	{
-		if (instances[i] == this)
-		{
-			instances.remove(i);
-			break;
-		}
-	}
-}
-
-void UIText::reeval()
-{
-	if (string)
-		text(string);
-}
-
-void UIText::reeval_all()
-{
-	for (int i = 0; i < instances.length; i++)
-		instances[i]->reeval();
 }
 
 Array<UIText::VariableEntry> UIText::variables = Array<UIText::VariableEntry>();
@@ -69,10 +42,21 @@ void UIText::set_variable(const char* name, const char* value)
 	}
 }
 
-void UIText::text(const char* s)
+void UIText::text(const char* format, ...)
 {
+	va_list args;
+	va_start(args, format);
+	char string[512];
+
+#if defined(_WIN32)
+	vsprintf_s(string, 512, format, args);
+#else
+	vsnprintf(string, 512, format, args);
+#endif
+
+	va_end(args);
+
 	{
-		strncpy(string, s, 512);
 		int char_index = 0;
 		int rendered_index = 0;
 
@@ -83,8 +67,8 @@ void UIText::text(const char* s)
 
 			if (c == '{' && string[char_index + 1] == '{')
 			{
-				char* start = &string[char_index + 2];
-				char* end = start;
+				const char* start = &string[char_index + 2];
+				const char* end = start;
 				while (*end != '}' || *(end + 1) != '}')
 					end = strchr(end + 1, '}');
 
@@ -109,7 +93,6 @@ void UIText::text(const char* s)
 			rendered_string[rendered_index] = c;
 			rendered_index++;
 
-
 			if (variable && *variable)
 				variable++;
 			else
@@ -118,20 +101,13 @@ void UIText::text(const char* s)
 		rendered_string[rendered_index] = 0;
 	}
 
-	refresh_vertices();
-
-	if (clip_char > 0) // clip is active; make sure to update it
-		clip(clip_char);
+	refresh_bounds();
 }
 
-void UIText::refresh_vertices()
+void UIText::refresh_bounds()
 {
 	Font* f = Loader::font(font);
 	normalized_bounds = Vec2::zero;
-	vertices.length = 0;
-	indices.length = 0;
-	int vertex_index = 0;
-	int index_index = 0;
 	Vec3 pos(0, -1.0f, 0);
 	int char_index = 0;
 	char c;
@@ -139,7 +115,7 @@ void UIText::refresh_vertices()
 	float wrap = wrap_width / size;
 	while ((c = rendered_string[char_index]))
 	{
-		Font::Character* character = &f->characters[c];
+		Font::Character* character = &f->get(&c);
 		if (c == '\n')
 		{
 			pos.x = 0.0f;
@@ -157,7 +133,7 @@ void UIText::refresh_vertices()
 				word_char = rendered_string[word_index];
 				if (!word_char || word_char == ' ' || word_char == '\t' || word_char == '\n')
 					break;
-				end_of_next_word += spacing.x + f->characters[word_char].max.x;
+				end_of_next_word += spacing.x + f->get(&word_char).max.x;
 				word_index++;
 			}
 
@@ -176,23 +152,11 @@ void UIText::refresh_vertices()
 		else
 		{
 			if (character->code == c)
-			{
-				vertices.resize(vertex_index + character->vertex_count);
-				for (int i = 0; i < character->vertex_count; i++)
-					vertices[vertex_index + i] = f->vertices[character->vertex_start + i] + pos;
-
 				pos.x += spacing.x + character->max.x;
-
-				indices.resize(index_index + character->index_count);
-				for (int i = 0; i < character->index_count; i++)
-					indices[index_index + i] = vertex_index + f->indices[character->index_start + i] - character->vertex_start;
-			}
 			else
 			{
 				// Font is missing character
 			}
-			vertex_index = vertices.length;
-			index_index = indices.length;
 		}
 
 		normalized_bounds.x = fmax(normalized_bounds.x, pos.x);
@@ -203,49 +167,21 @@ void UIText::refresh_vertices()
 	normalized_bounds.y = -pos.y;
 }
 
-// Only render characters up to the specified index
-void UIText::clip(int index)
-{
-	if (index == clip_char)
-		return;
-
-	clip_char = index;
-	clip_vertex = 0;
-	clip_index = 0;
-
-	Font* f = Loader::font(font);
-	for (int i = 0; i < index; i++)
-	{
-		char c = rendered_string[i];
-		if (!c)
-		{
-			// clip is longer than the current string; ignore it
-			clip_vertex = 0;
-			clip_index = 0;
-			break;
-		}
-
-		Font::Character* character = &f->characters[c];
-		clip_vertex += character->vertex_count;
-		clip_index += character->index_count;
-	}
-}
-
 bool UIText::clipped() const
 {
-	return clip_index > 0;
+	return clip < strlen(rendered_string);
 }
 
 void UIText::set_size(float s)
 {
 	size = s;
-	refresh_vertices();
+	refresh_bounds();
 }
 
 void UIText::wrap(float w)
 {
 	wrap_width = w;
-	refresh_vertices();
+	refresh_bounds();
 }
 
 Vec2 UIText::bounds() const
@@ -330,25 +266,83 @@ void UIText::draw(const RenderParams& params, const Vec2& pos, const float rot) 
 	Vec2 scale = Vec2(1.0f / screen.x, 1.0f / screen.y);
 	float cs = cosf(rot), sn = sinf(rot);
 
-	int vertex_count = clip_vertex > 0 ? clip_vertex : vertices.length;
-	UI::vertices.reserve(UI::vertices.length + vertex_count);
+	Font* f = Loader::font(font);
+	int vertex_index = UI::vertices.length;
+	int index_index = UI::indices.length;
+	Vec3 p(0, -1.0f, 0);
+	int char_index = 0;
+	char c;
+	const Vec2 spacing = Vec2(0.075f, 0.3f);
+	float wrap = wrap_width / size;
 	float scaled_size = size * UI::scale;
-	for (int i = 0; i < vertex_count; i++)
+	while ((clip == 0 || char_index <= clip) && (c = rendered_string[char_index]))
 	{
-		Vec3 vertex;
-		vertex.x = (offset.x + scaled_size * (vertices[i].x * cs - vertices[i].y * sn)) * scale.x;
-		vertex.y = (offset.y + scaled_size * (vertices[i].x * sn + vertices[i].y * cs)) * scale.y;
-		UI::vertices.add(vertex);
+		Font::Character* character = &f->get(&c);
+		if (c == '\n')
+		{
+			p.x = 0.0f;
+			p.y -= 1.0f + spacing.y;
+		}
+		else if (wrap > 0.0f && (c == ' ' || c == '\t'))
+		{
+			// Check if we need to put the next word on the next line
+
+			float end_of_next_word = p.x + spacing.x + character->max.x;
+			int word_index = char_index + 1;
+			char word_char;
+			while (true)
+			{
+				word_char = rendered_string[word_index];
+				if (!word_char || word_char == ' ' || word_char == '\t' || word_char == '\n')
+					break;
+				end_of_next_word += spacing.x + f->get(&word_char).max.x;
+				word_index++;
+			}
+
+			if (end_of_next_word > wrap)
+			{
+				// New line
+				p.x = 0.0f;
+				p.y -= 1.0f + spacing.y;
+			}
+			else
+			{
+				// Just a regular whitespace character
+				p.x += spacing.x + character->max.x;
+			}
+		}
+		else
+		{
+			if (character->code == c)
+			{
+				UI::vertices.resize(vertex_index + character->vertex_count);
+				UI::colors.resize(UI::vertices.length);
+				for (int i = 0; i < character->vertex_count; i++)
+				{
+					Vec3 v = f->vertices[character->vertex_start + i] + p;
+					Vec3 vertex;
+					vertex.x = (offset.x + scaled_size * (v.x * cs - v.y * sn)) * scale.x;
+					vertex.y = (offset.y + scaled_size * (v.x * sn + v.y * cs)) * scale.y;
+					UI::vertices[vertex_index + i] = vertex;
+					UI::colors[vertex_index + i] = color;
+				}
+
+				p.x += spacing.x + character->max.x;
+
+				UI::indices.resize(index_index + character->index_count);
+				for (int i = 0; i < character->index_count; i++)
+					UI::indices[index_index + i] = vertex_index + f->indices[character->index_start + i] - character->vertex_start;
+			}
+			else
+			{
+				// Font is missing character
+			}
+			vertex_index = UI::vertices.length;
+			index_index = UI::indices.length;
+		}
+
+		char_index++;
 	}
-
-	UI::colors.reserve(UI::colors.length + vertex_count);
-	for (int i = 0; i < vertex_count; i++)
-		UI::colors.add(color);
-
-	int index_count = clip_index > 0 ? clip_index : indices.length;
-	UI::indices.reserve(UI::indices.length + index_count);
-	for (int i = 0; i < index_count; i++)
-		UI::indices.add(indices[i] + vertex_start);
 }
 
 const Vec4 UI::default_color = Vec4(1, 1, 1, 1);

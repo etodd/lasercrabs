@@ -2,7 +2,7 @@
 
 #include "types.h"
 
-#include <btBulletDynamicsCommon.h>
+#include <bullet/src/btBulletDynamicsCommon.h>
 #include "data/entity.h"
 #include "lmath.h"
 #include "sync.h"

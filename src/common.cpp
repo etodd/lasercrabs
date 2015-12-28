@@ -10,8 +10,8 @@
 #include "render/skinned_model.h"
 #include "load.h"
 
-#include <BulletCollision/CollisionShapes/btBvhTriangleMeshShape.h>
-#include <btBulletDynamicsCommon.h>
+#include <bullet/src/BulletCollision/CollisionShapes/btBvhTriangleMeshShape.h>
+#include <bullet/src/btBulletDynamicsCommon.h>
 
 namespace VI
 {

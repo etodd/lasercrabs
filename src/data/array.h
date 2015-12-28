@@ -55,13 +55,13 @@ struct StaticArray
 		length = l;
 	}
 
-	inline T operator [] (const int i) const
+	inline const T& operator [] (int i) const
 	{
 		vi_assert(i >= 0 && i < length);
 		return data[i];
 	}
 
-	inline T& operator [] (const int i)
+	inline T& operator [] (int i)
 	{
 		vi_assert(i >= 0 && i < length);
 		return data[i];
@@ -140,13 +140,13 @@ struct Array
 			free(data);
 	}
 
-	inline T operator [] (const int i) const
+	inline const T& operator [] (int i) const
 	{
 		vi_assert(i >= 0 && i < length);
 		return *(data + i);
 	}
 
-	inline T& operator [] (const int i)
+	inline T& operator [] (int i)
 	{
 		vi_assert(i >= 0 && i < length);
 		return *(data + i);

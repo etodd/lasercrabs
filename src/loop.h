@@ -11,7 +11,7 @@
 #include "physics.h"
 #include "render/ui.h"
 #include "input.h"
-#include "mersenne-twister.h"
+#include "mersenne/mersenne-twister.h"
 #include <time.h>
 
 #if DEBUG

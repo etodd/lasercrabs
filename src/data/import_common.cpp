@@ -1,9 +1,9 @@
 #include "import_common.h"
 
-#include "cJSON.h"
+#include "cjson/cJSON.h"
 #include <stdio.h>
 
-#include <GL/glew.h>
+#include <glew/include/GL/glew.h>
 
 namespace VI
 {
@@ -157,6 +157,13 @@ namespace Json
 		else
 			return default_value;
 	}
+}
+
+Font::Character& Font::get(const void* character)
+{
+	// TODO: unicode
+	char c = *((char*)character);
+	return characters[c];
 }
 
 }

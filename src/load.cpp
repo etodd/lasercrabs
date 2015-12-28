@@ -1,12 +1,12 @@
 #include "load.h"
 #include <stdio.h>
-#include "lodepng.h"
+#include "lodepng/lodepng.h"
 #include "vi_assert.h"
 #include "asset/lookup.h"
-#include "DetourNavMesh.h"
-#include "DetourNavMeshBuilder.h"
+#include "recast/Detour/Include/DetourNavMesh.h"
+#include "recast/Detour/Include/DetourNavMeshBuilder.h"
 #include <AK/SoundEngine/Common/AkSoundEngine.h>
-#include "cJSON.h"
+#include "cjson/cJSON.h"
 
 namespace VI
 {

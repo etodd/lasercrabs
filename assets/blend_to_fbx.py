@@ -13,7 +13,7 @@ try:
 		object_types = {'EMPTY', 'CAMERA', 'LAMP', 'ARMATURE', 'MESH', 'OTHER'},
 		bake_anim = True,
 		bake_anim_use_all_bones = True,
-		use_armature_deform_only = True,
+		use_armature_deform_only = False,
 		bake_anim_use_nla_strips = True,
 		bake_anim_use_all_actions = True,
 	)

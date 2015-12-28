@@ -123,6 +123,8 @@ struct Font
 		: characters(), indices(), vertices()
 	{
 	}
+
+	Character& get(const void*);
 };
 
 }

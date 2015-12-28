@@ -28,3 +28,6 @@
 [submodule "external/mersenne"]
 	path = external/mersenne
 	url = git@github.com:etodd/mersenne-twister.git
+[submodule "external/utf8"]
+	path = external/utf8
+	url = git@github.com:etodd/utf8.h.git

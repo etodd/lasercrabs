@@ -318,13 +318,13 @@ void Console::debug(const char* format, ...)
 void Console::draw(const RenderParams& p)
 {
 	const Rect2& vp = p.camera->viewport;
-	float padding = 4.0f * UI::scale;
+	float padding = 6.0f * UI::scale;
 	if (visible)
 	{
-		text.wrap_width = vp.size.x;
+		text.wrap_width = vp.size.x - padding * 2.0f;
 		float height = text.bounds().y + padding * 2.0f;
 		UI::box(p, { Vec2(vp.pos.x, vp.pos.y + vp.size.y - height), Vec2(vp.size.x, height) }, Vec4(0, 0, 0, 1));
-		text.draw(p, Vec2(vp.pos.x, vp.pos.y + vp.size.y - padding));
+		text.draw(p, Vec2(vp.pos.x + padding, vp.pos.y + vp.size.y - padding));
 	}
 	if (fps_visible)
 		fps_text.draw(p, Vec2(vp.pos.x, vp.pos.y));
@@ -332,7 +332,7 @@ void Console::draw(const RenderParams& p)
 	debug_text.draw(p, Vec2(vp.pos.x, vp.pos.y + vp.size.y - (text.bounds().y + padding * 3.0f)));
 
 	Vec2 pos = Vec2(vp.pos.x + vp.size.x - text.size * UI::scale * 2.0f, vp.pos.y + vp.size.y - text.size * UI::scale * 4.0f);
-	if (log_text.vertices.length > 0)
+	if (log_text.bounds().x > 0)
 	{
 		UI::box(p, log_text.rect(pos).outset(padding), Vec4(0, 0, 0, 1));
 		log_text.draw(p, pos);

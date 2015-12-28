@@ -2,7 +2,7 @@
 
 #include "entity.h"
 #include "lmath.h"
-#include "LinearMath/btTransform.h"
+#include "bullet/src/LinearMath/btTransform.h"
 
 namespace VI
 {

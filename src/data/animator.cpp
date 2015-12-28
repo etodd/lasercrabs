@@ -88,7 +88,7 @@ void Animator::Layer::update(const Update& u, const Animator& animator)
 
 		for (int i = 0; i < animator.triggers.length; i++)
 		{
-			TriggerEntry* trigger = &animator.triggers[i];
+			const TriggerEntry* trigger = &animator.triggers[i];
 			bool trigger_after_old_time = old_time <= trigger->time;
 			bool trigger_before_new_time = time >= trigger->time;
 			if (animation == trigger->animation &&

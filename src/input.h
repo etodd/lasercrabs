@@ -1,6 +1,6 @@
 #pragma once
 
-#include "SDL_keycode.h"
+#include "sdl/include/SDL_keycode.h"
 
 namespace VI
 {

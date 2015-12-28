@@ -11,29 +11,26 @@ set(ZLIB_INCLUDE_DIR
  
 include(src/game/CMakeLists.txt)
 
-set(ALL_INCLUDES
-	external/glew/include
+set(IMPORT_INCLUDES
+	external
 	${SDL2_BINARY_DIR}/include
-	external/sdl/include
-	external/assimp/include
-	external/lodepng
 	external/bullet/src
-	external/recast/Recast/Include
-	external/recast/Detour/Include
-	external/cjson
-	external/mersenne
 	src
-	external/assimp/code/BoostWorkaround
-	${ZLIB_INCLUDE_DIR}
-	${GAME_INCLUDE_PATHS}
 )
 
 if (WIN32)
-	set(ALL_INCLUDES ${ALL_INCLUDES} external/dirent)
+	set(IMPORT_INCLUDES ${IMPORT_INCLUDES} external/dirent)
 endif(WIN32)
 
+set(ALL_INCLUDES
+	external
+	${SDL2_BINARY_DIR}/include
+	external/bullet/src
+	src
+	${GAME_INCLUDE_PATHS}
+)
+
 string(REPLACE ";" "," ALL_INCLUDES_COMMA "${ALL_INCLUDES}")
-include_directories(${ALL_INCLUDES})
 configure_file(.includes.in .includes)
 configure_file(.exrc.in ${CMAKE_CURRENT_SOURCE_DIR}/.exrc)
 
@@ -80,7 +77,7 @@ add_subdirectory(external/sdl)
 ## cJSON
 add_subdirectory(external/cjson)
 
-## bullet
+## Bullet
 set(USE_MSVC_RUNTIME_LIBRARY_DLL ON CACHE BOOL "" FORCE)
 set(USE_GLUT OFF CACHE BOOL "" FORCE)
 set(BUILD_BULLET2_DEMOS OFF CACHE BOOL "" FORCE)
@@ -92,53 +89,13 @@ set(BUILD_UNIT_TESTS OFF CACHE BOOL "" FORCE)
 add_subdirectory(external/bullet)
 include(${CMAKE_CURRENT_BINARY_DIR}/external/bullet/BulletConfig.cmake)
 
-add_definitions(${BULLET_DEFINITIONS})
+include_directories()
 
 ## AssImp
 
 set(ASSIMP_LIB_INSTALL_DIR "lib")
 set(LIBASSIMP_COMPONENT libassimp)
 set(BUILD_STATIC_LIB ON)
-
-# Compile without boost
-add_definitions(-DASSIMP_BUILD_BOOST_WORKAROUND)
-add_definitions(-DASSIMP_BUILD_NO_EXPORT)
-add_definitions(-DASSIMP_BUILD_NO_3DS_IMPORTER)
-add_definitions(-DASSIMP_BUILD_NO_AC_IMPORTER)
-add_definitions(-DASSIMP_BUILD_NO_ASE_IMPORTER)
-add_definitions(-DASSIMP_BUILD_NO_B3D_IMPORTER)
-add_definitions(-DASSIMP_BUILD_NO_BLEND_IMPORTER)
-add_definitions(-DASSIMP_BUILD_NO_BVH_IMPORTER)
-add_definitions(-DASSIMP_BUILD_NO_COB_IMPORTER)
-add_definitions(-DASSIMP_BUILD_NO_COLLADA_IMPORTER)
-add_definitions(-DASSIMP_BUILD_NO_CSM_IMPORTER)
-add_definitions(-DASSIMP_BUILD_NO_DXF_IMPORTER)
-add_definitions(-DASSIMP_BUILD_NO_OBJ_IMPORTER)
-add_definitions(-DASSIMP_BUILD_NO_STL_IMPORTER)
-add_definitions(-DASSIMP_BUILD_NO_PLY_IMPORTER)
-add_definitions(-DASSIMP_BUILD_NO_HMP_IMPORTER)
-add_definitions(-DASSIMP_BUILD_NO_IFC_IMPORTER)
-add_definitions(-DASSIMP_BUILD_NO_X_IMPORTER)
-add_definitions(-DASSIMP_BUILD_NO_MDL_IMPORTER)
-add_definitions(-DASSIMP_BUILD_NO_MD3_IMPORTER)
-add_definitions(-DASSIMP_BUILD_NO_MD2_IMPORTER)
-add_definitions(-DASSIMP_BUILD_NO_SMD_IMPORTER)
-add_definitions(-DASSIMP_BUILD_NO_MDC_IMPORTER)
-add_definitions(-DASSIMP_BUILD_NO_LWO_IMPORTER)
-add_definitions(-DASSIMP_BUILD_NO_LWS_IMPORTER)
-add_definitions(-DASSIMP_BUILD_NO_NFF_IMPORTER)
-add_definitions(-DASSIMP_BUILD_NO_RAW_IMPORTER)
-add_definitions(-DASSIMP_BUILD_NO_OFF_IMPORTER)
-add_definitions(-DASSIMP_BUILD_NO_IRRMESH_IMPORTER)
-add_definitions(-DASSIMP_BUILD_NO_IRR_IMPORTER)
-add_definitions(-DASSIMP_BUILD_NO_Q3D_IMPORTER)
-add_definitions(-DASSIMP_BUILD_NO_TERRAGEN_IMPORTER)
-add_definitions(-DASSIMP_BUILD_NO_3D_IMPORTER)
-add_definitions(-DASSIMP_BUILD_NO_OGRE_IMPORTER)
-add_definitions(-DASSIMP_BUILD_NO_MS3D_IMPORTER)
-add_definitions(-DASSIMP_BUILD_NO_Q3BSP_IMPORTER)
-add_definitions(-DASSIMP_BUILD_NO_NDO_IMPORTER)
-add_definitions(-DASSIMP_BUILD_NO_XGL_IMPORTER)
 
 # Search for external dependencies, and build them from source if not found
 # Search for zlib
@@ -158,6 +115,53 @@ configure_file(
   ${CMAKE_SOURCE_DIR}/external/assimp/code/revision.h
 )
 add_subdirectory(external/assimp/code)
+
+# Compile without boost
+target_compile_definitions(assimp PRIVATE
+	-DASSIMP_BUILD_BOOST_WORKAROUND
+	-DASSIMP_BUILD_NO_EXPORT
+	-DASSIMP_BUILD_NO_3DS_IMPORTER
+	-DASSIMP_BUILD_NO_AC_IMPORTER
+	-DASSIMP_BUILD_NO_ASE_IMPORTER
+	-DASSIMP_BUILD_NO_B3D_IMPORTER
+	-DASSIMP_BUILD_NO_BLEND_IMPORTER
+	-DASSIMP_BUILD_NO_BVH_IMPORTER
+	-DASSIMP_BUILD_NO_COB_IMPORTER
+	-DASSIMP_BUILD_NO_COLLADA_IMPORTER
+	-DASSIMP_BUILD_NO_CSM_IMPORTER
+	-DASSIMP_BUILD_NO_DXF_IMPORTER
+	-DASSIMP_BUILD_NO_OBJ_IMPORTER
+	-DASSIMP_BUILD_NO_STL_IMPORTER
+	-DASSIMP_BUILD_NO_PLY_IMPORTER
+	-DASSIMP_BUILD_NO_HMP_IMPORTER
+	-DASSIMP_BUILD_NO_IFC_IMPORTER
+	-DASSIMP_BUILD_NO_X_IMPORTER
+	-DASSIMP_BUILD_NO_MDL_IMPORTER
+	-DASSIMP_BUILD_NO_MD3_IMPORTER
+	-DASSIMP_BUILD_NO_MD2_IMPORTER
+	-DASSIMP_BUILD_NO_SMD_IMPORTER
+	-DASSIMP_BUILD_NO_MDC_IMPORTER
+	-DASSIMP_BUILD_NO_LWO_IMPORTER
+	-DASSIMP_BUILD_NO_LWS_IMPORTER
+	-DASSIMP_BUILD_NO_NFF_IMPORTER
+	-DASSIMP_BUILD_NO_RAW_IMPORTER
+	-DASSIMP_BUILD_NO_OFF_IMPORTER
+	-DASSIMP_BUILD_NO_IRRMESH_IMPORTER
+	-DASSIMP_BUILD_NO_IRR_IMPORTER
+	-DASSIMP_BUILD_NO_Q3D_IMPORTER
+	-DASSIMP_BUILD_NO_TERRAGEN_IMPORTER
+	-DASSIMP_BUILD_NO_3D_IMPORTER
+	-DASSIMP_BUILD_NO_OGRE_IMPORTER
+	-DASSIMP_BUILD_NO_MS3D_IMPORTER
+	-DASSIMP_BUILD_NO_Q3BSP_IMPORTER
+	-DASSIMP_BUILD_NO_NDO_IMPORTER
+	-DASSIMP_BUILD_NO_XGL_IMPORTER
+)
+
+target_include_directories(assimp PRIVATE
+	external/assimp/code/BoostWorkaround
+	${ZLIB_INCLUDE_DIR}
+)
 
 ## lodepng
 add_library(lodepng STATIC external/lodepng/lodepng.cpp)
@@ -179,6 +183,8 @@ add_library(recast STATIC
 	external/recast/Recast/Source/RecastRegion.cpp
 )
 
+target_include_directories(recast PRIVATE external/recast/Recast/Include)
+
 ## Detour
 add_library(detour STATIC
 	external/recast/Detour/Include/DetourAlloc.h
@@ -197,6 +203,8 @@ add_library(detour STATIC
 	external/recast/Detour/Source/DetourNavMeshQuery.cpp
 	external/recast/Detour/Source/DetourNode.cpp
 )
+
+target_include_directories(detour PRIVATE external/recast/Detour/Include)
 
 ## Mersenne Twister
 add_library(mersenne STATIC
@@ -300,6 +308,8 @@ add_executable(mkzebra
 	assets/blend_to_lvl.py
 )
 
+target_include_directories(mkzebra PRIVATE ${ALL_INCLUDES})
+
 # Config file
 file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/config.txt DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/)
 
@@ -346,6 +356,8 @@ add_executable(import
 	src/lmath.cpp
 	src/import.cpp
 )
+
+target_include_directories(import PRIVATE ${IMPORT_INCLUDES})
 
 target_link_libraries(import
 	${OPENGL_LIBRARIES}

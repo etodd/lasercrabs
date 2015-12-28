@@ -23,7 +23,7 @@ FunctionPointerLinkEntry::FunctionPointerLinkEntry(void(*fp)())
 	function_pointer = fp;
 }
 
-void FunctionPointerLinkEntry::fire()
+void FunctionPointerLinkEntry::fire() const
 {
 	(*function_pointer)();
 }
@@ -34,7 +34,7 @@ void Link::link(void(*fp)())
 	new (entry) FunctionPointerLinkEntry(fp);
 }
 
-void Link::fire()
+void Link::fire() const
 {
 	for (int i = 0; i < entries.length; i++)
 		(&entries[i])->fire();

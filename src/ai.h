@@ -3,8 +3,8 @@
 #include "data/entity.h"
 #include "lmath.h"
 
-#include "DetourNavMesh.h"
-#include "DetourNavMeshQuery.h"
+#include "recast/Detour/Include/DetourNavMesh.h"
+#include "recast/Detour/Include/DetourNavMeshQuery.h"
 
 namespace VI
 {

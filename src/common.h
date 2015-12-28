@@ -2,7 +2,7 @@
 
 #include "data/entity.h"
 #include "physics.h"
-#include <btBulletDynamicsCommon.h>
+#include <bullet/src/btBulletDynamicsCommon.h>
 
 namespace VI
 {

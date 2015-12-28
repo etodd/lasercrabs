@@ -1,7 +1,7 @@
 #define _AMD64_
 
-#include <GL/glew.h>
-#include <SDL.h>
+#include <glew/include/GL/glew.h>
+#include <sdl/include/SDL.h>
 
 #include "render/glvm.h"
 #include "load.h"

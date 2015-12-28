@@ -1,4 +1,4 @@
-#include <GL/glew.h>
+#include <glew/include/GL/glew.h>
 #include <array>
 
 #include "glvm.h"

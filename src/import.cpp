@@ -1,25 +1,25 @@
 #include <stdio.h>
 
-#include <assimp/Importer.hpp>
-#include <assimp/scene.h>
-#include <assimp/postprocess.h>
+#include <assimp/include/assimp/Importer.hpp>
+#include <assimp/include/assimp/scene.h>
+#include <assimp/include/assimp/postprocess.h>
 #include "types.h"
 #include "lmath.h"
 #include "data/array.h"
 #include <dirent.h>
 #include <map>
 #include <array>
-#include <GL/glew.h>
+#include <glew/include/GL/glew.h>
 
-#include <SDL.h>
+#include <sdl/include/SDL.h>
 #undef main
 
 #include <cfloat>
 #include <sstream>
-#include "Recast.h"
+#include "recast/Recast/Include/Recast.h"
 #include "data/import_common.h"
 #include "render/glvm.h"
-#include "cJSON.h"
+#include "cjson/cJSON.h"
 
 namespace VI
 {

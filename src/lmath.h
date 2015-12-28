@@ -3,8 +3,8 @@
 #include <cstddef>
 #include <math.h>
 #include <cstring>
-#include "LinearMath/btVector3.h"
-#include "LinearMath/btQuaternion.h"
+#include "bullet/src/LinearMath/btVector3.h"
+#include "bullet/src/LinearMath/btQuaternion.h"
 
 namespace VI
 {

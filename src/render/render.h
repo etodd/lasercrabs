@@ -50,6 +50,7 @@ struct Camera
 	Rect2 viewport;
 	Plane frustum[4];
 	Vec3 frustum_rays[4];
+	Vec3 wall_normal;
 
 	Camera()
 		: active(),
@@ -61,7 +62,8 @@ struct Camera
 		near_plane(),
 		far_plane(),
 		mask((RenderMask)-1),
-		fog(true)
+		fog(true),
+		wall_normal(0, 0, 1)
 	{
 	}
 

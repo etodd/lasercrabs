@@ -804,6 +804,12 @@ void draw(LoopSync* sync, const Camera* camera)
 		sync->write<RenderTextureType>(RenderTextureType::Texture2D);
 		sync->write<AssetID>(depth_buffer);
 
+		sync->write(RenderOp::Uniform);
+		sync->write(Asset::Uniform::wall_normal);
+		sync->write(RenderDataType::Vec3);
+		sync->write<int>(1);
+		sync->write<Vec3>(render_params.camera->wall_normal);
+
 		sync->write(RenderOp::Mesh);
 		sync->write(screen_quad.mesh);
 	}

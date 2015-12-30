@@ -169,7 +169,7 @@ void UIText::refresh_bounds()
 
 bool UIText::clipped() const
 {
-	return clip < strlen(rendered_string);
+	return clip > 0.0f && clip < strlen(rendered_string);
 }
 
 void UIText::set_size(float s)

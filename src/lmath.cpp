@@ -1403,23 +1403,36 @@ Vec3 Quat::operator* (const Vec3& v) const
 
 }
 
-Quat Quat::euler(float pitch, float yaw, float roll)
+Quat Quat::euler(float roll, float yaw, float pitch)
 {
 	// Assuming the angles are in radians.
-	float c1 = cos(yaw * 0.5f);
-	float s1 = sin(yaw * 0.5f);
-	float c2 = cos(pitch * 0.5f);
-	float s2 = sin(pitch * 0.5f);
-	float c3 = cos(roll * 0.5f);
-	float s3 = sin(roll * 0.5f);
-	float c1c2 = c1*c2;
-	float s1s2 = s1*s2;
+	float cy = cos(yaw * 0.5f);
+	float sy = sin(yaw * 0.5f);
+	float cr = cos(roll * 0.5f);
+	float sr = sin(roll * 0.5f);
+	float cp = cos(pitch * 0.5f);
+	float sp = sin(pitch * 0.5f);
+	float cycr = cy*cr;
+	float sysr = sy*sr;
+
+	// yaw, roll, pitch
+	/*
 	return Quat
 	(
-		c1c2*c3 - s1s2*s3,
-		c1c2*s3 + s1s2*c3,
-		s1*c2*c3 + c1*s2*s3,
-		c1*s2*c3 - s1*c2*s3
+		cp*cycr  - sp*sysr,
+		cp*sysr  + sp*cycr,
+		cp*sy*cr + sp*cy*sr,
+		cp*cy*sr - sp*sy*cr
+	);
+	*/
+
+	// yaw, pitch, roll
+	return Quat
+	(
+		cp*cycr  + sp*sysr,
+		sp*cycr  + cp*sysr,
+		cp*sy*cr - sp*cy*sr,
+		cp*cy*sr - sp*sy*cr
 	);
 }
 

@@ -725,7 +725,7 @@ void clean_name(T& name)
 	}
 }
 
-std::string get_mesh_name(const aiScene* scene, const std::string& asset_name, const aiMesh* ai_mesh, const aiNode* mesh_node)
+std::string get_mesh_name(const aiScene* scene, const std::string& asset_name, const aiMesh* ai_mesh, const aiNode* mesh_node, bool level_mesh = false)
 {
 	int material_index = 0;
 	for (int i = 0; i < mesh_node->mNumMeshes; i++)
@@ -734,7 +734,7 @@ std::string get_mesh_name(const aiScene* scene, const std::string& asset_name, c
 			break;
 		material_index++;
 	}
-	if (scene->mNumMeshes > 1)
+	if (scene->mNumMeshes > 1 || level_mesh)
 	{
 		std::ostringstream name_builder;
 		name_builder << asset_name << "_";
@@ -1455,7 +1455,7 @@ bool import_level_meshes(ImporterState& state, const std::string& asset_in_path,
 		{
 			aiMesh* ai_mesh = scene->mMeshes[mesh_index];
 			const aiNode* mesh_node = find_mesh_node(scene, scene->mRootNode, ai_mesh);
-			std::string mesh_name = get_mesh_name(scene, asset_name, ai_mesh, mesh_node);
+			std::string mesh_name = get_mesh_name(scene, asset_name, ai_mesh, mesh_node, true);
 			std::string mesh_out_filename = out_folder + mesh_name + mesh_out_extension;
 			map_add(state.manifest.level_meshes, asset_name, mesh_name, mesh_out_filename);
 

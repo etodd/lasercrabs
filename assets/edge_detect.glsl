@@ -61,10 +61,9 @@ void main()
 
 	float normal_delta = max(0, 2.0 - dot(normal1, normal3) - dot(normal2, normal4));
 
-	float depth_min = min(min(depths.x, depths.y), min(depths.z, depths.w));
 	float depth_delta = (4.0 * dot(abs(vec4(depth) - depths), vec4(1)) / depth) * -dot(view_ray, normal);
 	out_color = vec4(color
-		+ ((vec3(1) - color) * step(0.5, normal_delta * 4.0f + depth_delta) * float(length(view_ray) * depth_min < 25.0f))
+		+ ((vec3(1) - color) * step(0.5, normal_delta * 16.0f + depth_delta) * float(length(view_ray)))
 		+ vec3((rand(floor(uv_offset + uv * film_grain_size) * 0.01f) - 0.5f) * 0.07f)
 		, 1);
 }

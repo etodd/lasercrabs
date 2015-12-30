@@ -8,7 +8,7 @@ namespace Asset
 {
 	namespace Uniform
 	{
-		const int count = 36;
+		const int count = 37;
 		const AssetID ambient_color = 0;
 		const AssetID bones = 1;
 		const AssetID color_buffer = 2;
@@ -44,7 +44,8 @@ namespace Asset
 		const AssetID uv_scale = 32;
 		const AssetID v = 33;
 		const AssetID vp = 34;
-		const AssetID zenith_color = 35;
+		const AssetID wall_normal = 35;
+		const AssetID zenith_color = 36;
 	}
 	namespace Shader
 	{

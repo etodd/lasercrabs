@@ -136,6 +136,23 @@ struct GLData
 	static RenderTechnique current_shader_technique;
 	static Array<int> samplers;
 
+	struct ColorMask
+	{
+		bool r;
+		bool g;
+		bool b;
+		bool a;
+	};
+
+	static ColorMask color_mask;
+	static bool depth_mask;
+	static bool depth_test;
+	static RenderCullMode cull_mode;
+	static RenderFillMode fill_mode;
+	static float point_size;
+	static int current_framebuffer;
+	static Rect2 viewport;
+
 	static Array<char> uniform_name_buffer;
 	static Array<int> uniform_names;
 
@@ -155,6 +172,14 @@ RenderTechnique GLData::current_shader_technique = RenderTechnique::Default;
 Array<int> GLData::samplers = Array<int>();
 Array<char> GLData::uniform_name_buffer = Array<char>();
 Array<int> GLData::uniform_names = Array<int>();
+GLData::ColorMask GLData::color_mask = { true, true, true, true };
+bool GLData::depth_mask = true;
+bool GLData::depth_test = true;
+RenderCullMode GLData::cull_mode = RenderCullMode::Back;
+RenderFillMode GLData::fill_mode = RenderFillMode::Fill;
+float GLData::point_size = 1.0f;
+int GLData::current_framebuffer = 0;
+Rect2 GLData::viewport = { Vec2::zero, Vec2::zero };
 
 void render_init()
 {
@@ -231,8 +256,8 @@ void render(RenderSync* sync)
 			}
 			case RenderOp::Viewport:
 			{
-				const Rect2* rect = sync->read<Rect2>();
-				glViewport(rect->pos.x, rect->pos.y, rect->size.x, rect->size.y);
+				GLData::viewport = *sync->read<Rect2>();
+				glViewport(GLData::viewport.pos.x, GLData::viewport.pos.y, GLData::viewport.size.x, GLData::viewport.size.y);
 				debug_check();
 				break;
 			}
@@ -589,23 +614,20 @@ void render(RenderSync* sync)
 			}
 			case RenderOp::ColorMask:
 			{
-				bool r = *(sync->read<bool>());
-				bool g = *(sync->read<bool>());
-				bool b = *(sync->read<bool>());
-				bool a = *(sync->read<bool>());
-				glColorMask(r, g, b, a);
+				GLData::color_mask = { *(sync->read<bool>()), *(sync->read<bool>()), *(sync->read<bool>()), *(sync->read<bool>()) };
+				glColorMask(GLData::color_mask.r, GLData::color_mask.g, GLData::color_mask.b, GLData::color_mask.a);
 				debug_check();
 				break;
 			}
 			case RenderOp::DepthMask:
 			{
-				glDepthMask(*(sync->read<bool>()));
+				glDepthMask(GLData::depth_mask = *(sync->read<bool>()));
 				debug_check();
 				break;
 			}
 			case RenderOp::DepthTest:
 			{
-				bool enable = *(sync->read<bool>());
+				bool enable = GLData::depth_test = *(sync->read<bool>());
 				if (enable)
 					glEnable(GL_DEPTH_TEST);
 				else
@@ -807,7 +829,7 @@ void render(RenderSync* sync)
 			}
 			case RenderOp::CullMode:
 			{
-				RenderCullMode mode = *(sync->read<RenderCullMode>());
+				RenderCullMode mode = GLData::cull_mode = *(sync->read<RenderCullMode>());
 				switch (mode)
 				{
 					case RenderCullMode::Back:
@@ -830,7 +852,7 @@ void render(RenderSync* sync)
 			}
 			case RenderOp::FillMode:
 			{
-				RenderFillMode mode = *(sync->read<RenderFillMode>());
+				RenderFillMode mode = GLData::fill_mode = *(sync->read<RenderFillMode>());
 				switch (mode)
 				{
 					case RenderFillMode::Fill:
@@ -848,7 +870,7 @@ void render(RenderSync* sync)
 			}
 			case RenderOp::PointSize:
 			{
-				float size = *(sync->read<float>());
+				float size = GLData::point_size = *(sync->read<float>());
 				glPointSize(size);
 				debug_check();
 				break;
@@ -931,7 +953,7 @@ void render(RenderSync* sync)
 			}
 			case RenderOp::BindFramebuffer:
 			{
-				int id = *(sync->read<int>());
+				int id = GLData::current_framebuffer = *(sync->read<int>());
 				if (id == AssetNull)
 					glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
 				else

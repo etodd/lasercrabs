@@ -26,7 +26,8 @@ uniform float light_radius;
 uniform vec3 light_color;
 uniform vec3 frustum[4];
 const int type_normal = 0;
-const int type_shockwave = 1;
+const int type_override = 1;
+const int type_shockwave = 2;
 uniform int type;
 
 vec3 lerp3(vec3 a, vec3 b, float w)
@@ -58,6 +59,13 @@ void main()
 		const float shockwave_size = 0.5f;
 		const float shockwave_multiplier = 1.0f / shockwave_size;
 		light_strength = (1.0f - step(light_radius, distance_to_light)) * (distance_to_light - (light_radius - shockwave_size)) * shockwave_multiplier;
+	}
+	else if (type == type_override)
+	{
+		light_strength = 1.0f;
+		float distance_attenuation = 1.0 - (distance_to_light / light_radius);
+		if (distance_attenuation < 0.0f)
+			discard;
 	}
 	else
 	{

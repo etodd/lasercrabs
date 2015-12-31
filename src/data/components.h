@@ -44,8 +44,9 @@ struct PointLight : public ComponentType<PointLight>
 {
 	enum class Type
 	{
-		Normal,
-		Shockwave,
+		Normal = 0,
+		Override = 1 << 0,
+		Shockwave = 1 << 1,
 	};
 
 	float radius;
@@ -59,9 +60,16 @@ struct PointLight : public ComponentType<PointLight>
 
 struct SpotLight : public ComponentType<SpotLight>
 {
+	enum class Type
+	{
+		Normal = 0,
+		Override = 1 << 0,
+	};
+
 	float radius;
 	Vec3 color;
 	float fov;
+	Type type;
 
 	void awake() {}
 };

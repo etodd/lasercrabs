@@ -150,4 +150,5 @@ void NoclipControl::update(const Update& u)
 	camera->rot = look_quat;
 }
 
+
 }

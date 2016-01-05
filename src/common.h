@@ -48,4 +48,5 @@ struct NoclipControl : public ComponentType<NoclipControl>
 	void awake();
 };
 
+
 }

@@ -15,7 +15,7 @@
 #include <time.h>
 
 #if DEBUG
-	#define DEBUG_RENDER 1
+	#define DEBUG_RENDER 0
 #endif
 
 #include "game/game.h"
@@ -139,7 +139,7 @@ void render_point_lights(const RenderParams& render_params, int type_mask, const
 	for (auto i = PointLight::list().iterator(); !i.is_last(); i.next())
 	{
 		PointLight* light = i.item();
-		if (!((int)light->type & type_mask))
+		if (!((int)light->type & type_mask) || !(light->mask & render_params.camera->mask))
 			continue;
 
 		Vec3 light_pos = light->get<Transform>()->to_world(light->offset);
@@ -197,7 +197,7 @@ void render_spot_lights(const RenderParams& render_params, int type_mask, int fb
 	for (auto i = SpotLight::list().iterator(); !i.is_last(); i.next())
 	{
 		SpotLight* light = i.item();
-		if (!((int)light->type & type_mask))
+		if (!((int)light->type & type_mask) || !(light->mask & render_params.camera->mask))
 			continue;
 
 		if (light->color.length_squared() == 0.0f || light->fov == 0.0f || light->radius == 0.0f)
@@ -219,6 +219,11 @@ void render_spot_lights(const RenderParams& render_params, int type_mask, int fb
 		Mat4 light_vp;
 
 		{
+			sync->write(RenderOp::DepthMask);
+			sync->write<bool>(true);
+			sync->write(RenderOp::DepthTest);
+			sync->write<bool>(true);
+
 			Camera shadow_camera;
 			shadow_camera.viewport =
 			{
@@ -229,6 +234,11 @@ void render_spot_lights(const RenderParams& render_params, int type_mask, int fb
 			shadow_camera.pos = abs_pos;
 			shadow_camera.rot = abs_rot;
 			light_vp = render_shadows(sync, shadow_fbo[0], *render_params.camera, shadow_camera);
+
+			sync->write(RenderOp::DepthMask);
+			sync->write<bool>(false);
+			sync->write(RenderOp::DepthTest);
+			sync->write<bool>(false);
 		}
 
 		sync->write<RenderOp>(RenderOp::BindFramebuffer);
@@ -429,11 +439,11 @@ void draw(LoopSync* sync, const Camera* camera)
 		sync->write<RenderOp>(RenderOp::CullMode);
 		sync->write<RenderCullMode>(RenderCullMode::Front);
 		sync->write<RenderOp>(RenderOp::BlendMode);
-		sync->write<RenderBlendMode>(RenderBlendMode::Alpha);
+		sync->write<RenderBlendMode>(RenderBlendMode::AlphaDestination);
 
-		//render_point_lights(render_params, (int)PointLight::Type::Override, inv_buffer_size);
+		render_point_lights(render_params, (int)PointLight::Type::Override, inv_buffer_size);
 
-		render_spot_lights(render_params, (int)SpotLight::Type::Override, color_fbo1, RenderBlendMode::Alpha, inv_buffer_size, inverse_view_rotation_only);
+		render_spot_lights(render_params, (int)SpotLight::Type::Override, color_fbo1, RenderBlendMode::AlphaDestination, inv_buffer_size, inverse_view_rotation_only);
 
 		sync->write<RenderOp>(RenderOp::CullMode);
 		sync->write<RenderCullMode>(RenderCullMode::Back);
@@ -448,19 +458,23 @@ void draw(LoopSync* sync, const Camera* camera)
 	{
 		{
 			// Global light (directional and player lights)
-			const int lights = 3;
-			Vec3 colors[lights];
-			Vec3 directions[lights];
-			Vec3 abs_directions[lights];
+			const int max_lights = 3;
+			Vec3 colors[max_lights];
+			Vec3 directions[max_lights];
+			Vec3 abs_directions[max_lights];
 			bool shadowed = false;
 			int j = 0;
 			for (auto i = DirectionalLight::list().iterator(); !i.is_last(); i.next())
 			{
 				DirectionalLight* light = i.item();
+
+				if (!(light->mask & render_params.camera->mask))
+					continue;
+
 				colors[j] = light->color;
 				abs_directions[j] = light->get<Transform>()->absolute_rot() * Vec3(0, 1, 0);
 				directions[j] = (render_params.view * Vec4(abs_directions[j], 0)).xyz();
-				if (light->shadowed && false)
+				if (light->shadowed)
 				{
 					if (j > 0 && !shadowed)
 					{
@@ -479,7 +493,7 @@ void draw(LoopSync* sync, const Camera* camera)
 				}
 
 				j++;
-				if (j >= lights)
+				if (j >= max_lights)
 					break;
 			}
 
@@ -590,14 +604,14 @@ void draw(LoopSync* sync, const Camera* camera)
 			sync->write(RenderOp::Uniform);
 			sync->write(Asset::Uniform::light_color);
 			sync->write(RenderDataType::Vec3);
-			sync->write<int>(lights);
-			sync->write<Vec3>(colors, lights);
+			sync->write<int>(max_lights);
+			sync->write<Vec3>(colors, max_lights);
 
 			sync->write(RenderOp::Uniform);
 			sync->write(Asset::Uniform::light_direction);
 			sync->write(RenderDataType::Vec3);
-			sync->write<int>(lights);
-			sync->write<Vec3>(directions, lights);
+			sync->write<int>(max_lights);
+			sync->write<Vec3>(directions, max_lights);
 
 			sync->write(RenderOp::Mesh);
 			sync->write(screen_quad.mesh);
@@ -1182,6 +1196,7 @@ void loop(LoopSwapper* swapper, PhysicsSwapper* physics_swapper)
 	InputState last_input;
 
 	Update u;
+	u.render = sync;
 	u.input = &sync->input;
 	u.last_input = &last_input;
 

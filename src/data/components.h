@@ -53,6 +53,7 @@ struct PointLight : public ComponentType<PointLight>
 	Vec3 color;
 	Vec3 offset;
 	Type type;
+	RenderMask mask;
 
 	PointLight();
 	void awake() {}
@@ -70,6 +71,9 @@ struct SpotLight : public ComponentType<SpotLight>
 	Vec3 color;
 	float fov;
 	Type type;
+	RenderMask mask;
+
+	SpotLight();
 
 	void awake() {}
 };
@@ -78,6 +82,9 @@ struct DirectionalLight : public ComponentType<DirectionalLight>
 {
 	Vec3 color;
 	bool shadowed;
+	RenderMask mask;
+
+	DirectionalLight();
 
 	void awake() {}
 };

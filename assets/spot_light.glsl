@@ -64,20 +64,28 @@ void main()
 
 	float light_dot = dot(to_light, light_direction);
 
-	float light_strength =
-		float(light_dot > light_fov_dot)
-		* shadow
-		* max(0, 1.0 - (distance_to_light / light_radius))
-		* max(0, dot(texture(normal_buffer, uv).xyz * 2.0 - 1.0, to_light));
+	float lambert = dot(texture(normal_buffer, uv).xyz * 2.0 - 1.0, to_light);
 
 	if (type == type_override)
 	{
+		float light_strength =
+			float(light_dot > light_fov_dot)
+			* shadow
+			* float(distance_to_light < light_radius)
+			* float(lambert > 0.1f);
 		if (light_strength == 0.0f)
 			discard;
-		light_strength = 1.0f;
+		out_color = vec4(light_color, 1.0f);
 	}
-
-	out_color = vec4(light_color * light_strength, 1);
+	else
+	{
+		float light_strength =
+			float(light_dot > light_fov_dot)
+			* shadow
+			* max(0, 1.0 - (distance_to_light / light_radius))
+			* max(0, lambert);
+		out_color = vec4(light_color * light_strength, 1.0f);
+	}
 }
 
 #endif

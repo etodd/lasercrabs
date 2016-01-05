@@ -62,20 +62,20 @@ namespace VI
 		Settings& settings = Loader::settings();
 
 		window = SDL_CreateWindow
-			(
-				"MK-ZEBRA",
-				SDL_WINDOWPOS_CENTERED,
-				SDL_WINDOWPOS_CENTERED,
-				settings.width, settings.height,
-				SDL_WINDOW_OPENGL
-				| SDL_WINDOW_SHOWN
-				| SDL_WINDOW_BORDERLESS
-				| SDL_WINDOW_INPUT_GRABBED
-				| SDL_WINDOW_INPUT_FOCUS
-				| SDL_WINDOW_MOUSE_FOCUS
-				| SDL_WINDOW_MOUSE_CAPTURE
-				| (settings.fullscreen ? SDL_WINDOW_FULLSCREEN : 0)
-				);
+		(
+			"Sift",
+			SDL_WINDOWPOS_CENTERED,
+			SDL_WINDOWPOS_CENTERED,
+			settings.width, settings.height,
+			SDL_WINDOW_OPENGL
+			| SDL_WINDOW_SHOWN
+			| SDL_WINDOW_BORDERLESS
+			| SDL_WINDOW_INPUT_GRABBED
+			| SDL_WINDOW_INPUT_FOCUS
+			| SDL_WINDOW_MOUSE_FOCUS
+			| SDL_WINDOW_MOUSE_CAPTURE
+			| (settings.fullscreen ? SDL_WINDOW_FULLSCREEN : 0)
+		);
 
 #if defined(__APPLE__)
 		SDL_SetWindowGrab(window, SDL_TRUE);

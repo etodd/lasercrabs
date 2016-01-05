@@ -149,6 +149,7 @@ struct GLData
 	static bool depth_test;
 	static RenderCullMode cull_mode;
 	static RenderFillMode fill_mode;
+	static RenderBlendMode blend_mode;
 	static float point_size;
 	static int current_framebuffer;
 	static Rect2 viewport;
@@ -177,6 +178,7 @@ bool GLData::depth_mask = true;
 bool GLData::depth_test = true;
 RenderCullMode GLData::cull_mode = RenderCullMode::Back;
 RenderFillMode GLData::fill_mode = RenderFillMode::Fill;
+RenderBlendMode GLData::blend_mode = RenderBlendMode::Opaque;
 float GLData::point_size = 1.0f;
 int GLData::current_framebuffer = 0;
 Rect2 GLData::viewport = { Vec2::zero, Vec2::zero };
@@ -224,18 +226,63 @@ void bind_attrib_pointers(Array<GLData::Mesh::Attrib>& attribs)
 	}
 }
 
+void update_attrib_buffer(RenderSync* sync, const GLData::Mesh::Attrib* attrib, int count, bool dynamic)
+{
+	glBindBuffer(GL_ARRAY_BUFFER, attrib->handle);
+
+	GLenum usage = dynamic ? GL_DYNAMIC_DRAW : GL_STATIC_DRAW;
+
+	switch (attrib->data_type)
+	{
+		case RenderDataType::Float:
+		{
+			glBufferData(GL_ARRAY_BUFFER, count * sizeof(float) * attrib->element_count, sync->read<float>(count * attrib->element_count), usage);
+			break;
+		}
+		case RenderDataType::Vec2:
+		{
+			glBufferData(GL_ARRAY_BUFFER, count * sizeof(Vec2) * attrib->element_count, sync->read<Vec2>(count * attrib->element_count), usage);
+			break;
+		}
+		case RenderDataType::Vec3:
+		{
+			glBufferData(GL_ARRAY_BUFFER, count * sizeof(Vec3) * attrib->element_count, sync->read<Vec3>(count * attrib->element_count), usage);
+			break;
+		}
+		case RenderDataType::Vec4:
+		{
+			glBufferData(GL_ARRAY_BUFFER, count * sizeof(Vec4) * attrib->element_count, sync->read<Vec4>(count * attrib->element_count), usage);
+			break;
+		}
+		case RenderDataType::Int:
+		{
+			glBufferData(GL_ARRAY_BUFFER, count * sizeof(int) * attrib->element_count, sync->read<int>(count * attrib->element_count), usage);
+			break;
+		}
+		case RenderDataType::Mat4:
+		{
+			glBufferData(GL_ARRAY_BUFFER, count * sizeof(Mat4) * attrib->element_count, sync->read<Mat4>(count * attrib->element_count), usage);
+			break;
+		}
+		default:
+			vi_assert(false);
+			break;
+	}
+}
+
 void render(RenderSync* sync)
 {
+	sync->read_pos = 0;
+	while (sync->read_pos < sync->queue.length)
+	{
+
 #if DEBUG
+		GLenum error;
 #define debug_check() vi_assert((error = glGetError()) == GL_NO_ERROR)
 #else
 #define debug_check() {}
 #endif
 
-	sync->read_pos = 0;
-	while (sync->read_pos < sync->queue.length)
-	{
-		GLenum error;
 		RenderOp op = *(sync->read<RenderOp>());
 		switch (op)
 		{
@@ -364,53 +411,27 @@ void render(RenderSync* sync)
 				GLData::Mesh* mesh = &GLData::meshes[id];
 				glBindVertexArray(mesh->vertex_array);
 
-				GLenum usage = mesh->dynamic ? GL_DYNAMIC_DRAW : GL_STATIC_DRAW;
-
 				int count = *(sync->read<int>());
 
 				for (int i = 0; i < mesh->attribs.length; i++)
 				{
-					GLData::Mesh::Attrib* attrib = &mesh->attribs[i];
-
-					glBindBuffer(GL_ARRAY_BUFFER, attrib->handle);
-					switch (attrib->data_type)
-					{
-						case RenderDataType::Float:
-						{
-							glBufferData(GL_ARRAY_BUFFER, count * sizeof(float) * attrib->element_count, sync->read<float>(count * attrib->element_count), usage);
-							break;
-						}
-						case RenderDataType::Vec2:
-						{
-							glBufferData(GL_ARRAY_BUFFER, count * sizeof(Vec2) * attrib->element_count, sync->read<Vec2>(count * attrib->element_count), usage);
-							break;
-						}
-						case RenderDataType::Vec3:
-						{
-							glBufferData(GL_ARRAY_BUFFER, count * sizeof(Vec3) * attrib->element_count, sync->read<Vec3>(count * attrib->element_count), usage);
-							break;
-						}
-						case RenderDataType::Vec4:
-						{
-							glBufferData(GL_ARRAY_BUFFER, count * sizeof(Vec4) * attrib->element_count, sync->read<Vec4>(count * attrib->element_count), usage);
-							break;
-						}
-						case RenderDataType::Int:
-						{
-							glBufferData(GL_ARRAY_BUFFER, count * sizeof(int) * attrib->element_count, sync->read<int>(count * attrib->element_count), usage);
-							break;
-						}
-						case RenderDataType::Mat4:
-						{
-							glBufferData(GL_ARRAY_BUFFER, count * sizeof(Mat4) * attrib->element_count, sync->read<Mat4>(count * attrib->element_count), usage);
-							break;
-						}
-						default:
-							vi_assert(false);
-							break;
-					}
+					update_attrib_buffer(sync, &mesh->attribs[i], count, mesh->dynamic);
+					debug_check();
 				}
+				break;
+			}
+			case RenderOp::UpdateAttribBuffer:
+			{
+				int id = *(sync->read<int>());
+				GLData::Mesh* mesh = &GLData::meshes[id];
+				glBindVertexArray(mesh->vertex_array);
+
+				int attrib_index = *(sync->read<int>());
+				int count = *(sync->read<int>());
+
+				update_attrib_buffer(sync, &mesh->attribs[attrib_index], count, mesh->dynamic);
 				debug_check();
+
 				break;
 			}
 			case RenderOp::UpdateIndexBuffer:
@@ -806,7 +827,7 @@ void render(RenderSync* sync)
 			}
 			case RenderOp::BlendMode:
 			{
-				RenderBlendMode mode = *(sync->read<RenderBlendMode>());
+				RenderBlendMode mode = GLData::blend_mode = *(sync->read<RenderBlendMode>());
 				switch (mode)
 				{
 					case RenderBlendMode::Opaque:
@@ -819,6 +840,10 @@ void render(RenderSync* sync)
 					case RenderBlendMode::Additive:
 						glEnablei(GL_BLEND, 0);
 						glBlendFunc(GL_SRC_ALPHA, GL_ONE);
+						break;
+					case RenderBlendMode::AlphaDestination:
+						glEnablei(GL_BLEND, 0);
+						glBlendFunc(GL_DST_ALPHA, GL_ONE_MINUS_DST_ALPHA);
 						break;
 					default:
 						vi_assert(false);

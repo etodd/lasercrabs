@@ -62,17 +62,17 @@ void main()
 	}
 	else if (type == type_override)
 	{
-		light_strength = 1.0f;
 		float distance_attenuation = 1.0 - (distance_to_light / light_radius);
 		if (distance_attenuation < 0.0f)
 			discard;
+		light_strength = 1.0f;
 	}
 	else
 	{
 		float distance_attenuation = max(0, 1.0 - (distance_to_light / light_radius));
 		light_strength = distance_attenuation * max(0, normal_attenuation);
 	}
-	out_color = vec4(light_color * light_strength, 1);
+	out_color = vec4(light_color * light_strength, 1.0f);
 }
 
 #endif

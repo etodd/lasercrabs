@@ -198,7 +198,17 @@ void Transform::reparent(Transform* p)
 }
 
 PointLight::PointLight()
-	: radius(), color(1, 1, 1), offset(), type()
+	: radius(), color(1, 1, 1), offset(), type(), mask(-1)
+{
+}
+
+SpotLight::SpotLight()
+	: radius(), color(), fov(), type(), mask(-1)
+{
+}
+
+DirectionalLight::DirectionalLight()
+	: color(), shadowed(), mask(-1)
 {
 }
 

@@ -15,6 +15,7 @@ enum class RenderOp
 	AllocInstances,
 	FreeInstances,
 	UpdateAttribBuffers,
+	UpdateAttribBuffer,
 	UpdateIndexBuffer,
 	AllocTexture,
 	DynamicTexture,
@@ -45,6 +46,7 @@ enum class RenderBlendMode
 	Opaque,
 	Alpha,
 	Additive,
+	AlphaDestination,
 };
 
 enum class RenderDynamicTextureType

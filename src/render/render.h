@@ -14,8 +14,6 @@ struct Frustum
 	Plane planes[6];
 };
 
-typedef unsigned short RenderMask;
-
 #define RENDER_MASK_SHADOW (1 << 15)
 
 struct Camera

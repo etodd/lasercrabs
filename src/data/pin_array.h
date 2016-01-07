@@ -9,7 +9,7 @@ template<typename T, int size>
 struct PinArray
 {
 	StaticArray<T, size> data;
-	unsigned int mask[size / sizeof(unsigned int)];
+	unsigned int mask[(size / sizeof(unsigned int)) + 1];
 	StaticArray<int, size> free_list;
 	int start;
 	int end;

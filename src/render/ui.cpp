@@ -112,7 +112,7 @@ void UIText::refresh_bounds()
 	int char_index = 0;
 	char c;
 	const Vec2 spacing = Vec2(0.075f, 0.3f);
-	float wrap = wrap_width / size;
+	float wrap = wrap_width / (size * UI::scale);
 	while ((c = rendered_string[char_index]))
 	{
 		Font::Character* character = &f->get(&c);
@@ -273,8 +273,8 @@ void UIText::draw(const RenderParams& params, const Vec2& pos, const float rot) 
 	int char_index = 0;
 	char c;
 	const Vec2 spacing = Vec2(0.075f, 0.3f);
-	float wrap = wrap_width / size;
 	float scaled_size = size * UI::scale;
+	float wrap = wrap_width / scaled_size;
 	while ((clip == 0 || char_index <= clip) && (c = rendered_string[char_index]))
 	{
 		Font::Character* character = &f->get(&c);

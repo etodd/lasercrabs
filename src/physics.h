@@ -21,7 +21,7 @@ enum CollisionGroup
 
 struct PhysicsSync
 {
-	bool quit;
+	b8 quit;
 	GameTime time;
 };
 
@@ -70,14 +70,14 @@ struct RigidBody : public ComponentType<RigidBody>
 		btTypedConstraint* btPointer;
 	};
 
-	static PinArray<Constraint, MAX_ENTITIES> global_constraints;
+	static PinArray<Constraint, MAX_ENTITIES> global_constras32s;
 
 	short collision_group;
 	short collision_filter;
 	Type type;
-	float mass;
+	r32 mass;
 	Vec3 size;
-	int mesh_id;
+	s32 mesh_id;
 	ID linked_entity; // set the rigid body's user index to this. if IDNull, it's "this" entity's ID.
 	Vec2 damping; // use set_damping to ensure the btBody will be updated
 	
@@ -85,11 +85,11 @@ struct RigidBody : public ComponentType<RigidBody>
 	btStridingMeshInterface* btMesh;
 	btRigidBody* btBody;
 
-	void set_damping(float, float);
-	static ID add_constraint(Constraint&);
-	static void remove_constraint(ID);
+	void set_damping(r32, r32);
+	static ID add_constras32(Constraint&);
+	static void remove_constras32(ID);
 
-	RigidBody(Type, const Vec3&, float, short, short, AssetID = AssetNull, ID = IDNull);
+	RigidBody(Type, const Vec3&, r32, short, short, AssetID = AssetNull, ID = IDNull);
 	~RigidBody();
 	void awake();
 };

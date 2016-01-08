@@ -30,37 +30,37 @@ ScreenQuad screen_quad = ScreenQuad();
 
 #define SHADOW_MAP_CASCADES 2
 
-const int shadow_map_size[SHADOW_MAP_CASCADES] =
+const s32 shadow_map_size[SHADOW_MAP_CASCADES] =
 {
 	1024, // detail
 	1024, // global
 };
 
-int color_buffer;
-int normal_buffer;
-int depth_buffer;
-int color_fbo1;
-int g_fbo;
-int lighting_buffer;
-int lighting_fbo;
-int color_buffer2;
-int color_fbo2;
-int shadow_buffer[SHADOW_MAP_CASCADES];
-int shadow_fbo[SHADOW_MAP_CASCADES];
-int half_depth_buffer;
-int half_buffer1;
-int half_fbo1;
-int half_buffer2;
-int half_fbo2;
-int half_fbo3;
-int ui_buffer;
-int ui_fbo;
+s32 color_buffer;
+s32 normal_buffer;
+s32 depth_buffer;
+s32 color_fbo1;
+s32 g_fbo;
+s32 lighting_buffer;
+s32 lighting_fbo;
+s32 color_buffer2;
+s32 color_fbo2;
+s32 shadow_buffer[SHADOW_MAP_CASCADES];
+s32 shadow_fbo[SHADOW_MAP_CASCADES];
+s32 half_depth_buffer;
+s32 half_buffer1;
+s32 half_fbo1;
+s32 half_buffer2;
+s32 half_fbo2;
+s32 half_fbo3;
+s32 ui_buffer;
+s32 ui_fbo;
 
-Mat4 render_shadows(LoopSync* sync, int fbo, const Camera& main_camera, const Camera& shadow_camera)
+Mat4 render_shadows(LoopSync* sync, s32 fbo, const Camera& main_camera, const Camera& shadow_camera)
 {
 	// Render shadows
 	sync->write<RenderOp>(RenderOp::BindFramebuffer);
-	sync->write<int>(fbo);
+	sync->write<s32>(fbo);
 
 	RenderParams shadow_render_params;
 	shadow_render_params.sync = sync;
@@ -69,8 +69,8 @@ Mat4 render_shadows(LoopSync* sync, int fbo, const Camera& main_camera, const Ca
 	sync->write<Rect2>(shadow_camera.viewport);
 
 	sync->write<RenderOp>(RenderOp::Clear);
-	sync->write<bool>(false); // Don't clear color
-	sync->write<bool>(true); // Clear depth
+	sync->write<b8>(false); // Don't clear color
+	sync->write<b8>(true); // Clear depth
 
 	shadow_render_params.camera = &shadow_camera;
 	shadow_render_params.view = shadow_camera.view();
@@ -87,7 +87,7 @@ Mat4 render_shadows(LoopSync* sync, int fbo, const Camera& main_camera, const Ca
 	return view_offset_camera.view() * shadow_camera.projection;
 }
 
-void render_point_lights(const RenderParams& render_params, int type_mask, const Vec2& inv_buffer_size)
+void render_point_lights(const RenderParams& render_params, s32 type_mask, const Vec2& inv_buffer_size)
 {
 	LoopSync* sync = render_params.sync;
 
@@ -100,46 +100,46 @@ void render_point_lights(const RenderParams& render_params, int type_mask, const
 	sync->write(RenderOp::Uniform);
 	sync->write(Asset::Uniform::p);
 	sync->write(RenderDataType::Mat4);
-	sync->write<int>(1);
+	sync->write<s32>(1);
 	sync->write<Mat4>(render_params.camera->projection);
 
 	sync->write(RenderOp::Uniform);
 	sync->write(Asset::Uniform::normal_buffer);
 	sync->write(RenderDataType::Texture);
-	sync->write<int>(1);
+	sync->write<s32>(1);
 	sync->write<RenderTextureType>(RenderTextureType::Texture2D);
 	sync->write<AssetID>(normal_buffer);
 
 	sync->write(RenderOp::Uniform);
 	sync->write(Asset::Uniform::depth_buffer);
 	sync->write(RenderDataType::Texture);
-	sync->write<int>(1);
+	sync->write<s32>(1);
 	sync->write<RenderTextureType>(RenderTextureType::Texture2D);
 	sync->write<AssetID>(depth_buffer);
 
 	sync->write(RenderOp::Uniform);
 	sync->write(Asset::Uniform::uv_offset);
 	sync->write(RenderDataType::Vec2);
-	sync->write<int>(1);
+	sync->write<s32>(1);
 	sync->write<Vec2>(render_params.camera->viewport.pos * inv_buffer_size);
 
 	sync->write(RenderOp::Uniform);
 	sync->write(Asset::Uniform::uv_scale);
 	sync->write(RenderDataType::Vec2);
-	sync->write<int>(1);
+	sync->write<s32>(1);
 	sync->write<Vec2>(render_params.camera->viewport.size * inv_buffer_size);
 
 	sync->write(RenderOp::Uniform);
 	sync->write(Asset::Uniform::frustum);
 	sync->write(RenderDataType::Vec3);
-	sync->write<int>(4);
+	sync->write<s32>(4);
 	sync->write<Vec3>(render_params.camera->frustum_rays, 4);
 
 	Loader::mesh_permanent(Asset::Mesh::sphere);
 	for (auto i = PointLight::list().iterator(); !i.is_last(); i.next())
 	{
 		PointLight* light = i.item();
-		if (!((int)light->type & type_mask) || !(light->mask & render_params.camera->mask))
+		if (!((s32)light->type & type_mask) || !(light->mask & render_params.camera->mask))
 			continue;
 
 		Vec3 light_pos = light->get<Transform>()->to_world(light->offset);
@@ -153,39 +153,39 @@ void render_point_lights(const RenderParams& render_params, int type_mask, const
 		sync->write(RenderOp::Uniform);
 		sync->write(Asset::Uniform::light_pos);
 		sync->write(RenderDataType::Vec3);
-		sync->write<int>(1);
+		sync->write<s32>(1);
 		sync->write<Vec3>((render_params.view * Vec4(light_pos, 1)).xyz());
 
 		sync->write(RenderOp::Uniform);
 		sync->write(Asset::Uniform::mvp);
 		sync->write(RenderDataType::Mat4);
-		sync->write<int>(1);
+		sync->write<s32>(1);
 		sync->write<Mat4>(light_transform * render_params.view_projection);
 
 		sync->write(RenderOp::Uniform);
 		sync->write(Asset::Uniform::type);
 		sync->write(RenderDataType::Int);
-		sync->write<int>(1);
-		sync->write<int>((int)light->type);
+		sync->write<s32>(1);
+		sync->write<s32>((s32)light->type);
 
 		sync->write(RenderOp::Uniform);
 		sync->write(Asset::Uniform::light_color);
 		sync->write(RenderDataType::Vec3);
-		sync->write<int>(1);
+		sync->write<s32>(1);
 		sync->write<Vec3>(light->color);
 
 		sync->write(RenderOp::Uniform);
 		sync->write(Asset::Uniform::light_radius);
 		sync->write(RenderDataType::Float);
-		sync->write<int>(1);
-		sync->write<float>(light->radius);
+		sync->write<s32>(1);
+		sync->write<r32>(light->radius);
 
 		sync->write(RenderOp::Mesh);
 		sync->write(Asset::Mesh::sphere);
 	}
 }
 
-void render_spot_lights(const RenderParams& render_params, int type_mask, int fbo, RenderBlendMode blend_mode, const Vec2& inv_buffer_size, const Mat4& inverse_view_rotation_only)
+void render_spot_lights(const RenderParams& render_params, s32 type_mask, s32 fbo, RenderBlendMode blend_mode, const Vec2& inv_buffer_size, const Mat4& inverse_view_rotation_only)
 {
 	LoopSync* sync = render_params.sync;
 
@@ -197,7 +197,7 @@ void render_spot_lights(const RenderParams& render_params, int type_mask, int fb
 	for (auto i = SpotLight::list().iterator(); !i.is_last(); i.next())
 	{
 		SpotLight* light = i.item();
-		if (!((int)light->type & type_mask) || !(light->mask & render_params.camera->mask))
+		if (!((s32)light->type & type_mask) || !(light->mask & render_params.camera->mask))
 			continue;
 
 		if (light->color.length_squared() == 0.0f || light->fov == 0.0f || light->radius == 0.0f)
@@ -209,9 +209,9 @@ void render_spot_lights(const RenderParams& render_params, int type_mask, int fb
 
 		{
 			Vec3 center = abs_pos + (abs_rot * Vec3(0, 0, light->radius * 0.5f));
-			float fov_size = light->radius * tanf(light->fov * 0.5f);
+			r32 fov_size = light->radius * tanf(light->fov * 0.5f);
 			Vec3 corner(fov_size, fov_size, light->radius);
-			float radius = (corner - center).length();
+			r32 radius = (corner - center).length();
 			if (!render_params.camera->visible_sphere(center, radius))
 				continue;
 		}
@@ -220,9 +220,9 @@ void render_spot_lights(const RenderParams& render_params, int type_mask, int fb
 
 		{
 			sync->write(RenderOp::DepthMask);
-			sync->write<bool>(true);
+			sync->write<b8>(true);
 			sync->write(RenderOp::DepthTest);
-			sync->write<bool>(true);
+			sync->write<b8>(true);
 
 			Camera shadow_camera;
 			shadow_camera.viewport =
@@ -236,13 +236,13 @@ void render_spot_lights(const RenderParams& render_params, int type_mask, int fb
 			light_vp = render_shadows(sync, shadow_fbo[0], *render_params.camera, shadow_camera);
 
 			sync->write(RenderOp::DepthMask);
-			sync->write<bool>(false);
+			sync->write<b8>(false);
 			sync->write(RenderOp::DepthTest);
-			sync->write<bool>(false);
+			sync->write<b8>(false);
 		}
 
 		sync->write<RenderOp>(RenderOp::BindFramebuffer);
-		sync->write<int>(fbo);
+		sync->write<s32>(fbo);
 
 		sync->write<RenderOp>(RenderOp::BlendMode);
 		sync->write<RenderBlendMode>(blend_mode);
@@ -260,84 +260,84 @@ void render_spot_lights(const RenderParams& render_params, int type_mask, int fb
 		sync->write(RenderOp::Uniform);
 		sync->write(Asset::Uniform::uv_offset);
 		sync->write(RenderDataType::Vec2);
-		sync->write<int>(1);
+		sync->write<s32>(1);
 		sync->write<Vec2>(render_params.camera->viewport.pos * inv_buffer_size);
 
 		sync->write(RenderOp::Uniform);
 		sync->write(Asset::Uniform::uv_scale);
 		sync->write(RenderDataType::Vec2);
-		sync->write<int>(1);
+		sync->write<s32>(1);
 		sync->write<Vec2>(render_params.camera->viewport.size * inv_buffer_size);
 
 		sync->write(RenderOp::Uniform);
 		sync->write(Asset::Uniform::p);
 		sync->write(RenderDataType::Mat4);
-		sync->write<int>(1);
+		sync->write<s32>(1);
 		sync->write<Mat4>(render_params.camera->projection);
 
 		sync->write(RenderOp::Uniform);
 		sync->write(Asset::Uniform::normal_buffer);
 		sync->write(RenderDataType::Texture);
-		sync->write<int>(1);
+		sync->write<s32>(1);
 		sync->write<RenderTextureType>(RenderTextureType::Texture2D);
 		sync->write<AssetID>(normal_buffer);
 
 		sync->write(RenderOp::Uniform);
 		sync->write(Asset::Uniform::depth_buffer);
 		sync->write(RenderDataType::Texture);
-		sync->write<int>(1);
+		sync->write<s32>(1);
 		sync->write<RenderTextureType>(RenderTextureType::Texture2D);
 		sync->write<AssetID>(depth_buffer);
 
 		sync->write(RenderOp::Uniform);
 		sync->write(Asset::Uniform::light_pos);
 		sync->write(RenderDataType::Vec3);
-		sync->write<int>(1);
+		sync->write<s32>(1);
 		sync->write<Vec3>((render_params.view * Vec4(abs_pos, 1)).xyz());
 
 		sync->write(RenderOp::Uniform);
 		sync->write(Asset::Uniform::light_vp);
 		sync->write(RenderDataType::Mat4);
-		sync->write<int>(1);
+		sync->write<s32>(1);
 		sync->write<Mat4>(inverse_view_rotation_only * light_vp);
 
 		sync->write(RenderOp::Uniform);
 		sync->write(Asset::Uniform::light_color);
 		sync->write(RenderDataType::Vec3);
-		sync->write<int>(1);
+		sync->write<s32>(1);
 		sync->write<Vec3>(light->color);
 
 		sync->write(RenderOp::Uniform);
 		sync->write(Asset::Uniform::light_radius);
 		sync->write(RenderDataType::Float);
-		sync->write<int>(1);
-		sync->write<float>(light->radius);
+		sync->write<s32>(1);
+		sync->write<r32>(light->radius);
 
 		sync->write(RenderOp::Uniform);
 		sync->write(Asset::Uniform::light_direction);
 		sync->write(RenderDataType::Vec3);
-		sync->write<int>(1);
+		sync->write<s32>(1);
 		sync->write<Vec3>((render_params.view * Vec4(abs_rot * Vec3(0, 0, -1), 0)).xyz());
 
 		sync->write(RenderOp::Uniform);
 		sync->write(Asset::Uniform::light_fov_dot);
 		sync->write(RenderDataType::Float);
-		sync->write<int>(1);
-		sync->write<float>(cosf(light->fov));
+		sync->write<s32>(1);
+		sync->write<r32>(cosf(light->fov));
 
 		sync->write(RenderOp::Uniform);
 		sync->write(Asset::Uniform::shadow_map);
 		sync->write(RenderDataType::Texture);
-		sync->write<int>(1);
+		sync->write<s32>(1);
 		sync->write<RenderTextureType>(RenderTextureType::Texture2D);
-		sync->write<int>(shadow_buffer[0]);
+		sync->write<s32>(shadow_buffer[0]);
 
 		sync->write(RenderOp::Uniform);
 		sync->write(Asset::Uniform::mvp);
 		sync->write(RenderDataType::Mat4);
-		sync->write<int>(1);
+		sync->write<s32>(1);
 		Mat4 light_transform;
-		float width_scale = sinf(light->fov) * light->radius * 2.0f;
+		r32 width_scale = sinf(light->fov) * light->radius * 2.0f;
 		Vec3 light_model_scale
 		(
 			width_scale,
@@ -350,13 +350,13 @@ void render_spot_lights(const RenderParams& render_params, int type_mask, int fb
 		sync->write(RenderOp::Uniform);
 		sync->write(Asset::Uniform::type);
 		sync->write(RenderDataType::Int);
-		sync->write<int>(1);
-		sync->write<int>((int)light->type);
+		sync->write<s32>(1);
+		sync->write<s32>((s32)light->type);
 
 		sync->write(RenderOp::Uniform);
 		sync->write(Asset::Uniform::frustum);
 		sync->write(RenderDataType::Vec3);
-		sync->write<int>(4);
+		sync->write<s32>(4);
 		sync->write<Vec3>(render_params.camera->frustum_rays, 4);
 
 		Loader::mesh_permanent(Asset::Mesh::cone);
@@ -382,8 +382,8 @@ void draw(LoopSync* sync, const Camera* camera)
 
 	Rect2 half_viewport =
 	{
-		Vec2((int)(camera->viewport.pos.x * 0.5f), (int)(camera->viewport.pos.y * 0.5f)),
-		Vec2((int)(camera->viewport.size.x * 0.5f), (int)(camera->viewport.size.y * 0.5f)),
+		Vec2((s32)(camera->viewport.pos.x * 0.5f), (s32)(camera->viewport.pos.y * 0.5f)),
+		Vec2((s32)(camera->viewport.size.x * 0.5f), (s32)(camera->viewport.size.y * 0.5f)),
 	};
 
 	Mat4 inverse_view = render_params.view.inverse();
@@ -417,11 +417,11 @@ void draw(LoopSync* sync, const Camera* camera)
 	// Fill G buffer
 	{
 		sync->write<RenderOp>(RenderOp::BindFramebuffer);
-		sync->write<int>(g_fbo);
+		sync->write<s32>(g_fbo);
 
 		sync->write(RenderOp::Clear);
-		sync->write<bool>(true); // Clear color
-		sync->write<bool>(true); // Clear depth
+		sync->write<b8>(true); // Clear color
+		sync->write<b8>(true); // Clear depth
 
 		Game::draw_opaque(render_params);
 	}
@@ -429,41 +429,41 @@ void draw(LoopSync* sync, const Camera* camera)
 	// Render override lights
 	{
 		sync->write<RenderOp>(RenderOp::BindFramebuffer);
-		sync->write<int>(color_fbo1);
+		sync->write<s32>(color_fbo1);
 
 		sync->write(RenderOp::DepthMask);
-		sync->write<bool>(false);
+		sync->write<b8>(false);
 		sync->write(RenderOp::DepthTest);
-		sync->write<bool>(false);
+		sync->write<b8>(false);
 
 		sync->write<RenderOp>(RenderOp::CullMode);
 		sync->write<RenderCullMode>(RenderCullMode::Front);
 		sync->write<RenderOp>(RenderOp::BlendMode);
 		sync->write<RenderBlendMode>(RenderBlendMode::AlphaDestination);
 
-		render_point_lights(render_params, (int)PointLight::Type::Override, inv_buffer_size);
+		render_point_lights(render_params, (s32)PointLight::Type::Override, inv_buffer_size);
 
-		render_spot_lights(render_params, (int)SpotLight::Type::Override, color_fbo1, RenderBlendMode::AlphaDestination, inv_buffer_size, inverse_view_rotation_only);
+		render_spot_lights(render_params, (s32)SpotLight::Type::Override, color_fbo1, RenderBlendMode::AlphaDestination, inv_buffer_size, inverse_view_rotation_only);
 
 		sync->write<RenderOp>(RenderOp::CullMode);
 		sync->write<RenderCullMode>(RenderCullMode::Back);
 
 		sync->write(RenderOp::DepthMask);
-		sync->write<bool>(true);
+		sync->write<b8>(true);
 		sync->write(RenderOp::DepthTest);
-		sync->write<bool>(true);
+		sync->write<b8>(true);
 	}
 
 	// Regular lighting
 	{
 		{
 			// Global light (directional and player lights)
-			const int max_lights = 3;
+			const s32 max_lights = 3;
 			Vec3 colors[max_lights];
 			Vec3 directions[max_lights];
 			Vec3 abs_directions[max_lights];
-			bool shadowed = false;
-			int j = 0;
+			b8 shadowed = false;
+			s32 j = 0;
 			for (auto i = DirectionalLight::list().iterator(); !i.is_last(); i.next())
 			{
 				DirectionalLight* light = i.item();
@@ -509,10 +509,10 @@ void draw(LoopSync* sync, const Camera* camera)
 					Vec2(0, 0),
 					Vec2(shadow_map_size[1], shadow_map_size[1]),
 				};
-				float size = fmin(800.0f, render_params.camera->far_plane);
+				r32 size = fmin(800.0f, render_params.camera->far_plane);
 				Vec3 pos = render_params.camera->pos;
-				const float interval = size * 0.025f;
-				pos = Vec3((int)(pos.x / interval), (int)(pos.y / interval), (int)(pos.z / interval)) * interval;
+				const r32 s32erval = size * 0.025f;
+				pos = Vec3((s32)(pos.x / s32erval), (s32)(pos.y / s32erval), (s32)(pos.z / s32erval)) * s32erval;
 				shadow_camera.pos = pos + (abs_directions[0] * size * -0.5f);
 				shadow_camera.rot = Quat::look(abs_directions[0]);
 
@@ -540,11 +540,11 @@ void draw(LoopSync* sync, const Camera* camera)
 			sync->write<RenderBlendMode>(RenderBlendMode::Opaque);
 
 			sync->write<RenderOp>(RenderOp::BindFramebuffer);
-			sync->write<int>(lighting_fbo);
+			sync->write<s32>(lighting_fbo);
 
 			sync->write(RenderOp::Clear);
-			sync->write<bool>(true); // Clear color
-			sync->write<bool>(true); // Clear depth
+			sync->write<b8>(true); // Clear color
+			sync->write<b8>(true); // Clear depth
 
 			Loader::shader_permanent(Asset::Shader::global_light);
 
@@ -555,7 +555,7 @@ void draw(LoopSync* sync, const Camera* camera)
 			sync->write(RenderOp::Uniform);
 			sync->write(Asset::Uniform::p);
 			sync->write(RenderDataType::Mat4);
-			sync->write<int>(1);
+			sync->write<s32>(1);
 			sync->write<Mat4>(render_params.camera->projection);
 
 			if (shadowed)
@@ -563,54 +563,54 @@ void draw(LoopSync* sync, const Camera* camera)
 				sync->write(RenderOp::Uniform);
 				sync->write(Asset::Uniform::light_vp);
 				sync->write(RenderDataType::Mat4);
-				sync->write<int>(1);
+				sync->write<s32>(1);
 				sync->write<Mat4>(inverse_view_rotation_only * light_vp);
 
 				sync->write(RenderOp::Uniform);
 				sync->write(Asset::Uniform::shadow_map);
 				sync->write(RenderDataType::Texture);
-				sync->write<int>(1);
+				sync->write<s32>(1);
 				sync->write<RenderTextureType>(RenderTextureType::Texture2D);
-				sync->write<int>(shadow_buffer[1]);
+				sync->write<s32>(shadow_buffer[1]);
 
 				sync->write(RenderOp::Uniform);
 				sync->write(Asset::Uniform::detail_light_vp);
 				sync->write(RenderDataType::Mat4);
-				sync->write<int>(1);
+				sync->write<s32>(1);
 				sync->write<Mat4>(inverse_view_rotation_only * detail_light_vp);
 
 				sync->write(RenderOp::Uniform);
 				sync->write(Asset::Uniform::detail_shadow_map);
 				sync->write(RenderDataType::Texture);
-				sync->write<int>(1);
+				sync->write<s32>(1);
 				sync->write<RenderTextureType>(RenderTextureType::Texture2D);
-				sync->write<int>(shadow_buffer[0]);
+				sync->write<s32>(shadow_buffer[0]);
 			}
 
 			sync->write(RenderOp::Uniform);
 			sync->write(Asset::Uniform::normal_buffer);
 			sync->write(RenderDataType::Texture);
-			sync->write<int>(1);
+			sync->write<s32>(1);
 			sync->write<RenderTextureType>(RenderTextureType::Texture2D);
 			sync->write<AssetID>(normal_buffer);
 
 			sync->write(RenderOp::Uniform);
 			sync->write(Asset::Uniform::depth_buffer);
 			sync->write(RenderDataType::Texture);
-			sync->write<int>(1);
+			sync->write<s32>(1);
 			sync->write<RenderTextureType>(RenderTextureType::Texture2D);
 			sync->write<AssetID>(depth_buffer);
 
 			sync->write(RenderOp::Uniform);
 			sync->write(Asset::Uniform::light_color);
 			sync->write(RenderDataType::Vec3);
-			sync->write<int>(max_lights);
+			sync->write<s32>(max_lights);
 			sync->write<Vec3>(colors, max_lights);
 
 			sync->write(RenderOp::Uniform);
 			sync->write(Asset::Uniform::light_direction);
 			sync->write(RenderDataType::Vec3);
-			sync->write<int>(max_lights);
+			sync->write<s32>(max_lights);
 			sync->write<Vec3>(directions, max_lights);
 
 			sync->write(RenderOp::Mesh);
@@ -624,12 +624,12 @@ void draw(LoopSync* sync, const Camera* camera)
 			sync->write<RenderOp>(RenderOp::BlendMode);
 			sync->write<RenderBlendMode>(RenderBlendMode::Additive);
 
-			render_point_lights(render_params, (int)PointLight::Type::Normal | (int)PointLight::Type::Shockwave, inv_buffer_size);
+			render_point_lights(render_params, (s32)PointLight::Type::Normal | (s32)PointLight::Type::Shockwave, inv_buffer_size);
 		}
 
 		{
 			// Spot lights
-			render_spot_lights(render_params, (int)SpotLight::Type::Normal, lighting_fbo, RenderBlendMode::Additive, inv_buffer_size, inverse_view_rotation_only);
+			render_spot_lights(render_params, (s32)SpotLight::Type::Normal, lighting_fbo, RenderBlendMode::Additive, inv_buffer_size, inverse_view_rotation_only);
 		}
 
 	}
@@ -637,7 +637,7 @@ void draw(LoopSync* sync, const Camera* camera)
 	// SSAO
 	{
 		sync->write(RenderOp::BindFramebuffer);
-		sync->write<int>(half_fbo1);
+		sync->write<s32>(half_fbo1);
 
 		sync->write(RenderOp::Viewport);
 		sync->write<Rect2>(half_viewport);
@@ -645,8 +645,8 @@ void draw(LoopSync* sync, const Camera* camera)
 		// Downsample
 		{
 			sync->write(RenderOp::Clear);
-			sync->write<bool>(true); // Clear color
-			sync->write<bool>(true); // Clear depth
+			sync->write<b8>(true); // Clear color
+			sync->write<b8>(true); // Clear depth
 
 			Loader::shader_permanent(Asset::Shader::ssao_downsample);
 			sync->write(RenderOp::Shader);
@@ -656,21 +656,21 @@ void draw(LoopSync* sync, const Camera* camera)
 			sync->write(RenderOp::Uniform);
 			sync->write(Asset::Uniform::normal_buffer);
 			sync->write(RenderDataType::Texture);
-			sync->write<int>(1);
+			sync->write<s32>(1);
 			sync->write<RenderTextureType>(RenderTextureType::Texture2D);
-			sync->write<int>(normal_buffer);
+			sync->write<s32>(normal_buffer);
 
 			sync->write(RenderOp::Uniform);
 			sync->write(Asset::Uniform::depth_buffer);
 			sync->write(RenderDataType::Texture);
-			sync->write<int>(1);
+			sync->write<s32>(1);
 			sync->write<RenderTextureType>(RenderTextureType::Texture2D);
-			sync->write<int>(depth_buffer);
+			sync->write<s32>(depth_buffer);
 
 			sync->write(RenderOp::Uniform);
 			sync->write(Asset::Uniform::inv_buffer_size);
 			sync->write(RenderDataType::Vec2);
-			sync->write<int>(1);
+			sync->write<s32>(1);
 			sync->write<Vec2>(inv_buffer_size);
 
 			sync->write(RenderOp::Mesh);
@@ -680,7 +680,7 @@ void draw(LoopSync* sync, const Camera* camera)
 		// SSAO
 		{
 			sync->write(RenderOp::BindFramebuffer);
-			sync->write<int>(half_fbo2);
+			sync->write<s32>(half_fbo2);
 
 			Loader::shader_permanent(Asset::Shader::ssao);
 			sync->write(RenderOp::Shader);
@@ -690,59 +690,59 @@ void draw(LoopSync* sync, const Camera* camera)
 			sync->write(RenderOp::Uniform);
 			sync->write(Asset::Uniform::normal_buffer);
 			sync->write(RenderDataType::Texture);
-			sync->write<int>(1);
+			sync->write<s32>(1);
 			sync->write<RenderTextureType>(RenderTextureType::Texture2D);
-			sync->write<int>(half_buffer1);
+			sync->write<s32>(half_buffer1);
 
 			sync->write(RenderOp::Uniform);
 			sync->write(Asset::Uniform::depth_buffer);
 			sync->write(RenderDataType::Texture);
-			sync->write<int>(1);
+			sync->write<s32>(1);
 			sync->write<RenderTextureType>(RenderTextureType::Texture2D);
-			sync->write<int>(half_depth_buffer);
+			sync->write<s32>(half_depth_buffer);
 
 			Loader::texture_permanent(Asset::Texture::noise, RenderTextureWrap::Repeat, RenderTextureFilter::Nearest);
 			sync->write(RenderOp::Uniform);
 			sync->write(Asset::Uniform::noise_sampler);
 			sync->write(RenderDataType::Texture);
-			sync->write<int>(1);
+			sync->write<s32>(1);
 			sync->write<RenderTextureType>(RenderTextureType::Texture2D);
-			sync->write<int>(Asset::Texture::noise);
+			sync->write<s32>(Asset::Texture::noise);
 
 			sync->write(RenderOp::Uniform);
 			sync->write(Asset::Uniform::p);
 			sync->write(RenderDataType::Mat4);
-			sync->write<int>(1);
+			sync->write<s32>(1);
 			sync->write<Mat4>(render_params.camera->projection);
 
 			sync->write(RenderOp::Uniform);
 			sync->write(Asset::Uniform::inv_buffer_size);
 			sync->write(RenderDataType::Vec2);
-			sync->write<int>(1);
+			sync->write<s32>(1);
 			sync->write<Vec2>(inv_buffer_size);
 
 			sync->write(RenderOp::Uniform);
 			sync->write(Asset::Uniform::uv_offset);
 			sync->write(RenderDataType::Vec2);
-			sync->write<int>(1);
+			sync->write<s32>(1);
 			sync->write<Vec2>(camera->viewport.pos * inv_buffer_size);
 
 			sync->write(RenderOp::Uniform);
 			sync->write(Asset::Uniform::inv_uv_scale);
 			sync->write(RenderDataType::Vec2);
-			sync->write<int>(1);
+			sync->write<s32>(1);
 			sync->write<Vec2>(Vec2(1, 1) / (camera->viewport.size * inv_buffer_size));
 
 			sync->write(RenderOp::Uniform);
 			sync->write(Asset::Uniform::far_plane);
 			sync->write(RenderDataType::Float);
-			sync->write<int>(1);
-			sync->write<float>(camera->far_plane);
+			sync->write<s32>(1);
+			sync->write<r32>(camera->far_plane);
 
 			sync->write(RenderOp::Uniform);
 			sync->write(Asset::Uniform::frustum);
 			sync->write(RenderDataType::Vec3);
-			sync->write<int>(4);
+			sync->write<s32>(4);
 			sync->write<Vec3>(frustum, 4);
 
 			sync->write(RenderOp::Mesh);
@@ -750,14 +750,14 @@ void draw(LoopSync* sync, const Camera* camera)
 		}
 
 		sync->write(RenderOp::DepthMask);
-		sync->write<bool>(false);
+		sync->write<b8>(false);
 		sync->write(RenderOp::DepthTest);
-		sync->write<bool>(false);
+		sync->write<b8>(false);
 
 		// Horizontal blur
 		{
 			sync->write(RenderOp::BindFramebuffer);
-			sync->write<int>(half_fbo1);
+			sync->write<s32>(half_fbo1);
 
 			Loader::shader_permanent(Asset::Shader::ssao_blur);
 			sync->write(RenderOp::Shader);
@@ -767,22 +767,22 @@ void draw(LoopSync* sync, const Camera* camera)
 			sync->write(RenderOp::Uniform);
 			sync->write(Asset::Uniform::inv_buffer_size);
 			sync->write(RenderDataType::Vec2);
-			sync->write<int>(1);
+			sync->write<s32>(1);
 			sync->write<Vec2>(Vec2(inv_half_buffer_size.x, 0));
 
 			sync->write(RenderOp::Uniform);
 			sync->write(Asset::Uniform::color_buffer);
 			sync->write(RenderDataType::Texture);
-			sync->write<int>(1);
+			sync->write<s32>(1);
 			sync->write<RenderTextureType>(RenderTextureType::Texture2D);
-			sync->write<int>(half_buffer2);
+			sync->write<s32>(half_buffer2);
 
 			sync->write(RenderOp::Uniform);
 			sync->write(Asset::Uniform::depth_buffer);
 			sync->write(RenderDataType::Texture);
-			sync->write<int>(1);
+			sync->write<s32>(1);
 			sync->write<RenderTextureType>(RenderTextureType::Texture2D);
-			sync->write<int>(half_depth_buffer);
+			sync->write<s32>(half_depth_buffer);
 
 			sync->write(RenderOp::Mesh);
 			sync->write(screen_quad.mesh);
@@ -791,20 +791,20 @@ void draw(LoopSync* sync, const Camera* camera)
 		// Vertical blur
 		{
 			sync->write(RenderOp::BindFramebuffer);
-			sync->write<int>(half_fbo2);
+			sync->write<s32>(half_fbo2);
 
 			sync->write(RenderOp::Uniform);
 			sync->write(Asset::Uniform::inv_buffer_size);
 			sync->write(RenderDataType::Vec2);
-			sync->write<int>(1);
+			sync->write<s32>(1);
 			sync->write<Vec2>(Vec2(0, inv_half_buffer_size.y));
 
 			sync->write(RenderOp::Uniform);
 			sync->write(Asset::Uniform::color_buffer);
 			sync->write(RenderDataType::Texture);
-			sync->write<int>(1);
+			sync->write<s32>(1);
 			sync->write<RenderTextureType>(RenderTextureType::Texture2D);
-			sync->write<int>(half_buffer1);
+			sync->write<s32>(half_buffer1);
 
 			sync->write(RenderOp::Mesh);
 			sync->write(screen_quad.mesh);
@@ -817,14 +817,14 @@ void draw(LoopSync* sync, const Camera* camera)
 	sync->write<Rect2>(camera->viewport);
 
 	sync->write<RenderOp>(RenderOp::DepthMask);
-	sync->write<bool>(false);
+	sync->write<b8>(false);
 	sync->write<RenderOp>(RenderOp::DepthTest);
-	sync->write<bool>(false);
+	sync->write<b8>(false);
 
 	// Composite
 	{
 		sync->write<RenderOp>(RenderOp::BindFramebuffer);
-		sync->write<int>(color_fbo2);
+		sync->write<s32>(color_fbo2);
 
 		Loader::shader_permanent(Asset::Shader::composite);
 		sync->write(RenderOp::Shader);
@@ -834,53 +834,53 @@ void draw(LoopSync* sync, const Camera* camera)
 		sync->write(RenderOp::Uniform);
 		sync->write(Asset::Uniform::p);
 		sync->write(RenderDataType::Mat4);
-		sync->write<int>(1);
+		sync->write<s32>(1);
 		sync->write<Mat4>(render_params.camera->projection);
 
 		sync->write(RenderOp::Uniform);
 		sync->write(Asset::Uniform::ambient_color);
 		sync->write(RenderDataType::Vec3);
-		sync->write<int>(1);
+		sync->write<s32>(1);
 		sync->write<Vec3>(Skybox::ambient_color);
 
 		sync->write(RenderOp::Uniform);
 		sync->write(Asset::Uniform::zenith_color);
 		sync->write(RenderDataType::Vec3);
-		sync->write<int>(1);
+		sync->write<s32>(1);
 		sync->write<Vec3>(Skybox::zenith_color);
 
 		sync->write(RenderOp::Uniform);
 		sync->write(Asset::Uniform::ssao_buffer);
 		sync->write(RenderDataType::Texture);
-		sync->write<int>(1);
+		sync->write<s32>(1);
 		sync->write<RenderTextureType>(RenderTextureType::Texture2D);
 		sync->write<AssetID>(half_buffer2);
 
 		sync->write(RenderOp::Uniform);
 		sync->write(Asset::Uniform::lighting_buffer);
 		sync->write(RenderDataType::Texture);
-		sync->write<int>(1);
+		sync->write<s32>(1);
 		sync->write<RenderTextureType>(RenderTextureType::Texture2D);
 		sync->write<AssetID>(lighting_buffer);
 
 		sync->write(RenderOp::Uniform);
 		sync->write(Asset::Uniform::color_buffer);
 		sync->write(RenderDataType::Texture);
-		sync->write<int>(1);
+		sync->write<s32>(1);
 		sync->write<RenderTextureType>(RenderTextureType::Texture2D);
 		sync->write<AssetID>(color_buffer);
 
 		sync->write(RenderOp::Uniform);
 		sync->write(Asset::Uniform::depth_buffer);
 		sync->write(RenderDataType::Texture);
-		sync->write<int>(1);
+		sync->write<s32>(1);
 		sync->write<RenderTextureType>(RenderTextureType::Texture2D);
 		sync->write<AssetID>(depth_buffer);
 
 		sync->write(RenderOp::Uniform);
 		sync->write(Asset::Uniform::wall_normal);
 		sync->write(RenderDataType::Vec3);
-		sync->write<int>(1);
+		sync->write<s32>(1);
 		sync->write<Vec3>(render_params.camera->wall_normal);
 
 		sync->write(RenderOp::Mesh);
@@ -897,7 +897,7 @@ void draw(LoopSync* sync, const Camera* camera)
 		sync->write<RenderCullMode>(RenderCullMode::None);
 
 		sync->write<RenderOp>(RenderOp::DepthTest);
-		sync->write<bool>(true);
+		sync->write<b8>(true);
 
 		render_params.depth_buffer = depth_buffer;
 
@@ -909,7 +909,7 @@ void draw(LoopSync* sync, const Camera* camera)
 		Game::draw_additive(render_params);
 
 		sync->write<RenderOp>(RenderOp::DepthTest);
-		sync->write<bool>(false);
+		sync->write<b8>(false);
 
 		sync->write<RenderOp>(RenderOp::CullMode);
 		sync->write<RenderCullMode>(RenderCullMode::Back);
@@ -919,7 +919,7 @@ void draw(LoopSync* sync, const Camera* camera)
 	}
 
 	sync->write<RenderOp>(RenderOp::BindFramebuffer);
-	sync->write<int>(color_fbo1);
+	sync->write<s32>(color_fbo1);
 
 	// Edge detect / film grain
 	{
@@ -931,46 +931,46 @@ void draw(LoopSync* sync, const Camera* camera)
 		sync->write(RenderOp::Uniform);
 		sync->write(Asset::Uniform::inv_buffer_size);
 		sync->write(RenderDataType::Vec2);
-		sync->write<int>(1);
+		sync->write<s32>(1);
 		sync->write<Vec2>(inv_buffer_size);
 
 		Vec2 film_grain_size = buffer_size * (0.5f / UI::scale);
 		sync->write(RenderOp::Uniform);
 		sync->write(Asset::Uniform::film_grain_size);
 		sync->write(RenderDataType::Vec2);
-		sync->write<int>(1);
+		sync->write<s32>(1);
 		sync->write<Vec2>(film_grain_size);
 
 		sync->write(RenderOp::Uniform);
 		sync->write(Asset::Uniform::uv_offset);
 		sync->write(RenderDataType::Vec2);
-		sync->write<int>(1);
+		sync->write<s32>(1);
 		sync->write<Vec2>(film_grain_size * Vec2(mersenne::randf_oo(), mersenne::randf_oo()));
 
 		sync->write(RenderOp::Uniform);
 		sync->write(Asset::Uniform::p);
 		sync->write(RenderDataType::Mat4);
-		sync->write<int>(1);
+		sync->write<s32>(1);
 		sync->write<Mat4>(camera->projection);
 
 		sync->write(RenderOp::Uniform);
 		sync->write(Asset::Uniform::color_buffer);
 		sync->write(RenderDataType::Texture);
-		sync->write<int>(1);
+		sync->write<s32>(1);
 		sync->write<RenderTextureType>(RenderTextureType::Texture2D);
 		sync->write<AssetID>(color_buffer2);
 
 		sync->write(RenderOp::Uniform);
 		sync->write(Asset::Uniform::depth_buffer);
 		sync->write(RenderDataType::Texture);
-		sync->write<int>(1);
+		sync->write<s32>(1);
 		sync->write<RenderTextureType>(RenderTextureType::Texture2D);
 		sync->write<AssetID>(depth_buffer);
 
 		sync->write(RenderOp::Uniform);
 		sync->write(Asset::Uniform::normal_buffer);
 		sync->write(RenderDataType::Texture);
-		sync->write<int>(1);
+		sync->write<s32>(1);
 		sync->write<RenderTextureType>(RenderTextureType::Texture2D);
 		sync->write<AssetID>(normal_buffer);
 
@@ -1018,7 +1018,7 @@ void draw(LoopSync* sync, const Camera* camera)
 	{
 		// Downsample
 		sync->write<RenderOp>(RenderOp::BindFramebuffer);
-		sync->write<int>(half_fbo1);
+		sync->write<s32>(half_fbo1);
 
 		sync->write(RenderOp::Viewport);
 		sync->write<Rect2>(half_viewport);
@@ -1031,14 +1031,14 @@ void draw(LoopSync* sync, const Camera* camera)
 		sync->write(RenderOp::Uniform);
 		sync->write(Asset::Uniform::color_buffer);
 		sync->write(RenderDataType::Texture);
-		sync->write<int>(1);
+		sync->write<s32>(1);
 		sync->write<RenderTextureType>(RenderTextureType::Texture2D);
 		sync->write<AssetID>(color_buffer);
 
 		sync->write(RenderOp::Uniform);
 		sync->write(Asset::Uniform::inv_buffer_size);
 		sync->write(RenderDataType::Vec2);
-		sync->write<int>(1);
+		sync->write<s32>(1);
 		sync->write<Vec2>(inv_buffer_size);
 
 		sync->write(RenderOp::Mesh);
@@ -1046,7 +1046,7 @@ void draw(LoopSync* sync, const Camera* camera)
 
 		// Blur x
 		sync->write<RenderOp>(RenderOp::BindFramebuffer);
-		sync->write<int>(half_fbo3);
+		sync->write<s32>(half_fbo3);
 
 		Loader::shader_permanent(Asset::Shader::blur);
 		sync->write(RenderOp::Shader);
@@ -1056,14 +1056,14 @@ void draw(LoopSync* sync, const Camera* camera)
 		sync->write(RenderOp::Uniform);
 		sync->write(Asset::Uniform::color_buffer);
 		sync->write(RenderDataType::Texture);
-		sync->write<int>(1);
+		sync->write<s32>(1);
 		sync->write<RenderTextureType>(RenderTextureType::Texture2D);
 		sync->write<AssetID>(half_buffer1);
 
 		sync->write(RenderOp::Uniform);
 		sync->write(Asset::Uniform::inv_buffer_size);
 		sync->write(RenderDataType::Vec2);
-		sync->write<int>(1);
+		sync->write<s32>(1);
 		sync->write<Vec2>(Vec2(inv_half_buffer_size.x, 0));
 
 		sync->write(RenderOp::Mesh);
@@ -1071,19 +1071,19 @@ void draw(LoopSync* sync, const Camera* camera)
 
 		// Blur y
 		sync->write<RenderOp>(RenderOp::BindFramebuffer);
-		sync->write<int>(half_fbo2);
+		sync->write<s32>(half_fbo2);
 
 		sync->write(RenderOp::Uniform);
 		sync->write(Asset::Uniform::color_buffer);
 		sync->write(RenderDataType::Texture);
-		sync->write<int>(1);
+		sync->write<s32>(1);
 		sync->write<RenderTextureType>(RenderTextureType::Texture2D);
 		sync->write<AssetID>(half_buffer1);
 
 		sync->write(RenderOp::Uniform);
 		sync->write(Asset::Uniform::inv_buffer_size);
 		sync->write(RenderDataType::Vec2);
-		sync->write<int>(1);
+		sync->write<s32>(1);
 		sync->write<Vec2>(Vec2(0, inv_half_buffer_size.y));
 
 		sync->write(RenderOp::Mesh);
@@ -1108,7 +1108,7 @@ void draw(LoopSync* sync, const Camera* camera)
 #if DEBUG && DEBUG_RENDER
 	// Debug render buffers
 	Loader::shader_permanent(Asset::Shader::debug_depth);
-	const int buffer_count = 8;
+	const s32 buffer_count = 8;
 	Vec2 debug_buffer_size = camera->viewport.size / buffer_count;
 	UI::texture(render_params, color_buffer, { Vec2(debug_buffer_size.x * 0, 0), debug_buffer_size }, Vec4(1, 1, 1, 1), screen_quad_uv);
 	UI::texture(render_params, normal_buffer, { Vec2(debug_buffer_size.x * 1, 0), debug_buffer_size }, Vec4(1, 1, 1, 1), screen_quad_uv);
@@ -1120,7 +1120,7 @@ void draw(LoopSync* sync, const Camera* camera)
 	UI::texture(render_params, half_depth_buffer, { Vec2(debug_buffer_size.x * 7, 0), debug_buffer_size }, Vec4(1, 1, 1, 1), screen_quad_uv, Asset::Shader::debug_depth);
 
 	Vec2 debug_buffer_shadow_map_size = Vec2(128.0f * UI::scale);
-	for (int i = 0; i < SHADOW_MAP_CASCADES; i++)
+	for (s32 i = 0; i < SHADOW_MAP_CASCADES; i++)
 		UI::texture(render_params, shadow_buffer[i], { Vec2(debug_buffer_shadow_map_size.x * i, debug_buffer_size.y), debug_buffer_shadow_map_size }, Vec4(1, 1, 1, 1), { Vec2::zero, Vec2(1, 1) }, Asset::Shader::debug_depth);
 #endif
 
@@ -1148,7 +1148,7 @@ void loop(LoopSwapper* swapper, PhysicsSwapper* physics_swapper)
 	color_buffer = Loader::dynamic_texture_permanent(sync->input.width, sync->input.height, RenderDynamicTextureType::Color);
 	normal_buffer = Loader::dynamic_texture_permanent(sync->input.width, sync->input.height, RenderDynamicTextureType::Color);
 	depth_buffer = Loader::dynamic_texture_permanent(sync->input.width, sync->input.height, RenderDynamicTextureType::Depth);
-	for (int i = 0; i < SHADOW_MAP_CASCADES; i++)
+	for (s32 i = 0; i < SHADOW_MAP_CASCADES; i++)
 		shadow_buffer[i] = Loader::dynamic_texture_permanent(shadow_map_size[i], shadow_map_size[i], RenderDynamicTextureType::Depth, RenderTextureWrap::Clamp, RenderTextureFilter::Linear, RenderTextureCompare::RefToTexture);
 
 	g_fbo = Loader::framebuffer_permanent(3);
@@ -1172,7 +1172,7 @@ void loop(LoopSwapper* swapper, PhysicsSwapper* physics_swapper)
 	lighting_fbo = Loader::framebuffer_permanent(1);
 	Loader::framebuffer_attach(RenderFramebufferAttachment::Color0, lighting_buffer);
 
-	for (int i = 0; i < SHADOW_MAP_CASCADES; i++)
+	for (s32 i = 0; i < SHADOW_MAP_CASCADES; i++)
 	{
 		shadow_fbo[i] = Loader::framebuffer_permanent(1);
 		Loader::framebuffer_attach(RenderFramebufferAttachment::Depth, shadow_buffer[i]);
@@ -1209,7 +1209,7 @@ void loop(LoopSwapper* swapper, PhysicsSwapper* physics_swapper)
 		u.time = sync->time;
 
 #if DEBUG
-		if (u.input->keys[(int)KeyCode::F5])
+		if (u.input->keys[(s32)KeyCode::F5])
 			vi_assert(false);
 #endif
 		if (physics_sync)
@@ -1226,7 +1226,7 @@ void loop(LoopSwapper* swapper, PhysicsSwapper* physics_swapper)
 		sync->write(true);
 		sync->write(true);
 
-		for (int i = 0; i < Camera::max_cameras; i++)
+		for (s32 i = 0; i < Camera::max_cameras; i++)
 		{
 			if (Camera::all[i].active)
 				draw(sync, &Camera::all[i]);

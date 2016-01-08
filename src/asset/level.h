@@ -8,7 +8,7 @@ namespace Asset
 {
 	namespace Level
 	{
-		const int count = 12;
+		const s32 count = 12;
 		const AssetID connect = 0;
 		const AssetID containment_09 = 1;
 		const AssetID end = 2;

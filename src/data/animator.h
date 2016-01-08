@@ -19,12 +19,12 @@ struct Animator : public ComponentType<Animator>
 		Quat rot;
 		Vec3 scale;
 
-		void blend(float, const AnimatorTransform&);
+		void blend(r32, const AnimatorTransform&);
 	};
 
 	struct AnimatorChannel
 	{
-		int bone;
+		s32 bone;
 		AnimatorTransform transform;
 	};
 
@@ -35,12 +35,12 @@ struct Animator : public ComponentType<Animator>
 		AssetID last_animation;
 		StaticArray<AnimatorChannel, MAX_BONES> last_animation_channels;
 		StaticArray<AnimatorChannel, MAX_BONES> channels;
-		float weight;
-		float blend;
-		float blend_time;
-		float time;
-		float speed;
-		bool loop;
+		r32 weight;
+		r32 blend;
+		r32 blend_time;
+		r32 time;
+		r32 speed;
+		b8 loop;
 		void update(const Update&, const Animator&);
 		void changed_animation();
 		void play(AssetID);
@@ -50,12 +50,12 @@ struct Animator : public ComponentType<Animator>
 	{
 		Link link;
 		AssetID animation;
-		float time;
+		r32 time;
 	};
 
 	struct BindEntry
 	{
-		int bone;
+		s32 bone;
 		Ref<Transform> transform;
 	};
 
@@ -74,16 +74,16 @@ struct Animator : public ComponentType<Animator>
 	OverrideMode override_mode;
 
 	void update(const Update&);
-	void bind(const int, Transform*);
+	void bind(const s32, Transform*);
 	void unbind(const Transform*);
 	void update_world_transforms();
-	void bone_transform(const int, Vec3*, Quat*);
-	void to_world(const int, Vec3*, Quat*);
-	void from_bone_body(const int, const Vec3&, const Quat&, const Vec3&, const Quat&);
-	void override_bone(const int, const Vec3&, const Quat&);
+	void bone_transform(const s32, Vec3*, Quat*);
+	void to_world(const s32, Vec3*, Quat*);
+	void from_bone_body(const s32, const Vec3&, const Quat&, const Vec3&, const Quat&);
+	void override_bone(const s32, const Vec3&, const Quat&);
 	void reset_overrides();
 	void awake();
-	Link& trigger(const AssetID, float);
+	Link& trigger(const AssetID, r32);
 	Animator();
 };
 

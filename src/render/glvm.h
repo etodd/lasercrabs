@@ -100,7 +100,7 @@ enum class RenderFillMode
 struct RenderSync
 {
 	Array<char> queue;
-	int read_pos;
+	s32 read_pos;
 
 	RenderSync()
 		: queue(), read_pos()
@@ -118,7 +118,7 @@ struct RenderSync
 	}
 
 	template<typename T>
-	void write(const T* data, const int count = 1)
+	void write(const T* data, const s32 count = 1)
 	{
 		T* destination = alloc<T>(count);
 
@@ -126,15 +126,15 @@ struct RenderSync
 	}
 
 	template<typename T>
-	T* alloc(const int count = 1)
+	T* alloc(const s32 count = 1)
 	{
-		int pos = queue.length;
+		s32 pos = queue.length;
 		queue.resize(pos + sizeof(T) * count);
 		return (T*)(queue.data + pos);
 	}
 
 	template<typename T>
-	const T* read(int count = 1)
+	const T* read(s32 count = 1)
 	{
 		T* result = (T*)(queue.data + read_pos);
 		read_pos += sizeof(T) * count;
@@ -149,7 +149,7 @@ enum class RenderTextureType
 
 void render_init();
 void render(RenderSync*);
-bool compile_shader(const char*, const char*, int, unsigned int*, const char* = 0);
+b8 compile_shader(const char*, const char*, s32, u32*, const char* = 0);
 
 struct TechniquePrefixes
 {
@@ -179,7 +179,7 @@ inline size_t render_data_type_size(RenderDataType type)
 	switch (type)
 	{
 		case RenderDataType::Float:
-			return sizeof(float);
+			return sizeof(r32);
 		case RenderDataType::Vec2:
 			return sizeof(Vec2);
 		case RenderDataType::Vec3:
@@ -187,11 +187,11 @@ inline size_t render_data_type_size(RenderDataType type)
 		case RenderDataType::Vec4:
 			return sizeof(Vec4);
 		case RenderDataType::Int:
-			return sizeof(int);
+			return sizeof(s32);
 		case RenderDataType::Mat4:
 			return sizeof(Mat4);
 		case RenderDataType::Texture:
-			return sizeof(int);
+			return sizeof(s32);
 	}
 	vi_assert(false);
 	return 0;

@@ -5,7 +5,7 @@
 namespace VI
 {
 
-void Animator::AnimatorTransform::blend(float x, const AnimatorTransform& b)
+void Animator::AnimatorTransform::blend(r32 x, const AnimatorTransform& b)
 {
 	pos = Vec3::lerp(x, pos, b.pos);
 	rot = Quat::slerp(x, rot, b.rot);
@@ -38,9 +38,9 @@ Animator::Animator()
 }
 
 template<typename T>
-static int find_keyframe_index(Array<T>& keyframes, float time)
+static s32 find_keyframe_index(Array<T>& keyframes, r32 time)
 {
-	int index;
+	s32 index;
 	for (index = 0; index < keyframes.length - 2; index++)
 	{
 		if (time < keyframes[index + 1].time)
@@ -63,10 +63,10 @@ void Animator::Layer::update(const Update& u, const Animator& animator)
 
 	if (anim)
 	{
-		float old_time = time;
+		r32 old_time = time;
 		time += u.time.delta * speed;
 
-		bool looped = false;
+		b8 looped = false;
 		if (time > anim->duration)
 		{
 			if (loop)
@@ -86,11 +86,11 @@ void Animator::Layer::update(const Update& u, const Animator& animator)
 		if (animation != last_animation)
 			changed_animation();
 
-		for (int i = 0; i < animator.triggers.length; i++)
+		for (s32 i = 0; i < animator.triggers.length; i++)
 		{
 			const TriggerEntry* trigger = &animator.triggers[i];
-			bool trigger_after_old_time = old_time <= trigger->time;
-			bool trigger_before_new_time = time >= trigger->time;
+			b8 trigger_after_old_time = old_time <= trigger->time;
+			b8 trigger_before_new_time = time >= trigger->time;
 			if (animation == trigger->animation &&
 				(((looped || trigger_after_old_time) && trigger_before_new_time) || (trigger_after_old_time && (looped || trigger_before_new_time))))
 			{
@@ -99,7 +99,7 @@ void Animator::Layer::update(const Update& u, const Animator& animator)
 		}
 
 		channels.resize(anim->channels.length);
-		for (int i = 0; i < anim->channels.length; i++)
+		for (s32 i = 0; i < anim->channels.length; i++)
 		{
 			Channel* c = &anim->channels[i];
 
@@ -107,10 +107,10 @@ void Animator::Layer::update(const Update& u, const Animator& animator)
 			Vec3 scale;
 			Quat rotation;
 
-			int index;
-			float last_time;
-			float next_time;
-			float blend;
+			s32 index;
+			r32 last_time;
+			r32 next_time;
+			r32 blend;
 
 			if (c->positions.length == 0)
 				position = Vec3::zero;
@@ -174,7 +174,7 @@ void Animator::Layer::changed_animation()
 
 void Animator::update(const Update& u)
 {
-	for (int i = 0; i < MAX_ANIMATIONS; i++)
+	for (s32 i = 0; i < MAX_ANIMATIONS; i++)
 		layers[i].update(u, *this);
 	update_world_transforms();
 }
@@ -185,9 +185,9 @@ void Animator::update_world_transforms()
 	bones.resize(arm->hierarchy.length);
 	if (offsets.length < arm->hierarchy.length)
 	{
-		int old_length = offsets.length;
+		s32 old_length = offsets.length;
 		offsets.length = arm->hierarchy.length;
-		for (int i = old_length; i < offsets.length; i++)
+		for (s32 i = old_length; i < offsets.length; i++)
 		{
 			if (override_mode == OverrideMode::Offset)
 				offsets[i] = Mat4::identity;
@@ -199,21 +199,21 @@ void Animator::update_world_transforms()
 	if (override_mode == OverrideMode::Offset)
 	{
 		AnimatorTransform bone_channels[MAX_BONES];
-		for (int i = 0; i < bones.length; i++)
+		for (s32 i = 0; i < bones.length; i++)
 		{
 			bone_channels[i].pos = arm->bind_pose[i].pos;
 			bone_channels[i].rot = arm->bind_pose[i].rot;
 			bone_channels[i].scale = Vec3(1, 1, 1);
 		}
 
-		for (int l = 0; l < MAX_ANIMATIONS; l++)
+		for (s32 l = 0; l < MAX_ANIMATIONS; l++)
 		{
 			Layer& layer = layers[l];
 
 			if (layer.blend < 1.0f)
 			{
-				float blend = layer.weight * (1.0f - layer.blend);
-				for (int i = 0; i < layer.last_animation_channels.length; i++)
+				r32 blend = layer.weight * (1.0f - layer.blend);
+				for (s32 i = 0; i < layer.last_animation_channels.length; i++)
 				{
 					AnimatorChannel& channel = layer.last_animation_channels[i];
 					bone_channels[channel.bone].blend(blend * layer.weight, channel.transform);
@@ -221,8 +221,8 @@ void Animator::update_world_transforms()
 			}
 
 			{
-				float blend = layer.weight * layer.blend;
-				for (int i = 0; i < layer.channels.length; i++)
+				r32 blend = layer.weight * layer.blend;
+				for (s32 i = 0; i < layer.channels.length; i++)
 				{
 					AnimatorChannel& channel = layer.channels[i];
 					bone_channels[channel.bone].blend(blend, channel.transform);
@@ -230,7 +230,7 @@ void Animator::update_world_transforms()
 			}
 		}
 
-		for (int i = 0; i < bones.length; i++)
+		for (s32 i = 0; i < bones.length; i++)
 		{
 			bones[i].make_transform(bone_channels[i].pos, bone_channels[i].scale, bone_channels[i].rot);
 			bones[i] = offsets[i] * bones[i];
@@ -238,20 +238,20 @@ void Animator::update_world_transforms()
 	}
 	else
 	{
-		for (int i = 0; i < bones.length; i++)
+		for (s32 i = 0; i < bones.length; i++)
 			bones[i] = offsets[i];
 	}
 
-	for (int i = 0; i < bones.length; i++)
+	for (s32 i = 0; i < bones.length; i++)
 	{
-		int parent = arm->hierarchy[i];
+		s32 parent = arm->hierarchy[i];
 		if (parent != -1)
 			bones[i] = bones[i] * bones[parent];
 	}
 
 	Mat4 transform;
 	get<Transform>()->mat(&transform);
-	for (int i = 0; i < bindings.length; i++)
+	for (s32 i = 0; i < bindings.length; i++)
 	{
 		BindEntry& binding = bindings[i];
 		Mat4 mat = transform * bones[binding.bone];
@@ -270,7 +270,7 @@ void Animator::update_world_transforms()
 	}
 }
 
-void Animator::bind(const int bone, Transform* transform)
+void Animator::bind(const s32 bone, Transform* transform)
 {
 	BindEntry* entry = bindings.add();
 	entry->bone = bone;
@@ -288,7 +288,7 @@ void Animator::bind(const int bone, Transform* transform)
 
 void Animator::unbind(const Transform* transform)
 {
-	for (int i = 0; i < bindings.length; i++)
+	for (s32 i = 0; i < bindings.length; i++)
 	{
 		BindEntry& entry = bindings[i];
 		if (entry.transform.ref() == transform)
@@ -299,7 +299,7 @@ void Animator::unbind(const Transform* transform)
 	}
 }
 
-void Animator::bone_transform(const int index, Vec3* pos, Quat* rot)
+void Animator::bone_transform(const s32 index, Vec3* pos, Quat* rot)
 {
 	if (bones.length == 0)
 		update_world_transforms();
@@ -311,7 +311,7 @@ void Animator::bone_transform(const int index, Vec3* pos, Quat* rot)
 	*pos = (bone_rot * *pos) + bone_pos;
 }
 
-void Animator::to_world(const int index, Vec3* pos, Quat* rot)
+void Animator::to_world(const s32 index, Vec3* pos, Quat* rot)
 {
 	bone_transform(index, pos, rot);
 	*pos = (get<SkinnedModel>()->offset * Vec4(*pos)).xyz();
@@ -320,7 +320,7 @@ void Animator::to_world(const int index, Vec3* pos, Quat* rot)
 	get<Transform>()->to_world(pos, rot);
 }
 
-void Animator::from_bone_body(const int index, const Vec3& pos, const Quat& rot, const Vec3& body_to_bone_pos, const Quat& body_to_bone_rot)
+void Animator::from_bone_body(const s32 index, const Vec3& pos, const Quat& rot, const Vec3& body_to_bone_pos, const Quat& body_to_bone_rot)
 {
 	update_world_transforms();
 
@@ -334,7 +334,7 @@ void Animator::from_bone_body(const int index, const Vec3& pos, const Quat& rot,
 	Vec3 parent_pos = Vec3::zero;
 	Quat parent_rot = Quat::identity;
 	Armature* arm = Loader::armature(armature);
-	int parent = arm->hierarchy[index];
+	s32 parent = arm->hierarchy[index];
 	if (parent != -1)
 		bone_transform(parent, &parent_pos, &parent_rot);
 	Quat parent_rot_inverse = parent_rot.inverse();
@@ -348,7 +348,7 @@ void Animator::from_bone_body(const int index, const Vec3& pos, const Quat& rot,
 	override_bone(index, bone_pos, bone_rot);
 }
 
-void Animator::override_bone(const int index, const Vec3& pos, const Quat& rot)
+void Animator::override_bone(const s32 index, const Vec3& pos, const Quat& rot)
 {
 	if (bones.length == 0)
 		update_world_transforms();
@@ -360,12 +360,12 @@ void Animator::reset_overrides()
 	Armature* arm = Loader::armature(armature);
 	if (override_mode == OverrideMode::Offset)
 	{
-		for (int i = 0; i < offsets.length; i++)
+		for (s32 i = 0; i < offsets.length; i++)
 			offsets[i] = Mat4::identity;
 	}
 	else
 	{
-		for (int i = 0; i < offsets.length; i++)
+		for (s32 i = 0; i < offsets.length; i++)
 			offsets[i].make_transform(arm->bind_pose[i].pos, Vec3(1, 1, 1), arm->bind_pose[i].rot);
 	}
 }
@@ -375,7 +375,7 @@ void Animator::awake()
 	Loader::armature(armature);
 }
 
-Link& Animator::trigger(const AssetID anim, const float time)
+Link& Animator::trigger(const AssetID anim, const r32 time)
 {
 	TriggerEntry* entry = triggers.add();
 	entry->animation = anim;

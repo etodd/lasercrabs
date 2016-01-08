@@ -58,7 +58,7 @@ StaticGeom::StaticGeom(AssetID mesh_id, const Vec3& absolute_pos, const Quat& ab
 	RigidBody* body = create<RigidBody>(RigidBody::Type::Mesh, Vec3::zero, 0.0f, btBroadphaseProxy::StaticFilter | group, ~btBroadphaseProxy::StaticFilter & mask, mesh_id);
 }
 
-PhysicsEntity::PhysicsEntity(AssetID mesh, const Vec3& pos, const Quat& quat, RigidBody::Type type, const Vec3& scale, float mass, short filter_group, short filter_mask)
+PhysicsEntity::PhysicsEntity(AssetID mesh, const Vec3& pos, const Quat& quat, RigidBody::Type type, const Vec3& scale, r32 mass, short filter_group, short filter_mask)
 {
 	Transform* transform = create<Transform>();
 	transform->pos = pos;
@@ -99,8 +99,8 @@ NoclipControl::~NoclipControl()
 
 void NoclipControl::update(const Update& u)
 {
-	angle_horizontal -= speed_mouse * (float)u.input->cursor_x;
-	angle_vertical += speed_mouse * (float)u.input->cursor_y;
+	angle_horizontal -= speed_mouse * (r32)u.input->cursor_x;
+	angle_vertical += speed_mouse * (r32)u.input->cursor_y;
 
 	if (angle_vertical < PI * -0.495f)
 		angle_vertical = PI * -0.495f;
@@ -111,21 +111,21 @@ void NoclipControl::update(const Update& u)
 
 	if (!Console::visible)
 	{
-		float speed = u.input->keys[(int)KeyCode::LShift] ? 24.0f : 4.0f;
-		if (u.input->keys[(int)KeyCode::Space])
+		r32 speed = u.input->keys[(s32)KeyCode::LShift] ? 24.0f : 4.0f;
+		if (u.input->keys[(s32)KeyCode::Space])
 			get<Transform>()->pos += Vec3(0, 1, 0) * u.time.delta * speed;
-		if (u.input->keys[(int)KeyCode::LCtrl])
+		if (u.input->keys[(s32)KeyCode::LCtrl])
 			get<Transform>()->pos += Vec3(0, -1, 0) * u.time.delta * speed;
-		if (u.input->keys[(int)KeyCode::W])
+		if (u.input->keys[(s32)KeyCode::W])
 			get<Transform>()->pos += look_quat * Vec3(0, 0, 1) * u.time.delta * speed;
-		if (u.input->keys[(int)KeyCode::S])
+		if (u.input->keys[(s32)KeyCode::S])
 			get<Transform>()->pos += look_quat * Vec3(0, 0, -1) * u.time.delta * speed;
-		if (u.input->keys[(int)KeyCode::D])
+		if (u.input->keys[(s32)KeyCode::D])
 			get<Transform>()->pos += look_quat * Vec3(-1, 0, 0) * u.time.delta * speed;
-		if (u.input->keys[(int)KeyCode::A])
+		if (u.input->keys[(s32)KeyCode::A])
 			get<Transform>()->pos += look_quat * Vec3(1, 0, 0) * u.time.delta * speed;
 
-		if (u.input->keys[(int)KeyCode::MouseLeft] && !u.last_input->keys[(int)KeyCode::MouseLeft])
+		if (u.input->keys[(s32)KeyCode::MouseLeft] && !u.last_input->keys[(s32)KeyCode::MouseLeft])
 		{
 			static const Vec3 scale = Vec3(0.1f, 0.2f, 0.1f);
 			Entity* box = World::create<PhysicsEntity>(Asset::Mesh::cube, get<Transform>()->absolute_pos() + look_quat * Vec3(0, 0, 0.25f), look_quat, RigidBody::Type::Box, scale, 1.0f, btBroadphaseProxy::AllFilter, btBroadphaseProxy::AllFilter);
@@ -133,14 +133,14 @@ void NoclipControl::update(const Update& u)
 		}
 	}
 	
-	float FoV = fov_initial;
+	r32 FoV = fov_initial;
 
 	camera->viewport =
 	{
 		Vec2(0, 0),
 		Vec2(u.input->width, u.input->height),
 	};
-	float aspect = camera->viewport.size.y == 0 ? 1 : (float)camera->viewport.size.x / (float)camera->viewport.size.y;
+	r32 aspect = camera->viewport.size.y == 0 ? 1 : (r32)camera->viewport.size.x / (r32)camera->viewport.size.y;
 	camera->perspective(FoV, aspect, 0.02f, Skybox::far_plane);
 
 	// Camera matrix

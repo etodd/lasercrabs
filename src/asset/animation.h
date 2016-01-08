@@ -8,7 +8,7 @@ namespace Asset
 {
 	namespace Animation
 	{
-		const int count = 5;
+		const s32 count = 5;
 		const AssetID fly = 0;
 		const AssetID idle = 1;
 		const AssetID mantle = 2;

@@ -8,7 +8,7 @@ namespace Asset
 {
 	namespace Mesh
 	{
-		const int count = 23;
+		const s32 count = 23;
 		const AssetID Alpha = 0;
 		const AssetID Alpha_headless = 1;
 		const AssetID awk = 2;

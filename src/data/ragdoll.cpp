@@ -15,7 +15,7 @@ Ragdoll::Ragdoll()
 
 Ragdoll::~Ragdoll()
 {
-	for (int i = 0; i < bodies.length; i++)
+	for (s32 i = 0; i < bodies.length; i++)
 	{
 		Transform* t = bodies[i].body.ref();
 		if (t)
@@ -37,15 +37,15 @@ void Ragdoll::awake()
 
 	Armature* arm = Loader::armature(get<Animator>()->armature);
 	Array<Entity*> bone_bodies(arm->hierarchy.length, arm->hierarchy.length);
-	for (int i = 0; i < arm->bodies.length; i++)
+	for (s32 i = 0; i < arm->bodies.length; i++)
 	{
 		BodyEntry& body = arm->bodies[i];
 		Vec3 pos = body.pos;
 		Quat rot = body.rot;
 		get<Animator>()->to_world(body.bone, &pos, &rot);
 		Vec3 size = body.size * mesh_offset_scale;
-		const float density = 0.5f;
-		float mass = size.dot(Vec3(1)) * density;
+		const r32 density = 0.5f;
+		r32 mass = size.dot(Vec3(1)) * density;
 
 		Entity* entity;
 		switch (body.type)
@@ -57,13 +57,13 @@ void Ragdoll::awake()
 			}
 			case BodyEntry::Type::Capsule:
 			{
-				float radius = fmax(size.y, size.z);
+				r32 radius = fmax(size.y, size.z);
 				entity = World::create<PhysicsEntity>(AssetNull, pos, rot, RigidBody::Type::CapsuleX, Vec3(radius, size.x * 2.0f - radius * 2.0f, 0), mass, CollisionTarget, btBroadphaseProxy::AllFilter);
 				break;
 			}
 			case BodyEntry::Type::Sphere:
 			{
-				float radius = fmax(size.x, fmax(size.y, size.z));
+				r32 radius = fmax(size.x, fmax(size.y, size.z));
 				entity = World::create<PhysicsEntity>(AssetNull, pos, rot, RigidBody::Type::Sphere, Vec3(radius), mass, CollisionTarget, btBroadphaseProxy::AllFilter);
 				break;
 			}
@@ -85,12 +85,12 @@ void Ragdoll::awake()
 		entry->body_to_bone_rot = body.rot.inverse();
 	}
 
-	for (int bone_index = 0; bone_index < bone_bodies.length; bone_index++)
+	for (s32 bone_index = 0; bone_index < bone_bodies.length; bone_index++)
 	{
 		Entity* entity = bone_bodies[bone_index];
 		if (entity)
 		{
-			int parent_index = arm->hierarchy[bone_index];
+			s32 parent_index = arm->hierarchy[bone_index];
 			while (parent_index != -1 && !bone_bodies[parent_index])
 				parent_index = arm->hierarchy[parent_index];
 
@@ -127,14 +127,14 @@ void Ragdoll::awake()
 					if (Quat::angle(a, b) > 0.1f)
 						frame_b.setRotation(frame_b.getRotation() * Quat::euler(0, 0, PI));
 
-					RigidBody::Constraint constraint;
-					constraint.type = RigidBody::Constraint::Type::ConeTwist;
-					constraint.frame_a = frame_a;
-					constraint.frame_b = frame_b;
-					constraint.limits = Vec3(PI * 0.25f, PI * 0.25f, 0);
-					constraint.a = entity->get<RigidBody>();
-					constraint.b = parent_entity->get<RigidBody>();
-					RigidBody::add_constraint(constraint);
+					RigidBody::Constraint constras32;
+					constras32.type = RigidBody::Constraint::Type::ConeTwist;
+					constras32.frame_a = frame_a;
+					constras32.frame_b = frame_b;
+					constras32.limits = Vec3(PI * 0.25f, PI * 0.25f, 0);
+					constras32.a = entity->get<RigidBody>();
+					constras32.b = parent_entity->get<RigidBody>();
+					RigidBody::add_constras32(constras32);
 				}
 			}
 		}
@@ -143,7 +143,7 @@ void Ragdoll::awake()
 
 RigidBody* Ragdoll::get_body(const AssetID bone)
 {
-	for (int i = 0; i < bodies.length; i++)
+	for (s32 i = 0; i < bodies.length; i++)
 	{
 		BoneBody& body = bodies[i];
 		if (body.bone == bone)
@@ -175,7 +175,7 @@ void Ragdoll::update(const Update& u)
 	}
 
 	Animator* anim = get<Animator>();
-	for (int i = 0; i < bodies.length; i++)
+	for (s32 i = 0; i < bodies.length; i++)
 	{
 		BoneBody& bone_body = bodies[i];
 		Quat rot;

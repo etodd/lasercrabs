@@ -100,7 +100,7 @@ namespace Json
 		return Quat(w->valuedouble, x->valuedouble, y->valuedouble, z->valuedouble);
 	}
 
-	float get_float(cJSON* parent, const char* key, const float default_value)
+	r32 get_r32(cJSON* parent, const char* key, const r32 default_value)
 	{
 		if (!parent)
 			return default_value;
@@ -112,7 +112,7 @@ namespace Json
 			return default_value;
 	}
 
-	int get_int(cJSON* parent, const char* key, const int default_value)
+	s32 get_s32(cJSON* parent, const char* key, const s32 default_value)
 	{
 		if (!parent)
 			return default_value;
@@ -136,7 +136,7 @@ namespace Json
 			return default_value;
 	}
 
-	int get_enum(cJSON* parent, const char* key, const char** search, const int default_value)
+	s32 get_enum(cJSON* parent, const char* key, const char** search, const s32 default_value)
 	{
 		if (!parent)
 			return default_value;
@@ -145,7 +145,7 @@ namespace Json
 		if (json)
 		{
 			const char* string = json->valuestring;
-			int i = 0;
+			s32 i = 0;
 			while (search[i])
 			{
 				if (strcmp(string, search[i]) == 0)

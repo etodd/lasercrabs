@@ -24,8 +24,8 @@ Array<UIText::VariableEntry> UIText::variables = Array<UIText::VariableEntry>();
 void UIText::set_variable(const char* name, const char* value)
 {
 	vi_assert(strlen(name) < 255 && strlen(value) < 255);
-	bool found = false;
-	for (int i = 0; i < variables.length; i++)
+	b8 found = false;
+	for (s32 i = 0; i < variables.length; i++)
 	{
 		if (strcmp(variables[i].name, name) == 0)
 		{
@@ -57,8 +57,8 @@ void UIText::text(const char* format, ...)
 	va_end(args);
 
 	{
-		int char_index = 0;
-		int rendered_index = 0;
+		s32 char_index = 0;
+		s32 rendered_index = 0;
 
 		const char* variable = 0;
 		while (true)
@@ -72,7 +72,7 @@ void UIText::text(const char* format, ...)
 				while (*end != '}' || *(end + 1) != '}')
 					end = strchr(end + 1, '}');
 
-				for (int i = 0; i < variables.length; i++)
+				for (s32 i = 0; i < variables.length; i++)
 				{
 					if (strncmp(variables[i].name, start, end - start) == 0)
 					{
@@ -109,10 +109,10 @@ void UIText::refresh_bounds()
 	Font* f = Loader::font(font);
 	normalized_bounds = Vec2::zero;
 	Vec3 pos(0, -1.0f, 0);
-	int char_index = 0;
+	s32 char_index = 0;
 	char c;
 	const Vec2 spacing = Vec2(0.075f, 0.3f);
-	float wrap = wrap_width / (size * UI::scale);
+	r32 wrap = wrap_width / (size * UI::scale);
 	while ((c = rendered_string[char_index]))
 	{
 		Font::Character* character = &f->get(&c);
@@ -125,8 +125,8 @@ void UIText::refresh_bounds()
 		{
 			// Check if we need to put the next word on the next line
 
-			float end_of_next_word = pos.x + spacing.x + character->max.x;
-			int word_index = char_index + 1;
+			r32 end_of_next_word = pos.x + spacing.x + character->max.x;
+			s32 word_index = char_index + 1;
 			char word_char;
 			while (true)
 			{
@@ -167,18 +167,18 @@ void UIText::refresh_bounds()
 	normalized_bounds.y = -pos.y;
 }
 
-bool UIText::clipped() const
+b8 UIText::clipped() const
 {
 	return clip > 0.0f && clip < strlen(rendered_string);
 }
 
-void UIText::set_size(float s)
+void UIText::set_size(r32 s)
 {
 	size = s;
 	refresh_bounds();
 }
 
-void UIText::wrap(float w)
+void UIText::wrap(r32 w)
 {
 	wrap_width = w;
 	refresh_bounds();
@@ -229,9 +229,9 @@ Rect2 UIText::rect(const Vec2& pos) const
 	return result;
 }
 
-void UIText::draw(const RenderParams& params, const Vec2& pos, const float rot) const
+void UIText::draw(const RenderParams& params, const Vec2& pos, const r32 rot) const
 {
-	int vertex_start = UI::vertices.length;
+	s32 vertex_start = UI::vertices.length;
 	Vec2 screen = params.camera->viewport.size * 0.5f;
 	Vec2 offset = pos - screen;
 	Vec2 bound = bounds();
@@ -264,17 +264,17 @@ void UIText::draw(const RenderParams& params, const Vec2& pos, const float rot) 
 			break;
 	}
 	Vec2 scale = Vec2(1.0f / screen.x, 1.0f / screen.y);
-	float cs = cosf(rot), sn = sinf(rot);
+	r32 cs = cosf(rot), sn = sinf(rot);
 
 	Font* f = Loader::font(font);
-	int vertex_index = UI::vertices.length;
-	int index_index = UI::indices.length;
+	s32 vertex_index = UI::vertices.length;
+	s32 index_index = UI::indices.length;
 	Vec3 p(0, -1.0f, 0);
-	int char_index = 0;
+	s32 char_index = 0;
 	char c;
 	const Vec2 spacing = Vec2(0.075f, 0.3f);
-	float scaled_size = size * UI::scale;
-	float wrap = wrap_width / scaled_size;
+	r32 scaled_size = size * UI::scale;
+	r32 wrap = wrap_width / scaled_size;
 	while ((clip == 0 || char_index <= clip) && (c = rendered_string[char_index]))
 	{
 		Font::Character* character = &f->get(&c);
@@ -287,8 +287,8 @@ void UIText::draw(const RenderParams& params, const Vec2& pos, const float rot) 
 		{
 			// Check if we need to put the next word on the next line
 
-			float end_of_next_word = p.x + spacing.x + character->max.x;
-			int word_index = char_index + 1;
+			r32 end_of_next_word = p.x + spacing.x + character->max.x;
+			s32 word_index = char_index + 1;
 			char word_char;
 			while (true)
 			{
@@ -317,7 +317,7 @@ void UIText::draw(const RenderParams& params, const Vec2& pos, const float rot) 
 			{
 				UI::vertices.resize(vertex_index + character->vertex_count);
 				UI::colors.resize(UI::vertices.length);
-				for (int i = 0; i < character->vertex_count; i++)
+				for (s32 i = 0; i < character->vertex_count; i++)
 				{
 					Vec3 v = f->vertices[character->vertex_start + i] + p;
 					Vec3 vertex;
@@ -330,7 +330,7 @@ void UIText::draw(const RenderParams& params, const Vec2& pos, const float rot) 
 				p.x += spacing.x + character->max.x;
 
 				UI::indices.resize(index_index + character->index_count);
-				for (int i = 0; i < character->index_count; i++)
+				for (s32 i = 0; i < character->index_count; i++)
 					UI::indices[index_index + i] = vertex_index + f->indices[character->index_start + i] - character->vertex_start;
 			}
 			else
@@ -348,18 +348,18 @@ void UIText::draw(const RenderParams& params, const Vec2& pos, const float rot) 
 const Vec4 UI::default_color = Vec4(1, 1, 1, 1);
 const Vec4 UI::alert_color = Vec4(1.0f, 0.2f, 0.2f, 1.0f);
 const Vec4 UI::subtle_color = Vec4(0.044f, 0.279f, 0.445f, 1);
-float UI::scale = 1.0f;
-int UI::mesh_id = AssetNull;
-int UI::texture_mesh_id = AssetNull;
+r32 UI::scale = 1.0f;
+s32 UI::mesh_id = AssetNull;
+s32 UI::texture_mesh_id = AssetNull;
 Array<Vec3> UI::vertices = Array<Vec3>();
 Array<Vec4> UI::colors = Array<Vec4>();
-Array<int> UI::indices = Array<int>();
+Array<s32> UI::indices = Array<s32>();
 
 void UI::box(const RenderParams& params, const Rect2& r, const Vec4& color)
 {
 	if (r.size.x > 0 && r.size.y > 0 && color.w > 0)
 	{
-		int vertex_start = UI::vertices.length;
+		s32 vertex_start = UI::vertices.length;
 		Vec2 screen = params.camera->viewport.size * 0.5f;
 		Vec2 scale = Vec2(1.0f / screen.x, 1.0f / screen.y);
 		Vec2 scaled_pos = (r.pos - screen) * scale;
@@ -382,11 +382,11 @@ void UI::box(const RenderParams& params, const Rect2& r, const Vec4& color)
 	}
 }
 
-void UI::centered_box(const RenderParams& params, const Rect2& r, const Vec4& color, float rot)
+void UI::centered_box(const RenderParams& params, const Rect2& r, const Vec4& color, r32 rot)
 {
 	if (r.size.x > 0 && r.size.y > 0 && color.w > 0)
 	{
-		int vertex_start = UI::vertices.length;
+		s32 vertex_start = UI::vertices.length;
 		Vec2 screen = params.camera->viewport.size * 0.5f;
 		Vec2 scale = Vec2(1.0f / screen.x, 1.0f / screen.y);
 		Vec2 scaled_pos = (r.pos - screen) * scale;
@@ -399,7 +399,7 @@ void UI::centered_box(const RenderParams& params, const Rect2& r, const Vec4& co
 			Vec2(r.size.x * 0.5f, r.size.y * 0.5f),
 		};
 
-		float cs = cosf(rot), sn = sinf(rot);
+		r32 cs = cosf(rot), sn = sinf(rot);
 		UI::vertices.add(Vec3(scaled_pos.x + (corners[0].x * cs - corners[0].y * sn) * scale.x, scaled_pos.y + (corners[0].x * sn + corners[0].y * cs) * scale.y, 0));
 		UI::vertices.add(Vec3(scaled_pos.x + (corners[1].x * cs - corners[1].y * sn) * scale.x, scaled_pos.y + (corners[1].x * sn + corners[1].y * cs) * scale.y, 0));
 		UI::vertices.add(Vec3(scaled_pos.x + (corners[2].x * cs - corners[2].y * sn) * scale.x, scaled_pos.y + (corners[2].x * sn + corners[2].y * cs) * scale.y, 0));
@@ -417,11 +417,11 @@ void UI::centered_box(const RenderParams& params, const Rect2& r, const Vec4& co
 	}
 }
 
-void UI::border(const RenderParams& params, const Rect2& r, const float thickness, const Vec4& color)
+void UI::border(const RenderParams& params, const Rect2& r, const r32 thickness, const Vec4& color)
 {
 	if (r.size.x > 0 && r.size.y > 0 && color.w > 0)
 	{
-		int vertex_start = UI::vertices.length;
+		s32 vertex_start = UI::vertices.length;
 		Vec2 screen = params.camera->viewport.size * 0.5f;
 		Vec2 scale = Vec2(1.0f / screen.x, 1.0f / screen.y);
 		Vec2 scaled_pos = (r.pos - screen) * scale;
@@ -471,11 +471,11 @@ void UI::border(const RenderParams& params, const Rect2& r, const float thicknes
 	}
 }
 
-void UI::centered_border(const RenderParams& params, const Rect2& r, const float thickness, const Vec4& color, const float rot)
+void UI::centered_border(const RenderParams& params, const Rect2& r, const r32 thickness, const Vec4& color, const r32 rot)
 {
 	if (r.size.x > 0 && r.size.y > 0 && color.w > 0)
 	{
-		int vertex_start = UI::vertices.length;
+		s32 vertex_start = UI::vertices.length;
 		Vec2 screen = params.camera->viewport.size * 0.5f;
 		Vec2 scale = Vec2(1.0f / screen.x, 1.0f / screen.y);
 		Vec2 scaled_pos = (r.pos - screen) * scale;
@@ -492,7 +492,7 @@ void UI::centered_border(const RenderParams& params, const Rect2& r, const float
 			Vec2(r.size.x * 0.5f + thickness, r.size.y * 0.5f + thickness),
 		};
 
-		float cs = cosf(rot), sn = sinf(rot);
+		r32 cs = cosf(rot), sn = sinf(rot);
 		UI::vertices.add(Vec3(scaled_pos.x + (corners[0].x * cs - corners[0].y * sn) * scale.x, scaled_pos.y + (corners[0].x * sn + corners[0].y * cs) * scale.y, 0));
 		UI::vertices.add(Vec3(scaled_pos.x + (corners[1].x * cs - corners[1].y * sn) * scale.x, scaled_pos.y + (corners[1].x * sn + corners[1].y * cs) * scale.y, 0));
 		UI::vertices.add(Vec3(scaled_pos.x + (corners[2].x * cs - corners[2].y * sn) * scale.x, scaled_pos.y + (corners[2].x * sn + corners[2].y * cs) * scale.y, 0));
@@ -537,16 +537,16 @@ void UI::centered_border(const RenderParams& params, const Rect2& r, const float
 	}
 }
 
-void UI::triangle(const RenderParams& params, const Rect2& r, const Vec4& color, float rot)
+void UI::triangle(const RenderParams& params, const Rect2& r, const Vec4& color, r32 rot)
 {
 	if (r.size.x > 0 && r.size.y > 0 && color.w > 0)
 	{
-		int vertex_start = UI::vertices.length;
+		s32 vertex_start = UI::vertices.length;
 		Vec2 screen = params.camera->viewport.size * 0.5f;
 		Vec2 scale = Vec2(1.0f / screen.x, 1.0f / screen.y);
 		Vec2 scaled_pos = (r.pos - screen) * scale;
 
-		const float ratio = 0.8660254037844386f;
+		const r32 ratio = 0.8660254037844386f;
 		Vec2 corners[3] =
 		{
 			Vec2(r.size.x * 0.5f * ratio, r.size.y * -0.25f),
@@ -554,7 +554,7 @@ void UI::triangle(const RenderParams& params, const Rect2& r, const Vec4& color,
 			Vec2(r.size.x * -0.5f * ratio, r.size.y * -0.25f),
 		};
 
-		float cs = cosf(rot), sn = sinf(rot);
+		r32 cs = cosf(rot), sn = sinf(rot);
 		UI::vertices.add(Vec3(scaled_pos.x + (corners[0].x * cs - corners[0].y * sn) * scale.x, scaled_pos.y + (corners[0].x * sn + corners[0].y * cs) * scale.y, 0));
 		UI::vertices.add(Vec3(scaled_pos.x + (corners[1].x * cs - corners[1].y * sn) * scale.x, scaled_pos.y + (corners[1].x * sn + corners[1].y * cs) * scale.y, 0));
 		UI::vertices.add(Vec3(scaled_pos.x + (corners[2].x * cs - corners[2].y * sn) * scale.x, scaled_pos.y + (corners[2].x * sn + corners[2].y * cs) * scale.y, 0));
@@ -567,30 +567,30 @@ void UI::triangle(const RenderParams& params, const Rect2& r, const Vec4& color,
 	}
 }
 
-void UI::mesh(const RenderParams& params, const AssetID mesh, const Vec2& pos, const Vec2& size, const Vec4& color, const float rot)
+void UI::mesh(const RenderParams& params, const AssetID mesh, const Vec2& pos, const Vec2& size, const Vec4& color, const r32 rot)
 {
 	if (size.x > 0 && size.y > 0 && color.w > 0)
 	{
-		int vertex_start = UI::vertices.length;
+		s32 vertex_start = UI::vertices.length;
 		Vec2 screen = params.camera->viewport.size * 0.5f;
 		Vec2 scale = Vec2(1.0f / screen.x, 1.0f / screen.y);
 		Vec2 scaled_pos = (pos - screen) * scale;
 		scale *= size;
 
-		float cs = cosf(rot), sn = sinf(rot);
+		r32 cs = cosf(rot), sn = sinf(rot);
 
 		Mesh* m = Loader::mesh(mesh);
-		for (int i = 0; i < m->vertices.length; i++)
+		for (s32 i = 0; i < m->vertices.length; i++)
 		{
 			UI::vertices.add(Vec3(scaled_pos.x + (m->vertices[i].x * cs - m->vertices[i].y * sn) * scale.x, scaled_pos.y + (m->vertices[i].x * sn + m->vertices[i].y * cs) * scale.y, 0));
 			UI::colors.add(color);
 		}
-		for (int i = 0; i < m->indices.length; i++)
+		for (s32 i = 0; i < m->indices.length; i++)
 			UI::indices.add(vertex_start + m->indices[i]);
 	}
 }
 
-bool UI::project(const RenderParams& p, const Vec3& v, Vec2* out)
+b8 UI::project(const RenderParams& p, const Vec3& v, Vec2* out)
 {
 	Vec4 projected = p.view_projection * Vec4(v.x, v.y, v.z, 1);
 	Vec2 screen = p.camera->viewport.size * 0.5f;
@@ -611,7 +611,7 @@ void UI::init(LoopSync* sync)
 	Loader::dynamic_mesh_attrib(RenderDataType::Vec2);
 	Loader::shader_permanent(Asset::Shader::ui_texture);
 
-	int indices[] =
+	s32 indices[] =
 	{
 		0,
 		1,
@@ -623,15 +623,15 @@ void UI::init(LoopSync* sync)
 
 	sync->write(RenderOp::UpdateIndexBuffer);
 	sync->write(texture_mesh_id);
-	sync->write<int>(6);
+	sync->write<s32>(6);
 	sync->write(indices, 6);
 
 	scale = get_scale(sync->input.width, sync->input.height);
 }
 
-float UI::get_scale(const int width, const int height)
+r32 UI::get_scale(const s32 width, const s32 height)
 {
-	int area = width * height;
+	s32 area = width * height;
 	if (area >= 1680 * 1050)
 		return 1.5f;
 	else
@@ -646,7 +646,7 @@ void UI::update(const RenderParams& p)
 void UI::draw(const RenderParams& p)
 {
 #if DEBUG
-	for (int i = 0; i < debugs.length; i++)
+	for (s32 i = 0; i < debugs.length; i++)
 	{
 		Vec2 projected;
 		if (project(p, debugs[i], &projected))
@@ -658,13 +658,13 @@ void UI::draw(const RenderParams& p)
 	{
 		p.sync->write(RenderOp::UpdateAttribBuffers);
 		p.sync->write(mesh_id);
-		p.sync->write<int>(vertices.length);
+		p.sync->write<s32>(vertices.length);
 		p.sync->write(vertices.data, vertices.length);
 		p.sync->write(colors.data, colors.length);
 
 		p.sync->write(RenderOp::UpdateIndexBuffer);
 		p.sync->write(mesh_id);
-		p.sync->write<int>(indices.length);
+		p.sync->write<s32>(indices.length);
 		p.sync->write(indices.data, indices.length);
 
 		p.sync->write(RenderOp::Shader);
@@ -680,7 +680,7 @@ void UI::draw(const RenderParams& p)
 	}
 }
 
-void UI::texture(const RenderParams& p, const int texture, const Rect2& r, const Vec4& color, const Rect2& uv, const AssetID shader)
+void UI::texture(const RenderParams& p, const s32 texture, const Rect2& r, const Vec4& color, const Rect2& uv, const AssetID shader)
 {
 	Vec2 screen = p.camera->viewport.size * 0.5f;
 	Vec2 scale = Vec2(1.0f / screen.x, 1.0f / screen.y);
@@ -713,7 +713,7 @@ void UI::texture(const RenderParams& p, const int texture, const Rect2& r, const
 
 	p.sync->write(RenderOp::UpdateAttribBuffers);
 	p.sync->write(texture_mesh_id);
-	p.sync->write<int>(4);
+	p.sync->write<s32>(4);
 	p.sync->write(vertices, 4);
 	p.sync->write(colors, 4);
 	p.sync->write(uvs, 4);
@@ -725,7 +725,7 @@ void UI::texture(const RenderParams& p, const int texture, const Rect2& r, const
 	p.sync->write(RenderOp::Uniform);
 	p.sync->write(Asset::Uniform::color_buffer);
 	p.sync->write(RenderDataType::Texture);
-	p.sync->write<int>(1);
+	p.sync->write<s32>(1);
 	p.sync->write<RenderTextureType>(RenderTextureType::Texture2D);
 	p.sync->write<AssetID>(texture);
 

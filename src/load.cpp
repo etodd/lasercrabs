@@ -26,15 +26,15 @@ Array<Loader::Entry<AkBankID> > Loader::soundbanks = Array<Loader::Entry<AkBankI
 dtNavMesh* Loader::current_nav_mesh;
 AssetID Loader::current_nav_mesh_id = AssetNull;
 
-int Loader::static_mesh_count = 0;
-int Loader::static_texture_count = 0;
+s32 Loader::static_mesh_count = 0;
+s32 Loader::static_texture_count = 0;
 
 Settings Loader::settings_data = Settings();
 
 struct Attrib
 {
 	RenderDataType type;
-	int count;
+	s32 count;
 	Array<char> data;
 };
 
@@ -44,12 +44,12 @@ struct Attrib
 /// with the polygons in its associated polygon mesh object.
 struct rcPolyMeshDetail
 {
-	unsigned int* meshes;	///< The sub-mesh data. [Size: 4*#nmeshes] 
-	float* verts;			///< The mesh vertices. [Size: 3*#nverts] 
-	unsigned char* tris;	///< The mesh triangles. [Size: 4*#ntris] 
-	int nmeshes;			///< The number of sub-meshes defined by #meshes.
-	int nverts;				///< The number of vertices in #verts.
-	int ntris;				///< The number of triangles in #tris.
+	u32* meshes;	///< The sub-mesh data. [Size: 4*#nmeshes] 
+	r32* verts;			///< The mesh vertices. [Size: 3*#nverts] 
+	u8* tris;	///< The mesh triangles. [Size: 4*#ntris] 
+	s32 nmeshes;			///< The number of sub-meshes defined by #meshes.
+	s32 nverts;				///< The number of vertices in #verts.
+	s32 ntris;				///< The number of triangles in #tris.
 };
 
 void Loader::init(LoopSwapper* s)
@@ -63,13 +63,13 @@ void Loader::init(LoopSwapper* s)
 		static_texture_count++;
 
 	RenderSync* sync = swapper->get();
-	int i = 0;
+	s32 i = 0;
 	const char* uniform_name;
 	while ((uniform_name = AssetLookup::Uniform::names[i]))
 	{
 		sync->write(RenderOp::AllocUniform);
 		sync->write(i);
-		int length = strlen(uniform_name);
+		s32 length = strlen(uniform_name);
 		sync->write(length);
 		sync->write(uniform_name, length);
 		i++;
@@ -103,18 +103,18 @@ Mesh* Loader::mesh(AssetID id)
 		// Read bounding box
 		fread(&mesh->bounds_min, sizeof(Vec3), 1, f);
 		fread(&mesh->bounds_max, sizeof(Vec3), 1, f);
-		fread(&mesh->bounds_radius, sizeof(float), 1, f);
+		fread(&mesh->bounds_radius, sizeof(r32), 1, f);
 
 		// Read indices
-		int index_count;
-		fread(&index_count, sizeof(int), 1, f);
+		s32 index_count;
+		fread(&index_count, sizeof(s32), 1, f);
 
 		// Fill face indices
 		mesh->indices.resize(index_count);
-		fread(mesh->indices.data, sizeof(int), index_count, f);
+		fread(mesh->indices.data, sizeof(s32), index_count, f);
 
-		int vertex_count;
-		fread(&vertex_count, sizeof(int), 1, f);
+		s32 vertex_count;
+		fread(&vertex_count, sizeof(s32), 1, f);
 
 		// Fill vertices positions
 		mesh->vertices.resize(vertex_count);
@@ -124,14 +124,14 @@ Mesh* Loader::mesh(AssetID id)
 		mesh->normals.resize(vertex_count);
 		fread(mesh->normals.data, sizeof(Vec3), vertex_count, f);
 
-		int extra_attrib_count;
-		fread(&extra_attrib_count, sizeof(int), 1, f);
+		s32 extra_attrib_count;
+		fread(&extra_attrib_count, sizeof(s32), 1, f);
 		Array<Attrib> extra_attribs(extra_attrib_count, extra_attrib_count);
-		for (int i = 0; i < extra_attribs.length; i++)
+		for (s32 i = 0; i < extra_attribs.length; i++)
 		{
 			Attrib& a = extra_attribs[i];
 			fread(&a.type, sizeof(RenderDataType), 1, f);
-			fread(&a.count, sizeof(int), 1, f);
+			fread(&a.count, sizeof(s32), 1, f);
 			a.data.resize(mesh->vertices.length * a.count * render_data_type_size(a.type));
 			fread(a.data.data, sizeof(char), a.data.length, f);
 		}
@@ -141,40 +141,40 @@ Mesh* Loader::mesh(AssetID id)
 		// GL
 		RenderSync* sync = swapper->get();
 		sync->write(RenderOp::AllocMesh);
-		sync->write<int>(id);
-		sync->write<bool>(false); // Whether the buffers should be dynamic or not
+		sync->write<s32>(id);
+		sync->write<b8>(false); // Whether the buffers should be dynamic or not
 
-		sync->write<int>(2 + extra_attribs.length); // Attribute count
+		sync->write<s32>(2 + extra_attribs.length); // Attribute count
 
 		sync->write(RenderDataType::Vec3); // Position
-		sync->write<int>(1); // Number of data elements per vertex
+		sync->write<s32>(1); // Number of data elements per vertex
 
 		sync->write(RenderDataType::Vec3); // Normal
-		sync->write<int>(1); // Number of data elements per vertex
+		sync->write<s32>(1); // Number of data elements per vertex
 
-		for (int i = 0; i < extra_attribs.length; i++)
+		for (s32 i = 0; i < extra_attribs.length; i++)
 		{
 			Attrib* a = &extra_attribs[i];
 			sync->write<RenderDataType>(a->type);
-			sync->write<int>(a->count);
+			sync->write<s32>(a->count);
 		}
 
 		sync->write(RenderOp::UpdateAttribBuffers);
-		sync->write<int>(id);
+		sync->write<s32>(id);
 
-		sync->write<int>(mesh->vertices.length);
+		sync->write<s32>(mesh->vertices.length);
 		sync->write(mesh->vertices.data, mesh->vertices.length);
 		sync->write(mesh->normals.data, mesh->vertices.length);
 
-		for (int i = 0; i < extra_attribs.length; i++)
+		for (s32 i = 0; i < extra_attribs.length; i++)
 		{
 			Attrib* a = &extra_attribs[i];
 			sync->write(a->data.data, a->data.length);
 		}
 
 		sync->write(RenderOp::UpdateIndexBuffer);
-		sync->write<int>(id);
-		sync->write<int>(mesh->indices.length);
+		sync->write<s32>(id);
+		sync->write<s32>(mesh->indices.length);
 		sync->write(mesh->indices.data, mesh->indices.length);
 
 		meshes[id].type = AssetTransient;
@@ -197,7 +197,7 @@ Mesh* Loader::mesh_instanced(AssetID id)
 	{
 		RenderSync* sync = swapper->get();
 		sync->write(RenderOp::AllocInstances);
-		sync->write<int>(id);
+		sync->write<s32>(id);
 		m->instanced = true;
 	}
 	return m;
@@ -210,7 +210,7 @@ void Loader::mesh_free(const AssetID id)
 		meshes[id].data.~Mesh();
 		RenderSync* sync = swapper->get();
 		sync->write(RenderOp::FreeMesh);
-		sync->write<int>(id);
+		sync->write<s32>(id);
 		meshes[id].type = AssetNone;
 	}
 }
@@ -235,20 +235,20 @@ Armature* Loader::armature(AssetID id)
 		Armature* arm = &armatures[id].data;
 		new (arm) Armature();
 
-		int bones;
-		fread(&bones, sizeof(int), 1, f);
+		s32 bones;
+		fread(&bones, sizeof(s32), 1, f);
 		arm->hierarchy.resize(bones);
-		fread(arm->hierarchy.data, sizeof(int), bones, f);
+		fread(arm->hierarchy.data, sizeof(s32), bones, f);
 		arm->bind_pose.resize(bones);
 		arm->inverse_bind_pose.resize(bones);
 		arm->abs_bind_pose.resize(bones);
 		fread(arm->bind_pose.data, sizeof(Bone), bones, f);
 		fread(arm->inverse_bind_pose.data, sizeof(Mat4), bones, f);
-		for (int i = 0; i < arm->inverse_bind_pose.length; i++)
+		for (s32 i = 0; i < arm->inverse_bind_pose.length; i++)
 			arm->abs_bind_pose[i] = arm->inverse_bind_pose[i].inverse();
 
-		int bodies;
-		fread(&bodies, sizeof(int), 1, f);
+		s32 bodies;
+		fread(&bodies, sizeof(s32), 1, f);
 		arm->bodies.resize(bodies);
 		fread(arm->bodies.data, sizeof(BodyEntry), bodies, f);
 
@@ -276,10 +276,10 @@ void Loader::armature_free(AssetID id)
 	}
 }
 
-int Loader::dynamic_mesh(int attribs, bool dynamic)
+s32 Loader::dynamic_mesh(s32 attribs, b8 dynamic)
 {
-	int index = AssetNull;
-	for (int i = 0; i < dynamic_meshes.length; i++)
+	s32 index = AssetNull;
+	for (s32 i = 0; i < dynamic_meshes.length; i++)
 	{
 		if (dynamic_meshes[i].type == AssetNone)
 		{
@@ -298,35 +298,35 @@ int Loader::dynamic_mesh(int attribs, bool dynamic)
 
 	RenderSync* sync = swapper->get();
 	sync->write(RenderOp::AllocMesh);
-	sync->write<int>(index);
-	sync->write<bool>(dynamic);
-	sync->write<int>(attribs);
+	sync->write<s32>(index);
+	sync->write<b8>(dynamic);
+	sync->write<s32>(attribs);
 
 	return index;
 }
 
 // Must be called immediately after dynamic_mesh() or dynamic_mesh_permanent()
-void Loader::dynamic_mesh_attrib(RenderDataType type, int count)
+void Loader::dynamic_mesh_attrib(RenderDataType type, s32 count)
 {
 	RenderSync* sync = swapper->get();
 	sync->write(type);
 	sync->write(count);
 }
 
-int Loader::dynamic_mesh_permanent(int attribs, bool dynamic)
+s32 Loader::dynamic_mesh_permanent(s32 attribs, b8 dynamic)
 {
-	int result = dynamic_mesh(attribs, dynamic);
+	s32 result = dynamic_mesh(attribs, dynamic);
 	dynamic_meshes[result - static_mesh_count].type = AssetPermanent;
 	return result;
 }
 
-void Loader::dynamic_mesh_free(int id)
+void Loader::dynamic_mesh_free(s32 id)
 {
 	if (id != AssetNull && dynamic_meshes[id].type != AssetNone)
 	{
 		RenderSync* sync = swapper->get();
 		sync->write(RenderOp::FreeMesh);
-		sync->write<int>(id);
+		sync->write<s32>(id);
 		dynamic_meshes[id - static_mesh_count].type = AssetNone;
 	}
 }
@@ -351,31 +351,31 @@ Animation* Loader::animation(AssetID id)
 		Animation* anim = &animations[id].data;
 		new (anim)Animation();
 
-		fread(&anim->duration, sizeof(float), 1, f);
+		fread(&anim->duration, sizeof(r32), 1, f);
 
-		int channel_count;
-		fread(&channel_count, sizeof(int), 1, f);
+		s32 channel_count;
+		fread(&channel_count, sizeof(s32), 1, f);
 		anim->channels.reserve(channel_count);
 		anim->channels.length = channel_count;
 
-		for (int i = 0; i < channel_count; i++)
+		for (s32 i = 0; i < channel_count; i++)
 		{
 			Channel* channel = &anim->channels[i];
-			fread(&channel->bone_index, sizeof(int), 1, f);
-			int position_count;
-			fread(&position_count, sizeof(int), 1, f);
+			fread(&channel->bone_index, sizeof(s32), 1, f);
+			s32 position_count;
+			fread(&position_count, sizeof(s32), 1, f);
 			channel->positions.reserve(position_count);
 			channel->positions.length = position_count;
 			fread(channel->positions.data, sizeof(Keyframe<Vec3>), position_count, f);
 
-			int rotation_count;
-			fread(&rotation_count, sizeof(int), 1, f);
+			s32 rotation_count;
+			fread(&rotation_count, sizeof(s32), 1, f);
 			channel->rotations.reserve(rotation_count);
 			channel->rotations.length = rotation_count;
 			fread(channel->rotations.data, sizeof(Keyframe<Quat>), rotation_count, f);
 
-			int scale_count;
-			fread(&scale_count, sizeof(int), 1, f);
+			s32 scale_count;
+			fread(&scale_count, sizeof(s32), 1, f);
 			channel->scales.reserve(scale_count);
 			channel->scales.length = scale_count;
 			fread(channel->scales.data, sizeof(Keyframe<Vec3>), scale_count, f);
@@ -417,10 +417,10 @@ void Loader::texture(AssetID id, RenderTextureWrap wrap, RenderTextureFilter fil
 		textures[id].type = AssetTransient;
 
 		const char* path = AssetLookup::Texture::values[id];
-		unsigned char* buffer;
-		unsigned width, height;
+		u8* buffer;
+		u32 width, height;
 
-		unsigned error = lodepng_decode32_file(&buffer, &width, &height, path);
+		u32 error = lodepng_decode32_file(&buffer, &width, &height, path);
 
 		if (error)
 		{
@@ -435,9 +435,9 @@ void Loader::texture(AssetID id, RenderTextureWrap wrap, RenderTextureFilter fil
 		sync->write<AssetID>(id);
 		sync->write(wrap);
 		sync->write(filter);
-		sync->write<unsigned>(&width);
-		sync->write<unsigned>(&height);
-		sync->write<unsigned char>(buffer, 4 * width * height);
+		sync->write<u32>(&width);
+		sync->write<u32>(&height);
+		sync->write<u8>(buffer, 4 * width * height);
 		free(buffer);
 	}
 }
@@ -460,10 +460,10 @@ void Loader::texture_free(AssetID id)
 	}
 }
 
-int Loader::dynamic_texture(int width, int height, RenderDynamicTextureType type, RenderTextureWrap wrap, RenderTextureFilter filter, RenderTextureCompare compare)
+s32 Loader::dynamic_texture(s32 width, s32 height, RenderDynamicTextureType type, RenderTextureWrap wrap, RenderTextureFilter filter, RenderTextureCompare compare)
 {
-	int index = AssetNull;
-	for (int i = 0; i < dynamic_textures.length; i++)
+	s32 index = AssetNull;
+	for (s32 i = 0; i < dynamic_textures.length; i++)
 	{
 		if (dynamic_textures[i].type == AssetNone)
 		{
@@ -485,8 +485,8 @@ int Loader::dynamic_texture(int width, int height, RenderDynamicTextureType type
 	sync->write<AssetID>(index);
 	sync->write(RenderOp::DynamicTexture);
 	sync->write<AssetID>(index);
-	sync->write<unsigned>(width);
-	sync->write<unsigned>(height);
+	sync->write<u32>(width);
+	sync->write<u32>(height);
 	sync->write<RenderDynamicTextureType>(type);
 	sync->write<RenderTextureWrap>(wrap);
 	sync->write<RenderTextureFilter>(filter);
@@ -495,15 +495,15 @@ int Loader::dynamic_texture(int width, int height, RenderDynamicTextureType type
 	return index;
 }
 
-int Loader::dynamic_texture_permanent(int width, int height, RenderDynamicTextureType type, RenderTextureWrap wrap, RenderTextureFilter filter, RenderTextureCompare compare)
+s32 Loader::dynamic_texture_permanent(s32 width, s32 height, RenderDynamicTextureType type, RenderTextureWrap wrap, RenderTextureFilter filter, RenderTextureCompare compare)
 {
-	int id = dynamic_texture(width, height, type, wrap, filter, compare);
+	s32 id = dynamic_texture(width, height, type, wrap, filter, compare);
 	if (id != AssetNull)
 		dynamic_textures[id - static_texture_count].type = AssetPermanent;
 	return id;
 }
 
-void Loader::dynamic_texture_free(int id)
+void Loader::dynamic_texture_free(s32 id)
 {
 	if (id != AssetNull && dynamic_textures[id - static_texture_count].type != AssetNone)
 	{
@@ -514,10 +514,10 @@ void Loader::dynamic_texture_free(int id)
 	}
 }
 
-int Loader::framebuffer(int attachments)
+s32 Loader::framebuffer(s32 attachments)
 {
-	int index = AssetNull;
-	for (int i = 0; i < framebuffers.length; i++)
+	s32 index = AssetNull;
+	for (s32 i = 0; i < framebuffers.length; i++)
 	{
 		if (framebuffers[i].type == AssetNone)
 		{
@@ -536,35 +536,35 @@ int Loader::framebuffer(int attachments)
 
 	RenderSync* sync = swapper->get();
 	sync->write(RenderOp::AllocFramebuffer);
-	sync->write<int>(index);
-	sync->write<int>(attachments);
+	sync->write<s32>(index);
+	sync->write<s32>(attachments);
 
 	return index;
 }
 
 // Must be called immediately after framebuffer() or framebuffer_permanent()
-void Loader::framebuffer_attach(RenderFramebufferAttachment attachment_type, int dynamic_texture)
+void Loader::framebuffer_attach(RenderFramebufferAttachment attachment_type, s32 dynamic_texture)
 {
 	RenderSync* sync = swapper->get();
 	sync->write<RenderFramebufferAttachment>(attachment_type);
-	sync->write<int>(dynamic_texture);
+	sync->write<s32>(dynamic_texture);
 }
 
-int Loader::framebuffer_permanent(int attachments)
+s32 Loader::framebuffer_permanent(s32 attachments)
 {
-	int id = framebuffer(attachments);
+	s32 id = framebuffer(attachments);
 	if (id != AssetNull)
 		framebuffers[id].type = AssetPermanent;
 	return id;
 }
 
-void Loader::framebuffer_free(int id)
+void Loader::framebuffer_free(s32 id)
 {
 	if (id != AssetNull && framebuffers[id].type != AssetNone)
 	{
 		RenderSync* sync = swapper->get();
 		sync->write(RenderOp::FreeFramebuffer);
-		sync->write<int>(id);
+		sync->write<s32>(id);
 		framebuffers[id].type = AssetNone;
 	}
 }
@@ -590,12 +590,12 @@ void Loader::shader(AssetID id)
 			return;
 		}
 
-		const int chunk_size = 4096;
-		int i = 1;
+		const s32 chunk_size = 4096;
+		s32 i = 1;
 		while (true)
 		{
 			code.reserve(i * chunk_size + 1); // extra char since this will be a null-terminated string
-			int read = fread(&code.data[(i - 1) * chunk_size], sizeof(char), chunk_size, f);
+			s32 read = fread(&code.data[(i - 1) * chunk_size], sizeof(char), chunk_size, f);
 			if (read < chunk_size)
 			{
 				code.length = ((i - 1) * chunk_size) + read;
@@ -608,7 +608,7 @@ void Loader::shader(AssetID id)
 		RenderSync* sync = swapper->get();
 		sync->write(RenderOp::LoadShader);
 		sync->write<AssetID>(id);
-		sync->write<int>(&code.length);
+		sync->write<s32>(&code.length);
 		sync->write(code.data, code.length);
 	}
 }
@@ -651,21 +651,21 @@ Font* Loader::font(AssetID id)
 		Font* font = &fonts[id].data;
 		new (font)Font();
 
-		int j;
+		s32 j;
 
-		fread(&j, sizeof(int), 1, f);
+		fread(&j, sizeof(s32), 1, f);
 		font->vertices.resize(j);
 		fread(font->vertices.data, sizeof(Vec3), font->vertices.length, f);
 
-		fread(&j, sizeof(int), 1, f);
+		fread(&j, sizeof(s32), 1, f);
 		font->indices.resize(j);
-		fread(font->indices.data, sizeof(int), font->indices.length, f);
+		fread(font->indices.data, sizeof(s32), font->indices.length, f);
 
-		fread(&j, sizeof(int), 1, f);
+		fread(&j, sizeof(s32), 1, f);
 		Array<Font::Character> characters;
 		characters.resize(j);
 		fread(characters.data, sizeof(Font::Character), characters.length, f);
-		for (int i = 0; i < characters.length; i++)
+		for (s32 i = 0; i < characters.length; i++)
 		{
 			Font::Character* c = &characters[i];
 			if (c->code >= font->characters.length)
@@ -720,16 +720,16 @@ void base_nav_mesh_read(FILE* f, rcPolyMesh* mesh)
 		memset(mesh, 0, sizeof(rcPolyMesh));
 	else
 	{
-		mesh->verts = (unsigned short*)malloc(sizeof(unsigned short) * 3 * mesh->nverts);
-		mesh->polys = (unsigned short*)malloc(sizeof(unsigned short) * 2 * mesh->nvp * mesh->npolys);
-		mesh->regs = (unsigned short*)malloc(sizeof(unsigned short) * mesh->npolys);
-		mesh->flags = (unsigned short*)malloc(sizeof(unsigned short) * mesh->npolys);
-		mesh->areas = (unsigned char*)malloc(sizeof(unsigned char) * mesh->npolys);
-		fread(mesh->verts, sizeof(unsigned short) * 3, mesh->nverts, f);
-		fread(mesh->polys, sizeof(unsigned short) * 2 * mesh->nvp, mesh->npolys, f);
-		fread(mesh->regs, sizeof(unsigned short), mesh->npolys, f);
-		fread(mesh->flags, sizeof(unsigned short), mesh->npolys, f);
-		fread(mesh->areas, sizeof(unsigned char), mesh->npolys, f);
+		mesh->verts = (u16*)malloc(sizeof(u16) * 3 * mesh->nverts);
+		mesh->polys = (u16*)malloc(sizeof(u16) * 2 * mesh->nvp * mesh->npolys);
+		mesh->regs = (u16*)malloc(sizeof(u16) * mesh->npolys);
+		mesh->flags = (u16*)malloc(sizeof(u16) * mesh->npolys);
+		mesh->areas = (u8*)malloc(sizeof(u8) * mesh->npolys);
+		fread(mesh->verts, sizeof(u16) * 3, mesh->nverts, f);
+		fread(mesh->polys, sizeof(u16) * 2 * mesh->nvp, mesh->npolys, f);
+		fread(mesh->regs, sizeof(u16), mesh->npolys, f);
+		fread(mesh->flags, sizeof(u16), mesh->npolys, f);
+		fread(mesh->areas, sizeof(u8), mesh->npolys, f);
 	}
 }
 
@@ -789,25 +789,25 @@ dtNavMesh* Loader::nav_mesh(AssetID id)
 		{
 			rcPolyMeshDetail mesh_detail;
 			fread(&mesh_detail, sizeof(rcPolyMeshDetail), 1, f);
-			mesh_detail.meshes = (unsigned int*)malloc(sizeof(unsigned int) * 4 * mesh_detail.nmeshes);
-			mesh_detail.verts = (float*)malloc(sizeof(float) * 3 * mesh_detail.nverts);
-			mesh_detail.tris = (unsigned char*)malloc(sizeof(unsigned char) * 4 * mesh_detail.ntris);
-			fread(mesh_detail.meshes, sizeof(unsigned int) * 4, mesh_detail.nmeshes, f);
-			fread(mesh_detail.verts, sizeof(float) * 3, mesh_detail.nverts, f);
-			fread(mesh_detail.tris, sizeof(unsigned char) * 4, mesh_detail.ntris, f);
+			mesh_detail.meshes = (u32*)malloc(sizeof(u32) * 4 * mesh_detail.nmeshes);
+			mesh_detail.verts = (r32*)malloc(sizeof(r32) * 3 * mesh_detail.nverts);
+			mesh_detail.tris = (u8*)malloc(sizeof(u8) * 4 * mesh_detail.ntris);
+			fread(mesh_detail.meshes, sizeof(u32) * 4, mesh_detail.nmeshes, f);
+			fread(mesh_detail.verts, sizeof(r32) * 3, mesh_detail.nverts, f);
+			fread(mesh_detail.tris, sizeof(u8) * 4, mesh_detail.ntris, f);
 
-			float agent_height;
-			float agent_radius;
-			float agent_max_climb;
+			r32 agent_height;
+			r32 agent_radius;
+			r32 agent_max_climb;
 
-			fread(&agent_height, sizeof(float), 1, f);
-			fread(&agent_radius, sizeof(float), 1, f);
-			fread(&agent_max_climb, sizeof(float), 1, f);
+			fread(&agent_height, sizeof(r32), 1, f);
+			fread(&agent_radius, sizeof(r32), 1, f);
+			fread(&agent_max_climb, sizeof(r32), 1, f);
 
 			fclose(f);
 
-			unsigned char* navData = 0;
-			int navDataSize = 0;
+			u8* navData = 0;
+			s32 navDataSize = 0;
 
 			dtNavMeshCreateParams params;
 			memset(&params, 0, sizeof(params));
@@ -844,7 +844,7 @@ dtNavMesh* Loader::nav_mesh(AssetID id)
 			params.buildBvTree = true;
 
 			{
-				bool status = dtCreateNavMeshData(&params, &navData, &navDataSize);
+				b8 status = dtCreateNavMeshData(&params, &navData, &navDataSize);
 				vi_assert(status);
 			}
 
@@ -870,7 +870,7 @@ dtNavMesh* Loader::nav_mesh(AssetID id)
 	return current_nav_mesh;
 }
 
-bool Loader::soundbank(AssetID id)
+b8 Loader::soundbank(AssetID id)
 {
 	if (id == AssetNull)
 		return false;
@@ -893,9 +893,9 @@ bool Loader::soundbank(AssetID id)
 	return true;
 }
 
-bool Loader::soundbank_permanent(AssetID id)
+b8 Loader::soundbank_permanent(AssetID id)
 {
-	bool success = soundbank(id);
+	b8 success = soundbank(id);
 	if (success)
 		soundbanks[id].type = AssetPermanent;
 	return success;
@@ -949,13 +949,13 @@ void Loader::transients_free()
 			dynamic_mesh_free(static_mesh_count + i);
 	}
 
-	for (int i = 0; i < dynamic_textures.length; i++)
+	for (s32 i = 0; i < dynamic_textures.length; i++)
 	{
 		if (dynamic_textures[i].type == AssetTransient)
 			dynamic_texture_free(static_texture_count + i);
 	}
 
-	for (int i = 0; i < framebuffers.length; i++)
+	for (s32 i = 0; i < framebuffers.length; i++)
 	{
 		if (framebuffers[i].type == AssetTransient)
 			framebuffer_free(i);
@@ -973,7 +973,7 @@ AssetID Loader::find(const char* name, const char** list)
 	if (!name)
 		return AssetNull;
 	const char* p;
-	int i = 0;
+	s32 i = 0;
 	while ((p = list[i]))
 	{
 		if (strcmp(name, p) == 0)
@@ -993,8 +993,8 @@ InputBinding input_binding(cJSON* parent, const char* key, const InputBinding& d
 		return default_value;
 
 	InputBinding binding;
-	binding.key = (KeyCode)Json::get_int(json, "key", (int)default_value.key);
-	binding.btn = (Gamepad::Btn)Json::get_int(json, "btn", (int)default_value.btn);
+	binding.key = (KeyCode)Json::get_s32(json, "key", (s32)default_value.key);
+	binding.btn = (Gamepad::Btn)Json::get_s32(json, "btn", (s32)default_value.btn);
 	return binding;
 }
 
@@ -1002,9 +1002,9 @@ cJSON* input_binding_json(const InputBinding& binding)
 {
 	cJSON* json = cJSON_CreateObject();
 	if (binding.key != KeyCode::None)
-		cJSON_AddNumberToObject(json, "key", (int)binding.key);
+		cJSON_AddNumberToObject(json, "key", (s32)binding.key);
 	if (binding.btn != Gamepad::Btn::None)
-		cJSON_AddNumberToObject(json, "btn", (int)binding.btn);
+		cJSON_AddNumberToObject(json, "btn", (s32)binding.btn);
 	return json;
 }
 
@@ -1013,9 +1013,9 @@ Settings& Loader::settings()
 	if (!settings_data.valid)
 	{
 		cJSON* json = Json::load("config.txt");
-		settings_data.width = Json::get_int(json, "width", 1920);
-		settings_data.height = Json::get_int(json, "height", 1080);
-		settings_data.fullscreen = (bool)Json::get_int(json, "fullscreen", 0);
+		settings_data.width = Json::get_s32(json, "width", 1920);
+		settings_data.height = Json::get_s32(json, "height", 1080);
+		settings_data.fullscreen = (b8)Json::get_s32(json, "fullscreen", 0);
 		settings_data.valid = true;
 
 		cJSON* bindings = cJSON_GetObjectItem(json, "bindings");

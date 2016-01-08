@@ -8,7 +8,7 @@ namespace Asset
 {
 	namespace Uniform
 	{
-		const int count = 37;
+		const s32 count = 37;
 		const AssetID ambient_color = 0;
 		const AssetID bones = 1;
 		const AssetID color_buffer = 2;
@@ -49,7 +49,7 @@ namespace Asset
 	}
 	namespace Shader
 	{
-		const int count = 20;
+		const s32 count = 20;
 		const AssetID armature = 0;
 		const AssetID bloom_downsample = 1;
 		const AssetID blur = 2;

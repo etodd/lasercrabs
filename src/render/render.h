@@ -18,31 +18,31 @@ struct Frustum
 
 struct Camera
 {
-	static const int max_cameras = 8;
+	static const s32 max_cameras = 8;
 	static Camera all[max_cameras];
 
 	RenderMask mask;
 
-	struct ViewportBlueprint
+	struct ViewportBlueprs32
 	{
-		float x, y, w, h;
+		r32 x, y, w, h;
 	};
 
-	static ViewportBlueprint one_player_viewports[1];
-	static ViewportBlueprint two_player_viewports[2];
-	static ViewportBlueprint three_player_viewports[3];
-	static ViewportBlueprint four_player_viewports[4];
+	static ViewportBlueprs32 one_player_viewports[1];
+	static ViewportBlueprs32 two_player_viewports[2];
+	static ViewportBlueprs32 three_player_viewports[3];
+	static ViewportBlueprs32 four_player_viewports[4];
 
-	static ViewportBlueprint* viewport_blueprints[4];
+	static ViewportBlueprs32* viewport_blueprs32s[4];
 
 	static Camera* add();
 
-	bool active;
+	b8 active;
 	Mat4 projection;
 	Mat4 projection_inverse;
-	float near_plane;
-	float far_plane;
-	bool fog;
+	r32 near_plane;
+	r32 far_plane;
+	b8 fog;
 	Vec3 pos;
 	Quat rot;
 	Rect2 viewport;
@@ -65,9 +65,9 @@ struct Camera
 	{
 	}
 
-	void perspective(float, float, float, float);
-	void orthographic(float, float, float, float);
-	bool visible_sphere(const Vec3&, float) const;
+	void perspective(r32, r32, r32, r32);
+	void orthographic(r32, r32, r32, r32);
+	b8 visible_sphere(const Vec3&, r32) const;
 	void update_frustum();
 	Mat4 view() const;
 	void remove();
@@ -75,7 +75,7 @@ struct Camera
 
 struct LoopSync : RenderSync
 {
-	bool quit;
+	b8 quit;
 	GameTime time;
 	InputState input;
 };
@@ -89,8 +89,8 @@ struct RenderParams
 	Mat4 view_projection;
 	RenderTechnique technique;
 	LoopSync* sync;
-	int depth_buffer;
-	int shadow_buffer;
+	s32 depth_buffer;
+	s32 shadow_buffer;
 	Mat4 shadow_vp;
 
 	RenderParams()

@@ -11,25 +11,25 @@ struct Console
 {
 	struct Log
 	{
-		float timer;
-		int length;
+		r32 timer;
+		s32 length;
 		char string[255];
 	};
 	static Array<char> command;
 	static Array<char> debug_buffer;
 	static Array<Log> logs;
-	static bool visible;
+	static b8 visible;
 	static UIText text;
 	static UIText fps_text;
 	static UIText debug_text;
 	static UIText log_text;
-	static int fps_count;
-	static float fps_accumulator;
-	static bool fps_visible;
+	static s32 fps_count;
+	static r32 fps_accumulator;
+	static b8 fps_visible;
 	static char shift_map[127];
 	static char normal_map[127];
-	static float repeat_start_time;
-	static float repeat_last_time;
+	static r32 repeat_start_time;
+	static r32 repeat_last_time;
 
 	static void init();
 	static void update(const Update&);

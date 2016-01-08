@@ -36,7 +36,7 @@ void Link::link(void(*fp)())
 
 void Link::fire() const
 {
-	for (int i = 0; i < entries.length; i++)
+	for (s32 i = 0; i < entries.length; i++)
 		(&entries[i])->fire();
 }
 
@@ -80,7 +80,7 @@ void World::remove_deferred(Entity* e)
 
 void World::flush()
 {
-	for (int i = 0; i < remove_buffer.length; i++)
+	for (s32 i = 0; i < remove_buffer.length; i++)
 		World::remove(&World::entities[remove_buffer[i]]);
 	remove_buffer.length = 0;
 }

@@ -73,7 +73,7 @@ void View::draw_alpha(const RenderParams& params)
 	}
 }
 
-void View::alpha(const bool additive, const int order)
+void View::alpha(const b8 additive, const s32 order)
 {
 	if (alpha_enabled)
 		alpha_disable();
@@ -193,19 +193,19 @@ void View::draw(const RenderParams& params) const
 	sync->write(RenderOp::Uniform);
 	sync->write(Asset::Uniform::mvp);
 	sync->write(RenderDataType::Mat4);
-	sync->write<int>(1);
+	sync->write<s32>(1);
 	sync->write<Mat4>(mvp);
 
 	sync->write(RenderOp::Uniform);
 	sync->write(Asset::Uniform::mv);
 	sync->write(RenderDataType::Mat4);
-	sync->write<int>(1);
+	sync->write<s32>(1);
 	sync->write<Mat4>(m * params.view);
 
 	sync->write(RenderOp::Uniform);
 	sync->write(Asset::Uniform::diffuse_color);
 	sync->write(RenderDataType::Vec4);
-	sync->write<int>(1);
+	sync->write<s32>(1);
 	sync->write<Vec4>(color);
 
 	if (texture != AssetNull)
@@ -213,7 +213,7 @@ void View::draw(const RenderParams& params) const
 		sync->write(RenderOp::Uniform);
 		sync->write(Asset::Uniform::diffuse_map);
 		sync->write(RenderDataType::Texture);
-		sync->write<int>(1);
+		sync->write<s32>(1);
 		sync->write<RenderTextureType>(RenderTextureType::Texture2D);
 		sync->write<AssetID>(texture);
 	}
@@ -242,50 +242,50 @@ void SkyDecal::draw(const RenderParams& p)
 	sync->write(RenderOp::Uniform);
 	sync->write(Asset::Uniform::p);
 	sync->write(RenderDataType::Mat4);
-	sync->write<int>(1);
+	sync->write<s32>(1);
 	sync->write<Mat4>(p.camera->projection);
 
 	sync->write(RenderOp::Uniform);
 	sync->write(Asset::Uniform::frustum);
 	sync->write(RenderDataType::Vec3);
-	sync->write<int>(4);
+	sync->write<s32>(4);
 	sync->write<Vec3>(p.camera->frustum_rays, 4);
 
 	sync->write(RenderOp::Uniform);
 	sync->write(Asset::Uniform::fog_start);
 	sync->write(RenderDataType::Float);
-	sync->write<int>(1);
-	sync->write<float>(Skybox::fog_start);
+	sync->write<s32>(1);
+	sync->write<r32>(Skybox::fog_start);
 
 	sync->write(RenderOp::Uniform);
 	sync->write(Asset::Uniform::fog_extent);
 	sync->write(RenderDataType::Float);
-	sync->write<int>(1);
-	sync->write<float>(p.camera->far_plane - Skybox::fog_start);
+	sync->write<s32>(1);
+	sync->write<r32>(p.camera->far_plane - Skybox::fog_start);
 
-	Vec2 inv_buffer_size = Vec2(1.0f / (float)p.sync->input.width, 1.0f / (float)p.sync->input.height);
+	Vec2 inv_buffer_size = Vec2(1.0f / (r32)p.sync->input.width, 1.0f / (r32)p.sync->input.height);
 
 	sync->write(RenderOp::Uniform);
 	sync->write(Asset::Uniform::uv_offset);
 	sync->write(RenderDataType::Vec2);
-	sync->write<int>(1);
+	sync->write<s32>(1);
 	sync->write<Vec2>(p.camera->viewport.pos * inv_buffer_size);
 
 	sync->write(RenderOp::Uniform);
 	sync->write(Asset::Uniform::uv_scale);
 	sync->write(RenderDataType::Vec2);
-	sync->write<int>(1);
+	sync->write<s32>(1);
 	sync->write<Vec2>(p.camera->viewport.size * inv_buffer_size);
 
 	sync->write(RenderOp::Uniform);
 	sync->write(Asset::Uniform::depth_buffer);
 	sync->write(RenderDataType::Texture);
-	sync->write<int>(1);
+	sync->write<s32>(1);
 	sync->write<RenderTextureType>(RenderTextureType::Texture2D);
 	sync->write<AssetID>(p.depth_buffer);
 
 	sync->write(RenderOp::DepthTest);
-	sync->write<bool>(false);
+	sync->write<b8>(false);
 
 	Loader::mesh_permanent(Asset::Mesh::sky_decal);
 	for (auto i = SkyDecal::list().iterator(); !i.is_last(); i.next())
@@ -305,19 +305,19 @@ void SkyDecal::draw(const RenderParams& p)
 		sync->write(RenderOp::Uniform);
 		sync->write(Asset::Uniform::mvp);
 		sync->write(RenderDataType::Mat4);
-		sync->write<int>(1);
+		sync->write<s32>(1);
 		sync->write<Mat4>(mvp);
 
 		sync->write(RenderOp::Uniform);
 		sync->write(Asset::Uniform::diffuse_color);
 		sync->write(RenderDataType::Vec4);
-		sync->write<int>(1);
+		sync->write<s32>(1);
 		sync->write<Vec4>(d->color);
 
 		sync->write(RenderOp::Uniform);
 		sync->write(Asset::Uniform::diffuse_map);
 		sync->write(RenderDataType::Texture);
-		sync->write<int>(1);
+		sync->write<s32>(1);
 		sync->write<RenderTextureType>(RenderTextureType::Texture2D);
 		sync->write<AssetID>(d->texture);
 
@@ -326,11 +326,11 @@ void SkyDecal::draw(const RenderParams& p)
 	}
 
 	sync->write(RenderOp::DepthTest);
-	sync->write<bool>(true);
+	sync->write<b8>(true);
 }
 
-float Skybox::far_plane = 0.0f;
-float Skybox::fog_start = 0.0f;
+r32 Skybox::far_plane = 0.0f;
+r32 Skybox::fog_start = 0.0f;
 AssetID Skybox::texture = AssetNull;
 AssetID Skybox::mesh = AssetNull;
 AssetID Skybox::shader = AssetNull;
@@ -338,7 +338,7 @@ Vec3 Skybox::color = Vec3(1, 1, 1);
 Vec3 Skybox::ambient_color = Vec3(0.1f, 0.1f, 0.1f);
 Vec3 Skybox::zenith_color = Vec3(1.0f, 0.4f, 0.9f);
 
-void Skybox::set(const float f, const Vec3& c, const Vec3& ambient, const Vec3& zenith, const AssetID& s, const AssetID& m, const AssetID& t)
+void Skybox::set(const r32 f, const Vec3& c, const Vec3& ambient, const Vec3& zenith, const AssetID& s, const AssetID& m, const AssetID& t)
 {
 	far_plane = f;
 	fog_start = f * 0.25f;
@@ -363,7 +363,7 @@ void Skybox::set(const float f, const Vec3& c, const Vec3& ambient, const Vec3& 
 	Loader::texture(t);
 }
 
-bool Skybox::valid()
+b8 Skybox::valid()
 {
 	return shader != AssetNull && mesh != AssetNull;
 }
@@ -380,7 +380,7 @@ void Skybox::draw(const RenderParams& p)
 	RenderSync* sync = p.sync;
 
 	sync->write<RenderOp>(RenderOp::DepthTest);
-	sync->write<bool>(false);
+	sync->write<b8>(false);
 
 	sync->write(RenderOp::Shader);
 	sync->write(shader);
@@ -396,69 +396,69 @@ void Skybox::draw(const RenderParams& p)
 	sync->write(RenderOp::Uniform);
 	sync->write(Asset::Uniform::mvp);
 	sync->write(RenderDataType::Mat4);
-	sync->write<int>(1);
+	sync->write<s32>(1);
 	sync->write<Mat4>(mvp);
 
 	sync->write(RenderOp::Uniform);
 	sync->write(Asset::Uniform::diffuse_color);
 	sync->write(RenderDataType::Vec3);
-	sync->write<int>(1);
+	sync->write<s32>(1);
 	sync->write<Vec3>(color);
 
 	sync->write(RenderOp::Uniform);
 	sync->write(Asset::Uniform::p);
 	sync->write(RenderDataType::Mat4);
-	sync->write<int>(1);
+	sync->write<s32>(1);
 	sync->write<Mat4>(p.camera->projection);
 
 	sync->write(RenderOp::Uniform);
 	sync->write(Asset::Uniform::frustum);
 	sync->write(RenderDataType::Vec3);
-	sync->write<int>(4);
+	sync->write<s32>(4);
 	sync->write<Vec3>(p.camera->frustum_rays, 4);
 
 	sync->write(RenderOp::Uniform);
 	sync->write(Asset::Uniform::fog_start);
 	sync->write(RenderDataType::Float);
-	sync->write<int>(1);
-	sync->write<float>(fog_start);
+	sync->write<s32>(1);
+	sync->write<r32>(fog_start);
 
 	sync->write(RenderOp::Uniform);
 	sync->write(Asset::Uniform::fog_extent);
 	sync->write(RenderDataType::Float);
-	sync->write<int>(1);
-	sync->write<float>(p.camera->far_plane - fog_start);
+	sync->write<s32>(1);
+	sync->write<r32>(p.camera->far_plane - fog_start);
 
 	sync->write(RenderOp::Uniform);
 	sync->write(Asset::Uniform::far_plane);
 	sync->write(RenderDataType::Float);
-	sync->write<int>(1);
-	sync->write<float>(p.camera->far_plane);
+	sync->write<s32>(1);
+	sync->write<r32>(p.camera->far_plane);
 
 	sync->write(RenderOp::Uniform);
 	sync->write(Asset::Uniform::fog);
 	sync->write(RenderDataType::Int);
-	sync->write<int>(1);
-	sync->write<float>(p.camera->fog);
+	sync->write<s32>(1);
+	sync->write<r32>(p.camera->fog);
 
-	Vec2 inv_buffer_size = Vec2(1.0f / (float)p.sync->input.width, 1.0f / (float)p.sync->input.height);
+	Vec2 inv_buffer_size = Vec2(1.0f / (r32)p.sync->input.width, 1.0f / (r32)p.sync->input.height);
 
 	sync->write(RenderOp::Uniform);
 	sync->write(Asset::Uniform::uv_offset);
 	sync->write(RenderDataType::Vec2);
-	sync->write<int>(1);
+	sync->write<s32>(1);
 	sync->write<Vec2>(p.camera->viewport.pos * inv_buffer_size);
 
 	sync->write(RenderOp::Uniform);
 	sync->write(Asset::Uniform::uv_scale);
 	sync->write(RenderDataType::Vec2);
-	sync->write<int>(1);
+	sync->write<s32>(1);
 	sync->write<Vec2>(p.camera->viewport.size * inv_buffer_size);
 
 	sync->write(RenderOp::Uniform);
 	sync->write(Asset::Uniform::depth_buffer);
 	sync->write(RenderDataType::Texture);
-	sync->write<int>(1);
+	sync->write<s32>(1);
 	sync->write<RenderTextureType>(RenderTextureType::Texture2D);
 	sync->write<AssetID>(p.depth_buffer);
 
@@ -467,14 +467,14 @@ void Skybox::draw(const RenderParams& p)
 		sync->write(RenderOp::Uniform);
 		sync->write(Asset::Uniform::shadow_map);
 		sync->write(RenderDataType::Texture);
-		sync->write<int>(1);
+		sync->write<s32>(1);
 		sync->write<RenderTextureType>(RenderTextureType::Texture2D);
 		sync->write<AssetID>(p.shadow_buffer);
 
 		sync->write(RenderOp::Uniform);
 		sync->write(Asset::Uniform::light_vp);
 		sync->write(RenderDataType::Mat4);
-		sync->write<int>(1);
+		sync->write<s32>(1);
 		Mat4 view_rotation = p.view;
 		view_rotation.translation(Vec3::zero);
 		sync->write<Mat4>(view_rotation.inverse() * p.shadow_vp);
@@ -483,9 +483,9 @@ void Skybox::draw(const RenderParams& p)
 		sync->write(RenderOp::Uniform);
 		sync->write(Asset::Uniform::noise_sampler);
 		sync->write(RenderDataType::Texture);
-		sync->write<int>(1);
+		sync->write<s32>(1);
 		sync->write<RenderTextureType>(RenderTextureType::Texture2D);
-		sync->write<int>(Asset::Texture::noise);
+		sync->write<s32>(Asset::Texture::noise);
 	}
 
 	if (texture != AssetNull)
@@ -493,7 +493,7 @@ void Skybox::draw(const RenderParams& p)
 		sync->write(RenderOp::Uniform);
 		sync->write(Asset::Uniform::diffuse_map);
 		sync->write(RenderDataType::Texture);
-		sync->write<int>(1);
+		sync->write<s32>(1);
 		sync->write<RenderTextureType>(RenderTextureType::Texture2D);
 		sync->write<AssetID>(texture);
 	}
@@ -502,10 +502,10 @@ void Skybox::draw(const RenderParams& p)
 	sync->write(mesh);
 
 	sync->write<RenderOp>(RenderOp::DepthTest);
-	sync->write<bool>(true);
+	sync->write<b8>(true);
 }
 
-void Cube::draw(const RenderParams& params, const Vec3& pos, const bool alpha, const Vec3& scale, const Quat& rot, const Vec4& color)
+void Cube::draw(const RenderParams& params, const Vec3& pos, const b8 alpha, const Vec3& scale, const Quat& rot, const Vec4& color)
 {
 	Mesh* mesh = Loader::mesh_permanent(Asset::Mesh::cube);
 	Loader::shader_permanent(Asset::Shader::flat);
@@ -526,13 +526,13 @@ void Cube::draw(const RenderParams& params, const Vec3& pos, const bool alpha, c
 	sync->write(RenderOp::Uniform);
 	sync->write(Asset::Uniform::mvp);
 	sync->write(RenderDataType::Mat4);
-	sync->write<int>(1);
+	sync->write<s32>(1);
 	sync->write<Mat4>(mvp);
 
 	sync->write(RenderOp::Uniform);
 	sync->write(Asset::Uniform::diffuse_color);
 	sync->write(RenderDataType::Vec4);
-	sync->write<int>(1);
+	sync->write<s32>(1);
 	sync->write<Vec4>(color);
 
 	sync->write(RenderOp::Mesh);
@@ -551,7 +551,7 @@ void ScreenQuad::init(RenderSync* sync)
 	Loader::dynamic_mesh_attrib(RenderDataType::Vec3);
 	Loader::dynamic_mesh_attrib(RenderDataType::Vec2);
 
-	int indices[] =
+	s32 indices[] =
 	{
 		0,
 		1,
@@ -563,7 +563,7 @@ void ScreenQuad::init(RenderSync* sync)
 
 	sync->write(RenderOp::UpdateIndexBuffer);
 	sync->write(mesh);
-	sync->write<int>(6);
+	sync->write<s32>(6);
 	sync->write(indices, 6);
 }
 
@@ -587,7 +587,7 @@ void ScreenQuad::set(RenderSync* sync, const Rect2& r, const Camera* camera, con
 
 	sync->write(RenderOp::UpdateAttribBuffers);
 	sync->write(mesh);
-	sync->write<int>(4);
+	sync->write<s32>(4);
 	sync->write(vertices, 4);
 	sync->write(camera->frustum_rays, 4);
 	sync->write(uvs, 4);

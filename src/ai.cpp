@@ -14,8 +14,8 @@ AssetID AI::render_mesh = AssetNull;
 dtNavMesh* AI::nav_mesh = 0;
 dtNavMeshQuery* AI::nav_mesh_query = 0;
 dtQueryFilter AI::default_query_filter = dtQueryFilter();
-const float AI::default_search_extents[] = { 8, 8, 8 };
-bool AI::render_mesh_dirty = false;
+const r32 AI::default_search_extents[] = { 8, 8, 8 };
+b8 AI::render_mesh_dirty = false;
 
 const Vec4 AI::colors[] =
 {
@@ -26,12 +26,12 @@ const Vec4 AI::colors[] =
 	Vec4(1, 0.5f, 0.5f, 1),
 };
 
-static const unsigned short RC_MESH_NULL_IDX = 0xffff;
+static const u16 RC_MESH_NULL_IDX = 0xffff;
 
 void AI::init()
 {
 	nav_mesh_query = dtAllocNavMeshQuery();
-	default_query_filter.setIncludeFlags((unsigned short)-1);
+	default_query_filter.setIncludeFlags((u16)-1);
 	default_query_filter.setExcludeFlags(0);
 
 	render_mesh = Loader::dynamic_mesh_permanent(1);
@@ -61,10 +61,10 @@ void AI::debug_draw(const RenderParams& p)
 		p.sync->write(RenderOp::UpdateAttribBuffers);
 		p.sync->write(render_mesh);
 
-		p.sync->write<int>(mesh.nverts);
-		for (int i = 0; i < mesh.nverts; i++)
+		p.sync->write<s32>(mesh.nverts);
+		for (s32 i = 0; i < mesh.nverts; i++)
 		{
-			const unsigned short* v = &mesh.verts[i * 3];
+			const u16* v = &mesh.verts[i * 3];
 			Vec3 vertex;
 			vertex.x = mesh.bmin[0] + v[0] * mesh.cs;
 			vertex.y = mesh.bmin[1] + (v[1] + 1) * mesh.ch;
@@ -72,11 +72,11 @@ void AI::debug_draw(const RenderParams& p)
 			p.sync->write<Vec3>(vertex);
 		}
 
-		int num_triangles = 0;
-		for (int i = 0; i < mesh.npolys; ++i)
+		s32 num_triangles = 0;
+		for (s32 i = 0; i < mesh.npolys; ++i)
 		{
-			const unsigned short* poly = &mesh.polys[i * mesh.nvp * 2];
-			for (int j = 2; j < mesh.nvp; ++j)
+			const u16* poly = &mesh.polys[i * mesh.nvp * 2];
+			for (s32 j = 2; j < mesh.nvp; ++j)
 			{
 				if (poly[j] == RC_MESH_NULL_IDX)
 					break;
@@ -87,19 +87,19 @@ void AI::debug_draw(const RenderParams& p)
 		p.sync->write(RenderOp::UpdateIndexBuffer);
 		p.sync->write(render_mesh);
 
-		p.sync->write<int>(num_triangles * 3);
+		p.sync->write<s32>(num_triangles * 3);
 		
-		for (int i = 0; i < mesh.npolys; ++i)
+		for (s32 i = 0; i < mesh.npolys; ++i)
 		{
-			const unsigned short* poly = &mesh.polys[i * mesh.nvp * 2];
+			const u16* poly = &mesh.polys[i * mesh.nvp * 2];
 			
-			for (int j = 2; j < mesh.nvp; ++j)
+			for (s32 j = 2; j < mesh.nvp; ++j)
 			{
 				if (poly[j] == RC_MESH_NULL_IDX)
 					break;
-				p.sync->write<int>(poly[0]);
-				p.sync->write<int>(poly[j - 1]);
-				p.sync->write<int>(poly[j]);
+				p.sync->write<s32>(poly[0]);
+				p.sync->write<s32>(poly[j - 1]);
+				p.sync->write<s32>(poly[j]);
 			}
 		}
 
@@ -115,7 +115,7 @@ void AI::debug_draw(const RenderParams& p)
 	p.sync->write(RenderOp::Uniform);
 	p.sync->write(Asset::Uniform::diffuse_color);
 	p.sync->write(RenderDataType::Vec4);
-	p.sync->write<int>(1);
+	p.sync->write<s32>(1);
 	p.sync->write(Vec4(0, 1, 0, 1));
 
 	Mat4 mvp = p.view_projection;
@@ -123,7 +123,7 @@ void AI::debug_draw(const RenderParams& p)
 	p.sync->write(RenderOp::Uniform);
 	p.sync->write(Asset::Uniform::mvp);
 	p.sync->write(RenderDataType::Mat4);
-	p.sync->write<int>(1);
+	p.sync->write<s32>(1);
 	p.sync->write<Mat4>(mvp);
 
 	p.sync->write(RenderOp::Mesh);
@@ -131,7 +131,7 @@ void AI::debug_draw(const RenderParams& p)
 #endif
 }
 
-bool AI::vision_check(const Vec3& pos, const Vec3& enemy_pos, const AIAgent* a, const AIAgent* b)
+b8 AI::vision_check(const Vec3& pos, const Vec3& enemy_pos, const AIAgent* a, const AIAgent* b)
 {
 	btCollisionWorld::ClosestRayResultCallback rayCallback(pos, enemy_pos);
 	rayCallback.m_flags = btTriangleRaycastCallback::EFlags::kF_FilterBackfaces
@@ -147,9 +147,9 @@ bool AI::vision_check(const Vec3& pos, const Vec3& enemy_pos, const AIAgent* a, 
 	return id == a->entity_id || id == b->entity_id;
 }
 
-Entity* AI::vision_query(const AIAgent* queryer, const Vec3& pos, const Vec3& forward, float radius, float angle, float max_height_diff, ComponentMask component_mask)
+Entity* AI::vision_query(const AIAgent* queryer, const Vec3& pos, const Vec3& forward, r32 radius, r32 angle, r32 max_height_diff, ComponentMask component_mask)
 {
-	float angle_dot = cosf(angle);
+	r32 angle_dot = cosf(angle);
 	for (auto i = AIAgent::list().iterator(); !i.is_last(); i.next())
 	{
 		AIAgent* agent = i.item();
@@ -162,13 +162,13 @@ Entity* AI::vision_query(const AIAgent* queryer, const Vec3& pos, const Vec3& fo
 		if (max_height_diff > 0.0f && to_enemy.y > max_height_diff)
 			continue;
 
-		float distance_to_enemy = to_enemy.length();
+		r32 distance_to_enemy = to_enemy.length();
 
 		if (distance_to_enemy < radius)
 		{
 			to_enemy /= distance_to_enemy;
 
-			float dot = forward.dot(to_enemy);
+			r32 dot = forward.dot(to_enemy);
 			if (dot > angle_dot && vision_check(pos, enemy_pos, queryer, agent))
 				return agent->entity();
 		}
@@ -181,7 +181,7 @@ Entity* AI::sound_query(AI::Team team, const Vec3& pos, ComponentMask component_
 {
 	for (auto i = Shockwave::list().iterator(); !i.is_last(); i.next())
 	{
-		float radius = i.item()->radius();
+		r32 radius = i.item()->radius();
 		if ((i.item()->get<Transform>()->absolute_pos() - pos).length_squared() < radius * radius)
 		{
 			Entity* owner = i.item()->owner.ref();
@@ -196,11 +196,11 @@ Entity* AI::sound_query(AI::Team team, const Vec3& pos, ComponentMask component_
 	return nullptr;
 }
 
-dtPolyRef AI::get_poly(const Vec3& pos, const float* search_extents)
+dtPolyRef AI::get_poly(const Vec3& pos, const r32* search_extents)
 {
 	dtPolyRef result;
 
-	AI::nav_mesh_query->findNearestPoly((float*)&pos, search_extents, &default_query_filter, &result, 0);
+	AI::nav_mesh_query->findNearestPoly((r32*)&pos, search_extents, &default_query_filter, &result, 0);
 
 	return result;
 }

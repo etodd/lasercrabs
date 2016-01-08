@@ -24,7 +24,7 @@ struct StaticGeom : public Entity
 
 struct PhysicsEntity : public Entity
 {
-	PhysicsEntity(AssetID, const Vec3&, const Quat&, RigidBody::Type, const Vec3&, float, short, short);
+	PhysicsEntity(AssetID, const Vec3&, const Quat&, RigidBody::Type, const Vec3&, r32, short, short);
 };
 
 struct Noclip : public Entity
@@ -36,8 +36,8 @@ struct Camera;
 
 struct NoclipControl : public ComponentType<NoclipControl>
 {
-	float angle_horizontal;
-	float angle_vertical;
+	r32 angle_horizontal;
+	r32 angle_vertical;
 
 	Camera* camera;
 

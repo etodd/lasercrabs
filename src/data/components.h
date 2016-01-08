@@ -49,7 +49,7 @@ struct PointLight : public ComponentType<PointLight>
 		Shockwave = 1 << 1,
 	};
 
-	float radius;
+	r32 radius;
 	Vec3 color;
 	Vec3 offset;
 	Type type;
@@ -67,9 +67,9 @@ struct SpotLight : public ComponentType<SpotLight>
 		Override = 1 << 0,
 	};
 
-	float radius;
+	r32 radius;
 	Vec3 color;
-	float fov;
+	r32 fov;
 	Type type;
 	RenderMask mask;
 
@@ -81,7 +81,7 @@ struct SpotLight : public ComponentType<SpotLight>
 struct DirectionalLight : public ComponentType<DirectionalLight>
 {
 	Vec3 color;
-	bool shadowed;
+	b8 shadowed;
 	RenderMask mask;
 
 	DirectionalLight();

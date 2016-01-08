@@ -13,12 +13,12 @@ enum SwapType
 	SwapType_count,
 };
 
-template<typename T, int count = 2>
+template<typename T, s32 count = 2>
 struct Sync
 {
 	struct Swapper
 	{
-		int current;
+		s32 current;
 		Sync<T, count>* common;
 
 		Swapper()
@@ -43,7 +43,7 @@ struct Sync
 
 		template<SwapType swap_type> T* next()
 		{
-			int next = (current + 1) % count;
+			s32 next = (current + 1) % count;
 			std::unique_lock<std::mutex> lock(common->mutex[next]);
 			while (!common->ready[next][swap_type])
 				common->condition[next].wait(lock);
@@ -60,7 +60,7 @@ struct Sync
 	};
 
 	T data[count];
-	bool ready[count][SwapType_count];
+	b8 ready[count][SwapType_count];
 	mutable std::mutex mutex[count];
 	std::condition_variable condition[count];
 
@@ -69,7 +69,7 @@ struct Sync
 	{
 	}
 
-	Swapper swapper(int index = 0)
+	Swapper swapper(s32 index = 0)
 	{
 		Swapper swapper;
 		swapper.current = index;

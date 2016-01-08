@@ -26,22 +26,22 @@ struct AI
 
 	static const Vec4 colors[];
 
-	static const float default_search_extents[];
+	static const r32 default_search_extents[];
 
 	static AssetID render_mesh;
 	static dtNavMesh* nav_mesh;
 	static dtNavMeshQuery* nav_mesh_query;
 	static dtQueryFilter default_query_filter;
-	static bool render_mesh_dirty;
+	static b8 render_mesh_dirty;
 	static void init();
 	static void load_nav_mesh(AssetID);
 	static void debug_draw(const RenderParams&);
 
-	static Entity* vision_query(const AIAgent*, const Vec3&, const Vec3&, float, float, float = -1.0f, ComponentMask = -1);
+	static Entity* vision_query(const AIAgent*, const Vec3&, const Vec3&, r32, r32, r32 = -1.0f, ComponentMask = -1);
 	static Entity* sound_query(AI::Team, const Vec3&, ComponentMask = -1);
-	static bool vision_check(const Vec3&, const Vec3&, const AIAgent*, const AIAgent*);
+	static b8 vision_check(const Vec3&, const Vec3&, const AIAgent*, const AIAgent*);
 
-	static dtPolyRef get_poly(const Vec3&, const float*);
+	static dtPolyRef get_poly(const Vec3&, const r32*);
 };
 
 struct AIAgent : public ComponentType<AIAgent>
@@ -54,7 +54,7 @@ template<typename T>
 struct FSM
 {
 	T current;
-	float time;
+	r32 time;
 
 	FSM()
 		: current()
@@ -64,7 +64,7 @@ struct FSM
 		: current(state)
 	{
 	}
-	bool transition(const T t)
+	b8 transition(const T t)
 	{
 		if (t != current)
 		{

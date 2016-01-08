@@ -4,6 +4,7 @@
 #include <cstdlib>
 #include <cstring>
 
+#include "types.h"
 #include "vi_assert.h"
 
 namespace VI
@@ -12,7 +13,7 @@ namespace VI
 #define ARRAY_GROWTH_FACTOR 1.5
 #define ARRAY_INITIAL_RESERVATION 1
 
-template <typename T, int size>
+template <typename T, s32 size>
 struct StaticArray
 {
 	union
@@ -20,14 +21,14 @@ struct StaticArray
 		char _nil[size * sizeof(T)];
 		T data[size];
 	};
-	int length;
+	s32 length;
 
 	StaticArray()
 		: _nil(), length()
 	{
 	}
 
-	StaticArray(int l)
+	StaticArray(s32 l)
 		: _nil(), length(l)
 	{
 	}
@@ -49,25 +50,25 @@ struct StaticArray
 	{
 	}
 
-	inline void resize(int l)
+	inline void resize(s32 l)
 	{
 		vi_assert(l <= size);
 		length = l;
 	}
 
-	inline const T& operator [] (int i) const
+	inline const T& operator [] (s32 i) const
 	{
 		vi_assert(i >= 0 && i < length);
 		return data[i];
 	}
 
-	inline T& operator [] (int i)
+	inline T& operator [] (s32 i)
 	{
 		vi_assert(i >= 0 && i < length);
 		return data[i];
 	}
 
-	void remove(int i)
+	void remove(s32 i)
 	{
 		vi_assert(i >= 0 && i < length);
 		if (i != length - 1)
@@ -75,14 +76,14 @@ struct StaticArray
 		length--;
 	}
 
-	void remove_ordered(int i)
+	void remove_ordered(s32 i)
 	{
 		vi_assert(i >= 0 && i < length);
 		memmove(&data[i + 1], &data[i], sizeof(T) * (length - (i + 1)));
 		length--;
 	}
 
-	T* insert(int i, T& t)
+	T* insert(s32 i, T& t)
 	{
 		vi_assert(i >= 0 && i <= length);
 		length++;
@@ -92,7 +93,7 @@ struct StaticArray
 		return &data[i];
 	}
 
-	T* insert(int i)
+	T* insert(s32 i)
 	{
 		vi_assert(i >= 0 && i <= length);
 		length++;
@@ -120,10 +121,10 @@ template <typename T>
 struct Array
 {
 	T* data;
-	int length;
-	int reserved;
+	s32 length;
+	s32 reserved;
 
-	Array(int reserve_count = 0, int length = 0)
+	Array(s32 reserve_count = 0, s32 length = 0)
 		: length(length)
 	{
 		vi_assert(reserve_count >= 0 && length >= 0 && length <= reserve_count);
@@ -140,38 +141,39 @@ struct Array
 			free(data);
 	}
 
-	inline const T& operator [] (int i) const
+	inline const T& operator [] (s32 i) const
 	{
 		vi_assert(i >= 0 && i < length);
 		return *(data + i);
 	}
 
-	inline T& operator [] (int i)
+	inline T& operator [] (s32 i)
 	{
 		vi_assert(i >= 0 && i < length);
 		return *(data + i);
 	}
 
-	void reserve(int size)
+	void reserve(s32 size)
 	{
 		vi_assert(size >= 0);
 		if (size > reserved)
 		{
-			int nextSize = (unsigned int)pow(ARRAY_GROWTH_FACTOR, (int)(log(size) / log(ARRAY_GROWTH_FACTOR)) + 1);
+			s32 next_size = (u32)pow(ARRAY_GROWTH_FACTOR, (s32)(log(size) / log(ARRAY_GROWTH_FACTOR)) + 1);
 			if (!reserved)
 			{
-				nextSize = nextSize > ARRAY_INITIAL_RESERVATION ? nextSize : ARRAY_INITIAL_RESERVATION;
-				data = (T*)malloc(nextSize * sizeof(T));
+				next_size = next_size > ARRAY_INITIAL_RESERVATION ? next_size : ARRAY_INITIAL_RESERVATION;
+				data = (T*)calloc(next_size, sizeof(T));
 			}
 			else
-				data = (T*)realloc(data, nextSize * sizeof(T));
-
-			memset((void*)&data[reserved], 0, (nextSize - reserved) * sizeof(T));
-			reserved = nextSize;
+			{
+				data = (T*)realloc(data, next_size * sizeof(T));
+				memset((void*)&data[reserved], 0, (next_size - reserved) * sizeof(T));
+			}
+			reserved = next_size;
 		}
 	}
 
-	void remove(int i)
+	void remove(s32 i)
 	{
 		vi_assert(i >= 0 && i < length);
 		if (i != length - 1)
@@ -179,14 +181,14 @@ struct Array
 		length--;
 	}
 
-	void remove_ordered(int i)
+	void remove_ordered(s32 i)
 	{
 		vi_assert(i >= 0 && i < length);
 		memmove(&data[i + 1], &data[i], sizeof(T) * (length - (i + 1)));
 		length--;
 	}
 
-	T* insert(int i, T& t)
+	T* insert(s32 i, T& t)
 	{
 		vi_assert(i >= 0 && i <= length);
 		reserve(++length);
@@ -195,7 +197,7 @@ struct Array
 		return &data[i];
 	}
 
-	T* insert(int i)
+	T* insert(s32 i)
 	{
 		vi_assert(i >= 0 && i <= length);
 		reserve(++length);
@@ -203,7 +205,7 @@ struct Array
 		return &data[i];
 	}
 
-	void resize(int i)
+	void resize(s32 i)
 	{
 		reserve(i);
 		length = i;

@@ -46,14 +46,14 @@ void Physics::sync_dynamic()
 	}
 }
 
-PinArray<RigidBody::Constraint, MAX_ENTITIES> RigidBody::global_constraints;
+PinArray<RigidBody::Constraint, MAX_ENTITIES> RigidBody::global_constras32s;
 
 void RigidBody::init()
 {
-	pool.global(&global_constraints);
+	pool.global(&global_constras32s);
 }
 
-RigidBody::RigidBody(Type type, const Vec3& size, float mass, short group, short mask, AssetID mesh_id, ID linked_entity)
+RigidBody::RigidBody(Type type, const Vec3& size, r32 mass, short group, short mask, AssetID mesh_id, ID linked_entity)
 	: type(type), size(size), mass(mass), collision_group(group), collision_filter(mask), linked_entity(linked_entity), btBody(), btMesh(), btShape(), mesh_id(mesh_id)
 {
 }
@@ -80,7 +80,7 @@ void RigidBody::awake()
 		case Type::Mesh:
 		{
 			Mesh* mesh = Loader::mesh(mesh_id);
-			btMesh = new btTriangleIndexVertexArray(mesh->indices.length / 3, mesh->indices.data, 3 * sizeof(int), mesh->vertices.length, (btScalar*)mesh->vertices.data, sizeof(Vec3));
+			btMesh = new btTriangleIndexVertexArray(mesh->indices.length / 3, mesh->indices.data, 3 * sizeof(s32), mesh->vertices.length, (btScalar*)mesh->vertices.data, sizeof(Vec3));
 			btShape = new btBvhTriangleMeshShape(btMesh, true, mesh->bounds_min, mesh->bounds_max);
 			break;
 		}
@@ -112,34 +112,34 @@ void RigidBody::awake()
 	Physics::btWorld->addRigidBody(btBody, collision_group, collision_filter);
 }
 
-void RigidBody::set_damping(float linear, float angular)
+void RigidBody::set_damping(r32 linear, r32 angular)
 {
 	damping = Vec2(linear, angular);
 	if (btBody)
 		btBody->setDamping(linear, angular);
 }
 
-ID RigidBody::add_constraint(Constraint& constraint)
+ID RigidBody::add_constras32(Constraint& constras32)
 {
-	switch (constraint.type)
+	switch (constras32.type)
 	{
 		case Constraint::Type::ConeTwist:
-			constraint.btPointer = new btConeTwistConstraint
+			constras32.btPointer = new btConeTwistConstraint
 			(
-				*constraint.a.ref()->btBody,
-				*constraint.b.ref()->btBody,
-				constraint.frame_a,
-				constraint.frame_b
+				*constras32.a.ref()->btBody,
+				*constras32.b.ref()->btBody,
+				constras32.frame_a,
+				constras32.frame_b
 			);
-			((btConeTwistConstraint*)constraint.btPointer)->setLimit(constraint.limits.x, constraint.limits.y, constraint.limits.z);
+			((btConeTwistConstraint*)constras32.btPointer)->setLimit(constras32.limits.x, constras32.limits.y, constras32.limits.z);
 			break;
 		case Constraint::Type::PointToPoint:
-			constraint.btPointer = new btPoint2PointConstraint
+			constras32.btPointer = new btPoint2PointConstraint
 			(
-				*constraint.a.ref()->btBody,
-				*constraint.b.ref()->btBody,
-				constraint.frame_a.getOrigin(),
-				constraint.frame_b.getOrigin()
+				*constras32.a.ref()->btBody,
+				*constras32.b.ref()->btBody,
+				constras32.frame_a.getOrigin(),
+				constras32.frame_b.getOrigin()
 			);
 			break;
 		default:
@@ -147,37 +147,37 @@ ID RigidBody::add_constraint(Constraint& constraint)
 			break;
 	}
 
-	int constraint_id = global_constraints.add(constraint);
+	s32 constras32_id = global_constras32s.add(constras32);
 
-	constraint.btPointer->setUserConstraintId(constraint_id);
+	constras32.btPointer->setUserConstraintId(constras32_id);
 
-	Physics::btWorld->addConstraint(constraint.btPointer);
+	Physics::btWorld->addConstraint(constras32.btPointer);
 
-	return constraint_id;
+	return constras32_id;
 }
 
-void RigidBody::remove_constraint(ID id)
+void RigidBody::remove_constras32(ID id)
 {
-	Constraint* constraint = &global_constraints[id];
+	Constraint* constras32 = &global_constras32s[id];
 
-	constraint->a.ref()->btBody->activate(true);
-	constraint->b.ref()->btBody->activate(true);
+	constras32->a.ref()->btBody->activate(true);
+	constras32->b.ref()->btBody->activate(true);
 
-	Physics::btWorld->removeConstraint(constraint->btPointer);
+	Physics::btWorld->removeConstraint(constras32->btPointer);
 
-	delete constraint->btPointer;
+	delete constras32->btPointer;
 
-	global_constraints.remove(id);
+	global_constras32s.remove(id);
 }
 
 RigidBody::~RigidBody()
 {
 	ID me = id();
-	for (auto i = global_constraints.iterator(); !i.is_last(); i.next())
+	for (auto i = global_constras32s.iterator(); !i.is_last(); i.next())
 	{
-		Constraint* constraint = i.item();
-		if (constraint->a.id == me || constraint->b.id == me)
-			remove_constraint(i.index);
+		Constraint* constras32 = i.item();
+		if (constras32->a.id == me || constras32->b.id == me)
+			remove_constras32(i.index);
 	}
 	Physics::btWorld->removeRigidBody(btBody);
 	delete btBody;

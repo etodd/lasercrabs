@@ -4,25 +4,25 @@ namespace VI
 {
 
 
-Camera::ViewportBlueprint Camera::one_player_viewports[] =
+Camera::ViewportBlueprs32 Camera::one_player_viewports[] =
 {
 	{ 0, 0, 1, 1, },
 };
 
-Camera::ViewportBlueprint Camera::two_player_viewports[] =
+Camera::ViewportBlueprs32 Camera::two_player_viewports[] =
 {
 	{ 0, 0, 0.5f, 1, },
 	{ 0.5f, 0, 0.5f, 1, },
 };
 
-Camera::ViewportBlueprint Camera::three_player_viewports[] =
+Camera::ViewportBlueprs32 Camera::three_player_viewports[] =
 {
 	{ 0, 0, 0.5f, 0.5f, },
 	{ 0.5f, 0, 0.5f, 0.5f, },
 	{ 0, 0.5f, 0, 0.5f, },
 };
 
-Camera::ViewportBlueprint Camera::four_player_viewports[] =
+Camera::ViewportBlueprs32 Camera::four_player_viewports[] =
 {
 	{ 0, 0, 0.25f, 0.25f, },
 	{ 0.25f, 0, 0.25f, 0.25f, },
@@ -30,7 +30,7 @@ Camera::ViewportBlueprint Camera::four_player_viewports[] =
 	{ 0.25f, 0.25f, 0.25f, 0.25f, },
 };
 
-Camera::ViewportBlueprint* Camera::viewport_blueprints[] =
+Camera::ViewportBlueprs32* Camera::viewport_blueprs32s[] =
 {
 	Camera::one_player_viewports,
 	Camera::two_player_viewports,
@@ -42,7 +42,7 @@ Camera Camera::all[Camera::max_cameras];
 
 Camera* Camera::add()
 {
-	for (int i = 0; i < max_cameras; i++)
+	for (s32 i = 0; i < max_cameras; i++)
 	{
 		if (!all[i].active)
 		{
@@ -60,7 +60,7 @@ Mat4 Camera::view() const
 	return Mat4::look(pos, rot * Vec3(0, 0, 1), rot * Vec3(0, 1, 0));
 }
 
-void Camera::perspective(float fov, float aspect, float near, float far)
+void Camera::perspective(r32 fov, r32 aspect, r32 near, r32 far)
 {
 	near_plane = near;
 	far_plane = far;
@@ -69,7 +69,7 @@ void Camera::perspective(float fov, float aspect, float near, float far)
 	update_frustum();
 }
 
-void Camera::orthographic(float width, float height, float near, float far)
+void Camera::orthographic(r32 width, r32 height, r32 near, r32 far)
 {
 	near_plane = near;
 	far_plane = far;
@@ -83,7 +83,7 @@ void Camera::remove()
 	active = false;
 }
 
-bool Camera::visible_sphere(const Vec3& sphere_pos, float sphere_radius) const
+b8 Camera::visible_sphere(const Vec3& sphere_pos, r32 sphere_radius) const
 {
 	Vec3 view_space = rot.inverse() * (sphere_pos - pos);
 	if (view_space.z + sphere_radius > near_plane && view_space.z - sphere_radius < far_plane)
@@ -118,7 +118,7 @@ void Camera::update_frustum()
 		projection_inverse * Vec4(1, 1, 1, 1),
 	};
 
-	for (int i = 0; i < 8; i++)
+	for (s32 i = 0; i < 8; i++)
 		rays[i] /= rays[i].w;
 
 	frustum[0] = Plane(rays[0].xyz(), rays[4].xyz(), rays[2].xyz()); // left

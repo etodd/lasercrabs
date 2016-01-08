@@ -7,11 +7,11 @@
 namespace VI
 {
 
-typedef unsigned char Family;
-typedef unsigned short ID;
-typedef unsigned short Revision;
+typedef u8 Family;
+typedef u16 ID;
+typedef u16 Revision;
 const ID IDNull = (ID)-1;
-typedef unsigned long long ComponentMask;
+typedef u64 ComponentMask;
 
 const Family MAX_FAMILIES = sizeof(ComponentMask) * 8;
 #define MAX_ENTITIES 4096
@@ -19,7 +19,7 @@ const Family MAX_FAMILIES = sizeof(ComponentMask) * 8;
 struct ComponentPoolBase
 {
 	void* global_state;
-	int global_state_size;
+	s32 global_state_size;
 
 	virtual void awake(ID) {}
 	virtual void remove(ID) {}
@@ -118,7 +118,7 @@ struct Entity
 	template<typename T> void attach(T*);
 	template<typename T> void detach();
 	template<typename T> void remove();
-	template<typename T> inline bool has() const;
+	template<typename T> inline b8 has() const;
 	template<typename T> inline T* get() const;
 	static inline PinArray<Entity, MAX_ENTITIES>& list();
 };
@@ -183,7 +183,7 @@ template<typename T> void Entity::remove()
 	component_mask &= ~T::component_mask;
 }
 
-template<typename T> inline bool Entity::has() const
+template<typename T> inline b8 Entity::has() const
 {
 	return component_mask & T::component_mask;
 }
@@ -209,7 +209,7 @@ struct ComponentBase
 		return &World::entities[entity_id];
 	}
 
-	template<typename T> inline bool has() const
+	template<typename T> inline b8 has() const
 	{
 		return World::entities[entity_id].has<T>();
 	}
@@ -347,7 +347,7 @@ struct LinkArg
 	LinkArg() : entries() {}
 	void fire(T t) const
 	{
-		for (int i = 0; i < entries.length; i++)
+		for (s32 i = 0; i < entries.length; i++)
 			(&entries[i])->fire(t);
 	}
 

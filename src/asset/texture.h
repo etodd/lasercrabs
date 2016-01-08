@@ -8,7 +8,7 @@ namespace Asset
 {
 	namespace Texture
 	{
-		const int count = 7;
+		const s32 count = 7;
 		const AssetID blank = 0;
 		const AssetID flare = 1;
 		const AssetID gradient = 2;

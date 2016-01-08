@@ -17,7 +17,7 @@ namespace VI
 
 	void refresh_controllers()
 	{
-		for (int i = 0; i < MAX_GAMEPADS; i++)
+		for (s32 i = 0; i < MAX_GAMEPADS; i++)
 		{
 			if (controllers[i])
 			{
@@ -26,14 +26,14 @@ namespace VI
 			}
 		}
 
-		for (int i = 0; i < SDL_NumJoysticks(); i++)
+		for (s32 i = 0; i < SDL_NumJoysticks(); i++)
 		{
 			if (SDL_IsGameController(i))
 				controllers[i] = SDL_GameControllerOpen(i);
 		}
 	}
 
-	int proc()
+	s32 proc()
 	{
 		// Initialise SDL
 		if (SDL_Init(
@@ -56,7 +56,7 @@ namespace VI
 		SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 1);
 		SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 0);
 #if defined(__APPLE__)
-		SDL_SetHint(SDL_HINT_MOUSE_RELATIVE_MODE_WARP, "1");
+		SDL_SetHs32(SDL_HINT_MOUSE_RELATIVE_MODE_WARP, "1");
 #endif
 
 		Settings& settings = Loader::settings();
@@ -135,13 +135,13 @@ namespace VI
 
 		LoopSync* sync = render_swapper.get();
 
-		double last_time = SDL_GetTicks() / 1000.0;
+		r64 last_time = SDL_GetTicks() / 1000.0;
 
-		bool has_focus = true;
+		b8 has_focus = true;
 
 		SDL_PumpEvents();
 
-		const Uint8* sdl_keys = SDL_GetKeyboardState(0);
+		const u8* sdl_keys = SDL_GetKeyboardState(0);
 
 		refresh_controllers();
 
@@ -175,14 +175,14 @@ namespace VI
 
 			memcpy(sync->input.keys, sdl_keys, sizeof(sync->input.keys));
 
-			unsigned int mouse_buttons = SDL_GetRelativeMouseState(&sync->input.cursor_x, &sync->input.cursor_y);
+			u32 mouse_buttons = SDL_GetRelativeMouseState(&sync->input.cursor_x, &sync->input.cursor_y);
 
-			sync->input.keys[(int)KeyCode::MouseLeft] = mouse_buttons & (1 << 0);
-			sync->input.keys[(int)KeyCode::MouseMiddle] = mouse_buttons & (1 << 1);
-			sync->input.keys[(int)KeyCode::MouseRight] = mouse_buttons & (1 << 2);
+			sync->input.keys[(s32)KeyCode::MouseLeft] = mouse_buttons & (1 << 0);
+			sync->input.keys[(s32)KeyCode::MouseMiddle] = mouse_buttons & (1 << 1);
+			sync->input.keys[(s32)KeyCode::MouseRight] = mouse_buttons & (1 << 2);
 
-			int active_gamepads = 0;
-			for (int i = 0; i < MAX_GAMEPADS; i++)
+			s32 active_gamepads = 0;
+			for (s32 i = 0; i < MAX_GAMEPADS; i++)
 			{
 				SDL_GameController* controller = controllers[i];
 				Gamepad* gamepad = &sync->input.gamepads[i];
@@ -190,12 +190,12 @@ namespace VI
 				gamepad->btns = 0;
 				if (gamepad->active)
 				{
-					gamepad->left_x = (float)SDL_GameControllerGetAxis(controller, SDL_CONTROLLER_AXIS_LEFTX) / 32767.0f;
-					gamepad->left_y = (float)SDL_GameControllerGetAxis(controller, SDL_CONTROLLER_AXIS_LEFTY) / 32767.0f;
-					gamepad->right_x = (float)SDL_GameControllerGetAxis(controller, SDL_CONTROLLER_AXIS_RIGHTX) / 32767.0f;
-					gamepad->right_y = (float)SDL_GameControllerGetAxis(controller, SDL_CONTROLLER_AXIS_RIGHTY) / 32767.0f;
-					gamepad->left_trigger = (float)SDL_GameControllerGetAxis(controller, SDL_CONTROLLER_AXIS_TRIGGERLEFT) / 32767.0f;
-					gamepad->right_trigger = (float)SDL_GameControllerGetAxis(controller, SDL_CONTROLLER_AXIS_TRIGGERRIGHT) / 32767.0f;
+					gamepad->left_x = (r32)SDL_GameControllerGetAxis(controller, SDL_CONTROLLER_AXIS_LEFTX) / 32767.0f;
+					gamepad->left_y = (r32)SDL_GameControllerGetAxis(controller, SDL_CONTROLLER_AXIS_LEFTY) / 32767.0f;
+					gamepad->right_x = (r32)SDL_GameControllerGetAxis(controller, SDL_CONTROLLER_AXIS_RIGHTX) / 32767.0f;
+					gamepad->right_y = (r32)SDL_GameControllerGetAxis(controller, SDL_CONTROLLER_AXIS_RIGHTY) / 32767.0f;
+					gamepad->left_trigger = (r32)SDL_GameControllerGetAxis(controller, SDL_CONTROLLER_AXIS_TRIGGERLEFT) / 32767.0f;
+					gamepad->right_trigger = (r32)SDL_GameControllerGetAxis(controller, SDL_CONTROLLER_AXIS_TRIGGERRIGHT) / 32767.0f;
 					if (gamepad->left_trigger > 0.5f)
 						gamepad->btns |= Gamepad::Btn::LeftTrigger;
 					if (gamepad->right_trigger > 0.5f)
@@ -229,12 +229,12 @@ namespace VI
 
 			SDL_GetWindowSize(window, &sync->input.width, &sync->input.height);
 
-			double time = (SDL_GetTicks() / 1000.0);
-			sync->time.total = (float)time;
-			sync->time.delta = (float)(time - last_time);
+			r64 time = (SDL_GetTicks() / 1000.0);
+			sync->time.total = (r32)time;
+			sync->time.delta = (r32)(time - last_time);
 			last_time = time;
 
-			bool quit = sync->quit;
+			b8 quit = sync->quit;
 
 			sync = render_swapper.swap<SwapType_Read>();
 

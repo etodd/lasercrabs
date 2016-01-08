@@ -20,7 +20,7 @@ struct Ragdoll : public ComponentType<Ragdoll>
 	};
 
 	Array<BoneBody> bodies;
-	float timer;
+	r32 timer;
 
 	Ragdoll();
 	~Ragdoll();

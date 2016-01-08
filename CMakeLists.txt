@@ -303,7 +303,6 @@ add_executable(mkzebra
 	assets/blur.glsl
 	assets/skybox.glsl
 	assets/sky_decal.glsl
-	assets/point_grid.glsl
 	assets/blend_to_fbx.py
 	assets/blend_to_lvl.py
 )

@@ -8,14 +8,14 @@ namespace Asset
 {
 	namespace Armature
 	{
-		const int count = 3;
+		const s32 count = 3;
 		const AssetID Alpha = 0;
 		const AssetID Alpha_headless = 1;
 		const AssetID awk = 2;
 	}
 	namespace Bone
 	{
-		const int count = 113;
+		const s32 count = 113;
 		const AssetID Alpha_Alpha_Head = 6;
 		const AssetID Alpha_Alpha_Hips = 0;
 		const AssetID Alpha_Alpha_Neck = 4;

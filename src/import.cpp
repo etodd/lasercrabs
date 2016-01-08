@@ -24,7 +24,7 @@
 namespace VI
 {
 
-const int version = 16;
+const s32 version = 16;
 
 const char* model_in_extension = ".blend";
 const char* model_intermediate_extension = ".fbx";
@@ -59,16 +59,16 @@ const char* soundbank_in_folder = "../src/game/audio/GeneratedSoundBanks/Linux/"
 #endif
 
 
-const float nav_agent_height = 2.0f;
-const float nav_agent_max_climb = 0.5f;
-const float nav_agent_radius = 0.45f;
-const float nav_edge_max_length = 12.0f;
-const float nav_min_region_size = 8.0f;
-const float nav_merged_region_size = 20.0f;
-const float nav_detail_sample_distance = 3.0f;
-const float nav_detail_sample_max_error = 0.2f;
-const float nav_resolution = 0.15f;
-const float nav_walkable_slope = 45.0f; // degrees
+const r32 nav_agent_height = 2.0f;
+const r32 nav_agent_max_climb = 0.5f;
+const r32 nav_agent_radius = 0.45f;
+const r32 nav_edge_max_length = 12.0f;
+const r32 nav_min_region_size = 8.0f;
+const r32 nav_merged_region_size = 20.0f;
+const r32 nav_detail_sample_distance = 3.0f;
+const r32 nav_detail_sample_max_error = 0.2f;
+const r32 nav_resolution = 0.15f;
+const r32 nav_walkable_slope = 45.0f; // degrees
 
 template <typename T>
 T read(FILE* f)
@@ -81,18 +81,18 @@ T read(FILE* f)
 std::string read_string(FILE* f)
 {
 	Array<char> buffer;
-	int length = read<int>(f);
+	s32 length = read<s32>(f);
 	buffer.resize(length + 1);
-	fread(buffer.data, sizeof(char), length, f);
+	fread(buffer.data, sizeof(u8), length, f);
 
 	return std::string(buffer.data);
 }
 
 void write_string(const std::string& str, FILE* f)
 {
-	int length = str.length();
-	fwrite(&length, sizeof(int), 1, f);
-	fwrite(str.c_str(), sizeof(char), length, f);
+	s32 length = str.length();
+	fwrite(&length, sizeof(s32), 1, f);
+	fwrite(str.c_str(), sizeof(u8), length, f);
 }
 
 template<typename T>
@@ -113,7 +113,7 @@ bool maps_equal(const Map<std::string>& a, const Map<std::string>& b)
 	return true;
 }
 
-bool maps_equal(const Map<int>& a, const Map<int>& b)
+bool maps_equal(const Map<s32>& a, const Map<s32>& b)
 {
 	if (a.size() != b.size())
 		return false;
@@ -205,8 +205,8 @@ void map_copy(const Map2<T>& src, const std::string& key, Map2<T>& dest)
 
 void map_read(FILE* f, Map<std::string>& map)
 {
-	int count = read<int>(f);
-	for (int i = 0; i < count; i++)
+	s32 count = read<s32>(f);
+	for (s32 i = 0; i < count; i++)
 	{
 		std::string key = read_string(f);
 		std::string value = read_string(f);
@@ -214,21 +214,21 @@ void map_read(FILE* f, Map<std::string>& map)
 	}
 }
 
-void map_read(FILE* f, Map<int>& map)
+void map_read(FILE* f, Map<s32>& map)
 {
-	int count = read<int>(f);
-	for (int i = 0; i < count; i++)
+	s32 count = read<s32>(f);
+	for (s32 i = 0; i < count; i++)
 	{
 		std::string key = read_string(f);
-		map[key] = read<int>(f);
+		map[key] = read<s32>(f);
 	}
 }
 
 template<typename T>
 void map_read(FILE* f, Map2<T>& map)
 {
-	int count = read<int>(f);
-	for (int i = 0; i < count; i++)
+	s32 count = read<s32>(f);
+	for (s32 i = 0; i < count; i++)
 	{
 		std::string key = read_string(f);
 		map[key] = Map<T>();
@@ -239,43 +239,43 @@ void map_read(FILE* f, Map2<T>& map)
 
 void map_write(Map<std::string>& map, FILE* f)
 {
-	int count = map.size();
-	fwrite(&count, sizeof(int), 1, f);
+	s32 count = map.size();
+	fwrite(&count, sizeof(s32), 1, f);
 	for (auto j = map.begin(); j != map.end(); j++)
 	{
-		int length = j->first.length();
-		fwrite(&length, sizeof(int), 1, f);
+		s32 length = j->first.length();
+		fwrite(&length, sizeof(s32), 1, f);
 		fwrite(j->first.c_str(), sizeof(char), length, f);
 
 		length = j->second.length();
-		fwrite(&length, sizeof(int), 1, f);
+		fwrite(&length, sizeof(s32), 1, f);
 		fwrite(j->second.c_str(), sizeof(char), length, f);
 	}
 }
 
-void map_write(Map<int>& map, FILE* f)
+void map_write(Map<s32>& map, FILE* f)
 {
-	int count = map.size();
-	fwrite(&count, sizeof(int), 1, f);
+	s32 count = map.size();
+	fwrite(&count, sizeof(s32), 1, f);
 	for (auto j = map.begin(); j != map.end(); j++)
 	{
-		int length = j->first.length();
-		fwrite(&length, sizeof(int), 1, f);
+		s32 length = j->first.length();
+		fwrite(&length, sizeof(s32), 1, f);
 		fwrite(j->first.c_str(), sizeof(char), length, f);
 
-		fwrite(&j->second, sizeof(int), 1, f);
+		fwrite(&j->second, sizeof(s32), 1, f);
 	}
 }
 
 template<typename T>
 void map_write(Map2<T>& map, FILE* f)
 {
-	int count = map.size();
-	fwrite(&count, sizeof(int), 1, f);
+	s32 count = map.size();
+	fwrite(&count, sizeof(s32), 1, f);
 	for (auto i = map.begin(); i != map.end(); i++)
 	{
-		int length = i->first.length();
-		fwrite(&length, sizeof(int), 1, f);
+		s32 length = i->first.length();
+		fwrite(&length, sizeof(s32), 1, f);
 		fwrite(i->first.c_str(), sizeof(char), length, f);
 
 		Map<T>& inner = map[i->first];
@@ -285,7 +285,7 @@ void map_write(Map2<T>& map, FILE* f)
 
 bool has_extension(const std::string& path, const char* extension)
 {
-	int extension_length = strlen(extension);
+	s32 extension_length = strlen(extension);
 	if (path.length() > extension_length)
 	{
 		if (strcmp(path.c_str() + path.length() - extension_length, extension) == 0)
@@ -296,9 +296,9 @@ bool has_extension(const std::string& path, const char* extension)
 
 void write_asset_header(FILE* file, const std::string& name, const Map<std::string>& assets)
 {
-	int asset_count = assets.size();
-	fprintf(file, "\tnamespace %s\n\t{\n\t\tconst int count = %d;\n", name.c_str(), asset_count);
-	int index = 0;
+	s32 asset_count = assets.size();
+	fprintf(file, "\tnamespace %s\n\t{\n\t\tconst s32 count = %d;\n", name.c_str(), asset_count);
+	s32 index = 0;
 	for (auto i = assets.begin(); i != assets.end(); i++)
 	{
 		fprintf(file, "\t\tconst AssetID %s = %d;\n", i->first.c_str(), index);
@@ -307,10 +307,10 @@ void write_asset_header(FILE* file, const std::string& name, const Map<std::stri
 	fprintf(file, "\t}\n");
 }
 
-void write_asset_header(FILE* file, const std::string& name, const Map<int>& assets)
+void write_asset_header(FILE* file, const std::string& name, const Map<s32>& assets)
 {
-	int asset_count = assets.size();
-	fprintf(file, "\tnamespace %s\n\t{\n\t\tconst int count = %d;\n", name.c_str(), asset_count);
+	s32 asset_count = assets.size();
+	fprintf(file, "\tnamespace %s\n\t{\n\t\tconst s32 count = %d;\n", name.c_str(), asset_count);
 	for (auto i = assets.begin(); i != assets.end(); i++)
 		fprintf(file, "\t\tconst AssetID %s = %d;\n", i->first.c_str(), i->second);
 	fprintf(file, "\t}\n");
@@ -348,12 +348,12 @@ void write_asset_source(FILE* file, const std::string& name, const Map<std::stri
 
 std::string get_asset_name(const std::string& filename)
 {
-	size_t start = filename.find_last_of("/");
+	memory_index start = filename.find_last_of("/");
 	if (start == std::string::npos)
 		start = 0;
 	else
 		start += 1;
-	size_t end = filename.find_last_of(".");
+	memory_index end = filename.find_last_of(".");
 	if (end == std::string::npos)
 		end = filename.length();
 	return filename.substr(start, end - start);
@@ -463,7 +463,7 @@ bool run_cmd(const std::string& cmd)
 		{
 			// Copy child stderr to our stderr
 			DWORD dwRead, dwWritten; 
-			const int BUFSIZE = 4096;
+			const s32 BUFSIZE = 4096;
 			CHAR chBuf[BUFSIZE]; 
 			BOOL bSuccess = FALSE;
 			HANDLE hParentStdErr = GetStdHandle(STD_ERROR_HANDLE);
@@ -563,7 +563,7 @@ struct Manifest
 	Map2<std::string> level_meshes;
 	Map2<std::string> animations;
 	Map2<std::string> armatures;
-	Map2<int> bones;
+	Map2<s32> bones;
 	Map<std::string> textures;
 	Map<std::string> soundbanks;
 	Map<std::string> shaders;
@@ -611,7 +611,7 @@ bool manifest_read(const char* path, Manifest& manifest)
 	FILE* f = fopen(path, "rb");
 	if (f)
 	{
-		int read_version = read<int>(f);
+		s32 read_version = read<s32>(f);
 		if (version != read_version)
 		{
 			fclose(f);
@@ -644,10 +644,10 @@ bool manifest_write(Manifest& manifest, const char* path)
 	FILE* f = fopen(path, "w+b");
 	if (!f)
 	{
-		fprintf(stderr, "Error: failed to open asset cache file %s for writing.\n", path);
+		fprintf(stderr, "Error: Failed to open asset cache file %s for writing.\n", path);
 		return false;
 	}
-	fwrite(&version, sizeof(int), 1, f);
+	fwrite(&version, sizeof(s32), 1, f);
 	map_write(manifest.meshes, f);
 	map_write(manifest.level_meshes, f);
 	map_write(manifest.animations, f);
@@ -685,7 +685,7 @@ struct ImporterState
 	}
 };
 
-int exit_error()
+s32 exit_error()
 {
 	SDL_Quit();
 	return 1;
@@ -693,13 +693,13 @@ int exit_error()
 
 const aiNode* find_mesh_node(const aiScene* scene, const aiNode* node, const aiMesh* mesh)
 {
-	for (int i = 0; i < node->mNumMeshes; i++)
+	for (s32 i = 0; i < node->mNumMeshes; i++)
 	{
 		if (scene->mMeshes[node->mMeshes[i]] == mesh)
 			return node;
 	}
 
-	for (int i = 0; i < node->mNumChildren; i++)
+	for (s32 i = 0; i < node->mNumChildren; i++)
 	{
 		const aiNode* found = find_mesh_node(scene, node->mChildren[i], mesh);
 		if (found)
@@ -712,7 +712,7 @@ const aiNode* find_mesh_node(const aiScene* scene, const aiNode* node, const aiM
 template<typename T>
 void clean_name(T& name)
 {
-	for (int i = 0; ; i++)
+	for (s32 i = 0; ; i++)
 	{
 		char c = name[i];
 		if (c == 0)
@@ -727,8 +727,8 @@ void clean_name(T& name)
 
 std::string get_mesh_name(const aiScene* scene, const std::string& asset_name, const aiMesh* ai_mesh, const aiNode* mesh_node, bool level_mesh = false)
 {
-	int material_index = 0;
-	for (int i = 0; i < mesh_node->mNumMeshes; i++)
+	s32 material_index = 0;
+	for (s32 i = 0; i < mesh_node->mNumMeshes; i++)
 	{
 		if (scene->mMeshes[mesh_node->mMeshes[i]] == ai_mesh)
 			break;
@@ -750,37 +750,37 @@ std::string get_mesh_name(const aiScene* scene, const std::string& asset_name, c
 		return asset_name;
 }
 
-bool load_anim(const Armature& armature, const aiAnimation* in, Animation* out, const Map<int>& bone_map)
+bool load_anim(const Armature& armature, const aiAnimation* in, Animation* out, const Map<s32>& bone_map)
 {
-	out->duration = (float)(in->mDuration / in->mTicksPerSecond);
+	out->duration = (r32)(in->mDuration / in->mTicksPerSecond);
 	out->channels.reserve(in->mNumChannels);
-	for (unsigned int i = 0; i < in->mNumChannels; i++)
+	for (u32 i = 0; i < in->mNumChannels; i++)
 	{
 		aiNodeAnim* in_channel = in->mChannels[i];
 		auto bone_index_entry = bone_map.find(in_channel->mNodeName.C_Str());
 		if (bone_index_entry != bone_map.end())
 		{
-			int bone_index = bone_index_entry->second;
+			s32 bone_index = bone_index_entry->second;
 			Channel* out_channel = out->channels.add();
 			out_channel->bone_index = bone_index;
 
 			out_channel->positions.resize(in_channel->mNumPositionKeys);
 
-			for (unsigned int j = 0; j < in_channel->mNumPositionKeys; j++)
+			for (u32 j = 0; j < in_channel->mNumPositionKeys; j++)
 			{
-				out_channel->positions[j].time = (float)(in_channel->mPositionKeys[j].mTime / in->mTicksPerSecond);
+				out_channel->positions[j].time = (r32)(in_channel->mPositionKeys[j].mTime / in->mTicksPerSecond);
 				aiVector3D value = in_channel->mPositionKeys[j].mValue;
 				out_channel->positions[j].value = Vec3(value.y, value.z, value.x);
 			}
 
 			out_channel->rotations.resize(in_channel->mNumRotationKeys);
-			for (unsigned int j = 0; j < in_channel->mNumRotationKeys; j++)
+			for (u32 j = 0; j < in_channel->mNumRotationKeys; j++)
 			{
-				out_channel->rotations[j].time = (float)(in_channel->mRotationKeys[j].mTime / in->mTicksPerSecond);
+				out_channel->rotations[j].time = (r32)(in_channel->mRotationKeys[j].mTime / in->mTicksPerSecond);
 				aiQuaternion value = in_channel->mRotationKeys[j].mValue;
 				Quat q = Quat(value.w, value.x, value.y, value.z);
 				Vec3 axis;
-				float angle;
+				r32 angle;
 				q.to_angle_axis(angle, axis);
 				Vec3 corrected_axis = Vec3(axis.y, axis.z, axis.x);
 				Quat corrected_q = Quat(angle, corrected_axis);
@@ -788,9 +788,9 @@ bool load_anim(const Armature& armature, const aiAnimation* in, Animation* out, 
 			}
 
 			out_channel->scales.resize(in_channel->mNumScalingKeys);
-			for (unsigned int j = 0; j < in_channel->mNumScalingKeys; j++)
+			for (u32 j = 0; j < in_channel->mNumScalingKeys; j++)
 			{
-				out_channel->scales[j].time = (float)(in_channel->mScalingKeys[j].mTime / in->mTicksPerSecond);
+				out_channel->scales[j].time = (r32)(in_channel->mScalingKeys[j].mTime / in->mTicksPerSecond);
 				aiVector3D value = in_channel->mScalingKeys[j].mValue;
 				out_channel->scales[j].value = Vec3(value.y, value.z, value.x);
 			}
@@ -801,7 +801,7 @@ bool load_anim(const Armature& armature, const aiAnimation* in, Animation* out, 
 
 const aiScene* load_fbx(Assimp::Importer& importer, const std::string& path, bool tangents)
 {
-	unsigned int flags =
+	u32 flags =
 		aiProcess_JoinIdenticalVertices
 		| aiProcess_Triangulate
 		| aiProcess_GenNormals
@@ -821,7 +821,7 @@ bool load_mesh(const aiMesh* mesh, Mesh* out)
 	out->bounds_radius = 0.0f;
 	// Fill vertices positions
 	out->vertices.reserve(mesh->mNumVertices);
-	for (unsigned int i = 0; i < mesh->mNumVertices; i++)
+	for (u32 i = 0; i < mesh->mNumVertices; i++)
 	{
 		aiVector3D pos = mesh->mVertices[i];
 		Vec3 v = Vec3(pos.y, pos.z, pos.x);
@@ -840,7 +840,7 @@ bool load_mesh(const aiMesh* mesh, Mesh* out)
 	if (mesh->HasNormals())
 	{
 		out->normals.reserve(mesh->mNumVertices);
-		for (unsigned int i = 0; i < mesh->mNumVertices; i++)
+		for (u32 i = 0; i < mesh->mNumVertices; i++)
 		{
 			aiVector3D n = mesh->mNormals[i];
 			Vec3 v = Vec3(n.y, n.z, n.x);
@@ -849,16 +849,16 @@ bool load_mesh(const aiMesh* mesh, Mesh* out)
 	}
 	else
 	{
-		fprintf(stderr, "Error: mesh has no normals.\n");
+		fprintf(stderr, "Error: Mesh has no normals.\n");
 		return false;
 	}
 
 	// Fill face indices
 	out->indices.reserve(3 * mesh->mNumFaces);
-	for (unsigned int i = 0; i < mesh->mNumFaces; i++)
+	for (u32 i = 0; i < mesh->mNumFaces; i++)
 	{
 		// Assume the mesh has only triangles.
-		int j = mesh->mFaces[i].mIndices[0];
+		s32 j = mesh->mFaces[i].mIndices[0];
 		out->indices.add(j);
 		j = mesh->mFaces[i].mIndices[1];
 		out->indices.add(j);
@@ -870,10 +870,10 @@ bool load_mesh(const aiMesh* mesh, Mesh* out)
 }
 
 // Build armature for skinned model
-bool build_armature(Armature& armature, Map<int>& bone_map, aiNode* node, int parent_index, int& counter)
+bool build_armature(Armature& armature, Map<s32>& bone_map, aiNode* node, s32 parent_index, s32& counter)
 {
-	int current_bone_index;
-	Map<int>::iterator bone_index_entry = bone_map.find(node->mName.C_Str());
+	s32 current_bone_index;
+	Map<s32>::iterator bone_index_entry = bone_map.find(node->mName.C_Str());
 
 	aiVector3D ai_scale;
 	aiVector3D ai_pos;
@@ -882,7 +882,7 @@ bool build_armature(Armature& armature, Map<int>& bone_map, aiNode* node, int pa
 	Vec3 pos = Vec3(ai_pos.y, ai_pos.z, ai_pos.x);
 	Quat q = Quat(ai_rot.w, ai_rot.x, ai_rot.y, ai_rot.z);
 	Vec3 axis;
-	float angle;
+	r32 angle;
 	q.to_angle_axis(angle, axis);
 	Vec3 corrected_axis = Vec3(axis.y, axis.z, axis.x);
 	Quat rot = Quat(angle, corrected_axis);
@@ -928,7 +928,7 @@ bool build_armature(Armature& armature, Map<int>& bone_map, aiNode* node, int pa
 		counter++;
 	}
 
-	for (unsigned int i = 0; i < node->mNumChildren; i++)
+	for (u32 i = 0; i < node->mNumChildren; i++)
 	{
 		if (!build_armature(armature, bone_map, node->mChildren[i], current_bone_index, counter))
 			return false;
@@ -938,14 +938,14 @@ bool build_armature(Armature& armature, Map<int>& bone_map, aiNode* node, int pa
 }
 
 // Build armature for a skinned mesh
-bool build_armature_skinned(const aiScene* scene, const aiMesh* ai_mesh, Mesh& mesh, Armature& armature, Map<int>& bone_map)
+bool build_armature_skinned(const aiScene* scene, const aiMesh* ai_mesh, Mesh& mesh, Armature& armature, Map<s32>& bone_map)
 {
 	if (ai_mesh->HasBones())
 	{
 		// Build the bone hierarchy.
 		// First we fill the bone map with all the bones,
 		// so that build_armature can tell which nodes are bones.
-		for (unsigned int bone_index = 0; bone_index < ai_mesh->mNumBones; bone_index++)
+		for (u32 bone_index = 0; bone_index < ai_mesh->mNumBones; bone_index++)
 		{
 			aiBone* bone = ai_mesh->mBones[bone_index];
 			bone_map[bone->mName.C_Str()] = -1;
@@ -953,14 +953,14 @@ bool build_armature_skinned(const aiScene* scene, const aiMesh* ai_mesh, Mesh& m
 		armature.hierarchy.resize(ai_mesh->mNumBones);
 		armature.bind_pose.resize(ai_mesh->mNumBones);
 		armature.inverse_bind_pose.resize(ai_mesh->mNumBones);
-		int node_hierarchy_counter = 0;
+		s32 node_hierarchy_counter = 0;
 		if (!build_armature(armature, bone_map, scene->mRootNode, -1, node_hierarchy_counter))
 			return false;
 
-		for (unsigned int i = 0; i < ai_mesh->mNumBones; i++)
+		for (u32 i = 0; i < ai_mesh->mNumBones; i++)
 		{
 			aiBone* bone = ai_mesh->mBones[i];
-			int bone_index = bone_map[bone->mName.C_Str()];
+			s32 bone_index = bone_map[bone->mName.C_Str()];
 
 			aiVector3D ai_position;
 			aiQuaternion ai_rotation;
@@ -971,7 +971,7 @@ bool build_armature_skinned(const aiScene* scene, const aiMesh* ai_mesh, Mesh& m
 			Vec3 scale = Vec3(ai_scale.y, ai_scale.z, ai_scale.x);
 			Quat q = Quat(ai_rotation.w, ai_rotation.x, ai_rotation.y, ai_rotation.z);
 			Vec3 axis;
-			float angle;
+			r32 angle;
 			q.to_angle_axis(angle, axis);
 			Vec3 corrected_axis = Vec3(axis.y, axis.z, axis.x);
 			armature.inverse_bind_pose[bone_index].make_transform(position, scale, Quat(angle, corrected_axis));
@@ -986,18 +986,18 @@ bool write_armature(const Armature& armature, const std::string& path)
 	FILE* f = fopen(path.c_str(), "w+b");
 	if (f)
 	{
-		fwrite(&armature.hierarchy.length, sizeof(int), 1, f);
-		fwrite(armature.hierarchy.data, sizeof(int), armature.hierarchy.length, f);
+		fwrite(&armature.hierarchy.length, sizeof(s32), 1, f);
+		fwrite(armature.hierarchy.data, sizeof(s32), armature.hierarchy.length, f);
 		fwrite(armature.bind_pose.data, sizeof(Bone), armature.hierarchy.length, f);
 		fwrite(armature.inverse_bind_pose.data, sizeof(Mat4), armature.hierarchy.length, f);
-		fwrite(&armature.bodies.length, sizeof(int), 1, f);
+		fwrite(&armature.bodies.length, sizeof(s32), 1, f);
 		fwrite(armature.bodies.data, sizeof(BodyEntry), armature.bodies.length, f);
 		fclose(f);
 		return true;
 	}
 	else
 	{
-		fprintf(stderr, "Error: failed to open %s for writing.\n", path.c_str());
+		fprintf(stderr, "Error: Failed to open %s for writing.\n", path.c_str());
 		return false;
 	}
 }
@@ -1014,7 +1014,7 @@ const aiScene* load_blend(ImporterState& state, Assimp::Importer& importer, cons
 
 	if (!run_cmd(cmd))
 	{
-		fprintf(stderr, "Error: failed to export Blender model %s to FBX.\n", asset_in_path.c_str());
+		fprintf(stderr, "Error: Failed to export Blender model %s to FBX.\n", asset_in_path.c_str());
 		fprintf(stderr, "Command: %s.\n", cmd.c_str());
 		state.error = true;
 		return 0;
@@ -1024,7 +1024,7 @@ const aiScene* load_blend(ImporterState& state, Assimp::Importer& importer, cons
 
 	if (remove(asset_intermediate_path.c_str()))
 	{
-		fprintf(stderr, "Error: failed to remove intermediate file %s.\n", asset_intermediate_path.c_str());
+		fprintf(stderr, "Error: Failed to remove intermediate file %s.\n", asset_intermediate_path.c_str());
 		state.error = true;
 		return 0;
 	}
@@ -1038,8 +1038,8 @@ bool write_mesh(
 	const Array<Array<Vec2> >& uv_layers,
 	const Array<Vec3>& tangents,
 	const Array<Vec3>& bitangents,
-	const Array<std::array<float, MAX_BONE_WEIGHTS> >& bone_weights,
-	const Array<std::array<int, MAX_BONE_WEIGHTS> >& bone_indices)
+	const Array<std::array<r32, MAX_BONE_WEIGHTS> >& bone_weights,
+	const Array<std::array<s32, MAX_BONE_WEIGHTS> >& bone_indices)
 {
 	FILE* f = fopen(path.c_str(), "w+b");
 	if (f)
@@ -1047,47 +1047,47 @@ bool write_mesh(
 		fwrite(&mesh->color, sizeof(Vec4), 1, f);
 		fwrite(&mesh->bounds_min, sizeof(Vec3), 1, f);
 		fwrite(&mesh->bounds_max, sizeof(Vec3), 1, f);
-		fwrite(&mesh->bounds_radius, sizeof(float), 1, f);
-		fwrite(&mesh->indices.length, sizeof(int), 1, f);
-		fwrite(mesh->indices.data, sizeof(int), mesh->indices.length, f);
-		fwrite(&mesh->vertices.length, sizeof(int), 1, f);
+		fwrite(&mesh->bounds_radius, sizeof(r32), 1, f);
+		fwrite(&mesh->indices.length, sizeof(s32), 1, f);
+		fwrite(mesh->indices.data, sizeof(s32), mesh->indices.length, f);
+		fwrite(&mesh->vertices.length, sizeof(s32), 1, f);
 		fwrite(mesh->vertices.data, sizeof(Vec3), mesh->vertices.length, f);
 		fwrite(mesh->normals.data, sizeof(Vec3), mesh->vertices.length, f);
-		int num_extra_attribs = uv_layers.length + (tangents.length > 0 ? 2 : 0) + (bone_weights.length > 0 ? 2 : 0);
-		fwrite(&num_extra_attribs, sizeof(int), 1, f);
-		for (int i = 0; i < uv_layers.length; i++)
+		s32 num_extra_attribs = uv_layers.length + (tangents.length > 0 ? 2 : 0) + (bone_weights.length > 0 ? 2 : 0);
+		fwrite(&num_extra_attribs, sizeof(s32), 1, f);
+		for (s32 i = 0; i < uv_layers.length; i++)
 		{
 			RenderDataType type = RenderDataType::Vec2;
 			fwrite(&type, sizeof(RenderDataType), 1, f);
-			int count = 1;
-			fwrite(&count, sizeof(int), 1, f);
+			s32 count = 1;
+			fwrite(&count, sizeof(s32), 1, f);
 			fwrite(uv_layers[i].data, sizeof(Vec2), mesh->vertices.length, f);
 		}
 		if (tangents.length > 0)
 		{
 			RenderDataType type = RenderDataType::Vec3;
 			fwrite(&type, sizeof(RenderDataType), 1, f);
-			int count = 1;
-			fwrite(&count, sizeof(int), 1, f);
+			s32 count = 1;
+			fwrite(&count, sizeof(s32), 1, f);
 			fwrite(tangents.data, sizeof(Vec3), mesh->vertices.length, f);
 
 			fwrite(&type, sizeof(RenderDataType), 1, f);
-			fwrite(&count, sizeof(int), 1, f);
+			fwrite(&count, sizeof(s32), 1, f);
 			fwrite(bitangents.data, sizeof(Vec3), mesh->vertices.length, f);
 		}
 		if (bone_weights.length > 0)
 		{
 			RenderDataType type = RenderDataType::Int;
 			fwrite(&type, sizeof(RenderDataType), 1, f);
-			int count = MAX_BONE_WEIGHTS;
-			fwrite(&count, sizeof(int), 1, f);
-			fwrite(bone_indices.data, sizeof(int[MAX_BONE_WEIGHTS]), mesh->vertices.length, f);
+			s32 count = MAX_BONE_WEIGHTS;
+			fwrite(&count, sizeof(s32), 1, f);
+			fwrite(bone_indices.data, sizeof(s32[MAX_BONE_WEIGHTS]), mesh->vertices.length, f);
 
 			type = RenderDataType::Float;
 			fwrite(&type, sizeof(RenderDataType), 1, f);
 			count = MAX_BONE_WEIGHTS;
-			fwrite(&count, sizeof(int), 1, f);
-			fwrite(bone_weights.data, sizeof(float[MAX_BONE_WEIGHTS]), mesh->vertices.length, f);
+			fwrite(&count, sizeof(s32), 1, f);
+			fwrite(bone_weights.data, sizeof(r32[MAX_BONE_WEIGHTS]), mesh->vertices.length, f);
 		}
 		fclose(f);
 		return true;
@@ -1115,15 +1115,15 @@ bool import_meshes(ImporterState& state, const std::string& asset_in_path, const
 		map_init(state.manifest.animations, asset_name);
 		map_init(state.manifest.bones, asset_name);
 
-		Map<int> bone_map;
+		Map<s32> bone_map;
 		Armature armature;
 
 		meshes.reserve(scene->mNumMeshes);
 
 		// This nonsense is so that the meshes are added in alphabetical order
 		// Same order as they are stored in the manifest.
-		Map<int> mesh_indices;
-		for (int i = 0; i < scene->mNumMeshes; i++)
+		Map<s32> mesh_indices;
+		for (s32 i = 0; i < scene->mNumMeshes; i++)
 		{
 			aiMesh* ai_mesh = scene->mMeshes[i];
 			const aiNode* mesh_node = find_mesh_node(scene, scene->mRootNode, ai_mesh);
@@ -1136,7 +1136,7 @@ bool import_meshes(ImporterState& state, const std::string& asset_in_path, const
 		for (auto mesh_entry : mesh_indices)
 		{
 			const std::string& mesh_name = mesh_entry.first;
-			int mesh_index = mesh_entry.second;
+			s32 mesh_index = mesh_entry.second;
 			const std::string& mesh_out_filename = map_get(state.manifest.meshes, asset_name, mesh_name);
 
 			aiMesh* ai_mesh = scene->mMeshes[mesh_index];
@@ -1154,13 +1154,13 @@ bool import_meshes(ImporterState& state, const std::string& asset_in_path, const
 				printf("%s Indices: %d Vertices: %d\n", mesh_name.c_str(), mesh->indices.length, mesh->vertices.length);
 
 				Array<Array<Vec2>> uv_layers;
-				for (int j = 0; j < 8; j++)
+				for (s32 j = 0; j < 8; j++)
 				{
 					if (ai_mesh->mNumUVComponents[j] == 2)
 					{
 						Array<Vec2>* uvs = uv_layers.add();
 						uvs->reserve(ai_mesh->mNumVertices);
-						for (unsigned int k = 0; k < ai_mesh->mNumVertices; k++)
+						for (u32 k = 0; k < ai_mesh->mNumVertices; k++)
 						{
 							aiVector3D UVW = ai_mesh->mTextureCoords[j][k];
 							uvs->add(Vec2(UVW.x, 1.0f - UVW.y));
@@ -1174,14 +1174,14 @@ bool import_meshes(ImporterState& state, const std::string& asset_in_path, const
 				if (ai_mesh->HasTangentsAndBitangents())
 				{
 					tangents.resize(ai_mesh->mNumVertices);
-					for (unsigned int i = 0; i < ai_mesh->mNumVertices; i++)
+					for (u32 i = 0; i < ai_mesh->mNumVertices; i++)
 					{
 						aiVector3D n = ai_mesh->mTangents[i];
 						tangents[i] = Vec3(n.y, n.z, n.x);
 					}
 
 					bitangents.resize(ai_mesh->mNumVertices);
-					for (unsigned int i = 0; i < ai_mesh->mNumVertices; i++)
+					for (u32 i = 0; i < ai_mesh->mNumVertices; i++)
 					{
 						aiVector3D n = ai_mesh->mBitangents[i];
 						bitangents[i] = Vec3(n.y, n.z, n.x);
@@ -1189,12 +1189,12 @@ bool import_meshes(ImporterState& state, const std::string& asset_in_path, const
 				}
 
 
-				Array<std::array<float, MAX_BONE_WEIGHTS> > bone_weights;
-				Array<std::array<int, MAX_BONE_WEIGHTS> > bone_indices;
+				Array<std::array<r32, MAX_BONE_WEIGHTS> > bone_weights;
+				Array<std::array<s32, MAX_BONE_WEIGHTS> > bone_indices;
 
 				if (!build_armature_skinned(scene, ai_mesh, *mesh, armature, bone_map))
 				{
-					fprintf(stderr, "Error: failed to process armature for %s.\n", asset_in_path.c_str());
+					fprintf(stderr, "Error: Failed to process armature for %s.\n", asset_in_path.c_str());
 					state.error = true;
 					return false;
 				}
@@ -1212,15 +1212,15 @@ bool import_meshes(ImporterState& state, const std::string& asset_in_path, const
 					bone_weights.resize(ai_mesh->mNumVertices);
 					bone_indices.resize(ai_mesh->mNumVertices);
 
-					for (unsigned int i = 0; i < ai_mesh->mNumBones; i++)
+					for (u32 i = 0; i < ai_mesh->mNumBones; i++)
 					{
 						aiBone* bone = ai_mesh->mBones[i];
-						int bone_index = bone_map[bone->mName.C_Str()];
-						for (unsigned int bone_weight_index = 0; bone_weight_index < bone->mNumWeights; bone_weight_index++)
+						s32 bone_index = bone_map[bone->mName.C_Str()];
+						for (u32 bone_weight_index = 0; bone_weight_index < bone->mNumWeights; bone_weight_index++)
 						{
-							int vertex_id = bone->mWeights[bone_weight_index].mVertexId;
-							float weight = bone->mWeights[bone_weight_index].mWeight;
-							for (int weight_index = 0; weight_index < MAX_BONE_WEIGHTS; weight_index++)
+							s32 vertex_id = bone->mWeights[bone_weight_index].mVertexId;
+							r32 weight = bone->mWeights[bone_weight_index].mWeight;
+							for (s32 weight_index = 0; weight_index < MAX_BONE_WEIGHTS; weight_index++)
 							{
 								if (bone_weights[vertex_id][weight_index] == 0)
 								{
@@ -1237,7 +1237,7 @@ bool import_meshes(ImporterState& state, const std::string& asset_in_path, const
 
 				if (!write_mesh(mesh, mesh_out_filename, uv_layers, tangents, bitangents, bone_weights, bone_indices))
 				{
-					fprintf(stderr, "Error: failed to write mesh file %s.\n", mesh_out_filename.c_str());
+					fprintf(stderr, "Error: Failed to write mesh file %s.\n", mesh_out_filename.c_str());
 					state.error = true;
 					return false;
 				}
@@ -1255,13 +1255,13 @@ bool import_meshes(ImporterState& state, const std::string& asset_in_path, const
 			}
 			else
 			{
-				fprintf(stderr, "Error: failed to load model %s.\n", asset_in_path.c_str());
+				fprintf(stderr, "Error: Failed to load model %s.\n", asset_in_path.c_str());
 				state.error = true;
 				return false;
 			}
 		}
 
-		for (unsigned int j = 0; j < scene->mNumAnimations; j++)
+		for (u32 j = 0; j < scene->mNumAnimations; j++)
 		{
 			aiAnimation* ai_anim = scene->mAnimations[j];
 			Animation anim;
@@ -1274,7 +1274,7 @@ bool import_meshes(ImporterState& state, const std::string& asset_in_path, const
 					std::string anim_name(ai_anim->mName.C_Str());
 					if (anim_name.find("AnimStack") == 0)
 					{
-						size_t pipe = anim_name.find("|");
+						memory_index pipe = anim_name.find("|");
 						if (pipe != std::string::npos && pipe < anim_name.length() - 1)
 							anim_name = anim_name.substr(pipe + 1);
 					}
@@ -1287,24 +1287,24 @@ bool import_meshes(ImporterState& state, const std::string& asset_in_path, const
 					FILE* f = fopen(anim_out_path.c_str(), "w+b");
 					if (f)
 					{
-						fwrite(&anim.duration, sizeof(float), 1, f);
-						fwrite(&anim.channels.length, sizeof(int), 1, f);
-						for (unsigned int i = 0; i < anim.channels.length; i++)
+						fwrite(&anim.duration, sizeof(r32), 1, f);
+						fwrite(&anim.channels.length, sizeof(s32), 1, f);
+						for (u32 i = 0; i < anim.channels.length; i++)
 						{
 							Channel* channel = &anim.channels[i];
-							fwrite(&channel->bone_index, sizeof(int), 1, f);
-							fwrite(&channel->positions.length, sizeof(int), 1, f);
+							fwrite(&channel->bone_index, sizeof(s32), 1, f);
+							fwrite(&channel->positions.length, sizeof(s32), 1, f);
 							fwrite(channel->positions.data, sizeof(Keyframe<Vec3>), channel->positions.length, f);
-							fwrite(&channel->rotations.length, sizeof(int), 1, f);
+							fwrite(&channel->rotations.length, sizeof(s32), 1, f);
 							fwrite(channel->rotations.data, sizeof(Keyframe<Quat>), channel->rotations.length, f);
-							fwrite(&channel->scales.length, sizeof(int), 1, f);
+							fwrite(&channel->scales.length, sizeof(s32), 1, f);
 							fwrite(channel->scales.data, sizeof(Keyframe<Vec3>), channel->scales.length, f);
 						}
 						fclose(f);
 					}
 					else
 					{
-						fprintf(stderr, "Error: failed to open %s for writing.\n", anim_out_path.c_str());
+						fprintf(stderr, "Error: Failed to open %s for writing.\n", anim_out_path.c_str());
 						state.error = true;
 						return false;
 					}
@@ -1312,7 +1312,7 @@ bool import_meshes(ImporterState& state, const std::string& asset_in_path, const
 			}
 			else
 			{
-				fprintf(stderr, "Error: failed to load animation %s.\n", ai_anim->mName.C_Str());
+				fprintf(stderr, "Error: Failed to load animation %s.\n", ai_anim->mName.C_Str());
 				state.error = true;
 				return false;
 			}
@@ -1336,19 +1336,19 @@ bool build_nav_mesh(const Mesh& input, rcPolyMesh** output, rcPolyMeshDetail** o
 	cfg.cs = nav_resolution;
 	cfg.ch = nav_resolution;
 	cfg.walkableSlopeAngle = nav_walkable_slope;
-	cfg.walkableHeight = (int)ceilf(nav_agent_height / cfg.ch);
-	cfg.walkableClimb = (int)floorf(nav_agent_max_climb / cfg.ch);
-	cfg.walkableRadius = (int)ceilf(nav_agent_radius / cfg.cs);
-	cfg.maxEdgeLen = (int)(nav_edge_max_length / cfg.cs);
+	cfg.walkableHeight = (s32)ceilf(nav_agent_height / cfg.ch);
+	cfg.walkableClimb = (s32)floorf(nav_agent_max_climb / cfg.ch);
+	cfg.walkableRadius = (s32)ceilf(nav_agent_radius / cfg.cs);
+	cfg.maxEdgeLen = (s32)(nav_edge_max_length / cfg.cs);
 	cfg.maxSimplificationError = 2;
-	cfg.minRegionArea = (int)rcSqr(nav_min_region_size);		// Note: area = size*size
-	cfg.mergeRegionArea = (int)rcSqr(nav_merged_region_size);	// Note: area = size*size
+	cfg.minRegionArea = (s32)rcSqr(nav_min_region_size);		// Note: area = size*size
+	cfg.mergeRegionArea = (s32)rcSqr(nav_merged_region_size);	// Note: area = size*size
 	cfg.maxVertsPerPoly = 6;
 	cfg.detailSampleDist = nav_detail_sample_distance < 0.9f ? 0 : cfg.cs * nav_detail_sample_distance;
 	cfg.detailSampleMaxError = cfg.ch * nav_detail_sample_max_error;
 
-	rcVcopy(cfg.bmin, (float*)&input.bounds_min);
-	rcVcopy(cfg.bmax, (float*)&input.bounds_max);
+	rcVcopy(cfg.bmin, (r32*)&input.bounds_min);
+	rcVcopy(cfg.bmax, (r32*)&input.bounds_max);
 	rcCalcGridSize(cfg.bmin, cfg.bmax, cfg.cs, &cfg.width, &cfg.height);
 
 	rcContext ctx(false);
@@ -1363,9 +1363,9 @@ bool build_nav_mesh(const Mesh& input, rcPolyMesh** output, rcPolyMeshDetail** o
 	// Rasterize input polygon soup.
 	// Find triangles which are walkable based on their slope and rasterize them.
 	{
-		Array<unsigned char> tri_areas(input.indices.length / 3, input.indices.length / 3);
-		rcMarkWalkableTriangles(&ctx, cfg.walkableSlopeAngle, (float*)input.vertices.data, input.vertices.length, input.indices.data, input.indices.length / 3, tri_areas.data);
-		rcRasterizeTriangles(&ctx, (float*)input.vertices.data, input.vertices.length, input.indices.data, tri_areas.data, input.indices.length / 3, *heightfield, cfg.walkableClimb);
+		Array<u8> tri_areas(input.indices.length / 3, input.indices.length / 3);
+		rcMarkWalkableTriangles(&ctx, cfg.walkableSlopeAngle, (r32*)input.vertices.data, input.vertices.length, input.indices.data, input.indices.length / 3, tri_areas.data);
+		rcRasterizeTriangles(&ctx, (r32*)input.vertices.data, input.vertices.length, input.indices.data, tri_areas.data, input.indices.length / 3, *heightfield, cfg.walkableClimb);
 	}
 
 	// Once all geoemtry is rasterized, we do initial pass of filtering to
@@ -1428,7 +1428,7 @@ bool build_nav_mesh(const Mesh& input, rcPolyMesh** output, rcPolyMeshDetail** o
 
 	rcFreeCompactHeightfield(compact_heightfield);
 
-	for (int i = 0; i < nav_mesh->npolys; i++)
+	for (s32 i = 0; i < nav_mesh->npolys; i++)
 		nav_mesh->flags[i] = 1;
 	
 	*output = nav_mesh;
@@ -1451,7 +1451,7 @@ bool import_level_meshes(ImporterState& state, const std::string& asset_in_path,
 		const aiScene* scene = load_blend(state, importer, asset_in_path, out_folder);
 		map_init(state.manifest.level_meshes, asset_name);
 
-		for (int mesh_index = 0; mesh_index < scene->mNumMeshes; mesh_index++)
+		for (s32 mesh_index = 0; mesh_index < scene->mNumMeshes; mesh_index++)
 		{
 			aiMesh* ai_mesh = scene->mMeshes[mesh_index];
 			const aiNode* mesh_node = find_mesh_node(scene, scene->mRootNode, ai_mesh);
@@ -1474,13 +1474,13 @@ bool import_level_meshes(ImporterState& state, const std::string& asset_in_path,
 				printf("%s Indices: %d Vertices: %d\n", mesh_name.c_str(), mesh->indices.length, mesh->vertices.length);
 
 				Array<Array<Vec2>> uv_layers;
-				for (int j = 0; j < 8; j++)
+				for (s32 j = 0; j < 8; j++)
 				{
 					if (ai_mesh->mNumUVComponents[j] == 2)
 					{
 						Array<Vec2>* uvs = uv_layers.add();
 						uvs->reserve(ai_mesh->mNumVertices);
-						for (unsigned int k = 0; k < ai_mesh->mNumVertices; k++)
+						for (u32 k = 0; k < ai_mesh->mNumVertices; k++)
 						{
 							aiVector3D UVW = ai_mesh->mTextureCoords[j][k];
 							uvs->add(Vec2(1.0f - UVW.x, 1.0f - UVW.y));
@@ -1494,33 +1494,33 @@ bool import_level_meshes(ImporterState& state, const std::string& asset_in_path,
 				if (ai_mesh->HasTangentsAndBitangents())
 				{
 					tangents.resize(ai_mesh->mNumVertices);
-					for (unsigned int i = 0; i < ai_mesh->mNumVertices; i++)
+					for (u32 i = 0; i < ai_mesh->mNumVertices; i++)
 					{
 						aiVector3D n = ai_mesh->mTangents[i];
 						tangents[i] = Vec3(n.y, n.z, n.x);
 					}
 
 					bitangents.resize(ai_mesh->mNumVertices);
-					for (unsigned int i = 0; i < ai_mesh->mNumVertices; i++)
+					for (u32 i = 0; i < ai_mesh->mNumVertices; i++)
 					{
 						aiVector3D n = ai_mesh->mBitangents[i];
 						bitangents[i] = Vec3(n.y, n.z, n.x);
 					}
 				}
 
-				Array<std::array<float, MAX_BONE_WEIGHTS> > bone_weights;
-				Array<std::array<int, MAX_BONE_WEIGHTS> > bone_indices;
+				Array<std::array<r32, MAX_BONE_WEIGHTS> > bone_weights;
+				Array<std::array<s32, MAX_BONE_WEIGHTS> > bone_indices;
 
 				if (!write_mesh(mesh, mesh_out_filename, uv_layers, tangents, bitangents, bone_weights, bone_indices))
 				{
-					fprintf(stderr, "Error: failed to write mesh file %s.\n", mesh_out_filename.c_str());
+					fprintf(stderr, "Error: Failed to write mesh file %s.\n", mesh_out_filename.c_str());
 					state.error = true;
 					return false;
 				}
 			}
 			else
 			{
-				fprintf(stderr, "Error: failed to load model %s.\n", asset_in_path.c_str());
+				fprintf(stderr, "Error: Failed to load model %s.\n", asset_in_path.c_str());
 				state.error = true;
 				return false;
 			}
@@ -1564,7 +1564,7 @@ void import_level(ImporterState& state, const std::string& asset_in_path, const 
 
 		if (!run_cmd(cmd))
 		{
-			fprintf(stderr, "Error: failed to export %s to lvl.\n", asset_in_path.c_str());
+			fprintf(stderr, "Error: Failed to export %s to lvl.\n", asset_in_path.c_str());
 			fprintf(stderr, "Command: %s.\n", cmd.c_str());
 			state.error = true;
 			return;
@@ -1578,7 +1578,7 @@ void import_level(ImporterState& state, const std::string& asset_in_path, const 
 		Mesh nav_mesh_input;
 		nav_mesh_input.bounds_min = Vec3(FLT_MAX, FLT_MAX, FLT_MAX);
 		nav_mesh_input.bounds_max = Vec3(FLT_MIN, FLT_MIN, FLT_MIN);
-		int current_index = 0;
+		s32 current_index = 0;
 
 		Array<Mat4> transforms;
 		cJSON* element = json->child;
@@ -1589,7 +1589,7 @@ void import_level(ImporterState& state, const std::string& asset_in_path, const 
 			Mat4 mat;
 			mat.make_transform(pos, Vec3(1, 1, 1), rot);
 
-			int parent = cJSON_GetObjectItem(element, "parent")->valueint;
+			s32 parent = cJSON_GetObjectItem(element, "parent")->valueint;
 			if (parent != -1)
 				mat = transforms[parent] * mat;
 
@@ -1619,7 +1619,7 @@ void import_level(ImporterState& state, const std::string& asset_in_path, const 
 						mat * Vec4(max.x, max.y, max.z, 1),
 					};
 
-					for (int i = 0; i < 8; i++)
+					for (s32 i = 0; i < 8; i++)
 					{
 						nav_mesh_input.bounds_min.x = fmin(corners[i].x, nav_mesh_input.bounds_min.x);
 						nav_mesh_input.bounds_min.y = fmin(corners[i].y, nav_mesh_input.bounds_min.y);
@@ -1632,13 +1632,13 @@ void import_level(ImporterState& state, const std::string& asset_in_path, const 
 					nav_mesh_input.vertices.reserve(nav_mesh_input.vertices.length + mesh.vertices.length);
 					nav_mesh_input.indices.reserve(nav_mesh_input.indices.length + mesh.indices.length);
 
-					for (int i = 0; i < mesh.vertices.length; i++)
+					for (s32 i = 0; i < mesh.vertices.length; i++)
 					{
 						Vec3 v = mesh.vertices[i];
 						Vec4 v2 = mat * Vec4(v.x, v.y, v.z, 1);
 						nav_mesh_input.vertices.add(Vec3(v2.x, v2.y, v2.z));
 					}
-					for (int i = 0; i < mesh.indices.length; i++)
+					for (s32 i = 0; i < mesh.indices.length; i++)
 						nav_mesh_input.indices.add(current_index + mesh.indices[i]);
 					current_index = nav_mesh_input.vertices.length;
 
@@ -1659,7 +1659,7 @@ void import_level(ImporterState& state, const std::string& asset_in_path, const 
 		{
 			if (!build_nav_mesh(nav_mesh_input, &nav_mesh, &nav_mesh_detail))
 			{
-				fprintf(stderr, "Error: nav mesh generation failed for file %s.\n", asset_in_path.c_str());
+				fprintf(stderr, "Error: Nav mesh generation failed for file %s.\n", asset_in_path.c_str());
 				state.error = true;
 				return;
 			}
@@ -1668,7 +1668,7 @@ void import_level(ImporterState& state, const std::string& asset_in_path, const 
 		FILE* f = fopen(nav_mesh_out_path.c_str(), "w+b");
 		if (!f)
 		{
-			fprintf(stderr, "Error: failed to write mesh file %s.\n", nav_mesh_out_path.c_str());
+			fprintf(stderr, "Error: Failed to write mesh file %s.\n", nav_mesh_out_path.c_str());
 			state.error = true;
 			return;
 		}
@@ -1676,20 +1676,20 @@ void import_level(ImporterState& state, const std::string& asset_in_path, const 
 		if (nav_mesh)
 		{
 			fwrite(nav_mesh, sizeof(rcPolyMesh), 1, f);
-			fwrite(nav_mesh->verts, sizeof(unsigned short) * 3, nav_mesh->nverts, f);
-			fwrite(nav_mesh->polys, sizeof(unsigned short) * 2 * nav_mesh->nvp, nav_mesh->npolys, f);
-			fwrite(nav_mesh->regs, sizeof(unsigned short), nav_mesh->npolys, f);
-			fwrite(nav_mesh->flags, sizeof(unsigned short), nav_mesh->npolys, f);
-			fwrite(nav_mesh->areas, sizeof(unsigned char), nav_mesh->npolys, f);
+			fwrite(nav_mesh->verts, sizeof(u16) * 3, nav_mesh->nverts, f);
+			fwrite(nav_mesh->polys, sizeof(u16) * 2 * nav_mesh->nvp, nav_mesh->npolys, f);
+			fwrite(nav_mesh->regs, sizeof(u16), nav_mesh->npolys, f);
+			fwrite(nav_mesh->flags, sizeof(u16), nav_mesh->npolys, f);
+			fwrite(nav_mesh->areas, sizeof(u8), nav_mesh->npolys, f);
 
 			fwrite(nav_mesh_detail, sizeof(rcPolyMeshDetail), 1, f);
-			fwrite(nav_mesh_detail->meshes, sizeof(unsigned int) * 4, nav_mesh_detail->nmeshes, f);
-			fwrite(nav_mesh_detail->verts, sizeof(float) * 3, nav_mesh_detail->nverts, f);
-			fwrite(nav_mesh_detail->tris, sizeof(unsigned char) * 4, nav_mesh_detail->ntris, f);
+			fwrite(nav_mesh_detail->meshes, sizeof(u32) * 4, nav_mesh_detail->nmeshes, f);
+			fwrite(nav_mesh_detail->verts, sizeof(r32) * 3, nav_mesh_detail->nverts, f);
+			fwrite(nav_mesh_detail->tris, sizeof(u8) * 4, nav_mesh_detail->ntris, f);
 
-			fwrite(&nav_agent_height, sizeof(float), 1, f);
-			fwrite(&nav_agent_radius, sizeof(float), 1, f);
-			fwrite(&nav_agent_max_climb, sizeof(float), 1, f);
+			fwrite(&nav_agent_height, sizeof(r32), 1, f);
+			fwrite(&nav_agent_radius, sizeof(r32), 1, f);
+			fwrite(&nav_agent_max_climb, sizeof(r32), 1, f);
 
 			rcFreePolyMesh(nav_mesh);
 			rcFreePolyMeshDetail(nav_mesh_detail);
@@ -1711,7 +1711,7 @@ void import_copy(ImporterState& state, Map<std::string>& manifest, const std::st
 		printf("%s\n", asset_out_path.c_str());
 		if (!cp(asset_in_path, asset_out_path))
 		{
-			fprintf(stderr, "Error: failed to copy %s to %s.\n", asset_in_path.c_str(), asset_out_path.c_str());
+			fprintf(stderr, "Error: Failed to copy %s to %s.\n", asset_in_path.c_str(), asset_out_path.c_str());
 			state.error = true;
 		}
 	}
@@ -1731,7 +1731,7 @@ void import_shader(ImporterState& state, const std::string& asset_in_path, const
 		FILE* f = fopen(asset_in_path.c_str(), "rb");
 		if (!f)
 		{
-			fprintf(stderr, "Error: failed to open %s.\n", asset_in_path.c_str());
+			fprintf(stderr, "Error: Failed to open %s.\n", asset_in_path.c_str());
 			state.error = true;
 			return;
 		}
@@ -1745,7 +1745,7 @@ void import_shader(ImporterState& state, const std::string& asset_in_path, const
 		fread(code.data, fsize, 1, f);
 		fclose(f);
 
-		for (int i = 0; i < (int)RenderTechnique::count; i++)
+		for (s32 i = 0; i < (s32)RenderTechnique::count; i++)
 		{
 			GLuint program_id;
 			if (!compile_shader(TechniquePrefixes::all[i], code.data, code.length, &program_id, asset_out_path.c_str()))
@@ -1758,11 +1758,11 @@ void import_shader(ImporterState& state, const std::string& asset_in_path, const
 			// Get uniforms
 			GLint uniform_count;
 			glGetProgramiv(program_id, GL_ACTIVE_UNIFORMS, &uniform_count);
-			for (int i = 0; i < uniform_count; i++)
+			for (s32 i = 0; i < uniform_count; i++)
 			{
 				char name[128 + 1];
 				memset(name, 0, 128 + 1);
-				int name_length;
+				s32 name_length;
 				glGetActiveUniformName(program_id, i, 128, &name_length, name);
 
 				char* bracket_character = strchr(name, '[');
@@ -1777,7 +1777,7 @@ void import_shader(ImporterState& state, const std::string& asset_in_path, const
 
 		if (!cp(asset_in_path, asset_out_path))
 		{
-			fprintf(stderr, "Error: failed to copy %s to %s.\n", asset_in_path.c_str(), asset_out_path.c_str());
+			fprintf(stderr, "Error: Failed to copy %s to %s.\n", asset_in_path.c_str(), asset_out_path.c_str());
 			state.error = true;
 			return;
 		}
@@ -1788,17 +1788,17 @@ void import_shader(ImporterState& state, const std::string& asset_in_path, const
 
 bool load_font(const aiScene* scene, Font& font)
 {
-	int current_mesh_vertex = 0;
-	int current_mesh_index = 0;
+	s32 current_mesh_vertex = 0;
+	s32 current_mesh_index = 0;
 
-	const float scale = 1.2f;
+	const r32 scale = 1.2f;
 
-	for (unsigned int i = 0; i < scene->mNumMeshes; i++)
+	for (u32 i = 0; i < scene->mNumMeshes; i++)
 	{
 		aiMesh* ai_mesh = scene->mMeshes[i];
 		font.vertices.reserve(current_mesh_vertex + ai_mesh->mNumVertices);
 		Vec2 min_vertex(FLT_MAX, FLT_MAX), max_vertex(FLT_MIN, FLT_MIN);
-		for (unsigned int j = 0; j < ai_mesh->mNumVertices; j++)
+		for (u32 j = 0; j < ai_mesh->mNumVertices; j++)
 		{
 			aiVector3D pos = ai_mesh->mVertices[j];
 			Vec3 p = Vec3(pos.x, pos.y, pos.z);
@@ -1811,7 +1811,7 @@ bool load_font(const aiScene* scene, Font& font)
 		}
 
 		font.indices.reserve(current_mesh_index + ai_mesh->mNumFaces * 3);
-		for (unsigned int j = 0; j < ai_mesh->mNumFaces; j++)
+		for (u32 j = 0; j < ai_mesh->mNumFaces; j++)
 		{
 			// Assume the model has only triangles.
 			font.indices.add(current_mesh_vertex + ai_mesh->mFaces[j].mIndices[0]);
@@ -1856,7 +1856,7 @@ void import_font(ImporterState& state, const std::string& asset_in_path, const s
 
 		if (!run_cmd(cmd))
 		{
-			fprintf(stderr, "Error: failed to export TTF font %s to FBX.\n", asset_in_path.c_str());
+			fprintf(stderr, "Error: Failed to export TTF font %s to FBX.\n", asset_in_path.c_str());
 			fprintf(stderr, "Command: %s.\n", cmd.c_str());
 			state.error = true;
 			return;
@@ -1873,24 +1873,24 @@ void import_font(ImporterState& state, const std::string& asset_in_path, const s
 			FILE* f = fopen(asset_out_path.c_str(), "w+b");
 			if (f)
 			{
-				fwrite(&font.vertices.length, sizeof(int), 1, f);
+				fwrite(&font.vertices.length, sizeof(s32), 1, f);
 				fwrite(font.vertices.data, sizeof(Vec3), font.vertices.length, f);
-				fwrite(&font.indices.length, sizeof(int), 1, f);
-				fwrite(font.indices.data, sizeof(int), font.indices.length, f);
-				fwrite(&font.characters.length, sizeof(int), 1, f);
+				fwrite(&font.indices.length, sizeof(s32), 1, f);
+				fwrite(font.indices.data, sizeof(s32), font.indices.length, f);
+				fwrite(&font.characters.length, sizeof(s32), 1, f);
 				fwrite(font.characters.data, sizeof(Font::Character), font.characters.length, f);
 				fclose(f);
 			}
 			else
 			{
-				fprintf(stderr, "Error: failed to open %s for writing.\n", asset_out_path.c_str());
+				fprintf(stderr, "Error: Failed to open %s for writing.\n", asset_out_path.c_str());
 				state.error = true;
 				return;
 			}
 		}
 		else
 		{
-			fprintf(stderr, "Error: failed to load font %s.\n", asset_in_path.c_str());
+			fprintf(stderr, "Error: Failed to load font %s.\n", asset_in_path.c_str());
 			state.error = true;
 			return;
 		}
@@ -1902,7 +1902,7 @@ FILE* open_asset_header(const char* path)
 	FILE* f = fopen(path, "w+");
 	if (!f)
 	{
-		fprintf(stderr, "Error: failed to open asset header file %s for writing.\n", path);
+		fprintf(stderr, "Error: Failed to open asset header file %s for writing.\n", path);
 		return 0;
 	}
 	fprintf(f, "#pragma once\n#include \"types.h\"\n\nnamespace VI\n{\n\nnamespace Asset\n{\n");
@@ -1915,7 +1915,7 @@ void close_asset_header(FILE* f)
 	fclose(f);
 }
 
-int proc(int argc, char* argv[])
+s32 proc(s32 argc, char* argv[])
 {
 	const char* manifest_path = ".manifest";
 	const char* asset_src_path = "../src/asset/values.cpp";
@@ -1932,7 +1932,7 @@ int proc(int argc, char* argv[])
 	// Initialise SDL
 	if (SDL_Init(SDL_INIT_VIDEO) < 0)
 	{
-		fprintf(stderr, "Failed to initialize SDL: %s\n", SDL_GetError());
+		fprintf(stderr, "Error: Failed to initialize SDL: %s\n", SDL_GetError());
 		return 1;
 	}
 
@@ -1945,14 +1945,14 @@ int proc(int argc, char* argv[])
 	// Open a window and create its OpenGL context
 	if (!window)
 	{
-		fprintf(stderr, "Failed to open SDL window. Most likely your GPU is out of date!\n");
+		fprintf(stderr, "Error: Failed to open SDL window. Most likely your GPU is out of date!\n");
 		return exit_error();
 	}
 
 	SDL_GLContext context = SDL_GL_CreateContext(window);
 	if (!context)
 	{
-		fprintf(stderr, "Failed to create GL context: %s\n", SDL_GetError());
+		fprintf(stderr, "Error: Failed to create GL context: %s\n", SDL_GetError());
 		return exit_error();
 	}
 
@@ -1962,9 +1962,29 @@ int proc(int argc, char* argv[])
 		GLenum glew_result = glewInit();
 		if (glew_result != GLEW_OK)
 		{
-			fprintf(stderr, "Failed to initialize GLEW: %s\n", glewGetErrorString(glew_result));
+			fprintf(stderr, "Error: Failed to initialize GLEW: %s\n", glewGetErrorString(glew_result));
 			return exit_error();
 		}
+	}
+
+	{
+		DIR* dir = opendir(asset_out_folder);
+		if (!dir)
+		{
+			fprintf(stderr, "Error: Missing output folder: %s\n", asset_out_folder);
+			return exit_error();
+		}
+		closedir(dir);
+	}
+
+	{
+		DIR* dir = opendir(level_out_folder);
+		if (!dir)
+		{
+			fprintf(stderr, "Error: Missing output folder: %s\n", level_out_folder);
+			return exit_error();
+		}
+		closedir(dir);
 	}
 
 	ImporterState state;
@@ -1978,7 +1998,7 @@ int proc(int argc, char* argv[])
 		DIR* dir = opendir(asset_in_folder);
 		if (!dir)
 		{
-			fprintf(stderr, "Failed to open asset directory.\n");
+			fprintf(stderr, "Error: Failed to open asset directory: %s\n", asset_in_folder);
 			return exit_error();
 		}
 		struct dirent* entry;
@@ -1997,7 +2017,7 @@ int proc(int argc, char* argv[])
 			{
 				Array<Mesh> meshes;
 				import_meshes(state, asset_in_path, asset_out_folder, meshes, false, false);
-				for (int i = 0; i < meshes.length; i++)
+				for (s32 i = 0; i < meshes.length; i++)
 					meshes[i].~Mesh();
 			}
 			else if (has_extension(asset_in_path, font_in_extension) || has_extension(asset_in_path, font_in_extension_2))
@@ -2095,7 +2115,7 @@ int proc(int argc, char* argv[])
 		{
 			if (!cp(wwise_header_in_path, wwise_header_out_path))
 			{
-				fprintf(stderr, "Error: failed to copy %s to %s.\n", wwise_header_in_path, wwise_header_out_path);
+				fprintf(stderr, "Error: Failed to copy %s to %s.\n", wwise_header_in_path, wwise_header_out_path);
 				state.error = true;
 			}
 		}
@@ -2123,7 +2143,7 @@ int proc(int argc, char* argv[])
 		map_flatten(state.manifest.animations, flattened_animations);
 		Map<std::string> flattened_armatures;
 		map_flatten(state.manifest.armatures, flattened_armatures);
-		Map<int> flattened_bones;
+		Map<s32> flattened_bones;
 		map_flatten(state.manifest.bones, flattened_bones);
 
 		if (state.rebuild
@@ -2241,7 +2261,7 @@ int proc(int argc, char* argv[])
 			FILE* f = fopen(asset_src_path, "w+");
 			if (!f)
 			{
-				fprintf(stderr, "Error: failed to open asset source file %s for writing.\n", asset_src_path);
+				fprintf(stderr, "Error: Failed to open asset source file %s for writing.\n", asset_src_path);
 				return exit_error();
 			}
 			fprintf(f, "#include \"lookup.h\"\n");

@@ -16,14 +16,14 @@ UIText Console::text = UIText();
 UIText Console::fps_text = UIText();
 UIText Console::debug_text = UIText();
 UIText Console::log_text = UIText();
-bool Console::fps_visible = false;
-int Console::fps_count = 0;
-float Console::fps_accumulator = 0;
-bool Console::visible = false;
+b8 Console::fps_visible = false;
+s32 Console::fps_count = 0;
+r32 Console::fps_accumulator = 0;
+b8 Console::visible = false;
 char Console::shift_map[127];
 char Console::normal_map[127];
-float Console::repeat_start_time = 0.0f;
-float Console::repeat_last_time = 0.0f;
+r32 Console::repeat_start_time = 0.0f;
+r32 Console::repeat_last_time = 0.0f;
 
 #define REPEAT_DELAY 0.2f
 #define REPEAT_INTERVAL 0.03f
@@ -56,58 +56,58 @@ void Console::init()
 	memset(normal_map, 0, sizeof(normal_map));
 	memset(shift_map, 0, sizeof(shift_map));
 
-	normal_map[(int)KeyCode::D0] = '0';
-	normal_map[(int)KeyCode::D1] = '1';
-	normal_map[(int)KeyCode::D2] = '2';
-	normal_map[(int)KeyCode::D3] = '3';
-	normal_map[(int)KeyCode::D4] = '4';
-	normal_map[(int)KeyCode::D5] = '5';
-	normal_map[(int)KeyCode::D6] = '6';
-	normal_map[(int)KeyCode::D7] = '7';
-	normal_map[(int)KeyCode::D8] = '8';
-	normal_map[(int)KeyCode::D9] = '9';
-	shift_map[(int)KeyCode::D0] = ')';
-	shift_map[(int)KeyCode::D1] = '!';
-	shift_map[(int)KeyCode::D2] = '@';
-	shift_map[(int)KeyCode::D3] = '#';
-	shift_map[(int)KeyCode::D4] = '$';
-	shift_map[(int)KeyCode::D5] = '%';
-	shift_map[(int)KeyCode::D6] = '^';
-	shift_map[(int)KeyCode::D7] = '&';
-	shift_map[(int)KeyCode::D8] = '*';
-	shift_map[(int)KeyCode::D9] = '(';
+	normal_map[(s32)KeyCode::D0] = '0';
+	normal_map[(s32)KeyCode::D1] = '1';
+	normal_map[(s32)KeyCode::D2] = '2';
+	normal_map[(s32)KeyCode::D3] = '3';
+	normal_map[(s32)KeyCode::D4] = '4';
+	normal_map[(s32)KeyCode::D5] = '5';
+	normal_map[(s32)KeyCode::D6] = '6';
+	normal_map[(s32)KeyCode::D7] = '7';
+	normal_map[(s32)KeyCode::D8] = '8';
+	normal_map[(s32)KeyCode::D9] = '9';
+	shift_map[(s32)KeyCode::D0] = ')';
+	shift_map[(s32)KeyCode::D1] = '!';
+	shift_map[(s32)KeyCode::D2] = '@';
+	shift_map[(s32)KeyCode::D3] = '#';
+	shift_map[(s32)KeyCode::D4] = '$';
+	shift_map[(s32)KeyCode::D5] = '%';
+	shift_map[(s32)KeyCode::D6] = '^';
+	shift_map[(s32)KeyCode::D7] = '&';
+	shift_map[(s32)KeyCode::D8] = '*';
+	shift_map[(s32)KeyCode::D9] = '(';
 
-	normal_map[(int)KeyCode::Space] = ' ';
-	shift_map[(int)KeyCode::Space] = ' ';
+	normal_map[(s32)KeyCode::Space] = ' ';
+	shift_map[(s32)KeyCode::Space] = ' ';
 
-	normal_map[(int)KeyCode::Apostrophe] = '\'';
-	shift_map[(int)KeyCode::Apostrophe] = '"';
+	normal_map[(s32)KeyCode::Apostrophe] = '\'';
+	shift_map[(s32)KeyCode::Apostrophe] = '"';
 
-	normal_map[(int)KeyCode::Minus] = '-';
-	normal_map[(int)KeyCode::Equals] = '=';
-	normal_map[(int)KeyCode::LeftBracket] = '[';
-	normal_map[(int)KeyCode::RightBracket] = ']';
-	normal_map[(int)KeyCode::Comma] = ',';
-	normal_map[(int)KeyCode::Period] = '.';
-	normal_map[(int)KeyCode::Slash] = '/';
-	normal_map[(int)KeyCode::Grave] = '`';
-	normal_map[(int)KeyCode::Semicolon] = ';';
-	normal_map[(int)KeyCode::Backslash] = '\\';
-	shift_map[(int)KeyCode::Minus] = '_';
-	shift_map[(int)KeyCode::Equals] = '+';
-	shift_map[(int)KeyCode::LeftBracket] = '{';
-	shift_map[(int)KeyCode::RightBracket] = '}';
-	shift_map[(int)KeyCode::Comma] = '<';
-	shift_map[(int)KeyCode::Period] = '>';
-	shift_map[(int)KeyCode::Slash] = '?';
-	shift_map[(int)KeyCode::Grave] = '~';
-	shift_map[(int)KeyCode::Semicolon] = ':';
-	shift_map[(int)KeyCode::Backslash] = '|';
+	normal_map[(s32)KeyCode::Minus] = '-';
+	normal_map[(s32)KeyCode::Equals] = '=';
+	normal_map[(s32)KeyCode::LeftBracket] = '[';
+	normal_map[(s32)KeyCode::RightBracket] = ']';
+	normal_map[(s32)KeyCode::Comma] = ',';
+	normal_map[(s32)KeyCode::Period] = '.';
+	normal_map[(s32)KeyCode::Slash] = '/';
+	normal_map[(s32)KeyCode::Grave] = '`';
+	normal_map[(s32)KeyCode::Semicolon] = ';';
+	normal_map[(s32)KeyCode::Backslash] = '\\';
+	shift_map[(s32)KeyCode::Minus] = '_';
+	shift_map[(s32)KeyCode::Equals] = '+';
+	shift_map[(s32)KeyCode::LeftBracket] = '{';
+	shift_map[(s32)KeyCode::RightBracket] = '}';
+	shift_map[(s32)KeyCode::Comma] = '<';
+	shift_map[(s32)KeyCode::Period] = '>';
+	shift_map[(s32)KeyCode::Slash] = '?';
+	shift_map[(s32)KeyCode::Grave] = '~';
+	shift_map[(s32)KeyCode::Semicolon] = ':';
+	shift_map[(s32)KeyCode::Backslash] = '|';
 
-	for (int i = 0; i < (int)KeyCode::Z - (int)KeyCode::A; i++)
+	for (s32 i = 0; i < (s32)KeyCode::Z - (s32)KeyCode::A; i++)
 	{
-		normal_map[(int)KeyCode::A + i] = 'a' + i;
-		shift_map[(int)KeyCode::A + i] = 'A' + i;
+		normal_map[(s32)KeyCode::A + i] = 'a' + i;
+		shift_map[(s32)KeyCode::A + i] = 'A' + i;
 	}
 
 	text.text(command.data);
@@ -115,8 +115,8 @@ void Console::init()
 
 void Console::update(const Update& u)
 {
-	if (u.input->keys[(int)KeyCode::Grave]
-		&& !u.last_input->keys[(int)KeyCode::Grave])
+	if (u.input->keys[(s32)KeyCode::Grave]
+		&& !u.last_input->keys[(s32)KeyCode::Grave])
 		visible = !visible;
 
 	if (fps_visible)
@@ -136,20 +136,20 @@ void Console::update(const Update& u)
 	if (visible)
 	{
 		Font* font = Loader::font_permanent(font_asset);
-		bool update = false;
-		bool shift = u.input->keys[(int)KeyCode::LShift]
-			|| u.input->keys[(int)KeyCode::RShift];
-		bool any_key_pressed = false;
-		for (int i = 1; i < font->characters.length; i++)
+		b8 update = false;
+		b8 shift = u.input->keys[(s32)KeyCode::LShift]
+			|| u.input->keys[(s32)KeyCode::RShift];
+		b8 any_key_pressed = false;
+		for (s32 i = 1; i < font->characters.length; i++)
 		{
-			if (i == (int)KeyCode::Grave)
+			if (i == (s32)KeyCode::Grave)
 				continue;
 
 			char c = shift ? shift_map[i] : normal_map[i];
 			if (!c)
 				continue;
 
-			bool add = false;
+			b8 add = false;
 			if (u.input->keys[i])
 			{
 				any_key_pressed = true;
@@ -175,12 +175,12 @@ void Console::update(const Update& u)
 			}
 		}
 
-		if (command.length > 2 && u.input->keys[(int)KeyCode::Backspace])
+		if (command.length > 2 && u.input->keys[(s32)KeyCode::Backspace])
 		{
 			any_key_pressed = true;
 
-			bool remove = false;
-			if (!u.last_input->keys[(int)KeyCode::Backspace])
+			b8 remove = false;
+			if (!u.last_input->keys[(s32)KeyCode::Backspace])
 			{
 				repeat_start_time = u.time.total;
 				remove = true;
@@ -203,7 +203,7 @@ void Console::update(const Update& u)
 		if (!any_key_pressed)
 			repeat_start_time = 0.0f;
 
-		if (u.input->keys[(int)KeyCode::Return])
+		if (u.input->keys[(s32)KeyCode::Return])
 		{
 			visible = false;
 
@@ -228,8 +228,8 @@ void Console::update(const Update& u)
 	debug_text.text(debug_buffer.data);
 	debug_buffer.length = 0;
 
-	bool update_log = false;
-	for (int i = 0; i < logs.length; i++)
+	b8 update_log = false;
+	for (s32 i = 0; i < logs.length; i++)
 	{
 		logs[i].timer -= u.time.delta;
 		if (logs[i].timer < 0.0f)
@@ -269,13 +269,13 @@ void Console::update_log()
 {
 	if (logs.length > 0)
 	{
-		int total_length = 0;
-		for (int i = 0; i < logs.length; i++)
+		s32 total_length = 0;
+		for (s32 i = 0; i < logs.length; i++)
 			total_length += logs[i].length + 1;
 		Array<char> string(total_length, total_length);
 
-		int index = 0;
-		for (int i = logs.length - 1; i >= 0; i--)
+		s32 index = 0;
+		for (s32 i = logs.length - 1; i >= 0; i--)
 		{
 			memcpy(&string[index], logs[i].string, logs[i].length);
 			index += logs[i].length;
@@ -304,8 +304,8 @@ void Console::debug(const char* format, ...)
 
 	va_end(args);
 
-	int buffer_start = debug_buffer.length;
-	int buffer_length = strlen(buffer);
+	s32 buffer_start = debug_buffer.length;
+	s32 buffer_length = strlen(buffer);
 	if (debug_buffer.length > 0)
 		debug_buffer[debug_buffer.length - 1] = '\n';
 
@@ -318,11 +318,11 @@ void Console::debug(const char* format, ...)
 void Console::draw(const RenderParams& p)
 {
 	const Rect2& vp = p.camera->viewport;
-	float padding = 6.0f * UI::scale;
+	r32 padding = 6.0f * UI::scale;
 	if (visible)
 	{
 		text.wrap_width = vp.size.x - padding * 2.0f;
-		float height = text.bounds().y + padding * 2.0f;
+		r32 height = text.bounds().y + padding * 2.0f;
 		UI::box(p, { Vec2(vp.pos.x, vp.pos.y + vp.size.y - height), Vec2(vp.size.x, height) }, Vec4(0, 0, 0, 1));
 		text.draw(p, Vec2(vp.pos.x + padding, vp.pos.y + vp.size.y - padding));
 	}

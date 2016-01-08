@@ -77,7 +77,7 @@ enum class KeyCode
 	F11 = SDL_SCANCODE_F11,
 	F12 = SDL_SCANCODE_F12,
 
-	Printscreen = SDL_SCANCODE_PRINTSCREEN,
+	Prs32screen = SDL_SCANCODE_PRINTSCREEN,
 	Scrolllock = SDL_SCANCODE_SCROLLLOCK,
 	Pause = SDL_SCANCODE_PAUSE,
 	Insert = SDL_SCANCODE_INSERT,
@@ -262,14 +262,14 @@ struct Gamepad
 		None,
 	};
 
-	bool active;
-	float left_x;
-	float left_y;
-	float right_x;
-	float right_y;
-	float left_trigger;
-	float right_trigger;
-	unsigned int btns;
+	b8 active;
+	r32 left_x;
+	r32 left_y;
+	r32 right_x;
+	r32 right_y;
+	r32 left_trigger;
+	r32 right_trigger;
+	u32 btns;
 };
 
 #define MAX_GAMEPADS 4
@@ -282,17 +282,17 @@ struct InputBinding
 
 struct InputState
 {
-	bool keys[(int)KeyCode::Count];
+	b8 keys[(s32)KeyCode::Count];
 	Gamepad gamepads[MAX_GAMEPADS];
-	int cursor_x;
-	int cursor_y;
-	int width;
-	int height;
-	bool focus;
+	s32 cursor_x;
+	s32 cursor_y;
+	s32 width;
+	s32 height;
+	b8 focus;
 
-	bool get(const InputBinding& binding, int index) const
+	b8 get(const InputBinding& binding, s32 index) const
 	{
-		return (index == 0 && keys[(int)binding.key]) || (gamepads[index].btns & (int)binding.btn);
+		return (index == 0 && keys[(s32)binding.key]) || (gamepads[index].btns & (s32)binding.btn);
 	}
 };
 

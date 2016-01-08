@@ -59,45 +59,45 @@ void SkinnedModel::draw(const RenderParams& params)
 	sync->write(RenderOp::Uniform);
 	sync->write(Asset::Uniform::mvp);
 	sync->write(RenderDataType::Mat4);
-	sync->write<int>(1);
+	sync->write<s32>(1);
 	sync->write<Mat4>(mvp);
 
 	sync->write(RenderOp::Uniform);
 	sync->write(Asset::Uniform::mv);
 	sync->write(RenderDataType::Mat4);
-	sync->write<int>(1);
+	sync->write<s32>(1);
 	sync->write<Mat4>(m * params.view);
 
 	sync->write(RenderOp::Uniform);
 	sync->write(Asset::Uniform::diffuse_map);
 	sync->write(RenderDataType::Texture);
-	sync->write<int>(1);
+	sync->write<s32>(1);
 	sync->write<RenderTextureType>(RenderTextureType::Texture2D);
 	sync->write<AssetID>(texture);
 
 	Armature* arm = Loader::armature(get<Animator>()->armature);
 	StaticArray<Mat4, MAX_BONES>& bones = get<Animator>()->bones;
 	skin_transforms.resize(bones.length);
-	for (int i = 0; i < bones.length; i++)
+	for (s32 i = 0; i < bones.length; i++)
 		skin_transforms[i] = arm->inverse_bind_pose[i] * bones[i];
 
 	sync->write(RenderOp::Uniform);
 	sync->write(Asset::Uniform::bones);
 	sync->write(RenderDataType::Mat4);
-	sync->write<int>(skin_transforms.length);
+	sync->write<s32>(skin_transforms.length);
 	sync->write(skin_transforms.data, skin_transforms.length);
 
 	sync->write(RenderOp::Uniform);
 	sync->write(Asset::Uniform::diffuse_color);
 	sync->write(RenderDataType::Vec4);
-	sync->write<int>(1);
+	sync->write<s32>(1);
 	sync->write<Vec4>(color);
 
 	sync->write(RenderOp::Mesh);
 	sync->write(mesh);
 
 #if DEBUG_SKIN
-	for (int i = 0; i < bones.length; i++)
+	for (s32 i = 0; i < bones.length; i++)
 	{
 		Mat4 bone_transform = bones[i] * m;
 		Vec3 pos;

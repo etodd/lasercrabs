@@ -6,10 +6,9 @@ namespace VI
 
 const char* AssetLookup::Mesh::values[] =
 {
-	"assets/Alpha.msh",
-	"assets/Alpha_headless.msh",
 	"assets/awk.msh",
 	"assets/character_gun.msh",
+	"assets/character_headless.msh",
 	"assets/character_mesh.msh",
 	"assets/compass_inner.msh",
 	"assets/compass_outer.msh",
@@ -115,10 +114,9 @@ const char* AssetLookup::Mesh::values[] =
 
 const char* AssetLookup::Mesh::names[] =
 {
-	"Alpha",
-	"Alpha_headless",
 	"awk",
 	"character_gun",
+	"character_headless",
 	"character_mesh",
 	"compass_inner",
 	"compass_outer",
@@ -224,33 +222,32 @@ const char* AssetLookup::Mesh::names[] =
 
 const char* AssetLookup::Animation::values[] =
 {
-	"assets/fly.anm",
-	"assets/idle.anm",
-	"assets/idle_gun.anm",
-	"assets/mantle.anm",
-	"assets/run.anm",
-	"assets/walk.anm",
+	"assets/awk_fly.anm",
+	"assets/character_idle.anm",
+	"assets/character_idle_gun.anm",
+	"assets/character_mantle.anm",
+	"assets/character_run.anm",
+	"assets/character_walk.anm",
 	0,
 };
 
 
 const char* AssetLookup::Animation::names[] =
 {
-	"fly",
-	"idle",
-	"idle_gun",
-	"mantle",
-	"run",
-	"walk",
+	"awk_fly",
+	"character_idle",
+	"character_idle_gun",
+	"character_mantle",
+	"character_run",
+	"character_walk",
 	0,
 };
 
 
 const char* AssetLookup::Armature::values[] =
 {
-	"assets/Alpha.arm",
-	"assets/Alpha_headless.arm",
 	"assets/awk.arm",
+	"assets/character_headless.arm",
 	"assets/character_mesh.arm",
 	0,
 };
@@ -258,9 +255,8 @@ const char* AssetLookup::Armature::values[] =
 
 const char* AssetLookup::Armature::names[] =
 {
-	"Alpha",
-	"Alpha_headless",
 	"awk",
+	"character_headless",
 	"character_mesh",
 	0,
 };

@@ -24,7 +24,7 @@
 namespace VI
 {
 
-const s32 version = 16;
+const s32 version = 17;
 
 const char* model_in_extension = ".blend";
 const char* model_intermediate_extension = ".fbx";
@@ -894,22 +894,32 @@ bool build_armature(Armature& armature, Map<s32>& bone_map, aiNode* node, s32 pa
 			current_bone_index = -1;
 		else
 		{
+			current_bone_index = counter;
+
 			std::string name = node->mName.C_Str();
 			std::string parent_name = node->mParent->mName.C_Str();
 			if (name != parent_name + "_end")
 			{
-				current_bone_index = counter;
-				BodyEntry* body = armature.bodies.add();
-				body->bone = parent_index;
-				body->size = scale;
-				body->pos = pos;
-				body->rot = rot;
+				bool valid = true;
+				BodyEntry::Type type;
 				if (strstr(name.c_str(), "capsule") == name.c_str())
-					body->type = BodyEntry::Type::Capsule;
+					type = BodyEntry::Type::Capsule;
 				else if (strstr(name.c_str(), "sphere") == name.c_str())
-					body->type = BodyEntry::Type::Sphere;
+					type = BodyEntry::Type::Sphere;
+				else if (strstr(name.c_str(), "box") == name.c_str())
+					type = BodyEntry::Type::Box;
 				else
-					body->type = BodyEntry::Type::Box;
+					valid = false;
+
+				if (valid)
+				{
+					BodyEntry* body = armature.bodies.add();
+					body->bone = parent_index;
+					body->size = scale;
+					body->pos = pos;
+					body->rot = rot;
+					body->type = type;
+				}
 			}
 		}
 	}
@@ -1279,6 +1289,7 @@ bool import_meshes(ImporterState& state, const std::string& asset_in_path, const
 							anim_name = anim_name.substr(pipe + 1);
 					}
 					clean_name(anim_name);
+					anim_name = asset_name + "_" + anim_name;
 
 					std::string anim_out_path = asset_out_folder + anim_name + anim_out_extension;
 

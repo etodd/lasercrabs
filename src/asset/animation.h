@@ -9,12 +9,12 @@ namespace Asset
 	namespace Animation
 	{
 		const s32 count = 6;
-		const AssetID fly = 0;
-		const AssetID idle = 1;
-		const AssetID idle_gun = 2;
-		const AssetID mantle = 3;
-		const AssetID run = 4;
-		const AssetID walk = 5;
+		const AssetID awk_fly = 0;
+		const AssetID character_idle = 1;
+		const AssetID character_idle_gun = 2;
+		const AssetID character_mantle = 3;
+		const AssetID character_run = 4;
+		const AssetID character_walk = 5;
 	}
 }
 

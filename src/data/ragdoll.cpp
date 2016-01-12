@@ -127,14 +127,14 @@ void Ragdoll::awake()
 					if (Quat::angle(a, b) > 0.1f)
 						frame_b.setRotation(frame_b.getRotation() * Quat::euler(0, 0, PI));
 
-					RigidBody::Constraint constras32;
-					constras32.type = RigidBody::Constraint::Type::ConeTwist;
-					constras32.frame_a = frame_a;
-					constras32.frame_b = frame_b;
-					constras32.limits = Vec3(PI * 0.25f, PI * 0.25f, 0);
-					constras32.a = entity->get<RigidBody>();
-					constras32.b = parent_entity->get<RigidBody>();
-					RigidBody::add_constras32(constras32);
+					RigidBody::Constraint constraint;
+					constraint.type = RigidBody::Constraint::Type::ConeTwist;
+					constraint.frame_a = frame_a;
+					constraint.frame_b = frame_b;
+					constraint.limits = Vec3(PI * 0.25f, PI * 0.25f, 0);
+					constraint.a = entity->get<RigidBody>();
+					constraint.b = parent_entity->get<RigidBody>();
+					RigidBody::add_constraint(constraint);
 				}
 			}
 		}

@@ -133,15 +133,13 @@ void NoclipControl::update(const Update& u)
 		}
 	}
 	
-	r32 FoV = fov_initial;
-
 	camera->viewport =
 	{
 		Vec2(0, 0),
 		Vec2(u.input->width, u.input->height),
 	};
 	r32 aspect = camera->viewport.size.y == 0 ? 1 : (r32)camera->viewport.size.x / (r32)camera->viewport.size.y;
-	camera->perspective(FoV, aspect, 0.02f, Skybox::far_plane);
+	camera->perspective(fov_initial, aspect, 0.02f, Skybox::far_plane);
 
 	// Camera matrix
 	Vec3 pos = get<Transform>()->absolute_pos();

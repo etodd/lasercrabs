@@ -77,15 +77,15 @@ def add(obj, parent_index = -1):
 				links.append(constraint.target.name)
 
 	return node
-	
-for obj in (x for x in bpy.data.objects if x.parent is None):
-	add(obj)
 
 world_node = add(bpy.data.worlds[0])
 world_node['World'] = True
 world_node['skybox_color'] = list(bpy.data.worlds[0].horizon_color)
 world_node['ambient_color'] = list(bpy.data.worlds[0].ambient_color)
 world_node['zenith_color'] = list(bpy.data.worlds[0].zenith_color)
+	
+for obj in (x for x in bpy.data.objects if x.parent is None):
+	add(obj)
 
 with open(output_file, 'w') as f:
 	json.dump(result, f)

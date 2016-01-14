@@ -148,6 +148,7 @@ struct World
 
 template<typename T, typename... Args> T* Entity::create(Args... args)
 {
+	vi_assert(!has<T>());
 	T* item = T::pool.add();
 	component_mask |= T::component_mask;
 	components[T::family] = item->id();
@@ -158,6 +159,7 @@ template<typename T, typename... Args> T* Entity::create(Args... args)
 
 template<typename T, typename... Args> T* Entity::add(Args... args)
 {
+	vi_assert(!has<T>());
 	T* component = create<T>(args...);
 	component->awake();
 	return component;
@@ -165,6 +167,7 @@ template<typename T, typename... Args> T* Entity::add(Args... args)
 
 template<typename T> void Entity::attach(T* t)
 {
+	vi_assert(!has<T>());
 	component_mask |= T::component_mask;
 	components[T::family] = t->id();
 	t->entity_id = id();

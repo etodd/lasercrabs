@@ -1049,7 +1049,6 @@ void Loader::settings_save()
 		cJSON_AddItemToObject(bindings, "left", input_binding_json(settings_data.bindings.left));
 		cJSON_AddItemToObject(bindings, "right", input_binding_json(settings_data.bindings.right));
 		cJSON_AddItemToObject(bindings, "jump", input_binding_json(settings_data.bindings.jump));
-		cJSON_AddItemToObject(bindings, "down", input_binding_json(settings_data.bindings.down));
 		cJSON_AddItemToObject(bindings, "primary", input_binding_json(settings_data.bindings.primary));
 		cJSON_AddItemToObject(bindings, "secondary", input_binding_json(settings_data.bindings.secondary));
 		cJSON_AddItemToObject(bindings, "parkour", input_binding_json(settings_data.bindings.parkour));

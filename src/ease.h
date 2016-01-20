@@ -20,9 +20,9 @@ namespace Ease
 		QuartIn,
 		QuartOut,
 		QuartInOut,
-		Qus32In,
-		Qus32Out,
-		Qus32InOut,
+		QuintIn,
+		QuintOut,
+		QuintInOut,
 		SinIn,
 		SinOut,
 		SinInOut,
@@ -46,9 +46,9 @@ namespace Ease
 		"QuartIn",
 		"QuartOut",
 		"QuartInOut",
-		"Qus32In",
-		"Qus32Out",
-		"Qus32InOut",
+		"QuintIn",
+		"QuintOut",
+		"QuintInOut",
 		"SinIn",
 		"SinOut",
 		"SinInOut",
@@ -138,21 +138,21 @@ namespace Ease
 		return -c / 2.0f  *  (x * x * x * x - 2.0f) + start;
 	}
 
-	// qus32ic easing in - accelerating from zero velocity
-	template<typename T> T qus32_in(r32 x, T start = 0.0f, T end = 1.0f)
+	// quintic easing in - accelerating from zero velocity
+	template<typename T> T quint_in(r32 x, T start = 0.0f, T end = 1.0f)
 	{
 		return (end - start) * x * x * x * x * x + start;
 	}
 
-	// qus32ic easing out - decelerating to zero velocity
-	template<typename T> T qus32_out(r32 x, T start = 0.0f, T end = 1.0f)
+	// quintic easing out - decelerating to zero velocity
+	template<typename T> T quint_out(r32 x, T start = 0.0f, T end = 1.0f)
 	{
 		x--;
 		return (end - start)  *  (x * x * x * x * x + 1.0f) + start;
 	}
 
-	// qus32ic easing in/out - acceleration until halfway, then deceleration
-	template<typename T> T qus32_in_out(r32 x, T start = 0.0f, T end = 1.0f)
+	// quintic easing in/out - acceleration until halfway, then deceleration
+	template<typename T> T quint_in_out(r32 x, T start = 0.0f, T end = 1.0f)
 	{
 		T c = end - start;
 		x *= 2.0f;
@@ -253,12 +253,12 @@ namespace Ease
 				return quart_out(x, start, end);
 			case Type::QuartInOut:
 				return quart_in_out(x, start, end);
-			case Type::Qus32In:
-				return qus32_in(x, start, end);
-			case Type::Qus32Out:
-				return qus32_out(x, start, end);
-			case Type::Qus32InOut:
-				return qus32_in_out(x, start, end);
+			case Type::QuintIn:
+				return quint_in(x, start, end);
+			case Type::QuintOut:
+				return quint_out(x, start, end);
+			case Type::QuintInOut:
+				return quint_in_out(x, start, end);
 			case Type::SinIn:
 				return sin_in(x, start, end);
 			case Type::SinOut:

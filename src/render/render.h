@@ -43,6 +43,7 @@ struct Camera
 	r32 near_plane;
 	r32 far_plane;
 	b8 fog;
+	r32 range;
 	Vec3 pos;
 	Quat rot;
 	Rect2 viewport;

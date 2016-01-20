@@ -39,7 +39,6 @@ struct Settings
 		InputBinding left;
 		InputBinding right;
 		InputBinding jump;
-		InputBinding down;
 		InputBinding primary;
 		InputBinding secondary;
 		InputBinding walk;

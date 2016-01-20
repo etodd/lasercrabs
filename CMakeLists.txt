@@ -325,7 +325,6 @@ endif(WIN32)
 target_link_libraries(mkzebra
 	${OPENGL_LIBRARIES}
 	SDL2-static
-	SDL2main
 	GLEW_static
 	BulletDynamics
 	BulletCollision
@@ -361,7 +360,6 @@ target_include_directories(import PRIVATE ${IMPORT_INCLUDES})
 target_link_libraries(import
 	${OPENGL_LIBRARIES}
 	SDL2-static
-	SDL2main
 	GLEW_static
 	assimp
 	recast

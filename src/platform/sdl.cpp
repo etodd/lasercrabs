@@ -2,6 +2,7 @@
 
 #include <glew/include/GL/glew.h>
 #include <sdl/include/SDL.h>
+#undef main
 
 #include "render/glvm.h"
 #include "load.h"

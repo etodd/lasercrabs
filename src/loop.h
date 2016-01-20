@@ -832,6 +832,23 @@ void draw(LoopSync* sync, const Camera* camera)
 		sync->write(RenderTechnique::Default);
 
 		sync->write(RenderOp::Uniform);
+		sync->write(Asset::Uniform::range);
+		sync->write(RenderDataType::Float);
+		sync->write<s32>(1);
+		sync->write<r32>(render_params.camera->range);
+
+		if (camera->range > 0.0f)
+		{
+			// we need to mark unreachable and out-of-range areas
+			// set the wall normal so everything behind the wall is marked off
+			sync->write(RenderOp::Uniform);
+			sync->write(Asset::Uniform::wall_normal);
+			sync->write(RenderDataType::Vec3);
+			sync->write<s32>(1);
+			sync->write<Vec3>(render_params.camera->wall_normal);
+		}
+
+		sync->write(RenderOp::Uniform);
 		sync->write(Asset::Uniform::p);
 		sync->write(RenderDataType::Mat4);
 		sync->write<s32>(1);
@@ -876,12 +893,6 @@ void draw(LoopSync* sync, const Camera* camera)
 		sync->write<s32>(1);
 		sync->write<RenderTextureType>(RenderTextureType::Texture2D);
 		sync->write<AssetID>(depth_buffer);
-
-		sync->write(RenderOp::Uniform);
-		sync->write(Asset::Uniform::wall_normal);
-		sync->write(RenderDataType::Vec3);
-		sync->write<s32>(1);
-		sync->write<Vec3>(render_params.camera->wall_normal);
 
 		sync->write(RenderOp::Mesh);
 		sync->write(screen_quad.mesh);

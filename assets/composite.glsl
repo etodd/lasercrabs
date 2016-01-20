@@ -33,6 +33,7 @@ uniform sampler2D depth_buffer;
 uniform sampler2D ssao_buffer;
 uniform mat4 p;
 uniform vec3 wall_normal;
+uniform float range;
 
 float bump_contrast(float x)
 {
@@ -58,8 +59,13 @@ void main()
 		vec3 lighting_color = color.rgb * lighting.rgb;
 		vec3 pos = view_ray * depth;
 		const vec3 luminance_weights = vec3(0.3333, 0.3333, 0.3333);
-		bool in_range = length(pos) < 25.0f && dot(view_ray, wall_normal) > 0.0;
-		final_color = in_range ? lighting_color : zenith_color * (0.4 + bump_contrast(dot(lighting_color, luminance_weights)));
+		if (range == 0.0f)
+			final_color = lighting_color;
+		else
+		{
+			bool in_range = length(pos) < range && dot(view_ray, wall_normal) > 0.0;
+			final_color = in_range ? lighting_color : zenith_color * (0.4 + bump_contrast(dot(lighting_color, luminance_weights)));
+		}
 	}
 	out_color = vec4(final_color, 1);
 }

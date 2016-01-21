@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="utf-8"?>
+<WwiseDocument Type="WorkUnit" ID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}" SchemaVersion="70">
+	<Busses>
+		<WorkUnit Name="Default Work Unit" ID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}" PersistMode="Standalone">
+			<ChildrenList>
+				<Bus Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}">
+					<ChildrenList>
+						<Bus Name="Music" ID="{7964C80C-6C7B-447F-AF8B-6C14A891BF66}">
+							<PropertyList>
+								<Property Name="BusVolume" Type="Real64">
+									<RTPCList>
+										<RTPC Name="" ID="{0B774BC8-4D21-48A6-9C9A-86A957E3F85F}" ShortID="853417574">
+											<ReferenceList>
+												<Reference Name="ControlInput">
+													<ObjectRef Name="MusicVol" ID="{B1E54CCC-5EC7-4345-A62F-3A5A4F0365C8}" WorkUnitID="{69B9E84F-FF2F-4892-AA65-C44E8F790E15}"/>
+												</Reference>
+											</ReferenceList>
+											<Curve Name="" ID="{F6AE5BCC-8393-4242-A6BE-0091304B06B1}">
+												<PropertyList>
+													<Property Name="Flags" Type="int32" Value="3"/>
+												</PropertyList>
+												<PointList>
+													<Point>
+														<XPos>0</XPos>
+														<YPos>-200</YPos>
+														<Flags>5</Flags>
+													</Point>
+													<Point>
+														<XPos>1</XPos>
+														<YPos>0</YPos>
+														<Flags>37</Flags>
+													</Point>
+												</PointList>
+											</Curve>
+										</RTPC>
+									</RTPCList>
+								</Property>
+							</PropertyList>
+						</Bus>
+						<Bus Name="SFX" ID="{D8C4DCF4-CECB-4719-A133-EE443EDE0A5B}">
+							<PropertyList>
+								<Property Name="BusVolume" Type="Real64">
+									<RTPCList>
+										<RTPC Name="" ID="{2139DD91-8EC7-486D-816D-97F36F3604C0}" ShortID="563762353">
+											<ReferenceList>
+												<Reference Name="ControlInput">
+													<ObjectRef Name="SFXVol" ID="{31BB14DE-9BFF-4D9D-A09A-D58020485541}" WorkUnitID="{69B9E84F-FF2F-4892-AA65-C44E8F790E15}"/>
+												</Reference>
+											</ReferenceList>
+											<Curve Name="" ID="{0932D6F6-08B4-4E9F-871B-CE0B544D5DF4}">
+												<PropertyList>
+													<Property Name="Flags" Type="int32" Value="3"/>
+												</PropertyList>
+												<PointList>
+													<Point>
+														<XPos>0</XPos>
+														<YPos>-200</YPos>
+														<Flags>5</Flags>
+													</Point>
+													<Point>
+														<XPos>1</XPos>
+														<YPos>0</YPos>
+														<Flags>37</Flags>
+													</Point>
+												</PointList>
+											</Curve>
+										</RTPC>
+									</RTPCList>
+								</Property>
+							</PropertyList>
+						</Bus>
+						<Bus Name="Dialogue" ID="{E8A73A5E-056C-46B8-875C-9658C99452FC}">
+							<ReferenceList>
+								<Reference Name="Effect0">
+									<Custom>
+										<Effect Name="Wwise Meter (Custom)" ID="{64EEEF32-6D0F-4A6D-9BD6-EDD5A5653DA2}" ShortID="479835529" PluginName="Wwise Meter" CompanyID="0" PluginID="129" PluginType="3"/>
+									</Custom>
+								</Reference>
+							</ReferenceList>
+						</Bus>
+					</ChildrenList>
+				</Bus>
+				<Bus Name="Master Secondary Bus" ID="{D2E0BC7E-7B3F-4FFE-A670-FAE02761B631}"/>
+				<MotionBus Name="Master Motion Bus" ID="{20A630BA-3398-4676-B927-1004DFE41FD8}"/>
+			</ChildrenList>
+		</WorkUnit>
+	</Busses>
+</WwiseDocument>

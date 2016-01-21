@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<WwiseDocument Type="WorkUnit" ID="{69B9E84F-FF2F-4892-AA65-C44E8F790E15}" SchemaVersion="70">
+	<GameParameters>
+		<WorkUnit Name="Default Work Unit" ID="{69B9E84F-FF2F-4892-AA65-C44E8F790E15}" PersistMode="Standalone">
+			<ChildrenList>
+				<GameParameter Name="MusicVol" ID="{B1E54CCC-5EC7-4345-A62F-3A5A4F0365C8}">
+					<PropertyList>
+						<Property Name="InitialValue" Type="Real64" Value="1"/>
+						<Property Name="Max" Type="Real64" Value="1"/>
+					</PropertyList>
+				</GameParameter>
+				<GameParameter Name="SFXVol" ID="{31BB14DE-9BFF-4D9D-A09A-D58020485541}">
+					<PropertyList>
+						<Property Name="InitialValue" Type="Real64" Value="1"/>
+						<Property Name="Max" Type="Real64" Value="1"/>
+					</PropertyList>
+				</GameParameter>
+				<GameParameter Name="Danger" ID="{F2CF682D-D1A7-4B62-82F0-EB53B18EEC18}">
+					<PropertyList>
+						<Property Name="InitialValue" Type="Real64" Value="0"/>
+						<Property Name="Max" Type="Real64" Value="1"/>
+					</PropertyList>
+				</GameParameter>
+				<GameParameter Name="Awk_Speed" ID="{708CBCD1-1DB0-485B-AEAE-F0CA2AF9EC2A}">
+					<PropertyList>
+						<Property Name="InitialValue" Type="Real64" Value="1"/>
+						<Property Name="Max" Type="Real64" Value="1"/>
+					</PropertyList>
+				</GameParameter>
+			</ChildrenList>
+		</WorkUnit>
+	</GameParameters>
+</WwiseDocument>

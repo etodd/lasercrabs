@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="utf-8"?>
+<WwiseDocument Type="WorkUnit" ID="{446B4819-1566-494F-8D50-3470FCB05102}" SchemaVersion="70">
+	<SoundcasterSessions>
+		<WorkUnit Name="Default Work Unit" ID="{446B4819-1566-494F-8D50-3470FCB05102}" PersistMode="Standalone">
+			<ChildrenList>
+				<SoundcasterSession Name="New Soundcaster Session" ID="{799CE862-452C-45BD-BDD4-716FED3E2E89}">
+					<ModuleList>
+						<Module>
+							<ObjectRef Name="Play_Fly" ID="{4614E46B-6FA6-4775-A36F-F984E13E0C64}" WorkUnitID="{F7DCD93D-1960-44B8-8FE4-DDCCBA7910C7}"/>
+							<Position X="0" Y="1"/>
+						</Module>
+						<Module>
+							<ObjectRef Name="Play_Land" ID="{329B5A76-4FC9-4BAD-BE77-0DC8E2CD81A5}" WorkUnitID="{F7DCD93D-1960-44B8-8FE4-DDCCBA7910C7}"/>
+							<Position X="0" Y="2"/>
+						</Module>
+						<Module>
+							<ObjectRef Name="Stop_Fly" ID="{C535FDDC-7E3A-4286-AD18-154B17D2F61C}" WorkUnitID="{F7DCD93D-1960-44B8-8FE4-DDCCBA7910C7}"/>
+							<Position X="0" Y="3"/>
+						</Module>
+						<Module>
+							<ObjectRef Name="Play_Footstep" ID="{912A7768-2178-48E7-BCF7-F9F9EE2EADDE}" WorkUnitID="{F7DCD93D-1960-44B8-8FE4-DDCCBA7910C7}"/>
+							<Position X="1" Y="1"/>
+						</Module>
+						<Module>
+							<ObjectRef Name="Play_Laser" ID="{D58B09F0-22C3-413D-A8F2-0F113D4C4F70}" WorkUnitID="{F7DCD93D-1960-44B8-8FE4-DDCCBA7910C7}"/>
+							<Position X="1" Y="2"/>
+						</Module>
+						<Module>
+							<ObjectRef Name="Stop_Music_01" ID="{40D279E1-C3FD-4FDE-8274-179DCFECABDF}" WorkUnitID="{F7DCD93D-1960-44B8-8FE4-DDCCBA7910C7}"/>
+							<Position X="1" Y="3"/>
+						</Module>
+						<Module>
+							<ObjectRef Name="Play_Headshot" ID="{96CF21EF-E2BB-48CE-80B4-54E2FA6F3049}" WorkUnitID="{F7DCD93D-1960-44B8-8FE4-DDCCBA7910C7}"/>
+							<Position X="2" Y="1"/>
+						</Module>
+						<Module>
+							<ObjectRef Name="Play_Launch" ID="{E515E0C5-7679-46C8-B458-736D6A90AB99}" WorkUnitID="{F7DCD93D-1960-44B8-8FE4-DDCCBA7910C7}"/>
+							<Position X="2" Y="2"/>
+						</Module>
+						<Module>
+							<ObjectRef Name="Play_Hurt" ID="{7A7B24CA-E959-4808-A4A6-2801162BE918}" WorkUnitID="{F7DCD93D-1960-44B8-8FE4-DDCCBA7910C7}"/>
+							<Position X="3" Y="1"/>
+						</Module>
+						<Module>
+							<ObjectRef Name="Play_Music_01" ID="{C03573CE-9B2B-4870-BCA7-3F8D6DADB163}" WorkUnitID="{F7DCD93D-1960-44B8-8FE4-DDCCBA7910C7}"/>
+							<Position X="3" Y="2"/>
+						</Module>
+					</ModuleList>
+					<RTPCValueList ShowAll="true">
+						<RTPCValue>
+							<GameParameterRef Name="Danger" ID="{F2CF682D-D1A7-4B62-82F0-EB53B18EEC18}"/>
+							<Value>0</Value>
+						</RTPCValue>
+						<RTPCValue>
+							<GameParameterRef Name="MusicVol" ID="{B1E54CCC-5EC7-4345-A62F-3A5A4F0365C8}"/>
+							<Value>0.84923928077455</Value>
+						</RTPCValue>
+						<RTPCValue>
+							<GameParameterRef Name="SFXVol" ID="{31BB14DE-9BFF-4D9D-A09A-D58020485541}"/>
+							<Value>1</Value>
+						</RTPCValue>
+					</RTPCValueList>
+					<CurrentStateList ShowAll="true"/>
+					<CurrentSwitchList ShowAll="true"/>
+				</SoundcasterSession>
+			</ChildrenList>
+		</WorkUnit>
+	</SoundcasterSessions>
+</WwiseDocument>

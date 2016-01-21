@@ -4,3 +4,11 @@ build
 *.blend1
 *.blend2
 .p4config
+assets/audio/IncrementalSoundBankData.xml
+assets/audio/*.wsettings
+assets/audio/*.validationcache
+assets/audio/.cache
+assets/audio/*.prof
+assets/audio/GeneratedSoundBanks
+assets/audio/Originals/WavAnalysis.cache
+.DS_Store

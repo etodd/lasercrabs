@@ -46,18 +46,28 @@ const char* asset_in_folder = "../assets/";
 const char* asset_out_folder = "assets/";
 const char* level_in_folder = "../assets/lvl/";
 const char* level_out_folder = "assets/lvl/";
-const char* wwise_project_path = "../src/game/audio/audio.wproj";
-const char* wwise_header_in_path = "../src/game/audio/GeneratedSoundBanks/Wwise_IDs.h";
+const char* wwise_project_path = "../assets/audio/audio.wproj";
+const char* wwise_header_in_path = "../assets/audio/GeneratedSoundBanks/Wwise_IDs.h";
 #if _WIN32
-const char* soundbank_in_folder = "../src/game/audio/GeneratedSoundBanks/Windows/";
+const char* soundbank_in_folder = "../assets/audio/GeneratedSoundBanks/Windows/";
 #else
 #if defined(__APPLE__)
-const char* soundbank_in_folder = "../src/game/audio/GeneratedSoundBanks/Mac/";
+const char* soundbank_in_folder = "../assets/audio/GeneratedSoundBanks/Mac/";
 #else
-const char* soundbank_in_folder = "../src/game/audio/GeneratedSoundBanks/Linux/";
+const char* soundbank_in_folder = "../assets/audio/GeneratedSoundBanks/Linux/";
 #endif
 #endif
-
+const char* manifest_path = ".manifest";
+const char* asset_src_path = "../src/asset/values.cpp";
+const char* mesh_header_path = "../src/asset/mesh.h";
+const char* animation_header_path = "../src/asset/animation.h";
+const char* texture_header_path = "../src/asset/texture.h";
+const char* soundbank_header_path = "../src/asset/soundbank.h";
+const char* shader_header_path = "../src/asset/shader.h";
+const char* armature_header_path = "../src/asset/armature.h";
+const char* font_header_path = "../src/asset/font.h";
+const char* level_header_path = "../src/asset/level.h";
+const char* wwise_header_out_path = "../src/asset/Wwise_IDs.h";
 
 const r32 nav_agent_height = 2.0f;
 const r32 nav_agent_max_climb = 0.5f;
@@ -1928,18 +1938,6 @@ void close_asset_header(FILE* f)
 
 s32 proc(s32 argc, char* argv[])
 {
-	const char* manifest_path = ".manifest";
-	const char* asset_src_path = "../src/asset/values.cpp";
-	const char* mesh_header_path = "../src/asset/mesh.h";
-	const char* animation_header_path = "../src/asset/animation.h";
-	const char* texture_header_path = "../src/asset/texture.h";
-	const char* soundbank_header_path = "../src/game/wwise/soundbank.h";
-	const char* shader_header_path = "../src/asset/shader.h";
-	const char* armature_header_path = "../src/asset/armature.h";
-	const char* font_header_path = "../src/asset/font.h";
-	const char* level_header_path = "../src/asset/level.h";
-	const char* wwise_header_out_path = "../src/game/wwise/Wwise_IDs.h";
-
 	// Initialise SDL
 	if (SDL_Init(SDL_INIT_VIDEO) < 0)
 	{
@@ -2085,7 +2083,7 @@ s32 proc(s32 argc, char* argv[])
 #endif
 		if (!success)
 		{
-			fprintf(stderr, "Wwise build failed.\n");
+			fprintf(stderr, "Error: Wwise build failed.\n");
 			return exit_error();
 		}
 
@@ -2094,7 +2092,7 @@ s32 proc(s32 argc, char* argv[])
 			DIR* dir = opendir(soundbank_in_folder);
 			if (!dir)
 			{
-				fprintf(stderr, "Failed to open input soundbank directory.\n");
+				fprintf(stderr, "Error: Failed to open input soundbank directory.\n");
 				return exit_error();
 			}
 			struct dirent* entry;

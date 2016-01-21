@@ -8,8 +8,6 @@ set(ZLIB_INCLUDE_DIR
 	${CMAKE_CURRENT_SOURCE_DIR}/external/assimp/contrib/zlib
 	${CMAKE_CURRENT_BINARY_DIR}/external/assimp/contrib/zlib
 )
- 
-include(src/game/CMakeLists.txt)
 
 set(IMPORT_INCLUDES
 	external
@@ -27,7 +25,6 @@ set(ALL_INCLUDES
 	${SDL2_BINARY_DIR}/include
 	external/bullet/src
 	src
-	${GAME_INCLUDE_PATHS}
 )
 
 string(REPLACE ";" "," ALL_INCLUDES_COMMA "${ALL_INCLUDES}")
@@ -73,6 +70,10 @@ set(SDL_FILE ON CACHE BOOL "" FORCE)
 set(SDL_SHARED OFF CACHE BOOL "" FORCE)
 set(SDL_STATIC ON CACHE BOOL "" FORCE)
 add_subdirectory(external/sdl)
+ 
+## Wwise
+add_subdirectory(external/wwise)
+cmake_policy(SET CMP0008 OLD)
 
 ## cJSON
 add_subdirectory(external/cjson)
@@ -214,15 +215,6 @@ add_library(mersenne STATIC
 
 ## Source
 
-if (NOT EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/src/game/CMakeLists.txt)
-	set(template_files
-		src/template/CMakeLists.txt
-		src/template/game.cpp
-		src/template/game.h
-	)
-	file(COPY ${template_files} DESTINATION ${CMAKE_CURRENT_SOURCE_DIR}/src/game/)
-endif()
-
 add_custom_command(
 	OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/gamecontrollerdb.txt
 	COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_SOURCE_DIR}/external/sdl_controllers/gamecontrollerdb.txt ${CMAKE_CURRENT_BINARY_DIR}/gamecontrollerdb.txt
@@ -262,6 +254,8 @@ add_executable(mkzebra
 	src/asset/level.h
 	src/asset/texture.h
 	src/asset/values.cpp
+	src/asset/soundbank.h
+	src/asset/Wwise_IDs.h
 	src/platform/sdl.cpp
 	src/sync.h
 	src/types.h
@@ -281,7 +275,29 @@ add_executable(mkzebra
 	src/ai.cpp
 	src/loop.h
 	src/ease.h
-	${GAME_SRC_FILES}
+	src/game/component_ids.cpp
+	src/game/entities.h
+	src/game/entities.cpp
+	src/game/sentinel.h
+	src/game/sentinel.cpp
+	src/game/player.h
+	src/game/player.cpp
+	src/game/ai_player.h
+	src/game/ai_player.cpp
+	src/game/awk.h
+	src/game/awk.cpp
+	src/game/walker.h
+	src/game/walker.cpp
+	src/game/game.h
+	src/game/game.cpp
+	src/game/audio.h
+	src/game/audio.cpp
+	src/game/menu.h
+	src/game/menu.cpp
+	src/game/scripts.h
+	src/game/scripts.cpp
+	src/game/usernames.h
+	src/game/usernames.cpp
 	external/sdl_controllers/gamecontrollerdb.txt
 	assets/armature.glsl
 	assets/composite.glsl
@@ -334,7 +350,7 @@ target_link_libraries(mkzebra
 	detour
 	cJSON
 	mersenne
-	${GAME_LIBRARIES}
+	wwise_integration
 )
 
 if(APPLE)

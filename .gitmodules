@@ -13,9 +13,6 @@
 [submodule "external/recast"]
 	path = external/recast
 	url = git@github.com:etodd/recastnavigation.git
-[submodule "src/game"]
-	path = src/game
-	url = git@bitbucket.org:etodd/mkzebra_private.git
 [submodule "external/sdl"]
 	path = external/sdl
 	url = git@github.com:etodd/SDL-mirror.git

@@ -4,7 +4,7 @@
 namespace VI
 {
 
-PinArray<Entity, MAX_ENTITIES> World::entities = PinArray<Entity, MAX_ENTITIES>();
+PinArray<Entity, MAX_ENTITIES> Entity::list = PinArray<Entity, MAX_ENTITIES>();
 Array<ID> World::remove_buffer = Array<ID>();
 ComponentPoolBase* World::component_pools[MAX_FAMILIES];
 
@@ -54,15 +54,10 @@ Entity::Entity()
 {
 }
 
-ID Entity::id() const
-{
-	return (ID)(((char*)this - (char*)&World::entities[0]) / sizeof(Entity));
-}
-
 void World::remove(Entity* e)
 {
 	ID id = e->id();
-	vi_assert(entities.is_active(id));
+	vi_assert(Entity::list.is_active(id));
 	for (Family i = 0; i < World::families; i++)
 	{
 		if (e->component_mask & ((ComponentMask)1 << i))
@@ -70,7 +65,7 @@ void World::remove(Entity* e)
 	}
 	e->component_mask = 0;
 	e->revision++;
-	entities.remove(id);
+	Entity::list.remove(id);
 }
 
 void World::remove_deferred(Entity* e)
@@ -81,7 +76,7 @@ void World::remove_deferred(Entity* e)
 void World::flush()
 {
 	for (s32 i = 0; i < remove_buffer.length; i++)
-		World::remove(&World::entities[remove_buffer[i]]);
+		World::remove(&Entity::list[remove_buffer[i]]);
 	remove_buffer.length = 0;
 }
 
@@ -92,7 +87,7 @@ LinkEntry::LinkEntry()
 }
 
 LinkEntry::LinkEntry(ID entity)
-	: data(entity, World::entities[entity].revision)
+	: data(entity, Entity::list[entity].revision)
 {
 
 }

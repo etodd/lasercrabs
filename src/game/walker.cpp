@@ -240,7 +240,7 @@ void Walker::update(const Update& u)
 					}
 				}
 
-				support = World::entities[object->getUserIndex()].get<RigidBody>();
+				support = Entity::list[object->getUserIndex()].get<RigidBody>();
 				break;
 			}
 		}

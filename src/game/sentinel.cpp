@@ -496,7 +496,7 @@ void SentinelCommon::update(const Update& u)
 						transform.setOrigin(new_pos);
 						body->setWorldTransform(transform);
 
-						last_support = World::entities[ray_callback.m_collisionObject->getUserIndex()].get<RigidBody>();
+						last_support = Entity::list[ray_callback.m_collisionObject->getUserIndex()].get<RigidBody>();
 						relative_wall_run_normal = last_support.ref()->get<Transform>()->to_local_normal(wall_normal);
 
 						// Face the correct direction
@@ -763,7 +763,7 @@ b8 SentinelCommon::try_parkour(b8 force)
 			{
 				get<Animator>()->layers[1].play(Asset::Animation::character_mantle);
 				fsm.transition(State::Mantle);
-				last_support = World::entities[ray_callback.m_collisionObject->getUserIndex()].get<RigidBody>();
+				last_support = Entity::list[ray_callback.m_collisionObject->getUserIndex()].get<RigidBody>();
 				relative_support_pos = last_support.ref()->get<Transform>()->to_local(ray_callback.m_hitPointWorld + Vec3(0, walker->support_height + walker->height * 0.6f, 0));
 				last_support_time = Game::time.total;
 
@@ -869,7 +869,7 @@ b8 SentinelCommon::try_wall_run(WallRunState s, const Vec3& wall_direction)
 		}
 
 		wall_run_state = s;
-		last_support = World::entities[ray_callback.m_collisionObject->getUserIndex()].get<RigidBody>();
+		last_support = Entity::list[ray_callback.m_collisionObject->getUserIndex()].get<RigidBody>();
 		relative_support_pos = last_support.ref()->get<Transform>()->to_local(ray_callback.m_hitPointWorld);
 		relative_wall_run_normal = last_support.ref()->get<Transform>()->to_local_normal(wall_normal);
 		fsm.transition(State::WallRun);

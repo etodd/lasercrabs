@@ -37,8 +37,6 @@ struct Game
 	struct Data
 	{
 		s32 credits[(s32)AI::Team::count];
-		PinArray<LocalPlayer, MAX_PLAYERS> local_players;
-		PinArray<AIPlayer, MAX_AI_PLAYERS> ai_players;
 		AssetID level;
 		AssetID previous_level;
 		Mode mode;

@@ -24,7 +24,7 @@ struct Camera;
 struct LocalPlayer
 {
 	enum class UIMode { Default, Pause, Spawning };
-	static PinArray<LocalPlayer, MAX_PLAYERS>& list();
+	static PinArray<LocalPlayer, MAX_PLAYERS> list;
 
 	u8 gamepad;
 	b8 pause;
@@ -40,7 +40,7 @@ struct LocalPlayer
 	Revision revision;
 	ID id() const
 	{
-		return this - &list()[0];
+		return this - &list[0];
 	}
 
 	Camera* camera;

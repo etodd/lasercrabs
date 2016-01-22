@@ -56,7 +56,7 @@ template<typename T> struct Ref
 	{
 		if (id == IDNull)
 			return nullptr;
-		T* target = &T::list()[id];
+		T* target = &T::list[id];
 		return target->revision == revision ? target : nullptr;
 	}
 };
@@ -64,29 +64,27 @@ template<typename T> struct Ref
 template<typename T>
 struct ComponentPool : public ComponentPoolBase
 {
-	PinArray<T, MAX_ENTITIES> data;
-
-	typename T* add()
+	T* add()
 	{
-		return data.add();
+		return T::list.add();
 	}
 
 	T* get(ID id)
 	{
-		return &data[id];
+		return &T::list[id];
 	}
 
 	virtual void awake(ID id)
 	{
-		data[id].awake();
+		T::list[id].awake();
 	}
 
 	virtual void remove(ID id)
 	{
-		T* item = &data[id];
+		T* item = &T::list[id];
 		item->~T();
 		item->revision++;
-		data.remove(id);
+		T::list.remove(id);
 	}
 
 	template<typename T2> T2* global()
@@ -111,8 +109,6 @@ struct Entity
 	ComponentMask component_mask;
 	Entity();
 
-	inline ID id() const;
-
 	template<typename T, typename... Args> T* create(Args... args);
 	template<typename T, typename... Args> T* add(Args... args);
 	template<typename T> void attach(T*);
@@ -120,13 +116,17 @@ struct Entity
 	template<typename T> void remove();
 	template<typename T> inline b8 has() const;
 	template<typename T> inline T* get() const;
-	static inline PinArray<Entity, MAX_ENTITIES>& list();
+	static PinArray<Entity, MAX_ENTITIES> list;
+
+	inline ID id() const
+	{
+		return (ID)(((char*)this - (char*)&list[0]) / sizeof(Entity));
+	}
 };
 
 struct World
 {
 	static Family families;
-	static PinArray<Entity, MAX_ENTITIES> entities;
 	static Array<ID> remove_buffer;
 	static ComponentPoolBase* component_pools[MAX_FAMILIES];
 
@@ -134,7 +134,7 @@ struct World
 
 	template<typename T, typename... Args> static T* create(Args... args)
 	{
-		Entity* e = entities.add();
+		Entity* e = Entity::list.add();
 		new (e) T(args...);
 		awake(e);
 		return (T*)e;
@@ -194,12 +194,7 @@ template<typename T> inline b8 Entity::has() const
 template<typename T> inline T* Entity::get() const
 {
 	vi_assert(has<T>());
-	return &T::list()[components[T::family]];
-}
-
-inline PinArray<Entity, MAX_ENTITIES>& Entity::list()
-{
-	return World::entities;
+	return &T::list[components[T::family]];
 }
 
 struct ComponentBase
@@ -209,17 +204,17 @@ struct ComponentBase
 
 	inline Entity* entity() const
 	{
-		return &World::entities[entity_id];
+		return &Entity::list[entity_id];
 	}
 
 	template<typename T> inline b8 has() const
 	{
-		return World::entities[entity_id].has<T>();
+		return Entity::list[entity_id].has<T>();
 	}
 
 	template<typename T> inline T* get() const
 	{
-		return World::entities[entity_id].get<T>();
+		return Entity::list[entity_id].get<T>();
 	}
 };
 
@@ -258,7 +253,7 @@ template<typename T, void (T::*Method)()> struct EntityLinkEntry : public LinkEn
 
 	virtual void fire() const
 	{
-		Entity* e = &World::entities[data.entity];
+		Entity* e = &Entity::list[data.entity];
 		if (e->revision == data.revision)
 		{
 			T* t = e->get<T>();
@@ -291,7 +286,7 @@ struct LinkEntryArg
 	}
 
 	LinkEntryArg(ID entity)
-		: data(entity, World::entities[entity].revision)
+		: data(entity, Entity::list[entity].revision)
 	{
 
 	}
@@ -305,7 +300,7 @@ template<typename T, typename T2, void (T::*Method)(T2)> struct EntityLinkEntryA
 
 	virtual void fire(T2 arg) const
 	{
-		Entity* e = &World::entities[LinkEntryArg<T2>::data.entity];
+		Entity* e = &Entity::list[LinkEntryArg<T2>::data.entity];
 		if (e->revision == LinkEntryArg<T2>::data.revision)
 		{
 			T* t = e->get<T>();
@@ -364,18 +359,14 @@ struct LinkArg
 template<typename Derived>
 struct ComponentType : public ComponentBase
 {
-	static const Family family;
-	static const ComponentMask component_mask;
+	static Family family;
+	static ComponentMask component_mask;
+	static PinArray<Derived, MAX_ENTITIES> list;
 	static ComponentPool<Derived> pool;
-
-	static inline PinArray<Derived, MAX_ENTITIES>& list()
-	{
-		return pool.data;
-	}
 
 	inline ID id() const
 	{
-		return (ID)(((char*)this - (char*)&pool.data[0]) / sizeof(Derived));
+		return (ID)(((char*)this - (char*)&list[0]) / sizeof(Derived));
 	}
 
 	template<void (Derived::*Method)()> void link(Link& link)
@@ -390,5 +381,10 @@ struct ComponentType : public ComponentBase
 		new (entry) EntityLinkEntryArg<Derived, T2, Method>(entity_id);
 	}
 };
+
+template<typename T> Family ComponentType<T>::family;
+template<typename T> ComponentMask ComponentType<T>::component_mask;
+template<typename T> PinArray<T, MAX_ENTITIES> ComponentType<T>::list;
+template<typename T> ComponentPool<T> ComponentType<T>::pool;
 
 }

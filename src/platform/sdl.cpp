@@ -57,7 +57,7 @@ namespace VI
 		SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 1);
 		SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 0);
 #if defined(__APPLE__)
-		SDL_SetHs32(SDL_HINT_MOUSE_RELATIVE_MODE_WARP, "1");
+		SDL_SetHint(SDL_HINT_MOUSE_RELATIVE_MODE_WARP, "1");
 #endif
 
 		Settings& settings = Loader::settings();

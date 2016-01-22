@@ -23,7 +23,7 @@ void Physics::loop(PhysicsSwapper* swapper)
 
 void Physics::sync_static()
 {
-	for (auto i = RigidBody::list().iterator(); !i.is_last(); i.next())
+	for (auto i = RigidBody::list.iterator(); !i.is_last(); i.next())
 	{
 		btRigidBody* body = i.item()->btBody;
 		if (body->isStaticOrKinematicObject())
@@ -38,7 +38,7 @@ void Physics::sync_static()
 
 void Physics::sync_dynamic()
 {
-	for (auto i = RigidBody::list().iterator(); !i.is_last(); i.next())
+	for (auto i = RigidBody::list.iterator(); !i.is_last(); i.next())
 	{
 		btRigidBody* body = i.item()->btBody;
 		if (body->isActive() && !body->isStaticOrKinematicObject())

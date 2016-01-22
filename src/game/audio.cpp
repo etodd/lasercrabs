@@ -158,7 +158,7 @@ void Audio::term()
 
 void Audio::update()
 {
-	for (auto i = Audio::list().iterator(); !i.is_last(); i.next())
+	for (auto i = Audio::list.iterator(); !i.is_last(); i.next())
 	{
 		Transform* transform = i.item()->get<Transform>();
 		if (transform)

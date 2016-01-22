@@ -13,10 +13,7 @@ namespace VI
 
 #define AWK_VIEW_RANGE 100.0f
 
-PinArray<AIPlayer, MAX_AI_PLAYERS>& AIPlayer::list()
-{
-	return Game::data.ai_players;
-}
+PinArray<AIPlayer, MAX_AI_PLAYERS> AIPlayer::list = PinArray<AIPlayer, MAX_AI_PLAYERS>();
 
 AIPlayer::AIPlayer(AI::Team t)
 	: team(t),
@@ -139,7 +136,7 @@ AIPlayerControl::Goal AIPlayerControl::find_goal(const Entity* not_entity) const
 		return g;
 	}
 
-	for (auto i = SentinelSpawnControl::list().iterator(); !i.is_last(); i.next())
+	for (auto i = SentinelSpawnControl::list.iterator(); !i.is_last(); i.next())
 	{
 		if (i.item()->entity() != not_entity && !i.item()->spawned.ref())
 		{
@@ -152,7 +149,7 @@ AIPlayerControl::Goal AIPlayerControl::find_goal(const Entity* not_entity) const
 		}
 	}
 
-	for (auto i = CreditsPickup::list().iterator(); !i.is_last(); i.next())
+	for (auto i = CreditsPickup::list.iterator(); !i.is_last(); i.next())
 	{
 		if (i.item()->entity() != not_entity)
 		{

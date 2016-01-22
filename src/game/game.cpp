@@ -63,9 +63,7 @@ Vec2 Game::cursor = Vec2(200, 200);
 b8 Game::cursor_updated = false;
 
 Game::Data::Data()
-	: local_players(),
-	ai_players(),
-	level(AssetNull),
+	: level(AssetNull),
 	previous_level(AssetNull),
 	mode(Mode::Multiplayer),
 	third_person()
@@ -121,49 +119,49 @@ void Game::update(const Update& update_in)
 
 	Physics::sync_dynamic();
 
-	for (auto i = Ragdoll::list().iterator(); !i.is_last(); i.next())
+	for (auto i = Ragdoll::list.iterator(); !i.is_last(); i.next())
 		i.item()->update(u);
-	for (auto i = Animator::list().iterator(); !i.is_last(); i.next())
+	for (auto i = Animator::list.iterator(); !i.is_last(); i.next())
 		i.item()->update(u);
-	for (auto i = Mover::list().iterator(); !i.is_last(); i.next())
+	for (auto i = Mover::list.iterator(); !i.is_last(); i.next())
 		i.item()->update(u);
 
 	Physics::sync_static();
 
 	if (u.input->keys[(int)KeyCode::K] && !u.last_input->keys[(int)KeyCode::K])
 	{
-		for (auto i = SentinelCommon::list().iterator(); !i.is_last(); i.next())
+		for (auto i = SentinelCommon::list.iterator(); !i.is_last(); i.next())
 			i.item()->killed(nullptr);
 	}
 
-	for (auto i = LocalPlayer::list().iterator(); !i.is_last(); i.next())
+	for (auto i = LocalPlayer::list.iterator(); !i.is_last(); i.next())
 		i.item()->update(u);
-	for (auto i = AIPlayer::list().iterator(); !i.is_last(); i.next())
+	for (auto i = AIPlayer::list.iterator(); !i.is_last(); i.next())
 		i.item()->update(u);
-	for (auto i = Walker::list().iterator(); !i.is_last(); i.next())
+	for (auto i = Walker::list.iterator(); !i.is_last(); i.next())
 		i.item()->update(u);
-	for (auto i = Awk::list().iterator(); !i.is_last(); i.next())
+	for (auto i = Awk::list.iterator(); !i.is_last(); i.next())
 		i.item()->update(u);
 	PlayerCommon::update_visibility();
-	for (auto i = NoclipControl::list().iterator(); !i.is_last(); i.next())
+	for (auto i = NoclipControl::list.iterator(); !i.is_last(); i.next())
 		i.item()->update(u);
-	for (auto i = SentinelControl::list().iterator(); !i.is_last(); i.next())
+	for (auto i = SentinelControl::list.iterator(); !i.is_last(); i.next())
 		i.item()->update(u);
-	for (auto i = PlayerTrigger::list().iterator(); !i.is_last(); i.next())
+	for (auto i = PlayerTrigger::list.iterator(); !i.is_last(); i.next())
 		i.item()->update(u);
-	for (auto i = AIPlayerControl::list().iterator(); !i.is_last(); i.next())
+	for (auto i = AIPlayerControl::list.iterator(); !i.is_last(); i.next())
 		i.item()->update(u);
-	for (auto i = SentinelCommon::list().iterator(); !i.is_last(); i.next())
+	for (auto i = SentinelCommon::list.iterator(); !i.is_last(); i.next())
 		i.item()->update(u);
-	for (auto i = Shockwave::list().iterator(); !i.is_last(); i.next())
+	for (auto i = Shockwave::list.iterator(); !i.is_last(); i.next())
 		i.item()->update(u);
-	for (auto i = PlayerCommon::list().iterator(); !i.is_last(); i.next())
+	for (auto i = PlayerCommon::list.iterator(); !i.is_last(); i.next())
 		i.item()->update(u);
 
 	for (s32 i = 0; i < updates.length; i++)
 		(*updates[i])(u);
 
-	for (auto i = LocalPlayerControl::list().iterator(); !i.is_last(); i.next())
+	for (auto i = LocalPlayerControl::list.iterator(); !i.is_last(); i.next())
 		i.item()->update(u);
 
 	Console::update(u);
@@ -182,7 +180,7 @@ void Game::draw_opaque(const RenderParams& render_params)
 {
 	View::draw_opaque(render_params);
 	Rope::draw_opaque(render_params);
-	for (auto i = SkinnedModel::list().iterator(); !i.is_last(); i.next())
+	for (auto i = SkinnedModel::list.iterator(); !i.is_last(); i.next())
 		i.item()->draw(render_params);
 }
 
@@ -204,7 +202,7 @@ void Game::draw_alpha(const RenderParams& render_params)
 		sync->write(Asset::Shader::flat);
 		sync->write(render_params.technique);
 
-		for (auto i = RigidBody::list().iterator(); !i.is_last(); i.next())
+		for (auto i = RigidBody::list.iterator(); !i.is_last(); i.next())
 		{
 			RigidBody* body = i.item();
 			btTransform transform = body->btBody->getWorldTransform();
@@ -277,13 +275,13 @@ void Game::draw_alpha(const RenderParams& render_params)
 
 	Console::draw(render_params);
 
-	for (auto i = PortalControl::list().iterator(); !i.is_last(); i.next())
+	for (auto i = PortalControl::list.iterator(); !i.is_last(); i.next())
 		i.item()->draw_alpha(render_params);
-	for (auto i = PlayerCommon::list().iterator(); !i.is_last(); i.next())
+	for (auto i = PlayerCommon::list.iterator(); !i.is_last(); i.next())
 		i.item()->draw_alpha(render_params);
-	for (auto i = LocalPlayerControl::list().iterator(); !i.is_last(); i.next())
+	for (auto i = LocalPlayerControl::list.iterator(); !i.is_last(); i.next())
 		i.item()->draw_alpha(render_params);
-	for (auto i = LocalPlayer::list().iterator(); !i.is_last(); i.next())
+	for (auto i = LocalPlayer::list.iterator(); !i.is_last(); i.next())
 		i.item()->draw_alpha(render_params);
 
 	Menu::draw(render_params);
@@ -325,9 +323,9 @@ void Game::execute(const Update& u, const char* cmd)
 	{
 		Vec3 pos = Vec3::zero;
 		Quat quat = Quat::identity;
-		if (LocalPlayerControl::list().count() > 0)
+		if (LocalPlayerControl::list.count() > 0)
 		{
-			auto players = LocalPlayerControl::list().iterator();
+			auto players = LocalPlayerControl::list.iterator();
 			LocalPlayerControl* p = players.item();
 			pos = p->get<Transform>()->absolute_pos();
 			quat = p->camera->rot;
@@ -341,9 +339,9 @@ void Game::execute(const Update& u, const char* cmd)
 			Noclip* noclip = World::create<Noclip>();
 			noclip->get<Transform>()->pos = pos;
 		}
-		else if (NoclipControl::list().count() > 0)
+		else if (NoclipControl::list.count() > 0)
 		{
-			NoclipControl* noclip = NoclipControl::list().iterator().item();
+			NoclipControl* noclip = NoclipControl::list.iterator().item();
 			pos = noclip->get<Transform>()->absolute_pos();
 			quat = noclip->camera->rot;
 			World::remove(noclip->entity());
@@ -370,9 +368,9 @@ void Game::execute(const Update& u, const char* cmd)
 			AssetID level = Loader::find(level_name, AssetLookup::Level::names);
 			if (level != AssetNull)
 			{
-				if (data.local_players.count() == 0)
+				if (LocalPlayer::list.count() == 0)
 				{
-					LocalPlayer* player = data.local_players.add();
+					LocalPlayer* player = LocalPlayer::list.add();
 					new (player) LocalPlayer(AI::Team::A, 0);
 				}
 				for (s32 i = 0; i < (s32)AI::Team::count; i++)
@@ -390,10 +388,10 @@ void Game::schedule_load_level(AssetID level_id)
 
 void Game::unload_level()
 {
-	for (auto i = AIPlayer::list().iterator(); !i.is_last(); i.next())
-		AIPlayer::list().remove(i.index);
+	for (auto i = AIPlayer::list.iterator(); !i.is_last(); i.next())
+		AIPlayer::list.remove(i.index);
 
-	for (auto i = World::entities.iterator(); !i.is_last(); i.next())
+	for (auto i = Entity::list.iterator(); !i.is_last(); i.next())
 		World::remove(i.item());
 
 	Loader::transients_free();
@@ -677,7 +675,7 @@ void Game::load_level(const Update& u, AssetID l)
 		}
 		else if (cJSON_GetObjectItem(element, "AIPlayer"))
 		{
-			AIPlayer* player = Game::data.ai_players.add();
+			AIPlayer* player = AIPlayer::list.add();
 			AI::Team team = (AI::Team)Json::get_s32(element, "team", (s32)AI::Team::None);
 			new (player) AIPlayer(team);
 		}
@@ -800,12 +798,12 @@ void Game::load_level(const Update& u, AssetID l)
 	for (int i = 0; i < spawns.length; i++)
 	{
 		SpawnEntry& spawn = spawns[i];
-		for (auto j = LocalPlayer::list().iterator(); !j.is_last(); j.next())
+		for (auto j = LocalPlayer::list.iterator(); !j.is_last(); j.next())
 		{
 			if (j.item()->team == spawn.team)
 				j.item()->spawn = spawn.ref;
 		}
-		for (auto j = AIPlayer::list().iterator(); !j.is_last(); j.next())
+		for (auto j = AIPlayer::list.iterator(); !j.is_last(); j.next())
 		{
 			if (j.item()->team == spawn.team)
 				j.item()->spawn = spawn.ref;
@@ -824,7 +822,7 @@ void Game::load_level(const Update& u, AssetID l)
 		Entity* map_view = finder.find("map_view");
 		if (map_view && map_view->has<Transform>())
 		{
-			for (auto i = LocalPlayer::list().iterator(); !i.is_last(); i.next())
+			for (auto i = LocalPlayer::list.iterator(); !i.is_last(); i.next())
 				i.item()->map_view = map_view->get<Transform>();
 		}
 	}

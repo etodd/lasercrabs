@@ -51,9 +51,10 @@ COMPONENT_TYPE(29, View)
 Family World::families = 31;
 
 #define COMPONENT_TYPE(INDEX, TYPE) \
-const Family TYPE::family = (INDEX); \
-const ComponentMask TYPE::component_mask = (ComponentMask)1 << (INDEX); \
-ComponentPool<TYPE> TYPE::pool;
+template<> Family ComponentType<TYPE>::family = (INDEX); \
+template<> ComponentMask ComponentType<TYPE>::component_mask = (ComponentMask)1 << (INDEX); \
+template<> PinArray<TYPE, MAX_ENTITIES> ComponentType<TYPE>::list; \
+template<> ComponentPool<TYPE> ComponentType<TYPE>::pool;
 
 	COMPONENTS()
 

@@ -136,7 +136,7 @@ void render_point_lights(const RenderParams& render_params, s32 type_mask, const
 	sync->write<Vec3>(render_params.camera->frustum_rays, 4);
 
 	Loader::mesh_permanent(Asset::Mesh::sphere);
-	for (auto i = PointLight::list().iterator(); !i.is_last(); i.next())
+	for (auto i = PointLight::list.iterator(); !i.is_last(); i.next())
 	{
 		PointLight* light = i.item();
 		if (!((s32)light->type & type_mask) || !(light->mask & render_params.camera->mask))
@@ -194,7 +194,7 @@ void render_spot_lights(const RenderParams& render_params, s32 type_mask, s32 fb
 	sync->write<RenderOp>(RenderOp::CullMode);
 	sync->write<RenderCullMode>(RenderCullMode::Back);
 
-	for (auto i = SpotLight::list().iterator(); !i.is_last(); i.next())
+	for (auto i = SpotLight::list.iterator(); !i.is_last(); i.next())
 	{
 		SpotLight* light = i.item();
 		if (!((s32)light->type & type_mask) || !(light->mask & render_params.camera->mask))
@@ -464,7 +464,7 @@ void draw(LoopSync* sync, const Camera* camera)
 			Vec3 abs_directions[max_lights];
 			b8 shadowed = false;
 			s32 j = 0;
-			for (auto i = DirectionalLight::list().iterator(); !i.is_last(); i.next())
+			for (auto i = DirectionalLight::list.iterator(); !i.is_last(); i.next())
 			{
 				DirectionalLight* light = i.item();
 

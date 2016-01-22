@@ -12,7 +12,7 @@ struct Transform;
 
 struct AIPlayer
 {
-	static PinArray<AIPlayer, MAX_AI_PLAYERS>& list();
+	static PinArray<AIPlayer, MAX_AI_PLAYERS> list;
 
 	char username[255];
 	Ref<AIPlayerControl> control;

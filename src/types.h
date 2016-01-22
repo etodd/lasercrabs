@@ -1,12 +1,13 @@
 #pragma once
 #include <stdint.h>
+#include <cstddef>
 
 namespace VI
 {
 
 typedef bool b8;
 
-typedef size_t memory_index;
+typedef std::size_t memory_index;
 	
 typedef int8_t s8;
 typedef int16_t s16;

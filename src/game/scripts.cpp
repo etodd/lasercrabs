@@ -404,7 +404,7 @@ namespace level4
 	void update(const Update& u)
 	{
 		b8 alert = false;
-		for (auto i = Awk::list().iterator(); !i.is_last(); i.next())
+		for (auto i = Awk::list.iterator(); !i.is_last(); i.next())
 		{
 			for (auto j = i; !j.is_last(); j.next())
 			{
@@ -451,7 +451,7 @@ namespace level4
 	{
 		data = new Data();
 
-		s32 player_count = LocalPlayer::list().count();
+		s32 player_count = LocalPlayer::list.count();
 
 		// TODO: spawn enemies based on number of local players
 

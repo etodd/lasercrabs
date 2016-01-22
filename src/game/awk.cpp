@@ -48,7 +48,7 @@ btScalar AwkRaycastCallback::addSingleResult(btCollisionWorld::LocalRayResult& r
 	short filter_group = rayResult.m_collisionObject->getBroadphaseHandle()->m_collisionFilterGroup;
 	if (filter_group & CollisionWalker)
 	{
-		Entity* entity = &World::entities[rayResult.m_collisionObject->getUserIndex()];
+		Entity* entity = &Entity::list[rayResult.m_collisionObject->getUserIndex()];
 		if (entity->has<SentinelCommon>() && entity->get<SentinelCommon>()->headshot_test(m_rayFromWorld, m_rayToWorld))
 		{
 			hit_target = true;
@@ -301,7 +301,7 @@ void Awk::update(const Update& u)
 
 				Physics::btWorld->rayTest(ray_start, ray_end, rayCallback);
 				if (rayCallback.hasHit())
-					set_footing(i, World::entities[rayCallback.m_collisionObject->getUserIndex()].get<Transform>(), rayCallback.m_hitPointWorld);
+					set_footing(i, Entity::list[rayCallback.m_collisionObject->getUserIndex()].get<Transform>(), rayCallback.m_hitPointWorld);
 				else
 				{
 					Vec3 new_ray_start = get<Transform>()->to_world((bind_pose_mat * Vec4(AWK_LEG_LENGTH * 1.5f, 0, 0, 1)).xyz());
@@ -312,7 +312,7 @@ void Awk::update(const Update& u)
 					rayCallback.m_collisionFilterMask = rayCallback.m_collisionFilterGroup = ~CollisionWalker & ~CollisionTarget & ~CollisionInaccessible;
 					Physics::btWorld->rayTest(new_ray_start, new_ray_end, rayCallback);
 					if (rayCallback.hasHit())
-						set_footing(i, World::entities[rayCallback.m_collisionObject->getUserIndex()].get<Transform>(), rayCallback.m_hitPointWorld);
+						set_footing(i, Entity::list[rayCallback.m_collisionObject->getUserIndex()].get<Transform>(), rayCallback.m_hitPointWorld);
 					else
 						footing[i].parent = nullptr;
 				}
@@ -393,7 +393,7 @@ void Awk::update(const Update& u)
 							end = true;
 						else if (group & CollisionWalker)
 						{
-							Entity* t = &World::entities[rayCallback.m_collisionObjects[i]->getUserIndex()];
+							Entity* t = &Entity::list[rayCallback.m_collisionObjects[i]->getUserIndex()];
 							if (t->has<SentinelCommon>() && !t->get<SentinelCommon>()->headshot_test(ray_start, ray_end))
 								end = true;
 						}
@@ -415,7 +415,7 @@ void Awk::update(const Update& u)
 						short group = rayCallback.m_collisionObjects[i]->getBroadphaseHandle()->m_collisionFilterGroup;
 						if (group & CollisionWalker)
 						{
-							Entity* t = &World::entities[rayCallback.m_collisionObjects[i]->getUserIndex()];
+							Entity* t = &Entity::list[rayCallback.m_collisionObjects[i]->getUserIndex()];
 							if (t->has<SentinelCommon>() && t->get<SentinelCommon>()->headshot_test(ray_start, ray_end))
 							{
 								hit.fire(t);
@@ -429,13 +429,13 @@ void Awk::update(const Update& u)
 						}
 						else if (group & CollisionTarget)
 						{
-							Entity* t = &World::entities[rayCallback.m_collisionObjects[i]->getUserIndex()];
+							Entity* t = &Entity::list[rayCallback.m_collisionObjects[i]->getUserIndex()];
 							if (t != entity())
 								hit_target(t);
 						}
 						else
 						{
-							Entity* entity = &World::entities[rayCallback.m_collisionObjects[i]->getUserIndex()];
+							Entity* entity = &Entity::list[rayCallback.m_collisionObjects[i]->getUserIndex()];
 							get<Transform>()->parent = entity->get<Transform>();
 							next_position = rayCallback.m_hitPointWorld[i] + rayCallback.m_hitNormalWorld[i] * AWK_RADIUS;
 							get<Transform>()->absolute(next_position, Quat::look(rayCallback.m_hitNormalWorld[i]));
@@ -464,7 +464,7 @@ void Awk::update(const Update& u)
 							const r32 damage_radius_squared = damage_radius * damage_radius;
 							Vec3 pos = get<Transform>()->absolute_pos();
 							AI::Team team = get<AIAgent>()->team;
-							for (auto i = Awk::list().iterator(); !i.is_last(); i.next())
+							for (auto i = Awk::list.iterator(); !i.is_last(); i.next())
 							{
 								if (i.item()->get<AIAgent>()->team != team && (i.item()->center() - pos).length_squared() < damage_radius_squared)
 									hit_target(i.item()->entity());

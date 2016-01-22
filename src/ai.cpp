@@ -150,7 +150,7 @@ b8 AI::vision_check(const Vec3& pos, const Vec3& enemy_pos, const AIAgent* a, co
 Entity* AI::vision_query(const AIAgent* queryer, const Vec3& pos, const Vec3& forward, r32 radius, r32 angle, r32 max_height_diff, ComponentMask component_mask)
 {
 	r32 angle_dot = cosf(angle);
-	for (auto i = AIAgent::list().iterator(); !i.is_last(); i.next())
+	for (auto i = AIAgent::list.iterator(); !i.is_last(); i.next())
 	{
 		AIAgent* agent = i.item();
 		if (agent->team == queryer->team || !(agent->entity()->component_mask & component_mask))
@@ -179,7 +179,7 @@ Entity* AI::vision_query(const AIAgent* queryer, const Vec3& pos, const Vec3& fo
 
 Entity* AI::sound_query(AI::Team team, const Vec3& pos, ComponentMask component_mask)
 {
-	for (auto i = Shockwave::list().iterator(); !i.is_last(); i.next())
+	for (auto i = Shockwave::list.iterator(); !i.is_last(); i.next())
 	{
 		r32 radius = i.item()->radius();
 		if ((i.item()->get<Transform>()->absolute_pos() - pos).length_squared() < radius * radius)

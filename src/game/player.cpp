@@ -84,10 +84,7 @@ void draw_indicator(const RenderParams& params, const Vec3& pos, const Vec4& col
 	}
 }
 
-PinArray<LocalPlayer, MAX_PLAYERS>& LocalPlayer::list()
-{
-	return Game::data.local_players;
-}
+PinArray<LocalPlayer, MAX_PLAYERS> LocalPlayer::list = PinArray<LocalPlayer, MAX_PLAYERS>();
 
 LocalPlayer::LocalPlayer(AI::Team t, u8 g)
 	: gamepad(g),
@@ -121,7 +118,7 @@ LocalPlayer::UIMode LocalPlayer::ui_mode() const
 		return UIMode::Default;
 	else if (pause)
 		return UIMode::Pause;
-	else if (control.ref() || NoclipControl::list().count() > 0)
+	else if (control.ref() || NoclipControl::list.count() > 0)
 		return UIMode::Default;
 	else
 		return UIMode::Spawning;
@@ -138,7 +135,7 @@ void LocalPlayer::ensure_camera(const Update& u, b8 active)
 	if (active && !camera)
 	{
 		camera = Camera::add();
-		s32 player_count = list().count();
+		s32 player_count = list.count();
 		Camera::ViewportBlueprs32* viewports = Camera::viewport_blueprs32s[player_count - 1];
 		Camera::ViewportBlueprs32* blueprs32 = &viewports[gamepad];
 
@@ -361,13 +358,13 @@ void PlayerCommon::update_visibility()
 {
 	PlayerCommon* players[MAX_PLAYERS];
 
-	s32 player_count = PlayerCommon::list().count();
+	s32 player_count = PlayerCommon::list.count();
 	vi_assert(player_count <= MAX_PLAYERS);
 
 	visibility_count = combination(player_count, 2);
 
 	s32 index = 0;
-	for (auto i = PlayerCommon::list().iterator(); !i.is_last(); i.next())
+	for (auto i = PlayerCommon::list.iterator(); !i.is_last(); i.next())
 	{
 		players[index] = i.item()->get<PlayerCommon>();
 		i.item()->visibility_index = index;
@@ -819,7 +816,7 @@ void LocalPlayerControl::update(const Update& u)
 		look_quat = Quat::euler(lean, angle_horizontal, angle_vertical);
 	}
 	
-	s32 player_count = LocalPlayer::list().count();
+	s32 player_count = LocalPlayer::list.count();
 	Camera::ViewportBlueprs32* viewports = Camera::viewport_blueprs32s[player_count - 1];
 	Camera::ViewportBlueprs32* blueprs32 = &viewports[gamepad];
 
@@ -875,7 +872,7 @@ void LocalPlayerControl::update(const Update& u)
 			if (tracer.type == TraceType::Normal)
 			{
 				AI::Team team = get<AIAgent>()->team;
-				for (auto i = AIAgent::list().iterator(); !i.is_last(); i.next())
+				for (auto i = AIAgent::list.iterator(); !i.is_last(); i.next())
 				{
 					if (i.item()->team != team && (i.item()->get<Transform>()->absolute_pos() - tracer.pos).length_squared() < AWK_SHOCKWAVE_RADIUS * AWK_SHOCKWAVE_RADIUS)
 					{
@@ -918,7 +915,7 @@ void LocalPlayerControl::update(const Update& u)
 
 LocalPlayerControl* LocalPlayerControl::player_for_camera(const Camera* cam)
 {
-	for (auto i = LocalPlayerControl::list().iterator(); !i.is_last(); i.next())
+	for (auto i = LocalPlayerControl::list.iterator(); !i.is_last(); i.next())
 	{
 		if (i.item()->camera == cam)
 			return i.item();
@@ -942,7 +939,7 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 		Vec2 viewport = params.camera->viewport.size;
 
 		// Draw friendly sentinel paths
-		for (auto i = SentinelControl::list().iterator(); !i.is_last(); i.next())
+		for (auto i = SentinelControl::list.iterator(); !i.is_last(); i.next())
 		{
 			SentinelControl* sentinel = i.item();
 			if (sentinel->get<AIAgent>()->team == team)
@@ -998,7 +995,7 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 		Vec3 pos = get<Transform>()->absolute_pos();
 
 		// Draw sentinel indicators
-		for (auto i = SentinelCommon::list().iterator(); !i.is_last(); i.next())
+		for (auto i = SentinelCommon::list.iterator(); !i.is_last(); i.next())
 		{
 			if (i.item()->get<AIAgent>()->team != team)
 			{
@@ -1022,7 +1019,7 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 			}
 		}
 
-		for (auto i = Awk::list().iterator(); !i.is_last(); i.next())
+		for (auto i = Awk::list.iterator(); !i.is_last(); i.next())
 		{
 			if (i.item()->get<AIAgent>()->team != team)
 			{
@@ -1039,7 +1036,7 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 		{
 			Vec3 wall_normal = get<Transform>()->absolute_rot() * Vec3(0, 0, 1);
 			Socket* socket = parent->get<Socket>();
-			for (auto i = Socket::list().iterator(); !i.is_last(); i.next())
+			for (auto i = Socket::list.iterator(); !i.is_last(); i.next())
 			{
 				if (i.item() != socket)
 				{

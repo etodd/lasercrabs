@@ -44,7 +44,7 @@ View::~View()
 
 void View::draw_opaque(const RenderParams& params)
 {
-	for (auto i = View::list().iterator(); !i.is_last(); i.next())
+	for (auto i = View::list.iterator(); !i.is_last(); i.next())
 	{
 		if (!i.item()->alpha_enabled)
 			i.item()->draw(params);
@@ -56,7 +56,7 @@ void View::draw_additive(const RenderParams& params)
 	ID i = global->first_additive;
 	while (i != IDNull)
 	{
-		View* v = &View::list()[i];
+		View* v = &View::list[i];
 		v->draw(params);
 		i = v->additive_entry.next;
 	}
@@ -67,7 +67,7 @@ void View::draw_alpha(const RenderParams& params)
 	ID i = global->first_alpha;
 	while (i != IDNull)
 	{
-		View* v = &View::list()[i];
+		View* v = &View::list[i];
 		v->draw(params);
 		i = v->alpha_entry.next;
 	}
@@ -93,7 +93,7 @@ void View::alpha(const b8 additive, const s32 order)
 	{
 		// Figure out where in the list we need to insert ourselves
 
-		View* v = &View::list()[*first];
+		View* v = &View::list[*first];
 
 		IntrusiveLinkedList* v_entry = additive ? &v->additive_entry : &v->alpha_entry;
 
@@ -110,7 +110,7 @@ void View::alpha(const b8 additive, const s32 order)
 			// and insert ourselves after them
 			while (v_entry->next != IDNull)
 			{
-				View* next_v = &View::list()[v_entry->next];
+				View* next_v = &View::list[v_entry->next];
 				if (alpha_order > next_v->alpha_order)
 				{
 					v_entry = additive ? &next_v->additive_entry : &next_v->alpha_entry;
@@ -123,7 +123,7 @@ void View::alpha(const b8 additive, const s32 order)
 			entry->next = v_entry->next;
 			if (v_entry->next != IDNull)
 			{
-				View* next_v = &View::list()[v_entry->next];
+				View* next_v = &View::list[v_entry->next];
 				(additive ? &next_v->additive_entry : &next_v->alpha_entry)->previous = me;
 			}
 			v_entry->next = me;
@@ -139,10 +139,10 @@ void View::alpha_disable()
 
 		// Remove additive entry
 		if (additive_entry.next != IDNull)
-			View::list()[additive_entry.next].additive_entry.previous = additive_entry.previous;
+			View::list[additive_entry.next].additive_entry.previous = additive_entry.previous;
 
 		if (additive_entry.previous != IDNull)
-			View::list()[additive_entry.previous].additive_entry.next = additive_entry.next;
+			View::list[additive_entry.previous].additive_entry.next = additive_entry.next;
 
 		if (global->first_additive == id())
 			global->first_additive = additive_entry.next;
@@ -151,10 +151,10 @@ void View::alpha_disable()
 
 		// Remove alpha entry
 		if (alpha_entry.next != IDNull)
-			View::list()[alpha_entry.next].alpha_entry.previous = alpha_entry.previous;
+			View::list[alpha_entry.next].alpha_entry.previous = alpha_entry.previous;
 
 		if (alpha_entry.previous != IDNull)
-			View::list()[alpha_entry.previous].alpha_entry.next = alpha_entry.next;
+			View::list[alpha_entry.previous].alpha_entry.next = alpha_entry.next;
 
 		if (global->first_alpha == id())
 			global->first_alpha = alpha_entry.next;
@@ -288,7 +288,7 @@ void SkyDecal::draw(const RenderParams& p)
 	sync->write<b8>(false);
 
 	Loader::mesh_permanent(Asset::Mesh::sky_decal);
-	for (auto i = SkyDecal::list().iterator(); !i.is_last(); i.next())
+	for (auto i = SkyDecal::list.iterator(); !i.is_last(); i.next())
 	{
 		SkyDecal* d = i.item();
 

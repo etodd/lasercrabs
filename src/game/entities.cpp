@@ -214,7 +214,7 @@ void Socket::refresh_all()
 {
 	StaticArray<b8, MAX_ENTITIES> visited(MAX_ENTITIES);
 	Array<ID> stack;
-	for (auto i = Socket::list().iterator(); !i.is_last(); i.next())
+	for (auto i = Socket::list.iterator(); !i.is_last(); i.next())
 	{
 		if (i.item()->permanent_powered)
 		{
@@ -233,7 +233,7 @@ void Socket::refresh_all()
 		if (!visited[socket_id])
 		{
 			visited[socket_id] = true;
-			Socket* socket = &Socket::list()[socket_id];
+			Socket* socket = &Socket::list[socket_id];
 			socket->powered = true;
 			for (s32 i = 0; i < socket->links.length; i++)
 			{
@@ -245,7 +245,7 @@ void Socket::refresh_all()
 		}
 	}
 
-	for (auto i = Socket::list().iterator(); !i.is_last(); i.next())
+	for (auto i = Socket::list.iterator(); !i.is_last(); i.next())
 		i.item()->refresh();
 }
 
@@ -311,7 +311,7 @@ PortalControl::PortalControl()
 
 void PortalControl::player_enter(Entity* e)
 {
-	s32 required_player_count = LocalPlayer::list().count();
+	s32 required_player_count = LocalPlayer::list.count();
 
 	if (get<PlayerTrigger>()->count() >= required_player_count)
 		Menu::transition(next);
@@ -322,7 +322,7 @@ void PortalControl::draw_alpha(const RenderParams& params)
 	s32 triggered = get<PlayerTrigger>()->count();
 	if (triggered > 0)
 	{
-		s32 required_player_count = LocalPlayer::list().count();
+		s32 required_player_count = LocalPlayer::list.count();
 
 		if (triggered < required_player_count)
 			text.draw(params, params.camera->viewport.size * 0.5f);
@@ -368,7 +368,7 @@ void PlayerTrigger::update(const Update& u)
 		}
 	}
 
-	for (auto i = PlayerCommon::list().iterator(); !i.is_last(); i.next())
+	for (auto i = PlayerCommon::list.iterator(); !i.is_last(); i.next())
 	{
 		Entity* e = i.item()->entity();
 		if ((e->get<Transform>()->absolute_pos() - pos).length_squared() < radius_squared)
@@ -436,7 +436,7 @@ void Rope::draw_opaque(const RenderParams& params)
 
 	Vec3 radius = (Vec4(mesh_data->bounds_radius, mesh_data->bounds_radius, mesh_data->bounds_radius, 0)).xyz();
 	r32 f_radius = fmax(radius.x, fmax(radius.y, radius.z));
-	for (auto i = Rope::list().iterator(); !i.is_last(); i.next())
+	for (auto i = Rope::list.iterator(); !i.is_last(); i.next())
 	{
 		Rope* rope = i.item();
 		for (s32 j = 0; j < rope->segments.length; j++)
@@ -619,8 +619,8 @@ void Rope::spawn(const Vec3& pos, const Vec3& dir, const r32 max_distance, const
 
 		if (ray_callback2.hasHit())
 		{
-			RigidBody* a = World::entities[ray_callback.m_collisionObject->getUserIndex()].get<RigidBody>();
-			RigidBody* b = World::entities[ray_callback2.m_collisionObject->getUserIndex()].get<RigidBody>();
+			RigidBody* a = Entity::list[ray_callback.m_collisionObject->getUserIndex()].get<RigidBody>();
+			RigidBody* b = Entity::list[ray_callback2.m_collisionObject->getUserIndex()].get<RigidBody>();
 
 			Transform* a_trans = a->get<Transform>();
 			Transform* b_trans = b->get<Transform>();

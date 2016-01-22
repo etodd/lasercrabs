@@ -246,7 +246,7 @@ void update(const Update& u)
 				{
 					if (player_active[i])
 					{
-						LocalPlayer* p = Game::data.local_players.add();
+						LocalPlayer* p = LocalPlayer::list.add();
 						new (p) LocalPlayer(AI::Team::A, i);
 					}
 				}
@@ -318,7 +318,7 @@ void update(const Update& u)
 					break;
 				}
 			}
-			if (credits_out && LocalPlayerControl::list().count() == 0)
+			if (credits_out && LocalPlayerControl::list.count() == 0)
 				Game::schedule_load_level(Asset::Level::game_over);
 			break;
 		}

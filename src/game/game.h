@@ -1,0 +1,82 @@
+#pragma once
+#include "data/pin_array.h"
+#include "ai.h"
+#include "player.h"
+#include "ai_player.h"
+#include "input.h"
+
+namespace VI
+{
+
+struct RenderParams;
+
+typedef void(*UpdateFunction)(const Update&);
+typedef void(*DrawFunction)(const RenderParams&);
+typedef void(*CleanupFunction)();
+
+struct EntityFinder
+{
+	struct NameEntry
+	{
+		const char* name;
+		Ref<Entity> entity;
+	};
+
+	Array<NameEntry> map;
+	void add(const char*, Entity*);
+	Entity* find(const char*) const;
+};
+
+struct Game
+{
+	enum class Mode
+	{
+		Multiplayer,
+		Parkour,
+	};
+	struct Data
+	{
+		s32 credits[(s32)AI::Team::count];
+		PinArray<LocalPlayer, MAX_PLAYERS> local_players;
+		PinArray<AIPlayer, MAX_AI_PLAYERS> ai_players;
+		AssetID level;
+		AssetID previous_level;
+		Mode mode;
+		bool third_person;
+		Data();
+	};
+
+	struct Bindings
+	{
+		InputBinding start;
+		InputBinding action;
+		InputBinding cancel;
+	};
+
+	static Bindings bindings;
+	static b8 quit;
+	static r32 time_scale;
+	static GameTime time;
+	static GameTime real_time;
+	static Data data;
+	static Vec2 cursor;
+	static b8 cursor_updated;
+	static AssetID scheduled_load_level;
+	static Array<UpdateFunction> updates;
+	static Array<DrawFunction> draws;
+	static Array<CleanupFunction> cleanups;
+
+	static b8 init(LoopSync*);
+	static void execute(const Update&, const char*);
+	static void update_cursor(const Update&);
+	static void update(const Update&);
+	static void schedule_load_level(AssetID);
+	static void unload_level();
+	static void load_level(const Update&, AssetID);
+	static void draw_opaque(const RenderParams&);
+	static void draw_alpha(const RenderParams&);
+	static void draw_additive(const RenderParams&);
+	static void term();
+};
+
+}

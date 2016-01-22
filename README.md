@@ -28,7 +28,7 @@ Windows quickstart
 1. Ensure [Blender](http://blender.org) is installed and
    [available on the path](http://www.computerhope.com/issues/ch000549.htm).
 1. Ensure [Wwise](https://www.audiokinetic.com/) is installed and `WwiseCLI`
-available on the path.
+is available on the path.
 1. Run `setup.bat`
 1. Open `build/mkzebra.sln` in Visual Studio.
 1. Set the `mkzebra` project as the default startup project.
@@ -50,6 +50,8 @@ Mac quickstart
 1. Install [Homebrew](http://brew.sh/)
 1. Ensure [Blender](http://blender.org) is installed and
    [available on the path](http://www.computerhope.com/issues/ch000549.htm).
+1. Ensure [Wwise](https://www.audiokinetic.com/) is installed and `WwiseCLI`
+is available on the path.
 1. Run `./setup-mac`
 1. Run `./mkzebra` from the `build` folder.
 

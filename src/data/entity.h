@@ -382,9 +382,11 @@ struct ComponentType : public ComponentBase
 	}
 };
 
+#ifndef _MSC_VER
 template<typename T> Family ComponentType<T>::family;
 template<typename T> ComponentMask ComponentType<T>::component_mask;
 template<typename T> PinArray<T, MAX_ENTITIES> ComponentType<T>::list;
 template<typename T> ComponentPool<T> ComponentType<T>::pool;
+#endif
 
 }

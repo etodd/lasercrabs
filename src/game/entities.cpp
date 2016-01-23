@@ -288,6 +288,7 @@ PlayerSpawn::PlayerSpawn(AI::Team team)
 	View* view = create<View>();
 	view->mesh = Asset::Mesh::spawn;
 	view->shader = Asset::Shader::standard;
+	view->color = AI::colors[(s32)team];
 
 	create<RigidBody>(RigidBody::Type::CapsuleY, Vec3(0.8f, 3.75f, 0.8f), 0.0f, CollisionInaccessible, CollisionInaccessibleMask);
 }

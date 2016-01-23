@@ -191,7 +191,7 @@ namespace Ease
 	// exponential easing out - decelerating to zero velocity
 	template<typename T> T expo_out(r32 x, T start = 0.0f, T end = 1.0f)
 	{
-		return (end - start) * (powf(2.0f, -10.0f * x) + 1.0f) + start;
+		return (end - start) * (-powf(2.0f, -10.0f * x) + 1.0f) + start;
 	}
 
 	// exponential easing in/out - accelerating until halfway, then decelerating
@@ -280,7 +280,6 @@ namespace Ease
 			default:
 			{
 				vi_assert(false);
-				return 0.0f; // kill warning
 			}
 		}
 	}

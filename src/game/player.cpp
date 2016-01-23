@@ -145,7 +145,7 @@ void LocalPlayer::ensure_camera(const Update& u, b8 active)
 			Vec2((s32)(blueprs32->w * (r32)u.input->width), (s32)(blueprs32->h * (r32)u.input->height)),
 		};
 		r32 aspect = camera->viewport.size.y == 0 ? 1 : (r32)camera->viewport.size.x / (r32)camera->viewport.size.y;
-		camera->perspective(80.0f * PI * 0.5f / 180.0f, aspect, 1.0f, 1000.0f);
+		camera->perspective(60.0f * PI * 0.5f / 180.0f, aspect, 1.0f, Skybox::far_plane * 2.0f);
 		Quat rot;
 		map_view.ref()->absolute(&camera->pos, &rot);
 		camera->rot = Quat::look(rot * Vec3(0, -1, 0));

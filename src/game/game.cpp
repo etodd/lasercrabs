@@ -33,6 +33,7 @@
 #include "console.h"
 #include "ease.h"
 #include "sentinel.h"
+#include "data/behavior.h"
 
 #if DEBUG
 	#define DEBUG_AI 0
@@ -128,7 +129,7 @@ void Game::update(const Update& update_in)
 
 	Physics::sync_static();
 
-	if (u.input->keys[(int)KeyCode::K] && !u.last_input->keys[(int)KeyCode::K])
+	if (u.input->keys[(s32)KeyCode::K] && !u.last_input->keys[(s32)KeyCode::K])
 	{
 		for (auto i = SentinelCommon::list.iterator(); !i.is_last(); i.next())
 			i.item()->killed(nullptr);
@@ -165,6 +166,8 @@ void Game::update(const Update& update_in)
 		i.item()->update(u);
 
 	Console::update(u);
+
+	LerpTo<Vec3>::update_all(u);
 
 	Audio::update();
 
@@ -795,7 +798,7 @@ void Game::load_level(const Update& u, AssetID l)
 		link.mover->setup(object->get<Transform>(), end->get<Transform>(), link.speed);
 	}
 
-	for (int i = 0; i < spawns.length; i++)
+	for (s32 i = 0; i < spawns.length; i++)
 	{
 		SpawnEntry& spawn = spawns[i];
 		for (auto j = LocalPlayer::list.iterator(); !j.is_last(); j.next())

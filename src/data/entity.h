@@ -8,9 +8,7 @@ namespace VI
 {
 
 typedef u8 Family;
-typedef u16 ID;
 typedef u16 Revision;
-const ID IDNull = (ID)-1;
 typedef u64 ComponentMask;
 
 const Family MAX_FAMILIES = sizeof(ComponentMask) * 8;
@@ -120,7 +118,7 @@ struct Entity
 
 	inline ID id() const
 	{
-		return (ID)(((char*)this - (char*)&list[0]) / sizeof(Entity));
+		return (ID)(this - &list[0]);
 	}
 };
 
@@ -366,7 +364,7 @@ struct ComponentType : public ComponentBase
 
 	inline ID id() const
 	{
-		return (ID)(((char*)this - (char*)&list[0]) / sizeof(Derived));
+		return (ID)((Derived*)this - (Derived*)&list[0]);
 	}
 
 	template<void (Derived::*Method)()> void link(Link& link)

@@ -8,7 +8,7 @@ namespace Asset
 {
 	namespace Level
 	{
-		const s32 count = 12;
+		const s32 count = 13;
 		const AssetID connect = 0;
 		const AssetID containment_09 = 1;
 		const AssetID end = 2;
@@ -19,8 +19,9 @@ namespace Asset
 		const AssetID proxma_station = 7;
 		const AssetID pvp = 8;
 		const AssetID start = 9;
-		const AssetID title = 10;
-		const AssetID transit = 11;
+		const AssetID test = 10;
+		const AssetID title = 11;
+		const AssetID transit = 12;
 	}
 }
 

@@ -235,6 +235,8 @@ add_executable(mkzebra
 	src/data/animator.cpp
 	src/data/ragdoll.h
 	src/data/ragdoll.cpp
+	src/data/behavior.h
+	src/data/behavior.cpp
 	src/render/glvm.h
 	src/render/glvm.cpp
 	src/render/render.h

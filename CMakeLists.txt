@@ -280,8 +280,8 @@ add_executable(mkzebra
 	src/game/component_ids.cpp
 	src/game/entities.h
 	src/game/entities.cpp
-	src/game/sentinel.h
-	src/game/sentinel.cpp
+	src/game/minion.h
+	src/game/minion.cpp
 	src/game/player.h
 	src/game/player.cpp
 	src/game/ai_player.h

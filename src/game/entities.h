@@ -61,16 +61,6 @@ struct Shockwave : public ComponentType<Shockwave>
 	void update(const Update&);
 };
 
-struct SentinelSpawnControl : public ComponentType<SentinelSpawnControl>
-{
-	StaticArray<Ref<Transform>, 8> idle_path;
-	Ref<Entity> spawned;
-	Ref<Transform> spawn;
-	void awake() {}
-	void reset(Entity* = nullptr);
-	void go(Entity*);
-};
-
 struct SocketEntity : public StaticGeom
 {
 	SocketEntity(const Vec3&, const Quat&, const b8);
@@ -143,11 +133,6 @@ struct Rope : public ComponentType<Rope>
 	void segment_hit(Entity*);
 };
 
-struct SentinelSpawn : public Entity
-{
-	SentinelSpawn(const Vec3&, const Quat&);
-};
-
 struct CreditsPickupEntity : public Entity
 {
 	CreditsPickupEntity(const Vec3&, const Quat&);
@@ -164,20 +149,9 @@ struct PlayerSpawn : public Entity
 	PlayerSpawn(AI::Team);
 };
 
-struct Portal : public Entity
+struct MinionSpawn : public Entity
 {
-	Portal();
-};
-
-struct PortalControl : public ComponentType<PortalControl>
-{
-	AssetID next;
-	UIText text;
-
-	PortalControl();
-	void awake() {}
-	void player_enter(Entity*);
-	void draw_alpha(const RenderParams&);
+	MinionSpawn(AI::Team);
 };
 
 struct Target : public ComponentType<Target>

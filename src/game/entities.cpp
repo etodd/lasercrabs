@@ -20,7 +20,7 @@
 #include "data/ragdoll.h"
 #include "usernames.h"
 #include "console.h"
-#include "sentinel.h"
+#include "minion.h"
 
 namespace VI
 {
@@ -105,51 +105,6 @@ void Health::damage(Entity* e, s32 damage)
 		damaged.fire(damage);
 		if (hp <= 0)
 			killed.fire(e);
-	}
-}
-
-SentinelSpawn::SentinelSpawn(const Vec3& abs_pos, const Quat& abs_quat)
-{
-	create<Transform>()->absolute(abs_pos, abs_quat);
-	create<SentinelSpawnControl>();
-	create<Audio>();
-	View* model = create<View>();
-	model->mesh = Asset::Mesh::target;
-	model->color = Vec4(1, 1, 1, 1);
-	model->shader = Asset::Shader::standard;
-
-	Target* target = create<Target>();
-	get<SentinelSpawnControl>()->link_arg<Entity*, &SentinelSpawnControl::go>(target->hit_by);
-
-	const r32 radius = 0.25f;
-
-	model->offset.scale(Vec3(radius));
-
-	create<RigidBody>(RigidBody::Type::Sphere, Vec3(radius), 1.0f, CollisionTarget, btBroadphaseProxy::AllFilter)->set_damping(0.5f, 0.5f);
-}
-
-void SentinelSpawnControl::reset(Entity* e)
-{
-	spawned = nullptr;
-	get<View>()->color = Vec4(1, 1, 1, 1);
-}
-
-void SentinelSpawnControl::go(Entity* player)
-{
-	if (spawn.ref() && !spawned.ref())
-	{
-		AI::Team team = player->get<AIAgent>()->team;
-		Vec3 pos;
-		Quat rot;
-		spawn.ref()->absolute(&pos, &rot);
-
-		get<Audio>()->post_event(AK::EVENTS::PLAY_SWITCH_ON);
-
-		Entity* e = World::create<Sentinel>(pos, rot, team);
-		e->add<SentinelControl>();
-		get<View>()->color = AI::colors[(s32)e->get<AIAgent>()->team];
-		link_arg<Entity*, &SentinelSpawnControl::reset>(e->get<Health>()->killed);
-		spawned = e;
 	}
 }
 
@@ -293,41 +248,16 @@ PlayerSpawn::PlayerSpawn(AI::Team team)
 	create<RigidBody>(RigidBody::Type::CapsuleY, Vec3(0.8f, 3.75f, 0.8f), 0.0f, CollisionInaccessible, CollisionInaccessibleMask);
 }
 
-Portal::Portal()
+MinionSpawn::MinionSpawn(AI::Team team)
 {
 	create<Transform>();
-	PlayerTrigger* trigger = create<PlayerTrigger>();
-	create<PortalControl>()->link_arg<Entity*, &PortalControl::player_enter>(trigger->entered);
-}
 
-PortalControl::PortalControl()
-	: next(AssetNull), text()
-{
-	text.font = Asset::Font::lowpoly;
-	text.size = 18.0f;
-	text.color = UI::default_color;
-	text.anchor_x = UIText::Anchor::Center;
-	text.text("Waiting for players");
-}
+	View* view = create<View>();
+	view->mesh = Asset::Mesh::spawn;
+	view->shader = Asset::Shader::standard;
+	view->color = AI::colors[(s32)team];
 
-void PortalControl::player_enter(Entity* e)
-{
-	s32 required_player_count = LocalPlayer::list.count();
-
-	if (get<PlayerTrigger>()->count() >= required_player_count)
-		Menu::transition(next);
-}
-
-void PortalControl::draw_alpha(const RenderParams& params)
-{
-	s32 triggered = get<PlayerTrigger>()->count();
-	if (triggered > 0)
-	{
-		s32 required_player_count = LocalPlayer::list.count();
-
-		if (triggered < required_player_count)
-			text.draw(params, params.camera->viewport.size * 0.5f);
-	}
+	create<RigidBody>(RigidBody::Type::CapsuleY, Vec3(0.8f, 3.75f, 0.8f), 0.0f, CollisionInaccessible, CollisionInaccessibleMask);
 }
 
 void Target::hit(Entity* e)

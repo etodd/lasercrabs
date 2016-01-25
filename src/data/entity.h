@@ -220,10 +220,10 @@ struct LinkEntry
 {
 	struct Data
 	{
-		ID entity;
+		ID id;
 		Revision revision;
 		Data();
-		Data(ID e, Revision r);
+		Data(ID, Revision);
 	};
 
 	union
@@ -235,28 +235,25 @@ struct LinkEntry
 	const LinkEntry& operator=(const LinkEntry& other);
 
 	LinkEntry();
-	LinkEntry(ID entity);
+	LinkEntry(ID, Revision);
 	LinkEntry(const LinkEntry& other);
 
 	virtual void fire() const { }
 };
 
-template<typename T, void (T::*Method)()> struct EntityLinkEntry : public LinkEntry
+template<typename T, void (T::*Method)()> struct ObjectLinkEntry : public LinkEntry
 {
-	EntityLinkEntry(ID entity)
-		: LinkEntry(entity)
+	ObjectLinkEntry(ID id)
+		: LinkEntry(id, T::list[id].revision)
 	{
 
 	}
 
 	virtual void fire() const
 	{
-		Entity* e = &Entity::list[data.entity];
-		if (e->revision == data.revision)
-		{
-			T* t = e->get<T>();
+		T* t = &T::list[data.id];
+		if (t->revision == data.revision)
 			(t->*Method)();
-		}
 	}
 };
 
@@ -265,10 +262,10 @@ struct LinkEntryArg
 {
 	struct Data
 	{
-		ID entity;
+		ID id;
 		Revision revision;
-		Data() : entity(), revision() {}
-		Data(ID e, Revision r) : entity(e), revision(r) {}
+		Data() : id(), revision() {}
+		Data(ID i, Revision r) : id(i), revision(r) {}
 	};
 	
 	union
@@ -283,8 +280,8 @@ struct LinkEntryArg
 
 	}
 
-	LinkEntryArg(ID entity)
-		: data(entity, Entity::list[entity].revision)
+	LinkEntryArg(ID i, Revision r)
+		: data(i, r)
 	{
 
 	}
@@ -292,18 +289,15 @@ struct LinkEntryArg
 	virtual void fire(T t) const { }
 };
 
-template<typename T, typename T2, void (T::*Method)(T2)> struct EntityLinkEntryArg : public LinkEntryArg<T2>
+template<typename T, typename T2, void (T::*Method)(T2)> struct ObjectLinkEntryArg : public LinkEntryArg<T2>
 {
-	EntityLinkEntryArg(ID entity) : LinkEntryArg<T2>(entity) { }
+	ObjectLinkEntryArg(ID i) : LinkEntryArg<T2>(i, T::list[i].revision) { }
 
 	virtual void fire(T2 arg) const
 	{
-		Entity* e = &Entity::list[LinkEntryArg<T2>::data.entity];
-		if (e->revision == LinkEntryArg<T2>::data.revision)
-		{
-			T* t = e->get<T>();
+		T* t = &T::list[LinkEntryArg<T2>::data.id];
+		if (t->revision == LinkEntryArg<T2>::data.revision)
 			(t->*Method)(arg);
-		}
 	}
 };
 
@@ -334,6 +328,12 @@ struct Link
 	StaticArray<LinkEntry, MAX_ENTITY_LINKS> entries;
 	void fire() const;
 	void link(void(*)());
+
+	template<typename T, void (T::*Method)()> void link(T* target)
+	{
+		LinkEntry* entry = entries.add();
+		new (entry) ObjectLinkEntry<T, Method>(target->id());
+	}
 };
 
 template<typename T>
@@ -352,6 +352,12 @@ struct LinkArg
 		LinkEntryArg<T>* entry = entries.add();
 		new (entry) FunctionPointerLinkEntryArg<T>(fp);
 	}
+
+	template<typename T, typename T2, void (T::*Method)(T2)> void link(T* target)
+	{
+		LinkEntryArg<T2>* entry = entries.add();
+		new (entry) ObjectLinkEntryArg<T, T2, Method>(target->id());
+	}
 };
 
 template<typename Derived>
@@ -369,14 +375,12 @@ struct ComponentType : public ComponentBase
 
 	template<void (Derived::*Method)()> void link(Link& link)
 	{
-		LinkEntry* entry = link.entries.add();
-		new (entry) EntityLinkEntry<Derived, Method>(entity_id);
+		link.link<Derived, Method>((Derived*)this);
 	}
 
 	template<typename T2, void (Derived::*Method)(T2)> void link_arg(LinkArg<T2>& link)
 	{
-		LinkEntryArg<T2>* entry = link.entries.add();
-		new (entry) EntityLinkEntryArg<Derived, T2, Method>(entity_id);
+		link.link<Derived, T2, Method>((Derived*)this);
 	}
 };
 

@@ -1,4 +1,4 @@
-#include "sentinel.h"
+#include "minion.h"
 #include "data/animator.h"
 #include "render/skinned_model.h"
 #include "walker.h"
@@ -44,7 +44,7 @@
 namespace VI
 {
 
-Sentinel::Sentinel(const Vec3& pos, const Quat& quat, AI::Team team)
+Minion::Minion(const Vec3& pos, const Quat& quat, AI::Team team)
 {
 	Transform* transform = create<Transform>();
 	transform->pos = pos;
@@ -68,30 +68,30 @@ Sentinel::Sentinel(const Vec3& pos, const Quat& quat, AI::Team team)
 	Walker* walker = create<Walker>(atan2f(forward.x, forward.z));
 	walker->max_speed = MAX_SPEED;
 
-	create<SentinelCommon>();
+	create<MinionCommon>();
 
 	create<AIAgent>()->team = team;
 }
 
-void SentinelControl::awake()
+void MinionAI::awake()
 {
 	vision_cone = VisionCone::create(get<Transform>(), VIEW_FOV, VIEW_RANGE, CONE_NORMAL);
 	get<Walker>()->max_speed = get<Walker>()->speed;
 }
 
-SentinelControl::~SentinelControl()
+MinionAI::~MinionAI()
 {
 	if (vision_cone.ref())
 		World::remove(vision_cone.ref());
 }
 
-void SentinelControl::update(const Update& u)
+void MinionAI::update(const Update& u)
 {
 	fsm.time += u.time.delta;
 	{
 		Vec3 relative_pos = Vec3::zero;
 		Quat relative_rot = Quat::identity;
-		get<SentinelCommon>()->head_to_object_space(&relative_pos, &relative_rot);
+		get<MinionCommon>()->head_to_object_space(&relative_pos, &relative_rot);
 		vision_cone.ref()->get<Transform>()->set(relative_pos, relative_rot);
 	}
 	Vec3 pos;
@@ -135,7 +135,7 @@ void SentinelControl::update(const Update& u)
 			// Run to the target's last known position
 			fsm.transition(State::Walking);
 			go(target_last_seen);
-			get<SentinelCommon>()->set_run(true);
+			get<MinionCommon>()->set_run(true);
 			vision_timer = 0.5f;
 		}
 	}
@@ -224,7 +224,7 @@ void SentinelControl::update(const Update& u)
 			}
 			else
 			{
-				get<SentinelCommon>()->set_run(false);
+				get<MinionCommon>()->set_run(false);
 				get<Walker>()->dir = Vec2::zero;
 				if (fsm.current == State::Walking && idle_path.length > 0)
 				{
@@ -288,14 +288,14 @@ void SentinelControl::update(const Update& u)
 					// Run to the target's last known position
 					fsm.transition(State::Walking);
 					go(target_pos);
-					get<SentinelCommon>()->set_run(true);
+					get<MinionCommon>()->set_run(true);
 				}
 			}
 		}
 	}
 }
 
-void SentinelControl::go(const Vec3& target)
+void MinionAI::go(const Vec3& target)
 {
 	Vec3 pos = get<Walker>()->base_pos();
 	dtPolyRef start_poly = AI::get_poly(pos, AI::default_search_extents);
@@ -325,25 +325,25 @@ void SentinelControl::go(const Vec3& target)
 	}
 }
 
-void SentinelControl::recalc_path(const Update& u)
+void MinionAI::recalc_path(const Update& u)
 {
 	last_path_recalc = Game::time.total;
 	go(path_points[path_point_count - 1]);
 }
 
-void SentinelCommon::awake()
+void MinionCommon::awake()
 {
-	link_arg<Entity*, &SentinelCommon::killed>(get<Health>()->killed);
+	link_arg<Entity*, &MinionCommon::killed>(get<Health>()->killed);
 
 	Animator* animator = get<Animator>();
 	animator->layers[1].loop = false;
-	link<&SentinelCommon::footstep>(animator->trigger(Asset::Animation::character_walk, 0.45f));
-	link<&SentinelCommon::footstep>(animator->trigger(Asset::Animation::character_walk, 1.0f));
-	link<&SentinelCommon::footstep>(animator->trigger(Asset::Animation::character_run, 0.216f));
-	link<&SentinelCommon::footstep>(animator->trigger(Asset::Animation::character_run, 0.476f));
+	link<&MinionCommon::footstep>(animator->trigger(Asset::Animation::character_walk, 0.45f));
+	link<&MinionCommon::footstep>(animator->trigger(Asset::Animation::character_walk, 1.0f));
+	link<&MinionCommon::footstep>(animator->trigger(Asset::Animation::character_run, 0.216f));
+	link<&MinionCommon::footstep>(animator->trigger(Asset::Animation::character_run, 0.476f));
 }
 
-void SentinelCommon::set_run(b8 r)
+void MinionCommon::set_run(b8 r)
 {
 	if (r && fsm.current == State::Normal)
 		fsm.transition(State::Run);
@@ -352,7 +352,7 @@ void SentinelCommon::set_run(b8 r)
 	get<Walker>()->speed = r ? RUN_SPEED : WALK_SPEED;
 }
 
-void SentinelCommon::footstep()
+void MinionCommon::footstep()
 {
 	Vec3 base_pos = get<Walker>()->base_pos();
 
@@ -363,7 +363,7 @@ void SentinelCommon::footstep()
 	shockwave->get<Transform>()->reparent(get<Transform>()->parent.ref());
 }
 
-Vec3 SentinelCommon::head_pos()
+Vec3 MinionCommon::head_pos()
 {
 	Vec3 pos = Vec3(0.1f, 0, 0);
 	Quat rot = Quat::identity;
@@ -371,7 +371,7 @@ Vec3 SentinelCommon::head_pos()
 	return pos;
 }
 
-void SentinelCommon::head_to_object_space(Vec3* pos, Quat* rot)
+void MinionCommon::head_to_object_space(Vec3* pos, Quat* rot)
 {
 	Vec3 offset_pos = Vec3(0.05f, 0, 0.13f) + *pos;
 	Quat offset_quat = Quat::euler(0, 0, PI * 0.5f) * *rot;
@@ -380,7 +380,7 @@ void SentinelCommon::head_to_object_space(Vec3* pos, Quat* rot)
 	*rot = (Quat::euler(0, get<Walker>()->rotation, 0) * offset_quat);
 }
 
-b8 SentinelCommon::headshot_test(const Vec3& ray_start, const Vec3& ray_end)
+b8 MinionCommon::headshot_test(const Vec3& ray_start, const Vec3& ray_end)
 {
 	Vec3 head = head_pos();
 
@@ -396,7 +396,7 @@ b8 SentinelCommon::headshot_test(const Vec3& ray_start, const Vec3& ray_end)
 	return delta >= 0.0f;
 }
 
-void SentinelCommon::update(const Update& u)
+void MinionCommon::update(const Update& u)
 {
 	fsm.time += u.time.delta;
 	get<SkinnedModel>()->offset.make_transform(
@@ -584,7 +584,7 @@ void SentinelCommon::update(const Update& u)
 	get<Walker>()->enabled = fsm.current == State::Normal || fsm.current == State::Run;
 }
 
-void SentinelCommon::killed(Entity* killer)
+void MinionCommon::killed(Entity* killer)
 {
 	get<Audio>()->post_event(AK::EVENTS::STOP);
 
@@ -643,7 +643,7 @@ Vec3 wall_directions[wall_jump_direction_count] =
 	Vec3(0, 0, -1),
 };
 
-b8 SentinelCommon::try_jump(r32 rotation)
+b8 MinionCommon::try_jump(r32 rotation)
 {
 	b8 result = false;
 	if (get<Walker>()->support.ref()
@@ -698,7 +698,7 @@ b8 SentinelCommon::try_jump(r32 rotation)
 	return result;
 }
 
-void SentinelCommon::wall_jump(r32 rotation, const Vec3& wall_normal, const btRigidBody* support_body)
+void MinionCommon::wall_jump(r32 rotation, const Vec3& wall_normal, const btRigidBody* support_body)
 {
 	Vec3 pos = get<Walker>()->base_pos();
 	Vec3 support_velocity = Vec3::zero;
@@ -736,7 +736,7 @@ Vec3 mantle_samples[mantle_sample_count] =
 };
 
 // If force is true, we'll raycast farther downward when trying to mantle, to make sure we find something.
-b8 SentinelCommon::try_parkour(b8 force)
+b8 MinionCommon::try_parkour(b8 force)
 {
 	if (fsm.current == State::Run || fsm.current == State::Normal || fsm.current == State::WallRun)
 	{
@@ -789,7 +789,7 @@ b8 SentinelCommon::try_parkour(b8 force)
 	return false;
 }
 
-b8 SentinelCommon::try_wall_run(WallRunState s, const Vec3& wall_direction)
+b8 MinionCommon::try_wall_run(WallRunState s, const Vec3& wall_direction)
 {
 	Vec3 ray_start = get<Walker>()->base_pos() + Vec3(0, get<Walker>()->support_height, 0);
 	Vec3 ray_end = ray_start + wall_direction * get<Walker>()->radius * 3.0f;

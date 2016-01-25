@@ -246,8 +246,11 @@ void update(const Update& u)
 				{
 					if (player_active[i])
 					{
+						PlayerManager* manager = PlayerManager::list.add();
+						new (manager) PlayerManager(AI::Team::A);
+
 						LocalPlayer* p = LocalPlayer::list.add();
-						new (p) LocalPlayer(AI::Team::A, i);
+						new (p) LocalPlayer(manager, i);
 					}
 				}
 				Game::schedule_load_level(Asset::Level::start);

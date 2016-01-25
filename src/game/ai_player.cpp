@@ -5,51 +5,42 @@
 #include "entities.h"
 #include "console.h"
 #include "awk.h"
-#include "sentinel.h"
+#include "minion.h"
 #include "bullet/src/BulletCollision/NarrowPhaseCollision/btRaycastCallback.h"
 
 namespace VI
 {
 
+
 #define AWK_VIEW_RANGE 100.0f
 
 PinArray<AIPlayer, MAX_AI_PLAYERS> AIPlayer::list = PinArray<AIPlayer, MAX_AI_PLAYERS>();
 
-AIPlayer::AIPlayer(AI::Team t)
-	: team(t),
-	username(),
-	control(),
-	spawn_timer(SPAWN_DELAY),
-	spawn()
+AIPlayer::AIPlayer(PlayerManager* m)
+	: manager(m), revision()
 {
-	strcpy(username, Usernames::all[mersenne::rand_u32() % Usernames::count]);
+	strcpy(manager.ref()->username, Usernames::all[mersenne::rand_u32() % Usernames::count]);
+	m->spawn.link<AIPlayer, &AIPlayer::spawn>(this);
 }
 
 void AIPlayer::update(const Update& u)
 {
-	if (control.ref())
-	{
-		// Player is alive
-	}
-	else
-	{
-		// Player is dead
-		spawn_timer -= u.time.delta;
-		if (spawn_timer < 0.0f && spawn.ref())
-		{
-			Entity* e = World::create<AwkEntity>(team);
+	// TODO: stuff
+}
 
-			e->add<PlayerCommon>(username);
+void AIPlayer::spawn()
+{
+	Entity* e = World::create<AwkEntity>(manager.ref()->team);
 
-			control = e->add<AIPlayerControl>();
-			Vec3 pos;
-			Quat rot;
-			spawn.ref()->absolute(&pos, &rot);
-			e->get<Transform>()->absolute(pos, rot);
+	e->add<PlayerCommon>(manager.ref()->username);
 
-			spawn_timer = SPAWN_DELAY;
-		}
-	}
+	manager.ref()->entity = e;
+
+	e->add<AIPlayerControl>();
+	Vec3 pos;
+	Quat rot;
+	manager.ref()->player_spawn.ref()->absolute(&pos, &rot);
+	e->get<Transform>()->absolute(pos, rot);
 }
 
 AIPlayerControl::AIPlayerControl()
@@ -88,8 +79,8 @@ void AIPlayerControl::reset_move_timer()
 
 Vec3 get_goal_pos(const Entity* e)
 {
-	if (e->has<SentinelCommon>())
-		return e->get<SentinelCommon>()->head_pos();
+	if (e->has<MinionCommon>())
+		return e->get<MinionCommon>()->head_pos();
 	else
 		return e->get<Transform>()->absolute_pos();
 }
@@ -97,10 +88,6 @@ Vec3 get_goal_pos(const Entity* e)
 s32 get_goal_priority(const Entity* e)
 {
 	if (e->has<AIAgent>())
-		return 3;
-	else if (e->has<SentinelSpawnControl>())
-		return 2;
-	else if (e->has<CreditsPickup>())
 		return 1;
 	else
 		return 0;
@@ -134,32 +121,6 @@ AIPlayerControl::Goal AIPlayerControl::find_goal(const Entity* not_entity) const
 		Goal g;
 		g.entity = enemy;
 		return g;
-	}
-
-	for (auto i = SentinelSpawnControl::list.iterator(); !i.is_last(); i.next())
-	{
-		if (i.item()->entity() != not_entity && !i.item()->spawned.ref())
-		{
-			if (goal_reachable(i.item()->entity()))
-			{
-				Goal g;
-				g.entity = i.item()->entity();
-				return g;
-			}
-		}
-	}
-
-	for (auto i = CreditsPickup::list.iterator(); !i.is_last(); i.next())
-	{
-		if (i.item()->entity() != not_entity)
-		{
-			if (goal_reachable(i.item()->entity()))
-			{
-				Goal g;
-				g.entity = i.item()->entity();
-				return g;
-			}
-		}
 	}
 
 	{

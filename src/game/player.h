@@ -14,49 +14,68 @@ struct RigidBody;
 struct Transform;
 struct LocalPlayerControl;
 
-#define SPAWN_DELAY 5.0f
+#define PLAYER_SPAWN_DELAY 5.0f
+#define MINION_SPAWN_INTERVAL 30.0f
 
 #define MAX_PLAYERS 8
 #define MAX_PLAYER_COMBOS 28 // C(MAX_PLAYERS, 2)
 
 struct Camera;
 
+struct PlayerManager
+{
+	static PinArray<PlayerManager, MAX_PLAYERS> list;
+
+	char username[255];
+	AI::Team team;
+	Ref<Transform> player_spawn;
+	StaticArray<Ref<Transform>, 4> minion_spawns;
+	r32 player_spawn_timer;
+	r32 minion_spawn_timer;
+	Revision revision;
+	Ref<Entity> entity;
+	Link spawn;
+
+	PlayerManager(AI::Team);
+
+	void update(const Update&);
+
+	inline ID id() const
+	{
+		return this - &list[0];
+	}
+};
+
 struct LocalPlayer
 {
 	enum class UIMode { Default, Pause, Spawning };
+
 	static PinArray<LocalPlayer, MAX_PLAYERS> list;
 
 	u8 gamepad;
 	b8 pause;
-	char username[255];
-	Ref<LocalPlayerControl> control;
-	AI::Team team;
-
 	UIMenu menu;
-
 	Ref<Transform> map_view;
-	Ref<Transform> spawn;
-
+	Ref<PlayerManager> manager;
+	Camera* camera;
+	r32 msg_timer;
+	UIText msg_text;
+	UIText credits_text;
 	Revision revision;
-	ID id() const
+
+	inline ID id() const
 	{
 		return this - &list[0];
 	}
 
-	Camera* camera;
-
-	r32 spawn_timer;
-	r32 msg_timer;
-	UIText msg_text;
-	UIText credits_text;
-
-	LocalPlayer(AI::Team, u8);
+	LocalPlayer(PlayerManager*, u8);
 
 	void msg(const char*);
 	UIMode ui_mode() const;
 	void update(const Update&);
 	void draw_alpha(const RenderParams&) const;
 	void ensure_camera(const Update&, b8);
+	void spawn();
 };
 
 struct PlayerCommon : public ComponentType<PlayerCommon>

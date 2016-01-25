@@ -20,7 +20,7 @@ struct Rope;
 #define AWK_SHOCKWAVE_RADIUS 10
 #define AWK_LEGS 3
 
-// If we raycast through a Sentinel's head, keep going.
+// If we raycast through a Minion's head, keep going.
 struct AwkRaycastCallback : btCollisionWorld::ClosestRayResultCallback
 {
 	b8 hit_target;

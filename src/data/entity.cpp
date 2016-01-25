@@ -9,12 +9,12 @@ Array<ID> World::remove_buffer = Array<ID>();
 ComponentPoolBase* World::component_pools[MAX_FAMILIES];
 
 LinkEntry::Data::Data()
-	: entity(), revision()
+	: id(), revision()
 {
 }
 
 LinkEntry::Data::Data(ID e, Revision r)
-	: entity(e), revision(r)
+	: id(e), revision(r)
 {
 }
 
@@ -86,8 +86,8 @@ LinkEntry::LinkEntry()
 
 }
 
-LinkEntry::LinkEntry(ID entity)
-	: data(entity, Entity::list[entity].revision)
+LinkEntry::LinkEntry(ID i, Revision r)
+	: data(i, r)
 {
 
 }

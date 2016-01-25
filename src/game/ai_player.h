@@ -7,6 +7,7 @@ namespace VI
 
 struct AIPlayerControl;
 struct Transform;
+struct PlayerManager;
 
 #define MAX_AI_PLAYERS 3
 
@@ -14,14 +15,16 @@ struct AIPlayer
 {
 	static PinArray<AIPlayer, MAX_AI_PLAYERS> list;
 
-	char username[255];
-	Ref<AIPlayerControl> control;
-	Ref<Transform> spawn;
-	AI::Team team;
-	r32 spawn_timer;
+	Ref<PlayerManager> manager;
+	Revision revision;
 
-	AIPlayer(AI::Team);
+	AIPlayer(PlayerManager*);
+	inline ID id() const
+	{
+		return this - &list[0];
+	}
 	void update(const Update&);
+	void spawn();
 };
 
 struct AIPlayerControl : public ComponentType<AIPlayerControl>

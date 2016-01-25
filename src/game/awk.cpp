@@ -16,7 +16,7 @@
 #include "asset/font.h"
 #include "game.h"
 #include "console.h"
-#include "sentinel.h"
+#include "minion.h"
 
 namespace VI
 {
@@ -49,7 +49,7 @@ btScalar AwkRaycastCallback::addSingleResult(btCollisionWorld::LocalRayResult& r
 	if (filter_group & CollisionWalker)
 	{
 		Entity* entity = &Entity::list[rayResult.m_collisionObject->getUserIndex()];
-		if (entity->has<SentinelCommon>() && entity->get<SentinelCommon>()->headshot_test(m_rayFromWorld, m_rayToWorld))
+		if (entity->has<MinionCommon>() && entity->get<MinionCommon>()->headshot_test(m_rayFromWorld, m_rayToWorld))
 		{
 			hit_target = true;
 			return m_closestHitFraction;
@@ -388,20 +388,10 @@ void Awk::update(const Update& u)
 					if (rayCallback.m_hitFractions[i] < fraction_end)
 					{
 						short group = rayCallback.m_collisionObjects[i]->getBroadphaseHandle()->m_collisionFilterGroup;
-						b8 end = false;
-						if (group & CollisionInaccessible)
-							end = true;
-						else if (group & CollisionWalker)
+						if (!(group & (CollisionTarget | CollisionWalker)))
 						{
-							Entity* t = &Entity::list[rayCallback.m_collisionObjects[i]->getUserIndex()];
-							if (t->has<SentinelCommon>() && !t->get<SentinelCommon>()->headshot_test(ray_start, ray_end))
-								end = true;
-						}
-						else if (!(group & CollisionTarget))
-							end = true;
-
-						if (end)
-						{
+							// it's not a target or a person; we can't go through it
+							// stop raycasting
 							fraction_end = rayCallback.m_hitFractions[i];
 							index_end = i;
 						}
@@ -416,7 +406,7 @@ void Awk::update(const Update& u)
 						if (group & CollisionWalker)
 						{
 							Entity* t = &Entity::list[rayCallback.m_collisionObjects[i]->getUserIndex()];
-							if (t->has<SentinelCommon>() && t->get<SentinelCommon>()->headshot_test(ray_start, ray_end))
+							if (t->has<MinionCommon>() && t->get<MinionCommon>()->headshot_test(ray_start, ray_end))
 							{
 								hit.fire(t);
 								t->get<Health>()->damage(entity(), 100);

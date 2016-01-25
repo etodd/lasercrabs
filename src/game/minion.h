@@ -14,12 +14,12 @@
 namespace VI
 {
 
-struct Sentinel : public Entity
+struct Minion : public Entity
 {
-	Sentinel(const Vec3&, const Quat&, AI::Team);
+	Minion(const Vec3&, const Quat&, AI::Team);
 };
 
-struct SentinelCommon : public ComponentType<SentinelCommon>
+struct MinionCommon : public ComponentType<MinionCommon>
 {
 	enum class State
 	{
@@ -59,7 +59,7 @@ struct SentinelCommon : public ComponentType<SentinelCommon>
 	void update(const Update&);
 };
 
-struct SentinelControl : public ComponentType<SentinelControl>
+struct MinionAI : public ComponentType<MinionAI>
 {
 	enum class State
 	{
@@ -84,7 +84,7 @@ struct SentinelControl : public ComponentType<SentinelControl>
 	Ref<Entity> target;
 
 	void awake();
-	~SentinelControl();
+	~MinionAI();
 	void update(const Update&);
 	void go(const Vec3&);
 	void recalc_path(const Update&);

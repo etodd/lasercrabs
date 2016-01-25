@@ -21,7 +21,7 @@
 #include "audio.h"
 #include "asset/Wwise_IDs.h"
 #include "game.h"
-#include "sentinel.h"
+#include "minion.h"
 #include "walker.h"
 #include "data/animator.h"
 #include "mersenne/mersenne-twister.h"
@@ -84,21 +84,66 @@ void draw_indicator(const RenderParams& params, const Vec3& pos, const Vec4& col
 	}
 }
 
+PinArray<PlayerManager, MAX_PLAYERS> PlayerManager::list = PinArray<PlayerManager, MAX_PLAYERS>();
+
+PlayerManager::PlayerManager(AI::Team t)
+	: team(t),
+	player_spawn_timer(PLAYER_SPAWN_DELAY),
+	minion_spawn_timer(MINION_SPAWN_INTERVAL),
+	revision(),
+	player_spawn(),
+	minion_spawns(),
+	username(),
+	entity(),
+	spawn()
+{
+}
+
+void PlayerManager::update(const Update& u)
+{
+	if (player_spawn.ref() && !entity.ref())
+	{
+		player_spawn_timer -= u.time.delta;
+		if (player_spawn_timer < 0 || Game::data.mode == Game::Mode::Parkour)
+		{
+			spawn.fire();
+			player_spawn_timer = PLAYER_SPAWN_DELAY;
+		}
+	}
+
+	if (minion_spawns.length > 0)
+	{
+		minion_spawn_timer -= u.time.delta;
+		if (minion_spawn_timer < 0)
+		{
+			for (int i = 0; i < minion_spawns.length; i++)
+			{
+				Vec3 pos;
+				Quat rot;
+				minion_spawns[i].ref()->absolute(&pos, &rot);
+				pos += rot * Vec3(0, 0, 1); // spawn it around the edges
+				Entity* entity = World::create<Minion>(pos, rot, team);
+				entity->add<MinionAI>();
+			}
+			minion_spawn_timer = MINION_SPAWN_INTERVAL;
+		}
+	}
+}
+
 PinArray<LocalPlayer, MAX_PLAYERS> LocalPlayer::list = PinArray<LocalPlayer, MAX_PLAYERS>();
 
-LocalPlayer::LocalPlayer(AI::Team t, u8 g)
+LocalPlayer::LocalPlayer(PlayerManager* m, u8 g)
 	: gamepad(g),
-	team(t),
+	manager(m),
 	pause(),
-	control(),
 	camera(),
 	credits_text(),
 	msg_text(),
 	msg_timer(msg_time),
 	menu(),
-	spawn_timer(SPAWN_DELAY)
+	revision()
 {
-	sprintf(username, "Player %d", gamepad);
+	sprintf(manager.ref()->username, "Player %d", gamepad);
 
 	msg_text.font = Asset::Font::lowpoly;
 	msg_text.size = 18.0f;
@@ -110,6 +155,8 @@ LocalPlayer::LocalPlayer(AI::Team t, u8 g)
 	credits_text.size = 18.0f;
 	credits_text.color = UI::default_color;
 	credits_text.anchor_x = UIText::Anchor::Center;
+
+	m->spawn.link<LocalPlayer, &LocalPlayer::spawn>(this);
 }
 
 LocalPlayer::UIMode LocalPlayer::ui_mode() const
@@ -118,7 +165,7 @@ LocalPlayer::UIMode LocalPlayer::ui_mode() const
 		return UIMode::Default;
 	else if (pause)
 		return UIMode::Pause;
-	else if (control.ref() || NoclipControl::list.count() > 0)
+	else if (manager.ref()->entity.ref() || NoclipControl::list.count() > 0)
 		return UIMode::Default;
 	else
 		return UIMode::Spawning;
@@ -163,7 +210,7 @@ void LocalPlayer::update(const Update& u)
 		return;
 
 	char credits[255];
-	sprintf(credits, "+%d", Game::data.credits[(s32)team]);
+	sprintf(credits, "+%d", Game::data.credits[(s32)manager.ref()->team]);
 	credits_text.text(credits);
 
 	if (msg_timer < msg_time)
@@ -182,8 +229,8 @@ void LocalPlayer::update(const Update& u)
 		{
 			// Nothing going on
 			ensure_camera(u, false);
-			if (control.ref())
-				control.ref()->enable_input = true;
+			if (manager.ref()->entity.ref())
+				manager.ref()->entity.ref()->get<LocalPlayerControl>()->enable_input = true;
 			break;
 		}
 		case UIMode::Pause:
@@ -192,10 +239,10 @@ void LocalPlayer::update(const Update& u)
 
 			ensure_camera(u, true);
 
-			if (control.ref())
-				control.ref()->enable_input = false;
+			if (manager.ref()->entity.ref())
+				manager.ref()->entity.ref()->get<LocalPlayerControl>()->enable_input = false;
 
-			Rect2& viewport = camera ? camera->viewport : control.ref()->camera->viewport;
+			Rect2& viewport = camera ? camera->viewport : manager.ref()->entity.ref()->get<LocalPlayerControl>()->camera->viewport;
 			menu.start(u, gamepad);
 
 			Vec2 pos = viewport.pos + viewport.size * Vec2(0, 0.6f);
@@ -213,49 +260,45 @@ void LocalPlayer::update(const Update& u)
 			// Player is currently dead
 			ensure_camera(u, true);
 
-			if (spawn.ref())
-			{
-				spawn_timer -= u.time.delta;
-				if (spawn_timer < 0 || Game::data.mode == Game::Mode::Parkour)
-				{
-					Vec3 pos;
-					Quat rot;
-					spawn.ref()->absolute(&pos, &rot);
-					Vec3 dir = rot * Vec3(0, 0, 1);
-					r32 angle = atan2f(dir.x, dir.z);
-
-					Entity* spawned;
-
-					if (Game::data.mode == Game::Mode::Multiplayer)
-					{
-						// Spawn AWK
-						pos += Quat::euler(0, angle + (gamepad * PI * 0.5f), 0) * Vec3(0, 0, 1); // spawn it around the edges
-						spawned = World::create<AwkEntity>(team);
-					}
-					else // parkour mode
-					{
-						// Spawn sentinel
-						spawned = World::create<Sentinel>(pos, Quat::euler(0, angle, 0), team);
-					}
-
-					spawned->get<Transform>()->absolute(pos, rot);
-					spawned->add<PlayerCommon>(username);
-					control = spawned->add<LocalPlayerControl>(gamepad);
-					control.ref()->player = this;
-					control.ref()->angle_horizontal = angle;
-
-					spawn_timer = SPAWN_DELAY; // reset for next time
-				}
-			}
-
 			break;
 		}
 	}
 }
 
+void LocalPlayer::spawn()
+{
+	Vec3 pos;
+	Quat rot;
+	manager.ref()->player_spawn.ref()->absolute(&pos, &rot);
+	Vec3 dir = rot * Vec3(0, 0, 1);
+	r32 angle = atan2f(dir.x, dir.z);
+
+	Entity* spawned;
+
+	if (Game::data.mode == Game::Mode::Multiplayer)
+	{
+		// Spawn AWK
+		pos += Quat::euler(0, angle + (gamepad * PI * 0.5f), 0) * Vec3(0, 0, 1); // spawn it around the edges
+		spawned = World::create<AwkEntity>(manager.ref()->team);
+	}
+	else // parkour mode
+	{
+		// Spawn sentinel
+		spawned = World::create<Minion>(pos, Quat::euler(0, angle, 0), manager.ref()->team);
+	}
+
+	spawned->get<Transform>()->absolute(pos, rot);
+	spawned->add<PlayerCommon>(manager.ref()->username);
+	manager.ref()->entity = spawned;
+
+	LocalPlayerControl* control = spawned->add<LocalPlayerControl>(gamepad);
+	control->player = this;
+	control->angle_horizontal = angle;
+}
+
 void LocalPlayer::draw_alpha(const RenderParams& params) const
 {
-	if (params.camera != camera && (!control.ref() || params.camera != control.ref()->camera))
+	if (params.camera != camera && (!manager.ref()->entity.ref() || params.camera != manager.ref()->entity.ref()->get<LocalPlayerControl>()->camera))
 		return;
 
 	const r32 line_thickness = 2.0f * UI::scale;
@@ -309,7 +352,7 @@ void LocalPlayer::draw_alpha(const RenderParams& params) const
 
 			text.wrap_width = MENU_ITEM_WIDTH;
 			text.anchor_x = text.anchor_y = UIText::Anchor::Center;
-			text.text("Spawning... %d", (s32)spawn_timer + 1);
+			text.text("Spawning... %d", (s32)manager.ref()->player_spawn_timer + 1);
 			Vec2 p = vp.pos + vp.size * Vec2(0.5f);
 			UI::box(params, text.rect(p).outset(8.0f), Vec4(0, 0, 0, 1));
 			text.draw(params, p);
@@ -376,8 +419,8 @@ void PlayerCommon::update_visibility()
 	{
 		for (s32 j = i + 1; j < player_count; j++)
 		{
-			Vec3 start = players[i]->has<SentinelCommon>() ? players[i]->get<SentinelCommon>()->head_pos() : players[i]->get<Awk>()->center();
-			Vec3 end = players[j]->has<SentinelCommon>() ? players[j]->get<SentinelCommon>()->head_pos() : players[j]->get<Awk>()->center();
+			Vec3 start = players[i]->has<MinionCommon>() ? players[i]->get<MinionCommon>()->head_pos() : players[i]->get<Awk>()->center();
+			Vec3 end = players[j]->has<MinionCommon>() ? players[j]->get<MinionCommon>()->head_pos() : players[j]->get<Awk>()->center();
 			if (btVector3(end - start).fuzzyZero())
 				visibility[index] = true;
 			else
@@ -425,9 +468,9 @@ void PlayerCommon::draw_alpha(const RenderParams& params) const
 
 void PlayerCommon::update(const Update& u)
 {
-	if (has<SentinelCommon>() || get<Transform>()->parent.ref())
+	if (has<MinionCommon>() || get<Transform>()->parent.ref())
 	{
-		// Either we are a Sentinel, or we're an Awk and we're attached to a surface
+		// Either we are a Minion, or we're an Awk and we're attached to a surface
 		// Either way, we need to decrement the cooldown timer
 		cooldown = fmax(0.0f, cooldown - u.time.delta);
 	}
@@ -679,7 +722,7 @@ void LocalPlayerControl::update(const Update& u)
 					// Switch to sentinel
 					Vec3 pos = get<Awk>()->center() + Vec3(0, 1.0f, 0);
 					AI::Team old_team = get<AIAgent>()->team;
-					Entity* new_entity = World::create<Sentinel>(pos, Quat::euler(0, angle_horizontal, 0), old_team);
+					Entity* new_entity = World::create<Minion>(pos, Quat::euler(0, angle_horizontal, 0), old_team);
 					get<PlayerCommon>()->transfer_to(new_entity);
 					return;
 				}
@@ -711,25 +754,25 @@ void LocalPlayerControl::update(const Update& u)
 	}
 	else
 	{
-		// Sentinel control code
+		// Minion control code
 		update_camera_input(u);
 		look_quat = Quat::euler(lean, angle_horizontal, angle_vertical);
 		{
 			camera_pos = Vec3(0, 0, 0.05f);
 			Quat q = Quat::identity;
-			get<SentinelCommon>()->head_to_object_space(&camera_pos, &q);
+			get<MinionCommon>()->head_to_object_space(&camera_pos, &q);
 			camera_pos = get<Transform>()->to_world(camera_pos);
 		}
 
 		Vec3 movement = get_movement(u, Quat::euler(0, angle_horizontal, 0));
 		Vec2 dir = Vec2(movement.x, movement.z);
 		get<Walker>()->dir = dir;
-		get<SentinelCommon>()->set_run(!u.input->get(settings.bindings.walk, gamepad));
+		get<MinionCommon>()->set_run(!u.input->get(settings.bindings.walk, gamepad));
 
 		b8 parkour_pressed = input_enabled() && u.input->get(settings.bindings.parkour, gamepad);
 
-		if (get<SentinelCommon>()->fsm.current == SentinelCommon::State::WallRun && !parkour_pressed)
-			get<SentinelCommon>()->fsm.transition(SentinelCommon::State::Normal);
+		if (get<MinionCommon>()->fsm.current == MinionCommon::State::WallRun && !parkour_pressed)
+			get<MinionCommon>()->fsm.transition(MinionCommon::State::Normal);
 
 		if (parkour_pressed && !u.last_input->get(settings.bindings.parkour, gamepad))
 			try_parkour = true;
@@ -738,7 +781,7 @@ void LocalPlayerControl::update(const Update& u)
 
 		if (try_parkour)
 		{
-			if (get<SentinelCommon>()->try_parkour())
+			if (get<MinionCommon>()->try_parkour())
 			{
 				try_parkour = false;
 				try_jump = false;
@@ -753,7 +796,7 @@ void LocalPlayerControl::update(const Update& u)
 
 		if (try_jump)
 		{
-			if (get<SentinelCommon>()->try_jump(angle_horizontal))
+			if (get<MinionCommon>()->try_jump(angle_horizontal))
 			{
 				try_parkour = false;
 				try_jump = false;
@@ -768,20 +811,20 @@ void LocalPlayerControl::update(const Update& u)
 
 		r32 lean_target = 0.0f;
 
-		if (get<SentinelCommon>()->fsm.current == SentinelCommon::State::WallRun)
+		if (get<MinionCommon>()->fsm.current == MinionCommon::State::WallRun)
 		{
-			SentinelCommon::WallRunState state = get<SentinelCommon>()->wall_run_state;
+			MinionCommon::WallRunState state = get<MinionCommon>()->wall_run_state;
 			const r32 wall_run_lean = 8.0f * PI / 180.0f;
-			if (state == SentinelCommon::WallRunState::Left)
+			if (state == MinionCommon::WallRunState::Left)
 				lean_target = -wall_run_lean;
-			else if (state == SentinelCommon::WallRunState::Right)
+			else if (state == MinionCommon::WallRunState::Right)
 				lean_target = wall_run_lean;
 
-			Vec3 wall_normal = get<SentinelCommon>()->last_support.ref()->get<Transform>()->to_world_normal(get<SentinelCommon>()->relative_wall_run_normal);
+			Vec3 wall_normal = get<MinionCommon>()->last_support.ref()->get<Transform>()->to_world_normal(get<MinionCommon>()->relative_wall_run_normal);
 
 			Vec3 forward = look_quat * Vec3(0, 0, 1);
 
-			if (get<SentinelCommon>()->wall_run_state == SentinelCommon::WallRunState::Forward)
+			if (get<MinionCommon>()->wall_run_state == MinionCommon::WallRunState::Forward)
 				wall_normal *= -1.0f; // Make sure we're always facing the wall
 			else
 			{
@@ -838,13 +881,13 @@ void LocalPlayerControl::update(const Update& u)
 		camera->wall_normal = Vec3(0, 0, 1);
 
 	tracer.type = TraceType::None;
-	if (has<SentinelCommon>() || (get<Transform>()->parent.ref() && get<PlayerCommon>()->cooldown == 0.0f))
+	if (has<MinionCommon>() || (get<Transform>()->parent.ref() && get<PlayerCommon>()->cooldown == 0.0f))
 	{
 		// Display trajectory
 		Vec3 trace_dir = look_quat * Vec3(0, 0, 1);
 		// Make sure we're not shooting into the wall we're on.
 		// If we're a sentinel, no need to worry about that.
-		if (has<SentinelCommon>() || trace_dir.dot(get<Transform>()->absolute_rot() * Vec3(0, 0, 1)) > 0.0f)
+		if (has<MinionCommon>() || trace_dir.dot(get<Transform>()->absolute_rot() * Vec3(0, 0, 1)) > 0.0f)
 		{
 			Vec3 trace_start = camera_pos;
 			Vec3 trace_end = trace_start + trace_dir * AWK_MAX_DISTANCE;
@@ -888,7 +931,7 @@ void LocalPlayerControl::update(const Update& u)
 
 				if (go)
 				{
-					if (has<SentinelCommon>())
+					if (has<MinionCommon>())
 					{
 						// Switch to AWK
 						AI::Team old_team = get<AIAgent>()->team;
@@ -939,9 +982,9 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 		Vec2 viewport = params.camera->viewport.size;
 
 		// Draw friendly sentinel paths
-		for (auto i = SentinelControl::list.iterator(); !i.is_last(); i.next())
+		for (auto i = MinionAI::list.iterator(); !i.is_last(); i.next())
 		{
-			SentinelControl* sentinel = i.item();
+			MinionAI* sentinel = i.item();
 			if (sentinel->get<AIAgent>()->team == team)
 			{
 				for (s32 j = sentinel->path_index; j < sentinel->path_point_count; j++)
@@ -964,7 +1007,7 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 		}
 
 		// Draw reticle
-		if (has<SentinelCommon>() || get<Transform>()->parent.ref())
+		if (has<MinionCommon>() || get<Transform>()->parent.ref())
 		{
 			r32 cooldown = get<PlayerCommon>()->cooldown;
 			r32 radius = cooldown == 0.0f ? 0.0f : fmax(0.0f, 32.0f * (get<PlayerCommon>()->cooldown / AWK_MAX_DISTANCE_COOLDOWN));
@@ -995,17 +1038,17 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 		Vec3 pos = get<Transform>()->absolute_pos();
 
 		// Draw sentinel indicators
-		for (auto i = SentinelCommon::list.iterator(); !i.is_last(); i.next())
+		for (auto i = MinionCommon::list.iterator(); !i.is_last(); i.next())
 		{
 			if (i.item()->get<AIAgent>()->team != team)
 			{
 				b8 draw_normal_indicator = true;
 
-				if (i.item()->has<SentinelControl>())
+				if (i.item()->has<MinionAI>())
 				{
-					SentinelControl* control = i.item()->get<SentinelControl>();
+					MinionAI* control = i.item()->get<MinionAI>();
 					if (control->target.ref() == entity()
-						&& control->fsm.current == SentinelControl::State::Attacking
+						&& control->fsm.current == MinionAI::State::Attacking
 						&& control->vision_timer > 0.0f)
 					{
 						draw_normal_indicator = false;

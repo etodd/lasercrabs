@@ -280,6 +280,7 @@ namespace Ease
 			default:
 			{
 				vi_assert(false);
+				return T();
 			}
 		}
 	}

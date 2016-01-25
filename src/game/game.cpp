@@ -32,7 +32,7 @@
 #include "scripts.h"
 #include "console.h"
 #include "ease.h"
-#include "sentinel.h"
+#include "minion.h"
 #include "data/behavior.h"
 
 #if DEBUG
@@ -131,10 +131,12 @@ void Game::update(const Update& update_in)
 
 	if (u.input->keys[(s32)KeyCode::K] && !u.last_input->keys[(s32)KeyCode::K])
 	{
-		for (auto i = SentinelCommon::list.iterator(); !i.is_last(); i.next())
+		for (auto i = MinionCommon::list.iterator(); !i.is_last(); i.next())
 			i.item()->killed(nullptr);
 	}
 
+	for (auto i = PlayerManager::list.iterator(); !i.is_last(); i.next())
+		i.item()->update(u);
 	for (auto i = LocalPlayer::list.iterator(); !i.is_last(); i.next())
 		i.item()->update(u);
 	for (auto i = AIPlayer::list.iterator(); !i.is_last(); i.next())
@@ -146,13 +148,13 @@ void Game::update(const Update& update_in)
 	PlayerCommon::update_visibility();
 	for (auto i = NoclipControl::list.iterator(); !i.is_last(); i.next())
 		i.item()->update(u);
-	for (auto i = SentinelControl::list.iterator(); !i.is_last(); i.next())
+	for (auto i = MinionAI::list.iterator(); !i.is_last(); i.next())
 		i.item()->update(u);
 	for (auto i = PlayerTrigger::list.iterator(); !i.is_last(); i.next())
 		i.item()->update(u);
 	for (auto i = AIPlayerControl::list.iterator(); !i.is_last(); i.next())
 		i.item()->update(u);
-	for (auto i = SentinelCommon::list.iterator(); !i.is_last(); i.next())
+	for (auto i = MinionCommon::list.iterator(); !i.is_last(); i.next())
 		i.item()->update(u);
 	for (auto i = Shockwave::list.iterator(); !i.is_last(); i.next())
 		i.item()->update(u);
@@ -278,8 +280,6 @@ void Game::draw_alpha(const RenderParams& render_params)
 
 	Console::draw(render_params);
 
-	for (auto i = PortalControl::list.iterator(); !i.is_last(); i.next())
-		i.item()->draw_alpha(render_params);
 	for (auto i = PlayerCommon::list.iterator(); !i.is_last(); i.next())
 		i.item()->draw_alpha(render_params);
 	for (auto i = LocalPlayerControl::list.iterator(); !i.is_last(); i.next())
@@ -373,8 +373,11 @@ void Game::execute(const Update& u, const char* cmd)
 			{
 				if (LocalPlayer::list.count() == 0)
 				{
+					PlayerManager* manager = PlayerManager::list.add();
+					new (manager) PlayerManager(AI::Team::A);
+
 					LocalPlayer* player = LocalPlayer::list.add();
-					new (player) LocalPlayer(AI::Team::A, 0);
+					new (player) LocalPlayer(manager, 0);
 				}
 				for (s32 i = 0; i < (s32)AI::Team::count; i++)
 					data.credits[i] = initial_credits;
@@ -481,7 +484,8 @@ void Game::load_level(const Update& u, AssetID l)
 	Array<LevelLink<Entity>> links;
 	Array<LevelLink<Transform>> transform_links;
 	Array<MoverEntry> mover_links;
-	Array<SpawnEntry> spawns;
+	Array<SpawnEntry> player_spawns;
+	Array<SpawnEntry> minion_spawns;
 
 	EntityFinder finder;
 	
@@ -555,25 +559,6 @@ void Game::load_level(const Update& u, AssetID l)
 				mesh_index++;
 			}
 		}
-		else if (cJSON_GetObjectItem(element, "SentinelSpawn"))
-		{
-			entity = World::create<SentinelSpawn>(absolute_pos, absolute_rot);
-
-			cJSON* entity_link = cJSON_GetObjectItem(element, "links")->child;
-			if (entity_link)
-			{
-				LevelLink<Transform> link = { &entity->get<SentinelSpawnControl>()->spawn, entity_link->valuestring };
-				transform_links.add(link);
-				entity_link = entity_link->next;
-			}
-
-			while (entity_link)
-			{
-				LevelLink<Transform> link = { entity->get<SentinelSpawnControl>()->idle_path.add(), entity_link->valuestring };
-				transform_links.add(link);
-				entity_link = entity_link->next;
-			}
-		}
 		else if (cJSON_GetObjectItem(element, "Rope"))
 		{
 			RopeEntry* rope = ropes.add();
@@ -586,21 +571,19 @@ void Game::load_level(const Update& u, AssetID l)
 		{
 			entity = World::create<CreditsPickupEntity>(absolute_pos, absolute_rot);
 		}
-		else if (cJSON_GetObjectItem(element, "Sentinel"))
+		else if (cJSON_GetObjectItem(element, "MinionSpawn"))
 		{
-			AI::Team team = (AI::Team)Json::get_s32(element, "team", (s32)AI::Team::None);
-			entity = World::create<Sentinel>(absolute_pos, absolute_rot, team);
+			AI::Team team = (AI::Team)Json::get_s32(element, "team");
 
-			cJSON* links = cJSON_GetObjectItem(element, "links");
-			cJSON* l = links->child;
+			entity = World::create<MinionSpawn>(team);
 
-			SentinelControl* sentinel = entity->add<SentinelControl>();
-			while (l)
-			{
-				LevelLink<Transform> link = { sentinel->idle_path.add(), l->valuestring };
-				transform_links.add(link);
-				l = l->next;
-			}
+			absolute_pos += Vec3(0, 3.75f * 0.5f, 0);
+			if (parent == -1)
+				pos = absolute_pos;
+			else
+				pos = transforms[parent]->to_local(absolute_pos);
+
+			minion_spawns.add({ entity->get<Transform>(), team });
 		}
 		else if (cJSON_GetObjectItem(element, "PlayerSpawn"))
 		{
@@ -617,15 +600,7 @@ void Game::load_level(const Update& u, AssetID l)
 			else
 				pos = transforms[parent]->to_local(absolute_pos);
 
-			spawns.add({ entity->get<Transform>(), team });
-		}
-		else if (cJSON_GetObjectItem(element, "Portal"))
-		{
-			entity = World::create<Portal>();
-			const char* next = Json::get_string(element, "Portal");
-			if (next)
-				entity->get<PortalControl>()->next = Loader::find(next, AssetLookup::Level::names);
-			entity->get<PlayerTrigger>()->radius = Json::get_r32(element, "scale", 1.0f) * 0.5f;
+			player_spawns.add({ entity->get<Transform>(), team });
 		}
 		else if (cJSON_GetObjectItem(element, "PlayerTrigger"))
 		{
@@ -678,9 +653,13 @@ void Game::load_level(const Update& u, AssetID l)
 		}
 		else if (cJSON_GetObjectItem(element, "AIPlayer"))
 		{
-			AIPlayer* player = AIPlayer::list.add();
 			AI::Team team = (AI::Team)Json::get_s32(element, "team", (s32)AI::Team::None);
-			new (player) AIPlayer(team);
+
+			PlayerManager* manager = PlayerManager::list.add();
+			new (manager) PlayerManager(team);
+
+			AIPlayer* player = AIPlayer::list.add();
+			new (player) AIPlayer(manager);
 		}
 		else if (cJSON_GetObjectItem(element, "Socket"))
 		{
@@ -798,18 +777,23 @@ void Game::load_level(const Update& u, AssetID l)
 		link.mover->setup(object->get<Transform>(), end->get<Transform>(), link.speed);
 	}
 
-	for (s32 i = 0; i < spawns.length; i++)
+	for (s32 i = 0; i < player_spawns.length; i++)
 	{
-		SpawnEntry& spawn = spawns[i];
-		for (auto j = LocalPlayer::list.iterator(); !j.is_last(); j.next())
+		SpawnEntry& spawn = player_spawns[i];
+		for (auto j = PlayerManager::list.iterator(); !j.is_last(); j.next())
 		{
 			if (j.item()->team == spawn.team)
-				j.item()->spawn = spawn.ref;
+				j.item()->player_spawn = spawn.ref;
 		}
-		for (auto j = AIPlayer::list.iterator(); !j.is_last(); j.next())
+	}
+
+	for (s32 i = 0; i < minion_spawns.length; i++)
+	{
+		SpawnEntry& spawn = minion_spawns[i];
+		for (auto j = PlayerManager::list.iterator(); !j.is_last(); j.next())
 		{
 			if (j.item()->team == spawn.team)
-				j.item()->spawn = spawn.ref;
+				j.item()->minion_spawns.add(spawn.ref);
 		}
 	}
 

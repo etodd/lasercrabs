@@ -10,7 +10,7 @@
 #include "audio.h"
 #include "player.h"
 #include "data/ragdoll.h"
-#include "sentinel.h"
+#include "minion.h"
 #include "ai_player.h"
 
 namespace VI
@@ -29,24 +29,22 @@ COMPONENT_TYPE(8,  SpotLight) \
 COMPONENT_TYPE(9,  DirectionalLight) \
 COMPONENT_TYPE(10, AIPlayerControl) \
 COMPONENT_TYPE(11, Health) \
-COMPONENT_TYPE(12, SentinelControl) \
+COMPONENT_TYPE(12, MinionAI) \
 COMPONENT_TYPE(13, PlayerCommon) \
 COMPONENT_TYPE(14, Shockwave) \
-COMPONENT_TYPE(15, SentinelSpawnControl) \
-COMPONENT_TYPE(16, Socket) \
-COMPONENT_TYPE(17, Mover) \
-COMPONENT_TYPE(18, Rope) \
-COMPONENT_TYPE(19, SentinelCommon) \
-COMPONENT_TYPE(20, SkyDecal) \
-COMPONENT_TYPE(21, CreditsPickup) \
-COMPONENT_TYPE(22, Walker) \
-COMPONENT_TYPE(23, PortalControl) \
-COMPONENT_TYPE(24, Target) \
-COMPONENT_TYPE(25, PlayerTrigger) \
-COMPONENT_TYPE(26, LocalPlayerControl) \
-COMPONENT_TYPE(27, Ragdoll) \
-COMPONENT_TYPE(28, SkinnedModel) \
-COMPONENT_TYPE(29, View)
+COMPONENT_TYPE(15, Socket) \
+COMPONENT_TYPE(16, Mover) \
+COMPONENT_TYPE(17, Rope) \
+COMPONENT_TYPE(18, MinionCommon) \
+COMPONENT_TYPE(19, SkyDecal) \
+COMPONENT_TYPE(20, Walker) \
+COMPONENT_TYPE(21, Target) \
+COMPONENT_TYPE(22, PlayerTrigger) \
+COMPONENT_TYPE(23, LocalPlayerControl) \
+COMPONENT_TYPE(24, CreditsPickup) \
+COMPONENT_TYPE(25, Ragdoll) \
+COMPONENT_TYPE(26, SkinnedModel) \
+COMPONENT_TYPE(27, View)
 
 Family World::families = 31;
 

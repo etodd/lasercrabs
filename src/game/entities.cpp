@@ -260,6 +260,20 @@ MinionSpawn::MinionSpawn(AI::Team team)
 	create<RigidBody>(RigidBody::Type::CapsuleY, Vec3(0.8f, 3.75f, 0.8f), 0.0f, CollisionInaccessible, CollisionInaccessibleMask);
 }
 
+Turret::Turret(AI::Team team)
+{
+	create<Transform>();
+
+	View* view = create<View>();
+	view->mesh = Asset::Mesh::spawn;
+	view->shader = Asset::Shader::standard;
+	view->color = AI::colors[(s32)team];
+	
+	create<TurretControl>()->team = team;
+
+	create<RigidBody>(RigidBody::Type::CapsuleY, Vec3(0.8f, 3.75f, 0.8f), 0.0f, CollisionInaccessible, CollisionInaccessibleMask);
+}
+
 void Target::hit(Entity* e)
 {
 	hit_by.fire(e);

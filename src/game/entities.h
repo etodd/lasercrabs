@@ -154,6 +154,17 @@ struct MinionSpawn : public Entity
 	MinionSpawn(AI::Team);
 };
 
+struct Turret : public Entity
+{
+	Turret(AI::Team);
+};
+
+struct TurretControl : public ComponentType<TurretControl>
+{
+	AI::Team team;
+	void awake() {}
+};
+
 struct Target : public ComponentType<Target>
 {
 	LinkArg<Entity*> hit_by; // Passes the entity we were hit by

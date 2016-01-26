@@ -17,14 +17,16 @@ dtQueryFilter AI::default_query_filter = dtQueryFilter();
 const r32 AI::default_search_extents[] = { 8, 8, 8 };
 b8 AI::render_mesh_dirty = false;
 
-const Vec4 AI::colors[] =
+const Vec4 AI::colors[(s32)AI::Team::count] =
 {
 	Vec4(1, 1, 0.5f, 1),
-	Vec4(0.3f, 0.3f, 0.3f, 1),
-	Vec4(0.5f, 1, 0.5f, 1),
-	Vec4(1, 0, 1, 1),
 	Vec4(1, 0.5f, 0.5f, 1),
 };
+
+AI::Team AI::other(AI::Team t)
+{
+	return t == AI::Team::A ? AI::Team::B : AI::Team::A;
+}
 
 static const u16 RC_MESH_NULL_IDX = 0xffff;
 

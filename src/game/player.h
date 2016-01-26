@@ -15,7 +15,8 @@ struct Transform;
 struct LocalPlayerControl;
 
 #define PLAYER_SPAWN_DELAY 5.0f
-#define MINION_SPAWN_INTERVAL 30.0f
+#define MINION_SPAWN_INITIAL_DELAY 10.0f
+#define MINION_SPAWN_INTERVAL 60.0f
 
 #define MAX_PLAYERS 8
 #define MAX_PLAYER_COMBOS 28 // C(MAX_PLAYERS, 2)

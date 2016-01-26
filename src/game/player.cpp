@@ -50,16 +50,11 @@ b8 flash_function(r32 time)
 	return (b8)((s32)(time * 16.0f) % 2);
 }
 
-void draw_indicator(const RenderParams& params, const Vec3& pos, const Vec4& color, const b8 flash = false, Audio* audio = nullptr)
+void draw_indicator(const RenderParams& params, const Vec3& pos, const Vec4& color, b8 flash = false)
 {
 	b8 show;
 	if (flash)
-	{
 		show = flash_function(params.sync->time.total);
-		b8 last_show = flash_function(params.sync->time.total - params.sync->time.delta);
-		if (show && !last_show && audio)
-			audio->post_event(AK::EVENTS::PLAY_LOCK);
-	}
 	else
 		show = true;
 	if (show)
@@ -89,7 +84,7 @@ PinArray<PlayerManager, MAX_PLAYERS> PlayerManager::list = PinArray<PlayerManage
 PlayerManager::PlayerManager(AI::Team t)
 	: team(t),
 	player_spawn_timer(PLAYER_SPAWN_DELAY),
-	minion_spawn_timer(MINION_SPAWN_INTERVAL),
+	minion_spawn_timer(MINION_SPAWN_INITIAL_DELAY),
 	revision(),
 	player_spawn(),
 	minion_spawns(),
@@ -1036,31 +1031,6 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 
 		b8 alert = false;
 		Vec3 pos = get<Transform>()->absolute_pos();
-
-		// Draw sentinel indicators
-		for (auto i = MinionCommon::list.iterator(); !i.is_last(); i.next())
-		{
-			if (i.item()->get<AIAgent>()->team != team)
-			{
-				b8 draw_normal_indicator = true;
-
-				if (i.item()->has<MinionAI>())
-				{
-					MinionAI* control = i.item()->get<MinionAI>();
-					if (control->target.ref() == entity()
-						&& control->fsm.current == MinionAI::State::Attacking
-						&& control->vision_timer > 0.0f)
-					{
-						draw_normal_indicator = false;
-						draw_indicator(params, i.item()->head_pos(), UI::alert_color, true, audio);
-						alert = true;
-					}
-				}
-
-				if (draw_normal_indicator && (i.item()->get<Transform>()->absolute_pos() - pos).length_squared() < AWK_SHOCKWAVE_RADIUS * AWK_SHOCKWAVE_RADIUS)
-					draw_indicator(params, i.item()->head_pos(), UI::alert_color);
-			}
-		}
 
 		for (auto i = Awk::list.iterator(); !i.is_last(); i.next())
 		{

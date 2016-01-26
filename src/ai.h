@@ -18,11 +18,10 @@ struct AI
 	{
 		A,
 		B,
-		C,
-		D,
-		None,
 		count,
 	};
+
+	static Team other(Team);
 
 	static const Vec4 colors[];
 

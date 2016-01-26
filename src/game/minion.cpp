@@ -73,264 +73,6 @@ Minion::Minion(const Vec3& pos, const Quat& quat, AI::Team team)
 	create<AIAgent>()->team = team;
 }
 
-void MinionAI::awake()
-{
-	vision_cone = VisionCone::create(get<Transform>(), VIEW_FOV, VIEW_RANGE, CONE_NORMAL);
-	get<Walker>()->max_speed = get<Walker>()->speed;
-}
-
-MinionAI::~MinionAI()
-{
-	if (vision_cone.ref())
-		World::remove(vision_cone.ref());
-}
-
-void MinionAI::update(const Update& u)
-{
-	fsm.time += u.time.delta;
-	{
-		Vec3 relative_pos = Vec3::zero;
-		Quat relative_rot = Quat::identity;
-		get<MinionCommon>()->head_to_object_space(&relative_pos, &relative_rot);
-		vision_cone.ref()->get<Transform>()->set(relative_pos, relative_rot);
-	}
-	Vec3 pos;
-	Quat rot;
-	vision_cone.ref()->get<Transform>()->absolute(&pos, &rot);
-	Vec3 forward = rot * Vec3(0, 0, 1);
-	
-	if (fsm.current == State::Attacking)
-	{
-		vision_cone.ref()->get<SpotLight>()->color = CONE_ATTACKING;
-		vision_cone.ref()->get<View>()->color = Vec4(CONE_ATTACKING, CONE_ATTACKING_ALPHA);
-		if (target.ref())
-		{
-			Vec3 target_pos = target.ref()->get<Transform>()->absolute_pos();
-			if (AI::vision_check(pos, target_pos, get<AIAgent>(), target.ref()->get<AIAgent>()))
-			{
-				target_last_seen = target_pos;
-				Vec3 to_target = target_pos - pos;
-				get<Walker>()->target_rotation = atan2f(to_target.x, to_target.z);
-				vision_timer += u.time.delta;
-			}
-			else
-				vision_timer = 0.0f;
-		}
-
-		if (fsm.time > 2.5f)
-		{
-			get<Audio>()->post_event(AK::EVENTS::PLAY_LASER);
-
-			if (target.ref() && vision_timer > 0.5f)
-			{
-				b8 damage;
-				if (target.ref()->has<Awk>()) // make sure the Awk didn't just land; realistically we should miss if they just landed
-					damage = target.ref()->get<Transform>()->parent.ref() && (Game::time.total - target.ref()->get<Awk>()->attach_time) > 1.0f;
-				else
-					damage = true;
-				if (damage)
-					target.ref()->get<Health>()->damage(entity(), 100);
-			}
-
-			// Run to the target's last known position
-			fsm.transition(State::Walking);
-			go(target_last_seen);
-			get<MinionCommon>()->set_run(true);
-			vision_timer = 0.5f;
-		}
-	}
-	else
-	{
-		vision_cone.ref()->get<SpotLight>()->color = CONE_NORMAL;
-		vision_cone.ref()->get<View>()->color = Vec4(CONE_NORMAL, CONE_NORMAL_ALPHA);
-		if (path_index < path_point_count)
-		{
-			Vec3 flat_pos = pos;
-			flat_pos.y = 0.0f;
-			fsm.transition(State::Walking);
-			Vec3 t = path_points[path_index];
-			t.y = 0.0f;
-			Vec3 ray = t - flat_pos;
-			while (ray.length() < 0.1f)
-			{
-				path_index++;
-				if (path_index == path_point_count)
-					break;
-				t = path_points[path_index];
-				t.y = 0.0f;
-				ray = t - flat_pos;
-			}
-
-			// Check if we're still on the path
-			if (Game::time.total - last_path_recalc > 0.25f)
-			{
-				if (path_index > 0)
-				{
-					if (path_index < path_point_count)
-					{
-						Vec3 last = path_points[path_index - 1];
-						last.y = 0.0f;
-						Vec3 next = path_points[path_index];
-						next.y = 0.0f;
-						Vec3 last_to_next = next - last;
-						r32 last_to_next_distance = last_to_next.length();
-						Vec3 last_to_next_dir = last_to_next / last_to_next_distance;
-						Vec3 last_to_pos = flat_pos - last;
-						r32 dot = last_to_next_dir.dot(last_to_pos);
-						Vec3 desired_location = last + last_to_next_dir * dot;
-						if (dot < -1.0f || dot > last_to_next_distance || (desired_location - flat_pos).length() > 0.5f)
-							recalc_path(u); // We're off the path
-					}
-				}
-				else
-				{
-					if (AI::get_poly(pos, AI::default_search_extents) != path_polys[0])
-						recalc_path(u);
-				}
-			}
-
-			ray.normalize();
-			get<Walker>()->dir = Vec2(ray.x, ray.z);
-		}
-		else
-		{
-			if (fsm.current == State::Scanning)
-			{
-				if (fsm.time > 7.0f)
-				{
-					if (idle_path.length > 0)
-					{
-						// We have a pre-defined idle path
-						Vec3 target = idle_path[idle_path_index].ref()->absolute_pos();
-						if ((target - pos).length_squared() < 1.0f)
-							fsm.time = 0.0f; // we're already at our path location
-						else
-						{
-							fsm.transition(State::Walking);
-							go(target);
-						}
-						idle_path_index = (idle_path_index + 1) % idle_path.length;
-					}
-					else
-					{
-						// Random idle path
-						fsm.transition(State::Walking);
-						dtPolyRef poly;
-						Vec3 target;
-						AI::nav_mesh_query->findRandomPointAroundCircle(AI::get_poly(pos, AI::default_search_extents), (r32*)&pos, 20.0f, &AI::default_query_filter, mersenne::randf_co, &poly, (r32*)&target);
-						go(target);
-					}
-				}
-			}
-			else
-			{
-				get<MinionCommon>()->set_run(false);
-				get<Walker>()->dir = Vec2::zero;
-				if (fsm.current == State::Walking && idle_path.length > 0)
-				{
-					Vec3 facing = idle_path[idle_path_index].ref()->absolute_rot() * Vec3(0, 0, 1);
-					get<Walker>()->target_rotation = atan2f(facing.x, facing.z);
-				}
-				fsm.transition(State::Scanning);
-			}
-		}
-
-		Entity* new_target = AI::vision_query(get<AIAgent>(), pos, forward, VIEW_RANGE, VIEW_FOV, VIEW_MAX_HEIGHT, Health::component_mask);
-
-		if (new_target && target.ref() == new_target)
-		{
-			vision_timer += u.time.delta;
-			target_last_seen = target.ref()->get<Transform>()->absolute_pos();
-		}
-		else
-			vision_timer = 0;
-
-		target = new_target;
-
-		Entity* attack_target = target.ref();
-		b8 audio = false;
-		if (!attack_target)
-		{
-			attack_target = AI::sound_query(get<AIAgent>()->team, pos);
-			if (attack_target)
-				audio = true;
-		}
-
-		if (attack_target)
-		{
-			Vec3 target_pos = attack_target->get<Transform>()->absolute_pos();
-
-			b8 attack = false;
-			if (audio)
-				attack = true;
-			else
-			{
-				Vec3 to_target = target_pos - pos;
-				r32 vision_timer_threshold = (to_target.y < VIEW_MAX_HEIGHT * 0.5f ? 1.0f : 2.0f)
-					* (forward.dot(Vec3::normalize(to_target)) > cosf(VIEW_ATTENTION_FOV) ? 1.0f : 2.0f);
-				attack = vision_timer > vision_timer_threshold;
-			}
-
-			if (attack)
-			{
-				if (AI::vision_check(target_pos, pos, get<AIAgent>(), attack_target->get<AIAgent>()))
-				{
-					get<Walker>()->dir = Vec2::zero;
-					Vec3 to_target = target_pos - pos;
-					get<Walker>()->target_rotation = atan2f(to_target.x, to_target.z);
-					target = attack_target;
-					fsm.transition(State::Attacking);
-
-					get<Audio>()->post_event(AK::EVENTS::PLAY_LASER_CHARGE);
-				}
-				else
-				{
-					// Run to the target's last known position
-					fsm.transition(State::Walking);
-					go(target_pos);
-					get<MinionCommon>()->set_run(true);
-				}
-			}
-		}
-	}
-}
-
-void MinionAI::go(const Vec3& target)
-{
-	Vec3 pos = get<Walker>()->base_pos();
-	dtPolyRef start_poly = AI::get_poly(pos, AI::default_search_extents);
-	dtPolyRef end_poly = AI::get_poly(target, AI::default_search_extents);
-
-	dtPolyRef path_polys[MAX_POLYS];
-	dtPolyRef path_parents[MAX_POLYS];
-	u8 path_straight_flags[MAX_POLYS];
-	dtPolyRef path_straight_polys[MAX_POLYS];
-	s32 path_poly_count;
-
-	AI::nav_mesh_query->findPath(start_poly, end_poly, (r32*)&pos, (r32*)&target, &AI::default_query_filter, path_polys, &path_poly_count, MAX_POLYS);
-	path_index = 0;
-	path_point_count = 0;
-	if (path_poly_count)
-	{
-		// In case of partial path, make sure the end point is clamped to the last polygon.
-		Vec3 epos = target;
-		if (path_polys[path_poly_count - 1] != end_poly)
-			AI::nav_mesh_query->closestPointOnPoly(path_polys[path_poly_count - 1], (r32*)&target, (r32*)&epos, 0);
-		
-		s32 point_count;
-		AI::nav_mesh_query->findStraightPath((r32*)&pos, (r32*)&target, path_polys, path_poly_count,
-									 (r32*)path_points, path_straight_flags,
-									 path_straight_polys, &point_count, MAX_POLYS, 0);
-		path_point_count = point_count;
-	}
-}
-
-void MinionAI::recalc_path(const Update& u)
-{
-	last_path_recalc = Game::time.total;
-	go(path_points[path_point_count - 1]);
-}
-
 void MinionCommon::awake()
 {
 	link_arg<Entity*, &MinionCommon::killed>(get<Health>()->killed);
@@ -888,5 +630,265 @@ b8 MinionCommon::try_wall_run(WallRunState s, const Vec3& wall_direction)
 
 	return false;
 }
+
+// Minion behaviors
+
+void MinionCheckTarget::run()
+{
+	AI::Team team = minion->get<AIAgent>()->team;
+	Vec3 pos = minion->get<Transform>()->absolute_pos();
+	Entity* new_target = AI::sound_query(team, pos);
+
+	// go to next turret
+	if (!new_target)
+	{
+		float closest_distance = FLT_MAX;
+		for (auto i = TurretControl::list.iterator(); !i.is_last(); i.next())
+		{
+			if (i.item()->team != team)
+			{
+				Vec3 turret_pos = i.item()->get<Transform>()->absolute_pos();
+
+				float total_distance = (turret_pos - pos).length();
+				for (auto j = PlayerManager::list.iterator(); !j.is_last(); j.next())
+				{
+					if (j.item()->team != team)
+					{
+						total_distance += (j.item()->player_spawn.ref()->absolute_pos() - turret_pos).length();
+						break;
+					}
+				}
+
+				if (total_distance < closest_distance)
+				{
+					new_target = i.item()->entity();
+					closest_distance = total_distance;
+				}
+			}
+		}
+
+		// go to player spawn if necessary
+		for (auto j = PlayerManager::list.iterator(); !j.is_last(); j.next())
+		{
+			if (j.item()->team != team)
+			{
+				float distance = (j.item()->player_spawn.ref()->absolute_pos() - pos).length();
+				if (distance < closest_distance * 0.5f)
+					new_target = j.item()->player_spawn.ref()->entity();
+				break;
+			}
+		}
+	}
+
+	if (minion->target.ref() == new_target)
+		done(true);
+	else
+	{
+		minion->target = new_target;
+		done(false);
+	}
+}
+
+void MinionGoToTarget::run()
+{
+	if (minion->target.ref())
+		minion->go(minion->target.ref()->get<Transform>()->absolute_pos());
+	else
+		done(false);
+}
+
+void MinionGoToTarget::update(const Update& u)
+{
+	if (!minion->target.ref())
+		done(false);
+	else
+	{
+		Vec3 pos = minion->get<Transform>()->absolute_pos();
+		Vec3 target_pos = minion->target.ref()->get<Transform>()->absolute_pos();
+		if ((pos - target_pos).length_squared() < VIEW_RANGE *  VIEW_RANGE)
+		{
+			btCollisionWorld::ClosestRayResultCallback ray_callback(pos, target_pos);
+			ray_callback.m_flags = btTriangleRaycastCallback::EFlags::kF_FilterBackfaces
+				| btTriangleRaycastCallback::EFlags::kF_KeepUnflippedNormal;
+			ray_callback.m_collisionFilterMask = ray_callback.m_collisionFilterGroup = ~CollisionWalker & ~CollisionTarget;
+			Physics::btWorld->rayTest(pos, target_pos, ray_callback);
+			if (!ray_callback.hasHit() || ray_callback.m_collisionObject->getUserIndex() == minion->target.ref()->id())
+				done(true);
+		}
+	}
+}
+
+void MinionAttack::run()
+{
+	printf("%f\n", Game::time.total);
+	done();
+}
+
+namespace MinionBehaviors
+{
+	void update_active(const Update& u)
+	{
+		MinionGoToTarget::update_active(u);
+	}
+}
+
+// Minion AI
+
+MinionAI::MinionAI()
+{
+	behavior = Repeat::alloc
+	(
+		-1,
+		Sequence::alloc
+		(
+			Succeed::alloc
+			(
+				Parallel::alloc
+				(
+					Repeat::alloc
+					(
+						-1,
+						Sequence::alloc
+						(
+							MinionCheckTarget::alloc(),
+							Delay::alloc(2.0f)
+						)
+					),
+					Sequence::alloc
+					(
+						MinionGoToTarget::alloc(),
+						Repeat::alloc
+						(
+							-1,
+							Sequence::alloc
+							(
+								MinionAttack::alloc(),
+								Delay::alloc(3.0f)
+							)
+						)
+					)
+				)
+			),
+			Delay::alloc(0.0f)
+		)
+	);
+	behavior->set_context(this);
+}
+
+void MinionAI::awake()
+{
+	vision_cone = VisionCone::create(get<Transform>(), VIEW_FOV, VIEW_RANGE, CONE_NORMAL);
+	get<Walker>()->max_speed = get<Walker>()->speed;
+	behavior->run();
+}
+
+MinionAI::~MinionAI()
+{
+	if (vision_cone.ref())
+		World::remove(vision_cone.ref());
+	behavior->~Behavior();
+}
+
+void MinionAI::update(const Update& u)
+{
+	{
+		Vec3 relative_pos = Vec3::zero;
+		Quat relative_rot = Quat::identity;
+		get<MinionCommon>()->head_to_object_space(&relative_pos, &relative_rot);
+		vision_cone.ref()->get<Transform>()->set(relative_pos, relative_rot);
+	}
+	Vec3 pos;
+	Quat rot;
+	vision_cone.ref()->get<Transform>()->absolute(&pos, &rot);
+	Vec3 forward = rot * Vec3(0, 0, 1);
+	
+	if (path_index < path_point_count)
+	{
+		Vec3 flat_pos = pos;
+		flat_pos.y = 0.0f;
+		Vec3 t = path_points[path_index];
+		t.y = 0.0f;
+		Vec3 ray = t - flat_pos;
+		while (ray.length() < 0.1f)
+		{
+			path_index++;
+			if (path_index == path_point_count)
+				break;
+			t = path_points[path_index];
+			t.y = 0.0f;
+			ray = t - flat_pos;
+		}
+
+		// Check if we're still on the path
+		if (Game::time.total - last_path_recalc > 0.25f)
+		{
+			if (path_index > 0)
+			{
+				if (path_index < path_point_count)
+				{
+					Vec3 last = path_points[path_index - 1];
+					last.y = 0.0f;
+					Vec3 next = path_points[path_index];
+					next.y = 0.0f;
+					Vec3 last_to_next = next - last;
+					r32 last_to_next_distance = last_to_next.length();
+					Vec3 last_to_next_dir = last_to_next / last_to_next_distance;
+					Vec3 last_to_pos = flat_pos - last;
+					r32 dot = last_to_next_dir.dot(last_to_pos);
+					Vec3 desired_location = last + last_to_next_dir * dot;
+					if (dot < -1.0f || dot > last_to_next_distance || (desired_location - flat_pos).length() > 0.5f)
+						recalc_path(u); // We're off the path
+				}
+			}
+			else
+			{
+				if (AI::get_poly(pos, AI::default_search_extents) != path_polys[0])
+					recalc_path(u);
+			}
+		}
+
+		ray.normalize();
+		get<Walker>()->dir = Vec2(ray.x, ray.z);
+	}
+	else
+		get<Walker>()->dir = Vec2::zero;
+}
+
+void MinionAI::go(const Vec3& target)
+{
+	Vec3 pos = get<Walker>()->base_pos();
+	dtPolyRef start_poly = AI::get_poly(pos, AI::default_search_extents);
+	dtPolyRef end_poly = AI::get_poly(target, AI::default_search_extents);
+
+	dtPolyRef path_polys[MAX_POLYS];
+	dtPolyRef path_parents[MAX_POLYS];
+	u8 path_straight_flags[MAX_POLYS];
+	dtPolyRef path_straight_polys[MAX_POLYS];
+	s32 path_poly_count;
+
+	AI::nav_mesh_query->findPath(start_poly, end_poly, (r32*)&pos, (r32*)&target, &AI::default_query_filter, path_polys, &path_poly_count, MAX_POLYS);
+	path_index = 0;
+	path_point_count = 0;
+	if (path_poly_count)
+	{
+		// In case of partial path, make sure the end point is clamped to the last polygon.
+		Vec3 epos = target;
+		if (path_polys[path_poly_count - 1] != end_poly)
+			AI::nav_mesh_query->closestPointOnPoly(path_polys[path_poly_count - 1], (r32*)&target, (r32*)&epos, 0);
+		
+		s32 point_count;
+		AI::nav_mesh_query->findStraightPath((r32*)&pos, (r32*)&target, path_polys, path_poly_count,
+									 (r32*)path_points, path_straight_flags,
+									 path_straight_polys, &point_count, MAX_POLYS, 0);
+		path_point_count = point_count;
+	}
+}
+
+void MinionAI::recalc_path(const Update& u)
+{
+	last_path_recalc = Game::time.total;
+	go(path_points[path_point_count - 1]);
+}
+
 
 }

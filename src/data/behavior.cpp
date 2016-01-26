@@ -3,56 +3,136 @@
 namespace VI
 {
 
-
 void Sequence::run()
 {
 	index = 0;
 	children[0]->run();
 }
 
-void Sequence::child_done(Behavior*)
+void Sequence::child_done(Behavior* child, b8 success)
 {
-	index++;
-	if (index < num_children)
-		children[index]->run();
-	else if (parent)
-		parent->child_done(this);
+	if (success)
+	{
+		index++;
+		if (index < num_children)
+			children[index]->run();
+		else
+			done(true);
+	}
+	else
+		done(false);
+}
+
+void Select::run()
+{
+	index = 0;
+	children[0]->run();
+}
+
+void Select::child_done(Behavior* child, b8 success)
+{
+	if (success)
+		done(true);
+	else
+	{
+		index++;
+		if (index < num_children)
+			children[index]->run();
+		else
+			done(false);
+	}
 }
 
 void Parallel::run()
 {
-	done = 0;
+	activate();
+	children_done = 0;
 	for (s32 i = 0; i < num_children; i++)
+	{
 		children[i]->run();
+		if (!active)
+			break;
+	}
 }
 
-void Parallel::child_done(Behavior*)
+void Parallel::child_done(Behavior* child, b8 success)
 {
-	done++;
-	if (done == num_children && parent)
-		parent->child_done(this);
+	if (success)
+	{
+		children_done++;
+		if (children_done == num_children)
+			done(true);
+	}
+	else
+	{
+		for (s32 i = 0; i < num_children; i++)
+			children[i]->abort();
+		done(false);
+	}
+}
+
+Repeat::Repeat(s32 repeat, Behavior* child)
+	: BehaviorDecorator(child), repeat_count(repeat), repeat_index()
+{
 }
 
 void Repeat::run()
 {
-	index = 0;
 	repeat_index = 0;
-	children[0]->run();
+	child->run();
 }
 
-void Repeat::child_done(Behavior* child)
+void Repeat::child_done(Behavior* child, b8 succeeded)
 {
-	index++;
-	if (index < num_children)
-		children[index]->run();
-	else if (repeat_index < repeat_count || repeat_count < 0)
+	if (succeeded)
 	{
-		index = 0;
-		repeat_index++;
-		children[0]->run();
+		if (repeat_index < repeat_count || repeat_count < 0)
+		{
+			repeat_index++;
+			child->run();
+		}
+		else
+			done(true);
 	}
-	else if (parent)
-		parent->child_done(this);
+	else
+		done(false);
+}
+
+void Delay::run()
+{
+	timer = duration;
+	activate();
+}
+
+void Delay::update(const Update& u)
+{
+	timer -= u.time.delta;
+	if (timer < 0)
+		done();
+}
+
+Succeed::Succeed(Behavior* b) : BehaviorDecorator(b) { }
+
+void Succeed::run()
+{
+	child->run();
+}
+
+void Succeed::child_done(Behavior* b, b8 success)
+{
+	done(true);
+}
+
+Invert::Invert(Behavior* b) : BehaviorDecorator(b) { }
+
+void Invert::run()
+{
+	child->run();
+}
+
+void Invert::child_done(Behavior* b, b8 success)
+{
+	done(!success);
 }
 
 

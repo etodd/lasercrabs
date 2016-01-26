@@ -44,7 +44,8 @@ COMPONENT_TYPE(23, LocalPlayerControl) \
 COMPONENT_TYPE(24, CreditsPickup) \
 COMPONENT_TYPE(25, Ragdoll) \
 COMPONENT_TYPE(26, SkinnedModel) \
-COMPONENT_TYPE(27, View)
+COMPONENT_TYPE(27, View) \
+COMPONENT_TYPE(28, TurretControl)
 
 Family World::families = 31;
 

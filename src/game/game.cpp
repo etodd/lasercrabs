@@ -127,6 +127,10 @@ void Game::update(const Update& update_in)
 	for (auto i = Mover::list.iterator(); !i.is_last(); i.next())
 		i.item()->update(u);
 
+	LerpTo<Vec3>::update_active(u);
+	Delay::update_active(u);
+	MinionBehaviors::update_active(u);
+
 	Physics::sync_static();
 
 	if (u.input->keys[(s32)KeyCode::K] && !u.last_input->keys[(s32)KeyCode::K])
@@ -168,8 +172,6 @@ void Game::update(const Update& update_in)
 		i.item()->update(u);
 
 	Console::update(u);
-
-	LerpTo<Vec3>::update_all(u);
 
 	Audio::update();
 
@@ -653,13 +655,25 @@ void Game::load_level(const Update& u, AssetID l)
 		}
 		else if (cJSON_GetObjectItem(element, "AIPlayer"))
 		{
-			AI::Team team = (AI::Team)Json::get_s32(element, "team", (s32)AI::Team::None);
+			AI::Team team = (AI::Team)Json::get_s32(element, "team", (s32)AI::Team::B);
 
 			PlayerManager* manager = PlayerManager::list.add();
 			new (manager) PlayerManager(team);
 
 			AIPlayer* player = AIPlayer::list.add();
 			new (player) AIPlayer(manager);
+		}
+		else if (cJSON_GetObjectItem(element, "Turret"))
+		{
+			AI::Team team = (AI::Team)Json::get_s32(element, "team", (s32)AI::Team::A);
+
+			absolute_pos += Vec3(0, 3.75f * 0.5f, 0);
+			if (parent == -1)
+				pos = absolute_pos;
+			else
+				pos = transforms[parent]->to_local(absolute_pos);
+
+			entity = World::create<Turret>(team);
 		}
 		else if (cJSON_GetObjectItem(element, "Socket"))
 		{

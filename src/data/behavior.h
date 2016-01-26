@@ -11,7 +11,9 @@ struct Behavior
 {
 	Behavior* parent;
 	virtual void run() {}
-	virtual void child_done(Behavior*) {}
+	virtual void child_done(Behavior*, b8) {}
+	virtual void abort() {}
+	virtual void set_context(void*) {}
 	virtual ~Behavior() {}
 };
 
@@ -20,25 +22,22 @@ struct Behavior
 template<typename Derived> struct BehaviorBase : public Behavior
 {
 	static PinArray<Derived, MAX_BEHAVIORS> list;
-	static Array<Derived*> active_list;
 
 	bool active;
-	bool managed; // true if this instance is allocated in "list"
 
-	template<typename... Args> static Derived* create(Args... args)
+	template<typename... Args> static Derived* alloc(Args... args)
 	{
 		Derived* d = list.add();
 		new (d) Derived(args...);
-		d->managed = true;
 		return d;
 	}
 
-	static void update_all(const Update& u)
+	static void update_active(const Update& u)
 	{
-		for (s32 i = 0; i < active_list.length; i++)
+		for (auto i = list.iterator(); !i.is_last(); i.next())
 		{
-			// TODO: if behaviors are removed during update, some behaviors will not be updated this frame
-			active_list[i]->update(u);
+			if (i.item()->active)
+				i.item()->update(u);
 		}
 	}
 
@@ -46,37 +45,37 @@ template<typename Derived> struct BehaviorBase : public Behavior
 	{
 		vi_assert(!active);
 		active = true;
-		active_list.add((Derived*)this);
 	}
 
 	void deactivate()
 	{
 		vi_assert(active);
 		active = false;
-		for (s32 i = 0; i < active_list.length; i++)
-		{
-			if (active_list[i] == (Derived*)this)
-			{
-				active_list.remove(i);
-				break;
-			}
-		}
+	}
+
+	void done(b8 success = true)
+	{
+		if (active)
+			deactivate();
+		if (parent)
+			parent->child_done(this, success);
+	}
+
+	virtual void abort()
+	{
+		if (active)
+			deactivate();
 	}
 
 	virtual ~BehaviorBase()
 	{
-		if (active)
-			deactivate();
-		if (managed)
-		{
-			s32 id = (Derived*)this - (Derived*)&list[0];
-			list.remove(id);
-		}
+		abort();
+		s32 id = (Derived*)this - &list[0];
+		list.remove(id);
 	}
 };
 
 template<typename T> PinArray<T, MAX_BEHAVIORS> BehaviorBase<T>::list = PinArray<T, MAX_BEHAVIORS>();
-template<typename T> Array<T*> BehaviorBase<T>::active_list = Array<T*>();
 
 #define MAX_COMPOSITE 8
 
@@ -92,11 +91,50 @@ template<typename Derived> struct BehaviorComposite : public BehaviorBase<Derive
 			children[i]->parent = this;
 	}
 
+	virtual void set_context(void* ctx)
+	{
+		for (s32 i = 0; i < num_children; i++)
+			children[i]->set_context(ctx);
+	}
+
+	virtual void abort()
+	{
+		BehaviorBase::abort();
+		for (s32 i = 0; i < num_children; i++)
+			children[i]->abort();
+	}
+
 	virtual ~BehaviorComposite()
 	{
 		for (s32 i = 0; i < num_children; i++)
 			children[i]->~Behavior();
-		BehaviorBase::~BehaviorBase();
+	}
+};
+
+template<typename Derived> struct BehaviorDecorator : public BehaviorBase<Derived>
+{
+	Behavior* child;
+
+	BehaviorDecorator(Behavior* c)
+		: child(c)
+	{
+		c->parent = this;
+	}
+
+	virtual void set_context(void* ctx)
+	{
+		child->set_context(ctx);
+	}
+
+	virtual void abort()
+	{
+		BehaviorBase::abort();
+		child->abort();
+	}
+
+	virtual ~BehaviorDecorator()
+	{
+		child->~Behavior();
 	}
 };
 
@@ -110,35 +148,73 @@ struct Sequence : public BehaviorComposite<Sequence>
 	}
 
 	void run();
-	void child_done(Behavior*);
+	void child_done(Behavior*, b8);
 };
 
-struct Parallel : public BehaviorComposite<Parallel>
+struct Select : public BehaviorComposite<Select>
 {
-	s32 done;
+	s32 index;
 
-	template<typename... Args> Parallel(Args... args)
-		: BehaviorComposite(args...), done()
+	template<typename... Args> Select(Args... args)
+		: BehaviorComposite(args...), index()
 	{
 	}
 
 	void run();
-	void child_done(Behavior*);
+	void child_done(Behavior*, b8);
 };
 
-struct Repeat : public BehaviorComposite<Repeat>
+// Fails on first child failure, aborts all children
+struct Parallel : public BehaviorComposite<Parallel>
 {
-	s32 index;
+	s32 children_done;
+
+	template<typename... Args> Parallel(Args... args)
+		: BehaviorComposite(args...), children_done()
+	{
+	}
+
+	void run();
+	void child_done(Behavior*, b8);
+};
+
+struct Repeat : public BehaviorDecorator<Repeat>
+{
 	s32 repeat_count;
 	s32 repeat_index;
 
-	template<typename... Args> Repeat(s32 repeat, Args... args)
-		: BehaviorComposite(args...), repeat_count(repeat), index()
+	Repeat(s32 repeat, Behavior* c);
+
+	void run();
+	void child_done(Behavior*, b8);
+};
+
+struct Delay : public BehaviorBase<Delay>
+{
+	r32 duration;
+	r32 timer;
+
+	Delay(r32 duration)
+		: duration(duration), timer()
 	{
 	}
 
 	void run();
-	void child_done(Behavior*);
+	void update(const Update&);
+};
+
+struct Succeed : public BehaviorDecorator<Succeed>
+{
+	Succeed(Behavior*);
+	void run();
+	void child_done(Behavior*, b8);
+};
+
+struct Invert : public BehaviorDecorator<Invert>
+{
+	Invert(Behavior*);
+	void run();
+	void child_done(Behavior*, b8);
 };
 
 template<typename T> struct Set : public BehaviorBase<Set<T>>
@@ -155,8 +231,7 @@ template<typename T> struct Set : public BehaviorBase<Set<T>>
 	void run()
 	{
 		*target = value;
-		if (parent)
-			parent->child_done(this);
+		done();
 	}
 };
 
@@ -190,9 +265,7 @@ template<typename T> struct LerpTo : public BehaviorBase<LerpTo<T>>
 		if (time > duration)
 		{
 			*target = end;
-			deactivate();
-			if (parent)
-				parent->child_done(this);
+			done();
 		}
 		else
 			*target = Ease::ease<T>(ease, time / duration, start, end);

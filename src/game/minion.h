@@ -9,7 +9,7 @@
 #include <bullet/src/BulletDynamics/ConstraintSolver/btPoint2PointConstraint.h>
 #include "render/ui.h"
 #include "common.h"
-#include "ease.h"
+#include "data/behavior.h"
 
 namespace VI
 {
@@ -61,33 +61,57 @@ struct MinionCommon : public ComponentType<MinionCommon>
 
 struct MinionAI : public ComponentType<MinionAI>
 {
-	enum class State
-	{
-		Scanning,
-		Idle,
-		Walking,
-		Attacking,
-	};
 	static const s32 MAX_POLYS = 256;
 
-	StaticArray<Ref<Transform>, 8> idle_path;
-	u8 idle_path_index;
 	Vec3 path_points[MAX_POLYS];
-	Vec3 target_last_seen;
 	dtPolyRef path_polys[MAX_POLYS];
-	FSM<State> fsm;
 	u8 path_point_count;
 	u8 path_index;
-	r32 vision_timer;
-	r32 last_path_recalc;
 	Ref<Entity> vision_cone;
+	r32 last_path_recalc;
+	Behavior* behavior;
 	Ref<Entity> target;
 
+	MinionAI();
 	void awake();
 	~MinionAI();
+
 	void update(const Update&);
 	void go(const Vec3&);
 	void recalc_path(const Update&);
 };
+
+// behaviors
+
+template<typename Derived> struct MinionBehavior : public BehaviorBase<Derived>
+{
+	MinionAI* minion;
+	virtual void set_context(void* ctx)
+	{
+		minion = (MinionAI*)ctx;
+	}
+};
+
+namespace MinionBehaviors
+{
+	void update_active(const Update& u);
+}
+
+struct MinionCheckTarget : public MinionBehavior<MinionCheckTarget>
+{
+	void run();
+};
+
+struct MinionGoToTarget : public MinionBehavior<MinionGoToTarget>
+{
+	void run();
+	void update(const Update&);
+};
+
+struct MinionAttack : public MinionBehavior<MinionAttack>
+{
+	void run();
+};
+
 
 }

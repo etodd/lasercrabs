@@ -38,6 +38,8 @@ struct Physics
 	static void loop(PhysicsSwapper*);
 	static void sync_static();
 	static void sync_dynamic();
+
+	static void raycast(btCollisionWorld::ClosestRayResultCallback&);
 };
 
 struct RigidBody : public ComponentType<RigidBody>

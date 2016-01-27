@@ -26,8 +26,9 @@ namespace VI
 {
 
 
-Entity* VisionCone::create(Transform* parent, r32 fov, r32 range, const Vec3& color)
+Entity* VisionCone::create(Transform* parent, r32 fov, r32 range, AI::Team team)
 {
+	const Vec3 color = AI::colors[(s32)team].xyz();
 	Entity* vision_cone = World::create<Empty>();
 	vision_cone->get<Transform>()->parent = parent;
 	{
@@ -36,6 +37,7 @@ Entity* VisionCone::create(Transform* parent, r32 fov, r32 range, const Vec3& co
 		light->radius = range;
 		light->color = color;
 		light->type = SpotLight::Type::Override;
+		light->mask = ~(1 << (s32)team); // don't display to fellow teammates
 	}
 
 	{
@@ -43,6 +45,7 @@ Entity* VisionCone::create(Transform* parent, r32 fov, r32 range, const Vec3& co
 		light->type = PointLight::Type::Shockwave;
 		light->radius = AWK_SHOCKWAVE_RADIUS;
 		light->color = color - Vec3(0.1f, 0.1f, 0.1f);
+		light->mask = ~(1 << (s32)team); // don't display to fellow teammates
 		light->type = PointLight::Type::Override;
 	}
 
@@ -50,7 +53,8 @@ Entity* VisionCone::create(Transform* parent, r32 fov, r32 range, const Vec3& co
 	cone_model->alpha(true);
 	cone_model->mesh = Asset::Mesh::vision_cone;
 	cone_model->texture = Asset::Texture::gradient;
-	cone_model->color = CONE_NORMAL;
+	cone_model->color = Vec4(color, 0.25f);
+	cone_model->mask = ~(1 << (s32)team); // don't display to fellow teammates
 
 	r32 width_scale = sinf(fov) * 2.0f * 2.0f;
 	Vec3 light_model_scale
@@ -92,18 +96,21 @@ AwkEntity::AwkEntity(AI::Team team)
 	create<RigidBody>(RigidBody::Type::Sphere, Vec3(radius), 0.0f, CollisionTarget, CollisionNothing);
 }
 
-Health::Health(const s32 start_value)
-	: hp(start_value)
+Health::Health(u16 start_value)
+	: hp(start_value), total(start_value)
 {
 }
 
-void Health::damage(Entity* e, s32 damage)
+void Health::damage(Entity* e, u16 damage)
 {
 	if (hp > 0 && damage > 0)
 	{
-		hp -= damage;
-		damaged.fire(damage);
-		if (hp <= 0)
+		if (damage > hp)
+			hp = 0;
+		else
+			hp -= damage;
+		damaged.fire(e);
+		if (hp == 0)
 			killed.fire(e);
 	}
 }
@@ -269,9 +276,11 @@ Turret::Turret(AI::Team team)
 	view->shader = Asset::Shader::standard;
 	view->color = AI::colors[(s32)team];
 	
-	create<TurretControl>()->team = team;
+	create<TurretControl>();
 
-	create<Health>(400);
+	create<AIAgent>()->team = team;
+
+	create<Health>(300);
 
 	create<RigidBody>(RigidBody::Type::CapsuleY, Vec3(0.8f, 3.75f, 0.8f), 0.0f, CollisionInaccessible, CollisionInaccessibleMask);
 }

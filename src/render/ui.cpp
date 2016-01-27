@@ -348,6 +348,7 @@ void UIText::draw(const RenderParams& params, const Vec2& pos, const r32 rot) co
 const Vec4 UI::default_color = Vec4(1, 1, 1, 1);
 const Vec4 UI::alert_color = Vec4(1.0f, 0.2f, 0.2f, 1.0f);
 const Vec4 UI::subtle_color = Vec4(0.044f, 0.279f, 0.445f, 1);
+const Vec4 UI::background_color = Vec4(0, 0, 0, 1);
 r32 UI::scale = 1.0f;
 s32 UI::mesh_id = AssetNull;
 s32 UI::texture_mesh_id = AssetNull;
@@ -475,24 +476,26 @@ void UI::centered_border(const RenderParams& params, const Rect2& r, const r32 t
 {
 	if (r.size.x > 0 && r.size.y > 0 && color.w > 0)
 	{
-		s32 vertex_start = UI::vertices.length;
-		Vec2 screen = params.camera->viewport.size * 0.5f;
-		Vec2 scale = Vec2(1.0f / screen.x, 1.0f / screen.y);
-		Vec2 scaled_pos = (r.pos - screen) * scale;
+		const s32 vertex_start = UI::vertices.length;
+		const Vec2 screen = params.camera->viewport.size * 0.5f;
+		const Vec2 scale = Vec2(1.0f / screen.x, 1.0f / screen.y);
+		const Vec2 scaled_pos = (r.pos - screen) * scale;
+		const r32 scaled_thickness = thickness * UI::scale;
 
-		Vec2 corners[8] =
+		const Vec2 corners[8] =
 		{
 			Vec2(r.size.x * -0.5f, r.size.y * -0.5f),
 			Vec2(r.size.x * 0.5f, r.size.y * -0.5f),
 			Vec2(r.size.x * -0.5f, r.size.y * 0.5f),
 			Vec2(r.size.x * 0.5f, r.size.y * 0.5f),
-			Vec2(r.size.x * -0.5f - thickness, r.size.y * -0.5f - thickness),
-			Vec2(r.size.x * 0.5f + thickness, r.size.y * -0.5f - thickness),
-			Vec2(r.size.x * -0.5f - thickness, r.size.y * 0.5f + thickness),
-			Vec2(r.size.x * 0.5f + thickness, r.size.y * 0.5f + thickness),
+			Vec2(r.size.x * -0.5f - scaled_thickness, r.size.y * -0.5f - scaled_thickness),
+			Vec2(r.size.x * 0.5f + scaled_thickness, r.size.y * -0.5f - scaled_thickness),
+			Vec2(r.size.x * -0.5f - scaled_thickness, r.size.y * 0.5f + scaled_thickness),
+			Vec2(r.size.x * 0.5f + scaled_thickness, r.size.y * 0.5f + scaled_thickness),
 		};
 
-		r32 cs = cosf(rot), sn = sinf(rot);
+		const r32 cs = cosf(rot);
+		const r32 sn = sinf(rot);
 		UI::vertices.add(Vec3(scaled_pos.x + (corners[0].x * cs - corners[0].y * sn) * scale.x, scaled_pos.y + (corners[0].x * sn + corners[0].y * cs) * scale.y, 0));
 		UI::vertices.add(Vec3(scaled_pos.x + (corners[1].x * cs - corners[1].y * sn) * scale.x, scaled_pos.y + (corners[1].x * sn + corners[1].y * cs) * scale.y, 0));
 		UI::vertices.add(Vec3(scaled_pos.x + (corners[2].x * cs - corners[2].y * sn) * scale.x, scaled_pos.y + (corners[2].x * sn + corners[2].y * cs) * scale.y, 0));

@@ -21,9 +21,8 @@ struct Behavior
 
 template<typename Derived> struct BehaviorBase : public Behavior
 {
+	static Bitmask<MAX_BEHAVIORS> active_list;
 	static PinArray<Derived, MAX_BEHAVIORS> list;
-
-	bool active;
 
 	template<typename... Args> static Derived* alloc(Args... args)
 	{
@@ -36,32 +35,47 @@ template<typename Derived> struct BehaviorBase : public Behavior
 	{
 		for (auto i = list.iterator(); !i.is_last(); i.next())
 		{
-			if (i.item()->active)
+			if (i.item()->active())
 				i.item()->update(u);
 		}
 	}
 
+	inline b8 active() const
+	{
+		return active_list.get(id());
+	}
+
+	inline void active(b8 value)
+	{
+		active_list.set(id(), value);
+	}
+
+	inline ID id() const
+	{
+		return ((Derived*)this - &list[0]);
+	}
+
 	void done(b8 success = true)
 	{
-		active = false;
+		active(false);
 		if (parent)
 			parent->child_done(this, success);
 	}
 
 	virtual void abort()
 	{
-		active = false;
+		active(false);
 	}
 
 	virtual ~BehaviorBase()
 	{
 		abort();
-		s32 id = (Derived*)this - &list[0];
-		list.remove(id);
+		list.remove(id());
 	}
 };
 
 template<typename T> PinArray<T, MAX_BEHAVIORS> BehaviorBase<T>::list = PinArray<T, MAX_BEHAVIORS>();
+template<typename T> Bitmask<MAX_BEHAVIORS> BehaviorBase<T>::active_list = Bitmask<MAX_BEHAVIORS>();
 
 #define MAX_COMPOSITE 8
 
@@ -169,7 +183,7 @@ struct Repeat : public BehaviorDecorator<Repeat>
 	s32 repeat_count;
 	s32 repeat_index;
 
-	Repeat(s32 repeat, Behavior* c);
+	Repeat(Behavior* c, s32 repeat = -1);
 
 	void run();
 	void child_done(Behavior*, b8);
@@ -242,7 +256,7 @@ template<typename T> struct LerpTo : public BehaviorBase<LerpTo<T>>
 	{
 		start = *target;
 		time = 0.0f;
-		active = true;
+		active(true);
 	}
 
 	void update(const Update& u)

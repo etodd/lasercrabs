@@ -13,7 +13,7 @@ Walker::Walker(r32 rot)
 	support_height(0.7f),
 	radius(0.35f),
 	mass(1.0f),
-	speed(2.0f),
+	speed(2.5f),
 	max_speed(5.0f),
 	rotation(rot),
 	rotation_speed(8.0f),

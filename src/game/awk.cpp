@@ -101,7 +101,7 @@ Vec3 Awk::center()
 
 void Awk::hit_by(Entity* hit_by)
 {
-	get<Health>()->damage(hit_by, 100); // Killed
+	get<Health>()->damage(hit_by, 25);
 }
 
 void Awk::hit_target(Entity* target)

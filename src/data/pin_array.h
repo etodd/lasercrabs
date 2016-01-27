@@ -5,11 +5,31 @@
 namespace VI
 {
 
+template<s32 size> struct Bitmask
+{
+	u32 data[(size / sizeof(u32)) + 1];
+
+	inline b8 get(s32 i) const
+	{
+		s32 index = i / sizeof(u32);
+		return data[index] & (1 << (i - index));
+	}
+
+	inline void set(s32 i, b8 value)
+	{
+		s32 index = i / sizeof(u32);
+		if (value)
+			data[index] |= (1 << (i - index));
+		else
+			data[index] &= ~(1 << (i - index));
+	}
+};
+
 template<typename T, s32 size>
 struct PinArray
 {
 	StaticArray<T, size> data;
-	u32 mask[(size / sizeof(u32)) + 1];
+	Bitmask<size> mask;
 	StaticArray<s32, size> free_list;
 	s32 start;
 	s32 end;
@@ -23,7 +43,7 @@ struct PinArray
 			index++;
 			while (index < array->end)
 			{
-				if (array->is_active(index))
+				if (array->active(index))
 					return;
 				index++;
 			}
@@ -36,7 +56,7 @@ struct PinArray
 
 		inline T* item() const
 		{
-			vi_assert(!is_last() && array->is_active(index));
+			vi_assert(!is_last() && array->active(index));
 			return &array->data[index];
 		}
 	};
@@ -50,22 +70,14 @@ struct PinArray
 			free_list[i] = (size - 1) - i;
 	}
 
-	inline b8 is_active(s32 i) const
+	inline b8 active(s32 i) const
 	{
-		s32 index = i / sizeof(u32);
-		return mask[index] & (1 << (i - index));
+		return mask.get(i);
 	}
 
-	inline void activate(s32 i)
+	inline void active(s32 i, b8 value)
 	{
-		s32 index = i / sizeof(u32);
-		mask[index] |= (1 << (i - index));
-	}
-
-	inline void deactivate(s32 i)
-	{
-		s32 index = i / sizeof(u32);
-		mask[index] &= ~(1 << (i - index));
+		mask.set(i, value);
 	}
 
 	inline s32 count() const
@@ -97,11 +109,11 @@ struct PinArray
 	{
 		vi_assert(free_list.length > 0);
 		s32 index = free_list[free_list.length - 1];
-		vi_assert(!is_active(index));
+		vi_assert(!active(index));
 		start = start < index ? start : index;
 		end = end > index + 1 ? end : index + 1;
 		free_list.remove(free_list.length - 1);
-		activate(index);
+		active(index, true);
 		return &data[index];
 	}
 
@@ -114,15 +126,15 @@ struct PinArray
 
 	void remove(s32 i)
 	{
-		vi_assert(i >= start && i < end && is_active(i));
+		vi_assert(i >= start && i < end && active(i));
 		free_list.add(i);
-		deactivate(i);
+		active(i, false);
 		if (i == end)
 		{
 			s32 j;
 			for (j = i - 1; j > start; j--)
 			{
-				if (is_active(j))
+				if (active(j))
 					break;
 			}
 			end = j;
@@ -132,7 +144,7 @@ struct PinArray
 			s32 j;
 			for (j = i + 1; j < end; j++)
 			{
-				if (is_active(j))
+				if (active(j))
 					break;
 			}
 			start = j;

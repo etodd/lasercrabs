@@ -75,7 +75,7 @@ void draw_indicator(const RenderParams& params, const Vec3& pos, const Vec4& col
 			UI::triangle(params, { center + offset, Vec2(32) * UI::scale }, color, atan2f(offset.y, offset.x) + PI * -0.5f);
 		}
 		else
-			UI::centered_border(params, { center + offset, Vec2(32) * UI::scale }, 4 * UI::scale, color, PI * 0.25f);
+			UI::centered_border(params, { center + offset, Vec2(32) * UI::scale }, 4, color, PI * 0.25f);
 	}
 }
 
@@ -177,6 +177,7 @@ void LocalPlayer::ensure_camera(const Update& u, b8 active)
 	if (active && !camera)
 	{
 		camera = Camera::add();
+		camera->mask = 1 << (s32)manager.ref()->team;
 		s32 player_count = list.count();
 		Camera::ViewportBlueprs32* viewports = Camera::viewport_blueprs32s[player_count - 1];
 		Camera::ViewportBlueprs32* blueprs32 = &viewports[gamepad];
@@ -304,6 +305,56 @@ void LocalPlayer::draw_alpha(const RenderParams& params) const
 
 	const Rect2& vp = params.camera->viewport;
 
+	Entity* player = manager.ref()->entity.ref();
+	Vec3 player_pos;
+	if (player)
+		player_pos = player->get<Transform>()->absolute_pos();
+
+	// draw health bars
+	const r32 far_plane = Skybox::far_plane * Skybox::far_plane;
+	for (auto i = Health::list.iterator(); !i.is_last(); i.next())
+	{
+		const Health* health = i.item();
+		b8 visible;
+		Vec3 enemy_pos = health->get<Transform>()->absolute_pos();
+		if (health->get<AIAgent>()->team == manager.ref()->team)
+			visible = true;
+		else if (player && health->has<PlayerCommon>())
+			visible = PlayerCommon::visibility[PlayerCommon::visibility_hash(health->get<PlayerCommon>(), player->get<PlayerCommon>())];
+		else
+		{
+			Vec3 diff = enemy_pos - player_pos;
+			if (diff.length_squared() < far_plane)
+			{
+				if (btVector3(diff).fuzzyZero())
+					visible = true;
+				else
+				{
+					btCollisionWorld::ClosestRayResultCallback ray_callback(player_pos, enemy_pos);
+					Physics::raycast(ray_callback);
+					visible = !ray_callback.hasHit() || ray_callback.m_collisionObject->getUserIndex() == health->entity_id;
+				}
+			}
+			else
+				visible = false;
+		}
+
+		if (visible)
+		{
+			enemy_pos.y += 1.0f;
+			const Vec4& color = health->get<AIAgent>()->team == manager.ref()->team ? UI::default_color : UI::alert_color;
+			Vec2 pos;
+			if (UI::project(params, enemy_pos, &pos))
+			{
+				pos.y += 48.0f * UI::scale;
+				const Vec2 size = Vec2(32.0f, 4.0f) * UI::scale;
+				UI::box(params, { pos - size * 0.5f, size }, UI::background_color);
+				UI::box(params, { pos - size * 0.5f, size * Vec2((r32)health->hp / (r32)health->total, 1.0f) }, color);
+				UI::border(params, { pos - size * 0.5f, size }, 2, color);
+			}
+		}
+	}
+
 	// Draw message
 	if (msg_timer < msg_time)
 	{
@@ -314,7 +365,7 @@ void LocalPlayer::draw_alpha(const RenderParams& params) const
 		{
 			Vec2 pos = params.camera->viewport.size * Vec2(0.5f, 0.6f);
 			Rect2 box = msg_text.rect(pos).outset(6 * UI::scale);
-			UI::box(params, box, Vec4(0, 0, 0, 1));
+			UI::box(params, box, UI::background_color);
 			msg_text.draw(params, pos);
 			if (!last_flash)
 				Audio::post_global_event(AK::EVENTS::PLAY_BEEP_GOOD);
@@ -323,7 +374,7 @@ void LocalPlayer::draw_alpha(const RenderParams& params) const
 
 	{
 		Vec2 pos = params.camera->viewport.size * 0.1f;
-		UI::box(params, credits_text.rect(pos).outset(6 * UI::scale), Vec4(0, 0, 0, 1));
+		UI::box(params, credits_text.rect(pos).outset(6 * UI::scale), UI::background_color);
 		credits_text.draw(params, pos);
 	}
 
@@ -352,7 +403,7 @@ void LocalPlayer::draw_alpha(const RenderParams& params) const
 			text.anchor_x = text.anchor_y = UIText::Anchor::Center;
 			text.text("Spawning... %d", (s32)manager.ref()->player_spawn_timer + 1);
 			Vec2 p = vp.pos + vp.size * Vec2(0.5f);
-			UI::box(params, text.rect(p).outset(8.0f), Vec4(0, 0, 0, 1));
+			UI::box(params, text.rect(p).outset(8.0f), UI::background_color);
 			text.draw(params, p);
 
 			break;
@@ -423,12 +474,9 @@ void PlayerCommon::update_visibility()
 				visibility[index] = true;
 			else
 			{
-				btCollisionWorld::ClosestRayResultCallback rayCallback(start, end);
-				rayCallback.m_flags = btTriangleRaycastCallback::EFlags::kF_FilterBackfaces
-					| btTriangleRaycastCallback::EFlags::kF_KeepUnflippedNormal;
-				rayCallback.m_collisionFilterMask = rayCallback.m_collisionFilterGroup = ~CollisionTarget & ~CollisionWalker;
-				Physics::btWorld->rayTest(start, end, rayCallback);
-				visibility[index] = !rayCallback.hasHit();
+				btCollisionWorld::ClosestRayResultCallback ray_callback(start, end);
+				Physics::raycast(ray_callback);
+				visibility[index] = !ray_callback.hasHit();
 			}
 			index++;
 		}
@@ -457,9 +505,13 @@ void PlayerCommon::draw_alpha(const RenderParams& params) const
 			|| PlayerCommon::visibility[PlayerCommon::visibility_hash(this, player->get<PlayerCommon>())])
 		{
 			Vec3 pos = get<Transform>()->absolute_pos();
+			pos.y += 1.0f;
 			Vec2 screen_pos;
 			if (UI::project(params, pos, &screen_pos))
+			{
+				screen_pos.y += 32.0f * UI::scale;
 				username_text.draw(params, screen_pos + Vec2(0, 32 * UI::scale));
+			}
 		}
 	}
 }
@@ -544,6 +596,8 @@ void LocalPlayerControl::awake()
 		get<Walker>()->auto_rotate = false;
 		get<SkinnedModel>()->mesh = Asset::Mesh::character_headless;
 	}
+
+	camera->mask = 1 << (s32)get<AIAgent>()->team;
 }
 
 void LocalPlayerControl::hit_target(Entity* target)
@@ -977,32 +1031,7 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 		AI::Team team = get<AIAgent>()->team;
 		Vec4 color = AI::colors[(s32)team];
 
-		Vec2 viewport = params.camera->viewport.size;
-
-		// Draw friendly sentinel paths
-		for (auto i = MinionAI::list.iterator(); !i.is_last(); i.next())
-		{
-			MinionAI* sentinel = i.item();
-			if (sentinel->get<AIAgent>()->team == team)
-			{
-				for (s32 j = sentinel->path_index; j < sentinel->path_point_count; j++)
-				{
-					Cube::draw(params, sentinel->path_points[j], true, scale, Quat::identity, color);
-					if (j > 0)
-					{
-						const Vec3 next = sentinel->path_points[j];
-						const Vec3 prev = sentinel->path_points[j - 1];
-
-						const Vec3 diff = next - prev;
-						const r32 length = diff.length();
-						const Vec3 dir = diff / length;
-						const s32 count = ceilf(length / s32erval);
-						for (s32 x = 0; x < count; x++)
-							Cube::draw(params, prev + dir * (x * s32erval), true, scale, Quat::identity, color);
-					}
-				}
-			}
-		}
+		const Rect2& viewport = params.camera->viewport;
 
 		// Draw reticle
 		if (has<MinionCommon>() || get<Transform>()->parent.ref())
@@ -1010,7 +1039,7 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 			r32 cooldown = get<PlayerCommon>()->cooldown;
 			r32 radius = cooldown == 0.0f ? 0.0f : fmax(0.0f, 32.0f * (get<PlayerCommon>()->cooldown / AWK_MAX_DISTANCE_COOLDOWN));
 			if (radius > 0 || tracer.type == TraceType::None)
-				UI::centered_border(params, { viewport * Vec2(0.5f, 0.5f), Vec2(3.0f + radius) * UI::scale }, 2 * UI::scale, UI::default_color, PI * 0.25f);
+				UI::centered_border(params, { viewport.size * Vec2(0.5f, 0.5f), Vec2(3.0f + radius) * UI::scale }, 2, UI::default_color, PI * 0.25f);
 			else
 			{
 				// Draw tracer
@@ -1067,12 +1096,22 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 
 		AssetID secondary_icon = AssetNull;
 
-		Vec2 compass_size = Vec2(fmin(viewport.x, viewport.y) * 0.3f);
+		Vec2 compass_size = Vec2(fmin(viewport.size.x, viewport.size.y) * 0.3f);
 
 		Vec4 compass_color = alert ? UI::alert_color : Vec4(1, 1, 1, 1);
 
-		UI::mesh(params, Asset::Mesh::compass_inner, viewport * Vec2(0.5f, 0.5f), compass_size, compass_color, angle_vertical);
-		UI::mesh(params, Asset::Mesh::compass_outer, viewport * Vec2(0.5f, 0.5f), compass_size, Vec4(compass_color.xyz(), 1.0f), -angle_horizontal);
+		UI::mesh(params, Asset::Mesh::compass_inner, viewport.pos + viewport.size * Vec2(0.5f, 0.5f), compass_size, compass_color, angle_vertical);
+		UI::mesh(params, Asset::Mesh::compass_outer, viewport.pos + viewport.size * Vec2(0.5f, 0.5f), compass_size, Vec4(compass_color.xyz(), 1.0f), -angle_horizontal);
+
+		// health bar
+		{
+			const Health* health = get<Health>();
+			const Vec2 size = Vec2(128.0f, 16.0f) * UI::scale;
+			const Vec2 pos = viewport.pos + viewport.size * Vec2(0.5f, 0.1f);
+			UI::box(params, { pos - size * 0.5f, size }, UI::background_color);
+			UI::box(params, { pos - size * 0.5f, size * Vec2((r32)health->hp / (r32)health->total, 1.0f) }, UI::default_color);
+			UI::border(params, { pos - size * 0.5f, size }, 2, UI::default_color);
+		}
 	}
 }
 

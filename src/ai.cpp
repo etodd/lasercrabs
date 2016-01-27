@@ -207,8 +207,4 @@ dtPolyRef AI::get_poly(const Vec3& pos, const r32* search_extents)
 	return result;
 }
 
-void AIAgent::awake()
-{
-}
-
 }

@@ -55,6 +55,7 @@ struct UI
 	static const Vec4 default_color;
 	static const Vec4 alert_color;
 	static const Vec4 subtle_color;
+	static const Vec4 background_color;
 	static r32 scale;
 	static s32 mesh_id;
 	static s32 texture_mesh_id;

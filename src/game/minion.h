@@ -79,6 +79,7 @@ struct MinionAI : public ComponentType<MinionAI>
 	void update(const Update&);
 	void go(const Vec3&);
 	void recalc_path(const Update&);
+	void damaged(Entity*);
 };
 
 // behaviors

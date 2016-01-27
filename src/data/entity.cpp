@@ -57,7 +57,7 @@ Entity::Entity()
 void World::remove(Entity* e)
 {
 	ID id = e->id();
-	vi_assert(Entity::list.is_active(id));
+	vi_assert(Entity::list.active(id));
 	for (Family i = 0; i < World::families; i++)
 	{
 		if (e->component_mask & ((ComponentMask)1 << i))

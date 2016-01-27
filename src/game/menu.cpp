@@ -371,7 +371,7 @@ void draw(const RenderParams& params)
 		}
 		case Asset::Level::title:
 		{
-			UI::centered_box(params, { viewport.size * Vec2(0.5f), Vec2(185.0f * UI::scale, 100.0f * UI::scale) }, Vec4(0, 0, 0, 1));
+			UI::centered_box(params, { viewport.size * Vec2(0.5f), Vec2(185.0f * UI::scale, 100.0f * UI::scale) }, UI::background_color);
 			UI::mesh(params, Asset::Mesh::logo, viewport.size * Vec2(0.5f), Vec2(128.0f * UI::scale, 128.0f * UI::scale));
 			start_text.draw(params, viewport.size * Vec2(0.5f, 0.25f));
 			break;
@@ -493,7 +493,7 @@ void UIMenu::draw_alpha(const RenderParams& params) const
 	{
 		const Item* item = &items[i];
 		Rect2 rect = item->label.rect(item->pos).outset(MENU_ITEM_PADDING);
-		UI::box(params, rect, i == selected ? UI::subtle_color : Vec4(0, 0, 0, 1));
+		UI::box(params, rect, i == selected ? UI::subtle_color : UI::background_color);
 		item->label.draw(params, item->pos);
 	}
 }

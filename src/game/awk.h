@@ -17,7 +17,7 @@ struct Rope;
 #define AWK_MIN_COOLDOWN 0.3f
 #define AWK_MAX_DISTANCE_COOLDOWN 0.75f
 #define AWK_COOLDOWN_DISTANCE_RATIO (AWK_MAX_DISTANCE_COOLDOWN / AWK_MAX_DISTANCE)
-#define AWK_SHOCKWAVE_RADIUS 10
+#define AWK_SHOCKWAVE_RADIUS 8
 #define AWK_LEGS 3
 
 // If we raycast through a Minion's head, keep going.

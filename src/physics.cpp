@@ -1,6 +1,7 @@
 #include "physics.h"
 #include "data/components.h"
 #include "load.h"
+#include "bullet/src/BulletCollision/NarrowPhaseCollision/btRaycastCallback.h"
 
 namespace VI
 {
@@ -44,6 +45,14 @@ void Physics::sync_dynamic()
 		if (body->isActive() && !body->isStaticOrKinematicObject())
 			i.item()->get<Transform>()->set_bullet(body->getWorldTransform());
 	}
+}
+
+void Physics::raycast(btCollisionWorld::ClosestRayResultCallback& ray_callback)
+{
+	ray_callback.m_flags = btTriangleRaycastCallback::EFlags::kF_FilterBackfaces
+		| btTriangleRaycastCallback::EFlags::kF_KeepUnflippedNormal;
+	ray_callback.m_collisionFilterMask = ray_callback.m_collisionFilterGroup = ~CollisionTarget & ~CollisionWalker;
+	Physics::btWorld->rayTest(ray_callback.m_rayFromWorld, ray_callback.m_rayToWorld, ray_callback);
 }
 
 PinArray<RigidBody::Constraint, MAX_ENTITIES> RigidBody::global_constraints;

@@ -15,14 +15,9 @@
 namespace VI
 {
 
-#define CONE_NORMAL Vec3(1, 1, 0.6f)
-#define CONE_NORMAL_ALPHA 0.3f
-#define CONE_ATTACKING Vec3(1, 0.0f, 0.0f)
-#define CONE_ATTACKING_ALPHA 0.7f
-
 struct VisionCone
 {
-	static Entity* create(Transform* parent, r32, r32, const Vec3&);
+	static Entity* create(Transform* parent, r32, r32, AI::Team);
 };
 
 struct AwkEntity : public Entity
@@ -32,14 +27,15 @@ struct AwkEntity : public Entity
 
 struct Health : public ComponentType<Health>
 {
-	s32 hp;
-	LinkArg<s32> damaged;
+	u16 hp;
+	u16 total;
+	LinkArg<Entity*> damaged;
 	LinkArg<Entity*> killed;
 
-	Health(const s32);
+	Health(u16);
 
 	void awake() {}
-	void damage(Entity*, const s32);
+	void damage(Entity*, u16);
 };
 
 struct ShockwaveEntity : public Entity
@@ -161,7 +157,6 @@ struct Turret : public Entity
 
 struct TurretControl : public ComponentType<TurretControl>
 {
-	AI::Team team;
 	void awake() {}
 };
 

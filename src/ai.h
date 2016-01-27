@@ -46,7 +46,7 @@ struct AI
 struct AIAgent : public ComponentType<AIAgent>
 {
 	AI::Team team;
-	void awake();
+	void awake() {}
 };
 
 template<typename T>

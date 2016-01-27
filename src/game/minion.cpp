@@ -26,7 +26,7 @@
 #include "console.h"
 
 #define HEAD_RADIUS 0.25f
-#define VIEW_RANGE 30.0f
+#define VIEW_RANGE 20.0f
 #define VIEW_FOV PI * 0.4f
 #define VIEW_MAX_HEIGHT 6.0f
 
@@ -60,7 +60,7 @@ Minion::Minion(const Vec3& pos, const Quat& quat, AI::Team team)
 
 	create<Audio>();
 
-	Health* health = create<Health>(10);
+	Health* health = create<Health>(20);
 	
 	Vec3 forward = quat * Vec3(0, 0, 1);
 
@@ -673,7 +673,7 @@ void MinionCheckTarget::run()
 		float closest_distance = FLT_MAX;
 		for (auto i = TurretControl::list.iterator(); !i.is_last(); i.next())
 		{
-			if (i.item()->team != team)
+			if (i.item()->get<AIAgent>()->team != team)
 			{
 				Vec3 turret_pos = i.item()->get<Transform>()->absolute_pos();
 
@@ -732,7 +732,7 @@ void MinionGoToTarget::run()
 		else
 		{
 			minion->go(target_pos);
-			active = true;
+			active(true);
 		}
 	}
 	else
@@ -772,7 +772,8 @@ void MinionAttack::run()
 	Entity* target = minion->target.ref();
 	if (target)
 	{
-		target->get<Health>()->damage(minion->entity(), 1);
+		minion->get<Audio>()->post_event(AK::EVENTS::PLAY_LASER);
+		target->get<Health>()->damage(minion->entity(), 2);
 		done(true);
 	}
 	else
@@ -793,7 +794,6 @@ MinionAI::MinionAI()
 {
 	behavior = Repeat::alloc
 	(
-		-1,
 		Sequence::alloc
 		(
 			Succeed::alloc
@@ -802,18 +802,20 @@ MinionAI::MinionAI()
 				(
 					Repeat::alloc
 					(
-						-1,
 						Sequence::alloc
 						(
 							MinionCheckTarget::alloc(),
 							Delay::alloc(1.0f)
 						)
 					),
-					Sequence::alloc
+					Repeat::alloc
 					(
-						MinionGoToTarget::alloc(),
-						MinionAttack::alloc(),
-						Delay::alloc(0.5f)
+						Sequence::alloc
+						(
+							MinionGoToTarget::alloc(),
+							MinionAttack::alloc(),
+							Delay::alloc(1.5f)
+						)
 					)
 				)
 			),
@@ -825,9 +827,10 @@ MinionAI::MinionAI()
 
 void MinionAI::awake()
 {
-	vision_cone = VisionCone::create(get<Transform>(), VIEW_FOV, VIEW_RANGE, CONE_NORMAL);
+	vision_cone = VisionCone::create(get<Transform>(), VIEW_FOV, VIEW_RANGE, get<AIAgent>()->team);
 	get<Walker>()->max_speed = get<Walker>()->speed;
 	behavior->run();
+	link_arg<Entity*, &MinionAI::damaged>(get<Health>()->damaged);
 }
 
 MinionAI::~MinionAI()
@@ -835,6 +838,11 @@ MinionAI::~MinionAI()
 	if (vision_cone.ref())
 		World::remove(vision_cone.ref());
 	behavior->~Behavior();
+}
+
+void MinionAI::damaged(Entity* enemy)
+{
+	target = enemy;
 }
 
 void MinionAI::update(const Update& u)

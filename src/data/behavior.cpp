@@ -45,12 +45,12 @@ void Select::child_done(Behavior* child, b8 success)
 
 void Parallel::run()
 {
-	active = true;
+	active(true);
 	children_done = 0;
 	for (s32 i = 0; i < num_children; i++)
 	{
 		children[i]->run();
-		if (!active)
+		if (!active())
 			break;
 	}
 }
@@ -71,7 +71,7 @@ void Parallel::child_done(Behavior* child, b8 success)
 	}
 }
 
-Repeat::Repeat(s32 repeat, Behavior* child)
+Repeat::Repeat(Behavior* child, s32 repeat)
 	: BehaviorDecorator(child), repeat_count(repeat), repeat_index()
 {
 }
@@ -101,7 +101,7 @@ void Repeat::child_done(Behavior* child, b8 succeeded)
 void Delay::run()
 {
 	timer = duration;
-	active = true;
+	active(true);
 }
 
 void Delay::update(const Update& u)

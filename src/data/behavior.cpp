@@ -45,7 +45,7 @@ void Select::child_done(Behavior* child, b8 success)
 
 void Parallel::run()
 {
-	activate();
+	active = true;
 	children_done = 0;
 	for (s32 i = 0; i < num_children; i++)
 	{
@@ -101,7 +101,7 @@ void Repeat::child_done(Behavior* child, b8 succeeded)
 void Delay::run()
 {
 	timer = duration;
-	activate();
+	active = true;
 }
 
 void Delay::update(const Update& u)

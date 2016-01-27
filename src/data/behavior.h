@@ -41,30 +41,16 @@ template<typename Derived> struct BehaviorBase : public Behavior
 		}
 	}
 
-	void activate()
-	{
-		vi_assert(!active);
-		active = true;
-	}
-
-	void deactivate()
-	{
-		vi_assert(active);
-		active = false;
-	}
-
 	void done(b8 success = true)
 	{
-		if (active)
-			deactivate();
+		active = false;
 		if (parent)
 			parent->child_done(this, success);
 	}
 
 	virtual void abort()
 	{
-		if (active)
-			deactivate();
+		active = false;
 	}
 
 	virtual ~BehaviorBase()
@@ -256,7 +242,7 @@ template<typename T> struct LerpTo : public BehaviorBase<LerpTo<T>>
 	{
 		start = *target;
 		time = 0.0f;
-		activate();
+		active = true;
 	}
 
 	void update(const Update& u)

@@ -105,6 +105,8 @@ struct MinionCheckTarget : public MinionBehavior<MinionCheckTarget>
 struct MinionGoToTarget : public MinionBehavior<MinionGoToTarget>
 {
 	void run();
+	b8 target_in_range() const;
+	void done(b8 = true);
 	void update(const Update&);
 };
 

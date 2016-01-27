@@ -262,6 +262,9 @@ void LocalPlayer::update(const Update& u)
 
 void LocalPlayer::spawn()
 {
+	if (NoclipControl::list.count() > 0)
+		return;
+
 	Vec3 pos;
 	Quat rot;
 	manager.ref()->player_spawn.ref()->absolute(&pos, &rot);

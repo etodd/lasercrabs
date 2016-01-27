@@ -271,6 +271,8 @@ Turret::Turret(AI::Team team)
 	
 	create<TurretControl>()->team = team;
 
+	create<Health>(400);
+
 	create<RigidBody>(RigidBody::Type::CapsuleY, Vec3(0.8f, 3.75f, 0.8f), 0.0f, CollisionInaccessible, CollisionInaccessibleMask);
 }
 

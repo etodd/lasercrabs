@@ -28,7 +28,6 @@
 #define HEAD_RADIUS 0.25f
 #define VIEW_RANGE 30.0f
 #define VIEW_FOV PI * 0.4f
-#define VIEW_ATTENTION_FOV PI * 0.3f
 #define VIEW_MAX_HEIGHT 6.0f
 
 #define RAYCAST_RADIUS_RATIO 1.3f
@@ -61,7 +60,7 @@ Minion::Minion(const Vec3& pos, const Quat& quat, AI::Team team)
 
 	create<Audio>();
 
-	Health* health = create<Health>(100);
+	Health* health = create<Health>(10);
 	
 	Vec3 forward = quat * Vec3(0, 0, 1);
 
@@ -79,8 +78,8 @@ void MinionCommon::awake()
 
 	Animator* animator = get<Animator>();
 	animator->layers[1].loop = false;
-	link<&MinionCommon::footstep>(animator->trigger(Asset::Animation::character_walk, 0.45f));
-	link<&MinionCommon::footstep>(animator->trigger(Asset::Animation::character_walk, 1.0f));
+	link<&MinionCommon::footstep>(animator->trigger(Asset::Animation::character_walk, 0.3375f));
+	link<&MinionCommon::footstep>(animator->trigger(Asset::Animation::character_walk, 0.75f));
 	link<&MinionCommon::footstep>(animator->trigger(Asset::Animation::character_run, 0.216f));
 	link<&MinionCommon::footstep>(animator->trigger(Asset::Animation::character_run, 0.476f));
 }
@@ -559,7 +558,7 @@ b8 MinionCommon::try_wall_run(WallRunState s, const Vec3& wall_direction)
 		// if we are running on a new wall, we need to add velocity
 		// if it's the same wall we were running on before, we should not add any velocity
 		// this prevents the player from spamming the wall-run key to wall-run infinitely
-		bool add_velocity = !last_support.ref()
+		b8 add_velocity = !last_support.ref()
 			|| last_support.ref()->entity_id != support_body->getUserIndex()
 			|| wall_run_state != s;
 
@@ -633,11 +632,40 @@ b8 MinionCommon::try_wall_run(WallRunState s, const Vec3& wall_direction)
 
 // Minion behaviors
 
+void raycast(btCollisionWorld::ClosestRayResultCallback& ray_callback)
+{
+	ray_callback.m_flags = btTriangleRaycastCallback::EFlags::kF_FilterBackfaces
+		| btTriangleRaycastCallback::EFlags::kF_KeepUnflippedNormal;
+	ray_callback.m_collisionFilterMask = ray_callback.m_collisionFilterGroup = ~CollisionWalker & ~CollisionTarget;
+	Physics::btWorld->rayTest(ray_callback.m_rayFromWorld, ray_callback.m_rayToWorld, ray_callback);
+}
+
 void MinionCheckTarget::run()
 {
 	AI::Team team = minion->get<AIAgent>()->team;
 	Vec3 pos = minion->get<Transform>()->absolute_pos();
-	Entity* new_target = AI::sound_query(team, pos);
+
+	if (minion->target.ref() && !minion->target.ref()->has<TurretControl>())
+	{
+		// we are targeting an enemy
+		// make sure we still want to do that
+		Vec3 target_pos = minion->target.ref()->get<Transform>()->absolute_pos();
+		btCollisionWorld::ClosestRayResultCallback ray_callback(pos, target_pos);
+		raycast(ray_callback);
+		if (!ray_callback.hasHit() || ray_callback.m_collisionObject->getUserIndex() == minion->target.ref()->id())
+		{
+			// we're good
+			done(true);
+			return;
+		}
+	}
+
+	Vec3 head_pos(0, 0, 0);
+	Quat head_rot = Quat::identity;
+	minion->vision_cone.ref()->get<Transform>()->absolute(&head_pos, &head_rot);
+	Entity* new_target = AI::vision_query(minion->get<AIAgent>(), head_pos, head_rot * Vec3(0, 0, 1), VIEW_RANGE, VIEW_FOV, VIEW_MAX_HEIGHT);
+	if (!new_target)
+		new_target = AI::sound_query(team, pos);
 
 	// go to next turret
 	if (!new_target)
@@ -692,36 +720,63 @@ void MinionCheckTarget::run()
 void MinionGoToTarget::run()
 {
 	if (minion->target.ref())
-		minion->go(minion->target.ref()->get<Transform>()->absolute_pos());
+	{
+		Vec3 target_pos = minion->target.ref()->get<Transform>()->absolute_pos();
+		if (target_in_range())
+		{
+			Vec3 forward = target_pos - minion->get<Transform>()->absolute_pos();
+			forward.normalize();
+			minion->get<Walker>()->target_rotation = atan2(forward.x, forward.z);
+			done(true);
+		}
+		else
+		{
+			minion->go(target_pos);
+			active = true;
+		}
+	}
 	else
 		done(false);
+}
+
+void MinionGoToTarget::done(b8 success)
+{
+	minion->path_point_count = 0;
+	MinionBehavior<MinionGoToTarget>::done(success);
+}
+
+b8 MinionGoToTarget::target_in_range() const
+{
+	Vec3 pos = minion->get<Transform>()->absolute_pos();
+	Vec3 target_pos = minion->target.ref()->get<Transform>()->absolute_pos();
+	if ((pos - target_pos).length_squared() < VIEW_RANGE *  VIEW_RANGE)
+	{
+		btCollisionWorld::ClosestRayResultCallback ray_callback(pos, target_pos);
+		raycast(ray_callback);
+		if (!ray_callback.hasHit() || ray_callback.m_collisionObject->getUserIndex() == minion->target.ref()->id())
+			return true;
+	}
+	return false;
 }
 
 void MinionGoToTarget::update(const Update& u)
 {
 	if (!minion->target.ref())
 		done(false);
-	else
-	{
-		Vec3 pos = minion->get<Transform>()->absolute_pos();
-		Vec3 target_pos = minion->target.ref()->get<Transform>()->absolute_pos();
-		if ((pos - target_pos).length_squared() < VIEW_RANGE *  VIEW_RANGE)
-		{
-			btCollisionWorld::ClosestRayResultCallback ray_callback(pos, target_pos);
-			ray_callback.m_flags = btTriangleRaycastCallback::EFlags::kF_FilterBackfaces
-				| btTriangleRaycastCallback::EFlags::kF_KeepUnflippedNormal;
-			ray_callback.m_collisionFilterMask = ray_callback.m_collisionFilterGroup = ~CollisionWalker & ~CollisionTarget;
-			Physics::btWorld->rayTest(pos, target_pos, ray_callback);
-			if (!ray_callback.hasHit() || ray_callback.m_collisionObject->getUserIndex() == minion->target.ref()->id())
-				done(true);
-		}
-	}
+	else if (target_in_range())
+		done(true);
 }
 
 void MinionAttack::run()
 {
-	printf("%f\n", Game::time.total);
-	done();
+	Entity* target = minion->target.ref();
+	if (target)
+	{
+		target->get<Health>()->damage(minion->entity(), 1);
+		done(true);
+	}
+	else
+		done(false);
 }
 
 namespace MinionBehaviors
@@ -751,21 +806,14 @@ MinionAI::MinionAI()
 						Sequence::alloc
 						(
 							MinionCheckTarget::alloc(),
-							Delay::alloc(2.0f)
+							Delay::alloc(1.0f)
 						)
 					),
 					Sequence::alloc
 					(
 						MinionGoToTarget::alloc(),
-						Repeat::alloc
-						(
-							-1,
-							Sequence::alloc
-							(
-								MinionAttack::alloc(),
-								Delay::alloc(3.0f)
-							)
-						)
+						MinionAttack::alloc(),
+						Delay::alloc(0.5f)
 					)
 				)
 			),

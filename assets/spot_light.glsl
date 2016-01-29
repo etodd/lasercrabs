@@ -31,8 +31,8 @@ uniform vec3 light_direction;
 uniform mat4 light_vp;
 uniform vec3 frustum[4];
 uniform int type;
-const int type_normal = 0;
-const int type_override = 1;
+const int type_normal = 1;
+const int type_override = 2;
 
 vec3 lerp3(vec3 a, vec3 b, float w)
 {

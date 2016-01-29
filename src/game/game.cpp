@@ -58,19 +58,18 @@ GameTime Game::real_time = GameTime();
 
 r32 Game::time_scale = 1.0f;
 AssetID Game::scheduled_load_level = AssetNull;
-#define initial_credits 250
-Game::Data Game::data = Game::Data();
+Game::Data Game::data;
 Vec2 Game::cursor = Vec2(200, 200);
 b8 Game::cursor_updated = false;
 
 Game::Data::Data()
 	: level(AssetNull),
-	previous_level(AssetNull),
 	mode(Mode::Multiplayer),
-	third_person()
+	third_person(false)
 {
-	for (s32 i = 0; i < (s32)AI::Team::count; i++)
-		credits[i] = initial_credits;
+	for (s32 i = 0; i < MAX_GAMEPADS; i++)
+		local_player_config[i] = AI::Team::None;
+	local_player_config[0] = AI::Team::A;
 }
 
 Array<UpdateFunction> Game::updates = Array<UpdateFunction>();
@@ -139,6 +138,8 @@ void Game::update(const Update& update_in)
 			i.item()->killed(nullptr);
 	}
 
+	for (s32 i = 0; i < Team::list.length; i++)
+		Team::list[i].update(u);
 	for (auto i = PlayerManager::list.iterator(); !i.is_last(); i.next())
 		i.item()->update(u);
 	for (auto i = LocalPlayer::list.iterator(); !i.is_last(); i.next())
@@ -163,6 +164,10 @@ void Game::update(const Update& update_in)
 	for (auto i = Shockwave::list.iterator(); !i.is_last(); i.next())
 		i.item()->update(u);
 	for (auto i = PlayerCommon::list.iterator(); !i.is_last(); i.next())
+		i.item()->update(u);
+	for (auto i = Projectile::list.iterator(); !i.is_last(); i.next())
+		i.item()->update(u);
+	for (auto i = TurretControl::list.iterator(); !i.is_last(); i.next())
 		i.item()->update(u);
 
 	for (s32 i = 0; i < updates.length; i++)
@@ -372,19 +377,7 @@ void Game::execute(const Update& u, const char* cmd)
 			const char* level_name = delimiter + 1;
 			AssetID level = Loader::find(level_name, AssetLookup::Level::names);
 			if (level != AssetNull)
-			{
-				if (LocalPlayer::list.count() == 0)
-				{
-					PlayerManager* manager = PlayerManager::list.add();
-					new (manager) PlayerManager(AI::Team::A);
-
-					LocalPlayer* player = LocalPlayer::list.add();
-					new (player) LocalPlayer(manager, 0);
-				}
-				for (s32 i = 0; i < (s32)AI::Team::count; i++)
-					data.credits[i] = initial_credits;
 				Menu::transition(level);
-			}
 		}
 	}
 }
@@ -401,6 +394,14 @@ void Game::unload_level()
 
 	for (auto i = Entity::list.iterator(); !i.is_last(); i.next())
 		World::remove(i.item());
+
+	for (auto i = LocalPlayer::list.iterator(); !i.is_last(); i.next())
+		LocalPlayer::list.remove(i.index);
+	for (auto i = AIPlayer::list.iterator(); !i.is_last(); i.next())
+		AIPlayer::list.remove(i.index);
+	for (auto i = PlayerManager::list.iterator(); !i.is_last(); i.next())
+		PlayerManager::list.remove(i.index);
+	Team::list.length = 0;
 
 	Loader::transients_free();
 	updates.length = 0;
@@ -454,22 +455,32 @@ struct RopeEntry
 	r32 slack;
 };
 
-struct SpawnEntry
-{
-	Ref<Transform> ref;
-	AI::Team team;
-};
-
 void Game::load_level(const Update& u, AssetID l)
 {
 	time.total = 0.0f;
 
 	scheduled_load_level = AssetNull;
 
-	if (!Menu::is_special_level(data.level))
-		data.previous_level = data.level;
-
 	unload_level();
+
+	for (s32 i = 0; i < (s32)AI::Team::count; i++)
+	{
+		Team* team = Team::list.add();
+		new (team) Team();
+	}
+
+	for (s32 i = 0; i < MAX_GAMEPADS; i++)
+	{
+		AI::Team team = data.local_player_config[i];
+		if (team != AI::Team::None)
+		{
+			PlayerManager* manager = PlayerManager::list.add();
+			new (manager) PlayerManager(&Team::list[(s32)team]);
+
+			LocalPlayer* player = LocalPlayer::list.add();
+			new (player) LocalPlayer(manager, i);
+		}
+	}
 
 	Audio::post_global_event(AK::EVENTS::PLAY_START_SESSION);
 
@@ -486,8 +497,6 @@ void Game::load_level(const Update& u, AssetID l)
 	Array<LevelLink<Entity>> links;
 	Array<LevelLink<Transform>> transform_links;
 	Array<MoverEntry> mover_links;
-	Array<SpawnEntry> player_spawns;
-	Array<SpawnEntry> minion_spawns;
 
 	EntityFinder finder;
 	
@@ -540,14 +549,17 @@ void Game::load_level(const Update& u, AssetID l)
 				vi_assert(mesh_id != AssetNull);
 				if (mesh_index == inaccessible_index && has_inaccessible)
 				{
-					m = World::create<StaticGeom>(mesh_id, absolute_pos, absolute_rot, CollisionInaccessible, CollisionInaccessibleMask);
+					m = World::alloc<StaticGeom>(mesh_id, absolute_pos, absolute_rot, CollisionInaccessible, CollisionInaccessibleMask);
 					m->get<View>()->color.w = 1.0f / 255.0f; // special G-buffer index for inaccessible materials
 				}
 				else
-					m = World::create<StaticGeom>(mesh_id, absolute_pos, absolute_rot);
+					m = World::alloc<StaticGeom>(mesh_id, absolute_pos, absolute_rot);
 
 				if (entity)
+				{
+					World::awake(m);
 					m->get<Transform>()->reparent(entity->get<Transform>());
+				}
 				else
 					entity = m;
 
@@ -571,13 +583,13 @@ void Game::load_level(const Update& u, AssetID l)
 		}
 		else if (cJSON_GetObjectItem(element, "CreditsPickup"))
 		{
-			entity = World::create<CreditsPickupEntity>(absolute_pos, absolute_rot);
+			entity = World::alloc<CreditsPickupEntity>(absolute_pos, absolute_rot);
 		}
 		else if (cJSON_GetObjectItem(element, "MinionSpawn"))
 		{
 			AI::Team team = (AI::Team)Json::get_s32(element, "team");
 
-			entity = World::create<MinionSpawn>(team);
+			entity = World::alloc<MinionSpawn>(team);
 
 			absolute_pos += Vec3(0, 3.75f * 0.5f, 0);
 			if (parent == -1)
@@ -585,16 +597,16 @@ void Game::load_level(const Update& u, AssetID l)
 			else
 				pos = transforms[parent]->to_local(absolute_pos);
 
-			minion_spawns.add({ entity->get<Transform>(), team });
+			Team::list[(s32)team].minion_spawns.add(entity->get<Transform>());
 		}
 		else if (cJSON_GetObjectItem(element, "PlayerSpawn"))
 		{
 			AI::Team team = (AI::Team)Json::get_s32(element, "team");
 
 			if (Game::data.mode == Game::Mode::Multiplayer)
-				entity = World::create<PlayerSpawn>(team);
+				entity = World::alloc<PlayerSpawn>(team);
 			else
-				entity = World::create<Empty>(); // in parkour mode, the spawn point is invisible
+				entity = World::alloc<Empty>(); // in parkour mode, the spawn point is invisible
 
 			absolute_pos += Vec3(0, 3.75f * 0.5f, 0);
 			if (parent == -1)
@@ -602,17 +614,17 @@ void Game::load_level(const Update& u, AssetID l)
 			else
 				pos = transforms[parent]->to_local(absolute_pos);
 
-			player_spawns.add({ entity->get<Transform>(), team });
+			Team::list[(s32)team].player_spawn = entity->get<Transform>();
 		}
 		else if (cJSON_GetObjectItem(element, "PlayerTrigger"))
 		{
-			entity = World::create<Empty>();
+			entity = World::alloc<Empty>();
 			PlayerTrigger* trigger = entity->add<PlayerTrigger>();
 			trigger->radius = Json::get_r32(element, "scale", 1.0f) * 0.5f;
 		}
 		else if (cJSON_GetObjectItem(element, "Mover"))
 		{
-			entity = World::create<MoverEntity>((b8)Json::get_s32(element, "reversed"), (b8)Json::get_s32(element, "translation", 1), (b8)Json::get_s32(element, "rotation", 1));
+			entity = World::alloc<MoverEntity>((b8)Json::get_s32(element, "reversed"), (b8)Json::get_s32(element, "translation", 1), (b8)Json::get_s32(element, "rotation", 1));
 			cJSON* entity_link = cJSON_GetObjectItem(element, "links")->child;
 			if (entity_link)
 			{
@@ -641,14 +653,14 @@ void Game::load_level(const Update& u, AssetID l)
 		}
 		else if (cJSON_GetObjectItem(element, "PointLight"))
 		{
-			entity = World::create<Empty>();
+			entity = World::alloc<Empty>();
 			PointLight* light = entity->add<PointLight>();
 			light->color = Json::get_vec3(element, "color");
 			light->radius = Json::get_r32(element, "radius");
 		}
 		else if (cJSON_GetObjectItem(element, "DirectionalLight"))
 		{
-			entity = World::create<Empty>();
+			entity = World::alloc<Empty>();
 			DirectionalLight* light = entity->add<DirectionalLight>();
 			light->color = Json::get_vec3(element, "color");
 			light->shadowed = Json::get_s32(element, "shadowed");
@@ -658,7 +670,7 @@ void Game::load_level(const Update& u, AssetID l)
 			AI::Team team = (AI::Team)Json::get_s32(element, "team", (s32)AI::Team::B);
 
 			PlayerManager* manager = PlayerManager::list.add();
-			new (manager) PlayerManager(team);
+			new (manager) PlayerManager(&Team::list[(s32)team]);
 
 			AIPlayer* player = AIPlayer::list.add();
 			new (player) AIPlayer(manager);
@@ -666,18 +678,11 @@ void Game::load_level(const Update& u, AssetID l)
 		else if (cJSON_GetObjectItem(element, "Turret"))
 		{
 			AI::Team team = (AI::Team)Json::get_s32(element, "team", (s32)AI::Team::A);
-
-			absolute_pos += Vec3(0, 3.75f * 0.5f, 0);
-			if (parent == -1)
-				pos = absolute_pos;
-			else
-				pos = transforms[parent]->to_local(absolute_pos);
-
-			entity = World::create<Turret>(team);
+			entity = World::alloc<Turret>(team);
 		}
 		else if (cJSON_GetObjectItem(element, "Socket"))
 		{
-			entity = World::create<SocketEntity>(absolute_pos, absolute_rot, (b8)Json::get_s32(element, "powered"));
+			entity = World::alloc<SocketEntity>(absolute_pos, absolute_rot, (b8)Json::get_s32(element, "powered"));
 			cJSON* entity_link = cJSON_GetObjectItem(element, "links")->child;
 			if (entity_link)
 			{
@@ -687,7 +692,7 @@ void Game::load_level(const Update& u, AssetID l)
 		}
 		else if (cJSON_GetObjectItem(element, "SkyDecal"))
 		{
-			entity = World::create<Empty>();
+			entity = World::alloc<Empty>();
 
 			SkyDecal* decal = entity->add<SkyDecal>();
 			decal->color = Vec4(Json::get_r32(element, "r", 1.0f), Json::get_r32(element, "g", 1.0f), Json::get_r32(element, "b", 1.0f), Json::get_r32(element, "a", 1.0f));
@@ -713,7 +718,7 @@ void Game::load_level(const Update& u, AssetID l)
 
 			if (name)
 			{
-				entity = World::create<Prop>(Loader::find(name, AssetLookup::Mesh::names), Loader::find(armature, AssetLookup::Armature::names), Loader::find(animation, AssetLookup::Animation::names));
+				entity = World::alloc<Prop>(Loader::find(name, AssetLookup::Mesh::names), Loader::find(armature, AssetLookup::Armature::names), Loader::find(animation, AssetLookup::Animation::names));
 				if (alpha || additive)
 				{
 					entity->get<View>()->shader = Asset::Shader::flat;
@@ -734,9 +739,12 @@ void Game::load_level(const Update& u, AssetID l)
 
 					AssetID mesh_id = Loader::find(mesh_ref, AssetLookup::Mesh::names);
 
-					Entity* m = World::create<Prop>(mesh_id);
+					Entity* m = World::alloc<Prop>(mesh_id);
 					if (entity)
+					{
+						World::awake(m);
 						m->get<Transform>()->reparent(entity->get<Transform>());
+					}
 					else
 						entity = m;
 
@@ -751,7 +759,7 @@ void Game::load_level(const Update& u, AssetID l)
 			}
 		}
 		else
-			entity = World::create<Empty>();
+			entity = World::alloc<Empty>();
 
 		if (entity && entity->has<Transform>())
 		{
@@ -766,7 +774,11 @@ void Game::load_level(const Update& u, AssetID l)
 		else
 			transforms.add(nullptr);
 
-		finder.add(Json::get_string(element, "name"), entity);
+		if (entity)
+		{
+			World::awake(entity);
+			finder.add(Json::get_string(element, "name"), entity);
+		}
 
 		element = element->next;
 	}
@@ -789,26 +801,6 @@ void Game::load_level(const Update& u, AssetID l)
 		Entity* object = finder.find(link.object_name);
 		Entity* end = finder.find(link.end_name);
 		link.mover->setup(object->get<Transform>(), end->get<Transform>(), link.speed);
-	}
-
-	for (s32 i = 0; i < player_spawns.length; i++)
-	{
-		SpawnEntry& spawn = player_spawns[i];
-		for (auto j = PlayerManager::list.iterator(); !j.is_last(); j.next())
-		{
-			if (j.item()->team == spawn.team)
-				j.item()->player_spawn = spawn.ref;
-		}
-	}
-
-	for (s32 i = 0; i < minion_spawns.length; i++)
-	{
-		SpawnEntry& spawn = minion_spawns[i];
-		for (auto j = PlayerManager::list.iterator(); !j.is_last(); j.next())
-		{
-			if (j.item()->team == spawn.team)
-				j.item()->minion_spawns.add(spawn.ref);
-		}
 	}
 
 	AI::load_nav_mesh(data.level);

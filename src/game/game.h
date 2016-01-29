@@ -36,10 +36,9 @@ struct Game
 	};
 	struct Data
 	{
-		s32 credits[(s32)AI::Team::count];
 		AssetID level;
-		AssetID previous_level;
 		Mode mode;
+		AI::Team local_player_config[MAX_GAMEPADS];
 		bool third_person;
 		Data();
 	};

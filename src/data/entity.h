@@ -130,6 +130,13 @@ struct World
 
 	static void init();
 
+	template<typename T, typename... Args> static T* alloc(Args... args)
+	{
+		Entity* e = Entity::list.add();
+		new (e) T(args...);
+		return (T*)e;
+	}
+
 	template<typename T, typename... Args> static T* create(Args... args)
 	{
 		Entity* e = Entity::list.add();

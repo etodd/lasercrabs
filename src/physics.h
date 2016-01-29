@@ -39,7 +39,7 @@ struct Physics
 	static void sync_static();
 	static void sync_dynamic();
 
-	static void raycast(btCollisionWorld::ClosestRayResultCallback&);
+	static void raycast(btCollisionWorld::ClosestRayResultCallback&, s16 = ~CollisionTarget & ~CollisionWalker);
 };
 
 struct RigidBody : public ComponentType<RigidBody>

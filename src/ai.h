@@ -18,7 +18,8 @@ struct AI
 	{
 		A,
 		B,
-		count,
+		None,
+		count = None,
 	};
 
 	static Team other(Team);

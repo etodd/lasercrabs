@@ -19,8 +19,8 @@ b8 AI::render_mesh_dirty = false;
 
 const Vec4 AI::colors[(s32)AI::Team::count] =
 {
-	Vec4(1, 1, 0.5f, 1),
-	Vec4(1, 0.5f, 0.5f, 1),
+	Vec4(0.9f, 0.8f, 0.3f, 1),
+	Vec4(0.8f, 0.3f, 0.3f, 1),
 };
 
 AI::Team AI::other(AI::Team t)

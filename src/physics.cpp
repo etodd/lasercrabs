@@ -47,11 +47,11 @@ void Physics::sync_dynamic()
 	}
 }
 
-void Physics::raycast(btCollisionWorld::ClosestRayResultCallback& ray_callback)
+void Physics::raycast(btCollisionWorld::ClosestRayResultCallback& ray_callback, s16 mask)
 {
 	ray_callback.m_flags = btTriangleRaycastCallback::EFlags::kF_FilterBackfaces
 		| btTriangleRaycastCallback::EFlags::kF_KeepUnflippedNormal;
-	ray_callback.m_collisionFilterMask = ray_callback.m_collisionFilterGroup = ~CollisionTarget & ~CollisionWalker;
+	ray_callback.m_collisionFilterMask = ray_callback.m_collisionFilterGroup = mask;
 	Physics::btWorld->rayTest(ray_callback.m_rayFromWorld, ray_callback.m_rayToWorld, ray_callback);
 }
 

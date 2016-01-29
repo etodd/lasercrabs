@@ -18,10 +18,11 @@ template<s32 size> struct Bitmask
 	inline void set(s32 i, b8 value)
 	{
 		s32 index = i / sizeof(u32);
+		u32 mask = 1 << (i - index);
 		if (value)
-			data[index] |= (1 << (i - index));
+			data[index] |= mask;
 		else
-			data[index] &= ~(1 << (i - index));
+			data[index] &= ~mask;
 	}
 };
 

@@ -43,6 +43,7 @@ namespace VI
 #define rotation_speed 20.0f
 #define msg_time 0.75f
 
+#define credits_initial 50
 #define credits_pickup 25
 
 b8 flash_function(r32 time)
@@ -79,33 +80,15 @@ void draw_indicator(const RenderParams& params, const Vec3& pos, const Vec4& col
 	}
 }
 
-PinArray<PlayerManager, MAX_PLAYERS> PlayerManager::list = PinArray<PlayerManager, MAX_PLAYERS>();
+StaticArray<Team, (s32)AI::Team::count> Team::list = StaticArray<Team, (s32)AI::Team::count>();
 
-PlayerManager::PlayerManager(AI::Team t)
-	: team(t),
-	player_spawn_timer(PLAYER_SPAWN_DELAY),
-	minion_spawn_timer(MINION_SPAWN_INITIAL_DELAY),
-	revision(),
-	player_spawn(),
-	minion_spawns(),
-	username(),
-	entity(),
-	spawn()
+Team::Team()
+	: minion_spawn_timer(MINION_SPAWN_INITIAL_DELAY)
 {
 }
 
-void PlayerManager::update(const Update& u)
+void Team::update(const Update& u)
 {
-	if (player_spawn.ref() && !entity.ref())
-	{
-		player_spawn_timer -= u.time.delta;
-		if (player_spawn_timer < 0 || Game::data.mode == Game::Mode::Parkour)
-		{
-			spawn.fire();
-			player_spawn_timer = PLAYER_SPAWN_DELAY;
-		}
-	}
-
 	if (minion_spawns.length > 0)
 	{
 		minion_spawn_timer -= u.time.delta;
@@ -117,10 +100,32 @@ void PlayerManager::update(const Update& u)
 				Quat rot;
 				minion_spawns[i].ref()->absolute(&pos, &rot);
 				pos += rot * Vec3(0, 0, 1); // spawn it around the edges
-				Entity* entity = World::create<Minion>(pos, rot, team);
+				Entity* entity = World::create<Minion>(pos, rot, team());
 				entity->add<MinionAI>();
 			}
 			minion_spawn_timer = MINION_SPAWN_INTERVAL;
+		}
+	}
+}
+
+PinArray<PlayerManager, MAX_PLAYERS> PlayerManager::list = PinArray<PlayerManager, MAX_PLAYERS>();
+
+PlayerManager::PlayerManager(Team* team)
+	: spawn_timer(PLAYER_SPAWN_DELAY),
+	team(team),
+	credits(credits_initial)
+{
+}
+
+void PlayerManager::update(const Update& u)
+{
+	if (team.ref()->player_spawn.ref() && !entity.ref())
+	{
+		spawn_timer -= u.time.delta;
+		if (spawn_timer < 0 || Game::data.mode == Game::Mode::Parkour)
+		{
+			spawn.fire();
+			spawn_timer = PLAYER_SPAWN_DELAY;
 		}
 	}
 }
@@ -174,10 +179,11 @@ void LocalPlayer::msg(const char* msg)
 
 void LocalPlayer::ensure_camera(const Update& u, b8 active)
 {
-	if (active && !camera)
+	if (active && !camera && !manager.ref()->entity.ref())
 	{
 		camera = Camera::add();
-		camera->mask = 1 << (s32)manager.ref()->team;
+		camera->fog = Game::data.mode == Game::Mode::Parkour;
+		camera->mask = 1 << (s32)manager.ref()->team.ref()->team();
 		s32 player_count = list.count();
 		Camera::ViewportBlueprs32* viewports = Camera::viewport_blueprs32s[player_count - 1];
 		Camera::ViewportBlueprs32* blueprs32 = &viewports[gamepad];
@@ -193,7 +199,7 @@ void LocalPlayer::ensure_camera(const Update& u, b8 active)
 		map_view.ref()->absolute(&camera->pos, &rot);
 		camera->rot = Quat::look(rot * Vec3(0, -1, 0));
 	}
-	else if (!active && camera)
+	else if (camera && (!active || manager.ref()->entity.ref()))
 	{
 		camera->remove();
 		camera = nullptr;
@@ -205,9 +211,7 @@ void LocalPlayer::update(const Update& u)
 	if (Console::visible)
 		return;
 
-	char credits[255];
-	sprintf(credits, "+%d", Game::data.credits[(s32)manager.ref()->team]);
-	credits_text.text(credits);
+	credits_text.text("+%d", manager.ref()->credits);
 
 	if (msg_timer < msg_time)
 		msg_timer += u.time.delta;
@@ -268,7 +272,7 @@ void LocalPlayer::spawn()
 
 	Vec3 pos;
 	Quat rot;
-	manager.ref()->player_spawn.ref()->absolute(&pos, &rot);
+	manager.ref()->team.ref()->player_spawn.ref()->absolute(&pos, &rot);
 	Vec3 dir = rot * Vec3(0, 0, 1);
 	r32 angle = atan2f(dir.x, dir.z);
 
@@ -278,12 +282,14 @@ void LocalPlayer::spawn()
 	{
 		// Spawn AWK
 		pos += Quat::euler(0, angle + (gamepad * PI * 0.5f), 0) * Vec3(0, 0, 1); // spawn it around the edges
-		spawned = World::create<AwkEntity>(manager.ref()->team);
+		spawned = World::create<AwkEntity>(manager.ref()->team.ref()->team());
 	}
 	else // parkour mode
 	{
 		// Spawn sentinel
-		spawned = World::create<Minion>(pos, Quat::euler(0, angle, 0), manager.ref()->team);
+		spawned = World::create<Minion>(pos, Quat::euler(0, angle, 0), manager.ref()->team.ref()->team());
+		Health* health = spawned->get<Health>();
+		health->total = health->hp = AWK_HEALTH;
 	}
 
 	spawned->get<Transform>()->absolute(pos, rot);
@@ -315,9 +321,12 @@ void LocalPlayer::draw_alpha(const RenderParams& params) const
 	for (auto i = Health::list.iterator(); !i.is_last(); i.next())
 	{
 		const Health* health = i.item();
+		if (health->entity() == manager.ref()->entity.ref()) // don't draw our own health bar right now
+			continue;
+
 		b8 visible;
 		Vec3 enemy_pos = health->get<Transform>()->absolute_pos();
-		if (health->get<AIAgent>()->team == manager.ref()->team)
+		if (health->get<AIAgent>()->team == manager.ref()->team.ref()->team())
 			visible = true;
 		else if (player && health->has<PlayerCommon>())
 			visible = PlayerCommon::visibility[PlayerCommon::visibility_hash(health->get<PlayerCommon>(), player->get<PlayerCommon>())];
@@ -342,7 +351,7 @@ void LocalPlayer::draw_alpha(const RenderParams& params) const
 		if (visible)
 		{
 			enemy_pos.y += 1.0f;
-			const Vec4& color = health->get<AIAgent>()->team == manager.ref()->team ? UI::default_color : UI::alert_color;
+			const Vec4& color = AI::colors[(s32)health->get<AIAgent>()->team];
 			Vec2 pos;
 			if (UI::project(params, enemy_pos, &pos))
 			{
@@ -372,6 +381,7 @@ void LocalPlayer::draw_alpha(const RenderParams& params) const
 		}
 	}
 
+	if (Game::data.mode == Game::Mode::Multiplayer)
 	{
 		Vec2 pos = params.camera->viewport.size * 0.1f;
 		UI::box(params, credits_text.rect(pos).outset(6 * UI::scale), UI::background_color);
@@ -401,7 +411,7 @@ void LocalPlayer::draw_alpha(const RenderParams& params) const
 
 			text.wrap_width = MENU_ITEM_WIDTH;
 			text.anchor_x = text.anchor_y = UIText::Anchor::Center;
-			text.text("Spawning... %d", (s32)manager.ref()->player_spawn_timer + 1);
+			text.text("Spawning... %d", (s32)manager.ref()->spawn_timer + 1);
 			Vec2 p = vp.pos + vp.size * Vec2(0.5f);
 			UI::box(params, text.rect(p).outset(8.0f), UI::background_color);
 			text.draw(params, p);
@@ -443,6 +453,7 @@ PlayerCommon::PlayerCommon(const char* username)
 
 void PlayerCommon::awake()
 {
+	get<Health>()->total = AWK_HEALTH;
 	username_text.color = AI::colors[(s32)get<AIAgent>()->team];
 }
 
@@ -572,6 +583,7 @@ LocalPlayerControl::LocalPlayerControl(u8 gamepad)
 	lean()
 {
 	camera = Camera::add();
+	camera->fog = Game::data.mode == Game::Mode::Parkour;
 }
 
 LocalPlayerControl::~LocalPlayerControl()
@@ -604,7 +616,7 @@ void LocalPlayerControl::hit_target(Entity* target)
 {
 	if (target->has<CreditsPickup>())
 	{
-		Game::data.credits[(s32)get<AIAgent>()->team] += credits_pickup;
+		player.ref()->manager.ref()->credits += credits_pickup;
 		char m[255];
 		sprintf(m, "+%d credits", credits_pickup);
 		player.ref()->msg(m);
@@ -682,11 +694,11 @@ void PlayerCommon::transfer_to(Entity* new_entity)
 
 	old_entity->detach<PlayerCommon>(); // this
 
-	LocalPlayerControl* player_control = nullptr;
+	LocalPlayerControl* local_control = nullptr;
 	if (old_entity->has<LocalPlayerControl>())
 	{
-		player_control = old_entity->get<LocalPlayerControl>();
-		player_control->lean = 0.0f;
+		local_control = old_entity->get<LocalPlayerControl>();
+		local_control->lean = 0.0f;
 		old_entity->detach<LocalPlayerControl>();
 	}
 
@@ -704,10 +716,11 @@ void PlayerCommon::transfer_to(Entity* new_entity)
 	new_entity->attach(this);
 	awake();
 
-	if (player_control)
+	if (local_control)
 	{
-		new_entity->attach(player_control);
-		player_control->awake();
+		new_entity->attach(local_control);
+		local_control->player.ref()->manager.ref()->entity = new_entity;
+		local_control->awake();
 	}
 
 	if (ai_control)
@@ -724,7 +737,7 @@ void LocalPlayerControl::update(const Update& u)
 	{
 		// Zoom
 		r32 fov_blend_target = 0.0f;
-		if (input_enabled())
+		if (has<Awk>() && input_enabled())
 		{
 			if (u.input->get(settings.bindings.secondary, gamepad))
 			{
@@ -915,7 +928,8 @@ void LocalPlayerControl::update(const Update& u)
 	Camera::ViewportBlueprs32* viewports = Camera::viewport_blueprs32s[player_count - 1];
 	Camera::ViewportBlueprs32* blueprs32 = &viewports[gamepad];
 
-	camera->range = AWK_MAX_DISTANCE;
+	if (has<Awk>())
+		camera->range = AWK_MAX_DISTANCE;
 	camera->viewport =
 	{
 		Vec2((s32)(blueprs32->x * (r32)u.input->width), (s32)(blueprs32->y * (r32)u.input->height)),
@@ -933,7 +947,7 @@ void LocalPlayerControl::update(const Update& u)
 		camera->wall_normal = Vec3(0, 0, 1);
 
 	tracer.type = TraceType::None;
-	if (has<MinionCommon>() || (get<Transform>()->parent.ref() && get<PlayerCommon>()->cooldown == 0.0f))
+	if (has<Awk>() && get<Transform>()->parent.ref() && get<PlayerCommon>()->cooldown == 0.0f)
 	{
 		// Display trajectory
 		Vec3 trace_dir = look_quat * Vec3(0, 0, 1);
@@ -981,23 +995,11 @@ void LocalPlayerControl::update(const Update& u)
 			{
 				b8 go = u.input->get(settings.bindings.primary, gamepad) && !u.last_input->get(settings.bindings.primary, gamepad);
 
-				if (go)
+				if (go && get<Awk>()->detach(u, look_quat * Vec3(0, 0, 1)))
 				{
-					if (has<MinionCommon>())
-					{
-						// Switch to AWK
-						AI::Team old_team = get<AIAgent>()->team;
-						Entity* new_entity = World::create<AwkEntity>(old_team);
-						new_entity->get<Transform>()->absolute(camera_pos, look_quat);
-						get<PlayerCommon>()->transfer_to(new_entity);
-					}
-
-					if (has<Awk>() && get<Awk>()->detach(u, look_quat * Vec3(0, 0, 1)))
-					{
-						allow_zoom = false;
-						attach_quat = look_quat;
-						get<Audio>()->post_event(AK::EVENTS::PLAY_FLY);
-					}
+					allow_zoom = false;
+					attach_quat = look_quat;
+					get<Audio>()->post_event(AK::EVENTS::PLAY_FLY);
 				}
 			}
 		}
@@ -1034,7 +1036,7 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 		const Rect2& viewport = params.camera->viewport;
 
 		// Draw reticle
-		if (has<MinionCommon>() || get<Transform>()->parent.ref())
+		if (has<Awk>() && get<Transform>()->parent.ref())
 		{
 			r32 cooldown = get<PlayerCommon>()->cooldown;
 			r32 radius = cooldown == 0.0f ? 0.0f : fmax(0.0f, 32.0f * (get<PlayerCommon>()->cooldown / AWK_MAX_DISTANCE_COOLDOWN));
@@ -1106,11 +1108,15 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 		// health bar
 		{
 			const Health* health = get<Health>();
-			const Vec2 size = Vec2(128.0f, 16.0f) * UI::scale;
-			const Vec2 pos = viewport.pos + viewport.size * Vec2(0.5f, 0.1f);
-			UI::box(params, { pos - size * 0.5f, size }, UI::background_color);
-			UI::box(params, { pos - size * 0.5f, size * Vec2((r32)health->hp / (r32)health->total, 1.0f) }, UI::default_color);
-			UI::border(params, { pos - size * 0.5f, size }, 2, UI::default_color);
+			if (health->hp < health->total)
+			{
+				const Vec2 size = Vec2(128.0f, 16.0f) * UI::scale;
+				const Vec2 pos = viewport.pos + viewport.size * Vec2(0.5f, 0.1f);
+				const Vec4& color = AI::colors[(s32)team];
+				UI::box(params, { pos - size * 0.5f, size }, UI::background_color);
+				UI::box(params, { pos - size * 0.5f, size * Vec2((r32)health->hp / (r32)health->total, 1.0f) }, color);
+				UI::border(params, { pos - size * 0.5f, size }, 2, color);
+			}
 		}
 	}
 }

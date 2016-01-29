@@ -14,8 +14,13 @@ struct RigidBody;
 struct Transform;
 struct LocalPlayerControl;
 
+#if DEBUG
+#define PLAYER_SPAWN_DELAY 1.0f
+#define MINION_SPAWN_INITIAL_DELAY 2.0f
+#else
 #define PLAYER_SPAWN_DELAY 5.0f
 #define MINION_SPAWN_INITIAL_DELAY 10.0f
+#endif
 #define MINION_SPAWN_INTERVAL 60.0f
 
 #define MAX_PLAYERS 8
@@ -23,21 +28,16 @@ struct LocalPlayerControl;
 
 struct Camera;
 
-struct PlayerManager
+struct Team
 {
-	static PinArray<PlayerManager, MAX_PLAYERS> list;
+	static StaticArray<Team, (s32)AI::Team::count> list;
 
-	char username[255];
-	AI::Team team;
 	Ref<Transform> player_spawn;
 	StaticArray<Ref<Transform>, 4> minion_spawns;
-	r32 player_spawn_timer;
 	r32 minion_spawn_timer;
 	Revision revision;
-	Ref<Entity> entity;
-	Link spawn;
 
-	PlayerManager(AI::Team);
+	Team();
 
 	void update(const Update&);
 
@@ -45,6 +45,32 @@ struct PlayerManager
 	{
 		return this - &list[0];
 	}
+
+	inline AI::Team team() const
+	{
+		return (AI::Team)id();
+	}
+};
+
+struct PlayerManager
+{
+	static PinArray<PlayerManager, MAX_PLAYERS> list;
+	r32 spawn_timer;
+	Revision revision;
+	char username[255];
+	u16 credits;
+	Ref<Team> team;
+	Ref<Entity> entity;
+	Link spawn;
+
+	PlayerManager(Team*);
+
+	inline ID id() const
+	{
+		return this - &list[0];
+	}
+
+	void update(const Update&);
 };
 
 struct LocalPlayer

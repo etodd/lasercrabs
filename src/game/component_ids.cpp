@@ -45,9 +45,10 @@ COMPONENT_TYPE(24, CreditsPickup) \
 COMPONENT_TYPE(25, Ragdoll) \
 COMPONENT_TYPE(26, SkinnedModel) \
 COMPONENT_TYPE(27, View) \
-COMPONENT_TYPE(28, TurretControl)
+COMPONENT_TYPE(28, TurretControl) \
+COMPONENT_TYPE(29, Projectile)
 
-Family World::families = 31;
+Family World::families = 30;
 
 #define COMPONENT_TYPE(INDEX, TYPE) \
 template<> Family ComponentType<TYPE>::family = (INDEX); \

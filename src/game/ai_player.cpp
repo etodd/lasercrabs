@@ -30,7 +30,7 @@ void AIPlayer::update(const Update& u)
 
 void AIPlayer::spawn()
 {
-	Entity* e = World::create<AwkEntity>(manager.ref()->team);
+	Entity* e = World::create<AwkEntity>(manager.ref()->team.ref()->team());
 
 	e->add<PlayerCommon>(manager.ref()->username);
 
@@ -39,7 +39,7 @@ void AIPlayer::spawn()
 	e->add<AIPlayerControl>();
 	Vec3 pos;
 	Quat rot;
-	manager.ref()->player_spawn.ref()->absolute(&pos, &rot);
+	manager.ref()->team.ref()->player_spawn.ref()->absolute(&pos, &rot);
 	e->get<Transform>()->absolute(pos, rot);
 }
 

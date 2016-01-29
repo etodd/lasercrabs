@@ -155,9 +155,38 @@ struct Turret : public Entity
 	Turret(AI::Team);
 };
 
+struct ProjectileEntity : public Entity
+{
+	ProjectileEntity(Entity*, const Vec3&, u16, const Vec3&);
+};
+
+struct Projectile : public ComponentType<Projectile>
+{
+	Ref<Entity> owner;
+	Vec3 velocity;
+	u16 damage;
+
+	Projectile(Entity*, u16, const Vec3&);
+	void awake() {}
+
+	void update(const Update&);
+};
+
 struct TurretControl : public ComponentType<TurretControl>
 {
-	void awake() {}
+	Ref<Entity> target;
+	Ref<Entity> vision_cone;
+	r32 yaw;
+	r32 pitch;
+	r32 cooldown;
+
+	void awake();
+
+	void update(const Update&);
+	void check_target();
+	Vec3 muzzle_pos() const;
+
+	~TurretControl();
 };
 
 struct Target : public ComponentType<Target>

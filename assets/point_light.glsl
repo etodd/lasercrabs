@@ -25,9 +25,9 @@ uniform vec3 light_pos;
 uniform float light_radius;
 uniform vec3 light_color;
 uniform vec3 frustum[4];
-const int type_normal = 0;
-const int type_override = 1;
-const int type_shockwave = 2;
+const int type_normal = 1;
+const int type_override = 2;
+const int type_shockwave = 4;
 uniform int type;
 
 vec3 lerp3(vec3 a, vec3 b, float w)

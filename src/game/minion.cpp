@@ -146,6 +146,9 @@ void MinionCommon::update(const Update& u)
 		Quat::euler(0, get<Walker>()->rotation + PI * 0.5f, 0)
 	);
 
+	if (get<Walker>()->support.ref())
+		wall_run_state = WallRunState::None;
+
 	Animator::Layer* layer = &get<Animator>()->layers[0];
 
 	if (fsm.current == State::Mantle)
@@ -632,14 +635,6 @@ b8 MinionCommon::try_wall_run(WallRunState s, const Vec3& wall_direction)
 
 // Minion behaviors
 
-void raycast(btCollisionWorld::ClosestRayResultCallback& ray_callback)
-{
-	ray_callback.m_flags = btTriangleRaycastCallback::EFlags::kF_FilterBackfaces
-		| btTriangleRaycastCallback::EFlags::kF_KeepUnflippedNormal;
-	ray_callback.m_collisionFilterMask = ray_callback.m_collisionFilterGroup = ~CollisionWalker & ~CollisionTarget;
-	Physics::btWorld->rayTest(ray_callback.m_rayFromWorld, ray_callback.m_rayToWorld, ray_callback);
-}
-
 void MinionCheckTarget::run()
 {
 	AI::Team team = minion->get<AIAgent>()->team;
@@ -651,7 +646,7 @@ void MinionCheckTarget::run()
 		// make sure we still want to do that
 		Vec3 target_pos = minion->target.ref()->get<Transform>()->absolute_pos();
 		btCollisionWorld::ClosestRayResultCallback ray_callback(pos, target_pos);
-		raycast(ray_callback);
+		Physics::raycast(ray_callback);
 		if (!ray_callback.hasHit() || ray_callback.m_collisionObject->getUserIndex() == minion->target.ref()->id())
 		{
 			// we're good
@@ -680,9 +675,9 @@ void MinionCheckTarget::run()
 				float total_distance = (turret_pos - pos).length();
 				for (auto j = PlayerManager::list.iterator(); !j.is_last(); j.next())
 				{
-					if (j.item()->team != team)
+					if (j.item()->team.ref()->team() != team)
 					{
-						total_distance += (j.item()->player_spawn.ref()->absolute_pos() - turret_pos).length();
+						total_distance += (j.item()->team.ref()->player_spawn.ref()->absolute_pos() - turret_pos).length();
 						break;
 					}
 				}
@@ -698,11 +693,11 @@ void MinionCheckTarget::run()
 		// go to player spawn if necessary
 		for (auto j = PlayerManager::list.iterator(); !j.is_last(); j.next())
 		{
-			if (j.item()->team != team)
+			if (j.item()->team.ref()->team() != team)
 			{
-				float distance = (j.item()->player_spawn.ref()->absolute_pos() - pos).length();
+				float distance = (j.item()->team.ref()->player_spawn.ref()->absolute_pos() - pos).length();
 				if (distance < closest_distance * 0.5f)
-					new_target = j.item()->player_spawn.ref()->entity();
+					new_target = j.item()->team.ref()->player_spawn.ref()->entity();
 				break;
 			}
 		}
@@ -752,7 +747,7 @@ b8 MinionGoToTarget::target_in_range() const
 	if ((pos - target_pos).length_squared() < VIEW_RANGE *  VIEW_RANGE)
 	{
 		btCollisionWorld::ClosestRayResultCallback ray_callback(pos, target_pos);
-		raycast(ray_callback);
+		Physics::raycast(ray_callback);
 		if (!ray_callback.hasHit() || ray_callback.m_collisionObject->getUserIndex() == minion->target.ref()->id())
 			return true;
 	}
@@ -773,7 +768,8 @@ void MinionAttack::run()
 	if (target)
 	{
 		minion->get<Audio>()->post_event(AK::EVENTS::PLAY_LASER);
-		target->get<Health>()->damage(minion->entity(), 2);
+		Vec3 head_pos = minion->get<MinionCommon>()->head_pos();
+		World::create<ProjectileEntity>(minion->entity(), head_pos, 2, target->get<Transform>()->absolute_pos() - head_pos);
 		done(true);
 	}
 	else

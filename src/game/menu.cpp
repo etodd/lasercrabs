@@ -20,20 +20,6 @@ namespace Menu
 {
 
 #define fov_initial (80.0f * PI * 0.5f / 180.0f)
-	static Camera* cameras[MAX_GAMEPADS] = {};
-	static UIText player_text[MAX_GAMEPADS];
-	static UIText join_text = UIText();
-	static UIText leave_text = UIText();
-	static UIText game_over_text = UIText();
-	static UIText connecting_text = UIText();
-	static UIText start_text = UIText();
-	static UIText end_text = UIText();
-	static s32 gamepad_count = 0;
-	static AssetID last_level = AssetNull;
-	static AssetID next_level = AssetNull;
-	static r32 connect_timer = 0.0f;
-
-	static b8 player_active[MAX_GAMEPADS];
 
 #if DEBUG
 #define CONNECT_DELAY_MIN 0.5f
@@ -42,6 +28,26 @@ namespace Menu
 #define CONNECT_DELAY_MIN 2.0f
 #define CONNECT_DELAY_RANGE 2.0f
 #endif
+
+static Camera* cameras[MAX_GAMEPADS] = {};
+static UIText player_text[MAX_GAMEPADS];
+static UIText join_text = UIText();
+static UIText leave_text = UIText();
+static UIText game_over_text = UIText();
+static UIText connecting_text = UIText();
+static UIText end_text = UIText();
+static s32 gamepad_count = 0;
+static AssetID last_level = AssetNull;
+static AssetID next_level = AssetNull;
+static r32 connect_timer = 0.0f;
+static UIMenu main_menu;
+
+void reset_players()
+{
+	for (int i = 0; i < MAX_GAMEPADS; i++)
+		Game::data.local_player_config[i] = AI::Team::None;
+	Game::data.local_player_config[0] = AI::Team::A;
+}
 
 void init()
 {
@@ -52,7 +58,6 @@ void init()
 	leave_text.font =
 	game_over_text.font =
 	connecting_text.font =
-	start_text.font =
 	end_text.font =
 	Asset::Font::lowpoly;
 
@@ -60,7 +65,6 @@ void init()
 	leave_text.size =
 	game_over_text.size =
 	connecting_text.size =
-	start_text.size =
 	end_text.size =
 	18.0f;
 
@@ -69,7 +73,6 @@ void init()
 	leave_text.anchor_x =
 	game_over_text.anchor_x =
 	connecting_text.anchor_x =
-	start_text.anchor_x =
 	end_text.anchor_x =
 	UIText::Anchor::Center;
 
@@ -77,7 +80,6 @@ void init()
 	leave_text.anchor_y =
 	game_over_text.anchor_y =
 	connecting_text.anchor_y =
-	start_text.anchor_y =
 	end_text.anchor_y =
 	UIText::Anchor::Center;
 
@@ -85,7 +87,6 @@ void init()
 	leave_text.text("[{{Cancel}}] to leave\n[{{Start}}] to begin");
 	game_over_text.text("Account balance reached zero.\nSimulation end.\n[{{Start}}]");
 	connecting_text.text("Connecting...");
-	start_text.text("[{{Start}}]");
 	end_text.text("Demo simulation complete. Thanks for playing!\n[{{Start}}]");
 
 	for (s32 i = 0; i < MAX_GAMEPADS; i++)
@@ -99,7 +100,7 @@ void init()
 		player_text[i].text(buffer);
 	}
 
-	player_active[0] = true;
+	reset_players();
 
 	title();
 }
@@ -165,13 +166,7 @@ void update(const Update& u)
 		case Asset::Level::menu:
 		{
 			if (Game::data.level != last_level)
-			{
-				Game::data = Game::Data();
-				Game::data.previous_level = AssetNull;
-				player_active[0] = true;
-				for (s32 i = 1; i < MAX_GAMEPADS; i++)
-					player_active[i] = false;
-			}
+				reset_players();
 
 			b8 cameras_changed = false;
 			s32 screen_count = 0;
@@ -196,17 +191,17 @@ void update(const Update& u)
 					screen_count++;
 					if (u.input->get(Game::bindings.cancel, i) && !u.last_input->get(Game::bindings.cancel, i))
 					{
-						player_active[i] = false;
+						Game::data.local_player_config[i] = AI::Team::None;
 						Audio::post_global_event(AK::EVENTS::PLAY_BEEP_GOOD);
 					}
 					else if (u.input->get(Game::bindings.action, i) && !u.last_input->get(Game::bindings.action, i))
 					{
-						player_active[i] = true;
+						Game::data.local_player_config[i] = AI::Team::A;
 						Audio::post_global_event(AK::EVENTS::PLAY_BEEP_GOOD);
 					}
 				}
 				else
-					player_active[i] = false;
+					Game::data.local_player_config[i] = AI::Team::None;
 			}
 
 			if (cameras_changed)
@@ -232,7 +227,7 @@ void update(const Update& u)
 			b8 start = false;
 			for (s32 i = 0; i < MAX_GAMEPADS; i++)
 			{
-				if (player_active[i])
+				if (Game::data.local_player_config[i] != AI::Team::None)
 					start |= u.input->get(Game::bindings.start, i) && !u.last_input->get(Game::bindings.start, i);
 			}
 
@@ -242,17 +237,6 @@ void update(const Update& u)
 			if (start)
 			{
 				clear();
-				for (s32 i = 0; i < MAX_GAMEPADS; i++)
-				{
-					if (player_active[i])
-					{
-						PlayerManager* manager = PlayerManager::list.add();
-						new (manager) PlayerManager(AI::Team::A);
-
-						LocalPlayer* p = LocalPlayer::list.add();
-						new (p) LocalPlayer(manager, i);
-					}
-				}
 				Game::schedule_load_level(Asset::Level::start);
 				return;
 			}
@@ -310,21 +294,8 @@ void update(const Update& u)
 		}
 		case AssetNull:
 			break;
-		default:
-		{
-			b8 credits_out = false;
-			for (s32 i = 0; i < (s32)AI::Team::count; i++)
-			{
-				if (Game::data.credits[i] <= 0)
-				{
-					credits_out = true;
-					break;
-				}
-			}
-			if (credits_out && LocalPlayerControl::list.count() == 0)
-				Game::schedule_load_level(Asset::Level::game_over);
+		default: // just playing normally
 			break;
-		}
 	}
 	last_level = Game::data.level;
 }
@@ -363,7 +334,7 @@ void draw(const RenderParams& params)
 				if (params.camera == cameras[i])
 				{
 					player_text[i].draw(params, viewport.size * 0.5f);
-					(player_active[i] ? leave_text : join_text).draw(params, viewport.size * 0.5f);
+					(Game::data.local_player_config[i] == AI::Team::None ? join_text : leave_text).draw(params, viewport.size * 0.5f);
 					return;
 				}
 			}
@@ -373,7 +344,6 @@ void draw(const RenderParams& params)
 		{
 			UI::centered_box(params, { viewport.size * Vec2(0.5f), Vec2(185.0f * UI::scale, 100.0f * UI::scale) }, UI::background_color);
 			UI::mesh(params, Asset::Mesh::logo, viewport.size * Vec2(0.5f), Vec2(128.0f * UI::scale, 128.0f * UI::scale));
-			start_text.draw(params, viewport.size * Vec2(0.5f, 0.25f));
 			break;
 		}
 		case Asset::Level::game_over:

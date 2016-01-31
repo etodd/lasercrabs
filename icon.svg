@@ -28,9 +28,9 @@
      borderopacity="1.0"
      inkscape:pageopacity="0.0"
      inkscape:pageshadow="2"
-     inkscape:zoom="1.7714844"
-     inkscape:cx="-5.0528926"
-     inkscape:cy="104.44508"
+     inkscape:zoom="2.8284271"
+     inkscape:cx="95.213943"
+     inkscape:cy="166.25574"
      inkscape:document-units="px"
      inkscape:current-layer="layer1"
      showgrid="false"
@@ -57,27 +57,17 @@
      inkscape:groupmode="layer"
      id="layer1"
      transform="translate(0,-796.36216)">
-    <circle
-       style="opacity:1;fill:#ff6bcb;fill-opacity:1;stroke:none;stroke-width:4;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
-       id="path4138"
-       cx="128"
-       cy="924.36218"
-       r="128" />
+    <rect
+       style="fill:#000000;fill-opacity:1;stroke:none;stroke-opacity:1"
+       id="rect4900"
+       width="256"
+       height="256"
+       x="0"
+       y="796.36218" />
     <path
-       sodipodi:type="star"
-       style="opacity:1;fill:#ffffff;fill-opacity:1;stroke:none;stroke-width:4;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
-       id="path4144"
-       sodipodi:sides="3"
-       sodipodi:cx="126.75124"
-       sodipodi:cy="925.54688"
-       sodipodi:r1="94.658791"
-       sodipodi:r2="47.329403"
-       sodipodi:arg1="0.52359878"
-       sodipodi:arg2="1.5707963"
-       inkscape:flatsided="true"
-       inkscape:rounded="0"
-       inkscape:randomized="0"
-       d="m 208.72816,972.87627 -163.953834,0 81.976914,-141.98819 z"
-       inkscape:transform-center-y="-23.664712" />
+       style="fill:#ffffff;fill-opacity:1;stroke:none"
+       d="M 96.630859 0 L 112.31445 64.839844 L 125.85938 120.83984 L 104.57812 83.978516 L 56.779297 83.978516 L 32.878906 125.375 L 56.779297 166.77148 L 104.57812 166.77148 L 127.40625 127.23242 L 127.5918 128 L 112.31445 191.16016 L 96.630859 256 L 128 256 L 159.36914 256 L 143.68555 191.16016 L 128.4082 128 L 128.59375 127.23242 L 151.42188 166.77148 L 199.2207 166.77148 L 223.12109 125.375 L 199.2207 83.978516 L 151.42188 83.978516 L 130.14062 120.83984 L 143.68555 64.839844 L 159.36914 0 L 128 0 L 96.630859 0 z "
+       transform="translate(0,796.36216)"
+       id="path4183" />
   </g>
 </svg>

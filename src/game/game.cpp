@@ -300,7 +300,10 @@ void Game::draw_alpha(const RenderParams& render_params)
 		(*draws[i])(render_params);
 
 	if (cursor_updated)
-		UI::mesh(render_params, Asset::Mesh::cursor, Game::cursor, Vec2(18, 18) * UI::scale);
+	{
+		UI::mesh(render_params, Asset::Mesh::cursor, Game::cursor + Vec2(-2, 4), Vec2(24) * UI::scale, UI::background_color);
+		UI::mesh(render_params, Asset::Mesh::cursor, Game::cursor, Vec2(18) * UI::scale, UI::default_color);
+	}
 }
 
 void Game::update_cursor(const Update& u)
@@ -550,7 +553,9 @@ void Game::load_level(const Update& u, AssetID l)
 				if (mesh_index == inaccessible_index && has_inaccessible)
 				{
 					m = World::alloc<StaticGeom>(mesh_id, absolute_pos, absolute_rot, CollisionInaccessible, CollisionInaccessibleMask);
-					m->get<View>()->color.w = 1.0f / 255.0f; // special G-buffer index for inaccessible materials
+					Vec4 color = Loader::mesh(mesh_id)->color;
+					color.w = 1.0f / 255.0f; // special G-buffer index for inaccessible materials
+					m->get<View>()->color = color;
 				}
 				else
 					m = World::alloc<StaticGeom>(mesh_id, absolute_pos, absolute_rot);

@@ -354,7 +354,7 @@ namespace start
 
 	void go(const Update& u)
 	{
-		Menu::transition(Asset::Level::transit);
+		Menu::transition(Asset::Level::test);
 	}
 
 	void init(const Update& u, const EntityFinder& entities)

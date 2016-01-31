@@ -245,7 +245,7 @@ void LocalPlayer::update(const Update& u)
 			Rect2& viewport = camera ? camera->viewport : manager.ref()->entity.ref()->get<LocalPlayerControl>()->camera->viewport;
 			menu.start(u, gamepad);
 
-			Vec2 pos = viewport.pos + viewport.size * Vec2(0, 0.6f);
+			Vec2 pos = viewport.pos + Vec2(0, viewport.size.y * 0.5f + UIMenu::height(2) * 0.5f);
 			if (menu.item(u, gamepad, &pos, "Resume"))
 				pause = false;
 			if (menu.item(u, gamepad, &pos, "Exit"))

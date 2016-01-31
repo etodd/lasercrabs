@@ -33,7 +33,6 @@ static Camera* cameras[MAX_GAMEPADS] = {};
 static UIText player_text[MAX_GAMEPADS];
 static UIText join_text = UIText();
 static UIText leave_text = UIText();
-static UIText game_over_text = UIText();
 static UIText connecting_text = UIText();
 static UIText end_text = UIText();
 static s32 gamepad_count = 0;
@@ -56,14 +55,12 @@ void init()
 
 	join_text.font =
 	leave_text.font =
-	game_over_text.font =
 	connecting_text.font =
 	end_text.font =
 	Asset::Font::lowpoly;
 
 	join_text.size =
 	leave_text.size =
-	game_over_text.size =
 	connecting_text.size =
 	end_text.size =
 	18.0f;
@@ -71,21 +68,18 @@ void init()
 
 	join_text.anchor_x =
 	leave_text.anchor_x =
-	game_over_text.anchor_x =
 	connecting_text.anchor_x =
 	end_text.anchor_x =
 	UIText::Anchor::Center;
 
 	join_text.anchor_y =
 	leave_text.anchor_y =
-	game_over_text.anchor_y =
 	connecting_text.anchor_y =
 	end_text.anchor_y =
 	UIText::Anchor::Center;
 
 	join_text.text("[{{Action}}] to join");
 	leave_text.text("[{{Cancel}}] to leave\n[{{Start}}] to begin");
-	game_over_text.text("Account balance reached zero.\nSimulation end.\n[{{Start}}]");
 	connecting_text.text("Connecting...");
 	end_text.text("Demo simulation complete. Thanks for playing!\n[{{Start}}]");
 
@@ -243,8 +237,25 @@ void update(const Update& u)
 			break;
 		}
 		case Asset::Level::title:
+		{
+			main_menu.start(u, 0);
+			Vec2 pos(0, u.input->height * 0.5f + UIMenu::height(6) * 0.5f);
+			if (main_menu.item(u, 0, &pos, "Continue"))
+			{
+				clear();
+				Game::schedule_load_level(Asset::Level::start);
+				return;
+			}
+			main_menu.item(u, 0, &pos, "New");
+			main_menu.item(u, 0, &pos, "Load");
+			main_menu.item(u, 0, &pos, "Options");
+			main_menu.item(u, 0, &pos, "Splitscreen");
+			if (main_menu.item(u, 0, &pos, "Exit"))
+				Game::quit = true;
+			main_menu.end();
+			break;
+		}
 		case Asset::Level::end:
-		case Asset::Level::game_over:
 		{
 			if (Game::data.level != last_level)
 			{
@@ -260,21 +271,8 @@ void update(const Update& u)
 					| ((u.input->get(Game::bindings.start, i) && !u.last_input->get(Game::bindings.start, i)));
 			}
 			
-			if (Game::data.level == Asset::Level::title)
-			{
-				if (go)
-					return menu();
-				else
-				{
-					for (s32 i = 0; i < MAX_GAMEPADS; i++)
-						Game::quit |= u.input->get(Game::bindings.cancel, i) && !u.last_input->get(Game::bindings.cancel, i);
-				}
-			}
-			else
-			{
-				if (go)
-					return title();
-			}
+			if (go)
+				return title();
 
 			break;
 		}
@@ -342,23 +340,19 @@ void draw(const RenderParams& params)
 		}
 		case Asset::Level::title:
 		{
-			UI::centered_box(params, { viewport.size * Vec2(0.5f), Vec2(185.0f * UI::scale, 100.0f * UI::scale) }, UI::background_color);
-			UI::mesh(params, Asset::Mesh::logo, viewport.size * Vec2(0.5f), Vec2(128.0f * UI::scale, 128.0f * UI::scale));
-			break;
-		}
-		case Asset::Level::game_over:
-		{
-			game_over_text.draw(params, params.camera->viewport.size * 0.5f);
+			main_menu.draw_alpha(params);
+			UI::centered_box(params, { viewport.pos + viewport.size * 0.5f, Vec2(UI::scale * 160.0f) }, UI::background_color);
+			UI::mesh(params, Asset::Mesh::logo, viewport.pos + viewport.size * 0.5f, Vec2(UI::scale * 128.0f), UI::default_color);
 			break;
 		}
 		case Asset::Level::end:
 		{
-			end_text.draw(params, params.camera->viewport.size * 0.5f);
+			end_text.draw(params, viewport.size * 0.5f);
 			break;
 		}
 		case Asset::Level::connect:
 		{
-			Vec2 pos = params.camera->viewport.size * 0.5f;
+			Vec2 pos = viewport.size * 0.5f;
 			connecting_text.draw(params, pos);
 
 			Vec2 triangle_pos = Vec2
@@ -379,11 +373,20 @@ b8 is_special_level(AssetID level)
 	return level == Asset::Level::connect
 		|| level == Asset::Level::title
 		|| level == Asset::Level::menu
-		|| level == Asset::Level::game_over
 		|| level == Asset::Level::end
 		|| level == Asset::Level::start;
 }
 
+}
+
+Rect2 UIMenu::Item::rect() const
+{
+	Rect2 box = label.rect(pos);
+	box.pos.x -= MENU_ITEM_PADDING_LEFT;
+	box.size.x += MENU_ITEM_PADDING_LEFT + MENU_ITEM_PADDING;
+	box.pos.y -= MENU_ITEM_PADDING;
+	box.size.y += MENU_ITEM_PADDING * 2.0f;
+	return box;
 }
 
 UIMenu::UIMenu()
@@ -426,8 +429,9 @@ b8 UIMenu::item(const Update& u, u8 gamepad, Vec2* menu_pos, const char* string)
 	item->label.color = UI::default_color;
 
 	item->pos = *menu_pos;
-	item->pos.x += MENU_ITEM_PADDING;
-	Rect2 box = item->label.rect(item->pos).outset(MENU_ITEM_PADDING);
+	item->pos.x += MENU_ITEM_PADDING_LEFT;
+
+	Rect2 box = item->rect();
 
 	menu_pos->y -= box.size.y;
 
@@ -457,13 +461,17 @@ void UIMenu::end()
 		selected = 0;
 }
 
+r32 UIMenu::height(s32 items)
+{
+	return items * MENU_ITEM_HEIGHT;
+}
+
 void UIMenu::draw_alpha(const RenderParams& params) const
 {
 	for (s32 i = 0; i < items.length; i++)
 	{
 		const Item* item = &items[i];
-		Rect2 rect = item->label.rect(item->pos).outset(MENU_ITEM_PADDING);
-		UI::box(params, rect, i == selected ? UI::subtle_color : UI::background_color);
+		UI::box(params, item->rect(), i == selected ? UI::subtle_color : UI::background_color);
 		item->label.draw(params, item->pos);
 	}
 }

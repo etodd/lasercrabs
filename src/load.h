@@ -50,6 +50,8 @@ struct Settings
 	s32 width;
 	s32 height;
 	b8 fullscreen;
+	u8 sfx;
+	u8 music;
 };
 
 struct Loader

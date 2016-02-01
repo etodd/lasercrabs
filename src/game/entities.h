@@ -15,11 +15,6 @@
 namespace VI
 {
 
-struct VisionCone
-{
-	static Entity* create(Transform* parent, r32, r32, AI::Team);
-};
-
 struct AwkEntity : public Entity
 {
 	AwkEntity(AI::Team);
@@ -167,7 +162,7 @@ struct Projectile : public ComponentType<Projectile>
 	u16 damage;
 
 	Projectile(Entity*, u16, const Vec3&);
-	void awake() {}
+	void awake();
 
 	void update(const Update&);
 };
@@ -175,18 +170,16 @@ struct Projectile : public ComponentType<Projectile>
 struct TurretControl : public ComponentType<TurretControl>
 {
 	Ref<Entity> target;
-	Ref<Entity> vision_cone;
 	r32 yaw;
 	r32 pitch;
 	r32 cooldown;
+	r32 target_check_time;
 
 	void awake();
 
 	void update(const Update&);
 	void check_target();
-	Vec3 muzzle_pos() const;
-
-	~TurretControl();
+	b8 can_see(Entity*) const;
 };
 
 struct Target : public ComponentType<Target>

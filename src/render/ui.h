@@ -44,6 +44,7 @@ struct UIText
 	void set_size(r32);
 	void wrap(r32);
 	b8 clipped() const;
+	b8 has_text() const;
 	void draw(const RenderParams&, const Vec2& pos, const r32 = 0.0f) const;
 	UIText();
 };

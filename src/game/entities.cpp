@@ -26,49 +26,6 @@ namespace VI
 {
 
 
-Entity* VisionCone::create(Transform* parent, r32 fov, r32 range, AI::Team team)
-{
-	const Vec3 color = AI::colors[(s32)team].xyz();
-	Entity* vision_cone = World::create<Empty>();
-	vision_cone->get<Transform>()->parent = parent;
-	{
-		SpotLight* light = vision_cone->add<SpotLight>();
-		light->fov = fov;
-		light->radius = range;
-		light->color = color;
-		light->type = SpotLight::Type::Override;
-		light->mask = ~(1 << (s32)team); // don't display to fellow teammates
-	}
-
-	{
-		PointLight* light = vision_cone->add<PointLight>();
-		light->type = PointLight::Type::Shockwave;
-		light->radius = AWK_SHOCKWAVE_RADIUS;
-		light->color = color - Vec3(0.1f, 0.1f, 0.1f);
-		light->mask = ~(1 << (s32)team); // don't display to fellow teammates
-		light->type = PointLight::Type::Override;
-	}
-
-	View* cone_model = vision_cone->add<View>();
-	cone_model->alpha(true);
-	cone_model->mesh = Asset::Mesh::vision_cone;
-	cone_model->texture = Asset::Texture::gradient;
-	cone_model->color = Vec4(color, 0.25f);
-	cone_model->mask = ~(1 << (s32)team); // don't display to fellow teammates
-
-	r32 width_scale = sinf(fov) * 2.0f * 2.0f;
-	Vec3 light_model_scale
-	(
-		width_scale,
-		width_scale,
-		cosf(fov) * 2.0f * 2.0f
-	);
-	cone_model->offset.scale(light_model_scale);
-	cone_model->shader = Asset::Shader::flat_texture;
-
-	return vision_cone;
-}
-
 AwkEntity::AwkEntity(AI::Team team)
 {
 	create<Audio>();
@@ -267,9 +224,11 @@ MinionSpawn::MinionSpawn(AI::Team team)
 	create<RigidBody>(RigidBody::Type::CapsuleY, Vec3(0.8f, 3.75f, 0.8f), 0.0f, CollisionInaccessible, CollisionInaccessibleMask);
 }
 
-#define VIEW_RANGE 20.0f
+#define VIEW_RANGE 30.0f
 #define VIEW_FOV PI * 0.4f
 #define TURRET_COOLDOWN 0.25f
+#define TURRET_RADIUS 1.25f
+#define TURRET_TARGET_CHECK_TIME 0.5f
 Turret::Turret(AI::Team team)
 {
 	create<Transform>();
@@ -289,46 +248,77 @@ Turret::Turret(AI::Team team)
 
 	create<Health>(300);
 
-	create<RigidBody>(RigidBody::Type::Sphere, Vec3(1.25f), 0.0f, CollisionInaccessible, CollisionInaccessibleMask);
+	create<RigidBody>(RigidBody::Type::Sphere, Vec3(TURRET_RADIUS), 0.0f, CollisionInaccessible, CollisionInaccessibleMask);
+
+	PointLight* light = create<PointLight>();
+	light->color = AI::colors[(s32)team].xyz();
+	light->type = PointLight::Type::Override;
+	light->radius = VIEW_RANGE;
+	light->mask = ~(1 << (s32)team); // don't display to fellow teammates
 }
 
 void TurretControl::awake()
 {
-	vision_cone = VisionCone::create(get<Transform>(), VIEW_FOV, VIEW_RANGE, get<AIAgent>()->team);
 	Vec3 forward = get<Transform>()->to_world_normal(Vec3(0, 0, 1));
 	yaw = atan2f(forward.x, forward.z);
 
-	Vec3 gun_pos(2.5f, 0, 0);
-	Quat gun_rot;
-	get<Animator>()->to_world(Asset::Bone::turret_gun, &gun_pos, &gun_rot);
-	vision_cone.ref()->get<Transform>()->absolute(gun_pos, gun_rot * Quat::euler(0, PI * 0.5f, 0));
+	target_check_time = mersenne::randf_oo() * TURRET_TARGET_CHECK_TIME;
+}
+
+b8 TurretControl::can_see(Entity* target) const
+{
+	Vec3 pos = get<Transform>()->absolute_pos();
+	Vec3 target_pos = target->get<Transform>()->absolute_pos();
+	Vec3 to_target = target_pos - pos;
+	float distance_to_target = to_target.length();
+	if (distance_to_target < VIEW_RANGE)
+	{
+		Vec3 to_target_normalized = to_target / distance_to_target;
+		if (to_target_normalized.y > -0.75f)
+		{
+			btCollisionWorld::ClosestRayResultCallback ray_callback(pos + to_target_normalized * (TURRET_RADIUS + 0.1f), target_pos);
+			Physics::raycast(ray_callback);
+			if (!ray_callback.hasHit() || ray_callback.m_collisionObject->getUserIndex() == target->id())
+				return true;
+		}
+	}
+	return false;
+}
+
+s32 turret_priority(Entity* e)
+{
+	if (e->has<MinionAI>())
+		return 2;
+	else
+		return 1;
 }
 
 void TurretControl::check_target()
 {
-	Vec3 pos = muzzle_pos();
+	target_check_time = TURRET_TARGET_CHECK_TIME;
 
-	if (target.ref())
+	// if we are targeting an enemy
+	// make sure we still want to do that
+	if (target.ref() && can_see(target.ref()))
+		return;
+
+	// find a new target
+	target = nullptr;
+
+	AI::Team team = get<AIAgent>()->team;
+	r32 target_priority = 0;
+	for (auto i = AIAgent::list.iterator(); !i.is_last(); i.next())
 	{
-		// we are targeting an enemy
-		// make sure we still want to do that
-		Vec3 target_pos = target.ref()->get<Transform>()->absolute_pos();
-		btCollisionWorld::ClosestRayResultCallback ray_callback(pos, target_pos);
-		Physics::raycast(ray_callback);
-		if (!ray_callback.hasHit() || ray_callback.m_collisionObject->getUserIndex() == target.ref()->id())
+		if (i.item()->team != team && can_see(i.item()->entity()))
 		{
-			// we're good
-			return;
+			r32 candidate_priority = turret_priority(i.item()->entity());
+			if (candidate_priority > target_priority)
+			{
+				target = i.item()->entity();
+				target_priority = candidate_priority;
+			}
 		}
 	}
-
-	Vec3 head_pos(0, 0, 0);
-	Quat head_rot = Quat::identity;
-	vision_cone.ref()->get<Transform>()->absolute(&head_pos, &head_rot);
-	Entity* new_target = AI::vision_query(get<AIAgent>(), head_pos, head_rot * Vec3(0, 0, 1), VIEW_RANGE, VIEW_FOV);
-	if (!new_target)
-		new_target = AI::sound_query(get<AIAgent>()->team, pos);
-	target = new_target;
 }
 
 void TurretControl::update(const Update& u)
@@ -336,48 +326,37 @@ void TurretControl::update(const Update& u)
 	if (cooldown > 0.0f)
 		cooldown -= u.time.delta;
 
-	check_target();
+	target_check_time -= u.time.delta;
+	if (target_check_time < 0.0f)
+		check_target();
+
 	if (target.ref())
 	{
-		Vec3 to_target = target.ref()->get<Transform>()->absolute_pos() - get<Transform>()->absolute_pos();
+		Vec3 target_pos = target.ref()->get<Transform>()->absolute_pos();
+		Vec3 to_target = target_pos - get<Transform>()->absolute_pos();
 		to_target.normalize();
 		r32 target_yaw = atan2f(to_target.x, to_target.z);
 		r32 target_pitch = atan2f(to_target.y, Vec2(to_target.x, to_target.z).length());
-		const float rotation_speed = 0.7f / (PI * 0.5f);
+		const float rotation_speed = (PI * 0.5f) / 2.0f;
 		yaw = LMath::rotate_toward(yaw, target_yaw, rotation_speed * u.time.delta);
 		pitch = LMath::rotate_toward(pitch, target_pitch, rotation_speed * u.time.delta);
+
+		get<Transform>()->absolute_rot(Quat::euler(0, yaw, 0));
+		get<Animator>()->override_bone(Asset::Bone::turret_gun, Vec3::zero, Quat::euler(pitch, 0, 0));
 
 		Vec3 gun_pos(2.5f, 0, 0);
 		Quat gun_rot;
 		get<Animator>()->to_world(Asset::Bone::turret_gun, &gun_pos, &gun_rot);
-		vision_cone.ref()->get<Transform>()->absolute(gun_pos, gun_rot * Quat::euler(0, PI * 0.5f, 0));
 
 		if (cooldown <= 0.0f && to_target.dot(gun_rot * Vec3(1, 0, 0)) > 0.99f)
 		{
-			World::create<ProjectileEntity>(entity(), gun_pos, 2, to_target);
+			World::create<ProjectileEntity>(entity(), gun_pos, 2, target_pos - gun_pos);
 			cooldown = TURRET_COOLDOWN;
 		}
 	}
-
-	get<Transform>()->absolute_rot(Quat::euler(0, yaw, 0));
-	get<Animator>()->override_bone(Asset::Bone::turret_gun, Vec3::zero, Quat::euler(pitch, 0, 0));
 }
 
-Vec3 TurretControl::muzzle_pos() const
-{
-	Vec3 gun_pos(0, 0, 2.5f);
-	Quat gun_rot;
-	get<Animator>()->to_world(Asset::Bone::turret_gun, &gun_pos, &gun_rot);
-	return gun_pos;
-}
-
-TurretControl::~TurretControl()
-{
-	if (vision_cone.ref())
-		World::remove(vision_cone.ref());
-}
-
-#define PROJECTILE_SPEED 75.0f
+#define PROJECTILE_SPEED 100.0f
 #define PROJECTILE_LENGTH 1.0f
 #define PROJECTILE_THICKNESS 0.04f
 ProjectileEntity::ProjectileEntity(Entity* owner, const Vec3& pos, u16 damage, const Vec3& velocity)
@@ -399,12 +378,19 @@ ProjectileEntity::ProjectileEntity(Entity* owner, const Vec3& pos, u16 damage, c
 	light->radius = 10.0f;
 	light->color = Vec3(1, 1, 1);
 
+	create<Audio>();
+
 	create<Projectile>(owner, damage, dir * PROJECTILE_SPEED);
 }
 
 Projectile::Projectile(Entity* entity, u16 damage, const Vec3& velocity)
 	: owner(entity), damage(damage), velocity(velocity)
 {
+}
+
+void Projectile::awake()
+{
+	get<Audio>()->post_event(AK::EVENTS::PLAY_LASER);
 }
 
 void Projectile::update(const Update& u)

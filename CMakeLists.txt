@@ -282,6 +282,8 @@ add_executable(mkzebra
 	src/game/entities.cpp
 	src/game/minion.h
 	src/game/minion.cpp
+	src/game/parkour.h
+	src/game/parkour.cpp
 	src/game/player.h
 	src/game/player.cpp
 	src/game/ai_player.h

@@ -1012,11 +1012,14 @@ Settings& Loader::settings()
 {
 	if (!settings_data.valid)
 	{
+		settings_data.valid = true;
+
 		cJSON* json = Json::load("config.txt");
 		settings_data.width = Json::get_s32(json, "width", 1920);
 		settings_data.height = Json::get_s32(json, "height", 1080);
 		settings_data.fullscreen = (b8)Json::get_s32(json, "fullscreen", 0);
-		settings_data.valid = true;
+		settings_data.sfx = (u8)Json::get_s32(json, "sfx", 100);
+		settings_data.music = (u8)Json::get_s32(json, "music", 100);
 
 		cJSON* bindings = cJSON_GetObjectItem(json, "bindings");
 		settings_data.bindings.backward = input_binding(bindings, "backward", { KeyCode::S, Gamepad::Btn::None });
@@ -1040,6 +1043,8 @@ void Loader::settings_save()
 		cJSON_AddNumberToObject(json, "width", settings_data.width);
 		cJSON_AddNumberToObject(json, "height", settings_data.height);
 		cJSON_AddNumberToObject(json, "fullscreen", settings_data.fullscreen);
+		cJSON_AddNumberToObject(json, "sfx", settings_data.sfx);
+		cJSON_AddNumberToObject(json, "music", settings_data.music);
 
 		cJSON* bindings = cJSON_CreateObject();
 		cJSON_AddItemToObject(json, "bindings", bindings);

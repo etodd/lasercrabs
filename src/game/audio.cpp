@@ -2,6 +2,7 @@
 #include "asset/soundbank.h"
 #include "asset/lookup.h"
 #include "data/components.h"
+#include "load.h"
 
 #include <stdio.h>
 
@@ -130,6 +131,10 @@ b8 Audio::init()
 
 	AK::SoundEngine::RegisterBusMeteringCallback(AK::BUSSES::DIALOGUE, Audio::dialogue_volume_callback, (AkMeteringFlags)AK_EnableBusMeter_Peak);
 
+	const Settings& settings = Loader::settings();
+	global_param(AK::GAME_PARAMETERS::SFXVOL, (r32)settings.sfx / 100.0f);
+	global_param(AK::GAME_PARAMETERS::MUSICVOL, (r32)settings.music / 100.0f);
+
 	return true;
 }
 
@@ -244,12 +249,8 @@ void Audio::listener_update(u32 listener_id, const Vec3& pos, const Quat& rot)
 
 void Audio::awake()
 {
-	if (!registered)
-	{
-		registered = true;
-		AK::SoundEngine::RegisterGameObj(entity_id);
-		AK::SoundEngine::SetActiveListeners(entity_id, 0b01111); // All listeners
-	}
+	AK::SoundEngine::RegisterGameObj(entity_id);
+	AK::SoundEngine::SetActiveListeners(entity_id, 0b01111); // All listeners
 }
 
 Audio::~Audio()

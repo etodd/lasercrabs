@@ -16,6 +16,7 @@ SSAO
 - Keyboard/mouse/gamepad support thanks to SDL
 - Automatic navmesh generation thanks to Recast
 - Physics thanks to Bullet
+- Efficient behavior tree implementation also works as a tween system
 - Almost all dependencies are GitHub submodules
 - Builds and runs on Win/Mac/Linux
 

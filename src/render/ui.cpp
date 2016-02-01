@@ -48,10 +48,13 @@ void UIText::text(const char* format, ...)
 	va_start(args, format);
 	char string[512];
 
+	if (!format)
+		format = "";
+
 #if defined(_WIN32)
-	vsprintf_s(string, 512, format, args);
+		vsprintf_s(string, 512, format, args);
 #else
-	vsnprintf(string, 512, format, args);
+		vsnprintf(string, 512, format, args);
 #endif
 
 	va_end(args);
@@ -102,6 +105,11 @@ void UIText::text(const char* format, ...)
 	}
 
 	refresh_bounds();
+}
+
+b8 UIText::has_text() const
+{
+	return rendered_string[0] != 0;
 }
 
 void UIText::refresh_bounds()

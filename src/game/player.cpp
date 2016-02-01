@@ -25,6 +25,7 @@
 #include "walker.h"
 #include "data/animator.h"
 #include "mersenne/mersenne-twister.h"
+#include "parkour.h"
 
 namespace VI
 {
@@ -101,7 +102,6 @@ void Team::update(const Update& u)
 				minion_spawns[i].ref()->absolute(&pos, &rot);
 				pos += rot * Vec3(0, 0, 1); // spawn it around the edges
 				Entity* entity = World::create<Minion>(pos, rot, team());
-				entity->add<MinionAI>();
 			}
 			minion_spawn_timer = MINION_SPAWN_INTERVAL;
 		}
@@ -141,7 +141,8 @@ LocalPlayer::LocalPlayer(PlayerManager* m, u8 g)
 	msg_text(),
 	msg_timer(msg_time),
 	menu(),
-	revision()
+	revision(),
+	options_menu()
 {
 	sprintf(manager.ref()->username, "Player %d", gamepad);
 
@@ -219,8 +220,10 @@ void LocalPlayer::update(const Update& u)
 	if (((u.last_input->gamepads[gamepad].btns & Gamepad::Btn::Start) && !(u.input->gamepads[gamepad].btns & Gamepad::Btn::Start))
 		|| (gamepad == 0 && u.last_input->keys[(s32)KeyCode::Escape] && !u.input->keys[(s32)KeyCode::Escape]))
 	{
-		Audio::post_global_event(AK::EVENTS::PLAY_BEEP_GOOD);
-		pause = !pause;
+		if (options_menu)
+			options_menu = false;
+		else
+			pause = !pause;
 	}
 
 	switch (ui_mode())
@@ -245,11 +248,22 @@ void LocalPlayer::update(const Update& u)
 			Rect2& viewport = camera ? camera->viewport : manager.ref()->entity.ref()->get<LocalPlayerControl>()->camera->viewport;
 			menu.start(u, gamepad);
 
-			Vec2 pos = viewport.pos + Vec2(0, viewport.size.y * 0.5f + UIMenu::height(2) * 0.5f);
-			if (menu.item(u, gamepad, &pos, "Resume"))
-				pause = false;
-			if (menu.item(u, gamepad, &pos, "Exit"))
-				Menu::title();
+			if (options_menu)
+			{
+				Vec2 pos = viewport.pos + Vec2(0, viewport.size.y * 0.5f + Menu::options_height() * 0.5f);
+				if (!Menu::options(u, gamepad, &menu, &pos))
+					options_menu = false;
+			}
+			else
+			{
+				Vec2 pos = viewport.pos + Vec2(0, viewport.size.y * 0.5f + UIMenu::height(3) * 0.5f);
+				if (menu.item(u, gamepad, &pos, "Resume"))
+					pause = false;
+				if (menu.item(u, gamepad, &pos, "Options"))
+					options_menu = true;
+				if (menu.item(u, gamepad, &pos, "Exit"))
+					Menu::title();
+			}
 
 			menu.end();
 
@@ -286,10 +300,8 @@ void LocalPlayer::spawn()
 	}
 	else // parkour mode
 	{
-		// Spawn sentinel
-		spawned = World::create<Minion>(pos, Quat::euler(0, angle, 0), manager.ref()->team.ref()->team());
-		Health* health = spawned->get<Health>();
-		health->total = health->hp = AWK_HEALTH;
+		// Spawn traceur
+		spawned = World::create<Traceur>(pos, Quat::euler(0, angle, 0), manager.ref()->team.ref()->team());
 	}
 
 	spawned->get<Transform>()->absolute(pos, rot);
@@ -479,8 +491,8 @@ void PlayerCommon::update_visibility()
 	{
 		for (s32 j = i + 1; j < player_count; j++)
 		{
-			Vec3 start = players[i]->has<MinionCommon>() ? players[i]->get<MinionCommon>()->head_pos() : players[i]->get<Awk>()->center();
-			Vec3 end = players[j]->has<MinionCommon>() ? players[j]->get<MinionCommon>()->head_pos() : players[j]->get<Awk>()->center();
+			Vec3 start = players[i]->has<Parkour>() ? players[i]->get<Parkour>()->head_pos() : players[i]->get<Awk>()->center();
+			Vec3 end = players[j]->has<Parkour>() ? players[j]->get<Parkour>()->head_pos() : players[j]->get<Awk>()->center();
 			if (btVector3(end - start).fuzzyZero())
 				visibility[index] = true;
 			else
@@ -529,7 +541,7 @@ void PlayerCommon::draw_alpha(const RenderParams& params) const
 
 void PlayerCommon::update(const Update& u)
 {
-	if (has<MinionCommon>() || get<Transform>()->parent.ref())
+	if (has<Parkour>() || get<Transform>()->parent.ref())
 	{
 		// Either we are a Minion, or we're an Awk and we're attached to a surface
 		// Either way, we need to decrement the cooldown timer
@@ -825,19 +837,19 @@ void LocalPlayerControl::update(const Update& u)
 		{
 			camera_pos = Vec3(0, 0, 0.05f);
 			Quat q = Quat::identity;
-			get<MinionCommon>()->head_to_object_space(&camera_pos, &q);
+			get<Parkour>()->head_to_object_space(&camera_pos, &q);
 			camera_pos = get<Transform>()->to_world(camera_pos);
 		}
 
 		Vec3 movement = get_movement(u, Quat::euler(0, angle_horizontal, 0));
 		Vec2 dir = Vec2(movement.x, movement.z);
 		get<Walker>()->dir = dir;
-		get<MinionCommon>()->set_run(!u.input->get(settings.bindings.walk, gamepad));
+		get<Parkour>()->set_run(!u.input->get(settings.bindings.walk, gamepad));
 
 		b8 parkour_pressed = input_enabled() && u.input->get(settings.bindings.parkour, gamepad);
 
-		if (get<MinionCommon>()->fsm.current == MinionCommon::State::WallRun && !parkour_pressed)
-			get<MinionCommon>()->fsm.transition(MinionCommon::State::Normal);
+		if (get<Parkour>()->fsm.current == Parkour::State::WallRun && !parkour_pressed)
+			get<Parkour>()->fsm.transition(Parkour::State::Normal);
 
 		if (parkour_pressed && !u.last_input->get(settings.bindings.parkour, gamepad))
 			try_parkour = true;
@@ -846,7 +858,7 @@ void LocalPlayerControl::update(const Update& u)
 
 		if (try_parkour)
 		{
-			if (get<MinionCommon>()->try_parkour())
+			if (get<Parkour>()->try_parkour())
 			{
 				try_parkour = false;
 				try_jump = false;
@@ -861,7 +873,7 @@ void LocalPlayerControl::update(const Update& u)
 
 		if (try_jump)
 		{
-			if (get<MinionCommon>()->try_jump(angle_horizontal))
+			if (get<Parkour>()->try_jump(angle_horizontal))
 			{
 				try_parkour = false;
 				try_jump = false;
@@ -876,20 +888,20 @@ void LocalPlayerControl::update(const Update& u)
 
 		r32 lean_target = 0.0f;
 
-		if (get<MinionCommon>()->fsm.current == MinionCommon::State::WallRun)
+		if (get<Parkour>()->fsm.current == Parkour::State::WallRun)
 		{
-			MinionCommon::WallRunState state = get<MinionCommon>()->wall_run_state;
+			Parkour::WallRunState state = get<Parkour>()->wall_run_state;
 			const r32 wall_run_lean = 8.0f * PI / 180.0f;
-			if (state == MinionCommon::WallRunState::Left)
+			if (state == Parkour::WallRunState::Left)
 				lean_target = -wall_run_lean;
-			else if (state == MinionCommon::WallRunState::Right)
+			else if (state == Parkour::WallRunState::Right)
 				lean_target = wall_run_lean;
 
-			Vec3 wall_normal = get<MinionCommon>()->last_support.ref()->get<Transform>()->to_world_normal(get<MinionCommon>()->relative_wall_run_normal);
+			Vec3 wall_normal = get<Parkour>()->last_support.ref()->get<Transform>()->to_world_normal(get<Parkour>()->relative_wall_run_normal);
 
 			Vec3 forward = look_quat * Vec3(0, 0, 1);
 
-			if (get<MinionCommon>()->wall_run_state == MinionCommon::WallRunState::Forward)
+			if (get<Parkour>()->wall_run_state == Parkour::WallRunState::Forward)
 				wall_normal *= -1.0f; // Make sure we're always facing the wall
 			else
 			{
@@ -953,7 +965,7 @@ void LocalPlayerControl::update(const Update& u)
 		Vec3 trace_dir = look_quat * Vec3(0, 0, 1);
 		// Make sure we're not shooting into the wall we're on.
 		// If we're a sentinel, no need to worry about that.
-		if (has<MinionCommon>() || trace_dir.dot(get<Transform>()->absolute_rot() * Vec3(0, 0, 1)) > 0.0f)
+		if (has<Parkour>() || trace_dir.dot(get<Transform>()->absolute_rot() * Vec3(0, 0, 1)) > 0.0f)
 		{
 			Vec3 trace_start = camera_pos;
 			Vec3 trace_end = trace_start + trace_dir * AWK_MAX_DISTANCE;

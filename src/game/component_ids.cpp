@@ -12,6 +12,7 @@
 #include "data/ragdoll.h"
 #include "minion.h"
 #include "ai_player.h"
+#include "parkour.h"
 
 namespace VI
 {
@@ -46,9 +47,10 @@ COMPONENT_TYPE(25, Ragdoll) \
 COMPONENT_TYPE(26, SkinnedModel) \
 COMPONENT_TYPE(27, View) \
 COMPONENT_TYPE(28, TurretControl) \
-COMPONENT_TYPE(29, Projectile)
+COMPONENT_TYPE(29, Projectile) \
+COMPONENT_TYPE(30, Parkour)
 
-Family World::families = 30;
+Family World::families = 31;
 
 #define COMPONENT_TYPE(INDEX, TYPE) \
 template<> Family ComponentType<TYPE>::family = (INDEX); \

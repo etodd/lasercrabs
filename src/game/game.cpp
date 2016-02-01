@@ -33,6 +33,7 @@
 #include "console.h"
 #include "ease.h"
 #include "minion.h"
+#include "parkour.h"
 #include "data/behavior.h"
 
 #if DEBUG
@@ -132,12 +133,6 @@ void Game::update(const Update& update_in)
 
 	Physics::sync_static();
 
-	if (u.input->keys[(s32)KeyCode::K] && !u.last_input->keys[(s32)KeyCode::K])
-	{
-		for (auto i = MinionCommon::list.iterator(); !i.is_last(); i.next())
-			i.item()->killed(nullptr);
-	}
-
 	for (s32 i = 0; i < Team::list.length; i++)
 		Team::list[i].update(u);
 	for (auto i = PlayerManager::list.iterator(); !i.is_last(); i.next())
@@ -160,6 +155,8 @@ void Game::update(const Update& update_in)
 	for (auto i = AIPlayerControl::list.iterator(); !i.is_last(); i.next())
 		i.item()->update(u);
 	for (auto i = MinionCommon::list.iterator(); !i.is_last(); i.next())
+		i.item()->update(u);
+	for (auto i = Parkour::list.iterator(); !i.is_last(); i.next())
 		i.item()->update(u);
 	for (auto i = Shockwave::list.iterator(); !i.is_last(); i.next())
 		i.item()->update(u);

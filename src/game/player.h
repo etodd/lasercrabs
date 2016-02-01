@@ -89,6 +89,7 @@ struct LocalPlayer
 	UIText msg_text;
 	UIText credits_text;
 	Revision revision;
+	bool options_menu;
 
 	inline ID id() const
 	{

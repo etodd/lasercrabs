@@ -41,6 +41,9 @@ static AssetID next_level = AssetNull;
 static r32 connect_timer = 0.0f;
 static UIMenu main_menu;
 
+enum class Submenu { None, Options };
+static Submenu submenu;
+
 void reset_players()
 {
 	for (int i = 0; i < MAX_GAMEPADS; i++)
@@ -109,6 +112,7 @@ void clear()
 			cameras[i] = nullptr;
 		}
 	}
+	submenu = Submenu::None;
 }
 
 void refresh_variables()
@@ -239,19 +243,33 @@ void update(const Update& u)
 		case Asset::Level::title:
 		{
 			main_menu.start(u, 0);
-			Vec2 pos(0, u.input->height * 0.5f + UIMenu::height(6) * 0.5f);
-			if (main_menu.item(u, 0, &pos, "Continue"))
+			switch (submenu)
 			{
-				clear();
-				Game::schedule_load_level(Asset::Level::start);
-				return;
+				case Submenu::None:
+				{
+					Vec2 pos(0, u.input->height * 0.5f + UIMenu::height(5) * 0.5f);
+					if (main_menu.item(u, 0, &pos, "Continue"))
+					{
+						clear();
+						Game::schedule_load_level(Asset::Level::start);
+						return;
+					}
+					main_menu.item(u, 0, &pos, "New");
+					if (main_menu.item(u, 0, &pos, "Options"))
+						submenu = Submenu::Options;
+					main_menu.item(u, 0, &pos, "Splitscreen");
+					if (main_menu.item(u, 0, &pos, "Exit"))
+						Game::quit = true;
+					break;
+				}
+				case Submenu::Options:
+				{
+					Vec2 pos(0, u.input->height * 0.5f + options_height() * 0.5f);
+					if (!options(u, 0, &main_menu, &pos))
+						submenu = Submenu::None;
+					break;
+				}
 			}
-			main_menu.item(u, 0, &pos, "New");
-			main_menu.item(u, 0, &pos, "Load");
-			main_menu.item(u, 0, &pos, "Options");
-			main_menu.item(u, 0, &pos, "Splitscreen");
-			if (main_menu.item(u, 0, &pos, "Exit"))
-				Game::quit = true;
 			main_menu.end();
 			break;
 		}
@@ -377,6 +395,45 @@ b8 is_special_level(AssetID level)
 		|| level == Asset::Level::start;
 }
 
+bool options(const Update& u, u8 gamepad, UIMenu* menu, Vec2* pos)
+{
+	bool menu_open = true;
+	if (menu->item(u, gamepad, pos, "Back"))
+		menu_open = false;
+
+	Settings& settings = Loader::settings();
+	char str[128];
+	UIMenu::Delta delta;
+
+	sprintf(str, "%d", settings.sfx);
+	delta = menu->slider_item(u, gamepad, pos, "SFX", str);
+	if (delta == UIMenu::Delta::Down)
+		settings.sfx = max(0, settings.sfx - 10);
+	else if (delta == UIMenu::Delta::Up)
+		settings.sfx = min(100, settings.sfx + 10);
+	if (delta != UIMenu::Delta::None)
+		Audio::global_param(AK::GAME_PARAMETERS::SFXVOL, (r32)settings.sfx / 100.0f);
+
+	sprintf(str, "%d", settings.music);
+	delta = menu->slider_item(u, gamepad, pos, "Music", str);
+	if (delta == UIMenu::Delta::Down)
+		settings.music = max(0, settings.music - 10);
+	else if (delta == UIMenu::Delta::Up)
+		settings.music = min(100, settings.music + 10);
+	if (delta != UIMenu::Delta::None)
+		Audio::global_param(AK::GAME_PARAMETERS::MUSICVOL, (r32)settings.music / 100.0f);
+
+	if (!menu_open)
+		Loader::settings_save();
+
+	return menu_open;
+}
+
+r32 options_height()
+{
+	return UIMenu::height(3);
+}
+
 }
 
 Rect2 UIMenu::Item::rect() const
@@ -387,6 +444,23 @@ Rect2 UIMenu::Item::rect() const
 	box.pos.y -= MENU_ITEM_PADDING;
 	box.size.y += MENU_ITEM_PADDING * 2.0f;
 	return box;
+}
+
+Rect2 UIMenu::Item::down_rect() const
+{
+	Rect2 r = rect();
+	r.pos.x += MENU_ITEM_PADDING_LEFT + MENU_ITEM_WIDTH * 0.5f;
+	r.size.x = r.size.y;
+	return r;
+}
+
+Rect2 UIMenu::Item::up_rect() const
+{
+	Rect2 r = rect();
+	r32 width = r.size.x;
+	r.size.x = r.size.y;
+	r.pos.x = width - r.size.x;
+	return r;
 }
 
 UIMenu::UIMenu()
@@ -417,40 +491,102 @@ void UIMenu::start(const Update& u, u8 gamepad)
 		selected++;
 }
 
-// render a single menu item and increment the position for the next item
-b8 UIMenu::item(const Update& u, u8 gamepad, Vec2* menu_pos, const char* string)
+Rect2 UIMenu::add_item(Vec2* pos, b8 slider, const char* string, const char* value)
 {
 	Item* item = items.add();
-	item->label.size = 24.0f;
+	item->slider = slider;
+	item->label.size = item->value.size = MENU_ITEM_FONT_SIZE;
 	item->label.wrap_width = MENU_ITEM_WIDTH - MENU_ITEM_PADDING * 2.0f;
 	item->label.anchor_x = UIText::Anchor::Min;
-	item->label.anchor_y = UIText::Anchor::Max;
+	item->label.anchor_y = item->value.anchor_y = UIText::Anchor::Max;
+	item->label.color = item->value.color = UI::default_color;
 	item->label.text(string);
-	item->label.color = UI::default_color;
 
-	item->pos = *menu_pos;
+	item->value.anchor_x = UIText::Anchor::Center;
+	item->value.text(value);
+
+	item->pos = *pos;
 	item->pos.x += MENU_ITEM_PADDING_LEFT;
 
 	Rect2 box = item->rect();
 
-	menu_pos->y -= box.size.y;
+	pos->y -= box.size.y;
 
+	return box;
+}
+
+// render a single menu item and increment the position for the next item
+b8 UIMenu::item(const Update& u, u8 gamepad, Vec2* menu_pos, const char* string)
+{
+	Rect2 box = add_item(menu_pos, false, string);
 	if (box.contains(Game::cursor))
 	{
 		selected = items.length - 1;
 		if (!u.input->get({ KeyCode::MouseLeft }, gamepad)
 			&& u.last_input->get({ KeyCode::MouseLeft }, gamepad)
 			&& Game::time.total > 0.5f)
+		{
+			Audio::post_global_event(AK::EVENTS::PLAY_BEEP_GOOD);
 			return true;
+		}
 	}
 
 	if (selected == items.length - 1
 		&& !u.input->get(Game::bindings.start, gamepad)
 		&& u.last_input->get(Game::bindings.start, gamepad)
 		&& Game::time.total > 0.5f)
+	{
+		Audio::post_global_event(AK::EVENTS::PLAY_BEEP_GOOD);
 		return true;
+	}
 	
 	return false;
+}
+
+UIMenu::Delta UIMenu::slider_item(const Update& u, u8 gamepad, Vec2* menu_pos, const char* label, const char* value)
+{
+	Rect2 box = add_item(menu_pos, true, label, value);
+	if (box.contains(Game::cursor))
+		selected = items.length - 1;
+
+	if (selected == items.length - 1
+		&& Game::time.total > 0.5f)
+	{
+		const Settings& settings = Loader::settings();
+		if (!u.input->get(settings.bindings.left, gamepad)
+			&& u.last_input->get(settings.bindings.left, gamepad))
+		{
+			Audio::post_global_event(AK::EVENTS::PLAY_BEEP_GOOD);
+			return Delta::Down;
+		}
+
+		if (!u.input->get(settings.bindings.right, gamepad)
+			&& u.last_input->get(settings.bindings.right, gamepad))
+		{
+			Audio::post_global_event(AK::EVENTS::PLAY_BEEP_GOOD);
+			return Delta::Up;
+		}
+
+		if (!u.input->get({ KeyCode::MouseLeft }, gamepad)
+			&& u.last_input->get({ KeyCode::MouseLeft }, gamepad)
+			&& Game::time.total > 0.5f)
+		{
+			Item* item = &items[items.length - 1];
+			if (item->down_rect().contains(Game::cursor))
+			{
+				Audio::post_global_event(AK::EVENTS::PLAY_BEEP_GOOD);
+				return Delta::Down;
+			}
+
+			if (item->up_rect().contains(Game::cursor))
+			{
+				Audio::post_global_event(AK::EVENTS::PLAY_BEEP_GOOD);
+				return Delta::Up;
+			}
+		}
+	}
+	
+	return Delta::None;
 }
 
 void UIMenu::end()
@@ -473,6 +609,18 @@ void UIMenu::draw_alpha(const RenderParams& params) const
 		const Item* item = &items[i];
 		UI::box(params, item->rect(), i == selected ? UI::subtle_color : UI::background_color);
 		item->label.draw(params, item->pos);
+		if (item->value.has_text())
+			item->value.draw(params, item->pos + Vec2(MENU_ITEM_VALUE_OFFSET, 0));
+		if (item->slider)
+		{
+			const Rect2& down_rect = item->down_rect();
+			UI::box(params, down_rect, UI::background_color);
+			UI::triangle(params, { down_rect.pos + down_rect.size * 0.5f, down_rect.size * 0.5f }, UI::default_color, PI * 0.5f);
+
+			const Rect2& up_rect = item->up_rect();
+			UI::box(params, up_rect, UI::background_color);
+			UI::triangle(params, { up_rect.pos + up_rect.size * 0.5f, up_rect.size * 0.5f }, UI::default_color, PI * -0.5f);
+		}
 	}
 }
 

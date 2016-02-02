@@ -253,13 +253,13 @@ void SkyDecal::draw(const RenderParams& p)
 
 	sync->write(RenderOp::Uniform);
 	sync->write(Asset::Uniform::fog_start);
-	sync->write(RenderDataType::Float);
+	sync->write(RenderDataType::R32);
 	sync->write<s32>(1);
 	sync->write<r32>(Skybox::fog_start);
 
 	sync->write(RenderOp::Uniform);
 	sync->write(Asset::Uniform::fog_extent);
-	sync->write(RenderDataType::Float);
+	sync->write(RenderDataType::R32);
 	sync->write<s32>(1);
 	sync->write<r32>(p.camera->far_plane - Skybox::fog_start);
 
@@ -419,25 +419,25 @@ void Skybox::draw(const RenderParams& p)
 
 	sync->write(RenderOp::Uniform);
 	sync->write(Asset::Uniform::fog_start);
-	sync->write(RenderDataType::Float);
+	sync->write(RenderDataType::R32);
 	sync->write<s32>(1);
 	sync->write<r32>(fog_start);
 
 	sync->write(RenderOp::Uniform);
 	sync->write(Asset::Uniform::fog_extent);
-	sync->write(RenderDataType::Float);
+	sync->write(RenderDataType::R32);
 	sync->write<s32>(1);
 	sync->write<r32>(p.camera->far_plane - fog_start);
 
 	sync->write(RenderOp::Uniform);
 	sync->write(Asset::Uniform::far_plane);
-	sync->write(RenderDataType::Float);
+	sync->write(RenderDataType::R32);
 	sync->write<s32>(1);
 	sync->write<r32>(p.camera->far_plane);
 
 	sync->write(RenderOp::Uniform);
 	sync->write(Asset::Uniform::fog);
-	sync->write(RenderDataType::Int);
+	sync->write(RenderDataType::S32);
 	sync->write<s32>(1);
 	sync->write<r32>(p.camera->fog);
 

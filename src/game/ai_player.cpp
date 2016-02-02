@@ -14,7 +14,7 @@ namespace VI
 
 #define AWK_VIEW_RANGE 100.0f
 
-PinArray<AIPlayer, MAX_AI_PLAYERS> AIPlayer::list = PinArray<AIPlayer, MAX_AI_PLAYERS>();
+PinArray<AIPlayer, MAX_AI_PLAYERS> AIPlayer::list;
 
 AIPlayer::AIPlayer(PlayerManager* m)
 	: manager(m), revision()

@@ -9,13 +9,13 @@
 namespace VI
 {
 
-Array<char> Console::command = Array<char>();
-Array<char> Console::debug_buffer = Array<char>();
-Array<Console::Log> Console::logs = Array<Console::Log>();
-UIText Console::text = UIText();
-UIText Console::fps_text = UIText();
-UIText Console::debug_text = UIText();
-UIText Console::log_text = UIText();
+Array<char> Console::command;
+Array<char> Console::debug_buffer;
+Array<Console::Log> Console::logs;
+UIText Console::text;
+UIText Console::fps_text;
+UIText Console::debug_text;
+UIText Console::log_text;
 b8 Console::fps_visible = false;
 s32 Console::fps_count = 0;
 r32 Console::fps_accumulator = 0;

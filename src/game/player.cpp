@@ -47,6 +47,16 @@ namespace VI
 #define credits_initial 50
 #define credits_pickup 25
 
+#if DEBUG
+#define PLAYER_SPAWN_DELAY 1.0f
+#define MINION_SPAWN_INITIAL_DELAY 2.0f
+#else
+#define PLAYER_SPAWN_DELAY 5.0f
+#define MINION_SPAWN_INITIAL_DELAY 10.0f
+#endif
+#define MINION_SPAWN_INTERVAL 30.0f
+#define MINION_SPAWN_GROUP_INTERVAL 2.0f
+
 b8 flash_function(r32 time)
 {
 	return (b8)((s32)(time * 16.0f) % 2);
@@ -81,11 +91,19 @@ void draw_indicator(const RenderParams& params, const Vec3& pos, const Vec4& col
 	}
 }
 
-StaticArray<Team, (s32)AI::Team::count> Team::list = StaticArray<Team, (s32)AI::Team::count>();
+StaticArray<Team, (s32)AI::Team::count> Team::list;
 
 Team::Team()
 	: minion_spawn_timer(MINION_SPAWN_INITIAL_DELAY)
 {
+}
+
+r32 minion_spawn_delay(Team::MinionSpawnState state)
+{
+	if (state == Team::MinionSpawnState::One)
+		return MINION_SPAWN_INTERVAL;
+	else
+		return MINION_SPAWN_GROUP_INTERVAL;
 }
 
 void Team::update(const Update& u)
@@ -103,12 +121,13 @@ void Team::update(const Update& u)
 				pos += rot * Vec3(0, 0, 1); // spawn it around the edges
 				Entity* entity = World::create<Minion>(pos, rot, team());
 			}
-			minion_spawn_timer = MINION_SPAWN_INTERVAL;
+			minion_spawn_state = (MinionSpawnState)(((s32)minion_spawn_state + 1) % (s32)MinionSpawnState::count);
+			minion_spawn_timer = minion_spawn_delay(minion_spawn_state);
 		}
 	}
 }
 
-PinArray<PlayerManager, MAX_PLAYERS> PlayerManager::list = PinArray<PlayerManager, MAX_PLAYERS>();
+PinArray<PlayerManager, MAX_PLAYERS> PlayerManager::list;
 
 PlayerManager::PlayerManager(Team* team)
 	: spawn_timer(PLAYER_SPAWN_DELAY),
@@ -130,7 +149,7 @@ void PlayerManager::update(const Update& u)
 	}
 }
 
-PinArray<LocalPlayer, MAX_PLAYERS> LocalPlayer::list = PinArray<LocalPlayer, MAX_PLAYERS>();
+PinArray<LocalPlayer, MAX_PLAYERS> LocalPlayer::list;
 
 LocalPlayer::LocalPlayer(PlayerManager* m, u8 g)
 	: gamepad(g),

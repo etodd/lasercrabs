@@ -164,15 +164,15 @@ struct GLData
 	}
 };
 
-Array<GLData::Texture> GLData::textures = Array<GLData::Texture>();
-Array<GLData::Shader> GLData::shaders = Array<GLData::Shader>();
-Array<GLData::Mesh> GLData::meshes = Array<GLData::Mesh>();
-Array<GLuint> GLData::framebuffers = Array<GLuint>();
+Array<GLData::Texture> GLData::textures;
+Array<GLData::Shader> GLData::shaders;
+Array<GLData::Mesh> GLData::meshes;
+Array<GLuint> GLData::framebuffers;
 s32 GLData::current_shader_asset = AssetNull;
 RenderTechnique GLData::current_shader_technique = RenderTechnique::Default;
-Array<s32> GLData::samplers = Array<s32>();
-Array<char> GLData::uniform_name_buffer = Array<char>();
-Array<s32> GLData::uniform_names = Array<s32>();
+Array<s32> GLData::samplers;
+Array<char> GLData::uniform_name_buffer;
+Array<s32> GLData::uniform_names;
 GLData::ColorMask GLData::color_mask = { true, true, true, true };
 b8 GLData::depth_mask = true;
 b8 GLData::depth_test = true;
@@ -234,7 +234,7 @@ void update_attrib_buffer(RenderSync* sync, const GLData::Mesh::Attrib* attrib, 
 
 	switch (attrib->data_type)
 	{
-		case RenderDataType::Float:
+		case RenderDataType::R32:
 		{
 			glBufferData(GL_ARRAY_BUFFER, count * sizeof(r32) * attrib->element_count, sync->read<r32>(count * attrib->element_count), usage);
 			break;
@@ -254,7 +254,7 @@ void update_attrib_buffer(RenderSync* sync, const GLData::Mesh::Attrib* attrib, 
 			glBufferData(GL_ARRAY_BUFFER, count * sizeof(Vec4) * attrib->element_count, sync->read<Vec4>(count * attrib->element_count), usage);
 			break;
 		}
-		case RenderDataType::Int:
+		case RenderDataType::S32:
 		{
 			glBufferData(GL_ARRAY_BUFFER, count * sizeof(s32) * attrib->element_count, sync->read<s32>(count * attrib->element_count), usage);
 			break;
@@ -262,6 +262,48 @@ void update_attrib_buffer(RenderSync* sync, const GLData::Mesh::Attrib* attrib, 
 		case RenderDataType::Mat4:
 		{
 			glBufferData(GL_ARRAY_BUFFER, count * sizeof(Mat4) * attrib->element_count, sync->read<Mat4>(count * attrib->element_count), usage);
+			break;
+		}
+		default:
+			vi_assert(false);
+			break;
+	}
+}
+
+void update_attrib_sub_buffer(RenderSync* sync, const GLData::Mesh::Attrib* attrib, s32 offset, s32 count)
+{
+	glBindBuffer(GL_ARRAY_BUFFER, attrib->handle);
+
+	switch (attrib->data_type)
+	{
+		case RenderDataType::R32:
+		{
+			glBufferSubData(GL_ARRAY_BUFFER, offset * sizeof(r32) * attrib->element_count, count * sizeof(r32) * attrib->element_count, sync->read<r32>(count * attrib->element_count));
+			break;
+		}
+		case RenderDataType::Vec2:
+		{
+			glBufferSubData(GL_ARRAY_BUFFER, offset * sizeof(Vec2) * attrib->element_count, count * sizeof(Vec2) * attrib->element_count, sync->read<Vec2>(count * attrib->element_count));
+			break;
+		}
+		case RenderDataType::Vec3:
+		{
+			glBufferSubData(GL_ARRAY_BUFFER, offset * sizeof(Vec3) * attrib->element_count, count * sizeof(Vec3) * attrib->element_count, sync->read<Vec3>(count * attrib->element_count));
+			break;
+		}
+		case RenderDataType::Vec4:
+		{
+			glBufferSubData(GL_ARRAY_BUFFER, offset * sizeof(Vec4) * attrib->element_count, count * sizeof(Vec4) * attrib->element_count, sync->read<Vec4>(count * attrib->element_count));
+			break;
+		}
+		case RenderDataType::S32:
+		{
+			glBufferSubData(GL_ARRAY_BUFFER, offset * sizeof(s32) * attrib->element_count, count * sizeof(s32) * attrib->element_count, sync->read<s32>(count * attrib->element_count));
+			break;
+		}
+		case RenderDataType::Mat4:
+		{
+			glBufferSubData(GL_ARRAY_BUFFER, offset * sizeof(Mat4) * attrib->element_count, count * sizeof(Mat4) * attrib->element_count, sync->read<Mat4>(count * attrib->element_count));
 			break;
 		}
 		default:
@@ -329,11 +371,11 @@ void render(RenderSync* sync)
 
 					switch (a.data_type)
 					{
-						case RenderDataType::Int:
+						case RenderDataType::S32:
 							a.total_element_size = a.element_count;
 							a.gl_type = GL_INT;
 							break;
-						case RenderDataType::Float:
+						case RenderDataType::R32:
 							a.total_element_size = a.element_count;
 							a.gl_type = GL_FLOAT;
 							break;
@@ -419,6 +461,22 @@ void render(RenderSync* sync)
 				}
 				break;
 			}
+			case RenderOp::UpdateAttribSubBuffers:
+			{
+				s32 id = *(sync->read<s32>());
+				GLData::Mesh* mesh = &GLData::meshes[id];
+				glBindVertexArray(mesh->vertex_array);
+
+				s32 offset = *(sync->read<s32>());
+				s32 count = *(sync->read<s32>());
+
+				for (s32 i = 0; i < mesh->attribs.length; i++)
+				{
+					update_attrib_sub_buffer(sync, &mesh->attribs[i], offset, count);
+					debug_check();
+				}
+				break;
+			}
 			case RenderOp::UpdateAttribBuffer:
 			{
 				s32 id = *(sync->read<s32>());
@@ -429,6 +487,21 @@ void render(RenderSync* sync)
 				s32 count = *(sync->read<s32>());
 
 				update_attrib_buffer(sync, &mesh->attribs[attrib_index], count, mesh->dynamic);
+				debug_check();
+
+				break;
+			}
+			case RenderOp::UpdateAttribSubBuffer:
+			{
+				s32 id = *(sync->read<s32>());
+				GLData::Mesh* mesh = &GLData::meshes[id];
+				glBindVertexArray(mesh->vertex_array);
+
+				s32 attrib_index = *(sync->read<s32>());
+				s32 offset = *(sync->read<s32>());
+				s32 count = *(sync->read<s32>());
+
+				update_attrib_sub_buffer(sync, &mesh->attribs[attrib_index], offset, count);
 				debug_check();
 
 				break;
@@ -691,7 +764,7 @@ void render(RenderSync* sync)
 				s32 uniform_count = *(sync->read<s32>());
 				switch (uniform_type)
 				{
-					case RenderDataType::Float:
+					case RenderDataType::R32:
 					{
 						const r32* value = sync->read<r32>(uniform_count);
 						glUniform1fv(uniform_id, uniform_count, value);
@@ -719,7 +792,7 @@ void render(RenderSync* sync)
 						debug_check();
 						break;
 					}
-					case RenderDataType::Int:
+					case RenderDataType::S32:
 					{
 						const s32* value = sync->read<s32>(uniform_count);
 						glUniform1iv(uniform_id, uniform_count, value);
@@ -792,10 +865,30 @@ void render(RenderSync* sync)
 				glBindVertexArray(mesh->vertex_array);
 
 				glDrawElements(
-					GL_TRIANGLES,       // mode
-					mesh->index_count,    // count
-					GL_UNSIGNED_INT,    // type
-					(void*)0            // element array buffer offset
+					GL_TRIANGLES, // mode
+					mesh->index_count, // count
+					GL_UNSIGNED_INT, // type
+					0 // element array buffer offset
+				);
+
+				debug_check();
+				break;
+			}
+			case RenderOp::SubMesh:
+			{
+				s32 id = *(sync->read<s32>());
+				GLData::Mesh* mesh = &GLData::meshes[id];
+
+				s32 index_offset = *(sync->read<s32>());
+				s32 index_count = *(sync->read<s32>());
+
+				glBindVertexArray(mesh->vertex_array);
+
+				glDrawElements(
+					GL_TRIANGLES, // mode
+					index_count, // count
+					GL_UNSIGNED_INT, // type
+					(void*)(index_offset * sizeof(u32)) // element array buffer offset
 				);
 
 				debug_check();

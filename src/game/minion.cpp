@@ -43,7 +43,7 @@ Minion::Minion(const Vec3& pos, const Quat& quat, AI::Team team)
 
 	create<Audio>();
 
-	Health* health = create<Health>(20);
+	Health* health = create<Health>(50);
 	
 	Vec3 forward = quat * Vec3(0, 0, 1);
 
@@ -332,7 +332,7 @@ void MinionAttack::run()
 	if (target)
 	{
 		Vec3 head_pos = minion->get<MinionCommon>()->head_pos();
-		World::create<ProjectileEntity>(minion->entity(), head_pos, 2, target->get<Transform>()->absolute_pos() - head_pos);
+		World::create<ProjectileEntity>(minion->entity(), head_pos, 5, target->get<Transform>()->absolute_pos() - head_pos);
 		done(true);
 	}
 	else
@@ -373,7 +373,7 @@ MinionAI::MinionAI()
 						(
 							MinionGoToTarget::alloc(),
 							MinionAttack::alloc(),
-							Delay::alloc(1.5f)
+							Delay::alloc(1.0f)
 						)
 					)
 				)

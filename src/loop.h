@@ -164,7 +164,7 @@ void render_point_lights(const RenderParams& render_params, s32 type_mask, const
 
 		sync->write(RenderOp::Uniform);
 		sync->write(Asset::Uniform::type);
-		sync->write(RenderDataType::Int);
+		sync->write(RenderDataType::S32);
 		sync->write<s32>(1);
 		sync->write<s32>((s32)light->type);
 
@@ -176,7 +176,7 @@ void render_point_lights(const RenderParams& render_params, s32 type_mask, const
 
 		sync->write(RenderOp::Uniform);
 		sync->write(Asset::Uniform::light_radius);
-		sync->write(RenderDataType::Float);
+		sync->write(RenderDataType::R32);
 		sync->write<s32>(1);
 		sync->write<r32>(light->radius);
 
@@ -309,7 +309,7 @@ void render_spot_lights(const RenderParams& render_params, s32 type_mask, s32 fb
 
 		sync->write(RenderOp::Uniform);
 		sync->write(Asset::Uniform::light_radius);
-		sync->write(RenderDataType::Float);
+		sync->write(RenderDataType::R32);
 		sync->write<s32>(1);
 		sync->write<r32>(light->radius);
 
@@ -321,7 +321,7 @@ void render_spot_lights(const RenderParams& render_params, s32 type_mask, s32 fb
 
 		sync->write(RenderOp::Uniform);
 		sync->write(Asset::Uniform::light_fov_dot);
-		sync->write(RenderDataType::Float);
+		sync->write(RenderDataType::R32);
 		sync->write<s32>(1);
 		sync->write<r32>(cosf(light->fov));
 
@@ -349,7 +349,7 @@ void render_spot_lights(const RenderParams& render_params, s32 type_mask, s32 fb
 
 		sync->write(RenderOp::Uniform);
 		sync->write(Asset::Uniform::type);
-		sync->write(RenderDataType::Int);
+		sync->write(RenderDataType::S32);
 		sync->write<s32>(1);
 		sync->write<s32>((s32)light->type);
 
@@ -735,7 +735,7 @@ void draw(LoopSync* sync, const Camera* camera)
 
 			sync->write(RenderOp::Uniform);
 			sync->write(Asset::Uniform::far_plane);
-			sync->write(RenderDataType::Float);
+			sync->write(RenderDataType::R32);
 			sync->write<s32>(1);
 			sync->write<r32>(camera->far_plane);
 
@@ -833,7 +833,7 @@ void draw(LoopSync* sync, const Camera* camera)
 
 		sync->write(RenderOp::Uniform);
 		sync->write(Asset::Uniform::range);
-		sync->write(RenderDataType::Float);
+		sync->write(RenderDataType::R32);
 		sync->write<s32>(1);
 		sync->write<r32>(render_params.camera->range);
 

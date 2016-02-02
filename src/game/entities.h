@@ -160,6 +160,7 @@ struct Projectile : public ComponentType<Projectile>
 	Ref<Entity> owner;
 	Vec3 velocity;
 	u16 damage;
+	r32 lifetime;
 
 	Projectile(Entity*, u16, const Vec3&);
 	void awake();

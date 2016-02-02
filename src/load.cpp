@@ -13,16 +13,16 @@ namespace VI
 
 LoopSwapper* Loader::swapper;
 // First entry in each array is empty
-Array<Loader::Entry<Mesh> > Loader::meshes = Array<Loader::Entry<Mesh> >();
-Array<Loader::Entry<Animation> > Loader::animations = Array<Loader::Entry<Animation> >();
-Array<Loader::Entry<Armature> > Loader::armatures = Array<Loader::Entry<Armature> >();
-Array<Loader::Entry<void*> > Loader::textures = Array<Loader::Entry<void*> >();
-Array<Loader::Entry<void*> > Loader::shaders = Array<Loader::Entry<void*> >();
-Array<Loader::Entry<Font> > Loader::fonts = Array<Loader::Entry<Font> >();
-Array<Loader::Entry<void*> > Loader::dynamic_meshes = Array<Loader::Entry<void*> >();
-Array<Loader::Entry<void*> > Loader::dynamic_textures = Array<Loader::Entry<void*> >();
-Array<Loader::Entry<void*> > Loader::framebuffers = Array<Loader::Entry<void*> >();
-Array<Loader::Entry<AkBankID> > Loader::soundbanks = Array<Loader::Entry<AkBankID> >();
+Array<Loader::Entry<Mesh> > Loader::meshes;
+Array<Loader::Entry<Animation> > Loader::animations;
+Array<Loader::Entry<Armature> > Loader::armatures;
+Array<Loader::Entry<void*> > Loader::textures;
+Array<Loader::Entry<void*> > Loader::shaders;
+Array<Loader::Entry<Font> > Loader::fonts;
+Array<Loader::Entry<void*> > Loader::dynamic_meshes;
+Array<Loader::Entry<void*> > Loader::dynamic_textures;
+Array<Loader::Entry<void*> > Loader::framebuffers;
+Array<Loader::Entry<AkBankID> > Loader::soundbanks;
 dtNavMesh* Loader::current_nav_mesh;
 AssetID Loader::current_nav_mesh_id = AssetNull;
 

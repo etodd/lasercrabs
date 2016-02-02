@@ -14,15 +14,6 @@ struct RigidBody;
 struct Transform;
 struct LocalPlayerControl;
 
-#if DEBUG
-#define PLAYER_SPAWN_DELAY 1.0f
-#define MINION_SPAWN_INITIAL_DELAY 2.0f
-#else
-#define PLAYER_SPAWN_DELAY 5.0f
-#define MINION_SPAWN_INITIAL_DELAY 10.0f
-#endif
-#define MINION_SPAWN_INTERVAL 60.0f
-
 #define MAX_PLAYERS 8
 #define MAX_PLAYER_COMBOS 28 // C(MAX_PLAYERS, 2)
 
@@ -30,10 +21,19 @@ struct Camera;
 
 struct Team
 {
+	enum class MinionSpawnState
+	{
+		One,
+		Two,
+		Three,
+		count,
+	};
+
 	static StaticArray<Team, (s32)AI::Team::count> list;
 
 	Ref<Transform> player_spawn;
 	StaticArray<Ref<Transform>, 4> minion_spawns;
+	MinionSpawnState minion_spawn_state;
 	r32 minion_spawn_timer;
 	Revision revision;
 
@@ -55,6 +55,7 @@ struct Team
 struct PlayerManager
 {
 	static PinArray<PlayerManager, MAX_PLAYERS> list;
+
 	r32 spawn_timer;
 	Revision revision;
 	char username[255];

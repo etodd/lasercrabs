@@ -35,6 +35,7 @@
 #include "minion.h"
 #include "parkour.h"
 #include "data/behavior.h"
+#include "render/particles.h"
 
 #if DEBUG
 	#define DEBUG_AI 0
@@ -73,13 +74,15 @@ Game::Data::Data()
 	local_player_config[0] = AI::Team::A;
 }
 
-Array<UpdateFunction> Game::updates = Array<UpdateFunction>();
-Array<DrawFunction> Game::draws = Array<DrawFunction>();
-Array<CleanupFunction> Game::cleanups = Array<CleanupFunction>();
+Array<UpdateFunction> Game::updates;
+Array<DrawFunction> Game::draws;
+Array<CleanupFunction> Game::cleanups;
 
 b8 Game::init(LoopSync* sync)
 {
 	World::init();
+	for (s32 i = 0; i < ParticleSystem::all.length; i++)
+		ParticleSystem::all[i]->init(sync);
 	View::init();
 	RigidBody::init();
 
@@ -282,6 +285,9 @@ void Game::draw_alpha(const RenderParams& render_params)
 
 	View::draw_alpha(render_params);
 
+	for (s32 i = 0; i < ParticleSystem::all.length; i++)
+		ParticleSystem::all[i]->draw(render_params);
+
 	Console::draw(render_params);
 
 	for (auto i = PlayerCommon::list.iterator(); !i.is_last(); i.next())
@@ -402,6 +408,9 @@ void Game::unload_level()
 	for (auto i = PlayerManager::list.iterator(); !i.is_last(); i.next())
 		PlayerManager::list.remove(i.index);
 	Team::list.length = 0;
+
+	for (s32 i = 0; i < ParticleSystem::all.length; i++)
+		ParticleSystem::all[i]->clear();
 
 	Loader::transients_free();
 	updates.length = 0;

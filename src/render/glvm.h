@@ -15,7 +15,9 @@ enum class RenderOp
 	AllocInstances,
 	FreeInstances,
 	UpdateAttribBuffers,
+	UpdateAttribSubBuffers,
 	UpdateAttribBuffer,
+	UpdateAttribSubBuffer,
 	UpdateIndexBuffer,
 	AllocTexture,
 	DynamicTexture,
@@ -29,6 +31,7 @@ enum class RenderOp
 	Shader,
 	Uniform,
 	Mesh,
+	SubMesh,
 	Instances,
 	Clear,
 	BlendMode,
@@ -165,11 +168,11 @@ enum class RenderTechnique
 
 enum class RenderDataType
 {
-	Float,
+	R32,
 	Vec2,
 	Vec3,
 	Vec4,
-	Int,
+	S32,
 	Mat4,
 	Texture,
 };
@@ -178,7 +181,7 @@ inline size_t render_data_type_size(RenderDataType type)
 {
 	switch (type)
 	{
-		case RenderDataType::Float:
+		case RenderDataType::R32:
 			return sizeof(r32);
 		case RenderDataType::Vec2:
 			return sizeof(Vec2);
@@ -186,7 +189,7 @@ inline size_t render_data_type_size(RenderDataType type)
 			return sizeof(Vec3);
 		case RenderDataType::Vec4:
 			return sizeof(Vec4);
-		case RenderDataType::Int:
+		case RenderDataType::S32:
 			return sizeof(s32);
 		case RenderDataType::Mat4:
 			return sizeof(Mat4);

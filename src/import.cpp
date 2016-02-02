@@ -1097,13 +1097,13 @@ bool write_mesh(
 		}
 		if (bone_weights.length > 0)
 		{
-			RenderDataType type = RenderDataType::Int;
+			RenderDataType type = RenderDataType::S32;
 			fwrite(&type, sizeof(RenderDataType), 1, f);
 			s32 count = MAX_BONE_WEIGHTS;
 			fwrite(&count, sizeof(s32), 1, f);
 			fwrite(bone_indices.data, sizeof(s32[MAX_BONE_WEIGHTS]), mesh->vertices.length, f);
 
-			type = RenderDataType::Float;
+			type = RenderDataType::R32;
 			fwrite(&type, sizeof(RenderDataType), 1, f);
 			count = MAX_BONE_WEIGHTS;
 			fwrite(&count, sizeof(s32), 1, f);

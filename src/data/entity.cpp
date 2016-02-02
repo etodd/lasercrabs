@@ -4,8 +4,8 @@
 namespace VI
 {
 
-PinArray<Entity, MAX_ENTITIES> Entity::list = PinArray<Entity, MAX_ENTITIES>();
-Array<ID> World::remove_buffer = Array<ID>();
+PinArray<Entity, MAX_ENTITIES> Entity::list;
+Array<ID> World::remove_buffer;
 ComponentPoolBase* World::component_pools[MAX_FAMILIES];
 
 LinkEntry::Data::Data()

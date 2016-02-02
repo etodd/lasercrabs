@@ -74,8 +74,8 @@ template<typename Derived> struct BehaviorBase : public Behavior
 	}
 };
 
-template<typename T> PinArray<T, MAX_BEHAVIORS> BehaviorBase<T>::list = PinArray<T, MAX_BEHAVIORS>();
-template<typename T> Bitmask<MAX_BEHAVIORS> BehaviorBase<T>::active_list = Bitmask<MAX_BEHAVIORS>();
+template<typename T> PinArray<T, MAX_BEHAVIORS> BehaviorBase<T>::list;
+template<typename T> Bitmask<MAX_BEHAVIORS> BehaviorBase<T>::active_list;
 
 #define MAX_COMPOSITE 8
 

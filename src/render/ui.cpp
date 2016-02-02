@@ -19,7 +19,7 @@ UIText::UIText()
 {
 }
 
-Array<UIText::VariableEntry> UIText::variables = Array<UIText::VariableEntry>();
+Array<UIText::VariableEntry> UIText::variables;
 
 void UIText::set_variable(const char* name, const char* value)
 {
@@ -360,9 +360,9 @@ const Vec4 UI::background_color = Vec4(0, 0, 0, 1);
 r32 UI::scale = 1.0f;
 s32 UI::mesh_id = AssetNull;
 s32 UI::texture_mesh_id = AssetNull;
-Array<Vec3> UI::vertices = Array<Vec3>();
-Array<Vec4> UI::colors = Array<Vec4>();
-Array<s32> UI::indices = Array<s32>();
+Array<Vec3> UI::vertices;
+Array<Vec4> UI::colors;
+Array<s32> UI::indices;
 
 void UI::box(const RenderParams& params, const Rect2& r, const Vec4& color)
 {
@@ -745,7 +745,7 @@ void UI::texture(const RenderParams& p, const s32 texture, const Rect2& r, const
 }
 
 #if DEBUG
-Array<Vec3> UI::debugs = Array<Vec3>();
+Array<Vec3> UI::debugs;
 void UI::debug(const Vec3& pos)
 {
 	debugs.add(pos);

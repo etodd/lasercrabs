@@ -21,6 +21,7 @@
 #include "usernames.h"
 #include "console.h"
 #include "minion.h"
+#include "render/particles.h"
 
 namespace VI
 {
@@ -224,11 +225,12 @@ MinionSpawn::MinionSpawn(AI::Team team)
 	create<RigidBody>(RigidBody::Type::CapsuleY, Vec3(0.8f, 3.75f, 0.8f), 0.0f, CollisionInaccessible, CollisionInaccessibleMask);
 }
 
-#define VIEW_RANGE 30.0f
+#define VIEW_RANGE 25.0f
 #define VIEW_FOV PI * 0.4f
-#define TURRET_COOLDOWN 0.25f
+#define TURRET_COOLDOWN 0.35f
 #define TURRET_RADIUS 1.25f
 #define TURRET_TARGET_CHECK_TIME 0.5f
+#define TURRET_ROTATION_SPEED ((PI * 0.5f) / 1.5f)
 Turret::Turret(AI::Team team)
 {
 	create<Transform>();
@@ -246,7 +248,7 @@ Turret::Turret(AI::Team team)
 
 	create<AIAgent>()->team = team;
 
-	create<Health>(300);
+	create<Health>(200);
 
 	create<RigidBody>(RigidBody::Type::Sphere, Vec3(TURRET_RADIUS), 0.0f, CollisionInaccessible, CollisionInaccessibleMask);
 
@@ -337,9 +339,8 @@ void TurretControl::update(const Update& u)
 		to_target.normalize();
 		r32 target_yaw = atan2f(to_target.x, to_target.z);
 		r32 target_pitch = atan2f(to_target.y, Vec2(to_target.x, to_target.z).length());
-		const float rotation_speed = (PI * 0.5f) / 2.0f;
-		yaw = LMath::rotate_toward(yaw, target_yaw, rotation_speed * u.time.delta);
-		pitch = LMath::rotate_toward(pitch, target_pitch, rotation_speed * u.time.delta);
+		yaw = LMath::rotate_toward(yaw, target_yaw, TURRET_ROTATION_SPEED * u.time.delta);
+		pitch = LMath::rotate_toward(pitch, target_pitch, TURRET_ROTATION_SPEED * u.time.delta);
 
 		get<Transform>()->absolute_rot(Quat::euler(0, yaw, 0));
 		get<Animator>()->override_bone(Asset::Bone::turret_gun, Vec3::zero, Quat::euler(pitch, 0, 0));
@@ -357,22 +358,15 @@ void TurretControl::update(const Update& u)
 }
 
 #define PROJECTILE_SPEED 100.0f
-#define PROJECTILE_LENGTH 1.0f
+#define PROJECTILE_LENGTH 2.0f
 #define PROJECTILE_THICKNESS 0.04f
+#define PROJECTILE_MAX_LIFETIME 3.0f
 ProjectileEntity::ProjectileEntity(Entity* owner, const Vec3& pos, u16 damage, const Vec3& velocity)
 {
 	Vec3 dir = Vec3::normalize(velocity);
 	Transform* transform = create<Transform>();
 	transform->absolute_pos(pos);
 	transform->absolute_rot(Quat::look(dir));
-
-	View* view = create<View>();
-	view->mesh = Asset::Mesh::tri_tube;
-	view->shader = Asset::Shader::flat;
-	view->color = Vec4(1, 1, 1, 1);
-	view->alpha();
-	view->offset.scale(Vec3(PROJECTILE_THICKNESS, PROJECTILE_THICKNESS, PROJECTILE_LENGTH));
-	view->offset.translate(Vec3(0, 0, PROJECTILE_LENGTH * 0.5f));
 
 	PointLight* light = create<PointLight>();
 	light->radius = 10.0f;
@@ -384,7 +378,7 @@ ProjectileEntity::ProjectileEntity(Entity* owner, const Vec3& pos, u16 damage, c
 }
 
 Projectile::Projectile(Entity* entity, u16 damage, const Vec3& velocity)
-	: owner(entity), damage(damage), velocity(velocity)
+	: owner(entity), damage(damage), velocity(velocity), lifetime()
 {
 }
 
@@ -395,6 +389,13 @@ void Projectile::awake()
 
 void Projectile::update(const Update& u)
 {
+	lifetime += u.time.delta;
+	if (lifetime > PROJECTILE_MAX_LIFETIME)
+	{
+		World::remove(entity());
+		return;
+	}
+
 	Vec3 pos = get<Transform>()->absolute_pos();
 	Vec3 next_pos = pos + velocity * u.time.delta;
 	btCollisionWorld::ClosestRayResultCallback ray_callback(pos, next_pos + Vec3::normalize(velocity) * PROJECTILE_LENGTH);
@@ -404,8 +405,23 @@ void Projectile::update(const Update& u)
 		Entity* hit_object = &Entity::list[ray_callback.m_collisionObject->getUserIndex()];
 		if (hit_object != owner.ref())
 		{
+			for (s32 i = 0; i < 30; i++)
+			{
+				Particles::sparks.add
+				(
+					ray_callback.m_hitPointWorld + Vec3(mersenne::randf_oo(), mersenne::randf_oo(), mersenne::randf_oo()) - Vec3(0.5f),
+					Vec3(mersenne::randf_oo() * 2.0f - 1.0f, mersenne::randf_oo(), mersenne::randf_oo() * 2.0f - 1.0f) * 8.0f
+				);
+			}
 			if (hit_object->has<Health>())
-				hit_object->get<Health>()->damage(entity(), damage);
+			{
+				s32 multiplier;
+				if (entity()->has<MinionCommon>() && hit_object->has<TurretControl>())
+					multiplier = 2;
+				else
+					multiplier = 1;
+				hit_object->get<Health>()->damage(entity(), damage * multiplier);
+			}
 			World::remove(entity());
 			return;
 		}
@@ -510,26 +526,46 @@ Rope::Rope(const Vec3& pos, const Vec3& normal, RigidBody* start, const r32 slac
 	socket1 = start->has<Socket>() ? start->get<Socket>() : nullptr;
 }
 
-Array<Mat4> Rope::instances = Array<Mat4>();
+Array<Mat4> Rope::instances;
 
+// draw rope segments and projectiles
 void Rope::draw_opaque(const RenderParams& params)
 {
-	static Mat4 scale = Mat4::make_scale(Vec3(rope_radius, rope_radius, rope_segment_length * 0.5f));
-	Mesh* mesh_data = Loader::mesh_instanced(Asset::Mesh::tri_tube);
-
 	instances.length = 0;
 
+	Mesh* mesh_data = Loader::mesh_instanced(Asset::Mesh::tri_tube);
 	Vec3 radius = (Vec4(mesh_data->bounds_radius, mesh_data->bounds_radius, mesh_data->bounds_radius, 0)).xyz();
 	r32 f_radius = fmax(radius.x, fmax(radius.y, radius.z));
-	for (auto i = Rope::list.iterator(); !i.is_last(); i.next())
+
+	// ropes
 	{
-		Rope* rope = i.item();
-		for (s32 j = 0; j < rope->segments.length; j++)
+		static Mat4 scale = Mat4::make_scale(Vec3(rope_radius, rope_radius, rope_segment_length * 0.5f));
+
+		for (auto i = Rope::list.iterator(); !i.is_last(); i.next())
+		{
+			Rope* rope = i.item();
+			for (s32 j = 0; j < rope->segments.length; j++)
+			{
+				Mat4 m;
+				rope->segments[j].ref()->get<Transform>()->mat(&m);
+
+				if (params.camera->visible_sphere(m.translation(), rope_segment_length * f_radius))
+					instances.add(scale * m);
+			}
+		}
+	}
+
+	// projectiles
+	if (!(params.camera->mask & RENDER_MASK_SHADOW)) // projectiles don't cast shadows
+	{
+		static Mat4 scale = Mat4::make_scale(Vec3(PROJECTILE_THICKNESS, PROJECTILE_THICKNESS, PROJECTILE_LENGTH * 0.5f));
+		static Mat4 offset = Mat4::make_translation(0, 0, PROJECTILE_LENGTH * 0.5f);
+		for (auto i = Projectile::list.iterator(); !i.is_last(); i.next())
 		{
 			Mat4 m;
-			rope->segments[j].ref()->get<Transform>()->mat(&m);
-
-			if (params.camera->visible_sphere(m.translation(), rope_segment_length * f_radius))
+			i.item()->get<Transform>()->mat(&m);
+			m = offset * m;
+			if (params.camera->visible_sphere(m.translation(), PROJECTILE_LENGTH * f_radius))
 				instances.add(scale * m);
 		}
 	}

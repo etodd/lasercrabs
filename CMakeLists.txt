@@ -1,6 +1,6 @@
 # CMake entry point
 cmake_minimum_required (VERSION 2.6)
-project (mkzebra)
+project (wringer)
 
 ## Includes
 
@@ -221,7 +221,7 @@ add_custom_command(
 	MAIN_DEPENDENCY ${CMAKE_CURRENT_SOURCE_DIR}/external/sdl_controllers/gamecontrollerdb.txt
 )
 
-add_executable(mkzebra
+add_executable(wringer
 	CMakeLists.txt
 	src/data/array.h
 	src/data/pin_array.h
@@ -243,6 +243,8 @@ add_executable(mkzebra
 	src/render/render.cpp
 	src/render/views.h
 	src/render/views.cpp
+	src/render/particles.h
+	src/render/particles.cpp
 	src/render/skinned_model.h
 	src/render/skinned_model.cpp
 	src/render/ui.h
@@ -303,6 +305,8 @@ add_executable(mkzebra
 	src/game/usernames.h
 	src/game/usernames.cpp
 	external/sdl_controllers/gamecontrollerdb.txt
+	assets/standard_particle.glsl
+	assets/spark.glsl
 	assets/armature.glsl
 	assets/composite.glsl
 	assets/flat.glsl
@@ -327,22 +331,22 @@ add_executable(mkzebra
 	assets/blend_to_lvl.py
 )
 
-target_include_directories(mkzebra PRIVATE ${ALL_INCLUDES})
+target_include_directories(wringer PRIVATE ${ALL_INCLUDES})
 
 # Config file
 file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/config.txt DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/)
 
 if(WIN32)
-	set_property(TARGET mkzebra APPEND PROPERTY LINK_FLAGS_DEBUG "/SUBSYSTEM:CONSOLE")
-	set_property(TARGET mkzebra APPEND PROPERTY COMPILE_DEFINITIONS $<$<CONFIG:Debug>:_CONSOLE>)
-	set_property(TARGET mkzebra APPEND PROPERTY LINK_FLAGS_RELWITHDEBINFO "/SUBSYSTEM:WINDOWS")
-	set_property(TARGET mkzebra APPEND PROPERTY LINK_FLAGS_RELEASE "/SUBSYSTEM:WINDOWS")
-	set_property(TARGET mkzebra APPEND PROPERTY LINK_FLAGS_MINSIZEREL "/SUBSYSTEM:WINDOWS")
+	set_property(TARGET wringer APPEND PROPERTY LINK_FLAGS_DEBUG "/SUBSYSTEM:CONSOLE")
+	set_property(TARGET wringer APPEND PROPERTY COMPILE_DEFINITIONS $<$<CONFIG:Debug>:_CONSOLE>)
+	set_property(TARGET wringer APPEND PROPERTY LINK_FLAGS_RELWITHDEBINFO "/SUBSYSTEM:WINDOWS")
+	set_property(TARGET wringer APPEND PROPERTY LINK_FLAGS_RELEASE "/SUBSYSTEM:WINDOWS")
+	set_property(TARGET wringer APPEND PROPERTY LINK_FLAGS_MINSIZEREL "/SUBSYSTEM:WINDOWS")
 endif(WIN32)
 
 ## Libraries
 
-target_link_libraries(mkzebra
+target_link_libraries(wringer
 	${OPENGL_LIBRARIES}
 	SDL2-static
 	GLEW_static
@@ -358,10 +362,10 @@ target_link_libraries(mkzebra
 )
 
 if(APPLE)
-target_link_libraries(mkzebra "-framework AudioToolbox" "-framework CoreAudio")
+target_link_libraries(wringer "-framework AudioToolbox" "-framework CoreAudio")
 endif()
 
-add_dependencies(mkzebra assets)
+add_dependencies(wringer assets)
 
 add_executable(import
 	src/data/import_common.h
@@ -393,4 +397,4 @@ add_custom_target(
 	DEPENDS import
 	WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
 )
-add_dependencies(mkzebra assets)
+add_dependencies(wringer assets)

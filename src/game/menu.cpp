@@ -398,7 +398,7 @@ b8 is_special_level(AssetID level)
 bool options(const Update& u, u8 gamepad, UIMenu* menu, Vec2* pos)
 {
 	bool menu_open = true;
-	if (menu->item(u, gamepad, pos, "Back"))
+	if (menu->item(u, gamepad, pos, "Back") || (!u.input->get(Game::bindings.cancel, gamepad) && u.last_input->get(Game::bindings.cancel, gamepad)))
 		menu_open = false;
 
 	Settings& settings = Loader::settings();
@@ -534,7 +534,8 @@ b8 UIMenu::item(const Update& u, u8 gamepad, Vec2* menu_pos, const char* string)
 	if (selected == items.length - 1
 		&& !u.input->get(Game::bindings.start, gamepad)
 		&& u.last_input->get(Game::bindings.start, gamepad)
-		&& Game::time.total > 0.5f)
+		&& Game::time.total > 0.5f
+		&& !Console::visible)
 	{
 		Audio::post_global_event(AK::EVENTS::PLAY_BEEP_GOOD);
 		return true;

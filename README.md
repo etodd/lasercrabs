@@ -1,5 +1,5 @@
-MK-ZEBRA (codename)
-===================
+The Wringer
+===========
 
 Features
 --------

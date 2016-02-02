@@ -405,14 +405,7 @@ void Projectile::update(const Update& u)
 		Entity* hit_object = &Entity::list[ray_callback.m_collisionObject->getUserIndex()];
 		if (hit_object != owner.ref())
 		{
-			for (s32 i = 0; i < 30; i++)
-			{
-				Particles::sparks.add
-				(
-					ray_callback.m_hitPointWorld + Vec3(mersenne::randf_oo(), mersenne::randf_oo(), mersenne::randf_oo()) - Vec3(0.5f),
-					Vec3(mersenne::randf_oo() * 2.0f - 1.0f, mersenne::randf_oo(), mersenne::randf_oo() * 2.0f - 1.0f) * 8.0f
-				);
-			}
+			Vec3 basis;
 			if (hit_object->has<Health>())
 			{
 				s32 multiplier;
@@ -421,6 +414,23 @@ void Projectile::update(const Update& u)
 				else
 					multiplier = 1;
 				hit_object->get<Health>()->damage(entity(), damage * multiplier);
+				basis = Vec3::normalize(velocity);
+			}
+			else
+				basis = ray_callback.m_hitNormalWorld;
+
+			Vec4 color(1, 1, 1, 1);
+			if (owner.ref())
+				color = AI::colors[(s32)owner.ref()->get<AIAgent>()->team] + Vec4(0.5f, 0.5f, 0.5f, 0);
+
+			for (s32 i = 0; i < 30; i++)
+			{
+				Particles::sparks.add
+				(
+					ray_callback.m_hitPointWorld,
+					Quat::look(basis) * Vec3(mersenne::randf_oo() * 2.0f - 1.0f, mersenne::randf_oo() * 2.0f - 1.0f, mersenne::randf_oo()) * 8.0f,
+					color
+				);
 			}
 			World::remove(entity());
 			return;

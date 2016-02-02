@@ -8,7 +8,7 @@ namespace Asset
 {
 	namespace Uniform
 	{
-		const s32 count = 42;
+		const s32 count = 43;
 		const AssetID ambient_color = 0;
 		const AssetID bones = 1;
 		const AssetID color_buffer = 2;
@@ -41,16 +41,17 @@ namespace Asset
 		const AssetID p = 29;
 		const AssetID range = 30;
 		const AssetID shadow_map = 31;
-		const AssetID ssao_buffer = 32;
-		const AssetID time = 33;
-		const AssetID type = 34;
-		const AssetID uv_offset = 35;
-		const AssetID uv_scale = 36;
-		const AssetID v = 37;
-		const AssetID viewport_scale = 38;
-		const AssetID vp = 39;
-		const AssetID wall_normal = 40;
-		const AssetID zenith_color = 41;
+		const AssetID size = 32;
+		const AssetID ssao_buffer = 33;
+		const AssetID time = 34;
+		const AssetID type = 35;
+		const AssetID uv_offset = 36;
+		const AssetID uv_scale = 37;
+		const AssetID v = 38;
+		const AssetID viewport_scale = 39;
+		const AssetID vp = 40;
+		const AssetID wall_normal = 41;
+		const AssetID zenith_color = 42;
 	}
 	namespace Shader
 	{

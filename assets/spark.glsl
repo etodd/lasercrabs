@@ -12,9 +12,9 @@ uniform float time;
 uniform vec2 viewport_scale;
 uniform float lifetime;
 uniform vec3 gravity;
+uniform vec2 size;
 
-out float alpha;
-out vec2 uv;
+out vec4 color;
 
 void main()
 {
@@ -30,36 +30,32 @@ void main()
 
 	vec4 last_projected = mvp * vec4(last_position, 1);
 
+	vec2 diff = projected.xy - last_projected.xy;
+
 	mat2 rotation;
 	{
-		vec2 diff = projected.xy - last_projected.xy;
 		float angle = atan(diff.y, diff.x);
 		float c = cos(angle);
 		float s = sin(angle);
 		rotation = mat2(c, -s, s, c);
 	}
 
-	float size = in_param.y + (in_param.z - in_param.y) * (dt / lifetime);
-	projected.xy += rotation * ((in_uv * 2.0) - 1.0) * size * vec2(0.1f, 1.0f) * p[1][1] * viewport_scale;
+	float spark_length = dt < 0.1 ? dt * 10.0 : 1 - (dt - 0.1) / (lifetime - 0.1);
+
+	projected.xy += rotation * (((in_uv * 2.0) - 1.0) * vec2(size.x * spark_length * length(diff), size.y)) * viewport_scale;
 
 	gl_Position = projected;
 
-	alpha = dt < 0.25 ? dt * 4.0 : 1 - (dt - 0.25) / (lifetime - 0.25);
-
-	uv = in_uv;
+	color = in_param;
 }
 
 #else
 
-in float alpha;
-in vec2 uv;
+in vec4 color;
 out vec4 out_color;
-uniform sampler2D diffuse_map;
 
 void main()
 {
-	vec4 color = texture(diffuse_map, uv);
-	color.a *= alpha;
 	out_color = color;
 }
 

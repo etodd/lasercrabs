@@ -103,7 +103,7 @@ void ParticleSystem::upload_range(RenderSync* sync, s32 start, s32 count)
 void ParticleSystem::draw(const RenderParams& params)
 {
 	// free active particles
-	r32 time = params.sync->time.total;
+	r32 time = Game::time.total;
 	while (first_active != first_free)
 	{
 		if (time - births[first_active * VERTICES_PER_PARTICLE] < lifetime)
@@ -193,7 +193,7 @@ void ParticleSystem::draw(const RenderParams& params)
 		sync->write(RenderOp::SubMesh);
 		sync->write<s32>(mesh_id);
 		sync->write<s32>(first_active * INDICES_PER_PARTICLE);
-		sync->write<s32>(first_free * INDICES_PER_PARTICLE);
+		sync->write<s32>((first_free - first_active) * INDICES_PER_PARTICLE);
 	}
 	else
 	{
@@ -206,7 +206,7 @@ void ParticleSystem::draw(const RenderParams& params)
 		sync->write(RenderOp::SubMesh);
 		sync->write<s32>(mesh_id);
 		sync->write<s32>(first_active * INDICES_PER_PARTICLE);
-		sync->write<s32>(MAX_PARTICLES * INDICES_PER_PARTICLE);
+		sync->write<s32>((MAX_PARTICLES - first_active) * INDICES_PER_PARTICLE);
 	}
 }
 
@@ -218,9 +218,7 @@ void ParticleSystem::add_raw(const Vec3& pos, const Vec4& velocity, const Vec4& 
 
 	vi_assert(next != first_active); // make sure we have room
 
-	first_free = next;
-
-	s32 vertex_start = next * VERTICES_PER_PARTICLE;
+	s32 vertex_start = first_free * VERTICES_PER_PARTICLE;
 	for (s32 i = 0; i < VERTICES_PER_PARTICLE; i++)
 		positions[vertex_start + i] = pos;
 	for (s32 i = 0; i < VERTICES_PER_PARTICLE; i++)
@@ -230,6 +228,8 @@ void ParticleSystem::add_raw(const Vec3& pos, const Vec4& velocity, const Vec4& 
 		births[vertex_start + i] = time;
 	for (s32 i = 0; i < VERTICES_PER_PARTICLE; i++)
 		params[vertex_start + i] = param;
+
+	first_free = next;
 }
 
 void ParticleSystem::clear()
@@ -268,7 +268,7 @@ void StandardParticleSystem::pre_draw(const RenderParams& params)
 }
 
 Sparks::Sparks(const Vec2& size, r32 lifetime, const Vec3& gravity)
-	: ParticleSystem(lifetime, Asset::Shader::standard_particle, AssetNull),
+	: ParticleSystem(lifetime, Asset::Shader::spark, AssetNull),
 	size(size),
 	gravity(gravity)
 {
@@ -276,7 +276,7 @@ Sparks::Sparks(const Vec2& size, r32 lifetime, const Vec3& gravity)
 
 void Sparks::add(const Vec3& pos, const Vec3& velocity, const Vec4& color)
 {
-	add_raw(pos, Vec4(velocity, 0), color);
+	add_raw(pos + velocity * 0.05f, Vec4(velocity, 0), color);
 }
 
 void Sparks::pre_draw(const RenderParams& params)
@@ -286,6 +286,12 @@ void Sparks::pre_draw(const RenderParams& params)
 	params.sync->write(RenderDataType::Vec3);
 	params.sync->write<s32>(1);
 	params.sync->write<Vec3>(gravity);
+
+	params.sync->write(RenderOp::Uniform);
+	params.sync->write(Asset::Uniform::size);
+	params.sync->write(RenderDataType::Vec2);
+	params.sync->write<s32>(1);
+	params.sync->write<Vec2>(size);
 }
 
 // Configurations
@@ -301,9 +307,9 @@ StandardParticleSystem Particles::smoke
 
 Sparks Particles::sparks
 (
-	Vec2(0.1f, 0.1f),
-	1.0f,
-	Vec3(0.0f, -1.0f, 0.0f)
+	Vec2(0.3f, 0.02f),
+	0.5f,
+	Vec3(0.0f, -12.0f, 0.0f)
 );
 
 }

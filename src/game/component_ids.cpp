@@ -48,9 +48,10 @@ COMPONENT_TYPE(26, SkinnedModel) \
 COMPONENT_TYPE(27, View) \
 COMPONENT_TYPE(28, TurretControl) \
 COMPONENT_TYPE(29, Projectile) \
-COMPONENT_TYPE(30, Parkour)
+COMPONENT_TYPE(30, Parkour) \
+COMPONENT_TYPE(31, Tile) \
 
-Family World::families = 31;
+Family World::families = 32;
 
 #define COMPONENT_TYPE(INDEX, TYPE) \
 template<> Family ComponentType<TYPE>::family = (INDEX); \

@@ -2,7 +2,7 @@
 
 #include "data/entity.h"
 #include "lmath.h"
-#include "bullet/src/BulletDynamics/ConstraintSolver/btGeneric6DofConstraint.h"
+#include "BulletCollision/CollisionDispatch/btCollisionWorld.h"
 
 namespace VI
 {
@@ -37,6 +37,7 @@ struct Walker : public ComponentType<Walker>
 	~Walker();
 	void awake();
 	b8 slide(Vec2*, const Vec3&);
+	btCollisionWorld::ClosestRayResultCallback check_support();
 
 	Vec3 base_pos();
 

@@ -36,6 +36,9 @@ struct Parkour : public ComponentType<Parkour>
 	Vec3 relative_support_pos;
 	Ref<RigidBody> last_support;
 	r32 last_support_time;
+	r32 tile_spawn_timer;
+
+	b8 wallrun(const Update&, RigidBody*, const Vec3&, const Vec3&);
 
 	b8 try_jump(r32);
 	b8 try_parkour(b8 = false);

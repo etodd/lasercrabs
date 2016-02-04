@@ -761,6 +761,126 @@ void Rope::spawn(const Vec3& pos, const Vec3& dir, const r32 max_distance, const
 	}
 }
 
+TileEntity::TileEntity(const Vec3& pos, const Quat& rot, Transform* parent, const Quat& player_rotation)
+{
+	Transform* transform = create<Transform>();
+
+	transform->absolute(pos + player_rotation * Vec3(0.0f, 1.0f, 2.0f) + rot * Vec3(0, 0, 1), rot * Quat::euler(PI * 1.5f, PI * 1.5f, PI * 1.5f));
+
+	transform->reparent(parent);
+
+	Vec3 relative_target_pos = pos;
+	Quat relative_target_rot = rot;
+	parent->to_local(&relative_target_pos, &relative_target_rot);
+
+	create<Tile>(relative_target_pos, relative_target_rot);
+}
+
+Array<Mat4> Tile::instances;
+
+Tile::Tile(const Vec3& pos, const Quat& rot)
+	: relative_target_pos(pos),
+	relative_target_rot(rot),
+	timer()
+{
+}
+
+void Tile::awake()
+{
+	relative_start_pos = get<Transform>()->pos;
+	relative_start_rot = get<Transform>()->rot;
+}
+
+#define TILE_ANIM_TIME 0.35f
+#define TILE_LIFE_TIME 5.0f
+#define TILE_SIZE 0.5f
+void Tile::update(const Update& u)
+{
+	timer += u.time.delta;
+	if (timer > TILE_LIFE_TIME || !get<Transform>()->parent.ref())
+		World::remove(entity());
+	else
+	{
+		r32 blend = fmin(timer / TILE_ANIM_TIME, 1.0f);
+
+		Vec3 blend_pos = Vec3::lerp(blend, relative_start_pos, relative_target_pos) + Vec3(sinf(blend * PI) * 0.25f);
+		Quat blend_rot = Quat::slerp(blend, relative_start_rot, relative_target_rot);
+
+		get<Transform>()->pos = blend_pos;
+		get<Transform>()->rot = blend_rot;
+	}
+}
+
+r32 Tile::scale() const
+{
+	r32 blend = fmin(timer / TILE_ANIM_TIME, 1.0f);
+	return blend * TILE_SIZE;
+}
+
+void Tile::draw_opaque(const RenderParams& params)
+{
+	instances.length = 0;
+
+	Mesh* mesh_data = Loader::mesh_instanced(Asset::Mesh::plane);
+	Vec3 radius = (Vec4(mesh_data->bounds_radius, mesh_data->bounds_radius, mesh_data->bounds_radius, 0)).xyz();
+	r32 f_radius = fmax(radius.x, fmax(radius.y, radius.z));
+
+	{
+		for (auto i = Tile::list.iterator(); !i.is_last(); i.next())
+		{
+			Tile* tile = i.item();
+			const r32 size = tile->scale();
+			if (params.camera->visible_sphere(tile->get<Transform>()->absolute_pos(), size * f_radius))
+			{
+				Mat4* m = instances.add();
+				tile->get<Transform>()->mat(m);
+				m->scale(Vec3(size));
+			}
+		}
+	}
+
+	if (instances.length == 0)
+		return;
+
+	Loader::shader(Asset::Shader::standard_instanced);
+
+	RenderSync* sync = params.sync;
+	sync->write(RenderOp::Shader);
+	sync->write(Asset::Shader::standard_instanced);
+	sync->write(params.technique);
+
+	Mat4 vp = params.view_projection;
+
+	sync->write(RenderOp::CullMode);
+	sync->write(RenderCullMode::None);
+
+	sync->write(RenderOp::Uniform);
+	sync->write(Asset::Uniform::vp);
+	sync->write(RenderDataType::Mat4);
+	sync->write<s32>(1);
+	sync->write<Mat4>(vp);
+
+	sync->write(RenderOp::Uniform);
+	sync->write(Asset::Uniform::v);
+	sync->write(RenderDataType::Mat4);
+	sync->write<s32>(1);
+	sync->write<Mat4>(params.view);
+
+	sync->write(RenderOp::Uniform);
+	sync->write(Asset::Uniform::diffuse_color);
+	sync->write(RenderDataType::Vec4);
+	sync->write<s32>(1);
+	sync->write<Vec4>(Vec4(1, 1, 0, 0));
+
+	sync->write(RenderOp::Instances);
+	sync->write(Asset::Mesh::plane);
+	sync->write(instances.length);
+	sync->write<Mat4>(instances.data, instances.length);
+
+	sync->write(RenderOp::CullMode);
+	sync->write(RenderCullMode::Back);
+}
+
 MoverEntity::MoverEntity(const b8 reversed, const b8 trans, const b8 rot)
 {
 	create<Mover>(reversed, trans, rot);

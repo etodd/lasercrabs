@@ -1,9 +1,9 @@
 #include "walker.h"
 #include "data/components.h"
 #include "physics.h"
-#include "BulletCollision/NarrowPhaseCollision/btRaycastCallback.h"
 #include "entities.h"
 #include "game.h"
+#include "BulletCollision/NarrowPhaseCollision/btRaycastCallback.h"
 
 namespace VI
 {
@@ -97,6 +97,29 @@ b8 Walker::slide(Vec2* movement, const Vec3& wall_ray)
 		return false; // No wall. Continue in the old direction.
 }
 
+btCollisionWorld::ClosestRayResultCallback Walker::check_support()
+{
+	Vec3 pos = get<Transform>()->absolute_pos();
+
+	for (s32 i = 0; i < num_corners; i++)
+	{
+		Vec3 ray_start = pos + (corners[i] * (radius * 0.9f));
+		Vec3 ray_end = ray_start + Vec3(0, (height * -0.5f) + (support_height * -1.5f), 0);
+
+		btCollisionWorld::ClosestRayResultCallback ray_callback(ray_start, ray_end);
+		ray_callback.m_flags = btTriangleRaycastCallback::EFlags::kF_FilterBackfaces
+			| btTriangleRaycastCallback::EFlags::kF_KeepUnflippedNormal;
+		ray_callback.m_collisionFilterMask = ray_callback.m_collisionFilterGroup = ~CollisionWalker & ~CollisionTarget;
+
+		Physics::btWorld->rayTest(ray_start, ray_end, ray_callback);
+		if (ray_callback.hasHit())
+			return ray_callback;
+	}
+
+	// no hits
+	return btCollisionWorld::ClosestRayResultCallback(Vec3::zero, Vec3::zero);
+}
+
 void Walker::update(const Update& u)
 {
 	support = nullptr;
@@ -113,44 +136,31 @@ void Walker::update(const Update& u)
 		Vec3 support_velocity = Vec3::zero;
 		Vec3 adjustment = Vec3::zero;
 
-		for (s32 i = 0; i < num_corners; i++)
+		btCollisionWorld::ClosestRayResultCallback ray_callback = check_support();
+
+		if (ray_callback.hasHit())
 		{
-			Vec3 ray_start = pos + (corners[i] * (radius * 0.9f));
-			Vec3 ray_end = ray_start + Vec3(0, (height * -0.5f) + (support_height * -1.5f), 0);
+			const btRigidBody* object = dynamic_cast<const btRigidBody*>(ray_callback.m_collisionObject);
 
-			btCollisionWorld::ClosestRayResultCallback ray_callback(ray_start, ray_end);
-			ray_callback.m_flags = btTriangleRaycastCallback::EFlags::kF_FilterBackfaces
-				| btTriangleRaycastCallback::EFlags::kF_KeepUnflippedNormal;
-			ray_callback.m_collisionFilterMask = ray_callback.m_collisionFilterGroup = ~CollisionWalker & ~CollisionTarget;
-
-			Physics::btWorld->rayTest(ray_start, ray_end, ray_callback);
-
-			if (ray_callback.hasHit())
+			if (object)
 			{
-				const btRigidBody* object = dynamic_cast<const btRigidBody*>(ray_callback.m_collisionObject);
+				support_velocity = Vec3(object->getLinearVelocity())
+					+ Vec3(object->getAngularVelocity()).cross(pos - Vec3(object->getCenterOfMassPosition()));
+			}
 
-				if (object)
-				{
-					support_velocity = Vec3(object->getLinearVelocity())
-						+ Vec3(object->getAngularVelocity()).cross(pos - Vec3(object->getCenterOfMassPosition()));
-				}
+			r32 velocity_diff = velocity.y - support_velocity.y;
 
-				r32 velocity_diff = velocity.y - support_velocity.y;
+			Vec3 support_normal = ray_callback.m_hitNormalWorld;
 
-				Vec3 support_normal = ray_callback.m_hitNormalWorld;
+			// Calculate our expected vertical velocity (if we're running up a ramp for example)
+			// If our actual velocity is higher than that, we must be jumping,
+			// so don't glue the player to the ground
+			Vec3 velocity_flattened = velocity - support_normal * velocity.dot(support_normal);
 
-				{
-					// Calculate our expected vertical velocity (if we're running up a ramp for example)
-					// If our actual velocity is higher than that, we must be jumping,
-					// so don't glue the player to the ground
-					Vec3 velocity_flattened = velocity - support_normal * velocity.dot(support_normal);
+			r32 expected_vertical_speed = velocity_flattened.y;
 
-					r32 expected_vertical_speed = velocity_flattened.y;
-
-					if (velocity_diff > expected_vertical_speed + 0.5f)
-						continue; // We're jumping upward off the ground, don't glue ourselves to the ground
-				}
-
+			if (velocity_diff < expected_vertical_speed + 0.5f)
+			{
 				if (velocity_diff < -fall_damage_threshold)
 					get<Health>()->damage(nullptr, (velocity_diff + fall_damage_threshold) * -15.0f);
 
@@ -249,7 +259,6 @@ void Walker::update(const Update& u)
 				}
 
 				support = Entity::list[object->getUserIndex()].get<RigidBody>();
-				break;
 			}
 		}
 

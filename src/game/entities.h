@@ -124,6 +124,28 @@ struct Rope : public ComponentType<Rope>
 	void segment_hit(Entity*);
 };
 
+struct TileEntity : public Entity
+{
+	TileEntity(const Vec3&, const Quat&, Transform*, const Quat&);
+};
+
+struct Tile : public ComponentType<Tile>
+{
+	static Array<Mat4> instances;
+
+	Vec3 relative_start_pos;
+	Quat relative_start_rot;
+	Vec3 relative_target_pos;
+	Quat relative_target_rot;
+	r32 timer;
+
+	Tile(const Vec3&, const Quat&);
+	void awake();
+	r32 scale() const;
+	void update(const Update&);
+	static void draw_opaque(const RenderParams&);
+};
+
 struct CreditsPickupEntity : public Entity
 {
 	CreditsPickupEntity(const Vec3&, const Quat&);

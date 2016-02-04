@@ -102,6 +102,83 @@ void Parkour::footstep()
 	shockwave->get<Transform>()->reparent(get<Transform>()->parent.ref());
 }
 
+b8 Parkour::wallrun(const Update& u, RigidBody* wall, const Vec3& relative_wall_pos, const Vec3& relative_wall_normal)
+{
+	b8 exit_wallrun = false;
+
+	Vec3 absolute_wall_normal = wall->get<Transform>()->to_world_normal(relative_wall_normal);
+	Vec3 absolute_wall_pos = wall->get<Transform>()->to_world(relative_wall_pos);
+
+	btRigidBody* body = get<RigidBody>()->btBody;
+	
+	Vec3 velocity = body->getLinearVelocity() + Vec3(Physics::btWorld->getGravity()) * -0.3f * u.time.delta; // cancel gravity a bit
+	velocity -= absolute_wall_normal * absolute_wall_normal.dot(velocity); // keep us on the wall
+
+	Vec3 support_velocity = Vec3::zero;
+	if (wall)
+	{
+		support_velocity = Vec3(wall->btBody->getLinearVelocity())
+			+ Vec3(wall->btBody->getAngularVelocity()).cross(absolute_wall_pos - Vec3(wall->btBody->getCenterOfMassPosition()));
+	}
+
+	Vec3 velocity_diff = velocity - support_velocity;
+	r32 vertical_velocity_diff = velocity_diff.y;
+	velocity_diff.y = 0.0f;
+	if (wall_run_state != WallRunState::Forward && velocity_diff.length() < MIN_WALLRUN_SPEED)
+		exit_wallrun = true; // We're going too slow
+	else
+	{
+		body->setLinearVelocity(velocity);
+
+		Plane p(absolute_wall_normal, absolute_wall_pos);
+
+		Vec3 pos = get<Transform>()->absolute_pos();
+		r32 wall_distance = get<Walker>()->radius * WALL_RUN_DISTANCE_RATIO;
+		Vec3 new_pos = pos + absolute_wall_normal * (-p.distance(pos) + wall_distance);
+
+		btTransform transform = body->getWorldTransform();
+		transform.setOrigin(new_pos);
+		body->setWorldTransform(transform);
+
+		last_support = wall;
+		relative_wall_run_normal = relative_wall_normal;
+
+		// Face the correct direction
+		{
+			Vec3 forward;
+			if (wall_run_state == WallRunState::Forward)
+			{
+				forward = -absolute_wall_normal;
+				forward.normalize();
+			}
+			else
+			{
+				forward = velocity_diff;
+				forward.normalize();
+			}
+			get<Walker>()->target_rotation = atan2(forward.x, forward.z);
+		}
+
+		// Update animation speed
+		Animator::Layer* layer = &get<Animator>()->layers[0];
+		if (wall_run_state == WallRunState::Forward)
+			layer->speed = fmax(0.0f, vertical_velocity_diff / get<Walker>()->speed);
+		else
+			layer->speed = velocity_diff.length() / get<Walker>()->speed;
+
+		// Try to climb stuff while we're wall-running
+		if (try_parkour())
+			exit_wallrun = true;
+		else
+		{
+			relative_support_pos = last_support.ref()->get<Transform>()->to_local(get<Walker>()->base_pos() + absolute_wall_normal * -wall_distance);
+			last_support_time = Game::time.total;
+		}
+	}
+
+	return exit_wallrun;
+}
+
 void Parkour::update(const Update& u)
 {
 	fsm.time += u.time.delta;
@@ -152,7 +229,8 @@ void Parkour::update(const Update& u)
 	else if (fsm.current == State::WallRun)
 	{
 		b8 exit_wallrun = false;
-		if (get<Walker>()->support.ref())
+		btCollisionWorld::ClosestRayResultCallback support_callback = get<Walker>()->check_support();
+		if (support_callback.hasHit())
 			exit_wallrun = true;
 		else
 		{
@@ -174,85 +252,46 @@ void Parkour::update(const Update& u)
 				if (wall_normal.dot(wall_run_normal) > 0.6f)
 				{
 					// Still on the wall
-					btRigidBody* body = get<RigidBody>()->btBody;
-					
-					Vec3 velocity = body->getLinearVelocity() + Vec3(Physics::btWorld->getGravity()) * -0.3f * u.time.delta; // cancel gravity a bit
-					velocity -= wall_normal * wall_normal.dot(velocity); // keep us on the wall
-
-					Vec3 support_velocity = Vec3::zero;
-					const btRigidBody* object = dynamic_cast<const btRigidBody*>(ray_callback.m_collisionObject);
-					if (object)
-					{
-						support_velocity = Vec3(object->getLinearVelocity())
-							+ Vec3(object->getAngularVelocity()).cross(ray_callback.m_hitPointWorld - Vec3(object->getCenterOfMassPosition()));
-					}
-
-					Vec3 velocity_diff = velocity - support_velocity;
-					r32 vertical_velocity_diff = velocity_diff.y;
-					velocity_diff.y = 0.0f;
-					if (wall_run_state != WallRunState::Forward && velocity_diff.length() < MIN_WALLRUN_SPEED)
-						exit_wallrun = true; // We're going too slow
-					else
-					{
-						body->setLinearVelocity(velocity);
-
-						Plane p(wall_normal, ray_callback.m_hitPointWorld);
-
-						Vec3 pos = get<Transform>()->absolute_pos();
-						Vec3 new_pos = pos + wall_normal * (-p.distance(pos) + (get<Walker>()->radius * WALL_RUN_DISTANCE_RATIO));
-
-						btTransform transform = body->getWorldTransform();
-						transform.setOrigin(new_pos);
-						body->setWorldTransform(transform);
-
-						last_support = Entity::list[ray_callback.m_collisionObject->getUserIndex()].get<RigidBody>();
-						relative_wall_run_normal = last_support.ref()->get<Transform>()->to_local_normal(wall_normal);
-
-						// Face the correct direction
-						{
-							Vec3 forward;
-							if (wall_run_state == WallRunState::Forward)
-							{
-								forward = -wall_normal;
-								forward.normalize();
-							}
-							else
-							{
-								forward = velocity_diff;
-								forward.normalize();
-							}
-							get<Walker>()->target_rotation = atan2(forward.x, forward.z);
-						}
-
-						// Update animation speed
-						if (wall_run_state == WallRunState::Forward)
-							layer->speed = fmax(0.0f, vertical_velocity_diff / get<Walker>()->speed);
-						else
-							layer->speed = velocity_diff.length() / get<Walker>()->speed;
-
-						// Try to climb stuff while we're wall-running
-						if (try_parkour())
-							exit_wallrun = true;
-						else
-						{
-							relative_support_pos = last_support.ref()->get<Transform>()->to_local(get<Walker>()->base_pos());
-							last_support_time = Game::time.total;
-						}
-					}
+					RigidBody* wall = Entity::list[ray_callback.m_collisionObject->getUserIndex()].get<RigidBody>();
+					Vec3 relative_normal = wall->get<Transform>()->to_local_normal(ray_callback.m_hitNormalWorld);
+					Vec3 relative_pos = wall->get<Transform>()->to_local(ray_callback.m_hitPointWorld);
+					exit_wallrun = wallrun(u, wall, relative_pos, relative_normal);
 				}
 				else // The wall was changed direction too drastically
 					exit_wallrun = true;
 			}
 			else // ran out of wall to run on
 			{
-				exit_wallrun = true;
 				if (wall_run_state == WallRunState::Forward)
+				{
+					exit_wallrun = true;
 					try_parkour(true); // do an extra broad raycast to make sure we hit the top if at all possible
+				}
+				else
+				{
+					// keep going, generate a wall
+					exit_wallrun = wallrun(u, last_support.ref(), relative_support_pos, relative_wall_run_normal);
+					tile_spawn_timer += u.time.delta;
+					if (tile_spawn_timer > 0.1f)
+					{
+						Vec3 absolute_support_pos = relative_support_pos;
+						Quat absolute_support_rot = Quat::look(relative_wall_run_normal);
+						last_support.ref()->get<Transform>()->to_world(&absolute_support_pos, &absolute_support_rot);
+
+						Quat player_rotation = Quat::euler(0, get<Walker>()->rotation, 0);
+
+						World::create<TileEntity>(absolute_support_pos, absolute_support_rot, last_support.ref()->get<Transform>(), player_rotation);
+						tile_spawn_timer = 0.0f;
+					}
+				}
 			}
 		}
 
 		if (exit_wallrun && fsm.current == State::WallRun)
+		{
 			fsm.transition(State::Normal);
+			wall_run_state = WallRunState::None;
+		}
 	}
 	else if (fsm.current == State::Normal || fsm.current == State::Run)
 	{

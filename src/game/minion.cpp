@@ -278,6 +278,7 @@ void MinionCheckTarget::run()
 
 void MinionGoToTarget::run()
 {
+	path_timer = 0.0f;
 	if (minion->target.ref())
 	{
 		Vec3 target_pos = minion->target.ref()->get<Transform>()->absolute_pos();
@@ -320,10 +321,13 @@ b8 MinionGoToTarget::target_in_range() const
 
 void MinionGoToTarget::update(const Update& u)
 {
+	path_timer += u.time.delta;
 	if (!minion->target.ref())
 		done(false);
 	else if (target_in_range())
 		done(true);
+	else if (path_timer > 0.5f)
+		run();
 }
 
 void MinionAttack::run()
@@ -478,9 +482,15 @@ void MinionAI::update(const Update& u)
 
 void MinionAI::go(const Vec3& target)
 {
+	path_index = 0;
+	path_point_count = 0;
+
 	Vec3 pos = get<Walker>()->base_pos();
 	dtPolyRef start_poly = AI::get_poly(pos, AI::default_search_extents);
 	dtPolyRef end_poly = AI::get_poly(target, AI::default_search_extents);
+
+	if (!start_poly || !end_poly)
+		return;
 
 	dtPolyRef path_polys[MAX_POLYS];
 	dtPolyRef path_parents[MAX_POLYS];
@@ -489,8 +499,6 @@ void MinionAI::go(const Vec3& target)
 	s32 path_poly_count;
 
 	AI::nav_mesh_query->findPath(start_poly, end_poly, (r32*)&pos, (r32*)&target, &AI::default_query_filter, path_polys, &path_poly_count, MAX_POLYS);
-	path_index = 0;
-	path_point_count = 0;
 	if (path_poly_count)
 	{
 		// In case of partial path, make sure the end point is clamped to the last polygon.

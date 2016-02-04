@@ -3,13 +3,17 @@
 #include "array.h"
 #include "lmath.h"
 #include <array>
+#include "recast/DetourTileCache/Include/DetourTileCacheBuilder.h"
 
 struct cJSON;
+struct rcPolyMesh;
+struct rcPolyMeshDetail;
 
 namespace VI
 {
 
 #define MAX_BONE_WEIGHTS 4
+const r32 nav_mesh_max_error = 2.0f;
 
 namespace Json
 {
@@ -126,5 +130,57 @@ struct Font
 
 	Character& get(const void*);
 };
+
+struct FastLZCompressor : public dtTileCacheCompressor
+{
+	int maxCompressedSize(const int);
+	dtStatus compress(const unsigned char*, const int, unsigned char*, const int, int*);
+	dtStatus decompress(const unsigned char*, const int, unsigned char*, const int, int*);
+};
+
+struct TileCacheLayer
+{
+	u8* data;
+	s32 data_size;
+};
+
+struct TileCacheCell
+{
+	Array<TileCacheLayer> layers;
+};
+
+struct TileCacheData
+{
+	Vec3 min;
+	s32 width;
+	s32 height;
+	Array<TileCacheCell> cells;
+};
+
+struct NavMeshInput
+{
+	r32* vertices;
+	s32 vertex_count;
+	s32* indices;
+	s32 index_count;
+	Vec3 bounds_min;
+	Vec3 bounds_max;
+};
+
+const r32 nav_agent_height = 2.0f;
+const r32 nav_agent_max_climb = 0.5f;
+const r32 nav_agent_radius = 0.45f;
+const r32 nav_edge_max_length = 12.0f;
+const r32 nav_min_region_size = 8.0f;
+const r32 nav_merged_region_size = 20.0f;
+const r32 nav_detail_sample_distance = 6.0f;
+const r32 nav_detail_sample_max_error = 1.0f;
+const r32 nav_resolution = 0.2f;
+const r32 nav_walkable_slope = 45.0f; // degrees
+const r32 nav_tile_size = 20.0f;
+const s32 nav_max_layers = 32;
+const s32 nav_expected_layers_per_tile = 4; // how many layers (or "floors") each navmesh tile is expected to have
+const s32 nav_max_obstacles = 128;
+
 
 }

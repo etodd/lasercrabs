@@ -69,6 +69,8 @@ struct MinionCheckTarget : public MinionBehavior<MinionCheckTarget>
 
 struct MinionGoToTarget : public MinionBehavior<MinionGoToTarget>
 {
+	r32 path_timer;
+
 	void run();
 	b8 target_in_range() const;
 	void done(b8 = true);

@@ -6,29 +6,16 @@
 #include <AK/SoundEngine/Common/AkTypes.h>
 
 struct dtNavMesh;
+class dtTileCache;
+struct dtTileCacheAlloc;
+struct dtTileCacheCompressor;
+struct rcPolyMesh;
 struct cJSON;
 
 namespace VI
 {
 
-/// Represents a polygon mesh suitable for use in building a navigation mesh. 
-struct rcPolyMesh
-{
-	u16* verts;	///< The mesh vertices. [Form: (x, y, z) * #nverts]
-	u16* polys;	///< Polygon and neighbor data. [Length: #maxpolys * 2 * #nvp]
-	u16* regs;	///< The region id assigned to each polygon. [Length: #maxpolys]
-	u16* flags;	///< The user defined flags for each polygon. [Length: #maxpolys]
-	u8* areas;	///< The area id assigned to each polygon. [Length: #maxpolys]
-	s32 nverts;				///< The number of vertices.
-	s32 npolys;				///< The number of polygons.
-	s32 maxpolys;			///< The number of allocated polygons.
-	s32 nvp;				///< The maximum number of vertices per polygon.
-	r32 bmin[3];			///< The minimum bounds in world space. [(x, y, z)]
-	r32 bmax[3];			///< The maximum bounds in world space. [(x, y, z)]
-	r32 cs;				///< The size of each cell. (On the xz-plane.)
-	r32 ch;				///< The height of each cell. (The minimum increment along the y-axis.)
-	s32 borderSize;			///< The AABB border size used to generate the source data from which the mesh was derived.
-};
+struct NavMeshProcess;
 
 struct Settings
 {
@@ -84,6 +71,10 @@ struct Loader
 	static Array<Entry<AkBankID> > soundbanks;
 	static Settings settings_data;
 	static dtNavMesh* current_nav_mesh;
+	static dtTileCache* nav_tile_cache;
+	static dtTileCacheAlloc nav_tile_allocator;
+	static FastLZCompressor nav_tile_compressor;
+	static NavMeshProcess nav_tile_mesh_process;
 	static AssetID current_nav_mesh_id;
 
 	static Mesh* mesh(AssetID);
@@ -126,8 +117,6 @@ struct Loader
 	static void font_free(AssetID);
 
 	static dtNavMesh* nav_mesh(AssetID);
-	static void base_nav_mesh(AssetID, rcPolyMesh*);
-	static void base_nav_mesh_free(rcPolyMesh*);
 
 	static cJSON* level(AssetID);
 	static void level_free(cJSON*);

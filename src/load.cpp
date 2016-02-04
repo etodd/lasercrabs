@@ -3,10 +3,16 @@
 #include "lodepng/lodepng.h"
 #include "vi_assert.h"
 #include "asset/lookup.h"
+#include "recast/Detour/Include/DetourCommon.h"
+#include "recast/Recast/Include/Recast.h"
+#include "recast/Detour/Include/DetourAlloc.h"
 #include "recast/Detour/Include/DetourNavMesh.h"
 #include "recast/Detour/Include/DetourNavMeshBuilder.h"
+#include "recast/DetourTileCache/Include/DetourTileCache.h"
+#include "recast/DetourTileCache/Include/DetourTileCacheBuilder.h"
 #include <AK/SoundEngine/Common/AkSoundEngine.h>
 #include "cjson/cJSON.h"
+#include "ai.h"
 
 namespace VI
 {
@@ -23,7 +29,11 @@ Array<Loader::Entry<void*> > Loader::dynamic_meshes;
 Array<Loader::Entry<void*> > Loader::dynamic_textures;
 Array<Loader::Entry<void*> > Loader::framebuffers;
 Array<Loader::Entry<AkBankID> > Loader::soundbanks;
-dtNavMesh* Loader::current_nav_mesh;
+dtNavMesh* Loader::current_nav_mesh = nullptr;
+dtTileCache* Loader::nav_tile_cache = nullptr;
+dtTileCacheAlloc Loader::nav_tile_allocator;
+FastLZCompressor Loader::nav_tile_compressor;
+NavMeshProcess Loader::nav_tile_mesh_process;
 AssetID Loader::current_nav_mesh_id = AssetNull;
 
 s32 Loader::static_mesh_count = 0;
@@ -714,158 +724,120 @@ void Loader::level_free(cJSON* json)
 	Json::json_free(json);
 }
 
-void base_nav_mesh_read(FILE* f, rcPolyMesh* mesh)
-{
-	if (!fread(mesh, sizeof(rcPolyMesh), 1, f))
-		memset(mesh, 0, sizeof(rcPolyMesh));
-	else
-	{
-		mesh->verts = (u16*)malloc(sizeof(u16) * 3 * mesh->nverts);
-		mesh->polys = (u16*)malloc(sizeof(u16) * 2 * mesh->nvp * mesh->npolys);
-		mesh->regs = (u16*)malloc(sizeof(u16) * mesh->npolys);
-		mesh->flags = (u16*)malloc(sizeof(u16) * mesh->npolys);
-		mesh->areas = (u8*)malloc(sizeof(u8) * mesh->npolys);
-		fread(mesh->verts, sizeof(u16) * 3, mesh->nverts, f);
-		fread(mesh->polys, sizeof(u16) * 2 * mesh->nvp, mesh->npolys, f);
-		fread(mesh->regs, sizeof(u16), mesh->npolys, f);
-		fread(mesh->flags, sizeof(u16), mesh->npolys, f);
-		fread(mesh->areas, sizeof(u8), mesh->npolys, f);
-	}
-}
-
-// Debug function for rendering the nav mesh.
-// You're responsible for keeping track of the result.
-void Loader::base_nav_mesh(AssetID id, rcPolyMesh* mesh)
-{
-	if (id == AssetNull)
-		return;
-
-	const char* path = AssetLookup::NavMesh::values[id];
-
-	FILE* f = fopen(path, "rb");
-	if (!f)
-	{
-		fprintf(stderr, "Can't open nav file '%s'\n", path);
-		return;
-	}
-
-	base_nav_mesh_read(f, mesh);
-
-	fclose(f);
-}
-
-void Loader::base_nav_mesh_free(rcPolyMesh* mesh)
-{
-	free(mesh->verts);
-	free(mesh->polys);
-	free(mesh->regs);
-	free(mesh->flags);
-	free(mesh->areas);
-}
-
 dtNavMesh* Loader::nav_mesh(AssetID id)
 {
 	// Only allow one nav mesh to be loaded at a time
 	vi_assert(current_nav_mesh_id == AssetNull || current_nav_mesh_id == id);
 
 	if (id == AssetNull)
-		return 0;
+		return nullptr;
 	
 	if (current_nav_mesh_id == AssetNull)
 	{
 		const char* path = AssetLookup::NavMesh::values[id];
 
+		TileCacheData tiles;
+
 		FILE* f = fopen(path, "rb");
-		if (!f)
+		if (f)
 		{
-			fprintf(stderr, "Can't open nav file '%s'\n", path);
-			return 0;
+			if (fread(&tiles.min, sizeof(Vec3), 1, f))
+			{
+				fread(&tiles.width, sizeof(s32), 1, f);
+				fread(&tiles.height, sizeof(s32), 1, f);
+				tiles.cells.resize(tiles.width * tiles.height);
+				for (s32 i = 0; i < tiles.cells.length; i++)
+				{
+					TileCacheCell& cell = tiles.cells[i];
+					s32 layer_count;
+					fread(&layer_count, sizeof(s32), 1, f);
+					cell.layers.resize(layer_count);
+					for (s32 j = 0; j < layer_count; j++)
+					{
+						TileCacheLayer& layer = cell.layers[j];
+						fread(&layer.data_size, sizeof(s32), 1, f);
+						layer.data = (u8*)dtAlloc(layer.data_size, dtAllocHint::DT_ALLOC_PERM);
+						fread(layer.data, sizeof(u8), layer.data_size, f);
+					}
+				}
+			}
+			fclose(f);
 		}
 
-		rcPolyMesh mesh;
-		base_nav_mesh_read(f, &mesh);
-
-		if (mesh.npolys > 0)
+		if (tiles.width > 0)
 		{
-			rcPolyMeshDetail mesh_detail;
-			fread(&mesh_detail, sizeof(rcPolyMeshDetail), 1, f);
-			mesh_detail.meshes = (u32*)malloc(sizeof(u32) * 4 * mesh_detail.nmeshes);
-			mesh_detail.verts = (r32*)malloc(sizeof(r32) * 3 * mesh_detail.nverts);
-			mesh_detail.tris = (u8*)malloc(sizeof(u8) * 4 * mesh_detail.ntris);
-			fread(mesh_detail.meshes, sizeof(u32) * 4, mesh_detail.nmeshes, f);
-			fread(mesh_detail.verts, sizeof(r32) * 3, mesh_detail.nverts, f);
-			fread(mesh_detail.tris, sizeof(u8) * 4, mesh_detail.ntris, f);
-
-			r32 agent_height;
-			r32 agent_radius;
-			r32 agent_max_climb;
-
-			fread(&agent_height, sizeof(r32), 1, f);
-			fread(&agent_radius, sizeof(r32), 1, f);
-			fread(&agent_max_climb, sizeof(r32), 1, f);
-
-			fclose(f);
-
-			u8* navData = 0;
-			s32 navDataSize = 0;
-
-			dtNavMeshCreateParams params;
-			memset(&params, 0, sizeof(params));
-			params.verts = mesh.verts;
-			params.vertCount = mesh.nverts;
-			params.polys = mesh.polys;
-			params.polyAreas = mesh.areas;
-			params.polyFlags = mesh.flags;
-			params.polyCount = mesh.npolys;
-			params.nvp = mesh.nvp;
-			params.detailMeshes = mesh_detail.meshes;
-			params.detailVerts = mesh_detail.verts;
-			params.detailVertsCount = mesh_detail.nverts;
-			params.detailTris = mesh_detail.tris;
-			params.detailTriCount = mesh_detail.ntris;
-			params.offMeshConVerts = 0;
-			params.offMeshConRad = 0;
-			params.offMeshConDir = 0;
-			params.offMeshConAreas = 0;
-			params.offMeshConFlags = 0;
-			params.offMeshConUserID = 0;
-			params.offMeshConCount = 0;
-			params.walkableHeight = agent_height;
-			params.walkableRadius = agent_radius;
-			params.walkableClimb = agent_max_climb;
-			params.bmin[0] = mesh.bmin[0];
-			params.bmin[1] = mesh.bmin[1];
-			params.bmin[2] = mesh.bmin[2];
-			params.bmax[0] = mesh.bmax[0];
-			params.bmax[1] = mesh.bmax[1];
-			params.bmax[2] = mesh.bmax[2];
-			params.cs = mesh.cs;
-			params.ch = mesh.ch;
-			params.buildBvTree = true;
-
-			{
-				b8 status = dtCreateNavMeshData(&params, &navData, &navDataSize);
-				vi_assert(status);
-			}
+			// Create Detour navmesh
 
 			current_nav_mesh = dtAllocNavMesh();
 			vi_assert(current_nav_mesh);
 
+			dtNavMeshParams params;
+			memset(&params, 0, sizeof(params));
+			rcVcopy(params.orig, (r32*)&tiles.min);
+			params.tileWidth = nav_tile_size * nav_resolution;
+			params.tileHeight = nav_tile_size * nav_resolution;
+
+			s32 tileBits = rcMin((s32)dtIlog2(dtNextPow2(tiles.width * tiles.height * nav_expected_layers_per_tile)), 14);
+			if (tileBits > 14) tileBits = 14;
+			s32 polyBits = 22 - tileBits;
+			params.maxTiles = 1 << tileBits;
+			params.maxPolys = 1 << polyBits;
+
 			{
-				dtStatus status = current_nav_mesh->init(navData, navDataSize, DT_TILE_FREE_DATA);
+				dtStatus status = current_nav_mesh->init(&params);
+				vi_assert(dtStatusSucceed(status));
+			}
+
+			// Create Detour tile cache
+
+			dtTileCacheParams tcparams;
+			memset(&tcparams, 0, sizeof(tcparams));
+			memcpy(&tcparams.orig, &tiles.min, sizeof(tiles.min));
+			tcparams.cs = nav_resolution;
+			tcparams.ch = nav_resolution;
+			tcparams.width = (s32)nav_tile_size;
+			tcparams.height = (s32)nav_tile_size;
+			tcparams.walkableHeight = nav_agent_height;
+			tcparams.walkableRadius = nav_agent_radius;
+			tcparams.walkableClimb = nav_agent_max_climb;
+			tcparams.maxSimplificationError = nav_mesh_max_error;
+			tcparams.maxTiles = tiles.width * tiles.height * nav_expected_layers_per_tile;
+			tcparams.maxObstacles = nav_max_obstacles;
+
+			nav_tile_cache = dtAllocTileCache();
+			vi_assert(nav_tile_cache);
+			{
+				dtStatus status = nav_tile_cache->init(&tcparams, &nav_tile_allocator, &nav_tile_compressor, &nav_tile_mesh_process);
 				vi_assert(!dtStatusFailed(status));
 			}
 
-			base_nav_mesh_free(&mesh);
-			free(mesh_detail.meshes);
-			free(mesh_detail.verts);
-			free(mesh_detail.tris);
-		}
-		else
-			current_nav_mesh = 0;
+			for (s32 ty = 0; ty < tiles.height; ty++)
+			{
+				for (s32 tx = 0; tx < tiles.width; tx++)
+				{
+					TileCacheCell& cell = tiles.cells[tx + ty * tiles.width];
+					for (s32 i = 0; i < cell.layers.length; i++)
+					{
+						TileCacheLayer& tile = cell.layers[i];
+						dtStatus status = nav_tile_cache->addTile(tile.data, tile.data_size, DT_COMPRESSEDTILE_FREE_DATA, 0);
+						vi_assert(dtStatusSucceed(status));
+					}
+				}
+			}
 
-		current_nav_mesh_id = id;
+			// Build initial meshes
+			for (s32 ty = 0; ty < tiles.height; ty++)
+			{
+				for (s32 tx = 0; tx < tiles.width; tx++)
+				{
+					dtStatus status = nav_tile_cache->buildNavMeshTilesAt(tx, ty, current_nav_mesh);
+					vi_assert(dtStatusSucceed(status));
+				}
+			}
+		}
 	}
+
+	current_nav_mesh_id = id;
 
 	return current_nav_mesh;
 }
@@ -915,9 +887,14 @@ void Loader::transients_free()
 	if (current_nav_mesh)
 	{
 		dtFreeNavMesh(current_nav_mesh);
-		current_nav_mesh = 0;
+		current_nav_mesh = nullptr;
 	}
 	current_nav_mesh_id = AssetNull;
+	if (nav_tile_cache)
+	{
+		dtFreeTileCache(nav_tile_cache);
+		nav_tile_cache = nullptr;
+	}
 
 	for (AssetID i = 0; i < meshes.length; i++)
 	{

@@ -136,6 +136,8 @@ void Game::update(const Update& update_in)
 
 	Physics::sync_static();
 
+	AI::update(u);
+
 	for (s32 i = 0; i < Team::list.length; i++)
 		Team::list[i].update(u);
 	for (auto i = PlayerManager::list.iterator(); !i.is_last(); i.next())

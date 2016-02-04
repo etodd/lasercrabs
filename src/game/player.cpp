@@ -280,7 +280,7 @@ void LocalPlayer::update(const Update& u)
 					pause = false;
 				if (menu.item(u, gamepad, &pos, "Options"))
 					options_menu = true;
-				if (menu.item(u, gamepad, &pos, "Exit"))
+				if (menu.item(u, gamepad, &pos, "Main menu"))
 					Menu::title();
 			}
 

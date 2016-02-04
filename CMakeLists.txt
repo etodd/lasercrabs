@@ -203,9 +203,22 @@ add_library(detour STATIC
 	external/recast/Detour/Source/DetourNavMeshBuilder.cpp
 	external/recast/Detour/Source/DetourNavMeshQuery.cpp
 	external/recast/Detour/Source/DetourNode.cpp
+	external/recast/DetourTileCache/Include/DetourTileCache.h
+	external/recast/DetourTileCache/Include/DetourTileCacheBuilder.h
+	external/recast/DetourTileCache/Source/DetourTileCache.cpp
+	external/recast/DetourTileCache/Source/DetourTileCacheBuilder.cpp
 )
 
-target_include_directories(detour PRIVATE external/recast/Detour/Include)
+target_include_directories(detour PUBLIC
+	external/recast/Detour/Include
+	external/recast/DetourTileCache/Include
+)
+
+## FastLZ
+add_library(fastlz STATIC
+	external/fastlz/fastlz.c
+	external/fastlz/fastlz.h
+)
 
 ## Mersenne Twister
 add_library(mersenne STATIC
@@ -355,7 +368,9 @@ target_link_libraries(wringer
 	BulletSoftBody
 	LinearMath
 	lodepng
+	recast
 	detour
+	fastlz
 	cJSON
 	mersenne
 	wwise_integration
@@ -388,6 +403,7 @@ target_link_libraries(import
 	assimp
 	recast
 	detour
+	fastlz
 	cJSON
 )
 

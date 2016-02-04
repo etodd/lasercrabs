@@ -39,7 +39,7 @@ AwkEntity::AwkEntity(AI::Team team)
 	SkinnedModel* model = create<SkinnedModel>();
 	model->mesh = Asset::Mesh::awk;
 	model->shader = Asset::Shader::armature;
-	model->color = AI::colors[(s32)team];
+	model->color = Vec4(AI::colors[(s32)team].xyz(), 1.0f / 255.0f);
 
 	Animator* anim = create<Animator>();
 	anim->armature = Asset::Armature::awk;

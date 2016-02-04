@@ -203,7 +203,7 @@ void Console::update(const Update& u)
 		if (!any_key_pressed)
 			repeat_start_time = 0.0f;
 
-		if (u.input->keys[(s32)KeyCode::Return])
+		if (!u.input->keys[(s32)KeyCode::Return] && u.last_input->keys[(s32)KeyCode::Return])
 		{
 			visible = false;
 

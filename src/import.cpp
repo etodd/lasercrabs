@@ -16,8 +16,8 @@
 
 #include <cfloat>
 #include <sstream>
-#include "recast/Recast/Include/Recast.h"
 #include "data/import_common.h"
+#include "recast/Recast/Include/Recast.h"
 #include "render/glvm.h"
 #include "cjson/cJSON.h"
 
@@ -69,17 +69,6 @@ const char* font_header_path = "../src/asset/font.h";
 const char* level_header_path = "../src/asset/level.h";
 const char* wwise_header_out_path = "../src/asset/Wwise_IDs.h";
 
-const r32 nav_agent_height = 2.0f;
-const r32 nav_agent_max_climb = 0.5f;
-const r32 nav_agent_radius = 0.45f;
-const r32 nav_edge_max_length = 12.0f;
-const r32 nav_min_region_size = 8.0f;
-const r32 nav_merged_region_size = 20.0f;
-const r32 nav_detail_sample_distance = 3.0f;
-const r32 nav_detail_sample_max_error = 0.2f;
-const r32 nav_resolution = 0.15f;
-const r32 nav_walkable_slope = 45.0f; // degrees
-
 template <typename T>
 T read(FILE* f)
 {
@@ -110,7 +99,7 @@ using Map = std::map<std::string, T>;
 template<typename T>
 using Map2 = std::map<std::string, Map<T> >;
 
-bool maps_equal(const Map<std::string>& a, const Map<std::string>& b)
+b8 maps_equal(const Map<std::string>& a, const Map<std::string>& b)
 {
 	if (a.size() != b.size())
 		return false;
@@ -123,7 +112,7 @@ bool maps_equal(const Map<std::string>& a, const Map<std::string>& b)
 	return true;
 }
 
-bool maps_equal(const Map<s32>& a, const Map<s32>& b)
+b8 maps_equal(const Map<s32>& a, const Map<s32>& b)
 {
 	if (a.size() != b.size())
 		return false;
@@ -137,7 +126,7 @@ bool maps_equal(const Map<s32>& a, const Map<s32>& b)
 }
 
 template<typename T>
-bool maps_equal2(const Map2<T>& a, const Map2<T>& b)
+b8 maps_equal2(const Map2<T>& a, const Map2<T>& b)
 {
 	if (a.size() != b.size())
 		return false;
@@ -175,7 +164,7 @@ T& map_get(Map<T>& map, const std::string& key)
 }
 
 template<typename T>
-bool map_has(Map<T>& map, const std::string& key)
+b8 map_has(Map<T>& map, const std::string& key)
 {
 	return map.find(key) != map.end();
 }
@@ -293,7 +282,7 @@ void map_write(Map2<T>& map, FILE* f)
 	}
 }
 
-bool has_extension(const std::string& path, const char* extension)
+b8 has_extension(const std::string& path, const char* extension)
 {
 	s32 extension_length = strlen(extension);
 	if (path.length() > extension_length)
@@ -371,7 +360,7 @@ std::string get_asset_name(const std::string& filename)
 
 #if defined WIN32
 #include "windows.h"
-LONGLONG filetime_to_posix(FILETIME ft)
+s64 filetime_to_posix(FILETIME ft)
 {
 	// takes the last modified date
 	LARGE_INTEGER date, adjust;
@@ -388,7 +377,7 @@ LONGLONG filetime_to_posix(FILETIME ft)
 	return date.QuadPart / 10000000;
 }
 
-LONGLONG filemtime(const std::string& file)
+s64 filemtime(const std::string& file)
 {
 	WIN32_FIND_DATA FindFileData;
 	HANDLE handle = FindFirstFile(file.c_str(), &FindFileData);
@@ -401,7 +390,7 @@ LONGLONG filemtime(const std::string& file)
 	}
 }
 
-bool run_cmd(const std::string& cmd)
+b8 run_cmd(const std::string& cmd)
 {
 	PROCESS_INFORMATION piProcInfo; 
 	STARTUPINFO siStartInfo;
@@ -465,7 +454,7 @@ bool run_cmd(const std::string& cmd)
 
 	DWORD exit_code;
 
-	bool success;
+	b8 success;
 	if (GetExitCodeProcess(piProcInfo.hProcess, &exit_code))
 	{
 		success = exit_code == 0;
@@ -504,7 +493,7 @@ bool run_cmd(const std::string& cmd)
 }
 #else
 #include <sys/stat.h>
-long long filemtime(const std::string& file)
+s64 filemtime(const std::string& file)
 {
 	struct stat st;
 	if (stat(file.c_str(), &st))
@@ -512,16 +501,16 @@ long long filemtime(const std::string& file)
 	return st.st_mtime;
 }
 
-bool run_cmd(const std::string& cmd)
+b8 run_cmd(const std::string& cmd)
 {
 	return system(cmd.c_str()) == 0;
 }
 #endif
 
-bool cp(const std::string& from, const std::string& to)
+b8 cp(const std::string& from, const std::string& to)
 {
 	char buf[4096];
-	size_t size;
+	memory_index size;
 
 	FILE* source = fopen(from.c_str(), "rb");
 	if (!source)
@@ -541,7 +530,7 @@ bool cp(const std::string& from, const std::string& to)
 	return true;
 }
 
-long long asset_mtime(const Map<std::string>& map, const std::string& asset_name)
+s64 asset_mtime(const Map<std::string>& map, const std::string& asset_name)
 {
 	auto entry = map.find(asset_name);
 	if (entry == map.end())
@@ -550,17 +539,17 @@ long long asset_mtime(const Map<std::string>& map, const std::string& asset_name
 		return filemtime(entry->second);
 }
 
-long long asset_mtime(const Map2<std::string>& map, const std::string& asset_name)
+s64 asset_mtime(const Map2<std::string>& map, const std::string& asset_name)
 {
 	auto entry = map.find(asset_name);
 	if (entry == map.end())
 		return 0;
 	else
 	{
-		long long mtime = LLONG_MAX;
+		s64 mtime = LLONG_MAX;
 		for (auto i = entry->second.begin(); i != entry->second.end(); i++)
 		{
-			long long t = filemtime(i->second);
+			s64 t = filemtime(i->second);
 			mtime = t < mtime ? t : mtime;
 		}
 		return mtime;
@@ -600,7 +589,7 @@ struct Manifest
 	}
 };
 
-bool manifest_requires_update(const Manifest& a, const Manifest& b)
+b8 manifest_requires_update(const Manifest& a, const Manifest& b)
 {
 	return !maps_equal2(a.meshes, b.meshes)
 		|| !maps_equal2(a.level_meshes, b.level_meshes)
@@ -616,7 +605,7 @@ bool manifest_requires_update(const Manifest& a, const Manifest& b)
 		|| !maps_equal(a.nav_meshes, b.nav_meshes);
 }
 
-bool manifest_read(const char* path, Manifest& manifest)
+b8 manifest_read(const char* path, Manifest& manifest)
 {
 	FILE* f = fopen(path, "rb");
 	if (f)
@@ -649,7 +638,7 @@ bool manifest_read(const char* path, Manifest& manifest)
 		return false;
 }
 
-bool manifest_write(Manifest& manifest, const char* path)
+b8 manifest_write(Manifest& manifest, const char* path)
 {
 	FILE* f = fopen(path, "w+b");
 	if (!f)
@@ -679,10 +668,10 @@ struct ImporterState
 	Manifest cached_manifest;
 	Manifest manifest;
 
-	bool rebuild;
-	bool error;
+	b8 rebuild;
+	b8 error;
 
-	long long manifest_mtime;
+	s64 manifest_mtime;
 
 	ImporterState()
 		: cached_manifest(),
@@ -735,7 +724,7 @@ void clean_name(T& name)
 	}
 }
 
-std::string get_mesh_name(const aiScene* scene, const std::string& asset_name, const aiMesh* ai_mesh, const aiNode* mesh_node, bool level_mesh = false)
+std::string get_mesh_name(const aiScene* scene, const std::string& asset_name, const aiMesh* ai_mesh, const aiNode* mesh_node, b8 level_mesh = false)
 {
 	s32 material_index = 0;
 	for (s32 i = 0; i < mesh_node->mNumMeshes; i++)
@@ -760,7 +749,7 @@ std::string get_mesh_name(const aiScene* scene, const std::string& asset_name, c
 		return asset_name;
 }
 
-bool load_anim(const Armature& armature, const aiAnimation* in, Animation* out, const Map<s32>& bone_map)
+b8 load_anim(const Armature& armature, const aiAnimation* in, Animation* out, const Map<s32>& bone_map)
 {
 	out->duration = (r32)(in->mDuration / in->mTicksPerSecond);
 	out->channels.reserve(in->mNumChannels);
@@ -809,7 +798,7 @@ bool load_anim(const Armature& armature, const aiAnimation* in, Animation* out, 
 	return true;
 }
 
-const aiScene* load_fbx(Assimp::Importer& importer, const std::string& path, bool tangents)
+const aiScene* load_fbx(Assimp::Importer& importer, const std::string& path, b8 tangents)
 {
 	u32 flags =
 		aiProcess_JoinIdenticalVertices
@@ -824,7 +813,7 @@ const aiScene* load_fbx(Assimp::Importer& importer, const std::string& path, boo
 	return scene;
 }
 
-bool load_mesh(const aiMesh* mesh, Mesh* out)
+b8 load_mesh(const aiMesh* mesh, Mesh* out)
 {
 	out->bounds_min = Vec3(FLT_MAX, FLT_MAX, FLT_MAX);
 	out->bounds_max = Vec3(FLT_MIN, FLT_MIN, FLT_MIN);
@@ -880,7 +869,7 @@ bool load_mesh(const aiMesh* mesh, Mesh* out)
 }
 
 // Build armature for skinned model
-bool build_armature(Armature& armature, Map<s32>& bone_map, aiNode* node, s32 parent_index, s32& counter)
+b8 build_armature(Armature& armature, Map<s32>& bone_map, aiNode* node, s32 parent_index, s32& counter)
 {
 	s32 current_bone_index;
 	Map<s32>::iterator bone_index_entry = bone_map.find(node->mName.C_Str());
@@ -910,7 +899,7 @@ bool build_armature(Armature& armature, Map<s32>& bone_map, aiNode* node, s32 pa
 			std::string parent_name = node->mParent->mName.C_Str();
 			if (name != parent_name + "_end")
 			{
-				bool valid = true;
+				b8 valid = true;
 				BodyEntry::Type type;
 				if (strstr(name.c_str(), "capsule") == name.c_str())
 					type = BodyEntry::Type::Capsule;
@@ -958,7 +947,7 @@ bool build_armature(Armature& armature, Map<s32>& bone_map, aiNode* node, s32 pa
 }
 
 // Build armature for a skinned mesh
-bool build_armature_skinned(const aiScene* scene, const aiMesh* ai_mesh, Mesh& mesh, Armature& armature, Map<s32>& bone_map)
+b8 build_armature_skinned(const aiScene* scene, const aiMesh* ai_mesh, Mesh& mesh, Armature& armature, Map<s32>& bone_map)
 {
 	if (ai_mesh->HasBones())
 	{
@@ -1001,7 +990,7 @@ bool build_armature_skinned(const aiScene* scene, const aiMesh* ai_mesh, Mesh& m
 	return true;
 }
 
-bool write_armature(const Armature& armature, const std::string& path)
+b8 write_armature(const Armature& armature, const std::string& path)
 {
 	FILE* f = fopen(path.c_str(), "w+b");
 	if (f)
@@ -1022,7 +1011,7 @@ bool write_armature(const Armature& armature, const std::string& path)
 	}
 }
 
-const aiScene* load_blend(ImporterState& state, Assimp::Importer& importer, const std::string& asset_in_path, const std::string& out_folder, bool tangents = false)
+const aiScene* load_blend(ImporterState& state, Assimp::Importer& importer, const std::string& asset_in_path, const std::string& out_folder, b8 tangents = false)
 {
 	// Export to FBX first
 	std::string asset_intermediate_path = out_folder + get_asset_name(asset_in_path) + model_intermediate_extension;
@@ -1052,7 +1041,7 @@ const aiScene* load_blend(ImporterState& state, Assimp::Importer& importer, cons
 	return scene;
 }
 
-bool write_mesh(
+b8 write_mesh(
 	const Mesh* mesh,
 	const std::string& path,
 	const Array<Array<Vec2> >& uv_layers,
@@ -1116,12 +1105,12 @@ bool write_mesh(
 		return false;
 }
 
-bool import_meshes(ImporterState& state, const std::string& asset_in_path, const std::string& out_folder, Array<Mesh>& meshes, bool force_rebuild, bool tangents = false)
+b8 import_meshes(ImporterState& state, const std::string& asset_in_path, const std::string& out_folder, Array<Mesh>& meshes, b8 force_rebuild, b8 tangents = false)
 {
 	std::string asset_name = get_asset_name(asset_in_path);
 	std::string asset_out_path = out_folder + asset_name + mesh_out_extension;
 
-	long long mtime = filemtime(asset_in_path);
+	s64 mtime = filemtime(asset_in_path);
 	if (force_rebuild
 		|| state.rebuild
 		|| mtime > asset_mtime(state.cached_manifest.meshes, asset_name)
@@ -1350,120 +1339,12 @@ bool import_meshes(ImporterState& state, const std::string& asset_in_path, const
 	}
 }
 
-bool build_nav_mesh(const Mesh& input, rcPolyMesh** output, rcPolyMeshDetail** output_detail)
-{
-	rcConfig cfg;
-	memset(&cfg, 0, sizeof(cfg));
-	cfg.cs = nav_resolution;
-	cfg.ch = nav_resolution;
-	cfg.walkableSlopeAngle = nav_walkable_slope;
-	cfg.walkableHeight = (s32)ceilf(nav_agent_height / cfg.ch);
-	cfg.walkableClimb = (s32)floorf(nav_agent_max_climb / cfg.ch);
-	cfg.walkableRadius = (s32)ceilf(nav_agent_radius / cfg.cs);
-	cfg.maxEdgeLen = (s32)(nav_edge_max_length / cfg.cs);
-	cfg.maxSimplificationError = 2;
-	cfg.minRegionArea = (s32)rcSqr(nav_min_region_size);		// Note: area = size*size
-	cfg.mergeRegionArea = (s32)rcSqr(nav_merged_region_size);	// Note: area = size*size
-	cfg.maxVertsPerPoly = 6;
-	cfg.detailSampleDist = nav_detail_sample_distance < 0.9f ? 0 : cfg.cs * nav_detail_sample_distance;
-	cfg.detailSampleMaxError = cfg.ch * nav_detail_sample_max_error;
-
-	rcVcopy(cfg.bmin, (r32*)&input.bounds_min);
-	rcVcopy(cfg.bmax, (r32*)&input.bounds_max);
-	rcCalcGridSize(cfg.bmin, cfg.bmax, cfg.cs, &cfg.width, &cfg.height);
-
-	rcContext ctx(false);
-
-	rcHeightfield* heightfield = rcAllocHeightfield();
-	if (!heightfield)
-		return false;
-
-	if (!rcCreateHeightfield(&ctx, *heightfield, cfg.width, cfg.height, cfg.bmin, cfg.bmax, cfg.cs, cfg.ch))
-		return false;
-
-	// Rasterize input polygon soup.
-	// Find triangles which are walkable based on their slope and rasterize them.
-	{
-		Array<u8> tri_areas(input.indices.length / 3, input.indices.length / 3);
-		rcMarkWalkableTriangles(&ctx, cfg.walkableSlopeAngle, (r32*)input.vertices.data, input.vertices.length, input.indices.data, input.indices.length / 3, tri_areas.data);
-		rcRasterizeTriangles(&ctx, (r32*)input.vertices.data, input.vertices.length, input.indices.data, tri_areas.data, input.indices.length / 3, *heightfield, cfg.walkableClimb);
-	}
-
-	// Once all geoemtry is rasterized, we do initial pass of filtering to
-	// remove unwanted overhangs caused by the conservative rasterization
-	// as well as filter spans where the character cannot possibly stand.
-	rcFilterLowHangingWalkableObstacles(&ctx, cfg.walkableClimb, *heightfield);
-	rcFilterLedgeSpans(&ctx, cfg.walkableHeight, cfg.walkableClimb, *heightfield);
-	rcFilterWalkableLowHeightSpans(&ctx, cfg.walkableHeight, *heightfield);
-
-	// Partition walkable surface to simple regions.
-
-	// Compact the heightfield so that it is faster to handle from now on.
-	rcCompactHeightfield* compact_heightfield = rcAllocCompactHeightfield();
-	if (!compact_heightfield)
-		return false;
-	if (!rcBuildCompactHeightfield(&ctx, cfg.walkableHeight, cfg.walkableClimb, *heightfield, *compact_heightfield))
-		return false;
-	rcFreeHeightField(heightfield);
-
-	// Erode the walkable area by agent radius.
-	if (!rcErodeWalkableArea(&ctx, cfg.walkableRadius, *compact_heightfield))
-		return false;
-
-	// Prepare for region partitioning, by calculating distance field along the walkable surface.
-	if (!rcBuildDistanceField(&ctx, *compact_heightfield))
-		return false;
-	
-	// Partition the walkable surface into simple regions without holes.
-	if (!rcBuildRegions(&ctx, *compact_heightfield, 0, cfg.minRegionArea, cfg.mergeRegionArea))
-		return false;
-
-	// Trace and simplify region contours.
-	
-	// Create contours.
-	rcContourSet* contour_set = rcAllocContourSet();
-	if (!contour_set)
-		return false;
-
-	if (!rcBuildContours(&ctx, *compact_heightfield, cfg.maxSimplificationError, cfg.maxEdgeLen, *contour_set))
-		return false;
-	
-	// Build polygon navmesh from the contours.
-	rcPolyMesh* nav_mesh = rcAllocPolyMesh();
-	if (!nav_mesh)
-		return false;
-
-	if (!rcBuildPolyMesh(&ctx, *contour_set, cfg.maxVertsPerPoly, *nav_mesh))
-		return false;
-
-	rcFreeContourSet(contour_set);
-
-	// Create detail mesh which allows to access approximate height on each polygon.
-	
-	rcPolyMeshDetail* detail_mesh = rcAllocPolyMeshDetail();
-	if (!detail_mesh)
-		return false;
-
-	if (!rcBuildPolyMeshDetail(&ctx, *nav_mesh, *compact_heightfield, cfg.detailSampleDist, cfg.detailSampleMaxError, *detail_mesh))
-		return false;
-
-	rcFreeCompactHeightfield(compact_heightfield);
-
-	for (s32 i = 0; i < nav_mesh->npolys; i++)
-		nav_mesh->flags[i] = 1;
-	
-	*output = nav_mesh;
-	*output_detail = detail_mesh;
-
-	return true;
-}
-
-bool import_level_meshes(ImporterState& state, const std::string& asset_in_path, const std::string& out_folder, Map<Mesh>& meshes, bool force_rebuild)
+b8 import_level_meshes(ImporterState& state, const std::string& asset_in_path, const std::string& out_folder, Map<Mesh>& meshes, b8 force_rebuild)
 {
 	std::string asset_name = get_asset_name(asset_in_path);
 	std::string asset_out_path = out_folder + asset_name + mesh_out_extension;
 
-	long long mtime = filemtime(asset_in_path);
+	s64 mtime = filemtime(asset_in_path);
 	if (force_rebuild
 		|| state.rebuild
 		|| mtime > asset_mtime(state.cached_manifest.level_meshes, asset_name))
@@ -1555,14 +1436,176 @@ bool import_level_meshes(ImporterState& state, const std::string& asset_in_path,
 	}
 }
 
+b8 rasterize_tile_layers(const rcConfig& cfg, const NavMeshInput& input, s32 tx, s32 ty, TileCacheCell* out_cell)
+{
+	// Tile bounds.
+	const float tcs = cfg.tileSize * cfg.cs;
+	
+	rcConfig tcfg;
+	memcpy(&tcfg, &cfg, sizeof(tcfg));
+
+	tcfg.bmin[0] = cfg.bmin[0] + tx * tcs;
+	tcfg.bmin[1] = cfg.bmin[1];
+	tcfg.bmin[2] = cfg.bmin[2] + ty * tcs;
+	tcfg.bmax[0] = cfg.bmin[0] + (tx + 1) * tcs;
+	tcfg.bmax[1] = cfg.bmax[1];
+	tcfg.bmax[2] = cfg.bmin[2] + (ty + 1) * tcs;
+	tcfg.bmin[0] -= tcfg.borderSize * tcfg.cs;
+	tcfg.bmin[2] -= tcfg.borderSize * tcfg.cs;
+	tcfg.bmax[0] += tcfg.borderSize * tcfg.cs;
+	tcfg.bmax[2] += tcfg.borderSize * tcfg.cs;
+
+	rcContext ctx(false);
+
+	rcHeightfield* heightfield = rcAllocHeightfield();
+	if (!heightfield)
+		return false;
+
+	if (!rcCreateHeightfield(&ctx, *heightfield, tcfg.width, tcfg.height, tcfg.bmin, tcfg.bmax, tcfg.cs, tcfg.ch))
+		return false;
+
+	// Rasterize input polygon soup.
+	// Find triangles which are walkable based on their slope and rasterize them.
+	{
+		Array<u8> tri_areas(input.index_count / 3, input.index_count / 3);
+		rcMarkWalkableTriangles(&ctx, tcfg.walkableSlopeAngle, (r32*)input.vertices, input.vertex_count, input.indices, input.index_count / 3, tri_areas.data);
+		rcRasterizeTriangles(&ctx, (r32*)input.vertices, input.vertex_count, input.indices, tri_areas.data, input.index_count / 3, *heightfield, tcfg.walkableClimb);
+	}
+
+	// Once all geoemtry is rasterized, we do initial pass of filtering to
+	// remove unwanted overhangs caused by the conservative rasterization
+	// as well as filter spans where the character cannot possibly stand.
+	rcFilterLowHangingWalkableObstacles(&ctx, tcfg.walkableClimb, *heightfield);
+	rcFilterLedgeSpans(&ctx, tcfg.walkableHeight, tcfg.walkableClimb, *heightfield);
+	rcFilterWalkableLowHeightSpans(&ctx, tcfg.walkableHeight, *heightfield);
+
+	// Partition walkable surface to simple regions.
+
+	// Compact the heightfield so that it is faster to handle from now on.
+	rcCompactHeightfield* compact_heightfield = rcAllocCompactHeightfield();
+	if (!compact_heightfield)
+		return false;
+	if (!rcBuildCompactHeightfield(&ctx, tcfg.walkableHeight, tcfg.walkableClimb, *heightfield, *compact_heightfield))
+		return false;
+	rcFreeHeightField(heightfield);
+
+	// Erode the walkable area by agent radius.
+	if (!rcErodeWalkableArea(&ctx, tcfg.walkableRadius, *compact_heightfield))
+		return false;
+
+	// Prepare for region partitioning, by calculating distance field along the walkable surface.
+	if (!rcBuildDistanceField(&ctx, *compact_heightfield))
+		return false;
+	
+	// Partition the walkable surface into simple regions without holes.
+	if (!rcBuildRegions(&ctx, *compact_heightfield, 0, tcfg.minRegionArea, tcfg.mergeRegionArea))
+		return false;
+
+	// Build heightfield layer set
+	rcHeightfieldLayerSet* lset = rcAllocHeightfieldLayerSet();
+	if (!lset)
+		return false;
+
+	{
+		b8 success = rcBuildHeightfieldLayers(&ctx, *compact_heightfield, tcfg.borderSize, tcfg.walkableHeight, *lset);
+		if (!success)
+			return false;
+	}
+
+	for (int i = 0; i < rcMin(lset->nlayers, nav_max_layers); i++)
+	{
+		TileCacheLayer* tile = out_cell->layers.add();
+
+		const rcHeightfieldLayer* layer = &lset->layers[i];
+
+		// Store header
+		dtTileCacheLayerHeader header;
+		header.magic = DT_TILECACHE_MAGIC;
+		header.version = DT_TILECACHE_VERSION;
+
+		// Tile layer location in the navmesh.
+		header.tx = tx;
+		header.ty = ty;
+		header.tlayer = i;
+		memcpy(header.bmin, layer->bmin, sizeof(layer->bmin));
+		memcpy(header.bmax, layer->bmax, sizeof(layer->bmax));
+
+		// Tile info.
+		header.width = (u8)layer->width;
+		header.height = (u8)layer->height;
+		header.minx = (u8)layer->minx;
+		header.maxx = (u8)layer->maxx;
+		header.miny = (u8)layer->miny;
+		header.maxy = (u8)layer->maxy;
+		header.hmin = (u16)layer->hmin;
+		header.hmax = (u16)layer->hmax;
+
+		FastLZCompressor comp;
+		dtStatus status = dtBuildTileCacheLayer(&comp, &header, layer->heights, layer->areas, layer->cons, &tile->data, &tile->data_size);
+		if (dtStatusFailed(status))
+			return false;
+	}
+
+	rcFreeCompactHeightfield(compact_heightfield);
+
+	return true;
+}
+
+b8 build_nav_mesh(const NavMeshInput& input, TileCacheData* output_tiles)
+{
+	rcConfig cfg;
+	memset(&cfg, 0, sizeof(cfg));
+	cfg.cs = nav_resolution;
+	cfg.ch = nav_resolution;
+	cfg.walkableSlopeAngle = nav_walkable_slope;
+	cfg.walkableHeight = (s32)ceilf(nav_agent_height / cfg.ch);
+	cfg.walkableClimb = (s32)floorf(nav_agent_max_climb / cfg.ch);
+	cfg.walkableRadius = (s32)ceilf(nav_agent_radius / cfg.cs);
+	cfg.maxEdgeLen = (s32)(nav_edge_max_length / cfg.cs);
+	cfg.maxSimplificationError = nav_mesh_max_error;
+	cfg.minRegionArea = (s32)rcSqr(nav_min_region_size);		// Note: area = size*size
+	cfg.mergeRegionArea = (s32)rcSqr(nav_merged_region_size);	// Note: area = size*size
+	cfg.maxVertsPerPoly = 6;
+	cfg.detailSampleDist = nav_detail_sample_distance < 0.9f ? 0 : cfg.cs * nav_detail_sample_distance;
+	cfg.detailSampleMaxError = cfg.ch * nav_detail_sample_max_error;
+	cfg.tileSize = nav_tile_size;
+	cfg.borderSize = cfg.walkableRadius + 3; // Reserve enough padding.
+	cfg.width = cfg.tileSize + cfg.borderSize * 2;
+	cfg.height = cfg.tileSize + cfg.borderSize * 2;
+
+	rcVcopy(cfg.bmin, (r32*)&input.bounds_min);
+	rcVcopy(cfg.bmax, (r32*)&input.bounds_max);
+	s32 grid_width;
+	s32 grid_height;
+	rcCalcGridSize(cfg.bmin, cfg.bmax, cfg.cs, &grid_width, &grid_height);
+	
+	output_tiles->width = (grid_width + (s32)nav_tile_size - 1) / (s32)nav_tile_size;
+	output_tiles->height = (grid_height + (s32)nav_tile_size - 1) / (s32)nav_tile_size;
+
+	memcpy(&output_tiles->min, cfg.bmin, sizeof(Vec3));
+	
+	for (s32 ty = 0; ty < output_tiles->height; ty++)
+	{
+		for (s32 tx = 0; tx < output_tiles->width; tx++)
+		{
+			TileCacheCell* out_cell = output_tiles->cells.add();
+			if (!rasterize_tile_layers(cfg, input, tx, ty, out_cell))
+				return false;
+		}
+	}
+	
+	return true;
+}
+
+
 void import_level(ImporterState& state, const std::string& asset_in_path, const std::string& out_folder)
 {
 	std::string asset_name = get_asset_name(asset_in_path);
 	std::string asset_out_path = out_folder + asset_name + level_out_extension;
 	std::string nav_mesh_out_path = out_folder + asset_name + nav_mesh_out_extension;
 
-	long long mtime = filemtime(asset_in_path);
-	bool rebuild = state.rebuild
+	s64 mtime = filemtime(asset_in_path);
+	b8 rebuild = state.rebuild
 		|| mtime > asset_mtime(state.cached_manifest.levels, asset_name)
 		|| mtime > asset_mtime(state.cached_manifest.nav_meshes, asset_name);
 
@@ -1674,11 +1717,17 @@ void import_level(ImporterState& state, const std::string& asset_in_path, const 
 
 		Json::json_free(json);
 
-		rcPolyMesh* nav_mesh = 0;
-		rcPolyMeshDetail* nav_mesh_detail = 0;
+		TileCacheData nav_tiles;
 		if (nav_mesh_input.vertices.length > 0)
 		{
-			if (!build_nav_mesh(nav_mesh_input, &nav_mesh, &nav_mesh_detail))
+			NavMeshInput input_data;
+			input_data.vertices = (r32*)nav_mesh_input.vertices.data;
+			input_data.vertex_count = nav_mesh_input.vertices.length;
+			input_data.indices = nav_mesh_input.indices.data;
+			input_data.index_count = nav_mesh_input.indices.length;
+			input_data.bounds_min = nav_mesh_input.bounds_min;
+			input_data.bounds_max = nav_mesh_input.bounds_max;
+			if (!build_nav_mesh(input_data, &nav_tiles))
 			{
 				fprintf(stderr, "Error: Nav mesh generation failed for file %s.\n", asset_in_path.c_str());
 				state.error = true;
@@ -1694,26 +1743,29 @@ void import_level(ImporterState& state, const std::string& asset_in_path, const 
 			return;
 		}
 
-		if (nav_mesh)
+		if (nav_mesh_input.vertices.length > 0)
 		{
-			fwrite(nav_mesh, sizeof(rcPolyMesh), 1, f);
-			fwrite(nav_mesh->verts, sizeof(u16) * 3, nav_mesh->nverts, f);
-			fwrite(nav_mesh->polys, sizeof(u16) * 2 * nav_mesh->nvp, nav_mesh->npolys, f);
-			fwrite(nav_mesh->regs, sizeof(u16), nav_mesh->npolys, f);
-			fwrite(nav_mesh->flags, sizeof(u16), nav_mesh->npolys, f);
-			fwrite(nav_mesh->areas, sizeof(u8), nav_mesh->npolys, f);
+			fwrite(&nav_tiles.min, sizeof(Vec3), 1, f);
+			fwrite(&nav_tiles.width, sizeof(s32), 1, f);
+			fwrite(&nav_tiles.height, sizeof(s32), 1, f);
+			for (s32 i = 0; i < nav_tiles.cells.length; i++)
+			{
+				TileCacheCell& cell = nav_tiles.cells[i];
+				fwrite(&cell.layers.length, sizeof(s32), 1, f);
+				for (s32 j = 0; j < cell.layers.length; j++)
+				{
+					TileCacheLayer& layer = cell.layers[j];
+					fwrite(&layer.data_size, sizeof(s32), 1, f);
+					fwrite(layer.data, sizeof(u8), layer.data_size, f);
+				}
+			}
 
-			fwrite(nav_mesh_detail, sizeof(rcPolyMeshDetail), 1, f);
-			fwrite(nav_mesh_detail->meshes, sizeof(u32) * 4, nav_mesh_detail->nmeshes, f);
-			fwrite(nav_mesh_detail->verts, sizeof(r32) * 3, nav_mesh_detail->nverts, f);
-			fwrite(nav_mesh_detail->tris, sizeof(u8) * 4, nav_mesh_detail->ntris, f);
-
-			fwrite(&nav_agent_height, sizeof(r32), 1, f);
-			fwrite(&nav_agent_radius, sizeof(r32), 1, f);
-			fwrite(&nav_agent_max_climb, sizeof(r32), 1, f);
-
-			rcFreePolyMesh(nav_mesh);
-			rcFreePolyMeshDetail(nav_mesh_detail);
+			for (s32 i = 0; i < nav_tiles.cells.length; i++)
+			{
+				TileCacheCell& cell = nav_tiles.cells[i];
+				for (s32 j = 0; j < cell.layers.length; j++)
+					dtFree(cell.layers[j].data);
+			}
 		}
 
 		fclose(f);
@@ -1725,7 +1777,7 @@ void import_copy(ImporterState& state, Map<std::string>& manifest, const std::st
 	std::string asset_name = get_asset_name(asset_in_path);
 	std::string asset_out_path = out_folder + asset_name + extension;
 	map_add(manifest, asset_name, asset_out_path);
-	long long mtime = filemtime(asset_in_path);
+	s64 mtime = filemtime(asset_in_path);
 	if (state.rebuild
 		|| mtime > asset_mtime(manifest, asset_name))
 	{
@@ -1743,7 +1795,7 @@ void import_shader(ImporterState& state, const std::string& asset_in_path, const
 	std::string asset_name = get_asset_name(asset_in_path);
 	std::string asset_out_path = out_folder + asset_name + shader_extension;
 	map_add(state.manifest.shaders, asset_name, asset_out_path);
-	long long mtime = filemtime(asset_in_path);
+	s64 mtime = filemtime(asset_in_path);
 	if (state.rebuild
 		|| mtime > asset_mtime(state.cached_manifest.shaders, asset_name))
 	{
@@ -1758,7 +1810,7 @@ void import_shader(ImporterState& state, const std::string& asset_in_path, const
 		}
 
 		fseek(f, 0, SEEK_END);
-		long fsize = ftell(f);
+		s64 fsize = ftell(f);
 		fseek(f, 0, SEEK_SET);
 
 		Array<char> code;
@@ -1807,7 +1859,7 @@ void import_shader(ImporterState& state, const std::string& asset_in_path, const
 		map_copy(state.cached_manifest.uniforms, asset_name, state.manifest.uniforms);
 }
 
-bool load_font(const aiScene* scene, Font& font)
+b8 load_font(const aiScene* scene, Font& font)
 {
 	s32 current_mesh_vertex = 0;
 	s32 current_mesh_index = 0;
@@ -1863,7 +1915,7 @@ void import_font(ImporterState& state, const std::string& asset_in_path, const s
 
 	map_add(state.manifest.fonts, asset_name, asset_out_path);
 
-	long long mtime = filemtime(asset_in_path);
+	s64 mtime = filemtime(asset_in_path);
 	if (state.rebuild
 		|| mtime > asset_mtime(state.cached_manifest.fonts, asset_name))
 	{
@@ -2071,7 +2123,7 @@ s32 proc(s32 argc, char* argv[])
 	{
 		// Wwise build
 		std::ostringstream cmdbuilder;
-		bool success;
+		b8 success;
 #if _WIN32
 		cmdbuilder << "WwiseCLI " << wwise_project_path << " -GenerateSoundBanks";
 		success = run_cmd(cmdbuilder.str());
@@ -2118,7 +2170,7 @@ s32 proc(s32 argc, char* argv[])
 
 	{
 		// Copy Wwise header
-		long long mtime = filemtime(wwise_header_in_path);
+		s64 mtime = filemtime(wwise_header_in_path);
 		if (state.rebuild
 			|| mtime > filemtime(wwise_header_out_path))
 		{
@@ -2134,7 +2186,7 @@ s32 proc(s32 argc, char* argv[])
 		return exit_error();
 
 	
-	bool update_manifest = manifest_requires_update(state.cached_manifest, state.manifest);
+	b8 update_manifest = manifest_requires_update(state.cached_manifest, state.manifest);
 	if (state.rebuild || update_manifest)
 	{
 		if (!manifest_write(state.manifest, manifest_path))

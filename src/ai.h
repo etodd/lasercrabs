@@ -5,12 +5,18 @@
 
 #include "recast/Detour/Include/DetourNavMesh.h"
 #include "recast/Detour/Include/DetourNavMeshQuery.h"
+#include "recast/DetourTileCache/Include/DetourTileCache.h"
 
 namespace VI
 {
 
 struct AIAgent;
 struct RenderParams;
+
+struct NavMeshProcess : public dtTileCacheMeshProcess
+{
+	void process(struct dtNavMeshCreateParams* params, unsigned char* polyAreas, unsigned short* polyFlags);
+};
 
 struct AI
 {
@@ -31,11 +37,16 @@ struct AI
 	static AssetID render_mesh;
 	static dtNavMesh* nav_mesh;
 	static dtNavMeshQuery* nav_mesh_query;
+	static dtTileCache* nav_tile_cache;
 	static dtQueryFilter default_query_filter;
 	static b8 render_mesh_dirty;
 	static void init();
 	static void load_nav_mesh(AssetID);
 	static void debug_draw(const RenderParams&);
+	static void update(const Update&);
+
+	static u32 obstacle_add(const Vec3&, r32, r32);
+	static void obstacle_remove(u32);
 
 	static Entity* vision_query(const AIAgent*, const Vec3&, const Vec3&, r32, r32, r32 = -1.0f, ComponentMask = -1);
 	static Entity* sound_query(AI::Team, const Vec3&, ComponentMask = -1);

@@ -3,6 +3,7 @@
 #include "physics.h"
 #include "BulletCollision/NarrowPhaseCollision/btRaycastCallback.h"
 #include "entities.h"
+#include "game.h"
 
 namespace VI
 {
@@ -25,7 +26,8 @@ Walker::Walker(r32 rot)
 	accel1(10.0f),
 	accel2(2.0f),
 	accel_threshold(2.0f),
-	deceleration(30.0f)
+	deceleration(30.0f),
+	obstacle_id((u32)-1)
 {
 }
 
@@ -45,6 +47,12 @@ void Walker::awake()
 	body->btBody->setInvInertiaDiagLocal(btVector3(0, 0, 0)); // Prevent rotation
 	body->btBody->setAngularFactor(0.0f); // Prevent rotation even harder
 	body->btBody->setActivationState(DISABLE_DEACTIVATION);
+}
+
+Walker::~Walker()
+{
+	if (obstacle_id != (u32)-1)
+		AI::obstacle_remove(obstacle_id);
 }
 
 const s32 num_corners = 5;
@@ -265,6 +273,14 @@ void Walker::update(const Update& u)
 
 		body->setLinearVelocity(velocity + adjustment);
 	}
+
+	if (net_speed > 0.0f && obstacle_id != (u32)-1)
+	{
+		AI::obstacle_remove(obstacle_id);
+		obstacle_id = (u32)-1;
+	}
+	else if (net_speed == 0.0f && obstacle_id == (u32)-1)
+		obstacle_id = AI::obstacle_add(base_pos(), radius, height + support_height);
 
 	// Handle rotation
 

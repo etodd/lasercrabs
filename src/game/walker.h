@@ -32,7 +32,9 @@ struct Walker : public ComponentType<Walker>
 	Ref<RigidBody> support;
 	b8 auto_rotate;
 	b8 enabled;
+	u32 obstacle_id;
 	Walker(r32 = 0.0f);
+	~Walker();
 	void awake();
 	b8 slide(Vec2*, const Vec3&);
 

@@ -6,16 +6,25 @@
 #include "physics.h"
 #include "bullet/src/BulletCollision/NarrowPhaseCollision/btRaycastCallback.h"
 #include "game/entities.h"
+#include "recast/Recast/Include/Recast.h"
+#include "recast/Detour/Include/DetourNavMeshBuilder.h"
 
 namespace VI
 {
 
 AssetID AI::render_mesh = AssetNull;
-dtNavMesh* AI::nav_mesh = 0;
-dtNavMeshQuery* AI::nav_mesh_query = 0;
+dtNavMesh* AI::nav_mesh = nullptr;
+dtTileCache* AI::nav_tile_cache = nullptr;
+dtNavMeshQuery* AI::nav_mesh_query = nullptr;
 dtQueryFilter AI::default_query_filter = dtQueryFilter();
 const r32 AI::default_search_extents[] = { 8, 8, 8 };
 b8 AI::render_mesh_dirty = false;
+
+void NavMeshProcess::process(struct dtNavMeshCreateParams* params, unsigned char* polyAreas, unsigned short* polyFlags)
+{
+	for (int i = 0; i < params->polyCount; i++)
+		polyFlags[i] = 1;
+}
 
 const Vec4 AI::colors[(s32)AI::Team::count] =
 {
@@ -44,92 +53,103 @@ void AI::init()
 void AI::load_nav_mesh(AssetID id)
 {
 	nav_mesh = Loader::nav_mesh(id);
+	nav_tile_cache = Loader::nav_tile_cache;
 	render_mesh_dirty = true;
 
 	dtStatus status = nav_mesh_query->init(nav_mesh, 2048);
-	vi_assert(!dtStatusFailed(status));
+	vi_assert(dtStatusSucceed(status));
 }
 
-void AI::debug_draw(const RenderParams& p)
+void AI::update(const Update& u)
+{
+	if (nav_tile_cache)
+	{
+		dtStatus status = nav_tile_cache->update(u.time.delta, nav_mesh);
+		vi_assert(dtStatusSucceed(status));
+	}
+}
+
+u32 AI::obstacle_add(const Vec3& pos, r32 radius, r32 height)
+{
+	render_mesh_dirty = true;
+	vi_assert(nav_tile_cache);
+	u32 id;
+	dtStatus status = nav_tile_cache->addObstacle((r32*)&pos, radius, height, &id);
+	vi_assert(dtStatusSucceed(status));
+	return id;
+}
+
+void AI::obstacle_remove(u32 id)
+{
+	render_mesh_dirty = true;
+	nav_tile_cache->removeObstacle(id);
+}
+
+void AI::debug_draw(const RenderParams& params)
 {
 #if DEBUG
 	if (render_mesh_dirty)
 	{
-		// Convert polygon navmesh to triangle mesh
+		Array<Vec3> vertices;
+		Array<s32> indices;
 
-		rcPolyMesh mesh;
-		Loader::base_nav_mesh(Loader::current_nav_mesh_id, &mesh);
-
-		p.sync->write(RenderOp::UpdateAttribBuffers);
-		p.sync->write(render_mesh);
-
-		p.sync->write<s32>(mesh.nverts);
-		for (s32 i = 0; i < mesh.nverts; i++)
+		if (nav_mesh)
 		{
-			const u16* v = &mesh.verts[i * 3];
-			Vec3 vertex;
-			vertex.x = mesh.bmin[0] + v[0] * mesh.cs;
-			vertex.y = mesh.bmin[1] + (v[1] + 1) * mesh.ch;
-			vertex.z = mesh.bmin[2] + v[2] * mesh.cs;
-			p.sync->write<Vec3>(vertex);
-		}
-
-		s32 num_triangles = 0;
-		for (s32 i = 0; i < mesh.npolys; ++i)
-		{
-			const u16* poly = &mesh.polys[i * mesh.nvp * 2];
-			for (s32 j = 2; j < mesh.nvp; ++j)
+			for (s32 tile_id = 0; tile_id < nav_mesh->getMaxTiles(); tile_id++)
 			{
-				if (poly[j] == RC_MESH_NULL_IDX)
-					break;
-				num_triangles++;
+				const dtMeshTile* tile = ((const dtNavMesh*)nav_mesh)->getTile(tile_id);
+				if (!tile->header)
+					continue;
+
+				for (s32 i = 0; i < tile->header->vertCount; i++)
+				{
+					memcpy(vertices.add(), &tile->verts[i * 3], sizeof(Vec3));
+					indices.add(indices.length);
+				}
 			}
 		}
 
-		p.sync->write(RenderOp::UpdateIndexBuffer);
-		p.sync->write(render_mesh);
+		params.sync->write(RenderOp::UpdateAttribBuffers);
+		params.sync->write(render_mesh);
 
-		p.sync->write<s32>(num_triangles * 3);
-		
-		for (s32 i = 0; i < mesh.npolys; ++i)
-		{
-			const u16* poly = &mesh.polys[i * mesh.nvp * 2];
-			
-			for (s32 j = 2; j < mesh.nvp; ++j)
-			{
-				if (poly[j] == RC_MESH_NULL_IDX)
-					break;
-				p.sync->write<s32>(poly[0]);
-				p.sync->write<s32>(poly[j - 1]);
-				p.sync->write<s32>(poly[j]);
-			}
-		}
+		params.sync->write<s32>(vertices.length);
+		params.sync->write<Vec3>(vertices.data, vertices.length);
+
+		params.sync->write(RenderOp::UpdateIndexBuffer);
+		params.sync->write(render_mesh);
+
+		params.sync->write<s32>(indices.length);
+		params.sync->write<s32>(indices.data, indices.length);
 
 		render_mesh_dirty = false;
-
-		Loader::base_nav_mesh_free(&mesh);
 	}
 
-	p.sync->write(RenderOp::Shader);
-	p.sync->write(Asset::Shader::flat);
-	p.sync->write(p.technique);
+	params.sync->write(RenderOp::Shader);
+	params.sync->write(Asset::Shader::flat);
+	params.sync->write(params.technique);
 
-	p.sync->write(RenderOp::Uniform);
-	p.sync->write(Asset::Uniform::diffuse_color);
-	p.sync->write(RenderDataType::Vec4);
-	p.sync->write<s32>(1);
-	p.sync->write(Vec4(0, 1, 0, 1));
+	params.sync->write(RenderOp::Uniform);
+	params.sync->write(Asset::Uniform::diffuse_color);
+	params.sync->write(RenderDataType::Vec4);
+	params.sync->write<s32>(1);
+	params.sync->write(Vec4(0, 1, 0, 1));
 
-	Mat4 mvp = p.view_projection;
+	Mat4 mvp = params.view_projection;
 
-	p.sync->write(RenderOp::Uniform);
-	p.sync->write(Asset::Uniform::mvp);
-	p.sync->write(RenderDataType::Mat4);
-	p.sync->write<s32>(1);
-	p.sync->write<Mat4>(mvp);
+	params.sync->write(RenderOp::Uniform);
+	params.sync->write(Asset::Uniform::mvp);
+	params.sync->write(RenderDataType::Mat4);
+	params.sync->write<s32>(1);
+	params.sync->write<Mat4>(mvp);
 
-	p.sync->write(RenderOp::Mesh);
-	p.sync->write(render_mesh);
+	params.sync->write(RenderOp::FillMode);
+	params.sync->write(RenderFillMode::Point);
+
+	params.sync->write(RenderOp::Mesh);
+	params.sync->write(render_mesh);
+
+	params.sync->write(RenderOp::FillMode);
+	params.sync->write(RenderFillMode::Fill);
 #endif
 }
 

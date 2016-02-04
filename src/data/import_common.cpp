@@ -3,7 +3,11 @@
 #include "cjson/cJSON.h"
 #include <stdio.h>
 
+#include "recast/Recast/Include/Recast.h"
+#include "recast/DetourTileCache/Include/DetourTileCache.h"
+#include "recast/DetourTileCache/Include/DetourTileCacheBuilder.h"
 #include <glew/include/GL/glew.h>
+#include "fastlz/fastlz.h"
 
 namespace VI
 {
@@ -165,5 +169,25 @@ Font::Character& Font::get(const void* character)
 	char c = *((char*)character);
 	return characters[c];
 }
+
+int FastLZCompressor::maxCompressedSize(const int bufferSize)
+{
+	return (int)(bufferSize* 1.05f);
+}
+
+dtStatus FastLZCompressor::compress(const unsigned char* buffer, const int bufferSize,
+	unsigned char* compressed, const int maxCompressedSize, int* compressedSize)
+{
+	*compressedSize = fastlz_compress((const void *const)buffer, bufferSize, compressed);
+	return DT_SUCCESS;
+}
+
+dtStatus FastLZCompressor::decompress(const unsigned char* compressed, const int compressedSize,
+	unsigned char* buffer, const int maxBufferSize, int* bufferSize)
+{
+	*bufferSize = fastlz_decompress(compressed, compressedSize, buffer, maxBufferSize);
+	return *bufferSize < 0 ? DT_FAILURE : DT_SUCCESS;
+}
+
 
 }

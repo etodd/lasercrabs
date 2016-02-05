@@ -105,6 +105,11 @@ void Parkour::footstep()
 b8 Parkour::wallrun(const Update& u, RigidBody* wall, const Vec3& relative_wall_pos, const Vec3& relative_wall_normal)
 {
 	b8 exit_wallrun = false;
+	if (!wall)
+	{
+		exit_wallrun = true;
+		return exit_wallrun;
+	}
 
 	Vec3 absolute_wall_normal = wall->get<Transform>()->to_world_normal(relative_wall_normal);
 	Vec3 absolute_wall_pos = wall->get<Transform>()->to_world(relative_wall_pos);
@@ -121,10 +126,10 @@ b8 Parkour::wallrun(const Update& u, RigidBody* wall, const Vec3& relative_wall_
 			+ Vec3(wall->btBody->getAngularVelocity()).cross(absolute_wall_pos - Vec3(wall->btBody->getCenterOfMassPosition()));
 	}
 
-	Vec3 velocity_diff = velocity - support_velocity;
-	r32 vertical_velocity_diff = velocity_diff.y;
-	velocity_diff.y = 0.0f;
-	if (wall_run_state != WallRunState::Forward && velocity_diff.length() < MIN_WALLRUN_SPEED)
+	Vec3 horizontal_velocity_diff = velocity - support_velocity;
+	r32 vertical_velocity_diff = horizontal_velocity_diff.y;
+	horizontal_velocity_diff.y = 0.0f;
+	if (wall_run_state != WallRunState::Forward && horizontal_velocity_diff.length() < MIN_WALLRUN_SPEED)
 		exit_wallrun = true; // We're going too slow
 	else
 	{
@@ -153,7 +158,7 @@ b8 Parkour::wallrun(const Update& u, RigidBody* wall, const Vec3& relative_wall_
 			}
 			else
 			{
-				forward = velocity_diff;
+				forward = horizontal_velocity_diff;
 				forward.normalize();
 			}
 			get<Walker>()->target_rotation = atan2(forward.x, forward.z);
@@ -164,7 +169,7 @@ b8 Parkour::wallrun(const Update& u, RigidBody* wall, const Vec3& relative_wall_
 		if (wall_run_state == WallRunState::Forward)
 			layer->speed = fmax(0.0f, vertical_velocity_diff / get<Walker>()->speed);
 		else
-			layer->speed = velocity_diff.length() / get<Walker>()->speed;
+			layer->speed = horizontal_velocity_diff.length() / get<Walker>()->speed;
 
 		// Try to climb stuff while we're wall-running
 		if (try_parkour())
@@ -176,7 +181,87 @@ b8 Parkour::wallrun(const Update& u, RigidBody* wall, const Vec3& relative_wall_
 		}
 	}
 
+	if (!exit_wallrun)
+	{
+		Vec3 relative_wall_right = relative_wall_run_normal.cross(last_support.ref()->get<Transform>()->to_local_normal(Vec3(0, 1, 0)));
+		relative_wall_right.normalize();
+		Vec3 relative_wall_up = relative_wall_right.cross(relative_wall_run_normal);
+		relative_wall_up.normalize();
+
+		TilePos wall_coord =
+		{
+			(s32)(relative_support_pos.dot(relative_wall_right) * (1.0f / TILE_SIZE)),
+			(s32)(relative_support_pos.dot(relative_wall_up) * (1.0f / TILE_SIZE)),
+		};
+
+		bool new_wall_coord = true;
+		if (tile_history.length > 0)
+		{
+			for (s32 i = tile_history.length - 1; i >= 0; i--)
+			{
+				if (wall_coord == tile_history[i])
+				{
+					new_wall_coord = false;
+					break;
+				}
+			}
+		}
+
+		if (new_wall_coord)
+		{
+			r32 relative_wall_z = relative_support_pos.dot(relative_wall_run_normal) - 0.05f;
+
+			Quat absolute_wall_rot = Quat::look(absolute_wall_normal);
+			Vec3 spawn_offset = ((velocity - support_velocity) * 1.5f) + (absolute_wall_normal * -3.0f);
+
+			const r32 radius = 4.5f;
+			for (s32 x = -radius; x <= (s32)radius; x++)
+			{
+				for (s32 y = -radius; y <= (s32)radius; y++)
+				{
+					if (Vec2(x, y).length_squared() < radius * radius)
+					{
+						b8 create = true;
+						for (s32 i = tile_history.length - 1; i >= 0; i--)
+						{
+							const TilePos& history_coord = tile_history[i];
+							if (Vec2(wall_coord.x + x - history_coord.x, wall_coord.y + y - history_coord.y).length_squared() < (radius + TILE_SIZE) * (radius + TILE_SIZE))
+							{
+								create = false;
+								break;
+							}
+						}
+
+						if (create)
+						{
+							Vec2 relative_tile_wall_coord = Vec2(wall_coord.x + x, wall_coord.y + y) * TILE_SIZE;
+							Vec3 relative_tile_pos = (relative_wall_right * relative_tile_wall_coord.x)
+								+ (relative_wall_up * relative_tile_wall_coord.y)
+								+ (relative_wall_run_normal * relative_wall_z);
+							Vec3 absolute_tile_pos = last_support.ref()->get<Transform>()->to_world(relative_tile_pos);
+
+							World::create<TileEntity>(absolute_tile_pos, absolute_wall_rot, last_support.ref()->get<Transform>(), spawn_offset);
+						}
+					}
+				}
+			}
+			if (tile_history.length == MAX_TILE_HISTORY)
+				tile_history.remove_ordered(0);
+			tile_history.add(wall_coord);
+		}
+	}
+
 	return exit_wallrun;
+}
+
+b8 Parkour::TilePos::operator==(const Parkour::TilePos& other) const
+{
+	return x == other.x && y == other.y;
+}
+
+b8 Parkour::TilePos::operator!=(const Parkour::TilePos& other) const
+{
+	return x != other.x || y != other.y;
 }
 
 void Parkour::update(const Update& u)
@@ -189,7 +274,10 @@ void Parkour::update(const Update& u)
 	);
 
 	if (get<Walker>()->support.ref())
+	{
 		wall_run_state = WallRunState::None;
+		tile_history.length = 0;
+	}
 
 	Animator::Layer* layer = &get<Animator>()->layers[0];
 
@@ -271,18 +359,6 @@ void Parkour::update(const Update& u)
 				{
 					// keep going, generate a wall
 					exit_wallrun = wallrun(u, last_support.ref(), relative_support_pos, relative_wall_run_normal);
-					tile_spawn_timer += u.time.delta;
-					if (tile_spawn_timer > 0.1f)
-					{
-						Vec3 absolute_support_pos = relative_support_pos;
-						Quat absolute_support_rot = Quat::look(relative_wall_run_normal);
-						last_support.ref()->get<Transform>()->to_world(&absolute_support_pos, &absolute_support_rot);
-
-						Quat player_rotation = Quat::euler(0, get<Walker>()->rotation, 0);
-
-						World::create<TileEntity>(absolute_support_pos, absolute_support_rot, last_support.ref()->get<Transform>(), player_rotation);
-						tile_spawn_timer = 0.0f;
-					}
 				}
 			}
 		}

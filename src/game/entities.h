@@ -126,9 +126,10 @@ struct Rope : public ComponentType<Rope>
 
 struct TileEntity : public Entity
 {
-	TileEntity(const Vec3&, const Quat&, Transform*, const Quat&);
+	TileEntity(const Vec3&, const Quat&, Transform*, const Vec3&);
 };
 
+#define TILE_SIZE 0.5f
 struct Tile : public ComponentType<Tile>
 {
 	static Array<Mat4> instances;
@@ -143,7 +144,7 @@ struct Tile : public ComponentType<Tile>
 	void awake();
 	r32 scale() const;
 	void update(const Update&);
-	static void draw_opaque(const RenderParams&);
+	static void draw_alpha(const RenderParams&);
 };
 
 struct CreditsPickupEntity : public Entity

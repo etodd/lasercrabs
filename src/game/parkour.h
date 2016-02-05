@@ -12,6 +12,7 @@ struct Traceur : public Entity
 	Traceur(const Vec3&, const Quat&, AI::Team);
 };
 
+#define MAX_TILE_HISTORY 8
 struct Parkour : public ComponentType<Parkour>
 {
 	enum class State
@@ -30,13 +31,21 @@ struct Parkour : public ComponentType<Parkour>
 		None,
 	};
 
+	struct TilePos
+	{
+		s32 x;
+		s32 y;
+		b8 operator==(const TilePos&) const;
+		b8 operator!=(const TilePos&) const;
+	};
+
 	FSM<State> fsm;
 	Vec3 relative_wall_run_normal;
 	WallRunState wall_run_state;
 	Vec3 relative_support_pos;
 	Ref<RigidBody> last_support;
 	r32 last_support_time;
-	r32 tile_spawn_timer;
+	StaticArray<TilePos, MAX_TILE_HISTORY> tile_history;
 
 	b8 wallrun(const Update&, RigidBody*, const Vec3&, const Vec3&);
 

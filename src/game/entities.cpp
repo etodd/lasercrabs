@@ -761,11 +761,11 @@ void Rope::spawn(const Vec3& pos, const Vec3& dir, const r32 max_distance, const
 	}
 }
 
-TileEntity::TileEntity(const Vec3& pos, const Quat& rot, Transform* parent, const Quat& player_rotation)
+TileEntity::TileEntity(const Vec3& pos, const Quat& rot, Transform* parent, const Vec3& offset)
 {
 	Transform* transform = create<Transform>();
 
-	transform->absolute(pos + player_rotation * Vec3(0.0f, 1.0f, 2.0f) + rot * Vec3(0, 0, 1), rot * Quat::euler(PI * 1.5f, PI * 1.5f, PI * 1.5f));
+	transform->absolute(pos + offset, rot * Quat::euler(PI * 0.5f, PI * 0.5f, fmod(Game::time.total, PI * 2.0f)));
 
 	transform->reparent(parent);
 
@@ -791,9 +791,8 @@ void Tile::awake()
 	relative_start_rot = get<Transform>()->rot;
 }
 
-#define TILE_ANIM_TIME 0.35f
-#define TILE_LIFE_TIME 5.0f
-#define TILE_SIZE 0.5f
+#define TILE_ANIM_TIME 0.3f
+#define TILE_LIFE_TIME 3.0f
 void Tile::update(const Update& u)
 {
 	timer += u.time.delta;
@@ -813,11 +812,15 @@ void Tile::update(const Update& u)
 
 r32 Tile::scale() const
 {
-	r32 blend = fmin(timer / TILE_ANIM_TIME, 1.0f);
+	r32 blend;
+	if (timer < TILE_LIFE_TIME - TILE_ANIM_TIME)
+		blend = fmin(timer / TILE_ANIM_TIME, 1.0f);
+	else
+		blend = Ease::quad_in(((timer - (TILE_LIFE_TIME - TILE_ANIM_TIME)) / TILE_ANIM_TIME), 1.0f, 0.0f);
 	return blend * TILE_SIZE;
 }
 
-void Tile::draw_opaque(const RenderParams& params)
+void Tile::draw_alpha(const RenderParams& params)
 {
 	instances.length = 0;
 
@@ -851,9 +854,6 @@ void Tile::draw_opaque(const RenderParams& params)
 
 	Mat4 vp = params.view_projection;
 
-	sync->write(RenderOp::CullMode);
-	sync->write(RenderCullMode::None);
-
 	sync->write(RenderOp::Uniform);
 	sync->write(Asset::Uniform::vp);
 	sync->write(RenderDataType::Mat4);
@@ -870,15 +870,12 @@ void Tile::draw_opaque(const RenderParams& params)
 	sync->write(Asset::Uniform::diffuse_color);
 	sync->write(RenderDataType::Vec4);
 	sync->write<s32>(1);
-	sync->write<Vec4>(Vec4(1, 1, 0, 0));
+	sync->write<Vec4>(Vec4(1, 1, 0.25f, 0.5f));
 
 	sync->write(RenderOp::Instances);
 	sync->write(Asset::Mesh::plane);
 	sync->write(instances.length);
 	sync->write<Mat4>(instances.data, instances.length);
-
-	sync->write(RenderOp::CullMode);
-	sync->write(RenderCullMode::Back);
 }
 
 MoverEntity::MoverEntity(const b8 reversed, const b8 trans, const b8 rot)

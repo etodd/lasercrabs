@@ -18,7 +18,6 @@
 #include "entities.h"
 
 #define HEAD_RADIUS 0.25f
-#define VIEW_RANGE 20.0f
 
 #define WALK_SPEED 2.0f
 
@@ -57,7 +56,7 @@ Minion::Minion(const Vec3& pos, const Quat& quat, AI::Team team)
 	PointLight* light = create<PointLight>();
 	light->color = AI::colors[(s32)team].xyz();
 	light->type = PointLight::Type::Override;
-	light->radius = VIEW_RANGE;
+	light->radius = MINION_VIEW_RANGE;
 	light->mask = ~(1 << (s32)team); // don't display to fellow teammates
 
 	create<MinionAI>();
@@ -309,10 +308,10 @@ b8 MinionGoToTarget::target_in_range() const
 {
 	Vec3 pos = minion->get<Transform>()->absolute_pos();
 	Vec3 target_pos = minion->target.ref()->get<Transform>()->absolute_pos();
-	if ((pos - target_pos).length_squared() < VIEW_RANGE *  VIEW_RANGE)
+	if ((pos - target_pos).length_squared() < MINION_VIEW_RANGE *  MINION_VIEW_RANGE)
 	{
-		btCollisionWorld::ClosestRayResultCallback ray_callback(pos, target_pos);
-		Physics::raycast(ray_callback);
+		RaycastCallbackExcept ray_callback(pos, target_pos, minion->entity());
+		Physics::raycast(&ray_callback);
 		if (!ray_callback.hasHit() || ray_callback.m_collisionObject->getUserIndex() == minion->target.ref()->id())
 			return true;
 	}
@@ -335,9 +334,36 @@ void MinionAttack::run()
 	Entity* target = minion->target.ref();
 	if (target)
 	{
+		Vec3 target_pos = target->get<Transform>()->absolute_pos();
+		minion->turn_to(target_pos);
+		active(true);
+	}
+	else
+		done(false);
+}
+
+void MinionAttack::update(const Update& u)
+{
+	Entity* target = minion->target.ref();
+	if (target)
+	{
 		Vec3 head_pos = minion->get<MinionCommon>()->head_pos();
-		World::create<ProjectileEntity>(minion->entity(), head_pos, 5, target->get<Transform>()->absolute_pos() - head_pos);
-		done(true);
+		Vec3 target_pos = target->get<Transform>()->absolute_pos();
+		minion->turn_to(target_pos);
+		Vec3 to_target = target_pos - head_pos;
+		to_target.y = 0.0f;
+		if (Vec3::normalize(to_target).dot(minion->get<Walker>()->forward()) > 0.9f)
+		{
+			RaycastCallbackExcept ray_callback(head_pos, target_pos, minion->entity());
+			Physics::raycast(&ray_callback);
+			if (!ray_callback.hasHit() || ray_callback.m_collisionObject->getUserIndex() == minion->target.ref()->id())
+			{
+				World::create<ProjectileEntity>(minion->entity(), head_pos, 5, target_pos - head_pos);
+				done(true);
+			}
+			else
+				done(false);
+		}
 	}
 	else
 		done(false);
@@ -348,6 +374,7 @@ namespace MinionBehaviors
 	void update_active(const Update& u)
 	{
 		MinionGoToTarget::update_active(u);
+		MinionAttack::update_active(u);
 	}
 }
 
@@ -404,12 +431,10 @@ b8 MinionAI::can_see(Entity* target) const
 {
 	Vec3 pos = get<Transform>()->absolute_pos();
 	Vec3 target_pos = target->get<Transform>()->absolute_pos();
-	Vec3 to_target = target_pos - pos;
-	float distance_to_target = to_target.length();
-	if (distance_to_target < VIEW_RANGE)
+	if ((target_pos - pos).length_squared() < MINION_VIEW_RANGE * MINION_VIEW_RANGE)
 	{
 		btCollisionWorld::ClosestRayResultCallback ray_callback(pos, target_pos);
-		Physics::raycast(ray_callback);
+		Physics::raycast(&ray_callback);
 		if (!ray_callback.hasHit() || ray_callback.m_collisionObject->getUserIndex() == target->id())
 			return true;
 	}
@@ -518,6 +543,12 @@ void MinionAI::recalc_path(const Update& u)
 {
 	last_path_recalc = Game::time.total;
 	go(path_points[path_point_count - 1]);
+}
+
+void MinionAI::turn_to(const Vec3& target)
+{
+	Vec3 forward = Vec3::normalize(target - get<Transform>()->absolute_pos());
+	get<Walker>()->target_rotation = atan2(forward.x, forward.z);
 }
 
 

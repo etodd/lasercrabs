@@ -7,6 +7,8 @@
 namespace VI
 {
 
+#define MINION_VIEW_RANGE 20.0f
+
 struct Minion : public Entity
 {
 	Minion(const Vec3&, const Quat&, AI::Team);
@@ -44,6 +46,7 @@ struct MinionAI : public ComponentType<MinionAI>
 	void go(const Vec3&);
 	void recalc_path(const Update&);
 	void damaged(Entity*);
+	void turn_to(const Vec3&);
 };
 
 // behaviors
@@ -80,6 +83,7 @@ struct MinionGoToTarget : public MinionBehavior<MinionGoToTarget>
 struct MinionAttack : public MinionBehavior<MinionAttack>
 {
 	void run();
+	void update(const Update&);
 };
 
 

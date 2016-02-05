@@ -283,13 +283,13 @@ void Walker::update(const Update& u)
 		body->setLinearVelocity(velocity + adjustment);
 	}
 
-	if (net_speed > 0.0f && obstacle_id != (u32)-1)
+	if (net_speed > 0.01f && obstacle_id != (u32)-1)
 	{
 		AI::obstacle_remove(obstacle_id);
 		obstacle_id = (u32)-1;
 	}
-	else if (net_speed == 0.0f && obstacle_id == (u32)-1)
-		obstacle_id = AI::obstacle_add(base_pos(), radius, height + support_height);
+	else if (net_speed < 0.01f && obstacle_id == (u32)-1)
+		obstacle_id = AI::obstacle_add(base_pos(), radius * 2.0f, height + support_height);
 
 	// Handle rotation
 
@@ -300,9 +300,14 @@ void Walker::update(const Update& u)
 	rotation = LMath::angle_range(rotation);
 }
 
-Vec3 Walker::base_pos()
+Vec3 Walker::base_pos() const
 {
 	return get<Transform>()->to_world(Vec3(0, (height * -0.5f) - support_height, 0));
+}
+
+Vec3 Walker::forward() const
+{
+	return Quat::euler(0, rotation, 0) * Vec3(0, 0, 1);
 }
 
 }

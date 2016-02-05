@@ -47,12 +47,36 @@ void Physics::sync_dynamic()
 	}
 }
 
-void Physics::raycast(btCollisionWorld::ClosestRayResultCallback& ray_callback, s16 mask)
+RaycastCallbackExcept::RaycastCallbackExcept(const Vec3& a, const Vec3& b, const Entity* entity)
+	: btCollisionWorld::ClosestRayResultCallback(a, b)
 {
-	ray_callback.m_flags = btTriangleRaycastCallback::EFlags::kF_FilterBackfaces
+	entity_id = entity->id();
+}
+
+btScalar RaycastCallbackExcept::addSingleResult(btCollisionWorld::LocalRayResult& rayResult, b8 normalInWorldSpace)
+{
+	if (rayResult.m_collisionObject->getUserIndex() == entity_id)
+		return m_closestHitFraction; // ignore
+
+	m_closestHitFraction = rayResult.m_hitFraction;
+	m_collisionObject = rayResult.m_collisionObject;
+	if (normalInWorldSpace)
+		m_hitNormalWorld = rayResult.m_hitNormalLocal;
+	else
+	{
+		///need to transform normal into worldspace
+		m_hitNormalWorld = m_collisionObject->getWorldTransform().getBasis() * rayResult.m_hitNormalLocal;
+	}
+	m_hitPointWorld.setInterpolate3(m_rayFromWorld, m_rayToWorld, rayResult.m_hitFraction);
+	return rayResult.m_hitFraction;
+}
+
+void Physics::raycast(btCollisionWorld::ClosestRayResultCallback* ray_callback, s16 mask)
+{
+	ray_callback->m_flags = btTriangleRaycastCallback::EFlags::kF_FilterBackfaces
 		| btTriangleRaycastCallback::EFlags::kF_KeepUnflippedNormal;
-	ray_callback.m_collisionFilterMask = ray_callback.m_collisionFilterGroup = mask;
-	Physics::btWorld->rayTest(ray_callback.m_rayFromWorld, ray_callback.m_rayToWorld, ray_callback);
+	ray_callback->m_collisionFilterMask = ray_callback->m_collisionFilterGroup = mask;
+	Physics::btWorld->rayTest(ray_callback->m_rayFromWorld, ray_callback->m_rayToWorld, *ray_callback);
 }
 
 PinArray<RigidBody::Constraint, MAX_ENTITIES> RigidBody::global_constraints;

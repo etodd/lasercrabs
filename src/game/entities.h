@@ -168,9 +168,26 @@ struct MinionSpawn : public Entity
 	MinionSpawn(AI::Team);
 };
 
+#define TURRET_VIEW_RANGE 25.0f
 struct Turret : public Entity
 {
 	Turret(AI::Team);
+};
+
+struct TurretControl : public ComponentType<TurretControl>
+{
+	Ref<Entity> target;
+	r32 yaw;
+	r32 pitch;
+	r32 cooldown;
+	r32 target_check_time;
+
+	void awake();
+
+	void killed(Entity*);
+	void update(const Update&);
+	void check_target();
+	b8 can_see(Entity*) const;
 };
 
 struct ProjectileEntity : public Entity
@@ -189,21 +206,6 @@ struct Projectile : public ComponentType<Projectile>
 	void awake();
 
 	void update(const Update&);
-};
-
-struct TurretControl : public ComponentType<TurretControl>
-{
-	Ref<Entity> target;
-	r32 yaw;
-	r32 pitch;
-	r32 cooldown;
-	r32 target_check_time;
-
-	void awake();
-
-	void update(const Update&);
-	void check_target();
-	b8 can_see(Entity*) const;
 };
 
 struct Target : public ComponentType<Target>

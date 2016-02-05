@@ -19,6 +19,13 @@ enum CollisionGroup
 	CollisionInaccessibleMask = btBroadphaseProxy::AllFilter,
 };
 
+struct RaycastCallbackExcept : btCollisionWorld::ClosestRayResultCallback
+{
+	ID entity_id;
+	RaycastCallbackExcept(const Vec3& a, const Vec3& b, const Entity*);
+	virtual	btScalar addSingleResult(btCollisionWorld::LocalRayResult& rayResult, b8 normalInWorldSpace);
+};
+
 struct PhysicsSync
 {
 	b8 quit;
@@ -39,7 +46,7 @@ struct Physics
 	static void sync_static();
 	static void sync_dynamic();
 
-	static void raycast(btCollisionWorld::ClosestRayResultCallback&, s16 = ~CollisionTarget & ~CollisionWalker);
+	static void raycast(btCollisionWorld::ClosestRayResultCallback*, s16 = ~CollisionTarget & ~CollisionWalker);
 };
 
 struct RigidBody : public ComponentType<RigidBody>

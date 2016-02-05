@@ -225,8 +225,6 @@ MinionSpawn::MinionSpawn(AI::Team team)
 	create<RigidBody>(RigidBody::Type::CapsuleY, Vec3(0.8f, 3.75f, 0.8f), 0.0f, CollisionInaccessible, CollisionInaccessibleMask);
 }
 
-#define VIEW_RANGE 25.0f
-#define VIEW_FOV PI * 0.4f
 #define TURRET_COOLDOWN 0.35f
 #define TURRET_RADIUS 1.25f
 #define TURRET_TARGET_CHECK_TIME 0.5f
@@ -255,7 +253,7 @@ Turret::Turret(AI::Team team)
 	PointLight* light = create<PointLight>();
 	light->color = AI::colors[(s32)team].xyz();
 	light->type = PointLight::Type::Override;
-	light->radius = VIEW_RANGE;
+	light->radius = TURRET_VIEW_RANGE;
 	light->mask = ~(1 << (s32)team); // don't display to fellow teammates
 }
 
@@ -265,6 +263,12 @@ void TurretControl::awake()
 	yaw = atan2f(forward.x, forward.z);
 
 	target_check_time = mersenne::randf_oo() * TURRET_TARGET_CHECK_TIME;
+	link_arg<Entity*, &TurretControl::killed>(get<Health>()->killed);
+}
+
+void TurretControl::killed(Entity* by)
+{
+	World::remove_deferred(entity());
 }
 
 b8 TurretControl::can_see(Entity* target) const
@@ -273,13 +277,13 @@ b8 TurretControl::can_see(Entity* target) const
 	Vec3 target_pos = target->get<Transform>()->absolute_pos();
 	Vec3 to_target = target_pos - pos;
 	float distance_to_target = to_target.length();
-	if (distance_to_target < VIEW_RANGE)
+	if (distance_to_target < TURRET_VIEW_RANGE)
 	{
 		Vec3 to_target_normalized = to_target / distance_to_target;
 		if (to_target_normalized.y > -0.75f)
 		{
-			btCollisionWorld::ClosestRayResultCallback ray_callback(pos + to_target_normalized * (TURRET_RADIUS + 0.1f), target_pos);
-			Physics::raycast(ray_callback);
+			RaycastCallbackExcept ray_callback(pos, target_pos, entity());
+			Physics::raycast(&ray_callback);
 			if (!ray_callback.hasHit() || ray_callback.m_collisionObject->getUserIndex() == target->id())
 				return true;
 		}
@@ -399,7 +403,7 @@ void Projectile::update(const Update& u)
 	Vec3 pos = get<Transform>()->absolute_pos();
 	Vec3 next_pos = pos + velocity * u.time.delta;
 	btCollisionWorld::ClosestRayResultCallback ray_callback(pos, next_pos + Vec3::normalize(velocity) * PROJECTILE_LENGTH);
-	Physics::raycast(ray_callback, -1);
+	Physics::raycast(&ray_callback, -1);
 	if (ray_callback.hasHit())
 	{
 		Entity* hit_object = &Entity::list[ray_callback.m_collisionObject->getUserIndex()];

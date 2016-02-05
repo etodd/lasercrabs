@@ -371,7 +371,7 @@ void LocalPlayer::draw_alpha(const RenderParams& params) const
 				else
 				{
 					btCollisionWorld::ClosestRayResultCallback ray_callback(player_pos, enemy_pos);
-					Physics::raycast(ray_callback);
+					Physics::raycast(&ray_callback);
 					visible = !ray_callback.hasHit() || ray_callback.m_collisionObject->getUserIndex() == health->entity_id;
 				}
 			}
@@ -381,13 +381,13 @@ void LocalPlayer::draw_alpha(const RenderParams& params) const
 
 		if (visible)
 		{
-			enemy_pos.y += 1.0f;
+			enemy_pos.y += 0.75f;
 			const Vec4& color = AI::colors[(s32)health->get<AIAgent>()->team];
 			Vec2 pos;
 			if (UI::project(params, enemy_pos, &pos))
 			{
-				pos.y += 48.0f * UI::scale;
-				const Vec2 size = Vec2(32.0f, 4.0f) * UI::scale;
+				pos.y += 24.0f * UI::scale;
+				const Vec2 size = Vec2(32.0f, 2.0f) * UI::scale;
 				UI::box(params, { pos - size * 0.5f, size }, UI::background_color);
 				UI::box(params, { pos - size * 0.5f, size * Vec2((r32)health->hp / (r32)health->total, 1.0f) }, color);
 				UI::border(params, { pos - size * 0.5f, size }, 2, color);
@@ -517,7 +517,7 @@ void PlayerCommon::update_visibility()
 			else
 			{
 				btCollisionWorld::ClosestRayResultCallback ray_callback(start, end);
-				Physics::raycast(ray_callback);
+				Physics::raycast(&ray_callback);
 				visibility[index] = !ray_callback.hasHit();
 			}
 			index++;
@@ -1014,7 +1014,8 @@ void LocalPlayerControl::update(const Update& u)
 				AI::Team team = get<AIAgent>()->team;
 				for (auto i = AIAgent::list.iterator(); !i.is_last(); i.next())
 				{
-					if (i.item()->team != team && (i.item()->get<Transform>()->absolute_pos() - tracer.pos).length_squared() < AWK_SHOCKWAVE_RADIUS * AWK_SHOCKWAVE_RADIUS)
+					r32 view_range = i.item()->has<MinionAI>() ? MINION_VIEW_RANGE : TURRET_VIEW_RANGE;
+					if (i.item()->team != team && (i.item()->get<Transform>()->absolute_pos() - tracer.pos).length_squared() < view_range * view_range)
 					{
 						tracer.type = TraceType::Danger;
 						break;

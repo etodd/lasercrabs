@@ -21,6 +21,8 @@
 
 #define WALK_SPEED 2.0f
 
+#define VULNERABLE_HEALTH 10
+
 namespace VI
 {
 
@@ -95,18 +97,23 @@ Vec3 MinionCommon::head_pos()
 
 b8 MinionCommon::headshot_test(const Vec3& ray_start, const Vec3& ray_end)
 {
-	Vec3 head = head_pos();
+	if (get<Health>()->hp <= VULNERABLE_HEALTH)
+	{
+		Vec3 head = head_pos();
 
-	Vec3 ray = ray_end - ray_start;
-	Vec3 head_to_ray_start = ray_start - head;
+		Vec3 ray = ray_end - ray_start;
+		Vec3 head_to_ray_start = ray_start - head;
 
-	r32 a = ray.length_squared();
-	r32 b = 2.0f * ray.dot(head_to_ray_start);
-	r32 c = head_to_ray_start.length_squared() - (HEAD_RADIUS * HEAD_RADIUS);
+		r32 a = ray.length_squared();
+		r32 b = 2.0f * ray.dot(head_to_ray_start);
+		r32 c = head_to_ray_start.length_squared() - (HEAD_RADIUS * HEAD_RADIUS);
 
-	r32 delta = (b * b) - 4.0f * a * c;
+		r32 delta = (b * b) - 4.0f * a * c;
 
-	return delta >= 0.0f;
+		return delta >= 0.0f;
+	}
+	else
+		return false;
 }
 
 void MinionCommon::update(const Update& u)
@@ -444,6 +451,12 @@ b8 MinionAI::can_see(Entity* target) const
 void MinionAI::damaged(Entity* enemy)
 {
 	target = enemy;
+	if (get<Health>()->hp <= VULNERABLE_HEALTH)
+	{
+		Animator::Layer* layer = &get<Animator>()->layers[2];
+		if (layer->animation != Asset::Animation::character_vulnerable)
+			layer->play(Asset::Animation::character_vulnerable);
+	}
 }
 
 void MinionAI::update(const Update& u)

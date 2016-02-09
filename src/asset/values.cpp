@@ -101,6 +101,7 @@ const char* AssetLookup::Animation::values[] =
 	"assets/character_idle_gun.anm",
 	"assets/character_mantle.anm",
 	"assets/character_run.anm",
+	"assets/character_vulnerable.anm",
 	"assets/character_walk.anm",
 	0,
 };
@@ -113,6 +114,7 @@ const char* AssetLookup::Animation::names[] =
 	"character_idle_gun",
 	"character_mantle",
 	"character_run",
+	"character_vulnerable",
 	"character_walk",
 	0,
 };

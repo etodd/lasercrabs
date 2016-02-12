@@ -359,8 +359,6 @@ void draw(const RenderParams& params)
 		case Asset::Level::title:
 		{
 			main_menu.draw_alpha(params);
-			UI::centered_box(params, { viewport.pos + viewport.size * 0.5f, Vec2(UI::scale * 160.0f) }, UI::background_color);
-			UI::mesh(params, Asset::Mesh::logo, viewport.pos + viewport.size * 0.5f, Vec2(UI::scale * 128.0f), UI::default_color);
 			break;
 		}
 		case Asset::Level::end:

@@ -4,6 +4,8 @@ import sys
 import mathutils
 import os
 
+result = []
+
 def clean_name(name):
 	result = []
 	for i in range(len(name)):
@@ -17,12 +19,6 @@ def clean_name(name):
 			result.append(c)
 	return ''.join(result)
 
-argv = sys.argv[sys.argv.index("--") + 1:] # get all args after "--"
-output_file = argv[0]
-
-output_asset_name = clean_name(os.path.basename(output_file)[:-4])
-
-result = []
 def add(obj, parent_index = -1):
 	node = {
 		'name': obj.name,
@@ -78,14 +74,23 @@ def add(obj, parent_index = -1):
 
 	return node
 
-world_node = add(bpy.data.worlds[0])
-world_node['World'] = True
-world_node['skybox_color'] = list(bpy.data.worlds[0].horizon_color)
-world_node['ambient_color'] = list(bpy.data.worlds[0].ambient_color)
-world_node['zenith_color'] = list(bpy.data.worlds[0].zenith_color)
-	
-for obj in (x for x in bpy.data.objects if x.parent is None):
-	add(obj)
+try:
+	argv = sys.argv[sys.argv.index("--") + 1:] # get all args after "--"
+	output_file = argv[0]
 
-with open(output_file, 'w') as f:
-	json.dump(result, f)
+	output_asset_name = clean_name(os.path.basename(output_file)[:-4])
+
+	world_node = add(bpy.data.worlds[0])
+	world_node['World'] = True
+	world_node['skybox_color'] = list(bpy.data.worlds[0].horizon_color)
+	world_node['ambient_color'] = list(bpy.data.worlds[0].ambient_color)
+	world_node['zenith_color'] = list(bpy.data.worlds[0].zenith_color)
+		
+	for obj in (x for x in bpy.data.objects if x.parent is None):
+		add(obj)
+
+	with open(output_file, 'w') as f:
+		json.dump(result, f)
+except Exception as e:
+	print(str(e), file = sys.stderr)
+	exit(1)

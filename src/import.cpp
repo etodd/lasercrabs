@@ -897,28 +897,26 @@ b8 build_armature(Armature& armature, Map<s32>& bone_map, aiNode* node, s32 pare
 
 			std::string name = node->mName.C_Str();
 			std::string parent_name = node->mParent->mName.C_Str();
-			if (name != parent_name + "_end")
-			{
-				b8 valid = true;
-				BodyEntry::Type type;
-				if (strstr(name.c_str(), "capsule") == name.c_str())
-					type = BodyEntry::Type::Capsule;
-				else if (strstr(name.c_str(), "sphere") == name.c_str())
-					type = BodyEntry::Type::Sphere;
-				else if (strstr(name.c_str(), "box") == name.c_str())
-					type = BodyEntry::Type::Box;
-				else
-					valid = false;
 
-				if (valid)
-				{
-					BodyEntry* body = armature.bodies.add();
-					body->bone = parent_index;
-					body->size = scale;
-					body->pos = pos;
-					body->rot = rot;
-					body->type = type;
-				}
+			b8 valid = true;
+			BodyEntry::Type type;
+			if (strstr(name.c_str(), "capsule") == name.c_str())
+				type = BodyEntry::Type::Capsule;
+			else if (strstr(name.c_str(), "sphere") == name.c_str())
+				type = BodyEntry::Type::Sphere;
+			else if (strstr(name.c_str(), "box") == name.c_str())
+				type = BodyEntry::Type::Box;
+			else
+				valid = false;
+
+			if (valid)
+			{
+				BodyEntry* body = armature.bodies.add();
+				body->bone = parent_index;
+				body->size = scale;
+				body->pos = pos;
+				body->rot = rot;
+				body->type = type;
 			}
 		}
 	}
@@ -1281,12 +1279,9 @@ b8 import_meshes(ImporterState& state, const std::string& asset_in_path, const s
 					printf("%s Duration: %f Channels: %d\n", ai_anim->mName.C_Str(), anim.duration, anim.channels.length);
 
 					std::string anim_name(ai_anim->mName.C_Str());
-					if (anim_name.find("AnimStack") == 0)
-					{
-						memory_index pipe = anim_name.find("|");
-						if (pipe != std::string::npos && pipe < anim_name.length() - 1)
-							anim_name = anim_name.substr(pipe + 1);
-					}
+					memory_index pipe = anim_name.find("|");
+					if (pipe != std::string::npos && pipe < anim_name.length() - 1)
+						anim_name = anim_name.substr(pipe + 1);
 					clean_name(anim_name);
 					anim_name = asset_name + "_" + anim_name;
 

@@ -1,4 +1,4 @@
-The Wringer
+The Yearning
 ===========
 
 Features
@@ -31,8 +31,8 @@ Windows quickstart
 1. Ensure [Wwise](https://www.audiokinetic.com/) is installed and `WwiseCLI`
 is available on the path.
 1. Run `setup.bat`
-1. Open `build/mkzebra.sln` in Visual Studio.
-1. Set the `mkzebra` project as the default startup project.
+1. Open `build/yearning.sln` in Visual Studio.
+1. Set the `yearning` project as the default startup project.
 1. Hit F5 to run the game.
 
 Linux quickstart
@@ -43,7 +43,7 @@ to build the Linux soundbanks.
 1. If necessary, copy the generated `Wwise_IDs.h` file into `src/asset`.
 1. Copy the soundbanks into `assets/audio/GeneratedSoundBanks/Linux`.
 1. Run `./setup`
-1. Run `./mkzebra` from the `build` folder.
+1. Run `./yearning` from the `build` folder.
 
 Mac quickstart
 --------------
@@ -54,7 +54,7 @@ Mac quickstart
 1. Ensure [Wwise](https://www.audiokinetic.com/) is installed and `WwiseCLI.sh`
 is available on the path.
 1. Run `./setup-mac`
-1. Run `./mkzebra` from the `build` folder.
+1. Run `./yearning` from the `build` folder.
 
 Asset license
 -------------

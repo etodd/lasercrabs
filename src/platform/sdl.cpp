@@ -64,7 +64,7 @@ namespace VI
 
 		window = SDL_CreateWindow
 		(
-			"The Wringer",
+			"The Yearning",
 			SDL_WINDOWPOS_CENTERED,
 			SDL_WINDOWPOS_CENTERED,
 			settings.width, settings.height,

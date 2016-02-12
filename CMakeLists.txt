@@ -1,6 +1,6 @@
 # CMake entry point
 cmake_minimum_required (VERSION 2.6)
-project (wringer)
+project (yearning)
 
 ## Includes
 
@@ -157,9 +157,11 @@ target_compile_definitions(assimp PRIVATE
 	-DASSIMP_BUILD_NO_Q3BSP_IMPORTER
 	-DASSIMP_BUILD_NO_NDO_IMPORTER
 	-DASSIMP_BUILD_NO_XGL_IMPORTER
+	-DASSIMP_BUILD_NO_C4D_IMPORTER
 )
 
 target_include_directories(assimp PRIVATE
+	external/assimp/include
 	external/assimp/code/BoostWorkaround
 	${ZLIB_INCLUDE_DIR}
 )
@@ -234,7 +236,7 @@ add_custom_command(
 	MAIN_DEPENDENCY ${CMAKE_CURRENT_SOURCE_DIR}/external/sdl_controllers/gamecontrollerdb.txt
 )
 
-add_executable(wringer
+add_executable(yearning
 	CMakeLists.txt
 	src/data/array.h
 	src/data/pin_array.h
@@ -344,22 +346,22 @@ add_executable(wringer
 	assets/blend_to_lvl.py
 )
 
-target_include_directories(wringer PRIVATE ${ALL_INCLUDES})
+target_include_directories(yearning PRIVATE ${ALL_INCLUDES})
 
 # Config file
 file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/config.txt DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/)
 
 if(WIN32)
-	set_property(TARGET wringer APPEND PROPERTY LINK_FLAGS_DEBUG "/SUBSYSTEM:CONSOLE")
-	set_property(TARGET wringer APPEND PROPERTY COMPILE_DEFINITIONS $<$<CONFIG:Debug>:_CONSOLE>)
-	set_property(TARGET wringer APPEND PROPERTY LINK_FLAGS_RELWITHDEBINFO "/SUBSYSTEM:WINDOWS")
-	set_property(TARGET wringer APPEND PROPERTY LINK_FLAGS_RELEASE "/SUBSYSTEM:WINDOWS")
-	set_property(TARGET wringer APPEND PROPERTY LINK_FLAGS_MINSIZEREL "/SUBSYSTEM:WINDOWS")
+	set_property(TARGET yearning APPEND PROPERTY LINK_FLAGS_DEBUG "/SUBSYSTEM:CONSOLE")
+	set_property(TARGET yearning APPEND PROPERTY COMPILE_DEFINITIONS $<$<CONFIG:Debug>:_CONSOLE>)
+	set_property(TARGET yearning APPEND PROPERTY LINK_FLAGS_RELWITHDEBINFO "/SUBSYSTEM:WINDOWS")
+	set_property(TARGET yearning APPEND PROPERTY LINK_FLAGS_RELEASE "/SUBSYSTEM:WINDOWS")
+	set_property(TARGET yearning APPEND PROPERTY LINK_FLAGS_MINSIZEREL "/SUBSYSTEM:WINDOWS")
 endif(WIN32)
 
 ## Libraries
 
-target_link_libraries(wringer
+target_link_libraries(yearning
 	${OPENGL_LIBRARIES}
 	SDL2-static
 	GLEW_static
@@ -377,10 +379,10 @@ target_link_libraries(wringer
 )
 
 if(APPLE)
-target_link_libraries(wringer "-framework AudioToolbox" "-framework CoreAudio")
+target_link_libraries(yearning "-framework AudioToolbox" "-framework CoreAudio")
 endif()
 
-add_dependencies(wringer assets)
+add_dependencies(yearning assets)
 
 add_executable(import
 	src/data/import_common.h
@@ -413,4 +415,4 @@ add_custom_target(
 	DEPENDS import
 	WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
 )
-add_dependencies(wringer assets)
+add_dependencies(yearning assets)

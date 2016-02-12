@@ -1,4 +1,5 @@
 build
+__pycache__
 *.pyc
 .exrc
 *.blend1

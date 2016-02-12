@@ -21,7 +21,8 @@
 
 #define WALK_SPEED 2.0f
 
-#define VULNERABLE_HEALTH 10
+#define HEALTH 50
+#define VULNERABLE_HEALTH 15
 
 namespace VI
 {
@@ -44,7 +45,7 @@ Minion::Minion(const Vec3& pos, const Quat& quat, AI::Team team)
 
 	create<Audio>();
 
-	Health* health = create<Health>(50);
+	Health* health = create<Health>(HEALTH);
 	
 	Vec3 forward = quat * Vec3(0, 0, 1);
 

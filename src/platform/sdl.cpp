@@ -232,7 +232,7 @@ namespace VI
 
 			r64 time = (SDL_GetTicks() / 1000.0);
 			sync->time.total = (r32)time;
-			sync->time.delta = (r32)(time - last_time);
+			sync->time.delta = fmin((r32)(time - last_time), 0.25f);
 			last_time = time;
 
 			b8 quit = sync->quit;

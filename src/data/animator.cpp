@@ -59,7 +59,10 @@ void Animator::Layer::update(const Update& u, const Animator& animator)
 {
 	Animation* anim = Loader::animation(animation);
 
-	blend = fmin(1.0f, blend + u.time.delta / blend_time);
+	if (blend_time == 0.0f)
+		blend = 1.0f;
+	else
+		blend = fmin(1.0f, blend + u.time.delta / blend_time);
 
 	if (anim)
 	{
@@ -167,8 +170,8 @@ void Animator::Layer::changed_animation()
 	{
 		last_animation_channels.length = channels.length;
 		memcpy(&last_animation_channels[0], &channels[0], sizeof(AnimatorChannel) * channels.length);
-		blend = 1.0f - blend;
 	}
+	blend = 1.0f - blend;
 	last_animation = animation;
 }
 

@@ -794,8 +794,8 @@ class AnimationCurveNodeWrapper:
             for idx, (val, p_val) in enumerate(zip(key, p_key)):
                 p_keyedval = p_keyed[idx]
                 
-                if currframe == 0:
-                    if val == self.default_values[idx]:
+                if currframe == keys[0][0]: # first keyframe
+                    if val == self.default_values[idx]: # value is the same as the bind pose; skip it
                         continue
                     else:
                         add_key = True
@@ -1215,7 +1215,8 @@ FBXExportSettings = namedtuple("FBXExportSettings", (
     "bake_space_transform", "global_matrix_inv", "global_matrix_inv_transposed",
     "context_objects", "object_types", "use_mesh_modifiers",
     "mesh_smooth_type", "use_mesh_edges", "use_tspace",
-    "use_armature_deform_only", "add_leaf_bones", "bone_correction_matrix", "bone_correction_matrix_inv",
+    "armature_nodetype", "use_armature_deform_only", "add_leaf_bones",
+    "bone_correction_matrix", "bone_correction_matrix_inv",
     "bake_anim", "bake_anim_use_all_bones", "bake_anim_use_nla_strips", "bake_anim_use_all_actions",
     "bake_anim_step", "bake_anim_simplify_factor", "bake_anim_force_startend_keying",
     "use_metadata", "media_settings", "use_custom_props",

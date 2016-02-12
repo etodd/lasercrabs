@@ -1557,8 +1557,12 @@ def fbx_data_object_elements(root, ob_obj, scene_data):
     if ob_obj.is_bone:
         obj_type = b"LimbNode"
     elif (ob_obj.type == 'ARMATURE'):
-        #~ obj_type = b"Root"
-        obj_type = b"Null"
+        if scene_data.settings.armature_nodetype == 'ROOT':
+            obj_type = b"Root"
+        elif scene_data.settings.armature_nodetype == 'LIMBNODE':
+            obj_type = b"LimbNode"
+        else:  # Default, preferred option...
+            obj_type = b"Null"
     elif (ob_obj.type in BLENDER_OBJECT_TYPES_MESHLIKE):
         obj_type = b"Mesh"
     elif (ob_obj.type == 'LAMP'):
@@ -2068,7 +2072,7 @@ def fbx_animations(scene_data):
                 if ob_obj.is_object and ob_obj.type == 'ARMATURE':
 	                for pbo in ob.pose.bones:
 	                    pbo.matrix_basis.identity()
-	                scene_data.scene.update()
+	                scene.update()
 
                 ob.animation_data.action = act
                 frame_start, frame_end = act.frame_range  # sic!
@@ -2093,6 +2097,24 @@ def fbx_animations(scene_data):
 
     return animations, animated, frame_start, frame_end
 
+class AnimatedObjectSnapshot(object):
+    def __init__(self, ob_obj):
+        if ob_obj.bdata.animation_data:
+            self.action = ob_obj.bdata.animation_data.action
+        else:
+            self.action = None
+
+        if ob_obj.is_object and ob_obj.type == 'ARMATURE':
+            self.pose = [pbo.matrix_basis.copy() for pbo in ob_obj.bdata.pose.bones]
+        else:
+            self.pose = None
+
+    def restore(self, ob_obj):
+        if ob_obj.bdata.animation_data:
+            ob_obj.bdata.animation_data.action = self.action
+        if ob_obj.is_object and ob_obj.type == 'ARMATURE':
+            for pbo, matrix in zip(ob_obj.bdata.pose.bones, self.pose):
+                pbo.matrix_basis = matrix
 
 def fbx_data_from_scene(scene, settings):
     """
@@ -2110,6 +2132,10 @@ def fbx_data_from_scene(scene, settings):
     # This is rather simple for now, maybe we could end generating templates with most-used values
     # instead of default ones?
     objects = OrderedDict()  # Because we do not have any ordered set...
+
+    # save animated object state, because we're going to clear it, export, and then restore
+    animated_object_snapshots = {}
+
     for ob in settings.context_objects:
         if ob.type not in objtypes:
             continue
@@ -2117,11 +2143,14 @@ def fbx_data_from_scene(scene, settings):
         ob_obj = ObjectWrapper(ob)
         objects[ob_obj] = None
 
-        # if we're baking animations, reset all armatures to their bind poses
-        if settings.bake_anim and ob_obj.is_object and ob_obj.type == 'ARMATURE':
-            ob_obj.bdata.animation_data.action = None
-            for pbo in ob_obj.bdata.pose.bones:
-                pbo.matrix_basis.identity()
+        # if we're baking animations, reset all objects to their bind poses
+        if settings.bake_anim:
+            animated_object_snapshots[ob_obj] = AnimatedObjectSnapshot(ob_obj)
+            if ob_obj.bdata.animation_data:
+                ob_obj.bdata.animation_data.action = None
+            if ob_obj.is_object and ob_obj.type == 'ARMATURE':
+                for pbo in ob_obj.bdata.pose.bones:
+                    pbo.matrix_basis.identity()
 
         # Duplis...
         ob_obj.dupli_list_create(scene, 'RENDER')
@@ -2544,6 +2573,10 @@ def fbx_data_from_scene(scene, settings):
 
     perfmon.level_down()
 
+    if settings.bake_anim: # restore animated object state
+        for ob_obj, snapshot in animated_object_snapshots.items():
+            snapshot.restore(ob_obj)
+
     # ##### And pack all this!
 
     return FBXExportData(
@@ -2876,6 +2909,7 @@ def save_single(operator, scene, filepath="",
                 embed_textures=False,
                 use_custom_props=False,
                 bake_space_transform=False,
+                armature_nodetype='NULL',
                 **kwargs
                 ):
 
@@ -2928,7 +2962,8 @@ def save_single(operator, scene, filepath="",
         bake_space_transform, global_matrix_inv, global_matrix_inv_transposed,
         context_objects, object_types, use_mesh_modifiers,
         mesh_smooth_type, use_mesh_edges, use_tspace,
-        use_armature_deform_only, add_leaf_bones, bone_correction_matrix, bone_correction_matrix_inv,
+        armature_nodetype, use_armature_deform_only,
+        add_leaf_bones, bone_correction_matrix, bone_correction_matrix_inv,
         bake_anim, bake_anim_use_all_bones, bake_anim_use_nla_strips, bake_anim_use_all_actions,
         bake_anim_step, bake_anim_simplify_factor, bake_anim_force_startend_keying,
         False, media_settings, use_custom_props,

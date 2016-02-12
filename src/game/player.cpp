@@ -634,12 +634,6 @@ void LocalPlayerControl::awake()
 		link_arg<Entity*, &LocalPlayerControl::hit_target>(get<Awk>()->hit);
 	}
 
-	if (has<Walker>())
-	{
-		get<Walker>()->auto_rotate = false;
-		get<SkinnedModel>()->mesh = Asset::Mesh::character_headless;
-	}
-
 	camera->mask = 1 << (s32)get<AIAgent>()->team;
 }
 
@@ -863,8 +857,8 @@ void LocalPlayerControl::update(const Update& u)
 		Vec3 movement = get_movement(u, Quat::euler(0, angle_horizontal, 0));
 		Vec2 dir = Vec2(movement.x, movement.z);
 		get<Walker>()->dir = dir;
-		get<Parkour>()->set_run(!u.input->get(settings.bindings.walk, gamepad));
 
+		// parkour button
 		b8 parkour_pressed = input_enabled() && u.input->get(settings.bindings.parkour, gamepad);
 
 		if (get<Parkour>()->fsm.current == Parkour::State::WallRun && !parkour_pressed)
@@ -881,9 +875,11 @@ void LocalPlayerControl::update(const Update& u)
 			{
 				try_parkour = false;
 				try_jump = false;
+				try_slide = false;
 			}
 		}
 
+		// jump button
 		b8 jump_pressed = input_enabled() && u.input->get(settings.bindings.jump, gamepad);
 		if (jump_pressed && !u.last_input->get(settings.bindings.jump, gamepad))
 			try_jump = true;
@@ -896,6 +892,28 @@ void LocalPlayerControl::update(const Update& u)
 			{
 				try_parkour = false;
 				try_jump = false;
+				try_slide = false;
+			}
+		}
+		
+		// slide button
+		b8 slide_pressed = input_enabled() && u.input->get(settings.bindings.slide, gamepad);
+
+		if (get<Parkour>()->fsm.current == Parkour::State::Slide && !slide_pressed)
+			get<Parkour>()->fsm.transition(Parkour::State::Normal);
+
+		if (slide_pressed && !u.last_input->get(settings.bindings.slide, gamepad))
+			try_slide = true;
+		else if (!slide_pressed)
+			try_slide = false;
+
+		if (try_slide)
+		{
+			if (get<Parkour>()->try_slide())
+			{
+				try_parkour = false;
+				try_jump = false;
+				try_slide = false;
 			}
 		}
 
@@ -926,29 +944,28 @@ void LocalPlayerControl::update(const Update& u)
 			{
 				// We're running along the wall
 				// Make sure we can't look backward
-				Vec3 direction = Quat::euler(0, get<Walker>()->target_rotation, 0) * Vec3(0, 0, 1);
-				r32 dot = forward.dot(direction);
-				if (dot < 0.0f)
-				{
-					forward = Vec3::normalize(forward - dot * direction);
-					angle_horizontal = atan2f(forward.x, forward.z);
-					angle_vertical = -asinf(forward.y);
-				}
+				clamp_rotation(Quat::euler(0, get<Walker>()->target_rotation, 0) * Vec3(0, 0, 1));
 			}
 
-			r32 dot = forward.dot(wall_normal);
-			if (dot < 0.0f)
-			{
-				forward = Vec3::normalize(forward - dot * wall_normal);
-				angle_horizontal = atan2f(forward.x, forward.z);
-				angle_vertical = -asinf(forward.y);
-			}
+			clamp_rotation(wall_normal);
+		}
+		else if (get<Parkour>()->fsm.current == Parkour::State::Slide)
+		{
+			lean_target = (PI / 180.0f) * 15.0f;
+			clamp_rotation(Quat::euler(0, get<Walker>()->target_rotation, 0) * Vec3(0, 0, 1));
 		}
 		else
 		{
 			lean_target = get<Walker>()->net_speed * (LMath::closest_angle(last_angle_horizontal, angle_horizontal) - angle_horizontal) * fmin((1.0f / 180.0f) / u.time.delta, 1.0f);
 
 			get<Walker>()->target_rotation = angle_horizontal;
+
+			// make sure our body is facing within 90 degrees of our target rotation
+			r32 delta = LMath::angle_to(get<Walker>()->rotation, angle_horizontal);
+			if (delta > PI * 0.5f)
+				get<Walker>()->rotation = LMath::angle_range(get<Walker>()->rotation + delta - PI * 0.5f);
+			else if (delta < PI * -0.5f)
+				get<Walker>()->rotation = LMath::angle_range(get<Walker>()->rotation + delta + PI * 0.5f);
 		}
 
 		lean += (lean_target - lean) * fmin(1.0f, 20.0f * u.time.delta);
@@ -1040,6 +1057,20 @@ void LocalPlayerControl::update(const Update& u)
 	Audio::listener_update(gamepad, camera_pos, look_quat);
 
 	last_angle_horizontal = angle_horizontal;
+}
+
+void LocalPlayerControl::clamp_rotation(const Vec3& direction)
+{
+	Quat look_quat = Quat::euler(lean, angle_horizontal, angle_vertical);
+	Vec3 forward = look_quat * Vec3(0, 0, 1);
+
+	r32 dot = forward.dot(direction);
+	if (dot < 0.0f)
+	{
+		forward = Vec3::normalize(forward - dot * direction);
+		angle_horizontal = atan2f(forward.x, forward.z);
+		angle_vertical = -asinf(forward.y);
+	}
 }
 
 LocalPlayerControl* LocalPlayerControl::player_for_camera(const Camera* cam)

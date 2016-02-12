@@ -157,6 +157,7 @@ struct LocalPlayerControl : public ComponentType<LocalPlayerControl>
 	b8 allow_zoom;
 	b8 try_parkour;
 	b8 try_jump;
+	b8 try_slide;
 	u8 gamepad;
 	b8 enable_input;
 
@@ -167,6 +168,8 @@ struct LocalPlayerControl : public ComponentType<LocalPlayerControl>
 	void awk_bounce(const Vec3&);
 	void awk_attached();
 	void hit_target(Entity*);
+
+	void clamp_rotation(const Vec3&);
 
 	void update(const Update&);
 	void draw_alpha(const RenderParams&) const;

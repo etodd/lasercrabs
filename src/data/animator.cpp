@@ -161,7 +161,11 @@ void Animator::Layer::update(const Update& u, const Animator& animator)
 		}
 	}
 	else
+	{
 		channels.resize(0);
+		if (animation != last_animation)
+			changed_animation();
+	}
 }
 
 void Animator::Layer::changed_animation()

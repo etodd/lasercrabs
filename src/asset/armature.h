@@ -8,15 +8,14 @@ namespace Asset
 {
 	namespace Armature
 	{
-		const s32 count = 4;
+		const s32 count = 3;
 		const AssetID awk = 0;
-		const AssetID character_headless = 1;
-		const AssetID character_mesh = 2;
-		const AssetID turret = 3;
+		const AssetID character_mesh = 1;
+		const AssetID turret = 2;
 	}
 	namespace Bone
 	{
-		const s32 count = 59;
+		const s32 count = 38;
 		const AssetID awk_a1 = 5;
 		const AssetID awk_a2 = 6;
 		const AssetID awk_b1 = 1;
@@ -36,27 +35,6 @@ namespace Asset
 		const AssetID character_forearm_L = 13;
 		const AssetID character_forearm_R = 18;
 		const AssetID character_head = 3;
-		const AssetID character_headless_attach_point = 20;
-		const AssetID character_headless_claw1_L = 6;
-		const AssetID character_headless_claw1_R = 11;
-		const AssetID character_headless_claw2_L = 8;
-		const AssetID character_headless_claw2_R = 12;
-		const AssetID character_headless_claw3_L = 7;
-		const AssetID character_headless_claw3_R = 13;
-		const AssetID character_headless_foot_L = 16;
-		const AssetID character_headless_foot_R = 19;
-		const AssetID character_headless_forearm_L = 5;
-		const AssetID character_headless_forearm_R = 10;
-		const AssetID character_headless_head = 3;
-		const AssetID character_headless_hips = 0;
-		const AssetID character_headless_neck = 2;
-		const AssetID character_headless_shin_L = 15;
-		const AssetID character_headless_shin_R = 18;
-		const AssetID character_headless_spine = 1;
-		const AssetID character_headless_thigh_L = 14;
-		const AssetID character_headless_thigh_R = 17;
-		const AssetID character_headless_upper_arm_L = 4;
-		const AssetID character_headless_upper_arm_R = 9;
 		const AssetID character_helmet_high_L = 7;
 		const AssetID character_helmet_high_R = 5;
 		const AssetID character_helmet_high_back = 11;

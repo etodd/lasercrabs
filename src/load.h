@@ -28,8 +28,8 @@ struct Settings
 		InputBinding jump;
 		InputBinding primary;
 		InputBinding secondary;
-		InputBinding walk;
 		InputBinding parkour;
+		InputBinding slide;
 	};
 
 	Bindings bindings;

@@ -765,27 +765,29 @@ void Rope::spawn(const Vec3& pos, const Vec3& dir, const r32 max_distance, const
 	}
 }
 
-TileEntity::TileEntity(const Vec3& pos, const Quat& rot, Transform* parent, const Vec3& offset)
+TileEntity::TileEntity(const Vec3& pos, const Quat& rot, Transform* parent, const Vec3& offset, r32 anim_time)
 {
 	Transform* transform = create<Transform>();
 
-	transform->absolute(pos + offset, rot * Quat::euler(PI * 0.5f, PI * 0.5f, fmod(Game::time.total, PI * 2.0f)));
+	transform->absolute(pos + offset, rot * Quat::euler(PI * 0.5f, PI * 0.5f, fmod((Game::time.total + (anim_time * 2.0f)) * 5.0f, PI * 2.0f)));
 
 	transform->reparent(parent);
 
 	Vec3 relative_target_pos = pos;
 	Quat relative_target_rot = rot;
-	parent->to_local(&relative_target_pos, &relative_target_rot);
+	if (parent)
+		parent->to_local(&relative_target_pos, &relative_target_rot);
 
-	create<Tile>(relative_target_pos, relative_target_rot);
+	create<Tile>(relative_target_pos, relative_target_rot, anim_time);
 }
 
 Array<Mat4> Tile::instances;
 
-Tile::Tile(const Vec3& pos, const Quat& rot)
+Tile::Tile(const Vec3& pos, const Quat& rot, r32 anim_time)
 	: relative_target_pos(pos),
 	relative_target_rot(rot),
-	timer()
+	timer(),
+	anim_time(anim_time)
 {
 }
 
@@ -795,16 +797,16 @@ void Tile::awake()
 	relative_start_rot = get<Transform>()->rot;
 }
 
-#define TILE_ANIM_TIME 0.3f
 #define TILE_LIFE_TIME 3.0f
+#define TILE_ANIM_OUT_TIME 0.3f
 void Tile::update(const Update& u)
 {
 	timer += u.time.delta;
-	if (timer > TILE_LIFE_TIME || !get<Transform>()->parent.ref())
+	if (timer > TILE_LIFE_TIME)
 		World::remove(entity());
 	else
 	{
-		r32 blend = fmin(timer / TILE_ANIM_TIME, 1.0f);
+		r32 blend = fmin(timer / anim_time, 1.0f);
 
 		Vec3 blend_pos = Vec3::lerp(blend, relative_start_pos, relative_target_pos) + Vec3(sinf(blend * PI) * 0.25f);
 		Quat blend_rot = Quat::slerp(blend, relative_start_rot, relative_target_rot);
@@ -817,10 +819,10 @@ void Tile::update(const Update& u)
 r32 Tile::scale() const
 {
 	r32 blend;
-	if (timer < TILE_LIFE_TIME - TILE_ANIM_TIME)
-		blend = fmin(timer / TILE_ANIM_TIME, 1.0f);
+	if (timer < TILE_LIFE_TIME - TILE_ANIM_OUT_TIME)
+		blend = fmin(timer / anim_time, 1.0f);
 	else
-		blend = Ease::quad_in(((timer - (TILE_LIFE_TIME - TILE_ANIM_TIME)) / TILE_ANIM_TIME), 1.0f, 0.0f);
+		blend = Ease::quad_in(((timer - (TILE_LIFE_TIME - TILE_ANIM_OUT_TIME)) / TILE_ANIM_OUT_TIME), 1.0f, 0.0f);
 	return blend * TILE_SIZE;
 }
 

@@ -8,7 +8,6 @@ const char* AssetLookup::Mesh::values[] =
 {
 	"assets/awk.msh",
 	"assets/character_gun.msh",
-	"assets/character_headless.msh",
 	"assets/character_mesh.msh",
 	"assets/compass_inner.msh",
 	"assets/compass_outer.msh",
@@ -52,7 +51,6 @@ const char* AssetLookup::Mesh::names[] =
 {
 	"awk",
 	"character_gun",
-	"character_headless",
 	"character_mesh",
 	"compass_inner",
 	"compass_outer",
@@ -99,6 +97,7 @@ const char* AssetLookup::Animation::values[] =
 	"assets/character_idle_gun.anm",
 	"assets/character_mantle.anm",
 	"assets/character_run.anm",
+	"assets/character_slide.anm",
 	"assets/character_vulnerable.anm",
 	"assets/character_walk.anm",
 	0,
@@ -112,6 +111,7 @@ const char* AssetLookup::Animation::names[] =
 	"character_idle_gun",
 	"character_mantle",
 	"character_run",
+	"character_slide",
 	"character_vulnerable",
 	"character_walk",
 	0,
@@ -121,7 +121,6 @@ const char* AssetLookup::Animation::names[] =
 const char* AssetLookup::Armature::values[] =
 {
 	"assets/awk.arm",
-	"assets/character_headless.arm",
 	"assets/character_mesh.arm",
 	"assets/turret.arm",
 	0,
@@ -131,7 +130,6 @@ const char* AssetLookup::Armature::values[] =
 const char* AssetLookup::Armature::names[] =
 {
 	"awk",
-	"character_headless",
 	"character_mesh",
 	"turret",
 	0,

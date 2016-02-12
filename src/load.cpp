@@ -1007,7 +1007,7 @@ Settings& Loader::settings()
 		settings_data.bindings.primary = input_binding(bindings, "primary", { KeyCode::MouseLeft, Gamepad::Btn::RightTrigger });
 		settings_data.bindings.secondary = input_binding(bindings, "secondary", { KeyCode::MouseRight, Gamepad::Btn::LeftTrigger });
 		settings_data.bindings.parkour = input_binding(bindings, "parkour", { KeyCode::LShift, Gamepad::Btn::LeftTrigger });
-		settings_data.bindings.walk = input_binding(bindings, "walk", { KeyCode::LCtrl, Gamepad::Btn::LeftClick });
+		settings_data.bindings.slide = input_binding(bindings, "slide", { KeyCode::MouseLeft, Gamepad::Btn::LeftClick });
 	}
 	return settings_data;
 }
@@ -1034,7 +1034,7 @@ void Loader::settings_save()
 		cJSON_AddItemToObject(bindings, "primary", input_binding_json(settings_data.bindings.primary));
 		cJSON_AddItemToObject(bindings, "secondary", input_binding_json(settings_data.bindings.secondary));
 		cJSON_AddItemToObject(bindings, "parkour", input_binding_json(settings_data.bindings.parkour));
-		cJSON_AddItemToObject(bindings, "walk", input_binding_json(settings_data.bindings.walk));
+		cJSON_AddItemToObject(bindings, "slide", input_binding_json(settings_data.bindings.slide));
 
 		Json::save(json, "config.txt");
 		Json::json_free(json);

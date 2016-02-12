@@ -1626,6 +1626,11 @@ namespace LMath
 		return closest_angle(x, 0.0f);
 	}
 
+	inline r32 angle_to(r32 x, r32 y)
+	{
+		return y - closest_angle(x, y);
+	}
+
 	inline r32 rotate_toward(r32 angle, r32 target, r32 delta)
 	{
 		r32 closest_target = closest_angle(target, angle);

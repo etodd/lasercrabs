@@ -21,9 +21,11 @@ namespace VI
 #define RUN_SPEED 5.0f
 #define WALK_SPEED 2.0f
 #define MAX_SPEED 7.0f
-#define MIN_WALLRUN_SPEED 1.0f
+#define MIN_WALLRUN_SPEED 2.0f
 
 #define JUMP_GRACE_PERIOD 0.3f
+
+#define TILE_CREATE_RADIUS 4.5f
 
 Traceur::Traceur(const Vec3& pos, const Quat& quat, AI::Team team)
 {
@@ -49,6 +51,8 @@ Traceur::Traceur(const Vec3& pos, const Quat& quat, AI::Team team)
 
 	Walker* walker = create<Walker>(atan2f(forward.x, forward.z));
 	walker->max_speed = MAX_SPEED;
+	walker->speed = RUN_SPEED;
+	walker->auto_rotate = false;
 
 	create<AIAgent>()->team = team;
 
@@ -59,6 +63,7 @@ void Parkour::awake()
 {
 	Animator* animator = get<Animator>();
 	animator->layers[1].loop = false;
+	animator->layers[2].loop = true;
 	link<&Parkour::footstep>(animator->trigger(Asset::Animation::character_walk, 0.3375f));
 	link<&Parkour::footstep>(animator->trigger(Asset::Animation::character_walk, 0.75f));
 	link<&Parkour::footstep>(animator->trigger(Asset::Animation::character_run, 0.216f));
@@ -80,15 +85,6 @@ void Parkour::head_to_object_space(Vec3* pos, Quat* rot)
 	get<Animator>()->bone_transform(Asset::Bone::character_head, &offset_pos, &offset_quat);
 	*pos = (get<SkinnedModel>()->offset * Vec4(offset_pos)).xyz();
 	*rot = (Quat::euler(0, get<Walker>()->rotation, 0) * offset_quat);
-}
-
-void Parkour::set_run(b8 r)
-{
-	if (r && fsm.current == State::Normal)
-		fsm.transition(State::Run);
-	else if (!r && (fsm.current == State::Run || fsm.current == State::WallRun))
-		fsm.transition(State::Normal);
-	get<Walker>()->speed = r ? RUN_SPEED : WALK_SPEED;
 }
 
 void Parkour::footstep()
@@ -188,67 +184,8 @@ b8 Parkour::wallrun(const Update& u, RigidBody* wall, const Vec3& relative_wall_
 		Vec3 relative_wall_up = relative_wall_right.cross(relative_wall_run_normal);
 		relative_wall_up.normalize();
 
-		TilePos wall_coord =
-		{
-			(s32)(relative_support_pos.dot(relative_wall_right) * (1.0f / TILE_SIZE)),
-			(s32)(relative_support_pos.dot(relative_wall_up) * (1.0f / TILE_SIZE)),
-		};
-
-		bool new_wall_coord = true;
-		if (tile_history.length > 0)
-		{
-			for (s32 i = tile_history.length - 1; i >= 0; i--)
-			{
-				if (wall_coord == tile_history[i])
-				{
-					new_wall_coord = false;
-					break;
-				}
-			}
-		}
-
-		if (new_wall_coord)
-		{
-			r32 relative_wall_z = relative_support_pos.dot(relative_wall_run_normal) - 0.05f;
-
-			Quat absolute_wall_rot = Quat::look(absolute_wall_normal);
-			Vec3 spawn_offset = ((velocity - support_velocity) * 1.5f) + (absolute_wall_normal * -3.0f);
-
-			const r32 radius = 4.5f;
-			for (s32 x = -radius; x <= (s32)radius; x++)
-			{
-				for (s32 y = -radius; y <= (s32)radius; y++)
-				{
-					if (Vec2(x, y).length_squared() < radius * radius)
-					{
-						b8 create = true;
-						for (s32 i = tile_history.length - 1; i >= 0; i--)
-						{
-							const TilePos& history_coord = tile_history[i];
-							if (Vec2(wall_coord.x + x - history_coord.x, wall_coord.y + y - history_coord.y).length_squared() < (radius + TILE_SIZE) * (radius + TILE_SIZE))
-							{
-								create = false;
-								break;
-							}
-						}
-
-						if (create)
-						{
-							Vec2 relative_tile_wall_coord = Vec2(wall_coord.x + x, wall_coord.y + y) * TILE_SIZE;
-							Vec3 relative_tile_pos = (relative_wall_right * relative_tile_wall_coord.x)
-								+ (relative_wall_up * relative_tile_wall_coord.y)
-								+ (relative_wall_run_normal * relative_wall_z);
-							Vec3 absolute_tile_pos = last_support.ref()->get<Transform>()->to_world(relative_tile_pos);
-
-							World::create<TileEntity>(absolute_tile_pos, absolute_wall_rot, last_support.ref()->get<Transform>(), spawn_offset);
-						}
-					}
-				}
-			}
-			if (tile_history.length == MAX_TILE_HISTORY)
-				tile_history.remove_ordered(0);
-			tile_history.add(wall_coord);
-		}
+		Vec3 spawn_offset = ((velocity - support_velocity) * 1.5f) + (absolute_wall_normal * -3.0f);
+		spawn_tiles(relative_wall_right, relative_wall_up, relative_wall_normal, spawn_offset);
 	}
 
 	return exit_wallrun;
@@ -276,13 +213,19 @@ void Parkour::update(const Update& u)
 	if (get<Walker>()->support.ref())
 	{
 		wall_run_state = WallRunState::None;
+		can_double_jump = true;
 		tile_history.length = 0;
 	}
 
-	Animator::Layer* layer = &get<Animator>()->layers[0];
+	// animation layers
+	// layer 0 = running, walking, wall-running
+	// layer 1 = mantle
+	// layer 2 = slide
 
 	if (fsm.current == State::Mantle)
 	{
+		get<Animator>()->layers[1].animation = Asset::Animation::character_mantle;
+		get<Animator>()->layers[2].animation = AssetNull;
 		const r32 mantle_time = 0.5f;
 		if (fsm.time > mantle_time || !last_support.ref())
 		{
@@ -316,6 +259,7 @@ void Parkour::update(const Update& u)
 	}
 	else if (fsm.current == State::WallRun)
 	{
+		get<Animator>()->layers[2].animation = AssetNull;
 		b8 exit_wallrun = false;
 		btCollisionWorld::ClosestRayResultCallback support_callback = get<Walker>()->check_support();
 		if (support_callback.hasHit())
@@ -369,8 +313,9 @@ void Parkour::update(const Update& u)
 			wall_run_state = WallRunState::None;
 		}
 	}
-	else if (fsm.current == State::Normal || fsm.current == State::Run)
+	else if (fsm.current == State::Normal)
 	{
+		get<Animator>()->layers[2].animation = AssetNull;
 		if (get<Walker>()->support.ref())
 		{
 			last_support_time = Game::time.total;
@@ -378,34 +323,113 @@ void Parkour::update(const Update& u)
 			relative_support_pos = last_support.ref()->get<Transform>()->to_local(get<Walker>()->base_pos());
 		}
 	}
+	else if (fsm.current == State::Slide)
+	{
+		Vec3 support_velocity = get_support_velocity();
+		Vec3 velocity = get<RigidBody>()->btBody->getLinearVelocity();
+		Vec3 relative_velocity = velocity - support_velocity;
+		Vec3 forward = Quat::euler(0, get<Walker>()->rotation, 0) * Vec3(0, 0, 1);
+		if (relative_velocity.dot(forward) < MIN_WALLRUN_SPEED) // going too slow
+			fsm.transition(State::Normal);
+		else
+		{
+			// keep sliding
+
+			// do damping
+			relative_velocity -= Vec3::normalize(relative_velocity) * u.time.delta * 2.0f;
+			Vec3 new_velocity = support_velocity + relative_velocity;
+			get<RigidBody>()->btBody->setLinearVelocity(new_velocity);
+
+			Vec3 spawn_offset = new_velocity * 1.5f;
+			spawn_offset.y = 5.0f;
+			spawn_tiles(Vec3(1, 0, 0), Vec3(0, 0, 1), Vec3(0, 1, 0), spawn_offset);
+		}
+	}
 
 	// update animation
+	Animator::Layer* layer0 = &get<Animator>()->layers[0];
 	AssetID anim;
 	if (fsm.current == State::WallRun)
 		anim = Asset::Animation::character_run; // speed already set
 	else if (get<Walker>()->support.ref() && get<Walker>()->dir.length_squared() > 0.0f)
 	{
 		r32 net_speed = fmax(get<Walker>()->net_speed, WALK_SPEED * 0.5f);
-		if (fsm.current == State::Run)
-		{
-			anim = net_speed > WALK_SPEED ? Asset::Animation::character_run : Asset::Animation::character_walk;
-			layer->speed = net_speed > WALK_SPEED ? LMath::lerpf((net_speed - WALK_SPEED) / RUN_SPEED, 0.75f, 1.0f) : (net_speed / WALK_SPEED);
-		}
-		else
-		{
-			anim = Asset::Animation::character_walk;
-			layer->speed = net_speed / get<Walker>()->speed;
-		}
+		anim = net_speed > WALK_SPEED ? Asset::Animation::character_run : Asset::Animation::character_walk;
+		layer0->speed = net_speed > WALK_SPEED ? LMath::lerpf((net_speed - WALK_SPEED) / RUN_SPEED, 0.75f, 1.0f) : (net_speed / WALK_SPEED);
 	}
 	else
 	{
 		anim = Asset::Animation::character_idle;
-		layer->speed = 1.0f;
+		layer0->speed = 1.0f;
 	}
 
-	layer->animation = anim;
+	layer0->animation = anim;
 
-	get<Walker>()->enabled = fsm.current == State::Normal || fsm.current == State::Run;
+	get<Walker>()->enabled = fsm.current == State::Normal;
+}
+
+void Parkour::spawn_tiles(const Vec3& relative_wall_right, const Vec3& relative_wall_up, const Vec3& relative_wall_normal, const Vec3& spawn_offset)
+{
+	TilePos wall_coord =
+	{
+		(s32)(relative_support_pos.dot(relative_wall_right) * (1.0f / TILE_SIZE)),
+		(s32)(relative_support_pos.dot(relative_wall_up) * (1.0f / TILE_SIZE)),
+	};
+
+	bool new_wall_coord = true;
+	if (tile_history.length > 0)
+	{
+		for (s32 i = tile_history.length - 1; i >= 0; i--)
+		{
+			if (wall_coord == tile_history[i])
+			{
+				new_wall_coord = false;
+				break;
+			}
+		}
+	}
+
+	if (new_wall_coord)
+	{
+		r32 relative_wall_z = relative_support_pos.dot(relative_wall_normal) - 0.05f;
+
+		Vec3 absolute_wall_normal = last_support.ref()->get<Transform>()->to_world_normal(relative_wall_normal);
+		Quat absolute_wall_rot = Quat::look(absolute_wall_normal);
+
+		for (s32 x = -TILE_CREATE_RADIUS; x <= (s32)TILE_CREATE_RADIUS; x++)
+		{
+			for (s32 y = -TILE_CREATE_RADIUS; y <= (s32)TILE_CREATE_RADIUS; y++)
+			{
+				if (Vec2(x, y).length_squared() < TILE_CREATE_RADIUS * TILE_CREATE_RADIUS)
+				{
+					b8 create = true;
+					for (s32 i = tile_history.length - 1; i >= 0; i--)
+					{
+						const TilePos& history_coord = tile_history[i];
+						if (Vec2(wall_coord.x + x - history_coord.x, wall_coord.y + y - history_coord.y).length_squared() < (TILE_CREATE_RADIUS + TILE_SIZE) * (TILE_CREATE_RADIUS + TILE_SIZE))
+						{
+							create = false;
+							break;
+						}
+					}
+
+					if (create)
+					{
+						Vec2 relative_tile_wall_coord = Vec2(wall_coord.x + x, wall_coord.y + y) * TILE_SIZE;
+						Vec3 relative_tile_pos = (relative_wall_right * relative_tile_wall_coord.x)
+							+ (relative_wall_up * relative_tile_wall_coord.y)
+							+ (relative_wall_normal * relative_wall_z);
+						Vec3 absolute_tile_pos = last_support.ref()->get<Transform>()->to_world(relative_tile_pos);
+
+						World::create<TileEntity>(absolute_tile_pos, absolute_wall_rot, last_support.ref()->get<Transform>(), spawn_offset);
+					}
+				}
+			}
+		}
+		if (tile_history.length == MAX_TILE_HISTORY)
+			tile_history.remove_ordered(0);
+		tile_history.add(wall_coord);
+	}
 }
 
 const s32 wall_jump_direction_count = 4;
@@ -418,25 +442,33 @@ Vec3 wall_directions[wall_jump_direction_count] =
 	Vec3(0, 0, -1),
 };
 
+void Parkour::do_normal_jump()
+{
+	btRigidBody* body = get<RigidBody>()->btBody;
+	const r32 speed = 6.0f;
+	Vec3 new_velocity = body->getLinearVelocity();
+	new_velocity.y = fmax(speed, new_velocity.y + speed);
+	body->setLinearVelocity(new_velocity);
+	last_support = get<Walker>()->support = nullptr;
+	wall_run_state = WallRunState::None;
+}
+
 b8 Parkour::try_jump(r32 rotation)
 {
-	b8 result = false;
+	b8 did_jump = false;
 	if (get<Walker>()->support.ref()
 		|| (last_support.ref() && Game::time.total - last_support_time < JUMP_GRACE_PERIOD && wall_run_state == WallRunState::None))
 	{
-		btRigidBody* body = get<RigidBody>()->btBody;
-		r32 speed = fsm.current == State::Run ? 6.0f : 5.0f;
-		body->setLinearVelocity(body->getLinearVelocity() + Vec3(0, speed, 0));
-		last_support = get<Walker>()->support = nullptr;
-		wall_run_state = WallRunState::None;
-		result = true;
+		do_normal_jump();
+		did_jump = true;
 	}
 	else
 	{
+		// try wall-jumping
 		if (last_support.ref() && Game::time.total - last_support_time < JUMP_GRACE_PERIOD && wall_run_state != WallRunState::None)
 		{
 			wall_jump(rotation, last_support.ref()->get<Transform>()->to_world_normal(relative_wall_run_normal), last_support.ref()->btBody);
-			result = true;
+			did_jump = true;
 		}
 		else
 		{
@@ -457,20 +489,66 @@ b8 Parkour::try_jump(r32 rotation)
 					Vec3 wall_normal = ray_callback.m_hitNormalWorld;
 					const btRigidBody* support_body = dynamic_cast<const btRigidBody*>(ray_callback.m_collisionObject);
 					wall_jump(rotation, wall_normal, support_body);
-					result = true;
+					did_jump = true;
 					break;
+				}
+			}
+
+			if (!did_jump)
+			{
+				// we couldn't wall-jump
+				// try to double-jump
+				if (can_double_jump)
+				{
+					Vec3 spawn_offset = get<RigidBody>()->btBody->getLinearVelocity() * 1.5f;
+					spawn_offset.y = 5.0f;
+
+					Vec3 pos = get<Walker>()->base_pos();
+
+					Quat tile_rot = Quat::look(Vec3(0, 1, 0));
+					const r32 radius = TILE_CREATE_RADIUS - 2.0f;
+					s32 i = 0;
+					for (s32 x = -(s32)TILE_CREATE_RADIUS; x <= (s32)radius; x++)
+					{
+						for (s32 y = -(s32)TILE_CREATE_RADIUS; y <= (s32)radius; y++)
+						{
+							if (Vec2(x, y).length_squared() < radius * radius)
+							{
+								World::create<TileEntity>(pos + Vec3(x, 0, y) * TILE_SIZE, tile_rot, nullptr, spawn_offset, 0.15f + 0.05f * i);
+								i++;
+							}
+						}
+					}
+
+					do_normal_jump();
+
+					can_double_jump = false;
+					did_jump = true;
 				}
 			}
 		}
 	}
 
-	if (result)
+	if (did_jump)
 	{
 		get<Audio>()->post_event(has<LocalPlayerControl>() ? AK::EVENTS::PLAY_JUMP_PLAYER : AK::EVENTS::PLAY_JUMP);
 		fsm.transition(State::Normal);
 	}
 
-	return result;
+	return did_jump;
+}
+
+Vec3 Parkour::get_support_velocity() const
+{
+	Vec3 support_velocity = Vec3::zero;
+	btCollisionWorld::ClosestRayResultCallback support_callback = get<Walker>()->check_support();
+	if (support_callback.hasHit())
+	{
+		const btRigidBody* support_body = dynamic_cast<const btRigidBody*>(support_callback.m_collisionObject);
+		support_velocity = Vec3(support_body->getLinearVelocity())
+			+ Vec3(support_body->getAngularVelocity()).cross(get<Walker>()->base_pos() - Vec3(support_body->getCenterOfMassPosition()));
+	}
+	return support_velocity;
 }
 
 void Parkour::wall_jump(r32 rotation, const Vec3& wall_normal, const btRigidBody* support_body)
@@ -510,10 +588,30 @@ Vec3 mantle_samples[mantle_sample_count] =
 	Vec3(0.35f, 0, 1),
 };
 
+b8 Parkour::try_slide()
+{
+	if (get<Walker>()->support.ref() && fsm.current == State::Normal)
+	{
+		Vec3 support_velocity = get_support_velocity();
+		Vec3 velocity = get<RigidBody>()->btBody->getLinearVelocity();
+		Vec3 relative_velocity = velocity - support_velocity;
+		Vec3 forward = Quat::euler(0, get<Walker>()->rotation, 0) * Vec3(0, 0, 1);
+		if (relative_velocity.dot(forward) > MIN_WALLRUN_SPEED)
+		{
+			velocity += forward * 2.0f;
+			get<RigidBody>()->btBody->setLinearVelocity(velocity);
+			fsm.transition(State::Slide);
+			get<Animator>()->layers[2].animation = Asset::Animation::character_slide;
+			return true;
+		}
+	}
+	return false;
+}
+
 // If force is true, we'll raycast farther downward when trying to mantle, to make sure we find something.
 b8 Parkour::try_parkour(b8 force)
 {
-	if (fsm.current == State::Run || fsm.current == State::Normal || fsm.current == State::WallRun)
+	if (fsm.current == State::Normal || fsm.current == State::WallRun)
 	{
 		// Try to mantle
 		Vec3 pos = get<Transform>()->absolute_pos();

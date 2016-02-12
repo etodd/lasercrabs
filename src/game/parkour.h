@@ -18,9 +18,9 @@ struct Parkour : public ComponentType<Parkour>
 	enum class State
 	{
 		Normal,
-		Run,
 		Mantle,
 		WallRun,
+		Slide,
 	};
 
 	enum class WallRunState
@@ -46,18 +46,22 @@ struct Parkour : public ComponentType<Parkour>
 	Ref<RigidBody> last_support;
 	r32 last_support_time;
 	StaticArray<TilePos, MAX_TILE_HISTORY> tile_history;
+	b8 can_double_jump;
 
 	b8 wallrun(const Update&, RigidBody*, const Vec3&, const Vec3&);
 
+	b8 try_slide();
 	b8 try_jump(r32);
+	void do_normal_jump();
 	b8 try_parkour(b8 = false);
-	void set_run(b8);
 	void awake();
 	Vec3 head_pos();
 	void head_to_object_space(Vec3*, Quat*);
 	void footstep();
 	b8 try_wall_run(WallRunState, const Vec3&);
 	void wall_jump(r32, const Vec3&, const btRigidBody*);
+	Vec3 get_support_velocity() const;
+	void spawn_tiles(const Vec3&, const Vec3&, const Vec3&, const Vec3&);
 
 	void update(const Update&);
 };

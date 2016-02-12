@@ -29,7 +29,7 @@ try:
 		add_leaf_bones = False,
 		bake_anim_force_startend_keying = False,
 		use_mesh_edges = False,
-		use_tspace = True,
+		use_tspace = False,
 	)
 
 except Exception as e:

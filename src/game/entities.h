@@ -126,7 +126,7 @@ struct Rope : public ComponentType<Rope>
 
 struct TileEntity : public Entity
 {
-	TileEntity(const Vec3&, const Quat&, Transform*, const Vec3&);
+	TileEntity(const Vec3&, const Quat&, Transform*, const Vec3&, r32 = 0.3f);
 };
 
 #define TILE_SIZE 0.5f
@@ -139,8 +139,9 @@ struct Tile : public ComponentType<Tile>
 	Vec3 relative_target_pos;
 	Quat relative_target_rot;
 	r32 timer;
+	r32 anim_time;
 
-	Tile(const Vec3&, const Quat&);
+	Tile(const Vec3&, const Quat&, r32 = 0.3f);
 	void awake();
 	r32 scale() const;
 	void update(const Update&);

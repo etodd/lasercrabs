@@ -797,7 +797,7 @@ void Tile::awake()
 	relative_start_rot = get<Transform>()->rot;
 }
 
-#define TILE_LIFE_TIME 3.0f
+#define TILE_LIFE_TIME 6.0f
 #define TILE_ANIM_OUT_TIME 0.3f
 void Tile::update(const Update& u)
 {

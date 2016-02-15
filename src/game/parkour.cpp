@@ -70,7 +70,7 @@ void Parkour::awake()
 	link<&Parkour::footstep>(animator->trigger(Asset::Animation::character_run, 0.476f));
 }
 
-Vec3 Parkour::head_pos()
+Vec3 Parkour::head_pos() const
 {
 	Vec3 pos = Vec3(0.1f, 0, 0);
 	Quat rot = Quat::identity;
@@ -78,7 +78,7 @@ Vec3 Parkour::head_pos()
 	return pos;
 }
 
-void Parkour::head_to_object_space(Vec3* pos, Quat* rot)
+void Parkour::head_to_object_space(Vec3* pos, Quat* rot) const
 {
 	Vec3 offset_pos = Vec3(0.05f, 0, 0.13f) + *pos;
 	Quat offset_quat = Quat::euler(0, 0, PI * 0.5f) * *rot;
@@ -325,24 +325,57 @@ void Parkour::update(const Update& u)
 	}
 	else if (fsm.current == State::Slide)
 	{
-		Vec3 support_velocity = get_support_velocity();
-		Vec3 velocity = get<RigidBody>()->btBody->getLinearVelocity();
-		Vec3 relative_velocity = velocity - support_velocity;
-		Vec3 forward = Quat::euler(0, get<Walker>()->rotation, 0) * Vec3(0, 0, 1);
-		if (relative_velocity.dot(forward) < MIN_WALLRUN_SPEED) // going too slow
+		if (!last_support.ref()) // support is gone
 			fsm.transition(State::Normal);
 		else
 		{
-			// keep sliding
+			// check how fast we're going
+			Vec3 support_velocity = get_support_velocity(relative_support_pos, last_support.ref()->btBody);
+			Vec3 velocity = get<RigidBody>()->btBody->getLinearVelocity();
+			Vec3 relative_velocity = velocity - support_velocity;
+			Vec3 forward = Quat::euler(0, get<Walker>()->rotation, 0) * Vec3(0, 0, 1);
+			if (relative_velocity.dot(forward) < MIN_WALLRUN_SPEED) // going too slow
+				fsm.transition(State::Normal);
+			else
+			{
+				// keep sliding
 
-			// do damping
-			relative_velocity -= Vec3::normalize(relative_velocity) * u.time.delta * 2.0f;
-			Vec3 new_velocity = support_velocity + relative_velocity;
-			get<RigidBody>()->btBody->setLinearVelocity(new_velocity);
+				// do damping
+				relative_velocity -= Vec3::normalize(relative_velocity) * u.time.delta * 3.0f;
 
-			Vec3 spawn_offset = new_velocity * 1.5f;
-			spawn_offset.y = 5.0f;
-			spawn_tiles(Vec3(1, 0, 0), Vec3(0, 0, 1), Vec3(0, 1, 0), spawn_offset);
+				// handle support
+				{
+					Transform* last_support_transform = last_support.ref()->get<Transform>();
+
+					Vec3 base_pos = get<Transform>()->absolute_pos();
+					r32 base_offset = get<Walker>()->height * 0.5f; // don't include support_height
+					base_pos.y -= base_offset;
+					Vec3 absolute_support_pos = last_support_transform->to_world(relative_support_pos);
+					Vec3 support_normal = last_support_transform->to_world_normal(relative_wall_run_normal);
+					Vec3 support_diff = base_pos - absolute_support_pos;
+					r32 support_diff_normal = support_diff.dot(support_normal);
+					Vec3 projected_support = base_pos - (support_diff_normal * support_normal);
+					if (support_diff_normal < 0.0f)
+					{
+						get<Transform>()->absolute_pos(projected_support + Vec3(0, base_offset, 0));
+						r32 velocity_normal = relative_velocity.dot(support_normal);
+						relative_velocity -= support_normal * (velocity_normal * support_normal);
+					}
+					
+
+					// update relative support pos
+					relative_support_pos = last_support_transform->to_local(projected_support);
+					last_support_time = Game::time.total;
+				}
+
+				Vec3 new_velocity = support_velocity + relative_velocity;
+				get<RigidBody>()->btBody->setLinearVelocity(new_velocity);
+
+				// spawn tiles
+				Vec3 spawn_offset = new_velocity * 1.5f;
+				spawn_offset.y = -2.0f;
+				spawn_tiles(Vec3(1, 0, 0), Vec3(0, 0, 1), Vec3(0, 1, 0), spawn_offset);
+			}
 		}
 	}
 
@@ -396,6 +429,7 @@ void Parkour::spawn_tiles(const Vec3& relative_wall_right, const Vec3& relative_
 		Vec3 absolute_wall_normal = last_support.ref()->get<Transform>()->to_world_normal(relative_wall_normal);
 		Quat absolute_wall_rot = Quat::look(absolute_wall_normal);
 
+		s32 i = 0;
 		for (s32 x = -TILE_CREATE_RADIUS; x <= (s32)TILE_CREATE_RADIUS; x++)
 		{
 			for (s32 y = -TILE_CREATE_RADIUS; y <= (s32)TILE_CREATE_RADIUS; y++)
@@ -421,7 +455,10 @@ void Parkour::spawn_tiles(const Vec3& relative_wall_right, const Vec3& relative_
 							+ (relative_wall_normal * relative_wall_z);
 						Vec3 absolute_tile_pos = last_support.ref()->get<Transform>()->to_world(relative_tile_pos);
 
-						World::create<TileEntity>(absolute_tile_pos, absolute_wall_rot, last_support.ref()->get<Transform>(), spawn_offset);
+						r32 anim_time = tile_history.length == 0 ? (0.03f + 0.01f * i) : 0.3f;
+						World::create<TileEntity>(absolute_tile_pos, absolute_wall_rot, last_support.ref()->get<Transform>(), spawn_offset, anim_time);
+
+						i++;
 					}
 				}
 			}
@@ -447,7 +484,7 @@ void Parkour::do_normal_jump()
 	btRigidBody* body = get<RigidBody>()->btBody;
 	const r32 speed = 6.0f;
 	Vec3 new_velocity = body->getLinearVelocity();
-	new_velocity.y = fmax(speed, new_velocity.y + speed);
+	new_velocity.y = fmax(0, new_velocity.y) + speed;
 	body->setLinearVelocity(new_velocity);
 	last_support = get<Walker>()->support = nullptr;
 	wall_run_state = WallRunState::None;
@@ -457,6 +494,7 @@ b8 Parkour::try_jump(r32 rotation)
 {
 	b8 did_jump = false;
 	if (get<Walker>()->support.ref()
+		|| fsm.current == State::Slide
 		|| (last_support.ref() && Game::time.total - last_support_time < JUMP_GRACE_PERIOD && wall_run_state == WallRunState::None))
 	{
 		do_normal_jump();
@@ -520,6 +558,14 @@ b8 Parkour::try_jump(r32 rotation)
 						}
 					}
 
+					// override horizontal velocity based on current facing angle
+					Vec3 velocity = get<RigidBody>()->btBody->getLinearVelocity();
+					Vec3 horizontal_velocity = velocity;
+					horizontal_velocity.y = 0.0f;
+					Vec3 new_velocity = Quat::euler(0, get<Walker>()->rotation, 0) * Vec3(0, 0, horizontal_velocity.length());
+					new_velocity.y = velocity.y;
+					get<RigidBody>()->btBody->setLinearVelocity(new_velocity);
+
 					do_normal_jump();
 
 					can_double_jump = false;
@@ -538,13 +584,12 @@ b8 Parkour::try_jump(r32 rotation)
 	return did_jump;
 }
 
-Vec3 Parkour::get_support_velocity() const
+Vec3 Parkour::get_support_velocity(const Vec3& absolute_pos, const btCollisionObject* support) const
 {
 	Vec3 support_velocity = Vec3::zero;
-	btCollisionWorld::ClosestRayResultCallback support_callback = get<Walker>()->check_support();
-	if (support_callback.hasHit())
+	if (support)
 	{
-		const btRigidBody* support_body = dynamic_cast<const btRigidBody*>(support_callback.m_collisionObject);
+		const btRigidBody* support_body = dynamic_cast<const btRigidBody*>(support);
 		support_velocity = Vec3(support_body->getLinearVelocity())
 			+ Vec3(support_body->getAngularVelocity()).cross(get<Walker>()->base_pos() - Vec3(support_body->getCenterOfMassPosition()));
 	}
@@ -592,7 +637,8 @@ b8 Parkour::try_slide()
 {
 	if (get<Walker>()->support.ref() && fsm.current == State::Normal)
 	{
-		Vec3 support_velocity = get_support_velocity();
+		btCollisionWorld::ClosestRayResultCallback support_callback = get<Walker>()->check_support();
+		Vec3 support_velocity = get_support_velocity(support_callback.m_hitPointWorld, support_callback.m_collisionObject);
 		Vec3 velocity = get<RigidBody>()->btBody->getLinearVelocity();
 		Vec3 relative_velocity = velocity - support_velocity;
 		Vec3 forward = Quat::euler(0, get<Walker>()->rotation, 0) * Vec3(0, 0, 1);
@@ -601,7 +647,10 @@ b8 Parkour::try_slide()
 			velocity += forward * 2.0f;
 			get<RigidBody>()->btBody->setLinearVelocity(velocity);
 			fsm.transition(State::Slide);
+			last_support = get<Walker>()->support;
+			relative_wall_run_normal = last_support.ref()->get<Transform>()->to_local_normal(support_callback.m_hitNormalWorld);
 			get<Animator>()->layers[2].animation = Asset::Animation::character_slide;
+			can_double_jump = true;
 			return true;
 		}
 	}
@@ -755,6 +804,8 @@ b8 Parkour::try_wall_run(WallRunState s, const Vec3& wall_direction)
 		btTransform transform = body->getWorldTransform();
 		transform.setOrigin(new_pos);
 		body->setWorldTransform(transform);
+
+		can_double_jump = true;
 
 		return true;
 	}

@@ -55,12 +55,12 @@ struct Parkour : public ComponentType<Parkour>
 	void do_normal_jump();
 	b8 try_parkour(b8 = false);
 	void awake();
-	Vec3 head_pos();
-	void head_to_object_space(Vec3*, Quat*);
+	Vec3 head_pos() const;
+	void head_to_object_space(Vec3*, Quat*) const;
 	void footstep();
 	b8 try_wall_run(WallRunState, const Vec3&);
 	void wall_jump(r32, const Vec3&, const btRigidBody*);
-	Vec3 get_support_velocity() const;
+	Vec3 get_support_velocity(const Vec3&, const btCollisionObject*) const;
 	void spawn_tiles(const Vec3&, const Vec3&, const Vec3&, const Vec3&);
 
 	void update(const Update&);

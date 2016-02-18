@@ -6,6 +6,7 @@
 #include "render/ui.h"
 #include "ai.h"
 #include "menu.h"
+#include "team.h"
 
 namespace VI
 {
@@ -13,66 +14,9 @@ namespace VI
 struct RigidBody;
 struct Transform;
 struct LocalPlayerControl;
+struct PlayerManager;
 
-#define MAX_PLAYERS 8
 #define MAX_PLAYER_COMBOS 28 // C(MAX_PLAYERS, 2)
-
-struct Camera;
-
-struct Team
-{
-	enum class MinionSpawnState
-	{
-		One,
-		Two,
-		Three,
-		count,
-	};
-
-	static StaticArray<Team, (s32)AI::Team::count> list;
-
-	Ref<Transform> player_spawn;
-	StaticArray<Ref<Transform>, 4> minion_spawns;
-	MinionSpawnState minion_spawn_state;
-	r32 minion_spawn_timer;
-	Revision revision;
-
-	Team();
-
-	void update(const Update&);
-
-	inline ID id() const
-	{
-		return this - &list[0];
-	}
-
-	inline AI::Team team() const
-	{
-		return (AI::Team)id();
-	}
-};
-
-struct PlayerManager
-{
-	static PinArray<PlayerManager, MAX_PLAYERS> list;
-
-	r32 spawn_timer;
-	Revision revision;
-	char username[255];
-	u16 credits;
-	Ref<Team> team;
-	Ref<Entity> entity;
-	Link spawn;
-
-	PlayerManager(Team*);
-
-	inline ID id() const
-	{
-		return this - &list[0];
-	}
-
-	void update(const Update&);
-};
 
 struct LocalPlayer
 {

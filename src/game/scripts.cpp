@@ -40,7 +40,7 @@ Script* Script::find(const char* name)
 	return nullptr;
 }
 
-namespace soren
+namespace Soren
 {
 	enum class Face
 	{
@@ -54,14 +54,23 @@ namespace soren
 		Unamused,
 		Angry,
 		Concerned,
-		count
+		count,
+	};
+
+	enum class Mode
+	{
+		Hidden,
+		Center,
+		Left,
+		TextOnly,
 	};
 
 	// UV origin: top left
 	const Vec2 face_texture_size = Vec2(91.0f, 57.0f);
-	const Vec2 face_size = Vec2(17.0f, 27.0f) / face_texture_size;
+	const Vec2 face_size = Vec2(17.0f, 27.0f);
+	const Vec2 face_uv_size = face_size / face_texture_size;
 	const Vec2 face_pixel = Vec2(1.0f, 1.0f) / face_texture_size;
-	const Vec2 face_offset = face_size + face_pixel;
+	const Vec2 face_offset = face_uv_size + face_pixel;
 	const Vec2 face_origin = face_pixel;
 	const Vec2 faces[(s32)Face::count] =
 	{
@@ -93,8 +102,10 @@ namespace soren
 		{
 		}
 
-		const T& current() const
+		const T current() const
 		{
+			if (index < 0)
+				return T();
 			return entries[index].data;
 		}
 
@@ -106,6 +117,12 @@ namespace soren
 		void schedule(r32 f, const T& data)
 		{
 			entries.add({ f, data });
+		}
+
+		void clear()
+		{
+			index = -1;
+			entries.length = 0;
 		}
 
 		b8 update(const Update& u, r32 t)
@@ -136,16 +153,13 @@ namespace soren
 
 	struct Data
 	{
-		Entity* base;
-		Entity* screen;
-		Entity* rim;
 		r32 time;
 		Schedule<const char*> texts;
 		Schedule<Face> faces;
 		Schedule<AkUniqueID> audio_events;
 		Schedule<Callback> callbacks;
 		Schedule<Choice> choices;
-		Face face;
+		Schedule<Mode> modes;
 
 		UIText text;
 		r32 text_clip;
@@ -155,41 +169,21 @@ namespace soren
 
 	static Data* data;
 
-	void face(const Update& u, Face f)
+	void clear()
 	{
-		Mesh* m = Loader::mesh(Asset::Mesh::soren_screen);
-		u.render->write(RenderOp::UpdateAttribBuffer);
-		u.render->write(Asset::Mesh::soren_screen);
-		u.render->write(2); // UV
-		u.render->write(4); // element count
-
-		Vec2 uv = faces[(s32)f];
-
-		Vec2 uvs[4] =
-		{
-			uv + Vec2(face_size.x, face_size.y),
-			uv + Vec2(face_size.x, 0),
-			uv,
-			uv + Vec2(0, face_size.y),
-		};
-
-		u.render->write(uvs, 4);
+		data->time = 0.0f;
+		data->texts.clear();
+		data->faces.clear();
+		data->audio_events.clear();
+		data->callbacks.clear();
+		data->choices.clear();
+		data->modes.clear();
 	}
 
 	void update(const Update& u)
 	{
-		if (data->faces.update(u, data->time))
-		{
-			data->face = data->faces.current();
-			face(u, data->face);
-		}
-
-		if (data->face == Face::Default)
-		{
-			const r32 blink_delay = 3.5f;
-			const r32 blink_time = 0.1f;
-			face(u, fmod(data->time, blink_delay) < blink_time ? Face::EyesClosed : data->face);
-		}
+		data->modes.update(u, data->time);
+		data->faces.update(u, data->time);
 
 		if (data->texts.update(u, data->time))
 		{
@@ -245,25 +239,105 @@ namespace soren
 			}
 		}
 
-		// visualize dialogue volume
-		{
-			r32 scale = 1.0f + Audio::dialogue_volume * 0.5f;
-			data->rim->get<View>()->offset = Mat4::make_scale(Vec3(scale, scale, 1.0f));
-		}
-
 		data->time += u.time.delta;
 	}
 
 	void draw(const RenderParams& params)
 	{
-		if (data->text.bounds().length_squared() > 0.0f)
+		Face face = data->faces.current();
+
+		const Rect2& vp = params.camera->viewport;
+
+		r32 scale = UI::scale;
+		Vec2 pos;
+		switch (data->modes.current())
 		{
-			const Rect2& vp = params.camera->viewport;
-			Vec2 p = Vec2(vp.size.x * 0.5f, vp.size.y * 0.25f);
-			UI::box(params, data->text.rect(p).outset(12.0f * UI::scale), Vec4(0, 0, 0, 1));
-			data->text.draw(params, p);
+			case Mode::Center:
+			case Mode::TextOnly:
+			{
+				pos = vp.pos + vp.size * 0.5f;
+				scale *= 4.0f;
+				break;
+			}
+			case Mode::Left:
+			{
+				pos = vp.pos + vp.size * Vec2(0.1f, 0.25f);
+				scale *= 3.0f;
+				break;
+			}
+			case Mode::Hidden:
+			{
+				return;
+			}
+			default:
+			{
+				vi_assert(false);
+				break;
+			}
 		}
 
+		if (data->modes.current() != Mode::TextOnly)
+		{
+			// frame
+			{
+				// visualize dialogue volume
+				r32 volume_scale = 1.0f + Audio::dialogue_volume * 0.5f;
+				Vec2 frame_size(28.0f * scale * volume_scale);
+				UI::centered_box(params, { pos, frame_size }, UI::background_color, PI * 0.25f);
+				UI::centered_border(params, { pos, frame_size }, 2, UI::default_color, PI * 0.25f);
+			}
+
+			// face
+			{
+				if (face == Face::Default)
+				{
+					// blink
+					const r32 blink_delay = 3.5f;
+					const r32 blink_time = 0.1f;
+					if (fmod(data->time, blink_delay) < blink_time)
+						face = Face::EyesClosed;
+				}
+
+				Vec2 face_uv = faces[(s32)face];
+
+				UI::sprite(params, Asset::Texture::soren, { pos, face_size * scale }, UI::default_color, { face_uv, face_uv_size });
+			}
+		}
+
+		// text
+		if (data->text.bounds().length_squared() > 0.0f)
+		{
+			Vec2 pos;
+			switch (data->modes.current())
+			{
+				case Mode::Center:
+				case Mode::TextOnly:
+				{
+					data->text.anchor_x = UIText::Anchor::Center;
+					data->text.anchor_y = UIText::Anchor::Min;
+					pos = Vec2(vp.size.x * 0.5f, vp.size.y * 0.25f);
+					break;
+				}
+				case Mode::Left:
+				{
+					data->text.anchor_x = UIText::Anchor::Min;
+					data->text.anchor_y = UIText::Anchor::Center;
+					pos = Vec2(vp.size.x * 0.18f, vp.size.y * 0.25f);
+					break;
+				}
+				default:
+				{
+					vi_assert(false);
+					break;
+				}
+			}
+
+			UI::box(params, data->text.rect(pos).outset(12.0f * UI::scale), UI::background_color);
+			UI::border(params, data->text.rect(pos).outset(12.0f * UI::scale), 2, UI::default_color);
+			data->text.draw(params, pos);
+		}
+
+		// menu
 		data->menu.draw_alpha(params);
 	}
 
@@ -279,24 +353,7 @@ namespace soren
 		Game::cleanups.add(cleanup);
 		Game::draws.add(draw);
 
-		Entity* base = data->base = World::create<Prop>(Asset::Mesh::soren_case);
-		Entity* screen = data->screen = World::create<Prop>(Asset::Mesh::soren_screen);
-		Entity* rim = data->rim = World::create<Prop>(Asset::Mesh::soren_rim);
-
-		base->get<Transform>()->pos = Vec3(0, 0.6f, 2.5f);
-		base->get<Transform>()->rot = Quat::euler(0, PI, 0);
-		screen->get<Transform>()->parent = base->get<Transform>();
-		screen->get<View>()->alpha();
-
 		Loader::texture(Asset::Texture::soren, RenderTextureWrap::Clamp, RenderTextureFilter::Nearest);
-		screen->get<View>()->texture = Asset::Texture::soren;
-		screen->get<View>()->shader = Asset::Shader::flat_texture;
-		rim->get<Transform>()->parent = base->get<Transform>();
-		rim->get<View>()->alpha();
-		rim->get<View>()->shader = Asset::Shader::flat;
-
-		data->text.anchor_x = UIText::Anchor::Center;
-		data->text.anchor_y = UIText::Anchor::Min;
 	}
 }
 
@@ -354,7 +411,7 @@ namespace start
 
 	void go(const Update& u)
 	{
-		Menu::transition(Asset::Level::test);
+		Menu::transition(Asset::Level::tutorial_01);
 	}
 
 	void init(const Update& u, const EntityFinder& entities)
@@ -371,23 +428,111 @@ namespace start
 		r32 aspect = data->camera->viewport.size.y == 0 ? 1 : (r32)data->camera->viewport.size.x / (r32)data->camera->viewport.size.y;
 		data->camera->perspective((80.0f * PI * 0.5f / 180.0f), aspect, 0.01f, 100.0f);
 
-		soren::init();
-		soren::data->audio_events.schedule(1.0f, AK::EVENTS::PLAY_SOREN1);
-		soren::data->texts.schedule(1.0f, "Hello. I am Soren.");
-		soren::data->faces.schedule(0.0f, soren::Face::Default);
-		soren::data->texts.schedule(3.0f, "My job is to match you against other online players.");
-		soren::data->faces.schedule(3.0f, soren::Face::Upbeat);
-		soren::data->faces.schedule(7.0f, soren::Face::Default);
-		soren::data->texts.schedule(7.0f, "But first, let's load my favorite map: tutorial 01.");
-		soren::data->faces.schedule(9.0f, soren::Face::Smile);
-		soren::data->texts.schedule(12.0f, "Are you ready?");
-		soren::data->faces.schedule(12.0f, soren::Face::Default);
-		soren::data->choices.schedule(12.0f, { nullptr, "Yes", "No" });
-		soren::data->texts.schedule(13.0f, "Great. I'm so glad.");
-		soren::data->faces.schedule(13.0f, soren::Face::Unamused);
-		soren::data->choices.schedule(13.0f, { });
-		soren::data->faces.schedule(14.0f, soren::Face::Smile);
-		soren::data->callbacks.schedule(16.5f, go);
+		Soren::init();
+		Soren::data->modes.schedule(0.0f, Soren::Mode::Center);
+		Soren::data->faces.schedule(0.0f, Soren::Face::EyesClosed);
+		Soren::data->faces.schedule(1.0f, Soren::Face::Default);
+		Soren::data->audio_events.schedule(2.0f, AK::EVENTS::SOREN1);
+		Soren::data->texts.schedule(2.0f, "Hello. I am Soren.");
+		Soren::data->texts.schedule(4.0f, "My job is to match you against other online players.");
+		Soren::data->faces.schedule(4.0f, Soren::Face::Upbeat);
+		Soren::data->faces.schedule(8.0f, Soren::Face::Default);
+		Soren::data->texts.schedule(8.0f, "But first, let's load my favorite map: tutorial 01.");
+		Soren::data->faces.schedule(10.0f, Soren::Face::Smile);
+		Soren::data->texts.schedule(13.0f, "Are you ready?");
+		Soren::data->faces.schedule(13.0f, Soren::Face::Default);
+		Soren::data->choices.schedule(13.0f, { nullptr, "Yes", "No" });
+		Soren::data->texts.schedule(14.0f, "Great. I'm so glad.");
+		Soren::data->faces.schedule(14.0f, Soren::Face::Unamused);
+		Soren::data->choices.schedule(14.0f, { });
+		Soren::data->faces.schedule(15.0f, Soren::Face::Smile);
+		Soren::data->callbacks.schedule(17.5f, go);
+	}
+}
+
+namespace tutorial01
+{
+	struct Data
+	{
+		bool minion_dialogue_done;
+		bool movement_tutorial_done;
+	};
+	static Data* data;
+
+	void minion1_dialogue(Entity*)
+	{
+		if (!data->minion_dialogue_done)
+		{
+			data->minion_dialogue_done = true;
+			Soren::clear();
+			Soren::data->modes.schedule(1.0f, Soren::Mode::Left);
+			Soren::data->faces.schedule(1.0f, Soren::Face::Upbeat);
+			Soren::data->audio_events.schedule(1.0f, AK::EVENTS::SOREN_TUTORIAL01_B);
+			Soren::data->texts.schedule(1.0f, "When a minion's health is low, its helmet opens to expose the head.");
+			Soren::data->modes.schedule(6.0f, Soren::Mode::Hidden);
+		}
+	}
+
+	void minion2_dialogue(Entity*)
+	{
+		Team::list[1].set_spawn_vulnerable();
+
+		Soren::clear();
+		Soren::data->modes.schedule(1.0f, Soren::Mode::Left);
+		Soren::data->faces.schedule(1.0f, Soren::Face::Smile);
+		Soren::data->audio_events.schedule(1.0f, AK::EVENTS::SOREN_TUTORIAL01_C);
+		Soren::data->texts.schedule(1.0f, "Wonderful. Now destroy the enemy spawn.");
+		Soren::data->modes.schedule(4.5f, Soren::Mode::Hidden);
+	}
+
+	void done(const Update&)
+	{
+		Menu::transition(Asset::Level::tutorial_02);
+	}
+
+	void destroyed_enemy_spawn()
+	{
+		Soren::clear();
+		Soren::data->modes.schedule(1.0f, Soren::Mode::Left);
+		Soren::data->faces.schedule(1.0f, Soren::Face::Smile);
+		Soren::data->audio_events.schedule(1.0f, AK::EVENTS::SOREN_TUTORIAL01_D);
+		Soren::data->texts.schedule(1.0f, "Great. You'll be playing the actual game in no time.");
+		Soren::data->callbacks.schedule(5.5f, &done);
+	}
+
+	void movement_tutorial_done(Entity*)
+	{
+		if (!data->movement_tutorial_done)
+		{
+			data->movement_tutorial_done = true;
+			Soren::clear();
+		}
+	}
+
+	void cleanup()
+	{
+		delete data;
+	}
+
+	void init(const Update& u, const EntityFinder& entities)
+	{
+		data = new Data();
+		Game::cleanups.add(cleanup);
+
+		Soren::init();
+		Soren::data->modes.schedule(3.0f, Soren::Mode::Left);
+		Soren::data->faces.schedule(3.0f, Soren::Face::Smile);
+		Soren::data->audio_events.schedule(3.0f, AK::EVENTS::SOREN_TUTORIAL01_A);
+		Soren::data->texts.schedule(3.0f, "Find the minion and shoot through its head.");
+		Soren::data->faces.schedule(5.5f, Soren::Face::Default);
+		Soren::data->texts.schedule(5.5f, "Don't worry, it'll be easy.");
+		Soren::data->modes.schedule(8.0f, Soren::Mode::TextOnly);
+		Soren::data->texts.schedule(8.0f, "[{{Primary}}] to shoot. [{{Secondary}}] to zoom.");
+
+		entities.find("minion1")->get<Health>()->killed.link(&minion1_dialogue);
+		entities.find("minion2")->get<Health>()->killed.link(&minion2_dialogue);
+		entities.find("movement_tutorial_done")->get<PlayerTrigger>()->entered.link(&movement_tutorial_done);
+		Team::list[1].lost.link(&destroyed_enemy_spawn);
 	}
 }
 
@@ -474,6 +619,7 @@ Script Script::all[] =
 	{ "start", start::init },
 	{ "level4", level4::init },
 	{ "pvp", level4::init_pvp },
+	{ "tutorial01", tutorial01::init },
 	{ 0, 0, },
 };
 

@@ -898,7 +898,6 @@ void draw(LoopSync* sync, const Camera* camera)
 		sync->write(screen_quad.mesh);
 	}
 
-
 	// Alpha components
 	{
 		sync->write<RenderOp>(RenderOp::BlendMode);
@@ -932,7 +931,7 @@ void draw(LoopSync* sync, const Camera* camera)
 	sync->write<RenderOp>(RenderOp::BindFramebuffer);
 	sync->write<s32>(color_fbo1);
 
-	// Edge detect / film grain
+	// Edge detect
 	{
 		Loader::shader_permanent(Asset::Shader::edge_detect);
 		sync->write(RenderOp::Shader);
@@ -944,19 +943,6 @@ void draw(LoopSync* sync, const Camera* camera)
 		sync->write(RenderDataType::Vec2);
 		sync->write<s32>(1);
 		sync->write<Vec2>(inv_buffer_size);
-
-		Vec2 film_grain_size = buffer_size * (0.5f / UI::scale);
-		sync->write(RenderOp::Uniform);
-		sync->write(Asset::Uniform::film_grain_size);
-		sync->write(RenderDataType::Vec2);
-		sync->write<s32>(1);
-		sync->write<Vec2>(film_grain_size);
-
-		sync->write(RenderOp::Uniform);
-		sync->write(Asset::Uniform::uv_offset);
-		sync->write(RenderDataType::Vec2);
-		sync->write<s32>(1);
-		sync->write<Vec2>(film_grain_size * Vec2(mersenne::randf_oo(), mersenne::randf_oo()));
 
 		sync->write(RenderOp::Uniform);
 		sync->write(Asset::Uniform::p);

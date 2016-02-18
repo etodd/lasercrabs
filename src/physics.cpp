@@ -145,6 +145,39 @@ void RigidBody::awake()
 	Physics::btWorld->addRigidBody(btBody, collision_group, collision_filter);
 }
 
+void RigidBody::rebuild()
+{
+	ID me = id();
+
+	// delete constraints but leave them in the global array so we can rebuild them
+	for (auto i = global_constraints.iterator(); !i.is_last(); i.next())
+	{
+		Constraint* constraint = i.item();
+		if (constraint->a.id == me || constraint->b.id == me)
+		{
+			Physics::btWorld->removeConstraint(constraint->btPointer);
+			delete constraint->btPointer;
+		}
+	}
+
+	// delete body
+	Physics::btWorld->removeRigidBody(btBody);
+	delete btBody;
+	delete btShape;
+	if (btMesh)
+		delete btMesh;
+
+	awake(); // rebuild body
+
+	// rebuild constraints
+	for (auto i = global_constraints.iterator(); !i.is_last(); i.next())
+	{
+		Constraint* constraint = i.item();
+		if (constraint->a.id == me || constraint->b.id == me)
+			instantiate_constraint(constraint);
+	}
+}
+
 void RigidBody::set_damping(r32 linear, r32 angular)
 {
 	damping = Vec2(linear, angular);
@@ -152,33 +185,38 @@ void RigidBody::set_damping(r32 linear, r32 angular)
 		btBody->setDamping(linear, angular);
 }
 
-ID RigidBody::add_constraint(Constraint& constraint)
+void RigidBody::instantiate_constraint(Constraint* constraint)
 {
-	switch (constraint.type)
+	switch (constraint->type)
 	{
 		case Constraint::Type::ConeTwist:
-			constraint.btPointer = new btConeTwistConstraint
+			constraint->btPointer = new btConeTwistConstraint
 			(
-				*constraint.a.ref()->btBody,
-				*constraint.b.ref()->btBody,
-				constraint.frame_a,
-				constraint.frame_b
+				*constraint->a.ref()->btBody,
+				*constraint->b.ref()->btBody,
+				constraint->frame_a,
+				constraint->frame_b
 			);
-			((btConeTwistConstraint*)constraint.btPointer)->setLimit(constraint.limits.x, constraint.limits.y, constraint.limits.z);
+			((btConeTwistConstraint*)constraint->btPointer)->setLimit(constraint->limits.x, constraint->limits.y, constraint->limits.z);
 			break;
 		case Constraint::Type::PointToPoint:
-			constraint.btPointer = new btPoint2PointConstraint
+			constraint->btPointer = new btPoint2PointConstraint
 			(
-				*constraint.a.ref()->btBody,
-				*constraint.b.ref()->btBody,
-				constraint.frame_a.getOrigin(),
-				constraint.frame_b.getOrigin()
+				*constraint->a.ref()->btBody,
+				*constraint->b.ref()->btBody,
+				constraint->frame_a.getOrigin(),
+				constraint->frame_b.getOrigin()
 			);
 			break;
 		default:
 			vi_assert(false);
 			break;
 	}
+}
+
+ID RigidBody::add_constraint(Constraint& constraint)
+{
+	instantiate_constraint(&constraint);
 
 	s32 constraint_id = global_constraints.add(constraint);
 

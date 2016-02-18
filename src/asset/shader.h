@@ -8,7 +8,7 @@ namespace Asset
 {
 	namespace Uniform
 	{
-		const s32 count = 43;
+		const s32 count = 42;
 		const AssetID ambient_color = 0;
 		const AssetID bones = 1;
 		const AssetID color_buffer = 2;
@@ -18,40 +18,39 @@ namespace Asset
 		const AssetID diffuse_color = 6;
 		const AssetID diffuse_map = 7;
 		const AssetID far_plane = 8;
-		const AssetID film_grain_size = 9;
-		const AssetID fog = 10;
-		const AssetID fog_extent = 11;
-		const AssetID fog_start = 12;
-		const AssetID frustum = 13;
-		const AssetID gravity = 14;
-		const AssetID inv_buffer_size = 15;
-		const AssetID inv_uv_scale = 16;
-		const AssetID lifetime = 17;
-		const AssetID light_color = 18;
-		const AssetID light_direction = 19;
-		const AssetID light_fov_dot = 20;
-		const AssetID light_pos = 21;
-		const AssetID light_radius = 22;
-		const AssetID light_vp = 23;
-		const AssetID lighting_buffer = 24;
-		const AssetID mv = 25;
-		const AssetID mvp = 26;
-		const AssetID noise_sampler = 27;
-		const AssetID normal_buffer = 28;
-		const AssetID p = 29;
-		const AssetID range = 30;
-		const AssetID shadow_map = 31;
-		const AssetID size = 32;
-		const AssetID ssao_buffer = 33;
-		const AssetID time = 34;
-		const AssetID type = 35;
-		const AssetID uv_offset = 36;
-		const AssetID uv_scale = 37;
-		const AssetID v = 38;
-		const AssetID viewport_scale = 39;
-		const AssetID vp = 40;
-		const AssetID wall_normal = 41;
-		const AssetID zenith_color = 42;
+		const AssetID fog = 9;
+		const AssetID fog_extent = 10;
+		const AssetID fog_start = 11;
+		const AssetID frustum = 12;
+		const AssetID gravity = 13;
+		const AssetID inv_buffer_size = 14;
+		const AssetID inv_uv_scale = 15;
+		const AssetID lifetime = 16;
+		const AssetID light_color = 17;
+		const AssetID light_direction = 18;
+		const AssetID light_fov_dot = 19;
+		const AssetID light_pos = 20;
+		const AssetID light_radius = 21;
+		const AssetID light_vp = 22;
+		const AssetID lighting_buffer = 23;
+		const AssetID mv = 24;
+		const AssetID mvp = 25;
+		const AssetID noise_sampler = 26;
+		const AssetID normal_buffer = 27;
+		const AssetID p = 28;
+		const AssetID range = 29;
+		const AssetID shadow_map = 30;
+		const AssetID size = 31;
+		const AssetID ssao_buffer = 32;
+		const AssetID time = 33;
+		const AssetID type = 34;
+		const AssetID uv_offset = 35;
+		const AssetID uv_scale = 36;
+		const AssetID v = 37;
+		const AssetID viewport_scale = 38;
+		const AssetID vp = 39;
+		const AssetID wall_normal = 40;
+		const AssetID zenith_color = 41;
 	}
 	namespace Shader
 	{

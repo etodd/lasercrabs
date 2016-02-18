@@ -8,7 +8,7 @@ namespace Asset
 {
 	namespace Animation
 	{
-		const s32 count = 8;
+		const s32 count = 9;
 		const AssetID awk_fly = 0;
 		const AssetID character_idle = 1;
 		const AssetID character_idle_gun = 2;
@@ -17,6 +17,7 @@ namespace Asset
 		const AssetID character_slide = 5;
 		const AssetID character_vulnerable = 6;
 		const AssetID character_walk = 7;
+		const AssetID spawn_vulnerable = 8;
 	}
 }
 

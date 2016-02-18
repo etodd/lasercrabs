@@ -363,6 +363,7 @@ s32 UI::texture_mesh_id = AssetNull;
 Array<Vec3> UI::vertices;
 Array<Vec4> UI::colors;
 Array<s32> UI::indices;
+Array<UI::TextureBlit> UI::texture_blits;
 
 void UI::box(const RenderParams& params, const Rect2& r, const Vec4& color)
 {
@@ -689,8 +690,73 @@ void UI::draw(const RenderParams& p)
 		colors.length = 0;
 		indices.length = 0;
 	}
+
+	// Draw sprites
+	for (s32 i = 0; i < texture_blits.length; i++)
+	{
+		const TextureBlit& tb = texture_blits[i];
+		Vec2 screen = p.camera->viewport.size * 0.5f;
+		Vec2 scale = Vec2(1.0f / screen.x, 1.0f / screen.y);
+		Vec2 scaled_pos = (tb.rect.pos - screen) * scale;
+
+		const Vec2 corners[4] =
+		{
+			Vec2(tb.rect.size.x * (1.0f - tb.anchor.x), tb.rect.size.y * (1.0f - tb.anchor.y)),
+			Vec2(tb.rect.size.x * -tb.anchor.x, tb.rect.size.y * (1.0f - tb.anchor.y)),
+			Vec2(tb.rect.size.x * (1.0f - tb.anchor.x), tb.rect.size.y * -tb.anchor.y),
+			Vec2(tb.rect.size.x * -tb.anchor.x, tb.rect.size.y * -tb.anchor.y),
+		};
+
+		r32 cs = cosf(tb.rotation), sn = sinf(tb.rotation);
+		const Vec3 vertices[4] =
+		{
+			Vec3(scaled_pos.x + (corners[0].x * cs - corners[0].y * sn) * scale.x, scaled_pos.y + (corners[0].x * sn + corners[0].y * cs) * scale.y, 0),
+			Vec3(scaled_pos.x + (corners[1].x * cs - corners[1].y * sn) * scale.x, scaled_pos.y + (corners[1].x * sn + corners[1].y * cs) * scale.y, 0),
+			Vec3(scaled_pos.x + (corners[2].x * cs - corners[2].y * sn) * scale.x, scaled_pos.y + (corners[2].x * sn + corners[2].y * cs) * scale.y, 0),
+			Vec3(scaled_pos.x + (corners[3].x * cs - corners[3].y * sn) * scale.x, scaled_pos.y + (corners[3].x * sn + corners[3].y * cs) * scale.y, 0),
+		};
+
+		const Vec4 colors[] =
+		{
+			tb.color,
+			tb.color,
+			tb.color,
+			tb.color,
+		};
+
+		const Vec2 uvs[] =
+		{
+			Vec2(tb.uv.pos.x, tb.uv.pos.y),
+			Vec2(tb.uv.pos.x + tb.uv.size.x, tb.uv.pos.y),
+			Vec2(tb.uv.pos.x, tb.uv.pos.y + tb.uv.size.y),
+			Vec2(tb.uv.pos.x + tb.uv.size.x, tb.uv.pos.y + tb.uv.size.y),
+		};
+
+		p.sync->write(RenderOp::UpdateAttribBuffers);
+		p.sync->write(texture_mesh_id);
+		p.sync->write<s32>(4);
+		p.sync->write(vertices, 4);
+		p.sync->write(colors, 4);
+		p.sync->write(uvs, 4);
+
+		p.sync->write(RenderOp::Shader);
+		p.sync->write(tb.shader == AssetNull ? Asset::Shader::ui_texture : tb.shader);
+		p.sync->write(p.technique);
+
+		p.sync->write(RenderOp::Uniform);
+		p.sync->write(Asset::Uniform::color_buffer);
+		p.sync->write(RenderDataType::Texture);
+		p.sync->write<s32>(1);
+		p.sync->write<RenderTextureType>(RenderTextureType::Texture2D);
+		p.sync->write<AssetID>(tb.texture);
+
+		p.sync->write(RenderOp::Mesh);
+		p.sync->write(texture_mesh_id);
+	}
+	texture_blits.length = 0;
 }
 
+// Instantly draw a texture
 void UI::texture(const RenderParams& p, const s32 texture, const Rect2& r, const Vec4& color, const Rect2& uv, const AssetID shader)
 {
 	Vec2 screen = p.camera->viewport.size * 0.5f;
@@ -742,6 +808,23 @@ void UI::texture(const RenderParams& p, const s32 texture, const Rect2& r, const
 
 	p.sync->write(RenderOp::Mesh);
 	p.sync->write(texture_mesh_id);
+}
+
+// Cue up a sprite to be rendered later
+void UI::sprite(const RenderParams& p, s32 texture, const Rect2& r, const Vec4& color, const Rect2& uv, r32 rot, const Vec2& anchor, AssetID shader)
+{
+	Loader::texture(texture);
+	if (r.size.x > 0 && r.size.y > 0 && color.w > 0)
+	{
+		TextureBlit* tb = texture_blits.add();
+		tb->anchor = anchor;
+		tb->color = color;
+		tb->texture = texture;
+		tb->shader = shader;
+		tb->uv = uv;
+		tb->rect = r;
+		tb->rotation = rot;
+	}
 }
 
 #if DEBUG

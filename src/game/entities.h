@@ -159,6 +159,7 @@ struct CreditsPickup : public ComponentType<CreditsPickup>
 	void hit_by(Entity*);
 };
 
+#define PLAYER_SPAWN_RADIUS 3
 struct PlayerSpawn : public Entity
 {
 	PlayerSpawn(AI::Team);
@@ -169,7 +170,7 @@ struct MinionSpawn : public Entity
 	MinionSpawn(AI::Team);
 };
 
-#define TURRET_VIEW_RANGE 25.0f
+#define TURRET_VIEW_RANGE 20.0f
 struct Turret : public Entity
 {
 	Turret(AI::Team);

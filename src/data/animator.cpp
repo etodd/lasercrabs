@@ -1,6 +1,7 @@
 #include "animator.h"
 #include "load.h"
 #include "components.h"
+#include "ease.h"
 
 namespace VI
 {
@@ -217,9 +218,11 @@ void Animator::update_world_transforms()
 		{
 			Layer& layer = layers[l];
 
-			if (layer.blend < 1.0f)
+			r32 layer_blend = Ease::quad_out<r32>(layer.blend);
+
+			if (layer_blend < 1.0f)
 			{
-				r32 blend = layer.weight * (1.0f - layer.blend);
+				r32 blend = layer.weight * (1.0f - layer_blend);
 				for (s32 i = 0; i < layer.last_animation_channels.length; i++)
 				{
 					AnimatorChannel& channel = layer.last_animation_channels[i];
@@ -228,7 +231,7 @@ void Animator::update_world_transforms()
 			}
 
 			{
-				r32 blend = layer.weight * layer.blend;
+				r32 blend = layer.weight * layer_blend;
 				for (s32 i = 0; i < layer.channels.length; i++)
 				{
 					AnimatorChannel& channel = layer.channels[i];

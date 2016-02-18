@@ -386,17 +386,65 @@
 						</Action>
 					</ChildrenList>
 				</Event>
-				<Event Name="Play_Soren1" ID="{0A7338E3-356D-4980-9D05-181465BF25DB}">
+				<Folder Name="Soren" ID="{003FE422-C260-4F58-9678-D1A2EDD21545}" ShortID="905343941">
 					<ChildrenList>
-						<Action Name="Play" ID="{943C29ED-BF42-45A4-8190-442CE07D6EE0}" ShortID="128176425" Type="Play" Scope="One" Global="false">
-							<ElementList>
-								<Element ID="{A21A746A-A3FD-4C04-8069-430E64C08DB9}" Global="false">
-									<ObjectRef Name="soren1" ID="{7D470294-8195-44BB-B124-9BB6F8A2855F}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
-								</Element>
-							</ElementList>
-						</Action>
+						<Event Name="Soren1" ID="{0A7338E3-356D-4980-9D05-181465BF25DB}">
+							<ChildrenList>
+								<Action Name="Play" ID="{943C29ED-BF42-45A4-8190-442CE07D6EE0}" ShortID="128176425" Type="Play" Scope="One" Global="false">
+									<ElementList>
+										<Element ID="{A21A746A-A3FD-4C04-8069-430E64C08DB9}" Global="false">
+											<ObjectRef Name="soren1" ID="{7D470294-8195-44BB-B124-9BB6F8A2855F}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+										</Element>
+									</ElementList>
+								</Action>
+							</ChildrenList>
+						</Event>
+						<Event Name="Soren_Tutorial01_A" ID="{6DD9363E-3C1F-4645-9C55-5ECD4B91F908}">
+							<ChildrenList>
+								<Action Name="Play" ID="{AAAAED37-B11C-40FF-8B20-132FC78DDC54}" ShortID="923124285" Type="Play" Scope="One" Global="false">
+									<ElementList>
+										<Element ID="{ED925261-AC63-4314-80C1-962B06709536}" Global="false">
+											<ObjectRef Name="soren_tutorial01_a" ID="{EFD10516-AB51-46A7-90BF-A6C2B529488D}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+										</Element>
+									</ElementList>
+								</Action>
+							</ChildrenList>
+						</Event>
+						<Event Name="Soren_Tutorial01_B" ID="{98186139-346C-4831-B152-683A4D6570B6}">
+							<ChildrenList>
+								<Action Name="Play" ID="{94D19CDB-E143-4D8C-8B9E-981E4BDCA5C6}" ShortID="667500480" Type="Play" Scope="One" Global="false">
+									<ElementList>
+										<Element ID="{C7B4C8EF-2B47-48CC-AC7A-43F93F8D67F3}" Global="false">
+											<ObjectRef Name="soren_tutorial01_b" ID="{926BA466-62B4-486D-A9F9-46BA1FE1B3C5}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+										</Element>
+									</ElementList>
+								</Action>
+							</ChildrenList>
+						</Event>
+						<Event Name="Soren_Tutorial01_C" ID="{32476505-F0DB-46BD-914A-7C1689BF082F}">
+							<ChildrenList>
+								<Action Name="Play" ID="{C17C8D3C-A335-4DC0-8522-C4976B45E7DF}" ShortID="732384503" Type="Play" Scope="One" Global="false">
+									<ElementList>
+										<Element ID="{62B1633A-372B-4A41-9E1B-C344C1B20883}" Global="false">
+											<ObjectRef Name="soren_tutorial01_c" ID="{17AA5059-A8F7-4D53-B784-B7FA07863949}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+										</Element>
+									</ElementList>
+								</Action>
+							</ChildrenList>
+						</Event>
+						<Event Name="Soren_Tutorial01_D" ID="{FB919D79-AAB5-4FCB-83FF-7F38BED6F7AD}">
+							<ChildrenList>
+								<Action Name="Play" ID="{D1510377-5C21-4A2C-974E-38838240A365}" ShortID="742277872" Type="Play" Scope="One" Global="false">
+									<ElementList>
+										<Element ID="{56C4BBC0-FE80-4C97-982B-6014054713D6}" Global="false">
+											<ObjectRef Name="soren_tutorial01_d" ID="{621932FD-353E-419C-B1B2-6DECAA63D9B7}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+										</Element>
+									</ElementList>
+								</Action>
+							</ChildrenList>
+						</Event>
 					</ChildrenList>
-				</Event>
+				</Folder>
 			</ChildrenList>
 		</WorkUnit>
 	</Events>

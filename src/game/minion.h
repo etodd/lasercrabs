@@ -7,7 +7,7 @@
 namespace VI
 {
 
-#define MINION_VIEW_RANGE 20.0f
+#define MINION_VIEW_RANGE 15.0f
 
 struct Minion : public Entity
 {

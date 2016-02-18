@@ -205,12 +205,14 @@ PlayerSpawn::PlayerSpawn(AI::Team team)
 {
 	create<Transform>();
 
-	View* view = create<View>();
+	Animator* animator = create<Animator>();
+	animator->armature = Asset::Armature::spawn;
+	SkinnedModel* view = create<SkinnedModel>();
 	view->mesh = Asset::Mesh::spawn;
-	view->shader = Asset::Shader::standard;
+	view->shader = Asset::Shader::armature;
 	view->color = AI::colors[(s32)team];
 
-	create<RigidBody>(RigidBody::Type::CapsuleY, Vec3(0.8f, 3.75f, 0.8f), 0.0f, CollisionInaccessible, CollisionInaccessibleMask);
+	create<RigidBody>(RigidBody::Type::CapsuleY, Vec3(PLAYER_SPAWN_RADIUS, 6.0f, PLAYER_SPAWN_RADIUS), 0.0f, CollisionInaccessible, CollisionInaccessibleMask);
 }
 
 MinionSpawn::MinionSpawn(AI::Team team)
@@ -222,7 +224,7 @@ MinionSpawn::MinionSpawn(AI::Team team)
 	view->shader = Asset::Shader::standard;
 	view->color = AI::colors[(s32)team];
 
-	create<RigidBody>(RigidBody::Type::CapsuleY, Vec3(0.8f, 3.75f, 0.8f), 0.0f, CollisionInaccessible, CollisionInaccessibleMask);
+	create<RigidBody>(RigidBody::Type::CapsuleY, Vec3(PLAYER_SPAWN_RADIUS, 6.0f, PLAYER_SPAWN_RADIUS), 0.0f, CollisionInaccessible, CollisionInaccessibleMask);
 }
 
 #define TURRET_COOLDOWN 0.35f

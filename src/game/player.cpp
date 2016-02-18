@@ -44,19 +44,6 @@ namespace VI
 #define rotation_speed 20.0f
 #define msg_time 0.75f
 
-#define credits_initial 50
-#define credits_pickup 25
-
-#if DEBUG
-#define PLAYER_SPAWN_DELAY 1.0f
-#define MINION_SPAWN_INITIAL_DELAY 2.0f
-#else
-#define PLAYER_SPAWN_DELAY 5.0f
-#define MINION_SPAWN_INITIAL_DELAY 10.0f
-#endif
-#define MINION_SPAWN_INTERVAL 30.0f
-#define MINION_SPAWN_GROUP_INTERVAL 2.0f
-
 b8 flash_function(r32 time)
 {
 	return (b8)((s32)(time * 16.0f) % 2);
@@ -88,64 +75,6 @@ void draw_indicator(const RenderParams& params, const Vec3& pos, const Vec4& col
 		}
 		else
 			UI::centered_border(params, { center + offset, Vec2(32) * UI::scale }, 4, color, PI * 0.25f);
-	}
-}
-
-StaticArray<Team, (s32)AI::Team::count> Team::list;
-
-Team::Team()
-	: minion_spawn_timer(MINION_SPAWN_INITIAL_DELAY)
-{
-}
-
-r32 minion_spawn_delay(Team::MinionSpawnState state)
-{
-	if (state == Team::MinionSpawnState::One)
-		return MINION_SPAWN_INTERVAL;
-	else
-		return MINION_SPAWN_GROUP_INTERVAL;
-}
-
-void Team::update(const Update& u)
-{
-	if (minion_spawns.length > 0)
-	{
-		minion_spawn_timer -= u.time.delta;
-		if (minion_spawn_timer < 0)
-		{
-			for (int i = 0; i < minion_spawns.length; i++)
-			{
-				Vec3 pos;
-				Quat rot;
-				minion_spawns[i].ref()->absolute(&pos, &rot);
-				pos += rot * Vec3(0, 0, 1); // spawn it around the edges
-				Entity* entity = World::create<Minion>(pos, rot, team());
-			}
-			minion_spawn_state = (MinionSpawnState)(((s32)minion_spawn_state + 1) % (s32)MinionSpawnState::count);
-			minion_spawn_timer = minion_spawn_delay(minion_spawn_state);
-		}
-	}
-}
-
-PinArray<PlayerManager, MAX_PLAYERS> PlayerManager::list;
-
-PlayerManager::PlayerManager(Team* team)
-	: spawn_timer(PLAYER_SPAWN_DELAY),
-	team(team),
-	credits(credits_initial)
-{
-}
-
-void PlayerManager::update(const Update& u)
-{
-	if (team.ref()->player_spawn.ref() && !entity.ref())
-	{
-		spawn_timer -= u.time.delta;
-		if (spawn_timer < 0 || Game::data.mode == Game::Mode::Parkour)
-		{
-			spawn.fire();
-			spawn_timer = PLAYER_SPAWN_DELAY;
-		}
 	}
 }
 
@@ -314,7 +243,7 @@ void LocalPlayer::spawn()
 	if (Game::data.mode == Game::Mode::Multiplayer)
 	{
 		// Spawn AWK
-		pos += Quat::euler(0, angle + (gamepad * PI * 0.5f), 0) * Vec3(0, 0, 1); // spawn it around the edges
+		pos += Quat::euler(0, angle + (gamepad * PI * 0.5f), 0) * Vec3(0, 0, PLAYER_SPAWN_RADIUS); // spawn it around the edges
 		spawned = World::create<AwkEntity>(manager.ref()->team.ref()->team());
 	}
 	else // parkour mode
@@ -445,6 +374,7 @@ void LocalPlayer::draw_alpha(const RenderParams& params) const
 			text.text("Spawning... %d", (s32)manager.ref()->spawn_timer + 1);
 			Vec2 p = vp.pos + vp.size * Vec2(0.5f);
 			UI::box(params, text.rect(p).outset(8.0f), UI::background_color);
+			UI::border(params, text.rect(p).outset(8.0f), 2, UI::default_color);
 			text.draw(params, p);
 
 			break;
@@ -641,6 +571,7 @@ void LocalPlayerControl::hit_target(Entity* target)
 {
 	if (target->has<CreditsPickup>())
 	{
+		const int credits_pickup = 25;
 		player.ref()->manager.ref()->credits += credits_pickup;
 		char m[255];
 		sprintf(m, "+%d credits", credits_pickup);
@@ -978,6 +909,9 @@ void LocalPlayerControl::update(const Update& u)
 
 	if (has<Awk>())
 		camera->range = AWK_MAX_DISTANCE;
+	else
+		camera->range = 0.0f;
+
 	camera->viewport =
 	{
 		Vec2((s32)(blueprs32->x * (r32)u.input->width), (s32)(blueprs32->y * (r32)u.input->height)),

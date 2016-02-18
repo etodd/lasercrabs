@@ -266,10 +266,14 @@ void MinionCheckTarget::run()
 		{
 			if (j.item()->team.ref()->team() != team)
 			{
-				float distance = (j.item()->team.ref()->player_spawn.ref()->absolute_pos() - pos).length();
-				if (distance < closest_distance * 0.5f)
-					new_target = j.item()->team.ref()->player_spawn.ref()->entity();
-				break;
+				Transform* player_spawn = j.item()->team.ref()->player_spawn.ref();
+				if (player_spawn)
+				{
+					float distance = (player_spawn->absolute_pos() - pos).length();
+					if (distance < closest_distance * 0.5f)
+						new_target = player_spawn->entity();
+					break;
+				}
 			}
 		}
 	}
@@ -428,6 +432,7 @@ void MinionAI::awake()
 	get<Walker>()->max_speed = get<Walker>()->speed;
 	behavior->run();
 	link_arg<Entity*, &MinionAI::damaged>(get<Health>()->damaged);
+	damaged(nullptr); // play vulnerable animation if we spawn at low health
 }
 
 MinionAI::~MinionAI()

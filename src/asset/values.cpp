@@ -18,9 +18,6 @@ const char* AssetLookup::Mesh::values[] =
 	"assets/sky_decal.msh",
 	"assets/skybox.msh",
 	"assets/socket.msh",
-	"assets/soren_case.msh",
-	"assets/soren_rim.msh",
-	"assets/soren_screen.msh",
 	"assets/spawn.msh",
 	"assets/sphere.msh",
 	"assets/target.msh",
@@ -40,9 +37,15 @@ const char* AssetLookup::Mesh::values[] =
 	"assets/lvl/containment_09_Cube_005_1.msh",
 	"assets/lvl/containment_09_Cube_1.msh",
 	"assets/lvl/containment_09_door.msh",
-	"assets/lvl/test_Cube.msh",
-	"assets/lvl/test_Cube_1.msh",
-	"assets/lvl/test_scenery.msh",
+	"assets/lvl/tutorial_01_Cube.msh",
+	"assets/lvl/tutorial_01_Cube_001.msh",
+	"assets/lvl/tutorial_01_Cube_002.msh",
+	"assets/lvl/tutorial_01_Cube_003.msh",
+	"assets/lvl/tutorial_01_Cube_003_1.msh",
+	"assets/lvl/tutorial_01_Cube_1.msh",
+	"assets/lvl/tutorial_02_Cube.msh",
+	"assets/lvl/tutorial_02_Cube_1.msh",
+	"assets/lvl/tutorial_02_scenery.msh",
 	0,
 };
 
@@ -61,9 +64,6 @@ const char* AssetLookup::Mesh::names[] =
 	"sky_decal",
 	"skybox",
 	"socket",
-	"soren_case",
-	"soren_rim",
-	"soren_screen",
 	"spawn",
 	"sphere",
 	"target",
@@ -83,9 +83,15 @@ const char* AssetLookup::Mesh::names[] =
 	"containment_09_Cube_005_1",
 	"containment_09_Cube_1",
 	"containment_09_door",
-	"test_Cube",
-	"test_Cube_1",
-	"test_scenery",
+	"tutorial_01_Cube",
+	"tutorial_01_Cube_001",
+	"tutorial_01_Cube_002",
+	"tutorial_01_Cube_003",
+	"tutorial_01_Cube_003_1",
+	"tutorial_01_Cube_1",
+	"tutorial_02_Cube",
+	"tutorial_02_Cube_1",
+	"tutorial_02_scenery",
 	0,
 };
 
@@ -100,6 +106,7 @@ const char* AssetLookup::Animation::values[] =
 	"assets/character_slide.anm",
 	"assets/character_vulnerable.anm",
 	"assets/character_walk.anm",
+	"assets/spawn_vulnerable.anm",
 	0,
 };
 
@@ -114,6 +121,7 @@ const char* AssetLookup::Animation::names[] =
 	"character_slide",
 	"character_vulnerable",
 	"character_walk",
+	"spawn_vulnerable",
 	0,
 };
 
@@ -122,6 +130,7 @@ const char* AssetLookup::Armature::values[] =
 {
 	"assets/awk.arm",
 	"assets/character_mesh.arm",
+	"assets/spawn.arm",
 	"assets/turret.arm",
 	0,
 };
@@ -131,6 +140,7 @@ const char* AssetLookup::Armature::names[] =
 {
 	"awk",
 	"character_mesh",
+	"spawn",
 	"turret",
 	0,
 };
@@ -245,7 +255,6 @@ const char* AssetLookup::Uniform::values[] =
 	"diffuse_color",
 	"diffuse_map",
 	"far_plane",
-	"film_grain_size",
 	"fog",
 	"fog_extent",
 	"fog_start",
@@ -294,7 +303,6 @@ const char* AssetLookup::Uniform::names[] =
 	"diffuse_color",
 	"diffuse_map",
 	"far_plane",
-	"film_grain_size",
 	"fog",
 	"fog_extent",
 	"fog_start",
@@ -353,8 +361,9 @@ const char* AssetLookup::Level::values[] =
 	"assets/lvl/end.lvl",
 	"assets/lvl/menu.lvl",
 	"assets/lvl/start.lvl",
-	"assets/lvl/test.lvl",
 	"assets/lvl/title.lvl",
+	"assets/lvl/tutorial_01.lvl",
+	"assets/lvl/tutorial_02.lvl",
 	0,
 };
 
@@ -366,8 +375,9 @@ const char* AssetLookup::Level::names[] =
 	"end",
 	"menu",
 	"start",
-	"test",
 	"title",
+	"tutorial_01",
+	"tutorial_02",
 	0,
 };
 
@@ -379,8 +389,9 @@ const char* AssetLookup::NavMesh::values[] =
 	"assets/lvl/end.nav",
 	"assets/lvl/menu.nav",
 	"assets/lvl/start.nav",
-	"assets/lvl/test.nav",
 	"assets/lvl/title.nav",
+	"assets/lvl/tutorial_01.nav",
+	"assets/lvl/tutorial_02.nav",
 	0,
 };
 
@@ -392,8 +403,9 @@ const char* AssetLookup::NavMesh::names[] =
 	"end",
 	"menu",
 	"start",
-	"test",
 	"title",
+	"tutorial_01",
+	"tutorial_02",
 	0,
 };
 

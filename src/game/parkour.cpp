@@ -112,8 +112,18 @@ b8 Parkour::wallrun(const Update& u, RigidBody* wall, const Vec3& relative_wall_
 
 	btRigidBody* body = get<RigidBody>()->btBody;
 	
-	Vec3 velocity = body->getLinearVelocity() + Vec3(Physics::btWorld->getGravity()) * -0.3f * u.time.delta; // cancel gravity a bit
-	velocity -= absolute_wall_normal * absolute_wall_normal.dot(velocity); // keep us on the wall
+	Vec3 velocity = body->getLinearVelocity() + Vec3(Physics::btWorld->getGravity()) * -0.35f * u.time.delta; // cancel gravity a bit
+	{
+		r32 speed = Vec2(velocity.x, velocity.z).length();
+		velocity -= absolute_wall_normal * absolute_wall_normal.dot(velocity); // keep us on the wall
+		r32 new_speed = Vec2(velocity.x, velocity.z).length();
+		if (new_speed < speed) // make sure we don't slow down at all though
+		{
+			r32 scale = speed / new_speed;
+			velocity.x *= scale;
+			velocity.z *= scale;
+		}
+	}
 
 	Vec3 support_velocity = Vec3::zero;
 	if (wall)
@@ -177,7 +187,7 @@ b8 Parkour::wallrun(const Update& u, RigidBody* wall, const Vec3& relative_wall_
 		}
 	}
 
-	if (!exit_wallrun)
+	if (!exit_wallrun && wall_run_state != WallRunState::Forward)
 	{
 		Vec3 relative_wall_right = relative_wall_run_normal.cross(last_support.ref()->get<Transform>()->to_local_normal(Vec3(0, 1, 0)));
 		relative_wall_right.normalize();
@@ -261,10 +271,21 @@ void Parkour::update(const Update& u)
 	{
 		get<Animator>()->layers[2].animation = AssetNull;
 		b8 exit_wallrun = false;
-		btCollisionWorld::ClosestRayResultCallback support_callback = get<Walker>()->check_support();
-		if (support_callback.hasHit())
-			exit_wallrun = true;
-		else
+
+		// under certain circumstances, check if we have ground beneath us
+		// if so, stop wall-running
+		Vec3 support_velocity = Vec3::zero;
+		if (last_support.ref())
+			support_velocity = get_support_velocity(relative_support_pos, last_support.ref()->btBody);
+		Vec3 velocity = get<RigidBody>()->btBody->getLinearVelocity();
+		if (fsm.time > 0.2f || velocity.y - support_velocity.y < 0.0f)
+		{
+			btCollisionWorld::ClosestRayResultCallback support_callback = get<Walker>()->check_support();
+			if (support_callback.hasHit())
+				exit_wallrun = true;
+		}
+
+		if (!exit_wallrun)
 		{
 			Vec3 ray_start = get<Walker>()->base_pos() + Vec3(0, get<Walker>()->support_height, 0);
 
@@ -278,19 +299,13 @@ void Parkour::update(const Update& u)
 
 			Physics::btWorld->rayTest(ray_start, ray_end, ray_callback);
 
-			if (ray_callback.hasHit())
+			if (ray_callback.hasHit() && wall_run_normal.dot(ray_callback.m_hitNormalWorld) > 0.5f)
 			{
-				Vec3 wall_normal = ray_callback.m_hitNormalWorld;
-				if (wall_normal.dot(wall_run_normal) > 0.6f)
-				{
-					// Still on the wall
-					RigidBody* wall = Entity::list[ray_callback.m_collisionObject->getUserIndex()].get<RigidBody>();
-					Vec3 relative_normal = wall->get<Transform>()->to_local_normal(ray_callback.m_hitNormalWorld);
-					Vec3 relative_pos = wall->get<Transform>()->to_local(ray_callback.m_hitPointWorld);
-					exit_wallrun = wallrun(u, wall, relative_pos, relative_normal);
-				}
-				else // The wall was changed direction too drastically
-					exit_wallrun = true;
+				// Still on the wall
+				RigidBody* wall = Entity::list[ray_callback.m_collisionObject->getUserIndex()].get<RigidBody>();
+				Vec3 relative_normal = wall->get<Transform>()->to_local_normal(ray_callback.m_hitNormalWorld);
+				Vec3 relative_pos = wall->get<Transform>()->to_local(ray_callback.m_hitPointWorld);
+				exit_wallrun = wallrun(u, wall, relative_pos, relative_normal);
 			}
 			else // ran out of wall to run on
 			{
@@ -339,14 +354,13 @@ void Parkour::update(const Update& u)
 			else
 			{
 				// keep sliding
+				Transform* last_support_transform = last_support.ref()->get<Transform>();
 
 				// do damping
 				relative_velocity -= Vec3::normalize(relative_velocity) * u.time.delta * 3.0f;
 
 				// handle support
 				{
-					Transform* last_support_transform = last_support.ref()->get<Transform>();
-
 					Vec3 base_pos = get<Transform>()->absolute_pos();
 					r32 base_offset = get<Walker>()->height * 0.5f; // don't include support_height
 					base_pos.y -= base_offset;
@@ -374,7 +388,10 @@ void Parkour::update(const Update& u)
 				// spawn tiles
 				Vec3 spawn_offset = new_velocity * 1.5f;
 				spawn_offset.y = -2.0f;
-				spawn_tiles(Vec3(1, 0, 0), Vec3(0, 0, 1), Vec3(0, 1, 0), spawn_offset);
+				Vec3 support_normal = relative_wall_run_normal;
+				Vec3 support_right = Vec3::normalize(support_normal.cross(last_support_transform->to_local_normal(Vec3(1, 0, 0))));
+				Vec3 support_forward = support_normal.cross(support_right);
+				spawn_tiles(support_right, support_forward, support_normal, spawn_offset);
 			}
 		}
 	}
@@ -748,8 +765,8 @@ b8 Parkour::try_wall_run(WallRunState s, const Vec3& wall_direction)
 			if (add_velocity && vertical_velocity - support_velocity.y > -2.0f)
 			{
 				// Going up
-				r32 speed = LMath::clampf((velocity - support_velocity).length(), 0.0f, 4.0f);
-				body->setLinearVelocity(support_velocity + Vec3(0, 4.0f + speed, 0));
+				r32 speed = LMath::clampf((velocity - support_velocity).length(), 0.0f, 5.0f);
+				body->setLinearVelocity(support_velocity + Vec3(0, 4.5f + speed, 0));
 			}
 			else
 			{
@@ -782,7 +799,7 @@ b8 Parkour::try_wall_run(WallRunState s, const Vec3& wall_direction)
 			}
 
 			if (add_velocity)
-				body->setLinearVelocity(velocity_flattened + Vec3(support_velocity.x, support_velocity.y + 2.0f + speed_flattened * 0.3f, support_velocity.z));
+				body->setLinearVelocity(velocity_flattened + Vec3(support_velocity.x, support_velocity.y + 3.0f + speed_flattened * 0.4f, support_velocity.z));
 			else
 			{
 				velocity_flattened.y = flattened_vertical_speed;

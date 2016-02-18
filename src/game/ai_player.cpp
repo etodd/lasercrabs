@@ -40,6 +40,7 @@ void AIPlayer::spawn()
 	Vec3 pos;
 	Quat rot;
 	manager.ref()->team.ref()->player_spawn.ref()->absolute(&pos, &rot);
+	pos += Vec3(0, 0, PLAYER_SPAWN_RADIUS); // spawn it around the edges
 	e->get<Transform>()->absolute(pos, rot);
 }
 

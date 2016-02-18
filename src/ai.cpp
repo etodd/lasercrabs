@@ -75,7 +75,6 @@ u32 AI::obstacle_add(const Vec3& pos, r32 radius, r32 height)
 	vi_assert(nav_tile_cache);
 	u32 id;
 	dtStatus status = nav_tile_cache->addObstacle((r32*)&pos, radius, height, &id);
-	vi_assert(dtStatusSucceed(status));
 	return id;
 }
 

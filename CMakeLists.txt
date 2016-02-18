@@ -303,6 +303,8 @@ add_executable(yearning
 	src/game/parkour.cpp
 	src/game/player.h
 	src/game/player.cpp
+	src/game/team.h
+	src/game/team.cpp
 	src/game/ai_player.h
 	src/game/ai_player.cpp
 	src/game/awk.h

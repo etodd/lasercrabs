@@ -117,6 +117,7 @@ void clear()
 
 void refresh_variables()
 {
+	// TODO: show actual control bindings
 	if (gamepad_count > 0)
 	{
 		UIText::set_variable("Start", "Start");
@@ -125,9 +126,11 @@ void refresh_variables()
 		UIText::set_variable("Cancel", "B");
 		UIText::set_variable("Primary", "Right trigger");
 		UIText::set_variable("Secondary", "Left trigger");
+		UIText::set_variable("Movement", "Left stick");
+		UIText::set_variable("Parkour", "Left trigger");
+		UIText::set_variable("Jump", "Right trigger");
+		UIText::set_variable("Slide", "Left stick");
 		UIText::set_variable("Quit", "B");
-		UIText::set_variable("Up", "Right bumper");
-		UIText::set_variable("Down", "Left bumper");
 	}
 	else
 	{
@@ -137,9 +140,11 @@ void refresh_variables()
 		UIText::set_variable("Cancel", "Esc");
 		UIText::set_variable("Primary", "Mouse1");
 		UIText::set_variable("Secondary", "Mouse2");
+		UIText::set_variable("Movement", "WASD");
+		UIText::set_variable("Parkour", "Left shift");
+		UIText::set_variable("Jump", "Space");
+		UIText::set_variable("Slide", "Mouse1");
 		UIText::set_variable("Quit", "Enter");
-		UIText::set_variable("Up", "Space");
-		UIText::set_variable("Down", "Ctrl");
 	}
 }
 

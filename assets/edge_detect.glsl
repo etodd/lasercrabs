@@ -25,13 +25,6 @@ uniform mat4 p;
 uniform sampler2D depth_buffer;
 uniform sampler2D normal_buffer;
 uniform sampler2D color_buffer;
-uniform vec2 film_grain_size;
-uniform vec2 uv_offset;
-
-float rand(vec2 co)
-{
-	return fract(sin(dot(co.xy, vec2(12.9898,78.233))) * 43758.5453);
-}
 
 float linearize(float clip_depth)
 {
@@ -64,7 +57,6 @@ void main()
 	float depth_delta = (4.0 * dot(abs(vec4(depth) - depths), vec4(1)) / depth) * -dot(view_ray, normal);
 	out_color = vec4(color
 		+ ((vec3(1) - color) * step(0.5, normal_delta * 16.0f + depth_delta) * float(length(view_ray)))
-		+ vec3((rand(floor(uv_offset + uv * film_grain_size) * 0.01f) - 0.5f) * 0.07f)
 		, 1);
 }
 

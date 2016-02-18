@@ -332,7 +332,6 @@ void Game::draw_additive(const RenderParams& render_params)
 #if DEBUG_AI
 	AI::debug_draw(render_params);
 #endif
-
 }
 
 void Game::execute(const Update& u, const char* cmd)
@@ -608,13 +607,21 @@ void Game::load_level(const Update& u, AssetID l)
 
 			entity = World::alloc<MinionSpawn>(team);
 
-			absolute_pos += Vec3(0, 3.75f * 0.5f, 0);
+			absolute_pos += Vec3(0, 5.0f, 0);
 			if (parent == -1)
 				pos = absolute_pos;
 			else
 				pos = transforms[parent]->to_local(absolute_pos);
 
 			Team::list[(s32)team].minion_spawns.add(entity->get<Transform>());
+		}
+		else if (cJSON_GetObjectItem(element, "Minion"))
+		{
+			AI::Team team = (AI::Team)Json::get_s32(element, "team");
+			entity = World::alloc<Minion>(absolute_pos, absolute_rot, team);
+			s32 health = Json::get_s32(element, "health");
+			if (health)
+				entity->get<Health>()->hp = health;
 		}
 		else if (cJSON_GetObjectItem(element, "PlayerSpawn"))
 		{
@@ -625,7 +632,7 @@ void Game::load_level(const Update& u, AssetID l)
 			else
 				entity = World::alloc<Empty>(); // in parkour mode, the spawn point is invisible
 
-			absolute_pos += Vec3(0, 3.75f * 0.5f, 0);
+			absolute_pos += Vec3(0, 5.0f, 0);
 			if (parent == -1)
 				pos = absolute_pos;
 			else

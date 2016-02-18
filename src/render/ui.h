@@ -53,6 +53,17 @@ struct LoopSync;
 
 struct UI
 {
+	struct TextureBlit
+	{
+		s32 texture;
+		Rect2 rect;
+		Vec4 color;
+		Rect2 uv;
+		AssetID shader;
+		r32 rotation;
+		Vec2 anchor;
+	};
+
 	static const Vec4 default_color;
 	static const Vec4 alert_color;
 	static const Vec4 subtle_color;
@@ -63,6 +74,7 @@ struct UI
 	static Array<Vec3> vertices;
 	static Array<Vec4> colors;
 	static Array<s32> indices;
+	static Array<TextureBlit> texture_blits;
 	static void init(LoopSync*);
 	static r32 get_scale(const s32, const s32);
 	static void box(const RenderParams&, const Rect2&, const Vec4& = Vec4(1, 1, 1, 1));
@@ -74,7 +86,12 @@ struct UI
 	static void draw(const RenderParams&);
 	static void mesh(const RenderParams&, const AssetID, const Vec2&, const Vec2& = Vec2(1, 1), const Vec4& = Vec4(1, 1, 1, 1), const r32 = 0.0f);
 	static b8 project(const RenderParams&, const Vec3&, Vec2*);
+
+	// Instantly draw a texture
 	static void texture(const RenderParams&, const s32, const Rect2&, const Vec4& = Vec4(1, 1, 1, 1), const Rect2& = { Vec2::zero, Vec2(1, 1) }, const AssetID = AssetNull);
+
+	// Cue up a sprite to be rendered later
+	static void sprite(const RenderParams&, s32, const Rect2&, const Vec4& = Vec4(1, 1, 1, 1), const Rect2& = { Vec2::zero, Vec2(1, 1) }, r32 = 0.0f, const Vec2& = Vec2(0.5f), AssetID = AssetNull);
 #if DEBUG
 	static Array<Vec3> debugs;
 	static void debug(const Vec3&);

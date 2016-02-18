@@ -80,6 +80,9 @@ struct RigidBody : public ComponentType<RigidBody>
 	};
 
 	static PinArray<Constraint, MAX_ENTITIES> global_constraints;
+	static void instantiate_constraint(Constraint*);
+	static ID add_constraint(Constraint&);
+	static void remove_constraint(ID);
 
 	short collision_group;
 	short collision_filter;
@@ -94,9 +97,9 @@ struct RigidBody : public ComponentType<RigidBody>
 	btStridingMeshInterface* btMesh;
 	btRigidBody* btBody;
 
+	void rebuild(); // rebuild bullet objects from our settings
+
 	void set_damping(r32, r32);
-	static ID add_constraint(Constraint&);
-	static void remove_constraint(ID);
 
 	RigidBody(Type, const Vec3&, r32, short, short, AssetID = AssetNull, ID = IDNull);
 	~RigidBody();

@@ -39,12 +39,16 @@ namespace AK
         static const AkUniqueID PLAY_LOCK = 4064908091U;
         static const AkUniqueID PLAY_LOG = 2456646004U;
         static const AkUniqueID PLAY_MUSIC_01 = 3709355747U;
-        static const AkUniqueID PLAY_SOREN1 = 2378175076U;
         static const AkUniqueID PLAY_START_SESSION = 1959159511U;
         static const AkUniqueID PLAY_SWITCH_ON = 1693166490U;
         static const AkUniqueID PLAY_TRIGGER = 166031882U;
         static const AkUniqueID PLAY_ZOOM_IN = 2626091291U;
         static const AkUniqueID PLAY_ZOOM_OUT = 1819052470U;
+        static const AkUniqueID SOREN_TUTORIAL01_A = 247235374U;
+        static const AkUniqueID SOREN_TUTORIAL01_B = 247235373U;
+        static const AkUniqueID SOREN_TUTORIAL01_C = 247235372U;
+        static const AkUniqueID SOREN_TUTORIAL01_D = 247235371U;
+        static const AkUniqueID SOREN1 = 315295359U;
         static const AkUniqueID STOP = 788884573U;
         static const AkUniqueID STOP_ALL = 452547817U;
         static const AkUniqueID STOP_FLY = 419831083U;

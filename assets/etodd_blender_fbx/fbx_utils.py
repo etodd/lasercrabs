@@ -775,6 +775,9 @@ class AnimationCurveNodeWrapper:
         if not self._keys:
             return
 
+        if fac == 0.0:
+            return
+
         # So that, with default factor and step values (1), we get:
         min_reldiff_fac = fac * 1.0e-3  # min relative value evolution: 0.1% of current 'order of magnitude'.
         min_absdiff_fac = 0.1  # A tenth of reldiff...
@@ -795,8 +798,9 @@ class AnimationCurveNodeWrapper:
                 p_keyedval = p_keyed[idx]
                 
                 if currframe == keys[0][0]: # first keyframe
-                    if val == self.default_values[idx]: # value is the same as the bind pose; skip it
-                        continue
+                    default_value = self.default_values[idx]
+                    if abs(val - default_value) < (min_reldiff_fac * max((abs(val) + abs(default_value)), min_absdiff_fac)):
+                        continue # value is the same as the bind pose; skip it
                     else:
                         add_key = True
                         break

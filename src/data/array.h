@@ -32,6 +32,11 @@ struct StaticArray
 		: _nil(), length(l)
 	{
 	}
+	
+	s32 capacity() const
+	{
+		return size;
+	}
 
 	const StaticArray& operator=(const StaticArray& other)
 	{

@@ -29,9 +29,9 @@ uniform sampler2D normal_buffer;
 uniform sampler2D depth_buffer;
 uniform mat4 p;
 
-const int lights = 3;
-uniform vec3 light_color[lights];
-uniform vec3 light_direction[lights];
+const int max_lights = 3;
+uniform vec3 light_color[max_lights];
+uniform vec3 light_direction[max_lights];
 uniform mat4 light_vp;
 uniform sampler2DShadow shadow_map;
 uniform mat4 detail_light_vp;
@@ -90,7 +90,7 @@ void main()
 	const int start_light_index = 0;
 #endif
 
-	for (int i = start_light_index; i < lights; i++)
+	for (int i = start_light_index; i < max_lights; i++)
 		out_color.xyz += light_color[i] * max(0, dot(normal, light_direction[i]));
 }
 

@@ -21,20 +21,12 @@
 namespace VI
 {
 
-#define LERP_ROTATION_SPEED 10.0f
-#define LERP_TRANSLATION_SPEED 4.0f
+#define LERP_ROTATION_SPEED 20.0f
+#define LERP_TRANSLATION_SPEED 5.0f
 #define MAX_FLIGHT_TIME 2.0f
 #define AWK_LEG_LENGTH (0.277f - 0.101f)
 #define AWK_LEG_BLEND_SPEED (1.0f / 0.02f)
 #define AWK_MIN_LEG_BLEND_SPEED (AWK_LEG_BLEND_SPEED * 0.05f)
-
-Vec4 SecondaryFireColors::all[(s32)SecondaryFire::Count] =
-{
-	Vec4(0, 0, 0, 1),
-	Vec4(0, 1, 0, 1),
-	Vec4(1, 1, 0, 1),
-	Vec4(1, 0, 0, 1),
-};
 
 AwkRaycastCallback::AwkRaycastCallback(const Vec3& a, const Vec3& b, const Entity* awk)
 	: btCollisionWorld::ClosestRayResultCallback(a, b)
@@ -141,7 +133,6 @@ b8 Awk::can_go(const Vec3& dir, Vec3* final_pos)
 			return false;
 
 		Vec3 trace_start = center();
-		s32 bounce = 0;
 		while (true)
 		{
 			Vec3 trace_end = trace_start + trace_dir * AWK_MAX_DISTANCE;
@@ -204,6 +195,222 @@ b8 Awk::detach(const Update& u, const Vec3& dir)
 	return false;
 }
 
+void Awk::crawl_wall_edge(const Vec3& dir, const Vec3& other_wall_normal, const Update& u, r32 speed)
+{
+	Vec3 wall_normal = get<Transform>()->absolute_rot() * Vec3(0, 0, 1);
+
+	Vec3 orthogonal = wall_normal.cross(other_wall_normal);
+
+	Vec3 dir_flattened = orthogonal * orthogonal.dot(dir);
+
+	r32 dir_flattened_length = dir_flattened.length();
+	if (dir_flattened_length > 0.1f)
+	{
+		dir_flattened /= dir_flattened_length;
+		Vec3 next_pos = get<Transform>()->absolute_pos() + dir_flattened * u.time.delta * speed;
+		Vec3 wall_ray_start = next_pos + wall_normal * AWK_RADIUS;
+		Vec3 wall_ray_end = next_pos + wall_normal * AWK_RADIUS * -2.0f;
+
+		btCollisionWorld::ClosestRayResultCallback ray_callback(wall_ray_start, wall_ray_end);
+		ray_callback.m_flags = btTriangleRaycastCallback::EFlags::kF_FilterBackfaces
+			| btTriangleRaycastCallback::EFlags::kF_KeepUnflippedNormal;
+		ray_callback.m_collisionFilterMask = ray_callback.m_collisionFilterGroup = ~CollisionInaccessible & ~CollisionWalker & ~CollisionTarget;
+
+		Physics::btWorld->rayTest(wall_ray_start, wall_ray_end, ray_callback);
+
+		if (ray_callback.hasHit())
+		{
+			// All good, go ahead
+			move
+			(
+				ray_callback.m_hitPointWorld + ray_callback.m_hitNormalWorld * AWK_RADIUS,
+				Quat::look(ray_callback.m_hitNormalWorld),
+				ray_callback.m_collisionObject->getUserIndex()
+			);
+		}
+	}
+}
+
+// Return true if we actually switched to the other wall
+b8 Awk::transfer_wall(const Vec3& dir, const btCollisionWorld::ClosestRayResultCallback& ray_callback)
+{
+	// Reparent to obstacle/wall
+	Vec3 wall_normal = get<Transform>()->absolute_rot() * Vec3(0, 0, 1);
+	Vec3 other_wall_normal = ray_callback.m_hitNormalWorld;
+	Vec3 dir_flattened_other_wall = dir - other_wall_normal * other_wall_normal.dot(dir);
+	// Check to make sure that our movement direction won't get flipped if we switch walls.
+	// This prevents jittering back and forth between walls all the time.
+	// Also, don't crawl onto reflective surfaces.
+	if (dir_flattened_other_wall.dot(wall_normal) > 0.0f
+		&& !(ray_callback.m_collisionObject->getBroadphaseHandle()->m_collisionFilterGroup & (CollisionInaccessible | CollisionWalker | CollisionTarget)))
+	{
+		move
+		(
+			ray_callback.m_hitPointWorld + ray_callback.m_hitNormalWorld * AWK_RADIUS,
+			Quat::look(ray_callback.m_hitNormalWorld),
+			ray_callback.m_collisionObject->getUserIndex()
+		);
+		return true;
+	}
+	else
+		return false;
+}
+
+void Awk::move(const Vec3& new_pos, const Quat& new_rotation, const ID entity_id)
+{
+	lerped_rotation = new_rotation.inverse() * get<Transform>()->absolute_rot() * lerped_rotation;
+	get<Transform>()->absolute(new_pos, new_rotation);
+	Entity* entity = &Entity::list[entity_id];
+	if (entity->get<Transform>() != get<Transform>()->parent.ref())
+	{
+		if (get<Transform>()->parent.ref())
+		{
+			Vec3 abs_lerped_pos = get<Transform>()->parent.ref()->to_world(lerped_pos);
+			lerped_pos = entity->get<Transform>()->to_local(abs_lerped_pos);
+		}
+		else
+			lerped_pos = get<Transform>()->pos;
+		get<Transform>()->reparent(entity->get<Transform>());
+	}
+	update_offset();
+}
+
+void Awk::crawl(const Vec3& dir_raw, const Update& u)
+{
+	r32 dir_length = dir_raw.length();
+	Vec3 dir_normalized = dir_raw / dir_length;
+
+	if (get<Transform>()->parent.ref() && dir_length > 0)
+	{
+		r32 speed = last_speed = fmin(dir_length, 1.0f) * AWK_CRAWL_SPEED;
+		dir_normalized /= dir_length;
+
+		Vec3 wall_normal = get<Transform>()->absolute_rot() * Vec3(0, 0, 1);
+		Vec3 pos = get<Transform>()->absolute_pos();
+
+		if (dir_normalized.dot(wall_normal) > 0.0f)
+		{
+			// First, try to climb in the actual direction requested
+			Vec3 next_pos = pos + dir_normalized * u.time.delta * speed;
+			
+			// Check for obstacles
+			Vec3 ray_end = next_pos + (dir_normalized * AWK_RADIUS * 1.5f);
+			btCollisionWorld::ClosestRayResultCallback rayCallback(pos, ray_end);
+			rayCallback.m_flags = btTriangleRaycastCallback::EFlags::kF_FilterBackfaces
+				| btTriangleRaycastCallback::EFlags::kF_KeepUnflippedNormal;
+			rayCallback.m_collisionFilterMask = rayCallback.m_collisionFilterGroup = btBroadphaseProxy::AllFilter;
+
+			Physics::btWorld->rayTest(pos, ray_end, rayCallback);
+
+			if (rayCallback.hasHit())
+			{
+				if (transfer_wall(dir_normalized, rayCallback))
+					return;
+			}
+		}
+
+		Vec3 dir_flattened = dir_normalized - wall_normal * wall_normal.dot(dir_normalized);
+		r32 dir_flattened_length = dir_flattened.length();
+		if (dir_flattened_length < 0.005f)
+			return;
+
+		dir_flattened /= dir_flattened_length;
+
+		Vec3 next_pos = pos + dir_flattened * u.time.delta * speed;
+
+		// Check for obstacles
+		{
+			Vec3 ray_end = next_pos + (dir_flattened * AWK_RADIUS);
+			btCollisionWorld::ClosestRayResultCallback rayCallback(pos, ray_end);
+			rayCallback.m_flags = btTriangleRaycastCallback::EFlags::kF_FilterBackfaces
+				| btTriangleRaycastCallback::EFlags::kF_KeepUnflippedNormal;
+			rayCallback.m_collisionFilterMask = rayCallback.m_collisionFilterGroup = btBroadphaseProxy::AllFilter;
+
+			Physics::btWorld->rayTest(pos, ray_end, rayCallback);
+
+			if (rayCallback.hasHit())
+			{
+				if (!transfer_wall(dir_flattened, rayCallback))
+				{
+					// Stay on our current wall
+					crawl_wall_edge(dir_normalized, rayCallback.m_hitNormalWorld, u, speed);
+				}
+				return;
+			}
+		}
+
+		// No obstacle. Check if we still have wall to walk on.
+
+		Vec3 wall_ray_start = next_pos + wall_normal * AWK_RADIUS;
+		Vec3 wall_ray_end = next_pos + wall_normal * AWK_RADIUS * -2.0f;
+
+		btCollisionWorld::ClosestRayResultCallback rayCallback(wall_ray_start, wall_ray_end);
+		rayCallback.m_flags = btTriangleRaycastCallback::EFlags::kF_FilterBackfaces
+			| btTriangleRaycastCallback::EFlags::kF_KeepUnflippedNormal;
+		rayCallback.m_collisionFilterMask = rayCallback.m_collisionFilterGroup = ~CollisionInaccessible & ~CollisionWalker & ~CollisionTarget;
+
+		Physics::btWorld->rayTest(wall_ray_start, wall_ray_end, rayCallback);
+
+		if (rayCallback.hasHit()
+			&& !(rayCallback.m_collisionObject->getBroadphaseHandle()->m_collisionFilterGroup & (CollisionInaccessible | CollisionWalker | CollisionTarget)))
+		{
+			// All good, go ahead
+
+			Vec3 other_wall_normal = rayCallback.m_hitNormalWorld;
+			Vec3 dir_flattened_other_wall = dir_normalized - other_wall_normal * other_wall_normal.dot(dir_normalized);
+			// Check to make sure that our movement direction won't get flipped if we switch walls.
+			// This prevents jittering back and forth between walls all the time.
+			if (dir_flattened_other_wall.dot(dir_flattened) > 0.0f)
+			{
+				move
+				(
+					rayCallback.m_hitPointWorld + rayCallback.m_hitNormalWorld * AWK_RADIUS,
+					Quat::look(rayCallback.m_hitNormalWorld),
+					rayCallback.m_collisionObject->getUserIndex()
+				);
+			}
+		}
+		else
+		{
+			// No wall left
+			// See if we can walk around the corner
+			Vec3 wall_ray2_start = next_pos + wall_normal * AWK_RADIUS * -1.25f;
+			Vec3 wall_ray2_end = wall_ray2_start + dir_flattened * AWK_RADIUS * -2.0f;
+
+			btCollisionWorld::ClosestRayResultCallback rayCallback(wall_ray2_start, wall_ray2_end);
+			rayCallback.m_flags = btTriangleRaycastCallback::EFlags::kF_FilterBackfaces
+				| btTriangleRaycastCallback::EFlags::kF_KeepUnflippedNormal;
+			rayCallback.m_collisionFilterMask = rayCallback.m_collisionFilterGroup = btBroadphaseProxy::AllFilter;
+
+			Physics::btWorld->rayTest(wall_ray2_start, wall_ray2_end, rayCallback);
+
+			if (rayCallback.hasHit())
+			{
+				// Walk around the corner
+
+				// Check to make sure that our movement direction won't get flipped if we switch walls.
+				// This prevents jittering back and forth between walls all the time.
+				if (dir_normalized.dot(wall_normal) < 0.05f
+					&& !(rayCallback.m_collisionObject->getBroadphaseHandle()->m_collisionFilterGroup & (CollisionInaccessible | CollisionWalker | CollisionTarget)))
+				{
+					// Transition to the other wall
+					move
+					(
+						rayCallback.m_hitPointWorld + rayCallback.m_hitNormalWorld * AWK_RADIUS,
+						Quat::look(rayCallback.m_hitNormalWorld),
+						rayCallback.m_collisionObject->getUserIndex()
+					);
+				}
+				else
+				{
+					// Stay on our current wall
+					Vec3 other_wall_normal = Vec3(rayCallback.m_hitNormalWorld);
+					crawl_wall_edge(dir_normalized, other_wall_normal, u, speed);
+				}
+			}
+		}
+	}
+}
 const AssetID awk_legs[AWK_LEGS] =
 {
 	Asset::Bone::awk_a1,
@@ -238,11 +445,38 @@ void Awk::set_footing(const s32 index, const Transform* parent, const Vec3& pos)
 	footing[index].pos = footing[index].parent.ref()->to_local(pos);
 }
 
+void Awk::update_offset()
+{
+	get<SkinnedModel>()->offset.rotation(lerped_rotation);
+	if (get<Transform>()->parent.ref())
+	{
+		Vec3 abs_lerped_pos = get<Transform>()->parent.ref()->to_world(lerped_pos);
+		get<SkinnedModel>()->offset.translation(get<Transform>()->to_local(abs_lerped_pos));
+	}
+	else
+		get<SkinnedModel>()->offset.translation(Vec3::zero);
+}
+
 void Awk::update(const Update& u)
 {
 	if (get<Transform>()->parent.ref())
 	{
 		Quat rot = get<Transform>()->rot;
+
+		{
+			r32 angle = Quat::angle(lerped_rotation, Quat::identity);
+			if (angle > 0)
+				lerped_rotation = Quat::slerp(fmin(1.0f, (LERP_ROTATION_SPEED / angle) * u.time.delta), lerped_rotation, Quat::identity);
+		}
+
+		{
+			Vec3 to_transform = get<Transform>()->pos - lerped_pos;
+			r32 distance = to_transform.length();
+			if (distance > 0.0f)
+				lerped_pos = Vec3::lerp(fmin(1.0f, (LERP_TRANSLATION_SPEED / distance) * u.time.delta), lerped_pos, get<Transform>()->pos);
+		}
+
+		update_offset();
 
 		Mat4 inverse_offset = get<SkinnedModel>()->offset.inverse();
 
@@ -429,6 +663,8 @@ void Awk::update(const Update& u)
 							get<Transform>()->parent = entity->get<Transform>();
 							next_position = rayCallback.m_hitPointWorld[i] + rayCallback.m_hitNormalWorld[i] * AWK_RADIUS;
 							get<Transform>()->absolute(next_position, Quat::look(rayCallback.m_hitNormalWorld[i]));
+
+							lerped_pos = get<Transform>()->pos;
 
 							ShockwaveEntity* shockwave = World::create<ShockwaveEntity>(Awk::entity(), AWK_SHOCKWAVE_RADIUS);
 							shockwave->get<Transform>()->pos = get<Transform>()->pos;

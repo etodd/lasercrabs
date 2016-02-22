@@ -22,7 +22,7 @@
 #define WALK_SPEED 2.0f
 
 #define HEALTH 50
-#define VULNERABLE_HEALTH 15
+#define VULNERABLE_HEALTH 26
 
 namespace VI
 {

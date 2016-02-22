@@ -46,6 +46,7 @@ static Submenu submenu;
 
 void reset_players()
 {
+	Game::data = Game::Data();
 	for (int i = 0; i < MAX_GAMEPADS; i++)
 		Game::data.local_player_config[i] = AI::Team::None;
 	Game::data.local_player_config[0] = AI::Team::A;
@@ -608,10 +609,21 @@ r32 UIMenu::height(s32 items)
 
 void UIMenu::draw_alpha(const RenderParams& params) const
 {
+	if (items.length == 0)
+		return;
+
+	{
+		Rect2 item_rect = items[items.length - 1].rect();
+		Rect2 menu_rect = { item_rect.pos, Vec2(item_rect.size.x, height(items.length)) };
+		UI::box(params, menu_rect, UI::background_color);
+		UI::border(params, menu_rect, 2, UI::default_color);
+	}
+
 	for (s32 i = 0; i < items.length; i++)
 	{
 		const Item* item = &items[i];
-		UI::box(params, item->rect(), i == selected ? UI::subtle_color : UI::background_color);
+		if (i == selected)
+			UI::box(params, item->rect(), UI::subtle_color);
 		item->label.draw(params, item->pos);
 		if (item->value.has_text())
 			item->value.draw(params, item->pos + Vec2(MENU_ITEM_VALUE_OFFSET, 0));

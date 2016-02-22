@@ -112,7 +112,9 @@ b8 Parkour::wallrun(const Update& u, RigidBody* wall, const Vec3& relative_wall_
 
 	btRigidBody* body = get<RigidBody>()->btBody;
 	
-	Vec3 velocity = body->getLinearVelocity() + Vec3(Physics::btWorld->getGravity()) * -0.35f * u.time.delta; // cancel gravity a bit
+	Vec3 velocity = body->getLinearVelocity();
+	velocity += Vec3(Physics::btWorld->getGravity()) * -0.4f * u.time.delta; // cancel gravity a bit
+
 	{
 		r32 speed = Vec2(velocity.x, velocity.z).length();
 		velocity -= absolute_wall_normal * absolute_wall_normal.dot(velocity); // keep us on the wall
@@ -765,8 +767,10 @@ b8 Parkour::try_wall_run(WallRunState s, const Vec3& wall_direction)
 			if (add_velocity && vertical_velocity - support_velocity.y > -2.0f)
 			{
 				// Going up
-				r32 speed = LMath::clampf((velocity - support_velocity).length(), 0.0f, 5.0f);
-				body->setLinearVelocity(support_velocity + Vec3(0, 4.5f + speed, 0));
+				Vec3 horizontal_velocity = velocity - support_velocity;
+				horizontal_velocity.y = 0.0f;
+				r32 speed = LMath::clampf(horizontal_velocity.length(), 0.0f, 5.0f);
+				body->setLinearVelocity(support_velocity + Vec3(0, 4.5f + speed + vertical_velocity - support_velocity.y, 0));
 			}
 			else
 			{

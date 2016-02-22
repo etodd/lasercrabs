@@ -15,6 +15,7 @@ struct RigidBody;
 struct Transform;
 struct LocalPlayerControl;
 struct PlayerManager;
+struct Health;
 
 #define MAX_PLAYER_COMBOS 28 // C(MAX_PLAYERS, 2)
 
@@ -35,6 +36,7 @@ struct LocalPlayer
 	UIText credits_text;
 	Revision revision;
 	bool options_menu;
+	StaticArray<Ref<Health>, 20> visible_health_bars;
 
 	inline ID id() const
 	{

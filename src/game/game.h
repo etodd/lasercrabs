@@ -39,7 +39,8 @@ struct Game
 		AssetID level;
 		Mode mode;
 		AI::Team local_player_config[MAX_GAMEPADS];
-		bool third_person;
+		b8 third_person;
+		b8 allow_detach;
 		Data();
 	};
 

@@ -67,7 +67,8 @@ b8 Game::cursor_updated = false;
 Game::Data::Data()
 	: level(AssetNull),
 	mode(Mode::Multiplayer),
-	third_person(false)
+	third_person(false),
+	allow_detach(true)
 {
 	for (s32 i = 0; i < MAX_GAMEPADS; i++)
 		local_player_config[i] = AI::Team::None;

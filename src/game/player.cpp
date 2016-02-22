@@ -36,7 +36,7 @@ namespace VI
 #define speed_mouse 0.0025f
 #define fov_zoom (fov_initial * zoom_ratio)
 #define speed_mouse_zoom (speed_mouse * zoom_ratio)
-#define speed_joystick 3.0f
+#define speed_joystick 5.0f
 #define speed_joystick_zoom (speed_joystick * zoom_ratio)
 #define joystick_dead_zone 0.1f
 #define attach_speed 5.0f
@@ -90,7 +90,8 @@ LocalPlayer::LocalPlayer(PlayerManager* m, u8 g)
 	msg_timer(msg_time),
 	menu(),
 	revision(),
-	options_menu()
+	options_menu(),
+	visible_health_bars()
 {
 	sprintf(manager.ref()->username, "Player %d", gamepad);
 
@@ -225,6 +226,54 @@ void LocalPlayer::update(const Update& u)
 			break;
 		}
 	}
+
+	visible_health_bars.length = 0;
+	Entity* player = manager.ref()->entity.ref();
+	if (player)
+	{
+		Vec3 player_pos;
+		player_pos = player->get<Transform>()->absolute_pos();
+
+		// determine health bar visibility
+		const r32 far_plane = Skybox::far_plane * Skybox::far_plane;
+		for (auto i = Health::list.iterator(); !i.is_last(); i.next())
+		{
+			Health* health = i.item();
+			if (health->entity() == manager.ref()->entity.ref()) // don't draw our own health bar right now
+				continue;
+
+			b8 visible;
+			Vec3 enemy_pos = health->get<Transform>()->absolute_pos();
+			if (health->get<AIAgent>()->team == manager.ref()->team.ref()->team())
+				visible = true;
+			else if (health->has<PlayerCommon>())
+				visible = PlayerCommon::visibility[PlayerCommon::visibility_hash(health->get<PlayerCommon>(), player->get<PlayerCommon>())];
+			else
+			{
+				Vec3 diff = enemy_pos - player_pos;
+				if (diff.length_squared() < far_plane)
+				{
+					if (btVector3(diff).fuzzyZero())
+						visible = true;
+					else
+					{
+						btCollisionWorld::ClosestRayResultCallback ray_callback(player_pos, enemy_pos);
+						Physics::raycast(&ray_callback);
+						visible = !ray_callback.hasHit() || ray_callback.m_collisionObject->getUserIndex() == health->entity_id;
+					}
+				}
+				else
+					visible = false;
+			}
+
+			if (visible)
+			{
+				visible_health_bars.add(health);
+				if (visible_health_bars.length == visible_health_bars.capacity())
+					break; // displaying maximum number of health bars
+			}
+		}
+	}
 }
 
 void LocalPlayer::spawn()
@@ -271,56 +320,24 @@ void LocalPlayer::draw_alpha(const RenderParams& params) const
 
 	const Rect2& vp = params.camera->viewport;
 
-	Entity* player = manager.ref()->entity.ref();
-	Vec3 player_pos;
-	if (player)
-		player_pos = player->get<Transform>()->absolute_pos();
-
 	// draw health bars
-	const r32 far_plane = Skybox::far_plane * Skybox::far_plane;
-	for (auto i = Health::list.iterator(); !i.is_last(); i.next())
+	for (s32 i = 0; i < visible_health_bars.length; i++)
 	{
-		const Health* health = i.item();
-		if (health->entity() == manager.ref()->entity.ref()) // don't draw our own health bar right now
+		Health* health = visible_health_bars[i].ref();
+		if (!health)
 			continue;
 
-		b8 visible;
 		Vec3 enemy_pos = health->get<Transform>()->absolute_pos();
-		if (health->get<AIAgent>()->team == manager.ref()->team.ref()->team())
-			visible = true;
-		else if (player && health->has<PlayerCommon>())
-			visible = PlayerCommon::visibility[PlayerCommon::visibility_hash(health->get<PlayerCommon>(), player->get<PlayerCommon>())];
-		else
+		enemy_pos.y += 0.75f;
+		const Vec4& color = AI::colors[(s32)health->get<AIAgent>()->team];
+		Vec2 pos;
+		if (UI::project(params, enemy_pos, &pos))
 		{
-			Vec3 diff = enemy_pos - player_pos;
-			if (diff.length_squared() < far_plane)
-			{
-				if (btVector3(diff).fuzzyZero())
-					visible = true;
-				else
-				{
-					btCollisionWorld::ClosestRayResultCallback ray_callback(player_pos, enemy_pos);
-					Physics::raycast(&ray_callback);
-					visible = !ray_callback.hasHit() || ray_callback.m_collisionObject->getUserIndex() == health->entity_id;
-				}
-			}
-			else
-				visible = false;
-		}
-
-		if (visible)
-		{
-			enemy_pos.y += 0.75f;
-			const Vec4& color = AI::colors[(s32)health->get<AIAgent>()->team];
-			Vec2 pos;
-			if (UI::project(params, enemy_pos, &pos))
-			{
-				pos.y += 24.0f * UI::scale;
-				const Vec2 size = Vec2(32.0f, 2.0f) * UI::scale;
-				UI::box(params, { pos - size * 0.5f, size }, UI::background_color);
-				UI::box(params, { pos - size * 0.5f, size * Vec2((r32)health->hp / (r32)health->total, 1.0f) }, color);
-				UI::border(params, { pos - size * 0.5f, size }, 2, color);
-			}
+			pos.y += 24.0f * UI::scale;
+			const Vec2 size = Vec2(32.0f, 2.0f) * UI::scale;
+			UI::box(params, { pos - size * 0.5f, size }, UI::background_color);
+			UI::box(params, { pos - size * 0.5f, size * Vec2((r32)health->hp / (r32)health->total, 1.0f) }, color);
+			UI::border(params, { pos - size * 0.5f, size }, 2, color);
 		}
 	}
 
@@ -498,12 +515,6 @@ void PlayerCommon::update(const Update& u)
 	}
 }
 
-void LocalPlayerControl::awk_bounce(const Vec3& new_velocity)
-{
-	Vec3 direction = Vec3::normalize(get<Awk>()->velocity);
-	attach_quat = Quat::look(direction);
-}
-
 void LocalPlayerControl::awk_attached()
 {
 	Quat absolute_rot = get<Transform>()->absolute_rot();
@@ -560,7 +571,6 @@ void LocalPlayerControl::awake()
 	if (has<Awk>())
 	{
 		link<&LocalPlayerControl::awk_attached>(get<Awk>()->attached);
-		link_arg<const Vec3&, &LocalPlayerControl::awk_bounce>(get<Awk>()->bounce);
 		link_arg<Entity*, &LocalPlayerControl::hit_target>(get<Awk>()->hit);
 	}
 
@@ -693,7 +703,7 @@ void LocalPlayerControl::update(const Update& u)
 	{
 		// Zoom
 		r32 fov_blend_target = 0.0f;
-		if (has<Awk>() && input_enabled())
+		if (has<Awk>() && Game::data.allow_detach && input_enabled())
 		{
 			if (u.input->get(settings.bindings.secondary, gamepad))
 			{
@@ -738,16 +748,6 @@ void LocalPlayerControl::update(const Update& u)
 
 				update_camera_input(u);
 
-				if (Game::data.mode == Game::Mode::Parkour && attach_normal.y > 0.7f && u.input->get(settings.bindings.parkour, gamepad) && !u.last_input->get(settings.bindings.parkour, gamepad))
-				{
-					// Switch to sentinel
-					Vec3 pos = get<Awk>()->center() + Vec3(0, 1.0f, 0);
-					AI::Team old_team = get<AIAgent>()->team;
-					Entity* new_entity = World::create<Minion>(pos, Quat::euler(0, angle_horizontal, 0), old_team);
-					get<PlayerCommon>()->transfer_to(new_entity);
-					return;
-				}
-
 				look_quat = Quat::euler(lean, angle_horizontal, angle_vertical);
 
 				Vec3 forward = look_quat * Vec3(0, 0, 1);
@@ -759,6 +759,27 @@ void LocalPlayerControl::update(const Update& u)
 					angle_vertical = -asinf(forward.y);
 					look_quat = Quat::euler(lean, angle_horizontal, angle_vertical);
 				}
+			}
+
+			// Crawl
+
+			if (input_enabled())
+			{
+				Quat clamped_look_quat = look_quat;
+				Vec3 wall_normal = rot * Vec3(0, 0, 1);
+				Vec3 forward = clamped_look_quat * Vec3(0, 0, 1);
+				float dot = forward.dot(wall_normal);
+				if (dot < 0.01f)
+				{
+					forward = Vec3::normalize(forward - (dot - 0.01f) * wall_normal);
+					float hor = atan2f(forward.x, forward.z);
+					float vert = -asinf(forward.y);
+					clamped_look_quat = Quat::euler(lean, hor, vert);
+				}
+
+				Vec3 movement = get_movement(u, clamped_look_quat);
+
+				get<Awk>()->crawl(movement, u);
 			}
 		}
 		else
@@ -859,7 +880,7 @@ void LocalPlayerControl::update(const Update& u)
 		if (get<Parkour>()->fsm.current == Parkour::State::WallRun)
 		{
 			Parkour::WallRunState state = get<Parkour>()->wall_run_state;
-			const r32 wall_run_lean = 8.0f * PI / 180.0f;
+			const r32 wall_run_lean = 10.0f * PI / 180.0f;
 			if (state == Parkour::WallRunState::Left)
 				lean_target = -wall_run_lean;
 			else if (state == Parkour::WallRunState::Right)
@@ -887,7 +908,7 @@ void LocalPlayerControl::update(const Update& u)
 		}
 		else
 		{
-			lean_target = get<Walker>()->net_speed * (LMath::closest_angle(last_angle_horizontal, angle_horizontal) - angle_horizontal) * fmin((1.0f / 180.0f) / u.time.delta, 1.0f);
+			lean_target = get<Walker>()->net_speed * LMath::angle_to(angle_horizontal, last_angle_horizontal) * (1.0f / 180.0f) / u.time.delta;
 
 			get<Walker>()->target_rotation = angle_horizontal;
 
@@ -899,7 +920,7 @@ void LocalPlayerControl::update(const Update& u)
 				get<Walker>()->rotation = LMath::angle_range(get<Walker>()->rotation + delta + PI * 0.5f);
 		}
 
-		lean += (lean_target - lean) * fmin(1.0f, 20.0f * u.time.delta);
+		lean += (lean_target - lean) * fmin(1.0f, 15.0f * u.time.delta);
 		look_quat = Quat::euler(lean, angle_horizontal, angle_vertical);
 	}
 	
@@ -924,7 +945,7 @@ void LocalPlayerControl::update(const Update& u)
 	camera->pos = camera_pos + (Game::data.third_person ? look_quat * Vec3(0, 0, -2) : Vec3::zero);
 	camera->rot = look_quat;
 	if (has<Awk>())
-		camera->wall_normal = look_quat.inverse() * (get<Transform>()->absolute_rot() * Vec3(0, 0, 1));
+		camera->wall_normal = look_quat.inverse() * ((get<Transform>()->absolute_rot() * get<Awk>()->lerped_rotation) * Vec3(0, 0, 1));
 	else
 		camera->wall_normal = Vec3(0, 0, 1);
 
@@ -974,7 +995,7 @@ void LocalPlayerControl::update(const Update& u)
 				}
 			}
 
-			if (input_enabled())
+			if (Game::data.allow_detach && input_enabled())
 			{
 				b8 go = u.input->get(settings.bindings.primary, gamepad) && !u.last_input->get(settings.bindings.primary, gamepad);
 
@@ -1037,7 +1058,7 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 		{
 			r32 cooldown = get<PlayerCommon>()->cooldown;
 			r32 radius = cooldown == 0.0f ? 0.0f : fmax(0.0f, 32.0f * (get<PlayerCommon>()->cooldown / AWK_MAX_DISTANCE_COOLDOWN));
-			if (radius > 0 || tracer.type == TraceType::None)
+			if (radius > 0 || tracer.type == TraceType::None || !Game::data.allow_detach)
 				UI::centered_border(params, { viewport.size * Vec2(0.5f, 0.5f), Vec2(3.0f + radius) * UI::scale }, 2, UI::default_color, PI * 0.25f);
 			else
 			{

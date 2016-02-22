@@ -500,6 +500,14 @@ namespace tutorial01
 		Soren::data->callbacks.schedule(5.5f, &done);
 	}
 
+	void shoot_tutorial(Entity*)
+	{
+		Game::data.allow_detach = true;
+		Soren::clear();
+		Soren::data->modes.schedule(0.0f, Soren::Mode::TextOnly);
+		Soren::data->texts.schedule(0.0f, "[{{Primary}}] to shoot. [{{Secondary}}] to zoom.");
+	}
+
 	void movement_tutorial_done(Entity*)
 	{
 		if (!data->movement_tutorial_done)
@@ -511,6 +519,7 @@ namespace tutorial01
 
 	void cleanup()
 	{
+		Game::data.allow_detach = true;
 		delete data;
 	}
 
@@ -518,6 +527,7 @@ namespace tutorial01
 	{
 		data = new Data();
 		Game::cleanups.add(cleanup);
+		Game::data.allow_detach = false;
 
 		Soren::init();
 		Soren::data->modes.schedule(3.0f, Soren::Mode::Left);
@@ -526,11 +536,11 @@ namespace tutorial01
 		Soren::data->texts.schedule(3.0f, "Find the minion and shoot through its head.");
 		Soren::data->faces.schedule(5.5f, Soren::Face::Default);
 		Soren::data->texts.schedule(5.5f, "Don't worry, it'll be easy.");
-		Soren::data->modes.schedule(8.0f, Soren::Mode::TextOnly);
-		Soren::data->texts.schedule(8.0f, "[{{Primary}}] to shoot. [{{Secondary}}] to zoom.");
+		Soren::data->modes.schedule(7.5f, Soren::Mode::Hidden);
 
 		entities.find("minion1")->get<Health>()->killed.link(&minion1_dialogue);
 		entities.find("minion2")->get<Health>()->killed.link(&minion2_dialogue);
+		entities.find("shoot_tutorial")->get<PlayerTrigger>()->entered.link(&shoot_tutorial);
 		entities.find("movement_tutorial_done")->get<PlayerTrigger>()->entered.link(&movement_tutorial_done);
 		Team::list[1].lost.link(&destroyed_enemy_spawn);
 	}

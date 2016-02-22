@@ -13,10 +13,10 @@ struct Rope;
 #define AWK_HEALTH 100
 #define AWK_MAX_DISTANCE 25.0f
 #define AWK_FLY_SPEED 100.0f
-#define AWK_CRAWL_SPEED 2.0f
+#define AWK_CRAWL_SPEED 3.5f
 #define AWK_RADIUS 0.2f
-#define AWK_MIN_COOLDOWN 0.3f
-#define AWK_MAX_DISTANCE_COOLDOWN 1.0f
+#define AWK_MIN_COOLDOWN 0.5f
+#define AWK_MAX_DISTANCE_COOLDOWN 2.0f
 #define AWK_COOLDOWN_DISTANCE_RATIO (AWK_MAX_DISTANCE_COOLDOWN / AWK_MAX_DISTANCE)
 #define AWK_SHOCKWAVE_RADIUS 8
 #define AWK_LEGS 3
@@ -32,20 +32,6 @@ struct AwkRaycastCallback : btCollisionWorld::ClosestRayResultCallback
 	virtual	btScalar addSingleResult(btCollisionWorld::LocalRayResult& rayResult, b8 normalInWorldSpace);
 };
 
-enum class SecondaryFire
-{
-	None,
-	Melee,
-	Command,
-	Wall,
-	Count,
-};
-
-struct SecondaryFireColors
-{
-	static Vec4 all[];
-};
-
 struct Awk : public ComponentType<Awk>
 {
 	struct Footing
@@ -58,13 +44,14 @@ struct Awk : public ComponentType<Awk>
 
 	Vec3 velocity;
 	Link attached;
-	LinkArg<const Vec3&> bounce;
 	LinkArg<Entity*> hit;
 	r32 attach_time;
 	Ref<Rope> rope;
 	Footing footing[AWK_LEGS];
 	r32 last_speed;
 	r32 last_footstep;
+	Vec3 lerped_pos;
+	Quat lerped_rotation;
 
 	Awk();
 	void awake();
@@ -73,7 +60,13 @@ struct Awk : public ComponentType<Awk>
 	void hit_target(Entity*); // Called when we hit a target
 	void killed(Entity*);
 
-	void set_footing(const s32, const Transform*, const Vec3&);
+	void crawl_wall_edge(const Vec3&, const Vec3&, const Update&, r32);
+	b8 transfer_wall(const Vec3&, const btCollisionWorld::ClosestRayResultCallback&);
+	void move(const Vec3&, const Quat&, const ID);
+	void crawl(const Vec3& dir, const Update& u);
+	void update_offset();
+
+	void set_footing(s32, const Transform*, const Vec3&);
 
 	Vec3 center();
 

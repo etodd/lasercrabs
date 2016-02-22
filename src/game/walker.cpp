@@ -20,7 +20,7 @@ Walker::Walker(r32 rot)
 	rotation_speed(8.0f),
 	target_rotation(rot),
 	auto_rotate(true),
-	air_control_accel(4.0f),
+	air_control_accel(5.0f),
 	fall_damage_threshold(15.0f),
 	enabled(true),
 	accel1(10.0f),

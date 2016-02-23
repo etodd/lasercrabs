@@ -39,7 +39,7 @@ AwkEntity::AwkEntity(AI::Team team)
 	SkinnedModel* model = create<SkinnedModel>();
 	model->mesh = Asset::Mesh::awk;
 	model->shader = Asset::Shader::armature;
-	model->color = Vec4(AI::colors[(s32)team].xyz(), 1.0f / 255.0f);
+	model->color = Vec4(Team::colors[(s32)team].xyz(), 1.0f / 255.0f);
 
 	Animator* anim = create<Animator>();
 	anim->armature = Asset::Armature::awk;
@@ -73,20 +73,19 @@ void Health::damage(Entity* e, u16 damage)
 	}
 }
 
-CreditsPickupEntity::CreditsPickupEntity(const Vec3& abs_pos, const Quat& abs_quat)
+TargetEntity::TargetEntity(const Vec3& abs_pos, const Quat& abs_quat, AI::Team team)
 {
 	create<Transform>()->absolute(abs_pos, abs_quat);
 	View* model = create<View>();
 	model->mesh = Asset::Mesh::target;
-	model->color = Vec4(1, 1, 0, 0);
+	model->color = Team::colors[(s32)team];
 	model->shader = Asset::Shader::standard;
 
 	PointLight* light = create<PointLight>();
-	light->color = Vec3(1, 1, 0);
+	light->color = Team::colors[(s32)team].xyz();
 	light->radius = 8.0f;
 
 	Target* target = create<Target>();
-	create<CreditsPickup>()->link_arg<Entity*, &CreditsPickup::hit_by>(target->hit_by);
 
 	const r32 radius = 0.25f;
 
@@ -196,21 +195,14 @@ void Socket::refresh()
 	}
 }
 
-void CreditsPickup::hit_by(Entity* hit_by)
-{
-	World::remove_deferred(entity());
-}
-
 PlayerSpawn::PlayerSpawn(AI::Team team)
 {
 	create<Transform>();
 
-	Animator* animator = create<Animator>();
-	animator->armature = Asset::Armature::spawn;
-	SkinnedModel* view = create<SkinnedModel>();
+	View* view = create<View>();
 	view->mesh = Asset::Mesh::spawn;
-	view->shader = Asset::Shader::armature;
-	view->color = AI::colors[(s32)team];
+	view->shader = Asset::Shader::standard;
+	view->color = Team::colors[(s32)team];
 
 	create<RigidBody>(RigidBody::Type::CapsuleY, Vec3(PLAYER_SPAWN_RADIUS, 6.0f, PLAYER_SPAWN_RADIUS), 0.0f, CollisionInaccessible, CollisionInaccessibleMask);
 }
@@ -222,9 +214,9 @@ MinionSpawn::MinionSpawn(AI::Team team)
 	View* view = create<View>();
 	view->mesh = Asset::Mesh::spawn;
 	view->shader = Asset::Shader::standard;
-	view->color = AI::colors[(s32)team];
+	view->color = Team::colors[(s32)team];
 
-	create<RigidBody>(RigidBody::Type::CapsuleY, Vec3(PLAYER_SPAWN_RADIUS, 6.0f, PLAYER_SPAWN_RADIUS), 0.0f, CollisionInaccessible, CollisionInaccessibleMask);
+	create<RigidBody>(RigidBody::Type::CapsuleY, Vec3(MINION_SPAWN_RADIUS, 6.0f, MINION_SPAWN_RADIUS), 0.0f, CollisionInaccessible, CollisionInaccessibleMask);
 }
 
 #define TURRET_COOLDOWN 0.35f
@@ -238,7 +230,7 @@ Turret::Turret(AI::Team team)
 	SkinnedModel* view = create<SkinnedModel>();
 	view->mesh = Asset::Mesh::turret;
 	view->shader = Asset::Shader::armature;
-	view->color = AI::colors[(s32)team];
+	view->color = Team::colors[(s32)team];
 	view->offset.translate(Vec3(0, -1.25f, 0));
 
 	Animator* animator = create<Animator>();
@@ -253,7 +245,7 @@ Turret::Turret(AI::Team team)
 	create<RigidBody>(RigidBody::Type::Sphere, Vec3(TURRET_RADIUS), 0.0f, CollisionInaccessible, CollisionInaccessibleMask);
 
 	PointLight* light = create<PointLight>();
-	light->color = AI::colors[(s32)team].xyz();
+	light->color = Team::colors[(s32)team].xyz();
 	light->type = PointLight::Type::Override;
 	light->radius = TURRET_VIEW_RANGE;
 	light->mask = ~(1 << (s32)team); // don't display to fellow teammates
@@ -427,7 +419,7 @@ void Projectile::update(const Update& u)
 
 			Vec4 color(1, 1, 1, 1);
 			if (owner.ref())
-				color = AI::colors[(s32)owner.ref()->get<AIAgent>()->team] + Vec4(0.5f, 0.5f, 0.5f, 0);
+				color = Team::colors[(s32)owner.ref()->get<AIAgent>()->team] + Vec4(0.5f, 0.5f, 0.5f, 0);
 
 			for (s32 i = 0; i < 30; i++)
 			{
@@ -622,46 +614,43 @@ void Rope::draw_opaque(const RenderParams& params)
 	sync->write<Mat4>(instances.data, instances.length);
 }
 
-void Rope::segment_hit(Entity* segment_entity)
+void Rope::remove(Entity* segment_entity)
 {
 	RigidBody* segment = segment_entity->get<RigidBody>();
-	if (segment != last_segment.ref())
+	btRigidBody* btBody = segment->btBody;
+	for (s32 i = 0; i < segments.length; i++)
 	{
-		btRigidBody* btBody = segment->btBody;
-		for (s32 i = 0; i < segments.length; i++)
-		{
-			if (segments[i].ref() == segment)
-				segments.remove(i);
-			else
-				segments[i].ref()->btBody->activate(true);
-		}
-		World::remove_deferred(segment_entity);
-
-		if (socket1.ref() && socket2.ref())
-		{
-			for (s32 i = 0; i < socket1.ref()->links.length; i++)
-			{
-				if (socket1.ref()->links[i].ref() == socket2.ref())
-				{
-					socket1.ref()->links.remove(i);
-					break;
-				}
-			}
-			for (s32 i = 0; i < socket2.ref()->links.length; i++)
-			{
-				if (socket2.ref()->links[i].ref() == socket1.ref())
-				{
-					socket2.ref()->links.remove(i);
-					break;
-				}
-			}
-			socket1 = socket2 = nullptr;
-			Socket::refresh_all();
-		}
-
-		if (segments.length == 0)
-			World::remove_deferred(entity());
+		if (segments[i].ref() == segment)
+			segments.remove(i);
+		else
+			segments[i].ref()->btBody->activate(true);
 	}
+	World::remove_deferred(segment_entity);
+
+	if (socket1.ref() && socket2.ref())
+	{
+		for (s32 i = 0; i < socket1.ref()->links.length; i++)
+		{
+			if (socket1.ref()->links[i].ref() == socket2.ref())
+			{
+				socket1.ref()->links.remove(i);
+				break;
+			}
+		}
+		for (s32 i = 0; i < socket2.ref()->links.length; i++)
+		{
+			if (socket2.ref()->links[i].ref() == socket1.ref())
+			{
+				socket2.ref()->links.remove(i);
+				break;
+			}
+		}
+		socket1 = socket2 = nullptr;
+		Socket::refresh_all();
+	}
+
+	if (segments.length == 0)
+		World::remove_deferred(entity());
 }
 
 void Rope::add(const Vec3& pos, const Quat& rot)
@@ -680,8 +669,7 @@ void Rope::add(const Vec3& pos, const Quat& rot)
 			if (length > rope_s32erval * 0.5f)
 			{
 				Vec3 spawn_pos = last_segment_pos + (diff / length) * rope_s32erval * 0.5f;
-				Entity* box = World::create<PhysicsEntity>(AssetNull, spawn_pos, rot, RigidBody::Type::CapsuleZ, Vec3(rope_radius, rope_segment_length - rope_radius * 2.0f, 0.0f), 1.0f, CollisionTarget, ~CollisionTarget);
-				link_arg<Entity*, &Rope::segment_hit>(box->add<Target>()->hit_this);
+				Entity* box = World::create<PhysicsEntity>(AssetNull, spawn_pos, rot, RigidBody::Type::CapsuleZ, Vec3(rope_radius, rope_segment_length - rope_radius * 2.0f, 0.0f), 1.0f, CollisionInaccessible, CollisionInaccessibleMask);
 
 				static Quat rotation_a = Quat::look(Vec3(0, 0, 1)) * Quat::euler(0, PI * -0.5f, 0);
 				static Quat rotation_b = Quat::look(Vec3(0, 0, -1)) * Quat::euler(PI, PI * -0.5f, 0);

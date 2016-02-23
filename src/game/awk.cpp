@@ -11,9 +11,9 @@
 #include "asset/mesh.h"
 #include "asset/armature.h"
 #include "asset/animation.h"
+#include "asset/shader.h"
 #include "data/animator.h"
 #include "render/views.h"
-#include "asset/font.h"
 #include "game.h"
 #include "console.h"
 #include "minion.h"
@@ -57,15 +57,13 @@ btScalar AwkRaycastCallback::addSingleResult(btCollisionWorld::LocalRayResult& r
 	m_closestHitFraction = rayResult.m_hitFraction;
 	m_collisionObject = rayResult.m_collisionObject;
 	if (normalInWorldSpace)
-	{
 		m_hitNormalWorld = rayResult.m_hitNormalLocal;
-	}
 	else
 	{
-		///need to transform normal into worldspace
-		m_hitNormalWorld = m_collisionObject->getWorldTransform().getBasis()*rayResult.m_hitNormalLocal;
+		// need to transform normal into worldspace
+		m_hitNormalWorld = m_collisionObject->getWorldTransform().getBasis() * rayResult.m_hitNormalLocal;
 	}
-	m_hitPointWorld.setInterpolate3(m_rayFromWorld,m_rayToWorld,rayResult.m_hitFraction);
+	m_hitPointWorld.setInterpolate3(m_rayFromWorld, m_rayToWorld, rayResult.m_hitFraction);
 	return rayResult.m_hitFraction;
 }
 
@@ -76,7 +74,9 @@ Awk::Awk()
 	rope(),
 	footing(),
 	last_speed(),
-	last_footstep()
+	last_footstep(),
+	shield(),
+	bounce()
 {
 }
 
@@ -84,6 +84,27 @@ void Awk::awake()
 {
 	link_arg<Entity*, &Awk::killed>(get<Health>()->killed);
 	link_arg<Entity*, &Awk::hit_by>(get<Target>()->hit_by);
+	if (!shield.ref())
+	{
+		Entity* shield_entity = World::create<Empty>();
+		shield_entity->get<Transform>()->parent = get<Transform>();
+		shield_entity->add<RigidBody>(RigidBody::Type::Sphere, Vec3(2.0f), 0.0f, CollisionTarget | CollisionShield, CollisionNothing, AssetNull, entity_id);
+
+		View* s = shield_entity->add<View>();
+		s->mask = ~(1 << (s32)get<AIAgent>()->team); // don't display to fellow teammates
+		s->alpha(true);
+		s->color = Vec4(1, 1, 1, 0.1f);
+		s->mesh = Asset::Mesh::sphere;
+		s->offset.scale(Vec3(2.0f));
+		s->shader = Asset::Shader::flat;
+		shield = s;
+	}
+}
+
+Awk::~Awk()
+{
+	if (shield.ref())
+		World::remove_deferred(shield.ref()->entity());
 }
 
 Vec3 Awk::center()
@@ -133,32 +154,29 @@ b8 Awk::can_go(const Vec3& dir, Vec3* final_pos)
 			return false;
 
 		Vec3 trace_start = center();
-		while (true)
+		Vec3 trace_end = trace_start + trace_dir * AWK_MAX_DISTANCE;
+
+		AwkRaycastCallback ray_callback(trace_start, trace_end, entity());
+		ray_callback.m_flags = btTriangleRaycastCallback::EFlags::kF_FilterBackfaces
+			| btTriangleRaycastCallback::EFlags::kF_KeepUnflippedNormal;
+		ray_callback.m_collisionFilterMask = ray_callback.m_collisionFilterGroup = (btBroadphaseProxy::AllFilter & ~CollisionTarget & ~CollisionShield);
+
+		Physics::btWorld->rayTest(trace_start, trace_end, ray_callback);
+
+		if (ray_callback.hasHit())
 		{
-			Vec3 trace_end = trace_start + trace_dir * AWK_MAX_DISTANCE;
-
-			AwkRaycastCallback ray_callback(trace_start, trace_end, entity());
-			ray_callback.m_flags = btTriangleRaycastCallback::EFlags::kF_FilterBackfaces
-				| btTriangleRaycastCallback::EFlags::kF_KeepUnflippedNormal;
-			ray_callback.m_collisionFilterMask = ray_callback.m_collisionFilterGroup = btBroadphaseProxy::AllFilter;
-
-			Physics::btWorld->rayTest(trace_start, trace_end, ray_callback);
-
-			if (ray_callback.hasHit())
-			{
-				short group = ray_callback.m_collisionObject->getBroadphaseHandle()->m_collisionFilterGroup;
-				if (group & (CollisionWalker | CollisionInaccessible))
-					return false;
-				else
-				{
-					if (final_pos)
-						*final_pos = ray_callback.m_hitPointWorld;
-					return true;
-				}
-			}
-			else
+			short group = ray_callback.m_collisionObject->getBroadphaseHandle()->m_collisionFilterGroup;
+			if (group & (CollisionWalker | CollisionInaccessible))
 				return false;
+			else
+			{
+				if (final_pos)
+					*final_pos = ray_callback.m_hitPointWorld;
+				return true;
+			}
 		}
+		else
+			return false;
 	}
 	return false;
 }
@@ -193,6 +211,38 @@ b8 Awk::detach(const Update& u, const Vec3& dir)
 		return true;
 	}
 	return false;
+}
+
+void Awk::reflect(const Vec3& hit, const Vec3& normal, const Update& u)
+{
+	// our goal
+	Vec3 target_velocity = velocity.reflect(normal);
+
+	// the actual direction we end up going
+	Vec3 new_velocity = target_velocity;
+
+	get<Transform>()->absolute_pos(hit + normal * AWK_RADIUS);
+
+	// make sure we have somewhere to land.
+	const s32 tries = 20; // try 20 raycasts. if they all fail, just shoot off into space.
+	r32 random_range = 0.0f;
+	for (s32 i = 0; i < tries; i++)
+	{
+		Vec3 dir = Quat::euler(mersenne::randf_oo() * random_range, mersenne::randf_oo() * random_range, mersenne::randf_oo() * random_range) * target_velocity;
+		if (dir.dot(normal) < 0.0f)
+			dir = dir.reflect(normal);
+		if (get<Awk>()->can_go(dir))
+		{
+			new_velocity = dir * velocity.length();
+			break;
+		}
+		random_range += PI * (2.0f / (r32)tries);
+	}
+
+	bounce.fire(new_velocity);
+	get<Transform>()->rot = Quat::look(Vec3::normalize(new_velocity));
+	velocity = new_velocity;
+	get<Audio>()->post_event(has<LocalPlayerControl>() ? AK::EVENTS::PLAY_BOUNCE_PLAYER : AK::EVENTS::PLAY_BOUNCE);
 }
 
 void Awk::crawl_wall_edge(const Vec3& dir, const Vec3& other_wall_normal, const Update& u, r32 speed)
@@ -240,7 +290,7 @@ b8 Awk::transfer_wall(const Vec3& dir, const btCollisionWorld::ClosestRayResultC
 	Vec3 dir_flattened_other_wall = dir - other_wall_normal * other_wall_normal.dot(dir);
 	// Check to make sure that our movement direction won't get flipped if we switch walls.
 	// This prevents jittering back and forth between walls all the time.
-	// Also, don't crawl onto reflective surfaces.
+	// Also, don't crawl onto inaccessible surfaces.
 	if (dir_flattened_other_wall.dot(wall_normal) > 0.0f
 		&& !(ray_callback.m_collisionObject->getBroadphaseHandle()->m_collisionFilterGroup & (CollisionInaccessible | CollisionWalker | CollisionTarget)))
 	{
@@ -607,39 +657,41 @@ void Awk::update(const Update& u)
 				Vec3 dir = Vec3::normalize(velocity);
 				Vec3 ray_start = position - dir * AWK_RADIUS;
 				Vec3 ray_end = next_position + dir * AWK_RADIUS;
-				btCollisionWorld::AllHitsRayResultCallback rayCallback(ray_start, ray_end);
-				rayCallback.m_flags = btTriangleRaycastCallback::EFlags::kF_FilterBackfaces
+				btCollisionWorld::AllHitsRayResultCallback ray_callback(ray_start, ray_end);
+				ray_callback.m_flags = btTriangleRaycastCallback::EFlags::kF_FilterBackfaces
 					| btTriangleRaycastCallback::EFlags::kF_KeepUnflippedNormal;
-				rayCallback.m_collisionFilterMask = rayCallback.m_collisionFilterGroup = btBroadphaseProxy::AllFilter;
+				ray_callback.m_collisionFilterMask = ray_callback.m_collisionFilterGroup = btBroadphaseProxy::AllFilter;
 
-				Physics::btWorld->rayTest(ray_start, ray_end, rayCallback);
+				Physics::btWorld->rayTest(ray_start, ray_end, ray_callback);
 
 				r32 fraction_end = 2.0f;
 				s32 index_end = -1;
 
-				for (s32 i = 0; i < rayCallback.m_collisionObjects.size(); i++)
+				for (s32 i = 0; i < ray_callback.m_collisionObjects.size(); i++)
 				{
-					if (rayCallback.m_hitFractions[i] < fraction_end)
+					if (ray_callback.m_hitFractions[i] < fraction_end)
 					{
-						short group = rayCallback.m_collisionObjects[i]->getBroadphaseHandle()->m_collisionFilterGroup;
-						if (!(group & (CollisionTarget | CollisionWalker)))
+						short group = ray_callback.m_collisionObjects[i]->getBroadphaseHandle()->m_collisionFilterGroup;
+						Entity* entity = &Entity::list[ray_callback.m_collisionObjects[i]->getUserIndex()];
+						if ((entity->has<Awk>() && (group & CollisionShield)) // it's an AWK shield
+							|| !(group & (CollisionTarget | CollisionWalker))) // it's not a target or a person; we can't go through it
 						{
-							// it's not a target or a person; we can't go through it
+							
 							// stop raycasting
-							fraction_end = rayCallback.m_hitFractions[i];
+							fraction_end = ray_callback.m_hitFractions[i];
 							index_end = i;
 						}
 					}
 				}
 
-				for (s32 i = 0; i < rayCallback.m_collisionObjects.size(); i++)
+				for (s32 i = 0; i < ray_callback.m_collisionObjects.size(); i++)
 				{
-					if (i == index_end || rayCallback.m_hitFractions[i] < fraction_end)
+					if (i == index_end || ray_callback.m_hitFractions[i] < fraction_end)
 					{
-						short group = rayCallback.m_collisionObjects[i]->getBroadphaseHandle()->m_collisionFilterGroup;
+						short group = ray_callback.m_collisionObjects[i]->getBroadphaseHandle()->m_collisionFilterGroup;
 						if (group & CollisionWalker)
 						{
-							Entity* t = &Entity::list[rayCallback.m_collisionObjects[i]->getUserIndex()];
+							Entity* t = &Entity::list[ray_callback.m_collisionObjects[i]->getUserIndex()];
 							if (t->has<MinionCommon>() && t->get<MinionCommon>()->headshot_test(ray_start, ray_end))
 							{
 								hit.fire(t);
@@ -653,16 +705,22 @@ void Awk::update(const Update& u)
 						}
 						else if (group & CollisionTarget)
 						{
-							Entity* t = &Entity::list[rayCallback.m_collisionObjects[i]->getUserIndex()];
+							Entity* t = &Entity::list[ray_callback.m_collisionObjects[i]->getUserIndex()];
 							if (t != entity())
 								hit_target(t);
+							if (group & CollisionShield)
+							{
+								// reflect off if it's not a good shot
+								if (dir.dot(ray_callback.m_hitNormalWorld[i]) > -0.9f)
+									reflect(ray_callback.m_hitPointWorld[i], ray_callback.m_hitNormalWorld[i], u);
+							}
 						}
 						else
 						{
-							Entity* entity = &Entity::list[rayCallback.m_collisionObjects[i]->getUserIndex()];
+							Entity* entity = &Entity::list[ray_callback.m_collisionObjects[i]->getUserIndex()];
 							get<Transform>()->parent = entity->get<Transform>();
-							next_position = rayCallback.m_hitPointWorld[i] + rayCallback.m_hitNormalWorld[i] * AWK_RADIUS;
-							get<Transform>()->absolute(next_position, Quat::look(rayCallback.m_hitNormalWorld[i]));
+							next_position = ray_callback.m_hitPointWorld[i] + ray_callback.m_hitNormalWorld[i] * AWK_RADIUS;
+							get<Transform>()->absolute(next_position, Quat::look(ray_callback.m_hitNormalWorld[i]));
 
 							lerped_pos = get<Transform>()->pos;
 
@@ -685,16 +743,6 @@ void Awk::update(const Update& u)
 							attach_time = u.time.total;
 
 							velocity = Vec3::zero;
-
-							const r32 damage_radius = 2.0f;
-							const r32 damage_radius_squared = damage_radius * damage_radius;
-							Vec3 pos = get<Transform>()->absolute_pos();
-							AI::Team team = get<AIAgent>()->team;
-							for (auto i = Awk::list.iterator(); !i.is_last(); i.next())
-							{
-								if (i.item()->get<AIAgent>()->team != team && (i.item()->center() - pos).length_squared() < damage_radius_squared)
-									hit_target(i.item()->entity());
-							}
 						}
 					}
 				}

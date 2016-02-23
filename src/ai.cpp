@@ -26,12 +26,6 @@ void NavMeshProcess::process(struct dtNavMeshCreateParams* params, unsigned char
 		polyFlags[i] = 1;
 }
 
-const Vec4 AI::colors[(s32)AI::Team::count] =
-{
-	Vec4(0.9f, 0.8f, 0.3f, 1),
-	Vec4(0.8f, 0.3f, 0.3f, 1),
-};
-
 AI::Team AI::other(AI::Team t)
 {
 	return t == AI::Team::A ? AI::Team::B : AI::Team::A;

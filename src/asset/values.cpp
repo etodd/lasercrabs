@@ -15,6 +15,7 @@ const char* AssetLookup::Mesh::values[] =
 	"assets/cube.msh",
 	"assets/cursor.msh",
 	"assets/plane.msh",
+	"assets/score_box.msh",
 	"assets/sky_decal.msh",
 	"assets/skybox.msh",
 	"assets/socket.msh",
@@ -37,6 +38,9 @@ const char* AssetLookup::Mesh::values[] =
 	"assets/lvl/containment_09_Cube_005_1.msh",
 	"assets/lvl/containment_09_Cube_1.msh",
 	"assets/lvl/containment_09_door.msh",
+	"assets/lvl/level1_half1.msh",
+	"assets/lvl/level1_half1_1.msh",
+	"assets/lvl/level1_scenery.msh",
 	"assets/lvl/tutorial_01_Cube.msh",
 	"assets/lvl/tutorial_01_Cube_001.msh",
 	"assets/lvl/tutorial_01_Cube_002.msh",
@@ -61,6 +65,7 @@ const char* AssetLookup::Mesh::names[] =
 	"cube",
 	"cursor",
 	"plane",
+	"score_box",
 	"sky_decal",
 	"skybox",
 	"socket",
@@ -83,6 +88,9 @@ const char* AssetLookup::Mesh::names[] =
 	"containment_09_Cube_005_1",
 	"containment_09_Cube_1",
 	"containment_09_door",
+	"level1_half1",
+	"level1_half1_1",
+	"level1_scenery",
 	"tutorial_01_Cube",
 	"tutorial_01_Cube_001",
 	"tutorial_01_Cube_002",
@@ -106,7 +114,6 @@ const char* AssetLookup::Animation::values[] =
 	"assets/character_slide.anm",
 	"assets/character_vulnerable.anm",
 	"assets/character_walk.anm",
-	"assets/spawn_vulnerable.anm",
 	0,
 };
 
@@ -121,7 +128,6 @@ const char* AssetLookup::Animation::names[] =
 	"character_slide",
 	"character_vulnerable",
 	"character_walk",
-	"spawn_vulnerable",
 	0,
 };
 
@@ -130,7 +136,6 @@ const char* AssetLookup::Armature::values[] =
 {
 	"assets/awk.arm",
 	"assets/character_mesh.arm",
-	"assets/spawn.arm",
 	"assets/turret.arm",
 	0,
 };
@@ -140,7 +145,6 @@ const char* AssetLookup::Armature::names[] =
 {
 	"awk",
 	"character_mesh",
-	"spawn",
 	"turret",
 	0,
 };
@@ -359,6 +363,7 @@ const char* AssetLookup::Level::values[] =
 	"assets/lvl/connect.lvl",
 	"assets/lvl/containment_09.lvl",
 	"assets/lvl/end.lvl",
+	"assets/lvl/level1.lvl",
 	"assets/lvl/menu.lvl",
 	"assets/lvl/start.lvl",
 	"assets/lvl/title.lvl",
@@ -373,6 +378,7 @@ const char* AssetLookup::Level::names[] =
 	"connect",
 	"containment_09",
 	"end",
+	"level1",
 	"menu",
 	"start",
 	"title",
@@ -387,6 +393,7 @@ const char* AssetLookup::NavMesh::values[] =
 	"assets/lvl/connect.nav",
 	"assets/lvl/containment_09.nav",
 	"assets/lvl/end.nav",
+	"assets/lvl/level1.nav",
 	"assets/lvl/menu.nav",
 	"assets/lvl/start.nav",
 	"assets/lvl/title.nav",
@@ -401,6 +408,7 @@ const char* AssetLookup::NavMesh::names[] =
 	"connect",
 	"containment_09",
 	"end",
+	"level1",
 	"menu",
 	"start",
 	"title",

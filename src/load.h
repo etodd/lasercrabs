@@ -25,6 +25,8 @@ struct Settings
 		InputBinding backward;
 		InputBinding left;
 		InputBinding right;
+		InputBinding down;
+		InputBinding up;
 		InputBinding jump;
 		InputBinding primary;
 		InputBinding secondary;

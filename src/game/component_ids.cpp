@@ -42,16 +42,15 @@ COMPONENT_TYPE(20, Walker) \
 COMPONENT_TYPE(21, Target) \
 COMPONENT_TYPE(22, PlayerTrigger) \
 COMPONENT_TYPE(23, LocalPlayerControl) \
-COMPONENT_TYPE(24, CreditsPickup) \
-COMPONENT_TYPE(25, Ragdoll) \
-COMPONENT_TYPE(26, SkinnedModel) \
-COMPONENT_TYPE(27, View) \
-COMPONENT_TYPE(28, TurretControl) \
-COMPONENT_TYPE(29, Projectile) \
-COMPONENT_TYPE(30, Parkour) \
-COMPONENT_TYPE(31, Tile) \
+COMPONENT_TYPE(24, Ragdoll) \
+COMPONENT_TYPE(25, SkinnedModel) \
+COMPONENT_TYPE(26, View) \
+COMPONENT_TYPE(27, TurretControl) \
+COMPONENT_TYPE(28, Projectile) \
+COMPONENT_TYPE(29, Parkour) \
+COMPONENT_TYPE(30, Tile) \
 
-Family World::families = 32;
+Family World::families = 31;
 
 #define COMPONENT_TYPE(INDEX, TYPE) \
 template<> Family ComponentType<TYPE>::family = (INDEX); \

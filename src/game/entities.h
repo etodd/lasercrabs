@@ -121,7 +121,7 @@ struct Rope : public ComponentType<Rope>
 	void awake() {}
 	void add(const Vec3&, const Quat&);
 	void end(const Vec3&, const Vec3&, RigidBody*);
-	void segment_hit(Entity*);
+	void remove(Entity*);
 };
 
 struct TileEntity : public Entity
@@ -148,23 +148,18 @@ struct Tile : public ComponentType<Tile>
 	static void draw_alpha(const RenderParams&);
 };
 
-struct CreditsPickupEntity : public Entity
+struct TargetEntity : public Entity
 {
-	CreditsPickupEntity(const Vec3&, const Quat&);
+	TargetEntity(const Vec3&, const Quat&, AI::Team);
 };
 
-struct CreditsPickup : public ComponentType<CreditsPickup>
-{
-	void awake() {}
-	void hit_by(Entity*);
-};
-
-#define PLAYER_SPAWN_RADIUS 3
+#define PLAYER_SPAWN_RADIUS 1
 struct PlayerSpawn : public Entity
 {
 	PlayerSpawn(AI::Team);
 };
 
+#define MINION_SPAWN_RADIUS 1
 struct MinionSpawn : public Entity
 {
 	MinionSpawn(AI::Team);

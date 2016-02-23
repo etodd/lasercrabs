@@ -9,11 +9,12 @@ namespace VI
 
 struct Transform;
 struct Rope;
+struct View;
 
 #define AWK_HEALTH 100
 #define AWK_MAX_DISTANCE 25.0f
 #define AWK_FLY_SPEED 100.0f
-#define AWK_CRAWL_SPEED 3.5f
+#define AWK_CRAWL_SPEED 3.0f
 #define AWK_RADIUS 0.2f
 #define AWK_MIN_COOLDOWN 0.5f
 #define AWK_MAX_DISTANCE_COOLDOWN 2.0f
@@ -44,6 +45,7 @@ struct Awk : public ComponentType<Awk>
 
 	Vec3 velocity;
 	Link attached;
+	LinkArg<const Vec3&> bounce;
 	LinkArg<Entity*> hit;
 	r32 attach_time;
 	Ref<Rope> rope;
@@ -52,14 +54,17 @@ struct Awk : public ComponentType<Awk>
 	r32 last_footstep;
 	Vec3 lerped_pos;
 	Quat lerped_rotation;
+	Ref<View> shield;
 
 	Awk();
 	void awake();
+	~Awk();
 
 	void hit_by(Entity*); // Called when we get hit
 	void hit_target(Entity*); // Called when we hit a target
 	void killed(Entity*);
 
+	void reflect(const Vec3&, const Vec3&, const Update&);
 	void crawl_wall_edge(const Vec3&, const Vec3&, const Update&, r32);
 	b8 transfer_wall(const Vec3&, const btCollisionWorld::ClosestRayResultCallback&);
 	void move(const Vec3&, const Quat&, const ID);

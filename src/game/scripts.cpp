@@ -471,22 +471,22 @@ namespace tutorial01
 		}
 	}
 
-	void minion2_dialogue(Entity*)
-	{
-		Team::list[1].set_spawn_vulnerable();
-
-		Soren::clear();
-		Soren::data->modes.schedule(1.0f, Soren::Mode::TextOnly);
-		Soren::data->texts.schedule(1.0f, "Destroy the enemy spawn.");
-	}
-
 	void done(const Update&)
 	{
 		Menu::transition(Asset::Level::tutorial_02);
 	}
 
+	void minion2_dialogue(Entity*)
+	{
+		// TODO: redo this
+		Soren::clear();
+		Soren::data->modes.schedule(1.0f, Soren::Mode::TextOnly);
+		Soren::data->texts.schedule(1.0f, "Destroy the enemy spawn.");
+	}
+
 	void destroyed_enemy_spawn()
 	{
+		// TODO: redo this
 		Soren::clear();
 		Soren::data->modes.schedule(2.0f, Soren::Mode::TextOnly);
 		Soren::data->texts.schedule(2.0f, "Tutorial 01 complete.");
@@ -531,7 +531,6 @@ namespace tutorial01
 		entities.find("minion2")->get<Health>()->killed.link(&minion2_dialogue);
 		entities.find("shoot_tutorial")->get<PlayerTrigger>()->entered.link(&shoot_tutorial);
 		entities.find("movement_tutorial_done")->get<PlayerTrigger>()->entered.link(&movement_tutorial_done);
-		Team::list[1].lost.link(&destroyed_enemy_spawn);
 	}
 }
 

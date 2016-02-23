@@ -36,7 +36,7 @@ struct LocalPlayer
 	UIText credits_text;
 	Revision revision;
 	bool options_menu;
-	StaticArray<Ref<Health>, 20> visible_health_bars;
+	StaticArray<Ref<Health>, 32> visible_health_bars;
 
 	inline ID id() const
 	{
@@ -79,7 +79,6 @@ struct LocalPlayerControl : public ComponentType<LocalPlayerControl>
 		None,
 		Normal,
 		Target,
-		Danger,
 	};
 
 	struct TraceEntry

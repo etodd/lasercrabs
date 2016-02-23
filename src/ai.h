@@ -30,8 +30,6 @@ struct AI
 
 	static Team other(Team);
 
-	static const Vec4 colors[];
-
 	static const r32 default_search_extents[];
 
 	static AssetID render_mesh;

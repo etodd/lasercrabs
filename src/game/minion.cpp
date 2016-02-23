@@ -40,7 +40,7 @@ Minion::Minion(const Vec3& pos, const Quat& quat, AI::Team team)
 
 	model->shader = Asset::Shader::armature;
 	model->mesh = Asset::Mesh::character_mesh;
-	model->color = AI::colors[(s32)team];
+	model->color = Team::colors[(s32)team];
 	model->color.w = 1.0f / 255.0f; // special G-buffer index prevents override lights from overriding this color
 
 	create<Audio>();
@@ -57,7 +57,7 @@ Minion::Minion(const Vec3& pos, const Quat& quat, AI::Team team)
 	create<AIAgent>()->team = team;
 
 	PointLight* light = create<PointLight>();
-	light->color = AI::colors[(s32)team].xyz();
+	light->color = Team::colors[(s32)team].xyz();
 	light->type = PointLight::Type::Override;
 	light->radius = MINION_VIEW_RANGE;
 	light->mask = ~(1 << (s32)team); // don't display to fellow teammates

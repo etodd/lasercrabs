@@ -22,11 +22,41 @@ namespace VI
 {
 
 
+const Vec4 Team::colors[(s32)AI::Team::count] =
+{
+	Vec4(0.9f, 0.8f, 0.3f, 1),
+	Vec4(0.8f, 0.3f, 0.3f, 1),
+};
+
 StaticArray<Team, (s32)AI::Team::count> Team::list;
 
 Team::Team()
 	: minion_spawn_timer(MINION_SPAWN_INITIAL_DELAY)
 {
+}
+
+void Team::awake()
+{
+	for (s32 i = 0; i < targets.length; i++)
+	{
+		Target* t = targets[i].ref();
+		if (t)
+		{
+			t->hit_this.link<Team, Entity*, &Team::target_hit>(this);
+			t->hit_by.link<Team, Entity*, &Team::target_hit_by>(this);
+		}
+	}
+}
+
+void Team::target_hit(Entity* target)
+{
+	World::remove_deferred(target);
+}
+
+void Team::target_hit_by(Entity* enemy)
+{
+	AI::Team other = enemy->get<AIAgent>()->team;
+	Team::list[(s32)other].score++;
 }
 
 r32 minion_spawn_delay(Team::MinionSpawnState state)
@@ -49,38 +79,13 @@ void Team::update(const Update& u)
 				Vec3 pos;
 				Quat rot;
 				minion_spawns[i].ref()->absolute(&pos, &rot);
-				pos += rot * Vec3(0, 0, 3); // spawn it around the edges
+				pos += rot * Vec3(0, 0, MINION_SPAWN_RADIUS); // spawn it around the edges
 				Entity* entity = World::create<Minion>(pos, rot, team());
 			}
 			minion_spawn_state = (MinionSpawnState)(((s32)minion_spawn_state + 1) % (s32)MinionSpawnState::count);
 			minion_spawn_timer = minion_spawn_delay(minion_spawn_state);
 		}
 	}
-}
-
-void Team::set_spawn_vulnerable()
-{
-	Entity* spawn = player_spawn.ref()->entity();
-
-	RigidBody* body = spawn->get<RigidBody>();
-	body->type = RigidBody::Type::Sphere;
-	body->size = Vec3(0.5f);
-	body->collision_group = CollisionTarget;
-	body->collision_filter = btBroadphaseProxy::AllFilter;
-	body->rebuild();
-
-	Animator::Layer* layer = &spawn->get<Animator>()->layers[0];
-	layer->blend_time = 2.0f;
-	layer->loop = true;
-	layer->play(Asset::Animation::spawn_vulnerable);
-
-	spawn->add<Target>()->hit_by.link<Team, Entity*, &Team::spawn_hit_by>(this);
-}
-
-void Team::spawn_hit_by(Entity*)
-{
-	// we lost
-	lost.fire();
 }
 
 PinArray<PlayerManager, MAX_PLAYERS> PlayerManager::list;

@@ -1003,6 +1003,8 @@ Settings& Loader::settings()
 		settings_data.bindings.forward = input_binding(bindings, "forward", { KeyCode::W, Gamepad::Btn::None });
 		settings_data.bindings.left = input_binding(bindings, "left", { KeyCode::A, Gamepad::Btn::None });
 		settings_data.bindings.right = input_binding(bindings, "right", { KeyCode::D, Gamepad::Btn::None });
+		settings_data.bindings.up = input_binding(bindings, "up", { KeyCode::Space, Gamepad::Btn::RightShoulder });
+		settings_data.bindings.down = input_binding(bindings, "down", { KeyCode::LCtrl, Gamepad::Btn::LeftShoulder });
 		settings_data.bindings.jump = input_binding(bindings, "jump", { KeyCode::Space, Gamepad::Btn::RightTrigger });
 		settings_data.bindings.primary = input_binding(bindings, "primary", { KeyCode::MouseLeft, Gamepad::Btn::RightTrigger });
 		settings_data.bindings.secondary = input_binding(bindings, "secondary", { KeyCode::MouseRight, Gamepad::Btn::LeftTrigger });
@@ -1030,6 +1032,8 @@ void Loader::settings_save()
 		cJSON_AddItemToObject(bindings, "forward", input_binding_json(settings_data.bindings.forward));
 		cJSON_AddItemToObject(bindings, "left", input_binding_json(settings_data.bindings.left));
 		cJSON_AddItemToObject(bindings, "right", input_binding_json(settings_data.bindings.right));
+		cJSON_AddItemToObject(bindings, "up", input_binding_json(settings_data.bindings.up));
+		cJSON_AddItemToObject(bindings, "down", input_binding_json(settings_data.bindings.down));
 		cJSON_AddItemToObject(bindings, "jump", input_binding_json(settings_data.bindings.jump));
 		cJSON_AddItemToObject(bindings, "primary", input_binding_json(settings_data.bindings.primary));
 		cJSON_AddItemToObject(bindings, "secondary", input_binding_json(settings_data.bindings.secondary));

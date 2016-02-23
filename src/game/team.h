@@ -14,6 +14,7 @@ namespace VI
 
 struct Camera;
 struct Transform;
+struct Target;
 
 struct Team
 {
@@ -25,18 +26,25 @@ struct Team
 		count,
 	};
 
+	static const Vec4 colors[];
+
 	static StaticArray<Team, (s32)AI::Team::count> list;
 
 	Ref<Transform> player_spawn;
 	StaticArray<Ref<Transform>, 4> minion_spawns;
+	StaticArray<Ref<Target>, 4> targets;
 	MinionSpawnState minion_spawn_state;
 	r32 minion_spawn_timer;
 	Revision revision;
-	Link lost;
+	u16 score;
 
 	Team();
+	void awake();
 
 	void update(const Update&);
+
+	void target_hit(Entity*);
+	void target_hit_by(Entity*);
 
 	inline ID id() const
 	{
@@ -47,9 +55,6 @@ struct Team
 	{
 		return (AI::Team)id();
 	}
-
-	void set_spawn_vulnerable();
-	void spawn_hit_by(Entity*);
 };
 
 struct PlayerManager

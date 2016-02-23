@@ -299,9 +299,9 @@ void Game::draw_alpha(const RenderParams& render_params)
 
 	for (auto i = PlayerCommon::list.iterator(); !i.is_last(); i.next())
 		i.item()->draw_alpha(render_params);
-	for (auto i = LocalPlayerControl::list.iterator(); !i.is_last(); i.next())
-		i.item()->draw_alpha(render_params);
 	for (auto i = LocalPlayer::list.iterator(); !i.is_last(); i.next())
+		i.item()->draw_alpha(render_params);
+	for (auto i = LocalPlayerControl::list.iterator(); !i.is_last(); i.next())
 		i.item()->draw_alpha(render_params);
 
 	Menu::draw(render_params);
@@ -501,6 +501,8 @@ void Game::load_level(const Update& u, AssetID l)
 
 	data.level = l;
 
+	AI::load_nav_mesh(l);
+
 	Physics::btWorld->setGravity(btVector3(0, -12.0f, 0));
 
 	Array<Transform*> transforms;
@@ -598,9 +600,11 @@ void Game::load_level(const Update& u, AssetID l)
 			rope->slack = Json::get_r32(element, "slack");
 			rope->max_distance = Json::get_r32(element, "max_distance", 100.0f);
 		}
-		else if (cJSON_GetObjectItem(element, "CreditsPickup"))
+		else if (cJSON_GetObjectItem(element, "Target"))
 		{
-			entity = World::alloc<CreditsPickupEntity>(absolute_pos, absolute_rot);
+			AI::Team team = (AI::Team)Json::get_s32(element, "team");
+			entity = World::alloc<TargetEntity>(absolute_pos, absolute_rot, team);
+			Team::list[(s32)team].targets.add(entity->get<Target>());
 		}
 		else if (cJSON_GetObjectItem(element, "MinionSpawn"))
 		{
@@ -608,7 +612,7 @@ void Game::load_level(const Update& u, AssetID l)
 
 			entity = World::alloc<MinionSpawn>(team);
 
-			absolute_pos += Vec3(0, 5.0f, 0);
+			absolute_pos += Vec3(0, 3.75f * 0.5f, 0);
 			if (parent == -1)
 				pos = absolute_pos;
 			else
@@ -633,7 +637,7 @@ void Game::load_level(const Update& u, AssetID l)
 			else
 				entity = World::alloc<Empty>(); // in parkour mode, the spawn point is invisible
 
-			absolute_pos += Vec3(0, 5.0f, 0);
+			absolute_pos += Vec3(0, 3.75f * 0.5f, 0);
 			if (parent == -1)
 				pos = absolute_pos;
 			else
@@ -828,12 +832,13 @@ void Game::load_level(const Update& u, AssetID l)
 		link.mover->setup(object->get<Transform>(), end->get<Transform>(), link.speed);
 	}
 
-	AI::load_nav_mesh(data.level);
-
 	Physics::sync_static();
 
 	for (s32 i = 0; i < ropes.length; i++)
 		Rope::spawn(ropes[i].pos, ropes[i].rot * Vec3(0, 1, 0), ropes[i].max_distance, ropes[i].slack);
+
+	for (s32 i = 0; i < Team::list.length; i++)
+		Team::list[i].awake();
 
 	// Set map view for local players
 	{

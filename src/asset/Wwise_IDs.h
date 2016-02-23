@@ -44,10 +44,6 @@ namespace AK
         static const AkUniqueID PLAY_TRIGGER = 166031882U;
         static const AkUniqueID PLAY_ZOOM_IN = 2626091291U;
         static const AkUniqueID PLAY_ZOOM_OUT = 1819052470U;
-        static const AkUniqueID SOREN_TUTORIAL01_A = 247235374U;
-        static const AkUniqueID SOREN_TUTORIAL01_B = 247235373U;
-        static const AkUniqueID SOREN_TUTORIAL01_C = 247235372U;
-        static const AkUniqueID SOREN_TUTORIAL01_D = 247235371U;
         static const AkUniqueID SOREN1 = 315295359U;
         static const AkUniqueID STOP = 788884573U;
         static const AkUniqueID STOP_ALL = 452547817U;

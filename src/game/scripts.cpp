@@ -465,9 +465,7 @@ namespace tutorial01
 		{
 			data->minion_dialogue_done = true;
 			Soren::clear();
-			Soren::data->modes.schedule(1.0f, Soren::Mode::Left);
-			Soren::data->faces.schedule(1.0f, Soren::Face::Upbeat);
-			Soren::data->audio_events.schedule(1.0f, AK::EVENTS::SOREN_TUTORIAL01_B);
+			Soren::data->modes.schedule(1.0f, Soren::Mode::TextOnly);
 			Soren::data->texts.schedule(1.0f, "When a minion's health is low, its helmet opens to expose the head.");
 			Soren::data->modes.schedule(6.0f, Soren::Mode::Hidden);
 		}
@@ -478,11 +476,8 @@ namespace tutorial01
 		Team::list[1].set_spawn_vulnerable();
 
 		Soren::clear();
-		Soren::data->modes.schedule(1.0f, Soren::Mode::Left);
-		Soren::data->faces.schedule(1.0f, Soren::Face::Smile);
-		Soren::data->audio_events.schedule(1.0f, AK::EVENTS::SOREN_TUTORIAL01_C);
-		Soren::data->texts.schedule(1.0f, "Wonderful. Now destroy the enemy spawn.");
-		Soren::data->modes.schedule(4.5f, Soren::Mode::Hidden);
+		Soren::data->modes.schedule(1.0f, Soren::Mode::TextOnly);
+		Soren::data->texts.schedule(1.0f, "Destroy the enemy spawn.");
 	}
 
 	void done(const Update&)
@@ -493,11 +488,9 @@ namespace tutorial01
 	void destroyed_enemy_spawn()
 	{
 		Soren::clear();
-		Soren::data->modes.schedule(1.0f, Soren::Mode::Left);
-		Soren::data->faces.schedule(1.0f, Soren::Face::Smile);
-		Soren::data->audio_events.schedule(1.0f, AK::EVENTS::SOREN_TUTORIAL01_D);
-		Soren::data->texts.schedule(1.0f, "Great. You'll be playing the actual game in no time.");
-		Soren::data->callbacks.schedule(5.5f, &done);
+		Soren::data->modes.schedule(2.0f, Soren::Mode::TextOnly);
+		Soren::data->texts.schedule(2.0f, "Tutorial 01 complete.");
+		Soren::data->callbacks.schedule(4.0f, &done);
 	}
 
 	void shoot_tutorial(Entity*)
@@ -530,13 +523,9 @@ namespace tutorial01
 		Game::data.allow_detach = false;
 
 		Soren::init();
-		Soren::data->modes.schedule(3.0f, Soren::Mode::Left);
-		Soren::data->faces.schedule(3.0f, Soren::Face::Smile);
-		Soren::data->audio_events.schedule(3.0f, AK::EVENTS::SOREN_TUTORIAL01_A);
+		Soren::data->modes.schedule(3.0f, Soren::Mode::TextOnly);
 		Soren::data->texts.schedule(3.0f, "Find the minion and shoot through its head.");
-		Soren::data->faces.schedule(5.5f, Soren::Face::Default);
-		Soren::data->texts.schedule(5.5f, "Don't worry, it'll be easy.");
-		Soren::data->modes.schedule(7.5f, Soren::Mode::Hidden);
+		Soren::data->modes.schedule(8.0f, Soren::Mode::Hidden);
 
 		entities.find("minion1")->get<Health>()->killed.link(&minion1_dialogue);
 		entities.find("minion2")->get<Health>()->killed.link(&minion2_dialogue);

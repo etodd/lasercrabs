@@ -73,7 +73,7 @@ enum class Ability
 struct AbilitySlot
 {
 	static u16 upgrade_costs[(s32)Ability::count][ABILITY_LEVELS];
-	static const char* names[(s32)Ability::count];
+	static AssetID names[(s32)Ability::count];
 	Ability ability;
 	u8 level;
 	b8 can_upgrade() const;

@@ -5,6 +5,7 @@
 #include "entities.h"
 #include "data/animator.h"
 #include "asset/animation.h"
+#include "strings.h"
 
 #if DEBUG
 #define PLAYER_SPAWN_DELAY 1.0f
@@ -104,13 +105,13 @@ u16 AbilitySlot::upgrade_costs[][ABILITY_LEVELS] =
 	{ 10, 30, 50 }, // Gun
 };
 
-const char* AbilitySlot::names[] =
+AssetID AbilitySlot::names[] =
 {
-	"Stun",
-	"Heal",
-	"Stealth",
-	"Turret",
-	"Gun",
+	strings::stun,
+	strings::heal,
+	strings::stealth,
+	strings::turret,
+	strings::gun,
 };
 
 b8 AbilitySlot::can_upgrade() const

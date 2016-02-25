@@ -1,5 +1,6 @@
 #pragma once
 
+#include "types.h"
 #include "sdl/include/SDL_keycode.h"
 
 namespace VI
@@ -246,6 +247,11 @@ enum class KeyCode
 	Count,
 };
 
+namespace Input
+{
+	void load_strings();
+};
+
 struct Gamepad
 {
 	enum Btn
@@ -262,6 +268,7 @@ struct Gamepad
 		LeftTrigger = 1 << 9,
 		RightTrigger = 1 << 10,
 		None,
+		Count = None,
 	};
 
 	b8 active;
@@ -280,6 +287,7 @@ struct InputBinding
 {
 	KeyCode key;
 	Gamepad::Btn btn;
+	const char* string(b8) const;
 };
 
 struct InputState
@@ -292,7 +300,7 @@ struct InputState
 	s32 height;
 	b8 focus;
 
-	b8 get(const InputBinding& binding, s32 index) const
+	inline b8 get(const InputBinding& binding, s32 index) const
 	{
 		return (index == 0 && keys[(s32)binding.key]) || (gamepads[index].btns & (s32)binding.btn);
 	}

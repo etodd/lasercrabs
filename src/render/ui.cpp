@@ -3,6 +3,7 @@
 #include "load.h"
 #include "render/render.h"
 #include "utf8/utf8.h"
+#include "strings.h"
 
 namespace VI
 {

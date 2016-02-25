@@ -24,7 +24,7 @@
 namespace VI
 {
 
-const s32 version = 17;
+const s32 version = 18;
 
 const char* model_in_extension = ".blend";
 const char* model_intermediate_extension = ".fbx";
@@ -36,7 +36,6 @@ const char* font_out_extension = ".fnt";
 
 const char* soundbank_extension = ".bnk";
 
-const char* level_out_extension = ".lvl";
 const char* nav_mesh_out_extension = ".nav";
 const char* anim_out_extension = ".anm";
 const char* arm_out_extension = ".arm";
@@ -44,8 +43,13 @@ const char* texture_extension = ".png";
 const char* shader_extension = ".glsl";
 const char* asset_in_folder = "../assets/";
 const char* asset_out_folder = "assets/";
+const char* level_out_extension = ".lvl";
 const char* level_in_folder = "../assets/lvl/";
 const char* level_out_folder = "assets/lvl/";
+const char* string_extension = ".json";
+const char* string_in_folder = "../assets/str/";
+const char* string_out_folder = "assets/str/";
+const char* string_default_asset_name = "strings";
 const char* wwise_project_path = "../assets/audio/audio.wproj";
 const char* wwise_header_in_path = "../assets/audio/GeneratedSoundBanks/Wwise_IDs.h";
 #if _WIN32
@@ -68,6 +72,7 @@ const char* armature_header_path = "../src/asset/armature.h";
 const char* font_header_path = "../src/asset/font.h";
 const char* level_header_path = "../src/asset/level.h";
 const char* wwise_header_out_path = "../src/asset/Wwise_IDs.h";
+const char* string_header_path = "../src/asset/string.h";
 
 template <typename T>
 T read(FILE* f)
@@ -202,6 +207,13 @@ void map_copy(const Map2<T>& src, const std::string& key, Map2<T>& dest)
 		dest[key] = i->second;
 }
 
+template<typename T>
+void map_copy(const Map<T>& src, Map<T>& dest)
+{
+	for (auto i = src.begin(); i != src.end(); i++)
+		dest[i->first] = i->second;
+}
+
 void map_read(FILE* f, Map<std::string>& map)
 {
 	s32 count = read<s32>(f);
@@ -322,6 +334,14 @@ void write_asset_source(FILE* file, const std::string& name, const Map<std::stri
 		fprintf(file, "\t\"%s\",\n", i->second.c_str());
 	fprintf(file, "\t0,\n};\n\n");
 
+	fprintf(file, "\nconst char* AssetLookup::%s::names[] =\n{\n", name.c_str());
+	for (auto i = assets.begin(); i != assets.end(); i++)
+		fprintf(file, "\t\"%s\",\n", i->first.c_str());
+	fprintf(file, "\t0,\n};\n\n");
+}
+
+void write_asset_source_names_only(FILE* file, const std::string& name, const Map<std::string>& assets)
+{
 	fprintf(file, "\nconst char* AssetLookup::%s::names[] =\n{\n", name.c_str());
 	for (auto i = assets.begin(); i != assets.end(); i++)
 		fprintf(file, "\t\"%s\",\n", i->first.c_str());
@@ -570,6 +590,8 @@ struct Manifest
 	Map<std::string> fonts;
 	Map<std::string> levels;
 	Map<std::string> nav_meshes;
+	Map<std::string> string_files;
+	Map<std::string> strings;
 
 	Manifest()
 		: meshes(),
@@ -583,7 +605,9 @@ struct Manifest
 		uniforms(),
 		fonts(),
 		levels(),
-		nav_meshes()
+		nav_meshes(),
+		string_files(),
+		strings()
 	{
 
 	}
@@ -602,7 +626,9 @@ b8 manifest_requires_update(const Manifest& a, const Manifest& b)
 		|| !maps_equal2(a.uniforms, b.uniforms)
 		|| !maps_equal(a.fonts, b.fonts)
 		|| !maps_equal(a.levels, b.levels)
-		|| !maps_equal(a.nav_meshes, b.nav_meshes);
+		|| !maps_equal(a.nav_meshes, b.nav_meshes)
+		|| !maps_equal(a.string_files, b.string_files)
+		|| !maps_equal(a.strings, b.strings);
 }
 
 b8 manifest_read(const char* path, Manifest& manifest)
@@ -630,6 +656,8 @@ b8 manifest_read(const char* path, Manifest& manifest)
 			map_read(f, manifest.fonts);
 			map_read(f, manifest.levels);
 			map_read(f, manifest.nav_meshes);
+			map_read(f, manifest.string_files);
+			map_read(f, manifest.strings);
 			fclose(f);
 			return true;
 		}
@@ -659,6 +687,8 @@ b8 manifest_write(Manifest& manifest, const char* path)
 	map_write(manifest.fonts, f);
 	map_write(manifest.levels, f);
 	map_write(manifest.nav_meshes, f);
+	map_write(manifest.string_files, f);
+	map_write(manifest.strings, f);
 	fclose(f);
 	return true;
 }
@@ -1767,7 +1797,7 @@ void import_level(ImporterState& state, const std::string& asset_in_path, const 
 	}
 }
 
-void import_copy(ImporterState& state, Map<std::string>& manifest, const std::string& asset_in_path, const std::string& out_folder, const std::string& extension)
+b8 import_copy(ImporterState& state, Map<std::string>& manifest, const std::string& asset_in_path, const std::string& out_folder, const std::string& extension)
 {
 	std::string asset_name = get_asset_name(asset_in_path);
 	std::string asset_out_path = out_folder + asset_name + extension;
@@ -1782,7 +1812,9 @@ void import_copy(ImporterState& state, Map<std::string>& manifest, const std::st
 			fprintf(stderr, "Error: Failed to copy %s to %s.\n", asset_in_path.c_str(), asset_out_path.c_str());
 			state.error = true;
 		}
+		return true;
 	}
+	return false;
 }
 
 void import_shader(ImporterState& state, const std::string& asset_in_path, const std::string& out_folder)
@@ -1965,6 +1997,30 @@ void import_font(ImporterState& state, const std::string& asset_in_path, const s
 	}
 }
 
+void import_strings(ImporterState& state, const std::string& asset_in_path, const std::string& out_folder)
+{
+	std::string asset_name = get_asset_name(asset_in_path);
+	std::string asset_out_path = out_folder + string_default_asset_name + string_extension;
+	b8 modified = import_copy(state, state.manifest.string_files, asset_in_path, out_folder, string_extension);
+	if (asset_name == "en")
+	{
+		if (modified)
+		{
+			// parse strings
+			cJSON* json = Json::load(asset_in_path.c_str());
+			cJSON* element = json->child;
+			while (element)
+			{
+				std::string key = element->string;
+				map_add(state.manifest.strings, key, key);
+				element = element->next;
+			}
+		}
+		else
+			map_copy(state.cached_manifest.strings, state.manifest.strings);
+	}
+}
+
 FILE* open_asset_header(const char* path)
 {
 	FILE* f = fopen(path, "w+");
@@ -2105,6 +2161,30 @@ s32 proc(s32 argc, char* argv[])
 
 			if (has_extension(asset_in_path, model_in_extension))
 				import_level(state, asset_in_path, level_out_folder);
+			if (state.error)
+				break;
+		}
+		closedir(dir);
+	}
+
+	{
+		// Import strings
+		DIR* dir = opendir(string_in_folder);
+		if (!dir)
+		{
+			fprintf(stderr, "Failed to open input string directory.\n");
+			return exit_error();
+		}
+		struct dirent* entry;
+		while ((entry = readdir(dir)))
+		{
+			if (entry->d_type != DT_REG)
+				continue; // Not a file
+
+			std::string asset_in_path = string_in_folder + std::string(entry->d_name);
+
+			if (has_extension(asset_in_path, string_extension))
+				import_strings(state, asset_in_path, string_out_folder);
 			if (state.error)
 				break;
 		}
@@ -2311,6 +2391,19 @@ s32 proc(s32 argc, char* argv[])
 			close_asset_header(f);
 		}
 
+		if (state.rebuild
+			|| !maps_equal(state.manifest.strings, state.cached_manifest.strings)
+			|| filemtime(string_header_path) == 0)
+		{
+			printf("Writing string header\n");
+			FILE* f = open_asset_header(string_header_path);
+			if (!f)
+				return exit_error();
+			
+			write_asset_header(f, "String", state.manifest.strings);
+			close_asset_header(f);
+		}
+
 		if (state.rebuild || update_manifest || filemtime(asset_src_path) < state.manifest_mtime)
 		{
 			printf("Writing asset values\n");
@@ -2328,10 +2421,11 @@ s32 proc(s32 argc, char* argv[])
 			write_asset_source(f, "Texture", state.manifest.textures);
 			write_asset_source(f, "Soundbank", state.manifest.soundbanks);
 			write_asset_source(f, "Shader", state.manifest.shaders);
-			write_asset_source(f, "Uniform", flattened_uniforms);
+			write_asset_source_names_only(f, "Uniform", flattened_uniforms);
 			write_asset_source(f, "Font", state.manifest.fonts);
 			write_asset_source(f, "Level", state.manifest.levels);
 			write_asset_source(f, "NavMesh", state.manifest.nav_meshes);
+			write_asset_source_names_only(f, "String", state.manifest.strings);
 
 			fprintf(f, "\n}");
 			fclose(f);

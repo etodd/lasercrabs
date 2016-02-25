@@ -15,6 +15,7 @@
 #include "asset/texture.h"
 #include "asset/animation.h"
 #include "asset/armature.h"
+#include "strings.h"
 #include "ease.h"
 #include "render/skinned_model.h"
 #include "render/views.h"
@@ -94,7 +95,7 @@ LocalPlayer::LocalPlayer(PlayerManager* m, u8 g)
 	visible_health_bars(),
 	upgrading()
 {
-	sprintf(manager.ref()->username, "Player %d", gamepad);
+	sprintf(manager.ref()->username, _(strings::player), gamepad);
 
 	msg_text.font = Asset::Font::lowpoly;
 	msg_text.size = 18.0f;
@@ -164,7 +165,7 @@ void LocalPlayer::update(const Update& u)
 	if (Console::visible)
 		return;
 
-	credits_text.text("+%d", manager.ref()->credits);
+	credits_text.text(_(strings::credits), manager.ref()->credits);
 
 	if (msg_timer < msg_time)
 		msg_timer += u.time.delta;
@@ -207,7 +208,7 @@ void LocalPlayer::update(const Update& u)
 
 			// do menu items
 			Vec2 pos = viewport.pos + Vec2(viewport.size.x * 0.5f + (MENU_ITEM_WIDTH * -0.5f), viewport.size.y * 0.75f);
-			if (menu.item(u, gamepad, &pos, "Close"))
+			if (menu.item(u, gamepad, &pos, _(strings::close)))
 				upgrading = false;
 
 			b8 buy_new_abilities = false;
@@ -242,8 +243,8 @@ void LocalPlayer::update(const Update& u)
 
 					u16 cost = AbilitySlot::upgrade_costs[i][0];
 					char cost_str[255];
-					sprintf(cost_str, "+%u", cost);
-					if (menu.item(u, gamepad, &pos, AbilitySlot::names[i], cost_str, manager.ref()->credits < cost))
+					sprintf(cost_str, _(strings::credits), cost);
+					if (menu.item(u, gamepad, &pos, _(AbilitySlot::names[i]), cost_str, manager.ref()->credits < cost))
 						manager.ref()->upgrade((Ability)i);
 				}
 			}
@@ -256,10 +257,10 @@ void LocalPlayer::update(const Update& u)
 				{
 					u16 cost = slot.upgrade_cost();
 					char cost_str[255];
-					sprintf(cost_str, "+%u", cost);
+					sprintf(cost_str, _(strings::credits), cost);
 
 					char upgrade_str[255];
-					sprintf(upgrade_str, "Upgrade %s", AbilitySlot::names[(s32)slot.ability]);
+					sprintf(upgrade_str, _(strings::upgrade), _(AbilitySlot::names[(s32)slot.ability]));
 
 					if (menu.item(u, gamepad, &pos, upgrade_str, cost_str, manager.ref()->credits < cost))
 						manager.ref()->upgrade(slot.ability);
@@ -284,11 +285,11 @@ void LocalPlayer::update(const Update& u)
 			else
 			{
 				Vec2 pos = viewport.pos + Vec2(0, viewport.size.y * 0.5f + UIMenu::height(3) * 0.5f);
-				if (menu.item(u, gamepad, &pos, "Resume"))
+				if (menu.item(u, gamepad, &pos, _(strings::resume)))
 					pause = false;
-				if (menu.item(u, gamepad, &pos, "Options"))
+				if (menu.item(u, gamepad, &pos, _(strings::options)))
 					options_menu = true;
-				if (menu.item(u, gamepad, &pos, "Main menu"))
+				if (menu.item(u, gamepad, &pos, _(strings::main_menu)))
 					Menu::title();
 			}
 
@@ -470,7 +471,7 @@ void LocalPlayer::draw_alpha(const RenderParams& params) const
 
 			text.wrap_width = MENU_ITEM_WIDTH;
 			text.anchor_x = text.anchor_y = UIText::Anchor::Center;
-			text.text("Spawning... %d", (s32)manager.ref()->spawn_timer + 1);
+			text.text(_(strings::spawning), (s32)manager.ref()->spawn_timer + 1);
 			Vec2 p = vp.pos + vp.size * Vec2(0.5f);
 			UI::box(params, text.rect(p).outset(8.0f), UI::background_color);
 			UI::border(params, text.rect(p).outset(8.0f), 2, UI::default_color);
@@ -692,7 +693,7 @@ void LocalPlayerControl::awake()
 #define AWK_CREDITS 50
 void LocalPlayerControl::hit_target(Entity* target)
 {
-	player.ref()->msg("Target hit");
+	player.ref()->msg(_(strings::target_hit));
 	if (target->has<MinionAI>() && target->get<AIAgent>()->team != get<AIAgent>()->team)
 		player.ref()->manager.ref()->add_credits(MINION_CREDITS);
 	if (target->has<Awk>() && target->get<AIAgent>()->team != get<AIAgent>()->team)

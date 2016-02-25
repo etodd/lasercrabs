@@ -43,7 +43,6 @@ namespace VI
 
 		struct Uniform
 		{
-			static const char* values[];
 			static const char* names[];
 		};
 
@@ -62,6 +61,11 @@ namespace VI
 		struct NavMesh
 		{
 			static const char* values[];
+			static const char* names[];
+		};
+		
+		struct String
+		{
 			static const char* names[];
 		};
 	}

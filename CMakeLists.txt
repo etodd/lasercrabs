@@ -33,6 +33,7 @@ configure_file(.exrc.in ${CMAKE_CURRENT_SOURCE_DIR}/.exrc)
 
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/assets)
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/assets/lvl)
+file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/assets/str)
 
 if (APPLE)
 	set(ENV{PKG_CONFIG_PATH} ${CMAKE_SOURCE_DIR}/pkgconfig) # so pkg-config can find our custom gl.pc
@@ -275,6 +276,7 @@ add_executable(yearning
 	src/asset/values.cpp
 	src/asset/soundbank.h
 	src/asset/Wwise_IDs.h
+	src/asset/string.h
 	src/platform/sdl.cpp
 	src/sync.h
 	src/types.h
@@ -282,6 +284,9 @@ add_executable(yearning
 	src/physics.h
 	src/lmath.h
 	src/input.h
+	src/input.cpp
+	src/strings.h
+	src/strings.cpp
 	src/common.h
 	src/common.cpp
 	src/console.h
@@ -346,6 +351,7 @@ add_executable(yearning
 	assets/sky_decal.glsl
 	assets/blend_to_fbx.py
 	assets/blend_to_lvl.py
+	assets/str/en.json
 )
 
 target_include_directories(yearning PRIVATE ${ALL_INCLUDES})

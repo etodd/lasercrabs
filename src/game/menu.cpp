@@ -12,6 +12,7 @@
 #include "render/views.h"
 #include "console.h"
 #include "mersenne/mersenne-twister.h"
+#include "strings.h"
 
 namespace VI
 {
@@ -34,7 +35,6 @@ static UIText player_text[MAX_GAMEPADS];
 static UIText join_text = UIText();
 static UIText leave_text = UIText();
 static UIText connecting_text = UIText();
-static UIText end_text = UIText();
 static s32 gamepad_count = 0;
 static AssetID last_level = AssetNull;
 static AssetID next_level = AssetNull;
@@ -60,32 +60,27 @@ void init()
 	join_text.font =
 	leave_text.font =
 	connecting_text.font =
-	end_text.font =
 	Asset::Font::lowpoly;
 
 	join_text.size =
 	leave_text.size =
 	connecting_text.size =
-	end_text.size =
 	18.0f;
 
 
 	join_text.anchor_x =
 	leave_text.anchor_x =
 	connecting_text.anchor_x =
-	end_text.anchor_x =
 	UIText::Anchor::Center;
 
 	join_text.anchor_y =
 	leave_text.anchor_y =
 	connecting_text.anchor_y =
-	end_text.anchor_y =
 	UIText::Anchor::Center;
 
-	join_text.text("[{{Action}}] to join");
-	leave_text.text("[{{Cancel}}] to leave\n[{{Start}}] to begin");
-	connecting_text.text("Connecting...");
-	end_text.text("Demo simulation complete. Thanks for playing!\n[{{Start}}]");
+	join_text.text(_(strings::join));
+	leave_text.text(_(strings::leave));
+	connecting_text.text(_(strings::connecting));
 
 	for (s32 i = 0; i < MAX_GAMEPADS; i++)
 	{
@@ -94,7 +89,7 @@ void init()
 		player_text[i].anchor_x = UIText::Anchor::Center;
 		player_text[i].anchor_y = UIText::Anchor::Min;
 		char buffer[255];
-		sprintf(buffer, "Player %d", i + 1);
+		sprintf(buffer, _(strings::player), i + 1);
 		player_text[i].text(buffer);
 	}
 
@@ -118,35 +113,27 @@ void clear()
 
 void refresh_variables()
 {
-	// TODO: show actual control bindings
-	if (gamepad_count > 0)
-	{
-		UIText::set_variable("Start", "Start");
-		UIText::set_variable("Resume", "Start");
-		UIText::set_variable("Action", "A");
-		UIText::set_variable("Cancel", "B");
-		UIText::set_variable("Primary", "Right trigger");
-		UIText::set_variable("Secondary", "Left trigger");
-		UIText::set_variable("Movement", "Left stick");
-		UIText::set_variable("Parkour", "Left trigger");
-		UIText::set_variable("Jump", "Right trigger");
-		UIText::set_variable("Slide", "Left stick");
-		UIText::set_variable("Quit", "B");
-	}
+	b8 gamepad = gamepad_count > 0;
+	UIText::set_variable("Start", Game::bindings.start.string(gamepad));
+	UIText::set_variable("Resume", Game::bindings.pause.string(gamepad));
+	UIText::set_variable("Action", Game::bindings.action.string(gamepad));
+	UIText::set_variable("Cancel", Game::bindings.cancel.string(gamepad));
+
+	const Settings& settings = Loader::settings();
+	const Settings::Bindings& bindings = settings.bindings;
+	UIText::set_variable("Primary", bindings.primary.string(gamepad));
+	UIText::set_variable("Secondary", bindings.secondary.string(gamepad));
+	if (gamepad)
+		UIText::set_variable("Movement", _(strings::left_joystick));
 	else
 	{
-		UIText::set_variable("Start", "Enter");
-		UIText::set_variable("Resume", "Esc");
-		UIText::set_variable("Action", "Space");
-		UIText::set_variable("Cancel", "Esc");
-		UIText::set_variable("Primary", "Mouse1");
-		UIText::set_variable("Secondary", "Mouse2");
-		UIText::set_variable("Movement", "WASD");
-		UIText::set_variable("Parkour", "Left shift");
-		UIText::set_variable("Jump", "Space");
-		UIText::set_variable("Slide", "Mouse1");
-		UIText::set_variable("Quit", "Enter");
+		char buffer[512];
+		sprintf(buffer, _(strings::keyboard_movement), bindings.forward.string(gamepad), bindings.left.string(gamepad), bindings.backward.string(gamepad), bindings.right.string(gamepad));
+		UIText::set_variable("Movement", buffer);
 	}
+	UIText::set_variable("Parkour", bindings.parkour.string(gamepad));
+	UIText::set_variable("Jump", bindings.jump.string(gamepad));
+	UIText::set_variable("Slide", bindings.slide.string(gamepad));
 }
 
 void update(const Update& u)
@@ -254,17 +241,17 @@ void update(const Update& u)
 				case Submenu::None:
 				{
 					Vec2 pos(0, u.input->height * 0.5f + UIMenu::height(5) * 0.5f);
-					if (main_menu.item(u, 0, &pos, "Continue"))
+					if (main_menu.item(u, 0, &pos, _(strings::continue_)))
 					{
 						clear();
 						Game::schedule_load_level(Asset::Level::start);
 						return;
 					}
-					main_menu.item(u, 0, &pos, "New");
-					if (main_menu.item(u, 0, &pos, "Options"))
+					main_menu.item(u, 0, &pos, _(strings::new_));
+					if (main_menu.item(u, 0, &pos, _(strings::options)))
 						submenu = Submenu::Options;
-					main_menu.item(u, 0, &pos, "Splitscreen");
-					if (main_menu.item(u, 0, &pos, "Exit"))
+					main_menu.item(u, 0, &pos, _(strings::splitscreen));
+					if (main_menu.item(u, 0, &pos, _(strings::exit)))
 						Game::quit = true;
 					break;
 				}
@@ -369,7 +356,6 @@ void draw(const RenderParams& params)
 		}
 		case Asset::Level::end:
 		{
-			end_text.draw(params, viewport.size * 0.5f);
 			break;
 		}
 		case Asset::Level::connect:
@@ -402,7 +388,7 @@ b8 is_special_level(AssetID level)
 bool options(const Update& u, u8 gamepad, UIMenu* menu, Vec2* pos)
 {
 	bool menu_open = true;
-	if (menu->item(u, gamepad, pos, "Back") || (!u.input->get(Game::bindings.cancel, gamepad) && u.last_input->get(Game::bindings.cancel, gamepad)))
+	if (menu->item(u, gamepad, pos, _(strings::back)) || (!u.input->get(Game::bindings.cancel, gamepad) && u.last_input->get(Game::bindings.cancel, gamepad)))
 		menu_open = false;
 
 	Settings& settings = Loader::settings();
@@ -410,7 +396,7 @@ bool options(const Update& u, u8 gamepad, UIMenu* menu, Vec2* pos)
 	UIMenu::Delta delta;
 
 	sprintf(str, "%d", settings.sfx);
-	delta = menu->slider_item(u, gamepad, pos, "SFX", str);
+	delta = menu->slider_item(u, gamepad, pos, _(strings::sfx), str);
 	if (delta == UIMenu::Delta::Down)
 		settings.sfx = max(0, settings.sfx - 10);
 	else if (delta == UIMenu::Delta::Up)
@@ -419,7 +405,7 @@ bool options(const Update& u, u8 gamepad, UIMenu* menu, Vec2* pos)
 		Audio::global_param(AK::GAME_PARAMETERS::SFXVOL, (r32)settings.sfx / 100.0f);
 
 	sprintf(str, "%d", settings.music);
-	delta = menu->slider_item(u, gamepad, pos, "Music", str);
+	delta = menu->slider_item(u, gamepad, pos, _(strings::music), str);
 	if (delta == UIMenu::Delta::Down)
 		settings.music = max(0, settings.music - 10);
 	else if (delta == UIMenu::Delta::Up)

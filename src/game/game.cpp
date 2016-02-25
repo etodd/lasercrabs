@@ -23,6 +23,7 @@
 #include "asset/lookup.h"
 #include "asset/soundbank.h"
 #include "asset/Wwise_IDs.h"
+#include "strings.h"
 #include "input.h"
 #include "mersenne/mersenne-twister.h"
 #include <time.h>
@@ -82,6 +83,21 @@ Array<CleanupFunction> Game::cleanups;
 
 b8 Game::init(LoopSync* sync)
 {
+	{
+		const char* string_file = "assets/str/en.json"; // TODO: load different string files
+		cJSON* json = Json::load(string_file);
+		for (s32 i = 0; i < Asset::String::count; i++)
+		{
+			const char* name = AssetLookup::String::names[i];
+			cJSON* value = cJSON_GetObjectItem(json, name);
+			if (value)
+				strings_set(i, value->valuestring);
+		}
+		// don't free the JSON object; we'll read strings directly from it
+	}
+
+	Input::load_strings(); // loads localized strings for input bindings
+
 	World::init();
 	for (s32 i = 0; i < ParticleSystem::all.length; i++)
 		ParticleSystem::all[i]->init(sync);

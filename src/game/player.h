@@ -21,12 +21,13 @@ struct Health;
 
 struct LocalPlayer
 {
-	enum class UIMode { Default, Pause, Spawning };
+	enum class UIMode { Default, Pause, Spawning, Upgrading };
 
 	static PinArray<LocalPlayer, MAX_PLAYERS> list;
 
 	u8 gamepad;
 	b8 pause;
+	b8 upgrading;
 	UIMenu menu;
 	Ref<Transform> map_view;
 	Ref<PlayerManager> manager;
@@ -48,6 +49,7 @@ struct LocalPlayer
 	void msg(const char*);
 	UIMode ui_mode() const;
 	void update(const Update&);
+	void draw_health_bars(const RenderParams&) const;
 	void draw_alpha(const RenderParams&) const;
 	void ensure_camera(const Update&, b8);
 	void spawn();
@@ -64,12 +66,12 @@ struct PlayerCommon : public ComponentType<PlayerCommon>
 	r32 cooldown;
 	UIText username_text;
 	s32 visibility_index;
+	Ref<PlayerManager> manager;
 
-	PlayerCommon(const char*);
+	PlayerCommon(PlayerManager*);
 	void awake();
 	void draw_alpha(const RenderParams&) const;
 	void update(const Update&);
-	void transfer_to(Entity*);
 };
 
 struct LocalPlayerControl : public ComponentType<LocalPlayerControl>

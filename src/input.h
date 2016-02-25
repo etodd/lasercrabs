@@ -256,9 +256,11 @@ struct Gamepad
 		RightClick = 1 << 3,
 		A = 1 << 4,
 		B = 1 << 5,
-		Start = 1 << 6,
-		LeftTrigger = 1 << 7,
-		RightTrigger = 1 << 8,
+		X = 1 << 6,
+		Y = 1 << 7,
+		Start = 1 << 8,
+		LeftTrigger = 1 << 9,
+		RightTrigger = 1 << 10,
 		None,
 	};
 

@@ -16,7 +16,7 @@
 #define MINION_SPAWN_INTERVAL 30.0f
 #define MINION_SPAWN_GROUP_INTERVAL 2.0f
 
-#define CREDITS_INITIAL 50
+#define CREDITS_INITIAL 0
 
 namespace VI
 {
@@ -41,22 +41,29 @@ void Team::awake()
 	{
 		Target* t = targets[i].ref();
 		if (t)
-		{
-			t->hit_this.link<Team, Entity*, &Team::target_hit>(this);
-			t->hit_by.link<Team, Entity*, &Team::target_hit_by>(this);
-		}
+			t->target_hit.link<Team, const TargetEvent&, &Team::target_hit>(this);
 	}
 }
 
-void Team::target_hit(Entity* target)
+#define TARGET_CREDITS 50
+void Team::target_hit(const TargetEvent& e)
 {
-	World::remove_deferred(target);
+	AI::Team other = e.hit_by->get<AIAgent>()->team;
+	if (other != team())
+	{
+		e.hit_by->get<PlayerCommon>()->manager.ref()->add_credits(TARGET_CREDITS);
+		World::remove_deferred(e.target);
+		Team::list[(s32)other].score++;
+	}
 }
 
-void Team::target_hit_by(Entity* enemy)
+void Team::player_killed_by(Entity* e)
 {
-	AI::Team other = enemy->get<AIAgent>()->team;
-	Team::list[(s32)other].score++;
+	if (e->has<Projectile>())
+		e = e->get<Projectile>()->owner.ref();
+	AI::Team other = e->get<AIAgent>()->team;
+	if (other != team())
+		Team::list[(s32)other].score++;
 }
 
 r32 minion_spawn_delay(Team::MinionSpawnState state)
@@ -88,13 +95,101 @@ void Team::update(const Update& u)
 	}
 }
 
+u16 AbilitySlot::upgrade_costs[][ABILITY_LEVELS] =
+{
+	{ 10, 30, 50 }, // Stun
+	{ 10, 30, 50 }, // Heal
+	{ 10, 30, 50 }, // Stealth
+	{ 10, 30, 50 }, // Turret
+	{ 10, 30, 50 }, // Gun
+};
+
+const char* AbilitySlot::names[] =
+{
+	"Stun",
+	"Heal",
+	"Stealth",
+	"Turret",
+	"Gun",
+};
+
+b8 AbilitySlot::can_upgrade() const
+{
+	return level < ABILITY_LEVELS;
+}
+
+u16 AbilitySlot::upgrade_cost() const
+{
+	if (!can_upgrade())
+		return UINT16_MAX;
+	if (ability == Ability::None)
+	{
+		// return cheapest possible upgrade
+		u16 cheapest_upgrade = UINT16_MAX;
+		for (s32 i = 0; i < (s32)Ability::count; i++)
+		{
+			if (upgrade_costs[i][0] < cheapest_upgrade)
+				cheapest_upgrade = upgrade_costs[i][0];
+		}
+		return cheapest_upgrade;
+	}
+	else
+		return upgrade_costs[(s32)ability][level];
+}
+
 PinArray<PlayerManager, MAX_PLAYERS> PlayerManager::list;
 
 PlayerManager::PlayerManager(Team* team)
 	: spawn_timer(PLAYER_SPAWN_DELAY),
 	team(team),
-	credits(CREDITS_INITIAL)
+	credits(CREDITS_INITIAL),
+	abilities{ { Ability::None, 0 }, { Ability::None, 0 } }
 {
+}
+
+void PlayerManager::upgrade(Ability ability)
+{
+	b8 upgraded = false;
+	for (s32 i = 0; i < ABILITY_COUNT; i++)
+	{
+		if (abilities[i].can_upgrade())
+		{
+			if (abilities[i].ability == ability)
+			{
+				credits -= abilities[i].upgrade_cost();
+				abilities[i].level++;
+				upgraded = true;
+				break;
+			}
+			else if (abilities[i].ability == Ability::None)
+			{
+				abilities[i].ability = ability;
+				credits -= abilities[i].upgrade_cost();
+				abilities[i].level = 1;
+				upgraded = true;
+				break;
+			}
+		}
+	}
+	vi_assert(upgraded); // check for invalid upgrade request
+}
+
+void PlayerManager::add_credits(u16 c)
+{
+	credits += c;
+}
+
+b8 PlayerManager::upgrade_available() const
+{
+	for (s32 i = 0; i < ABILITY_COUNT; i++)
+	{
+		if (abilities[i].level < ABILITY_LEVELS)
+		{
+			if (credits >= abilities[i].upgrade_cost())
+				return true;
+		}
+	}
+	return false;
 }
 
 void PlayerManager::update(const Update& u)

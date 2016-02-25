@@ -15,6 +15,7 @@ namespace VI
 struct Camera;
 struct Transform;
 struct Target;
+struct TargetEvent;
 
 struct Team
 {
@@ -43,8 +44,8 @@ struct Team
 
 	void update(const Update&);
 
-	void target_hit(Entity*);
-	void target_hit_by(Entity*);
+	void target_hit(const TargetEvent&);
+	void player_killed_by(Entity*);
 
 	inline ID id() const
 	{
@@ -57,6 +58,29 @@ struct Team
 	}
 };
 
+enum class Ability
+{
+	Stun,
+	Heal,
+	Stealth,
+	Turret,
+	Gun,
+	count,
+	None = count,
+};
+
+#define ABILITY_LEVELS 3
+struct AbilitySlot
+{
+	static u16 upgrade_costs[(s32)Ability::count][ABILITY_LEVELS];
+	static const char* names[(s32)Ability::count];
+	Ability ability;
+	u8 level;
+	b8 can_upgrade() const;
+	u16 upgrade_cost() const;
+};
+
+#define ABILITY_COUNT 2
 struct PlayerManager
 {
 	static PinArray<PlayerManager, MAX_PLAYERS> list;
@@ -68,6 +92,10 @@ struct PlayerManager
 	Ref<Team> team;
 	Ref<Entity> entity;
 	Link spawn;
+	AbilitySlot abilities[ABILITY_COUNT];
+
+	void add_credits(u16);
+	void upgrade(Ability);
 
 	PlayerManager(Team*);
 
@@ -75,6 +103,8 @@ struct PlayerManager
 	{
 		return this - &list[0];
 	}
+
+	b8 upgrade_available() const;
 
 	void update(const Update&);
 };

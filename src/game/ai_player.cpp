@@ -32,7 +32,7 @@ void AIPlayer::spawn()
 {
 	Entity* e = World::create<AwkEntity>(manager.ref()->team.ref()->team());
 
-	e->add<PlayerCommon>(manager.ref()->username);
+	e->add<PlayerCommon>(manager.ref());
 
 	manager.ref()->entity = e;
 
@@ -42,6 +42,8 @@ void AIPlayer::spawn()
 	manager.ref()->team.ref()->player_spawn.ref()->absolute(&pos, &rot);
 	pos += Vec3(0, 0, PLAYER_SPAWN_RADIUS); // spawn it around the edges
 	e->get<Transform>()->absolute(pos, rot);
+
+	e->get<Health>()->killed.link<Team, Entity*, &Team::player_killed_by>(manager.ref()->team.ref());
 }
 
 AIPlayerControl::AIPlayerControl()

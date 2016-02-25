@@ -49,6 +49,7 @@ struct Game
 		InputBinding start;
 		InputBinding action;
 		InputBinding cancel;
+		InputBinding pause;
 	};
 
 	static Bindings bindings;

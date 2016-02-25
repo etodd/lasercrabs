@@ -213,6 +213,10 @@ namespace VI
 						gamepad->btns |= Gamepad::Btn::A;
 					if (SDL_GameControllerGetButton(controller, SDL_CONTROLLER_BUTTON_B))
 						gamepad->btns |= Gamepad::Btn::B;
+					if (SDL_GameControllerGetButton(controller, SDL_CONTROLLER_BUTTON_X))
+						gamepad->btns |= Gamepad::Btn::X;
+					if (SDL_GameControllerGetButton(controller, SDL_CONTROLLER_BUTTON_Y))
+						gamepad->btns |= Gamepad::Btn::Y;
 					if (SDL_GameControllerGetButton(controller, SDL_CONTROLLER_BUTTON_START))
 						gamepad->btns |= Gamepad::Btn::Start;
 					active_gamepads++;

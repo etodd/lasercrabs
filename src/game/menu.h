@@ -44,9 +44,9 @@ struct UIMenu
 	UIMenu();
 	void clear();
 	void start(const Update&, u8);
-	Rect2 add_item(Vec2*, b8, const char*, const char* = nullptr);
-	b8 item(const Update&, u8, Vec2*, const char*);
-	Delta slider_item(const Update&, u8, Vec2*, const char*, const char*);
+	Rect2 add_item(Vec2*, b8, const char*, const char* = nullptr, b8 = false);
+	b8 item(const Update&, u8, Vec2*, const char*, const char* = nullptr, b8 = false);
+	Delta slider_item(const Update&, u8, Vec2*, const char*, const char*, b8 = false);
 	void draw_alpha(const RenderParams&) const;
 	void end();
 };

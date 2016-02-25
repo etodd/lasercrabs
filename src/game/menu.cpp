@@ -495,7 +495,7 @@ void UIMenu::start(const Update& u, u8 gamepad)
 		selected++;
 }
 
-Rect2 UIMenu::add_item(Vec2* pos, b8 slider, const char* string, const char* value)
+Rect2 UIMenu::add_item(Vec2* pos, b8 slider, const char* string, const char* value, b8 disabled)
 {
 	Item* item = items.add();
 	item->slider = slider;
@@ -503,7 +503,7 @@ Rect2 UIMenu::add_item(Vec2* pos, b8 slider, const char* string, const char* val
 	item->label.wrap_width = MENU_ITEM_WIDTH - MENU_ITEM_PADDING * 2.0f;
 	item->label.anchor_x = UIText::Anchor::Min;
 	item->label.anchor_y = item->value.anchor_y = UIText::Anchor::Max;
-	item->label.color = item->value.color = UI::default_color;
+	item->label.color = item->value.color = disabled ? UI::disabled_color : UI::default_color;
 	item->label.text(string);
 
 	item->value.anchor_x = UIText::Anchor::Center;
@@ -520,12 +520,17 @@ Rect2 UIMenu::add_item(Vec2* pos, b8 slider, const char* string, const char* val
 }
 
 // render a single menu item and increment the position for the next item
-b8 UIMenu::item(const Update& u, u8 gamepad, Vec2* menu_pos, const char* string)
+b8 UIMenu::item(const Update& u, u8 gamepad, Vec2* menu_pos, const char* string, const char* value, b8 disabled)
 {
-	Rect2 box = add_item(menu_pos, false, string);
+	Rect2 box = add_item(menu_pos, false, string, value, disabled);
+
 	if (box.contains(Game::cursor))
 	{
 		selected = items.length - 1;
+
+		if (disabled)
+			return false;
+
 		if (!u.input->get({ KeyCode::MouseLeft }, gamepad)
 			&& u.last_input->get({ KeyCode::MouseLeft }, gamepad)
 			&& Game::time.total > 0.5f)
@@ -548,11 +553,15 @@ b8 UIMenu::item(const Update& u, u8 gamepad, Vec2* menu_pos, const char* string)
 	return false;
 }
 
-UIMenu::Delta UIMenu::slider_item(const Update& u, u8 gamepad, Vec2* menu_pos, const char* label, const char* value)
+UIMenu::Delta UIMenu::slider_item(const Update& u, u8 gamepad, Vec2* menu_pos, const char* label, const char* value, b8 disabled)
 {
-	Rect2 box = add_item(menu_pos, true, label, value);
+	Rect2 box = add_item(menu_pos, true, label, value, disabled);
+
 	if (box.contains(Game::cursor))
 		selected = items.length - 1;
+
+	if (disabled)
+		return Delta::None;
 
 	if (selected == items.length - 1
 		&& Game::time.total > 0.5f)
@@ -616,7 +625,6 @@ void UIMenu::draw_alpha(const RenderParams& params) const
 		Rect2 item_rect = items[items.length - 1].rect();
 		Rect2 menu_rect = { item_rect.pos, Vec2(item_rect.size.x, height(items.length)) };
 		UI::box(params, menu_rect, UI::background_color);
-		UI::border(params, menu_rect, 2, UI::default_color);
 	}
 
 	for (s32 i = 0; i < items.length; i++)
@@ -624,6 +632,7 @@ void UIMenu::draw_alpha(const RenderParams& params) const
 		const Item* item = &items[i];
 		if (i == selected)
 			UI::box(params, item->rect(), UI::subtle_color);
+
 		item->label.draw(params, item->pos);
 		if (item->value.has_text())
 			item->value.draw(params, item->pos + Vec2(MENU_ITEM_VALUE_OFFSET, 0));

@@ -52,6 +52,7 @@ Game::Bindings Game::bindings =
 	{ KeyCode::Return, Gamepad::Btn::Start }, // Start
 	{ KeyCode::Space, Gamepad::Btn::A }, // Action
 	{ KeyCode::Escape, Gamepad::Btn::B }, // Cancel
+	{ KeyCode::Escape, Gamepad::Btn::Start }, // Pause
 };
 
 b8 Game::quit = false;
@@ -297,11 +298,13 @@ void Game::draw_alpha(const RenderParams& render_params)
 
 	Console::draw(render_params);
 
+	for (auto i = LocalPlayer::list.iterator(); !i.is_last(); i.next())
+		i.item()->draw_health_bars(render_params);
 	for (auto i = PlayerCommon::list.iterator(); !i.is_last(); i.next())
 		i.item()->draw_alpha(render_params);
-	for (auto i = LocalPlayer::list.iterator(); !i.is_last(); i.next())
-		i.item()->draw_alpha(render_params);
 	for (auto i = LocalPlayerControl::list.iterator(); !i.is_last(); i.next())
+		i.item()->draw_alpha(render_params);
+	for (auto i = LocalPlayer::list.iterator(); !i.is_last(); i.next())
 		i.item()->draw_alpha(render_params);
 
 	Menu::draw(render_params);

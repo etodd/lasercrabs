@@ -205,11 +205,15 @@ struct Projectile : public ComponentType<Projectile>
 	void update(const Update&);
 };
 
+struct TargetEvent
+{
+	Entity* hit_by;
+	Entity* target;
+};
+
 struct Target : public ComponentType<Target>
 {
-	LinkArg<Entity*> hit_by; // Passes the entity we were hit by
-	LinkArg<Entity*> hit_this; // Passes the entity getting hit
-	Target() : hit_by(), hit_this() {}
+	LinkArg<const TargetEvent&> target_hit;
 	void hit(Entity*);
 	void awake() {}
 };

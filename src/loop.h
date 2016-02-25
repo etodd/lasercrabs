@@ -909,6 +909,9 @@ void draw(LoopSync* sync, const Camera* camera)
 		sync->write<RenderOp>(RenderOp::DepthTest);
 		sync->write<b8>(true);
 
+		sync->write<RenderOp>(RenderOp::DepthMask);
+		sync->write<b8>(true);
+
 		render_params.depth_buffer = depth_buffer;
 
 		Game::draw_alpha(render_params);
@@ -926,6 +929,9 @@ void draw(LoopSync* sync, const Camera* camera)
 
 		sync->write<RenderOp>(RenderOp::BlendMode);
 		sync->write<RenderBlendMode>(RenderBlendMode::Opaque);
+
+		sync->write<RenderOp>(RenderOp::DepthMask);
+		sync->write<b8>(false);
 	}
 
 	sync->write<RenderOp>(RenderOp::BindFramebuffer);

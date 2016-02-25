@@ -91,7 +91,8 @@ LocalPlayer::LocalPlayer(PlayerManager* m, u8 g)
 	menu(),
 	revision(),
 	options_menu(),
-	visible_health_bars()
+	visible_health_bars(),
+	upgrading()
 {
 	sprintf(manager.ref()->username, "Player %d", gamepad);
 
@@ -115,6 +116,8 @@ LocalPlayer::UIMode LocalPlayer::ui_mode() const
 		return UIMode::Default;
 	else if (pause)
 		return UIMode::Pause;
+	else if (upgrading)
+		return UIMode::Upgrading;
 	else if (manager.ref()->entity.ref() || NoclipControl::list.count() > 0)
 		return UIMode::Default;
 	else
@@ -166,14 +169,18 @@ void LocalPlayer::update(const Update& u)
 	if (msg_timer < msg_time)
 		msg_timer += u.time.delta;
 
-	if (((u.last_input->gamepads[gamepad].btns & Gamepad::Btn::Start) && !(u.input->gamepads[gamepad].btns & Gamepad::Btn::Start))
-		|| (gamepad == 0 && u.last_input->keys[(s32)KeyCode::Escape] && !u.input->keys[(s32)KeyCode::Escape]))
+	if (u.last_input->get(Game::bindings.pause, gamepad) && !u.input->get(Game::bindings.pause, gamepad))
 	{
-		if (options_menu)
+		if (upgrading)
+			upgrading = false;
+		else if (options_menu)
 			options_menu = false;
 		else
 			pause = !pause;
 	}
+
+	if (manager.ref()->entity.ref())
+		manager.ref()->entity.ref()->get<LocalPlayerControl>()->enable_input = ui_mode() == UIMode::Default;
 
 	switch (ui_mode())
 	{
@@ -183,17 +190,88 @@ void LocalPlayer::update(const Update& u)
 			ensure_camera(u, false);
 			if (manager.ref()->entity.ref())
 				manager.ref()->entity.ref()->get<LocalPlayerControl>()->enable_input = true;
+			const Settings& settings = Loader::settings();
+			if (u.last_input->get(settings.bindings.upgrade, gamepad) && !u.input->get(settings.bindings.upgrade, gamepad))
+				upgrading = true;
+			break;
+		}
+		case UIMode::Upgrading:
+		{
+			ensure_camera(u, true);
+			menu.start(u, gamepad);
+			Rect2& viewport = camera ? camera->viewport : manager.ref()->entity.ref()->get<LocalPlayerControl>()->camera->viewport;
+
+			const Settings& settings = Loader::settings();
+			if (u.last_input->get(settings.bindings.upgrade, gamepad) && !u.input->get(settings.bindings.upgrade, gamepad))
+				upgrading = false;
+
+			// do menu items
+			Vec2 pos = viewport.pos + Vec2(viewport.size.x * 0.5f + (MENU_ITEM_WIDTH * -0.5f), viewport.size.y * 0.75f);
+			if (menu.item(u, gamepad, &pos, "Close"))
+				upgrading = false;
+
+			b8 buy_new_abilities = false;
+			for (s32 i = 0; i < ABILITY_COUNT; i++)
+			{
+				if (manager.ref()->abilities[i].ability == Ability::None)
+				{
+					buy_new_abilities = true;
+					break;
+				}
+			}
+
+			// new abilities
+			if (buy_new_abilities)
+			{
+				for (s32 i = 0; i < (s32)Ability::count; i++)
+				{
+					Ability ability = (Ability)i;
+
+					// check if we've already bought this ability
+					b8 already_bought = false;
+					for (s32 i = 0; i < ABILITY_COUNT; i++)
+					{
+						if (manager.ref()->abilities[i].ability == ability)
+						{
+							already_bought = true;
+							break;
+						}
+					}
+					if (already_bought)
+						continue;
+
+					u16 cost = AbilitySlot::upgrade_costs[i][0];
+					char cost_str[255];
+					sprintf(cost_str, "+%u", cost);
+					if (menu.item(u, gamepad, &pos, AbilitySlot::names[i], cost_str, manager.ref()->credits < cost))
+						manager.ref()->upgrade((Ability)i);
+				}
+			}
+
+			// upgrades
+			for (s32 i = 0; i < ABILITY_COUNT; i++)
+			{
+				const AbilitySlot& slot = manager.ref()->abilities[i];
+				if (slot.ability != Ability::None && slot.can_upgrade())
+				{
+					u16 cost = slot.upgrade_cost();
+					char cost_str[255];
+					sprintf(cost_str, "+%u", cost);
+
+					char upgrade_str[255];
+					sprintf(upgrade_str, "Upgrade %s", AbilitySlot::names[(s32)slot.ability]);
+
+					if (menu.item(u, gamepad, &pos, upgrade_str, cost_str, manager.ref()->credits < cost))
+						manager.ref()->upgrade(slot.ability);
+				}
+			}
+
+			menu.end();
 			break;
 		}
 		case UIMode::Pause:
 		{
-			// Paused
-
 			ensure_camera(u, true);
-
-			if (manager.ref()->entity.ref())
-				manager.ref()->entity.ref()->get<LocalPlayerControl>()->enable_input = false;
-
 			Rect2& viewport = camera ? camera->viewport : manager.ref()->entity.ref()->get<LocalPlayerControl>()->camera->viewport;
 			menu.start(u, gamepad);
 
@@ -302,7 +380,8 @@ void LocalPlayer::spawn()
 	}
 
 	spawned->get<Transform>()->absolute(pos, rot);
-	spawned->add<PlayerCommon>(manager.ref()->username);
+	spawned->add<PlayerCommon>(manager.ref());
+	spawned->get<Health>()->killed.link<Team, Entity*, &Team::player_killed_by>(manager.ref()->team.ref());
 	manager.ref()->entity = spawned;
 
 	LocalPlayerControl* control = spawned->add<LocalPlayerControl>(gamepad);
@@ -310,15 +389,10 @@ void LocalPlayer::spawn()
 	control->angle_horizontal = angle;
 }
 
-void LocalPlayer::draw_alpha(const RenderParams& params) const
+void LocalPlayer::draw_health_bars(const RenderParams& params) const
 {
 	if (params.camera != camera && (!manager.ref()->entity.ref() || params.camera != manager.ref()->entity.ref()->get<LocalPlayerControl>()->camera))
 		return;
-
-	const r32 line_thickness = 2.0f * UI::scale;
-	const r32 padding = 6.0f * UI::scale;
-
-	const Rect2& vp = params.camera->viewport;
 
 	// health bars
 	for (s32 i = 0; i < visible_health_bars.length; i++)
@@ -340,6 +414,17 @@ void LocalPlayer::draw_alpha(const RenderParams& params) const
 			UI::border(params, { pos - size * 0.5f, size }, 2, color);
 		}
 	}
+}
+
+void LocalPlayer::draw_alpha(const RenderParams& params) const
+{
+	if (params.camera != camera && (!manager.ref()->entity.ref() || params.camera != manager.ref()->entity.ref()->get<LocalPlayerControl>()->camera))
+		return;
+
+	const r32 line_thickness = 2.0f * UI::scale;
+	const r32 padding = 6.0f * UI::scale;
+
+	const Rect2& vp = params.camera->viewport;
 
 	// message
 	if (msg_timer < msg_time)
@@ -372,12 +457,9 @@ void LocalPlayer::draw_alpha(const RenderParams& params) const
 			break;
 		}
 		case UIMode::Pause:
+		case UIMode::Upgrading:
 		{
-			UIText text;
-			text.font = Asset::Font::lowpoly;
-
 			menu.draw_alpha(params);
-			
 			break;
 		}
 		case UIMode::Spawning:
@@ -439,15 +521,16 @@ s32 combination(s32 n, s32 choose)
 	return factorial(n) / (factorial(n - choose) * factorial(choose));
 }
 
-PlayerCommon::PlayerCommon(const char* username)
+PlayerCommon::PlayerCommon(PlayerManager* m)
 	: cooldown(),
 	username_text(),
-	visibility_index()
+	visibility_index(),
+	manager(m)
 {
 	username_text.font = Asset::Font::lowpoly;
 	username_text.size = 18.0f;
 	username_text.anchor_x = UIText::Anchor::Center;
-	username_text.text(username);
+	username_text.text(m->username);
 }
 
 void PlayerCommon::awake()
@@ -605,9 +688,15 @@ void LocalPlayerControl::awake()
 	camera->mask = 1 << (s32)get<AIAgent>()->team;
 }
 
+#define MINION_CREDITS 10
+#define AWK_CREDITS 50
 void LocalPlayerControl::hit_target(Entity* target)
 {
 	player.ref()->msg("Target hit");
+	if (target->has<MinionAI>() && target->get<AIAgent>()->team != get<AIAgent>()->team)
+		player.ref()->manager.ref()->add_credits(MINION_CREDITS);
+	if (target->has<Awk>() && target->get<AIAgent>()->team != get<AIAgent>()->team)
+		player.ref()->manager.ref()->add_credits(AWK_CREDITS);
 }
 
 r32 dead_zone(r32 x)
@@ -647,74 +736,34 @@ void LocalPlayerControl::update_camera_input(const Update& u)
 
 Vec3 LocalPlayerControl::get_movement(const Update& u, const Quat& rot)
 {
-	const Settings& settings = Loader::settings();
 	Vec3 movement = Vec3::zero;
 	if (input_enabled())
 	{
+		const Settings& settings = Loader::settings();
+
 		if (u.input->get(settings.bindings.forward, gamepad))
-			movement += rot * Vec3(0, 0, 1);
+			movement += Vec3(0, 0, 1);
 		if (u.input->get(settings.bindings.backward, gamepad))
-			movement += rot * Vec3(0, 0, -1);
+			movement += Vec3(0, 0, -1);
 		if (u.input->get(settings.bindings.right, gamepad))
-			movement += rot * Vec3(-1, 0, 0);
+			movement += Vec3(-1, 0, 0);
 		if (u.input->get(settings.bindings.left, gamepad))
-			movement += rot * Vec3(1, 0, 0);
+			movement += Vec3(1, 0, 0);
+
+		if (u.input->gamepads[gamepad].active)
+		{
+			movement += Vec3(-dead_zone(u.input->gamepads[gamepad].left_x), 0, 0);
+			movement += Vec3(0, 0, -dead_zone(u.input->gamepads[gamepad].left_y));
+		}
+
+		movement = rot * movement;
+
 		if (u.input->get(settings.bindings.up, gamepad))
 			movement.y += 1;
 		if (u.input->get(settings.bindings.down, gamepad))
 			movement.y -= 1;
-
-		if (u.input->gamepads[gamepad].active)
-		{
-			movement += rot * Vec3(-dead_zone(u.input->gamepads[gamepad].left_x), 0, 0);
-			movement += rot * Vec3(0, 0, -dead_zone(u.input->gamepads[gamepad].left_y));
-		}
 	}
 	return movement;
-}
-
-void PlayerCommon::transfer_to(Entity* new_entity)
-{
-	Entity* old_entity = entity();
-
-	s32 old_health = get<Health>()->hp;
-
-	old_entity->detach<PlayerCommon>(); // this
-
-	LocalPlayerControl* local_control = nullptr;
-	if (old_entity->has<LocalPlayerControl>())
-	{
-		local_control = old_entity->get<LocalPlayerControl>();
-		local_control->lean = 0.0f;
-		old_entity->detach<LocalPlayerControl>();
-	}
-
-	AIPlayerControl* ai_control = nullptr;
-	if (old_entity->has<AIPlayerControl>())
-	{
-		ai_control = old_entity->get<AIPlayerControl>();
-		old_entity->detach<AIPlayerControl>();
-	}
-
-	World::remove(old_entity);
-
-	new_entity->get<Health>()->hp = old_health;
-
-	new_entity->attach(this);
-	awake();
-
-	if (local_control)
-	{
-		new_entity->attach(local_control);
-		local_control->player.ref()->manager.ref()->entity = new_entity;
-		local_control->awake();
-	}
-
-	if (ai_control)
-	{
-		new_entity->attach(ai_control);
-		ai_control->awake();
-	}
 }
 
 void LocalPlayerControl::update(const Update& u)
@@ -1137,6 +1186,11 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 				UI::box(params, { pos - size * 0.5f, size * Vec2((r32)health->hp / (r32)health->total, 1.0f) }, color);
 				UI::border(params, { pos - size * 0.5f, size }, 2, color);
 			}
+		}
+
+		// abilities
+		{
+			
 		}
 	}
 }

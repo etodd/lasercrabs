@@ -33,6 +33,8 @@ struct AwkRaycastCallback : btCollisionWorld::ClosestRayResultCallback
 	virtual	btScalar addSingleResult(btCollisionWorld::LocalRayResult& rayResult, b8 normalInWorldSpace);
 };
 
+struct TargetEvent;
+
 struct Awk : public ComponentType<Awk>
 {
 	struct Footing
@@ -60,7 +62,7 @@ struct Awk : public ComponentType<Awk>
 	void awake();
 	~Awk();
 
-	void hit_by(Entity*); // Called when we get hit
+	void hit_by(const TargetEvent&); // Called when we get hit
 	void hit_target(Entity*); // Called when we hit a target
 	void killed(Entity*);
 

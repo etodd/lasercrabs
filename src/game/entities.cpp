@@ -438,10 +438,12 @@ void Projectile::update(const Update& u)
 		get<Transform>()->absolute_pos(next_pos);
 }
 
-void Target::hit(Entity* e)
+void Target::hit(Entity* hit_by)
 {
-	hit_by.fire(e);
-	hit_this.fire(entity());
+	TargetEvent e;
+	e.hit_by = hit_by;
+	e.target = entity();
+	target_hit.fire(e);
 }
 
 PlayerTrigger::PlayerTrigger()

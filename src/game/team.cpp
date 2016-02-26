@@ -5,6 +5,7 @@
 #include "entities.h"
 #include "data/animator.h"
 #include "asset/animation.h"
+#include "asset/mesh.h"
 #include "strings.h"
 
 #if DEBUG
@@ -96,22 +97,13 @@ void Team::update(const Update& u)
 	}
 }
 
-u16 AbilitySlot::upgrade_costs[][ABILITY_LEVELS] =
+AbilitySlot::Info AbilitySlot::info[] =
 {
-	{ 10, 30, 50 }, // Stun
-	{ 10, 30, 50 }, // Heal
-	{ 10, 30, 50 }, // Stealth
-	{ 10, 30, 50 }, // Turret
-	{ 10, 30, 50 }, // Gun
-};
-
-AssetID AbilitySlot::names[] =
-{
-	strings::stun,
-	strings::heal,
-	strings::stealth,
-	strings::turret,
-	strings::gun,
+	{ Asset::Mesh::icon_stun, strings::stun, 5.0f, { 10, 30, 50 } },
+	{ Asset::Mesh::icon_heal, strings::heal, 10.0f, { 10, 30, 50 } },
+	{ AssetNull, strings::stealth, 5.0f, { 10, 30, 50 } },
+	{ AssetNull, strings::turret, 30.0f, { 10, 30, 50 } },
+	{ AssetNull, strings::gun, 5.0f, { 10, 30, 50 } },
 };
 
 b8 AbilitySlot::can_upgrade() const
@@ -129,13 +121,23 @@ u16 AbilitySlot::upgrade_cost() const
 		u16 cheapest_upgrade = UINT16_MAX;
 		for (s32 i = 0; i < (s32)Ability::count; i++)
 		{
-			if (upgrade_costs[i][0] < cheapest_upgrade)
-				cheapest_upgrade = upgrade_costs[i][0];
+			if (info[i].upgrade_cost[0] < cheapest_upgrade)
+				cheapest_upgrade = info[i].upgrade_cost[0];
 		}
 		return cheapest_upgrade;
 	}
 	else
-		return upgrade_costs[(s32)ability][level];
+		return info[(s32)ability].upgrade_cost[level];
+}
+
+b8 AbilitySlot::use()
+{
+	if (cooldown == 0.0f)
+	{
+		cooldown = AbilitySlot::info[(s32)ability].cooldown;
+		return true;
+	}
+	return false;
 }
 
 PinArray<PlayerManager, MAX_PLAYERS> PlayerManager::list;
@@ -184,11 +186,8 @@ b8 PlayerManager::upgrade_available() const
 {
 	for (s32 i = 0; i < ABILITY_COUNT; i++)
 	{
-		if (abilities[i].level < ABILITY_LEVELS)
-		{
-			if (credits >= abilities[i].upgrade_cost())
-				return true;
-		}
+		if (abilities[i].can_upgrade() && credits >= abilities[i].upgrade_cost())
+			return true;
 	}
 	return false;
 }
@@ -203,6 +202,12 @@ void PlayerManager::update(const Update& u)
 			spawn.fire();
 			spawn_timer = PLAYER_SPAWN_DELAY;
 		}
+	}
+
+	for (s32 i = 0; i < ABILITY_COUNT; i++)
+	{
+		if (abilities[i].cooldown > 0.0f)
+			abilities[i].cooldown = fmax(0.0f, abilities[i].cooldown - u.time.delta);
 	}
 }
 

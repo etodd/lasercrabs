@@ -1010,8 +1010,8 @@ Settings& Loader::settings()
 		settings_data.bindings.secondary = input_binding(bindings, "secondary", { KeyCode::MouseRight, Gamepad::Btn::LeftTrigger });
 		settings_data.bindings.parkour = input_binding(bindings, "parkour", { KeyCode::LShift, Gamepad::Btn::LeftTrigger });
 		settings_data.bindings.slide = input_binding(bindings, "slide", { KeyCode::MouseLeft, Gamepad::Btn::LeftClick });
-		settings_data.bindings.ability1 = input_binding(bindings, "ability1", { KeyCode::Q, Gamepad::Btn::X });
-		settings_data.bindings.ability1 = input_binding(bindings, "ability1", { KeyCode::E, Gamepad::Btn::Y });
+		settings_data.bindings.abilities[0] = input_binding(bindings, "ability1", { KeyCode::Q, Gamepad::Btn::X });
+		settings_data.bindings.abilities[1] = input_binding(bindings, "ability2", { KeyCode::E, Gamepad::Btn::Y });
 		settings_data.bindings.upgrade = input_binding(bindings, "upgrade", { KeyCode::Tab, Gamepad::Btn::A });
 	}
 	return settings_data;
@@ -1042,8 +1042,8 @@ void Loader::settings_save()
 		cJSON_AddItemToObject(bindings, "secondary", input_binding_json(settings_data.bindings.secondary));
 		cJSON_AddItemToObject(bindings, "parkour", input_binding_json(settings_data.bindings.parkour));
 		cJSON_AddItemToObject(bindings, "slide", input_binding_json(settings_data.bindings.slide));
-		cJSON_AddItemToObject(bindings, "ability1", input_binding_json(settings_data.bindings.ability1));
-		cJSON_AddItemToObject(bindings, "ability2", input_binding_json(settings_data.bindings.ability2));
+		cJSON_AddItemToObject(bindings, "ability1", input_binding_json(settings_data.bindings.abilities[0]));
+		cJSON_AddItemToObject(bindings, "ability2", input_binding_json(settings_data.bindings.abilities[1]));
 		cJSON_AddItemToObject(bindings, "upgrade", input_binding_json(settings_data.bindings.upgrade));
 
 		Json::save(json, "config.txt");

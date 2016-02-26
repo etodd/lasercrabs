@@ -402,12 +402,12 @@ void draw(LoopSync* sync, const Camera* camera)
 		camera->viewport.size / Vec2(sync->input.width, sync->input.height),
 	};
 	screen_quad.set
-	(
-		sync,
-		{ Vec2(-1, -1), Vec2(2, 2) },
-		camera,
-		screen_quad_uv
-	);
+		(
+			sync,
+			{ Vec2(-1, -1), Vec2(2, 2) },
+			camera,
+			screen_quad_uv
+			);
 
 	UI::update(render_params);
 
@@ -426,15 +426,15 @@ void draw(LoopSync* sync, const Camera* camera)
 		Game::draw_opaque(render_params);
 	}
 
+	sync->write(RenderOp::DepthMask);
+	sync->write<b8>(false);
+	sync->write(RenderOp::DepthTest);
+	sync->write<b8>(false);
+
 	// Render override lights
 	{
 		sync->write<RenderOp>(RenderOp::BindFramebuffer);
 		sync->write<s32>(color_fbo1);
-
-		sync->write(RenderOp::DepthMask);
-		sync->write<b8>(false);
-		sync->write(RenderOp::DepthTest);
-		sync->write<b8>(false);
 
 		sync->write<RenderOp>(RenderOp::CullMode);
 		sync->write<RenderCullMode>(RenderCullMode::Front);
@@ -511,8 +511,8 @@ void draw(LoopSync* sync, const Camera* camera)
 				};
 				r32 size = fmin(800.0f, render_params.camera->far_plane);
 				Vec3 pos = render_params.camera->pos;
-				const r32 s32erval = size * 0.025f;
-				pos = Vec3((s32)(pos.x / s32erval), (s32)(pos.y / s32erval), (s32)(pos.z / s32erval)) * s32erval;
+				const r32 interval = size * 0.025f;
+				pos = Vec3((s32)(pos.x / interval), (s32)(pos.y / interval), (s32)(pos.z / interval)) * interval;
 				shadow_camera.pos = pos + (abs_directions[0] * size * -0.5f);
 				shadow_camera.rot = Quat::look(abs_directions[0]);
 
@@ -816,11 +816,6 @@ void draw(LoopSync* sync, const Camera* camera)
 	sync->write<RenderOp>(RenderOp::Viewport);
 	sync->write<Rect2>(camera->viewport);
 
-	sync->write<RenderOp>(RenderOp::DepthMask);
-	sync->write<b8>(false);
-	sync->write<RenderOp>(RenderOp::DepthTest);
-	sync->write<b8>(false);
-
 	// Composite
 	{
 		sync->write<RenderOp>(RenderOp::BindFramebuffer);
@@ -908,7 +903,6 @@ void draw(LoopSync* sync, const Camera* camera)
 
 		sync->write<RenderOp>(RenderOp::DepthTest);
 		sync->write<b8>(true);
-
 		sync->write<RenderOp>(RenderOp::DepthMask);
 		sync->write<b8>(true);
 
@@ -921,15 +915,14 @@ void draw(LoopSync* sync, const Camera* camera)
 
 		Game::draw_additive(render_params);
 
-		sync->write<RenderOp>(RenderOp::DepthTest);
-		sync->write<b8>(false);
-
 		sync->write<RenderOp>(RenderOp::CullMode);
 		sync->write<RenderCullMode>(RenderCullMode::Back);
 
 		sync->write<RenderOp>(RenderOp::BlendMode);
 		sync->write<RenderBlendMode>(RenderBlendMode::Opaque);
 
+		sync->write<RenderOp>(RenderOp::DepthTest);
+		sync->write<b8>(false);
 		sync->write<RenderOp>(RenderOp::DepthMask);
 		sync->write<b8>(false);
 	}
@@ -1011,7 +1004,7 @@ void draw(LoopSync* sync, const Camera* camera)
 		sync->write(color_fbo1);
 
 		// Overlay UI on to the color buffer
-		UI::texture(render_params, color_buffer2, camera->viewport, Vec4(1, 1, 1, 1), screen_quad_uv);
+		UI::texture(render_params, color_buffer2, { Vec2::zero, camera->viewport.size }, Vec4(1, 1, 1, 1), screen_quad_uv);
 
 		sync->write<RenderOp>(RenderOp::BlendMode);
 		sync->write<RenderBlendMode>(RenderBlendMode::Opaque);
@@ -1099,12 +1092,12 @@ void draw(LoopSync* sync, const Camera* camera)
 	sync->write(RenderOp::Viewport);
 	sync->write<Rect2>(camera->viewport);
 
-	UI::texture(render_params, color_buffer, camera->viewport, Vec4(1, 1, 1, 1), screen_quad_uv);
+	UI::texture(render_params, color_buffer, { Vec2::zero, camera->viewport.size }, Vec4(1, 1, 1, 1), screen_quad_uv);
 
 	// Composite bloom
 	sync->write<RenderOp>(RenderOp::BlendMode);
 	sync->write<RenderBlendMode>(RenderBlendMode::Additive);
-	UI::texture(render_params, half_buffer2, camera->viewport, Vec4(1, 1, 1, 0.5f), screen_quad_uv);
+	UI::texture(render_params, half_buffer2, { Vec2::zero, camera->viewport.size }, Vec4(1, 1, 1, 0.5f), screen_quad_uv);
 	sync->write<RenderOp>(RenderOp::BlendMode);
 	sync->write<RenderBlendMode>(RenderBlendMode::Opaque);
 

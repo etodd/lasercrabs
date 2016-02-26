@@ -56,6 +56,7 @@ struct AI
 struct AIAgent : public ComponentType<AIAgent>
 {
 	AI::Team team;
+	b8 stealth;
 	void awake() {}
 };
 

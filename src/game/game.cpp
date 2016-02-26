@@ -312,8 +312,6 @@ void Game::draw_alpha(const RenderParams& render_params)
 	for (s32 i = 0; i < ParticleSystem::all.length; i++)
 		ParticleSystem::all[i]->draw(render_params);
 
-	Console::draw(render_params);
-
 	for (auto i = LocalPlayer::list.iterator(); !i.is_last(); i.next())
 		i.item()->draw_health_bars(render_params);
 	for (auto i = PlayerCommon::list.iterator(); !i.is_last(); i.next())
@@ -327,6 +325,8 @@ void Game::draw_alpha(const RenderParams& render_params)
 
 	for (s32 i = 0; i < draws.length; i++)
 		(*draws[i])(render_params);
+
+	Console::draw(render_params);
 
 	if (cursor_updated)
 	{
@@ -388,7 +388,7 @@ void Game::execute(const Update& u, const char* cmd)
 			World::remove(noclip->entity());
 		}
 	}
-	else if (strstr(cmd, "timescale") == cmd)
+	else if (strstr(cmd, "timescale ") == cmd)
 	{
 		const char* delimiter = strchr(cmd, ' ');
 		if (delimiter)
@@ -400,7 +400,25 @@ void Game::execute(const Update& u, const char* cmd)
 				time_scale = value;
 		}
 	}
-	else if (strstr(cmd, "load") == cmd)
+	else if (strstr(cmd, "credits ") == cmd)
+	{
+		if (PlayerManager::list.count() > 0)
+		{
+			const char* delimiter = strchr(cmd, ' ');
+			if (delimiter)
+			{
+				const char* number_string = delimiter + 1;
+				char* end;
+				r32 value = std::strtod(number_string, &end);
+				if (*end == '\0')
+				{
+					for (auto i = PlayerManager::list.iterator(); !i.is_last(); i.next())
+						i.item()->credits += value;
+				}
+			}
+		}
+	}
+	else if (strstr(cmd, "load ") == cmd)
 	{
 		const char* delimiter = strchr(cmd, ' ');
 		if (delimiter)
@@ -425,6 +443,8 @@ void Game::unload_level()
 
 	for (auto i = Entity::list.iterator(); !i.is_last(); i.next())
 		World::remove(i.item());
+
+	World::remove_buffer.length = 0; // any deferred requests to remove entities should be ignored; they're all gone
 
 	for (auto i = LocalPlayer::list.iterator(); !i.is_last(); i.next())
 		LocalPlayer::list.remove(i.index);
@@ -497,22 +517,25 @@ void Game::load_level(const Update& u, AssetID l)
 
 	unload_level();
 
-	for (s32 i = 0; i < (s32)AI::Team::count; i++)
+	if (!Menu::is_special_level(l))
 	{
-		Team* team = Team::list.add();
-		new (team) Team();
-	}
-
-	for (s32 i = 0; i < MAX_GAMEPADS; i++)
-	{
-		AI::Team team = data.local_player_config[i];
-		if (team != AI::Team::None)
+		for (s32 i = 0; i < (s32)AI::Team::count; i++)
 		{
-			PlayerManager* manager = PlayerManager::list.add();
-			new (manager) PlayerManager(&Team::list[(s32)team]);
+			Team* team = Team::list.add();
+			new (team) Team();
+		}
 
-			LocalPlayer* player = LocalPlayer::list.add();
-			new (player) LocalPlayer(manager, i);
+		for (s32 i = 0; i < MAX_GAMEPADS; i++)
+		{
+			AI::Team team = data.local_player_config[i];
+			if (team != AI::Team::None)
+			{
+				PlayerManager* manager = PlayerManager::list.add();
+				new (manager) PlayerManager(&Team::list[(s32)team]);
+
+				LocalPlayer* player = LocalPlayer::list.add();
+				new (player) LocalPlayer(manager, i);
+			}
 		}
 	}
 

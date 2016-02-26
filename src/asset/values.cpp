@@ -14,6 +14,8 @@ const char* AssetLookup::Mesh::values[] =
 	"assets/cone.msh",
 	"assets/cube.msh",
 	"assets/cursor.msh",
+	"assets/icon_heal.msh",
+	"assets/icon_stun.msh",
 	"assets/plane.msh",
 	"assets/score_box.msh",
 	"assets/sky_decal.msh",
@@ -64,6 +66,8 @@ const char* AssetLookup::Mesh::names[] =
 	"cone",
 	"cube",
 	"cursor",
+	"icon_heal",
+	"icon_stun",
 	"plane",
 	"score_box",
 	"sky_decal",
@@ -314,7 +318,6 @@ const char* AssetLookup::Level::values[] =
 {
 	"assets/lvl/connect.lvl",
 	"assets/lvl/containment_09.lvl",
-	"assets/lvl/end.lvl",
 	"assets/lvl/level1.lvl",
 	"assets/lvl/menu.lvl",
 	"assets/lvl/start.lvl",
@@ -329,7 +332,6 @@ const char* AssetLookup::Level::names[] =
 {
 	"connect",
 	"containment_09",
-	"end",
 	"level1",
 	"menu",
 	"start",
@@ -344,7 +346,6 @@ const char* AssetLookup::NavMesh::values[] =
 {
 	"assets/lvl/connect.nav",
 	"assets/lvl/containment_09.nav",
-	"assets/lvl/end.nav",
 	"assets/lvl/level1.nav",
 	"assets/lvl/menu.nav",
 	"assets/lvl/start.nav",
@@ -359,7 +360,6 @@ const char* AssetLookup::NavMesh::names[] =
 {
 	"connect",
 	"containment_09",
-	"end",
 	"level1",
 	"menu",
 	"start",
@@ -373,6 +373,7 @@ const char* AssetLookup::NavMesh::names[] =
 const char* AssetLookup::String::names[] =
 {
 	"back",
+	"binding",
 	"btn_A",
 	"btn_B",
 	"btn_LeftClick",
@@ -579,8 +580,8 @@ const char* AssetLookup::String::names[] =
 	"key_Pause",
 	"key_Period",
 	"key_Power",
+	"key_Printscreen",
 	"key_Prior",
-	"key_Prs32screen",
 	"key_Q",
 	"key_R",
 	"key_RAlt",
@@ -633,6 +634,7 @@ const char* AssetLookup::String::names[] =
 	"target_hit",
 	"turret",
 	"upgrade",
+	"upgrade_prompt",
 	0,
 };
 

@@ -72,12 +72,20 @@ enum class Ability
 #define ABILITY_LEVELS 3
 struct AbilitySlot
 {
-	static u16 upgrade_costs[(s32)Ability::count][ABILITY_LEVELS];
-	static AssetID names[(s32)Ability::count];
+	struct Info
+	{
+		AssetID icon;
+		AssetID name;
+		r32 cooldown;
+		u16 upgrade_cost[ABILITY_LEVELS];
+	};
+	static Info info[(s32)Ability::count];
 	Ability ability;
 	u8 level;
+	r32 cooldown;
 	b8 can_upgrade() const;
 	u16 upgrade_cost() const;
+	b8 use();
 };
 
 #define ABILITY_COUNT 2

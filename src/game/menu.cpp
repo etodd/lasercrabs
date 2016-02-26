@@ -32,9 +32,6 @@ namespace Menu
 
 static Camera* cameras[MAX_GAMEPADS] = {};
 static UIText player_text[MAX_GAMEPADS];
-static UIText join_text = UIText();
-static UIText leave_text = UIText();
-static UIText connecting_text = UIText();
 static s32 gamepad_count = 0;
 static AssetID last_level = AssetNull;
 static AssetID next_level = AssetNull;
@@ -46,7 +43,9 @@ static Submenu submenu;
 
 void reset_players()
 {
+	AssetID level = Game::data.level;
 	Game::data = Game::Data();
+	Game::data.level = level;
 	for (int i = 0; i < MAX_GAMEPADS; i++)
 		Game::data.local_player_config[i] = AI::Team::None;
 	Game::data.local_player_config[0] = AI::Team::A;
@@ -56,31 +55,6 @@ void init()
 {
 	Loader::font_permanent(Asset::Font::lowpoly);
 	refresh_variables();
-
-	join_text.font =
-	leave_text.font =
-	connecting_text.font =
-	Asset::Font::lowpoly;
-
-	join_text.size =
-	leave_text.size =
-	connecting_text.size =
-	18.0f;
-
-
-	join_text.anchor_x =
-	leave_text.anchor_x =
-	connecting_text.anchor_x =
-	UIText::Anchor::Center;
-
-	join_text.anchor_y =
-	leave_text.anchor_y =
-	connecting_text.anchor_y =
-	UIText::Anchor::Center;
-
-	join_text.text(_(strings::join));
-	leave_text.text(_(strings::leave));
-	connecting_text.text(_(strings::connecting));
 
 	for (s32 i = 0; i < MAX_GAMEPADS; i++)
 	{
@@ -134,6 +108,7 @@ void refresh_variables()
 	UIText::set_variable("Parkour", bindings.parkour.string(gamepad));
 	UIText::set_variable("Jump", bindings.jump.string(gamepad));
 	UIText::set_variable("Slide", bindings.slide.string(gamepad));
+	UIText::set_variable("Upgrade", bindings.upgrade.string(gamepad));
 }
 
 void update(const Update& u)
@@ -197,13 +172,13 @@ void update(const Update& u)
 
 			if (cameras_changed)
 			{
-				Camera::ViewportBlueprs32* viewports = Camera::viewport_blueprs32s[screen_count - 1];
+				Camera::ViewportBlueprint* viewports = Camera::viewport_blueprints[screen_count - 1];
 				for (s32 i = 0; i < MAX_GAMEPADS; i++)
 				{
 					Camera* camera = cameras[i];
 					if (camera)
 					{
-						Camera::ViewportBlueprs32* viewport = &viewports[i];
+						Camera::ViewportBlueprint* viewport = &viewports[i];
 						camera->viewport =
 						{
 							Vec2((s32)(viewport->x * (r32)u.input->width), (s32)(viewport->y * (r32)u.input->height)),
@@ -250,7 +225,8 @@ void update(const Update& u)
 					main_menu.item(u, 0, &pos, _(strings::new_));
 					if (main_menu.item(u, 0, &pos, _(strings::options)))
 						submenu = Submenu::Options;
-					main_menu.item(u, 0, &pos, _(strings::splitscreen));
+					if (main_menu.item(u, 0, &pos, _(strings::splitscreen)))
+						menu();
 					if (main_menu.item(u, 0, &pos, _(strings::exit)))
 						Game::quit = true;
 					break;
@@ -264,27 +240,6 @@ void update(const Update& u)
 				}
 			}
 			main_menu.end();
-			break;
-		}
-		case Asset::Level::end:
-		{
-			if (Game::data.level != last_level)
-			{
-				AssetID level = Game::data.level;
-				Game::data = Game::Data();
-				Game::data.level = level;
-			}
-
-			b8 go = false;
-			for (s32 i = 0; i < MAX_GAMEPADS; i++)
-			{
-				go |= ((u.input->get(Game::bindings.action, i) && !u.last_input->get(Game::bindings.action, i)))
-					| ((u.input->get(Game::bindings.start, i) && !u.last_input->get(Game::bindings.start, i)));
-			}
-			
-			if (go)
-				return title();
-
 			break;
 		}
 		case Asset::Level::connect:
@@ -338,12 +293,18 @@ void draw(const RenderParams& params)
 	{
 		case Asset::Level::menu:
 		{
+			UIText text;
+			text.anchor_x = text.anchor_y = UIText::Anchor::Center;
 			for (s32 i = 0; i < MAX_GAMEPADS; i++)
 			{
 				if (params.camera == cameras[i])
 				{
 					player_text[i].draw(params, viewport.size * 0.5f);
-					(Game::data.local_player_config[i] == AI::Team::None ? join_text : leave_text).draw(params, viewport.size * 0.5f);
+					if (Game::data.local_player_config[i] == AI::Team::None)
+						text.text(_(strings::join));
+					else
+						text.text(_(strings::leave));
+					text.draw(params, viewport.size * Vec2(0.5f, 0.25f));
 					return;
 				}
 			}
@@ -354,18 +315,17 @@ void draw(const RenderParams& params)
 			main_menu.draw_alpha(params);
 			break;
 		}
-		case Asset::Level::end:
-		{
-			break;
-		}
 		case Asset::Level::connect:
 		{
+			UIText text;
+			text.anchor_x = text.anchor_y = UIText::Anchor::Center;
+			text.text(_(strings::connecting));
 			Vec2 pos = viewport.size * 0.5f;
-			connecting_text.draw(params, pos);
+			text.draw(params, pos);
 
 			Vec2 triangle_pos = Vec2
 			(
-				pos.x - connecting_text.bounds().x * 0.5f - 32.0f * UI::scale,
+				pos.x - text.bounds().x * 0.5f - 32.0f * UI::scale,
 				pos.y
 			);
 			UI::triangle(params, { triangle_pos, Vec2(32 * UI::scale) }, Vec4(1), Game::time.total * 8.0f);
@@ -381,7 +341,6 @@ b8 is_special_level(AssetID level)
 	return level == Asset::Level::connect
 		|| level == Asset::Level::title
 		|| level == Asset::Level::menu
-		|| level == Asset::Level::end
 		|| level == Asset::Level::start;
 }
 
@@ -481,9 +440,10 @@ void UIMenu::start(const Update& u, u8 gamepad)
 		selected++;
 }
 
-Rect2 UIMenu::add_item(Vec2* pos, b8 slider, const char* string, const char* value, b8 disabled)
+Rect2 UIMenu::add_item(Vec2* pos, b8 slider, const char* string, const char* value, b8 disabled, AssetID icon)
 {
 	Item* item = items.add();
+	item->icon = icon;
 	item->slider = slider;
 	item->label.size = item->value.size = MENU_ITEM_FONT_SIZE;
 	item->label.wrap_width = MENU_ITEM_WIDTH - MENU_ITEM_PADDING * 2.0f;
@@ -506,9 +466,9 @@ Rect2 UIMenu::add_item(Vec2* pos, b8 slider, const char* string, const char* val
 }
 
 // render a single menu item and increment the position for the next item
-b8 UIMenu::item(const Update& u, u8 gamepad, Vec2* menu_pos, const char* string, const char* value, b8 disabled)
+b8 UIMenu::item(const Update& u, u8 gamepad, Vec2* menu_pos, const char* string, const char* value, b8 disabled, AssetID icon)
 {
-	Rect2 box = add_item(menu_pos, false, string, value, disabled);
+	Rect2 box = add_item(menu_pos, false, string, value, disabled, icon);
 
 	if (box.contains(Game::cursor))
 	{
@@ -539,9 +499,9 @@ b8 UIMenu::item(const Update& u, u8 gamepad, Vec2* menu_pos, const char* string,
 	return false;
 }
 
-UIMenu::Delta UIMenu::slider_item(const Update& u, u8 gamepad, Vec2* menu_pos, const char* label, const char* value, b8 disabled)
+UIMenu::Delta UIMenu::slider_item(const Update& u, u8 gamepad, Vec2* menu_pos, const char* label, const char* value, b8 disabled, AssetID icon)
 {
-	Rect2 box = add_item(menu_pos, true, label, value, disabled);
+	Rect2 box = add_item(menu_pos, true, label, value, disabled, icon);
 
 	if (box.contains(Game::cursor))
 		selected = items.length - 1;
@@ -619,6 +579,9 @@ void UIMenu::draw_alpha(const RenderParams& params) const
 		if (i == selected)
 			UI::box(params, item->rect(), UI::subtle_color);
 
+		if (item->icon != AssetNull)
+			UI::mesh(params, item->icon, item->pos + Vec2(MENU_ITEM_PADDING_LEFT * -0.5f, MENU_ITEM_FONT_SIZE * -0.5f), Vec2(UI::scale * MENU_ITEM_FONT_SIZE), item->label.color);
+
 		item->label.draw(params, item->pos);
 		if (item->value.has_text())
 			item->value.draw(params, item->pos + Vec2(MENU_ITEM_VALUE_OFFSET, 0));
@@ -626,11 +589,11 @@ void UIMenu::draw_alpha(const RenderParams& params) const
 		{
 			const Rect2& down_rect = item->down_rect();
 			UI::box(params, down_rect, UI::background_color);
-			UI::triangle(params, { down_rect.pos + down_rect.size * 0.5f, down_rect.size * 0.5f }, UI::default_color, PI * 0.5f);
+			UI::triangle(params, { down_rect.pos + down_rect.size * 0.5f, down_rect.size * 0.5f }, item->label.color, PI * 0.5f);
 
 			const Rect2& up_rect = item->up_rect();
 			UI::box(params, up_rect, UI::background_color);
-			UI::triangle(params, { up_rect.pos + up_rect.size * 0.5f, up_rect.size * 0.5f }, UI::default_color, PI * -0.5f);
+			UI::triangle(params, { up_rect.pos + up_rect.size * 0.5f, up_rect.size * 0.5f }, item->label.color, PI * -0.5f);
 		}
 	}
 }

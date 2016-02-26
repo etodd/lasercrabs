@@ -1181,10 +1181,10 @@ struct Quat
 
 	static Quat slerp_extra_spins(r32 fT, const Quat& rkP, const Quat& rkQ, s32 iExtraSpins);
 
-	/// Setup for spherical quadratic s32erpolation
+	/// Setup for spherical quadratic interpolation
 	static void intermediate(const Quat& rkQ0, const Quat& rkQ1, const Quat& rkQ2, Quat& rka, Quat& rkB);
 
-	/// Spherical quadratic s32erpolation
+	/// Spherical quadratic interpolation
 	static Quat squad(r32 fT, const Quat& rkP, const Quat& rkA, const Quat& rkB, const Quat& rkQ);
 
 	static Quat nlerp(r32 fT, const Quat& rkP, const Quat& rkQ, b8 shortestPath = false);

@@ -23,17 +23,17 @@ struct Camera
 
 	RenderMask mask;
 
-	struct ViewportBlueprs32
+	struct ViewportBlueprint
 	{
 		r32 x, y, w, h;
 	};
 
-	static ViewportBlueprs32 one_player_viewports[1];
-	static ViewportBlueprs32 two_player_viewports[2];
-	static ViewportBlueprs32 three_player_viewports[3];
-	static ViewportBlueprs32 four_player_viewports[4];
+	static ViewportBlueprint one_player_viewports[1];
+	static ViewportBlueprint two_player_viewports[2];
+	static ViewportBlueprint three_player_viewports[3];
+	static ViewportBlueprint four_player_viewports[4];
 
-	static ViewportBlueprs32* viewport_blueprs32s[4];
+	static ViewportBlueprint* viewport_blueprints[4];
 
 	static Camera* add();
 

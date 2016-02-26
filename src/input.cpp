@@ -78,7 +78,7 @@ void load_strings()
 	key_strings[(s32)KeyCode::F10] = _(strings::key_F10);
 	key_strings[(s32)KeyCode::F11] = _(strings::key_F11);
 	key_strings[(s32)KeyCode::F12] = _(strings::key_F12);
-	key_strings[(s32)KeyCode::Prs32screen] = _(strings::key_Prs32screen);
+	key_strings[(s32)KeyCode::Printscreen] = _(strings::key_Printscreen);
 	key_strings[(s32)KeyCode::Scrolllock] = _(strings::key_Scrolllock);
 	key_strings[(s32)KeyCode::Pause] = _(strings::key_Pause);
 	key_strings[(s32)KeyCode::Insert] = _(strings::key_Insert);

@@ -59,14 +59,15 @@ void draw_indicator(const RenderParams& params, const Vec3& pos, const Vec4& col
 		show = true;
 	if (show)
 	{
+		const Rect2& viewport = params.camera->viewport;
 		Vec2 screen_pos;
 		b8 on_screen = UI::project(params, pos, &screen_pos);
-		Vec2 center = params.camera->viewport.size * 0.5f;
+		Vec2 center = viewport.size * 0.5f;
 		Vec2 offset = screen_pos - center;
 		if (!on_screen)
 			offset *= -1.0f;
 
-		r32 radius = fmin(params.camera->viewport.size.x, params.camera->viewport.size.y) * 0.95f * 0.5f;
+		r32 radius = fmin(viewport.size.x, viewport.size.y) * 0.95f * 0.5f;
 
 		r32 offset_length = offset.length();
 		if (offset_length > radius || (offset_length > 0.0f && !on_screen))
@@ -113,9 +114,7 @@ LocalPlayer::LocalPlayer(PlayerManager* m, u8 g)
 
 LocalPlayer::UIMode LocalPlayer::ui_mode() const
 {
-	if (Menu::is_special_level(Game::data.level))
-		return UIMode::Default;
-	else if (pause)
+	if (pause)
 		return UIMode::Pause;
 	else if (upgrading)
 		return UIMode::Upgrading;
@@ -139,13 +138,13 @@ void LocalPlayer::ensure_camera(const Update& u, b8 active)
 		camera->fog = Game::data.mode == Game::Mode::Parkour;
 		camera->mask = 1 << (s32)manager.ref()->team.ref()->team();
 		s32 player_count = list.count();
-		Camera::ViewportBlueprs32* viewports = Camera::viewport_blueprs32s[player_count - 1];
-		Camera::ViewportBlueprs32* blueprs32 = &viewports[gamepad];
+		Camera::ViewportBlueprint* viewports = Camera::viewport_blueprints[player_count - 1];
+		Camera::ViewportBlueprint* blueprint = &viewports[gamepad];
 
 		camera->viewport =
 		{
-			Vec2((s32)(blueprs32->x * (r32)u.input->width), (s32)(blueprs32->y * (r32)u.input->height)),
-			Vec2((s32)(blueprs32->w * (r32)u.input->width), (s32)(blueprs32->h * (r32)u.input->height)),
+			Vec2((s32)(blueprint->x * (r32)u.input->width), (s32)(blueprint->y * (r32)u.input->height)),
+			Vec2((s32)(blueprint->w * (r32)u.input->width), (s32)(blueprint->h * (r32)u.input->height)),
 		};
 		r32 aspect = camera->viewport.size.y == 0 ? 1 : (r32)camera->viewport.size.x / (r32)camera->viewport.size.y;
 		camera->perspective(60.0f * PI * 0.5f / 180.0f, aspect, 1.0f, Skybox::far_plane * 2.0f);
@@ -192,8 +191,9 @@ void LocalPlayer::update(const Update& u)
 			if (manager.ref()->entity.ref())
 				manager.ref()->entity.ref()->get<LocalPlayerControl>()->enable_input = true;
 			const Settings& settings = Loader::settings();
-			if (u.last_input->get(settings.bindings.upgrade, gamepad) && !u.input->get(settings.bindings.upgrade, gamepad))
+			if (u.input->get(settings.bindings.upgrade, gamepad) && !u.last_input->get(settings.bindings.upgrade, gamepad))
 				upgrading = true;
+
 			break;
 		}
 		case UIMode::Upgrading:
@@ -203,11 +203,11 @@ void LocalPlayer::update(const Update& u)
 			Rect2& viewport = camera ? camera->viewport : manager.ref()->entity.ref()->get<LocalPlayerControl>()->camera->viewport;
 
 			const Settings& settings = Loader::settings();
-			if (u.last_input->get(settings.bindings.upgrade, gamepad) && !u.input->get(settings.bindings.upgrade, gamepad))
+			if (u.input->get(settings.bindings.upgrade, gamepad) && !u.last_input->get(settings.bindings.upgrade, gamepad))
 				upgrading = false;
 
 			// do menu items
-			Vec2 pos = viewport.pos + Vec2(viewport.size.x * 0.5f + (MENU_ITEM_WIDTH * -0.5f), viewport.size.y * 0.75f);
+			Vec2 pos = Vec2(viewport.size.x * 0.5f + (MENU_ITEM_WIDTH * -0.5f), viewport.size.y * 0.75f);
 			if (menu.item(u, gamepad, &pos, _(strings::close)))
 				upgrading = false;
 
@@ -241,10 +241,12 @@ void LocalPlayer::update(const Update& u)
 					if (already_bought)
 						continue;
 
-					u16 cost = AbilitySlot::upgrade_costs[i][0];
+					const AbilitySlot::Info& info = AbilitySlot::info[(s32)ability];
+
+					u16 cost = info.upgrade_cost[0];
 					char cost_str[255];
 					sprintf(cost_str, _(strings::credits), cost);
-					if (menu.item(u, gamepad, &pos, _(AbilitySlot::names[i]), cost_str, manager.ref()->credits < cost))
+					if (menu.item(u, gamepad, &pos, _(info.name), cost_str, manager.ref()->credits < cost, info.icon))
 						manager.ref()->upgrade((Ability)i);
 				}
 			}
@@ -259,10 +261,11 @@ void LocalPlayer::update(const Update& u)
 					char cost_str[255];
 					sprintf(cost_str, _(strings::credits), cost);
 
+					const AbilitySlot::Info& info = AbilitySlot::info[(s32)slot.ability];
 					char upgrade_str[255];
-					sprintf(upgrade_str, _(strings::upgrade), _(AbilitySlot::names[(s32)slot.ability]));
+					sprintf(upgrade_str, _(strings::upgrade), _(info.name));
 
-					if (menu.item(u, gamepad, &pos, upgrade_str, cost_str, manager.ref()->credits < cost))
+					if (menu.item(u, gamepad, &pos, upgrade_str, cost_str, manager.ref()->credits < cost, info.icon))
 						manager.ref()->upgrade(slot.ability);
 				}
 			}
@@ -278,13 +281,13 @@ void LocalPlayer::update(const Update& u)
 
 			if (options_menu)
 			{
-				Vec2 pos = viewport.pos + Vec2(0, viewport.size.y * 0.5f + Menu::options_height() * 0.5f);
+				Vec2 pos = Vec2(0, viewport.size.y * 0.5f + Menu::options_height() * 0.5f);
 				if (!Menu::options(u, gamepad, &menu, &pos))
 					options_menu = false;
 			}
 			else
 			{
-				Vec2 pos = viewport.pos + Vec2(0, viewport.size.y * 0.5f + UIMenu::height(3) * 0.5f);
+				Vec2 pos = Vec2(0, viewport.size.y * 0.5f + UIMenu::height(3) * 0.5f);
 				if (menu.item(u, gamepad, &pos, _(strings::resume)))
 					pause = false;
 				if (menu.item(u, gamepad, &pos, _(strings::options)))
@@ -446,7 +449,7 @@ void LocalPlayer::draw_alpha(const RenderParams& params) const
 
 	if (Game::data.mode == Game::Mode::Multiplayer)
 	{
-		Vec2 pos = params.camera->viewport.size * 0.1f;
+		Vec2 pos = vp.size * 0.1f;
 		UI::box(params, credits_text.rect(pos).outset(6 * UI::scale), UI::background_color);
 		credits_text.draw(params, pos);
 	}
@@ -455,6 +458,21 @@ void LocalPlayer::draw_alpha(const RenderParams& params) const
 	{
 		case UIMode::Default:
 		{
+			if (manager.ref()->upgrade_available())
+			{
+				// show upgrade prompt
+				UIText text;
+				text.font = Asset::Font::lowpoly;
+				text.anchor_x = UIText::Anchor::Min;
+				text.anchor_y = UIText::Anchor::Center;
+				text.size = 16.0f;
+
+				text.color = UI::default_color;
+				text.text(_(strings::upgrade_prompt));
+				Vec2 p = vp.size * Vec2(0.8f, 0.1f);
+				UI::box(params, text.rect(p).outset(8.0f * UI::scale), UI::background_color);
+				text.draw(params, p);
+			}
 			break;
 		}
 		case UIMode::Pause:
@@ -471,10 +489,11 @@ void LocalPlayer::draw_alpha(const RenderParams& params) const
 
 			text.wrap_width = MENU_ITEM_WIDTH;
 			text.anchor_x = text.anchor_y = UIText::Anchor::Center;
+			text.color = UI::default_color;
 			text.text(_(strings::spawning), (s32)manager.ref()->spawn_timer + 1);
-			Vec2 p = vp.pos + vp.size * Vec2(0.5f);
-			UI::box(params, text.rect(p).outset(8.0f), UI::background_color);
-			UI::border(params, text.rect(p).outset(8.0f), 2, UI::default_color);
+			Vec2 p = vp.size * Vec2(0.5f);
+			UI::box(params, text.rect(p).outset(8.0f * UI::scale), UI::background_color);
+			UI::border(params, text.rect(p).outset(8.0f * UI::scale), 2, UI::default_color);
 			text.draw(params, p);
 
 			break;
@@ -484,7 +503,7 @@ void LocalPlayer::draw_alpha(const RenderParams& params) const
 	// score box
 	{
 		vi_assert(Team::list.length == 2); // only support two teams right now
-		Vec2 box_pos = vp.pos + Vec2(vp.size.x * 0.5f, vp.size.y);
+		Vec2 box_pos = Vec2(vp.size.x * 0.5f, vp.size.y);
 		UI::mesh(params, Asset::Mesh::score_box, box_pos, Vec2(200.0f * UI::scale), UI::background_color);
 
 		UIText text;
@@ -864,6 +883,53 @@ void LocalPlayerControl::update(const Update& u)
 		}
 
 		camera_pos = get<Awk>()->center();
+
+		// abilities
+		for (s32 i = 0; i < ABILITY_COUNT; i++)
+		{
+			if (u.input->get(settings.bindings.abilities[i], gamepad) && !u.last_input->get(settings.bindings.abilities[i], gamepad))
+			{
+				AbilitySlot& slot = player.ref()->manager.ref()->abilities[i];
+				switch (slot.ability)
+				{
+					case Ability::Heal:
+					{
+						if (get<Health>()->hp < get<Health>()->total && slot.use())
+						{
+							s32 boost;
+							switch (slot.level)
+							{
+								case 0:
+								{
+									get<Health>()->hp = min(get<Health>()->hp + AWK_HEALTH / 8, get<Health>()->total);
+									break;
+								}
+								case 1:
+								{
+									get<Health>()->hp = min(get<Health>()->hp + AWK_HEALTH / 4, get<Health>()->total);
+									break;
+								}
+								case 2:
+								{
+									get<Health>()->hp = min(get<Health>()->hp + AWK_HEALTH / 2, get<Health>()->total);
+									break;
+								}
+								default:
+								{
+									vi_assert(false);
+									break;
+								}
+							}
+						}
+						break;
+					}
+					case Ability::Stealth:
+					{
+						break;
+					}
+				}
+			}
+		}
 	}
 	else
 	{
@@ -996,8 +1062,8 @@ void LocalPlayerControl::update(const Update& u)
 	}
 	
 	s32 player_count = LocalPlayer::list.count();
-	Camera::ViewportBlueprs32* viewports = Camera::viewport_blueprs32s[player_count - 1];
-	Camera::ViewportBlueprs32* blueprs32 = &viewports[gamepad];
+	Camera::ViewportBlueprint* viewports = Camera::viewport_blueprints[player_count - 1];
+	Camera::ViewportBlueprint* blueprint = &viewports[gamepad];
 
 	if (has<Awk>())
 		camera->range = AWK_MAX_DISTANCE;
@@ -1006,8 +1072,8 @@ void LocalPlayerControl::update(const Update& u)
 
 	camera->viewport =
 	{
-		Vec2((s32)(blueprs32->x * (r32)u.input->width), (s32)(blueprs32->y * (r32)u.input->height)),
-		Vec2((s32)(blueprs32->w * (r32)u.input->width), (s32)(blueprs32->h * (r32)u.input->height)),
+		Vec2((s32)(blueprint->x * (r32)u.input->width), (s32)(blueprint->y * (r32)u.input->height)),
+		Vec2((s32)(blueprint->w * (r32)u.input->width), (s32)(blueprint->h * (r32)u.input->height)),
 	};
 	r32 aspect = camera->viewport.size.y == 0 ? 1 : (r32)camera->viewport.size.x / (r32)camera->viewport.size.y;
 	camera->perspective(LMath::lerpf(fov_blend, fov_initial, fov_zoom), aspect, 0.02f, Skybox::far_plane);
@@ -1099,9 +1165,6 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 
 	if (params.camera == camera)
 	{
-		static const Vec3 scale = Vec3(0.05f);
-		static const r32 s32erval = 1.0f;
-
 		AI::Team team = get<AIAgent>()->team;
 		Vec4 color = Team::colors[(s32)team];
 
@@ -1166,32 +1229,67 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 			}
 		}
 
-		AssetID secondary_icon = AssetNull;
-
+		// compass
 		Vec2 compass_size = Vec2(fmin(viewport.size.x, viewport.size.y) * 0.3f);
-
 		Vec4 compass_color = alert ? UI::alert_color : Vec4(1, 1, 1, 1);
-
-		UI::mesh(params, Asset::Mesh::compass_inner, viewport.pos + viewport.size * Vec2(0.5f, 0.5f), compass_size, compass_color, angle_vertical);
-		UI::mesh(params, Asset::Mesh::compass_outer, viewport.pos + viewport.size * Vec2(0.5f, 0.5f), compass_size, Vec4(compass_color.xyz(), 1.0f), -angle_horizontal);
+		UI::mesh(params, Asset::Mesh::compass_inner, viewport.size * Vec2(0.5f, 0.5f), compass_size, compass_color, angle_vertical);
+		UI::mesh(params, Asset::Mesh::compass_outer, viewport.size * Vec2(0.5f, 0.5f), compass_size, Vec4(compass_color.xyz(), 1.0f), -angle_horizontal);
 
 		// health bar
 		{
 			const Health* health = get<Health>();
-			if (health->hp < health->total)
-			{
-				const Vec2 size = Vec2(128.0f, 16.0f) * UI::scale;
-				const Vec2 pos = viewport.pos + viewport.size * Vec2(0.5f, 0.1f);
-				const Vec4& color = Team::colors[(s32)team];
-				UI::box(params, { pos - size * 0.5f, size }, UI::background_color);
-				UI::box(params, { pos - size * 0.5f, size * Vec2((r32)health->hp / (r32)health->total, 1.0f) }, color);
-				UI::border(params, { pos - size * 0.5f, size }, 2, color);
-			}
+			const Vec2 size = Vec2(128.0f, 16.0f) * UI::scale;
+			const Vec2 pos = viewport.size * Vec2(0.5f, 0.1f);
+			const Vec4& color = Team::colors[(s32)team];
+			UI::box(params, { pos - size * 0.5f, size }, UI::background_color);
+			UI::box(params, { pos - size * 0.5f, size * Vec2((r32)health->hp / (r32)health->total, 1.0f) }, color);
+			UI::border(params, { pos - size * 0.5f, size }, 2, color);
 		}
 
 		// abilities
 		{
-			
+			const Settings& settings = Loader::settings();
+			UIText text;
+			text.font = Asset::Font::lowpoly;
+			text.anchor_x = UIText::Anchor::Min;
+			text.anchor_y = UIText::Anchor::Center;
+			text.size = 16.0f;
+			Vec2 icon_pos = viewport.size * Vec2(0.8f, 0.15f) + Vec2(8.0f * UI::scale, 0);
+			for (s32 i = ABILITY_COUNT - 1; i >= 0; i--)
+			{
+				const AbilitySlot& slot = player.ref()->manager.ref()->abilities[i];
+
+				if (slot.ability != Ability::None)
+				{
+					const AbilitySlot::Info& info = AbilitySlot::info[(s32)slot.ability];
+					text.text(_(strings::binding), settings.bindings.abilities[i].string(params.sync->input.gamepads[gamepad].active));
+
+					r32 text_offset = 24.0f * UI::scale;
+					r32 icon_size = 8.0f * UI::scale;
+					Vec2 text_pos = icon_pos + Vec2(text_offset, 0);
+
+					Rect2 box = text.rect(text_pos).outset(8.0f * UI::scale);
+					box.pos.x -= (text_offset + icon_size);
+					box.size.x += (text_offset + icon_size);
+					UI::box(params, box, UI::background_color);
+
+					if (slot.cooldown > 0.0f)
+					{
+						r32 cooldown_normalized = slot.cooldown / info.cooldown;
+						UI::box(params, { box.pos, Vec2(box.size.x * cooldown_normalized, box.size.y) }, UI::subtle_color);
+						text.color = UI::disabled_color;
+					}
+					else
+						text.color = UI::default_color;
+
+					if (info.icon != AssetNull)
+						UI::mesh(params, info.icon, icon_pos, Vec2(UI::scale * 16.0f), text.color);
+
+					text.draw(params, text_pos);
+
+					icon_pos.y += box.size.y;
+				}
+			}
 		}
 	}
 }

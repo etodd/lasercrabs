@@ -442,6 +442,9 @@ MinionAI::~MinionAI()
 
 b8 MinionAI::can_see(Entity* target) const
 {
+	if (target->has<AIAgent>() && get<AIAgent>()->stealth)
+		return false;
+
 	Vec3 pos = get<Transform>()->absolute_pos();
 	Vec3 target_pos = target->get<Transform>()->absolute_pos();
 	if ((target_pos - pos).length_squared() < MINION_VIEW_RANGE * MINION_VIEW_RANGE)

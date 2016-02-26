@@ -665,12 +665,12 @@ void Rope::add(const Vec3& pos, const Quat& rot)
 			Vec3 last_segment_pos = last_segment.ref()->get<Transform>()->to_world(last_segment_relative_pos);
 			Vec3 diff = pos - last_segment_pos;
 			r32 length = diff.dot(forward);
-			r32 rope_s32erval = rope_segment_length / (1.0f + slack);
+			r32 rope_interval = rope_segment_length / (1.0f + slack);
 			Vec3 scale = Vec3(rope_radius, rope_radius, rope_segment_length * 0.5f);
 
-			if (length > rope_s32erval * 0.5f)
+			if (length > rope_interval * 0.5f)
 			{
-				Vec3 spawn_pos = last_segment_pos + (diff / length) * rope_s32erval * 0.5f;
+				Vec3 spawn_pos = last_segment_pos + (diff / length) * rope_interval * 0.5f;
 				Entity* box = World::create<PhysicsEntity>(AssetNull, spawn_pos, rot, RigidBody::Type::CapsuleZ, Vec3(rope_radius, rope_segment_length - rope_radius * 2.0f, 0.0f), 1.0f, CollisionInaccessible, CollisionInaccessibleMask);
 
 				static Quat rotation_a = Quat::look(Vec3(0, 0, 1)) * Quat::euler(0, PI * -0.5f, 0);

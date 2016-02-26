@@ -9,7 +9,7 @@ namespace VI
 {
 
 UIText::UIText()
-	: color(Vec4(1, 1, 1, 1)),
+	: color(UI::default_color),
 	font(),
 	size(16),
 	rendered_string(),

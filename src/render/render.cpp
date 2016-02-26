@@ -4,25 +4,25 @@ namespace VI
 {
 
 
-Camera::ViewportBlueprs32 Camera::one_player_viewports[] =
+Camera::ViewportBlueprint Camera::one_player_viewports[] =
 {
 	{ 0, 0, 1, 1, },
 };
 
-Camera::ViewportBlueprs32 Camera::two_player_viewports[] =
+Camera::ViewportBlueprint Camera::two_player_viewports[] =
 {
 	{ 0, 0, 0.5f, 1, },
 	{ 0.5f, 0, 0.5f, 1, },
 };
 
-Camera::ViewportBlueprs32 Camera::three_player_viewports[] =
+Camera::ViewportBlueprint Camera::three_player_viewports[] =
 {
 	{ 0, 0, 0.5f, 0.5f, },
 	{ 0.5f, 0, 0.5f, 0.5f, },
 	{ 0, 0.5f, 0, 0.5f, },
 };
 
-Camera::ViewportBlueprs32 Camera::four_player_viewports[] =
+Camera::ViewportBlueprint Camera::four_player_viewports[] =
 {
 	{ 0, 0, 0.25f, 0.25f, },
 	{ 0.25f, 0, 0.25f, 0.25f, },
@@ -30,7 +30,7 @@ Camera::ViewportBlueprs32 Camera::four_player_viewports[] =
 	{ 0.25f, 0.25f, 0.25f, 0.25f, },
 };
 
-Camera::ViewportBlueprs32* Camera::viewport_blueprs32s[] =
+Camera::ViewportBlueprint* Camera::viewport_blueprints[] =
 {
 	Camera::one_player_viewports,
 	Camera::two_player_viewports,

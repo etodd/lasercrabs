@@ -9,17 +9,18 @@ namespace VI
 
 struct RenderParams;
 
-#define MENU_ITEM_WIDTH (384.0f * UI::scale)
+#define MENU_ITEM_WIDTH (400.0f * UI::scale)
 #define MENU_ITEM_FONT_SIZE 24.0f
 #define MENU_ITEM_PADDING (10.0f * UI::scale)
 #define MENU_ITEM_HEIGHT ((MENU_ITEM_FONT_SIZE * UI::scale) + MENU_ITEM_PADDING * 2.0f)
-#define MENU_ITEM_PADDING_LEFT (24.0f * UI::scale)
+#define MENU_ITEM_PADDING_LEFT (48.0f * UI::scale)
 #define MENU_ITEM_VALUE_OFFSET (MENU_ITEM_WIDTH * 0.75f)
 
 struct UIMenu
 {
 	struct Item
 	{
+		AssetID icon;
 		Vec2 pos;
 		UIText label;
 		UIText value;
@@ -44,9 +45,9 @@ struct UIMenu
 	UIMenu();
 	void clear();
 	void start(const Update&, u8);
-	Rect2 add_item(Vec2*, b8, const char*, const char* = nullptr, b8 = false);
-	b8 item(const Update&, u8, Vec2*, const char*, const char* = nullptr, b8 = false);
-	Delta slider_item(const Update&, u8, Vec2*, const char*, const char*, b8 = false);
+	Rect2 add_item(Vec2*, b8, const char*, const char* = nullptr, b8 = false, AssetID = AssetNull);
+	b8 item(const Update&, u8, Vec2*, const char*, const char* = nullptr, b8 = false, AssetID = AssetNull);
+	Delta slider_item(const Update&, u8, Vec2*, const char*, const char*, b8 = false, AssetID = AssetNull);
 	void draw_alpha(const RenderParams&) const;
 	void end();
 };

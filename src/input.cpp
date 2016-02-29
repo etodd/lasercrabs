@@ -256,7 +256,7 @@ const char* InputBinding::string(b8 gamepad) const
 	if (gamepad)
 		return Input::btn_strings[(s32)btn];
 	else
-		return Input::key_strings[(s32)key];
+		return Input::key_strings[(s32)key1];
 }
 
 

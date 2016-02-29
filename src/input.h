@@ -285,7 +285,8 @@ struct Gamepad
 
 struct InputBinding
 {
-	KeyCode key;
+	KeyCode key1;
+	KeyCode key2;
 	Gamepad::Btn btn;
 	const char* string(b8) const;
 };
@@ -302,7 +303,8 @@ struct InputState
 
 	inline b8 get(const InputBinding& binding, s32 index) const
 	{
-		return (index == 0 && keys[(s32)binding.key]) || (gamepads[index].btns & (s32)binding.btn);
+		return (index == 0 && (keys[(s32)binding.key1] || (binding.key2 != KeyCode::None && keys[(s32)binding.key2])))
+			|| (gamepads[index].btns & (s32)binding.btn);
 	}
 };
 

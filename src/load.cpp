@@ -970,7 +970,8 @@ InputBinding input_binding(cJSON* parent, const char* key, const InputBinding& d
 		return default_value;
 
 	InputBinding binding;
-	binding.key = (KeyCode)Json::get_s32(json, "key", (s32)default_value.key);
+	binding.key1 = (KeyCode)Json::get_s32(json, "key1", (s32)default_value.key1);
+	binding.key2 = (KeyCode)Json::get_s32(json, "key2", (s32)default_value.key2);
 	binding.btn = (Gamepad::Btn)Json::get_s32(json, "btn", (s32)default_value.btn);
 	return binding;
 }
@@ -978,8 +979,10 @@ InputBinding input_binding(cJSON* parent, const char* key, const InputBinding& d
 cJSON* input_binding_json(const InputBinding& binding)
 {
 	cJSON* json = cJSON_CreateObject();
-	if (binding.key != KeyCode::None)
-		cJSON_AddNumberToObject(json, "key", (s32)binding.key);
+	if (binding.key1 != KeyCode::None)
+		cJSON_AddNumberToObject(json, "key1", (s32)binding.key1);
+	if (binding.key2 != KeyCode::None)
+		cJSON_AddNumberToObject(json, "key2", (s32)binding.key2);
 	if (binding.btn != Gamepad::Btn::None)
 		cJSON_AddNumberToObject(json, "btn", (s32)binding.btn);
 	return json;
@@ -999,20 +1002,20 @@ Settings& Loader::settings()
 		settings_data.music = (u8)Json::get_s32(json, "music", 100);
 
 		cJSON* bindings = cJSON_GetObjectItem(json, "bindings");
-		settings_data.bindings.backward = input_binding(bindings, "backward", { KeyCode::S, Gamepad::Btn::None });
-		settings_data.bindings.forward = input_binding(bindings, "forward", { KeyCode::W, Gamepad::Btn::None });
-		settings_data.bindings.left = input_binding(bindings, "left", { KeyCode::A, Gamepad::Btn::None });
-		settings_data.bindings.right = input_binding(bindings, "right", { KeyCode::D, Gamepad::Btn::None });
-		settings_data.bindings.up = input_binding(bindings, "up", { KeyCode::Space, Gamepad::Btn::RightShoulder });
-		settings_data.bindings.down = input_binding(bindings, "down", { KeyCode::LCtrl, Gamepad::Btn::LeftShoulder });
-		settings_data.bindings.jump = input_binding(bindings, "jump", { KeyCode::Space, Gamepad::Btn::RightTrigger });
-		settings_data.bindings.primary = input_binding(bindings, "primary", { KeyCode::MouseLeft, Gamepad::Btn::RightTrigger });
-		settings_data.bindings.secondary = input_binding(bindings, "secondary", { KeyCode::MouseRight, Gamepad::Btn::LeftTrigger });
-		settings_data.bindings.parkour = input_binding(bindings, "parkour", { KeyCode::LShift, Gamepad::Btn::LeftTrigger });
-		settings_data.bindings.slide = input_binding(bindings, "slide", { KeyCode::MouseLeft, Gamepad::Btn::LeftClick });
-		settings_data.bindings.abilities[0] = input_binding(bindings, "ability1", { KeyCode::Q, Gamepad::Btn::X });
-		settings_data.bindings.abilities[1] = input_binding(bindings, "ability2", { KeyCode::E, Gamepad::Btn::Y });
-		settings_data.bindings.upgrade = input_binding(bindings, "upgrade", { KeyCode::Tab, Gamepad::Btn::A });
+		settings_data.bindings.backward = input_binding(bindings, "backward", { KeyCode::S, KeyCode::Down, Gamepad::Btn::None });
+		settings_data.bindings.forward = input_binding(bindings, "forward", { KeyCode::W, KeyCode::Up, Gamepad::Btn::None });
+		settings_data.bindings.left = input_binding(bindings, "left", { KeyCode::A, KeyCode::Left, Gamepad::Btn::None });
+		settings_data.bindings.right = input_binding(bindings, "right", { KeyCode::D, KeyCode::Right, Gamepad::Btn::None });
+		settings_data.bindings.up = input_binding(bindings, "up", { KeyCode::Space, KeyCode::None, Gamepad::Btn::RightShoulder });
+		settings_data.bindings.down = input_binding(bindings, "down", { KeyCode::LCtrl, KeyCode::None, Gamepad::Btn::LeftShoulder });
+		settings_data.bindings.jump = input_binding(bindings, "jump", { KeyCode::Space, KeyCode::None, Gamepad::Btn::RightTrigger });
+		settings_data.bindings.primary = input_binding(bindings, "primary", { KeyCode::MouseLeft, KeyCode::None, Gamepad::Btn::RightTrigger });
+		settings_data.bindings.secondary = input_binding(bindings, "secondary", { KeyCode::MouseRight, KeyCode::None, Gamepad::Btn::LeftTrigger });
+		settings_data.bindings.parkour = input_binding(bindings, "parkour", { KeyCode::LShift, KeyCode::None, Gamepad::Btn::LeftTrigger });
+		settings_data.bindings.slide = input_binding(bindings, "slide", { KeyCode::MouseLeft, KeyCode::None, Gamepad::Btn::LeftClick });
+		settings_data.bindings.abilities[0] = input_binding(bindings, "ability1", { KeyCode::Q, KeyCode::None, Gamepad::Btn::X });
+		settings_data.bindings.abilities[1] = input_binding(bindings, "ability2", { KeyCode::E, KeyCode::None, Gamepad::Btn::Y });
+		settings_data.bindings.upgrade = input_binding(bindings, "upgrade", { KeyCode::Tab, KeyCode::None, Gamepad::Btn::A });
 	}
 	return settings_data;
 }

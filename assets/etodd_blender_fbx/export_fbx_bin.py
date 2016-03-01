@@ -2101,6 +2101,7 @@ def fbx_animations(scene_data):
     return animations, animated, frame_start, frame_end
 
 class AnimatedObjectSnapshot(object):
+    __slots__ = ['action', 'pose']
     def __init__(self, ob_obj):
         if ob_obj.bdata.animation_data:
             self.action = ob_obj.bdata.animation_data.action

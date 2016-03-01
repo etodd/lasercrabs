@@ -17,6 +17,7 @@
 #include "cjson/cJSON.h"
 #include "strings.h"
 #include <unordered_map>
+#include "utf8/utf8.h"
 
 namespace VI
 {
@@ -48,140 +49,6 @@ Script* Script::find(const char* name)
 #define MAX_CHOICES 4
 namespace Soren
 {
-	struct Node
-	{
-		enum class Type
-		{
-			Node,
-			Text,
-			Choice,
-			Branch,
-			Set,
-		};
-		Type type;
-		AssetID name;
-		AssetID variable; // for Sets
-		struct Branch
-		{
-			AssetID value;
-			ID target;
-		};
-		Branch branches[MAX_BRANCHES]; // for Branches
-		union
-		{
-			ID next; // for Choices
-			ID choices[MAX_CHOICES]; // for Texts
-		};
-	};
-
-	Node nodes[1024];
-
-	void global_init()
-	{
-		Array<cJSON*> trees;
-		std::unordered_map<std::string, ID> lookup;
-
-		// load dialogue trees and build node ID lookup table
-		for (s32 i = 0; i < Asset::DialogueTree::count; i++)
-		{
-			cJSON* tree = Loader::dialogue_tree(i);
-			trees.add(tree);
-
-			cJSON* json_node = trees[i]->child;
-
-			ID current_node_id = 0;
-
-			while (json_node)
-			{
-				const char* id = Json::get_string(json_node, "id");
-				lookup[id] = current_node_id;
-				current_node_id++;
-			}
-		}
-
-		// parse nodes
-		for (s32 i = 0; i < Asset::DialogueTree::count; i++)
-		{
-			cJSON* json_node = trees[i]->child;
-
-			ID current_node_id = 0;
-
-			while (json_node)
-			{
-				Node& node = nodes[current_node_id];
-
-				const char* in_type = Json::get_string(json_node, "type");
-				if (strcmp(in_type, "Node") == 0)
-					node.type = Node::Type::Node;
-				else if (strcmp(in_type, "Text") == 0)
-					node.type = Node::Type::Text;
-				else if (strcmp(in_type, "Choice") == 0)
-					node.type = Node::Type::Choice;
-				else if (strcmp(in_type, "Branch") == 0)
-					node.type = Node::Type::Branch;
-				else if (strcmp(in_type, "Set") == 0)
-					node.type = Node::Type::Set;
-				else
-					vi_assert(false);
-
-				node.name = string_get(Json::get_string(json_node, "name"));
-				node.variable = string_get(Json::get_string(json_node, "variable"));
-
-				// branches
-				{
-					for (s32 j = 0; j < MAX_BRANCHES; j++)
-					{
-						node.branches[j].target = IDNull;
-						node.branches[j].value = AssetNull;
-					}
-					cJSON* json_branches = cJSON_GetObjectItem(json_node, "branches");
-					cJSON* json_branch = json_branches->child;
-					s32 j = 0;
-					while (json_branch)
-					{
-						node.branches[j].value = string_get(json_branch->string);
-						node.branches[j].target = lookup[json_branch->valuestring];
-						json_branch = json_branch->next;
-						j++;
-					}
-				}
-
-				// next
-				{
-					const char* next = Json::get_string(json_node, "next");
-					if (next)
-						node.next = lookup[next];
-				}
-
-				// choices
-				{
-					cJSON* json_choices = cJSON_GetObjectItem(json_node, "choices");
-					if (json_choices)
-					{
-						for (s32 j = 0; j < MAX_BRANCHES; j++)
-							node.choices[i] = IDNull;
-						s32 i = 0;
-						cJSON* json_choice = json_choices->child;
-						while (json_choice)
-						{
-							vi_assert(i < MAX_CHOICES);
-							node.choices[i] = lookup[json_choice->valuestring];
-							i++;
-						}
-					}
-				}
-
-				json_node = json_node->next;
-
-				current_node_id++;
-			}
-
-		}
-
-		for (s32 i = 0; i < trees.length; i++)
-			Loader::dialogue_tree_free(trees[i]);
-	}
-
 	enum class Face
 	{
 		Default,
@@ -196,6 +63,226 @@ namespace Soren
 		Concerned,
 		count,
 	};
+
+	struct Node
+	{
+		enum class Type
+		{
+			Node,
+			Text,
+			Choice,
+			Branch,
+			Set,
+		};
+
+		struct Branch
+		{
+			AssetID value;
+			ID target;
+		};
+
+		struct Text
+		{
+			Face face;
+			ID choices[MAX_CHOICES];
+		};
+
+		struct BranchData
+		{
+			AssetID variable;
+			Branch branches[MAX_BRANCHES];
+		};
+
+		struct Set
+		{
+			AssetID variable;
+			AssetID value;
+		};
+
+		Type type;
+		AssetID name;
+		ID next;
+		union
+		{
+			Text text;
+			Set set;
+			BranchData branch;
+		};
+	};
+
+	Node nodes[4096];
+
+	// map string IDs to node IDs
+	// note: multiple nodes may use the same string ID
+	ID node_lookup[(s32)Asset::String::count];
+	AssetID variables[(s32)Asset::String::count];
+
+	void global_init()
+	{
+		Array<cJSON*> trees;
+		std::unordered_map<std::string, ID> id_lookup;
+
+		// load dialogue trees and build node ID lookup table
+		for (s32 i = 0; i < Asset::DialogueTree::count; i++)
+		{
+			cJSON* tree = Loader::dialogue_tree(i);
+			trees.add(tree);
+
+			cJSON* json_node = trees[i]->child;
+
+			ID current_node_id = 0;
+
+			while (json_node)
+			{
+				const char* id = Json::get_string(json_node, "id");
+				id_lookup[id] = current_node_id;
+				current_node_id++;
+				json_node = json_node->next;
+			}
+		}
+
+		// parse nodes
+		for (s32 tree_index = 0; tree_index < Asset::DialogueTree::count; tree_index++)
+		{
+			cJSON* json_node = trees[tree_index]->child;
+
+			ID current_node_id = 0;
+
+			while (json_node)
+			{
+				Node& node = nodes[current_node_id];
+
+				// type
+				{
+					const char* type = Json::get_string(json_node, "type");
+					if (strcmp(type, "Node") == 0)
+						node.type = Node::Type::Node;
+					else if (strcmp(type, "Text") == 0)
+						node.type = Node::Type::Text;
+					else if (strcmp(type, "Choice") == 0)
+						node.type = Node::Type::Choice;
+					else if (strcmp(type, "Branch") == 0)
+						node.type = Node::Type::Branch;
+					else if (strcmp(type, "Set") == 0)
+						node.type = Node::Type::Set;
+					else
+						vi_assert(false);
+				}
+
+				// name
+				{
+					const char* name_str = Json::get_string(json_node, "name");
+					if (name_str)
+					{
+						node.name = string_get(name_str);
+						vi_assert(node.name != AssetNull);
+						node_lookup[node.name] = current_node_id;
+					}
+				}
+
+				// next
+				{
+					const char* next = Json::get_string(json_node, "next");
+					if (next)
+						node.next = id_lookup[next];
+					else
+						node.next = IDNull;
+				}
+
+				if (node.type == Node::Type::Text)
+				{
+					const char* face = Json::get_string(json_node, "face");
+					if (face)
+					{
+						if (strcmp(face, "Sad") == 0)
+							node.text.face = Face::Sad;
+						else if (strcmp(face, "Upbeat") == 0)
+							node.text.face = Face::Upbeat;
+						else if (strcmp(face, "Urgent") == 0)
+							node.text.face = Face::Urgent;
+						else if (strcmp(face, "EyesClosed") == 0)
+							node.text.face = Face::EyesClosed;
+						else if (strcmp(face, "Smile") == 0)
+							node.text.face = Face::Smile;
+						else if (strcmp(face, "Wat") == 0)
+							node.text.face = Face::Wat;
+						else if (strcmp(face, "Unamused") == 0)
+							node.text.face = Face::Unamused;
+						else if (strcmp(face, "Angry") == 0)
+							node.text.face = Face::Angry;
+						else if (strcmp(face, "Concerned") == 0)
+							node.text.face = Face::Concerned;
+						else
+							node.text.face = Face::Default;
+					}
+					else
+						node.text.face = Face::Default;
+
+					// choices
+					{
+						for (s32 i = 0; i < MAX_CHOICES; i++)
+							node.text.choices[i] = IDNull;
+
+						cJSON* json_choices = cJSON_GetObjectItem(json_node, "choices");
+						if (json_choices)
+						{
+							s32 i = 0;
+							cJSON* json_choice = json_choices->child;
+							while (json_choice)
+							{
+								vi_assert(i < MAX_CHOICES);
+								node.text.choices[i] = id_lookup[json_choice->valuestring];
+								i++;
+								json_choice = json_choice->next;
+							}
+						}
+					}
+				}
+
+				if (node.type == Node::Type::Branch || node.type == Node::Type::Set)
+				{
+					const char* variable = Json::get_string(json_node, "variable");
+					if (variable)
+						node.set.variable = string_get(variable);
+
+					const char* value = Json::get_string(json_node, "value");
+					if (value)
+						node.set.value = string_get(value);
+				}
+
+				if (node.type == Node::Type::Branch)
+				{
+					cJSON* json_branches = cJSON_GetObjectItem(json_node, "branches");
+					if (json_branches)
+					{
+						for (s32 j = 0; j < MAX_BRANCHES; j++)
+						{
+							node.branch.branches[j].target = IDNull;
+							node.branch.branches[j].value = AssetNull;
+						}
+
+						cJSON* json_branch = json_branches->child;
+						s32 j = 0;
+						while (json_branch)
+						{
+							node.branch.branches[j].value = string_get(json_branch->string);
+							node.branch.branches[j].target = id_lookup[json_branch->valuestring];
+							json_branch = json_branch->next;
+							j++;
+						}
+					}
+				}
+
+				json_node = json_node->next;
+
+				current_node_id++;
+			}
+
+		}
+
+		for (s32 i = 0; i < trees.length; i++)
+			Loader::dialogue_tree_free(trees[i]);
+	}
 
 	enum class Mode
 	{
@@ -281,14 +368,13 @@ namespace Soren
 	};
 
 	typedef void (*Callback)(const Update&);
-	typedef void (*ChoiceCallback)(const Update&, const char*);
 
 	struct Choice
 	{
-		ChoiceCallback callback;
-		const char* a;
-		const char* b;
-		const char* c;
+		ID a;
+		ID b;
+		ID c;
+		ID d;
 	};
 
 	struct Data
@@ -299,12 +385,15 @@ namespace Soren
 		Schedule<AkUniqueID> audio_events;
 		Schedule<Callback> callbacks;
 		Schedule<Choice> choices;
-		Schedule<Mode> modes;
+		Schedule<AssetID> node_executions;
+		Mode mode;
 
 		UIText text;
 		r32 text_clip;
 
 		UIMenu menu;
+
+		LinkArg<AssetID> node_executed;
 	};
 
 	static Data* data;
@@ -312,17 +401,130 @@ namespace Soren
 	void clear()
 	{
 		data->time = 0.0f;
+		data->text.text(nullptr);
+		data->mode = Mode::Hidden;
 		data->texts.clear();
 		data->faces.clear();
 		data->audio_events.clear();
 		data->callbacks.clear();
 		data->choices.clear();
-		data->modes.clear();
+		data->node_executions.clear();
+	}
+
+#define time_per_character 0.05f
+#define time_per_message 1.0f
+
+	void _execute(ID node_id, r32& time)
+	{
+		const Node& node = nodes[node_id];
+		// TODO: post audio events
+		if (node.name != AssetNull)
+			data->node_executions.schedule(time, node.name);
+		switch (node.type)
+		{
+			case Node::Type::Text:
+			{
+				const char* str = _(node.name);
+				Audio::post_global_event(Audio::get_id(str));
+				data->texts.schedule(time, str);
+				data->faces.schedule(time, node.text.face);
+				time += time_per_message + utf8len(str) * time_per_character;
+				if (node.next == IDNull)
+				{
+					for (s32 i = 0; i < MAX_CHOICES; i++)
+					{
+						ID choice = node.text.choices[i];
+						if (choice == IDNull)
+							break;
+						else
+							_execute(choice, time);
+					}
+				}
+				else
+					_execute(node.next, time);
+				break;
+			}
+			case Node::Type::Branch:
+			{
+				AssetID value = variables[node.branch.variable];
+				b8 found_branch = false;
+				for (s32 i = 0; i < MAX_BRANCHES; i++)
+				{
+					if (node.branch.branches[i].value == value)
+					{
+						_execute(node.branch.branches[i].target, time);
+						found_branch = true;
+						break;
+					}
+					if (node.branch.branches[i].value == AssetNull)
+						break;
+				}
+				if (!found_branch)
+				{
+					// take default option
+					for (s32 i = 0; i < MAX_BRANCHES; i++)
+					{
+						if (node.branch.branches[i].value == Asset::String::_default)
+						{
+							_execute(node.branch.branches[i].target, time);
+							break;
+						}
+					}
+				}
+				break;
+			}
+			case Node::Type::Choice:
+			{
+				// schedule a choice if one has not already been scheduled
+				r32 choice_time = fmax(0, time - time_per_message); // make the choice come up a bit faster
+				if (data->choices.entries.length == 0 || data->choices.entries[data->choices.entries.length - 1].time != choice_time)
+					data->choices.schedule(choice_time, { IDNull, IDNull, IDNull, IDNull });
+
+				// add this choice to the entry
+				Schedule<Choice>::Entry& choice_entry = data->choices.entries[data->choices.entries.length - 1];
+				if (choice_entry.data.a == IDNull)
+					choice_entry.data.a = node_id;
+				else if (choice_entry.data.b == IDNull)
+					choice_entry.data.b = node_id;
+				else if (choice_entry.data.c == IDNull)
+					choice_entry.data.c = node_id;
+				else if (choice_entry.data.d == IDNull)
+					choice_entry.data.d = node_id;
+
+				break;
+			}
+			case Node::Type::Set:
+			{
+				variables[node.set.variable] = node.set.value;
+				if (node.next != IDNull)
+					_execute(node.next, time);
+				break;
+			}
+			case Node::Type::Node:
+			{
+				if (node.next != IDNull)
+					_execute(node.next, time);
+				break;
+			}
+			default:
+			{
+				vi_assert(false);
+				break;
+			}
+		}
+	}
+
+	void execute(ID id, r32 delay = 0.0f)
+	{
+		clear();
+		data->mode = Mode::Center;
+		_execute(id, delay);
 	}
 
 	void update(const Update& u)
 	{
-		data->modes.update(u, data->time);
+		if (data->node_executions.update(u, data->time))
+			data->node_executed.fire(data->node_executions.current());
 		data->faces.update(u, data->time);
 
 		if (data->texts.update(u, data->time))
@@ -362,18 +564,35 @@ namespace Soren
 		if (data->choices.active())
 		{
 			const Choice& choice = data->choices.current();
-			if (choice.a || choice.b || choice.c)
+			if (choice.a != IDNull)
 			{
 				data->menu.start(u, 0);
 
 				Vec2 p(u.input->width * 0.5f + MENU_ITEM_WIDTH * -0.5f, u.input->height * 0.2f);
 
-				if (choice.a && data->menu.item(u, 0, &p, choice.a) && choice.callback)
-					choice.callback(u, choice.a);
-				if (choice.b && data->menu.item(u, 0, &p, choice.b) && choice.callback)
-					choice.callback(u, choice.b);
-				if (choice.c && data->menu.item(u, 0, &p, choice.c) && choice.callback)
-					choice.callback(u, choice.c);
+				{
+					Node& node = nodes[choice.a];
+					if (data->menu.item(u, 0, &p, _(node.name)))
+						execute(node.next, 0.25f);
+				}
+				if (choice.b != IDNull)
+				{
+					Node& node = nodes[choice.b];
+					if (data->menu.item(u, 0, &p, _(node.name)))
+						execute(node.next, 0.25f);
+				}
+				if (choice.c != IDNull)
+				{
+					Node& node = nodes[choice.c];
+					if (data->menu.item(u, 0, &p, _(node.name)))
+						execute(node.next, 0.25f);
+				}
+				if (choice.d != IDNull)
+				{
+					Node& node = nodes[choice.d];
+					if (data->menu.item(u, 0, &p, _(node.name)))
+						execute(node.next, 0.25f);
+				}
 
 				data->menu.end();
 			}
@@ -390,7 +609,7 @@ namespace Soren
 
 		r32 scale = UI::scale;
 		Vec2 pos;
-		switch (data->modes.current())
+		switch (data->mode)
 		{
 			case Mode::Center:
 			case Mode::TextOnly:
@@ -416,7 +635,7 @@ namespace Soren
 			}
 		}
 
-		if (data->modes.current() != Mode::TextOnly)
+		if (data->mode != Mode::TextOnly)
 		{
 			// frame
 			{
@@ -445,10 +664,10 @@ namespace Soren
 		}
 
 		// text
-		if (data->text.bounds().length_squared() > 0.0f)
+		if (data->text.has_text())
 		{
 			Vec2 pos;
-			switch (data->modes.current())
+			switch (data->mode)
 			{
 				case Mode::Center:
 				case Mode::TextOnly:
@@ -549,9 +768,10 @@ namespace start
 		delete data;
 	}
 
-	void go(const Update& u)
+	void node_executed(AssetID node)
 	{
-		Menu::transition(Asset::Level::tutorial_01);
+		if (node == Asset::String::start_done)
+			Menu::transition(Asset::Level::tutorial_01);
 	}
 
 	void init(const Update& u, const EntityFinder& entities)
@@ -569,24 +789,8 @@ namespace start
 		data->camera->perspective((80.0f * PI * 0.5f / 180.0f), aspect, 0.01f, 100.0f);
 
 		Soren::init();
-		Soren::data->modes.schedule(0.0f, Soren::Mode::Center);
-		Soren::data->faces.schedule(0.0f, Soren::Face::EyesClosed);
-		Soren::data->faces.schedule(1.0f, Soren::Face::Default);
-		Soren::data->audio_events.schedule(2.0f, AK::EVENTS::SOREN1);
-		Soren::data->texts.schedule(2.0f, "Hello. I am Soren.");
-		Soren::data->texts.schedule(4.0f, "My job is to match you against other online players.");
-		Soren::data->faces.schedule(4.0f, Soren::Face::Upbeat);
-		Soren::data->faces.schedule(8.0f, Soren::Face::Default);
-		Soren::data->texts.schedule(8.0f, "But first, let's load my favorite map: tutorial 01.");
-		Soren::data->faces.schedule(10.0f, Soren::Face::Smile);
-		Soren::data->texts.schedule(13.0f, "Are you ready?");
-		Soren::data->faces.schedule(13.0f, Soren::Face::Default);
-		Soren::data->choices.schedule(13.0f, { nullptr, "Yes", "No" });
-		Soren::data->texts.schedule(14.0f, "Great. I'm so glad.");
-		Soren::data->faces.schedule(14.0f, Soren::Face::Unamused);
-		Soren::data->choices.schedule(14.0f, { });
-		Soren::data->faces.schedule(15.0f, Soren::Face::Smile);
-		Soren::data->callbacks.schedule(17.5f, go);
+		Soren::data->node_executed.link(&node_executed);
+		Soren::execute(Soren::node_lookup[Asset::String::start], 1.0f);
 	}
 }
 
@@ -605,9 +809,9 @@ namespace tutorial01
 		{
 			data->minion_dialogue_done = true;
 			Soren::clear();
-			Soren::data->modes.schedule(1.0f, Soren::Mode::TextOnly);
+			Soren::data->mode = Soren::Mode::TextOnly;
 			Soren::data->texts.schedule(1.0f, "When a minion's health is low, its helmet opens to expose the head.");
-			Soren::data->modes.schedule(6.0f, Soren::Mode::Hidden);
+			Soren::data->texts.schedule(6.0f, nullptr);
 		}
 	}
 
@@ -620,7 +824,7 @@ namespace tutorial01
 	{
 		// TODO: redo this
 		Soren::clear();
-		Soren::data->modes.schedule(1.0f, Soren::Mode::TextOnly);
+		Soren::data->mode = Soren::Mode::TextOnly;
 		Soren::data->texts.schedule(1.0f, "Destroy the enemy spawn.");
 	}
 
@@ -628,7 +832,7 @@ namespace tutorial01
 	{
 		// TODO: redo this
 		Soren::clear();
-		Soren::data->modes.schedule(2.0f, Soren::Mode::TextOnly);
+		Soren::data->mode = Soren::Mode::TextOnly;
 		Soren::data->texts.schedule(2.0f, "Tutorial 01 complete.");
 		Soren::data->callbacks.schedule(4.0f, &done);
 	}
@@ -637,7 +841,7 @@ namespace tutorial01
 	{
 		Game::data.allow_detach = true;
 		Soren::clear();
-		Soren::data->modes.schedule(0.0f, Soren::Mode::TextOnly);
+		Soren::data->mode = Soren::Mode::TextOnly;
 		Soren::data->texts.schedule(0.0f, "[{{Primary}}] to shoot. [{{Secondary}}] to zoom.");
 	}
 
@@ -663,9 +867,9 @@ namespace tutorial01
 		Game::data.allow_detach = false;
 
 		Soren::init();
-		Soren::data->modes.schedule(3.0f, Soren::Mode::TextOnly);
+		Soren::data->mode = Soren::Mode::TextOnly;
 		Soren::data->texts.schedule(3.0f, "Find the minion and shoot through its head.");
-		Soren::data->modes.schedule(8.0f, Soren::Mode::Hidden);
+		Soren::data->texts.schedule(8.0f, nullptr);
 
 		entities.find("minion1")->get<Health>()->killed.link(&minion1_dialogue);
 		entities.find("minion2")->get<Health>()->killed.link(&minion2_dialogue);

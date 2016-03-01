@@ -25,6 +25,7 @@ struct Audio : ComponentType<Audio>
 	static void listener_enable(u32);
 	static void listener_disable(u32);
 	static void listener_update(u32, const Vec3&, const Quat&);
+	static AkUniqueID get_id(const char*);
 
 	b8 registered;
 

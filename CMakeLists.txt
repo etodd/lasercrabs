@@ -34,6 +34,7 @@ configure_file(.exrc.in ${CMAKE_CURRENT_SOURCE_DIR}/.exrc)
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/assets)
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/assets/lvl)
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/assets/str)
+file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/assets/dl)
 
 if (APPLE)
 	set(ENV{PKG_CONFIG_PATH} ${CMAKE_SOURCE_DIR}/pkgconfig) # so pkg-config can find our custom gl.pc

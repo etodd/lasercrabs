@@ -372,6 +372,8 @@ const char* AssetLookup::NavMesh::names[] =
 
 const char* AssetLookup::String::names[] =
 {
+	"_default",
+	"are_you_ready",
 	"back",
 	"binding",
 	"btn_A",
@@ -391,8 +393,11 @@ const char* AssetLookup::String::names[] =
 	"continue_",
 	"credits",
 	"exit",
+	"fantastic_start_tutorial",
 	"gun",
 	"heal",
+	"hello_soren",
+	"job_match_online_players",
 	"join",
 	"key_A",
 	"key_ACBack",
@@ -619,9 +624,11 @@ const char* AssetLookup::String::names[] =
 	"keyboard_movement",
 	"leave",
 	"left_joystick",
+	"load_tutorial_01",
 	"main_menu",
 	"music",
 	"new_",
+	"no",
 	"options",
 	"player",
 	"resume",
@@ -629,24 +636,29 @@ const char* AssetLookup::String::names[] =
 	"sfx",
 	"spawning",
 	"splitscreen",
+	"start",
+	"start_done",
 	"stealth",
 	"stun",
 	"target_hit",
 	"turret",
 	"upgrade",
 	"upgrade_prompt",
+	"yes",
 	0,
 };
 
 
 const char* AssetLookup::DialogueTree::values[] =
 {
+	"assets/dl/start.dlz",
 	0,
 };
 
 
 const char* AssetLookup::DialogueTree::names[] =
 {
+	"start",
 	0,
 };
 

@@ -62,6 +62,8 @@ const char* soundbank_in_folder = "../assets/audio/GeneratedSoundBanks/Mac/";
 const char* soundbank_in_folder = "../assets/audio/GeneratedSoundBanks/Linux/";
 #endif
 #endif
+const char* dialogue_in_folder = "../assets/dl/";
+const char* dialogue_out_folder = "assets/dl/";
 const char* manifest_path = ".manifest";
 const char* asset_src_path = "../src/asset/values.cpp";
 const char* mesh_header_path = "../src/asset/mesh.h";
@@ -2110,8 +2112,6 @@ s32 proc(s32 argc, char* argv[])
 
 			if (has_extension(asset_in_path, texture_extension))
 				import_copy(state, state.manifest.textures, asset_in_path, asset_out_folder, texture_extension);
-			else if (has_extension(asset_in_path, dialogue_tree_extension))
-				import_copy(state, state.manifest.dialogue_trees, asset_in_path, asset_out_folder, dialogue_tree_extension);
 			else if (has_extension(asset_in_path, shader_extension))
 				import_shader(state, asset_in_path, asset_out_folder);
 			else if (has_extension(asset_in_path, model_in_extension))
@@ -2221,6 +2221,31 @@ s32 proc(s32 argc, char* argv[])
 
 				if (has_extension(asset_in_path, soundbank_extension))
 					import_copy(state, state.manifest.soundbanks, asset_in_path, asset_out_folder, soundbank_extension);
+
+				if (state.error)
+					break;
+			}
+			closedir(dir);
+		}
+
+		{
+			// Copy dialogue trees
+			DIR* dir = opendir(dialogue_in_folder);
+			if (!dir)
+			{
+				fprintf(stderr, "Error: Failed to open input dialogue tree directory.\n");
+				return exit_error();
+			}
+			struct dirent* entry;
+			while ((entry = readdir(dir)))
+			{
+				if (entry->d_type != DT_REG)
+					continue; // Not a file
+
+				std::string asset_in_path = dialogue_in_folder + std::string(entry->d_name);
+
+				if (has_extension(asset_in_path, dialogue_tree_extension))
+					import_copy(state, state.manifest.dialogue_trees, asset_in_path, dialogue_out_folder, dialogue_tree_extension);
 
 				if (state.error)
 					break;

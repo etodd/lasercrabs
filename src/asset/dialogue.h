@@ -8,7 +8,8 @@ namespace Asset
 {
 	namespace DialogueTree
 	{
-		const s32 count = 0;
+		const s32 count = 1;
+		const AssetID start = 0;
 	}
 }
 

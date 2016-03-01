@@ -186,6 +186,11 @@ void Audio::update()
 	AK::SoundEngine::RenderAudio();
 }
 
+AkUniqueID Audio::get_id(const char* str)
+{
+	return AK::SoundEngine::GetIDFromString(str);
+}
+
 void Audio::post_global_event(AkUniqueID event_id)
 {
 	AK::SoundEngine::PostEvent(event_id, MAX_ENTITIES);

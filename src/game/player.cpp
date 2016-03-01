@@ -39,7 +39,6 @@ namespace VI
 #define speed_mouse_zoom (speed_mouse * zoom_ratio)
 #define speed_joystick 5.0f
 #define speed_joystick_zoom (speed_joystick * zoom_ratio)
-#define joystick_dead_zone 0.1f
 #define attach_speed 5.0f
 #define max_attach_time 0.35f
 #define rotation_speed 20.0f
@@ -173,9 +172,7 @@ void LocalPlayer::update(const Update& u)
 	{
 		if (upgrading)
 			upgrading = false;
-		else if (options_menu)
-			options_menu = false;
-		else
+		else if (!options_menu)
 			pause = !pause;
 	}
 
@@ -719,13 +716,6 @@ void LocalPlayerControl::hit_target(Entity* target)
 		player.ref()->manager.ref()->add_credits(AWK_CREDITS);
 }
 
-r32 dead_zone(r32 x)
-{
-	if (fabs(x) < joystick_dead_zone)
-		return 0.0f;
-	return (x > 0.0f ? x - joystick_dead_zone : x + joystick_dead_zone) * (1.0f / (1.0f - joystick_dead_zone));
-}
-
 b8 LocalPlayerControl::input_enabled() const
 {
 	return !Console::visible && enable_input;
@@ -746,8 +736,8 @@ void LocalPlayerControl::update_camera_input(const Update& u)
 		if (u.input->gamepads[gamepad].active)
 		{
 			r32 s = LMath::lerpf(fov_blend, speed_joystick, speed_joystick_zoom);
-			angle_horizontal -= s * u.time.delta * dead_zone(u.input->gamepads[gamepad].right_x);
-			angle_vertical += s * u.time.delta * dead_zone(u.input->gamepads[gamepad].right_y);
+			angle_horizontal -= s * u.time.delta * Input::dead_zone(u.input->gamepads[gamepad].right_x);
+			angle_vertical += s * u.time.delta * Input::dead_zone(u.input->gamepads[gamepad].right_y);
 		}
 
 		angle_vertical = LMath::clampf(angle_vertical, PI * -0.495f, PI * 0.495f);
@@ -772,8 +762,8 @@ Vec3 LocalPlayerControl::get_movement(const Update& u, const Quat& rot)
 
 		if (u.input->gamepads[gamepad].active)
 		{
-			movement += Vec3(-dead_zone(u.input->gamepads[gamepad].left_x), 0, 0);
-			movement += Vec3(0, 0, -dead_zone(u.input->gamepads[gamepad].left_y));
+			movement += Vec3(-Input::dead_zone(u.input->gamepads[gamepad].left_x), 0, 0);
+			movement += Vec3(0, 0, -Input::dead_zone(u.input->gamepads[gamepad].left_y));
 		}
 
 		movement = rot * movement;
@@ -868,6 +858,7 @@ void LocalPlayerControl::update(const Update& u)
 				}
 
 				Vec3 movement = get_movement(u, clamped_look_quat);
+				Console::debug("%f %f %f", movement.x, movement.y, movement.z);
 
 				get<Awk>()->crawl(movement, u);
 			}

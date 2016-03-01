@@ -9,7 +9,7 @@ namespace VI
 {
 
 Ragdoll::Ragdoll()
-	: bodies(), timer(8.0f)
+	: bodies(), timer(5.0f)
 {
 }
 

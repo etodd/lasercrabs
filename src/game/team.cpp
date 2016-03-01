@@ -15,8 +15,8 @@
 #define PLAYER_SPAWN_DELAY 5.0f
 #define MINION_SPAWN_INITIAL_DELAY 10.0f
 #endif
-#define MINION_SPAWN_INTERVAL 30.0f
-#define MINION_SPAWN_GROUP_INTERVAL 2.0f
+#define MINION_SPAWN_INTERVAL 60.0f
+#define MINION_SPAWN_GROUP_INTERVAL 3.0f
 
 #define CREDITS_INITIAL 0
 
@@ -45,6 +45,12 @@ void Team::awake()
 		if (t)
 			t->target_hit.link<Team, const TargetEvent&, &Team::target_hit>(this);
 	}
+
+	for (s32 i = 0; i < minion_spawns.length; i++)
+		AI::obstacle_add(minion_spawns[i].ref()->absolute_pos(), MINION_SPAWN_RADIUS, 4.0f);
+
+	if (player_spawn.ref())
+		AI::obstacle_add(player_spawn.ref()->absolute_pos(), PLAYER_SPAWN_RADIUS, 4.0f);
 }
 
 #define TARGET_CREDITS 50

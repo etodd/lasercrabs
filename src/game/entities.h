@@ -178,6 +178,7 @@ struct TurretControl : public ComponentType<TurretControl>
 	r32 pitch;
 	r32 cooldown;
 	r32 target_check_time;
+	Quat base_rot;
 
 	void awake();
 

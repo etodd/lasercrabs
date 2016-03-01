@@ -35,6 +35,7 @@ file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/assets)
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/assets/lvl)
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/assets/str)
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/assets/dl)
+file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/assets/shader)
 
 if (APPLE)
 	set(ENV{PKG_CONFIG_PATH} ${CMAKE_SOURCE_DIR}/pkgconfig) # so pkg-config can find our custom gl.pc
@@ -329,30 +330,31 @@ add_executable(yearning
 	src/game/usernames.h
 	src/game/usernames.cpp
 	external/sdl_controllers/gamecontrollerdb.txt
-	assets/standard_particle.glsl
-	assets/spark.glsl
-	assets/armature.glsl
-	assets/composite.glsl
-	assets/flat.glsl
-	assets/flat_texture.glsl
-	assets/point_light.glsl
-	assets/global_light.glsl
-	assets/spot_light.glsl
-	assets/standard.glsl
-	assets/standard_instanced.glsl
-	assets/ui.glsl
-	assets/ui_texture.glsl
-	assets/debug_depth.glsl
-	assets/ssao.glsl
-	assets/ssao_blur.glsl
-	assets/ssao_downsample.glsl
-	assets/edge_detect.glsl
-	assets/bloom_downsample.glsl
-	assets/blur.glsl
-	assets/skybox.glsl
-	assets/sky_decal.glsl
-	assets/blend_to_fbx.py
-	assets/blend_to_lvl.py
+	assets/shader/standard_particle.glsl
+	assets/shader/spark.glsl
+	assets/shader/armature.glsl
+	assets/shader/composite.glsl
+	assets/shader/flat.glsl
+	assets/shader/flat_texture.glsl
+	assets/shader/point_light.glsl
+	assets/shader/global_light.glsl
+	assets/shader/spot_light.glsl
+	assets/shader/standard.glsl
+	assets/shader/standard_instanced.glsl
+	assets/shader/ui.glsl
+	assets/shader/ui_texture.glsl
+	assets/shader/debug_depth.glsl
+	assets/shader/ssao.glsl
+	assets/shader/ssao_blur.glsl
+	assets/shader/ssao_downsample.glsl
+	assets/shader/edge_detect.glsl
+	assets/shader/bloom_downsample.glsl
+	assets/shader/blur.glsl
+	assets/shader/skybox.glsl
+	assets/shader/sky_decal.glsl
+	assets/script/blend_to_fbx.py
+	assets/script/blend_to_lvl.py
+	assets/script/ttf_to_fbx.py
 	assets/str/en.json
 )
 

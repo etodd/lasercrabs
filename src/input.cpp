@@ -1,5 +1,6 @@
 #include "input.h"
 #include "strings.h"
+#include <math.h>
 
 namespace VI
 {
@@ -247,6 +248,14 @@ void load_strings()
 	btn_strings[(s32)Gamepad::Btn::LeftTrigger] = _(strings::btn_LeftTrigger);
 	btn_strings[(s32)Gamepad::Btn::RightTrigger] = _(strings::btn_RightTrigger);
 	btn_strings[(s32)Gamepad::Btn::None] = _(strings::btn_None);
+}
+
+#define joystick_dead_zone 0.1f
+r32 dead_zone(r32 x)
+{
+	if (fabs(x) < joystick_dead_zone)
+		return 0.0f;
+	return (x > 0.0f ? x - joystick_dead_zone : x + joystick_dead_zone) * (1.0f / (1.0f - joystick_dead_zone));
 }
 
 }

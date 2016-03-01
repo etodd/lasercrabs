@@ -430,6 +430,16 @@ void UIMenu::start(const Update& u, u8 gamepad)
 	if (gamepad == 0)
 		Game::update_cursor(u);
 
+	if (u.input->gamepads[gamepad].active)
+	{
+		r32 y = Input::dead_zone(u.input->gamepads[gamepad].left_y);
+		r32 last_y = Input::dead_zone(u.last_input->gamepads[gamepad].left_y);
+		if (y < 0.0f && last_y == 0.0f)
+			selected--;
+		else if (y > 0.0f && last_y == 0.0f)
+			selected++;
+	}
+
 	const Settings& settings = Loader::settings();
 	if (u.input->get(settings.bindings.forward, gamepad)
 		&& !u.last_input->get(settings.bindings.forward, gamepad))
@@ -487,8 +497,8 @@ b8 UIMenu::item(const Update& u, u8 gamepad, Vec2* menu_pos, const char* string,
 	}
 
 	if (selected == items.length - 1
-		&& !u.input->get(Game::bindings.start, gamepad)
-		&& u.last_input->get(Game::bindings.start, gamepad)
+		&& !u.input->get(Game::bindings.action, gamepad)
+		&& u.last_input->get(Game::bindings.action, gamepad)
 		&& Game::time.total > 0.5f
 		&& !Console::visible)
 	{

@@ -250,6 +250,8 @@ enum class KeyCode
 namespace Input
 {
 	void load_strings();
+
+	r32 dead_zone(r32 x);
 };
 
 struct Gamepad
@@ -267,6 +269,10 @@ struct Gamepad
 		Start = 1 << 8,
 		LeftTrigger = 1 << 9,
 		RightTrigger = 1 << 10,
+		DUp = 1 << 11,
+		DDown = 1 << 12,
+		DLeft = 1 << 13,
+		DRight = 1 << 14,
 		None,
 		Count = None,
 	};

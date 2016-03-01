@@ -41,6 +41,8 @@ const char* anim_out_extension = ".anm";
 const char* arm_out_extension = ".arm";
 const char* texture_extension = ".png";
 const char* shader_extension = ".glsl";
+const char* shader_in_folder = "../assets/shader/";
+const char* shader_out_folder = "assets/shader/";
 const char* dialogue_tree_extension = ".dlz";
 const char* asset_in_folder = "../assets/";
 const char* asset_out_folder = "assets/";
@@ -1034,7 +1036,7 @@ const aiScene* load_blend(ImporterState& state, Assimp::Importer& importer, cons
 	std::string asset_intermediate_path = out_folder + get_asset_name(asset_in_path) + model_intermediate_extension;
 
 	std::ostringstream cmdbuilder;
-	cmdbuilder << "blender " << asset_in_path << " --background --factory-startup --python " << asset_in_folder << "blend_to_fbx.py -- ";
+	cmdbuilder << "blender " << asset_in_path << " --background --factory-startup --python " << asset_in_folder << "script/blend_to_fbx.py -- ";
 	cmdbuilder << asset_intermediate_path;
 	std::string cmd = cmdbuilder.str();
 
@@ -1636,7 +1638,7 @@ void import_level(ImporterState& state, const std::string& asset_in_path, const 
 		printf("%s\n", asset_out_path.c_str());
 		std::ostringstream cmdbuilder;
 		cmdbuilder << "blender " << asset_in_path;
-		cmdbuilder << " --background --factory-startup --python " << asset_in_folder << "blend_to_lvl.py -- ";
+		cmdbuilder << " --background --factory-startup --python " << asset_in_folder << "script/blend_to_lvl.py -- ";
 		cmdbuilder << asset_out_path;
 		std::string cmd = cmdbuilder.str();
 
@@ -1939,7 +1941,7 @@ void import_font(ImporterState& state, const std::string& asset_in_path, const s
 
 		// Export to FBX first
 		std::ostringstream cmdbuilder;
-		cmdbuilder << "blender --background --factory-startup --python " << asset_in_folder << "ttf_to_fbx.py -- ";
+		cmdbuilder << "blender --background --factory-startup --python " << asset_in_folder << "script/ttf_to_fbx.py -- ";
 		cmdbuilder << asset_in_path << " " << asset_intermediate_path;
 		std::string cmd = cmdbuilder.str();
 
@@ -2095,7 +2097,7 @@ s32 proc(s32 argc, char* argv[])
 		state.rebuild = true;
 
 	{
-		// Import textures, shaders, models, fonts, etc.
+		// Import textures, models, fonts
 		DIR* dir = opendir(asset_in_folder);
 		if (!dir)
 		{
@@ -2112,8 +2114,6 @@ s32 proc(s32 argc, char* argv[])
 
 			if (has_extension(asset_in_path, texture_extension))
 				import_copy(state, state.manifest.textures, asset_in_path, asset_out_folder, texture_extension);
-			else if (has_extension(asset_in_path, shader_extension))
-				import_shader(state, asset_in_path, asset_out_folder);
 			else if (has_extension(asset_in_path, model_in_extension))
 			{
 				Array<Mesh> meshes;
@@ -2155,6 +2155,36 @@ s32 proc(s32 argc, char* argv[])
 		}
 		closedir(dir);
 	}
+
+	if (state.error)
+		return exit_error();
+
+	{
+		// Import shaders
+		DIR* dir = opendir(shader_in_folder);
+		if (!dir)
+		{
+			fprintf(stderr, "Failed to open input shader directory.\n");
+			return exit_error();
+		}
+		struct dirent* entry;
+		while ((entry = readdir(dir)))
+		{
+			if (entry->d_type != DT_REG)
+				continue; // Not a file
+
+			std::string asset_in_path = shader_in_folder + std::string(entry->d_name);
+
+			if (has_extension(asset_in_path, shader_extension))
+				import_shader(state, asset_in_path, shader_out_folder);
+			if (state.error)
+				break;
+		}
+		closedir(dir);
+	}
+
+	if (state.error)
+		return exit_error();
 
 	{
 		// Import strings

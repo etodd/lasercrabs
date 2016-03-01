@@ -50,8 +50,8 @@ namespace VI
 
 Game::Bindings Game::bindings =
 {
-	{ KeyCode::Return, KeyCode::None, Gamepad::Btn::Start }, // Start
-	{ KeyCode::Space, KeyCode::None, Gamepad::Btn::A }, // Action
+	{ KeyCode::Space, KeyCode::None, Gamepad::Btn::Start }, // Start
+	{ KeyCode::Return, KeyCode::None, Gamepad::Btn::A }, // Action
 	{ KeyCode::Escape, KeyCode::None, Gamepad::Btn::B }, // Cancel
 	{ KeyCode::Escape, KeyCode::None, Gamepad::Btn::Start }, // Pause
 };

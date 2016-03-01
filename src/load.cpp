@@ -1014,11 +1014,11 @@ Settings& Loader::settings()
 		settings_data.sfx = (u8)Json::get_s32(json, "sfx", 100);
 		settings_data.music = (u8)Json::get_s32(json, "music", 100);
 
-		cJSON* bindings = cJSON_GetObjectItem(json, "bindings");
-		settings_data.bindings.backward = input_binding(bindings, "backward", { KeyCode::S, KeyCode::Down, Gamepad::Btn::None });
-		settings_data.bindings.forward = input_binding(bindings, "forward", { KeyCode::W, KeyCode::Up, Gamepad::Btn::None });
-		settings_data.bindings.left = input_binding(bindings, "left", { KeyCode::A, KeyCode::Left, Gamepad::Btn::None });
-		settings_data.bindings.right = input_binding(bindings, "right", { KeyCode::D, KeyCode::Right, Gamepad::Btn::None });
+		cJSON* bindings = json ? cJSON_GetObjectItem(json, "bindings") : nullptr;
+		settings_data.bindings.backward = input_binding(bindings, "backward", { KeyCode::S, KeyCode::Down, Gamepad::Btn::DDown });
+		settings_data.bindings.forward = input_binding(bindings, "forward", { KeyCode::W, KeyCode::Up, Gamepad::Btn::DUp });
+		settings_data.bindings.left = input_binding(bindings, "left", { KeyCode::A, KeyCode::Left, Gamepad::Btn::DLeft });
+		settings_data.bindings.right = input_binding(bindings, "right", { KeyCode::D, KeyCode::Right, Gamepad::Btn::DRight });
 		settings_data.bindings.up = input_binding(bindings, "up", { KeyCode::Space, KeyCode::None, Gamepad::Btn::RightShoulder });
 		settings_data.bindings.down = input_binding(bindings, "down", { KeyCode::LCtrl, KeyCode::None, Gamepad::Btn::LeftShoulder });
 		settings_data.bindings.jump = input_binding(bindings, "jump", { KeyCode::Space, KeyCode::None, Gamepad::Btn::RightTrigger });

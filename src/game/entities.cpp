@@ -258,6 +258,7 @@ void TurretControl::awake()
 
 	target_check_time = mersenne::randf_oo() * TURRET_TARGET_CHECK_TIME;
 	link_arg<Entity*, &TurretControl::killed>(get<Health>()->killed);
+	base_rot = get<Transform>()->rot;
 }
 
 void TurretControl::killed(Entity* by)
@@ -268,6 +269,7 @@ void TurretControl::killed(Entity* by)
 b8 TurretControl::can_see(Entity* target) const
 {
 	Vec3 pos = get<Transform>()->absolute_pos();
+
 	Vec3 target_pos = target->get<Transform>()->absolute_pos();
 	Vec3 to_target = target_pos - pos;
 	float distance_to_target = to_target.length();
@@ -332,15 +334,23 @@ void TurretControl::update(const Update& u)
 
 	if (target.ref())
 	{
+		Quat absolute_base_rot;
+		if (get<Transform>()->parent.ref())
+			absolute_base_rot = get<Transform>()->absolute_rot() * base_rot;
+		else
+			absolute_base_rot = base_rot;
+		Quat inv_base_rot = absolute_base_rot.inverse();
+
 		Vec3 target_pos = target.ref()->get<Transform>()->absolute_pos();
 		Vec3 to_target = target_pos - get<Transform>()->absolute_pos();
 		to_target.normalize();
-		r32 target_yaw = atan2f(to_target.x, to_target.z);
-		r32 target_pitch = atan2f(to_target.y, Vec2(to_target.x, to_target.z).length());
+		Vec3 relative_to_target = inv_base_rot * to_target;
+		r32 target_yaw = atan2f(relative_to_target.x, relative_to_target.z);
+		r32 target_pitch = atan2f(relative_to_target.y, Vec2(relative_to_target.x, relative_to_target.z).length());
 		yaw = LMath::rotate_toward(yaw, target_yaw, TURRET_ROTATION_SPEED * u.time.delta);
 		pitch = LMath::rotate_toward(pitch, target_pitch, TURRET_ROTATION_SPEED * u.time.delta);
 
-		get<Transform>()->absolute_rot(Quat::euler(0, yaw, 0));
+		get<Transform>()->absolute_rot(absolute_base_rot * Quat::euler(0, yaw, 0));
 		get<Animator>()->override_bone(Asset::Bone::turret_gun, Vec3::zero, Quat::euler(pitch, 0, 0));
 
 		Vec3 gun_pos(2.5f, 0, 0);

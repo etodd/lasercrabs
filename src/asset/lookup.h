@@ -68,6 +68,12 @@ namespace VI
 		{
 			static const char* names[];
 		};
+
+		struct DialogueTree
+		{
+			static const char* values[];
+			static const char* names[];
+		};
 	}
 
 }

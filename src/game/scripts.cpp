@@ -11,8 +11,12 @@
 #include "asset/mesh.h"
 #include "asset/texture.h"
 #include "asset/shader.h"
+#include "asset/dialogue.h"
 #include "menu.h"
 #include "render/views.h"
+#include "cjson/cJSON.h"
+#include "strings.h"
+#include <unordered_map>
 
 namespace VI
 {
@@ -40,8 +44,144 @@ Script* Script::find(const char* name)
 	return nullptr;
 }
 
+#define MAX_BRANCHES 4
+#define MAX_CHOICES 4
 namespace Soren
 {
+	struct Node
+	{
+		enum class Type
+		{
+			Node,
+			Text,
+			Choice,
+			Branch,
+			Set,
+		};
+		Type type;
+		AssetID name;
+		AssetID variable; // for Sets
+		struct Branch
+		{
+			AssetID value;
+			ID target;
+		};
+		Branch branches[MAX_BRANCHES]; // for Branches
+		union
+		{
+			ID next; // for Choices
+			ID choices[MAX_CHOICES]; // for Texts
+		};
+	};
+
+	Node nodes[1024];
+
+	void global_init()
+	{
+		Array<cJSON*> trees;
+		std::unordered_map<std::string, ID> lookup;
+
+		// load dialogue trees and build node ID lookup table
+		for (s32 i = 0; i < Asset::DialogueTree::count; i++)
+		{
+			cJSON* tree = Loader::dialogue_tree(i);
+			trees.add(tree);
+
+			cJSON* json_node = trees[i]->child;
+
+			ID current_node_id = 0;
+
+			while (json_node)
+			{
+				const char* id = Json::get_string(json_node, "id");
+				lookup[id] = current_node_id;
+				current_node_id++;
+			}
+		}
+
+		// parse nodes
+		for (s32 i = 0; i < Asset::DialogueTree::count; i++)
+		{
+			cJSON* json_node = trees[i]->child;
+
+			ID current_node_id = 0;
+
+			while (json_node)
+			{
+				Node& node = nodes[current_node_id];
+
+				const char* in_type = Json::get_string(json_node, "type");
+				if (strcmp(in_type, "Node") == 0)
+					node.type = Node::Type::Node;
+				else if (strcmp(in_type, "Text") == 0)
+					node.type = Node::Type::Text;
+				else if (strcmp(in_type, "Choice") == 0)
+					node.type = Node::Type::Choice;
+				else if (strcmp(in_type, "Branch") == 0)
+					node.type = Node::Type::Branch;
+				else if (strcmp(in_type, "Set") == 0)
+					node.type = Node::Type::Set;
+				else
+					vi_assert(false);
+
+				node.name = string_get(Json::get_string(json_node, "name"));
+				node.variable = string_get(Json::get_string(json_node, "variable"));
+
+				// branches
+				{
+					for (s32 j = 0; j < MAX_BRANCHES; j++)
+					{
+						node.branches[j].target = IDNull;
+						node.branches[j].value = AssetNull;
+					}
+					cJSON* json_branches = cJSON_GetObjectItem(json_node, "branches");
+					cJSON* json_branch = json_branches->child;
+					s32 j = 0;
+					while (json_branch)
+					{
+						node.branches[j].value = string_get(json_branch->string);
+						node.branches[j].target = lookup[json_branch->valuestring];
+						json_branch = json_branch->next;
+						j++;
+					}
+				}
+
+				// next
+				{
+					const char* next = Json::get_string(json_node, "next");
+					if (next)
+						node.next = lookup[next];
+				}
+
+				// choices
+				{
+					cJSON* json_choices = cJSON_GetObjectItem(json_node, "choices");
+					if (json_choices)
+					{
+						for (s32 j = 0; j < MAX_BRANCHES; j++)
+							node.choices[i] = IDNull;
+						s32 i = 0;
+						cJSON* json_choice = json_choices->child;
+						while (json_choice)
+						{
+							vi_assert(i < MAX_CHOICES);
+							node.choices[i] = lookup[json_choice->valuestring];
+							i++;
+						}
+					}
+				}
+
+				json_node = json_node->next;
+
+				current_node_id++;
+			}
+
+		}
+
+		for (s32 i = 0; i < trees.length; i++)
+			Loader::dialogue_tree_free(trees[i]);
+	}
+
 	enum class Face
 	{
 		Default,

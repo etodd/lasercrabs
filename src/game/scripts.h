@@ -17,4 +17,9 @@ struct Script
 	ScriptFunction function;
 };
 
+namespace Soren
+{
+	void global_init();
+};
+
 }

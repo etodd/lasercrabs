@@ -24,7 +24,7 @@
 namespace VI
 {
 
-const s32 version = 18;
+const s32 version = 19;
 
 const char* model_in_extension = ".blend";
 const char* model_intermediate_extension = ".fbx";
@@ -41,6 +41,7 @@ const char* anim_out_extension = ".anm";
 const char* arm_out_extension = ".arm";
 const char* texture_extension = ".png";
 const char* shader_extension = ".glsl";
+const char* dialogue_tree_extension = ".dlz";
 const char* asset_in_folder = "../assets/";
 const char* asset_out_folder = "assets/";
 const char* level_out_extension = ".lvl";
@@ -73,6 +74,7 @@ const char* font_header_path = "../src/asset/font.h";
 const char* level_header_path = "../src/asset/level.h";
 const char* wwise_header_out_path = "../src/asset/Wwise_IDs.h";
 const char* string_header_path = "../src/asset/string.h";
+const char* dialogue_header_path = "../src/asset/dialogue.h";
 
 template <typename T>
 T read(FILE* f)
@@ -592,25 +594,7 @@ struct Manifest
 	Map<std::string> nav_meshes;
 	Map<std::string> string_files;
 	Map<std::string> strings;
-
-	Manifest()
-		: meshes(),
-		level_meshes(),
-		animations(),
-		armatures(),
-		bones(),
-		textures(),
-		soundbanks(),
-		shaders(),
-		uniforms(),
-		fonts(),
-		levels(),
-		nav_meshes(),
-		string_files(),
-		strings()
-	{
-
-	}
+	Map<std::string> dialogue_trees;
 };
 
 b8 manifest_requires_update(const Manifest& a, const Manifest& b)
@@ -628,7 +612,8 @@ b8 manifest_requires_update(const Manifest& a, const Manifest& b)
 		|| !maps_equal(a.levels, b.levels)
 		|| !maps_equal(a.nav_meshes, b.nav_meshes)
 		|| !maps_equal(a.string_files, b.string_files)
-		|| !maps_equal(a.strings, b.strings);
+		|| !maps_equal(a.strings, b.strings)
+		|| !maps_equal(a.dialogue_trees, b.dialogue_trees);
 }
 
 b8 manifest_read(const char* path, Manifest& manifest)
@@ -658,6 +643,7 @@ b8 manifest_read(const char* path, Manifest& manifest)
 			map_read(f, manifest.nav_meshes);
 			map_read(f, manifest.string_files);
 			map_read(f, manifest.strings);
+			map_read(f, manifest.dialogue_trees);
 			fclose(f);
 			return true;
 		}
@@ -689,6 +675,7 @@ b8 manifest_write(Manifest& manifest, const char* path)
 	map_write(manifest.nav_meshes, f);
 	map_write(manifest.string_files, f);
 	map_write(manifest.strings, f);
+	map_write(manifest.dialogue_trees, f);
 	fclose(f);
 	return true;
 }
@@ -2123,6 +2110,8 @@ s32 proc(s32 argc, char* argv[])
 
 			if (has_extension(asset_in_path, texture_extension))
 				import_copy(state, state.manifest.textures, asset_in_path, asset_out_folder, texture_extension);
+			else if (has_extension(asset_in_path, dialogue_tree_extension))
+				import_copy(state, state.manifest.dialogue_trees, asset_in_path, asset_out_folder, dialogue_tree_extension);
 			else if (has_extension(asset_in_path, shader_extension))
 				import_shader(state, asset_in_path, asset_out_folder);
 			else if (has_extension(asset_in_path, model_in_extension))
@@ -2404,6 +2393,19 @@ s32 proc(s32 argc, char* argv[])
 			close_asset_header(f);
 		}
 
+		if (state.rebuild
+			|| !maps_equal(state.manifest.dialogue_trees, state.cached_manifest.dialogue_trees)
+			|| filemtime(dialogue_header_path) == 0)
+		{
+			printf("Writing dialogue tree header\n");
+			FILE* f = open_asset_header(dialogue_header_path);
+			if (!f)
+				return exit_error();
+			
+			write_asset_header(f, "DialogueTree", state.manifest.dialogue_trees);
+			close_asset_header(f);
+		}
+
 		if (state.rebuild || update_manifest || filemtime(asset_src_path) < state.manifest_mtime)
 		{
 			printf("Writing asset values\n");
@@ -2426,6 +2428,7 @@ s32 proc(s32 argc, char* argv[])
 			write_asset_source(f, "Level", state.manifest.levels);
 			write_asset_source(f, "NavMesh", state.manifest.nav_meshes);
 			write_asset_source_names_only(f, "String", state.manifest.strings);
+			write_asset_source(f, "DialogueTree", state.manifest.dialogue_trees);
 
 			fprintf(f, "\n}");
 			fclose(f);

@@ -277,6 +277,7 @@ add_executable(yearning
 	src/asset/soundbank.h
 	src/asset/Wwise_IDs.h
 	src/asset/string.h
+	src/asset/dialogue.h
 	src/platform/sdl.cpp
 	src/sync.h
 	src/types.h

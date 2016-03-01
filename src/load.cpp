@@ -724,6 +724,19 @@ void Loader::level_free(cJSON* json)
 	Json::json_free(json);
 }
 
+cJSON* Loader::dialogue_tree(AssetID id)
+{
+	if (id == AssetNull)
+		return 0;
+
+	return Json::load(AssetLookup::DialogueTree::values[id]);
+}
+
+void Loader::dialogue_tree_free(cJSON* json)
+{
+	Json::json_free(json);
+}
+
 dtNavMesh* Loader::nav_mesh(AssetID id)
 {
 	// Only allow one nav mesh to be loaded at a time

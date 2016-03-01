@@ -98,6 +98,8 @@ b8 Game::init(LoopSync* sync)
 
 	Input::load_strings(); // loads localized strings for input bindings
 
+	Soren::global_init();
+
 	World::init();
 	for (s32 i = 0; i < ParticleSystem::all.length; i++)
 		ParticleSystem::all[i]->init(sync);

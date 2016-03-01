@@ -639,4 +639,16 @@ const char* AssetLookup::String::names[] =
 };
 
 
+const char* AssetLookup::DialogueTree::values[] =
+{
+	0,
+};
+
+
+const char* AssetLookup::DialogueTree::names[] =
+{
+	0,
+};
+
+
 }

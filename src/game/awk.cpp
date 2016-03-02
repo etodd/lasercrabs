@@ -306,6 +306,8 @@ b8 Awk::transfer_wall(const Vec3& dir, const btCollisionWorld::ClosestRayResultC
 
 void Awk::move(const Vec3& new_pos, const Quat& new_rotation, const ID entity_id)
 {
+	if ((new_pos - get<Transform>()->absolute_pos()).length() > 5.0f)
+		vi_debug_break();
 	lerped_rotation = new_rotation.inverse() * get<Transform>()->absolute_rot() * lerped_rotation;
 	get<Transform>()->absolute(new_pos, new_rotation);
 	Entity* entity = &Entity::list[entity_id];
@@ -317,7 +319,7 @@ void Awk::move(const Vec3& new_pos, const Quat& new_rotation, const ID entity_id
 			lerped_pos = entity->get<Transform>()->to_local(abs_lerped_pos);
 		}
 		else
-			lerped_pos = get<Transform>()->pos;
+			lerped_pos = entity->get<Transform>()->to_local(get<Transform>()->pos);
 		get<Transform>()->reparent(entity->get<Transform>());
 	}
 	update_offset();
@@ -331,7 +333,6 @@ void Awk::crawl(const Vec3& dir_raw, const Update& u)
 	if (get<Transform>()->parent.ref() && dir_length > 0)
 	{
 		r32 speed = last_speed = fmin(dir_length, 1.0f) * AWK_CRAWL_SPEED;
-		dir_normalized /= dir_length;
 
 		Vec3 wall_normal = get<Transform>()->absolute_rot() * Vec3(0, 0, 1);
 		Vec3 pos = get<Transform>()->absolute_pos();

@@ -250,12 +250,11 @@ void load_strings()
 	btn_strings[(s32)Gamepad::Btn::None] = _(strings::btn_None);
 }
 
-#define joystick_dead_zone 0.1f
-r32 dead_zone(r32 x)
+r32 dead_zone(r32 x, r32 threshold)
 {
-	if (fabs(x) < joystick_dead_zone)
+	if (fabs(x) < threshold)
 		return 0.0f;
-	return (x > 0.0f ? x - joystick_dead_zone : x + joystick_dead_zone) * (1.0f / (1.0f - joystick_dead_zone));
+	return (x > 0.0f ? x - threshold : x + threshold) * (1.0f / (1.0f - threshold));
 }
 
 }

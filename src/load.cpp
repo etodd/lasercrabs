@@ -1028,7 +1028,7 @@ Settings& Loader::settings()
 		settings_data.bindings.slide = input_binding(bindings, "slide", { KeyCode::MouseLeft, KeyCode::None, Gamepad::Btn::LeftClick });
 		settings_data.bindings.abilities[0] = input_binding(bindings, "ability1", { KeyCode::Q, KeyCode::None, Gamepad::Btn::X });
 		settings_data.bindings.abilities[1] = input_binding(bindings, "ability2", { KeyCode::E, KeyCode::None, Gamepad::Btn::Y });
-		settings_data.bindings.upgrade = input_binding(bindings, "upgrade", { KeyCode::Tab, KeyCode::None, Gamepad::Btn::A });
+		settings_data.bindings.upgrade = input_binding(bindings, "upgrade", { KeyCode::Tab, KeyCode::None, Gamepad::Btn::B });
 	}
 	return settings_data;
 }

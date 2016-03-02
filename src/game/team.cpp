@@ -106,7 +106,7 @@ void Team::update(const Update& u)
 AbilitySlot::Info AbilitySlot::info[] =
 {
 	{ Asset::Mesh::icon_stun, strings::stun, 5.0f, { 10, 30, 50 } },
-	{ Asset::Mesh::icon_heal, strings::heal, 10.0f, { 10, 30, 50 } },
+	{ Asset::Mesh::icon_heal, strings::heal, 20.0f, { 10, 30, 50 } },
 	{ AssetNull, strings::stealth, 5.0f, { 10, 30, 50 } },
 	{ AssetNull, strings::turret, 30.0f, { 10, 30, 50 } },
 	{ AssetNull, strings::gun, 5.0f, { 10, 30, 50 } },

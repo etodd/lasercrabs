@@ -168,12 +168,18 @@ void LocalPlayer::update(const Update& u)
 	if (msg_timer < msg_time)
 		msg_timer += u.time.delta;
 
-	if (u.last_input->get(Game::bindings.pause, gamepad) && !u.input->get(Game::bindings.pause, gamepad))
 	{
-		if (upgrading)
-			upgrading = false;
-		else if (!options_menu)
-			pause = !pause;
+		b8 pause_hit = u.input->get(Game::bindings.pause, gamepad) && !u.last_input->get(Game::bindings.pause, gamepad);
+		if (pause)
+		{
+			if (!options_menu && pause_hit || (u.last_input->get(Game::bindings.cancel, gamepad) && !u.input->get(Game::bindings.cancel, gamepad)))
+				pause = false;
+		}
+		else
+		{
+			if (!upgrading && pause_hit)
+				pause = true;
+		}
 	}
 
 	if (manager.ref()->entity.ref())
@@ -200,7 +206,8 @@ void LocalPlayer::update(const Update& u)
 			Rect2& viewport = camera ? camera->viewport : manager.ref()->entity.ref()->get<LocalPlayerControl>()->camera->viewport;
 
 			const Settings& settings = Loader::settings();
-			if (u.input->get(settings.bindings.upgrade, gamepad) && !u.last_input->get(settings.bindings.upgrade, gamepad))
+			if ((u.input->get(settings.bindings.upgrade, gamepad) && !u.last_input->get(settings.bindings.upgrade, gamepad))
+				|| (u.input->get(Game::bindings.cancel, gamepad) && !u.last_input->get(Game::bindings.cancel, gamepad)))
 				upgrading = false;
 
 			// do menu items
@@ -858,8 +865,6 @@ void LocalPlayerControl::update(const Update& u)
 				}
 
 				Vec3 movement = get_movement(u, clamped_look_quat);
-				Console::debug("%f %f %f", movement.x, movement.y, movement.z);
-
 				get<Awk>()->crawl(movement, u);
 			}
 		}

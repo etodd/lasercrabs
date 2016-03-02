@@ -423,6 +423,8 @@ void UIMenu::clear()
 	items.length = 0;
 }
 
+#define JOYSTICK_DEAD_ZONE 0.5f
+
 void UIMenu::start(const Update& u, u8 gamepad)
 {
 	clear();
@@ -432,12 +434,15 @@ void UIMenu::start(const Update& u, u8 gamepad)
 
 	if (u.input->gamepads[gamepad].active)
 	{
-		r32 y = Input::dead_zone(u.input->gamepads[gamepad].left_y);
-		r32 last_y = Input::dead_zone(u.last_input->gamepads[gamepad].left_y);
-		if (y < 0.0f && last_y == 0.0f)
-			selected--;
-		else if (y > 0.0f && last_y == 0.0f)
-			selected++;
+		r32 last_y = Input::dead_zone(u.last_input->gamepads[gamepad].left_y, JOYSTICK_DEAD_ZONE);
+		if (last_y == 0.0f)
+		{
+			r32 y = Input::dead_zone(u.input->gamepads[gamepad].left_y, JOYSTICK_DEAD_ZONE);
+			if (y < 0.0f)
+				selected--;
+			else if (y > 0.0f)
+				selected++;
+		}
 	}
 
 	const Settings& settings = Loader::settings();
@@ -535,6 +540,25 @@ UIMenu::Delta UIMenu::slider_item(const Update& u, u8 gamepad, Vec2* menu_pos, c
 		{
 			Audio::post_global_event(AK::EVENTS::PLAY_BEEP_GOOD);
 			return Delta::Up;
+		}
+
+		if (u.input->gamepads[gamepad].active)
+		{
+			r32 last_x = Input::dead_zone(u.last_input->gamepads[gamepad].left_x, JOYSTICK_DEAD_ZONE);
+			if (last_x == 0.0f)
+			{
+				r32 x = Input::dead_zone(u.input->gamepads[gamepad].left_x, JOYSTICK_DEAD_ZONE);
+				if (x < 0.0f)
+				{
+					Audio::post_global_event(AK::EVENTS::PLAY_BEEP_GOOD);
+					return Delta::Down;
+				}
+				else if (x > 0.0f)
+				{
+					Audio::post_global_event(AK::EVENTS::PLAY_BEEP_GOOD);
+					return Delta::Up;
+				}
+			}
 		}
 
 		if (!u.input->get({ KeyCode::MouseLeft }, gamepad)

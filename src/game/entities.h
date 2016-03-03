@@ -179,6 +179,7 @@ struct TurretControl : public ComponentType<TurretControl>
 	r32 cooldown;
 	r32 target_check_time;
 	Quat base_rot;
+	u32 obstacle_id;
 
 	void awake();
 
@@ -186,6 +187,8 @@ struct TurretControl : public ComponentType<TurretControl>
 	void update(const Update&);
 	void check_target();
 	b8 can_see(Entity*) const;
+
+	~TurretControl();
 };
 
 struct ProjectileEntity : public Entity

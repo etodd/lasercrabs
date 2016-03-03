@@ -175,7 +175,7 @@ T& map_get(Map<T>& map, const std::string& key)
 }
 
 template<typename T>
-b8 map_has(Map<T>& map, const std::string& key)
+b8 map_has(const Map<T>& map, const std::string& key)
 {
 	return map.find(key) != map.end();
 }
@@ -254,7 +254,7 @@ void map_read(FILE* f, Map2<T>& map)
 	}
 }
 
-void map_write(Map<std::string>& map, FILE* f)
+void map_write(const Map<std::string>& map, FILE* f)
 {
 	s32 count = map.size();
 	fwrite(&count, sizeof(s32), 1, f);
@@ -270,7 +270,7 @@ void map_write(Map<std::string>& map, FILE* f)
 	}
 }
 
-void map_write(Map<s32>& map, FILE* f)
+void map_write(const Map<s32>& map, FILE* f)
 {
 	s32 count = map.size();
 	fwrite(&count, sizeof(s32), 1, f);
@@ -295,7 +295,7 @@ void map_write(Map2<T>& map, FILE* f)
 		fwrite(&length, sizeof(s32), 1, f);
 		fwrite(i->first.c_str(), sizeof(char), length, f);
 
-		Map<T>& inner = map[i->first];
+		const Map<T>& inner = map[i->first];
 		map_write(inner, f);
 	}
 }
@@ -1385,6 +1385,11 @@ b8 import_level_meshes(ImporterState& state, const std::string& asset_in_path, c
 				aiColor4D color;
 				if (scene->mMaterials[ai_mesh->mMaterialIndex]->Get(AI_MATKEY_COLOR_DIFFUSE, color) == AI_SUCCESS)
 					mesh->color = Vec4(color.r, color.g, color.b, color.a);
+				r32 opacity;
+				if (scene->mMaterials[ai_mesh->mMaterialIndex]->Get(AI_MATKEY_OPACITY, opacity) == AI_SUCCESS)
+					mesh->color.w = opacity;
+				else
+					mesh->color.w = 1.0f;
 			}
 
 			if (load_mesh(ai_mesh, mesh))
@@ -1613,6 +1618,86 @@ b8 build_nav_mesh(const NavMeshInput& input, TileCacheData* output_tiles)
 	return true;
 }
 
+void consolidate_meshes(Mesh* result, Map<Mesh>& meshes, cJSON* json, b8(*filter)(const Mesh&) = nullptr)
+{
+	result->bounds_min = Vec3(FLT_MAX, FLT_MAX, FLT_MAX);
+	result->bounds_max = Vec3(FLT_MIN, FLT_MIN, FLT_MIN);
+	s32 current_index = 0;
+
+	Array<Mat4> transforms;
+	cJSON* element = json->child;
+	while (element)
+	{
+		Vec3 pos = Json::get_vec3(element, "pos");
+		Quat rot = Json::get_quat(element, "rot");
+		Mat4 mat;
+		mat.make_transform(pos, Vec3(1, 1, 1), rot);
+
+		s32 parent = cJSON_GetObjectItem(element, "parent")->valueint;
+		if (parent != -1)
+			mat = transforms[parent] * mat;
+
+		if (cJSON_GetObjectItem(element, "StaticGeom") && cJSON_GetObjectItem(element, "nav"))
+		{
+			cJSON* mesh_refs = cJSON_GetObjectItem(element, "meshes");
+			cJSON* mesh_ref_json = mesh_refs->child;
+			while (mesh_ref_json)
+			{
+				char* mesh_ref = mesh_ref_json->valuestring;
+
+				vi_assert(map_has(meshes, mesh_ref));
+				const Mesh& mesh = map_get(meshes, mesh_ref);
+
+				if (!filter || filter(mesh))
+				{
+					Vec3 min = mesh.bounds_min;
+					Vec3 max = mesh.bounds_max;
+
+					Vec4 corners[] =
+					{
+						mat * Vec4(min.x, min.y, min.z, 1),
+						mat * Vec4(min.x, min.y, max.z, 1),
+						mat * Vec4(min.x, max.y, min.z, 1),
+						mat * Vec4(min.x, max.y, max.z, 1),
+						mat * Vec4(max.x, min.y, min.z, 1),
+						mat * Vec4(max.x, min.y, max.z, 1),
+						mat * Vec4(max.x, max.y, min.z, 1),
+						mat * Vec4(max.x, max.y, max.z, 1),
+					};
+
+					for (s32 i = 0; i < 8; i++)
+					{
+						result->bounds_min.x = fmin(corners[i].x, result->bounds_min.x);
+						result->bounds_min.y = fmin(corners[i].y, result->bounds_min.y);
+						result->bounds_min.z = fmin(corners[i].z, result->bounds_min.z);
+						result->bounds_max.x = fmax(corners[i].x, result->bounds_max.x);
+						result->bounds_max.y = fmax(corners[i].y, result->bounds_max.y);
+						result->bounds_max.z = fmax(corners[i].z, result->bounds_max.z);
+					}
+
+					result->vertices.reserve(result->vertices.length + mesh.vertices.length);
+					result->indices.reserve(result->indices.length + mesh.indices.length);
+
+					for (s32 i = 0; i < mesh.vertices.length; i++)
+					{
+						Vec3 v = mesh.vertices[i];
+						Vec4 v2 = mat * Vec4(v.x, v.y, v.z, 1);
+						result->vertices.add(Vec3(v2.x, v2.y, v2.z));
+					}
+					for (s32 i = 0; i < mesh.indices.length; i++)
+						result->indices.add(current_index + mesh.indices[i]);
+					current_index = result->vertices.length;
+				}
+
+				mesh_ref_json = mesh_ref_json->next;
+			}
+		}
+
+		transforms.add(mat);
+
+		element = element->next;
+	}
+}
 
 void import_level(ImporterState& state, const std::string& asset_in_path, const std::string& out_folder)
 {
@@ -1656,135 +1741,66 @@ void import_level(ImporterState& state, const std::string& asset_in_path, const 
 		cJSON* json = Json::load(asset_out_path.c_str());
 
 		Mesh nav_mesh_input;
-		nav_mesh_input.bounds_min = Vec3(FLT_MAX, FLT_MAX, FLT_MAX);
-		nav_mesh_input.bounds_max = Vec3(FLT_MIN, FLT_MIN, FLT_MIN);
-		s32 current_index = 0;
 
-		Array<Mat4> transforms;
-		cJSON* element = json->child;
-		while (element)
-		{
-			Vec3 pos = Json::get_vec3(element, "pos");
-			Quat rot = Json::get_quat(element, "rot");
-			Mat4 mat;
-			mat.make_transform(pos, Vec3(1, 1, 1), rot);
-
-			s32 parent = cJSON_GetObjectItem(element, "parent")->valueint;
-			if (parent != -1)
-				mat = transforms[parent] * mat;
-
-			if (cJSON_GetObjectItem(element, "StaticGeom") && cJSON_GetObjectItem(element, "nav"))
-			{
-				cJSON* mesh_refs = cJSON_GetObjectItem(element, "meshes");
-				cJSON* mesh_ref_json = mesh_refs->child;
-				while (mesh_ref_json)
-				{
-					char* mesh_ref = mesh_ref_json->valuestring;
-					
-					vi_assert(map_has(meshes, mesh_ref));
-					Mesh& mesh = map_get(meshes, mesh_ref);
-
-					Vec3 min = mesh.bounds_min;
-					Vec3 max = mesh.bounds_max;
-
-					Vec4 corners[] =
-					{
-						mat * Vec4(min.x, min.y, min.z, 1),
-						mat * Vec4(min.x, min.y, max.z, 1),
-						mat * Vec4(min.x, max.y, min.z, 1),
-						mat * Vec4(min.x, max.y, max.z, 1),
-						mat * Vec4(max.x, min.y, min.z, 1),
-						mat * Vec4(max.x, min.y, max.z, 1),
-						mat * Vec4(max.x, max.y, min.z, 1),
-						mat * Vec4(max.x, max.y, max.z, 1),
-					};
-
-					for (s32 i = 0; i < 8; i++)
-					{
-						nav_mesh_input.bounds_min.x = fmin(corners[i].x, nav_mesh_input.bounds_min.x);
-						nav_mesh_input.bounds_min.y = fmin(corners[i].y, nav_mesh_input.bounds_min.y);
-						nav_mesh_input.bounds_min.z = fmin(corners[i].z, nav_mesh_input.bounds_min.z);
-						nav_mesh_input.bounds_max.x = fmax(corners[i].x, nav_mesh_input.bounds_max.x);
-						nav_mesh_input.bounds_max.y = fmax(corners[i].y, nav_mesh_input.bounds_max.y);
-						nav_mesh_input.bounds_max.z = fmax(corners[i].z, nav_mesh_input.bounds_max.z);
-					}
-
-					nav_mesh_input.vertices.reserve(nav_mesh_input.vertices.length + mesh.vertices.length);
-					nav_mesh_input.indices.reserve(nav_mesh_input.indices.length + mesh.indices.length);
-
-					for (s32 i = 0; i < mesh.vertices.length; i++)
-					{
-						Vec3 v = mesh.vertices[i];
-						Vec4 v2 = mat * Vec4(v.x, v.y, v.z, 1);
-						nav_mesh_input.vertices.add(Vec3(v2.x, v2.y, v2.z));
-					}
-					for (s32 i = 0; i < mesh.indices.length; i++)
-						nav_mesh_input.indices.add(current_index + mesh.indices[i]);
-					current_index = nav_mesh_input.vertices.length;
-
-					mesh_ref_json = mesh_ref_json->next;
-				}
-			}
-
-			transforms.add(mat);
-
-			element = element->next;
-		}
+		consolidate_meshes(&nav_mesh_input, meshes, json);
 
 		Json::json_free(json);
 
-		TileCacheData nav_tiles;
-		if (nav_mesh_input.vertices.length > 0)
+		// Build and write nav mesh
 		{
-			NavMeshInput input_data;
-			input_data.vertices = (r32*)nav_mesh_input.vertices.data;
-			input_data.vertex_count = nav_mesh_input.vertices.length;
-			input_data.indices = nav_mesh_input.indices.data;
-			input_data.index_count = nav_mesh_input.indices.length;
-			input_data.bounds_min = nav_mesh_input.bounds_min;
-			input_data.bounds_max = nav_mesh_input.bounds_max;
-			if (!build_nav_mesh(input_data, &nav_tiles))
+			TileCacheData nav_tiles;
+			if (nav_mesh_input.vertices.length > 0)
 			{
-				fprintf(stderr, "Error: Nav mesh generation failed for file %s.\n", asset_in_path.c_str());
-				state.error = true;
-				return;
-			}
-		}
-
-		FILE* f = fopen(nav_mesh_out_path.c_str(), "w+b");
-		if (!f)
-		{
-			fprintf(stderr, "Error: Failed to write mesh file %s.\n", nav_mesh_out_path.c_str());
-			state.error = true;
-			return;
-		}
-
-		if (nav_mesh_input.vertices.length > 0)
-		{
-			fwrite(&nav_tiles.min, sizeof(Vec3), 1, f);
-			fwrite(&nav_tiles.width, sizeof(s32), 1, f);
-			fwrite(&nav_tiles.height, sizeof(s32), 1, f);
-			for (s32 i = 0; i < nav_tiles.cells.length; i++)
-			{
-				TileCacheCell& cell = nav_tiles.cells[i];
-				fwrite(&cell.layers.length, sizeof(s32), 1, f);
-				for (s32 j = 0; j < cell.layers.length; j++)
+				NavMeshInput input_data;
+				input_data.vertices = (r32*)nav_mesh_input.vertices.data;
+				input_data.vertex_count = nav_mesh_input.vertices.length;
+				input_data.indices = nav_mesh_input.indices.data;
+				input_data.index_count = nav_mesh_input.indices.length;
+				input_data.bounds_min = nav_mesh_input.bounds_min;
+				input_data.bounds_max = nav_mesh_input.bounds_max;
+				if (!build_nav_mesh(input_data, &nav_tiles))
 				{
-					TileCacheLayer& layer = cell.layers[j];
-					fwrite(&layer.data_size, sizeof(s32), 1, f);
-					fwrite(layer.data, sizeof(u8), layer.data_size, f);
+					fprintf(stderr, "Error: Nav mesh generation failed for file %s.\n", asset_in_path.c_str());
+					state.error = true;
+					return;
 				}
 			}
 
-			for (s32 i = 0; i < nav_tiles.cells.length; i++)
+			FILE* f = fopen(nav_mesh_out_path.c_str(), "w+b");
+			if (!f)
 			{
-				TileCacheCell& cell = nav_tiles.cells[i];
-				for (s32 j = 0; j < cell.layers.length; j++)
-					dtFree(cell.layers[j].data);
+				fprintf(stderr, "Error: Failed to write nav file %s.\n", nav_mesh_out_path.c_str());
+				state.error = true;
+				return;
 			}
-		}
 
-		fclose(f);
+			if (nav_mesh_input.vertices.length > 0)
+			{
+				fwrite(&nav_tiles.min, sizeof(Vec3), 1, f);
+				fwrite(&nav_tiles.width, sizeof(s32), 1, f);
+				fwrite(&nav_tiles.height, sizeof(s32), 1, f);
+				for (s32 i = 0; i < nav_tiles.cells.length; i++)
+				{
+					TileCacheCell& cell = nav_tiles.cells[i];
+					fwrite(&cell.layers.length, sizeof(s32), 1, f);
+					for (s32 j = 0; j < cell.layers.length; j++)
+					{
+						TileCacheLayer& layer = cell.layers[j];
+						fwrite(&layer.data_size, sizeof(s32), 1, f);
+						fwrite(layer.data, sizeof(u8), layer.data_size, f);
+					}
+				}
+
+				for (s32 i = 0; i < nav_tiles.cells.length; i++)
+				{
+					TileCacheCell& cell = nav_tiles.cells[i];
+					for (s32 j = 0; j < cell.layers.length; j++)
+						dtFree(cell.layers[j].data);
+				}
+			}
+
+			fclose(f);
+		}
 	}
 }
 

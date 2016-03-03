@@ -4,19 +4,21 @@ The Yearning
 Features
 --------
 
-- Simple multi-threaded architecture - one thread for physics, one for rendering,
-one for game logic
+- [Simple multi-threaded architecture](http://etodd.io/2016/01/12/poor-mans-threading-architecture/) -
+one thread for physics, one for rendering, one for game logic
 - Entity/component system
 - Linear math suite somewhat stolen from Ogre
-- Content pipeline supporting .blend, .glsl, .ttf, .png
+- Content pipeline supporting .blend, .glsl, .otf, .png
 - Create levels, models, animations, and ragdoll rigs in Blender
-- Deferred rendering, cascaded shadow maps, edge detection, film grain, bloom,
-SSAO
+- Deferred rendering, cascaded shadow maps, edge detection, bloom, SSAO
 - Geometry-based UI system
-- Keyboard/mouse/gamepad support thanks to SDL
-- Automatic navmesh generation thanks to Recast
-- Physics thanks to Bullet
-- Efficient behavior tree implementation also works as a tween system
+- Efficient behavior tree implementation doubles as a tween system
+- Localization support
+- Dialogue tree system complete with [an editor](https://github.com/etodd/dialogger/tree/yearning)
+- Keyboard/mouse/gamepad support via SDL
+- Automatic navmesh generation with realtime mutations via Recast
+- Audio via Wwise
+- Physics via Bullet
 - Almost all dependencies are GitHub submodules
 - Builds and runs on Win/Mac/Linux
 
@@ -27,34 +29,34 @@ Windows quickstart
 1. Install the [DirectX SDK](https://www.microsoft.com/en-us/download/confirmation.aspx?id=6812)
 1. Install [CMake](http://www.cmake.org/download/)
 1. Ensure [Blender](http://blender.org) is installed and
-   [available on the path](http://www.computerhope.com/issues/ch000549.htm).
+   [available on the path](http://www.computerhope.com/issues/ch000549.htm)
 1. Ensure [Wwise](https://www.audiokinetic.com/) is installed and `WwiseCLI`
-is available on the path.
+is available on the path
 1. Run `setup.bat`
-1. Open `build/yearning.sln` in Visual Studio.
-1. Set the `yearning` project as the default startup project.
-1. Hit F5 to run the game.
+1. Open `build/yearning.sln` in Visual Studio
+1. Set the `yearning` project as the default startup project
+1. Hit F5 to run the game
 
 Linux quickstart
 ----------------
 
 1. The Wwise authoring tool doesn't run on Linux. Use Wwise on another platform
 to build the Linux soundbanks.
-1. If necessary, copy the generated `Wwise_IDs.h` file into `src/asset`.
-1. Copy the soundbanks into `assets/audio/GeneratedSoundBanks/Linux`.
+1. If necessary, copy the generated `Wwise_IDs.h` file into `src/asset`
+1. Copy the soundbanks into `assets/audio/GeneratedSoundBanks/Linux`
 1. Run `./setup`
-1. Run `./yearning` from the `build` folder.
+1. Run `./yearning` from the `build` folder
 
 Mac quickstart
 --------------
 
 1. Install [Homebrew](http://brew.sh/)
 1. Ensure [Blender](http://blender.org) is installed and
-   [available on the path](http://www.computerhope.com/issues/ch000549.htm).
+   [available on the path](http://www.computerhope.com/issues/ch000549.htm)
 1. Ensure [Wwise](https://www.audiokinetic.com/) is installed and `WwiseCLI.sh`
-is available on the path.
+is available on the path
 1. Run `./setup-mac`
-1. Run `./yearning` from the `build` folder.
+1. Run `./yearning` from the `build` folder
 
 Asset license
 -------------

@@ -125,7 +125,7 @@ void AI::debug_draw(const RenderParams& params)
 	params.sync->write(Asset::Uniform::diffuse_color);
 	params.sync->write(RenderDataType::Vec4);
 	params.sync->write<s32>(1);
-	params.sync->write(Vec4(0, 1, 0, 1));
+	params.sync->write(Vec4(0, 1, 0, 0.5f));
 
 	Mat4 mvp = params.view_projection;
 
@@ -135,14 +135,8 @@ void AI::debug_draw(const RenderParams& params)
 	params.sync->write<s32>(1);
 	params.sync->write<Mat4>(mvp);
 
-	params.sync->write(RenderOp::FillMode);
-	params.sync->write(RenderFillMode::Point);
-
 	params.sync->write(RenderOp::Mesh);
 	params.sync->write(render_mesh);
-
-	params.sync->write(RenderOp::FillMode);
-	params.sync->write(RenderFillMode::Fill);
 #endif
 }
 

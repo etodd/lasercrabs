@@ -440,9 +440,6 @@ void Game::schedule_load_level(AssetID level_id)
 
 void Game::unload_level()
 {
-	for (auto i = AIPlayer::list.iterator(); !i.is_last(); i.next())
-		AIPlayer::list.remove(i.index);
-
 	for (auto i = Entity::list.iterator(); !i.is_last(); i.next())
 		World::remove(i.item());
 
@@ -582,37 +579,24 @@ void Game::load_level(const Update& u, AssetID l)
 
 		if (cJSON_GetObjectItem(element, "StaticGeom"))
 		{
-			s32 inaccessible_index = Json::get_s32(element, "inaccessible_index");
 			cJSON* meshes = cJSON_GetObjectItem(element, "meshes");
-			cJSON* mesh = meshes->child;
+			cJSON* json_mesh = meshes->child;
 
-			// First count the meshes
-			s32 mesh_count = 0;
-			while (mesh)
+			while (json_mesh)
 			{
-				mesh = mesh->next;
-				mesh_count++;
-			}
-
-			b8 has_inaccessible = cJSON_GetObjectItem(element, "inaccessible_index") || mesh_count > 1;
-
-			// Start over from the beginning of the mesh list
-			mesh = meshes->child;
-
-			s32 mesh_index = 0;
-			while (mesh)
-			{
-				char* mesh_ref = mesh->valuestring;
+				char* mesh_ref = json_mesh->valuestring;
 
 				Entity* m;
 
 				s32 mesh_id = Loader::find(mesh_ref, AssetLookup::Mesh::names);
+				Mesh* mesh = Loader::mesh(mesh_id);
 				vi_assert(mesh_id != AssetNull);
-				if (mesh_index == inaccessible_index && has_inaccessible)
+				if (mesh->color.w < 0.5f)
 				{
+					// inaccessible
 					m = World::alloc<StaticGeom>(mesh_id, absolute_pos, absolute_rot, CollisionInaccessible, CollisionInaccessibleMask);
 					Vec4 color = Loader::mesh(mesh_id)->color;
-					color.w = 1.0f / 255.0f; // special G-buffer index for inaccessible materials
+					color.w = MATERIAL_NO_OVERRIDE; // special G-buffer index for inaccessible materials
 					m->get<View>()->color = color;
 				}
 				else
@@ -632,8 +616,7 @@ void Game::load_level(const Update& u, AssetID l)
 					m->get<View>()->alpha(additive, order);
 				}
 
-				mesh = mesh->next;
-				mesh_index++;
+				json_mesh = json_mesh->next;
 			}
 		}
 		else if (cJSON_GetObjectItem(element, "Rope"))

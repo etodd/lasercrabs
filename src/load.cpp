@@ -86,6 +86,62 @@ void Loader::init(LoopSwapper* s)
 	}
 }
 
+void read_mesh(Mesh* mesh, const char* path, Array<Attrib>* extra_attribs = nullptr)
+{
+	new (mesh) Mesh();
+
+	FILE* f = fopen(path, "rb");
+	if (!f)
+	{
+		fprintf(stderr, "Can't open msh file '%s'\n", path);
+		return;
+	}
+
+	// Read color
+	fread(&mesh->color, sizeof(Vec4), 1, f);
+
+	// Read bounding box
+	fread(&mesh->bounds_min, sizeof(Vec3), 1, f);
+	fread(&mesh->bounds_max, sizeof(Vec3), 1, f);
+	fread(&mesh->bounds_radius, sizeof(r32), 1, f);
+
+	// Read indices
+	s32 index_count;
+	fread(&index_count, sizeof(s32), 1, f);
+
+	// Fill face indices
+	mesh->indices.resize(index_count);
+	fread(mesh->indices.data, sizeof(s32), index_count, f);
+
+	s32 vertex_count;
+	fread(&vertex_count, sizeof(s32), 1, f);
+
+	// Fill vertices positions
+	mesh->vertices.resize(vertex_count);
+	fread(mesh->vertices.data, sizeof(Vec3), vertex_count, f);
+
+	// Fill normals
+	mesh->normals.resize(vertex_count);
+	fread(mesh->normals.data, sizeof(Vec3), vertex_count, f);
+
+	if (extra_attribs)
+	{
+		s32 extra_attrib_count;
+		fread(&extra_attrib_count, sizeof(s32), 1, f);
+		extra_attribs->resize(extra_attrib_count);
+		for (s32 i = 0; i < extra_attribs->length; i++)
+		{
+			Attrib& a = (*extra_attribs)[i];
+			fread(&a.type, sizeof(RenderDataType), 1, f);
+			fread(&a.count, sizeof(s32), 1, f);
+			a.data.resize(mesh->vertices.length * a.count * render_data_type_size(a.type));
+			fread(a.data.data, sizeof(char), a.data.length, f);
+		}
+	}
+
+	fclose(f);
+}
+
 Mesh* Loader::mesh(AssetID id)
 {
 	if (id == AssetNull)
@@ -95,61 +151,12 @@ Mesh* Loader::mesh(AssetID id)
 		meshes.resize(id + 1);
 	if (meshes[id].type == AssetNone)
 	{
-		const char* path = AssetLookup::Mesh::values[id];
+		Array<Attrib> extra_attribs;
 		Mesh* mesh = &meshes[id].data;
-
-		FILE* f = fopen(path, "rb");
-		if (!f)
-		{
-			fprintf(stderr, "Can't open msh file '%s'\n", path);
-			return 0;
-		}
-
-		new (mesh)Mesh();
-
-		// Read color
-		fread(&mesh->color, sizeof(Vec4), 1, f);
-
-		// Read bounding box
-		fread(&mesh->bounds_min, sizeof(Vec3), 1, f);
-		fread(&mesh->bounds_max, sizeof(Vec3), 1, f);
-		fread(&mesh->bounds_radius, sizeof(r32), 1, f);
-
-		// Read indices
-		s32 index_count;
-		fread(&index_count, sizeof(s32), 1, f);
-
-		// Fill face indices
-		mesh->indices.resize(index_count);
-		fread(mesh->indices.data, sizeof(s32), index_count, f);
-
-		s32 vertex_count;
-		fread(&vertex_count, sizeof(s32), 1, f);
-
-		// Fill vertices positions
-		mesh->vertices.resize(vertex_count);
-		fread(mesh->vertices.data, sizeof(Vec3), vertex_count, f);
-
-		// Fill normals
-		mesh->normals.resize(vertex_count);
-		fread(mesh->normals.data, sizeof(Vec3), vertex_count, f);
-
-		s32 extra_attrib_count;
-		fread(&extra_attrib_count, sizeof(s32), 1, f);
-		Array<Attrib> extra_attribs(extra_attrib_count, extra_attrib_count);
-		for (s32 i = 0; i < extra_attribs.length; i++)
-		{
-			Attrib& a = extra_attribs[i];
-			fread(&a.type, sizeof(RenderDataType), 1, f);
-			fread(&a.count, sizeof(s32), 1, f);
-			a.data.resize(mesh->vertices.length * a.count * render_data_type_size(a.type));
-			fread(a.data.data, sizeof(char), a.data.length, f);
-		}
-
-		fclose(f);
+		read_mesh(mesh, AssetLookup::Mesh::values[id], &extra_attribs);
 
 		// GL
-		RenderSync* sync = swapper->get();
+		RenderSync* sync = Loader::swapper->get();
 		sync->write(RenderOp::AllocMesh);
 		sync->write<s32>(id);
 		sync->write<b8>(false); // Whether the buffers should be dynamic or not
@@ -180,6 +187,7 @@ Mesh* Loader::mesh(AssetID id)
 		{
 			Attrib* a = &extra_attribs[i];
 			sync->write(a->data.data, a->data.length);
+			a->~Attrib(); // release data
 		}
 
 		sync->write(RenderOp::UpdateIndexBuffer);
@@ -1028,7 +1036,7 @@ Settings& Loader::settings()
 		settings_data.bindings.slide = input_binding(bindings, "slide", { KeyCode::MouseLeft, KeyCode::None, Gamepad::Btn::LeftClick });
 		settings_data.bindings.abilities[0] = input_binding(bindings, "ability1", { KeyCode::Q, KeyCode::None, Gamepad::Btn::X });
 		settings_data.bindings.abilities[1] = input_binding(bindings, "ability2", { KeyCode::E, KeyCode::None, Gamepad::Btn::Y });
-		settings_data.bindings.upgrade = input_binding(bindings, "upgrade", { KeyCode::Tab, KeyCode::None, Gamepad::Btn::B });
+		settings_data.bindings.menu = input_binding(bindings, "menu", { KeyCode::Tab, KeyCode::None, Gamepad::Btn::B });
 	}
 	return settings_data;
 }
@@ -1060,7 +1068,7 @@ void Loader::settings_save()
 		cJSON_AddItemToObject(bindings, "slide", input_binding_json(settings_data.bindings.slide));
 		cJSON_AddItemToObject(bindings, "ability1", input_binding_json(settings_data.bindings.abilities[0]));
 		cJSON_AddItemToObject(bindings, "ability2", input_binding_json(settings_data.bindings.abilities[1]));
-		cJSON_AddItemToObject(bindings, "upgrade", input_binding_json(settings_data.bindings.upgrade));
+		cJSON_AddItemToObject(bindings, "menu", input_binding_json(settings_data.bindings.menu));
 
 		Json::save(json, "config.txt");
 		Json::json_free(json);

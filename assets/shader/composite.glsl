@@ -46,7 +46,7 @@ void main()
 {
 	vec4 color = texture(color_buffer, uv);
 	vec3 final_color;
-	if (color.a == 0.0)
+	if (color.a == 1.0 / 255.0)
 		final_color = color.rgb;
 	else
 	{

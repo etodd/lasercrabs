@@ -40,6 +40,22 @@ Camera::ViewportBlueprint* Camera::viewport_blueprints[] =
 
 Camera Camera::all[Camera::max_cameras];
 
+Camera::Camera()
+	: active(),
+	projection(),
+	projection_inverse(),
+	pos(),
+	rot(),
+	viewport(),
+	near_plane(),
+	far_plane(),
+	mask(~RENDER_MASK_SHADOW),
+	fog(true),
+	wall_normal(0, 0, 0),
+	range()
+{
+}
+
 Camera* Camera::add()
 {
 	for (s32 i = 0; i < max_cameras; i++)

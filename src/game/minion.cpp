@@ -41,7 +41,7 @@ Minion::Minion(const Vec3& pos, const Quat& quat, AI::Team team)
 	model->shader = Asset::Shader::armature;
 	model->mesh = Asset::Mesh::character_mesh;
 	model->color = Team::colors[(s32)team];
-	model->color.w = 1.0f / 255.0f; // special G-buffer index prevents override lights from overriding this color
+	model->color.w = MATERIAL_NO_OVERRIDE;
 
 	create<Audio>();
 

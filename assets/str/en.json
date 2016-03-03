@@ -22,7 +22,7 @@
 	"stealth": "Stealth",
 	"turret": "Turret",
 	"gun": "Gun",
-	"upgrade_prompt": "[{{Upgrade}}] Upgrade",
+	"upgrade_prompt": "[{{Menu}}] Upgrade",
 	"binding": "[%s]",
 	"target_hit": "Target hit",
 	"left_joystick": "Left joystick",

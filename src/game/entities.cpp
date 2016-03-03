@@ -39,7 +39,7 @@ AwkEntity::AwkEntity(AI::Team team)
 	SkinnedModel* model = create<SkinnedModel>();
 	model->mesh = Asset::Mesh::awk;
 	model->shader = Asset::Shader::armature;
-	model->color = Vec4(Team::colors[(s32)team].xyz(), 1.0f / 255.0f);
+	model->color = Vec4(Team::colors[(s32)team].xyz(), MATERIAL_NO_OVERRIDE);
 
 	Animator* anim = create<Animator>();
 	anim->armature = Asset::Armature::awk;
@@ -231,6 +231,7 @@ Turret::Turret(AI::Team team)
 	view->mesh = Asset::Mesh::turret;
 	view->shader = Asset::Shader::armature;
 	view->color = Team::colors[(s32)team];
+	view->color.w = MATERIAL_NO_OVERRIDE;
 	view->offset.translate(Vec3(0, -1.25f, 0));
 
 	Animator* animator = create<Animator>();
@@ -253,12 +254,11 @@ Turret::Turret(AI::Team team)
 
 void TurretControl::awake()
 {
-	Vec3 forward = get<Transform>()->to_world_normal(Vec3(0, 0, 1));
-	yaw = atan2f(forward.x, forward.z);
-
 	target_check_time = mersenne::randf_oo() * TURRET_TARGET_CHECK_TIME;
 	link_arg<Entity*, &TurretControl::killed>(get<Health>()->killed);
 	base_rot = get<Transform>()->rot;
+
+	obstacle_id = AI::obstacle_add(get<Transform>()->absolute_pos(), TURRET_RADIUS, TURRET_RADIUS);
 }
 
 void TurretControl::killed(Entity* by)
@@ -363,6 +363,11 @@ void TurretControl::update(const Update& u)
 			cooldown = TURRET_COOLDOWN;
 		}
 	}
+}
+
+TurretControl::~TurretControl()
+{
+	AI::obstacle_remove(obstacle_id);
 }
 
 #define PROJECTILE_SPEED 100.0f
@@ -618,7 +623,7 @@ void Rope::draw_opaque(const RenderParams& params)
 	sync->write(Asset::Uniform::diffuse_color);
 	sync->write(RenderDataType::Vec4);
 	sync->write<s32>(1);
-	sync->write<Vec4>(Vec4(1, 1, 1, 0));
+	sync->write<Vec4>(Vec4(1, 1, 1, MATERIAL_UNLIT));
 
 	sync->write(RenderOp::Instances);
 	sync->write(Asset::Mesh::tri_tube);

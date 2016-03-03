@@ -108,7 +108,7 @@ void refresh_variables()
 	UIText::set_variable("Parkour", bindings.parkour.string(gamepad));
 	UIText::set_variable("Jump", bindings.jump.string(gamepad));
 	UIText::set_variable("Slide", bindings.slide.string(gamepad));
-	UIText::set_variable("Upgrade", bindings.upgrade.string(gamepad));
+	UIText::set_variable("Menu", bindings.menu.string(gamepad));
 }
 
 void update(const Update& u)

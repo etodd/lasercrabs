@@ -172,7 +172,7 @@ void LocalPlayer::update(const Update& u)
 		b8 pause_hit = u.input->get(Game::bindings.pause, gamepad) && !u.last_input->get(Game::bindings.pause, gamepad);
 		if (pause)
 		{
-			if (!options_menu && pause_hit || (u.last_input->get(Game::bindings.cancel, gamepad) && !u.input->get(Game::bindings.cancel, gamepad)))
+			if (!options_menu && (pause_hit || (u.last_input->get(Game::bindings.cancel, gamepad) && !u.input->get(Game::bindings.cancel, gamepad))))
 				pause = false;
 		}
 		else
@@ -194,7 +194,7 @@ void LocalPlayer::update(const Update& u)
 			if (manager.ref()->entity.ref())
 				manager.ref()->entity.ref()->get<LocalPlayerControl>()->enable_input = true;
 			const Settings& settings = Loader::settings();
-			if (u.input->get(settings.bindings.upgrade, gamepad) && !u.last_input->get(settings.bindings.upgrade, gamepad))
+			if (u.input->get(settings.bindings.menu, gamepad) && !u.last_input->get(settings.bindings.menu, gamepad))
 				upgrading = true;
 
 			break;
@@ -206,7 +206,7 @@ void LocalPlayer::update(const Update& u)
 			Rect2& viewport = camera ? camera->viewport : manager.ref()->entity.ref()->get<LocalPlayerControl>()->camera->viewport;
 
 			const Settings& settings = Loader::settings();
-			if ((u.input->get(settings.bindings.upgrade, gamepad) && !u.last_input->get(settings.bindings.upgrade, gamepad))
+			if ((u.input->get(settings.bindings.menu, gamepad) && !u.last_input->get(settings.bindings.menu, gamepad))
 				|| (u.input->get(Game::bindings.cancel, gamepad) && !u.last_input->get(Game::bindings.cancel, gamepad)))
 				upgrading = false;
 
@@ -505,6 +505,7 @@ void LocalPlayer::draw_alpha(const RenderParams& params) const
 	}
 
 	// score box
+	if (Game::data.mode == Game::Mode::Multiplayer)
 	{
 		vi_assert(Team::list.length == 2); // only support two teams right now
 		Vec2 box_pos = Vec2(vp.size.x * 0.5f, vp.size.y);
@@ -895,17 +896,17 @@ void LocalPlayerControl::update(const Update& u)
 							s32 boost;
 							switch (slot.level)
 							{
-								case 0:
-								{
-									get<Health>()->hp = min(get<Health>()->hp + AWK_HEALTH / 8, get<Health>()->total);
-									break;
-								}
 								case 1:
 								{
-									get<Health>()->hp = min(get<Health>()->hp + AWK_HEALTH / 4, get<Health>()->total);
+									get<Health>()->hp = min(get<Health>()->hp + AWK_HEALTH / 5, get<Health>()->total);
 									break;
 								}
 								case 2:
+								{
+									get<Health>()->hp = min(get<Health>()->hp + AWK_HEALTH / 3, get<Health>()->total);
+									break;
+								}
+								case 3:
 								{
 									get<Health>()->hp = min(get<Health>()->hp + AWK_HEALTH / 2, get<Health>()->total);
 									break;
@@ -1192,20 +1193,7 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 
 		Audio* audio = get<Audio>();
 
-		b8 alert = false;
 		Vec3 pos = get<Transform>()->absolute_pos();
-
-		for (auto i = Awk::list.iterator(); !i.is_last(); i.next())
-		{
-			if (i.item()->get<AIAgent>()->team != team)
-			{
-				if ((i.item()->get<Transform>()->absolute_pos() - pos).length_squared() < AWK_MAX_DISTANCE * AWK_MAX_DISTANCE)
-				{
-					alert = true;
-					break;
-				}
-			}
-		}
 
 		Transform* parent = get<Transform>()->parent.ref();
 		if (parent && parent->has<Socket>())
@@ -1227,9 +1215,8 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 
 		// compass
 		Vec2 compass_size = Vec2(fmin(viewport.size.x, viewport.size.y) * 0.3f);
-		Vec4 compass_color = alert ? UI::alert_color : Vec4(1, 1, 1, 1);
-		UI::mesh(params, Asset::Mesh::compass_inner, viewport.size * Vec2(0.5f, 0.5f), compass_size, compass_color, angle_vertical);
-		UI::mesh(params, Asset::Mesh::compass_outer, viewport.size * Vec2(0.5f, 0.5f), compass_size, Vec4(compass_color.xyz(), 1.0f), -angle_horizontal);
+		UI::mesh(params, Asset::Mesh::compass_inner, viewport.size * Vec2(0.5f, 0.5f), compass_size, UI::default_color, angle_vertical);
+		UI::mesh(params, Asset::Mesh::compass_outer, viewport.size * Vec2(0.5f, 0.5f), compass_size, UI::default_color, -angle_horizontal);
 
 		// health bar
 		{

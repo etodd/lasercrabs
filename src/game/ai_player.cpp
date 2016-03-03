@@ -25,7 +25,7 @@ AIPlayer::AIPlayer(PlayerManager* m)
 
 void AIPlayer::update(const Update& u)
 {
-	// TODO: stuff
+	// TODO: metagame stuff
 }
 
 void AIPlayer::spawn()
@@ -40,14 +40,14 @@ void AIPlayer::spawn()
 	Vec3 pos;
 	Quat rot;
 	manager.ref()->team.ref()->player_spawn.ref()->absolute(&pos, &rot);
-	pos += Vec3(0, 0, PLAYER_SPAWN_RADIUS); // spawn it around the edges
+	pos += Vec3(0, 0, PLAYER_SPAWN_RADIUS * 1.5f); // spawn it around the edges
 	e->get<Transform>()->absolute(pos, rot);
 
 	e->get<Health>()->killed.link<Team, Entity*, &Team::player_killed_by>(manager.ref()->team.ref());
 }
 
 AIPlayerControl::AIPlayerControl()
-	: goal(), last_pos(), stick_timer()
+	: goal(), last_pos(), stick_timer(), goal_timer(5.0f)
 {
 	move_timer = mersenne::randf_co() * 2.0f;
 }
@@ -76,7 +76,7 @@ void AIPlayerControl::awk_hit(Entity* target)
 
 void AIPlayerControl::reset_move_timer()
 {
-	move_timer = 0.5f + mersenne::randf_co() * (goal.entity.ref() ? 0.5f : 10.0f);
+	move_timer = 0.2f + mersenne::randf_co() * (goal.entity.ref() ? 0.2f : 0.5f);
 	goal.vision_timer = 0.0f;
 }
 
@@ -179,12 +179,7 @@ b8 can_go_goal(const Update& u, const AIPlayerControl::Goal& goal)
 	if (e)
 	{
 		if (goal.vision_timer > 0.5f)
-		{
-			if (e->has<Awk>())
-				return u.time.total - e->get<Awk>()->attach_time > 0.5f;
-			else
-				return true;
-		}
+			return true;
 		else
 			return false;
 	}

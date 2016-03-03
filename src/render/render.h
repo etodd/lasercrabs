@@ -16,6 +16,15 @@ struct Frustum
 
 #define RENDER_MASK_SHADOW (1 << 15)
 
+// material indices
+// these are alpha values stored in the g-buffer
+
+// material not affected by override lights
+#define MATERIAL_NO_OVERRIDE 0.0f
+
+// material not affected by lights at all
+#define MATERIAL_UNLIT (1.0f / 255.0f)
+
 struct Camera
 {
 	static const s32 max_cameras = 8;
@@ -51,20 +60,7 @@ struct Camera
 	Vec3 frustum_rays[4];
 	Vec3 wall_normal;
 
-	Camera()
-		: active(),
-		projection(),
-		projection_inverse(),
-		pos(),
-		rot(),
-		viewport(),
-		near_plane(),
-		far_plane(),
-		mask((RenderMask)-1),
-		fog(true),
-		wall_normal(0, 0, 1)
-	{
-	}
+	Camera();
 
 	void perspective(r32, r32, r32, r32);
 	void orthographic(r32, r32, r32, r32);

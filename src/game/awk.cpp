@@ -27,6 +27,7 @@ namespace VI
 #define AWK_LEG_LENGTH (0.277f - 0.101f)
 #define AWK_LEG_BLEND_SPEED (1.0f / 0.02f)
 #define AWK_MIN_LEG_BLEND_SPEED (AWK_LEG_BLEND_SPEED * 0.05f)
+#define AWK_SHIELD_RADIUS 1.0f
 #define PERMEABLE_MASK (CollisionTarget | CollisionShield)
 #define INACCESSIBLE_MASK (CollisionInaccessible | CollisionWalker | PERMEABLE_MASK)
 
@@ -93,14 +94,14 @@ void Awk::awake()
 	{
 		Entity* shield_entity = World::create<Empty>();
 		shield_entity->get<Transform>()->parent = get<Transform>();
-		shield_entity->add<RigidBody>(RigidBody::Type::Sphere, Vec3(2.0f), 0.0f, CollisionTarget | CollisionShield, CollisionNothing, AssetNull, entity_id);
+		shield_entity->add<RigidBody>(RigidBody::Type::Sphere, Vec3(AWK_SHIELD_RADIUS), 0.0f, CollisionTarget | CollisionShield, CollisionNothing, AssetNull, entity_id);
 
 		View* s = shield_entity->add<View>();
 		s->mask = ~(1 << (s32)get<AIAgent>()->team); // don't display to fellow teammates
 		s->alpha(true);
 		s->color = Vec4(1, 1, 1, 0.1f);
 		s->mesh = Asset::Mesh::sphere;
-		s->offset.scale(Vec3(2.0f));
+		s->offset.scale(Vec3(AWK_SHIELD_RADIUS));
 		s->shader = Asset::Shader::flat;
 		shield = s;
 	}
@@ -169,7 +170,7 @@ b8 Awk::can_go(const Vec3& dir, Vec3* final_pos)
 
 	Physics::btWorld->rayTest(trace_start, trace_end, ray_callback);
 
-	if (ray_callback.hasHit() && (ray_callback.m_collisionObject->getBroadphaseHandle()->m_collisionFilterGroup & ~INACCESSIBLE_MASK))
+	if (ray_callback.hasHit() && !(ray_callback.m_collisionObject->getBroadphaseHandle()->m_collisionFilterGroup & INACCESSIBLE_MASK))
 	{
 		if (final_pos)
 			*final_pos = ray_callback.m_hitPointWorld;
@@ -290,7 +291,7 @@ b8 Awk::transfer_wall(const Vec3& dir, const btCollisionWorld::ClosestRayResultC
 	// This prevents jittering back and forth between walls all the time.
 	// Also, don't crawl onto inaccessible surfaces.
 	if (dir_flattened_other_wall.dot(wall_normal) > 0.0f
-		&& ray_callback.m_collisionObject->getBroadphaseHandle()->m_collisionFilterGroup & ~INACCESSIBLE_MASK)
+		&& !(ray_callback.m_collisionObject->getBroadphaseHandle()->m_collisionFilterGroup & INACCESSIBLE_MASK))
 	{
 		move
 		(
@@ -439,7 +440,7 @@ void Awk::crawl(const Vec3& dir_raw, const Update& u)
 				// Check to make sure that our movement direction won't get flipped if we switch walls.
 				// This prevents jittering back and forth between walls all the time.
 				if (dir_normalized.dot(wall_normal) < 0.05f
-					&& rayCallback.m_collisionObject->getBroadphaseHandle()->m_collisionFilterGroup & ~INACCESSIBLE_MASK)
+					&& !(rayCallback.m_collisionObject->getBroadphaseHandle()->m_collisionFilterGroup & INACCESSIBLE_MASK))
 				{
 					// Transition to the other wall
 					move

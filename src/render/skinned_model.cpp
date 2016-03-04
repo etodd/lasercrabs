@@ -13,13 +13,16 @@
 namespace VI
 {
 
+Bitmask<MAX_ENTITIES> SkinnedModel::list_alpha;
+Bitmask<MAX_ENTITIES> SkinnedModel::list_additive;
+
 SkinnedModel::SkinnedModel()
 	: mesh(),
 	shader(),
 	texture(),
 	offset(Mat4::identity),
 	color(0, 0, 0, 0),
-	mask((RenderMask)-1)
+	mask(RENDER_MASK_DEFAULT)
 {
 }
 
@@ -30,6 +33,56 @@ void SkinnedModel::awake()
 		color = m->color;
 	Loader::shader(shader);
 	Loader::texture(texture);
+}
+
+SkinnedModel::~SkinnedModel()
+{
+	alpha_disable();
+}
+
+void SkinnedModel::draw_opaque(const RenderParams& params)
+{
+	for (auto i = SkinnedModel::list.iterator(); !i.is_last(); i.next())
+	{
+		if (!list_alpha.get(i.index) && !list_additive.get(i.index))
+			i.item()->draw(params);
+	}
+}
+
+void SkinnedModel::draw_additive(const RenderParams& params)
+{
+	for (auto i = SkinnedModel::list.iterator(); !i.is_last(); i.next())
+	{
+		if (list_additive.get(i.index))
+			i.item()->draw(params);
+	}
+}
+
+void SkinnedModel::draw_alpha(const RenderParams& params)
+{
+	for (auto i = SkinnedModel::list.iterator(); !i.is_last(); i.next())
+	{
+		if (list_alpha.get(i.index))
+			i.item()->draw(params);
+	}
+}
+
+void SkinnedModel::alpha()
+{
+	list_alpha.set(id(), true);
+	list_additive.set(id(), false);
+}
+
+void SkinnedModel::additive()
+{
+	list_alpha.set(id(), false);
+	list_additive.set(id(), true);
+}
+
+void SkinnedModel::alpha_disable()
+{
+	list_alpha.set(id(), false);
+	list_additive.set(id(), false);
 }
 
 void SkinnedModel::draw(const RenderParams& params)

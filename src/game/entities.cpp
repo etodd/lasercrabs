@@ -95,106 +95,6 @@ TargetEntity::TargetEntity(const Vec3& abs_pos, const Quat& abs_quat, AI::Team t
 	body->set_damping(0.5f, 0.5f);
 }
 
-SocketEntity::SocketEntity(const Vec3& abs_pos, const Quat& abs_rot, const b8 permanent_powered)
-	: StaticGeom(Asset::Mesh::socket, abs_pos, abs_rot)
-{
-	create<Socket>(permanent_powered);
-
-	PointLight* light = create<PointLight>();
-	light->color = Vec3::zero;
-	light->offset = Vec3(-0.5f, 0, 0);
-	light->radius = 5.0f;
-
-	create<Audio>();
-}
-
-Socket::Socket(const b8 permanent_powered)
-	: permanent_powered(permanent_powered), links(), powered(permanent_powered), target()
-{
-}
-
-void Socket::awake()
-{
-	if (permanent_powered)
-	{
-		get<View>()->shader = Asset::Shader::flat;
-		get<View>()->color = Vec4(1, 0, 1, 0);
-		get<PointLight>()->color = Vec3(1, 0, 1);
-	}
-	else
-	{
-		if (powered)
-			get<View>()->color = Vec4(1, 1, 1, 0);
-		refresh();
-	}
-}
-
-void Socket::refresh_all()
-{
-	StaticArray<b8, MAX_ENTITIES> visited(MAX_ENTITIES);
-	Array<ID> stack;
-	for (auto i = Socket::list.iterator(); !i.is_last(); i.next())
-	{
-		if (i.item()->permanent_powered)
-		{
-			if (!visited[i.index])
-				stack.add(i.index);
-		}
-		else
-			i.item()->powered = false;
-	}
-
-	while (stack.length > 0)
-	{
-		ID socket_id = stack[stack.length - 1];
-		stack.length--;
-
-		if (!visited[socket_id])
-		{
-			visited[socket_id] = true;
-			Socket* socket = &Socket::list[socket_id];
-			socket->powered = true;
-			for (s32 i = 0; i < socket->links.length; i++)
-			{
-				Socket* link = socket->links[i].ref();
-				ID link_id = link->id();
-				if (!visited[link_id])
-					stack.add(link_id);
-			}
-		}
-	}
-
-	for (auto i = Socket::list.iterator(); !i.is_last(); i.next())
-		i.item()->refresh();
-}
-
-void Socket::refresh()
-{
-	if (target.ref())
-	{
-		b8 on = permanent_powered || powered;
-		Mover* mover;
-		if ((mover = target.ref()->get<Mover>()))
-			mover->target = on ? 1.0f : 0.0f;
-	}
-
-	if (!permanent_powered)
-	{
-		if (powered)
-		{
-			if (Game::time.total > 0.0f && get<View>()->color.w > 0.0f) // turning from off to on
-				get<Audio>()->post_event(AK::EVENTS::PLAY_SWITCH_ON);
-			get<View>()->color = Vec4(1, 1, 1, 0);
-			get<PointLight>()->color = Vec3(1);
-		}
-		else
-		{
-			get<View>()->color = Vec4(0.5f, 0.5f, 0.5f, 1);
-			get<PointLight>()->color = Vec3::zero;
-		}
-	}
-}
-
 PlayerSpawn::PlayerSpawn(AI::Team team)
 {
 	create<Transform>();
@@ -268,6 +168,9 @@ void TurretControl::killed(Entity* by)
 
 b8 TurretControl::can_see(Entity* target) const
 {
+	if (target->has<AIAgent>() && target->get<AIAgent>()->stealth)
+		return false;
+
 	Vec3 pos = get<Transform>()->absolute_pos();
 
 	Vec3 target_pos = target->get<Transform>()->absolute_pos();
@@ -545,10 +448,8 @@ Rope::Rope(const Vec3& pos, const Vec3& normal, RigidBody* start, const r32 slac
 	: last_segment(start),
 	last_segment_relative_pos(start->get<Transform>()->to_local(pos + normal * rope_radius)),
 	segments(),
-	slack(slack),
-	socket2()
+	slack(slack)
 {
-	socket1 = start->has<Socket>() ? start->get<Socket>() : nullptr;
 }
 
 Array<Mat4> Rope::instances;
@@ -644,28 +545,6 @@ void Rope::remove(Entity* segment_entity)
 	}
 	World::remove_deferred(segment_entity);
 
-	if (socket1.ref() && socket2.ref())
-	{
-		for (s32 i = 0; i < socket1.ref()->links.length; i++)
-		{
-			if (socket1.ref()->links[i].ref() == socket2.ref())
-			{
-				socket1.ref()->links.remove(i);
-				break;
-			}
-		}
-		for (s32 i = 0; i < socket2.ref()->links.length; i++)
-		{
-			if (socket2.ref()->links[i].ref() == socket1.ref())
-			{
-				socket2.ref()->links.remove(i);
-				break;
-			}
-		}
-		socket1 = socket2 = nullptr;
-		Socket::refresh_all();
-	}
-
 	if (segments.length == 0)
 		World::remove_deferred(entity());
 }
@@ -725,17 +604,6 @@ void Rope::end(const Vec3& pos, const Vec3& normal, RigidBody* end)
 	constraint.a = last_segment;
 	constraint.b = end;
 	RigidBody::add_constraint(constraint);
-
-	if (end->has<Socket>())
-	{
-		socket2 = end->get<Socket>();
-		if (socket1.ref() && socket2.ref())
-		{
-			socket1.ref()->links.add(socket2);
-			socket2.ref()->links.add(socket1);
-			Socket::refresh_all();
-		}
-	}
 
 	last_segment = nullptr;
 }

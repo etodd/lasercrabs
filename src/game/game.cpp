@@ -70,7 +70,8 @@ Game::Data::Data()
 	: level(AssetNull),
 	mode(Mode::Multiplayer),
 	third_person(false),
-	allow_detach(true)
+	allow_detach(true),
+	local_multiplayer(false)
 {
 	for (s32 i = 0; i < MAX_GAMEPADS; i++)
 		local_player_config[i] = AI::Team::None;
@@ -83,15 +84,43 @@ Array<CleanupFunction> Game::cleanups;
 
 b8 Game::init(LoopSync* sync)
 {
+	if (!Audio::init())
+		return false;
+
+	if (!Loader::soundbank_permanent(Asset::Soundbank::Init))
+		return false;
+	if (!Loader::soundbank_permanent(Asset::Soundbank::SOUNDBANK))
+		return false;
+
+	// strings
 	{
-		const char* string_file = "assets/str/en.json"; // TODO: load different string files
+		const char* language_file = "language.txt";
+		cJSON* json_language = Json::load(language_file);
+		const char* language = Json::get_string(json_language, "language", "en");
+
+		char string_file[255];
+		sprintf(string_file, "assets/str/%s.json", language);
+		Json::json_free(json_language);
+
+		// the json object has a number of sub-objects
+		// each dictionary is a map of string keys to string values
 		cJSON* json = Json::load(string_file);
 		for (s32 i = 0; i < Asset::String::count; i++)
 		{
 			const char* name = AssetLookup::String::names[i];
-			cJSON* value = cJSON_GetObjectItem(json, name);
-			if (value)
-				strings_set(i, value->valuestring);
+
+			// find which sub-map has the string key
+			cJSON* sub_map = json->child;
+			while (sub_map)
+			{
+				cJSON* value = cJSON_GetObjectItem(sub_map, name);
+				if (value)
+				{
+					strings_set(i, value->valuestring);
+					break;
+				}
+				sub_map = sub_map->next;
+			}
 		}
 		// don't free the JSON object; we'll read strings directly from it
 	}
@@ -103,16 +132,6 @@ b8 Game::init(LoopSync* sync)
 	World::init();
 	for (s32 i = 0; i < ParticleSystem::all.length; i++)
 		ParticleSystem::all[i]->init(sync);
-	View::init();
-	RigidBody::init();
-
-	if (!Audio::init())
-		return false;
-
-	if (!Loader::soundbank_permanent(Asset::Soundbank::Init))
-		return false;
-	if (!Loader::soundbank_permanent(Asset::Soundbank::SOUNDBANK))
-		return false;
 
 	UI::init(sync);
 
@@ -216,14 +235,14 @@ void Game::draw_opaque(const RenderParams& render_params)
 {
 	View::draw_opaque(render_params);
 	Rope::draw_opaque(render_params);
-	for (auto i = SkinnedModel::list.iterator(); !i.is_last(); i.next())
-		i.item()->draw(render_params);
+	SkinnedModel::draw_opaque(render_params);
 }
 
 void Game::draw_alpha(const RenderParams& render_params)
 {
 	Skybox::draw(render_params);
 	SkyDecal::draw(render_params);
+	SkinnedModel::draw_alpha(render_params);
 
 #if DEBUG_PHYSICS
 	{
@@ -329,12 +348,12 @@ void Game::draw_alpha(const RenderParams& render_params)
 		(*draws[i])(render_params);
 
 	Console::draw(render_params);
+}
 
-	if (cursor_updated)
-	{
-		UI::mesh(render_params, Asset::Mesh::cursor, Game::cursor + Vec2(-2, 4), Vec2(24) * UI::scale, UI::background_color);
-		UI::mesh(render_params, Asset::Mesh::cursor, Game::cursor, Vec2(18) * UI::scale, UI::default_color);
-	}
+void Game::draw_cursor(const RenderParams& params)
+{
+	UI::mesh(params, Asset::Mesh::cursor, Game::cursor + Vec2(-2, 4), Vec2(24) * UI::scale, UI::background_color);
+	UI::mesh(params, Asset::Mesh::cursor, Game::cursor, Vec2(18) * UI::scale, UI::default_color);
 }
 
 void Game::update_cursor(const Update& u)
@@ -350,6 +369,7 @@ void Game::update_cursor(const Update& u)
 void Game::draw_additive(const RenderParams& render_params)
 {
 	View::draw_additive(render_params);
+	SkinnedModel::draw_additive(render_params);
 
 #if DEBUG_AI
 	AI::debug_draw(render_params);
@@ -611,10 +631,11 @@ void Game::load_level(const Update& u, AssetID l)
 					entity = m;
 
 				if (alpha || additive)
-				{
 					m->get<View>()->shader = Asset::Shader::flat;
-					m->get<View>()->alpha(additive, order);
-				}
+				if (alpha)
+					m->get<View>()->alpha();
+				if (additive)
+					m->get<View>()->additive();
 
 				json_mesh = json_mesh->next;
 			}
@@ -723,28 +744,21 @@ void Game::load_level(const Update& u, AssetID l)
 		}
 		else if (cJSON_GetObjectItem(element, "AIPlayer"))
 		{
-			AI::Team team = (AI::Team)Json::get_s32(element, "team", (s32)AI::Team::B);
+			if (!data.local_multiplayer) // if we're in local multiplayer mode, don't add any AI players
+			{
+				AI::Team team = (AI::Team)Json::get_s32(element, "team", (s32)AI::Team::B);
 
-			PlayerManager* manager = PlayerManager::list.add();
-			new (manager) PlayerManager(&Team::list[(s32)team]);
+				PlayerManager* manager = PlayerManager::list.add();
+				new (manager) PlayerManager(&Team::list[(s32)team]);
 
-			AIPlayer* player = AIPlayer::list.add();
-			new (player) AIPlayer(manager);
+				AIPlayer* player = AIPlayer::list.add();
+				new (player) AIPlayer(manager);
+			}
 		}
 		else if (cJSON_GetObjectItem(element, "Turret"))
 		{
 			AI::Team team = (AI::Team)Json::get_s32(element, "team", (s32)AI::Team::A);
 			entity = World::alloc<Turret>(team);
-		}
-		else if (cJSON_GetObjectItem(element, "Socket"))
-		{
-			entity = World::alloc<SocketEntity>(absolute_pos, absolute_rot, (b8)Json::get_s32(element, "powered"));
-			cJSON* entity_link = cJSON_GetObjectItem(element, "links")->child;
-			if (entity_link)
-			{
-				LevelLink<Entity> link = { &entity->get<Socket>()->target, entity_link->valuestring };
-				links.add(link);
-			}
 		}
 		else if (cJSON_GetObjectItem(element, "SkyDecal"))
 		{
@@ -776,10 +790,11 @@ void Game::load_level(const Update& u, AssetID l)
 			{
 				entity = World::alloc<Prop>(Loader::find(name, AssetLookup::Mesh::names), Loader::find(armature, AssetLookup::Armature::names), Loader::find(animation, AssetLookup::Animation::names));
 				if (alpha || additive)
-				{
 					entity->get<View>()->shader = Asset::Shader::flat;
-					entity->get<View>()->alpha(additive, order);
-				}
+				if (alpha)
+					entity->get<View>()->alpha();
+				if (additive)
+					entity->get<View>()->additive();
 			}
 
 			cJSON* meshes = cJSON_GetObjectItem(element, "meshes");
@@ -805,10 +820,11 @@ void Game::load_level(const Update& u, AssetID l)
 						entity = m;
 
 					if (alpha || additive)
-					{
 						m->get<View>()->shader = Asset::Shader::flat;
-						m->get<View>()->alpha(additive, order);
-					}
+					if (alpha)
+						m->get<View>()->alpha();
+					if (additive)
+						m->get<View>()->additive();
 
 					mesh = mesh->next;
 				}

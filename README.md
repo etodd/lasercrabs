@@ -26,37 +26,37 @@ Windows quickstart
 ------------------
 
 1. Install [Visual Studio](https://www.visualstudio.com/en-us/downloads/download-visual-studio-vs.aspx)
-1. Install the [DirectX SDK](https://www.microsoft.com/en-us/download/confirmation.aspx?id=6812)
-1. Install [CMake](http://www.cmake.org/download/)
-1. Ensure [Blender](http://blender.org) is installed and
+2. Install the [DirectX SDK](https://www.microsoft.com/en-us/download/confirmation.aspx?id=6812)
+3. Install [CMake](http://www.cmake.org/download/)
+4. Ensure [Blender](http://blender.org) is installed and
    [available on the path](http://www.computerhope.com/issues/ch000549.htm)
-1. Ensure [Wwise](https://www.audiokinetic.com/) is installed and `WwiseCLI`
+5. Ensure [Wwise](https://www.audiokinetic.com/) is installed and `WwiseCLI`
 is available on the path
-1. Run `setup.bat`
-1. Open `build/yearning.sln` in Visual Studio
-1. Set the `yearning` project as the default startup project
-1. Hit F5 to run the game
+6. Run `setup.bat`
+7. Open `build/yearning.sln` in Visual Studio
+8. Set the `yearning` project as the default startup project
+9. Hit F5 to run the game
 
 Linux quickstart
 ----------------
 
 1. The Wwise authoring tool doesn't run on Linux. Use Wwise on another platform
 to build the Linux soundbanks.
-1. If necessary, copy the generated `Wwise_IDs.h` file into `src/asset`
-1. Copy the soundbanks into `assets/audio/GeneratedSoundBanks/Linux`
-1. Run `./setup`
-1. Run `./yearning` from the `build` folder
+2. If necessary, copy the generated `Wwise_IDs.h` file into `src/asset`
+3. Copy the soundbanks into `assets/audio/GeneratedSoundBanks/Linux`
+4. Run `./setup`
+5. Run `./yearning` from the `build` folder
 
 Mac quickstart
 --------------
 
 1. Install [Homebrew](http://brew.sh/)
-1. Ensure [Blender](http://blender.org) is installed and
+2. Ensure [Blender](http://blender.org) is installed and
    [available on the path](http://www.computerhope.com/issues/ch000549.htm)
-1. Ensure [Wwise](https://www.audiokinetic.com/) is installed and `WwiseCLI.sh`
+3. Ensure [Wwise](https://www.audiokinetic.com/) is installed and `WwiseCLI.sh`
 is available on the path
-1. Run `./setup-mac`
-1. Run `./yearning` from the `build` folder
+4. Run `./setup-mac`
+5. Run `./yearning` from the `build` folder
 
 Asset license
 -------------

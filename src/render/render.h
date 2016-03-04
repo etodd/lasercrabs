@@ -15,6 +15,7 @@ struct Frustum
 };
 
 #define RENDER_MASK_SHADOW (1 << 15)
+#define RENDER_MASK_DEFAULT ((RenderMask)-1)
 
 // material indices
 // these are alpha values stored in the g-buffer

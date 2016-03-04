@@ -85,6 +85,7 @@ namespace Soren
 		{
 			Face face;
 			ID choices[MAX_CHOICES];
+			AkUniqueID sound;
 		};
 
 		struct BranchData
@@ -170,8 +171,8 @@ namespace Soren
 				}
 
 				// name
+				const char* name_str = Json::get_string(json_node, "name");
 				{
-					const char* name_str = Json::get_string(json_node, "name");
 					if (name_str)
 					{
 						node.name = string_get(name_str);
@@ -237,6 +238,12 @@ namespace Soren
 							}
 						}
 					}
+
+					// sound
+					if (name_str)
+						node.text.sound = Audio::get_id(name_str);
+					else
+						node.text.sound = AK_INVALID_UNIQUE_ID;
 				}
 
 				if (node.type == Node::Type::Branch || node.type == Node::Type::Set)
@@ -417,7 +424,6 @@ namespace Soren
 	void _execute(ID node_id, r32& time)
 	{
 		const Node& node = nodes[node_id];
-		// TODO: post audio events
 		if (node.name != AssetNull)
 			data->node_executions.schedule(time, node.name);
 		switch (node.type)
@@ -425,9 +431,10 @@ namespace Soren
 			case Node::Type::Text:
 			{
 				const char* str = _(node.name);
-				Audio::post_global_event(Audio::get_id(str));
 				data->texts.schedule(time, str);
 				data->faces.schedule(time, node.text.face);
+				if (node.text.sound != AK_INVALID_UNIQUE_ID)
+					data->audio_events.schedule(time, node.text.sound);
 				time += time_per_message + utf8len(str) * time_per_character;
 				if (node.next == IDNull)
 				{
@@ -572,25 +579,25 @@ namespace Soren
 
 				{
 					Node& node = nodes[choice.a];
-					if (data->menu.item(u, 0, &p, _(node.name)))
+					if (data->menu.item(u, &p, _(node.name)))
 						execute(node.next, 0.25f);
 				}
 				if (choice.b != IDNull)
 				{
 					Node& node = nodes[choice.b];
-					if (data->menu.item(u, 0, &p, _(node.name)))
+					if (data->menu.item(u, &p, _(node.name)))
 						execute(node.next, 0.25f);
 				}
 				if (choice.c != IDNull)
 				{
 					Node& node = nodes[choice.c];
-					if (data->menu.item(u, 0, &p, _(node.name)))
+					if (data->menu.item(u, &p, _(node.name)))
 						execute(node.next, 0.25f);
 				}
 				if (choice.d != IDNull)
 				{
 					Node& node = nodes[choice.d];
-					if (data->menu.item(u, 0, &p, _(node.name)))
+					if (data->menu.item(u, &p, _(node.name)))
 						execute(node.next, 0.25f);
 				}
 

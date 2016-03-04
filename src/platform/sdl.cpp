@@ -50,6 +50,8 @@ namespace VI
 			return -1;
 		}
 
+		Loader::data_directory = SDL_GetPrefPath("PoorMan", "Yearning");
+
 		SDL_GameControllerAddMappingsFromFile("gamecontrollerdb.txt");
 
 		SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_COMPATIBILITY);

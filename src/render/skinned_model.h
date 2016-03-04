@@ -9,6 +9,13 @@ namespace VI
 
 struct SkinnedModel : public ComponentType<SkinnedModel>
 {
+	static Bitmask<MAX_ENTITIES> list_alpha;
+	static Bitmask<MAX_ENTITIES> list_additive;
+
+	static void draw_opaque(const RenderParams&);
+	static void draw_alpha(const RenderParams&);
+	static void draw_additive(const RenderParams&);
+
 	AssetID mesh;
 	AssetID shader;
 	AssetID texture;
@@ -19,7 +26,12 @@ struct SkinnedModel : public ComponentType<SkinnedModel>
 
 	SkinnedModel();
 	void awake();
+	~SkinnedModel();
+
 	void draw(const RenderParams&);
+	void alpha();
+	void additive();
+	void alpha_disable();
 };
 
 }

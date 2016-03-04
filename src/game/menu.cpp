@@ -132,7 +132,10 @@ void update(const Update& u)
 		case Asset::Level::menu:
 		{
 			if (Game::data.level != last_level)
+			{
 				reset_players();
+				Game::data.local_multiplayer = true;
+			}
 
 			b8 cameras_changed = false;
 			s32 screen_count = 0;
@@ -162,7 +165,7 @@ void update(const Update& u)
 					}
 					else if (u.input->get(Game::bindings.action, i) && !u.last_input->get(Game::bindings.action, i))
 					{
-						Game::data.local_player_config[i] = AI::Team::A;
+						Game::data.local_player_config[i] = i % 2 == 0 ? AI::Team::A : AI::Team::B;
 						Audio::post_global_event(AK::EVENTS::PLAY_BEEP_GOOD);
 					}
 				}
@@ -216,18 +219,18 @@ void update(const Update& u)
 				case Submenu::None:
 				{
 					Vec2 pos(0, u.input->height * 0.5f + UIMenu::height(5) * 0.5f);
-					if (main_menu.item(u, 0, &pos, _(strings::continue_)))
+					if (main_menu.item(u, &pos, _(strings::continue_)))
 					{
 						clear();
 						Game::schedule_load_level(Asset::Level::start);
 						return;
 					}
-					main_menu.item(u, 0, &pos, _(strings::new_));
-					if (main_menu.item(u, 0, &pos, _(strings::options)))
+					main_menu.item(u, &pos, _(strings::new_));
+					if (main_menu.item(u, &pos, _(strings::options)))
 						submenu = Submenu::Options;
-					if (main_menu.item(u, 0, &pos, _(strings::splitscreen)))
+					if (main_menu.item(u, &pos, _(strings::splitscreen)))
 						menu();
-					if (main_menu.item(u, 0, &pos, _(strings::exit)))
+					if (main_menu.item(u, &pos, _(strings::exit)))
 						Game::quit = true;
 					break;
 				}
@@ -347,7 +350,7 @@ b8 is_special_level(AssetID level)
 bool options(const Update& u, u8 gamepad, UIMenu* menu, Vec2* pos)
 {
 	bool menu_open = true;
-	if (menu->item(u, gamepad, pos, _(strings::back)) || (!u.input->get(Game::bindings.cancel, gamepad) && u.last_input->get(Game::bindings.cancel, gamepad)))
+	if (menu->item(u, pos, _(strings::back)) || (!u.input->get(Game::bindings.cancel, gamepad) && u.last_input->get(Game::bindings.cancel, gamepad)))
 		menu_open = false;
 
 	Settings& settings = Loader::settings();
@@ -355,7 +358,7 @@ bool options(const Update& u, u8 gamepad, UIMenu* menu, Vec2* pos)
 	UIMenu::Delta delta;
 
 	sprintf(str, "%d", settings.sfx);
-	delta = menu->slider_item(u, gamepad, pos, _(strings::sfx), str);
+	delta = menu->slider_item(u, pos, _(strings::sfx), str);
 	if (delta == UIMenu::Delta::Down)
 		settings.sfx = max(0, settings.sfx - 10);
 	else if (delta == UIMenu::Delta::Up)
@@ -364,7 +367,7 @@ bool options(const Update& u, u8 gamepad, UIMenu* menu, Vec2* pos)
 		Audio::global_param(AK::GAME_PARAMETERS::SFXVOL, (r32)settings.sfx / 100.0f);
 
 	sprintf(str, "%d", settings.music);
-	delta = menu->slider_item(u, gamepad, pos, _(strings::music), str);
+	delta = menu->slider_item(u, pos, _(strings::music), str);
 	if (delta == UIMenu::Delta::Down)
 		settings.music = max(0, settings.music - 10);
 	else if (delta == UIMenu::Delta::Up)
@@ -425,9 +428,10 @@ void UIMenu::clear()
 
 #define JOYSTICK_DEAD_ZONE 0.5f
 
-void UIMenu::start(const Update& u, u8 gamepad)
+void UIMenu::start(const Update& u, u8 g)
 {
 	clear();
+	gamepad = g;
 
 	if (gamepad == 0)
 		Game::update_cursor(u);
@@ -481,11 +485,11 @@ Rect2 UIMenu::add_item(Vec2* pos, b8 slider, const char* string, const char* val
 }
 
 // render a single menu item and increment the position for the next item
-b8 UIMenu::item(const Update& u, u8 gamepad, Vec2* menu_pos, const char* string, const char* value, b8 disabled, AssetID icon)
+b8 UIMenu::item(const Update& u, Vec2* menu_pos, const char* string, const char* value, b8 disabled, AssetID icon)
 {
 	Rect2 box = add_item(menu_pos, false, string, value, disabled, icon);
 
-	if (box.contains(Game::cursor))
+	if (gamepad == 0 && box.contains(Game::cursor))
 	{
 		selected = items.length - 1;
 
@@ -514,11 +518,11 @@ b8 UIMenu::item(const Update& u, u8 gamepad, Vec2* menu_pos, const char* string,
 	return false;
 }
 
-UIMenu::Delta UIMenu::slider_item(const Update& u, u8 gamepad, Vec2* menu_pos, const char* label, const char* value, b8 disabled, AssetID icon)
+UIMenu::Delta UIMenu::slider_item(const Update& u, Vec2* menu_pos, const char* label, const char* value, b8 disabled, AssetID icon)
 {
 	Rect2 box = add_item(menu_pos, true, label, value, disabled, icon);
 
-	if (box.contains(Game::cursor))
+	if (gamepad == 0 && box.contains(Game::cursor))
 		selected = items.length - 1;
 
 	if (disabled)
@@ -561,21 +565,24 @@ UIMenu::Delta UIMenu::slider_item(const Update& u, u8 gamepad, Vec2* menu_pos, c
 			}
 		}
 
-		if (!u.input->get({ KeyCode::MouseLeft }, gamepad)
-			&& u.last_input->get({ KeyCode::MouseLeft }, gamepad)
-			&& Game::time.total > 0.5f)
+		if (gamepad == 0)
 		{
-			Item* item = &items[items.length - 1];
-			if (item->down_rect().contains(Game::cursor))
+			if (!u.input->get({ KeyCode::MouseLeft }, gamepad)
+				&& u.last_input->get({ KeyCode::MouseLeft }, gamepad)
+				&& Game::time.total > 0.5f)
 			{
-				Audio::post_global_event(AK::EVENTS::PLAY_BEEP_GOOD);
-				return Delta::Down;
-			}
+				Item* item = &items[items.length - 1];
+				if (item->down_rect().contains(Game::cursor))
+				{
+					Audio::post_global_event(AK::EVENTS::PLAY_BEEP_GOOD);
+					return Delta::Down;
+				}
 
-			if (item->up_rect().contains(Game::cursor))
-			{
-				Audio::post_global_event(AK::EVENTS::PLAY_BEEP_GOOD);
-				return Delta::Up;
+				if (item->up_rect().contains(Game::cursor))
+				{
+					Audio::post_global_event(AK::EVENTS::PLAY_BEEP_GOOD);
+					return Delta::Up;
+				}
 			}
 		}
 	}
@@ -630,6 +637,9 @@ void UIMenu::draw_alpha(const RenderParams& params) const
 			UI::triangle(params, { up_rect.pos + up_rect.size * 0.5f, up_rect.size * 0.5f }, item->label.color, PI * -0.5f);
 		}
 	}
+
+	if (gamepad == 0)
+		Game::draw_cursor(params);
 }
 
 }

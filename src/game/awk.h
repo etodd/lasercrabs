@@ -50,13 +50,13 @@ struct Awk : public ComponentType<Awk>
 	LinkArg<const Vec3&> bounce;
 	LinkArg<Entity*> hit;
 	r32 attach_time;
-	Ref<Rope> rope;
 	Footing footing[AWK_LEGS];
 	r32 last_speed;
 	r32 last_footstep;
 	Vec3 lerped_pos;
 	Quat lerped_rotation;
 	Ref<View> shield;
+	r32 stealth_timer;
 
 	Awk();
 	void awake();
@@ -65,6 +65,9 @@ struct Awk : public ComponentType<Awk>
 	void hit_by(const TargetEvent&); // Called when we get hit
 	void hit_target(Entity*); // Called when we hit a target
 	void killed(Entity*);
+
+	void stealth_enable(r32);
+	void stealth_disable();
 
 	void reflect(const Vec3&, const Vec3&, const Update&);
 	void crawl_wall_edge(const Vec3&, const Vec3&, const Update&, r32);

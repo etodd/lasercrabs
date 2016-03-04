@@ -12,4 +12,5 @@ assets/audio/.cache
 assets/audio/*.prof
 assets/audio/GeneratedSoundBanks
 assets/audio/Originals/WavAnalysis.cache
+*.akd
 .DS_Store

@@ -16,9 +16,6 @@ const Family MAX_FAMILIES = sizeof(ComponentMask) * 8;
 
 struct ComponentPoolBase
 {
-	void* global_state;
-	s32 global_state_size;
-
 	virtual void awake(ID) {}
 	virtual void remove(ID) {}
 };
@@ -83,20 +80,6 @@ struct ComponentPool : public ComponentPoolBase
 		item->~T();
 		item->revision++;
 		T::list.remove(id);
-	}
-
-	template<typename T2> T2* global()
-	{
-		vi_assert(global_state == nullptr);
-		global_state = new T2();
-		global_state_size = sizeof(T2);
-		return (T2*)global_state;
-	}
-
-	template<typename T2> void global(T2* p)
-	{
-		global_state = p;
-		global_state_size = sizeof(T2);
 	}
 };
 

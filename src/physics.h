@@ -52,8 +52,6 @@ struct Physics
 
 struct RigidBody : public ComponentType<RigidBody>
 {
-	static void init();
-
 	enum class Type
 	{
 		Box,

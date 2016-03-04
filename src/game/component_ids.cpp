@@ -33,22 +33,21 @@ COMPONENT_TYPE(11, Health) \
 COMPONENT_TYPE(12, MinionAI) \
 COMPONENT_TYPE(13, PlayerCommon) \
 COMPONENT_TYPE(14, Shockwave) \
-COMPONENT_TYPE(15, Socket) \
-COMPONENT_TYPE(16, Mover) \
-COMPONENT_TYPE(17, Rope) \
-COMPONENT_TYPE(18, MinionCommon) \
-COMPONENT_TYPE(19, SkyDecal) \
-COMPONENT_TYPE(20, Walker) \
-COMPONENT_TYPE(21, Target) \
-COMPONENT_TYPE(22, PlayerTrigger) \
-COMPONENT_TYPE(23, LocalPlayerControl) \
-COMPONENT_TYPE(24, Ragdoll) \
-COMPONENT_TYPE(25, SkinnedModel) \
-COMPONENT_TYPE(26, View) \
-COMPONENT_TYPE(27, TurretControl) \
-COMPONENT_TYPE(28, Projectile) \
-COMPONENT_TYPE(29, Parkour) \
-COMPONENT_TYPE(30, Tile) \
+COMPONENT_TYPE(15, Mover) \
+COMPONENT_TYPE(16, Rope) \
+COMPONENT_TYPE(17, MinionCommon) \
+COMPONENT_TYPE(18, SkyDecal) \
+COMPONENT_TYPE(19, Walker) \
+COMPONENT_TYPE(20, Target) \
+COMPONENT_TYPE(21, PlayerTrigger) \
+COMPONENT_TYPE(22, LocalPlayerControl) \
+COMPONENT_TYPE(23, Ragdoll) \
+COMPONENT_TYPE(24, SkinnedModel) \
+COMPONENT_TYPE(25, View) \
+COMPONENT_TYPE(26, TurretControl) \
+COMPONENT_TYPE(27, Projectile) \
+COMPONENT_TYPE(28, Parkour) \
+COMPONENT_TYPE(29, Tile) \
 
 Family World::families = 31;
 

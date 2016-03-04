@@ -17,6 +17,7 @@
 namespace VI
 {
 
+const char* Loader::data_directory;
 LoopSwapper* Loader::swapper;
 // First entry in each array is empty
 Array<Loader::Entry<Mesh> > Loader::meshes;
@@ -1009,13 +1010,23 @@ cJSON* input_binding_json(const InputBinding& binding)
 	return json;
 }
 
+#define max_config_path_length 1024
+void get_config_path(char* path)
+{
+	vi_assert(strlen(Loader::data_directory) < max_config_path_length - 127);
+	sprintf(path, "%sconfig.txt", Loader::data_directory);
+}
+
 Settings& Loader::settings()
 {
 	if (!settings_data.valid)
 	{
 		settings_data.valid = true;
 
-		cJSON* json = Json::load("config.txt");
+		char path[max_config_path_length];
+		get_config_path(path);
+		cJSON* json = Json::load(path);
+
 		settings_data.width = Json::get_s32(json, "width", 1920);
 		settings_data.height = Json::get_s32(json, "height", 1080);
 		settings_data.fullscreen = (b8)Json::get_s32(json, "fullscreen", 0);
@@ -1070,7 +1081,10 @@ void Loader::settings_save()
 		cJSON_AddItemToObject(bindings, "ability2", input_binding_json(settings_data.bindings.abilities[1]));
 		cJSON_AddItemToObject(bindings, "menu", input_binding_json(settings_data.bindings.menu));
 
-		Json::save(json, "config.txt");
+		char path[max_config_path_length];
+		get_config_path(path);
+
+		Json::save(json, path);
 		Json::json_free(json);
 	}
 }

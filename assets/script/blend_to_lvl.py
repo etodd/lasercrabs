@@ -75,7 +75,7 @@ def add(obj, parent_index = -1):
 	return node
 
 try:
-	argv = sys.argv[sys.argv.index("--") + 1:] # get all args after "--"
+	argv = sys.argv[sys.argv.index('--') + 1:] # get all args after '--'
 	output_file = argv[0]
 
 	output_asset_name = clean_name(os.path.basename(output_file)[:-4])

@@ -41,6 +41,7 @@ struct Game
 		AI::Team local_player_config[MAX_GAMEPADS];
 		b8 third_person;
 		b8 allow_detach;
+		b8 local_multiplayer;
 		Data();
 	};
 
@@ -67,6 +68,7 @@ struct Game
 
 	static b8 init(LoopSync*);
 	static void execute(const Update&, const char*);
+	static void draw_cursor(const RenderParams&);
 	static void update_cursor(const Update&);
 	static void update(const Update&);
 	static void schedule_load_level(AssetID);

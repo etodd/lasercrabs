@@ -37,17 +37,18 @@ struct UIMenu
 		Down,
 	};
 
+	static r32 height(s32);
+
 	char selected;
 	StaticArray<Item, 10> items;
-
-	static r32 height(s32);
+	u8 gamepad;
 
 	UIMenu();
 	void clear();
 	void start(const Update&, u8);
 	Rect2 add_item(Vec2*, b8, const char*, const char* = nullptr, b8 = false, AssetID = AssetNull);
-	b8 item(const Update&, u8, Vec2*, const char*, const char* = nullptr, b8 = false, AssetID = AssetNull);
-	Delta slider_item(const Update&, u8, Vec2*, const char*, const char*, b8 = false, AssetID = AssetNull);
+	b8 item(const Update&, Vec2*, const char*, const char* = nullptr, b8 = false, AssetID = AssetNull);
+	Delta slider_item(const Update&, Vec2*, const char*, const char*, b8 = false, AssetID = AssetNull);
 	void draw_alpha(const RenderParams&) const;
 	void end();
 };

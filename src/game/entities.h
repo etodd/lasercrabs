@@ -52,24 +52,6 @@ struct Shockwave : public ComponentType<Shockwave>
 	void update(const Update&);
 };
 
-struct SocketEntity : public StaticGeom
-{
-	SocketEntity(const Vec3&, const Quat&, const b8);
-};
-
-struct Socket : public ComponentType<Socket>
-{
-	b8 permanent_powered;
-	b8 powered;
-	StaticArray<Ref<Socket>, 8> links;
-	Ref<Entity> target;
-
-	Socket(const b8);
-	void awake();
-	static void refresh_all();
-	void refresh();
-};
-
 struct MoverEntity : public Entity
 {
 	MoverEntity(const b8, const b8, const b8);
@@ -114,8 +96,6 @@ struct Rope : public ComponentType<Rope>
 	Ref<RigidBody> last_segment;
 	Vec3 last_segment_relative_pos;
 	r32 slack;
-	Ref<Socket> socket1;
-	Ref<Socket> socket2;
 
 	Rope(const Vec3&, const Vec3&, RigidBody*, const r32 = 0.0f);
 	void awake() {}

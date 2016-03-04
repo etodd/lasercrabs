@@ -361,7 +361,7 @@ add_executable(yearning
 target_include_directories(yearning PRIVATE ${ALL_INCLUDES})
 
 # Config file
-file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/config.txt DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/)
+file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/language.txt DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/)
 
 if(WIN32)
 	set_property(TARGET yearning APPEND PROPERTY LINK_FLAGS_DEBUG "/SUBSYSTEM:CONSOLE")

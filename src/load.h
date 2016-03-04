@@ -59,6 +59,8 @@ struct Loader
 		}
 	};
 
+	static const char* data_directory;
+
 	static s32 static_mesh_count;
 	static s32 static_texture_count;
 	static LoopSwapper* swapper;

@@ -2015,11 +2015,23 @@ void import_strings(ImporterState& state, const std::string& asset_in_path, cons
 		{
 			// parse strings
 			cJSON* json = Json::load(asset_in_path.c_str());
+			if (!json)
+			{
+				fprintf(stderr, "Error: %s\n", cJSON_GetErrorPtr());
+				state.error = true;
+				return;
+			}
 			cJSON* element = json->child;
 			while (element)
 			{
-				std::string key = element->string;
-				map_add(state.manifest.strings, key, key);
+				// each element is a dictionary of string keys to string values
+				cJSON* element2 = element->child;
+				while (element2)
+				{
+					std::string key = element2->string;
+					map_add(state.manifest.strings, key, key);
+					element2 = element2->next;
+				}
 				element = element->next;
 			}
 		}

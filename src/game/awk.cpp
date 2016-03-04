@@ -77,7 +77,6 @@ Awk::Awk()
 	: velocity(0.0f, -AWK_FLY_SPEED, 0.0f),
 	attached(),
 	attach_time(),
-	rope(),
 	footing(),
 	last_speed(),
 	last_footstep(),
@@ -98,7 +97,7 @@ void Awk::awake()
 
 		View* s = shield_entity->add<View>();
 		s->mask = ~(1 << (s32)get<AIAgent>()->team); // don't display to fellow teammates
-		s->alpha(true);
+		s->additive();
 		s->color = Vec4(1, 1, 1, 0.1f);
 		s->mesh = Asset::Mesh::sphere;
 		s->offset.scale(Vec3(AWK_SHIELD_RADIUS));
@@ -185,13 +184,6 @@ b8 Awk::detach(const Update& u, const Vec3& dir)
 	if (get<PlayerCommon>()->cooldown == 0.0f)
 	{
 		get<Audio>()->post_event(has<LocalPlayerControl>() ? AK::EVENTS::PLAY_LAUNCH_PLAYER : AK::EVENTS::PLAY_LAUNCH);
-
-		Transform* parent = get<Transform>()->parent.ref();
-		if (parent && parent->has<Socket>())
-		{
-			Entity* rope_entity = World::create<RopeEntity>(get<Transform>()->to_world(Vec3(0, 0, -AWK_RADIUS)), get<Transform>()->to_world_normal(Vec3(0, 0, 1)), get<Transform>()->parent.ref()->get<RigidBody>(), 1.0f);
-			rope = rope_entity->get<Rope>();
-		}
 
 		attach_time = u.time.total;
 		get<PlayerCommon>()->cooldown = AWK_MIN_COOLDOWN;
@@ -506,8 +498,35 @@ void Awk::update_offset()
 		get<SkinnedModel>()->offset.translation(Vec3::zero);
 }
 
+void Awk::stealth_enable(r32 time)
+{
+	stealth_timer = time;
+	get<AIAgent>()->stealth = true;
+	get<SkinnedModel>()->alpha();
+	get<SkinnedModel>()->color.w = 0.1f;
+	get<SkinnedModel>()->mask = 1 << (s32)get<AIAgent>()->team; // only display to fellow teammates
+	shield.ref()->get<View>()->mask = 0; // display to no one
+}
+
+void Awk::stealth_disable()
+{
+	stealth_timer = 0.0f;
+	get<AIAgent>()->stealth = false;
+	get<SkinnedModel>()->alpha_disable();
+	get<SkinnedModel>()->color.w = MATERIAL_NO_OVERRIDE;
+	get<SkinnedModel>()->mask = RENDER_MASK_DEFAULT; // display to everyone
+	shield.ref()->get<View>()->mask = ~(1 << (s32)get<AIAgent>()->team); // don't display to fellow teammates
+}
+
 void Awk::update(const Update& u)
 {
+	if (get<AIAgent>()->stealth)
+	{
+		stealth_timer -= u.time.delta;
+		if (stealth_timer <= 0.0f)
+			stealth_disable();
+	}
+
 	if (get<Transform>()->parent.ref())
 	{
 		Quat rot = get<Transform>()->rot;
@@ -736,14 +755,6 @@ void Awk::update(const Update& u)
 							shockwave->get<Transform>()->pos = get<Transform>()->pos;
 							shockwave->get<Transform>()->parent = get<Transform>()->parent;
 
-							if (rope.ref())
-							{
-								RigidBody* rope_end = get<Transform>()->parent.ref()->get<RigidBody>();
-								if (rope_end->has<Socket>())
-									rope.ref()->end(get<Transform>()->to_world(Vec3(0, 0, -AWK_RADIUS)), get<Transform>()->to_world_normal(Vec3(0, 0, 1)), rope_end);
-								rope = nullptr;
-							}
-
 							get<Animator>()->layers[0].animation = AssetNull;
 
 							attached.fire();
@@ -753,14 +764,6 @@ void Awk::update(const Update& u)
 							velocity = Vec3::zero;
 						}
 					}
-				}
-
-				if (rope.ref())
-				{
-					Vec3 pos;
-					Quat rot;
-					get<Transform>()->absolute(&pos, &rot);
-					rope.ref()->add(pos, rot);
 				}
 			}
 			get<PlayerCommon>()->cooldown = fmin(get<PlayerCommon>()->cooldown + (next_position - position).length() * AWK_COOLDOWN_DISTANCE_RATIO, AWK_MAX_DISTANCE_COOLDOWN);

@@ -9,19 +9,8 @@
 namespace VI
 {
 
-View::GlobalState* View::global;
-
-void View::init()
-{
-	global = pool.global<GlobalState>();
-	global->first_additive = IDNull;
-	global->first_alpha = IDNull;
-}
-
-View::IntrusiveLinkedList::IntrusiveLinkedList()
-	: previous(IDNull), next(IDNull)
-{
-}
+Bitmask<MAX_ENTITIES> View::list_alpha;
+Bitmask<MAX_ENTITIES> View::list_additive;
 
 View::View()
 	: mesh(AssetNull),
@@ -29,11 +18,7 @@ View::View()
 	texture(AssetNull),
 	offset(Mat4::identity),
 	color(0, 0, 0, 0),
-	alpha_order(),
-	alpha_enabled(),
-	additive_entry(),
-	alpha_entry(),
-	mask((RenderMask)-1)
+	mask(RENDER_MASK_DEFAULT)
 {
 }
 
@@ -46,121 +31,45 @@ void View::draw_opaque(const RenderParams& params)
 {
 	for (auto i = View::list.iterator(); !i.is_last(); i.next())
 	{
-		if (!i.item()->alpha_enabled)
+		if (!list_alpha.get(i.index) && !list_additive.get(i.index))
 			i.item()->draw(params);
 	}
 }
 
 void View::draw_additive(const RenderParams& params)
 {
-	ID i = global->first_additive;
-	while (i != IDNull)
+	for (auto i = View::list.iterator(); !i.is_last(); i.next())
 	{
-		View* v = &View::list[i];
-		v->draw(params);
-		i = v->additive_entry.next;
+		if (list_additive.get(i.index))
+			i.item()->draw(params);
 	}
 }
 
 void View::draw_alpha(const RenderParams& params)
 {
-	ID i = global->first_alpha;
-	while (i != IDNull)
+	for (auto i = View::list.iterator(); !i.is_last(); i.next())
 	{
-		View* v = &View::list[i];
-		v->draw(params);
-		i = v->alpha_entry.next;
+		if (list_alpha.get(i.index))
+			i.item()->draw(params);
 	}
 }
 
-void View::alpha(const b8 additive, const s32 order)
+void View::alpha()
 {
-	if (alpha_enabled)
-		alpha_disable();
+	list_alpha.set(id(), true);
+	list_additive.set(id(), false);
+}
 
-	alpha_enabled = true;
-
-	alpha_order = order;
-
-	ID* first = additive ? &global->first_additive : &global->first_alpha;
-	IntrusiveLinkedList* entry = additive ? &additive_entry : &alpha_entry;
-
-	const ID me = id();
-
-	if (*first == IDNull) // We're the first
-		*first = me;
-	else
-	{
-		// Figure out where in the list we need to insert ourselves
-
-		View* v = &View::list[*first];
-
-		IntrusiveLinkedList* v_entry = additive ? &v->additive_entry : &v->alpha_entry;
-
-		if (alpha_order < v->alpha_order)
-		{
-			// Insert ourselves before the first entry
-			entry->next = *first;
-			v_entry->previous = me;
-			*first = me;
-		}
-		else
-		{
-			// Find the last entry where our alpha_order is higher,
-			// and insert ourselves after them
-			while (v_entry->next != IDNull)
-			{
-				View* next_v = &View::list[v_entry->next];
-				if (alpha_order > next_v->alpha_order)
-				{
-					v_entry = additive ? &next_v->additive_entry : &next_v->alpha_entry;
-					v = next_v;
-				}
-				else
-					break;
-			}
-			entry->previous = v->id();
-			entry->next = v_entry->next;
-			if (v_entry->next != IDNull)
-			{
-				View* next_v = &View::list[v_entry->next];
-				(additive ? &next_v->additive_entry : &next_v->alpha_entry)->previous = me;
-			}
-			v_entry->next = me;
-		}
-	}
+void View::additive()
+{
+	list_alpha.set(id(), false);
+	list_additive.set(id(), true);
 }
 
 void View::alpha_disable()
 {
-	if (alpha_enabled)
-	{
-		alpha_enabled = false;
-
-		// Remove additive entry
-		if (additive_entry.next != IDNull)
-			View::list[additive_entry.next].additive_entry.previous = additive_entry.previous;
-
-		if (additive_entry.previous != IDNull)
-			View::list[additive_entry.previous].additive_entry.next = additive_entry.next;
-
-		if (global->first_additive == id())
-			global->first_additive = additive_entry.next;
-		additive_entry.previous = IDNull;
-		additive_entry.next = IDNull;
-
-		// Remove alpha entry
-		if (alpha_entry.next != IDNull)
-			View::list[alpha_entry.next].alpha_entry.previous = alpha_entry.previous;
-
-		if (alpha_entry.previous != IDNull)
-			View::list[alpha_entry.previous].alpha_entry.next = alpha_entry.next;
-
-		if (global->first_alpha == id())
-			global->first_alpha = alpha_entry.next;
-		alpha_entry.previous = IDNull;
-		alpha_entry.next = IDNull;
-	}
+	list_alpha.set(id(), false);
+	list_additive.set(id(), false);
 }
 
 void View::draw(const RenderParams& params) const

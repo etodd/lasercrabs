@@ -8,25 +8,8 @@ namespace VI
 
 struct View : public ComponentType<View>
 {
-	struct GlobalState
-	{
-		ID first_additive;
-		ID first_alpha;
-	};
-	
-	struct IntrusiveLinkedList
-	{
-		ID previous;
-		ID next;
-
-		IntrusiveLinkedList();
-	};
-
-	static GlobalState* global;
-	static void init();
-
-	IntrusiveLinkedList additive_entry;
-	IntrusiveLinkedList alpha_entry;
+	static Bitmask<MAX_ENTITIES> list_alpha;
+	static Bitmask<MAX_ENTITIES> list_additive;
 
 	RenderMask mask;
 
@@ -36,27 +19,29 @@ struct View : public ComponentType<View>
 	Vec4 color;
 	Mat4 offset;
 
-	s32 alpha_order;
-	b8 alpha_enabled;
-	void alpha(const b8 = false, const s32 = 0);
-	void alpha_disable();
-	
-	View();
-	~View();
 	static void draw_opaque(const RenderParams&);
 	static void draw_alpha(const RenderParams&);
 	static void draw_additive(const RenderParams&);
-	void draw(const RenderParams&) const;
+
+	View();
 	void awake();
+	~View();
+
+	void alpha();
+	void additive();
+	void alpha_disable();
+	void draw(const RenderParams&) const;
 };
 
 struct SkyDecal : ComponentType<SkyDecal>
 {
-	void awake() {}
 	Vec4 color;
 	r32 scale;
 	AssetID texture;
+
 	static void draw(const RenderParams&);
+
+	void awake() {}
 };
 
 struct Skybox

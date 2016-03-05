@@ -33,7 +33,7 @@ const Vec4 Team::colors[(s32)AI::Team::count] =
 StaticArray<Team, (s32)AI::Team::count> Team::list;
 
 Team::Team()
-	: minion_spawn_timer(MINION_SPAWN_INITIAL_DELAY)
+	: minion_spawn_timer(MINION_SPAWN_INITIAL_DELAY), victory_timer(5.0f), score()
 {
 }
 
@@ -53,6 +53,16 @@ void Team::awake()
 		AI::obstacle_add(player_spawn.ref()->absolute_pos(), PLAYER_SPAWN_RADIUS, 4.0f);
 }
 
+b8 Team::game_over()
+{
+	for (s32 i = 0; i < Team::list.length; i++)
+	{
+		if (Team::list[i].score >= VICTORY_POINTS)
+			return true;
+	}
+	return false;
+}
+
 #define TARGET_CREDITS 50
 void Team::target_hit(const TargetEvent& e)
 {
@@ -61,7 +71,8 @@ void Team::target_hit(const TargetEvent& e)
 	{
 		e.hit_by->get<PlayerCommon>()->manager.ref()->add_credits(TARGET_CREDITS);
 		World::remove_deferred(e.target);
-		Team::list[(s32)other].score++;
+		if (!game_over())
+			Team::list[(s32)other].score++;
 	}
 }
 
@@ -72,7 +83,7 @@ void Team::player_killed_by(Entity* e)
 		if (e->has<Projectile>())
 			e = e->get<Projectile>()->owner.ref();
 		AI::Team other = e->get<AIAgent>()->team;
-		if (other != team())
+		if (other != team() && !game_over())
 			Team::list[(s32)other].score++;
 	}
 }
@@ -104,15 +115,23 @@ void Team::update(const Update& u)
 			minion_spawn_timer = minion_spawn_delay(minion_spawn_state);
 		}
 	}
+
+	if (score >= VICTORY_POINTS)
+	{
+		// we win
+		victory_timer -= u.time.delta;
+		if (victory_timer < 0.0f)
+			Menu::transition(Game::data.next_level);
+	}
 }
 
 AbilitySlot::Info AbilitySlot::info[] =
 {
-	{ Asset::Mesh::icon_stun, strings::stun, 5.0f, { 10, 30, 50 } },
-	{ Asset::Mesh::icon_heal, strings::heal, 30.0f, { 10, 30, 50 } },
-	{ AssetNull, strings::stealth, 30.0f, { 10, 30, 50 } },
-	{ AssetNull, strings::turret, 30.0f, { 10, 30, 50 } },
-	{ AssetNull, strings::gun, 5.0f, { 10, 30, 50 } },
+	//{ Asset::Mesh::icon_stun, strings::stun, 5.0f, { 20, 40, 80 } },
+	{ Asset::Mesh::icon_heal, strings::heal, 30.0f, { 20, 40, 80 } },
+	{ Asset::Mesh::icon_stealth, strings::stealth, 30.0f, { 20, 40, 80 } },
+	//{ AssetNull, strings::turret, 60.0f, { 20, 40, 80 } },
+	//{ AssetNull, strings::gun, 5.0f, { 20, 40, 80 } },
 };
 
 b8 AbilitySlot::can_upgrade() const

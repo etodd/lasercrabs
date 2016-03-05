@@ -55,6 +55,7 @@ namespace VI
 {
 
 CAkDefaultIOHookBlocking Audio::wwise_io;
+b8 Audio::dialogue_done = true;
 
 b8 Audio::init()
 {
@@ -191,9 +192,19 @@ AkUniqueID Audio::get_id(const char* str)
 	return AK::SoundEngine::GetIDFromString(str);
 }
 
+void Audio::dialogue_done_callback(AkCallbackType type, AkCallbackInfo* info)
+{
+	dialogue_done = true;
+}
+
 void Audio::post_global_event(AkUniqueID event_id)
 {
 	AK::SoundEngine::PostEvent(event_id, MAX_ENTITIES);
+}
+
+void Audio::post_dialogue_event(AkUniqueID event_id)
+{
+	AK::SoundEngine::PostEvent(event_id, MAX_ENTITIES, AkCallbackType::AK_EndOfEvent, &Audio::dialogue_done_callback);
 }
 
 void Audio::post_global_event(AkUniqueID event_id, const Vec3& pos)

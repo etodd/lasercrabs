@@ -277,17 +277,6 @@
 								</Action>
 							</ChildrenList>
 						</Event>
-						<Event Name="Play_Laser_Charge" ID="{F15A76EC-BA91-4118-AFA8-A95B59FD247D}">
-							<ChildrenList>
-								<Action Name="Play" ID="{8894EE3A-6247-47BB-9357-36A44EDA0057}" ShortID="630498020" Type="Play" Scope="One" Global="false">
-									<ElementList>
-										<Element ID="{82A853C2-AA24-45CE-8F67-226B278D4A85}" Global="false">
-											<ObjectRef Name="laser-charge" ID="{E7009289-EE31-4473-BA41-8A9217FEE663}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
-										</Element>
-									</ElementList>
-								</Action>
-							</ChildrenList>
-						</Event>
 						<Event Name="Play_Log" ID="{C0BDF94E-FC1A-43A9-B51A-9E9B0BAEEEA9}">
 							<ChildrenList>
 								<Action Name="Play" ID="{B0C5F4CA-BBFD-4208-A958-69B3E2E63243}" ShortID="858738239" Type="Play" Scope="One" Global="false">

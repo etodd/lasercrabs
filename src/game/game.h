@@ -37,6 +37,7 @@ struct Game
 	struct Data
 	{
 		AssetID level;
+		AssetID next_level;
 		Mode mode;
 		AI::Team local_player_config[MAX_GAMEPADS];
 		b8 third_person;

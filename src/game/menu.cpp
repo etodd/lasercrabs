@@ -206,13 +206,16 @@ void update(const Update& u)
 			if (start)
 			{
 				clear();
-				Game::schedule_load_level(Asset::Level::start);
+				Game::schedule_load_level(Asset::Level::level1);
 				return;
 			}
 			break;
 		}
 		case Asset::Level::title:
 		{
+			if (Game::data.level != last_level)
+				reset_players();
+
 			main_menu.start(u, 0);
 			switch (submenu)
 			{

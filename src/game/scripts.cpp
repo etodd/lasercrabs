@@ -45,6 +45,7 @@ Script* Script::find(const char* name)
 	return nullptr;
 }
 
+#define MAX_NODES 4096
 #define MAX_BRANCHES 4
 #define MAX_CHOICES 4
 namespace Soren
@@ -66,6 +67,7 @@ namespace Soren
 
 	struct Node
 	{
+		static Node list[MAX_NODES];
 		enum class Type
 		{
 			Node,
@@ -111,7 +113,7 @@ namespace Soren
 		};
 	};
 
-	Node nodes[4096];
+	Node Node::list[MAX_NODES];
 
 	// map string IDs to node IDs
 	// note: multiple nodes may use the same string ID
@@ -151,7 +153,7 @@ namespace Soren
 
 			while (json_node)
 			{
-				Node& node = nodes[current_node_id];
+				Node& node = Node::list[current_node_id];
 
 				// type
 				{
@@ -394,6 +396,7 @@ namespace Soren
 		Schedule<Choice> choices;
 		Schedule<AssetID> node_executions;
 		Mode mode;
+		ID current_text_node;
 
 		UIText text;
 		r32 text_clip;
@@ -407,6 +410,7 @@ namespace Soren
 
 	void clear()
 	{
+		data->current_text_node = IDNull;
 		data->time = 0.0f;
 		data->text.text(nullptr);
 		data->mode = Mode::Hidden;
@@ -416,14 +420,12 @@ namespace Soren
 		data->callbacks.clear();
 		data->choices.clear();
 		data->node_executions.clear();
+		Audio::dialogue_done = false;
 	}
 
-#define time_per_character 0.05f
-#define time_per_message 1.0f
-
-	void _execute(ID node_id, r32& time)
+	void execute(ID node_id, r32 time = 0.0f)
 	{
-		const Node& node = nodes[node_id];
+		const Node& node = Node::list[node_id];
 		if (node.name != AssetNull)
 			data->node_executions.schedule(time, node.name);
 		switch (node.type)
@@ -435,20 +437,10 @@ namespace Soren
 				data->faces.schedule(time, node.text.face);
 				if (node.text.sound != AK_INVALID_UNIQUE_ID)
 					data->audio_events.schedule(time, node.text.sound);
-				time += time_per_message + utf8len(str) * time_per_character;
-				if (node.next == IDNull)
-				{
-					for (s32 i = 0; i < MAX_CHOICES; i++)
-					{
-						ID choice = node.text.choices[i];
-						if (choice == IDNull)
-							break;
-						else
-							_execute(choice, time);
-					}
-				}
-				else
-					_execute(node.next, time);
+				// stop executing the dialogue tree at this point
+				// and save our current location in the tree
+				// once the dialogue has been spoken, we will resume executing the tree
+				data->current_text_node = node_id;
 				break;
 			}
 			case Node::Type::Branch:
@@ -459,7 +451,7 @@ namespace Soren
 				{
 					if (node.branch.branches[i].value == value)
 					{
-						_execute(node.branch.branches[i].target, time);
+						execute(node.branch.branches[i].target, time);
 						found_branch = true;
 						break;
 					}
@@ -473,7 +465,7 @@ namespace Soren
 					{
 						if (node.branch.branches[i].value == Asset::String::_default)
 						{
-							_execute(node.branch.branches[i].target, time);
+							execute(node.branch.branches[i].target, time);
 							break;
 						}
 					}
@@ -483,9 +475,8 @@ namespace Soren
 			case Node::Type::Choice:
 			{
 				// schedule a choice if one has not already been scheduled
-				r32 choice_time = fmax(0, time - time_per_message); // make the choice come up a bit faster
-				if (data->choices.entries.length == 0 || data->choices.entries[data->choices.entries.length - 1].time != choice_time)
-					data->choices.schedule(choice_time, { IDNull, IDNull, IDNull, IDNull });
+				if (data->choices.entries.length == 0 || data->choices.entries[data->choices.entries.length - 1].time != time)
+					data->choices.schedule(time, { IDNull, IDNull, IDNull, IDNull });
 
 				// add this choice to the entry
 				Schedule<Choice>::Entry& choice_entry = data->choices.entries[data->choices.entries.length - 1];
@@ -504,13 +495,13 @@ namespace Soren
 			{
 				variables[node.set.variable] = node.set.value;
 				if (node.next != IDNull)
-					_execute(node.next, time);
+					execute(node.next, time);
 				break;
 			}
 			case Node::Type::Node:
 			{
 				if (node.next != IDNull)
-					_execute(node.next, time);
+					execute(node.next, time);
 				break;
 			}
 			default:
@@ -521,15 +512,38 @@ namespace Soren
 		}
 	}
 
-	void execute(ID id, r32 delay = 0.0f)
+	void clear_and_execute(ID id, r32 delay = 0.0f)
 	{
 		clear();
 		data->mode = Mode::Center;
-		_execute(id, delay);
+		execute(id, delay);
 	}
 
 	void update(const Update& u)
 	{
+		if (Audio::dialogue_done)
+		{
+			// we've completed displaying a text message
+			// continue executing the dialogue tree
+			Node& node = Node::list[data->current_text_node];
+			data->current_text_node = IDNull;
+			if (node.next == IDNull)
+			{
+				for (s32 i = 0; i < MAX_CHOICES; i++)
+				{
+					ID choice = node.text.choices[i];
+					if (choice == IDNull)
+						break;
+					else
+						execute(choice, data->time);
+				}
+			}
+			else
+				execute(node.next, data->time);
+
+			Audio::dialogue_done = false;
+		}
+
 		if (data->node_executions.update(u, data->time))
 			data->node_executed.fire(data->node_executions.current());
 		data->faces.update(u, data->time);
@@ -547,7 +561,7 @@ namespace Soren
 		data->choices.update(u, data->time);
 
 		if (data->audio_events.update(u, data->time))
-			Audio::post_global_event(data->audio_events.current());
+			Audio::post_dialogue_event(data->audio_events.current());
 
 		if (data->text.clipped())
 		{
@@ -578,27 +592,27 @@ namespace Soren
 				Vec2 p(u.input->width * 0.5f + MENU_ITEM_WIDTH * -0.5f, u.input->height * 0.2f);
 
 				{
-					Node& node = nodes[choice.a];
+					Node& node = Node::list[choice.a];
 					if (data->menu.item(u, &p, _(node.name)))
-						execute(node.next, 0.25f);
+						clear_and_execute(node.next, 0.25f);
 				}
 				if (choice.b != IDNull)
 				{
-					Node& node = nodes[choice.b];
+					Node& node = Node::list[choice.b];
 					if (data->menu.item(u, &p, _(node.name)))
-						execute(node.next, 0.25f);
+						clear_and_execute(node.next, 0.25f);
 				}
 				if (choice.c != IDNull)
 				{
-					Node& node = nodes[choice.c];
+					Node& node = Node::list[choice.c];
 					if (data->menu.item(u, &p, _(node.name)))
-						execute(node.next, 0.25f);
+						clear_and_execute(node.next, 0.25f);
 				}
 				if (choice.d != IDNull)
 				{
-					Node& node = nodes[choice.d];
+					Node& node = Node::list[choice.d];
 					if (data->menu.item(u, &p, _(node.name)))
-						execute(node.next, 0.25f);
+						clear_and_execute(node.next, 0.25f);
 				}
 
 				data->menu.end();
@@ -715,6 +729,7 @@ namespace Soren
 	void init()
 	{
 		data = new Data();
+		Audio::dialogue_done = false;
 		Game::updates.add(update);
 		Game::cleanups.add(cleanup);
 		Game::draws.add(draw);
@@ -797,7 +812,7 @@ namespace start
 
 		Soren::init();
 		Soren::data->node_executed.link(&node_executed);
-		Soren::execute(Soren::node_lookup[Asset::String::start], 1.0f);
+		Soren::clear_and_execute(Soren::node_lookup[Asset::String::start], 1.0f);
 	}
 }
 
@@ -805,8 +820,9 @@ namespace tutorial01
 {
 	struct Data
 	{
-		bool minion_dialogue_done;
-		bool movement_tutorial_done;
+		b8 minion_dialogue_done;
+		b8 movement_tutorial_done;
+		b8 done;
 	};
 	static Data* data;
 
@@ -817,7 +833,7 @@ namespace tutorial01
 			data->minion_dialogue_done = true;
 			Soren::clear();
 			Soren::data->mode = Soren::Mode::TextOnly;
-			Soren::data->texts.schedule(1.0f, "When a minion's health is low, its helmet opens to expose the head.");
+			Soren::data->texts.schedule(1.0f, _(strings::minion_helmet_tutorial));
 			Soren::data->texts.schedule(6.0f, nullptr);
 		}
 	}
@@ -829,19 +845,21 @@ namespace tutorial01
 
 	void minion2_dialogue(Entity*)
 	{
-		// TODO: redo this
 		Soren::clear();
 		Soren::data->mode = Soren::Mode::TextOnly;
-		Soren::data->texts.schedule(1.0f, "Destroy the enemy spawn.");
+		Soren::data->texts.schedule(1.0f, _(strings::destroy_enemy_power_cell));
 	}
 
-	void destroyed_enemy_spawn()
+	void update(const Update& u)
 	{
-		// TODO: redo this
-		Soren::clear();
-		Soren::data->mode = Soren::Mode::TextOnly;
-		Soren::data->texts.schedule(2.0f, "Tutorial 01 complete.");
-		Soren::data->callbacks.schedule(4.0f, &done);
+		if (Team::list[0].score > 0 && !data->done)
+		{
+			data->done = true;
+			Soren::clear();
+			Soren::data->mode = Soren::Mode::TextOnly;
+			Soren::data->texts.schedule(2.0f, _(strings::tutorial_01_complete));
+			Soren::data->callbacks.schedule(4.0f, &done);
+		}
 	}
 
 	void shoot_tutorial(Entity*)
@@ -849,7 +867,7 @@ namespace tutorial01
 		Game::data.allow_detach = true;
 		Soren::clear();
 		Soren::data->mode = Soren::Mode::TextOnly;
-		Soren::data->texts.schedule(0.0f, "[{{Primary}}] to shoot. [{{Secondary}}] to zoom.");
+		Soren::data->texts.schedule(0.0f, _(strings::shoot_tutorial));
 	}
 
 	void movement_tutorial_done(Entity*)
@@ -870,12 +888,13 @@ namespace tutorial01
 	void init(const Update& u, const EntityFinder& entities)
 	{
 		data = new Data();
+		Game::updates.add(update);
 		Game::cleanups.add(cleanup);
 		Game::data.allow_detach = false;
 
 		Soren::init();
 		Soren::data->mode = Soren::Mode::TextOnly;
-		Soren::data->texts.schedule(3.0f, "Find the minion and shoot through its head.");
+		Soren::data->texts.schedule(3.0f, _(strings::find_and_shoot_minion));
 		Soren::data->texts.schedule(8.0f, nullptr);
 
 		entities.find("minion1")->get<Health>()->killed.link(&minion1_dialogue);

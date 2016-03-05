@@ -135,5 +135,10 @@ void Invert::child_done(Behavior* b, b8 success)
 	done(!success);
 }
 
+void Execute::run()
+{
+	done(callback());
+}
+
 
 }

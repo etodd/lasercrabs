@@ -6,6 +6,7 @@
 #include "render/ui.h"
 #include "ai.h"
 
+#define VICTORY_POINTS 5
 #define MAX_PLAYERS 8
 
 namespace VI
@@ -31,6 +32,8 @@ struct Team
 
 	static StaticArray<Team, (s32)AI::Team::count> list;
 
+	static b8 game_over();
+
 	Ref<Transform> player_spawn;
 	StaticArray<Ref<Transform>, 4> minion_spawns;
 	StaticArray<Ref<Target>, 4> targets;
@@ -38,6 +41,7 @@ struct Team
 	r32 minion_spawn_timer;
 	Revision revision;
 	u16 score;
+	r32 victory_timer;
 
 	Team();
 	void awake();
@@ -60,11 +64,11 @@ struct Team
 
 enum class Ability
 {
-	Stun,
+	//Stun,
 	Heal,
 	Stealth,
-	Turret,
-	Gun,
+	//Turret,
+	//Gun,
 	count,
 	None = count,
 };

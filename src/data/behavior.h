@@ -217,6 +217,14 @@ struct Invert : public BehaviorDecorator<Invert>
 	void child_done(Behavior*, b8);
 };
 
+struct Execute : public BehaviorBase<Execute>
+{
+	b8(*callback)();
+
+	Execute(b8(*fp)());
+	void run();
+};
+
 template<typename T> struct Set : public BehaviorBase<Set<T>>
 {
 	T value;

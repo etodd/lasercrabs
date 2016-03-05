@@ -265,8 +265,15 @@
 		"btn_RightTrigger": "RightTrigger",
 		"btn_None": "None",
 
+		"victory": "Victory!",
+		"defeat": "Defeat",
 		"yes": "Yes.",
 		"no": "No.",
+		"find_and_shoot_minion": "Find the minion and shoot through its head.",
+		"shoot_tutorial": "[{{Primary}}] to shoot. [{{Secondary}}] to zoom.",
+		"minion_helmet_tutorial": "When a minion's health is low, its helmet opens to expose the head.",
+		"destroy_enemy_power_cell": "Now destroy the enemy power cell.",
+		"tutorial_01_complete": "Tutorial 01 complete.",
 
 		"start": null,
 		"start_done": null,

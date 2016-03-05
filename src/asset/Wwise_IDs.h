@@ -38,7 +38,6 @@ namespace AK
         static const AkUniqueID PLAY_LAND = 4285282925U;
         static const AkUniqueID PLAY_LAND_PLAYER = 302450879U;
         static const AkUniqueID PLAY_LASER = 2270376495U;
-        static const AkUniqueID PLAY_LASER_CHARGE = 3940358322U;
         static const AkUniqueID PLAY_LAUNCH = 2155750267U;
         static const AkUniqueID PLAY_LAUNCH_PLAYER = 4265800737U;
         static const AkUniqueID PLAY_LOCK = 4064908091U;

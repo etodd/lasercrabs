@@ -68,6 +68,7 @@ b8 Game::cursor_updated = false;
 
 Game::Data::Data()
 	: level(AssetNull),
+	next_level(AssetNull),
 	mode(Mode::Multiplayer),
 	third_person(false),
 	allow_detach(true),
@@ -431,12 +432,27 @@ void Game::execute(const Update& u, const char* cmd)
 			{
 				const char* number_string = delimiter + 1;
 				char* end;
-				r32 value = std::strtod(number_string, &end);
+				s32 value = (s32)std::strtol(number_string, &end, 10);
 				if (*end == '\0')
 				{
 					for (auto i = PlayerManager::list.iterator(); !i.is_last(); i.next())
 						i.item()->credits += value;
 				}
+			}
+		}
+	}
+	else if (strstr(cmd, "score ") == cmd)
+	{
+		if (Team::list.length > 0)
+		{
+			const char* delimiter = strchr(cmd, ' ');
+			if (delimiter)
+			{
+				const char* number_string = delimiter + 1;
+				char* end;
+				s32 value = (s32)std::strtol(number_string, &end, 10);
+				if (*end == '\0')
+					Team::list[0].score += value;
 			}
 		}
 	}
@@ -716,6 +732,8 @@ void Game::load_level(const Update& u, AssetID l)
 		}
 		else if (cJSON_GetObjectItem(element, "World"))
 		{
+			data.next_level = Loader::find(Json::get_string(element, "next"), AssetLookup::Level::names);
+
 			AssetID texture = Loader::find(Json::get_string(element, "skybox_texture"), AssetLookup::Texture::names);
 			Vec3 color = Json::get_vec3(element, "skybox_color");
 			Vec3 ambient = Json::get_vec3(element, "ambient_color");

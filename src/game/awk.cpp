@@ -389,7 +389,7 @@ void Awk::crawl(const Vec3& dir_raw, const Update& u)
 		btCollisionWorld::ClosestRayResultCallback rayCallback(wall_ray_start, wall_ray_end);
 		rayCallback.m_flags = btTriangleRaycastCallback::EFlags::kF_FilterBackfaces
 			| btTriangleRaycastCallback::EFlags::kF_KeepUnflippedNormal;
-		rayCallback.m_collisionFilterMask = rayCallback.m_collisionFilterGroup = ~INACCESSIBLE_MASK;
+		rayCallback.m_collisionFilterMask = rayCallback.m_collisionFilterGroup = ~PERMEABLE_MASK;
 
 		Physics::btWorld->rayTest(wall_ray_start, wall_ray_end, rayCallback);
 
@@ -401,7 +401,8 @@ void Awk::crawl(const Vec3& dir_raw, const Update& u)
 			Vec3 dir_flattened_other_wall = dir_normalized - other_wall_normal * other_wall_normal.dot(dir_normalized);
 			// Check to make sure that our movement direction won't get flipped if we switch walls.
 			// This prevents jittering back and forth between walls all the time.
-			if (dir_flattened_other_wall.dot(dir_flattened) > 0.0f)
+			if (dir_flattened_other_wall.dot(dir_flattened) > 0.0f
+				&& !(rayCallback.m_collisionObject->getBroadphaseHandle()->m_collisionFilterGroup & INACCESSIBLE_MASK))
 			{
 				move
 				(

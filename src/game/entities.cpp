@@ -119,10 +119,10 @@ MinionSpawn::MinionSpawn(AI::Team team)
 	create<RigidBody>(RigidBody::Type::CapsuleY, Vec3(MINION_SPAWN_RADIUS, 6.0f, MINION_SPAWN_RADIUS), 0.0f, CollisionInaccessible, CollisionInaccessibleMask);
 }
 
-#define TURRET_COOLDOWN 0.35f
+#define TURRET_COOLDOWN 0.4f
 #define TURRET_RADIUS 1.25f
 #define TURRET_TARGET_CHECK_TIME 0.5f
-#define TURRET_ROTATION_SPEED ((PI * 0.5f) / 1.5f)
+#define TURRET_ROTATION_SPEED ((PI * 0.5f) / 0.75f)
 Turret::Turret(AI::Team team)
 {
 	create<Transform>();
@@ -325,11 +325,13 @@ void Projectile::update(const Update& u)
 			if (hit_object->has<Health>())
 			{
 				s32 multiplier;
-				if (entity()->has<MinionCommon>() && hit_object->has<TurretControl>())
+				if (owner.ref() && owner.ref()->has<MinionCommon>() && hit_object->has<TurretControl>())
 					multiplier = 2;
+				else if (owner.ref() && owner.ref()->has<TurretControl>() && hit_object->has<PlayerCommon>())
+					multiplier = 3;
 				else
 					multiplier = 1;
-				hit_object->get<Health>()->damage(entity(), damage * multiplier);
+				hit_object->get<Health>()->damage(owner.ref(), damage * multiplier);
 				basis = Vec3::normalize(velocity);
 			}
 			else

@@ -376,6 +376,7 @@ endif(WIN32)
 target_link_libraries(yearning
 	${OPENGL_LIBRARIES}
 	SDL2-static
+	SDL2main
 	GLEW_static
 	BulletDynamics
 	BulletCollision

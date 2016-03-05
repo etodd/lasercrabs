@@ -2,7 +2,7 @@
 
 #include <glew/include/GL/glew.h>
 #include <sdl/include/SDL.h>
-#undef main
+//#undef main
 
 #include "render/glvm.h"
 #include "load.h"
@@ -269,7 +269,7 @@ namespace VI
 
 }
 
-int main(int argc, char* argv[])
+int main(int argc, char** argv)
 {
 	return VI::proc();
 }

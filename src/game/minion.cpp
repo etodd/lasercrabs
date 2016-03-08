@@ -58,6 +58,7 @@ Minion::Minion(const Vec3& pos, const Quat& quat, AI::Team team)
 	PointLight* light = create<PointLight>();
 	light->color = Team::colors[(s32)team].xyz();
 	light->type = PointLight::Type::Override;
+	light->team_mask = 1 << (s32)team;
 	light->radius = SENSOR_RANGE;
 
 	create<Sensor>()->team = team;

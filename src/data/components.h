@@ -54,6 +54,7 @@ struct PointLight : public ComponentType<PointLight>
 	Vec3 offset;
 	Type type;
 	RenderMask mask;
+	u8 team_mask;
 
 	PointLight();
 	void awake() {}
@@ -72,6 +73,7 @@ struct SpotLight : public ComponentType<SpotLight>
 	r32 fov;
 	Type type;
 	RenderMask mask;
+	u8 team_mask;
 
 	SpotLight();
 

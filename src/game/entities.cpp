@@ -145,10 +145,10 @@ SensorEntity::SensorEntity(Transform* parent, AI::Team team, const Vec3& abs_pos
 	PointLight* light = create<PointLight>();
 	light->color = Team::colors[(s32)team].xyz();
 	light->type = PointLight::Type::Override;
+	light->team_mask = 1 << (s32)team;
 	light->radius = SENSOR_RANGE;
 
 	create<Sensor>()->team = team;
-	RigidBody* body = create<RigidBody>(RigidBody::Type::Sphere, Vec3(radius), 0, CollisionInaccessible, CollisionInaccessibleMask);
 }
 
 void Sensor::awake()
@@ -264,8 +264,8 @@ Turret::Turret(AI::Team team)
 	PointLight* light = create<PointLight>();
 	light->color = Team::colors[(s32)team].xyz();
 	light->type = PointLight::Type::Override;
+	light->mask = 1 << (s32)team;
 	light->radius = TURRET_VIEW_RANGE;
-	light->mask = ~(1 << (s32)team); // don't display to fellow teammates
 }
 
 void TurretControl::awake()

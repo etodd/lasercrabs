@@ -135,7 +135,8 @@ void LocalPlayer::ensure_camera(const Update& u, b8 active)
 	{
 		camera = Camera::add();
 		camera->fog = Game::data.mode == Game::Mode::Parkour;
-		camera->mask = 1 << (s32)manager.ref()->team.ref()->team();
+		camera->team = (u8)manager.ref()->team.ref()->team();
+		camera->mask = 1 << camera->team;
 		s32 player_count = list.count();
 		Camera::ViewportBlueprint* viewports = Camera::viewport_blueprints[player_count - 1];
 		Camera::ViewportBlueprint* blueprint = &viewports[gamepad];
@@ -340,7 +341,6 @@ void LocalPlayer::spawn()
 
 	spawned->get<Transform>()->absolute(pos, rot);
 	spawned->add<PlayerCommon>(manager.ref());
-	spawned->get<Health>()->killed.link<Team, Entity*, &Team::player_killed_by>(manager.ref()->team.ref());
 	manager.ref()->entity = spawned;
 
 	LocalPlayerControl* control = spawned->add<LocalPlayerControl>(gamepad);
@@ -412,7 +412,7 @@ void LocalPlayer::draw_alpha(const RenderParams& params) const
 				text.anchor_y = UIText::Anchor::Center;
 				text.size = 32.0f;
 
-				if (manager.ref()->team.ref()->score >= VICTORY_POINTS)
+				if (manager.ref()->team.ref()->has_player())
 					text.text(_(strings::victory));
 				else
 					text.text(_(strings::defeat));
@@ -430,42 +430,32 @@ void LocalPlayer::draw_alpha(const RenderParams& params) const
 		}
 		case UIMode::Spawning:
 		{
-			// Player is currently dead
-			UIText text;
-			text.font = Asset::Font::lowpoly;
+			// player is dead
 
-			text.wrap_width = MENU_ITEM_WIDTH;
-			text.anchor_x = text.anchor_y = UIText::Anchor::Center;
-			text.color = UI::default_color;
-			text.text(_(strings::spawning), (s32)manager.ref()->spawn_timer + 1);
-			Vec2 p = vp.size * Vec2(0.5f);
-			UI::box(params, text.rect(p).outset(8.0f * UI::scale), UI::background_color);
-			text.draw(params, p);
+			b8 show_spawning = true;
+			if (Game::data.mode == Game::Mode::Multiplayer && Team::game_over())
+			{
+				// we lost, we're not spawning again
+				show_spawning = false;
+			}
+
+			if (show_spawning)
+			{
+				// Player is currently dead
+				UIText text;
+				text.font = Asset::Font::lowpoly;
+
+				text.wrap_width = MENU_ITEM_WIDTH;
+				text.anchor_x = text.anchor_y = UIText::Anchor::Center;
+				text.color = UI::default_color;
+				text.text(_(strings::spawning), (s32)manager.ref()->spawn_timer + 1);
+				Vec2 p = vp.size * Vec2(0.5f);
+				UI::box(params, text.rect(p).outset(8.0f * UI::scale), UI::background_color);
+				text.draw(params, p);
+			}
 
 			break;
 		}
-	}
-
-	// score box
-	if (Game::data.mode == Game::Mode::Multiplayer)
-	{
-		vi_assert(Team::list.length == 2); // only support two teams right now
-		Vec2 box_pos = Vec2(vp.size.x * 0.5f, vp.size.y);
-		UI::mesh(params, Asset::Mesh::score_box, box_pos, Vec2(200.0f * UI::scale), UI::background_color);
-
-		UIText text;
-		text.size = 20.0f;
-		text.font = Asset::Font::lowpoly;
-		text.anchor_x = UIText::Anchor::Center;
-		text.anchor_y = UIText::Anchor::Max;
-
-		text.color = Team::ui_colors[0];
-		text.text("%d", Team::list[0].score);
-		text.draw(params, box_pos + Vec2(-50.0f * UI::scale, -10.0f * UI::scale));
-
-		text.color = Team::ui_colors[1];
-		text.text("%d", Team::list[1].score);
-		text.draw(params, box_pos + Vec2(50.0f * UI::scale, -10.0f * UI::scale));
 	}
 }
 
@@ -579,7 +569,8 @@ void LocalPlayerControl::awake()
 		link_arg<const Vec3&, &LocalPlayerControl::awk_bounce>(get<Awk>()->bounce);
 	}
 
-	camera->mask = 1 << (s32)get<AIAgent>()->team;
+	camera->team = (u8)get<AIAgent>()->team;
+	camera->mask = 1 << camera->team;
 }
 
 #define MINION_CREDITS 10
@@ -1001,15 +992,18 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 						UI::centered_box(params, { a + Vec2(12.0f, -12.0f) * UI::scale, Vec2(2.0f, 8.0f) * UI::scale }, UI::accent_color, PI * 0.25f);
 					}
 					else
-						UI::centered_box(params, { a, Vec2(7) * UI::scale }, UI::accent_color, PI * 0.25f);
+					{
+						UI::centered_box(params, { a, Vec2(10) * UI::scale }, UI::background_color, PI * 0.25f);
+						UI::centered_box(params, { a, Vec2(6) * UI::scale }, UI::accent_color, PI * 0.25f);
+					}
 				}
 			}
 		}
 
 		// compass
 		Vec2 compass_size = Vec2(fmin(viewport.size.x, viewport.size.y) * 0.3f);
-		UI::mesh(params, Asset::Mesh::compass_inner, viewport.size * Vec2(0.5f, 0.5f), compass_size, UI::default_color, angle_vertical);
-		UI::mesh(params, Asset::Mesh::compass_outer, viewport.size * Vec2(0.5f, 0.5f), compass_size, UI::default_color, -angle_horizontal);
+		UI::mesh(params, Asset::Mesh::compass_inner, viewport.size * Vec2(0.5f, 0.5f), compass_size, UI::accent_color, angle_vertical);
+		UI::mesh(params, Asset::Mesh::compass_outer, viewport.size * Vec2(0.5f, 0.5f), compass_size, UI::accent_color, -angle_horizontal);
 
 		// health indicator
 		{

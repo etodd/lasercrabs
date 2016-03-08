@@ -436,21 +436,6 @@ void Game::execute(const Update& u, const char* cmd)
 			}
 		}
 	}
-	else if (strstr(cmd, "score ") == cmd)
-	{
-		if (Team::list.length > 0)
-		{
-			const char* delimiter = strchr(cmd, ' ');
-			if (delimiter)
-			{
-				const char* number_string = delimiter + 1;
-				char* end;
-				s32 value = (s32)std::strtol(number_string, &end, 10);
-				if (*end == '\0')
-					Team::list[0].score += value;
-			}
-		}
-	}
 	else if (strstr(cmd, "load ") == cmd)
 	{
 		const char* delimiter = strchr(cmd, ' ');

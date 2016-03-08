@@ -6,7 +6,6 @@
 #include "render/ui.h"
 #include "ai.h"
 
-#define VICTORY_POINTS 5
 #define MAX_PLAYERS 8
 
 namespace VI
@@ -29,16 +28,14 @@ struct Team
 
 	Ref<Transform> player_spawn;
 	Revision revision;
-	u16 score;
 	r32 victory_timer;
 
 	Team();
 	void awake();
 
-	void update(const Update&);
+	b8 has_player() const;
 
-	void target_hit(const TargetEvent&);
-	void player_killed_by(Entity*);
+	void update(const Update&);
 
 	inline ID id() const
 	{

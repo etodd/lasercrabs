@@ -52,7 +52,8 @@ Camera::Camera()
 	mask(~RENDER_MASK_SHADOW),
 	fog(true),
 	wall_normal(0, 0, 0),
-	range()
+	range(),
+	team(-1)
 {
 }
 

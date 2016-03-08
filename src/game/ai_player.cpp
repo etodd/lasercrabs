@@ -43,8 +43,6 @@ void AIPlayer::spawn()
 	manager.ref()->team.ref()->player_spawn.ref()->absolute(&pos, &rot);
 	pos += Vec3(0, 0, PLAYER_SPAWN_RADIUS * 1.5f); // spawn it around the edges
 	e->get<Transform>()->absolute(pos, rot);
-
-	e->get<Health>()->killed.link<Team, Entity*, &Team::player_killed_by>(manager.ref()->team.ref());
 }
 
 AIPlayerControl::AIPlayerControl()
@@ -154,7 +152,8 @@ AIPlayerControl::Goal AIPlayerControl::find_goal(const Entity* not_entity) const
 
 	for (auto i = HealthPickup::list.iterator(); !i.is_last(); i.next())
 	{
-		if (i.item()->owner.ref()->get<AIAgent>()->team != team && AI::vision_check(pos, i.item()->get<Transform>()->absolute_pos(), entity(), i.item()->entity()))
+		Health* owner = i.item()->owner.ref();
+		if ((!owner || owner->get<AIAgent>()->team != team) && AI::vision_check(pos, i.item()->get<Transform>()->absolute_pos(), entity(), i.item()->entity()))
 		{
 			Goal g;
 			g.entity = i.item()->entity();

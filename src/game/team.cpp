@@ -35,7 +35,7 @@ const Vec4 Team::ui_colors[(s32)AI::Team::count] =
 StaticArray<Team, (s32)AI::Team::count> Team::list;
 
 Team::Team()
-	: victory_timer(5.0f), score()
+	: victory_timer(5.0f)
 {
 }
 
@@ -47,42 +47,31 @@ void Team::awake()
 
 b8 Team::game_over()
 {
+	if (NoclipControl::list.count() > 0)
+		return false;
+
+	s32 teams_with_players = 0;
 	for (s32 i = 0; i < Team::list.length; i++)
 	{
-		if (Team::list[i].score >= VICTORY_POINTS)
+		if (Team::list[i].has_player())
+			teams_with_players++;
+	}
+	return teams_with_players == 1;
+}
+
+b8 Team::has_player() const
+{
+	for (auto j = PlayerManager::list.iterator(); !j.is_last(); j.next())
+	{
+		if (j.item()->team.ref()->team() == team() && j.item()->entity.ref())
 			return true;
 	}
 	return false;
 }
 
-#define TARGET_CREDITS 50
-void Team::target_hit(const TargetEvent& e)
-{
-	AI::Team other = e.hit_by->get<AIAgent>()->team;
-	if (other != team())
-	{
-		e.hit_by->get<PlayerCommon>()->manager.ref()->add_credits(TARGET_CREDITS);
-		World::remove_deferred(e.target);
-		if (!game_over())
-			Team::list[(s32)other].score++;
-	}
-}
-
-void Team::player_killed_by(Entity* e)
-{
-	if (e)
-	{
-		if (e->has<Projectile>())
-			e = e->get<Projectile>()->owner.ref();
-		AI::Team other = e->get<AIAgent>()->team;
-		if (other != team() && !game_over())
-			Team::list[(s32)other].score++;
-	}
-}
-
 void Team::update(const Update& u)
 {
-	if (score >= VICTORY_POINTS)
+	if (has_player() && game_over())
 	{
 		// we win
 		victory_timer -= u.time.delta;
@@ -235,13 +224,14 @@ b8 PlayerManager::upgrade_available() const
 
 void PlayerManager::update(const Update& u)
 {
-	if (team.ref()->player_spawn.ref() && !entity.ref())
+	if (!entity.ref() && spawn_timer > 0.0f && team.ref()->player_spawn.ref())
 	{
 		spawn_timer -= u.time.delta;
-		if (spawn_timer < 0 || Game::data.mode == Game::Mode::Parkour)
+		if (spawn_timer <= 0.0f)
 		{
 			spawn.fire();
-			spawn_timer = PLAYER_SPAWN_DELAY;
+			if (Game::data.mode == Game::Mode::Parkour)
+				spawn_timer = PLAYER_SPAWN_DELAY; // reset timer so we can respawn next time
 		}
 	}
 

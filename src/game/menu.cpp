@@ -393,11 +393,12 @@ r32 options_height()
 
 Rect2 UIMenu::Item::rect() const
 {
-	Rect2 box = label.rect(pos);
-	box.pos.x -= MENU_ITEM_PADDING_LEFT;
-	box.size.x += MENU_ITEM_PADDING_LEFT + MENU_ITEM_PADDING;
-	box.pos.y -= MENU_ITEM_PADDING;
-	box.size.y += MENU_ITEM_PADDING * 2.0f;
+	Vec2 bounds = label.bounds();
+	Rect2 box;
+	box.pos.x = pos.x - MENU_ITEM_PADDING_LEFT;
+	box.pos.y = pos.y - bounds.y - MENU_ITEM_PADDING;
+	box.size.x = MENU_ITEM_WIDTH;
+	box.size.y = bounds.y + MENU_ITEM_PADDING * 2.0f;
 	return box;
 }
 
@@ -468,7 +469,10 @@ Rect2 UIMenu::add_item(Vec2* pos, b8 slider, const char* string, const char* val
 	item->icon = icon;
 	item->slider = slider;
 	item->label.size = item->value.size = MENU_ITEM_FONT_SIZE;
-	item->label.wrap_width = MENU_ITEM_WIDTH - MENU_ITEM_PADDING - MENU_ITEM_PADDING_LEFT;
+	if (value)
+		item->label.wrap_width = MENU_ITEM_VALUE_OFFSET - MENU_ITEM_PADDING - MENU_ITEM_PADDING_LEFT;
+	else
+		item->label.wrap_width = MENU_ITEM_WIDTH - MENU_ITEM_PADDING - MENU_ITEM_PADDING_LEFT;
 	item->label.anchor_x = UIText::Anchor::Min;
 	item->label.anchor_y = item->value.anchor_y = UIText::Anchor::Max;
 	item->label.color = item->value.color = disabled ? UI::disabled_color : UI::default_color;

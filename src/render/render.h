@@ -60,6 +60,7 @@ struct Camera
 	Plane frustum[4];
 	Vec3 frustum_rays[4];
 	Vec3 wall_normal;
+	u8 team;
 
 	Camera();
 

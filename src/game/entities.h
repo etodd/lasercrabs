@@ -46,7 +46,7 @@ struct HealthPickup : public ComponentType<HealthPickup>
 	void reset();
 };
 
-#define SENSOR_RANGE 14.0f
+#define SENSOR_RANGE 15.0f
 struct SensorEntity : public Entity
 {
 	SensorEntity(Transform*, AI::Team, const Vec3&, const Quat&);
@@ -55,7 +55,8 @@ struct SensorEntity : public Entity
 struct Sensor : public ComponentType<Sensor>
 {
 	AI::Team team;
-	void awake() {}
+	void killed_by(Entity*);
+	void awake();
 };
 
 struct ShockwaveEntity : public Entity

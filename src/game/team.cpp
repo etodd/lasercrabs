@@ -6,6 +6,7 @@
 #include "asset/animation.h"
 #include "asset/mesh.h"
 #include "strings.h"
+#include "awk.h"
 
 #if DEBUG
 #define PLAYER_SPAWN_DELAY 1.0f
@@ -21,7 +22,7 @@ namespace VI
 
 const Vec4 Team::colors[(s32)AI::Team::count] =
 {
-	Vec4(0.9f, 0.8f, 0.3f, 1),
+	Vec4(1.0f, 0.9f, 0.4f, 1),
 	Vec4(0.8f, 0.3f, 0.3f, 1),
 };
 
@@ -123,11 +124,58 @@ u16 AbilitySlot::upgrade_cost() const
 		return info[(s32)ability].upgrade_cost[level];
 }
 
-b8 AbilitySlot::use()
+b8 AbilitySlot::use(Entity* awk)
 {
 	if (cooldown == 0.0f)
 	{
 		cooldown = AbilitySlot::info[(s32)ability].cooldown;
+
+		switch (ability)
+		{
+			case Ability::Sensor:
+			{
+				if (awk->get<Transform>()->parent.ref())
+				{
+					// place a proximity sensor
+					Vec3 abs_pos;
+					Quat abs_rot;
+					awk->get<Transform>()->absolute(&abs_pos, &abs_rot);
+					abs_pos += abs_rot * Vec3(0, 0, AWK_RADIUS * -0.5f); // make it nearly flush with the wall
+					World::create<SensorEntity>(awk->get<Transform>()->parent.ref(), awk->get<AIAgent>()->team, abs_pos, abs_rot);
+				}
+				break;
+			}
+			case Ability::Stealth:
+			{
+				r32 time;
+				switch (level)
+				{
+					case 1:
+					{
+						time = 5.0f;
+						break;
+					}
+					case 2:
+					{
+						time = 10.0f;
+						break;
+					}
+					case 3:
+					{
+						time = 15.0f;
+						break;
+					}
+					default:
+					{
+						vi_assert(false);
+						break;
+					}
+				}
+				awk->get<Awk>()->stealth_enable(time);
+				break;
+			}
+		}
+
 		return true;
 	}
 	return false;

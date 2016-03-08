@@ -25,7 +25,8 @@ AIPlayer::AIPlayer(PlayerManager* m)
 
 void AIPlayer::update(const Update& u)
 {
-	// TODO: metagame stuff
+	// always stupidly try to use our ability
+	manager.ref()->entity.ref() && manager.ref()->abilities[0].use(manager.ref()->entity.ref());
 }
 
 void AIPlayer::spawn()
@@ -126,6 +127,41 @@ AIPlayerControl::Goal AIPlayerControl::find_goal(const Entity* not_entity) const
 		return g;
 	}
 
+	AI::Team team = get<AIAgent>()->team;
+
+	Vec3 pos = get<Transform>()->absolute_pos();
+
+	for (auto i = Sensor::list.iterator(); !i.is_last(); i.next())
+	{
+		if (i.item()->team != team && AI::vision_check(pos, i.item()->get<Transform>()->absolute_pos(), entity(), i.item()->entity()))
+		{
+			Goal g;
+			g.entity = i.item()->entity();
+			return g;
+		}
+	}
+
+	for (auto i = MinionSpawn::list.iterator(); !i.is_last(); i.next())
+	{
+		Entity* minion = i.item()->minion.ref();
+		if (!minion || minion->get<AIAgent>()->team != team && AI::vision_check(pos, minion->get<Transform>()->absolute_pos(), entity(), minion))
+		{
+			Goal g;
+			g.entity = i.item()->entity();
+			return g;
+		}
+	}
+
+	for (auto i = HealthPickup::list.iterator(); !i.is_last(); i.next())
+	{
+		if (i.item()->owner.ref()->get<AIAgent>()->team != team && AI::vision_check(pos, i.item()->get<Transform>()->absolute_pos(), entity(), i.item()->entity()))
+		{
+			Goal g;
+			g.entity = i.item()->entity();
+			return g;
+		}
+	}
+
 	{
 		Goal g;
 		dtPolyRef poly;
@@ -133,21 +169,6 @@ AIPlayerControl::Goal AIPlayerControl::find_goal(const Entity* not_entity) const
 		AI::nav_mesh_query->findRandomPoint(&AI::default_query_filter, mersenne::randf_co, &poly, (r32*)&g.pos);
 		return g;
 	}
-}
-
-AIPlayerControl::Goal::Goal()
-	: entity(), pos(), vision_timer()
-{
-
-}
-
-Vec3 AIPlayerControl::Goal::get_pos() const
-{
-	Entity* e = entity.ref();
-	if (e)
-		return get_goal_pos(e);
-	else
-		return pos;
 }
 
 s32 AIPlayerControl::Goal::priority() const

@@ -29,15 +29,10 @@ struct AIPlayer
 
 struct AIPlayerControl : public ComponentType<AIPlayerControl>
 {
-	struct Goal
+	struct Goal : public AI::Goal
 	{
-		Ref<Entity> entity;
-		Vec3 pos;
 		r32 vision_timer;
 
-		Goal();
-
-		Vec3 get_pos() const;
 		s32 priority() const;
 		r32 inaccuracy() const;
 	};

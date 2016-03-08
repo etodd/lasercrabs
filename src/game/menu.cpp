@@ -611,17 +611,10 @@ void UIMenu::draw_alpha(const RenderParams& params) const
 	if (items.length == 0)
 		return;
 
-	{
-		Rect2 item_rect = items[items.length - 1].rect();
-		Rect2 menu_rect = { item_rect.pos, Vec2(item_rect.size.x, height(items.length)) };
-		UI::box(params, menu_rect, UI::background_color);
-	}
-
 	for (s32 i = 0; i < items.length; i++)
 	{
 		const Item* item = &items[i];
-		if (i == selected)
-			UI::box(params, item->rect(), UI::subtle_color);
+		UI::box(params, item->rect(), i == selected ? UI::subtle_color : UI::background_color);
 
 		if (item->icon != AssetNull)
 			UI::mesh(params, item->icon, item->pos + Vec2(MENU_ITEM_PADDING_LEFT * -0.5f, MENU_ITEM_FONT_SIZE * -0.5f), Vec2(UI::scale * MENU_ITEM_FONT_SIZE), item->label.color);

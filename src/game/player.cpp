@@ -92,7 +92,6 @@ LocalPlayer::LocalPlayer(PlayerManager* m, u8 g)
 	menu(),
 	revision(),
 	options_menu(),
-	visible_health_bars(),
 	upgrading()
 {
 	sprintf(manager.ref()->username, _(strings::player), gamepad);
@@ -312,52 +311,6 @@ void LocalPlayer::update(const Update& u)
 			break;
 		}
 	}
-
-	visible_health_bars.length = 0;
-	Entity* player = manager.ref()->entity.ref();
-	if (player)
-	{
-		Vec3 player_pos;
-		player_pos = player->get<Transform>()->absolute_pos();
-
-		// determine health bar visibility
-		const r32 far_plane = Skybox::far_plane * Skybox::far_plane;
-		for (auto i = Health::list.iterator(); !i.is_last(); i.next())
-		{
-			Health* health = i.item();
-			if (health->entity() == manager.ref()->entity.ref()) // don't draw our own health bar right now
-				continue;
-
-			b8 visible;
-			Vec3 enemy_pos = health->get<Transform>()->absolute_pos();
-			if (health->get<AIAgent>()->team == manager.ref()->team.ref()->team())
-				visible = true;
-			else
-			{
-				Vec3 diff = enemy_pos - player_pos;
-				if (diff.length_squared() < far_plane)
-				{
-					if (btVector3(diff).fuzzyZero())
-						visible = true;
-					else
-					{
-						btCollisionWorld::ClosestRayResultCallback ray_callback(player_pos, enemy_pos);
-						Physics::raycast(&ray_callback);
-						visible = !ray_callback.hasHit() || ray_callback.m_collisionObject->getUserIndex() == health->entity_id;
-					}
-				}
-				else
-					visible = false;
-			}
-
-			if (visible)
-			{
-				visible_health_bars.add(health);
-				if (visible_health_bars.length == visible_health_bars.capacity())
-					break; // displaying maximum number of health bars
-			}
-		}
-	}
 }
 
 void LocalPlayer::spawn()
@@ -393,41 +346,6 @@ void LocalPlayer::spawn()
 	LocalPlayerControl* control = spawned->add<LocalPlayerControl>(gamepad);
 	control->player = this;
 	control->angle_horizontal = angle;
-}
-
-void LocalPlayer::draw_health_bars(const RenderParams& params) const
-{
-	if (params.camera != camera && (!manager.ref()->entity.ref() || params.camera != manager.ref()->entity.ref()->get<LocalPlayerControl>()->camera))
-		return;
-
-	// health bars
-	for (s32 i = 0; i < visible_health_bars.length; i++)
-	{
-		Health* health = visible_health_bars[i].ref();
-		if (!health)
-			continue;
-
-		Vec3 enemy_pos = health->get<Transform>()->absolute_pos();
-		enemy_pos.y += 0.75f;
-		const Vec4& color = Team::ui_colors[(s32)health->get<AIAgent>()->team];
-		Vec2 pos;
-		if (UI::project(params, enemy_pos, &pos))
-		{
-			pos.y += 24.0f * UI::scale;
-			const Vec2 size = Vec2(32.0f, 2.0f) * UI::scale;
-			UI::box(params, { pos - size * 0.5f, size }, UI::background_color);
-			UI::box(params, { pos - size * 0.5f, size * Vec2((r32)health->hp / (r32)health->hp_max, 1.0f) }, color);
-			UI::border(params, { pos - size * 0.5f, size }, 2, color);
-
-			if (health->has<PlayerCommon>())
-			{
-				PlayerCommon* player = health->get<PlayerCommon>();
-				Vec2 username_pos = pos + Vec2(0, 16 * UI::scale);
-				UI::box(params, player->username_text.rect(username_pos).outset(4 * UI::scale), UI::background_color);
-				player->username_text.draw(params, username_pos);
-			}
-		}
-	}
 }
 
 void LocalPlayer::draw_alpha(const RenderParams& params) const
@@ -816,57 +734,7 @@ void LocalPlayerControl::update(const Update& u)
 		for (s32 i = 0; i < ABILITY_COUNT; i++)
 		{
 			if (u.input->get(settings.bindings.abilities[i], gamepad) && !u.last_input->get(settings.bindings.abilities[i], gamepad))
-			{
-				AbilitySlot& slot = player.ref()->manager.ref()->abilities[i];
-				switch (slot.ability)
-				{
-					case Ability::Sensor:
-					{
-						if (get<Transform>()->parent.ref() && slot.use())
-						{
-							// place a proximity sensor
-							Vec3 abs_pos;
-							Quat abs_rot;
-							get<Transform>()->absolute(&abs_pos, &abs_rot);
-							abs_pos += abs_rot * Vec3(0, 0, AWK_RADIUS * -0.5f); // make it nearly flush with the wall
-							World::create<SensorEntity>(get<Transform>()->parent.ref(), get<AIAgent>()->team, abs_pos, abs_rot);
-						}
-						break;
-					}
-					case Ability::Stealth:
-					{
-						if (slot.use())
-						{
-							r32 time;
-							switch (slot.level)
-							{
-								case 1:
-								{
-									time = 5.0f;
-									break;
-								}
-								case 2:
-								{
-									time = 10.0f;
-									break;
-								}
-								case 3:
-								{
-									time = 15.0f;
-									break;
-								}
-								default:
-								{
-									vi_assert(false);
-									break;
-								}
-							}
-							get<Awk>()->stealth_enable(time);
-						}
-						break;
-					}
-				}
-			}
+				player.ref()->manager.ref()->abilities[i].use(entity());
 		}
 	}
 	else
@@ -1158,9 +1026,11 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 			text.color = UI::default_color;
 			text.text(_(strings::hp));
 
-			r32 total_width = text.bounds().x + box_spacing + health->hp_max * (box_size.x + box_spacing);
+			r32 total_width = (text.bounds().x + box_spacing + health->hp_max * (box_size.x + box_spacing)) - box_spacing;
 
 			Vec2 pos = viewport.size * Vec2(0.5f, 0.1f) + Vec2(total_width * -0.5f, 0.0f);
+
+			UI::box(params, Rect2(pos, Vec2(total_width, box_size.y)).outset(8 * UI::scale), UI::background_color);
 
 			text.draw(params, pos);
 			

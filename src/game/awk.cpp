@@ -32,7 +32,7 @@ namespace VI
 #define INACCESSIBLE_MASK (CollisionInaccessible | CollisionWalker | PERMEABLE_MASK)
 
 // if you hit a shield just right (i.e. the dot product is less than this threshold), you'll shoot right through it
-#define SHIELD_PENETRATION_DOT -0.95f
+#define SHIELD_PENETRATION_DOT -0.98f
 
 AwkRaycastCallback::AwkRaycastCallback(const Vec3& a, const Vec3& b, const Entity* awk)
 	: btCollisionWorld::ClosestRayResultCallback(a, b)

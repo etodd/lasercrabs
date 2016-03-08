@@ -184,105 +184,102 @@ void MinionCommon::killed(Entity* killer)
 
 // Minion behaviors
 
-r32 minion_priority(Entity* e)
-{
-	if (e->has<MinionAI>())
-		return 2;
-	else
-		return 1;
-}
-
-void MinionCheckTarget::run()
+void MinionCheckGoal::run()
 {
 	AI::Team team = minion->get<AIAgent>()->team;
 	Vec3 pos = minion->get<Transform>()->absolute_pos();
 
-	// if we are targeting an enemy
-	// make sure we still want to do that
-	if (minion->target.ref() && !minion->target.ref()->has<TurretControl>() && minion->can_see(minion->target.ref()))
+	if (minion->goal.valid())
 	{
-		done(true);
-		return;
+		if (minion->goal.has_entity)
+		{
+			// we're good, keep going
+			done(true);
+			return;
+		}
+		else
+		{
+			// check if we need to keep going
+			Vec3 target_pos = minion->goal.get_pos();
+			if ((target_pos - pos).length_squared() > 5.0f)
+			{
+				// keep going
+				done(true);
+				return;
+			}
+		}
 	}
 
 	// find new target
 	Entity* new_target = nullptr;
 
-	r32 target_priority = 0;
-	for (auto i = AIAgent::list.iterator(); !i.is_last(); i.next())
+	r32 closest_distance = FLT_MAX;
+	for (auto i = Sensor::list.iterator(); !i.is_last(); i.next())
 	{
-		if (i.item()->team != team && minion->can_see(i.item()->entity()))
+		Sensor* sensor = i.item();
+		if (sensor->team != team && !sensor->has<MinionAI>())
 		{
-			r32 candidate_priority = minion_priority(i.item()->entity());
-			if (candidate_priority > target_priority)
+			// check if anyone else is going for this target
+			b8 valid_target = true;
+			for (auto j = MinionAI::list.iterator(); !j.is_last(); j.next())
 			{
-				new_target = i.item()->entity();
-				target_priority = candidate_priority;
-			}
-		}
-	}
-
-	// go to next turret
-	if (!new_target)
-	{
-		float closest_distance = FLT_MAX;
-		for (auto i = TurretControl::list.iterator(); !i.is_last(); i.next())
-		{
-			if (i.item()->get<AIAgent>()->team != team)
-			{
-				Vec3 turret_pos = i.item()->get<Transform>()->absolute_pos();
-
-				float total_distance = (turret_pos - pos).length();
-				for (auto j = PlayerManager::list.iterator(); !j.is_last(); j.next())
+				if (j.item()->get<AIAgent>()->team == team && j.item()->goal.entity.ref() == sensor->entity())
 				{
-					if (j.item()->team.ref()->team() != team)
+					valid_target = false;
+					break;
+				}
+			}
+
+			if (valid_target)
+			{
+				Vec3 sensor_pos = sensor->get<Transform>()->absolute_pos();
+
+				float total_distance = (sensor_pos - pos).length();
+				for (auto j = PlayerCommon::list.iterator(); !j.is_last(); j.next())
+				{
+					if (j.item()->get<AIAgent>()->team == team)
 					{
-						total_distance += (j.item()->team.ref()->player_spawn.ref()->absolute_pos() - turret_pos).length();
+						total_distance += (j.item()->get<Transform>()->absolute_pos() - sensor_pos).length();
 						break;
 					}
 				}
 
 				if (total_distance < closest_distance)
 				{
-					new_target = i.item()->entity();
+					new_target = sensor->entity();
 					closest_distance = total_distance;
 				}
 			}
 		}
-
-		// go to player spawn if necessary
-		for (auto j = PlayerManager::list.iterator(); !j.is_last(); j.next())
-		{
-			if (j.item()->team.ref()->team() != team)
-			{
-				Transform* player_spawn = j.item()->team.ref()->player_spawn.ref();
-				if (player_spawn)
-				{
-					float distance = (player_spawn->absolute_pos() - pos).length();
-					if (distance < closest_distance * 0.5f)
-						new_target = player_spawn->entity();
-					break;
-				}
-			}
-		}
 	}
 
-	if (minion->target.ref() == new_target)
-		done(true);
+	if (new_target)
+		minion->goal.set(new_target);
 	else
 	{
-		minion->target = new_target;
-		done(false);
+		// go to random point
+		Vec3 pos;
+		dtPolyRef poly;
+		Vec3 target;
+		AI::nav_mesh_query->findRandomPoint(&AI::default_query_filter, mersenne::randf_co, &poly, (r32*)&pos);
+		minion->goal.set(pos);
 	}
+	done(false);
 }
 
-void MinionGoToTarget::run()
+void MinionGoToGoal::run()
 {
 	path_timer = 0.0f;
-	if (minion->target.ref())
+	if (minion->goal.valid())
 	{
-		Vec3 target_pos = minion->target.ref()->get<Transform>()->absolute_pos();
-		if (target_in_range())
+		Vec3 target_pos = minion->goal.get_pos();
+		b8 arrived;
+		if (minion->goal.has_entity)
+			arrived = in_range();
+		else
+			arrived = minion->path_index == minion->path_point_count - 1;
+
+		if (arrived)
 		{
 			Vec3 forward = target_pos - minion->get<Transform>()->absolute_pos();
 			forward.normalize();
@@ -299,32 +296,32 @@ void MinionGoToTarget::run()
 		done(false);
 }
 
-void MinionGoToTarget::done(b8 success)
+void MinionGoToGoal::done(b8 success)
 {
 	minion->path_point_count = 0;
-	MinionBehavior<MinionGoToTarget>::done(success);
+	MinionBehavior<MinionGoToGoal>::done(success);
 }
 
-b8 MinionGoToTarget::target_in_range() const
+b8 MinionGoToGoal::in_range() const
 {
 	Vec3 pos = minion->get<Transform>()->absolute_pos();
-	Vec3 target_pos = minion->target.ref()->get<Transform>()->absolute_pos();
-	if ((pos - target_pos).length_squared() < MINION_VIEW_RANGE *  MINION_VIEW_RANGE)
+	Vec3 target_pos = minion->goal.get_pos();
+	if ((pos - target_pos).length_squared() < MINION_VIEW_RANGE * MINION_VIEW_RANGE)
 	{
 		RaycastCallbackExcept ray_callback(pos, target_pos, minion->entity());
 		Physics::raycast(&ray_callback);
-		if (!ray_callback.hasHit() || ray_callback.m_collisionObject->getUserIndex() == minion->target.ref()->id())
+		if (!ray_callback.hasHit() || ray_callback.m_collisionObject->getUserIndex() == minion->goal.entity.id)
 			return true;
 	}
 	return false;
 }
 
-void MinionGoToTarget::update(const Update& u)
+void MinionGoToGoal::update(const Update& u)
 {
 	path_timer += u.time.delta;
-	if (!minion->target.ref())
+	if (!minion->goal.valid())
 		done(false);
-	else if (target_in_range())
+	else if (in_range())
 		done(true);
 	else if (path_timer > 0.5f)
 		run();
@@ -332,11 +329,10 @@ void MinionGoToTarget::update(const Update& u)
 
 void MinionAttack::run()
 {
-	Entity* target = minion->target.ref();
+	Entity* target = minion->goal.entity.ref();
 	if (target)
 	{
-		Vec3 target_pos = target->get<Transform>()->absolute_pos();
-		minion->turn_to(target_pos);
+		minion->turn_to(target->get<Transform>()->absolute_pos());
 		active(true);
 	}
 	else
@@ -345,11 +341,10 @@ void MinionAttack::run()
 
 void MinionAttack::update(const Update& u)
 {
-	Entity* target = minion->target.ref();
-	if (target)
+	if (minion->goal.valid())
 	{
 		Vec3 head_pos = minion->get<MinionCommon>()->head_pos();
-		Vec3 target_pos = target->get<Transform>()->absolute_pos();
+		Vec3 target_pos = minion->goal.get_pos();
 		minion->turn_to(target_pos);
 		Vec3 to_target = target_pos - head_pos;
 		to_target.y = 0.0f;
@@ -357,7 +352,7 @@ void MinionAttack::update(const Update& u)
 		{
 			RaycastCallbackExcept ray_callback(head_pos, target_pos, minion->entity());
 			Physics::raycast(&ray_callback);
-			if (!ray_callback.hasHit() || ray_callback.m_collisionObject->getUserIndex() == minion->target.ref()->id())
+			if (!ray_callback.hasHit() || ray_callback.m_collisionObject->getUserIndex() == minion->goal.entity.id)
 			{
 				World::create<ProjectileEntity>(minion->entity(), head_pos, 5, target_pos - head_pos);
 				done(true);
@@ -374,7 +369,7 @@ namespace MinionBehaviors
 {
 	void update_active(const Update& u)
 	{
-		MinionGoToTarget::update_active(u);
+		MinionGoToGoal::update_active(u);
 		MinionAttack::update_active(u);
 	}
 }
@@ -385,32 +380,21 @@ MinionAI::MinionAI()
 {
 	behavior = Repeat::alloc
 	(
-		Sequence::alloc
+		Succeed::alloc
 		(
-			Succeed::alloc
+			Sequence::alloc
 			(
-				Parallel::alloc
+				MinionCheckGoal::alloc(),
+				Repeat::alloc
 				(
-					Repeat::alloc
+					Sequence::alloc
 					(
-						Sequence::alloc
-						(
-							MinionCheckTarget::alloc(),
-							Delay::alloc(1.0f)
-						)
-					),
-					Repeat::alloc
-					(
-						Sequence::alloc
-						(
-							MinionGoToTarget::alloc(),
-							MinionAttack::alloc(),
-							Delay::alloc(1.0f)
-						)
+						MinionGoToGoal::alloc(),
+						MinionAttack::alloc(),
+						Delay::alloc(1.0f)
 					)
 				)
-			),
-			Delay::alloc(0.0f)
+			)
 		)
 	);
 	behavior->set_context(this);
@@ -420,8 +404,6 @@ void MinionAI::awake()
 {
 	get<Walker>()->max_speed = get<Walker>()->speed;
 	behavior->run();
-	link_arg<Entity*, &MinionAI::damaged>(get<Health>()->damaged);
-	damaged(nullptr); // play vulnerable animation if we spawn at low health
 }
 
 MinionAI::~MinionAI()
@@ -444,11 +426,6 @@ b8 MinionAI::can_see(Entity* target) const
 			return true;
 	}
 	return false;
-}
-
-void MinionAI::damaged(Entity* enemy)
-{
-	target = enemy;
 }
 
 void MinionAI::update(const Update& u)

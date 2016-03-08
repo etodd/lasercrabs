@@ -37,7 +37,6 @@ struct LocalPlayer
 	UIText credits_text;
 	Revision revision;
 	bool options_menu;
-	StaticArray<Ref<Health>, 32> visible_health_bars;
 
 	inline ID id() const
 	{
@@ -49,7 +48,6 @@ struct LocalPlayer
 	void msg(const char*);
 	UIMode ui_mode() const;
 	void update(const Update&);
-	void draw_health_bars(const RenderParams&) const;
 	void draw_alpha(const RenderParams&) const;
 	void ensure_camera(const Update&, b8);
 	void spawn();

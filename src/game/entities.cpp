@@ -137,7 +137,10 @@ SensorEntity::SensorEntity(Transform* parent, AI::Team team, const Vec3& abs_pos
 	model->mesh = Asset::Mesh::sphere;
 	model->color = Vec4(Team::colors[(s32)team].xyz(), MATERIAL_NO_OVERRIDE);
 	model->shader = Asset::Shader::standard;
-	model->offset.scale(Vec3(0.15f));
+	const r32 radius = 0.15f;
+	model->offset.scale(Vec3(radius));
+
+	create<Health>(12, 12);
 
 	PointLight* light = create<PointLight>();
 	light->color = Team::colors[(s32)team].xyz();
@@ -145,6 +148,17 @@ SensorEntity::SensorEntity(Transform* parent, AI::Team team, const Vec3& abs_pos
 	light->radius = SENSOR_RANGE;
 
 	create<Sensor>()->team = team;
+	RigidBody* body = create<RigidBody>(RigidBody::Type::Sphere, Vec3(radius), 0, CollisionInaccessible, CollisionInaccessibleMask);
+}
+
+void Sensor::awake()
+{
+	link_arg<Entity*, &Sensor::killed_by>(get<Health>()->killed);
+}
+
+void Sensor::killed_by(Entity*)
+{
+	World::remove_deferred(entity());
 }
 
 MinionSpawnEntity::MinionSpawnEntity()
@@ -174,7 +188,7 @@ MinionSpawnEntity::MinionSpawnEntity()
 
 void MinionSpawn::hit(const TargetEvent& e)
 {
-	if (!minion.ref())
+	if (spawn_point.ref() && !minion.ref())
 	{
 		Vec3 pos;
 		Quat rot;
@@ -194,6 +208,12 @@ void MinionSpawn::hit(const TargetEvent& e)
 void MinionSpawn::awake()
 {
 	link_arg<const TargetEvent&, &MinionSpawn::hit>(get<Target>()->target_hit);
+	if (spawn_point.ref())
+	{
+		PointLight* light = spawn_point.ref()->entity()->add<PointLight>();
+		light->radius = 10.0f;
+		light->color = Vec3(1.0f);
+	}
 }
 
 void MinionSpawn::reset(Entity* killer)
@@ -420,14 +440,7 @@ void Projectile::update(const Update& u)
 			Vec3 basis;
 			if (hit_object->has<Health>())
 			{
-				s32 multiplier;
-				if (owner.ref() && owner.ref()->has<MinionCommon>() && hit_object->has<TurretControl>())
-					multiplier = 2;
-				else if (owner.ref() && owner.ref()->has<TurretControl>() && hit_object->has<PlayerCommon>())
-					multiplier = 3;
-				else
-					multiplier = 1;
-				hit_object->get<Health>()->damage(owner.ref(), damage * multiplier);
+				hit_object->get<Health>()->damage(owner.ref(), damage);
 				basis = Vec3::normalize(velocity);
 			}
 			else

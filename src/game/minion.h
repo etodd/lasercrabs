@@ -34,7 +34,7 @@ struct MinionAI : public ComponentType<MinionAI>
 	u8 path_index;
 	r32 last_path_recalc;
 	Behavior* behavior;
-	Ref<Entity> target;
+	AI::Goal goal;
 
 	MinionAI();
 	void awake();
@@ -45,7 +45,6 @@ struct MinionAI : public ComponentType<MinionAI>
 	void update(const Update&);
 	void go(const Vec3&);
 	void recalc_path(const Update&);
-	void damaged(Entity*);
 	void turn_to(const Vec3&);
 };
 
@@ -65,17 +64,17 @@ namespace MinionBehaviors
 	void update_active(const Update& u);
 }
 
-struct MinionCheckTarget : public MinionBehavior<MinionCheckTarget>
+struct MinionCheckGoal : public MinionBehavior<MinionCheckGoal>
 {
 	void run();
 };
 
-struct MinionGoToTarget : public MinionBehavior<MinionGoToTarget>
+struct MinionGoToGoal : public MinionBehavior<MinionGoToGoal>
 {
 	r32 path_timer;
 
 	void run();
-	b8 target_in_range() const;
+	b8 in_range() const;
 	void done(b8 = true);
 	void update(const Update&);
 };

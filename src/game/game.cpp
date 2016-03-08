@@ -333,8 +333,6 @@ void Game::draw_alpha(const RenderParams& render_params)
 	for (s32 i = 0; i < ParticleSystem::all.length; i++)
 		ParticleSystem::all[i]->draw(render_params);
 
-	for (auto i = LocalPlayer::list.iterator(); !i.is_last(); i.next())
-		i.item()->draw_health_bars(render_params);
 	for (auto i = LocalPlayerControl::list.iterator(); !i.is_last(); i.next())
 		i.item()->draw_alpha(render_params);
 	for (auto i = LocalPlayer::list.iterator(); !i.is_last(); i.next())
@@ -858,10 +856,7 @@ void Game::load_level(const Update& u, AssetID l)
 			transforms.add(nullptr);
 
 		if (entity)
-		{
-			World::awake(entity);
 			finder.add(Json::get_string(element, "name"), entity);
-		}
 
 		element = element->next;
 	}
@@ -885,6 +880,9 @@ void Game::load_level(const Update& u, AssetID l)
 		Entity* end = finder.find(link.end_name);
 		link.mover->setup(object->get<Transform>(), end->get<Transform>(), link.speed);
 	}
+
+	for (s32 i = 0; i < finder.map.length; i++)
+		World::awake(finder.map[i].entity.ref());
 
 	Physics::sync_static();
 

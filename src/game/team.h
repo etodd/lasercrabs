@@ -75,7 +75,7 @@ struct AbilitySlot
 	r32 cooldown;
 	b8 can_upgrade() const;
 	u16 upgrade_cost() const;
-	b8 use();
+	b8 use(Entity*);
 };
 
 #define ABILITY_COUNT 1

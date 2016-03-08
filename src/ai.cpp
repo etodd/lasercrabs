@@ -20,6 +20,37 @@ dtQueryFilter AI::default_query_filter = dtQueryFilter();
 const r32 AI::default_search_extents[] = { 8, 8, 8 };
 b8 AI::render_mesh_dirty = false;
 
+AI::Goal::Goal()
+	: entity(), has_entity(true)
+{
+}
+
+b8 AI::Goal::valid() const
+{
+	return !has_entity || entity.ref();
+}
+
+Vec3 AI::Goal::get_pos() const
+{
+	Entity* e = entity.ref();
+	if (has_entity && e)
+		return e->get<Transform>()->absolute_pos();
+	else
+		return pos;
+}
+
+void AI::Goal::set(const Vec3& p)
+{
+	pos = p;
+	has_entity = false;
+}
+
+void AI::Goal::set(Entity* e)
+{
+	entity = e;
+	has_entity = true;
+}
+
 void NavMeshProcess::process(struct dtNavMeshCreateParams* params, unsigned char* polyAreas, unsigned short* polyFlags)
 {
 	for (int i = 0; i < params->polyCount; i++)
@@ -140,7 +171,7 @@ void AI::debug_draw(const RenderParams& params)
 #endif
 }
 
-b8 AI::vision_check(const Vec3& pos, const Vec3& enemy_pos, const AIAgent* a, const AIAgent* b)
+b8 AI::vision_check(const Vec3& pos, const Vec3& enemy_pos, const Entity* a, const Entity* b)
 {
 	btCollisionWorld::ClosestRayResultCallback rayCallback(pos, enemy_pos);
 	rayCallback.m_flags = btTriangleRaycastCallback::EFlags::kF_FilterBackfaces
@@ -153,7 +184,7 @@ b8 AI::vision_check(const Vec3& pos, const Vec3& enemy_pos, const AIAgent* a, co
 		return true;
 
 	ID id = rayCallback.m_collisionObject->getUserIndex();
-	return id == a->entity_id || id == b->entity_id;
+	return (a && id == a->id()) || (b && id == b->id());
 }
 
 Entity* AI::vision_query(const AIAgent* queryer, const Vec3& pos, const Vec3& forward, r32 radius, r32 angle, r32 max_height_diff, ComponentMask component_mask)
@@ -178,7 +209,7 @@ Entity* AI::vision_query(const AIAgent* queryer, const Vec3& pos, const Vec3& fo
 			to_enemy /= distance_to_enemy;
 
 			r32 dot = forward.dot(to_enemy);
-			if (dot > angle_dot && vision_check(pos, enemy_pos, queryer, agent))
+			if (dot > angle_dot && vision_check(pos, enemy_pos, queryer->entity(), agent->entity()))
 				return agent->entity();
 		}
 	}

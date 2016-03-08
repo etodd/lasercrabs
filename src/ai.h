@@ -20,6 +20,20 @@ struct NavMeshProcess : public dtTileCacheMeshProcess
 
 struct AI
 {
+	struct Goal
+	{
+		b8 has_entity;
+		Ref<Entity> entity;
+		Vec3 pos;
+
+		Goal();
+
+		b8 valid() const;
+		Vec3 get_pos() const;
+		void set(const Vec3&);
+		void set(Entity*);
+	};
+
 	enum class Team
 	{
 		A,
@@ -48,7 +62,7 @@ struct AI
 
 	static Entity* vision_query(const AIAgent*, const Vec3&, const Vec3&, r32, r32, r32 = -1.0f, ComponentMask = -1);
 	static Entity* sound_query(AI::Team, const Vec3&, ComponentMask = -1);
-	static b8 vision_check(const Vec3&, const Vec3&, const AIAgent*, const AIAgent*);
+	static b8 vision_check(const Vec3&, const Vec3&, const Entity* = nullptr, const Entity* = nullptr);
 
 	static dtPolyRef get_poly(const Vec3&, const r32*);
 };

@@ -8,7 +8,7 @@ namespace Asset
 {
 	namespace String
 	{
-		const s32 count = 280;
+		const s32 count = 281;
 		const AssetID _default = 0;
 		const AssetID are_you_ready = 1;
 		const AssetID back = 2;
@@ -35,8 +35,8 @@ namespace Asset
 		const AssetID fantastic_start_tutorial = 23;
 		const AssetID find_and_shoot_minion = 24;
 		const AssetID gun = 25;
-		const AssetID heal = 26;
-		const AssetID hello_soren = 27;
+		const AssetID hello_soren = 26;
+		const AssetID hp = 27;
 		const AssetID job_match_online_players = 28;
 		const AssetID join = 29;
 		const AssetID key_A = 30;
@@ -274,21 +274,22 @@ namespace Asset
 		const AssetID player = 262;
 		const AssetID resume = 263;
 		const AssetID right_joystick = 264;
-		const AssetID sfx = 265;
-		const AssetID shoot_tutorial = 266;
-		const AssetID spawning = 267;
-		const AssetID splitscreen = 268;
-		const AssetID start = 269;
-		const AssetID start_done = 270;
-		const AssetID stealth = 271;
-		const AssetID stun = 272;
-		const AssetID target_hit = 273;
-		const AssetID turret = 274;
-		const AssetID tutorial_01_complete = 275;
-		const AssetID upgrade = 276;
-		const AssetID upgrade_prompt = 277;
-		const AssetID victory = 278;
-		const AssetID yes = 279;
+		const AssetID sensor = 265;
+		const AssetID sfx = 266;
+		const AssetID shoot_tutorial = 267;
+		const AssetID spawning = 268;
+		const AssetID splitscreen = 269;
+		const AssetID start = 270;
+		const AssetID start_done = 271;
+		const AssetID stealth = 272;
+		const AssetID stun = 273;
+		const AssetID target_hit = 274;
+		const AssetID turret = 275;
+		const AssetID tutorial_01_complete = 276;
+		const AssetID upgrade = 277;
+		const AssetID upgrade_prompt = 278;
+		const AssetID victory = 279;
+		const AssetID yes = 280;
 	}
 }
 

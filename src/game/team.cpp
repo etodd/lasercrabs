@@ -1,6 +1,5 @@
 #include "team.h"
 #include "game.h"
-#include "minion.h"
 #include "data/components.h"
 #include "entities.h"
 #include "data/animator.h"
@@ -10,13 +9,9 @@
 
 #if DEBUG
 #define PLAYER_SPAWN_DELAY 1.0f
-#define MINION_SPAWN_INITIAL_DELAY 2.0f
 #else
 #define PLAYER_SPAWN_DELAY 5.0f
-#define MINION_SPAWN_INITIAL_DELAY 10.0f
 #endif
-#define MINION_SPAWN_INTERVAL 60.0f
-#define MINION_SPAWN_GROUP_INTERVAL 3.0f
 
 #define CREDITS_INITIAL 0
 
@@ -30,25 +25,21 @@ const Vec4 Team::colors[(s32)AI::Team::count] =
 	Vec4(0.8f, 0.3f, 0.3f, 1),
 };
 
+const Vec4 Team::ui_colors[(s32)AI::Team::count] =
+{
+	Vec4(1.0f, 0.9f, 0.4f, 1),
+	Vec4(1.0f, 0.5f, 0.5f, 1),
+};
+
 StaticArray<Team, (s32)AI::Team::count> Team::list;
 
 Team::Team()
-	: minion_spawn_timer(MINION_SPAWN_INITIAL_DELAY), victory_timer(5.0f), score()
+	: victory_timer(5.0f), score()
 {
 }
 
 void Team::awake()
 {
-	for (s32 i = 0; i < targets.length; i++)
-	{
-		Target* t = targets[i].ref();
-		if (t)
-			t->target_hit.link<Team, const TargetEvent&, &Team::target_hit>(this);
-	}
-
-	for (s32 i = 0; i < minion_spawns.length; i++)
-		AI::obstacle_add(minion_spawns[i].ref()->absolute_pos(), MINION_SPAWN_RADIUS, 4.0f);
-
 	if (player_spawn.ref())
 		AI::obstacle_add(player_spawn.ref()->absolute_pos(), PLAYER_SPAWN_RADIUS, 4.0f);
 }
@@ -88,34 +79,8 @@ void Team::player_killed_by(Entity* e)
 	}
 }
 
-r32 minion_spawn_delay(Team::MinionSpawnState state)
-{
-	if (state == Team::MinionSpawnState::One)
-		return MINION_SPAWN_INTERVAL;
-	else
-		return MINION_SPAWN_GROUP_INTERVAL;
-}
-
 void Team::update(const Update& u)
 {
-	if (minion_spawns.length > 0)
-	{
-		minion_spawn_timer -= u.time.delta;
-		if (minion_spawn_timer < 0)
-		{
-			for (int i = 0; i < minion_spawns.length; i++)
-			{
-				Vec3 pos;
-				Quat rot;
-				minion_spawns[i].ref()->absolute(&pos, &rot);
-				pos += rot * Vec3(0, 0, MINION_SPAWN_RADIUS); // spawn it around the edges
-				Entity* entity = World::create<Minion>(pos, rot, team());
-			}
-			minion_spawn_state = (MinionSpawnState)(((s32)minion_spawn_state + 1) % (s32)MinionSpawnState::count);
-			minion_spawn_timer = minion_spawn_delay(minion_spawn_state);
-		}
-	}
-
 	if (score >= VICTORY_POINTS)
 	{
 		// we win
@@ -128,7 +93,7 @@ void Team::update(const Update& u)
 AbilitySlot::Info AbilitySlot::info[] =
 {
 	//{ Asset::Mesh::icon_stun, strings::stun, 5.0f, { 20, 40, 80 } },
-	{ Asset::Mesh::icon_heal, strings::heal, 30.0f, { 20, 40, 80 } },
+	{ Asset::Mesh::icon_sensor, strings::sensor, 30.0f, { 20, 40, 80 } },
 	{ Asset::Mesh::icon_stealth, strings::stealth, 30.0f, { 20, 40, 80 } },
 	//{ AssetNull, strings::turret, 60.0f, { 20, 40, 80 } },
 	//{ AssetNull, strings::gun, 5.0f, { 20, 40, 80 } },
@@ -174,7 +139,7 @@ PlayerManager::PlayerManager(Team* team)
 	: spawn_timer(PLAYER_SPAWN_DELAY),
 	team(team),
 	credits(CREDITS_INITIAL),
-	abilities{ { Ability::None, 0 }, { Ability::None, 0 } }
+	abilities{ { Ability::Sensor, 1 } }
 {
 }
 

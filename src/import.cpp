@@ -1154,20 +1154,27 @@ b8 import_meshes(ImporterState& state, const std::string& asset_in_path, const s
 		for (s32 i = 0; i < scene->mNumMeshes; i++)
 		{
 			aiMesh* ai_mesh = scene->mMeshes[i];
-			const aiNode* mesh_node = find_mesh_node(scene, scene->mRootNode, ai_mesh);
-			std::string mesh_name = get_mesh_name(scene, asset_name, ai_mesh, mesh_node);
-			std::string mesh_out_filename = out_folder + mesh_name + mesh_out_extension;
-			map_add(state.manifest.meshes, asset_name, mesh_name, mesh_out_filename);
-			map_add(mesh_indices, mesh_name, i);
+			if (ai_mesh->mNumVertices > 0)
+			{
+				const aiNode* mesh_node = find_mesh_node(scene, scene->mRootNode, ai_mesh);
+				std::string mesh_name = get_mesh_name(scene, asset_name, ai_mesh, mesh_node);
+				std::string mesh_out_filename = out_folder + mesh_name + mesh_out_extension;
+				map_add(state.manifest.meshes, asset_name, mesh_name, mesh_out_filename);
+				map_add(mesh_indices, mesh_name, i);
+			}
 		}
 
 		for (auto mesh_entry : mesh_indices)
 		{
 			const std::string& mesh_name = mesh_entry.first;
 			s32 mesh_index = mesh_entry.second;
-			const std::string& mesh_out_filename = map_get(state.manifest.meshes, asset_name, mesh_name);
 
 			aiMesh* ai_mesh = scene->mMeshes[mesh_index];
+			if (ai_mesh->mNumVertices == 0)
+				continue;
+
+			const std::string& mesh_out_filename = map_get(state.manifest.meshes, asset_name, mesh_name);
+
 			Mesh* mesh = meshes.add();
 			mesh->color = Vec4(1, 1, 1, 1);
 			if (ai_mesh->mMaterialIndex < scene->mNumMaterials)

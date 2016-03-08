@@ -20,25 +20,14 @@ struct TargetEvent;
 
 struct Team
 {
-	enum class MinionSpawnState
-	{
-		One,
-		Two,
-		Three,
-		count,
-	};
-
 	static const Vec4 colors[];
+	static const Vec4 ui_colors[];
 
 	static StaticArray<Team, (s32)AI::Team::count> list;
 
 	static b8 game_over();
 
 	Ref<Transform> player_spawn;
-	StaticArray<Ref<Transform>, 4> minion_spawns;
-	StaticArray<Ref<Target>, 4> targets;
-	MinionSpawnState minion_spawn_state;
-	r32 minion_spawn_timer;
 	Revision revision;
 	u16 score;
 	r32 victory_timer;
@@ -64,11 +53,8 @@ struct Team
 
 enum class Ability
 {
-	//Stun,
-	Heal,
+	Sensor,
 	Stealth,
-	//Turret,
-	//Gun,
 	count,
 	None = count,
 };
@@ -92,7 +78,7 @@ struct AbilitySlot
 	b8 use();
 };
 
-#define ABILITY_COUNT 2
+#define ABILITY_COUNT 1
 struct PlayerManager
 {
 	static PinArray<PlayerManager, MAX_PLAYERS> list;

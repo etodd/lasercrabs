@@ -23,14 +23,39 @@ struct AwkEntity : public Entity
 struct Health : public ComponentType<Health>
 {
 	u16 hp;
-	u16 total;
+	u16 hp_max;
 	LinkArg<Entity*> damaged;
 	LinkArg<Entity*> killed;
 
-	Health(u16);
+	Health(u16, u16);
 
 	void awake() {}
 	void damage(Entity*, u16);
+};
+
+struct HealthPickupEntity : public Entity
+{
+	HealthPickupEntity();
+};
+
+struct HealthPickup : public ComponentType<HealthPickup>
+{
+	Ref<Health> owner;
+	void awake();
+	void hit(const TargetEvent&);
+	void reset();
+};
+
+#define SENSOR_RANGE 14.0f
+struct SensorEntity : public Entity
+{
+	SensorEntity(Transform*, AI::Team, const Vec3&, const Quat&);
+};
+
+struct Sensor : public ComponentType<Sensor>
+{
+	AI::Team team;
+	void awake() {}
 };
 
 struct ShockwaveEntity : public Entity
@@ -139,12 +164,6 @@ struct PlayerSpawn : public Entity
 	PlayerSpawn(AI::Team);
 };
 
-#define MINION_SPAWN_RADIUS 1
-struct MinionSpawn : public Entity
-{
-	MinionSpawn(AI::Team);
-};
-
 #define TURRET_VIEW_RANGE 20.0f
 struct Turret : public Entity
 {
@@ -200,6 +219,20 @@ struct Target : public ComponentType<Target>
 	LinkArg<const TargetEvent&> target_hit;
 	void hit(Entity*);
 	void awake() {}
+};
+
+struct MinionSpawnEntity : public Entity
+{
+	MinionSpawnEntity();
+};
+
+struct MinionSpawn : public ComponentType<MinionSpawn>
+{
+	Ref<Transform> spawn_point;
+	Ref<Entity> minion;
+	void hit(const TargetEvent&);
+	void awake();
+	void reset(Entity* = nullptr);
 };
 
 struct PlayerTrigger : public ComponentType<PlayerTrigger>

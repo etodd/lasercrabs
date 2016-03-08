@@ -48,8 +48,11 @@ COMPONENT_TYPE(26, TurretControl) \
 COMPONENT_TYPE(27, Projectile) \
 COMPONENT_TYPE(28, Parkour) \
 COMPONENT_TYPE(29, Tile) \
+COMPONENT_TYPE(30, HealthPickup) \
+COMPONENT_TYPE(31, Sensor) \
+COMPONENT_TYPE(32, MinionSpawn) \
 
-Family World::families = 31;
+Family World::families = 33;
 
 #define COMPONENT_TYPE(INDEX, TYPE) \
 template<> Family ComponentType<TYPE>::family = (INDEX); \

@@ -17,7 +17,7 @@ namespace Asset
 		const AssetID cone = 5;
 		const AssetID cube = 6;
 		const AssetID cursor = 7;
-		const AssetID icon_heal = 8;
+		const AssetID icon_sensor = 8;
 		const AssetID icon_stealth = 9;
 		const AssetID icon_stun = 10;
 		const AssetID plane = 11;

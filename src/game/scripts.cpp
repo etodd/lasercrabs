@@ -551,7 +551,7 @@ namespace Soren
 		if (data->texts.update(u, data->time))
 		{
 			data->text.clip = data->text_clip = 1;
-			data->text.wrap_width = 384.0f * UI::scale;
+			data->text.wrap_width = MENU_ITEM_WIDTH - MENU_ITEM_PADDING * 2.0f;
 			data->text.text(data->texts.current());
 		}
 
@@ -712,8 +712,7 @@ namespace Soren
 				}
 			}
 
-			UI::box(params, data->text.rect(pos).outset(12.0f * UI::scale), UI::background_color);
-			UI::border(params, data->text.rect(pos).outset(12.0f * UI::scale), 2, UI::default_color);
+			UI::box(params, data->text.rect(pos).outset(MENU_ITEM_PADDING), UI::background_color);
 			data->text.draw(params, pos);
 		}
 

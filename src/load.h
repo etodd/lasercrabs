@@ -32,7 +32,7 @@ struct Settings
 		InputBinding secondary;
 		InputBinding parkour;
 		InputBinding slide;
-		InputBinding abilities[2];
+		InputBinding abilities[1];
 		InputBinding menu;
 	};
 

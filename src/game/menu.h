@@ -14,7 +14,7 @@ struct RenderParams;
 #define MENU_ITEM_PADDING (10.0f * UI::scale)
 #define MENU_ITEM_HEIGHT ((MENU_ITEM_FONT_SIZE * UI::scale) + MENU_ITEM_PADDING * 2.0f)
 #define MENU_ITEM_PADDING_LEFT (48.0f * UI::scale)
-#define MENU_ITEM_VALUE_OFFSET (MENU_ITEM_WIDTH * 0.75f)
+#define MENU_ITEM_VALUE_OFFSET (MENU_ITEM_WIDTH * 0.7f)
 
 struct UIMenu
 {

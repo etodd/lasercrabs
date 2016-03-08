@@ -108,6 +108,14 @@ void Awk::awake()
 
 Awk::~Awk()
 {
+	// find all health pickups owned by us and reset them
+	Health* health = get<Health>();
+	for (auto i = HealthPickup::list.iterator(); !i.is_last(); i.next())
+	{
+		if (i.item()->owner.ref() == health)
+			i.item()->reset();
+	}
+
 	if (shield.ref())
 		World::remove_deferred(shield.ref()->entity());
 }
@@ -119,7 +127,7 @@ Vec3 Awk::center()
 
 void Awk::hit_by(const TargetEvent& e)
 {
-	get<Health>()->damage(e.hit_by, 25);
+	get<Health>()->damage(e.hit_by, 1);
 }
 
 void Awk::hit_target(Entity* target)
@@ -664,7 +672,7 @@ void Awk::update(const Update& u)
 	else
 	{
 		if (attach_time > 0.0f && u.time.total - attach_time > MAX_FLIGHT_TIME)
-			get<Health>()->damage(entity(), 100); // Kill self
+			get<Health>()->damage(entity(), AWK_HEALTH); // Kill self
 		else
 		{
 			Vec3 position = get<Transform>()->absolute_pos();
@@ -728,18 +736,20 @@ void Awk::update(const Update& u)
 						}
 						else if (group & CollisionInaccessible)
 						{
-							get<Health>()->damage(entity(), 100); // Kill self
+							get<Health>()->damage(entity(), AWK_HEALTH); // Kill self
 							return;
 						}
 						else if (group & CollisionTarget)
 						{
-							Entity* t = &Entity::list[ray_callback.m_collisionObjects[i]->getUserIndex()];
-							if (t != entity())
-								hit_target(t);
+							Ref<Entity> hit = &Entity::list[ray_callback.m_collisionObjects[i]->getUserIndex()];
+							if (hit.ref() != entity())
+								hit_target(hit.ref());
 							if (group & CollisionShield)
 							{
-								// reflect off if it's not a good shot
-								if (dir.dot(ray_callback.m_hitNormalWorld[i]) > SHIELD_PENETRATION_DOT)
+								// if we didn't destroy the shield,
+								// and if it's not a good shot,
+								// then bounce off the shield
+								if (hit.ref() && dir.dot(ray_callback.m_hitNormalWorld[i]) > SHIELD_PENETRATION_DOT)
 									reflect(ray_callback.m_hitPointWorld[i], ray_callback.m_hitNormalWorld[i], u);
 							}
 						}
@@ -751,10 +761,6 @@ void Awk::update(const Update& u)
 							get<Transform>()->absolute(next_position, Quat::look(ray_callback.m_hitNormalWorld[i]));
 
 							lerped_pos = get<Transform>()->pos;
-
-							ShockwaveEntity* shockwave = World::create<ShockwaveEntity>(Awk::entity(), AWK_SHOCKWAVE_RADIUS);
-							shockwave->get<Transform>()->pos = get<Transform>()->pos;
-							shockwave->get<Transform>()->parent = get<Transform>()->parent;
 
 							get<Animator>()->layers[0].animation = AssetNull;
 

@@ -332,8 +332,6 @@ void LocalPlayer::update(const Update& u)
 			Vec3 enemy_pos = health->get<Transform>()->absolute_pos();
 			if (health->get<AIAgent>()->team == manager.ref()->team.ref()->team())
 				visible = true;
-			else if (health->has<PlayerCommon>())
-				visible = PlayerCommon::visibility[PlayerCommon::visibility_hash(health->get<PlayerCommon>(), player->get<PlayerCommon>())];
 			else
 			{
 				Vec3 diff = enemy_pos - player_pos;
@@ -411,15 +409,23 @@ void LocalPlayer::draw_health_bars(const RenderParams& params) const
 
 		Vec3 enemy_pos = health->get<Transform>()->absolute_pos();
 		enemy_pos.y += 0.75f;
-		const Vec4& color = Team::colors[(s32)health->get<AIAgent>()->team];
+		const Vec4& color = Team::ui_colors[(s32)health->get<AIAgent>()->team];
 		Vec2 pos;
 		if (UI::project(params, enemy_pos, &pos))
 		{
 			pos.y += 24.0f * UI::scale;
 			const Vec2 size = Vec2(32.0f, 2.0f) * UI::scale;
 			UI::box(params, { pos - size * 0.5f, size }, UI::background_color);
-			UI::box(params, { pos - size * 0.5f, size * Vec2((r32)health->hp / (r32)health->total, 1.0f) }, color);
+			UI::box(params, { pos - size * 0.5f, size * Vec2((r32)health->hp / (r32)health->hp_max, 1.0f) }, color);
 			UI::border(params, { pos - size * 0.5f, size }, 2, color);
+
+			if (health->has<PlayerCommon>())
+			{
+				PlayerCommon* player = health->get<PlayerCommon>();
+				Vec2 username_pos = pos + Vec2(0, 16 * UI::scale);
+				UI::box(params, player->username_text.rect(username_pos).outset(4 * UI::scale), UI::background_color);
+				player->username_text.draw(params, username_pos);
+			}
 		}
 	}
 }
@@ -516,7 +522,6 @@ void LocalPlayer::draw_alpha(const RenderParams& params) const
 			text.text(_(strings::spawning), (s32)manager.ref()->spawn_timer + 1);
 			Vec2 p = vp.size * Vec2(0.5f);
 			UI::box(params, text.rect(p).outset(8.0f * UI::scale), UI::background_color);
-			UI::border(params, text.rect(p).outset(8.0f * UI::scale), 2, UI::default_color);
 			text.draw(params, p);
 
 			break;
@@ -536,18 +541,15 @@ void LocalPlayer::draw_alpha(const RenderParams& params) const
 		text.anchor_x = UIText::Anchor::Center;
 		text.anchor_y = UIText::Anchor::Max;
 
-		text.color = Team::colors[0];
+		text.color = Team::ui_colors[0];
 		text.text("%d", Team::list[0].score);
 		text.draw(params, box_pos + Vec2(-50.0f * UI::scale, -10.0f * UI::scale));
 
-		text.color = Team::colors[1];
+		text.color = Team::ui_colors[1];
 		text.text("%d", Team::list[1].score);
 		text.draw(params, box_pos + Vec2(50.0f * UI::scale, -10.0f * UI::scale));
 	}
 }
-
-b8 PlayerCommon::visibility[] = {};
-s32 PlayerCommon::visibility_count = 0;
 
 s32 factorial(s32 x)
 {
@@ -579,78 +581,8 @@ PlayerCommon::PlayerCommon(PlayerManager* m)
 
 void PlayerCommon::awake()
 {
-	get<Health>()->total = AWK_HEALTH;
-	username_text.color = Team::colors[(s32)get<AIAgent>()->team];
-}
-
-void PlayerCommon::update_visibility()
-{
-	PlayerCommon* players[MAX_PLAYERS];
-
-	s32 player_count = PlayerCommon::list.count();
-	vi_assert(player_count <= MAX_PLAYERS);
-
-	visibility_count = combination(player_count, 2);
-
-	s32 index = 0;
-	for (auto i = PlayerCommon::list.iterator(); !i.is_last(); i.next())
-	{
-		players[index] = i.item()->get<PlayerCommon>();
-		i.item()->visibility_index = index;
-		index++;
-	}
-
-	index = 0;
-	for (s32 i = 0; i < player_count; i++)
-	{
-		for (s32 j = i + 1; j < player_count; j++)
-		{
-			Vec3 start = players[i]->has<Parkour>() ? players[i]->get<Parkour>()->head_pos() : players[i]->get<Awk>()->center();
-			Vec3 end = players[j]->has<Parkour>() ? players[j]->get<Parkour>()->head_pos() : players[j]->get<Awk>()->center();
-			if (btVector3(end - start).fuzzyZero())
-				visibility[index] = true;
-			else
-			{
-				btCollisionWorld::ClosestRayResultCallback ray_callback(start, end);
-				Physics::raycast(&ray_callback);
-				visibility[index] = !ray_callback.hasHit();
-			}
-			index++;
-		}
-	}
-}
-
-s32 PlayerCommon::visibility_hash(const PlayerCommon* awk_a, const PlayerCommon* awk_b)
-{
-	b8 a_index_lower = awk_a->visibility_index < awk_b->visibility_index;
-	s32 a = a_index_lower ? awk_a->visibility_index : awk_b->visibility_index;
-	s32 b = a_index_lower ? awk_b->visibility_index : awk_a->visibility_index;
-	s32 a_index = visibility_count - combination(visibility_count - a, 2);
-	s32 hash = a_index + (b - a) - 1;
-	s32 max_hash = visibility_count - 1;
-	return hash > 0 ? (hash < max_hash ? hash : max_hash) : 0;
-}
-
-void PlayerCommon::draw_alpha(const RenderParams& params) const
-{
-	// See if we need to render our username
-	LocalPlayerControl* player = LocalPlayerControl::player_for_camera(params.camera);
-
-	if (player && player->entity() != entity())
-	{
-		if (player->get<AIAgent>()->team == get<AIAgent>()->team
-			|| PlayerCommon::visibility[PlayerCommon::visibility_hash(this, player->get<PlayerCommon>())])
-		{
-			Vec3 pos = get<Transform>()->absolute_pos();
-			pos.y += 1.0f;
-			Vec2 screen_pos;
-			if (UI::project(params, pos, &screen_pos))
-			{
-				screen_pos.y += 32.0f * UI::scale;
-				username_text.draw(params, screen_pos + Vec2(0, 32 * UI::scale));
-			}
-		}
-	}
+	get<Health>()->hp_max = AWK_HEALTH;
+	username_text.color = Team::ui_colors[(s32)get<AIAgent>()->team];
 }
 
 void PlayerCommon::update(const Update& u)
@@ -810,7 +742,7 @@ void LocalPlayerControl::update(const Update& u)
 	{
 		// Zoom
 		r32 fov_blend_target = 0.0f;
-		if (has<Awk>() && Game::data.allow_detach && input_enabled())
+		if (has<Awk>() && get<Transform>()->parent.ref() && Game::data.allow_detach && input_enabled())
 		{
 			if (u.input->get(settings.bindings.secondary, gamepad))
 			{
@@ -867,26 +799,6 @@ void LocalPlayerControl::update(const Update& u)
 					look_quat = Quat::euler(lean, angle_horizontal, angle_vertical);
 				}
 			}
-
-			// Crawl
-
-			if (input_enabled())
-			{
-				Quat clamped_look_quat = look_quat;
-				Vec3 wall_normal = rot * Vec3(0, 0, 1);
-				Vec3 forward = clamped_look_quat * Vec3(0, 0, 1);
-				float dot = forward.dot(wall_normal);
-				if (dot < 0.01f)
-				{
-					forward = Vec3::normalize(forward - (dot - 0.01f) * wall_normal);
-					float hor = atan2f(forward.x, forward.z);
-					float vert = -asinf(forward.y);
-					clamped_look_quat = Quat::euler(lean, hor, vert);
-				}
-
-				Vec3 movement = get_movement(u, clamped_look_quat);
-				get<Awk>()->crawl(movement, u);
-			}
 		}
 		else
 		{
@@ -908,34 +820,16 @@ void LocalPlayerControl::update(const Update& u)
 				AbilitySlot& slot = player.ref()->manager.ref()->abilities[i];
 				switch (slot.ability)
 				{
-					case Ability::Heal:
+					case Ability::Sensor:
 					{
-						if (get<Health>()->hp < get<Health>()->total && slot.use())
+						if (get<Transform>()->parent.ref() && slot.use())
 						{
-							s32 boost;
-							switch (slot.level)
-							{
-								case 1:
-								{
-									get<Health>()->hp = min(get<Health>()->hp + AWK_HEALTH / 4, get<Health>()->total);
-									break;
-								}
-								case 2:
-								{
-									get<Health>()->hp = min(get<Health>()->hp + AWK_HEALTH / 3, get<Health>()->total);
-									break;
-								}
-								case 3:
-								{
-									get<Health>()->hp = min(get<Health>()->hp + AWK_HEALTH / 2, get<Health>()->total);
-									break;
-								}
-								default:
-								{
-									vi_assert(false);
-									break;
-								}
-							}
+							// place a proximity sensor
+							Vec3 abs_pos;
+							Quat abs_rot;
+							get<Transform>()->absolute(&abs_pos, &abs_rot);
+							abs_pos += abs_rot * Vec3(0, 0, AWK_RADIUS * -0.5f); // make it nearly flush with the wall
+							World::create<SensorEntity>(get<Transform>()->parent.ref(), get<AIAgent>()->team, abs_pos, abs_rot);
 						}
 						break;
 					}
@@ -1210,7 +1104,6 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 	if (params.camera == camera)
 	{
 		AI::Team team = get<AIAgent>()->team;
-		Vec4 color = Team::colors[(s32)team];
 
 		const Rect2& viewport = params.camera->viewport;
 
@@ -1222,7 +1115,7 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 			if (radius > 0 || tracer.type == TraceType::None || !Game::data.allow_detach)
 			{
 				// hollow reticle
-				UI::centered_border(params, { viewport.size * Vec2(0.5f, 0.5f), Vec2(3.0f + radius) * UI::scale }, 2, UI::default_color, PI * 0.25f);
+				UI::centered_border(params, { viewport.size * Vec2(0.5f, 0.5f), Vec2(5.0f + radius) * UI::scale }, 2, UI::accent_color, PI * 0.25f);
 			}
 			else
 			{
@@ -1230,13 +1123,17 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 				Vec2 a;
 				if (UI::project(params, tracer.pos, &a))
 				{
-					Vec4 color;
 					if (tracer.type == TraceType::Target)
-						color = Vec4(1, 0, 0, 1);
+					{
+						UI::centered_box(params, { a, Vec2(7) * UI::scale }, UI::alert_color, PI * 0.25f);
+
+						UI::centered_box(params, { a + Vec2(12.0f, 12.0f) * UI::scale, Vec2(8.0f, 2.0f) * UI::scale }, UI::accent_color, PI * 0.25f);
+						UI::centered_box(params, { a + Vec2(-12.0f, -12.0f) * UI::scale, Vec2(8.0f, 2.0f) * UI::scale }, UI::accent_color, PI * 0.25f);
+						UI::centered_box(params, { a + Vec2(-12.0f, 12.0f) * UI::scale, Vec2(2.0f, 8.0f) * UI::scale }, UI::accent_color, PI * 0.25f);
+						UI::centered_box(params, { a + Vec2(12.0f, -12.0f) * UI::scale, Vec2(2.0f, 8.0f) * UI::scale }, UI::accent_color, PI * 0.25f);
+					}
 					else
-						color = UI::default_color;
-					Vec2 size = Vec2(7) * UI::scale;
-					UI::centered_box(params, { a, size }, color, PI * 0.25f);
+						UI::centered_box(params, { a, Vec2(7) * UI::scale }, UI::accent_color, PI * 0.25f);
 				}
 			}
 		}
@@ -1246,15 +1143,35 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 		UI::mesh(params, Asset::Mesh::compass_inner, viewport.size * Vec2(0.5f, 0.5f), compass_size, UI::default_color, angle_vertical);
 		UI::mesh(params, Asset::Mesh::compass_outer, viewport.size * Vec2(0.5f, 0.5f), compass_size, UI::default_color, -angle_horizontal);
 
-		// health bar
+		// health indicator
 		{
 			const Health* health = get<Health>();
-			const Vec2 size = Vec2(128.0f, 16.0f) * UI::scale;
-			const Vec2 pos = viewport.size * Vec2(0.5f, 0.08f);
-			const Vec4& color = Team::colors[(s32)team];
-			UI::box(params, { pos - size * 0.5f, size }, UI::background_color);
-			UI::box(params, { pos - size * 0.5f, size * Vec2((r32)health->hp / (r32)health->total, 1.0f) }, color);
-			UI::border(params, { pos - size * 0.5f, size }, 2, color);
+			const Vec2 box_size = Vec2(16.0f) * UI::scale;
+			const r32 box_spacing = 8.0f * UI::scale;
+			const Vec4& color = Team::ui_colors[(s32)team];
+
+			UIText text;
+			text.font = Asset::Font::lowpoly;
+			text.anchor_x = UIText::Anchor::Min;
+			text.anchor_y = UIText::Anchor::Min;
+			text.size = 16.0f;
+			text.color = UI::default_color;
+			text.text(_(strings::hp));
+
+			r32 total_width = text.bounds().x + box_spacing + health->hp_max * (box_size.x + box_spacing);
+
+			Vec2 pos = viewport.size * Vec2(0.5f, 0.1f) + Vec2(total_width * -0.5f, 0.0f);
+
+			text.draw(params, pos);
+			
+			pos.x += text.bounds().x + box_spacing;
+
+			for (s32 i = 0; i < health->hp_max; i++)
+			{
+				UI::border(params, { pos, box_size }, 2, color);
+				UI::box(params, { pos, box_size }, i < health->hp ? color : UI::background_color);
+				pos.x += box_size.x + box_spacing;
+			}
 		}
 
 		if (has<Awk>())

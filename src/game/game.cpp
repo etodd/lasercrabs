@@ -190,7 +190,6 @@ void Game::update(const Update& update_in)
 		i.item()->update(u);
 	for (auto i = Awk::list.iterator(); !i.is_last(); i.next())
 		i.item()->update(u);
-	PlayerCommon::update_visibility();
 	for (auto i = NoclipControl::list.iterator(); !i.is_last(); i.next())
 		i.item()->update(u);
 	for (auto i = MinionAI::list.iterator(); !i.is_last(); i.next())
@@ -336,8 +335,6 @@ void Game::draw_alpha(const RenderParams& render_params)
 
 	for (auto i = LocalPlayer::list.iterator(); !i.is_last(); i.next())
 		i.item()->draw_health_bars(render_params);
-	for (auto i = PlayerCommon::list.iterator(); !i.is_last(); i.next())
-		i.item()->draw_alpha(render_params);
 	for (auto i = LocalPlayerControl::list.iterator(); !i.is_last(); i.next())
 		i.item()->draw_alpha(render_params);
 	for (auto i = LocalPlayer::list.iterator(); !i.is_last(); i.next())
@@ -572,6 +569,7 @@ void Game::load_level(const Update& u, AssetID l)
 				new (player) LocalPlayer(manager, i);
 			}
 		}
+		Audio::post_global_event(AK::EVENTS::PLAY_MUSIC_01);
 	}
 
 	Audio::post_global_event(AK::EVENTS::PLAY_START_SESSION);
@@ -664,25 +662,16 @@ void Game::load_level(const Update& u, AssetID l)
 			rope->slack = Json::get_r32(element, "slack");
 			rope->max_distance = Json::get_r32(element, "max_distance", 100.0f);
 		}
-		else if (cJSON_GetObjectItem(element, "Target"))
-		{
-			AI::Team team = (AI::Team)Json::get_s32(element, "team");
-			entity = World::alloc<TargetEntity>(absolute_pos, absolute_rot, team);
-			Team::list[(s32)team].targets.add(entity->get<Target>());
-		}
 		else if (cJSON_GetObjectItem(element, "MinionSpawn"))
 		{
-			AI::Team team = (AI::Team)Json::get_s32(element, "team");
-
-			entity = World::alloc<MinionSpawn>(team);
-
-			absolute_pos += Vec3(0, 3.75f * 0.5f, 0);
-			if (parent == -1)
-				pos = absolute_pos;
-			else
-				pos = transforms[parent]->to_local(absolute_pos);
-
-			Team::list[(s32)team].minion_spawns.add(entity->get<Transform>());
+			entity = World::alloc<MinionSpawnEntity>();
+			cJSON* entity_link = cJSON_GetObjectItem(element, "links")->child;
+			if (entity_link)
+			{
+				LevelLink<Transform>* link = transform_links.add();
+				link->ref = &entity->get<MinionSpawn>()->spawn_point;
+				link->target_name = entity_link->valuestring;
+			}
 		}
 		else if (cJSON_GetObjectItem(element, "Minion"))
 		{
@@ -777,6 +766,10 @@ void Game::load_level(const Update& u, AssetID l)
 		{
 			AI::Team team = (AI::Team)Json::get_s32(element, "team", (s32)AI::Team::A);
 			entity = World::alloc<Turret>(team);
+		}
+		else if (cJSON_GetObjectItem(element, "HealthPickup"))
+		{
+			entity = World::alloc<HealthPickupEntity>();
 		}
 		else if (cJSON_GetObjectItem(element, "SkyDecal"))
 		{

@@ -22,7 +22,6 @@
 #define WALK_SPEED 2.0f
 
 #define HEALTH 50
-#define VULNERABLE_HEALTH 26
 
 namespace VI
 {
@@ -45,7 +44,7 @@ Minion::Minion(const Vec3& pos, const Quat& quat, AI::Team team)
 
 	create<Audio>();
 
-	Health* health = create<Health>(HEALTH);
+	Health* health = create<Health>(HEALTH, HEALTH);
 	
 	Vec3 forward = quat * Vec3(0, 0, 1);
 
@@ -59,8 +58,9 @@ Minion::Minion(const Vec3& pos, const Quat& quat, AI::Team team)
 	PointLight* light = create<PointLight>();
 	light->color = Team::colors[(s32)team].xyz();
 	light->type = PointLight::Type::Override;
-	light->radius = MINION_VIEW_RANGE;
-	light->mask = ~(1 << (s32)team); // don't display to fellow teammates
+	light->radius = SENSOR_RANGE;
+
+	create<Sensor>()->team = team;
 
 	create<MinionAI>();
 }
@@ -79,13 +79,7 @@ void MinionCommon::awake()
 
 void MinionCommon::footstep()
 {
-	Vec3 base_pos = get<Walker>()->base_pos();
-
-	Audio::post_global_event(AK::EVENTS::PLAY_FOOTSTEP, base_pos);
-
-	ShockwaveEntity* shockwave = World::create<ShockwaveEntity>(entity(), 3.0f);
-	shockwave->get<Transform>()->pos = base_pos;
-	shockwave->get<Transform>()->reparent(get<Transform>()->parent.ref());
+	Audio::post_global_event(AK::EVENTS::PLAY_FOOTSTEP, get<Walker>()->base_pos());
 }
 
 Vec3 MinionCommon::head_pos()
@@ -98,23 +92,18 @@ Vec3 MinionCommon::head_pos()
 
 b8 MinionCommon::headshot_test(const Vec3& ray_start, const Vec3& ray_end)
 {
-	if (get<Health>()->hp <= VULNERABLE_HEALTH)
-	{
-		Vec3 head = head_pos();
+	Vec3 head = head_pos();
 
-		Vec3 ray = ray_end - ray_start;
-		Vec3 head_to_ray_start = ray_start - head;
+	Vec3 ray = ray_end - ray_start;
+	Vec3 head_to_ray_start = ray_start - head;
 
-		r32 a = ray.length_squared();
-		r32 b = 2.0f * ray.dot(head_to_ray_start);
-		r32 c = head_to_ray_start.length_squared() - (HEAD_RADIUS * HEAD_RADIUS);
+	r32 a = ray.length_squared();
+	r32 b = 2.0f * ray.dot(head_to_ray_start);
+	r32 c = head_to_ray_start.length_squared() - (HEAD_RADIUS * HEAD_RADIUS);
 
-		r32 delta = (b * b) - 4.0f * a * c;
+	r32 delta = (b * b) - 4.0f * a * c;
 
-		return delta >= 0.0f;
-	}
-	else
-		return false;
+	return delta >= 0.0f;
 }
 
 void MinionCommon::update(const Update& u)
@@ -460,12 +449,6 @@ b8 MinionAI::can_see(Entity* target) const
 void MinionAI::damaged(Entity* enemy)
 {
 	target = enemy;
-	if (get<Health>()->hp <= VULNERABLE_HEALTH)
-	{
-		Animator::Layer* layer = &get<Animator>()->layers[2];
-		if (layer->animation != Asset::Animation::character_vulnerable)
-			layer->play(Asset::Animation::character_vulnerable);
-	}
 }
 
 void MinionAI::update(const Update& u)

@@ -138,34 +138,6 @@ struct Vec2
 			fScalar / rkVector.y);
 	}
 
-	inline friend Vec2 operator + (const Vec2& lhs, const r32 rhs)
-	{
-		return Vec2(
-			lhs.x + rhs,
-			lhs.y + rhs);
-	}
-
-	inline friend Vec2 operator + (const r32 lhs, const Vec2& rhs)
-	{
-		return Vec2(
-			lhs + rhs.x,
-			lhs + rhs.y);
-	}
-
-	inline friend Vec2 operator - (const Vec2& lhs, const r32 rhs)
-	{
-		return Vec2(
-			lhs.x - rhs,
-			lhs.y - rhs);
-	}
-
-	inline friend Vec2 operator - (const r32 lhs, const Vec2& rhs)
-	{
-		return Vec2(
-			lhs - rhs.x,
-			lhs - rhs.y);
-	}
-
 	inline Vec2& operator += (const Vec2& rkVector)
 	{
 		x += rkVector.x;

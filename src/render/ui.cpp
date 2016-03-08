@@ -355,7 +355,8 @@ void UIText::draw(const RenderParams& params, const Vec2& pos, const r32 rot) co
 }
 
 const Vec4 UI::default_color = Vec4(1, 1, 1, 1);
-const Vec4 UI::alert_color = Vec4(1.0f, 0.2f, 0.2f, 1.0f);
+const Vec4 UI::alert_color = Vec4(1.0f, 0.5f, 0.5f, 1);
+const Vec4 UI::accent_color = Vec4(1.0f, 0.9f, 0.4f, 1);
 const Vec4 UI::subtle_color = Vec4(0.044f, 0.279f, 0.445f, 1);
 const Vec4 UI::background_color = Vec4(0, 0, 0, 1);
 const Vec4 UI::disabled_color = Vec4(0.5f, 0.5f, 0.5f, 1);

@@ -57,12 +57,6 @@ struct LocalPlayer
 
 struct PlayerCommon : public ComponentType<PlayerCommon>
 {
-	static b8 visibility[MAX_PLAYER_COMBOS];
-	static s32 visibility_count;
-
-	static void update_visibility();
-	static s32 visibility_hash(const PlayerCommon*, const PlayerCommon*);
-
 	r32 cooldown;
 	UIText username_text;
 	s32 visibility_index;
@@ -70,7 +64,6 @@ struct PlayerCommon : public ComponentType<PlayerCommon>
 
 	PlayerCommon(PlayerManager*);
 	void awake();
-	void draw_alpha(const RenderParams&) const;
 	void update(const Update&);
 };
 

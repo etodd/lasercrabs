@@ -66,6 +66,7 @@ struct UI
 
 	static const Vec4 default_color;
 	static const Vec4 alert_color;
+	static const Vec4 accent_color;
 	static const Vec4 subtle_color;
 	static const Vec4 background_color;
 	static const Vec4 disabled_color;

@@ -34,7 +34,7 @@ AwkEntity::AwkEntity(AI::Team team)
 	create<Awk>();
 	create<AIAgent>()->team = team;
 
-	Health* health = create<Health>(AWK_HEALTH);
+	Health* health = create<Health>(1, AWK_HEALTH);
 
 	SkinnedModel* model = create<SkinnedModel>();
 	model->mesh = Asset::Mesh::awk;
@@ -54,8 +54,8 @@ AwkEntity::AwkEntity(AI::Team team)
 	create<RigidBody>(RigidBody::Type::Sphere, Vec3(radius), 0.0f, CollisionTarget, CollisionNothing);
 }
 
-Health::Health(u16 start_value)
-	: hp(start_value), total(start_value)
+Health::Health(u16 start_value, u16 hp_max)
+	: hp(start_value), hp_max(hp_max)
 {
 }
 
@@ -73,16 +73,91 @@ void Health::damage(Entity* e, u16 damage)
 	}
 }
 
-TargetEntity::TargetEntity(const Vec3& abs_pos, const Quat& abs_quat, AI::Team team)
+HealthPickupEntity::HealthPickupEntity()
 {
-	create<Transform>()->absolute(abs_pos, abs_quat);
+	create<Transform>();
 	View* model = create<View>();
 	model->mesh = Asset::Mesh::target;
-	model->color = Team::colors[(s32)team];
+	model->color = Vec4(0.3f, 0.3f, 0.3f, MATERIAL_NO_OVERRIDE);
 	model->shader = Asset::Shader::standard;
 
 	PointLight* light = create<PointLight>();
+	light->color = Vec3::zero;
+	light->radius = 8.0f;
+
+	Target* target = create<Target>();
+
+	HealthPickup* pickup = create<HealthPickup>();
+
+	const r32 radius = 0.25f;
+
+	model->offset.scale(Vec3(radius));
+
+	RigidBody* body = create<RigidBody>(RigidBody::Type::Sphere, Vec3(radius), 1.0f, CollisionTarget, btBroadphaseProxy::AllFilter);
+	body->set_damping(0.5f, 0.5f);
+}
+
+void HealthPickup::awake()
+{
+	link_arg<const TargetEvent&, &HealthPickup::hit>(get<Target>()->target_hit);
+}
+
+void HealthPickup::reset()
+{
+	owner = nullptr;
+	get<View>()->color = Vec4(0.3f, 0.3f, 0.3f, MATERIAL_NO_OVERRIDE);
+	get<PointLight>()->color = Vec3::zero;
+}
+
+void HealthPickup::hit(const TargetEvent& e)
+{
+	if (e.hit_by->has<AIAgent>() && e.hit_by->has<Health>())
+	{
+		Health* health = e.hit_by->get<Health>();
+		if (owner.ref() != health && health->hp < health->hp_max)
+		{
+			health->hp++;
+			owner = health;
+
+			const Vec3& color = Team::colors[(s32)e.hit_by->get<AIAgent>()->team].xyz();
+			get<PointLight>()->color = color;
+			get<View>()->color = Vec4(color, MATERIAL_NO_OVERRIDE);
+		}
+	}
+}
+
+SensorEntity::SensorEntity(Transform* parent, AI::Team team, const Vec3& abs_pos, const Quat& abs_rot)
+{
+	Transform* transform = create<Transform>();
+	transform->pos = abs_pos;
+	transform->rot = abs_rot;
+	transform->reparent(parent);
+
+	View* model = create<View>();
+	model->mesh = Asset::Mesh::sphere;
+	model->color = Vec4(Team::colors[(s32)team].xyz(), MATERIAL_NO_OVERRIDE);
+	model->shader = Asset::Shader::standard;
+	model->offset.scale(Vec3(0.15f));
+
+	PointLight* light = create<PointLight>();
 	light->color = Team::colors[(s32)team].xyz();
+	light->type = PointLight::Type::Override;
+	light->radius = SENSOR_RANGE;
+
+	create<Sensor>()->team = team;
+}
+
+MinionSpawnEntity::MinionSpawnEntity()
+{
+	create<Transform>();
+
+	View* model = create<View>();
+	model->mesh = Asset::Mesh::target;
+	model->color = Vec4(0.3f, 0.3f, 0.3f, MATERIAL_NO_OVERRIDE);
+	model->shader = Asset::Shader::standard;
+
+	PointLight* light = create<PointLight>();
+	light->color = Vec3::zero;
 	light->radius = 8.0f;
 
 	Target* target = create<Target>();
@@ -93,6 +168,39 @@ TargetEntity::TargetEntity(const Vec3& abs_pos, const Quat& abs_quat, AI::Team t
 
 	RigidBody* body = create<RigidBody>(RigidBody::Type::Sphere, Vec3(radius), 1.0f, CollisionTarget, btBroadphaseProxy::AllFilter);
 	body->set_damping(0.5f, 0.5f);
+
+	create<MinionSpawn>();
+}
+
+void MinionSpawn::hit(const TargetEvent& e)
+{
+	if (!minion.ref())
+	{
+		Vec3 pos;
+		Quat rot;
+		spawn_point.ref()->absolute(&pos, &rot);
+
+		AI::Team team = e.hit_by->get<AIAgent>()->team;
+
+		minion = World::create<Minion>(pos, rot, team);
+		minion.ref()->get<Health>()->killed.link<MinionSpawn, Entity*, &MinionSpawn::reset>(this);
+
+		const Vec3& color = Team::colors[(s32)team].xyz();
+		get<PointLight>()->color = color;
+		get<View>()->color = Vec4(color, MATERIAL_NO_OVERRIDE);
+	}
+}
+
+void MinionSpawn::awake()
+{
+	link_arg<const TargetEvent&, &MinionSpawn::hit>(get<Target>()->target_hit);
+}
+
+void MinionSpawn::reset(Entity* killer)
+{
+	minion = nullptr;
+	get<View>()->color = Vec4(0.3f, 0.3f, 0.3f, MATERIAL_NO_OVERRIDE);
+	get<PointLight>()->color = Vec3::zero;
 }
 
 PlayerSpawn::PlayerSpawn(AI::Team team)
@@ -105,18 +213,6 @@ PlayerSpawn::PlayerSpawn(AI::Team team)
 	view->color = Team::colors[(s32)team];
 
 	create<RigidBody>(RigidBody::Type::CapsuleY, Vec3(PLAYER_SPAWN_RADIUS, 6.0f, PLAYER_SPAWN_RADIUS), 0.0f, CollisionInaccessible, CollisionInaccessibleMask);
-}
-
-MinionSpawn::MinionSpawn(AI::Team team)
-{
-	create<Transform>();
-
-	View* view = create<View>();
-	view->mesh = Asset::Mesh::spawn;
-	view->shader = Asset::Shader::standard;
-	view->color = Team::colors[(s32)team];
-
-	create<RigidBody>(RigidBody::Type::CapsuleY, Vec3(MINION_SPAWN_RADIUS, 6.0f, MINION_SPAWN_RADIUS), 0.0f, CollisionInaccessible, CollisionInaccessibleMask);
 }
 
 #define TURRET_COOLDOWN 0.4f
@@ -141,7 +237,7 @@ Turret::Turret(AI::Team team)
 
 	create<AIAgent>()->team = team;
 
-	create<Health>(200);
+	create<Health>(200, 200);
 
 	create<RigidBody>(RigidBody::Type::Sphere, Vec3(TURRET_RADIUS), 0.0f, CollisionInaccessible, CollisionInaccessibleMask);
 

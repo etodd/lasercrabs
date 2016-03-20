@@ -401,25 +401,6 @@ void LocalPlayer::draw_alpha(const RenderParams& params) const
 				UI::box(params, text.rect(p).outset(8.0f * UI::scale), UI::background_color);
 				text.draw(params, p);
 			}
-
-			if (Team::game_over())
-			{
-				// show victory/defeat message
-				UIText text;
-				text.font = Asset::Font::lowpoly;
-				text.color = UI::default_color;
-				text.anchor_x = UIText::Anchor::Center;
-				text.anchor_y = UIText::Anchor::Center;
-				text.size = 32.0f;
-
-				if (manager.ref()->team.ref()->has_player())
-					text.text(_(strings::victory));
-				else
-					text.text(_(strings::defeat));
-				Vec2 pos = vp.size * Vec2(0.5f, 0.5f);
-				UI::box(params, text.rect(pos).outset(16 * UI::scale), UI::background_color);
-				text.draw(params, pos);
-			}
 			break;
 		}
 		case UIMode::Pause:
@@ -456,6 +437,25 @@ void LocalPlayer::draw_alpha(const RenderParams& params) const
 
 			break;
 		}
+	}
+
+	if (Game::data.mode == Game::Mode::Multiplayer && Team::game_over())
+	{
+		// show victory/defeat message
+		UIText text;
+		text.font = Asset::Font::lowpoly;
+		text.color = UI::default_color;
+		text.anchor_x = UIText::Anchor::Center;
+		text.anchor_y = UIText::Anchor::Center;
+		text.size = 32.0f;
+
+		if (manager.ref()->team.ref()->has_player())
+			text.text(_(strings::victory));
+		else
+			text.text(_(strings::defeat));
+		Vec2 pos = vp.size * Vec2(0.5f, 0.5f);
+		UI::box(params, text.rect(pos).outset(16 * UI::scale), UI::background_color);
+		text.draw(params, pos);
 	}
 }
 
@@ -992,10 +992,7 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 						UI::centered_box(params, { a + Vec2(12.0f, -12.0f) * UI::scale, Vec2(2.0f, 8.0f) * UI::scale }, UI::accent_color, PI * 0.25f);
 					}
 					else
-					{
-						UI::centered_box(params, { a, Vec2(10) * UI::scale }, UI::background_color, PI * 0.25f);
 						UI::centered_box(params, { a, Vec2(6) * UI::scale }, UI::accent_color, PI * 0.25f);
-					}
 				}
 			}
 		}

@@ -555,6 +555,12 @@ void Game::load_level(const Update& u, AssetID l)
 		Audio::post_global_event(AK::EVENTS::PLAY_MUSIC_01);
 	}
 
+	for (s32 i = 0; i < Camera::max_cameras; i++)
+	{
+		if (Camera::all[i].active)
+			Camera::all[i].remove();
+	}
+
 	Audio::post_global_event(AK::EVENTS::PLAY_START_SESSION);
 
 	data.level = l;
@@ -858,6 +864,11 @@ void Game::load_level(const Update& u, AssetID l)
 		*link.ref = finder.find(link.target_name)->get<Transform>();
 	}
 
+	for (s32 i = 0; i < finder.map.length; i++)
+		World::awake(finder.map[i].entity.ref());
+
+	Physics::sync_static();
+
 	for (s32 i = 0; i < mover_links.length; i++)
 	{
 		MoverEntry& link = mover_links[i];
@@ -865,11 +876,6 @@ void Game::load_level(const Update& u, AssetID l)
 		Entity* end = finder.find(link.end_name);
 		link.mover->setup(object->get<Transform>(), end->get<Transform>(), link.speed);
 	}
-
-	for (s32 i = 0; i < finder.map.length; i++)
-		World::awake(finder.map[i].entity.ref());
-
-	Physics::sync_static();
 
 	for (s32 i = 0; i < ropes.length; i++)
 		Rope::spawn(ropes[i].pos, ropes[i].rot * Vec3(0, 1, 0), ropes[i].max_distance, ropes[i].slack);

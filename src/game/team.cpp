@@ -71,7 +71,7 @@ b8 Team::has_player() const
 
 void Team::update(const Update& u)
 {
-	if (has_player() && game_over())
+	if (Game::data.mode == Game::Mode::Multiplayer && has_player() && game_over())
 	{
 		// we win
 		victory_timer -= u.time.delta;

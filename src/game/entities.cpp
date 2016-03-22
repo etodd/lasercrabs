@@ -78,11 +78,9 @@ HealthPickupEntity::HealthPickupEntity()
 	create<Transform>();
 	View* model = create<View>();
 	model->mesh = Asset::Mesh::target;
-	model->color = Vec4(0.3f, 0.3f, 0.3f, MATERIAL_NO_OVERRIDE);
 	model->shader = Asset::Shader::standard;
 
 	PointLight* light = create<PointLight>();
-	light->color = Vec3::zero;
 	light->radius = 8.0f;
 
 	Target* target = create<Target>();
@@ -100,6 +98,7 @@ HealthPickupEntity::HealthPickupEntity()
 void HealthPickup::awake()
 {
 	link_arg<const TargetEvent&, &HealthPickup::hit>(get<Target>()->target_hit);
+	reset();
 }
 
 void HealthPickup::reset()
@@ -126,12 +125,14 @@ void HealthPickup::hit(const TargetEvent& e)
 	}
 }
 
-SensorEntity::SensorEntity(Transform* parent, AI::Team team, const Vec3& abs_pos, const Quat& abs_rot)
+SensorEntity::SensorEntity(Transform* parent, PlayerManager* owner, const Vec3& abs_pos, const Quat& abs_rot)
 {
 	Transform* transform = create<Transform>();
 	transform->pos = abs_pos;
 	transform->rot = abs_rot;
 	transform->reparent(parent);
+
+	AI::Team team = owner->team.ref()->team();
 
 	View* model = create<View>();
 	model->mesh = Asset::Mesh::sphere;
@@ -148,7 +149,22 @@ SensorEntity::SensorEntity(Transform* parent, AI::Team team, const Vec3& abs_pos
 	light->team_mask = 1 << (s32)team;
 	light->radius = SENSOR_RANGE;
 
-	create<Sensor>()->team = team;
+	Sensor* sensor = create<Sensor>(team, owner);
+
+	RigidBody* body = create<RigidBody>(RigidBody::Type::Sphere, Vec3(radius), 1.0f, CollisionTarget, btBroadphaseProxy::AllFilter);
+	body->set_damping(0.5f, 0.5f);
+
+	create<PlayerTrigger>()->radius = SENSOR_RANGE;
+}
+
+Sensor::Sensor(AI::Team t, PlayerManager* m)
+	: team(t),
+	player_manager(m)
+{
+}
+
+void Sensor::update(const Update& u)
+{
 }
 
 void Sensor::awake()
@@ -196,7 +212,7 @@ void MinionSpawn::hit(const TargetEvent& e)
 
 		AI::Team team = e.hit_by->get<AIAgent>()->team;
 
-		minion = World::create<Minion>(pos, rot, team);
+		minion = World::create<Minion>(pos, rot, team, e.hit_by->get<PlayerCommon>()->manager.ref());
 		minion.ref()->get<Health>()->killed.link<MinionSpawn, Entity*, &MinionSpawn::reset>(this);
 
 		const Vec3& color = Team::colors[(s32)team].xyz();
@@ -227,12 +243,19 @@ PlayerSpawn::PlayerSpawn(AI::Team team)
 {
 	create<Transform>();
 
+	Vec3 color = Team::colors[(s32)team].xyz();
+
 	View* view = create<View>();
 	view->mesh = Asset::Mesh::spawn;
 	view->shader = Asset::Shader::standard;
-	view->color = Team::colors[(s32)team];
+	view->color = Vec4(color, MATERIAL_UNLIT);
 
-	create<RigidBody>(RigidBody::Type::CapsuleY, Vec3(PLAYER_SPAWN_RADIUS, 6.0f, PLAYER_SPAWN_RADIUS), 0.0f, CollisionInaccessible, CollisionInaccessibleMask);
+	create<PlayerTrigger>()->radius = 2.0f;
+
+	PointLight* light = create<PointLight>();
+	light->color = color;
+	light->offset.y = 2.0f;
+	light->radius = 12.0f;
 }
 
 #define TURRET_COOLDOWN 0.4f
@@ -497,14 +520,11 @@ void PlayerTrigger::update(const Update& u)
 	r32 radius_squared = radius * radius;
 	for (s32 i = 0; i < max_trigger; i++)
 	{
-		if (triggered[i].ref())
+		Entity* e = triggered[i].ref();
+		if (e && (e->get<Transform>()->absolute_pos() - pos).length_squared() > radius_squared)
 		{
-			if ((triggered[i].ref()->get<Transform>()->absolute_pos() - pos).length_squared() > radius_squared)
-			{
-				Entity* e = triggered[i].ref();
-				triggered[i] = nullptr;
-				exited.fire(e);
-			}
+			triggered[i] = nullptr;
+			exited.fire(e);
 		}
 	}
 
@@ -551,9 +571,6 @@ RopeEntity::RopeEntity(const Vec3& pos, const Vec3& normal, RigidBody* start, co
 {
 	create<Rope>(pos, normal, start, slack);
 }
-
-#define rope_segment_length 1.0f
-#define rope_radius 0.05f
 
 Rope::Rope(const Vec3& pos, const Vec3& normal, RigidBody* start, const r32 slack)
 	: last_segment(start),
@@ -676,7 +693,7 @@ void Rope::add(const Vec3& pos, const Quat& rot)
 			if (length > rope_interval * 0.5f)
 			{
 				Vec3 spawn_pos = last_segment_pos + (diff / length) * rope_interval * 0.5f;
-				Entity* box = World::create<PhysicsEntity>(AssetNull, spawn_pos, rot, RigidBody::Type::CapsuleZ, Vec3(rope_radius, rope_segment_length - rope_radius * 2.0f, 0.0f), 1.0f, CollisionInaccessible, CollisionInaccessibleMask);
+				Entity* box = World::create<PhysicsEntity>(AssetNull, spawn_pos, rot, RigidBody::Type::CapsuleZ, Vec3(rope_radius, rope_segment_length - rope_radius * 2.0f, 0.0f), 1.0f, CollisionAwkIgnore, CollisionInaccessibleMask);
 
 				static Quat rotation_a = Quat::look(Vec3(0, 0, 1)) * Quat::euler(0, PI * -0.5f, 0);
 				static Quat rotation_b = Quat::look(Vec3(0, 0, -1)) * Quat::euler(PI, PI * -0.5f, 0);

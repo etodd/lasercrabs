@@ -45,7 +45,7 @@ struct UIText
 	void wrap(r32);
 	b8 clipped() const;
 	b8 has_text() const;
-	void draw(const RenderParams&, const Vec2& pos, const r32 = 0.0f) const;
+	void draw(const RenderParams&, const Vec2& pos, r32 = 0.0f) const;
 	UIText();
 };
 
@@ -80,13 +80,14 @@ struct UI
 	static void init(LoopSync*);
 	static r32 get_scale(const s32, const s32);
 	static void box(const RenderParams&, const Rect2&, const Vec4& = Vec4(1, 1, 1, 1));
-	static void centered_box(const RenderParams&, const Rect2&, const Vec4& = Vec4(1, 1, 1, 1), const r32 = 0.0f);
-	static void border(const RenderParams&, const Rect2&, const r32, const Vec4& = Vec4(1, 1, 1, 1));
-	static void centered_border(const RenderParams&, const Rect2&, const r32, const Vec4& = Vec4(1, 1, 1, 1), const r32 = 0.0f);
-	static void triangle(const RenderParams&, const Rect2&, const Vec4& = Vec4(1, 1, 1, 1), const r32 = 0.0f);
+	static void centered_box(const RenderParams&, const Rect2&, const Vec4& = Vec4(1, 1, 1, 1), r32 = 0.0f);
+	static void border(const RenderParams&, const Rect2&, r32, const Vec4& = Vec4(1, 1, 1, 1));
+	static void centered_border(const RenderParams&, const Rect2&, r32, const Vec4& = Vec4(1, 1, 1, 1), r32 = 0.0f);
+	static void triangle(const RenderParams&, const Rect2&, const Vec4& = Vec4(1, 1, 1, 1), r32 = 0.0f);
+	static void triangle_border(const RenderParams&, const Rect2&, r32, const Vec4& = Vec4(1, 1, 1, 1), r32 = 0.0f);
 	static void update(const RenderParams&);
 	static void draw(const RenderParams&);
-	static void mesh(const RenderParams&, const AssetID, const Vec2&, const Vec2& = Vec2(1, 1), const Vec4& = Vec4(1, 1, 1, 1), const r32 = 0.0f);
+	static void mesh(const RenderParams&, const AssetID, const Vec2&, const Vec2& = Vec2(1, 1), const Vec4& = Vec4(1, 1, 1, 1), r32 = 0.0f);
 	static b8 project(const RenderParams&, const Vec3&, Vec2*);
 
 	// Instantly draw a texture

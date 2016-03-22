@@ -138,7 +138,7 @@ void View::awake()
 		color = m->color;
 }
 
-void SkyDecal::draw(const RenderParams& p)
+void SkyDecal::draw_alpha(const RenderParams& p)
 {
 	RenderSync* sync = p.sync;
 
@@ -277,7 +277,7 @@ b8 Skybox::valid()
 	return shader != AssetNull && mesh != AssetNull;
 }
 
-void Skybox::draw(const RenderParams& p)
+void Skybox::draw_alpha(const RenderParams& p)
 {
 	if (mesh == AssetNull || p.technique != RenderTechnique::Default)
 		return;
@@ -412,6 +412,48 @@ void Skybox::draw(const RenderParams& p)
 
 	sync->write<RenderOp>(RenderOp::DepthTest);
 	sync->write<b8>(true);
+}
+
+void SkyPattern::draw_alpha(const RenderParams& p)
+{
+	if (p.technique != RenderTechnique::Default)
+		return;
+
+	Loader::shader_permanent(Asset::Shader::flat);
+	Loader::mesh_permanent(Asset::Mesh::sky_pattern);
+
+	RenderSync* sync = p.sync;
+
+	sync->write<RenderOp>(RenderOp::FillMode);
+	sync->write(RenderFillMode::Line);
+	sync->write<RenderOp>(RenderOp::LineWidth);
+	sync->write<r32>(3.0f * UI::scale);
+
+	sync->write(RenderOp::Shader);
+	sync->write(Asset::Shader::flat);
+	sync->write(p.technique);
+
+	Mat4 mvp = p.view * Mat4::make_scale(Vec3(p.camera->far_plane));
+	mvp.translation(Vec3::zero);
+	mvp = mvp * p.camera->projection;
+
+	sync->write(RenderOp::Uniform);
+	sync->write(Asset::Uniform::mvp);
+	sync->write(RenderDataType::Mat4);
+	sync->write<s32>(1);
+	sync->write<Mat4>(mvp);
+
+	sync->write(RenderOp::Uniform);
+	sync->write(Asset::Uniform::diffuse_color);
+	sync->write(RenderDataType::Vec4);
+	sync->write<s32>(1);
+	sync->write<Vec4>(Vec4(1, 1, 1, 1));
+
+	sync->write(RenderOp::Mesh);
+	sync->write(Asset::Mesh::sky_pattern);
+
+	sync->write<RenderOp>(RenderOp::FillMode);
+	sync->write(RenderFillMode::Fill);
 }
 
 void Cube::draw(const RenderParams& params, const Vec3& pos, const b8 alpha, const Vec3& scale, const Quat& rot, const Vec4& color)

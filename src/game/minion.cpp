@@ -26,7 +26,7 @@
 namespace VI
 {
 
-Minion::Minion(const Vec3& pos, const Quat& quat, AI::Team team)
+Minion::Minion(const Vec3& pos, const Quat& quat, AI::Team team, PlayerManager* manager)
 {
 	Transform* transform = create<Transform>();
 	transform->pos = pos;
@@ -61,7 +61,8 @@ Minion::Minion(const Vec3& pos, const Quat& quat, AI::Team team)
 	light->team_mask = 1 << (s32)team;
 	light->radius = SENSOR_RANGE;
 
-	create<Sensor>()->team = team;
+	create<Sensor>(team, manager);
+	create<PlayerTrigger>()->radius = SENSOR_RANGE;
 
 	create<MinionAI>();
 }

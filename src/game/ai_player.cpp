@@ -26,7 +26,8 @@ AIPlayer::AIPlayer(PlayerManager* m)
 void AIPlayer::update(const Update& u)
 {
 	// always stupidly try to use our ability
-	manager.ref()->entity.ref() && manager.ref()->abilities[0].use(manager.ref()->entity.ref());
+	if (manager.ref()->entity.ref())
+		manager.ref()->ability_use();
 }
 
 void AIPlayer::spawn()
@@ -41,14 +42,14 @@ void AIPlayer::spawn()
 	Vec3 pos;
 	Quat rot;
 	manager.ref()->team.ref()->player_spawn.ref()->absolute(&pos, &rot);
-	pos += Vec3(0, 0, PLAYER_SPAWN_RADIUS * 1.5f); // spawn it around the edges
+	pos += Vec3(0, 0, PLAYER_SPAWN_RADIUS); // spawn it around the edges
 	e->get<Transform>()->absolute(pos, rot);
 }
 
 AIPlayerControl::AIPlayerControl()
 	: goal(), last_pos(), stick_timer(), goal_timer(5.0f)
 {
-	move_timer = mersenne::randf_co() * 2.0f;
+	reset_move_timer();
 }
 
 void AIPlayerControl::awake()
@@ -242,7 +243,7 @@ void AIPlayerControl::update(const Update& u)
 				to_goal = Quat::euler(mersenne::randf_oo() * random_range, mersenne::randf_oo() * random_range, mersenne::randf_oo() * random_range) * to_goal;
 				if (get<Awk>()->can_go(to_goal))
 				{
-					get<Awk>()->detach(u, to_goal);
+					get<Awk>()->detach(to_goal);
 					return;
 				}
 			}
@@ -274,7 +275,7 @@ void AIPlayerControl::update(const Update& u)
 
 			if (best_distance > 0.0f)
 			{
-				get<Awk>()->detach(u, best_dir);
+				get<Awk>()->detach(best_dir);
 				return;
 			}
 		}

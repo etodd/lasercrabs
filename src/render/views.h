@@ -39,7 +39,7 @@ struct SkyDecal : ComponentType<SkyDecal>
 	r32 scale;
 	AssetID texture;
 
-	static void draw(const RenderParams&);
+	static void draw_alpha(const RenderParams&);
 
 	void awake() {}
 };
@@ -56,7 +56,12 @@ struct Skybox
 	static r32 fog_start;
 	static b8 valid();
 	static void set(const r32, const Vec3&, const Vec3&, const Vec3&, const AssetID&, const AssetID&, const AssetID&);
-	static void draw(const RenderParams&);
+	static void draw_alpha(const RenderParams&);
+};
+
+struct SkyPattern
+{
+	static void draw_alpha(const RenderParams&);
 };
 
 struct Cube

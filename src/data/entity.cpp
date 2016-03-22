@@ -54,18 +54,32 @@ Entity::Entity()
 {
 }
 
-void World::remove(Entity* e)
+// if the entity is active, remove it
+// returns true if the entity was actually active and removed
+// World::remove_deferred WILL NOT crash when it removes an entity multiple times
+// World::remove WILL crash if you try to remove an inactive entity
+b8 internal_remove(Entity* e)
 {
 	ID id = e->id();
-	vi_assert(Entity::list.active(id));
-	for (Family i = 0; i < World::families; i++)
+	if (Entity::list.active(id))
 	{
-		if (e->component_mask & ((ComponentMask)1 << i))
-			component_pools[i]->remove(e->components[i]);
+		for (Family i = 0; i < World::families; i++)
+		{
+			if (e->component_mask & ((ComponentMask)1 << i))
+				World::component_pools[i]->remove(e->components[i]);
+		}
+		e->component_mask = 0;
+		e->revision++;
+		Entity::list.remove(id);
+		return true;
 	}
-	e->component_mask = 0;
-	e->revision++;
-	Entity::list.remove(id);
+	return false;
+}
+
+void World::remove(Entity* e)
+{
+	b8 actually_removed = internal_remove(e);
+	vi_assert(actually_removed);
 }
 
 void World::remove_deferred(Entity* e)
@@ -76,7 +90,7 @@ void World::remove_deferred(Entity* e)
 void World::flush()
 {
 	for (s32 i = 0; i < remove_buffer.length; i++)
-		World::remove(&Entity::list[remove_buffer[i]]);
+		internal_remove(&Entity::list[remove_buffer[i]]);
 	remove_buffer.length = 0;
 }
 

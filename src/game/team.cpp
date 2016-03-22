@@ -16,38 +16,44 @@
 
 #define CREDITS_INITIAL 0
 
+#define SENSOR_TIME_1 2.0f
+#define SENSOR_TIME_2 1.0f
+
 namespace VI
 {
 
 
 const Vec4 Team::colors[(s32)AI::Team::count] =
 {
-	Vec4(1.0f, 0.9f, 0.4f, 1),
-	Vec4(0.8f, 0.3f, 0.3f, 1),
+	Vec4(0.05f, 0.35f, 0.5f, 1),
+	Vec4(0.6f, 0.15f, 0.05f, 1),
 };
 
 const Vec4 Team::ui_colors[(s32)AI::Team::count] =
 {
-	Vec4(1.0f, 0.9f, 0.4f, 1),
+	Vec4(0.3f, 0.8f, 1.0f, 1),
 	Vec4(1.0f, 0.5f, 0.5f, 1),
 };
 
 StaticArray<Team, (s32)AI::Team::count> Team::list;
 
 Team::Team()
-	: victory_timer(5.0f)
+	: victory_timer(5.0f),
+	sensor_time(SENSOR_TIME_1),
+	sensor_explode()
 {
 }
 
 void Team::awake()
 {
-	if (player_spawn.ref())
-		AI::obstacle_add(player_spawn.ref()->absolute_pos(), PLAYER_SPAWN_RADIUS, 4.0f);
 }
 
 b8 Team::game_over()
 {
 	if (NoclipControl::list.count() > 0)
+		return false;
+
+	if (Game::time.total <= PLAYER_SPAWN_DELAY)
 		return false;
 
 	s32 teams_with_players = 0;
@@ -56,7 +62,7 @@ b8 Team::game_over()
 		if (Team::list[i].has_player())
 			teams_with_players++;
 	}
-	return teams_with_players == 1;
+	return teams_with_players < 2;
 }
 
 b8 Team::has_player() const
@@ -71,53 +77,150 @@ b8 Team::has_player() const
 
 void Team::update(const Update& u)
 {
-	if (Game::data.mode == Game::Mode::Multiplayer && has_player() && game_over())
+	if (Game::data.mode != Game::Mode::Multiplayer)
+		return;
+
+	// determine which Awks are seen by which teams
+	Sensor* visibility[MAX_PLAYERS][(s32)AI::Team::count] = {};
+	for (auto player = PlayerCommon::list.iterator(); !player.is_last(); player.next())
 	{
-		// we win
-		victory_timer -= u.time.delta;
-		if (victory_timer < 0.0f)
-			Menu::transition(Game::data.next_level);
+		Entity* player_entity = player.item()->entity();
+		AI::Team player_team = player_entity->get<AIAgent>()->team;
+		Quat player_rot;
+		Vec3 player_pos;
+		player_entity->get<Transform>()->absolute(&player_pos, &player_rot);
+		for (auto sensor = Sensor::list.iterator(); !sensor.is_last(); sensor.next())
+		{
+			if (sensor.item()->team != player_team)
+			{
+				Sensor** sensor_visibility = &visibility[player.index][(s32)sensor.item()->team];
+				if (!(*sensor_visibility))
+				{
+					if (sensor.item()->get<PlayerTrigger>()->is_triggered(player_entity))
+					{
+						if (player_entity->has<Awk>() && player_entity->get<Transform>()->parent.ref())
+						{
+							// we're on a wall; make sure the wall is facing the sensor
+							Vec3 to_sensor = sensor.item()->get<Transform>()->absolute_pos() - player_pos;
+							if (to_sensor.dot(player_rot * Vec3(0, 0, 1)) > 0.0f)
+								*sensor_visibility = sensor.item();
+						}
+						else
+							*sensor_visibility = sensor.item();
+					}
+				}
+			}
+		}
+	}
+
+	for (s32 team_id = 0; team_id < list.length; team_id++)
+	{
+		Team* team = &list[team_id];
+
+		if (team->has_player() && team->game_over())
+		{
+			// we win
+			team->victory_timer -= u.time.delta;
+			if (team->victory_timer < 0.0f)
+				Menu::transition(Game::data.next_level);
+		}
+
+		// update tracking timers
+
+		for (auto player = PlayerCommon::list.iterator(); !player.is_last(); player.next())
+		{
+			AI::Team player_team = player.item()->get<AIAgent>()->team;
+			if (team->team() == player_team)
+				continue;
+
+			Entity* player_entity = player.item()->entity();
+
+			Sensor* sensor = visibility[player.index][team->id()];
+			if (sensor)
+			{
+				// team's sensors are picking up the Awk
+				// if this team is already tracking the Awk, increment the timer
+				// if not, add the Awk to the tracking list
+				b8 already_tracking = false;
+				for (s32 k = 0; k < MAX_PLAYERS; k++)
+				{
+					Team::SensorTrack* track = &team->player_tracks[k];
+					if (track->entity.ref() == player_entity)
+					{
+						// already tracking
+						if (track->visible) // already alerted
+							track->timer = SENSOR_TIMEOUT;
+						else
+						{
+							// tracking but not yet alerted
+							track->timer += u.time.delta;
+							if (track->timer >= team->sensor_time)
+							{
+								if (sensor->player_manager.ref())
+									sensor->player_manager.ref()->add_credits(10);
+								if (team->sensor_explode)
+								{
+									// todo: explode sensor
+								}
+								track->visible = true; // got em
+							}
+						}
+
+						already_tracking = true;
+						break;
+					}
+				}
+
+				if (!already_tracking && player.item()->get<Transform>()->parent.ref())
+				{
+					// insert new track entry
+					// (only start tracking if the Awk is attached to a wall; don't start tracking if Awk is mid-air)
+
+					Team::SensorTrack* track = &team->player_tracks[player.index];
+					new (track) Team::SensorTrack();
+					track->entity = player_entity;
+				}
+			}
+			else
+			{
+				// team's sensors don't see the Awk
+				// remove the Awk's tracks, if any
+				for (s32 k = 0; k < MAX_PLAYERS; k++)
+				{
+					Team::SensorTrack* track = &team->player_tracks[k];
+					if (track->entity.ref() == player_entity)
+					{
+						if (track->visible && track->timer > 0.0f) // track remains active for SENSOR_TIMEOUT seconds
+							track->timer -= u.time.delta;
+						else
+						{
+							// erase track
+							track->entity = nullptr;
+							track->visible = false;
+						}
+						break;
+					}
+				}
+			}
+		}
 	}
 }
 
-AbilitySlot::Info AbilitySlot::info[] =
+AbilityInfo AbilityInfo::list[] =
 {
-	//{ Asset::Mesh::icon_stun, strings::stun, 5.0f, { 20, 40, 80 } },
-	{ Asset::Mesh::icon_sensor, strings::sensor, 30.0f, { 20, 40, 80 } },
-	{ Asset::Mesh::icon_stealth, strings::stealth, 30.0f, { 20, 40, 80 } },
-	//{ AssetNull, strings::turret, 60.0f, { 20, 40, 80 } },
-	//{ AssetNull, strings::gun, 5.0f, { 20, 40, 80 } },
+	{ Asset::Mesh::icon_sensor, strings::sensor, 20.0f, 3, { 20, 40, 80 } },
+	{ Asset::Mesh::icon_stealth, strings::stealth, 30.0f, 3, { 20, 40, 80 } },
+	{ Asset::Mesh::icon_skip_cooldown, strings::skip_cooldown, 30.0f, 3, { 20, 40, 80 } },
 };
 
-b8 AbilitySlot::can_upgrade() const
+b8 PlayerManager::ability_use()
 {
-	return level < ABILITY_LEVELS;
-}
-
-u16 AbilitySlot::upgrade_cost() const
-{
-	if (!can_upgrade())
-		return UINT16_MAX;
-	if (ability == Ability::None)
+	Entity* awk = entity.ref();
+	if (awk && ability_cooldown == 0.0f)
 	{
-		// return cheapest possible upgrade
-		u16 cheapest_upgrade = UINT16_MAX;
-		for (s32 i = 0; i < (s32)Ability::count; i++)
-		{
-			if (info[i].upgrade_cost[0] < cheapest_upgrade)
-				cheapest_upgrade = info[i].upgrade_cost[0];
-		}
-		return cheapest_upgrade;
-	}
-	else
-		return info[(s32)ability].upgrade_cost[level];
-}
-
-b8 AbilitySlot::use(Entity* awk)
-{
-	if (cooldown == 0.0f)
-	{
-		cooldown = AbilitySlot::info[(s32)ability].cooldown;
+		r32 cooldown_reset = AbilityInfo::list[(s32)ability].cooldown;
+		
+		const u8 level = ability_level[(s32)ability];
 
 		switch (ability)
 		{
@@ -129,8 +232,12 @@ b8 AbilitySlot::use(Entity* awk)
 					Vec3 abs_pos;
 					Quat abs_rot;
 					awk->get<Transform>()->absolute(&abs_pos, &abs_rot);
-					abs_pos += abs_rot * Vec3(0, 0, AWK_RADIUS * -0.5f); // make it nearly flush with the wall
-					World::create<SensorEntity>(awk->get<Transform>()->parent.ref(), awk->get<AIAgent>()->team, abs_pos, abs_rot);
+					abs_pos += abs_rot * Vec3(0, 0, rope_segment_length + 0.25f);
+					World::create<SensorEntity>(awk->get<Transform>()->parent.ref(), this, abs_pos, abs_rot);
+
+					Rope::spawn(abs_pos + abs_rot * Vec3(0, 0, -0.25f), abs_rot * Vec3(0, 0, -1), 1.0f); // attach it to the wall
+					
+					ability_cooldown = cooldown_reset;
 				}
 				break;
 			}
@@ -161,6 +268,29 @@ b8 AbilitySlot::use(Entity* awk)
 					}
 				}
 				awk->get<Awk>()->stealth_enable(time);
+				ability_cooldown = cooldown_reset;
+				break;
+			}
+			case Ability::SkipCooldown:
+			{
+				if (awk->get<PlayerCommon>()->cooldown > 0.0f)
+				{
+					awk->get<PlayerCommon>()->cooldown = 0.0f;
+					ability_cooldown = cooldown_reset;
+				}
+
+				// detach if we are a local player
+				if (awk->has<LocalPlayerControl>())
+				{
+					Vec3 dir = awk->get<LocalPlayerControl>()->look_dir();
+					if (awk->get<Awk>()->can_go(dir))
+						awk->get<LocalPlayerControl>()->detach(dir);
+				}
+				break;
+			}
+			default:
+			{
+				vi_assert(false);
 				break;
 			}
 		}
@@ -176,35 +306,70 @@ PlayerManager::PlayerManager(Team* team)
 	: spawn_timer(PLAYER_SPAWN_DELAY),
 	team(team),
 	credits(CREDITS_INITIAL),
-	abilities{ { Ability::Sensor, 1 } }
+	ability(Ability::Sensor),
+	ability_level{ 1, 0, 0 },
+	ability_cooldown(),
+	entity(),
+	spawn()
 {
 }
 
-void PlayerManager::upgrade(Ability ability)
+void PlayerManager::ability_switch(Ability a)
 {
-	b8 upgraded = false;
-	for (s32 i = 0; i < ABILITY_COUNT; i++)
+	vi_assert(ability_level[(s32)a] > 0);
+	ability = a;
+}
+
+void PlayerManager::ability_upgrade(Ability a)
+{
+	u8& level = ability_level[(s32)a];
+	const AbilityInfo& info = AbilityInfo::list[(s32)a];
+	vi_assert(level < info.max_level);
+	u16 cost = ability_upgrade_cost(a);
+	vi_assert(credits >= cost);
+	level += 1;
+	credits -= cost;
+	if (a == Ability::SkipCooldown)
 	{
-		if (abilities[i].can_upgrade())
-		{
-			if (abilities[i].ability == ability)
-			{
-				credits -= abilities[i].upgrade_cost();
-				abilities[i].level++;
-				upgraded = true;
-				break;
-			}
-			else if (abilities[i].ability == Ability::None)
-			{
-				abilities[i].ability = ability;
-				credits -= abilities[i].upgrade_cost();
-				abilities[i].level = 1;
-				upgraded = true;
-				break;
-			}
-		}
+		vi_assert(entity.ref());
+		if (level == 2)
+			entity.ref()->get<PlayerCommon>()->cooldown_multiplier = 1.15f;
+		else if (level == 3)
+			entity.ref()->get<PlayerCommon>()->cooldown_multiplier = 1.3f;
 	}
-	vi_assert(upgraded); // check for invalid upgrade request
+	else if (a == Ability::Sensor)
+	{
+		if (level == 2)
+			team.ref()->sensor_time = SENSOR_TIME_2;
+		else if (level == 3)
+			team.ref()->sensor_explode = true;
+	}
+}
+
+u16 PlayerManager::ability_upgrade_cost(Ability a) const
+{
+	vi_assert(a != Ability::None);
+	const AbilityInfo& info = AbilityInfo::list[(s32)a];
+	return info.upgrade_cost[ability_level[(s32)a]];
+}
+
+b8 PlayerManager::ability_upgrade_available(Ability a) const
+{
+	if (a == Ability::None)
+	{
+		for (s32 i = 0; i < (s32)Ability::count; i++)
+		{
+			if (ability_upgrade_available((Ability)i) && credits >= ability_upgrade_cost((Ability)i))
+				return true;
+		}
+		return false;
+	}
+	else
+	{
+		const AbilityInfo& info = AbilityInfo::list[(s32)a];
+		s32 level = ability_level[(s32)a];
+		return level < info.max_level;
+	}
 }
 
 void PlayerManager::add_credits(u16 c)
@@ -212,14 +377,12 @@ void PlayerManager::add_credits(u16 c)
 	credits += c;
 }
 
-b8 PlayerManager::upgrade_available() const
+b8 PlayerManager::at_spawn() const
 {
-	for (s32 i = 0; i < ABILITY_COUNT; i++)
-	{
-		if (abilities[i].can_upgrade() && credits >= abilities[i].upgrade_cost())
-			return true;
-	}
-	return false;
+	if (Game::data.mode == Game::Mode::Multiplayer)
+		return entity.ref() && team.ref()->player_spawn.ref()->get<PlayerTrigger>()->is_triggered(entity.ref());
+	else
+		return false;
 }
 
 void PlayerManager::update(const Update& u)
@@ -235,11 +398,8 @@ void PlayerManager::update(const Update& u)
 		}
 	}
 
-	for (s32 i = 0; i < ABILITY_COUNT; i++)
-	{
-		if (abilities[i].cooldown > 0.0f)
-			abilities[i].cooldown = fmax(0.0f, abilities[i].cooldown - u.time.delta);
-	}
+	if (ability_cooldown > 0.0f)
+		ability_cooldown = fmax(0.0f, ability_cooldown - u.time.delta);
 }
 
 

@@ -278,6 +278,7 @@ struct Rect2
 	}
 
 	Rect2 outset(r32) const;
+	Rect2 pad(const Rect2& other) const;
 
 	b8 contains(const Vec2&) const;
 };

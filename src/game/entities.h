@@ -46,15 +46,21 @@ struct HealthPickup : public ComponentType<HealthPickup>
 	void reset();
 };
 
-#define SENSOR_RANGE 15.0f
 struct SensorEntity : public Entity
 {
-	SensorEntity(Transform*, AI::Team, const Vec3&, const Quat&);
+	SensorEntity(Transform*, PlayerManager*, const Vec3&, const Quat&);
 };
 
+#define SENSOR_RANGE 15.0f
+#define SENSOR_TIMEOUT 5.0f
 struct Sensor : public ComponentType<Sensor>
 {
 	AI::Team team;
+	Ref<PlayerManager> player_manager;
+
+	Sensor(AI::Team, PlayerManager* = nullptr);
+
+	static void update(const Update&);
 	void killed_by(Entity*);
 	void awake();
 };
@@ -106,6 +112,8 @@ struct Mover : public ComponentType<Mover>
 	void refresh();
 };
 
+#define rope_segment_length 0.5f
+#define rope_radius 0.05f
 struct RopeEntity : public Entity
 {
 	RopeEntity(const Vec3&, const Vec3&, RigidBody*, const r32 = 0.0f);
@@ -154,12 +162,7 @@ struct Tile : public ComponentType<Tile>
 	static void draw_alpha(const RenderParams&);
 };
 
-struct TargetEntity : public Entity
-{
-	TargetEntity(const Vec3&, const Quat&, AI::Team);
-};
-
-#define PLAYER_SPAWN_RADIUS 1
+#define PLAYER_SPAWN_RADIUS 0.5f
 struct PlayerSpawn : public Entity
 {
 	PlayerSpawn(AI::Team);

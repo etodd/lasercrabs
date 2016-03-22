@@ -7,11 +7,14 @@
 namespace VI
 {
 
+
+struct PlayerManager;
+
 #define MINION_VIEW_RANGE 15.0f
 
 struct Minion : public Entity
 {
-	Minion(const Vec3&, const Quat&, AI::Team);
+	Minion(const Vec3&, const Quat&, AI::Team, PlayerManager* = nullptr);
 };
 
 struct MinionCommon : public ComponentType<MinionCommon>

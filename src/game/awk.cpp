@@ -28,7 +28,7 @@ namespace VI
 #define AWK_LEG_BLEND_SPEED (1.0f / 0.02f)
 #define AWK_MIN_LEG_BLEND_SPEED (AWK_LEG_BLEND_SPEED * 0.05f)
 #define AWK_SHIELD_RADIUS 1.0f
-#define PERMEABLE_MASK (CollisionTarget | CollisionShield)
+#define PERMEABLE_MASK (CollisionTarget | CollisionShield | CollisionAwkIgnore)
 #define INACCESSIBLE_MASK (CollisionInaccessible | CollisionWalker | PERMEABLE_MASK)
 
 // if you hit a shield just right (i.e. the dot product is less than this threshold), you'll shoot right through it
@@ -187,13 +187,13 @@ b8 Awk::can_go(const Vec3& dir, Vec3* final_pos)
 		return false;
 }
 
-b8 Awk::detach(const Update& u, const Vec3& dir)
+b8 Awk::detach(const Vec3& dir)
 {
 	if (get<PlayerCommon>()->cooldown == 0.0f)
 	{
 		get<Audio>()->post_event(has<LocalPlayerControl>() ? AK::EVENTS::PLAY_LAUNCH_PLAYER : AK::EVENTS::PLAY_LAUNCH);
 
-		attach_time = u.time.total;
+		attach_time = Game::time.total;
 		get<PlayerCommon>()->cooldown = AWK_MIN_COOLDOWN;
 		Vec3 dir_normalized = Vec3::normalize(dir);
 		velocity = dir_normalized * AWK_FLY_SPEED;
@@ -707,7 +707,7 @@ void Awk::update(const Update& u)
 							if (dir.dot(ray_callback.m_hitNormalWorld[i]) > SHIELD_PENETRATION_DOT)
 								stop = true; // it's a bad shot, we'll reflect off the shield
 						}
-						else if (!(group & (CollisionTarget | CollisionWalker))) // it's not a target or a person; we can't go through it
+						else if (!(group & (PERMEABLE_MASK | CollisionWalker))) // it's not a target or a person; we can't go through it
 							stop = true;
 
 						if (stop)
@@ -736,6 +736,8 @@ void Awk::update(const Update& u)
 						}
 						else if (group & CollisionInaccessible)
 						{
+							Entity* t = &Entity::list[ray_callback.m_collisionObjects[i]->getUserIndex()];
+							b8 a = t->has<Sensor>();
 							get<Health>()->damage(entity(), AWK_HEALTH); // Kill self
 							return;
 						}
@@ -752,6 +754,10 @@ void Awk::update(const Update& u)
 								if (hit.ref() && dir.dot(ray_callback.m_hitNormalWorld[i]) > SHIELD_PENETRATION_DOT)
 									reflect(ray_callback.m_hitPointWorld[i], ray_callback.m_hitNormalWorld[i], u);
 							}
+						}
+						else if (group & CollisionAwkIgnore)
+						{
+							// ignore
 						}
 						else
 						{

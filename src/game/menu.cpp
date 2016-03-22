@@ -327,6 +327,9 @@ void draw(const RenderParams& params)
 			text.anchor_x = text.anchor_y = UIText::Anchor::Center;
 			text.text(_(strings::connecting));
 			Vec2 pos = viewport.size * 0.5f;
+
+			UI::box(params, text.rect(pos).pad({ Vec2(64, 24) * UI::scale, Vec2(18, 24) * UI::scale }), UI::background_color);
+
 			text.draw(params, pos);
 
 			Vec2 triangle_pos = Vec2

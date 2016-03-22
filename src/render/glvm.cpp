@@ -151,6 +151,7 @@ struct GLData
 	static RenderFillMode fill_mode;
 	static RenderBlendMode blend_mode;
 	static r32 point_size;
+	static r32 line_width;
 	static s32 current_framebuffer;
 	static Rect2 viewport;
 
@@ -180,6 +181,7 @@ RenderCullMode GLData::cull_mode = RenderCullMode::Back;
 RenderFillMode GLData::fill_mode = RenderFillMode::Fill;
 RenderBlendMode GLData::blend_mode = RenderBlendMode::Opaque;
 r32 GLData::point_size = 1.0f;
+r32 GLData::line_width = 1.0f;
 s32 GLData::current_framebuffer = 0;
 Rect2 GLData::viewport = { Vec2::zero, Vec2::zero };
 
@@ -989,6 +991,13 @@ void render(RenderSync* sync)
 			{
 				r32 size = GLData::point_size = *(sync->read<r32>());
 				glPointSize(size);
+				debug_check();
+				break;
+			}
+			case RenderOp::LineWidth:
+			{
+				r32 size = GLData::line_width = *(sync->read<r32>());
+				glLineWidth(size);
 				debug_check();
 				break;
 			}

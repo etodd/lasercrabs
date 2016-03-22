@@ -17,6 +17,7 @@ enum CollisionGroup
 	CollisionInaccessible = 1 << 7,
 	CollisionTarget = 1 << 8,
 	CollisionShield = 1 << 9,
+	CollisionAwkIgnore = 1 << 10,
 	CollisionInaccessibleMask = btBroadphaseProxy::AllFilter,
 };
 

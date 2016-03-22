@@ -21,13 +21,15 @@ struct Health;
 
 struct LocalPlayer
 {
-	enum class UIMode { Default, Pause, Spawning, Upgrading };
+	enum class UIMode { Default, Pause, Spawning, AbilityMenu };
+
+	enum class AbilityMenu { None, Select, Upgrade };
 
 	static PinArray<LocalPlayer, MAX_PLAYERS> list;
 
 	u8 gamepad;
 	b8 pause;
-	b8 upgrading;
+	AbilityMenu ability_menu;
 	UIMenu menu;
 	Ref<Transform> map_view;
 	Ref<PlayerManager> manager;
@@ -36,7 +38,7 @@ struct LocalPlayer
 	UIText msg_text;
 	UIText credits_text;
 	Revision revision;
-	bool options_menu;
+	b8 options_menu;
 
 	inline ID id() const
 	{
@@ -56,9 +58,12 @@ struct LocalPlayer
 struct PlayerCommon : public ComponentType<PlayerCommon>
 {
 	r32 cooldown;
+	r32 cooldown_multiplier;
 	UIText username_text;
 	s32 visibility_index;
 	Ref<PlayerManager> manager;
+
+	r32 detect_danger() const;
 
 	PlayerCommon(PlayerManager*);
 	void awake();
@@ -111,6 +116,9 @@ struct LocalPlayerControl : public ComponentType<LocalPlayerControl>
 
 	void update(const Update&);
 	void draw_alpha(const RenderParams&) const;
+	Vec3 look_dir() const;
+
+	void detach(const Vec3&);
 
 	void update_camera_input(const Update&);
 	Vec3 get_movement(const Update&, const Quat&);

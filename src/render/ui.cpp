@@ -238,7 +238,7 @@ Rect2 UIText::rect(const Vec2& pos) const
 	return result;
 }
 
-void UIText::draw(const RenderParams& params, const Vec2& pos, const r32 rot) const
+void UIText::draw(const RenderParams& params, const Vec2& pos, r32 rot) const
 {
 	s32 vertex_start = UI::vertices.length;
 	Vec2 screen = params.camera->viewport.size * 0.5f;
@@ -430,7 +430,7 @@ void UI::centered_box(const RenderParams& params, const Rect2& r, const Vec4& co
 	}
 }
 
-void UI::border(const RenderParams& params, const Rect2& r, const r32 thickness, const Vec4& color)
+void UI::border(const RenderParams& params, const Rect2& r, r32 thickness, const Vec4& color)
 {
 	if (r.size.x > 0 && r.size.y > 0 && color.w > 0)
 	{
@@ -484,15 +484,15 @@ void UI::border(const RenderParams& params, const Rect2& r, const r32 thickness,
 	}
 }
 
-void UI::centered_border(const RenderParams& params, const Rect2& r, const r32 thickness, const Vec4& color, const r32 rot)
+void UI::centered_border(const RenderParams& params, const Rect2& r, r32 thickness, const Vec4& color, r32 rot)
 {
 	if (r.size.x > 0 && r.size.y > 0 && color.w > 0)
 	{
-		const s32 vertex_start = UI::vertices.length;
+		s32 vertex_start = UI::vertices.length;
 		const Vec2 screen = params.camera->viewport.size * 0.5f;
 		const Vec2 scale = Vec2(1.0f / screen.x, 1.0f / screen.y);
 		const Vec2 scaled_pos = (r.pos - screen) * scale;
-		const r32 scaled_thickness = thickness * UI::scale;
+		r32 scaled_thickness = thickness * UI::scale;
 
 		const Vec2 corners[8] =
 		{
@@ -506,8 +506,8 @@ void UI::centered_border(const RenderParams& params, const Rect2& r, const r32 t
 			Vec2(r.size.x * 0.5f + scaled_thickness, r.size.y * 0.5f + scaled_thickness),
 		};
 
-		const r32 cs = cosf(rot);
-		const r32 sn = sinf(rot);
+		r32 cs = cosf(rot);
+		r32 sn = sinf(rot);
 		UI::vertices.add(Vec3(scaled_pos.x + (corners[0].x * cs - corners[0].y * sn) * scale.x, scaled_pos.y + (corners[0].x * sn + corners[0].y * cs) * scale.y, 0));
 		UI::vertices.add(Vec3(scaled_pos.x + (corners[1].x * cs - corners[1].y * sn) * scale.x, scaled_pos.y + (corners[1].x * sn + corners[1].y * cs) * scale.y, 0));
 		UI::vertices.add(Vec3(scaled_pos.x + (corners[2].x * cs - corners[2].y * sn) * scale.x, scaled_pos.y + (corners[2].x * sn + corners[2].y * cs) * scale.y, 0));
@@ -582,7 +582,67 @@ void UI::triangle(const RenderParams& params, const Rect2& r, const Vec4& color,
 	}
 }
 
-void UI::mesh(const RenderParams& params, const AssetID mesh, const Vec2& pos, const Vec2& size, const Vec4& color, const r32 rot)
+void UI::triangle_border(const RenderParams& params, const Rect2& r, r32 thickness, const Vec4& color, r32 rot)
+{
+	if (r.size.x > 0 && r.size.y > 0 && color.w > 0)
+	{
+		s32 vertex_start = UI::vertices.length;
+		const Vec2 screen = params.camera->viewport.size * 0.5f;
+		const Vec2 scale = Vec2(1.0f / screen.x, 1.0f / screen.y);
+		const Vec2 scaled_pos = (r.pos - screen) * scale;
+		r32 scaled_thickness = thickness * UI::scale * 2;
+
+		const r32 ratio = 0.8660254037844386f;
+		const Vec2 corners[6] =
+		{
+			Vec2(r.size.x * -0.5f * ratio, r.size.y * -0.25f),
+			Vec2(r.size.x * 0.5f * ratio, r.size.y * -0.25f),
+			Vec2(0, r.size.y * 0.5f),
+			Vec2((r.size.x * -0.5f - scaled_thickness) * ratio, r.size.y * -0.25f - (scaled_thickness * 0.5f)),
+			Vec2((r.size.x * 0.5f + scaled_thickness) * ratio, r.size.y * -0.25f - (scaled_thickness * 0.5f)),
+			Vec2(0, r.size.y * 0.5f + scaled_thickness),
+		};
+
+		r32 cs = cosf(rot);
+		r32 sn = sinf(rot);
+		UI::vertices.add(Vec3(scaled_pos.x + (corners[0].x * cs - corners[0].y * sn) * scale.x, scaled_pos.y + (corners[0].x * sn + corners[0].y * cs) * scale.y, 0));
+		UI::vertices.add(Vec3(scaled_pos.x + (corners[1].x * cs - corners[1].y * sn) * scale.x, scaled_pos.y + (corners[1].x * sn + corners[1].y * cs) * scale.y, 0));
+		UI::vertices.add(Vec3(scaled_pos.x + (corners[2].x * cs - corners[2].y * sn) * scale.x, scaled_pos.y + (corners[2].x * sn + corners[2].y * cs) * scale.y, 0));
+		UI::vertices.add(Vec3(scaled_pos.x + (corners[3].x * cs - corners[3].y * sn) * scale.x, scaled_pos.y + (corners[3].x * sn + corners[3].y * cs) * scale.y, 0));
+		UI::vertices.add(Vec3(scaled_pos.x + (corners[4].x * cs - corners[4].y * sn) * scale.x, scaled_pos.y + (corners[4].x * sn + corners[4].y * cs) * scale.y, 0));
+		UI::vertices.add(Vec3(scaled_pos.x + (corners[5].x * cs - corners[5].y * sn) * scale.x, scaled_pos.y + (corners[5].x * sn + corners[5].y * cs) * scale.y, 0));
+
+		UI::colors.add(color);
+		UI::colors.add(color);
+		UI::colors.add(color);
+		UI::colors.add(color);
+		UI::colors.add(color);
+		UI::colors.add(color);
+
+		UI::indices.add(vertex_start + 2);
+		UI::indices.add(vertex_start + 3);
+		UI::indices.add(vertex_start + 0);
+		UI::indices.add(vertex_start + 3);
+		UI::indices.add(vertex_start + 2);
+		UI::indices.add(vertex_start + 5);
+
+		UI::indices.add(vertex_start + 5);
+		UI::indices.add(vertex_start + 2);
+		UI::indices.add(vertex_start + 4);
+		UI::indices.add(vertex_start + 4);
+		UI::indices.add(vertex_start + 2);
+		UI::indices.add(vertex_start + 1);
+
+		UI::indices.add(vertex_start + 3);
+		UI::indices.add(vertex_start + 1);
+		UI::indices.add(vertex_start + 0);
+		UI::indices.add(vertex_start + 3);
+		UI::indices.add(vertex_start + 4);
+		UI::indices.add(vertex_start + 1);
+	}
+}
+
+void UI::mesh(const RenderParams& params, const AssetID mesh, const Vec2& pos, const Vec2& size, const Vec4& color, r32 rot)
 {
 	if (size.x > 0 && size.y > 0 && color.w > 0)
 	{
@@ -644,10 +704,10 @@ void UI::init(LoopSync* sync)
 	scale = get_scale(sync->input.width, sync->input.height);
 }
 
-r32 UI::get_scale(const s32 width, const s32 height)
+r32 UI::get_scale(s32 width, s32 height)
 {
 	s32 area = width * height;
-	if (area >= 1680 * 1050)
+	if (area > 1920 * 1080)
 		return 1.5f;
 	else
 		return 1.0f;
@@ -760,7 +820,7 @@ void UI::draw(const RenderParams& p)
 }
 
 // Instantly draw a texture
-void UI::texture(const RenderParams& p, const s32 texture, const Rect2& r, const Vec4& color, const Rect2& uv, const AssetID shader)
+void UI::texture(const RenderParams& p, s32 texture, const Rect2& r, const Vec4& color, const Rect2& uv, const AssetID shader)
 {
 	Vec2 screen = p.camera->viewport.size * 0.5f;
 	Vec2 scale = Vec2(1.0f / screen.x, 1.0f / screen.y);

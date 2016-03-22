@@ -117,6 +117,15 @@ Rect2 Rect2::outset(r32 padding) const
 	};
 }
 
+Rect2 Rect2::pad(const Rect2& p) const
+{
+	return
+	{
+		pos - p.pos,
+		size + p.pos + p.size,
+	};
+}
+
 b8 Rect2::contains(const Vec2& p) const
 {
 	return p.x > pos.x

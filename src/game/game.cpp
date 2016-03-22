@@ -178,8 +178,7 @@ void Game::update(const Update& update_in)
 
 	AI::update(u);
 
-	for (s32 i = 0; i < Team::list.length; i++)
-		Team::list[i].update(u);
+	Team::update(u);
 	for (auto i = PlayerManager::list.iterator(); !i.is_last(); i.next())
 		i.item()->update(u);
 	for (auto i = LocalPlayer::list.iterator(); !i.is_last(); i.next())
@@ -212,6 +211,9 @@ void Game::update(const Update& update_in)
 		i.item()->update(u);
 	for (auto i = Tile::list.iterator(); !i.is_last(); i.next())
 		i.item()->update(u);
+	for (auto i = Sensor::list.iterator(); !i.is_last(); i.next())
+		i.item()->update(u);
+	Sensor::update(u);
 
 	for (s32 i = 0; i < updates.length; i++)
 		(*updates[i])(u);
@@ -240,8 +242,9 @@ void Game::draw_opaque(const RenderParams& render_params)
 
 void Game::draw_alpha(const RenderParams& render_params)
 {
-	Skybox::draw(render_params);
-	SkyDecal::draw(render_params);
+	Skybox::draw_alpha(render_params);
+	SkyDecal::draw_alpha(render_params);
+	SkyPattern::draw_alpha(render_params);
 	SkinnedModel::draw_alpha(render_params);
 
 #if DEBUG_PHYSICS
@@ -678,12 +681,6 @@ void Game::load_level(const Update& u, AssetID l)
 				entity = World::alloc<PlayerSpawn>(team);
 			else
 				entity = World::alloc<Empty>(); // in parkour mode, the spawn point is invisible
-
-			absolute_pos += Vec3(0, 3.75f * 0.5f, 0);
-			if (parent == -1)
-				pos = absolute_pos;
-			else
-				pos = transforms[parent]->to_local(absolute_pos);
 
 			Team::list[(s32)team].player_spawn = entity->get<Transform>();
 		}

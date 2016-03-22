@@ -337,7 +337,7 @@ void draw(const RenderParams& params)
 				pos.x - text.bounds().x * 0.5f - 32.0f * UI::scale,
 				pos.y
 			);
-			UI::triangle(params, { triangle_pos, Vec2(32 * UI::scale) }, Vec4(1), Game::time.total * 8.0f);
+			UI::triangle_border(params, { triangle_pos, Vec2(20 * UI::scale) }, 6, UI::default_color, Game::time.total * 8.0f);
 			break;
 		}
 		default:

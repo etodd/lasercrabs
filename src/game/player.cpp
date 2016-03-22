@@ -1054,13 +1054,14 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 
 			text.draw(params, pos);
 			
-			pos.x += text.bounds().x + box_spacing;
+			pos.x += text.bounds().x + box_spacing * 2.0f;
+			pos.y += box_size.y * 0.6f;
 
 			for (s32 i = 0; i < health->hp_max; i++)
 			{
-				UI::border(params, { pos, box_size }, 2, UI::accent_color);
+				UI::triangle_border(params, { pos, box_size }, 2, UI::accent_color, PI);
 				if (i < health->hp)
-					UI::box(params, { pos, box_size }, UI::accent_color);
+					UI::triangle(params, { pos, box_size }, UI::accent_color, PI);
 				pos.x += box_size.x + box_spacing;
 			}
 		}
@@ -1151,7 +1152,7 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 					Vec2 bar_size(180.0f * UI::scale, 32.0f * UI::scale);
 					Rect2 bar = { pos + bar_size * -0.5f, bar_size };
 					UI::box(params, bar, UI::background_color);
-					UI::border(params, bar, 2 * UI::scale, UI::alert_color);
+					UI::border(params, bar, 2, UI::alert_color);
 					UI::box(params, { bar.pos, Vec2(bar.size.x * detect_danger, bar.size.y) }, UI::alert_color);
 
 					// todo: sound

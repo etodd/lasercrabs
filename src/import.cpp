@@ -1729,44 +1729,48 @@ void build_awk_nav_mesh(const Mesh* accessible, const Mesh* inaccessible, AwkNav
 		const Vec3& b_original = accessible->vertices[accessible->indices[index_index + 1]];
 		const Vec3& c_original = accessible->vertices[accessible->indices[index_index + 2]];
 
-		const Vec3 ca_original = c_original - a_original;
-		const Vec3 cb_original = c_original - b_original;
-		const Vec3 ba_original = b_original - a_original;
-
 		// make sure ca is the longest edge
 
 		Vec3 a = a_original;
 		Vec3 b = b_original;
 		Vec3 c = c_original;
 
-		const r32 ca_len = (c - a).length();
-		const r32 cb_len = (c - b).length();
-		const r32 ba_len = (b - a).length();
-
-		if (ca_len > cb_len && ca_len > ba_len)
 		{
-			// ca is already the longest edge
-		}
-		else if (cb_len > ba_len)
-		{
-			// cb is the longest edge
-			a = b_original;
-			b = a_original;
-		}
-		else
-		{
-			// ba is the longest edge
-			b = c_original;
-			c = b_original;
+			Vec3 ca = c - a;
+			Vec3 cb = c - b;
+			Vec3 ba = b - a;
+
+			const r32 ca_len = ca.length();
+			const r32 cb_len = cb.length();
+			const r32 ba_len = ba.length();
+
+			if (ca_len > cb_len && ca_len > ba_len)
+			{
+				// ca is already the longest edge
+			}
+			else if (cb_len > ba_len)
+			{
+				// cb is the longest edge
+				a = b_original;
+				b = a_original;
+			}
+			else
+			{
+				// ba is the longest edge
+				b = c_original;
+				c = b_original;
+			}
 		}
 
-		// calculate global UV vectors
-		Vec3 ca = c - a;
-		Vec3 cb = c - b;
-		Vec3 ba = b - a;
+		// calculate UV vectors
 
-		Vec3 normal = ba.cross(ca);
-		normal.normalize();
+		Vec3 normal = (b - a).cross(c - a);
+		{
+			r32 normal_len = normal.length();
+			if (normal_len < 0.001f)
+				continue; // degenerate triangle
+			normal /= normal_len;
+		}
 
 		Vec3 u, v;
 
@@ -1791,35 +1795,61 @@ void build_awk_nav_mesh(const Mesh* accessible, const Mesh* inaccessible, AwkNav
 				v *= -1;
 		}
 
-		const r32 grid_spacing = 0.5f;
-
-		// coordinates of a in the global UV space
-		Vec2 a_uv(floorf(u.dot(a) / grid_spacing) * grid_spacing, floorf(v.dot(a) / grid_spacing) * grid_spacing);
-
-		Vec3 ca_normalized = Vec3::normalize(ca);
-
-		Vec2 ba_uv(ba.dot(u), ba.dot(v));
-		Vec2 ca_uv(ca.dot(u), ca.dot(v));
-		Vec2 cb_uv(cb.dot(u), cb.dot(v));
-
 		Vec3 normal_offset = normal * (normal.dot(a) + 0.05f);
 
-		for (r32 x = 0; x < ca_uv.x; x += grid_spacing)
+		// project a, b, c into UV space
+		Vec2 v1(u.dot(a), v.dot(a));
+		Vec2 v2(u.dot(b), v.dot(b));
+		Vec2 v3(u.dot(c), v.dot(c));
+
+		// sort v1, v2, v3 by Y coordinate ascending
+		if (v1.y <= v2.y && v1.y <= v3.y)
 		{
-			r32 y_start = ca_uv.y * (x / ca_uv.x);
-
-			r32 y_end;
-			if (x < ba_uv.x)
-				y_end = ba_uv.y * (x / ba_uv.x);
-			else
-				y_end = LMath::lerpf((x - ba_uv.x) / (ca_uv.x - ba_uv.x), ba_uv.y, ca_uv.y);
-
-			y_start = ceilf(y_start / grid_spacing) * grid_spacing;
-			y_end = floorf(y_end / grid_spacing) * grid_spacing;
-
-			for (r32 y = y_start; y < y_end; y += grid_spacing)
-				out->vertices.add(normal_offset + (u * (a_uv.x + x)) + (v * (a_uv.y + y)));
+			// v1 is already on bottom
 		}
+		else
+		{
+			if (v2.y <= v3.y)
+			{
+				// swap v1 and v2
+				Vec2 tmp = v1;
+				v1 = v2;
+				v2 = tmp;
+			}
+			else
+			{
+				// swap v1 and v3
+				Vec2 tmp = v1;
+				v1 = v3;
+				v3 = tmp;
+			}
+		}
+
+		// v1 is now on bottom
+		if (v2.y > v3.y)
+		{
+			// swap v2 and v3
+			Vec2 tmp = v2;
+			v2 = v3;
+			v3 = tmp;
+		}
+
+		/*
+		if (v2.y == v3.y)
+			fill_bottom_flat_triangle(&out->vertices, v1, v2, v3);
+		else if (v1.y == v2.y)
+			fill_top_flat_triangle(&out->vertices, v1, v2, v3);
+		else
+		{
+			Vec2 v4
+			(
+				v1.x + ((v2.y - v1.y) / (v3.y - v1.y)) * (v3.x - v1.x),
+				v2.y
+			);
+			fill_bottom_flat_triangle(&out->vertices, v1, v2, v4);
+			fill_top_flat_triangle(&out->vertices, v2, v4, v3);
+		}
+		*/
 	}
 	
 	// todo: build adjacency

@@ -40,7 +40,7 @@
 
 #if DEBUG
 	#define DEBUG_NAV_MESH 0
-	#define DEBUG_AWK_NAV_MESH 0
+	#define DEBUG_AWK_NAV_MESH 1
 	#define DEBUG_PHYSICS 0
 #endif
 
@@ -64,7 +64,7 @@ GameTime Game::real_time = GameTime();
 r32 Game::time_scale = 1.0f;
 AssetID Game::scheduled_load_level = AssetNull;
 Game::Data Game::data;
-Vec2 Game::cursor = Vec2(200, 200);
+Vec2 Game::cursor(200, 200);
 b8 Game::cursor_updated = false;
 
 Game::Data::Data()

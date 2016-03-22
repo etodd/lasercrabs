@@ -1802,6 +1802,8 @@ void build_awk_nav_mesh(const Mesh* accessible, const Mesh* inaccessible, AwkNav
 		Vec2 ca_uv(ca.dot(u), ca.dot(v));
 		Vec2 cb_uv(cb.dot(u), cb.dot(v));
 
+		Vec3 normal_offset = normal * (normal.dot(a) + 0.05f);
+
 		for (r32 x = 0; x < ca_uv.x; x += grid_spacing)
 		{
 			r32 y_start = ca_uv.y * (x / ca_uv.x);
@@ -1816,7 +1818,7 @@ void build_awk_nav_mesh(const Mesh* accessible, const Mesh* inaccessible, AwkNav
 			y_end = floorf(y_end / grid_spacing) * grid_spacing;
 
 			for (r32 y = y_start; y < y_end; y += grid_spacing)
-				out->vertices.add((u * (a_uv.x + x)) + (v * (a_uv.y + y)));
+				out->vertices.add(normal_offset + (u * (a_uv.x + x)) + (v * (a_uv.y + y)));
 		}
 	}
 	

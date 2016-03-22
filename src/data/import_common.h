@@ -29,6 +29,14 @@ namespace Json
 	s32 get_enum(cJSON*, const char*, const char**, const s32 = 0);
 };
 
+#define AWK_NAV_MESH_ADJACENCY 32
+struct AwkNavMesh
+{
+	typedef StaticArray<s32, AWK_NAV_MESH_ADJACENCY> Adjacency;
+	Array<Vec3> vertices;
+	Array<Adjacency> adjacency;
+};
+
 // Can't have more than X meshes parented to a bone in a .arm file
 struct Bone
 {

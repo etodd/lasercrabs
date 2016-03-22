@@ -4,6 +4,8 @@ import sys
 import mathutils
 import os
 
+IGNORE_PROPS = {'_RNA_UI', 'cycles'}
+
 result = []
 
 def clean_name(name):
@@ -34,7 +36,7 @@ def add(obj, parent_index = -1):
 		node['scale'] = obj.scale.length
 
 	for key in obj.keys():
-		if key != '_RNA_UI':
+		if key not in IGNORE_PROPS:
 			node[key] = obj[key]
 
 	obj_type = getattr(obj, 'type', None)

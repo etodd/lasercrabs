@@ -39,7 +39,8 @@
 #include "render/particles.h"
 
 #if DEBUG
-	#define DEBUG_AI 0
+	#define DEBUG_NAV_MESH 0
+	#define DEBUG_AWK_NAV_MESH 0
 	#define DEBUG_PHYSICS 0
 #endif
 
@@ -370,8 +371,12 @@ void Game::draw_additive(const RenderParams& render_params)
 	View::draw_additive(render_params);
 	SkinnedModel::draw_additive(render_params);
 
-#if DEBUG_AI
-	AI::debug_draw(render_params);
+#if DEBUG_NAV_MESH
+	AI::debug_draw_nav_mesh(render_params);
+#endif
+
+#if DEBUG_AWK_NAV_MESH
+	AI::debug_draw_awk_nav_mesh(render_params);
 #endif
 }
 

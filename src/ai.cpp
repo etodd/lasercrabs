@@ -13,7 +13,9 @@ namespace VI
 {
 
 AssetID AI::render_mesh = AssetNull;
+AssetID AI::awk_render_mesh = AssetNull;
 dtNavMesh* AI::nav_mesh = nullptr;
+AwkNavMesh* AI::awk_nav_mesh = nullptr;
 dtTileCache* AI::nav_tile_cache = nullptr;
 dtNavMeshQuery* AI::nav_mesh_query = nullptr;
 dtQueryFilter AI::default_query_filter = dtQueryFilter();
@@ -73,12 +75,18 @@ void AI::init()
 	render_mesh = Loader::dynamic_mesh_permanent(1);
 	Loader::dynamic_mesh_attrib(RenderDataType::Vec3);
 	Loader::shader_permanent(Asset::Shader::flat);
+
+	awk_render_mesh = Loader::dynamic_mesh_permanent(1);
+	Loader::dynamic_mesh_attrib(RenderDataType::Vec3);
 }
 
 void AI::load_nav_mesh(AssetID id)
 {
 	nav_mesh = Loader::nav_mesh(id);
 	nav_tile_cache = Loader::nav_tile_cache;
+
+	awk_nav_mesh = Loader::awk_nav_mesh(id);
+
 	render_mesh_dirty = true;
 
 	dtStatus status = nav_mesh_query->init(nav_mesh, 2048);
@@ -109,45 +117,78 @@ void AI::obstacle_remove(u32 id)
 	nav_tile_cache->removeObstacle(id);
 }
 
-void AI::debug_draw(const RenderParams& params)
+void AI::refresh_nav_render_meshes(const RenderParams& params)
 {
-#if DEBUG
 	if (render_mesh_dirty)
 	{
 		Array<Vec3> vertices;
 		Array<s32> indices;
 
-		if (nav_mesh)
+		// nav mesh
 		{
-			for (s32 tile_id = 0; tile_id < nav_mesh->getMaxTiles(); tile_id++)
+			if (nav_mesh)
 			{
-				const dtMeshTile* tile = ((const dtNavMesh*)nav_mesh)->getTile(tile_id);
-				if (!tile->header)
-					continue;
-
-				for (s32 i = 0; i < tile->header->vertCount; i++)
+				for (s32 tile_id = 0; tile_id < nav_mesh->getMaxTiles(); tile_id++)
 				{
-					memcpy(vertices.add(), &tile->verts[i * 3], sizeof(Vec3));
-					indices.add(indices.length);
+					const dtMeshTile* tile = ((const dtNavMesh*)nav_mesh)->getTile(tile_id);
+					if (!tile->header)
+						continue;
+
+					for (s32 i = 0; i < tile->header->vertCount; i++)
+					{
+						memcpy(vertices.add(), &tile->verts[i * 3], sizeof(Vec3));
+						indices.add(indices.length);
+					}
 				}
 			}
+
+			params.sync->write(RenderOp::UpdateAttribBuffers);
+			params.sync->write(render_mesh);
+
+			params.sync->write<s32>(vertices.length);
+			params.sync->write<Vec3>(vertices.data, vertices.length);
+
+			params.sync->write(RenderOp::UpdateIndexBuffer);
+			params.sync->write(render_mesh);
+
+			params.sync->write<s32>(indices.length);
+			params.sync->write<s32>(indices.data, indices.length);
 		}
 
-		params.sync->write(RenderOp::UpdateAttribBuffers);
-		params.sync->write(render_mesh);
+		vertices.length = 0;
+		indices.length = 0;
 
-		params.sync->write<s32>(vertices.length);
-		params.sync->write<Vec3>(vertices.data, vertices.length);
+		// awk nav mesh
+		{
+			if (awk_nav_mesh)
+			{
+				for (s32 i = 0; i < awk_nav_mesh->vertices.length; i += 3)
+				{
+					vertices.add(awk_nav_mesh->vertices[i]);
+					indices.add(i);
+				}
+			}
 
-		params.sync->write(RenderOp::UpdateIndexBuffer);
-		params.sync->write(render_mesh);
+			params.sync->write(RenderOp::UpdateAttribBuffers);
+			params.sync->write(awk_render_mesh);
 
-		params.sync->write<s32>(indices.length);
-		params.sync->write<s32>(indices.data, indices.length);
+			params.sync->write<s32>(vertices.length);
+			params.sync->write<Vec3>(vertices.data, vertices.length);
+
+			params.sync->write(RenderOp::UpdateIndexBuffer);
+			params.sync->write(awk_render_mesh);
+
+			params.sync->write<s32>(indices.length);
+			params.sync->write<s32>(indices.data, indices.length);
+		}
 
 		render_mesh_dirty = false;
 	}
+}
 
+#if DEBUG
+void render_helper(const RenderParams& params, AssetID m)
+{
 	params.sync->write(RenderOp::Shader);
 	params.sync->write(Asset::Shader::flat);
 	params.sync->write(params.technique);
@@ -166,8 +207,36 @@ void AI::debug_draw(const RenderParams& params)
 	params.sync->write<s32>(1);
 	params.sync->write<Mat4>(mvp);
 
+	params.sync->write(RenderOp::FillMode);
+	params.sync->write(RenderFillMode::Point);
+	params.sync->write(RenderOp::PointSize);
+	params.sync->write<r32>(2 * UI::scale);
+	params.sync->write(RenderOp::CullMode);
+	params.sync->write(RenderCullMode::None);
+
 	params.sync->write(RenderOp::Mesh);
-	params.sync->write(render_mesh);
+	params.sync->write(m);
+
+	params.sync->write(RenderOp::FillMode);
+	params.sync->write(RenderFillMode::Fill);
+	params.sync->write(RenderOp::CullMode);
+	params.sync->write(RenderCullMode::Back);
+}
+#endif
+
+void AI::debug_draw_nav_mesh(const RenderParams& params)
+{
+#if DEBUG
+	refresh_nav_render_meshes(params);
+	render_helper(params, render_mesh);
+#endif
+}
+
+void AI::debug_draw_awk_nav_mesh(const RenderParams& params)
+{
+#if DEBUG
+	refresh_nav_render_meshes(params);
+	render_helper(params, awk_render_mesh);
 #endif
 }
 

@@ -12,6 +12,7 @@ namespace VI
 
 struct AIAgent;
 struct RenderParams;
+struct AwkNavMesh;
 
 struct NavMeshProcess : public dtTileCacheMeshProcess
 {
@@ -47,14 +48,18 @@ struct AI
 	static const r32 default_search_extents[];
 
 	static AssetID render_mesh;
+	static AssetID awk_render_mesh;
 	static dtNavMesh* nav_mesh;
+	static AwkNavMesh* awk_nav_mesh;
 	static dtNavMeshQuery* nav_mesh_query;
 	static dtTileCache* nav_tile_cache;
 	static dtQueryFilter default_query_filter;
 	static b8 render_mesh_dirty;
 	static void init();
 	static void load_nav_mesh(AssetID);
-	static void debug_draw(const RenderParams&);
+	static void refresh_nav_render_meshes(const RenderParams&);
+	static void debug_draw_nav_mesh(const RenderParams&);
+	static void debug_draw_awk_nav_mesh(const RenderParams&);
 	static void update(const Update&);
 
 	static u32 obstacle_add(const Vec3&, r32, r32);

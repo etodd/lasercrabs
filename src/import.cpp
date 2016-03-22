@@ -24,7 +24,7 @@
 namespace VI
 {
 
-const s32 version = 19;
+const s32 version = 20;
 
 const char* model_in_extension = ".blend";
 const char* model_intermediate_extension = ".fbx";
@@ -37,6 +37,7 @@ const char* font_out_extension = ".fnt";
 const char* soundbank_extension = ".bnk";
 
 const char* nav_mesh_out_extension = ".nav";
+const char* awk_nav_mesh_out_extension = ".navk";
 const char* anim_out_extension = ".anm";
 const char* arm_out_extension = ".arm";
 const char* texture_extension = ".png";
@@ -596,6 +597,7 @@ struct Manifest
 	Map<std::string> fonts;
 	Map<std::string> levels;
 	Map<std::string> nav_meshes;
+	Map<std::string> awk_nav_meshes;
 	Map<std::string> string_files;
 	Map<std::string> strings;
 	Map<std::string> dialogue_trees;
@@ -615,6 +617,7 @@ b8 manifest_requires_update(const Manifest& a, const Manifest& b)
 		|| !maps_equal(a.fonts, b.fonts)
 		|| !maps_equal(a.levels, b.levels)
 		|| !maps_equal(a.nav_meshes, b.nav_meshes)
+		|| !maps_equal(a.awk_nav_meshes, b.awk_nav_meshes)
 		|| !maps_equal(a.string_files, b.string_files)
 		|| !maps_equal(a.strings, b.strings)
 		|| !maps_equal(a.dialogue_trees, b.dialogue_trees);
@@ -645,6 +648,7 @@ b8 manifest_read(const char* path, Manifest& manifest)
 			map_read(f, manifest.fonts);
 			map_read(f, manifest.levels);
 			map_read(f, manifest.nav_meshes);
+			map_read(f, manifest.awk_nav_meshes);
 			map_read(f, manifest.string_files);
 			map_read(f, manifest.strings);
 			map_read(f, manifest.dialogue_trees);
@@ -677,6 +681,7 @@ b8 manifest_write(Manifest& manifest, const char* path)
 	map_write(manifest.fonts, f);
 	map_write(manifest.levels, f);
 	map_write(manifest.nav_meshes, f);
+	map_write(manifest.awk_nav_meshes, f);
 	map_write(manifest.string_files, f);
 	map_write(manifest.strings, f);
 	map_write(manifest.dialogue_trees, f);
@@ -1625,7 +1630,7 @@ b8 build_nav_mesh(const NavMeshInput& input, TileCacheData* output_tiles)
 	return true;
 }
 
-void consolidate_meshes(Mesh* result, Map<Mesh>& meshes, cJSON* json, b8(*filter)(const Mesh&) = nullptr)
+void consolidate_meshes(Mesh* result, Map<Mesh>& meshes, cJSON* json, b8(*filter)(const Mesh*) = nullptr)
 {
 	result->bounds_min = Vec3(FLT_MAX, FLT_MAX, FLT_MAX);
 	result->bounds_max = Vec3(FLT_MIN, FLT_MIN, FLT_MIN);
@@ -1655,7 +1660,7 @@ void consolidate_meshes(Mesh* result, Map<Mesh>& meshes, cJSON* json, b8(*filter
 				vi_assert(map_has(meshes, mesh_ref));
 				const Mesh& mesh = map_get(meshes, mesh_ref);
 
-				if (!filter || filter(mesh))
+				if (!filter || filter(&mesh))
 				{
 					Vec3 min = mesh.bounds_min;
 					Vec3 max = mesh.bounds_max;
@@ -1706,16 +1711,131 @@ void consolidate_meshes(Mesh* result, Map<Mesh>& meshes, cJSON* json, b8(*filter
 	}
 }
 
+b8 is_accessible(const Mesh* m)
+{
+	return m->color.w > 0.0f;
+}
+
+b8 is_inaccessible(const Mesh* m)
+{
+	return m->color.w == 0.0f;
+}
+
+void build_awk_nav_mesh(const Mesh* accessible, const Mesh* inaccessible, AwkNavMesh* out)
+{
+	for (s32 index_index = 0; index_index < accessible->indices.length; index_index += 3)
+	{
+		const Vec3& a_original = accessible->vertices[accessible->indices[index_index]];
+		const Vec3& b_original = accessible->vertices[accessible->indices[index_index + 1]];
+		const Vec3& c_original = accessible->vertices[accessible->indices[index_index + 2]];
+
+		const Vec3 ca_original = c_original - a_original;
+		const Vec3 cb_original = c_original - b_original;
+		const Vec3 ba_original = b_original - a_original;
+
+		// make sure ca is the longest edge
+
+		Vec3 a = a_original;
+		Vec3 b = b_original;
+		Vec3 c = c_original;
+
+		const r32 ca_len = (c - a).length();
+		const r32 cb_len = (c - b).length();
+		const r32 ba_len = (b - a).length();
+
+		if (ca_len > cb_len && ca_len > ba_len)
+		{
+			// ca is already the longest edge
+		}
+		else if (cb_len > ba_len)
+		{
+			// cb is the longest edge
+			a = b_original;
+			b = a_original;
+		}
+		else
+		{
+			// ba is the longest edge
+			b = c_original;
+			c = b_original;
+		}
+
+		// calculate global UV vectors
+		Vec3 ca = c - a;
+		Vec3 cb = c - b;
+		Vec3 ba = b - a;
+
+		Vec3 normal = ba.cross(ca);
+		normal.normalize();
+
+		Vec3 u, v;
+
+		if (normal.y > 0.9999f || normal.y < -0.999f)
+		{
+			u = Vec3(1, 0, 0);
+			v = Vec3(0, 0, 1);
+		}
+		else
+		{
+			u = normal.cross(Vec3(0, 1, 0));
+			u.normalize();
+
+			if (u.x < 0.0f)
+				u *= -1;
+			if (u.z < 0.0f)
+				u *= -1;
+
+			v = u.cross(normal);
+
+			if (v.y < 0.0f)
+				v *= -1;
+		}
+
+		const r32 grid_spacing = 0.5f;
+
+		// coordinates of a in the global UV space
+		Vec2 a_uv(floorf(u.dot(a) / grid_spacing) * grid_spacing, floorf(v.dot(a) / grid_spacing) * grid_spacing);
+
+		Vec3 ca_normalized = Vec3::normalize(ca);
+
+		Vec2 ba_uv(ba.dot(u), ba.dot(v));
+		Vec2 ca_uv(ca.dot(u), ca.dot(v));
+		Vec2 cb_uv(cb.dot(u), cb.dot(v));
+
+		for (r32 x = 0; x < ca_uv.x; x += grid_spacing)
+		{
+			r32 y_start = ca_uv.y * (x / ca_uv.x);
+
+			r32 y_end;
+			if (x < ba_uv.x)
+				y_end = ba_uv.y * (x / ba_uv.x);
+			else
+				y_end = LMath::lerpf((x - ba_uv.x) / (ca_uv.x - ba_uv.x), ba_uv.y, ca_uv.y);
+
+			y_start = ceilf(y_start / grid_spacing) * grid_spacing;
+			y_end = floorf(y_end / grid_spacing) * grid_spacing;
+
+			for (r32 y = y_start; y < y_end; y += grid_spacing)
+				out->vertices.add((u * (a_uv.x + x)) + (v * (a_uv.y + y)));
+		}
+	}
+	
+	// todo: build adjacency
+	out->adjacency.resize(out->vertices.length);
+}
+
 void import_level(ImporterState& state, const std::string& asset_in_path, const std::string& out_folder)
 {
 	std::string asset_name = get_asset_name(asset_in_path);
 	std::string asset_out_path = out_folder + asset_name + level_out_extension;
 	std::string nav_mesh_out_path = out_folder + asset_name + nav_mesh_out_extension;
+	std::string awk_nav_mesh_out_path = out_folder + asset_name + awk_nav_mesh_out_extension;
 
 	s64 mtime = filemtime(asset_in_path);
 	b8 rebuild = state.rebuild
 		|| mtime > asset_mtime(state.cached_manifest.levels, asset_name)
-		|| mtime > asset_mtime(state.cached_manifest.nav_meshes, asset_name);
+		|| mtime > asset_mtime(state.cached_manifest.nav_meshes, asset_name)
+		|| mtime > asset_mtime(state.cached_manifest.awk_nav_meshes, asset_name);
 
 	Map<Mesh> meshes;
 	rebuild |= import_level_meshes(state, asset_in_path, out_folder, meshes, rebuild);
@@ -1724,6 +1844,7 @@ void import_level(ImporterState& state, const std::string& asset_in_path, const 
 
 	map_add(state.manifest.levels, asset_name, asset_out_path);
 	map_add(state.manifest.nav_meshes, asset_name, nav_mesh_out_path);
+	map_add(state.manifest.awk_nav_meshes, asset_name, awk_nav_mesh_out_path);
 
 	if (rebuild)
 	{
@@ -1742,19 +1863,49 @@ void import_level(ImporterState& state, const std::string& asset_in_path, const 
 			return;
 		}
 
-		printf("%s\n", nav_mesh_out_path.c_str());
-
 		// Parse the scene graph and bake the nav mesh
 		cJSON* json = Json::load(asset_out_path.c_str());
 
-		Mesh nav_mesh_input;
+		// Build and write awk nav mesh
+		{
+			Mesh accessible;
+			Mesh inaccessible;
 
-		consolidate_meshes(&nav_mesh_input, meshes, json);
+			consolidate_meshes(&accessible, meshes, json, is_accessible);
+			consolidate_meshes(&inaccessible, meshes, json, is_inaccessible);
 
-		Json::json_free(json);
+			AwkNavMesh awk_nav;
+
+			build_awk_nav_mesh(&accessible, &inaccessible, &awk_nav);
+
+			FILE* f = fopen(awk_nav_mesh_out_path.c_str(), "w+b");
+			if (!f)
+			{
+				fprintf(stderr, "Error: Failed to write navk file %s.\n", awk_nav_mesh_out_path.c_str());
+				state.error = true;
+				return;
+			}
+
+			vi_assert(awk_nav.vertices.length == awk_nav.adjacency.length);
+
+			if (awk_nav.vertices.length > 0)
+			{
+				fwrite(&awk_nav.vertices.length, sizeof(s32), 1, f);
+				fwrite(awk_nav.vertices.data, sizeof(Vec3), awk_nav.vertices.length, f);
+				fwrite(awk_nav.adjacency.data, sizeof(AwkNavMesh::Adjacency), awk_nav.adjacency.length, f);
+			}
+
+			fclose(f);
+
+			printf("%s\n", awk_nav_mesh_out_path.c_str());
+		}
 
 		// Build and write nav mesh
 		{
+			Mesh nav_mesh_input;
+
+			consolidate_meshes(&nav_mesh_input, meshes, json);
+
 			TileCacheData nav_tiles;
 			if (nav_mesh_input.vertices.length > 0)
 			{
@@ -1807,7 +1958,11 @@ void import_level(ImporterState& state, const std::string& asset_in_path, const 
 			}
 
 			fclose(f);
+
+			printf("%s\n", nav_mesh_out_path.c_str());
 		}
+
+		Json::json_free(json);
 	}
 }
 
@@ -2517,6 +2672,7 @@ s32 proc(s32 argc, char* argv[])
 			write_asset_source(f, "Font", state.manifest.fonts);
 			write_asset_source(f, "Level", state.manifest.levels);
 			write_asset_source(f, "NavMesh", state.manifest.nav_meshes);
+			write_asset_source(f, "AwkNavMesh", state.manifest.awk_nav_meshes);
 			write_asset_source_names_only(f, "String", state.manifest.strings);
 			write_asset_source(f, "DialogueTree", state.manifest.dialogue_trees);
 

@@ -31,11 +31,13 @@ Array<Loader::Entry<void*> > Loader::dynamic_textures;
 Array<Loader::Entry<void*> > Loader::framebuffers;
 Array<Loader::Entry<AkBankID> > Loader::soundbanks;
 dtNavMesh* Loader::current_nav_mesh = nullptr;
+AwkNavMesh* Loader::current_awk_nav_mesh = nullptr;
 dtTileCache* Loader::nav_tile_cache = nullptr;
 dtTileCacheAlloc Loader::nav_tile_allocator;
 FastLZCompressor Loader::nav_tile_compressor;
 NavMeshProcess Loader::nav_tile_mesh_process;
 AssetID Loader::current_nav_mesh_id = AssetNull;
+AssetID Loader::current_awk_nav_mesh_id = AssetNull;
 
 s32 Loader::static_mesh_count = 0;
 s32 Loader::static_texture_count = 0;
@@ -864,6 +866,42 @@ dtNavMesh* Loader::nav_mesh(AssetID id)
 	return current_nav_mesh;
 }
 
+AwkNavMesh* Loader::awk_nav_mesh(AssetID id)
+{
+	// Only allow one nav mesh to be loaded at a time
+	vi_assert(current_awk_nav_mesh_id == AssetNull || current_awk_nav_mesh_id == id);
+
+	if (id == AssetNull)
+		return nullptr;
+	
+	if (current_awk_nav_mesh_id == AssetNull)
+	{
+		const char* path = AssetLookup::AwkNavMesh::values[id];
+
+		FILE* f = fopen(path, "rb");
+		if (f)
+		{
+			s32 vertex_count;
+
+			if (fread(&vertex_count, sizeof(s32), 1, f))
+			{
+				current_awk_nav_mesh = (AwkNavMesh*)malloc(sizeof(AwkNavMesh));
+				new (current_awk_nav_mesh) AwkNavMesh();
+				current_awk_nav_mesh->vertices.resize(vertex_count);
+				fread(current_awk_nav_mesh->vertices.data, sizeof(Vec3), vertex_count, f);
+				current_awk_nav_mesh->adjacency.resize(vertex_count);
+				fread(current_awk_nav_mesh->adjacency.data, sizeof(AwkNavMesh::Adjacency), vertex_count, f);
+			}
+
+			fclose(f);
+		}
+	}
+
+	current_awk_nav_mesh_id = id;
+
+	return current_awk_nav_mesh;
+}
+
 b8 Loader::soundbank(AssetID id)
 {
 	if (id == AssetNull)
@@ -917,6 +955,14 @@ void Loader::transients_free()
 		dtFreeTileCache(nav_tile_cache);
 		nav_tile_cache = nullptr;
 	}
+
+	if (current_awk_nav_mesh)
+	{
+		current_awk_nav_mesh->~AwkNavMesh();
+		free(current_awk_nav_mesh);
+		current_awk_nav_mesh = nullptr;
+	}
+	current_awk_nav_mesh_id = AssetNull;
 
 	for (AssetID i = 0; i < meshes.length; i++)
 	{

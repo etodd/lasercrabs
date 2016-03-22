@@ -376,6 +376,34 @@ const char* AssetLookup::NavMesh::names[] =
 };
 
 
+const char* AssetLookup::AwkNavMesh::values[] =
+{
+	"assets/lvl/connect.navk",
+	"assets/lvl/containment_09.navk",
+	"assets/lvl/level1.navk",
+	"assets/lvl/menu.navk",
+	"assets/lvl/start.navk",
+	"assets/lvl/title.navk",
+	"assets/lvl/tutorial_01.navk",
+	"assets/lvl/tutorial_02.navk",
+	0,
+};
+
+
+const char* AssetLookup::AwkNavMesh::names[] =
+{
+	"connect",
+	"containment_09",
+	"level1",
+	"menu",
+	"start",
+	"title",
+	"tutorial_01",
+	"tutorial_02",
+	0,
+};
+
+
 const char* AssetLookup::String::names[] =
 {
 	"_default",

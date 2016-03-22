@@ -77,11 +77,13 @@ struct Loader
 	static Array<Entry<AkBankID> > soundbanks;
 	static Settings settings_data;
 	static dtNavMesh* current_nav_mesh;
+	static AwkNavMesh* current_awk_nav_mesh;
 	static dtTileCache* nav_tile_cache;
 	static dtTileCacheAlloc nav_tile_allocator;
 	static FastLZCompressor nav_tile_compressor;
 	static NavMeshProcess nav_tile_mesh_process;
 	static AssetID current_nav_mesh_id;
+	static AssetID current_awk_nav_mesh_id;
 
 	static Mesh* mesh(AssetID);
 	static Mesh* mesh_permanent(AssetID);
@@ -123,6 +125,8 @@ struct Loader
 	static void font_free(AssetID);
 
 	static dtNavMesh* nav_mesh(AssetID);
+
+	static AwkNavMesh* awk_nav_mesh(AssetID);
 
 	static cJSON* level(AssetID);
 	static void level_free(cJSON*);

@@ -1721,46 +1721,53 @@ b8 is_inaccessible(const Mesh* m)
 	return m->color.w == 0.0f;
 }
 
+const r32 grid_spacing = 0.5f;
+inline r32 grid_space(r32 x)
+{
+	return floorf(x / grid_spacing) * grid_spacing;
+}
+
+void fill_top_flat_triangle(Array<Vec3>* out, const Vec3& normal_offset, const Vec3& u, const Vec3& v, const Vec2& v1, const Vec2& v2, const Vec2& v3)
+{
+	r32 invslope1 = (v2.x - v1.x) / (v2.y - v1.y);
+	r32 invslope2 = (v3.x - v1.x) / (v3.y - v1.y);
+
+	r32 curx1 = v1.x;
+	r32 curx2 = v1.x;
+
+	for (r32 y = grid_space(v1.y); y <= grid_space(v2.y); y += grid_spacing)
+	{
+		for (r32 x = grid_space(curx1); x <= grid_space(curx2); x += grid_spacing)
+			out->add(normal_offset + (u * x) + (v * y));
+		curx1 += invslope1;
+		curx2 += invslope2;
+	}
+}
+
+void fill_bottom_flat_triangle(Array<Vec3>* out, const Vec3& normal_offset, const Vec3& u, const Vec3& v, const Vec2& v1, const Vec2& v2, const Vec2& v3)
+{
+	r32 invslope1 = (v3.x - v1.x) / (v3.y - v1.y);
+	r32 invslope2 = (v3.x - v2.x) / (v3.y - v2.y);
+
+	r32 curx1 = v3.x;
+	r32 curx2 = v3.x;
+
+	for (r32 y = grid_space(v3.y); y > grid_space(v1.y); y -= grid_spacing)
+	{
+		curx1 -= invslope1;
+		curx2 -= invslope2;
+		for (r32 x = grid_space(curx1); x <= grid_space(curx2); x += grid_spacing)
+			out->add(normal_offset + (u * x) + (v * y));
+	}
+}
+
 void build_awk_nav_mesh(const Mesh* accessible, const Mesh* inaccessible, AwkNavMesh* out)
 {
 	for (s32 index_index = 0; index_index < accessible->indices.length; index_index += 3)
 	{
-		const Vec3& a_original = accessible->vertices[accessible->indices[index_index]];
-		const Vec3& b_original = accessible->vertices[accessible->indices[index_index + 1]];
-		const Vec3& c_original = accessible->vertices[accessible->indices[index_index + 2]];
-
-		// make sure ca is the longest edge
-
-		Vec3 a = a_original;
-		Vec3 b = b_original;
-		Vec3 c = c_original;
-
-		{
-			Vec3 ca = c - a;
-			Vec3 cb = c - b;
-			Vec3 ba = b - a;
-
-			const r32 ca_len = ca.length();
-			const r32 cb_len = cb.length();
-			const r32 ba_len = ba.length();
-
-			if (ca_len > cb_len && ca_len > ba_len)
-			{
-				// ca is already the longest edge
-			}
-			else if (cb_len > ba_len)
-			{
-				// cb is the longest edge
-				a = b_original;
-				b = a_original;
-			}
-			else
-			{
-				// ba is the longest edge
-				b = c_original;
-				c = b_original;
-			}
-		}
+		const Vec3& a = accessible->vertices[accessible->indices[index_index]];
+		const Vec3& b = accessible->vertices[accessible->indices[index_index + 1]];
+		const Vec3& c = accessible->vertices[accessible->indices[index_index + 2]];
 
 		// calculate UV vectors
 
@@ -1774,7 +1781,7 @@ void build_awk_nav_mesh(const Mesh* accessible, const Mesh* inaccessible, AwkNav
 
 		Vec3 u, v;
 
-		if (normal.y > 0.9999f || normal.y < -0.999f)
+		if (normal.y > 0.999f || normal.y < -0.999f)
 		{
 			u = Vec3(1, 0, 0);
 			v = Vec3(0, 0, 1);
@@ -1834,11 +1841,10 @@ void build_awk_nav_mesh(const Mesh* accessible, const Mesh* inaccessible, AwkNav
 			v3 = tmp;
 		}
 
-		/*
-		if (v2.y == v3.y)
-			fill_bottom_flat_triangle(&out->vertices, v1, v2, v3);
-		else if (v1.y == v2.y)
-			fill_top_flat_triangle(&out->vertices, v1, v2, v3);
+		if (v1.y == v2.y)
+			fill_bottom_flat_triangle(&out->vertices, normal_offset, u, v, v1, v2, v3);
+		else if (v2.y == v3.y)
+			fill_top_flat_triangle(&out->vertices, normal_offset, u, v, v1, v2, v3);
 		else
 		{
 			Vec2 v4
@@ -1846,10 +1852,9 @@ void build_awk_nav_mesh(const Mesh* accessible, const Mesh* inaccessible, AwkNav
 				v1.x + ((v2.y - v1.y) / (v3.y - v1.y)) * (v3.x - v1.x),
 				v2.y
 			);
-			fill_bottom_flat_triangle(&out->vertices, v1, v2, v4);
-			fill_top_flat_triangle(&out->vertices, v2, v4, v3);
+			fill_top_flat_triangle(&out->vertices, normal_offset, u, v, v1, v2, v4);
+			fill_bottom_flat_triangle(&out->vertices, normal_offset, u, v, v2, v4, v3);
 		}
-		*/
 	}
 	
 	// todo: build adjacency

@@ -162,7 +162,7 @@ void AI::refresh_nav_render_meshes(const RenderParams& params)
 		{
 			if (awk_nav_mesh)
 			{
-				for (s32 i = 0; i < awk_nav_mesh->vertices.length; i += 3)
+				for (s32 i = 0; i < awk_nav_mesh->vertices.length; i++)
 				{
 					vertices.add(awk_nav_mesh->vertices[i]);
 					indices.add(i);
@@ -210,7 +210,7 @@ void render_helper(const RenderParams& params, AssetID m)
 	params.sync->write(RenderOp::FillMode);
 	params.sync->write(RenderFillMode::Point);
 	params.sync->write(RenderOp::PointSize);
-	params.sync->write<r32>(2 * UI::scale);
+	params.sync->write<r32>(4 * UI::scale);
 	params.sync->write(RenderOp::CullMode);
 	params.sync->write(RenderCullMode::None);
 

@@ -1727,7 +1727,7 @@ b8 default_filter(const Mesh* m)
 	return true;
 }
 
-const r32 grid_spacing = 2.0f;
+const r32 grid_spacing = 3.0f;
 inline r32 grid_floor(r32 x)
 {
 	return floorf(x / grid_spacing) * grid_spacing;
@@ -2090,7 +2090,7 @@ b8 awk_raycast(const ChunkedMesh& mesh, const Vec3& start, const Vec3& end, b8* 
 	return false;
 }
 
-s32 build_awk_nav_mesh(Map<Mesh>& meshes, cJSON* json, AwkNavMesh* out)
+void build_awk_nav_mesh(Map<Mesh>& meshes, cJSON* json, AwkNavMesh* out, s32* adjacency_buffer_overflows, s32* orphans)
 {
 	const r32 chunk_size = 12.0f;
 
@@ -2219,7 +2219,8 @@ s32 build_awk_nav_mesh(Map<Mesh>& meshes, cJSON* json, AwkNavMesh* out)
 	out->adjacency.resize(out->vertices.length);
 
 	// how many vertices had overflowing adjacency buffers?
-	s32 adjacency_buffer_overflows = 0;
+	*adjacency_buffer_overflows = 0;
+	*orphans = 0;
 
 	for (s32 vertex_index = 0; vertex_index < out->vertices.length; vertex_index++)
 	{
@@ -2268,7 +2269,7 @@ s32 build_awk_nav_mesh(Map<Mesh>& meshes, cJSON* json, AwkNavMesh* out)
 									adjacency->add(neighbor_index);
 									if (adjacency->length == adjacency->capacity())
 									{
-										adjacency_buffer_overflows++;
+										(*adjacency_buffer_overflows)++;
 										break;
 									}
 								}
@@ -2278,7 +2279,7 @@ s32 build_awk_nav_mesh(Map<Mesh>& meshes, cJSON* json, AwkNavMesh* out)
 								{
 									neighbor_adjacency->add(vertex_index);
 									if (neighbor_adjacency->length == neighbor_adjacency->capacity())
-										adjacency_buffer_overflows++;
+										(*adjacency_buffer_overflows)++;
 								}
 							}
 						}
@@ -2297,10 +2298,9 @@ s32 build_awk_nav_mesh(Map<Mesh>& meshes, cJSON* json, AwkNavMesh* out)
 			out->vertices.remove(vertex_index);
 			out->adjacency.remove(vertex_index);
 			vertex_index--;
+			(*orphans)++;
 		}
 	}
-
-	return adjacency_buffer_overflows;
 }
 
 void import_level(ImporterState& state, const std::string& asset_in_path, const std::string& out_folder)
@@ -2349,7 +2349,9 @@ void import_level(ImporterState& state, const std::string& asset_in_path, const 
 		{
 			AwkNavMesh awk_nav;
 
-			s32 adjacency_buffer_overflows = build_awk_nav_mesh(meshes, json, &awk_nav);
+			s32 adjacency_buffer_overflows;
+			s32 orphans;
+			build_awk_nav_mesh(meshes, json, &awk_nav, &adjacency_buffer_overflows, &orphans);
 
 			FILE* f = fopen(awk_nav_mesh_out_path.c_str(), "w+b");
 			if (!f)
@@ -2370,7 +2372,7 @@ void import_level(ImporterState& state, const std::string& asset_in_path, const 
 
 			fclose(f);
 
-			printf("%s - Vertices: %d Adjacency buffer overflows: %d\n", awk_nav_mesh_out_path.c_str(), awk_nav.vertices.length, adjacency_buffer_overflows);
+			printf("%s - Vertices: %d Adjacency buffer overflows: %d Orphans: %d\n", awk_nav_mesh_out_path.c_str(), awk_nav.vertices.length, adjacency_buffer_overflows, orphans);
 		}
 
 		// Build and write nav mesh

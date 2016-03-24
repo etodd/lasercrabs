@@ -40,7 +40,7 @@
 
 #if DEBUG
 	#define DEBUG_NAV_MESH 0
-	#define DEBUG_AWK_NAV_MESH 1
+	#define DEBUG_AWK_NAV_MESH 0
 	#define DEBUG_PHYSICS 0
 #endif
 
@@ -323,6 +323,7 @@ void Game::draw_alpha(const RenderParams& render_params)
 			sync->write<Vec4>(color);
 
 			sync->write(RenderOp::Mesh);
+			sync->write(RenderPrimitiveMode::Triangles);
 			sync->write(mesh_id);
 		}
 		sync->write(RenderOp::FillMode);

@@ -12,6 +12,8 @@ struct rcPolyMeshDetail;
 namespace VI
 {
 
+#define AWK_MAX_DISTANCE 30.0f
+#define AWK_RADIUS 0.2f
 #define MAX_BONE_WEIGHTS 4
 const r32 nav_mesh_max_error = 2.0f;
 
@@ -29,7 +31,7 @@ namespace Json
 	s32 get_enum(cJSON*, const char*, const char**, const s32 = 0);
 };
 
-#define AWK_NAV_MESH_ADJACENCY 32
+#define AWK_NAV_MESH_ADJACENCY 48
 struct AwkNavMesh
 {
 	typedef StaticArray<s32, AWK_NAV_MESH_ADJACENCY> Adjacency;

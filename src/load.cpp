@@ -1056,12 +1056,13 @@ cJSON* input_binding_json(const InputBinding& binding)
 	return json;
 }
 
-#define max_config_path_length 1024
-void get_config_path(char* path)
+void Loader::user_data_path(char* path, const char* filename)
 {
-	vi_assert(strlen(Loader::data_directory) < max_config_path_length - 127);
-	sprintf(path, "%sconfig.txt", Loader::data_directory);
+	vi_assert(strlen(Loader::data_directory) + strlen(filename) < max_user_data_path_length);
+	sprintf(path, "%s%s", Loader::data_directory, filename);
 }
+
+#define config_filename "config.txt"
 
 Settings& Loader::settings()
 {
@@ -1069,8 +1070,8 @@ Settings& Loader::settings()
 	{
 		settings_data.valid = true;
 
-		char path[max_config_path_length];
-		get_config_path(path);
+		char path[max_user_data_path_length];
+		user_data_path(path, config_filename);
 		cJSON* json = Json::load(path);
 
 		settings_data.width = Json::get_s32(json, "width", 1920);
@@ -1125,8 +1126,8 @@ void Loader::settings_save()
 		cJSON_AddItemToObject(bindings, "ability", input_binding_json(settings_data.bindings.ability));
 		cJSON_AddItemToObject(bindings, "menu", input_binding_json(settings_data.bindings.menu));
 
-		char path[max_config_path_length];
-		get_config_path(path);
+		char path[max_user_data_path_length];
+		user_data_path(path, config_filename);
 
 		Json::save(json, path);
 		Json::json_free(json);

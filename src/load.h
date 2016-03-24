@@ -45,6 +45,8 @@ struct Settings
 	u8 music;
 };
 
+#define max_user_data_path_length 1024
+
 struct Loader
 {
 	enum AssetType { AssetNone, AssetTransient, AssetPermanent };
@@ -84,6 +86,7 @@ struct Loader
 	static NavMeshProcess nav_tile_mesh_process;
 	static AssetID current_nav_mesh_id;
 	static AssetID current_awk_nav_mesh_id;
+	static void user_data_path(char*, const char*);
 
 	static Mesh* mesh(AssetID);
 	static Mesh* mesh_permanent(AssetID);

@@ -747,6 +747,7 @@ void UI::draw(const RenderParams& p)
 		p.sync->write(p.technique);
 
 		p.sync->write(RenderOp::Mesh);
+		p.sync->write(RenderPrimitiveMode::Triangles);
 		p.sync->write(mesh_id);
 
 		vertices.length = 0;
@@ -814,6 +815,7 @@ void UI::draw(const RenderParams& p)
 		p.sync->write<AssetID>(tb.texture);
 
 		p.sync->write(RenderOp::Mesh);
+		p.sync->write(RenderPrimitiveMode::Triangles);
 		p.sync->write(texture_mesh_id);
 	}
 	texture_blits.length = 0;
@@ -870,6 +872,7 @@ void UI::texture(const RenderParams& p, s32 texture, const Rect2& r, const Vec4&
 	p.sync->write<AssetID>(texture);
 
 	p.sync->write(RenderOp::Mesh);
+	p.sync->write(RenderPrimitiveMode::Triangles);
 	p.sync->write(texture_mesh_id);
 }
 

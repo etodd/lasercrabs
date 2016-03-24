@@ -25,9 +25,11 @@ AIPlayer::AIPlayer(PlayerManager* m)
 
 void AIPlayer::update(const Update& u)
 {
+	/*
 	// always stupidly try to use our ability
 	if (manager.ref()->entity.ref())
 		manager.ref()->ability_use();
+	*/
 }
 
 void AIPlayer::spawn()

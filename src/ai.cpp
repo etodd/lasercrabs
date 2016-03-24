@@ -163,9 +163,16 @@ void AI::refresh_nav_render_meshes(const RenderParams& params)
 			if (awk_nav_mesh)
 			{
 				for (s32 i = 0; i < awk_nav_mesh->vertices.length; i++)
-				{
 					vertices.add(awk_nav_mesh->vertices[i]);
-					indices.add(i);
+
+				for (s32 i = 0; i < awk_nav_mesh->adjacency.length; i++)
+				{
+					const AwkNavMesh::Adjacency& adjacency = awk_nav_mesh->adjacency[i];
+					for (s32 j = 0; j < adjacency.length; j++)
+					{
+						indices.add(i);
+						indices.add(adjacency[j]);
+					}
 				}
 			}
 
@@ -187,7 +194,7 @@ void AI::refresh_nav_render_meshes(const RenderParams& params)
 }
 
 #if DEBUG
-void render_helper(const RenderParams& params, AssetID m)
+void render_helper(const RenderParams& params, AssetID m, RenderPrimitiveMode primitive_mode)
 {
 	params.sync->write(RenderOp::Shader);
 	params.sync->write(Asset::Shader::flat);
@@ -215,6 +222,7 @@ void render_helper(const RenderParams& params, AssetID m)
 	params.sync->write(RenderCullMode::None);
 
 	params.sync->write(RenderOp::Mesh);
+	params.sync->write(primitive_mode);
 	params.sync->write(m);
 
 	params.sync->write(RenderOp::FillMode);
@@ -228,7 +236,7 @@ void AI::debug_draw_nav_mesh(const RenderParams& params)
 {
 #if DEBUG
 	refresh_nav_render_meshes(params);
-	render_helper(params, render_mesh);
+	render_helper(params, render_mesh, RenderPrimitiveMode::Triangles);
 #endif
 }
 
@@ -236,7 +244,7 @@ void AI::debug_draw_awk_nav_mesh(const RenderParams& params)
 {
 #if DEBUG
 	refresh_nav_render_meshes(params);
-	render_helper(params, awk_render_mesh);
+	render_helper(params, awk_render_mesh, RenderPrimitiveMode::Lines);
 #endif
 }
 

@@ -45,6 +45,17 @@ enum class RenderOp
 	BlitFramebuffer,
 };
 
+enum class RenderPrimitiveMode
+{
+	Triangles,
+	TriangleStrip,
+	TriangleFan,
+	Lines,
+	LineStrip,
+	LineLoop,
+	Points,
+};
+
 enum class RenderBlendMode
 {
 	Opaque,

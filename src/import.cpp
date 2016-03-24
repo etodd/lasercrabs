@@ -1469,6 +1469,7 @@ b8 import_level_meshes(ImporterState& state, const std::string& asset_in_path, c
 	}
 }
 
+// todo: use ChunkedMesh for Recast nav mesh generation
 b8 rasterize_tile_layers(const rcConfig& cfg, const NavMeshInput& input, s32 tx, s32 ty, TileCacheCell* out_cell)
 {
 	// Tile bounds.
@@ -1630,7 +1631,7 @@ b8 build_nav_mesh(const NavMeshInput& input, TileCacheData* output_tiles)
 	return true;
 }
 
-void consolidate_meshes(Mesh* result, Map<Mesh>& meshes, cJSON* json, b8(*filter)(const Mesh*) = nullptr)
+void consolidate_meshes(Mesh* result, Map<Mesh>& meshes, cJSON* json, b8(*filter)(const Mesh*))
 {
 	result->bounds_min = Vec3(FLT_MAX, FLT_MAX, FLT_MAX);
 	result->bounds_max = Vec3(FLT_MIN, FLT_MIN, FLT_MIN);
@@ -1648,6 +1649,8 @@ void consolidate_meshes(Mesh* result, Map<Mesh>& meshes, cJSON* json, b8(*filter
 		s32 parent = cJSON_GetObjectItem(element, "parent")->valueint;
 		if (parent != -1)
 			mat = transforms[parent] * mat;
+
+		transforms.add(mat);
 
 		if (cJSON_GetObjectItem(element, "StaticGeom") && cJSON_GetObjectItem(element, "nav"))
 		{
@@ -1705,8 +1708,6 @@ void consolidate_meshes(Mesh* result, Map<Mesh>& meshes, cJSON* json, b8(*filter
 			}
 		}
 
-		transforms.add(mat);
-
 		element = element->next;
 	}
 }
@@ -1721,144 +1722,585 @@ b8 is_inaccessible(const Mesh* m)
 	return m->color.w == 0.0f;
 }
 
-const r32 grid_spacing = 0.5f;
-inline r32 grid_space(r32 x)
+b8 default_filter(const Mesh* m)
+{
+	return true;
+}
+
+const r32 grid_spacing = 2.0f;
+inline r32 grid_floor(r32 x)
 {
 	return floorf(x / grid_spacing) * grid_spacing;
 }
-
-void fill_top_flat_triangle(Array<Vec3>* out, const Vec3& normal_offset, const Vec3& u, const Vec3& v, const Vec2& v1, const Vec2& v2, const Vec2& v3)
+inline r32 grid_ceil(r32 x)
 {
-	r32 invslope1 = (v2.x - v1.x) / (v2.y - v1.y);
-	r32 invslope2 = (v3.x - v1.x) / (v3.y - v1.y);
+	return ceilf(x / grid_spacing) * grid_spacing;
+}
+
+s32 fill_top_flat_triangle(Array<Vec3>* out, const Vec3& normal_offset, const Vec3& u, const Vec3& v, const Vec2& v1, const Vec2& v2, const Vec2& v3)
+{
+	r32 invslope1 = grid_spacing * (v2.x - v1.x) / (v2.y - v1.y);
+	r32 invslope2 = grid_spacing * (v3.x - v1.x) / (v3.y - v1.y);
+
+	if (invslope1 > invslope2)
+	{
+		r32 tmp = invslope1;
+		invslope1 = invslope2;
+		invslope2 = tmp;
+	}
 
 	r32 curx1 = v1.x;
 	r32 curx2 = v1.x;
 
-	for (r32 y = grid_space(v1.y); y <= grid_space(v2.y); y += grid_spacing)
+	s32 count = 0;
+
+	for (r32 y = grid_ceil(v1.y); y < grid_ceil(v2.y); y += grid_spacing)
 	{
-		for (r32 x = grid_space(curx1); x <= grid_space(curx2); x += grid_spacing)
+		for (r32 x = grid_ceil(curx1); x < grid_ceil(curx2); x += grid_spacing)
+		{
 			out->add(normal_offset + (u * x) + (v * y));
+			count++;
+		}
 		curx1 += invslope1;
 		curx2 += invslope2;
 	}
+
+	return count;
 }
 
-void fill_bottom_flat_triangle(Array<Vec3>* out, const Vec3& normal_offset, const Vec3& u, const Vec3& v, const Vec2& v1, const Vec2& v2, const Vec2& v3)
+s32 fill_bottom_flat_triangle(Array<Vec3>* out, const Vec3& normal_offset, const Vec3& u, const Vec3& v, const Vec2& v1, const Vec2& v2, const Vec2& v3)
 {
-	r32 invslope1 = (v3.x - v1.x) / (v3.y - v1.y);
-	r32 invslope2 = (v3.x - v2.x) / (v3.y - v2.y);
+	r32 invslope1 = grid_spacing * (v3.x - v1.x) / (v3.y - v1.y);
+	r32 invslope2 = grid_spacing * (v3.x - v2.x) / (v3.y - v2.y);
+
+	if (invslope1 < invslope2)
+	{
+		r32 tmp = invslope1;
+		invslope1 = invslope2;
+		invslope2 = tmp;
+	}
 
 	r32 curx1 = v3.x;
 	r32 curx2 = v3.x;
 
-	for (r32 y = grid_space(v3.y); y > grid_space(v1.y); y -= grid_spacing)
+	s32 count = 0;
+
+	for (r32 y = grid_floor(v3.y); y > grid_ceil(v1.y); y -= grid_spacing)
 	{
 		curx1 -= invslope1;
 		curx2 -= invslope2;
-		for (r32 x = grid_space(curx1); x <= grid_space(curx2); x += grid_spacing)
+		for (r32 x = grid_ceil(curx1); x < grid_ceil(curx2); x += grid_spacing)
+		{
 			out->add(normal_offset + (u * x) + (v * y));
+			count++;
+		}
+	}
+
+	return count;
+}
+
+struct ChunkedMesh
+{
+	struct Coord
+	{
+		s32 x;
+		s32 y;
+		s32 z;
+	};
+
+	Vec3 vmin;
+	r32 chunk_size;
+	Coord size;
+	Array<Array<Vec3>> chunks;
+
+	void resize(const Vec3& bmin, const Vec3& bmax, r32 cell_size)
+	{
+		vmin = bmin;
+		chunk_size = cell_size;
+		size.x = (s32)ceilf((bmax.x - bmin.x) / cell_size);
+		size.y = (s32)ceilf((bmax.y - bmin.y) / cell_size);
+		size.z = (s32)ceilf((bmax.z - bmin.z) / cell_size);
+		chunks.resize(size.x * size.y * size.z);
+	}
+
+	b8 contains(const Coord& c) const
+	{
+		return c.x >= 0 && c.y >= 0 && c.z >= 0
+			&& c.x < size.x && c.y < size.y && c.z < size.z;
+	}
+
+	Array<Vec3>* get(const Coord& c)
+	{
+		return &chunks[c.x + (c.z * size.x) + (c.y * (size.x * size.z))];
+	}
+
+	const Array<Vec3>& get(const Coord& c) const
+	{
+		return chunks[c.x + (c.z * size.x) + (c.y * (size.x * size.z))];
+	}
+
+	Coord coord(Vec3 pos) const
+	{
+		return
+		{
+			(s32)((pos.x - vmin.x) / chunk_size),
+			(s32)((pos.y - vmin.y) / chunk_size),
+			(s32)((pos.z - vmin.z) / chunk_size)
+		};
+	}
+
+	Coord clamped_coord(Coord c) const
+	{
+		return
+		{
+			max(min(c.x, size.x - 1), 0),
+			max(min(c.y, size.y - 1), 0),
+			max(min(c.z, size.z - 1), 0),
+		};
+	}
+
+	~ChunkedMesh()
+	{
+		for (s32 i = 0; i < chunks.length; i++)
+			chunks[i].~Array();
+	}
+};
+
+void chunk_mesh(const Mesh& in, ChunkedMesh* out, r32 cell_size)
+{
+	// determine chunked mesh size
+	out->resize(in.bounds_min, in.bounds_max, cell_size);
+
+	// put triangles in chunks
+	for (s32 index_index = 0; index_index < in.indices.length; index_index += 3)
+	{
+		const Vec3& a = in.vertices[in.indices[index_index]];
+		const Vec3& b = in.vertices[in.indices[index_index + 1]];
+		const Vec3& c = in.vertices[in.indices[index_index + 2]];
+
+		// calculate bounding box
+		Vec3 vmin(FLT_MAX, FLT_MAX, FLT_MAX);
+		vmin.x = fmin(a.x, vmin.x);
+		vmin.y = fmin(a.y, vmin.y);
+		vmin.z = fmin(a.z, vmin.z);
+		vmin.x = fmin(b.x, vmin.x);
+		vmin.y = fmin(b.y, vmin.y);
+		vmin.z = fmin(b.z, vmin.z);
+		vmin.x = fmin(c.x, vmin.x);
+		vmin.y = fmin(c.y, vmin.y);
+		vmin.z = fmin(c.z, vmin.z);
+		Vec3 vmax(FLT_MIN, FLT_MIN, FLT_MIN);
+		vmax.x = fmax(a.x, vmax.x);
+		vmax.y = fmax(a.y, vmax.y);
+		vmax.z = fmax(a.z, vmax.z);
+		vmax.x = fmax(b.x, vmax.x);
+		vmax.y = fmax(b.y, vmax.y);
+		vmax.z = fmax(b.z, vmax.z);
+		vmax.x = fmax(c.x, vmax.x);
+		vmax.y = fmax(c.y, vmax.y);
+		vmax.z = fmax(c.z, vmax.z);
+
+		// insert triangle into all overlapping chunks
+		ChunkedMesh::Coord start = out->clamped_coord(out->coord(vmin));
+		ChunkedMesh::Coord end = out->clamped_coord(out->coord(vmax));
+		for (s32 x = start.x; x <= end.x; x++)
+		{
+			for (s32 y = start.y; y <= end.y; y++)
+			{
+				for (s32 z = start.z; z <= end.z; z++)
+				{
+					Array<Vec3>* tris = out->get({ x, y, z });
+					tris->add(a);
+					tris->add(b);
+					tris->add(c);
+				}
+			}
+		}
 	}
 }
 
-void build_awk_nav_mesh(const Mesh* accessible, const Mesh* inaccessible, AwkNavMesh* out)
+b8 awk_raycast_chunk(const Array<Vec3>& tris, const Vec3& start, const Vec3& dir, r32* closest_distance)
 {
-	for (s32 index_index = 0; index_index < accessible->indices.length; index_index += 3)
+	b8 hit = false;
+	for (s32 vertex_index = 0; vertex_index < tris.length; vertex_index += 3)
 	{
-		const Vec3& a = accessible->vertices[accessible->indices[index_index]];
-		const Vec3& b = accessible->vertices[accessible->indices[index_index + 1]];
-		const Vec3& c = accessible->vertices[accessible->indices[index_index + 2]];
+		const Vec3& a = tris[vertex_index];
+		const Vec3& b = tris[vertex_index + 1];
+		const Vec3& c = tris[vertex_index + 2];
 
-		// calculate UV vectors
+		Vec3 ba = b - a;
+		Vec3 ca = c - a;
 
-		Vec3 normal = (b - a).cross(c - a);
+		Vec3 normal = ba.cross(ca);
 		{
 			r32 normal_len = normal.length();
-			if (normal_len < 0.001f)
+			if (normal_len < 0.00001f)
 				continue; // degenerate triangle
 			normal /= normal_len;
 		}
 
-		Vec3 u, v;
-
-		if (normal.y > 0.999f || normal.y < -0.999f)
+		r32 normal_dot_dir = dir.dot(normal);
+		if (normal_dot_dir < 0.0f)
 		{
-			u = Vec3(1, 0, 0);
-			v = Vec3(0, 0, 1);
-		}
-		else
-		{
-			u = normal.cross(Vec3(0, 1, 0));
-			u.normalize();
-
-			if (u.x < 0.0f)
-				u *= -1;
-			if (u.z < 0.0f)
-				u *= -1;
-
-			v = u.cross(normal);
-
-			if (v.y < 0.0f)
-				v *= -1;
-		}
-
-		Vec3 normal_offset = normal * (normal.dot(a) + 0.05f);
-
-		// project a, b, c into UV space
-		Vec2 v1(u.dot(a), v.dot(a));
-		Vec2 v2(u.dot(b), v.dot(b));
-		Vec2 v3(u.dot(c), v.dot(c));
-
-		// sort v1, v2, v3 by Y coordinate ascending
-		if (v1.y <= v2.y && v1.y <= v3.y)
-		{
-			// v1 is already on bottom
-		}
-		else
-		{
-			if (v2.y <= v3.y)
+			r32 hit_distance = -normal.dot(start - a) / normal_dot_dir;
+			if (hit_distance > 0.0f && hit_distance < *closest_distance)
 			{
-				// swap v1 and v2
-				Vec2 tmp = v1;
-				v1 = v2;
-				v2 = tmp;
+				Vec3 hit_relative = (start + dir * hit_distance) - a;
+
+				// determine if point is inside triangle (stolen from Ogre)
+
+				// calculate the largest area projection plane in X, Y or Z.
+				s32 i0, i1;
+				{
+					r32 n0 = fabs(normal.x);
+					r32 n1 = fabs(normal.y);
+					r32 n2 = fabs(normal.z);
+
+					i0 = 1; i1 = 2;
+					if (n1 > n2)
+					{
+						if (n1 > n0)
+							i0 = 0;
+					}
+					else
+					{
+						if (n2 > n0)
+							i1 = 0;
+					}
+				}
+
+				// check the intersection point is inside the triangle.
+				{
+					r32 u1 = b[i0] - a[i0];
+					r32 v1 = b[i1] - a[i1];
+					r32 u2 = c[i0] - a[i0];
+					r32 v2 = c[i1] - a[i1];
+					r32 u0 = hit_distance * dir[i0] + start[i0] - a[i0];
+					r32 v0 = hit_distance * dir[i1] + start[i1] - a[i1];
+
+					r32 alpha = u0 * v2 - u2 * v0;
+					r32 beta  = u1 * v0 - u0 * v1;
+					r32 area  = u1 * v2 - u2 * v1;
+
+					// epsilon to avoid float precision error
+					const r32 EPSILON = 1e-6f;
+
+					r32 tolerance = - EPSILON * area;
+
+					if (area > 0)
+					{
+						if (alpha < tolerance || beta < tolerance || alpha + beta > area - tolerance)
+							continue;
+					}
+					else
+					{
+						if (alpha > tolerance || beta > tolerance || alpha + beta < area - tolerance)
+							continue;
+					}
+				}
+
+				// point is inside triangle
+				{
+					*closest_distance = hit_distance;
+					hit = true;
+				}
+			}
+		}
+	}
+	return hit;
+}
+
+b8 awk_raycast(const ChunkedMesh& mesh, const Vec3& start, const Vec3& end, b8* hit_close = nullptr)
+{
+	Vec3 dir = end - start;
+	r32 distance = dir.length();
+	dir /= distance;
+
+	// rasterization adapted from PolyVox
+	// http://www.volumesoffun.com/polyvox/documentation/library/doc/html/_raycast_8inl_source.html
+
+	r32 closest_distance = distance + AWK_RADIUS;
+
+	ChunkedMesh::Coord coord = mesh.coord(start);
+	ChunkedMesh::Coord coord_end = mesh.coord(end);
+
+	ChunkedMesh::Coord d;
+	d.x = ((coord.x < coord_end.x) ? 1 : ((coord.x > coord_end.x) ? -1 : 0));
+	d.y = ((coord.y < coord_end.y) ? 1 : ((coord.y > coord_end.y) ? -1 : 0));
+	d.z = ((coord.z < coord_end.z) ? 1 : ((coord.z > coord_end.z) ? -1 : 0));
+
+	Vec3 start_scaled = (start - mesh.vmin) / Vec3(mesh.chunk_size);
+	Vec3 end_scaled = (end - mesh.vmin) / Vec3(mesh.chunk_size);
+
+	Vec3 start_to_end_scaled
+	(
+		fabs(end_scaled.x - start_scaled.x),
+		fabs(end_scaled.y - start_scaled.y),
+		fabs(end_scaled.z - start_scaled.z)
+	);
+
+	Vec3 delta_t = Vec3(1.0f) / start_to_end_scaled;
+
+	Vec3 t;
+	{
+		Vec3 start_min(floorf(start_scaled.x), floorf(start_scaled.y), floorf(start_scaled.z));
+		Vec3 start_max = start_min + Vec3(1.0f);
+		t.x = ((start_scaled.x > end_scaled.x) ? (start_scaled.x - start_min.x) : (start_max.x - start_scaled.x)) / start_to_end_scaled.x;
+		t.y = ((start_scaled.y > end_scaled.y) ? (start_scaled.y - start_min.y) : (start_max.y - start_scaled.y)) / start_to_end_scaled.y;
+		t.z = ((start_scaled.z > end_scaled.z) ? (start_scaled.z - start_min.z) : (start_max.z - start_scaled.z)) / start_to_end_scaled.z;
+	}
+
+	for (;;)
+	{
+		if (!mesh.contains(coord))
+			break;
+
+		if (awk_raycast_chunk(mesh.get(coord), start, dir, &closest_distance))
+		{
+			if (hit_close)
+				*hit_close = fabs(closest_distance - distance) < AWK_RADIUS;
+			return true;
+		}
+
+		if (t.x <= t.y && t.x <= t.z)
+		{
+			if (coord.x == coord_end.x)
+				break;
+			t.x += delta_t.x;
+			coord.x += d.x;
+		}
+		else if (t.y <= t.z)
+		{
+			if (coord.y == coord_end.y)
+				break;
+			t.y += delta_t.y;
+			coord.y += d.y;
+		}
+		else 
+		{
+			if (coord.z == coord_end.z)
+				break;
+			t.z += delta_t.z;
+			coord.z += d.z;
+		}
+	}
+
+	if (hit_close)
+		*hit_close = false;
+	return false;
+}
+
+s32 build_awk_nav_mesh(Map<Mesh>& meshes, cJSON* json, AwkNavMesh* out)
+{
+	const r32 chunk_size = 12.0f;
+
+	Array<Vec3> normals;
+
+	ChunkedMesh accessible_chunked;
+
+	{
+		Mesh accessible;
+		consolidate_meshes(&accessible, meshes, json, is_accessible);
+
+		for (s32 index_index = 0; index_index < accessible.indices.length; index_index += 3)
+		{
+			const Vec3& a = accessible.vertices[accessible.indices[index_index]];
+			const Vec3& b = accessible.vertices[accessible.indices[index_index + 1]];
+			const Vec3& c = accessible.vertices[accessible.indices[index_index + 2]];
+
+			// calculate UV vectors
+
+			Vec3 normal = (b - a).cross(c - a);
+			{
+				r32 normal_len = normal.length();
+				if (normal_len < 0.00001f)
+					continue; // degenerate triangle
+				normal /= normal_len;
+			}
+
+			Vec3 u, v;
+
+			if (normal.y > 0.999f || normal.y < -0.999f)
+			{
+				u = Vec3(1, 0, 0);
+				v = Vec3(0, 0, 1);
 			}
 			else
 			{
-				// swap v1 and v3
-				Vec2 tmp = v1;
-				v1 = v3;
+				u = normal.cross(Vec3(0, 1, 0));
+				u.normalize();
+
+				if (u.x < 0.0f)
+					u *= -1;
+				if (u.z < 0.0f)
+					u *= -1;
+
+				v = u.cross(normal);
+
+				if (v.y < 0.0f)
+					v *= -1;
+			}
+
+			Vec3 normal_offset = normal * normal.dot(a);
+
+			// project a, b, c into UV space
+			Vec2 v1(u.dot(a), v.dot(a));
+			Vec2 v2(u.dot(b), v.dot(b));
+			Vec2 v3(u.dot(c), v.dot(c));
+
+			// sort v1, v2, v3 by Y coordinate ascending
+			if (v1.y <= v2.y && v1.y <= v3.y)
+			{
+				// v1 is already on bottom
+			}
+			else
+			{
+				if (v2.y <= v3.y)
+				{
+					// swap v1 and v2
+					Vec2 tmp = v1;
+					v1 = v2;
+					v2 = tmp;
+				}
+				else
+				{
+					// swap v1 and v3
+					Vec2 tmp = v1;
+					v1 = v3;
+					v3 = tmp;
+				}
+			}
+
+			// v1 is now on bottom
+			if (v2.y > v3.y)
+			{
+				// swap v2 and v3
+				Vec2 tmp = v2;
+				v2 = v3;
 				v3 = tmp;
 			}
+
+			s32 vertices_added;
+
+			if (v1.y == v2.y)
+				vertices_added = fill_bottom_flat_triangle(&out->vertices, normal_offset, u, v, v1, v2, v3);
+			else if (v2.y == v3.y)
+				vertices_added = fill_top_flat_triangle(&out->vertices, normal_offset, u, v, v1, v2, v3);
+			else
+			{
+				Vec2 v4
+				(
+					v1.x + ((v2.y - v1.y) / (v3.y - v1.y)) * (v3.x - v1.x),
+					v2.y
+				);
+				vertices_added = fill_top_flat_triangle(&out->vertices, normal_offset, u, v, v1, v2, v4);
+				vertices_added += fill_bottom_flat_triangle(&out->vertices, normal_offset, u, v, v2, v4, v3);
+			}
+
+			s32 last_length = normals.length;
+			normals.resize(normals.length + vertices_added);
+			for (s32 i = last_length; i < normals.length; i++)
+				normals[i] = normal;
 		}
 
-		// v1 is now on bottom
-		if (v2.y > v3.y)
-		{
-			// swap v2 and v3
-			Vec2 tmp = v2;
-			v2 = v3;
-			v3 = tmp;
-		}
+		chunk_mesh(accessible, &accessible_chunked, chunk_size);
+	}
 
-		if (v1.y == v2.y)
-			fill_bottom_flat_triangle(&out->vertices, normal_offset, u, v, v1, v2, v3);
-		else if (v2.y == v3.y)
-			fill_top_flat_triangle(&out->vertices, normal_offset, u, v, v1, v2, v3);
-		else
-		{
-			Vec2 v4
-			(
-				v1.x + ((v2.y - v1.y) / (v3.y - v1.y)) * (v3.x - v1.x),
-				v2.y
-			);
-			fill_top_flat_triangle(&out->vertices, normal_offset, u, v, v1, v2, v4);
-			fill_bottom_flat_triangle(&out->vertices, normal_offset, u, v, v2, v4, v3);
-		}
+	// chunk inaccessible mesh
+	ChunkedMesh inaccessible_chunked;
+	{
+		Mesh inaccessible;
+		consolidate_meshes(&inaccessible, meshes, json, is_inaccessible);
+		chunk_mesh(inaccessible, &inaccessible_chunked, chunk_size);
 	}
 	
-	// todo: build adjacency
+	// build adjacency
+
 	out->adjacency.resize(out->vertices.length);
+
+	// how many vertices had overflowing adjacency buffers?
+	s32 adjacency_buffer_overflows = 0;
+
+	for (s32 vertex_index = 0; vertex_index < out->vertices.length; vertex_index++)
+	{
+		const Vec3& vertex = out->vertices[vertex_index];
+		const Vec3& normal = normals[vertex_index];
+		AwkNavMesh::Adjacency* adjacency = &out->adjacency[vertex_index];
+
+		for (s32 neighbor_index = 0; neighbor_index < out->vertices.length; neighbor_index++)
+		{
+			if (neighbor_index == vertex_index)
+				continue;
+
+			b8 already_visited = false;
+			for (s32 i = 0; i < adjacency->length; i++)
+			{
+				if ((*adjacency)[i] == neighbor_index)
+				{
+					already_visited = true;
+					break;
+				}
+			}
+			if (already_visited)
+				continue;
+
+			const Vec3& neighbor = out->vertices[neighbor_index];
+			
+			Vec3 to_neighbor = neighbor - vertex;
+			if (normal.dot(to_neighbor) > 0.0f)
+			{
+				r32 distance = to_neighbor.length();
+				if (distance < AWK_MAX_DISTANCE)
+				{
+					const Vec3& normal_neighbor = normals[neighbor_index];
+					if (normal_neighbor.dot(to_neighbor) < 0.0f)
+					{
+						Vec3 ray_start = vertex + normal * AWK_RADIUS;
+
+						if (!awk_raycast(inaccessible_chunked, ray_start, neighbor))
+						{
+							b8 hit_close;
+							awk_raycast(accessible_chunked, ray_start, neighbor, &hit_close);
+							if (hit_close)
+							{
+								if (adjacency->length < adjacency->capacity())
+								{
+									adjacency->add(neighbor_index);
+									if (adjacency->length == adjacency->capacity())
+									{
+										adjacency_buffer_overflows++;
+										break;
+									}
+								}
+
+								AwkNavMesh::Adjacency* neighbor_adjacency = &out->adjacency[neighbor_index];
+								if (neighbor_adjacency->length < neighbor_adjacency->capacity())
+								{
+									neighbor_adjacency->add(vertex_index);
+									if (neighbor_adjacency->length == neighbor_adjacency->capacity())
+										adjacency_buffer_overflows++;
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
+	// remove orphans
+	for (s32 vertex_index = 0; vertex_index < out->vertices.length; vertex_index++)
+	{
+		const AwkNavMesh::Adjacency& adjacency = out->adjacency[vertex_index];
+		if (adjacency.length == 0)
+		{
+			out->vertices.remove(vertex_index);
+			out->adjacency.remove(vertex_index);
+			vertex_index--;
+		}
+	}
+
+	return adjacency_buffer_overflows;
 }
 
 void import_level(ImporterState& state, const std::string& asset_in_path, const std::string& out_folder)
@@ -1905,15 +2347,9 @@ void import_level(ImporterState& state, const std::string& asset_in_path, const 
 
 		// Build and write awk nav mesh
 		{
-			Mesh accessible;
-			Mesh inaccessible;
-
-			consolidate_meshes(&accessible, meshes, json, is_accessible);
-			consolidate_meshes(&inaccessible, meshes, json, is_inaccessible);
-
 			AwkNavMesh awk_nav;
 
-			build_awk_nav_mesh(&accessible, &inaccessible, &awk_nav);
+			s32 adjacency_buffer_overflows = build_awk_nav_mesh(meshes, json, &awk_nav);
 
 			FILE* f = fopen(awk_nav_mesh_out_path.c_str(), "w+b");
 			if (!f)
@@ -1934,14 +2370,14 @@ void import_level(ImporterState& state, const std::string& asset_in_path, const 
 
 			fclose(f);
 
-			printf("%s\n", awk_nav_mesh_out_path.c_str());
+			printf("%s - Vertices: %d Adjacency buffer overflows: %d\n", awk_nav_mesh_out_path.c_str(), awk_nav.vertices.length, adjacency_buffer_overflows);
 		}
 
 		// Build and write nav mesh
 		{
 			Mesh nav_mesh_input;
 
-			consolidate_meshes(&nav_mesh_input, meshes, json);
+			consolidate_meshes(&nav_mesh_input, meshes, json, default_filter);
 
 			TileCacheData nav_tiles;
 			if (nav_mesh_input.vertices.length > 0)

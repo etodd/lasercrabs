@@ -314,6 +314,17 @@ void update_attrib_sub_buffer(RenderSync* sync, const GLData::Mesh::Attrib* attr
 	}
 }
 
+GLenum gl_primitive_modes[] =
+{
+	GL_TRIANGLES, // RenderPrimitiveMode::Triangles
+	GL_TRIANGLE_STRIP, // RenderPrimitiveMode::TriangleStrip
+	GL_TRIANGLE_FAN, // RenderPrimitiveMode::TriangleFan
+	GL_LINES, // RenderPrimitiveMode::Lines
+	GL_LINE_STRIP, // RenderPrimitiveMode::LineStrip
+	GL_LINE_LOOP, // RenderPrimitiveMode::LineLoop
+	GL_POINTS, // RenderPrimitiveMode::Points
+};
+
 void render(RenderSync* sync)
 {
 	sync->read_pos = 0;
@@ -861,13 +872,15 @@ void render(RenderSync* sync)
 			}
 			case RenderOp::Mesh:
 			{
+				RenderPrimitiveMode primitive_mode = *(sync->read<RenderPrimitiveMode>());
 				s32 id = *(sync->read<s32>());
+
 				GLData::Mesh* mesh = &GLData::meshes[id];
 
 				glBindVertexArray(mesh->vertex_array);
 
 				glDrawElements(
-					GL_TRIANGLES, // mode
+					gl_primitive_modes[(s32)primitive_mode], // mode
 					mesh->index_count, // count
 					GL_UNSIGNED_INT, // type
 					0 // element array buffer offset

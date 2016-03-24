@@ -147,6 +147,7 @@ void SkinnedModel::draw(const RenderParams& params)
 	sync->write<Vec4>(color);
 
 	sync->write(RenderOp::Mesh);
+	sync->write(RenderPrimitiveMode::Triangles);
 	sync->write(mesh);
 
 #if DEBUG_SKIN

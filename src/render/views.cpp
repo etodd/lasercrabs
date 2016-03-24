@@ -128,6 +128,7 @@ void View::draw(const RenderParams& params) const
 	}
 
 	sync->write(RenderOp::Mesh);
+	sync->write(RenderPrimitiveMode::Triangles);
 	sync->write(mesh);
 }
 
@@ -231,6 +232,7 @@ void SkyDecal::draw_alpha(const RenderParams& p)
 		sync->write<AssetID>(d->texture);
 
 		sync->write(RenderOp::Mesh);
+		sync->write(RenderPrimitiveMode::Triangles);
 		sync->write(Asset::Mesh::sky_decal);
 	}
 
@@ -408,6 +410,7 @@ void Skybox::draw_alpha(const RenderParams& p)
 	}
 
 	sync->write(RenderOp::Mesh);
+	sync->write(RenderPrimitiveMode::Triangles);
 	sync->write(mesh);
 
 	sync->write<RenderOp>(RenderOp::DepthTest);
@@ -450,6 +453,7 @@ void SkyPattern::draw_alpha(const RenderParams& p)
 	sync->write<Vec4>(Vec4(1, 1, 1, 1));
 
 	sync->write(RenderOp::Mesh);
+	sync->write(RenderPrimitiveMode::Triangles);
 	sync->write(Asset::Mesh::sky_pattern);
 
 	sync->write<RenderOp>(RenderOp::FillMode);
@@ -487,6 +491,7 @@ void Cube::draw(const RenderParams& params, const Vec3& pos, const b8 alpha, con
 	sync->write<Vec4>(color);
 
 	sync->write(RenderOp::Mesh);
+	sync->write(RenderPrimitiveMode::Triangles);
 	sync->write(Asset::Mesh::cube);
 }
 

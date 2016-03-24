@@ -181,6 +181,7 @@ void render_point_lights(const RenderParams& render_params, s32 type_mask, const
 		sync->write<r32>(light->radius);
 
 		sync->write(RenderOp::Mesh);
+		sync->write(RenderPrimitiveMode::Triangles);
 		sync->write(Asset::Mesh::sphere);
 	}
 }
@@ -361,6 +362,7 @@ void render_spot_lights(const RenderParams& render_params, s32 type_mask, s32 fb
 
 		Loader::mesh_permanent(Asset::Mesh::cone);
 		sync->write(RenderOp::Mesh);
+		sync->write(RenderPrimitiveMode::Triangles);
 		sync->write(Asset::Mesh::cone);
 
 		sync->write<RenderOp>(RenderOp::BlendMode);
@@ -631,6 +633,7 @@ void draw(LoopSync* sync, const Camera* camera)
 			sync->write<Vec3>(directions, max_lights);
 
 			sync->write(RenderOp::Mesh);
+			sync->write(RenderPrimitiveMode::Triangles);
 			sync->write(screen_quad.mesh);
 		}
 
@@ -691,6 +694,7 @@ void draw(LoopSync* sync, const Camera* camera)
 			sync->write<Vec2>(inv_buffer_size);
 
 			sync->write(RenderOp::Mesh);
+			sync->write(RenderPrimitiveMode::Triangles);
 			sync->write(screen_quad.mesh);
 		}
 
@@ -763,6 +767,7 @@ void draw(LoopSync* sync, const Camera* camera)
 			sync->write<Vec3>(frustum, 4);
 
 			sync->write(RenderOp::Mesh);
+			sync->write(RenderPrimitiveMode::Triangles);
 			sync->write(screen_quad.mesh);
 		}
 
@@ -802,6 +807,7 @@ void draw(LoopSync* sync, const Camera* camera)
 			sync->write<s32>(half_depth_buffer);
 
 			sync->write(RenderOp::Mesh);
+			sync->write(RenderPrimitiveMode::Triangles);
 			sync->write(screen_quad.mesh);
 		}
 
@@ -824,6 +830,7 @@ void draw(LoopSync* sync, const Camera* camera)
 			sync->write<s32>(half_buffer1);
 
 			sync->write(RenderOp::Mesh);
+			sync->write(RenderPrimitiveMode::Triangles);
 			sync->write(screen_quad.mesh);
 		}
 	}
@@ -907,6 +914,7 @@ void draw(LoopSync* sync, const Camera* camera)
 		sync->write<AssetID>(depth_buffer);
 
 		sync->write(RenderOp::Mesh);
+		sync->write(RenderPrimitiveMode::Triangles);
 		sync->write(screen_quad.mesh);
 	}
 
@@ -988,6 +996,7 @@ void draw(LoopSync* sync, const Camera* camera)
 		sync->write<AssetID>(normal_buffer);
 
 		sync->write(RenderOp::Mesh);
+		sync->write(RenderPrimitiveMode::Triangles);
 		sync->write(screen_quad.mesh);
 	}
 
@@ -1055,6 +1064,7 @@ void draw(LoopSync* sync, const Camera* camera)
 		sync->write<Vec2>(inv_buffer_size);
 
 		sync->write(RenderOp::Mesh);
+		sync->write(RenderPrimitiveMode::Triangles);
 		sync->write(screen_quad.mesh);
 
 		// Blur x
@@ -1080,6 +1090,7 @@ void draw(LoopSync* sync, const Camera* camera)
 		sync->write<Vec2>(Vec2(inv_half_buffer_size.x, 0));
 
 		sync->write(RenderOp::Mesh);
+		sync->write(RenderPrimitiveMode::Triangles);
 		sync->write(screen_quad.mesh);
 
 		// Blur y
@@ -1100,6 +1111,7 @@ void draw(LoopSync* sync, const Camera* camera)
 		sync->write<Vec2>(Vec2(0, inv_half_buffer_size.y));
 
 		sync->write(RenderOp::Mesh);
+		sync->write(RenderPrimitiveMode::Triangles);
 		sync->write(screen_quad.mesh);
 	}
 

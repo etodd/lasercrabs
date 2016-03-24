@@ -162,17 +162,30 @@ void AI::refresh_nav_render_meshes(const RenderParams& params)
 		{
 			if (awk_nav_mesh)
 			{
-				for (s32 i = 0; i < awk_nav_mesh->vertices.length; i++)
-					vertices.add(awk_nav_mesh->vertices[i]);
-
-				for (s32 i = 0; i < awk_nav_mesh->adjacency.length; i++)
+				s32 vertex_count = 0;
+				for (s32 chunk_index = 0; chunk_index < awk_nav_mesh->chunks.length; chunk_index++)
 				{
-					const AwkNavMesh::Adjacency& adjacency = awk_nav_mesh->adjacency[i];
-					for (s32 j = 0; j < adjacency.length; j++)
+					const AwkNavMeshChunk& chunk = awk_nav_mesh->chunks[chunk_index];
+
+					for (s32 i = 0; i < chunk.vertices.length; i++)
+						vertices.add(chunk.vertices[i]);
+
+					for (s32 i = 0; i < chunk.adjacency.length; i++)
 					{
-						indices.add(i);
-						indices.add(adjacency[j]);
+						const AwkNavMeshAdjacency& adjacency = chunk.adjacency[i];
+						for (s32 j = 0; j < adjacency.length; j++)
+						{
+							const AwkNavMeshVertexIndex& neighbor = adjacency[j];
+							indices.add(vertex_count + i);
+
+							s32 neighbor_chunk_vertex_index = 0;
+							for (s32 k = 0; k < neighbor.chunk; k++)
+								neighbor_chunk_vertex_index += awk_nav_mesh->chunks[k].vertices.length;
+							indices.add(neighbor_chunk_vertex_index + neighbor.vertex);
+						}
 					}
+
+					vertex_count += chunk.vertices.length;
 				}
 			}
 

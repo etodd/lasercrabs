@@ -881,16 +881,27 @@ AwkNavMesh* Loader::awk_nav_mesh(AssetID id)
 		FILE* f = fopen(path, "rb");
 		if (f)
 		{
-			s32 vertex_count;
+			r32 chunk_size;
 
-			if (fread(&vertex_count, sizeof(s32), 1, f))
+			if (fread(&chunk_size, sizeof(r32), 1, f))
 			{
 				current_awk_nav_mesh = (AwkNavMesh*)malloc(sizeof(AwkNavMesh));
 				new (current_awk_nav_mesh) AwkNavMesh();
-				current_awk_nav_mesh->vertices.resize(vertex_count);
-				fread(current_awk_nav_mesh->vertices.data, sizeof(Vec3), vertex_count, f);
-				current_awk_nav_mesh->adjacency.resize(vertex_count);
-				fread(current_awk_nav_mesh->adjacency.data, sizeof(AwkNavMesh::Adjacency), vertex_count, f);
+
+				fread(&current_awk_nav_mesh->vmin, sizeof(Vec3), 1, f);
+				fread(&current_awk_nav_mesh->size, sizeof(AwkNavMesh::Coord), 1, f);
+				current_awk_nav_mesh->resize();
+
+				for (s32 i = 0; i < current_awk_nav_mesh->chunks.length; i++)
+				{
+					AwkNavMeshChunk* chunk = &current_awk_nav_mesh->chunks[i];
+					s32 vertex_count;
+					fread(&vertex_count, sizeof(s32), 1, f);
+					chunk->vertices.resize(vertex_count);
+					fread(chunk->vertices.data, sizeof(Vec3), vertex_count, f);
+					chunk->adjacency.resize(vertex_count);
+					fread(chunk->adjacency.data, sizeof(AwkNavMeshAdjacency), vertex_count, f);
+				}
 			}
 
 			fclose(f);

@@ -31,15 +31,6 @@ namespace Json
 	s32 get_enum(cJSON*, const char*, const char**, const s32 = 0);
 };
 
-#define AWK_NAV_MESH_ADJACENCY 48
-struct AwkNavMesh
-{
-	typedef StaticArray<s32, AWK_NAV_MESH_ADJACENCY> Adjacency;
-	Array<Vec3> vertices;
-	Array<Adjacency> adjacency;
-};
-
-// Can't have more than X meshes parented to a bone in a .arm file
 struct Bone
 {
 	Quat rot;
@@ -191,6 +182,112 @@ const r32 nav_tile_size = 20.0f;
 const s32 nav_max_layers = 32;
 const s32 nav_expected_layers_per_tile = 4; // how many layers (or "floors") each navmesh tile is expected to have
 const s32 nav_max_obstacles = 128;
+
+template<typename T> struct Chunks
+{
+	struct Coord
+	{
+		s32 x;
+		s32 y;
+		s32 z;
+	};
+
+	Vec3 vmin;
+	r32 chunk_size;
+	Coord size;
+	Array<T> chunks;
+
+	void resize()
+	{
+		chunks.resize(size.x * size.y * size.z);
+	}
+
+	void resize(const Vec3& bmin, const Vec3& bmax, r32 cell_size)
+	{
+		vmin = bmin;
+		chunk_size = cell_size;
+		size.x = (s32)ceilf((bmax.x - bmin.x) / cell_size);
+		size.y = (s32)ceilf((bmax.y - bmin.y) / cell_size);
+		size.z = (s32)ceilf((bmax.z - bmin.z) / cell_size);
+		resize();
+	}
+
+	b8 contains(const Coord& c) const
+	{
+		return c.x >= 0 && c.y >= 0 && c.z >= 0
+			&& c.x < size.x && c.y < size.y && c.z < size.z;
+	}
+
+	inline s32 index(const Coord& c) const
+	{
+		return c.x + (c.z * size.x) + (c.y * (size.x * size.z));
+	}
+
+	inline T* get(const Coord& c)
+	{
+		return &chunks[index(c)];
+	}
+
+	inline const T& get(const Coord& c) const
+	{
+		return chunks[index(c)];
+	}
+
+	Coord coord(Vec3 pos) const
+	{
+		return
+		{
+			(s32)((pos.x - vmin.x) / chunk_size),
+			(s32)((pos.y - vmin.y) / chunk_size),
+			(s32)((pos.z - vmin.z) / chunk_size)
+		};
+	}
+
+	Coord coord(s32 i) const
+	{
+		Coord c;
+		s32 xz = size.x * size.z;
+		c.y = i / xz;
+		s32 y_start = c.y * xz;
+		c.z = (i - y_start) / size.x;
+		c.x = i - (y_start + c.z * size.x);
+		return c;
+	}
+
+	Coord clamped_coord(Coord c) const
+	{
+		return
+		{
+			max(min(c.x, size.x - 1), 0),
+			max(min(c.y, size.y - 1), 0),
+			max(min(c.z, size.z - 1), 0),
+		};
+	}
+
+	~Chunks()
+	{
+		for (s32 i = 0; i < chunks.length; i++)
+			chunks[i].~T();
+	}
+};
+
+#define AWK_NAV_MESH_ADJACENCY 48
+struct AwkNavMeshVertexIndex
+{
+	u16 chunk;
+	u16 vertex;
+};
+typedef StaticArray<AwkNavMeshVertexIndex, AWK_NAV_MESH_ADJACENCY> AwkNavMeshAdjacency;
+struct AwkNavMeshChunk
+{
+	Array<Vec3> vertices;
+	Array<AwkNavMeshAdjacency> adjacency;
+};
+
+struct AwkNavMesh : Chunks<AwkNavMeshChunk>
+{
+};
+
 
 
 }

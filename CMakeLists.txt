@@ -426,7 +426,7 @@ target_link_libraries(import
 add_custom_target(
 	assets ALL
 	COMMAND $<TARGET_FILE:import>
-	DEPENDS import
 	WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
 )
+add_dependencies(assets import)
 add_dependencies(yearning assets)

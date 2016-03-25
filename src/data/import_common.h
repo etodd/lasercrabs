@@ -158,16 +158,6 @@ struct TileCacheData
 	Array<TileCacheCell> cells;
 };
 
-struct NavMeshInput
-{
-	r32* vertices;
-	s32 vertex_count;
-	s32* indices;
-	s32 index_count;
-	Vec3 bounds_min;
-	Vec3 bounds_max;
-};
-
 const r32 nav_agent_height = 2.0f;
 const r32 nav_agent_max_climb = 0.5f;
 const r32 nav_agent_radius = 0.45f;

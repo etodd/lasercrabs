@@ -24,7 +24,7 @@
 namespace VI
 {
 
-typedef Chunks<Array<Vec3>> ChunkedMesh;
+typedef Chunks<Array<Vec3>> ChunkedTris;
 
 const s32 version = 20;
 
@@ -1471,8 +1471,70 @@ b8 import_level_meshes(ImporterState& state, const std::string& asset_in_path, c
 	}
 }
 
-// todo: use ChunkedMesh for Recast nav mesh generation
-b8 rasterize_tile_layers(const rcConfig& cfg, const NavMeshInput& input, s32 tx, s32 ty, TileCacheCell* out_cell)
+void chunk_handle_tris(const Mesh& in, Array<Vec3>* tris, s32 a, s32 b, s32 c)
+{
+	tris->add(in.vertices[a]);
+	tris->add(in.vertices[b]);
+	tris->add(in.vertices[c]);
+}
+
+template<typename T, void (*handler)(const Mesh&, T*, s32, s32, s32)>
+void chunk_mesh(const Mesh& in, Chunks<T>* out, r32 cell_size)
+{
+	// determine chunked mesh size
+	out->resize(in.bounds_min, in.bounds_max, cell_size);
+
+	// put triangles in chunks
+	for (s32 index_index = 0; index_index < in.indices.length; index_index += 3)
+	{
+		s32 ia = in.indices[index_index];
+		s32 ib = in.indices[index_index + 1];
+		s32 ic = in.indices[index_index + 2];
+
+		const Vec3& a = in.vertices[ia];
+		const Vec3& b = in.vertices[ib];
+		const Vec3& c = in.vertices[ic];
+
+		// calculate bounding box
+		Vec3 vmin(FLT_MAX, FLT_MAX, FLT_MAX);
+		vmin.x = vi_min(a.x, vmin.x);
+		vmin.y = vi_min(a.y, vmin.y);
+		vmin.z = vi_min(a.z, vmin.z);
+		vmin.x = vi_min(b.x, vmin.x);
+		vmin.y = vi_min(b.y, vmin.y);
+		vmin.z = vi_min(b.z, vmin.z);
+		vmin.x = vi_min(c.x, vmin.x);
+		vmin.y = vi_min(c.y, vmin.y);
+		vmin.z = vi_min(c.z, vmin.z);
+		Vec3 vmax(FLT_MIN, FLT_MIN, FLT_MIN);
+		vmax.x = vi_max(a.x, vmax.x);
+		vmax.y = vi_max(a.y, vmax.y);
+		vmax.z = vi_max(a.z, vmax.z);
+		vmax.x = vi_max(b.x, vmax.x);
+		vmax.y = vi_max(b.y, vmax.y);
+		vmax.z = vi_max(b.z, vmax.z);
+		vmax.x = vi_max(c.x, vmax.x);
+		vmax.y = vi_max(c.y, vmax.y);
+		vmax.z = vi_max(c.z, vmax.z);
+
+		// insert triangle into all overlapping chunks
+		Chunks<T>::Coord start = out->clamped_coord(out->coord(vmin));
+		Chunks<T>::Coord end = out->clamped_coord(out->coord(vmax));
+		for (s32 x = start.x; x <= end.x; x++)
+		{
+			for (s32 y = start.y; y <= end.y; y++)
+			{
+				for (s32 z = start.z; z <= end.z; z++)
+				{
+					T* chunk = out->get({ x, y, z });
+					handler(in, chunk, ia, ib, ic);
+				}
+			}
+		}
+	}
+}
+
+b8 rasterize_tile_layers(const rcConfig& cfg, const Array<Vec3>& in_vertices, const Array<s32>& in_indices, s32 tx, s32 ty, TileCacheCell* out_cell)
 {
 	// Tile bounds.
 	const float tcs = cfg.tileSize * cfg.cs;
@@ -1503,9 +1565,9 @@ b8 rasterize_tile_layers(const rcConfig& cfg, const NavMeshInput& input, s32 tx,
 	// Rasterize input polygon soup.
 	// Find triangles which are walkable based on their slope and rasterize them.
 	{
-		Array<u8> tri_areas(input.index_count / 3, input.index_count / 3);
-		rcMarkWalkableTriangles(&ctx, tcfg.walkableSlopeAngle, (r32*)input.vertices, input.vertex_count, input.indices, input.index_count / 3, tri_areas.data);
-		rcRasterizeTriangles(&ctx, (r32*)input.vertices, input.vertex_count, input.indices, tri_areas.data, input.index_count / 3, *heightfield, tcfg.walkableClimb);
+		Array<u8> tri_areas(in_indices.length / 3, in_indices.length / 3);
+		rcMarkWalkableTriangles(&ctx, tcfg.walkableSlopeAngle, (r32*)in_vertices.data, in_vertices.length, in_indices.data, in_indices.length / 3, tri_areas.data);
+		rcRasterizeTriangles(&ctx, (r32*)in_vertices.data, in_vertices.length, in_indices.data, tri_areas.data, in_indices.length / 3, *heightfield, tcfg.walkableClimb);
 	}
 
 	// Once all geoemtry is rasterized, we do initial pass of filtering to
@@ -1587,7 +1649,7 @@ b8 rasterize_tile_layers(const rcConfig& cfg, const NavMeshInput& input, s32 tx,
 	return true;
 }
 
-b8 build_nav_mesh(const NavMeshInput& input, TileCacheData* output_tiles)
+b8 build_nav_mesh(const Mesh& input, TileCacheData* output_tiles)
 {
 	rcConfig cfg;
 	memset(&cfg, 0, sizeof(cfg));
@@ -1620,12 +1682,13 @@ b8 build_nav_mesh(const NavMeshInput& input, TileCacheData* output_tiles)
 
 	memcpy(&output_tiles->min, cfg.bmin, sizeof(Vec3));
 	
+	// todo: use Chunks<> to speed up tile rasterization
 	for (s32 ty = 0; ty < output_tiles->height; ty++)
 	{
 		for (s32 tx = 0; tx < output_tiles->width; tx++)
 		{
 			TileCacheCell* out_cell = output_tiles->cells.add();
-			if (!rasterize_tile_layers(cfg, input, tx, ty, out_cell))
+			if (!rasterize_tile_layers(cfg, input.vertices, input.indices, tx, ty, out_cell))
 				return false;
 		}
 	}
@@ -1739,7 +1802,7 @@ inline r32 grid_ceil(r32 x)
 	return ceilf(x / grid_spacing) * grid_spacing;
 }
 
-s32 rasterize_top_flat_triangle(AwkNavMesh* out, ChunkedMesh* normals, const Vec3& normal, const Vec3& normal_offset, const Vec3& u, const Vec3& v, const Vec2& v1, const Vec2& v2, const Vec2& v3)
+s32 rasterize_top_flat_triangle(AwkNavMesh* out, ChunkedTris* normals, const Vec3& normal, const Vec3& normal_offset, const Vec3& u, const Vec3& v, const Vec2& v1, const Vec2& v2, const Vec2& v3)
 {
 	r32 invslope1 = grid_spacing * (v2.x - v1.x) / (v2.y - v1.y);
 	r32 invslope2 = grid_spacing * (v3.x - v1.x) / (v3.y - v1.y);
@@ -1773,7 +1836,7 @@ s32 rasterize_top_flat_triangle(AwkNavMesh* out, ChunkedMesh* normals, const Vec
 	return count;
 }
 
-s32 rasterize_bottom_flat_triangle(AwkNavMesh* out, ChunkedMesh* normals, const Vec3& normal, const Vec3& normal_offset, const Vec3& u, const Vec3& v, const Vec2& v1, const Vec2& v2, const Vec2& v3)
+s32 rasterize_bottom_flat_triangle(AwkNavMesh* out, ChunkedTris* normals, const Vec3& normal, const Vec3& normal_offset, const Vec3& u, const Vec3& v, const Vec2& v1, const Vec2& v2, const Vec2& v3)
 {
 	r32 invslope1 = grid_spacing * (v3.x - v1.x) / (v3.y - v1.y);
 	r32 invslope2 = grid_spacing * (v3.x - v2.x) / (v3.y - v2.y);
@@ -1805,59 +1868,6 @@ s32 rasterize_bottom_flat_triangle(AwkNavMesh* out, ChunkedMesh* normals, const 
 	}
 
 	return count;
-}
-
-void chunk_mesh(const Mesh& in, ChunkedMesh* out, r32 cell_size)
-{
-	// determine chunked mesh size
-	out->resize(in.bounds_min, in.bounds_max, cell_size);
-
-	// put triangles in chunks
-	for (s32 index_index = 0; index_index < in.indices.length; index_index += 3)
-	{
-		const Vec3& a = in.vertices[in.indices[index_index]];
-		const Vec3& b = in.vertices[in.indices[index_index + 1]];
-		const Vec3& c = in.vertices[in.indices[index_index + 2]];
-
-		// calculate bounding box
-		Vec3 vmin(FLT_MAX, FLT_MAX, FLT_MAX);
-		vmin.x = vi_min(a.x, vmin.x);
-		vmin.y = vi_min(a.y, vmin.y);
-		vmin.z = vi_min(a.z, vmin.z);
-		vmin.x = vi_min(b.x, vmin.x);
-		vmin.y = vi_min(b.y, vmin.y);
-		vmin.z = vi_min(b.z, vmin.z);
-		vmin.x = vi_min(c.x, vmin.x);
-		vmin.y = vi_min(c.y, vmin.y);
-		vmin.z = vi_min(c.z, vmin.z);
-		Vec3 vmax(FLT_MIN, FLT_MIN, FLT_MIN);
-		vmax.x = vi_max(a.x, vmax.x);
-		vmax.y = vi_max(a.y, vmax.y);
-		vmax.z = vi_max(a.z, vmax.z);
-		vmax.x = vi_max(b.x, vmax.x);
-		vmax.y = vi_max(b.y, vmax.y);
-		vmax.z = vi_max(b.z, vmax.z);
-		vmax.x = vi_max(c.x, vmax.x);
-		vmax.y = vi_max(c.y, vmax.y);
-		vmax.z = vi_max(c.z, vmax.z);
-
-		// insert triangle into all overlapping chunks
-		ChunkedMesh::Coord start = out->clamped_coord(out->coord(vmin));
-		ChunkedMesh::Coord end = out->clamped_coord(out->coord(vmax));
-		for (s32 x = start.x; x <= end.x; x++)
-		{
-			for (s32 y = start.y; y <= end.y; y++)
-			{
-				for (s32 z = start.z; z <= end.z; z++)
-				{
-					Array<Vec3>* tris = out->get({ x, y, z });
-					tris->add(a);
-					tris->add(b);
-					tris->add(c);
-				}
-			}
-		}
-	}
 }
 
 b8 awk_raycast_chunk(const Array<Vec3>& tris, const Vec3& start, const Vec3& dir, r32* closest_distance)
@@ -1951,7 +1961,7 @@ b8 awk_raycast_chunk(const Array<Vec3>& tris, const Vec3& start, const Vec3& dir
 	return hit;
 }
 
-b8 awk_raycast(const ChunkedMesh& mesh, const Vec3& start, const Vec3& end, b8* hit_close = nullptr)
+b8 awk_raycast(const ChunkedTris& mesh, const Vec3& start, const Vec3& end, b8* hit_close = nullptr)
 {
 	Vec3 dir = end - start;
 	r32 distance = dir.length();
@@ -1962,10 +1972,10 @@ b8 awk_raycast(const ChunkedMesh& mesh, const Vec3& start, const Vec3& end, b8* 
 
 	r32 closest_distance = distance + AWK_RADIUS;
 
-	ChunkedMesh::Coord coord = mesh.coord(start);
-	ChunkedMesh::Coord coord_end = mesh.coord(end);
+	ChunkedTris::Coord coord = mesh.coord(start);
+	ChunkedTris::Coord coord_end = mesh.coord(end);
 
-	ChunkedMesh::Coord d;
+	ChunkedTris::Coord d;
 	d.x = ((coord.x < coord_end.x) ? 1 : ((coord.x > coord_end.x) ? -1 : 0));
 	d.y = ((coord.y < coord_end.y) ? 1 : ((coord.y > coord_end.y) ? -1 : 0));
 	d.z = ((coord.z < coord_end.z) ? 1 : ((coord.z > coord_end.z) ? -1 : 0));
@@ -2035,9 +2045,9 @@ void build_awk_nav_mesh(Map<Mesh>& meshes, cJSON* json, AwkNavMesh* out, s32* ad
 {
 	const r32 chunk_size = 12.0f;
 
-	ChunkedMesh normals;
+	ChunkedTris normals;
 
-	ChunkedMesh accessible_chunked;
+	ChunkedTris accessible_chunked;
 
 	{
 		Mesh accessible;
@@ -2142,15 +2152,15 @@ void build_awk_nav_mesh(Map<Mesh>& meshes, cJSON* json, AwkNavMesh* out, s32* ad
 			}
 		}
 
-		chunk_mesh(accessible, &accessible_chunked, chunk_size);
+		chunk_mesh<Array<Vec3>, &chunk_handle_tris>(accessible, &accessible_chunked, chunk_size);
 	}
 
 	// chunk inaccessible mesh
-	ChunkedMesh inaccessible_chunked;
+	ChunkedTris inaccessible_chunked;
 	{
 		Mesh inaccessible;
 		consolidate_meshes(&inaccessible, meshes, json, is_inaccessible);
-		chunk_mesh(inaccessible, &inaccessible_chunked, chunk_size);
+		chunk_mesh<Array<Vec3>, &chunk_handle_tris>(inaccessible, &inaccessible_chunked, chunk_size);
 	}
 	
 	// build adjacency
@@ -2354,14 +2364,7 @@ void import_level(ImporterState& state, const std::string& asset_in_path, const 
 			TileCacheData nav_tiles;
 			if (nav_mesh_input.vertices.length > 0)
 			{
-				NavMeshInput input_data;
-				input_data.vertices = (r32*)nav_mesh_input.vertices.data;
-				input_data.vertex_count = nav_mesh_input.vertices.length;
-				input_data.indices = nav_mesh_input.indices.data;
-				input_data.index_count = nav_mesh_input.indices.length;
-				input_data.bounds_min = nav_mesh_input.bounds_min;
-				input_data.bounds_max = nav_mesh_input.bounds_max;
-				if (!build_nav_mesh(input_data, &nav_tiles))
+				if (!build_nav_mesh(nav_mesh_input, &nav_tiles))
 				{
 					fprintf(stderr, "Error: Nav mesh generation failed for file %s.\n", asset_in_path.c_str());
 					state.error = true;

@@ -13,6 +13,9 @@ namespace VI
 #define PI 3.1415926535897f
 #define HALF_PI (3.1415926535897f * 0.5f)
 
+template<typename T> inline T vi_max(T a, T b) { return a > b ? a : b; }
+template<typename T> inline T vi_min(T a, T b) { return a < b ? a : b; }
+
 // Mostly stolen from Ogre3D
 
 struct Vec2
@@ -1576,7 +1579,7 @@ namespace LMath
 
 	inline r32 clampf(r32 t, r32 a, r32 b)
 	{
-		return fmin(b, fmax(a, t));
+		return vi_min(b, vi_max(a, t));
 	}
 
 	inline r32 lerpf(r32 t, r32 a, r32 b)
@@ -1608,10 +1611,11 @@ namespace LMath
 	{
 		r32 closest_target = closest_angle(target, angle);
 		if (angle < closest_target)
-			return angle_range(fmin(angle + delta, closest_target));
+			return angle_range(vi_min(angle + delta, closest_target));
 		else
-			return angle_range(fmax(angle - delta, closest_target));
+			return angle_range(vi_max(angle - delta, closest_target));
 	}
 }
+
 
 }

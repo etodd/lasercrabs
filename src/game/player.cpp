@@ -66,7 +66,7 @@ void draw_indicator(const RenderParams& params, const Vec3& pos, const Vec4& col
 		if (!on_screen)
 			offset *= -1.0f;
 
-		r32 radius = fmin(viewport.size.x, viewport.size.y) * 0.95f * 0.5f;
+		r32 radius = vi_min(viewport.size.x, viewport.size.y) * 0.95f * 0.5f;
 
 		r32 offset_length = offset.length();
 		if (offset_length > radius || (offset_length > 0.0f && !on_screen))
@@ -502,7 +502,7 @@ void PlayerCommon::update(const Update& u)
 	{
 		// Either we are a Minion, or we're an Awk and we're attached to a surface
 		// Either way, we need to decrement the cooldown timer
-		cooldown = fmax(0.0f, cooldown - u.time.delta * cooldown_multiplier);
+		cooldown = vi_max(0.0f, cooldown - u.time.delta * cooldown_multiplier);
 	}
 }
 
@@ -710,9 +710,9 @@ void LocalPlayerControl::update(const Update& u)
 		}
 
 		if (fov_blend < fov_blend_target)
-			fov_blend = fmin(fov_blend + u.time.delta * zoom_speed, fov_blend_target);
+			fov_blend = vi_min(fov_blend + u.time.delta * zoom_speed, fov_blend_target);
 		else if (fov_blend > fov_blend_target)
-			fov_blend = fmax(fov_blend - u.time.delta * zoom_speed, fov_blend_target);
+			fov_blend = vi_max(fov_blend - u.time.delta * zoom_speed, fov_blend_target);
 	}
 
 	Vec3 camera_pos;
@@ -727,7 +727,7 @@ void LocalPlayerControl::update(const Update& u)
 
 			r32 angle = Quat::angle(attach_quat, rot);
 			if (angle > 0)
-				attach_quat = Quat::slerp(fmin(1.0f, rotation_speed * u.time.delta), attach_quat, rot);
+				attach_quat = Quat::slerp(vi_min(1.0f, rotation_speed * u.time.delta), attach_quat, rot);
 
 			// Look
 			{
@@ -754,7 +754,7 @@ void LocalPlayerControl::update(const Update& u)
 			Quat rot = Quat::look(direction);
 			r32 angle = Quat::angle(attach_quat, rot);
 			if (angle > 0)
-				attach_quat = Quat::slerp(fmin(1.0f, rotation_speed * u.time.delta), attach_quat, rot);
+				attach_quat = Quat::slerp(vi_min(1.0f, rotation_speed * u.time.delta), attach_quat, rot);
 			look_quat = attach_quat;
 		}
 
@@ -890,7 +890,7 @@ void LocalPlayerControl::update(const Update& u)
 				get<Walker>()->rotation = LMath::angle_range(get<Walker>()->rotation + delta + PI * 0.5f);
 		}
 
-		lean += (lean_target - lean) * fmin(1.0f, 15.0f * u.time.delta);
+		lean += (lean_target - lean) * vi_min(1.0f, 15.0f * u.time.delta);
 		look_quat = Quat::euler(lean, angle_horizontal, angle_vertical);
 	}
 	
@@ -1000,7 +1000,7 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 		if (has<Awk>() && get<Transform>()->parent.ref())
 		{
 			r32 cooldown = get<PlayerCommon>()->cooldown;
-			r32 radius = cooldown == 0.0f ? 0.0f : fmax(0.0f, 32.0f * (get<PlayerCommon>()->cooldown / AWK_MAX_DISTANCE_COOLDOWN));
+			r32 radius = cooldown == 0.0f ? 0.0f : vi_max(0.0f, 32.0f * (get<PlayerCommon>()->cooldown / AWK_MAX_DISTANCE_COOLDOWN));
 			if (radius > 0 || tracer.type == TraceType::None || !Game::data.allow_detach)
 			{
 				// hollow reticle
@@ -1028,7 +1028,7 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 		}
 
 		// compass
-		Vec2 compass_size = Vec2(fmin(viewport.size.x, viewport.size.y) * 0.3f);
+		Vec2 compass_size = Vec2(vi_min(viewport.size.x, viewport.size.y) * 0.3f);
 		UI::mesh(params, Asset::Mesh::compass_inner, viewport.size * Vec2(0.5f, 0.5f), compass_size, UI::accent_color, angle_vertical);
 		UI::mesh(params, Asset::Mesh::compass_outer, viewport.size * Vec2(0.5f, 0.5f), compass_size, UI::accent_color, -angle_horizontal);
 

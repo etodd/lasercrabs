@@ -941,12 +941,12 @@ namespace level4
 		if (alert)
 		{
 			data->last_danger_time = Game::real_time.total;
-			data->danger = fmin(1.0f, data->danger + Game::real_time.delta / danger_rampup_time);
+			data->danger = vi_min(1.0f, data->danger + Game::real_time.delta / danger_rampup_time);
 			update_audio = true;
 		}
 		else if (Game::real_time.total - data->last_danger_time > danger_linger_time)
 		{
-			data->danger = fmax(0.0f, data->danger - Game::real_time.delta / danger_rampdown_time);
+			data->danger = vi_max(0.0f, data->danger - Game::real_time.delta / danger_rampdown_time);
 			update_audio = true;
 		}
 

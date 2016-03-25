@@ -333,7 +333,7 @@ void Awk::crawl(const Vec3& dir_raw, const Update& u)
 
 	if (get<Transform>()->parent.ref() && dir_length > 0)
 	{
-		r32 speed = last_speed = fmin(dir_length, 1.0f) * AWK_CRAWL_SPEED;
+		r32 speed = last_speed = vi_min(dir_length, 1.0f) * AWK_CRAWL_SPEED;
 
 		Vec3 wall_normal = get<Transform>()->absolute_rot() * Vec3(0, 0, 1);
 		Vec3 pos = get<Transform>()->absolute_pos();
@@ -543,21 +543,21 @@ void Awk::update(const Update& u)
 		{
 			r32 angle = Quat::angle(lerped_rotation, Quat::identity);
 			if (angle > 0)
-				lerped_rotation = Quat::slerp(fmin(1.0f, (LERP_ROTATION_SPEED / angle) * u.time.delta), lerped_rotation, Quat::identity);
+				lerped_rotation = Quat::slerp(vi_min(1.0f, (LERP_ROTATION_SPEED / angle) * u.time.delta), lerped_rotation, Quat::identity);
 		}
 
 		{
 			Vec3 to_transform = get<Transform>()->pos - lerped_pos;
 			r32 distance = to_transform.length();
 			if (distance > 0.0f)
-				lerped_pos = Vec3::lerp(fmin(1.0f, (LERP_TRANSLATION_SPEED / distance) * u.time.delta), lerped_pos, get<Transform>()->pos);
+				lerped_pos = Vec3::lerp(vi_min(1.0f, (LERP_TRANSLATION_SPEED / distance) * u.time.delta), lerped_pos, get<Transform>()->pos);
 		}
 
 		update_offset();
 
 		Mat4 inverse_offset = get<SkinnedModel>()->offset.inverse();
 
-		r32 leg_blend_speed = fmax(AWK_MIN_LEG_BLEND_SPEED, AWK_LEG_BLEND_SPEED * (last_speed / AWK_CRAWL_SPEED));
+		r32 leg_blend_speed = vi_max(AWK_MIN_LEG_BLEND_SPEED, AWK_LEG_BLEND_SPEED * (last_speed / AWK_CRAWL_SPEED));
 		last_speed = 0.0f;
 
 		Armature* arm = Loader::armature(get<Animator>()->armature);
@@ -590,7 +590,7 @@ void Awk::update(const Update& u)
 				else if (target_leg_space.y < AWK_LEG_LENGTH * -1.5f || target_leg_space.y > AWK_LEG_LENGTH * 1.5f
 					|| target_leg_space.length_squared() > (AWK_LEG_LENGTH * 2.0f) * (AWK_LEG_LENGTH * 2.0f))
 				{
-					find_footing_offset = Vec3(fmax(target_leg_space.x, AWK_LEG_LENGTH * 0.25f), -target_leg_space.y, 0);
+					find_footing_offset = Vec3(vi_max(target_leg_space.x, AWK_LEG_LENGTH * 0.25f), -target_leg_space.y, 0);
 					find_footing = true;
 				}
 			}
@@ -640,7 +640,7 @@ void Awk::update(const Update& u)
 					Vec3 last_relative_target = (inverse_offset * Vec4(get<Transform>()->to_local(footing[i].last_abs_pos), 1)).xyz();
 					Vec3 last_target_leg_space = (arm->inverse_bind_pose[awk_legs[i]] * Vec4(last_relative_target, 1.0f)).xyz();
 
-					footing[i].blend = fmin(1.0f, footing[i].blend + u.time.delta * leg_blend_speed);
+					footing[i].blend = vi_min(1.0f, footing[i].blend + u.time.delta * leg_blend_speed);
 					target_leg_space = Vec3::lerp(footing[i].blend, last_target_leg_space, target_leg_space);
 					if (footing[i].blend == 1.0f && Game::real_time.total - last_footstep > 0.07f)
 					{
@@ -779,7 +779,7 @@ void Awk::update(const Update& u)
 					}
 				}
 			}
-			get<PlayerCommon>()->cooldown = fmin(get<PlayerCommon>()->cooldown + (next_position - position).length() * AWK_COOLDOWN_DISTANCE_RATIO, AWK_MAX_DISTANCE_COOLDOWN);
+			get<PlayerCommon>()->cooldown = vi_min(get<PlayerCommon>()->cooldown + (next_position - position).length() * AWK_COOLDOWN_DISTANCE_RATIO, AWK_MAX_DISTANCE_COOLDOWN);
 		}
 	}
 }

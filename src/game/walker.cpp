@@ -167,20 +167,20 @@ void Walker::update(const Update& u)
 				r32 target_y = ray_callback.m_hitPointWorld.y() + support_height + height * 0.5f;
 				r32 height_difference = target_y - pos.y;
 				const r32 max_adjustment_speed = 5.0f;
-				r32 y_adjustment = fmin(fmax(height_difference, (support_velocity.y - max_adjustment_speed) * u.time.delta), (support_velocity.y + max_adjustment_speed) * u.time.delta);
+				r32 y_adjustment = vi_min(vi_max(height_difference, (support_velocity.y - max_adjustment_speed) * u.time.delta), (support_velocity.y + max_adjustment_speed) * u.time.delta);
 
 				body->translate(btVector3(0, y_adjustment, 0));
 
 				r32 normal_velocity = velocity.dot(Vec3(ray_callback.m_hitNormalWorld));
 				r32 support_normal_velocity = support_velocity.dot(support_normal);
 				adjustment += (support_normal_velocity - normal_velocity) * Vec3(ray_callback.m_hitNormalWorld);
-				adjustment.y = fmax(adjustment.y, 0);
+				adjustment.y = vi_max(adjustment.y, 0.0f);
 
 				b8 has_traction = support_normal.y > 0.5f;
 
 				Vec2 movement = dir;
 
-				r32 movement_length = fmin(1.0f, movement.length());
+				r32 movement_length = vi_min(1.0f, movement.length());
 
 				if (has_traction && movement_length > 0.0f)
 				{
@@ -216,7 +216,7 @@ void Walker::update(const Update& u)
 					if (net_z_speed > movement_length * max_speed)
 					{
 						// Decelerate
-						r32 z_speed_change = fmin(u.time.delta * deceleration, net_z_speed - movement_length * max_speed);
+						r32 z_speed_change = vi_min(u.time.delta * deceleration, net_z_speed - movement_length * max_speed);
 						adjustment -= z_speed_change * z;
 					}
 					else
@@ -225,10 +225,10 @@ void Walker::update(const Update& u)
 						r32 target_speed = speed * movement_length;
 						if (net_z_speed < target_speed)
 						{
-							r32 z_speed_change = fmin(u.time.delta * acceleration, target_speed - net_z_speed);
+							r32 z_speed_change = vi_min(u.time.delta * acceleration, target_speed - net_z_speed);
 							adjustment += z_speed_change * z;
 							if (z.y > 0.0f)
-								adjustment.y += z.y * fmin(u.time.delta * acceleration * 4.0f, target_speed - net_z_speed) * 2.0f;
+								adjustment.y += z.y * vi_min(u.time.delta * acceleration * 4.0f, target_speed - net_z_speed) * 2.0f;
 						}
 					}
 
@@ -253,7 +253,7 @@ void Walker::update(const Update& u)
 					if (speed > 0)
 					{
 						Vec3 relative_velocity_normalized = relative_velocity / speed;
-						r32 velocity_change = fmin(speed, decel);
+						r32 velocity_change = vi_min(speed, decel);
 						adjustment -= velocity_change * relative_velocity_normalized;
 					}
 				}
@@ -276,7 +276,7 @@ void Walker::update(const Update& u)
 			Vec3 accel3 = Vec3(accel.x, 0, accel.y);
 
 			// Don't allow the walker to go faster than the speed we were going when we last hit the ground
-			if (velocity.dot(accel3 / accel3.length()) < fmax(speed * 0.25f, last_supported_speed))
+			if (velocity.dot(accel3 / accel3.length()) < vi_max(speed * 0.25f, last_supported_speed))
 				adjustment += accel3;
 		}
 
@@ -295,7 +295,7 @@ void Walker::update(const Update& u)
 
 	target_rotation = LMath::closest_angle(target_rotation, rotation);
 
-	rotation = target_rotation > rotation ? fmin(target_rotation, rotation + rotation_speed * u.time.delta) : fmax(target_rotation, rotation - rotation_speed * u.time.delta);
+	rotation = target_rotation > rotation ? vi_min(target_rotation, rotation + rotation_speed * u.time.delta) : vi_max(target_rotation, rotation - rotation_speed * u.time.delta);
 
 	rotation = LMath::angle_range(rotation);
 }

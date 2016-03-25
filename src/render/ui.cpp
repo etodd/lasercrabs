@@ -168,7 +168,7 @@ void UIText::refresh_bounds()
 			}
 		}
 
-		normalized_bounds.x = fmax(normalized_bounds.x, pos.x);
+		normalized_bounds.x = vi_max(normalized_bounds.x, pos.x);
 
 		char_index++;
 	}

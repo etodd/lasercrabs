@@ -852,13 +852,13 @@ b8 load_mesh(const aiMesh* mesh, Mesh* out)
 	{
 		aiVector3D pos = mesh->mVertices[i];
 		Vec3 v = Vec3(pos.y, pos.z, pos.x);
-		out->bounds_min.x = fmin(v.x, out->bounds_min.x);
-		out->bounds_min.y = fmin(v.y, out->bounds_min.y);
-		out->bounds_min.z = fmin(v.z, out->bounds_min.z);
-		out->bounds_max.x = fmax(v.x, out->bounds_max.x);
-		out->bounds_max.y = fmax(v.y, out->bounds_max.y);
-		out->bounds_max.z = fmax(v.z, out->bounds_max.z);
-		out->bounds_radius = fmax(out->bounds_radius, v.length_squared());
+		out->bounds_min.x = vi_min(v.x, out->bounds_min.x);
+		out->bounds_min.y = vi_min(v.y, out->bounds_min.y);
+		out->bounds_min.z = vi_min(v.z, out->bounds_min.z);
+		out->bounds_max.x = vi_max(v.x, out->bounds_max.x);
+		out->bounds_max.y = vi_max(v.y, out->bounds_max.y);
+		out->bounds_max.z = vi_max(v.z, out->bounds_max.z);
+		out->bounds_radius = vi_max(out->bounds_radius, v.length_squared());
 		out->vertices.add(v);
 	}
 	out->bounds_radius = sqrtf(out->bounds_radius);
@@ -1684,12 +1684,12 @@ void consolidate_meshes(Mesh* result, Map<Mesh>& meshes, cJSON* json, b8(*filter
 
 					for (s32 i = 0; i < 8; i++)
 					{
-						result->bounds_min.x = fmin(corners[i].x, result->bounds_min.x);
-						result->bounds_min.y = fmin(corners[i].y, result->bounds_min.y);
-						result->bounds_min.z = fmin(corners[i].z, result->bounds_min.z);
-						result->bounds_max.x = fmax(corners[i].x, result->bounds_max.x);
-						result->bounds_max.y = fmax(corners[i].y, result->bounds_max.y);
-						result->bounds_max.z = fmax(corners[i].z, result->bounds_max.z);
+						result->bounds_min.x = vi_min(corners[i].x, result->bounds_min.x);
+						result->bounds_min.y = vi_min(corners[i].y, result->bounds_min.y);
+						result->bounds_min.z = vi_min(corners[i].z, result->bounds_min.z);
+						result->bounds_max.x = vi_max(corners[i].x, result->bounds_max.x);
+						result->bounds_max.y = vi_max(corners[i].y, result->bounds_max.y);
+						result->bounds_max.z = vi_max(corners[i].z, result->bounds_max.z);
 					}
 
 					result->vertices.reserve(result->vertices.length + mesh.vertices.length);
@@ -1821,25 +1821,25 @@ void chunk_mesh(const Mesh& in, ChunkedMesh* out, r32 cell_size)
 
 		// calculate bounding box
 		Vec3 vmin(FLT_MAX, FLT_MAX, FLT_MAX);
-		vmin.x = fmin(a.x, vmin.x);
-		vmin.y = fmin(a.y, vmin.y);
-		vmin.z = fmin(a.z, vmin.z);
-		vmin.x = fmin(b.x, vmin.x);
-		vmin.y = fmin(b.y, vmin.y);
-		vmin.z = fmin(b.z, vmin.z);
-		vmin.x = fmin(c.x, vmin.x);
-		vmin.y = fmin(c.y, vmin.y);
-		vmin.z = fmin(c.z, vmin.z);
+		vmin.x = vi_min(a.x, vmin.x);
+		vmin.y = vi_min(a.y, vmin.y);
+		vmin.z = vi_min(a.z, vmin.z);
+		vmin.x = vi_min(b.x, vmin.x);
+		vmin.y = vi_min(b.y, vmin.y);
+		vmin.z = vi_min(b.z, vmin.z);
+		vmin.x = vi_min(c.x, vmin.x);
+		vmin.y = vi_min(c.y, vmin.y);
+		vmin.z = vi_min(c.z, vmin.z);
 		Vec3 vmax(FLT_MIN, FLT_MIN, FLT_MIN);
-		vmax.x = fmax(a.x, vmax.x);
-		vmax.y = fmax(a.y, vmax.y);
-		vmax.z = fmax(a.z, vmax.z);
-		vmax.x = fmax(b.x, vmax.x);
-		vmax.y = fmax(b.y, vmax.y);
-		vmax.z = fmax(b.z, vmax.z);
-		vmax.x = fmax(c.x, vmax.x);
-		vmax.y = fmax(c.y, vmax.y);
-		vmax.z = fmax(c.z, vmax.z);
+		vmax.x = vi_max(a.x, vmax.x);
+		vmax.y = vi_max(a.y, vmax.y);
+		vmax.z = vi_max(a.z, vmax.z);
+		vmax.x = vi_max(b.x, vmax.x);
+		vmax.y = vi_max(b.y, vmax.y);
+		vmax.z = vi_max(b.z, vmax.z);
+		vmax.x = vi_max(c.x, vmax.x);
+		vmax.y = vi_max(c.y, vmax.y);
+		vmax.z = vi_max(c.z, vmax.z);
 
 		// insert triangle into all overlapping chunks
 		ChunkedMesh::Coord start = out->clamped_coord(out->coord(vmin));
@@ -2167,11 +2167,11 @@ void build_awk_nav_mesh(Map<Mesh>& meshes, cJSON* json, AwkNavMesh* out, s32* ad
 
 		AwkNavMesh::Coord chunk_coord = out->coord(chunk_index);
 		s32 chunk_radius = (s32)ceilf(AWK_MAX_DISTANCE / chunk_size);
-		for (s32 neighbor_chunk_x = max(chunk_coord.x - chunk_radius + 1, 0); neighbor_chunk_x < min(chunk_coord.x + chunk_radius, out->size.x); neighbor_chunk_x++)
+		for (s32 neighbor_chunk_x = vi_max(chunk_coord.x - chunk_radius + 1, 0); neighbor_chunk_x < vi_min(chunk_coord.x + chunk_radius, out->size.x); neighbor_chunk_x++)
 		{
-			for (s32 neighbor_chunk_y = max(chunk_coord.y - chunk_radius + 1, 0); neighbor_chunk_y < min(chunk_coord.y + chunk_radius, out->size.y); neighbor_chunk_y++)
+			for (s32 neighbor_chunk_y = vi_max(chunk_coord.y - chunk_radius + 1, 0); neighbor_chunk_y < vi_min(chunk_coord.y + chunk_radius, out->size.y); neighbor_chunk_y++)
 			{
-				for (s32 neighbor_chunk_z = max(chunk_coord.z - chunk_radius + 1, 0); neighbor_chunk_z < min(chunk_coord.z + chunk_radius, out->size.z); neighbor_chunk_z++)
+				for (s32 neighbor_chunk_z = vi_max(chunk_coord.z - chunk_radius + 1, 0); neighbor_chunk_z < vi_min(chunk_coord.z + chunk_radius, out->size.z); neighbor_chunk_z++)
 				{
 					AwkNavMesh::Coord neighbor_chunk_coord = { neighbor_chunk_x, neighbor_chunk_y, neighbor_chunk_z };
 
@@ -2180,20 +2180,22 @@ void build_awk_nav_mesh(Map<Mesh>& meshes, cJSON* json, AwkNavMesh* out, s32* ad
 
 					for (s32 vertex_index = 0; vertex_index < chunk->vertices.length; vertex_index++)
 					{
+						AwkNavMeshNode node = { (u16)chunk_index, (u16)vertex_index };
 						const Vec3& vertex = chunk->vertices[vertex_index];
 						const Vec3& normal = normals.chunks[chunk_index][vertex_index];
 						AwkNavMeshAdjacency* adjacency = &chunk->adjacency[vertex_index];
 
 						for (s32 neighbor_index = 0; neighbor_index < neighbor_chunk->vertices.length; neighbor_index++)
 						{
-							if (neighbor_chunk_index == chunk_index && neighbor_index == vertex_index) // don't connect this vertex to itself
+							AwkNavMeshNode neighbor_node = { (u16)neighbor_chunk_index, (u16)neighbor_index };
+							if (node.equals(neighbor_node)) // don't connect this vertex to itself
 								continue;
 
 							b8 already_visited = false;
 							for (s32 i = 0; i < adjacency->length; i++)
 							{
-								const AwkNavMeshVertexIndex& adjacent_entry = (*adjacency)[i];
-								if (adjacent_entry.chunk == neighbor_chunk_index && adjacent_entry.vertex == neighbor_index)
+								const AwkNavMeshNode& adjacent_entry = (*adjacency)[i];
+								if (adjacent_entry.equals(neighbor_node))
 								{
 									already_visited = true;
 									break;
@@ -2223,8 +2225,7 @@ void build_awk_nav_mesh(Map<Mesh>& meshes, cJSON* json, AwkNavMesh* out, s32* ad
 											{
 												if (adjacency->length < adjacency->capacity())
 												{
-													vi_assert(neighbor_chunk_index < UINT16_MAX && neighbor_index < UINT16_MAX);
-													adjacency->add({ (u16)neighbor_chunk_index, (u16)neighbor_index });
+													adjacency->add(neighbor_node);
 													if (adjacency->length == adjacency->capacity())
 													{
 														(*adjacency_buffer_overflows)++;
@@ -2235,8 +2236,7 @@ void build_awk_nav_mesh(Map<Mesh>& meshes, cJSON* json, AwkNavMesh* out, s32* ad
 												AwkNavMeshAdjacency* neighbor_adjacency = &neighbor_chunk->adjacency[neighbor_index];
 												if (neighbor_adjacency->length < neighbor_adjacency->capacity())
 												{
-													vi_assert(neighbor_chunk_index < UINT16_MAX && neighbor_index < UINT16_MAX);
-													neighbor_adjacency->add({ (u16)chunk_index, (u16)vertex_index });
+													neighbor_adjacency->add(node);
 													if (neighbor_adjacency->length == neighbor_adjacency->capacity())
 														(*adjacency_buffer_overflows)++;
 												}
@@ -2517,10 +2517,10 @@ b8 load_font(const aiScene* scene, Font& font)
 			aiVector3D pos = ai_mesh->mVertices[j];
 			Vec3 p = Vec3(pos.x, pos.y, pos.z);
 			Vec3 vertex = (p * scale) + Vec3(0, 0.05f, 0);
-			min_vertex.x = fmin(min_vertex.x, vertex.x);
-			min_vertex.y = fmin(min_vertex.y, vertex.y);
-			max_vertex.x = fmax(max_vertex.x, vertex.x);
-			max_vertex.y = fmax(max_vertex.y, vertex.y);
+			min_vertex.x = vi_min(min_vertex.x, vertex.x);
+			min_vertex.y = vi_min(min_vertex.y, vertex.y);
+			max_vertex.x = vi_max(max_vertex.x, vertex.x);
+			max_vertex.y = vi_max(max_vertex.y, vertex.y);
 			font.vertices.add(vertex);
 		}
 

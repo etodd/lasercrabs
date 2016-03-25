@@ -528,7 +528,7 @@ void draw(LoopSync* sync, const Camera* camera)
 					Vec2(0, 0),
 					Vec2(shadow_map_size[1], shadow_map_size[1]),
 				};
-				r32 size = fmin(800.0f, render_params.camera->far_plane);
+				r32 size = vi_min(800.0f, render_params.camera->far_plane);
 				Vec3 pos = render_params.camera->pos;
 				const r32 interval = size * 0.025f;
 				pos = Vec3((s32)(pos.x / interval), (s32)(pos.y / interval), (s32)(pos.z / interval)) * interval;

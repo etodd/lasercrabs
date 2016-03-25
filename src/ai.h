@@ -2,6 +2,7 @@
 #include "types.h"
 #include "data/entity.h"
 #include "lmath.h"
+#include "data/import_common.h"
 
 #include "recast/Detour/Include/DetourNavMesh.h"
 #include "recast/Detour/Include/DetourNavMeshQuery.h"
@@ -12,7 +13,22 @@ namespace VI
 
 struct AIAgent;
 struct RenderParams;
-struct AwkNavMesh;
+
+struct AwkNavMeshNodeData
+{
+	AwkNavMeshNode parent;
+	b8 visited;
+	r32 travel_score;
+	r32 estimate_score;
+};
+
+struct AwkNavMeshKey
+{
+	Chunks<Array<AwkNavMeshNodeData>> data;
+	r32 priority(const AwkNavMeshNode&);
+	void reset(const AwkNavMesh&);
+	AwkNavMeshNodeData& get(const AwkNavMeshNode&);
+};
 
 struct NavMeshProcess : public dtTileCacheMeshProcess
 {
@@ -51,6 +67,7 @@ struct AI
 	static AssetID awk_render_mesh;
 	static dtNavMesh* nav_mesh;
 	static AwkNavMesh* awk_nav_mesh;
+	static AwkNavMeshKey awk_nav_mesh_key;
 	static dtNavMeshQuery* nav_mesh_query;
 	static dtTileCache* nav_tile_cache;
 	static dtQueryFilter default_query_filter;
@@ -70,6 +87,9 @@ struct AI
 	static b8 vision_check(const Vec3&, const Vec3&, const Entity* = nullptr, const Entity* = nullptr);
 
 	static dtPolyRef get_poly(const Vec3&, const r32*);
+
+	static AwkNavMeshNode awk_closest_point(const Vec3&);
+	static void awk_pathfind(const Vec3&, const Vec3&, Array<Vec3>*);
 };
 
 struct AIAgent : public ComponentType<AIAgent>
@@ -104,5 +124,6 @@ struct FSM
 		return false;
 	}
 };
+
 
 }

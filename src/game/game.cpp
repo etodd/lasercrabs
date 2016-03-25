@@ -146,6 +146,8 @@ b8 Game::init(LoopSync* sync)
 	return true;
 }
 
+Array<Vec3> path;
+
 void Game::update(const Update& update_in)
 {
 	real_time = update_in.time;
@@ -161,6 +163,9 @@ void Game::update(const Update& update_in)
 
 	if (scheduled_load_level != AssetNull)
 		load_level(u, scheduled_load_level);
+
+	if (u.input->keys[(s32)KeyCode::G] && !u.last_input->keys[(s32)KeyCode::G])
+		AI::awk_pathfind(LocalPlayerControl::list.iterator().item()->get<Transform>()->absolute_pos(), Vec3::zero, &path);
 
 	Physics::sync_dynamic();
 
@@ -248,6 +253,9 @@ void Game::draw_alpha(const RenderParams& render_params)
 	SkyPattern::draw_alpha(render_params);
 	SkinnedModel::draw_alpha(render_params);
 
+	for (s32 i = 0; i < path.length; i++)
+		Cube::draw(render_params, path[i]);
+
 #if DEBUG_PHYSICS
 	{
 		RenderSync* sync = render_params.sync;
@@ -301,7 +309,7 @@ void Game::draw_alpha(const RenderParams& render_params)
 					continue;
 			}
 
-			if (!render_params.camera->visible_sphere(transform.getOrigin(), fmax(radius.x, fmax(radius.y, radius.z))))
+			if (!render_params.camera->visible_sphere(transform.getOrigin(), vi_max(radius.x, vi_max(radius.y, radius.z))))
 				continue;
 
 			Loader::mesh_permanent(mesh_id);

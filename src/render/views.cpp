@@ -85,7 +85,7 @@ void View::draw(const RenderParams& params) const
 
 	{
 		Vec3 radius = (offset * Vec4(mesh_data->bounds_radius, mesh_data->bounds_radius, mesh_data->bounds_radius, 0)).xyz();
-		if (!params.camera->visible_sphere(m.translation(), fmax(radius.x, fmax(radius.y, radius.z))))
+		if (!params.camera->visible_sphere(m.translation(), vi_max(radius.x, vi_max(radius.y, radius.z))))
 			return;
 	}
 
@@ -466,7 +466,7 @@ void Cube::draw(const RenderParams& params, const Vec3& pos, const b8 alpha, con
 	Loader::shader_permanent(Asset::Shader::flat);
 
 	Vec3 radius = mesh->bounds_radius * scale;
-	if (!params.camera->visible_sphere(pos, fmax(radius.x, fmax(radius.y, radius.z))))
+	if (!params.camera->visible_sphere(pos, vi_max(radius.x, vi_max(radius.y, radius.z))))
 		return;
 
 	RenderSync* sync = params.sync;

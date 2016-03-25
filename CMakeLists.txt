@@ -255,6 +255,7 @@ add_executable(yearning
 	src/data/ragdoll.cpp
 	src/data/behavior.h
 	src/data/behavior.cpp
+	src/data/priority_queue.h
 	src/render/glvm.h
 	src/render/glvm.cpp
 	src/render/render.h

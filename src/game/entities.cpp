@@ -589,7 +589,7 @@ void Rope::draw_opaque(const RenderParams& params)
 
 	Mesh* mesh_data = Loader::mesh_instanced(Asset::Mesh::tri_tube);
 	Vec3 radius = (Vec4(mesh_data->bounds_radius, mesh_data->bounds_radius, mesh_data->bounds_radius, 0)).xyz();
-	r32 f_radius = fmax(radius.x, fmax(radius.y, radius.z));
+	r32 f_radius = vi_max(radius.x, vi_max(radius.y, radius.z));
 
 	// ropes
 	{
@@ -809,7 +809,7 @@ void Tile::update(const Update& u)
 		World::remove(entity());
 	else
 	{
-		r32 blend = fmin(timer / anim_time, 1.0f);
+		r32 blend = vi_min(timer / anim_time, 1.0f);
 
 		Vec3 blend_pos = Vec3::lerp(blend, relative_start_pos, relative_target_pos) + Vec3(sinf(blend * PI) * 0.25f);
 		Quat blend_rot = Quat::slerp(blend, relative_start_rot, relative_target_rot);
@@ -823,7 +823,7 @@ r32 Tile::scale() const
 {
 	r32 blend;
 	if (timer < TILE_LIFE_TIME - TILE_ANIM_OUT_TIME)
-		blend = fmin(timer / anim_time, 1.0f);
+		blend = vi_min(timer / anim_time, 1.0f);
 	else
 		blend = Ease::quad_in(((timer - (TILE_LIFE_TIME - TILE_ANIM_OUT_TIME)) / TILE_ANIM_OUT_TIME), 1.0f, 0.0f);
 	return blend * TILE_SIZE;
@@ -835,7 +835,7 @@ void Tile::draw_alpha(const RenderParams& params)
 
 	Mesh* mesh_data = Loader::mesh_instanced(Asset::Mesh::plane);
 	Vec3 radius = (Vec4(mesh_data->bounds_radius, mesh_data->bounds_radius, mesh_data->bounds_radius, 0)).xyz();
-	r32 f_radius = fmax(radius.x, fmax(radius.y, radius.z));
+	r32 f_radius = vi_max(radius.x, vi_max(radius.y, radius.z));
 
 	{
 		for (auto i = Tile::list.iterator(); !i.is_last(); i.next())
@@ -914,9 +914,9 @@ void Mover::update(const Update& u)
 		else
 		{
 			if (x < actual_target)
-				x = fmin(actual_target, x + speed * u.time.delta);
+				x = vi_min(actual_target, x + speed * u.time.delta);
 			else
-				x = fmax(actual_target, x - speed * u.time.delta);
+				x = vi_max(actual_target, x - speed * u.time.delta);
 			refresh();
 
 			moving = true;
@@ -1008,7 +1008,7 @@ void Shockwave::update(const Update& u)
 	{
 		r32 fade_radius = max_radius * (2.0f / 15.0f);
 		light->radius = Ease::cubic_out(timer * (1.0f / d), 0.0f, max_radius);
-		r32 fade = 1.0f - fmax(0, ((light->radius - (max_radius - fade_radius)) / fade_radius));
+		r32 fade = 1.0f - vi_max(0.0f, ((light->radius - (max_radius - fade_radius)) / fade_radius));
 		light->color = Vec3(fade);
 	}
 }

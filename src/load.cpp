@@ -888,6 +888,7 @@ AwkNavMesh* Loader::awk_nav_mesh(AssetID id)
 				current_awk_nav_mesh = (AwkNavMesh*)malloc(sizeof(AwkNavMesh));
 				new (current_awk_nav_mesh) AwkNavMesh();
 
+				current_awk_nav_mesh->chunk_size = chunk_size;
 				fread(&current_awk_nav_mesh->vmin, sizeof(Vec3), 1, f);
 				fread(&current_awk_nav_mesh->size, sizeof(AwkNavMesh::Coord), 1, f);
 				current_awk_nav_mesh->resize();

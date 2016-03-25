@@ -199,7 +199,10 @@ template<typename T> struct Chunks
 
 	void resize()
 	{
-		chunks.resize(size.x * size.y * size.z);
+		s32 new_length = size.x * size.y * size.z;
+		for (s32 i = new_length; i < chunks.length; i++)
+			chunks[i].~T();
+		chunks.resize(new_length);
 	}
 
 	void resize(const Vec3& bmin, const Vec3& bmax, r32 cell_size)
@@ -258,9 +261,9 @@ template<typename T> struct Chunks
 	{
 		return
 		{
-			max(min(c.x, size.x - 1), 0),
-			max(min(c.y, size.y - 1), 0),
-			max(min(c.z, size.z - 1), 0),
+			vi_max(vi_min(c.x, size.x - 1), 0),
+			vi_max(vi_min(c.y, size.y - 1), 0),
+			vi_max(vi_min(c.z, size.z - 1), 0),
 		};
 	}
 
@@ -272,12 +275,18 @@ template<typename T> struct Chunks
 };
 
 #define AWK_NAV_MESH_ADJACENCY 48
-struct AwkNavMeshVertexIndex
+struct AwkNavMeshNode
 {
 	u16 chunk;
 	u16 vertex;
+
+	inline b8 equals(const AwkNavMeshNode& other) const
+	{
+		return chunk == other.chunk && vertex == other.vertex;
+	}
 };
-typedef StaticArray<AwkNavMeshVertexIndex, AWK_NAV_MESH_ADJACENCY> AwkNavMeshAdjacency;
+
+typedef StaticArray<AwkNavMeshNode, AWK_NAV_MESH_ADJACENCY> AwkNavMeshAdjacency;
 struct AwkNavMeshChunk
 {
 	Array<Vec3> vertices;
@@ -287,7 +296,6 @@ struct AwkNavMeshChunk
 struct AwkNavMesh : Chunks<AwkNavMeshChunk>
 {
 };
-
 
 
 }

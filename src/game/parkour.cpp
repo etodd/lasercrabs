@@ -175,7 +175,7 @@ b8 Parkour::wallrun(const Update& u, RigidBody* wall, const Vec3& relative_wall_
 		// Update animation speed
 		Animator::Layer* layer = &get<Animator>()->layers[0];
 		if (wall_run_state == WallRunState::Forward)
-			layer->speed = fmax(0.0f, vertical_velocity_diff / get<Walker>()->speed);
+			layer->speed = vi_max(0.0f, vertical_velocity_diff / get<Walker>()->speed);
 		else
 			layer->speed = horizontal_velocity_diff.length() / get<Walker>()->speed;
 
@@ -256,14 +256,14 @@ void Parkour::update(const Update& u)
 				// Move vertically
 				r32 distance = diff.y;
 				r32 time_left = (mantle_time * 0.5f) - fsm.time;
-				adjustment = Vec3(0, fmin(distance, u.time.delta / time_left), 0);
+				adjustment = Vec3(0, vi_min(distance, u.time.delta / time_left), 0);
 			}
 			else
 			{
 				// Move horizontally
 				r32 distance = diff.length();
 				r32 time_left = mantle_time - fsm.time;
-				adjustment = diff * fmin(1.0f, u.time.delta / time_left);
+				adjustment = diff * vi_min(1.0f, u.time.delta / time_left);
 			}
 			get<RigidBody>()->btBody->setWorldTransform(btTransform(Quat::identity, start + adjustment));
 		}
@@ -405,7 +405,7 @@ void Parkour::update(const Update& u)
 		anim = Asset::Animation::character_run; // speed already set
 	else if (get<Walker>()->support.ref() && get<Walker>()->dir.length_squared() > 0.0f)
 	{
-		r32 net_speed = fmax(get<Walker>()->net_speed, WALK_SPEED * 0.5f);
+		r32 net_speed = vi_max(get<Walker>()->net_speed, WALK_SPEED * 0.5f);
 		anim = net_speed > WALK_SPEED ? Asset::Animation::character_run : Asset::Animation::character_walk;
 		layer0->speed = net_speed > WALK_SPEED ? LMath::lerpf((net_speed - WALK_SPEED) / RUN_SPEED, 0.75f, 1.0f) : (net_speed / WALK_SPEED);
 	}
@@ -503,7 +503,7 @@ void Parkour::do_normal_jump()
 	btRigidBody* body = get<RigidBody>()->btBody;
 	const r32 speed = 6.0f;
 	Vec3 new_velocity = body->getLinearVelocity();
-	new_velocity.y = fmax(0, new_velocity.y) + speed;
+	new_velocity.y = vi_max(0.0f, new_velocity.y) + speed;
 	body->setLinearVelocity(new_velocity);
 	last_support = get<Walker>()->support = nullptr;
 	wall_run_state = WallRunState::None;

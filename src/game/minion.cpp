@@ -122,7 +122,7 @@ void MinionCommon::update(const Update& u)
 	AssetID anim;
 	if (get<Walker>()->support.ref() && get<Walker>()->dir.length_squared() > 0.0f)
 	{
-		r32 net_speed = fmax(get<Walker>()->net_speed, WALK_SPEED * 0.5f);
+		r32 net_speed = vi_max(get<Walker>()->net_speed, WALK_SPEED * 0.5f);
 		anim = Asset::Animation::character_walk;
 		layer->speed = net_speed / get<Walker>()->speed;
 	}

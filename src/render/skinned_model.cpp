@@ -100,7 +100,7 @@ void SkinnedModel::draw(const RenderParams& params)
 	Mesh* mesh_data = Loader::mesh(mesh);
 	{
 		Vec3 radius = (offset * Vec4(mesh_data->bounds_radius, mesh_data->bounds_radius, mesh_data->bounds_radius, 0)).xyz();
-		if (!params.camera->visible_sphere(m.translation(), fmax(radius.x, fmax(radius.y, radius.z))))
+		if (!params.camera->visible_sphere(m.translation(), vi_max(radius.x, vi_max(radius.y, radius.z))))
 			return;
 	}
 

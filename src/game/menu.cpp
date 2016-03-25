@@ -366,18 +366,18 @@ bool options(const Update& u, u8 gamepad, UIMenu* menu, Vec2* pos)
 	sprintf(str, "%d", settings.sfx);
 	delta = menu->slider_item(u, pos, _(strings::sfx), str);
 	if (delta == UIMenu::Delta::Down)
-		settings.sfx = max(0, settings.sfx - 10);
+		settings.sfx = vi_max(0, settings.sfx - 10);
 	else if (delta == UIMenu::Delta::Up)
-		settings.sfx = min(100, settings.sfx + 10);
+		settings.sfx = vi_min(100, settings.sfx + 10);
 	if (delta != UIMenu::Delta::None)
 		Audio::global_param(AK::GAME_PARAMETERS::SFXVOL, (r32)settings.sfx / 100.0f);
 
 	sprintf(str, "%d", settings.music);
 	delta = menu->slider_item(u, pos, _(strings::music), str);
 	if (delta == UIMenu::Delta::Down)
-		settings.music = max(0, settings.music - 10);
+		settings.music = vi_max(0, settings.music - 10);
 	else if (delta == UIMenu::Delta::Up)
-		settings.music = min(100, settings.music + 10);
+		settings.music = vi_min(100, settings.music + 10);
 	if (delta != UIMenu::Delta::None)
 		Audio::global_param(AK::GAME_PARAMETERS::MUSICVOL, (r32)settings.music / 100.0f);
 

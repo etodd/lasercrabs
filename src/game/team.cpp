@@ -399,7 +399,7 @@ void PlayerManager::update(const Update& u)
 	}
 
 	if (ability_cooldown > 0.0f)
-		ability_cooldown = fmax(0.0f, ability_cooldown - u.time.delta);
+		ability_cooldown = vi_max(0.0f, ability_cooldown - u.time.delta);
 }
 
 

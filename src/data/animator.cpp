@@ -63,7 +63,7 @@ void Animator::Layer::update(const Update& u, const Animator& animator)
 	if (blend_time == 0.0f)
 		blend = 1.0f;
 	else
-		blend = fmin(1.0f, blend + u.time.delta / blend_time);
+		blend = vi_min(1.0f, blend + u.time.delta / blend_time);
 
 	if (anim)
 	{
@@ -125,7 +125,7 @@ void Animator::Layer::update(const Update& u, const Animator& animator)
 				index = find_keyframe_index(c->positions, time);
 				last_time = c->positions[index].time;
 				next_time = c->positions[index + 1].time;
-				blend = fmin(1.0f, (time - last_time) / (next_time - last_time));
+				blend = vi_min(1.0f, (time - last_time) / (next_time - last_time));
 				position = Vec3::lerp(blend, c->positions[index].value, c->positions[index + 1].value);
 			}
 
@@ -138,7 +138,7 @@ void Animator::Layer::update(const Update& u, const Animator& animator)
 				index = find_keyframe_index(c->scales, time);
 				last_time = c->scales[index].time;
 				next_time = c->scales[index + 1].time;
-				blend = fmin(1.0f, (time - last_time) / (next_time - last_time));
+				blend = vi_min(1.0f, (time - last_time) / (next_time - last_time));
 				scale = Vec3::lerp(blend, c->scales[index].value, c->scales[index + 1].value);
 			}
 
@@ -151,7 +151,7 @@ void Animator::Layer::update(const Update& u, const Animator& animator)
 				index = find_keyframe_index(c->rotations, time);
 				last_time = c->rotations[index].time;
 				next_time = c->rotations[index + 1].time;
-				blend = fmin(1.0f, (time - last_time) / (next_time - last_time));
+				blend = vi_min(1.0f, (time - last_time) / (next_time - last_time));
 				rotation = Quat::slerp(blend, c->rotations[index].value, c->rotations[index + 1].value);
 			}
 

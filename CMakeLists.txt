@@ -282,6 +282,7 @@ add_executable(yearning
 	src/asset/string.h
 	src/asset/dialogue.h
 	src/platform/sdl.cpp
+	src/platform/util.h
 	src/sync.h
 	src/types.h
 	src/vi_assert.h

@@ -43,6 +43,7 @@ namespace VI
 #define max_attach_time 0.35f
 #define rotation_speed 20.0f
 #define msg_time 0.75f
+#define text_size 16.0f
 
 b8 flash_function(r32 time)
 {
@@ -97,13 +98,13 @@ LocalPlayer::LocalPlayer(PlayerManager* m, u8 g)
 	sprintf(manager.ref()->username, _(strings::player), gamepad);
 
 	msg_text.font = Asset::Font::lowpoly;
-	msg_text.size = 18.0f;
+	msg_text.size = text_size;
 	msg_text.color = UI::default_color;
 	msg_text.anchor_x = UIText::Anchor::Center;
 	msg_text.anchor_y = UIText::Anchor::Center;
 
 	credits_text.font = Asset::Font::lowpoly;
-	credits_text.size = 18.0f;
+	credits_text.size = text_size;
 	credits_text.color = UI::default_color;
 	credits_text.anchor_x = UIText::Anchor::Min;
 	credits_text.anchor_y = UIText::Anchor::Min;
@@ -377,8 +378,8 @@ void LocalPlayer::draw_alpha(const RenderParams& params) const
 
 	if (Game::data.mode == Game::Mode::Multiplayer)
 	{
-		Vec2 pos = vp.size * Vec2(0.1f, 0.12f);
-		UI::box(params, credits_text.rect(pos).outset(6 * UI::scale), UI::background_color);
+		Vec2 pos = vp.size * Vec2(0.1f, 0.1f);
+		UI::box(params, credits_text.rect(pos).outset(8 * UI::scale), UI::background_color);
 		credits_text.draw(params, pos);
 	}
 
@@ -394,12 +395,12 @@ void LocalPlayer::draw_alpha(const RenderParams& params) const
 				text.font = Asset::Font::lowpoly;
 				text.anchor_x = UIText::Anchor::Min;
 				text.anchor_y = UIText::Anchor::Min;
-				text.size = 16.0f;
+				text.size = text_size;
 
 				text.color = UI::default_color;
 
 				text.text(_(at_spawn ? strings::ability_menu : strings::upgrade_notification));
-				Vec2 p = vp.size * Vec2(0.2f, 0.12f);
+				Vec2 p = vp.size * Vec2(0.2f, 0.1f);
 				UI::box(params, text.rect(p).outset(8.0f * UI::scale), UI::background_color);
 				text.draw(params, p);
 			}
@@ -427,7 +428,6 @@ void LocalPlayer::draw_alpha(const RenderParams& params) const
 				// Player is currently dead
 				UIText text;
 				text.font = Asset::Font::lowpoly;
-
 				text.wrap_width = MENU_ITEM_WIDTH;
 				text.anchor_x = text.anchor_y = UIText::Anchor::Center;
 				text.color = UI::default_color;
@@ -441,23 +441,80 @@ void LocalPlayer::draw_alpha(const RenderParams& params) const
 		}
 	}
 
-	if (Game::data.mode == Game::Mode::Multiplayer && Team::game_over())
+	if (Game::data.mode == Game::Mode::Multiplayer)
 	{
-		// show victory/defeat message
-		UIText text;
-		text.font = Asset::Font::lowpoly;
-		text.color = UI::alert_color;
-		text.anchor_x = UIText::Anchor::Center;
-		text.anchor_y = UIText::Anchor::Center;
-		text.size = 32.0f;
+		{
+			// timer
 
-		if (manager.ref()->team.ref()->has_player())
-			text.text(_(strings::victory));
-		else
-			text.text(_(strings::defeat));
-		Vec2 pos = vp.size * Vec2(0.5f, 0.5f);
-		UI::box(params, text.rect(pos).outset(16 * UI::scale), UI::background_color);
-		text.draw(params, pos);
+			r32 remaining = vi_max(0.0f, GAME_TIME_LIMIT - Game::time.total);
+
+			const Vec2 box(text_size * 5 * UI::scale, text_size * UI::scale);
+			const r32 padding = 8.0f * UI::scale;
+
+			Vec2 p = vp.size * Vec2(0.9f, 0.1f) + Vec2(-box.x, 0);
+
+			UI::box(params, Rect2(p, box).outset(padding), UI::background_color);
+
+			Vec2 icon_pos = p + Vec2(0.75f, 0.5f) * text_size * UI::scale;
+
+			AssetID icon;
+			const Vec4* color;
+			if (remaining > GAME_TIME_LIMIT * 0.75f)
+			{
+				icon = Asset::Mesh::icon_battery_3;
+				color = &UI::default_color;
+			}
+			else if (remaining > GAME_TIME_LIMIT * 0.5f)
+			{
+				icon = Asset::Mesh::icon_battery_2;
+				color = &UI::default_color;
+			}
+			else if (remaining > GAME_TIME_LIMIT * 0.25f)
+			{
+				icon = Asset::Mesh::icon_battery_1;
+				color = &UI::accent_color;
+			}
+			else
+			{
+				icon = Asset::Mesh::icon_battery_0;
+				color = &UI::alert_color;
+			}
+
+			if (remaining > 30.0f || flash_function(Game::real_time.total))
+				UI::mesh(params, icon, icon_pos, Vec2(text_size * UI::scale), *color);
+			
+			s32 remaining_minutes = remaining / 60.0f;
+			s32 remaining_seconds = remaining - (remaining_minutes * 60.0f);
+
+			UIText text;
+			text.font = Asset::Font::lowpoly;
+			text.anchor_x = UIText::Anchor::Min;
+			text.anchor_y = UIText::Anchor::Center;
+			text.color = *color;
+			text.text(_(strings::timer), remaining_minutes, remaining_seconds);
+			text.draw(params, icon_pos + Vec2(text_size * UI::scale * 1.5f, 0));
+		}
+
+		if (Team::game_over())
+		{
+			// show victory/defeat message
+			UIText text;
+			text.font = Asset::Font::lowpoly;
+			text.color = UI::alert_color;
+			text.anchor_x = UIText::Anchor::Center;
+			text.anchor_y = UIText::Anchor::Center;
+			text.size = 32.0f;
+
+			if (Team::is_draw())
+				text.text(_(strings::draw));
+			else if (manager.ref()->team.ref()->has_player())
+				text.text(_(strings::victory));
+			else
+				text.text(_(strings::defeat));
+			Vec2 pos = vp.size * Vec2(0.5f, 0.5f);
+			UI::box(params, text.rect(pos).outset(16 * UI::scale), UI::background_color);
+			text.draw(params, pos);
+		}
 	}
 }
 
@@ -761,7 +818,7 @@ void LocalPlayerControl::update(const Update& u)
 		camera_pos = get<Awk>()->center();
 
 		// abilities
-		if (u.input->get(settings.bindings.ability, gamepad) && !u.last_input->get(settings.bindings.ability, gamepad))
+		if (!Console::visible && u.input->get(settings.bindings.ability, gamepad) && !u.last_input->get(settings.bindings.ability, gamepad))
 			player.ref()->manager.ref()->ability_use();
 	}
 	else
@@ -934,7 +991,7 @@ void LocalPlayerControl::update(const Update& u)
 			AwkRaycastCallback rayCallback(trace_start, trace_end, entity());
 			rayCallback.m_flags = btTriangleRaycastCallback::EFlags::kF_FilterBackfaces
 				| btTriangleRaycastCallback::EFlags::kF_KeepUnflippedNormal;
-			rayCallback.m_collisionFilterMask = rayCallback.m_collisionFilterGroup = btBroadphaseProxy::AllFilter;
+			rayCallback.m_collisionFilterMask = rayCallback.m_collisionFilterGroup = ~CollisionAwkIgnore;
 
 			Physics::btWorld->rayTest(trace_start, trace_end, rayCallback);
 
@@ -1035,14 +1092,14 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 		// health indicator
 		{
 			const Health* health = get<Health>();
-			const Vec2 box_size = Vec2(16.0f) * UI::scale;
+			const Vec2 box_size = Vec2(text_size) * UI::scale;
 			const r32 box_spacing = 8.0f * UI::scale;
 
 			UIText text;
 			text.font = Asset::Font::lowpoly;
 			text.anchor_x = UIText::Anchor::Min;
 			text.anchor_y = UIText::Anchor::Min;
-			text.size = 16.0f;
+			text.size = text_size;
 			text.color = UI::default_color;
 			text.text(_(strings::hp));
 
@@ -1050,7 +1107,7 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 
 			Vec2 pos = viewport.size * Vec2(0.5f, 0.1f) + Vec2(total_width * -0.5f, 0.0f);
 
-			UI::box(params, Rect2(pos, Vec2(total_width, box_size.y)).outset(8 * UI::scale), UI::background_color);
+			UI::box(params, Rect2(pos, Vec2(total_width, box_size.y)).outset(box_spacing), UI::background_color);
 
 			text.draw(params, pos);
 			
@@ -1075,8 +1132,8 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 				text.font = Asset::Font::lowpoly;
 				text.anchor_x = UIText::Anchor::Min;
 				text.anchor_y = UIText::Anchor::Center;
-				text.size = 16.0f;
-				Vec2 icon_pos = viewport.size * Vec2(0.1f, 0.12f) + Vec2(10.0f * UI::scale, 44.0f * UI::scale);
+				text.size = text_size;
+				Vec2 icon_pos = viewport.size * Vec2(0.1f, 0.1f) + Vec2(8.0f * UI::scale, 44.0f * UI::scale);
 
 				const AbilityInfo& info = AbilityInfo::list[(s32)player.ref()->manager.ref()->ability];
 				text.text(_(strings::binding), settings.bindings.ability.string(params.sync->input.gamepads[gamepad].active));
@@ -1100,7 +1157,7 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 					text.color = UI::default_color;
 
 				if (info.icon != AssetNull)
-					UI::mesh(params, info.icon, icon_pos, Vec2(UI::scale * 16.0f), text.color);
+					UI::mesh(params, info.icon, icon_pos, Vec2(UI::scale * text_size), text.color);
 
 				text.draw(params, text_pos);
 
@@ -1117,7 +1174,7 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 					text.font = Asset::Font::lowpoly;
 					text.anchor_x = UIText::Anchor::Center;
 					text.anchor_y = UIText::Anchor::Center;
-					text.size = 16.0f;
+					text.size = text_size;
 					Vec2 pos = viewport.size * Vec2(0.5f, 0.65f);
 					UI::box(params, text.rect(pos).outset(8.0f * UI::scale), UI::background_color);
 					text.draw(params, pos);

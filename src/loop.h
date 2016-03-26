@@ -13,6 +13,7 @@
 #include "input.h"
 #include "mersenne/mersenne-twister.h"
 #include <time.h>
+#include "platform/util.h"
 
 #if DEBUG
 	#define DEBUG_RENDER 0
@@ -1227,9 +1228,24 @@ void loop(LoopSwapper* swapper, PhysicsSwapper* physics_swapper)
 
 	PhysicsSync* physics_sync = nullptr;
 
+	r32 time_update = 0.0f; // time required for update
+
 	while (!sync->quit && !Game::quit)
 	{
 		// Update
+
+		{
+			// limit framerate
+
+			r32 framerate_limit = u.input->focus ? Loader::settings().framerate_limit : 30;
+
+			r32 delay = (1.0f / framerate_limit) - time_update;
+			if (delay > 0)
+				platform_sleep(delay);
+		}
+
+		r64 time_update_start = platform_time();
+
 		u.input = &sync->input;
 		u.time = sync->time;
 
@@ -1260,6 +1276,8 @@ void loop(LoopSwapper* swapper, PhysicsSwapper* physics_swapper)
 		sync->quit |= Game::quit;
 
 		memcpy(&last_input, &sync->input, sizeof(last_input));
+
+		time_update = (r32)(platform_time() - time_update_start);
 
 		sync = swapper->swap<SwapType_Write>();
 		sync->queue.length = 0;

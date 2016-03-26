@@ -43,6 +43,7 @@ struct Settings
 	b8 fullscreen;
 	u8 sfx;
 	u8 music;
+	s32 framerate_limit;
 };
 
 #define max_user_data_path_length 1024

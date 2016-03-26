@@ -13,7 +13,7 @@ struct Rope;
 struct View;
 
 #define AWK_HEALTH 3
-#define AWK_FLY_SPEED 50.0f
+#define AWK_FLY_SPEED 75.0f
 #define AWK_CRAWL_SPEED 3.0f
 #define AWK_MIN_COOLDOWN 0.5f
 #define AWK_MAX_DISTANCE_COOLDOWN 1.75f

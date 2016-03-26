@@ -270,6 +270,8 @@
 
 		"victory": "Victory!",
 		"defeat": "Defeat",
+		"draw": "Draw",
+		"timer": "%d:%02d",
 		"yes": "Yes.",
 		"no": "No.",
 		"find_and_shoot_minion": "Find the minion and shoot through its head.",

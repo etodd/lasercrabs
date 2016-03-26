@@ -1091,6 +1091,7 @@ Settings& Loader::settings()
 		settings_data.fullscreen = (b8)Json::get_s32(json, "fullscreen", 0);
 		settings_data.sfx = (u8)Json::get_s32(json, "sfx", 100);
 		settings_data.music = (u8)Json::get_s32(json, "music", 100);
+		settings_data.framerate_limit = vi_max(30, Json::get_s32(json, "framerate_limit", 120));
 
 		cJSON* bindings = json ? cJSON_GetObjectItem(json, "bindings") : nullptr;
 		settings_data.bindings.backward = input_binding(bindings, "backward", { KeyCode::S, KeyCode::Down, Gamepad::Btn::DDown });

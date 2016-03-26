@@ -122,7 +122,7 @@ void Console::update(const Update& u)
 	if (fps_visible)
 	{
 		fps_count += 1;
-		fps_accumulator += u.time.delta;
+		fps_accumulator += Game::real_time.delta;
 		if (fps_accumulator > 0.5f)
 		{
 			char fps_label[256];
@@ -155,13 +155,13 @@ void Console::update(const Update& u)
 				any_key_pressed = true;
 				if (!u.last_input->keys[i])
 				{
-					repeat_start_time = u.time.total;
+					repeat_start_time = Game::real_time.total;
 					add = true;
 				}
-				else if (u.time.total - repeat_start_time > REPEAT_DELAY &&
-					u.time.total - repeat_last_time > REPEAT_INTERVAL)
+				else if (Game::real_time.total - repeat_start_time > REPEAT_DELAY &&
+					Game::real_time.total - repeat_last_time > REPEAT_INTERVAL)
 				{
-					repeat_last_time = u.time.total;
+					repeat_last_time = Game::real_time.total;
 					add = true;
 				}
 
@@ -182,13 +182,13 @@ void Console::update(const Update& u)
 			b8 remove = false;
 			if (!u.last_input->keys[(s32)KeyCode::Backspace])
 			{
-				repeat_start_time = u.time.total;
+				repeat_start_time = Game::real_time.total;
 				remove = true;
 			}
-			else if (u.time.total - repeat_start_time > REPEAT_DELAY &&
-				u.time.total - repeat_last_time > REPEAT_INTERVAL)
+			else if (Game::real_time.total - repeat_start_time > REPEAT_DELAY &&
+				Game::real_time.total - repeat_last_time > REPEAT_INTERVAL)
 			{
-				repeat_last_time = u.time.total;
+				repeat_last_time = Game::real_time.total;
 				remove = true;
 			}
 
@@ -231,7 +231,7 @@ void Console::update(const Update& u)
 	b8 update_log = false;
 	for (s32 i = 0; i < logs.length; i++)
 	{
-		logs[i].timer -= u.time.delta;
+		logs[i].timer -= Game::real_time.delta;
 		if (logs[i].timer < 0.0f)
 		{
 			logs.remove_ordered(i);

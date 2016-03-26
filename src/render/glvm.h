@@ -1,7 +1,7 @@
 #pragma once
 
-#include "data/array.h"
 #include "lmath.h"
+#include "sync.h"
 
 namespace VI
 {
@@ -112,49 +112,8 @@ enum class RenderFillMode
 	Point,
 };
 
-struct RenderSync
+struct RenderSync : public SyncBuffer
 {
-	Array<char> queue;
-	s32 read_pos;
-
-	RenderSync()
-		: queue(), read_pos()
-	{
-	}
-
-	// IMPORTANT: don't do this: T something; write(&something);
-	// It will resolve to write<T*> rather than write<T>, so you'll get the wrong size.
-	// Use write<T>(&something) or write(something)
-
-	template<typename T>
-	void write(const T& data)
-	{
-		write(&data);
-	}
-
-	template<typename T>
-	void write(const T* data, const s32 count = 1)
-	{
-		T* destination = alloc<T>(count);
-
-		memcpy((void*)destination, data, sizeof(T) * count);
-	}
-
-	template<typename T>
-	T* alloc(const s32 count = 1)
-	{
-		s32 pos = queue.length;
-		queue.resize(pos + sizeof(T) * count);
-		return (T*)(queue.data + pos);
-	}
-
-	template<typename T>
-	const T* read(s32 count = 1)
-	{
-		T* result = (T*)(queue.data + read_pos);
-		read_pos += sizeof(T) * count;
-		return result;
-	}
 };
 
 enum class RenderTextureType

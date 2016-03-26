@@ -17,6 +17,8 @@ struct Transform;
 struct Target;
 struct TargetEvent;
 
+#define GAME_TIME_LIMIT 420.0f
+
 struct Team
 {
 	struct SensorTrack
@@ -32,6 +34,7 @@ struct Team
 	static StaticArray<Team, (s32)AI::Team::count> list;
 
 	static b8 game_over();
+	static b8 is_draw();
 
 	Ref<Transform> player_spawn;
 	Revision revision;

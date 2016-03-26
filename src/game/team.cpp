@@ -37,8 +37,10 @@ const Vec4 Team::ui_colors[(s32)AI::Team::count] =
 
 StaticArray<Team, (s32)AI::Team::count> Team::list;
 
+#define GAME_OVER_TIME 5.0f
+
 Team::Team()
-	: victory_timer(5.0f),
+	: victory_timer(GAME_OVER_TIME),
 	sensor_time(SENSOR_TIME_1),
 	sensor_explode()
 {
@@ -46,6 +48,17 @@ Team::Team()
 
 void Team::awake()
 {
+}
+
+s32 teams_with_players()
+{
+	s32 t = 0;
+	for (s32 i = 0; i < Team::list.length; i++)
+	{
+		if (Team::list[i].has_player())
+			t++;
+	}
+	return t;
 }
 
 b8 Team::game_over()
@@ -56,13 +69,15 @@ b8 Team::game_over()
 	if (Game::time.total <= PLAYER_SPAWN_DELAY)
 		return false;
 
-	s32 teams_with_players = 0;
-	for (s32 i = 0; i < Team::list.length; i++)
-	{
-		if (Team::list[i].has_player())
-			teams_with_players++;
-	}
-	return teams_with_players < 2;
+	if (Game::time.total > GAME_TIME_LIMIT)
+		return true;
+
+	return teams_with_players() < 2;
+}
+
+b8 Team::is_draw()
+{
+	return Game::time.total > GAME_TIME_LIMIT && teams_with_players() >= 2;
 }
 
 b8 Team::has_player() const
@@ -113,11 +128,22 @@ void Team::update(const Update& u)
 		}
 	}
 
+	b8 game_over = Team::game_over();
+	b8 draw = Team::is_draw();
+	if (game_over && draw)
+	{
+		if (Game::time.total > GAME_TIME_LIMIT + GAME_OVER_TIME)
+		{
+			// it's a draw; try again
+			Menu::transition(Game::data.next_level); // todo: restart the level with a new opponent
+		}
+	}
+
 	for (s32 team_id = 0; team_id < list.length; team_id++)
 	{
 		Team* team = &list[team_id];
 
-		if (team->has_player() && team->game_over())
+		if (team->has_player() && game_over)
 		{
 			// we win
 			team->victory_timer -= u.time.delta;

@@ -53,6 +53,7 @@ struct SensorEntity : public Entity
 
 #define SENSOR_RANGE 15.0f
 #define SENSOR_TIMEOUT 5.0f
+#define SENSOR_RADIUS 0.15f
 struct Sensor : public ComponentType<Sensor>
 {
 	AI::Team team;

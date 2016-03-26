@@ -12,12 +12,13 @@ namespace VI
 
 enum CollisionGroup
 {
-	CollisionNothing = btBroadphaseProxy::DefaultFilter,
+	CollisionDefault = btBroadphaseProxy::DefaultFilter,
 	CollisionWalker = 1 << 6,
 	CollisionInaccessible = 1 << 7,
 	CollisionTarget = 1 << 8,
 	CollisionShield = 1 << 9,
 	CollisionAwkIgnore = 1 << 10,
+	CollisionAwk = 1 < 11,
 	CollisionInaccessibleMask = btBroadphaseProxy::AllFilter,
 };
 

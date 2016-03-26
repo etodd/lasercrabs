@@ -80,6 +80,23 @@ void draw_indicator(const RenderParams& params, const Vec3& pos, const Vec4& col
 	}
 }
 
+#define HP_BOX_SIZE (Vec2(text_size) * UI::scale)
+#define HP_BOX_SPACING (8.0f * UI::scale)
+void draw_hp_indicator(const RenderParams& params, Vec2 pos, u16 hp, u16 hp_max, const Vec4& color)
+{
+	const Vec2 box_size = HP_BOX_SIZE;
+	pos.x += HP_BOX_SPACING * 1.25f;
+	pos.y += box_size.y * 0.6f;
+
+	for (s32 i = 0; i < hp_max; i++)
+	{
+		UI::triangle_border(params, { pos, box_size }, 2, color, PI);
+		if (i < hp)
+			UI::triangle(params, { pos, box_size }, color, PI);
+		pos.x += box_size.x + HP_BOX_SPACING;
+	}
+}
+
 PinArray<LocalPlayer, MAX_PLAYERS> LocalPlayer::list;
 
 LocalPlayer::LocalPlayer(PlayerManager* m, u8 g)
@@ -396,13 +413,79 @@ void LocalPlayer::draw_alpha(const RenderParams& params) const
 				text.anchor_x = UIText::Anchor::Min;
 				text.anchor_y = UIText::Anchor::Min;
 				text.size = text_size;
-
 				text.color = UI::default_color;
 
 				text.text(_(at_spawn ? strings::ability_menu : strings::upgrade_notification));
 				Vec2 p = vp.size * Vec2(0.2f, 0.1f);
 				UI::box(params, text.rect(p).outset(8.0f * UI::scale), UI::background_color);
 				text.draw(params, p);
+			}
+
+			// show tracked enemies
+			UIText text;
+			text.font = Asset::Font::lowpoly;
+			text.anchor_x = UIText::Anchor::Min;
+			text.anchor_y = UIText::Anchor::Min;
+			text.size = text_size;
+			text.color = UI::default_color;
+
+			Vec2 ui_pos = vp.size * Vec2(0.8f, 0.9f);
+			Team* team = manager.ref()->team.ref();
+			const r32 row_padding = 8.0f * UI::scale;
+			const r32 row_height = (text_size * UI::scale) + row_padding;
+			const Vec2 box_size(128.0f * UI::scale, (row_height * 3) + (row_padding * 2));
+			for (auto other_player = PlayerManager::list.iterator(); !other_player.is_last(); other_player.next())
+			{
+				if (other_player.item()->id() != manager.id)
+				{
+					UI::box(params, Rect2(ui_pos + Vec2(0, (text_size * UI::scale) - box_size.y), box_size).outset(row_padding), UI::background_color);
+
+					// extract player information
+					Team::SensorTrackHistory* history;
+					Team::SensorTrackHistory history_buffer;
+					b8 friendly = other_player.item()->team.ref() == team;
+					const Vec4* color;
+					if (friendly || team->player_tracks[other_player.index].visible)
+					{
+						color = friendly ? &UI::accent_color : &UI::alert_color;
+						history = &history_buffer;
+						Team::extract_history(other_player.item(), history);
+
+						// position indicator
+						Entity* other_player_entity = other_player.item()->entity.ref();
+						if (other_player_entity)
+							draw_indicator(params, other_player_entity->get<Transform>()->absolute_pos(), *color);
+					}
+					else
+					{
+						color = &UI::accent_color;
+						history = &team->player_track_history[other_player.index];
+					}
+
+					text.color = *color;
+
+					// username
+					text.text(other_player.item()->username);
+					text.draw(params, ui_pos);
+					ui_pos.y -= row_height;
+
+					// hp
+					draw_hp_indicator(params, ui_pos, history->hp, history->hp_max, *color);
+					ui_pos.y -= row_height;
+
+					// ability / level
+					UI::mesh(params, AbilityInfo::list[(s32)history->ability].icon, ui_pos + Vec2(text_size * UI::scale * 0.5f), Vec2(text_size * UI::scale), *color);
+					text.text(_(strings::lvl), history->ability_level);
+					text.draw(params, ui_pos + Vec2(text_size * 1.5f, 0));
+					ui_pos.y -= row_height;
+
+					// credits
+					text.text("%d", history->credits);
+					text.draw(params, ui_pos);
+					ui_pos.y -= row_height;
+
+					ui_pos.y -= row_height;
+				}
 			}
 			break;
 		}
@@ -497,7 +580,7 @@ void LocalPlayer::draw_alpha(const RenderParams& params) const
 
 		if (Team::game_over())
 		{
-			// show victory/defeat message
+			// show victory/defeat/draw message
 			UIText text;
 			text.font = Asset::Font::lowpoly;
 			text.color = UI::alert_color;
@@ -518,26 +601,9 @@ void LocalPlayer::draw_alpha(const RenderParams& params) const
 	}
 }
 
-s32 factorial(s32 x)
-{
-	s32 accum = 1;
-	while (x > 1)
-	{
-		accum *= x;
-		x--;
-	}
-	return accum;
-}
-
-s32 combination(s32 n, s32 choose)
-{
-	return factorial(n) / (factorial(n - choose) * factorial(choose));
-}
-
 PlayerCommon::PlayerCommon(PlayerManager* m)
 	: cooldown(),
 	username_text(),
-	visibility_index(),
 	manager(m),
 	cooldown_multiplier(1.0f)
 {
@@ -1092,8 +1158,6 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 		// health indicator
 		{
 			const Health* health = get<Health>();
-			const Vec2 box_size = Vec2(text_size) * UI::scale;
-			const r32 box_spacing = 8.0f * UI::scale;
 
 			UIText text;
 			text.font = Asset::Font::lowpoly;
@@ -1103,24 +1167,19 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 			text.color = UI::default_color;
 			text.text(_(strings::hp));
 
-			r32 total_width = (text.bounds().x + box_spacing + health->hp_max * (box_size.x + box_spacing)) - box_spacing;
+			const Vec2 box_size = HP_BOX_SIZE;
+
+			r32 total_width = (text.bounds().x + HP_BOX_SPACING + health->hp_max * (box_size.x + HP_BOX_SPACING)) - HP_BOX_SPACING;
 
 			Vec2 pos = viewport.size * Vec2(0.5f, 0.1f) + Vec2(total_width * -0.5f, 0.0f);
 
-			UI::box(params, Rect2(pos, Vec2(total_width, box_size.y)).outset(box_spacing), UI::background_color);
+			UI::box(params, Rect2(pos, Vec2(total_width, box_size.y)).outset(HP_BOX_SPACING), UI::background_color);
 
 			text.draw(params, pos);
 			
-			pos.x += text.bounds().x + box_spacing * 2.0f;
-			pos.y += box_size.y * 0.6f;
+			pos.x += text.bounds().x + HP_BOX_SPACING * 0.5f;
 
-			for (s32 i = 0; i < health->hp_max; i++)
-			{
-				UI::triangle_border(params, { pos, box_size }, 2, UI::accent_color, PI);
-				if (i < health->hp)
-					UI::triangle(params, { pos, box_size }, UI::accent_color, PI);
-				pos.x += box_size.x + box_spacing;
-			}
+			draw_hp_indicator(params, pos, health->hp, health->hp_max, UI::accent_color);
 		}
 
 		if (has<Awk>())

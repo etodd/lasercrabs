@@ -42,12 +42,16 @@ StaticArray<Team, (s32)AI::Team::count> Team::list;
 Team::Team()
 	: victory_timer(GAME_OVER_TIME),
 	sensor_time(SENSOR_TIME_1),
-	sensor_explode()
+	sensor_explode(),
+	player_tracks(),
+	player_track_history()
 {
 }
 
 void Team::awake()
 {
+	for (auto i = PlayerManager::list.iterator(); !i.is_last(); i.next())
+		extract_history(i.item(), &player_track_history[i.index]);
 }
 
 s32 teams_with_players()
@@ -90,6 +94,16 @@ b8 Team::has_player() const
 	return false;
 }
 
+void Team::extract_history(PlayerManager* manager, SensorTrackHistory* history)
+{
+	history->ability = manager->ability;
+	history->ability_level = manager->ability_level[(s32)manager->ability];
+	history->credits = manager->credits;
+	Health* health = manager->entity.ref() ? manager->entity.ref()->get<Health>() : nullptr;
+	history->hp = health ? health->hp : 1;
+	history->hp_max = health ? health->hp_max : AWK_HEALTH;
+}
+
 void Team::update(const Update& u)
 {
 	if (Game::data.mode != Game::Mode::Multiplayer)
@@ -97,10 +111,13 @@ void Team::update(const Update& u)
 
 	// determine which Awks are seen by which teams
 	Sensor* visibility[MAX_PLAYERS][(s32)AI::Team::count] = {};
-	for (auto player = PlayerCommon::list.iterator(); !player.is_last(); player.next())
+	for (auto player = PlayerManager::list.iterator(); !player.is_last(); player.next())
 	{
-		Entity* player_entity = player.item()->entity();
-		AI::Team player_team = player_entity->get<AIAgent>()->team;
+		Entity* player_entity = player.item()->entity.ref();
+		if (!player_entity)
+			continue;
+
+		AI::Team player_team = player.item()->team.ref()->team();
 		Quat player_rot;
 		Vec3 player_pos;
 		player_entity->get<Transform>()->absolute(&player_pos, &player_rot);
@@ -153,78 +170,72 @@ void Team::update(const Update& u)
 
 		// update tracking timers
 
-		for (auto player = PlayerCommon::list.iterator(); !player.is_last(); player.next())
+		for (auto player = PlayerManager::list.iterator(); !player.is_last(); player.next())
 		{
-			AI::Team player_team = player.item()->get<AIAgent>()->team;
+			Entity* player_entity = player.item()->entity.ref();
+
+			AI::Team player_team = player.item()->team.ref()->team();
 			if (team->team() == player_team)
 				continue;
 
-			Entity* player_entity = player.item()->entity();
-
 			Sensor* sensor = visibility[player.index][team->id()];
+			SensorTrack* track = &team->player_tracks[player.index];
 			if (sensor)
 			{
 				// team's sensors are picking up the Awk
 				// if this team is already tracking the Awk, increment the timer
 				// if not, add the Awk to the tracking list
-				b8 already_tracking = false;
-				for (s32 k = 0; k < MAX_PLAYERS; k++)
+
+				if (track->entity.ref() == player_entity)
 				{
-					Team::SensorTrack* track = &team->player_tracks[k];
-					if (track->entity.ref() == player_entity)
+					// already tracking
+					if (track->visible) // already alerted
+						track->timer = SENSOR_TIMEOUT;
+					else
 					{
-						// already tracking
-						if (track->visible) // already alerted
-							track->timer = SENSOR_TIMEOUT;
-						else
+						// tracking but not yet alerted
+						track->timer += u.time.delta;
+						if (track->timer >= team->sensor_time)
 						{
-							// tracking but not yet alerted
-							track->timer += u.time.delta;
-							if (track->timer >= team->sensor_time)
+							if (sensor->player_manager.ref())
 							{
-								if (sensor->player_manager.ref())
-									sensor->player_manager.ref()->add_credits(10);
-								if (team->sensor_explode)
-								{
-									// todo: explode sensor
-								}
-								track->visible = true; // got em
+								Entity* player_entity = sensor->player_manager.ref()->entity.ref();
+								if (player_entity && player_entity->has<LocalPlayerControl>())
+									player_entity->get<LocalPlayerControl>()->player.ref()->msg(_(strings::enemy_detected));
+								sensor->player_manager.ref()->add_credits(10);
 							}
+							if (team->sensor_explode)
+							{
+								// todo: explode sensor
+							}
+							track->visible = true; // got em
 						}
-
-						already_tracking = true;
-						break;
 					}
+					break;
 				}
-
-				if (!already_tracking && player.item()->get<Transform>()->parent.ref())
+				else if (player_entity->get<Transform>()->parent.ref())
 				{
-					// insert new track entry
+					// not tracking yet; insert new track entry
 					// (only start tracking if the Awk is attached to a wall; don't start tracking if Awk is mid-air)
 
-					Team::SensorTrack* track = &team->player_tracks[player.index];
-					new (track) Team::SensorTrack();
+					new (track) SensorTrack();
 					track->entity = player_entity;
 				}
 			}
 			else
 			{
 				// team's sensors don't see the Awk
-				// remove the Awk's tracks, if any
-				for (s32 k = 0; k < MAX_PLAYERS; k++)
+				// remove the Awk's track, if any
+				if (track->entity.ref() == player_entity)
 				{
-					Team::SensorTrack* track = &team->player_tracks[k];
-					if (track->entity.ref() == player_entity)
+					if (track->visible && track->timer > 0.0f) // track remains active for SENSOR_TIMEOUT seconds
+						track->timer -= u.time.delta;
+					else
 					{
-						if (track->visible && track->timer > 0.0f) // track remains active for SENSOR_TIMEOUT seconds
-							track->timer -= u.time.delta;
-						else
-						{
-							// erase track
-							track->entity = nullptr;
-							track->visible = false;
-						}
-						break;
+						// copy track to history and erase
+						extract_history(player.item(), &team->player_track_history[player.index]);
+						track->entity = nullptr;
+						track->visible = false;
 					}
 				}
 			}
@@ -258,10 +269,12 @@ b8 PlayerManager::ability_use()
 					Vec3 abs_pos;
 					Quat abs_rot;
 					awk->get<Transform>()->absolute(&abs_pos, &abs_rot);
-					abs_pos += abs_rot * Vec3(0, 0, rope_segment_length + 0.25f);
-					World::create<SensorEntity>(awk->get<Transform>()->parent.ref(), this, abs_pos, abs_rot);
 
-					Rope::spawn(abs_pos + abs_rot * Vec3(0, 0, -0.25f), abs_rot * Vec3(0, 0, -1), 1.0f); // attach it to the wall
+					Entity* sensor = World::create<SensorEntity>(awk->get<Transform>()->parent.ref(), this, abs_pos + abs_rot * Vec3(0, 0, rope_segment_length + SENSOR_RADIUS), abs_rot);
+
+					// attach it to the wall
+					Entity* rope = World::create<RopeEntity>(abs_pos + abs_rot * Vec3(0, 0, -AWK_RADIUS), abs_rot * Vec3(0, 0, 1), awk->get<Transform>()->parent.ref()->get<RigidBody>());
+					rope->get<Rope>()->end(abs_pos + abs_rot * Vec3(0, 0, rope_segment_length), abs_rot * Vec3(0, 0, -1), sensor->get<RigidBody>());
 					
 					ability_cooldown = cooldown_reset;
 				}

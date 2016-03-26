@@ -60,7 +60,6 @@ struct PlayerCommon : public ComponentType<PlayerCommon>
 	r32 cooldown;
 	r32 cooldown_multiplier;
 	UIText username_text;
-	s32 visibility_index;
 	Ref<PlayerManager> manager;
 
 	r32 detect_danger() const;

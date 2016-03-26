@@ -46,12 +46,10 @@ AwkEntity::AwkEntity(AI::Team team)
 
 	create<Target>();
 
-	const r32 radius = 0.5f;
-
 	Vec3 abs_pos;
 	Quat abs_quat;
 	get<Transform>()->absolute(&abs_pos, &abs_quat);
-	create<RigidBody>(RigidBody::Type::Sphere, Vec3(radius), 0.0f, CollisionTarget, CollisionNothing);
+	create<RigidBody>(RigidBody::Type::Sphere, Vec3(AWK_RADIUS), 0.0f, CollisionAwk | CollisionTarget, CollisionDefault & ~CollisionTarget & ~CollisionAwkIgnore);
 }
 
 Health::Health(u16 start_value, u16 hp_max)
@@ -91,7 +89,7 @@ HealthPickupEntity::HealthPickupEntity()
 
 	model->offset.scale(Vec3(radius));
 
-	RigidBody* body = create<RigidBody>(RigidBody::Type::Sphere, Vec3(radius), 1.0f, CollisionTarget, btBroadphaseProxy::AllFilter);
+	RigidBody* body = create<RigidBody>(RigidBody::Type::Sphere, Vec3(radius), 1.0f, CollisionDefault | CollisionTarget, btBroadphaseProxy::AllFilter);
 	body->set_damping(0.5f, 0.5f);
 }
 
@@ -138,8 +136,7 @@ SensorEntity::SensorEntity(Transform* parent, PlayerManager* owner, const Vec3& 
 	model->mesh = Asset::Mesh::sphere;
 	model->color = Vec4(Team::colors[(s32)team].xyz(), MATERIAL_NO_OVERRIDE);
 	model->shader = Asset::Shader::standard;
-	const r32 radius = 0.15f;
-	model->offset.scale(Vec3(radius));
+	model->offset.scale(Vec3(SENSOR_RADIUS));
 
 	create<Health>(12, 12);
 
@@ -151,7 +148,7 @@ SensorEntity::SensorEntity(Transform* parent, PlayerManager* owner, const Vec3& 
 
 	Sensor* sensor = create<Sensor>(team, owner);
 
-	RigidBody* body = create<RigidBody>(RigidBody::Type::Sphere, Vec3(radius), 1.0f, CollisionTarget, btBroadphaseProxy::AllFilter);
+	RigidBody* body = create<RigidBody>(RigidBody::Type::Sphere, Vec3(SENSOR_RADIUS), 1.0f, CollisionAwkIgnore | CollisionTarget, btBroadphaseProxy::AllFilter);
 	body->set_damping(0.5f, 0.5f);
 
 	create<PlayerTrigger>()->radius = SENSOR_RANGE;
@@ -196,7 +193,7 @@ MinionSpawnEntity::MinionSpawnEntity()
 
 	model->offset.scale(Vec3(radius));
 
-	RigidBody* body = create<RigidBody>(RigidBody::Type::Sphere, Vec3(radius), 1.0f, CollisionTarget, btBroadphaseProxy::AllFilter);
+	RigidBody* body = create<RigidBody>(RigidBody::Type::Sphere, Vec3(radius), 1.0f, CollisionDefault | CollisionTarget, btBroadphaseProxy::AllFilter);
 	body->set_damping(0.5f, 0.5f);
 
 	create<MinionSpawn>();

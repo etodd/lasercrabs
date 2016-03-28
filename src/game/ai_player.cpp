@@ -164,13 +164,8 @@ AIPlayerControl::Goal AIPlayerControl::find_goal(const Entity* not_entity) const
 		}
 	}
 
-	{
-		Goal g;
-		dtPolyRef poly;
-		Vec3 target;
-		AI::nav_mesh_query->findRandomPoint(&AI::default_query_filter, mersenne::randf_co, &poly, (r32*)&g.pos);
-		return g;
-	}
+	Goal g;
+	return g;
 }
 
 s32 AIPlayerControl::Goal::priority() const

@@ -64,12 +64,6 @@ namespace VI
 			static const char* names[];
 		};
 
-		struct AwkNavMesh
-		{
-			static const char* values[];
-			static const char* names[];
-		};
-
 		struct String
 		{
 			static const char* names[];

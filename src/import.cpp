@@ -26,7 +26,7 @@ namespace VI
 
 typedef Chunks<Array<Vec3>> ChunkedTris;
 
-const s32 version = 20;
+const s32 version = 21;
 
 const char* model_in_extension = ".blend";
 const char* model_intermediate_extension = ".fbx";
@@ -39,7 +39,6 @@ const char* font_out_extension = ".fnt";
 const char* soundbank_extension = ".bnk";
 
 const char* nav_mesh_out_extension = ".nav";
-const char* awk_nav_mesh_out_extension = ".navk";
 const char* anim_out_extension = ".anm";
 const char* arm_out_extension = ".arm";
 const char* texture_extension = ".png";
@@ -599,7 +598,6 @@ struct Manifest
 	Map<std::string> fonts;
 	Map<std::string> levels;
 	Map<std::string> nav_meshes;
-	Map<std::string> awk_nav_meshes;
 	Map<std::string> string_files;
 	Map<std::string> strings;
 	Map<std::string> dialogue_trees;
@@ -619,7 +617,6 @@ b8 manifest_requires_update(const Manifest& a, const Manifest& b)
 		|| !maps_equal(a.fonts, b.fonts)
 		|| !maps_equal(a.levels, b.levels)
 		|| !maps_equal(a.nav_meshes, b.nav_meshes)
-		|| !maps_equal(a.awk_nav_meshes, b.awk_nav_meshes)
 		|| !maps_equal(a.string_files, b.string_files)
 		|| !maps_equal(a.strings, b.strings)
 		|| !maps_equal(a.dialogue_trees, b.dialogue_trees);
@@ -650,7 +647,6 @@ b8 manifest_read(const char* path, Manifest& manifest)
 			map_read(f, manifest.fonts);
 			map_read(f, manifest.levels);
 			map_read(f, manifest.nav_meshes);
-			map_read(f, manifest.awk_nav_meshes);
 			map_read(f, manifest.string_files);
 			map_read(f, manifest.strings);
 			map_read(f, manifest.dialogue_trees);
@@ -683,7 +679,6 @@ b8 manifest_write(Manifest& manifest, const char* path)
 	map_write(manifest.fonts, f);
 	map_write(manifest.levels, f);
 	map_write(manifest.nav_meshes, f);
-	map_write(manifest.awk_nav_meshes, f);
 	map_write(manifest.string_files, f);
 	map_write(manifest.strings, f);
 	map_write(manifest.dialogue_trees, f);
@@ -2280,13 +2275,11 @@ void import_level(ImporterState& state, const std::string& asset_in_path, const 
 	std::string asset_name = get_asset_name(asset_in_path);
 	std::string asset_out_path = out_folder + asset_name + level_out_extension;
 	std::string nav_mesh_out_path = out_folder + asset_name + nav_mesh_out_extension;
-	std::string awk_nav_mesh_out_path = out_folder + asset_name + awk_nav_mesh_out_extension;
 
 	s64 mtime = filemtime(asset_in_path);
 	b8 rebuild = state.rebuild
 		|| mtime > asset_mtime(state.cached_manifest.levels, asset_name)
-		|| mtime > asset_mtime(state.cached_manifest.nav_meshes, asset_name)
-		|| mtime > asset_mtime(state.cached_manifest.awk_nav_meshes, asset_name);
+		|| mtime > asset_mtime(state.cached_manifest.nav_meshes, asset_name);
 
 	Map<Mesh> meshes;
 	rebuild |= import_level_meshes(state, asset_in_path, out_folder, meshes, rebuild);
@@ -2295,7 +2288,6 @@ void import_level(ImporterState& state, const std::string& asset_in_path, const 
 
 	map_add(state.manifest.levels, asset_name, asset_out_path);
 	map_add(state.manifest.nav_meshes, asset_name, nav_mesh_out_path);
-	map_add(state.manifest.awk_nav_meshes, asset_name, awk_nav_mesh_out_path);
 
 	if (rebuild)
 	{
@@ -2317,44 +2309,15 @@ void import_level(ImporterState& state, const std::string& asset_in_path, const 
 		// Parse the scene graph and bake the nav mesh
 		cJSON* json = Json::load(asset_out_path.c_str());
 
-		// Build and write awk nav mesh
+		FILE* f = fopen(nav_mesh_out_path.c_str(), "w+b");
+		if (!f)
 		{
-			AwkNavMesh awk_nav;
-
-			s32 adjacency_buffer_overflows;
-			s32 orphans;
-			build_awk_nav_mesh(meshes, json, &awk_nav, &adjacency_buffer_overflows, &orphans);
-
-			FILE* f = fopen(awk_nav_mesh_out_path.c_str(), "w+b");
-			if (!f)
-			{
-				fprintf(stderr, "Error: Failed to write navk file %s.\n", awk_nav_mesh_out_path.c_str());
-				state.error = true;
-				return;
-			}
-
-			s32 total_vertices = 0;
-			if (awk_nav.chunks.length > 0)
-			{
-				fwrite(&awk_nav.chunk_size, sizeof(r32), 1, f);
-				fwrite(&awk_nav.vmin, sizeof(Vec3), 1, f);
-				fwrite(&awk_nav.size, sizeof(AwkNavMesh::Coord), 1, f);
-				for (s32 i = 0; i < awk_nav.chunks.length; i++)
-				{
-					const AwkNavMeshChunk& chunk = awk_nav.chunks[i];
-					vi_assert(chunk.vertices.length == chunk.adjacency.length);
-					fwrite(&chunk.vertices.length, sizeof(s32), 1, f);
-					fwrite(chunk.vertices.data, sizeof(Vec3), chunk.vertices.length, f);
-					fwrite(chunk.adjacency.data, sizeof(AwkNavMeshAdjacency), chunk.adjacency.length, f);
-					total_vertices += chunk.vertices.length;
-				}
-			}
-
-			fclose(f);
-
-			printf("%s - Chunks: %d Vertices: %d Adjacency buffer overflows: %d Orphans: %d\n", awk_nav_mesh_out_path.c_str(), awk_nav.chunks.length, total_vertices, adjacency_buffer_overflows, orphans);
+			fprintf(stderr, "Error: Failed to write nav file %s.\n", nav_mesh_out_path.c_str());
+			state.error = true;
+			return;
 		}
 
+		b8 do_awk_mesh = false;
 		// Build and write nav mesh
 		{
 			Mesh nav_mesh_input;
@@ -2364,24 +2327,15 @@ void import_level(ImporterState& state, const std::string& asset_in_path, const 
 			TileCacheData nav_tiles;
 			if (nav_mesh_input.vertices.length > 0)
 			{
+				do_awk_mesh = true;
+
 				if (!build_nav_mesh(nav_mesh_input, &nav_tiles))
 				{
 					fprintf(stderr, "Error: Nav mesh generation failed for file %s.\n", asset_in_path.c_str());
 					state.error = true;
 					return;
 				}
-			}
 
-			FILE* f = fopen(nav_mesh_out_path.c_str(), "w+b");
-			if (!f)
-			{
-				fprintf(stderr, "Error: Failed to write nav file %s.\n", nav_mesh_out_path.c_str());
-				state.error = true;
-				return;
-			}
-
-			if (nav_mesh_input.vertices.length > 0)
-			{
 				fwrite(&nav_tiles.min, sizeof(Vec3), 1, f);
 				fwrite(&nav_tiles.width, sizeof(s32), 1, f);
 				fwrite(&nav_tiles.height, sizeof(s32), 1, f);
@@ -2404,11 +2358,37 @@ void import_level(ImporterState& state, const std::string& asset_in_path, const 
 						dtFree(cell.layers[j].data);
 				}
 			}
-
-			fclose(f);
-
-			printf("%s\n", nav_mesh_out_path.c_str());
 		}
+
+		// Build and write awk nav mesh
+		if (do_awk_mesh)
+		{
+			AwkNavMesh awk_nav;
+
+			s32 adjacency_buffer_overflows;
+			s32 orphans;
+			build_awk_nav_mesh(meshes, json, &awk_nav, &adjacency_buffer_overflows, &orphans);
+
+			s32 total_vertices = 0;
+			fwrite(&awk_nav.chunk_size, sizeof(r32), 1, f);
+			fwrite(&awk_nav.vmin, sizeof(Vec3), 1, f);
+			fwrite(&awk_nav.size, sizeof(AwkNavMesh::Coord), 1, f);
+			for (s32 i = 0; i < awk_nav.chunks.length; i++)
+			{
+				const AwkNavMeshChunk& chunk = awk_nav.chunks[i];
+				vi_assert(chunk.vertices.length == chunk.adjacency.length);
+				fwrite(&chunk.vertices.length, sizeof(s32), 1, f);
+				fwrite(chunk.vertices.data, sizeof(Vec3), chunk.vertices.length, f);
+				fwrite(chunk.adjacency.data, sizeof(AwkNavMeshAdjacency), chunk.adjacency.length, f);
+				total_vertices += chunk.vertices.length;
+			}
+
+			printf("%s - Awk nav mesh - Chunks: %d Vertices: %d Adjacency buffer overflows: %d Orphans: %d\n", nav_mesh_out_path.c_str(), awk_nav.chunks.length, total_vertices, adjacency_buffer_overflows, orphans);
+		}
+
+		fclose(f);
+
+		printf("%s\n", nav_mesh_out_path.c_str());
 
 		Json::json_free(json);
 	}
@@ -3120,7 +3100,6 @@ s32 proc(s32 argc, char* argv[])
 			write_asset_source(f, "Font", state.manifest.fonts);
 			write_asset_source(f, "Level", state.manifest.levels);
 			write_asset_source(f, "NavMesh", state.manifest.nav_meshes);
-			write_asset_source(f, "AwkNavMesh", state.manifest.awk_nav_meshes);
 			write_asset_source_names_only(f, "String", state.manifest.strings);
 			write_asset_source(f, "DialogueTree", state.manifest.dialogue_trees);
 

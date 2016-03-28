@@ -136,6 +136,8 @@ namespace VI
 
 		std::thread update_thread(Loop::loop, &update_swapper, &physics_update_swapper);
 
+		std::thread ai_thread(AI::loop);
+
 		LoopSync* sync = render_swapper.get();
 
 		r64 last_time = SDL_GetTicks() / 1000.0;
@@ -257,8 +259,11 @@ namespace VI
 				break;
 		}
 
+		AI::quit();
+
 		update_thread.join();
 		physics_thread.join();
+		ai_thread.join();
 
 		SDL_GL_DeleteContext(context);
 		SDL_DestroyWindow(window);

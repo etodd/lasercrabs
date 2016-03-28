@@ -137,8 +137,6 @@ b8 Game::init(LoopSync* sync)
 
 	UI::init(sync);
 
-	AI::init();
-
 	Console::init();
 
 	Menu::init();
@@ -146,7 +144,12 @@ b8 Game::init(LoopSync* sync)
 	return true;
 }
 
-Array<Vec3> path;
+AI::Path path;
+
+void update_path(AI::Path p)
+{
+	path = p;
+}
 
 void Game::update(const Update& update_in)
 {
@@ -165,7 +168,9 @@ void Game::update(const Update& update_in)
 		load_level(u, scheduled_load_level);
 
 	if (u.input->keys[(s32)KeyCode::G] && !u.last_input->keys[(s32)KeyCode::G])
-		AI::awk_pathfind(LocalPlayerControl::list.iterator().item()->get<Transform>()->absolute_pos(), Vec3::zero, &path);
+		AI::awk_pathfind(LocalPlayerControl::list.iterator().item()->get<Transform>()->absolute_pos(), Vec3::zero, FunctionPointerLinkEntryArg<AI::Path>(&update_path));
+
+	AI::update(u);
 
 	Physics::sync_dynamic();
 
@@ -253,8 +258,10 @@ void Game::draw_alpha(const RenderParams& render_params)
 	SkyPattern::draw_alpha(render_params);
 	SkinnedModel::draw_alpha(render_params);
 
+	/*
 	for (s32 i = 0; i < path.length; i++)
 		Cube::draw(render_params, path[i]);
+	*/
 
 #if DEBUG_PHYSICS
 	{
@@ -581,8 +588,6 @@ void Game::load_level(const Update& u, AssetID l)
 	Audio::post_global_event(AK::EVENTS::PLAY_START_SESSION);
 
 	data.level = l;
-
-	AI::load_nav_mesh(l);
 
 	Physics::btWorld->setGravity(btVector3(0, -12.0f, 0));
 

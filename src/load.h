@@ -5,17 +5,10 @@
 #include "render/render.h"
 #include <AK/SoundEngine/Common/AkTypes.h>
 
-struct dtNavMesh;
-class dtTileCache;
-struct dtTileCacheAlloc;
-struct dtTileCacheCompressor;
-struct rcPolyMesh;
 struct cJSON;
 
 namespace VI
 {
-
-struct NavMeshProcess;
 
 struct Settings
 {
@@ -79,14 +72,6 @@ struct Loader
 	static Array<Entry<void*> > framebuffers; // Nothing actually stored
 	static Array<Entry<AkBankID> > soundbanks;
 	static Settings settings_data;
-	static dtNavMesh* current_nav_mesh;
-	static AwkNavMesh* current_awk_nav_mesh;
-	static dtTileCache* nav_tile_cache;
-	static dtTileCacheAlloc nav_tile_allocator;
-	static FastLZCompressor nav_tile_compressor;
-	static NavMeshProcess nav_tile_mesh_process;
-	static AssetID current_nav_mesh_id;
-	static AssetID current_awk_nav_mesh_id;
 	static void user_data_path(char*, const char*);
 
 	static Mesh* mesh(AssetID);
@@ -127,10 +112,6 @@ struct Loader
 	static Font* font(AssetID);
 	static Font* font_permanent(AssetID);
 	static void font_free(AssetID);
-
-	static dtNavMesh* nav_mesh(AssetID);
-
-	static AwkNavMesh* awk_nav_mesh(AssetID);
 
 	static cJSON* level(AssetID);
 	static void level_free(cJSON*);

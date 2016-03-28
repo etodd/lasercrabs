@@ -260,11 +260,7 @@ void MinionCheckGoal::run()
 	else
 	{
 		// go to random point
-		Vec3 pos;
-		dtPolyRef poly;
-		Vec3 target;
-		AI::nav_mesh_query->findRandomPoint(&AI::default_query_filter, mersenne::randf_co, &poly, (r32*)&pos);
-		minion->goal.set(pos);
+		AI::get_random_point(ObjectLinkEntryArg<MinionAI, Vec3, &MinionAI::set_goal>(minion->id()));
 	}
 	done(false);
 }
@@ -279,7 +275,7 @@ void MinionGoToGoal::run()
 		if (minion->goal.has_entity)
 			arrived = in_range();
 		else
-			arrived = minion->path_index == minion->path_point_count - 1;
+			arrived = minion->path_index == minion->path.length - 1;
 
 		if (arrived)
 		{
@@ -300,7 +296,7 @@ void MinionGoToGoal::run()
 
 void MinionGoToGoal::done(b8 success)
 {
-	minion->path_point_count = 0;
+	minion->path.length = 0;
 	MinionBehavior<MinionGoToGoal>::done(success);
 }
 
@@ -413,6 +409,11 @@ MinionAI::~MinionAI()
 	behavior->~Behavior();
 }
 
+void MinionAI::set_goal(Vec3 pos)
+{
+	goal.set(pos);
+}
+
 b8 MinionAI::can_see(Entity* target) const
 {
 	if (target->has<AIAgent>() && get<AIAgent>()->stealth)
@@ -437,19 +438,19 @@ void MinionAI::update(const Update& u)
 	get<Transform>()->absolute(&pos, &rot);
 	Vec3 forward = rot * Vec3(0, 0, 1);
 	
-	if (path_index < path_point_count)
+	if (path_index < path.length)
 	{
 		Vec3 flat_pos = pos;
 		flat_pos.y = 0.0f;
-		Vec3 t = path_points[path_index];
+		Vec3 t = path[path_index];
 		t.y = 0.0f;
 		Vec3 ray = t - flat_pos;
 		while (ray.length() < 0.1f)
 		{
 			path_index++;
-			if (path_index == path_point_count)
+			if (path_index == path.length)
 				break;
-			t = path_points[path_index];
+			t = path[path_index];
 			t.y = 0.0f;
 			ray = t - flat_pos;
 		}
@@ -459,11 +460,11 @@ void MinionAI::update(const Update& u)
 		{
 			if (path_index > 0)
 			{
-				if (path_index < path_point_count)
+				if (path_index < path.length)
 				{
-					Vec3 last = path_points[path_index - 1];
+					Vec3 last = path[path_index - 1];
 					last.y = 0.0f;
-					Vec3 next = path_points[path_index];
+					Vec3 next = path[path_index];
 					next.y = 0.0f;
 					Vec3 last_to_next = next - last;
 					r32 last_to_next_distance = last_to_next.length();
@@ -474,11 +475,6 @@ void MinionAI::update(const Update& u)
 					if (dot < -1.0f || dot > last_to_next_distance || (desired_location - flat_pos).length() > 0.5f)
 						recalc_path(u); // We're off the path
 				}
-			}
-			else
-			{
-				if (AI::get_poly(pos, AI::default_search_extents) != path_polys[0])
-					recalc_path(u);
 			}
 		}
 
@@ -492,41 +488,22 @@ void MinionAI::update(const Update& u)
 void MinionAI::go(const Vec3& target)
 {
 	path_index = 0;
-	path_point_count = 0;
+	path.length = 0;
 
 	Vec3 pos = get<Walker>()->base_pos();
-	dtPolyRef start_poly = AI::get_poly(pos, AI::default_search_extents);
-	dtPolyRef end_poly = AI::get_poly(target, AI::default_search_extents);
 
-	if (!start_poly || !end_poly)
-		return;
+	AI::pathfind(pos, target, ObjectLinkEntryArg<MinionAI, AI::Path, &MinionAI::set_path>(id()));
+}
 
-	dtPolyRef path_polys[MAX_POLYS];
-	dtPolyRef path_parents[MAX_POLYS];
-	u8 path_straight_flags[MAX_POLYS];
-	dtPolyRef path_straight_polys[MAX_POLYS];
-	s32 path_poly_count;
-
-	AI::nav_mesh_query->findPath(start_poly, end_poly, (r32*)&pos, (r32*)&target, &AI::default_query_filter, path_polys, &path_poly_count, MAX_POLYS);
-	if (path_poly_count)
-	{
-		// In case of partial path, make sure the end point is clamped to the last polygon.
-		Vec3 epos = target;
-		if (path_polys[path_poly_count - 1] != end_poly)
-			AI::nav_mesh_query->closestPointOnPoly(path_polys[path_poly_count - 1], (r32*)&target, (r32*)&epos, 0);
-		
-		s32 point_count;
-		AI::nav_mesh_query->findStraightPath((r32*)&pos, (r32*)&target, path_polys, path_poly_count,
-									 (r32*)path_points, path_straight_flags,
-									 path_straight_polys, &point_count, MAX_POLYS, 0);
-		path_point_count = point_count;
-	}
+void MinionAI::set_path(AI::Path p)
+{
+	path = p;
 }
 
 void MinionAI::recalc_path(const Update& u)
 {
 	last_path_recalc = Game::time.total;
-	go(path_points[path_point_count - 1]);
+	go(path[path.length - 1]);
 }
 
 void MinionAI::turn_to(const Vec3& target)

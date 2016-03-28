@@ -3,13 +3,6 @@
 #include "lodepng/lodepng.h"
 #include "vi_assert.h"
 #include "asset/lookup.h"
-#include "recast/Detour/Include/DetourCommon.h"
-#include "recast/Recast/Include/Recast.h"
-#include "recast/Detour/Include/DetourAlloc.h"
-#include "recast/Detour/Include/DetourNavMesh.h"
-#include "recast/Detour/Include/DetourNavMeshBuilder.h"
-#include "recast/DetourTileCache/Include/DetourTileCache.h"
-#include "recast/DetourTileCache/Include/DetourTileCacheBuilder.h"
 #include <AK/SoundEngine/Common/AkSoundEngine.h>
 #include "cjson/cJSON.h"
 #include "ai.h"
@@ -30,14 +23,6 @@ Array<Loader::Entry<void*> > Loader::dynamic_meshes;
 Array<Loader::Entry<void*> > Loader::dynamic_textures;
 Array<Loader::Entry<void*> > Loader::framebuffers;
 Array<Loader::Entry<AkBankID> > Loader::soundbanks;
-dtNavMesh* Loader::current_nav_mesh = nullptr;
-AwkNavMesh* Loader::current_awk_nav_mesh = nullptr;
-dtTileCache* Loader::nav_tile_cache = nullptr;
-dtTileCacheAlloc Loader::nav_tile_allocator;
-FastLZCompressor Loader::nav_tile_compressor;
-NavMeshProcess Loader::nav_tile_mesh_process;
-AssetID Loader::current_nav_mesh_id = AssetNull;
-AssetID Loader::current_awk_nav_mesh_id = AssetNull;
 
 s32 Loader::static_mesh_count = 0;
 s32 Loader::static_texture_count = 0;
@@ -49,20 +34,6 @@ struct Attrib
 	RenderDataType type;
 	s32 count;
 	Array<char> data;
-};
-
-// Recast nav mesh structs
-
-/// Contains triangle meshes that represent detailed height data associated 
-/// with the polygons in its associated polygon mesh object.
-struct rcPolyMeshDetail
-{
-	u32* meshes;	///< The sub-mesh data. [Size: 4*#nmeshes] 
-	r32* verts;			///< The mesh vertices. [Size: 3*#nverts] 
-	u8* tris;	///< The mesh triangles. [Size: 4*#ntris] 
-	s32 nmeshes;			///< The number of sub-meshes defined by #meshes.
-	s32 nverts;				///< The number of vertices in #verts.
-	s32 ntris;				///< The number of triangles in #tris.
 };
 
 void Loader::init(LoopSwapper* s)
@@ -456,8 +427,8 @@ void Loader::texture(AssetID id, RenderTextureWrap wrap, RenderTextureFilter fil
 		sync->write<AssetID>(id);
 		sync->write(wrap);
 		sync->write(filter);
-		sync->write<u32>(&width);
-		sync->write<u32>(&height);
+		sync->write<u32>(width);
+		sync->write<u32>(height);
 		sync->write<u8>(buffer, 4 * width * height);
 		free(buffer);
 	}
@@ -629,7 +600,7 @@ void Loader::shader(AssetID id)
 		RenderSync* sync = swapper->get();
 		sync->write(RenderOp::LoadShader);
 		sync->write<AssetID>(id);
-		sync->write<s32>(&code.length);
+		sync->write<s32>(code.length);
 		sync->write(code.data, code.length);
 	}
 }
@@ -726,6 +697,27 @@ cJSON* Loader::level(AssetID id)
 {
 	if (id == AssetNull)
 		return 0;
+
+	const char* nav_path = AssetLookup::NavMesh::values[id];
+	FILE* f = fopen(nav_path, "rb");
+	if (!f)
+	{
+		fprintf(stderr, "Can't open nav file '%s'\n", nav_path);
+		return nullptr;
+	}
+
+	fseek(f, 0, SEEK_END);
+	s32 fsize = ftell(f);
+	fseek(f, 0, SEEK_SET);
+
+	if (fsize > 0)
+	{
+		Array<u8> data(fsize, fsize);
+		fread(data.data, sizeof(u8), data.length, f);
+		AI::load(data.data, data.length);
+	}
+
+	fclose(f);
 	
 	return Json::load(AssetLookup::Level::values[id]);
 }
@@ -746,172 +738,6 @@ cJSON* Loader::dialogue_tree(AssetID id)
 void Loader::dialogue_tree_free(cJSON* json)
 {
 	Json::json_free(json);
-}
-
-dtNavMesh* Loader::nav_mesh(AssetID id)
-{
-	// Only allow one nav mesh to be loaded at a time
-	vi_assert(current_nav_mesh_id == AssetNull || current_nav_mesh_id == id);
-
-	if (id == AssetNull)
-		return nullptr;
-	
-	if (current_nav_mesh_id == AssetNull)
-	{
-		const char* path = AssetLookup::NavMesh::values[id];
-
-		TileCacheData tiles;
-
-		FILE* f = fopen(path, "rb");
-		if (f)
-		{
-			if (fread(&tiles.min, sizeof(Vec3), 1, f))
-			{
-				fread(&tiles.width, sizeof(s32), 1, f);
-				fread(&tiles.height, sizeof(s32), 1, f);
-				tiles.cells.resize(tiles.width * tiles.height);
-				for (s32 i = 0; i < tiles.cells.length; i++)
-				{
-					TileCacheCell& cell = tiles.cells[i];
-					s32 layer_count;
-					fread(&layer_count, sizeof(s32), 1, f);
-					cell.layers.resize(layer_count);
-					for (s32 j = 0; j < layer_count; j++)
-					{
-						TileCacheLayer& layer = cell.layers[j];
-						fread(&layer.data_size, sizeof(s32), 1, f);
-						layer.data = (u8*)dtAlloc(layer.data_size, dtAllocHint::DT_ALLOC_PERM);
-						fread(layer.data, sizeof(u8), layer.data_size, f);
-					}
-				}
-			}
-			fclose(f);
-		}
-
-		if (tiles.width > 0)
-		{
-			// Create Detour navmesh
-
-			current_nav_mesh = dtAllocNavMesh();
-			vi_assert(current_nav_mesh);
-
-			dtNavMeshParams params;
-			memset(&params, 0, sizeof(params));
-			rcVcopy(params.orig, (r32*)&tiles.min);
-			params.tileWidth = nav_tile_size * nav_resolution;
-			params.tileHeight = nav_tile_size * nav_resolution;
-
-			s32 tileBits = rcMin((s32)dtIlog2(dtNextPow2(tiles.width * tiles.height * nav_expected_layers_per_tile)), 14);
-			if (tileBits > 14) tileBits = 14;
-			s32 polyBits = 22 - tileBits;
-			params.maxTiles = 1 << tileBits;
-			params.maxPolys = 1 << polyBits;
-
-			{
-				dtStatus status = current_nav_mesh->init(&params);
-				vi_assert(dtStatusSucceed(status));
-			}
-
-			// Create Detour tile cache
-
-			dtTileCacheParams tcparams;
-			memset(&tcparams, 0, sizeof(tcparams));
-			memcpy(&tcparams.orig, &tiles.min, sizeof(tiles.min));
-			tcparams.cs = nav_resolution;
-			tcparams.ch = nav_resolution;
-			tcparams.width = (s32)nav_tile_size;
-			tcparams.height = (s32)nav_tile_size;
-			tcparams.walkableHeight = nav_agent_height;
-			tcparams.walkableRadius = nav_agent_radius;
-			tcparams.walkableClimb = nav_agent_max_climb;
-			tcparams.maxSimplificationError = nav_mesh_max_error;
-			tcparams.maxTiles = tiles.width * tiles.height * nav_expected_layers_per_tile;
-			tcparams.maxObstacles = nav_max_obstacles;
-
-			nav_tile_cache = dtAllocTileCache();
-			vi_assert(nav_tile_cache);
-			{
-				dtStatus status = nav_tile_cache->init(&tcparams, &nav_tile_allocator, &nav_tile_compressor, &nav_tile_mesh_process);
-				vi_assert(!dtStatusFailed(status));
-			}
-
-			for (s32 ty = 0; ty < tiles.height; ty++)
-			{
-				for (s32 tx = 0; tx < tiles.width; tx++)
-				{
-					TileCacheCell& cell = tiles.cells[tx + ty * tiles.width];
-					for (s32 i = 0; i < cell.layers.length; i++)
-					{
-						TileCacheLayer& tile = cell.layers[i];
-						dtStatus status = nav_tile_cache->addTile(tile.data, tile.data_size, DT_COMPRESSEDTILE_FREE_DATA, 0);
-						vi_assert(dtStatusSucceed(status));
-					}
-				}
-			}
-
-			// Build initial meshes
-			for (s32 ty = 0; ty < tiles.height; ty++)
-			{
-				for (s32 tx = 0; tx < tiles.width; tx++)
-				{
-					dtStatus status = nav_tile_cache->buildNavMeshTilesAt(tx, ty, current_nav_mesh);
-					vi_assert(dtStatusSucceed(status));
-				}
-			}
-		}
-	}
-
-	current_nav_mesh_id = id;
-
-	return current_nav_mesh;
-}
-
-AwkNavMesh* Loader::awk_nav_mesh(AssetID id)
-{
-	// Only allow one nav mesh to be loaded at a time
-	vi_assert(current_awk_nav_mesh_id == AssetNull || current_awk_nav_mesh_id == id);
-
-	if (id == AssetNull)
-		return nullptr;
-	
-	if (current_awk_nav_mesh_id == AssetNull)
-	{
-		const char* path = AssetLookup::AwkNavMesh::values[id];
-
-		FILE* f = fopen(path, "rb");
-		if (f)
-		{
-			r32 chunk_size;
-
-			if (fread(&chunk_size, sizeof(r32), 1, f))
-			{
-				current_awk_nav_mesh = (AwkNavMesh*)malloc(sizeof(AwkNavMesh));
-				new (current_awk_nav_mesh) AwkNavMesh();
-
-				current_awk_nav_mesh->chunk_size = chunk_size;
-				fread(&current_awk_nav_mesh->vmin, sizeof(Vec3), 1, f);
-				fread(&current_awk_nav_mesh->size, sizeof(AwkNavMesh::Coord), 1, f);
-				current_awk_nav_mesh->resize();
-
-				for (s32 i = 0; i < current_awk_nav_mesh->chunks.length; i++)
-				{
-					AwkNavMeshChunk* chunk = &current_awk_nav_mesh->chunks[i];
-					s32 vertex_count;
-					fread(&vertex_count, sizeof(s32), 1, f);
-					chunk->vertices.resize(vertex_count);
-					fread(chunk->vertices.data, sizeof(Vec3), vertex_count, f);
-					chunk->adjacency.resize(vertex_count);
-					fread(chunk->adjacency.data, sizeof(AwkNavMeshAdjacency), vertex_count, f);
-				}
-			}
-
-			fclose(f);
-		}
-	}
-
-	current_awk_nav_mesh_id = id;
-
-	return current_awk_nav_mesh;
 }
 
 b8 Loader::soundbank(AssetID id)
@@ -956,26 +782,6 @@ void Loader::soundbank_free(AssetID id)
 
 void Loader::transients_free()
 {
-	if (current_nav_mesh)
-	{
-		dtFreeNavMesh(current_nav_mesh);
-		current_nav_mesh = nullptr;
-	}
-	current_nav_mesh_id = AssetNull;
-	if (nav_tile_cache)
-	{
-		dtFreeTileCache(nav_tile_cache);
-		nav_tile_cache = nullptr;
-	}
-
-	if (current_awk_nav_mesh)
-	{
-		current_awk_nav_mesh->~AwkNavMesh();
-		free(current_awk_nav_mesh);
-		current_awk_nav_mesh = nullptr;
-	}
-	current_awk_nav_mesh_id = AssetNull;
-
 	for (AssetID i = 0; i < meshes.length; i++)
 	{
 		if (meshes[i].type == AssetTransient)

@@ -13,7 +13,7 @@ struct Rope;
 struct View;
 
 #define AWK_HEALTH 3
-#define AWK_FLY_SPEED 75.0f
+#define AWK_FLY_SPEED 65.0f
 #define AWK_CRAWL_SPEED 3.0f
 #define AWK_MIN_COOLDOWN 0.5f
 #define AWK_MAX_DISTANCE_COOLDOWN 1.75f
@@ -48,6 +48,7 @@ struct Awk : public ComponentType<Awk>
 	Link attached;
 	LinkArg<const Vec3&> bounce;
 	LinkArg<Entity*> hit;
+	Link detached;
 	r32 attach_time;
 	Footing footing[AWK_LEGS];
 	r32 last_speed;

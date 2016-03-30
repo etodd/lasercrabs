@@ -3,6 +3,7 @@
 #include "lmath.h"
 #include "data/array.h"
 #include "render/ui.h"
+#include "game.h"
 
 namespace VI
 {
@@ -57,7 +58,7 @@ namespace Menu
 {
 
 void init();
-void transition(AssetID);
+void transition(AssetID, Game::Mode);
 void update(const Update&);
 void clear();
 void draw(const RenderParams&);

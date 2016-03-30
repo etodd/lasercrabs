@@ -49,17 +49,44 @@ void AIPlayer::spawn()
 }
 
 AIPlayerControl::AIPlayerControl()
-	: goal(), last_pos(), stick_timer(), goal_timer(5.0f)
 {
 	reset_move_timer();
+	behavior = Repeat::alloc
+	(
+		Sequence::alloc
+		(
+			Succeed::alloc
+			(
+				Parallel::alloc
+				(
+					Select::alloc
+					(
+					),
+					Sequence::alloc
+					(
+						Delay::alloc(0.3f),
+						Invert::alloc
+						(
+							Select::alloc
+							(
+							)
+						)
+					)
+				)
+			),
+			AIBehaviors::FollowPath::alloc()
+		)
+	);
 }
 
 void AIPlayerControl::awake()
 {
-	goal.pos = get<Transform>()->absolute_pos();
-
 	link<&AIPlayerControl::awk_attached>(get<Awk>()->attached);
-	link_arg<Entity*, &AIPlayerControl::awk_hit>(get<Awk>()->hit);
+}
+
+AIPlayerControl::~AIPlayerControl()
+{
+	behavior->~Behavior();
 }
 
 void AIPlayerControl::awk_attached()
@@ -67,235 +94,94 @@ void AIPlayerControl::awk_attached()
 	reset_move_timer();
 }
 
-void AIPlayerControl::awk_hit(Entity* target)
-{
-	if (target == goal.entity.ref())
-	{
-		goal = find_goal(target);
-		goal_timer = 0.0f;
-	}
-}
-
 void AIPlayerControl::reset_move_timer()
 {
-	move_timer = 0.2f + mersenne::randf_co() * (goal.entity.ref() ? 0.2f : 0.5f);
-	goal.vision_timer = 0.0f;
+	move_timer = 0.2f + mersenne::randf_co() * 0.5f;
 }
 
-Vec3 get_goal_pos(const Entity* e)
+Entity* find_goal(Entity* me, Entity* not_entity)
 {
-	if (e->has<MinionCommon>())
-		return e->get<MinionCommon>()->head_pos();
-	else
-		return e->get<Transform>()->absolute_pos();
-}
-
-s32 get_goal_priority(const Entity* e)
-{
-	if (e->has<AIAgent>())
-		return 1;
-	else
-		return 0;
-}
-
-b8 AIPlayerControl::goal_reachable(const Entity* e) const
-{
-	Vec3 pos = get<Transform>()->absolute_pos();
-	Vec3 goal_pos = get_goal_pos(e);
-	Vec3 to_goal = goal_pos - pos;
-	r32 distance_squared = to_goal.length_squared();
-
-	if (distance_squared < AWK_VIEW_RANGE * AWK_VIEW_RANGE)
-	{
-		btCollisionWorld::ClosestRayResultCallback rayCallback(pos, goal_pos);
-		rayCallback.m_flags = btTriangleRaycastCallback::EFlags::kF_FilterBackfaces | btTriangleRaycastCallback::EFlags::kF_KeepUnflippedNormal;
-		rayCallback.m_collisionFilterGroup = rayCallback.m_collisionFilterMask = btBroadphaseProxy::AllFilter;
-
-		Physics::btWorld->rayTest(pos, goal_pos, rayCallback);
-		if (rayCallback.hasHit() && rayCallback.m_collisionObject->getUserIndex() == e->id())
-			return true;
-	}
-	return false;
-}
-
-AIPlayerControl::Goal AIPlayerControl::find_goal(const Entity* not_entity) const
-{
-	Entity* enemy = AI::vision_query(get<AIAgent>(), get<Transform>()->absolute_pos(), get<Transform>()->absolute_rot() * Vec3(0, 0, 1), AWK_VIEW_RANGE, PI);
+	Entity* enemy = AI::vision_query(me->get<AIAgent>(), me->get<Transform>()->absolute_pos(), me->get<Transform>()->absolute_rot() * Vec3(0, 0, 1), AWK_VIEW_RANGE, PI);
 	if (enemy)
-	{
-		Goal g;
-		g.entity = enemy;
-		return g;
-	}
+		return enemy;
 
-	AI::Team team = get<AIAgent>()->team;
+	AI::Team team = me->get<AIAgent>()->team;
 
-	Vec3 pos = get<Transform>()->absolute_pos();
+	Vec3 pos = me->get<Transform>()->absolute_pos();
 
 	for (auto i = Sensor::list.iterator(); !i.is_last(); i.next())
 	{
-		if (i.item()->team != team && AI::vision_check(pos, i.item()->get<Transform>()->absolute_pos(), entity(), i.item()->entity()))
-		{
-			Goal g;
-			g.entity = i.item()->entity();
-			return g;
-		}
+		if (i.item()->team != team && AI::vision_check(pos, i.item()->get<Transform>()->absolute_pos(), me, i.item()->entity()))
+			return i.item()->entity();
 	}
 
 	for (auto i = MinionSpawn::list.iterator(); !i.is_last(); i.next())
 	{
 		Entity* minion = i.item()->minion.ref();
-		if (!minion || minion->get<AIAgent>()->team != team && AI::vision_check(pos, minion->get<Transform>()->absolute_pos(), entity(), minion))
-		{
-			Goal g;
-			g.entity = i.item()->entity();
-			return g;
-		}
+		if (!minion || minion->get<AIAgent>()->team != team && AI::vision_check(pos, minion->get<Transform>()->absolute_pos(), me, minion))
+			return i.item()->entity();
 	}
 
 	for (auto i = HealthPickup::list.iterator(); !i.is_last(); i.next())
 	{
 		Health* owner = i.item()->owner.ref();
-		if ((!owner || owner->get<AIAgent>()->team != team) && AI::vision_check(pos, i.item()->get<Transform>()->absolute_pos(), entity(), i.item()->entity()))
+		if ((!owner || owner->get<AIAgent>()->team != team) && AI::vision_check(pos, i.item()->get<Transform>()->absolute_pos(), me, i.item()->entity()))
+			return i.item()->entity();
+	}
+
+	return nullptr;
+}
+
+b8 AIPlayerControl::go(const Vec3& target)
+{
+	Vec3 pos;
+	Quat quat;
+	get<Transform>()->absolute(&pos, &quat);
+
+	Vec3 wall_normal = quat * Vec3(0, 0, 1);
+	Vec3 to_goal = Vec3::normalize(target - pos);
+	{
+		const r32 random_range = 0.01f;
+		to_goal = Quat::euler(mersenne::randf_oo() * random_range, mersenne::randf_oo() * random_range, mersenne::randf_oo() * random_range) * to_goal;
+		if (get<Awk>()->can_go(to_goal))
 		{
-			Goal g;
-			g.entity = i.item()->entity();
-			return g;
+			get<Awk>()->detach(to_goal);
+			return true;
 		}
 	}
 
-	Goal g;
-	return g;
-}
-
-s32 AIPlayerControl::Goal::priority() const
-{
-	Entity* e = entity.ref();
-	if (e)
-		return get_goal_priority(e);
-	else
-		return 0;
-}
-
-r32 AIPlayerControl::Goal::inaccuracy() const
-{
-	Entity* e = entity.ref();
-	if (e)
-	{
-		if (e->has<Awk>())
-			return PI * 0.025f;
-		else
-			return PI * 0.005f;
-	}
-	else
-		return 0;
-}
-
-b8 can_go_goal(const Update& u, const AIPlayerControl::Goal& goal)
-{
-	Entity* e = goal.entity.ref();
-	if (e)
-	{
-		if (goal.vision_timer > 0.5f)
-			return true;
-		else
-			return false;
-	}
-	else
-		return true;
+	return false;
 }
 
 void AIPlayerControl::update(const Update& u)
 {
-	goal_timer += u.time.delta;
-	if (goal_timer > 0.5f)
-	{
-		goal_timer = 0.0f;
-		Goal g = find_goal();
-		if (g.priority() > goal.priority())
-			goal = g;
-	}
-
 	b8 can_shoot = get<PlayerCommon>()->cooldown == 0.0f;
-
-	if (goal.entity.ref() && goal_reachable(goal.entity.ref()))
-		goal.vision_timer += u.time.delta;
-	else
-		goal.vision_timer = 0.0f;
 
 	if (get<Transform>()->parent.ref() && can_shoot)
 	{
 		move_timer -= u.time.delta;
-		if (move_timer < 0.0f && can_go_goal(u, goal))
+		if (move_timer < 0.0f)
 		{
-			Vec3 pos;
-			Quat quat;
-			get<Transform>()->absolute(&pos, &quat);
-
-			Vec3 wall_normal = quat * Vec3(0, 0, 1);
-			Vec3 goal_pos = goal.get_pos();
-			Vec3 to_goal = Vec3::normalize(goal_pos - pos);
-			{
-				const r32 random_range = goal.inaccuracy();
-				to_goal = Quat::euler(mersenne::randf_oo() * random_range, mersenne::randf_oo() * random_range, mersenne::randf_oo() * random_range) * to_goal;
-				if (get<Awk>()->can_go(to_goal))
-				{
-					get<Awk>()->detach(to_goal);
-					return;
-				}
-			}
-
-			const s32 tries = 20;
-			r32 random_range = PI * (2.0f / (r32)(tries + 1));
-			r32 best_distance = -1.0f;
-			r32 best_travel_distance = 1.0f;
-			Vec3 best_dir;
-			for (s32 i = 0; i < tries; i++)
-			{
-				Vec3 dir = Quat::euler(mersenne::randf_oo() * random_range, mersenne::randf_oo() * random_range, mersenne::randf_oo() * random_range) * to_goal;
-				if (dir.dot(wall_normal) < 0.0f)
-					dir = dir.reflect(wall_normal);
-				Vec3 final_pos;
-				if (get<Awk>()->can_go(dir, &final_pos))
-				{
-					r32 distance = (final_pos - goal_pos).length_squared();
-					r32 travel_distance = (final_pos - pos).length_squared();
-					if (best_distance < 0.0f || (distance < best_distance && travel_distance > best_travel_distance))
-					{
-						best_distance = distance;
-						best_travel_distance = travel_distance;
-						best_dir = dir;
-					}
-				}
-				random_range += PI * (2.0f / (r32)(tries + 1));
-			}
-
-			if (best_distance > 0.0f)
-			{
-				get<Awk>()->detach(best_dir);
-				return;
-			}
 		}
 	}
+}
 
-	if (get<Transform>()->parent.ref())
-	{
-		if ((get<Transform>()->pos - last_pos).length_squared() > 0.5f * 0.5f)
-		{
-			// We're not stuck, stay on target
-			last_pos = get<Transform>()->pos;
-			stick_timer = 0.0f;
-		}
+namespace AIBehaviors
+{
 
-		if (can_shoot)
-			stick_timer += u.time.delta;
+void FollowPath::run()
+{
+}
 
-		if (stick_timer > 4.0f)
-		{
-			goal = find_goal(goal.entity.ref());
-			stick_timer = 0.0f;
-		}
-	}
+void FollowPath::update(const Update& u)
+{
+}
+
+void update_active(const Update& u)
+{
+	FollowPath::update_active(u);
+}
+
 }
 
 }

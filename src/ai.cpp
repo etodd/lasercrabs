@@ -20,37 +20,6 @@ namespace AI
 {
 
 
-Goal::Goal()
-	: entity(), has_entity(true)
-{
-}
-
-b8 Goal::valid() const
-{
-	return !has_entity || entity.ref();
-}
-
-Vec3 Goal::get_pos() const
-{
-	Entity* e = entity.ref();
-	if (has_entity && e)
-		return e->get<Transform>()->absolute_pos();
-	else
-		return pos;
-}
-
-void Goal::set(const Vec3& p)
-{
-	pos = p;
-	has_entity = false;
-}
-
-void Goal::set(Entity* e)
-{
-	entity = e;
-	has_entity = true;
-}
-
 void NavMeshProcess::process(struct dtNavMeshCreateParams* params, u8* polyAreas, u16* polyFlags)
 {
 	for (int i = 0; i < params->polyCount; i++)
@@ -87,40 +56,22 @@ void update(const Update& u)
 		sync_out.read(&cb);
 		switch (cb)
 		{
-			case Callback::Pathfind:
+			case Callback::Path:
 			{
-				LinkEntryArg<Path> link;
+				LinkEntryArg<const Path&> link;
 				sync_out.read(&link);
 				Path path;
 				sync_out.read(&path);
 				(&link)->fire(path);
 				break;
 			}
-			case Callback::AwkPathfind:
+			case Callback::AwkPath:
 			{
-				LinkEntryArg<Path> link;
+				LinkEntryArg<const Path&> link;
 				sync_out.read(&link);
 				Path path;
 				sync_out.read(&path);
 				(&link)->fire(path);
-				break;
-			}
-			case Callback::GetRandomPoint:
-			{
-				LinkEntryArg<Vec3> link;
-				sync_out.read(&link);
-				Vec3 p;
-				sync_out.read(&p);
-				(&link)->fire(p);
-				break;
-			}
-			case Callback::AwkGetRandomPoint:
-			{
-				LinkEntryArg<Vec3> link;
-				sync_out.read(&link);
-				Vec3 p;
-				sync_out.read(&p);
-				(&link)->fire(p);
 				break;
 			}
 			default:
@@ -248,23 +199,25 @@ void load(const u8* data, s32 length)
 	sync_in.unlock();
 }
 
-void get_random_point(const LinkEntryArg<Vec3>& callback)
+void random_path(const Vec3& pos, const LinkEntryArg<const Path&>& callback)
 {
 	sync_in.lock();
-	sync_in.write(Op::GetRandomPoint);
+	sync_in.write(Op::RandomPath);
+	sync_in.write(pos);
 	sync_in.write(callback);
 	sync_in.unlock();
 }
 
-void awk_get_random_point(const LinkEntryArg<Vec3>& callback)
+void awk_random_path(const Vec3& pos, const LinkEntryArg<const Path&>& callback)
 {
 	sync_in.lock();
-	sync_in.write(Op::AwkGetRandomPoint);
+	sync_in.write(Op::AwkRandomPath);
+	sync_in.write(pos);
 	sync_in.write(callback);
 	sync_in.unlock();
 }
 
-void pathfind(const Vec3& a, const Vec3& b, const LinkEntryArg<Path>& callback)
+void pathfind(const Vec3& a, const Vec3& b, const LinkEntryArg<const Path&>& callback)
 {
 	sync_in.lock();
 	sync_in.write(Op::Pathfind);
@@ -274,7 +227,7 @@ void pathfind(const Vec3& a, const Vec3& b, const LinkEntryArg<Path>& callback)
 	sync_in.unlock();
 }
 
-void awk_pathfind(const Vec3& a, const Vec3& b, const LinkEntryArg<Path>& callback)
+void awk_pathfind(const Vec3& a, const Vec3& b, const LinkEntryArg<const Path&>& callback)
 {
 	sync_in.lock();
 	sync_in.write(Op::AwkPathfind);
@@ -298,6 +251,30 @@ NavMeshProcess nav_tile_mesh_process;
 dtNavMeshQuery* nav_mesh_query = nullptr;
 dtQueryFilter default_query_filter = dtQueryFilter();
 const r32 default_search_extents[] = { 8, 8, 8 };
+
+void pathfind(const Vec3& a, const Vec3& b, dtPolyRef start_poly, dtPolyRef end_poly, Path* path)
+{
+	dtPolyRef path_polys[AI::MAX_PATH_LENGTH];
+	dtPolyRef path_parents[AI::MAX_PATH_LENGTH];
+	u8 path_straight_flags[AI::MAX_PATH_LENGTH];
+	dtPolyRef path_straight_polys[AI::MAX_PATH_LENGTH];
+	s32 path_poly_count;
+
+	nav_mesh_query->findPath(start_poly, end_poly, (r32*)&a, (r32*)&b, &default_query_filter, path_polys, &path_poly_count, MAX_PATH_LENGTH);
+	if (path_poly_count)
+	{
+		// In case of partial path, make sure the end point is clamped to the last polygon.
+		Vec3 epos = b;
+		if (path_polys[path_poly_count - 1] != end_poly)
+			nav_mesh_query->closestPointOnPoly(path_polys[path_poly_count - 1], (r32*)&b, (r32*)&epos, 0);
+
+		s32 point_count;
+		nav_mesh_query->findStraightPath((r32*)&a, (r32*)&b, path_polys, path_poly_count,
+			(r32*)path->data, path_straight_flags,
+			path_straight_polys, &point_count, MAX_PATH_LENGTH, 0);
+		path->length = point_count;
+	}
+}
 
 void loop()
 {
@@ -462,7 +439,7 @@ void loop()
 			{
 				u32 id;
 				sync_in.read(&id);
-				if (id > obstacle_recast_ids.length - 1)
+				if ((s32)id > obstacle_recast_ids.length - 1)
 					obstacle_recast_ids.resize(id + 1);
 
 				vi_assert(nav_tile_cache);
@@ -504,33 +481,38 @@ void loop()
 				Path path;
 
 				if (start_poly && end_poly)
-				{
-
-					dtPolyRef path_polys[AI::MAX_PATH_LENGTH];
-					dtPolyRef path_parents[AI::MAX_PATH_LENGTH];
-					u8 path_straight_flags[AI::MAX_PATH_LENGTH];
-					dtPolyRef path_straight_polys[AI::MAX_PATH_LENGTH];
-					s32 path_poly_count;
-
-					nav_mesh_query->findPath(start_poly, end_poly, (r32*)&a, (r32*)&b, &default_query_filter, path_polys, &path_poly_count, MAX_PATH_LENGTH);
-					if (path_poly_count)
-					{
-						// In case of partial path, make sure the end point is clamped to the last polygon.
-						Vec3 epos = b;
-						if (path_polys[path_poly_count - 1] != end_poly)
-							nav_mesh_query->closestPointOnPoly(path_polys[path_poly_count - 1], (r32*)&b, (r32*)&epos, 0);
-
-						s32 point_count;
-						nav_mesh_query->findStraightPath((r32*)&a, (r32*)&b, path_polys, path_poly_count,
-							(r32*)path.data, path_straight_flags,
-							path_straight_polys, &point_count, MAX_PATH_LENGTH, 0);
-						path.length = point_count;
-					}
-				}
+					pathfind(a, b, start_poly, end_poly, &path);
 				
 				sync_out.lock();
-				sync_out.write(Callback::Pathfind);
-				sync_out.write<LinkEntryArg<Path>>(callback);
+				sync_out.write(Callback::Path);
+				sync_out.write(callback);
+				sync_out.write(path);
+				sync_out.unlock();
+
+				break;
+			}
+			case Op::RandomPath:
+			{
+				Vec3 start;
+				sync_in.read(&start);
+				dtPolyRef start_poly = get_poly(start, default_search_extents);
+
+				LinkEntryArg<Path> callback;
+				sync_in.read(&callback);
+
+				Vec3 end;
+				dtPolyRef end_poly;
+				Vec3 target;
+				nav_mesh_query->findRandomPoint(&default_query_filter, mersenne::randf_co, &end_poly, (r32*)&end);
+
+				Path path;
+
+				if (start_poly && end_poly)
+					pathfind(start, end, start_poly, end_poly, &path);
+
+				sync_out.lock();
+				sync_out.write(Callback::Path);
+				sync_out.write(callback);
 				sync_out.write(path);
 				sync_out.unlock();
 
@@ -549,28 +531,13 @@ void loop()
 				awk_pathfind(a, b, &path);
 
 				sync_out.lock();
-				sync_out.write(Callback::AwkPathfind);
-				sync_out.write<LinkEntryArg<Path>>(callback);
+				sync_out.write(Callback::AwkPath);
+				sync_out.write(callback);
 				sync_out.write(path);
 				sync_out.unlock();
 				break;
 			}
-			case Op::GetRandomPoint:
-			{
-				LinkEntryArg<Vec3> callback;
-				sync_in.read(&callback);
-				Vec3 pos;
-				dtPolyRef poly;
-				Vec3 target;
-				nav_mesh_query->findRandomPoint(&default_query_filter, mersenne::randf_co, &poly, (r32*)&pos);
-				sync_out.lock();
-				sync_out.write(Callback::GetRandomPoint);
-				sync_out.write<LinkEntryArg<Vec3>>(callback);
-				sync_out.write(target);
-				sync_out.unlock();
-				break;
-			}
-			case Op::AwkGetRandomPoint:
+			case Op::AwkRandomPath:
 			{
 				LinkEntryArg<Vec3> callback;
 				sync_in.read(&callback);
@@ -586,8 +553,8 @@ void loop()
 				const Vec3& point = chunk.vertices[mersenne::randf_co() * chunk.vertices.length - 1];
 
 				sync_out.lock();
-				sync_out.write(Callback::AwkGetRandomPoint);
-				sync_out.write<LinkEntryArg<Vec3>>(callback);
+				sync_out.write(Callback::AwkPath);
+				sync_out.write(callback);
 				sync_out.write(point);
 				sync_out.unlock();
 				break;

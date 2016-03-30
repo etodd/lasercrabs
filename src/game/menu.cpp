@@ -35,6 +35,7 @@ static UIText player_text[MAX_GAMEPADS];
 static s32 gamepad_count = 0;
 static AssetID last_level = AssetNull;
 static AssetID next_level = AssetNull;
+static Game::Mode next_mode = Game::Mode::Multiplayer;
 static r32 connect_timer = 0.0f;
 static UIMenu main_menu;
 
@@ -206,7 +207,7 @@ void update(const Update& u)
 			if (start)
 			{
 				clear();
-				Game::schedule_load_level(Asset::Level::level1);
+				Game::schedule_load_level(Asset::Level::level1, Game::Mode::Multiplayer);
 				return;
 			}
 			break;
@@ -221,16 +222,19 @@ void update(const Update& u)
 			{
 				case Submenu::None:
 				{
-					Vec2 pos(0, u.input->height * 0.5f + UIMenu::height(5) * 0.5f);
+					Vec2 pos(u.input->width * 0.5f, u.input->height * 0.5f + UIMenu::height(5) * 0.5f);
 					if (main_menu.item(u, &pos, _(strings::continue_)))
 					{
 						clear();
-						Game::schedule_load_level(Asset::Level::start);
+						Game::schedule_load_level(Asset::Level::start, Game::Mode::Multiplayer);
 						return;
 					}
 					main_menu.item(u, &pos, _(strings::new_));
 					if (main_menu.item(u, &pos, _(strings::options)))
+					{
+						main_menu.selected = 0;
 						submenu = Submenu::Options;
+					}
 					if (main_menu.item(u, &pos, _(strings::splitscreen)))
 						menu();
 					if (main_menu.item(u, &pos, _(strings::exit)))
@@ -239,9 +243,12 @@ void update(const Update& u)
 				}
 				case Submenu::Options:
 				{
-					Vec2 pos(0, u.input->height * 0.5f + options_height() * 0.5f);
+					Vec2 pos(u.input->width * 0.5f, u.input->height * 0.5f + options_height() * 0.5f);
 					if (!options(u, 0, &main_menu, &pos))
+					{
+						main_menu.selected = 0;
 						submenu = Submenu::None;
+					}
 					break;
 				}
 			}
@@ -257,7 +264,7 @@ void update(const Update& u)
 			if (connect_timer < 0.0f)
 			{
 				clear();
-				Game::schedule_load_level(next_level);
+				Game::schedule_load_level(next_level, next_mode);
 				next_level = AssetNull;
 			}
 			break;
@@ -270,23 +277,24 @@ void update(const Update& u)
 	last_level = Game::data.level;
 }
 
-void transition(AssetID level)
+void transition(AssetID level, Game::Mode mode)
 {
 	clear();
 	next_level = level;
-	Game::schedule_load_level(Asset::Level::connect);
+	next_mode = mode;
+	Game::schedule_load_level(Asset::Level::connect, Game::Mode::Multiplayer);
 }
 
 void menu()
 {
 	clear();
-	Game::schedule_load_level(Asset::Level::menu);
+	Game::schedule_load_level(Asset::Level::menu, Game::Mode::Multiplayer);
 }
 
 void title()
 {
 	clear();
-	Game::schedule_load_level(Asset::Level::title);
+	Game::schedule_load_level(Asset::Level::title, Game::Mode::Multiplayer);
 }
 
 void draw(const RenderParams& params)
@@ -318,6 +326,14 @@ void draw(const RenderParams& params)
 		}
 		case Asset::Level::title:
 		{
+			Vec2 logo_pos = viewport.size * Vec2(0.35f, 0.5f);
+			Vec2 logo_size(128.0f * UI::scale);
+			UI::box(params, { Vec2(0, viewport.size.y * 0.5f + logo_size.y * -1.0f), Vec2(viewport.size.x, logo_size.y * 2.0f) }, UI::background_color);
+			Mesh* m0 = Loader::mesh(Asset::Mesh::logo_mesh);
+			UI::mesh(params, Asset::Mesh::logo_mesh, logo_pos, logo_size, m0->color);
+			Mesh* m1 = Loader::mesh(Asset::Mesh::logo_mesh_1);
+			UI::mesh(params, Asset::Mesh::logo_mesh_1, logo_pos, logo_size, m1->color);
+
 			main_menu.draw_alpha(params);
 			break;
 		}
@@ -418,7 +434,7 @@ Rect2 UIMenu::Item::up_rect() const
 	Rect2 r = rect();
 	r32 width = r.size.x;
 	r.size.x = r.size.y;
-	r.pos.x = width - r.size.x;
+	r.pos.x += width - r.size.x;
 	return r;
 }
 
@@ -610,7 +626,7 @@ void UIMenu::end()
 
 r32 UIMenu::height(s32 items)
 {
-	return items * MENU_ITEM_HEIGHT;
+	return (items * MENU_ITEM_HEIGHT) - MENU_ITEM_PADDING * 2.0f;
 }
 
 void UIMenu::draw_alpha(const RenderParams& params) const

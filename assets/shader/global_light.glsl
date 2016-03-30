@@ -36,6 +36,8 @@ uniform mat4 light_vp;
 uniform sampler2DShadow shadow_map;
 uniform mat4 detail_light_vp;
 uniform sampler2DShadow detail_shadow_map;
+uniform vec3 player_light;
+uniform float far_plane;
 
 out vec4 out_color;
 
@@ -52,9 +54,9 @@ void main()
 	{
 		// Player light
 		float normal_attenuation = dot(normal, view_pos / -view_distance);
-		float distance_attenuation = 1.0f - (view_distance / 10.0f);
-		float light = 0.5f * max(0, distance_attenuation) * max(0, normal_attenuation);
-		out_color = vec4(light, light, light, 1);
+		float distance_attenuation = 1.0f - (view_distance / (far_plane * 0.5f));
+		float light = max(0, distance_attenuation) * max(0, normal_attenuation);
+		out_color = vec4(player_light * light, 1);
 	}
 
 #ifdef SHADOW

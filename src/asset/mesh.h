@@ -8,7 +8,7 @@ namespace Asset
 {
 	namespace Mesh
 	{
-		const s32 count = 27;
+		const s32 count = 29;
 		const AssetID awk = 0;
 		const AssetID character_gun = 1;
 		const AssetID character_mesh = 2;
@@ -26,16 +26,18 @@ namespace Asset
 		const AssetID icon_skip_cooldown = 14;
 		const AssetID icon_stealth = 15;
 		const AssetID icon_stun = 16;
-		const AssetID plane = 17;
-		const AssetID sky_decal = 18;
-		const AssetID sky_pattern = 19;
-		const AssetID skybox = 20;
-		const AssetID spawn = 21;
-		const AssetID sphere = 22;
-		const AssetID target = 23;
-		const AssetID tri_tube = 24;
-		const AssetID turret = 25;
-		const AssetID vision_cone = 26;
+		const AssetID logo_mesh = 17;
+		const AssetID logo_mesh_1 = 18;
+		const AssetID plane = 19;
+		const AssetID sky_decal = 20;
+		const AssetID sky_pattern = 21;
+		const AssetID skybox = 22;
+		const AssetID spawn = 23;
+		const AssetID sphere = 24;
+		const AssetID target = 25;
+		const AssetID tri_tube = 26;
+		const AssetID turret = 27;
+		const AssetID vision_cone = 28;
 	}
 }
 

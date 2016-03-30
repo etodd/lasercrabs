@@ -89,7 +89,7 @@ HealthPickupEntity::HealthPickupEntity()
 
 	model->offset.scale(Vec3(radius));
 
-	RigidBody* body = create<RigidBody>(RigidBody::Type::Sphere, Vec3(radius), 1.0f, CollisionDefault | CollisionTarget, btBroadphaseProxy::AllFilter);
+	RigidBody* body = create<RigidBody>(RigidBody::Type::Sphere, Vec3(radius), 0.1f, CollisionDefault | CollisionTarget, btBroadphaseProxy::AllFilter);
 	body->set_damping(0.5f, 0.5f);
 }
 
@@ -193,7 +193,7 @@ MinionSpawnEntity::MinionSpawnEntity()
 
 	model->offset.scale(Vec3(radius));
 
-	RigidBody* body = create<RigidBody>(RigidBody::Type::Sphere, Vec3(radius), 1.0f, CollisionDefault | CollisionTarget, btBroadphaseProxy::AllFilter);
+	RigidBody* body = create<RigidBody>(RigidBody::Type::Sphere, Vec3(radius), 0.1f, CollisionDefault | CollisionTarget, btBroadphaseProxy::AllFilter);
 	body->set_damping(0.5f, 0.5f);
 
 	create<MinionSpawn>();
@@ -690,7 +690,7 @@ void Rope::add(const Vec3& pos, const Quat& rot)
 			if (length > rope_interval * 0.5f)
 			{
 				Vec3 spawn_pos = last_segment_pos + (diff / length) * rope_interval * 0.5f;
-				Entity* box = World::create<PhysicsEntity>(AssetNull, spawn_pos, rot, RigidBody::Type::CapsuleZ, Vec3(rope_radius, rope_segment_length - rope_radius * 2.0f, 0.0f), 1.0f, CollisionAwkIgnore, CollisionInaccessibleMask);
+				Entity* box = World::create<PhysicsEntity>(AssetNull, spawn_pos, rot, RigidBody::Type::CapsuleZ, Vec3(rope_radius, rope_segment_length - rope_radius * 2.0f, 0.0f), 0.05f, CollisionAwkIgnore, CollisionInaccessibleMask);
 
 				static Quat rotation_a = Quat::look(Vec3(0, 0, 1)) * Quat::euler(0, PI * -0.5f, 0);
 				static Quat rotation_b = Quat::look(Vec3(0, 0, -1)) * Quat::euler(PI, PI * -0.5f, 0);

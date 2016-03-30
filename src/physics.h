@@ -22,6 +22,9 @@ enum CollisionGroup
 	CollisionInaccessibleMask = btBroadphaseProxy::AllFilter,
 };
 
+#define AWK_PERMEABLE_MASK (CollisionTarget | CollisionShield | CollisionAwkIgnore)
+#define AWK_INACCESSIBLE_MASK (CollisionInaccessible | CollisionWalker | AWK_PERMEABLE_MASK)
+
 struct RaycastCallbackExcept : btCollisionWorld::ClosestRayResultCallback
 {
 	ID entity_id;

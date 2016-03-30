@@ -671,6 +671,13 @@ struct Vec4
 		return Vec3(x, y, z);
 	}
 
+	inline void xyz(const Vec3& p)
+	{
+		x = p.x;
+		y = p.y;
+		z = p.z;
+	}
+
 	inline b8 operator == (const Vec4& rkVector) const
 	{
 		return x == rkVector.x && y == rkVector.y && z == rkVector.z && w == rkVector.w;

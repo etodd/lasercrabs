@@ -1,9 +1,8 @@
 #pragma once
-#include "data/pin_array.h"
+#include "data/array.h"
 #include "ai.h"
-#include "player.h"
-#include "ai_player.h"
 #include "input.h"
+#include "render/render.h"
 
 namespace VI
 {
@@ -37,8 +36,9 @@ struct Game
 	struct Data
 	{
 		AssetID level;
-		AssetID next_level;
 		Mode mode;
+		AssetID next_level;
+		Mode next_mode;
 		AI::Team local_player_config[MAX_GAMEPADS];
 		b8 third_person;
 		b8 allow_detach;
@@ -63,6 +63,7 @@ struct Game
 	static Vec2 cursor;
 	static b8 cursor_updated;
 	static AssetID scheduled_load_level;
+	static Mode scheduled_mode;
 	static Array<UpdateFunction> updates;
 	static Array<DrawFunction> draws;
 	static Array<CleanupFunction> cleanups;
@@ -72,9 +73,9 @@ struct Game
 	static void draw_cursor(const RenderParams&);
 	static void update_cursor(const Update&);
 	static void update(const Update&);
-	static void schedule_load_level(AssetID);
+	static void schedule_load_level(AssetID, Mode);
 	static void unload_level();
-	static void load_level(const Update&, AssetID);
+	static void load_level(const Update&, AssetID, Mode);
 	static void draw_opaque(const RenderParams&);
 	static void draw_alpha(const RenderParams&);
 	static void draw_additive(const RenderParams&);

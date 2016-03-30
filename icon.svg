@@ -28,9 +28,9 @@
      borderopacity="1.0"
      inkscape:pageopacity="0.0"
      inkscape:pageshadow="2"
-     inkscape:zoom="2.8284271"
-     inkscape:cx="95.213943"
-     inkscape:cy="166.25574"
+     inkscape:zoom="0.86914063"
+     inkscape:cx="-217.25014"
+     inkscape:cy="242.74359"
      inkscape:document-units="px"
      inkscape:current-layer="layer1"
      showgrid="false"
@@ -65,9 +65,25 @@
        x="0"
        y="796.36218" />
     <path
-       style="fill:#ffffff;fill-opacity:1;stroke:none"
-       d="M 96.630859 0 L 112.31445 64.839844 L 125.85938 120.83984 L 104.57812 83.978516 L 56.779297 83.978516 L 32.878906 125.375 L 56.779297 166.77148 L 104.57812 166.77148 L 127.40625 127.23242 L 127.5918 128 L 112.31445 191.16016 L 96.630859 256 L 128 256 L 159.36914 256 L 143.68555 191.16016 L 128.4082 128 L 128.59375 127.23242 L 151.42188 166.77148 L 199.2207 166.77148 L 223.12109 125.375 L 199.2207 83.978516 L 151.42188 83.978516 L 130.14062 120.83984 L 143.68555 64.839844 L 159.36914 0 L 128 0 L 96.630859 0 z "
-       transform="translate(0,796.36216)"
-       id="path4183" />
+       inkscape:connector-curvature="0"
+       style="opacity:1;fill:#ffffff;fill-opacity:1;stroke:none;stroke-width:1;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+       d="m 100.49502,891.03687 -65.957727,114.24133 186.925427,0 -65.95778,-114.24133 -55.00992,0 z"
+       id="path4146" />
+    <path
+       sodipodi:type="star"
+       style="opacity:1;fill:#ffe666;fill-opacity:1;stroke:none;stroke-width:1;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+       id="path4154"
+       sodipodi:sides="3"
+       sodipodi:cx="128.00092"
+       sodipodi:cy="868.6709"
+       sodipodi:r1="25.224697"
+       sodipodi:r2="12.612349"
+       sodipodi:arg1="0.52359878"
+       sodipodi:arg2="1.5707963"
+       inkscape:flatsided="true"
+       inkscape:rounded="0"
+       inkscape:randomized="0"
+       d="m 149.84614,881.28325 -43.69045,0 21.84523,-37.83705 z"
+       inkscape:transform-center-y="18.914613" />
   </g>
 </svg>

@@ -1,6 +1,7 @@
 #pragma once
 #include "data/entity.h"
 #include "ai.h"
+#include "data/behavior.h"
 
 namespace VI
 {
@@ -29,28 +30,38 @@ struct AIPlayer
 
 struct AIPlayerControl : public ComponentType<AIPlayerControl>
 {
-	struct Goal : public AI::Goal
-	{
-		r32 vision_timer;
-
-		s32 priority() const;
-		r32 inaccuracy() const;
-	};
-	Goal goal;
 	r32 move_timer;
-	r32 goal_timer;
-	Vec3 last_pos;
-	r32 stick_timer;
+
+	Behavior* behavior;
 
 	AIPlayerControl();
 	void awake();
+	~AIPlayerControl();
 
-	Goal find_goal(const Entity* = nullptr) const;
+	b8 go(const Vec3&);
 	void reset_move_timer();
 	void awk_attached();
-	void awk_hit(Entity*);
-	b8 goal_reachable(const Entity*) const;
 	void update(const Update&);
 };
+
+namespace AIBehaviors
+{
+	template<typename Derived> struct Base : public BehaviorBase<Derived>
+	{
+		AIPlayerControl* control;
+		virtual void set_context(void* ctx)
+		{
+			control = (AIPlayerControl*)ctx;
+		}
+	};
+
+	struct FollowPath : Base<FollowPath>
+	{
+		void run();
+		void update(const Update&);
+	};
+
+	void update_active(const Update&);
+}
 
 }

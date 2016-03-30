@@ -19,6 +19,9 @@ struct TargetEvent;
 struct PlayerManager;
 
 #define GAME_TIME_LIMIT 420.0f
+#define CREDITS_MINION 10
+#define CREDITS_DETECT 10
+#define CREDITS_INITIAL 0
 
 enum class Ability
 {
@@ -66,6 +69,7 @@ struct Team
 	static b8 game_over();
 	static b8 is_draw();
 
+	static void update_player_visibility();
 	Ref<Transform> player_spawn;
 	Revision revision;
 	r32 victory_timer;

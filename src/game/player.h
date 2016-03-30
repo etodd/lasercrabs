@@ -61,12 +61,22 @@ struct PlayerCommon : public ComponentType<PlayerCommon>
 	r32 cooldown_multiplier;
 	UIText username_text;
 	Ref<PlayerManager> manager;
+	r32 angle_horizontal;
+	r32 angle_vertical;
+	Quat attach_quat;
 
-	r32 detect_danger() const;
+	static s32 visibility_hash(const PlayerCommon*, const PlayerCommon*);
+	static Bitmask<MAX_PLAYERS> visibility;
 
 	PlayerCommon(PlayerManager*);
 	void awake();
+
+	Vec3 look_dir() const;
+	r32 detect_danger() const;
 	void update(const Update&);
+	void awk_detached();
+	void awk_attached();
+	void clamp_rotation(const Vec3&, r32 = 0.0f);
 };
 
 struct LocalPlayerControl : public ComponentType<LocalPlayerControl>
@@ -89,9 +99,6 @@ struct LocalPlayerControl : public ComponentType<LocalPlayerControl>
 	Ref<LocalPlayer> player;
 
 	TraceEntry tracer;
-	r32 angle_horizontal;
-	r32 angle_vertical;
-	Quat attach_quat;
 	Camera* camera;
 	r32 fov_blend;
 	r32 lean;
@@ -107,15 +114,11 @@ struct LocalPlayerControl : public ComponentType<LocalPlayerControl>
 	~LocalPlayerControl();
 	void awake();
 
-	void awk_bounce(const Vec3&);
 	void awk_attached();
 	void hit_target(Entity*);
 
-	void clamp_rotation(const Vec3&);
-
 	void update(const Update&);
 	void draw_alpha(const RenderParams&) const;
-	Vec3 look_dir() const;
 
 	void detach(const Vec3&);
 

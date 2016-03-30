@@ -50,12 +50,13 @@ struct Skybox
 	static Vec3 color;
 	static Vec3 ambient_color;
 	static Vec3 zenith_color;
+	static Vec3 player_light;
 	static AssetID texture;
 	static AssetID mesh;
 	static AssetID shader;
 	static r32 fog_start;
 	static b8 valid();
-	static void set(const r32, const Vec3&, const Vec3&, const Vec3&, const AssetID&, const AssetID&, const AssetID&);
+	static void set(const r32, const Vec3&, const Vec3&, const Vec3&, const Vec3&, const AssetID&, const AssetID&, const AssetID&);
 	static void draw_alpha(const RenderParams&);
 };
 

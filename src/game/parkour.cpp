@@ -44,8 +44,6 @@ Traceur::Traceur(const Vec3& pos, const Quat& quat, AI::Team team)
 	model->color.w = MATERIAL_NO_OVERRIDE;
 
 	create<Audio>();
-
-	Health* health = create<Health>(AWK_HEALTH, AWK_HEALTH);
 	
 	Vec3 forward = quat * Vec3(0, 0, 1);
 

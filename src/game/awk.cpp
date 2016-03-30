@@ -28,8 +28,6 @@ namespace VI
 #define AWK_LEG_BLEND_SPEED (1.0f / 0.02f)
 #define AWK_MIN_LEG_BLEND_SPEED (AWK_LEG_BLEND_SPEED * 0.05f)
 #define AWK_SHIELD_RADIUS 1.0f
-#define AWK_PERMEABLE_MASK (CollisionTarget | CollisionShield | CollisionAwkIgnore)
-#define AWK_INACCESSIBLE_MASK (CollisionInaccessible | CollisionWalker | AWK_PERMEABLE_MASK)
 
 // if you hit a shield just right (i.e. the dot product is less than this threshold), you'll shoot right through it
 #define SHIELD_PENETRATION_DOT -0.98f
@@ -76,6 +74,7 @@ btScalar AwkRaycastCallback::addSingleResult(btCollisionWorld::LocalRayResult& r
 Awk::Awk()
 	: velocity(0.0f, -AWK_FLY_SPEED, 0.0f),
 	attached(),
+	detached(),
 	attach_time(),
 	footing(),
 	last_speed(),
@@ -139,7 +138,7 @@ void Awk::hit_target(Entity* target)
 		if (target->has<RigidBody>())
 		{
 			RigidBody* body = target->get<RigidBody>();
-			body->btBody->applyImpulse(velocity * 0.05f, Vec3::zero);
+			body->btBody->applyImpulse(velocity * 0.005f, Vec3::zero);
 			body->btBody->setActivationState(ACTIVE_TAG);
 		}
 
@@ -206,6 +205,8 @@ b8 Awk::detach(const Vec3& dir)
 			footing[i].parent = nullptr;
 		get<Animator>()->reset_overrides();
 		get<Animator>()->layers[0].animation = Asset::Animation::awk_fly;
+
+		detached.fire();
 
 		return true;
 	}

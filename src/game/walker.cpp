@@ -161,7 +161,7 @@ void Walker::update(const Update& u)
 
 			if (velocity_diff < expected_vertical_speed + 0.5f)
 			{
-				if (velocity_diff < -fall_damage_threshold)
+				if (has<Health>() && velocity_diff < -fall_damage_threshold)
 					get<Health>()->damage(nullptr, (velocity_diff + fall_damage_threshold) * -15.0f);
 
 				r32 target_y = ray_callback.m_hitPointWorld.y() + support_height + height * 0.5f;

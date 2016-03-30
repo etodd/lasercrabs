@@ -248,14 +248,16 @@ AssetID Skybox::shader = AssetNull;
 Vec3 Skybox::color = Vec3(1, 1, 1);
 Vec3 Skybox::ambient_color = Vec3(0.1f, 0.1f, 0.1f);
 Vec3 Skybox::zenith_color = Vec3(1.0f, 0.4f, 0.9f);
+Vec3 Skybox::player_light = Vec3(0.5f);
 
-void Skybox::set(const r32 f, const Vec3& c, const Vec3& ambient, const Vec3& zenith, const AssetID& s, const AssetID& m, const AssetID& t)
+void Skybox::set(const r32 f, const Vec3& c, const Vec3& ambient, const Vec3& zenith, const Vec3& playerlight, const AssetID& s, const AssetID& m, const AssetID& t)
 {
 	far_plane = f;
 	fog_start = f * 0.25f;
 	color = c;
 	ambient_color = ambient;
 	zenith_color = zenith;
+	player_light = playerlight;
 
 	if (shader != AssetNull && shader != s)
 		Loader::shader_free(shader);

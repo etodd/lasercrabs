@@ -29,31 +29,15 @@ namespace AI
 		ObstacleRemove,
 		Pathfind,
 		AwkPathfind,
-		GetRandomPoint,
-		AwkGetRandomPoint,
+		RandomPath,
+		AwkRandomPath,
 		Quit,
 	};
 
 	enum class Callback
 	{
-		Pathfind,
-		AwkPathfind,
-		GetRandomPoint,
-		AwkGetRandomPoint,
-	};
-
-	struct Goal
-	{
-		b8 has_entity;
-		Ref<Entity> entity;
-		Vec3 pos;
-
-		Goal();
-
-		b8 valid() const;
-		Vec3 get_pos() const;
-		void set(const Vec3&);
-		void set(Entity*);
+		Path,
+		AwkPath,
 	};
 
 	const s32 MAX_PATH_LENGTH = 32;
@@ -70,17 +54,17 @@ namespace AI
 	Team other(Team);
 
 	extern Array<b8> obstacles;
-	static const s32 SYNC_IN_SIZE = 4096 * 1024;
-	static const s32 SYNC_OUT_SIZE = 1024 * 1024;
+	static const s32 SYNC_IN_SIZE = 8 * 1024 * 1024;
+	static const s32 SYNC_OUT_SIZE = 1 * 1024 * 1024;
 	extern SyncRingBuffer<SYNC_IN_SIZE> sync_in;
 	extern SyncRingBuffer<SYNC_OUT_SIZE> sync_out;
 
 	u32 obstacle_add(const Vec3&, r32, r32);
 	void obstacle_remove(u32);
-	void pathfind(const Vec3&, const Vec3&, const LinkEntryArg<Path>&);
-	void awk_pathfind(const Vec3&, const Vec3&, const LinkEntryArg<Path>&);
-	void get_random_point(const LinkEntryArg<Vec3>&);
-	void awk_get_random_point(const LinkEntryArg<Vec3>&);
+	void pathfind(const Vec3&, const Vec3&, const LinkEntryArg<const Path&>&);
+	void awk_pathfind(const Vec3&, const Vec3&, const LinkEntryArg<const Path&>&);
+	void random_path(const Vec3&, const LinkEntryArg<const Path&>&);
+	void awk_random_path(const Vec3&, const LinkEntryArg<const Path&>&);
 	void load(const u8*, s32);
 	void loop();
 	void quit();

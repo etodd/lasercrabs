@@ -7,14 +7,14 @@
 #include "asset/mesh.h"
 #include "strings.h"
 #include "awk.h"
+#include "minion.h"
+#include "bullet/src/BulletCollision/NarrowPhaseCollision/btRaycastCallback.h"
 
 #if DEBUG
 #define PLAYER_SPAWN_DELAY 1.0f
 #else
 #define PLAYER_SPAWN_DELAY 5.0f
 #endif
-
-#define CREDITS_INITIAL 0
 
 #define SENSOR_TIME_1 2.0f
 #define SENSOR_TIME_2 1.0f
@@ -26,7 +26,7 @@ namespace VI
 const Vec4 Team::colors[(s32)AI::Team::count] =
 {
 	Vec4(0.05f, 0.35f, 0.5f, 1),
-	Vec4(0.6f, 0.15f, 0.05f, 1),
+	Vec4(1.0f, 0.5f, 0.6f, 1),
 };
 
 const Vec4 Team::ui_colors[(s32)AI::Team::count] =
@@ -99,9 +99,18 @@ void Team::extract_history(PlayerManager* manager, SensorTrackHistory* history)
 	history->ability = manager->ability;
 	history->ability_level = manager->ability_level[(s32)manager->ability];
 	history->credits = manager->credits;
-	Health* health = manager->entity.ref() ? manager->entity.ref()->get<Health>() : nullptr;
-	history->hp = health ? health->hp : 1;
-	history->hp_max = health ? health->hp_max : AWK_HEALTH;
+	if (manager->entity.ref())
+	{
+		Health* health = manager->entity.ref()->get<Health>();
+		history->hp = health->hp;
+		history->hp_max = health->hp_max;
+	}
+	else
+	{
+		// initial health
+		history->hp = 1;
+		history->hp_max = AWK_HEALTH;
+	}
 }
 
 void Team::update(const Update& u)
@@ -145,6 +154,48 @@ void Team::update(const Update& u)
 		}
 	}
 
+	// update player visibility
+	{
+		vi_assert(PlayerCommon::list.count() <= MAX_PLAYERS);
+
+		for (auto i = PlayerCommon::list.iterator(); !i.is_last(); i.next())
+		{
+			auto j = i;
+			j.next();
+			for (j; !j.is_last(); j.next())
+			{
+				Vec3 start = i.item()->has<MinionCommon>() ? i.item()->get<MinionCommon>()->head_pos() : i.item()->get<Awk>()->center();
+				Vec3 end = j.item()->has<MinionCommon>() ? j.item()->get<MinionCommon>()->head_pos() : j.item()->get<Awk>()->center();
+				Vec3 diff = end - start;
+
+				b8 visible;
+				if (btVector3(diff).fuzzyZero())
+					visible = true;
+				else
+				{
+					if (diff.length_squared() > AWK_MAX_DISTANCE * AWK_MAX_DISTANCE)
+						visible = false;
+					else
+					{
+						btCollisionWorld::ClosestRayResultCallback rayCallback(start, end);
+						rayCallback.m_flags = btTriangleRaycastCallback::EFlags::kF_FilterBackfaces
+							| btTriangleRaycastCallback::EFlags::kF_KeepUnflippedNormal;
+						rayCallback.m_collisionFilterMask = rayCallback.m_collisionFilterGroup = btBroadphaseProxy::StaticFilter | CollisionInaccessible;
+						Physics::btWorld->rayTest(start, end, rayCallback);
+						visible = !rayCallback.hasHit();
+					}
+				}
+
+				PlayerCommon::visibility.set(PlayerCommon::visibility_hash(i.item(), j.item()), visible);
+				if (visible) // update history
+				{
+					extract_history(i.item()->manager.ref(), &j.item()->manager.ref()->team.ref()->player_track_history[i.item()->manager.id]);
+					extract_history(j.item()->manager.ref(), &i.item()->manager.ref()->team.ref()->player_track_history[j.item()->manager.id]);
+				}
+			}
+		}
+	}
+
 	b8 game_over = Team::game_over();
 	b8 draw = Team::is_draw();
 	if (game_over && draw)
@@ -152,7 +203,7 @@ void Team::update(const Update& u)
 		if (Game::time.total > GAME_TIME_LIMIT + GAME_OVER_TIME)
 		{
 			// it's a draw; try again
-			Menu::transition(Game::data.next_level); // todo: restart the level with a new opponent
+			Menu::transition(Game::data.level, Game::data.mode); // todo: restart the level with a new opponent
 		}
 	}
 
@@ -165,7 +216,7 @@ void Team::update(const Update& u)
 			// we win
 			team->victory_timer -= u.time.delta;
 			if (team->victory_timer < 0.0f)
-				Menu::transition(Game::data.next_level);
+				Menu::transition(Game::data.next_level, Game::data.next_mode);
 		}
 
 		// update tracking timers
@@ -202,7 +253,7 @@ void Team::update(const Update& u)
 								Entity* player_entity = sensor->player_manager.ref()->entity.ref();
 								if (player_entity && player_entity->has<LocalPlayerControl>())
 									player_entity->get<LocalPlayerControl>()->player.ref()->msg(_(strings::enemy_detected));
-								sensor->player_manager.ref()->add_credits(10);
+								sensor->player_manager.ref()->add_credits(CREDITS_DETECT);
 							}
 							if (team->sensor_explode)
 							{
@@ -321,7 +372,7 @@ b8 PlayerManager::ability_use()
 				// detach if we are a local player
 				if (awk->has<LocalPlayerControl>())
 				{
-					Vec3 dir = awk->get<LocalPlayerControl>()->look_dir();
+					Vec3 dir = awk->get<PlayerCommon>()->look_dir();
 					if (awk->get<Awk>()->can_go(dir))
 						awk->get<LocalPlayerControl>()->detach(dir);
 				}

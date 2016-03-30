@@ -753,11 +753,14 @@ namespace scene
 		data->camera->remove();
 	}
 
+	void update(const Update& u)
+	{
+		data->camera->rot = Quat::euler(0.0f, Game::real_time.total * 0.01f, 0.0f);
+	}
+
 	void init(const Update& u, const EntityFinder& entities)
 	{
 		data = new Data();
-
-		Transform* camera = entities.find("Camera")->get<Transform>();
 
 		data->camera = Camera::add();
 		data->camera->viewport =
@@ -767,10 +770,9 @@ namespace scene
 		};
 		r32 aspect = data->camera->viewport.size.y == 0 ? 1 : (r32)data->camera->viewport.size.x / (r32)data->camera->viewport.size.y;
 		data->camera->perspective((80.0f * PI * 0.5f / 180.0f), aspect, 0.1f, Skybox::far_plane);
-		data->camera->pos = camera->pos;
-		data->camera->rot = Quat::look(camera->rot * Vec3(0, -1, 0));
 
 		Game::cleanups.add(cleanup);
+		Game::updates.add(update);
 	}
 }
 
@@ -792,13 +794,19 @@ namespace start
 	void node_executed(AssetID node)
 	{
 		if (node == Asset::String::start_done)
-			Menu::transition(Asset::Level::tutorial_01);
+			Menu::transition(Asset::Level::tutorial_01, Game::Mode::Multiplayer);
+	}
+
+	void update(const Update& u)
+	{
+		data->camera->rot = Quat::euler(0, Game::real_time.total * 0.01f, 0);
 	}
 
 	void init(const Update& u, const EntityFinder& entities)
 	{
 		data = new Data();
 		Game::cleanups.add(cleanup);
+		Game::updates.add(update);
 
 		data->camera = Camera::add();
 		data->camera->viewport =
@@ -839,7 +847,7 @@ namespace tutorial01
 
 	void done(const Update&)
 	{
-		Menu::transition(Asset::Level::tutorial_02);
+		Menu::transition(Asset::Level::tutorial_02, Game::Mode::Multiplayer);
 	}
 
 	void minion2_dialogue(Entity*)

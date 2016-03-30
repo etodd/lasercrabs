@@ -87,16 +87,21 @@ template<s32 size> struct SyncRingBuffer
 	template<typename T> void read(T* t, s32 count = 1)
 	{
 		s32 read_len = sizeof(T) * count;
+		if (read_len == 0)
+			return;
 		s32 read_end = read_pos + read_len;
 		if (read_end >= data.length)
 		{
+			vi_assert(write_pos < read_pos);
 			s32 read_partition = data.length - read_pos;
+			vi_assert(read_len - read_partition <= write_pos);
 			memcpy(t, &data[read_pos], read_partition);
 			read_pos = read_len - read_partition;
 			memcpy(((u8*)t) + read_partition, &data[0], read_pos);
 		}
 		else
 		{
+			vi_assert(read_end <= write_pos == read_pos < write_pos);
 			memcpy(t, &data[read_pos], read_len);
 			read_pos = read_end;
 		}

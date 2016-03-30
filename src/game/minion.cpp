@@ -19,7 +19,7 @@
 
 #define HEAD_RADIUS 0.25f
 
-#define WALK_SPEED 2.0f
+#define WALK_SPEED 1.5f
 
 #define HEALTH 50
 
@@ -186,34 +186,9 @@ void MinionCommon::killed(Entity* killer)
 
 // Minion behaviors
 
-void MinionCheckGoal::run()
+Entity* closest_enemy_sensor(const Vec3& pos, AI::Team team)
 {
-	AI::Team team = minion->get<AIAgent>()->team;
-	Vec3 pos = minion->get<Transform>()->absolute_pos();
-
-	if (minion->goal.valid())
-	{
-		if (minion->goal.has_entity)
-		{
-			// we're good, keep going
-			done(true);
-			return;
-		}
-		else
-		{
-			// check if we need to keep going
-			Vec3 target_pos = minion->goal.get_pos();
-			if ((target_pos - pos).length_squared() > 5.0f)
-			{
-				// keep going
-				done(true);
-				return;
-			}
-		}
-	}
-
-	// find new target
-	Entity* new_target = nullptr;
+	Entity* closest = nullptr;
 
 	r32 closest_distance = FLT_MAX;
 	for (auto i = Sensor::list.iterator(); !i.is_last(); i.next())
@@ -221,128 +196,94 @@ void MinionCheckGoal::run()
 		Sensor* sensor = i.item();
 		if (sensor->team != team && !sensor->has<MinionAI>())
 		{
-			// check if anyone else is going for this target
-			b8 valid_target = true;
-			for (auto j = MinionAI::list.iterator(); !j.is_last(); j.next())
+			Vec3 sensor_pos = sensor->get<Transform>()->absolute_pos();
+
+			r32 total_distance = (sensor_pos - pos).length();
+			if (total_distance < closest_distance)
 			{
-				if (j.item()->get<AIAgent>()->team == team && j.item()->goal.entity.ref() == sensor->entity())
-				{
-					valid_target = false;
-					break;
-				}
-			}
-
-			if (valid_target)
-			{
-				Vec3 sensor_pos = sensor->get<Transform>()->absolute_pos();
-
-				float total_distance = (sensor_pos - pos).length();
-				for (auto j = PlayerCommon::list.iterator(); !j.is_last(); j.next())
-				{
-					if (j.item()->get<AIAgent>()->team == team)
-					{
-						total_distance += (j.item()->get<Transform>()->absolute_pos() - sensor_pos).length();
-						break;
-					}
-				}
-
-				if (total_distance < closest_distance)
-				{
-					new_target = sensor->entity();
-					closest_distance = total_distance;
-				}
+				closest = sensor->entity();
+				closest_distance = total_distance;
 			}
 		}
 	}
 
-	if (new_target)
-		minion->goal.set(new_target);
-	else
-	{
-		// go to random point
-		AI::get_random_point(ObjectLinkEntryArg<MinionAI, Vec3, &MinionAI::set_goal>(minion->id()));
-	}
-	done(false);
+	return closest;
 }
 
-void MinionGoToGoal::run()
+void MinionPath::run()
 {
-	path_timer = 0.0f;
-	if (minion->goal.valid())
-	{
-		Vec3 target_pos = minion->goal.get_pos();
-		b8 arrived;
-		if (minion->goal.has_entity)
-			arrived = in_range();
-		else
-			arrived = minion->path_index == minion->path.length - 1;
+	minion->path_valid = false;
+	auto path_callback = ObjectLinkEntryArg<MinionAI, const AI::Path&, &MinionAI::set_path>(minion->id());
 
-		if (arrived)
-		{
-			Vec3 forward = target_pos - minion->get<Transform>()->absolute_pos();
-			forward.normalize();
-			minion->get<Walker>()->target_rotation = atan2(forward.x, forward.z);
+	Vec3 pos = minion->get<Transform>()->absolute_pos();
+
+	// find new target
+	Entity* target = closest_enemy_sensor(pos, minion->get<AIAgent>()->team);
+
+	if (target)
+	{
+		if (minion->can_see(target))
 			done(true);
-		}
 		else
 		{
-			minion->go(target_pos);
+			goal = target->get<Transform>()->absolute_pos();
+			random_path = false;
+			AI::pathfind(pos, goal, path_callback);
 			active(true);
 		}
 	}
 	else
-		done(false);
+	{
+		random_path = true;
+		AI::random_path(pos, path_callback);
+		active(true);
+	}
 }
 
-void MinionGoToGoal::done(b8 success)
+void MinionPath::update(const Update& u)
+{
+	if (minion->path_valid)
+	{
+		path_timer += u.time.delta;
+		if (minion->path_index >= minion->path.length)
+			done(true);
+		else if (!random_path && path_timer > 1.0f)
+		{
+			// recalc
+			minion->path_valid = false;
+			AI::pathfind(minion->get<Transform>()->absolute_pos(), goal, ObjectLinkEntryArg<MinionAI, const AI::Path&, &MinionAI::set_path>(minion->id()));
+		}
+	}
+}
+
+void MinionPath::abort()
 {
 	minion->path.length = 0;
-	MinionBehavior<MinionGoToGoal>::done(success);
-}
-
-b8 MinionGoToGoal::in_range() const
-{
-	Vec3 pos = minion->get<Transform>()->absolute_pos();
-	Vec3 target_pos = minion->goal.get_pos();
-	if ((pos - target_pos).length_squared() < MINION_VIEW_RANGE * MINION_VIEW_RANGE)
-	{
-		RaycastCallbackExcept ray_callback(pos, target_pos, minion->entity());
-		Physics::raycast(&ray_callback);
-		if (!ray_callback.hasHit() || ray_callback.m_collisionObject->getUserIndex() == minion->goal.entity.id)
-			return true;
-	}
-	return false;
-}
-
-void MinionGoToGoal::update(const Update& u)
-{
-	path_timer += u.time.delta;
-	if (!minion->goal.valid())
-		done(false);
-	else if (in_range())
-		done(true);
-	else if (path_timer > 0.5f)
-		run();
+	MinionBehavior<MinionPath>::abort();
 }
 
 void MinionAttack::run()
 {
-	Entity* target = minion->goal.entity.ref();
-	if (target)
+	Entity* sensor = closest_enemy_sensor(minion->get<Transform>()->absolute_pos(), minion->get<AIAgent>()->team);
+	if (sensor && minion->can_see(sensor))
 	{
-		minion->turn_to(target->get<Transform>()->absolute_pos());
+		target = sensor;
+		minion->turn_to(sensor->get<Transform>()->absolute_pos());
 		active(true);
 	}
 	else
+	{
+		target = nullptr;
 		done(false);
+	}
 }
 
 void MinionAttack::update(const Update& u)
 {
-	if (minion->goal.valid())
+	if (target.ref())
 	{
 		Vec3 head_pos = minion->get<MinionCommon>()->head_pos();
-		Vec3 target_pos = minion->goal.get_pos();
+		Vec3 target_pos = minion->get<Transform>()->absolute_pos();
 		minion->turn_to(target_pos);
 		Vec3 to_target = target_pos - head_pos;
 		to_target.y = 0.0f;
@@ -350,7 +291,7 @@ void MinionAttack::update(const Update& u)
 		{
 			RaycastCallbackExcept ray_callback(head_pos, target_pos, minion->entity());
 			Physics::raycast(&ray_callback);
-			if (!ray_callback.hasHit() || ray_callback.m_collisionObject->getUserIndex() == minion->goal.entity.id)
+			if (!ray_callback.hasHit() || ray_callback.m_collisionObject->getUserIndex() == target.id)
 			{
 				World::create<ProjectileEntity>(minion->entity(), head_pos, 5, target_pos - head_pos);
 				done(true);
@@ -367,7 +308,7 @@ namespace MinionBehaviors
 {
 	void update_active(const Update& u)
 	{
-		MinionGoToGoal::update_active(u);
+		MinionPath::update_active(u);
 		MinionAttack::update_active(u);
 	}
 }
@@ -382,16 +323,9 @@ MinionAI::MinionAI()
 		(
 			Sequence::alloc
 			(
-				MinionCheckGoal::alloc(),
-				Repeat::alloc
-				(
-					Sequence::alloc
-					(
-						MinionGoToGoal::alloc(),
-						MinionAttack::alloc(),
-						Delay::alloc(1.0f)
-					)
-				)
+				MinionPath::alloc(),
+				MinionAttack::alloc(),
+				Delay::alloc(3.0f)
 			)
 		)
 	);
@@ -407,11 +341,6 @@ void MinionAI::awake()
 MinionAI::~MinionAI()
 {
 	behavior->~Behavior();
-}
-
-void MinionAI::set_goal(Vec3 pos)
-{
-	goal.set(pos);
 }
 
 b8 MinionAI::can_see(Entity* target) const
@@ -492,12 +421,13 @@ void MinionAI::go(const Vec3& target)
 
 	Vec3 pos = get<Walker>()->base_pos();
 
-	AI::pathfind(pos, target, ObjectLinkEntryArg<MinionAI, AI::Path, &MinionAI::set_path>(id()));
+	AI::pathfind(pos, target, ObjectLinkEntryArg<MinionAI, const AI::Path&, &MinionAI::set_path>(id()));
 }
 
-void MinionAI::set_path(AI::Path p)
+void MinionAI::set_path(const AI::Path& p)
 {
 	path = p;
+	path_valid = true;
 }
 
 void MinionAI::recalc_path(const Update& u)

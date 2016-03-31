@@ -10,6 +10,7 @@
 #include <thread>
 #include "physics.h"
 #include "loop.h"
+#include <Windows.h>
 
 namespace VI
 {
@@ -36,6 +37,9 @@ namespace VI
 
 	s32 proc()
 	{
+#if _WIN32
+		SetProcessDPIAware();
+#endif
 		// Initialise SDL
 		if (SDL_Init(
 			SDL_INIT_VIDEO
@@ -77,6 +81,7 @@ namespace VI
 			| SDL_WINDOW_INPUT_FOCUS
 			| SDL_WINDOW_MOUSE_FOCUS
 			| SDL_WINDOW_MOUSE_CAPTURE
+			| SDL_WINDOW_ALLOW_HIGHDPI
 			| (settings.fullscreen ? SDL_WINDOW_FULLSCREEN : 0)
 		);
 

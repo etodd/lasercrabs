@@ -130,7 +130,7 @@ void update(const Update& u)
 
 	switch (Game::data.level)
 	{
-		case Asset::Level::menu:
+		case Asset::Level::splitscreen:
 		{
 			if (Game::data.level != last_level)
 			{
@@ -236,7 +236,7 @@ void update(const Update& u)
 						submenu = Submenu::Options;
 					}
 					if (main_menu.item(u, &pos, _(strings::splitscreen)))
-						menu();
+						splitscreen();
 					if (main_menu.item(u, &pos, _(strings::exit)))
 						Game::quit = true;
 					break;
@@ -285,10 +285,10 @@ void transition(AssetID level, Game::Mode mode)
 	Game::schedule_load_level(Asset::Level::connect, Game::Mode::Multiplayer);
 }
 
-void menu()
+void splitscreen()
 {
 	clear();
-	Game::schedule_load_level(Asset::Level::menu, Game::Mode::Multiplayer);
+	Game::schedule_load_level(Asset::Level::splitscreen, Game::Mode::Multiplayer);
 }
 
 void title()
@@ -305,20 +305,23 @@ void draw(const RenderParams& params)
 	const Rect2& viewport = params.camera->viewport;
 	switch (Game::data.level)
 	{
-		case Asset::Level::menu:
+		case Asset::Level::splitscreen:
 		{
 			UIText text;
-			text.anchor_x = text.anchor_y = UIText::Anchor::Center;
+			text.anchor_x = UIText::Anchor::Center;
+			text.anchor_y = UIText::Anchor::Max;
+			const Vec2 box_size(256 * UI::scale);
 			for (s32 i = 0; i < MAX_GAMEPADS; i++)
 			{
 				if (params.camera == cameras[i])
 				{
+					UI::box(params, { viewport.size * 0.5f - box_size * 0.5f, box_size }, UI::background_color);
 					player_text[i].draw(params, viewport.size * 0.5f);
 					if (Game::data.local_player_config[i] == AI::Team::None)
 						text.text(_(strings::join));
 					else
 						text.text(_(strings::leave));
-					text.draw(params, viewport.size * Vec2(0.5f, 0.25f));
+					text.draw(params, viewport.size * 0.5f + Vec2(0, -16.0f * UI::scale));
 					return;
 				}
 			}
@@ -365,7 +368,7 @@ b8 is_special_level(AssetID level)
 {
 	return level == Asset::Level::connect
 		|| level == Asset::Level::title
-		|| level == Asset::Level::menu
+		|| level == Asset::Level::splitscreen
 		|| level == Asset::Level::start;
 }
 

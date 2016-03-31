@@ -47,6 +47,8 @@ struct LocalPlayer
 
 	LocalPlayer(PlayerManager*, u8);
 
+	static r32 danger;
+	static void update_all(const Update&);
 	void msg(const char*);
 	UIMode ui_mode() const;
 	void update(const Update&);

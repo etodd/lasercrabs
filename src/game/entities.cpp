@@ -22,6 +22,7 @@
 #include "console.h"
 #include "minion.h"
 #include "render/particles.h"
+#include "strings.h"
 
 namespace VI
 {
@@ -111,14 +112,17 @@ void HealthPickup::hit(const TargetEvent& e)
 	if (e.hit_by->has<AIAgent>() && e.hit_by->has<Health>())
 	{
 		Health* health = e.hit_by->get<Health>();
-		if (owner.ref() != health && health->hp < health->hp_max)
+		if (!owner.ref() && health->hp < health->hp_max)
 		{
-			health->hp++;
+			health->hp += 1;
 			owner = health;
 
 			const Vec3& color = Team::colors[(s32)e.hit_by->get<AIAgent>()->team].xyz();
 			get<PointLight>()->color = color;
 			get<View>()->color = Vec4(color, MATERIAL_NO_OVERRIDE);
+
+			if (e.hit_by->has<LocalPlayerControl>())
+				e.hit_by->get<LocalPlayerControl>()->player.ref()->msg(_(strings::health_pickup));
 		}
 	}
 }
@@ -215,6 +219,9 @@ void MinionSpawn::hit(const TargetEvent& e)
 		const Vec3& color = Team::colors[(s32)team].xyz();
 		get<PointLight>()->color = color;
 		get<View>()->color = Vec4(color, MATERIAL_NO_OVERRIDE);
+
+		if (e.hit_by->has<LocalPlayerControl>())
+			e.hit_by->get<LocalPlayerControl>()->player.ref()->msg(_(strings::minion_spawned));
 	}
 }
 

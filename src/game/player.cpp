@@ -36,9 +36,9 @@ namespace VI
 #define zoom_speed (1.0f / 0.1f)
 #define speed_mouse 0.0025f
 #define fov_zoom (fov_initial * zoom_ratio)
-#define speed_mouse_zoom (speed_mouse * zoom_ratio)
+#define speed_mouse_zoom (speed_mouse * zoom_ratio * 0.5f)
 #define speed_joystick 5.0f
-#define speed_joystick_zoom (speed_joystick * zoom_ratio)
+#define speed_joystick_zoom (speed_joystick * zoom_ratio * 0.5f)
 #define attach_speed 5.0f
 #define max_attach_time 0.35f
 #define rotation_speed 20.0f
@@ -113,7 +113,7 @@ LocalPlayer::LocalPlayer(PlayerManager* m, u8 g)
 
 	msg_text.font = Asset::Font::lowpoly;
 	msg_text.size = text_size;
-	msg_text.color = UI::default_color;
+	msg_text.color = UI::accent_color;
 	msg_text.anchor_x = UIText::Anchor::Center;
 	msg_text.anchor_y = UIText::Anchor::Center;
 
@@ -174,6 +174,39 @@ void LocalPlayer::ensure_camera(const Update& u, b8 active)
 	}
 }
 
+#define DANGER_RAMP_UP_TIME 2.0f
+#define DANGER_LINGER_TIME 3.0f
+#define DANGER_RAMP_DOWN_TIME 4.0f
+r32 LocalPlayer::danger;
+void LocalPlayer::update_all(const Update& u)
+{
+	for (auto i = LocalPlayer::list.iterator(); !i.is_last(); i.next())
+		i.item()->update(u);
+
+	b8 visible_enemy = false;
+	for (auto i = LocalPlayerControl::list.iterator(); !i.is_last(); i.next())
+	{
+		PlayerCommon* local_common = i.item()->get<PlayerCommon>();
+		for (auto j = PlayerCommon::list.iterator(); !j.is_last(); j.next())
+		{
+			if (PlayerCommon::visibility.get(PlayerCommon::visibility_hash(local_common, j.item())))
+			{
+				visible_enemy = true;
+				break;
+			}
+		}
+		if (visible_enemy)
+			break;
+	}
+
+	if (visible_enemy)
+		danger = vi_min(1.0f + DANGER_LINGER_TIME / DANGER_RAMP_UP_TIME, danger + Game::real_time.delta / DANGER_RAMP_UP_TIME);
+	else
+		danger = vi_max(0.0f, danger - Game::real_time.delta / DANGER_RAMP_DOWN_TIME);
+
+	Audio::global_param(AK::GAME_PARAMETERS::DANGER, vi_min(danger, 1.0f));
+}
+
 void LocalPlayer::update(const Update& u)
 {
 	if (Console::visible)
@@ -197,7 +230,7 @@ void LocalPlayer::update(const Update& u)
 		}
 		else
 		{
-			if (ability_menu == AbilityMenu::None && pause_hit)
+			if (ability_menu == AbilityMenu::None && pause_hit && Game::time.total > 0.5f)
 				pause = true;
 		}
 	}
@@ -503,12 +536,9 @@ void LocalPlayer::draw_alpha(const RenderParams& params) const
 				{
 					for (auto i = HealthPickup::list.iterator(); !i.is_last(); i.next())
 					{
-						if (!i.item()->owner.ref())
-						{
-							Vec3 pos = i.item()->get<Transform>()->absolute_pos();
-							if ((pos - me).length_squared() < AWK_MAX_DISTANCE * AWK_MAX_DISTANCE)
-								draw_indicator(params, pos, UI::accent_color, false);
-						}
+						Vec3 pos = i.item()->get<Transform>()->absolute_pos();
+						if ((pos - me).length_squared() < AWK_MAX_DISTANCE * AWK_MAX_DISTANCE)
+							draw_indicator(params, pos, UI::accent_color, false);
 					}
 				}
 
@@ -827,9 +857,12 @@ void LocalPlayerControl::awake()
 
 void LocalPlayerControl::hit_target(Entity* target)
 {
-	player.ref()->msg(_(strings::target_hit));
-	if (target->has<MinionAI>() && target->get<AIAgent>()->team != get<AIAgent>()->team)
-		player.ref()->manager.ref()->add_credits(CREDITS_MINION);
+	if (target->has<MinionAI>())
+	{
+		player.ref()->msg(_(strings::target_killed));
+		if (target->get<AIAgent>()->team != get<AIAgent>()->team)
+			player.ref()->manager.ref()->add_credits(CREDITS_MINION);
+	}
 }
 
 b8 LocalPlayerControl::input_enabled() const
@@ -1247,7 +1280,7 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 			
 			pos.x += text.bounds().x + HP_BOX_SPACING * 0.5f;
 
-			draw_hp_indicator(params, pos, health->hp, health->hp_max, UI::accent_color);
+			draw_hp_indicator(params, pos, health->hp, health->hp_max, Team::ui_colors[(s32)get<AIAgent>()->team]);
 		}
 
 		if (has<Awk>())

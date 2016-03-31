@@ -62,7 +62,7 @@ void transition(AssetID, Game::Mode);
 void update(const Update&);
 void clear();
 void draw(const RenderParams&);
-void menu();
+void splitscreen();
 void title();
 void refresh_variables();
 b8 is_special_level(AssetID);

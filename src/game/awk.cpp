@@ -17,6 +17,7 @@
 #include "game.h"
 #include "console.h"
 #include "minion.h"
+#include "strings.h"
 
 namespace VI
 {
@@ -87,6 +88,7 @@ Awk::Awk()
 void Awk::awake()
 {
 	link_arg<Entity*, &Awk::killed>(get<Health>()->killed);
+	link_arg<Entity*, &Awk::damaged>(get<Health>()->damaged);
 	link_arg<const TargetEvent&, &Awk::hit_by>(get<Target>()->target_hit);
 	if (!shield.ref())
 	{
@@ -147,8 +149,36 @@ void Awk::hit_target(Entity* target)
 	}
 }
 
+void Awk::damaged(Entity* enemy)
+{
+	if (enemy->has<LocalPlayerControl>())
+		enemy->get<LocalPlayerControl>()->player.ref()->msg(_(get<Health>()->hp > 0 ? strings::target_damaged : strings::target_killed));
+	s32 new_health_pickup_count = get<Health>()->hp - 1;
+	s32 health_pickup_count = 0;
+	for (auto i = HealthPickup::list.iterator(); !i.is_last(); i.next())
+	{
+		if (i.item()->owner.ref() == get<Health>())
+			health_pickup_count++;
+	}
+
+	for (auto i = HealthPickup::list.iterator(); new_health_pickup_count < health_pickup_count && !i.is_last(); i.next())
+	{
+		if (i.item()->owner.ref() == get<Health>())
+		{
+			i.item()->reset();
+			health_pickup_count--;
+		}
+	}
+}
+
 void Awk::killed(Entity* e)
 {
+	for (auto i = HealthPickup::list.iterator(); !i.is_last(); i.next())
+	{
+		if (i.item()->owner.ref() == get<Health>())
+			i.item()->reset();
+	}
+
 	get<Audio>()->post_event(has<LocalPlayerControl>() ? AK::EVENTS::PLAY_HURT_PLAYER : AK::EVENTS::PLAY_HURT);
 	get<Audio>()->post_event(AK::EVENTS::STOP_FLY);
 	World::remove_deferred(entity());

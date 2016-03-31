@@ -160,10 +160,13 @@ void Team::update(const Update& u)
 
 		for (auto i = PlayerCommon::list.iterator(); !i.is_last(); i.next())
 		{
+			AI::Team team = i.item()->manager.ref()->team.ref()->team();
 			auto j = i;
 			j.next();
 			for (j; !j.is_last(); j.next())
 			{
+				if (team == j.item()->manager.ref()->team.ref()->team())
+					continue;
 				Vec3 start = i.item()->has<MinionCommon>() ? i.item()->get<MinionCommon>()->head_pos() : i.item()->get<Awk>()->center();
 				Vec3 end = j.item()->has<MinionCommon>() ? j.item()->get<MinionCommon>()->head_pos() : j.item()->get<Awk>()->center();
 				Vec3 diff = end - start;

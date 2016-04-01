@@ -20,6 +20,7 @@ struct PlayerManager;
 
 #define GAME_TIME_LIMIT 420.0f
 #define CREDITS_MINION 10
+#define CREDITS_DAMAGE 20
 #define CREDITS_DETECT 10
 #define CREDITS_INITIAL 0
 
@@ -49,6 +50,7 @@ struct Team
 	{
 		Ref<Entity> entity;
 		r32 timer;
+		b8 tracking;
 		b8 visible;
 	};
 
@@ -66,6 +68,7 @@ struct Team
 
 	static StaticArray<Team, (s32)AI::Team::count> list;
 
+	static b8 abilities_enabled;
 	static b8 game_over();
 	static b8 is_draw();
 
@@ -105,6 +108,7 @@ struct PlayerManager
 	Revision revision;
 	char username[255];
 	u16 credits;
+	r32 credits_flash_timer;
 	Ref<Team> team;
 	Ref<Entity> entity;
 	Link spawn;

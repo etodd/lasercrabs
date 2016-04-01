@@ -287,6 +287,8 @@ add_executable(yearning
 	src/types.h
 	src/vi_assert.h
 	src/physics.h
+	src/noise.h
+	src/noise.cpp
 	src/lmath.h
 	src/input.h
 	src/input.cpp

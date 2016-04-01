@@ -30,7 +30,8 @@ struct Game
 {
 	enum class Mode
 	{
-		Multiplayer,
+		Special,
+		Pvp,
 		Parkour,
 	};
 	struct Data

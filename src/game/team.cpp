@@ -16,6 +16,7 @@
 #define PLAYER_SPAWN_DELAY 5.0f
 #endif
 
+#define CREDITS_FLASH_TIME 0.75f
 #define SENSOR_TIME_1 2.0f
 #define SENSOR_TIME_2 1.0f
 
@@ -31,11 +32,12 @@ const Vec4 Team::colors[(s32)AI::Team::count] =
 
 const Vec4 Team::ui_colors[(s32)AI::Team::count] =
 {
-	Vec4(0.3f, 0.8f, 1.0f, 1),
+	Vec4(0.4f, 0.9f, 1.0f, 1),
 	Vec4(1.0f, 0.5f, 0.5f, 1),
 };
 
 StaticArray<Team, (s32)AI::Team::count> Team::list;
+b8 Team::abilities_enabled;
 
 #define GAME_OVER_TIME 5.0f
 
@@ -115,7 +117,7 @@ void Team::extract_history(PlayerManager* manager, SensorTrackHistory* history)
 
 void Team::update(const Update& u)
 {
-	if (Game::data.mode != Game::Mode::Multiplayer)
+	if (Game::data.mode != Game::Mode::Pvp)
 		return;
 
 	// determine which Awks are seen by which teams
@@ -234,6 +236,7 @@ void Team::update(const Update& u)
 
 			Sensor* sensor = visibility[player.index][team->id()];
 			SensorTrack* track = &team->player_tracks[player.index];
+			track->visible = sensor != nullptr;
 			if (sensor)
 			{
 				// team's sensors are picking up the Awk
@@ -243,7 +246,7 @@ void Team::update(const Update& u)
 				if (track->entity.ref() == player_entity)
 				{
 					// already tracking
-					if (track->visible) // already alerted
+					if (track->tracking) // already alerted
 						track->timer = SENSOR_TIMEOUT;
 					else
 					{
@@ -262,7 +265,7 @@ void Team::update(const Update& u)
 							{
 								// todo: explode sensor
 							}
-							track->visible = true; // got em
+							track->tracking = true; // got em
 						}
 					}
 					break;
@@ -282,14 +285,14 @@ void Team::update(const Update& u)
 				// remove the Awk's track, if any
 				if (track->entity.ref() == player_entity)
 				{
-					if (track->visible && track->timer > 0.0f) // track remains active for SENSOR_TIMEOUT seconds
+					if (track->tracking && track->timer > 0.0f) // track remains active for SENSOR_TIMEOUT seconds
 						track->timer -= u.time.delta;
 					else
 					{
 						// copy track to history and erase
 						extract_history(player.item(), &team->player_track_history[player.index]);
 						track->entity = nullptr;
-						track->visible = false;
+						track->tracking = false;
 					}
 				}
 			}
@@ -299,9 +302,9 @@ void Team::update(const Update& u)
 
 AbilityInfo AbilityInfo::list[] =
 {
-	{ Asset::Mesh::icon_sensor, strings::sensor, 20.0f, 3, { 20, 40, 80 } },
-	{ Asset::Mesh::icon_stealth, strings::stealth, 30.0f, 3, { 20, 40, 80 } },
-	{ Asset::Mesh::icon_skip_cooldown, strings::skip_cooldown, 30.0f, 3, { 20, 40, 80 } },
+	{ Asset::Mesh::icon_sensor, strings::sensor, 20.0f, 3, { 10, 30, 50 } },
+	{ Asset::Mesh::icon_stealth, strings::stealth, 30.0f, 3, { 10, 30, 50 } },
+	{ Asset::Mesh::icon_skip_cooldown, strings::skip_cooldown, 30.0f, 3, { 10, 30, 50 } },
 };
 
 b8 PlayerManager::ability_use()
@@ -399,7 +402,7 @@ PlayerManager::PlayerManager(Team* team)
 	: spawn_timer(PLAYER_SPAWN_DELAY),
 	team(team),
 	credits(CREDITS_INITIAL),
-	ability(Ability::Sensor),
+	ability(Team::abilities_enabled ? Ability::Sensor : Ability::None),
 	ability_level{ 1, 0, 0 },
 	ability_cooldown(),
 	entity(),
@@ -422,6 +425,7 @@ void PlayerManager::ability_upgrade(Ability a)
 	vi_assert(credits >= cost);
 	level += 1;
 	credits -= cost;
+	credits_flash_timer = CREDITS_FLASH_TIME;
 	if (a == Ability::SkipCooldown)
 	{
 		vi_assert(entity.ref());
@@ -468,11 +472,12 @@ b8 PlayerManager::ability_upgrade_available(Ability a) const
 void PlayerManager::add_credits(u16 c)
 {
 	credits += c;
+	credits_flash_timer = CREDITS_FLASH_TIME;
 }
 
 b8 PlayerManager::at_spawn() const
 {
-	if (Game::data.mode == Game::Mode::Multiplayer)
+	if (Game::data.mode == Game::Mode::Pvp)
 		return entity.ref() && team.ref()->player_spawn.ref()->get<PlayerTrigger>()->is_triggered(entity.ref());
 	else
 		return false;
@@ -480,6 +485,8 @@ b8 PlayerManager::at_spawn() const
 
 void PlayerManager::update(const Update& u)
 {
+	credits_flash_timer = vi_max(0.0f, credits_flash_timer - Game::real_time.delta);
+
 	if (!entity.ref() && spawn_timer > 0.0f && team.ref()->player_spawn.ref())
 	{
 		spawn_timer -= u.time.delta;

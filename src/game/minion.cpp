@@ -19,7 +19,7 @@
 
 #define HEAD_RADIUS 0.25f
 
-#define WALK_SPEED 1.5f
+#define WALK_SPEED 1.25f
 
 #define HEALTH 50
 
@@ -220,6 +220,7 @@ void MinionPath::run()
 	// find new target
 	Entity* target = closest_enemy_sensor(pos, minion->get<AIAgent>()->team);
 
+	path_timer = 0.0f;
 	if (target)
 	{
 		if (minion->can_see(target))
@@ -252,6 +253,7 @@ void MinionPath::update(const Update& u)
 			// recalc
 			minion->path_valid = false;
 			AI::pathfind(minion->get<Transform>()->absolute_pos(), goal, ObjectLinkEntryArg<MinionAI, const AI::Path&, &MinionAI::set_path>(minion->id()));
+			path_timer = 0.0f;
 		}
 	}
 }
@@ -283,7 +285,7 @@ void MinionAttack::update(const Update& u)
 	if (target.ref())
 	{
 		Vec3 head_pos = minion->get<MinionCommon>()->head_pos();
-		Vec3 target_pos = minion->get<Transform>()->absolute_pos();
+		Vec3 target_pos = target.ref()->get<Transform>()->absolute_pos();
 		minion->turn_to(target_pos);
 		Vec3 to_target = target_pos - head_pos;
 		to_target.y = 0.0f;
@@ -325,7 +327,7 @@ MinionAI::MinionAI()
 			(
 				MinionPath::alloc(),
 				MinionAttack::alloc(),
-				Delay::alloc(3.0f)
+				Delay::alloc(2.0f)
 			)
 		)
 	);
@@ -353,8 +355,8 @@ b8 MinionAI::can_see(Entity* target) const
 	if ((target_pos - pos).length_squared() < MINION_VIEW_RANGE * MINION_VIEW_RANGE)
 	{
 		btCollisionWorld::ClosestRayResultCallback ray_callback(pos, target_pos);
-		Physics::raycast(&ray_callback);
-		if (!ray_callback.hasHit() || ray_callback.m_collisionObject->getUserIndex() == target->id())
+		Physics::raycast(&ray_callback, btBroadphaseProxy::StaticFilter | CollisionInaccessible);
+		if (!ray_callback.hasHit())
 			return true;
 	}
 	return false;
@@ -428,6 +430,7 @@ void MinionAI::set_path(const AI::Path& p)
 {
 	path = p;
 	path_valid = true;
+	path_index = 0;
 }
 
 void MinionAI::recalc_path(const Update& u)

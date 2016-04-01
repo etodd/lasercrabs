@@ -14,6 +14,7 @@
 #include "mersenne/mersenne-twister.h"
 #include <time.h>
 #include "platform/util.h"
+#include "noise.h"
 
 #if DEBUG
 	#define DEBUG_RENDER 0
@@ -1170,7 +1171,8 @@ void draw(LoopSync* sync, const Camera* camera)
 
 void loop(LoopSwapper* swapper, PhysicsSwapper* physics_swapper)
 {
-	mersenne::srand(time(0));
+	mersenne::srand(platform::time());
+	noise::reseed();
 
 	LoopSync* sync = swapper->swap<SwapType_Write>();
 
@@ -1253,10 +1255,10 @@ void loop(LoopSwapper* swapper, PhysicsSwapper* physics_swapper)
 
 			r32 delay = (1.0f / framerate_limit) - time_update;
 			if (delay > 0)
-				platform_sleep(delay);
+				platform::sleep(delay);
 		}
 
-		r64 time_update_start = platform_time();
+		r64 time_update_start = platform::time();
 
 		u.input = &sync->input;
 		u.time = sync->time;
@@ -1289,7 +1291,7 @@ void loop(LoopSwapper* swapper, PhysicsSwapper* physics_swapper)
 
 		memcpy(&last_input, &sync->input, sizeof(last_input));
 
-		time_update = (r32)(platform_time() - time_update_start);
+		time_update = (r32)(platform::time() - time_update_start);
 
 		sync = swapper->swap<SwapType_Write>();
 		sync->queue.length = 0;

@@ -794,7 +794,7 @@ namespace start
 	void node_executed(AssetID node)
 	{
 		if (node == Asset::String::start_done)
-			Menu::transition(Asset::Level::tutorial_01, Game::Mode::Multiplayer);
+			Menu::transition(Asset::Level::tutorial_01, Game::Mode::Pvp);
 	}
 
 	void update(const Update& u)
@@ -847,7 +847,7 @@ namespace tutorial01
 
 	void done(const Update&)
 	{
-		Menu::transition(Asset::Level::tutorial_02, Game::Mode::Multiplayer);
+		Menu::transition(Asset::Level::tutorial_02, Game::Mode::Pvp);
 	}
 
 	void minion2_dialogue(Entity*)

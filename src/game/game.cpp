@@ -64,7 +64,7 @@ GameTime Game::real_time = GameTime();
 
 r32 Game::time_scale = 1.0f;
 AssetID Game::scheduled_load_level = AssetNull;
-Game::Mode Game::scheduled_mode = Game::Mode::Multiplayer;
+Game::Mode Game::scheduled_mode = Game::Mode::Pvp;
 Game::Data Game::data;
 Vec2 Game::cursor(200, 200);
 b8 Game::cursor_updated = false;
@@ -72,7 +72,7 @@ b8 Game::cursor_updated = false;
 Game::Data::Data()
 	: level(AssetNull),
 	next_level(AssetNull),
-	mode(Mode::Multiplayer),
+	mode(Mode::Pvp),
 	third_person(false),
 	allow_detach(true),
 	local_multiplayer(false)
@@ -248,11 +248,6 @@ void Game::draw_alpha(const RenderParams& render_params)
 	SkyDecal::draw_alpha(render_params);
 	SkyPattern::draw_alpha(render_params);
 	SkinnedModel::draw_alpha(render_params);
-
-	/*
-	for (s32 i = 0; i < path.length; i++)
-		Cube::draw(render_params, path[i]);
-	*/
 
 #if DEBUG_PHYSICS
 	{
@@ -470,7 +465,7 @@ void Game::execute(const Update& u, const char* cmd)
 			const char* level_name = delimiter + 1;
 			AssetID level = Loader::find(level_name, AssetLookup::Level::names);
 			if (level != AssetNull)
-				Menu::transition(level, Game::Mode::Multiplayer);
+				Menu::transition(level, Game::Mode::Pvp);
 		}
 	}
 }
@@ -509,6 +504,12 @@ void Game::unload_level()
 	Audio::post_global_event(AK::EVENTS::STOP_ALL);
 	data.level = AssetNull;
 	Menu::clear();
+
+	for (s32 i = 0; i < Camera::max_cameras; i++)
+	{
+		if (Camera::all[i].active)
+			Camera::all[i].remove();
+	}
 }
 
 Entity* EntityFinder::find(const char* name) const
@@ -551,6 +552,11 @@ struct RopeEntry
 	r32 slack;
 };
 
+AI::Team team_lookup(AI::Team* table, s32 i)
+{
+	return table[vi_max(0, vi_min((s32)AI::Team::count - 1, i))];
+}
+
 void Game::load_level(const Update& u, AssetID l, Mode m)
 {
 	time.total = 0.0f;
@@ -560,35 +566,6 @@ void Game::load_level(const Update& u, AssetID l, Mode m)
 	scheduled_load_level = AssetNull;
 
 	unload_level();
-
-	if (!Menu::is_special_level(l))
-	{
-		for (s32 i = 0; i < (s32)AI::Team::count; i++)
-		{
-			Team* team = Team::list.add();
-			new (team) Team();
-		}
-
-		for (s32 i = 0; i < MAX_GAMEPADS; i++)
-		{
-			AI::Team team = data.local_player_config[i];
-			if (team != AI::Team::None)
-			{
-				PlayerManager* manager = PlayerManager::list.add();
-				new (manager) PlayerManager(&Team::list[(s32)team]);
-
-				LocalPlayer* player = LocalPlayer::list.add();
-				new (player) LocalPlayer(manager, i);
-			}
-		}
-		Audio::post_global_event(AK::EVENTS::PLAY_MUSIC_01);
-	}
-
-	for (s32 i = 0; i < Camera::max_cameras; i++)
-	{
-		if (Camera::all[i].active)
-			Camera::all[i].remove();
-	}
 
 	Audio::post_global_event(AK::EVENTS::PLAY_START_SESSION);
 
@@ -612,6 +589,14 @@ void Game::load_level(const Update& u, AssetID l, Mode m)
 
 	const Vec3 accessible_color(0.35f, 0.35f, 0.35f);
 	const Vec3 inaccessible_color(0.1f, 0.1f, 0.1f);
+
+	AI::Team teams[(s32)AI::Team::count];
+	{
+		// shuffle teams
+		s32 offset = mersenne::rand() % (s32)AI::Team::count;
+		for (s32 i = 0; i < (s32)AI::Team::count; i++)
+			teams[i] = (AI::Team)((offset + i) % (s32)AI::Team::count);
+	}
 
 	cJSON* element = json->child;
 	while (element)
@@ -650,7 +635,7 @@ void Game::load_level(const Update& u, AssetID l, Mode m)
 					// inaccessible
 					m = World::alloc<StaticGeom>(mesh_id, absolute_pos, absolute_rot, CollisionInaccessible, CollisionInaccessibleMask);
 					Vec4 color = Loader::mesh(mesh_id)->color;
-					if (data.mode == Mode::Multiplayer) // override colors
+					if (data.mode == Mode::Pvp) // override colors
 						color.xyz(inaccessible_color);
 					color.w = MATERIAL_NO_OVERRIDE; // special G-buffer index for inaccessible materials
 					m->get<View>()->color = color;
@@ -661,7 +646,7 @@ void Game::load_level(const Update& u, AssetID l, Mode m)
 					m = World::alloc<StaticGeom>(mesh_id, absolute_pos, absolute_rot);
 
 					Vec4 color = Loader::mesh(mesh_id)->color;
-					if (data.mode == Mode::Multiplayer) // override colors
+					if (data.mode == Mode::Pvp) // override colors
 						color.xyz(accessible_color);
 					m->get<View>()->color = color;
 				}
@@ -715,7 +700,7 @@ void Game::load_level(const Update& u, AssetID l, Mode m)
 		{
 			AI::Team team = (AI::Team)Json::get_s32(element, "team");
 
-			if (Game::data.mode == Game::Mode::Multiplayer)
+			if (Game::data.mode == Game::Mode::Pvp)
 				entity = World::alloc<PlayerSpawn>(team);
 			else
 				entity = World::alloc<Empty>(); // in parkour mode, the spawn point is invisible
@@ -748,9 +733,11 @@ void Game::load_level(const Update& u, AssetID l, Mode m)
 			// World is guaranteed to be the first element in the entity list
 			const char* next_mode_string = Json::get_string(element, "next_mode");
 			if (next_mode_string)
-				data.next_mode = strcmp(next_mode_string, "parkour") == 0 ? Game::Mode::Parkour : Game::Mode::Multiplayer;
+				data.next_mode = strcmp(next_mode_string, "parkour") == 0 ? Game::Mode::Parkour : Game::Mode::Pvp;
 			else
-				data.next_mode = Game::Mode::Multiplayer;
+				data.next_mode = Game::Mode::Pvp;
+
+			Team::abilities_enabled = Json::get_s32(element, "abilities", 1);
 
 			data.next_level = Loader::find(Json::get_string(element, "next"), AssetLookup::Level::names);
 
@@ -759,7 +746,7 @@ void Game::load_level(const Update& u, AssetID l, Mode m)
 			Vec3 ambient;
 			Vec3 zenith;
 			Vec3 player_light;
-			if (data.mode == Mode::Multiplayer)
+			if (data.mode == Mode::Pvp)
 			{
 				sky = Vec3(0.0f, 0.22f, 0.32f);
 				ambient = Vec3(0.15f);
@@ -775,6 +762,31 @@ void Game::load_level(const Update& u, AssetID l, Mode m)
 			}
 			r32 far_plane = Json::get_r32(element, "far_plane", 100.0f);
 			Skybox::set(far_plane, sky, ambient, zenith, player_light, Asset::Shader::skybox, Asset::Mesh::skybox, texture);
+
+			// initialize teams
+			if (!Menu::is_special_level(l, m))
+			{
+				for (s32 i = 0; i < (s32)AI::Team::count; i++)
+				{
+					Team* team = Team::list.add();
+					new (team) Team();
+				}
+
+				for (s32 i = 0; i < MAX_GAMEPADS; i++)
+				{
+					if (data.local_player_config[i] != AI::Team::None)
+					{
+						AI::Team team = team_lookup(teams, (s32)data.local_player_config[i]);
+
+						PlayerManager* manager = PlayerManager::list.add();
+						new (manager) PlayerManager(&Team::list[(s32)team]);
+
+						LocalPlayer* player = LocalPlayer::list.add();
+						new (player) LocalPlayer(manager, i);
+					}
+				}
+				Audio::post_global_event(AK::EVENTS::PLAY_MUSIC_01);
+			}
 		}
 		else if (cJSON_GetObjectItem(element, "PointLight"))
 		{
@@ -798,7 +810,7 @@ void Game::load_level(const Update& u, AssetID l, Mode m)
 			// if we're in local multiplayer mode, or parkour mode, don't add any AI players
 			if (!data.local_multiplayer && data.mode != Mode::Parkour)
 			{
-				AI::Team team = (AI::Team)Json::get_s32(element, "team", (s32)AI::Team::B);
+				AI::Team team = team_lookup(teams, Json::get_s32(element, "team", (s32)AI::Team::B));
 
 				PlayerManager* manager = PlayerManager::list.add();
 				new (manager) PlayerManager(&Team::list[(s32)team]);
@@ -850,7 +862,7 @@ void Game::load_level(const Update& u, AssetID l, Mode m)
 				entity = World::alloc<Prop>(Loader::find(name, AssetLookup::Mesh::names), Loader::find(armature, AssetLookup::Armature::names), Loader::find(animation, AssetLookup::Animation::names));
 				if (alpha || additive)
 					entity->get<View>()->shader = Asset::Shader::flat;
-				else if (data.mode == Mode::Multiplayer)
+				else if (data.mode == Mode::Pvp)
 				{
 					if (entity->get<View>()->color.w < 0.5f)
 						entity->get<View>()->color = Vec4(inaccessible_color, MATERIAL_NO_OVERRIDE);
@@ -887,7 +899,7 @@ void Game::load_level(const Update& u, AssetID l, Mode m)
 
 					if (alpha || additive)
 						m->get<View>()->shader = Asset::Shader::flat;
-					else if (data.mode == Mode::Multiplayer)
+					else if (data.mode == Mode::Pvp)
 					{
 						if (entity->get<View>()->color.w < 0.5f)
 							entity->get<View>()->color = Vec4(inaccessible_color, MATERIAL_NO_OVERRIDE);

@@ -71,7 +71,7 @@ def add(obj, parent_index = -1):
 	if hasattr(obj, 'constraints'):
 		node['links'] = links = []
 		for constraint in obj.constraints:
-			if constraint.type == 'ACTION':
+			if constraint.type == 'ACTION' and constraint.target is not None:
 				links.append(constraint.target.name)
 
 	return node

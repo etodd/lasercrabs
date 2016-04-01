@@ -65,8 +65,15 @@ void draw(const RenderParams&);
 void splitscreen();
 void title();
 void refresh_variables();
-b8 is_special_level(AssetID);
-bool options(const Update&, u8, UIMenu*, Vec2*);
+b8 is_special_level(AssetID, Game::Mode);
+enum class State
+{
+	Hidden,
+	Visible,
+	Options,
+};
+void pause_menu(const Update&, const Rect2&, u8, UIMenu*, State*);
+b8 options(const Update&, u8, UIMenu*, Vec2*);
 r32 options_height();
 
 }

@@ -28,7 +28,6 @@ struct LocalPlayer
 	static PinArray<LocalPlayer, MAX_PLAYERS> list;
 
 	u8 gamepad;
-	b8 pause;
 	AbilityMenu ability_menu;
 	UIMenu menu;
 	Ref<Transform> map_view;
@@ -38,7 +37,7 @@ struct LocalPlayer
 	UIText msg_text;
 	UIText credits_text;
 	Revision revision;
-	b8 options_menu;
+	Menu::State menu_state;
 
 	inline ID id() const
 	{
@@ -105,6 +104,7 @@ struct LocalPlayerControl : public ComponentType<LocalPlayerControl>
 	r32 fov_blend;
 	r32 lean;
 	r32 last_angle_horizontal;
+	r32 damage_timer;
 	b8 allow_zoom;
 	b8 try_parkour;
 	b8 try_jump;
@@ -118,6 +118,7 @@ struct LocalPlayerControl : public ComponentType<LocalPlayerControl>
 
 	void awk_attached();
 	void hit_target(Entity*);
+	void damaged(Entity*);
 
 	void update(const Update&);
 	void draw_alpha(const RenderParams&) const;

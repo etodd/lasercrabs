@@ -18,6 +18,7 @@
 #include "console.h"
 #include "minion.h"
 #include "strings.h"
+#include "render/particles.h"
 
 namespace VI
 {
@@ -147,10 +148,26 @@ void Awk::hit_target(Entity* target)
 		hit.fire(target);
 		t->hit(entity());
 	}
+
+	Vec3 pos;
+	Quat rot;
+	get<Transform>()->absolute(&pos, &rot);
+	const Vec4 color = Team::colors[(s32)get<AIAgent>()->team] + Vec4(0.5f, 0.5f, 0.5f, 0);
+	for (s32 i = 0; i < 30; i++)
+	{
+		Particles::sparks.add
+		(
+			pos,
+			rot * Vec3(mersenne::randf_oo() * 2.0f - 1.0f, mersenne::randf_oo() * 2.0f - 1.0f, mersenne::randf_oo()) * 8.0f,
+			color
+		);
+	}
 }
 
 void Awk::damaged(Entity* enemy)
 {
+	if (enemy->has<PlayerCommon>())
+		enemy->get<PlayerCommon>()->manager.ref()->add_credits(CREDITS_DAMAGE);
 	if (enemy->has<LocalPlayerControl>())
 		enemy->get<LocalPlayerControl>()->player.ref()->msg(_(get<Health>()->hp > 0 ? strings::target_damaged : strings::target_killed));
 	s32 new_health_pickup_count = get<Health>()->hp - 1;

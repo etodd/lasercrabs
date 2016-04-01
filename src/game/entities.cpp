@@ -86,7 +86,7 @@ HealthPickupEntity::HealthPickupEntity()
 
 	HealthPickup* pickup = create<HealthPickup>();
 
-	const r32 radius = 0.25f;
+	const r32 radius = 0.35f;
 
 	model->offset.scale(Vec3(radius));
 
@@ -142,7 +142,7 @@ SensorEntity::SensorEntity(Transform* parent, PlayerManager* owner, const Vec3& 
 	model->shader = Asset::Shader::standard;
 	model->offset.scale(Vec3(SENSOR_RADIUS));
 
-	create<Health>(12, 12);
+	create<Health>(5, 5);
 
 	PointLight* light = create<PointLight>();
 	light->color = Team::colors[(s32)team].xyz();
@@ -193,7 +193,7 @@ MinionSpawnEntity::MinionSpawnEntity()
 
 	Target* target = create<Target>();
 
-	const r32 radius = 0.25f;
+	const r32 radius = 0.35f;
 
 	model->offset.scale(Vec3(radius));
 
@@ -405,7 +405,7 @@ void TurretControl::update(const Update& u)
 
 		if (cooldown <= 0.0f && to_target.dot(gun_rot * Vec3(1, 0, 0)) > 0.99f)
 		{
-			World::create<ProjectileEntity>(entity(), gun_pos, 2, target_pos - gun_pos);
+			World::create<ProjectileEntity>(entity(), gun_pos, 1, target_pos - gun_pos);
 			cooldown = TURRET_COOLDOWN;
 		}
 	}

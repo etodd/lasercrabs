@@ -912,7 +912,7 @@ Settings& Loader::settings()
 		settings_data.bindings.parkour = input_binding(bindings, "parkour", { KeyCode::LShift, KeyCode::None, Gamepad::Btn::LeftTrigger });
 		settings_data.bindings.slide = input_binding(bindings, "slide", { KeyCode::MouseLeft, KeyCode::None, Gamepad::Btn::LeftClick });
 		settings_data.bindings.ability = input_binding(bindings, "ability", { KeyCode::F, KeyCode::None, Gamepad::Btn::X });
-		settings_data.bindings.menu = input_binding(bindings, "menu", { KeyCode::Tab, KeyCode::None, Gamepad::Btn::B });
+		settings_data.bindings.menu = input_binding(bindings, "menu", { KeyCode::Tab, KeyCode::None, Gamepad::Btn::Y });
 	}
 	return settings_data;
 }

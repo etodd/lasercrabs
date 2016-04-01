@@ -34,6 +34,7 @@ struct Settings
 	s32 width;
 	s32 height;
 	b8 fullscreen;
+	b8 vsync;
 	u8 sfx;
 	u8 music;
 	s32 framerate_limit;

@@ -104,6 +104,12 @@ namespace VI
 			return -1;
 		}
 
+		if (SDL_GL_SetSwapInterval(settings.vsync ? 1 : 0) != 0)
+		{
+			fprintf(stderr, "Failed to set OpenGL swap interval: %s\n", SDL_GetError());
+			return -1;
+		}
+
 		if (SDL_SetRelativeMouseMode(SDL_TRUE) != 0)
 		{
 			fprintf(stderr, "Failed to set relative mouse mode: %s\n", SDL_GetError());

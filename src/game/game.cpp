@@ -75,7 +75,8 @@ Game::Data::Data()
 	mode(Mode::Pvp),
 	third_person(false),
 	allow_detach(true),
-	local_multiplayer(false)
+	local_multiplayer(false),
+	local_multiplayer_offset()
 {
 	for (s32 i = 0; i < MAX_GAMEPADS; i++)
 		local_player_config[i] = AI::Team::None;
@@ -587,13 +588,19 @@ void Game::load_level(const Update& u, AssetID l, Mode m)
 	
 	cJSON* json = Loader::level(data.level);
 
-	const Vec3 accessible_color(0.35f, 0.35f, 0.35f);
-	const Vec3 inaccessible_color(0.1f, 0.1f, 0.1f);
+	const Vec3 pvp_accessible(0.4f, 0.4f, 0.4f);
+	const Vec3 pvp_inaccessible(0.1f, 0.1f, 0.1f);
+	const Vec3 pvp_sky(0.0f, 0.2f, 0.32f);
+	const Vec3 pvp_ambient(0.15f);
+	const Vec3 pvp_zenith(0.1f);
+	const Vec3 pvp_player_light(1.0f);
 
 	AI::Team teams[(s32)AI::Team::count];
 	{
 		// shuffle teams
-		s32 offset = mersenne::rand() % (s32)AI::Team::count;
+		// if we're in local multiplayer mode, rotate the teams by a set amount
+		// local multiplayer games rotate through the possible team configurations on each map before moving to the next map
+		s32 offset = data.local_multiplayer ? data.local_multiplayer_offset : mersenne::rand() % (s32)AI::Team::count;
 		for (s32 i = 0; i < (s32)AI::Team::count; i++)
 			teams[i] = (AI::Team)((offset + i) % (s32)AI::Team::count);
 	}
@@ -636,7 +643,7 @@ void Game::load_level(const Update& u, AssetID l, Mode m)
 					m = World::alloc<StaticGeom>(mesh_id, absolute_pos, absolute_rot, CollisionInaccessible, CollisionInaccessibleMask);
 					Vec4 color = Loader::mesh(mesh_id)->color;
 					if (data.mode == Mode::Pvp) // override colors
-						color.xyz(inaccessible_color);
+						color.xyz(pvp_inaccessible);
 					color.w = MATERIAL_NO_OVERRIDE; // special G-buffer index for inaccessible materials
 					m->get<View>()->color = color;
 				}
@@ -647,7 +654,7 @@ void Game::load_level(const Update& u, AssetID l, Mode m)
 
 					Vec4 color = Loader::mesh(mesh_id)->color;
 					if (data.mode == Mode::Pvp) // override colors
-						color.xyz(accessible_color);
+						color.xyz(pvp_accessible);
 					m->get<View>()->color = color;
 				}
 
@@ -739,8 +746,6 @@ void Game::load_level(const Update& u, AssetID l, Mode m)
 
 			Team::abilities_enabled = Json::get_s32(element, "abilities", 1);
 
-			data.next_level = Loader::find(Json::get_string(element, "next"), AssetLookup::Level::names);
-
 			AssetID texture = Loader::find(Json::get_string(element, "skybox_texture"), AssetLookup::Texture::names);
 			Vec3 sky;
 			Vec3 ambient;
@@ -748,10 +753,11 @@ void Game::load_level(const Update& u, AssetID l, Mode m)
 			Vec3 player_light;
 			if (data.mode == Mode::Pvp)
 			{
-				sky = Vec3(0.0f, 0.22f, 0.32f);
-				ambient = Vec3(0.15f);
-				zenith = Vec3(0.1f);
-				player_light = Vec3(0.7f);
+				// override colors
+				sky = pvp_sky;
+				ambient = pvp_ambient;
+				zenith = pvp_zenith;
+				player_light = pvp_player_light;
 			}
 			else
 			{
@@ -786,6 +792,16 @@ void Game::load_level(const Update& u, AssetID l, Mode m)
 					}
 				}
 				Audio::post_global_event(AK::EVENTS::PLAY_MUSIC_01);
+			}
+
+			// figure out next level
+			data.next_level = Loader::find(Json::get_string(element, "next"), AssetLookup::Level::names);
+			if (data.local_multiplayer && !Menu::is_special_level(Game::data.level, Game::data.mode))
+			{
+				// we're in local multiplayer mode
+				if (data.local_multiplayer_offset < (s32)AI::Team::count - 1)
+					data.next_level = data.level; // play again with a different team offset
+				data.local_multiplayer_offset = (data.local_multiplayer_offset + 1) % (s32)AI::Team::count;
 			}
 		}
 		else if (cJSON_GetObjectItem(element, "PointLight"))
@@ -865,9 +881,9 @@ void Game::load_level(const Update& u, AssetID l, Mode m)
 				else if (data.mode == Mode::Pvp)
 				{
 					if (entity->get<View>()->color.w < 0.5f)
-						entity->get<View>()->color = Vec4(inaccessible_color, MATERIAL_NO_OVERRIDE);
+						entity->get<View>()->color = Vec4(pvp_inaccessible, MATERIAL_NO_OVERRIDE);
 					else
-						entity->get<View>()->color.xyz(accessible_color);
+						entity->get<View>()->color.xyz(pvp_accessible);
 				}
 				if (alpha)
 					entity->get<View>()->alpha();
@@ -902,9 +918,9 @@ void Game::load_level(const Update& u, AssetID l, Mode m)
 					else if (data.mode == Mode::Pvp)
 					{
 						if (entity->get<View>()->color.w < 0.5f)
-							entity->get<View>()->color = Vec4(inaccessible_color, MATERIAL_NO_OVERRIDE);
+							entity->get<View>()->color = Vec4(pvp_inaccessible, MATERIAL_NO_OVERRIDE);
 						else
-							entity->get<View>()->color.xyz(accessible_color);
+							entity->get<View>()->color.xyz(pvp_accessible);
 					}
 
 					if (alpha)

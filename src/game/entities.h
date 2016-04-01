@@ -26,11 +26,13 @@ struct Health : public ComponentType<Health>
 	u16 hp_max;
 	LinkArg<Entity*> damaged;
 	LinkArg<Entity*> killed;
+	Link added;
 
 	Health(u16, u16);
 
 	void awake() {}
 	void damage(Entity*, u16);
+	void add(u16);
 };
 
 struct HealthPickupEntity : public Entity

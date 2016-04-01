@@ -39,6 +39,8 @@ uniform sampler2DShadow detail_shadow_map;
 uniform vec3 player_light;
 uniform float far_plane;
 
+const float AWK_MAX_DISTANCE = 30.0f;
+
 out vec4 out_color;
 
 void main()
@@ -54,7 +56,7 @@ void main()
 	{
 		// Player light
 		float normal_attenuation = dot(normal, view_pos / -view_distance);
-		float distance_attenuation = 1.0f - (view_distance / (far_plane * 0.5f));
+		float distance_attenuation = 1.0f - (view_distance / AWK_MAX_DISTANCE);
 		float light = max(0, distance_attenuation) * max(0, normal_attenuation);
 		out_color = vec4(player_light * light, 1);
 	}

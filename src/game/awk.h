@@ -66,6 +66,7 @@ struct Awk : public ComponentType<Awk>
 	void hit_target(Entity*); // Called when we hit a target
 	void damaged(Entity*);
 	void killed(Entity*);
+	void update_shield_visibility();
 
 	void stealth_enable(r32);
 	void stealth_disable();

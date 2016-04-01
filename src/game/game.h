@@ -44,6 +44,9 @@ struct Game
 		b8 third_person;
 		b8 allow_detach;
 		b8 local_multiplayer;
+		// shift all the team IDs by this amount
+		// local multiplayer games rotate through all the possible team configurations before moving on to the next map
+		s32 local_multiplayer_offset;
 		Data();
 	};
 

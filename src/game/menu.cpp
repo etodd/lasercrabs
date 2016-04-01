@@ -338,9 +338,15 @@ void update(const Update& u)
 	else if (is_special_level(Game::data.level, Game::data.mode))
 	{
 		// toggle the pause menu
-		b8 pause_hit = Game::time.total > 0.5f && u.input->get(Game::bindings.pause, 0) && !u.last_input->get(Game::bindings.pause, 0);
-		if (pause_hit && (main_menu_state == State::Hidden || main_menu_state == State::Visible))
+		b8 pause_hit;
+		if (Game::data.level == Asset::Level::splitscreen)
+			pause_hit = u.input->get(Game::bindings.cancel, 0) && !u.last_input->get(Game::bindings.cancel, 0);
+		else
+			pause_hit = u.input->get(Game::bindings.pause, 0) && !u.last_input->get(Game::bindings.pause, 0);
+
+		if (pause_hit && Game::time.total > 0.0f && (main_menu_state == State::Hidden || main_menu_state == State::Visible))
 			main_menu_state = main_menu_state == State::Hidden ? State::Visible : State::Hidden;
+
 		// do pause menu
 		const Rect2& viewport = cameras[0] ? cameras[0]->viewport : Rect2(Vec2(0, 0), Vec2(u.input->width, u.input->height));
 		pause_menu(u, viewport, 0, &main_menu, &main_menu_state);

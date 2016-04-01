@@ -90,6 +90,7 @@ void Awk::awake()
 {
 	link_arg<Entity*, &Awk::killed>(get<Health>()->killed);
 	link_arg<Entity*, &Awk::damaged>(get<Health>()->damaged);
+	link<&Awk::update_shield_visibility>(get<Health>()->added);
 	link_arg<const TargetEvent&, &Awk::hit_by>(get<Target>()->target_hit);
 	if (!shield.ref())
 	{
@@ -100,12 +101,20 @@ void Awk::awake()
 		View* s = shield_entity->add<View>();
 		s->mask = ~(1 << (s32)get<AIAgent>()->team); // don't display to fellow teammates
 		s->additive();
-		s->color = Vec4(1, 1, 1, 0.1f);
+		s->color = Vec4(1, 1, 1, 0.0f);
 		s->mesh = Asset::Mesh::sphere;
 		s->offset.scale(Vec3(AWK_SHIELD_RADIUS));
 		s->shader = Asset::Shader::flat;
 		shield = s;
+		update_shield_visibility();
 	}
+}
+
+void Awk::update_shield_visibility()
+{
+	// only display if we have more than 1 health
+	// and never display to fellow teammates
+	shield.ref()->mask = get<Health>()->hp > 1 ? ~(1 << (s32)get<AIAgent>()->team) : 0; 
 }
 
 Awk::~Awk()
@@ -168,8 +177,8 @@ void Awk::damaged(Entity* enemy)
 {
 	if (enemy->has<PlayerCommon>())
 		enemy->get<PlayerCommon>()->manager.ref()->add_credits(CREDITS_DAMAGE);
-	if (enemy->has<LocalPlayerControl>())
-		enemy->get<LocalPlayerControl>()->player.ref()->msg(_(get<Health>()->hp > 0 ? strings::target_damaged : strings::target_killed));
+	if (get<Health>()->hp > 0 && enemy->has<LocalPlayerControl>())
+		enemy->get<LocalPlayerControl>()->player.ref()->msg(_(strings::target_damaged));
 	s32 new_health_pickup_count = get<Health>()->hp - 1;
 	s32 health_pickup_count = 0;
 	for (auto i = HealthPickup::list.iterator(); !i.is_last(); i.next())
@@ -186,6 +195,8 @@ void Awk::damaged(Entity* enemy)
 			health_pickup_count--;
 		}
 	}
+
+	update_shield_visibility();
 }
 
 void Awk::killed(Entity* e)
@@ -752,7 +763,7 @@ void Awk::update(const Update& u)
 						b8 stop = false;
 						if ((entity->has<Awk>() && (group & CollisionShield))) // it's an AWK shield
 						{
-							if (dir.dot(ray_callback.m_hitNormalWorld[i]) > SHIELD_PENETRATION_DOT)
+							if (entity->get<Health>()->hp > 1 && dir.dot(ray_callback.m_hitNormalWorld[i]) > SHIELD_PENETRATION_DOT)
 								stop = true; // it's a bad shot, we'll reflect off the shield
 						}
 						else if (!(group & (AWK_PERMEABLE_MASK | CollisionWalker))) // it's not a target or a person; we can't go through it
@@ -799,7 +810,7 @@ void Awk::update(const Update& u)
 								// if we didn't destroy the shield,
 								// and if it's not a good shot,
 								// then bounce off the shield
-								if (hit.ref() && dir.dot(ray_callback.m_hitNormalWorld[i]) > SHIELD_PENETRATION_DOT)
+								if (hit.ref() && hit.ref()->get<Health>()->hp > 0 && dir.dot(ray_callback.m_hitNormalWorld[i]) > SHIELD_PENETRATION_DOT)
 									reflect(ray_callback.m_hitPointWorld[i], ray_callback.m_hitNormalWorld[i], u);
 							}
 						}

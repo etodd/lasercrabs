@@ -54,7 +54,7 @@ AwkEntity::AwkEntity(AI::Team team)
 }
 
 Health::Health(u16 start_value, u16 hp_max)
-	: hp(start_value), hp_max(hp_max)
+	: hp(start_value), hp_max(hp_max), added(), damaged(), killed()
 {
 }
 
@@ -70,6 +70,14 @@ void Health::damage(Entity* e, u16 damage)
 		if (hp == 0)
 			killed.fire(e);
 	}
+}
+
+void Health::add(u16 amount)
+{
+	u16 old_hp = hp;
+	hp = vi_min((u16)(hp + amount), hp_max);
+	if (hp > old_hp)
+		added.fire();
 }
 
 HealthPickupEntity::HealthPickupEntity()
@@ -114,7 +122,7 @@ void HealthPickup::hit(const TargetEvent& e)
 		Health* health = e.hit_by->get<Health>();
 		if (!owner.ref() && health->hp < health->hp_max)
 		{
-			health->hp += 1;
+			health->add(1);
 			owner = health;
 
 			const Vec3& color = Team::colors[(s32)e.hit_by->get<AIAgent>()->team].xyz();

@@ -114,7 +114,6 @@ LocalPlayer::LocalPlayer(PlayerManager* m, u8 g)
 
 	msg_text.font = Asset::Font::lowpoly;
 	msg_text.size = text_size;
-	msg_text.color = UI::accent_color;
 	msg_text.anchor_x = UIText::Anchor::Center;
 	msg_text.anchor_y = UIText::Anchor::Center;
 
@@ -138,10 +137,12 @@ LocalPlayer::UIMode LocalPlayer::ui_mode() const
 		return UIMode::Spawning;
 }
 
-void LocalPlayer::msg(const char* msg)
+void LocalPlayer::msg(const char* msg, b8 good)
 {
 	msg_text.text(msg);
+	msg_text.color = good ? UI::accent_color : UI::alert_color;
 	msg_timer = 0.0f;
+	msg_good = good;
 }
 
 void LocalPlayer::ensure_camera(const Update& u, b8 active)
@@ -398,7 +399,7 @@ void LocalPlayer::draw_alpha(const RenderParams& params) const
 			UI::box(params, box, UI::background_color);
 			msg_text.draw(params, pos);
 			if (!last_flash)
-				Audio::post_global_event(AK::EVENTS::PLAY_BEEP_GOOD);
+				Audio::post_global_event(msg_good ? AK::EVENTS::PLAY_BEEP_GOOD : AK::EVENTS::PLAY_BEEP_BAD);
 		}
 	}
 
@@ -854,7 +855,7 @@ void LocalPlayerControl::hit_target(Entity* target)
 {
 	if (target->has<MinionAI>())
 	{
-		player.ref()->msg(_(strings::target_killed));
+		player.ref()->msg(_(strings::target_killed), true);
 		if (target->get<AIAgent>()->team != get<AIAgent>()->team)
 			player.ref()->manager.ref()->add_credits(CREDITS_MINION);
 	}
@@ -862,7 +863,7 @@ void LocalPlayerControl::hit_target(Entity* target)
 
 void LocalPlayerControl::damaged(Entity*)
 {
-	player.ref()->msg(_(strings::damaged));
+	player.ref()->msg(_(strings::damaged), false);
 	damage_timer = damage_shake_time;
 }
 
@@ -1325,11 +1326,25 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 			box.size.x += (text_offset + icon_size);
 			UI::box(params, box, UI::background_color);
 
-			if (player.ref()->manager.ref()->ability_cooldown > 0.0f)
+			r32 ability_cooldown = player.ref()->manager.ref()->ability_cooldown;
+			if (ability_cooldown > 0.0f)
 			{
-				r32 cooldown_normalized = player.ref()->manager.ref()->ability_cooldown / info.cooldown;
-				UI::box(params, { box.pos, Vec2(box.size.x * cooldown_normalized, box.size.y) }, UI::subtle_color);
-				text.color = UI::disabled_color;
+				if (ability_cooldown < ABILITY_COOLDOWN_USABLE_RANGE)
+				{
+					// the ability is usable; flash it
+					text.color = UI::default_color;
+					b8 show = flash_function(Game::real_time.total);
+					if (show)
+						text.color.w = 0.0f;
+					if (show && !flash_function(Game::real_time.total - Game::real_time.delta))
+						Audio::post_global_event(AK::EVENTS::PLAY_BEEP_GOOD);
+				}
+				else
+				{
+					r32 cooldown_normalized = (ability_cooldown - ABILITY_COOLDOWN_USABLE_RANGE) / info.cooldown;
+					UI::box(params, { box.pos, Vec2(box.size.x * cooldown_normalized, box.size.y) }, UI::subtle_color);
+					text.color = UI::disabled_color;
+				}
 			}
 			else
 				text.color = UI::default_color;
@@ -1348,6 +1363,7 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 			if (stealth_timer > 0.0f)
 			{
 				UIText text;
+				text.color = UI::accent_color;
 				text.text("%s %d", _(strings::stealth), (s32)stealth_timer + 1);
 				text.font = Asset::Font::lowpoly;
 				text.anchor_x = UIText::Anchor::Center;

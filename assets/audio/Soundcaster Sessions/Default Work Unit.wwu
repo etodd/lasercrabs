@@ -26,10 +26,6 @@
 							<Position X="1" Y="2"/>
 						</Module>
 						<Module>
-							<ObjectRef Name="Stop_Music_01" ID="{40D279E1-C3FD-4FDE-8274-179DCFECABDF}" WorkUnitID="{F7DCD93D-1960-44B8-8FE4-DDCCBA7910C7}"/>
-							<Position X="1" Y="3"/>
-						</Module>
-						<Module>
 							<ObjectRef Name="Play_Headshot" ID="{96CF21EF-E2BB-48CE-80B4-54E2FA6F3049}" WorkUnitID="{F7DCD93D-1960-44B8-8FE4-DDCCBA7910C7}"/>
 							<Position X="2" Y="1"/>
 						</Module>

@@ -178,7 +178,7 @@ void Awk::damaged(Entity* enemy)
 	if (enemy->has<PlayerCommon>())
 		enemy->get<PlayerCommon>()->manager.ref()->add_credits(CREDITS_DAMAGE);
 	if (get<Health>()->hp > 0 && enemy->has<LocalPlayerControl>())
-		enemy->get<LocalPlayerControl>()->player.ref()->msg(_(strings::target_damaged));
+		enemy->get<LocalPlayerControl>()->player.ref()->msg(_(strings::target_damaged), true);
 	s32 new_health_pickup_count = get<Health>()->hp - 1;
 	s32 health_pickup_count = 0;
 	for (auto i = HealthPickup::list.iterator(); !i.is_last(); i.next())
@@ -568,6 +568,8 @@ void Awk::update_offset()
 
 void Awk::stealth_enable(r32 time)
 {
+	if (has<LocalPlayerControl>())
+		Audio::post_global_event(AK::EVENTS::PLAY_STEALTH);
 	stealth_timer = time;
 	get<AIAgent>()->stealth = true;
 	get<SkinnedModel>()->alpha();

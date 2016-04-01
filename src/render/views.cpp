@@ -17,7 +17,7 @@ View::View()
 	shader(AssetNull),
 	texture(AssetNull),
 	offset(Mat4::identity),
-	color(0, 0, 0, 0),
+	color(-1, -1, -1, -1),
 	mask(RENDER_MASK_DEFAULT)
 {
 }
@@ -135,8 +135,17 @@ void View::draw(const RenderParams& params) const
 void View::awake()
 {
 	Mesh* m = Loader::mesh(mesh);
-	if (m && color.dot(Vec4(1)) == 0.0f)
-		color = m->color;
+	if (m)
+	{
+		if (color.x < 0.0f)
+			color.x = m->color.x;
+		if (color.y < 0.0f)
+			color.y = m->color.y;
+		if (color.z < 0.0f)
+			color.z = m->color.z;
+		if (color.w < 0.0f)
+			color.w = m->color.w;
+	}
 }
 
 void SkyDecal::draw_alpha(const RenderParams& p)

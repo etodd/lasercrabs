@@ -295,7 +295,7 @@ void MinionAttack::update(const Update& u)
 			Physics::raycast(&ray_callback);
 			if (!ray_callback.hasHit() || ray_callback.m_collisionObject->getUserIndex() == target.id)
 			{
-				World::create<ProjectileEntity>(minion->entity(), head_pos, 5, target_pos - head_pos);
+				World::create<ProjectileEntity>(minion->entity(), head_pos, 1, target_pos - head_pos);
 				done(true);
 			}
 			else

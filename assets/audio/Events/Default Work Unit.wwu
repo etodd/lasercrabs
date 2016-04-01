@@ -195,34 +195,12 @@
 								</Action>
 							</ChildrenList>
 						</Event>
-						<Event Name="Play_Lock" ID="{9A05285B-A602-4B1E-AD44-82D0370AFE00}">
-							<ChildrenList>
-								<Action Name="Play" ID="{6B645C6B-121A-4DD5-8FED-26FD8E08456F}" ShortID="526077221" Type="Play" Scope="One" Global="false">
-									<ElementList>
-										<Element ID="{6C2B8ED3-7142-403D-B10D-6A6F99B2C3DE}" Global="false">
-											<ObjectRef Name="Lock" ID="{D25C64D3-AFCA-4E1F-AE14-EA02F27CABBE}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
-										</Element>
-									</ElementList>
-								</Action>
-							</ChildrenList>
-						</Event>
 						<Event Name="Play_Beep_Good" ID="{37A33475-9113-4EF2-803D-9BCC8E1AB7C3}">
 							<ChildrenList>
 								<Action Name="Play" ID="{44CDEF22-5C86-48E7-804A-A15E3D986B16}" ShortID="63060421" Type="Play" Scope="One" Global="false">
 									<ElementList>
 										<Element ID="{9B7DA6DC-7A6B-40A0-A2B1-7D062BD3A57B}" Global="false">
 											<ObjectRef Name="Beep_Good" ID="{54447A20-7B33-4926-9A51-135793FFE7F4}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
-										</Element>
-									</ElementList>
-								</Action>
-							</ChildrenList>
-						</Event>
-						<Event Name="Stop_Music_01" ID="{40D279E1-C3FD-4FDE-8274-179DCFECABDF}">
-							<ChildrenList>
-								<Action Name="Stop" ID="{359A6489-480D-4028-9413-75D5667A16A3}" ShortID="883087927" Type="Stop" Scope="One" Global="false">
-									<ElementList>
-										<Element ID="{A84F9E9E-A901-4B5E-A81A-AFB46E9E9575}" Global="false">
-											<ObjectRef Name="Music_01" ID="{96D73042-02AD-43BA-84E9-35AAAB2545C2}" WorkUnitID="{FAE1ED8D-2A2A-4095-8F49-19EC646E00B7}"/>
 										</Element>
 									</ElementList>
 								</Action>
@@ -250,39 +228,6 @@
 									<ElementList>
 										<Element ID="{5DDA13E2-D5DA-493E-86CF-DD240C172242}" Global="false">
 											<ObjectRef Name="Land_Player" ID="{30E342B5-5427-4E4B-A67A-EAAB4DC87B7D}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
-										</Element>
-									</ElementList>
-								</Action>
-							</ChildrenList>
-						</Event>
-						<Event Name="Play_Headshot_Player" ID="{66947560-BDF0-4220-AA96-247975671C0D}">
-							<ChildrenList>
-								<Action Name="Play" ID="{0E6CC365-293F-4444-A5EB-8B72A7CD4CA6}" ShortID="948715295" Type="Play" Scope="One" Global="false">
-									<ElementList>
-										<Element ID="{1D66B416-76E4-47E6-AF6C-33FB5C0BE428}" Global="false">
-											<ObjectRef Name="Headshot_Player" ID="{B3962DDB-6DC5-4084-AF07-1EBFDF5AF1C9}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
-										</Element>
-									</ElementList>
-								</Action>
-							</ChildrenList>
-						</Event>
-						<Event Name="Play_Trigger" ID="{9589B697-FF86-42F7-9272-6D21F7E4D1CB}">
-							<ChildrenList>
-								<Action Name="Play" ID="{67736774-AF65-445B-86DA-9FACB0E968B8}" ShortID="220570015" Type="Play" Scope="One" Global="false">
-									<ElementList>
-										<Element ID="{B054B101-36C3-4CCA-A629-035228619FA7}" Global="false">
-											<ObjectRef Name="Trigger" ID="{5EF2965B-0178-4300-8DCA-AEA5C5E3FD71}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
-										</Element>
-									</ElementList>
-								</Action>
-							</ChildrenList>
-						</Event>
-						<Event Name="Play_Log" ID="{C0BDF94E-FC1A-43A9-B51A-9E9B0BAEEEA9}">
-							<ChildrenList>
-								<Action Name="Play" ID="{B0C5F4CA-BBFD-4208-A958-69B3E2E63243}" ShortID="858738239" Type="Play" Scope="One" Global="false">
-									<ElementList>
-										<Element ID="{FA4524A6-BC31-4462-9D1C-FD42C5EC8698}" Global="false">
-											<ObjectRef Name="Log" ID="{B21A0EDF-739A-4F3D-B6CF-57BA66EE465D}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
 										</Element>
 									</ElementList>
 								</Action>
@@ -337,7 +282,7 @@
 								</Action>
 							</ChildrenList>
 						</Event>
-						<Event Name="Play_Switch_On" ID="{044B13CF-0F99-492C-A510-E3055BD6B1EE}">
+						<Event Name="Play_Minion_Spawn" ID="{044B13CF-0F99-492C-A510-E3055BD6B1EE}">
 							<ChildrenList>
 								<Action Name="Play" ID="{EF6BD803-2891-4A35-8300-E30843FA8FBF}" ShortID="569862728" Type="Play" Scope="One" Global="false">
 									<ElementList>
@@ -372,6 +317,28 @@
 									<ElementList>
 										<Element ID="{400E8BAB-D2AC-44F8-935E-B5D5F91AAA96}" Global="false">
 											<ObjectRef Name="Jump_Player" ID="{463E9B1C-325F-4C2D-AC2B-C2F482485AD6}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+										</Element>
+									</ElementList>
+								</Action>
+							</ChildrenList>
+						</Event>
+						<Event Name="Play_Sensor_Spawn" ID="{10DCE6B8-FAC1-4121-89FE-CF7AFB789028}">
+							<ChildrenList>
+								<Action Name="Play" ID="{C63320C0-72AE-4E35-89CF-3B83E27078DF}" ShortID="619182946" Type="Play" Scope="One" Global="false">
+									<ElementList>
+										<Element ID="{ECF02D3F-4D54-4A0A-9983-C7144E0D8238}" Global="false">
+											<ObjectRef Name="Launch" ID="{D84AAC65-C3AA-4562-915C-831BA8301AB5}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+										</Element>
+									</ElementList>
+								</Action>
+							</ChildrenList>
+						</Event>
+						<Event Name="Play_Stealth" ID="{5D98E090-50F2-4479-971D-B7666C08BECC}">
+							<ChildrenList>
+								<Action Name="Play" ID="{12CDAE85-2C17-4A09-B50F-815902C5D593}" ShortID="436450228" Type="Play" Scope="One" Global="false">
+									<ElementList>
+										<Element ID="{7089F6D1-FA24-40E3-B8DE-71B987940B0E}" Global="false">
+											<ObjectRef Name="Stealth" ID="{77FCA54A-32F4-4758-AA82-FF3D73302182}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
 										</Element>
 									</ElementList>
 								</Action>

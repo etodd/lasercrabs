@@ -24,6 +24,10 @@ struct PlayerManager;
 #define CREDITS_DETECT 10
 #define CREDITS_INITIAL 0
 
+// if the ability cooldown is lower than this, we can use the ability
+// we should flash the ability icon during this time to indicate the ability is now usable
+#define ABILITY_COOLDOWN_USABLE_RANGE 0.5f
+
 enum class Ability
 {
 	Sensor,
@@ -43,7 +47,6 @@ struct AbilityInfo
 	u16 upgrade_cost[MAX_ABILITY_LEVELS];
 	static AbilityInfo list[(s32)Ability::count];
 };
-
 struct Team
 {
 	struct SensorTrack

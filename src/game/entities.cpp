@@ -130,7 +130,7 @@ void HealthPickup::hit(const TargetEvent& e)
 			get<View>()->color = Vec4(color, MATERIAL_NO_OVERRIDE);
 
 			if (e.hit_by->has<LocalPlayerControl>())
-				e.hit_by->get<LocalPlayerControl>()->player.ref()->msg(_(strings::health_pickup));
+				e.hit_by->get<LocalPlayerControl>()->player.ref()->msg(_(strings::health_pickup), true);
 		}
 	}
 }
@@ -159,6 +159,8 @@ SensorEntity::SensorEntity(Transform* parent, PlayerManager* owner, const Vec3& 
 	light->radius = SENSOR_RANGE;
 
 	Sensor* sensor = create<Sensor>(team, owner);
+
+	create<Audio>();
 
 	RigidBody* body = create<RigidBody>(RigidBody::Type::Sphere, Vec3(SENSOR_RADIUS), 1.0f, CollisionAwkIgnore | CollisionTarget, btBroadphaseProxy::AllFilter);
 	body->set_damping(0.5f, 0.5f);
@@ -224,12 +226,14 @@ void MinionSpawn::hit(const TargetEvent& e)
 		minion = World::create<Minion>(pos, rot, team, e.hit_by->get<PlayerCommon>()->manager.ref());
 		minion.ref()->get<Health>()->killed.link<MinionSpawn, Entity*, &MinionSpawn::reset>(this);
 
+		Audio::post_global_event(AK::EVENTS::PLAY_MINION_SPAWN, pos);
+
 		const Vec3& color = Team::colors[(s32)team].xyz();
 		get<PointLight>()->color = color;
 		get<View>()->color = Vec4(color, MATERIAL_NO_OVERRIDE);
 
 		if (e.hit_by->has<LocalPlayerControl>())
-			e.hit_by->get<LocalPlayerControl>()->player.ref()->msg(_(strings::minion_spawned));
+			e.hit_by->get<LocalPlayerControl>()->player.ref()->msg(_(strings::minion_spawned), true);
 	}
 }
 

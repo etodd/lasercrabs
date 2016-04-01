@@ -30,7 +30,6 @@ namespace AK
         static const AkUniqueID PLAY_FLY = 2941622701U;
         static const AkUniqueID PLAY_FOOTSTEP = 1602358412U;
         static const AkUniqueID PLAY_HEADSHOT = 2628165376U;
-        static const AkUniqueID PLAY_HEADSHOT_PLAYER = 2175932088U;
         static const AkUniqueID PLAY_HURT = 2955259529U;
         static const AkUniqueID PLAY_HURT_PLAYER = 3836213995U;
         static const AkUniqueID PLAY_JUMP = 3689126666U;
@@ -40,18 +39,16 @@ namespace AK
         static const AkUniqueID PLAY_LASER = 2270376495U;
         static const AkUniqueID PLAY_LAUNCH = 2155750267U;
         static const AkUniqueID PLAY_LAUNCH_PLAYER = 4265800737U;
-        static const AkUniqueID PLAY_LOCK = 4064908091U;
-        static const AkUniqueID PLAY_LOG = 2456646004U;
+        static const AkUniqueID PLAY_MINION_SPAWN = 4058052828U;
         static const AkUniqueID PLAY_MUSIC_01 = 3709355747U;
+        static const AkUniqueID PLAY_SENSOR_SPAWN = 2220123776U;
         static const AkUniqueID PLAY_START_SESSION = 1959159511U;
-        static const AkUniqueID PLAY_SWITCH_ON = 1693166490U;
-        static const AkUniqueID PLAY_TRIGGER = 166031882U;
+        static const AkUniqueID PLAY_STEALTH = 1282624343U;
         static const AkUniqueID PLAY_ZOOM_IN = 2626091291U;
         static const AkUniqueID PLAY_ZOOM_OUT = 1819052470U;
         static const AkUniqueID STOP = 788884573U;
         static const AkUniqueID STOP_ALL = 452547817U;
         static const AkUniqueID STOP_FLY = 419831083U;
-        static const AkUniqueID STOP_MUSIC_01 = 3808183461U;
     } // namespace EVENTS
 
     namespace GAME_PARAMETERS

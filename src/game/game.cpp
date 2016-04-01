@@ -589,7 +589,7 @@ void Game::load_level(const Update& u, AssetID l, Mode m)
 	cJSON* json = Loader::level(data.level);
 
 	const Vec3 pvp_accessible(0.4f, 0.4f, 0.4f);
-	const Vec3 pvp_inaccessible(0.1f, 0.1f, 0.1f);
+	const Vec3 pvp_inaccessible(0.01f, 0.01f, 0.01f);
 	const Vec3 pvp_sky(0.0f, 0.2f, 0.32f);
 	const Vec3 pvp_ambient(0.15f);
 	const Vec3 pvp_zenith(0.1f);
@@ -876,19 +876,40 @@ void Game::load_level(const Update& u, AssetID l, Mode m)
 			if (name)
 			{
 				entity = World::alloc<Prop>(Loader::find(name, AssetLookup::Mesh::names), Loader::find(armature, AssetLookup::Armature::names), Loader::find(animation, AssetLookup::Animation::names));
-				if (alpha || additive)
-					entity->get<View>()->shader = Asset::Shader::flat;
-				else if (data.mode == Mode::Pvp)
+				// todo: clean this up
+				if (entity->has<View>())
 				{
-					if (entity->get<View>()->color.w < 0.5f)
-						entity->get<View>()->color = Vec4(pvp_inaccessible, MATERIAL_NO_OVERRIDE);
-					else
-						entity->get<View>()->color.xyz(pvp_accessible);
+					if (alpha || additive)
+						entity->get<View>()->shader = Asset::Shader::flat;
+					else if (data.mode == Mode::Pvp)
+					{
+						if (entity->get<View>()->color.w < 0.5f)
+							entity->get<View>()->color = Vec4(pvp_inaccessible, MATERIAL_NO_OVERRIDE);
+						else
+							entity->get<View>()->color.xyz(pvp_accessible);
+					}
+					if (alpha)
+						entity->get<View>()->alpha();
+					if (additive)
+						entity->get<View>()->additive();
 				}
-				if (alpha)
-					entity->get<View>()->alpha();
-				if (additive)
-					entity->get<View>()->additive();
+				else
+				{
+					// SkinnedModel
+					if (alpha || additive)
+						entity->get<SkinnedModel>()->shader = Asset::Shader::flat;
+					else if (data.mode == Mode::Pvp)
+					{
+						if (entity->get<SkinnedModel>()->color.w < 0.5f)
+							entity->get<SkinnedModel>()->color = Vec4(pvp_inaccessible, MATERIAL_NO_OVERRIDE);
+						else
+							entity->get<SkinnedModel>()->color.xyz(pvp_accessible);
+					}
+					if (alpha)
+						entity->get<SkinnedModel>()->alpha();
+					if (additive)
+						entity->get<SkinnedModel>()->additive();
+				}
 			}
 
 			cJSON* meshes = cJSON_GetObjectItem(element, "meshes");

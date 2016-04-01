@@ -2,8 +2,6 @@
 #include "game/game.h"
 #include "asset/font.h"
 #include <cstdio>
-#include "game/audio.h"
-#include "asset/Wwise_IDs.h"
 #include "load.h"
 
 namespace VI
@@ -259,8 +257,6 @@ void Console::log(const char* format, ...)
 #endif
 
 	va_end(args);
-
-	Audio::post_global_event(AK::EVENTS::PLAY_LOG);
 
 	Console::update_log();
 }

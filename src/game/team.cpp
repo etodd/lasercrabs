@@ -9,6 +9,8 @@
 #include "awk.h"
 #include "minion.h"
 #include "bullet/src/BulletCollision/NarrowPhaseCollision/btRaycastCallback.h"
+#include "audio.h"
+#include "asset/Wwise_IDs.h"
 
 #if DEBUG
 #define PLAYER_SPAWN_DELAY 1.0f
@@ -16,7 +18,7 @@
 #define PLAYER_SPAWN_DELAY 5.0f
 #endif
 
-#define CREDITS_FLASH_TIME 0.75f
+#define CREDITS_FLASH_TIME 0.5f
 #define SENSOR_TIME_1 2.0f
 #define SENSOR_TIME_2 1.0f
 
@@ -125,7 +127,7 @@ void Team::update(const Update& u)
 	for (auto player = PlayerManager::list.iterator(); !player.is_last(); player.next())
 	{
 		Entity* player_entity = player.item()->entity.ref();
-		if (!player_entity)
+		if (!player_entity || (player_entity->has<Awk>() && player_entity->get<Awk>()->stealth_timer > 0.0f))
 			continue;
 
 		AI::Team player_team = player.item()->team.ref()->team();
@@ -144,7 +146,7 @@ void Team::update(const Update& u)
 						if (player_entity->has<Awk>() && player_entity->get<Transform>()->parent.ref())
 						{
 							// we're on a wall; make sure the wall is facing the sensor
-							Vec3 to_sensor = sensor.item()->get<Transform>()->absolute_pos() - player_pos;
+							Vec3 to_sensor = sensor.item()->get<Transform>()->absolute_pos() - (player_pos + (player_rot * Vec3(0, 0, -AWK_RADIUS)));
 							if (to_sensor.dot(player_rot * Vec3(0, 0, 1)) > 0.0f)
 								*sensor_visibility = sensor.item();
 						}
@@ -169,25 +171,32 @@ void Team::update(const Update& u)
 			{
 				if (team == j.item()->manager.ref()->team.ref()->team())
 					continue;
-				Vec3 start = i.item()->has<MinionCommon>() ? i.item()->get<MinionCommon>()->head_pos() : i.item()->get<Awk>()->center();
-				Vec3 end = j.item()->has<MinionCommon>() ? j.item()->get<MinionCommon>()->head_pos() : j.item()->get<Awk>()->center();
-				Vec3 diff = end - start;
-
 				b8 visible;
-				if (btVector3(diff).fuzzyZero())
-					visible = true;
+				if (i.item()->has<Awk>() && i.item()->get<Awk>()->stealth_timer > 0.0f)
+					visible = false;
+				else if (j.item()->has<Awk>() && j.item()->get<Awk>()->stealth_timer > 0.0f)
+					visible = false;
 				else
 				{
-					if (diff.length_squared() > AWK_MAX_DISTANCE * AWK_MAX_DISTANCE)
-						visible = false;
+					Vec3 start = i.item()->has<MinionCommon>() ? i.item()->get<MinionCommon>()->head_pos() : i.item()->get<Awk>()->center();
+					Vec3 end = j.item()->has<MinionCommon>() ? j.item()->get<MinionCommon>()->head_pos() : j.item()->get<Awk>()->center();
+					Vec3 diff = end - start;
+
+					if (btVector3(diff).fuzzyZero())
+						visible = true;
 					else
 					{
-						btCollisionWorld::ClosestRayResultCallback rayCallback(start, end);
-						rayCallback.m_flags = btTriangleRaycastCallback::EFlags::kF_FilterBackfaces
-							| btTriangleRaycastCallback::EFlags::kF_KeepUnflippedNormal;
-						rayCallback.m_collisionFilterMask = rayCallback.m_collisionFilterGroup = btBroadphaseProxy::StaticFilter | CollisionInaccessible;
-						Physics::btWorld->rayTest(start, end, rayCallback);
-						visible = !rayCallback.hasHit();
+						if (diff.length_squared() > AWK_MAX_DISTANCE * AWK_MAX_DISTANCE)
+							visible = false;
+						else
+						{
+							btCollisionWorld::ClosestRayResultCallback rayCallback(start, end);
+							rayCallback.m_flags = btTriangleRaycastCallback::EFlags::kF_FilterBackfaces
+								| btTriangleRaycastCallback::EFlags::kF_KeepUnflippedNormal;
+							rayCallback.m_collisionFilterMask = rayCallback.m_collisionFilterGroup = btBroadphaseProxy::StaticFilter | CollisionInaccessible;
+							Physics::btWorld->rayTest(start, end, rayCallback);
+							visible = !rayCallback.hasHit();
+						}
 					}
 				}
 
@@ -258,7 +267,7 @@ void Team::update(const Update& u)
 							{
 								Entity* player_entity = sensor->player_manager.ref()->entity.ref();
 								if (player_entity && player_entity->has<LocalPlayerControl>())
-									player_entity->get<LocalPlayerControl>()->player.ref()->msg(_(strings::enemy_detected));
+									player_entity->get<LocalPlayerControl>()->player.ref()->msg(_(strings::enemy_detected), true);
 								sensor->player_manager.ref()->add_credits(CREDITS_DETECT);
 							}
 							if (team->sensor_explode)
@@ -310,9 +319,9 @@ AbilityInfo AbilityInfo::list[] =
 b8 PlayerManager::ability_use()
 {
 	Entity* awk = entity.ref();
-	if (awk && ability_cooldown == 0.0f)
+	if (awk && ability_cooldown < ABILITY_COOLDOWN_USABLE_RANGE && ability != Ability::None)
 	{
-		r32 cooldown_reset = AbilityInfo::list[(s32)ability].cooldown;
+		r32 cooldown_reset = AbilityInfo::list[(s32)ability].cooldown + ABILITY_COOLDOWN_USABLE_RANGE;
 		
 		const u8 level = ability_level[(s32)ability];
 
@@ -328,6 +337,8 @@ b8 PlayerManager::ability_use()
 					awk->get<Transform>()->absolute(&abs_pos, &abs_rot);
 
 					Entity* sensor = World::create<SensorEntity>(awk->get<Transform>()->parent.ref(), this, abs_pos + abs_rot * Vec3(0, 0, rope_segment_length + SENSOR_RADIUS), abs_rot);
+
+					sensor->get<Audio>()->post_event(AK::EVENTS::PLAY_SENSOR_SPAWN);
 
 					// attach it to the wall
 					Entity* rope = World::create<RopeEntity>(abs_pos + abs_rot * Vec3(0, 0, -AWK_RADIUS), abs_rot * Vec3(0, 0, 1), awk->get<Transform>()->parent.ref()->get<RigidBody>());

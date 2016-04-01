@@ -35,6 +35,7 @@ struct LocalPlayer
 	Camera* camera;
 	r32 msg_timer;
 	UIText msg_text;
+	b8 msg_good;
 	UIText credits_text;
 	Revision revision;
 	Menu::State menu_state;
@@ -48,7 +49,7 @@ struct LocalPlayer
 
 	static r32 danger;
 	static void update_all(const Update&);
-	void msg(const char*);
+	void msg(const char*, b8);
 	UIMode ui_mode() const;
 	void update(const Update&);
 	void draw_alpha(const RenderParams&) const;

@@ -21,7 +21,7 @@ SkinnedModel::SkinnedModel()
 	shader(),
 	texture(),
 	offset(Mat4::identity),
-	color(0, 0, 0, 0),
+	color(-1, -1, -1, -1),
 	mask(RENDER_MASK_DEFAULT)
 {
 }
@@ -29,8 +29,17 @@ SkinnedModel::SkinnedModel()
 void SkinnedModel::awake()
 {
 	Mesh* m = Loader::mesh(mesh);
-	if (m && color.dot(Vec4(1)) == 0.0f)
-		color = m->color;
+	if (m)
+	{
+		if (color.x < 0.0f)
+			color.x = m->color.x;
+		if (color.y < 0.0f)
+			color.y = m->color.y;
+		if (color.z < 0.0f)
+			color.z = m->color.z;
+		if (color.w < 0.0f)
+			color.w = m->color.w;
+	}
 	Loader::shader(shader);
 	Loader::texture(texture);
 }

@@ -150,7 +150,7 @@ void Awk::hit_target(Entity* target)
 		if (target->has<RigidBody>())
 		{
 			RigidBody* body = target->get<RigidBody>();
-			body->btBody->applyImpulse(velocity * 0.005f, Vec3::zero);
+			body->btBody->applyImpulse(velocity * 0.002f, Vec3::zero);
 			body->btBody->setActivationState(ACTIVE_TAG);
 		}
 

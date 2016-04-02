@@ -17,9 +17,9 @@
 #include "data/ragdoll.h"
 #include "entities.h"
 
-#define HEAD_RADIUS 0.25f
+#define HEAD_RADIUS 0.35f
 
-#define WALK_SPEED 1.25f
+#define WALK_SPEED 1.0f
 
 #define HEALTH 50
 

@@ -94,9 +94,9 @@ HealthPickupEntity::HealthPickupEntity()
 
 	HealthPickup* pickup = create<HealthPickup>();
 
-	const r32 radius = 0.35f;
+	const r32 radius = 0.55f;
 
-	model->offset.scale(Vec3(radius));
+	model->offset.scale(Vec3(radius - 0.2f));
 
 	RigidBody* body = create<RigidBody>(RigidBody::Type::Sphere, Vec3(radius), 0.1f, CollisionDefault | CollisionTarget, btBroadphaseProxy::AllFilter);
 	body->set_damping(0.5f, 0.5f);
@@ -203,9 +203,9 @@ MinionSpawnEntity::MinionSpawnEntity()
 
 	Target* target = create<Target>();
 
-	const r32 radius = 0.35f;
+	const r32 radius = 0.55f;
 
-	model->offset.scale(Vec3(radius));
+	model->offset.scale(Vec3(radius - 0.2f));
 
 	RigidBody* body = create<RigidBody>(RigidBody::Type::Sphere, Vec3(radius), 0.1f, CollisionDefault | CollisionTarget, btBroadphaseProxy::AllFilter);
 	body->set_damping(0.5f, 0.5f);

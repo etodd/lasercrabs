@@ -571,17 +571,39 @@ void LocalPlayer::draw_alpha(const RenderParams& params) const
 
 			if (show_spawning)
 			{
-				// Player is currently dead
+				// "spawning..."
 				UIText text;
 				text.size = text_size;
 				text.font = Asset::Font::lowpoly;
 				text.wrap_width = MENU_ITEM_WIDTH;
-				text.anchor_x = text.anchor_y = UIText::Anchor::Center;
+				text.anchor_x = UIText::Anchor::Center;
+				text.anchor_y = UIText::Anchor::Max;
 				text.color = UI::default_color;
 				text.text(_(strings::spawning), (s32)manager.ref()->spawn_timer + 1);
 				Vec2 p = vp.size * Vec2(0.5f);
-				UI::box(params, text.rect(p).outset(8.0f * UI::scale), UI::background_color);
+				const r32 padding = 8.0f * UI::scale;
+				UI::box(params, text.rect(p).outset(padding), UI::background_color);
 				text.draw(params, p);
+				p.y -= text.bounds().y + padding * 2.0f;
+
+				// show map name
+				text.text(AssetLookup::Level::names[Game::data.level]);
+				text.color = UI::default_color;
+				UI::box(params, text.rect(p).outset(padding), UI::background_color);
+				text.draw(params, p);
+				p.y -= text.bounds().y + padding * 2.0f;
+
+				// show player list
+				text.anchor_x = UIText::Anchor::Min;
+				p.x -= MENU_ITEM_WIDTH * 0.5f;
+				for (auto i = PlayerManager::list.iterator(); !i.is_last(); i.next())
+				{
+					text.text(i.item()->username);
+					text.color = Team::ui_colors[(s32)i.item()->team.ref()->team()];
+					UI::box(params, text.rect(p).outset(padding), UI::background_color);
+					text.draw(params, p);
+					p.y -= text.bounds().y + padding * 2.0f;
+				}
 			}
 
 			break;

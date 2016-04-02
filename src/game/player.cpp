@@ -230,7 +230,7 @@ void LocalPlayer::update(const Update& u)
 	// close/open pause menu if needed
 	{
 		b8 pause_hit = Game::time.total > 0.5f && u.input->get(Game::bindings.pause, gamepad) && !u.last_input->get(Game::bindings.pause, gamepad);
-		if (pause_hit && (menu_state == Menu::State::Hidden || menu_state == Menu::State::Visible))
+		if (pause_hit && ability_menu == AbilityMenu::None && (menu_state == Menu::State::Hidden || menu_state == Menu::State::Visible))
 			menu_state = menu_state == Menu::State::Hidden ? Menu::State::Visible : Menu::State::Hidden;
 	}
 
@@ -260,8 +260,14 @@ void LocalPlayer::update(const Update& u)
 			Rect2& viewport = camera ? camera->viewport : manager.ref()->entity.ref()->get<LocalPlayerControl>()->camera->viewport;
 
 			const Settings& settings = Loader::settings();
-			if ((u.input->get(settings.bindings.menu, gamepad) && !u.last_input->get(settings.bindings.menu, gamepad))
-				|| (u.input->get(Game::bindings.cancel, gamepad) && !u.last_input->get(Game::bindings.cancel, gamepad)))
+			if (u.input->get(Game::bindings.cancel, gamepad) && !u.last_input->get(Game::bindings.cancel, gamepad))
+			{
+				if (ability_menu == AbilityMenu::Upgrade)
+					ability_menu = AbilityMenu::Select;
+				else
+					ability_menu = AbilityMenu::None;
+			}
+			if ((u.input->get(settings.bindings.menu, gamepad) && !u.last_input->get(settings.bindings.menu, gamepad)))
 				ability_menu = AbilityMenu::None;
 
 			// do menu items
@@ -420,195 +426,185 @@ void LocalPlayer::draw_alpha(const RenderParams& params) const
 			credits_text.draw(params, pos);
 	}
 
-	switch (ui_mode())
+	UIMode mode = ui_mode();
+	if (mode == UIMode::Default)
 	{
-		case UIMode::Default:
+		if (Game::data.mode == Game::Mode::Pvp)
 		{
-			if (Game::data.mode == Game::Mode::Pvp)
+			Vec3 me = manager.ref()->entity.ref()->get<Transform>()->absolute_pos();
+			Health* health = manager.ref()->entity.ref()->get<Health>();
+			if (health->hp < health->hp_max)
 			{
-				Vec3 me = manager.ref()->entity.ref()->get<Transform>()->absolute_pos();
-				Health* health = manager.ref()->entity.ref()->get<Health>();
-				if (health->hp < health->hp_max)
+				for (auto i = HealthPickup::list.iterator(); !i.is_last(); i.next())
 				{
-					for (auto i = HealthPickup::list.iterator(); !i.is_last(); i.next())
-					{
-						if (!i.item()->owner.ref())
-						{
-							Vec3 pos = i.item()->get<Transform>()->absolute_pos();
-							if ((pos - me).length_squared() < AWK_MAX_DISTANCE * AWK_MAX_DISTANCE)
-								draw_indicator(params, pos, UI::accent_color, false);
-						}
-					}
-				}
-
-				for (auto i = MinionSpawn::list.iterator(); !i.is_last(); i.next())
-				{
-					if (!i.item()->minion.ref())
+					if (!i.item()->owner.ref())
 					{
 						Vec3 pos = i.item()->get<Transform>()->absolute_pos();
 						if ((pos - me).length_squared() < AWK_MAX_DISTANCE * AWK_MAX_DISTANCE)
-							draw_indicator(params, i.item()->get<Transform>()->absolute_pos(), UI::default_color, false);
+							draw_indicator(params, pos, UI::accent_color, false);
 					}
 				}
 			}
-			else
-			{
-				// todo: highlight notes
-			}
 
-			if (Team::abilities_enabled)
+			for (auto i = MinionSpawn::list.iterator(); !i.is_last(); i.next())
 			{
-				b8 at_spawn = manager.ref()->at_spawn();
-				if (manager.ref()->ability_upgrade_available() || at_spawn)
+				if (!i.item()->minion.ref())
 				{
-					// show ability menu / upgrade prompt
-					UIText text;
-					text.font = Asset::Font::lowpoly;
-					text.anchor_x = UIText::Anchor::Min;
-					text.anchor_y = UIText::Anchor::Min;
-					text.size = text_size;
-					text.color = UI::accent_color;
-					text.text(_(at_spawn ? strings::ability_menu : strings::upgrade));
-					Vec2 p = vp.size * Vec2(0.2f, 0.1f);
-					UI::box(params, text.rect(p).outset(8.0f * UI::scale), UI::background_color);
-					text.draw(params, p);
+					Vec3 pos = i.item()->get<Transform>()->absolute_pos();
+					if ((pos - me).length_squared() < AWK_MAX_DISTANCE * AWK_MAX_DISTANCE)
+						draw_indicator(params, i.item()->get<Transform>()->absolute_pos(), UI::default_color, false);
 				}
 			}
+		}
+		else
+		{
+			// todo: highlight notes
+		}
 
-			Team* team = manager.ref()->team.ref();
-
-			// display status of other players in upper right corner
-			UIText text;
-			text.font = Asset::Font::lowpoly;
-			text.anchor_x = UIText::Anchor::Min;
-			text.anchor_y = UIText::Anchor::Min;
-			text.size = text_size;
-			text.color = UI::default_color;
-			const r32 row_padding = 8.0f * UI::scale;
-			const r32 row_height = (text_size * UI::scale) + row_padding;
-			const Vec2 box_size(128.0f * UI::scale, (row_height * 3) + (row_padding * 2));
-			Vec2 ui_pos = vp.size * Vec2(0.9f, 0.9f) + Vec2(-box_size.x, 0);
-			Entity* entity = manager.ref()->entity.ref();
-			for (auto other_player = PlayerManager::list.iterator(); !other_player.is_last(); other_player.next())
+		if (Team::abilities_enabled)
+		{
+			b8 at_spawn = manager.ref()->at_spawn();
+			if (manager.ref()->ability_upgrade_available() || at_spawn)
 			{
-				if (other_player.item()->id() != manager.id)
+				// show ability menu / upgrade prompt
+				UIText text;
+				text.font = Asset::Font::lowpoly;
+				text.anchor_x = UIText::Anchor::Min;
+				text.anchor_y = UIText::Anchor::Min;
+				text.size = text_size;
+				text.color = UI::accent_color;
+				text.text(_(at_spawn ? strings::ability_menu : strings::upgrade));
+				Vec2 p = vp.size * Vec2(0.2f, 0.1f);
+				UI::box(params, text.rect(p).outset(8.0f * UI::scale), UI::background_color);
+				text.draw(params, p);
+			}
+		}
+
+		Team* team = manager.ref()->team.ref();
+
+		// display status of other players in upper right corner
+		UIText text;
+		text.font = Asset::Font::lowpoly;
+		text.anchor_x = UIText::Anchor::Min;
+		text.anchor_y = UIText::Anchor::Min;
+		text.size = text_size;
+		text.color = UI::default_color;
+		const r32 row_padding = 8.0f * UI::scale;
+		const r32 row_height = (text_size * UI::scale) + row_padding;
+		const Vec2 box_size(128.0f * UI::scale, (row_height * 3) + (row_padding * 2));
+		Vec2 ui_pos = vp.size * Vec2(0.9f, 0.9f) + Vec2(-box_size.x, 0);
+		Entity* entity = manager.ref()->entity.ref();
+		for (auto other_player = PlayerManager::list.iterator(); !other_player.is_last(); other_player.next())
+		{
+			if (other_player.item()->id() != manager.id)
+			{
+				// extract player information
+				b8 friendly = other_player.item()->team.ref() == team;
+				const Vec4& team_color = Team::ui_colors[(s32)other_player.item()->team.ref()->team()];
+				Entity* other_player_entity = other_player.item()->entity.ref();
+				const b8 tracking = friendly || team->player_tracks[other_player.index].tracking;
+				const b8 visible = tracking || (entity && other_player_entity && PlayerCommon::visibility.get(PlayerCommon::visibility_hash(entity->get<PlayerCommon>(), other_player_entity->get<PlayerCommon>())));
+				const Vec4& color = visible ? team_color : UI::disabled_color;
+
+				Team::SensorTrackHistory history;
+				if (friendly)
+					Team::extract_history(other_player.item(), &history);
+				else
 				{
-					// extract player information
-					b8 friendly = other_player.item()->team.ref() == team;
-					const Vec4& team_color = Team::ui_colors[(s32)other_player.item()->team.ref()->team()];
-					Entity* other_player_entity = other_player.item()->entity.ref();
-					const b8 tracking = friendly || team->player_tracks[other_player.index].tracking;
-					const b8 visible = tracking || (entity && other_player_entity && PlayerCommon::visibility.get(PlayerCommon::visibility_hash(entity->get<PlayerCommon>(), other_player_entity->get<PlayerCommon>())));
-					const Vec4& color = visible ? team_color : UI::disabled_color;
+					history = team->player_track_history[other_player.index];
+					if (tracking && other_player_entity)
+						draw_indicator(params, other_player_entity->get<Transform>()->absolute_pos(), UI::alert_color, true);
+				}
 
-					Team::SensorTrackHistory history;
-					if (friendly)
-						Team::extract_history(other_player.item(), &history);
-					else
-					{
-						history = team->player_track_history[other_player.index];
-						if (tracking && other_player_entity)
-							draw_indicator(params, other_player_entity->get<Transform>()->absolute_pos(), UI::alert_color, true);
-					}
+				// background
+				Vec2 box_pos = ui_pos + Vec2(0, (text_size * UI::scale) - box_size.y);
+				UI::box(params, Rect2(box_pos, box_size).outset(row_padding), UI::background_color);
 
-					// background
-					Vec2 box_pos = ui_pos + Vec2(0, (text_size * UI::scale) - box_size.y);
-					UI::box(params, Rect2(box_pos, box_size).outset(row_padding), UI::background_color);
+				// username
+				text.color = team_color;
+				text.text(other_player.item()->username);
+				text.draw(params, ui_pos);
+				ui_pos.y -= row_height;
+				text.color = color;
 
-					// username
-					text.color = team_color;
-					text.text(other_player.item()->username);
+				// hp
+				if (history.hp_max > 0)
+				{
+					draw_hp_indicator(params, ui_pos, history.hp, history.hp_max, color);
+					ui_pos.y -= row_height;
+				}
+
+				// ability / level
+				if (history.ability != Ability::None)
+				{
+					UI::mesh(params, AbilityInfo::list[(s32)history.ability].icon, ui_pos + Vec2(text_size * UI::scale * 0.5f), Vec2(text_size * UI::scale), color);
+					text.text(_(strings::lvl), history.ability_level);
+					text.draw(params, ui_pos + Vec2(text_size * 1.5f, 0));
+					ui_pos.y -= row_height;
+				}
+
+				// credits
+				if (Team::abilities_enabled)
+				{
+					text.text("%d", history.credits);
 					text.draw(params, ui_pos);
 					ui_pos.y -= row_height;
-					text.color = color;
-
-					// hp
-					if (history.hp_max > 0)
-					{
-						draw_hp_indicator(params, ui_pos, history.hp, history.hp_max, color);
-						ui_pos.y -= row_height;
-					}
-
-					// ability / level
-					if (history.ability != Ability::None)
-					{
-						UI::mesh(params, AbilityInfo::list[(s32)history.ability].icon, ui_pos + Vec2(text_size * UI::scale * 0.5f), Vec2(text_size * UI::scale), color);
-						text.text(_(strings::lvl), history.ability_level);
-						text.draw(params, ui_pos + Vec2(text_size * 1.5f, 0));
-						ui_pos.y -= row_height;
-					}
-
-					// credits
-					if (Team::abilities_enabled)
-					{
-						text.text("%d", history.credits);
-						text.draw(params, ui_pos);
-						ui_pos.y -= row_height;
-					}
-
-					ui_pos = box_pos + Vec2(0, -box_size.y - row_height);
 				}
+
+				ui_pos = box_pos + Vec2(0, -box_size.y - row_height);
 			}
-
-			break;
-		}
-		case UIMode::Pause:
-		case UIMode::AbilityMenu:
-		{
-			menu.draw_alpha(params);
-			break;
-		}
-		case UIMode::Spawning:
-		{
-			// player is dead
-
-			b8 show_spawning = true;
-			if (Game::data.mode == Game::Mode::Pvp && Team::game_over())
-			{
-				// we lost, we're not spawning again
-				show_spawning = false;
-			}
-
-			if (show_spawning)
-			{
-				// "spawning..."
-				UIText text;
-				text.size = text_size;
-				text.font = Asset::Font::lowpoly;
-				text.wrap_width = MENU_ITEM_WIDTH;
-				text.anchor_x = UIText::Anchor::Center;
-				text.anchor_y = UIText::Anchor::Max;
-				text.color = UI::default_color;
-				text.text(_(strings::spawning), (s32)manager.ref()->spawn_timer + 1);
-				Vec2 p = vp.size * Vec2(0.5f);
-				const r32 padding = 8.0f * UI::scale;
-				UI::box(params, text.rect(p).outset(padding), UI::background_color);
-				text.draw(params, p);
-				p.y -= text.bounds().y + padding * 2.0f;
-
-				// show map name
-				text.text(AssetLookup::Level::names[Game::data.level]);
-				text.color = UI::default_color;
-				UI::box(params, text.rect(p).outset(padding), UI::background_color);
-				text.draw(params, p);
-				p.y -= text.bounds().y + padding * 2.0f;
-
-				// show player list
-				text.anchor_x = UIText::Anchor::Min;
-				p.x -= MENU_ITEM_WIDTH * 0.5f;
-				for (auto i = PlayerManager::list.iterator(); !i.is_last(); i.next())
-				{
-					text.text(i.item()->username);
-					text.color = Team::ui_colors[(s32)i.item()->team.ref()->team()];
-					UI::box(params, text.rect(p).outset(padding), UI::background_color);
-					text.draw(params, p);
-					p.y -= text.bounds().y + padding * 2.0f;
-				}
-			}
-
-			break;
 		}
 	}
+	else if (mode == UIMode::Spawning)
+	{
+		// player is dead
+
+		b8 show_spawning = true;
+		if (Game::data.mode == Game::Mode::Pvp && Team::game_over())
+		{
+			// we lost, we're not spawning again
+			show_spawning = false;
+		}
+
+		if (show_spawning)
+		{
+			// "spawning..."
+			UIText text;
+			text.size = text_size;
+			text.font = Asset::Font::lowpoly;
+			text.wrap_width = MENU_ITEM_WIDTH;
+			text.anchor_x = UIText::Anchor::Center;
+			text.anchor_y = UIText::Anchor::Max;
+			text.color = UI::default_color;
+			text.text(_(strings::spawning), (s32)manager.ref()->spawn_timer + 1);
+			Vec2 p = vp.size * Vec2(0.5f);
+			const r32 padding = 8.0f * UI::scale;
+			UI::box(params, text.rect(p).outset(padding), UI::background_color);
+			text.draw(params, p);
+			p.y -= text.bounds().y + padding * 2.0f;
+
+			// show map name
+			text.text(AssetLookup::Level::names[Game::data.level]);
+			text.color = UI::default_color;
+			UI::box(params, text.rect(p).outset(padding), UI::background_color);
+			text.draw(params, p);
+			p.y -= text.bounds().y + padding * 2.0f;
+
+			// show player list
+			text.anchor_x = UIText::Anchor::Min;
+			p.x -= MENU_ITEM_WIDTH * 0.5f;
+			for (auto i = PlayerManager::list.iterator(); !i.is_last(); i.next())
+			{
+				text.text(i.item()->username);
+				text.color = Team::ui_colors[(s32)i.item()->team.ref()->team()];
+				UI::box(params, text.rect(p).outset(padding), UI::background_color);
+				text.draw(params, p);
+				p.y -= text.bounds().y + padding * 2.0f;
+			}
+		}
+	}
+	else if (mode == UIMode::AbilityMenu)
+		menu.draw_alpha(params);
 
 	if (Game::data.mode == Game::Mode::Pvp)
 	{
@@ -685,6 +681,9 @@ void LocalPlayer::draw_alpha(const RenderParams& params) const
 			text.draw(params, pos);
 		}
 	}
+
+	if (mode == UIMode::Pause) // pause menu always drawn on top
+		menu.draw_alpha(params);
 }
 
 PlayerCommon::PlayerCommon(PlayerManager* m)
@@ -881,6 +880,8 @@ void LocalPlayerControl::hit_target(Entity* target)
 		if (target->get<AIAgent>()->team != get<AIAgent>()->team)
 			player.ref()->manager.ref()->add_credits(CREDITS_MINION);
 	}
+	if (target->has<Sensor>())
+		player.ref()->msg(_(strings::sensor_destroyed), true);
 }
 
 void LocalPlayerControl::damaged(Entity*)

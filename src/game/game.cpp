@@ -214,9 +214,6 @@ void Game::update(const Update& update_in)
 		i.item()->update(u);
 	for (auto i = Tile::list.iterator(); !i.is_last(); i.next())
 		i.item()->update(u);
-	for (auto i = Sensor::list.iterator(); !i.is_last(); i.next())
-		i.item()->update(u);
-	Sensor::update(u);
 
 	for (s32 i = 0; i < updates.length; i++)
 		(*updates[i])(u);
@@ -791,7 +788,8 @@ void Game::load_level(const Update& u, AssetID l, Mode m)
 						new (player) LocalPlayer(manager, i);
 					}
 				}
-				Audio::post_global_event(AK::EVENTS::PLAY_MUSIC_01);
+				if (data.mode == Mode::Pvp)
+					Audio::post_global_event(AK::EVENTS::PLAY_MUSIC_01);
 			}
 
 			// figure out next level

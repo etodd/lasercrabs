@@ -16,7 +16,8 @@ UIText::UIText()
 	normalized_bounds(),
 	anchor_x(),
 	anchor_y(),
-	clip()
+	clip(),
+	wrap_width()
 {
 }
 

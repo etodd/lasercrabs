@@ -25,5 +25,5 @@ inline void vi_assert(bool x)
 	if (!x) { vi_debug_break(); }
 }
 #else
-#define vi_assert(x) {}
+#define vi_assert(x) ((void)0)
 #endif

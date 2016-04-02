@@ -8,7 +8,7 @@ namespace Asset
 {
 	namespace String
 	{
-		const s32 count = 291;
+		const s32 count = 292;
 		const AssetID _default = 0;
 		const AssetID ability_lvl = 1;
 		const AssetID ability_menu = 2;
@@ -284,22 +284,23 @@ namespace Asset
 		const AssetID resume = 272;
 		const AssetID right_joystick = 273;
 		const AssetID sensor = 274;
-		const AssetID sfx = 275;
-		const AssetID shoot_tutorial = 276;
-		const AssetID skip_cooldown = 277;
-		const AssetID spawning = 278;
-		const AssetID splitscreen = 279;
-		const AssetID start = 280;
-		const AssetID start_done = 281;
-		const AssetID stealth = 282;
-		const AssetID stun = 283;
-		const AssetID target_damaged = 284;
-		const AssetID target_killed = 285;
-		const AssetID timer = 286;
-		const AssetID tutorial_01_complete = 287;
-		const AssetID upgrade = 288;
-		const AssetID victory = 289;
-		const AssetID yes = 290;
+		const AssetID sensor_destroyed = 275;
+		const AssetID sfx = 276;
+		const AssetID shoot_tutorial = 277;
+		const AssetID skip_cooldown = 278;
+		const AssetID spawning = 279;
+		const AssetID splitscreen = 280;
+		const AssetID start = 281;
+		const AssetID start_done = 282;
+		const AssetID stealth = 283;
+		const AssetID stun = 284;
+		const AssetID target_damaged = 285;
+		const AssetID target_killed = 286;
+		const AssetID timer = 287;
+		const AssetID tutorial_01_complete = 288;
+		const AssetID upgrade = 289;
+		const AssetID victory = 290;
+		const AssetID yes = 291;
 	}
 }
 

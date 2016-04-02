@@ -123,8 +123,7 @@ void title_menu(const Update& u, u8 gamepad, UIMenu* menu, State* state)
 			Vec2 pos(u.input->width * 0.5f, u.input->height * 0.5f + UIMenu::height(5) * 0.5f);
 			if (menu->item(u, &pos, _(strings::continue_)))
 			{
-				clear();
-				Game::schedule_load_level(Asset::Level::start, Game::Mode::Special);
+				transition(Asset::Level::start, Game::Mode::Special);
 				return;
 			}
 			menu->item(u, &pos, _(strings::new_));
@@ -298,10 +297,7 @@ void update(const Update& u)
 				start = true;
 
 			if (start)
-			{
-				clear();
-				Game::schedule_load_level(Asset::Level::pvp0, Game::Mode::Pvp);
-			}
+				transition(Asset::Level::pvp0, Game::Mode::Pvp);
 			break;
 		}
 		case Asset::Level::title:
@@ -358,9 +354,14 @@ void update(const Update& u)
 void transition(AssetID level, Game::Mode mode)
 {
 	clear();
-	next_level = level;
-	next_mode = mode;
-	Game::schedule_load_level(Asset::Level::connect, Game::Mode::Special);
+	if (mode == Game::Mode::Pvp)
+	{
+		next_level = level;
+		next_mode = mode;
+		Game::schedule_load_level(Asset::Level::connect, Game::Mode::Special);
+	}
+	else
+		Game::schedule_load_level(level, mode);
 }
 
 void splitscreen()

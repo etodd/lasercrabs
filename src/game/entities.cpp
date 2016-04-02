@@ -158,7 +158,9 @@ SensorEntity::SensorEntity(Transform* parent, PlayerManager* owner, const Vec3& 
 	light->team_mask = 1 << (s32)team;
 	light->radius = SENSOR_RANGE;
 
-	Sensor* sensor = create<Sensor>(team, owner);
+	create<Target>();
+
+	create<Sensor>(team, owner);
 
 	create<Audio>();
 
@@ -174,17 +176,29 @@ Sensor::Sensor(AI::Team t, PlayerManager* m)
 {
 }
 
-void Sensor::update(const Update& u)
-{
-}
-
 void Sensor::awake()
 {
 	link_arg<Entity*, &Sensor::killed_by>(get<Health>()->killed);
+	if (has<Target>())
+		link_arg<const TargetEvent&, &Sensor::hit_by>(get<Target>()->target_hit);
 }
 
-void Sensor::killed_by(Entity*)
+void Sensor::hit_by(const TargetEvent& e)
 {
+	get<Health>()->damage(e.hit_by, get<Health>()->hp_max);
+}
+
+void Sensor::killed_by(Entity* e)
+{
+	AI::Team enemy_team = e->get<AIAgent>()->team;
+	if (enemy_team != team)
+	{
+		for (auto i = PlayerManager::list.iterator(); !i.is_last(); i.next())
+		{
+			if (i.item()->team.ref()->team() == enemy_team)
+				i.item()->add_credits(CREDITS_SENSOR_DESTROY);
+		}
+	}
 	World::remove_deferred(entity());
 }
 

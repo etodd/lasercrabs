@@ -311,7 +311,7 @@ void Team::update(const Update& u)
 
 AbilityInfo AbilityInfo::list[] =
 {
-	{ Asset::Mesh::icon_sensor, strings::sensor, 20.0f, 3, { 10, 30, 50 } },
+	{ Asset::Mesh::icon_sensor, strings::sensor, 15.0f, 3, { 10, 30, 50 } },
 	{ Asset::Mesh::icon_stealth, strings::stealth, 30.0f, 3, { 10, 30, 50 } },
 	{ Asset::Mesh::icon_skip_cooldown, strings::skip_cooldown, 30.0f, 3, { 10, 30, 50 } },
 };

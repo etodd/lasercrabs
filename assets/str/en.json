@@ -33,6 +33,7 @@
 		"binding": "[%s]",
 		"target_damaged": "Target damaged",
 		"target_killed": "Target killed",
+		"sensor_destroyed": "Sensor destroyed",
 		"health_pickup": "HP +1",
 		"damaged": "HP -1",
 		"minion_spawned": "Minion spawned",

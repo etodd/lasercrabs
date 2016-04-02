@@ -63,7 +63,7 @@ struct Sensor : public ComponentType<Sensor>
 
 	Sensor(AI::Team, PlayerManager* = nullptr);
 
-	static void update(const Update&);
+	void hit_by(const TargetEvent&);
 	void killed_by(Entity*);
 	void awake();
 };

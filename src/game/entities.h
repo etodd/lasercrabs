@@ -35,6 +35,7 @@ struct Health : public ComponentType<Health>
 	void add(u16);
 };
 
+#define HEALTH_PICKUP_RADIUS 0.55f
 struct HealthPickupEntity : public Entity
 {
 	HealthPickupEntity();
@@ -228,6 +229,7 @@ struct Target : public ComponentType<Target>
 	void awake() {}
 };
 
+#define MINION_SPAWN_RADIUS 0.55f
 struct MinionSpawnEntity : public Entity
 {
 	MinionSpawnEntity();

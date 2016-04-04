@@ -48,6 +48,7 @@ struct AbilityInfo
 	u16 upgrade_cost[MAX_ABILITY_LEVELS];
 	static AbilityInfo list[(s32)Ability::count];
 };
+
 struct Team
 {
 	struct SensorTrack
@@ -76,7 +77,6 @@ struct Team
 	static b8 game_over();
 	static b8 is_draw();
 
-	static void update_player_visibility();
 	Ref<Transform> player_spawn;
 	Revision revision;
 	r32 victory_timer;

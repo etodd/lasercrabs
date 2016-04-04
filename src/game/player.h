@@ -106,6 +106,7 @@ struct LocalPlayerControl : public ComponentType<LocalPlayerControl>
 	r32 lean;
 	r32 last_angle_horizontal;
 	r32 damage_timer;
+	r32 health_pickup_timer;
 	b8 allow_zoom;
 	b8 try_parkour;
 	b8 try_jump;
@@ -120,6 +121,7 @@ struct LocalPlayerControl : public ComponentType<LocalPlayerControl>
 	void awk_attached();
 	void hit_target(Entity*);
 	void damaged(Entity*);
+	void health_picked_up();
 
 	void update(const Update&);
 	void draw_alpha(const RenderParams&) const;

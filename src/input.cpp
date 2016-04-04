@@ -1,6 +1,8 @@
 #include "input.h"
 #include "strings.h"
 #include <math.h>
+#include "ease.h"
+#include "settings.h"
 
 namespace VI
 {
@@ -254,7 +256,10 @@ r32 dead_zone(r32 x, r32 threshold)
 {
 	if (fabs(x) < threshold)
 		return 0.0f;
-	return (x > 0.0f ? x - threshold : x + threshold) * (1.0f / (1.0f - threshold));
+	if (x > 0.0f)
+		return Ease::quad_in((x - threshold) * (1.0f / (1.0f - threshold)), 0.0f, 1.0f);
+	else
+		return Ease::quad_in((x + threshold) * (-1.0f / (1.0f - threshold)), 0.0f, -1.0f);
 }
 
 }
@@ -265,6 +270,13 @@ const char* InputBinding::string(b8 gamepad) const
 		return Input::btn_strings[(s32)btn];
 	else
 		return Input::key_strings[(s32)key1];
+}
+
+b8 InputState::get(Controls c, s32 gamepad) const
+{
+	const InputBinding& binding = Settings::gamepads[gamepad].bindings[(s32)c];
+	return (gamepad == 0 && (keys[(s32)binding.key1] || (binding.key2 != KeyCode::None && keys[(s32)binding.key2])))
+		|| (gamepads[gamepad].btns & (s32)binding.btn);
 }
 
 

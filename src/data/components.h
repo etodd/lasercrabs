@@ -62,16 +62,9 @@ struct PointLight : public ComponentType<PointLight>
 
 struct SpotLight : public ComponentType<SpotLight>
 {
-	enum class Type
-	{
-		Normal = 1,
-		Override = 1 << 1,
-	};
-
 	r32 radius;
 	Vec3 color;
 	r32 fov;
-	Type type;
 	RenderMask mask;
 	u8 team_mask;
 

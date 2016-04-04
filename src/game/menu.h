@@ -19,6 +19,8 @@ struct RenderParams;
 
 struct UIMenu
 {
+	static UIMenu* active[MAX_GAMEPADS];
+
 	struct Item
 	{
 		AssetID icon;

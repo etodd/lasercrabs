@@ -13,10 +13,10 @@ struct Rope;
 struct View;
 
 #define AWK_HEALTH 3
-#define AWK_FLY_SPEED 65.0f
+#define AWK_FLY_SPEED 50.0f
 #define AWK_CRAWL_SPEED 3.0f
 #define AWK_MIN_COOLDOWN 0.5f
-#define AWK_MAX_DISTANCE_COOLDOWN 1.75f
+#define AWK_MAX_DISTANCE_COOLDOWN 1.5f
 #define AWK_COOLDOWN_DISTANCE_RATIO (AWK_MAX_DISTANCE_COOLDOWN / AWK_MAX_DISTANCE)
 #define AWK_SHOCKWAVE_RADIUS 8
 #define AWK_LEGS 3
@@ -24,7 +24,8 @@ struct View;
 // If we raycast through a Minion's head, keep going.
 struct AwkRaycastCallback : btCollisionWorld::ClosestRayResultCallback
 {
-	b8 hit_target;
+	r32 closest_target_hit;
+	b8 hit_target() const;
 	ID entity_id;
 
 	AwkRaycastCallback(const Vec3& a, const Vec3& b, const Entity*);
@@ -67,6 +68,8 @@ struct Awk : public ComponentType<Awk>
 	void damaged(Entity*);
 	void killed(Entity*);
 	void update_shield_visibility();
+
+	b8 predict_intersection(const Vec3&, const Vec3&, Vec3*) const;
 
 	void stealth_enable(r32);
 	void stealth_disable();

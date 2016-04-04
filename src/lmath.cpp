@@ -101,6 +101,30 @@ namespace LMath
 
 		return u + s * edge0 + t * edge1;
 	}
+
+	b8 ray_sphere_intersect(const Vec3& ray_start, const Vec3& ray_end, const Vec3& sphere_pos, r32 sphere_radius, Vec3* intersection)
+	{
+		Vec3 ray = ray_end - ray_start;
+		Vec3 head_to_ray_start = ray_start - sphere_pos;
+
+		r32 a = ray.length_squared();
+		r32 b = 2.0f * ray.dot(head_to_ray_start);
+		r32 c = head_to_ray_start.length_squared() - (sphere_radius * sphere_radius);
+
+		r32 delta = (b * b) - 4.0f * a * c;
+
+		if (delta > 0.0f)
+		{
+			r32 distance = (-b - sqrtf(delta)) / (2.0f * a);
+			if (distance < 1.0f)
+			{
+				if (intersection)
+					*intersection = ray_start + ray * distance;
+				return true;
+			}
+		}
+		return false;
+	}
 }
 
 const Vec2 Vec2::zero(0, 0);

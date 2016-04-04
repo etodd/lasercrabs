@@ -30,9 +30,6 @@ uniform float light_fov_dot;
 uniform vec3 light_direction;
 uniform mat4 light_vp;
 uniform vec3 frustum[4];
-uniform int type;
-const int type_normal = 1;
-const int type_override = 2;
 
 vec3 lerp3(vec3 a, vec3 b, float w)
 {
@@ -66,26 +63,12 @@ void main()
 
 	float lambert = dot(texture(normal_buffer, uv).xyz * 2.0 - 1.0, to_light);
 
-	if (type == type_override)
-	{
-		float light_strength =
-			float(light_dot > light_fov_dot)
-			* shadow
-			* float(distance_to_light < light_radius)
-			* float(lambert > 0.1f);
-		if (light_strength == 0.0f)
-			discard;
-		out_color = vec4(light_color, 1.0f);
-	}
-	else
-	{
-		float light_strength =
-			float(light_dot > light_fov_dot)
-			* shadow
-			* max(0, 1.0 - (distance_to_light / light_radius))
-			* max(0, lambert);
-		out_color = vec4(light_color * light_strength, 1.0f);
-	}
+	float light_strength =
+		float(light_dot > light_fov_dot)
+		* shadow
+		* max(0, 1.0 - (distance_to_light / light_radius))
+		* max(0, lambert);
+	out_color = vec4(light_color * light_strength, 1.0f);
 }
 
 #endif

@@ -203,7 +203,7 @@ PointLight::PointLight()
 }
 
 SpotLight::SpotLight()
-	: radius(), color(1, 1, 1), fov(), type(Type::Normal), mask(-1), team_mask(-1)
+	: radius(), color(1, 1, 1), fov(), mask(-1), team_mask(-1)
 {
 }
 

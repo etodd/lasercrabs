@@ -8,7 +8,7 @@ namespace Asset
 {
 	namespace String
 	{
-		const s32 count = 292;
+		const s32 count = 293;
 		const AssetID _default = 0;
 		const AssetID ability_lvl = 1;
 		const AssetID ability_menu = 2;
@@ -299,8 +299,9 @@ namespace Asset
 		const AssetID timer = 287;
 		const AssetID tutorial_01_complete = 288;
 		const AssetID upgrade = 289;
-		const AssetID victory = 290;
-		const AssetID yes = 291;
+		const AssetID upgrade_prompt = 290;
+		const AssetID victory = 291;
+		const AssetID yes = 292;
 	}
 }
 

@@ -300,6 +300,7 @@ add_executable(yearning
 	src/console.cpp
 	src/load.h
 	src/load.cpp
+	src/settings.h
 	src/physics.cpp
 	src/lmath.cpp
 	src/ai.h

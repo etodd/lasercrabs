@@ -28,6 +28,7 @@
 #include "mersenne/mersenne-twister.h"
 #include "parkour.h"
 #include "noise.h"
+#include "settings.h"
 
 namespace VI
 {
@@ -38,7 +39,7 @@ namespace VI
 #define speed_mouse 0.0025f
 #define fov_zoom (fov_initial * zoom_ratio)
 #define speed_mouse_zoom (speed_mouse * zoom_ratio * 0.5f)
-#define speed_joystick 5.0f
+#define speed_joystick 4.0f
 #define speed_joystick_zoom (speed_joystick * zoom_ratio * 0.5f)
 #define attach_speed 5.0f
 #define max_attach_time 0.35f
@@ -218,7 +219,7 @@ void LocalPlayer::update(const Update& u)
 	// credits
 	{
 		credits_text.text(_(strings::credits), manager.ref()->credits);
-		credits_text.color = manager.ref()->credits_flash_timer > 0.0f ? UI::accent_color : UI::default_color;
+		credits_text.color = manager.ref()->credits_flash_timer > 0.0f ? UI::default_color : UI::accent_color;
 	}
 
 	if (msg_timer < msg_time)
@@ -229,7 +230,7 @@ void LocalPlayer::update(const Update& u)
 
 	// close/open pause menu if needed
 	{
-		b8 pause_hit = Game::time.total > 0.5f && u.input->get(Game::bindings.pause, gamepad) && !u.last_input->get(Game::bindings.pause, gamepad);
+		b8 pause_hit = Game::time.total > 0.5f && u.input->get(Controls::Pause, gamepad) && !u.last_input->get(Controls::Pause, gamepad);
 		if (pause_hit && ability_menu == AbilityMenu::None && (menu_state == Menu::State::Hidden || menu_state == Menu::State::Visible))
 			menu_state = menu_state == Menu::State::Hidden ? Menu::State::Visible : Menu::State::Hidden;
 	}
@@ -242,10 +243,9 @@ void LocalPlayer::update(const Update& u)
 			ensure_camera(u, false);
 			if (manager.ref()->entity.ref())
 				manager.ref()->entity.ref()->get<LocalPlayerControl>()->enable_input = true;
-			const Settings& settings = Loader::settings();
 			if (Game::data.mode == Game::Mode::Pvp && Team::abilities_enabled && manager.ref()->at_spawn())
 			{
-				if (u.input->get(settings.bindings.menu, gamepad) && !u.last_input->get(settings.bindings.menu, gamepad))
+				if (u.input->get(Controls::Menu, gamepad) && !u.last_input->get(Controls::Menu, gamepad))
 					ability_menu = AbilityMenu::Select;
 			}
 
@@ -259,15 +259,14 @@ void LocalPlayer::update(const Update& u)
 			menu.start(u, gamepad);
 			Rect2& viewport = camera ? camera->viewport : manager.ref()->entity.ref()->get<LocalPlayerControl>()->camera->viewport;
 
-			const Settings& settings = Loader::settings();
-			if (u.input->get(Game::bindings.cancel, gamepad) && !u.last_input->get(Game::bindings.cancel, gamepad))
+			if (u.input->get(Controls::Cancel, gamepad) && !u.last_input->get(Controls::Cancel, gamepad))
 			{
 				if (ability_menu == AbilityMenu::Upgrade)
 					ability_menu = AbilityMenu::Select;
 				else
 					ability_menu = AbilityMenu::None;
 			}
-			if ((u.input->get(settings.bindings.menu, gamepad) && !u.last_input->get(settings.bindings.menu, gamepad)))
+			if ((u.input->get(Controls::Menu, gamepad) && !u.last_input->get(Controls::Menu, gamepad)))
 				ability_menu = AbilityMenu::None;
 
 			// do menu items
@@ -429,38 +428,6 @@ void LocalPlayer::draw_alpha(const RenderParams& params) const
 	UIMode mode = ui_mode();
 	if (mode == UIMode::Default)
 	{
-		if (Game::data.mode == Game::Mode::Pvp)
-		{
-			Vec3 me = manager.ref()->entity.ref()->get<Transform>()->absolute_pos();
-			Health* health = manager.ref()->entity.ref()->get<Health>();
-			if (health->hp < health->hp_max)
-			{
-				for (auto i = HealthPickup::list.iterator(); !i.is_last(); i.next())
-				{
-					if (!i.item()->owner.ref())
-					{
-						Vec3 pos = i.item()->get<Transform>()->absolute_pos();
-						if ((pos - me).length_squared() < AWK_MAX_DISTANCE * AWK_MAX_DISTANCE)
-							draw_indicator(params, pos, UI::accent_color, false);
-					}
-				}
-			}
-
-			for (auto i = MinionSpawn::list.iterator(); !i.is_last(); i.next())
-			{
-				if (!i.item()->minion.ref())
-				{
-					Vec3 pos = i.item()->get<Transform>()->absolute_pos();
-					if ((pos - me).length_squared() < AWK_MAX_DISTANCE * AWK_MAX_DISTANCE)
-						draw_indicator(params, i.item()->get<Transform>()->absolute_pos(), UI::default_color, false);
-				}
-			}
-		}
-		else
-		{
-			// todo: highlight notes
-		}
-
 		if (Team::abilities_enabled)
 		{
 			b8 at_spawn = manager.ref()->at_spawn();
@@ -473,8 +440,8 @@ void LocalPlayer::draw_alpha(const RenderParams& params) const
 				text.anchor_y = UIText::Anchor::Min;
 				text.size = text_size;
 				text.color = UI::accent_color;
-				text.text(_(at_spawn ? strings::ability_menu : strings::upgrade));
-				Vec2 p = vp.size * Vec2(0.2f, 0.1f);
+				text.text(_(at_spawn ? strings::ability_menu : strings::upgrade_prompt));
+				Vec2 p = vp.size * Vec2(0.1f, 0.1f) + Vec2(0, (44.0f + text_size * 1.75f) * UI::scale);
 				UI::box(params, text.rect(p).outset(8.0f * UI::scale), UI::background_color);
 				text.draw(params, p);
 			}
@@ -757,31 +724,47 @@ r32 PlayerCommon::detect_danger() const
 void PlayerCommon::awk_attached()
 {
 	Quat absolute_rot = get<Transform>()->absolute_rot();
-	Vec3 wall_normal = absolute_rot * Vec3(0, 0, 1);
 	Vec3 direction = Vec3::normalize(get<Awk>()->velocity);
-	Vec3 up = Vec3::normalize(wall_normal.cross(direction));
-	Vec3 right = direction.cross(up);
-	if (right.dot(wall_normal) < 0.0f)
-		right *= -1.0f;
-
-	b8 vertical_surface = fabs(direction.y) < 0.99f;
-	if (vertical_surface)
-	{
-		angle_horizontal = atan2f(direction.x, direction.z);
-		angle_vertical = -asinf(direction.y);
-	}
+	Vec3 wall_normal = absolute_rot * Vec3(0, 0, 1);
 
 	// If we are spawning on to a flat floor, set attach_quat immediately
 	// This preserves the camera rotation set by the PlayerSpawn
-	if (!vertical_surface && direction.y == -1.0f)
+	if (direction.y == -1.0f && wall_normal.y > 0.9f)
 		attach_quat = absolute_rot;
 	else
+	{
+		// set our angles when we land, that way if we bounce off anything in transit,
+		// the new direction will be taken into account
+		angle_horizontal = atan2f(direction.x, direction.z);
+		angle_vertical = -asinf(direction.y);
+
+		Vec3 up = Vec3::normalize(wall_normal.cross(direction));
+		Vec3 right = direction.cross(up);
+
+		// make sure the up and right vector aren't switched
+		if (fabs(up.y) < fabs(right.y))
+		{
+			Vec3 tmp = right;
+			right = up;
+			up = tmp;
+		}
+
+		// if the right vector is too vertical, force it to be more horizontal
+		const r32 threshold = fabs(wall_normal.y) + 0.25f;
+		right.y = LMath::clampf(right.y, -threshold, threshold);
+		right.normalize();
+
+		if (right.dot(direction - wall_normal * direction.dot(wall_normal)) < 0.0f)
+			right *= -1.0f;
+
 		attach_quat = Quat::look(right);
+	}
 }
 
 void PlayerCommon::awk_detached()
 {
-	attach_quat = Quat::look(Vec3::normalize(get<Awk>()->velocity));
+	Vec3 direction = Vec3::normalize(get<Awk>()->velocity);
+	attach_quat = Quat::look(direction);
 }
 
 Vec3 PlayerCommon::look_dir() const
@@ -797,7 +780,7 @@ void PlayerCommon::clamp_rotation(const Vec3& direction, r32 dot_limit)
 	r32 dot = forward.dot(direction);
 	if (dot < -dot_limit)
 	{
-		forward = Vec3::normalize(forward - (dot + dot_limit) * direction);
+		forward = Vec3::normalize(forward - (forward.dot(direction) + dot_limit) * direction);
 		angle_horizontal = atan2f(forward.x, forward.z);
 		angle_vertical = -asinf(forward.y);
 	}
@@ -845,7 +828,8 @@ LocalPlayerControl::LocalPlayerControl(u8 gamepad)
 	try_parkour(),
 	enable_input(),
 	lean(),
-	damage_timer()
+	damage_timer(),
+	health_pickup_timer()
 {
 	camera = Camera::add();
 	camera->fog = Game::data.mode == Game::Mode::Parkour;
@@ -866,6 +850,7 @@ void LocalPlayerControl::awake()
 		link<&LocalPlayerControl::awk_attached>(get<Awk>()->attached);
 		link_arg<Entity*, &LocalPlayerControl::hit_target>(get<Awk>()->hit);
 		link_arg<Entity*, &LocalPlayerControl::damaged>(get<Health>()->damaged);
+		link<&LocalPlayerControl::health_picked_up>(get<Health>()->added);
 	}
 
 	camera->team = (u8)get<AIAgent>()->team;
@@ -880,7 +865,7 @@ void LocalPlayerControl::hit_target(Entity* target)
 		if (target->get<AIAgent>()->team != get<AIAgent>()->team)
 			player.ref()->manager.ref()->add_credits(CREDITS_MINION);
 	}
-	if (target->has<Sensor>())
+	else if (target->has<Sensor>())
 		player.ref()->msg(_(strings::sensor_destroyed), true);
 }
 
@@ -890,6 +875,11 @@ void LocalPlayerControl::damaged(Entity*)
 	damage_timer = damage_shake_time;
 }
 
+void LocalPlayerControl::health_picked_up()
+{
+	health_pickup_timer = msg_time;
+}
+
 b8 LocalPlayerControl::input_enabled() const
 {
 	return !Console::visible && enable_input;
@@ -897,7 +887,6 @@ b8 LocalPlayerControl::input_enabled() const
 
 void LocalPlayerControl::update_camera_input(const Update& u)
 {
-	const Settings& settings = Loader::settings();
 	if (input_enabled())
 	{
 		if (gamepad == 0)
@@ -923,15 +912,14 @@ Vec3 LocalPlayerControl::get_movement(const Update& u, const Quat& rot)
 	Vec3 movement = Vec3::zero;
 	if (input_enabled())
 	{
-		const Settings& settings = Loader::settings();
 
-		if (u.input->get(settings.bindings.forward, gamepad))
+		if (u.input->get(Controls::Forward, gamepad))
 			movement += Vec3(0, 0, 1);
-		if (u.input->get(settings.bindings.backward, gamepad))
+		if (u.input->get(Controls::Backward, gamepad))
 			movement += Vec3(0, 0, -1);
-		if (u.input->get(settings.bindings.right, gamepad))
+		if (u.input->get(Controls::Right, gamepad))
 			movement += Vec3(-1, 0, 0);
-		if (u.input->get(settings.bindings.left, gamepad))
+		if (u.input->get(Controls::Left, gamepad))
 			movement += Vec3(1, 0, 0);
 
 		if (u.input->gamepads[gamepad].active)
@@ -942,9 +930,9 @@ Vec3 LocalPlayerControl::get_movement(const Update& u, const Quat& rot)
 
 		movement = rot * movement;
 
-		if (u.input->get(settings.bindings.up, gamepad))
+		if (u.input->get(Controls::Up, gamepad))
 			movement.y += 1;
-		if (u.input->get(settings.bindings.down, gamepad))
+		if (u.input->get(Controls::Down, gamepad))
 			movement.y -= 1;
 	}
 	return movement;
@@ -961,25 +949,23 @@ void LocalPlayerControl::detach(const Vec3& dir)
 
 void LocalPlayerControl::update(const Update& u)
 {
-	const Settings& settings = Loader::settings();
-
 	{
 		// Zoom
 		r32 fov_blend_target = 0.0f;
 		if (has<Awk>() && get<Transform>()->parent.ref() && Game::data.allow_detach && input_enabled())
 		{
-			if (u.input->get(settings.bindings.secondary, gamepad))
+			if (u.input->get(Controls::Secondary, gamepad))
 			{
 				if (allow_zoom)
 				{
 					fov_blend_target = 1.0f;
-					if (!u.last_input->get(settings.bindings.secondary, gamepad))
+					if (!u.last_input->get(Controls::Secondary, gamepad))
 						get<Audio>()->post_event(AK::EVENTS::PLAY_ZOOM_IN);
 				}
 			}
 			else
 			{
-				if (allow_zoom && u.last_input->get(settings.bindings.secondary, gamepad))
+				if (allow_zoom && u.last_input->get(Controls::Secondary, gamepad))
 					get<Audio>()->post_event(AK::EVENTS::PLAY_ZOOM_OUT);
 				allow_zoom = true;
 			}
@@ -1010,7 +996,7 @@ void LocalPlayerControl::update(const Update& u)
 		camera_pos = get<Awk>()->center();
 
 		// abilities
-		if (!Console::visible && u.input->get(settings.bindings.ability, gamepad) && !u.last_input->get(settings.bindings.ability, gamepad))
+		if (!Console::visible && u.input->get(Controls::Ability, gamepad) && !u.last_input->get(Controls::Ability, gamepad))
 			player.ref()->manager.ref()->ability_use();
 	}
 	else
@@ -1030,12 +1016,12 @@ void LocalPlayerControl::update(const Update& u)
 		get<Walker>()->dir = dir;
 
 		// parkour button
-		b8 parkour_pressed = input_enabled() && u.input->get(settings.bindings.parkour, gamepad);
+		b8 parkour_pressed = input_enabled() && u.input->get(Controls::Parkour, gamepad);
 
 		if (get<Parkour>()->fsm.current == Parkour::State::WallRun && !parkour_pressed)
 			get<Parkour>()->fsm.transition(Parkour::State::Normal);
 
-		if (parkour_pressed && !u.last_input->get(settings.bindings.parkour, gamepad))
+		if (parkour_pressed && !u.last_input->get(Controls::Parkour, gamepad))
 			try_parkour = true;
 		else if (!parkour_pressed)
 			try_parkour = false;
@@ -1051,8 +1037,8 @@ void LocalPlayerControl::update(const Update& u)
 		}
 
 		// jump button
-		b8 jump_pressed = input_enabled() && u.input->get(settings.bindings.jump, gamepad);
-		if (jump_pressed && !u.last_input->get(settings.bindings.jump, gamepad))
+		b8 jump_pressed = input_enabled() && u.input->get(Controls::Jump, gamepad);
+		if (jump_pressed && !u.last_input->get(Controls::Jump, gamepad))
 			try_jump = true;
 		else if (!jump_pressed)
 			try_jump = false;
@@ -1068,12 +1054,12 @@ void LocalPlayerControl::update(const Update& u)
 		}
 		
 		// slide button
-		b8 slide_pressed = input_enabled() && u.input->get(settings.bindings.slide, gamepad);
+		b8 slide_pressed = input_enabled() && u.input->get(Controls::Slide, gamepad);
 
 		if (get<Parkour>()->fsm.current == Parkour::State::Slide && !slide_pressed)
 			get<Parkour>()->fsm.transition(Parkour::State::Normal);
 
-		if (slide_pressed && !u.last_input->get(settings.bindings.slide, gamepad))
+		if (slide_pressed && !u.last_input->get(Controls::Slide, gamepad))
 			try_slide = true;
 		else if (!slide_pressed)
 			try_slide = false;
@@ -1173,6 +1159,7 @@ void LocalPlayerControl::update(const Update& u)
 		r32 offset = Game::time.total * 10.0f;
 		look_quat = look_quat * Quat::euler(noise::sample3d(Vec3(offset)) * shake, noise::sample3d(Vec3(offset + 64)) * shake, noise::sample3d(Vec3(offset + 128)) * shake);
 	}
+	health_pickup_timer = vi_max(0.0f, health_pickup_timer - Game::real_time.delta);
 	camera->rot = look_quat;
 
 	tracer.type = TraceType::None;
@@ -1196,7 +1183,7 @@ void LocalPlayerControl::update(const Update& u)
 
 			if (rayCallback.hasHit())
 			{
-				tracer.type = rayCallback.hit_target ? TraceType::Target : TraceType::Normal;
+				tracer.type = rayCallback.hit_target() ? TraceType::Target : TraceType::Normal;
 				tracer.pos = rayCallback.m_hitPointWorld;
 
 				short group = rayCallback.m_collisionObject->getBroadphaseHandle()->m_collisionFilterGroup;
@@ -1207,7 +1194,7 @@ void LocalPlayerControl::update(const Update& u)
 
 		if (tracer.type != TraceType::None && Game::data.allow_detach && input_enabled())
 		{
-			if (u.input->get(settings.bindings.primary, gamepad) && !u.last_input->get(settings.bindings.primary, gamepad))
+			if (u.input->get(Controls::Primary, gamepad) && !u.last_input->get(Controls::Primary, gamepad))
 				detach(look_quat * Vec3(0, 0, 1));
 		}
 	}
@@ -1238,32 +1225,109 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 
 	// compass
 	{
-		b8 enemy_visible = false;
-		for (auto i = PlayerCommon::list.iterator(); !i.is_last(); i.next())
+		const Vec4* compass_color;
+		if (Game::data.mode == Game::Mode::Parkour)
+			compass_color = &UI::alert_color;
+		else
 		{
-			if (PlayerCommon::visibility.get(PlayerCommon::visibility_hash(i.item(), get<PlayerCommon>())))
+			b8 enemy_visible = false;
+			for (auto i = PlayerCommon::list.iterator(); !i.is_last(); i.next())
 			{
-				enemy_visible = true;
-				break;
-			}
-		}
-
-		if (!enemy_visible)
-		{
-			for (s32 i = 0; i < Team::list.length; i++)
-			{
-				if (Team::list[i].player_tracks[player.ref()->manager.ref()->id()].visible)
+				if (PlayerCommon::visibility.get(PlayerCommon::visibility_hash(i.item(), get<PlayerCommon>())))
 				{
 					enemy_visible = true;
 					break;
 				}
 			}
+
+			if (!enemy_visible)
+			{
+				for (s32 i = 0; i < Team::list.length; i++)
+				{
+					if (Team::list[i].player_tracks[player.ref()->manager.ref()->id()].visible)
+					{
+						enemy_visible = true;
+						break;
+					}
+				}
+			}
+			compass_color = enemy_visible ? &UI::alert_color : &UI::accent_color;
 		}
 
-		const Vec4& compass_color = enemy_visible ? UI::alert_color : UI::accent_color;
 		Vec2 compass_size = Vec2(vi_min(viewport.size.x, viewport.size.y) * 0.3f);
-		UI::mesh(params, Asset::Mesh::compass_inner, viewport.size * Vec2(0.5f, 0.5f), compass_size, compass_color, get<PlayerCommon>()->angle_vertical);
-		UI::mesh(params, Asset::Mesh::compass_outer, viewport.size * Vec2(0.5f, 0.5f), compass_size, compass_color, -get<PlayerCommon>()->angle_horizontal);
+		UI::mesh(params, Asset::Mesh::compass_inner, viewport.size * Vec2(0.5f, 0.5f), compass_size, *compass_color, get<PlayerCommon>()->angle_vertical);
+		UI::mesh(params, Asset::Mesh::compass_outer, viewport.size * Vec2(0.5f, 0.5f), compass_size, *compass_color, -get<PlayerCommon>()->angle_horizontal);
+	}
+
+	// allow our draw functions to override the tracer type if we detect another target under our reticle
+	TraceType tracer_type = tracer.type;
+
+	// draw 
+	if (Game::data.mode == Game::Mode::Pvp)
+	{
+		Vec3 me = get<Transform>()->absolute_pos();
+		if (get<Health>()->hp < get<Health>()->hp_max)
+		{
+			for (auto i = HealthPickup::list.iterator(); !i.is_last(); i.next())
+			{
+				if (!i.item()->owner.ref())
+				{
+					Vec3 pos = i.item()->get<Transform>()->absolute_pos();
+					if ((pos - me).length_squared() < AWK_MAX_DISTANCE * AWK_MAX_DISTANCE)
+					{
+						Vec3 intersection;
+						if (get<Awk>()->predict_intersection(pos, i.item()->get<RigidBody>()->btBody->getLinearVelocity(), &intersection))
+						{
+							draw_indicator(params, intersection, UI::accent_color, false);
+							if (tracer_type == TraceType::Normal && LMath::ray_sphere_intersect(me, tracer.pos, intersection, HEALTH_PICKUP_RADIUS))
+								tracer_type = TraceType::Target;
+						}
+					}
+				}
+			}
+		}
+
+		for (auto i = MinionSpawn::list.iterator(); !i.is_last(); i.next())
+		{
+			if (!i.item()->minion.ref())
+			{
+				Vec3 pos = i.item()->get<Transform>()->absolute_pos();
+				if ((pos - me).length_squared() < AWK_MAX_DISTANCE * AWK_MAX_DISTANCE)
+				{
+					Vec3 intersection;
+					if (get<Awk>()->predict_intersection(pos, i.item()->get<RigidBody>()->btBody->getLinearVelocity(), &intersection))
+					{
+						draw_indicator(params, intersection, UI::default_color, false);
+						if (tracer_type == TraceType::Normal && LMath::ray_sphere_intersect(me, tracer.pos, intersection, MINION_SPAWN_RADIUS))
+							tracer_type = TraceType::Target;
+					}
+				}
+			}
+		}
+
+		// draw headshot indicators
+		for (auto i = MinionCommon::list.iterator(); !i.is_last(); i.next())
+		{
+			if (i.item()->get<AIAgent>()->team != team)
+			{
+				Vec3 head_pos = i.item()->head_pos();
+				if ((head_pos - me).length_squared() < AWK_MAX_DISTANCE * AWK_MAX_DISTANCE)
+				{
+					// calculate head intersection trajectory
+					Vec3 intersection;
+					if (get<Awk>()->predict_intersection(head_pos, i.item()->get<RigidBody>()->btBody->getLinearVelocity(), &intersection))
+					{
+						draw_indicator(params, intersection, UI::alert_color, false);
+						if (tracer_type == TraceType::Normal && LMath::ray_sphere_intersect(me, tracer.pos, intersection, MINION_HEAD_RADIUS))
+							tracer_type = TraceType::Target;
+					}
+				}
+			}
+		}
+	}
+	else
+	{
+		// todo: highlight notes
 	}
 
 	// draw usernames directly over players' 3D positions
@@ -1320,7 +1384,9 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 		
 		pos.x += text.bounds().x + HP_BOX_SPACING * 0.5f;
 
-		draw_hp_indicator(params, pos, health->hp, health->hp_max, Team::ui_colors[(s32)get<AIAgent>()->team]);
+		b8 flash_hp = damage_timer > 0.0f || health_pickup_timer > 0.0f;
+		if (!flash_hp || flash_function(Game::real_time.total))
+			draw_hp_indicator(params, pos, health->hp, health->hp_max, flash_hp ? UI::default_color : Team::ui_colors[(s32)get<AIAgent>()->team]);
 	}
 
 	if (has<Awk>())
@@ -1329,7 +1395,6 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 		Ability ability = player.ref()->manager.ref()->ability;
 		if (ability != Ability::None)
 		{
-			const Settings& settings = Loader::settings();
 			UIText text;
 			text.font = Asset::Font::lowpoly;
 			text.anchor_x = UIText::Anchor::Min;
@@ -1338,7 +1403,7 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 			Vec2 icon_pos = viewport.size * Vec2(0.1f, 0.1f) + Vec2(8.0f * UI::scale, 44.0f * UI::scale);
 
 			const AbilityInfo& info = AbilityInfo::list[(s32)ability];
-			text.text(_(strings::binding), settings.bindings.ability.string(params.sync->input.gamepads[gamepad].active));
+			text.text(_(strings::binding), Settings::gamepads[gamepad].bindings[(s32)Controls::Ability].string(params.sync->input.gamepads[gamepad].active));
 
 			r32 text_offset = 24.0f * UI::scale;
 			r32 icon_size = 8.0f * UI::scale;
@@ -1352,9 +1417,18 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 			r32 ability_cooldown = player.ref()->manager.ref()->ability_cooldown;
 			if (ability_cooldown > 0.0f)
 			{
-				if (ability_cooldown < ABILITY_COOLDOWN_USABLE_RANGE)
+				if (ability_cooldown > ABILITY_COOLDOWN_USABLE_RANGE)
 				{
-					// the ability is usable; flash it
+					// ability is not usable
+					r32 cooldown_normalized = (ability_cooldown - ABILITY_COOLDOWN_USABLE_RANGE) / info.cooldown;
+					UI::box(params, { box.pos, Vec2(box.size.x * cooldown_normalized, box.size.y) }, UI::subtle_color);
+					text.color = UI::disabled_color;
+				}
+
+				if (ability_cooldown < ABILITY_COOLDOWN_USABLE_RANGE || ability_cooldown > info.cooldown - ABILITY_COOLDOWN_USABLE_RANGE)
+				{
+					// we either just used it, or the cooldown is about to expire
+					// flash it
 					text.color = UI::default_color;
 					b8 show = flash_function(Game::real_time.total);
 					if (show)
@@ -1362,15 +1436,9 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 					if (show && !flash_function(Game::real_time.total - Game::real_time.delta))
 						Audio::post_global_event(AK::EVENTS::PLAY_BEEP_GOOD);
 				}
-				else
-				{
-					r32 cooldown_normalized = (ability_cooldown - ABILITY_COOLDOWN_USABLE_RANGE) / info.cooldown;
-					UI::box(params, { box.pos, Vec2(box.size.x * cooldown_normalized, box.size.y) }, UI::subtle_color);
-					text.color = UI::disabled_color;
-				}
 			}
 			else
-				text.color = UI::default_color;
+				text.color = UI::accent_color;
 
 			if (info.icon != AssetNull)
 				UI::mesh(params, info.icon, icon_pos, Vec2(UI::scale * text_size), text.color);
@@ -1438,7 +1506,7 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 		{
 			r32 cooldown = get<PlayerCommon>()->cooldown;
 			r32 radius = cooldown == 0.0f ? 0.0f : vi_max(0.0f, 32.0f * (get<PlayerCommon>()->cooldown / AWK_MAX_DISTANCE_COOLDOWN));
-			if (radius > 0 || tracer.type == TraceType::None || !Game::data.allow_detach)
+			if (radius > 0 || tracer_type == TraceType::None || !Game::data.allow_detach)
 			{
 				// hollow reticle
 				UI::triangle_border(params, { viewport.size * Vec2(0.5f, 0.5f), Vec2(4.0f + radius) * 2 * UI::scale }, 2, UI::accent_color, PI);
@@ -1449,7 +1517,7 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 				Vec2 a;
 				if (UI::project(params, tracer.pos, &a))
 				{
-					if (tracer.type == TraceType::Target)
+					if (tracer_type == TraceType::Target)
 					{
 						UI::triangle(params, { a, Vec2(12) * UI::scale }, UI::alert_color, PI);
 

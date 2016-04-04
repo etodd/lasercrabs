@@ -439,9 +439,9 @@ void SkyPattern::draw_alpha(const RenderParams& p)
 	RenderSync* sync = p.sync;
 
 	sync->write<RenderOp>(RenderOp::FillMode);
-	sync->write(RenderFillMode::Line);
-	sync->write<RenderOp>(RenderOp::LineWidth);
-	sync->write<r32>(3.0f * UI::scale);
+	sync->write(RenderFillMode::Point);
+	sync->write<RenderOp>(RenderOp::PointSize);
+	sync->write<r32>(1.0f * UI::scale);
 
 	sync->write(RenderOp::Shader);
 	sync->write(Asset::Shader::flat);

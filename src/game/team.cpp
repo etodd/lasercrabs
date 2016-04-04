@@ -28,7 +28,7 @@ namespace VI
 
 const Vec4 Team::colors[(s32)AI::Team::count] =
 {
-	Vec4(0.05f, 0.35f, 0.5f, 1),
+	Vec4(0.05f, 0.45f, 0.6f, 1),
 	Vec4(1.0f, 0.5f, 0.6f, 1),
 };
 

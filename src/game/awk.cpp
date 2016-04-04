@@ -37,8 +37,13 @@ namespace VI
 AwkRaycastCallback::AwkRaycastCallback(const Vec3& a, const Vec3& b, const Entity* awk)
 	: btCollisionWorld::ClosestRayResultCallback(a, b)
 {
-	hit_target = false;
+	closest_target_hit = FLT_MAX;
 	entity_id = awk->id();
+}
+
+b8 AwkRaycastCallback::hit_target() const
+{
+	return closest_target_hit < m_closestHitFraction;
 }
 
 btScalar AwkRaycastCallback::addSingleResult(btCollisionWorld::LocalRayResult& rayResult, b8 normalInWorldSpace)
@@ -49,14 +54,14 @@ btScalar AwkRaycastCallback::addSingleResult(btCollisionWorld::LocalRayResult& r
 		Entity* entity = &Entity::list[rayResult.m_collisionObject->getUserIndex()];
 		if (entity->has<MinionCommon>() && entity->get<MinionCommon>()->headshot_test(m_rayFromWorld, m_rayToWorld))
 		{
-			hit_target = true;
+			closest_target_hit = rayResult.m_hitFraction;
 			return m_closestHitFraction;
 		}
 	}
 	else if (filter_group & CollisionTarget)
 	{
 		if (rayResult.m_collisionObject->getUserIndex() != entity_id)
-			hit_target = true;
+			closest_target_hit = rayResult.m_hitFraction;
 		return m_closestHitFraction;
 	}
 
@@ -150,7 +155,7 @@ void Awk::hit_target(Entity* target)
 		if (target->has<RigidBody>())
 		{
 			RigidBody* body = target->get<RigidBody>();
-			body->btBody->applyImpulse(velocity * 0.002f, Vec3::zero);
+			body->btBody->applyImpulse(velocity * Game::time.delta * 0.005f, Vec3::zero);
 			body->btBody->setActivationState(ACTIVE_TAG);
 		}
 
@@ -162,15 +167,28 @@ void Awk::hit_target(Entity* target)
 	Quat rot;
 	get<Transform>()->absolute(&pos, &rot);
 	const Vec4 color = Team::colors[(s32)get<AIAgent>()->team] + Vec4(0.5f, 0.5f, 0.5f, 0);
-	for (s32 i = 0; i < 30; i++)
+	for (s32 i = 0; i < 50; i++)
 	{
 		Particles::sparks.add
 		(
 			pos,
-			rot * Vec3(mersenne::randf_oo() * 2.0f - 1.0f, mersenne::randf_oo() * 2.0f - 1.0f, mersenne::randf_oo()) * 8.0f,
+			rot * Vec3(mersenne::randf_oo() * 2.0f - 1.0f, mersenne::randf_oo() * 2.0f - 1.0f, mersenne::randf_oo()) * 10.0f,
 			color
 		);
 	}
+}
+
+b8 Awk::predict_intersection(const Vec3& target_pos, const Vec3& target_velocity, Vec3* intersection) const
+{
+	Vec3 to_target = target_pos - get<Transform>()->absolute_pos();
+	r32 intersect_time_squared = to_target.dot(to_target) / ((AWK_FLY_SPEED * AWK_FLY_SPEED) - 2.0f * to_target.dot(target_velocity) - target_velocity.dot(target_velocity));
+	if (intersect_time_squared > 0.0f)
+	{
+		*intersection = target_pos + target_velocity * sqrtf(intersect_time_squared);
+		return true;
+	}
+	else
+		return false;
 }
 
 void Awk::damaged(Entity* enemy)

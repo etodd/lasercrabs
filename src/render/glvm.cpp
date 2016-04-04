@@ -136,15 +136,7 @@ struct GLData
 	static RenderTechnique current_shader_technique;
 	static Array<s32> samplers;
 
-	struct ColorMask
-	{
-		b8 r;
-		b8 g;
-		b8 b;
-		b8 a;
-	};
-
-	static ColorMask color_mask;
+	static RenderColorMask color_mask;
 	static b8 depth_mask;
 	static b8 depth_test;
 	static RenderCullMode cull_mode;
@@ -174,7 +166,7 @@ RenderTechnique GLData::current_shader_technique = RenderTechnique::Default;
 Array<s32> GLData::samplers;
 Array<char> GLData::uniform_name_buffer;
 Array<s32> GLData::uniform_names;
-GLData::ColorMask GLData::color_mask = { true, true, true, true };
+RenderColorMask GLData::color_mask = 31;
 b8 GLData::depth_mask = true;
 b8 GLData::depth_test = true;
 RenderCullMode GLData::cull_mode = RenderCullMode::Back;
@@ -720,8 +712,8 @@ void render(RenderSync* sync)
 			}
 			case RenderOp::ColorMask:
 			{
-				GLData::color_mask = { *(sync->read<b8>()), *(sync->read<b8>()), *(sync->read<b8>()), *(sync->read<b8>()) };
-				glColorMask(GLData::color_mask.r, GLData::color_mask.g, GLData::color_mask.b, GLData::color_mask.a);
+				GLData::color_mask = *sync->read<RenderColorMask>();
+				glColorMask(GLData::color_mask & (1 << 0), GLData::color_mask & (1 << 1), GLData::color_mask & (1 << 2), GLData::color_mask & (1 << 3));
 				debug_check();
 				break;
 			}
@@ -942,15 +934,15 @@ void render(RenderSync* sync)
 						break;
 					case RenderBlendMode::Alpha:
 						glEnablei(GL_BLEND, 0);
-						glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+						glBlendFunci(0, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 						break;
 					case RenderBlendMode::Additive:
 						glEnablei(GL_BLEND, 0);
-						glBlendFunc(GL_SRC_ALPHA, GL_ONE);
+						glBlendFunci(0, GL_SRC_ALPHA, GL_ONE);
 						break;
 					case RenderBlendMode::AlphaDestination:
 						glEnablei(GL_BLEND, 0);
-						glBlendFunc(GL_DST_ALPHA, GL_ONE_MINUS_DST_ALPHA);
+						glBlendFuncSeparatei(0, GL_DST_ALPHA, GL_ONE_MINUS_DST_ALPHA, GL_ZERO, GL_ONE);
 						break;
 					default:
 						vi_assert(false);

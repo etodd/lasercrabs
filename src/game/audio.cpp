@@ -13,6 +13,7 @@
 #include <AK/SoundEngine/Common/AkSoundEngine.h>
 #include <AK/MusicEngine/Common/AkMusicEngine.h>
 #include <AK/Plugin/AkVorbisFactory.h>
+#include "settings.h"
 #if DEBUG
 	#include <AK/Comm/AkCommunication.h>
 #endif
@@ -132,9 +133,8 @@ b8 Audio::init()
 
 	AK::SoundEngine::RegisterBusMeteringCallback(AK::BUSSES::DIALOGUE, Audio::dialogue_volume_callback, (AkMeteringFlags)AK_EnableBusMeter_Peak);
 
-	const Settings& settings = Loader::settings();
-	global_param(AK::GAME_PARAMETERS::SFXVOL, (r32)settings.sfx / 100.0f);
-	global_param(AK::GAME_PARAMETERS::MUSICVOL, (r32)settings.music / 100.0f);
+	global_param(AK::GAME_PARAMETERS::SFXVOL, (r32)Settings::sfx / 100.0f);
+	global_param(AK::GAME_PARAMETERS::MUSICVOL, (r32)Settings::music / 100.0f);
 
 	return true;
 }

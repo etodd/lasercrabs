@@ -6,13 +6,26 @@
 #include <AK/SoundEngine/Common/AkSoundEngine.h>
 #include "cjson/cJSON.h"
 #include "ai.h"
+#include "settings.h"
 
 namespace VI
 {
 
 const char* Loader::data_directory;
 LoopSwapper* Loader::swapper;
-// First entry in each array is empty
+
+namespace Settings
+{
+	Gamepad gamepads[MAX_GAMEPADS];
+	s32 width;
+	s32 height;
+	b8 fullscreen;
+	b8 vsync;
+	u8 sfx;
+	u8 music;
+	s32 framerate_limit;
+}
+
 Array<Loader::Entry<Mesh> > Loader::meshes;
 Array<Loader::Entry<Animation> > Loader::animations;
 Array<Loader::Entry<Armature> > Loader::armatures;
@@ -27,14 +40,14 @@ Array<Loader::Entry<AkBankID> > Loader::soundbanks;
 s32 Loader::static_mesh_count = 0;
 s32 Loader::static_texture_count = 0;
 
-Settings Loader::settings_data = Settings();
-
 struct Attrib
 {
 	RenderDataType type;
 	s32 count;
 	Array<char> data;
 };
+
+#define config_filename "config.txt"
 
 void Loader::init(LoopSwapper* s)
 {
@@ -58,6 +71,122 @@ void Loader::init(LoopSwapper* s)
 		sync->write(uniform_name, length);
 		i++;
 	}
+}
+
+InputBinding input_binding(cJSON* parent, const char* key, const InputBinding& default_value)
+{
+	if (!parent)
+		return default_value;
+
+	cJSON* json = cJSON_GetObjectItem(parent, key);
+	if (!json)
+		return default_value;
+
+	InputBinding binding;
+	binding.key1 = (KeyCode)Json::get_s32(json, "key1", (s32)default_value.key1);
+	binding.key2 = (KeyCode)Json::get_s32(json, "key2", (s32)default_value.key2);
+	binding.btn = (Gamepad::Btn)Json::get_s32(json, "btn", (s32)default_value.btn);
+	return binding;
+}
+
+cJSON* input_binding_json(const InputBinding& binding)
+{
+	cJSON* json = cJSON_CreateObject();
+	if (binding.key1 != KeyCode::None)
+		cJSON_AddNumberToObject(json, "key1", (s32)binding.key1);
+	if (binding.key2 != KeyCode::None)
+		cJSON_AddNumberToObject(json, "key2", (s32)binding.key2);
+	if (binding.btn != Gamepad::Btn::None)
+		cJSON_AddNumberToObject(json, "btn", (s32)binding.btn);
+	return json;
+}
+
+void Loader::settings_load()
+{
+	char path[max_user_data_path_length];
+	user_data_path(path, config_filename);
+	cJSON* json = Json::load(path);
+
+	Settings::width = Json::get_s32(json, "width", 1920);
+	Settings::height = Json::get_s32(json, "height", 1080);
+	Settings::fullscreen = (b8)Json::get_s32(json, "fullscreen", 0);
+	Settings::vsync = (b8)Json::get_s32(json, "vsync", 0);
+	Settings::sfx = (u8)Json::get_s32(json, "sfx", 100);
+	Settings::music = (u8)Json::get_s32(json, "music", 100);
+	Settings::framerate_limit = vi_max(30, Json::get_s32(json, "framerate_limit", 120));
+
+	cJSON* gamepads = json ? cJSON_GetObjectItem(json, "gamepads") : nullptr;
+	cJSON* gamepad = gamepads ? gamepads->child : nullptr;
+	for (s32 i = 0; i < MAX_GAMEPADS; i++)
+	{
+		Settings::Gamepad* bindings = &Settings::gamepads[i];
+		bindings->bindings[(s32)Controls::Backward] = input_binding(gamepad, "backward", { KeyCode::S, KeyCode::Down, Gamepad::Btn::DDown });
+		bindings->bindings[(s32)Controls::Forward] = input_binding(gamepad, "forward", { KeyCode::W, KeyCode::Up, Gamepad::Btn::DUp });
+		bindings->bindings[(s32)Controls::Left] = input_binding(gamepad, "left", { KeyCode::A, KeyCode::Left, Gamepad::Btn::DLeft });
+		bindings->bindings[(s32)Controls::Right] = input_binding(gamepad, "right", { KeyCode::D, KeyCode::Right, Gamepad::Btn::DRight });
+		bindings->bindings[(s32)Controls::Up] = input_binding(gamepad, "up", { KeyCode::Space, KeyCode::None, Gamepad::Btn::RightShoulder });
+		bindings->bindings[(s32)Controls::Down] = input_binding(gamepad, "down", { KeyCode::LCtrl, KeyCode::None, Gamepad::Btn::LeftShoulder });
+		bindings->bindings[(s32)Controls::Jump] = input_binding(gamepad, "jump", { KeyCode::Space, KeyCode::None, Gamepad::Btn::RightTrigger });
+		bindings->bindings[(s32)Controls::Primary] = input_binding(gamepad, "primary", { KeyCode::MouseLeft, KeyCode::E, Gamepad::Btn::RightTrigger });
+		bindings->bindings[(s32)Controls::Secondary] = input_binding(gamepad, "secondary", { KeyCode::MouseRight, KeyCode::Q, Gamepad::Btn::LeftTrigger });
+		bindings->bindings[(s32)Controls::Parkour] = input_binding(gamepad, "parkour", { KeyCode::LShift, KeyCode::None, Gamepad::Btn::LeftTrigger });
+		bindings->bindings[(s32)Controls::Slide] = input_binding(gamepad, "slide", { KeyCode::MouseLeft, KeyCode::None, Gamepad::Btn::LeftClick });
+		bindings->bindings[(s32)Controls::Ability] = input_binding(gamepad, "ability", { KeyCode::F, KeyCode::None, Gamepad::Btn::X });
+		bindings->bindings[(s32)Controls::Menu] = input_binding(gamepad, "menu", { KeyCode::Tab, KeyCode::None, Gamepad::Btn::Y });
+
+		// these bindings cannot be changed
+		bindings->bindings[(s32)Controls::Start] = { KeyCode::Space, KeyCode::None, Gamepad::Btn::Start };
+		bindings->bindings[(s32)Controls::Action] = { KeyCode::Return, KeyCode::None, Gamepad::Btn::A };
+		bindings->bindings[(s32)Controls::Click] = { KeyCode::MouseLeft, KeyCode::None, Gamepad::Btn::None };
+		bindings->bindings[(s32)Controls::Cancel] = { KeyCode::Escape, KeyCode::None, Gamepad::Btn::B };
+		bindings->bindings[(s32)Controls::Pause] = { KeyCode::Escape, KeyCode::None, Gamepad::Btn::Start };
+
+		bindings->invert = Json::get_s32(gamepad, "invert", 0);
+		bindings->sensitivity = Json::get_r32(gamepad, "sensitivity", 1.0f);
+		gamepad = gamepad ? gamepad->next : nullptr;
+	}
+}
+
+void Loader::settings_save()
+{
+	cJSON* json = cJSON_CreateObject();
+	cJSON_AddNumberToObject(json, "width", Settings::width);
+	cJSON_AddNumberToObject(json, "height", Settings::height);
+	cJSON_AddNumberToObject(json, "fullscreen", Settings::fullscreen);
+	cJSON_AddNumberToObject(json, "vsync", Settings::vsync);
+	cJSON_AddNumberToObject(json, "sfx", Settings::sfx);
+	cJSON_AddNumberToObject(json, "music", Settings::music);
+
+	cJSON* gamepads = cJSON_CreateArray();
+	cJSON_AddItemToObject(json, "gamepads", gamepads);
+
+	for (s32 i = 0; i < MAX_GAMEPADS; i++)
+	{
+		Settings::Gamepad* bindings = &Settings::gamepads[i];
+		cJSON* gamepad = cJSON_CreateObject();
+		cJSON_AddItemToObject(gamepad, "backward", input_binding_json(bindings->bindings[(s32)Controls::Backward]));
+		cJSON_AddItemToObject(gamepad, "forward", input_binding_json(bindings->bindings[(s32)Controls::Forward]));
+		cJSON_AddItemToObject(gamepad, "left", input_binding_json(bindings->bindings[(s32)Controls::Left]));
+		cJSON_AddItemToObject(gamepad, "right", input_binding_json(bindings->bindings[(s32)Controls::Right]));
+		cJSON_AddItemToObject(gamepad, "up", input_binding_json(bindings->bindings[(s32)Controls::Up]));
+		cJSON_AddItemToObject(gamepad, "down", input_binding_json(bindings->bindings[(s32)Controls::Down]));
+		cJSON_AddItemToObject(gamepad, "jump", input_binding_json(bindings->bindings[(s32)Controls::Jump]));
+		cJSON_AddItemToObject(gamepad, "primary", input_binding_json(bindings->bindings[(s32)Controls::Primary]));
+		cJSON_AddItemToObject(gamepad, "secondary", input_binding_json(bindings->bindings[(s32)Controls::Secondary]));
+		cJSON_AddItemToObject(gamepad, "parkour", input_binding_json(bindings->bindings[(s32)Controls::Parkour]));
+		cJSON_AddItemToObject(gamepad, "slide", input_binding_json(bindings->bindings[(s32)Controls::Slide]));
+		cJSON_AddItemToObject(gamepad, "ability", input_binding_json(bindings->bindings[(s32)Controls::Ability]));
+		cJSON_AddItemToObject(gamepad, "menu", input_binding_json(bindings->bindings[(s32)Controls::Menu]));
+		cJSON_AddItemToObject(gamepad, "invert", cJSON_CreateNumber(bindings->invert));
+		cJSON_AddItemToObject(gamepad, "sensitivity", cJSON_CreateNumber(bindings->sensitivity));
+		cJSON_AddItemToArray(gamepads, gamepad);
+	}
+
+	char path[max_user_data_path_length];
+	user_data_path(path, config_filename);
+
+	Json::save(json, path);
+	Json::json_free(json);
 }
 
 void read_mesh(Mesh* mesh, const char* path, Array<Attrib>* extra_attribs = nullptr)
@@ -846,113 +975,10 @@ AssetID Loader::find(const char* name, const char** list)
 	return AssetNull;
 }
 
-InputBinding input_binding(cJSON* parent, const char* key, const InputBinding& default_value)
-{
-	if (!parent)
-		return default_value;
-
-	cJSON* json = cJSON_GetObjectItem(parent, key);
-	if (!json)
-		return default_value;
-
-	InputBinding binding;
-	binding.key1 = (KeyCode)Json::get_s32(json, "key1", (s32)default_value.key1);
-	binding.key2 = (KeyCode)Json::get_s32(json, "key2", (s32)default_value.key2);
-	binding.btn = (Gamepad::Btn)Json::get_s32(json, "btn", (s32)default_value.btn);
-	return binding;
-}
-
-cJSON* input_binding_json(const InputBinding& binding)
-{
-	cJSON* json = cJSON_CreateObject();
-	if (binding.key1 != KeyCode::None)
-		cJSON_AddNumberToObject(json, "key1", (s32)binding.key1);
-	if (binding.key2 != KeyCode::None)
-		cJSON_AddNumberToObject(json, "key2", (s32)binding.key2);
-	if (binding.btn != Gamepad::Btn::None)
-		cJSON_AddNumberToObject(json, "btn", (s32)binding.btn);
-	return json;
-}
-
 void Loader::user_data_path(char* path, const char* filename)
 {
 	vi_assert(strlen(Loader::data_directory) + strlen(filename) < max_user_data_path_length);
 	sprintf(path, "%s%s", Loader::data_directory, filename);
-}
-
-#define config_filename "config.txt"
-
-Settings& Loader::settings()
-{
-	if (!settings_data.valid)
-	{
-		settings_data.valid = true;
-
-		char path[max_user_data_path_length];
-		user_data_path(path, config_filename);
-		cJSON* json = Json::load(path);
-
-		settings_data.width = Json::get_s32(json, "width", 1920);
-		settings_data.height = Json::get_s32(json, "height", 1080);
-		settings_data.fullscreen = (b8)Json::get_s32(json, "fullscreen", 0);
-		settings_data.vsync = (b8)Json::get_s32(json, "vsync", 0);
-		settings_data.sfx = (u8)Json::get_s32(json, "sfx", 100);
-		settings_data.music = (u8)Json::get_s32(json, "music", 100);
-		settings_data.framerate_limit = vi_max(30, Json::get_s32(json, "framerate_limit", 120));
-
-		cJSON* bindings = json ? cJSON_GetObjectItem(json, "bindings") : nullptr;
-		settings_data.bindings.backward = input_binding(bindings, "backward", { KeyCode::S, KeyCode::Down, Gamepad::Btn::DDown });
-		settings_data.bindings.forward = input_binding(bindings, "forward", { KeyCode::W, KeyCode::Up, Gamepad::Btn::DUp });
-		settings_data.bindings.left = input_binding(bindings, "left", { KeyCode::A, KeyCode::Left, Gamepad::Btn::DLeft });
-		settings_data.bindings.right = input_binding(bindings, "right", { KeyCode::D, KeyCode::Right, Gamepad::Btn::DRight });
-		settings_data.bindings.up = input_binding(bindings, "up", { KeyCode::Space, KeyCode::None, Gamepad::Btn::RightShoulder });
-		settings_data.bindings.down = input_binding(bindings, "down", { KeyCode::LCtrl, KeyCode::None, Gamepad::Btn::LeftShoulder });
-		settings_data.bindings.jump = input_binding(bindings, "jump", { KeyCode::Space, KeyCode::None, Gamepad::Btn::RightTrigger });
-		settings_data.bindings.primary = input_binding(bindings, "primary", { KeyCode::MouseLeft, KeyCode::E, Gamepad::Btn::RightTrigger });
-		settings_data.bindings.secondary = input_binding(bindings, "secondary", { KeyCode::MouseRight, KeyCode::Q, Gamepad::Btn::LeftTrigger });
-		settings_data.bindings.parkour = input_binding(bindings, "parkour", { KeyCode::LShift, KeyCode::None, Gamepad::Btn::LeftTrigger });
-		settings_data.bindings.slide = input_binding(bindings, "slide", { KeyCode::MouseLeft, KeyCode::None, Gamepad::Btn::LeftClick });
-		settings_data.bindings.ability = input_binding(bindings, "ability", { KeyCode::F, KeyCode::None, Gamepad::Btn::X });
-		settings_data.bindings.menu = input_binding(bindings, "menu", { KeyCode::Tab, KeyCode::None, Gamepad::Btn::Y });
-	}
-	return settings_data;
-}
-
-void Loader::settings_save()
-{
-	if (settings_data.valid)
-	{
-		cJSON* json = cJSON_CreateObject();
-		cJSON_AddNumberToObject(json, "width", settings_data.width);
-		cJSON_AddNumberToObject(json, "height", settings_data.height);
-		cJSON_AddNumberToObject(json, "fullscreen", settings_data.fullscreen);
-		cJSON_AddNumberToObject(json, "vsync", settings_data.vsync);
-		cJSON_AddNumberToObject(json, "sfx", settings_data.sfx);
-		cJSON_AddNumberToObject(json, "music", settings_data.music);
-
-		cJSON* bindings = cJSON_CreateObject();
-		cJSON_AddItemToObject(json, "bindings", bindings);
-
-		cJSON_AddItemToObject(bindings, "backward", input_binding_json(settings_data.bindings.backward));
-		cJSON_AddItemToObject(bindings, "forward", input_binding_json(settings_data.bindings.forward));
-		cJSON_AddItemToObject(bindings, "left", input_binding_json(settings_data.bindings.left));
-		cJSON_AddItemToObject(bindings, "right", input_binding_json(settings_data.bindings.right));
-		cJSON_AddItemToObject(bindings, "up", input_binding_json(settings_data.bindings.up));
-		cJSON_AddItemToObject(bindings, "down", input_binding_json(settings_data.bindings.down));
-		cJSON_AddItemToObject(bindings, "jump", input_binding_json(settings_data.bindings.jump));
-		cJSON_AddItemToObject(bindings, "primary", input_binding_json(settings_data.bindings.primary));
-		cJSON_AddItemToObject(bindings, "secondary", input_binding_json(settings_data.bindings.secondary));
-		cJSON_AddItemToObject(bindings, "parkour", input_binding_json(settings_data.bindings.parkour));
-		cJSON_AddItemToObject(bindings, "slide", input_binding_json(settings_data.bindings.slide));
-		cJSON_AddItemToObject(bindings, "ability", input_binding_json(settings_data.bindings.ability));
-		cJSON_AddItemToObject(bindings, "menu", input_binding_json(settings_data.bindings.menu));
-
-		char path[max_user_data_path_length];
-		user_data_path(path, config_filename);
-
-		Json::save(json, path);
-		Json::json_free(json);
-	}
 }
 
 }

@@ -1622,6 +1622,8 @@ namespace LMath
 		else
 			return angle_range(vi_max(angle - delta, closest_target));
 	}
+
+	b8 ray_sphere_intersect(const Vec3&, const Vec3&, const Vec3&, r32, Vec3* = nullptr);
 }
 
 

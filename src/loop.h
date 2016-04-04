@@ -15,6 +15,7 @@
 #include <time.h>
 #include "platform/util.h"
 #include "noise.h"
+#include "settings.h"
 
 #if DEBUG
 	#define DEBUG_RENDER 0
@@ -188,7 +189,7 @@ void render_point_lights(const RenderParams& render_params, s32 type_mask, const
 	}
 }
 
-void render_spot_lights(const RenderParams& render_params, s32 type_mask, s32 fbo, RenderBlendMode blend_mode, const Vec2& inv_buffer_size, const Mat4& inverse_view_rotation_only, u8 team_mask = -1)
+void render_spot_lights(const RenderParams& render_params, s32 fbo, RenderBlendMode blend_mode, const Vec2& inv_buffer_size, const Mat4& inverse_view_rotation_only, u8 team_mask = -1)
 {
 	LoopSync* sync = render_params.sync;
 
@@ -200,7 +201,7 @@ void render_spot_lights(const RenderParams& render_params, s32 type_mask, s32 fb
 	for (auto i = SpotLight::list.iterator(); !i.is_last(); i.next())
 	{
 		SpotLight* light = i.item();
-		if (!((s32)light->type & type_mask) || !(light->mask & render_params.camera->mask) || !(light->team_mask & team_mask))
+		if (!(light->mask & render_params.camera->mask) || !(light->team_mask & team_mask))
 			continue;
 
 		if (light->color.length_squared() == 0.0f || light->fov == 0.0f || light->radius == 0.0f)
@@ -351,12 +352,6 @@ void render_spot_lights(const RenderParams& render_params, s32 type_mask, s32 fb
 		sync->write<Mat4>(light_transform * render_params.view_projection);
 
 		sync->write(RenderOp::Uniform);
-		sync->write(Asset::Uniform::type);
-		sync->write(RenderDataType::S32);
-		sync->write<s32>(1);
-		sync->write<s32>((s32)light->type);
-
-		sync->write(RenderOp::Uniform);
 		sync->write(Asset::Uniform::frustum);
 		sync->write(RenderDataType::Vec3);
 		sync->write<s32>(4);
@@ -406,12 +401,12 @@ void draw(LoopSync* sync, const Camera* camera)
 		camera->viewport.size / Vec2(sync->input.width, sync->input.height),
 	};
 	screen_quad.set
-		(
-			sync,
-			{ Vec2(-1, -1), Vec2(2, 2) },
-			camera,
-			screen_quad_uv
-			);
+	(
+		sync,
+		{ Vec2(-1, -1), Vec2(2, 2) },
+		camera,
+		screen_quad_uv
+	);
 
 	UI::update(render_params);
 
@@ -449,21 +444,15 @@ void draw(LoopSync* sync, const Camera* camera)
 		{
 			// render all override lights
 			render_point_lights(render_params, (s32)PointLight::Type::Override, inv_buffer_size);
-			render_spot_lights(render_params, (s32)SpotLight::Type::Override, color_fbo1, RenderBlendMode::AlphaDestination, inv_buffer_size, inverse_view_rotation_only);
 		}
 		else
 		{
 			// render our team lights first
 			u8 team_mask = 1 << camera->team;
 			render_point_lights(render_params, (s32)PointLight::Type::Override, inv_buffer_size, team_mask);
-			render_spot_lights(render_params, (s32)SpotLight::Type::Override, color_fbo1, RenderBlendMode::AlphaDestination, inv_buffer_size, inverse_view_rotation_only, team_mask);
 
 			// render other team lights
-			sync->write<RenderOp>(RenderOp::CullMode);
-			sync->write<RenderCullMode>(RenderCullMode::Front);
 			render_point_lights(render_params, (s32)PointLight::Type::Override, inv_buffer_size, ~team_mask);
-
-			render_spot_lights(render_params, (s32)SpotLight::Type::Override, color_fbo1, RenderBlendMode::AlphaDestination, inv_buffer_size, inverse_view_rotation_only, ~team_mask);
 		}
 
 		sync->write<RenderOp>(RenderOp::CullMode);
@@ -663,7 +652,7 @@ void draw(LoopSync* sync, const Camera* camera)
 
 		{
 			// Spot lights
-			render_spot_lights(render_params, (s32)SpotLight::Type::Normal, lighting_fbo, RenderBlendMode::Additive, inv_buffer_size, inverse_view_rotation_only);
+			render_spot_lights(render_params, lighting_fbo, RenderBlendMode::Additive, inv_buffer_size, inverse_view_rotation_only);
 		}
 
 	}
@@ -1251,7 +1240,7 @@ void loop(LoopSwapper* swapper, PhysicsSwapper* physics_swapper)
 		{
 			// limit framerate
 
-			r32 framerate_limit = u.input->focus ? Loader::settings().framerate_limit : 30;
+			r32 framerate_limit = u.input->focus ? Settings::framerate_limit : 30;
 
 			r32 delay = (1.0f / framerate_limit) - time_update;
 			if (delay > 0)

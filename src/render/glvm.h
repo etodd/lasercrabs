@@ -112,6 +112,8 @@ enum class RenderFillMode
 	Point,
 };
 
+typedef u8 RenderColorMask;
+
 struct RenderSync : public SyncBuffer
 {
 };

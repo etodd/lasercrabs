@@ -50,14 +50,6 @@
 namespace VI
 {
 
-Game::Bindings Game::bindings =
-{
-	{ KeyCode::Space, KeyCode::None, Gamepad::Btn::Start }, // Start
-	{ KeyCode::Return, KeyCode::None, Gamepad::Btn::A }, // Action
-	{ KeyCode::Escape, KeyCode::None, Gamepad::Btn::B }, // Cancel
-	{ KeyCode::Escape, KeyCode::None, Gamepad::Btn::Start }, // Pause
-};
-
 b8 Game::quit = false;
 GameTime Game::time = GameTime();
 GameTime Game::real_time = GameTime();
@@ -455,7 +447,7 @@ void Game::execute(const Update& u, const char* cmd)
 				Menu::transition(level, Game::Mode::Parkour);
 		}
 	}
-	else if (strstr(cmd, "loadmp ") == cmd)
+	else if (strstr(cmd, "loadpvp ") == cmd)
 	{
 		const char* delimiter = strchr(cmd, ' ');
 		if (delimiter)
@@ -585,11 +577,11 @@ void Game::load_level(const Update& u, AssetID l, Mode m)
 	
 	cJSON* json = Loader::level(data.level);
 
-	const Vec3 pvp_accessible(0.4f, 0.4f, 0.4f);
-	const Vec3 pvp_inaccessible(0.01f, 0.01f, 0.01f);
-	const Vec3 pvp_sky(0.0f, 0.2f, 0.32f);
+	const Vec3 pvp_accessible(0.6f);
+	const Vec3 pvp_inaccessible(0.0f);
+	const Vec3 pvp_sky(0.0f);
 	const Vec3 pvp_ambient(0.15f);
-	const Vec3 pvp_zenith(0.1f);
+	const Vec3 pvp_zenith(0.0f);
 	const Vec3 pvp_player_light(1.0f);
 
 	AI::Team teams[(s32)AI::Team::count];
@@ -639,7 +631,7 @@ void Game::load_level(const Update& u, AssetID l, Mode m)
 					// inaccessible
 					m = World::alloc<StaticGeom>(mesh_id, absolute_pos, absolute_rot, CollisionInaccessible, CollisionInaccessibleMask);
 					Vec4 color = Loader::mesh(mesh_id)->color;
-					if (data.mode == Mode::Pvp) // override colors
+					if (data.mode != Mode::Parkour) // override colors
 						color.xyz(pvp_inaccessible);
 					color.w = MATERIAL_NO_OVERRIDE; // special G-buffer index for inaccessible materials
 					m->get<View>()->color = color;
@@ -650,7 +642,7 @@ void Game::load_level(const Update& u, AssetID l, Mode m)
 					m = World::alloc<StaticGeom>(mesh_id, absolute_pos, absolute_rot);
 
 					Vec4 color = Loader::mesh(mesh_id)->color;
-					if (data.mode == Mode::Pvp) // override colors
+					if (data.mode != Mode::Parkour) // override colors
 						color.xyz(pvp_accessible);
 					m->get<View>()->color = color;
 				}
@@ -737,7 +729,14 @@ void Game::load_level(const Update& u, AssetID l, Mode m)
 			// World is guaranteed to be the first element in the entity list
 			const char* next_mode_string = Json::get_string(element, "next_mode");
 			if (next_mode_string)
-				data.next_mode = strcmp(next_mode_string, "parkour") == 0 ? Game::Mode::Parkour : Game::Mode::Pvp;
+			{
+				if (strcmp(next_mode_string, "parkour") == 0)
+					data.next_mode = Game::Mode::Parkour;
+				else if (strcmp(next_mode_string, "pvp") == 0)
+					data.next_mode = Game::Mode::Pvp;
+				else
+					data.next_mode = Game::Mode::Special;
+			}
 			else
 				data.next_mode = Game::Mode::Pvp;
 
@@ -748,7 +747,7 @@ void Game::load_level(const Update& u, AssetID l, Mode m)
 			Vec3 ambient;
 			Vec3 zenith;
 			Vec3 player_light;
-			if (data.mode == Mode::Pvp)
+			if (data.mode != Mode::Parkour)
 			{
 				// override colors
 				sky = pvp_sky;

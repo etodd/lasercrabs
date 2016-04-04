@@ -17,11 +17,11 @@
 #include "data/ragdoll.h"
 #include "entities.h"
 
-#define HEAD_RADIUS 0.35f
+#define MINION_VIEW_RANGE 15.0f
 
 #define WALK_SPEED 1.0f
 
-#define HEALTH 50
+#define HEALTH 5
 
 namespace VI
 {
@@ -94,18 +94,7 @@ Vec3 MinionCommon::head_pos()
 
 b8 MinionCommon::headshot_test(const Vec3& ray_start, const Vec3& ray_end)
 {
-	Vec3 head = head_pos();
-
-	Vec3 ray = ray_end - ray_start;
-	Vec3 head_to_ray_start = ray_start - head;
-
-	r32 a = ray.length_squared();
-	r32 b = 2.0f * ray.dot(head_to_ray_start);
-	r32 c = head_to_ray_start.length_squared() - (HEAD_RADIUS * HEAD_RADIUS);
-
-	r32 delta = (b * b) - 4.0f * a * c;
-
-	return delta >= 0.0f;
+	return LMath::ray_sphere_intersect(ray_start, ray_end, head_pos(), MINION_HEAD_RADIUS);
 }
 
 void MinionCommon::update(const Update& u)

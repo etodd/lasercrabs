@@ -10,36 +10,6 @@ struct cJSON;
 namespace VI
 {
 
-struct Settings
-{
-	struct Bindings
-	{
-		InputBinding forward;
-		InputBinding backward;
-		InputBinding left;
-		InputBinding right;
-		InputBinding down;
-		InputBinding up;
-		InputBinding jump;
-		InputBinding primary;
-		InputBinding secondary;
-		InputBinding parkour;
-		InputBinding slide;
-		InputBinding ability;
-		InputBinding menu;
-	};
-
-	Bindings bindings;
-	b8 valid;
-	s32 width;
-	s32 height;
-	b8 fullscreen;
-	b8 vsync;
-	u8 sfx;
-	u8 music;
-	s32 framerate_limit;
-};
-
 #define max_user_data_path_length 1024
 
 struct Loader
@@ -72,7 +42,6 @@ struct Loader
 	static Array<Entry<void*> > dynamic_textures; // Nothing actually stored
 	static Array<Entry<void*> > framebuffers; // Nothing actually stored
 	static Array<Entry<AkBankID> > soundbanks;
-	static Settings settings_data;
 	static void user_data_path(char*, const char*);
 
 	static Mesh* mesh(AssetID);
@@ -124,7 +93,7 @@ struct Loader
 	static b8 soundbank_permanent(AssetID);
 	static void soundbank_free(AssetID);
 	
-	static Settings& settings();
+	static void settings_load();
 	static void settings_save();
 
 	static void transients_free();

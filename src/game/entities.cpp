@@ -94,11 +94,9 @@ HealthPickupEntity::HealthPickupEntity()
 
 	HealthPickup* pickup = create<HealthPickup>();
 
-	const r32 radius = 0.55f;
+	model->offset.scale(Vec3(HEALTH_PICKUP_RADIUS - 0.2f));
 
-	model->offset.scale(Vec3(radius - 0.2f));
-
-	RigidBody* body = create<RigidBody>(RigidBody::Type::Sphere, Vec3(radius), 0.1f, CollisionDefault | CollisionTarget, btBroadphaseProxy::AllFilter);
+	RigidBody* body = create<RigidBody>(RigidBody::Type::Sphere, Vec3(HEALTH_PICKUP_RADIUS), 0.1f, CollisionDefault | CollisionTarget, btBroadphaseProxy::AllFilter);
 	body->set_damping(0.5f, 0.5f);
 }
 
@@ -217,11 +215,9 @@ MinionSpawnEntity::MinionSpawnEntity()
 
 	Target* target = create<Target>();
 
-	const r32 radius = 0.55f;
+	model->offset.scale(Vec3(MINION_SPAWN_RADIUS - 0.2f));
 
-	model->offset.scale(Vec3(radius - 0.2f));
-
-	RigidBody* body = create<RigidBody>(RigidBody::Type::Sphere, Vec3(radius), 0.1f, CollisionDefault | CollisionTarget, btBroadphaseProxy::AllFilter);
+	RigidBody* body = create<RigidBody>(RigidBody::Type::Sphere, Vec3(MINION_SPAWN_RADIUS), 0.1f, CollisionDefault | CollisionTarget, btBroadphaseProxy::AllFilter);
 	body->set_damping(0.5f, 0.5f);
 
 	create<MinionSpawn>();
@@ -503,12 +499,12 @@ void Projectile::update(const Update& u)
 			if (owner.ref())
 				color = Team::colors[(s32)owner.ref()->get<AIAgent>()->team] + Vec4(0.5f, 0.5f, 0.5f, 0);
 
-			for (s32 i = 0; i < 30; i++)
+			for (s32 i = 0; i < 50; i++)
 			{
 				Particles::sparks.add
 				(
 					ray_callback.m_hitPointWorld,
-					Quat::look(basis) * Vec3(mersenne::randf_oo() * 2.0f - 1.0f, mersenne::randf_oo() * 2.0f - 1.0f, mersenne::randf_oo()) * 8.0f,
+					Quat::look(basis) * Vec3(mersenne::randf_oo() * 2.0f - 1.0f, mersenne::randf_oo() * 2.0f - 1.0f, mersenne::randf_oo()) * 10.0f,
 					color
 				);
 			}

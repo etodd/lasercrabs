@@ -297,6 +297,29 @@ struct InputBinding
 	const char* string(b8) const;
 };
 
+enum class Controls
+{
+	Forward,
+	Backward,
+	Left,
+	Right,
+	Down,
+	Up,
+	Jump,
+	Primary,
+	Secondary,
+	Parkour,
+	Slide,
+	Ability,
+	Menu,
+	Start,
+	Action,
+	Click,
+	Cancel,
+	Pause,
+	count,
+};
+
 struct InputState
 {
 	b8 keys[(s32)KeyCode::Count];
@@ -307,11 +330,7 @@ struct InputState
 	s32 height;
 	b8 focus;
 
-	inline b8 get(const InputBinding& binding, s32 index) const
-	{
-		return (index == 0 && (keys[(s32)binding.key1] || (binding.key2 != KeyCode::None && keys[(s32)binding.key2])))
-			|| (gamepads[index].btns & (s32)binding.btn);
-	}
+	b8 get(Controls, s32) const;
 };
 
 }

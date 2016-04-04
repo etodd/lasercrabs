@@ -10,6 +10,7 @@
 #include <thread>
 #include "physics.h"
 #include "loop.h"
+#include "settings.h"
 #include <Windows.h>
 
 namespace VI
@@ -66,14 +67,14 @@ namespace VI
 		SDL_SetHint(SDL_HINT_MOUSE_RELATIVE_MODE_WARP, "1");
 #endif
 
-		Settings& settings = Loader::settings();
+		Loader::settings_load();
 
 		window = SDL_CreateWindow
 		(
 			"The Yearning",
 			SDL_WINDOWPOS_CENTERED,
 			SDL_WINDOWPOS_CENTERED,
-			settings.width, settings.height,
+			Settings::width, Settings::height,
 			SDL_WINDOW_OPENGL
 			| SDL_WINDOW_SHOWN
 			| SDL_WINDOW_BORDERLESS
@@ -82,7 +83,7 @@ namespace VI
 			| SDL_WINDOW_MOUSE_FOCUS
 			| SDL_WINDOW_MOUSE_CAPTURE
 			| SDL_WINDOW_ALLOW_HIGHDPI
-			| (settings.fullscreen ? SDL_WINDOW_FULLSCREEN : 0)
+			| (Settings::fullscreen ? SDL_WINDOW_FULLSCREEN : 0)
 		);
 
 #if defined(__APPLE__)
@@ -104,7 +105,7 @@ namespace VI
 			return -1;
 		}
 
-		if (SDL_GL_SetSwapInterval(settings.vsync ? 1 : 0) != 0)
+		if (SDL_GL_SetSwapInterval(Settings::vsync ? 1 : 0) != 0)
 		{
 			fprintf(stderr, "Failed to set OpenGL swap interval: %s\n", SDL_GetError());
 			return -1;

@@ -10,7 +10,7 @@ namespace VI
 
 struct PlayerManager;
 
-#define MINION_VIEW_RANGE 15.0f
+#define MINION_HEAD_RADIUS 0.35f
 
 struct Minion : public Entity
 {

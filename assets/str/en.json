@@ -30,6 +30,7 @@
 		"hp": "HP",
 		"ability_menu": "[{{Menu}}] Abilities",
 		"upgrade": "Upgrade",
+		"upgrade_prompt": "Upgrade at spawn",
 		"binding": "[%s]",
 		"target_damaged": "Target damaged",
 		"target_killed": "Target killed",

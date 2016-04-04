@@ -50,15 +50,6 @@ struct Game
 		Data();
 	};
 
-	struct Bindings
-	{
-		InputBinding start;
-		InputBinding action;
-		InputBinding cancel;
-		InputBinding pause;
-	};
-
-	static Bindings bindings;
 	static b8 quit;
 	static r32 time_scale;
 	static GameTime time;

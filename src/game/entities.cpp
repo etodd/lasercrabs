@@ -276,7 +276,7 @@ PlayerSpawn::PlayerSpawn(AI::Team team)
 	view->shader = Asset::Shader::standard;
 	view->color = Vec4(color, MATERIAL_UNLIT);
 
-	create<PlayerTrigger>()->radius = 2.0f;
+	create<PlayerTrigger>()->radius = PLAYER_SPAWN_RADIUS;
 
 	PointLight* light = create<PointLight>();
 	light->color = color;

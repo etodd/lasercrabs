@@ -182,7 +182,7 @@ void Walker::update(const Update& u)
 
 				r32 movement_length = vi_min(1.0f, movement.length());
 
-				if (has_traction && movement_length > 0.0f)
+				if (has_traction && !btFuzzyZero(movement_length))
 				{
 					// Slide against walls
 					if (!slide(&movement, Vec3(dir.x, 0, dir.y)))

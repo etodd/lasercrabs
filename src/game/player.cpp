@@ -1336,9 +1336,26 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 			compass_color = enemy_visible ? &UI::alert_color : &UI::accent_color;
 		}
 
-		Vec2 compass_size = Vec2(vi_min(viewport.size.x, viewport.size.y) * 0.3f);
-		UI::mesh(params, Asset::Mesh::compass_inner, viewport.size * Vec2(0.5f, 0.5f), compass_size, *compass_color, get<PlayerCommon>()->angle_vertical);
-		UI::mesh(params, Asset::Mesh::compass_outer, viewport.size * Vec2(0.5f, 0.5f), compass_size, *compass_color, -get<PlayerCommon>()->angle_horizontal);
+		{
+			// draw indicators pointing toward player spawns
+			Vec3 me = get<Transform>()->absolute_pos();
+			Vec2 compass_size = Vec2(vi_min(viewport.size.x, viewport.size.y) * 0.3f);
+			UI::mesh(params, Asset::Mesh::compass_inner, viewport.size * Vec2(0.5f, 0.5f), compass_size, *compass_color, get<PlayerCommon>()->angle_vertical);
+			for (s32 i = 0; i < Team::list.capacity(); i++)
+			{
+				Team* t = &Team::list[i];
+				if (t->player_spawn.ref())
+				{
+					Vec3 to_spawn = t->player_spawn.ref()->get<Transform>()->absolute_pos() - me;
+					r32 distance = to_spawn.length();
+					if (distance > PLAYER_SPAWN_RADIUS)
+					{
+						to_spawn /= distance;
+						UI::mesh(params, Asset::Mesh::compass_indicator, viewport.size * Vec2(0.5f, 0.5f), compass_size, Team::ui_colors[(s32)t->team()], atan2f(to_spawn.x, to_spawn.z) - get<PlayerCommon>()->angle_horizontal);
+					}
+				}
+			}
+		}
 	}
 
 	if (Game::data.mode == Game::Mode::Pvp)

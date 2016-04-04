@@ -12,8 +12,8 @@ namespace Asset
 		const AssetID awk = 0;
 		const AssetID character_gun = 1;
 		const AssetID character_mesh = 2;
-		const AssetID compass_inner = 3;
-		const AssetID compass_outer = 4;
+		const AssetID compass_indicator = 3;
+		const AssetID compass_inner = 4;
 		const AssetID cone = 5;
 		const AssetID cube = 6;
 		const AssetID cursor = 7;

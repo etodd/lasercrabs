@@ -11,6 +11,7 @@ namespace VI
 struct Transform;
 struct Rope;
 struct View;
+struct DamageEvent;
 
 #define AWK_HEALTH 3
 #define AWK_FLY_SPEED 50.0f
@@ -49,6 +50,7 @@ struct Awk : public ComponentType<Awk>
 	Link attached;
 	LinkArg<const Vec3&> bounce;
 	LinkArg<Entity*> hit;
+	StaticArray<Ref<Entity>, 4> hit_targets;
 	Link detached;
 	r32 attach_time;
 	Footing footing[AWK_LEGS];
@@ -65,7 +67,7 @@ struct Awk : public ComponentType<Awk>
 
 	void hit_by(const TargetEvent&); // Called when we get hit
 	void hit_target(Entity*); // Called when we hit a target
-	void damaged(Entity*);
+	void damaged(const DamageEvent&);
 	void killed(Entity*);
 	void update_shield_visibility();
 

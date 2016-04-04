@@ -40,7 +40,7 @@ void Walker::awake()
 	if (has<RigidBody>())
 		body = get<RigidBody>(); // RigidBody will already be awake because it comes first in the component list
 	else
-		body = entity()->add<RigidBody>(RigidBody::Type::CapsuleY, Vec3(radius, height, 0), mass, CollisionWalker, short(btBroadphaseProxy::AllFilter));
+		body = entity()->add<RigidBody>(RigidBody::Type::CapsuleY, Vec3(radius, height, 0), mass, CollisionWalker, ~CollisionAwk & ~CollisionShield);
 
 	body->btBody->setFriction(0);
 	body->btBody->setRollingFriction(0);
@@ -73,7 +73,7 @@ b8 Walker::slide(Vec2* movement, const Vec3& wall_ray)
 	btCollisionWorld::ClosestRayResultCallback ray_callback(ray_start, ray_end);
 	ray_callback.m_flags = btTriangleRaycastCallback::EFlags::kF_FilterBackfaces
 		| btTriangleRaycastCallback::EFlags::kF_KeepUnflippedNormal;
-	ray_callback.m_collisionFilterMask = ray_callback.m_collisionFilterGroup = ~CollisionWalker & ~CollisionTarget;
+	ray_callback.m_collisionFilterMask = ray_callback.m_collisionFilterGroup = ~CollisionWalker & ~CollisionTarget & ~CollisionShield & ~CollisionAwk;
 	Physics::btWorld->rayTest(ray_start, ray_end, ray_callback);
 	if (ray_callback.hasHit())
 	{
@@ -109,7 +109,7 @@ btCollisionWorld::ClosestRayResultCallback Walker::check_support()
 		btCollisionWorld::ClosestRayResultCallback ray_callback(ray_start, ray_end);
 		ray_callback.m_flags = btTriangleRaycastCallback::EFlags::kF_FilterBackfaces
 			| btTriangleRaycastCallback::EFlags::kF_KeepUnflippedNormal;
-		ray_callback.m_collisionFilterMask = ray_callback.m_collisionFilterGroup = ~CollisionWalker & ~CollisionTarget;
+		ray_callback.m_collisionFilterMask = ray_callback.m_collisionFilterGroup = ~CollisionWalker & ~CollisionTarget & ~CollisionShield & ~CollisionAwk;
 
 		Physics::btWorld->rayTest(ray_start, ray_end, ray_callback);
 		if (ray_callback.hasHit())

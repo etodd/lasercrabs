@@ -36,7 +36,7 @@
 		"target_killed": "Target killed",
 		"sensor_destroyed": "Sensor destroyed",
 		"health_pickup": "HP +1",
-		"damaged": "HP -1",
+		"damaged": "HP -%d",
 		"minion_spawned": "Minion spawned",
 		"left_joystick": "Left joystick",
 		"right_joystick": "Right joystick",

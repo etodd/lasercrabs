@@ -692,7 +692,8 @@ void render(RenderSync* sync)
 
 				for (s32 i = 0; i < (s32)RenderTechnique::count; i++)
 				{
-					compile_shader(TechniquePrefixes::all[i], code, code_length, &GLData::shaders[id][i].handle);
+					b8 success = compile_shader(TechniquePrefixes::all[i], code, code_length, &GLData::shaders[id][i].handle);
+					vi_assert(success);
 
 					GLData::shaders[id][i].uniforms.resize(GLData::uniform_names.length);
 					for (s32 j = 0; j < GLData::uniform_names.length; j++)

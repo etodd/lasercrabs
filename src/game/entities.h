@@ -20,11 +20,17 @@ struct AwkEntity : public Entity
 	AwkEntity(AI::Team);
 };
 
+struct DamageEvent
+{
+	Entity* damager;
+	u16 amount;
+};
+
 struct Health : public ComponentType<Health>
 {
 	u16 hp;
 	u16 hp_max;
-	LinkArg<Entity*> damaged;
+	LinkArg<const DamageEvent&> damaged;
 	LinkArg<Entity*> killed;
 	Link added;
 

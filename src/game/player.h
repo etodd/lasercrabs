@@ -16,6 +16,7 @@ struct Transform;
 struct LocalPlayerControl;
 struct PlayerManager;
 struct Health;
+struct DamageEvent;
 
 #define MAX_PLAYER_COMBOS 28 // C(MAX_PLAYERS, 2)
 
@@ -127,7 +128,7 @@ struct LocalPlayerControl : public ComponentType<LocalPlayerControl>
 
 	void awk_attached();
 	void hit_target(Entity*);
-	void damaged(Entity*);
+	void damaged(const DamageEvent&);
 	void health_picked_up();
 
 	void update(const Update&);

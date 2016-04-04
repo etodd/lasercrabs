@@ -66,7 +66,7 @@ void Health::damage(Entity* e, u16 damage)
 			hp = 0;
 		else
 			hp -= damage;
-		damaged.fire(e);
+		damaged.fire({ e, damage });
 		if (hp == 0)
 			killed.fire(e);
 	}
@@ -96,7 +96,7 @@ HealthPickupEntity::HealthPickupEntity()
 
 	model->offset.scale(Vec3(HEALTH_PICKUP_RADIUS - 0.2f));
 
-	RigidBody* body = create<RigidBody>(RigidBody::Type::Sphere, Vec3(HEALTH_PICKUP_RADIUS), 0.1f, CollisionDefault | CollisionTarget, btBroadphaseProxy::AllFilter);
+	RigidBody* body = create<RigidBody>(RigidBody::Type::Sphere, Vec3(HEALTH_PICKUP_RADIUS), 0.1f, CollisionDefault | CollisionTarget, ~CollisionAwk & ~CollisionShield);
 	body->set_damping(0.5f, 0.5f);
 }
 
@@ -217,7 +217,7 @@ MinionSpawnEntity::MinionSpawnEntity()
 
 	model->offset.scale(Vec3(MINION_SPAWN_RADIUS - 0.2f));
 
-	RigidBody* body = create<RigidBody>(RigidBody::Type::Sphere, Vec3(MINION_SPAWN_RADIUS), 0.1f, CollisionDefault | CollisionTarget, btBroadphaseProxy::AllFilter);
+	RigidBody* body = create<RigidBody>(RigidBody::Type::Sphere, Vec3(MINION_SPAWN_RADIUS), 0.1f, CollisionDefault | CollisionTarget, ~CollisionAwk & ~CollisionShield);
 	body->set_damping(0.5f, 0.5f);
 
 	create<MinionSpawn>();

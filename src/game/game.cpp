@@ -436,8 +436,9 @@ void Game::execute(const Update& u, const char* cmd)
 			}
 		}
 	}
-	else if (strstr(cmd, "load ") == cmd)
+	else if (strstr(cmd, "loadp ") == cmd)
 	{
+		// parkour mode
 		const char* delimiter = strchr(cmd, ' ');
 		if (delimiter)
 		{
@@ -447,8 +448,9 @@ void Game::execute(const Update& u, const char* cmd)
 				Menu::transition(level, Game::Mode::Parkour);
 		}
 	}
-	else if (strstr(cmd, "loadpvp ") == cmd)
+	else if (strstr(cmd, "load ") == cmd)
 	{
+		// pvp mode
 		const char* delimiter = strchr(cmd, ' ');
 		if (delimiter)
 		{
@@ -456,6 +458,18 @@ void Game::execute(const Update& u, const char* cmd)
 			AssetID level = Loader::find(level_name, AssetLookup::Level::names);
 			if (level != AssetNull)
 				Menu::transition(level, Game::Mode::Pvp);
+		}
+	}
+	else if (strstr(cmd, "loads ") == cmd)
+	{
+		// special mode
+		const char* delimiter = strchr(cmd, ' ');
+		if (delimiter)
+		{
+			const char* level_name = delimiter + 1;
+			AssetID level = Loader::find(level_name, AssetLookup::Level::names);
+			if (level != AssetNull)
+				Menu::transition(level, Game::Mode::Special);
 		}
 	}
 }

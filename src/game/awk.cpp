@@ -87,14 +87,15 @@ Awk::Awk()
 	last_speed(),
 	last_footstep(),
 	shield(),
-	bounce()
+	bounce(),
+	hit_targets()
 {
 }
 
 void Awk::awake()
 {
 	link_arg<Entity*, &Awk::killed>(get<Health>()->killed);
-	link_arg<Entity*, &Awk::damaged>(get<Health>()->damaged);
+	link_arg<const DamageEvent&, &Awk::damaged>(get<Health>()->damaged);
 	link<&Awk::update_shield_visibility>(get<Health>()->added);
 	link_arg<const TargetEvent&, &Awk::hit_by>(get<Target>()->target_hit);
 	if (!shield.ref())
@@ -143,11 +144,31 @@ Vec3 Awk::center()
 
 void Awk::hit_by(const TargetEvent& e)
 {
-	get<Health>()->damage(e.hit_by, 1);
+	Vec3 me = get<Transform>()->absolute_pos();
+	Vec3 awk_pos = e.hit_by->get<Transform>()->absolute_pos();
+	Vec3 awk_dir = Vec3::normalize(e.hit_by->get<Awk>()->velocity);
+	Vec3 intersection;
+	if (LMath::ray_sphere_intersect(awk_pos, awk_pos + awk_dir * AWK_MAX_DISTANCE, me, AWK_SHIELD_RADIUS, &intersection))
+	{
+		if (awk_dir.dot(Vec3::normalize(intersection - me)) > SHIELD_PENETRATION_DOT)
+			get<Health>()->damage(e.hit_by, 1); // glancing blow
+		else
+			get<Health>()->damage(e.hit_by, AWK_HEALTH); // direct hit
+	}
+	else
+		get<Health>()->damage(e.hit_by, 1); // glancing blow
 }
 
 void Awk::hit_target(Entity* target)
 {
+	for (s32 i = 0; i < hit_targets.length; i++)
+	{
+		if (hit_targets[i].ref() == target)
+			return; // we've already hit this target once during this flight
+	}
+	if (hit_targets.length < hit_targets.capacity())
+		hit_targets.add(target);
+
 	if (target->has<Target>())
 	{
 		Target* t = target->get<Target>();
@@ -155,13 +176,15 @@ void Awk::hit_target(Entity* target)
 		if (target->has<RigidBody>())
 		{
 			RigidBody* body = target->get<RigidBody>();
-			body->btBody->applyImpulse(velocity * Game::time.delta * 0.005f, Vec3::zero);
-			body->btBody->setActivationState(ACTIVE_TAG);
+			body->btBody->applyImpulse(velocity * Game::time.delta * 0.0005f, Vec3::zero);
+			body->btBody->activate(true);
 		}
 
-		hit.fire(target);
 		t->hit(entity());
 	}
+
+	if (target->has<MinionCommon>())
+		target->get<Health>()->damage(entity(), 100);
 
 	Vec3 pos;
 	Quat rot;
@@ -176,6 +199,8 @@ void Awk::hit_target(Entity* target)
 			color
 		);
 	}
+
+	hit.fire(target);
 }
 
 b8 Awk::predict_intersection(const Vec3& target_pos, const Vec3& target_velocity, Vec3* intersection) const
@@ -191,12 +216,12 @@ b8 Awk::predict_intersection(const Vec3& target_pos, const Vec3& target_velocity
 		return false;
 }
 
-void Awk::damaged(Entity* enemy)
+void Awk::damaged(const DamageEvent& e)
 {
-	if (enemy->has<PlayerCommon>())
-		enemy->get<PlayerCommon>()->manager.ref()->add_credits(CREDITS_DAMAGE);
-	if (get<Health>()->hp > 0 && enemy->has<LocalPlayerControl>())
-		enemy->get<LocalPlayerControl>()->player.ref()->msg(_(strings::target_damaged), true);
+	if (e.damager->has<PlayerCommon>())
+		e.damager->get<PlayerCommon>()->manager.ref()->add_credits(CREDITS_DAMAGE);
+	if (get<Health>()->hp > 0 && e.damager->has<LocalPlayerControl>())
+		e.damager->get<LocalPlayerControl>()->player.ref()->msg(_(strings::target_damaged), true);
 	s32 new_health_pickup_count = get<Health>()->hp - 1;
 	s32 health_pickup_count = 0;
 	for (auto i = HealthPickup::list.iterator(); !i.is_last(); i.next())
@@ -266,6 +291,8 @@ b8 Awk::detach(const Vec3& dir)
 {
 	if (get<PlayerCommon>()->cooldown == 0.0f)
 	{
+		hit_targets.length = 0;
+
 		get<Audio>()->post_event(has<LocalPlayerControl>() ? AK::EVENTS::PLAY_LAUNCH_PLAYER : AK::EVENTS::PLAY_LAUNCH);
 
 		attach_time = Game::time.total;
@@ -761,8 +788,8 @@ void Awk::update(const Update& u)
 			if (!btVector3(velocity).fuzzyZero())
 			{
 				Vec3 dir = Vec3::normalize(velocity);
-				Vec3 ray_start = position - dir * AWK_RADIUS;
-				Vec3 ray_end = next_position + dir * AWK_RADIUS;
+				Vec3 ray_start = position;
+				Vec3 ray_end = next_position;
 				btCollisionWorld::AllHitsRayResultCallback ray_callback(ray_start, ray_end);
 				ray_callback.m_flags = btTriangleRaycastCallback::EFlags::kF_FilterBackfaces
 					| btTriangleRaycastCallback::EFlags::kF_KeepUnflippedNormal;
@@ -783,7 +810,7 @@ void Awk::update(const Update& u)
 						b8 stop = false;
 						if ((entity->has<Awk>() && (group & CollisionShield))) // it's an AWK shield
 						{
-							if (entity->get<Health>()->hp > 1 && dir.dot(ray_callback.m_hitNormalWorld[i]) > SHIELD_PENETRATION_DOT)
+							if (entity->get<Health>()->hp > 1 && dir.dot(Vec3::normalize(Vec3(ray_callback.m_hitPointWorld[i]) - entity->get<Transform>()->absolute_pos())) > SHIELD_PENETRATION_DOT)
 								stop = true; // it's a bad shot, we'll reflect off the shield
 						}
 						else if (!(group & (AWK_PERMEABLE_MASK | CollisionWalker))) // it's not a target or a person; we can't go through it
@@ -808,15 +835,10 @@ void Awk::update(const Update& u)
 						{
 							Entity* t = &Entity::list[ray_callback.m_collisionObjects[i]->getUserIndex()];
 							if (t->has<MinionCommon>() && t->get<MinionCommon>()->headshot_test(ray_start, ray_end))
-							{
-								hit.fire(t);
-								t->get<Health>()->damage(entity(), 100);
-							}
+								hit_target(t);
 						}
 						else if (group & CollisionInaccessible)
 						{
-							Entity* t = &Entity::list[ray_callback.m_collisionObjects[i]->getUserIndex()];
-							b8 a = t->has<Sensor>();
 							get<Health>()->damage(entity(), AWK_HEALTH); // Kill self
 							return;
 						}
@@ -824,14 +846,16 @@ void Awk::update(const Update& u)
 						{
 							Ref<Entity> hit = &Entity::list[ray_callback.m_collisionObjects[i]->getUserIndex()];
 							if (hit.ref() != entity())
-								hit_target(hit.ref());
-							if (group & CollisionShield)
 							{
-								// if we didn't destroy the shield,
-								// and if it's not a good shot,
-								// then bounce off the shield
-								if (hit.ref() && hit.ref()->get<Health>()->hp > 0 && dir.dot(ray_callback.m_hitNormalWorld[i]) > SHIELD_PENETRATION_DOT)
-									reflect(ray_callback.m_hitPointWorld[i], ray_callback.m_hitNormalWorld[i], u);
+								hit_target(hit.ref());
+								if (group & CollisionShield)
+								{
+									// if we didn't destroy the shield,
+									// and if it's not a good shot,
+									// then bounce off the shield
+									if (hit.ref() && hit.ref()->get<Health>()->hp > 0)
+										reflect(ray_callback.m_hitPointWorld[i], ray_callback.m_hitNormalWorld[i], u);
+								}
 							}
 						}
 						else if (group & CollisionAwkIgnore)

@@ -849,7 +849,7 @@ void LocalPlayerControl::awake()
 	{
 		link<&LocalPlayerControl::awk_attached>(get<Awk>()->attached);
 		link_arg<Entity*, &LocalPlayerControl::hit_target>(get<Awk>()->hit);
-		link_arg<Entity*, &LocalPlayerControl::damaged>(get<Health>()->damaged);
+		link_arg<const DamageEvent&, &LocalPlayerControl::damaged>(get<Health>()->damaged);
 		link<&LocalPlayerControl::health_picked_up>(get<Health>()->added);
 	}
 
@@ -869,9 +869,11 @@ void LocalPlayerControl::hit_target(Entity* target)
 		player.ref()->msg(_(strings::sensor_destroyed), true);
 }
 
-void LocalPlayerControl::damaged(Entity*)
+void LocalPlayerControl::damaged(const DamageEvent& e)
 {
-	player.ref()->msg(_(strings::damaged), false);
+	char msg[255];
+	sprintf(msg, _(strings::damaged), e.amount);
+	player.ref()->msg(msg, false);
 	damage_timer = damage_shake_time;
 }
 

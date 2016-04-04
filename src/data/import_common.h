@@ -15,7 +15,6 @@ namespace VI
 #define AWK_MAX_DISTANCE 30.0f
 #define AWK_RADIUS 0.2f
 #define MAX_BONE_WEIGHTS 4
-const r32 nav_mesh_max_error = 2.0f;
 
 namespace Json
 {
@@ -158,6 +157,7 @@ struct TileCacheData
 	Array<TileCacheCell> cells;
 };
 
+const r32 nav_mesh_max_error = 2.0f;
 const r32 nav_agent_height = 2.0f;
 const r32 nav_agent_max_climb = 0.5f;
 const r32 nav_agent_radius = 0.45f;

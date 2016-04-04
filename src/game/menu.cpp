@@ -720,8 +720,8 @@ UIMenu::Delta UIMenu::slider_item(const Update& u, Vec2* menu_pos, const char* l
 
 		if (gamepad == 0)
 		{
-			if (!u.input->get(Controls::Action, gamepad)
-				&& u.last_input->get(Controls::Action, gamepad)
+			if (!u.input->get(Controls::Click, gamepad)
+				&& u.last_input->get(Controls::Click, gamepad)
 				&& Game::time.total > 0.5f)
 			{
 				Item* item = &items[items.length - 1];

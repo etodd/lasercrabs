@@ -1473,6 +1473,13 @@ void chunk_handle_tris(const Mesh& in, Array<Vec3>* tris, s32 a, s32 b, s32 c)
 	tris->add(in.vertices[c]);
 }
 
+void chunk_handle_mesh(const Mesh& in, Array<s32>* indices, s32 a, s32 b, s32 c)
+{
+	indices->add(a);
+	indices->add(b);
+	indices->add(c);
+}
+
 template<typename T, void (*handler)(const Mesh&, T*, s32, s32, s32)>
 void chunk_mesh(const Mesh& in, Chunks<T>* out, r32 cell_size)
 {
@@ -1676,14 +1683,26 @@ b8 build_nav_mesh(const Mesh& input, TileCacheData* output_tiles)
 	output_tiles->height = (grid_height + (s32)nav_tile_size - 1) / (s32)nav_tile_size;
 
 	memcpy(&output_tiles->min, cfg.bmin, sizeof(Vec3));
+
+	Chunks<Array<s32>> chunked_mesh;
+	chunk_mesh<Array<s32>, &chunk_handle_mesh>(input, &chunked_mesh, nav_tile_size * nav_resolution);
+	vi_assert(output_tiles->width == chunked_mesh.size.x && output_tiles->height == chunked_mesh.size.z);
 	
 	// todo: use Chunks<> to speed up tile rasterization
 	for (s32 ty = 0; ty < output_tiles->height; ty++)
 	{
 		for (s32 tx = 0; tx < output_tiles->width; tx++)
 		{
+			Array<s32> accumulated_indices;
+			for (s32 i = 0; i < chunked_mesh.size.y; i++)
+			{
+				const Array<s32>* chunk = chunked_mesh.get({ tx, i, ty });
+				for (s32 j = 0; j < chunk->length; j++)
+					accumulated_indices.add((*chunk)[j]);
+			}
+
 			TileCacheCell* out_cell = output_tiles->cells.add();
-			if (!rasterize_tile_layers(cfg, input.vertices, input.indices, tx, ty, out_cell))
+			if (!rasterize_tile_layers(cfg, input.vertices, accumulated_indices, tx, ty, out_cell))
 				return false;
 		}
 	}

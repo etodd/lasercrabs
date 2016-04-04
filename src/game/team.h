@@ -23,7 +23,7 @@ struct PlayerManager;
 #define CREDITS_DAMAGE 20
 #define CREDITS_DETECT 10
 #define CREDITS_INITIAL 0
-#define CREDITS_SENSOR_DESTROY 10
+#define CREDITS_SENSOR_DESTROY 5
 
 // if the ability cooldown is lower than this, we can use the ability
 // we should flash the ability icon during this time to indicate the ability is now usable

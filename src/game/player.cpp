@@ -1202,6 +1202,86 @@ void LocalPlayerControl::update(const Update& u)
 	Audio::listener_update(gamepad, camera_pos, look_quat);
 
 	last_angle_horizontal = get<PlayerCommon>()->angle_horizontal;
+
+	// collect indicators
+	indicators.length = 0;
+	if (Game::data.mode == Game::Mode::Pvp)
+	{
+		Vec3 me = get<Transform>()->absolute_pos();
+		// health indicators
+		if (get<Health>()->hp < get<Health>()->hp_max)
+		{
+			for (auto i = HealthPickup::list.iterator(); !i.is_last(); i.next())
+			{
+				if (!i.item()->owner.ref())
+				{
+					Vec3 pos = i.item()->get<Transform>()->absolute_pos();
+					if ((pos - me).length_squared() < AWK_MAX_DISTANCE * AWK_MAX_DISTANCE)
+					{
+						Vec3 intersection;
+						if (get<Awk>()->predict_intersection(pos, i.item()->get<RigidBody>()->btBody->getLinearVelocity(), &intersection))
+						{
+							if (tracer.type == TraceType::Normal && LMath::ray_sphere_intersect(me, tracer.pos, intersection, HEALTH_PICKUP_RADIUS))
+								tracer.type = TraceType::Target;
+							indicators.add({ intersection, &UI::accent_color });
+							if (indicators.length == indicators.capacity())
+								break;
+						}
+					}
+				}
+			}
+		}
+
+		// minion spawns
+		if (indicators.length < indicators.capacity())
+		{
+			for (auto i = MinionSpawn::list.iterator(); !i.is_last(); i.next())
+			{
+				if (!i.item()->minion.ref())
+				{
+					Vec3 pos = i.item()->get<Transform>()->absolute_pos();
+					if ((pos - me).length_squared() < AWK_MAX_DISTANCE * AWK_MAX_DISTANCE)
+					{
+						Vec3 intersection;
+						if (get<Awk>()->predict_intersection(pos, i.item()->get<RigidBody>()->btBody->getLinearVelocity(), &intersection))
+						{
+							if (tracer.type == TraceType::Normal && LMath::ray_sphere_intersect(me, tracer.pos, intersection, MINION_SPAWN_RADIUS))
+								tracer.type = TraceType::Target;
+							indicators.add({ intersection, &UI::default_color });
+							if (indicators.length == indicators.capacity())
+								break;
+						}
+					}
+				}
+			}
+		}
+
+		// headshot indicators
+		if (indicators.length < indicators.capacity())
+		{
+			AI::Team team = get<AIAgent>()->team;
+			for (auto i = MinionCommon::list.iterator(); !i.is_last(); i.next())
+			{
+				if (i.item()->get<AIAgent>()->team != team)
+				{
+					Vec3 head_pos = i.item()->head_pos();
+					if ((head_pos - me).length_squared() < AWK_MAX_DISTANCE * AWK_MAX_DISTANCE)
+					{
+						// calculate head intersection trajectory
+						Vec3 intersection;
+						if (get<Awk>()->predict_intersection(head_pos, i.item()->get<RigidBody>()->btBody->getLinearVelocity(), &intersection))
+						{
+							if (tracer.type == TraceType::Normal && LMath::ray_sphere_intersect(me, tracer.pos, intersection, MINION_HEAD_RADIUS))
+								tracer.type = TraceType::Target;
+							indicators.add({ intersection, &UI::alert_color });
+							if (indicators.length == indicators.capacity())
+								break;
+						}
+					}
+				}
+			}
+		}
+	}
 }
 
 LocalPlayerControl* LocalPlayerControl::player_for_camera(const Camera* cam)
@@ -1259,70 +1339,13 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 		UI::mesh(params, Asset::Mesh::compass_outer, viewport.size * Vec2(0.5f, 0.5f), compass_size, *compass_color, -get<PlayerCommon>()->angle_horizontal);
 	}
 
-	// allow our draw functions to override the tracer type if we detect another target under our reticle
-	TraceType tracer_type = tracer.type;
-
-	// draw 
 	if (Game::data.mode == Game::Mode::Pvp)
 	{
-		Vec3 me = get<Transform>()->absolute_pos();
-		if (get<Health>()->hp < get<Health>()->hp_max)
+		// draw indicators
+		for (s32 i = 0; i < indicators.length; i++)
 		{
-			for (auto i = HealthPickup::list.iterator(); !i.is_last(); i.next())
-			{
-				if (!i.item()->owner.ref())
-				{
-					Vec3 pos = i.item()->get<Transform>()->absolute_pos();
-					if ((pos - me).length_squared() < AWK_MAX_DISTANCE * AWK_MAX_DISTANCE)
-					{
-						Vec3 intersection;
-						if (get<Awk>()->predict_intersection(pos, i.item()->get<RigidBody>()->btBody->getLinearVelocity(), &intersection))
-						{
-							draw_indicator(params, intersection, UI::accent_color, false);
-							if (tracer_type == TraceType::Normal && LMath::ray_sphere_intersect(me, tracer.pos, intersection, HEALTH_PICKUP_RADIUS))
-								tracer_type = TraceType::Target;
-						}
-					}
-				}
-			}
-		}
-
-		for (auto i = MinionSpawn::list.iterator(); !i.is_last(); i.next())
-		{
-			if (!i.item()->minion.ref())
-			{
-				Vec3 pos = i.item()->get<Transform>()->absolute_pos();
-				if ((pos - me).length_squared() < AWK_MAX_DISTANCE * AWK_MAX_DISTANCE)
-				{
-					Vec3 intersection;
-					if (get<Awk>()->predict_intersection(pos, i.item()->get<RigidBody>()->btBody->getLinearVelocity(), &intersection))
-					{
-						draw_indicator(params, intersection, UI::default_color, false);
-						if (tracer_type == TraceType::Normal && LMath::ray_sphere_intersect(me, tracer.pos, intersection, MINION_SPAWN_RADIUS))
-							tracer_type = TraceType::Target;
-					}
-				}
-			}
-		}
-
-		// draw headshot indicators
-		for (auto i = MinionCommon::list.iterator(); !i.is_last(); i.next())
-		{
-			if (i.item()->get<AIAgent>()->team != team)
-			{
-				Vec3 head_pos = i.item()->head_pos();
-				if ((head_pos - me).length_squared() < AWK_MAX_DISTANCE * AWK_MAX_DISTANCE)
-				{
-					// calculate head intersection trajectory
-					Vec3 intersection;
-					if (get<Awk>()->predict_intersection(head_pos, i.item()->get<RigidBody>()->btBody->getLinearVelocity(), &intersection))
-					{
-						draw_indicator(params, intersection, UI::alert_color, false);
-						if (tracer_type == TraceType::Normal && LMath::ray_sphere_intersect(me, tracer.pos, intersection, MINION_HEAD_RADIUS))
-							tracer_type = TraceType::Target;
-					}
-				}
-			}
+			const Indicator& indicator = indicators[i];
+			draw_indicator(params, indicator.pos, *indicator.color, false);
 		}
 	}
 	else
@@ -1506,7 +1529,7 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 		{
 			r32 cooldown = get<PlayerCommon>()->cooldown;
 			r32 radius = cooldown == 0.0f ? 0.0f : vi_max(0.0f, 32.0f * (get<PlayerCommon>()->cooldown / AWK_MAX_DISTANCE_COOLDOWN));
-			if (radius > 0 || tracer_type == TraceType::None || !Game::data.allow_detach)
+			if (radius > 0 || tracer.type == TraceType::None || !Game::data.allow_detach)
 			{
 				// hollow reticle
 				UI::triangle_border(params, { viewport.size * Vec2(0.5f, 0.5f), Vec2(4.0f + radius) * 2 * UI::scale }, 2, UI::accent_color, PI);
@@ -1517,7 +1540,7 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 				Vec2 a;
 				if (UI::project(params, tracer.pos, &a))
 				{
-					if (tracer_type == TraceType::Target)
+					if (tracer.type == TraceType::Target)
 					{
 						UI::triangle(params, { a, Vec2(12) * UI::scale }, UI::alert_color, PI);
 

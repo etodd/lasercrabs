@@ -54,7 +54,7 @@ struct SensorEntity : public Entity
 	SensorEntity(Transform*, PlayerManager*, const Vec3&, const Quat&);
 };
 
-#define SENSOR_RANGE 15.0f
+#define SENSOR_RANGE 20.0f
 #define SENSOR_TIMEOUT 4.0f
 #define SENSOR_RADIUS 0.15f
 struct Sensor : public ComponentType<Sensor>

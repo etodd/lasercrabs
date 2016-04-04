@@ -658,28 +658,68 @@ namespace Soren
 
 		if (data->mode != Mode::TextOnly)
 		{
+			if (face == Face::Default)
+			{
+				// blink
+				const r32 blink_delay = 4.0f;
+				const r32 blink_time = 0.1f;
+				if (fmod(data->time, blink_delay) < blink_time)
+					face = Face::EyesClosed;
+			}
+
 			// frame
 			{
 				// visualize dialogue volume
 				r32 volume_scale = 1.0f + Audio::dialogue_volume * 0.5f;
-				Vec2 frame_size(28.0f * scale * volume_scale);
+				Vec2 frame_size(32.0f * scale * volume_scale);
 				UI::centered_box(params, { pos, frame_size }, UI::background_color, PI * 0.25f);
-				UI::centered_border(params, { pos, frame_size }, 2, UI::default_color, PI * 0.25f);
+
+				const Vec4* color;
+				switch (face)
+				{
+					case Face::Default:
+					case Face::Upbeat:
+					case Face::Concerned:
+					{
+						color = &UI::default_color;
+						break;
+					}
+					case Face::Sad:
+					{
+						color = &UI::subtle_color;
+						break;
+					}
+					case Face::EyesClosed:
+					case Face::Unamused:
+					case Face::Wat:
+					{
+						color = &UI::disabled_color;
+						break;
+					}
+					case Face::Urgent:
+					case Face::Smile:
+					{
+						color = &UI::accent_color;
+						break;
+					}
+					case Face::Angry:
+					{
+						color = &UI::alert_color;
+						break;
+					}
+					default:
+					{
+						vi_assert(false);
+						break;
+					}
+				}
+
+				UI::centered_border(params, { pos, frame_size }, 2.0f, *color, PI * 0.25f);
 			}
 
 			// face
 			{
-				if (face == Face::Default)
-				{
-					// blink
-					const r32 blink_delay = 3.5f;
-					const r32 blink_time = 0.1f;
-					if (fmod(data->time, blink_delay) < blink_time)
-						face = Face::EyesClosed;
-				}
-
 				Vec2 face_uv = faces[(s32)face];
-
 				UI::sprite(params, Asset::Texture::soren, { pos, face_size * scale }, UI::default_color, { face_uv, face_uv_size });
 			}
 		}
@@ -694,8 +734,8 @@ namespace Soren
 				case Mode::TextOnly:
 				{
 					data->text.anchor_x = UIText::Anchor::Center;
-					data->text.anchor_y = UIText::Anchor::Min;
-					pos = Vec2(vp.size.x * 0.5f, vp.size.y * 0.25f);
+					data->text.anchor_y = UIText::Anchor::Max;
+					pos = Vec2(vp.size.x * 0.5f, vp.size.y * 0.5f) - Vec2(0, 120 * UI::scale);
 					break;
 				}
 				case Mode::Left:

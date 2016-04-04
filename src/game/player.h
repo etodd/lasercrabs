@@ -96,11 +96,18 @@ struct LocalPlayerControl : public ComponentType<LocalPlayerControl>
 		Vec3 pos;
 	};
 
+	struct Indicator
+	{
+		Vec3 pos;
+		const Vec4* color;
+	};
+
 	static LocalPlayerControl* player_for_camera(const Camera*);
 
 	Ref<LocalPlayer> player;
 
 	TraceEntry tracer;
+	StaticArray<Indicator, 32> indicators;
 	Camera* camera;
 	r32 fov_blend;
 	r32 lean;

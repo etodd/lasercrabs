@@ -899,7 +899,7 @@ namespace tutorial01
 
 	void update(const Update& u)
 	{
-		if (Team::list[1].has_player() && !data->done)
+		if (Team::list.length > 1 && Team::list[1].has_player() && !data->done)
 		{
 			data->done = true;
 			Soren::clear();

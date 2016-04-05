@@ -168,7 +168,6 @@ void Game::update(const Update& update_in)
 
 	LerpTo<Vec3>::update_active(u);
 	Delay::update_active(u);
-	MinionBehaviors::update_active(u);
 
 	Physics::sync_static();
 
@@ -238,6 +237,13 @@ void Game::draw_alpha(const RenderParams& render_params)
 	SkyDecal::draw_alpha(render_params);
 	SkyPattern::draw_alpha(render_params);
 	SkinnedModel::draw_alpha(render_params);
+
+	for (auto i = MinionAI::list.iterator(); !i.is_last(); i.next())
+	{
+		MinionAI* minion = i.item();
+		for (s32 j = minion->path_index; j < minion->path.length; j++)
+			Cube::draw(render_params, minion->path[j]);
+	}
 
 #if DEBUG_PHYSICS
 	{
@@ -710,12 +716,13 @@ void Game::load_level(const Update& u, AssetID l, Mode m)
 		{
 			AI::Team team = (AI::Team)Json::get_s32(element, "team");
 
-			if (Game::data.mode == Game::Mode::Pvp)
+			if (data.mode == Game::Mode::Pvp)
 				entity = World::alloc<PlayerSpawn>(team);
 			else
 				entity = World::alloc<Empty>(); // in parkour mode, the spawn point is invisible
 
-			Team::list[(s32)team].player_spawn = entity->get<Transform>();
+			if (Team::list.length > 0)
+				Team::list[(s32)team].player_spawn = entity->get<Transform>();
 		}
 		else if (cJSON_GetObjectItem(element, "PlayerTrigger"))
 		{
@@ -834,8 +841,8 @@ void Game::load_level(const Update& u, AssetID l, Mode m)
 		}
 		else if (cJSON_GetObjectItem(element, "AIPlayer"))
 		{
-			// if we're in local multiplayer mode, or parkour mode, don't add any AI players
-			if (!data.local_multiplayer && data.mode != Mode::Parkour)
+			// only add an AI player if we are in online pvp mode
+			if (data.mode == Mode::Pvp && !data.local_multiplayer)
 			{
 				AI::Team team = team_lookup(teams, Json::get_s32(element, "team", (s32)AI::Team::B));
 

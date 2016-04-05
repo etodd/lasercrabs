@@ -305,6 +305,7 @@ add_executable(yearning
 	src/lmath.cpp
 	src/ai.h
 	src/ai.cpp
+	src/ai_worker.cpp
 	src/loop.h
 	src/ease.h
 	src/game/component_ids.cpp

@@ -1305,42 +1305,32 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 
 	const Rect2& viewport = params.camera->viewport;
 
+	r32 detect_danger = get<PlayerCommon>()->detect_danger();
+
 	// compass
 	{
-		const Vec4* compass_color;
-		if (Game::data.mode == Game::Mode::Parkour)
-			compass_color = &UI::alert_color;
-		else
+		Vec2 compass_size = Vec2(vi_min(viewport.size.x, viewport.size.y) * 0.3f);
+		if (Game::data.mode == Game::Mode::Pvp)
 		{
-			b8 enemy_visible = false;
-			for (auto i = PlayerCommon::list.iterator(); !i.is_last(); i.next())
-			{
-				if (PlayerCommon::visibility.get(PlayerCommon::visibility_hash(i.item(), get<PlayerCommon>())))
-				{
-					enemy_visible = true;
-					break;
-				}
-			}
+			b8 enemy_visible = detect_danger == 1.0f;
 
 			if (!enemy_visible)
 			{
-				for (s32 i = 0; i < Team::list.length; i++)
+				for (auto i = PlayerCommon::list.iterator(); !i.is_last(); i.next())
 				{
-					if (Team::list[i].player_tracks[player.ref()->manager.ref()->id()].visible)
+					if (PlayerCommon::visibility.get(PlayerCommon::visibility_hash(i.item(), get<PlayerCommon>())))
 					{
 						enemy_visible = true;
 						break;
 					}
 				}
 			}
-			compass_color = enemy_visible ? &UI::alert_color : &UI::accent_color;
-		}
 
-		{
+			if (enemy_visible)
+				UI::mesh(params, Asset::Mesh::compass_inner, viewport.size * Vec2(0.5f, 0.5f), compass_size, UI::alert_color);
+
 			// draw indicators pointing toward player spawns
 			Vec3 me = get<Transform>()->absolute_pos();
-			Vec2 compass_size = Vec2(vi_min(viewport.size.x, viewport.size.y) * 0.3f);
-			UI::mesh(params, Asset::Mesh::compass_inner, viewport.size * Vec2(0.5f, 0.5f), compass_size, *compass_color, get<PlayerCommon>()->angle_vertical);
 			for (s32 i = 0; i < Team::list.capacity(); i++)
 			{
 				Team* t = &Team::list[i];
@@ -1510,7 +1500,6 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 
 		// detect danger
 		{
-			r32 detect_danger = get<PlayerCommon>()->detect_danger();
 			Vec2 pos = params.camera->viewport.size * Vec2(0.5f, 0.4f);
 			if (detect_danger == 1.0f)
 			{

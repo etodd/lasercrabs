@@ -155,6 +155,8 @@ struct TileCacheData
 	s32 width;
 	s32 height;
 	Array<TileCacheCell> cells;
+	void free();
+	~TileCacheData();
 };
 
 const r32 nav_mesh_max_error = 2.0f;
@@ -190,8 +192,12 @@ template<typename T> struct Chunks
 	void resize()
 	{
 		s32 new_length = size.x * size.y * size.z;
-		for (s32 i = new_length; i < chunks.length; i++)
-			chunks[i].~T();
+		if (new_length < chunks.length)
+		{
+			for (s32 i = new_length; i < chunks.length; i++)
+				chunks[i].~T();
+			memset(&chunks[new_length], 0, sizeof(T) * chunks.length - new_length);
+		}
 		chunks.resize(new_length);
 	}
 

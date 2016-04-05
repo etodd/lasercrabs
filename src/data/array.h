@@ -130,10 +130,9 @@ struct Array
 	s32 reserved;
 
 	Array(s32 reserve_count = 0, s32 length = 0)
-		: length(length)
+		: length(length), reserved(0)
 	{
 		vi_assert(reserve_count >= 0 && length >= 0 && length <= reserve_count);
-		reserved = 0;
 		if (reserve_count > 0)
 			reserve(reserve_count);
 		else
@@ -168,14 +167,22 @@ struct Array
 			{
 				next_size = next_size > ARRAY_INITIAL_RESERVATION ? next_size : ARRAY_INITIAL_RESERVATION;
 				data = (T*)calloc(next_size, sizeof(T));
+				vi_assert(data);
 			}
 			else
 			{
 				data = (T*)realloc(data, next_size * sizeof(T));
+				vi_assert(data);
 				memset((void*)&data[reserved], 0, (next_size - reserved) * sizeof(T));
 			}
 			reserved = next_size;
 		}
+	}
+
+	void resize(s32 i)
+	{
+		reserve(i);
+		length = i;
 	}
 
 	void remove(s32 i)
@@ -193,15 +200,6 @@ struct Array
 		length--;
 	}
 
-	T* insert(s32 i, T& t)
-	{
-		vi_assert(i >= 0 && i <= length);
-		reserve(++length);
-		memmove(&data[i], &data[i + 1], sizeof(T) * (length - i));
-		data[i] = t;
-		return &data[i];
-	}
-
 	T* insert(s32 i)
 	{
 		vi_assert(i >= 0 && i <= length);
@@ -210,10 +208,11 @@ struct Array
 		return &data[i];
 	}
 
-	void resize(s32 i)
+	T* insert(s32 i, const T& t)
 	{
-		reserve(i);
-		length = i;
+		T* p = insert(i);
+		*p = t;
+		return p;
 	}
 
 	T* add()

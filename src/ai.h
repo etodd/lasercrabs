@@ -17,11 +17,6 @@ struct RenderParams;
 
 namespace AI
 {
-	struct NavMeshProcess : public dtTileCacheMeshProcess
-	{
-		void process(struct dtNavMeshCreateParams* params, u8* polyAreas, u16* polyFlags);
-	};
-
 	enum class Op
 	{
 		Load,
@@ -54,7 +49,7 @@ namespace AI
 	Team other(Team);
 
 	extern Array<b8> obstacles;
-	static const s32 SYNC_IN_SIZE = 8 * 1024 * 1024;
+	static const s32 SYNC_IN_SIZE = 5 * 1024 * 1024;
 	static const s32 SYNC_OUT_SIZE = 1 * 1024 * 1024;
 	extern SyncRingBuffer<SYNC_IN_SIZE> sync_in;
 	extern SyncRingBuffer<SYNC_OUT_SIZE> sync_out;
@@ -71,11 +66,15 @@ namespace AI
 	void update(const Update&);
 
 	Entity* vision_query(const AIAgent*, const Vec3&, const Vec3&, r32, r32, r32 = -1.0f, ComponentMask = -1);
-	Entity* sound_query(AI::Team, const Vec3&, ComponentMask = -1);
 	b8 vision_check(const Vec3&, const Vec3&, const Entity* = nullptr, const Entity* = nullptr);
 
 	namespace Internal
 	{
+		struct NavMeshProcess : public dtTileCacheMeshProcess
+		{
+			void process(struct dtNavMeshCreateParams* params, u8* polyAreas, u16* polyFlags);
+		};
+
 		struct AwkNavMeshNodeData
 		{
 			AwkNavMeshNode parent;

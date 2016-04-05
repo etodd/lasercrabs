@@ -788,8 +788,8 @@ void Awk::update(const Update& u)
 			if (!btVector3(velocity).fuzzyZero())
 			{
 				Vec3 dir = Vec3::normalize(velocity);
-				Vec3 ray_start = position;
-				Vec3 ray_end = next_position;
+				Vec3 ray_start = position + dir * -AWK_RADIUS;
+				Vec3 ray_end = next_position + dir * AWK_RADIUS;
 				btCollisionWorld::AllHitsRayResultCallback ray_callback(ray_start, ray_end);
 				ray_callback.m_flags = btTriangleRaycastCallback::EFlags::kF_FilterBackfaces
 					| btTriangleRaycastCallback::EFlags::kF_KeepUnflippedNormal;

@@ -2369,13 +2369,7 @@ void import_level(ImporterState& state, const std::string& asset_in_path, const 
 						fwrite(layer.data, sizeof(u8), layer.data_size, f);
 					}
 				}
-
-				for (s32 i = 0; i < nav_tiles.cells.length; i++)
-				{
-					TileCacheCell& cell = nav_tiles.cells[i];
-					for (s32 j = 0; j < cell.layers.length; j++)
-						dtFree(cell.layers[j].data);
-				}
+				nav_tiles.free();
 			}
 		}
 

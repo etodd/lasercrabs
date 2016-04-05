@@ -26,6 +26,7 @@ Team other(Team t)
 Array<b8> obstacles;
 SyncRingBuffer<SYNC_IN_SIZE> sync_in;
 SyncRingBuffer<SYNC_OUT_SIZE> sync_out;
+b8 render_meshes_dirty = false;
 
 void loop()
 {
@@ -168,8 +169,10 @@ void load(const u8* data, s32 length)
 {
 	sync_in.lock();
 	sync_in.write(Op::Load);
+	sync_in.write(length);
 	sync_in.write(data, length);
 	sync_in.unlock();
+	render_meshes_dirty = true;
 }
 
 void random_path(const Vec3& pos, const LinkEntryArg<const Path&>& callback)
@@ -210,43 +213,75 @@ void awk_pathfind(const Vec3& a, const Vec3& b, const LinkEntryArg<const Path&>&
 	sync_in.unlock();
 }
 
-// todo: re-enable AI debug visualizations
-/*
 #if DEBUG
+AssetID render_mesh = AssetNull;
+AssetID awk_render_mesh = AssetNull;
 void refresh_nav_render_meshes(const RenderParams& params)
 {
+	if (!render_meshes_dirty)
+		return;
+
+	std::this_thread::sleep_for(std::chrono::milliseconds(30));
+	sync_in.lock();
+
+	if (render_mesh == AssetNull)
+	{
+		render_mesh = Loader::dynamic_mesh_permanent(1);
+		Loader::dynamic_mesh_attrib(RenderDataType::Vec3);
+		Loader::shader_permanent(Asset::Shader::flat);
+
+		awk_render_mesh = Loader::dynamic_mesh_permanent(1);
+		Loader::dynamic_mesh_attrib(RenderDataType::Vec3);
+	}
+
 	Array<Vec3> vertices;
 	Array<s32> indices;
 
 	// nav mesh
 	{
-		if (nav_mesh)
+		if (Internal::nav_mesh)
 		{
-			for (s32 tile_id = 0; tile_id < nav_mesh->getMaxTiles(); tile_id++)
+			for (s32 tile_id = 0; tile_id < Internal::nav_mesh->getMaxTiles(); tile_id++)
 			{
-				const dtMeshTile* tile = ((const dtNavMesh*)nav_mesh)->getTile(tile_id);
+				const dtMeshTile* tile = ((const dtNavMesh*)Internal::nav_mesh)->getTile(tile_id);
 				if (!tile->header)
 					continue;
 
-				for (s32 i = 0; i < tile->header->vertCount; i++)
+				for (s32 i = 0; i < tile->header->polyCount; i++)
 				{
-					memcpy(vertices.add(), &tile->verts[i * 3], sizeof(Vec3));
-					indices.add(indices.length);
+					const dtPoly* p = &tile->polys[i];
+					if (p->getType() == DT_POLYTYPE_OFFMESH_CONNECTION)	// Skip off-mesh links.
+						continue;
+
+					const dtPolyDetail* pd = &tile->detailMeshes[i];
+
+					for (s32 j = 0; j < pd->triCount; j++)
+					{
+						const u8* t = &tile->detailTris[(pd->triBase + j) * 4];
+						for (s32 k = 0; k < 3; k++)
+						{
+							if (t[k] < p->vertCount)
+								memcpy(vertices.add(), &tile->verts[p->verts[t[k]] * 3], sizeof(Vec3));
+							else
+								memcpy(vertices.add(), &tile->detailVerts[(pd->vertBase + t[k] - p->vertCount) * 3], sizeof(Vec3));
+							indices.add(indices.length);
+						}
+					}
 				}
 			}
 		}
 
-		params.sync_in->write(RenderOp::UpdateAttribBuffers);
-		params.sync_in->write(render_mesh);
+		params.sync->write(RenderOp::UpdateAttribBuffers);
+		params.sync->write(render_mesh);
 
-		params.sync_in->write<s32>(vertices.length);
-		params.sync_in->write<Vec3>(vertices.data, vertices.length);
+		params.sync->write<s32>(vertices.length);
+		params.sync->write<Vec3>(vertices.data, vertices.length);
 
-		params.sync_in->write(RenderOp::UpdateIndexBuffer);
-		params.sync_in->write(render_mesh);
+		params.sync->write(RenderOp::UpdateIndexBuffer);
+		params.sync->write(render_mesh);
 
-		params.sync_in->write<s32>(indices.length);
-		params.sync_in->write<s32>(indices.data, indices.length);
+		params.sync->write<s32>(indices.length);
+		params.sync->write<s32>(indices.data, indices.length);
 	}
 
 	vertices.length = 0;
@@ -255,9 +290,9 @@ void refresh_nav_render_meshes(const RenderParams& params)
 	// awk nav mesh
 	{
 		s32 vertex_count = 0;
-		for (s32 chunk_index = 0; chunk_index < awk_nav_mesh.chunks.length; chunk_index++)
+		for (s32 chunk_index = 0; chunk_index < Internal::awk_nav_mesh.chunks.length; chunk_index++)
 		{
-			const AwkNavMeshChunk& chunk = awk_nav_mesh.chunks[chunk_index];
+			const AwkNavMeshChunk& chunk = Internal::awk_nav_mesh.chunks[chunk_index];
 
 			for (s32 i = 0; i < chunk.vertices.length; i++)
 				vertices.add(chunk.vertices[i]);
@@ -272,7 +307,7 @@ void refresh_nav_render_meshes(const RenderParams& params)
 
 					s32 neighbor_chunk_vertex_index = 0;
 					for (s32 k = 0; k < neighbor.chunk; k++)
-						neighbor_chunk_vertex_index += awk_nav_mesh.chunks[k].vertices.length;
+						neighbor_chunk_vertex_index += Internal::awk_nav_mesh.chunks[k].vertices.length;
 					indices.add(neighbor_chunk_vertex_index + neighbor.vertex);
 				}
 			}
@@ -280,58 +315,77 @@ void refresh_nav_render_meshes(const RenderParams& params)
 			vertex_count += chunk.vertices.length;
 		}
 
-		params.sync_in->write(RenderOp::UpdateAttribBuffers);
-		params.sync_in->write(awk_render_mesh);
+		params.sync->write(RenderOp::UpdateAttribBuffers);
+		params.sync->write(awk_render_mesh);
 
-		params.sync_in->write<s32>(vertices.length);
-		params.sync_in->write<Vec3>(vertices.data, vertices.length);
+		params.sync->write<s32>(vertices.length);
+		params.sync->write<Vec3>(vertices.data, vertices.length);
 
-		params.sync_in->write(RenderOp::UpdateIndexBuffer);
-		params.sync_in->write(awk_render_mesh);
+		params.sync->write(RenderOp::UpdateIndexBuffer);
+		params.sync->write(awk_render_mesh);
 
-		params.sync_in->write<s32>(indices.length);
-		params.sync_in->write<s32>(indices.data, indices.length);
+		params.sync->write<s32>(indices.length);
+		params.sync->write<s32>(indices.data, indices.length);
 	}
+
+	sync_in.unlock();
+
+	render_meshes_dirty = false;
 }
 
-void render_helper(const RenderParams& params, AssetID m, RenderPrimitiveMode primitive_mode)
+void render_helper(const RenderParams& params, AssetID m, RenderPrimitiveMode primitive_mode, RenderFillMode fill_mode)
 {
-	params.sync_in->write(RenderOp::Shader);
-	params.sync_in->write(Asset::Shader::flat);
-	params.sync_in->write(params.technique);
+	if (m == AssetNull)
+		return;
 
-	params.sync_in->write(RenderOp::Uniform);
-	params.sync_in->write(Asset::Uniform::diffuse_color);
-	params.sync_in->write(RenderDataType::Vec4);
-	params.sync_in->write<s32>(1);
-	params.sync_in->write(Vec4(0, 1, 0, 0.5f));
+	params.sync->write(RenderOp::Shader);
+	params.sync->write(Asset::Shader::flat);
+	params.sync->write(params.technique);
+
+	params.sync->write(RenderOp::Uniform);
+	params.sync->write(Asset::Uniform::diffuse_color);
+	params.sync->write(RenderDataType::Vec4);
+	params.sync->write<s32>(1);
+	params.sync->write(Vec4(0, 1, 0, 0.5f));
 
 	Mat4 mvp = params.view_projection;
 
-	params.sync_in->write(RenderOp::Uniform);
-	params.sync_in->write(Asset::Uniform::mvp);
-	params.sync_in->write(RenderDataType::Mat4);
-	params.sync_in->write<s32>(1);
-	params.sync_in->write<Mat4>(mvp);
+	params.sync->write(RenderOp::Uniform);
+	params.sync->write(Asset::Uniform::mvp);
+	params.sync->write(RenderDataType::Mat4);
+	params.sync->write<s32>(1);
+	params.sync->write<Mat4>(mvp);
 
-	params.sync_in->write(RenderOp::FillMode);
-	params.sync_in->write(RenderFillMode::Point);
-	params.sync_in->write(RenderOp::PointSize);
-	params.sync_in->write<r32>(4 * UI::scale);
-	params.sync_in->write(RenderOp::CullMode);
-	params.sync_in->write(RenderCullMode::None);
+	params.sync->write(RenderOp::FillMode);
+	params.sync->write(fill_mode);
+	params.sync->write(RenderOp::PointSize);
+	params.sync->write<r32>(4 * UI::scale);
+	params.sync->write(RenderOp::CullMode);
+	params.sync->write(RenderCullMode::None);
 
-	params.sync_in->write(RenderOp::Mesh);
-	params.sync_in->write(primitive_mode);
-	params.sync_in->write(m);
+	params.sync->write(RenderOp::Mesh);
+	params.sync->write(primitive_mode);
+	params.sync->write(m);
 
-	params.sync_in->write(RenderOp::FillMode);
-	params.sync_in->write(RenderFillMode::Fill);
-	params.sync_in->write(RenderOp::CullMode);
-	params.sync_in->write(RenderCullMode::Back);
+	params.sync->write(RenderOp::FillMode);
+	params.sync->write(RenderFillMode::Fill);
+	params.sync->write(RenderOp::CullMode);
+	params.sync->write(RenderCullMode::Back);
 }
+
+void debug_draw_nav_mesh(const RenderParams& params)
+{
+	refresh_nav_render_meshes(params);
+	render_helper(params, render_mesh, RenderPrimitiveMode::Triangles, RenderFillMode::Point);
+}
+
+void debug_draw_awk_nav_mesh(const RenderParams& params)
+{
+	refresh_nav_render_meshes(params);
+	render_helper(params, awk_render_mesh, RenderPrimitiveMode::Lines, RenderFillMode::Line);
+}
+
 #endif
-*/
 
 }
 

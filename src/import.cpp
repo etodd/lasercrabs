@@ -1481,7 +1481,7 @@ void chunk_handle_mesh(const Mesh& in, Array<s32>* indices, s32 a, s32 b, s32 c)
 }
 
 template<typename T, void (*handler)(const Mesh&, T*, s32, s32, s32)>
-void chunk_mesh(const Mesh& in, Chunks<T>* out, r32 cell_size)
+void chunk_mesh(const Mesh& in, Chunks<T>* out, r32 cell_size, r32 padding = 0.0f)
 {
 	// determine chunked mesh size
 	out->resize(in.bounds_min, in.bounds_max, cell_size);
@@ -1518,6 +1518,8 @@ void chunk_mesh(const Mesh& in, Chunks<T>* out, r32 cell_size)
 		vmax.x = vi_max(c.x, vmax.x);
 		vmax.y = vi_max(c.y, vmax.y);
 		vmax.z = vi_max(c.z, vmax.z);
+		vmin -= Vec3(padding);
+		vmax += Vec3(padding);
 
 		// insert triangle into all overlapping chunks
 		Chunks<T>::Coord start = out->clamped_coord(out->coord(vmin));
@@ -1685,7 +1687,7 @@ b8 build_nav_mesh(const Mesh& input, TileCacheData* output_tiles)
 	memcpy(&output_tiles->min, cfg.bmin, sizeof(Vec3));
 
 	Chunks<Array<s32>> chunked_mesh;
-	chunk_mesh<Array<s32>, &chunk_handle_mesh>(input, &chunked_mesh, nav_tile_size * nav_resolution);
+	chunk_mesh<Array<s32>, &chunk_handle_mesh>(input, &chunked_mesh, nav_tile_size * nav_resolution, nav_resolution * 2.0f);
 	vi_assert(output_tiles->width == chunked_mesh.size.x && output_tiles->height == chunked_mesh.size.z);
 	
 	// todo: use Chunks<> to speed up tile rasterization
@@ -1710,7 +1712,7 @@ b8 build_nav_mesh(const Mesh& input, TileCacheData* output_tiles)
 	return true;
 }
 
-void consolidate_meshes(Mesh* result, Map<Mesh>& meshes, cJSON* json, b8(*filter)(const Mesh*))
+void consolidate_nav_geometry(Mesh* result, Map<Mesh>& meshes, cJSON* json, b8(*filter)(const Mesh*))
 {
 	result->bounds_min = Vec3(FLT_MAX, FLT_MAX, FLT_MAX);
 	result->bounds_max = Vec3(FLT_MIN, FLT_MIN, FLT_MIN);
@@ -2065,7 +2067,7 @@ void build_awk_nav_mesh(Map<Mesh>& meshes, cJSON* json, AwkNavMesh* out, s32* ad
 
 	{
 		Mesh accessible;
-		consolidate_meshes(&accessible, meshes, json, is_accessible);
+		consolidate_nav_geometry(&accessible, meshes, json, is_accessible);
 
 		out->resize(accessible.bounds_min, accessible.bounds_max, chunk_size);
 		normals.resize(accessible.bounds_min, accessible.bounds_max, chunk_size);
@@ -2173,7 +2175,7 @@ void build_awk_nav_mesh(Map<Mesh>& meshes, cJSON* json, AwkNavMesh* out, s32* ad
 	ChunkedTris inaccessible_chunked;
 	{
 		Mesh inaccessible;
-		consolidate_meshes(&inaccessible, meshes, json, is_inaccessible);
+		consolidate_nav_geometry(&inaccessible, meshes, json, is_inaccessible);
 		chunk_mesh<Array<Vec3>, &chunk_handle_tris>(inaccessible, &inaccessible_chunked, chunk_size);
 	}
 	
@@ -2341,7 +2343,7 @@ void import_level(ImporterState& state, const std::string& asset_in_path, const 
 		{
 			Mesh nav_mesh_input;
 
-			consolidate_meshes(&nav_mesh_input, meshes, json, default_filter);
+			consolidate_nav_geometry(&nav_mesh_input, meshes, json, default_filter);
 
 			TileCacheData nav_tiles;
 			if (nav_mesh_input.vertices.length > 0)

@@ -42,6 +42,7 @@
 #if DEBUG
 	#define DEBUG_NAV_MESH 0
 	#define DEBUG_AWK_NAV_MESH 0
+	#define DEBUG_AI_PATH 0
 	#define DEBUG_PHYSICS 0
 #endif
 
@@ -238,12 +239,19 @@ void Game::draw_alpha(const RenderParams& render_params)
 	SkyPattern::draw_alpha(render_params);
 	SkinnedModel::draw_alpha(render_params);
 
+#if DEBUG_AI_PATH
 	for (auto i = MinionAI::list.iterator(); !i.is_last(); i.next())
 	{
 		MinionAI* minion = i.item();
 		for (s32 j = minion->path_index; j < minion->path.length; j++)
-			Cube::draw(render_params, minion->path[j]);
+		{
+			if (j == minion->path.length - 1)
+				Cube::draw(render_params, minion->path[j], true, Vec3(0.25f), Quat::identity, Team::ui_colors[(s32)minion->get<AIAgent>()->team]);
+			else
+				Cube::draw(render_params, minion->path[j], true, Vec3(0.1f));
+		}
 	}
+#endif
 
 #if DEBUG_PHYSICS
 	{

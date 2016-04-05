@@ -31,7 +31,7 @@ FastLZCompressor nav_tile_compressor;
 NavMeshProcess nav_tile_mesh_process;
 dtNavMeshQuery* nav_mesh_query = nullptr;
 dtQueryFilter default_query_filter = dtQueryFilter();
-const r32 default_search_extents[] = { 8, 8, 8 };
+const r32 default_search_extents[] = { 30, 100, 30 };
 
 void pathfind(const Vec3& a, const Vec3& b, dtPolyRef start_poly, dtPolyRef end_poly, Path* path)
 {
@@ -59,7 +59,8 @@ void pathfind(const Vec3& a, const Vec3& b, dtPolyRef start_poly, dtPolyRef end_
 			(r32*)path->data, path_straight_flags,
 			path_straight_polys, &path->length, MAX_PATH_LENGTH, 0
 		);
-		path->remove_ordered(0);
+		if (path->length > 1)
+			path->remove_ordered(0);
 	}
 }
 
@@ -94,125 +95,128 @@ void loop()
 						nav_tile_cache = nullptr;
 					}
 					awk_nav_mesh.~AwkNavMesh();
-					memset(&awk_nav_mesh, 0, sizeof(AwkNavMesh));
+					new (&awk_nav_mesh) AwkNavMesh();
 				}
 
-				TileCacheData tiles;
-
+				s32 data_length;
+				sync_in.read(&data_length);
+				if (data_length > 0)
 				{
-					// read tile data
-					sync_in.read(&tiles.min);
-					sync_in.read(&tiles.width);
-					sync_in.read(&tiles.height);
-					tiles.cells.resize(tiles.width * tiles.height);
-					for (s32 i = 0; i < tiles.cells.length; i++)
+					TileCacheData tiles;
+
 					{
-						TileCacheCell& cell = tiles.cells[i];
-						s32 layer_count;
-						sync_in.read(&layer_count);
-						cell.layers.resize(layer_count);
-						for (s32 j = 0; j < layer_count; j++)
+						// read tile data
+						sync_in.read(&tiles.min);
+						sync_in.read(&tiles.width);
+						sync_in.read(&tiles.height);
+						tiles.cells.resize(tiles.width * tiles.height);
+						for (s32 i = 0; i < tiles.cells.length; i++)
 						{
-							TileCacheLayer& layer = cell.layers[j];
-							sync_in.read(&layer.data_size);
-							layer.data = (u8*)dtAlloc(layer.data_size, dtAllocHint::DT_ALLOC_PERM);
-							sync_in.read<u8>(layer.data, layer.data_size);
-						}
-					}
-				}
-
-				{
-					// Create Detour navmesh
-
-					nav_mesh = dtAllocNavMesh();
-					vi_assert(nav_mesh);
-
-					dtNavMeshParams params;
-					memset(&params, 0, sizeof(params));
-					rcVcopy(params.orig, (r32*)&tiles.min);
-					params.tileWidth = nav_tile_size * nav_resolution;
-					params.tileHeight = nav_tile_size * nav_resolution;
-
-					s32 tileBits = rcMin((s32)dtIlog2(dtNextPow2(tiles.width * tiles.height * nav_expected_layers_per_tile)), 14);
-					if (tileBits > 14) tileBits = 14;
-					s32 polyBits = 22 - tileBits;
-					params.maxTiles = 1 << tileBits;
-					params.maxPolys = 1 << polyBits;
-
-					{
-						dtStatus status = nav_mesh->init(&params);
-						vi_assert(dtStatusSucceed(status));
-					}
-
-					// Create Detour tile cache
-
-					dtTileCacheParams tcparams;
-					memset(&tcparams, 0, sizeof(tcparams));
-					memcpy(&tcparams.orig, &tiles.min, sizeof(tiles.min));
-					tcparams.cs = nav_resolution;
-					tcparams.ch = nav_resolution;
-					tcparams.width = (s32)nav_tile_size;
-					tcparams.height = (s32)nav_tile_size;
-					tcparams.walkableHeight = nav_agent_height;
-					tcparams.walkableRadius = nav_agent_radius;
-					tcparams.walkableClimb = nav_agent_max_climb;
-					tcparams.maxSimplificationError = nav_mesh_max_error;
-					tcparams.maxTiles = tiles.width * tiles.height * nav_expected_layers_per_tile;
-					tcparams.maxObstacles = nav_max_obstacles;
-
-					nav_tile_cache = dtAllocTileCache();
-					vi_assert(nav_tile_cache);
-					{
-						dtStatus status = nav_tile_cache->init(&tcparams, &nav_tile_allocator, &nav_tile_compressor, &nav_tile_mesh_process);
-						vi_assert(!dtStatusFailed(status));
-					}
-
-					for (s32 ty = 0; ty < tiles.height; ty++)
-					{
-						for (s32 tx = 0; tx < tiles.width; tx++)
-						{
-							TileCacheCell& cell = tiles.cells[tx + ty * tiles.width];
-							for (s32 i = 0; i < cell.layers.length; i++)
+							TileCacheCell& cell = tiles.cells[i];
+							s32 layer_count;
+							sync_in.read(&layer_count);
+							cell.layers.resize(layer_count);
+							for (s32 j = 0; j < layer_count; j++)
 							{
-								TileCacheLayer& tile = cell.layers[i];
-								dtStatus status = nav_tile_cache->addTile(tile.data, tile.data_size, DT_COMPRESSEDTILE_FREE_DATA, 0);
-								vi_assert(dtStatusSucceed(status));
+								TileCacheLayer& layer = cell.layers[j];
+								sync_in.read(&layer.data_size);
+								layer.data = (u8*)dtAlloc(layer.data_size, dtAllocHint::DT_ALLOC_PERM);
+								sync_in.read<u8>(layer.data, layer.data_size);
 							}
 						}
 					}
 
-					// Build initial meshes
-					for (s32 ty = 0; ty < tiles.height; ty++)
 					{
-						for (s32 tx = 0; tx < tiles.width; tx++)
+						// Create Detour navmesh
+
+						nav_mesh = dtAllocNavMesh();
+						vi_assert(nav_mesh);
+
+						dtNavMeshParams params;
+						memset(&params, 0, sizeof(params));
+						rcVcopy(params.orig, (r32*)&tiles.min);
+						params.tileWidth = nav_tile_size * nav_resolution;
+						params.tileHeight = nav_tile_size * nav_resolution;
+
+						s32 tileBits = rcMin((s32)dtIlog2(dtNextPow2(tiles.width * tiles.height * nav_expected_layers_per_tile)), 14);
+						if (tileBits > 14) tileBits = 14;
+						s32 polyBits = 22 - tileBits;
+						params.maxTiles = 1 << tileBits;
+						params.maxPolys = 1 << polyBits;
+
 						{
-							dtStatus status = nav_tile_cache->buildNavMeshTilesAt(tx, ty, nav_mesh);
+							dtStatus status = nav_mesh->init(&params);
 							vi_assert(dtStatusSucceed(status));
 						}
+
+						// Create Detour tile cache
+
+						dtTileCacheParams tcparams;
+						memset(&tcparams, 0, sizeof(tcparams));
+						memcpy(&tcparams.orig, &tiles.min, sizeof(tiles.min));
+						tcparams.cs = nav_resolution;
+						tcparams.ch = nav_resolution;
+						tcparams.width = (s32)nav_tile_size;
+						tcparams.height = (s32)nav_tile_size;
+						tcparams.walkableHeight = nav_agent_height;
+						tcparams.walkableRadius = nav_agent_radius;
+						tcparams.walkableClimb = nav_agent_max_climb;
+						tcparams.maxSimplificationError = nav_mesh_max_error;
+						tcparams.maxTiles = tiles.width * tiles.height * nav_expected_layers_per_tile;
+						tcparams.maxObstacles = nav_max_obstacles;
+
+						nav_tile_cache = dtAllocTileCache();
+						vi_assert(nav_tile_cache);
+						{
+							dtStatus status = nav_tile_cache->init(&tcparams, &nav_tile_allocator, &nav_tile_compressor, &nav_tile_mesh_process);
+							vi_assert(!dtStatusFailed(status));
+						}
+
+						for (s32 ty = 0; ty < tiles.height; ty++)
+						{
+							for (s32 tx = 0; tx < tiles.width; tx++)
+							{
+								TileCacheCell& cell = tiles.cells[tx + ty * tiles.width];
+								for (s32 i = 0; i < cell.layers.length; i++)
+								{
+									TileCacheLayer& tile = cell.layers[i];
+									dtStatus status = nav_tile_cache->addTile(tile.data, tile.data_size, DT_COMPRESSEDTILE_FREE_DATA, 0);
+									vi_assert(dtStatusSucceed(status));
+								}
+							}
+						}
+
+						// Build initial meshes
+						for (s32 ty = 0; ty < tiles.height; ty++)
+						{
+							for (s32 tx = 0; tx < tiles.width; tx++)
+							{
+								dtStatus status = nav_tile_cache->buildNavMeshTilesAt(tx, ty, nav_mesh);
+								vi_assert(dtStatusSucceed(status));
+							}
+						}
+
+						dtStatus status = nav_mesh_query->init(nav_mesh, 2048);
+						vi_assert(dtStatusSucceed(status));
 					}
 
-					dtStatus status = nav_mesh_query->init(nav_mesh, 2048);
-					vi_assert(dtStatusSucceed(status));
-				}
-
-				// Awk nav mesh
-				{
-					new (&awk_nav_mesh) AwkNavMesh();
-
-					sync_in.read(&awk_nav_mesh.chunk_size);
-					sync_in.read(&awk_nav_mesh.vmin);
-					sync_in.read(&awk_nav_mesh.size);
-					awk_nav_mesh.resize();
-
-					for (s32 i = 0; i < awk_nav_mesh.chunks.length; i++)
+					// Awk nav mesh
 					{
-						AwkNavMeshChunk* chunk = &awk_nav_mesh.chunks[i];
-						s32 vertex_count;
-						sync_in.read(&vertex_count);
-						chunk->vertices.resize(vertex_count);
-						sync_in.read(chunk->vertices.data, vertex_count);
-						chunk->adjacency.resize(vertex_count);
-						sync_in.read(chunk->adjacency.data, vertex_count);
+						sync_in.read(&awk_nav_mesh.chunk_size);
+						sync_in.read(&awk_nav_mesh.vmin);
+						sync_in.read(&awk_nav_mesh.size);
+						awk_nav_mesh.resize();
+
+						for (s32 i = 0; i < awk_nav_mesh.chunks.length; i++)
+						{
+							AwkNavMeshChunk* chunk = &awk_nav_mesh.chunks[i];
+							s32 vertex_count;
+							sync_in.read(&vertex_count);
+							chunk->vertices.resize(vertex_count);
+							sync_in.read(chunk->vertices.data, vertex_count);
+							chunk->adjacency.resize(vertex_count);
+							sync_in.read(chunk->adjacency.data, vertex_count);
+						}
 					}
 				}
 
@@ -267,6 +271,7 @@ void loop()
 				sync_in.unlock();
 
 				dtPolyRef start_poly = get_poly(a, default_search_extents);
+
 				dtPolyRef end_poly = get_poly(b, default_search_extents);
 
 				Path path;

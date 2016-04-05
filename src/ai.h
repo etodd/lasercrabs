@@ -64,6 +64,8 @@ namespace AI
 	void loop();
 	void quit();
 	void update(const Update&);
+	void debug_draw_nav_mesh(const RenderParams&);
+	void debug_draw_awk_nav_mesh(const RenderParams&);
 
 	Entity* vision_query(const AIAgent*, const Vec3&, const Vec3&, r32, r32, r32 = -1.0f, ComponentMask = -1);
 	b8 vision_check(const Vec3&, const Vec3&, const Entity* = nullptr, const Entity* = nullptr);

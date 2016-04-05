@@ -845,6 +845,8 @@ cJSON* Loader::level(AssetID id)
 		fread(data.data, sizeof(u8), data.length, f);
 		AI::load(data.data, data.length);
 	}
+	else
+		AI::load(0, 0);
 
 	fclose(f);
 	

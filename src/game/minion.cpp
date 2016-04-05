@@ -17,7 +17,7 @@
 #include "data/ragdoll.h"
 #include "entities.h"
 
-#define MINION_VIEW_RANGE 15.0f
+#define MINION_VIEW_RANGE 30.0f
 
 #define WALK_SPEED 1.0f
 
@@ -214,7 +214,9 @@ b8 MinionAI::can_see(Entity* target) const
 
 	Vec3 pos = get<Transform>()->absolute_pos();
 	Vec3 target_pos = target->get<Transform>()->absolute_pos();
-	if ((target_pos - pos).length_squared() < MINION_VIEW_RANGE * MINION_VIEW_RANGE)
+	Vec3 diff_flattened = target_pos - pos;
+	diff_flattened.y = 0.0f;
+	if (diff_flattened.length_squared() < MINION_VIEW_RANGE * MINION_VIEW_RANGE)
 	{
 		btCollisionWorld::ClosestRayResultCallback ray_callback(pos, target_pos);
 		Physics::raycast(&ray_callback, btBroadphaseProxy::StaticFilter | CollisionInaccessible);
@@ -232,53 +234,85 @@ void MinionAI::new_goal()
 	goal.entity = closest_enemy_sensor(pos, get<AIAgent>()->team);
 	auto path_callback = ObjectLinkEntryArg<MinionAI, const AI::Path&, &MinionAI::set_path>(id());
 	path_timer = PATH_RECALC_TIME;
-	path_request_active = true;
 	if (goal.entity.ref())
+	{
+		path_request = PathRequest::Sensor;
+		goal.type = Goal::Type::Sensor;
 		AI::pathfind(pos, goal.entity.ref()->get<Transform>()->absolute_pos(), path_callback);
+	}
 	else
+	{
+		path_request = PathRequest::Random;
+		goal.type = Goal::Type::Random;
 		AI::random_path(pos, path_callback);
+	}
 }
 
 void MinionAI::update(const Update& u)
 {
 	Vec3 pos = get<Transform>()->absolute_pos();
 
-	b8 goal_reached = false;
-	if (goal.entity.ref())
+	if (path_request == PathRequest::None)
 	{
-		if (can_see(goal.entity.ref()))
+		b8 need_new_goal = false;
+		b8 enable_recalc = true;
+		switch (goal.type)
 		{
-			Vec3 target_pos = goal.entity.ref()->get<Transform>()->absolute_pos();
-			turn_to(target_pos);
-
-			Vec3 head_pos = get<MinionCommon>()->head_pos();
-
-			Vec3 to_target = target_pos - head_pos;
-			to_target.y = 0.0f;
-			if (attack_timer == 0.0f && Vec3::normalize(to_target).dot(get<Walker>()->forward()) > 0.9f)
+			case Goal::Type::Random:
 			{
-				World::create<ProjectileEntity>(entity(), head_pos, 1, target_pos - head_pos);
-				attack_timer = 1.0f;
+				if (path.length == 0 || (path[path.length - 1] - pos).length_squared() < 3.0f * 3.0f)
+					need_new_goal = true;
+				break;
+			}
+			case Goal::Type::Sensor:
+			{
+				attack_timer = vi_max(0.0f, attack_timer - u.time.delta);
+				if (goal.entity.ref())
+				{
+					// we're going after the sensor
+					if (can_see(goal.entity.ref()))
+					{
+						// turn to and attack the sensor
+						Vec3 target_pos = goal.entity.ref()->get<Transform>()->absolute_pos();
+						turn_to(target_pos);
+						enable_recalc = false;
+						path.length = 0;
+
+						Vec3 head_pos = get<MinionCommon>()->head_pos();
+
+						Vec3 to_target = target_pos - head_pos;
+						to_target.y = 0.0f;
+						if (attack_timer == 0.0f && Vec3::normalize(to_target).dot(get<Walker>()->forward()) > 0.9f)
+						{
+							World::create<ProjectileEntity>(entity(), head_pos, 1, target_pos - head_pos);
+							attack_timer = 1.0f;
+						}
+					}
+				}
+				else
+					need_new_goal = true;
+				break;
+			}
+			default:
+			{
+				vi_assert(false);
+				break;
 			}
 		}
-	}
-	else
-		goal_reached = (goal.pos - pos).length_squared() < 3.0f * 3.0f;
 
-	attack_timer = vi_max(0.0f, attack_timer - u.time.delta);
-
-	if (goal_reached && !path_request_active)
-		new_goal();
-
-	if (!path_request_active)
-		path_timer = vi_max(0.0f, path_timer - u.time.delta);
-
-	if (!goal_reached && path_timer == 0.0f)
-	{
-		// recalc path
-		path_timer = PATH_RECALC_TIME;
-		path_request_active = true;
-		AI::pathfind(pos, goal.entity.ref() ? goal.entity.ref()->get<Transform>()->absolute_pos() : goal.pos, ObjectLinkEntryArg<MinionAI, const AI::Path&, &MinionAI::set_path>(id()));
+		if (need_new_goal)
+			new_goal();
+		else if (enable_recalc)
+		{
+			path_timer = vi_max(0.0f, path_timer - u.time.delta);
+			if (path_timer == 0.0f)
+			{
+				// recalc path
+				path_timer = PATH_RECALC_TIME;
+				path_request = PathRequest::Repath;
+				AI::pathfind(pos, goal.type == Goal::Type::Random ? goal.pos : goal.entity.ref()->get<Transform>()->absolute_pos(), ObjectLinkEntryArg<MinionAI, const AI::Path&, &MinionAI::set_path>(id()));
+			}
+		}
 	}
 
 	if (path_index < path.length)
@@ -311,12 +345,16 @@ void MinionAI::update(const Update& u)
 
 void MinionAI::set_path(const AI::Path& p)
 {
-	path = p;
-	if (p.length > 0)
-		goal.pos = p[p.length - 1];
 	Vec3 pos = get<Transform>()->absolute_pos();
-	printf("%f %f %f %f %f %f\n", goal.pos.x, goal.pos.y, goal.pos.z, pos.x, pos.y, pos.z);
-	path_request_active = false;
+	path = p;
+	if (path_request != PathRequest::Repath)
+	{
+		if (p.length > 0)
+			goal.pos = p[p.length - 1];
+		else
+			goal.pos = pos;
+	}
+	path_request = PathRequest::None;
 	path_index = 0;
 }
 

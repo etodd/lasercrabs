@@ -31,14 +31,29 @@ struct MinionAI : public ComponentType<MinionAI>
 {
 	struct Goal
 	{
+		enum class Type
+		{
+			Random,
+			Sensor,
+		};
+
+		Type type;
 		Ref<Entity> entity;
 		Vec3 pos;
 	};
 
+	enum class PathRequest
+	{
+		None,
+		Random,
+		Sensor,
+		Repath,
+	};
+
+	PathRequest path_request;
 	Goal goal;
 	AI::Path path;
 	u8 path_index;
-	b8 path_request_active;
 	r32 path_timer;
 	r32 attack_timer;
 

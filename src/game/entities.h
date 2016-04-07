@@ -230,6 +230,8 @@ struct TargetEvent
 
 struct Target : public ComponentType<Target>
 {
+	Vec3 local_offset;
+	Vec3 absolute_pos() const;
 	LinkArg<const TargetEvent&> target_hit;
 	void hit(Entity*);
 	void awake() {}

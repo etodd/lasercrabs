@@ -957,6 +957,22 @@ void LocalPlayerControl::detach(const Vec3& dir)
 	}
 }
 
+void LocalPlayerControl::add_target_indicator(Target* target, const Vec4& color)
+{
+	Vec3 me = get<Awk>()->center();
+	if ((target->absolute_pos() - me).length_squared() < AWK_MAX_DISTANCE * AWK_MAX_DISTANCE)
+	{
+		// calculate head intersection trajectory
+		Vec3 intersection;
+		if (get<Awk>()->predict_intersection(target, &intersection))
+		{
+			if (tracer.type == TraceType::Normal && LMath::ray_sphere_intersect(me, tracer.pos, intersection, MINION_HEAD_RADIUS))
+				tracer.type = TraceType::Target;
+			indicators.add({ intersection, &color });
+		}
+	}
+}
+
 void LocalPlayerControl::update(const Update& u)
 {
 	{
@@ -1223,26 +1239,16 @@ void LocalPlayerControl::update(const Update& u)
 	if (Game::data.mode == Game::Mode::Pvp)
 	{
 		Vec3 me = get<Transform>()->absolute_pos();
-		// health indicators
+		// health pickups
 		if (get<Health>()->hp < get<Health>()->hp_max)
 		{
 			for (auto i = HealthPickup::list.iterator(); !i.is_last(); i.next())
 			{
 				if (!i.item()->owner.ref())
 				{
-					Vec3 pos = i.item()->get<Transform>()->absolute_pos();
-					if ((pos - me).length_squared() < AWK_MAX_DISTANCE * AWK_MAX_DISTANCE)
-					{
-						Vec3 intersection;
-						if (get<Awk>()->predict_intersection(pos, i.item()->get<RigidBody>()->btBody->getLinearVelocity(), &intersection))
-						{
-							if (tracer.type == TraceType::Normal && LMath::ray_sphere_intersect(me, tracer.pos, intersection, HEALTH_PICKUP_RADIUS))
-								tracer.type = TraceType::Target;
-							indicators.add({ intersection, &UI::accent_color });
-							if (indicators.length == indicators.capacity())
-								break;
-						}
-					}
+					add_target_indicator(i.item()->get<Target>(), UI::accent_color);
+					if (indicators.length == indicators.capacity())
+						break;
 				}
 			}
 		}
@@ -1254,19 +1260,9 @@ void LocalPlayerControl::update(const Update& u)
 			{
 				if (!i.item()->minion.ref())
 				{
-					Vec3 pos = i.item()->get<Transform>()->absolute_pos();
-					if ((pos - me).length_squared() < AWK_MAX_DISTANCE * AWK_MAX_DISTANCE)
-					{
-						Vec3 intersection;
-						if (get<Awk>()->predict_intersection(pos, i.item()->get<RigidBody>()->btBody->getLinearVelocity(), &intersection))
-						{
-							if (tracer.type == TraceType::Normal && LMath::ray_sphere_intersect(me, tracer.pos, intersection, MINION_SPAWN_RADIUS))
-								tracer.type = TraceType::Target;
-							indicators.add({ intersection, &UI::default_color });
-							if (indicators.length == indicators.capacity())
-								break;
-						}
-					}
+					add_target_indicator(i.item()->get<Target>(), UI::default_color);
+					if (indicators.length == indicators.capacity())
+						break;
 				}
 			}
 		}
@@ -1279,20 +1275,9 @@ void LocalPlayerControl::update(const Update& u)
 			{
 				if (i.item()->get<AIAgent>()->team != team)
 				{
-					Vec3 head_pos = i.item()->head_pos();
-					if ((head_pos - me).length_squared() < AWK_MAX_DISTANCE * AWK_MAX_DISTANCE)
-					{
-						// calculate head intersection trajectory
-						Vec3 intersection;
-						if (get<Awk>()->predict_intersection(head_pos, i.item()->get<RigidBody>()->btBody->getLinearVelocity(), &intersection))
-						{
-							if (tracer.type == TraceType::Normal && LMath::ray_sphere_intersect(me, tracer.pos, intersection, MINION_HEAD_RADIUS))
-								tracer.type = TraceType::Target;
-							indicators.add({ intersection, &UI::alert_color });
-							if (indicators.length == indicators.capacity())
-								break;
-						}
-					}
+					add_target_indicator(i.item()->get<Target>(), UI::alert_color);
+					if (indicators.length == indicators.capacity())
+						break;
 				}
 			}
 		}

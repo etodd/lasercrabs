@@ -130,6 +130,7 @@ struct LocalPlayerControl : public ComponentType<LocalPlayerControl>
 	void hit_target(Entity*);
 	void damaged(const DamageEvent&);
 	void health_picked_up();
+	void add_target_indicator(Target*, const Vec4&);
 
 	void update(const Update&);
 	void draw_alpha(const RenderParams&) const;

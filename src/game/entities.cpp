@@ -524,6 +524,11 @@ void Target::hit(Entity* hit_by)
 	target_hit.fire(e);
 }
 
+Vec3 Target::absolute_pos() const
+{
+	return get<Transform>()->to_world(local_offset);
+}
+
 PlayerTrigger::PlayerTrigger()
 	: entered(), exited(), triggered(), radius(1.0f)
 {

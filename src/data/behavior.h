@@ -2,6 +2,7 @@
 #include "types.h"
 #include "pin_array.h"
 #include "ease.h"
+#include "entity.h"
 
 namespace VI
 {
@@ -54,6 +55,11 @@ template<typename Derived> struct BehaviorBase : public Behavior
 	inline ID id() const
 	{
 		return ((Derived*)this - &list[0]);
+	}
+
+	virtual void run()
+	{
+		active(true);
 	}
 
 	virtual void done(b8 success = true)
@@ -218,12 +224,23 @@ struct Invert : public BehaviorDecorator<Invert>
 	void child_done(Behavior*, b8);
 };
 
-struct Execute : public BehaviorBase<Execute>
+template<typename T, void (T::*Method)()>
+struct Execute : public BehaviorBase<Execute<T, Method> >
 {
-	b8(*callback)();
+	LinkEntry link;
 
-	Execute(b8(*fp)());
-	void run();
+	Execute<T, Method>* set(T* t)
+	{
+		link = ObjectLinkEntry<T, Method>(t->id());
+		return this;
+	}
+
+	void run()
+	{
+		active(true);
+		(&link)->fire();
+		done();
+	}
 };
 
 template<typename T> struct Set : public BehaviorBase<Set<T>>
@@ -239,6 +256,7 @@ template<typename T> struct Set : public BehaviorBase<Set<T>>
 
 	void run()
 	{
+		active(true);
 		*target = value;
 		done();
 	}

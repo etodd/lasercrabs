@@ -321,12 +321,17 @@ void Animator::bone_transform(const s32 index, Vec3* pos, Quat* rot)
 	*pos = (bone_rot * *pos) + bone_pos;
 }
 
-void Animator::to_world(const s32 index, Vec3* pos, Quat* rot)
+void Animator::to_local(const s32 index, Vec3* pos, Quat* rot)
 {
 	bone_transform(index, pos, rot);
 	*pos = (get<SkinnedModel>()->offset * Vec4(*pos)).xyz();
 	*rot = get<SkinnedModel>()->offset.extract_quat() * *rot;
 	rot->normalize();
+}
+
+void Animator::to_world(const s32 index, Vec3* pos, Quat* rot)
+{
+	to_local(index, pos, rot);
 	get<Transform>()->to_world(pos, rot);
 }
 

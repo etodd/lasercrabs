@@ -5,12 +5,14 @@ namespace VI
 
 void Sequence::run()
 {
+	active(true);
 	index = 0;
 	children[0]->run();
 }
 
 void Sequence::child_done(Behavior* child, b8 success)
 {
+	active(true);
 	if (success)
 	{
 		index++;
@@ -25,6 +27,7 @@ void Sequence::child_done(Behavior* child, b8 success)
 
 void Select::run()
 {
+	active(true);
 	index = 0;
 	children[0]->run();
 }
@@ -78,6 +81,7 @@ Repeat::Repeat(Behavior* child, s32 repeat)
 
 void Repeat::run()
 {
+	active(true);
 	repeat_index = 0;
 	child->run();
 }
@@ -115,6 +119,7 @@ Succeed::Succeed(Behavior* b) : BehaviorDecorator(b) { }
 
 void Succeed::run()
 {
+	active(true);
 	child->run();
 }
 
@@ -127,17 +132,13 @@ Invert::Invert(Behavior* b) : BehaviorDecorator(b) { }
 
 void Invert::run()
 {
+	active(true);
 	child->run();
 }
 
 void Invert::child_done(Behavior* b, b8 success)
 {
 	done(!success);
-}
-
-void Execute::run()
-{
-	done(callback());
 }
 
 

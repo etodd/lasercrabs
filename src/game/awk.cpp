@@ -137,7 +137,7 @@ Awk::~Awk()
 		World::remove_deferred(shield.ref()->entity());
 }
 
-Vec3 Awk::center()
+Vec3 Awk::center() const
 {
 	return get<Transform>()->to_world((get<SkinnedModel>()->offset * Vec4(0, 0, 0.05f, 1)).xyz());
 }
@@ -171,20 +171,17 @@ void Awk::hit_target(Entity* target)
 
 	if (target->has<Target>())
 	{
-		Target* t = target->get<Target>();
+		Ref<Target> t = target->get<Target>();
 
-		if (target->has<RigidBody>())
+		t.ref()->hit(entity());
+
+		if (t.ref() && t.ref()->has<RigidBody>()) // is it still around and does it have a rigidbody?
 		{
-			RigidBody* body = target->get<RigidBody>();
+			RigidBody* body = t.ref()->get<RigidBody>();
 			body->btBody->applyImpulse(velocity * Game::time.delta * 0.0005f, Vec3::zero);
 			body->btBody->activate(true);
 		}
-
-		t->hit(entity());
 	}
-
-	if (target->has<MinionCommon>())
-		target->get<Health>()->damage(entity(), 100);
 
 	Vec3 pos;
 	Quat rot;
@@ -203,8 +200,10 @@ void Awk::hit_target(Entity* target)
 	hit.fire(target);
 }
 
-b8 Awk::predict_intersection(const Vec3& target_pos, const Vec3& target_velocity, Vec3* intersection) const
+b8 Awk::predict_intersection(const Target* target, Vec3* intersection) const
 {
+	Vec3 target_pos = target->absolute_pos();
+	Vec3 target_velocity = target->get<RigidBody>()->btBody->getLinearVelocity();
 	Vec3 to_target = target_pos - get<Transform>()->absolute_pos();
 	r32 intersect_time_squared = to_target.dot(to_target) / ((AWK_FLY_SPEED * AWK_FLY_SPEED) - 2.0f * to_target.dot(target_velocity) - target_velocity.dot(target_velocity));
 	if (intersect_time_squared > 0.0f)
@@ -255,7 +254,28 @@ void Awk::killed(Entity* e)
 	World::remove_deferred(entity());
 }
 
-b8 Awk::can_go(const Vec3& dir, Vec3* final_pos)
+b8 Awk::can_hit(const Target* target, Vec3* out_intersection) const
+{
+	Vec3 intersection;
+	if (predict_intersection(target, &intersection))
+	{
+		Vec3 to_intersection = intersection - center();
+		Vec3 final_pos;
+		if (can_go(to_intersection, &final_pos))
+		{
+			r32 intersection_length_squared = to_intersection.length_squared();
+			if (final_pos.length_squared() > intersection_length_squared)
+			{
+				if (out_intersection)
+					*out_intersection = intersection;
+				return true;
+			}
+		}
+	}
+	return false;
+}
+
+b8 Awk::can_go(const Vec3& dir, Vec3* final_pos) const
 {
 	Vec3 trace_dir = Vec3::normalize(dir);
 

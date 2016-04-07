@@ -8,6 +8,7 @@ namespace VI
 {
 
 
+struct TargetEvent;
 struct PlayerManager;
 
 #define MINION_HEAD_RADIUS 0.35f
@@ -22,6 +23,7 @@ struct MinionCommon : public ComponentType<MinionCommon>
 	void awake();
 	Vec3 head_pos();
 	b8 headshot_test(const Vec3&, const Vec3&);
+	void hit_by(const TargetEvent& e);
 	void killed(Entity*);
 	void footstep();
 	void update(const Update&);

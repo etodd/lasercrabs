@@ -78,6 +78,7 @@ struct Animator : public ComponentType<Animator>
 	void unbind(const Transform*);
 	void update_world_transforms();
 	void bone_transform(const s32, Vec3*, Quat*);
+	void to_local(const s32, Vec3*, Quat*);
 	void to_world(const s32, Vec3*, Quat*);
 	void from_bone_body(const s32, const Vec3&, const Quat&, const Vec3&, const Quat&);
 	void override_bone(const s32, const Vec3&, const Quat&);

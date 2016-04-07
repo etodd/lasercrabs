@@ -61,6 +61,8 @@ Minion::Minion(const Vec3& pos, const Quat& quat, AI::Team team, PlayerManager* 
 	light->team_mask = 1 << (s32)team;
 	light->radius = SENSOR_RANGE;
 
+	create<Target>();
+
 	create<Sensor>(team, manager);
 	create<PlayerTrigger>()->radius = SENSOR_RANGE;
 
@@ -69,6 +71,7 @@ Minion::Minion(const Vec3& pos, const Quat& quat, AI::Team team, PlayerManager* 
 
 void MinionCommon::awake()
 {
+	link_arg<const TargetEvent&, &MinionCommon::hit_by>(get<Target>()->target_hit);
 	link_arg<Entity*, &MinionCommon::killed>(get<Health>()->killed);
 
 	Animator* animator = get<Animator>();
@@ -86,10 +89,7 @@ void MinionCommon::footstep()
 
 Vec3 MinionCommon::head_pos()
 {
-	Vec3 pos = Vec3(0.1f, 0, 0);
-	Quat rot = Quat::identity;
-	get<Animator>()->to_world(Asset::Bone::character_head, &pos, &rot);
-	return pos;
+	return get<Target>()->absolute_pos();
 }
 
 b8 MinionCommon::headshot_test(const Vec3& ray_start, const Vec3& ray_end)
@@ -99,6 +99,13 @@ b8 MinionCommon::headshot_test(const Vec3& ray_start, const Vec3& ray_end)
 
 void MinionCommon::update(const Update& u)
 {
+	// update head position
+	{
+		get<Target>()->local_offset = Vec3(0.1f, 0, 0);
+		Quat rot = Quat::identity;
+		get<Animator>()->to_local(Asset::Bone::character_head, &get<Target>()->local_offset, &rot);
+	}
+
 	get<SkinnedModel>()->offset.make_transform(
 		Vec3(0, -1.1f, 0),
 		Vec3(1.0f, 1.0f, 1.0f),
@@ -122,6 +129,11 @@ void MinionCommon::update(const Update& u)
 	}
 
 	layer->animation = anim;
+}
+
+void MinionCommon::hit_by(const TargetEvent& e)
+{
+	get<Health>()->damage(e.hit_by, get<Health>()->hp_max);
 }
 
 void MinionCommon::killed(Entity* killer)
@@ -273,7 +285,7 @@ void MinionAI::update(const Update& u)
 					if (can_see(goal.entity.ref()))
 					{
 						// turn to and attack the sensor
-						Vec3 target_pos = goal.entity.ref()->get<Transform>()->absolute_pos();
+						Vec3 target_pos = goal.entity.ref()->get<Target>()->absolute_pos();
 						turn_to(target_pos);
 						enable_recalc = false;
 						path.length = 0;

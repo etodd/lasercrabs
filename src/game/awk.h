@@ -35,6 +35,7 @@ struct AwkRaycastCallback : btCollisionWorld::ClosestRayResultCallback
 };
 
 struct TargetEvent;
+struct Target;
 
 struct Awk : public ComponentType<Awk>
 {
@@ -71,7 +72,7 @@ struct Awk : public ComponentType<Awk>
 	void killed(Entity*);
 	void update_shield_visibility();
 
-	b8 predict_intersection(const Vec3&, const Vec3&, Vec3*) const;
+	b8 predict_intersection(const Target*, Vec3*) const;
 
 	void stealth_enable(r32);
 	void stealth_disable();
@@ -85,11 +86,12 @@ struct Awk : public ComponentType<Awk>
 
 	void set_footing(s32, const Transform*, const Vec3&);
 
-	Vec3 center();
+	Vec3 center() const;
 
 	b8 detach(const Vec3&);
 
-	b8 can_go(const Vec3&, Vec3* = nullptr);
+	b8 can_go(const Vec3&, Vec3* = nullptr) const;
+	b8 can_hit(const Target*, Vec3* = nullptr) const;
 
 	void update(const Update&);
 };

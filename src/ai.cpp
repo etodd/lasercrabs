@@ -360,6 +360,8 @@ void render_helper(const RenderParams& params, AssetID m, RenderPrimitiveMode pr
 	params.sync->write(fill_mode);
 	params.sync->write(RenderOp::PointSize);
 	params.sync->write<r32>(4 * UI::scale);
+	params.sync->write(RenderOp::LineWidth);
+	params.sync->write<r32>(1 * UI::scale);
 	params.sync->write(RenderOp::CullMode);
 	params.sync->write(RenderCullMode::None);
 

@@ -73,10 +73,10 @@ void loop()
 	Array<u32> obstacle_recast_ids;
 
 	b8 run = true;
+	Op op;
 	while (run)
 	{
 		sync_in.lock_wait_read();
-		Op op;
 		sync_in.read(&op);
 		switch (op)
 		{
@@ -337,7 +337,9 @@ void loop()
 			}
 			case Op::AwkRandomPath:
 			{
-				LinkEntryArg<Vec3> callback;
+				LinkEntryArg<Path> callback;
+				Vec3 start;
+				sync_in.read(&start);
 				sync_in.read(&callback);
 				sync_in.unlock();
 
@@ -349,12 +351,15 @@ void loop()
 				}
 				s32 chunk_index = chunks_with_vertices[mersenne::randf_co() * chunks_with_vertices.length];
 				const AwkNavMeshChunk& chunk = awk_nav_mesh.chunks[chunk_index];
-				const Vec3& point = chunk.vertices[mersenne::randf_co() * chunk.vertices.length - 1];
+				const Vec3& end = chunk.vertices[mersenne::randf_co() * chunk.vertices.length - 1];
+
+				Path path;
+				awk_pathfind(start, end, &path);
 
 				sync_out.lock();
 				sync_out.write(Callback::AwkPath);
 				sync_out.write(callback);
-				sync_out.write(point);
+				sync_out.write(path);
 				sync_out.unlock();
 				break;
 			}
@@ -472,7 +477,7 @@ void awk_pathfind(const Vec3& start, const Vec3& end, Path* path)
 			{
 				if (n.equals(start_vertex))
 					break;
-				path->add(awk_nav_mesh.chunks[n.chunk].vertices[n.vertex]);
+				path->insert(0, awk_nav_mesh.chunks[n.chunk].vertices[n.vertex]);
 				n = awk_nav_mesh_key.get(n).parent;
 			}
 			break; // done!

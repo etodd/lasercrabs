@@ -43,6 +43,7 @@
 	#define DEBUG_NAV_MESH 0
 	#define DEBUG_AWK_NAV_MESH 0
 	#define DEBUG_AI_PATH 0
+	#define DEBUG_AWK_AI_PATH 0
 	#define DEBUG_PHYSICS 0
 #endif
 
@@ -239,16 +240,59 @@ void Game::draw_alpha(const RenderParams& render_params)
 	SkyPattern::draw_alpha(render_params);
 	SkinnedModel::draw_alpha(render_params);
 
+#if DEBUG_NAV_MESH
+	AI::debug_draw_nav_mesh(render_params);
+#endif
+
+#if DEBUG_AWK_NAV_MESH
+	AI::debug_draw_awk_nav_mesh(render_params);
+#endif
+
 #if DEBUG_AI_PATH
-	for (auto i = MinionAI::list.iterator(); !i.is_last(); i.next())
 	{
-		MinionAI* minion = i.item();
-		for (s32 j = minion->path_index; j < minion->path.length; j++)
+		UIText text;
+		for (auto i = MinionAI::list.iterator(); !i.is_last(); i.next())
 		{
-			if (j == minion->path.length - 1)
-				Cube::draw(render_params, minion->path[j], true, Vec3(0.25f), Quat::identity, Team::ui_colors[(s32)minion->get<AIAgent>()->team]);
-			else
-				Cube::draw(render_params, minion->path[j], true, Vec3(0.1f));
+			MinionAI* minion = i.item();
+			text.color = Team::ui_colors[(s32)minion->get<AIAgent>()->team];
+			for (s32 j = minion->path_index; j < minion->path.length; j++)
+			{
+				Vec2 p;
+				if (UI::project(render_params, minion->path[j], &p))
+				{
+					text.text("%d", j);
+					text.draw(render_params, p);
+				}
+			}
+		}
+	}
+#endif
+
+#if DEBUG_AWK_AI_PATH
+	{
+		UIText text;
+		for (auto i = AIPlayerControl::list.iterator(); !i.is_last(); i.next())
+		{
+			AIPlayerControl* ai = i.item();
+			text.color = Team::ui_colors[(s32)ai->get<AIAgent>()->team];
+			{
+				Vec3 pos = ai->get<Transform>()->absolute_pos();
+				Vec2 p;
+				if (UI::project(render_params, pos, &p))
+				{
+					text.text("AI%d", i.index);
+					text.draw(render_params, p);
+				}
+			}
+			for (s32 j = 0; j < ai->path.length; j++)
+			{
+				Vec2 p;
+				if (UI::project(render_params, ai->path[j], &p))
+				{
+					text.text("%d", j);
+					text.draw(render_params, p);
+				}
+			}
 		}
 	}
 #endif
@@ -376,14 +420,6 @@ void Game::draw_additive(const RenderParams& render_params)
 {
 	View::draw_additive(render_params);
 	SkinnedModel::draw_additive(render_params);
-
-#if DEBUG_NAV_MESH
-	AI::debug_draw_nav_mesh(render_params);
-#endif
-
-#if DEBUG_AWK_NAV_MESH
-	AI::debug_draw_awk_nav_mesh(render_params);
-#endif
 }
 
 void Game::execute(const Update& u, const char* cmd)

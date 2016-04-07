@@ -238,7 +238,7 @@ template<typename T> struct Chunks
 		{
 			(s32)((pos.x - vmin.x) / chunk_size),
 			(s32)((pos.y - vmin.y) / chunk_size),
-			(s32)((pos.z - vmin.z) / chunk_size)
+			(s32)((pos.z - vmin.z) / chunk_size),
 		};
 	}
 

@@ -14,6 +14,7 @@ struct Behavior
 	virtual void child_done(Behavior*, b8) {}
 	virtual void abort() {}
 	virtual void set_context(void*) {}
+	virtual void done(b8 = true) {}
 	virtual ~Behavior() {}
 };
 
@@ -55,7 +56,7 @@ template<typename Derived> struct BehaviorBase : public Behavior
 		return ((Derived*)this - &list[0]);
 	}
 
-	void done(b8 success = true)
+	virtual void done(b8 success = true)
 	{
 		active(false);
 		if (parent)

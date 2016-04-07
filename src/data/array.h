@@ -84,33 +84,30 @@ struct StaticArray
 	void remove_ordered(s32 i)
 	{
 		vi_assert(i >= 0 && i < length);
-		memmove(&data[i + 1], &data[i], sizeof(T) * (length - (i + 1)));
+		memmove(&data[i], &data[i + 1], sizeof(T) * (length - (i + 1)));
 		length--;
-	}
-
-	T* insert(s32 i, T& t)
-	{
-		vi_assert(i >= 0 && i <= length);
-		length++;
-		vi_assert(length <= size);
-		memmove(&data[i], &data[i + 1], sizeof(T) * (length - i));
-		data[i] = t;
-		return &data[i];
 	}
 
 	T* insert(s32 i)
 	{
 		vi_assert(i >= 0 && i <= length);
+		vi_assert(length + 1 <= size);
+		memmove(&data[i + 1], &data[i], sizeof(T) * (length - i));
 		length++;
-		vi_assert(length <= size);
-		memmove(&data[i], &data[i + 1], sizeof(T) * (length - i));
 		return &data[i];
+	}
+
+	T* insert(s32 i, T& t)
+	{
+		T* p = insert(i);
+		*p = t;
+		return p;
 	}
 
 	T* add()
 	{
+		vi_assert(length + 1 <= size);
 		length++;
-		vi_assert(length <= size);
 		return &data[length - 1];
 	}
 
@@ -196,15 +193,15 @@ struct Array
 	void remove_ordered(s32 i)
 	{
 		vi_assert(i >= 0 && i < length);
-		memmove(&data[i + 1], &data[i], sizeof(T) * (length - (i + 1)));
+		memmove(&data[i], &data[i + 1], sizeof(T) * (length - (i + 1)));
 		length--;
 	}
 
 	T* insert(s32 i)
 	{
 		vi_assert(i >= 0 && i <= length);
-		reserve(++length);
-		memmove(&data[i], &data[i + 1], sizeof(T) * (length - i));
+		resize(length + 1);
+		memmove(&data[i + 1], &data[i], sizeof(T) * (length - 1 - i));
 		return &data[i];
 	}
 

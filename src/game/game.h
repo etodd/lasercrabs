@@ -26,6 +26,10 @@ struct EntityFinder
 	Entity* find(const char*) const;
 };
 
+#if DEBUG
+#define DEBUG_AI_CONTROL 0
+#endif
+
 struct Game
 {
 	enum class Mode

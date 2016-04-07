@@ -29,6 +29,9 @@
 #include "parkour.h"
 #include "noise.h"
 #include "settings.h"
+#if DEBUG_AI_CONTROL
+#include "ai_player.h"
+#endif
 
 namespace VI
 {
@@ -154,7 +157,12 @@ void LocalPlayer::ensure_camera(const Update& u, b8 active)
 		camera->fog = Game::data.mode == Game::Mode::Parkour;
 		camera->team = (u8)manager.ref()->team.ref()->team();
 		camera->mask = 1 << camera->team;
-		s32 player_count = list.count();
+		s32 player_count;
+#if DEBUG_AI_CONTROL
+		player_count = list.count() + AIPlayer::list.count();
+#else
+		player_count = list.count();
+#endif
 		Camera::ViewportBlueprint* viewports = Camera::viewport_blueprints[player_count - 1];
 		Camera::ViewportBlueprint* blueprint = &viewports[gamepad];
 
@@ -832,7 +840,6 @@ LocalPlayerControl::LocalPlayerControl(u8 gamepad)
 	health_pickup_timer()
 {
 	camera = Camera::add();
-	camera->fog = Game::data.mode == Game::Mode::Parkour;
 }
 
 LocalPlayerControl::~LocalPlayerControl()
@@ -853,6 +860,7 @@ void LocalPlayerControl::awake()
 		link<&LocalPlayerControl::health_picked_up>(get<Health>()->added);
 	}
 
+	camera->fog = Game::data.mode == Game::Mode::Parkour;
 	camera->team = (u8)get<AIAgent>()->team;
 	camera->mask = 1 << camera->team;
 }
@@ -1131,7 +1139,12 @@ void LocalPlayerControl::update(const Update& u)
 		look_quat = Quat::euler(lean, get<PlayerCommon>()->angle_horizontal, get<PlayerCommon>()->angle_vertical);
 	}
 	
-	s32 player_count = LocalPlayer::list.count();
+	s32 player_count;
+#if DEBUG_AI_CONTROL
+	player_count = LocalPlayer::list.count() + AIPlayer::list.count();
+#else
+	player_count = LocalPlayer::list.count();
+#endif
 	Camera::ViewportBlueprint* viewports = Camera::viewport_blueprints[player_count - 1];
 	Camera::ViewportBlueprint* blueprint = &viewports[gamepad];
 

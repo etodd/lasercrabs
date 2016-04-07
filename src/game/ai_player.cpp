@@ -256,6 +256,16 @@ void AIPlayerControl::update(const Update& u)
 			{
 				target_angle_vertical = LMath::closest_angle(atan2(-to_next.y, Vec2(to_next.x, to_next.z).length()), common->angle_vertical);
 				r32 dir_vertical = target_angle_vertical > common->angle_vertical ? 1.0f : -1.0f;
+
+				{
+					// make sure we don't try to turn through the wall
+					r32 half_angle = (common->angle_vertical + target_angle_vertical) * 0.5f;
+					if (half_angle < -PI * 0.5f
+						|| half_angle > PI * 0.5f
+						|| (Quat::euler(half_angle, common->angle_horizontal, 0) * Vec3(0, 0, 1)).dot(wall_normal) < -0.5f)
+						dir_vertical *= -1.0f; // go the other way
+				}
+
 				common->angle_vertical = dir_vertical > 0.0f
 					? vi_min(target_angle_vertical, common->angle_vertical + LOOK_SPEED * u.time.delta)
 					: vi_max(target_angle_vertical, common->angle_vertical - LOOK_SPEED * u.time.delta);
@@ -298,7 +308,7 @@ void AIPlayerControl::update(const Update& u)
 	// update camera
 	s32 player_count = LocalPlayer::list.count() + AIPlayer::list.count();
 	Camera::ViewportBlueprint* viewports = Camera::viewport_blueprints[player_count - 1];
-	Camera::ViewportBlueprint* blueprint = &viewports[1 + player.id];
+	Camera::ViewportBlueprint* blueprint = &viewports[LocalPlayer::list.count() + player.id];
 
 	camera->viewport =
 	{

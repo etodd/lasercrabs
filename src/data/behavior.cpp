@@ -1,4 +1,5 @@
 #include "behavior.h"
+#include <new>
 
 namespace VI
 {
@@ -139,6 +140,55 @@ void Invert::run()
 void Invert::child_done(Behavior* b, b8 success)
 {
 	done(!success);
+}
+
+Execute::Entry::Data::Data()
+	: id(), revision()
+{
+}
+
+Execute::Entry::Data::Data(ID e, Revision r)
+	: id(e), revision(r)
+{
+}
+
+Execute::FunctionPointerEntry::FunctionPointerEntry(b8(*fp)())
+{
+	function_pointer = fp;
+}
+
+b8 Execute::FunctionPointerEntry::fire() const
+{
+	return (*function_pointer)();
+}
+
+Execute::Entry::Entry()
+	: data()
+{
+
+}
+
+Execute::Entry::Entry(ID i, Revision r)
+	: data(i, r)
+{
+
+}
+
+Execute::Entry::Entry(const Execute::Entry& other)
+	: data(other.data)
+{
+}
+
+Behavior* Execute::function(b8(*fp)())
+{
+	new (&link) FunctionPointerEntry(fp);
+	return this;
+}
+
+const Execute::Entry& Execute::Entry::operator=(const Execute::Entry& other)
+{
+	data = other.data;
+	return *this;
 }
 
 

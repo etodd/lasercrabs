@@ -73,6 +73,12 @@ public:
 		percolate_up(heap.length - 1);
 	}
 
+	void update(s32 index)
+	{
+		percolate_up(index);
+		percolate_down(index);
+	}
+
 	void remove(s32 index)
 	{
 		vi_assert(index < heap.length);

@@ -27,7 +27,6 @@ struct AIPlayer
 	{
 		return this - &list[0];
 	}
-	void update(const Update&);
 	void spawn();
 };
 
@@ -45,7 +44,7 @@ struct AIPlayerControl : public ComponentType<AIPlayerControl>
 
 	s8 path_priority;
 	Repeat* loop_high_level;
-	Repeat* loop_low_level;
+	Parallel* loop_low_level;
 	Behavior* behavior_callback;
 	b8 path_request_active;
 	MemoryArray memory[MAX_FAMILIES];
@@ -53,10 +52,12 @@ struct AIPlayerControl : public ComponentType<AIPlayerControl>
 	s32 path_index;
 	Ref<AIPlayer> player;
 	Ref<Target> target;
+	b8 shot_at_target;
 	b8 hit_target;
 #if DEBUG_AI_CONTROL
 	Camera* camera;
 #endif
+	r32 aim_timer;
 
 	AIPlayerControl(AIPlayer*);
 	void awake();
@@ -64,15 +65,68 @@ struct AIPlayerControl : public ComponentType<AIPlayerControl>
 
 	b8 aim_and_shoot(const Update&, const Vec3&, b8);
 
+	template<typename Component, b8 (*filter)(const AIPlayerControl*, const Component*)>
+	b8 update_memory()
+	{
+		MemoryArray* component_memories = &memory[Component::family];
+		// remove outdated memories
+		for (s32 i = 0; i < component_memories->length; i++)
+		{
+			AIPlayerControl::Memory* m = &(*component_memories)[i];
+			if (in_range(m->pos))
+			{
+				b8 now_in_range = m->entity.ref() && in_range(m->entity.ref()->get<Transform>()->absolute_pos()) && filter(this, m->entity.ref()->get<Component>());
+				if (!now_in_range)
+				{
+					component_memories->remove(i);
+					i--;
+				}
+			}
+		}
+
+		// add new memories
+		if (component_memories->length < component_memories->capacity())
+		{
+			for (auto i = Component::list.iterator(); !i.is_last(); i.next())
+			{
+				Vec3 pos = i.item()->get<Transform>()->absolute_pos();
+				if (in_range(pos) && filter(this, i.item()))
+				{
+					Entity* entity = i.item()->entity();
+					b8 already_found = false;
+					for (s32 j = 0; j < component_memories->length; j++)
+					{
+						if ((*component_memories)[j].entity.ref() == entity)
+						{
+							already_found = true;
+							break;
+						}
+					}
+
+					if (!already_found)
+					{
+						AIPlayerControl::Memory* m = component_memories->add();
+						m->entity = entity;
+						m->pos = pos;
+						if (component_memories->length == component_memories->capacity())
+							break;
+					}
+				}
+			}
+		}
+		return true; // this task always succeeds
+	}
+
 	b8 in_range(const Vec3&) const;
 
 	void pathfind(const Vec3&, Behavior*, s8);
-	void resume_loop_high_level();
+	b8 resume_loop_high_level();
 	void set_target(Target*, Behavior*);
 	void random_path(Behavior*);
 	void set_path(const AI::Path&);
 	b8 go(const Vec3&);
 	void awk_attached();
+	void task_done(b8);
 	void awk_hit(Entity*);
 	void awk_detached();
 	void update(const Update&);
@@ -89,11 +143,6 @@ namespace AIBehaviors
 		}
 	};
 
-	struct FollowPath : Base<FollowPath>
-	{
-		void run();
-	};
-
 	struct RandomPath : Base<RandomPath>
 	{
 		void run();
@@ -102,8 +151,9 @@ namespace AIBehaviors
 	template<typename Component> struct Find : Base<Find<Component>>
 	{
 		s8 priority;
-		Find(s8 priority)
-			: priority(priority)
+		b8(*filter)(const AIPlayerControl*, const Component*);
+		Find(s8 priority, b8(*filter)(const AIPlayerControl*, const Component*))
+			: priority(priority), filter(filter)
 		{
 		}
 
@@ -117,7 +167,8 @@ namespace AIBehaviors
 			}
 
 			const AIPlayerControl::MemoryArray& memory = control->memory[Component::family];
-			Vec3 closest;
+			const AIPlayerControl::Memory* closest = nullptr;
+			Entity* closest_entity;
 			r32 closest_distance = FLT_MAX;
 			Vec3 pos = control->get<Transform>()->absolute_pos();
 			for (s32 i = 0; i < memory.length; i++)
@@ -125,12 +176,15 @@ namespace AIBehaviors
 				r32 distance = (memory[i].pos - pos).length_squared();
 				if (distance < closest_distance)
 				{
-					closest_distance = distance;
-					closest = memory[i].pos;
+					if (!control->in_range(memory[i].pos) || (memory[i].entity.ref() && filter(control, memory[i].entity.ref()->get<Component>())))
+					{
+						closest_distance = distance;
+						closest = &memory[i];
+					}
 				}
 			}
-			if (closest_distance < FLT_MAX)
-				control->pathfind(closest, this, priority);
+			if (closest)
+				control->pathfind(closest->pos, this, priority);
 			else
 				done(false);
 		}
@@ -140,8 +194,9 @@ namespace AIBehaviors
 	{
 		s8 priority_path;
 		s8 priority_react;
-		React(s8 priority_path, s8 priority_react)
-			: priority_path(priority_path), priority_react(priority_react)
+		b8(*filter)(const AIPlayerControl*, const Component*);
+		React(s8 priority_path, s8 priority_react, b8(*filter)(const AIPlayerControl*, const Component*))
+			: priority_path(priority_path), priority_react(priority_react), filter(filter)
 		{
 		}
 
@@ -161,8 +216,11 @@ namespace AIBehaviors
 					r32 distance = (memory[i].pos - pos).length_squared();
 					if (distance < closest_distance)
 					{
-						closest_distance = distance;
-						closest = memory[i].entity.ref();
+						if (!control->in_range(memory[i].pos) || (memory[i].entity.ref() && filter(control, memory[i].entity.ref()->get<Component>())))
+						{
+							closest_distance = distance;
+							closest = memory[i].entity.ref();
+						}
 					}
 				}
 

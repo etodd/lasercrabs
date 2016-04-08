@@ -10,6 +10,7 @@
 #include <map>
 #include <array>
 #include <glew/include/GL/glew.h>
+#include "mersenne/mersenne-twister.h"
 
 #include <sdl/include/SDL.h>
 #undef main
@@ -1690,7 +1691,6 @@ b8 build_nav_mesh(const Mesh& input, TileCacheData* output_tiles)
 	chunk_mesh<Array<s32>, &chunk_handle_mesh>(input, &chunked_mesh, nav_tile_size * nav_resolution, nav_resolution * 2.0f);
 	vi_assert(output_tiles->width == chunked_mesh.size.x && output_tiles->height == chunked_mesh.size.z);
 	
-	// todo: use Chunks<> to speed up tile rasterization
 	for (s32 ty = 0; ty < output_tiles->height; ty++)
 	{
 		for (s32 tx = 0; tx < output_tiles->width; tx++)
@@ -1808,7 +1808,7 @@ b8 default_filter(const Mesh* m)
 	return true;
 }
 
-const r32 grid_spacing = 2.0f;
+const r32 grid_spacing = 3.0f;
 
 r32 sign(const Vec2& p1, const Vec2& p2, const Vec2& p3)
 {
@@ -2149,54 +2149,44 @@ void build_awk_nav_mesh(Map<Mesh>& meshes, cJSON* json, AwkNavMesh* out, s32* ad
 	// how many vertices had overflowing adjacency buffers?
 	*adjacency_buffer_overflows = 0;
 
+	Array<AwkNavMeshNode> vertex_adjacency_buffer;
 	for (s32 chunk_index = 0; chunk_index < out->chunks.length; chunk_index++)
 	{
 		AwkNavMeshChunk* chunk = &out->chunks[chunk_index];
 
-		AwkNavMesh::Coord chunk_coord = out->coord(chunk_index);
-		s32 chunk_radius = (s32)ceilf(AWK_MAX_DISTANCE / chunk_size);
-		for (s32 neighbor_chunk_x = vi_max(chunk_coord.x - chunk_radius + 1, 0); neighbor_chunk_x < vi_min(chunk_coord.x + chunk_radius, out->size.x); neighbor_chunk_x++)
+		for (s32 vertex_index = 0; vertex_index < chunk->vertices.length; vertex_index++)
 		{
-			for (s32 neighbor_chunk_y = vi_max(chunk_coord.y - chunk_radius + 1, 0); neighbor_chunk_y < vi_min(chunk_coord.y + chunk_radius, out->size.y); neighbor_chunk_y++)
+			AwkNavMeshNode vertex_node = { (u16)chunk_index, (u16)vertex_index };
+			const Vec3& vertex_normal = normals.chunks[chunk_index][vertex_index];
+			const Vec3 vertex_surface = chunk->vertices[vertex_index];
+			const Vec3 vertex = vertex_surface + vertex_normal * AWK_RADIUS;
+
+			vertex_adjacency_buffer.length = 0;
+
+			// visit neighbors
+			AwkNavMesh::Coord chunk_coord = out->coord(chunk_index);
+			s32 chunk_radius = (s32)ceilf(AWK_MAX_DISTANCE / chunk_size);
+			for (s32 neighbor_chunk_x = vi_max(chunk_coord.x - chunk_radius + 1, 0); neighbor_chunk_x < vi_min(chunk_coord.x + chunk_radius, out->size.x); neighbor_chunk_x++)
 			{
-				for (s32 neighbor_chunk_z = vi_max(chunk_coord.z - chunk_radius + 1, 0); neighbor_chunk_z < vi_min(chunk_coord.z + chunk_radius, out->size.z); neighbor_chunk_z++)
+				for (s32 neighbor_chunk_y = vi_max(chunk_coord.y - chunk_radius + 1, 0); neighbor_chunk_y < vi_min(chunk_coord.y + chunk_radius, out->size.y); neighbor_chunk_y++)
 				{
-					AwkNavMesh::Coord neighbor_chunk_coord = { neighbor_chunk_x, neighbor_chunk_y, neighbor_chunk_z };
-
-					s32 neighbor_chunk_index = out->index(neighbor_chunk_coord);
-					AwkNavMeshChunk* neighbor_chunk = out->get(neighbor_chunk_coord);
-
-					for (s32 vertex_index = 0; vertex_index < chunk->vertices.length; vertex_index++)
+					for (s32 neighbor_chunk_z = vi_max(chunk_coord.z - chunk_radius + 1, 0); neighbor_chunk_z < vi_min(chunk_coord.z + chunk_radius, out->size.z); neighbor_chunk_z++)
 					{
-						AwkNavMeshNode node = { (u16)chunk_index, (u16)vertex_index };
-						const Vec3& normal = normals.chunks[chunk_index][vertex_index];
-						const Vec3 vertex_surface = chunk->vertices[vertex_index];
-						const Vec3 vertex = vertex_surface + normal * AWK_RADIUS;
-						AwkNavMeshAdjacency* adjacency = &chunk->adjacency[vertex_index];
+						AwkNavMesh::Coord neighbor_chunk_coord = { neighbor_chunk_x, neighbor_chunk_y, neighbor_chunk_z };
+
+						s32 neighbor_chunk_index = out->index(neighbor_chunk_coord);
+						AwkNavMeshChunk* neighbor_chunk = out->get(neighbor_chunk_coord);
 
 						for (s32 neighbor_index = 0; neighbor_index < neighbor_chunk->vertices.length; neighbor_index++)
 						{
 							AwkNavMeshNode neighbor_node = { (u16)neighbor_chunk_index, (u16)neighbor_index };
-							if (node.equals(neighbor_node)) // don't connect this vertex to itself
-								continue;
-
-							b8 already_visited = false;
-							for (s32 i = 0; i < adjacency->length; i++)
-							{
-								const AwkNavMeshNode& adjacent_entry = (*adjacency)[i];
-								if (adjacent_entry.equals(neighbor_node))
-								{
-									already_visited = true;
-									break;
-								}
-							}
-							if (already_visited)
+							if (vertex_node.equals(neighbor_node)) // don't connect this vertex to itself
 								continue;
 
 							const Vec3& neighbor = neighbor_chunk->vertices[neighbor_index];
 
 							Vec3 to_neighbor = neighbor - vertex;
-							if (normal.dot(to_neighbor) > 0.05f)
+							if (vertex_normal.dot(to_neighbor) > 0.05f)
 							{
 								r32 distance_squared = to_neighbor.length_squared();
 								if (distance_squared < (AWK_MAX_DISTANCE - AWK_RADIUS) * (AWK_MAX_DISTANCE - AWK_RADIUS)
@@ -2210,17 +2200,7 @@ void build_awk_nav_mesh(Map<Mesh>& meshes, cJSON* json, AwkNavMesh* out, s32* ad
 											b8 hit_close;
 											awk_raycast(accessible_chunked, vertex, neighbor, &normal_neighbor, &hit_close);
 											if (hit_close)
-											{
-												if (adjacency->length < adjacency->capacity())
-												{
-													adjacency->add(neighbor_node);
-													if (adjacency->length == adjacency->capacity())
-													{
-														(*adjacency_buffer_overflows)++;
-														break;
-													}
-												}
-											}
+												vertex_adjacency_buffer.add(neighbor_node);
 										}
 									}
 								}
@@ -2229,6 +2209,20 @@ void build_awk_nav_mesh(Map<Mesh>& meshes, cJSON* json, AwkNavMesh* out, s32* ad
 					}
 				}
 			}
+
+			// remove random neighbors until we fit in the adjacency list
+			s32 remove = vertex_adjacency_buffer.length - AWK_NAV_MESH_ADJACENCY;
+			if (remove > 0)
+			{
+				for (s32 i = 0; i < remove; i++)
+					vertex_adjacency_buffer.remove(mersenne::rand() % vertex_adjacency_buffer.length);
+				(*adjacency_buffer_overflows)++;
+			}
+
+			// copy buffer to actual adjacency list
+			AwkNavMeshAdjacency* vertex_adjacency = &chunk->adjacency[vertex_index];
+			vertex_adjacency->resize(vertex_adjacency_buffer.length);
+			memcpy(vertex_adjacency->data, vertex_adjacency_buffer.data, sizeof(AwkNavMeshNode) * vertex_adjacency_buffer.length);
 		}
 	}
 
@@ -2619,6 +2613,8 @@ void close_asset_header(FILE* f)
 
 s32 proc(s32 argc, char* argv[])
 {
+	mersenne::seed(0xabad1dea);
+
 	// Initialise SDL
 	if (SDL_Init(SDL_INIT_VIDEO) < 0)
 	{

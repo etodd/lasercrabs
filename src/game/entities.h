@@ -39,6 +39,7 @@ struct Health : public ComponentType<Health>
 	void awake() {}
 	void damage(Entity*, u16);
 	void add(u16);
+	b8 is_full() const;
 };
 
 #define HEALTH_PICKUP_RADIUS 0.55f

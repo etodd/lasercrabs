@@ -270,7 +270,7 @@ template<typename T> struct Chunks
 	}
 };
 
-#define AWK_NAV_MESH_ADJACENCY 48
+#define AWK_NAV_MESH_ADJACENCY 64
 struct AwkNavMeshNode
 {
 	u16 chunk;

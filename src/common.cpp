@@ -83,7 +83,8 @@ Noclip::Noclip()
 
 NoclipControl::NoclipControl()
 	: angle_horizontal(),
-	angle_vertical()
+	angle_vertical(),
+	state()
 {
 }
 
@@ -131,6 +132,24 @@ void NoclipControl::update(const Update& u)
 			Entity* box = World::create<PhysicsEntity>(Asset::Mesh::cube, get<Transform>()->absolute_pos() + look_quat * Vec3(0, 0, 0.25f), look_quat, RigidBody::Type::Box, scale, 1.0f, btBroadphaseProxy::AllFilter, btBroadphaseProxy::AllFilter);
 			box->get<RigidBody>()->btBody->setLinearVelocity(look_quat * Vec3(0, 0, 15));
 		}
+
+		if (u.input->keys[(s32)KeyCode::MouseRight] && !u.last_input->keys[(s32)KeyCode::MouseRight])
+		{
+			Vec3 pos = get<Transform>()->absolute_pos();
+			btCollisionWorld::ClosestRayResultCallback raycast(pos, pos + look_quat * Vec3(0, 0, Skybox::far_plane));
+			Physics::raycast(&raycast);
+			if (raycast.hasHit())
+			{
+				state = !state;
+				if (state)
+					start = raycast.m_hitPointWorld;
+				else
+				{
+					Vec3 end = raycast.m_hitPointWorld;
+					AI::awk_pathfind(start, end, ObjectLinkEntryArg<NoclipControl, const AI::Path&, &NoclipControl::set_path>(id()));
+				}
+			}
+		}
 	}
 	
 	camera->viewport =
@@ -146,6 +165,31 @@ void NoclipControl::update(const Update& u)
 	Vec3 look = look_quat * Vec3(0, 0, 1);
 	camera->pos = pos;
 	camera->rot = look_quat;
+}
+
+void NoclipControl::draw_alpha(const RenderParams& params)
+{
+	UIText t;
+	Vec2 p;
+	if (UI::project(params, start, &p))
+	{
+		t.text("start");
+		t.draw(params, p);
+	}
+	for (s32 i = 0; i < path.length; i++)
+	{
+		Vec2 p;
+		if (UI::project(params, path[i], &p))
+		{
+			t.text("%d", i);
+			t.draw(params, p);
+		}
+	}
+}
+
+void NoclipControl::set_path(const AI::Path& p)
+{
+	path = p;
 }
 
 

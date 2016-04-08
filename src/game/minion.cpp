@@ -334,7 +334,7 @@ void MinionAI::update(const Update& u)
 		Vec3 t = path[path_index];
 		t.y = 0.0f;
 		Vec3 ray = t - flat_pos;
-		while (ray.length() < 0.1f)
+		while (ray.length_squared() < 0.05f * 0.05f)
 		{
 			path_index++;
 			if (path_index == path.length)

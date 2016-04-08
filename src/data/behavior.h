@@ -224,22 +224,93 @@ struct Invert : public BehaviorDecorator<Invert>
 	void child_done(Behavior*, b8);
 };
 
-template<typename T, void (T::*Method)()>
-struct Execute : public BehaviorBase<Execute<T, Method> >
+struct Execute : public BehaviorBase<Execute>
 {
-	LinkEntry link;
-
-	Execute<T, Method>* set(T* t)
+	struct Entry
 	{
-		link = ObjectLinkEntry<T, Method>(t->id());
+		struct Data
+		{
+			ID id;
+			Revision revision;
+			Data();
+			Data(ID, Revision);
+		};
+
+		union
+		{
+			Data data;
+			b8(*function_pointer)();
+		};
+
+		const Entry& operator=(const Entry& other);
+
+		Entry();
+		Entry(ID, Revision);
+		Entry(const Entry& other);
+
+		virtual b8 fire() const { return false; }
+	};
+
+	template<typename T, b8 (T::*Method)()> struct ObjectEntry : public Entry
+	{
+		ObjectEntry(ID id)
+			: Entry(id, T::list[id].revision)
+		{
+
+		}
+
+		virtual b8 fire() const
+		{
+			T* t = &T::list[data.id];
+			if (t->revision == data.revision)
+				return (t->*Method)();
+		}
+	};
+
+	template<typename T, b8 (T::*Method)() const> struct ObjectConstEntry : public Entry
+	{
+		ObjectConstEntry(ID id)
+			: Entry(id, T::list[id].revision)
+		{
+
+		}
+
+		virtual b8 fire() const
+		{
+			T* t = &T::list[data.id];
+			if (t->revision == data.revision)
+				return (t->*Method)();
+		}
+	};
+
+	struct FunctionPointerEntry : public Entry
+	{
+		FunctionPointerEntry(b8(*fp)());
+		virtual b8 fire() const;
+	};
+
+	Entry link;
+
+	template<typename T, b8 (T::*Method)()>
+	Behavior* method(T* t)
+	{
+		new (&link) ObjectEntry<T, Method>(t->id());
 		return this;
 	}
+
+	template<typename T, b8 (T::*Method)() const>
+	Behavior* method(T* t)
+	{
+		new (&link) ObjectConstEntry<T, Method>(t->id());
+		return this;
+	}
+
+	Behavior* function(b8(*fp)());
 
 	void run()
 	{
 		active(true);
-		(&link)->fire();
-		done();
+		done((&link)->fire());
 	}
 };
 

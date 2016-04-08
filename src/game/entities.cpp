@@ -80,6 +80,11 @@ void Health::add(u16 amount)
 		added.fire();
 }
 
+b8 Health::is_full() const
+{
+	return hp >= hp_max;
+}
+
 HealthPickupEntity::HealthPickupEntity()
 {
 	create<Transform>();

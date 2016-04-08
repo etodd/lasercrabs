@@ -426,6 +426,7 @@ target_link_libraries(import
 	detour
 	fastlz
 	cJSON
+	mersenne
 )
 
 add_custom_target(

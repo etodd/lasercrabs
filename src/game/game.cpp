@@ -43,7 +43,7 @@
 	#define DEBUG_NAV_MESH 0
 	#define DEBUG_AI_PATH 0
 	#define DEBUG_AWK_NAV_MESH 0
-	#define DEBUG_AWK_AI_PATH 1
+	#define DEBUG_AWK_AI_PATH 0
 	#define DEBUG_PHYSICS 0
 #endif
 
@@ -179,8 +179,6 @@ void Game::update(const Update& update_in)
 	for (auto i = PlayerManager::list.iterator(); !i.is_last(); i.next())
 		i.item()->update(u);
 	LocalPlayer::update_all(u);
-	for (auto i = AIPlayer::list.iterator(); !i.is_last(); i.next())
-		i.item()->update(u);
 	for (auto i = Walker::list.iterator(); !i.is_last(); i.next())
 		i.item()->update(u);
 	for (auto i = Awk::list.iterator(); !i.is_last(); i.next())
@@ -239,6 +237,9 @@ void Game::draw_alpha(const RenderParams& render_params)
 	SkyDecal::draw_alpha(render_params);
 	SkyPattern::draw_alpha(render_params);
 	SkinnedModel::draw_alpha(render_params);
+
+	for (auto i = NoclipControl::list.iterator(); !i.is_last(); i.next())
+		i.item()->draw_alpha(render_params);
 
 #if DEBUG_NAV_MESH
 	AI::debug_draw_nav_mesh(render_params);

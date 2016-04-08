@@ -431,13 +431,17 @@ AwkNavMeshNode awk_closest_point(const Vec3& p)
 				const AwkNavMeshChunk& chunk = awk_nav_mesh.chunks[chunk_index];
 				for (s32 vertex_index = 0; vertex_index < chunk.vertices.length; vertex_index++)
 				{
-					const Vec3& vertex = chunk.vertices[vertex_index];
-					r32 distance = (vertex - p).length_squared();
-					if (distance < closest_distance)
+					const AwkNavMeshAdjacency& adjacency = chunk.adjacency[vertex_index];
+					if (adjacency.length > 0) // ignore orphans
 					{
-						closest_distance = distance;
-						closest = { (u16)chunk_index, (u16)vertex_index };
-						found = true;
+						const Vec3& vertex = chunk.vertices[vertex_index];
+						r32 distance = (vertex - p).length_squared();
+						if (distance < closest_distance)
+						{
+							closest_distance = distance;
+							closest = { (u16)chunk_index, (u16)vertex_index };
+							found = true;
+						}
 					}
 				}
 			}
@@ -459,20 +463,22 @@ void awk_pathfind(const Vec3& start, const Vec3& end, Path* path)
 	PriorityQueue<AwkNavMeshNode, AwkNavMeshKey> queue(&awk_nav_mesh_key);
 	queue.push(start_vertex);
 
-	AwkNavMeshNodeData& start_data = awk_nav_mesh_key.get(start_vertex);
-	start_data.travel_score = 0;
-	start_data.estimate_score = (end - start).length();
-	start_data.visited = true;
-	start_data.parent = { (u16)-1, (u16)-1 };
+	{
+		AwkNavMeshNodeData* start_data = &awk_nav_mesh_key.get(start_vertex);
+		start_data->travel_score = 0;
+		start_data->estimate_score = (end - start).length();
+		start_data->visited = true;
+		start_data->parent = { (u16)-1, (u16)-1 };
+	}
 
 	while (queue.size() > 0)
 	{
-		AwkNavMeshNode node = queue.pop();
+		AwkNavMeshNode vertex_node = queue.pop();
 
-		if (node.equals(end_vertex))
+		if (vertex_node.equals(end_vertex))
 		{
 			// reconstruct path
-			AwkNavMeshNode n = node;
+			AwkNavMeshNode n = vertex_node;
 			while (true)
 			{
 				if (n.equals(start_vertex))
@@ -483,33 +489,31 @@ void awk_pathfind(const Vec3& start, const Vec3& end, Path* path)
 			break; // done!
 		}
 
-		AwkNavMeshNodeData& data = awk_nav_mesh_key.get(node);
-		const Vec3& pos = awk_nav_mesh.chunks[node.chunk].vertices[node.vertex];
+		AwkNavMeshNodeData* vertex_data = &awk_nav_mesh_key.get(vertex_node);
+		const Vec3& vertex_pos = awk_nav_mesh.chunks[vertex_node.chunk].vertices[vertex_node.vertex];
 		
-		const AwkNavMeshAdjacency& adjacency = awk_nav_mesh.chunks[node.chunk].adjacency[node.vertex];
+		const AwkNavMeshAdjacency& adjacency = awk_nav_mesh.chunks[vertex_node.chunk].adjacency[vertex_node.vertex];
 		for (s32 i = 0; i < adjacency.length; i++)
 		{
 			// visit neighbors
 			const AwkNavMeshNode& adjacent_node = adjacency[i];
-			AwkNavMeshNodeData& adjacent_data = awk_nav_mesh_key.get(adjacent_node);
+			AwkNavMeshNodeData* adjacent_data = &awk_nav_mesh_key.get(adjacent_node);
 			const Vec3& adjacent_pos = awk_nav_mesh.chunks[adjacent_node.chunk].vertices[adjacent_node.vertex];
-			r32 candidate_travel_score = data.travel_score + (adjacent_pos - pos).length();
-			if (adjacent_data.visited)
+			r32 candidate_travel_score = vertex_data->travel_score + (adjacent_pos - vertex_pos).length();
+			if (adjacent_data->visited)
 			{
-				if (adjacent_data.travel_score > candidate_travel_score)
+				if (adjacent_data->travel_score > candidate_travel_score)
 				{
-					adjacent_data.parent = node;
-					adjacent_data.travel_score = candidate_travel_score;
-
 					// since we've modified the score, if the node is already in queue,
 					// we need to update its position in the queue
+					adjacent_data->parent = vertex_node;
+					adjacent_data->travel_score = candidate_travel_score;
 					for (s32 j = 0; j < queue.size(); j++)
 					{
 						if (queue.heap[j].equals(adjacent_node))
 						{
-							// remove it and re-add it
-							queue.remove(j);
-							queue.push(adjacent_node);
+							// it's in the queue; update its position due to the score change
+							queue.update(j);
 							break;
 						}
 					}
@@ -518,10 +522,10 @@ void awk_pathfind(const Vec3& start, const Vec3& end, Path* path)
 			else
 			{
 				// hasn't been visited yet
-				adjacent_data.visited = true;
-				adjacent_data.parent = node;
-				adjacent_data.travel_score = candidate_travel_score;
-				adjacent_data.estimate_score = (end - adjacent_pos).length();
+				adjacent_data->visited = true;
+				adjacent_data->parent = vertex_node;
+				adjacent_data->travel_score = candidate_travel_score;
+				adjacent_data->estimate_score = (end - adjacent_pos).length();
 				queue.push(adjacent_node);
 			}
 		}

@@ -1791,6 +1791,13 @@ void consolidate_nav_geometry(Mesh* result, Map<Mesh>& meshes, cJSON* json, b8(*
 
 		element = element->next;
 	}
+
+	if (result->bounds_max.x < result->bounds_min.x
+		|| result->bounds_max.y < result->bounds_min.y
+		|| result->bounds_max.z < result->bounds_min.z)
+	{
+		result->bounds_min = result->bounds_max = Vec3::zero;
+	}
 }
 
 b8 is_accessible(const Mesh* m)
@@ -1935,6 +1942,12 @@ b8 awk_raycast_chunk(const Array<Vec3>& tris, const Vec3& start, const Vec3& dir
 
 b8 awk_raycast(const ChunkedTris& mesh, const Vec3& start, const Vec3& end, const Vec3* end_normal = nullptr, b8* hit_close = nullptr)
 {
+	if (hit_close)
+		*hit_close = false;
+
+	if (mesh.chunks.length == 0)
+		return false;
+
 	Vec3 start_scaled = (start - mesh.vmin) / Vec3(mesh.chunk_size);
 	Vec3 end_scaled = (end - mesh.vmin) / Vec3(mesh.chunk_size);
 
@@ -1974,9 +1987,6 @@ b8 awk_raycast(const ChunkedTris& mesh, const Vec3& start, const Vec3& end, cons
 		t.y = ((start_scaled.y > end_scaled.y) ? (start_scaled.y - start_min.y) : (start_max.y - start_scaled.y)) * delta_t.y;
 		t.z = ((start_scaled.z > end_scaled.z) ? (start_scaled.z - start_min.z) : (start_max.z - start_scaled.z)) * delta_t.z;
 	}
-
-	if (hit_close)
-		*hit_close = false;
 
 	b8 hit = false;
 	while (true)
@@ -2275,8 +2285,35 @@ void import_level(ImporterState& state, const std::string& asset_in_path, const 
 			return;
 		}
 
-		// Parse the scene graph and bake the nav mesh
+		// Parse the scene graph
 		cJSON* json = Json::load(asset_out_path.c_str());
+
+		TileCacheData nav_tiles;
+
+		// build nav mesh
+		{
+			Mesh nav_mesh_input;
+
+			consolidate_nav_geometry(&nav_mesh_input, meshes, json, default_filter);
+
+			if (nav_mesh_input.vertices.length > 0)
+			{
+				if (!build_nav_mesh(nav_mesh_input, &nav_tiles))
+				{
+					fprintf(stderr, "Error: Nav mesh generation failed for file %s.\n", asset_in_path.c_str());
+					state.error = true;
+					return;
+				}
+			}
+		}
+
+		// build awk nav mesh
+		AwkNavMesh awk_nav;
+		s32 awk_adjacency_buffer_overflows;
+		s32 awk_orphans;
+		build_awk_nav_mesh(meshes, json, &awk_nav, &awk_adjacency_buffer_overflows, &awk_orphans);
+
+		// write file data
 
 		FILE* f = fopen(nav_mesh_out_path.c_str(), "w+b");
 		if (!f)
@@ -2286,51 +2323,22 @@ void import_level(ImporterState& state, const std::string& asset_in_path, const 
 			return;
 		}
 
-		b8 do_awk_mesh = false;
-		// Build and write nav mesh
+		if (nav_tiles.cells.length > 0)
 		{
-			Mesh nav_mesh_input;
-
-			consolidate_nav_geometry(&nav_mesh_input, meshes, json, default_filter);
-
-			TileCacheData nav_tiles;
-			if (nav_mesh_input.vertices.length > 0)
+			fwrite(&nav_tiles.min, sizeof(Vec3), 1, f);
+			fwrite(&nav_tiles.width, sizeof(s32), 1, f);
+			fwrite(&nav_tiles.height, sizeof(s32), 1, f);
+			for (s32 i = 0; i < nav_tiles.cells.length; i++)
 			{
-				do_awk_mesh = true;
-
-				if (!build_nav_mesh(nav_mesh_input, &nav_tiles))
+				TileCacheCell& cell = nav_tiles.cells[i];
+				fwrite(&cell.layers.length, sizeof(s32), 1, f);
+				for (s32 j = 0; j < cell.layers.length; j++)
 				{
-					fprintf(stderr, "Error: Nav mesh generation failed for file %s.\n", asset_in_path.c_str());
-					state.error = true;
-					return;
+					TileCacheLayer& layer = cell.layers[j];
+					fwrite(&layer.data_size, sizeof(s32), 1, f);
+					fwrite(layer.data, sizeof(u8), layer.data_size, f);
 				}
-
-				fwrite(&nav_tiles.min, sizeof(Vec3), 1, f);
-				fwrite(&nav_tiles.width, sizeof(s32), 1, f);
-				fwrite(&nav_tiles.height, sizeof(s32), 1, f);
-				for (s32 i = 0; i < nav_tiles.cells.length; i++)
-				{
-					TileCacheCell& cell = nav_tiles.cells[i];
-					fwrite(&cell.layers.length, sizeof(s32), 1, f);
-					for (s32 j = 0; j < cell.layers.length; j++)
-					{
-						TileCacheLayer& layer = cell.layers[j];
-						fwrite(&layer.data_size, sizeof(s32), 1, f);
-						fwrite(layer.data, sizeof(u8), layer.data_size, f);
-					}
-				}
-				nav_tiles.free();
 			}
-		}
-
-		// Build and write awk nav mesh
-		if (do_awk_mesh)
-		{
-			AwkNavMesh awk_nav;
-
-			s32 adjacency_buffer_overflows;
-			s32 orphans;
-			build_awk_nav_mesh(meshes, json, &awk_nav, &adjacency_buffer_overflows, &orphans);
 
 			s32 total_vertices = 0;
 			fwrite(&awk_nav.chunk_size, sizeof(r32), 1, f);
@@ -2346,13 +2354,14 @@ void import_level(ImporterState& state, const std::string& asset_in_path, const 
 				total_vertices += chunk.vertices.length;
 			}
 
-			printf("%s - Awk nav mesh - Chunks: %d Vertices: %d Adjacency buffer overflows: %d Orphans: %d\n", nav_mesh_out_path.c_str(), awk_nav.chunks.length, total_vertices, adjacency_buffer_overflows, orphans);
+			printf("%s - Awk nav mesh - Chunks: %d Vertices: %d Adjacency buffer overflows: %d Orphans: %d\n", nav_mesh_out_path.c_str(), awk_nav.chunks.length, total_vertices, awk_adjacency_buffer_overflows, awk_orphans);
 		}
 
 		fclose(f);
 
 		printf("%s\n", nav_mesh_out_path.c_str());
 
+		nav_tiles.free();
 		Json::json_free(json);
 	}
 }

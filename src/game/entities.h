@@ -125,28 +125,20 @@ struct Mover : public ComponentType<Mover>
 
 #define rope_segment_length 0.5f
 #define rope_radius 0.05f
-struct RopeEntity : public Entity
-{
-	RopeEntity(const Vec3&, const Vec3&, RigidBody*, const r32 = 0.0f);
-};
 
 struct Rope : public ComponentType<Rope>
 {
 	static Array<Mat4> instances;
 
 	static void draw_opaque(const RenderParams&);
-	static void spawn(const Vec3&, const Vec3&, const r32, const r32 = 0.0f);
+	static void spawn(const Vec3&, const Vec3&, r32, r32 = 0.0f);
 
-	StaticArray<Ref<RigidBody>, 50> segments;
-	Ref<RigidBody> last_segment;
-	Vec3 last_segment_relative_pos;
-	r32 slack;
+	Ref<RigidBody> prev;
+	Ref<RigidBody> next;
 
-	Rope(const Vec3&, const Vec3&, RigidBody*, const r32 = 0.0f);
 	void awake() {}
-	void add(const Vec3&, const Quat&);
-	void end(const Vec3&, const Vec3&, RigidBody*);
-	void remove(Entity*);
+	static Rope* start(RigidBody*, const Vec3&, const Vec3&, const Quat&, r32 = 0.0f);
+	void end(const Vec3&, const Vec3&, RigidBody*, r32 = 0.0f);
 };
 
 struct TileEntity : public Entity

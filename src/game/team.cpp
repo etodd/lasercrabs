@@ -341,8 +341,8 @@ b8 PlayerManager::ability_use()
 					sensor->get<Audio>()->post_event(AK::EVENTS::PLAY_SENSOR_SPAWN);
 
 					// attach it to the wall
-					Entity* rope = World::create<RopeEntity>(abs_pos + abs_rot * Vec3(0, 0, -AWK_RADIUS), abs_rot * Vec3(0, 0, 1), awk->get<Transform>()->parent.ref()->get<RigidBody>());
-					rope->get<Rope>()->end(abs_pos + abs_rot * Vec3(0, 0, rope_segment_length), abs_rot * Vec3(0, 0, -1), sensor->get<RigidBody>());
+					Rope* rope = Rope::start(awk->get<Transform>()->parent.ref()->get<RigidBody>(), abs_pos + abs_rot * Vec3(0, 0, -AWK_RADIUS), abs_rot * Vec3(0, 0, 1), abs_rot);
+					rope->end(abs_pos + abs_rot * Vec3(0, 0, rope_segment_length), abs_rot * Vec3(0, 0, -1), sensor->get<RigidBody>());
 					
 					ability_cooldown = cooldown_reset;
 				}

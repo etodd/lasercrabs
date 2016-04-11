@@ -603,19 +603,6 @@ s32 PlayerTrigger::count() const
 	return count;
 }
 
-RopeEntity::RopeEntity(const Vec3& pos, const Vec3& normal, RigidBody* start, const r32 slack)
-{
-	create<Rope>(pos, normal, start, slack);
-}
-
-Rope::Rope(const Vec3& pos, const Vec3& normal, RigidBody* start, const r32 slack)
-	: last_segment(start),
-	last_segment_relative_pos(start->get<Transform>()->to_local(pos + normal * rope_radius)),
-	segments(),
-	slack(slack)
-{
-}
-
 Array<Mat4> Rope::instances;
 
 // draw rope segments and projectiles
@@ -633,15 +620,11 @@ void Rope::draw_opaque(const RenderParams& params)
 
 		for (auto i = Rope::list.iterator(); !i.is_last(); i.next())
 		{
-			Rope* rope = i.item();
-			for (s32 j = 0; j < rope->segments.length; j++)
-			{
-				Mat4 m;
-				rope->segments[j].ref()->get<Transform>()->mat(&m);
+			Mat4 m;
+			i.item()->get<Transform>()->mat(&m);
 
-				if (params.camera->visible_sphere(m.translation(), rope_segment_length * f_radius))
-					instances.add(scale * m);
-			}
+			if (params.camera->visible_sphere(m.translation(), rope_segment_length * f_radius))
+				instances.add(scale * m);
 		}
 	}
 
@@ -696,31 +679,16 @@ void Rope::draw_opaque(const RenderParams& params)
 	sync->write<Mat4>(instances.data, instances.length);
 }
 
-void Rope::remove(Entity* segment_entity)
+RigidBody* rope_add(RigidBody* start, const Vec3& start_relative_pos, const Vec3& pos, const Quat& rot, r32 slack)
 {
-	RigidBody* segment = segment_entity->get<RigidBody>();
-	btRigidBody* btBody = segment->btBody;
-	for (s32 i = 0; i < segments.length; i++)
-	{
-		if (segments[i].ref() == segment)
-			segments.remove(i);
-		else
-			segments[i].ref()->btBody->activate(true);
-	}
-	World::remove_deferred(segment_entity);
-
-	if (segments.length == 0)
-		World::remove_deferred(entity());
-}
-
-void Rope::add(const Vec3& pos, const Quat& rot)
-{
+	RigidBody* last_segment = start;
+	Vec3 last_segment_relative_pos = start_relative_pos;
 	Vec3 forward = rot * Vec3(0, 0, 1);
 	while (true)
 	{
-		if (last_segment.ref())
+		if (last_segment)
 		{
-			Vec3 last_segment_pos = last_segment.ref()->get<Transform>()->to_world(last_segment_relative_pos);
+			Vec3 last_segment_pos = last_segment->get<Transform>()->to_world(last_segment_relative_pos);
 			Vec3 diff = pos - last_segment_pos;
 			r32 length = diff.dot(forward);
 			r32 rope_interval = rope_segment_length / (1.0f + slack);
@@ -730,12 +698,16 @@ void Rope::add(const Vec3& pos, const Quat& rot)
 			{
 				Vec3 spawn_pos = last_segment_pos + (diff / length) * rope_interval * 0.5f;
 				Entity* box = World::create<PhysicsEntity>(AssetNull, spawn_pos, rot, RigidBody::Type::CapsuleZ, Vec3(rope_radius, rope_segment_length - rope_radius * 2.0f, 0.0f), 0.05f, CollisionAwkIgnore, CollisionInaccessibleMask);
+				Rope* r = box->add<Rope>();
+				if (last_segment->has<Rope>())
+					last_segment->get<Rope>()->next = box->get<RigidBody>();
+				r->prev = last_segment;
 
 				static Quat rotation_a = Quat::look(Vec3(0, 0, 1)) * Quat::euler(0, PI * -0.5f, 0);
 				static Quat rotation_b = Quat::look(Vec3(0, 0, -1)) * Quat::euler(PI, PI * -0.5f, 0);
 
 				RigidBody::Constraint constraint;
-				constraint.type = segments.length > 0 ? RigidBody::Constraint::Type::ConeTwist : RigidBody::Constraint::Type::PointToPoint;
+				constraint.type = last_segment == start ? RigidBody::Constraint::Type::PointToPoint : RigidBody::Constraint::Type::ConeTwist;
 				constraint.frame_a = btTransform(rotation_a, last_segment_relative_pos),
 				constraint.frame_b = btTransform(rotation_b, Vec3(0, 0, rope_segment_length * -0.5f));
 				constraint.limits = Vec3(PI, PI, 0);
@@ -744,7 +716,6 @@ void Rope::add(const Vec3& pos, const Quat& rot)
 				RigidBody::add_constraint(constraint);
 
 				box->get<RigidBody>()->set_damping(0.5f, 0.5f);
-				segments.add(box->get<RigidBody>());
 				last_segment = box->get<RigidBody>();
 				last_segment_relative_pos = Vec3(0, 0, rope_segment_length * 0.5f);
 			}
@@ -754,42 +725,59 @@ void Rope::add(const Vec3& pos, const Quat& rot)
 		else
 			break;
 	}
+
+	if (last_segment == start) // we didn't add any rope segments
+		return nullptr;
+	else
+		return last_segment;
 }
 
-void Rope::end(const Vec3& pos, const Vec3& normal, RigidBody* end)
+Rope* Rope::start(RigidBody* start, const Vec3& abs_pos, const Vec3& abs_normal, const Quat& abs_rot, r32 slack)
+{
+	// add the first rope segment
+	Vec3 p = abs_pos + abs_normal * rope_radius;
+	Transform* start_trans = start->get<Transform>();
+	RigidBody* rope = rope_add(start, start_trans->to_local(p), p + abs_rot * Vec3(0, 0, rope_segment_length), abs_rot, slack);
+	vi_assert(rope); // should never happen
+	return rope->get<Rope>();
+}
+
+void Rope::end(const Vec3& pos, const Vec3& normal, RigidBody* end, r32 slack)
 {
 	Vec3 abs_pos = pos + normal * rope_radius;
-	add(abs_pos, Quat::look(Vec3::normalize(abs_pos - last_segment.ref()->get<Transform>()->to_world(last_segment_relative_pos))));
+	RigidBody* start = get<RigidBody>();
+	Vec3 start_relative_pos = Vec3(0, 0, rope_segment_length * 0.5f);
+	RigidBody* last = rope_add(start, start_relative_pos, abs_pos, Quat::look(Vec3::normalize(abs_pos - get<Transform>()->to_world(start_relative_pos))), slack);
+	if (!last) // we didn't need to add any rope segments; just attach ourselves to the end point
+		last = start;
 
 	RigidBody::Constraint constraint;
 	constraint.type = RigidBody::Constraint::Type::PointToPoint;
-	constraint.frame_a = btTransform(Quat::identity, last_segment_relative_pos);
+	constraint.frame_a = btTransform(Quat::identity, start_relative_pos);
 	constraint.frame_b = btTransform(Quat::identity, end->get<Transform>()->to_local(abs_pos));
-	constraint.a = last_segment;
+	constraint.a = last;
 	constraint.b = end;
 	RigidBody::add_constraint(constraint);
-
-	last_segment = nullptr;
 }
 
-void Rope::spawn(const Vec3& pos, const Vec3& dir, const r32 max_distance, const r32 slack)
+void Rope::spawn(const Vec3& pos, const Vec3& dir, r32 max_distance, r32 slack)
 {
 	Vec3 dir_normalized = Vec3::normalize(dir);
-	Vec3 start = pos;
-	Vec3 end = start + dir_normalized * max_distance;
-	btCollisionWorld::ClosestRayResultCallback ray_callback(start, end);
+	Vec3 start_pos = pos;
+	Vec3 end = start_pos + dir_normalized * max_distance;
+	btCollisionWorld::ClosestRayResultCallback ray_callback(start_pos, end);
 	ray_callback.m_flags = btTriangleRaycastCallback::EFlags::kF_FilterBackfaces | btTriangleRaycastCallback::EFlags::kF_KeepUnflippedNormal;
 	ray_callback.m_collisionFilterGroup = ray_callback.m_collisionFilterMask = btBroadphaseProxy::AllFilter;
 
-	Physics::btWorld->rayTest(start, end, ray_callback);
+	Physics::btWorld->rayTest(start_pos, end, ray_callback);
 	if (ray_callback.hasHit())
 	{
-		Vec3 end2 = start + dir_normalized * -max_distance;
+		Vec3 end2 = start_pos + dir_normalized * -max_distance;
 
-		btCollisionWorld::ClosestRayResultCallback ray_callback2(start, end2);
+		btCollisionWorld::ClosestRayResultCallback ray_callback2(start_pos, end2);
 		ray_callback2.m_flags = btTriangleRaycastCallback::EFlags::kF_FilterBackfaces | btTriangleRaycastCallback::EFlags::kF_KeepUnflippedNormal;
 		ray_callback2.m_collisionFilterGroup = ray_callback2.m_collisionFilterMask = btBroadphaseProxy::AllFilter;
-		Physics::btWorld->rayTest(start, end2, ray_callback2);
+		Physics::btWorld->rayTest(start_pos, end2, ray_callback2);
 
 		if (ray_callback2.hasHit())
 		{
@@ -798,8 +786,10 @@ void Rope::spawn(const Vec3& pos, const Vec3& dir, const r32 max_distance, const
 
 			Transform* a_trans = a->get<Transform>();
 			Transform* b_trans = b->get<Transform>();
-			RopeEntity* rope_entity = World::create<RopeEntity>(ray_callback.m_hitPointWorld, ray_callback.m_hitNormalWorld, a, slack);
-			rope_entity->get<Rope>()->end(ray_callback2.m_hitPointWorld, ray_callback2.m_hitNormalWorld, b);
+
+			Rope* rope = Rope::start(a, ray_callback.m_hitPointWorld, ray_callback.m_hitNormalWorld, Quat::look(dir), slack);
+			if (rope)
+				rope->end(ray_callback2.m_hitPointWorld, ray_callback2.m_hitNormalWorld, b, slack);
 		}
 	}
 }

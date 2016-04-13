@@ -264,6 +264,7 @@ struct Execute : public BehaviorBase<Execute>
 			T* t = &T::list[data.id];
 			if (t->revision == data.revision)
 				return (t->*Method)();
+			return false;
 		}
 	};
 

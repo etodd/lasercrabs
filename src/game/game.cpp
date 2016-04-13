@@ -175,7 +175,7 @@ void Game::update(const Update& update_in)
 
 	AI::update(u);
 
-	Team::update(u);
+	Team::update_all(u);
 	for (auto i = PlayerManager::list.iterator(); !i.is_last(); i.next())
 		i.item()->update(u);
 	LocalPlayer::update_all(u);
@@ -938,6 +938,10 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 				decal->scale = Json::get_r32(element, "scale", 1.0f);
 				decal->texture = Loader::find(Json::get_string(element, "SkyDecal"), AssetLookup::Texture::names);
 			}
+		}
+		else if (cJSON_GetObjectItem(element, "ControlPoint"))
+		{
+			entity = World::alloc<ControlPointEntity>();
 		}
 		else if (cJSON_GetObjectItem(element, "Script"))
 		{

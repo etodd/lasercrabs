@@ -8,15 +8,16 @@ namespace Asset
 {
 	namespace Level
 	{
-		const s32 count = 8;
+		const s32 count = 9;
 		const AssetID connect = 0;
 		const AssetID containment_09 = 1;
 		const AssetID pvp0 = 2;
 		const AssetID splitscreen = 3;
 		const AssetID start = 4;
-		const AssetID title = 5;
-		const AssetID tutorial_01 = 6;
-		const AssetID tutorial_02 = 7;
+		const AssetID test = 5;
+		const AssetID title = 6;
+		const AssetID tutorial_01 = 7;
+		const AssetID tutorial_02 = 8;
 	}
 }
 

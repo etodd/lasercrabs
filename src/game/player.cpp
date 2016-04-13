@@ -251,7 +251,7 @@ void LocalPlayer::update(const Update& u)
 			ensure_camera(u, false);
 			if (manager.ref()->entity.ref())
 				manager.ref()->entity.ref()->get<LocalPlayerControl>()->enable_input = true;
-			if (Game::data.mode == Game::Mode::Pvp && Team::abilities_enabled && manager.ref()->at_spawn())
+			if (Game::data.mode == Game::Mode::Pvp && Team::abilities_enabled)
 			{
 				if (u.input->get(Controls::Menu, gamepad) && !u.last_input->get(Controls::Menu, gamepad))
 					ability_menu = AbilityMenu::Select;
@@ -261,9 +261,6 @@ void LocalPlayer::update(const Update& u)
 		}
 		case UIMode::AbilityMenu:
 		{
-			if (Team::abilities_enabled && !manager.ref()->at_spawn()) // make sure we can still be in the ability menu
-				ability_menu = AbilityMenu::None;
-
 			menu.start(u, gamepad);
 			Rect2& viewport = camera ? camera->viewport : manager.ref()->entity.ref()->get<LocalPlayerControl>()->camera->viewport;
 
@@ -301,11 +298,14 @@ void LocalPlayer::update(const Update& u)
 					}
 				}
 
-				if (menu.item(u, &pos, _(strings::upgrade), nullptr, !manager.ref()->ability_upgrade_available()))
+				if (menu.item(u, &pos, _(strings::upgrade), nullptr, !manager.ref()->at_spawn() || !manager.ref()->ability_upgrade_available()))
 					ability_menu = AbilityMenu::Upgrade;
 			}
 			else if (ability_menu == AbilityMenu::Upgrade)
 			{
+				if (!manager.ref()->at_spawn())
+					ability_menu = AbilityMenu::Select;
+
 				if (menu.item(u, &pos, _(strings::back)))
 					ability_menu = AbilityMenu::Select;
 
@@ -1015,6 +1015,12 @@ void LocalPlayerControl::update(const Update& u)
 			update_camera_input(u);
 			get<PlayerCommon>()->clamp_rotation(get<PlayerCommon>()->attach_quat * Vec3(0, 0, 1), 0.5f);
 			look_quat = Quat::euler(lean, get<PlayerCommon>()->angle_horizontal, get<PlayerCommon>()->angle_vertical);
+
+			// crawling
+			/*
+			Vec3 movement = get_movement(u, Quat::euler(0, get<PlayerCommon>()->angle_horizontal, get<PlayerCommon>()->angle_vertical));
+			get<Awk>()->crawl(movement, u);
+			*/
 		}
 		else
 			look_quat = get<PlayerCommon>()->attach_quat;

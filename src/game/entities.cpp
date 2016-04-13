@@ -193,16 +193,30 @@ void Sensor::hit_by(const TargetEvent& e)
 
 void Sensor::killed_by(Entity* e)
 {
-	AI::Team enemy_team = e->get<AIAgent>()->team;
-	if (enemy_team != team)
+	if (e)
 	{
-		for (auto i = PlayerManager::list.iterator(); !i.is_last(); i.next())
+		AI::Team enemy_team = e->get<AIAgent>()->team;
+		if (enemy_team != team)
 		{
-			if (i.item()->team.ref()->team() == enemy_team)
-				i.item()->add_credits(CREDITS_SENSOR_DESTROY);
+			for (auto i = PlayerManager::list.iterator(); !i.is_last(); i.next())
+			{
+				if (i.item()->team.ref()->team() == enemy_team)
+					i.item()->add_credits(CREDITS_SENSOR_DESTROY);
+			}
 		}
 	}
 	World::remove_deferred(entity());
+}
+
+ControlPointEntity::ControlPointEntity()
+{
+	create<Transform>();
+	create<ControlPoint>();
+
+	View* model = create<View>();
+	model->mesh = Asset::Mesh::control_point;
+	model->color = Vec4(1.0f, 1.0f, 1.0f, 1.0f);
+	model->shader = Asset::Shader::standard;
 }
 
 MinionSpawnEntity::MinionSpawnEntity()
@@ -550,6 +564,11 @@ b8 PlayerTrigger::is_triggered(const Entity* e) const
 	return false;
 }
 
+b8 PlayerTrigger::contains(const Vec3& p) const
+{
+	return (p - get<Transform>()->absolute_pos()).length_squared() < radius * radius;
+}
+
 void PlayerTrigger::update(const Update& u)
 {
 	Vec3 pos = get<Transform>()->absolute_pos();
@@ -679,7 +698,7 @@ void Rope::draw_opaque(const RenderParams& params)
 	sync->write<Mat4>(instances.data, instances.length);
 }
 
-RigidBody* rope_add(RigidBody* start, const Vec3& start_relative_pos, const Vec3& pos, const Quat& rot, r32 slack)
+RigidBody* rope_add(RigidBody* start, const Vec3& start_relative_pos, const Vec3& pos, const Quat& rot, r32 slack, RigidBody::Constraint::Type constraint_type)
 {
 	RigidBody* last_segment = start;
 	Vec3 last_segment_relative_pos = start_relative_pos;
@@ -707,7 +726,7 @@ RigidBody* rope_add(RigidBody* start, const Vec3& start_relative_pos, const Vec3
 				static Quat rotation_b = Quat::look(Vec3(0, 0, -1)) * Quat::euler(PI, PI * -0.5f, 0);
 
 				RigidBody::Constraint constraint;
-				constraint.type = last_segment == start ? RigidBody::Constraint::Type::PointToPoint : RigidBody::Constraint::Type::ConeTwist;
+				constraint.type = constraint_type;
 				constraint.frame_a = btTransform(rotation_a, last_segment_relative_pos),
 				constraint.frame_b = btTransform(rotation_b, Vec3(0, 0, rope_segment_length * -0.5f));
 				constraint.limits = Vec3(PI, PI, 0);
@@ -737,7 +756,7 @@ Rope* Rope::start(RigidBody* start, const Vec3& abs_pos, const Vec3& abs_normal,
 	// add the first rope segment
 	Vec3 p = abs_pos + abs_normal * rope_radius;
 	Transform* start_trans = start->get<Transform>();
-	RigidBody* rope = rope_add(start, start_trans->to_local(p), p + abs_rot * Vec3(0, 0, rope_segment_length), abs_rot, slack);
+	RigidBody* rope = rope_add(start, start_trans->to_local(p), p + abs_rot * Vec3(0, 0, rope_segment_length), abs_rot, slack, RigidBody::Constraint::Type::PointToPoint);
 	vi_assert(rope); // should never happen
 	return rope->get<Rope>();
 }
@@ -747,7 +766,7 @@ void Rope::end(const Vec3& pos, const Vec3& normal, RigidBody* end, r32 slack)
 	Vec3 abs_pos = pos + normal * rope_radius;
 	RigidBody* start = get<RigidBody>();
 	Vec3 start_relative_pos = Vec3(0, 0, rope_segment_length * 0.5f);
-	RigidBody* last = rope_add(start, start_relative_pos, abs_pos, Quat::look(Vec3::normalize(abs_pos - get<Transform>()->to_world(start_relative_pos))), slack);
+	RigidBody* last = rope_add(start, start_relative_pos, abs_pos, Quat::look(Vec3::normalize(abs_pos - get<Transform>()->to_world(start_relative_pos))), slack, RigidBody::Constraint::Type::ConeTwist);
 	if (!last) // we didn't need to add any rope segments; just attach ourselves to the end point
 		last = start;
 
@@ -787,7 +806,7 @@ void Rope::spawn(const Vec3& pos, const Vec3& dir, r32 max_distance, r32 slack)
 			Transform* a_trans = a->get<Transform>();
 			Transform* b_trans = b->get<Transform>();
 
-			Rope* rope = Rope::start(a, ray_callback.m_hitPointWorld, ray_callback.m_hitNormalWorld, Quat::look(dir), slack);
+			Rope* rope = Rope::start(a, ray_callback.m_hitPointWorld, ray_callback.m_hitNormalWorld, Quat::look(ray_callback.m_hitNormalWorld), slack);
 			if (rope)
 				rope->end(ray_callback2.m_hitPointWorld, ray_callback2.m_hitNormalWorld, b, slack);
 		}

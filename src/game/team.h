@@ -24,6 +24,7 @@ struct PlayerManager;
 #define CREDITS_DETECT 10
 #define CREDITS_INITIAL 0
 #define CREDITS_SENSOR_DESTROY 5
+#define CREDITS_CONTROL_POINT 2
 
 // if the ability cooldown is lower than this, we can use the ability
 // we should flash the ability icon during this time to indicate the ability is now usable
@@ -70,6 +71,7 @@ struct Team
 
 	static const Vec4 colors[];
 	static const Vec4 ui_colors[];
+	static r32 control_point_timer;
 
 	static StaticArray<Team, (s32)AI::Team::count> list;
 
@@ -91,7 +93,7 @@ struct Team
 	static void extract_history(PlayerManager*, SensorTrackHistory*);
 	b8 has_player() const;
 
-	static void update(const Update&);
+	static void update_all(const Update&);
 
 	inline ID id() const
 	{

@@ -75,9 +75,10 @@ b8 Walker::slide(Vec2* movement, const Vec3& wall_ray)
 		| btTriangleRaycastCallback::EFlags::kF_KeepUnflippedNormal;
 	ray_callback.m_collisionFilterMask = ray_callback.m_collisionFilterGroup = ~CollisionWalker & ~CollisionTarget & ~CollisionShield & ~CollisionAwk;
 	Physics::btWorld->rayTest(ray_start, ray_end, ray_callback);
-	if (ray_callback.hasHit())
+	if (ray_callback.hasHit() // make sure the 
+		&& Vec3(ray_callback.m_hitNormalWorld).dot(Vec3(movement->x, 0, movement->y)) < 0.0f)
 	{
-		Vec3 orthogonal = ray_callback.m_hitNormalWorld.cross(wall_ray);
+		Vec3 orthogonal = Vec3::normalize(ray_callback.m_hitNormalWorld.cross(wall_ray));
 		Vec3 new_movement3 = ray_callback.m_hitNormalWorld.cross(orthogonal);
 		Vec2 new_movement(new_movement3.x, new_movement3.z);
 		new_movement.normalize();

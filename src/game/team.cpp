@@ -21,6 +21,7 @@
 #define CREDITS_FLASH_TIME 0.5f
 #define SENSOR_TIME_1 2.0f
 #define SENSOR_TIME_2 1.0f
+#define CONTROL_POINT_INTERVAL 60.0f
 
 namespace VI
 {
@@ -40,6 +41,7 @@ const Vec4 Team::ui_colors[(s32)AI::Team::count] =
 
 StaticArray<Team, (s32)AI::Team::count> Team::list;
 b8 Team::abilities_enabled;
+r32 Team::control_point_timer;
 
 #define GAME_OVER_TIME 5.0f
 
@@ -117,10 +119,51 @@ void Team::extract_history(PlayerManager* manager, SensorTrackHistory* history)
 	}
 }
 
-void Team::update(const Update& u)
+void Team::update_all(const Update& u)
 {
 	if (Game::data.mode != Game::Mode::Pvp)
 		return;
+
+	// control points
+	control_point_timer -= u.time.delta;
+	if (control_point_timer < 0.0f)
+	{
+		// give points to teams based on how many control points they own
+		s32 reward_buffer[(s32)AI::Team::count] = {};
+		for (auto i = ControlPoint::list.iterator(); !i.is_last(); i.next())
+		{
+			Vec3 control_point_pos = i.item()->get<Transform>()->absolute_pos();
+
+			AI::Team control_point_team = AI::Team::None;
+			b8 contested = false;
+			for (auto j = Sensor::list.iterator(); !j.is_last(); j.next())
+			{
+				if (j.item()->get<PlayerTrigger>()->contains(control_point_pos))
+				{
+					AI::Team sensor_team = j.item()->team;
+					if (control_point_team == AI::Team::None)
+						control_point_team = sensor_team;
+					else if (control_point_team != sensor_team)
+					{
+						contested = true;
+						break;
+					}
+				}
+			}
+
+			if (control_point_team != AI::Team::None && !contested)
+				reward_buffer[(s32)control_point_team] += CREDITS_CONTROL_POINT;
+		}
+
+		// add credits to players
+		for (auto i = PlayerManager::list.iterator(); !i.is_last(); i.next())
+		{
+			s32 reward = reward_buffer[(s32)i.item()->team.ref()->team()];
+			i.item()->add_credits(reward);
+		}
+
+		control_point_timer = CONTROL_POINT_INTERVAL;
+	}
 
 	// determine which Awks are seen by which teams
 	Sensor* visibility[MAX_PLAYERS][(s32)AI::Team::count] = {};
@@ -482,8 +525,11 @@ b8 PlayerManager::ability_upgrade_available(Ability a) const
 
 void PlayerManager::add_credits(u16 c)
 {
-	credits += c;
-	credits_flash_timer = CREDITS_FLASH_TIME;
+	if (c != 0)
+	{
+		credits += c;
+		credits_flash_timer = CREDITS_FLASH_TIME;
+	}
 }
 
 b8 PlayerManager::at_spawn() const

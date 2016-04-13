@@ -141,6 +141,16 @@ struct Rope : public ComponentType<Rope>
 	void end(const Vec3&, const Vec3&, RigidBody*, r32 = 0.0f);
 };
 
+struct ControlPoint : public ComponentType<ControlPoint>
+{
+	void awake() {}
+};
+
+struct ControlPointEntity : public Entity
+{
+	ControlPointEntity();
+};
+
 struct TileEntity : public Entity
 {
 	TileEntity(const Vec3&, const Quat&, Transform*, const Vec3&, r32 = 0.3f);
@@ -258,6 +268,8 @@ struct PlayerTrigger : public ComponentType<PlayerTrigger>
 	void awake() {}
 
 	void update(const Update&);
+
+	b8 contains(const Vec3&) const;
 
 	b8 is_triggered(const Entity*) const;
 

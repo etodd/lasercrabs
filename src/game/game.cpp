@@ -779,10 +779,7 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 		{
 			AI::Team team = (AI::Team)Json::get_s32(element, "team");
 
-			if (data.mode == Game::Mode::Pvp)
-				entity = World::alloc<PlayerSpawn>(team);
-			else
-				entity = World::alloc<Empty>(); // in parkour mode, the spawn point is invisible
+			entity = World::alloc<PlayerSpawn>(team);
 
 			if (Team::list.length > 0)
 				Team::list[(s32)team].player_spawn = entity->get<Transform>();

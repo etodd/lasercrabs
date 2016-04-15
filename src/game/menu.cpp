@@ -308,7 +308,7 @@ void update(const Update& u)
 			}
 
 			if (player_count > 1 && start)
-				transition(Asset::Level::pvp0, Game::Mode::Pvp);
+				transition(Asset::Level::test, Game::Mode::Pvp);
 			break;
 		}
 		case Asset::Level::title:

@@ -299,7 +299,6 @@ void loop()
 
 				Vec3 end;
 				dtPolyRef end_poly;
-				Vec3 target;
 				nav_mesh_query->findRandomPoint(&default_query_filter, mersenne::randf_co, &end_poly, (r32*)&end);
 
 				Path path;

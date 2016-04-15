@@ -123,7 +123,7 @@ struct PlayerManager
 	r32 ability_cooldown;
 
 	b8 ability_use();
-	void ability_switch(Ability);
+	void ability_switch(Ability = Ability::None);
 	void ability_upgrade(Ability);
 	b8 ability_upgrade_available(Ability = Ability::None) const;
 	u16 ability_upgrade_cost(Ability) const;

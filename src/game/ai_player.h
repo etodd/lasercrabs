@@ -32,6 +32,8 @@ struct AIPlayer
 
 #define MAX_MEMORY 8
 
+#define VISIBLE_RANGE (AWK_MAX_DISTANCE * 1.5f)
+
 struct AIPlayerControl : public ComponentType<AIPlayerControl>
 {
 	struct Memory
@@ -73,9 +75,9 @@ struct AIPlayerControl : public ComponentType<AIPlayerControl>
 		for (s32 i = 0; i < component_memories->length; i++)
 		{
 			AIPlayerControl::Memory* m = &(*component_memories)[i];
-			if (in_range(m->pos))
+			if (in_range(m->pos, VISIBLE_RANGE))
 			{
-				b8 now_in_range = m->entity.ref() && in_range(m->entity.ref()->get<Transform>()->absolute_pos()) && filter(this, m->entity.ref()->get<Component>());
+				b8 now_in_range = m->entity.ref() && in_range(m->entity.ref()->get<Transform>()->absolute_pos(), VISIBLE_RANGE) && filter(this, m->entity.ref()->get<Component>());
 				if (!now_in_range)
 				{
 					component_memories->remove(i);
@@ -90,7 +92,7 @@ struct AIPlayerControl : public ComponentType<AIPlayerControl>
 			for (auto i = Component::list.iterator(); !i.is_last(); i.next())
 			{
 				Vec3 pos = i.item()->get<Transform>()->absolute_pos();
-				if (in_range(pos) && filter(this, i.item()))
+				if (in_range(pos, VISIBLE_RANGE) && filter(this, i.item()))
 				{
 					Entity* entity = i.item()->entity();
 					b8 already_found = false;
@@ -117,7 +119,7 @@ struct AIPlayerControl : public ComponentType<AIPlayerControl>
 		return true; // this task always succeeds
 	}
 
-	b8 in_range(const Vec3&) const;
+	b8 in_range(const Vec3&, r32) const;
 
 	void pathfind(const Vec3&, Behavior*, s8);
 	b8 resume_loop_high_level();
@@ -176,7 +178,7 @@ namespace AIBehaviors
 				r32 distance = (memory[i].pos - pos).length_squared();
 				if (distance < closest_distance)
 				{
-					if (!control->in_range(memory[i].pos) || (memory[i].entity.ref() && filter(control, memory[i].entity.ref()->get<Component>())))
+					if (!control->in_range(memory[i].pos, VISIBLE_RANGE) || (memory[i].entity.ref() && filter(control, memory[i].entity.ref()->get<Component>())))
 					{
 						closest_distance = distance;
 						closest = &memory[i];
@@ -216,7 +218,7 @@ namespace AIBehaviors
 					r32 distance = (memory[i].pos - pos).length_squared();
 					if (distance < closest_distance)
 					{
-						if (!control->in_range(memory[i].pos) || (memory[i].entity.ref() && filter(control, memory[i].entity.ref()->get<Component>())))
+						if (!control->in_range(memory[i].pos, AWK_MAX_DISTANCE) || (memory[i].entity.ref() && filter(control, memory[i].entity.ref()->get<Component>())))
 						{
 							closest_distance = distance;
 							closest = memory[i].entity.ref();

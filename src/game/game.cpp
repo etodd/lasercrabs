@@ -760,6 +760,12 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 				link->ref = &entity->get<MinionSpawn>()->spawn_point;
 				link->target_name = entity_link->valuestring;
 			}
+
+			RopeEntry* rope = ropes.add();
+			rope->pos = absolute_pos + Vec3(0, 1, 0);
+			rope->rot = Quat::identity;
+			rope->slack = 0.0f;
+			rope->max_distance = 100.0f;
 		}
 		else if (cJSON_GetObjectItem(element, "Minion"))
 		{
@@ -926,6 +932,12 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 		else if (cJSON_GetObjectItem(element, "HealthPickup"))
 		{
 			entity = World::alloc<HealthPickupEntity>();
+
+			RopeEntry* rope = ropes.add();
+			rope->pos = absolute_pos + Vec3(0, 1, 0);
+			rope->rot = Quat::identity;
+			rope->slack = 0.0f;
+			rope->max_distance = 100.0f;
 		}
 		else if (cJSON_GetObjectItem(element, "SkyDecal"))
 		{

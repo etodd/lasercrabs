@@ -466,8 +466,28 @@ PlayerManager::PlayerManager(Team* team)
 
 void PlayerManager::ability_switch(Ability a)
 {
-	vi_assert(ability_level[(s32)a] > 0);
-	ability = a;
+	if (ability_cooldown == 0.0f)
+	{
+		if (a == Ability::None)
+		{
+			// switch to next available ability
+			s32 i = (s32)ability;
+			while (true)
+			{
+				i = (i + 1) % (s32)Ability::count;
+				if (ability_level[i] > 0)
+				{
+					ability = (Ability)i;
+					break;
+				}
+			}
+		}
+		else
+		{
+			vi_assert(ability_level[(s32)a] > 0);
+			ability = a;
+		}
+	}
 }
 
 void PlayerManager::ability_upgrade(Ability a)

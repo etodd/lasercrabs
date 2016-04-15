@@ -24,7 +24,7 @@ struct LocalPlayer
 {
 	enum class UIMode { Default, Pause, Spawning, AbilityMenu };
 
-	enum class AbilityMenu { None, Select, Upgrade };
+	enum class AbilityMenu { None, Upgrade };
 
 	static PinArray<LocalPlayer, MAX_PLAYERS> list;
 

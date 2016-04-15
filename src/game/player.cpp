@@ -254,7 +254,12 @@ void LocalPlayer::update(const Update& u)
 			if (Game::data.mode == Game::Mode::Pvp && Team::abilities_enabled)
 			{
 				if (u.input->get(Controls::Menu, gamepad) && !u.last_input->get(Controls::Menu, gamepad))
-					ability_menu = AbilityMenu::Select;
+				{
+					if (manager.ref()->at_spawn())
+						ability_menu = AbilityMenu::Upgrade;
+					else
+						manager.ref()->ability_switch();
+				}
 			}
 
 			break;
@@ -264,50 +269,17 @@ void LocalPlayer::update(const Update& u)
 			menu.start(u, gamepad);
 			Rect2& viewport = camera ? camera->viewport : manager.ref()->entity.ref()->get<LocalPlayerControl>()->camera->viewport;
 
-			if (u.input->get(Controls::Cancel, gamepad) && !u.last_input->get(Controls::Cancel, gamepad))
-			{
-				if (ability_menu == AbilityMenu::Upgrade)
-					ability_menu = AbilityMenu::Select;
-				else
-					ability_menu = AbilityMenu::None;
-			}
-			if ((u.input->get(Controls::Menu, gamepad) && !u.last_input->get(Controls::Menu, gamepad)))
+			if ((u.input->get(Controls::Cancel, gamepad) && !u.last_input->get(Controls::Cancel, gamepad))
+				|| (u.input->get(Controls::Menu, gamepad) && !u.last_input->get(Controls::Menu, gamepad)))
 				ability_menu = AbilityMenu::None;
 
 			// do menu items
 			Vec2 pos = Vec2(viewport.size.x * 0.5f + (MENU_ITEM_WIDTH * -0.5f), viewport.size.y * 0.75f);
 
-			if (ability_menu == AbilityMenu::Select)
+			if (ability_menu == AbilityMenu::Upgrade)
 			{
-				if (menu.item(u, &pos, _(strings::close)))
-					ability_menu = AbilityMenu::None;
-
-				// select between existing abilities
-				for (s32 i = 0; i < (s32)Ability::count; i++)
-				{
-					Ability a = (Ability)i;
-
-					u8 level = manager.ref()->ability_level[(s32)a];
-					if (level > 0)
-					{
-						char ability_str[255];
-						sprintf(ability_str, _(strings::ability_lvl), _(AbilityInfo::list[(s32)a].name), level);
-						const AbilityInfo& info = AbilityInfo::list[(s32)a];
-						if (menu.item(u, &pos, ability_str, nullptr, false, manager.ref()->ability == a ? Asset::Mesh::icon_select : info.icon))
-							manager.ref()->ability_switch(a);
-					}
-				}
-
-				if (menu.item(u, &pos, _(strings::upgrade), nullptr, !manager.ref()->at_spawn() || !manager.ref()->ability_upgrade_available()))
-					ability_menu = AbilityMenu::Upgrade;
-			}
-			else if (ability_menu == AbilityMenu::Upgrade)
-			{
-				if (!manager.ref()->at_spawn())
-					ability_menu = AbilityMenu::Select;
-
 				if (menu.item(u, &pos, _(strings::back)))
-					ability_menu = AbilityMenu::Select;
+					ability_menu = AbilityMenu::None;
 
 				// upgrade
 				for (s32 i = 0; i < (s32)Ability::count; i++)
@@ -370,7 +342,7 @@ void LocalPlayer::spawn()
 	if (Game::data.mode == Game::Mode::Pvp)
 	{
 		// Spawn AWK
-		pos += Quat::euler(0, angle + (gamepad * PI * 0.5f), 0) * Vec3(0, 0, PLAYER_SPAWN_RADIUS); // spawn it around the edges
+		pos += Quat::euler(0, angle + (gamepad * PI * 0.5f), 0) * Vec3(0, 0, PLAYER_SPAWN_RADIUS * 0.5f); // spawn it around the edges
 		spawned = World::create<AwkEntity>(manager.ref()->team.ref()->team());
 	}
 	else // parkour mode

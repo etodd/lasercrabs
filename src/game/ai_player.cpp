@@ -39,7 +39,7 @@ void AIPlayer::spawn()
 	Vec3 pos;
 	Quat rot;
 	manager.ref()->team.ref()->player_spawn.ref()->absolute(&pos, &rot);
-	pos += Vec3(0, 0, PLAYER_SPAWN_RADIUS); // spawn it around the edges
+	pos += Vec3(0, 0, PLAYER_SPAWN_RADIUS * 0.5f); // spawn it around the edges
 	e->get<Transform>()->absolute(pos, rot);
 }
 
@@ -74,11 +74,11 @@ void AIPlayerControl::awake()
 	link<&AIPlayerControl::awk_detached>(get<Awk>()->detached);
 }
 
-b8 AIPlayerControl::in_range(const Vec3& p) const
+b8 AIPlayerControl::in_range(const Vec3& p, r32 range) const
 {
 	Vec3 to_entity = p - get<Transform>()->absolute_pos();
 	r32 distance_squared = to_entity.length_squared();
-	return distance_squared < AWK_MAX_DISTANCE * AWK_MAX_DISTANCE;
+	return distance_squared < range * range;
 }
 
 AIPlayerControl::~AIPlayerControl()

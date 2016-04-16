@@ -31,7 +31,7 @@ FastLZCompressor nav_tile_compressor;
 NavMeshProcess nav_tile_mesh_process;
 dtNavMeshQuery* nav_mesh_query = nullptr;
 dtQueryFilter default_query_filter = dtQueryFilter();
-const r32 default_search_extents[] = { 30, 100, 30 };
+const r32 default_search_extents[] = { 20, 50, 20 };
 
 void pathfind(const Vec3& a, const Vec3& b, dtPolyRef start_poly, dtPolyRef end_poly, Path* path)
 {
@@ -55,7 +55,7 @@ void pathfind(const Vec3& a, const Vec3& b, dtPolyRef start_poly, dtPolyRef end_
 
 		nav_mesh_query->findStraightPath
 		(
-			(r32*)&a, (r32*)&end, path_polys, path_poly_count,
+			(const r32*)&a, (const r32*)&end, path_polys, path_poly_count,
 			(r32*)path->data, path_straight_flags,
 			path_straight_polys, &path->length, MAX_PATH_LENGTH, 0
 		);

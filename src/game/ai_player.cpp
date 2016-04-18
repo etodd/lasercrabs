@@ -25,6 +25,7 @@ AIPlayer::AIPlayer(PlayerManager* m)
 {
 	strcpy(manager.ref()->username, Usernames::all[mersenne::rand_u32() % Usernames::count]);
 	m->spawn.link<AIPlayer, &AIPlayer::spawn>(this);
+	m->ready = true;
 }
 
 void AIPlayer::spawn()
@@ -120,14 +121,21 @@ void AIPlayerControl::set_target(Target* t, Behavior* callback)
 	behavior_callback = callback;
 }
 
-void AIPlayerControl::pathfind(const Vec3& p, Behavior* callback, s8 priority)
+void AIPlayerControl::pathfind(const Vec3& target, Behavior* callback, s8 priority, b8 hit)
 {
+	// if hit is false, pathfind as close as possible to the given target
+	// if hit is true, pathfind to a point from which we can shoot through the given target
 	aim_timer = 0.0f;
 	path.length = 0;
 	behavior_callback = callback;
 	path_priority = priority;
 	path_request_active = true;
-	AI::awk_pathfind(get<Transform>()->absolute_pos(), p, ObjectLinkEntryArg<AIPlayerControl, const AI::Path&, &AIPlayerControl::set_path>(id()));
+	auto ai_callback = ObjectLinkEntryArg<AIPlayerControl, const AI::Path&, &AIPlayerControl::set_path>(id());
+	Vec3 pos = get<Transform>()->absolute_pos();
+	if (hit)
+		AI::awk_pathfind_hit(pos, target, ai_callback);
+	else
+		AI::awk_pathfind(pos, target, ai_callback);
 }
 
 void AIPlayerControl::random_path(Behavior* callback)
@@ -237,7 +245,7 @@ b8 AIPlayerControl::aim_and_shoot(const Update& u, const Vec3& target, b8 exact)
 		Vec3 hit;
 		if (get<Awk>()->can_go(look_dir, &hit))
 		{
-			if (!exact || (hit - target).length() < AWK_RADIUS * 2.0f) // make sure we're actually going to land at the right spot
+			if (!exact || (hit - target).length() < AWK_RADIUS) // make sure we're actually going to land at the right spot
 			{
 				if (get<Awk>()->detach(look_dir))
 					return true;
@@ -304,7 +312,6 @@ void AIPlayerControl::update(const Update& u)
 			loop_high_level->set_context(this);
 			loop_high_level->run();
 
-
 			loop_low_level = Parallel::alloc
 			(
 				Repeat::alloc // memory update loop
@@ -321,24 +328,24 @@ void AIPlayerControl::update(const Update& u)
 
 				Repeat::alloc // reaction loop
 				(
-					Succeed::alloc
+					Sequence::alloc
 					(
-						Sequence::alloc
+						Delay::alloc(0.3f),
+						Succeed::alloc
 						(
-							Delay::alloc(0.3f),
 							Select::alloc // if any of these succeed, they will abort the high level loop
 							(
+								AIBehaviors::React<Awk>::alloc(0, 1, &awk_filter),
 								Sequence::alloc
 								(
 									Invert::alloc(Execute::alloc()->method<Health, &Health::is_full>(get<Health>())), // make sure we need health
 									AIBehaviors::React<HealthPickup>::alloc(0, 1, &health_pickup_filter)
 								),
 								AIBehaviors::React<MinionAI>::alloc(0, 1, &default_filter<MinionAI>),
-								AIBehaviors::React<MinionSpawn>::alloc(0, 1, &minion_spawn_filter),
-								AIBehaviors::React<Awk>::alloc(0, 1, &awk_filter)
-							),
-							Execute::alloc()->method<AIPlayerControl, &AIPlayerControl::resume_loop_high_level>(this) // restart the high level loop if necessary
-						)
+								AIBehaviors::React<MinionSpawn>::alloc(0, 1, &minion_spawn_filter)
+							)
+						),
+						Execute::alloc()->method<AIPlayerControl, &AIPlayerControl::resume_loop_high_level>(this) // restart the high level loop if necessary
 					)
 				)
 			);

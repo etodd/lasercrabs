@@ -1160,7 +1160,7 @@ void draw(LoopSync* sync, const Camera* camera)
 
 void loop(LoopSwapper* swapper, PhysicsSwapper* physics_swapper)
 {
-	mersenne::srand(platform::time());
+	mersenne::srand(platform::timestamp());
 	noise::reseed();
 
 	LoopSync* sync = swapper->swap<SwapType_Write>();

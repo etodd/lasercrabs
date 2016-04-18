@@ -101,7 +101,7 @@ HealthPickupEntity::HealthPickupEntity()
 
 	model->offset.scale(Vec3(HEALTH_PICKUP_RADIUS - 0.2f));
 
-	RigidBody* body = create<RigidBody>(RigidBody::Type::Sphere, Vec3(HEALTH_PICKUP_RADIUS), 0.1f, CollisionDefault | CollisionTarget, ~CollisionAwk & ~CollisionShield);
+	RigidBody* body = create<RigidBody>(RigidBody::Type::Sphere, Vec3(HEALTH_PICKUP_RADIUS), 0.1f, CollisionAwkIgnore | CollisionTarget, ~CollisionAwk & ~CollisionShield);
 	body->set_damping(0.5f, 0.5f);
 }
 
@@ -123,17 +123,25 @@ void HealthPickup::hit(const TargetEvent& e)
 	if (e.hit_by->has<AIAgent>() && e.hit_by->has<Health>())
 	{
 		Health* health = e.hit_by->get<Health>();
-		if (!owner.ref() && health->hp < health->hp_max)
+		if (!owner.ref())
 		{
-			health->add(1);
-			owner = health;
+			if (health->hp == health->hp_max)
+			{
+				if (e.hit_by->has<LocalPlayerControl>())
+					e.hit_by->get<LocalPlayerControl>()->player.ref()->msg(_(strings::health_max), true);
+			}
+			else
+			{
+				health->add(1);
+				owner = health;
 
-			const Vec3& color = Team::colors[(s32)e.hit_by->get<AIAgent>()->team].xyz();
-			get<PointLight>()->color = color;
-			get<View>()->color = Vec4(color, MATERIAL_NO_OVERRIDE);
+				const Vec3& color = Team::colors[(s32)e.hit_by->get<AIAgent>()->team].xyz();
+				get<PointLight>()->color = color;
+				get<View>()->color = Vec4(color, MATERIAL_NO_OVERRIDE);
 
-			if (e.hit_by->has<LocalPlayerControl>())
-				e.hit_by->get<LocalPlayerControl>()->player.ref()->msg(_(strings::health_pickup), true);
+				if (e.hit_by->has<LocalPlayerControl>())
+					e.hit_by->get<LocalPlayerControl>()->player.ref()->msg(_(strings::health_pickup), true);
+			}
 		}
 	}
 }
@@ -236,7 +244,7 @@ MinionSpawnEntity::MinionSpawnEntity()
 
 	model->offset.scale(Vec3(MINION_SPAWN_RADIUS - 0.2f));
 
-	RigidBody* body = create<RigidBody>(RigidBody::Type::Sphere, Vec3(MINION_SPAWN_RADIUS), 0.1f, CollisionDefault | CollisionTarget, ~CollisionAwk & ~CollisionShield);
+	RigidBody* body = create<RigidBody>(RigidBody::Type::Sphere, Vec3(MINION_SPAWN_RADIUS), 0.1f, CollisionAwkIgnore | CollisionTarget, ~CollisionAwk & ~CollisionShield);
 	body->set_damping(0.5f, 0.5f);
 
 	create<MinionSpawn>();

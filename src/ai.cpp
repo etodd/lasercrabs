@@ -213,6 +213,16 @@ void awk_pathfind(const Vec3& a, const Vec3& b, const LinkEntryArg<const Path&>&
 	sync_in.unlock();
 }
 
+void awk_pathfind_hit(const Vec3& a, const Vec3& b, const LinkEntryArg<const Path&>& callback)
+{
+	sync_in.lock();
+	sync_in.write(Op::AwkPathfindHit);
+	sync_in.write(a);
+	sync_in.write(b);
+	sync_in.write(callback);
+	sync_in.unlock();
+}
+
 #if DEBUG
 AssetID render_mesh = AssetNull;
 AssetID awk_render_mesh = AssetNull;

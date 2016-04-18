@@ -334,6 +334,26 @@ void loop()
 				sync_out.unlock();
 				break;
 			}
+			case Op::AwkPathfindHit:
+			{
+				Vec3 a;
+				Vec3 b;
+				sync_in.read(&a);
+				sync_in.read(&b);
+				LinkEntryArg<Path> callback;
+				sync_in.read(&callback);
+				sync_in.unlock();
+
+				Path path;
+				awk_pathfind_hit(a, b, &path);
+
+				sync_out.lock();
+				sync_out.write(Callback::AwkPath);
+				sync_out.write(callback);
+				sync_out.write(path);
+				sync_out.unlock();
+				break;
+			}
 			case Op::AwkRandomPath:
 			{
 				LinkEntryArg<Path> callback;
@@ -450,14 +470,41 @@ AwkNavMeshNode awk_closest_point(const Vec3& p)
 	return closest;
 }
 
-void awk_pathfind(const Vec3& start, const Vec3& end, Path* path)
+// can we hit the target from the given nav mesh node?
+b8 can_hit_from(AwkNavMeshNode start_vertex, const Vec3& target)
+{
+	const Vec3& start = awk_nav_mesh.chunks[start_vertex.chunk].vertices[start_vertex.vertex];
+	Vec3 to_target = target - start;
+	r32 target_distance_squared = to_target.length_squared();
+	to_target /= sqrtf(target_distance_squared); // normalize
+	const AwkNavMeshAdjacency& start_adjacency = awk_nav_mesh.chunks[start_vertex.chunk].adjacency[start_vertex.vertex];
+
+	for (s32 i = 0; i < start_adjacency.length; i++)
+	{
+		const AwkNavMeshNode adjacent_vertex = start_adjacency[i];
+		const Vec3& adjacent = awk_nav_mesh.chunks[adjacent_vertex.chunk].vertices[adjacent_vertex.vertex];
+
+		Vec3 to_adjacent = adjacent - start;
+		r32 adjacent_distance_squared = to_adjacent.length_squared();
+		if (adjacent_distance_squared > target_distance_squared) // make sure the target is in between us and the adjacent vertex
+		{
+			to_adjacent /= sqrtf(adjacent_distance_squared); // normalize
+			if (to_adjacent.dot(to_target) > 0.999f) // make sure the target is lined up with us and the adjacent vertex
+				return true;
+		}
+	}
+	return false;
+}
+
+// find a path from vertex a to vertex b
+void awk_pathfind_internal(const AwkNavMeshNode& start_vertex, const AwkNavMeshNode& end_vertex, Path* path)
 {
 	path->length = 0;
 
-	awk_nav_mesh_key.reset(awk_nav_mesh);
+	const Vec3& start_pos = awk_nav_mesh.chunks[start_vertex.chunk].vertices[start_vertex.vertex];
+	const Vec3& end_pos = awk_nav_mesh.chunks[end_vertex.chunk].vertices[end_vertex.vertex];
 
-	AwkNavMeshNode start_vertex = awk_closest_point(start);
-	AwkNavMeshNode end_vertex = awk_closest_point(end);
+	awk_nav_mesh_key.reset(awk_nav_mesh);
 
 	PriorityQueue<AwkNavMeshNode, AwkNavMeshKey> queue(&awk_nav_mesh_key);
 	queue.push(start_vertex);
@@ -465,7 +512,7 @@ void awk_pathfind(const Vec3& start, const Vec3& end, Path* path)
 	{
 		AwkNavMeshNodeData* start_data = &awk_nav_mesh_key.get(start_vertex);
 		start_data->travel_score = 0;
-		start_data->estimate_score = (end - start).length();
+		start_data->estimate_score = (end_pos - start_pos).length();
 		start_data->visited = true;
 		start_data->parent = { (u16)-1, (u16)-1 };
 	}
@@ -524,10 +571,57 @@ void awk_pathfind(const Vec3& start, const Vec3& end, Path* path)
 				adjacent_data->visited = true;
 				adjacent_data->parent = vertex_node;
 				adjacent_data->travel_score = candidate_travel_score;
-				adjacent_data->estimate_score = (end - adjacent_pos).length();
+				adjacent_data->estimate_score = (end_pos - adjacent_pos).length();
 				queue.push(adjacent_node);
 			}
 		}
+	}
+}
+
+// find a path using vertices as close as possible to the given points
+void awk_pathfind(const Vec3& start, const Vec3& end, Path* path)
+{
+	awk_pathfind_internal(awk_closest_point(start), awk_closest_point(end), path);
+}
+
+// find our way to a point from which we can shoot through the given target
+void awk_pathfind_hit(const Vec3& start, const Vec3& target, Path* path)
+{
+	AwkNavMeshNode target_closest_vertex = awk_closest_point(target);
+
+	AwkNavMeshNode start_vertex = awk_closest_point(start);
+
+	// even if we are supposed to be able to hit the target from the start vertex, don't just return a 0-length path.
+	// find another vertex where we can hit the target
+	// if we actually CAN hit the target, the low-level AI will take care of it.
+	// if not, we'll have a path to another vertex where we can hopefully hit the target
+	// this prevents us from getting stuck at a point where we think we should be able to hit the target, but we actually can't
+
+	if (!target_closest_vertex.equals(start_vertex) && can_hit_from(target_closest_vertex, target))
+		awk_pathfind_internal(start_vertex, target_closest_vertex, path);
+	else
+	{
+		const AwkNavMeshAdjacency& target_adjacency = awk_nav_mesh.chunks[target_closest_vertex.chunk].adjacency[target_closest_vertex.vertex];
+		r32 closest_distance = FLT_MAX;
+		AwkNavMeshNode closest_vertex;
+		for (s32 i = 0; i < target_adjacency.length; i++)
+		{
+			const AwkNavMeshNode adjacent_vertex = target_adjacency[i];
+			if (!adjacent_vertex.equals(start_vertex))
+			{
+				const Vec3& adjacent = awk_nav_mesh.chunks[adjacent_vertex.chunk].vertices[adjacent_vertex.vertex];
+				r32 distance = (adjacent - start).length_squared();
+				if (distance < closest_distance && can_hit_from(adjacent_vertex, target))
+				{
+					closest_distance = distance;
+					closest_vertex = adjacent_vertex;
+				}
+			}
+		}
+		if (closest_distance == FLT_MAX)
+			path->length = 0; // can't find a path to hit this thing
+		else
+			awk_pathfind_internal(start_vertex, closest_vertex, path);
 	}
 }
 

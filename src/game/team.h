@@ -62,6 +62,7 @@ struct Team
 
 	struct SensorTrackHistory
 	{
+		Vec3 pos;
 		u16 hp;
 		u16 hp_max;
 		u16 credits;
@@ -75,7 +76,6 @@ struct Team
 
 	static StaticArray<Team, (s32)AI::Team::count> list;
 
-	static b8 abilities_enabled;
 	static b8 game_over();
 	static b8 is_draw();
 
@@ -121,6 +121,9 @@ struct PlayerManager
 	Ability ability;
 	u8 ability_level[(s32)Ability::count];
 	r32 ability_cooldown;
+	b8 ready;
+
+	static b8 all_ready();
 
 	b8 ability_use();
 	void ability_switch(Ability = Ability::None);

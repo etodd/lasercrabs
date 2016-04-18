@@ -44,9 +44,7 @@ static State main_menu_state;
 
 void reset_players()
 {
-	AssetID level = Game::data.level;
-	Game::data = Game::Data();
-	Game::data.level = level;
+	Game::data.local_multiplayer_offset = 0;
 	for (int i = 0; i < MAX_GAMEPADS; i++)
 		Game::data.local_player_config[i] = AI::Team::None;
 	Game::data.local_player_config[0] = AI::Team::A;
@@ -116,6 +114,7 @@ void refresh_variables()
 	UIText::set_variable("Jump", gamepad->bindings[(s32)Controls::Jump].string(is_gamepad));
 	UIText::set_variable("Slide", gamepad->bindings[(s32)Controls::Slide].string(is_gamepad));
 	UIText::set_variable("Menu", gamepad->bindings[(s32)Controls::Menu].string(is_gamepad));
+	UIText::set_variable("Ability", gamepad->bindings[(s32)Controls::Ability].string(is_gamepad));
 }
 
 void title_menu(const Update& u, u8 gamepad, UIMenu* menu, State* state)
@@ -308,7 +307,10 @@ void update(const Update& u)
 			}
 
 			if (player_count > 1 && start)
+			{
+				Game::data.feature_level = Game::FeatureLevel::Base;
 				transition(Asset::Level::test, Game::Mode::Pvp);
+			}
 			break;
 		}
 		case Asset::Level::title:

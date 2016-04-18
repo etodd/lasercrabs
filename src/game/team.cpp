@@ -40,7 +40,6 @@ const Vec4 Team::ui_colors[(s32)AI::Team::count] =
 };
 
 StaticArray<Team, (s32)AI::Team::count> Team::list;
-b8 Team::abilities_enabled;
 r32 Team::control_point_timer;
 
 #define GAME_OVER_TIME 5.0f
@@ -76,18 +75,24 @@ b8 Team::game_over()
 	if (NoclipControl::list.count() > 0)
 		return false;
 
-	if (Game::time.total <= PLAYER_SPAWN_DELAY)
+	if (!PlayerManager::all_ready())
 		return false;
 
 	if (Game::time.total > GAME_TIME_LIMIT)
 		return true;
+
+	for (auto i = PlayerManager::list.iterator(); !i.is_last(); i.next())
+	{
+		if (i.item()->spawn_timer > 0.0f)
+			return false;
+	}
 
 	return teams_with_players() < 2;
 }
 
 b8 Team::is_draw()
 {
-	return Game::time.total > GAME_TIME_LIMIT && teams_with_players() >= 2;
+	return Game::time.total > GAME_TIME_LIMIT && teams_with_players() != 1;
 }
 
 b8 Team::has_player() const
@@ -110,13 +115,90 @@ void Team::extract_history(PlayerManager* manager, SensorTrackHistory* history)
 		Health* health = manager->entity.ref()->get<Health>();
 		history->hp = health->hp;
 		history->hp_max = health->hp_max;
+		history->pos = manager->entity.ref()->get<Transform>()->absolute_pos();
 	}
 	else
 	{
 		// initial health
 		history->hp = 1;
 		history->hp_max = AWK_HEALTH;
+		history->pos = manager->team.ref()->player_spawn.ref()->absolute_pos();
 	}
+}
+
+void level_retry()
+{
+	if (Game::data.local_multiplayer)
+		Menu::transition(Game::data.level, Game::Mode::Pvp);
+	else
+		Menu::transition(Game::data.level, Game::Mode::Parkour);
+}
+
+// if true at the current feature level, we will rotate the teams
+// before advancing to the next feature level
+b8 rotate_teams_at_feature_level[(s32)Game::FeatureLevel::count] =
+{
+	false, // Base
+	false, // HealthPickups
+	true, // Abilities
+	false, // ControlPoints
+	true, // Minions
+};
+
+void level_next()
+{
+	AssetID next_level;
+	Game::FeatureLevel next_feature_level;
+	Game::Mode next_mode;
+
+	if (Game::data.local_multiplayer)
+	{
+		// we're in local multiplayer mode
+		next_mode = Game::Mode::Pvp;
+
+		if (rotate_teams_at_feature_level[(s32)Game::data.feature_level] && Game::data.local_multiplayer_offset < (s32)AI::Team::count - 1)
+		{
+			// play again with same features, but different team offset
+			next_level = Game::data.level; 
+			next_feature_level = Game::data.feature_level;
+		}
+		else
+		{
+			if ((s32)Game::data.feature_level < (s32)Game::FeatureLevel::All)
+			{
+				// play again with more features
+				next_level = Game::data.level;
+				next_feature_level = (Game::FeatureLevel)((s32)Game::data.feature_level + 1);
+			}
+			else
+			{
+				// advance to next level
+				next_level = Game::data.next_level;
+				next_feature_level = Game::FeatureLevel::All;
+			}
+		}
+
+		Game::data.local_multiplayer_offset = (Game::data.local_multiplayer_offset + 1) % (s32)AI::Team::count;
+	}
+	else
+	{
+		// advance to next level
+		next_mode = Game::Mode::Parkour;
+		if (Game::data.has_feature(Game::FeatureLevel::All))
+		{
+			next_level = Game::data.next_level;
+			next_feature_level = Game::FeatureLevel::All;
+		}
+		else
+		{
+			next_level = Game::data.level;
+			next_feature_level = (Game::FeatureLevel)((s32)Game::data.feature_level + 1);
+		}
+	}
+
+	Game::data.feature_level = next_feature_level;
+
+	Menu::transition(next_level, next_mode);
 }
 
 void Team::update_all(const Update& u)
@@ -214,6 +296,7 @@ void Team::update_all(const Update& u)
 			{
 				if (team == j.item()->manager.ref()->team.ref()->team())
 					continue;
+
 				b8 visible;
 				if (i.item()->has<Awk>() && i.item()->get<Awk>()->stealth_timer > 0.0f)
 					visible = false;
@@ -244,7 +327,7 @@ void Team::update_all(const Update& u)
 				}
 
 				PlayerCommon::visibility.set(PlayerCommon::visibility_hash(i.item(), j.item()), visible);
-				if (visible) // update history
+				if (visible || Team::list[(s32)team].player_tracks[j.index].tracking) // update history
 				{
 					extract_history(i.item()->manager.ref(), &j.item()->manager.ref()->team.ref()->player_track_history[i.item()->manager.id]);
 					extract_history(j.item()->manager.ref(), &i.item()->manager.ref()->team.ref()->player_track_history[j.item()->manager.id]);
@@ -258,10 +341,7 @@ void Team::update_all(const Update& u)
 	if (game_over && draw)
 	{
 		if (Game::time.total > GAME_TIME_LIMIT + GAME_OVER_TIME)
-		{
-			// it's a draw; try again
-			Menu::transition(Game::data.level, Game::data.mode); // todo: restart the level with a new opponent
-		}
+			level_retry(); // it's a draw; try again
 	}
 
 	for (s32 team_id = 0; team_id < list.length; team_id++)
@@ -273,7 +353,7 @@ void Team::update_all(const Update& u)
 			// we win
 			team->victory_timer -= u.time.delta;
 			if (team->victory_timer < 0.0f)
-				Menu::transition(Game::data.next_level, Game::data.next_mode);
+				level_next();
 		}
 
 		// update tracking timers
@@ -456,12 +536,23 @@ PlayerManager::PlayerManager(Team* team)
 	: spawn_timer(PLAYER_SPAWN_DELAY),
 	team(team),
 	credits(CREDITS_INITIAL),
-	ability(Team::abilities_enabled ? Ability::Sensor : Ability::None),
+	ability(Game::data.has_feature(Game::FeatureLevel::Abilities) ? Ability::Sensor : Ability::None),
 	ability_level{ 1, 0, 0 },
 	ability_cooldown(),
 	entity(),
-	spawn()
+	spawn(),
+	ready(Game::data.mode == Game::Mode::Parkour || Game::data.has_feature(Game::FeatureLevel::All))
 {
+}
+
+b8 PlayerManager::all_ready()
+{
+	for (auto i = PlayerManager::list.iterator(); !i.is_last(); i.next())
+	{
+		if (!i.item()->ready)
+			return false;
+	}
+	return true;
 }
 
 void PlayerManager::ability_switch(Ability a)
@@ -564,7 +655,7 @@ void PlayerManager::update(const Update& u)
 {
 	credits_flash_timer = vi_max(0.0f, credits_flash_timer - Game::real_time.delta);
 
-	if (!entity.ref() && spawn_timer > 0.0f && team.ref()->player_spawn.ref())
+	if (!entity.ref() && spawn_timer > 0.0f && all_ready() && team.ref()->player_spawn.ref())
 	{
 		spawn_timer -= u.time.delta;
 		if (spawn_timer <= 0.0f)

@@ -19,7 +19,7 @@
 
 #define MINION_VIEW_RANGE 30.0f
 
-#define WALK_SPEED 1.0f
+#define WALK_SPEED 2.0f
 
 #define HEALTH 5
 

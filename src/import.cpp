@@ -2059,7 +2059,7 @@ void build_awk_nav_mesh(Map<Mesh>& meshes, cJSON* json, AwkNavMesh* out, s32* ad
 				r32 normal_len = normal.length();
 				if (normal_len < 0.00001f)
 					continue; // degenerate triangle
-				normal /= normal_len;
+				normal /= normal_len; // normalize
 			}
 
 			Vec3 u, v;
@@ -2196,7 +2196,7 @@ void build_awk_nav_mesh(Map<Mesh>& meshes, cJSON* json, AwkNavMesh* out, s32* ad
 							const Vec3& neighbor = neighbor_chunk->vertices[neighbor_index];
 
 							Vec3 to_neighbor = neighbor - vertex;
-							if (vertex_normal.dot(to_neighbor) > 0.05f)
+							if (vertex_normal.dot(to_neighbor) > 0.07f)
 							{
 								r32 distance_squared = to_neighbor.length_squared();
 								if (distance_squared < (AWK_MAX_DISTANCE - AWK_RADIUS) * (AWK_MAX_DISTANCE - AWK_RADIUS)

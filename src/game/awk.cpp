@@ -148,15 +148,18 @@ void Awk::hit_by(const TargetEvent& e)
 	Vec3 awk_pos = e.hit_by->get<Transform>()->absolute_pos();
 	Vec3 awk_dir = Vec3::normalize(e.hit_by->get<Awk>()->velocity);
 	Vec3 intersection;
-	if (LMath::ray_sphere_intersect(awk_pos, awk_pos + awk_dir * AWK_MAX_DISTANCE, me, AWK_SHIELD_RADIUS, &intersection))
+	if (get<Transform>()->parent.ref() || e.hit_by->get<Health>()->hp > get<Health>()->hp) // if we're in flight, only take damage if the enemy has higher health than us
 	{
-		if (awk_dir.dot(Vec3::normalize(intersection - me)) > SHIELD_PENETRATION_DOT)
-			get<Health>()->damage(e.hit_by, 1); // glancing blow
+		if (LMath::ray_sphere_intersect(awk_pos, awk_pos + awk_dir * AWK_MAX_DISTANCE, me, AWK_SHIELD_RADIUS, &intersection))
+		{
+			if (awk_dir.dot(Vec3::normalize(intersection - me)) > SHIELD_PENETRATION_DOT)
+				get<Health>()->damage(e.hit_by, 1); // glancing blow
+			else
+				get<Health>()->damage(e.hit_by, AWK_HEALTH); // direct hit
+		}
 		else
-			get<Health>()->damage(e.hit_by, AWK_HEALTH); // direct hit
+			get<Health>()->damage(e.hit_by, 1); // glancing blow
 	}
-	else
-		get<Health>()->damage(e.hit_by, 1); // glancing blow
 }
 
 void Awk::hit_target(Entity* target)
@@ -178,7 +181,7 @@ void Awk::hit_target(Entity* target)
 		if (t.ref() && t.ref()->has<RigidBody>()) // is it still around and does it have a rigidbody?
 		{
 			RigidBody* body = t.ref()->get<RigidBody>();
-			body->btBody->applyImpulse(velocity * Game::time.delta * 0.0005f, Vec3::zero);
+			body->btBody->applyImpulse(velocity * Game::time.delta * 15.0f, Vec3::zero);
 			body->btBody->activate(true);
 		}
 	}
@@ -830,7 +833,9 @@ void Awk::update(const Update& u)
 						b8 stop = false;
 						if ((entity->has<Awk>() && (group & CollisionShield))) // it's an AWK shield
 						{
-							if (entity->get<Health>()->hp > 1 && dir.dot(Vec3::normalize(Vec3(ray_callback.m_hitPointWorld[i]) - entity->get<Transform>()->absolute_pos())) > SHIELD_PENETRATION_DOT)
+							if (!entity->get<Transform>()->parent.ref()) // it's in flight; bounce off
+								stop = true;
+							else if (entity->get<Health>()->hp > 1 && dir.dot(Vec3::normalize(Vec3(ray_callback.m_hitPointWorld[i]) - entity->get<Transform>()->absolute_pos())) > SHIELD_PENETRATION_DOT)
 								stop = true; // it's a bad shot, we'll reflect off the shield
 						}
 						else if (!(group & (AWK_PERMEABLE_MASK | CollisionWalker))) // it's not a target or a person; we can't go through it

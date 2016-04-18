@@ -121,7 +121,7 @@ struct AIPlayerControl : public ComponentType<AIPlayerControl>
 
 	b8 in_range(const Vec3&, r32) const;
 
-	void pathfind(const Vec3&, Behavior*, s8);
+	void pathfind(const Vec3&, Behavior*, s8, b8 = false);
 	b8 resume_loop_high_level();
 	void set_target(Target*, Behavior*);
 	void random_path(Behavior*);
@@ -238,7 +238,7 @@ namespace AIBehaviors
 					else if (can_path)
 					{
 						control->loop_high_level->abort();
-						control->pathfind(closest->get<Target>()->absolute_pos(), this, priority_path);
+						control->pathfind(closest->get<Target>()->absolute_pos(), this, priority_path, true);
 						return;
 					}
 				}

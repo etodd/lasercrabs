@@ -70,11 +70,17 @@ Game::Data::Data()
 	third_person(false),
 	allow_detach(true),
 	local_multiplayer(false),
-	local_multiplayer_offset()
+	local_multiplayer_offset(),
+	feature_level(FeatureLevel::All)
 {
 	for (s32 i = 0; i < MAX_GAMEPADS; i++)
 		local_player_config[i] = AI::Team::None;
 	local_player_config[0] = AI::Team::A;
+}
+
+b8 Game::Data::has_feature(FeatureLevel f) const
+{
+	return (s32)feature_level >= (s32)f;
 }
 
 Array<UpdateFunction> Game::updates;
@@ -752,20 +758,23 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 		}
 		else if (cJSON_GetObjectItem(element, "MinionSpawn"))
 		{
-			entity = World::alloc<MinionSpawnEntity>();
-			cJSON* entity_link = cJSON_GetObjectItem(element, "links")->child;
-			if (entity_link)
+			if (data.has_feature(FeatureLevel::MinionSpawns))
 			{
-				LevelLink<Transform>* link = transform_links.add();
-				link->ref = &entity->get<MinionSpawn>()->spawn_point;
-				link->target_name = entity_link->valuestring;
-			}
+				entity = World::alloc<MinionSpawnEntity>();
+				cJSON* entity_link = cJSON_GetObjectItem(element, "links")->child;
+				if (entity_link)
+				{
+					LevelLink<Transform>* link = transform_links.add();
+					link->ref = &entity->get<MinionSpawn>()->spawn_point;
+					link->target_name = entity_link->valuestring;
+				}
 
-			RopeEntry* rope = ropes.add();
-			rope->pos = absolute_pos + Vec3(0, 1, 0);
-			rope->rot = Quat::identity;
-			rope->slack = 0.0f;
-			rope->max_distance = 100.0f;
+				RopeEntry* rope = ropes.add();
+				rope->pos = absolute_pos + Vec3(0, 1, 0);
+				rope->rot = Quat::identity;
+				rope->slack = 0.0f;
+				rope->max_distance = 100.0f;
+			}
 		}
 		else if (cJSON_GetObjectItem(element, "Minion"))
 		{
@@ -808,20 +817,6 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 		else if (cJSON_GetObjectItem(element, "World"))
 		{
 			// World is guaranteed to be the first element in the entity list
-			const char* next_mode_string = Json::get_string(element, "next_mode");
-			if (next_mode_string)
-			{
-				if (strcmp(next_mode_string, "parkour") == 0)
-					data.next_mode = Game::Mode::Parkour;
-				else if (strcmp(next_mode_string, "pvp") == 0)
-					data.next_mode = Game::Mode::Pvp;
-				else
-					data.next_mode = Game::Mode::Special;
-			}
-			else
-				data.next_mode = Game::Mode::Pvp;
-
-			Team::abilities_enabled = Json::get_s32(element, "abilities", 1);
 
 			AssetID texture = Loader::find(Json::get_string(element, "skybox_texture"), AssetLookup::Texture::names);
 			Vec3 sky;
@@ -882,13 +877,6 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 
 			// figure out next level
 			data.next_level = Loader::find(Json::get_string(element, "next"), AssetLookup::Level::names);
-			if (data.local_multiplayer && !Menu::is_special_level(Game::data.level, Game::data.mode))
-			{
-				// we're in local multiplayer mode
-				if (data.local_multiplayer_offset < (s32)AI::Team::count - 1)
-					data.next_level = data.level; // play again with a different team offset
-				data.local_multiplayer_offset = (data.local_multiplayer_offset + 1) % (s32)AI::Team::count;
-			}
 		}
 		else if (cJSON_GetObjectItem(element, "PointLight"))
 		{
@@ -928,13 +916,16 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 		}
 		else if (cJSON_GetObjectItem(element, "HealthPickup"))
 		{
-			entity = World::alloc<HealthPickupEntity>();
+			if (data.has_feature(FeatureLevel::HealthPickups))
+			{
+				entity = World::alloc<HealthPickupEntity>();
 
-			RopeEntry* rope = ropes.add();
-			rope->pos = absolute_pos + Vec3(0, 1, 0);
-			rope->rot = Quat::identity;
-			rope->slack = 0.0f;
-			rope->max_distance = 100.0f;
+				RopeEntry* rope = ropes.add();
+				rope->pos = absolute_pos + Vec3(0, 1, 0);
+				rope->rot = Quat::identity;
+				rope->slack = 0.0f;
+				rope->max_distance = 100.0f;
+			}
 		}
 		else if (cJSON_GetObjectItem(element, "SkyDecal"))
 		{
@@ -950,7 +941,8 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 		}
 		else if (cJSON_GetObjectItem(element, "ControlPoint"))
 		{
-			entity = World::alloc<ControlPointEntity>();
+			if (data.has_feature(FeatureLevel::ControlPoints))
+				entity = World::alloc<ControlPointEntity>();
 		}
 		else if (cJSON_GetObjectItem(element, "Script"))
 		{

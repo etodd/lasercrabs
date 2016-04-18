@@ -24,6 +24,7 @@ namespace AI
 		ObstacleRemove,
 		Pathfind,
 		AwkPathfind,
+		AwkPathfindHit,
 		RandomPath,
 		AwkRandomPath,
 		Quit,
@@ -58,6 +59,7 @@ namespace AI
 	void obstacle_remove(u32);
 	void pathfind(const Vec3&, const Vec3&, const LinkEntryArg<const Path&>&);
 	void awk_pathfind(const Vec3&, const Vec3&, const LinkEntryArg<const Path&>&);
+	void awk_pathfind_hit(const Vec3&, const Vec3&, const LinkEntryArg<const Path&>&);
 	void random_path(const Vec3&, const LinkEntryArg<const Path&>&);
 	void awk_random_path(const Vec3&, const LinkEntryArg<const Path&>&);
 	void load(const u8*, s32);
@@ -111,6 +113,7 @@ namespace AI
 		dtPolyRef get_poly(const Vec3&, const r32*);
 
 		void awk_pathfind(const Vec3&, const Vec3&, Path*);
+		void awk_pathfind_hit(const Vec3&, const Vec3&, Path*);
 
 		AwkNavMeshNode awk_closest_point(const Vec3&);
 	}

@@ -17,6 +17,7 @@ struct Behavior
 	virtual void set_context(void*) {}
 	virtual void done(b8 = true) {}
 	virtual ~Behavior() {}
+	Behavior* root() const;
 };
 
 #define MAX_BEHAVIORS 1024
@@ -54,7 +55,7 @@ template<typename Derived> struct BehaviorBase : public Behavior
 
 	inline ID id() const
 	{
-		return ((Derived*)this - &list[0]);
+		return ((Derived*)this - list.data.data);
 	}
 
 	virtual void run()
@@ -64,9 +65,12 @@ template<typename Derived> struct BehaviorBase : public Behavior
 
 	virtual void done(b8 success = true)
 	{
-		active(false);
-		if (parent)
-			parent->child_done(this, success);
+		if (active())
+		{
+			active(false);
+			if (parent)
+				parent->child_done(this, success);
+		}
 	}
 
 	virtual void abort()

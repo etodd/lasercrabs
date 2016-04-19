@@ -35,7 +35,7 @@ template<s32 size> struct Bitmask
 		return i;
 	}
 
-	inline void set(s32 i, b8 value)
+	void set(s32 i, b8 value)
 	{
 		vi_assert(i >= 0 && i < size);
 		s32 index = i / sizeof(u32);

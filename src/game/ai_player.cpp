@@ -54,6 +54,8 @@ AIPlayerControl::AIPlayerControl(AIPlayer* p)
 	path(),
 	loop_high_level(),
 	loop_low_level(),
+	loop_low_level_2(),
+	loop_memory(),
 	target(),
 	hit_target()
 {
@@ -88,7 +90,9 @@ AIPlayerControl::~AIPlayerControl()
 	camera->remove();
 #endif
 	loop_high_level->~Repeat();
-	loop_low_level->~Parallel();
+	loop_low_level->~Repeat();
+	loop_low_level_2->~Repeat();
+	loop_memory->~Repeat();
 }
 
 void AIPlayerControl::awk_attached()
@@ -112,46 +116,98 @@ void AIPlayerControl::awk_hit(Entity* e)
 	hit_target = true;
 }
 
-void AIPlayerControl::set_target(Target* t, Behavior* callback)
+void AIPlayerControl::set_target(Target* t, Behavior* callback, s8 priority)
 {
+#if DEBUG_AI_CONTROL 
+	vi_debug("Awk target: %d", t->entity_id);
+#endif
 	aim_timer = 0.0f;
 	target = t;
 	hit_target = false;
 	path.length = 0;
+	path_priority = priority;
 	behavior_callback = callback;
 }
 
-void AIPlayerControl::pathfind(const Vec3& target, Behavior* callback, s8 priority, b8 hit)
+void AIPlayerControl::pathfind(const Vec3& end, Behavior* callback, s8 priority, b8 hit)
 {
 	// if hit is false, pathfind as close as possible to the given target
 	// if hit is true, pathfind to a point from which we can shoot through the given target
+#if DEBUG_AI_CONTROL
+	vi_debug("Awk pathfind %f %f %f", end.x, end.y, end.z);
+#endif
 	aim_timer = 0.0f;
 	path.length = 0;
+	target = nullptr;
 	behavior_callback = callback;
 	path_priority = priority;
 	path_request_active = true;
 	auto ai_callback = ObjectLinkEntryArg<AIPlayerControl, const AI::Path&, &AIPlayerControl::set_path>(id());
 	Vec3 pos = get<Transform>()->absolute_pos();
 	if (hit)
-		AI::awk_pathfind_hit(pos, target, ai_callback);
+		AI::awk_pathfind_hit(pos, end, ai_callback);
 	else
-		AI::awk_pathfind(pos, target, ai_callback);
+		AI::awk_pathfind(pos, end, ai_callback);
 }
 
 void AIPlayerControl::random_path(Behavior* callback)
 {
+#if DEBUG_AI_CONTROL
+	vi_debug("Awk random path");
+#endif
 	aim_timer = 0.0f;
 	path.length = 0;
 	behavior_callback = callback;
+	target = nullptr;
 	path_priority = 0;
 	path_request_active = true;
 	AI::awk_random_path(get<Transform>()->absolute_pos(), ObjectLinkEntryArg<AIPlayerControl, const AI::Path&, &AIPlayerControl::set_path>(id()));
 }
 
-b8 AIPlayerControl::resume_loop_high_level()
+void AIPlayerControl::reaction_start(Behavior* caller)
 {
+	path_priority = 0;
+	path.length = 0;
+	path_request_active = true;
+	behavior_callback = nullptr;
+	target = nullptr;
+
+	if (loop_high_level->active())
+	{
+#if DEBUG_AI_CONTROL
+		vi_debug("Awk high-level loop preempted");
+#endif
+		loop_high_level->abort();
+	}
+
+	// this gets called by either loop_low_level or loop_low_level_2
+	// we need to abort the other one and restart it
+	if (caller->root() == loop_low_level)
+	{
+		if (loop_low_level_2->active())
+			loop_low_level_2->abort();
+		loop_low_level_2->run();
+	}
+	else
+	{
+		if (loop_low_level->active())
+			loop_low_level->abort();
+		loop_low_level->run();
+	}
+}
+
+b8 AIPlayerControl::reaction_end()
+{
+	// return to normal state
 	if (!loop_high_level->active())
 		loop_high_level->run();
+
+	if (loop_low_level_2->active())
+		loop_low_level_2->abort();
+
+	if (!loop_low_level->active())
+		loop_low_level->run();
+
 	return true;
 }
 
@@ -281,6 +337,35 @@ template<typename T> b8 default_filter(const AIPlayerControl* control, const T* 
 	return true;
 }
 
+Repeat* make_low_level_loop(AIPlayerControl* control)
+{
+	return Repeat::alloc // reaction loop
+	(
+		Sequence::alloc
+		(
+			Delay::alloc(0.3f),
+			Succeed::alloc
+			(
+				Sequence::alloc
+				(
+					Select::alloc // if any of these succeed, they will abort the high level loop
+					(
+						AIBehaviors::React<Awk>::alloc(3, 4, &awk_filter),
+						Sequence::alloc
+						(
+							Invert::alloc(Execute::alloc()->method<Health, &Health::is_full>(control->get<Health>())), // make sure we need health
+							AIBehaviors::React<HealthPickup>::alloc(2, 3, &health_pickup_filter)
+						),
+						AIBehaviors::React<MinionAI>::alloc(2, 3, &default_filter<MinionAI>),
+						AIBehaviors::React<MinionSpawn>::alloc(2, 3, &minion_spawn_filter)
+					),
+					Execute::alloc()->method<AIPlayerControl, &AIPlayerControl::reaction_end>(control) // restart the high level loop if necessary
+				)
+			)
+		)
+	);
+}
+
 void AIPlayerControl::update(const Update& u)
 {
 	if (get<Transform>()->parent.ref())
@@ -289,9 +374,10 @@ void AIPlayerControl::update(const Update& u)
 		{
 			loop_high_level = Repeat::alloc
 			(
-				Succeed::alloc
+				Sequence::alloc
 				(
-					Sequence::alloc
+					Delay::alloc(1.0f),
+					Succeed::alloc
 					(
 						Select::alloc
 						(
@@ -304,52 +390,33 @@ void AIPlayerControl::update(const Update& u)
 							AIBehaviors::Find<MinionSpawn>::alloc(1, &minion_spawn_filter),
 							AIBehaviors::Find<Awk>::alloc(1, &awk_filter),
 							AIBehaviors::RandomPath::alloc()
-						),
-						Delay::alloc(1.0f)
+						)
 					)
 				)
 			);
 			loop_high_level->set_context(this);
-			loop_high_level->run();
 
-			loop_low_level = Parallel::alloc
+			loop_memory = Repeat::alloc // memory update loop
 			(
-				Repeat::alloc // memory update loop
+				Sequence::alloc
 				(
-					Sequence::alloc
-					(
-						Delay::alloc(0.1f),
-						Execute::alloc()->method<AIPlayerControl, &AIPlayerControl::update_memory<HealthPickup, &health_pickup_filter> >(this),
-						Execute::alloc()->method<AIPlayerControl, &AIPlayerControl::update_memory<MinionAI, &minion_filter> >(this),
-						Execute::alloc()->method<AIPlayerControl, &AIPlayerControl::update_memory<MinionSpawn, &minion_spawn_filter> >(this),
-						Execute::alloc()->method<AIPlayerControl, &AIPlayerControl::update_memory<Awk, &awk_filter> >(this)
-					)
-				),
-
-				Repeat::alloc // reaction loop
-				(
-					Sequence::alloc
-					(
-						Delay::alloc(0.3f),
-						Succeed::alloc
-						(
-							Select::alloc // if any of these succeed, they will abort the high level loop
-							(
-								AIBehaviors::React<Awk>::alloc(0, 1, &awk_filter),
-								Sequence::alloc
-								(
-									Invert::alloc(Execute::alloc()->method<Health, &Health::is_full>(get<Health>())), // make sure we need health
-									AIBehaviors::React<HealthPickup>::alloc(0, 1, &health_pickup_filter)
-								),
-								AIBehaviors::React<MinionAI>::alloc(0, 1, &default_filter<MinionAI>),
-								AIBehaviors::React<MinionSpawn>::alloc(0, 1, &minion_spawn_filter)
-							)
-						),
-						Execute::alloc()->method<AIPlayerControl, &AIPlayerControl::resume_loop_high_level>(this) // restart the high level loop if necessary
-					)
+					Delay::alloc(0.1f),
+					Execute::alloc()->method<AIPlayerControl, &AIPlayerControl::update_memory<HealthPickup, &health_pickup_filter> >(this),
+					Execute::alloc()->method<AIPlayerControl, &AIPlayerControl::update_memory<MinionAI, &minion_filter> >(this),
+					Execute::alloc()->method<AIPlayerControl, &AIPlayerControl::update_memory<MinionSpawn, &minion_spawn_filter> >(this),
+					Execute::alloc()->method<AIPlayerControl, &AIPlayerControl::update_memory<Awk, &awk_filter> >(this)
 				)
 			);
+			loop_memory->set_context(this);
+
+			loop_low_level = make_low_level_loop(this);
 			loop_low_level->set_context(this);
+
+			loop_low_level_2 = make_low_level_loop(this);
+			loop_low_level_2->set_context(this);
+
+			loop_memory->run();
+			loop_high_level->run();
 			loop_low_level->run();
 		}
 
@@ -406,6 +473,9 @@ void AIPlayerControl::update(const Update& u)
 
 void AIPlayerControl::task_done(b8 success)
 {
+#if DEBUG_AI_CONTROL
+	vi_debug("Awk task success: %d", success);
+#endif
 	Behavior* cb = behavior_callback;
 	behavior_callback = nullptr;
 	path_priority = 0;
@@ -421,7 +491,10 @@ namespace AIBehaviors
 void RandomPath::run()
 {
 	active(true);
-	control->random_path(this);
+	if (control->path_priority == 0)
+		control->random_path(this);
+	else
+		done(false);
 }
 
 void update_active(const Update& u)

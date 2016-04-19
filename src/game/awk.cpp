@@ -262,12 +262,13 @@ b8 Awk::can_hit(const Target* target, Vec3* out_intersection) const
 	Vec3 intersection;
 	if (predict_intersection(target, &intersection))
 	{
-		Vec3 to_intersection = intersection - center();
+		Vec3 me = center();
+		Vec3 to_intersection = intersection - me;
 		Vec3 final_pos;
 		if (can_go(to_intersection, &final_pos))
 		{
 			r32 intersection_length_squared = to_intersection.length_squared();
-			if (final_pos.length_squared() > intersection_length_squared)
+			if ((final_pos - me).length_squared() > intersection_length_squared)
 			{
 				if (out_intersection)
 					*out_intersection = intersection;

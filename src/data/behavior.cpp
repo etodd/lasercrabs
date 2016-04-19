@@ -4,6 +4,14 @@
 namespace VI
 {
 
+Behavior* Behavior::root() const
+{
+	const Behavior* b = this;
+	while (b->parent)
+		b = b->parent;
+	return (Behavior*)b;
+}
+
 void Sequence::run()
 {
 	active(true);
@@ -13,7 +21,9 @@ void Sequence::run()
 
 void Sequence::child_done(Behavior* child, b8 success)
 {
-	active(true);
+	if (!active())
+		return;
+
 	if (success)
 	{
 		index++;
@@ -35,6 +45,9 @@ void Select::run()
 
 void Select::child_done(Behavior* child, b8 success)
 {
+	if (!active())
+		return;
+
 	if (success)
 		done(true);
 	else
@@ -61,6 +74,9 @@ void Parallel::run()
 
 void Parallel::child_done(Behavior* child, b8 success)
 {
+	if (!active())
+		return;
+
 	if (success)
 	{
 		children_done++;
@@ -89,6 +105,9 @@ void Repeat::run()
 
 void Repeat::child_done(Behavior* child, b8 succeeded)
 {
+	if (!active())
+		return;
+
 	if (succeeded)
 	{
 		if (repeat_index < repeat_count || repeat_count < 0)
@@ -126,7 +145,8 @@ void Succeed::run()
 
 void Succeed::child_done(Behavior* b, b8 success)
 {
-	done(true);
+	if (active())
+		done(true);
 }
 
 Invert::Invert(Behavior* b) : BehaviorDecorator(b) { }
@@ -139,7 +159,8 @@ void Invert::run()
 
 void Invert::child_done(Behavior* b, b8 success)
 {
-	done(!success);
+	if (active())
+		done(!success);
 }
 
 Execute::Entry::Data::Data()

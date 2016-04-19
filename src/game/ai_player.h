@@ -46,7 +46,9 @@ struct AIPlayerControl : public ComponentType<AIPlayerControl>
 
 	s8 path_priority;
 	Repeat* loop_high_level;
-	Parallel* loop_low_level;
+	Repeat* loop_low_level;
+	Repeat* loop_low_level_2;
+	Repeat* loop_memory;
 	Behavior* behavior_callback;
 	b8 path_request_active;
 	MemoryArray memory[MAX_FAMILIES];
@@ -56,15 +58,17 @@ struct AIPlayerControl : public ComponentType<AIPlayerControl>
 	Ref<Target> target;
 	b8 shot_at_target;
 	b8 hit_target;
+	r32 aim_timer;
 #if DEBUG_AI_CONTROL
 	Camera* camera;
 #endif
-	r32 aim_timer;
 
 	AIPlayerControl(AIPlayer*);
 	void awake();
 	~AIPlayerControl();
 
+	void reaction_start(Behavior*);
+	b8 reaction_end();
 	b8 aim_and_shoot(const Update&, const Vec3&, b8);
 
 	template<typename Component, b8 (*filter)(const AIPlayerControl*, const Component*)>
@@ -122,8 +126,7 @@ struct AIPlayerControl : public ComponentType<AIPlayerControl>
 	b8 in_range(const Vec3&, r32) const;
 
 	void pathfind(const Vec3&, Behavior*, s8, b8 = false);
-	b8 resume_loop_high_level();
-	void set_target(Target*, Behavior*);
+	void set_target(Target*, Behavior*, s8);
 	void random_path(Behavior*);
 	void set_path(const AI::Path&);
 	b8 go(const Vec3&);
@@ -205,8 +208,8 @@ namespace AIBehaviors
 		void run()
 		{
 			active(true);
-			b8 can_path = priority_path >= control->path_priority;
-			b8 can_react = priority_react >= control->path_priority;
+			b8 can_path = priority_path > control->path_priority;
+			b8 can_react = priority_react > control->path_priority;
 			if (can_path || can_react)
 			{
 				Entity* closest = nullptr;
@@ -231,13 +234,13 @@ namespace AIBehaviors
 					b8 can_hit_now = control->get<Awk>()->can_hit(closest->get<Target>());
 					if (can_hit_now && can_react)
 					{
-						control->loop_high_level->abort();
-						control->set_target(closest->get<Target>(), this);
+						control->reaction_start(this);
+						control->set_target(closest->get<Target>(), this, priority_react);
 						return;
 					}
 					else if (can_path)
 					{
-						control->loop_high_level->abort();
+						control->reaction_start(this);
 						control->pathfind(closest->get<Target>()->absolute_pos(), this, priority_path, true);
 						return;
 					}

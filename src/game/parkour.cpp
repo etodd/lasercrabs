@@ -16,6 +16,7 @@ namespace VI
 {
 
 #define RAYCAST_RADIUS_RATIO 1.3f
+#define WALL_JUMP_RAYCAST_RADIUS_RATIO 1.5f
 #define WALL_RUN_DISTANCE_RATIO 1.1f
 
 #define RUN_SPEED 5.0f
@@ -289,7 +290,36 @@ void Parkour::update(const Update& u)
 		{
 			Vec3 ray_start = get<Walker>()->base_pos() + Vec3(0, get<Walker>()->support_height, 0);
 
-			const Vec3 wall_run_normal = last_support.ref()->get<Transform>()->to_world_normal(relative_wall_run_normal);
+			Vec3 wall_run_normal = last_support.ref()->get<Transform>()->to_world_normal(relative_wall_run_normal);
+
+			Quat rot = Quat::euler(0, get<Walker>()->rotation, 0);
+			Vec3 forward = rot * Vec3(0, 0, 1);
+			if (wall_run_state == WallRunState::Left || wall_run_state == WallRunState::Right)
+			{
+				// check in front of us
+				Vec3 ray_dir = rot * Vec3(wall_run_state == WallRunState::Left ? -1 : 1, 0, 1);
+				Vec3 ray_end = ray_start + ray_dir * get<Walker>()->radius * WALL_RUN_DISTANCE_RATIO * 2.0f;
+				btCollisionWorld::ClosestRayResultCallback ray_callback(ray_start, ray_end);
+				ray_callback.m_flags = btTriangleRaycastCallback::EFlags::kF_FilterBackfaces
+					| btTriangleRaycastCallback::EFlags::kF_KeepUnflippedNormal;
+				ray_callback.m_collisionFilterMask = ray_callback.m_collisionFilterGroup = ~CollisionWalker & ~CollisionTarget;
+
+				Physics::btWorld->rayTest(ray_start, ray_end, ray_callback);
+
+				if (ray_callback.hasHit() && wall_run_normal.dot(ray_callback.m_hitNormalWorld) < 0.99f)
+				{
+					if (forward.dot(ray_callback.m_hitNormalWorld) < -0.8f)
+					{
+						// the wall is facing directly toward us; run up it
+						wall_run_state = WallRunState::Forward;
+						wall_run_up_add_velocity(get<RigidBody>()->btBody->getLinearVelocity(), get_support_velocity(ray_callback.m_hitPointWorld, ray_callback.m_collisionObject));
+					}
+					last_support = Entity::list[ray_callback.m_collisionObject->getUserIndex()].get<RigidBody>();
+					relative_support_pos = last_support.ref()->get<Transform>()->to_local(ray_callback.m_hitPointWorld);
+					wall_run_normal = ray_callback.m_hitNormalWorld;
+					relative_wall_run_normal = last_support.ref()->get<Transform>()->to_local_normal(wall_run_normal);
+				}
+			}
 
 			Vec3 ray_end = ray_start + wall_run_normal * get<Walker>()->radius * WALL_RUN_DISTANCE_RATIO * -2.0f;
 			btCollisionWorld::ClosestRayResultCallback ray_callback(ray_start, ray_end);
@@ -299,7 +329,9 @@ void Parkour::update(const Update& u)
 
 			Physics::btWorld->rayTest(ray_start, ray_end, ray_callback);
 
-			if (ray_callback.hasHit() && wall_run_normal.dot(ray_callback.m_hitNormalWorld) > 0.5f)
+			if (ray_callback.hasHit()
+				&& wall_run_normal.dot(ray_callback.m_hitNormalWorld) > 0.5f
+				&& forward.dot(ray_callback.m_hitNormalWorld) < 0.1f)
 			{
 				// Still on the wall
 				RigidBody* wall = Entity::list[ray_callback.m_collisionObject->getUserIndex()].get<RigidBody>();
@@ -531,7 +563,7 @@ b8 Parkour::try_jump(r32 rotation)
 
 			for (s32 i = 0; i < wall_jump_direction_count; i++)
 			{
-				Vec3 ray_end = ray_start + wall_directions[i] * get<Walker>()->radius * RAYCAST_RADIUS_RATIO;
+				Vec3 ray_end = ray_start + wall_directions[i] * get<Walker>()->radius * WALL_JUMP_RAYCAST_RADIUS_RATIO;
 				btCollisionWorld::ClosestRayResultCallback ray_callback(ray_start, ray_end);
 				ray_callback.m_flags = btTriangleRaycastCallback::EFlags::kF_FilterBackfaces
 					| btTriangleRaycastCallback::EFlags::kF_KeepUnflippedNormal;
@@ -728,6 +760,15 @@ b8 Parkour::try_parkour(b8 force)
 	return false;
 }
 
+void Parkour::wall_run_up_add_velocity(const Vec3& velocity, const Vec3& support_velocity)
+{
+	Vec3 horizontal_velocity = velocity - support_velocity;
+	r32 vertical_velocity = horizontal_velocity.y;
+	horizontal_velocity.y = 0.0f;
+	r32 speed = LMath::clampf(horizontal_velocity.length(), 0.0f, 5.0f);
+	get<RigidBody>()->btBody->setLinearVelocity(support_velocity + Vec3(0, 4.5f + speed + vertical_velocity - support_velocity.y, 0));
+}
+
 b8 Parkour::try_wall_run(WallRunState s, const Vec3& wall_direction)
 {
 	Vec3 ray_start = get<Walker>()->base_pos() + Vec3(0, get<Walker>()->support_height, 0);
@@ -765,10 +806,7 @@ b8 Parkour::try_wall_run(WallRunState s, const Vec3& wall_direction)
 			if (add_velocity && vertical_velocity - support_velocity.y > -2.0f)
 			{
 				// Going up
-				Vec3 horizontal_velocity = velocity - support_velocity;
-				horizontal_velocity.y = 0.0f;
-				r32 speed = LMath::clampf(horizontal_velocity.length(), 0.0f, 5.0f);
-				body->setLinearVelocity(support_velocity + Vec3(0, 4.5f + speed + vertical_velocity - support_velocity.y, 0));
+				wall_run_up_add_velocity(velocity, support_velocity);
 			}
 			else
 			{

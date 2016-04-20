@@ -64,7 +64,7 @@ struct MinionAI : public ComponentType<MinionAI>
 	b8 can_see(Entity*) const;
 
 	void new_goal();
-	void set_path(const AI::Path&);
+	void set_path(const AI::Result&);
 	void update(const Update&);
 	void turn_to(const Vec3&);
 };

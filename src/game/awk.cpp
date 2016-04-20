@@ -27,7 +27,7 @@ namespace VI
 #define LERP_TRANSLATION_SPEED 5.0f
 #define MAX_FLIGHT_TIME 2.0f
 #define AWK_LEG_LENGTH (0.277f - 0.101f)
-#define AWK_LEG_BLEND_SPEED (1.0f / 0.02f)
+#define AWK_LEG_BLEND_SPEED (1.0f / 0.05f)
 #define AWK_MIN_LEG_BLEND_SPEED (AWK_LEG_BLEND_SPEED * 0.05f)
 #define AWK_SHIELD_RADIUS 1.0f
 

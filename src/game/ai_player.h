@@ -50,7 +50,7 @@ struct AIPlayerControl : public ComponentType<AIPlayerControl>
 	Repeat* loop_low_level_2;
 	Repeat* loop_memory;
 	Behavior* behavior_callback;
-	b8 path_request_active;
+	u32 active_path_request;
 	MemoryArray memory[MAX_FAMILIES];
 	AI::Path path;
 	s32 path_index;
@@ -128,7 +128,7 @@ struct AIPlayerControl : public ComponentType<AIPlayerControl>
 	void pathfind(const Vec3&, Behavior*, s8, b8 = false);
 	void set_target(Target*, Behavior*, s8);
 	void random_path(Behavior*);
-	void set_path(const AI::Path&);
+	void set_path(const AI::Result&);
 	b8 go(const Vec3&);
 	void awk_attached();
 	void task_done(b8);

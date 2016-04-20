@@ -146,7 +146,7 @@ void NoclipControl::update(const Update& u)
 				else
 				{
 					Vec3 end = raycast.m_hitPointWorld;
-					AI::awk_pathfind(start, end, ObjectLinkEntryArg<NoclipControl, const AI::Path&, &NoclipControl::set_path>(id()));
+					AI::awk_pathfind(start, end, ObjectLinkEntryArg<NoclipControl, const AI::Result&, &NoclipControl::set_path>(id()));
 				}
 			}
 		}
@@ -187,9 +187,9 @@ void NoclipControl::draw_alpha(const RenderParams& params)
 	}
 }
 
-void NoclipControl::set_path(const AI::Path& p)
+void NoclipControl::set_path(const AI::Result& result)
 {
-	path = p;
+	path = result.path;
 }
 
 

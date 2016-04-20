@@ -26,7 +26,9 @@ Team other(Team t)
 Array<b8> obstacles;
 SyncRingBuffer<SYNC_IN_SIZE> sync_in;
 SyncRingBuffer<SYNC_OUT_SIZE> sync_out;
-b8 render_meshes_dirty = false;
+b8 render_meshes_dirty;
+u32 callback_in_id;
+u32 callback_out_id;
 
 void loop()
 {
@@ -51,20 +53,24 @@ void update(const Update& u)
 		{
 			case Callback::Path:
 			{
-				LinkEntryArg<const Path&> link;
+				LinkEntryArg<const Result&> link;
 				sync_out.read(&link);
-				Path path;
-				sync_out.read(&path);
-				(&link)->fire(path);
+				Result result;
+				sync_out.read(&result.path);
+				result.id = callback_out_id;
+				callback_out_id++;
+				(&link)->fire(result);
 				break;
 			}
 			case Callback::AwkPath:
 			{
-				LinkEntryArg<const Path&> link;
+				LinkEntryArg<const Result&> link;
 				sync_out.read(&link);
-				Path path;
-				sync_out.read(&path);
-				(&link)->fire(path);
+				Result result;
+				sync_out.read(&result.path);
+				result.id = callback_out_id;
+				callback_out_id++;
+				(&link)->fire(result);
 				break;
 			}
 			default:
@@ -175,52 +181,77 @@ void load(const u8* data, s32 length)
 	render_meshes_dirty = true;
 }
 
-void random_path(const Vec3& pos, const LinkEntryArg<const Path&>& callback)
+u32 random_path(const Vec3& pos, const LinkEntryArg<const Result&>& callback)
 {
+	u32 id = callback_in_id;
+	callback_in_id++;
+
 	sync_in.lock();
 	sync_in.write(Op::RandomPath);
 	sync_in.write(pos);
 	sync_in.write(callback);
 	sync_in.unlock();
+
+	return id;
 }
 
-void awk_random_path(const Vec3& pos, const LinkEntryArg<const Path&>& callback)
+u32 awk_random_path(const Vec3& pos, const LinkEntryArg<const Result&>& callback)
 {
+	u32 id = callback_in_id;
+	callback_in_id++;
+
 	sync_in.lock();
 	sync_in.write(Op::AwkRandomPath);
 	sync_in.write(pos);
 	sync_in.write(callback);
 	sync_in.unlock();
+
+	return id;
 }
 
-void pathfind(const Vec3& a, const Vec3& b, const LinkEntryArg<const Path&>& callback)
+u32 pathfind(const Vec3& a, const Vec3& b, const LinkEntryArg<const Result&>& callback)
 {
+	u32 id = callback_in_id;
+	callback_in_id++;
+
 	sync_in.lock();
 	sync_in.write(Op::Pathfind);
 	sync_in.write(a);
 	sync_in.write(b);
 	sync_in.write(callback);
 	sync_in.unlock();
+
+	return id;
 }
 
-void awk_pathfind(const Vec3& a, const Vec3& b, const LinkEntryArg<const Path&>& callback)
+u32 awk_pathfind(const Vec3& a, const Vec3& b, const LinkEntryArg<const Result&>& callback)
 {
+	u32 id = callback_in_id;
+	callback_in_id++;
+
 	sync_in.lock();
 	sync_in.write(Op::AwkPathfind);
 	sync_in.write(a);
 	sync_in.write(b);
 	sync_in.write(callback);
 	sync_in.unlock();
+	
+	return id;
 }
 
-void awk_pathfind_hit(const Vec3& a, const Vec3& b, const LinkEntryArg<const Path&>& callback)
+u32 awk_pathfind_hit(const Vec3& a, const Vec3& b, const LinkEntryArg<const Result&>& callback)
 {
+	u32 id = callback_in_id;
+	callback_in_id++;
+
 	sync_in.lock();
 	sync_in.write(Op::AwkPathfindHit);
 	sync_in.write(a);
 	sync_in.write(b);
 	sync_in.write(callback);
 	sync_in.unlock();
+
+	return id;
 }
 
 #if DEBUG

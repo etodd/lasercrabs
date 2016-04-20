@@ -49,7 +49,7 @@ AIPlayerControl::AIPlayerControl(AIPlayer* p)
 	path_index(),
 	memory(),
 	behavior_callback(),
-	path_request_active(),
+	active_path_request(-1),
 	path_priority(),
 	path(),
 	loop_high_level(),
@@ -127,6 +127,7 @@ void AIPlayerControl::set_target(Target* t, Behavior* callback, s8 priority)
 	path.length = 0;
 	path_priority = priority;
 	behavior_callback = callback;
+	active_path_request = -1;
 }
 
 void AIPlayerControl::pathfind(const Vec3& end, Behavior* callback, s8 priority, b8 hit)
@@ -141,13 +142,12 @@ void AIPlayerControl::pathfind(const Vec3& end, Behavior* callback, s8 priority,
 	target = nullptr;
 	behavior_callback = callback;
 	path_priority = priority;
-	path_request_active = true;
-	auto ai_callback = ObjectLinkEntryArg<AIPlayerControl, const AI::Path&, &AIPlayerControl::set_path>(id());
+	auto ai_callback = ObjectLinkEntryArg<AIPlayerControl, const AI::Result&, &AIPlayerControl::set_path>(id());
 	Vec3 pos = get<Transform>()->absolute_pos();
 	if (hit)
-		AI::awk_pathfind_hit(pos, end, ai_callback);
+		active_path_request = AI::awk_pathfind_hit(pos, end, ai_callback);
 	else
-		AI::awk_pathfind(pos, end, ai_callback);
+		active_path_request = AI::awk_pathfind(pos, end, ai_callback);
 }
 
 void AIPlayerControl::random_path(Behavior* callback)
@@ -160,15 +160,14 @@ void AIPlayerControl::random_path(Behavior* callback)
 	behavior_callback = callback;
 	target = nullptr;
 	path_priority = 0;
-	path_request_active = true;
-	AI::awk_random_path(get<Transform>()->absolute_pos(), ObjectLinkEntryArg<AIPlayerControl, const AI::Path&, &AIPlayerControl::set_path>(id()));
+	active_path_request = AI::awk_random_path(get<Transform>()->absolute_pos(), ObjectLinkEntryArg<AIPlayerControl, const AI::Result&, &AIPlayerControl::set_path>(id()));
 }
 
 void AIPlayerControl::reaction_start(Behavior* caller)
 {
 	path_priority = 0;
 	path.length = 0;
-	path_request_active = true;
+	active_path_request = -1;
 	behavior_callback = nullptr;
 	target = nullptr;
 
@@ -211,12 +210,15 @@ b8 AIPlayerControl::reaction_end()
 	return true;
 }
 
-void AIPlayerControl::set_path(const AI::Path& p)
+void AIPlayerControl::set_path(const AI::Result& result)
 {
-	path_request_active = false;
-	aim_timer = 0.0f;
-	path = p;
-	path_index = 0;
+	if (result.id == active_path_request)
+	{
+		active_path_request = -1;
+		aim_timer = 0.0f;
+		path = result.path;
+		path_index = 0;
+	}
 }
 
 b8 AIPlayerControl::go(const Vec3& target)
@@ -448,7 +450,7 @@ void AIPlayerControl::update(const Update& u)
 		}
 	}
 
-	if (behavior_callback && !path_request_active && (!target.ref() && path_index >= path.length) || (target.ref() && hit_target))
+	if (behavior_callback && active_path_request == -1 && (!target.ref() && path_index >= path.length) || (target.ref() && hit_target))
 		task_done(hit_target || path.length > 0);
 
 #if DEBUG_AI_CONTROL

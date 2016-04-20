@@ -15,7 +15,7 @@ struct DamageEvent;
 
 #define AWK_HEALTH 3
 #define AWK_FLY_SPEED 45.0f
-#define AWK_CRAWL_SPEED 3.0f
+#define AWK_CRAWL_SPEED 1.5f
 #define AWK_MIN_COOLDOWN 0.4f
 #define AWK_MAX_DISTANCE_COOLDOWN 1.25f
 #define AWK_COOLDOWN_DISTANCE_RATIO (AWK_MAX_DISTANCE_COOLDOWN / AWK_MAX_DISTANCE)
@@ -31,7 +31,7 @@ struct AwkRaycastCallback : btCollisionWorld::ClosestRayResultCallback
 
 	AwkRaycastCallback(const Vec3& a, const Vec3& b, const Entity*);
 
-	virtual	btScalar addSingleResult(btCollisionWorld::LocalRayResult& rayResult, b8 normalInWorldSpace);
+	virtual	btScalar addSingleResult(btCollisionWorld::LocalRayResult&, b8);
 };
 
 struct TargetEvent;

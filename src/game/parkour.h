@@ -39,6 +39,8 @@ struct Parkour : public ComponentType<Parkour>
 		b8 operator!=(const TilePos&) const;
 	};
 
+	static r32 min_y;
+
 	FSM<State> fsm;
 	Vec3 relative_wall_run_normal;
 	WallRunState wall_run_state;
@@ -47,9 +49,11 @@ struct Parkour : public ComponentType<Parkour>
 	r32 last_support_time;
 	StaticArray<TilePos, MAX_TILE_HISTORY> tile_history;
 	b8 can_double_jump;
+	r32 lean;
 
 	b8 wallrun(const Update&, RigidBody*, const Vec3&, const Vec3&);
 
+	void land(r32);
 	b8 try_slide();
 	b8 try_jump(r32);
 	void do_normal_jump();

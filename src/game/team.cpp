@@ -56,7 +56,10 @@ Team::Team()
 void Team::awake()
 {
 	for (auto i = PlayerManager::list.iterator(); !i.is_last(); i.next())
-		extract_history(i.item(), &player_track_history[i.index]);
+	{
+		if (i.item()->team.ref() != this)
+			extract_history(i.item(), &player_track_history[i.index]);
+	}
 }
 
 s32 teams_with_players()
@@ -421,8 +424,7 @@ void Team::update_all(const Update& u)
 						track->timer -= u.time.delta;
 					else
 					{
-						// copy track to history and erase
-						extract_history(player.item(), &team->player_track_history[player.index]);
+						// done tracking
 						track->entity = nullptr;
 						track->tracking = false;
 					}

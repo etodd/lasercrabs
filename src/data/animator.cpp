@@ -163,19 +163,17 @@ void Animator::Layer::update(const Update& u, const Animator& animator)
 	}
 	else
 	{
-		channels.resize(0);
 		if (animation != last_animation)
 			changed_animation();
+		channels.resize(0);
 	}
 }
 
 void Animator::Layer::changed_animation()
 {
+	last_animation_channels.length = channels.length;
 	if (channels.length > 0)
-	{
-		last_animation_channels.length = channels.length;
 		memcpy(&last_animation_channels[0], &channels[0], sizeof(AnimatorChannel) * channels.length);
-	}
 	blend = 1.0f - blend;
 	last_animation = animation;
 }
@@ -220,6 +218,7 @@ void Animator::update_world_transforms()
 
 			r32 layer_blend = Ease::quad_out<r32>(layer.blend);
 
+			// blend in last pose
 			if (layer_blend < 1.0f)
 			{
 				r32 blend = layer.weight * (1.0f - layer_blend);
@@ -230,6 +229,7 @@ void Animator::update_world_transforms()
 				}
 			}
 
+			// blend in current pose
 			{
 				r32 blend = layer.weight * layer_blend;
 				for (s32 i = 0; i < layer.channels.length; i++)
@@ -317,16 +317,25 @@ void Animator::bone_transform(const s32 index, Vec3* pos, Quat* rot)
 	Vec3 bone_pos;
 	Quat bone_rot;
 	bones[index].decomposition(bone_pos, bone_scale, bone_rot);
-	*rot = bone_rot * *rot;
-	*pos = (bone_rot * *pos) + bone_pos;
+	if (rot)
+	{
+		*rot = bone_rot * *rot;
+		rot->normalize();
+	}
+	if (pos)
+		*pos = (bone_rot * *pos) + bone_pos;
 }
 
 void Animator::to_local(const s32 index, Vec3* pos, Quat* rot)
 {
 	bone_transform(index, pos, rot);
-	*pos = (get<SkinnedModel>()->offset * Vec4(*pos)).xyz();
-	*rot = get<SkinnedModel>()->offset.extract_quat() * *rot;
-	rot->normalize();
+	if (pos)
+		*pos = (get<SkinnedModel>()->offset * Vec4(*pos)).xyz();
+	if (rot)
+	{
+		*rot = get<SkinnedModel>()->offset.extract_quat() * *rot;
+		rot->normalize();
+	}
 }
 
 void Animator::to_world(const s32 index, Vec3* pos, Quat* rot)

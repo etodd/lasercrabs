@@ -58,6 +58,8 @@ Traceur::Traceur(const Vec3& pos, const Quat& quat, AI::Team team)
 	create<Parkour>();
 }
 
+r32 Parkour::min_y;
+
 void Parkour::awake()
 {
 	Animator* animator = get<Animator>();
@@ -67,6 +69,13 @@ void Parkour::awake()
 	link<&Parkour::footstep>(animator->trigger(Asset::Animation::character_walk, 0.75f));
 	link<&Parkour::footstep>(animator->trigger(Asset::Animation::character_run, 0.216f));
 	link<&Parkour::footstep>(animator->trigger(Asset::Animation::character_run, 0.476f));
+	link_arg<r32, &Parkour::land>(get<Walker>()->land);
+}
+
+void Parkour::land(r32 velocity_diff)
+{
+	if (fsm.current == State::Normal && velocity_diff < -3.0f)
+		get<Animator>()->layers[1].play(Asset::Animation::character_land);
 }
 
 Vec3 Parkour::head_pos() const
@@ -214,6 +223,12 @@ b8 Parkour::TilePos::operator!=(const Parkour::TilePos& other) const
 
 void Parkour::update(const Update& u)
 {
+	if (get<Transform>()->absolute_pos().y < min_y)
+	{
+		World::remove_deferred(entity());
+		return;
+	}
+
 	fsm.time += u.time.delta;
 	get<SkinnedModel>()->offset.make_transform(
 		Vec3(0, -1.1f, 0),
@@ -230,8 +245,10 @@ void Parkour::update(const Update& u)
 
 	// animation layers
 	// layer 0 = running, walking, wall-running
-	// layer 1 = mantle
+	// layer 1 = mantle, land
 	// layer 2 = slide
+
+	r32 lean_target = 0.0f;
 
 	if (fsm.current == State::Mantle)
 	{
@@ -368,6 +385,7 @@ void Parkour::update(const Update& u)
 			last_support_time = Game::time.total;
 			last_support = get<Walker>()->support;
 			relative_support_pos = last_support.ref()->get<Transform>()->to_local(get<Walker>()->base_pos());
+			lean_target = get<Walker>()->net_speed * LMath::angle_to(get<PlayerCommon>()->angle_horizontal, get<PlayerCommon>()->last_angle_horizontal) * (1.0f / 180.0f) / u.time.delta;
 		}
 	}
 	else if (fsm.current == State::Slide)
@@ -429,6 +447,9 @@ void Parkour::update(const Update& u)
 	}
 
 	// update animation
+
+	lean += (lean_target - lean) * vi_min(1.0f, 15.0f * u.time.delta);
+
 	Animator::Layer* layer0 = &get<Animator>()->layers[0];
 	AssetID anim;
 	if (fsm.current == State::WallRun)
@@ -698,7 +719,7 @@ b8 Parkour::try_slide()
 			fsm.transition(State::Slide);
 			last_support = get<Walker>()->support;
 			relative_wall_run_normal = last_support.ref()->get<Transform>()->to_local_normal(support_callback.m_hitNormalWorld);
-			get<Animator>()->layers[2].animation = Asset::Animation::character_slide;
+			get<Animator>()->layers[2].play(Asset::Animation::character_slide);
 			can_double_jump = true;
 			return true;
 		}

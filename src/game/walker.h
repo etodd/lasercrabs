@@ -23,13 +23,13 @@ struct Walker : public ComponentType<Walker>
 		rotation_speed,
 		air_control_accel,
 		last_supported_speed,
-		fall_damage_threshold,
 		accel1,
 		accel2,
 		accel_threshold,
 		deceleration,
 		net_speed;
 	Ref<RigidBody> support;
+	LinkArg<r32> land;
 	b8 auto_rotate;
 	b8 enabled;
 	u32 obstacle_id;

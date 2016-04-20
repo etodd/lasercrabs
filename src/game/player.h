@@ -65,6 +65,7 @@ struct PlayerCommon : public ComponentType<PlayerCommon>
 	UIText username_text;
 	Ref<PlayerManager> manager;
 	r32 angle_horizontal;
+	r32 last_angle_horizontal;
 	r32 angle_vertical;
 	Quat attach_quat;
 
@@ -101,6 +102,7 @@ struct LocalPlayerControl : public ComponentType<LocalPlayerControl>
 	{
 		Vec3 pos;
 		const Vec4* color;
+		b8 offscreen;
 	};
 
 	static LocalPlayerControl* player_for_camera(const Camera*);
@@ -111,8 +113,6 @@ struct LocalPlayerControl : public ComponentType<LocalPlayerControl>
 	StaticArray<Indicator, 32> indicators;
 	Camera* camera;
 	r32 fov_blend;
-	r32 lean;
-	r32 last_angle_horizontal;
 	r32 damage_timer;
 	r32 health_pickup_timer;
 	b8 allow_zoom;
@@ -130,7 +130,7 @@ struct LocalPlayerControl : public ComponentType<LocalPlayerControl>
 	void hit_target(Entity*);
 	void damaged(const DamageEvent&);
 	void health_picked_up();
-	void add_target_indicator(Target*, const Vec4&);
+	void add_target_indicator(Target*, const Vec4&, b8 = false);
 
 	void update(const Update&);
 	void draw_alpha(const RenderParams&) const;

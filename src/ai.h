@@ -39,6 +39,12 @@ namespace AI
 	const s32 MAX_PATH_LENGTH = 32;
 	typedef StaticArray<Vec3, MAX_PATH_LENGTH> Path;
 
+	struct Result
+	{
+		Path path;
+		u32 id;
+	};
+
 	enum class Team
 	{
 		A,
@@ -49,19 +55,21 @@ namespace AI
 
 	Team other(Team);
 
-	extern Array<b8> obstacles;
 	static const s32 SYNC_IN_SIZE = 5 * 1024 * 1024;
 	static const s32 SYNC_OUT_SIZE = 1 * 1024 * 1024;
+	extern Array<b8> obstacles;
 	extern SyncRingBuffer<SYNC_IN_SIZE> sync_in;
 	extern SyncRingBuffer<SYNC_OUT_SIZE> sync_out;
+	extern u32 callback_in_id;
+	extern u32 callback_out_id;
 
 	u32 obstacle_add(const Vec3&, r32, r32);
 	void obstacle_remove(u32);
-	void pathfind(const Vec3&, const Vec3&, const LinkEntryArg<const Path&>&);
-	void awk_pathfind(const Vec3&, const Vec3&, const LinkEntryArg<const Path&>&);
-	void awk_pathfind_hit(const Vec3&, const Vec3&, const LinkEntryArg<const Path&>&);
-	void random_path(const Vec3&, const LinkEntryArg<const Path&>&);
-	void awk_random_path(const Vec3&, const LinkEntryArg<const Path&>&);
+	u32 pathfind(const Vec3&, const Vec3&, const LinkEntryArg<const Result&>&);
+	u32 awk_pathfind(const Vec3&, const Vec3&, const LinkEntryArg<const Result&>&);
+	u32 awk_pathfind_hit(const Vec3&, const Vec3&, const LinkEntryArg<const Result&>&);
+	u32 random_path(const Vec3&, const LinkEntryArg<const Result&>&);
+	u32 awk_random_path(const Vec3&, const LinkEntryArg<const Result&>&);
 	void load(const u8*, s32);
 	void loop();
 	void quit();

@@ -147,10 +147,10 @@ const char* AssetLookup::Animation::values[] =
 	"assets/awk_fly.anm",
 	"assets/character_idle.anm",
 	"assets/character_idle_gun.anm",
+	"assets/character_land.anm",
 	"assets/character_mantle.anm",
 	"assets/character_run.anm",
 	"assets/character_slide.anm",
-	"assets/character_vulnerable.anm",
 	"assets/character_walk.anm",
 	0,
 };
@@ -161,10 +161,10 @@ const char* AssetLookup::Animation::names[] =
 	"awk_fly",
 	"character_idle",
 	"character_idle_gun",
+	"character_land",
 	"character_mantle",
 	"character_run",
 	"character_slide",
-	"character_vulnerable",
 	"character_walk",
 	0,
 };

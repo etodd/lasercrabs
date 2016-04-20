@@ -50,7 +50,7 @@ struct NoclipControl : public ComponentType<NoclipControl>
 
 	void update(const Update&);
 	void awake();
-	void set_path(const AI::Path&);
+	void set_path(const AI::Result&);
 	void draw_alpha(const RenderParams&);
 };
 

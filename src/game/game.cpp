@@ -203,8 +203,6 @@ void Game::update(const Update& update_in)
 		i.item()->update(u);
 	for (auto i = Shockwave::list.iterator(); !i.is_last(); i.next())
 		i.item()->update(u);
-	for (auto i = PlayerCommon::list.iterator(); !i.is_last(); i.next())
-		i.item()->update(u);
 	for (auto i = Projectile::list.iterator(); !i.is_last(); i.next())
 		i.item()->update(u);
 	for (auto i = TurretControl::list.iterator(); !i.is_last(); i.next())
@@ -214,6 +212,9 @@ void Game::update(const Update& update_in)
 
 	for (s32 i = 0; i < updates.length; i++)
 		(*updates[i])(u);
+
+	for (auto i = PlayerCommon::list.iterator(); !i.is_last(); i.next())
+		i.item()->update(u);
 
 	for (auto i = LocalPlayerControl::list.iterator(); !i.is_last(); i.next())
 		i.item()->update(u);
@@ -840,6 +841,8 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 			}
 			r32 far_plane = Json::get_r32(element, "far_plane", 100.0f);
 			Skybox::set(far_plane, sky, ambient, zenith, player_light, Asset::Shader::skybox, Asset::Mesh::skybox, texture);
+
+			Parkour::min_y = Json::get_r32(element, "min_y", -20.0f);
 
 			// initialize teams
 			if (!Menu::is_special_level(l, m))

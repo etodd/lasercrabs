@@ -21,13 +21,13 @@ Walker::Walker(r32 rot)
 	target_rotation(rot),
 	auto_rotate(true),
 	air_control_accel(5.0f),
-	fall_damage_threshold(15.0f),
 	enabled(true),
 	accel1(10.0f),
 	accel2(2.0f),
 	accel_threshold(2.0f),
 	deceleration(30.0f),
-	obstacle_id((u32)-1)
+	obstacle_id((u32)-1),
+	land()
 {
 }
 
@@ -162,8 +162,8 @@ void Walker::update(const Update& u)
 
 			if (velocity_diff < expected_vertical_speed + 0.5f)
 			{
-				if (has<Health>() && velocity_diff < -fall_damage_threshold)
-					get<Health>()->damage(nullptr, (velocity_diff + fall_damage_threshold) * -15.0f);
+				if (velocity_diff < expected_vertical_speed - 0.5f)
+					land.fire(velocity_diff - expected_vertical_speed);
 
 				r32 target_y = ray_callback.m_hitPointWorld.y() + support_height + height * 0.5f;
 				r32 height_difference = target_y - pos.y;

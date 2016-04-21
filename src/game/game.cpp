@@ -515,7 +515,10 @@ void Game::execute(const Update& u, const char* cmd)
 			const char* level_name = delimiter + 1;
 			AssetID level = Loader::find(level_name, AssetLookup::Level::names);
 			if (level != AssetNull)
+			{
+				data.feature_level = FeatureLevel::All;
 				Menu::transition(level, Game::Mode::Pvp);
+			}
 		}
 	}
 	else if (strstr(cmd, "loadai ") == cmd)
@@ -527,7 +530,10 @@ void Game::execute(const Update& u, const char* cmd)
 			const char* level_name = delimiter + 1;
 			AssetID level = Loader::find(level_name, AssetLookup::Level::names);
 			if (level != AssetNull)
+			{
+				data.feature_level = FeatureLevel::All;
 				Game::load_level(u, level, Game::Mode::Pvp, true);
+			}
 		}
 	}
 	else if (strstr(cmd, "loads ") == cmd)

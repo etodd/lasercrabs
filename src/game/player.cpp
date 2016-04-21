@@ -1006,7 +1006,7 @@ void LocalPlayerControl::detach(const Vec3& dir)
 void LocalPlayerControl::add_target_indicator(Target* target, const Vec4& color, b8 offscreen)
 {
 	Vec3 me = get<Awk>()->center();
-	if ((target->absolute_pos() - me).length_squared() < AWK_MAX_DISTANCE * AWK_MAX_DISTANCE)
+	if (offscreen || (target->absolute_pos() - me).length_squared() < AWK_MAX_DISTANCE * AWK_MAX_DISTANCE)
 	{
 		// calculate head intersection trajectory
 		Vec3 intersection;

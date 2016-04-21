@@ -288,27 +288,33 @@ void Team::update_all(const Update& u)
 
 	// update player visibility
 	{
-		vi_assert(PlayerCommon::list.count() <= MAX_PLAYERS);
-
-		for (auto i = PlayerCommon::list.iterator(); !i.is_last(); i.next())
+		for (auto i = PlayerManager::list.iterator(); !i.is_last(); i.next())
 		{
-			AI::Team team = i.item()->manager.ref()->team.ref()->team();
+			Entity* i_entity = i.item()->entity.ref();
+			if (!i_entity)
+				continue;
+
+			AI::Team team = i.item()->team.ref()->team();
 			auto j = i;
 			j.next();
 			for (j; !j.is_last(); j.next())
 			{
-				if (team == j.item()->manager.ref()->team.ref()->team())
+				Entity* j_entity = j.item()->entity.ref();
+				if (!j_entity)
+					continue;
+
+				if (team == j.item()->team.ref()->team())
 					continue;
 
 				b8 visible;
-				if (i.item()->has<Awk>() && i.item()->get<Awk>()->stealth_timer > 0.0f)
+				if (i_entity->has<Awk>() && i_entity->get<Awk>()->stealth_timer > 0.0f)
 					visible = false;
-				else if (j.item()->has<Awk>() && j.item()->get<Awk>()->stealth_timer > 0.0f)
+				else if (j_entity->has<Awk>() && j_entity->get<Awk>()->stealth_timer > 0.0f)
 					visible = false;
 				else
 				{
-					Vec3 start = i.item()->has<MinionCommon>() ? i.item()->get<MinionCommon>()->head_pos() : i.item()->get<Awk>()->center();
-					Vec3 end = j.item()->has<MinionCommon>() ? j.item()->get<MinionCommon>()->head_pos() : j.item()->get<Awk>()->center();
+					Vec3 start = i_entity->has<MinionCommon>() ? i_entity->get<MinionCommon>()->head_pos() : i_entity->get<Awk>()->center();
+					Vec3 end = j_entity->has<MinionCommon>() ? j_entity->get<MinionCommon>()->head_pos() : j_entity->get<Awk>()->center();
 					Vec3 diff = end - start;
 
 					if (btVector3(diff).fuzzyZero())
@@ -329,12 +335,15 @@ void Team::update_all(const Update& u)
 					}
 				}
 
-				PlayerCommon::visibility.set(PlayerCommon::visibility_hash(i.item(), j.item()), visible);
-				if (visible || Team::list[(s32)team].player_tracks[j.index].tracking) // update history
-				{
-					extract_history(i.item()->manager.ref(), &j.item()->manager.ref()->team.ref()->player_track_history[i.item()->manager.id]);
-					extract_history(j.item()->manager.ref(), &i.item()->manager.ref()->team.ref()->player_track_history[j.item()->manager.id]);
-				}
+				PlayerCommon::visibility.set(PlayerCommon::visibility_hash(i_entity->get<PlayerCommon>(), j_entity->get<PlayerCommon>()), visible);
+
+				// update history
+				Team* my_team = i.item()->team.ref();
+				Team* other_team = j.item()->team.ref();
+				if (visible || my_team->player_tracks[j.index].tracking) 
+					extract_history(j.item(), &my_team->player_track_history[j.index]);
+				if (visible || other_team->player_tracks[i.index].tracking)
+					extract_history(i.item(), &other_team->player_track_history[i.index]);
 			}
 		}
 	}

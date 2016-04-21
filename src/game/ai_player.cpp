@@ -97,6 +97,7 @@ AIPlayerControl::~AIPlayerControl()
 
 void AIPlayerControl::awk_attached()
 {
+	inaccuracy = PI * 0.005f + (mersenne::randf_cc() * PI * 0.02f);
 	aim_timer = 0.0f;
 	if (path_index < path.length)
 	{
@@ -244,11 +245,42 @@ b8 AIPlayerControl::go(const Vec3& target)
 
 #define LOOK_SPEED 2.0f
 
+// if exact is true, we need to land exactly at the given target point
 b8 AIPlayerControl::aim_and_shoot(const Update& u, const Vec3& target, b8 exact)
 {
 	PlayerCommon* common = get<PlayerCommon>();
+
 	if (common->cooldown == 0.0f)
 		aim_timer += u.time.delta;
+	else
+	{
+		Vec3 pos = get<Awk>()->center();
+		Vec3 to_target = Vec3::normalize(target - pos);
+
+		Vec3 old_pos;
+		Quat old_rot;
+		get<Transform>()->absolute(&old_pos, &old_rot);
+		ID old_parent = get<Transform>()->parent.ref()->entity_id;
+		get<Awk>()->crawl(to_target, u);
+
+		Vec3 new_pos = get<Transform>()->absolute_pos();
+
+		b8 revert = true;
+
+		Vec3 hit;
+		if (get<Awk>()->can_go(Vec3::normalize(target - new_pos), &hit))
+		{
+			// we can still go generally toward the target;
+			if (!exact || (hit - target).length() < AWK_RADIUS) // make sure we're actually going to land at the right spot
+				revert = false;
+		}
+
+		if (revert)
+		{
+			vi_debug("revert %f", Game::time.total);
+			get<Awk>()->move(old_pos, old_rot, old_parent); // revert the crawling we just did
+		}
+	}
 
 	Vec3 pos = get<Awk>()->center();
 	Vec3 to_target = Vec3::normalize(target - pos);
@@ -295,18 +327,35 @@ b8 AIPlayerControl::aim_and_shoot(const Update& u, const Vec3& target, b8 exact)
 	common->angle_vertical = LMath::clampf(common->angle_vertical, PI * -0.495f, PI * 0.495f);
 	common->clamp_rotation(wall_normal, 0.5f);
 
-	if (common->cooldown == 0.0f
-		&& common->angle_horizontal == target_angle_horizontal
-		&& common->angle_vertical == target_angle_vertical)
+	if (common->cooldown == 0.0f)
 	{
-		Vec3 look_dir = common->look_dir();
-		Vec3 hit;
-		if (get<Awk>()->can_go(look_dir, &hit))
+		// cooldown is done; we can shoot.
+		// check if we're done aiming
+		b8 aim_lined_up;
+		if (exact)
 		{
-			if (!exact || (hit - target).length() < AWK_RADIUS) // make sure we're actually going to land at the right spot
+			// must aim exactly
+			aim_lined_up = common->angle_horizontal == target_angle_horizontal
+				&& common->angle_vertical == target_angle_vertical;
+		}
+		else
+		{
+			// include some inaccuracy
+			aim_lined_up = fabs(LMath::angle_to(common->angle_horizontal, target_angle_horizontal)) < inaccuracy
+				&& fabs(LMath::angle_to(common->angle_vertical, target_angle_vertical)) < inaccuracy;
+		}
+
+		if (aim_lined_up)
+		{
+			Vec3 look_dir = common->look_dir();
+			Vec3 hit;
+			if (get<Awk>()->can_go(look_dir, &hit))
 			{
-				if (get<Awk>()->detach(look_dir))
-					return true;
+				if (!exact || (hit - target).length() < AWK_RADIUS) // make sure we're actually going to land at the right spot
+				{
+					if (get<Awk>()->detach(look_dir))
+						return true;
+				}
 			}
 		}
 	}
@@ -368,59 +417,62 @@ Repeat* make_low_level_loop(AIPlayerControl* control)
 	);
 }
 
+void AIPlayerControl::init_behavior_trees()
+{
+	loop_high_level = Repeat::alloc
+	(
+		Sequence::alloc
+		(
+			Delay::alloc(1.0f),
+			Succeed::alloc
+			(
+				Select::alloc
+				(
+					Sequence::alloc
+					(
+						Invert::alloc(Execute::alloc()->method<Health, &Health::is_full>(get<Health>())), // make sure we need health
+						AIBehaviors::Find<HealthPickup>::alloc(1, &health_pickup_filter)
+					),
+					AIBehaviors::Find<MinionAI>::alloc(1, &minion_filter),
+					AIBehaviors::Find<MinionSpawn>::alloc(1, &minion_spawn_filter),
+					AIBehaviors::Find<Awk>::alloc(1, &awk_filter),
+					AIBehaviors::RandomPath::alloc()
+				)
+			)
+		)
+	);
+	loop_high_level->set_context(this);
+
+	loop_memory = Repeat::alloc // memory update loop
+	(
+		Sequence::alloc
+		(
+			Delay::alloc(0.1f),
+			Execute::alloc()->method<AIPlayerControl, &AIPlayerControl::update_memory<HealthPickup, &health_pickup_filter> >(this),
+			Execute::alloc()->method<AIPlayerControl, &AIPlayerControl::update_memory<MinionAI, &minion_filter> >(this),
+			Execute::alloc()->method<AIPlayerControl, &AIPlayerControl::update_memory<MinionSpawn, &minion_spawn_filter> >(this),
+			Execute::alloc()->method<AIPlayerControl, &AIPlayerControl::update_memory<Awk, &awk_filter> >(this)
+		)
+	);
+	loop_memory->set_context(this);
+
+	loop_low_level = make_low_level_loop(this);
+	loop_low_level->set_context(this);
+
+	loop_low_level_2 = make_low_level_loop(this);
+	loop_low_level_2->set_context(this);
+
+	loop_memory->run();
+	loop_high_level->run();
+	loop_low_level->run();
+}
+
 void AIPlayerControl::update(const Update& u)
 {
 	if (get<Transform>()->parent.ref())
 	{
 		if (!loop_high_level)
-		{
-			loop_high_level = Repeat::alloc
-			(
-				Sequence::alloc
-				(
-					Delay::alloc(1.0f),
-					Succeed::alloc
-					(
-						Select::alloc
-						(
-							Sequence::alloc
-							(
-								Invert::alloc(Execute::alloc()->method<Health, &Health::is_full>(get<Health>())), // make sure we need health
-								AIBehaviors::Find<HealthPickup>::alloc(1, &health_pickup_filter)
-							),
-							AIBehaviors::Find<MinionAI>::alloc(1, &minion_filter),
-							AIBehaviors::Find<MinionSpawn>::alloc(1, &minion_spawn_filter),
-							AIBehaviors::Find<Awk>::alloc(1, &awk_filter),
-							AIBehaviors::RandomPath::alloc()
-						)
-					)
-				)
-			);
-			loop_high_level->set_context(this);
-
-			loop_memory = Repeat::alloc // memory update loop
-			(
-				Sequence::alloc
-				(
-					Delay::alloc(0.1f),
-					Execute::alloc()->method<AIPlayerControl, &AIPlayerControl::update_memory<HealthPickup, &health_pickup_filter> >(this),
-					Execute::alloc()->method<AIPlayerControl, &AIPlayerControl::update_memory<MinionAI, &minion_filter> >(this),
-					Execute::alloc()->method<AIPlayerControl, &AIPlayerControl::update_memory<MinionSpawn, &minion_spawn_filter> >(this),
-					Execute::alloc()->method<AIPlayerControl, &AIPlayerControl::update_memory<Awk, &awk_filter> >(this)
-				)
-			);
-			loop_memory->set_context(this);
-
-			loop_low_level = make_low_level_loop(this);
-			loop_low_level->set_context(this);
-
-			loop_low_level_2 = make_low_level_loop(this);
-			loop_low_level_2->set_context(this);
-
-			loop_memory->run();
-			loop_high_level->run();
-			loop_low_level->run();
-		}
+			init_behavior_trees();
 
 		if (target.ref())
 		{

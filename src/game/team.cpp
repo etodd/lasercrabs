@@ -470,13 +470,13 @@ b8 PlayerManager::ability_use()
 					Quat abs_rot;
 					awk->get<Transform>()->absolute(&abs_pos, &abs_rot);
 
-					Entity* sensor = World::create<SensorEntity>(awk->get<Transform>()->parent.ref(), this, abs_pos + abs_rot * Vec3(0, 0, rope_segment_length + SENSOR_RADIUS), abs_rot);
+					Entity* sensor = World::create<SensorEntity>(this, abs_pos + abs_rot * Vec3(0, 0, -AWK_RADIUS + rope_segment_length + SENSOR_RADIUS), abs_rot);
 
 					sensor->get<Audio>()->post_event(AK::EVENTS::PLAY_SENSOR_SPAWN);
 
 					// attach it to the wall
 					Rope* rope = Rope::start(awk->get<Transform>()->parent.ref()->get<RigidBody>(), abs_pos + abs_rot * Vec3(0, 0, -AWK_RADIUS), abs_rot * Vec3(0, 0, 1), abs_rot);
-					rope->end(abs_pos + abs_rot * Vec3(0, 0, rope_segment_length), abs_rot * Vec3(0, 0, -1), sensor->get<RigidBody>());
+					rope->end(abs_pos + abs_rot * Vec3(0, 0, -AWK_RADIUS + rope_segment_length), abs_rot * Vec3(0, 0, -1), sensor->get<RigidBody>());
 					
 					ability_cooldown = cooldown_reset;
 				}

@@ -239,13 +239,15 @@ void loop()
 				sync_in.read(&height);
 				sync_in.unlock();
 
-				if ((s32)id > obstacle_recast_ids.length - 1)
-					obstacle_recast_ids.resize(id + 1);
-				vi_assert(nav_tile_cache);
-				dtStatus status = nav_tile_cache->addObstacle((r32*)&pos, radius, height, &recast_id);
-				obstacle_recast_ids[id] = recast_id;
+				if (nav_tile_cache)
+				{
+					if ((s32)id > obstacle_recast_ids.length - 1)
+						obstacle_recast_ids.resize(id + 1);
+					dtStatus status = nav_tile_cache->addObstacle((r32*)&pos, radius, height, &recast_id);
+					obstacle_recast_ids[id] = recast_id;
 
-				nav_tile_cache->update(0.0f, nav_mesh); // todo: batch obstacle API calls together
+					nav_tile_cache->update(0.0f, nav_mesh); // todo: batch obstacle API calls together
+				}
 				break;
 			}
 			case Op::ObstacleRemove:
@@ -254,10 +256,13 @@ void loop()
 				sync_in.read(&id);
 				sync_in.unlock();
 
-				u32 recast_id = obstacle_recast_ids[id];
-				nav_tile_cache->removeObstacle(recast_id);
+				if (nav_tile_cache)
+				{
+					u32 recast_id = obstacle_recast_ids[id];
+					nav_tile_cache->removeObstacle(recast_id);
 
-				nav_tile_cache->update(0.0f, nav_mesh); // todo: batch obstacle API calls together
+					nav_tile_cache->update(0.0f, nav_mesh); // todo: batch obstacle API calls together
+				}
 				break;
 			}
 			case Op::Pathfind:

@@ -83,7 +83,7 @@ struct Loader
 	static Font* font_permanent(AssetID);
 	static void font_free(AssetID);
 
-	static cJSON* level(AssetID);
+	static cJSON* level(AssetID, b8);
 	static void level_free(cJSON*);
 
 	static cJSON* dialogue_tree(AssetID);

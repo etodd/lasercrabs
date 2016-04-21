@@ -822,33 +822,41 @@ void Loader::font_free(AssetID id)
 	}
 }
 
-cJSON* Loader::level(AssetID id)
+cJSON* Loader::level(AssetID id, b8 load_nav_mesh)
 {
 	if (id == AssetNull)
-		return 0;
-
-	const char* nav_path = AssetLookup::NavMesh::values[id];
-	FILE* f = fopen(nav_path, "rb");
-	if (!f)
 	{
-		fprintf(stderr, "Can't open nav file '%s'\n", nav_path);
-		return nullptr;
+		AI::load(nullptr, 0);
+		return 0;
 	}
 
-	fseek(f, 0, SEEK_END);
-	s32 fsize = ftell(f);
-	fseek(f, 0, SEEK_SET);
-
-	if (fsize > 0)
+	if (load_nav_mesh)
 	{
-		Array<u8> data(fsize, fsize);
-		fread(data.data, sizeof(u8), data.length, f);
-		AI::load(data.data, data.length);
+		const char* nav_path = AssetLookup::NavMesh::values[id];
+		FILE* f = fopen(nav_path, "rb");
+		if (!f)
+		{
+			fprintf(stderr, "Can't open nav file '%s'\n", nav_path);
+			return nullptr;
+		}
+
+		fseek(f, 0, SEEK_END);
+		s32 fsize = ftell(f);
+		fseek(f, 0, SEEK_SET);
+
+		if (fsize > 0)
+		{
+			Array<u8> data(fsize, fsize);
+			fread(data.data, sizeof(u8), data.length, f);
+			AI::load(data.data, data.length);
+		}
+		else
+			AI::load(nullptr, 0);
+
+		fclose(f);
 	}
 	else
-		AI::load(0, 0);
-
-	fclose(f);
+		AI::load(nullptr, 0);
 	
 	return Json::load(AssetLookup::Level::values[id]);
 }

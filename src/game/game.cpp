@@ -201,6 +201,7 @@ void Game::update(const Update& update_in)
 		i.item()->update(u);
 	for (auto i = Parkour::list.iterator(); !i.is_last(); i.next())
 		i.item()->update(u);
+	Sensor::update_all(u);
 	for (auto i = Shockwave::list.iterator(); !i.is_last(); i.next())
 		i.item()->update(u);
 	for (auto i = Projectile::list.iterator(); !i.is_last(); i.next())
@@ -665,7 +666,7 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 
 	EntityFinder finder;
 	
-	cJSON* json = Loader::level(data.level);
+	cJSON* json = Loader::level(data.level, m == Mode::Pvp);
 
 	const Vec3 pvp_accessible(0.6f);
 	const Vec3 pvp_inaccessible(0.0f);

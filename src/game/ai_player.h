@@ -59,6 +59,7 @@ struct AIPlayerControl : public ComponentType<AIPlayerControl>
 	b8 shot_at_target;
 	b8 hit_target;
 	r32 aim_timer;
+	r32 inaccuracy;
 #if DEBUG_AI_CONTROL
 	Camera* camera;
 #endif
@@ -67,6 +68,7 @@ struct AIPlayerControl : public ComponentType<AIPlayerControl>
 	void awake();
 	~AIPlayerControl();
 
+	void init_behavior_trees();
 	void reaction_start(Behavior*);
 	b8 reaction_end();
 	b8 aim_and_shoot(const Update&, const Vec3&, b8);

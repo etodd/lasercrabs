@@ -101,7 +101,7 @@ void Parkour::footstep()
 
 	Audio::post_global_event(AK::EVENTS::PLAY_FOOTSTEP, base_pos);
 
-	ShockwaveEntity* shockwave = World::create<ShockwaveEntity>(entity(), 3.0f);
+	ShockwaveEntity* shockwave = World::create<ShockwaveEntity>(3.0f);
 	shockwave->get<Transform>()->pos = base_pos;
 	shockwave->get<Transform>()->reparent(get<Transform>()->parent.ref());
 }
@@ -233,7 +233,7 @@ void Parkour::update(const Update& u)
 	get<SkinnedModel>()->offset.make_transform(
 		Vec3(0, -1.1f, 0),
 		Vec3(1.0f, 1.0f, 1.0f),
-		Quat::euler(0, get<Walker>()->rotation + PI * 0.5f, 0)
+		Quat::euler(0, get<Walker>()->rotation + PI * 0.5f, 0) * Quat::euler(0, 0, lean * -1.5f)
 	);
 
 	if (get<Walker>()->support.ref())
@@ -314,7 +314,7 @@ void Parkour::update(const Update& u)
 			if (wall_run_state == WallRunState::Left || wall_run_state == WallRunState::Right)
 			{
 				// check in front of us
-				Vec3 ray_dir = rot * Vec3(wall_run_state == WallRunState::Left ? -1 : 1, 0, 1);
+				Vec3 ray_dir = rot * Vec3(wall_run_state == WallRunState::Left ? 1 : -1, 0, 1);
 				Vec3 ray_end = ray_start + ray_dir * get<Walker>()->radius * WALL_RUN_DISTANCE_RATIO * 2.0f;
 				btCollisionWorld::ClosestRayResultCallback ray_callback(ray_start, ray_end);
 				ray_callback.m_flags = btTriangleRaycastCallback::EFlags::kF_FilterBackfaces
@@ -453,7 +453,18 @@ void Parkour::update(const Update& u)
 	Animator::Layer* layer0 = &get<Animator>()->layers[0];
 	AssetID anim;
 	if (fsm.current == State::WallRun)
-		anim = Asset::Animation::character_run; // speed already set
+	{
+		// speed already set
+		if (wall_run_state == WallRunState::Left)
+			anim = Asset::Animation::character_wall_run_left;
+		else if (wall_run_state == WallRunState::Right)
+			anim = Asset::Animation::character_wall_run_right;
+		else
+		{
+			anim = Asset::Animation::character_run;
+			// todo: wall run straight animation
+		}
+	}
 	else if (get<Walker>()->support.ref() && get<Walker>()->dir.length_squared() > 0.0f)
 	{
 		r32 net_speed = vi_max(get<Walker>()->net_speed, WALK_SPEED * 0.5f);
@@ -543,8 +554,8 @@ const s32 wall_jump_direction_count = 4;
 const s32 wall_run_direction_count = 3;
 Vec3 wall_directions[wall_jump_direction_count] =
 {
-	Vec3(-1, 0, 0),
 	Vec3(1, 0, 0),
+	Vec3(-1, 0, 0),
 	Vec3(0, 0, 1),
 	Vec3(0, 0, -1),
 };

@@ -152,6 +152,8 @@ const char* AssetLookup::Animation::values[] =
 	"assets/character_run.anm",
 	"assets/character_slide.anm",
 	"assets/character_walk.anm",
+	"assets/character_wall_run_left.anm",
+	"assets/character_wall_run_right.anm",
 	0,
 };
 
@@ -166,6 +168,8 @@ const char* AssetLookup::Animation::names[] =
 	"character_run",
 	"character_slide",
 	"character_walk",
+	"character_wall_run_left",
+	"character_wall_run_right",
 	0,
 };
 

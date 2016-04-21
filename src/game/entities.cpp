@@ -146,12 +146,11 @@ void HealthPickup::hit(const TargetEvent& e)
 	}
 }
 
-SensorEntity::SensorEntity(Transform* parent, PlayerManager* owner, const Vec3& abs_pos, const Quat& abs_rot)
+SensorEntity::SensorEntity(PlayerManager* owner, const Vec3& abs_pos, const Quat& abs_rot)
 {
 	Transform* transform = create<Transform>();
 	transform->pos = abs_pos;
 	transform->rot = abs_rot;
-	transform->reparent(parent);
 
 	AI::Team team = owner->team.ref()->team();
 
@@ -214,6 +213,19 @@ void Sensor::killed_by(Entity* e)
 		}
 	}
 	World::remove_deferred(entity());
+}
+
+#define sensor_shockwave_interval 3.0f
+void Sensor::update_all(const Update& u)
+{
+	r32 time = u.time.total;
+	r32 last_time = time - u.time.delta;
+	for (auto i = list.iterator(); !i.is_last(); i.next())
+	{
+		r32 offset = i.index * sensor_shockwave_interval * 0.3f;
+		if ((s32)((time + offset) / sensor_shockwave_interval) != (s32)((last_time + offset) / sensor_shockwave_interval))
+			World::create<ShockwaveEntity>(10.0f)->get<Transform>()->absolute_pos(i.item()->get<Transform>()->absolute_pos());
+	}
 }
 
 ControlPointEntity::ControlPointEntity()
@@ -1021,7 +1033,7 @@ void Mover::refresh()
 		World::remove(entity());
 }
 
-ShockwaveEntity::ShockwaveEntity(Entity* owner, r32 max_radius)
+ShockwaveEntity::ShockwaveEntity(r32 max_radius)
 {
 	create<Transform>();
 
@@ -1029,11 +1041,11 @@ ShockwaveEntity::ShockwaveEntity(Entity* owner, r32 max_radius)
 	light->radius = 0.0f;
 	light->type = PointLight::Type::Shockwave;
 
-	create<Shockwave>(owner, max_radius);
+	create<Shockwave>(max_radius);
 }
 
-Shockwave::Shockwave(Entity* owner, r32 max_radius)
-	: timer(), owner(owner), max_radius(max_radius)
+Shockwave::Shockwave(r32 max_radius)
+	: timer(), max_radius(max_radius)
 {
 }
 

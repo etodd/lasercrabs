@@ -58,7 +58,7 @@ struct HealthPickup : public ComponentType<HealthPickup>
 
 struct SensorEntity : public Entity
 {
-	SensorEntity(Transform*, PlayerManager*, const Vec3&, const Quat&);
+	SensorEntity(PlayerManager*, const Vec3&, const Quat&);
 };
 
 #define SENSOR_RANGE 20.0f
@@ -74,20 +74,21 @@ struct Sensor : public ComponentType<Sensor>
 	void hit_by(const TargetEvent&);
 	void killed_by(Entity*);
 	void awake();
+
+	static void update_all(const Update&);
 };
 
 struct ShockwaveEntity : public Entity
 {
-	ShockwaveEntity(Entity*, r32);
+	ShockwaveEntity(r32);
 };
 
 struct Shockwave : public ComponentType<Shockwave>
 {
 	r32 max_radius;
 	r32 timer;
-	Ref<Entity> owner;
 
-	Shockwave(Entity*, r32);
+	Shockwave(r32);
 	void awake() {}
 
 	r32 duration() const;

@@ -844,7 +844,6 @@ void Awk::update(const Update& u)
 
 						if (stop)
 						{
-							
 							// stop raycast here
 							fraction_end = ray_callback.m_hitFractions[i];
 							index_end = i;

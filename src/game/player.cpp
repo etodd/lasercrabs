@@ -71,13 +71,15 @@ void draw_indicator(const RenderParams& params, const Vec3& pos, const Vec4& col
 			return;
 	}
 
-	r32 radius = vi_min(viewport.size.x, viewport.size.y) * 0.95f * 0.5f;
+	r32 pointer_size = 48 * UI::scale;
+
+	r32 radius = vi_min(viewport.size.x, viewport.size.y) * 0.5f - pointer_size;
 
 	r32 offset_length = offset.length();
 	if (offscreen && (offset_length > radius || (offset_length > 0.0f && !on_screen)))
 	{
 		offset *= radius / offset_length;
-		UI::triangle(params, { center + offset, Vec2(32) * UI::scale }, color, atan2f(offset.y, offset.x) + PI * -0.5f);
+		UI::triangle(params, { center + offset, Vec2(pointer_size) }, color, atan2f(offset.y, offset.x) + PI * -0.5f);
 	}
 	else
 		UI::triangle_border(params, { screen_pos, Vec2(32) * UI::scale }, 4, color);
@@ -1303,7 +1305,7 @@ void LocalPlayerControl::update(const Update& u)
 					determine_visibility(get<PlayerCommon>(), other_player.item(), &visible, &tracking);
 
 					if (tracking || visible)
-						add_target_indicator(other_player.item()->get<Target>(), UI::alert_color, tracking);
+						add_target_indicator(other_player.item()->get<Target>(), UI::alert_color, true);
 
 					if (indicators.length == indicators.capacity())
 						break;
@@ -1380,7 +1382,6 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 		Vec2 compass_size = Vec2(vi_min(viewport.size.x, viewport.size.y) * 0.3f);
 		if (Game::data.mode == Game::Mode::Pvp)
 		{
-			b8 enemy_visible = false;
 			b8 enemy_attacking = false;
 
 			Vec3 me = get<Transform>()->absolute_pos();
@@ -1389,7 +1390,6 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 			{
 				if (PlayerCommon::visibility.get(PlayerCommon::visibility_hash(i.item(), get<PlayerCommon>())))
 				{
-					enemy_visible = true;
 					// determine if they're attacking us
 					if (!i.item()->get<Transform>()->parent.ref()
 						&& Vec3::normalize(i.item()->get<Awk>()->velocity).dot(Vec3::normalize(me - i.item()->get<Transform>()->absolute_pos())) > 0.95f)
@@ -1397,18 +1397,14 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 				}
 			}
 
-			if (enemy_visible)
+			if (enemy_attacking)
 			{
-				b8 show = true;
-				if (enemy_attacking)
-				{
-					// we're being attacked; flash the compass
-					show = flash_function(Game::real_time.total);
-					if (show && !flash_function(Game::real_time.total - Game::real_time.delta))
-						Audio::post_global_event(AK::EVENTS::PLAY_BEEP_BAD);
-				}
+				// we're being attacked; flash the compass
+				b8 show = flash_function(Game::real_time.total);
 				if (show)
 					UI::mesh(params, Asset::Mesh::compass_inner, viewport.size * Vec2(0.5f, 0.5f), compass_size, UI::alert_color);
+				if (show && !flash_function(Game::real_time.total - Game::real_time.delta))
+					Audio::post_global_event(AK::EVENTS::PLAY_BEEP_BAD);
 			}
 
 			// draw indicators pointing toward player spawns

@@ -89,6 +89,7 @@ HealthPickupEntity::HealthPickupEntity()
 {
 	create<Transform>();
 	View* model = create<View>();
+	model->color = Vec4(0.6f, 0.6f, 0.6f, MATERIAL_NO_OVERRIDE);
 	model->mesh = Asset::Mesh::target;
 	model->shader = Asset::Shader::standard;
 
@@ -331,7 +332,6 @@ Turret::Turret(AI::Team team)
 	view->mesh = Asset::Mesh::turret;
 	view->shader = Asset::Shader::armature;
 	view->team = (u8)team;
-	view->color.w = MATERIAL_NO_OVERRIDE;
 	view->offset.translate(Vec3(0, -1.25f, 0));
 
 	Animator* animator = create<Animator>();

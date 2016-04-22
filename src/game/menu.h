@@ -11,7 +11,7 @@ namespace VI
 struct RenderParams;
 
 #define MENU_ITEM_WIDTH (400.0f * UI::scale)
-#define MENU_ITEM_FONT_SIZE 24.0f
+#define MENU_ITEM_FONT_SIZE 18.0f
 #define MENU_ITEM_PADDING (10.0f * UI::scale)
 #define MENU_ITEM_HEIGHT ((MENU_ITEM_FONT_SIZE * UI::scale) + MENU_ITEM_PADDING * 2.0f)
 #define MENU_ITEM_PADDING_LEFT (48.0f * UI::scale)

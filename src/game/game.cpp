@@ -831,7 +831,7 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 			Vec3 ambient;
 			Vec3 zenith;
 			Vec3 player_light;
-			if (data.mode != Mode::Parkour)
+			if (data.mode == Mode::Pvp)
 			{
 				// override colors
 				sky = pvp_sky;

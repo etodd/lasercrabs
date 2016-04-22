@@ -117,6 +117,9 @@ void refresh_variables()
 	UIText::set_variable("Ability", gamepad->bindings[(s32)Controls::Ability].string(is_gamepad));
 }
 
+#define logo_size (128.0f * UI::scale)
+#define logo_padding (46.0f * UI::scale)
+
 void title_menu(const Update& u, u8 gamepad, UIMenu* menu, State* state)
 {
 	if (*state == State::Hidden)
@@ -126,7 +129,7 @@ void title_menu(const Update& u, u8 gamepad, UIMenu* menu, State* state)
 	{
 		case State::Visible:
 		{
-			Vec2 pos(u.input->width * 0.5f, u.input->height * 0.5f + UIMenu::height(5) * 0.5f);
+			Vec2 pos(logo_padding * 2.0f + logo_size, u.input->height * 0.5f + UIMenu::height(5) * 0.5f);
 			if (menu->item(u, &pos, _(strings::continue_)))
 			{
 				transition(Asset::Level::start, Game::Mode::Special);
@@ -146,7 +149,7 @@ void title_menu(const Update& u, u8 gamepad, UIMenu* menu, State* state)
 		}
 		case State::Options:
 		{
-			Vec2 pos(u.input->width * 0.5f, u.input->height * 0.5f + options_height() * 0.5f);
+			Vec2 pos(logo_padding * 2.0f + logo_size, u.input->height * 0.5f + options_height() * 0.5f);
 			if (!options(u, 0, menu, &pos))
 			{
 				menu->selected = 0;
@@ -426,13 +429,12 @@ void draw(const RenderParams& params)
 		}
 		case Asset::Level::title:
 		{
-			Vec2 logo_pos = viewport.size * Vec2(0.35f, 0.5f);
-			Vec2 logo_size(128.0f * UI::scale);
-			UI::box(params, { Vec2(0, viewport.size.y * 0.5f + logo_size.y * -1.0f), Vec2(viewport.size.x, logo_size.y * 2.0f) }, UI::background_color);
+			Vec2 logo_pos(logo_padding + logo_size * 0.5f, viewport.size.y * 0.5f);
+			UI::box(params, { Vec2(0, logo_pos.y - logo_size * 0.5f - logo_padding), Vec2(logo_size + logo_padding * 2.0f + MENU_ITEM_WIDTH, logo_size + logo_padding * 2.0f) }, UI::background_color);
 			Mesh* m0 = Loader::mesh(Asset::Mesh::logo_mesh);
-			UI::mesh(params, Asset::Mesh::logo_mesh, logo_pos, logo_size, m0->color);
+			UI::mesh(params, Asset::Mesh::logo_mesh, logo_pos, Vec2(logo_size), m0->color);
 			Mesh* m1 = Loader::mesh(Asset::Mesh::logo_mesh_1);
-			UI::mesh(params, Asset::Mesh::logo_mesh_1, logo_pos, logo_size, m1->color);
+			UI::mesh(params, Asset::Mesh::logo_mesh_1, logo_pos, Vec2(logo_size), m1->color);
 			break;
 		}
 		case Asset::Level::connect:

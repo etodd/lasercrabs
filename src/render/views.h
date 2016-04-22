@@ -18,6 +18,7 @@ struct View : public ComponentType<View>
 	AssetID texture;
 	Vec4 color;
 	Mat4 offset;
+	u8 team;
 
 	static void draw_opaque(const RenderParams&);
 	static void draw_alpha(const RenderParams&);

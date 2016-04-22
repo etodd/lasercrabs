@@ -3,6 +3,7 @@
 #include "asset/shader.h"
 #include "data/components.h"
 #include "data/animator.h"
+#include "game/team.h"
 
 #define DEBUG_SKIN 0
 
@@ -22,7 +23,8 @@ SkinnedModel::SkinnedModel()
 	texture(),
 	offset(Mat4::identity),
 	color(-1, -1, -1, -1),
-	mask(RENDER_MASK_DEFAULT)
+	mask(RENDER_MASK_DEFAULT),
+	team((u8)AI::Team::None)
 {
 }
 
@@ -153,7 +155,10 @@ void SkinnedModel::draw(const RenderParams& params)
 	sync->write(Asset::Uniform::diffuse_color);
 	sync->write(RenderDataType::Vec4);
 	sync->write<s32>(1);
-	sync->write<Vec4>(color);
+	if (team == (u8)AI::Team::None)
+		sync->write<Vec4>(color);
+	else
+		sync->write<Vec4>(Team::color((AI::Team)team, (AI::Team)params.camera->team));
 
 	sync->write(RenderOp::Mesh);
 	sync->write(RenderPrimitiveMode::Triangles);

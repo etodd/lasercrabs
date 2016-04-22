@@ -1,5 +1,6 @@
 #include "components.h"
 #include "physics.h"
+#include "ai.h"
 
 namespace VI
 {
@@ -198,12 +199,12 @@ void Transform::reparent(Transform* p)
 }
 
 PointLight::PointLight()
-	: radius(), color(1, 1, 1), offset(), type(Type::Normal), mask(-1), team_mask(-1)
+	: radius(), color(1, 1, 1), offset(), type(Type::Normal), mask(-1), team((u8)AI::Team::None)
 {
 }
 
 SpotLight::SpotLight()
-	: radius(), color(1, 1, 1), fov(), mask(-1), team_mask(-1)
+	: radius(), color(1, 1, 1), fov(), mask(-1), team((u8)AI::Team::None)
 {
 }
 

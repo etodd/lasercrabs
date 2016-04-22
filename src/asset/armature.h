@@ -10,7 +10,7 @@ namespace Asset
 	{
 		const s32 count = 3;
 		const AssetID awk = 0;
-		const AssetID character_mesh = 1;
+		const AssetID character = 1;
 		const AssetID turret = 2;
 	}
 	namespace Bone

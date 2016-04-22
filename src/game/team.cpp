@@ -27,17 +27,11 @@ namespace VI
 {
 
 
-const Vec4 Team::colors[(s32)AI::Team::count] =
-{
-	Vec4(0.05f, 0.45f, 0.6f, 1),
-	Vec4(1.0f, 0.5f, 0.6f, 1),
-};
+const Vec4 Team::color_friend = Vec4(0.05f, 0.45f, 0.6f, MATERIAL_NO_OVERRIDE);
+const Vec4 Team::color_enemy = Vec4(1.0f, 0.5f, 0.6f, MATERIAL_NO_OVERRIDE);
 
-const Vec4 Team::ui_colors[(s32)AI::Team::count] =
-{
-	Vec4(0.4f, 0.9f, 1.0f, 1),
-	Vec4(1.0f, 0.5f, 0.5f, 1),
-};
+const Vec4 Team::ui_color_friend = Vec4(0.4f, 0.9f, 1.0f, 1);
+const Vec4 Team::ui_color_enemy = Vec4(1.0f, 0.5f, 0.5f, 1);
 
 StaticArray<Team, (s32)AI::Team::count> Team::list;
 r32 Team::control_point_timer;

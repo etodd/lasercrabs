@@ -5,6 +5,7 @@
 #include "asset/texture.h"
 #include "console.h"
 #include "data/components.h"
+#include "game/team.h"
 
 namespace VI
 {
@@ -18,7 +19,8 @@ View::View()
 	texture(AssetNull),
 	offset(Mat4::identity),
 	color(-1, -1, -1, -1),
-	mask(RENDER_MASK_DEFAULT)
+	mask(RENDER_MASK_DEFAULT),
+	team((u8)AI::Team::None)
 {
 }
 
@@ -115,7 +117,10 @@ void View::draw(const RenderParams& params) const
 	sync->write(Asset::Uniform::diffuse_color);
 	sync->write(RenderDataType::Vec4);
 	sync->write<s32>(1);
-	sync->write<Vec4>(color);
+	if (team == (u8)AI::Team::None)
+		sync->write<Vec4>(color);
+	else
+		sync->write<Vec4>(Team::color((AI::Team)team, (AI::Team)params.camera->team));
 
 	if (texture != AssetNull)
 	{

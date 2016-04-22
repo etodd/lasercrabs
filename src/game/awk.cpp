@@ -189,14 +189,13 @@ void Awk::hit_target(Entity* target)
 	Vec3 pos;
 	Quat rot;
 	get<Transform>()->absolute(&pos, &rot);
-	const Vec4 color = Team::colors[(s32)get<AIAgent>()->team] + Vec4(0.5f, 0.5f, 0.5f, 0);
 	for (s32 i = 0; i < 50; i++)
 	{
 		Particles::sparks.add
 		(
 			pos,
 			rot * Vec3(mersenne::randf_oo() * 2.0f - 1.0f, mersenne::randf_oo() * 2.0f - 1.0f, mersenne::randf_oo()) * 10.0f,
-			color
+			Vec4(1, 1, 1, 1)
 		);
 	}
 

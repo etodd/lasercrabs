@@ -97,7 +97,7 @@ AIPlayerControl::~AIPlayerControl()
 
 void AIPlayerControl::awk_attached()
 {
-	inaccuracy = PI * 0.005f + (mersenne::randf_cc() * PI * 0.02f);
+	inaccuracy = PI * 0.002f + (mersenne::randf_cc() * PI * 0.022f);
 	aim_timer = 0.0f;
 	if (path_index < path.length)
 	{
@@ -276,10 +276,7 @@ b8 AIPlayerControl::aim_and_shoot(const Update& u, const Vec3& target, b8 exact)
 		}
 
 		if (revert)
-		{
-			vi_debug("revert %f", Game::time.total);
 			get<Awk>()->move(old_pos, old_rot, old_parent); // revert the crawling we just did
-		}
 	}
 
 	Vec3 pos = get<Awk>()->center();
@@ -383,6 +380,11 @@ b8 minion_spawn_filter(const AIPlayerControl* control, const MinionSpawn* m)
 	return m->minion.ref() == nullptr;
 }
 
+b8 sensor_filter(const AIPlayerControl* control, const Sensor* s)
+{
+	return !s->has<MinionCommon>() && s->team != control->get<AIAgent>()->team;
+}
+
 template<typename T> b8 default_filter(const AIPlayerControl* control, const T* t)
 {
 	return true;
@@ -408,7 +410,8 @@ Repeat* make_low_level_loop(AIPlayerControl* control)
 							AIBehaviors::React<HealthPickup>::alloc(2, 3, &health_pickup_filter)
 						),
 						AIBehaviors::React<MinionAI>::alloc(2, 3, &default_filter<MinionAI>),
-						AIBehaviors::React<MinionSpawn>::alloc(2, 3, &minion_spawn_filter)
+						AIBehaviors::React<MinionSpawn>::alloc(2, 3, &minion_spawn_filter),
+						AIBehaviors::React<Sensor>::alloc(2, 3, &default_filter<Sensor>)
 					),
 					Execute::alloc()->method<AIPlayerControl, &AIPlayerControl::reaction_end>(control) // restart the high level loop if necessary
 				)
@@ -435,6 +438,7 @@ void AIPlayerControl::init_behavior_trees()
 					),
 					AIBehaviors::Find<MinionAI>::alloc(1, &minion_filter),
 					AIBehaviors::Find<MinionSpawn>::alloc(1, &minion_spawn_filter),
+					AIBehaviors::Find<Sensor>::alloc(1, &sensor_filter),
 					AIBehaviors::Find<Awk>::alloc(1, &awk_filter),
 					AIBehaviors::RandomPath::alloc()
 				)
@@ -451,6 +455,7 @@ void AIPlayerControl::init_behavior_trees()
 			Execute::alloc()->method<AIPlayerControl, &AIPlayerControl::update_memory<HealthPickup, &health_pickup_filter> >(this),
 			Execute::alloc()->method<AIPlayerControl, &AIPlayerControl::update_memory<MinionAI, &minion_filter> >(this),
 			Execute::alloc()->method<AIPlayerControl, &AIPlayerControl::update_memory<MinionSpawn, &minion_spawn_filter> >(this),
+			Execute::alloc()->method<AIPlayerControl, &AIPlayerControl::update_memory<Sensor, &sensor_filter> >(this),
 			Execute::alloc()->method<AIPlayerControl, &AIPlayerControl::update_memory<Awk, &awk_filter> >(this)
 		)
 	);

@@ -40,7 +40,7 @@ AwkEntity::AwkEntity(AI::Team team)
 	SkinnedModel* model = create<SkinnedModel>();
 	model->mesh = Asset::Mesh::awk;
 	model->shader = Asset::Shader::armature;
-	model->color = Vec4(Team::colors[(s32)team].xyz(), MATERIAL_NO_OVERRIDE);
+	model->team = (u8)team;
 
 	Animator* anim = create<Animator>();
 	anim->armature = Asset::Armature::awk;
@@ -114,8 +114,8 @@ void HealthPickup::awake()
 void HealthPickup::reset()
 {
 	owner = nullptr;
-	get<View>()->color = Vec4(0.3f, 0.3f, 0.3f, MATERIAL_NO_OVERRIDE);
-	get<PointLight>()->color = Vec3::zero;
+	get<View>()->team = (u8)AI::Team::None;
+	get<PointLight>()->team = (u8)AI::Team::None;
 }
 
 void HealthPickup::hit(const TargetEvent& e)
@@ -135,9 +135,9 @@ void HealthPickup::hit(const TargetEvent& e)
 				health->add(1);
 				owner = health;
 
-				const Vec3& color = Team::colors[(s32)e.hit_by->get<AIAgent>()->team].xyz();
-				get<PointLight>()->color = color;
-				get<View>()->color = Vec4(color, MATERIAL_NO_OVERRIDE);
+				AI::Team team = e.hit_by->get<AIAgent>()->team;
+				get<PointLight>()->team = (u8)team;
+				get<View>()->team = (u8)team;
 
 				if (e.hit_by->has<LocalPlayerControl>())
 					e.hit_by->get<LocalPlayerControl>()->player.ref()->msg(_(strings::health_pickup), true);
@@ -156,16 +156,15 @@ SensorEntity::SensorEntity(PlayerManager* owner, const Vec3& abs_pos, const Quat
 
 	View* model = create<View>();
 	model->mesh = Asset::Mesh::sphere;
-	model->color = Vec4(Team::colors[(s32)team].xyz(), MATERIAL_NO_OVERRIDE);
+	model->team = (u8)team;
 	model->shader = Asset::Shader::standard;
 	model->offset.scale(Vec3(SENSOR_RADIUS));
 
 	create<Health>(5, 5);
 
 	PointLight* light = create<PointLight>();
-	light->color = Team::colors[(s32)team].xyz();
 	light->type = PointLight::Type::Override;
-	light->team_mask = 1 << (s32)team;
+	light->team = (u8)team;
 	light->radius = SENSOR_RANGE;
 
 	create<Target>();
@@ -277,9 +276,8 @@ void MinionSpawn::hit(const TargetEvent& e)
 
 		Audio::post_global_event(AK::EVENTS::PLAY_MINION_SPAWN, pos);
 
-		const Vec3& color = Team::colors[(s32)team].xyz();
-		get<PointLight>()->color = color;
-		get<View>()->color = Vec4(color, MATERIAL_NO_OVERRIDE);
+		get<PointLight>()->team = (u8)team;
+		get<View>()->team = (u8)team;
 
 		if (e.hit_by->has<LocalPlayerControl>())
 			e.hit_by->get<LocalPlayerControl>()->player.ref()->msg(_(strings::minion_spawned), true);
@@ -300,25 +298,23 @@ void MinionSpawn::awake()
 void MinionSpawn::reset(Entity* killer)
 {
 	minion = nullptr;
-	get<View>()->color = Vec4(0.3f, 0.3f, 0.3f, MATERIAL_NO_OVERRIDE);
-	get<PointLight>()->color = Vec3::zero;
+	get<View>()->team = (u8)AI::Team::None;
+	get<PointLight>()->team = (u8)AI::Team::None;
 }
 
 PlayerSpawn::PlayerSpawn(AI::Team team)
 {
 	create<Transform>();
 
-	Vec3 color = Team::colors[(s32)team].xyz();
-
 	View* view = create<View>();
 	view->mesh = Asset::Mesh::spawn;
 	view->shader = Asset::Shader::standard;
-	view->color = Vec4(color, MATERIAL_UNLIT);
+	view->team = (u8)team;
 
 	create<PlayerTrigger>()->radius = PLAYER_SPAWN_RADIUS;
 
 	PointLight* light = create<PointLight>();
-	light->color = color;
+	light->team = (u8)team;
 	light->offset.y = 2.0f;
 	light->radius = 12.0f;
 }
@@ -334,7 +330,7 @@ Turret::Turret(AI::Team team)
 	SkinnedModel* view = create<SkinnedModel>();
 	view->mesh = Asset::Mesh::turret;
 	view->shader = Asset::Shader::armature;
-	view->color = Team::colors[(s32)team];
+	view->team = (u8)team;
 	view->color.w = MATERIAL_NO_OVERRIDE;
 	view->offset.translate(Vec3(0, -1.25f, 0));
 
@@ -350,9 +346,8 @@ Turret::Turret(AI::Team team)
 	create<RigidBody>(RigidBody::Type::Sphere, Vec3(TURRET_RADIUS), 0.0f, CollisionInaccessible, CollisionInaccessibleMask);
 
 	PointLight* light = create<PointLight>();
-	light->color = Team::colors[(s32)team].xyz();
+	light->team = (u8)team;
 	light->type = PointLight::Type::Override;
-	light->mask = 1 << (s32)team;
 	light->radius = TURRET_VIEW_RANGE;
 }
 
@@ -534,17 +529,13 @@ void Projectile::update(const Update& u)
 			else
 				basis = ray_callback.m_hitNormalWorld;
 
-			Vec4 color(1, 1, 1, 1);
-			if (owner.ref())
-				color = Team::colors[(s32)owner.ref()->get<AIAgent>()->team] + Vec4(0.5f, 0.5f, 0.5f, 0);
-
 			for (s32 i = 0; i < 50; i++)
 			{
 				Particles::sparks.add
 				(
 					ray_callback.m_hitPointWorld,
 					Quat::look(basis) * Vec3(mersenne::randf_oo() * 2.0f - 1.0f, mersenne::randf_oo() * 2.0f - 1.0f, mersenne::randf_oo()) * 10.0f,
-					color
+					Vec4(1, 1, 1, 1)
 				);
 			}
 			World::remove(entity());

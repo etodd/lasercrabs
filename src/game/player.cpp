@@ -467,7 +467,7 @@ void LocalPlayer::draw_alpha(const RenderParams& params) const
 			{
 				// extract player information
 				b8 friendly = other_player.item()->team.ref() == team;
-				const Vec4& team_color = Team::ui_colors[(s32)other_player.item()->team.ref()->team()];
+				const Vec4& team_color = Team::ui_color(team->team(), other_player.item()->team.ref()->team());
 				Entity* other_player_entity = other_player.item()->entity.ref();
 				const b8 tracking = friendly || team->player_tracks[other_player.index].tracking;
 				const b8 visible = tracking || (entity && other_player_entity && PlayerCommon::visibility.get(PlayerCommon::visibility_hash(entity->get<PlayerCommon>(), other_player_entity->get<PlayerCommon>())));
@@ -618,7 +618,7 @@ void LocalPlayer::draw_alpha(const RenderParams& params) const
 			for (auto i = PlayerManager::list.iterator(); !i.is_last(); i.next())
 			{
 				text.text(i.item()->username);
-				text.color = Team::ui_colors[(s32)i.item()->team.ref()->team()];
+				text.color = Team::ui_color(manager.ref()->team.ref()->team(), i.item()->team.ref()->team());
 				UI::box(params, text.rect(p).outset(padding), UI::background_color);
 				text.draw(params, p);
 				p.y -= text.bounds().y + padding * 2.0f;
@@ -725,7 +725,7 @@ PlayerCommon::PlayerCommon(PlayerManager* m)
 
 void PlayerCommon::awake()
 {
-	username_text.color = Team::ui_colors[(s32)get<AIAgent>()->team];
+	username_text.color = Team::ui_color_friend;
 	if (has<Awk>())
 	{
 		get<Health>()->hp_max = AWK_HEALTH;
@@ -1418,7 +1418,7 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 					if (distance > PLAYER_SPAWN_RADIUS)
 					{
 						to_spawn /= distance;
-						UI::mesh(params, Asset::Mesh::compass_indicator, viewport.size * Vec2(0.5f, 0.5f), compass_size, Team::ui_colors[(s32)t->team()], atan2f(to_spawn.x, to_spawn.z) - get<PlayerCommon>()->angle_horizontal);
+						UI::mesh(params, Asset::Mesh::compass_indicator, viewport.size * Vec2(0.5f, 0.5f), compass_size, Team::ui_color(team, t->team()), atan2f(to_spawn.x, to_spawn.z) - get<PlayerCommon>()->angle_horizontal);
 					}
 				}
 			}
@@ -1461,7 +1461,7 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 				text.font = Asset::Font::lowpoly;
 				text.anchor_x = UIText::Anchor::Center;
 				text.anchor_y = UIText::Anchor::Min;
-				text.color = tracking || visible ? Team::ui_colors[(s32)other_player.item()->get<AIAgent>()->team] : UI::disabled_color;
+				text.color = tracking || visible ? Team::ui_color(team, other_player.item()->get<AIAgent>()->team) : UI::disabled_color;
 				text.text(other_player.item()->manager.ref()->username);
 				UI::box(params, text.rect(p).outset(8.0f * UI::scale), UI::background_color);
 				text.draw(params, p);
@@ -1496,7 +1496,7 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 
 		b8 flash_hp = damage_timer > 0.0f || health_pickup_timer > 0.0f;
 		if (!flash_hp || flash_function(Game::real_time.total))
-			draw_hp_indicator(params, pos, health->hp, health->hp_max, flash_hp ? UI::default_color : Team::ui_colors[(s32)get<AIAgent>()->team]);
+			draw_hp_indicator(params, pos, health->hp, health->hp_max, flash_hp ? UI::default_color : Team::ui_color_friend);
 	}
 
 	if (has<Awk>())

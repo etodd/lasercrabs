@@ -23,6 +23,7 @@ struct SkinnedModel : public ComponentType<SkinnedModel>
 	StaticArray<Mat4, MAX_BONES> skin_transforms;
 	Mat4 offset;
 	Vec4 color;
+	u8 team;
 
 	SkinnedModel();
 	void awake();

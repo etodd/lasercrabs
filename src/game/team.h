@@ -70,9 +70,21 @@ struct Team
 		u8 ability_level;
 	};
 
-	static const Vec4 colors[];
-	static const Vec4 ui_colors[];
+	static const Vec4 ui_color_enemy;
+	static const Vec4 ui_color_friend;
+	static const Vec4 color_enemy;
+	static const Vec4 color_friend;
 	static r32 control_point_timer;
+
+	static inline const Vec4& ui_color(AI::Team me, AI::Team them)
+	{
+		return me == them ? ui_color_friend : ui_color_enemy;
+	}
+
+	static inline const Vec4& color(AI::Team me, AI::Team them)
+	{
+		return me == them ? color_friend : color_enemy;
+	}
 
 	static StaticArray<Team, (s32)AI::Team::count> list;
 

@@ -34,12 +34,12 @@ Minion::Minion(const Vec3& pos, const Quat& quat, AI::Team team, PlayerManager* 
 	Animator* animator = create<Animator>();
 	SkinnedModel* model = create<SkinnedModel>();
 
-	animator->armature = Asset::Armature::character_mesh;
+	animator->armature = Asset::Armature::character;
 	animator->layers[0].animation = Asset::Animation::character_idle;
 
 	model->shader = Asset::Shader::armature;
-	model->mesh = Asset::Mesh::character_mesh;
-	model->color = Team::colors[(s32)team];
+	model->mesh = Asset::Mesh::character;
+	model->team = (u8)team;
 	model->color.w = MATERIAL_NO_OVERRIDE;
 
 	create<Audio>();
@@ -56,9 +56,8 @@ Minion::Minion(const Vec3& pos, const Quat& quat, AI::Team team, PlayerManager* 
 	create<AIAgent>()->team = team;
 
 	PointLight* light = create<PointLight>();
-	light->color = Team::colors[(s32)team].xyz();
 	light->type = PointLight::Type::Override;
-	light->team_mask = 1 << (s32)team;
+	light->team = (u8)team;
 	light->radius = SENSOR_RANGE;
 
 	create<Target>();

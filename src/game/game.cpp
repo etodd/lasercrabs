@@ -283,7 +283,7 @@ void Game::draw_alpha(const RenderParams& render_params)
 		for (auto i = AIPlayerControl::list.iterator(); !i.is_last(); i.next())
 		{
 			AIPlayerControl* ai = i.item();
-			text.color = Team::ui_colors[(s32)ai->get<AIAgent>()->team];
+			text.color = Team::ui_color_enemy;
 			{
 				Vec3 pos = ai->get<Transform>()->absolute_pos();
 				Vec2 p;

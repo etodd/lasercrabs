@@ -36,13 +36,12 @@ Traceur::Traceur(const Vec3& pos, const Quat& quat, AI::Team team)
 	Animator* animator = create<Animator>();
 	SkinnedModel* model = create<SkinnedModel>();
 
-	animator->armature = Asset::Armature::character_mesh;
+	animator->armature = Asset::Armature::character;
 	animator->layers[0].animation = Asset::Animation::character_idle;
 
 	model->shader = Asset::Shader::armature;
-	model->mesh = Asset::Mesh::character_mesh;
-	model->color = Team::colors[(s32)team];
-	model->color.w = MATERIAL_NO_OVERRIDE;
+	model->mesh = Asset::Mesh::character;
+	model->team = (u8)team;
 
 	create<Audio>();
 	
@@ -64,6 +63,7 @@ void Parkour::awake()
 {
 	Animator* animator = get<Animator>();
 	animator->layers[1].loop = false;
+	animator->layers[1].blend_time = 0.1f;
 	animator->layers[2].loop = true;
 	link<&Parkour::footstep>(animator->trigger(Asset::Animation::character_walk, 0.3375f));
 	link<&Parkour::footstep>(animator->trigger(Asset::Animation::character_walk, 0.75f));
@@ -121,7 +121,7 @@ b8 Parkour::wallrun(const Update& u, RigidBody* wall, const Vec3& relative_wall_
 	btRigidBody* body = get<RigidBody>()->btBody;
 	
 	Vec3 velocity = body->getLinearVelocity();
-	velocity += Vec3(Physics::btWorld->getGravity()) * -0.4f * u.time.delta; // cancel gravity a bit
+	velocity += Vec3(Physics::btWorld->getGravity()) * -0.5f * u.time.delta; // cancel gravity a bit
 
 	{
 		r32 speed = Vec2(velocity.x, velocity.z).length();
@@ -245,7 +245,7 @@ void Parkour::update(const Update& u)
 
 	// animation layers
 	// layer 0 = running, walking, wall-running
-	// layer 1 = mantle, land
+	// layer 1 = mantle, land, jump, wall-jump
 	// layer 2 = slide
 
 	r32 lean_target = 0.0f;
@@ -287,6 +287,7 @@ void Parkour::update(const Update& u)
 	}
 	else if (fsm.current == State::WallRun)
 	{
+		get<Animator>()->layers[1].animation = AssetNull;
 		get<Animator>()->layers[2].animation = AssetNull;
 		b8 exit_wallrun = false;
 
@@ -382,6 +383,9 @@ void Parkour::update(const Update& u)
 		get<Animator>()->layers[2].animation = AssetNull;
 		if (get<Walker>()->support.ref())
 		{
+			Animator::Layer* layer1 = &get<Animator>()->layers[1];
+			if (layer1->animation == Asset::Animation::character_jump1)
+				layer1->animation = AssetNull; // stop jump animations
 			last_support_time = Game::time.total;
 			last_support = get<Walker>()->support;
 			relative_support_pos = last_support.ref()->get<Transform>()->to_local(get<Walker>()->base_pos());
@@ -451,33 +455,41 @@ void Parkour::update(const Update& u)
 	lean += (lean_target - lean) * vi_min(1.0f, 15.0f * u.time.delta);
 
 	Animator::Layer* layer0 = &get<Animator>()->layers[0];
-	AssetID anim;
 	if (fsm.current == State::WallRun)
 	{
 		// speed already set
 		if (wall_run_state == WallRunState::Left)
-			anim = Asset::Animation::character_wall_run_left;
+			layer0->animation = Asset::Animation::character_wall_run_left;
 		else if (wall_run_state == WallRunState::Right)
-			anim = Asset::Animation::character_wall_run_right;
+			layer0->animation = Asset::Animation::character_wall_run_right;
 		else
 		{
-			anim = Asset::Animation::character_run;
+			layer0->animation = Asset::Animation::character_run;
 			// todo: wall run straight animation
 		}
 	}
-	else if (get<Walker>()->support.ref() && get<Walker>()->dir.length_squared() > 0.0f)
+	else if (get<Walker>()->support.ref())
 	{
-		r32 net_speed = vi_max(get<Walker>()->net_speed, WALK_SPEED * 0.5f);
-		anim = net_speed > WALK_SPEED ? Asset::Animation::character_run : Asset::Animation::character_walk;
-		layer0->speed = net_speed > WALK_SPEED ? LMath::lerpf((net_speed - WALK_SPEED) / RUN_SPEED, 0.75f, 1.0f) : (net_speed / WALK_SPEED);
+		if (get<Walker>()->dir.length_squared() > 0.0f)
+		{
+			// walking/running
+			r32 net_speed = vi_max(get<Walker>()->net_speed, WALK_SPEED * 0.5f);
+			layer0->animation = net_speed > WALK_SPEED ? Asset::Animation::character_run : Asset::Animation::character_walk;
+			layer0->speed = net_speed > WALK_SPEED ? LMath::lerpf((net_speed - WALK_SPEED) / RUN_SPEED, 0.75f, 1.0f) : (net_speed / WALK_SPEED);
+		}
+		else
+		{
+			// standing still
+			layer0->animation = Asset::Animation::character_idle;
+			layer0->speed = 1.0f;
+		}
 	}
 	else
 	{
-		anim = Asset::Animation::character_idle;
+		// floating in space
+		layer0->animation = Asset::Animation::character_fall;
 		layer0->speed = 1.0f;
 	}
-
-	layer0->animation = anim;
 
 	get<Walker>()->enabled = fsm.current == State::Normal;
 }
@@ -569,6 +581,7 @@ void Parkour::do_normal_jump()
 	body->setLinearVelocity(new_velocity);
 	last_support = get<Walker>()->support = nullptr;
 	wall_run_state = WallRunState::None;
+	get<Animator>()->layers[1].play(Asset::Animation::character_jump1);
 }
 
 b8 Parkour::try_jump(r32 rotation)
@@ -871,7 +884,7 @@ b8 Parkour::try_wall_run(WallRunState s, const Vec3& wall_direction)
 			}
 
 			if (add_velocity)
-				body->setLinearVelocity(velocity_flattened + Vec3(support_velocity.x, support_velocity.y + 3.0f + speed_flattened * 0.4f, support_velocity.z));
+				body->setLinearVelocity(velocity_flattened + Vec3(support_velocity.x, support_velocity.y + 3.0f + speed_flattened * 0.5f, support_velocity.z));
 			else
 			{
 				velocity_flattened.y = flattened_vertical_speed;

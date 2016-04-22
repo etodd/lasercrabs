@@ -7,8 +7,7 @@ namespace VI
 const char* AssetLookup::Mesh::values[] =
 {
 	"assets/awk.msh",
-	"assets/character_gun.msh",
-	"assets/character_mesh.msh",
+	"assets/character.msh",
 	"assets/compass_indicator.msh",
 	"assets/compass_inner.msh",
 	"assets/cone.msh",
@@ -76,8 +75,7 @@ const char* AssetLookup::Mesh::values[] =
 const char* AssetLookup::Mesh::names[] =
 {
 	"awk",
-	"character_gun",
-	"character_mesh",
+	"character",
 	"compass_indicator",
 	"compass_inner",
 	"cone",
@@ -145,8 +143,9 @@ const char* AssetLookup::Mesh::names[] =
 const char* AssetLookup::Animation::values[] =
 {
 	"assets/awk_fly.anm",
+	"assets/character_fall.anm",
 	"assets/character_idle.anm",
-	"assets/character_idle_gun.anm",
+	"assets/character_jump1.anm",
 	"assets/character_land.anm",
 	"assets/character_mantle.anm",
 	"assets/character_run.anm",
@@ -161,8 +160,9 @@ const char* AssetLookup::Animation::values[] =
 const char* AssetLookup::Animation::names[] =
 {
 	"awk_fly",
+	"character_fall",
 	"character_idle",
-	"character_idle_gun",
+	"character_jump1",
 	"character_land",
 	"character_mantle",
 	"character_run",
@@ -177,7 +177,7 @@ const char* AssetLookup::Animation::names[] =
 const char* AssetLookup::Armature::values[] =
 {
 	"assets/awk.arm",
-	"assets/character_mesh.arm",
+	"assets/character.arm",
 	"assets/turret.arm",
 	0,
 };
@@ -186,7 +186,7 @@ const char* AssetLookup::Armature::values[] =
 const char* AssetLookup::Armature::names[] =
 {
 	"awk",
-	"character_mesh",
+	"character",
 	"turret",
 	0,
 };

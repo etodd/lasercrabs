@@ -20,32 +20,33 @@ struct PlayerManager;
 
 #define GAME_TIME_LIMIT 420.0f
 #define CREDITS_MINION 10
-#define CREDITS_DAMAGE 20
+#define CREDITS_DAMAGE 30
 #define CREDITS_DETECT 10
-#define CREDITS_INITIAL 0
-#define CREDITS_SENSOR_DESTROY 5
+#define CREDITS_INITIAL 40
+#define CREDITS_SENSOR_DESTROY 10
 #define CREDITS_CONTROL_POINT 2
+
+#define ABILITY_UPGRADE_TIME 1.0f
+#define ABILITY_USE_TIME 0.25f
 
 // if the ability cooldown is lower than this, we can use the ability
 // we should flash the ability icon during this time to indicate the ability is now usable
-#define ABILITY_COOLDOWN_USABLE_RANGE 0.5f
 
 enum class Ability
 {
 	Sensor,
-	Stealth,
-	SkipCooldown,
+	Teleporter,
+	Minion,
 	count,
 	None = count,
 };
 
-#define MAX_ABILITY_LEVELS 3
+#define MAX_ABILITY_LEVELS 2
 struct AbilityInfo
 {
 	AssetID icon;
-	AssetID name;
-	r32 cooldown;
-	s32 max_level;
+	r32 spawn_time;
+	u16 spawn_cost;
 	u16 upgrade_cost[MAX_ABILITY_LEVELS];
 	static AbilityInfo list[(s32)Ability::count];
 };
@@ -65,9 +66,6 @@ struct Team
 		Vec3 pos;
 		u16 hp;
 		u16 hp_max;
-		u16 credits;
-		Ability ability;
-		u8 ability_level;
 	};
 
 	static const Vec4 ui_color_enemy;
@@ -94,10 +92,9 @@ struct Team
 	Ref<Transform> player_spawn;
 	Revision revision;
 	r32 victory_timer;
-	r32 sensor_time;
-	b8 sensor_explode;
 	SensorTrack player_tracks[MAX_PLAYERS];
 	SensorTrackHistory player_track_history[MAX_PLAYERS];
+	b8 stealth_enable;
 
 	Team();
 	void awake();
@@ -130,16 +127,18 @@ struct PlayerManager
 	Ref<Team> team;
 	Ref<Entity> entity;
 	Link spawn;
-	Ability ability;
 	u8 ability_level[(s32)Ability::count];
-	r32 ability_cooldown;
 	b8 ready;
+	r32 spawn_ability_timer;
+	Ability current_spawn_ability;
 
 	static b8 all_ready();
 
-	b8 ability_use();
-	void ability_switch(Ability = Ability::None);
-	void ability_upgrade(Ability);
+	void ability_spawn_start(Ability);
+	void ability_spawn_stop(Ability);
+	void ability_spawn_complete();
+	b8 ability_use(Ability);
+	b8 ability_upgrade(Ability);
 	b8 ability_upgrade_available(Ability = Ability::None) const;
 	u16 ability_upgrade_cost(Ability) const;
 

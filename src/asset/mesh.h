@@ -21,11 +21,11 @@ namespace Asset
 		const AssetID icon_battery_1 = 9;
 		const AssetID icon_battery_2 = 10;
 		const AssetID icon_battery_3 = 11;
-		const AssetID icon_select = 12;
-		const AssetID icon_sensor = 13;
-		const AssetID icon_skip_cooldown = 14;
-		const AssetID icon_stealth = 15;
-		const AssetID icon_stun = 16;
+		const AssetID icon_credits = 12;
+		const AssetID icon_minion = 13;
+		const AssetID icon_select = 14;
+		const AssetID icon_sensor = 15;
+		const AssetID icon_teleporter = 16;
 		const AssetID logo_mesh = 17;
 		const AssetID logo_mesh_1 = 18;
 		const AssetID plane = 19;

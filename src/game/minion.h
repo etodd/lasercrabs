@@ -36,7 +36,7 @@ struct MinionAI : public ComponentType<MinionAI>
 		enum class Type
 		{
 			Random,
-			Sensor,
+			Target,
 		};
 
 		Type type;
@@ -48,7 +48,7 @@ struct MinionAI : public ComponentType<MinionAI>
 	{
 		None,
 		Random,
-		Sensor,
+		Target,
 		Repath,
 	};
 

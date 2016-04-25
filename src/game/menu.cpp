@@ -113,8 +113,9 @@ void refresh_variables()
 	UIText::set_variable("Parkour", gamepad->bindings[(s32)Controls::Parkour].string(is_gamepad));
 	UIText::set_variable("Jump", gamepad->bindings[(s32)Controls::Jump].string(is_gamepad));
 	UIText::set_variable("Slide", gamepad->bindings[(s32)Controls::Slide].string(is_gamepad));
-	UIText::set_variable("Menu", gamepad->bindings[(s32)Controls::Menu].string(is_gamepad));
-	UIText::set_variable("Ability", gamepad->bindings[(s32)Controls::Ability].string(is_gamepad));
+	UIText::set_variable("Ability1", gamepad->bindings[(s32)Controls::Ability1].string(is_gamepad));
+	UIText::set_variable("Ability2", gamepad->bindings[(s32)Controls::Ability2].string(is_gamepad));
+	UIText::set_variable("Ability3", gamepad->bindings[(s32)Controls::Ability3].string(is_gamepad));
 }
 
 #define logo_size (128.0f * UI::scale)
@@ -130,12 +131,11 @@ void title_menu(const Update& u, u8 gamepad, UIMenu* menu, State* state)
 		case State::Visible:
 		{
 			Vec2 pos(logo_padding * 2.0f + logo_size, u.input->height * 0.5f + UIMenu::height(5) * 0.5f);
-			if (menu->item(u, &pos, _(strings::continue_)))
+			if (menu->item(u, &pos, _(strings::play)))
 			{
-				transition(Asset::Level::start, Game::Mode::Special);
+				transition(Asset::Level::test, Game::Mode::Parkour);
 				return;
 			}
-			menu->item(u, &pos, _(strings::new_));
 			if (menu->item(u, &pos, _(strings::options)))
 			{
 				menu->selected = 0;

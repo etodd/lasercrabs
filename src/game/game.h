@@ -44,10 +44,8 @@ struct Game
 		Base,
 		HealthPickups,
 		Abilities,
-		ControlPoints,
-		MinionSpawns,
-		All = MinionSpawns,
-		count,
+		All,
+		count = All,
 	};
 
 	struct Data

@@ -126,12 +126,7 @@ void HealthPickup::hit(const TargetEvent& e)
 		Health* health = e.hit_by->get<Health>();
 		if (!owner.ref())
 		{
-			if (health->hp == health->hp_max)
-			{
-				if (e.hit_by->has<LocalPlayerControl>())
-					e.hit_by->get<LocalPlayerControl>()->player.ref()->msg(_(strings::health_max), true);
-			}
-			else
+			if (health->hp < health->hp_max)
 			{
 				health->add(1);
 				owner = health;
@@ -139,9 +134,6 @@ void HealthPickup::hit(const TargetEvent& e)
 				AI::Team team = e.hit_by->get<AIAgent>()->team;
 				get<PointLight>()->team = (u8)team;
 				get<View>()->team = (u8)team;
-
-				if (e.hit_by->has<LocalPlayerControl>())
-					e.hit_by->get<LocalPlayerControl>()->player.ref()->msg(_(strings::health_pickup), true);
 			}
 		}
 	}
@@ -237,70 +229,6 @@ ControlPointEntity::ControlPointEntity()
 	model->mesh = Asset::Mesh::control_point;
 	model->color = Vec4(1.0f, 1.0f, 1.0f, 1.0f);
 	model->shader = Asset::Shader::standard;
-}
-
-MinionSpawnEntity::MinionSpawnEntity()
-{
-	create<Transform>();
-
-	View* model = create<View>();
-	model->mesh = Asset::Mesh::target;
-	model->color = Vec4(0.3f, 0.3f, 0.3f, MATERIAL_NO_OVERRIDE);
-	model->shader = Asset::Shader::standard;
-
-	PointLight* light = create<PointLight>();
-	light->color = Vec3::zero;
-	light->radius = 8.0f;
-
-	Target* target = create<Target>();
-
-	model->offset.scale(Vec3(MINION_SPAWN_RADIUS - 0.2f));
-
-	RigidBody* body = create<RigidBody>(RigidBody::Type::Sphere, Vec3(MINION_SPAWN_RADIUS), 0.1f, CollisionAwkIgnore | CollisionTarget, ~CollisionAwk & ~CollisionShield);
-	body->set_damping(0.5f, 0.5f);
-
-	create<MinionSpawn>();
-}
-
-void MinionSpawn::hit(const TargetEvent& e)
-{
-	if (spawn_point.ref() && !minion.ref())
-	{
-		Vec3 pos;
-		Quat rot;
-		spawn_point.ref()->absolute(&pos, &rot);
-
-		AI::Team team = e.hit_by->get<AIAgent>()->team;
-
-		minion = World::create<Minion>(pos, rot, team, e.hit_by->get<PlayerCommon>()->manager.ref());
-		minion.ref()->get<Health>()->killed.link<MinionSpawn, Entity*, &MinionSpawn::reset>(this);
-
-		Audio::post_global_event(AK::EVENTS::PLAY_MINION_SPAWN, pos);
-
-		get<PointLight>()->team = (u8)team;
-		get<View>()->team = (u8)team;
-
-		if (e.hit_by->has<LocalPlayerControl>())
-			e.hit_by->get<LocalPlayerControl>()->player.ref()->msg(_(strings::minion_spawned), true);
-	}
-}
-
-void MinionSpawn::awake()
-{
-	link_arg<const TargetEvent&, &MinionSpawn::hit>(get<Target>()->target_hit);
-	if (spawn_point.ref())
-	{
-		PointLight* light = spawn_point.ref()->entity()->add<PointLight>();
-		light->radius = 10.0f;
-		light->color = Vec3(1.0f);
-	}
-}
-
-void MinionSpawn::reset(Entity* killer)
-{
-	minion = nullptr;
-	get<View>()->team = (u8)AI::Team::None;
-	get<PointLight>()->team = (u8)AI::Team::None;
 }
 
 PlayerSpawn::PlayerSpawn(AI::Team team)

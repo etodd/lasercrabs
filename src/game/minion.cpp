@@ -19,7 +19,7 @@
 
 #define MINION_VIEW_RANGE 30.0f
 
-#define WALK_SPEED 2.0f
+#define WALK_SPEED 3.0f
 
 #define HEALTH 5
 
@@ -62,7 +62,6 @@ Minion::Minion(const Vec3& pos, const Quat& quat, AI::Team team, PlayerManager* 
 
 	create<Target>();
 
-	create<Sensor>(team, manager);
 	create<PlayerTrigger>()->radius = SENSOR_RANGE;
 
 	create<MinionAI>();
@@ -77,8 +76,6 @@ void MinionCommon::awake()
 	animator->layers[1].loop = false;
 	link<&MinionCommon::footstep>(animator->trigger(Asset::Animation::character_walk, 0.3375f));
 	link<&MinionCommon::footstep>(animator->trigger(Asset::Animation::character_walk, 0.75f));
-	link<&MinionCommon::footstep>(animator->trigger(Asset::Animation::character_run, 0.216f));
-	link<&MinionCommon::footstep>(animator->trigger(Asset::Animation::character_run, 0.476f));
 }
 
 void MinionCommon::footstep()
@@ -186,7 +183,7 @@ void MinionCommon::killed(Entity* killer)
 
 // Minion behaviors
 
-Entity* closest_enemy_sensor(const Vec3& pos, AI::Team team)
+Entity* closest_target(const Vec3& pos, AI::Team team)
 {
 	Entity* closest = nullptr;
 
@@ -194,7 +191,7 @@ Entity* closest_enemy_sensor(const Vec3& pos, AI::Team team)
 	for (auto i = Sensor::list.iterator(); !i.is_last(); i.next())
 	{
 		Sensor* sensor = i.item();
-		if (sensor->team != team && !sensor->has<MinionAI>())
+		if (sensor->team != team && !sensor->has<MinionCommon>())
 		{
 			Vec3 sensor_pos = sensor->get<Transform>()->absolute_pos();
 
@@ -202,6 +199,22 @@ Entity* closest_enemy_sensor(const Vec3& pos, AI::Team team)
 			if (total_distance < closest_distance)
 			{
 				closest = sensor->entity();
+				closest_distance = total_distance;
+			}
+		}
+	}
+
+	for (auto i = Teleporter::list.iterator(); !i.is_last(); i.next())
+	{
+		Teleporter* teleporter = i.item();
+		if (teleporter->team != team)
+		{
+			Vec3 teleporter_pos = teleporter->get<Transform>()->absolute_pos();
+
+			r32 total_distance = (teleporter_pos - pos).length();
+			if (total_distance < closest_distance)
+			{
+				closest = teleporter->entity();
 				closest_distance = total_distance;
 			}
 		}
@@ -242,13 +255,13 @@ b8 MinionAI::can_see(Entity* target) const
 void MinionAI::new_goal()
 {
 	Vec3 pos = get<Transform>()->absolute_pos();
-	goal.entity = closest_enemy_sensor(pos, get<AIAgent>()->team);
+	goal.entity = closest_target(pos, get<AIAgent>()->team);
 	auto path_callback = ObjectLinkEntryArg<MinionAI, const AI::Result&, &MinionAI::set_path>(id());
 	path_timer = PATH_RECALC_TIME;
 	if (goal.entity.ref())
 	{
-		path_request = PathRequest::Sensor;
-		goal.type = Goal::Type::Sensor;
+		path_request = PathRequest::Target;
+		goal.type = Goal::Type::Target;
 		AI::pathfind(pos, goal.entity.ref()->get<Transform>()->absolute_pos(), path_callback);
 	}
 	else
@@ -275,7 +288,7 @@ void MinionAI::update(const Update& u)
 					need_new_goal = true;
 				break;
 			}
-			case Goal::Type::Sensor:
+			case Goal::Type::Target:
 			{
 				attack_timer = vi_max(0.0f, attack_timer - u.time.delta);
 				if (goal.entity.ref())

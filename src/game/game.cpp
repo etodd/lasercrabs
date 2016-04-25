@@ -43,7 +43,7 @@
 	#define DEBUG_NAV_MESH 0
 	#define DEBUG_AI_PATH 0
 	#define DEBUG_AWK_NAV_MESH 0
-	#define DEBUG_AWK_AI_PATH 1
+	#define DEBUG_AWK_AI_PATH 0
 	#define DEBUG_PHYSICS 0
 #endif
 
@@ -764,26 +764,6 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 			rope->slack = Json::get_r32(element, "slack");
 			rope->max_distance = Json::get_r32(element, "max_distance", 100.0f);
 		}
-		else if (cJSON_GetObjectItem(element, "MinionSpawn"))
-		{
-			if (data.has_feature(FeatureLevel::MinionSpawns))
-			{
-				entity = World::alloc<MinionSpawnEntity>();
-				cJSON* entity_link = cJSON_GetObjectItem(element, "links")->child;
-				if (entity_link)
-				{
-					LevelLink<Transform>* link = transform_links.add();
-					link->ref = &entity->get<MinionSpawn>()->spawn_point;
-					link->target_name = entity_link->valuestring;
-				}
-
-				RopeEntry* rope = ropes.add();
-				rope->pos = absolute_pos + Vec3(0, 1, 0);
-				rope->rot = Quat::identity;
-				rope->slack = 0.0f;
-				rope->max_distance = 100.0f;
-			}
-		}
 		else if (cJSON_GetObjectItem(element, "Minion"))
 		{
 			AI::Team team = (AI::Team)Json::get_s32(element, "team");
@@ -951,7 +931,7 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 		}
 		else if (cJSON_GetObjectItem(element, "ControlPoint"))
 		{
-			if (data.has_feature(FeatureLevel::ControlPoints))
+			if (data.has_feature(FeatureLevel::Abilities))
 				entity = World::alloc<ControlPointEntity>();
 		}
 		else if (cJSON_GetObjectItem(element, "Script"))

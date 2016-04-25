@@ -60,7 +60,6 @@ struct Awk : public ComponentType<Awk>
 	Vec3 lerped_pos;
 	Quat lerped_rotation;
 	Ref<View> shield;
-	r32 stealth_timer;
 
 	Awk();
 	void awake();
@@ -74,8 +73,7 @@ struct Awk : public ComponentType<Awk>
 
 	b8 predict_intersection(const Target*, Vec3*) const;
 
-	void stealth_enable(r32);
-	void stealth_disable();
+	void stealth(b8);
 
 	void reflect(const Vec3&, const Vec3&, const Update&);
 	void crawl_wall_edge(const Vec3&, const Vec3&, const Update&, r32);

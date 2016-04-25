@@ -22,14 +22,11 @@ struct DamageEvent;
 
 struct LocalPlayer
 {
-	enum class UIMode { Default, Pause, Spawning, AbilityMenu };
-
-	enum class AbilityMenu { None, Upgrade };
+	enum class UIMode { Default, Pause, Spawning, };
 
 	static PinArray<LocalPlayer, MAX_PLAYERS> list;
 
 	u8 gamepad;
-	AbilityMenu ability_menu;
 	UIMenu menu;
 	Ref<Transform> map_view;
 	Ref<PlayerManager> manager;
@@ -37,7 +34,6 @@ struct LocalPlayer
 	r32 msg_timer;
 	UIText msg_text;
 	b8 msg_good;
-	UIText credits_text;
 	Revision revision;
 	Menu::State menu_state;
 
@@ -62,7 +58,6 @@ struct PlayerCommon : public ComponentType<PlayerCommon>
 {
 	r32 cooldown;
 	r32 cooldown_multiplier;
-	UIText username_text;
 	Ref<PlayerManager> manager;
 	r32 angle_horizontal;
 	r32 last_angle_horizontal;
@@ -70,7 +65,7 @@ struct PlayerCommon : public ComponentType<PlayerCommon>
 	Quat attach_quat;
 
 	static s32 visibility_hash(const PlayerCommon*, const PlayerCommon*);
-	static Bitmask<MAX_PLAYERS> visibility;
+	static Bitmask<MAX_PLAYERS * MAX_PLAYERS> visibility;
 
 	PlayerCommon(PlayerManager*);
 	void awake();
@@ -114,13 +109,14 @@ struct LocalPlayerControl : public ComponentType<LocalPlayerControl>
 	Camera* camera;
 	r32 fov_blend;
 	r32 damage_timer;
-	r32 health_pickup_timer;
+	r32 health_flash_timer;
 	b8 allow_zoom;
 	b8 try_parkour;
 	b8 try_jump;
 	b8 try_slide;
 	u8 gamepad;
 	b8 enable_input;
+	b8 enable_move;
 
 	LocalPlayerControl(u8);
 	~LocalPlayerControl();
@@ -140,6 +136,7 @@ struct LocalPlayerControl : public ComponentType<LocalPlayerControl>
 	void update_camera_input(const Update&);
 	Vec3 get_movement(const Update&, const Quat&);
 	b8 input_enabled() const;
+	b8 movement_enabled() const;
 };
 
 }

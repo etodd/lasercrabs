@@ -69,6 +69,10 @@ void Parkour::awake()
 	link<&Parkour::footstep>(animator->trigger(Asset::Animation::character_walk, 0.75f));
 	link<&Parkour::footstep>(animator->trigger(Asset::Animation::character_run, 0.216f));
 	link<&Parkour::footstep>(animator->trigger(Asset::Animation::character_run, 0.476f));
+	link<&Parkour::footstep>(animator->trigger(Asset::Animation::character_wall_run_left, 0.216f));
+	link<&Parkour::footstep>(animator->trigger(Asset::Animation::character_wall_run_left, 0.476f));
+	link<&Parkour::footstep>(animator->trigger(Asset::Animation::character_wall_run_right, 0.216f));
+	link<&Parkour::footstep>(animator->trigger(Asset::Animation::character_wall_run_right, 0.476f));
 	link_arg<r32, &Parkour::land>(get<Walker>()->land);
 }
 

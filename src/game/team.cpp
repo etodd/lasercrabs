@@ -19,9 +19,7 @@
 #endif
 
 #define CREDITS_FLASH_TIME 0.5f
-#define SENSOR_TIME_1 2.0f
-#define SENSOR_TIME_2 1.0f
-#define CONTROL_POINT_INTERVAL 60.0f
+#define CONTROL_POINT_INTERVAL 15.0f
 
 namespace VI
 {
@@ -36,14 +34,21 @@ const Vec4 Team::ui_color_enemy = Vec4(1.0f, 0.5f, 0.5f, 1);
 StaticArray<Team, (s32)AI::Team::count> Team::list;
 r32 Team::control_point_timer;
 
+AbilityInfo AbilityInfo::list[] =
+{
+	{ Asset::Mesh::icon_sensor, 2.0f, 10, { 50, 50 } },
+	{ Asset::Mesh::icon_teleporter, 2.0f, 10, { 50, 50 } },
+	{ Asset::Mesh::icon_minion, 1.0f, 5, { 50, 100 } },
+};
+
 #define GAME_OVER_TIME 5.0f
 
 Team::Team()
 	: victory_timer(GAME_OVER_TIME),
-	sensor_time(SENSOR_TIME_1),
-	sensor_explode(),
 	player_tracks(),
-	player_track_history()
+	player_track_history(),
+	stealth_enable(true),
+	player_spawn()
 {
 }
 
@@ -104,9 +109,6 @@ b8 Team::has_player() const
 
 void Team::extract_history(PlayerManager* manager, SensorTrackHistory* history)
 {
-	history->ability = manager->ability;
-	history->ability_level = manager->ability_level[(s32)manager->ability];
-	history->credits = manager->credits;
 	if (manager->entity.ref())
 	{
 		Health* health = manager->entity.ref()->get<Health>();
@@ -138,8 +140,6 @@ b8 rotate_teams_at_feature_level[(s32)Game::FeatureLevel::count] =
 	false, // Base
 	false, // HealthPickups
 	true, // Abilities
-	false, // ControlPoints
-	true, // Minions
 };
 
 void level_next()
@@ -211,21 +211,27 @@ void Team::update_all(const Update& u)
 		s32 reward_buffer[(s32)AI::Team::count] = {};
 		for (auto i = ControlPoint::list.iterator(); !i.is_last(); i.next())
 		{
-			Vec3 control_point_pos = i.item()->get<Transform>()->absolute_pos();
+			Vec3 control_point_pos;
+			Quat control_point_rot;
+			i.item()->get<Transform>()->absolute(&control_point_pos, &control_point_rot);
 
 			AI::Team control_point_team = AI::Team::None;
 			b8 contested = false;
-			for (auto j = Sensor::list.iterator(); !j.is_last(); j.next())
+			for (auto sensor = Sensor::list.iterator(); !sensor.is_last(); sensor.next())
 			{
-				if (j.item()->get<PlayerTrigger>()->contains(control_point_pos))
+				if (sensor.item()->get<PlayerTrigger>()->contains(control_point_pos))
 				{
-					AI::Team sensor_team = j.item()->team;
-					if (control_point_team == AI::Team::None)
-						control_point_team = sensor_team;
-					else if (control_point_team != sensor_team)
+					Vec3 to_sensor = sensor.item()->get<Transform>()->absolute_pos() - control_point_pos;
+					if (to_sensor.dot(control_point_rot * Vec3(0, 0, 1)) > 0.0f) // make sure the control point is facing the sensor
 					{
-						contested = true;
-						break;
+						AI::Team sensor_team = sensor.item()->team;
+						if (control_point_team == AI::Team::None)
+							control_point_team = sensor_team;
+						else if (control_point_team != sensor_team)
+						{
+							contested = true;
+							break;
+						}
 					}
 				}
 			}
@@ -249,16 +255,17 @@ void Team::update_all(const Update& u)
 	for (auto player = PlayerManager::list.iterator(); !player.is_last(); player.next())
 	{
 		Entity* player_entity = player.item()->entity.ref();
-		if (!player_entity || (player_entity->has<Awk>() && player_entity->get<Awk>()->stealth_timer > 0.0f))
+		if (!player_entity)
 			continue;
 
 		AI::Team player_team = player.item()->team.ref()->team();
 		Quat player_rot;
 		Vec3 player_pos;
 		player_entity->get<Transform>()->absolute(&player_pos, &player_rot);
+		player_pos += player_rot * Vec3(0, 0, -AWK_RADIUS);
 		for (auto sensor = Sensor::list.iterator(); !sensor.is_last(); sensor.next())
 		{
-			if (sensor.item()->team != player_team)
+			if (!player_entity->get<AIAgent>()->stealth || sensor.item()->team == player_team)
 			{
 				Sensor** sensor_visibility = &visibility[player.index][(s32)sensor.item()->team];
 				if (!(*sensor_visibility))
@@ -268,7 +275,7 @@ void Team::update_all(const Update& u)
 						if (player_entity->has<Awk>() && player_entity->get<Transform>()->parent.ref())
 						{
 							// we're on a wall; make sure the wall is facing the sensor
-							Vec3 to_sensor = sensor.item()->get<Transform>()->absolute_pos() - (player_pos + (player_rot * Vec3(0, 0, -AWK_RADIUS)));
+							Vec3 to_sensor = sensor.item()->get<Transform>()->absolute_pos() - player_pos;
 							if (to_sensor.dot(player_rot * Vec3(0, 0, 1)) > 0.0f)
 								*sensor_visibility = sensor.item();
 						}
@@ -287,6 +294,31 @@ void Team::update_all(const Update& u)
 				continue;
 
 			AI::Team team = i.item()->team.ref()->team();
+
+			{
+				// if stealth is enabled for this team,
+				// and if we are within range of their own sensors
+				// and not detected by enemy sensors
+				// then we should be stealthed
+				b8 stealth_enabled = true;
+				if (!i.item()->team.ref()->stealth_enable)
+					stealth_enabled = false;
+				else if (!visibility[i.index][(s32)team])
+					stealth_enabled = false;
+				else
+				{
+					for (s32 t = 0; t < Team::list.length; t++)
+					{
+						if ((AI::Team)t != team && visibility[i.index][t])
+						{
+							stealth_enabled = false; // visible to enemy sensors
+							break;
+						}
+					}
+				}
+				i_entity->get<Awk>()->stealth(stealth_enabled);
+			}
+
 			auto j = i;
 			j.next();
 			for (j; !j.is_last(); j.next())
@@ -299,11 +331,6 @@ void Team::update_all(const Update& u)
 					continue;
 
 				b8 visible;
-				if (i_entity->has<Awk>() && i_entity->get<Awk>()->stealth_timer > 0.0f)
-					visible = false;
-				else if (j_entity->has<Awk>() && j_entity->get<Awk>()->stealth_timer > 0.0f)
-					visible = false;
-				else
 				{
 					Vec3 start = i_entity->has<MinionCommon>() ? i_entity->get<MinionCommon>()->head_pos() : i_entity->get<Awk>()->center();
 					Vec3 end = j_entity->has<MinionCommon>() ? j_entity->get<MinionCommon>()->head_pos() : j_entity->get<Awk>()->center();
@@ -327,15 +354,18 @@ void Team::update_all(const Update& u)
 					}
 				}
 
-				PlayerCommon::visibility.set(PlayerCommon::visibility_hash(i_entity->get<PlayerCommon>(), j_entity->get<PlayerCommon>()), visible);
+				b8 i_can_see_j = visible && !j_entity->get<AIAgent>()->stealth;
+				b8 j_can_see_i = visible && !i_entity->get<AIAgent>()->stealth;
+				PlayerCommon::visibility.set(PlayerCommon::visibility_hash(i_entity->get<PlayerCommon>(), j_entity->get<PlayerCommon>()), i_can_see_j);
+				PlayerCommon::visibility.set(PlayerCommon::visibility_hash(j_entity->get<PlayerCommon>(), i_entity->get<PlayerCommon>()), j_can_see_i);
 
 				// update history
-				Team* my_team = i.item()->team.ref();
-				Team* other_team = j.item()->team.ref();
-				if (visible || my_team->player_tracks[j.index].tracking) 
-					extract_history(j.item(), &my_team->player_track_history[j.index]);
-				if (visible || other_team->player_tracks[i.index].tracking)
-					extract_history(i.item(), &other_team->player_track_history[i.index]);
+				Team* i_team = i.item()->team.ref();
+				Team* j_team = j.item()->team.ref();
+				if (i_can_see_j || i_team->player_tracks[j.index].tracking) 
+					extract_history(j.item(), &i_team->player_track_history[j.index]);
+				if (j_can_see_i || j_team->player_tracks[i.index].tracking)
+					extract_history(i.item(), &j_team->player_track_history[i.index]);
 			}
 		}
 	}
@@ -388,7 +418,7 @@ void Team::update_all(const Update& u)
 					{
 						// tracking but not yet alerted
 						track->timer += u.time.delta;
-						if (track->timer >= team->sensor_time)
+						if (track->timer >= SENSOR_TIME)
 						{
 							if (sensor->player_manager.ref())
 							{
@@ -396,10 +426,6 @@ void Team::update_all(const Update& u)
 								if (player_entity && player_entity->has<LocalPlayerControl>())
 									player_entity->get<LocalPlayerControl>()->player.ref()->msg(_(strings::enemy_detected), true);
 								sensor->player_manager.ref()->add_credits(CREDITS_DETECT);
-							}
-							if (team->sensor_explode)
-							{
-								// todo: explode sensor
 							}
 							track->tracking = true; // got em
 						}
@@ -435,101 +461,167 @@ void Team::update_all(const Update& u)
 	}
 }
 
-AbilityInfo AbilityInfo::list[] =
-{
-	{ Asset::Mesh::icon_sensor, strings::sensor, 15.0f, 3, { 10, 30, 50 } },
-	{ Asset::Mesh::icon_stealth, strings::stealth, 30.0f, 3, { 10, 30, 50 } },
-	{ Asset::Mesh::icon_skip_cooldown, strings::skip_cooldown, 30.0f, 3, { 10, 30, 50 } },
-};
-
-b8 PlayerManager::ability_use()
+void PlayerManager::ability_spawn_start(Ability ability)
 {
 	Entity* awk = entity.ref();
-	if (awk && ability_cooldown < ABILITY_COOLDOWN_USABLE_RANGE && ability != Ability::None)
+	if (!awk)
+		return;
+
+	if (at_spawn())
 	{
-		r32 cooldown_reset = AbilityInfo::list[(s32)ability].cooldown + ABILITY_COOLDOWN_USABLE_RANGE;
-		
-		const u8 level = ability_level[(s32)ability];
-
-		switch (ability)
+		// we're upgrading this ability
+		if (credits >= ability_upgrade_cost(ability))
 		{
-			case Ability::Sensor:
-			{
-				if (awk->get<Transform>()->parent.ref())
-				{
-					// place a proximity sensor
-					Vec3 abs_pos;
-					Quat abs_rot;
-					awk->get<Transform>()->absolute(&abs_pos, &abs_rot);
-
-					Entity* sensor = World::create<SensorEntity>(this, abs_pos + abs_rot * Vec3(0, 0, -AWK_RADIUS + rope_segment_length + SENSOR_RADIUS), abs_rot);
-
-					sensor->get<Audio>()->post_event(AK::EVENTS::PLAY_SENSOR_SPAWN);
-
-					// attach it to the wall
-					Rope* rope = Rope::start(awk->get<Transform>()->parent.ref()->get<RigidBody>(), abs_pos + abs_rot * Vec3(0, 0, -AWK_RADIUS), abs_rot * Vec3(0, 0, 1), abs_rot);
-					rope->end(abs_pos + abs_rot * Vec3(0, 0, -AWK_RADIUS + rope_segment_length), abs_rot * Vec3(0, 0, -1), sensor->get<RigidBody>());
-					
-					ability_cooldown = cooldown_reset;
-				}
-				break;
-			}
-			case Ability::Stealth:
-			{
-				r32 time;
-				switch (level)
-				{
-					case 1:
-					{
-						time = 5.0f;
-						break;
-					}
-					case 2:
-					{
-						time = 10.0f;
-						break;
-					}
-					case 3:
-					{
-						time = 15.0f;
-						break;
-					}
-					default:
-					{
-						vi_assert(false);
-						break;
-					}
-				}
-				awk->get<Awk>()->stealth_enable(time);
-				ability_cooldown = cooldown_reset;
-				break;
-			}
-			case Ability::SkipCooldown:
-			{
-				if (awk->get<PlayerCommon>()->cooldown > 0.0f)
-				{
-					awk->get<PlayerCommon>()->cooldown = 0.0f;
-					ability_cooldown = cooldown_reset;
-				}
-
-				// detach if we are a local player
-				if (awk->has<LocalPlayerControl>())
-				{
-					Vec3 dir = awk->get<PlayerCommon>()->look_dir();
-					if (awk->get<Awk>()->can_go(dir))
-						awk->get<LocalPlayerControl>()->detach(dir);
-				}
-				break;
-			}
-			default:
-			{
-				vi_assert(false);
-				break;
-			}
+			current_spawn_ability = ability;
+			spawn_ability_timer = ABILITY_UPGRADE_TIME;
 		}
-
-		return true;
+		return;
 	}
+
+	const AbilityInfo& info = AbilityInfo::list[(s32)ability];
+	if (credits < info.spawn_cost)
+		return;
+
+	if (ability_level[(s32)ability] == 0)
+		return;
+
+	// need to be sitting on some kind of surface
+	if (!awk->get<Transform>()->parent.ref())
+		return;
+
+	if (ability == Ability::Minion)
+	{
+		// need to be sitting on a roughly flat surface
+		if ((awk->get<Transform>()->absolute_rot() * Vec3(0, 0, 1)).y < 0.8f)
+			return;
+	}
+
+	current_spawn_ability = ability;
+	spawn_ability_timer = info.spawn_time;
+}
+
+void PlayerManager::ability_spawn_stop(Ability ability)
+{
+	if (current_spawn_ability == ability)
+	{
+		current_spawn_ability = Ability::None;
+		r32 timer = spawn_ability_timer;
+		spawn_ability_timer = 0.0f;
+
+		const AbilityInfo& info = AbilityInfo::list[(s32)ability];
+
+		if (timer > info.spawn_time - ABILITY_USE_TIME && !at_spawn())
+			ability_use(ability);
+	}
+}
+
+void PlayerManager::ability_spawn_complete()
+{
+	Ability ability = current_spawn_ability;
+	current_spawn_ability = Ability::None;
+
+	Entity* awk = entity.ref();
+	if (!awk)
+		return;
+
+	if (at_spawn())
+	{
+		// we're upgrading this ability
+		ability_upgrade(ability);
+		return;
+	}
+
+	u16 cost = AbilityInfo::list[(s32)ability].spawn_cost;
+	if (credits < cost)
+		return;
+
+	const u8 level = ability_level[(s32)ability];
+	switch (ability)
+	{
+		case Ability::Sensor:
+		{
+			if (awk->get<Transform>()->parent.ref())
+			{
+				add_credits(-cost);
+
+				// place a proximity sensor
+				Vec3 abs_pos;
+				Quat abs_rot;
+				awk->get<Transform>()->absolute(&abs_pos, &abs_rot);
+
+				Entity* sensor = World::create<SensorEntity>(this, abs_pos + abs_rot * Vec3(0, 0, -AWK_RADIUS + rope_segment_length + SENSOR_RADIUS), abs_rot);
+
+				sensor->get<Audio>()->post_event(AK::EVENTS::PLAY_SENSOR_SPAWN);
+
+				// attach it to the wall
+				Rope* rope = Rope::start(awk->get<Transform>()->parent.ref()->get<RigidBody>(), abs_pos + abs_rot * Vec3(0, 0, -AWK_RADIUS), abs_rot * Vec3(0, 0, 1), abs_rot);
+				rope->end(abs_pos + abs_rot * Vec3(0, 0, -AWK_RADIUS + rope_segment_length), abs_rot * Vec3(0, 0, -1), sensor->get<RigidBody>());
+			}
+			break;
+		}
+		case Ability::Teleporter:
+		{
+			// todo
+			break;
+		}
+		case Ability::Minion:
+		{
+			if (awk->get<Transform>()->parent.ref()
+				&& (awk->get<Transform>()->absolute_rot() * Vec3(0, 0, 1)).y > 0.8f)
+			{
+				add_credits(-cost);
+
+				// spawn a minion
+				Vec3 pos = awk->get<Transform>()->absolute_pos() + Vec3(0, 1.0f, 0);
+				Entity* minion = World::create<Minion>(pos, Quat::euler(0, awk->get<PlayerCommon>()->angle_horizontal, 0), team.ref()->team(), this);
+
+				Audio::post_global_event(AK::EVENTS::PLAY_MINION_SPAWN, pos);
+			}
+			break;
+		}
+		default:
+		{
+			vi_assert(false);
+			break;
+		}
+	}
+}
+
+b8 PlayerManager::ability_use(Ability ability)
+{
+	Entity* awk = entity.ref();
+	if (!awk)
+		return false;
+
+	const u8 level = ability_level[(s32)ability];
+
+	switch (ability)
+	{
+		case Ability::Sensor:
+		{
+			// todo: TBD
+			return true;
+			break;
+		}
+		case Ability::Teleporter:
+		{
+			// todo: teleport to last detected enemy position
+			return true;
+			break;
+		}
+		case Ability::Minion:
+		{
+			// todo: summon existing minions to current location
+			return true;
+			break;
+		}
+		default:
+		{
+			vi_assert(false);
+			break;
+		}
+	}
+
 	return false;
 }
 
@@ -538,13 +630,12 @@ PinArray<PlayerManager, MAX_PLAYERS> PlayerManager::list;
 PlayerManager::PlayerManager(Team* team)
 	: spawn_timer(PLAYER_SPAWN_DELAY),
 	team(team),
-	credits(CREDITS_INITIAL),
-	ability(Game::data.has_feature(Game::FeatureLevel::Abilities) ? Ability::Sensor : Ability::None),
-	ability_level{ 1, 0, 0 },
-	ability_cooldown(),
+	credits(Game::data.has_feature(Game::FeatureLevel::Abilities) ? CREDITS_INITIAL : 0),
+	ability_level{ (u8)(Game::data.has_feature(Game::FeatureLevel::Abilities) ? 1 : 0), 0, 0 },
 	entity(),
 	spawn(),
-	ready(Game::data.mode == Game::Mode::Parkour || Game::data.has_feature(Game::FeatureLevel::All))
+	ready(Game::data.mode == Game::Mode::Parkour || Game::data.has_feature(Game::FeatureLevel::All)),
+	current_spawn_ability(Ability::None)
 {
 }
 
@@ -558,57 +649,43 @@ b8 PlayerManager::all_ready()
 	return true;
 }
 
-void PlayerManager::ability_switch(Ability a)
-{
-	if (ability_cooldown == 0.0f)
-	{
-		if (a == Ability::None)
-		{
-			// switch to next available ability
-			s32 i = (s32)ability;
-			while (true)
-			{
-				i = (i + 1) % (s32)Ability::count;
-				if (ability_level[i] > 0)
-				{
-					ability = (Ability)i;
-					break;
-				}
-			}
-		}
-		else
-		{
-			vi_assert(ability_level[(s32)a] > 0);
-			ability = a;
-		}
-	}
-}
-
-void PlayerManager::ability_upgrade(Ability a)
+b8 PlayerManager::ability_upgrade(Ability a)
 {
 	u8& level = ability_level[(s32)a];
+	if (level >= MAX_ABILITY_LEVELS)
+		return false;
+
 	const AbilityInfo& info = AbilityInfo::list[(s32)a];
-	vi_assert(level < info.max_level);
 	u16 cost = ability_upgrade_cost(a);
-	vi_assert(credits >= cost);
+	if (credits < cost)
+		return false;
+
 	level += 1;
-	credits -= cost;
-	credits_flash_timer = CREDITS_FLASH_TIME;
-	if (a == Ability::SkipCooldown)
+	add_credits(-cost);
+	if (a == Ability::Teleporter)
 	{
 		vi_assert(entity.ref());
 		if (level == 2)
-			entity.ref()->get<PlayerCommon>()->cooldown_multiplier = 1.15f;
-		else if (level == 3)
-			entity.ref()->get<PlayerCommon>()->cooldown_multiplier = 1.3f;
+			entity.ref()->get<PlayerCommon>()->cooldown_multiplier = 1.25f;
 	}
 	else if (a == Ability::Sensor)
 	{
 		if (level == 2)
-			team.ref()->sensor_time = SENSOR_TIME_2;
-		else if (level == 3)
-			team.ref()->sensor_explode = true;
+		{
+			// disable other teams' stealth
+			for (s32 i = 0; i < Team::list.length; i++)
+			{
+				if (&Team::list[i] != team.ref())
+					Team::list[i].stealth_enable = false;
+			}
+		}
 	}
+	else if (a == Ability::Minion)
+	{
+		// todo: make minions attack enemy player
+	}
+
+	return true;
 }
 
 u16 PlayerManager::ability_upgrade_cost(Ability a) const
@@ -633,7 +710,7 @@ b8 PlayerManager::ability_upgrade_available(Ability a) const
 	{
 		const AbilityInfo& info = AbilityInfo::list[(s32)a];
 		s32 level = ability_level[(s32)a];
-		return level < info.max_level;
+		return level < MAX_ABILITY_LEVELS;
 	}
 }
 
@@ -669,8 +746,12 @@ void PlayerManager::update(const Update& u)
 		}
 	}
 
-	if (ability_cooldown > 0.0f)
-		ability_cooldown = vi_max(0.0f, ability_cooldown - u.time.delta);
+	if (spawn_ability_timer > 0.0f)
+	{
+		spawn_ability_timer = vi_max(0.0f, spawn_ability_timer - u.time.delta);
+		if (spawn_ability_timer == 0.0f && current_spawn_ability != Ability::None)
+			ability_spawn_complete();
+	}
 }
 
 

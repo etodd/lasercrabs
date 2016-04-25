@@ -50,7 +50,7 @@ COMPONENT_TYPE(28, Parkour) \
 COMPONENT_TYPE(29, Tile) \
 COMPONENT_TYPE(30, HealthPickup) \
 COMPONENT_TYPE(31, Sensor) \
-COMPONENT_TYPE(32, MinionSpawn) \
+COMPONENT_TYPE(32, Teleporter) \
 COMPONENT_TYPE(33, ControlPoint) \
 
 Family World::families = 34;

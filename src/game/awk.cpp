@@ -107,7 +107,7 @@ void Awk::awake()
 		View* s = shield_entity->add<View>();
 		s->mask = ~(1 << (s32)get<AIAgent>()->team); // don't display to fellow teammates
 		s->additive();
-		s->color = Vec4(1, 1, 1, 0.0f);
+		s->color = Vec4(1, 1, 1, 0.05f);
 		s->mesh = Asset::Mesh::sphere;
 		s->offset.scale(Vec3(AWK_SHIELD_RADIUS));
 		s->shader = Asset::Shader::flat;
@@ -118,9 +118,12 @@ void Awk::awake()
 
 void Awk::update_shield_visibility()
 {
-	// only display if we have more than 1 health
-	// and never display to fellow teammates
-	shield.ref()->mask = get<Health>()->hp > 1 ? ~(1 << (s32)get<AIAgent>()->team) : 0; 
+	if (get<Health>()->hp < 2)
+		shield.ref()->mask = 0;
+	else if (get<AIAgent>()->stealth)
+		shield.ref()->mask = 1 << (s32)get<AIAgent>()->team; // only teammates see me
+	else
+		shield.ref()->mask = RENDER_MASK_DEFAULT; // everyone sees me
 }
 
 Awk::~Awk()
@@ -634,37 +637,32 @@ void Awk::update_offset()
 		get<SkinnedModel>()->offset.translation(Vec3::zero);
 }
 
-void Awk::stealth_enable(r32 time)
+void Awk::stealth(b8 enable)
 {
-	if (has<LocalPlayerControl>())
-		Audio::post_global_event(AK::EVENTS::PLAY_STEALTH);
-	stealth_timer = time;
-	get<AIAgent>()->stealth = true;
-	get<SkinnedModel>()->alpha();
-	get<SkinnedModel>()->color.w = 0.1f;
-	get<SkinnedModel>()->mask = 1 << (s32)get<AIAgent>()->team; // only display to fellow teammates
-	shield.ref()->get<View>()->mask = 0; // display to no one
-}
-
-void Awk::stealth_disable()
-{
-	stealth_timer = 0.0f;
-	get<AIAgent>()->stealth = false;
-	get<SkinnedModel>()->alpha_disable();
-	get<SkinnedModel>()->color.w = MATERIAL_NO_OVERRIDE;
-	get<SkinnedModel>()->mask = RENDER_MASK_DEFAULT; // display to everyone
-	shield.ref()->get<View>()->mask = ~(1 << (s32)get<AIAgent>()->team); // don't display to fellow teammates
+	if (enable != get<AIAgent>()->stealth)
+	{
+		if (enable)
+		{
+			get<AIAgent>()->stealth = true;
+			if (has<LocalPlayerControl>())
+				Audio::post_global_event(AK::EVENTS::PLAY_STEALTH);
+			get<SkinnedModel>()->alpha();
+			get<SkinnedModel>()->color.w = 0.05f;
+			get<SkinnedModel>()->mask = 1 << (s32)get<AIAgent>()->team; // only display to fellow teammates
+		}
+		else
+		{
+			get<AIAgent>()->stealth = false;
+			get<SkinnedModel>()->alpha_disable();
+			get<SkinnedModel>()->color.w = MATERIAL_NO_OVERRIDE;
+			get<SkinnedModel>()->mask = RENDER_MASK_DEFAULT; // display to everyone
+		}
+		update_shield_visibility();
+	}
 }
 
 void Awk::update(const Update& u)
 {
-	if (get<AIAgent>()->stealth)
-	{
-		stealth_timer -= u.time.delta;
-		if (stealth_timer <= 0.0f)
-			stealth_disable();
-	}
-
 	if (get<Transform>()->parent.ref())
 	{
 		Quat rot = get<Transform>()->rot;

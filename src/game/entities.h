@@ -62,6 +62,7 @@ struct SensorEntity : public Entity
 };
 
 #define SENSOR_RANGE 20.0f
+#define SENSOR_TIME 2.0f
 #define SENSOR_TIMEOUT 5.0f
 #define SENSOR_RADIUS 0.15f
 struct Sensor : public ComponentType<Sensor>
@@ -76,6 +77,12 @@ struct Sensor : public ComponentType<Sensor>
 	void awake();
 
 	static void update_all(const Update&);
+};
+
+struct Teleporter : public ComponentType<Teleporter>
+{
+	AI::Team team;
+	void awake() {}
 };
 
 struct ShockwaveEntity : public Entity
@@ -239,21 +246,6 @@ struct Target : public ComponentType<Target>
 	LinkArg<const TargetEvent&> target_hit;
 	void hit(Entity*);
 	void awake() {}
-};
-
-#define MINION_SPAWN_RADIUS 0.55f
-struct MinionSpawnEntity : public Entity
-{
-	MinionSpawnEntity();
-};
-
-struct MinionSpawn : public ComponentType<MinionSpawn>
-{
-	Ref<Transform> spawn_point;
-	Ref<Entity> minion;
-	void hit(const TargetEvent&);
-	void awake();
-	void reset(Entity* = nullptr);
 };
 
 struct PlayerTrigger : public ComponentType<PlayerTrigger>

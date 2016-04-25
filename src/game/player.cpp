@@ -87,10 +87,27 @@ void draw_indicator(const RenderParams& params, const Vec3& pos, const Vec4& col
 
 #define HP_BOX_SIZE (Vec2(text_size) * UI::scale)
 #define HP_BOX_SPACING (8.0f * UI::scale)
+
+r32 hp_width(u16 hp)
+{
+	const Vec2 box_size = HP_BOX_SIZE;
+	return (hp * (box_size.x + HP_BOX_SPACING)) - HP_BOX_SPACING;
+}
+
+void draw_hp_box(const RenderParams& params, const Vec2& pos, u16 hp_max)
+{
+	const Vec2 box_size = HP_BOX_SIZE;
+
+	r32 total_width = hp_width(hp_max);
+
+	UI::box(params, Rect2(pos + Vec2(total_width * -0.5f, 0), Vec2(total_width, box_size.y)).outset(HP_BOX_SPACING), UI::background_color);
+}
+
 void draw_hp_indicator(const RenderParams& params, Vec2 pos, u16 hp, u16 hp_max, const Vec4& color)
 {
 	const Vec2 box_size = HP_BOX_SIZE;
-	pos.x += HP_BOX_SPACING * 1.25f;
+	r32 total_width = hp_width(hp_max);
+	pos.x += total_width * -0.5f + HP_BOX_SPACING;
 	pos.y += box_size.y * 0.6f;
 
 	for (s32 i = 0; i < hp_max; i++)
@@ -444,77 +461,6 @@ void LocalPlayer::draw_alpha(const RenderParams& params) const
 				Vec2 p = vp.size * Vec2(0.1f, 0.1f) + Vec2(0, (44.0f + text_size * 1.75f) * UI::scale);
 				UI::box(params, text.rect(p).outset(8.0f * UI::scale), UI::background_color);
 				text.draw(params, p);
-			}
-		}
-
-		Team* team = manager.ref()->team.ref();
-
-		// display status of other players in upper right corner
-		UIText text;
-		text.font = Asset::Font::lowpoly;
-		text.anchor_x = UIText::Anchor::Min;
-		text.anchor_y = UIText::Anchor::Min;
-		text.size = text_size;
-		text.color = UI::default_color;
-		const r32 row_padding = 8.0f * UI::scale;
-		const r32 row_height = (text_size * UI::scale) + row_padding;
-		const Vec2 box_size(128.0f * UI::scale, (row_height * 3) + (row_padding * 2));
-		Vec2 ui_pos = vp.size * Vec2(0.9f, 0.9f) + Vec2(-box_size.x, 0);
-		Entity* entity = manager.ref()->entity.ref();
-		for (auto other_player = PlayerManager::list.iterator(); !other_player.is_last(); other_player.next())
-		{
-			if (other_player.item()->id() != manager.id)
-			{
-				// extract player information
-				b8 friendly = other_player.item()->team.ref() == team;
-				const Vec4& team_color = Team::ui_color(team->team(), other_player.item()->team.ref()->team());
-				Entity* other_player_entity = other_player.item()->entity.ref();
-				const b8 tracking = friendly || team->player_tracks[other_player.index].tracking;
-				const b8 visible = tracking || (entity && other_player_entity && PlayerCommon::visibility.get(PlayerCommon::visibility_hash(entity->get<PlayerCommon>(), other_player_entity->get<PlayerCommon>())));
-				const Vec4& color = visible ? team_color : UI::disabled_color;
-
-				Team::SensorTrackHistory history;
-				if (friendly)
-					Team::extract_history(other_player.item(), &history);
-				else
-					history = team->player_track_history[other_player.index];
-
-				// background
-				Vec2 box_pos = ui_pos + Vec2(0, (text_size * UI::scale) - box_size.y);
-				UI::box(params, Rect2(box_pos, box_size).outset(row_padding), UI::background_color);
-
-				// username
-				text.color = team_color;
-				text.text(other_player.item()->username);
-				text.draw(params, ui_pos);
-				ui_pos.y -= row_height;
-				text.color = color;
-
-				// hp
-				if (history.hp_max > 0)
-				{
-					draw_hp_indicator(params, ui_pos, history.hp, history.hp_max, color);
-					ui_pos.y -= row_height;
-				}
-
-				// ability / level
-				if (history.ability != Ability::None)
-				{
-					UI::mesh(params, AbilityInfo::list[(s32)history.ability].icon, ui_pos + Vec2(text_size * UI::scale * 0.5f), Vec2(text_size * UI::scale), color);
-					text.text(_(strings::lvl), history.ability_level);
-					text.draw(params, ui_pos + Vec2(text_size * 1.5f, 0));
-					ui_pos.y -= row_height;
-				}
-
-				// credits
-				if (Game::data.has_feature(Game::FeatureLevel::Abilities))
-				{
-					text.text("%d", history.credits);
-					text.draw(params, ui_pos);
-					ui_pos.y -= row_height;
-				}
-
-				ui_pos = box_pos + Vec2(0, -box_size.y - row_height);
 			}
 		}
 	}
@@ -1447,24 +1393,36 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 			b8 visible, tracking;
 			determine_visibility(get<PlayerCommon>(), other_player.item(), &visible, &tracking);
 
-			Vec3 other_pos = Team::list[(s32)team].player_track_history[other_player.item()->manager.id].pos;
+			const Team::SensorTrackHistory& history = Team::list[(s32)team].player_track_history[other_player.item()->manager.id];
 
 			if (!tracking && !visible) // if we can actually see them, the indicator has already been added using add_target_indicator in the update function
-				draw_indicator(params, other_pos, UI::disabled_color, false);
+				draw_indicator(params, history.pos, UI::disabled_color, false);
 
 			Vec2 p;
-			if (UI::project(params, other_pos + Vec3(0, AWK_RADIUS * 2.0f, 0), &p))
+			if (UI::project(params, history.pos + Vec3(0, AWK_RADIUS * 2.0f, 0), &p))
 			{
-				p.y += 16.0f * UI::scale;
+				Vec2 hp_pos = p;
+				hp_pos.y += text_size * UI::scale;
+
+				const Vec4& color = tracking || visible ? Team::ui_color(team, other_player.item()->get<AIAgent>()->team) : UI::disabled_color;
+
+				draw_hp_box(params, hp_pos, history.hp_max);
+
+				Vec2 username_pos = hp_pos;
+				username_pos.y += (text_size * UI::scale) + HP_BOX_SPACING * 0.5f;
+
 				UIText text;
 				text.size = text_size;
 				text.font = Asset::Font::lowpoly;
 				text.anchor_x = UIText::Anchor::Center;
 				text.anchor_y = UIText::Anchor::Min;
-				text.color = tracking || visible ? Team::ui_color(team, other_player.item()->get<AIAgent>()->team) : UI::disabled_color;
+				text.color = color;
 				text.text(other_player.item()->manager.ref()->username);
-				UI::box(params, text.rect(p).outset(8.0f * UI::scale), UI::background_color);
-				text.draw(params, p);
+				UI::box(params, text.rect(username_pos).outset(HP_BOX_SPACING), UI::background_color);
+
+				draw_hp_indicator(params, hp_pos, history.hp, history.hp_max, color);
+
+				text.draw(params, username_pos);
 			}
 		}
 	}
@@ -1473,26 +1431,10 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 	if (has<Health>())
 	{
 		const Health* health = get<Health>();
-
-		UIText text;
-		text.font = Asset::Font::lowpoly;
-		text.anchor_x = UIText::Anchor::Min;
-		text.anchor_y = UIText::Anchor::Min;
-		text.size = text_size;
-		text.color = UI::default_color;
-		text.text(_(strings::hp));
-
-		const Vec2 box_size = HP_BOX_SIZE;
-
-		r32 total_width = (text.bounds().x + HP_BOX_SPACING + health->hp_max * (box_size.x + HP_BOX_SPACING)) - HP_BOX_SPACING;
-
-		Vec2 pos = viewport.size * Vec2(0.5f, 0.1f) + Vec2(total_width * -0.5f, 0.0f);
-
-		UI::box(params, Rect2(pos, Vec2(total_width, box_size.y)).outset(HP_BOX_SPACING), UI::background_color);
-
-		text.draw(params, pos);
 		
-		pos.x += text.bounds().x + HP_BOX_SPACING * 0.5f;
+		Vec2 pos = viewport.size * Vec2(0.5f, 0.1f);
+
+		draw_hp_box(params, pos, health->hp_max);
 
 		b8 flash_hp = damage_timer > 0.0f || health_pickup_timer > 0.0f;
 		if (!flash_hp || flash_function(Game::real_time.total))

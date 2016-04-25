@@ -27,7 +27,6 @@
 		"skip_cooldown": "Skip cooldown",
 		"detected": "Detected",
 		"enemy_detected": "Enemy detected",
-		"hp": "HP",
 		"ability_menu": "[{{Menu}}] Abilities",
 		"upgrade": "Upgrade",
 		"upgrade_prompt": "Upgrade at spawn",

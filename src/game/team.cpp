@@ -272,8 +272,6 @@ void Team::update_all(const Update& u)
 							if (to_sensor.dot(player_rot * Vec3(0, 0, 1)) > 0.0f)
 								*sensor_visibility = sensor.item();
 						}
-						else
-							*sensor_visibility = sensor.item();
 					}
 				}
 			}

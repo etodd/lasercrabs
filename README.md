@@ -5,7 +5,7 @@ Features
 --------
 
 - [Simple multi-threaded architecture](http://etodd.io/2016/01/12/poor-mans-threading-architecture/) -
-one thread for physics, one for rendering, one for game logic
+separate threads for physics, rendering, AI, and game logic
 - Entity/component system
 - Linear math suite somewhat stolen from Ogre
 - Content pipeline supporting .blend, .glsl, .otf, .png

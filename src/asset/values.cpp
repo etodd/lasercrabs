@@ -451,7 +451,6 @@ const char* AssetLookup::String::names[] =
 	"health_max",
 	"health_pickup",
 	"hello_soren",
-	"hp",
 	"job_match_online_players",
 	"join",
 	"key_A",

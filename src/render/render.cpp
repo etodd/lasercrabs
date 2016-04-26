@@ -53,6 +53,8 @@ Camera::Camera()
 	fog(true),
 	wall_normal(0, 0, 0),
 	range(),
+	range_center(),
+	cull_range(),
 	team(-1)
 {
 }

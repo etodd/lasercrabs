@@ -880,6 +880,12 @@ void draw(LoopSync* sync, const Camera* camera)
 			sync->write(RenderDataType::Vec3);
 			sync->write<s32>(1);
 			sync->write<Vec3>(render_params.camera->wall_normal);
+
+			sync->write(RenderOp::Uniform);
+			sync->write(Asset::Uniform::range_center);
+			sync->write(RenderDataType::Vec3);
+			sync->write<s32>(1);
+			sync->write<Vec3>(render_params.camera->range_center);
 		}
 
 		sync->write(RenderOp::Uniform);

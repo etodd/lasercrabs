@@ -55,14 +55,7 @@ Minion::Minion(const Vec3& pos, const Quat& quat, AI::Team team, PlayerManager* 
 
 	create<AIAgent>()->team = team;
 
-	PointLight* light = create<PointLight>();
-	light->type = PointLight::Type::Override;
-	light->team = (u8)team;
-	light->radius = SENSOR_RANGE;
-
 	create<Target>();
-
-	create<PlayerTrigger>()->radius = SENSOR_RANGE;
 
 	create<MinionAI>();
 }

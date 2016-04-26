@@ -50,6 +50,7 @@ namespace VI
 #define msg_time 0.75f
 #define text_size 16.0f
 #define damage_shake_time 0.7f
+#define third_person_offset 2.0f
 
 b8 flash_function(r32 time)
 {
@@ -458,13 +459,16 @@ void LocalPlayer::draw_alpha(const RenderParams& params) const
 			}
 
 			// ability 1
-			draw_ability(params, manager.ref(), center + Vec2(-radius, 0), Ability::Sensor, Asset::Mesh::icon_sensor, "{{Ability1}}");
+			if (at_spawn || manager.ref()->ability_level[(s32)Ability::Sensor] > 0)
+				draw_ability(params, manager.ref(), center + Vec2(-radius, 0), Ability::Sensor, Asset::Mesh::icon_sensor, "{{Ability1}}");
 
 			// ability 2
-			draw_ability(params, manager.ref(), center + Vec2(0, radius * 0.5f), Ability::Teleporter, Asset::Mesh::icon_teleporter, "{{Ability2}}");
+			if (at_spawn || manager.ref()->ability_level[(s32)Ability::Teleporter] > 0)
+				draw_ability(params, manager.ref(), center + Vec2(0, radius * 0.5f), Ability::Teleporter, Asset::Mesh::icon_teleporter, "{{Ability2}}");
 
 			// ability 3
-			draw_ability(params, manager.ref(), center + Vec2(radius, 0), Ability::Minion, Asset::Mesh::icon_minion, "{{Ability3}}");
+			if (at_spawn || manager.ref()->ability_level[(s32)Ability::Minion] > 0)
+				draw_ability(params, manager.ref(), center + Vec2(radius, 0), Ability::Minion, Asset::Mesh::icon_minion, "{{Ability3}}");
 		}
 	}
 	else if (mode == UIMode::Spawning)
@@ -973,7 +977,7 @@ void LocalPlayerControl::update(const Update& u)
 	{
 		// Zoom
 		r32 fov_blend_target = 0.0f;
-		if (has<Awk>() && get<Transform>()->parent.ref() && Game::data.allow_detach && input_enabled())
+		if (has<Awk>() && get<Transform>()->parent.ref() && input_enabled())
 		{
 			if (u.input->get(Controls::Secondary, gamepad))
 			{
@@ -1104,7 +1108,7 @@ void LocalPlayerControl::update(const Update& u)
 				try_slide = false;
 			}
 		}
-		
+
 		// slide button
 		b8 slide_pressed = movement_enabled() && u.input->get(Controls::Slide, gamepad);
 
@@ -1175,7 +1179,7 @@ void LocalPlayerControl::update(const Update& u)
 
 		look_quat = Quat::euler(get<Parkour>()->lean, get<PlayerCommon>()->angle_horizontal, get<PlayerCommon>()->angle_vertical) * Quat::euler(0, PI * 0.5f, 0) * camera_animation * Quat::euler(0, PI * -0.5f, 0);
 	}
-	
+
 	s32 player_count;
 #if DEBUG_AI_CONTROL
 	player_count = LocalPlayer::list.count() + AIPlayer::list.count(); // AI player views are shown on screen as well
@@ -1184,11 +1188,6 @@ void LocalPlayerControl::update(const Update& u)
 #endif
 	Camera::ViewportBlueprint* viewports = Camera::viewport_blueprints[player_count - 1];
 	Camera::ViewportBlueprint* blueprint = &viewports[gamepad];
-
-	if (has<Awk>())
-		camera->range = AWK_MAX_DISTANCE;
-	else
-		camera->range = 0.0f;
 
 	camera->viewport =
 	{
@@ -1200,10 +1199,21 @@ void LocalPlayerControl::update(const Update& u)
 
 	// Camera matrix
 	if (has<Awk>())
-		camera->wall_normal = look_quat.inverse() * ((get<Transform>()->absolute_rot() * get<Awk>()->lerped_rotation) * Vec3(0, 0, 1));
+	{
+		Vec3 abs_wall_normal = (get<Transform>()->absolute_rot() * get<Awk>()->lerped_rotation) * Vec3(0, 0, 1);
+		camera->wall_normal = look_quat.inverse() * abs_wall_normal;
+		camera->pos = camera_pos + look_quat * Vec3(0, 0, -third_person_offset);
+		if (get<Transform>()->parent.ref())
+		{
+			camera->pos += abs_wall_normal * 0.25f;
+			camera->pos.y += 0.25f;
+		}
+	}
 	else
+	{
 		camera->wall_normal = Vec3(0, 0, 1);
-	camera->pos = camera_pos + (Game::data.third_person ? look_quat * Vec3(0, 0, -2) : Vec3::zero);
+		camera->pos = camera_pos + (Game::data.third_person ? look_quat * Vec3(0, 0, -2) : Vec3::zero);
+	}
 	if (damage_timer > 0.0f)
 	{
 		damage_timer -= u.time.delta;
@@ -1214,40 +1224,50 @@ void LocalPlayerControl::update(const Update& u)
 	health_flash_timer = vi_max(0.0f, health_flash_timer - Game::real_time.delta);
 	camera->rot = look_quat;
 
+	if (has<Awk>())
+	{
+		camera->range = AWK_MAX_DISTANCE;
+		camera->range_center = look_quat.inverse() * (get<Awk>()->center() - camera->pos);
+		if (!get<Transform>()->parent.ref() || camera->wall_normal.dot(camera->range_center) < 0.0f)
+			camera->cull_range = 0.0f; // there is no wall, or the camera is in front of the wall; no need to cull anything
+		else
+			camera->cull_range = third_person_offset; // camera is inside the wall; need to cull stuff
+	}
+	else
+		camera->range = 0.0f;
+
 	tracer.type = TraceType::None;
 	if (has<Awk>() && get<Transform>()->parent.ref() && get<PlayerCommon>()->cooldown == 0.0f)
 	{
 		// Display trajectory
 		Vec3 trace_dir = look_quat * Vec3(0, 0, 1);
 		// Make sure we're not shooting into the wall we're on.
-		// If we're a sentinel, no need to worry about that.
-		if (has<Parkour>() || trace_dir.dot(get<Transform>()->absolute_rot() * Vec3(0, 0, 1)) > 0.0f)
+		Vec3 detach_dir;
+
+		Vec3 trace_start = camera->pos + trace_dir * third_person_offset;
+		Vec3 trace_end = trace_start + trace_dir * (AWK_MAX_DISTANCE + third_person_offset);
+
+		AwkRaycastCallback rayCallback(trace_start, trace_end, entity());
+		rayCallback.m_flags = btTriangleRaycastCallback::EFlags::kF_FilterBackfaces
+			| btTriangleRaycastCallback::EFlags::kF_KeepUnflippedNormal;
+		rayCallback.m_collisionFilterMask = rayCallback.m_collisionFilterGroup = ~CollisionAwkIgnore;
+
+		Physics::btWorld->rayTest(trace_start, trace_end, rayCallback);
+
+		if (rayCallback.hasHit())
 		{
-			Vec3 trace_start = camera_pos;
-			Vec3 trace_end = trace_start + trace_dir * AWK_MAX_DISTANCE;
-
-			AwkRaycastCallback rayCallback(trace_start, trace_end, entity());
-			rayCallback.m_flags = btTriangleRaycastCallback::EFlags::kF_FilterBackfaces
-				| btTriangleRaycastCallback::EFlags::kF_KeepUnflippedNormal;
-			rayCallback.m_collisionFilterMask = rayCallback.m_collisionFilterGroup = ~CollisionAwkIgnore;
-
-			Physics::btWorld->rayTest(trace_start, trace_end, rayCallback);
-
-			if (rayCallback.hasHit())
-			{
+			tracer.pos = rayCallback.m_hitPointWorld;
+			detach_dir = Vec3(rayCallback.m_hitPointWorld) - get<Awk>()->center();
+			if (get<Awk>()->can_go(detach_dir))
 				tracer.type = rayCallback.hit_target() ? TraceType::Target : TraceType::Normal;
-				tracer.pos = rayCallback.m_hitPointWorld;
-
-				short group = rayCallback.m_collisionObject->getBroadphaseHandle()->m_collisionFilterGroup;
-				if (group & (CollisionWalker | CollisionInaccessible))
-					tracer.type = TraceType::None; // We can't go there
-			}
 		}
+		else
+			tracer.pos = trace_end;
 
-		if (tracer.type != TraceType::None && Game::data.allow_detach && movement_enabled())
+		if (tracer.type != TraceType::None && movement_enabled())
 		{
 			if (u.input->get(Controls::Primary, gamepad) && !u.last_input->get(Controls::Primary, gamepad))
-				detach(look_quat * Vec3(0, 0, 1));
+				detach(detach_dir);
 		}
 	}
 
@@ -1560,7 +1580,7 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 		{
 			r32 cooldown = get<PlayerCommon>()->cooldown;
 			r32 radius = cooldown == 0.0f ? 0.0f : vi_max(0.0f, 32.0f * (get<PlayerCommon>()->cooldown / AWK_MAX_DISTANCE_COOLDOWN));
-			if (radius > 0 || tracer.type == TraceType::None || !Game::data.allow_detach)
+			if (radius > 0 || tracer.type == TraceType::None)
 			{
 				// hollow reticle
 				UI::triangle_border(params, { viewport.size * Vec2(0.5f, 0.5f), Vec2(4.0f + radius) * 2 * UI::scale }, 2, UI::accent_color, PI);

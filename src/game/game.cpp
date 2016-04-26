@@ -68,7 +68,6 @@ Game::Data::Data()
 	next_level(AssetNull),
 	mode(Mode::Pvp),
 	third_person(false),
-	allow_detach(true),
 	local_multiplayer(false),
 	local_multiplayer_offset(),
 	feature_level(FeatureLevel::All)

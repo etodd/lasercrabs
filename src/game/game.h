@@ -27,7 +27,7 @@ struct EntityFinder
 };
 
 #if DEBUG
-#define DEBUG_AI_CONTROL 1
+#define DEBUG_AI_CONTROL 0
 #endif
 
 struct Game
@@ -55,7 +55,6 @@ struct Game
 		AssetID next_level;
 		AI::Team local_player_config[MAX_GAMEPADS];
 		b8 third_person;
-		b8 allow_detach;
 		b8 local_multiplayer;
 		FeatureLevel feature_level;
 		b8 has_feature(FeatureLevel) const;

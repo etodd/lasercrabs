@@ -36,9 +36,9 @@ r32 Team::control_point_timer;
 
 AbilityInfo AbilityInfo::list[] =
 {
-	{ Asset::Mesh::icon_sensor, 2.0f, 10, { 50, 50 } },
-	{ Asset::Mesh::icon_teleporter, 2.0f, 10, { 50, 50 } },
-	{ Asset::Mesh::icon_minion, 1.0f, 5, { 50, 100 } },
+	{ Asset::Mesh::icon_sensor, 2.5f, 10, { 50, 50 } },
+	{ Asset::Mesh::icon_teleporter, 2.5f, 10, { 50, 50 } },
+	{ Asset::Mesh::icon_minion, 1.5f, 5, { 50, 100 } },
 };
 
 #define GAME_OVER_TIME 5.0f

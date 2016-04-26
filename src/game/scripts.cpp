@@ -911,7 +911,6 @@ namespace tutorial01
 
 	void shoot_tutorial(Entity*)
 	{
-		Game::data.allow_detach = true;
 		Soren::clear();
 		Soren::data->mode = Soren::Mode::TextOnly;
 		Soren::data->texts.schedule(0.0f, _(strings::shoot_tutorial));
@@ -928,7 +927,6 @@ namespace tutorial01
 
 	void cleanup()
 	{
-		Game::data.allow_detach = true;
 		delete data;
 	}
 
@@ -937,7 +935,6 @@ namespace tutorial01
 		data = new Data();
 		Game::updates.add(update);
 		Game::cleanups.add(cleanup);
-		Game::data.allow_detach = false;
 
 		Soren::init();
 		Soren::data->mode = Soren::Mode::TextOnly;

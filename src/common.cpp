@@ -9,6 +9,7 @@
 #include "asset/armature.h"
 #include "render/skinned_model.h"
 #include "load.h"
+#include "game/game.h"
 
 #include <bullet/src/BulletCollision/CollisionShapes/btBvhTriangleMeshShape.h>
 #include <bullet/src/btBulletDynamicsCommon.h>
@@ -50,7 +51,7 @@ StaticGeom::StaticGeom(AssetID mesh_id, const Vec3& absolute_pos, const Quat& ab
 	View* model = create<View>();
 
 	model->mesh = mesh_id;
-	model->shader = Asset::Shader::standard;
+	model->shader = Game::data.mode == Game::Mode::Pvp ? Asset::Shader::culled : Asset::Shader::standard;
 
 	Mesh* mesh = Loader::mesh(model->mesh);
 

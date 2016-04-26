@@ -18,7 +18,7 @@ struct Target;
 struct TargetEvent;
 struct PlayerManager;
 
-#define GAME_TIME_LIMIT 420.0f
+#define GAME_TIME_LIMIT (60.0f * 10.0f)
 #define CREDITS_MINION 10
 #define CREDITS_DAMAGE 30
 #define CREDITS_DETECT 10
@@ -26,8 +26,8 @@ struct PlayerManager;
 #define CREDITS_SENSOR_DESTROY 10
 #define CREDITS_CONTROL_POINT 2
 
-#define ABILITY_UPGRADE_TIME 1.0f
-#define ABILITY_USE_TIME 0.25f
+#define ABILITY_UPGRADE_TIME 1.5f
+#define ABILITY_USE_TIME 0.2f
 
 // if the ability cooldown is lower than this, we can use the ability
 // we should flash the ability icon during this time to indicate the ability is now usable

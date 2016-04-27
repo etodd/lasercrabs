@@ -834,7 +834,7 @@ namespace start
 	void node_executed(AssetID node)
 	{
 		if (node == Asset::String::start_done)
-			Menu::transition(Asset::Level::tutorial_01, Game::Mode::Pvp);
+			Menu::transition(Asset::Level::tutorial, Game::Mode::Pvp);
 	}
 
 	void update(const Update& u)
@@ -887,7 +887,7 @@ namespace tutorial01
 
 	void done(const Update&)
 	{
-		Menu::transition(Asset::Level::tutorial_02, Game::Mode::Pvp);
+		Menu::transition(Asset::Level::tutorial, Game::Mode::Pvp);
 	}
 
 	void minion2_dialogue(Entity*)
@@ -895,18 +895,6 @@ namespace tutorial01
 		Soren::clear();
 		Soren::data->mode = Soren::Mode::TextOnly;
 		Soren::data->texts.schedule(1.0f, _(strings::destroy_enemy_power_cell));
-	}
-
-	void update(const Update& u)
-	{
-		if (Team::list.length > 1 && Team::list[1].has_player() && !data->done)
-		{
-			data->done = true;
-			Soren::clear();
-			Soren::data->mode = Soren::Mode::TextOnly;
-			Soren::data->texts.schedule(2.0f, _(strings::tutorial_01_complete));
-			Soren::data->callbacks.schedule(4.0f, &done);
-		}
 	}
 
 	void shoot_tutorial(Entity*)
@@ -932,11 +920,12 @@ namespace tutorial01
 
 	void init(const Update& u, const EntityFinder& entities)
 	{
+		Soren::init();
+
 		data = new Data();
-		Game::updates.add(update);
 		Game::cleanups.add(cleanup);
 
-		Soren::init();
+		/*
 		Soren::data->mode = Soren::Mode::TextOnly;
 		Soren::data->texts.schedule(3.0f, _(strings::find_and_shoot_minion));
 		Soren::data->texts.schedule(8.0f, nullptr);
@@ -945,6 +934,7 @@ namespace tutorial01
 		entities.find("minion2")->get<Health>()->killed.link(&minion2_dialogue);
 		entities.find("shoot_tutorial")->get<PlayerTrigger>()->entered.link(&shoot_tutorial);
 		entities.find("movement_tutorial_done")->get<PlayerTrigger>()->entered.link(&movement_tutorial_done);
+		*/
 	}
 }
 

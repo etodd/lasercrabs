@@ -121,15 +121,17 @@ void HealthPickup::reset()
 
 void HealthPickup::hit(const TargetEvent& e)
 {
-	if (e.hit_by->has<AIAgent>() && e.hit_by->has<Health>() && (!owner.ref() || e.hit_by != owner.ref()->entity()))
+	if (e.hit_by->has<AIAgent>()
+		&& e.hit_by->has<Health>()
+		&& (!owner.ref() || e.hit_by != owner.ref()->entity()))
 	{
-		if (owner.ref())
-			owner.ref()->get<Health>()->damage(e.hit_by, 1);
-
 		Health* health = e.hit_by->get<Health>();
 
 		if (health->hp < health->hp_max)
 		{
+			if (owner.ref())
+				owner.ref()->get<Health>()->damage(e.hit_by, 1);
+
 			health->add(1);
 			owner = health;
 

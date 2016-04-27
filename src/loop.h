@@ -1278,9 +1278,10 @@ void loop(LoopSwapper* swapper, PhysicsSwapper* physics_swapper)
 			physics_sync = physics_swapper->next<SwapType_Write>();
 		else
 			physics_sync = physics_swapper->get();
-		physics_sync->time = sync->time;
 
 		Game::update(u);
+
+		physics_sync->time = Game::time;
 
 		physics_swapper->done<SwapType_Write>();
 

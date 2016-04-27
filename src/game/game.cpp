@@ -764,11 +764,14 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 		}
 		else if (cJSON_GetObjectItem(element, "Minion"))
 		{
-			AI::Team team = (AI::Team)Json::get_s32(element, "team");
-			entity = World::alloc<Minion>(absolute_pos, absolute_rot, team);
-			s32 health = Json::get_s32(element, "health");
-			if (health)
-				entity->get<Health>()->hp = health;
+			if (data.mode == Game::Mode::Pvp)
+			{
+				AI::Team team = (AI::Team)Json::get_s32(element, "team");
+				entity = World::alloc<Minion>(absolute_pos, absolute_rot, team);
+				s32 health = Json::get_s32(element, "health");
+				if (health)
+					entity->get<Health>()->hp = health;
+			}
 		}
 		else if (cJSON_GetObjectItem(element, "PlayerSpawn"))
 		{

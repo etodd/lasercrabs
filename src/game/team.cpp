@@ -83,6 +83,9 @@ b8 Team::game_over()
 	if (Game::time.total > GAME_TIME_LIMIT)
 		return true;
 
+	if (PlayerManager::list.count() == 1)
+		return false;
+
 	for (auto i = PlayerManager::list.iterator(); !i.is_last(); i.next())
 	{
 		if (i.item()->spawn_timer > 0.0f)
@@ -225,16 +228,11 @@ void Team::update_all(const Update& u)
 				{
 					if (sensor.item()->get<PlayerTrigger>()->is_triggered(player_entity))
 					{
-						if (player_entity->has<Awk>() )
+						if (player_entity->has<Awk>() && player_entity->get<Transform>()->parent.ref())
 						{
-							if (player_entity->get<Transform>()->parent.ref())
-							{
-								// we're on a wall; make sure the wall is facing the sensor
-								Vec3 to_sensor = sensor.item()->get<Transform>()->absolute_pos() - player_pos;
-								if (to_sensor.dot(player_rot * Vec3(0, 0, 1)) > 0.0f)
-									*sensor_visibility = sensor.item();
-							}
-							else // we're mid-air; we are visible to the sensor
+							// we're on a wall; make sure the wall is facing the sensor
+							Vec3 to_sensor = sensor.item()->get<Transform>()->absolute_pos() - player_pos;
+							if (to_sensor.dot(player_rot * Vec3(0, 0, 1)) > 0.0f)
 								*sensor_visibility = sensor.item();
 						}
 					}

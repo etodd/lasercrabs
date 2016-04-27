@@ -23,13 +23,13 @@
 namespace VI
 {
 
-#define LERP_ROTATION_SPEED 20.0f
-#define LERP_TRANSLATION_SPEED 5.0f
+#define LERP_ROTATION_SPEED 15.0f
+#define LERP_TRANSLATION_SPEED 3.0f
 #define MAX_FLIGHT_TIME 2.0f
 #define AWK_LEG_LENGTH (0.277f - 0.101f)
 #define AWK_LEG_BLEND_SPEED (1.0f / 0.05f)
-#define AWK_MIN_LEG_BLEND_SPEED (AWK_LEG_BLEND_SPEED * 0.05f)
-#define AWK_SHIELD_RADIUS 1.0f
+#define AWK_MIN_LEG_BLEND_SPEED (AWK_LEG_BLEND_SPEED * 0.1f)
+#define AWK_SHIELD_RADIUS 0.75f
 
 AwkRaycastCallback::AwkRaycastCallback(const Vec3& a, const Vec3& b, const Entity* awk)
 	: btCollisionWorld::ClosestRayResultCallback(a, b)

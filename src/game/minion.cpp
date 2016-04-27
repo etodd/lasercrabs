@@ -147,6 +147,7 @@ void MinionCommon::killed(Entity* killer)
 	);
 
 	new_skin->color = old_skin->color;
+	new_skin->team = old_skin->team;
 
 	Animator* new_anim = ragdoll->add<Animator>();
 	Animator* old_anim = get<Animator>();

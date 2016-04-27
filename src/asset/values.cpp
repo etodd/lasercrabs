@@ -55,15 +55,12 @@ const char* AssetLookup::Mesh::values[] =
 	"assets/lvl/pvp0_scenery_002.msh",
 	"assets/lvl/test_bsp_model_0_002.msh",
 	"assets/lvl/test_bsp_model_0_002_1.msh",
-	"assets/lvl/tutorial_01_Cube.msh",
-	"assets/lvl/tutorial_01_Cube_001.msh",
-	"assets/lvl/tutorial_01_Cube_002.msh",
-	"assets/lvl/tutorial_01_Cube_003.msh",
-	"assets/lvl/tutorial_01_Cube_003_1.msh",
-	"assets/lvl/tutorial_01_Cube_1.msh",
-	"assets/lvl/tutorial_02_Cube.msh",
-	"assets/lvl/tutorial_02_Cube_1.msh",
-	"assets/lvl/tutorial_02_scenery.msh",
+	"assets/lvl/tutorial_Cube.msh",
+	"assets/lvl/tutorial_Cube_001.msh",
+	"assets/lvl/tutorial_Cube_002.msh",
+	"assets/lvl/tutorial_Cube_003.msh",
+	"assets/lvl/tutorial_Cube_003_1.msh",
+	"assets/lvl/tutorial_Cube_1.msh",
 	0,
 };
 
@@ -119,15 +116,12 @@ const char* AssetLookup::Mesh::names[] =
 	"pvp0_scenery_002",
 	"test_bsp_model_0_002",
 	"test_bsp_model_0_002_1",
-	"tutorial_01_Cube",
-	"tutorial_01_Cube_001",
-	"tutorial_01_Cube_002",
-	"tutorial_01_Cube_003",
-	"tutorial_01_Cube_003_1",
-	"tutorial_01_Cube_1",
-	"tutorial_02_Cube",
-	"tutorial_02_Cube_1",
-	"tutorial_02_scenery",
+	"tutorial_Cube",
+	"tutorial_Cube_001",
+	"tutorial_Cube_002",
+	"tutorial_Cube_003",
+	"tutorial_Cube_003_1",
+	"tutorial_Cube_1",
 	0,
 };
 
@@ -358,8 +352,7 @@ const char* AssetLookup::Level::values[] =
 	"assets/lvl/start.lvl",
 	"assets/lvl/test.lvl",
 	"assets/lvl/title.lvl",
-	"assets/lvl/tutorial_01.lvl",
-	"assets/lvl/tutorial_02.lvl",
+	"assets/lvl/tutorial.lvl",
 	0,
 };
 
@@ -373,8 +366,7 @@ const char* AssetLookup::Level::names[] =
 	"start",
 	"test",
 	"title",
-	"tutorial_01",
-	"tutorial_02",
+	"tutorial",
 	0,
 };
 
@@ -388,8 +380,7 @@ const char* AssetLookup::NavMesh::values[] =
 	"assets/lvl/start.nav",
 	"assets/lvl/test.nav",
 	"assets/lvl/title.nav",
-	"assets/lvl/tutorial_01.nav",
-	"assets/lvl/tutorial_02.nav",
+	"assets/lvl/tutorial.nav",
 	0,
 };
 
@@ -403,8 +394,7 @@ const char* AssetLookup::NavMesh::names[] =
 	"start",
 	"test",
 	"title",
-	"tutorial_01",
-	"tutorial_02",
+	"tutorial",
 	0,
 };
 

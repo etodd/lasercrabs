@@ -1240,8 +1240,8 @@ void LocalPlayerControl::update(const Update& u)
 		camera->pos = camera_pos + look_quat * Vec3(0, 0, -third_person_offset);
 		if (get<Transform>()->parent.ref())
 		{
-			camera->pos += abs_wall_normal * 0.25f;
-			camera->pos.y += 0.25f;
+			camera->pos += abs_wall_normal * 0.5f;
+			camera->pos.y += 0.5f - vi_min(fabs(abs_wall_normal.y), 0.5f);
 		}
 	}
 	else
@@ -1266,7 +1266,7 @@ void LocalPlayerControl::update(const Update& u)
 		if (!get<Transform>()->parent.ref() || camera->wall_normal.dot(camera->range_center) < 0.0f)
 			camera->cull_range = 0.0f; // there is no wall, or the camera is in front of the wall; no need to cull anything
 		else
-			camera->cull_range = third_person_offset; // camera is inside the wall; need to cull stuff
+			camera->cull_range = third_person_offset + 0.5f; // camera is inside the wall; need to cull stuff
 	}
 	else
 		camera->range = 0.0f;

@@ -771,7 +771,10 @@ void PlayerCommon::awk_detached()
 
 Vec3 PlayerCommon::look_dir() const
 {
-	return Quat::euler(0.0f, angle_horizontal, angle_vertical) * Vec3(0, 0, 1);
+	if (has<LocalPlayerControl>()) // HACK for third-person camera
+		return get<LocalPlayerControl>()->detach_dir;
+	else
+		return Quat::euler(0.0f, angle_horizontal, angle_vertical) * Vec3(0, 0, 1);
 }
 
 void PlayerCommon::clamp_rotation(const Vec3& direction, r32 dot_limit)
@@ -938,9 +941,9 @@ Vec3 LocalPlayerControl::get_movement(const Update& u, const Quat& rot)
 	return movement;
 }
 
-void LocalPlayerControl::detach(const Vec3& dir)
+void LocalPlayerControl::detach()
 {
-	if (get<Awk>()->detach(dir))
+	if (get<Awk>()->detach(detach_dir))
 	{
 		allow_zoom = false;
 		get<Audio>()->post_event(AK::EVENTS::PLAY_FLY);
@@ -1242,7 +1245,6 @@ void LocalPlayerControl::update(const Update& u)
 		// Display trajectory
 		Vec3 trace_dir = look_quat * Vec3(0, 0, 1);
 		// Make sure we're not shooting into the wall we're on.
-		Vec3 detach_dir;
 
 		Vec3 trace_start = camera->pos + trace_dir * third_person_offset;
 		Vec3 trace_end = trace_start + trace_dir * (AWK_MAX_DISTANCE + third_person_offset);
@@ -1257,7 +1259,7 @@ void LocalPlayerControl::update(const Update& u)
 		if (rayCallback.hasHit())
 		{
 			tracer.pos = rayCallback.m_hitPointWorld;
-			detach_dir = Vec3(rayCallback.m_hitPointWorld) - get<Awk>()->center();
+			detach_dir = Vec3::normalize(Vec3(rayCallback.m_hitPointWorld) - get<Awk>()->center());
 			if (get<Awk>()->can_go(detach_dir))
 				tracer.type = rayCallback.hit_target() ? TraceType::Target : TraceType::Normal;
 		}
@@ -1267,7 +1269,7 @@ void LocalPlayerControl::update(const Update& u)
 		if (tracer.type != TraceType::None && movement_enabled())
 		{
 			if (u.input->get(Controls::Primary, gamepad) && !u.last_input->get(Controls::Primary, gamepad))
-				detach(detach_dir);
+				detach();
 		}
 	}
 
@@ -1408,6 +1410,15 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 	else
 	{
 		// todo: highlight notes
+	}
+
+	// highlight teleporters
+	{
+		for (auto t = Teleporter::list.iterator(); !t.is_last(); t.next())
+		{
+			if (t.item()->team == team)
+				draw_indicator(params, t.item()->get<Transform>()->absolute_pos(), Team::ui_color_friend, false);
+		}
 	}
 
 	// draw usernames directly over players' 3D positions

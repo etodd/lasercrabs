@@ -110,6 +110,7 @@ struct LocalPlayerControl : public ComponentType<LocalPlayerControl>
 	r32 fov_blend;
 	r32 damage_timer;
 	r32 health_flash_timer;
+	Vec3 detach_dir;
 	b8 allow_zoom;
 	b8 try_parkour;
 	b8 try_jump;
@@ -131,7 +132,7 @@ struct LocalPlayerControl : public ComponentType<LocalPlayerControl>
 	void update(const Update&);
 	void draw_alpha(const RenderParams&) const;
 
-	void detach(const Vec3&);
+	void detach();
 
 	void update_camera_input(const Update&);
 	Vec3 get_movement(const Update&, const Quat&);

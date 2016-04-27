@@ -301,6 +301,12 @@ void Walker::update(const Update& u)
 	rotation = LMath::angle_range(rotation);
 }
 
+void Walker::absolute_pos(const Vec3& p)
+{
+	get<Transform>()->absolute_pos(p);
+	get<RigidBody>()->btBody->setWorldTransform(btTransform(Quat::identity, p));
+}
+
 Vec3 Walker::base_pos() const
 {
 	return get<Transform>()->to_world(Vec3(0, (height * -0.5f) - support_height, 0));

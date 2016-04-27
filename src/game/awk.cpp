@@ -313,29 +313,35 @@ b8 Awk::can_go(const Vec3& dir, Vec3* final_pos) const
 		return false;
 }
 
+void Awk::detach_teleport()
+{
+	hit_targets.length = 0;
+
+	attach_time = Game::time.total;
+	get<PlayerCommon>()->cooldown = AWK_MIN_COOLDOWN;
+	get<Transform>()->reparent(nullptr);
+	get<SkinnedModel>()->offset = Mat4::identity;
+
+	for (s32 i = 0; i < AWK_LEGS; i++)
+		footing[i].parent = nullptr;
+	get<Animator>()->reset_overrides();
+	get<Animator>()->layers[0].animation = Asset::Animation::awk_fly;
+
+	detached.fire();
+}
+
 b8 Awk::detach(const Vec3& dir)
 {
 	if (get<PlayerCommon>()->cooldown == 0.0f)
 	{
-		hit_targets.length = 0;
+		Vec3 dir_normalized = Vec3::normalize(dir);
+		velocity = dir_normalized * AWK_FLY_SPEED;
+		get<Transform>()->absolute_pos(center() + dir_normalized * AWK_RADIUS * 0.5f);
+		get<Transform>()->absolute_rot(Quat::look(dir_normalized));
 
 		get<Audio>()->post_event(has<LocalPlayerControl>() ? AK::EVENTS::PLAY_LAUNCH_PLAYER : AK::EVENTS::PLAY_LAUNCH);
 
-		attach_time = Game::time.total;
-		get<PlayerCommon>()->cooldown = AWK_MIN_COOLDOWN;
-		Vec3 dir_normalized = Vec3::normalize(dir);
-		velocity = dir_normalized * AWK_FLY_SPEED;
-		get<Transform>()->reparent(nullptr);
-		get<Transform>()->pos = center() + dir_normalized * AWK_RADIUS * 0.5f;
-		get<Transform>()->rot = Quat::look(dir_normalized);
-		get<SkinnedModel>()->offset = Mat4::identity;
-
-		for (s32 i = 0; i < AWK_LEGS; i++)
-			footing[i].parent = nullptr;
-		get<Animator>()->reset_overrides();
-		get<Animator>()->layers[0].animation = Asset::Animation::awk_fly;
-
-		detached.fire();
+		detach_teleport();
 
 		return true;
 	}

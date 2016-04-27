@@ -40,6 +40,7 @@ struct Walker : public ComponentType<Walker>
 	btCollisionWorld::ClosestRayResultCallback check_support();
 
 	Vec3 base_pos() const;
+	void absolute_pos(const Vec3&);
 	Vec3 forward() const;
 
 	void update(const Update&);

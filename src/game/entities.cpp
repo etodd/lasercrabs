@@ -160,11 +160,9 @@ SensorEntity::SensorEntity(PlayerManager* owner, const Vec3& abs_pos, const Quat
 	light->team = (u8)team;
 	light->radius = SENSOR_RANGE;
 
-	create<Target>();
-
 	create<Sensor>(team, owner);
 
-	create<Audio>();
+	create<Target>();
 
 	RigidBody* body = create<RigidBody>(RigidBody::Type::Sphere, Vec3(SENSOR_RADIUS), 1.0f, CollisionAwkIgnore | CollisionTarget, btBroadphaseProxy::AllFilter);
 	body->set_damping(0.5f, 0.5f);
@@ -229,6 +227,22 @@ ControlPointEntity::ControlPointEntity()
 	model->mesh = Asset::Mesh::control_point;
 	model->color = Vec4(1.0f, 1.0f, 1.0f, 1.0f);
 	model->shader = Asset::Shader::standard;
+}
+
+#define TELEPORTER_RADIUS 1.0f
+TeleporterEntity::TeleporterEntity(const Vec3& pos, const Quat& rot, AI::Team team)
+{
+	create<Transform>()->absolute(pos, rot);
+	create<Teleporter>()->team = team;
+
+	create<Health>(5, 5);
+
+	View* model = create<View>();
+	model->mesh = Asset::Mesh::teleporter;
+	model->team = (u8)team;
+	model->shader = Asset::Shader::standard;
+
+	create<RigidBody>(RigidBody::Type::Sphere, Vec3(TELEPORTER_RADIUS), 0.0f, CollisionAwkIgnore, btBroadphaseProxy::AllFilter);
 }
 
 PlayerSpawn::PlayerSpawn(AI::Team team)

@@ -86,6 +86,7 @@ struct Awk : public ComponentType<Awk>
 
 	Vec3 center() const;
 
+	void detach_teleport();
 	b8 detach(const Vec3&);
 
 	b8 can_go(const Vec3&, Vec3* = nullptr) const;

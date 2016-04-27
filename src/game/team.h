@@ -47,6 +47,7 @@ struct AbilityInfo
 	AssetID icon;
 	r32 spawn_time;
 	u16 spawn_cost;
+	u16 use_cost;
 	u16 upgrade_cost[MAX_ABILITY_LEVELS];
 	static AbilityInfo list[(s32)Ability::count];
 };

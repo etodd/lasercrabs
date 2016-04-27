@@ -375,11 +375,6 @@ b8 awk_filter(const AIPlayerControl* control, const Awk* a)
 	return a->get<AIAgent>()->team != control->get<AIAgent>()->team && !a->get<AIAgent>()->stealth;
 }
 
-b8 teleporter_filter(const AIPlayerControl* control, const Teleporter* m)
-{
-	return m->team != control->get<AIAgent>()->team;
-}
-
 b8 sensor_filter(const AIPlayerControl* control, const Sensor* s)
 {
 	return !s->has<MinionCommon>() && s->team != control->get<AIAgent>()->team;
@@ -410,7 +405,6 @@ Repeat* make_low_level_loop(AIPlayerControl* control)
 							AIBehaviors::React<HealthPickup>::alloc(2, 3, &health_pickup_filter)
 						),
 						AIBehaviors::React<MinionAI>::alloc(2, 3, &default_filter<MinionAI>),
-						AIBehaviors::React<Teleporter>::alloc(2, 3, &teleporter_filter),
 						AIBehaviors::React<Sensor>::alloc(2, 3, &default_filter<Sensor>)
 					),
 					Execute::alloc()->method<AIPlayerControl, &AIPlayerControl::reaction_end>(control) // restart the high level loop if necessary
@@ -437,7 +431,6 @@ void AIPlayerControl::init_behavior_trees()
 						AIBehaviors::Find<HealthPickup>::alloc(1, &health_pickup_filter)
 					),
 					AIBehaviors::Find<MinionAI>::alloc(1, &minion_filter),
-					AIBehaviors::Find<Teleporter>::alloc(1, &teleporter_filter),
 					AIBehaviors::Find<Sensor>::alloc(1, &sensor_filter),
 					AIBehaviors::Find<Awk>::alloc(1, &awk_filter),
 					AIBehaviors::RandomPath::alloc()
@@ -454,7 +447,6 @@ void AIPlayerControl::init_behavior_trees()
 			Delay::alloc(0.1f),
 			Execute::alloc()->method<AIPlayerControl, &AIPlayerControl::update_memory<HealthPickup, &health_pickup_filter> >(this),
 			Execute::alloc()->method<AIPlayerControl, &AIPlayerControl::update_memory<MinionAI, &minion_filter> >(this),
-			Execute::alloc()->method<AIPlayerControl, &AIPlayerControl::update_memory<Teleporter, &teleporter_filter> >(this),
 			Execute::alloc()->method<AIPlayerControl, &AIPlayerControl::update_memory<Sensor, &sensor_filter> >(this),
 			Execute::alloc()->method<AIPlayerControl, &AIPlayerControl::update_memory<Awk, &awk_filter> >(this)
 		)

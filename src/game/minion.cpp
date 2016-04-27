@@ -176,7 +176,7 @@ void MinionCommon::killed(Entity* killer)
 
 // Minion behaviors
 
-Entity* closest_target(const Vec3& pos, AI::Team team)
+Entity* closest_target_to(const Vec3& pos, AI::Team team)
 {
 	Entity* closest = nullptr;
 
@@ -248,7 +248,7 @@ b8 MinionAI::can_see(Entity* target) const
 void MinionAI::new_goal()
 {
 	Vec3 pos = get<Transform>()->absolute_pos();
-	goal.entity = closest_target(pos, get<AIAgent>()->team);
+	goal.entity = closest_target_to(pos, get<AIAgent>()->team);
 	auto path_callback = ObjectLinkEntryArg<MinionAI, const AI::Result&, &MinionAI::set_path>(id());
 	path_timer = PATH_RECALC_TIME;
 	if (goal.entity.ref())
@@ -260,8 +260,32 @@ void MinionAI::new_goal()
 	else
 	{
 		path_request = PathRequest::Random;
-		goal.type = Goal::Type::Random;
+		goal.type = Goal::Type::Position;
 		AI::random_path(pos, path_callback);
+	}
+}
+
+void MinionAI::find_goal_near(const Vec3& target)
+{
+	Entity* entity = closest_target_to(target, get<AIAgent>()->team);
+	Vec3 closest_entity_pos;
+	if (entity)
+		closest_entity_pos = entity->get<Transform>()->absolute_pos();
+	auto path_callback = ObjectLinkEntryArg<MinionAI, const AI::Result&, &MinionAI::set_path>(id());
+	Vec3 pos = get<Transform>()->absolute_pos();
+	if (entity && (closest_entity_pos - target).length_squared() < AWK_MAX_DISTANCE)
+	{
+		goal.entity = entity;
+		goal.type = Goal::Type::Target;
+		path_request = PathRequest::Target;
+		path_timer = PATH_RECALC_TIME;
+		AI::pathfind(pos, closest_entity_pos, path_callback);
+	}
+	else
+	{
+		path_request = PathRequest::Position;
+		goal.type = Goal::Type::Position;
+		AI::pathfind(pos, target, path_callback);
 	}
 }
 
@@ -275,7 +299,7 @@ void MinionAI::update(const Update& u)
 		b8 enable_recalc = true;
 		switch (goal.type)
 		{
-			case Goal::Type::Random:
+			case Goal::Type::Position:
 			{
 				if (path.length == 0 || (path[path.length - 1] - pos).length_squared() < 3.0f * 3.0f)
 					need_new_goal = true;
@@ -327,7 +351,7 @@ void MinionAI::update(const Update& u)
 				// recalc path
 				path_timer = PATH_RECALC_TIME;
 				path_request = PathRequest::Repath;
-				AI::pathfind(pos, goal.type == Goal::Type::Random ? goal.pos : goal.entity.ref()->get<Transform>()->absolute_pos(), ObjectLinkEntryArg<MinionAI, const AI::Result&, &MinionAI::set_path>(id()));
+				AI::pathfind(pos, goal.type == Goal::Type::Position ? goal.pos : goal.entity.ref()->get<Transform>()->absolute_pos(), ObjectLinkEntryArg<MinionAI, const AI::Result&, &MinionAI::set_path>(id()));
 			}
 		}
 	}

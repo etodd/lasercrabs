@@ -11,6 +11,7 @@
 #include "bullet/src/BulletCollision/NarrowPhaseCollision/btRaycastCallback.h"
 #include "audio.h"
 #include "asset/Wwise_IDs.h"
+#include "walker.h"
 
 #if DEBUG
 #define PLAYER_SPAWN_DELAY 1.0f
@@ -36,9 +37,9 @@ r32 Team::control_point_timer;
 
 AbilityInfo AbilityInfo::list[] =
 {
-	{ Asset::Mesh::icon_sensor, 2.5f, 10, { 50, 50 } },
-	{ Asset::Mesh::icon_teleporter, 2.5f, 10, { 50, 50 } },
-	{ Asset::Mesh::icon_minion, 1.5f, 5, { 50, 100 } },
+	{ Asset::Mesh::icon_sensor, 2.5f, 10, 2, { 50, 50 } },
+	{ Asset::Mesh::icon_teleporter, 2.5f, 10, 2, { 50, 50 } },
+	{ Asset::Mesh::icon_minion, 1.5f, 5, 2, { 50, 100 } },
 };
 
 #define GAME_OVER_TIME 5.0f
@@ -489,13 +490,6 @@ void PlayerManager::ability_spawn_start(Ability ability)
 	if (!awk->get<Transform>()->parent.ref())
 		return;
 
-	if (ability == Ability::Minion)
-	{
-		// need to be sitting on a roughly flat surface
-		if ((awk->get<Transform>()->absolute_rot() * Vec3(0, 0, 1)).y < 0.8f)
-			return;
-	}
-
 	current_spawn_ability = ability;
 	spawn_ability_timer = info.spawn_time;
 }
@@ -551,7 +545,7 @@ void PlayerManager::ability_spawn_complete()
 
 				Entity* sensor = World::create<SensorEntity>(this, abs_pos + abs_rot * Vec3(0, 0, -AWK_RADIUS + rope_segment_length + SENSOR_RADIUS), abs_rot);
 
-				sensor->get<Audio>()->post_event(AK::EVENTS::PLAY_SENSOR_SPAWN);
+				Audio::post_global_event(AK::EVENTS::PLAY_SENSOR_SPAWN, abs_pos);
 
 				// attach it to the wall
 				Rope* rope = Rope::start(awk->get<Transform>()->parent.ref()->get<RigidBody>(), abs_pos + abs_rot * Vec3(0, 0, -AWK_RADIUS), abs_rot * Vec3(0, 0, 1), abs_rot);
@@ -561,18 +555,28 @@ void PlayerManager::ability_spawn_complete()
 		}
 		case Ability::Teleporter:
 		{
-			// todo
+			if (awk->get<Transform>()->parent.ref())
+			{
+				add_credits(-cost);
+
+				// spawn a teleporter
+				Quat rot = awk->get<Transform>()->absolute_rot();
+				Vec3 pos = awk->get<Transform>()->absolute_pos() + rot * Vec3(0, 0, -AWK_RADIUS);
+				World::create<TeleporterEntity>(pos, rot, team.ref()->team());
+			}
 			break;
 		}
 		case Ability::Minion:
 		{
-			if (awk->get<Transform>()->parent.ref()
-				&& (awk->get<Transform>()->absolute_rot() * Vec3(0, 0, 1)).y > 0.8f)
+			if (awk->get<Transform>()->parent.ref())
 			{
 				add_credits(-cost);
 
 				// spawn a minion
-				Vec3 pos = awk->get<Transform>()->absolute_pos() + Vec3(0, 1.0f, 0);
+				Vec3 pos;
+				Quat rot;
+				awk->get<Transform>()->absolute(&pos, &rot);
+				pos += rot * Vec3(0, 0, 1.0f);
 				Entity* minion = World::create<Minion>(pos, Quat::euler(0, awk->get<PlayerCommon>()->angle_horizontal, 0), team.ref()->team(), this);
 
 				Audio::post_global_event(AK::EVENTS::PLAY_MINION_SPAWN, pos);
@@ -595,6 +599,10 @@ b8 PlayerManager::ability_use(Ability ability)
 
 	const u8 level = ability_level[(s32)ability];
 
+	u16 cost = AbilityInfo::list[(s32)ability].use_cost;
+	if (credits < cost)
+		return false;
+
 	switch (ability)
 	{
 		case Ability::Sensor:
@@ -605,15 +613,93 @@ b8 PlayerManager::ability_use(Ability ability)
 		}
 		case Ability::Teleporter:
 		{
-			// todo: teleport to last detected enemy position
-			return true;
-			break;
+			AI::Team t = team.ref()->team();
+			r32 closest_dot = 0.8f;
+			Teleporter* closest = nullptr;
+
+			Vec3 me = awk->get<Transform>()->absolute_pos();
+			Vec3 look_dir = awk->get<PlayerCommon>()->look_dir();
+
+			for (auto teleporter = Teleporter::list.iterator(); !teleporter.is_last(); teleporter.next())
+			{
+				if (teleporter.item()->team == t)
+				{
+					r32 dot = look_dir.dot(Vec3::normalize(teleporter.item()->get<Transform>()->absolute_pos() - me));
+					if (dot > closest_dot)
+					{
+						closest = teleporter.item();
+						closest_dot = dot;
+					}
+				}
+			}
+
+			if (closest)
+			{
+				// teleport to selected teleporter
+				awk->get<Awk>()->detach_teleport();
+
+				Vec3 pos;
+				Quat rot;
+				closest->get<Transform>()->absolute(&pos, &rot);
+				awk->get<Transform>()->absolute(pos + rot * Vec3(0, 0, AWK_RADIUS * 2.0f), rot);
+				awk->get<Awk>()->velocity = rot * Vec3(0.0f, 0.0f, -AWK_FLY_SPEED); // make sure it shoots into the wall
+
+				add_credits(-cost);
+				return true;
+			}
+			return false;
 		}
 		case Ability::Minion:
 		{
-			// todo: summon existing minions to current location
-			return true;
-			break;
+			// summon existing minions to target location
+
+			Vec3 target;
+			if (awk->get<Awk>()->can_go(awk->get<PlayerCommon>()->look_dir(), &target))
+			{
+				AI::Team t = team.ref()->team();
+
+				// find a teleporter to use
+				r32 closest_distance = FLT_MAX;
+				Teleporter* closest_teleporter = nullptr;
+				for (auto teleporter = Teleporter::list.iterator(); !teleporter.is_last(); teleporter.next())
+				{
+					if (teleporter.item()->team == t)
+					{
+						Vec3 teleporter_pos = teleporter.item()->get<Transform>()->absolute_pos();
+						r32 distance = (target - teleporter_pos).length_squared();
+						if (distance < closest_distance)
+						{
+							closest_teleporter = teleporter.item();
+							closest_distance = distance;
+						}
+					}
+				}
+
+				Vec3 closest_teleporter_pos;
+				Quat closest_teleporter_rot;
+				if (closest_teleporter)
+					closest_teleporter->get<Transform>()->absolute(&closest_teleporter_pos, &closest_teleporter_rot);
+
+				s32 index = 0;
+				for (auto i = MinionAI::list.iterator(); !i.is_last(); i.next())
+				{
+					if (i.item()->get<AIAgent>()->team == t)
+					{
+						Vec3 minion_pos = i.item()->get<Transform>()->absolute_pos();
+						if (closest_teleporter && (closest_distance < (minion_pos - target).length_squared())) // use the teleporter
+						{
+							// space minions out around the teleporter
+							Vec3 teleport_pos = closest_teleporter_pos + closest_teleporter_rot * Quat::euler(0, 0, index * PI * 0.25f) * Vec3(1, 0, 1);
+							i.item()->get<Walker>()->absolute_pos(teleport_pos);
+							index++;
+						}
+						i.item()->find_goal_near(target);
+					}
+				}
+				add_credits(-cost);
+				return true;
+			}
+			return false;
 		}
 		default:
 		{
@@ -718,6 +804,7 @@ void PlayerManager::add_credits(u16 c)
 {
 	if (c != 0)
 	{
+		vi_assert(c > 0 || credits >= c);
 		credits += c;
 		credits_flash_timer = CREDITS_FLASH_TIME;
 	}
@@ -749,6 +836,7 @@ void PlayerManager::update(const Update& u)
 	if (spawn_ability_timer > 0.0f)
 	{
 		spawn_ability_timer = vi_max(0.0f, spawn_ability_timer - u.time.delta);
+
 		if (spawn_ability_timer == 0.0f && current_spawn_ability != Ability::None)
 			ability_spawn_complete();
 	}

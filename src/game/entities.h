@@ -85,6 +85,11 @@ struct Teleporter : public ComponentType<Teleporter>
 	void awake() {}
 };
 
+struct TeleporterEntity : public Entity
+{
+	TeleporterEntity(const Vec3&, const Quat&, AI::Team);
+};
+
 struct ShockwaveEntity : public Entity
 {
 	ShockwaveEntity(r32);

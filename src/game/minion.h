@@ -35,7 +35,7 @@ struct MinionAI : public ComponentType<MinionAI>
 	{
 		enum class Type
 		{
-			Random,
+			Position,
 			Target,
 		};
 
@@ -48,6 +48,7 @@ struct MinionAI : public ComponentType<MinionAI>
 	{
 		None,
 		Random,
+		Position,
 		Target,
 		Repath,
 	};
@@ -64,6 +65,7 @@ struct MinionAI : public ComponentType<MinionAI>
 	b8 can_see(Entity*) const;
 
 	void new_goal();
+	void find_goal_near(const Vec3&);
 	void set_path(const AI::Result&);
 	void update(const Update&);
 	void turn_to(const Vec3&);

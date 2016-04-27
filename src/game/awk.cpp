@@ -31,9 +31,6 @@ namespace VI
 #define AWK_MIN_LEG_BLEND_SPEED (AWK_LEG_BLEND_SPEED * 0.05f)
 #define AWK_SHIELD_RADIUS 1.0f
 
-// if you hit a shield just right (i.e. the dot product is less than this threshold), you'll shoot right through it
-#define SHIELD_PENETRATION_DOT -0.98f
-
 AwkRaycastCallback::AwkRaycastCallback(const Vec3& a, const Vec3& b, const Entity* awk)
 	: btCollisionWorld::ClosestRayResultCallback(a, b)
 {
@@ -151,17 +148,19 @@ void Awk::hit_by(const TargetEvent& e)
 	Vec3 awk_pos = e.hit_by->get<Transform>()->absolute_pos();
 	Vec3 awk_dir = Vec3::normalize(e.hit_by->get<Awk>()->velocity);
 	Vec3 intersection;
-	if (get<Transform>()->parent.ref() || e.hit_by->get<Health>()->hp > get<Health>()->hp) // if we're in flight, only take damage if the enemy has higher health than us
+	u16 enemy_hp = e.hit_by->get<Health>()->hp;
+	u16 my_hp = get<Health>()->hp;
+	if (get<Transform>()->parent.ref())
 	{
-		if (LMath::ray_sphere_intersect(awk_pos, awk_pos + awk_dir * AWK_MAX_DISTANCE, me, AWK_SHIELD_RADIUS, &intersection))
-		{
-			if (awk_dir.dot(Vec3::normalize(intersection - me)) > SHIELD_PENETRATION_DOT)
-				get<Health>()->damage(e.hit_by, 1); // glancing blow
-			else
-				get<Health>()->damage(e.hit_by, AWK_HEALTH); // direct hit
-		}
-		else
-			get<Health>()->damage(e.hit_by, 1); // glancing blow
+		// if we're attached to a wall, take damage if the enemy has equal or higher health than us
+		if (enemy_hp >= my_hp)
+			get<Health>()->damage(e.hit_by, 1);
+	}
+	else
+	{
+		// if we're in flight, only take damage if the enemy has higher health than us
+		if (enemy_hp > my_hp)
+			get<Health>()->damage(e.hit_by, 1);
 	}
 }
 
@@ -837,10 +836,10 @@ void Awk::update(const Update& u)
 						b8 stop = false;
 						if ((entity->has<Awk>() && (group & CollisionShield))) // it's an AWK shield
 						{
-							if (!entity->get<Transform>()->parent.ref()) // it's in flight; bounce off
+							if (!entity->get<Transform>()->parent.ref()) // it's in flight; always bounce off
 								stop = true;
-							else if (entity->get<Health>()->hp > 1 && dir.dot(Vec3::normalize(Vec3(ray_callback.m_hitPointWorld[i]) - entity->get<Transform>()->absolute_pos())) > SHIELD_PENETRATION_DOT)
-								stop = true; // it's a bad shot, we'll reflect off the shield
+							else if (entity->get<Health>()->hp > 1)
+								stop = true; // they have shield to spare; we'll bounce off the shield
 						}
 						else if (!(group & (AWK_PERMEABLE_MASK | CollisionWalker))) // it's not a target or a person; we can't go through it
 							stop = true;
@@ -878,9 +877,7 @@ void Awk::update(const Update& u)
 								hit_target(hit.ref());
 								if (group & CollisionShield)
 								{
-									// if we didn't destroy the shield,
-									// and if it's not a good shot,
-									// then bounce off the shield
+									// if we didn't destroy the shield, then bounce off it
 									if (hit.ref() && hit.ref()->get<Health>()->hp > 0)
 										reflect(ray_callback.m_hitPointWorld[i], ray_callback.m_hitNormalWorld[i], u);
 								}

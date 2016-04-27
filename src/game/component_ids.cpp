@@ -44,14 +44,13 @@ COMPONENT_TYPE(22, LocalPlayerControl) \
 COMPONENT_TYPE(23, Ragdoll) \
 COMPONENT_TYPE(24, SkinnedModel) \
 COMPONENT_TYPE(25, View) \
-COMPONENT_TYPE(26, TurretControl) \
+COMPONENT_TYPE(26, ControlPoint) \
 COMPONENT_TYPE(27, Projectile) \
 COMPONENT_TYPE(28, Parkour) \
 COMPONENT_TYPE(29, Tile) \
 COMPONENT_TYPE(30, HealthPickup) \
 COMPONENT_TYPE(31, Sensor) \
 COMPONENT_TYPE(32, Teleporter) \
-COMPONENT_TYPE(33, ControlPoint) \
 
 Family World::families = 34;
 

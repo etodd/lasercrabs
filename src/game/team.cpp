@@ -20,7 +20,6 @@
 #endif
 
 #define CREDITS_FLASH_TIME 0.5f
-#define CONTROL_POINT_INTERVAL 15.0f
 
 namespace VI
 {
@@ -204,53 +203,6 @@ void Team::update_all(const Update& u)
 	if (Game::data.mode != Game::Mode::Pvp)
 		return;
 
-	// control points
-	control_point_timer -= u.time.delta;
-	if (control_point_timer < 0.0f)
-	{
-		// give points to teams based on how many control points they own
-		s32 reward_buffer[(s32)AI::Team::count] = {};
-		for (auto i = ControlPoint::list.iterator(); !i.is_last(); i.next())
-		{
-			Vec3 control_point_pos;
-			Quat control_point_rot;
-			i.item()->get<Transform>()->absolute(&control_point_pos, &control_point_rot);
-
-			AI::Team control_point_team = AI::Team::None;
-			b8 contested = false;
-			for (auto sensor = Sensor::list.iterator(); !sensor.is_last(); sensor.next())
-			{
-				if (sensor.item()->get<PlayerTrigger>()->contains(control_point_pos))
-				{
-					Vec3 to_sensor = sensor.item()->get<Transform>()->absolute_pos() - control_point_pos;
-					if (to_sensor.dot(control_point_rot * Vec3(0, 0, 1)) > 0.0f) // make sure the control point is facing the sensor
-					{
-						AI::Team sensor_team = sensor.item()->team;
-						if (control_point_team == AI::Team::None)
-							control_point_team = sensor_team;
-						else if (control_point_team != sensor_team)
-						{
-							contested = true;
-							break;
-						}
-					}
-				}
-			}
-
-			if (control_point_team != AI::Team::None && !contested)
-				reward_buffer[(s32)control_point_team] += CREDITS_CONTROL_POINT;
-		}
-
-		// add credits to players
-		for (auto i = PlayerManager::list.iterator(); !i.is_last(); i.next())
-		{
-			s32 reward = reward_buffer[(s32)i.item()->team.ref()->team()];
-			i.item()->add_credits(reward);
-		}
-
-		control_point_timer = CONTROL_POINT_INTERVAL;
-	}
-
 	// determine which Awks are seen by which teams
 	Sensor* visibility[MAX_PLAYERS][(s32)AI::Team::count] = {};
 	for (auto player = PlayerManager::list.iterator(); !player.is_last(); player.next())
@@ -273,11 +225,16 @@ void Team::update_all(const Update& u)
 				{
 					if (sensor.item()->get<PlayerTrigger>()->is_triggered(player_entity))
 					{
-						if (player_entity->has<Awk>() && player_entity->get<Transform>()->parent.ref())
+						if (player_entity->has<Awk>() )
 						{
-							// we're on a wall; make sure the wall is facing the sensor
-							Vec3 to_sensor = sensor.item()->get<Transform>()->absolute_pos() - player_pos;
-							if (to_sensor.dot(player_rot * Vec3(0, 0, 1)) > 0.0f)
+							if (player_entity->get<Transform>()->parent.ref())
+							{
+								// we're on a wall; make sure the wall is facing the sensor
+								Vec3 to_sensor = sensor.item()->get<Transform>()->absolute_pos() - player_pos;
+								if (to_sensor.dot(player_rot * Vec3(0, 0, 1)) > 0.0f)
+									*sensor_visibility = sensor.item();
+							}
+							else // we're mid-air; we are visible to the sensor
 								*sensor_visibility = sensor.item();
 						}
 					}
@@ -748,13 +705,7 @@ b8 PlayerManager::ability_upgrade(Ability a)
 
 	level += 1;
 	add_credits(-cost);
-	if (a == Ability::Teleporter)
-	{
-		vi_assert(entity.ref());
-		if (level == 2)
-			entity.ref()->get<PlayerCommon>()->cooldown_multiplier = 1.25f;
-	}
-	else if (a == Ability::Sensor)
+	if (a == Ability::Sensor)
 	{
 		if (level == 2)
 		{
@@ -766,9 +717,15 @@ b8 PlayerManager::ability_upgrade(Ability a)
 			}
 		}
 	}
+	else if (a == Ability::Teleporter)
+	{
+		vi_assert(entity.ref());
+		if (level == 2)
+			entity.ref()->get<PlayerCommon>()->cooldown_multiplier = 1.25f;
+	}
 	else if (a == Ability::Minion)
 	{
-		// todo: make minions attack enemy player
+		// todo: make minions attack enemy health pickups
 	}
 
 	return true;

@@ -62,7 +62,7 @@ struct SensorEntity : public Entity
 };
 
 #define SENSOR_RANGE 20.0f
-#define SENSOR_TIME 2.0f
+#define SENSOR_TIME 1.75f
 #define SENSOR_TIMEOUT 5.0f
 #define SENSOR_RADIUS 0.15f
 struct Sensor : public ComponentType<Sensor>
@@ -82,7 +82,10 @@ struct Sensor : public ComponentType<Sensor>
 struct Teleporter : public ComponentType<Teleporter>
 {
 	AI::Team team;
+	u32 obstacle_id;
+	Teleporter();
 	void awake() {}
+	~Teleporter();
 };
 
 struct TeleporterEntity : public Entity
@@ -156,6 +159,10 @@ struct Rope : public ComponentType<Rope>
 
 struct ControlPoint : public ComponentType<ControlPoint>
 {
+	static r32 timer;
+	static void update_all(const Update&);
+	AI::Team team;
+	ControlPoint();
 	void awake() {}
 };
 
@@ -192,32 +199,6 @@ struct Tile : public ComponentType<Tile>
 struct PlayerSpawn : public Entity
 {
 	PlayerSpawn(AI::Team);
-};
-
-#define TURRET_VIEW_RANGE 20.0f
-struct Turret : public Entity
-{
-	Turret(AI::Team);
-};
-
-struct TurretControl : public ComponentType<TurretControl>
-{
-	Ref<Entity> target;
-	r32 yaw;
-	r32 pitch;
-	r32 cooldown;
-	r32 target_check_time;
-	Quat base_rot;
-	u32 obstacle_id;
-
-	void awake();
-
-	void killed(Entity*);
-	void update(const Update&);
-	void check_target();
-	b8 can_see(Entity*) const;
-
-	~TurretControl();
 };
 
 struct ProjectileEntity : public Entity

@@ -8,14 +8,13 @@ namespace Asset
 {
 	namespace Armature
 	{
-		const s32 count = 3;
+		const s32 count = 2;
 		const AssetID awk = 0;
 		const AssetID character = 1;
-		const AssetID turret = 2;
 	}
 	namespace Bone
 	{
-		const s32 count = 33;
+		const s32 count = 31;
 		const AssetID awk_a1 = 5;
 		const AssetID awk_a2 = 6;
 		const AssetID awk_b1 = 1;
@@ -47,8 +46,6 @@ namespace Asset
 		const AssetID character_thigh_R = 19;
 		const AssetID character_upper_arm_L = 4;
 		const AssetID character_upper_arm_R = 10;
-		const AssetID turret_gun = 1;
-		const AssetID turret_root = 0;
 	}
 }
 

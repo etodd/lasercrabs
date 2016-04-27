@@ -201,11 +201,10 @@ void Game::update(const Update& update_in)
 	for (auto i = Parkour::list.iterator(); !i.is_last(); i.next())
 		i.item()->update(u);
 	Sensor::update_all(u);
+	ControlPoint::update_all(u);
 	for (auto i = Shockwave::list.iterator(); !i.is_last(); i.next())
 		i.item()->update(u);
 	for (auto i = Projectile::list.iterator(); !i.is_last(); i.next())
-		i.item()->update(u);
-	for (auto i = TurretControl::list.iterator(); !i.is_last(); i.next())
 		i.item()->update(u);
 	for (auto i = Tile::list.iterator(); !i.is_last(); i.next())
 		i.item()->update(u);
@@ -897,11 +896,6 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 				AIPlayer* player = AIPlayer::list.add();
 				new (player) AIPlayer(manager);
 			}
-		}
-		else if (cJSON_GetObjectItem(element, "Turret"))
-		{
-			AI::Team team = (AI::Team)Json::get_s32(element, "team", (s32)AI::Team::A);
-			entity = World::alloc<Turret>(team);
 		}
 		else if (cJSON_GetObjectItem(element, "HealthPickup"))
 		{

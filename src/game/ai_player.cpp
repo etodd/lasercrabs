@@ -203,10 +203,13 @@ b8 AIPlayerControl::aim_and_shoot(const Update& u, const Vec3& target, b8 exact)
 
 	if (common->cooldown == 0.0f)
 		aim_timer += u.time.delta;
-	else
+
+	// crawling
 	{
 		Vec3 pos = get<Awk>()->center();
 		Vec3 to_target = Vec3::normalize(target - pos);
+
+		b8 could_go_before_crawling = get<Awk>()->can_go(to_target);
 
 		Vec3 old_pos;
 		Quat old_rot;
@@ -216,14 +219,18 @@ b8 AIPlayerControl::aim_and_shoot(const Update& u, const Vec3& target, b8 exact)
 
 		Vec3 new_pos = get<Transform>()->absolute_pos();
 
-		b8 revert = true;
+		b8 revert = false;
 
-		Vec3 hit;
-		if (get<Awk>()->can_go(Vec3::normalize(target - new_pos), &hit))
+		if (could_go_before_crawling)
 		{
-			// we can still go generally toward the target;
-			if (!exact || (hit - target).length() < AWK_RADIUS) // make sure we're actually going to land at the right spot
-				revert = false;
+			revert = true;
+			Vec3 hit;
+			if (get<Awk>()->can_go(Vec3::normalize(target - new_pos), &hit))
+			{
+				// we can still go generally toward the target;
+				if (!exact || (hit - target).length() < AWK_RADIUS) // make sure we're actually going to land at the right spot
+					revert = false;
+			}
 		}
 
 		if (revert)
@@ -313,7 +320,7 @@ b8 AIPlayerControl::aim_and_shoot(const Update& u, const Vec3& target, b8 exact)
 
 b8 health_pickup_filter(const AIPlayerControl* control, const HealthPickup* h)
 {
-	return h->owner.ref() == nullptr;
+	return h->owner.ref() != control->get<Health>();
 }
 
 b8 minion_filter(const AIPlayerControl* control, const MinionAI* m)

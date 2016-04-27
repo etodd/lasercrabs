@@ -126,6 +126,7 @@ struct LocalPlayerControl : public ComponentType<LocalPlayerControl>
 	void awk_attached();
 	void hit_target(Entity*);
 	void damaged(const DamageEvent&);
+	void hit_by(const TargetEvent&);
 	void health_picked_up();
 	void add_target_indicator(Target*, const Vec4&, b8 = false);
 

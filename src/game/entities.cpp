@@ -121,20 +121,21 @@ void HealthPickup::reset()
 
 void HealthPickup::hit(const TargetEvent& e)
 {
-	if (e.hit_by->has<AIAgent>() && e.hit_by->has<Health>())
+	if (e.hit_by->has<AIAgent>() && e.hit_by->has<Health>() && (!owner.ref() || e.hit_by != owner.ref()->entity()))
 	{
-		Health* health = e.hit_by->get<Health>();
-		if (!owner.ref())
-		{
-			if (health->hp < health->hp_max)
-			{
-				health->add(1);
-				owner = health;
+		if (owner.ref())
+			owner.ref()->get<Health>()->damage(e.hit_by, 1);
 
-				AI::Team team = e.hit_by->get<AIAgent>()->team;
-				get<PointLight>()->team = (u8)team;
-				get<View>()->team = (u8)team;
-			}
+		Health* health = e.hit_by->get<Health>();
+
+		if (health->hp < health->hp_max)
+		{
+			health->add(1);
+			owner = health;
+
+			AI::Team team = e.hit_by->get<AIAgent>()->team;
+			get<PointLight>()->team = (u8)team;
+			get<View>()->team = (u8)team;
 		}
 	}
 }
@@ -225,11 +226,73 @@ ControlPointEntity::ControlPointEntity()
 
 	View* model = create<View>();
 	model->mesh = Asset::Mesh::control_point;
-	model->color = Vec4(1.0f, 1.0f, 1.0f, 1.0f);
+	model->color = Vec4(1.0f, 1.0f, 1.0f, MATERIAL_NO_OVERRIDE);
 	model->shader = Asset::Shader::standard;
 }
 
-#define TELEPORTER_RADIUS 1.0f
+ControlPoint::ControlPoint()
+	: team(AI::Team::None)
+{
+}
+
+#define CONTROL_POINT_INTERVAL 15.0f
+r32 ControlPoint::timer = CONTROL_POINT_INTERVAL;
+void ControlPoint::update_all(const Update& u)
+{
+	for (auto i = list.iterator(); !i.is_last(); i.next())
+	{
+		Vec3 control_point_pos;
+		Quat control_point_rot;
+		i.item()->get<Transform>()->absolute(&control_point_pos, &control_point_rot);
+
+		AI::Team control_point_team = AI::Team::None;
+		for (auto sensor = Sensor::list.iterator(); !sensor.is_last(); sensor.next())
+		{
+			if (sensor.item()->get<PlayerTrigger>()->contains(control_point_pos))
+			{
+				Vec3 to_sensor = sensor.item()->get<Transform>()->absolute_pos() - control_point_pos;
+				if (to_sensor.dot(control_point_rot * Vec3(0, 0, 1)) > 0.0f) // make sure the control point is facing the sensor
+				{
+					AI::Team sensor_team = sensor.item()->team;
+					if (control_point_team == AI::Team::None)
+						control_point_team = sensor_team;
+					else if (control_point_team != sensor_team)
+					{
+						control_point_team = AI::Team::None; // control point is contested
+						break;
+					}
+				}
+			}
+		}
+
+		i.item()->team = control_point_team;
+		i.item()->get<View>()->team = (u8)control_point_team;
+	}
+
+	timer -= u.time.delta;
+	if (timer < 0.0f)
+	{
+		// give points to teams based on how many control points they own
+		s32 reward_buffer[(s32)AI::Team::count] = {};
+
+		for (auto i = list.iterator(); !i.is_last(); i.next())
+		{
+			if (i.item()->team != AI::Team::None)
+				reward_buffer[(s32)i.item()->team] += CREDITS_CONTROL_POINT;
+		}
+
+		// add credits to players
+		for (auto i = PlayerManager::list.iterator(); !i.is_last(); i.next())
+		{
+			s32 reward = reward_buffer[(s32)i.item()->team.ref()->team()];
+			i.item()->add_credits(reward);
+		}
+
+		timer = CONTROL_POINT_INTERVAL;
+	}
+
+}
+#define TELEPORTER_RADIUS 0.5f
 TeleporterEntity::TeleporterEntity(const Vec3& pos, const Quat& rot, AI::Team team)
 {
 	create<Transform>()->absolute(pos, rot);
@@ -243,6 +306,16 @@ TeleporterEntity::TeleporterEntity(const Vec3& pos, const Quat& rot, AI::Team te
 	model->shader = Asset::Shader::standard;
 
 	create<RigidBody>(RigidBody::Type::Sphere, Vec3(TELEPORTER_RADIUS), 0.0f, CollisionAwkIgnore, btBroadphaseProxy::AllFilter);
+}
+
+Teleporter::Teleporter()
+{
+	obstacle_id = AI::obstacle_add(get<Transform>()->absolute_pos(), TELEPORTER_RADIUS, TELEPORTER_RADIUS);
+}
+
+Teleporter::~Teleporter()
+{
+	AI::obstacle_remove(obstacle_id);
 }
 
 PlayerSpawn::PlayerSpawn(AI::Team team)
@@ -260,158 +333,6 @@ PlayerSpawn::PlayerSpawn(AI::Team team)
 	light->team = (u8)team;
 	light->offset.y = 2.0f;
 	light->radius = 12.0f;
-}
-
-#define TURRET_COOLDOWN 0.4f
-#define TURRET_RADIUS 1.25f
-#define TURRET_TARGET_CHECK_TIME 0.5f
-#define TURRET_ROTATION_SPEED ((PI * 0.5f) / 0.75f)
-Turret::Turret(AI::Team team)
-{
-	create<Transform>();
-
-	SkinnedModel* view = create<SkinnedModel>();
-	view->mesh = Asset::Mesh::turret;
-	view->shader = Asset::Shader::armature;
-	view->team = (u8)team;
-	view->offset.translate(Vec3(0, -1.25f, 0));
-
-	Animator* animator = create<Animator>();
-	animator->armature = Asset::Armature::turret;
-	
-	create<TurretControl>();
-
-	create<AIAgent>()->team = team;
-
-	create<Health>(200, 200);
-
-	create<RigidBody>(RigidBody::Type::Sphere, Vec3(TURRET_RADIUS), 0.0f, CollisionInaccessible, CollisionInaccessibleMask);
-
-	PointLight* light = create<PointLight>();
-	light->team = (u8)team;
-	light->type = PointLight::Type::Override;
-	light->radius = TURRET_VIEW_RANGE;
-}
-
-void TurretControl::awake()
-{
-	target_check_time = mersenne::randf_oo() * TURRET_TARGET_CHECK_TIME;
-	link_arg<Entity*, &TurretControl::killed>(get<Health>()->killed);
-	base_rot = get<Transform>()->rot;
-
-	obstacle_id = AI::obstacle_add(get<Transform>()->absolute_pos(), TURRET_RADIUS, TURRET_RADIUS);
-}
-
-void TurretControl::killed(Entity* by)
-{
-	World::remove_deferred(entity());
-}
-
-b8 TurretControl::can_see(Entity* target) const
-{
-	if (target->has<AIAgent>() && target->get<AIAgent>()->stealth)
-		return false;
-
-	Vec3 pos = get<Transform>()->absolute_pos();
-
-	Vec3 target_pos = target->get<Transform>()->absolute_pos();
-	Vec3 to_target = target_pos - pos;
-	float distance_to_target = to_target.length();
-	if (distance_to_target < TURRET_VIEW_RANGE)
-	{
-		Vec3 to_target_normalized = to_target / distance_to_target;
-		if (to_target_normalized.y > -0.75f)
-		{
-			RaycastCallbackExcept ray_callback(pos, target_pos, entity());
-			Physics::raycast(&ray_callback);
-			if (!ray_callback.hasHit() || ray_callback.m_collisionObject->getUserIndex() == target->id())
-				return true;
-		}
-	}
-	return false;
-}
-
-s32 turret_priority(Entity* e)
-{
-	if (e->has<MinionAI>())
-		return 2;
-	else
-		return 1;
-}
-
-void TurretControl::check_target()
-{
-	target_check_time = TURRET_TARGET_CHECK_TIME;
-
-	// if we are targeting an enemy
-	// make sure we still want to do that
-	if (target.ref() && can_see(target.ref()))
-		return;
-
-	// find a new target
-	target = nullptr;
-
-	AI::Team team = get<AIAgent>()->team;
-	r32 target_priority = 0;
-	for (auto i = AIAgent::list.iterator(); !i.is_last(); i.next())
-	{
-		if (i.item()->team != team && can_see(i.item()->entity()))
-		{
-			r32 candidate_priority = turret_priority(i.item()->entity());
-			if (candidate_priority > target_priority)
-			{
-				target = i.item()->entity();
-				target_priority = candidate_priority;
-			}
-		}
-	}
-}
-
-void TurretControl::update(const Update& u)
-{
-	if (cooldown > 0.0f)
-		cooldown -= u.time.delta;
-
-	target_check_time -= u.time.delta;
-	if (target_check_time < 0.0f)
-		check_target();
-
-	if (target.ref())
-	{
-		Quat absolute_base_rot;
-		if (get<Transform>()->parent.ref())
-			absolute_base_rot = get<Transform>()->absolute_rot() * base_rot;
-		else
-			absolute_base_rot = base_rot;
-		Quat inv_base_rot = absolute_base_rot.inverse();
-
-		Vec3 target_pos = target.ref()->get<Transform>()->absolute_pos();
-		Vec3 to_target = target_pos - get<Transform>()->absolute_pos();
-		to_target.normalize();
-		Vec3 relative_to_target = inv_base_rot * to_target;
-		r32 target_yaw = atan2f(relative_to_target.x, relative_to_target.z);
-		r32 target_pitch = atan2f(relative_to_target.y, Vec2(relative_to_target.x, relative_to_target.z).length());
-		yaw = LMath::rotate_toward(yaw, target_yaw, TURRET_ROTATION_SPEED * u.time.delta);
-		pitch = LMath::rotate_toward(pitch, target_pitch, TURRET_ROTATION_SPEED * u.time.delta);
-
-		get<Transform>()->absolute_rot(absolute_base_rot * Quat::euler(0, yaw, 0));
-		get<Animator>()->override_bone(Asset::Bone::turret_gun, Vec3::zero, Quat::euler(pitch, 0, 0));
-
-		Vec3 gun_pos(2.5f, 0, 0);
-		Quat gun_rot;
-		get<Animator>()->to_world(Asset::Bone::turret_gun, &gun_pos, &gun_rot);
-
-		if (cooldown <= 0.0f && to_target.dot(gun_rot * Vec3(1, 0, 0)) > 0.99f)
-		{
-			World::create<ProjectileEntity>(entity(), gun_pos, 1, target_pos - gun_pos);
-			cooldown = TURRET_COOLDOWN;
-		}
-	}
-}
-
-TurretControl::~TurretControl()
-{
-	AI::obstacle_remove(obstacle_id);
 }
 
 #define PROJECTILE_SPEED 100.0f

@@ -455,7 +455,33 @@ void LocalPlayer::draw_alpha(const RenderParams& params) const
 
 				char buffer[128];
 				sprintf(buffer, "%d", manager.ref()->credits);
-				draw_icon_text(params, center + Vec2(0, radius * -0.5f), Asset::Mesh::icon_credits, buffer, draw ? (flashing ? UI::default_color : UI::accent_color) : UI::background_color);
+				Vec2 credits_pos = center + Vec2(0, radius * -0.5f);
+				draw_icon_text(params, credits_pos, Asset::Mesh::icon_credits, buffer, draw ? (flashing ? UI::default_color : UI::accent_color) : UI::background_color);
+
+				// control point increment amount
+				{
+					AI::Team team = manager.ref()->team.ref()->team();
+					s32 control_points = 0;
+					for (auto i = ControlPoint::list.iterator(); !i.is_last(); i.next())
+					{
+						if (i.item()->team == team)
+							control_points++;
+					}
+
+					if (control_points > 0)
+					{
+						UIText text;
+						text.color = UI::accent_color;
+						text.text("+%d", control_points * CREDITS_CONTROL_POINT);
+						text.font = Asset::Font::lowpoly;
+						text.anchor_x = UIText::Anchor::Center;
+						text.anchor_y = UIText::Anchor::Center;
+						text.size = text_size;
+						Vec2 pos = credits_pos + Vec2(0, text_size * UI::scale * -2.0f);
+						UI::box(params, text.rect(pos).outset(8.0f * UI::scale), UI::background_color);
+						text.draw(params, pos);
+					}
+				}
 			}
 
 			// ability 1
@@ -848,6 +874,7 @@ void LocalPlayerControl::awake()
 		link<&LocalPlayerControl::awk_attached>(get<Awk>()->attached);
 		link_arg<Entity*, &LocalPlayerControl::hit_target>(get<Awk>()->hit);
 		link_arg<const DamageEvent&, &LocalPlayerControl::damaged>(get<Health>()->damaged);
+		link_arg<const TargetEvent&, &LocalPlayerControl::hit_by>(get<Target>()->target_hit);
 		link<&LocalPlayerControl::health_picked_up>(get<Health>()->added);
 	}
 
@@ -870,8 +897,13 @@ void LocalPlayerControl::hit_target(Entity* target)
 
 void LocalPlayerControl::damaged(const DamageEvent& e)
 {
-	health_flash_timer = msg_time;
-	damage_timer = damage_shake_time;
+	health_flash_timer = msg_time; // damaged in some way; flash the HP indicator
+}
+
+void LocalPlayerControl::hit_by(const TargetEvent& e)
+{
+	if (get<Health>()->hp <= e.hit_by->get<Health>()->hp)
+		damage_timer = damage_shake_time; // we were physically hit by the enemy; shake the camera
 }
 
 void LocalPlayerControl::health_picked_up()
@@ -1320,7 +1352,7 @@ void LocalPlayerControl::update(const Update& u)
 		{
 			for (auto i = HealthPickup::list.iterator(); !i.is_last(); i.next())
 			{
-				if (!i.item()->owner.ref())
+				if (i.item()->owner.ref() != get<Health>())
 				{
 					add_target_indicator(i.item()->get<Target>(), UI::accent_color);
 					if (indicators.length == indicators.capacity())
@@ -1418,6 +1450,28 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 		{
 			if (t.item()->team == team)
 				draw_indicator(params, t.item()->get<Transform>()->absolute_pos(), Team::ui_color_friend, false);
+		}
+	}
+
+	// highlight control points
+	{
+		Vec3 me = get<Transform>()->absolute_pos();
+		for (auto i = ControlPoint::list.iterator(); !i.is_last(); i.next())
+		{
+			Vec3 pos = i.item()->get<Transform>()->absolute_pos();
+			if ((pos - me).length_squared() < AWK_MAX_DISTANCE * AWK_MAX_DISTANCE)
+			{
+				Vec2 p;
+				if (UI::project(params, pos, &p))
+				{
+					Vec2 icon_size(text_size * UI::scale);
+					UI::box(params, Rect2(p + icon_size * -0.5f, icon_size).outset(4.0f * UI::scale), UI::background_color);
+
+					AI::Team control_point_team = i.item()->team;
+					const Vec4& color = control_point_team == team ? Team::ui_color_friend : (control_point_team == AI::Team::None ? UI::default_color : Team::ui_color_enemy);
+					UI::mesh(params, Asset::Mesh::icon_credits, p, icon_size, color);
+				}
+			}
 		}
 	}
 

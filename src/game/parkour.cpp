@@ -456,7 +456,7 @@ void Parkour::update(const Update& u)
 
 	// update animation
 
-	lean += (lean_target - lean) * vi_min(1.0f, 15.0f * u.time.delta);
+	lean += (lean_target - lean) * vi_min(1.0f, 20.0f * u.time.delta);
 
 	Animator::Layer* layer0 = &get<Animator>()->layers[0];
 	if (fsm.current == State::WallRun)

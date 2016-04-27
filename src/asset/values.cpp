@@ -34,8 +34,6 @@ const char* AssetLookup::Mesh::values[] =
 	"assets/target.msh",
 	"assets/teleporter.msh",
 	"assets/tri_tube.msh",
-	"assets/turret.msh",
-	"assets/vision_cone.msh",
 	"assets/lvl/containment_09_Cube.msh",
 	"assets/lvl/containment_09_Cube_001.msh",
 	"assets/lvl/containment_09_Cube_001_1.msh",
@@ -100,8 +98,6 @@ const char* AssetLookup::Mesh::names[] =
 	"target",
 	"teleporter",
 	"tri_tube",
-	"turret",
-	"vision_cone",
 	"containment_09_Cube",
 	"containment_09_Cube_001",
 	"containment_09_Cube_001_1",
@@ -174,7 +170,6 @@ const char* AssetLookup::Armature::values[] =
 {
 	"assets/awk.arm",
 	"assets/character.arm",
-	"assets/turret.arm",
 	0,
 };
 
@@ -183,7 +178,6 @@ const char* AssetLookup::Armature::names[] =
 {
 	"awk",
 	"character",
-	"turret",
 	0,
 };
 

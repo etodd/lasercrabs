@@ -49,7 +49,6 @@ AIPlayerControl::AIPlayerControl(AIPlayer* p)
 	path_index(),
 	memory(),
 	behavior_callback(),
-	active_path_request(-1),
 	path_priority(),
 	path(),
 	loop_high_level(),
@@ -117,7 +116,7 @@ void AIPlayerControl::awk_hit(Entity* e)
 	hit_target = true;
 }
 
-void AIPlayerControl::set_target(Target* t, Behavior* callback, s8 priority)
+void AIPlayerControl::set_target(Target* t, s8 priority)
 {
 #if DEBUG_AI_CONTROL 
 	vi_debug("Awk target: %d", t->entity_id);
@@ -127,76 +126,60 @@ void AIPlayerControl::set_target(Target* t, Behavior* callback, s8 priority)
 	hit_target = false;
 	path.length = 0;
 	path_priority = priority;
-	behavior_callback = callback;
-	active_path_request = -1;
 }
 
-void AIPlayerControl::pathfind(const Vec3& end, Behavior* callback, s8 priority, b8 hit)
+void AIPlayerControl::set_path(const AI::Path& p, s8 priority)
 {
-	// if hit is false, pathfind as close as possible to the given target
-	// if hit is true, pathfind to a point from which we can shoot through the given target
-#if DEBUG_AI_CONTROL
-	vi_debug("Awk pathfind %f %f %f", end.x, end.y, end.z);
-#endif
-	aim_timer = 0.0f;
-	path.length = 0;
-	target = nullptr;
-	behavior_callback = callback;
+	path = p;
 	path_priority = priority;
-	auto ai_callback = ObjectLinkEntryArg<AIPlayerControl, const AI::Result&, &AIPlayerControl::set_path>(id());
-	Vec3 pos = get<Transform>()->absolute_pos();
-	if (hit)
-		active_path_request = AI::awk_pathfind_hit(pos, end, ai_callback);
-	else
-		active_path_request = AI::awk_pathfind(pos, end, ai_callback);
-}
-
-void AIPlayerControl::random_path(Behavior* callback)
-{
-#if DEBUG_AI_CONTROL
-	vi_debug("Awk random path");
-#endif
+	path_index = 0;
 	aim_timer = 0.0f;
-	path.length = 0;
-	behavior_callback = callback;
 	target = nullptr;
-	path_priority = 0;
-	active_path_request = AI::awk_random_path(get<Transform>()->absolute_pos(), ObjectLinkEntryArg<AIPlayerControl, const AI::Result&, &AIPlayerControl::set_path>(id()));
+	hit_target = false;
 }
 
-void AIPlayerControl::reaction_start(Behavior* caller)
+void AIPlayerControl::behavior_start(Behavior* caller)
 {
-	path_priority = 0;
-	path.length = 0;
-	active_path_request = -1;
-	behavior_callback = nullptr;
-	target = nullptr;
-
-	if (loop_high_level->active())
-	{
-#if DEBUG_AI_CONTROL
-		vi_debug("Awk high-level loop preempted");
-#endif
-		loop_high_level->abort();
-	}
-
-	// this gets called by either loop_low_level or loop_low_level_2
+	// if this gets called by either loop_low_level or loop_low_level_2
 	// we need to abort the other one and restart it
-	if (caller->root() == loop_low_level)
+	Behavior* r = caller->root();
+	if (r == loop_low_level)
 	{
+		if (loop_high_level->active())
+			loop_high_level->abort();
+
 		if (loop_low_level_2->active())
 			loop_low_level_2->abort();
 		loop_low_level_2->run();
 	}
-	else
+	else if (r == loop_low_level_2)
 	{
+		if (loop_high_level->active())
+			loop_high_level->abort();
+
 		if (loop_low_level->active())
 			loop_low_level->abort();
 		loop_low_level->run();
 	}
+
+	behavior_callback = caller;
 }
 
-b8 AIPlayerControl::reaction_end()
+void AIPlayerControl::behavior_done(b8 success)
+{
+#if DEBUG_AI_CONTROL
+	vi_debug("Awk behavior done: %d", success);
+#endif
+	Behavior* cb = behavior_callback;
+	behavior_callback = nullptr;
+	path_priority = 0;
+	path.length = 0;
+	target = nullptr;
+	if (cb)
+		cb->done(success);
+}
+
+b8 AIPlayerControl::restore_loops()
 {
 	// return to normal state
 	if (!loop_high_level->active())
@@ -209,38 +192,6 @@ b8 AIPlayerControl::reaction_end()
 		loop_low_level->run();
 
 	return true;
-}
-
-void AIPlayerControl::set_path(const AI::Result& result)
-{
-	if (result.id == active_path_request)
-	{
-		active_path_request = -1;
-		aim_timer = 0.0f;
-		path = result.path;
-		path_index = 0;
-	}
-}
-
-b8 AIPlayerControl::go(const Vec3& target)
-{
-	Vec3 pos;
-	Quat quat;
-	get<Transform>()->absolute(&pos, &quat);
-
-	Vec3 wall_normal = quat * Vec3(0, 0, 1);
-	Vec3 to_goal = Vec3::normalize(target - pos);
-	{
-		const r32 random_range = 0.01f;
-		to_goal = Quat::euler(mersenne::randf_oo() * random_range, mersenne::randf_oo() * random_range, mersenne::randf_oo() * random_range) * to_goal;
-		if (get<Awk>()->can_go(to_goal))
-		{
-			get<Awk>()->detach(to_goal);
-			return true;
-		}
-	}
-
-	return false;
 }
 
 #define LOOK_SPEED 2.0f
@@ -398,16 +349,16 @@ Repeat* make_low_level_loop(AIPlayerControl* control)
 				(
 					Select::alloc // if any of these succeed, they will abort the high level loop
 					(
-						AIBehaviors::React<Awk>::alloc(3, 4, &awk_filter),
+						AIBehaviors::React<Awk>::alloc(4, 5, &awk_filter),
 						Sequence::alloc
 						(
 							Invert::alloc(Execute::alloc()->method<Health, &Health::is_full>(control->get<Health>())), // make sure we need health
-							AIBehaviors::React<HealthPickup>::alloc(2, 3, &health_pickup_filter)
+							AIBehaviors::React<HealthPickup>::alloc(3, 4, &health_pickup_filter)
 						),
-						AIBehaviors::React<MinionAI>::alloc(2, 3, &default_filter<MinionAI>),
-						AIBehaviors::React<Sensor>::alloc(2, 3, &default_filter<Sensor>)
+						AIBehaviors::React<MinionAI>::alloc(3, 4, &default_filter<MinionAI>),
+						AIBehaviors::React<Sensor>::alloc(3, 4, &default_filter<Sensor>)
 					),
-					Execute::alloc()->method<AIPlayerControl, &AIPlayerControl::reaction_end>(control) // restart the high level loop if necessary
+					Execute::alloc()->method<AIPlayerControl, &AIPlayerControl::restore_loops>(control) // restart the high level loop if necessary
 				)
 			)
 		)
@@ -428,11 +379,11 @@ void AIPlayerControl::init_behavior_trees()
 					Sequence::alloc
 					(
 						Invert::alloc(Execute::alloc()->method<Health, &Health::is_full>(get<Health>())), // make sure we need health
-						AIBehaviors::Find<HealthPickup>::alloc(1, &health_pickup_filter)
+						AIBehaviors::Find<HealthPickup>::alloc(2, &health_pickup_filter)
 					),
-					AIBehaviors::Find<MinionAI>::alloc(1, &minion_filter),
-					AIBehaviors::Find<Sensor>::alloc(1, &sensor_filter),
-					AIBehaviors::Find<Awk>::alloc(1, &awk_filter),
+					AIBehaviors::Find<MinionAI>::alloc(2, &minion_filter),
+					AIBehaviors::Find<Sensor>::alloc(2, &sensor_filter),
+					AIBehaviors::Find<Awk>::alloc(2, &awk_filter),
 					AIBehaviors::RandomPath::alloc()
 				)
 			)
@@ -477,13 +428,13 @@ void AIPlayerControl::update(const Update& u)
 			if (get<Awk>()->can_hit(target.ref(), &intersection))
 				aim_and_shoot(u, intersection, false);
 			else
-				task_done(false); // we can't hit it
+				behavior_done(false); // we can't hit it
 		}
 		else if (path_index < path.length)
 		{
 			// look at next target
 			if (aim_timer > MAX_AIM_TIME)
-				task_done(false); // we can't hit it
+				behavior_done(false); // we can't hit it
 			else
 				aim_and_shoot(u, path[path_index], true);
 		}
@@ -499,8 +450,8 @@ void AIPlayerControl::update(const Update& u)
 		}
 	}
 
-	if (behavior_callback && active_path_request == -1 && (!target.ref() && path_index >= path.length) || (target.ref() && hit_target))
-		task_done(hit_target || path.length > 0);
+	if (behavior_callback && (!target.ref() && path_index >= path.length) || (target.ref() && hit_target))
+		behavior_done(hit_target || path.length > 0);
 
 #if DEBUG_AI_CONTROL
 	// update camera
@@ -522,28 +473,19 @@ void AIPlayerControl::update(const Update& u)
 #endif
 }
 
-void AIPlayerControl::task_done(b8 success)
-{
-#if DEBUG_AI_CONTROL
-	vi_debug("Awk task success: %d", success);
-#endif
-	Behavior* cb = behavior_callback;
-	behavior_callback = nullptr;
-	path_priority = 0;
-	path.length = 0;
-	target = nullptr;
-	if (cb)
-		cb->done(success);
-}
-
 namespace AIBehaviors
 {
+
+RandomPath::RandomPath()
+{
+	path_priority = 1;
+}
 
 void RandomPath::run()
 {
 	active(true);
-	if (control->path_priority == 0)
-		control->random_path(this);
+	if (control->path_priority < path_priority)
+		AI::awk_random_path(control->get<Transform>()->absolute_pos(), ObjectLinkEntryArg<Base<RandomPath>, const AI::Result&, &Base<RandomPath>::path_callback>(id()));
 	else
 		done(false);
 }

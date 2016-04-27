@@ -11,6 +11,7 @@ namespace VI
 struct Behavior
 {
 	Behavior* parent;
+	Revision revision;
 	virtual void run() {}
 	virtual void child_done(Behavior*, b8) {}
 	virtual void abort() {}
@@ -20,7 +21,7 @@ struct Behavior
 	Behavior* root() const;
 };
 
-#define MAX_BEHAVIORS 1024
+#define MAX_BEHAVIORS 512
 
 template<typename Derived> struct BehaviorBase : public Behavior
 {

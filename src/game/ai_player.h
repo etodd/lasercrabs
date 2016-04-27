@@ -50,7 +50,6 @@ struct AIPlayerControl : public ComponentType<AIPlayerControl>
 	Repeat* loop_low_level_2;
 	Repeat* loop_memory;
 	Behavior* behavior_callback;
-	u32 active_path_request;
 	MemoryArray memory[MAX_FAMILIES];
 	AI::Path path;
 	s32 path_index;
@@ -67,11 +66,6 @@ struct AIPlayerControl : public ComponentType<AIPlayerControl>
 	AIPlayerControl(AIPlayer*);
 	void awake();
 	~AIPlayerControl();
-
-	void init_behavior_trees();
-	void reaction_start(Behavior*);
-	b8 reaction_end();
-	b8 aim_and_shoot(const Update&, const Vec3&, b8);
 
 	template<typename Component, b8 (*filter)(const AIPlayerControl*, const Component*)>
 	b8 update_memory()
@@ -125,15 +119,15 @@ struct AIPlayerControl : public ComponentType<AIPlayerControl>
 		return true; // this task always succeeds
 	}
 
+	void init_behavior_trees();
+	void behavior_start(Behavior*);
+	void behavior_done(b8);
+	b8 restore_loops();
+	b8 aim_and_shoot(const Update&, const Vec3&, b8);
 	b8 in_range(const Vec3&, r32) const;
-
-	void pathfind(const Vec3&, Behavior*, s8, b8 = false);
-	void set_target(Target*, Behavior*, s8);
-	void random_path(Behavior*);
-	void set_path(const AI::Result&);
-	b8 go(const Vec3&);
+	void set_target(Target*, s8);
+	void set_path(const AI::Path&, s8);
 	void awk_attached();
-	void task_done(b8);
 	void awk_hit(Entity*);
 	void awk_detached();
 	void update(const Update&);
@@ -144,30 +138,55 @@ namespace AIBehaviors
 	template<typename Derived> struct Base : public BehaviorBase<Derived>
 	{
 		AIPlayerControl* control;
+		s8 path_priority;
 		virtual void set_context(void* ctx)
 		{
 			control = (AIPlayerControl*)ctx;
+		}
+
+		void path_callback(const AI::Result& result)
+		{
+			if (active() && result.path.length > 0 && path_priority > control->path_priority)
+			{
+				control->behavior_start(this);
+				control->set_path(result.path, path_priority);
+			}
+			else
+				done(false);
+		}
+
+		void pathfind(const Vec3& target, b8 hit)
+		{
+			// if hit is false, pathfind as close as possible to the given target
+			// if hit is true, pathfind to a point from which we can shoot through the given target
+			auto ai_callback = ObjectLinkEntryArg<Base<Derived>, const AI::Result&, &Base<Derived>::path_callback>(id());
+			Vec3 pos = control->get<Transform>()->absolute_pos();
+			if (hit)
+				AI::awk_pathfind_hit(pos, target, ai_callback);
+			else
+				AI::awk_pathfind(pos, target, ai_callback);
 		}
 	};
 
 	struct RandomPath : Base<RandomPath>
 	{
+		RandomPath();
 		void run();
 	};
 
 	template<typename Component> struct Find : Base<Find<Component>>
 	{
-		s8 priority;
 		b8(*filter)(const AIPlayerControl*, const Component*);
 		Find(s8 priority, b8(*filter)(const AIPlayerControl*, const Component*))
-			: priority(priority), filter(filter)
+			: filter(filter)
 		{
+			path_priority = priority;
 		}
 
 		void run()
 		{
 			active(true);
-			if (priority < control->path_priority)
+			if (path_priority < control->path_priority)
 			{
 				done(false);
 				return;
@@ -191,7 +210,7 @@ namespace AIBehaviors
 				}
 			}
 			if (closest)
-				control->pathfind(closest->pos, this, priority);
+				pathfind(closest->pos, false);
 			else
 				done(false);
 		}
@@ -199,19 +218,19 @@ namespace AIBehaviors
 
 	template<typename Component> struct React : Base<React<Component>>
 	{
-		s8 priority_path;
-		s8 priority_react;
+		s8 react_priority;
 		b8(*filter)(const AIPlayerControl*, const Component*);
-		React(s8 priority_path, s8 priority_react, b8(*filter)(const AIPlayerControl*, const Component*))
-			: priority_path(priority_path), priority_react(priority_react), filter(filter)
+		React(s8 priority_path, s8 react_priority, b8(*filter)(const AIPlayerControl*, const Component*))
+			: react_priority(react_priority), filter(filter)
 		{
+			path_priority = priority_path;
 		}
 
 		void run()
 		{
 			active(true);
-			b8 can_path = priority_path > control->path_priority;
-			b8 can_react = priority_react > control->path_priority;
+			b8 can_path = path_priority > control->path_priority;
+			b8 can_react = react_priority > control->path_priority;
 			if (can_path || can_react)
 			{
 				Entity* closest = nullptr;
@@ -236,14 +255,13 @@ namespace AIBehaviors
 					b8 can_hit_now = control->get<Awk>()->can_hit(closest->get<Target>());
 					if (can_hit_now && can_react)
 					{
-						control->reaction_start(this);
-						control->set_target(closest->get<Target>(), this, priority_react);
+						control->behavior_start(this);
+						control->set_target(closest->get<Target>(), react_priority);
 						return;
 					}
 					else if (can_path)
 					{
-						control->reaction_start(this);
-						control->pathfind(closest->get<Target>()->absolute_pos(), this, priority_path, true);
+						pathfind(closest->get<Target>()->absolute_pos(), true);
 						return;
 					}
 				}

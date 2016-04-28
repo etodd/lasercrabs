@@ -33,7 +33,7 @@ struct RenderSync;
 
 struct Update
 {
-	const InputState* input;
+	InputState* input;
 	const InputState* last_input;
 	RenderSync* render;
 	GameTime time;

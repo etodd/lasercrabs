@@ -186,7 +186,7 @@ void Walker::update(const Update& u)
 				if (has_traction && !btFuzzyZero(movement_length))
 				{
 					// Slide against walls
-					if (!slide(&movement, Vec3(dir.x, 0, dir.y)))
+					if (!slide(&movement, Vec3::normalize(Vec3(dir.x, 0, dir.y))))
 					{
 						r32 angle = atan2f(movement.x, movement.y);
 						if (!slide(&movement, Vec3(cosf(angle + PI * 0.25f), 0, sinf(angle + PI * 0.25f))))

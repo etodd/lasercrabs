@@ -284,6 +284,7 @@ struct Gamepad
 	r32 right_y;
 	r32 left_trigger;
 	r32 right_trigger;
+	r32 rumble;
 	u32 btns;
 };
 

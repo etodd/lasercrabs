@@ -674,14 +674,6 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 	const Vec3 pvp_player_light(1.0f);
 
 	AI::Team teams[(s32)AI::Team::count];
-	{
-		// shuffle teams
-		// if we're in local multiplayer mode, rotate the teams by a set amount
-		// local multiplayer games rotate through the possible team configurations on each map before moving to the next map
-		s32 offset = data.local_multiplayer ? data.local_multiplayer_offset : mersenne::rand() % (s32)AI::Team::count;
-		for (s32 i = 0; i < (s32)AI::Team::count; i++)
-			teams[i] = (AI::Team)((offset + i) % (s32)AI::Team::count);
-	}
 
 	cJSON* element = json->child;
 	while (element)
@@ -806,6 +798,21 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 		else if (cJSON_GetObjectItem(element, "World"))
 		{
 			// World is guaranteed to be the first element in the entity list
+
+			{
+				b8 lock_teams = Json::get_s32(element, "lock_teams");
+				// shuffle teams
+				// if we're in local multiplayer mode, rotate the teams by a set amount
+				// local multiplayer games rotate through the possible team configurations on each map before moving to the next map
+				s32 offset;
+				if (lock_teams)
+					offset = 0;
+				else
+					offset = data.local_multiplayer ? data.local_multiplayer_offset : mersenne::rand() % (s32)AI::Team::count;
+
+				for (s32 i = 0; i < (s32)AI::Team::count; i++)
+					teams[i] = (AI::Team)((offset + i) % (s32)AI::Team::count);
+			}
 
 			AssetID texture = Loader::find(Json::get_string(element, "skybox_texture"), AssetLookup::Texture::names);
 			Vec3 sky;

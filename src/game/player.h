@@ -118,6 +118,7 @@ struct LocalPlayerControl : public ComponentType<LocalPlayerControl>
 	u8 gamepad;
 	b8 enable_input;
 	b8 enable_move;
+	r32 rumble;
 
 	LocalPlayerControl(u8);
 	~LocalPlayerControl();
@@ -129,6 +130,7 @@ struct LocalPlayerControl : public ComponentType<LocalPlayerControl>
 	void hit_by(const TargetEvent&);
 	void health_picked_up();
 	void add_target_indicator(Target*, const Vec4&, b8 = false);
+	void parkour_landed(r32);
 
 	void update(const Update&);
 	void draw_alpha(const RenderParams&) const;

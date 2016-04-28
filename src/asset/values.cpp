@@ -425,6 +425,7 @@ const char* AssetLookup::String::names[] =
 	"btn_Y",
 	"close",
 	"connecting",
+	"danger",
 	"defeat",
 	"destroy_enemy_power_cell",
 	"detected",

@@ -161,6 +161,7 @@ void RigidBody::rebuild()
 	delete btShape;
 	if (btMesh)
 		delete btMesh;
+	btMesh = nullptr;
 
 	awake(); // rebuild body
 

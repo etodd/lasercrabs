@@ -78,7 +78,7 @@ void Parkour::awake()
 
 void Parkour::land(r32 velocity_diff)
 {
-	if (fsm.current == State::Normal && velocity_diff < -3.0f)
+	if (fsm.current == State::Normal && velocity_diff < 5.0f * -1.25f)
 		get<Animator>()->layers[1].play(Asset::Animation::character_land);
 }
 

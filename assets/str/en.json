@@ -19,6 +19,7 @@
 		"close": "Close",
 		"stealth": "Stealth",
 		"detected": "Detected",
+		"danger": "Danger",
 		"alarm": "Alarm",
 		"enemy_detected": "Enemy detected",
 		"upgrading": "Upgrading...",

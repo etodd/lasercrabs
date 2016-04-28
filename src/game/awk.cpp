@@ -673,8 +673,6 @@ void Awk::stealth(b8 enable)
 		if (enable)
 		{
 			get<AIAgent>()->stealth = true;
-			if (has<LocalPlayerControl>())
-				Audio::post_global_event(AK::EVENTS::PLAY_STEALTH);
 			get<SkinnedModel>()->alpha();
 			get<SkinnedModel>()->color.w = 0.05f;
 			get<SkinnedModel>()->mask = 1 << (s32)get<AIAgent>()->team; // only display to fellow teammates

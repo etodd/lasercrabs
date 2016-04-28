@@ -17,11 +17,18 @@ namespace VI
 {
 	SDL_Window* window = 0;
 	SDL_GameController* controllers[MAX_GAMEPADS] = {};
+	SDL_Haptic* haptics[MAX_GAMEPADS] = {};
 
 	void refresh_controllers()
 	{
 		for (s32 i = 0; i < MAX_GAMEPADS; i++)
 		{
+			if (haptics[i])
+			{
+				SDL_HapticClose(haptics[i]);
+				haptics[i] = nullptr;
+			}
+
 			if (controllers[i])
 			{
 				SDL_GameControllerClose(controllers[i]);
@@ -32,7 +39,19 @@ namespace VI
 		for (s32 i = 0; i < SDL_NumJoysticks(); i++)
 		{
 			if (SDL_IsGameController(i))
+			{
 				controllers[i] = SDL_GameControllerOpen(i);
+				SDL_Joystick* joystick = SDL_GameControllerGetJoystick(controllers[i]);
+				if (SDL_JoystickIsHaptic(joystick))
+				{
+					haptics[i] = SDL_HapticOpenFromJoystick(joystick);
+					if (SDL_HapticRumbleInit(haptics[i])) // failed
+					{
+						SDL_HapticClose(haptics[i]);
+						haptics[i] = nullptr;
+					}
+				}
+			}
 		}
 	}
 
@@ -49,7 +68,7 @@ namespace VI
 			| SDL_INIT_HAPTIC
 			| SDL_INIT_TIMER
 			| SDL_INIT_JOYSTICK
-			) < 0)
+		) < 0)
 		{
 			fprintf(stderr, "Failed to initialize SDL: %s\n", SDL_GetError());
 			return -1;
@@ -243,6 +262,9 @@ namespace VI
 						gamepad->btns |= Gamepad::Btn::DLeft;
 					if (SDL_GameControllerGetButton(controller, SDL_CONTROLLER_BUTTON_DPAD_RIGHT))
 						gamepad->btns |= Gamepad::Btn::DRight;
+					if (gamepad->rumble > 0.0f)
+						SDL_HapticRumblePlay(haptics[i], gamepad->rumble, 33);
+					gamepad->rumble = 0.0f;
 					active_gamepads++;
 				}
 				else
@@ -253,6 +275,7 @@ namespace VI
 					gamepad->right_y = 0.0f;
 					gamepad->left_trigger = 0.0f;
 					gamepad->right_trigger = 0.0f;
+					gamepad->rumble = 0.0f;
 				}
 			}
 
@@ -279,6 +302,14 @@ namespace VI
 
 		SDL_GL_DeleteContext(context);
 		SDL_DestroyWindow(window);
+
+		// SDL sucks
+		for (s32 i = 0; i < MAX_GAMEPADS; i++)
+		{
+			if (haptics[i])
+				SDL_HapticClose(haptics[i]);
+		}
+
 		SDL_Quit();
 
 		return 0;

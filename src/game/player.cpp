@@ -863,6 +863,7 @@ s32 PlayerCommon::visibility_hash(const PlayerCommon* awk_a, const PlayerCommon*
 
 void LocalPlayerControl::awk_attached()
 {
+	rumble = vi_max(rumble, 0.2f);
 	get<Audio>()->post_event(AK::EVENTS::STOP_FLY);
 }
 
@@ -875,7 +876,8 @@ LocalPlayerControl::LocalPlayerControl(u8 gamepad)
 	enable_input(true),
 	enable_move(true),
 	damage_timer(),
-	health_flash_timer()
+	health_flash_timer(),
+	rumble()
 {
 	camera = Camera::add();
 }
@@ -898,14 +900,23 @@ void LocalPlayerControl::awake()
 		link_arg<const TargetEvent&, &LocalPlayerControl::hit_by>(get<Target>()->target_hit);
 		link<&LocalPlayerControl::health_picked_up>(get<Health>()->added);
 	}
+	else
+		link_arg<r32, &LocalPlayerControl::parkour_landed>(get<Walker>()->land);
 
 	camera->fog = Game::data.mode == Game::Mode::Parkour;
 	camera->team = (u8)get<AIAgent>()->team;
 	camera->mask = 1 << camera->team;
 }
 
+void LocalPlayerControl::parkour_landed(r32 velocity_diff)
+{
+	if (get<Parkour>()->fsm.current == Parkour::State::Normal && velocity_diff < 5.0f * -1.25f)
+		rumble = vi_max(rumble, 0.2f);
+}
+
 void LocalPlayerControl::hit_target(Entity* target)
 {
+	rumble = vi_max(rumble, 0.5f);
 	if (target->has<MinionAI>())
 	{
 		player.ref()->msg(_(strings::target_killed), true);
@@ -924,7 +935,11 @@ void LocalPlayerControl::damaged(const DamageEvent& e)
 void LocalPlayerControl::hit_by(const TargetEvent& e)
 {
 	if (get<Health>()->hp <= e.hit_by->get<Health>()->hp)
-		damage_timer = damage_shake_time; // we were physically hit by the enemy; shake the camera
+	{
+		// we were physically hit by the enemy; shake the camera
+		damage_timer = damage_shake_time;
+		rumble = vi_max(rumble, 1.0f);
+	}
 }
 
 void LocalPlayerControl::health_picked_up()
@@ -1030,6 +1045,12 @@ void determine_visibility(PlayerCommon* me, PlayerCommon* other_player, b8* visi
 
 void LocalPlayerControl::update(const Update& u)
 {
+	if (rumble > 0.0f)
+	{
+		rumble = vi_max(0.0f, rumble - u.time.delta);
+		u.input->gamepads[gamepad].rumble = vi_min(1.0f, rumble);
+	}
+
 	{
 		// Zoom
 		r32 fov_blend_target = 0.0f;
@@ -1535,15 +1556,27 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 				Vec2 username_pos = hp_pos;
 				username_pos.y += (text_size * UI::scale) + HP_BOX_SPACING * 0.5f;
 
-				UIText text;
-				text.size = text_size;
-				text.font = Asset::Font::lowpoly;
-				text.anchor_x = UIText::Anchor::Center;
-				text.anchor_y = UIText::Anchor::Min;
-				text.color = *color;
-				text.text(other_player.item()->manager.ref()->username);
+				Vec2 danger_pos = username_pos;
+				danger_pos.y += (text_size * UI::scale) + HP_BOX_SPACING * 0.5f;
 
-				UI::box(params, text.rect(username_pos).outset(HP_BOX_SPACING), UI::background_color);
+				UIText username;
+				username.size = text_size;
+				username.font = Asset::Font::lowpoly;
+				username.anchor_x = UIText::Anchor::Center;
+				username.anchor_y = UIText::Anchor::Min;
+				username.color = *color;
+				username.text(other_player.item()->manager.ref()->username);
+
+				UIText danger;
+				b8 draw_danger = (tracking || visible) && history.hp > get<Health>()->hp;
+				if (draw_danger)
+				{
+					danger = username;
+					danger.text(_(strings::danger));
+					UI::box(params, danger.rect(danger_pos).outset(HP_BOX_SPACING), UI::background_color);
+				}
+
+				UI::box(params, username.rect(username_pos).outset(HP_BOX_SPACING), UI::background_color);
 
 				if (Game::data.has_feature(Game::FeatureLevel::HealthPickups))
 				{
@@ -1551,7 +1584,10 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 					draw_hp_indicator(params, hp_pos, history.hp, history.hp_max, *color);
 				}
 
-				text.draw(params, username_pos);
+				username.draw(params, username_pos);
+
+				if (draw_danger && flash_function(Game::real_time.total))
+					danger.draw(params, danger_pos); // danger!
 			}
 		}
 	}

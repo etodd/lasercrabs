@@ -57,33 +57,54 @@ b8 flash_function(r32 time)
 	return (b8)((s32)(time * 16.0f) % 2);
 }
 
-void draw_indicator(const RenderParams& params, const Vec3& pos, const Vec4& color, b8 offscreen)
+b8 is_onscreen(const RenderParams& params, const Vec3& pos, Vec2* out, Vec2* dir = nullptr)
 {
+	b8 on_screen = UI::project(params, pos, out);
+
 	const Rect2& viewport = params.camera->viewport;
-	Vec2 screen_pos;
-	b8 on_screen = UI::project(params, pos, &screen_pos);
+
 	Vec2 center = viewport.size * 0.5f;
-	Vec2 offset = screen_pos - center;
+	Vec2 offset = *out - center;
 	if (!on_screen)
-	{
-		if (offscreen)
-			offset *= -1.0f;
-		else
-			return;
-	}
+		offset *= -1.0f;
 
 	r32 pointer_size = 48 * UI::scale;
 
 	r32 radius = vi_min(viewport.size.x, viewport.size.y) * 0.5f - pointer_size;
 
 	r32 offset_length = offset.length();
-	if (offscreen && (offset_length > radius || (offset_length > 0.0f && !on_screen)))
+	if ((offset_length > radius || (offset_length > 0.0f && !on_screen)))
 	{
 		offset *= radius / offset_length;
-		UI::triangle(params, { center + offset, Vec2(pointer_size) }, color, atan2f(offset.y, offset.x) + PI * -0.5f);
+		*out = center + offset;
+		if (dir)
+			*dir = offset;
+		return false;
+	}
+
+	if (dir)
+		*dir = offset;
+	return on_screen;
+}
+
+void draw_indicator(const RenderParams& params, const Vec3& pos, const Vec4& color, b8 offscreen)
+{
+	if (offscreen)
+	{
+		// if the target is offscreen, point toward it
+		Vec2 p;
+		Vec2 offset;
+		if (is_onscreen(params, pos, &p, &offset))
+			UI::triangle_border(params, { p, Vec2(32) * UI::scale }, 4, color);
+		else
+			UI::triangle(params, { p, Vec2(48 * UI::scale) }, color, atan2f(offset.y, offset.x) + PI * -0.5f);
 	}
 	else
-		UI::triangle_border(params, { screen_pos, Vec2(32) * UI::scale }, 4, color);
+	{
+		Vec2 p;
+		if (UI::project(params, pos, &p))
+			UI::triangle_border(params, { p, Vec2(32) * UI::scale }, 4, color);
+	}
 }
 
 #define HP_BOX_SIZE (Vec2(text_size) * UI::scale)
@@ -1488,11 +1509,26 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 			if (!tracking && !visible) // if we can actually see them, the indicator has already been added using add_target_indicator in the update function
 				draw_indicator(params, history.pos, UI::disabled_color, false);
 
-			Vec2 p;
-			if (UI::project(params, history.pos + Vec3(0, AWK_RADIUS * 2.0f, 0), &p))
-			{
-				const Vec4& color = tracking || visible ? Team::ui_color(team, other_player.item()->get<AIAgent>()->team) : UI::disabled_color;
+			Vec3 pos3d = history.pos + Vec3(0, AWK_RADIUS * 2.0f, 0);
 
+			Vec2 p;
+			const Vec4* color;
+			b8 draw;
+			if (tracking || visible)
+			{
+				// highlight the username and draw it even if it's offscreen
+				is_onscreen(params, pos3d, &p);
+				draw = true;
+				color = &Team::ui_color(team, other_player.item()->get<AIAgent>()->team);
+			}
+			else
+			{
+				draw = UI::project(params, pos3d, &p);
+				color = &UI::disabled_color;
+			}
+
+			if (draw)
+			{
 				Vec2 hp_pos = p;
 				hp_pos.y += text_size * UI::scale;
 
@@ -1504,7 +1540,7 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 				text.font = Asset::Font::lowpoly;
 				text.anchor_x = UIText::Anchor::Center;
 				text.anchor_y = UIText::Anchor::Min;
-				text.color = color;
+				text.color = *color;
 				text.text(other_player.item()->manager.ref()->username);
 
 				UI::box(params, text.rect(username_pos).outset(HP_BOX_SPACING), UI::background_color);
@@ -1512,7 +1548,7 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 				if (Game::data.has_feature(Game::FeatureLevel::HealthPickups))
 				{
 					draw_hp_box(params, hp_pos, history.hp_max);
-					draw_hp_indicator(params, hp_pos, history.hp, history.hp_max, color);
+					draw_hp_indicator(params, hp_pos, history.hp, history.hp_max, *color);
 				}
 
 				text.draw(params, username_pos);

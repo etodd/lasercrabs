@@ -680,14 +680,19 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 	{
 		Entity* entity = nullptr;
 
-		Vec3 pos = Json::get_vec3(element, "pos");
-		Quat rot = Json::get_quat(element, "rot");
-		Vec3 absolute_pos = pos;
-		Quat absolute_rot = rot;
-
+		Vec3 absolute_pos;
+		Quat absolute_rot;
 		s32 parent = cJSON_GetObjectItem(element, "parent")->valueint;
-		if (parent != -1)
-			transforms[parent]->to_world(&absolute_pos, &absolute_rot);
+
+		{
+			Vec3 pos = Json::get_vec3(element, "pos");
+			Quat rot = Json::get_quat(element, "rot");
+			absolute_pos = pos;
+			absolute_rot = rot;
+
+			if (parent != -1)
+				transforms[parent]->to_world(&absolute_pos, &absolute_rot);
+		}
 
 		b8 alpha = (b8)Json::get_s32(element, "alpha");
 		b8 additive = (b8)Json::get_s32(element, "additive");
@@ -920,6 +925,14 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 				rope->max_distance = 100.0f;
 			}
 		}
+		else if (cJSON_GetObjectItem(element, "Terminal"))
+		{
+			if (data.mode == Game::Mode::Parkour)
+			{
+				entity = World::alloc<Terminal>();
+				absolute_pos.y += TERMINAL_HEIGHT * 0.5f;
+			}
+		}
 		else if (cJSON_GetObjectItem(element, "SkyDecal"))
 		{
 			entity = World::alloc<Empty>();
@@ -1040,11 +1053,12 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 		if (entity && entity->has<Transform>())
 		{
 			Transform* transform = entity->get<Transform>();
-			transform->pos = pos;
-			transform->rot = rot;
 
 			if (parent != -1)
 				transform->parent = transforms[parent];
+
+			transform->absolute(absolute_pos, absolute_rot);
+
 			transforms.add(transform);
 		}
 		else

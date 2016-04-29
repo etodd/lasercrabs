@@ -201,6 +201,12 @@ struct PlayerSpawn : public Entity
 	PlayerSpawn(AI::Team);
 };
 
+#define TERMINAL_HEIGHT 2.0f
+struct Terminal : public Entity
+{
+	Terminal();
+};
+
 struct ProjectileEntity : public Entity
 {
 	ProjectileEntity(Entity*, const Vec3&, u16, const Vec3&);

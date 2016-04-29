@@ -24,7 +24,7 @@ struct View : public ComponentType<View>
 	static void draw_alpha(const RenderParams&);
 	static void draw_additive(const RenderParams&);
 
-	View();
+	View(AssetID = AssetNull);
 	void awake();
 	~View();
 

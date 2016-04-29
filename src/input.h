@@ -319,6 +319,7 @@ enum class Controls
 	Click,
 	Cancel,
 	Pause,
+	Interact,
 	count,
 };
 

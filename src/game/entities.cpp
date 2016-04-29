@@ -337,6 +337,31 @@ PlayerSpawn::PlayerSpawn(AI::Team team)
 	light->radius = 12.0f;
 }
 
+Terminal::Terminal()
+{
+	create<Transform>();
+
+	View* view = create<View>();
+	view->mesh = Asset::Mesh::terminal_base;
+	view->shader = Asset::Shader::standard;
+	view->offset = Mat4::make_translation(0.0f, TERMINAL_HEIGHT * -0.5f, 0.0f);
+
+	create<PlayerTrigger>()->radius = 3.0f;
+
+	create<RigidBody>(RigidBody::Type::CapsuleY, Vec3(0.2f, TERMINAL_HEIGHT, 0), 0.0f, CollisionWalker, ~CollisionAwk & ~CollisionShield);
+
+	PointLight* light = create<PointLight>();
+	light->radius = 8.0f;
+
+	Entity* light_entity = World::create<Empty>();
+	light_entity->get<Transform>()->parent = get<Transform>();
+
+	View* l = light_entity->add<View>(Asset::Mesh::terminal_light);
+	l->color.w = MATERIAL_UNLIT;
+	l->shader = Asset::Shader::standard;
+	l->offset = view->offset;
+}
+
 #define PROJECTILE_SPEED 100.0f
 #define PROJECTILE_LENGTH 2.0f
 #define PROJECTILE_THICKNESS 0.04f

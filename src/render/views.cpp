@@ -13,8 +13,8 @@ namespace VI
 Bitmask<MAX_ENTITIES> View::list_alpha;
 Bitmask<MAX_ENTITIES> View::list_additive;
 
-View::View()
-	: mesh(AssetNull),
+View::View(AssetID m)
+	: mesh(m),
 	shader(AssetNull),
 	texture(AssetNull),
 	offset(Mat4::identity),

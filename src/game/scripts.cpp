@@ -389,6 +389,7 @@ namespace Soren
 	struct Data
 	{
 		r32 time;
+		Ref<PlayerTrigger> terminal;
 		Schedule<const char*> texts;
 		Schedule<Face> faces;
 		Schedule<AkUniqueID> audio_events;
@@ -624,9 +625,23 @@ namespace Soren
 
 	void draw(const RenderParams& params)
 	{
-		Face face = data->faces.current();
-
 		const Rect2& vp = params.camera->viewport;
+
+		if (data->terminal.ref()->count() > 0)
+		{
+			UIText text;
+			text.color = UI::accent_color;
+			text.anchor_x = UIText::Anchor::Center;
+			text.anchor_y = UIText::Anchor::Min;
+			text.size = 16.0f;
+			text.text("[{{Interact}}]");
+
+			Vec2 p = vp.size * Vec2(0.5f, 0.3f);
+			UI::box(params, text.rect(p).outset(8.0f * UI::scale), UI::background_color);
+			text.draw(params, p);
+		}
+
+		Face face = data->faces.current();
 
 		r32 scale = UI::scale;
 		Vec2 pos;
@@ -765,15 +780,19 @@ namespace Soren
 		delete data;
 	}
 
-	void init()
+	void init(const EntityFinder& entities)
 	{
-		data = new Data();
-		Audio::dialogue_done = false;
-		Game::updates.add(update);
-		Game::cleanups.add(cleanup);
-		Game::draws.add(draw);
+		if (Game::data.mode == Game::Mode::Parkour)
+		{
+			data = new Data();
+			data->terminal = entities.find("terminal")->get<PlayerTrigger>();
+			Audio::dialogue_done = false;
+			Game::updates.add(update);
+			Game::cleanups.add(cleanup);
+			Game::draws.add(draw);
 
-		Loader::texture(Asset::Texture::soren, RenderTextureWrap::Clamp, RenderTextureFilter::Nearest);
+			Loader::texture(Asset::Texture::soren, RenderTextureWrap::Clamp, RenderTextureFilter::Nearest);
+		}
 	}
 }
 
@@ -857,7 +876,7 @@ namespace start
 		r32 aspect = data->camera->viewport.size.y == 0 ? 1 : (r32)data->camera->viewport.size.x / (r32)data->camera->viewport.size.y;
 		data->camera->perspective((80.0f * PI * 0.5f / 180.0f), aspect, 0.01f, 100.0f);
 
-		Soren::init();
+		Soren::init(entities);
 		Soren::data->node_executed.link(&node_executed);
 		Soren::clear_and_execute(Soren::node_lookup[Asset::String::start], 1.0f);
 	}
@@ -865,76 +884,9 @@ namespace start
 
 namespace tutorial01
 {
-	struct Data
-	{
-		b8 minion_dialogue_done;
-		b8 movement_tutorial_done;
-		b8 done;
-	};
-	static Data* data;
-
-	void minion1_dialogue(Entity*)
-	{
-		if (!data->minion_dialogue_done)
-		{
-			data->minion_dialogue_done = true;
-			Soren::clear();
-			Soren::data->mode = Soren::Mode::TextOnly;
-			Soren::data->texts.schedule(1.0f, _(strings::minion_helmet_tutorial));
-			Soren::data->texts.schedule(6.0f, nullptr);
-		}
-	}
-
-	void done(const Update&)
-	{
-		Menu::transition(Asset::Level::tutorial, Game::Mode::Pvp);
-	}
-
-	void minion2_dialogue(Entity*)
-	{
-		Soren::clear();
-		Soren::data->mode = Soren::Mode::TextOnly;
-		Soren::data->texts.schedule(1.0f, _(strings::destroy_enemy_power_cell));
-	}
-
-	void shoot_tutorial(Entity*)
-	{
-		Soren::clear();
-		Soren::data->mode = Soren::Mode::TextOnly;
-		Soren::data->texts.schedule(0.0f, _(strings::shoot_tutorial));
-	}
-
-	void movement_tutorial_done(Entity*)
-	{
-		if (!data->movement_tutorial_done)
-		{
-			data->movement_tutorial_done = true;
-			Soren::clear();
-		}
-	}
-
-	void cleanup()
-	{
-		delete data;
-	}
-
 	void init(const Update& u, const EntityFinder& entities)
 	{
-		Soren::init();
-
-		data = new Data();
-		Game::cleanups.add(cleanup);
-
-		/*
-		Soren::data->mode = Soren::Mode::TextOnly;
-		Soren::data->texts.schedule(3.0f, _(strings::find_and_shoot_minion));
-		Soren::data->texts.schedule(8.0f, nullptr);
-
-		entities.find("minion1")->get<Health>()->killed.link(&minion1_dialogue);
-		entities.find("minion2")->get<Health>()->killed.link(&minion2_dialogue);
-		entities.find("shoot_tutorial")->get<PlayerTrigger>()->entered.link(&shoot_tutorial);
-		entities.find("movement_tutorial_done")->get<PlayerTrigger>()->entered.link(&movement_tutorial_done);
-		*/
+		Soren::init(entities);
 	}
 }
 

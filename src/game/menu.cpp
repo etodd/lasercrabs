@@ -116,6 +116,7 @@ void refresh_variables()
 	UIText::set_variable("Ability1", gamepad->bindings[(s32)Controls::Ability1].string(is_gamepad));
 	UIText::set_variable("Ability2", gamepad->bindings[(s32)Controls::Ability2].string(is_gamepad));
 	UIText::set_variable("Ability3", gamepad->bindings[(s32)Controls::Ability3].string(is_gamepad));
+	UIText::set_variable("Interact", gamepad->bindings[(s32)Controls::Interact].string(is_gamepad));
 }
 
 #define logo_size (128.0f * UI::scale)

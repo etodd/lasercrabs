@@ -2580,7 +2580,6 @@ void import_font(ImporterState& state, const std::string& asset_in_path, const s
 void import_strings(ImporterState& state, const std::string& asset_in_path, const std::string& out_folder)
 {
 	std::string asset_name = get_asset_name(asset_in_path);
-	std::string asset_out_path = out_folder + string_default_asset_name + string_extension;
 	b8 modified = import_copy(state, state.manifest.string_files, asset_in_path, out_folder, string_extension);
 	if (asset_name == "ui_en")
 	{
@@ -2610,8 +2609,7 @@ void import_strings(ImporterState& state, const std::string& asset_in_path, cons
 void import_dialogue_tree(ImporterState& state, const std::string& asset_in_path, const std::string& out_folder)
 {
 	std::string asset_name = get_asset_name(asset_in_path);
-	std::string asset_out_path = out_folder + asset_name + dialogue_tree_extension;
-	b8 modified = import_copy(state, state.manifest.dialogue_trees, asset_in_path, out_folder, string_extension);
+	b8 modified = import_copy(state, state.manifest.dialogue_trees, asset_in_path, out_folder, dialogue_tree_extension);
 	if (modified)
 	{
 		// parse strings

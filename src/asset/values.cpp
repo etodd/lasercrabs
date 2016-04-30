@@ -664,9 +664,9 @@ const char* AssetLookup::String::names[] =
 
 const char* AssetLookup::DialogueTree::values[] =
 {
-	"assets/dl/level1.json",
-	"assets/dl/level2.json",
-	"assets/dl/tutorial.json",
+	"assets/dl/level1.dlz",
+	"assets/dl/level2.dlz",
+	"assets/dl/tutorial.dlz",
 	0,
 };
 

@@ -148,11 +148,12 @@ namespace Penelope
 		}
 
 		// parse nodes
+
+		ID current_node_id = 0;
+
 		for (s32 tree_index = 0; tree_index < Asset::DialogueTree::count; tree_index++)
 		{
 			cJSON* json_node = trees[tree_index]->child;
-
-			ID current_node_id = 0;
 
 			while (json_node)
 			{
@@ -180,14 +181,14 @@ namespace Penelope
 				char hash[41];
 
 				{
-					if (node.type == Node::Type::Text)
+					if (node.type == Node::Type::Text || node.type == Node::Type::Choice)
 					{
 						sha1::hash(name_str, hash);
 						name_str = hash;
 					}
 
 					node.name = strings_get(name_str);
-					if (node.name != AssetNull)
+					if (node.name != AssetNull && node.name < (s32)Asset::String::count)
 						node_lookup[node.name] = current_node_id;
 				}
 

@@ -28,7 +28,7 @@ namespace VI
 
 typedef Chunks<Array<Vec3>> ChunkedTris;
 
-const s32 version = 22;
+const s32 version = 23;
 
 const char* model_in_extension = ".blend";
 const char* model_intermediate_extension = ".fbx";
@@ -57,6 +57,7 @@ const char* string_extension = ".json";
 const char* string_in_folder = "../assets/str/";
 const char* string_out_folder = "assets/str/";
 const char* dialogue_strings_out_path = "assets/str/dialogue_en.json";
+const char* dynamic_strings_out_path = "assets/str/misc_en.json";
 const char* string_default_asset_name = "strings";
 const char* wwise_project_path = "../assets/audio/audio.wproj";
 const char* wwise_header_in_path = "../assets/audio/GeneratedSoundBanks/Wwise_IDs.h";
@@ -605,6 +606,7 @@ struct Manifest
 	Map<std::string> strings;
 	Map<std::string> dialogue_trees;
 	Map2<std::string> dialogue_strings;
+	Map2<std::string> dynamic_strings;
 };
 
 b8 manifest_requires_update(const Manifest& a, const Manifest& b)
@@ -624,7 +626,8 @@ b8 manifest_requires_update(const Manifest& a, const Manifest& b)
 		|| !maps_equal(a.string_files, b.string_files)
 		|| !maps_equal(a.strings, b.strings)
 		|| !maps_equal(a.dialogue_trees, b.dialogue_trees)
-		|| !maps_equal2(a.dialogue_strings, b.dialogue_strings);
+		|| !maps_equal2(a.dialogue_strings, b.dialogue_strings)
+		|| !maps_equal2(a.dynamic_strings, b.dynamic_strings);
 }
 
 b8 manifest_read(const char* path, Manifest& manifest)
@@ -656,6 +659,7 @@ b8 manifest_read(const char* path, Manifest& manifest)
 			map_read(f, manifest.strings);
 			map_read(f, manifest.dialogue_trees);
 			map_read(f, manifest.dialogue_strings);
+			map_read(f, manifest.dynamic_strings);
 			fclose(f);
 			return true;
 		}
@@ -689,6 +693,7 @@ b8 manifest_write(Manifest& manifest, const char* path)
 	map_write(manifest.strings, f);
 	map_write(manifest.dialogue_trees, f);
 	map_write(manifest.dialogue_strings, f);
+	map_write(manifest.dynamic_strings, f);
 	fclose(f);
 	return true;
 }
@@ -2620,18 +2625,29 @@ void import_dialogue_tree(ImporterState& state, const std::string& asset_in_path
 		cJSON* element = json->child;
 		while (element)
 		{
-			if (strcmp(Json::get_string(element, "type"), "Text") == 0)
+			const char* type = Json::get_string(element, "type");
+			if (strcmp(type, "Text") == 0)
 			{
 				const char* text = Json::get_string(element, "name");
 				char hash[41];
 				sha1::hash(text, hash);
 				map_add(state.manifest.dialogue_strings, asset_name, std::string(hash), std::string(text));
 			}
+			else if (strcmp(type, "Choice") == 0)
+			{
+				const char* text = Json::get_string(element, "name");
+				char hash[41];
+				sha1::hash(text, hash);
+				map_add(state.manifest.dynamic_strings, asset_name, std::string(hash), std::string(text));
+			}
 			element = element->next;
 		}
 	}
 	else
+	{
 		map_copy(state.cached_manifest.dialogue_strings, asset_name, state.manifest.dialogue_strings);
+		map_copy(state.cached_manifest.dynamic_strings, asset_name, state.manifest.dynamic_strings);
+	}
 }
 
 FILE* open_asset_header(const char* path)
@@ -3112,18 +3128,35 @@ s32 proc(s32 argc, char* argv[])
 			fprintf(f, "\n}");
 			fclose(f);
 
-			// collect all dialogue strings into a single file
-			cJSON* dialogue = cJSON_CreateObject();
-			for (auto i = state.manifest.dialogue_strings.begin(); i != state.manifest.dialogue_strings.end(); i++)
 			{
-				for (auto j = i->second.begin(); j != i->second.end(); j++)
+				// collect all dialogue strings into a single file
+				cJSON* dialogue = cJSON_CreateObject();
+				for (auto i = state.manifest.dialogue_strings.begin(); i != state.manifest.dialogue_strings.end(); i++)
 				{
-					cJSON* value = cJSON_CreateString(j->second.c_str());
-					cJSON_AddItemToObject(dialogue, j->first.c_str(), value);
+					for (auto j = i->second.begin(); j != i->second.end(); j++)
+					{
+						cJSON* value = cJSON_CreateString(j->second.c_str());
+						cJSON_AddItemToObject(dialogue, j->first.c_str(), value);
+					}
 				}
+				Json::save(dialogue, dialogue_strings_out_path);
+				Json::json_free(dialogue);
 			}
-			Json::save(dialogue, dialogue_strings_out_path);
-			Json::json_free(dialogue);
+
+			{
+				// collect all dynamic strings into a single file
+				cJSON* dynamic = cJSON_CreateObject();
+				for (auto i = state.manifest.dynamic_strings.begin(); i != state.manifest.dynamic_strings.end(); i++)
+				{
+					for (auto j = i->second.begin(); j != i->second.end(); j++)
+					{
+						cJSON* value = cJSON_CreateString(j->second.c_str());
+						cJSON_AddItemToObject(dynamic, j->first.c_str(), value);
+					}
+				}
+				Json::save(dynamic, dynamic_strings_out_path);
+				Json::json_free(dynamic);
+			}
 		}
 	}
 

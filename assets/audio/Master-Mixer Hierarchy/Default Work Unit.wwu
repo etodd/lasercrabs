@@ -68,15 +68,17 @@
 									</RTPCList>
 								</Property>
 							</PropertyList>
-						</Bus>
-						<Bus Name="Dialogue" ID="{E8A73A5E-056C-46B8-875C-9658C99452FC}">
-							<ReferenceList>
-								<Reference Name="Effect0">
-									<Custom>
-										<Effect Name="Wwise Meter (Custom)" ID="{64EEEF32-6D0F-4A6D-9BD6-EDD5A5653DA2}" ShortID="479835529" PluginName="Wwise Meter" CompanyID="0" PluginID="129" PluginType="3"/>
-									</Custom>
-								</Reference>
-							</ReferenceList>
+							<ChildrenList>
+								<Bus Name="Dialogue" ID="{E8A73A5E-056C-46B8-875C-9658C99452FC}">
+									<ReferenceList>
+										<Reference Name="Effect0">
+											<Custom>
+												<Effect Name="Wwise Meter (Custom)" ID="{64EEEF32-6D0F-4A6D-9BD6-EDD5A5653DA2}" ShortID="479835529" PluginName="Wwise Meter" CompanyID="0" PluginID="129" PluginType="3"/>
+											</Custom>
+										</Reference>
+									</ReferenceList>
+								</Bus>
+							</ChildrenList>
 						</Bus>
 					</ChildrenList>
 				</Bus>

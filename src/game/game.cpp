@@ -580,7 +580,7 @@ void Game::unload_level()
 	cleanups.length = 0;
 
 	level.skybox.far_plane = 1.0f;
-	level.skybox.fog_start = level.skybox.far_plane * 0.75f;
+	level.skybox.fog_start = level.skybox.far_plane * 0.25f;
 	level.skybox.color = Vec3::zero;
 	level.skybox.ambient_color = Vec3::zero;
 	level.skybox.zenith_color = Vec3::zero;
@@ -837,7 +837,7 @@ void Game::load_level(const Update& u, AssetID l, Mode m)
 			if (state.mode == Mode::Pvp)
 			{
 				// override colors
-				level.skybox.fog_start = level.skybox.far_plane * 0.75f;
+				level.skybox.fog_start = level.skybox.far_plane;
 				level.skybox.color = pvp_sky;
 				level.skybox.ambient_color = pvp_ambient;
 				level.skybox.zenith_color = pvp_zenith;
@@ -845,7 +845,7 @@ void Game::load_level(const Update& u, AssetID l, Mode m)
 			}
 			else
 			{
-				level.skybox.fog_start = level.skybox.far_plane;
+				level.skybox.fog_start = level.skybox.far_plane * 0.25f;
 				level.skybox.color = Json::get_vec3(element, "skybox_color");
 				level.skybox.ambient_color = Json::get_vec3(element, "ambient_color");
 				level.skybox.zenith_color = Json::get_vec3(element, "zenith_color");

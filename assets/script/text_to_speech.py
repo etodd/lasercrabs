@@ -13,10 +13,13 @@ arg_start = sys.argv.index('--') + 1
 username = sys.argv[arg_start + 0]
 password = sys.argv[arg_start + 1]
 string_path = 'en.json'
-cache_path = 'soren.cache'
+cache_path = 'penelope.cache'
 
 with open(string_path, 'r') as string_file:
-	strings = json.loads(string_file.read())['soren']
+	input_strings = json.loads(string_file.read())['penelope']
+	# remove entries where the string value is null
+	# these are metadata nodes not meant to be spoken
+	strings = { (key, value) for key, value in input_strings if value is not None }
 
 cache = {}
 try:
@@ -25,7 +28,7 @@ try:
 except:
 	pass
 
-audio_directory = '../audio/Originals/SFX/soren/'
+audio_directory = '../audio/Originals/SFX/penelope/'
 
 def key_to_audio_path(key):
 	return os.path.join(audio_directory, '{}.wav'.format(key))

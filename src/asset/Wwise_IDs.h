@@ -13,11 +13,11 @@ namespace AK
 {
     namespace EVENTS
     {
-        static const AkUniqueID ARE_YOU_READY = 2984860209U;
+        static const AkUniqueID ALSO_TEACH = 757976738U;
+        static const AkUniqueID BUMMER = 3009830017U;
         static const AkUniqueID FANTASTIC_START_TUTORIAL = 50738526U;
-        static const AkUniqueID HELLO_SOREN = 183482543U;
+        static const AkUniqueID HELLO = 3069866343U;
         static const AkUniqueID JOB_MATCH_ONLINE_PLAYERS = 3461019753U;
-        static const AkUniqueID LOAD_TUTORIAL_01 = 669160396U;
         static const AkUniqueID MOVER_LOOP = 791592797U;
         static const AkUniqueID MOVER_STOP = 4257217443U;
         static const AkUniqueID PLAY_AWK_FOOTSTEP = 1090945306U;
@@ -46,9 +46,11 @@ namespace AK
         static const AkUniqueID PLAY_STEALTH = 1282624343U;
         static const AkUniqueID PLAY_ZOOM_IN = 2626091291U;
         static const AkUniqueID PLAY_ZOOM_OUT = 1819052470U;
+        static const AkUniqueID READY_TO_PLAY = 3572496003U;
         static const AkUniqueID STOP = 788884573U;
         static const AkUniqueID STOP_ALL = 452547817U;
         static const AkUniqueID STOP_FLY = 419831083U;
+        static const AkUniqueID UNFORTUNATELY_NO_TIME = 1571102585U;
     } // namespace EVENTS
 
     namespace GAME_PARAMETERS

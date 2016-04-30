@@ -19,8 +19,29 @@ struct AIPlayer
 {
 	static PinArray<AIPlayer, MAX_AI_PLAYERS> list;
 
+	enum class LowLevelLoop
+	{
+		Default,
+		Noop,
+	};
+
+	enum class HighLevelLoop
+	{
+		Default,
+		Noop,
+	};
+
+	struct Config
+	{
+		LowLevelLoop low_level;
+		HighLevelLoop high_level;
+		u16 hp_start;
+		Config();
+	};
+
 	Ref<PlayerManager> manager;
 	Revision revision;
+	Config config;
 
 	AIPlayer(PlayerManager*);
 	inline ID id() const

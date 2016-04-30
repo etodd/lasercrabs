@@ -48,7 +48,7 @@ struct UIMenu
 
 	UIMenu();
 	void clear();
-	void start(const Update&, u8);
+	void start(const Update&, u8, b8 = true);
 	Rect2 add_item(Vec2*, b8, const char*, const char* = nullptr, b8 = false, AssetID = AssetNull);
 	b8 item(const Update&, Vec2*, const char*, const char* = nullptr, b8 = false, AssetID = AssetNull);
 	Delta slider_item(const Update&, Vec2*, const char*, const char*, b8 = false, AssetID = AssetNull);

@@ -36,6 +36,7 @@ struct Health : public ComponentType<Health>
 
 	Health(u16, u16);
 
+	void set(u16);
 	void awake() {}
 	void damage(Entity*, u16);
 	void add(u16);
@@ -202,6 +203,8 @@ struct PlayerSpawn : public Entity
 };
 
 #define TERMINAL_HEIGHT 2.0f
+#define TERMINAL_TRIGGER_RADIUS 3.0f
+#define TERMINAL_LIGHT_RADIUS 8.0f
 struct Terminal : public Entity
 {
 	Terminal();

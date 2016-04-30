@@ -134,7 +134,7 @@ void title_menu(const Update& u, u8 gamepad, UIMenu* menu, State* state)
 			Vec2 pos(logo_padding * 2.0f + logo_size, u.input->height * 0.5f + UIMenu::height(5) * 0.5f);
 			if (menu->item(u, &pos, _(strings::play)))
 			{
-				transition(Asset::Level::test, Game::Mode::Parkour);
+				transition(Asset::Level::tutorial, Game::Mode::Parkour);
 				return;
 			}
 			if (menu->item(u, &pos, _(strings::options)))
@@ -313,7 +313,7 @@ void update(const Update& u)
 			if (player_count > 1 && start)
 			{
 				Game::data.feature_level = Game::FeatureLevel::Base;
-				transition(Asset::Level::test, Game::Mode::Pvp);
+				transition(Asset::Level::level1, Game::Mode::Pvp);
 			}
 			break;
 		}
@@ -559,11 +559,14 @@ void UIMenu::clear()
 
 #define JOYSTICK_DEAD_ZONE 0.5f
 
-void UIMenu::start(const Update& u, u8 g)
+void UIMenu::start(const Update& u, u8 g, b8 input)
 {
 	clear();
 
 	gamepad = g;
+
+	if (!input)
+		return;
 
 	if (active[g])
 	{
@@ -631,13 +634,8 @@ b8 UIMenu::item(const Update& u, Vec2* menu_pos, const char* string, const char*
 {
 	Rect2 box = add_item(menu_pos, false, string, value, disabled, icon);
 
-	if (active[gamepad])
-	{
-		if (active[gamepad] != this)
-			return false;
-	}
-	else
-		active[gamepad] = this;
+	if (active[gamepad] != this)
+		return false;
 
 	if (gamepad == 0 && box.contains(Game::cursor))
 	{
@@ -673,13 +671,8 @@ UIMenu::Delta UIMenu::slider_item(const Update& u, Vec2* menu_pos, const char* l
 {
 	Rect2 box = add_item(menu_pos, true, label, value, disabled, icon);
 
-	if (active[gamepad])
-	{
-		if (active[gamepad] != this)
-			return Delta::None;
-	}
-	else
-		active[gamepad] = this;
+	if (active[gamepad] != this)
+		return Delta::None;
 
 	if (gamepad == 0 && box.contains(Game::cursor))
 		selected = items.length - 1;
@@ -769,7 +762,7 @@ void UIMenu::draw_alpha(const RenderParams& params) const
 	for (s32 i = 0; i < items.length; i++)
 	{
 		const Item* item = &items[i];
-		UI::box(params, item->rect(), i == selected ? UI::subtle_color : UI::background_color);
+		UI::box(params, item->rect(), active[gamepad] == this && i == selected ? UI::subtle_color : UI::background_color);
 
 		if (item->icon != AssetNull)
 			UI::mesh(params, item->icon, item->pos + Vec2(MENU_ITEM_PADDING_LEFT * -0.5f, MENU_ITEM_FONT_SIZE * -0.5f), Vec2(UI::scale * MENU_ITEM_FONT_SIZE), item->label.color);
@@ -789,7 +782,7 @@ void UIMenu::draw_alpha(const RenderParams& params) const
 		}
 	}
 
-	if (gamepad == 0)
+	if (gamepad == 0 && active[gamepad] == this)
 		Game::draw_cursor(params);
 }
 

@@ -17,9 +17,11 @@ struct Script
 	ScriptFunction function;
 };
 
-namespace Soren
+namespace Penelope
 {
 	void global_init();
+	void init(Entity* = nullptr, AssetID = AssetNull);
+	b8 has_focus();
 };
 
 }

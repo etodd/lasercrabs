@@ -32,6 +32,7 @@
 #if DEBUG_AI_CONTROL
 #include "ai_player.h"
 #endif
+#include "scripts.h"
 
 namespace VI
 {
@@ -251,7 +252,7 @@ void LocalPlayer::update_all(const Update& u)
 	Audio::global_param(AK::GAME_PARAMETERS::DANGER, vi_min(danger, 1.0f));
 }
 
-#define TUTORIAL_TIME 3.0f
+#define TUTORIAL_TIME 2.0f
 
 void LocalPlayer::update(const Update& u)
 {
@@ -342,13 +343,6 @@ void LocalPlayer::spawn()
 	LocalPlayerControl* control = spawned->add<LocalPlayerControl>(gamepad);
 	control->player = this;
 }
-
-AssetID tutorial_messages[(s32)Game::FeatureLevel::count] =
-{
-	strings::tut_base,
-	strings::tut_hp,
-	strings::tut_abilities,
-};
 
 void draw_icon_text(const RenderParams& params, const Vec2& pos, AssetID icon, char* string, const Vec4& color)
 {
@@ -557,8 +551,8 @@ void LocalPlayer::draw_alpha(const RenderParams& params) const
 						text.wrap_width = MENU_ITEM_WIDTH;
 						text.anchor_x = UIText::Anchor::Center;
 						text.anchor_y = UIText::Anchor::Center;
-						text.color = UI::default_color;
-						text.text(_(tutorial_messages[(s32)Game::data.feature_level]));
+						text.color = UI::accent_color;
+						text.text(_(strings::tut));
 						Vec2 p = vp.size * Vec2(0.5f);
 						const r32 padding = 8.0f * UI::scale;
 						UI::box(params, text.rect(p).outset(padding), UI::background_color);
@@ -919,7 +913,7 @@ void LocalPlayerControl::hit_target(Entity* target)
 	rumble = vi_max(rumble, 0.5f);
 	if (target->has<MinionAI>())
 	{
-		player.ref()->msg(_(strings::target_killed), true);
+		player.ref()->msg(_(strings::minion_killed), true);
 		if (target->get<AIAgent>()->team != get<AIAgent>()->team)
 			player.ref()->manager.ref()->add_credits(CREDITS_MINION);
 	}
@@ -949,7 +943,7 @@ void LocalPlayerControl::health_picked_up()
 
 b8 LocalPlayerControl::input_enabled() const
 {
-	return !Console::visible && enable_input;
+	return !Console::visible && enable_input && !Penelope::has_focus();
 }
 
 b8 LocalPlayerControl::movement_enabled() const
@@ -1475,46 +1469,48 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 	if (Game::data.mode == Game::Mode::Pvp)
 	{
 		// draw indicators
-		for (s32 i = 0; i < indicators.length; i++)
 		{
-			const Indicator& indicator = indicators[i];
-			draw_indicator(params, indicator.pos, *indicator.color, indicator.offscreen);
+			for (s32 i = 0; i < indicators.length; i++)
+			{
+				const Indicator& indicator = indicators[i];
+				draw_indicator(params, indicator.pos, *indicator.color, indicator.offscreen);
+			}
+		}
+
+		// highlight teleporters
+		{
+			for (auto t = Teleporter::list.iterator(); !t.is_last(); t.next())
+			{
+				if (t.item()->team == team)
+					draw_indicator(params, t.item()->get<Transform>()->absolute_pos(), Team::ui_color_friend, false);
+			}
+		}
+
+		// highlight control points
+		{
+			Vec3 me = get<Transform>()->absolute_pos();
+			for (auto i = ControlPoint::list.iterator(); !i.is_last(); i.next())
+			{
+				Vec3 pos = i.item()->get<Transform>()->absolute_pos();
+				if ((pos - me).length_squared() < AWK_MAX_DISTANCE * AWK_MAX_DISTANCE)
+				{
+					Vec2 p;
+					if (UI::project(params, pos, &p))
+					{
+						Vec2 icon_size(text_size * UI::scale);
+						UI::box(params, Rect2(p + icon_size * -0.5f, icon_size).outset(4.0f * UI::scale), UI::background_color);
+
+						AI::Team control_point_team = i.item()->team;
+						const Vec4& color = control_point_team == team ? Team::ui_color_friend : (control_point_team == AI::Team::None ? UI::default_color : Team::ui_color_enemy);
+						UI::mesh(params, Asset::Mesh::icon_credits, p, icon_size, color);
+					}
+				}
+			}
 		}
 	}
 	else
 	{
 		// todo: highlight notes
-	}
-
-	// highlight teleporters
-	{
-		for (auto t = Teleporter::list.iterator(); !t.is_last(); t.next())
-		{
-			if (t.item()->team == team)
-				draw_indicator(params, t.item()->get<Transform>()->absolute_pos(), Team::ui_color_friend, false);
-		}
-	}
-
-	// highlight control points
-	{
-		Vec3 me = get<Transform>()->absolute_pos();
-		for (auto i = ControlPoint::list.iterator(); !i.is_last(); i.next())
-		{
-			Vec3 pos = i.item()->get<Transform>()->absolute_pos();
-			if ((pos - me).length_squared() < AWK_MAX_DISTANCE * AWK_MAX_DISTANCE)
-			{
-				Vec2 p;
-				if (UI::project(params, pos, &p))
-				{
-					Vec2 icon_size(text_size * UI::scale);
-					UI::box(params, Rect2(p + icon_size * -0.5f, icon_size).outset(4.0f * UI::scale), UI::background_color);
-
-					AI::Team control_point_team = i.item()->team;
-					const Vec4& color = control_point_team == team ? Team::ui_color_friend : (control_point_team == AI::Team::None ? UI::default_color : Team::ui_color_enemy);
-					UI::mesh(params, Asset::Mesh::icon_credits, p, icon_size, color);
-				}
-			}
-		}
 	}
 
 	// draw usernames directly over players' 3D positions

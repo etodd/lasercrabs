@@ -58,6 +58,14 @@ Health::Health(u16 start_value, u16 hp_max)
 {
 }
 
+void Health::set(u16 h)
+{
+	if (h > hp)
+		add(h - hp);
+	else if (h < hp)
+		damage(nullptr, hp - h);
+}
+
 void Health::damage(Entity* e, u16 damage)
 {
 	if (hp > 0 && damage > 0)
@@ -346,12 +354,12 @@ Terminal::Terminal()
 	view->shader = Asset::Shader::standard;
 	view->offset = Mat4::make_translation(0.0f, TERMINAL_HEIGHT * -0.5f, 0.0f);
 
-	create<PlayerTrigger>()->radius = 3.0f;
+	create<PlayerTrigger>()->radius = TERMINAL_TRIGGER_RADIUS;
 
 	create<RigidBody>(RigidBody::Type::CapsuleY, Vec3(0.2f, TERMINAL_HEIGHT, 0), 0.0f, CollisionWalker, ~CollisionAwk & ~CollisionShield);
 
 	PointLight* light = create<PointLight>();
-	light->radius = 8.0f;
+	light->radius = TERMINAL_LIGHT_RADIUS;
 
 	Entity* light_entity = World::create<Empty>();
 	light_entity->get<Transform>()->parent = get<Transform>();

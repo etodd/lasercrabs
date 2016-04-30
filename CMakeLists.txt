@@ -231,6 +231,12 @@ add_library(mersenne STATIC
 	external/mersenne/mersenne-twister.h
 )
 
+## SHA1
+add_library(sha1 STATIC
+	external/sha1/sha1.cpp
+	external/sha1/sha1.h
+)
+
 ## Source
 
 add_custom_command(
@@ -361,8 +367,9 @@ add_executable(yearning
 	assets/shader/sky_decal.glsl
 	assets/script/blend_to_fbx.py
 	assets/script/blend_to_lvl.py
+	assets/script/text_to_speech.py
 	assets/script/ttf_to_fbx.py
-	assets/str/en.json
+	assets/str/ui_en.json
 )
 
 target_include_directories(yearning PRIVATE ${ALL_INCLUDES})
@@ -396,6 +403,7 @@ target_link_libraries(yearning
 	cJSON
 	mersenne
 	wwise_integration
+	sha1
 )
 
 if(APPLE)
@@ -428,6 +436,7 @@ target_link_libraries(import
 	fastlz
 	cJSON
 	mersenne
+	sha1
 )
 
 add_custom_target(

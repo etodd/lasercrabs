@@ -2571,7 +2571,7 @@ void import_strings(ImporterState& state, const std::string& asset_in_path, cons
 	std::string asset_name = get_asset_name(asset_in_path);
 	std::string asset_out_path = out_folder + string_default_asset_name + string_extension;
 	b8 modified = import_copy(state, state.manifest.string_files, asset_in_path, out_folder, string_extension);
-	if (asset_name == "en")
+	if (asset_name == "ui_en")
 	{
 		if (modified)
 		{
@@ -2579,21 +2579,15 @@ void import_strings(ImporterState& state, const std::string& asset_in_path, cons
 			cJSON* json = Json::load(asset_in_path.c_str());
 			if (!json)
 			{
-				fprintf(stderr, "Error: %s\n", cJSON_GetErrorPtr());
+				fprintf(stderr, "Error: %s: %s\n", asset_in_path.c_str(), cJSON_GetErrorPtr());
 				state.error = true;
 				return;
 			}
 			cJSON* element = json->child;
 			while (element)
 			{
-				// each element is a dictionary of string keys to string values
-				cJSON* element2 = element->child;
-				while (element2)
-				{
-					std::string key = element2->string;
-					map_add(state.manifest.strings, key, key);
-					element2 = element2->next;
-				}
+				std::string key = element->string;
+				map_add(state.manifest.strings, key, key);
 				element = element->next;
 			}
 		}

@@ -38,6 +38,7 @@
 #include "data/behavior.h"
 #include "render/particles.h"
 #include "ai_player.h"
+#include "usernames.h"
 
 #if DEBUG
 	#define DEBUG_NAV_MESH 0
@@ -101,37 +102,39 @@ b8 Game::init(LoopSync* sync)
 		const char* language_file = "language.txt";
 		cJSON* json_language = Json::load(language_file);
 		const char* language = Json::get_string(json_language, "language", "en");
-
-		char string_file[255];
-		sprintf(string_file, "assets/str/%s.json", language);
+		char ui_string_file[255];
+		sprintf(ui_string_file, "assets/str/ui_%s.json", language);
+		char dialogue_string_file[255];
+		sprintf(dialogue_string_file, "assets/str/dialogue_%s.json", language);
 		Json::json_free(json_language);
 
-		// the json object has a number of sub-objects
-		// each dictionary is a map of string keys to string values
-		cJSON* json = Json::load(string_file);
-		for (s32 i = 0; i < Asset::String::count; i++)
+		// UI
 		{
-			const char* name = AssetLookup::String::names[i];
-
-			// find which sub-map has the string key
-			cJSON* sub_map = json->child;
-			while (sub_map)
+			cJSON* json = Json::load(ui_string_file);
+			for (s32 i = 0; i < Asset::String::count; i++)
 			{
-				cJSON* value = cJSON_GetObjectItem(sub_map, name);
-				if (value)
-				{
-					strings_set(i, value->valuestring);
-					break;
-				}
-				sub_map = sub_map->next;
+				const char* name = AssetLookup::String::names[i];
+				cJSON* value = cJSON_GetObjectItem(json, name);
+				strings_set(i, value->valuestring);
+			}
+			// don't free the JSON object; we'll read strings directly from it
+		}
+
+		// dialogue strings
+		{
+			cJSON* json = Json::load(ui_string_file);
+			cJSON* element = json->child;
+			while (element)
+			{
+				strings_add_dynamic(element->string, element->valuestring);
+				element = element->next;
 			}
 		}
-		// don't free the JSON object; we'll read strings directly from it
+
+		Input::load_strings(); // loads localized strings for input bindings
 	}
 
-	Input::load_strings(); // loads localized strings for input bindings
-
-	Soren::global_init();
+	Penelope::global_init();
 
 	World::init();
 	for (s32 i = 0; i < ParticleSystem::all.length; i++)
@@ -514,25 +517,7 @@ void Game::execute(const Update& u, const char* cmd)
 			const char* level_name = delimiter + 1;
 			AssetID level = Loader::find(level_name, AssetLookup::Level::names);
 			if (level != AssetNull)
-			{
-				data.feature_level = FeatureLevel::All;
 				Menu::transition(level, Game::Mode::Pvp);
-			}
-		}
-	}
-	else if (strstr(cmd, "loadai ") == cmd)
-	{
-		// pvp mode; ai test
-		const char* delimiter = strchr(cmd, ' ');
-		if (delimiter)
-		{
-			const char* level_name = delimiter + 1;
-			AssetID level = Loader::find(level_name, AssetLookup::Level::names);
-			if (level != AssetNull)
-			{
-				data.feature_level = FeatureLevel::All;
-				Game::load_level(u, level, Game::Mode::Pvp, true);
-			}
 		}
 	}
 	else if (strstr(cmd, "loads ") == cmd)
@@ -636,7 +621,7 @@ AI::Team team_lookup(AI::Team* table, s32 i)
 	return table[vi_max(0, vi_min((s32)AI::Team::count - 1, i))];
 }
 
-void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
+void Game::load_level(const Update& u, AssetID l, Mode m)
 {
 	time.total = 0.0f;
 
@@ -804,6 +789,8 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 		{
 			// World is guaranteed to be the first element in the entity list
 
+			data.feature_level = (FeatureLevel)Json::get_s32(element, "feature_level", (s32)FeatureLevel::All);
+
 			{
 				b8 lock_teams = Json::get_s32(element, "lock_teams");
 				// shuffle teams
@@ -862,16 +849,8 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 						PlayerManager* manager = PlayerManager::list.add();
 						new (manager) PlayerManager(&Team::list[(s32)team]);
 
-						if (ai_test)
-						{
-							AIPlayer* player = AIPlayer::list.add();
-							new (player) AIPlayer(manager);
-						}
-						else
-						{
-							LocalPlayer* player = LocalPlayer::list.add();
-							new (player) LocalPlayer(manager, i);
-						}
+						LocalPlayer* player = LocalPlayer::list.add();
+						new (player) LocalPlayer(manager, i);
 					}
 				}
 				if (data.mode == Mode::Pvp)
@@ -908,6 +887,8 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 				PlayerManager* manager = PlayerManager::list.add();
 				new (manager) PlayerManager(&Team::list[(s32)team]);
 
+				strcpy(manager->username, Usernames::all[mersenne::rand_u32() % Usernames::count]);
+
 				AIPlayer* player = AIPlayer::list.add();
 				new (player) AIPlayer(manager);
 			}
@@ -931,6 +912,10 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 			{
 				entity = World::alloc<Terminal>();
 				absolute_pos.y += TERMINAL_HEIGHT * 0.5f;
+				const char* entry_point_str = Json::get_string(element, "entry_point");
+				AssetID entry_point = strings_get(entry_point_str);
+				vi_assert(entry_point != AssetNull);
+				Penelope::init(entity, entry_point);
 			}
 		}
 		else if (cJSON_GetObjectItem(element, "SkyDecal"))
@@ -1098,9 +1083,6 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 	for (s32 i = 0; i < ropes.length; i++)
 		Rope::spawn(ropes[i].pos, ropes[i].rot * Vec3(0, 1, 0), ropes[i].max_distance, ropes[i].slack);
 
-	for (s32 i = 0; i < Team::list.length; i++)
-		Team::list[i].awake();
-
 	// Set map view for local players
 	{
 		Entity* map_view = finder.find("map_view");
@@ -1115,6 +1097,9 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 		scripts[i]->function(u, finder);
 
 	Loader::level_free(json);
+
+	for (s32 i = 0; i < Team::list.length; i++)
+		Team::list[i].awake();
 }
 
 }

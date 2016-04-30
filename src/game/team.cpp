@@ -136,19 +136,9 @@ void level_retry()
 		Menu::transition(Game::data.level, Game::Mode::Parkour);
 }
 
-// if true at the current feature level, we will rotate the teams
-// before advancing to the next feature level
-b8 rotate_teams_at_feature_level[(s32)Game::FeatureLevel::count] =
-{
-	false, // Base
-	false, // HealthPickups
-	true, // Abilities
-};
-
 void level_next()
 {
 	AssetID next_level;
-	Game::FeatureLevel next_feature_level;
 	Game::Mode next_mode;
 
 	if (Game::data.local_multiplayer)
@@ -156,27 +146,10 @@ void level_next()
 		// we're in local multiplayer mode
 		next_mode = Game::Mode::Pvp;
 
-		if (rotate_teams_at_feature_level[(s32)Game::data.feature_level] && Game::data.local_multiplayer_offset < (s32)AI::Team::count - 1)
-		{
-			// play again with same features, but different team offset
-			next_level = Game::data.level; 
-			next_feature_level = Game::data.feature_level;
-		}
+		if (Game::data.local_multiplayer_offset < (s32)AI::Team::count - 1)
+			next_level = Game::data.level; // play again with same features, but different team offset
 		else
-		{
-			if ((s32)Game::data.feature_level < (s32)Game::FeatureLevel::All)
-			{
-				// play again with more features
-				next_level = Game::data.level;
-				next_feature_level = (Game::FeatureLevel)((s32)Game::data.feature_level + 1);
-			}
-			else
-			{
-				// advance to next level
-				next_level = Game::data.next_level;
-				next_feature_level = Game::FeatureLevel::All;
-			}
-		}
+			next_level = Game::data.next_level; // advance to next level
 
 		Game::data.local_multiplayer_offset = (Game::data.local_multiplayer_offset + 1) % (s32)AI::Team::count;
 	}
@@ -184,19 +157,8 @@ void level_next()
 	{
 		// advance to next level
 		next_mode = Game::Mode::Parkour;
-		if (Game::data.has_feature(Game::FeatureLevel::All))
-		{
-			next_level = Game::data.next_level;
-			next_feature_level = Game::FeatureLevel::All;
-		}
-		else
-		{
-			next_level = Game::data.level;
-			next_feature_level = (Game::FeatureLevel)((s32)Game::data.feature_level + 1);
-		}
+		next_level = Game::data.next_level;
 	}
-
-	Game::data.feature_level = next_feature_level;
 
 	Menu::transition(next_level, next_mode);
 }

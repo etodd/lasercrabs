@@ -346,58 +346,80 @@
 						</Event>
 					</ChildrenList>
 				</Folder>
-				<Folder Name="soren" ID="{04E54C47-F0F5-451B-8777-7B7C24045653}" ShortID="896672305">
+				<Folder Name="penelope" ID="{04E54C47-F0F5-451B-8777-7B7C24045653}" ShortID="896672305">
 					<ChildrenList>
-						<Event Name="fantastic_start_tutorial" ID="{C17A9713-2338-4446-972C-0B3FC5D1C0F6}">
+						<Event Name="also_teach" ID="{54DF276F-668F-413F-B0E0-8745A1C49AB5}">
 							<ChildrenList>
-								<Action Name="Play" ID="{056AB931-E2B3-4A22-B592-B39E18CB09C3}" ShortID="797428733" Type="Play" Scope="One" Global="false">
+								<Action Name="Play" ID="{5B5B6E7F-AAD4-4C05-9E5B-79FB13454020}" ShortID="725865282" Type="Play" Scope="One" Global="false">
 									<ElementList>
-										<Element ID="{CB289D07-88DA-496D-AAB9-6426351C5C1F}" Global="false">
-											<ObjectRef Name="fantastic_start_tutorial" ID="{E8C3E549-CAA9-48C6-A63D-5ACD135CFD5C}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+										<Element ID="{B758D465-AB3A-43B6-9584-A75670295FEB}" Global="false">
+											<ObjectRef Name="also_teach" ID="{E6D30BC3-D824-44B4-B637-15D1A94A6112}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
 										</Element>
 									</ElementList>
 								</Action>
 							</ChildrenList>
 						</Event>
-						<Event Name="hello_soren" ID="{56B2E14E-2BD3-4874-8E0B-17C17FD1CA45}">
+						<Event Name="unfortunately_no_time" ID="{6643788F-8C6E-4B70-9DEF-152E60C25F40}">
 							<ChildrenList>
-								<Action Name="Play" ID="{FD0898A6-45F9-4D4F-A265-536082261AEC}" ShortID="787893776" Type="Play" Scope="One" Global="false">
+								<Action Name="Play" ID="{7D013C6E-CB85-4794-81C2-FE464C0A414D}" ShortID="458370344" Type="Play" Scope="One" Global="false">
 									<ElementList>
-										<Element ID="{552F65A6-D88A-4140-A7F3-4FC45480FCAF}" Global="false">
-											<ObjectRef Name="hello_soren" ID="{C4F35E52-CEED-418E-AAD3-79D8AB3E6472}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+										<Element ID="{64FA476C-A4E2-4086-878D-69A68A890E68}" Global="false">
+											<ObjectRef Name="unfortunately_no_time" ID="{B260486E-5348-4FBF-8696-39A3E4E99C74}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
 										</Element>
 									</ElementList>
 								</Action>
 							</ChildrenList>
 						</Event>
-						<Event Name="load_tutorial_01" ID="{712CB570-DFE7-4C09-91F0-794CABA24145}">
+						<Event Name="bummer" ID="{F732608A-422C-4870-8877-4C3AF13EFE70}">
 							<ChildrenList>
-								<Action Name="Play" ID="{E6252AC8-910B-4F09-AD07-A90BC2A1C54A}" ShortID="171738660" Type="Play" Scope="One" Global="false">
+								<Action Name="Play" ID="{5066941E-A87E-49F1-8416-9866605DE30D}" ShortID="647451936" Type="Play" Scope="One" Global="false">
 									<ElementList>
-										<Element ID="{57A4B41B-91D9-4001-A732-EFEC0606186B}" Global="false">
-											<ObjectRef Name="load_tutorial_01" ID="{478C032A-9F9E-4DF7-BF31-A8EB582907AF}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+										<Element ID="{6D5A2CED-1FF3-4D5F-9DE7-18CCDBFB8299}" Global="false">
+											<ObjectRef Name="bummer" ID="{D579768E-6960-4FC7-818C-56339FC4C529}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
 										</Element>
 									</ElementList>
 								</Action>
 							</ChildrenList>
 						</Event>
-						<Event Name="job_match_online_players" ID="{FD044861-2D37-451D-95FE-AE7BF1B0CCE3}">
+						<Event Name="hello" ID="{B325EE71-A36B-4E84-AA08-0653A32EA227}">
 							<ChildrenList>
-								<Action Name="Play" ID="{829BCABD-1A72-4B10-BE2D-029BB38A590F}" ShortID="948306012" Type="Play" Scope="One" Global="false">
+								<Action Name="Play" ID="{B89C96AD-C53A-479A-9F6C-DA78A946508D}" ShortID="590559528" Type="Play" Scope="One" Global="false">
 									<ElementList>
-										<Element ID="{F9AC5B57-05EC-43A8-BAA8-D3525768D57E}" Global="false">
-											<ObjectRef Name="job_match_online_players" ID="{236E5A52-FC5D-4A52-97E2-66C3FB161778}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+										<Element ID="{A1A019FF-84B4-4F89-9C21-E2A7A910D231}" Global="false">
+											<ObjectRef Name="hello" ID="{676B6E2E-6F4F-45DD-AD25-25524A2F480D}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
 										</Element>
 									</ElementList>
 								</Action>
 							</ChildrenList>
 						</Event>
-						<Event Name="are_you_ready" ID="{37697BA9-54F0-43B4-B016-57E55EAC048D}">
+						<Event Name="fantastic_start_tutorial" ID="{9C39065E-56BE-427D-9EA7-924AF590F657}">
 							<ChildrenList>
-								<Action Name="Play" ID="{3004DD80-934A-460F-87FC-8066B11DFCBB}" ShortID="16953365" Type="Play" Scope="One" Global="false">
+								<Action Name="Play" ID="{C241B461-2C51-455E-B498-BFAC7312B87C}" ShortID="747048650" Type="Play" Scope="One" Global="false">
 									<ElementList>
-										<Element ID="{FC27C913-D415-4AD8-A246-DCFAD5DD3670}" Global="false">
-											<ObjectRef Name="are_you_ready" ID="{0A07833B-AF76-4AC1-A49B-106AEA05BC9E}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+										<Element ID="{7367BE89-EA80-48AE-A5C8-74E70D83D356}" Global="false">
+											<ObjectRef Name="fantastic_start_tutorial" ID="{B2968EFF-0B58-4D3A-8533-F5BB4D4671AD}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+										</Element>
+									</ElementList>
+								</Action>
+							</ChildrenList>
+						</Event>
+						<Event Name="job_match_online_players" ID="{71783F25-E13F-4190-AACE-15112C305061}">
+							<ChildrenList>
+								<Action Name="Play" ID="{49AC0F5F-F044-45CB-8E58-8D5C5B106713}" ShortID="627604184" Type="Play" Scope="One" Global="false">
+									<ElementList>
+										<Element ID="{A82A4262-1956-423A-AAEE-9A4020909326}" Global="false">
+											<ObjectRef Name="job_match_online_players" ID="{D387AD1A-B79C-4A83-A1B9-D2EA02698ADD}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+										</Element>
+									</ElementList>
+								</Action>
+							</ChildrenList>
+						</Event>
+						<Event Name="ready_to_play" ID="{4C15F6AB-889E-4543-970E-F8DDEAAEBB92}">
+							<ChildrenList>
+								<Action Name="Play" ID="{13AD81E2-0A67-4DCD-A155-C2B35D68794C}" ShortID="448113311" Type="Play" Scope="One" Global="false">
+									<ElementList>
+										<Element ID="{E5680EF8-3711-45DC-8915-476AC291FF2F}" Global="false">
+											<ObjectRef Name="ready_to_play" ID="{F7FE02AB-04CD-472E-A1CA-9AC206F561DE}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
 										</Element>
 									</ElementList>
 								</Action>

@@ -156,6 +156,11 @@ void Awk::hit_by(const TargetEvent& e)
 		// if we're attached to a wall, take damage if the enemy has equal or higher health than us
 		if (enemy_hp >= my_hp)
 			get<Health>()->damage(e.hit_by, 1);
+		else
+		{
+			if (get<Health>()->hp > 0 && e.hit_by->has<LocalPlayerControl>())
+				e.hit_by->get<LocalPlayerControl>()->player.ref()->msg(_(strings::no_effect), true);
+		}
 	}
 	else
 	{

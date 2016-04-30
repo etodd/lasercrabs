@@ -1563,7 +1563,7 @@
 						</Sound>
 					</ChildrenList>
 				</RandomSequenceContainer>
-				<ActorMixer Name="soren" ID="{268C5A9B-FE0E-4CCA-8A21-B0D3CC20AED4}" ShortID="544240620">
+				<ActorMixer Name="penelope" ID="{268C5A9B-FE0E-4CCA-8A21-B0D3CC20AED4}" ShortID="544240620">
 					<ReferenceList>
 						<Reference Name="Conversion">
 							<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
@@ -1573,7 +1573,7 @@
 						</Reference>
 					</ReferenceList>
 					<ChildrenList>
-						<Sound Name="are_you_ready" ID="{0A07833B-AF76-4AC1-A49B-106AEA05BC9E}" ShortID="647957750" Type="SoundFX">
+						<Sound Name="also_teach" ID="{E6D30BC3-D824-44B4-B637-15D1A94A6112}" ShortID="88273753" Type="SoundFX">
 							<ReferenceList>
 								<Reference Name="Conversion">
 									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
@@ -1583,16 +1583,16 @@
 								</Reference>
 							</ReferenceList>
 							<ChildrenList>
-								<AudioFileSource Name="are_you_ready" ID="{66A4A333-776E-4E78-89BF-B18CB067FD43}" ShortID="670647071">
+								<AudioFileSource Name="also_teach" ID="{234BAAAE-5D35-4860-B79D-5586D14501BE}" ShortID="163172608">
 									<Language>SFX</Language>
-									<AudioFile>soren\are_you_ready.wav</AudioFile>
+									<AudioFile>penelope\also_teach.wav</AudioFile>
 								</AudioFileSource>
 							</ChildrenList>
 							<ActiveSourceList>
-								<ActiveSource Name="are_you_ready" ID="{66A4A333-776E-4E78-89BF-B18CB067FD43}" Platform="Linked"/>
+								<ActiveSource Name="also_teach" ID="{234BAAAE-5D35-4860-B79D-5586D14501BE}" Platform="Linked"/>
 							</ActiveSourceList>
 						</Sound>
-						<Sound Name="fantastic_start_tutorial" ID="{E8C3E549-CAA9-48C6-A63D-5ACD135CFD5C}" ShortID="42521268" Type="SoundFX">
+						<Sound Name="bummer" ID="{D579768E-6960-4FC7-818C-56339FC4C529}" ShortID="682815488" Type="SoundFX">
 							<ReferenceList>
 								<Reference Name="Conversion">
 									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
@@ -1602,16 +1602,16 @@
 								</Reference>
 							</ReferenceList>
 							<ChildrenList>
-								<AudioFileSource Name="fantastic_start_tutorial" ID="{6A34FD76-5D0C-42E7-9522-852E386C1DF5}" ShortID="295903925">
+								<AudioFileSource Name="bummer" ID="{6181BA9C-4A1C-4616-A743-D29E316CB7F6}" ShortID="239577940">
 									<Language>SFX</Language>
-									<AudioFile>soren\fantastic_start_tutorial.wav</AudioFile>
+									<AudioFile>penelope\bummer.wav</AudioFile>
 								</AudioFileSource>
 							</ChildrenList>
 							<ActiveSourceList>
-								<ActiveSource Name="fantastic_start_tutorial" ID="{6A34FD76-5D0C-42E7-9522-852E386C1DF5}" Platform="Linked"/>
+								<ActiveSource Name="bummer" ID="{6181BA9C-4A1C-4616-A743-D29E316CB7F6}" Platform="Linked"/>
 							</ActiveSourceList>
 						</Sound>
-						<Sound Name="hello_soren" ID="{C4F35E52-CEED-418E-AAD3-79D8AB3E6472}" ShortID="970168069" Type="SoundFX">
+						<Sound Name="fantastic_start_tutorial" ID="{B2968EFF-0B58-4D3A-8533-F5BB4D4671AD}" ShortID="353683976" Type="SoundFX">
 							<ReferenceList>
 								<Reference Name="Conversion">
 									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
@@ -1621,16 +1621,16 @@
 								</Reference>
 							</ReferenceList>
 							<ChildrenList>
-								<AudioFileSource Name="hello_soren" ID="{F3A72124-F468-4642-8BC2-22B72C24EC80}" ShortID="859128471">
+								<AudioFileSource Name="fantastic_start_tutorial" ID="{8FD8220A-9DAA-4C1B-89A9-8A3A4819124E}" ShortID="738716916">
 									<Language>SFX</Language>
-									<AudioFile>soren\hello_soren.wav</AudioFile>
+									<AudioFile>penelope\fantastic_start_tutorial.wav</AudioFile>
 								</AudioFileSource>
 							</ChildrenList>
 							<ActiveSourceList>
-								<ActiveSource Name="hello_soren" ID="{F3A72124-F468-4642-8BC2-22B72C24EC80}" Platform="Linked"/>
+								<ActiveSource Name="fantastic_start_tutorial" ID="{8FD8220A-9DAA-4C1B-89A9-8A3A4819124E}" Platform="Linked"/>
 							</ActiveSourceList>
 						</Sound>
-						<Sound Name="job_match_online_players" ID="{236E5A52-FC5D-4A52-97E2-66C3FB161778}" ShortID="194156638" Type="SoundFX">
+						<Sound Name="hello" ID="{676B6E2E-6F4F-45DD-AD25-25524A2F480D}" ShortID="15132574" Type="SoundFX">
 							<ReferenceList>
 								<Reference Name="Conversion">
 									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
@@ -1640,16 +1640,16 @@
 								</Reference>
 							</ReferenceList>
 							<ChildrenList>
-								<AudioFileSource Name="job_match_online_players" ID="{C5FC3E21-A398-4208-BAE1-4DA1F1CF3F26}" ShortID="926275639">
+								<AudioFileSource Name="hello" ID="{DF5EA477-7E5F-4162-8239-4E0C92FA222A}" ShortID="645105097">
 									<Language>SFX</Language>
-									<AudioFile>soren\job_match_online_players.wav</AudioFile>
+									<AudioFile>penelope\hello.wav</AudioFile>
 								</AudioFileSource>
 							</ChildrenList>
 							<ActiveSourceList>
-								<ActiveSource Name="job_match_online_players" ID="{C5FC3E21-A398-4208-BAE1-4DA1F1CF3F26}" Platform="Linked"/>
+								<ActiveSource Name="hello" ID="{DF5EA477-7E5F-4162-8239-4E0C92FA222A}" Platform="Linked"/>
 							</ActiveSourceList>
 						</Sound>
-						<Sound Name="load_tutorial_01" ID="{478C032A-9F9E-4DF7-BF31-A8EB582907AF}" ShortID="1048088011" Type="SoundFX">
+						<Sound Name="job_match_online_players" ID="{D387AD1A-B79C-4A83-A1B9-D2EA02698ADD}" ShortID="129670400" Type="SoundFX">
 							<ReferenceList>
 								<Reference Name="Conversion">
 									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
@@ -1659,13 +1659,51 @@
 								</Reference>
 							</ReferenceList>
 							<ChildrenList>
-								<AudioFileSource Name="load_tutorial_01" ID="{44F9EF0E-3F9E-45EF-B024-D4FBA06DC397}" ShortID="1014373079">
+								<AudioFileSource Name="job_match_online_players" ID="{F39891AE-2370-4F62-9D75-3DAB48735449}" ShortID="571929557">
 									<Language>SFX</Language>
-									<AudioFile>soren\load_tutorial_01.wav</AudioFile>
+									<AudioFile>penelope\job_match_online_players.wav</AudioFile>
 								</AudioFileSource>
 							</ChildrenList>
 							<ActiveSourceList>
-								<ActiveSource Name="load_tutorial_01" ID="{44F9EF0E-3F9E-45EF-B024-D4FBA06DC397}" Platform="Linked"/>
+								<ActiveSource Name="job_match_online_players" ID="{F39891AE-2370-4F62-9D75-3DAB48735449}" Platform="Linked"/>
+							</ActiveSourceList>
+						</Sound>
+						<Sound Name="ready_to_play" ID="{F7FE02AB-04CD-472E-A1CA-9AC206F561DE}" ShortID="745381870" Type="SoundFX">
+							<ReferenceList>
+								<Reference Name="Conversion">
+									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+								</Reference>
+								<Reference Name="OutputBus">
+									<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+								</Reference>
+							</ReferenceList>
+							<ChildrenList>
+								<AudioFileSource Name="ready_to_play" ID="{EDB583E4-0096-4330-A0FF-284E9DB54A72}" ShortID="1006804880">
+									<Language>SFX</Language>
+									<AudioFile>penelope\ready_to_play.wav</AudioFile>
+								</AudioFileSource>
+							</ChildrenList>
+							<ActiveSourceList>
+								<ActiveSource Name="ready_to_play" ID="{EDB583E4-0096-4330-A0FF-284E9DB54A72}" Platform="Linked"/>
+							</ActiveSourceList>
+						</Sound>
+						<Sound Name="unfortunately_no_time" ID="{B260486E-5348-4FBF-8696-39A3E4E99C74}" ShortID="617663469" Type="SoundFX">
+							<ReferenceList>
+								<Reference Name="Conversion">
+									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+								</Reference>
+								<Reference Name="OutputBus">
+									<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+								</Reference>
+							</ReferenceList>
+							<ChildrenList>
+								<AudioFileSource Name="unfortunately_no_time" ID="{C9E7DC60-50D3-4914-8AC2-44E7B8F83913}" ShortID="155313286">
+									<Language>SFX</Language>
+									<AudioFile>penelope\unfortunately_no_time.wav</AudioFile>
+								</AudioFileSource>
+							</ChildrenList>
+							<ActiveSourceList>
+								<ActiveSource Name="unfortunately_no_time" ID="{C9E7DC60-50D3-4914-8AC2-44E7B8F83913}" Platform="Linked"/>
 							</ActiveSourceList>
 						</Sound>
 					</ChildrenList>

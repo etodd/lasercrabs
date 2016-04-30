@@ -21,7 +21,7 @@ struct Audio : ComponentType<Audio>
 	static void term();
 	static void update();
 	static void post_global_event(AkUniqueID);
-	static void post_dialogue_event(AkUniqueID);
+	static b8 post_dialogue_event(AkUniqueID);
 	static void dialogue_done_callback(AkCallbackType, AkCallbackInfo*);
 	static void post_global_event(AkUniqueID, const Vec3&);
 	static void post_global_event(AkUniqueID, const Vec3&, const Vec3&);

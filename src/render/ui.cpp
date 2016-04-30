@@ -671,7 +671,7 @@ b8 UI::project(const RenderParams& p, const Vec3& v, Vec2* out)
 	Vec4 projected = p.view_projection * Vec4(v.x, v.y, v.z, 1);
 	Vec2 screen = p.camera->viewport.size * 0.5f;
 	*out = Vec2((projected.x / projected.w + 1.0f) * screen.x, (projected.y / projected.w + 1.0f) * screen.y);
-	return projected.z > -projected.w && projected.z < projected.w;
+	return projected.z > -projected.w;
 }
 
 void UI::init(LoopSync* sync)

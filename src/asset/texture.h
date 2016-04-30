@@ -13,9 +13,9 @@ namespace Asset
 		const AssetID flare = 1;
 		const AssetID gradient = 2;
 		const AssetID noise = 3;
-		const AssetID skybox_horizon = 4;
-		const AssetID smoke = 5;
-		const AssetID soren = 6;
+		const AssetID penelope = 4;
+		const AssetID skybox_horizon = 5;
+		const AssetID smoke = 6;
 	}
 }
 

@@ -1,6 +1,5 @@
 #include "ai_player.h"
 #include "mersenne/mersenne-twister.h"
-#include "usernames.h"
 #include "entities.h"
 #include "console.h"
 #include "awk.h"
@@ -20,10 +19,17 @@ namespace VI
 
 PinArray<AIPlayer, MAX_AI_PLAYERS> AIPlayer::list;
 
-AIPlayer::AIPlayer(PlayerManager* m)
-	: manager(m), revision()
+AIPlayer::Config::Config()
+	: low_level(LowLevelLoop::Default),
+	high_level(HighLevelLoop::Default),
+	hp_start(1)
 {
-	strcpy(manager.ref()->username, Usernames::all[mersenne::rand_u32() % Usernames::count]);
+
+}
+
+AIPlayer::AIPlayer(PlayerManager* m)
+	: manager(m), revision(), config()
+{
 	m->spawn.link<AIPlayer, &AIPlayer::spawn>(this);
 	m->ready = true;
 }
@@ -33,6 +39,8 @@ void AIPlayer::spawn()
 	Entity* e = World::create<AwkEntity>(manager.ref()->team.ref()->team());
 
 	e->add<PlayerCommon>(manager.ref());
+
+	e->get<Health>()->set(config.hp_start);
 
 	manager.ref()->entity = e;
 
@@ -343,60 +351,104 @@ template<typename T> b8 default_filter(const AIPlayerControl* control, const T* 
 	return true;
 }
 
-Repeat* make_low_level_loop(AIPlayerControl* control)
+Repeat* make_low_level_loop(AIPlayerControl* control, const AIPlayer::Config& config)
 {
-	return Repeat::alloc // reaction loop
-	(
-		Sequence::alloc
-		(
-			Delay::alloc(0.3f),
-			Succeed::alloc
+	Repeat* loop;
+	switch (config.high_level)
+	{
+		case AIPlayer::HighLevelLoop::Default:
+		{
+			loop = Repeat::alloc // reaction loop
 			(
 				Sequence::alloc
 				(
-					Select::alloc // if any of these succeed, they will abort the high level loop
+					Delay::alloc(0.3f),
+					Succeed::alloc
 					(
-						AIBehaviors::React<Awk>::alloc(4, 5, &awk_filter),
 						Sequence::alloc
 						(
-							Invert::alloc(Execute::alloc()->method<Health, &Health::is_full>(control->get<Health>())), // make sure we need health
-							AIBehaviors::React<HealthPickup>::alloc(3, 4, &health_pickup_filter)
-						),
-						AIBehaviors::React<MinionAI>::alloc(3, 4, &default_filter<MinionAI>),
-						AIBehaviors::React<Sensor>::alloc(3, 4, &default_filter<Sensor>)
-					),
-					Execute::alloc()->method<AIPlayerControl, &AIPlayerControl::restore_loops>(control) // restart the high level loop if necessary
+							Select::alloc // if any of these succeed, they will abort the high level loop
+							(
+								AIBehaviors::React<Awk>::alloc(4, 5, &awk_filter),
+								Sequence::alloc
+								(
+									Invert::alloc(Execute::alloc()->method<Health, &Health::is_full>(control->get<Health>())), // make sure we need health
+									AIBehaviors::React<HealthPickup>::alloc(3, 4, &health_pickup_filter)
+								),
+								AIBehaviors::React<MinionAI>::alloc(3, 4, &default_filter<MinionAI>),
+								AIBehaviors::React<Sensor>::alloc(3, 4, &default_filter<Sensor>)
+							),
+							Execute::alloc()->method<AIPlayerControl, &AIPlayerControl::restore_loops>(control) // restart the high level loop if necessary
+						)
+					)
 				)
-			)
-		)
-	);
+			);
+			break;
+		}
+		case AIPlayer::HighLevelLoop::Noop:
+		{
+			loop = Repeat::alloc(Delay::alloc(1.0f));
+			break;
+		}
+		default:
+		{
+			vi_assert(false);
+			break;
+		}
+	}
+	loop->set_context(control);
+	return loop;
+}
+
+Repeat* make_high_level_loop(AIPlayerControl* control, const AIPlayer::Config& config)
+{
+	Repeat* loop;
+	switch (config.low_level)
+	{
+		case AIPlayer::LowLevelLoop::Default:
+		{
+			loop = Repeat::alloc
+			(
+				Sequence::alloc
+				(
+					Delay::alloc(1.0f),
+					Succeed::alloc
+					(
+						Select::alloc
+						(
+							Sequence::alloc
+							(
+								Invert::alloc(Execute::alloc()->method<Health, &Health::is_full>(control->get<Health>())), // make sure we need health
+								AIBehaviors::Find<HealthPickup>::alloc(2, &health_pickup_filter)
+							),
+							AIBehaviors::Find<MinionAI>::alloc(2, &minion_filter),
+							AIBehaviors::Find<Sensor>::alloc(2, &sensor_filter),
+							AIBehaviors::Find<Awk>::alloc(2, &awk_filter),
+							AIBehaviors::RandomPath::alloc()
+						)
+					)
+				)
+			);
+			break;
+		}
+		case AIPlayer::LowLevelLoop::Noop:
+		{
+			loop = Repeat::alloc(Delay::alloc(1.0f));
+			break;
+		}
+		default:
+		{
+			vi_assert(false);
+			break;
+		}
+	}
+	loop->set_context(control);
+	return loop;
 }
 
 void AIPlayerControl::init_behavior_trees()
 {
-	loop_high_level = Repeat::alloc
-	(
-		Sequence::alloc
-		(
-			Delay::alloc(1.0f),
-			Succeed::alloc
-			(
-				Select::alloc
-				(
-					Sequence::alloc
-					(
-						Invert::alloc(Execute::alloc()->method<Health, &Health::is_full>(get<Health>())), // make sure we need health
-						AIBehaviors::Find<HealthPickup>::alloc(2, &health_pickup_filter)
-					),
-					AIBehaviors::Find<MinionAI>::alloc(2, &minion_filter),
-					AIBehaviors::Find<Sensor>::alloc(2, &sensor_filter),
-					AIBehaviors::Find<Awk>::alloc(2, &awk_filter),
-					AIBehaviors::RandomPath::alloc()
-				)
-			)
-		)
-	);
-	loop_high_level->set_context(this);
+	const AIPlayer::Config& config = player.ref()->config;
 
 	loop_memory = Repeat::alloc // memory update loop
 	(
@@ -411,11 +463,11 @@ void AIPlayerControl::init_behavior_trees()
 	);
 	loop_memory->set_context(this);
 
-	loop_low_level = make_low_level_loop(this);
-	loop_low_level->set_context(this);
+	loop_high_level = make_high_level_loop(this, config);
 
-	loop_low_level_2 = make_low_level_loop(this);
-	loop_low_level_2->set_context(this);
+	loop_low_level = make_low_level_loop(this, config);
+
+	loop_low_level_2 = make_low_level_loop(this, config);
 
 	loop_memory->run();
 	loop_high_level->run();

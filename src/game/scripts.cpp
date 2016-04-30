@@ -18,6 +18,7 @@
 #include "strings.h"
 #include <unordered_map>
 #include "utf8/utf8.h"
+#include "ai_player.h"
 
 namespace VI
 {
@@ -48,7 +49,7 @@ Script* Script::find(const char* name)
 #define MAX_NODES 4096
 #define MAX_BRANCHES 4
 #define MAX_CHOICES 4
-namespace Soren
+namespace Penelope
 {
 	enum class Face
 	{
@@ -118,7 +119,7 @@ namespace Soren
 	// map string IDs to node IDs
 	// note: multiple nodes may use the same string ID
 	ID node_lookup[(s32)Asset::String::count];
-	AssetID variables[(s32)Asset::String::count];
+	std::unordered_map<AssetID, AssetID> variables; // todo: move this into save data
 
 	void global_init()
 	{
@@ -126,21 +127,22 @@ namespace Soren
 		std::unordered_map<std::string, ID> id_lookup;
 
 		// load dialogue trees and build node ID lookup table
-		for (s32 i = 0; i < Asset::DialogueTree::count; i++)
 		{
-			cJSON* tree = Loader::dialogue_tree(i);
-			trees.add(tree);
-
-			cJSON* json_node = trees[i]->child;
-
 			ID current_node_id = 0;
-
-			while (json_node)
+			for (s32 i = 0; i < Asset::DialogueTree::count; i++)
 			{
-				const char* id = Json::get_string(json_node, "id");
-				id_lookup[id] = current_node_id;
-				current_node_id++;
-				json_node = json_node->next;
+				cJSON* tree = Loader::dialogue_tree(i);
+				trees.add(tree);
+
+				cJSON* json_node = trees[i]->child;
+
+				while (json_node)
+				{
+					const char* id = Json::get_string(json_node, "id");
+					id_lookup[id] = current_node_id;
+					current_node_id++;
+					json_node = json_node->next;
+				}
 			}
 		}
 
@@ -177,8 +179,11 @@ namespace Soren
 				{
 					if (name_str)
 					{
-						node.name = string_get(name_str);
-						vi_assert(node.name != AssetNull);
+						node.name = strings_get(name_str);
+						if (node.type == Node::Type::Node)
+						{
+							vi_assert(node.name != AssetNull);
+						}
 						node_lookup[node.name] = current_node_id;
 					}
 				}
@@ -252,11 +257,17 @@ namespace Soren
 				{
 					const char* variable = Json::get_string(json_node, "variable");
 					if (variable)
-						node.set.variable = string_get(variable);
+					{
+						node.set.variable = strings_get(variable);
+						vi_assert(node.set.variable != AssetNull);
+					}
 
 					const char* value = Json::get_string(json_node, "value");
 					if (value)
-						node.set.value = string_get(value);
+					{
+						node.set.value = strings_get(value);
+						vi_assert(node.set.value != AssetNull);
+					}
 				}
 
 				if (node.type == Node::Type::Branch)
@@ -274,7 +285,8 @@ namespace Soren
 						s32 j = 0;
 						while (json_branch)
 						{
-							node.branch.branches[j].value = string_get(json_branch->string);
+							node.branch.branches[j].value = strings_get(json_branch->string);
+							vi_assert(node.branch.branches[j].value != AssetNull);
 							node.branch.branches[j].target = id_lookup[json_branch->valuestring];
 							json_branch = json_branch->next;
 							j++;
@@ -298,7 +310,6 @@ namespace Soren
 		Hidden,
 		Center,
 		Left,
-		TextOnly,
 	};
 
 	// UV origin: top left
@@ -365,8 +376,8 @@ namespace Soren
 		{
 			if (index < entries.length - 1)
 			{
-				Entry& next_entry = entries[index + 1];
-				if (t <= next_entry.time && t + u.time.delta > next_entry.time)
+				const Entry& next_entry = entries[index + 1];
+				if (t > next_entry.time)
 				{
 					index++;
 					return true;
@@ -398,6 +409,7 @@ namespace Soren
 		Schedule<AssetID> node_executions;
 		Mode mode;
 		ID current_text_node;
+		AssetID entry_point;
 
 		UIText text;
 		r32 text_clip;
@@ -408,6 +420,17 @@ namespace Soren
 	};
 
 	static Data* data;
+
+	b8 has_focus()
+	{
+		return data && data->mode == Mode::Center;
+	}
+
+	void terminal_active(b8 active)
+	{
+		data->terminal.ref()->radius = active ? TERMINAL_TRIGGER_RADIUS : 0.0f;
+		data->terminal.ref()->get<PointLight>()->radius = active ? TERMINAL_LIGHT_RADIUS : 0.0f;
+	}
 
 	void clear()
 	{
@@ -516,12 +539,20 @@ namespace Soren
 	void clear_and_execute(ID id, r32 delay = 0.0f)
 	{
 		clear();
-		data->mode = Mode::Center;
+		data->mode = Mode::Left;
 		execute(id, delay);
 	}
 
 	void update(const Update& u)
 	{
+		if (data->terminal.ref()
+			&& data->terminal.ref()->count() > 0
+			&& u.last_input->get(Controls::Interact, 0) && !u.input->get(Controls::Interact, 0))
+		{
+			terminal_active(false);
+			clear_and_execute(Penelope::node_lookup[data->entry_point], 0.5f);
+		}
+
 		if (Audio::dialogue_done)
 		{
 			// we've completed displaying a text message
@@ -562,7 +593,14 @@ namespace Soren
 		data->choices.update(u, data->time);
 
 		if (data->audio_events.update(u, data->time))
-			Audio::post_dialogue_event(data->audio_events.current());
+		{
+			b8 success = Audio::post_dialogue_event(data->audio_events.current());
+#if DEBUG
+			// HACK to keep things working even with missing audio
+			if (!success)
+				Audio::post_dialogue_event(AK::EVENTS::HELLO);
+#endif
+		}
 
 		if (data->text.clipped())
 		{
@@ -585,10 +623,16 @@ namespace Soren
 		data->menu.clear();
 		if (data->choices.active())
 		{
+			if (!has_focus())
+			{
+				if (u.last_input->get(Controls::Interact, 0) && !u.input->get(Controls::Interact, 0))
+					data->mode = Mode::Center; // we have focus now!
+			}
+
 			const Choice& choice = data->choices.current();
 			if (choice.a != IDNull)
 			{
-				data->menu.start(u, 0);
+				data->menu.start(u, 0, has_focus());
 
 				Vec2 p(u.input->width * 0.5f + MENU_ITEM_WIDTH * -0.5f, u.input->height * 0.2f);
 
@@ -627,7 +671,7 @@ namespace Soren
 	{
 		const Rect2& vp = params.camera->viewport;
 
-		if (data->terminal.ref()->count() > 0)
+		if (data->terminal.ref()->count() > 0 || (data->choices.active() && !has_focus()))
 		{
 			UIText text;
 			text.color = UI::accent_color;
@@ -648,7 +692,6 @@ namespace Soren
 		switch (data->mode)
 		{
 			case Mode::Center:
-			case Mode::TextOnly:
 			{
 				pos = vp.pos + vp.size * 0.5f;
 				scale *= 4.0f;
@@ -671,72 +714,69 @@ namespace Soren
 			}
 		}
 
-		if (data->mode != Mode::TextOnly)
+		if (face == Face::Default)
 		{
-			if (face == Face::Default)
-			{
-				// blink
-				const r32 blink_delay = 4.0f;
-				const r32 blink_time = 0.1f;
-				if (fmod(data->time, blink_delay) < blink_time)
-					face = Face::EyesClosed;
-			}
+			// blink
+			const r32 blink_delay = 4.0f;
+			const r32 blink_time = 0.1f;
+			if (fmod(data->time, blink_delay) < blink_time)
+				face = Face::EyesClosed;
+		}
 
-			// frame
-			{
-				// visualize dialogue volume
-				r32 volume_scale = 1.0f + Audio::dialogue_volume * 0.5f;
-				Vec2 frame_size(32.0f * scale * volume_scale);
-				UI::centered_box(params, { pos, frame_size }, UI::background_color, PI * 0.25f);
+		// frame
+		{
+			// visualize dialogue volume
+			r32 volume_scale = 1.0f + Audio::dialogue_volume * 0.5f;
+			Vec2 frame_size(32.0f * scale * volume_scale);
+			UI::centered_box(params, { pos, frame_size }, UI::background_color, PI * 0.25f);
 
-				const Vec4* color;
-				switch (face)
+			const Vec4* color;
+			switch (face)
+			{
+				case Face::Default:
+				case Face::Upbeat:
+				case Face::Concerned:
 				{
-					case Face::Default:
-					case Face::Upbeat:
-					case Face::Concerned:
-					{
-						color = &UI::default_color;
-						break;
-					}
-					case Face::Sad:
-					{
-						color = &UI::subtle_color;
-						break;
-					}
-					case Face::EyesClosed:
-					case Face::Unamused:
-					case Face::Wat:
-					{
-						color = &UI::disabled_color;
-						break;
-					}
-					case Face::Urgent:
-					case Face::Smile:
-					{
-						color = &UI::accent_color;
-						break;
-					}
-					case Face::Angry:
-					{
-						color = &UI::alert_color;
-						break;
-					}
-					default:
-					{
-						vi_assert(false);
-						break;
-					}
+					color = &UI::default_color;
+					break;
 				}
-
-				UI::centered_border(params, { pos, frame_size }, 2.0f, *color, PI * 0.25f);
+				case Face::Sad:
+				{
+					color = &UI::subtle_color;
+					break;
+				}
+				case Face::EyesClosed:
+				case Face::Unamused:
+				case Face::Wat:
+				{
+					color = &UI::disabled_color;
+					break;
+				}
+				case Face::Urgent:
+				case Face::Smile:
+				{
+					color = &UI::accent_color;
+					break;
+				}
+				case Face::Angry:
+				{
+					color = &UI::alert_color;
+					break;
+				}
+				default:
+				{
+					vi_assert(false);
+					break;
+				}
 			}
 
-			// face
-			{
-				Vec2 face_uv = faces[(s32)face];
-				UI::sprite(params, Asset::Texture::soren, { pos, face_size * scale }, UI::default_color, { face_uv, face_uv_size });
-			}
+			UI::centered_border(params, { pos, frame_size }, 2.0f, *color, PI * 0.25f);
+		}
+
+		// face
+		{
+			Vec2 face_uv = faces[(s32)face];
+			UI::sprite(params, Asset::Texture::penelope, { pos, face_size * scale }, UI::default_color, { face_uv, face_uv_size });
 		}
 
 		// text
@@ -746,7 +786,6 @@ namespace Soren
 			switch (data->mode)
 			{
 				case Mode::Center:
-				case Mode::TextOnly:
 				{
 					data->text.anchor_x = UIText::Anchor::Center;
 					data->text.anchor_y = UIText::Anchor::Max;
@@ -778,20 +817,34 @@ namespace Soren
 	void cleanup()
 	{
 		delete data;
+		data = nullptr;
 	}
 
-	void init(const EntityFinder& entities)
+	void node_executed(AssetID node)
+	{
+		if (node == Asset::String::terminal_reset)
+			terminal_active(true);
+		else if (node == Asset::String::penelope_hide)
+			data->mode = Mode::Hidden;
+		else if (node == Asset::String::match_go)
+			Menu::transition(Game::data.level, Game::Mode::Pvp); // reload current level in PvP mode
+	}
+
+	void init(Entity* term, AssetID entry_point)
 	{
 		if (Game::data.mode == Game::Mode::Parkour)
 		{
 			data = new Data();
-			data->terminal = entities.find("terminal")->get<PlayerTrigger>();
+			data->terminal = term ? term->get<PlayerTrigger>() : nullptr;
+			data->entry_point = entry_point;
 			Audio::dialogue_done = false;
 			Game::updates.add(update);
 			Game::cleanups.add(cleanup);
 			Game::draws.add(draw);
 
-			Loader::texture(Asset::Texture::soren, RenderTextureWrap::Clamp, RenderTextureFilter::Nearest);
+			Loader::texture(Asset::Texture::penelope, RenderTextureWrap::Clamp, RenderTextureFilter::Nearest);
+
+			data->node_executed.link(&node_executed);
 		}
 	}
 }
@@ -835,145 +888,32 @@ namespace scene
 	}
 }
 
-namespace start
-{
-	struct Data
-	{
-		Camera* camera;
-	};
-
-	Data* data;
-
-	void cleanup()
-	{
-		data->camera->remove();
-		delete data;
-	}
-
-	void node_executed(AssetID node)
-	{
-		if (node == Asset::String::start_done)
-			Menu::transition(Asset::Level::tutorial, Game::Mode::Pvp);
-	}
-
-	void update(const Update& u)
-	{
-		data->camera->rot = Quat::euler(0, Game::real_time.total * 0.01f, 0);
-	}
-
-	void init(const Update& u, const EntityFinder& entities)
-	{
-		data = new Data();
-		Game::cleanups.add(cleanup);
-		Game::updates.add(update);
-
-		data->camera = Camera::add();
-		data->camera->viewport =
-		{
-			Vec2(0, 0),
-			Vec2(u.input->width, u.input->height),
-		};
-		r32 aspect = data->camera->viewport.size.y == 0 ? 1 : (r32)data->camera->viewport.size.x / (r32)data->camera->viewport.size.y;
-		data->camera->perspective((80.0f * PI * 0.5f / 180.0f), aspect, 0.01f, 100.0f);
-
-		Soren::init(entities);
-		Soren::data->node_executed.link(&node_executed);
-		Soren::clear_and_execute(Soren::node_lookup[Asset::String::start], 1.0f);
-	}
-}
-
-namespace tutorial01
+namespace tutorial
 {
 	void init(const Update& u, const EntityFinder& entities)
 	{
-		Soren::init(entities);
-	}
-}
-
-namespace level4
-{
-	struct Data
-	{
-		r32 danger;
-		r32 last_danger_time;
-	};
-
-	static Data* data;
-
-	void update(const Update& u)
-	{
-		b8 alert = false;
-		for (auto i = Awk::list.iterator(); !i.is_last(); i.next())
+		if (Game::data.mode == Game::Mode::Pvp)
 		{
-			for (auto j = i; !j.is_last(); j.next())
-			{
-				if (i.item()->get<AIAgent>()->team != j.item()->get<AIAgent>()->team)
-				{
-					if ((i.item()->get<Transform>()->absolute_pos() - j.item()->get<Transform>()->absolute_pos()).length_squared() < AWK_MAX_DISTANCE * AWK_MAX_DISTANCE)
-					{
-						alert = true;
-						break;
-					}
-				}
-			}
-			if (alert)
-				break;
+			PlayerManager* manager = PlayerManager::list.add();
+			new (manager) PlayerManager(&Team::list[(s32)AI::Team::B]);
+
+			strcpy(manager->username, _(strings::dummy));
+
+			AIPlayer* player = AIPlayer::list.add();
+			new (player) AIPlayer(manager);
+
+			AIPlayer::Config* config = &player->config;
+			config->high_level = AIPlayer::HighLevelLoop::Noop;
+			config->low_level = AIPlayer::LowLevelLoop::Noop;
+			config->hp_start = AWK_HEALTH;
 		}
-
-		const r32 danger_rampup_time = 2.0f;
-		const r32 danger_linger_time = 3.0f;
-		const r32 danger_rampdown_time = 4.0f;
-		
-		b8 update_audio = false;
-		if (alert)
-		{
-			data->last_danger_time = Game::real_time.total;
-			data->danger = vi_min(1.0f, data->danger + Game::real_time.delta / danger_rampup_time);
-			update_audio = true;
-		}
-		else if (Game::real_time.total - data->last_danger_time > danger_linger_time)
-		{
-			data->danger = vi_max(0.0f, data->danger - Game::real_time.delta / danger_rampdown_time);
-			update_audio = true;
-		}
-
-		if (update_audio)
-			Audio::global_param(AK::GAME_PARAMETERS::DANGER, data->danger);
-	}
-
-	void cleanup()
-	{
-		delete data;
-	}
-
-	void init(const Update& u, const EntityFinder& entities)
-	{
-		data = new Data();
-
-		s32 player_count = LocalPlayer::list.count();
-
-		// TODO: spawn enemies based on number of local players
-
-		Game::updates.add(update);
-		Game::cleanups.add(cleanup);
-	}
-
-	void init_pvp(const Update& u, const EntityFinder& entities)
-	{
-		data = new Data();
-
-		Game::updates.add(update);
-		Game::cleanups.add(cleanup);
 	}
 }
 
 Script Script::all[] =
 {
 	{ "scene", scene::init },
-	{ "start", start::init },
-	{ "level4", level4::init },
-	{ "pvp", level4::init_pvp },
-	{ "tutorial01", tutorial01::init },
+	{ "tutorial", tutorial::init },
 	{ 0, 0, },
 };
 

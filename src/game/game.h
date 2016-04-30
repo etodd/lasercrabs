@@ -84,7 +84,7 @@ struct Game
 	static void update(const Update&);
 	static void schedule_load_level(AssetID, Mode);
 	static void unload_level();
-	static void load_level(const Update&, AssetID, Mode, b8 = false);
+	static void load_level(const Update&, AssetID, Mode);
 	static void draw_opaque(const RenderParams&);
 	static void draw_alpha(const RenderParams&);
 	static void draw_additive(const RenderParams&);

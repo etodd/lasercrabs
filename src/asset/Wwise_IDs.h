@@ -13,20 +13,22 @@ namespace AK
 {
     namespace EVENTS
     {
-        static const AkUniqueID ALSO_TEACH = 757976738U;
-        static const AkUniqueID BUMMER = 3009830017U;
-        static const AkUniqueID FANTASTIC_START_TUTORIAL = 50738526U;
-        static const AkUniqueID HELLO = 3069866343U;
-        static const AkUniqueID JOB_MATCH_ONLINE_PLAYERS = 3461019753U;
         static const AkUniqueID MOVER_LOOP = 791592797U;
         static const AkUniqueID MOVER_STOP = 4257217443U;
+        static const AkUniqueID PLAY_1B01EC530AC7B8BA379559A9096890869E9D0769 = 461420307U;
+        static const AkUniqueID PLAY_08F0053CBAEC2C2622A9429F5D41164C2D96A507 = 1741390826U;
+        static const AkUniqueID PLAY_22EC74CE2E2F83742B2A6B34521A680BB481597B = 2792458029U;
+        static const AkUniqueID PLAY_17626FB624B34C8BF76D67AF80481DDDA2449924 = 2579892753U;
         static const AkUniqueID PLAY_AWK_FOOTSTEP = 1090945306U;
         static const AkUniqueID PLAY_AWK_FOOTSTEP_PLAYER = 2973042886U;
+        static const AkUniqueID PLAY_B2D62CB3F35D69E261A519633AFE1E017E96F70B = 2709751436U;
         static const AkUniqueID PLAY_BEEP_BAD = 1098101826U;
         static const AkUniqueID PLAY_BEEP_GOOD = 2594258934U;
         static const AkUniqueID PLAY_BOUNCE = 3465618802U;
         static const AkUniqueID PLAY_BOUNCE_PLAYER = 2311959454U;
         static const AkUniqueID PLAY_CONSOLE_KEY = 3924749205U;
+        static const AkUniqueID PLAY_E1338EDD8895FF8C7F8E765D640BBEBE723FC3C2 = 1471118585U;
+        static const AkUniqueID PLAY_F04BAA471EFE84A5461D88F5BA37CE70DDCB281E = 591672697U;
         static const AkUniqueID PLAY_FLY = 2941622701U;
         static const AkUniqueID PLAY_FOOTSTEP = 1602358412U;
         static const AkUniqueID PLAY_HEADSHOT = 2628165376U;
@@ -46,11 +48,9 @@ namespace AK
         static const AkUniqueID PLAY_STEALTH = 1282624343U;
         static const AkUniqueID PLAY_ZOOM_IN = 2626091291U;
         static const AkUniqueID PLAY_ZOOM_OUT = 1819052470U;
-        static const AkUniqueID READY_TO_PLAY = 3572496003U;
         static const AkUniqueID STOP = 788884573U;
         static const AkUniqueID STOP_ALL = 452547817U;
         static const AkUniqueID STOP_FLY = 419831083U;
-        static const AkUniqueID UNFORTUNATELY_NO_TIME = 1571102585U;
     } // namespace EVENTS
 
     namespace GAME_PARAMETERS

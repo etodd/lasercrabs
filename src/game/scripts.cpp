@@ -19,6 +19,7 @@
 #include <unordered_map>
 #include "utf8/utf8.h"
 #include "ai_player.h"
+#include "sha1/sha1.h"
 
 namespace VI
 {
@@ -176,16 +177,18 @@ namespace Penelope
 
 				// name
 				const char* name_str = Json::get_string(json_node, "name");
+				char hash[41];
+
 				{
-					if (name_str)
+					if (node.type == Node::Type::Text)
 					{
-						node.name = strings_get(name_str);
-						if (node.type == Node::Type::Node)
-						{
-							vi_assert(node.name != AssetNull);
-						}
-						node_lookup[node.name] = current_node_id;
+						sha1::hash(name_str, hash);
+						name_str = hash;
 					}
+
+					node.name = strings_get(name_str);
+					if (node.name != AssetNull)
+						node_lookup[node.name] = current_node_id;
 				}
 
 				// next
@@ -248,7 +251,11 @@ namespace Penelope
 
 					// sound
 					if (name_str)
-						node.text.sound = Audio::get_id(name_str);
+					{
+						char event_name[512];
+						sprintf(event_name, "Play_%s", name_str);
+						node.text.sound = Audio::get_id(event_name);
+					}
 					else
 						node.text.sound = AK_INVALID_UNIQUE_ID;
 				}
@@ -598,7 +605,7 @@ namespace Penelope
 #if DEBUG
 			// HACK to keep things working even with missing audio
 			if (!success)
-				Audio::post_dialogue_event(AK::EVENTS::HELLO);
+				Audio::post_dialogue_event(AK::EVENTS::PLAY_1B01EC530AC7B8BA379559A9096890869E9D0769);
 #endif
 		}
 

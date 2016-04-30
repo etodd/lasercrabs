@@ -12,14 +12,14 @@ import io
 arg_start = sys.argv.index('--') + 1
 username = sys.argv[arg_start + 0]
 password = sys.argv[arg_start + 1]
-string_path = 'en.json'
+string_path = '../../build/assets/str/dialogue_en.json'
 cache_path = 'penelope.cache'
 
 with open(string_path, 'r') as string_file:
-	input_strings = json.loads(string_file.read())['penelope']
+	input_strings = json.loads(string_file.read())
 	# remove entries where the string value is null
 	# these are metadata nodes not meant to be spoken
-	strings = { (key, value) for key, value in input_strings if value is not None }
+	strings = { key: value for (key, value) in input_strings.items() if value is not None }
 
 cache = {}
 try:

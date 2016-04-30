@@ -36,19 +36,6 @@ const char* AssetLookup::Mesh::values[] =
 	"assets/terminal_base.msh",
 	"assets/terminal_light.msh",
 	"assets/tri_tube.msh",
-	"assets/lvl/containment_09_Cube.msh",
-	"assets/lvl/containment_09_Cube_001.msh",
-	"assets/lvl/containment_09_Cube_001_1.msh",
-	"assets/lvl/containment_09_Cube_002.msh",
-	"assets/lvl/containment_09_Cube_002_1.msh",
-	"assets/lvl/containment_09_Cube_003.msh",
-	"assets/lvl/containment_09_Cube_003_1.msh",
-	"assets/lvl/containment_09_Cube_004.msh",
-	"assets/lvl/containment_09_Cube_004_1.msh",
-	"assets/lvl/containment_09_Cube_005.msh",
-	"assets/lvl/containment_09_Cube_005_1.msh",
-	"assets/lvl/containment_09_Cube_1.msh",
-	"assets/lvl/containment_09_door.msh",
 	"assets/lvl/level1_bsp_model_0_002.msh",
 	"assets/lvl/level1_bsp_model_0_002_1.msh",
 	"assets/lvl/level2_half1.msh",
@@ -99,19 +86,6 @@ const char* AssetLookup::Mesh::names[] =
 	"terminal_base",
 	"terminal_light",
 	"tri_tube",
-	"containment_09_Cube",
-	"containment_09_Cube_001",
-	"containment_09_Cube_001_1",
-	"containment_09_Cube_002",
-	"containment_09_Cube_002_1",
-	"containment_09_Cube_003",
-	"containment_09_Cube_003_1",
-	"containment_09_Cube_004",
-	"containment_09_Cube_004_1",
-	"containment_09_Cube_005",
-	"containment_09_Cube_005_1",
-	"containment_09_Cube_1",
-	"containment_09_door",
 	"level1_bsp_model_0_002",
 	"level1_bsp_model_0_002_1",
 	"level2_half1",
@@ -350,7 +324,6 @@ const char* AssetLookup::Font::names[] =
 const char* AssetLookup::Level::values[] =
 {
 	"assets/lvl/connect.lvl",
-	"assets/lvl/containment_09.lvl",
 	"assets/lvl/level1.lvl",
 	"assets/lvl/level2.lvl",
 	"assets/lvl/splitscreen.lvl",
@@ -363,7 +336,6 @@ const char* AssetLookup::Level::values[] =
 const char* AssetLookup::Level::names[] =
 {
 	"connect",
-	"containment_09",
 	"level1",
 	"level2",
 	"splitscreen",
@@ -376,7 +348,6 @@ const char* AssetLookup::Level::names[] =
 const char* AssetLookup::NavMesh::values[] =
 {
 	"assets/lvl/connect.nav",
-	"assets/lvl/containment_09.nav",
 	"assets/lvl/level1.nav",
 	"assets/lvl/level2.nav",
 	"assets/lvl/splitscreen.nav",
@@ -389,7 +360,6 @@ const char* AssetLookup::NavMesh::values[] =
 const char* AssetLookup::NavMesh::names[] =
 {
 	"connect",
-	"containment_09",
 	"level1",
 	"level2",
 	"splitscreen",
@@ -694,9 +664,9 @@ const char* AssetLookup::String::names[] =
 
 const char* AssetLookup::DialogueTree::values[] =
 {
-	"assets/dl/level1.dlz",
-	"assets/dl/level2.dlz",
-	"assets/dl/tutorial.dlz",
+	"assets/dl/level1.json",
+	"assets/dl/level2.json",
+	"assets/dl/tutorial.json",
 	0,
 };
 

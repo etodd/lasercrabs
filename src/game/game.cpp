@@ -117,7 +117,6 @@ b8 Game::init(LoopSync* sync)
 				cJSON* value = cJSON_GetObjectItem(json, name);
 				strings_set(i, value->valuestring);
 			}
-			// don't free the JSON object; we'll read strings directly from it
 		}
 
 		// dialogue strings
@@ -132,6 +131,8 @@ b8 Game::init(LoopSync* sync)
 		}
 
 		Input::load_strings(); // loads localized strings for input bindings
+
+		// don't free the JSON objects; we'll read strings directly from them
 	}
 
 	Penelope::global_init();

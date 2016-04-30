@@ -187,7 +187,7 @@ void LocalPlayer::ensure_camera(const Update& u, b8 active)
 	if (active && !camera && !manager.ref()->entity.ref())
 	{
 		camera = Camera::add();
-		camera->fog = Game::data.mode == Game::Mode::Parkour;
+		camera->fog = Game::state.mode == Game::Mode::Parkour;
 		camera->team = (u8)manager.ref()->team.ref()->team();
 		camera->mask = 1 << camera->team;
 		s32 player_count;
@@ -205,7 +205,7 @@ void LocalPlayer::ensure_camera(const Update& u, b8 active)
 			Vec2((s32)(blueprint->w * (r32)u.input->width), (s32)(blueprint->h * (r32)u.input->height)),
 		};
 		r32 aspect = camera->viewport.size.y == 0 ? 1 : (r32)camera->viewport.size.x / (r32)camera->viewport.size.y;
-		camera->perspective(60.0f * PI * 0.5f / 180.0f, aspect, 1.0f, Skybox::far_plane * 2.0f);
+		camera->perspective(60.0f * PI * 0.5f / 180.0f, aspect, 1.0f, Game::level.skybox.far_plane * 2.0f);
 		Quat rot;
 		map_view.ref()->absolute(&camera->pos, &rot);
 		camera->rot = Quat::look(rot * Vec3(0, -1, 0));
@@ -322,7 +322,7 @@ void LocalPlayer::spawn()
 
 	Entity* spawned;
 
-	if (Game::data.mode == Game::Mode::Pvp)
+	if (Game::state.mode == Game::Mode::Pvp)
 	{
 		// Spawn AWK
 		pos += Quat::euler(0, angle + (gamepad * PI * 0.5f), 0) * Vec3(0, 0, PLAYER_SPAWN_RADIUS * 0.5f); // spawn it around the edges
@@ -432,7 +432,7 @@ void LocalPlayer::draw_alpha(const RenderParams& params) const
 	UIMode mode = ui_mode();
 	if (mode == UIMode::Default)
 	{
-		if (Game::data.mode == Game::Mode::Pvp && Game::data.has_feature(Game::FeatureLevel::Abilities))
+		if (Game::state.mode == Game::Mode::Pvp && Game::level.has_feature(Game::FeatureLevel::Abilities))
 		{
 			b8 at_spawn = manager.ref()->at_spawn();
 
@@ -518,7 +518,7 @@ void LocalPlayer::draw_alpha(const RenderParams& params) const
 
 		b8 show_player_list;
 		b8 show_spawning;
-		if (Game::data.mode == Game::Mode::Pvp)
+		if (Game::state.mode == Game::Mode::Pvp)
 		{
 			if (Team::game_over())
 			{
@@ -600,7 +600,7 @@ void LocalPlayer::draw_alpha(const RenderParams& params) const
 			}
 
 			// show map name
-			text.text(AssetLookup::Level::names[Game::data.level]);
+			text.text(AssetLookup::Level::names[Game::state.level]);
 			text.color = UI::default_color;
 			UI::box(params, text.rect(p).outset(padding), UI::background_color);
 			text.draw(params, p);
@@ -620,7 +620,7 @@ void LocalPlayer::draw_alpha(const RenderParams& params) const
 		}
 	}
 
-	if (Game::data.mode == Game::Mode::Pvp)
+	if (Game::state.mode == Game::Mode::Pvp)
 	{
 		{
 			// timer
@@ -897,7 +897,7 @@ void LocalPlayerControl::awake()
 	else
 		link_arg<r32, &LocalPlayerControl::parkour_landed>(get<Walker>()->land);
 
-	camera->fog = Game::data.mode == Game::Mode::Parkour;
+	camera->fog = Game::state.mode == Game::Mode::Parkour;
 	camera->team = (u8)get<AIAgent>()->team;
 	camera->mask = 1 << camera->team;
 }
@@ -1266,7 +1266,7 @@ void LocalPlayerControl::update(const Update& u)
 		Vec2((s32)(blueprint->w * (r32)u.input->width), (s32)(blueprint->h * (r32)u.input->height)),
 	};
 	r32 aspect = camera->viewport.size.y == 0 ? 1 : (r32)camera->viewport.size.x / (r32)camera->viewport.size.y;
-	camera->perspective(LMath::lerpf(fov_blend, fov_initial, fov_zoom), aspect, 0.02f, Skybox::far_plane);
+	camera->perspective(LMath::lerpf(fov_blend, fov_initial, fov_zoom), aspect, 0.02f, Game::level.skybox.far_plane);
 
 	// Camera matrix
 	if (has<Awk>())
@@ -1283,7 +1283,7 @@ void LocalPlayerControl::update(const Update& u)
 	else
 	{
 		camera->wall_normal = Vec3(0, 0, 1);
-		camera->pos = camera_pos + (Game::data.third_person ? look_quat * Vec3(0, 0, -2) : Vec3::zero);
+		camera->pos = camera_pos + (Game::state.third_person ? look_quat * Vec3(0, 0, -2) : Vec3::zero);
 	}
 	if (damage_timer > 0.0f)
 	{
@@ -1345,7 +1345,7 @@ void LocalPlayerControl::update(const Update& u)
 
 	// collect indicators
 	indicators.length = 0;
-	if (Game::data.mode == Game::Mode::Pvp)
+	if (Game::state.mode == Game::Mode::Pvp)
 	{
 		Vec3 me = get<Transform>()->absolute_pos();
 
@@ -1421,7 +1421,7 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 	// compass
 	{
 		Vec2 compass_size = Vec2(vi_min(viewport.size.x, viewport.size.y) * 0.3f);
-		if (Game::data.mode == Game::Mode::Pvp)
+		if (Game::state.mode == Game::Mode::Pvp)
 		{
 			b8 enemy_attacking = false;
 
@@ -1466,7 +1466,7 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 		}
 	}
 
-	if (Game::data.mode == Game::Mode::Pvp)
+	if (Game::state.mode == Game::Mode::Pvp)
 	{
 		// draw indicators
 		{
@@ -1574,7 +1574,7 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 
 				UI::box(params, username.rect(username_pos).outset(HP_BOX_SPACING), UI::background_color);
 
-				if (Game::data.has_feature(Game::FeatureLevel::HealthPickups))
+				if (Game::level.has_feature(Game::FeatureLevel::HealthPickups))
 				{
 					draw_hp_box(params, hp_pos, history.hp_max);
 					draw_hp_indicator(params, hp_pos, history.hp, history.hp_max, *color);
@@ -1589,7 +1589,7 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 	}
 
 	// health indicator
-	if (has<Health>() && Game::data.has_feature(Game::FeatureLevel::HealthPickups))
+	if (has<Health>() && Game::level.has_feature(Game::FeatureLevel::HealthPickups))
 	{
 		const Health* health = get<Health>();
 		

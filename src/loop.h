@@ -584,13 +584,13 @@ void draw(LoopSync* sync, const Camera* camera)
 			sync->write(Asset::Uniform::player_light);
 			sync->write(RenderDataType::Vec3);
 			sync->write<s32>(1);
-			sync->write<Vec3>(Skybox::player_light);
+			sync->write<Vec3>(Game::level.skybox.player_light);
 
 			sync->write(RenderOp::Uniform);
 			sync->write(Asset::Uniform::far_plane);
 			sync->write(RenderDataType::R32);
 			sync->write<s32>(1);
-			sync->write<r32>(Skybox::far_plane);
+			sync->write<r32>(Game::level.skybox.far_plane);
 
 			if (shadowed)
 			{
@@ -898,13 +898,13 @@ void draw(LoopSync* sync, const Camera* camera)
 		sync->write(Asset::Uniform::ambient_color);
 		sync->write(RenderDataType::Vec3);
 		sync->write<s32>(1);
-		sync->write<Vec3>(Skybox::ambient_color);
+		sync->write<Vec3>(Game::level.skybox.ambient_color);
 
 		sync->write(RenderOp::Uniform);
 		sync->write(Asset::Uniform::zenith_color);
 		sync->write(RenderDataType::Vec3);
 		sync->write<s32>(1);
-		sync->write<Vec3>(Skybox::zenith_color);
+		sync->write<Vec3>(Game::level.skybox.zenith_color);
 
 		sync->write(RenderOp::Uniform);
 		sync->write(Asset::Uniform::ssao_buffer);

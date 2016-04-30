@@ -51,7 +51,7 @@ StaticGeom::StaticGeom(AssetID mesh_id, const Vec3& absolute_pos, const Quat& ab
 	View* model = create<View>();
 
 	model->mesh = mesh_id;
-	model->shader = Game::data.mode == Game::Mode::Pvp ? Asset::Shader::culled : Asset::Shader::standard;
+	model->shader = Game::state.mode == Game::Mode::Pvp ? Asset::Shader::culled : Asset::Shader::standard;
 
 	Mesh* mesh = Loader::mesh(model->mesh);
 
@@ -137,7 +137,7 @@ void NoclipControl::update(const Update& u)
 		if (u.input->keys[(s32)KeyCode::MouseRight] && !u.last_input->keys[(s32)KeyCode::MouseRight])
 		{
 			Vec3 pos = get<Transform>()->absolute_pos();
-			btCollisionWorld::ClosestRayResultCallback raycast(pos, pos + look_quat * Vec3(0, 0, Skybox::far_plane));
+			btCollisionWorld::ClosestRayResultCallback raycast(pos, pos + look_quat * Vec3(0, 0, Game::level.skybox.far_plane));
 			Physics::raycast(&raycast);
 			if (raycast.hasHit())
 			{
@@ -159,7 +159,7 @@ void NoclipControl::update(const Update& u)
 		Vec2(u.input->width, u.input->height),
 	};
 	r32 aspect = camera->viewport.size.y == 0 ? 1 : (r32)camera->viewport.size.x / (r32)camera->viewport.size.y;
-	camera->perspective(fov_initial, aspect, 0.02f, Skybox::far_plane);
+	camera->perspective(fov_initial, aspect, 0.02f, Game::level.skybox.far_plane);
 
 	// Camera matrix
 	Vec3 pos = get<Transform>()->absolute_pos();

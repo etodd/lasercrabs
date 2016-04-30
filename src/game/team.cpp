@@ -11,6 +11,7 @@
 #include "bullet/src/BulletCollision/NarrowPhaseCollision/btRaycastCallback.h"
 #include "audio.h"
 #include "asset/Wwise_IDs.h"
+#include "asset/level.h"
 #include "walker.h"
 
 #if DEBUG
@@ -130,42 +131,43 @@ void Team::extract_history(PlayerManager* manager, SensorTrackHistory* history)
 
 void level_retry()
 {
-	if (Game::data.local_multiplayer)
-		Menu::transition(Game::data.level, Game::Mode::Pvp);
+	if (Game::state.local_multiplayer)
+		Menu::transition(Game::state.level, Game::Mode::Pvp);
 	else
-		Menu::transition(Game::data.level, Game::Mode::Parkour);
+		Menu::transition(Game::state.level, Game::Mode::Parkour);
 }
 
 void level_next()
 {
-	AssetID next_level;
 	Game::Mode next_mode;
 
-	if (Game::data.local_multiplayer)
+	if (Game::state.local_multiplayer)
 	{
 		// we're in local multiplayer mode
 		next_mode = Game::Mode::Pvp;
 
-		if (Game::data.local_multiplayer_offset < (s32)AI::Team::count - 1)
-			next_level = Game::data.level; // play again with same features, but different team offset
-		else
-			next_level = Game::data.next_level; // advance to next level
+		if (Game::state.local_multiplayer_offset == (s32)AI::Team::count - 1)
+			Game::save.level_index++; // advance to next level
 
-		Game::data.local_multiplayer_offset = (Game::data.local_multiplayer_offset + 1) % (s32)AI::Team::count;
+		Game::state.local_multiplayer_offset = (Game::state.local_multiplayer_offset + 1) % (s32)AI::Team::count;
 	}
 	else
 	{
 		// advance to next level
 		next_mode = Game::Mode::Parkour;
-		next_level = Game::data.next_level;
+		Game::save.level_index++; // advance to next level
 	}
 
-	Menu::transition(next_level, next_mode);
+	AssetID next_level = Game::levels[Game::save.level_index];
+	if (next_level == AssetNull) // done; go to main menu
+		Menu::transition(Asset::Level::title, Game::Mode::Special);
+	else
+		Menu::transition(next_level, next_mode);
 }
 
 void Team::update_all(const Update& u)
 {
-	if (Game::data.mode != Game::Mode::Pvp)
+	if (Game::state.mode != Game::Mode::Pvp)
 		return;
 
 	// determine which Awks are seen by which teams
@@ -633,11 +635,11 @@ PinArray<PlayerManager, MAX_PLAYERS> PlayerManager::list;
 PlayerManager::PlayerManager(Team* team)
 	: spawn_timer(PLAYER_SPAWN_DELAY),
 	team(team),
-	credits(Game::data.has_feature(Game::FeatureLevel::Abilities) ? CREDITS_INITIAL : 0),
-	ability_level{ (u8)(Game::data.has_feature(Game::FeatureLevel::Abilities) ? 1 : 0), 0, 0 },
+	credits(Game::level.has_feature(Game::FeatureLevel::Abilities) ? CREDITS_INITIAL : 0),
+	ability_level{ (u8)(Game::level.has_feature(Game::FeatureLevel::Abilities) ? 1 : 0), 0, 0 },
 	entity(),
 	spawn(),
-	ready(Game::data.mode == Game::Mode::Parkour || Game::data.has_feature(Game::FeatureLevel::All)),
+	ready(Game::state.mode == Game::Mode::Parkour || Game::level.has_feature(Game::FeatureLevel::All)),
 	current_spawn_ability(Ability::None)
 {
 }
@@ -729,7 +731,7 @@ void PlayerManager::add_credits(u16 c)
 
 b8 PlayerManager::at_spawn() const
 {
-	if (Game::data.mode == Game::Mode::Pvp)
+	if (Game::state.mode == Game::Mode::Pvp)
 		return entity.ref() && team.ref()->player_spawn.ref()->get<PlayerTrigger>()->is_triggered(entity.ref());
 	else
 		return false;
@@ -745,7 +747,7 @@ void PlayerManager::update(const Update& u)
 		if (spawn_timer <= 0.0f)
 		{
 			spawn.fire();
-			if (Game::data.mode == Game::Mode::Parkour)
+			if (Game::state.mode == Game::Mode::Parkour)
 				spawn_timer = PLAYER_SPAWN_DELAY; // reset timer so we can respawn next time
 		}
 	}

@@ -3,6 +3,8 @@
 #include "ai.h"
 #include "input.h"
 #include "render/render.h"
+#include "render/views.h"
+#include <unordered_map>
 
 namespace VI
 {
@@ -48,27 +50,43 @@ struct Game
 		count = All,
 	};
 
-	struct Data
+	struct State
 	{
-		AssetID level;
 		Mode mode;
-		AssetID next_level;
 		AI::Team local_player_config[MAX_GAMEPADS];
 		b8 third_person;
 		b8 local_multiplayer;
-		FeatureLevel feature_level;
-		b8 has_feature(FeatureLevel) const;
 		// shift all the team IDs by this amount
 		// local multiplayer games rotate through all the possible team configurations before moving on to the next map
 		s32 local_multiplayer_offset;
-		Data();
+		r32 time_scale;
+		AssetID level;
 	};
 
+	struct Save
+	{
+		s32 level_index;
+		std::unordered_map<AssetID, AssetID> variables; // todo: kill STL
+	};
+
+	struct Level
+	{
+		FeatureLevel feature_level;
+		r32 min_y;
+		Skybox::Config skybox;
+
+		b8 has_feature(FeatureLevel) const;
+	};
+
+	static State state;
+	static Save save;
+	static Level level;
+
+	static const s32 levels[];
+
 	static b8 quit;
-	static r32 time_scale;
 	static GameTime time;
 	static GameTime real_time;
-	static Data data;
 	static Vec2 cursor;
 	static b8 cursor_updated;
 	static AssetID scheduled_load_level;

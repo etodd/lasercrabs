@@ -36,7 +36,6 @@ static UIText player_text[MAX_GAMEPADS];
 static s32 gamepad_count = 0;
 static AssetID last_level = AssetNull;
 static AssetID next_level = AssetNull;
-static Game::Mode next_mode = Game::Mode::Pvp;
 static r32 connect_timer = 0.0f;
 static UIMenu main_menu;
 
@@ -44,10 +43,10 @@ static State main_menu_state;
 
 void reset_players()
 {
-	Game::data.local_multiplayer_offset = 0;
+	Game::state.local_multiplayer_offset = 0;
 	for (int i = 0; i < MAX_GAMEPADS; i++)
-		Game::data.local_player_config[i] = AI::Team::None;
-	Game::data.local_player_config[0] = AI::Team::A;
+		Game::state.local_player_config[i] = AI::Team::None;
+	Game::state.local_player_config[0] = AI::Team::A;
 }
 
 void init()
@@ -134,7 +133,8 @@ void title_menu(const Update& u, u8 gamepad, UIMenu* menu, State* state)
 			Vec2 pos(logo_padding * 2.0f + logo_size, u.input->height * 0.5f + UIMenu::height(5) * 0.5f);
 			if (menu->item(u, &pos, _(strings::play)))
 			{
-				transition(Asset::Level::tutorial, Game::Mode::Parkour);
+				Game::save = Game::Save();
+				transition(Game::levels[Game::save.level_index], Game::Mode::Parkour);
 				return;
 			}
 			if (menu->item(u, &pos, _(strings::options)))
@@ -230,14 +230,14 @@ void update(const Update& u)
 	if (Console::visible)
 		return;
 
-	switch (Game::data.level)
+	switch (Game::state.level)
 	{
 		case Asset::Level::splitscreen:
 		{
-			if (Game::data.level != last_level)
+			if (Game::state.level != last_level)
 			{
 				reset_players();
-				Game::data.local_multiplayer = true;
+				Game::state.local_multiplayer = true;
 			}
 
 			b8 cameras_changed = false;
@@ -265,18 +265,18 @@ void update(const Update& u)
 					{
 						if (u.input->get(Controls::Cancel, i) && !u.last_input->get(Controls::Cancel, i))
 						{
-							Game::data.local_player_config[i] = AI::Team::None;
+							Game::state.local_player_config[i] = AI::Team::None;
 							Audio::post_global_event(AK::EVENTS::PLAY_BEEP_GOOD);
 						}
 						else if (u.input->get(Controls::Action, i) && !u.last_input->get(Controls::Action, i))
 						{
-							Game::data.local_player_config[i] = i % 2 == 0 ? AI::Team::A : AI::Team::B;
+							Game::state.local_player_config[i] = i % 2 == 0 ? AI::Team::A : AI::Team::B;
 							Audio::post_global_event(AK::EVENTS::PLAY_BEEP_GOOD);
 						}
 					}
 				}
 				else
-					Game::data.local_player_config[i] = AI::Team::None;
+					Game::state.local_player_config[i] = AI::Team::None;
 			}
 
 			if (cameras_changed)
@@ -294,7 +294,7 @@ void update(const Update& u)
 							Vec2((s32)(viewport->w * (r32)u.input->width), (s32)(viewport->h * (r32)u.input->height)),
 						};
 						r32 aspect = camera->viewport.size.y == 0 ? 1 : (r32)camera->viewport.size.x / (r32)camera->viewport.size.y;
-						camera->perspective(fov_initial, aspect, 0.01f, Skybox::far_plane);
+						camera->perspective(fov_initial, aspect, 0.01f, Game::level.skybox.far_plane);
 					}
 				}
 			}
@@ -303,7 +303,7 @@ void update(const Update& u)
 			s32 player_count = 0;
 			for (s32 i = 0; i < MAX_GAMEPADS; i++)
 			{
-				if (Game::data.local_player_config[i] != AI::Team::None)
+				if (Game::state.local_player_config[i] != AI::Team::None)
 				{
 					player_count++;
 					start |= u.input->get(Controls::Start, i) && !u.last_input->get(Controls::Start, i);
@@ -312,14 +312,15 @@ void update(const Update& u)
 
 			if (player_count > 1 && start)
 			{
-				Game::data.feature_level = Game::FeatureLevel::Base;
-				transition(Asset::Level::level1, Game::Mode::Pvp);
+				Game::save = Game::Save();
+				Game::save.level_index = 1; // skip tutorial
+				transition(Game::levels[Game::save.level_index], Game::Mode::Pvp);
 			}
 			break;
 		}
 		case Asset::Level::title:
 		{
-			if (Game::data.level != last_level)
+			if (Game::state.level != last_level)
 			{
 				reset_players();
 				main_menu_state = State::Visible;
@@ -328,15 +329,14 @@ void update(const Update& u)
 		}
 		case Asset::Level::connect:
 		{
-			if (Game::data.level != last_level)
+			if (Game::state.level != last_level)
 				connect_timer = CONNECT_DELAY_MIN + mersenne::randf_co() * CONNECT_DELAY_RANGE;
 
 			connect_timer -= u.time.delta;
 			if (connect_timer < 0.0f)
 			{
 				clear();
-				Game::schedule_load_level(next_level, next_mode);
-				next_level = AssetNull;
+				Game::schedule_load_level(next_level, Game::Mode::Pvp);
 			}
 			break;
 		}
@@ -346,13 +346,13 @@ void update(const Update& u)
 			break;
 	}
 
-	if (Game::data.level == Asset::Level::title)
+	if (Game::state.level == Asset::Level::title)
 		title_menu(u, 0, &main_menu, &main_menu_state);
-	else if (is_special_level(Game::data.level, Game::data.mode))
+	else if (is_special_level(Game::state.level, Game::state.mode))
 	{
 		// toggle the pause menu
 		b8 pause_hit;
-		if (Game::data.level == Asset::Level::splitscreen || main_menu_state != State::Hidden)
+		if (Game::state.level == Asset::Level::splitscreen || main_menu_state != State::Hidden)
 			pause_hit = u.input->get(Controls::Cancel, 0) && !u.last_input->get(Controls::Cancel, 0);
 		else
 			pause_hit = u.input->get(Controls::Pause, 0) && !u.last_input->get(Controls::Pause, 0);
@@ -365,7 +365,7 @@ void update(const Update& u)
 		pause_menu(u, viewport, 0, &main_menu, &main_menu_state);
 	}
 
-	last_level = Game::data.level;
+	last_level = Game::state.level;
 }
 
 void transition(AssetID level, Game::Mode mode)
@@ -374,7 +374,6 @@ void transition(AssetID level, Game::Mode mode)
 	if (mode == Game::Mode::Pvp)
 	{
 		next_level = level;
-		next_mode = mode;
 		Game::schedule_load_level(Asset::Level::connect, Game::Mode::Special);
 	}
 	else
@@ -399,7 +398,7 @@ void draw(const RenderParams& params)
 		return;
 
 	const Rect2& viewport = params.camera->viewport;
-	switch (Game::data.level)
+	switch (Game::state.level)
 	{
 		case Asset::Level::splitscreen:
 		{
@@ -415,7 +414,7 @@ void draw(const RenderParams& params)
 					player_text[i].draw(params, viewport.size * 0.5f);
 					if (i > 0)
 					{
-						if (Game::data.local_player_config[i] == AI::Team::None)
+						if (Game::state.local_player_config[i] == AI::Team::None)
 							text.text(_(strings::join));
 						else
 							text.text(_(strings::leave));
@@ -461,7 +460,7 @@ void draw(const RenderParams& params)
 			break;
 	}
 
-	if (is_special_level(Game::data.level, Game::data.mode))
+	if (is_special_level(Game::state.level, Game::state.mode))
 	{
 		if (!cameras[0] || params.camera == cameras[0]) // if we have cameras active, only draw the main menu on the first one
 			main_menu.draw_alpha(params);

@@ -16,20 +16,12 @@
 #include "render/views.h"
 #include "cjson/cJSON.h"
 #include "strings.h"
-#include <unordered_map>
 #include "utf8/utf8.h"
 #include "ai_player.h"
 #include "sha1/sha1.h"
 
 namespace VI
 {
-
-enum class TutorialState
-{
-	Inactive,
-	Active,
-	Hidden,
-};
 
 Script* Script::find(const char* name)
 {
@@ -120,7 +112,6 @@ namespace Penelope
 	// map string IDs to node IDs
 	// note: multiple nodes may use the same string ID
 	ID node_lookup[(s32)Asset::String::count];
-	std::unordered_map<AssetID, AssetID> variables; // todo: move this into save data
 
 	void global_init()
 	{
@@ -477,7 +468,7 @@ namespace Penelope
 			}
 			case Node::Type::Branch:
 			{
-				AssetID value = variables[node.branch.variable];
+				AssetID value = Game::save.variables[node.branch.variable];
 				b8 found_branch = false;
 				for (s32 i = 0; i < MAX_BRANCHES; i++)
 				{
@@ -525,7 +516,7 @@ namespace Penelope
 			}
 			case Node::Type::Set:
 			{
-				variables[node.set.variable] = node.set.value;
+				Game::save.variables[node.set.variable] = node.set.value;
 				if (node.next != IDNull)
 					execute(node.next, time);
 				break;
@@ -835,12 +826,12 @@ namespace Penelope
 		else if (node == Asset::String::penelope_hide)
 			data->mode = Mode::Hidden;
 		else if (node == Asset::String::match_go)
-			Menu::transition(Game::data.level, Game::Mode::Pvp); // reload current level in PvP mode
+			Menu::transition(Game::state.level, Game::Mode::Pvp); // reload current level in PvP mode
 	}
 
 	void init(Entity* term, AssetID entry_point)
 	{
-		if (Game::data.mode == Game::Mode::Parkour)
+		if (Game::state.mode == Game::Mode::Parkour)
 		{
 			data = new Data();
 			data->terminal = term ? term->get<PlayerTrigger>() : nullptr;
@@ -889,7 +880,7 @@ namespace scene
 			Vec2(u.input->width, u.input->height),
 		};
 		r32 aspect = data->camera->viewport.size.y == 0 ? 1 : (r32)data->camera->viewport.size.x / (r32)data->camera->viewport.size.y;
-		data->camera->perspective((80.0f * PI * 0.5f / 180.0f), aspect, 0.1f, Skybox::far_plane);
+		data->camera->perspective((80.0f * PI * 0.5f / 180.0f), aspect, 0.1f, Game::level.skybox.far_plane);
 
 		Game::cleanups.add(cleanup);
 		Game::updates.add(update);
@@ -900,7 +891,7 @@ namespace tutorial
 {
 	void init(const Update& u, const EntityFinder& entities)
 	{
-		if (Game::data.mode == Game::Mode::Pvp)
+		if (Game::state.mode == Game::Mode::Pvp)
 		{
 			PlayerManager* manager = PlayerManager::list.add();
 			new (manager) PlayerManager(&Team::list[(s32)AI::Team::B]);

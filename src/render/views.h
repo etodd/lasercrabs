@@ -34,31 +34,34 @@ struct View : public ComponentType<View>
 	void draw(const RenderParams&) const;
 };
 
+struct Skybox
+{
+	struct Config
+	{
+		r32 far_plane;
+		Vec3 color;
+		Vec3 ambient_color;
+		Vec3 zenith_color;
+		Vec3 player_light;
+		AssetID texture;
+		AssetID mesh;
+		AssetID shader;
+		r32 fog_start;
+		b8 valid() const;
+	};
+
+	static void draw_alpha(const RenderParams&, const Config&);
+};
+
 struct SkyDecal : ComponentType<SkyDecal>
 {
 	Vec4 color;
 	r32 scale;
 	AssetID texture;
 
-	static void draw_alpha(const RenderParams&);
+	static void draw_alpha(const RenderParams&, const Skybox::Config&);
 
 	void awake() {}
-};
-
-struct Skybox
-{
-	static r32 far_plane;
-	static Vec3 color;
-	static Vec3 ambient_color;
-	static Vec3 zenith_color;
-	static Vec3 player_light;
-	static AssetID texture;
-	static AssetID mesh;
-	static AssetID shader;
-	static r32 fog_start;
-	static b8 valid();
-	static void set(const r32, const Vec3&, const Vec3&, const Vec3&, const Vec3&, const AssetID&, const AssetID&, const AssetID&);
-	static void draw_alpha(const RenderParams&);
 };
 
 struct SkyPattern

@@ -57,8 +57,6 @@ Traceur::Traceur(const Vec3& pos, const Quat& quat, AI::Team team)
 	create<Parkour>();
 }
 
-r32 Parkour::min_y;
-
 void Parkour::awake()
 {
 	Animator* animator = get<Animator>();
@@ -227,7 +225,7 @@ b8 Parkour::TilePos::operator!=(const Parkour::TilePos& other) const
 
 void Parkour::update(const Update& u)
 {
-	if (get<Transform>()->absolute_pos().y < min_y)
+	if (get<Transform>()->absolute_pos().y < Game::level.min_y)
 	{
 		World::remove_deferred(entity());
 		return;

@@ -39,8 +39,6 @@ struct Parkour : public ComponentType<Parkour>
 		b8 operator!=(const TilePos&) const;
 	};
 
-	static r32 min_y;
-
 	FSM<State> fsm;
 	Vec3 relative_wall_run_normal;
 	WallRunState wall_run_state;

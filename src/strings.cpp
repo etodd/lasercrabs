@@ -38,15 +38,9 @@ AssetID strings_get(const char* value)
 
 AssetID strings_add_dynamic(const char* name, const char* value)
 {
-	AssetID id = strings_get(value);
-	if (id == AssetNull)
-	{
-		dynamic_string_names.add(name);
-		dynamic_string_values.add(value);
-		return (s32)Asset::String::count + dynamic_string_names.length - 1;
-	}
-	else
-		return id;
+	dynamic_string_names.add(name);
+	dynamic_string_values.add(value);
+	return (s32)Asset::String::count + dynamic_string_names.length - 1;
 }
 
 const char* _(AssetID id)
@@ -55,7 +49,7 @@ const char* _(AssetID id)
 		return string_values[id];
 	else
 		return dynamic_string_values[id - (s32)Asset::String::count];
-};
+}
 
 
 };

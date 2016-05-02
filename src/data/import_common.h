@@ -286,6 +286,7 @@ typedef StaticArray<AwkNavMeshNode, AWK_NAV_MESH_ADJACENCY> AwkNavMeshAdjacency;
 struct AwkNavMeshChunk
 {
 	Array<Vec3> vertices;
+	Array<Vec3> normals;
 	Array<AwkNavMeshAdjacency> adjacency;
 };
 

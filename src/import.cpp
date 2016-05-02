@@ -28,7 +28,7 @@ namespace VI
 
 typedef Chunks<Array<Vec3>> ChunkedTris;
 
-const s32 version = 23;
+const s32 version = 24;
 
 const char* model_in_extension = ".blend";
 const char* model_intermediate_extension = ".fbx";
@@ -1841,7 +1841,7 @@ b8 point_in_tri(const Vec2& pt, const Vec2& v1, const Vec2& v2, const Vec2& v3)
 	return b1 == b2 && b2 == b3;
 }
 
-void rasterize_top_flat_triangle(AwkNavMesh* out, ChunkedTris* normals, const Vec3& normal, const Vec3& normal_offset, const Vec3& u, const Vec3& v, const Vec2& v1, const Vec2& v2, const Vec2& v3)
+void rasterize_top_flat_triangle(AwkNavMesh* out, const Vec3& normal, const Vec3& normal_offset, const Vec3& u, const Vec3& v, const Vec2& v1, const Vec2& v2, const Vec2& v3)
 {
 	r32 invslope1 = grid_spacing * (v2.x - v1.x) / (v2.y - v1.y);
 	r32 invslope2 = grid_spacing * (v3.x - v1.x) / (v3.y - v1.y);
@@ -1866,7 +1866,7 @@ void rasterize_top_flat_triangle(AwkNavMesh* out, ChunkedTris* normals, const Ve
 				Vec3 vertex = normal_offset + (u * p.x) + (v * p.y);
 				s32 chunk_index = out->index(out->coord(vertex));
 				out->chunks[chunk_index].vertices.add(vertex);
-				normals->chunks[chunk_index].add(normal);
+				out->chunks[chunk_index].normals.add(normal);
 			}
 		}
 		curx1 += invslope1;
@@ -1874,7 +1874,7 @@ void rasterize_top_flat_triangle(AwkNavMesh* out, ChunkedTris* normals, const Ve
 	}
 }
 
-void rasterize_bottom_flat_triangle(AwkNavMesh* out, ChunkedTris* normals, const Vec3& normal, const Vec3& normal_offset, const Vec3& u, const Vec3& v, const Vec2& v1, const Vec2& v2, const Vec2& v3)
+void rasterize_bottom_flat_triangle(AwkNavMesh* out, const Vec3& normal, const Vec3& normal_offset, const Vec3& u, const Vec3& v, const Vec2& v1, const Vec2& v2, const Vec2& v3)
 {
 	r32 invslope1 = grid_spacing * (v3.x - v1.x) / (v3.y - v1.y);
 	r32 invslope2 = grid_spacing * (v3.x - v2.x) / (v3.y - v2.y);
@@ -1901,7 +1901,7 @@ void rasterize_bottom_flat_triangle(AwkNavMesh* out, ChunkedTris* normals, const
 				Vec3 vertex = normal_offset + (u * p.x) + (v * p.y);
 				s32 chunk_index = out->index(out->coord(vertex));
 				out->chunks[chunk_index].vertices.add(vertex);
-				normals->chunks[chunk_index].add(normal);
+				out->chunks[chunk_index].normals.add(normal);
 			}
 		}
 	}
@@ -2046,8 +2046,6 @@ void build_awk_nav_mesh(Map<Mesh>& meshes, cJSON* json, AwkNavMesh* out, s32* ad
 	const r32 chunk_size = 12.0f;
 	const r32 chunk_padding = AWK_RADIUS;
 
-	ChunkedTris normals;
-
 	ChunkedTris accessible_chunked;
 
 	{
@@ -2055,7 +2053,6 @@ void build_awk_nav_mesh(Map<Mesh>& meshes, cJSON* json, AwkNavMesh* out, s32* ad
 		consolidate_nav_geometry(&accessible, meshes, json, is_accessible);
 
 		out->resize(accessible.bounds_min, accessible.bounds_max, chunk_size);
-		normals.resize(accessible.bounds_min, accessible.bounds_max, chunk_size);
 
 		for (s32 index_index = 0; index_index < accessible.indices.length; index_index += 3)
 		{
@@ -2136,9 +2133,9 @@ void build_awk_nav_mesh(Map<Mesh>& meshes, cJSON* json, AwkNavMesh* out, s32* ad
 			}
 
 			if (v1.y == v2.y)
-				rasterize_bottom_flat_triangle(out, &normals, normal, normal_offset, u, v, v1, v2, v3);
+				rasterize_bottom_flat_triangle(out, normal, normal_offset, u, v, v1, v2, v3);
 			else if (v2.y == v3.y)
-				rasterize_top_flat_triangle(out, &normals, normal, normal_offset, u, v, v1, v2, v3);
+				rasterize_top_flat_triangle(out, normal, normal_offset, u, v, v1, v2, v3);
 			else
 			{
 				Vec2 v4
@@ -2146,8 +2143,8 @@ void build_awk_nav_mesh(Map<Mesh>& meshes, cJSON* json, AwkNavMesh* out, s32* ad
 					v1.x + ((v2.y - v1.y) / (v3.y - v1.y)) * (v3.x - v1.x),
 					v2.y
 				);
-				rasterize_top_flat_triangle(out, &normals, normal, normal_offset, u, v, v1, v2, v4);
-				rasterize_bottom_flat_triangle(out, &normals, normal, normal_offset, u, v, v2, v4, v3);
+				rasterize_top_flat_triangle(out, normal, normal_offset, u, v, v1, v2, v4);
+				rasterize_bottom_flat_triangle(out, normal, normal_offset, u, v, v2, v4, v3);
 			}
 		}
 
@@ -2178,7 +2175,7 @@ void build_awk_nav_mesh(Map<Mesh>& meshes, cJSON* json, AwkNavMesh* out, s32* ad
 		for (s32 vertex_index = 0; vertex_index < chunk->vertices.length; vertex_index++)
 		{
 			AwkNavMeshNode vertex_node = { (u16)chunk_index, (u16)vertex_index };
-			const Vec3& vertex_normal = normals.chunks[chunk_index][vertex_index];
+			const Vec3& vertex_normal = chunk->normals[vertex_index];
 			const Vec3 vertex_surface = chunk->vertices[vertex_index];
 			const Vec3 vertex = vertex_surface + vertex_normal * AWK_RADIUS;
 
@@ -2213,7 +2210,7 @@ void build_awk_nav_mesh(Map<Mesh>& meshes, cJSON* json, AwkNavMesh* out, s32* ad
 								if (distance_squared < (AWK_MAX_DISTANCE - AWK_RADIUS) * (AWK_MAX_DISTANCE - AWK_RADIUS)
 									&& distance_squared > (AWK_RADIUS * 2.0f) * (AWK_RADIUS * 2.0f))
 								{
-									const Vec3& normal_neighbor = normals.chunks[neighbor_chunk_index][neighbor_index];
+									const Vec3& normal_neighbor = neighbor_chunk->normals[neighbor_index];
 									if (normal_neighbor.dot(to_neighbor) < 0.0f)
 									{
 										if (!awk_raycast(inaccessible_chunked, vertex, neighbor))
@@ -2361,6 +2358,7 @@ void import_level(ImporterState& state, const std::string& asset_in_path, const 
 				vi_assert(chunk.vertices.length == chunk.adjacency.length);
 				fwrite(&chunk.vertices.length, sizeof(s32), 1, f);
 				fwrite(chunk.vertices.data, sizeof(Vec3), chunk.vertices.length, f);
+				fwrite(chunk.normals.data, sizeof(Vec3), chunk.normals.length, f);
 				fwrite(chunk.adjacency.data, sizeof(AwkNavMeshAdjacency), chunk.adjacency.length, f);
 				total_vertices += chunk.vertices.length;
 			}

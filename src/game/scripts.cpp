@@ -741,7 +741,7 @@ namespace Penelope
 				}
 				case Face::Sad:
 				{
-					color = &UI::subtle_color;
+					color = &Team::ui_color_friend;
 					break;
 				}
 				case Face::EyesClosed:

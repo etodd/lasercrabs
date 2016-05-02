@@ -33,6 +33,8 @@ dtNavMeshQuery* nav_mesh_query = nullptr;
 dtQueryFilter default_query_filter = dtQueryFilter();
 const r32 default_search_extents[] = { 20, 50, 20 };
 
+Array<SensorState> sensors;
+
 void pathfind(const Vec3& a, const Vec3& b, dtPolyRef start_poly, dtPolyRef end_poly, Path* path)
 {
 	dtPolyRef path_polys[AI::MAX_PATH_LENGTH];
@@ -96,6 +98,8 @@ void loop()
 					}
 					awk_nav_mesh.~AwkNavMesh();
 					new (&awk_nav_mesh) AwkNavMesh();
+
+					sensors.length = 0;
 				}
 
 				s32 data_length;
@@ -214,6 +218,8 @@ void loop()
 							sync_in.read(&vertex_count);
 							chunk->vertices.resize(vertex_count);
 							sync_in.read(chunk->vertices.data, vertex_count);
+							chunk->normals.resize(vertex_count);
+							sync_in.read(chunk->normals.data, vertex_count);
 							chunk->adjacency.resize(vertex_count);
 							sync_in.read(chunk->adjacency.data, vertex_count);
 						}
@@ -321,8 +327,10 @@ void loop()
 			}
 			case Op::AwkPathfind:
 			{
+				AI::Team team;
 				Vec3 a;
 				Vec3 b;
+				sync_in.read(&team);
 				sync_in.read(&a);
 				sync_in.read(&b);
 				LinkEntryArg<Path> callback;
@@ -330,7 +338,7 @@ void loop()
 				sync_in.unlock();
 
 				Path path;
-				awk_pathfind(a, b, &path);
+				awk_pathfind(team, a, b, &path);
 
 				sync_out.lock();
 				sync_out.write(Callback::AwkPath);
@@ -341,8 +349,10 @@ void loop()
 			}
 			case Op::AwkPathfindHit:
 			{
+				AI::Team team;
 				Vec3 a;
 				Vec3 b;
+				sync_in.read(&team);
 				sync_in.read(&a);
 				sync_in.read(&b);
 				LinkEntryArg<Path> callback;
@@ -350,7 +360,7 @@ void loop()
 				sync_in.unlock();
 
 				Path path;
-				awk_pathfind_hit(a, b, &path);
+				awk_pathfind_hit(team, a, b, &path);
 
 				sync_out.lock();
 				sync_out.write(Callback::AwkPath);
@@ -361,8 +371,10 @@ void loop()
 			}
 			case Op::AwkRandomPath:
 			{
+				AI::Team team;
 				LinkEntryArg<Path> callback;
 				Vec3 start;
+				sync_in.read(&team);
 				sync_in.read(&start);
 				sync_in.read(&callback);
 				sync_in.unlock();
@@ -378,13 +390,22 @@ void loop()
 				const Vec3& end = chunk.vertices[mersenne::randf_co() * chunk.vertices.length - 1];
 
 				Path path;
-				awk_pathfind(start, end, &path);
+				awk_pathfind(team, start, end, &path);
 
 				sync_out.lock();
 				sync_out.write(Callback::AwkPath);
 				sync_out.write(callback);
 				sync_out.write(path);
 				sync_out.unlock();
+				break;
+			}
+			case Op::UpdateSensors:
+			{
+				s32 count;
+				sync_in.read(&count);
+				sensors.resize(count);
+				sync_in.read(sensors.data, sensors.length);
+				sync_in.unlock();
 				break;
 			}
 			case Op::Quit:
@@ -501,8 +522,41 @@ b8 can_hit_from(AwkNavMeshNode start_vertex, const Vec3& target)
 	return false;
 }
 
+#define ENEMY_SENSOR_COST 16.0f
+#define FRIENDLY_SENSOR_BONUS 8.0f
+r32 sensor_cost(AI::Team team, const AwkNavMeshNode& node)
+{
+	const Vec3& pos = awk_nav_mesh.chunks[node.chunk].vertices[node.vertex];
+	const Vec3& normal = awk_nav_mesh.chunks[node.chunk].normals[node.vertex];
+	b8 in_friendly_zone = false;
+	b8 in_enemy_zone = false;
+	for (s32 i = 0; i < sensors.length; i++)
+	{
+		Vec3 to_sensor = sensors[i].pos - pos;
+		if (to_sensor.length() < SENSOR_RANGE)
+		{
+			if (normal.dot(to_sensor) > 0.0f)
+			{
+				if (sensors[i].team == team)
+					in_friendly_zone = true;
+				else
+				{
+					in_enemy_zone = true;
+					break;
+				}
+			}
+		}
+	}
+	if (in_enemy_zone)
+		return ENEMY_SENSOR_COST;
+	else if (in_friendly_zone)
+		return -FRIENDLY_SENSOR_BONUS;
+	else
+		return 0;
+}
+
 // find a path from vertex a to vertex b
-void awk_pathfind_internal(const AwkNavMeshNode& start_vertex, const AwkNavMeshNode& end_vertex, Path* path)
+void awk_pathfind_internal(AI::Team team, AwkNavMeshNode& start_vertex, const AwkNavMeshNode& end_vertex, Path* path)
 {
 	path->length = 0;
 
@@ -550,7 +604,11 @@ void awk_pathfind_internal(const AwkNavMeshNode& start_vertex, const AwkNavMeshN
 			const AwkNavMeshNode& adjacent_node = adjacency[i];
 			AwkNavMeshNodeData* adjacent_data = &awk_nav_mesh_key.get(adjacent_node);
 			const Vec3& adjacent_pos = awk_nav_mesh.chunks[adjacent_node.chunk].vertices[adjacent_node.vertex];
-			r32 candidate_travel_score = vertex_data->travel_score + (adjacent_pos - vertex_pos).length();
+
+			r32 candidate_travel_score = vertex_data->travel_score
+				+ (adjacent_pos - vertex_pos).length()
+				+ sensor_cost(team, adjacent_node);
+
 			if (adjacent_data->visited)
 			{
 				if (adjacent_data->travel_score > candidate_travel_score)
@@ -584,13 +642,13 @@ void awk_pathfind_internal(const AwkNavMeshNode& start_vertex, const AwkNavMeshN
 }
 
 // find a path using vertices as close as possible to the given points
-void awk_pathfind(const Vec3& start, const Vec3& end, Path* path)
+void awk_pathfind(AI::Team team, const Vec3& start, const Vec3& end, Path* path)
 {
-	awk_pathfind_internal(awk_closest_point(start), awk_closest_point(end), path);
+	awk_pathfind_internal(team, awk_closest_point(start), awk_closest_point(end), path);
 }
 
 // find our way to a point from which we can shoot through the given target
-void awk_pathfind_hit(const Vec3& start, const Vec3& target, Path* path)
+void awk_pathfind_hit(AI::Team team, const Vec3& start, const Vec3& target, Path* path)
 {
 	AwkNavMeshNode target_closest_vertex = awk_closest_point(target);
 
@@ -603,7 +661,7 @@ void awk_pathfind_hit(const Vec3& start, const Vec3& target, Path* path)
 	// this prevents us from getting stuck at a point where we think we should be able to hit the target, but we actually can't
 
 	if (!target_closest_vertex.equals(start_vertex) && can_hit_from(target_closest_vertex, target))
-		awk_pathfind_internal(start_vertex, target_closest_vertex, path);
+		awk_pathfind_internal(team, start_vertex, target_closest_vertex, path);
 	else
 	{
 		const AwkNavMeshAdjacency& target_adjacency = awk_nav_mesh.chunks[target_closest_vertex.chunk].adjacency[target_closest_vertex.vertex];
@@ -626,13 +684,13 @@ void awk_pathfind_hit(const Vec3& start, const Vec3& target, Path* path)
 		if (closest_distance == FLT_MAX)
 			path->length = 0; // can't find a path to hit this thing
 		else
-			awk_pathfind_internal(start_vertex, closest_vertex, path);
+			awk_pathfind_internal(team, start_vertex, closest_vertex, path);
 	}
 }
 
-}
 
 }
 
+}
 
 }

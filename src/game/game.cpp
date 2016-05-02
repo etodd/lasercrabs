@@ -261,9 +261,6 @@ void Game::draw_alpha(const RenderParams& render_params)
 	SkyPattern::draw_alpha(render_params);
 	SkinnedModel::draw_alpha(render_params);
 
-	for (auto i = NoclipControl::list.iterator(); !i.is_last(); i.next())
-		i.item()->draw_alpha(render_params);
-
 #if DEBUG_NAV_MESH
 	AI::debug_draw_nav_mesh(render_params);
 #endif

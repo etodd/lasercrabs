@@ -612,7 +612,9 @@ Rect2 UIMenu::add_item(Vec2* pos, b8 slider, const char* string, const char* val
 		item->label.wrap_width = MENU_ITEM_WIDTH - MENU_ITEM_PADDING - MENU_ITEM_PADDING_LEFT;
 	item->label.anchor_x = UIText::Anchor::Min;
 	item->label.anchor_y = item->value.anchor_y = UIText::Anchor::Max;
-	item->label.color = item->value.color = disabled ? UI::disabled_color : UI::default_color;
+
+	b8 is_selected = active[gamepad] == this && selected == items.length - 1;
+	item->label.color = item->value.color = disabled ? UI::disabled_color : (is_selected ? UI::accent_color : UI::default_color);
 	item->label.text(string);
 
 	item->value.anchor_x = UIText::Anchor::Center;
@@ -761,7 +763,10 @@ void UIMenu::draw_alpha(const RenderParams& params) const
 	for (s32 i = 0; i < items.length; i++)
 	{
 		const Item* item = &items[i];
-		UI::box(params, item->rect(), active[gamepad] == this && i == selected ? UI::subtle_color : UI::background_color);
+		Rect2 rect = item->rect();
+		UI::box(params, rect, UI::background_color);
+		if (active[gamepad] == this && i == selected)
+			UI::box(params, { item->pos + Vec2(-MENU_ITEM_PADDING_LEFT, item->label.size * -UI::scale), Vec2(4 * UI::scale, item->label.size * UI::scale) }, UI::accent_color);
 
 		if (item->icon != AssetNull)
 			UI::mesh(params, item->icon, item->pos + Vec2(MENU_ITEM_PADDING_LEFT * -0.5f, MENU_ITEM_FONT_SIZE * -0.5f), Vec2(UI::scale * MENU_ITEM_FONT_SIZE), item->label.color);
@@ -772,11 +777,9 @@ void UIMenu::draw_alpha(const RenderParams& params) const
 		if (item->slider)
 		{
 			const Rect2& down_rect = item->down_rect();
-			UI::box(params, down_rect, UI::background_color);
 			UI::triangle(params, { down_rect.pos + down_rect.size * 0.5f, down_rect.size * 0.5f }, item->label.color, PI * 0.5f);
 
 			const Rect2& up_rect = item->up_rect();
-			UI::box(params, up_rect, UI::background_color);
 			UI::triangle(params, { up_rect.pos + up_rect.size * 0.5f, up_rect.size * 0.5f }, item->label.color, PI * -0.5f);
 		}
 	}

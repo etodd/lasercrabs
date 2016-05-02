@@ -909,8 +909,6 @@ b8 Parkour::try_wall_run(WallRunState s, const Vec3& wall_direction)
 		transform.setOrigin(new_pos);
 		body->setWorldTransform(transform);
 
-		can_double_jump = true;
-
 		return true;
 	}
 

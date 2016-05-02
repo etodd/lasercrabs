@@ -42,8 +42,27 @@ void quit()
 	sync_in.unlock();
 }
 
+#define SENSOR_UPDATE_INTERVAL 0.5f
+r32 sensor_timer = SENSOR_UPDATE_INTERVAL;
+
 void update(const Update& u)
 {
+	sensor_timer -= u.time.delta;
+	if (sensor_timer < 0.0f)
+	{
+		sensor_timer = SENSOR_UPDATE_INTERVAL;
+
+		Array<SensorState> sensors;
+		for (auto i = Sensor::list.iterator(); !i.is_last(); i.next())
+			sensors.add({ i.item()->get<Transform>()->absolute_pos(), i.item()->team });
+
+		sync_in.lock();
+		sync_in.write(Op::UpdateSensors);
+		sync_in.write(sensors.length);
+		sync_in.write(sensors.data, sensors.length);
+		sync_in.unlock();
+	}
+
 	sync_out.lock();
 	while (sync_out.can_read())
 	{
@@ -195,13 +214,14 @@ u32 random_path(const Vec3& pos, const LinkEntryArg<const Result&>& callback)
 	return id;
 }
 
-u32 awk_random_path(const Vec3& pos, const LinkEntryArg<const Result&>& callback)
+u32 awk_random_path(AI::Team team, const Vec3& pos, const LinkEntryArg<const Result&>& callback)
 {
 	u32 id = callback_in_id;
 	callback_in_id++;
 
 	sync_in.lock();
 	sync_in.write(Op::AwkRandomPath);
+	sync_in.write(team);
 	sync_in.write(pos);
 	sync_in.write(callback);
 	sync_in.unlock();
@@ -224,13 +244,14 @@ u32 pathfind(const Vec3& a, const Vec3& b, const LinkEntryArg<const Result&>& ca
 	return id;
 }
 
-u32 awk_pathfind(const Vec3& a, const Vec3& b, const LinkEntryArg<const Result&>& callback)
+u32 awk_pathfind(AI::Team team, const Vec3& a, const Vec3& b, const LinkEntryArg<const Result&>& callback)
 {
 	u32 id = callback_in_id;
 	callback_in_id++;
 
 	sync_in.lock();
 	sync_in.write(Op::AwkPathfind);
+	sync_in.write(team);
 	sync_in.write(a);
 	sync_in.write(b);
 	sync_in.write(callback);
@@ -239,13 +260,14 @@ u32 awk_pathfind(const Vec3& a, const Vec3& b, const LinkEntryArg<const Result&>
 	return id;
 }
 
-u32 awk_pathfind_hit(const Vec3& a, const Vec3& b, const LinkEntryArg<const Result&>& callback)
+u32 awk_pathfind_hit(AI::Team team, const Vec3& a, const Vec3& b, const LinkEntryArg<const Result&>& callback)
 {
 	u32 id = callback_in_id;
 	callback_in_id++;
 
 	sync_in.lock();
 	sync_in.write(Op::AwkPathfindHit);
+	sync_in.write(team);
 	sync_in.write(a);
 	sync_in.write(b);
 	sync_in.write(callback);

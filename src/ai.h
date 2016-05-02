@@ -12,6 +12,8 @@
 namespace VI
 {
 
+#define SENSOR_RANGE 20.0f
+
 struct AIAgent;
 struct RenderParams;
 
@@ -27,6 +29,7 @@ namespace AI
 		AwkPathfindHit,
 		RandomPath,
 		AwkRandomPath,
+		UpdateSensors,
 		Quit,
 	};
 
@@ -55,6 +58,12 @@ namespace AI
 
 	Team other(Team);
 
+	struct SensorState
+	{
+		Vec3 pos;
+		AI::Team team;
+	};
+
 	static const s32 SYNC_IN_SIZE = 5 * 1024 * 1024;
 	static const s32 SYNC_OUT_SIZE = 1 * 1024 * 1024;
 	extern Array<b8> obstacles;
@@ -66,10 +75,10 @@ namespace AI
 	u32 obstacle_add(const Vec3&, r32, r32);
 	void obstacle_remove(u32);
 	u32 pathfind(const Vec3&, const Vec3&, const LinkEntryArg<const Result&>&);
-	u32 awk_pathfind(const Vec3&, const Vec3&, const LinkEntryArg<const Result&>&);
-	u32 awk_pathfind_hit(const Vec3&, const Vec3&, const LinkEntryArg<const Result&>&);
+	u32 awk_pathfind(AI::Team, const Vec3&, const Vec3&, const LinkEntryArg<const Result&>&);
+	u32 awk_pathfind_hit(AI::Team, const Vec3&, const Vec3&, const LinkEntryArg<const Result&>&);
 	u32 random_path(const Vec3&, const LinkEntryArg<const Result&>&);
-	u32 awk_random_path(const Vec3&, const LinkEntryArg<const Result&>&);
+	u32 awk_random_path(AI::Team, const Vec3&, const LinkEntryArg<const Result&>&);
 	void load(const u8*, s32);
 	void loop();
 	void quit();
@@ -120,8 +129,8 @@ namespace AI
 
 		dtPolyRef get_poly(const Vec3&, const r32*);
 
-		void awk_pathfind(const Vec3&, const Vec3&, Path*);
-		void awk_pathfind_hit(const Vec3&, const Vec3&, Path*);
+		void awk_pathfind(AI::Team, const Vec3&, const Vec3&, Path*);
+		void awk_pathfind_hit(AI::Team, const Vec3&, const Vec3&, Path*);
 
 		AwkNavMeshNode awk_closest_point(const Vec3&);
 	}

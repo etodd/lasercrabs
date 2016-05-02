@@ -37,9 +37,6 @@ struct Camera;
 
 struct NoclipControl : public ComponentType<NoclipControl>
 {
-	b8 state;
-	Vec3 start;
-	AI::Path path;
 	r32 angle_horizontal;
 	r32 angle_vertical;
 
@@ -50,8 +47,6 @@ struct NoclipControl : public ComponentType<NoclipControl>
 
 	void update(const Update&);
 	void awake();
-	void set_path(const AI::Result&);
-	void draw_alpha(const RenderParams&);
 };
 
 

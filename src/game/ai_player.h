@@ -183,9 +183,9 @@ namespace AIBehaviors
 			auto ai_callback = ObjectLinkEntryArg<Base<Derived>, const AI::Result&, &Base<Derived>::path_callback>(id());
 			Vec3 pos = control->get<Transform>()->absolute_pos();
 			if (hit)
-				AI::awk_pathfind_hit(pos, target, ai_callback);
+				AI::awk_pathfind_hit(control->get<AIAgent>()->team, pos, target, ai_callback);
 			else
-				AI::awk_pathfind(pos, target, ai_callback);
+				AI::awk_pathfind(control->get<AIAgent>()->team, pos, target, ai_callback);
 		}
 	};
 

@@ -544,7 +544,7 @@ void RandomPath::run()
 {
 	active(true);
 	if (control->path_priority < path_priority)
-		AI::awk_random_path(control->get<Transform>()->absolute_pos(), ObjectLinkEntryArg<Base<RandomPath>, const AI::Result&, &Base<RandomPath>::path_callback>(id()));
+		AI::awk_random_path(control->get<AIAgent>()->team, control->get<Transform>()->absolute_pos(), ObjectLinkEntryArg<Base<RandomPath>, const AI::Result&, &Base<RandomPath>::path_callback>(id()));
 	else
 		done(false);
 }

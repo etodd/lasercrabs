@@ -519,6 +519,18 @@ void Game::execute(const Update& u, const char* cmd)
 				Menu::transition(level, Game::Mode::Parkour);
 		}
 	}
+	else if (strstr(cmd, "loadai ") == cmd)
+	{
+		// AI test
+		const char* delimiter = strchr(cmd, ' ');
+		if (delimiter)
+		{
+			const char* level_name = delimiter + 1;
+			AssetID level = Loader::find(level_name, AssetLookup::Level::names);
+			if (level != AssetNull)
+				Game::load_level(u, level, Game::Mode::Pvp, true);
+		}
+	}
 	else if (strstr(cmd, "load ") == cmd)
 	{
 		// pvp mode
@@ -642,7 +654,7 @@ AI::Team team_lookup(AI::Team* table, s32 i)
 	return table[vi_max(0, vi_min((s32)AI::Team::count - 1, i))];
 }
 
-void Game::load_level(const Update& u, AssetID l, Mode m)
+void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 {
 	time.total = 0.0f;
 
@@ -869,8 +881,16 @@ void Game::load_level(const Update& u, AssetID l, Mode m)
 						PlayerManager* manager = PlayerManager::list.add();
 						new (manager) PlayerManager(&Team::list[(s32)team]);
 
-						LocalPlayer* player = LocalPlayer::list.add();
-						new (player) LocalPlayer(manager, i);
+						if (ai_test)
+						{
+							AIPlayer* player = AIPlayer::list.add();
+							new (player) AIPlayer(manager);
+						}
+						else
+						{
+							LocalPlayer* player = LocalPlayer::list.add();
+							new (player) LocalPlayer(manager, i);
+						}
 					}
 				}
 				if (state.mode == Mode::Pvp)

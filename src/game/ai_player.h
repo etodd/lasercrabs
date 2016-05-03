@@ -88,6 +88,8 @@ struct AIPlayerControl : public ComponentType<AIPlayerControl>
 	void awake();
 	~AIPlayerControl();
 
+	void add_memory(MemoryArray*, Entity*, const Vec3&);
+
 	template<typename Component, b8 (*filter)(const AIPlayerControl*, const Component*)>
 	b8 update_memory()
 	{
@@ -115,30 +117,16 @@ struct AIPlayerControl : public ComponentType<AIPlayerControl>
 				Vec3 pos = i.item()->get<Transform>()->absolute_pos();
 				if (in_range(pos, VISIBLE_RANGE) && filter(this, i.item()))
 				{
-					Entity* entity = i.item()->entity();
-					b8 already_found = false;
-					for (s32 j = 0; j < component_memories->length; j++)
-					{
-						if ((*component_memories)[j].entity.ref() == entity)
-						{
-							already_found = true;
-							break;
-						}
-					}
-
-					if (!already_found)
-					{
-						AIPlayerControl::Memory* m = component_memories->add();
-						m->entity = entity;
-						m->pos = pos;
-						if (component_memories->length == component_memories->capacity())
-							break;
-					}
+					add_memory(component_memories, i.item()->entity(), pos);
+					if (component_memories->length == component_memories->capacity())
+						break;
 				}
 			}
 		}
 		return true; // this task always succeeds
 	}
+
+	b8 update_awk_memory();
 
 	void init_behavior_trees();
 	void behavior_start(Behavior*);

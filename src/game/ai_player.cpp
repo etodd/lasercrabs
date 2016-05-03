@@ -202,6 +202,41 @@ b8 AIPlayerControl::restore_loops()
 	return true;
 }
 
+void AIPlayerControl::add_memory(MemoryArray* component_memories, Entity* entity, const Vec3& pos)
+{
+	b8 already_found = false;
+	for (s32 j = 0; j < component_memories->length; j++)
+	{
+		AIPlayerControl::Memory* m = &(*component_memories)[j];
+		if (m->entity.ref() == entity)
+		{
+			m->pos = pos;
+			already_found = true;
+			break;
+		}
+	}
+
+	if (!already_found)
+	{
+		AIPlayerControl::Memory* m = component_memories->add();
+		m->entity = entity;
+		m->pos = pos;
+	}
+}
+
+// update memory of enemy AWK positions based on team sensor data
+b8 AIPlayerControl::update_awk_memory()
+{
+	const Team& team = Team::list[(s32)get<AIAgent>()->team];
+	for (s32 i = 0; i < MAX_PLAYERS; i++)
+	{
+		const Team::SensorTrack& track = team.player_tracks[i];
+		if (track.tracking && track.entity.ref())
+			add_memory(&memory[Awk::family], track.entity.ref(), track.entity.ref()->get<Transform>()->absolute_pos());
+	}
+	return true;
+}
+
 #define LOOK_SPEED 2.0f
 
 // if exact is true, we need to land exactly at the given target point
@@ -458,7 +493,8 @@ void AIPlayerControl::init_behavior_trees()
 			Execute::alloc()->method<AIPlayerControl, &AIPlayerControl::update_memory<HealthPickup, &health_pickup_filter> >(this),
 			Execute::alloc()->method<AIPlayerControl, &AIPlayerControl::update_memory<MinionAI, &minion_filter> >(this),
 			Execute::alloc()->method<AIPlayerControl, &AIPlayerControl::update_memory<Sensor, &sensor_filter> >(this),
-			Execute::alloc()->method<AIPlayerControl, &AIPlayerControl::update_memory<Awk, &awk_filter> >(this)
+			Execute::alloc()->method<AIPlayerControl, &AIPlayerControl::update_memory<Awk, &awk_filter> >(this),
+			Execute::alloc()->method<AIPlayerControl, &AIPlayerControl::update_awk_memory >(this)
 		)
 	);
 	loop_memory->set_context(this);

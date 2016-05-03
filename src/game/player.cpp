@@ -904,8 +904,15 @@ void LocalPlayerControl::awake()
 
 void LocalPlayerControl::parkour_landed(r32 velocity_diff)
 {
-	if (get<Parkour>()->fsm.current == Parkour::State::Normal && velocity_diff < 5.0f * -1.25f)
-		rumble = vi_max(rumble, 0.2f);
+	if (velocity_diff < LANDING_VELOCITY_LIGHT
+		&& (get<Parkour>()->fsm.current == Parkour::State::Normal
+			|| get<Parkour>()->fsm.current == Parkour::State::HardLanding))
+	{
+		if (velocity_diff < LANDING_VELOCITY_HARD)
+			rumble = vi_max(rumble, 0.5f);
+		else
+			rumble = vi_max(rumble, 0.2f);
+	}
 }
 
 void LocalPlayerControl::hit_target(Entity* target)

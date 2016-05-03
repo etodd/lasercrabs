@@ -12,6 +12,9 @@ struct Traceur : public Entity
 	Traceur(const Vec3&, const Quat&, AI::Team);
 };
 
+#define LANDING_VELOCITY_LIGHT 5.0f * -1.25f
+#define LANDING_VELOCITY_HARD 5.0f * -3.0f
+
 #define MAX_TILE_HISTORY 8
 struct Parkour : public ComponentType<Parkour>
 {

@@ -78,9 +78,9 @@ void Parkour::land(r32 velocity_diff)
 {
 	if (fsm.current == State::Normal)
 	{
-		if (velocity_diff < 5.0f * -1.25f)
+		if (velocity_diff < LANDING_VELOCITY_LIGHT)
 		{
-			if (velocity_diff < 5.0f * -3.0f)
+			if (velocity_diff < LANDING_VELOCITY_HARD)
 			{
 				// hard landing
 				fsm.transition(State::HardLanding);

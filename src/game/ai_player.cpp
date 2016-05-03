@@ -373,7 +373,9 @@ b8 minion_filter(const AIPlayerControl* control, const MinionAI* m)
 
 b8 awk_filter(const AIPlayerControl* control, const Awk* a)
 {
-	return a->get<AIAgent>()->team != control->get<AIAgent>()->team && !a->get<AIAgent>()->stealth;
+	return a->get<AIAgent>()->team != control->get<AIAgent>()->team
+		&& !a->get<AIAgent>()->stealth
+		&& a->get<Health>()->hp <= control->get<Health>()->hp;
 }
 
 b8 sensor_filter(const AIPlayerControl* control, const Sensor* s)

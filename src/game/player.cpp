@@ -1251,11 +1251,13 @@ void LocalPlayerControl::update(const Update& u)
 				get<Walker>()->rotation = LMath::angle_range(get<Walker>()->rotation + delta + PI * 0.5f);
 		}
 
-		// camera bone affects rotation only
-		Quat camera_animation = Quat::euler(PI * -0.5f, 0, 0);
-		get<Animator>()->bone_transform(Asset::Bone::character_camera, nullptr, &camera_animation);
-
-		look_quat = Quat::euler(get<Parkour>()->lean, get<PlayerCommon>()->angle_horizontal, get<PlayerCommon>()->angle_vertical) * Quat::euler(0, PI * 0.5f, 0) * camera_animation * Quat::euler(0, PI * -0.5f, 0);
+		if (!Game::state.third_person)
+		{
+			// camera bone affects rotation only
+			Quat camera_animation = Quat::euler(PI * -0.5f, 0, 0);
+			get<Animator>()->bone_transform(Asset::Bone::character_camera, nullptr, &camera_animation);
+			look_quat = Quat::euler(get<Parkour>()->lean, get<PlayerCommon>()->angle_horizontal, get<PlayerCommon>()->angle_vertical) * Quat::euler(0, PI * 0.5f, 0) * camera_animation * Quat::euler(0, PI * -0.5f, 0);
+		}
 	}
 
 	s32 player_count;

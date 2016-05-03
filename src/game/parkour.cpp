@@ -439,8 +439,8 @@ void Parkour::update(const Update& u)
 			// keep sliding/rolling
 			Transform* last_support_transform = last_support.ref()->get<Transform>();
 
-			// do damping
-			relative_velocity -= Vec3::normalize(relative_velocity) * u.time.delta * 3.0f;
+			if (fsm.current == State::Slide) // do damping
+				relative_velocity -= Vec3::normalize(relative_velocity) * u.time.delta * 3.0f;
 
 			// handle support
 			{

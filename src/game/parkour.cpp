@@ -76,8 +76,22 @@ void Parkour::awake()
 
 void Parkour::land(r32 velocity_diff)
 {
-	if (fsm.current == State::Normal && velocity_diff < 5.0f * -1.25f)
-		get<Animator>()->layers[1].play(Asset::Animation::character_land);
+	if (fsm.current == State::Normal)
+	{
+		if (velocity_diff < 5.0f * -1.25f)
+		{
+			if (velocity_diff < 5.0f * -3.0f)
+			{
+				// hard landing
+				fsm.transition(State::HardLanding);
+				get<Walker>()->max_speed = 0.0f;
+				get<Walker>()->speed = 0.0f;
+				get<Animator>()->layers[1].play(Asset::Animation::character_land_hard);
+			}
+			else // light landing
+				get<Animator>()->layers[1].play(Asset::Animation::character_land);
+		}
+	}
 }
 
 Vec3 Parkour::head_pos() const
@@ -247,7 +261,7 @@ void Parkour::update(const Update& u)
 
 	// animation layers
 	// layer 0 = running, walking, wall-running
-	// layer 1 = mantle, land, jump, wall-jump
+	// layer 1 = mantle, land, hard landing, jump, wall-jump
 	// layer 2 = slide
 
 	r32 lean_target = 0.0f;
@@ -286,6 +300,15 @@ void Parkour::update(const Update& u)
 			get<RigidBody>()->btBody->setWorldTransform(btTransform(Quat::identity, start + adjustment));
 		}
 		last_support_time = Game::time.total;
+	}
+	else if (fsm.current == State::HardLanding)
+	{
+		if (get<Animator>()->layers[1].animation != Asset::Animation::character_land_hard)
+		{
+			fsm.transition(State::Normal);
+			get<Walker>()->max_speed = MAX_SPEED;
+			get<Walker>()->speed = RUN_SPEED;
+		}
 	}
 	else if (fsm.current == State::WallRun)
 	{
@@ -493,7 +516,7 @@ void Parkour::update(const Update& u)
 		layer0->speed = 1.0f;
 	}
 
-	get<Walker>()->enabled = fsm.current == State::Normal;
+	get<Walker>()->enabled = fsm.current == State::Normal || fsm.current == State::HardLanding;
 }
 
 void Parkour::spawn_tiles(const Vec3& relative_wall_right, const Vec3& relative_wall_up, const Vec3& relative_wall_normal, const Vec3& spawn_offset)

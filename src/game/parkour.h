@@ -19,6 +19,7 @@ struct Parkour : public ComponentType<Parkour>
 	{
 		Normal,
 		Mantle,
+		HardLanding,
 		WallRun,
 		Slide,
 	};

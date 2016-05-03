@@ -59,7 +59,7 @@ namespace Asset
 	}
 	namespace Shader
 	{
-		const s32 count = 23;
+		const s32 count = 24;
 		const AssetID armature = 0;
 		const AssetID bloom_downsample = 1;
 		const AssetID blur = 2;
@@ -74,15 +74,16 @@ namespace Asset
 		const AssetID sky_decal = 11;
 		const AssetID skybox = 12;
 		const AssetID spark = 13;
-		const AssetID spot_light = 14;
-		const AssetID ssao = 15;
-		const AssetID ssao_blur = 16;
-		const AssetID ssao_downsample = 17;
-		const AssetID standard = 18;
-		const AssetID standard_instanced = 19;
-		const AssetID standard_particle = 20;
-		const AssetID ui = 21;
-		const AssetID ui_texture = 22;
+		const AssetID spark_teleport = 14;
+		const AssetID spot_light = 15;
+		const AssetID ssao = 16;
+		const AssetID ssao_blur = 17;
+		const AssetID ssao_downsample = 18;
+		const AssetID standard = 19;
+		const AssetID standard_instanced = 20;
+		const AssetID standard_particle = 21;
+		const AssetID ui = 22;
+		const AssetID ui_texture = 23;
 	}
 }
 

@@ -51,6 +51,7 @@ COMPONENT_TYPE(29, Tile) \
 COMPONENT_TYPE(30, HealthPickup) \
 COMPONENT_TYPE(31, Sensor) \
 COMPONENT_TYPE(32, Teleporter) \
+COMPONENT_TYPE(33, Teleportee) \
 
 Family World::families = 34;
 

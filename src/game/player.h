@@ -76,6 +76,7 @@ struct PlayerCommon : public ComponentType<PlayerCommon>
 	void awk_detached();
 	void awk_attached();
 	void clamp_rotation(const Vec3&, r32 = 0.0f);
+	b8 movement_enabled() const;
 };
 
 struct LocalPlayerControl : public ComponentType<LocalPlayerControl>
@@ -117,7 +118,6 @@ struct LocalPlayerControl : public ComponentType<LocalPlayerControl>
 	b8 try_slide;
 	u8 gamepad;
 	b8 enable_input;
-	b8 enable_move;
 	r32 rumble;
 
 	LocalPlayerControl(u8);

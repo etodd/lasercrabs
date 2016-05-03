@@ -166,7 +166,6 @@ const char* AssetLookup::Texture::values[] =
 	"assets/noise.png",
 	"assets/penelope.png",
 	"assets/skybox_horizon.png",
-	"assets/smoke.png",
 	0,
 };
 
@@ -179,7 +178,6 @@ const char* AssetLookup::Texture::names[] =
 	"noise",
 	"penelope",
 	"skybox_horizon",
-	"smoke",
 	0,
 };
 
@@ -216,6 +214,7 @@ const char* AssetLookup::Shader::values[] =
 	"assets/shader/sky_decal.glsl",
 	"assets/shader/skybox.glsl",
 	"assets/shader/spark.glsl",
+	"assets/shader/spark_teleport.glsl",
 	"assets/shader/spot_light.glsl",
 	"assets/shader/ssao.glsl",
 	"assets/shader/ssao_blur.glsl",
@@ -245,6 +244,7 @@ const char* AssetLookup::Shader::names[] =
 	"sky_decal",
 	"skybox",
 	"spark",
+	"spark_teleport",
 	"spot_light",
 	"ssao",
 	"ssao_blur",
@@ -647,7 +647,6 @@ const char* AssetLookup::String::names[] =
 	"player",
 	"resume",
 	"right_joystick",
-	"sensor_destroyed",
 	"sfx",
 	"spawn_timer",
 	"splitscreen",

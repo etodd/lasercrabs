@@ -72,7 +72,6 @@ struct Sensor : public ComponentType<Sensor>
 
 	Sensor(AI::Team, PlayerManager* = nullptr);
 
-	void hit_by(const TargetEvent&);
 	void killed_by(Entity*);
 	void awake();
 
@@ -81,11 +80,30 @@ struct Sensor : public ComponentType<Sensor>
 
 struct Teleporter : public ComponentType<Teleporter>
 {
+	static Teleporter* closest(const Vec3&, AI::Team);
+
 	AI::Team team;
 	u32 obstacle_id;
+
 	Teleporter();
 	void awake() {}
 	~Teleporter();
+};
+
+// yes really
+#define TELEPORT_TIME 1.0f
+#define TELEPORT_INVINCIBLE_PERIOD 1.0f
+struct Teleportee : public ComponentType<Teleportee>
+{
+	Ref<Teleporter> target;
+	r32 accumulator;
+	r32 timer;
+
+	void awake() {}
+	void update(const Update&);
+	b8 in_progress() const;
+	b8 invincible() const;
+	void go(Teleporter*);
 };
 
 struct TeleporterEntity : public Entity

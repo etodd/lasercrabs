@@ -151,23 +151,32 @@ void Awk::hit_by(const TargetEvent& e)
 	Vec3 intersection;
 	u16 enemy_hp = e.hit_by->get<Health>()->hp;
 	u16 my_hp = get<Health>()->hp;
-	if (get<Transform>()->parent.ref())
+
+	b8 damaged = false;
+	if (!get<Teleportee>()->invincible())
 	{
-		// if we're attached to a wall, take damage if the enemy has equal or higher health than us
-		if (enemy_hp >= my_hp)
-			get<Health>()->damage(e.hit_by, 1);
+		if (get<Transform>()->parent.ref())
+		{
+			// if we're attached to a wall, take damage if the enemy has equal or higher health than us
+			if (enemy_hp >= my_hp)
+			{
+				get<Health>()->damage(e.hit_by, 1);
+				damaged = true;
+			}
+		}
 		else
 		{
-			if (get<Health>()->hp > 0 && e.hit_by->has<LocalPlayerControl>())
-				e.hit_by->get<LocalPlayerControl>()->player.ref()->msg(_(strings::no_effect), true);
+			// if we're in flight, only take damage if the enemy has higher health than us
+			if (enemy_hp > my_hp)
+			{
+				get<Health>()->damage(e.hit_by, 1);
+				damaged = true;
+			}
 		}
 	}
-	else
-	{
-		// if we're in flight, only take damage if the enemy has higher health than us
-		if (enemy_hp > my_hp)
-			get<Health>()->damage(e.hit_by, 1);
-	}
+
+	if (!damaged && e.hit_by->has<LocalPlayerControl>())
+		e.hit_by->get<LocalPlayerControl>()->player.ref()->msg(_(strings::no_effect), true);
 }
 
 void Awk::hit_target(Entity* target)

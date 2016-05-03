@@ -29,7 +29,6 @@
 	"minion_killed": "Minion killed",
 	"upgrade": "Upgrade",
 	"ability_spawn_cost": "Cost: %d",
-	"sensor_destroyed": "Sensor destroyed",
 	"accept": "[{{Action}}] Accept",
 	"ability_upgrade": "[%s] lvl %d (%d)",
 	"ability_max_lvl": "[%s] lvl max",

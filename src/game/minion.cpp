@@ -31,6 +31,8 @@ Minion::Minion(const Vec3& pos, const Quat& quat, AI::Team team, PlayerManager* 
 	Transform* transform = create<Transform>();
 	transform->pos = pos;
 
+	create<Teleportee>();
+
 	Animator* animator = create<Animator>();
 	SkinnedModel* model = create<SkinnedModel>();
 
@@ -175,7 +177,7 @@ void MinionCommon::killed(Entity* killer)
 	}
 }
 
-// Minion behaviors
+// Minion AI
 
 Entity* closest_target_to(const Vec3& pos, AI::Team team)
 {
@@ -217,8 +219,6 @@ Entity* closest_target_to(const Vec3& pos, AI::Team team)
 	return closest;
 }
 
-// Minion AI
-
 void MinionAI::awake()
 {
 	get<Walker>()->max_speed = get<Walker>()->speed;
@@ -246,17 +246,37 @@ b8 MinionAI::can_see(Entity* target) const
 
 #define PATH_RECALC_TIME 1.0f
 
+void MinionAI::teleport_if_necessary(const Vec3& target)
+{
+	// find a teleporter to use
+	Teleporter* closest_teleporter = Teleporter::closest(target, get<AIAgent>()->team);
+	Vec3 closest_teleporter_pos;
+	Quat closest_teleporter_rot;
+	r32 closest_distance;
+	if (closest_teleporter)
+	{
+		closest_teleporter->get<Transform>()->absolute(&closest_teleporter_pos, &closest_teleporter_rot);
+		closest_distance = (closest_teleporter_pos - target).length_squared();
+
+		Vec3 pos = get<Transform>()->absolute_pos();
+		if (closest_teleporter && (closest_distance < (pos - target).length_squared())) // use the teleporter
+			get<Teleportee>()->go(closest_teleporter);
+	}
+}
+
 void MinionAI::new_goal()
 {
 	Vec3 pos = get<Transform>()->absolute_pos();
 	goal.entity = closest_target_to(pos, get<AIAgent>()->team);
 	auto path_callback = ObjectLinkEntryArg<MinionAI, const AI::Result&, &MinionAI::set_path>(id());
-	path_timer = PATH_RECALC_TIME;
 	if (goal.entity.ref())
 	{
+		Vec3 target = goal.entity.ref()->get<Transform>()->absolute_pos();
+		teleport_if_necessary(target);
 		path_request = PathRequest::Target;
 		goal.type = Goal::Type::Target;
-		AI::pathfind(pos, goal.entity.ref()->get<Transform>()->absolute_pos(), path_callback);
+		path_timer = PATH_RECALC_TIME;
+		AI::pathfind(pos, target, path_callback);
 	}
 	else
 	{
@@ -269,24 +289,29 @@ void MinionAI::new_goal()
 void MinionAI::find_goal_near(const Vec3& target)
 {
 	Entity* entity = closest_target_to(target, get<AIAgent>()->team);
-	Vec3 closest_entity_pos;
+	Vec3 end;
 	if (entity)
-		closest_entity_pos = entity->get<Transform>()->absolute_pos();
+		end = entity->get<Transform>()->absolute_pos();
+	else
+		end = target;
+
+	teleport_if_necessary(end);
+
 	auto path_callback = ObjectLinkEntryArg<MinionAI, const AI::Result&, &MinionAI::set_path>(id());
 	Vec3 pos = get<Transform>()->absolute_pos();
-	if (entity && (closest_entity_pos - target).length_squared() < AWK_MAX_DISTANCE)
+	if (entity && (end - target).length_squared() < AWK_MAX_DISTANCE)
 	{
 		goal.entity = entity;
 		goal.type = Goal::Type::Target;
 		path_request = PathRequest::Target;
 		path_timer = PATH_RECALC_TIME;
-		AI::pathfind(pos, closest_entity_pos, path_callback);
+		AI::pathfind(pos, end, path_callback);
 	}
 	else
 	{
 		path_request = PathRequest::Position;
 		goal.type = Goal::Type::Position;
-		AI::pathfind(pos, target, path_callback);
+		AI::pathfind(pos, end, path_callback);
 	}
 }
 

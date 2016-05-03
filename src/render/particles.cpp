@@ -237,15 +237,15 @@ void ParticleSystem::clear()
 	first_free = first_active = first_new = 0;
 }
 
-StandardParticleSystem::StandardParticleSystem(const Vec2& start_size, const Vec2& end_size, r32 lifetime, const Vec3& gravity, AssetID texture)
-	: ParticleSystem(lifetime, Asset::Shader::standard_particle, texture),
+StandardParticleSystem::StandardParticleSystem(const Vec2& start_size, const Vec2& end_size, r32 lifetime, const Vec3& gravity, AssetID shader, AssetID texture)
+	: ParticleSystem(lifetime, shader == AssetNull ? Asset::Shader::standard_particle : shader, texture),
 	start_size(start_size),
 	end_size(end_size),
 	gravity(gravity)
 {
 }
 
-void StandardParticleSystem::add(const Vec3& pos, const Vec4& velocity)
+void StandardParticleSystem::add(const Vec3& pos, const Vec3& velocity)
 {
 	r32 size_scale = mersenne::randf_oo();
 	Vec4 param
@@ -255,7 +255,7 @@ void StandardParticleSystem::add(const Vec3& pos, const Vec4& velocity)
 		end_size.x + size_scale * (end_size.y - end_size.x), // end size
 		0.0f // unused
 	);
-	add_raw(pos, velocity, param);
+	add_raw(pos, Vec4(velocity, 0), param);
 }
 
 void StandardParticleSystem::pre_draw(const RenderParams& params)
@@ -296,20 +296,17 @@ void Sparks::pre_draw(const RenderParams& params)
 
 // Configurations
 
-StandardParticleSystem Particles::smoke
-(
-	Vec2(0.1f, 0.3f),
-	Vec2(0.3f, 0.5f),
-	5.0f,
-	Vec3(0.0f, -0.1f, 0.0f),
-	Asset::Texture::smoke
-);
-
 Sparks Particles::sparks
 (
 	Vec2(0.4f, 0.02f),
 	1.0f,
 	Vec3(0.0f, -12.0f, 0.0f)
+);
+
+ParticleSystem Particles::teleport_sparks
+(
+	0.15f,
+	Asset::Shader::spark_teleport
 );
 
 }

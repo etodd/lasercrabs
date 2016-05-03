@@ -555,14 +555,7 @@ b8 PlayerManager::ability_use(Ability ability)
 			if (closest)
 			{
 				// teleport to selected teleporter
-				awk->get<Awk>()->detach_teleport();
-
-				Vec3 pos;
-				Quat rot;
-				closest->get<Transform>()->absolute(&pos, &rot);
-				awk->get<Transform>()->absolute(pos + rot * Vec3(0, 0, AWK_RADIUS * 2.0f), rot);
-				awk->get<Awk>()->velocity = rot * Vec3(0.0f, 0.0f, -AWK_FLY_SPEED); // make sure it shoots into the wall
-
+				awk->get<Teleportee>()->go(closest);
 				add_credits(-cost);
 				return true;
 			}
@@ -577,43 +570,10 @@ b8 PlayerManager::ability_use(Ability ability)
 			{
 				AI::Team t = team.ref()->team();
 
-				// find a teleporter to use
-				r32 closest_distance = FLT_MAX;
-				Teleporter* closest_teleporter = nullptr;
-				for (auto teleporter = Teleporter::list.iterator(); !teleporter.is_last(); teleporter.next())
-				{
-					if (teleporter.item()->team == t)
-					{
-						Vec3 teleporter_pos = teleporter.item()->get<Transform>()->absolute_pos();
-						r32 distance = (target - teleporter_pos).length_squared();
-						if (distance < closest_distance)
-						{
-							closest_teleporter = teleporter.item();
-							closest_distance = distance;
-						}
-					}
-				}
-
-				Vec3 closest_teleporter_pos;
-				Quat closest_teleporter_rot;
-				if (closest_teleporter)
-					closest_teleporter->get<Transform>()->absolute(&closest_teleporter_pos, &closest_teleporter_rot);
-
-				s32 index = 0;
 				for (auto i = MinionAI::list.iterator(); !i.is_last(); i.next())
 				{
 					if (i.item()->get<AIAgent>()->team == t)
-					{
-						Vec3 minion_pos = i.item()->get<Transform>()->absolute_pos();
-						if (closest_teleporter && (closest_distance < (minion_pos - target).length_squared())) // use the teleporter
-						{
-							// space minions out around the teleporter
-							Vec3 teleport_pos = closest_teleporter_pos + closest_teleporter_rot * Quat::euler(0, 0, index * PI * 0.25f) * Vec3(1, 0, 1);
-							i.item()->get<Walker>()->absolute_pos(teleport_pos);
-							index++;
-						}
 						i.item()->find_goal_near(target);
-					}
 				}
 				add_credits(-cost);
 				return true;

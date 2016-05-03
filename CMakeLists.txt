@@ -344,6 +344,7 @@ add_executable(yearning
 	external/sdl_controllers/gamecontrollerdb.txt
 	assets/shader/standard_particle.glsl
 	assets/shader/spark.glsl
+	assets/shader/spark_teleport.glsl
 	assets/shader/armature.glsl
 	assets/shader/composite.glsl
 	assets/shader/flat.glsl

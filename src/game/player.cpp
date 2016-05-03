@@ -266,7 +266,6 @@ void LocalPlayer::update(const Update& u)
 	{
 		LocalPlayerControl* local_control = manager.ref()->entity.ref()->get<LocalPlayerControl>();
 		local_control->enable_input = ui_mode() == UIMode::Default;
-		local_control->enable_move = manager.ref()->current_spawn_ability == Ability::None; // can't move while trying to spawn an ability
 	}
 
 	// close/open pause menu if needed
@@ -720,6 +719,12 @@ void PlayerCommon::awake()
 	}
 }
 
+b8 PlayerCommon::movement_enabled() const
+{
+	return manager.ref()->current_spawn_ability == Ability::None // can't move while trying to spawn an ability
+		&& !get<Teleportee>()->in_progress(); // or while teleporting
+}
+
 void PlayerCommon::update(const Update& u)
 {
 	if (has<Parkour>() || get<Transform>()->parent.ref())
@@ -868,7 +873,6 @@ LocalPlayerControl::LocalPlayerControl(u8 gamepad)
 	try_jump(),
 	try_parkour(),
 	enable_input(true),
-	enable_move(true),
 	damage_timer(),
 	health_flash_timer(),
 	rumble()
@@ -924,8 +928,6 @@ void LocalPlayerControl::hit_target(Entity* target)
 		if (target->get<AIAgent>()->team != get<AIAgent>()->team)
 			player.ref()->manager.ref()->add_credits(CREDITS_MINION);
 	}
-	else if (target->has<Sensor>())
-		player.ref()->msg(_(strings::sensor_destroyed), true);
 }
 
 void LocalPlayerControl::damaged(const DamageEvent& e)
@@ -955,7 +957,7 @@ b8 LocalPlayerControl::input_enabled() const
 
 b8 LocalPlayerControl::movement_enabled() const
 {
-	return input_enabled() && enable_move;
+	return input_enabled() && get<PlayerCommon>()->movement_enabled();
 }
 
 void LocalPlayerControl::update_camera_input(const Update& u)
@@ -1718,7 +1720,7 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 		}
 
 		// reticle
-		if (get<Transform>()->parent.ref() && movement_enabled())
+		if (get<Transform>()->parent.ref() && movement_enabled() && !get<Teleportee>()->in_progress())
 		{
 			r32 cooldown = get<PlayerCommon>()->cooldown;
 			r32 radius = cooldown == 0.0f ? 0.0f : vi_max(0.0f, 32.0f * (get<PlayerCommon>()->cooldown / AWK_MAX_DISTANCE_COOLDOWN));

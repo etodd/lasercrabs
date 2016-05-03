@@ -42,9 +42,9 @@ struct StandardParticleSystem : public ParticleSystem
 	r32 lifetime;
 	Vec3 gravity;
 	AssetID texture;
-	StandardParticleSystem(const Vec2&, const Vec2&, r32, const Vec3& gravity, AssetID = AssetNull);
+	StandardParticleSystem(const Vec2&, const Vec2&, r32, const Vec3&, AssetID = AssetNull, AssetID = AssetNull);
 	void pre_draw(const RenderParams&);
-	void add(const Vec3&, const Vec4& = Vec4::zero);
+	void add(const Vec3&, const Vec3& = Vec3::zero);
 };
 
 struct Sparks : public ParticleSystem
@@ -59,8 +59,8 @@ struct Sparks : public ParticleSystem
 
 struct Particles
 {
-	static StandardParticleSystem smoke;
 	static Sparks sparks;
+	static ParticleSystem teleport_sparks;
 };
 
 }

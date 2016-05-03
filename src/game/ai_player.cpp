@@ -247,7 +247,10 @@ b8 AIPlayerControl::aim_and_shoot(const Update& u, const Vec3& target, b8 exact)
 	if (common->cooldown == 0.0f)
 		aim_timer += u.time.delta;
 
+	b8 enable_movement = common->movement_enabled();
+
 	// crawling
+	if (enable_movement)
 	{
 		Vec3 pos = get<Awk>()->center();
 		Vec3 to_target = Vec3::normalize(target - pos);
@@ -325,7 +328,7 @@ b8 AIPlayerControl::aim_and_shoot(const Update& u, const Vec3& target, b8 exact)
 	common->angle_vertical = LMath::clampf(common->angle_vertical, PI * -0.495f, PI * 0.495f);
 	common->clamp_rotation(wall_normal, 0.5f);
 
-	if (common->cooldown == 0.0f)
+	if (enable_movement && common->cooldown == 0.0f)
 	{
 		// cooldown is done; we can shoot.
 		// check if we're done aiming
@@ -378,11 +381,6 @@ b8 awk_filter(const AIPlayerControl* control, const Awk* a)
 		&& a->get<Health>()->hp <= control->get<Health>()->hp;
 }
 
-b8 sensor_filter(const AIPlayerControl* control, const Sensor* s)
-{
-	return !s->has<MinionCommon>() && s->team != control->get<AIAgent>()->team;
-}
-
 template<typename T> b8 default_filter(const AIPlayerControl* control, const T* t)
 {
 	return true;
@@ -412,8 +410,7 @@ Repeat* make_low_level_loop(AIPlayerControl* control, const AIPlayer::Config& co
 									Invert::alloc(Execute::alloc()->method<Health, &Health::is_full>(control->get<Health>())), // make sure we need health
 									AIBehaviors::React<HealthPickup>::alloc(3, 4, &health_pickup_filter)
 								),
-								AIBehaviors::React<MinionAI>::alloc(3, 4, &default_filter<MinionAI>),
-								AIBehaviors::React<Sensor>::alloc(3, 4, &default_filter<Sensor>)
+								AIBehaviors::React<MinionAI>::alloc(3, 4, &default_filter<MinionAI>)
 							),
 							Execute::alloc()->method<AIPlayerControl, &AIPlayerControl::restore_loops>(control) // restart the high level loop if necessary
 						)
@@ -459,7 +456,6 @@ Repeat* make_high_level_loop(AIPlayerControl* control, const AIPlayer::Config& c
 								AIBehaviors::Find<HealthPickup>::alloc(2, &health_pickup_filter)
 							),
 							AIBehaviors::Find<MinionAI>::alloc(2, &minion_filter),
-							AIBehaviors::Find<Sensor>::alloc(2, &sensor_filter),
 							AIBehaviors::Find<Awk>::alloc(2, &awk_filter),
 							AIBehaviors::RandomPath::alloc()
 						)
@@ -494,7 +490,6 @@ void AIPlayerControl::init_behavior_trees()
 			Delay::alloc(0.1f),
 			Execute::alloc()->method<AIPlayerControl, &AIPlayerControl::update_memory<HealthPickup, &health_pickup_filter> >(this),
 			Execute::alloc()->method<AIPlayerControl, &AIPlayerControl::update_memory<MinionAI, &minion_filter> >(this),
-			Execute::alloc()->method<AIPlayerControl, &AIPlayerControl::update_memory<Sensor, &sensor_filter> >(this),
 			Execute::alloc()->method<AIPlayerControl, &AIPlayerControl::update_memory<Awk, &awk_filter> >(this),
 			Execute::alloc()->method<AIPlayerControl, &AIPlayerControl::update_awk_memory >(this)
 		)

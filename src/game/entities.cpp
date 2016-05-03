@@ -31,6 +31,7 @@ namespace VI
 AwkEntity::AwkEntity(AI::Team team)
 {
 	create<Audio>();
+	create<Teleportee>();
 	Transform* transform = create<Transform>();
 	create<Awk>();
 	create<AIAgent>()->team = team;
@@ -173,9 +174,7 @@ SensorEntity::SensorEntity(PlayerManager* owner, const Vec3& abs_pos, const Quat
 
 	create<Sensor>(team, owner);
 
-	create<Target>();
-
-	RigidBody* body = create<RigidBody>(RigidBody::Type::Sphere, Vec3(SENSOR_RADIUS), 1.0f, CollisionAwkIgnore | CollisionTarget, btBroadphaseProxy::AllFilter);
+	RigidBody* body = create<RigidBody>(RigidBody::Type::Sphere, Vec3(SENSOR_RADIUS), 1.0f, CollisionAwkIgnore, btBroadphaseProxy::AllFilter);
 	body->set_damping(0.5f, 0.5f);
 
 	create<PlayerTrigger>()->radius = SENSOR_RANGE;
@@ -190,13 +189,6 @@ Sensor::Sensor(AI::Team t, PlayerManager* m)
 void Sensor::awake()
 {
 	link_arg<Entity*, &Sensor::killed_by>(get<Health>()->killed);
-	if (has<Target>())
-		link_arg<const TargetEvent&, &Sensor::hit_by>(get<Target>()->target_hit);
-}
-
-void Sensor::hit_by(const TargetEvent& e)
-{
-	get<Health>()->damage(e.hit_by, get<Health>()->hp_max);
 }
 
 void Sensor::killed_by(Entity* e)
@@ -326,6 +318,103 @@ Teleporter::Teleporter()
 Teleporter::~Teleporter()
 {
 	AI::obstacle_remove(obstacle_id);
+}
+
+Teleporter* Teleporter::closest(const Vec3& pos, AI::Team t)
+{
+	r32 closest_distance = FLT_MAX;
+	Teleporter* closest_teleporter = nullptr;
+	for (auto teleporter = Teleporter::list.iterator(); !teleporter.is_last(); teleporter.next())
+	{
+		if (teleporter.item()->team == t)
+		{
+			Vec3 teleporter_pos = teleporter.item()->get<Transform>()->absolute_pos();
+			r32 distance = (pos - teleporter_pos).length_squared();
+			if (distance < closest_distance)
+			{
+				closest_teleporter = teleporter.item();
+				closest_distance = distance;
+			}
+		}
+	}
+	return closest_teleporter;
+}
+
+void Teleportee::go(Teleporter* t)
+{
+	target = t;
+	timer = TELEPORT_TIME + TELEPORT_INVINCIBLE_PERIOD;
+}
+
+#define TELEPORT_PARTICLE_INTERVAL 0.01f
+#define TELEPORT_PARTICLE_RADIUS 0.5f
+void Teleportee::update(const Update& u)
+{
+	if (timer > 0.0f)
+	{
+		timer = vi_max(0.0f, timer - u.time.delta);
+
+		{
+			accumulator -= u.time.delta;
+
+			Vec3 pos;
+			Quat rot;
+			get<Transform>()->absolute(&pos, &rot);
+
+			if (has<MinionCommon>())
+			{
+				// minion; particles always go straight up
+				rot = Quat::look(Vec3(0, 1, 0));
+			}
+
+			Vec3 particle_velocity = rot * Vec3(0, 0, 25.0f);
+
+			while (accumulator < 0.0f)
+			{
+				Particles::teleport_sparks.add_raw
+				(
+					pos + rot * Vec3((mersenne::randf_oo() * 2.0f - 1.0f) * TELEPORT_PARTICLE_RADIUS, (mersenne::randf_oo() * 2.0f - 1.0f) * TELEPORT_PARTICLE_RADIUS, -0.3f),
+					Vec4(particle_velocity, 0)
+				);
+				accumulator += TELEPORT_PARTICLE_INTERVAL;
+			}
+		}
+
+		if (target.ref() && timer < TELEPORT_INVINCIBLE_PERIOD)
+		{
+			// time to go
+			Vec3 pos;
+			Quat rot;
+			target.ref()->get<Transform>()->absolute(&pos, &rot);
+
+			if (has<Walker>())
+			{
+				// space minions out around the teleporter
+				Vec3 teleport_pos = pos + rot * Quat::euler(0, 0, id() * PI * 0.25f) * Vec3(1, 0, 1);
+				get<Walker>()->absolute_pos(teleport_pos);
+			}
+			else if (has<Awk>())
+			{
+				get<Awk>()->detach_teleport();
+				get<Transform>()->absolute(pos + rot * Vec3(0, 0, AWK_RADIUS * 2.0f), rot);
+				get<Awk>()->velocity = rot * Vec3(0.0f, 0.0f, -AWK_FLY_SPEED); // make sure it shoots into the wall
+			}
+			else
+				vi_assert(false);
+
+			target = nullptr;
+		}
+	}
+}
+
+b8 Teleportee::in_progress() const
+{
+	return timer > 0.0f;
+}
+
+b8 Teleportee::invincible() const
+{
+	return timer > 0.0f && !target.ref();
 }
 
 PlayerSpawn::PlayerSpawn(AI::Team team)

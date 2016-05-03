@@ -37,7 +37,7 @@ struct Walker : public ComponentType<Walker>
 	~Walker();
 	void awake();
 	b8 slide(Vec2*, const Vec3&);
-	btCollisionWorld::ClosestRayResultCallback check_support();
+	btCollisionWorld::ClosestRayResultCallback check_support(r32 = 0.0f);
 
 	Vec3 base_pos() const;
 	void absolute_pos(const Vec3&);

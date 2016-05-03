@@ -25,6 +25,7 @@ struct Parkour : public ComponentType<Parkour>
 		HardLanding,
 		WallRun,
 		Slide,
+		Roll,
 	};
 
 	enum class WallRunState
@@ -51,6 +52,7 @@ struct Parkour : public ComponentType<Parkour>
 	r32 last_support_time;
 	StaticArray<TilePos, MAX_TILE_HISTORY> tile_history;
 	b8 can_double_jump;
+	b8 slide_continue;
 	r32 lean;
 
 	b8 wallrun(const Update&, RigidBody*, const Vec3&, const Vec3&);

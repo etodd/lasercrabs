@@ -904,9 +904,9 @@ void LocalPlayerControl::awake()
 
 void LocalPlayerControl::parkour_landed(r32 velocity_diff)
 {
+	Parkour::State parkour_state = get<Parkour>()->fsm.current;
 	if (velocity_diff < LANDING_VELOCITY_LIGHT
-		&& (get<Parkour>()->fsm.current == Parkour::State::Normal
-			|| get<Parkour>()->fsm.current == Parkour::State::HardLanding))
+		&& (parkour_state == Parkour::State::Normal || parkour_state == Parkour::State::HardLanding))
 	{
 		if (velocity_diff < LANDING_VELOCITY_HARD)
 			rumble = vi_max(rumble, 0.5f);
@@ -1190,8 +1190,7 @@ void LocalPlayerControl::update(const Update& u)
 		// slide button
 		b8 slide_pressed = movement_enabled() && u.input->get(Controls::Slide, gamepad);
 
-		if (get<Parkour>()->fsm.current == Parkour::State::Slide && !slide_pressed)
-			get<Parkour>()->fsm.transition(Parkour::State::Normal);
+		get<Parkour>()->slide_continue = slide_pressed;
 
 		if (slide_pressed && !u.last_input->get(Controls::Slide, gamepad))
 			try_slide = true;
@@ -1216,7 +1215,8 @@ void LocalPlayerControl::update(const Update& u)
 
 		r32 lean_target = 0.0f;
 
-		if (get<Parkour>()->fsm.current == Parkour::State::WallRun)
+		Parkour::State parkour_state = get<Parkour>()->fsm.current;
+		if (parkour_state == Parkour::State::WallRun)
 		{
 			Parkour::WallRunState state = get<Parkour>()->wall_run_state;
 
@@ -1235,7 +1235,7 @@ void LocalPlayerControl::update(const Update& u)
 
 			get<PlayerCommon>()->clamp_rotation(wall_normal);
 		}
-		else if (get<Parkour>()->fsm.current == Parkour::State::Slide)
+		else if (parkour_state == Parkour::State::Slide || parkour_state == Parkour::State::Roll)
 		{
 			get<PlayerCommon>()->clamp_rotation(Quat::euler(0, get<Walker>()->target_rotation, 0) * Vec3(0, 0, 1));
 		}

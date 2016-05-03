@@ -98,14 +98,14 @@ b8 Walker::slide(Vec2* movement, const Vec3& wall_ray)
 		return false; // No wall. Continue in the old direction.
 }
 
-btCollisionWorld::ClosestRayResultCallback Walker::check_support()
+btCollisionWorld::ClosestRayResultCallback Walker::check_support(r32 extra_distance)
 {
 	Vec3 pos = get<Transform>()->absolute_pos();
 
 	for (s32 i = 0; i < num_corners; i++)
 	{
 		Vec3 ray_start = pos + (corners[i] * (radius * 0.9f));
-		Vec3 ray_end = ray_start + Vec3(0, (height * -0.5f) + (support_height * -1.5f), 0);
+		Vec3 ray_end = ray_start + Vec3(0, (height * -0.5f) + (support_height * -1.5f) - extra_distance, 0);
 
 		btCollisionWorld::ClosestRayResultCallback ray_callback(ray_start, ray_end);
 		ray_callback.m_flags = btTriangleRaycastCallback::EFlags::kF_FilterBackfaces

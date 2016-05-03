@@ -28,6 +28,8 @@ namespace VI
 
 #define TILE_CREATE_RADIUS 4.5f
 
+#define MIN_SLIDE_TIME 0.5f
+
 Traceur::Traceur(const Vec3& pos, const Quat& quat, AI::Team team)
 {
 	Transform* transform = create<Transform>();
@@ -261,7 +263,7 @@ void Parkour::update(const Update& u)
 
 	// animation layers
 	// layer 0 = running, walking, wall-running
-	// layer 1 = mantle, land, hard landing, jump, wall-jump
+	// layer 1 = mantle, land, hard landing, jump, wall-jump, roll
 	// layer 2 = slide
 
 	r32 lean_target = 0.0f;
@@ -417,61 +419,61 @@ void Parkour::update(const Update& u)
 			lean_target = get<Walker>()->net_speed * LMath::angle_to(get<PlayerCommon>()->angle_horizontal, get<PlayerCommon>()->last_angle_horizontal) * (1.0f / 180.0f) / u.time.delta;
 		}
 	}
-	else if (fsm.current == State::Slide)
+	else if (fsm.current == State::Slide || fsm.current == State::Roll)
 	{
-		if (!last_support.ref()) // support is gone
+		// check how fast we're going
+		Vec3 support_velocity = get_support_velocity(relative_support_pos, last_support.ref()->btBody);
+		Vec3 velocity = get<RigidBody>()->btBody->getLinearVelocity();
+		Vec3 relative_velocity = velocity - support_velocity;
+		Vec3 forward = Quat::euler(0, get<Walker>()->rotation, 0) * Vec3(0, 0, 1);
+		b8 stop;
+		if (fsm.current == State::Slide)
+			stop = fsm.time > MIN_SLIDE_TIME && (!slide_continue || relative_velocity.dot(forward) < MIN_WALLRUN_SPEED);
+		else // rolling
+			stop = get<Animator>()->layers[1].animation != Asset::Animation::character_roll;
+
+		if (stop) // going too slow, or button no longer held
 			fsm.transition(State::Normal);
 		else
 		{
-			// check how fast we're going
-			Vec3 support_velocity = get_support_velocity(relative_support_pos, last_support.ref()->btBody);
-			Vec3 velocity = get<RigidBody>()->btBody->getLinearVelocity();
-			Vec3 relative_velocity = velocity - support_velocity;
-			Vec3 forward = Quat::euler(0, get<Walker>()->rotation, 0) * Vec3(0, 0, 1);
-			if (relative_velocity.dot(forward) < MIN_WALLRUN_SPEED) // going too slow
-				fsm.transition(State::Normal);
-			else
+			// keep sliding/rolling
+			Transform* last_support_transform = last_support.ref()->get<Transform>();
+
+			// do damping
+			relative_velocity -= Vec3::normalize(relative_velocity) * u.time.delta * 3.0f;
+
+			// handle support
 			{
-				// keep sliding
-				Transform* last_support_transform = last_support.ref()->get<Transform>();
-
-				// do damping
-				relative_velocity -= Vec3::normalize(relative_velocity) * u.time.delta * 3.0f;
-
-				// handle support
+				Vec3 base_pos = get<Transform>()->absolute_pos();
+				r32 base_offset = get<Walker>()->height * 0.5f; // don't include support_height
+				base_pos.y -= base_offset;
+				Vec3 absolute_support_pos = last_support_transform->to_world(relative_support_pos);
+				Vec3 support_normal = last_support_transform->to_world_normal(relative_wall_run_normal);
+				Vec3 support_diff = base_pos - absolute_support_pos;
+				r32 support_diff_normal = support_diff.dot(support_normal);
+				Vec3 projected_support = base_pos - (support_diff_normal * support_normal);
+				if (support_diff_normal < 0.0f)
 				{
-					Vec3 base_pos = get<Transform>()->absolute_pos();
-					r32 base_offset = get<Walker>()->height * 0.5f; // don't include support_height
-					base_pos.y -= base_offset;
-					Vec3 absolute_support_pos = last_support_transform->to_world(relative_support_pos);
-					Vec3 support_normal = last_support_transform->to_world_normal(relative_wall_run_normal);
-					Vec3 support_diff = base_pos - absolute_support_pos;
-					r32 support_diff_normal = support_diff.dot(support_normal);
-					Vec3 projected_support = base_pos - (support_diff_normal * support_normal);
-					if (support_diff_normal < 0.0f)
-					{
-						get<Transform>()->absolute_pos(projected_support + Vec3(0, base_offset, 0));
-						r32 velocity_normal = relative_velocity.dot(support_normal);
-						relative_velocity -= support_normal * (velocity_normal * support_normal);
-					}
-					
-
-					// update relative support pos
-					relative_support_pos = last_support_transform->to_local(projected_support);
-					last_support_time = Game::time.total;
+					get<Transform>()->absolute_pos(projected_support + Vec3(0, base_offset, 0));
+					r32 velocity_normal = relative_velocity.dot(support_normal);
+					relative_velocity -= support_normal * (velocity_normal * support_normal);
 				}
 
-				Vec3 new_velocity = support_velocity + relative_velocity;
-				get<RigidBody>()->btBody->setLinearVelocity(new_velocity);
-
-				// spawn tiles
-				Vec3 spawn_offset = new_velocity * 1.5f;
-				spawn_offset.y = -2.0f;
-				Vec3 support_normal = relative_wall_run_normal;
-				Vec3 support_right = Vec3::normalize(support_normal.cross(last_support_transform->to_local_normal(Vec3(1, 0, 0))));
-				Vec3 support_forward = support_normal.cross(support_right);
-				spawn_tiles(support_right, support_forward, support_normal, spawn_offset);
+				// update relative support pos
+				relative_support_pos = last_support_transform->to_local(projected_support);
+				last_support_time = Game::time.total;
 			}
+
+			Vec3 new_velocity = support_velocity + relative_velocity;
+			get<RigidBody>()->btBody->setLinearVelocity(new_velocity);
+
+			// spawn tiles
+			Vec3 spawn_offset = new_velocity * 1.5f;
+			spawn_offset.y = -2.0f;
+			Vec3 support_normal = relative_wall_run_normal;
+			Vec3 support_right = Vec3::normalize(support_normal.cross(last_support_transform->to_local_normal(Vec3(1, 0, 0))));
+			Vec3 support_forward = support_normal.cross(support_right);
+			spawn_tiles(support_right, support_forward, support_normal, spawn_offset);
 		}
 	}
 
@@ -754,22 +756,40 @@ Vec3 mantle_samples[mantle_sample_count] =
 
 b8 Parkour::try_slide()
 {
-	if (get<Walker>()->support.ref() && fsm.current == State::Normal)
+	if (fsm.current == State::Normal)
 	{
-		btCollisionWorld::ClosestRayResultCallback support_callback = get<Walker>()->check_support();
-		Vec3 support_velocity = get_support_velocity(support_callback.m_hitPointWorld, support_callback.m_collisionObject);
-		Vec3 velocity = get<RigidBody>()->btBody->getLinearVelocity();
-		Vec3 relative_velocity = velocity - support_velocity;
-		Vec3 forward = Quat::euler(0, get<Walker>()->rotation, 0) * Vec3(0, 0, 1);
-		if (relative_velocity.dot(forward) > MIN_WALLRUN_SPEED)
+		btCollisionWorld::ClosestRayResultCallback support_callback = get<Walker>()->check_support(get<Walker>()->height * 2.0f);
+		if (support_callback.hasHit())
 		{
+			Vec3 velocity = get<RigidBody>()->btBody->getLinearVelocity();
+			Vec3 forward = Quat::euler(0, get<Walker>()->rotation, 0) * Vec3(0, 0, 1);
+			Vec3 support_velocity = get_support_velocity(support_callback.m_hitPointWorld, support_callback.m_collisionObject);
+			Vec3 relative_velocity = velocity - support_velocity;
+
+			if (get<Walker>()->support.ref())
+			{
+				// already on ground
+				if (relative_velocity.dot(forward) < MIN_WALLRUN_SPEED)
+					return false; // too slow
+				fsm.transition(State::Slide);
+				get<Animator>()->layers[2].play(Asset::Animation::character_slide);
+			}
+			else
+			{
+				if (relative_velocity.y > 1.0f)
+					return false; // need to be going down
+				fsm.transition(State::Roll);
+				get<Animator>()->layers[1].play(Asset::Animation::character_roll);
+			}
+
 			velocity += forward * 2.0f;
 			get<RigidBody>()->btBody->setLinearVelocity(velocity);
-			fsm.transition(State::Slide);
-			last_support = get<Walker>()->support;
+
+			last_support = Entity::list[support_callback.m_collisionObject->getUserIndex()].get<RigidBody>();
+			relative_support_pos = last_support.ref()->get<Transform>()->to_local(support_callback.m_hitPointWorld);
 			relative_wall_run_normal = last_support.ref()->get<Transform>()->to_local_normal(support_callback.m_hitNormalWorld);
-			get<Animator>()->layers[2].play(Asset::Animation::character_slide);
 			can_double_jump = true;
+
 			return true;
 		}
 	}

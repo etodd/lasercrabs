@@ -130,7 +130,7 @@ void Loader::settings_load()
 		bindings->bindings[(s32)Controls::Primary] = input_binding(gamepad, "primary", { KeyCode::MouseLeft, KeyCode::E, Gamepad::Btn::RightTrigger });
 		bindings->bindings[(s32)Controls::Secondary] = input_binding(gamepad, "secondary", { KeyCode::MouseRight, KeyCode::Q, Gamepad::Btn::LeftTrigger });
 		bindings->bindings[(s32)Controls::Parkour] = input_binding(gamepad, "parkour", { KeyCode::LShift, KeyCode::None, Gamepad::Btn::LeftTrigger });
-		bindings->bindings[(s32)Controls::Slide] = input_binding(gamepad, "slide", { KeyCode::MouseLeft, KeyCode::None, Gamepad::Btn::LeftClick });
+		bindings->bindings[(s32)Controls::Slide] = input_binding(gamepad, "slide", { KeyCode::MouseLeft, KeyCode::E, Gamepad::Btn::LeftClick });
 		bindings->bindings[(s32)Controls::Ability1] = input_binding(gamepad, "ability1", { KeyCode::D1, KeyCode::None, Gamepad::Btn::X });
 		bindings->bindings[(s32)Controls::Ability2] = input_binding(gamepad, "ability2", { KeyCode::D2, KeyCode::None, Gamepad::Btn::Y });
 		bindings->bindings[(s32)Controls::Ability3] = input_binding(gamepad, "ability3", { KeyCode::D3, KeyCode::None, Gamepad::Btn::B });

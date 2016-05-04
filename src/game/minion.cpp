@@ -340,7 +340,7 @@ void MinionAI::update(const Update& u)
 					if (can_see(goal.entity.ref()))
 					{
 						// turn to and attack the sensor
-						Vec3 target_pos = goal.entity.ref()->get<Target>()->absolute_pos();
+						Vec3 target_pos = goal.entity.ref()->get<Transform>()->absolute_pos();
 						turn_to(target_pos);
 						enable_recalc = false;
 						path.length = 0;

@@ -522,8 +522,6 @@ b8 can_hit_from(AwkNavMeshNode start_vertex, const Vec3& target)
 	return false;
 }
 
-#define ENEMY_SENSOR_COST 16.0f
-#define FRIENDLY_SENSOR_BONUS 8.0f
 r32 sensor_cost(AI::Team team, const AwkNavMeshNode& node)
 {
 	const Vec3& pos = awk_nav_mesh.chunks[node.chunk].vertices[node.vertex];
@@ -548,11 +546,11 @@ r32 sensor_cost(AI::Team team, const AwkNavMeshNode& node)
 		}
 	}
 	if (in_enemy_zone)
-		return ENEMY_SENSOR_COST;
+		return 24.0f;
 	else if (in_friendly_zone)
-		return -FRIENDLY_SENSOR_BONUS;
-	else
 		return 0;
+	else
+		return 8.0f;
 }
 
 // find a path from vertex a to vertex b
@@ -572,7 +570,6 @@ void awk_pathfind_internal(AI::Team team, AwkNavMeshNode& start_vertex, const Aw
 		AwkNavMeshNodeData* start_data = &awk_nav_mesh_key.get(start_vertex);
 		start_data->travel_score = 0;
 		start_data->estimate_score = (end_pos - start_pos).length();
-		start_data->visited = true;
 		start_data->parent = { (u16)-1, (u16)-1 };
 	}
 
@@ -595,6 +592,7 @@ void awk_pathfind_internal(AI::Team team, AwkNavMeshNode& start_vertex, const Aw
 		}
 
 		AwkNavMeshNodeData* vertex_data = &awk_nav_mesh_key.get(vertex_node);
+		vertex_data->visited = true;
 		const Vec3& vertex_pos = awk_nav_mesh.chunks[vertex_node.chunk].vertices[vertex_node.vertex];
 		
 		const AwkNavMeshAdjacency& adjacency = awk_nav_mesh.chunks[vertex_node.chunk].adjacency[vertex_node.vertex];
@@ -603,39 +601,46 @@ void awk_pathfind_internal(AI::Team team, AwkNavMeshNode& start_vertex, const Aw
 			// visit neighbors
 			const AwkNavMeshNode& adjacent_node = adjacency[i];
 			AwkNavMeshNodeData* adjacent_data = &awk_nav_mesh_key.get(adjacent_node);
-			const Vec3& adjacent_pos = awk_nav_mesh.chunks[adjacent_node.chunk].vertices[adjacent_node.vertex];
 
-			r32 candidate_travel_score = vertex_data->travel_score
-				+ (adjacent_pos - vertex_pos).length()
-				+ sensor_cost(team, adjacent_node);
-
-			if (adjacent_data->visited)
+			if (!adjacent_data->visited)
 			{
-				if (adjacent_data->travel_score > candidate_travel_score)
+				// hasn't been visited yet; check if this node is already in the queue
+				s32 existing_queue_index = -1;
+				for (s32 j = 0; j < queue.size(); j++)
 				{
-					// since we've modified the score, if the node is already in queue,
-					// we need to update its position in the queue
-					adjacent_data->parent = vertex_node;
-					adjacent_data->travel_score = candidate_travel_score;
-					for (s32 j = 0; j < queue.size(); j++)
+					if (queue.heap[j].equals(adjacent_node))
 					{
-						if (queue.heap[j].equals(adjacent_node))
-						{
-							// it's in the queue; update its position due to the score change
-							queue.update(j);
-							break;
-						}
+						existing_queue_index = j;
+						break;
 					}
 				}
-			}
-			else
-			{
-				// hasn't been visited yet
-				adjacent_data->visited = true;
-				adjacent_data->parent = vertex_node;
-				adjacent_data->travel_score = candidate_travel_score;
-				adjacent_data->estimate_score = (end_pos - adjacent_pos).length();
-				queue.push(adjacent_node);
+
+				const Vec3& adjacent_pos = awk_nav_mesh.chunks[adjacent_node.chunk].vertices[adjacent_node.vertex];
+
+				r32 candidate_travel_score = vertex_data->travel_score
+					+ (adjacent_pos - vertex_pos).length()
+					+ sensor_cost(team, adjacent_node);
+
+				if (existing_queue_index == -1)
+				{
+					// totally new node
+					adjacent_data->parent = vertex_node;
+					adjacent_data->travel_score = candidate_travel_score;
+					adjacent_data->estimate_score = (end_pos - adjacent_pos).length();
+					queue.push(adjacent_node);
+				}
+				else
+				{
+					// it's already in the queue
+					if (candidate_travel_score < adjacent_data->travel_score)
+					{
+						// this is a better path
+						adjacent_data->parent = vertex_node;
+						adjacent_data->travel_score = candidate_travel_score;
+						// update its position in the queue due to the score change
+						queue.update(existing_queue_index);
+					}
+				}
 			}
 		}
 	}

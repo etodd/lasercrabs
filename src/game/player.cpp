@@ -366,7 +366,7 @@ void draw_icon_text(const RenderParams& params, const Vec2& pos, AssetID icon, c
 	text.draw(params, pos + Vec2(total_width * -0.5f + icon_size + padding, 0));
 }
 
-void draw_ability(const RenderParams& params, PlayerManager* manager, const Vec2& pos, Ability ability, AssetID icon, char* control_binding)
+void draw_ability(const RenderParams& params, PlayerManager* manager, const Vec2& pos, Ability ability, AssetID icon, const char* control_binding)
 {
 	char string[255];
 
@@ -502,16 +502,26 @@ void LocalPlayer::draw_alpha(const RenderParams& params) const
 			}
 
 			// ability 1
+			b8 is_gamepad = params.sync->input.gamepads[gamepad].active;
 			if (at_spawn || manager.ref()->ability_level[(s32)Ability::Sensor] > 0)
-				draw_ability(params, manager.ref(), center + Vec2(-radius, 0), Ability::Sensor, Asset::Mesh::icon_sensor, "{{Ability1}}");
+			{
+				const char* binding = Settings::gamepads[gamepad].bindings[(s32)Controls::Ability1].string(is_gamepad);
+				draw_ability(params, manager.ref(), center + Vec2(-radius, 0), Ability::Sensor, Asset::Mesh::icon_sensor, binding);
+			}
 
 			// ability 2
 			if (at_spawn || manager.ref()->ability_level[(s32)Ability::Teleporter] > 0)
-				draw_ability(params, manager.ref(), center + Vec2(0, radius * 0.5f), Ability::Teleporter, Asset::Mesh::icon_teleporter, "{{Ability2}}");
+			{
+				const char* binding = Settings::gamepads[gamepad].bindings[(s32)Controls::Ability2].string(is_gamepad);
+				draw_ability(params, manager.ref(), center + Vec2(0, radius * 0.5f), Ability::Teleporter, Asset::Mesh::icon_teleporter, binding);
+			}
 
 			// ability 3
 			if (at_spawn || manager.ref()->ability_level[(s32)Ability::Minion] > 0)
-				draw_ability(params, manager.ref(), center + Vec2(radius, 0), Ability::Minion, Asset::Mesh::icon_minion, "{{Ability3}}");
+			{
+				const char* binding = Settings::gamepads[gamepad].bindings[(s32)Controls::Ability3].string(is_gamepad);
+				draw_ability(params, manager.ref(), center + Vec2(radius, 0), Ability::Minion, Asset::Mesh::icon_minion, binding);
+			}
 		}
 	}
 	else if (mode == UIMode::Spawning)

@@ -140,7 +140,7 @@ Awk::~Awk()
 
 Vec3 Awk::center() const
 {
-	return get<Transform>()->to_world((get<SkinnedModel>()->offset * Vec4(0, 0, 0.05f, 1)).xyz());
+	return get<Transform>()->to_world((get<SkinnedModel>()->offset * Vec4(0, 0, 0, 1)).xyz());
 }
 
 void Awk::hit_by(const TargetEvent& e)
@@ -321,6 +321,9 @@ b8 Awk::can_hit(const Target* target, Vec3* out_intersection) const
 b8 Awk::can_go(const Vec3& dir, Vec3* final_pos) const
 {
 	Vec3 trace_dir = Vec3::normalize(dir);
+
+	if (fabs(trace_dir.y) > AWK_VERTICAL_ANGLE_LIMIT) // can't shoot straight up or straight down
+		return false;
 
 	// if we're attached to a wall, make sure we're not shooting into the wall
 	if (get<Transform>()->parent.ref())

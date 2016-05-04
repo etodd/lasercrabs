@@ -2210,15 +2210,19 @@ void build_awk_nav_mesh(Map<Mesh>& meshes, cJSON* json, AwkNavMesh* out, s32* ad
 								if (distance_squared < (AWK_MAX_DISTANCE - AWK_RADIUS) * (AWK_MAX_DISTANCE - AWK_RADIUS)
 									&& distance_squared > (AWK_RADIUS * 2.0f) * (AWK_RADIUS * 2.0f))
 								{
-									const Vec3& normal_neighbor = neighbor_chunk->normals[neighbor_index];
-									if (normal_neighbor.dot(to_neighbor) < 0.0f)
+									to_neighbor /= sqrtf(distance_squared);
+									if (fabs(to_neighbor.y) < AWK_VERTICAL_ANGLE_LIMIT) // can't shoot straight up or straight down
 									{
-										if (!awk_raycast(inaccessible_chunked, vertex, neighbor))
+										const Vec3& normal_neighbor = neighbor_chunk->normals[neighbor_index];
+										if (normal_neighbor.dot(to_neighbor) < 0.0f)
 										{
-											b8 hit_close;
-											awk_raycast(accessible_chunked, vertex, neighbor, &normal_neighbor, &hit_close);
-											if (hit_close)
-												vertex_adjacency_buffer.add(neighbor_node);
+											if (!awk_raycast(inaccessible_chunked, vertex, neighbor))
+											{
+												b8 hit_close;
+												awk_raycast(accessible_chunked, vertex, neighbor, &normal_neighbor, &hit_close);
+												if (hit_close)
+													vertex_adjacency_buffer.add(neighbor_node);
+											}
 										}
 									}
 								}

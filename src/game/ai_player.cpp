@@ -15,8 +15,6 @@ namespace VI
 {
 
 
-#define MAX_AIM_TIME 2.5f
-
 PinArray<AIPlayer, MAX_AI_PLAYERS> AIPlayer::list;
 
 AIPlayer::Config::Config()
@@ -25,7 +23,11 @@ AIPlayer::Config::Config()
 	hp_start(1),
 	interval_memory_update(0.1f),
 	interval_low_level(0.3f),
-	interval_high_level(1.0f)
+	interval_high_level(1.0f),
+	inaccuracy_min(PI * 0.002f),
+	inaccuracy_range(PI * 0.022f),
+	aim_timeout(2.5f),
+	aim_speed(2.0f)
 {
 
 }
@@ -107,7 +109,8 @@ AIPlayerControl::~AIPlayerControl()
 
 void AIPlayerControl::awk_attached()
 {
-	inaccuracy = PI * 0.002f + (mersenne::randf_cc() * PI * 0.022f);
+	const AIPlayer::Config& config = player.ref()->config;
+	inaccuracy = config.inaccuracy_min + (mersenne::randf_cc() * config.inaccuracy_range);
 	aim_timer = 0.0f;
 	if (path_index < path.length)
 	{
@@ -250,8 +253,6 @@ b8 AIPlayerControl::update_awk_memory()
 	return true;
 }
 
-#define LOOK_SPEED 2.0f
-
 // if exact is true, we need to land exactly at the given target point
 b8 AIPlayerControl::aim_and_shoot(const Update& u, const Vec3& target, b8 exact)
 {
@@ -268,7 +269,17 @@ b8 AIPlayerControl::aim_and_shoot(const Update& u, const Vec3& target, b8 exact)
 		Vec3 pos = get<Awk>()->center();
 		Vec3 to_target = Vec3::normalize(target - pos);
 
-		b8 could_go_before_crawling = get<Awk>()->can_go(to_target);
+		b8 could_go_before_crawling;
+		{
+			Vec3 hit;
+			could_go_before_crawling = get<Awk>()->can_go(to_target, &hit);
+			if (could_go_before_crawling)
+			{
+				// we could go generally toward the target
+				if (exact && (hit - target).length() > AWK_RADIUS) // make sure we would actually land at the right spot
+					could_go_before_crawling = false;
+			}
+		}
 
 		Vec3 old_pos;
 		Quat old_rot;
@@ -286,7 +297,7 @@ b8 AIPlayerControl::aim_and_shoot(const Update& u, const Vec3& target, b8 exact)
 			Vec3 hit;
 			if (get<Awk>()->can_go(Vec3::normalize(target - new_pos), &hit))
 			{
-				// we can still go generally toward the target;
+				// we can go generally toward the target
 				if (!exact || (hit - target).length() < AWK_RADIUS) // make sure we're actually going to land at the right spot
 					revert = false;
 			}
@@ -299,6 +310,8 @@ b8 AIPlayerControl::aim_and_shoot(const Update& u, const Vec3& target, b8 exact)
 	Vec3 pos = get<Awk>()->center();
 	Vec3 to_target = Vec3::normalize(target - pos);
 	Vec3 wall_normal = common->attach_quat * Vec3(0, 0, 1);
+
+	const AIPlayer::Config& config = player.ref()->config;
 
 	r32 target_angle_horizontal;
 	{
@@ -313,8 +326,8 @@ b8 AIPlayerControl::aim_and_shoot(const Update& u, const Vec3& target, b8 exact)
 		}
 
 		common->angle_horizontal = dir_horizontal > 0.0f
-			? vi_min(target_angle_horizontal, common->angle_horizontal + vi_max(0.2f, target_angle_horizontal - common->angle_horizontal) * LOOK_SPEED * u.time.delta)
-			: vi_max(target_angle_horizontal, common->angle_horizontal + vi_min(-0.2f, target_angle_horizontal - common->angle_horizontal) * LOOK_SPEED * u.time.delta);
+			? vi_min(target_angle_horizontal, common->angle_horizontal + vi_max(0.2f, target_angle_horizontal - common->angle_horizontal) * config.aim_speed * u.time.delta)
+			: vi_max(target_angle_horizontal, common->angle_horizontal + vi_min(-0.2f, target_angle_horizontal - common->angle_horizontal) * config.aim_speed * u.time.delta);
 		common->angle_horizontal = LMath::angle_range(common->angle_horizontal);
 	}
 
@@ -333,8 +346,8 @@ b8 AIPlayerControl::aim_and_shoot(const Update& u, const Vec3& target, b8 exact)
 		}
 
 		common->angle_vertical = dir_vertical > 0.0f
-			? vi_min(target_angle_vertical, common->angle_vertical + vi_max(0.2f, target_angle_vertical - common->angle_vertical) * LOOK_SPEED * u.time.delta)
-			: vi_max(target_angle_vertical, common->angle_vertical + vi_min(-0.2f, target_angle_vertical - common->angle_vertical) * LOOK_SPEED * u.time.delta);
+			? vi_min(target_angle_vertical, common->angle_vertical + vi_max(0.2f, target_angle_vertical - common->angle_vertical) * config.aim_speed * u.time.delta)
+			: vi_max(target_angle_vertical, common->angle_vertical + vi_min(-0.2f, target_angle_vertical - common->angle_vertical) * config.aim_speed * u.time.delta);
 		common->angle_vertical = LMath::angle_range(common->angle_vertical);
 	}
 
@@ -430,9 +443,9 @@ Repeat* make_low_level_loop(AIPlayerControl* control, const AIPlayer::Config& co
 				Sequence::alloc
 				(
 					Delay::alloc(config.interval_low_level),
-					Succeed::alloc
+					Sequence::alloc
 					(
-						Sequence::alloc
+						Succeed::alloc
 						(
 							Select::alloc // if any of these succeed, they will abort the high level loop
 							(
@@ -444,9 +457,9 @@ Repeat* make_low_level_loop(AIPlayerControl* control, const AIPlayer::Config& co
 								),
 								AIBehaviors::ReactTarget<MinionAI>::alloc(3, 4, &default_filter<MinionAI>),
 								AIBehaviors::AbilitySpawn::alloc(3, Ability::Sensor, &should_spawn_sensor)
-							),
-							Execute::alloc()->method<AIPlayerControl, &AIPlayerControl::restore_loops>(control) // restart the high level loop if necessary
-						)
+							)
+						),
+						Execute::alloc()->method<AIPlayerControl, &AIPlayerControl::restore_loops>(control) // restart the high level loop if necessary
 					)
 				)
 			);
@@ -548,6 +561,8 @@ void AIPlayerControl::update(const Update& u)
 		if (!loop_high_level)
 			init_behavior_trees();
 
+		const AIPlayer::Config& config = player.ref()->config;
+
 		if (target.ref())
 		{
 			Vec3 intersection;
@@ -559,7 +574,7 @@ void AIPlayerControl::update(const Update& u)
 		else if (path_index < path.length)
 		{
 			// look at next target
-			if (aim_timer > MAX_AIM_TIME)
+			if (aim_timer > config.aim_timeout)
 				behavior_done(false); // we can't hit it
 			else
 				aim_and_shoot(u, path[path_index], true);
@@ -569,8 +584,8 @@ void AIPlayerControl::update(const Update& u)
 			// look randomly
 			PlayerCommon* common = get<PlayerCommon>();
 			r32 offset = Game::time.total * 0.2f;
-			common->angle_horizontal += noise::sample3d(Vec3(offset)) * LOOK_SPEED * 2.0f * u.time.delta;
-			common->angle_vertical += noise::sample3d(Vec3(offset + 64)) * LOOK_SPEED * u.time.delta;
+			common->angle_horizontal += noise::sample3d(Vec3(offset)) * config.aim_speed * 2.0f * u.time.delta;
+			common->angle_vertical += noise::sample3d(Vec3(offset + 64)) * config.aim_speed * u.time.delta;
 			common->angle_vertical = LMath::clampf(common->angle_vertical, PI * -0.495f, PI * 0.495f);
 			common->clamp_rotation(common->attach_quat * Vec3(0, 0, 1), 0.5f);
 		}

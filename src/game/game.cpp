@@ -298,15 +298,6 @@ void Game::draw_alpha(const RenderParams& render_params)
 		{
 			AIPlayerControl* ai = i.item();
 			text.color = Team::ui_color_enemy;
-			{
-				Vec3 pos = ai->get<Transform>()->absolute_pos();
-				Vec2 p;
-				if (UI::project(render_params, pos, &p))
-				{
-					text.text("AI%d", i.index);
-					text.draw(render_params, p);
-				}
-			}
 			for (s32 j = 0; j < ai->path.length; j++)
 			{
 				Vec2 p;

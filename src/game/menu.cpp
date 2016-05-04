@@ -452,6 +452,7 @@ void draw(const RenderParams& params)
 		{
 			UIText text;
 			text.anchor_x = text.anchor_y = UIText::Anchor::Center;
+			text.color = UI::accent_color;
 			text.text(_(strings::connecting));
 			Vec2 pos = viewport.size * 0.5f;
 
@@ -464,7 +465,7 @@ void draw(const RenderParams& params)
 				pos.x - text.bounds().x * 0.5f - 32.0f * UI::scale,
 				pos.y
 			);
-			UI::triangle_border(params, { triangle_pos, Vec2(20 * UI::scale) }, 6, UI::default_color, Game::time.total * 8.0f);
+			UI::triangle_border(params, { triangle_pos, Vec2(20 * UI::scale) }, 6, UI::accent_color, Game::time.total * 8.0f);
 			break;
 		}
 		default:

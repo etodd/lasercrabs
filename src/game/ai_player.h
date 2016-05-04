@@ -43,6 +43,10 @@ struct AIPlayer
 		r32 interval_memory_update;
 		r32 interval_low_level;
 		r32 interval_high_level;
+		r32 inaccuracy_min;
+		r32 inaccuracy_range;
+		r32 aim_timeout;
+		r32 aim_speed;
 		Config();
 	};
 
@@ -162,13 +166,16 @@ namespace AIBehaviors
 
 		void path_callback(const AI::Result& result)
 		{
-			if (active() && result.path.length > 0 && path_priority > control->path_priority)
+			if (active())
 			{
-				control->behavior_start(this, true, path_priority);
-				control->set_path(result.path);
+				if (result.path.length > 0 && path_priority > control->path_priority)
+				{
+					control->behavior_start(this, true, path_priority);
+					control->set_path(result.path);
+				}
+				else
+					done(false);
 			}
-			else
-				done(false);
 		}
 
 		void pathfind(const Vec3& target, b8 hit)

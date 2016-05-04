@@ -802,7 +802,7 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 		else if (cJSON_GetObjectItem(element, "PlayerTrigger"))
 		{
 			entity = World::alloc<Empty>();
-			PlayerTrigger* trigger = entity->add<PlayerTrigger>();
+			PlayerTrigger* trigger = entity->create<PlayerTrigger>();
 			trigger->radius = Json::get_r32(element, "scale", 1.0f) * 0.5f;
 		}
 		else if (cJSON_GetObjectItem(element, "Mover"))
@@ -902,7 +902,7 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 		else if (cJSON_GetObjectItem(element, "PointLight"))
 		{
 			entity = World::alloc<Empty>();
-			PointLight* light = entity->add<PointLight>();
+			PointLight* light = entity->create<PointLight>();
 			light->color = Json::get_vec3(element, "color");
 			light->radius = Json::get_r32(element, "radius");
 		}
@@ -911,7 +911,7 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 			entity = World::alloc<Empty>();
 			if (state.mode == Mode::Parkour)
 			{
-				DirectionalLight* light = entity->add<DirectionalLight>();
+				DirectionalLight* light = entity->create<DirectionalLight>();
 				light->color = Json::get_vec3(element, "color");
 				light->shadowed = Json::get_s32(element, "shadowed");
 			}
@@ -947,7 +947,7 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 		}
 		else if (cJSON_GetObjectItem(element, "Terminal"))
 		{
-			if (state.mode == Game::Mode::Parkour)
+			if (state.mode == Mode::Parkour)
 			{
 				entity = World::alloc<Terminal>();
 				absolute_pos.y += TERMINAL_HEIGHT * 0.5f;
@@ -957,13 +957,21 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 				Penelope::init(entity, entry_point);
 			}
 		}
+		else if (cJSON_GetObjectItem(element, "SensorInterestPoint"))
+		{
+			if (state.mode == Mode::Pvp)
+			{
+				entity = World::alloc<Empty>();
+				entity->create<SensorInterestPoint>();
+			}
+		}
 		else if (cJSON_GetObjectItem(element, "SkyDecal"))
 		{
 			entity = World::alloc<Empty>();
 
 			if (state.mode == Mode::Parkour)
 			{
-				SkyDecal* decal = entity->add<SkyDecal>();
+				SkyDecal* decal = entity->create<SkyDecal>();
 				decal->color = Vec4(Json::get_r32(element, "r", 1.0f), Json::get_r32(element, "g", 1.0f), Json::get_r32(element, "b", 1.0f), Json::get_r32(element, "a", 1.0f));
 				decal->scale = Json::get_r32(element, "scale", 1.0f);
 				decal->texture = Loader::find(Json::get_string(element, "SkyDecal"), AssetLookup::Texture::names);

@@ -175,31 +175,24 @@ void Team::update_all(const Update& u)
 	for (auto player = PlayerManager::list.iterator(); !player.is_last(); player.next())
 	{
 		Entity* player_entity = player.item()->entity.ref();
-		if (!player_entity)
-			continue;
 
-		AI::Team player_team = player.item()->team.ref()->team();
-		Quat player_rot;
-		Vec3 player_pos;
-		player_entity->get<Transform>()->absolute(&player_pos, &player_rot);
-		player_pos += player_rot * Vec3(0, 0, -AWK_RADIUS);
-		for (auto sensor = Sensor::list.iterator(); !sensor.is_last(); sensor.next())
+		if (player_entity && player_entity->has<Awk>() && player_entity->get<Transform>()->parent.ref())
 		{
-			if (!player_entity->get<AIAgent>()->stealth || sensor.item()->team == player_team)
+			// we're on a wall and can thus be detected
+			AI::Team player_team = player.item()->team.ref()->team();
+			Quat player_rot;
+			Vec3 player_pos;
+			player_entity->get<Transform>()->absolute(&player_pos, &player_rot);
+			player_pos += player_rot * Vec3(0, 0, -AWK_RADIUS);
+			for (auto sensor = Sensor::list.iterator(); !sensor.is_last(); sensor.next())
 			{
 				Sensor** sensor_visibility = &visibility[player.index][(s32)sensor.item()->team];
 				if (!(*sensor_visibility))
 				{
-					if (sensor.item()->get<PlayerTrigger>()->is_triggered(player_entity))
-					{
-						if (player_entity->has<Awk>() && player_entity->get<Transform>()->parent.ref())
-						{
-							// we're on a wall; make sure the wall is facing the sensor
-							Vec3 to_sensor = sensor.item()->get<Transform>()->absolute_pos() - player_pos;
-							if (to_sensor.dot(player_rot * Vec3(0, 0, 1)) > 0.0f)
-								*sensor_visibility = sensor.item();
-						}
-					}
+					Vec3 to_sensor = sensor.item()->get<Transform>()->absolute_pos() - player_pos;
+					if (to_sensor.length_squared() < SENSOR_RANGE * SENSOR_RANGE
+						&& to_sensor.dot(player_rot * Vec3(0, 0, 1)) > 0.0f)
+						*sensor_visibility = sensor.item();
 				}
 			}
 		}
@@ -227,11 +220,12 @@ void Team::update_all(const Update& u)
 					stealth_enabled = false;
 				else
 				{
+					// check if any enemy sensors can see us
 					for (s32 t = 0; t < Team::list.length; t++)
 					{
 						if ((AI::Team)t != team && visibility[i.index][t])
 						{
-							stealth_enabled = false; // visible to enemy sensors
+							stealth_enabled = false;
 							break;
 						}
 					}
@@ -381,11 +375,15 @@ void Team::update_all(const Update& u)
 	}
 }
 
-void PlayerManager::ability_spawn_start(Ability ability)
+b8 PlayerManager::ability_spawn_start(Ability ability)
 {
 	Entity* awk = entity.ref();
 	if (!awk)
-		return;
+		return false;
+
+	// need to be sitting on some kind of surface
+	if (!awk->get<Transform>()->parent.ref())
+		return false;
 
 	if (at_spawn())
 	{
@@ -395,22 +393,20 @@ void PlayerManager::ability_spawn_start(Ability ability)
 			current_spawn_ability = ability;
 			spawn_ability_timer = ABILITY_UPGRADE_TIME;
 		}
-		return;
+		return true;
 	}
 
 	const AbilityInfo& info = AbilityInfo::list[(s32)ability];
 	if (credits < info.spawn_cost)
-		return;
+		return false;
 
 	if (ability_level[(s32)ability] == 0)
-		return;
-
-	// need to be sitting on some kind of surface
-	if (!awk->get<Transform>()->parent.ref())
-		return;
+		return false;
 
 	current_spawn_ability = ability;
 	spawn_ability_timer = info.spawn_time;
+
+	return true;
 }
 
 void PlayerManager::ability_spawn_stop(Ability ability)
@@ -508,6 +504,7 @@ void PlayerManager::ability_spawn_complete()
 			break;
 		}
 	}
+	ability_spawned.fire(ability);
 }
 
 b8 PlayerManager::ability_use(Ability ability)
@@ -600,7 +597,8 @@ PlayerManager::PlayerManager(Team* team)
 	entity(),
 	spawn(),
 	ready(Game::state.mode == Game::Mode::Parkour || Game::level.has_feature(Game::FeatureLevel::All)),
-	current_spawn_ability(Ability::None)
+	current_spawn_ability(Ability::None),
+	ability_spawned()
 {
 }
 

@@ -132,10 +132,11 @@ struct PlayerManager
 	b8 ready;
 	r32 spawn_ability_timer;
 	Ability current_spawn_ability;
+	LinkArg<Ability> ability_spawned;
 
 	static b8 all_ready();
 
-	void ability_spawn_start(Ability);
+	b8 ability_spawn_start(Ability);
 	void ability_spawn_stop(Ability);
 	void ability_spawn_complete();
 	b8 ability_use(Ability);

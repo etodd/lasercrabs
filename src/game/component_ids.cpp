@@ -52,8 +52,9 @@ COMPONENT_TYPE(30, HealthPickup) \
 COMPONENT_TYPE(31, Sensor) \
 COMPONENT_TYPE(32, Teleporter) \
 COMPONENT_TYPE(33, Teleportee) \
+COMPONENT_TYPE(34, SensorInterestPoint) \
 
-Family World::families = 34;
+Family World::families = 35;
 
 #define COMPONENT_TYPE(INDEX, TYPE) \
 template<> Family ComponentType<TYPE>::family = (INDEX); \

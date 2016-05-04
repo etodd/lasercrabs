@@ -17,6 +17,7 @@ struct Behavior
 	virtual void abort() {}
 	virtual void set_context(void*) {}
 	virtual void done(b8 = true) {}
+	virtual b8 active() const { return false; }
 	virtual ~Behavior() {}
 	Behavior* root() const;
 };
@@ -44,7 +45,7 @@ template<typename Derived> struct BehaviorBase : public Behavior
 		}
 	}
 
-	inline b8 active() const
+	virtual b8 active() const
 	{
 		return active_list.get(id());
 	}
@@ -113,7 +114,10 @@ template<typename Derived> struct BehaviorComposite : public BehaviorBase<Derive
 	{
 		BehaviorBase::abort();
 		for (s32 i = 0; i < num_children; i++)
-			children[i]->abort();
+		{
+			if (children[i]->active())
+				children[i]->abort();
+		}
 	}
 
 	virtual ~BehaviorComposite()
@@ -141,7 +145,8 @@ template<typename Derived> struct BehaviorDecorator : public BehaviorBase<Derive
 	virtual void abort()
 	{
 		BehaviorBase::abort();
-		child->abort();
+		if (child->active())
+			child->abort();
 	}
 
 	virtual ~BehaviorDecorator()

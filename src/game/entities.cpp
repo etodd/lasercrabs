@@ -102,6 +102,8 @@ HealthPickupEntity::HealthPickupEntity()
 	model->mesh = Asset::Mesh::target;
 	model->shader = Asset::Shader::standard;
 
+	create<SensorInterestPoint>();
+
 	PointLight* light = create<PointLight>();
 	light->radius = 8.0f;
 
@@ -176,8 +178,6 @@ SensorEntity::SensorEntity(PlayerManager* owner, const Vec3& abs_pos, const Quat
 
 	RigidBody* body = create<RigidBody>(RigidBody::Type::Sphere, Vec3(SENSOR_RADIUS), 1.0f, CollisionAwkIgnore, btBroadphaseProxy::AllFilter);
 	body->set_damping(0.5f, 0.5f);
-
-	create<PlayerTrigger>()->radius = SENSOR_RANGE;
 }
 
 Sensor::Sensor(AI::Team t, PlayerManager* m)
@@ -221,10 +221,70 @@ void Sensor::update_all(const Update& u)
 	}
 }
 
+b8 Sensor::can_see(AI::Team team, const Vec3& pos, const Vec3& normal)
+{
+	for (auto i = list.iterator(); !i.is_last(); i.next())
+	{
+		if (i.item()->team == team)
+		{
+			Vec3 to_sensor = i.item()->get<Transform>()->absolute_pos() - pos;
+			if (to_sensor.dot(normal) > 0.0f)
+				return true;
+		}
+	}
+	return false;
+}
+
+Sensor* Sensor::closest(AI::Team team, const Vec3& pos, r32* distance)
+{
+	Sensor* closest = nullptr;
+	r32 closest_distance = FLT_MAX;
+
+	for (auto i = list.iterator(); !i.is_last(); i.next())
+	{
+		if (i.item()->team == team)
+		{
+			r32 d = (i.item()->get<Transform>()->absolute_pos() - pos).length_squared();
+			if (d < closest_distance)
+			{
+				closest = i.item();
+				closest_distance = d;
+			}
+		}
+	}
+
+	if (distance)
+		*distance = sqrtf(closest_distance);
+
+	return closest;
+}
+
+SensorInterestPoint* SensorInterestPoint::in_range(const Vec3& pos)
+{
+	SensorInterestPoint* closest = nullptr;
+	r32 closest_distance = SENSOR_RANGE * SENSOR_RANGE;
+
+	for (auto i = list.iterator(); !i.is_last(); i.next())
+	{
+		Vec3 point_pos;
+		Quat point_rot;
+		i.item()->get<Transform>()->absolute(&point_pos, &point_rot);
+		r32 d = (point_pos - pos).length_squared();
+		if (d < closest_distance)
+		{
+			closest = i.item();
+			closest_distance = d;
+		}
+	}
+
+	return closest;
+}
+
 ControlPointEntity::ControlPointEntity()
 {
 	create<Transform>();
 	create<ControlPoint>();
+	create<SensorInterestPoint>();
 
 	View* model = create<View>();
 	model->mesh = Asset::Mesh::control_point;
@@ -250,19 +310,17 @@ void ControlPoint::update_all(const Update& u)
 		AI::Team control_point_team = AI::Team::None;
 		for (auto sensor = Sensor::list.iterator(); !sensor.is_last(); sensor.next())
 		{
-			if (sensor.item()->get<PlayerTrigger>()->contains(control_point_pos))
+			Vec3 to_sensor = sensor.item()->get<Transform>()->absolute_pos() - control_point_pos;
+			if (to_sensor.length_squared() < SENSOR_RANGE * SENSOR_RANGE
+				&& to_sensor.dot(control_point_rot * Vec3(0, 0, 1)) > 0.0f) // make sure the control point is facing the sensor
 			{
-				Vec3 to_sensor = sensor.item()->get<Transform>()->absolute_pos() - control_point_pos;
-				if (to_sensor.dot(control_point_rot * Vec3(0, 0, 1)) > 0.0f) // make sure the control point is facing the sensor
+				AI::Team sensor_team = sensor.item()->team;
+				if (control_point_team == AI::Team::None)
+					control_point_team = sensor_team;
+				else if (control_point_team != sensor_team)
 				{
-					AI::Team sensor_team = sensor.item()->team;
-					if (control_point_team == AI::Team::None)
-						control_point_team = sensor_team;
-					else if (control_point_team != sensor_team)
-					{
-						control_point_team = AI::Team::None; // control point is contested
-						break;
-					}
+					control_point_team = AI::Team::None; // control point is contested
+					break;
 				}
 			}
 		}
@@ -299,6 +357,7 @@ TeleporterEntity::TeleporterEntity(const Vec3& pos, const Quat& rot, AI::Team te
 {
 	create<Transform>()->absolute(pos, rot);
 	create<Teleporter>()->team = team;
+	create<SensorInterestPoint>();
 
 	create<Health>(5, 5);
 
@@ -560,11 +619,6 @@ b8 PlayerTrigger::is_triggered(const Entity* e) const
 			return true;
 	}
 	return false;
-}
-
-b8 PlayerTrigger::contains(const Vec3& p) const
-{
-	return (p - get<Transform>()->absolute_pos()).length_squared() < radius * radius;
 }
 
 void PlayerTrigger::update(const Update& u)

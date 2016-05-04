@@ -75,6 +75,9 @@ struct Sensor : public ComponentType<Sensor>
 	void killed_by(Entity*);
 	void awake();
 
+	static b8 can_see(AI::Team, const Vec3&, const Vec3&);
+	static Sensor* closest(AI::Team, const Vec3&, r32* = nullptr);
+
 	static void update_all(const Update&);
 };
 
@@ -90,9 +93,9 @@ struct Teleporter : public ComponentType<Teleporter>
 	~Teleporter();
 };
 
-// yes really
 #define TELEPORT_TIME 1.0f
 #define TELEPORT_INVINCIBLE_PERIOD 1.0f
+// yes really
 struct Teleportee : public ComponentType<Teleportee>
 {
 	Ref<Teleporter> target;
@@ -109,6 +112,13 @@ struct Teleportee : public ComponentType<Teleportee>
 struct TeleporterEntity : public Entity
 {
 	TeleporterEntity(const Vec3&, const Quat&, AI::Team);
+};
+
+// for AI
+struct SensorInterestPoint : public ComponentType<SensorInterestPoint>
+{
+	void awake() {}
+	static SensorInterestPoint* in_range(const Vec3&);
 };
 
 struct ShockwaveEntity : public Entity
@@ -273,8 +283,6 @@ struct PlayerTrigger : public ComponentType<PlayerTrigger>
 	void awake() {}
 
 	void update(const Update&);
-
-	b8 contains(const Vec3&) const;
 
 	b8 is_triggered(const Entity*) const;
 

@@ -3,6 +3,10 @@
 #include "ai.h"
 #include "data/behavior.h"
 #include "game.h"
+#include "team.h"
+#if DEBUG_AI_CONTROL
+#include <typeinfo>
+#endif
 
 namespace VI
 {
@@ -36,6 +40,9 @@ struct AIPlayer
 		LowLevelLoop low_level;
 		HighLevelLoop high_level;
 		u16 hp_start;
+		r32 interval_memory_update;
+		r32 interval_low_level;
+		r32 interval_high_level;
 		Config();
 	};
 
@@ -70,7 +77,7 @@ struct AIPlayerControl : public ComponentType<AIPlayerControl>
 	Repeat* loop_low_level;
 	Repeat* loop_low_level_2;
 	Repeat* loop_memory;
-	Behavior* behavior_callback;
+	Behavior* target_path_callback;
 	MemoryArray memory[MAX_FAMILIES];
 	AI::Path path;
 	s32 path_index;
@@ -129,13 +136,13 @@ struct AIPlayerControl : public ComponentType<AIPlayerControl>
 	b8 update_awk_memory();
 
 	void init_behavior_trees();
-	void behavior_start(Behavior*);
+	void behavior_start(Behavior*, b8, s8);
 	void behavior_done(b8);
 	b8 restore_loops();
 	b8 aim_and_shoot(const Update&, const Vec3&, b8);
 	b8 in_range(const Vec3&, r32) const;
-	void set_target(Target*, s8);
-	void set_path(const AI::Path&, s8);
+	void set_target(Target*);
+	void set_path(const AI::Path&);
 	void awk_attached();
 	void awk_hit(Entity*);
 	void awk_detached();
@@ -157,8 +164,8 @@ namespace AIBehaviors
 		{
 			if (active() && result.path.length > 0 && path_priority > control->path_priority)
 			{
-				control->behavior_start(this);
-				control->set_path(result.path, path_priority);
+				control->behavior_start(this, true, path_priority);
+				control->set_path(result.path);
 			}
 			else
 				done(false);
@@ -168,6 +175,9 @@ namespace AIBehaviors
 		{
 			// if hit is false, pathfind as close as possible to the given target
 			// if hit is true, pathfind to a point from which we can shoot through the given target
+#if DEBUG_AI_CONTROL
+			vi_debug("Awk pathfind: %s", typeid(*this).name());
+#endif
 			auto ai_callback = ObjectLinkEntryArg<Base<Derived>, const AI::Result&, &Base<Derived>::path_callback>(id());
 			Vec3 pos = control->get<Transform>()->absolute_pos();
 			if (hit)
@@ -225,11 +235,23 @@ namespace AIBehaviors
 		}
 	};
 
-	template<typename Component> struct React : Base<React<Component>>
+	typedef b8(*AbilitySpawnFilter)(const AIPlayerControl*);
+	struct AbilitySpawn : Base<AbilitySpawn>
+	{
+		AbilitySpawnFilter filter;
+		Ability ability;
+		AbilitySpawn(s8, Ability, AbilitySpawnFilter);
+		void completed(Ability);
+		virtual void set_context(void*);
+		void run();
+		virtual void abort();
+	};
+
+	template<typename Component> struct ReactTarget : Base<ReactTarget<Component> >
 	{
 		s8 react_priority;
 		b8(*filter)(const AIPlayerControl*, const Component*);
-		React(s8 priority_path, s8 react_priority, b8(*filter)(const AIPlayerControl*, const Component*))
+		ReactTarget(s8 priority_path, s8 react_priority, b8(*filter)(const AIPlayerControl*, const Component*))
 			: react_priority(react_priority), filter(filter)
 		{
 			path_priority = priority_path;
@@ -264,8 +286,8 @@ namespace AIBehaviors
 					b8 can_hit_now = control->get<Awk>()->can_hit(closest->get<Target>());
 					if (can_hit_now && can_react)
 					{
-						control->behavior_start(this);
-						control->set_target(closest->get<Target>(), react_priority);
+						control->behavior_start(this, true, react_priority);
+						control->set_target(closest->get<Target>());
 						return;
 					}
 					else if (can_path)

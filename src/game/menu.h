@@ -45,9 +45,11 @@ struct UIMenu
 	char selected;
 	StaticArray<Item, 10> items;
 	u8 gamepad;
+	r32 animation_time;
 
 	UIMenu();
 	void clear();
+	void animate();
 	void start(const Update&, u8, b8 = true);
 	Rect2 add_item(Vec2*, b8, const char*, const char* = nullptr, b8 = false, AssetID = AssetNull);
 	b8 item(const Update&, Vec2*, const char*, const char* = nullptr, b8 = false, AssetID = AssetNull);

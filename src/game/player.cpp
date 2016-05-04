@@ -272,7 +272,10 @@ void LocalPlayer::update(const Update& u)
 	{
 		b8 pause_hit = Game::time.total > 0.5f && u.input->get(Controls::Pause, gamepad) && !u.last_input->get(Controls::Pause, gamepad);
 		if (pause_hit && (menu_state == Menu::State::Hidden || menu_state == Menu::State::Visible))
+		{
 			menu_state = menu_state == Menu::State::Hidden ? Menu::State::Visible : Menu::State::Hidden;
+			menu.animate();
+		}
 	}
 
 	switch (ui_mode())
@@ -1338,9 +1341,16 @@ void LocalPlayerControl::update(const Update& u)
 		if (rayCallback.hasHit())
 		{
 			tracer.pos = rayCallback.m_hitPointWorld;
-			detach_dir = Vec3::normalize(Vec3(rayCallback.m_hitPointWorld) - get<Awk>()->center());
-			if (get<Awk>()->can_go(detach_dir))
-				tracer.type = rayCallback.hit_target() ? TraceType::Target : TraceType::Normal;
+			Vec3 center = get<Awk>()->center();
+			detach_dir = tracer.pos - center;
+			r32 distance = detach_dir.length();
+			detach_dir /= distance;
+			Vec3 hit;
+			if (get<Awk>()->can_go(detach_dir, &hit))
+			{
+				if (fabs((hit - center).length() - distance) < AWK_RADIUS)
+					tracer.type = rayCallback.hit_target() ? TraceType::Target : TraceType::Normal;
+			}
 		}
 		else
 			tracer.pos = trace_end;

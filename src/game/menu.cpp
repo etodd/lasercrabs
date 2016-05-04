@@ -124,13 +124,16 @@ void refresh_variables()
 void title_menu(const Update& u, u8 gamepad, UIMenu* menu, State* state)
 {
 	if (*state == State::Hidden)
+	{
 		*state = State::Visible;
+		menu->animate();
+	}
 	menu->start(u, 0);
 	switch (*state)
 	{
 		case State::Visible:
 		{
-			Vec2 pos(logo_padding * 2.0f + logo_size, u.input->height * 0.5f + UIMenu::height(5) * 0.5f);
+			Vec2 pos(logo_padding * 2.0f + logo_size, u.input->height * 0.5f + UIMenu::height(4) * 0.5f);
 			if (menu->item(u, &pos, _(strings::play)))
 			{
 				Game::save = Game::Save();
@@ -141,6 +144,7 @@ void title_menu(const Update& u, u8 gamepad, UIMenu* menu, State* state)
 			{
 				menu->selected = 0;
 				*state = State::Options;
+				menu->animate();
 			}
 			if (menu->item(u, &pos, _(strings::splitscreen)))
 				splitscreen();
@@ -155,6 +159,7 @@ void title_menu(const Update& u, u8 gamepad, UIMenu* menu, State* state)
 			{
 				menu->selected = 0;
 				*state = State::Visible;
+				menu->animate();
 			}
 			break;
 		}
@@ -180,13 +185,14 @@ void pause_menu(const Update& u, const Rect2& viewport, u8 gamepad, UIMenu* menu
 	{
 		case State::Visible:
 		{
-			Vec2 pos(0, viewport.size.y * 0.5f + UIMenu::height(5) * 0.5f);
+			Vec2 pos(0, viewport.size.y * 0.5f + UIMenu::height(3) * 0.5f);
 			if (menu->item(u, &pos, _(strings::resume)))
 				*state = State::Hidden;
 			if (menu->item(u, &pos, _(strings::options)))
 			{
 				menu->selected = 0;
 				*state = State::Options;
+				menu->animate();
 			}
 			if (menu->item(u, &pos, _(strings::main_menu)))
 				Menu::title();
@@ -199,6 +205,7 @@ void pause_menu(const Update& u, const Rect2& viewport, u8 gamepad, UIMenu* menu
 			{
 				menu->selected = 0;
 				*state = State::Visible;
+				menu->animate();
 			}
 			break;
 		}
@@ -324,6 +331,7 @@ void update(const Update& u)
 			{
 				reset_players();
 				main_menu_state = State::Visible;
+				main_menu.animate();
 			}
 			break;
 		}
@@ -358,7 +366,10 @@ void update(const Update& u)
 			pause_hit = u.input->get(Controls::Pause, 0) && !u.last_input->get(Controls::Pause, 0);
 
 		if (pause_hit && Game::time.total > 0.0f && (main_menu_state == State::Hidden || main_menu_state == State::Visible))
+		{
 			main_menu_state = main_menu_state == State::Hidden ? State::Visible : State::Hidden;
+			main_menu.animate();
+		}
 
 		// do pause menu
 		const Rect2& viewport = cameras[0] ? cameras[0]->viewport : Rect2(Vec2(0, 0), Vec2(u.input->width, u.input->height));
@@ -547,13 +558,19 @@ Rect2 UIMenu::Item::up_rect() const
 
 UIMenu::UIMenu()
 	: selected(),
-	items()
+	items(),
+	animation_time()
 {
 }
 
 void UIMenu::clear()
 {
 	items.length = 0;
+}
+
+void UIMenu::animate()
+{
+	animation_time = Game::real_time.total;
 }
 
 #define JOYSTICK_DEAD_ZONE 0.5f
@@ -616,9 +633,11 @@ Rect2 UIMenu::add_item(Vec2* pos, b8 slider, const char* string, const char* val
 	b8 is_selected = active[gamepad] == this && selected == items.length - 1;
 	item->label.color = item->value.color = disabled ? UI::disabled_color : (is_selected ? UI::accent_color : UI::default_color);
 	item->label.text(string);
+	item->label.clip = 1 + (s32)((Game::real_time.total - animation_time) * (50.0f + vi_min(items.length, 6) * -5.0f));
 
 	item->value.anchor_x = UIText::Anchor::Center;
 	item->value.text(value);
+	item->value.clip = item->label.clip;
 
 	item->pos = *pos;
 	item->pos.x += MENU_ITEM_PADDING_LEFT;

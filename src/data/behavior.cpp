@@ -86,7 +86,10 @@ void Parallel::child_done(Behavior* child, b8 success)
 	else
 	{
 		for (s32 i = 0; i < num_children; i++)
-			children[i]->abort();
+		{
+			if (children[i]->active())
+				children[i]->abort();
+		}
 		done(false);
 	}
 }

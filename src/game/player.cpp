@@ -1043,8 +1043,8 @@ void LocalPlayerControl::add_target_indicator(Target* target, const Vec4& color,
 		Vec3 intersection;
 		if (get<Awk>()->predict_intersection(target, &intersection))
 		{
-			if (tracer.type == TraceType::Normal && LMath::ray_sphere_intersect(me, tracer.pos, intersection, MINION_HEAD_RADIUS))
-				tracer.type = TraceType::Target;
+			if (reticle.type == ReticleType::Normal && LMath::ray_sphere_intersect(me, reticle.pos, intersection, MINION_HEAD_RADIUS))
+				reticle.type = ReticleType::Target;
 			indicators.add({ intersection, &color, offscreen });
 		}
 	}
@@ -1061,38 +1061,31 @@ void determine_visibility(PlayerCommon* me, PlayerCommon* other_player, b8* visi
 
 void LocalPlayerControl::update(const Update& u)
 {
+	// rumble
 	if (rumble > 0.0f)
 	{
 		rumble = vi_max(0.0f, rumble - u.time.delta);
 		u.input->gamepads[gamepad].rumble = vi_min(1.0f, rumble);
 	}
 
+	// camera viewport
 	{
-		// Zoom
-		r32 fov_blend_target = 0.0f;
-		if (has<Awk>() && get<Transform>()->parent.ref() && input_enabled())
-		{
-			if (u.input->get(Controls::Secondary, gamepad))
-			{
-				if (allow_zoom)
-				{
-					fov_blend_target = 1.0f;
-					if (!u.last_input->get(Controls::Secondary, gamepad))
-						get<Audio>()->post_event(AK::EVENTS::PLAY_ZOOM_IN);
-				}
-			}
-			else
-			{
-				if (allow_zoom && u.last_input->get(Controls::Secondary, gamepad))
-					get<Audio>()->post_event(AK::EVENTS::PLAY_ZOOM_OUT);
-				allow_zoom = true;
-			}
-		}
+		s32 player_count;
+#if DEBUG_AI_CONTROL
+		player_count = LocalPlayer::list.count() + AIPlayer::list.count(); // AI player views are shown on screen as well
+#else
+		player_count = LocalPlayer::list.count();
+#endif
+		Camera::ViewportBlueprint* viewports = Camera::viewport_blueprints[player_count - 1];
+		Camera::ViewportBlueprint* blueprint = &viewports[gamepad];
 
-		if (fov_blend < fov_blend_target)
-			fov_blend = vi_min(fov_blend + u.time.delta * zoom_speed, fov_blend_target);
-		else if (fov_blend > fov_blend_target)
-			fov_blend = vi_max(fov_blend - u.time.delta * zoom_speed, fov_blend_target);
+		camera->viewport =
+		{
+			Vec2((s32)(blueprint->x * (r32)u.input->width), (s32)(blueprint->y * (r32)u.input->height)),
+			Vec2((s32)(blueprint->w * (r32)u.input->width), (s32)(blueprint->h * (r32)u.input->height)),
+		};
+		r32 aspect = camera->viewport.size.y == 0 ? 1 : (r32)camera->viewport.size.x / (r32)camera->viewport.size.y;
+		camera->perspective(LMath::lerpf(fov_blend, fov_initial, fov_zoom), aspect, 0.02f, Game::level.skybox.far_plane);
 	}
 
 	Vec3 camera_pos;
@@ -1100,7 +1093,35 @@ void LocalPlayerControl::update(const Update& u)
 
 	if (has<Awk>())
 	{
-		// Awk control code
+		// pvp mode
+		{
+			// Zoom
+			r32 fov_blend_target = 0.0f;
+			if (has<Awk>() && get<Transform>()->parent.ref() && input_enabled())
+			{
+				if (u.input->get(Controls::Secondary, gamepad))
+				{
+					if (allow_zoom)
+					{
+						fov_blend_target = 1.0f;
+						if (!u.last_input->get(Controls::Secondary, gamepad))
+							get<Audio>()->post_event(AK::EVENTS::PLAY_ZOOM_IN);
+					}
+				}
+				else
+				{
+					if (allow_zoom && u.last_input->get(Controls::Secondary, gamepad))
+						get<Audio>()->post_event(AK::EVENTS::PLAY_ZOOM_OUT);
+					allow_zoom = true;
+				}
+			}
+
+			if (fov_blend < fov_blend_target)
+				fov_blend = vi_min(fov_blend + u.time.delta * zoom_speed, fov_blend_target);
+			else if (fov_blend > fov_blend_target)
+				fov_blend = vi_max(fov_blend - u.time.delta * zoom_speed, fov_blend_target);
+		}
+
 		if (get<Transform>()->parent.ref())
 		{
 			// Look
@@ -1147,10 +1168,134 @@ void LocalPlayerControl::update(const Update& u)
 					player.ref()->manager.ref()->ability_spawn_stop(Ability::Minion);
 			}
 		}
+
+		// camera setup
+		Vec3 abs_wall_normal = (get<Transform>()->absolute_rot() * get<Awk>()->lerped_rotation) * Vec3(0, 0, 1);
+		camera->wall_normal = look_quat.inverse() * abs_wall_normal;
+		camera->pos = camera_pos + look_quat * Vec3(0, 0, -third_person_offset);
+		if (get<Transform>()->parent.ref())
+		{
+			camera->pos += abs_wall_normal * 0.5f;
+			camera->pos.y += 0.5f - vi_min(fabs(abs_wall_normal.y), 0.5f);
+		}
+
+		if (damage_timer > 0.0f)
+		{
+			damage_timer -= u.time.delta;
+			r32 shake = (damage_timer / damage_shake_time) * 0.3f;
+			r32 offset = Game::time.total * 10.0f;
+			look_quat = look_quat * Quat::euler(noise::sample3d(Vec3(offset)) * shake, noise::sample3d(Vec3(offset + 64)) * shake, noise::sample3d(Vec3(offset + 128)) * shake);
+		}
+
+		camera->range = AWK_MAX_DISTANCE;
+		camera->range_center = look_quat.inverse() * (get<Awk>()->center() - camera->pos);
+		if (!get<Transform>()->parent.ref() || camera->wall_normal.dot(camera->range_center) < 0.0f)
+			camera->cull_range = 0.0f; // there is no wall, or the camera is in front of the wall; no need to cull anything
+		else
+			camera->cull_range = third_person_offset + 0.5f; // camera is inside the wall; need to cull stuff
+
+		health_flash_timer = vi_max(0.0f, health_flash_timer - Game::real_time.delta);
+
+		camera->rot = look_quat;
+
+		// reticle
+		reticle.type = ReticleType::None;
+		if (get<Transform>()->parent.ref() && get<PlayerCommon>()->cooldown == 0.0f)
+		{
+			// Display trajectory
+			Vec3 trace_dir = look_quat * Vec3(0, 0, 1);
+			// Make sure we're not shooting into the wall we're on.
+
+			Vec3 trace_start = camera->pos + trace_dir * third_person_offset;
+			Vec3 trace_end = trace_start + trace_dir * (AWK_MAX_DISTANCE + third_person_offset);
+
+			AwkRaycastCallback rayCallback(trace_start, trace_end, entity());
+			rayCallback.m_flags = btTriangleRaycastCallback::EFlags::kF_FilterBackfaces
+				| btTriangleRaycastCallback::EFlags::kF_KeepUnflippedNormal;
+			rayCallback.m_collisionFilterMask = rayCallback.m_collisionFilterGroup = ~CollisionAwkIgnore;
+
+			Physics::btWorld->rayTest(trace_start, trace_end, rayCallback);
+
+			if (rayCallback.hasHit())
+			{
+				reticle.pos = rayCallback.m_hitPointWorld;
+				Vec3 center = get<Awk>()->center();
+				detach_dir = reticle.pos - center;
+				r32 distance = detach_dir.length();
+				detach_dir /= distance;
+				Vec3 hit;
+				if (get<Awk>()->can_go(detach_dir, &hit))
+				{
+					if (fabs((hit - center).length() - distance) < AWK_RADIUS)
+						reticle.type = rayCallback.hit_target() ? ReticleType::Target : ReticleType::Normal;
+				}
+			}
+			else
+				reticle.pos = trace_end;
+
+			if (reticle.type != ReticleType::None && movement_enabled())
+			{
+				if (u.input->get(Controls::Primary, gamepad) && !u.last_input->get(Controls::Primary, gamepad))
+					detach();
+			}
+		}
+
+		// collect indicators
+		indicators.length = 0;
+
+		Vec3 me = get<Transform>()->absolute_pos();
+
+		// awk indicators
+		if (indicators.length < indicators.capacity())
+		{
+			for (auto other_player = PlayerCommon::list.iterator(); !other_player.is_last(); other_player.next())
+			{
+				if (other_player.item() != get<PlayerCommon>())
+				{
+					b8 visible, tracking;
+					determine_visibility(get<PlayerCommon>(), other_player.item(), &visible, &tracking);
+
+					if (tracking || visible)
+						add_target_indicator(other_player.item()->get<Target>(), UI::alert_color, true);
+
+					if (indicators.length == indicators.capacity())
+						break;
+				}
+			}
+		}
+
+		// headshot indicators
+		if (indicators.length < indicators.capacity())
+		{
+			AI::Team team = get<AIAgent>()->team;
+			for (auto i = MinionCommon::list.iterator(); !i.is_last(); i.next())
+			{
+				if (i.item()->get<AIAgent>()->team != team)
+				{
+					add_target_indicator(i.item()->get<Target>(), UI::alert_color);
+					if (indicators.length == indicators.capacity())
+						break;
+				}
+			}
+		}
+
+		// health pickups
+		if (get<Health>()->hp < get<Health>()->hp_max)
+		{
+			for (auto i = HealthPickup::list.iterator(); !i.is_last(); i.next())
+			{
+				if (i.item()->owner.ref() != get<Health>())
+				{
+					add_target_indicator(i.item()->get<Target>(), UI::accent_color);
+					if (indicators.length == indicators.capacity())
+						break;
+				}
+			}
+		}
 	}
 	else
 	{
-		// Minion control code
+		// parkour mode
 		update_camera_input(u);
 		look_quat = Quat::euler(get<Parkour>()->lean, get<PlayerCommon>()->angle_horizontal, get<PlayerCommon>()->angle_vertical);
 		{
@@ -1273,161 +1418,22 @@ void LocalPlayerControl::update(const Update& u)
 			get<Animator>()->bone_transform(Asset::Bone::character_camera, nullptr, &camera_animation);
 			look_quat = Quat::euler(get<Parkour>()->lean, get<PlayerCommon>()->angle_horizontal, get<PlayerCommon>()->angle_vertical) * Quat::euler(0, PI * 0.5f, 0) * camera_animation * Quat::euler(0, PI * -0.5f, 0);
 		}
-	}
 
-	s32 player_count;
-#if DEBUG_AI_CONTROL
-	player_count = LocalPlayer::list.count() + AIPlayer::list.count(); // AI player views are shown on screen as well
-#else
-	player_count = LocalPlayer::list.count();
-#endif
-	Camera::ViewportBlueprint* viewports = Camera::viewport_blueprints[player_count - 1];
-	Camera::ViewportBlueprint* blueprint = &viewports[gamepad];
-
-	camera->viewport =
-	{
-		Vec2((s32)(blueprint->x * (r32)u.input->width), (s32)(blueprint->y * (r32)u.input->height)),
-		Vec2((s32)(blueprint->w * (r32)u.input->width), (s32)(blueprint->h * (r32)u.input->height)),
-	};
-	r32 aspect = camera->viewport.size.y == 0 ? 1 : (r32)camera->viewport.size.x / (r32)camera->viewport.size.y;
-	camera->perspective(LMath::lerpf(fov_blend, fov_initial, fov_zoom), aspect, 0.02f, Game::level.skybox.far_plane);
-
-	// Camera matrix
-	if (has<Awk>())
-	{
-		Vec3 abs_wall_normal = (get<Transform>()->absolute_rot() * get<Awk>()->lerped_rotation) * Vec3(0, 0, 1);
-		camera->wall_normal = look_quat.inverse() * abs_wall_normal;
-		camera->pos = camera_pos + look_quat * Vec3(0, 0, -third_person_offset);
-		if (get<Transform>()->parent.ref())
-		{
-			camera->pos += abs_wall_normal * 0.5f;
-			camera->pos.y += 0.5f - vi_min(fabs(abs_wall_normal.y), 0.5f);
-		}
-	}
-	else
-	{
+		// camera setup
 		camera->wall_normal = Vec3(0, 0, 1);
 		camera->pos = camera_pos + (Game::state.third_person ? look_quat * Vec3(0, 0, -2) : Vec3::zero);
-	}
-	if (damage_timer > 0.0f)
-	{
-		damage_timer -= u.time.delta;
-		r32 shake = (damage_timer / damage_shake_time) * 0.3f;
-		r32 offset = Game::time.total * 10.0f;
-		look_quat = look_quat * Quat::euler(noise::sample3d(Vec3(offset)) * shake, noise::sample3d(Vec3(offset + 64)) * shake, noise::sample3d(Vec3(offset + 128)) * shake);
-	}
-	health_flash_timer = vi_max(0.0f, health_flash_timer - Game::real_time.delta);
-	camera->rot = look_quat;
-
-	if (has<Awk>())
-	{
-		camera->range = AWK_MAX_DISTANCE;
-		camera->range_center = look_quat.inverse() * (get<Awk>()->center() - camera->pos);
-		if (!get<Transform>()->parent.ref() || camera->wall_normal.dot(camera->range_center) < 0.0f)
-			camera->cull_range = 0.0f; // there is no wall, or the camera is in front of the wall; no need to cull anything
-		else
-			camera->cull_range = third_person_offset + 0.5f; // camera is inside the wall; need to cull stuff
-	}
-	else
 		camera->range = 0.0f;
+		camera->rot = look_quat;
 
-	tracer.type = TraceType::None;
-	if (has<Awk>() && get<Transform>()->parent.ref() && get<PlayerCommon>()->cooldown == 0.0f)
-	{
-		// Display trajectory
-		Vec3 trace_dir = look_quat * Vec3(0, 0, 1);
-		// Make sure we're not shooting into the wall we're on.
-
-		Vec3 trace_start = camera->pos + trace_dir * third_person_offset;
-		Vec3 trace_end = trace_start + trace_dir * (AWK_MAX_DISTANCE + third_person_offset);
-
-		AwkRaycastCallback rayCallback(trace_start, trace_end, entity());
-		rayCallback.m_flags = btTriangleRaycastCallback::EFlags::kF_FilterBackfaces
-			| btTriangleRaycastCallback::EFlags::kF_KeepUnflippedNormal;
-		rayCallback.m_collisionFilterMask = rayCallback.m_collisionFilterGroup = ~CollisionAwkIgnore;
-
-		Physics::btWorld->rayTest(trace_start, trace_end, rayCallback);
-
-		if (rayCallback.hasHit())
+		DataFragment* fragment = DataFragment::in_range(get<Transform>()->absolute_pos());
+		if (fragment && !fragment->collected)
 		{
-			tracer.pos = rayCallback.m_hitPointWorld;
-			Vec3 center = get<Awk>()->center();
-			detach_dir = tracer.pos - center;
-			r32 distance = detach_dir.length();
-			detach_dir /= distance;
-			Vec3 hit;
-			if (get<Awk>()->can_go(detach_dir, &hit))
-			{
-				if (fabs((hit - center).length() - distance) < AWK_RADIUS)
-					tracer.type = rayCallback.hit_target() ? TraceType::Target : TraceType::Normal;
-			}
-		}
-		else
-			tracer.pos = trace_end;
-
-		if (tracer.type != TraceType::None && movement_enabled())
-		{
-			if (u.input->get(Controls::Primary, gamepad) && !u.last_input->get(Controls::Primary, gamepad))
-				detach();
+			if (u.last_input->get(Controls::Interact, gamepad) && !u.input->get(Controls::Interact, gamepad))
+				fragment->collect();
 		}
 	}
 
-	Audio::listener_update(gamepad, camera_pos, look_quat);
-
-	// collect indicators
-	indicators.length = 0;
-	if (Game::state.mode == Game::Mode::Pvp)
-	{
-		Vec3 me = get<Transform>()->absolute_pos();
-
-		// awk indicators
-		if (indicators.length < indicators.capacity())
-		{
-			for (auto other_player = PlayerCommon::list.iterator(); !other_player.is_last(); other_player.next())
-			{
-				if (other_player.item() != get<PlayerCommon>())
-				{
-					b8 visible, tracking;
-					determine_visibility(get<PlayerCommon>(), other_player.item(), &visible, &tracking);
-
-					if (tracking || visible)
-						add_target_indicator(other_player.item()->get<Target>(), UI::alert_color, true);
-
-					if (indicators.length == indicators.capacity())
-						break;
-				}
-			}
-		}
-
-		// headshot indicators
-		if (indicators.length < indicators.capacity())
-		{
-			AI::Team team = get<AIAgent>()->team;
-			for (auto i = MinionCommon::list.iterator(); !i.is_last(); i.next())
-			{
-				if (i.item()->get<AIAgent>()->team != team)
-				{
-					add_target_indicator(i.item()->get<Target>(), UI::alert_color);
-					if (indicators.length == indicators.capacity())
-						break;
-				}
-			}
-		}
-
-		// health pickups
-		if (get<Health>()->hp < get<Health>()->hp_max)
-		{
-			for (auto i = HealthPickup::list.iterator(); !i.is_last(); i.next())
-			{
-				if (i.item()->owner.ref() != get<Health>())
-				{
-					add_target_indicator(i.item()->get<Target>(), UI::accent_color);
-					if (indicators.length == indicators.capacity())
-						break;
-				}
-			}
-		}
-	}
+	Audio::listener_update(gamepad, camera->pos, camera->rot);
 }
 
 LocalPlayerControl* LocalPlayerControl::player_for_camera(const Camera* cam)
@@ -1445,15 +1451,16 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 	if (params.technique != RenderTechnique::Default || params.camera != camera)
 		return;
 
-	AI::Team team = get<AIAgent>()->team;
-
 	const Rect2& viewport = params.camera->viewport;
 
-	// compass
+	if (has<Awk>())
 	{
-		Vec2 compass_size = Vec2(vi_min(viewport.size.x, viewport.size.y) * 0.3f);
-		if (Game::state.mode == Game::Mode::Pvp)
+		// pvp mode
+
+		AI::Team team = get<AIAgent>()->team;
+
 		{
+			// compass
 			b8 enemy_attacking = false;
 
 			Vec3 me = get<Transform>()->absolute_pos();
@@ -1469,17 +1476,21 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 				}
 			}
 
+			Vec2 compass_size = Vec2(vi_min(viewport.size.x, viewport.size.y) * 0.3f);
+
 			if (enemy_attacking)
 			{
 				// we're being attacked; flash the compass
 				b8 show = flash_function(Game::real_time.total);
 				if (show)
+				{
 					UI::mesh(params, Asset::Mesh::compass_inner, viewport.size * Vec2(0.5f, 0.5f), compass_size, UI::alert_color);
+				}
 				if (show && !flash_function(Game::real_time.total - Game::real_time.delta))
 					Audio::post_global_event(AK::EVENTS::PLAY_BEEP_BAD);
 			}
 
-			// draw indicators pointing toward player spawns
+			// indicators pointing toward player spawns
 			for (s32 i = 0; i < Team::list.capacity(); i++)
 			{
 				Team* t = &Team::list[i];
@@ -1495,11 +1506,8 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 				}
 			}
 		}
-	}
 
-	if (Game::state.mode == Game::Mode::Pvp)
-	{
-		// draw indicators
+		// indicators
 		{
 			for (s32 i = 0; i < indicators.length; i++)
 			{
@@ -1538,103 +1546,21 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 				}
 			}
 		}
-	}
-	else
-	{
-		// todo: highlight notes
-	}
 
-	// draw usernames directly over players' 3D positions
-	for (auto other_player = PlayerCommon::list.iterator(); !other_player.is_last(); other_player.next())
-	{
-		if (other_player.item() != get<PlayerCommon>())
+		// health indicator
+		if (Game::level.has_feature(Game::FeatureLevel::HealthPickups))
 		{
-			b8 visible, tracking;
-			determine_visibility(get<PlayerCommon>(), other_player.item(), &visible, &tracking);
+			const Health* health = get<Health>();
+			
+			Vec2 pos = viewport.size * Vec2(0.5f, 0.1f);
 
-			const Team::SensorTrackHistory& history = Team::list[(s32)team].player_track_history[other_player.item()->manager.id];
+			draw_hp_box(params, pos, health->hp_max);
 
-			if (!tracking && !visible) // if we can actually see them, the indicator has already been added using add_target_indicator in the update function
-				draw_indicator(params, history.pos, UI::disabled_color, false);
-
-			Vec3 pos3d = history.pos + Vec3(0, AWK_RADIUS * 2.0f, 0);
-
-			Vec2 p;
-			const Vec4* color;
-			b8 draw;
-			if (tracking || visible)
-			{
-				// highlight the username and draw it even if it's offscreen
-				is_onscreen(params, pos3d, &p);
-				draw = true;
-				color = &Team::ui_color(team, other_player.item()->get<AIAgent>()->team);
-			}
-			else
-			{
-				draw = UI::project(params, pos3d, &p);
-				color = &UI::disabled_color;
-			}
-
-			if (draw)
-			{
-				Vec2 hp_pos = p;
-				hp_pos.y += text_size * UI::scale;
-
-				Vec2 username_pos = hp_pos;
-				username_pos.y += (text_size * UI::scale) + HP_BOX_SPACING * 0.5f;
-
-				Vec2 danger_pos = username_pos;
-				danger_pos.y += (text_size * UI::scale) + HP_BOX_SPACING * 0.5f;
-
-				UIText username;
-				username.size = text_size;
-				username.font = Asset::Font::lowpoly;
-				username.anchor_x = UIText::Anchor::Center;
-				username.anchor_y = UIText::Anchor::Min;
-				username.color = *color;
-				username.text(other_player.item()->manager.ref()->username);
-
-				UIText danger;
-				b8 draw_danger = (tracking || visible) && history.hp > get<Health>()->hp;
-				if (draw_danger)
-				{
-					danger = username;
-					danger.text(_(strings::danger));
-					UI::box(params, danger.rect(danger_pos).outset(HP_BOX_SPACING), UI::background_color);
-				}
-
-				UI::box(params, username.rect(username_pos).outset(HP_BOX_SPACING), UI::background_color);
-
-				if (Game::level.has_feature(Game::FeatureLevel::HealthPickups))
-				{
-					draw_hp_box(params, hp_pos, history.hp_max);
-					draw_hp_indicator(params, hp_pos, history.hp, history.hp_max, *color);
-				}
-
-				username.draw(params, username_pos);
-
-				if (draw_danger && flash_function(Game::real_time.total))
-					danger.draw(params, danger_pos); // danger!
-			}
+			b8 flash_hp = damage_timer > 0.0f || health_flash_timer > 0.0f;
+			if (!flash_hp || flash_function(Game::real_time.total))
+				draw_hp_indicator(params, pos, health->hp, health->hp_max, flash_hp ? UI::default_color : Team::ui_color_friend);
 		}
-	}
 
-	// health indicator
-	if (has<Health>() && Game::level.has_feature(Game::FeatureLevel::HealthPickups))
-	{
-		const Health* health = get<Health>();
-		
-		Vec2 pos = viewport.size * Vec2(0.5f, 0.1f);
-
-		draw_hp_box(params, pos, health->hp_max);
-
-		b8 flash_hp = damage_timer > 0.0f || health_flash_timer > 0.0f;
-		if (!flash_hp || flash_function(Game::real_time.total))
-			draw_hp_indicator(params, pos, health->hp, health->hp_max, flash_hp ? UI::default_color : Team::ui_color_friend);
-	}
-
-	if (has<Awk>())
-	{
 		// stealth indicator
 		if (get<AIAgent>()->stealth)
 		{
@@ -1744,7 +1670,7 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 		{
 			r32 cooldown = get<PlayerCommon>()->cooldown;
 			r32 radius = cooldown == 0.0f ? 0.0f : vi_max(0.0f, 32.0f * (get<PlayerCommon>()->cooldown / AWK_MAX_DISTANCE_COOLDOWN));
-			if (radius > 0 || tracer.type == TraceType::None)
+			if (radius > 0 || reticle.type == ReticleType::None)
 			{
 				// hollow reticle
 				UI::triangle_border(params, { viewport.size * Vec2(0.5f, 0.5f), Vec2(4.0f + radius) * 2 * UI::scale }, 2, UI::accent_color, PI);
@@ -1753,9 +1679,9 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 			{
 				// solid reticle
 				Vec2 a;
-				if (UI::project(params, tracer.pos, &a))
+				if (UI::project(params, reticle.pos, &a))
 				{
-					if (tracer.type == TraceType::Target)
+					if (reticle.type == ReticleType::Target)
 					{
 						UI::triangle(params, { a, Vec2(12) * UI::scale }, UI::alert_color, PI);
 
@@ -1767,6 +1693,105 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 					else
 						UI::triangle(params, { a, Vec2(12) * UI::scale }, UI::accent_color, PI);
 				}
+			}
+		}
+
+		// usernames directly over players' 3D positions
+		for (auto other_player = PlayerCommon::list.iterator(); !other_player.is_last(); other_player.next())
+		{
+			if (other_player.item() != get<PlayerCommon>())
+			{
+				b8 visible, tracking;
+				determine_visibility(get<PlayerCommon>(), other_player.item(), &visible, &tracking);
+
+				const Team::SensorTrackHistory& history = Team::list[(s32)team].player_track_history[other_player.item()->manager.id];
+
+				if (!tracking && !visible) // if we can actually see them, the indicator has already been added using add_target_indicator in the update function
+					draw_indicator(params, history.pos, UI::disabled_color, false);
+
+				Vec3 pos3d = history.pos + Vec3(0, AWK_RADIUS * 2.0f, 0);
+
+				Vec2 p;
+				const Vec4* color;
+				b8 draw;
+				if (tracking || visible)
+				{
+					// highlight the username and draw it even if it's offscreen
+					is_onscreen(params, pos3d, &p);
+					draw = true;
+					color = &Team::ui_color(team, other_player.item()->get<AIAgent>()->team);
+				}
+				else
+				{
+					draw = UI::project(params, pos3d, &p);
+					color = &UI::disabled_color;
+				}
+
+				if (draw)
+				{
+					Vec2 hp_pos = p;
+					hp_pos.y += text_size * UI::scale;
+
+					Vec2 username_pos = hp_pos;
+					username_pos.y += (text_size * UI::scale) + HP_BOX_SPACING * 0.5f;
+
+					Vec2 danger_pos = username_pos;
+					danger_pos.y += (text_size * UI::scale) + HP_BOX_SPACING * 0.5f;
+
+					UIText username;
+					username.size = text_size;
+					username.font = Asset::Font::lowpoly;
+					username.anchor_x = UIText::Anchor::Center;
+					username.anchor_y = UIText::Anchor::Min;
+					username.color = *color;
+					username.text(other_player.item()->manager.ref()->username);
+
+					UIText danger;
+					b8 draw_danger = (tracking || visible) && history.hp > get<Health>()->hp;
+					if (draw_danger)
+					{
+						danger = username;
+						danger.text(_(strings::danger));
+						UI::box(params, danger.rect(danger_pos).outset(HP_BOX_SPACING), UI::background_color);
+					}
+
+					UI::box(params, username.rect(username_pos).outset(HP_BOX_SPACING), UI::background_color);
+
+					if (Game::level.has_feature(Game::FeatureLevel::HealthPickups))
+					{
+						draw_hp_box(params, hp_pos, history.hp_max);
+						draw_hp_indicator(params, hp_pos, history.hp, history.hp_max, *color);
+					}
+
+					username.draw(params, username_pos);
+
+					if (draw_danger && flash_function(Game::real_time.total))
+						danger.draw(params, danger_pos); // danger!
+				}
+			}
+		}
+	}
+	else
+	{
+		// parkour mode
+		DataFragment* fragment = DataFragment::in_range(get<Transform>()->absolute_pos());
+		if (fragment)
+		{
+			if (fragment->collected)
+			{
+			}
+			else
+			{
+				UIText text;
+				text.color = UI::accent_color;
+				text.anchor_x = UIText::Anchor::Center;
+				text.anchor_y = UIText::Anchor::Min;
+				text.size = 16.0f;
+				text.text("[{{Interact}}]");
+
+				Vec2 p = viewport.size * Vec2(0.5f, 0.3f);
+				UI::box(params, text.rect(p).outset(8.0f * UI::scale), UI::background_color);
+				text.draw(params, p);
 			}
 		}
 	}

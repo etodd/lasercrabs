@@ -1110,5 +1110,49 @@ void Shockwave::update(const Update& u)
 	}
 }
 
+void DataFragment::collect()
+{
+	collected = true;
+	get<PointLight>()->radius = 0.0f;
+	get<View>()->color = Vec3(0.5f);
+}
+
+#define DATA_FRAGMENT_RANGE 3.0f
+DataFragment* DataFragment::in_range(const Vec3& pos)
+{
+	for (auto i = list.iterator(); !i.is_last(); i.next())
+	{
+		if (!i.item()->collected)
+		{
+			Vec3 p = i.item()->get<Transform>()->absolute_pos();
+			if (pos.y > p.y
+				&& (pos - p).length_squared() < DATA_FRAGMENT_RANGE * DATA_FRAGMENT_RANGE)
+			{
+				return i.item();
+			}
+		}
+	}
+	return nullptr;
+}
+
+DataFragmentEntity::DataFragmentEntity(const Vec3& abs_pos, const Quat& abs_rot)
+{
+	Transform* transform = create<Transform>();
+	transform->pos = abs_pos;
+	transform->rot = abs_rot;
+
+	View* model = create<View>();
+	model->mesh = Asset::Mesh::data_fragment;
+	model->alpha();
+	model->shader = Asset::Shader::flat;
+
+	PointLight* light = create<PointLight>();
+	light->radius = 6.0f;
+	light->color = Vec3(1);
+	light->offset = Vec3(0, 1, 0);
+
+	create<DataFragment>();
+}
+
 
 }

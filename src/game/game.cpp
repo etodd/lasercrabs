@@ -106,8 +106,10 @@ b8 Game::init(LoopSync* sync)
 		sprintf(ui_string_file, "assets/str/ui_%s.json", language);
 		char dialogue_string_file[255];
 		sprintf(dialogue_string_file, "assets/str/dialogue_%s.json", language);
-		char dynamic_string_file[255];
-		sprintf(dynamic_string_file, "assets/str/misc_%s.json", language);
+		char misc_file[255];
+		sprintf(misc_file, "assets/str/misc_%s.json", language);
+		char notes_file[255];
+		sprintf(notes_file, "assets/str/notes_%s.json", language);
 		Json::json_free(json_language);
 
 		// UI
@@ -134,7 +136,18 @@ b8 Game::init(LoopSync* sync)
 
 		// misc strings
 		{
-			cJSON* json = Json::load(dynamic_string_file);
+			cJSON* json = Json::load(misc_file);
+			cJSON* element = json->child;
+			while (element)
+			{
+				strings_add_dynamic(element->string, element->valuestring);
+				element = element->next;
+			}
+		}
+
+		// notes
+		{
+			cJSON* json = Json::load(notes_file);
 			cJSON* element = json->child;
 			while (element)
 			{
@@ -979,6 +992,10 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 			Script* script = Script::find(name);
 			vi_assert(script);
 			scripts.add(script);
+		}
+		else if (cJSON_GetObjectItem(element, "DataFragment"))
+		{
+			entity = World::alloc<DataFragmentEntity>(absolute_pos, absolute_rot);
 		}
 		else if (cJSON_GetObjectItem(element, "Prop"))
 		{

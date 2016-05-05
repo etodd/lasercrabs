@@ -139,6 +139,19 @@ struct Shockwave : public ComponentType<Shockwave>
 	void update(const Update&);
 };
 
+struct DataFragment : public ComponentType<DataFragment>
+{
+	b8 collected;
+	void awake() {}
+	void collect();
+	static DataFragment* in_range(const Vec3&);
+};
+
+struct DataFragmentEntity : public Entity
+{
+	DataFragmentEntity(const Vec3&, const Quat&);
+};
+
 struct MoverEntity : public Entity
 {
 	MoverEntity(const b8, const b8, const b8);

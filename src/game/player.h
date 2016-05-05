@@ -81,16 +81,16 @@ struct PlayerCommon : public ComponentType<PlayerCommon>
 
 struct LocalPlayerControl : public ComponentType<LocalPlayerControl>
 {
-	enum class TraceType
+	enum class ReticleType
 	{
 		None,
 		Normal,
 		Target,
 	};
 
-	struct TraceEntry
+	struct Reticle
 	{
-		TraceType type;
+		ReticleType type;
 		Vec3 pos;
 	};
 
@@ -105,7 +105,7 @@ struct LocalPlayerControl : public ComponentType<LocalPlayerControl>
 
 	Ref<LocalPlayer> player;
 
-	TraceEntry tracer;
+	Reticle reticle;
 	StaticArray<Indicator, 32> indicators;
 	Camera* camera;
 	r32 fov_blend;

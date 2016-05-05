@@ -20,7 +20,8 @@ struct Script
 namespace Penelope
 {
 	void global_init();
-	void init(Entity* = nullptr, AssetID = AssetNull);
+	void init(AssetID = AssetNull);
+	void add_terminal(Entity*);
 	b8 has_focus();
 };
 

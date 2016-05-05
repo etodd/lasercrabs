@@ -50,6 +50,7 @@ namespace AK
         static const AkUniqueID PLAY_ZOOM_OUT = 1819052470U;
         static const AkUniqueID STOP = 788884573U;
         static const AkUniqueID STOP_ALL = 452547817U;
+        static const AkUniqueID STOP_DIALOGUE = 288905442U;
         static const AkUniqueID STOP_FLY = 419831083U;
     } // namespace EVENTS
 

@@ -19,6 +19,7 @@
 #include "utf8/utf8.h"
 #include "ai_player.h"
 #include "sha1/sha1.h"
+#include "settings.h"
 
 namespace VI
 {
@@ -399,7 +400,7 @@ namespace Penelope
 	struct Data
 	{
 		r32 time;
-		Ref<PlayerTrigger> terminal;
+		StaticArray<Ref<PlayerTrigger>, MAX_PLAYERS> terminals;
 		Schedule<const char*> texts;
 		Schedule<Face> faces;
 		Schedule<AkUniqueID> audio_events;
@@ -428,8 +429,12 @@ namespace Penelope
 
 	void terminal_active(b8 active)
 	{
-		data->terminal.ref()->radius = active ? TERMINAL_TRIGGER_RADIUS : 0.0f;
-		data->terminal.ref()->get<PointLight>()->radius = active ? TERMINAL_LIGHT_RADIUS : 0.0f;
+		for (s32 i = 0; i < data->terminals.length; i++)
+		{
+			PlayerTrigger* terminal = data->terminals[i].ref();
+			terminal->radius = active ? TERMINAL_TRIGGER_RADIUS : 0.0f;
+			terminal->get<PointLight>()->radius = active ? TERMINAL_LIGHT_RADIUS : 0.0f;
+		}
 	}
 
 	void clear()
@@ -444,6 +449,7 @@ namespace Penelope
 		data->callbacks.clear();
 		data->choices.clear();
 		data->node_executions.clear();
+		Audio::post_global_event(AK::EVENTS::STOP_DIALOGUE);
 		Audio::dialogue_done = false;
 	}
 
@@ -545,9 +551,17 @@ namespace Penelope
 
 	void update(const Update& u)
 	{
-		if (data->terminal.ref()
-			&& data->terminal.ref()->count() > 0
-			&& u.last_input->get(Controls::Interact, 0) && !u.input->get(Controls::Interact, 0))
+		PlayerTrigger* terminal = nullptr;
+		for (s32 i = 0; i < data->terminals.length; i++)
+		{
+			if (data->terminals[i].ref()->count() > 0)
+			{
+				terminal = data->terminals[i].ref();
+				break;
+			}
+		}
+
+		if (terminal && u.last_input->get(Controls::Interact, 0) && !u.input->get(Controls::Interact, 0))
 		{
 			terminal_active(false);
 			clear_and_execute(Penelope::node_lookup[data->entry_point], 0.5f);
@@ -698,6 +712,16 @@ namespace Penelope
 		if (PlayerCommon::list.count() > 0)
 			fragment = DataFragment::in_range(PlayerCommon::list.iterator().item()->get<Transform>()->absolute_pos());
 
+		PlayerTrigger* terminal = nullptr;
+		for (s32 i = 0; i < data->terminals.length; i++)
+		{
+			if (data->terminals[i].ref()->count() > 0)
+			{
+				terminal = data->terminals[i].ref();
+				break;
+			}
+		}
+
 		// fragment UI
 		if (fragment)
 		{
@@ -710,23 +734,7 @@ namespace Penelope
 			{
 				text.color = UI::default_color;
 				text.wrap_width = MENU_ITEM_WIDTH - MENU_ITEM_PADDING * 2.0f;
-
-				s32 collected_count = DataFragment::count_collected();
-				if (collected_count == DataFragment::list.count()) // got all the fragments
-					text.text(_(strings::data_fragment), collected_count, DataFragment::list.count(), _(Game::level.note));
-				else
-				{
-					// still more fragments to collect; for now it's just gibberish
-					char gibberish[64] = {};
-					u32 j = (Game::state.level * 10) + (fragment->id() * 1323);
-					for (s32 i = 0; i < 63; i++)
-					{
-						j += 236801238;
-						char hex[] = { '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f', ' ', };
-						gibberish[i] = hex[j % 17];
-					}
-					text.text(_(strings::data_fragment), collected_count, DataFragment::list.count(), gibberish);
-				}
+				text.text(_(strings::data_fragment), DataFragment::count_collected(), DataFragment::list.count(), _(fragment->note));
 				text.clip = 1 + (s32)((Game::real_time.total - data->fragment_time) * 80.0f);
 			}
 			else // hasn't been collected yet
@@ -740,7 +748,7 @@ namespace Penelope
 			text.draw(params, p);
 		}
 
-		if (data->terminal.ref()->count() > 0 || (data->choices.active() && !has_focus()))
+		if (terminal || (data->choices.active() && !has_focus()))
 		{
 			// we are near a terminal, or penelope is waiting on the player to answer a question
 			// prompt the player to hit the "Interact" button
@@ -802,7 +810,11 @@ namespace Penelope
 		// frame
 		{
 			// visualize dialogue volume
-			r32 volume_scale = 1.0f + Audio::dialogue_volume * 0.5f;
+			r32 volume_scale;
+			if (Settings::sfx > 0)
+				volume_scale = 1.0f + (Audio::dialogue_volume / ((r32)Settings::sfx / 100.0f)) * 0.5f;
+			else
+				volume_scale = 1.0f;
 			Vec2 frame_size(32.0f * scale * volume_scale);
 			UI::centered_box(params, { pos, frame_size }, UI::background_color, PI * 0.25f);
 
@@ -907,12 +919,11 @@ namespace Penelope
 			Menu::transition(Game::state.level, Game::Mode::Pvp); // reload current level in PvP mode
 	}
 
-	void init(Entity* term, AssetID entry_point)
+	void init(AssetID entry_point)
 	{
 		if (Game::state.mode == Game::Mode::Parkour)
 		{
 			data = new Data();
-			data->terminal = term ? term->get<PlayerTrigger>() : nullptr;
 			data->entry_point = entry_point;
 			Audio::dialogue_done = false;
 			Game::updates.add(update);
@@ -923,6 +934,11 @@ namespace Penelope
 
 			data->node_executed.link(&node_executed);
 		}
+	}
+
+	void add_terminal(Entity* term)
+	{
+		data->terminals.add(term->get<PlayerTrigger>());
 	}
 }
 

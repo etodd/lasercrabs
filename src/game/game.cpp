@@ -828,9 +828,14 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 		{
 			// World is guaranteed to be the first element in the entity list
 
-			level.feature_level = (FeatureLevel)Json::get_s32(element, "feature_level", (s32)FeatureLevel::All);
+			if (state.mode == Mode::Parkour)
+			{
+				const char* entry_point_str = Json::get_string(element, "dialogue");
+				AssetID entry_point = strings_get(entry_point_str);
+				Penelope::init(entry_point);
+			}
 
-			level.note = strings_get(Json::get_string(element, "note"));
+			level.feature_level = (FeatureLevel)Json::get_s32(element, "feature_level", (s32)FeatureLevel::All);
 
 			{
 				b8 lock_teams = Json::get_s32(element, "lock_teams");
@@ -957,10 +962,7 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 			{
 				entity = World::alloc<Terminal>();
 				absolute_pos.y += TERMINAL_HEIGHT * 0.5f;
-				const char* entry_point_str = Json::get_string(element, "entry_point");
-				AssetID entry_point = strings_get(entry_point_str);
-				vi_assert(entry_point != AssetNull);
-				Penelope::init(entity, entry_point);
+				Penelope::add_terminal(entity);
 			}
 		}
 		else if (cJSON_GetObjectItem(element, "SensorInterestPoint"))
@@ -998,7 +1000,10 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 		else if (cJSON_GetObjectItem(element, "DataFragment"))
 		{
 			if (state.mode == Mode::Parkour)
-				entity = World::alloc<DataFragmentEntity>(absolute_pos, absolute_rot);
+			{
+				AssetID note = strings_get(Json::get_string(element, "DataFragment"));
+				entity = World::alloc<DataFragmentEntity>(absolute_pos, absolute_rot, note);
+			}
 		}
 		else if (cJSON_GetObjectItem(element, "Prop"))
 		{

@@ -6,7 +6,7 @@
 #include "render/ui.h"
 #include "ai.h"
 
-#define MAX_PLAYERS 8
+#define MAX_PLAYERS 4
 
 namespace VI
 {

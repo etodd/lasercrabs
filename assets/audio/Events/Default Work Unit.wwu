@@ -344,6 +344,17 @@
 								</Action>
 							</ChildrenList>
 						</Event>
+						<Event Name="Stop_Dialogue" ID="{0B14493D-48A1-4A6D-9E63-FC3BF4F3555C}">
+							<ChildrenList>
+								<Action Name="Stop" ID="{17194F60-CB3F-431D-8D4F-13CD53A92A4B}" ShortID="973001764" Type="Stop" Scope="One" Global="false">
+									<ElementList>
+										<Element ID="{32F7D346-21B8-4150-8B50-23035373AB40}" Global="false">
+											<ObjectRef Name="penelope" ID="{268C5A9B-FE0E-4CCA-8A21-B0D3CC20AED4}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+										</Element>
+									</ElementList>
+								</Action>
+							</ChildrenList>
+						</Event>
 					</ChildrenList>
 				</Folder>
 				<Folder Name="penelope" ID="{04E54C47-F0F5-451B-8777-7B7C24045653}" ShortID="896672305">

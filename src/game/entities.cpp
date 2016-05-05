@@ -1154,7 +1154,7 @@ s32 DataFragment::count_collected()
 	return count;
 }
 
-DataFragmentEntity::DataFragmentEntity(const Vec3& abs_pos, const Quat& abs_rot)
+DataFragmentEntity::DataFragmentEntity(const Vec3& abs_pos, const Quat& abs_rot, AssetID note)
 {
 	Transform* transform = create<Transform>();
 	transform->pos = abs_pos;
@@ -1171,7 +1171,7 @@ DataFragmentEntity::DataFragmentEntity(const Vec3& abs_pos, const Quat& abs_rot)
 	model->shader = Asset::Shader::flat;
 	model->color = Vec4(light->color, 1);
 
-	create<DataFragment>();
+	create<DataFragment>()->note = note;
 }
 
 

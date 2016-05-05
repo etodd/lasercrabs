@@ -145,6 +145,7 @@ struct DataFragment : public ComponentType<DataFragment>
 	void awake() {}
 	void collect();
 	static DataFragment* in_range(const Vec3&);
+	static s32 count_collected();
 };
 
 struct DataFragmentEntity : public Entity

@@ -409,6 +409,7 @@ namespace Penelope
 		Mode mode;
 		ID current_text_node;
 		AssetID entry_point;
+		r32 fragment_time;
 
 		UIText text;
 		r32 text_clip;
@@ -552,6 +553,26 @@ namespace Penelope
 			clear_and_execute(Penelope::node_lookup[data->entry_point], 0.5f);
 		}
 
+		// data fragments
+		DataFragment* fragment = nullptr;
+		{
+			if (PlayerCommon::list.count() > 0)
+				fragment = DataFragment::in_range(PlayerCommon::list.iterator().item()->get<Transform>()->absolute_pos());
+			if (fragment && !fragment->collected)
+			{
+				if (u.last_input->get(Controls::Interact, 0) && !u.input->get(Controls::Interact, 0))
+					fragment->collect();
+			}
+
+			if (fragment && fragment->collected)
+			{
+				if (data->fragment_time == 0.0f)
+					data->fragment_time = Game::real_time.total;
+			}
+			else
+				data->fragment_time = 0.0f;
+		}
+
 		if (Audio::dialogue_done)
 		{
 			// we've completed displaying a text message
@@ -624,8 +645,11 @@ namespace Penelope
 		{
 			if (!has_focus())
 			{
-				if (u.last_input->get(Controls::Interact, 0) && !u.input->get(Controls::Interact, 0))
-					data->mode = Mode::Center; // we have focus now!
+				if (!fragment || fragment->collected)
+				{
+					if (u.input->get(Controls::Interact, 0))
+						data->mode = Mode::Center; // we have focus now!
+				}
 			}
 
 			const Choice& choice = data->choices.current();
@@ -670,19 +694,72 @@ namespace Penelope
 	{
 		const Rect2& vp = params.camera->viewport;
 
-		if (data->terminal.ref()->count() > 0 || (data->choices.active() && !has_focus()))
+		DataFragment* fragment = nullptr;
+		if (PlayerCommon::list.count() > 0)
+			fragment = DataFragment::in_range(PlayerCommon::list.iterator().item()->get<Transform>()->absolute_pos());
+
+		// fragment UI
+		if (fragment)
 		{
 			UIText text;
-			text.color = UI::accent_color;
 			text.anchor_x = UIText::Anchor::Center;
-			text.anchor_y = UIText::Anchor::Min;
+			text.anchor_y = UIText::Anchor::Max;
 			text.size = 16.0f;
-			text.text("[{{Interact}}]");
 
-			Vec2 p = vp.size * Vec2(0.5f, 0.3f);
+			if (fragment->collected)
+			{
+				text.color = UI::default_color;
+				text.wrap_width = MENU_ITEM_WIDTH - MENU_ITEM_PADDING * 2.0f;
+
+				s32 collected_count = DataFragment::count_collected();
+				if (collected_count == DataFragment::list.count()) // got all the fragments
+					text.text(_(strings::data_fragment), collected_count, DataFragment::list.count(), _(Game::level.note));
+				else
+				{
+					// still more fragments to collect; for now it's just gibberish
+					char gibberish[64] = {};
+					u32 j = (Game::state.level * 10) + (fragment->id() * 1323);
+					for (s32 i = 0; i < 63; i++)
+					{
+						j += 236801238;
+						char hex[] = { '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f', ' ', };
+						gibberish[i] = hex[j % 17];
+					}
+					text.text(_(strings::data_fragment), collected_count, DataFragment::list.count(), gibberish);
+				}
+				text.clip = 1 + (s32)((Game::real_time.total - data->fragment_time) * 80.0f);
+			}
+			else // hasn't been collected yet
+			{
+				text.color = UI::accent_color;
+				text.text("[{{Interact}}]");
+			}
+
+			Vec2 p = vp.size * Vec2(0.5f, 0.9f);
 			UI::box(params, text.rect(p).outset(8.0f * UI::scale), UI::background_color);
 			text.draw(params, p);
 		}
+
+		if (data->terminal.ref()->count() > 0 || (data->choices.active() && !has_focus()))
+		{
+			// we are near a terminal, or penelope is waiting on the player to answer a question
+			// prompt the player to hit the "Interact" button
+			if (!fragment || fragment->collected) // if there's an uncollected fragment, that takes precedence
+			{
+				UIText text;
+				text.color = UI::accent_color;
+				text.anchor_x = UIText::Anchor::Center;
+				text.anchor_y = UIText::Anchor::Min;
+				text.size = 16.0f;
+				text.text("[{{Interact}}]");
+
+				Vec2 p = vp.size * Vec2(0.5f, 0.3f);
+				UI::box(params, text.rect(p).outset(8.0f * UI::scale), UI::background_color);
+				text.draw(params, p);
+			}
+		}
+
+		// penelope face and UI
 
 		Face face = data->faces.current();
 
@@ -810,7 +887,8 @@ namespace Penelope
 		}
 
 		// menu
-		data->menu.draw_alpha(params);
+		if (!fragment || fragment->collected) // if there's an uncollected fragment, that takes precedence
+			data->menu.draw_alpha(params);
 	}
 
 	void cleanup()

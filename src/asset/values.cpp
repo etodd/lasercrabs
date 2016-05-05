@@ -401,6 +401,7 @@ const char* AssetLookup::String::names[] =
 	"close",
 	"connecting",
 	"danger",
+	"data_fragment",
 	"defeat",
 	"detected",
 	"draw",

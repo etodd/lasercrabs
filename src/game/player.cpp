@@ -888,7 +888,8 @@ LocalPlayerControl::LocalPlayerControl(u8 gamepad)
 	enable_input(true),
 	damage_timer(),
 	health_flash_timer(),
-	rumble()
+	rumble(),
+	data_fragment_time()
 {
 	camera = Camera::add();
 }
@@ -1424,13 +1425,6 @@ void LocalPlayerControl::update(const Update& u)
 		camera->pos = camera_pos + (Game::state.third_person ? look_quat * Vec3(0, 0, -2) : Vec3::zero);
 		camera->range = 0.0f;
 		camera->rot = look_quat;
-
-		DataFragment* fragment = DataFragment::in_range(get<Transform>()->absolute_pos());
-		if (fragment && !fragment->collected)
-		{
-			if (u.last_input->get(Controls::Interact, gamepad) && !u.input->get(Controls::Interact, gamepad))
-				fragment->collect();
-		}
 	}
 
 	Audio::listener_update(gamepad, camera->pos, camera->rot);
@@ -1448,164 +1442,206 @@ LocalPlayerControl* LocalPlayerControl::player_for_camera(const Camera* cam)
 
 void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 {
-	if (params.technique != RenderTechnique::Default || params.camera != camera)
+	if (!has<Awk>() || params.technique != RenderTechnique::Default || params.camera != camera)
 		return;
 
 	const Rect2& viewport = params.camera->viewport;
 
-	if (has<Awk>())
+	AI::Team team = get<AIAgent>()->team;
+
 	{
-		// pvp mode
+		// compass
+		b8 enemy_attacking = false;
 
-		AI::Team team = get<AIAgent>()->team;
+		Vec3 me = get<Transform>()->absolute_pos();
 
+		for (auto i = PlayerCommon::list.iterator(); !i.is_last(); i.next())
 		{
-			// compass
-			b8 enemy_attacking = false;
-
-			Vec3 me = get<Transform>()->absolute_pos();
-
-			for (auto i = PlayerCommon::list.iterator(); !i.is_last(); i.next())
+			if (PlayerCommon::visibility.get(PlayerCommon::visibility_hash(get<PlayerCommon>(), i.item())))
 			{
-				if (PlayerCommon::visibility.get(PlayerCommon::visibility_hash(get<PlayerCommon>(), i.item())))
-				{
-					// determine if they're attacking us
-					if (!i.item()->get<Transform>()->parent.ref()
-						&& Vec3::normalize(i.item()->get<Awk>()->velocity).dot(Vec3::normalize(me - i.item()->get<Transform>()->absolute_pos())) > 0.95f)
-						enemy_attacking = true;
-				}
+				// determine if they're attacking us
+				if (!i.item()->get<Transform>()->parent.ref()
+					&& Vec3::normalize(i.item()->get<Awk>()->velocity).dot(Vec3::normalize(me - i.item()->get<Transform>()->absolute_pos())) > 0.95f)
+					enemy_attacking = true;
 			}
+		}
 
-			Vec2 compass_size = Vec2(vi_min(viewport.size.x, viewport.size.y) * 0.3f);
+		Vec2 compass_size = Vec2(vi_min(viewport.size.x, viewport.size.y) * 0.3f);
 
-			if (enemy_attacking)
+		if (enemy_attacking)
+		{
+			// we're being attacked; flash the compass
+			b8 show = flash_function(Game::real_time.total);
+			if (show)
 			{
-				// we're being attacked; flash the compass
-				b8 show = flash_function(Game::real_time.total);
-				if (show)
-				{
-					UI::mesh(params, Asset::Mesh::compass_inner, viewport.size * Vec2(0.5f, 0.5f), compass_size, UI::alert_color);
-				}
-				if (show && !flash_function(Game::real_time.total - Game::real_time.delta))
-					Audio::post_global_event(AK::EVENTS::PLAY_BEEP_BAD);
+				UI::mesh(params, Asset::Mesh::compass_inner, viewport.size * Vec2(0.5f, 0.5f), compass_size, UI::alert_color);
 			}
+			if (show && !flash_function(Game::real_time.total - Game::real_time.delta))
+				Audio::post_global_event(AK::EVENTS::PLAY_BEEP_BAD);
+		}
 
-			// indicators pointing toward player spawns
-			for (s32 i = 0; i < Team::list.capacity(); i++)
+		// indicators pointing toward player spawns
+		for (s32 i = 0; i < Team::list.capacity(); i++)
+		{
+			Team* t = &Team::list[i];
+			if (t->player_spawn.ref())
 			{
-				Team* t = &Team::list[i];
-				if (t->player_spawn.ref())
+				Vec3 to_spawn = t->player_spawn.ref()->get<Transform>()->absolute_pos() - me;
+				r32 distance = to_spawn.length();
+				if (distance > PLAYER_SPAWN_RADIUS)
 				{
-					Vec3 to_spawn = t->player_spawn.ref()->get<Transform>()->absolute_pos() - me;
-					r32 distance = to_spawn.length();
-					if (distance > PLAYER_SPAWN_RADIUS)
-					{
-						to_spawn /= distance;
-						UI::mesh(params, Asset::Mesh::compass_indicator, viewport.size * Vec2(0.5f, 0.5f), compass_size, Team::ui_color(team, t->team()), atan2f(to_spawn.x, to_spawn.z) - get<PlayerCommon>()->angle_horizontal);
-					}
+					to_spawn /= distance;
+					UI::mesh(params, Asset::Mesh::compass_indicator, viewport.size * Vec2(0.5f, 0.5f), compass_size, Team::ui_color(team, t->team()), atan2f(to_spawn.x, to_spawn.z) - get<PlayerCommon>()->angle_horizontal);
 				}
 			}
 		}
+	}
 
-		// indicators
+	// indicators
+	{
+		for (s32 i = 0; i < indicators.length; i++)
 		{
-			for (s32 i = 0; i < indicators.length; i++)
-			{
-				const Indicator& indicator = indicators[i];
-				draw_indicator(params, indicator.pos, *indicator.color, indicator.offscreen);
-			}
+			const Indicator& indicator = indicators[i];
+			draw_indicator(params, indicator.pos, *indicator.color, indicator.offscreen);
 		}
+	}
 
-		// highlight teleporters
+	// highlight teleporters
+	{
+		for (auto t = Teleporter::list.iterator(); !t.is_last(); t.next())
 		{
-			for (auto t = Teleporter::list.iterator(); !t.is_last(); t.next())
-			{
-				if (t.item()->team == team)
-					draw_indicator(params, t.item()->get<Transform>()->absolute_pos(), Team::ui_color_friend, false);
-			}
+			if (t.item()->team == team)
+				draw_indicator(params, t.item()->get<Transform>()->absolute_pos(), Team::ui_color_friend, false);
 		}
+	}
 
-		// highlight control points
+	// highlight control points
+	{
+		Vec3 me = get<Transform>()->absolute_pos();
+		for (auto i = ControlPoint::list.iterator(); !i.is_last(); i.next())
 		{
-			Vec3 me = get<Transform>()->absolute_pos();
-			for (auto i = ControlPoint::list.iterator(); !i.is_last(); i.next())
+			Vec3 pos = i.item()->get<Transform>()->absolute_pos();
+			if ((pos - me).length_squared() < AWK_MAX_DISTANCE * AWK_MAX_DISTANCE)
 			{
-				Vec3 pos = i.item()->get<Transform>()->absolute_pos();
-				if ((pos - me).length_squared() < AWK_MAX_DISTANCE * AWK_MAX_DISTANCE)
+				Vec2 p;
+				if (UI::project(params, pos, &p))
 				{
-					Vec2 p;
-					if (UI::project(params, pos, &p))
-					{
-						Vec2 icon_size(text_size * UI::scale);
-						UI::box(params, Rect2(p + icon_size * -0.5f, icon_size).outset(4.0f * UI::scale), UI::background_color);
+					Vec2 icon_size(text_size * UI::scale);
+					UI::box(params, Rect2(p + icon_size * -0.5f, icon_size).outset(4.0f * UI::scale), UI::background_color);
 
-						AI::Team control_point_team = i.item()->team;
-						const Vec4& color = control_point_team == team ? Team::ui_color_friend : (control_point_team == AI::Team::None ? UI::default_color : Team::ui_color_enemy);
-						UI::mesh(params, Asset::Mesh::icon_credits, p, icon_size, color);
-					}
+					AI::Team control_point_team = i.item()->team;
+					const Vec4& color = control_point_team == team ? Team::ui_color_friend : (control_point_team == AI::Team::None ? UI::default_color : Team::ui_color_enemy);
+					UI::mesh(params, Asset::Mesh::icon_credits, p, icon_size, color);
 				}
 			}
 		}
+	}
 
-		// health indicator
-		if (Game::level.has_feature(Game::FeatureLevel::HealthPickups))
+	// health indicator
+	if (Game::level.has_feature(Game::FeatureLevel::HealthPickups))
+	{
+		const Health* health = get<Health>();
+		
+		Vec2 pos = viewport.size * Vec2(0.5f, 0.1f);
+
+		draw_hp_box(params, pos, health->hp_max);
+
+		b8 flash_hp = damage_timer > 0.0f || health_flash_timer > 0.0f;
+		if (!flash_hp || flash_function(Game::real_time.total))
+			draw_hp_indicator(params, pos, health->hp, health->hp_max, flash_hp ? UI::default_color : Team::ui_color_friend);
+	}
+
+	// stealth indicator
+	if (get<AIAgent>()->stealth)
+	{
+		UIText text;
+		text.color = UI::accent_color;
+		text.text(_(strings::stealth));
+		text.font = Asset::Font::lowpoly;
+		text.anchor_x = UIText::Anchor::Center;
+		text.anchor_y = UIText::Anchor::Center;
+		text.size = text_size;
+		Vec2 pos = viewport.size * Vec2(0.5f, 0.7f);
+		UI::box(params, text.rect(pos).outset(8.0f * UI::scale), UI::background_color);
+		text.draw(params, pos);
+	}
+
+	// detect danger
+	{
+		r32 detect_danger = get<PlayerCommon>()->detect_danger();
+		Vec2 pos = params.camera->viewport.size * Vec2(0.5f, 0.4f);
+		if (detect_danger == 1.0f)
 		{
-			const Health* health = get<Health>();
-			
-			Vec2 pos = viewport.size * Vec2(0.5f, 0.1f);
+			if (flash_function(Game::real_time.total))
+			{
+				UIText text;
+				text.font = Asset::Font::lowpoly;
+				text.size = 18.0f;
+				text.color = UI::alert_color;
+				text.anchor_x = UIText::Anchor::Center;
+				text.anchor_y = UIText::Anchor::Center;
 
-			draw_hp_box(params, pos, health->hp_max);
+				text.text(_(strings::detected));
 
-			b8 flash_hp = damage_timer > 0.0f || health_flash_timer > 0.0f;
-			if (!flash_hp || flash_function(Game::real_time.total))
-				draw_hp_indicator(params, pos, health->hp, health->hp_max, flash_hp ? UI::default_color : Team::ui_color_friend);
+				Rect2 box = text.rect(pos).outset(6 * UI::scale);
+				UI::box(params, box, UI::background_color);
+				text.draw(params, pos);
+			}
 		}
-
-		// stealth indicator
-		if (get<AIAgent>()->stealth)
+		else if (detect_danger > 0.0f)
 		{
+			// draw bar
+			Vec2 bar_size(180.0f * UI::scale, 32.0f * UI::scale);
+			Rect2 bar = { pos + bar_size * -0.5f, bar_size };
+			UI::box(params, bar, UI::background_color);
+			UI::border(params, bar, 2, UI::alert_color);
+			UI::box(params, { bar.pos, Vec2(bar.size.x * detect_danger, bar.size.y) }, UI::alert_color);
+
 			UIText text;
-			text.color = UI::accent_color;
-			text.text(_(strings::stealth));
 			text.font = Asset::Font::lowpoly;
+			text.size = 18.0f;
+			text.color = UI::background_color;
 			text.anchor_x = UIText::Anchor::Center;
 			text.anchor_y = UIText::Anchor::Center;
-			text.size = text_size;
-			Vec2 pos = viewport.size * Vec2(0.5f, 0.7f);
-			UI::box(params, text.rect(pos).outset(8.0f * UI::scale), UI::background_color);
-			text.draw(params, pos);
+			text.text(_(strings::alarm));
+			text.draw(params, bar.pos + bar.size * 0.5f);
+
+			// todo: sound
 		}
+	}
 
-		// detect danger
+	// ability spawn timer
+	{
+		PlayerManager* manager = get<PlayerCommon>()->manager.ref();
+		if (manager->current_spawn_ability != Ability::None)
 		{
-			r32 detect_danger = get<PlayerCommon>()->detect_danger();
-			Vec2 pos = params.camera->viewport.size * Vec2(0.5f, 0.4f);
-			if (detect_danger == 1.0f)
-			{
-				if (flash_function(Game::real_time.total))
-				{
-					UIText text;
-					text.font = Asset::Font::lowpoly;
-					text.size = 18.0f;
-					text.color = UI::alert_color;
-					text.anchor_x = UIText::Anchor::Center;
-					text.anchor_y = UIText::Anchor::Center;
-
-					text.text(_(strings::detected));
-
-					Rect2 box = text.rect(pos).outset(6 * UI::scale);
-					UI::box(params, box, UI::background_color);
-					text.draw(params, pos);
-				}
-			}
-			else if (detect_danger > 0.0f)
+			const AbilityInfo& info = AbilityInfo::list[(s32)manager->current_spawn_ability];
+			r32 ability_spawn_timer = manager->spawn_ability_timer;
+			
+			if (ability_spawn_timer < info.spawn_time - ABILITY_USE_TIME)
 			{
 				// draw bar
+
+				r32 total_time;
+				AssetID string;
+				if (manager->at_spawn())
+				{
+					// if we're at the spawn, we're upgrading the ability, not spawning it
+					total_time = ABILITY_UPGRADE_TIME;
+					string = strings::upgrading;
+				}
+				else
+				{
+					total_time = info.spawn_time;
+					string = strings::ability_spawn_cost;
+				}
+
+				Vec2 pos = params.camera->viewport.size * Vec2(0.5f, 0.2f);
 				Vec2 bar_size(180.0f * UI::scale, 32.0f * UI::scale);
 				Rect2 bar = { pos + bar_size * -0.5f, bar_size };
 				UI::box(params, bar, UI::background_color);
-				UI::border(params, bar, 2, UI::alert_color);
-				UI::box(params, { bar.pos, Vec2(bar.size.x * detect_danger, bar.size.y) }, UI::alert_color);
+				UI::border(params, bar, 2, UI::accent_color);
+				UI::box(params, { bar.pos, Vec2(bar.size.x * (1.0f - (ability_spawn_timer / total_time)), bar.size.y) }, UI::accent_color);
 
 				UIText text;
 				text.font = Asset::Font::lowpoly;
@@ -1613,185 +1649,114 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 				text.color = UI::background_color;
 				text.anchor_x = UIText::Anchor::Center;
 				text.anchor_y = UIText::Anchor::Center;
-				text.text(_(strings::alarm));
+				text.text(_(string), info.spawn_cost);
 				text.draw(params, bar.pos + bar.size * 0.5f);
-
-				// todo: sound
-			}
-		}
-
-		// ability spawn timer
-		{
-			PlayerManager* manager = get<PlayerCommon>()->manager.ref();
-			if (manager->current_spawn_ability != Ability::None)
-			{
-				const AbilityInfo& info = AbilityInfo::list[(s32)manager->current_spawn_ability];
-				r32 ability_spawn_timer = manager->spawn_ability_timer;
-				
-				if (ability_spawn_timer < info.spawn_time - ABILITY_USE_TIME)
-				{
-					// draw bar
-
-					r32 total_time;
-					AssetID string;
-					if (manager->at_spawn())
-					{
-						// if we're at the spawn, we're upgrading the ability, not spawning it
-						total_time = ABILITY_UPGRADE_TIME;
-						string = strings::upgrading;
-					}
-					else
-					{
-						total_time = info.spawn_time;
-						string = strings::ability_spawn_cost;
-					}
-
-					Vec2 pos = params.camera->viewport.size * Vec2(0.5f, 0.2f);
-					Vec2 bar_size(180.0f * UI::scale, 32.0f * UI::scale);
-					Rect2 bar = { pos + bar_size * -0.5f, bar_size };
-					UI::box(params, bar, UI::background_color);
-					UI::border(params, bar, 2, UI::accent_color);
-					UI::box(params, { bar.pos, Vec2(bar.size.x * (1.0f - (ability_spawn_timer / total_time)), bar.size.y) }, UI::accent_color);
-
-					UIText text;
-					text.font = Asset::Font::lowpoly;
-					text.size = 18.0f;
-					text.color = UI::background_color;
-					text.anchor_x = UIText::Anchor::Center;
-					text.anchor_y = UIText::Anchor::Center;
-					text.text(_(string), info.spawn_cost);
-					text.draw(params, bar.pos + bar.size * 0.5f);
-				}
-			}
-		}
-
-		// reticle
-		if (get<Transform>()->parent.ref() && movement_enabled() && !get<Teleportee>()->in_progress())
-		{
-			r32 cooldown = get<PlayerCommon>()->cooldown;
-			r32 radius = cooldown == 0.0f ? 0.0f : vi_max(0.0f, 32.0f * (get<PlayerCommon>()->cooldown / AWK_MAX_DISTANCE_COOLDOWN));
-			if (radius > 0 || reticle.type == ReticleType::None)
-			{
-				// hollow reticle
-				UI::triangle_border(params, { viewport.size * Vec2(0.5f, 0.5f), Vec2(4.0f + radius) * 2 * UI::scale }, 2, UI::accent_color, PI);
-			}
-			else
-			{
-				// solid reticle
-				Vec2 a;
-				if (UI::project(params, reticle.pos, &a))
-				{
-					if (reticle.type == ReticleType::Target)
-					{
-						UI::triangle(params, { a, Vec2(12) * UI::scale }, UI::alert_color, PI);
-
-						const r32 ratio = 0.8660254037844386f;
-						UI::centered_box(params, { a + Vec2(12.0f * ratio, -6.0f) * UI::scale, Vec2(8.0f, 2.0f) * UI::scale }, UI::accent_color, PI * 0.5f * -0.33f);
-						UI::centered_box(params, { a + Vec2(-12.0f * ratio, -6.0f) * UI::scale, Vec2(8.0f, 2.0f) * UI::scale }, UI::accent_color, PI * 0.5f * 0.33f);
-						UI::centered_box(params, { a + Vec2(0, 12.0f) * UI::scale, Vec2(2.0f, 8.0f) * UI::scale }, UI::accent_color);
-					}
-					else
-						UI::triangle(params, { a, Vec2(12) * UI::scale }, UI::accent_color, PI);
-				}
-			}
-		}
-
-		// usernames directly over players' 3D positions
-		for (auto other_player = PlayerCommon::list.iterator(); !other_player.is_last(); other_player.next())
-		{
-			if (other_player.item() != get<PlayerCommon>())
-			{
-				b8 visible, tracking;
-				determine_visibility(get<PlayerCommon>(), other_player.item(), &visible, &tracking);
-
-				const Team::SensorTrackHistory& history = Team::list[(s32)team].player_track_history[other_player.item()->manager.id];
-
-				if (!tracking && !visible) // if we can actually see them, the indicator has already been added using add_target_indicator in the update function
-					draw_indicator(params, history.pos, UI::disabled_color, false);
-
-				Vec3 pos3d = history.pos + Vec3(0, AWK_RADIUS * 2.0f, 0);
-
-				Vec2 p;
-				const Vec4* color;
-				b8 draw;
-				if (tracking || visible)
-				{
-					// highlight the username and draw it even if it's offscreen
-					is_onscreen(params, pos3d, &p);
-					draw = true;
-					color = &Team::ui_color(team, other_player.item()->get<AIAgent>()->team);
-				}
-				else
-				{
-					draw = UI::project(params, pos3d, &p);
-					color = &UI::disabled_color;
-				}
-
-				if (draw)
-				{
-					Vec2 hp_pos = p;
-					hp_pos.y += text_size * UI::scale;
-
-					Vec2 username_pos = hp_pos;
-					username_pos.y += (text_size * UI::scale) + HP_BOX_SPACING * 0.5f;
-
-					Vec2 danger_pos = username_pos;
-					danger_pos.y += (text_size * UI::scale) + HP_BOX_SPACING * 0.5f;
-
-					UIText username;
-					username.size = text_size;
-					username.font = Asset::Font::lowpoly;
-					username.anchor_x = UIText::Anchor::Center;
-					username.anchor_y = UIText::Anchor::Min;
-					username.color = *color;
-					username.text(other_player.item()->manager.ref()->username);
-
-					UIText danger;
-					b8 draw_danger = (tracking || visible) && history.hp > get<Health>()->hp;
-					if (draw_danger)
-					{
-						danger = username;
-						danger.text(_(strings::danger));
-						UI::box(params, danger.rect(danger_pos).outset(HP_BOX_SPACING), UI::background_color);
-					}
-
-					UI::box(params, username.rect(username_pos).outset(HP_BOX_SPACING), UI::background_color);
-
-					if (Game::level.has_feature(Game::FeatureLevel::HealthPickups))
-					{
-						draw_hp_box(params, hp_pos, history.hp_max);
-						draw_hp_indicator(params, hp_pos, history.hp, history.hp_max, *color);
-					}
-
-					username.draw(params, username_pos);
-
-					if (draw_danger && flash_function(Game::real_time.total))
-						danger.draw(params, danger_pos); // danger!
-				}
 			}
 		}
 	}
-	else
+
+	// usernames directly over players' 3D positions
+	for (auto other_player = PlayerCommon::list.iterator(); !other_player.is_last(); other_player.next())
 	{
-		// parkour mode
-		DataFragment* fragment = DataFragment::in_range(get<Transform>()->absolute_pos());
-		if (fragment)
+		if (other_player.item() != get<PlayerCommon>())
 		{
-			if (fragment->collected)
+			b8 visible, tracking;
+			determine_visibility(get<PlayerCommon>(), other_player.item(), &visible, &tracking);
+
+			const Team::SensorTrackHistory& history = Team::list[(s32)team].player_track_history[other_player.item()->manager.id];
+
+			if (!tracking && !visible) // if we can actually see them, the indicator has already been added using add_target_indicator in the update function
+				draw_indicator(params, history.pos, UI::disabled_color, false);
+
+			Vec3 pos3d = history.pos + Vec3(0, AWK_RADIUS * 2.0f, 0);
+
+			Vec2 p;
+			const Vec4* color;
+			b8 draw;
+			if (tracking || visible)
 			{
+				// highlight the username and draw it even if it's offscreen
+				is_onscreen(params, pos3d, &p);
+				draw = true;
+				color = &Team::ui_color(team, other_player.item()->get<AIAgent>()->team);
 			}
 			else
 			{
-				UIText text;
-				text.color = UI::accent_color;
-				text.anchor_x = UIText::Anchor::Center;
-				text.anchor_y = UIText::Anchor::Min;
-				text.size = 16.0f;
-				text.text("[{{Interact}}]");
+				draw = UI::project(params, pos3d, &p);
+				color = &UI::disabled_color;
+			}
 
-				Vec2 p = viewport.size * Vec2(0.5f, 0.3f);
-				UI::box(params, text.rect(p).outset(8.0f * UI::scale), UI::background_color);
-				text.draw(params, p);
+			if (draw)
+			{
+				Vec2 hp_pos = p;
+				hp_pos.y += text_size * UI::scale;
+
+				Vec2 username_pos = hp_pos;
+				username_pos.y += (text_size * UI::scale) + HP_BOX_SPACING * 0.5f;
+
+				Vec2 danger_pos = username_pos;
+				danger_pos.y += (text_size * UI::scale) + HP_BOX_SPACING * 0.5f;
+
+				UIText username;
+				username.size = text_size;
+				username.font = Asset::Font::lowpoly;
+				username.anchor_x = UIText::Anchor::Center;
+				username.anchor_y = UIText::Anchor::Min;
+				username.color = *color;
+				username.text(other_player.item()->manager.ref()->username);
+
+				UIText danger;
+				b8 draw_danger = (tracking || visible) && history.hp > get<Health>()->hp;
+				if (draw_danger)
+				{
+					danger = username;
+					danger.text(_(strings::danger));
+					UI::box(params, danger.rect(danger_pos).outset(HP_BOX_SPACING), UI::background_color);
+				}
+
+				UI::box(params, username.rect(username_pos).outset(HP_BOX_SPACING), UI::background_color);
+
+				if (Game::level.has_feature(Game::FeatureLevel::HealthPickups))
+				{
+					draw_hp_box(params, hp_pos, history.hp_max);
+					draw_hp_indicator(params, hp_pos, history.hp, history.hp_max, *color);
+				}
+
+				username.draw(params, username_pos);
+
+				if (draw_danger && flash_function(Game::real_time.total))
+					danger.draw(params, danger_pos); // danger!
+			}
+		}
+	}
+
+	// reticle
+	if (get<Transform>()->parent.ref() && movement_enabled() && !get<Teleportee>()->in_progress())
+	{
+		r32 cooldown = get<PlayerCommon>()->cooldown;
+		r32 radius = cooldown == 0.0f ? 0.0f : vi_max(0.0f, 32.0f * (get<PlayerCommon>()->cooldown / AWK_MAX_DISTANCE_COOLDOWN));
+		if (radius > 0 || reticle.type == ReticleType::None)
+		{
+			// hollow reticle
+			UI::triangle_border(params, { viewport.size * Vec2(0.5f, 0.5f), Vec2(4.0f + radius) * 2 * UI::scale }, 2, UI::accent_color, PI);
+		}
+		else
+		{
+			// solid reticle
+			Vec2 a;
+			if (UI::project(params, reticle.pos, &a))
+			{
+				if (reticle.type == ReticleType::Target)
+				{
+					UI::triangle(params, { a, Vec2(12) * UI::scale }, UI::alert_color, PI);
+
+					const r32 ratio = 0.8660254037844386f;
+					UI::centered_box(params, { a + Vec2(12.0f * ratio, -6.0f) * UI::scale, Vec2(8.0f, 2.0f) * UI::scale }, UI::accent_color, PI * 0.5f * -0.33f);
+					UI::centered_box(params, { a + Vec2(-12.0f * ratio, -6.0f) * UI::scale, Vec2(8.0f, 2.0f) * UI::scale }, UI::accent_color, PI * 0.5f * 0.33f);
+					UI::centered_box(params, { a + Vec2(0, 12.0f) * UI::scale, Vec2(2.0f, 8.0f) * UI::scale }, UI::accent_color);
+				}
+				else
+					UI::triangle(params, { a, Vec2(12) * UI::scale }, UI::accent_color, PI);
 			}
 		}
 	}

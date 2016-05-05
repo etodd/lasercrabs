@@ -119,6 +119,7 @@ struct LocalPlayerControl : public ComponentType<LocalPlayerControl>
 	u8 gamepad;
 	b8 enable_input;
 	r32 rumble;
+	r32 data_fragment_time;
 
 	LocalPlayerControl(u8);
 	~LocalPlayerControl();

@@ -74,6 +74,7 @@ struct Game
 		FeatureLevel feature_level;
 		r32 min_y;
 		Skybox::Config skybox;
+		AssetID note;
 
 		b8 has_feature(FeatureLevel) const;
 	};

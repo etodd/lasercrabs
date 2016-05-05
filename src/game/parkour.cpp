@@ -308,11 +308,7 @@ void Parkour::update(const Update& u)
 	else if (fsm.current == State::HardLanding)
 	{
 		if (get<Animator>()->layers[1].animation != Asset::Animation::character_land_hard)
-		{
 			fsm.transition(State::Normal);
-			get<Walker>()->max_speed = MAX_SPEED;
-			get<Walker>()->speed = RUN_SPEED;
-		}
 	}
 	else if (fsm.current == State::WallRun)
 	{
@@ -409,6 +405,8 @@ void Parkour::update(const Update& u)
 	}
 	else if (fsm.current == State::Normal)
 	{
+		get<Walker>()->max_speed = MAX_SPEED;
+		get<Walker>()->speed = RUN_SPEED;
 		get<Animator>()->layers[2].animation = AssetNull;
 		if (get<Walker>()->support.ref())
 		{
@@ -774,6 +772,7 @@ b8 Parkour::try_slide()
 				if (relative_velocity.dot(forward) < MIN_WALLRUN_SPEED)
 					return false; // too slow
 				fsm.transition(State::Slide);
+				velocity += forward * 2.0f;
 				get<Animator>()->layers[2].play(Asset::Animation::character_slide);
 			}
 			else
@@ -781,10 +780,10 @@ b8 Parkour::try_slide()
 				if (relative_velocity.y > 1.0f)
 					return false; // need to be going down
 				fsm.transition(State::Roll);
+				velocity = support_velocity + (forward * relative_velocity.length() + 2.0f);
 				get<Animator>()->layers[1].play(Asset::Animation::character_roll);
 			}
 
-			velocity += forward * 2.0f;
 			get<RigidBody>()->btBody->setLinearVelocity(velocity);
 
 			last_support = Entity::list[support_callback.m_collisionObject->getUserIndex()].get<RigidBody>();

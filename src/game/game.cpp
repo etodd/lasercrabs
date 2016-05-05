@@ -830,6 +830,8 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 
 			level.feature_level = (FeatureLevel)Json::get_s32(element, "feature_level", (s32)FeatureLevel::All);
 
+			level.note = strings_get(Json::get_string(element, "note"));
+
 			{
 				b8 lock_teams = Json::get_s32(element, "lock_teams");
 				// shuffle teams
@@ -995,7 +997,8 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 		}
 		else if (cJSON_GetObjectItem(element, "DataFragment"))
 		{
-			entity = World::alloc<DataFragmentEntity>(absolute_pos, absolute_rot);
+			if (state.mode == Mode::Parkour)
+				entity = World::alloc<DataFragmentEntity>(absolute_pos, absolute_rot);
 		}
 		else if (cJSON_GetObjectItem(element, "Prop"))
 		{

@@ -1115,6 +1115,17 @@ void DataFragment::collect()
 	collected = true;
 	get<PointLight>()->radius = 0.0f;
 	get<View>()->color = Vec3(0.5f);
+
+	Vec3 pos = get<Transform>()->absolute_pos();
+	for (s32 i = 0; i < 50; i++)
+	{
+		Particles::sparks.add
+		(
+			pos,
+			Vec3(mersenne::randf_oo() * 2.0f - 1.0f, mersenne::randf_oo(), mersenne::randf_oo() * 2.0f - 1.0f) * 10.0f,
+			Vec4(1, 1, 0, 1)
+		);
+	}
 }
 
 #define DATA_FRAGMENT_RANGE 3.0f
@@ -1122,17 +1133,25 @@ DataFragment* DataFragment::in_range(const Vec3& pos)
 {
 	for (auto i = list.iterator(); !i.is_last(); i.next())
 	{
-		if (!i.item()->collected)
+		Vec3 p = i.item()->get<Transform>()->absolute_pos();
+		if (pos.y > p.y
+			&& (pos - p).length_squared() < DATA_FRAGMENT_RANGE * DATA_FRAGMENT_RANGE)
 		{
-			Vec3 p = i.item()->get<Transform>()->absolute_pos();
-			if (pos.y > p.y
-				&& (pos - p).length_squared() < DATA_FRAGMENT_RANGE * DATA_FRAGMENT_RANGE)
-			{
-				return i.item();
-			}
+			return i.item();
 		}
 	}
 	return nullptr;
+}
+
+s32 DataFragment::count_collected()
+{
+	s32 count = 0;
+	for (auto i = list.iterator(); !i.is_last(); i.next())
+	{
+		if (i.item()->collected)
+			count++;
+	}
+	return count;
 }
 
 DataFragmentEntity::DataFragmentEntity(const Vec3& abs_pos, const Quat& abs_rot)
@@ -1141,15 +1160,16 @@ DataFragmentEntity::DataFragmentEntity(const Vec3& abs_pos, const Quat& abs_rot)
 	transform->pos = abs_pos;
 	transform->rot = abs_rot;
 
+	PointLight* light = create<PointLight>();
+	light->radius = 6.0f;
+	light->color = Vec3(1, 1, 0);
+	light->offset = Vec3(0, 1, 0);
+
 	View* model = create<View>();
 	model->mesh = Asset::Mesh::data_fragment;
 	model->alpha();
 	model->shader = Asset::Shader::flat;
-
-	PointLight* light = create<PointLight>();
-	light->radius = 6.0f;
-	light->color = Vec3(1);
-	light->offset = Vec3(0, 1, 0);
+	model->color = Vec4(light->color, 1);
 
 	create<DataFragment>();
 }

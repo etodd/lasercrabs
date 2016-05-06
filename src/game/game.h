@@ -61,6 +61,8 @@ struct Game
 		s32 local_multiplayer_offset;
 		r32 time_scale;
 		AssetID level;
+		void reset();
+		State();
 	};
 
 	struct Save

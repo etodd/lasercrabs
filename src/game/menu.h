@@ -69,7 +69,6 @@ void draw(const RenderParams&);
 void splitscreen();
 void title();
 void refresh_variables();
-b8 is_special_level(AssetID, Game::Mode);
 enum class State
 {
 	Hidden,

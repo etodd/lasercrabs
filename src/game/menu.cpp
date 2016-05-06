@@ -43,14 +43,6 @@ static UIMenu main_menu;
 
 static State main_menu_state;
 
-void reset_players()
-{
-	Game::state.local_multiplayer_offset = 0;
-	for (int i = 0; i < MAX_GAMEPADS; i++)
-		Game::state.local_player_config[i] = AI::Team::None;
-	Game::state.local_player_config[0] = AI::Team::A;
-}
-
 void init()
 {
 	Loader::font_permanent(Asset::Font::lowpoly);
@@ -67,7 +59,7 @@ void init()
 		player_text[i].text(buffer);
 	}
 
-	reset_players();
+	Game::state.reset();
 
 	title();
 }
@@ -139,6 +131,7 @@ void title_menu(const Update& u, u8 gamepad, UIMenu* menu, State* state)
 			if (menu->item(u, &pos, _(strings::play)))
 			{
 				Game::save = Game::Save();
+				Game::state.reset();
 				transition(Game::levels[Game::save.level_index], Game::Mode::Parkour);
 				return;
 			}
@@ -245,7 +238,7 @@ void update(const Update& u)
 		{
 			if (Game::state.level != last_level)
 			{
-				reset_players();
+				Game::state.reset();
 				Game::state.local_multiplayer = true;
 			}
 
@@ -331,7 +324,7 @@ void update(const Update& u)
 		{
 			if (Game::state.level != last_level)
 			{
-				reset_players();
+				Game::state.reset();
 				main_menu_state = State::Visible;
 				main_menu.animate();
 			}
@@ -363,7 +356,7 @@ void update(const Update& u)
 
 	if (Game::state.level == Asset::Level::title)
 		title_menu(u, 0, &main_menu, &main_menu_state);
-	else if (is_special_level(Game::state.level, Game::state.mode))
+	else if (Game::state.mode == Game::Mode::Special)
 	{
 		// toggle the pause menu
 		b8 pause_hit;
@@ -480,19 +473,11 @@ void draw(const RenderParams& params)
 			break;
 	}
 
-	if (is_special_level(Game::state.level, Game::state.mode))
+	if (Game::state.mode == Game::Mode::Special)
 	{
 		if (!cameras[0] || params.camera == cameras[0]) // if we have cameras active, only draw the main menu on the first one
 			main_menu.draw_alpha(params);
 	}
-}
-
-b8 is_special_level(AssetID level, Game::Mode mode)
-{
-	return mode == Game::Mode::Special
-		|| level == Asset::Level::connect
-		|| level == Asset::Level::title
-		|| level == Asset::Level::splitscreen;
 }
 
 b8 options(const Update& u, u8 gamepad, UIMenu* menu, Vec2* pos)

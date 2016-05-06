@@ -66,6 +66,24 @@ Game::State Game::state;
 Vec2 Game::cursor(200, 200);
 b8 Game::cursor_updated = false;
 
+Game::State::State()
+	: mode(Game::Mode::Special),
+	local_player_config{ AI::Team::A, AI::Team::None, AI::Team::None, AI::Team::None },
+	third_person(),
+	local_multiplayer(),
+	local_multiplayer_offset(),
+	time_scale(1.0f),
+	level(AssetNull)
+{
+}
+
+void Game::State::reset()
+{
+	AssetID l = level;
+	*this = State();
+	level = l;
+}
+
 const s32 Game::levels[] =
 {
 	Asset::Level::tutorial,
@@ -522,7 +540,11 @@ void Game::execute(const Update& u, const char* cmd)
 			const char* level_name = delimiter + 1;
 			AssetID level = Loader::find(level_name, AssetLookup::Level::names);
 			if (level != AssetNull)
+			{
+				Game::save = Game::Save();
+				Game::state.reset();
 				Menu::transition(level, Game::Mode::Parkour);
+			}
 		}
 	}
 	else if (strstr(cmd, "loadai ") == cmd)
@@ -534,7 +556,11 @@ void Game::execute(const Update& u, const char* cmd)
 			const char* level_name = delimiter + 1;
 			AssetID level = Loader::find(level_name, AssetLookup::Level::names);
 			if (level != AssetNull)
+			{
+				Game::save = Game::Save();
+				Game::state.reset();
 				Game::load_level(u, level, Game::Mode::Pvp, true);
+			}
 		}
 	}
 	else if (strstr(cmd, "load ") == cmd)
@@ -546,7 +572,11 @@ void Game::execute(const Update& u, const char* cmd)
 			const char* level_name = delimiter + 1;
 			AssetID level = Loader::find(level_name, AssetLookup::Level::names);
 			if (level != AssetNull)
+			{
+				Game::save = Game::Save();
+				Game::state.reset();
 				Menu::transition(level, Game::Mode::Pvp);
+			}
 		}
 	}
 	else if (strstr(cmd, "loads ") == cmd)
@@ -558,7 +588,11 @@ void Game::execute(const Update& u, const char* cmd)
 			const char* level_name = delimiter + 1;
 			AssetID level = Loader::find(level_name, AssetLookup::Level::names);
 			if (level != AssetNull)
+			{
+				Game::save = Game::Save();
+				Game::state.reset();
 				Menu::transition(level, Game::Mode::Special);
+			}
 		}
 	}
 }
@@ -877,7 +911,7 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 			level.min_y = Json::get_r32(element, "min_y", -20.0f);
 
 			// initialize teams
-			if (!Menu::is_special_level(l, m))
+			if (m != Mode::Special)
 			{
 				for (s32 i = 0; i < (s32)AI::Team::count; i++)
 				{

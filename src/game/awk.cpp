@@ -176,7 +176,7 @@ void Awk::hit_by(const TargetEvent& e)
 	}
 
 	if (!damaged && e.hit_by->has<LocalPlayerControl>())
-		e.hit_by->get<LocalPlayerControl>()->player.ref()->msg(_(strings::no_effect), true);
+		e.hit_by->get<LocalPlayerControl>()->player.ref()->msg(_(strings::no_effect), false);
 }
 
 void Awk::hit_target(Entity* target)

@@ -21,7 +21,7 @@
 						<Property Name="Max" Type="Real64" Value="1"/>
 					</PropertyList>
 				</GameParameter>
-				<GameParameter Name="Awk_Speed" ID="{708CBCD1-1DB0-485B-AEAE-F0CA2AF9EC2A}">
+				<GameParameter Name="Fly_Volume" ID="{708CBCD1-1DB0-485B-AEAE-F0CA2AF9EC2A}">
 					<PropertyList>
 						<Property Name="InitialValue" Type="Real64" Value="1"/>
 						<Property Name="Max" Type="Real64" Value="1"/>

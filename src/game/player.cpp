@@ -564,7 +564,7 @@ void LocalPlayer::draw_alpha(const RenderParams& params) const
 						text.anchor_x = UIText::Anchor::Center;
 						text.anchor_y = UIText::Anchor::Center;
 						text.color = UI::accent_color;
-						text.text(_(strings::tut));
+						text.text(_(strings::tut_pvp));
 						Vec2 p = vp.size * Vec2(0.5f);
 						const r32 padding = 8.0f * UI::scale;
 						UI::box(params, text.rect(p).outset(padding), UI::background_color);
@@ -897,6 +897,8 @@ LocalPlayerControl::LocalPlayerControl(u8 gamepad)
 LocalPlayerControl::~LocalPlayerControl()
 {
 	Audio::listener_disable(gamepad);
+	if (!has<Awk>())
+		get<Audio>()->post_event(AK::EVENTS::STOP_FLY);
 	camera->remove();
 }
 
@@ -913,7 +915,11 @@ void LocalPlayerControl::awake()
 		link<&LocalPlayerControl::health_picked_up>(get<Health>()->added);
 	}
 	else
+	{
 		link_arg<r32, &LocalPlayerControl::parkour_landed>(get<Walker>()->land);
+		get<Audio>()->post_event(AK::EVENTS::PLAY_FLY);
+		get<Audio>()->param(AK::GAME_PARAMETERS::FLY_VOLUME, 0.0f);
+	}
 
 	camera->fog = Game::state.mode == Game::Mode::Parkour;
 	camera->team = (u8)get<AIAgent>()->team;
@@ -1418,6 +1424,15 @@ void LocalPlayerControl::update(const Update& u)
 			Quat camera_animation = Quat::euler(PI * -0.5f, 0, 0);
 			get<Animator>()->bone_transform(Asset::Bone::character_camera, nullptr, &camera_animation);
 			look_quat = Quat::euler(get<Parkour>()->lean, get<PlayerCommon>()->angle_horizontal, get<PlayerCommon>()->angle_vertical) * Quat::euler(0, PI * 0.5f, 0) * camera_animation * Quat::euler(0, PI * -0.5f, 0);
+		}
+
+		// wind sound and camera shake at high speed
+		{
+			r32 speed = get<RigidBody>()->btBody->getLinearVelocity().length();
+			get<Audio>()->param(AK::GAME_PARAMETERS::FLY_VOLUME, LMath::clampf((speed - 8.0f) / 25.0f, 0, 1));
+			r32 shake = LMath::clampf((speed - 13.0f) / 30.0f, 0, 1) * 0.2f;
+			r32 offset = Game::time.total * 10.0f;
+			look_quat = look_quat * Quat::euler(noise::sample3d(Vec3(offset)) * shake, noise::sample3d(Vec3(offset + 64)) * shake, noise::sample3d(Vec3(offset + 128)) * shake);
 		}
 
 		// camera setup

@@ -40,6 +40,7 @@ struct UIText
 	Vec2 bounds() const;
 	Rect2 rect(const Vec2&) const;
 	void text(const char*, ...);
+	void text_raw(const char*);
 	void refresh_bounds();
 	void set_size(r32);
 	void wrap(r32);

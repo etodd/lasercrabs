@@ -54,13 +54,18 @@ void UIText::text(const char* format, ...)
 		format = "";
 
 #if defined(_WIN32)
-		vsprintf_s(string, 512, format, args);
+	vsprintf_s(string, 512, format, args);
 #else
-		vsnprintf(string, 512, format, args);
+	vsnprintf(string, 512, format, args);
 #endif
 
 	va_end(args);
 
+	text_raw(string);
+}
+
+void UIText::text_raw(const char* string)
+{
 	{
 		s32 char_index = 0;
 		s32 rendered_index = 0;

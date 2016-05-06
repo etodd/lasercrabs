@@ -86,15 +86,15 @@ void clear()
 void refresh_variables()
 {
 	b8 is_gamepad = gamepad_count > 0;
-	Settings::Gamepad* gamepad = &Settings::gamepads[0];
-	UIText::set_variable("Start", gamepad->bindings[(s32)Controls::Start].string(is_gamepad));
-	UIText::set_variable("Resume", gamepad->bindings[(s32)Controls::Pause].string(is_gamepad));
-	UIText::set_variable("Action", gamepad->bindings[(s32)Controls::Action].string(is_gamepad));
-	UIText::set_variable("Cancel", gamepad->bindings[(s32)Controls::Cancel].string(is_gamepad));
+	const Settings::Gamepad& gamepad = Settings::gamepads[0];
+	UIText::set_variable("Start", gamepad.bindings[(s32)Controls::Start].string(is_gamepad));
+	UIText::set_variable("Resume", gamepad.bindings[(s32)Controls::Pause].string(is_gamepad));
+	UIText::set_variable("Action", gamepad.bindings[(s32)Controls::Action].string(is_gamepad));
+	UIText::set_variable("Cancel", gamepad.bindings[(s32)Controls::Cancel].string(is_gamepad));
 
-	UIText::set_variable("Primary", gamepad->bindings[(s32)Controls::Primary].string(is_gamepad));
-	UIText::set_variable("Secondary", gamepad->bindings[(s32)Controls::Secondary].string(is_gamepad));
-	if (gamepad)
+	UIText::set_variable("Primary", gamepad.bindings[(s32)Controls::Primary].string(is_gamepad));
+	UIText::set_variable("Secondary", gamepad.bindings[(s32)Controls::Secondary].string(is_gamepad));
+	if (is_gamepad)
 		UIText::set_variable("Movement", _(strings::left_joystick));
 	else
 	{
@@ -102,20 +102,20 @@ void refresh_variables()
 		sprintf
 		(
 			buffer, _(strings::keyboard_movement),
-			gamepad->bindings[(s32)Controls::Forward].string(is_gamepad),
-			gamepad->bindings[(s32)Controls::Left].string(is_gamepad),
-			gamepad->bindings[(s32)Controls::Backward].string(is_gamepad),
-			gamepad->bindings[(s32)Controls::Right].string(is_gamepad)
+			gamepad.bindings[(s32)Controls::Forward].string(is_gamepad),
+			gamepad.bindings[(s32)Controls::Left].string(is_gamepad),
+			gamepad.bindings[(s32)Controls::Backward].string(is_gamepad),
+			gamepad.bindings[(s32)Controls::Right].string(is_gamepad)
 		);
 		UIText::set_variable("Movement", buffer);
 	}
-	UIText::set_variable("Parkour", gamepad->bindings[(s32)Controls::Parkour].string(is_gamepad));
-	UIText::set_variable("Jump", gamepad->bindings[(s32)Controls::Jump].string(is_gamepad));
-	UIText::set_variable("Slide", gamepad->bindings[(s32)Controls::Slide].string(is_gamepad));
-	UIText::set_variable("Ability1", gamepad->bindings[(s32)Controls::Ability1].string(is_gamepad));
-	UIText::set_variable("Ability2", gamepad->bindings[(s32)Controls::Ability2].string(is_gamepad));
-	UIText::set_variable("Ability3", gamepad->bindings[(s32)Controls::Ability3].string(is_gamepad));
-	UIText::set_variable("Interact", gamepad->bindings[(s32)Controls::Interact].string(is_gamepad));
+	UIText::set_variable("Parkour", gamepad.bindings[(s32)Controls::Parkour].string(is_gamepad));
+	UIText::set_variable("Jump", gamepad.bindings[(s32)Controls::Jump].string(is_gamepad));
+	UIText::set_variable("Slide", gamepad.bindings[(s32)Controls::Slide].string(is_gamepad));
+	UIText::set_variable("Ability1", gamepad.bindings[(s32)Controls::Ability1].string(is_gamepad));
+	UIText::set_variable("Ability2", gamepad.bindings[(s32)Controls::Ability2].string(is_gamepad));
+	UIText::set_variable("Ability3", gamepad.bindings[(s32)Controls::Ability3].string(is_gamepad));
+	UIText::set_variable("Interact", gamepad.bindings[(s32)Controls::Interact].string(is_gamepad));
 }
 
 #define logo_size (128.0f * UI::scale)

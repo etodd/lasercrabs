@@ -618,7 +618,7 @@ namespace Penelope
 		{
 			data->text.clip = data->text_clip = 1;
 			data->text.wrap_width = MENU_ITEM_WIDTH - MENU_ITEM_PADDING * 2.0f;
-			data->text.text(data->texts.current());
+			data->text.text_raw(data->texts.current());
 		}
 
 		if (data->callbacks.update(u, data->time))
@@ -671,7 +671,7 @@ namespace Penelope
 			{
 				data->menu.start(u, 0, has_focus());
 
-				Vec2 p(u.input->width * 0.5f + MENU_ITEM_WIDTH * -0.5f, u.input->height * 0.2f);
+				Vec2 p(u.input->width * 0.5f + MENU_ITEM_WIDTH * -0.5f, u.input->height * 0.3f);
 
 				{
 					Node& node = Node::list[choice.a];
@@ -761,7 +761,7 @@ namespace Penelope
 				text.size = 16.0f;
 				text.text("[{{Interact}}]");
 
-				Vec2 p = vp.size * Vec2(0.5f, 0.3f);
+				Vec2 p = vp.size * Vec2(0.5f, 0.4f);
 				UI::box(params, text.rect(p).outset(8.0f * UI::scale), UI::background_color);
 				text.draw(params, p);
 			}
@@ -777,7 +777,7 @@ namespace Penelope
 		{
 			case Mode::Center:
 			{
-				pos = vp.pos + vp.size * 0.5f;
+				pos = vp.pos + vp.size * Vec2(0.5f, 0.6f);
 				scale *= 4.0f;
 				break;
 			}
@@ -789,7 +789,7 @@ namespace Penelope
 			}
 			case Mode::Hidden:
 			{
-				return;
+				break;
 			}
 			default:
 			{
@@ -798,73 +798,76 @@ namespace Penelope
 			}
 		}
 
-		if (face == Face::Default)
+		if (data->mode != Mode::Hidden)
 		{
-			// blink
-			const r32 blink_delay = 4.0f;
-			const r32 blink_time = 0.1f;
-			if (fmod(data->time, blink_delay) < blink_time)
-				face = Face::EyesClosed;
-		}
-
-		// frame
-		{
-			// visualize dialogue volume
-			r32 volume_scale;
-			if (Settings::sfx > 0)
-				volume_scale = 1.0f + (Audio::dialogue_volume / ((r32)Settings::sfx / 100.0f)) * 0.5f;
-			else
-				volume_scale = 1.0f;
-			Vec2 frame_size(32.0f * scale * volume_scale);
-			UI::centered_box(params, { pos, frame_size }, UI::background_color, PI * 0.25f);
-
-			const Vec4* color;
-			switch (face)
+			if (face == Face::Default)
 			{
-				case Face::Default:
-				case Face::Upbeat:
-				case Face::Concerned:
-				{
-					color = &UI::default_color;
-					break;
-				}
-				case Face::Sad:
-				{
-					color = &Team::ui_color_friend;
-					break;
-				}
-				case Face::EyesClosed:
-				case Face::Unamused:
-				case Face::Wat:
-				{
-					color = &UI::disabled_color;
-					break;
-				}
-				case Face::Urgent:
-				case Face::Smile:
-				{
-					color = &UI::accent_color;
-					break;
-				}
-				case Face::Angry:
-				{
-					color = &UI::alert_color;
-					break;
-				}
-				default:
-				{
-					vi_assert(false);
-					break;
-				}
+				// blink
+				const r32 blink_delay = 4.0f;
+				const r32 blink_time = 0.1f;
+				if (fmod(data->time, blink_delay) < blink_time)
+					face = Face::EyesClosed;
 			}
 
-			UI::centered_border(params, { pos, frame_size }, 2.0f, *color, PI * 0.25f);
-		}
+			// frame
+			{
+				// visualize dialogue volume
+				r32 volume_scale;
+				if (Settings::sfx > 0)
+					volume_scale = 1.0f + (Audio::dialogue_volume / ((r32)Settings::sfx / 100.0f)) * 0.5f;
+				else
+					volume_scale = 1.0f;
+				Vec2 frame_size(32.0f * scale * volume_scale);
+				UI::centered_box(params, { pos, frame_size }, UI::background_color, PI * 0.25f);
 
-		// face
-		{
-			Vec2 face_uv = faces[(s32)face];
-			UI::sprite(params, Asset::Texture::penelope, { pos, face_size * scale }, UI::default_color, { face_uv, face_uv_size });
+				const Vec4* color;
+				switch (face)
+				{
+					case Face::Default:
+					case Face::Upbeat:
+					case Face::Concerned:
+					{
+						color = &UI::default_color;
+						break;
+					}
+					case Face::Sad:
+					{
+						color = &Team::ui_color_friend;
+						break;
+					}
+					case Face::EyesClosed:
+					case Face::Unamused:
+					case Face::Wat:
+					{
+						color = &UI::disabled_color;
+						break;
+					}
+					case Face::Urgent:
+					case Face::Smile:
+					{
+						color = &UI::accent_color;
+						break;
+					}
+					case Face::Angry:
+					{
+						color = &UI::alert_color;
+						break;
+					}
+					default:
+					{
+						vi_assert(false);
+						break;
+					}
+				}
+
+				UI::centered_border(params, { pos, frame_size }, 2.0f, *color, PI * 0.25f);
+			}
+
+			// face
+			{
+				Vec2 face_uv = faces[(s32)face];
+				UI::sprite(params, Asset::Texture::penelope, { pos, face_size * scale }, UI::default_color, { face_uv, face_uv_size });
+			}
 		}
 
 		// text
@@ -874,10 +877,11 @@ namespace Penelope
 			switch (data->mode)
 			{
 				case Mode::Center:
+				case Mode::Hidden:
 				{
 					data->text.anchor_x = UIText::Anchor::Center;
 					data->text.anchor_y = UIText::Anchor::Max;
-					pos = Vec2(vp.size.x * 0.5f, vp.size.y * 0.5f) - Vec2(0, 120 * UI::scale);
+					pos = Vec2(vp.size.x * 0.5f, vp.size.y * 0.6f) + Vec2(0, -100 * UI::scale);
 					break;
 				}
 				case Mode::Left:
@@ -914,7 +918,7 @@ namespace Penelope
 		if (node == Asset::String::terminal_reset)
 			terminal_active(true);
 		else if (node == Asset::String::penelope_hide)
-			data->mode = Mode::Hidden;
+			clear();
 		else if (node == Asset::String::match_go)
 			Menu::transition(Game::state.level, Game::Mode::Pvp); // reload current level in PvP mode
 	}
@@ -983,6 +987,32 @@ namespace scene
 
 namespace tutorial
 {
+	enum class TutorialState { Jump, Climb, Done };
+
+	struct Data
+	{
+		TutorialState state;
+	};
+
+	Data* data;
+
+	void jump_success(Entity*)
+	{
+		Penelope::data->texts.clear();
+		Penelope::data->texts.schedule(0.0f, _(strings::tut_parkour_2));
+	}
+
+	void climb_success(Entity*)
+	{
+		Penelope::clear();
+	}
+
+	void cleanup()
+	{
+		delete data;
+		data = nullptr;
+	}
+
 	void init(const Update& u, const EntityFinder& entities)
 	{
 		if (Game::state.mode == Game::Mode::Pvp)
@@ -999,6 +1029,16 @@ namespace tutorial
 			config->high_level = AIPlayer::HighLevelLoop::Noop;
 			config->low_level = AIPlayer::LowLevelLoop::Noop;
 			config->hp_start = AWK_HEALTH;
+		}
+		else
+		{
+			data = new Data();
+			Game::cleanups.add(&cleanup);
+
+			entities.find("jump_success")->get<PlayerTrigger>()->entered.link(&jump_success);
+			entities.find("climb_success")->get<PlayerTrigger>()->entered.link(&climb_success);
+
+			Penelope::data->texts.schedule(3.0f, _(strings::tut_parkour_1));
 		}
 	}
 }

@@ -8,7 +8,7 @@ namespace Asset
 {
 	namespace String
 	{
-		const s32 count = 287;
+		const s32 count = 290;
 		const AssetID _default = 0;
 		const AssetID ability_max_lvl = 1;
 		const AssetID ability_spawn_cost = 2;
@@ -268,34 +268,37 @@ namespace Asset
 		const AssetID leave = 256;
 		const AssetID left_joystick = 257;
 		const AssetID level1 = 258;
-		const AssetID level2 = 259;
-		const AssetID main_menu = 260;
-		const AssetID match_found = 261;
-		const AssetID match_go = 262;
-		const AssetID minion_killed = 263;
-		const AssetID music = 264;
-		const AssetID no = 265;
-		const AssetID no_effect = 266;
-		const AssetID options = 267;
-		const AssetID penelope_hide = 268;
-		const AssetID play = 269;
-		const AssetID player = 270;
-		const AssetID resume = 271;
-		const AssetID right_joystick = 272;
-		const AssetID sfx = 273;
-		const AssetID spawn_timer = 274;
-		const AssetID splitscreen = 275;
-		const AssetID stealth = 276;
-		const AssetID target_damaged = 277;
-		const AssetID terminal_reset = 278;
-		const AssetID timer = 279;
-		const AssetID tut = 280;
-		const AssetID tutorial = 281;
-		const AssetID upgrade = 282;
-		const AssetID upgrade_prompt = 283;
-		const AssetID upgrading = 284;
-		const AssetID victory = 285;
-		const AssetID yes = 286;
+		const AssetID level1_intro = 259;
+		const AssetID level2 = 260;
+		const AssetID main_menu = 261;
+		const AssetID match_found = 262;
+		const AssetID match_go = 263;
+		const AssetID minion_killed = 264;
+		const AssetID music = 265;
+		const AssetID no = 266;
+		const AssetID no_effect = 267;
+		const AssetID options = 268;
+		const AssetID penelope_hide = 269;
+		const AssetID play = 270;
+		const AssetID player = 271;
+		const AssetID resume = 272;
+		const AssetID right_joystick = 273;
+		const AssetID sfx = 274;
+		const AssetID spawn_timer = 275;
+		const AssetID splitscreen = 276;
+		const AssetID stealth = 277;
+		const AssetID target_damaged = 278;
+		const AssetID terminal_reset = 279;
+		const AssetID timer = 280;
+		const AssetID tut_parkour_1 = 281;
+		const AssetID tut_parkour_2 = 282;
+		const AssetID tut_pvp = 283;
+		const AssetID tutorial = 284;
+		const AssetID upgrade = 285;
+		const AssetID upgrade_prompt = 286;
+		const AssetID upgrading = 287;
+		const AssetID victory = 288;
+		const AssetID yes = 289;
 	}
 }
 

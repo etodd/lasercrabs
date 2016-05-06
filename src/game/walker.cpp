@@ -104,7 +104,7 @@ btCollisionWorld::ClosestRayResultCallback Walker::check_support(r32 extra_dista
 
 	for (s32 i = 0; i < num_corners; i++)
 	{
-		Vec3 ray_start = pos + (corners[i] * (radius * 0.9f));
+		Vec3 ray_start = pos + (corners[i] * (radius * 0.75f));
 		Vec3 ray_end = ray_start + Vec3(0, (height * -0.5f) + (support_height * -1.5f) - extra_distance, 0);
 
 		btCollisionWorld::ClosestRayResultCallback ray_callback(ray_start, ray_end);

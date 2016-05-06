@@ -33,10 +33,12 @@
 	"accept": "[{{Action}}] Accept",
 	"ability_upgrade": "[%s] lvl %d (%d)",
 	"ability_max_lvl": "[%s] lvl max",
-	"tut": "Kill the enemy.\n[{{Secondary}}] to zoom.\n[{{Primary}}] to shoot.",
+	"tut_parkour_1": "[{{Movement}}] to move.\n[{{Jump}}] to jump.",
+	"tut_parkour_2": "Hold [{{Parkour}}] to climb.",
+	"tut_pvp": "Kill the enemy.\n[{{Movement}}] to move.\n[{{Secondary}}] to zoom.\n[{{Primary}}] to shoot.",
 	"left_joystick": "Left joystick",
 	"right_joystick": "Right joystick",
-	"keyboard_movement": "[%s][%s][%s][%s]",
+	"keyboard_movement": "%s %s %s %s",
 	"key_None": "None",
 	"key_Return": "Return",
 	"key_Escape": "Escape",
@@ -289,5 +291,6 @@
 	"level1": null,
 	"level2": null,
 
-	"introduced": null
+	"introduced": null,
+	"level1_intro": null
 }

@@ -888,8 +888,7 @@ LocalPlayerControl::LocalPlayerControl(u8 gamepad)
 	enable_input(true),
 	damage_timer(),
 	health_flash_timer(),
-	rumble(),
-	data_fragment_time()
+	rumble()
 {
 	camera = Camera::add();
 }

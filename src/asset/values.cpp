@@ -632,9 +632,13 @@ const char* AssetLookup::String::names[] =
 	"level1",
 	"level1_intro",
 	"level2",
+	"loading_offline",
 	"main_menu",
 	"match_found",
 	"match_go",
+	"match_searching",
+	"match_starting",
+	"matchmaking_start",
 	"minion_killed",
 	"music",
 	"no",
@@ -667,6 +671,7 @@ const char* AssetLookup::String::names[] =
 
 const char* AssetLookup::DialogueTree::values[] =
 {
+	"assets/dl/common.dlz",
 	"assets/dl/level1.dlz",
 	"assets/dl/level2.dlz",
 	"assets/dl/tutorial.dlz",
@@ -676,6 +681,7 @@ const char* AssetLookup::DialogueTree::values[] =
 
 const char* AssetLookup::DialogueTree::names[] =
 {
+	"common",
 	"level1",
 	"level2",
 	"tutorial",

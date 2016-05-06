@@ -532,13 +532,7 @@ void LocalPlayer::draw_alpha(const RenderParams& params) const
 		b8 show_spawning;
 		if (Game::state.mode == Game::Mode::Pvp)
 		{
-			if (Team::game_over())
-			{
-				// we lost, we're not spawning again
-				show_player_list = false;
-				show_spawning = false;
-			}
-			else
+			if (manager.ref()->spawn_timer > 0.0f)
 			{
 				// haven't spawned yet
 				if (PlayerManager::all_ready())
@@ -580,6 +574,12 @@ void LocalPlayer::draw_alpha(const RenderParams& params) const
 						}
 					}
 				}
+			}
+			else
+			{
+				// we're dead and we're not spawning again
+				show_player_list = false;
+				show_spawning = false;
 			}
 		}
 		else
@@ -897,8 +897,7 @@ LocalPlayerControl::LocalPlayerControl(u8 gamepad)
 LocalPlayerControl::~LocalPlayerControl()
 {
 	Audio::listener_disable(gamepad);
-	if (!has<Awk>())
-		get<Audio>()->post_event(AK::EVENTS::STOP_FLY);
+	get<Audio>()->post_event(AK::EVENTS::STOP_FLY);
 	camera->remove();
 }
 
@@ -972,7 +971,7 @@ void LocalPlayerControl::health_picked_up()
 
 b8 LocalPlayerControl::input_enabled() const
 {
-	return !Console::visible && enable_input && !Penelope::has_focus();
+	return !Console::visible && enable_input && !Penelope::has_focus() && !Team::game_over();
 }
 
 b8 LocalPlayerControl::movement_enabled() const
@@ -1251,13 +1250,14 @@ void LocalPlayerControl::update(const Update& u)
 		indicators.length = 0;
 
 		Vec3 me = get<Transform>()->absolute_pos();
+		AI::Team team = get<AIAgent>()->team;
 
 		// awk indicators
 		if (indicators.length < indicators.capacity())
 		{
 			for (auto other_player = PlayerCommon::list.iterator(); !other_player.is_last(); other_player.next())
 			{
-				if (other_player.item() != get<PlayerCommon>())
+				if (other_player.item()->get<AIAgent>()->team != team)
 				{
 					b8 visible, tracking;
 					determine_visibility(get<PlayerCommon>(), other_player.item(), &visible, &tracking);
@@ -1274,7 +1274,6 @@ void LocalPlayerControl::update(const Update& u)
 		// headshot indicators
 		if (indicators.length < indicators.capacity())
 		{
-			AI::Team team = get<AIAgent>()->team;
 			for (auto i = MinionCommon::list.iterator(); !i.is_last(); i.next())
 			{
 				if (i.item()->get<AIAgent>()->team != team)
@@ -1675,30 +1674,45 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 	{
 		if (other_player.item() != get<PlayerCommon>())
 		{
-			b8 visible, tracking;
+			b8 visible;
+			b8 tracking;
 			determine_visibility(get<PlayerCommon>(), other_player.item(), &visible, &tracking);
 
-			const Team::SensorTrackHistory& history = Team::list[(s32)team].player_track_history[other_player.item()->manager.id];
-
-			if (!tracking && !visible) // if we can actually see them, the indicator has already been added using add_target_indicator in the update function
-				draw_indicator(params, history.pos, UI::disabled_color, false);
-
-			Vec3 pos3d = history.pos + Vec3(0, AWK_RADIUS * 2.0f, 0);
-
+			b8 friendly = other_player.item()->get<AIAgent>()->team == team;
+			
+			b8 draw;
 			Vec2 p;
 			const Vec4* color;
-			b8 draw;
-			if (tracking || visible)
+
+			Team::SensorTrackHistory history;
+			if (friendly)
 			{
-				// highlight the username and draw it even if it's offscreen
-				is_onscreen(params, pos3d, &p);
-				draw = true;
-				color = &Team::ui_color(team, other_player.item()->get<AIAgent>()->team);
+				Team::extract_history(other_player.item()->manager.ref(), &history);
+				Vec3 pos3d = history.pos + Vec3(0, AWK_RADIUS * 2.0f, 0);
+				draw = UI::project(params, pos3d, &p);
+				color = &Team::ui_color_friend;
 			}
 			else
 			{
-				draw = UI::project(params, pos3d, &p);
-				color = &UI::disabled_color;
+				history = Team::list[(s32)team].player_track_history[other_player.item()->manager.id];
+
+				if (!tracking && !visible) // if we can actually see them, the indicator has already been added using add_target_indicator in the update function
+					draw_indicator(params, history.pos, UI::disabled_color, false);
+
+				Vec3 pos3d = history.pos + Vec3(0, AWK_RADIUS * 2.0f, 0);
+
+				if (tracking || visible)
+				{
+					// highlight the username and draw it even if it's offscreen
+					is_onscreen(params, pos3d, &p);
+					draw = true;
+					color = &Team::ui_color(team, other_player.item()->get<AIAgent>()->team);
+				}
+				else
+				{
+					draw = UI::project(params, pos3d, &p);
+					color = &UI::disabled_color;
+				}
 			}
 
 			if (draw)
@@ -1721,7 +1735,7 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 				username.text(other_player.item()->manager.ref()->username);
 
 				UIText danger;
-				b8 draw_danger = (tracking || visible) && history.hp > get<Health>()->hp;
+				b8 draw_danger = !friendly && (tracking || visible) && history.hp > get<Health>()->hp;
 				if (draw_danger)
 				{
 					danger = username;

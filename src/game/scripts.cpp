@@ -60,6 +60,13 @@ namespace Penelope
 		count,
 	};
 
+	enum class Matchmake
+	{
+		None,
+		Searching,
+		Found,
+	};
+
 	struct Node
 	{
 		static Node list[MAX_NODES];
@@ -411,6 +418,8 @@ namespace Penelope
 		ID current_text_node;
 		AssetID entry_point;
 		r32 fragment_time;
+		Matchmake matchmake_mode;
+		r32 matchmake_timer;
 
 		UIText text;
 		r32 text_clip;
@@ -435,6 +444,12 @@ namespace Penelope
 			terminal->radius = active ? TERMINAL_TRIGGER_RADIUS : 0.0f;
 			terminal->get<PointLight>()->radius = active ? TERMINAL_LIGHT_RADIUS : 0.0f;
 		}
+	}
+
+	void matchmake_search()
+	{
+		data->matchmake_mode = Matchmake::Searching;
+		data->matchmake_timer = 15.0f + mersenne::randf_oo() * 90.0f;
 	}
 
 	void clear()
@@ -564,27 +579,7 @@ namespace Penelope
 		if (terminal && u.last_input->get(Controls::Interact, 0) && !u.input->get(Controls::Interact, 0))
 		{
 			terminal_active(false);
-			clear_and_execute(Penelope::node_lookup[data->entry_point], 0.5f);
-		}
-
-		// data fragments
-		DataFragment* fragment = nullptr;
-		{
-			if (PlayerCommon::list.count() > 0)
-				fragment = DataFragment::in_range(PlayerCommon::list.iterator().item()->get<Transform>()->absolute_pos());
-			if (fragment && !fragment->collected)
-			{
-				if (u.last_input->get(Controls::Interact, 0) && !u.input->get(Controls::Interact, 0))
-					fragment->collect();
-			}
-
-			if (fragment && fragment->collected)
-			{
-				if (data->fragment_time == 0.0f)
-					data->fragment_time = Game::real_time.total;
-			}
-			else
-				data->fragment_time = 0.0f;
+			clear_and_execute(node_lookup[data->entry_point], 0.5f);
 		}
 
 		if (Audio::dialogue_done)
@@ -657,21 +652,16 @@ namespace Penelope
 		data->menu.clear();
 		if (data->choices.active())
 		{
-			if (!has_focus())
-			{
-				if (!fragment || fragment->collected)
-				{
-					if (u.input->get(Controls::Interact, 0))
-						data->mode = Mode::Center; // we have focus now!
-				}
-			}
-
 			const Choice& choice = data->choices.current();
 			if (choice.a != IDNull)
 			{
 				data->menu.start(u, 0, has_focus());
 
-				Vec2 p(u.input->width * 0.5f + MENU_ITEM_WIDTH * -0.5f, u.input->height * 0.3f);
+				Vec2 p;
+				if (data->mode == Mode::Left)
+					p = Vec2(u.input->width * 0.9f - MENU_ITEM_WIDTH, u.input->height * 0.3f);
+				else
+					p = Vec2(u.input->width * 0.5f + MENU_ITEM_WIDTH * -0.5f, u.input->height * 0.3f);
 
 				{
 					Node& node = Node::list[choice.a];
@@ -698,6 +688,69 @@ namespace Penelope
 				}
 
 				data->menu.end();
+			}
+		}
+
+		// data fragment
+		DataFragment* fragment = nullptr;
+		if (PlayerCommon::list.count() > 0)
+			fragment = DataFragment::in_range(PlayerCommon::list.iterator().item()->get<Transform>()->absolute_pos());
+
+		// get focus if we need it
+		if (data->choices.active() && !has_focus()) // penelope is waiting on us, but she doesn't have focus yet
+		{
+			if (!fragment || fragment->collected) // uncollected fragments take precedence over dialogue
+			{
+				if (u.last_input->get(Controls::Interact, 0) && !u.input->get(Controls::Interact, 0))
+					data->mode = Mode::Center; // we have focus now!
+			}
+		}
+
+		// collect data fragment
+		{
+			if (fragment && !fragment->collected)
+			{
+				if (u.last_input->get(Controls::Interact, 0) && !u.input->get(Controls::Interact, 0))
+					fragment->collect();
+			}
+
+			if (fragment && fragment->collected)
+			{
+				if (data->fragment_time == 0.0f)
+					data->fragment_time = Game::real_time.total;
+			}
+			else
+				data->fragment_time = 0.0f;
+		}
+
+		switch (data->matchmake_mode)
+		{
+			case Matchmake::None:
+			{
+				break;
+			}
+			case Matchmake::Searching:
+			{
+				data->matchmake_timer -= Game::real_time.delta;
+				if (data->matchmake_timer < 0.0f)
+				{
+					data->matchmake_mode = Matchmake::Found;
+					data->matchmake_timer = 15.0f;
+					clear_and_execute(node_lookup[Asset::String::match_found], 0.25f);
+				}
+				break;
+			}
+			case Matchmake::Found:
+			{
+				data->matchmake_timer -= Game::real_time.delta;
+				if (data->matchmake_timer < 0.0f)
+					Menu::transition(Game::state.level, Game::Mode::Pvp);
+				break;
+			}
+			default:
+			{
+				vi_assert(false);
+				break;
 			}
 		}
 
@@ -748,12 +801,26 @@ namespace Penelope
 			text.draw(params, p);
 		}
 
-		if (terminal || (data->choices.active() && !has_focus()))
+		// prompt the player to interact if near a terminal or if penelope is waiting on the player to answer a question
+		if (!fragment || fragment->collected) // if there's an uncollected fragment, that takes precedence
 		{
-			// we are near a terminal, or penelope is waiting on the player to answer a question
-			// prompt the player to hit the "Interact" button
-			if (!fragment || fragment->collected) // if there's an uncollected fragment, that takes precedence
+			b8 show_interact_prompt = false;
+			Vec2 p;
+			if (terminal)
 			{
+				show_interact_prompt = true;
+				p = vp.size * Vec2(0.5f, 0.4f);
+			}
+			else if (data->choices.active() && !has_focus())
+			{
+				show_interact_prompt = true;
+				p = data->menu.items[0].pos + Vec2(-32.0f * UI::scale - MENU_ITEM_PADDING_LEFT, data->menu.items.length * MENU_ITEM_HEIGHT * -0.5f);
+			}
+
+			if (show_interact_prompt)
+			{
+				// we are near a terminal, or penelope is waiting on the player to answer a question
+				// prompt the player to hit the "Interact" button
 				UIText text;
 				text.color = UI::accent_color;
 				text.anchor_x = UIText::Anchor::Center;
@@ -761,10 +828,35 @@ namespace Penelope
 				text.size = 16.0f;
 				text.text("[{{Interact}}]");
 
-				Vec2 p = vp.size * Vec2(0.5f, 0.4f);
 				UI::box(params, text.rect(p).outset(8.0f * UI::scale), UI::background_color);
 				text.draw(params, p);
 			}
+		}
+
+		// matchmake UI
+		if (data->matchmake_mode != Matchmake::None)
+		{
+			UIText text;
+			text.anchor_x = UIText::Anchor::Center;
+			text.anchor_y = UIText::Anchor::Center;
+			text.color = UI::accent_color;
+			text.text(_(data->matchmake_mode == Matchmake::Searching ? strings::match_searching : strings::match_starting), ((s32)data->matchmake_timer) + 1);
+			Vec2 pos = vp.pos + vp.size * Vec2(0.1f, 0.25f) + Vec2(12.0f * UI::scale, -100 * UI::scale);
+
+			UI::box(params, text.rect(pos).pad({ Vec2((8.0f + 24.0f) * UI::scale, 8.0f * UI::scale), Vec2(8.0f * UI::scale) }), UI::background_color);
+
+			Vec2 triangle_pos
+			(
+				pos.x + text.bounds().x * -0.5f - 16.0f * UI::scale,
+				pos.y
+			);
+
+			if (data->matchmake_mode == Matchmake::Searching)
+				UI::triangle_border(params, { triangle_pos, Vec2(text.size * 0.5f * UI::scale) }, 3, UI::accent_color, Game::real_time.total * -8.0f);
+			else
+				UI::triangle(params, { triangle_pos, Vec2(text.size * UI::scale) }, UI::accent_color);
+
+			text.draw(params, pos);
 		}
 
 		// penelope face and UI
@@ -877,11 +969,17 @@ namespace Penelope
 			switch (data->mode)
 			{
 				case Mode::Center:
-				case Mode::Hidden:
 				{
 					data->text.anchor_x = UIText::Anchor::Center;
 					data->text.anchor_y = UIText::Anchor::Max;
 					pos = Vec2(vp.size.x * 0.5f, vp.size.y * 0.6f) + Vec2(0, -100 * UI::scale);
+					break;
+				}
+				case Mode::Hidden:
+				{
+					data->text.anchor_x = UIText::Anchor::Center;
+					data->text.anchor_y = UIText::Anchor::Min;
+					pos = Vec2(vp.size.x * 0.5f, vp.size.y * 0.3f);
 					break;
 				}
 				case Mode::Left:
@@ -921,6 +1019,8 @@ namespace Penelope
 			clear();
 		else if (node == Asset::String::match_go)
 			Menu::transition(Game::state.level, Game::Mode::Pvp); // reload current level in PvP mode
+		else if (node == Asset::String::matchmaking_start)
+			matchmake_search();
 	}
 
 	void init(AssetID entry_point)

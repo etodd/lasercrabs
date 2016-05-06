@@ -2074,6 +2074,25 @@
 								<ActiveSource Name="f04baa471efe84a5461d88f5ba37ce70ddcb281e" ID="{01BE0BBD-33EE-4B72-B4D7-7BB7FE0B8EF2}" Platform="Linked"/>
 							</ActiveSourceList>
 						</Sound>
+						<Sound Name="965b4ad990cc379c2625857d6f5b6eacf07675b2" ID="{85323F8D-BDCF-495B-A3A0-A15BA3DCEA6D}" ShortID="779788899" Type="SoundFX">
+							<ReferenceList>
+								<Reference Name="Conversion">
+									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+								</Reference>
+								<Reference Name="OutputBus">
+									<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+								</Reference>
+							</ReferenceList>
+							<ChildrenList>
+								<AudioFileSource Name="965b4ad990cc379c2625857d6f5b6eacf07675b2" ID="{F34D9941-F2EB-4386-9A56-C430F3FBD567}" ShortID="238725776">
+									<Language>SFX</Language>
+									<AudioFile>penelope\965b4ad990cc379c2625857d6f5b6eacf07675b2.wav</AudioFile>
+								</AudioFileSource>
+							</ChildrenList>
+							<ActiveSourceList>
+								<ActiveSource Name="965b4ad990cc379c2625857d6f5b6eacf07675b2" ID="{F34D9941-F2EB-4386-9A56-C430F3FBD567}" Platform="Linked"/>
+							</ActiveSourceList>
+						</Sound>
 					</ChildrenList>
 				</ActorMixer>
 				<RandomSequenceContainer Name="Stealth" ID="{77FCA54A-32F4-4758-AA82-FF3D73302182}" ShortID="267480379">

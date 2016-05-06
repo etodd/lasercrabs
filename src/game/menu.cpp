@@ -23,6 +23,7 @@ namespace Menu
 
 #define fov_initial (80.0f * PI * 0.5f / 180.0f)
 
+#define CONNECT_OFFLINE_DELAY 1.0f
 #if DEBUG
 #define CONNECT_DELAY_MIN 0.5f
 #define CONNECT_DELAY_RANGE 0.0f
@@ -36,6 +37,7 @@ static UIText player_text[MAX_GAMEPADS];
 static s32 gamepad_count = 0;
 static AssetID last_level = AssetNull;
 static AssetID next_level = AssetNull;
+static Game::Mode next_mode;
 static r32 connect_timer = 0.0f;
 static UIMenu main_menu;
 
@@ -338,13 +340,18 @@ void update(const Update& u)
 		case Asset::Level::connect:
 		{
 			if (Game::state.level != last_level)
-				connect_timer = CONNECT_DELAY_MIN + mersenne::randf_co() * CONNECT_DELAY_RANGE;
+			{
+				if (next_mode == Game::Mode::Pvp)
+					connect_timer = CONNECT_DELAY_MIN + mersenne::randf_co() * CONNECT_DELAY_RANGE;
+				else
+					connect_timer = CONNECT_OFFLINE_DELAY;
+			}
 
 			connect_timer -= u.time.delta;
 			if (connect_timer < 0.0f)
 			{
 				clear();
-				Game::schedule_load_level(next_level, Game::Mode::Pvp);
+				Game::schedule_load_level(next_level, next_mode);
 			}
 			break;
 		}
@@ -382,13 +389,14 @@ void update(const Update& u)
 void transition(AssetID level, Game::Mode mode)
 {
 	clear();
-	if (mode == Game::Mode::Pvp)
+	if (mode == Game::Mode::Special)
+		Game::schedule_load_level(level, mode);
+	else
 	{
 		next_level = level;
+		next_mode = mode;
 		Game::schedule_load_level(Asset::Level::connect, Game::Mode::Special);
 	}
-	else
-		Game::schedule_load_level(level, mode);
 }
 
 void splitscreen()
@@ -453,7 +461,7 @@ void draw(const RenderParams& params)
 			UIText text;
 			text.anchor_x = text.anchor_y = UIText::Anchor::Center;
 			text.color = UI::accent_color;
-			text.text(_(strings::connecting));
+			text.text(_(next_mode == Game::Mode::Pvp ? strings::connecting : strings::loading_offline));
 			Vec2 pos = viewport.size * 0.5f;
 
 			UI::box(params, text.rect(pos).pad({ Vec2(64, 24) * UI::scale, Vec2(18, 24) * UI::scale }), UI::background_color);
@@ -465,7 +473,7 @@ void draw(const RenderParams& params)
 				pos.x - text.bounds().x * 0.5f - 32.0f * UI::scale,
 				pos.y
 			);
-			UI::triangle_border(params, { triangle_pos, Vec2(20 * UI::scale) }, 6, UI::accent_color, Game::time.total * 8.0f);
+			UI::triangle_border(params, { triangle_pos, Vec2(20 * UI::scale) }, 6, UI::accent_color, Game::real_time.total * -8.0f);
 			break;
 		}
 		default:
@@ -638,7 +646,6 @@ Rect2 UIMenu::add_item(Vec2* pos, b8 slider, const char* string, const char* val
 
 	item->value.anchor_x = UIText::Anchor::Center;
 	item->value.text(value);
-	item->value.clip = item->label.clip;
 
 	item->pos = *pos;
 	item->pos.x += MENU_ITEM_PADDING_LEFT;
@@ -792,15 +799,20 @@ void UIMenu::draw_alpha(const RenderParams& params) const
 			UI::mesh(params, item->icon, item->pos + Vec2(MENU_ITEM_PADDING_LEFT * -0.5f, MENU_ITEM_FONT_SIZE * -0.5f), Vec2(UI::scale * MENU_ITEM_FONT_SIZE), item->label.color);
 
 		item->label.draw(params, item->pos);
-		if (item->value.has_text())
-			item->value.draw(params, item->pos + Vec2(MENU_ITEM_VALUE_OFFSET, 0));
-		if (item->slider)
-		{
-			const Rect2& down_rect = item->down_rect();
-			UI::triangle(params, { down_rect.pos + down_rect.size * 0.5f, down_rect.size * 0.5f }, item->label.color, PI * 0.5f);
 
-			const Rect2& up_rect = item->up_rect();
-			UI::triangle(params, { up_rect.pos + up_rect.size * 0.5f, up_rect.size * 0.5f }, item->label.color, PI * -0.5f);
+		r32 value_offset_time = vi_min(items.length, 6) * 0.06f;
+		if (Game::real_time.total - animation_time > value_offset_time)
+		{
+			if (item->value.has_text())
+				item->value.draw(params, item->pos + Vec2(MENU_ITEM_VALUE_OFFSET, 0));
+			if (item->slider)
+			{
+				const Rect2& down_rect = item->down_rect();
+				UI::triangle(params, { down_rect.pos + down_rect.size * 0.5f, down_rect.size * 0.5f }, item->label.color, PI * 0.5f);
+
+				const Rect2& up_rect = item->up_rect();
+				UI::triangle(params, { up_rect.pos + up_rect.size * 0.5f, up_rect.size * 0.5f }, item->label.color, PI * -0.5f);
+			}
 		}
 	}
 

@@ -4,6 +4,9 @@
 	"begin": "[{{Start}}] to begin",
 	"data_fragment": "[%d/%d data fragments]\n\n%s",
 	"connecting": "Connecting...",
+	"loading_offline": "Loading offline map...",
+	"match_searching": "Searching...",
+	"match_starting": "Joining in %d...",
 	"play": "Play",
 	"options": "Options",
 	"splitscreen": "Splitscreen",
@@ -281,10 +284,11 @@
 	"yes": "Yes.",
 	"no": "No.",
 
-	"match_found": null,
 	"terminal_reset": null,
 	"penelope_hide": null,
+	"match_found": null,
 	"match_go": null,
+	"matchmaking_start": null,
 	"_default": null,
 
 	"tutorial": null,

@@ -18,8 +18,6 @@ struct PlayerManager;
 struct Health;
 struct DamageEvent;
 
-#define MAX_PLAYER_COMBOS 28 // C(MAX_PLAYERS, 2)
-
 struct LocalPlayer
 {
 	enum class UIMode { Default, Pause, Spawning, };

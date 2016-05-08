@@ -20,6 +20,7 @@
 #include "ai_player.h"
 #include "sha1/sha1.h"
 #include "settings.h"
+#include "utf8/utf8.h"
 
 namespace VI
 {
@@ -32,7 +33,7 @@ Script* Script::find(const char* name)
 		if (!Script::all[i].name)
 			break;
 
-		if (strcmp(Script::all[i].name, name) == 0)
+		if (utf8cmp(Script::all[i].name, name) == 0)
 			return &Script::all[i];
 
 		i++;
@@ -161,15 +162,15 @@ namespace Penelope
 				// type
 				{
 					const char* type = Json::get_string(json_node, "type");
-					if (strcmp(type, "Node") == 0)
+					if (utf8cmp(type, "Node") == 0)
 						node.type = Node::Type::Node;
-					else if (strcmp(type, "Text") == 0)
+					else if (utf8cmp(type, "Text") == 0)
 						node.type = Node::Type::Text;
-					else if (strcmp(type, "Choice") == 0)
+					else if (utf8cmp(type, "Choice") == 0)
 						node.type = Node::Type::Choice;
-					else if (strcmp(type, "Branch") == 0)
+					else if (utf8cmp(type, "Branch") == 0)
 						node.type = Node::Type::Branch;
-					else if (strcmp(type, "Set") == 0)
+					else if (utf8cmp(type, "Set") == 0)
 						node.type = Node::Type::Set;
 					else
 						vi_assert(false);
@@ -205,23 +206,23 @@ namespace Penelope
 					const char* face = Json::get_string(json_node, "face");
 					if (face)
 					{
-						if (strcmp(face, "Sad") == 0)
+						if (utf8cmp(face, "Sad") == 0)
 							node.text.face = Face::Sad;
-						else if (strcmp(face, "Upbeat") == 0)
+						else if (utf8cmp(face, "Upbeat") == 0)
 							node.text.face = Face::Upbeat;
-						else if (strcmp(face, "Urgent") == 0)
+						else if (utf8cmp(face, "Urgent") == 0)
 							node.text.face = Face::Urgent;
-						else if (strcmp(face, "EyesClosed") == 0)
+						else if (utf8cmp(face, "EyesClosed") == 0)
 							node.text.face = Face::EyesClosed;
-						else if (strcmp(face, "Smile") == 0)
+						else if (utf8cmp(face, "Smile") == 0)
 							node.text.face = Face::Smile;
-						else if (strcmp(face, "Wat") == 0)
+						else if (utf8cmp(face, "Wat") == 0)
 							node.text.face = Face::Wat;
-						else if (strcmp(face, "Unamused") == 0)
+						else if (utf8cmp(face, "Unamused") == 0)
 							node.text.face = Face::Unamused;
-						else if (strcmp(face, "Angry") == 0)
+						else if (utf8cmp(face, "Angry") == 0)
 							node.text.face = Face::Angry;
-						else if (strcmp(face, "Concerned") == 0)
+						else if (utf8cmp(face, "Concerned") == 0)
 							node.text.face = Face::Concerned;
 						else
 							node.text.face = Face::Default;
@@ -1120,7 +1121,7 @@ namespace tutorial
 			PlayerManager* manager = PlayerManager::list.add();
 			new (manager) PlayerManager(&Team::list[(s32)AI::Team::B]);
 
-			strcpy(manager->username, _(strings::dummy));
+			utf8cpy(manager->username, _(strings::dummy));
 
 			AIPlayer* player = AIPlayer::list.add();
 			new (player) AIPlayer(manager);

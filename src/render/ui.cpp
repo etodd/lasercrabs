@@ -29,9 +29,9 @@ void UIText::set_variable(const char* name, const char* value)
 	b8 found = false;
 	for (s32 i = 0; i < variables.length; i++)
 	{
-		if (strcmp(variables[i].name, name) == 0)
+		if (utf8cmp(variables[i].name, name) == 0)
 		{
-			strcpy(variables[i].value, value);
+			utf8cpy(variables[i].value, value);
 			found = true;
 			break;
 		}
@@ -39,8 +39,8 @@ void UIText::set_variable(const char* name, const char* value)
 	if (!found)
 	{
 		VariableEntry* entry = variables.add();
-		strcpy(entry->name, name);
-		strcpy(entry->value, value);
+		utf8cpy(entry->name, name);
+		utf8cpy(entry->value, value);
 	}
 }
 
@@ -184,7 +184,7 @@ void UIText::refresh_bounds()
 
 b8 UIText::clipped() const
 {
-	return clip > 0.0f && clip < strlen(rendered_string);
+	return clip > 0.0f && clip < utf8len(rendered_string);
 }
 
 void UIText::set_size(r32 s)

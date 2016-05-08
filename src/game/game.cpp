@@ -40,6 +40,7 @@
 #include "render/particles.h"
 #include "ai_player.h"
 #include "usernames.h"
+#include "utf8/utf8.h"
 
 #if DEBUG
 	#define DEBUG_NAV_MESH 0
@@ -469,11 +470,11 @@ void Game::draw_additive(const RenderParams& render_params)
 
 void Game::execute(const Update& u, const char* cmd)
 {
-	if (strcmp(cmd, "third_person") == 0)
+	if (utf8cmp(cmd, "third_person") == 0)
 	{
 		state.third_person = !state.third_person;
 	}
-	else if (strcmp(cmd, "noclip") == 0)
+	else if (utf8cmp(cmd, "noclip") == 0)
 	{
 		Vec3 pos = Vec3::zero;
 		Quat quat = Quat::identity;
@@ -653,7 +654,7 @@ Entity* EntityFinder::find(const char* name) const
 {
 	for (s32 j = 0; j < map.length; j++)
 	{
-		if (strcmp(map[j].name, name) == 0)
+		if (utf8cmp(map[j].name, name) == 0)
 			return map[j].entity.ref();
 	}
 	return nullptr;
@@ -971,7 +972,7 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 				PlayerManager* manager = PlayerManager::list.add();
 				new (manager) PlayerManager(&Team::list[(s32)team]);
 
-				strcpy(manager->username, Usernames::all[mersenne::rand_u32() % Usernames::count]);
+				utf8cpy(manager->username, Usernames::all[mersenne::rand_u32() % Usernames::count]);
 
 				AIPlayer* player = AIPlayer::list.add();
 				new (player) AIPlayer(manager);

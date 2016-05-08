@@ -8,6 +8,7 @@
 #include "recast/DetourTileCache/Include/DetourTileCacheBuilder.h"
 #include <glew/include/GL/glew.h>
 #include "fastlz/fastlz.h"
+#include "utf8/utf8.h"
 
 namespace VI
 {
@@ -152,7 +153,7 @@ namespace Json
 			s32 i = 0;
 			while (search[i])
 			{
-				if (strcmp(string, search[i]) == 0)
+				if (utf8cmp(string, search[i]) == 0)
 					return i;
 				i++;
 			}

@@ -7,6 +7,7 @@
 #include "cjson/cJSON.h"
 #include "ai.h"
 #include "settings.h"
+#include "utf8/utf8.h"
 
 namespace VI
 {
@@ -982,7 +983,7 @@ AssetID Loader::find(const char* name, const char** list)
 	s32 i = 0;
 	while ((p = list[i]))
 	{
-		if (strcmp(name, p) == 0)
+		if (utf8cmp(name, p) == 0)
 			return i;
 		i++;
 	}

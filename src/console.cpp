@@ -3,6 +3,7 @@
 #include "asset/font.h"
 #include <cstdio>
 #include "load.h"
+#include "utf8/utf8.h"
 
 namespace VI
 {
@@ -205,7 +206,7 @@ void Console::update(const Update& u)
 		{
 			visible = false;
 
-			if (strcmp(&command[1], "fps") == 0)
+			if (utf8cmp(&command[1], "fps") == 0)
 			{
 				fps_visible = !fps_visible;
 				fps_count = 0;

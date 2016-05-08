@@ -27,7 +27,6 @@ struct PlayerManager;
 #define CREDITS_CONTROL_POINT 2
 
 #define ABILITY_UPGRADE_TIME 1.5f
-#define ABILITY_USE_TIME 0.2f
 
 // if the ability cooldown is lower than this, we can use the ability
 // we should flash the ability icon during this time to indicate the ability is now usable
@@ -47,7 +46,6 @@ struct AbilityInfo
 	AssetID icon;
 	r32 spawn_time;
 	u16 spawn_cost;
-	u16 use_cost;
 	u16 upgrade_cost[MAX_ABILITY_LEVELS];
 	static AbilityInfo list[(s32)Ability::count];
 };
@@ -139,7 +137,6 @@ struct PlayerManager
 	b8 ability_spawn_start(Ability);
 	void ability_spawn_stop(Ability);
 	void ability_spawn_complete();
-	b8 ability_use(Ability);
 	b8 ability_upgrade(Ability);
 	b8 ability_upgrade_available(Ability = Ability::None) const;
 	u16 ability_upgrade_cost(Ability) const;

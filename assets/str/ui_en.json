@@ -29,6 +29,7 @@
 	"upgrading": "Upgrading...",
 	"upgrade_prompt": "Upgrade at spawn",
 	"binding": "[%s]",
+	"teleport": "Teleport",
 	"target_damaged": "Target damaged",
 	"minion_killed": "Minion killed",
 	"upgrade": "Upgrade",

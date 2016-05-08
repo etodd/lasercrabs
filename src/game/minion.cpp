@@ -260,7 +260,10 @@ void MinionAI::teleport_if_necessary(const Vec3& target)
 
 		Vec3 pos = get<Transform>()->absolute_pos();
 		if (closest_teleporter && (closest_distance < (pos - target).length_squared())) // use the teleporter
-			get<Teleportee>()->go(closest_teleporter);
+		{
+			get<Teleportee>()->target = closest_teleporter;
+			get<Teleportee>()->go();
+		}
 	}
 }
 

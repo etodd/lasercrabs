@@ -365,18 +365,6 @@ TeleporterEntity::TeleporterEntity(const Vec3& pos, const Quat& rot, AI::Team te
 	model->mesh = Asset::Mesh::teleporter;
 	model->team = (u8)team;
 	model->shader = Asset::Shader::standard;
-
-	create<RigidBody>(RigidBody::Type::Sphere, Vec3(TELEPORTER_RADIUS), 0.0f, CollisionAwkIgnore, btBroadphaseProxy::AllFilter);
-}
-
-Teleporter::Teleporter()
-{
-	obstacle_id = AI::obstacle_add(get<Transform>()->absolute_pos(), TELEPORTER_RADIUS, TELEPORTER_RADIUS);
-}
-
-Teleporter::~Teleporter()
-{
-	AI::obstacle_remove(obstacle_id);
 }
 
 Teleporter* Teleporter::closest(const Vec3& pos, AI::Team t)
@@ -399,10 +387,14 @@ Teleporter* Teleporter::closest(const Vec3& pos, AI::Team t)
 	return closest_teleporter;
 }
 
-void Teleportee::go(Teleporter* t)
+void Teleportee::go()
 {
-	target = t;
 	timer = TELEPORT_TIME + TELEPORT_INVINCIBLE_PERIOD;
+}
+
+void Teleportee::cancel()
+{
+	timer = 0.0f;
 }
 
 #define TELEPORT_PARTICLE_INTERVAL 0.01f
@@ -480,6 +472,8 @@ PlayerSpawn::PlayerSpawn(AI::Team team)
 {
 	create<Transform>();
 
+	create<Teleporter>()->team = team;
+
 	View* view = create<View>();
 	view->mesh = Asset::Mesh::spawn;
 	view->shader = Asset::Shader::standard;
@@ -489,7 +483,7 @@ PlayerSpawn::PlayerSpawn(AI::Team team)
 
 	PointLight* light = create<PointLight>();
 	light->team = (u8)team;
-	light->offset.y = 2.0f;
+	light->offset.z = 2.0f;
 	light->radius = 12.0f;
 }
 

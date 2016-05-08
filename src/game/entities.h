@@ -86,11 +86,8 @@ struct Teleporter : public ComponentType<Teleporter>
 	static Teleporter* closest(const Vec3&, AI::Team);
 
 	AI::Team team;
-	u32 obstacle_id;
 
-	Teleporter();
 	void awake() {}
-	~Teleporter();
 };
 
 #define TELEPORT_TIME 1.0f
@@ -106,7 +103,8 @@ struct Teleportee : public ComponentType<Teleportee>
 	void update(const Update&);
 	b8 in_progress() const;
 	b8 invincible() const;
-	void go(Teleporter*);
+	void go();
+	void cancel();
 };
 
 struct TeleporterEntity : public Entity

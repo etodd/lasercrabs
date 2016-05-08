@@ -654,6 +654,7 @@ const char* AssetLookup::String::names[] =
 	"splitscreen",
 	"stealth",
 	"target_damaged",
+	"teleport",
 	"terminal_reset",
 	"timer",
 	"tut_parkour_1",

@@ -37,9 +37,9 @@ r32 Team::control_point_timer;
 
 AbilityInfo AbilityInfo::list[] =
 {
-	{ Asset::Mesh::icon_sensor, 2.5f, 10, 2, { 50, 50 } },
-	{ Asset::Mesh::icon_teleporter, 2.5f, 10, 2, { 50, 50 } },
-	{ Asset::Mesh::icon_minion, 1.5f, 5, 2, { 50, 100 } },
+	{ Asset::Mesh::icon_sensor, 2.5f, 10, { 50, 50 } },
+	{ Asset::Mesh::icon_teleporter, TELEPORT_TIME, 10, { 50, 50 } },
+	{ Asset::Mesh::icon_minion, 1.5f, 5, { 50, 100 } },
 };
 
 #define GAME_OVER_TIME 5.0f
@@ -406,6 +406,9 @@ b8 PlayerManager::ability_spawn_start(Ability ability)
 	current_spawn_ability = ability;
 	spawn_ability_timer = info.spawn_time;
 
+	if (ability == Ability::Teleporter)
+		awk->get<Teleportee>()->go();
+
 	return true;
 }
 
@@ -419,8 +422,12 @@ void PlayerManager::ability_spawn_stop(Ability ability)
 
 		const AbilityInfo& info = AbilityInfo::list[(s32)ability];
 
-		if (timer > info.spawn_time - ABILITY_USE_TIME && !at_spawn())
-			ability_use(ability);
+		if (ability == Ability::Teleporter)
+		{
+			Entity* awk = entity.ref();
+			if (awk)
+				awk->get<Teleportee>()->cancel();
+		}
 	}
 }
 
@@ -505,86 +512,6 @@ void PlayerManager::ability_spawn_complete()
 		}
 	}
 	ability_spawned.fire(ability);
-}
-
-b8 PlayerManager::ability_use(Ability ability)
-{
-	Entity* awk = entity.ref();
-	if (!awk)
-		return false;
-
-	const u8 level = ability_level[(s32)ability];
-
-	u16 cost = AbilityInfo::list[(s32)ability].use_cost;
-	if (credits < cost)
-		return false;
-
-	switch (ability)
-	{
-		case Ability::Sensor:
-		{
-			// todo: TBD
-			return true;
-			break;
-		}
-		case Ability::Teleporter:
-		{
-			AI::Team t = team.ref()->team();
-			r32 closest_dot = 0.8f;
-			Teleporter* closest = nullptr;
-
-			Vec3 me = awk->get<Transform>()->absolute_pos();
-			Vec3 look_dir = awk->get<PlayerCommon>()->look_dir();
-
-			for (auto teleporter = Teleporter::list.iterator(); !teleporter.is_last(); teleporter.next())
-			{
-				if (teleporter.item()->team == t)
-				{
-					r32 dot = look_dir.dot(Vec3::normalize(teleporter.item()->get<Transform>()->absolute_pos() - me));
-					if (dot > closest_dot)
-					{
-						closest = teleporter.item();
-						closest_dot = dot;
-					}
-				}
-			}
-
-			if (closest)
-			{
-				// teleport to selected teleporter
-				awk->get<Teleportee>()->go(closest);
-				add_credits(-cost);
-				return true;
-			}
-			return false;
-		}
-		case Ability::Minion:
-		{
-			// summon existing minions to target location
-
-			Vec3 target;
-			if (awk->get<Awk>()->can_go(awk->get<PlayerCommon>()->look_dir(), &target))
-			{
-				AI::Team t = team.ref()->team();
-
-				for (auto i = MinionAI::list.iterator(); !i.is_last(); i.next())
-				{
-					if (i.item()->get<AIAgent>()->team == t)
-						i.item()->find_goal_near(target);
-				}
-				add_credits(-cost);
-				return true;
-			}
-			return false;
-		}
-		default:
-		{
-			vi_assert(false);
-			break;
-		}
-	}
-
-	return false;
 }
 
 PinArray<PlayerManager, MAX_PLAYERS> PlayerManager::list;
@@ -713,6 +640,39 @@ void PlayerManager::update(const Update& u)
 	if (spawn_ability_timer > 0.0f)
 	{
 		spawn_ability_timer = vi_max(0.0f, spawn_ability_timer - u.time.delta);
+
+		if (current_spawn_ability == Ability::Teleporter)
+		{
+			Entity* awk = entity.ref();
+			if (awk)
+			{
+				AI::Team t = team.ref()->team();
+				r32 closest_dot = -2.0f;
+				Teleporter* closest = nullptr;
+
+				Vec3 me = awk->get<Transform>()->absolute_pos();
+				Vec3 look_dir = awk->get<PlayerCommon>()->look_dir();
+
+				for (auto teleporter = Teleporter::list.iterator(); !teleporter.is_last(); teleporter.next())
+				{
+					if (teleporter.item()->team == t)
+					{
+						Vec3 to_teleporter = teleporter.item()->get<Transform>()->absolute_pos() - me;
+						r32 distance = to_teleporter.length();
+						if (distance > AWK_RADIUS * 2.0f)
+						{
+							r32 dot = look_dir.dot(to_teleporter / distance);
+							if (dot > closest_dot)
+							{
+								closest = teleporter.item();
+								closest_dot = dot;
+							}
+						}
+					}
+				}
+				awk->get<Teleportee>()->target = closest;
+			}
+		}
 
 		if (spawn_ability_timer == 0.0f && current_spawn_ability != Ability::None)
 			ability_spawn_complete();

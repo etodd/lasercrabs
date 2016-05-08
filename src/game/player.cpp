@@ -58,6 +58,8 @@ b8 flash_function(r32 time)
 	return (b8)((s32)(time * 16.0f) % 2);
 }
 
+// projects a 3D point into screen space, limiting it to stay onscreen
+// returns true if the point is in front of the camera
 b8 is_onscreen(const RenderParams& params, const Vec3& pos, Vec2* out, Vec2* dir = nullptr)
 {
 	b8 on_screen = UI::project(params, pos, out);
@@ -319,7 +321,7 @@ void LocalPlayer::spawn()
 	Vec3 pos;
 	Quat rot;
 	manager.ref()->team.ref()->player_spawn.ref()->absolute(&pos, &rot);
-	Vec3 dir = rot * Vec3(0, 0, 1);
+	Vec3 dir = rot * Vec3(0, 1, 0);
 	r32 angle = atan2f(dir.x, dir.z);
 
 	Entity* spawned;
@@ -1519,15 +1521,6 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 		}
 	}
 
-	// highlight teleporters
-	{
-		for (auto t = Teleporter::list.iterator(); !t.is_last(); t.next())
-		{
-			if (t.item()->team == team)
-				draw_indicator(params, t.item()->get<Transform>()->absolute_pos(), Team::ui_color_friend, false);
-		}
-	}
-
 	// highlight control points
 	{
 		Vec3 me = get<Transform>()->absolute_pos();
@@ -1547,6 +1540,40 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 					UI::mesh(params, Asset::Mesh::icon_credits, p, icon_size, color);
 				}
 			}
+		}
+	}
+
+	// if we are teleporting, highlight teleporters
+	if (player.ref()->manager.ref()->current_spawn_ability == Ability::Teleporter
+		&& !player.ref()->manager.ref()->at_spawn())
+	{
+		Teleporter* target = get<Teleportee>()->target.ref();
+		for (auto t = Teleporter::list.iterator(); !t.is_last(); t.next())
+		{
+			if (t.item()->team == team)
+				draw_indicator(params, t.item()->get<Transform>()->absolute_pos(), t.item() == target ? UI::default_color : Team::ui_color_friend, t.item() == target);
+		}
+
+		if (target)
+		{
+			// highlight targeted teleporter
+			Vec3 pos3d = target->get<Transform>()->absolute_pos() + Vec3(0, AWK_RADIUS * 2.0f, 0);
+
+			Vec2 p;
+			is_onscreen(params, pos3d, &p);
+
+			p.y += text_size * UI::scale;
+
+			UIText text;
+			text.size = text_size;
+			text.font = Asset::Font::lowpoly;
+			text.anchor_x = UIText::Anchor::Center;
+			text.anchor_y = UIText::Anchor::Min;
+			text.color = UI::accent_color;
+			text.text(_(strings::teleport));
+
+			UI::box(params, text.rect(p).outset(HP_BOX_SPACING), UI::background_color);
+			text.draw(params, p);
 		}
 	}
 
@@ -1631,40 +1658,37 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 			const AbilityInfo& info = AbilityInfo::list[(s32)manager->current_spawn_ability];
 			r32 ability_spawn_timer = manager->spawn_ability_timer;
 			
-			if (ability_spawn_timer < info.spawn_time - ABILITY_USE_TIME)
+			// draw bar
+
+			r32 total_time;
+			AssetID string;
+			if (manager->at_spawn())
 			{
-				// draw bar
-
-				r32 total_time;
-				AssetID string;
-				if (manager->at_spawn())
-				{
-					// if we're at the spawn, we're upgrading the ability, not spawning it
-					total_time = ABILITY_UPGRADE_TIME;
-					string = strings::upgrading;
-				}
-				else
-				{
-					total_time = info.spawn_time;
-					string = strings::ability_spawn_cost;
-				}
-
-				Vec2 pos = params.camera->viewport.size * Vec2(0.5f, 0.2f);
-				Vec2 bar_size(180.0f * UI::scale, 32.0f * UI::scale);
-				Rect2 bar = { pos + bar_size * -0.5f, bar_size };
-				UI::box(params, bar, UI::background_color);
-				UI::border(params, bar, 2, UI::accent_color);
-				UI::box(params, { bar.pos, Vec2(bar.size.x * (1.0f - (ability_spawn_timer / total_time)), bar.size.y) }, UI::accent_color);
-
-				UIText text;
-				text.font = Asset::Font::lowpoly;
-				text.size = 18.0f;
-				text.color = UI::background_color;
-				text.anchor_x = UIText::Anchor::Center;
-				text.anchor_y = UIText::Anchor::Center;
-				text.text(_(string), info.spawn_cost);
-				text.draw(params, bar.pos + bar.size * 0.5f);
+				// if we're at the spawn, we're upgrading the ability, not spawning it
+				total_time = ABILITY_UPGRADE_TIME;
+				string = strings::upgrading;
 			}
+			else
+			{
+				total_time = info.spawn_time;
+				string = strings::ability_spawn_cost;
+			}
+
+			Vec2 pos = params.camera->viewport.size * Vec2(0.5f, 0.2f);
+			Vec2 bar_size(180.0f * UI::scale, 32.0f * UI::scale);
+			Rect2 bar = { pos + bar_size * -0.5f, bar_size };
+			UI::box(params, bar, UI::background_color);
+			UI::border(params, bar, 2, UI::accent_color);
+			UI::box(params, { bar.pos, Vec2(bar.size.x * (1.0f - (ability_spawn_timer / total_time)), bar.size.y) }, UI::accent_color);
+
+			UIText text;
+			text.font = Asset::Font::lowpoly;
+			text.size = 18.0f;
+			text.color = UI::background_color;
+			text.anchor_x = UIText::Anchor::Center;
+			text.anchor_y = UIText::Anchor::Center;
+			text.text(_(string), info.spawn_cost);
+			text.draw(params, bar.pos + bar.size * 0.5f);
 		}
 	}
 

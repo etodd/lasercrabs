@@ -37,9 +37,30 @@ r32 Team::control_point_timer;
 
 AbilityInfo AbilityInfo::list[] =
 {
-	{ Asset::Mesh::icon_sensor, 2.5f, 10, { 50, 50 } },
-	{ Asset::Mesh::icon_teleporter, TELEPORT_TIME, 10, { 50, 50 } },
-	{ Asset::Mesh::icon_minion, 1.5f, 5, { 50, 100 } },
+	{
+		Asset::Mesh::icon_sensor,
+		2.5f,
+		10,
+		{ 50, 50 },
+		strings::sensor,
+		{ strings::description_sensor_1, strings::description_sensor_2 },
+	},
+	{
+		Asset::Mesh::icon_teleporter,
+		TELEPORT_TIME,
+		10,
+		{ 50, 50 },
+		strings::teleporter,
+		{ strings::description_teleporter_1, strings::description_teleporter_2 },
+	},
+	{
+		Asset::Mesh::icon_minion,
+		1.5f,
+		5,
+		{ 50, 100 },
+		strings::minion,
+		{ strings::description_minion_1, strings::description_minion_2 },
+	},
 };
 
 #define GAME_OVER_TIME 5.0f
@@ -163,6 +184,27 @@ void level_next()
 		Menu::transition(Asset::Level::title, Game::Mode::Special);
 	else
 		Menu::transition(next_level, next_mode);
+}
+
+void Team::track(PlayerManager* player, PlayerManager* tracked_by)
+{
+	// enemy player has been detected by `tracked_by`
+	vi_assert(player->entity.ref());
+	vi_assert(tracked_by->team.ref() == this);
+	vi_assert(player->team.ref() != this);
+
+	SensorTrack* track = &player_tracks[player->id()];
+
+	if (tracked_by)
+	{
+		Entity* player_entity = tracked_by->entity.ref();
+		if (player_entity && player_entity->has<LocalPlayerControl>())
+			player_entity->get<LocalPlayerControl>()->player.ref()->msg(_(strings::enemy_detected), true);
+		tracked_by->add_credits(CREDITS_DETECT);
+	}
+	track->tracking = true; // got em
+	track->entity = player->entity;
+	track->timer = SENSOR_TIME;
 }
 
 void Team::update_all(const Update& u)
@@ -333,16 +375,7 @@ void Team::update_all(const Update& u)
 						// tracking but not yet alerted
 						track->timer += u.time.delta;
 						if (track->timer >= SENSOR_TIME)
-						{
-							if (sensor->player_manager.ref())
-							{
-								Entity* player_entity = sensor->player_manager.ref()->entity.ref();
-								if (player_entity && player_entity->has<LocalPlayerControl>())
-									player_entity->get<LocalPlayerControl>()->player.ref()->msg(_(strings::enemy_detected), true);
-								sensor->player_manager.ref()->add_credits(CREDITS_DETECT);
-							}
-							track->tracking = true; // got em
-						}
+							team->track(player.item(), sensor->player_manager.ref());
 					}
 					break;
 				}
@@ -617,7 +650,7 @@ void PlayerManager::add_credits(u16 c)
 b8 PlayerManager::at_spawn() const
 {
 	if (Game::state.mode == Game::Mode::Pvp)
-		return entity.ref() && team.ref()->player_spawn.ref()->get<PlayerTrigger>()->is_triggered(entity.ref());
+		return entity.ref() && entity.ref()->get<Transform>()->parent.ref() && team.ref()->player_spawn.ref()->get<PlayerTrigger>()->is_triggered(entity.ref());
 	else
 		return false;
 }

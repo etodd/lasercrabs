@@ -53,7 +53,7 @@ Minion::Minion(const Vec3& pos, const Quat& quat, AI::Team team, PlayerManager* 
 	Walker* walker = create<Walker>(atan2f(forward.x, forward.z));
 	walker->max_speed = WALK_SPEED;
 
-	create<MinionCommon>();
+	create<MinionCommon>()->owner = manager;
 
 	create<AIAgent>()->team = team;
 
@@ -71,6 +71,13 @@ void MinionCommon::awake()
 	animator->layers[1].loop = false;
 	link<&MinionCommon::footstep>(animator->trigger(Asset::Animation::character_walk, 0.3375f));
 	link<&MinionCommon::footstep>(animator->trigger(Asset::Animation::character_walk, 0.75f));
+	link_arg<r32, &MinionCommon::landed>(get<Walker>()->land);
+}
+
+void MinionCommon::landed(r32 speed)
+{
+	if (speed < -10.0f)
+		get<Health>()->damage(nullptr, HEALTH);
 }
 
 void MinionCommon::footstep()
@@ -166,6 +173,12 @@ void MinionCommon::killed(Entity* killer)
 
 	if (killer)
 	{
+		if (killer->has<PlayerCommon>())
+		{
+			Team* team = &Team::list[(s32)get<AIAgent>()->team];
+			team->track(killer->get<PlayerCommon>()->manager.ref(), owner.ref());
+		}
+
 		if (killer->has<Awk>())
 			head->applyImpulse(killer->get<Awk>()->velocity * 0.1f, Vec3::zero);
 		else

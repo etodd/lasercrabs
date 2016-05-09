@@ -154,7 +154,9 @@ LocalPlayer::LocalPlayer(PlayerManager* m, u8 g)
 	msg_timer(msg_time),
 	menu(),
 	revision(),
-	menu_state()
+	menu_state(),
+	upgrading(),
+	upgrade_animation_time()
 {
 	sprintf(manager.ref()->username, _(strings::player), gamepad);
 
@@ -171,7 +173,12 @@ LocalPlayer::UIMode LocalPlayer::ui_mode() const
 	if (menu_state != Menu::State::Hidden)
 		return UIMode::Pause;
 	else if (manager.ref()->entity.ref() || NoclipControl::list.count() > 0)
-		return UIMode::Default;
+	{
+		if (upgrading)
+			return UIMode::Upgrading;
+		else
+			return UIMode::Default;
+	}
 	else
 		return UIMode::Spawning;
 }
@@ -264,18 +271,12 @@ void LocalPlayer::update(const Update& u)
 	if (msg_timer < msg_time)
 		msg_timer += u.time.delta;
 
-	if (manager.ref()->entity.ref())
-	{
-		LocalPlayerControl* local_control = manager.ref()->entity.ref()->get<LocalPlayerControl>();
-		local_control->enable_input = ui_mode() == UIMode::Default;
-	}
-
 	// close/open pause menu if needed
 	{
 		b8 pause_hit = Game::time.total > 0.5f && u.input->get(Controls::Pause, gamepad) && !u.last_input->get(Controls::Pause, gamepad);
-		if (pause_hit && (menu_state == Menu::State::Hidden || menu_state == Menu::State::Visible))
+		if (pause_hit && !upgrading && (menu_state == Menu::State::Hidden || menu_state == Menu::State::Visible))
 		{
-			menu_state = menu_state == Menu::State::Hidden ? Menu::State::Visible : Menu::State::Hidden;
+			menu_state = (menu_state == Menu::State::Hidden) ? Menu::State::Visible : Menu::State::Hidden;
 			menu.animate();
 		}
 	}
@@ -287,6 +288,85 @@ void LocalPlayer::update(const Update& u)
 			// nothing going on
 			ensure_camera(u, false);
 
+			if (Game::state.mode == Game::Mode::Pvp
+				&& Game::level.has_feature(Game::FeatureLevel::Abilities)
+				&& manager.ref()->at_spawn())
+			{
+				if (u.input->get(Controls::Interact, gamepad) && !u.last_input->get(Controls::Interact, gamepad))
+				{
+					upgrading = true;
+					menu.animate();
+					upgrade_animation_time = Game::real_time.total;
+				}
+			}
+
+			break;
+		}
+		case UIMode::Upgrading:
+		{
+			if (u.last_input->get(Controls::Cancel, gamepad) && !u.input->get(Controls::Cancel, gamepad))
+			{
+				if (manager.ref()->current_spawn_ability == Ability::None)
+					upgrading = false;
+			}
+			else
+			{
+				b8 upgrade_in_progress = manager.ref()->current_spawn_ability != Ability::None;
+				if (upgrade_in_progress)
+				{
+					// we are upgrading an ability; disable all menu input
+					UIMenu::active[gamepad] = (UIMenu*)1; // hack! invalid menu pointer to make this menu think that it doesn't have focus
+				}
+
+				u8 last_selected = menu.selected;
+
+				menu.start(u, gamepad);
+
+				const Rect2& viewport = camera ? camera->viewport : manager.ref()->entity.ref()->get<LocalPlayerControl>()->camera->viewport;
+
+				Vec2 pos(viewport.size.x * 0.5f + MENU_ITEM_WIDTH * -1.0f, viewport.size.y * 0.5f + UIMenu::height(3) * 0.5f);
+
+				if (menu.item(u, &pos, _(strings::close), nullptr, upgrade_in_progress))
+				{
+					if (manager.ref()->current_spawn_ability == Ability::None)
+						upgrading = false;
+				}
+
+				char lvl[255];
+				{
+					b8 can_upgrade = !upgrade_in_progress
+						&& manager.ref()->ability_upgrade_available(Ability::Sensor)
+						&& manager.ref()->credits >= manager.ref()->ability_upgrade_cost(Ability::Sensor);
+					u8 level = manager.ref()->ability_level[(s32)Ability::Sensor];
+					sprintf(lvl, _(level == MAX_ABILITY_LEVELS ? strings::ability_max_lvl : strings::ability_lvl), level);
+					if (menu.item(u, &pos, _(strings::sensor), level == 0 ? nullptr : lvl, !can_upgrade, Asset::Mesh::icon_sensor))
+						manager.ref()->ability_spawn_start(Ability::Sensor);
+				}
+				{
+					b8 can_upgrade = !upgrade_in_progress
+						&& manager.ref()->ability_upgrade_available(Ability::Teleporter)
+						&& manager.ref()->credits >= manager.ref()->ability_upgrade_cost(Ability::Teleporter);
+					u8 level = manager.ref()->ability_level[(s32)Ability::Teleporter];
+					sprintf(lvl, _(level == MAX_ABILITY_LEVELS ? strings::ability_max_lvl : strings::ability_lvl), level);
+					if (menu.item(u, &pos, _(strings::teleporter), level == 0 ? nullptr : lvl, !can_upgrade, Asset::Mesh::icon_teleporter))
+						manager.ref()->ability_spawn_start(Ability::Teleporter);
+				}
+				{
+					b8 can_upgrade = !upgrade_in_progress
+						&& manager.ref()->ability_upgrade_available(Ability::Minion)
+						&& manager.ref()->credits >= manager.ref()->ability_upgrade_cost(Ability::Minion);
+					u8 level = manager.ref()->ability_level[(s32)Ability::Minion];
+					sprintf(lvl, _(level == MAX_ABILITY_LEVELS ? strings::ability_max_lvl : strings::ability_lvl), level);
+					if (menu.item(u, &pos, _(strings::minion), level == 0 ? nullptr : lvl, !can_upgrade, Asset::Mesh::icon_minion))
+						manager.ref()->ability_spawn_start(Ability::Minion);
+				}
+
+				menu.end();
+
+				if (menu.selected != last_selected
+					|| upgrade_in_progress) // once the upgrade is done, animate the new ability description
+					upgrade_animation_time = Game::real_time.total;
+			}
 			break;
 		}
 		case UIMode::Pause:
@@ -304,10 +384,15 @@ void LocalPlayer::update(const Update& u)
 			// if we are showing a tutorial message, make the user accept it
 			if (!manager.ref()->ready)
 			{
-				if (Game::time.total > TUTORIAL_TIME && !u.input->get(Controls::Action, gamepad) && u.last_input->get(Controls::Action, gamepad))
+				if (Game::time.total > TUTORIAL_TIME && !u.input->get(Controls::Interact, gamepad) && u.last_input->get(Controls::Interact, gamepad))
 					manager.ref()->ready = true;
 			}
 
+			break;
+		}
+		default:
+		{
+			vi_assert(false);
 			break;
 		}
 	}
@@ -372,37 +457,15 @@ void draw_ability(const RenderParams& params, PlayerManager* manager, const Vec2
 {
 	char string[255];
 
-	u8 level = manager->ability_level[(s32)ability];
+	u16 cost = AbilityInfo::list[(s32)ability].spawn_cost;
+	sprintf(string, "%s", control_binding);
 	const Vec4* color;
-	if (manager->at_spawn())
-	{
-		if (level >= MAX_ABILITY_LEVELS)
-		{
-			sprintf(string, _(strings::ability_max_lvl), control_binding);
-			color = &UI::disabled_color;
-		}
-		else
-		{
-			color = manager->credits >= manager->ability_upgrade_cost(ability) ? &UI::accent_color : &UI::alert_color;
-			sprintf(string, _(strings::ability_upgrade), control_binding, manager->ability_level[(s32)ability] + 1, manager->ability_upgrade_cost(ability));
-		}
-	}
+	if (manager->current_spawn_ability == ability)
+		color = &UI::default_color;
+	else if (manager->credits > cost)
+		color = &UI::accent_color;
 	else
-	{
-		u16 cost = AbilityInfo::list[(s32)ability].spawn_cost;
-		sprintf(string, "%s", control_binding);
-		if (level > 0)
-		{
-			if (manager->current_spawn_ability == ability)
-				color = &UI::default_color;
-			else if (manager->credits > cost)
-				color = &UI::accent_color;
-			else
-				color = &UI::alert_color;
-		}
-		else
-			color = &UI::disabled_color;
-	}
+		color = &UI::alert_color;
 	draw_icon_text(params, pos, icon, string, *color);
 }
 
@@ -434,23 +497,61 @@ void LocalPlayer::draw_alpha(const RenderParams& params) const
 	}
 
 	UIMode mode = ui_mode();
+
+	r32 radius = 64.0f * UI::scale;
+	Vec2 center = vp.size * Vec2(0.1f, 0.1f) + Vec2(radius, radius * 0.5f + (text_size * UI::scale * 0.5f));
+
+	if (Game::state.mode == Game::Mode::Pvp
+		&& Game::level.has_feature(Game::FeatureLevel::Abilities)
+		&& (mode == UIMode::Default || mode == UIMode::Upgrading))
+	{
+		// credits
+		b8 draw = true;
+		b8 flashing = manager.ref()->credits_flash_timer > 0.0f;
+		if (flashing)
+			draw = flash_function(Game::real_time.total);
+
+		char buffer[128];
+		sprintf(buffer, "%d", manager.ref()->credits);
+		Vec2 credits_pos = center + Vec2(0, radius * -0.5f);
+		draw_icon_text(params, credits_pos, Asset::Mesh::icon_credits, buffer, draw ? (flashing ? UI::default_color : UI::accent_color) : UI::background_color);
+
+		// control point increment amount
+		{
+			AI::Team team = manager.ref()->team.ref()->team();
+			s32 control_points = 0;
+			for (auto i = ControlPoint::list.iterator(); !i.is_last(); i.next())
+			{
+				if (i.item()->team == team)
+					control_points++;
+			}
+
+			if (control_points > 0)
+			{
+				UIText text;
+				text.color = UI::accent_color;
+				text.text("+%d", control_points * CREDITS_CONTROL_POINT);
+				text.font = Asset::Font::lowpoly;
+				text.anchor_x = UIText::Anchor::Center;
+				text.anchor_y = UIText::Anchor::Center;
+				text.size = text_size;
+				Vec2 pos = credits_pos + Vec2(0, text_size * UI::scale * -2.0f);
+				UI::box(params, text.rect(pos).outset(8.0f * UI::scale), UI::background_color);
+				text.draw(params, pos);
+			}
+		}
+	}
+
 	if (mode == UIMode::Default)
 	{
 		if (Game::state.mode == Game::Mode::Pvp && Game::level.has_feature(Game::FeatureLevel::Abilities))
 		{
-			b8 at_spawn = manager.ref()->at_spawn();
-
-			r32 radius;
-			Vec2 center;
-			if (at_spawn)
+			if (manager.ref()->at_spawn())
 			{
-				center = vp.size * Vec2(0.5f, 0.35f);
-				radius = 96.0f * UI::scale;
-
 				// "upgrade!"
 				UIText text;
 				text.color = UI::accent_color;
-				text.text(_(strings::upgrade));
+				text.text(_(strings::upgrade_prompt));
 				text.font = Asset::Font::lowpoly;
 				text.anchor_x = UIText::Anchor::Center;
 				text.anchor_y = UIText::Anchor::Center;
@@ -461,68 +562,57 @@ void LocalPlayer::draw_alpha(const RenderParams& params) const
 			}
 			else
 			{
-				radius = 64.0f * UI::scale;
-				center = vp.size * Vec2(0.1f, 0.1f) + Vec2(radius, radius * 0.5f + (text_size * UI::scale * 0.5f));
-			}
-
-			// credits
-			{
-				b8 draw = true;
-				b8 flashing = manager.ref()->credits_flash_timer > 0.0f;
-				if (flashing)
-					draw = flash_function(Game::real_time.total);
-
-				char buffer[128];
-				sprintf(buffer, "%d", manager.ref()->credits);
-				Vec2 credits_pos = center + Vec2(0, radius * -0.5f);
-				draw_icon_text(params, credits_pos, Asset::Mesh::icon_credits, buffer, draw ? (flashing ? UI::default_color : UI::accent_color) : UI::background_color);
-
-				// control point increment amount
+				// ability 1
+				b8 is_gamepad = params.sync->input.gamepads[gamepad].active;
+				if (manager.ref()->ability_level[(s32)Ability::Sensor] > 0)
 				{
-					AI::Team team = manager.ref()->team.ref()->team();
-					s32 control_points = 0;
-					for (auto i = ControlPoint::list.iterator(); !i.is_last(); i.next())
-					{
-						if (i.item()->team == team)
-							control_points++;
-					}
+					const char* binding = Settings::gamepads[gamepad].bindings[(s32)Controls::Ability1].string(is_gamepad);
+					draw_ability(params, manager.ref(), center + Vec2(-radius, 0), Ability::Sensor, Asset::Mesh::icon_sensor, binding);
+				}
 
-					if (control_points > 0)
-					{
-						UIText text;
-						text.color = UI::accent_color;
-						text.text("+%d", control_points * CREDITS_CONTROL_POINT);
-						text.font = Asset::Font::lowpoly;
-						text.anchor_x = UIText::Anchor::Center;
-						text.anchor_y = UIText::Anchor::Center;
-						text.size = text_size;
-						Vec2 pos = credits_pos + Vec2(0, text_size * UI::scale * -2.0f);
-						UI::box(params, text.rect(pos).outset(8.0f * UI::scale), UI::background_color);
-						text.draw(params, pos);
-					}
+				// ability 2
+				if (manager.ref()->ability_level[(s32)Ability::Teleporter] > 0)
+				{
+					const char* binding = Settings::gamepads[gamepad].bindings[(s32)Controls::Ability2].string(is_gamepad);
+					draw_ability(params, manager.ref(), center + Vec2(0, radius * 0.5f), Ability::Teleporter, Asset::Mesh::icon_teleporter, binding);
+				}
+
+				// ability 3
+				if (manager.ref()->ability_level[(s32)Ability::Minion] > 0)
+				{
+					const char* binding = Settings::gamepads[gamepad].bindings[(s32)Controls::Ability3].string(is_gamepad);
+					draw_ability(params, manager.ref(), center + Vec2(radius, 0), Ability::Minion, Asset::Mesh::icon_minion, binding);
 				}
 			}
+		}
+	}
+	else if (mode == UIMode::Upgrading)
+	{
+		menu.draw_alpha(params);
 
-			// ability 1
-			b8 is_gamepad = params.sync->input.gamepads[gamepad].active;
-			if (at_spawn || manager.ref()->ability_level[(s32)Ability::Sensor] > 0)
+		if (menu.selected > 0)
+		{
+			// show details of currently highlighted upgrade
+			Ability ability = (Ability)(menu.selected - 1);
+			if (manager.ref()->current_spawn_ability == Ability::None
+				&& manager.ref()->ability_upgrade_available(ability))
 			{
-				const char* binding = Settings::gamepads[gamepad].bindings[(s32)Controls::Ability1].string(is_gamepad);
-				draw_ability(params, manager.ref(), center + Vec2(-radius, 0), Ability::Sensor, Asset::Mesh::icon_sensor, binding);
-			}
-
-			// ability 2
-			if (at_spawn || manager.ref()->ability_level[(s32)Ability::Teleporter] > 0)
-			{
-				const char* binding = Settings::gamepads[gamepad].bindings[(s32)Controls::Ability2].string(is_gamepad);
-				draw_ability(params, manager.ref(), center + Vec2(0, radius * 0.5f), Ability::Teleporter, Asset::Mesh::icon_teleporter, binding);
-			}
-
-			// ability 3
-			if (at_spawn || manager.ref()->ability_level[(s32)Ability::Minion] > 0)
-			{
-				const char* binding = Settings::gamepads[gamepad].bindings[(s32)Controls::Ability3].string(is_gamepad);
-				draw_ability(params, manager.ref(), center + Vec2(radius, 0), Ability::Minion, Asset::Mesh::icon_minion, binding);
+				const AbilityInfo& info = AbilityInfo::list[(s32)ability];
+				UIText text;
+				text.font = Asset::Font::lowpoly;
+				text.color = UI::default_color;
+				text.size = text_size;
+				text.anchor_x = UIText::Anchor::Min;
+				text.anchor_y = UIText::Anchor::Center;
+				text.clip = 1 + (s32)((Game::real_time.total - upgrade_animation_time) * 150.0f);
+				text.wrap_width = MENU_ITEM_WIDTH;
+				u8 level = manager.ref()->ability_level[(s32)ability];
+				u16 cost = manager.ref()->ability_upgrade_cost(ability);
+				text.text(_(strings::ability_description), level + 1, cost, _(info.description[level]));
+				const Rect2& viewport = params.camera->viewport;
+				Vec2 pos(viewport.size.x * 0.5f + 16.0f * UI::scale, viewport.size.y * 0.5f);
+				UI::box(params, text.rect(pos).outset(8.0f * UI::scale), UI::background_color);
+				text.draw(params, pos);
 			}
 		}
 	}
@@ -887,7 +977,6 @@ LocalPlayerControl::LocalPlayerControl(u8 gamepad)
 	allow_zoom(true),
 	try_jump(),
 	try_parkour(),
-	enable_input(true),
 	damage_timer(),
 	health_flash_timer(),
 	rumble()
@@ -972,7 +1061,7 @@ void LocalPlayerControl::health_picked_up()
 
 b8 LocalPlayerControl::input_enabled() const
 {
-	return !Console::visible && enable_input && !Penelope::has_focus() && !Team::game_over();
+	return !Console::visible && player.ref()->ui_mode() == LocalPlayer::UIMode::Default && !Penelope::has_focus() && !Team::game_over();
 }
 
 b8 LocalPlayerControl::movement_enabled() const
@@ -1146,7 +1235,7 @@ void LocalPlayerControl::update(const Update& u)
 		camera_pos = get<Awk>()->center();
 
 		// abilities
-		if (!Console::visible)
+		if (!Console::visible && !player.ref()->manager.ref()->at_spawn())
 		{
 			{
 				b8 current = u.input->get(Controls::Ability1, gamepad);

@@ -785,7 +785,7 @@ void UIMenu::draw_alpha(const RenderParams& params) const
 
 		item->label.draw(params, item->pos);
 
-		r32 value_offset_time = vi_min(items.length, 6) * 0.06f;
+		r32 value_offset_time = (2 + vi_min(i, 6)) * 0.06f;
 		if (Game::real_time.total - animation_time > value_offset_time)
 		{
 			if (item->value.has_text())

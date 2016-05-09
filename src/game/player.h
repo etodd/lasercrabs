@@ -20,7 +20,7 @@ struct DamageEvent;
 
 struct LocalPlayer
 {
-	enum class UIMode { Default, Pause, Spawning, };
+	enum class UIMode { Default, Pause, Spawning, Upgrading };
 
 	static PinArray<LocalPlayer, MAX_PLAYERS> list;
 
@@ -34,6 +34,8 @@ struct LocalPlayer
 	b8 msg_good;
 	Revision revision;
 	Menu::State menu_state;
+	b8 upgrading;
+	r32 upgrade_animation_time;
 
 	inline ID id() const
 	{
@@ -115,7 +117,6 @@ struct LocalPlayerControl : public ComponentType<LocalPlayerControl>
 	b8 try_jump;
 	b8 try_slide;
 	u8 gamepad;
-	b8 enable_input;
 	r32 rumble;
 
 	LocalPlayerControl(u8);

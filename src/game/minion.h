@@ -21,11 +21,13 @@ struct Minion : public Entity
 
 struct MinionCommon : public ComponentType<MinionCommon>
 {
+	Ref<PlayerManager> owner;
 	void awake();
 	Vec3 head_pos();
 	b8 headshot_test(const Vec3&, const Vec3&);
 	void hit_by(const TargetEvent& e);
 	void killed(Entity*);
+	void landed(r32);
 	void footstep();
 	void update(const Update&);
 };

@@ -47,6 +47,8 @@ struct AbilityInfo
 	r32 spawn_time;
 	u16 spawn_cost;
 	u16 upgrade_cost[MAX_ABILITY_LEVELS];
+	AssetID name;
+	AssetID description[MAX_ABILITY_LEVELS];
 	static AbilityInfo list[(s32)Ability::count];
 };
 
@@ -100,6 +102,7 @@ struct Team
 
 	static void extract_history(PlayerManager*, SensorTrackHistory*);
 	b8 has_player() const;
+	void track(PlayerManager*, PlayerManager*);
 
 	static void update_all(const Update&);
 

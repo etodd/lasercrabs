@@ -659,6 +659,7 @@ const char* AssetLookup::String::names[] =
 	"timer",
 	"tut_parkour_1",
 	"tut_parkour_2",
+	"tut_parkour_3",
 	"tut_pvp",
 	"tutorial",
 	"upgrade",

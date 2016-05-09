@@ -39,6 +39,7 @@
 	"ability_max_lvl": "[%s] lvl max",
 	"tut_parkour_1": "[{{Movement}}] to move.\n[{{Jump}}] to jump.",
 	"tut_parkour_2": "Hold [{{Parkour}}] to climb.",
+	"tut_parkour_3": "Run alongside a wall and hold [{{Parkour}}] to wall-run on it.",
 	"tut_pvp": "Kill the enemy.\n[{{Movement}}] to move.\n[{{Secondary}}] to zoom.\n[{{Primary}}] to shoot.",
 	"left_joystick": "Left joystick",
 	"right_joystick": "Right joystick",

@@ -1099,13 +1099,21 @@ namespace tutorial
 
 	void jump_success(Entity*)
 	{
-		Penelope::data->texts.clear();
-		Penelope::data->texts.schedule(0.0f, _(strings::tut_parkour_2));
+		if (data->state == TutorialState::Jump)
+		{
+			data->state = TutorialState::Climb;
+			Penelope::data->texts.clear();
+			Penelope::data->texts.schedule(0.0f, _(strings::tut_parkour_2));
+		}
 	}
 
 	void climb_success(Entity*)
 	{
-		Penelope::clear();
+		if (data->state == TutorialState::Climb)
+		{
+			data->state = TutorialState::Done;
+			Penelope::clear();
+		}
 	}
 
 	void cleanup()
@@ -1144,10 +1152,52 @@ namespace tutorial
 	}
 }
 
+namespace level1
+{
+	enum class TutorialState { WallRun, Done };
+
+	struct Data
+	{
+		TutorialState state;
+	};
+
+	Data* data;
+
+	void wallrun_success(Entity*)
+	{
+		if (data->state == TutorialState::WallRun)
+		{
+			data->state = TutorialState::Done;
+			Penelope::clear();
+		}
+	}
+
+	void cleanup()
+	{
+		delete data;
+		data = nullptr;
+	}
+
+	void init(const Update& u, const EntityFinder& entities)
+	{
+		if (Game::state.mode == Game::Mode::Parkour)
+		{
+			data = new Data();
+			Game::cleanups.add(&cleanup);
+
+			entities.find("wallrun_success")->get<PlayerTrigger>()->entered.link(&wallrun_success);
+			entities.find("wallrun_success_2")->get<PlayerTrigger>()->entered.link(&wallrun_success);
+
+			Penelope::data->texts.schedule(2.0f, _(strings::tut_parkour_3));
+		}
+	}
+}
+
 Script Script::all[] =
 {
 	{ "scene", scene::init },
 	{ "tutorial", tutorial::init },
+	{ "level1", level1::init },
 	{ 0, 0, },
 };
 

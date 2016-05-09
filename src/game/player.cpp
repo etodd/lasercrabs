@@ -335,7 +335,7 @@ void LocalPlayer::spawn()
 	else // parkour mode
 	{
 		// Spawn traceur
-		spawned = World::create<Traceur>(pos, Quat::euler(0, angle, 0), manager.ref()->team.ref()->team());
+		spawned = World::create<Traceur>(pos + Vec3(0, 1.0f, 0), Quat::euler(0, angle, 0), manager.ref()->team.ref()->team());
 	}
 
 	spawned->get<Transform>()->absolute(pos, rot);

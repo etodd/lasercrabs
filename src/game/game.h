@@ -46,6 +46,7 @@ struct Game
 		Base,
 		HealthPickups,
 		Abilities,
+		ControlPoints,
 		All,
 		count = All,
 	};
@@ -56,9 +57,8 @@ struct Game
 		AI::Team local_player_config[MAX_GAMEPADS];
 		b8 third_person;
 		b8 local_multiplayer;
-		// shift all the team IDs by this amount
-		// local multiplayer games rotate through all the possible team configurations before moving on to the next map
-		s32 local_multiplayer_offset;
+		// games rotate through all the possible team configurations before moving on to the next map
+		// local multiplayer games shift all the team IDs by this amount
 		r32 time_scale;
 		AssetID level;
 		void reset();
@@ -68,7 +68,12 @@ struct Game
 	struct Save
 	{
 		s32 level_index;
+		s32 round;
 		std::unordered_map<AssetID, AssetID> variables; // todo: kill STL
+		std::unordered_map<s32, b8> notes;
+		b8 note(s32) const;
+		void note(s32, b8);
+		void reset(AssetID);
 	};
 
 	struct Level
@@ -76,6 +81,7 @@ struct Game
 		FeatureLevel feature_level;
 		r32 min_y;
 		Skybox::Config skybox;
+		b8 lock_teams;
 
 		b8 has_feature(FeatureLevel) const;
 	};

@@ -90,7 +90,7 @@ struct Teleporter : public ComponentType<Teleporter>
 	void awake() {}
 };
 
-#define TELEPORT_TIME 1.0f
+#define TELEPORT_TIME 2.0f
 #define TELEPORT_INVINCIBLE_PERIOD 1.0f
 // yes really
 struct Teleportee : public ComponentType<Teleportee>
@@ -139,9 +139,10 @@ struct Shockwave : public ComponentType<Shockwave>
 
 struct DataFragment : public ComponentType<DataFragment>
 {
-	b8 collected;
+	b8 collected() const;
+	s32 hash() const;
 	AssetID note;
-	void awake() {}
+	void awake();
 	void collect();
 	static DataFragment* in_range(const Vec3&);
 	static s32 count_collected();

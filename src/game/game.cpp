@@ -72,7 +72,6 @@ Game::State::State()
 	local_player_config{ AI::Team::A, AI::Team::None, AI::Team::None, AI::Team::None },
 	third_person(),
 	local_multiplayer(),
-	local_multiplayer_offset(),
 	time_scale(1.0f),
 	level(AssetNull)
 {
@@ -92,6 +91,33 @@ const s32 Game::levels[] =
 	Asset::Level::level2,
 	AssetNull,
 };
+
+void Game::Save::reset(AssetID level)
+{
+	*this = Save();
+	s32 i = 0;
+	while (Game::levels[i] != AssetNull)
+	{
+		if (Game::levels[i] == level)
+			break;
+		i++;
+	}
+	level_index = i;
+}
+
+void Game::Save::note(s32 id, b8 b)
+{
+	notes[id] = b;
+}
+
+b8 Game::Save::note(s32 id) const
+{
+	auto i = notes.find(id);
+	if (i == notes.end())
+		return false;
+	else
+		return i->second;
+}
 
 b8 Game::Level::has_feature(Game::FeatureLevel f) const
 {
@@ -480,6 +506,8 @@ void Game::execute(const Update& u, const char* cmd)
 		Quat quat = Quat::identity;
 		if (LocalPlayerControl::list.count() > 0)
 		{
+			Penelope::clear();
+
 			auto players = LocalPlayerControl::list.iterator();
 			LocalPlayerControl* p = players.item();
 			pos = p->get<Transform>()->absolute_pos();
@@ -542,7 +570,7 @@ void Game::execute(const Update& u, const char* cmd)
 			AssetID level = Loader::find(level_name, AssetLookup::Level::names);
 			if (level != AssetNull)
 			{
-				Game::save = Game::Save();
+				Game::save.reset(level);
 				Game::state.reset();
 				Menu::transition(level, Game::Mode::Parkour);
 			}
@@ -558,7 +586,7 @@ void Game::execute(const Update& u, const char* cmd)
 			AssetID level = Loader::find(level_name, AssetLookup::Level::names);
 			if (level != AssetNull)
 			{
-				Game::save = Game::Save();
+				Game::save.reset(level);
 				Game::state.reset();
 				Game::load_level(u, level, Game::Mode::Pvp, true);
 			}
@@ -574,7 +602,7 @@ void Game::execute(const Update& u, const char* cmd)
 			AssetID level = Loader::find(level_name, AssetLookup::Level::names);
 			if (level != AssetNull)
 			{
-				Game::save = Game::Save();
+				Game::save.reset(level);
 				Game::state.reset();
 				Menu::transition(level, Game::Mode::Pvp);
 			}
@@ -590,7 +618,7 @@ void Game::execute(const Update& u, const char* cmd)
 			AssetID level = Loader::find(level_name, AssetLookup::Level::names);
 			if (level != AssetNull)
 			{
-				Game::save = Game::Save();
+				Game::save.reset(level);
 				Game::state.reset();
 				Menu::transition(level, Game::Mode::Special);
 			}
@@ -873,15 +901,15 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 			level.feature_level = (FeatureLevel)Json::get_s32(element, "feature_level", (s32)FeatureLevel::All);
 
 			{
-				b8 lock_teams = Json::get_s32(element, "lock_teams");
+				level.lock_teams = Json::get_s32(element, "lock_teams");
 				// shuffle teams
 				// if we're in local multiplayer mode, rotate the teams by a set amount
 				// local multiplayer games rotate through the possible team configurations on each map before moving to the next map
 				s32 offset;
-				if (lock_teams)
+				if (level.lock_teams)
 					offset = 0;
 				else
-					offset = state.local_multiplayer ? state.local_multiplayer_offset : mersenne::rand() % (s32)AI::Team::count;
+					offset = state.local_multiplayer ? save.round : mersenne::rand() % (s32)AI::Team::count;
 
 				for (s32 i = 0; i < (s32)AI::Team::count; i++)
 					teams[i] = (AI::Team)((offset + i) % (s32)AI::Team::count);
@@ -1022,7 +1050,7 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 		}
 		else if (cJSON_GetObjectItem(element, "ControlPoint"))
 		{
-			if (level.has_feature(FeatureLevel::Abilities))
+			if (level.has_feature(FeatureLevel::ControlPoints))
 				entity = World::alloc<ControlPointEntity>();
 		}
 		else if (cJSON_GetObjectItem(element, "Script"))

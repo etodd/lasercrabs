@@ -289,7 +289,7 @@ void LocalPlayer::update(const Update& u)
 			ensure_camera(u, false);
 
 			if (Game::state.mode == Game::Mode::Pvp
-				&& Game::level.has_feature(Game::FeatureLevel::Abilities)
+				&& Game::level.has_feature(Game::FeatureLevel::ControlPoints)
 				&& manager.ref()->at_spawn())
 			{
 				if (u.input->get(Controls::Interact, gamepad) && !u.last_input->get(Controls::Interact, gamepad))
@@ -546,7 +546,7 @@ void LocalPlayer::draw_alpha(const RenderParams& params) const
 	{
 		if (Game::state.mode == Game::Mode::Pvp && Game::level.has_feature(Game::FeatureLevel::Abilities))
 		{
-			if (manager.ref()->at_spawn())
+			if (Game::level.has_feature(Game::FeatureLevel::ControlPoints) && manager.ref()->at_spawn())
 			{
 				// "upgrade!"
 				UIText text;
@@ -650,7 +650,13 @@ void LocalPlayer::draw_alpha(const RenderParams& params) const
 						text.anchor_x = UIText::Anchor::Center;
 						text.anchor_y = UIText::Anchor::Center;
 						text.color = UI::accent_color;
-						text.text(_(strings::tut_pvp));
+						const AssetID tutorials[(s32)Game::FeatureLevel::count - 1] =
+						{
+							strings::tut_pvp_movement,
+							strings::tut_pvp_health,
+							strings::tut_pvp_sensors,
+						};
+						text.text(_(tutorials[(s32)Game::level.feature_level]));
 						Vec2 p = vp.size * Vec2(0.5f);
 						const r32 padding = 8.0f * UI::scale;
 						UI::box(params, text.rect(p).outset(padding), UI::background_color);

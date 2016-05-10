@@ -1104,9 +1104,33 @@ void Shockwave::update(const Update& u)
 	}
 }
 
+void DataFragment::awake()
+{
+	if (collected())
+	{
+		get<PointLight>()->radius = 0.0f;
+		get<View>()->color = Vec3(0.5f);
+	}
+	else
+	{
+		get<PointLight>()->radius = 6.0f;
+		get<View>()->color = Vec4(get<PointLight>()->color, 1);
+	}
+}
+
+b8 DataFragment::collected() const
+{
+	return Game::save.note(hash());
+}
+
+s32 DataFragment::hash() const
+{
+	return (Game::state.level * MAX_ENTITIES) + id();
+}
+
 void DataFragment::collect()
 {
-	collected = true;
+	Game::save.note(hash(), true);
 	get<PointLight>()->radius = 0.0f;
 	get<View>()->color = Vec3(0.5f);
 
@@ -1142,7 +1166,7 @@ s32 DataFragment::count_collected()
 	s32 count = 0;
 	for (auto i = list.iterator(); !i.is_last(); i.next())
 	{
-		if (i.item()->collected)
+		if (i.item()->collected())
 			count++;
 	}
 	return count;
@@ -1155,7 +1179,6 @@ DataFragmentEntity::DataFragmentEntity(const Vec3& abs_pos, const Quat& abs_rot,
 	transform->rot = abs_rot;
 
 	PointLight* light = create<PointLight>();
-	light->radius = 6.0f;
 	light->color = Vec3(1, 1, 0);
 	light->offset = Vec3(0, 1, 0);
 
@@ -1163,7 +1186,6 @@ DataFragmentEntity::DataFragmentEntity(const Vec3& abs_pos, const Quat& abs_rot,
 	model->mesh = Asset::Mesh::data_fragment;
 	model->alpha();
 	model->shader = Asset::Shader::flat;
-	model->color = Vec4(light->color, 1);
 
 	create<DataFragment>()->note = note;
 }

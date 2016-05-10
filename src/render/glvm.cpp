@@ -166,7 +166,7 @@ RenderTechnique GLData::current_shader_technique = RenderTechnique::Default;
 Array<s32> GLData::samplers;
 Array<char> GLData::uniform_name_buffer;
 Array<s32> GLData::uniform_names;
-RenderColorMask GLData::color_mask = 31;
+RenderColorMask GLData::color_mask = RENDER_COLOR_MASK_DEFAULT;
 b8 GLData::depth_mask = true;
 b8 GLData::depth_test = true;
 RenderCullMode GLData::cull_mode = RenderCullMode::Back;
@@ -931,23 +931,33 @@ void render(RenderSync* sync)
 				switch (mode)
 				{
 					case RenderBlendMode::Opaque:
+					{
 						glDisablei(GL_BLEND, 0);
 						break;
+					}
 					case RenderBlendMode::Alpha:
+					{
 						glEnablei(GL_BLEND, 0);
 						glBlendFunci(0, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 						break;
+					}
 					case RenderBlendMode::Additive:
+					{
 						glEnablei(GL_BLEND, 0);
 						glBlendFunci(0, GL_SRC_ALPHA, GL_ONE);
 						break;
+					}
 					case RenderBlendMode::AlphaDestination:
+					{
 						glEnablei(GL_BLEND, 0);
 						glBlendFuncSeparatei(0, GL_DST_ALPHA, GL_ONE_MINUS_DST_ALPHA, GL_ZERO, GL_ONE);
 						break;
+					}
 					default:
+					{
 						vi_assert(false);
 						break;
+					}
 				}
 				debug_check();
 				break;

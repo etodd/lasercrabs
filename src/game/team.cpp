@@ -126,7 +126,17 @@ b8 Team::has_player() const
 {
 	for (auto j = PlayerManager::list.iterator(); !j.is_last(); j.next())
 	{
-		if (j.item()->team.ref()->team() == team() && j.item()->entity.ref())
+		if (j.item()->team.ref() == this && j.item()->entity.ref())
+			return true;
+	}
+	return false;
+}
+
+b8 Team::is_local() const
+{
+	for (auto j = LocalPlayer::list.iterator(); !j.is_last(); j.next())
+	{
+		if (j.item()->manager.ref()->team.ref() == this)
 			return true;
 	}
 	return false;
@@ -167,16 +177,25 @@ void level_next()
 		// we're in local multiplayer mode
 		next_mode = Game::Mode::Pvp;
 
-		if (Game::state.local_multiplayer_offset == (s32)AI::Team::count - 1)
+		if (Game::level.lock_teams || Game::save.round == (s32)AI::Team::count - 1)
+		{
 			Game::save.level_index++; // advance to next level
-
-		Game::state.local_multiplayer_offset = (Game::state.local_multiplayer_offset + 1) % (s32)AI::Team::count;
+			Game::save.round = 0;
+		}
+		else
+			Game::save.round = (Game::save.round + 1) % (s32)AI::Team::count;
 	}
 	else
 	{
-		// advance to next level
 		next_mode = Game::Mode::Parkour;
-		Game::save.level_index++; // advance to next level
+		if (Game::level.lock_teams || Game::save.round == (s32)AI::Team::count - 1)
+		{
+			// advance to next level
+			Game::save.level_index++;
+			Game::save.round = 0;
+		}
+		else
+			Game::save.round = (Game::save.round + 1) % (s32)AI::Team::count;
 	}
 
 	AssetID next_level = Game::levels[Game::save.level_index];
@@ -190,21 +209,23 @@ void Team::track(PlayerManager* player, PlayerManager* tracked_by)
 {
 	// enemy player has been detected by `tracked_by`
 	vi_assert(player->entity.ref());
-	vi_assert(tracked_by->team.ref() == this);
 	vi_assert(player->team.ref() != this);
-
-	SensorTrack* track = &player_tracks[player->id()];
 
 	if (tracked_by)
 	{
+		vi_assert(tracked_by->team.ref() == this);
+
+		SensorTrack* track = &player_tracks[player->id()];
+
 		Entity* player_entity = tracked_by->entity.ref();
 		if (player_entity && player_entity->has<LocalPlayerControl>())
 			player_entity->get<LocalPlayerControl>()->player.ref()->msg(_(strings::enemy_detected), true);
 		tracked_by->add_credits(CREDITS_DETECT);
+
+		track->tracking = true; // got em
+		track->entity = player->entity;
+		track->timer = SENSOR_TIME;
 	}
-	track->tracking = true; // got em
-	track->entity = player->entity;
-	track->timer = SENSOR_TIME;
 }
 
 void Team::update_all(const Update& u)
@@ -343,7 +364,19 @@ void Team::update_all(const Update& u)
 			// we win
 			team->victory_timer -= u.time.delta;
 			if (team->victory_timer < 0.0f)
-				level_next();
+			{
+				// done letting the player gloat
+				b8 advance = false;
+				if (Game::state.local_multiplayer)
+					advance = true;
+				else
+					advance = team->is_local(); // if we're in campaign mode, only advance if the local team won
+
+				if (advance)
+					level_next();
+				else
+					level_retry();
+			}
 		}
 
 		// update tracking timers

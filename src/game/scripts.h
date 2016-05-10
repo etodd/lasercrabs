@@ -22,6 +22,9 @@ namespace Penelope
 	void global_init();
 	void init(AssetID = AssetNull);
 	void add_terminal(Entity*);
+	void variable(AssetID, AssetID);
+	AssetID variable(AssetID);
+	void clear();
 	b8 has_focus();
 };
 

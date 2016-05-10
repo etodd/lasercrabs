@@ -102,6 +102,7 @@ struct Team
 
 	static void extract_history(PlayerManager*, SensorTrackHistory*);
 	b8 has_player() const;
+	b8 is_local() const;
 	void track(PlayerManager*, PlayerManager*);
 
 	static void update_all(const Update&);

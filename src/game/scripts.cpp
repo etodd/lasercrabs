@@ -449,8 +449,9 @@ namespace Penelope
 
 	void matchmake_search()
 	{
+		variable(strings::matchmaking, strings::yes);
 		data->matchmake_mode = Matchmake::Searching;
-		data->matchmake_timer = 15.0f + mersenne::randf_oo() * 90.0f;
+		data->matchmake_timer = 20.0f + mersenne::randf_oo() * 100.0f;
 	}
 
 	void clear()
@@ -467,6 +468,20 @@ namespace Penelope
 		data->node_executions.clear();
 		Audio::post_global_event(AK::EVENTS::STOP_DIALOGUE);
 		Audio::dialogue_done = false;
+	}
+
+	void variable(AssetID variable, AssetID value)
+	{
+		Game::save.variables[variable] = value;
+	}
+
+	AssetID variable(AssetID variable)
+	{
+		auto i = Game::save.variables.find(variable);
+		if (i == Game::save.variables.end())
+			return AssetNull;
+		else
+			return i->second;
 	}
 
 	void execute(ID node_id, r32 time = 0.0f)
@@ -491,18 +506,18 @@ namespace Penelope
 			}
 			case Node::Type::Branch:
 			{
-				AssetID value = Game::save.variables[node.branch.variable];
+				AssetID value = variable(node.branch.variable);
 				b8 found_branch = false;
 				for (s32 i = 0; i < MAX_BRANCHES; i++)
 				{
+					if (node.branch.branches[i].value == AssetNull)
+						break;
 					if (node.branch.branches[i].value == value)
 					{
 						execute(node.branch.branches[i].target, time);
 						found_branch = true;
 						break;
 					}
-					if (node.branch.branches[i].value == AssetNull)
-						break;
 				}
 				if (!found_branch)
 				{
@@ -539,7 +554,7 @@ namespace Penelope
 			}
 			case Node::Type::Set:
 			{
-				Game::save.variables[node.set.variable] = node.set.value;
+				variable(node.set.variable, node.set.value);
 				if (node.next != IDNull)
 					execute(node.next, time);
 				break;
@@ -580,28 +595,36 @@ namespace Penelope
 		if (terminal && u.last_input->get(Controls::Interact, 0) && !u.input->get(Controls::Interact, 0))
 		{
 			terminal_active(false);
-			clear_and_execute(node_lookup[data->entry_point], 0.5f);
+			if (Game::save.round == 0)
+				clear_and_execute(node_lookup[data->entry_point], 0.5f);
+			else if (Game::save.round == 1)
+				clear_and_execute(node_lookup[strings::second_round], 0.5f);
+			else
+				vi_assert(false);
 		}
 
 		if (Audio::dialogue_done)
 		{
 			// we've completed displaying a text message
 			// continue executing the dialogue tree
-			Node& node = Node::list[data->current_text_node];
-			data->current_text_node = IDNull;
-			if (node.next == IDNull)
+			if (data->current_text_node != IDNull) // might be null if the dialogue got cut off or something
 			{
-				for (s32 i = 0; i < MAX_CHOICES; i++)
+				Node& node = Node::list[data->current_text_node];
+				data->current_text_node = IDNull;
+				if (node.next == IDNull)
 				{
-					ID choice = node.text.choices[i];
-					if (choice == IDNull)
-						break;
-					else
-						execute(choice, data->time);
+					for (s32 i = 0; i < MAX_CHOICES; i++)
+					{
+						ID choice = node.text.choices[i];
+						if (choice == IDNull)
+							break;
+						else
+							execute(choice, data->time);
+					}
 				}
+				else
+					execute(node.next, data->time);
 			}
-			else
-				execute(node.next, data->time);
 
 			Audio::dialogue_done = false;
 		}
@@ -700,7 +723,7 @@ namespace Penelope
 		// get focus if we need it
 		if (data->choices.active() && !has_focus()) // penelope is waiting on us, but she doesn't have focus yet
 		{
-			if (!fragment || fragment->collected) // uncollected fragments take precedence over dialogue
+			if (!fragment || fragment->collected()) // uncollected fragments take precedence over dialogue
 			{
 				if (u.last_input->get(Controls::Interact, 0) && !u.input->get(Controls::Interact, 0))
 					data->mode = Mode::Center; // we have focus now!
@@ -709,13 +732,13 @@ namespace Penelope
 
 		// collect data fragment
 		{
-			if (fragment && !fragment->collected)
+			if (fragment && !fragment->collected())
 			{
 				if (u.last_input->get(Controls::Interact, 0) && !u.input->get(Controls::Interact, 0))
 					fragment->collect();
 			}
 
-			if (fragment && fragment->collected)
+			if (fragment && fragment->collected())
 			{
 				if (data->fragment_time == 0.0f)
 					data->fragment_time = Game::real_time.total;
@@ -784,7 +807,7 @@ namespace Penelope
 			text.anchor_y = UIText::Anchor::Max;
 			text.size = 16.0f;
 
-			if (fragment->collected)
+			if (fragment->collected())
 			{
 				text.color = UI::default_color;
 				text.wrap_width = MENU_ITEM_WIDTH - MENU_ITEM_PADDING * 2.0f;
@@ -803,7 +826,7 @@ namespace Penelope
 		}
 
 		// prompt the player to interact if near a terminal or if penelope is waiting on the player to answer a question
-		if (!fragment || fragment->collected) // if there's an uncollected fragment, that takes precedence
+		if (!fragment || fragment->collected()) // if there's an uncollected fragment, that takes precedence
 		{
 			b8 show_interact_prompt = false;
 			Vec2 p;
@@ -1002,7 +1025,7 @@ namespace Penelope
 		}
 
 		// menu
-		if (!fragment || fragment->collected) // if there's an uncollected fragment, that takes precedence
+		if (!fragment || fragment->collected()) // if there's an uncollected fragment, that takes precedence
 			data->menu.draw_alpha(params);
 	}
 
@@ -1038,6 +1061,8 @@ namespace Penelope
 			Loader::texture(Asset::Texture::penelope, RenderTextureWrap::Clamp, RenderTextureFilter::Nearest);
 
 			data->node_executed.link(&node_executed);
+
+			variable(strings::matchmaking, AssetNull);
 		}
 	}
 
@@ -1103,7 +1128,7 @@ namespace tutorial
 		{
 			data->state = TutorialState::Climb;
 			Penelope::data->texts.clear();
-			Penelope::data->texts.schedule(0.0f, _(strings::tut_parkour_2));
+			Penelope::data->texts.schedule(0.0f, _(strings::tut_parkour_climb));
 		}
 	}
 
@@ -1139,7 +1164,7 @@ namespace tutorial
 			config->low_level = AIPlayer::LowLevelLoop::Noop;
 			config->hp_start = AWK_HEALTH;
 		}
-		else
+		else if (Penelope::variable(strings::tutorial_intro) != strings::yes)
 		{
 			data = new Data();
 			Game::cleanups.add(&cleanup);
@@ -1147,7 +1172,7 @@ namespace tutorial
 			entities.find("jump_success")->get<PlayerTrigger>()->entered.link(&jump_success);
 			entities.find("climb_success")->get<PlayerTrigger>()->entered.link(&climb_success);
 
-			Penelope::data->texts.schedule(3.0f, _(strings::tut_parkour_1));
+			Penelope::data->texts.schedule(3.0f, _(strings::tut_parkour_movement));
 		}
 	}
 }
@@ -1180,7 +1205,7 @@ namespace level1
 
 	void init(const Update& u, const EntityFinder& entities)
 	{
-		if (Game::state.mode == Game::Mode::Parkour)
+		if (Game::state.mode == Game::Mode::Parkour && Penelope::variable(strings::level1_intro) != strings::yes)
 		{
 			data = new Data();
 			Game::cleanups.add(&cleanup);
@@ -1188,7 +1213,7 @@ namespace level1
 			entities.find("wallrun_success")->get<PlayerTrigger>()->entered.link(&wallrun_success);
 			entities.find("wallrun_success_2")->get<PlayerTrigger>()->entered.link(&wallrun_success);
 
-			Penelope::data->texts.schedule(2.0f, _(strings::tut_parkour_3));
+			Penelope::data->texts.schedule(2.0f, _(strings::tut_parkour_wallrun));
 		}
 	}
 }

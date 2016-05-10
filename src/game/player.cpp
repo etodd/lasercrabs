@@ -1674,6 +1674,96 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 		}
 	}
 
+	// usernames directly over players' 3D positions
+	for (auto other_player = PlayerCommon::list.iterator(); !other_player.is_last(); other_player.next())
+	{
+		if (other_player.item() != get<PlayerCommon>())
+		{
+			b8 visible;
+			b8 tracking;
+			determine_visibility(get<PlayerCommon>(), other_player.item(), &visible, &tracking);
+
+			b8 friendly = other_player.item()->get<AIAgent>()->team == team;
+			
+			b8 draw;
+			Vec2 p;
+			const Vec4* color;
+
+			Team::SensorTrackHistory history;
+			if (friendly)
+			{
+				Team::extract_history(other_player.item()->manager.ref(), &history);
+				Vec3 pos3d = history.pos + Vec3(0, AWK_RADIUS * 2.0f, 0);
+				draw = UI::project(params, pos3d, &p);
+				color = &Team::ui_color_friend;
+			}
+			else
+			{
+				history = Team::list[(s32)team].player_track_history[other_player.item()->manager.id];
+
+				if (!tracking && !visible) // if we can actually see them, the indicator has already been added using add_target_indicator in the update function
+					draw_indicator(params, history.pos, UI::disabled_color, false);
+
+				Vec3 pos3d = history.pos + Vec3(0, AWK_RADIUS * 2.0f, 0);
+
+				if (tracking || visible)
+				{
+					// highlight the username and draw it even if it's offscreen
+					is_onscreen(params, pos3d, &p);
+					draw = true;
+					color = &Team::ui_color(team, other_player.item()->get<AIAgent>()->team);
+				}
+				else
+				{
+					draw = UI::project(params, pos3d, &p);
+					color = &UI::disabled_color;
+				}
+			}
+
+			if (draw)
+			{
+				Vec2 hp_pos = p;
+				hp_pos.y += text_size * UI::scale;
+
+				Vec2 username_pos = hp_pos;
+				username_pos.y += (text_size * UI::scale) + HP_BOX_SPACING * 0.5f;
+
+				Vec2 danger_pos = username_pos;
+				danger_pos.y += (text_size * UI::scale) + HP_BOX_SPACING * 0.5f;
+
+				UIText username;
+				username.size = text_size;
+				username.font = Asset::Font::lowpoly;
+				username.anchor_x = UIText::Anchor::Center;
+				username.anchor_y = UIText::Anchor::Min;
+				username.color = *color;
+				username.text(other_player.item()->manager.ref()->username);
+
+				UIText danger;
+				b8 draw_danger = !friendly && (tracking || visible) && history.hp > get<Health>()->hp;
+				if (draw_danger)
+				{
+					danger = username;
+					danger.text(_(strings::danger));
+					UI::box(params, danger.rect(danger_pos).outset(HP_BOX_SPACING), UI::background_color);
+				}
+
+				UI::box(params, username.rect(username_pos).outset(HP_BOX_SPACING), UI::background_color);
+
+				if (Game::level.has_feature(Game::FeatureLevel::HealthPickups))
+				{
+					draw_hp_box(params, hp_pos, history.hp_max);
+					draw_hp_indicator(params, hp_pos, history.hp, history.hp_max, *color);
+				}
+
+				username.draw(params, username_pos);
+
+				if (draw_danger && flash_function(Game::real_time.total))
+					danger.draw(params, danger_pos); // danger!
+			}
+		}
+	}
+
 	// health indicator
 	if (Game::level.has_feature(Game::FeatureLevel::HealthPickups))
 	{
@@ -1786,96 +1876,6 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 			text.anchor_y = UIText::Anchor::Center;
 			text.text(_(string), info.spawn_cost);
 			text.draw(params, bar.pos + bar.size * 0.5f);
-		}
-	}
-
-	// usernames directly over players' 3D positions
-	for (auto other_player = PlayerCommon::list.iterator(); !other_player.is_last(); other_player.next())
-	{
-		if (other_player.item() != get<PlayerCommon>())
-		{
-			b8 visible;
-			b8 tracking;
-			determine_visibility(get<PlayerCommon>(), other_player.item(), &visible, &tracking);
-
-			b8 friendly = other_player.item()->get<AIAgent>()->team == team;
-			
-			b8 draw;
-			Vec2 p;
-			const Vec4* color;
-
-			Team::SensorTrackHistory history;
-			if (friendly)
-			{
-				Team::extract_history(other_player.item()->manager.ref(), &history);
-				Vec3 pos3d = history.pos + Vec3(0, AWK_RADIUS * 2.0f, 0);
-				draw = UI::project(params, pos3d, &p);
-				color = &Team::ui_color_friend;
-			}
-			else
-			{
-				history = Team::list[(s32)team].player_track_history[other_player.item()->manager.id];
-
-				if (!tracking && !visible) // if we can actually see them, the indicator has already been added using add_target_indicator in the update function
-					draw_indicator(params, history.pos, UI::disabled_color, false);
-
-				Vec3 pos3d = history.pos + Vec3(0, AWK_RADIUS * 2.0f, 0);
-
-				if (tracking || visible)
-				{
-					// highlight the username and draw it even if it's offscreen
-					is_onscreen(params, pos3d, &p);
-					draw = true;
-					color = &Team::ui_color(team, other_player.item()->get<AIAgent>()->team);
-				}
-				else
-				{
-					draw = UI::project(params, pos3d, &p);
-					color = &UI::disabled_color;
-				}
-			}
-
-			if (draw)
-			{
-				Vec2 hp_pos = p;
-				hp_pos.y += text_size * UI::scale;
-
-				Vec2 username_pos = hp_pos;
-				username_pos.y += (text_size * UI::scale) + HP_BOX_SPACING * 0.5f;
-
-				Vec2 danger_pos = username_pos;
-				danger_pos.y += (text_size * UI::scale) + HP_BOX_SPACING * 0.5f;
-
-				UIText username;
-				username.size = text_size;
-				username.font = Asset::Font::lowpoly;
-				username.anchor_x = UIText::Anchor::Center;
-				username.anchor_y = UIText::Anchor::Min;
-				username.color = *color;
-				username.text(other_player.item()->manager.ref()->username);
-
-				UIText danger;
-				b8 draw_danger = !friendly && (tracking || visible) && history.hp > get<Health>()->hp;
-				if (draw_danger)
-				{
-					danger = username;
-					danger.text(_(strings::danger));
-					UI::box(params, danger.rect(danger_pos).outset(HP_BOX_SPACING), UI::background_color);
-				}
-
-				UI::box(params, username.rect(username_pos).outset(HP_BOX_SPACING), UI::background_color);
-
-				if (Game::level.has_feature(Game::FeatureLevel::HealthPickups))
-				{
-					draw_hp_box(params, hp_pos, history.hp_max);
-					draw_hp_indicator(params, hp_pos, history.hp, history.hp_max, *color);
-				}
-
-				username.draw(params, username_pos);
-
-				if (draw_danger && flash_function(Game::real_time.total))
-					danger.draw(params, danger_pos); // danger!
-			}
 		}
 	}
 

@@ -89,6 +89,7 @@ const s32 Game::levels[] =
 	Asset::Level::tutorial,
 	Asset::Level::level1,
 	Asset::Level::level2,
+	Asset::Level::level3,
 	AssetNull,
 };
 
@@ -794,46 +795,48 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 			{
 				char* mesh_ref = json_mesh->valuestring;
 
-				Entity* m;
+				AssetID mesh_id = Loader::find(mesh_ref, AssetLookup::Mesh::names);
 
-				s32 mesh_id = Loader::find(mesh_ref, AssetLookup::Mesh::names);
-				Mesh* mesh = Loader::mesh(mesh_id);
-				vi_assert(mesh_id != AssetNull);
-				if (mesh->color.w < 0.5f)
+				if (mesh_id != AssetNull)
 				{
-					// inaccessible
-					m = World::alloc<StaticGeom>(mesh_id, absolute_pos, absolute_rot, CollisionInaccessible, CollisionInaccessibleMask);
-					Vec4 color = Loader::mesh(mesh_id)->color;
-					if (state.mode != Mode::Parkour) // override colors
-						color.xyz(pvp_inaccessible);
-					color.w = MATERIAL_NO_OVERRIDE; // special G-buffer index for inaccessible materials
-					m->get<View>()->color = color;
-				}
-				else
-				{
-					// accessible
-					m = World::alloc<StaticGeom>(mesh_id, absolute_pos, absolute_rot);
+					Entity* m;
+					Mesh* mesh = Loader::mesh(mesh_id);
+					if (mesh->color.w < 0.5f)
+					{
+						// inaccessible
+						m = World::alloc<StaticGeom>(mesh_id, absolute_pos, absolute_rot, CollisionInaccessible, CollisionInaccessibleMask);
+						Vec4 color = Loader::mesh(mesh_id)->color;
+						if (state.mode != Mode::Parkour) // override colors
+							color.xyz(pvp_inaccessible);
+						color.w = MATERIAL_NO_OVERRIDE; // special G-buffer index for inaccessible materials
+						m->get<View>()->color = color;
+					}
+					else
+					{
+						// accessible
+						m = World::alloc<StaticGeom>(mesh_id, absolute_pos, absolute_rot);
 
-					Vec4 color = Loader::mesh(mesh_id)->color;
-					if (state.mode != Mode::Parkour) // override colors
-						color.xyz(pvp_accessible);
-					m->get<View>()->color = color;
-				}
+						Vec4 color = Loader::mesh(mesh_id)->color;
+						if (state.mode != Mode::Parkour) // override colors
+							color.xyz(pvp_accessible);
+						m->get<View>()->color = color;
+					}
 
-				if (entity)
-				{
-					World::awake(m);
-					m->get<Transform>()->reparent(entity->get<Transform>());
-				}
-				else
-					entity = m;
+					if (entity)
+					{
+						World::awake(m);
+						m->get<Transform>()->reparent(entity->get<Transform>());
+					}
+					else
+						entity = m;
 
-				if (alpha || additive)
-					m->get<View>()->shader = Asset::Shader::flat;
-				if (alpha)
-					m->get<View>()->alpha();
-				if (additive)
-					m->get<View>()->additive();
+					if (alpha || additive)
+						m->get<View>()->shader = Asset::Shader::flat;
+					if (alpha)
+						m->get<View>()->alpha();
+					if (additive)
+						m->get<View>()->additive();
+				}
 
 				json_mesh = json_mesh->next;
 			}

@@ -66,6 +66,9 @@ void UIText::text(const char* format, ...)
 
 void UIText::text_raw(const char* string)
 {
+	if (!string)
+		string = "";
+
 	{
 		s32 char_index = 0;
 		s32 rendered_index = 0;

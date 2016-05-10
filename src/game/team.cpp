@@ -589,7 +589,7 @@ PlayerManager::PlayerManager(Team* team)
 	ability_level{ (u8)(Game::level.has_feature(Game::FeatureLevel::Abilities) ? 1 : 0), 0, 0 },
 	entity(),
 	spawn(),
-	ready(Game::state.mode == Game::Mode::Parkour || Game::level.has_feature(Game::FeatureLevel::All)),
+	ready(Game::state.mode == Game::Mode::Parkour || Game::level.tutorial == Game::Tutorial::None),
 	current_spawn_ability(Ability::None),
 	ability_spawned()
 {

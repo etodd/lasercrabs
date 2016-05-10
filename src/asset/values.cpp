@@ -394,6 +394,7 @@ const char* AssetLookup::String::names[] =
 	"btn_X",
 	"btn_Y",
 	"close",
+	"connect_gamepads",
 	"connecting",
 	"danger",
 	"data_fragment",

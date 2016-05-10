@@ -1637,25 +1637,6 @@
 								<ActiveSource Name="0ec439da617dbb7303b41a098cecf1b5864be379" ID="{B7D9650B-1849-4EFD-BB8F-AAE2988AAB02}" Platform="Linked"/>
 							</ActiveSourceList>
 						</Sound>
-						<Sound Name="1b01ec530ac7b8ba379559a9096890869e9d0769" ID="{1E67FBFE-7AE2-4702-8F21-B9C0F949A203}" ShortID="2599308" Type="SoundFX">
-							<ReferenceList>
-								<Reference Name="Conversion">
-									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
-								</Reference>
-								<Reference Name="OutputBus">
-									<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
-								</Reference>
-							</ReferenceList>
-							<ChildrenList>
-								<AudioFileSource Name="1b01ec530ac7b8ba379559a9096890869e9d0769" ID="{2116CB92-6D1A-4DBF-BA06-99F01246E7E6}" ShortID="892956435">
-									<Language>SFX</Language>
-									<AudioFile>penelope\1b01ec530ac7b8ba379559a9096890869e9d0769.wav</AudioFile>
-								</AudioFileSource>
-							</ChildrenList>
-							<ActiveSourceList>
-								<ActiveSource Name="1b01ec530ac7b8ba379559a9096890869e9d0769" ID="{2116CB92-6D1A-4DBF-BA06-99F01246E7E6}" Platform="Linked"/>
-							</ActiveSourceList>
-						</Sound>
 						<Sound Name="1d6b473c6fdd417cebfebb4078a0768e7c7fd87a" ID="{7664A5D5-F6D3-4654-900A-090CD1B00C30}" ShortID="1072038268" Type="SoundFX">
 							<ReferenceList>
 								<Reference Name="Conversion">
@@ -2490,6 +2471,25 @@
 							</ChildrenList>
 							<ActiveSourceList>
 								<ActiveSource Name="c2cc34e8e110995dab6574677c4c3314f1d22fbb" ID="{8470CA49-6D2C-49F0-A248-502A3B9AA033}" Platform="Linked"/>
+							</ActiveSourceList>
+						</Sound>
+						<Sound Name="1b01ec530ac7b8ba379559a9096890860e9d0769" ID="{3FB31032-6917-4139-9116-FACAD7D6933C}" ShortID="1057201748" Type="SoundFX">
+							<ReferenceList>
+								<Reference Name="Conversion">
+									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+								</Reference>
+								<Reference Name="OutputBus">
+									<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+								</Reference>
+							</ReferenceList>
+							<ChildrenList>
+								<AudioFileSource Name="1b01ec530ac7b8ba379559a9096890860e9d0769" ID="{B87AFF8C-C7BD-4E43-B955-6237A2726FA1}" ShortID="256410644">
+									<Language>SFX</Language>
+									<AudioFile>penelope\1b01ec530ac7b8ba379559a9096890860e9d0769.wav</AudioFile>
+								</AudioFileSource>
+							</ChildrenList>
+							<ActiveSourceList>
+								<ActiveSource Name="1b01ec530ac7b8ba379559a9096890860e9d0769" ID="{B87AFF8C-C7BD-4E43-B955-6237A2726FA1}" Platform="Linked"/>
 							</ActiveSourceList>
 						</Sound>
 					</ChildrenList>

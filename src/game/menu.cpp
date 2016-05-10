@@ -432,7 +432,18 @@ void draw(const RenderParams& params)
 							text.text(_(strings::leave));
 					}
 					else // player 0 must stay in
-						text.text(_(strings::begin));
+					{
+						s32 gamepad_count = 0;
+						for (s32 j = 0; j < MAX_GAMEPADS; j++)
+						{
+							if (params.sync->input.gamepads[j].active)
+								gamepad_count++;
+						}
+						if (gamepad_count > 1)
+							text.text(_(strings::begin));
+						else
+							text.text(_(strings::connect_gamepads));
+					}
 					text.draw(params, viewport.size * 0.5f + Vec2(0, -16.0f * UI::scale));
 					break;
 				}

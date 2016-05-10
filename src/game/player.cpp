@@ -650,13 +650,15 @@ void LocalPlayer::draw_alpha(const RenderParams& params) const
 						text.anchor_x = UIText::Anchor::Center;
 						text.anchor_y = UIText::Anchor::Center;
 						text.color = UI::accent_color;
-						const AssetID tutorials[(s32)Game::FeatureLevel::count - 1] =
+						vi_assert(Game::level.tutorial < Game::Tutorial::count);
+						const AssetID tutorials[(s32)Game::Tutorial::count] =
 						{
 							strings::tut_pvp_movement,
 							strings::tut_pvp_health,
 							strings::tut_pvp_sensors,
+							strings::tut_pvp_control_points,
 						};
-						text.text(_(tutorials[(s32)Game::level.feature_level]));
+						text.text(_(tutorials[(s32)Game::level.tutorial]));
 						Vec2 p = vp.size * Vec2(0.5f);
 						const r32 padding = 8.0f * UI::scale;
 						UI::box(params, text.rect(p).outset(padding), UI::background_color);

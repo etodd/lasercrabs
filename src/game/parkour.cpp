@@ -615,92 +615,95 @@ void Parkour::do_normal_jump()
 b8 Parkour::try_jump(r32 rotation)
 {
 	b8 did_jump = false;
-	if (get<Walker>()->support.ref()
-		|| fsm.current == State::Slide
-		|| (last_support.ref() && Game::time.total - last_support_time < JUMP_GRACE_PERIOD && wall_run_state == WallRunState::None))
+	if (fsm.current == State::Normal || fsm.current == State::Slide || fsm.current == State::WallRun)
 	{
-		do_normal_jump();
-		did_jump = true;
-	}
-	else
-	{
-		// try wall-jumping
-		if (last_support.ref() && Game::time.total - last_support_time < JUMP_GRACE_PERIOD && wall_run_state != WallRunState::None)
+		if (get<Walker>()->support.ref()
+			|| fsm.current == State::Slide
+			|| (last_support.ref() && Game::time.total - last_support_time < JUMP_GRACE_PERIOD && wall_run_state == WallRunState::None))
 		{
-			wall_jump(rotation, last_support.ref()->get<Transform>()->to_world_normal(relative_wall_run_normal), last_support.ref()->btBody);
+			do_normal_jump();
 			did_jump = true;
 		}
 		else
 		{
-			Vec3 ray_start = get<Walker>()->base_pos() + Vec3(0, get<Walker>()->support_height, 0);
-
-			for (s32 i = 0; i < wall_jump_direction_count; i++)
+			// try wall-jumping
+			if (last_support.ref() && Game::time.total - last_support_time < JUMP_GRACE_PERIOD && wall_run_state != WallRunState::None)
 			{
-				Vec3 ray_end = ray_start + wall_directions[i] * get<Walker>()->radius * WALL_JUMP_RAYCAST_RADIUS_RATIO;
-				btCollisionWorld::ClosestRayResultCallback ray_callback(ray_start, ray_end);
-				ray_callback.m_flags = btTriangleRaycastCallback::EFlags::kF_FilterBackfaces
-					| btTriangleRaycastCallback::EFlags::kF_KeepUnflippedNormal;
-				ray_callback.m_collisionFilterMask = ray_callback.m_collisionFilterGroup = ~CollisionWalker & ~CollisionTarget;
-
-				Physics::btWorld->rayTest(ray_start, ray_end, ray_callback);
-
-				if (ray_callback.hasHit())
-				{
-					Vec3 wall_normal = ray_callback.m_hitNormalWorld;
-					const btRigidBody* support_body = dynamic_cast<const btRigidBody*>(ray_callback.m_collisionObject);
-					wall_jump(rotation, wall_normal, support_body);
-					did_jump = true;
-					break;
-				}
+				wall_jump(rotation, last_support.ref()->get<Transform>()->to_world_normal(relative_wall_run_normal), last_support.ref()->btBody);
+				did_jump = true;
 			}
-
-			if (!did_jump)
+			else
 			{
-				// we couldn't wall-jump
-				// try to double-jump
-				if (can_double_jump)
+				Vec3 ray_start = get<Walker>()->base_pos() + Vec3(0, get<Walker>()->support_height, 0);
+
+				for (s32 i = 0; i < wall_jump_direction_count; i++)
 				{
-					Vec3 spawn_offset = get<RigidBody>()->btBody->getLinearVelocity() * 1.5f;
-					spawn_offset.y = 5.0f;
+					Vec3 ray_end = ray_start + wall_directions[i] * get<Walker>()->radius * WALL_JUMP_RAYCAST_RADIUS_RATIO;
+					btCollisionWorld::ClosestRayResultCallback ray_callback(ray_start, ray_end);
+					ray_callback.m_flags = btTriangleRaycastCallback::EFlags::kF_FilterBackfaces
+						| btTriangleRaycastCallback::EFlags::kF_KeepUnflippedNormal;
+					ray_callback.m_collisionFilterMask = ray_callback.m_collisionFilterGroup = ~CollisionWalker & ~CollisionTarget;
 
-					Vec3 pos = get<Walker>()->base_pos();
+					Physics::btWorld->rayTest(ray_start, ray_end, ray_callback);
 
-					Quat tile_rot = Quat::look(Vec3(0, 1, 0));
-					const r32 radius = TILE_CREATE_RADIUS - 2.0f;
-					s32 i = 0;
-					for (s32 x = -(s32)TILE_CREATE_RADIUS; x <= (s32)radius; x++)
+					if (ray_callback.hasHit())
 					{
-						for (s32 y = -(s32)TILE_CREATE_RADIUS; y <= (s32)radius; y++)
+						Vec3 wall_normal = ray_callback.m_hitNormalWorld;
+						const btRigidBody* support_body = dynamic_cast<const btRigidBody*>(ray_callback.m_collisionObject);
+						wall_jump(rotation, wall_normal, support_body);
+						did_jump = true;
+						break;
+					}
+				}
+
+				if (!did_jump)
+				{
+					// we couldn't wall-jump
+					// try to double-jump
+					if (can_double_jump)
+					{
+						Vec3 spawn_offset = get<RigidBody>()->btBody->getLinearVelocity() * 1.5f;
+						spawn_offset.y = 5.0f;
+
+						Vec3 pos = get<Walker>()->base_pos();
+
+						Quat tile_rot = Quat::look(Vec3(0, 1, 0));
+						const r32 radius = TILE_CREATE_RADIUS - 2.0f;
+						s32 i = 0;
+						for (s32 x = -(s32)TILE_CREATE_RADIUS; x <= (s32)radius; x++)
 						{
-							if (Vec2(x, y).length_squared() < radius * radius)
+							for (s32 y = -(s32)TILE_CREATE_RADIUS; y <= (s32)radius; y++)
 							{
-								World::create<TileEntity>(pos + Vec3(x, 0, y) * TILE_SIZE, tile_rot, nullptr, spawn_offset, 0.15f + 0.05f * i);
-								i++;
+								if (Vec2(x, y).length_squared() < radius * radius)
+								{
+									World::create<TileEntity>(pos + Vec3(x, 0, y) * TILE_SIZE, tile_rot, nullptr, spawn_offset, 0.15f + 0.05f * i);
+									i++;
+								}
 							}
 						}
+
+						// override horizontal velocity based on current facing angle
+						Vec3 velocity = get<RigidBody>()->btBody->getLinearVelocity();
+						Vec3 horizontal_velocity = velocity;
+						horizontal_velocity.y = 0.0f;
+						Vec3 new_velocity = Quat::euler(0, get<Walker>()->rotation, 0) * Vec3(0, 0, horizontal_velocity.length());
+						new_velocity.y = velocity.y;
+						get<RigidBody>()->btBody->setLinearVelocity(new_velocity);
+
+						do_normal_jump();
+
+						can_double_jump = false;
+						did_jump = true;
 					}
-
-					// override horizontal velocity based on current facing angle
-					Vec3 velocity = get<RigidBody>()->btBody->getLinearVelocity();
-					Vec3 horizontal_velocity = velocity;
-					horizontal_velocity.y = 0.0f;
-					Vec3 new_velocity = Quat::euler(0, get<Walker>()->rotation, 0) * Vec3(0, 0, horizontal_velocity.length());
-					new_velocity.y = velocity.y;
-					get<RigidBody>()->btBody->setLinearVelocity(new_velocity);
-
-					do_normal_jump();
-
-					can_double_jump = false;
-					did_jump = true;
 				}
 			}
 		}
-	}
 
-	if (did_jump)
-	{
-		get<Audio>()->post_event(has<LocalPlayerControl>() ? AK::EVENTS::PLAY_JUMP_PLAYER : AK::EVENTS::PLAY_JUMP);
-		fsm.transition(State::Normal);
+		if (did_jump)
+		{
+			get<Audio>()->post_event(has<LocalPlayerControl>() ? AK::EVENTS::PLAY_JUMP_PLAYER : AK::EVENTS::PLAY_JUMP);
+			fsm.transition(State::Normal);
+		}
 	}
 
 	return did_jump;

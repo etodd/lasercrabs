@@ -67,9 +67,11 @@ template<s32 size> struct SyncRingBuffer
 		else if (read_pos > write_pos)
 			vi_assert(write_end < read_pos);
 
+#if defined(__clang__)
 		// get ready to do gross things
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdynamic-class-memaccess"
+#endif
 		if (write_end < data.length)
 		{
 			memcpy(&data[write_pos], t, write_size);
@@ -82,7 +84,9 @@ template<s32 size> struct SyncRingBuffer
 			write_pos = write_end - data.length;
 			memcpy(&data[0], ((u8*)t) + partition, write_pos);
 		}
+#if defined(__clang__)
 #pragma clang diagnostic pop
+#endif
 	}
 
 	template<typename T> void write(const T& t)
@@ -97,9 +101,11 @@ template<s32 size> struct SyncRingBuffer
 			return;
 		s32 read_end = read_pos + read_len;
 
+#if defined(__clang__)
 		// get ready to do gross things
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdynamic-class-memaccess"
+#endif
 		if (read_end >= data.length)
 		{
 			vi_assert(write_pos < read_pos);
@@ -116,7 +122,9 @@ template<s32 size> struct SyncRingBuffer
 			memcpy(t, &data[read_pos], read_len);
 			read_pos = read_end;
 		}
+#if defined(__clang__)
 #pragma clang diagnostic pop
+#endif
 	}
 };
 

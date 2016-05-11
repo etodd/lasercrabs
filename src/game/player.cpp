@@ -1529,7 +1529,9 @@ void LocalPlayerControl::update(const Update& u)
 				get<Walker>()->rotation = LMath::angle_range(get<Walker>()->rotation + delta + PI * 0.5f);
 		}
 
-		if (!Game::state.third_person)
+		if (Game::state.third_person)
+			camera_pos = get<Transform>()->absolute_pos() + look_quat * Vec3(0, 1, -3);
+		else
 		{
 			// camera bone affects rotation only
 			Quat camera_animation = Quat::euler(PI * -0.5f, 0, 0);
@@ -1548,7 +1550,7 @@ void LocalPlayerControl::update(const Update& u)
 
 		// camera setup
 		camera->wall_normal = Vec3(0, 0, 1);
-		camera->pos = camera_pos + (Game::state.third_person ? look_quat * Vec3(0, 0, -2) : Vec3::zero);
+		camera->pos = camera_pos;
 		camera->range = 0.0f;
 		camera->rot = look_quat;
 	}

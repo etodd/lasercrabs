@@ -21,6 +21,7 @@
 #include "sha1/sha1.h"
 #include "settings.h"
 #include "utf8/utf8.h"
+#include "console.h"
 #include <unordered_map>
 #include <string>
 
@@ -594,7 +595,7 @@ namespace Penelope
 			}
 		}
 
-		if (terminal && u.last_input->get(Controls::Interact, 0) && !u.input->get(Controls::Interact, 0))
+		if (terminal && !Console::visible && u.last_input->get(Controls::Interact, 0) && !u.input->get(Controls::Interact, 0))
 		{
 			terminal_active(false);
 			if (Game::save.round == 0)
@@ -727,7 +728,7 @@ namespace Penelope
 		{
 			if (!fragment || fragment->collected()) // uncollected fragments take precedence over dialogue
 			{
-				if (u.last_input->get(Controls::Interact, 0) && !u.input->get(Controls::Interact, 0))
+				if (!Console::visible && u.last_input->get(Controls::Interact, 0) && !u.input->get(Controls::Interact, 0))
 					data->mode = Mode::Center; // we have focus now!
 			}
 		}
@@ -736,7 +737,7 @@ namespace Penelope
 		{
 			if (fragment && !fragment->collected())
 			{
-				if (u.last_input->get(Controls::Interact, 0) && !u.input->get(Controls::Interact, 0))
+				if (!Console::visible && u.last_input->get(Controls::Interact, 0) && !u.input->get(Controls::Interact, 0))
 					fragment->collect();
 			}
 

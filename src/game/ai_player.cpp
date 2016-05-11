@@ -218,7 +218,7 @@ b8 AIPlayerControl::restore_loops()
 	return true;
 }
 
-void AIPlayerControl::add_memory(MemoryArray* component_memories, Entity* entity, const Vec3& pos)
+void add_memory(AIPlayerControl::MemoryArray* component_memories, Entity* entity, const Vec3& pos)
 {
 	b8 already_found = false;
 	for (s32 j = 0; j < component_memories->length; j++)
@@ -240,17 +240,39 @@ void AIPlayerControl::add_memory(MemoryArray* component_memories, Entity* entity
 	}
 }
 
-// update memory of enemy AWK positions based on team sensor data
-b8 AIPlayerControl::update_awk_memory()
+template<typename Component>
+void update_component_memory(AIPlayerControl* control, b8 (*filter)(const AIPlayerControl*, const Entity*))
 {
-	const Team& team = Team::list[(s32)get<AIAgent>()->team];
-	for (s32 i = 0; i < MAX_PLAYERS; i++)
+	AIPlayerControl::MemoryArray* component_memories = &control->memory[Component::family];
+	// remove outdated memories
+	for (s32 i = 0; i < component_memories->length; i++)
 	{
-		const Team::SensorTrack& track = team.player_tracks[i];
-		if (track.tracking && track.entity.ref())
-			add_memory(&memory[Awk::family], track.entity.ref(), track.entity.ref()->get<Transform>()->absolute_pos());
+		AIPlayerControl::Memory* m = &(*component_memories)[i];
+		if (control->in_range(m->pos, VISIBLE_RANGE))
+		{
+			b8 now_in_range = m->entity.ref() && control->in_range(m->entity.ref()->get<Transform>()->absolute_pos(), VISIBLE_RANGE) && filter(control, m->entity.ref());
+			if (!now_in_range)
+			{
+				component_memories->remove(i);
+				i--;
+			}
+		}
 	}
-	return true;
+
+	// add new memories
+	if (component_memories->length < component_memories->capacity())
+	{
+		for (auto i = Component::list.iterator(); !i.is_last(); i.next())
+		{
+			Vec3 pos = i.item()->template get<Transform>()->absolute_pos();
+			if (control->in_range(pos, VISIBLE_RANGE) && filter(control, i.item()->entity()))
+			{
+				add_memory(component_memories, i.item()->entity(), pos);
+				if (component_memories->length == component_memories->capacity())
+					break;
+			}
+		}
+	}
 }
 
 // if exact is true, we need to land exactly at the given target point
@@ -390,24 +412,24 @@ b8 AIPlayerControl::aim_and_shoot(const Update& u, const Vec3& target, b8 exact)
 	return false;
 }
 
-b8 health_pickup_filter(const AIPlayerControl* control, const HealthPickup* h)
+b8 health_pickup_filter(const AIPlayerControl* control, const Entity* e)
 {
-	return h->owner.ref() != control->get<Health>();
+	return e->get<HealthPickup>()->owner.ref() != control->get<Health>();
 }
 
-b8 minion_filter(const AIPlayerControl* control, const MinionAI* m)
+b8 minion_filter(const AIPlayerControl* control, const Entity* e)
 {
-	return m->get<AIAgent>()->team != control->get<AIAgent>()->team;
+	return e->get<AIAgent>()->team != control->get<AIAgent>()->team;
 }
 
-b8 awk_filter(const AIPlayerControl* control, const Awk* a)
+b8 awk_filter(const AIPlayerControl* control, const Entity* e)
 {
-	return a->get<AIAgent>()->team != control->get<AIAgent>()->team
-		&& !a->get<AIAgent>()->stealth
-		&& a->get<Health>()->hp <= control->get<Health>()->hp;
+	return e->get<AIAgent>()->team != control->get<AIAgent>()->team
+		&& !e->get<AIAgent>()->stealth
+		&& e->get<Health>()->hp <= control->get<Health>()->hp;
 }
 
-template<typename T> b8 default_filter(const AIPlayerControl* control, const T* t)
+b8 default_filter(const AIPlayerControl* control, const Entity* e)
 {
 	return true;
 }
@@ -449,13 +471,13 @@ Repeat* make_low_level_loop(AIPlayerControl* control, const AIPlayer::Config& co
 						(
 							Select::alloc // if any of these succeed, they will abort the high level loop
 							(
-								AIBehaviors::ReactTarget<Awk>::alloc(4, 5, &awk_filter),
+								AIBehaviors::ReactTarget::alloc(Awk::family, 4, 5, &awk_filter),
 								Sequence::alloc
 								(
 									Invert::alloc(Execute::alloc()->method<Health, &Health::is_full>(control->get<Health>())), // make sure we need health
-									AIBehaviors::ReactTarget<HealthPickup>::alloc(3, 4, &health_pickup_filter)
+									AIBehaviors::ReactTarget::alloc(HealthPickup::family, 3, 4, &health_pickup_filter)
 								),
-								AIBehaviors::ReactTarget<MinionAI>::alloc(3, 4, &default_filter<MinionAI>),
+								AIBehaviors::ReactTarget::alloc(MinionAI::family, 3, 4, &default_filter),
 								AIBehaviors::AbilitySpawn::alloc(3, Ability::Sensor, &should_spawn_sensor)
 							)
 						),
@@ -499,10 +521,10 @@ Repeat* make_high_level_loop(AIPlayerControl* control, const AIPlayer::Config& c
 							Sequence::alloc
 							(
 								Invert::alloc(Execute::alloc()->method<Health, &Health::is_full>(control->get<Health>())), // make sure we need health
-								AIBehaviors::Find<HealthPickup>::alloc(2, &health_pickup_filter)
+								AIBehaviors::Find::alloc(HealthPickup::family, 2, &health_pickup_filter)
 							),
-							AIBehaviors::Find<MinionAI>::alloc(2, &minion_filter),
-							AIBehaviors::Find<Awk>::alloc(2, &awk_filter),
+							AIBehaviors::Find::alloc(MinionAI::family, 2, &minion_filter),
+							AIBehaviors::Find::alloc(Awk::family, 2, &awk_filter),
 							AIBehaviors::RandomPath::alloc()
 						)
 					)
@@ -534,11 +556,7 @@ void AIPlayerControl::init_behavior_trees()
 		Sequence::alloc
 		(
 			Delay::alloc(config.interval_memory_update),
-			Execute::alloc()->method<AIPlayerControl, &AIPlayerControl::update_memory<HealthPickup, &default_filter<HealthPickup> > >(this),
-			Execute::alloc()->method<AIPlayerControl, &AIPlayerControl::update_memory<MinionAI, &minion_filter> >(this),
-			Execute::alloc()->method<AIPlayerControl, &AIPlayerControl::update_memory<SensorInterestPoint, &default_filter<SensorInterestPoint> > >(this),
-			Execute::alloc()->method<AIPlayerControl, &AIPlayerControl::update_memory<Awk, &awk_filter> >(this),
-			Execute::alloc()->method<AIPlayerControl, &AIPlayerControl::update_awk_memory >(this)
+			Execute::alloc()->method<AIPlayerControl, &AIPlayerControl::update_memory >(this)
 		)
 	);
 	loop_memory->set_context(this);
@@ -552,6 +570,25 @@ void AIPlayerControl::init_behavior_trees()
 	loop_memory->run();
 	loop_high_level->run();
 	loop_low_level->run();
+}
+
+b8 AIPlayerControl::update_memory()
+{
+	update_component_memory<HealthPickup>(this, &default_filter);
+	update_component_memory<MinionAI>(this, &minion_filter);
+	update_component_memory<SensorInterestPoint>(this, &default_filter);
+	update_component_memory<Awk>(this, &awk_filter);
+
+	// update memory of enemy AWK positions based on team sensor data
+	const Team& team = Team::list[(s32)get<AIAgent>()->team];
+	for (s32 i = 0; i < MAX_PLAYERS; i++)
+	{
+		const Team::SensorTrack& track = team.player_tracks[i];
+		if (track.tracking && track.entity.ref())
+			add_memory(&memory[Awk::family], track.entity.ref(), track.entity.ref()->get<Transform>()->absolute_pos());
+	}
+
+	return true;
 }
 
 void AIPlayerControl::update(const Update& u)
@@ -617,6 +654,44 @@ void AIPlayerControl::update(const Update& u)
 namespace AIBehaviors
 {
 
+Find::Find(Family fam, s8 priority, b8(*filter)(const AIPlayerControl*, const Entity*))
+	: filter(filter), family(fam)
+{
+	path_priority = priority;
+}
+
+void Find::run()
+{
+	active(true);
+	if (path_priority < control->path_priority)
+	{
+		done(false);
+		return;
+	}
+
+	const AIPlayerControl::MemoryArray& memory = control->memory[family];
+	const AIPlayerControl::Memory* closest = nullptr;
+	Entity* closest_entity;
+	r32 closest_distance = FLT_MAX;
+	Vec3 pos = control->get<Transform>()->absolute_pos();
+	for (s32 i = 0; i < memory.length; i++)
+	{
+		r32 distance = (memory[i].pos - pos).length_squared();
+		if (distance < closest_distance)
+		{
+			if (!control->in_range(memory[i].pos, VISIBLE_RANGE) || (memory[i].entity.ref() && filter(control, memory[i].entity.ref())))
+			{
+				closest_distance = distance;
+				closest = &memory[i];
+			}
+		}
+	}
+	if (closest)
+		this->pathfind(closest->pos, false);
+	else
+		this->done(false);
+}
+
 RandomPath::RandomPath()
 {
 	RandomPath::path_priority = 1;
@@ -675,6 +750,55 @@ void AbilitySpawn::run()
 void AbilitySpawn::abort()
 {
 	control->player.ref()->manager.ref()->ability_spawn_stop(ability);
+}
+
+ReactTarget::ReactTarget(Family fam, s8 priority_path, s8 react_priority, b8(*filter)(const AIPlayerControl*, const Entity*))
+	: react_priority(react_priority), filter(filter), family(fam)
+{
+	path_priority = priority_path;
+}
+
+void ReactTarget::run()
+{
+	active(true);
+	b8 can_path = path_priority > control->path_priority;
+	b8 can_react = react_priority > control->path_priority;
+	if (can_path || can_react)
+	{
+		Entity* closest = nullptr;
+		r32 closest_distance = AWK_MAX_DISTANCE * AWK_MAX_DISTANCE;
+		Vec3 pos = control->get<Transform>()->absolute_pos();
+		const AIPlayerControl::MemoryArray& memory = control->memory[family];
+		for (s32 i = 0; i < memory.length; i++)
+		{
+			r32 distance = (memory[i].pos - pos).length_squared();
+			if (distance < closest_distance)
+			{
+				if (!control->in_range(memory[i].pos, AWK_MAX_DISTANCE) || (memory[i].entity.ref() && filter(control, memory[i].entity.ref())))
+				{
+					closest_distance = distance;
+					closest = memory[i].entity.ref();
+				}
+			}
+		}
+
+		if (closest)
+		{
+			b8 can_hit_now = control->get<Awk>()->can_hit(closest->get<Target>());
+			if (can_hit_now && can_react)
+			{
+				control->behavior_start(this, true, react_priority);
+				control->set_target(closest->get<Target>());
+				return;
+			}
+			else if (can_path)
+			{
+				pathfind(closest->get<Target>()->absolute_pos(), true);
+				return;
+			}
+		}
+	}
+	done(false);
 }
 
 void update_active(const Update& u)

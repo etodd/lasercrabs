@@ -591,7 +591,7 @@ void AIPlayerControl::update(const Update& u)
 		}
 	}
 
-	if (target_path_callback && (!target.ref() && path_index >= path.length) || (target.ref() && hit_target))
+	if (target_path_callback && ((!target.ref() && path_index >= path.length) || (target.ref() && hit_target)))
 		behavior_done(hit_target || path.length > 0);
 
 #if DEBUG_AI_CONTROL
@@ -619,13 +619,13 @@ namespace AIBehaviors
 
 RandomPath::RandomPath()
 {
-	path_priority = 1;
+	RandomPath::path_priority = 1;
 }
 
 void RandomPath::run()
 {
 	active(true);
-	if (control->path_priority < path_priority)
+	if (control->path_priority < RandomPath::path_priority)
 		AI::awk_random_path(control->get<AIAgent>()->team, control->get<Transform>()->absolute_pos(), ObjectLinkEntryArg<Base<RandomPath>, const AI::Result&, &Base<RandomPath>::path_callback>(id()));
 	else
 		done(false);
@@ -634,7 +634,7 @@ void RandomPath::run()
 AbilitySpawn::AbilitySpawn(s8 priority, Ability ability, AbilitySpawnFilter filter)
 	: ability(ability), filter(filter)
 {
-	path_priority = priority;
+	AbilitySpawn::path_priority = priority;
 }
 
 void AbilitySpawn::set_context(void* ctx)
@@ -658,13 +658,13 @@ void AbilitySpawn::run()
 
 	PlayerManager* manager = control->player.ref()->manager.ref();
 
-	if (path_priority > control->path_priority
+	if (AbilitySpawn::path_priority > control->path_priority
 		&& control->get<Transform>()->parent.ref()
 		&& manager->ability_level[(s32)ability] > 0
 		&& filter(control))
 	{
 		if (manager->ability_spawn_start(ability))
-			control->behavior_start(this, false, path_priority);
+			control->behavior_start(this, false, AbilitySpawn::path_priority);
 		else
 			done(false);
 	}

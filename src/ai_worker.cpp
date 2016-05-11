@@ -554,7 +554,7 @@ r32 sensor_cost(AI::Team team, const AwkNavMeshNode& node)
 }
 
 // find a path from vertex a to vertex b
-void awk_pathfind_internal(AI::Team team, AwkNavMeshNode& start_vertex, const AwkNavMeshNode& end_vertex, Path* path)
+void awk_pathfind_internal(AI::Team team, const AwkNavMeshNode& start_vertex, const AwkNavMeshNode& end_vertex, Path* path)
 {
 	path->length = 0;
 

@@ -298,7 +298,7 @@ void Team::update_all(const Update& u)
 
 			auto j = i;
 			j.next();
-			for (j; !j.is_last(); j.next())
+			for (; !j.is_last(); j.next())
 			{
 				Entity* j_entity = j.item()->entity.ref();
 				if (!j_entity)

@@ -3,6 +3,8 @@
 #include <mutex>
 #include <condition_variable>
 #include "data/array.h"
+#include <chrono>
+#include <thread>
 
 namespace VI
 {
@@ -65,6 +67,9 @@ template<s32 size> struct SyncRingBuffer
 		else if (read_pos > write_pos)
 			vi_assert(write_end < read_pos);
 
+		// get ready to do gross things
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdynamic-class-memaccess"
 		if (write_end < data.length)
 		{
 			memcpy(&data[write_pos], t, write_size);
@@ -77,6 +82,7 @@ template<s32 size> struct SyncRingBuffer
 			write_pos = write_end - data.length;
 			memcpy(&data[0], ((u8*)t) + partition, write_pos);
 		}
+#pragma clang diagnostic pop
 	}
 
 	template<typename T> void write(const T& t)
@@ -90,11 +96,16 @@ template<s32 size> struct SyncRingBuffer
 		if (read_len == 0)
 			return;
 		s32 read_end = read_pos + read_len;
+
+		// get ready to do gross things
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdynamic-class-memaccess"
 		if (read_end >= data.length)
 		{
 			vi_assert(write_pos < read_pos);
 			s32 read_partition = data.length - read_pos;
 			vi_assert(read_len - read_partition <= write_pos);
+
 			memcpy(t, &data[read_pos], read_partition);
 			read_pos = read_len - read_partition;
 			memcpy(((u8*)t) + read_partition, &data[0], read_pos);
@@ -105,6 +116,7 @@ template<s32 size> struct SyncRingBuffer
 			memcpy(t, &data[read_pos], read_len);
 			read_pos = read_end;
 		}
+#pragma clang diagnostic pop
 	}
 };
 

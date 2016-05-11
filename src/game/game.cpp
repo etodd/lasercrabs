@@ -984,6 +984,13 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 			light->color = Json::get_vec3(element, "color");
 			light->radius = Json::get_r32(element, "radius");
 		}
+		else if (cJSON_GetObjectItem(element, "SpotLight"))
+		{
+			entity = World::alloc<Empty>();
+			SpotLight* light = entity->create<SpotLight>();
+			light->color = Json::get_vec3(element, "color");
+			light->radius = Json::get_r32(element, "radius");
+		}
 		else if (cJSON_GetObjectItem(element, "DirectionalLight"))
 		{
 			entity = World::alloc<Empty>();

@@ -1,6 +1,10 @@
 #pragma once
 
 #include <math.h>
+#include "vi_assert.h"
+
+#define PI 3.1415926535897f
+#define HALF_PI (3.1415926535897f * 0.5f)
 
 namespace VI
 {

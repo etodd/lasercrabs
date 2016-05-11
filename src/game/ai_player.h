@@ -7,6 +7,9 @@
 #if DEBUG_AI_CONTROL
 #include <typeinfo>
 #endif
+#include "data/components.h"
+#include "awk.h"
+#include "entities.h"
 
 namespace VI
 {
@@ -125,7 +128,7 @@ struct AIPlayerControl : public ComponentType<AIPlayerControl>
 		{
 			for (auto i = Component::list.iterator(); !i.is_last(); i.next())
 			{
-				Vec3 pos = i.item()->get<Transform>()->absolute_pos();
+				Vec3 pos = i.item()->template get<Transform>()->absolute_pos();
 				if (in_range(pos, VISIBLE_RANGE) && filter(this, i.item()))
 				{
 					add_memory(component_memories, i.item()->entity(), pos);
@@ -161,20 +164,20 @@ namespace AIBehaviors
 		s8 path_priority;
 		virtual void set_context(void* ctx)
 		{
-			control = (AIPlayerControl*)ctx;
+			this->control = (AIPlayerControl*)ctx;
 		}
 
 		void path_callback(const AI::Result& result)
 		{
-			if (active())
+			if (this->active())
 			{
-				if (result.path.length > 0 && path_priority > control->path_priority)
+				if (result.path.length > 0 && this->path_priority > this->control->path_priority)
 				{
-					control->behavior_start(this, true, path_priority);
-					control->set_path(result.path);
+					this->control->behavior_start(this, true, this->path_priority);
+					this->control->set_path(result.path);
 				}
 				else
-					done(false);
+					this->done(false);
 			}
 		}
 
@@ -185,12 +188,12 @@ namespace AIBehaviors
 #if DEBUG_AI_CONTROL
 			vi_debug("Awk pathfind: %s", typeid(*this).name());
 #endif
-			auto ai_callback = ObjectLinkEntryArg<Base<Derived>, const AI::Result&, &Base<Derived>::path_callback>(id());
-			Vec3 pos = control->get<Transform>()->absolute_pos();
+			auto ai_callback = ObjectLinkEntryArg<Base<Derived>, const AI::Result&, &Base<Derived>::path_callback>(this->id());
+			Vec3 pos = this->control->template get<Transform>()->absolute_pos();
 			if (hit)
-				AI::awk_pathfind_hit(control->get<AIAgent>()->team, pos, target, ai_callback);
+				AI::awk_pathfind_hit(this->control->template get<AIAgent>()->team, pos, target, ai_callback);
 			else
-				AI::awk_pathfind(control->get<AIAgent>()->team, pos, target, ai_callback);
+				AI::awk_pathfind(this->control->template get<AIAgent>()->team, pos, target, ai_callback);
 		}
 	};
 
@@ -206,29 +209,29 @@ namespace AIBehaviors
 		Find(s8 priority, b8(*filter)(const AIPlayerControl*, const Component*))
 			: filter(filter)
 		{
-			path_priority = priority;
+			this->path_priority = priority;
 		}
 
 		void run()
 		{
-			active(true);
-			if (path_priority < control->path_priority)
+			this->active(true);
+			if (this->path_priority < this->control->path_priority)
 			{
-				done(false);
+				this->done(false);
 				return;
 			}
 
-			const AIPlayerControl::MemoryArray& memory = control->memory[Component::family];
+			const AIPlayerControl::MemoryArray& memory = this->control->memory[Component::family];
 			const AIPlayerControl::Memory* closest = nullptr;
 			Entity* closest_entity;
 			r32 closest_distance = FLT_MAX;
-			Vec3 pos = control->get<Transform>()->absolute_pos();
+			Vec3 pos = this->control->template get<Transform>()->absolute_pos();
 			for (s32 i = 0; i < memory.length; i++)
 			{
 				r32 distance = (memory[i].pos - pos).length_squared();
 				if (distance < closest_distance)
 				{
-					if (!control->in_range(memory[i].pos, VISIBLE_RANGE) || (memory[i].entity.ref() && filter(control, memory[i].entity.ref()->get<Component>())))
+					if (!this->control->in_range(memory[i].pos, VISIBLE_RANGE) || (memory[i].entity.ref() && filter(this->control, memory[i].entity.ref()->get<Component>())))
 					{
 						closest_distance = distance;
 						closest = &memory[i];
@@ -236,9 +239,9 @@ namespace AIBehaviors
 				}
 			}
 			if (closest)
-				pathfind(closest->pos, false);
+				this->pathfind(closest->pos, false);
 			else
-				done(false);
+				this->done(false);
 		}
 	};
 
@@ -261,26 +264,26 @@ namespace AIBehaviors
 		ReactTarget(s8 priority_path, s8 react_priority, b8(*filter)(const AIPlayerControl*, const Component*))
 			: react_priority(react_priority), filter(filter)
 		{
-			path_priority = priority_path;
+			this->path_priority = priority_path;
 		}
 
 		void run()
 		{
-			active(true);
-			b8 can_path = path_priority > control->path_priority;
-			b8 can_react = react_priority > control->path_priority;
+			this->active(true);
+			b8 can_path = this->path_priority > this->control->path_priority;
+			b8 can_react = this->react_priority > this->control->path_priority;
 			if (can_path || can_react)
 			{
 				Entity* closest = nullptr;
 				r32 closest_distance = AWK_MAX_DISTANCE * AWK_MAX_DISTANCE;
-				Vec3 pos = control->get<Transform>()->absolute_pos();
-				const AIPlayerControl::MemoryArray& memory = control->memory[Component::family];
+				Vec3 pos = this->control->template get<Transform>()->absolute_pos();
+				const AIPlayerControl::MemoryArray& memory = this->control->memory[Component::family];
 				for (s32 i = 0; i < memory.length; i++)
 				{
 					r32 distance = (memory[i].pos - pos).length_squared();
 					if (distance < closest_distance)
 					{
-						if (!control->in_range(memory[i].pos, AWK_MAX_DISTANCE) || (memory[i].entity.ref() && filter(control, memory[i].entity.ref()->get<Component>())))
+						if (!this->control->in_range(memory[i].pos, AWK_MAX_DISTANCE) || (memory[i].entity.ref() && filter(this->control, memory[i].entity.ref()->get<Component>())))
 						{
 							closest_distance = distance;
 							closest = memory[i].entity.ref();
@@ -290,21 +293,21 @@ namespace AIBehaviors
 
 				if (closest)
 				{
-					b8 can_hit_now = control->get<Awk>()->can_hit(closest->get<Target>());
+					b8 can_hit_now = this->control->template get<Awk>()->can_hit(closest->get<Target>());
 					if (can_hit_now && can_react)
 					{
-						control->behavior_start(this, true, react_priority);
-						control->set_target(closest->get<Target>());
+						this->control->behavior_start(this, true, this->react_priority);
+						this->control->set_target(closest->get<Target>());
 						return;
 					}
 					else if (can_path)
 					{
-						pathfind(closest->get<Target>()->absolute_pos(), true);
+						this->pathfind(closest->get<Target>()->absolute_pos(), true);
 						return;
 					}
 				}
 			}
-			done(false);
+			this->done(false);
 		}
 	};
 

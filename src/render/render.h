@@ -14,7 +14,7 @@ struct Frustum
 	Plane planes[6];
 };
 
-#define RENDER_MASK_SHADOW (1 << 15)
+#define RENDER_MASK_SHADOW ((RenderMask)(1 << 15))
 #define RENDER_MASK_DEFAULT ((RenderMask)-1)
 
 // material indices

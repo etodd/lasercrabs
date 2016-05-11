@@ -1280,7 +1280,7 @@ void LocalPlayerControl::update(const Update& u)
 		if (get<Transform>()->parent.ref())
 		{
 			camera->pos += abs_wall_normal * 0.5f;
-			camera->pos.y += 0.5f - vi_min(fabs(abs_wall_normal.y), 0.5f);
+			camera->pos.y += 0.5f - vi_min((r32)fabs(abs_wall_normal.y), 0.5f);
 		}
 
 		if (damage_timer > 0.0f)

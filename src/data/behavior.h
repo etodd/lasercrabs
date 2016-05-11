@@ -112,7 +112,7 @@ template<typename Derived> struct BehaviorComposite : public BehaviorBase<Derive
 
 	virtual void abort()
 	{
-		BehaviorBase::abort();
+		BehaviorBase<Derived>::abort();
 		for (s32 i = 0; i < num_children; i++)
 		{
 			if (children[i]->active())
@@ -144,7 +144,7 @@ template<typename Derived> struct BehaviorDecorator : public BehaviorBase<Derive
 
 	virtual void abort()
 	{
-		BehaviorBase::abort();
+		BehaviorBase<Derived>::abort();
 		if (child->active())
 			child->abort();
 	}
@@ -339,9 +339,9 @@ template<typename T> struct Set : public BehaviorBase<Set<T>>
 
 	void run()
 	{
-		active(true);
+		BehaviorBase<Set<T>>::active(true);
 		*target = value;
-		done();
+		BehaviorBase<Set<T>>::done();
 	}
 };
 
@@ -366,7 +366,7 @@ template<typename T> struct LerpTo : public BehaviorBase<LerpTo<T>>
 	{
 		start = *target;
 		time = 0.0f;
-		active(true);
+		BehaviorBase<LerpTo<T>>::active(true);
 	}
 
 	void update(const Update& u)
@@ -375,7 +375,7 @@ template<typename T> struct LerpTo : public BehaviorBase<LerpTo<T>>
 		if (time > duration)
 		{
 			*target = end;
-			done();
+			BehaviorBase<LerpTo<T>>::done();
 		}
 		else
 			*target = Ease::ease<T>(ease, time / duration, start, end);

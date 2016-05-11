@@ -343,10 +343,10 @@ struct LinkArg
 		new (entry) FunctionPointerLinkEntryArg<T>(fp);
 	}
 
-	template<typename T, typename T2, void (T::*Method)(T2)> void link(T* target)
+	template<typename T2, typename T3, void (T2::*Method)(T3)> void link(T2* target)
 	{
-		LinkEntryArg<T2>* entry = entries.add();
-		new (entry) ObjectLinkEntryArg<T, T2, Method>(target->id());
+		LinkEntryArg<T3>* entry = entries.add();
+		new (entry) ObjectLinkEntryArg<T2, T3, Method>(target->id());
 	}
 };
 
@@ -368,9 +368,9 @@ struct ComponentType : public ComponentBase
 		link.link<Derived, Method>((Derived*)this);
 	}
 
-	template<typename T2, void (Derived::*Method)(T2)> void link_arg(LinkArg<T2>& link)
+	template<typename T2, void (Derived::*Method)(T2)> void link_arg(LinkArg<T2>& l)
 	{
-		link.link<Derived, T2, Method>((Derived*)this);
+		l.template link<Derived, T2, Method>((Derived*)this);
 	}
 };
 

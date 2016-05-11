@@ -21,6 +21,8 @@
 #include "sha1/sha1.h"
 #include "settings.h"
 #include "utf8/utf8.h"
+#include <unordered_map>
+#include <string>
 
 namespace VI
 {

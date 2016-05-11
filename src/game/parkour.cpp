@@ -550,9 +550,9 @@ void Parkour::spawn_tiles(const Vec3& relative_wall_right, const Vec3& relative_
 		Quat absolute_wall_rot = Quat::look(absolute_wall_normal);
 
 		s32 i = 0;
-		for (s32 x = -TILE_CREATE_RADIUS; x <= (s32)TILE_CREATE_RADIUS; x++)
+		for (s32 x = (s32)-TILE_CREATE_RADIUS; x <= (s32)TILE_CREATE_RADIUS; x++)
 		{
-			for (s32 y = -TILE_CREATE_RADIUS; y <= (s32)TILE_CREATE_RADIUS; y++)
+			for (s32 y = (s32)-TILE_CREATE_RADIUS; y <= (s32)TILE_CREATE_RADIUS; y++)
 			{
 				if (Vec2(x, y).length_squared() < TILE_CREATE_RADIUS * TILE_CREATE_RADIUS)
 				{

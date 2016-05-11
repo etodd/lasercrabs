@@ -55,8 +55,10 @@ Mac quickstart
    [available on the path](http://www.computerhope.com/issues/ch000549.htm)
 3. Ensure [Wwise](https://www.audiokinetic.com/) is installed and `WwiseCLI.sh`
 is available on the path
-4. Run `./setup-mac`
-5. Run `./yearning` from the `build` folder
+4. Wwise might have trouble generating soundbanks the first time. You might
+need to delete any cache files and open the project manually in Wwise first.
+5. Run `./setup-mac`
+6. Run `./yearning` from the `build` folder
 
 Asset license
 -------------

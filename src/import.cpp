@@ -1534,8 +1534,8 @@ void chunk_mesh(const Mesh& in, Chunks<T>* out, r32 cell_size, r32 padding = 0.0
 		vmax += Vec3(padding);
 
 		// insert triangle into all overlapping chunks
-		Chunks<T>::Coord start = out->clamped_coord(out->coord(vmin));
-		Chunks<T>::Coord end = out->clamped_coord(out->coord(vmax));
+		typename Chunks<T>::Coord start = out->clamped_coord(out->coord(vmin));
+		typename Chunks<T>::Coord end = out->clamped_coord(out->coord(vmax));
 		for (s32 x = start.x; x <= end.x; x++)
 		{
 			for (s32 y = start.y; y <= end.y; y++)

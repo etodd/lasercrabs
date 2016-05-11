@@ -274,7 +274,7 @@ struct Gamepad
 		DLeft = 1 << 13,
 		DRight = 1 << 14,
 		None,
-		Count = None,
+		Count,
 	};
 
 	b8 active;

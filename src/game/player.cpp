@@ -1471,15 +1471,29 @@ void LocalPlayerControl::update(const Update& u)
 			}
 		}
 
+		Parkour::State parkour_state = get<Parkour>()->fsm.current;
+
 		{
+			// if we're just running and not doing any parkour
+			// rotate arms to match the camera view
+			// blend smoothly between the two states (rotating and not rotating)
+
 			r32 arm_angle = LMath::clampf(get<PlayerCommon>()->angle_vertical * 0.5f, -PI * 0.15f, PI * 0.15f);
-			get<Animator>()->override_bone(Asset::Bone::character_upper_arm_L, Vec3::zero, Quat::euler(arm_angle, 0, 0));
-			get<Animator>()->override_bone(Asset::Bone::character_upper_arm_R, Vec3::zero, Quat::euler(-arm_angle, 0, 0));
+
+			const r32 blend_time = 0.2f;
+			r32 blend;
+			if (parkour_state == Parkour::State::Normal)
+				blend = vi_min(1.0f, get<Parkour>()->fsm.time / blend_time);
+			else if (get<Parkour>()->fsm.last == Parkour::State::Normal)
+				blend = vi_max(0.0f, 1.0f - (get<Parkour>()->fsm.time / blend_time));
+			else
+				blend = 0.0f;
+			get<Animator>()->override_bone(Asset::Bone::character_upper_arm_L, Vec3::zero, Quat::euler(arm_angle * blend, 0, 0));
+			get<Animator>()->override_bone(Asset::Bone::character_upper_arm_R, Vec3::zero, Quat::euler(arm_angle * -blend, 0, 0));
 		}
 
 		r32 lean_target = 0.0f;
 
-		Parkour::State parkour_state = get<Parkour>()->fsm.current;
 		if (parkour_state == Parkour::State::WallRun)
 		{
 			Parkour::WallRunState state = get<Parkour>()->wall_run_state;

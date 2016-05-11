@@ -147,20 +147,24 @@ template<typename T>
 struct FSM
 {
 	T current;
+	T last;
 	r32 time;
 
 	FSM()
-		: current()
+		: current(), last(), time()
 	{
 	}
-	FSM(const T state)
-		: current(state)
+
+	FSM(T state)
+		: current(state), last(state), time()
 	{
 	}
-	b8 transition(const T t)
+
+	inline b8 transition(T t)
 	{
 		if (t != current)
 		{
+			last = current;
 			current = t;
 			time = 0.0f;
 			return true;

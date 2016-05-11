@@ -108,7 +108,7 @@ Vec3 Parkour::head_pos() const
 
 void Parkour::head_to_object_space(Vec3* pos, Quat* rot) const
 {
-	Vec3 offset_pos = Vec3(0.05f, 0, 0.13f) + *pos;
+	Vec3 offset_pos = Vec3(0.05f, 0, 0.0f) + *pos;
 	Quat offset_quat = Quat::euler(0, 0, PI * 0.5f) * *rot;
 	get<Animator>()->bone_transform(Asset::Bone::character_head, &offset_pos, &offset_quat);
 	*pos = (get<SkinnedModel>()->offset * Vec4(offset_pos)).xyz();
@@ -349,14 +349,14 @@ void Parkour::update(const Update& u)
 
 				Physics::btWorld->rayTest(ray_start, ray_end, ray_callback);
 
-				if (ray_callback.hasHit() && wall_run_normal.dot(ray_callback.m_hitNormalWorld) < 0.99f)
+				r32 forward_dot = forward.dot(ray_callback.m_hitNormalWorld);
+				if (ray_callback.hasHit()
+					&& wall_run_normal.dot(ray_callback.m_hitNormalWorld) < 0.99f
+					&& fabs(ray_callback.m_hitNormalWorld.getY()) < 0.25f
+					&& forward_dot > -0.9f
+					&& forward_dot < 0.1f)
 				{
-					if (forward.dot(ray_callback.m_hitNormalWorld) < -0.8f)
-					{
-						// the wall is facing directly toward us; run up it
-						wall_run_state = WallRunState::Forward;
-						wall_run_up_add_velocity(get<RigidBody>()->btBody->getLinearVelocity(), get_support_velocity(ray_callback.m_hitPointWorld, ray_callback.m_collisionObject));
-					}
+					// transition from one wall to another
 					last_support = Entity::list[ray_callback.m_collisionObject->getUserIndex()].get<RigidBody>();
 					relative_support_pos = last_support.ref()->get<Transform>()->to_local(ray_callback.m_hitPointWorld);
 					wall_run_normal = ray_callback.m_hitNormalWorld;
@@ -374,6 +374,7 @@ void Parkour::update(const Update& u)
 
 			if (ray_callback.hasHit()
 				&& wall_run_normal.dot(ray_callback.m_hitNormalWorld) > 0.5f
+				&& fabs(ray_callback.m_hitNormalWorld.getY()) < 0.25f
 				&& forward.dot(ray_callback.m_hitNormalWorld) < 0.1f)
 			{
 				// Still on the wall
@@ -821,7 +822,7 @@ b8 Parkour::try_parkour(b8 force)
 
 			Physics::btWorld->rayTest(ray_start, ray_end, ray_callback);
 
-			if (ray_callback.hasHit())
+			if (ray_callback.hasHit() && ray_callback.m_hitNormalWorld.getY() > 0.25f)
 			{
 				get<Animator>()->layers[1].play(Asset::Animation::character_mantle);
 				fsm.transition(State::Mantle);
@@ -871,7 +872,9 @@ b8 Parkour::try_wall_run(WallRunState s, const Vec3& wall_direction)
 
 	Physics::btWorld->rayTest(ray_start, ray_end, ray_callback);
 
-	if (ray_callback.hasHit() && wall_direction.dot(ray_callback.m_hitNormalWorld) < -0.7f)
+	if (ray_callback.hasHit()
+		&& fabs(ray_callback.m_hitNormalWorld.getY()) < 0.25f
+		&& wall_direction.dot(ray_callback.m_hitNormalWorld) < -0.7f)
 	{
 		btRigidBody* body = get<RigidBody>()->btBody;
 

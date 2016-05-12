@@ -651,8 +651,6 @@ namespace Penelope
 		if (data->callbacks.update(u, data->time))
 			data->callbacks.current()(u);
 
-		data->choices.update(u, data->time);
-
 		if (data->audio_events.update(u, data->time))
 		{
 			b8 success = Audio::post_dialogue_event(data->audio_events.current());
@@ -679,6 +677,9 @@ namespace Penelope
 				Audio::post_global_event(AK::EVENTS::PLAY_CONSOLE_KEY);
 			}
 		}
+
+		if (data->choices.update(u, data->time))
+			data->menu.animate();
 
 		// show choices
 		data->menu.clear();

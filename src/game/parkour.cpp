@@ -784,7 +784,7 @@ b8 Parkour::try_slide()
 				if (relative_velocity.y > 1.0f)
 					return false; // need to be going down
 				fsm.transition(State::Roll);
-				velocity = support_velocity + (forward * relative_velocity.length() + 2.0f);
+				velocity = support_velocity + (forward * vi_min(relative_velocity.length() + 2.0f, MAX_SPEED));
 				get<Animator>()->layers[1].play(Asset::Animation::character_roll);
 			}
 

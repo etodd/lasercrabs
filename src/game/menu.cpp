@@ -137,7 +137,6 @@ void title_menu(const Update& u, u8 gamepad, UIMenu* menu, State* state)
 			}
 			if (menu->item(u, &pos, _(strings::options)))
 			{
-				menu->selected = 0;
 				*state = State::Options;
 				menu->animate();
 			}
@@ -152,7 +151,6 @@ void title_menu(const Update& u, u8 gamepad, UIMenu* menu, State* state)
 			Vec2 pos(logo_padding * 2.0f + logo_size, u.input->height * 0.5f + options_height() * 0.5f);
 			if (!options(u, 0, menu, &pos))
 			{
-				menu->selected = 0;
 				*state = State::Visible;
 				menu->animate();
 			}
@@ -185,7 +183,6 @@ void pause_menu(const Update& u, const Rect2& viewport, u8 gamepad, UIMenu* menu
 				*state = State::Hidden;
 			if (menu->item(u, &pos, _(strings::options)))
 			{
-				menu->selected = 0;
 				*state = State::Options;
 				menu->animate();
 			}
@@ -198,7 +195,6 @@ void pause_menu(const Update& u, const Rect2& viewport, u8 gamepad, UIMenu* menu
 			Vec2 pos(0, viewport.size.y * 0.5f + options_height() * 0.5f);
 			if (!options(u, gamepad, menu, &pos))
 			{
-				menu->selected = 0;
 				*state = State::Visible;
 				menu->animate();
 			}
@@ -575,6 +571,7 @@ void UIMenu::clear()
 
 void UIMenu::animate()
 {
+	selected = 0;
 	animation_time = Game::real_time.total;
 }
 

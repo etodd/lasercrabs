@@ -251,14 +251,14 @@ void Awk::damaged(const DamageEvent& e)
 	if (health_pickup_count > 0)
 	{
 		// reset health pickups that belong to us
-		// starting with the closest first
+		// starting with the farthest first
 
 		struct HealthPickupKey
 		{
 			Vec3 me;
 			r32 priority(HealthPickup* p)
 			{
-				return (p->get<Transform>()->absolute_pos() - me).length_squared();
+				return -(p->get<Transform>()->absolute_pos() - me).length_squared();
 			}
 		};
 

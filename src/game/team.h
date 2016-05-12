@@ -59,7 +59,6 @@ struct Team
 		Ref<Entity> entity;
 		r32 timer;
 		b8 tracking;
-		b8 visible;
 	};
 
 	struct SensorTrackHistory
@@ -133,7 +132,9 @@ struct PlayerManager
 	u8 ability_level[(s32)Ability::count];
 	b8 ready;
 	r32 spawn_ability_timer;
+	r32 upgrade_timer;
 	Ability current_spawn_ability;
+	Ability current_upgrade_ability;
 	LinkArg<Ability> ability_spawned;
 
 	static b8 all_ready();
@@ -141,7 +142,8 @@ struct PlayerManager
 	b8 ability_spawn_start(Ability);
 	void ability_spawn_stop(Ability);
 	void ability_spawn_complete();
-	b8 ability_upgrade(Ability);
+	b8 ability_upgrade_start(Ability);
+	b8 ability_upgrade_complete();
 	b8 ability_upgrade_available(Ability = Ability::None) const;
 	u16 ability_upgrade_cost(Ability) const;
 

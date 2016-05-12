@@ -315,7 +315,13 @@
 
 	"level1": null,
 	"level1_intro": null,
+	"level1_tried": null,
 
 	"level2": null,
-	"level2_intro": null
+	"level2_intro": null,
+	"level2_tried": null,
+
+	"level3": null,
+	"level3_intro": null,
+	"level3_tried": null
 }

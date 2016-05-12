@@ -233,6 +233,13 @@ void Team::update_all(const Update& u)
 	if (Game::state.mode != Game::Mode::Pvp)
 		return;
 
+	b8 is_game_over = game_over();
+	if (is_game_over && is_draw())
+	{
+		if (Game::time.total > GAME_TIME_LIMIT + GAME_OVER_TIME)
+			level_retry(); // it's a draw; try again
+	}
+
 	// determine which Awks are seen by which teams
 	Sensor* visibility[MAX_PLAYERS][(s32)AI::Team::count] = {};
 	for (auto player = PlayerManager::list.iterator(); !player.is_last(); player.next())
@@ -261,105 +268,45 @@ void Team::update_all(const Update& u)
 		}
 	}
 
-	// update player visibility
+	// update stealth state
+	for (auto i = PlayerManager::list.iterator(); !i.is_last(); i.next())
 	{
-		for (auto i = PlayerManager::list.iterator(); !i.is_last(); i.next())
+		Entity* i_entity = i.item()->entity.ref();
+		if (!i_entity)
+			continue;
+
+		AI::Team team = i.item()->team.ref()->team();
+
+		// if stealth is enabled for this team,
+		// and if we are within range of their own sensors
+		// and not detected by enemy sensors
+		// then we should be stealthed
+		b8 stealth_enabled = true;
+		if (!i.item()->team.ref()->stealth_enable)
+			stealth_enabled = false;
+		else if (!visibility[i.index][(s32)team])
+			stealth_enabled = false;
+		else
 		{
-			Entity* i_entity = i.item()->entity.ref();
-			if (!i_entity)
-				continue;
-
-			AI::Team team = i.item()->team.ref()->team();
-
+			// check if any enemy sensors can see us
+			for (s32 t = 0; t < Team::list.length; t++)
 			{
-				// if stealth is enabled for this team,
-				// and if we are within range of their own sensors
-				// and not detected by enemy sensors
-				// then we should be stealthed
-				b8 stealth_enabled = true;
-				if (!i.item()->team.ref()->stealth_enable)
-					stealth_enabled = false;
-				else if (!visibility[i.index][(s32)team])
-					stealth_enabled = false;
-				else
+				if ((AI::Team)t != team
+					&& (visibility[i.index][t] || Team::list[t].player_tracks[i.index].tracking))
 				{
-					// check if any enemy sensors can see us
-					for (s32 t = 0; t < Team::list.length; t++)
-					{
-						if ((AI::Team)t != team && visibility[i.index][t])
-						{
-							stealth_enabled = false;
-							break;
-						}
-					}
+					stealth_enabled = false;
+					break;
 				}
-				i_entity->get<Awk>()->stealth(stealth_enabled);
-			}
-
-			auto j = i;
-			j.next();
-			for (; !j.is_last(); j.next())
-			{
-				Entity* j_entity = j.item()->entity.ref();
-				if (!j_entity)
-					continue;
-
-				if (team == j.item()->team.ref()->team())
-					continue;
-
-				b8 visible;
-				{
-					Vec3 start = i_entity->has<MinionCommon>() ? i_entity->get<MinionCommon>()->head_pos() : i_entity->get<Awk>()->center();
-					Vec3 end = j_entity->has<MinionCommon>() ? j_entity->get<MinionCommon>()->head_pos() : j_entity->get<Awk>()->center();
-					Vec3 diff = end - start;
-
-					if (btVector3(diff).fuzzyZero())
-						visible = true;
-					else
-					{
-						if (diff.length_squared() > AWK_MAX_DISTANCE * AWK_MAX_DISTANCE)
-							visible = false;
-						else
-						{
-							btCollisionWorld::ClosestRayResultCallback rayCallback(start, end);
-							rayCallback.m_flags = btTriangleRaycastCallback::EFlags::kF_FilterBackfaces
-								| btTriangleRaycastCallback::EFlags::kF_KeepUnflippedNormal;
-							rayCallback.m_collisionFilterMask = rayCallback.m_collisionFilterGroup = btBroadphaseProxy::StaticFilter | CollisionInaccessible;
-							Physics::btWorld->rayTest(start, end, rayCallback);
-							visible = !rayCallback.hasHit();
-						}
-					}
-				}
-
-				b8 i_can_see_j = visible && !j_entity->get<AIAgent>()->stealth;
-				b8 j_can_see_i = visible && !i_entity->get<AIAgent>()->stealth;
-				PlayerCommon::visibility.set(PlayerCommon::visibility_hash(i_entity->get<PlayerCommon>(), j_entity->get<PlayerCommon>()), i_can_see_j);
-				PlayerCommon::visibility.set(PlayerCommon::visibility_hash(j_entity->get<PlayerCommon>(), i_entity->get<PlayerCommon>()), j_can_see_i);
-
-				// update history
-				Team* i_team = i.item()->team.ref();
-				Team* j_team = j.item()->team.ref();
-				if (i_can_see_j || i_team->player_tracks[j.index].tracking) 
-					extract_history(j.item(), &i_team->player_track_history[j.index]);
-				if (j_can_see_i || j_team->player_tracks[i.index].tracking)
-					extract_history(i.item(), &j_team->player_track_history[i.index]);
 			}
 		}
-	}
-
-	b8 game_over = Team::game_over();
-	b8 draw = Team::is_draw();
-	if (game_over && draw)
-	{
-		if (Game::time.total > GAME_TIME_LIMIT + GAME_OVER_TIME)
-			level_retry(); // it's a draw; try again
+		i_entity->get<Awk>()->stealth(stealth_enabled);
 	}
 
 	for (s32 team_id = 0; team_id < list.length; team_id++)
 	{
 		Team* team = &list[team_id];
 
-		if (team->has_player() && game_over)
+		if (team->has_player() && is_game_over)
 		{
 			// we win
 			team->victory_timer -= u.time.delta;
@@ -391,7 +338,6 @@ void Team::update_all(const Update& u)
 
 			Sensor* sensor = visibility[player.index][team->id()];
 			SensorTrack* track = &team->player_tracks[player.index];
-			track->visible = sensor != nullptr;
 			if (sensor)
 			{
 				// team's sensors are picking up the Awk
@@ -439,6 +385,65 @@ void Team::update_all(const Update& u)
 			}
 		}
 	}
+
+	// update player visibility
+	for (auto i = PlayerManager::list.iterator(); !i.is_last(); i.next())
+	{
+		Entity* i_entity = i.item()->entity.ref();
+		if (!i_entity)
+			continue;
+
+		AI::Team team = i.item()->team.ref()->team();
+
+		auto j = i;
+		j.next();
+		for (; !j.is_last(); j.next())
+		{
+			Entity* j_entity = j.item()->entity.ref();
+			if (!j_entity)
+				continue;
+
+			if (team == j.item()->team.ref()->team())
+				continue;
+
+			b8 visible;
+			{
+				Vec3 start = i_entity->has<MinionCommon>() ? i_entity->get<MinionCommon>()->head_pos() : i_entity->get<Awk>()->center();
+				Vec3 end = j_entity->has<MinionCommon>() ? j_entity->get<MinionCommon>()->head_pos() : j_entity->get<Awk>()->center();
+				Vec3 diff = end - start;
+
+				if (btVector3(diff).fuzzyZero())
+					visible = true;
+				else
+				{
+					if (diff.length_squared() > AWK_MAX_DISTANCE * AWK_MAX_DISTANCE)
+						visible = false;
+					else
+					{
+						btCollisionWorld::ClosestRayResultCallback rayCallback(start, end);
+						rayCallback.m_flags = btTriangleRaycastCallback::EFlags::kF_FilterBackfaces
+							| btTriangleRaycastCallback::EFlags::kF_KeepUnflippedNormal;
+						rayCallback.m_collisionFilterMask = rayCallback.m_collisionFilterGroup = btBroadphaseProxy::StaticFilter | CollisionInaccessible;
+						Physics::btWorld->rayTest(start, end, rayCallback);
+						visible = !rayCallback.hasHit();
+					}
+				}
+			}
+
+			b8 i_can_see_j = visible && !j_entity->get<AIAgent>()->stealth;
+			b8 j_can_see_i = visible && !i_entity->get<AIAgent>()->stealth;
+			PlayerCommon::visibility.set(PlayerCommon::visibility_hash(i_entity->get<PlayerCommon>(), j_entity->get<PlayerCommon>()), i_can_see_j);
+			PlayerCommon::visibility.set(PlayerCommon::visibility_hash(j_entity->get<PlayerCommon>(), i_entity->get<PlayerCommon>()), j_can_see_i);
+
+			// update history
+			Team* i_team = i.item()->team.ref();
+			Team* j_team = j.item()->team.ref();
+			if (i_can_see_j || i_team->player_tracks[j.index].tracking) 
+				extract_history(j.item(), &i_team->player_track_history[j.index]);
+			if (j_can_see_i || j_team->player_tracks[i.index].tracking)
+				extract_history(i.item(), &j_team->player_track_history[i.index]);
+		}
+	}
 }
 
 b8 PlayerManager::ability_spawn_start(Ability ability)
@@ -450,17 +455,6 @@ b8 PlayerManager::ability_spawn_start(Ability ability)
 	// need to be sitting on some kind of surface
 	if (!awk->get<Transform>()->parent.ref())
 		return false;
-
-	if (at_spawn())
-	{
-		// we're upgrading this ability
-		if (credits >= ability_upgrade_cost(ability))
-		{
-			current_spawn_ability = ability;
-			spawn_ability_timer = ABILITY_UPGRADE_TIME;
-		}
-		return true;
-	}
 
 	const AbilityInfo& info = AbilityInfo::list[(s32)ability];
 	if (credits < info.spawn_cost)
@@ -505,13 +499,6 @@ void PlayerManager::ability_spawn_complete()
 	Entity* awk = entity.ref();
 	if (!awk)
 		return;
-
-	if (at_spawn())
-	{
-		// we're upgrading this ability
-		ability_upgrade(ability);
-		return;
-	}
 
 	u16 cost = AbilityInfo::list[(s32)ability].spawn_cost;
 	if (credits < cost)
@@ -591,6 +578,8 @@ PlayerManager::PlayerManager(Team* team)
 	spawn(),
 	ready(Game::state.mode == Game::Mode::Parkour || Game::level.tutorial == Game::Tutorial::None || Game::save.round > 0),
 	current_spawn_ability(Ability::None),
+	current_upgrade_ability(Ability::None),
+	upgrade_timer(),
 	ability_spawned()
 {
 }
@@ -605,8 +594,23 @@ b8 PlayerManager::all_ready()
 	return true;
 }
 
-b8 PlayerManager::ability_upgrade(Ability a)
+b8 PlayerManager::ability_upgrade_start(Ability a)
 {
+	// we're upgrading this ability
+	if (ability_upgrade_available(a) && credits >= ability_upgrade_cost(a))
+	{
+		current_upgrade_ability = a;
+		upgrade_timer = ABILITY_UPGRADE_TIME;
+		return true;
+	}
+	return false;
+}
+
+b8 PlayerManager::ability_upgrade_complete()
+{
+	Ability a = current_upgrade_ability;
+	current_upgrade_ability = Ability::None;
+
 	u8& level = ability_level[(s32)a];
 	if (level >= MAX_ABILITY_LEVELS)
 		return false;
@@ -701,6 +705,13 @@ void PlayerManager::update(const Update& u)
 			if (Game::state.mode == Game::Mode::Parkour)
 				spawn_timer = PLAYER_SPAWN_DELAY; // reset timer so we can respawn next time
 		}
+	}
+
+	if (upgrade_timer > 0.0f)
+	{
+		upgrade_timer = vi_max(0.0f, upgrade_timer - u.time.delta);
+		if (upgrade_timer == 0.0f && current_upgrade_ability != Ability::None)
+			ability_upgrade_complete();
 	}
 
 	if (spawn_ability_timer > 0.0f)

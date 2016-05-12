@@ -150,6 +150,12 @@ void HealthPickup::hit(const TargetEvent& e)
 			get<PointLight>()->team = (u8)team;
 			get<View>()->team = (u8)team;
 		}
+		else
+		{
+			// thing hitting us already has max health
+			if (e.hit_by->has<LocalPlayerControl>())
+				e.hit_by->get<LocalPlayerControl>()->player.ref()->msg(_(strings::no_effect), false);
+		}
 	}
 }
 

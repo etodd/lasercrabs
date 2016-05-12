@@ -298,7 +298,10 @@ namespace Penelope
 						{
 							node.branch.branches[j].value = strings_get(json_branch->string);
 							vi_assert(node.branch.branches[j].value != AssetNull);
-							node.branch.branches[j].target = id_lookup[json_branch->valuestring];
+							if (json_branch->valuestring)
+								node.branch.branches[j].target = id_lookup[json_branch->valuestring];
+							else
+								node.branch.branches[j].target = IDNull;
 							json_branch = json_branch->next;
 							j++;
 						}
@@ -517,7 +520,8 @@ namespace Penelope
 						break;
 					if (node.branch.branches[i].value == value)
 					{
-						execute(node.branch.branches[i].target, time);
+						if (node.branch.branches[i].target != IDNull)
+							execute(node.branch.branches[i].target, time);
 						found_branch = true;
 						break;
 					}
@@ -529,7 +533,8 @@ namespace Penelope
 					{
 						if (node.branch.branches[i].value == Asset::String::_default)
 						{
-							execute(node.branch.branches[i].target, time);
+							if (node.branch.branches[i].target != IDNull)
+								execute(node.branch.branches[i].target, time);
 							break;
 						}
 					}

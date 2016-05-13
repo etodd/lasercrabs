@@ -526,19 +526,16 @@ void LocalPlayer::draw_alpha(const RenderParams& params) const
 					control_points++;
 			}
 
-			if (control_points > 0)
-			{
-				UIText text;
-				text.color = UI::accent_color;
-				text.text("+%d", control_points * CREDITS_CONTROL_POINT);
-				text.font = Asset::Font::lowpoly;
-				text.anchor_x = UIText::Anchor::Center;
-				text.anchor_y = UIText::Anchor::Center;
-				text.size = text_size;
-				Vec2 pos = credits_pos + Vec2(0, text_size * UI::scale * -2.0f);
-				UI::box(params, text.rect(pos).outset(8.0f * UI::scale), UI::background_color);
-				text.draw(params, pos);
-			}
+			UIText text;
+			text.color = UI::accent_color;
+			text.text("+%d", CREDITS_DEFAULT_INCREMENT + control_points * CREDITS_CONTROL_POINT);
+			text.font = Asset::Font::lowpoly;
+			text.anchor_x = UIText::Anchor::Center;
+			text.anchor_y = UIText::Anchor::Center;
+			text.size = text_size;
+			Vec2 pos = credits_pos + Vec2(0, text_size * UI::scale * -2.0f);
+			UI::box(params, text.rect(pos).outset(8.0f * UI::scale), UI::background_color);
+			text.draw(params, pos);
 		}
 	}
 
@@ -789,17 +786,26 @@ void LocalPlayer::draw_alpha(const RenderParams& params) const
 			// show victory/defeat/draw message
 			UIText text;
 			text.font = Asset::Font::lowpoly;
-			text.color = UI::alert_color;
 			text.anchor_x = UIText::Anchor::Center;
 			text.anchor_y = UIText::Anchor::Center;
 			text.size = 32.0f;
 
 			if (Team::is_draw())
+			{
+				text.color = UI::alert_color;
 				text.text(_(strings::draw));
+			}
 			else if (manager.ref()->team.ref()->has_player())
+			{
+				text.color = UI::accent_color;
 				text.text(_(strings::victory));
+			}
 			else
+			{
+				text.color = UI::alert_color;
 				text.text(_(strings::defeat));
+			}
+			text.clip = 1 + (s32)(Team::game_over_time() * 20.0f);
 			Vec2 pos = vp.size * Vec2(0.5f, 0.5f);
 			UI::box(params, text.rect(pos).outset(16 * UI::scale), UI::background_color);
 			text.draw(params, pos);
@@ -1288,10 +1294,10 @@ void LocalPlayerControl::update(const Update& u)
 
 		camera->range = AWK_MAX_DISTANCE;
 		camera->range_center = look_quat.inverse() * (get<Awk>()->center() - camera->pos);
-		if (!get<Transform>()->parent.ref() || camera->wall_normal.dot(camera->range_center) < 0.0f)
-			camera->cull_range = 0.0f; // there is no wall, or the camera is in front of the wall; no need to cull anything
+		if (!get<Transform>()->parent.ref())
+			camera->cull_range = 0.0f; // there is no wall; no need to cull anything
 		else
-			camera->cull_range = third_person_offset + 0.5f; // camera is inside the wall; need to cull stuff
+			camera->cull_range = third_person_offset + 0.5f; // need to cull stuff
 
 		health_flash_timer = vi_max(0.0f, health_flash_timer - Game::real_time.delta);
 
@@ -1383,7 +1389,7 @@ void LocalPlayerControl::update(const Update& u)
 		{
 			for (auto i = HealthPickup::list.iterator(); !i.is_last(); i.next())
 			{
-				if (i.item()->owner.ref() != get<Health>())
+				if (!i.item()->owner.ref())
 				{
 					add_target_indicator(i.item()->get<Target>(), UI::accent_color);
 					if (indicators.length == indicators.capacity())
@@ -1750,8 +1756,9 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 				username.color = *color;
 				username.text(other_player.item()->manager.ref()->username);
 
+				u16 my_hp = get<Health>()->hp;
 				UIText danger;
-				b8 draw_danger = !friendly && (tracking || visible) && history.hp > get<Health>()->hp;
+				b8 draw_danger = !friendly && visible && (my_hp == 1 || history.hp > my_hp);
 				if (draw_danger)
 				{
 					danger = username;

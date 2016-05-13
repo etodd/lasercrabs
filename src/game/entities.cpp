@@ -134,29 +134,26 @@ void HealthPickup::hit(const TargetEvent& e)
 {
 	if (e.hit_by->has<AIAgent>()
 		&& e.hit_by->has<Health>()
-		&& (!owner.ref() || e.hit_by != owner.ref()->entity()))
+		&& !owner.ref())
 	{
 		Health* health = e.hit_by->get<Health>();
 
 		if (health->hp < health->hp_max)
 		{
-			if (owner.ref())
-				owner.ref()->get<Health>()->damage(e.hit_by, 1);
-
 			health->add(1);
 			owner = health;
 
 			AI::Team team = e.hit_by->get<AIAgent>()->team;
 			get<PointLight>()->team = (u8)team;
 			get<View>()->team = (u8)team;
-		}
-		else
-		{
-			// thing hitting us already has max health
-			if (e.hit_by->has<LocalPlayerControl>())
-				e.hit_by->get<LocalPlayerControl>()->player.ref()->msg(_(strings::no_effect), false);
+			return;
 		}
 	}
+
+	// thing hitting us already has max health
+	// or someone else already owns us
+	if (e.hit_by->has<LocalPlayerControl>())
+		e.hit_by->get<LocalPlayerControl>()->player.ref()->msg(_(strings::no_effect), false);
 }
 
 SensorEntity::SensorEntity(PlayerManager* owner, const Vec3& abs_pos, const Quat& abs_rot)
@@ -199,18 +196,6 @@ void Sensor::awake()
 
 void Sensor::killed_by(Entity* e)
 {
-	if (e)
-	{
-		AI::Team enemy_team = e->get<AIAgent>()->team;
-		if (enemy_team != team)
-		{
-			for (auto i = PlayerManager::list.iterator(); !i.is_last(); i.next())
-			{
-				if (i.item()->team.ref()->team() == enemy_team)
-					i.item()->add_credits(CREDITS_SENSOR_DESTROY);
-			}
-		}
-	}
 	World::remove_deferred(entity());
 }
 
@@ -339,7 +324,7 @@ void ControlPoint::update_all(const Update& u)
 	if (timer < 0.0f)
 	{
 		// give points to teams based on how many control points they own
-		s32 reward_buffer[(s32)AI::Team::count] = {};
+		s32 reward_buffer[(s32)AI::Team::count] = { CREDITS_DEFAULT_INCREMENT, CREDITS_DEFAULT_INCREMENT };
 
 		for (auto i = list.iterator(); !i.is_last(); i.next())
 		{

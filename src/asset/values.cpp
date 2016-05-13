@@ -282,7 +282,6 @@ const char* AssetLookup::Uniform::names[] =
 	"bones",
 	"color_buffer",
 	"cull_center",
-	"cull_normal",
 	"cull_radius",
 	"depth_buffer",
 	"detail_light_vp",

@@ -387,10 +387,19 @@ void loop()
 				}
 				s32 chunk_index = chunks_with_vertices[mersenne::randf_co() * chunks_with_vertices.length];
 				const AwkNavMeshChunk& chunk = awk_nav_mesh.chunks[chunk_index];
-				const Vec3& end = chunk.vertices[mersenne::randf_co() * chunk.vertices.length - 1];
+				const Vec3* end;
+				while (true)
+				{
+					s32 vertex_index = mersenne::randf_co() * chunk.vertices.length - 1;
+					if (chunk.adjacency[vertex_index].length > 0) // it's not an orphan
+					{
+						end = &chunk.vertices[vertex_index];
+						break;
+					}
+				}
 
 				Path path;
-				awk_pathfind(team, start, end, &path);
+				awk_pathfind(team, start, *end, &path);
 
 				sync_out.lock();
 				sync_out.write(Callback::AwkPath);

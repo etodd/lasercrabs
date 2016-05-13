@@ -272,7 +272,7 @@ void Awk::damaged(const DamageEvent& e)
 				pickups.push(i.item());
 		}
 
-		while (new_health_pickup_count < health_pickup_count)
+		while (new_health_pickup_count < health_pickup_count && health_pickup_count > 0)
 		{
 			HealthPickup* p = pickups.pop();
 			p->reset();

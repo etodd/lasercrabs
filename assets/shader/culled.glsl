@@ -65,7 +65,7 @@ void main()
 	if (cull_radius != 0.0f)
 	{
 		vec3 p = pos_viewspace - cull_center;
-		if (dot(p, cull_normal) < 0.0 && dot(p, p) < (cull_radius * cull_radius))
+		if (dot(pos_viewspace, pos_viewspace) < cull_radius && dot(p, p) < (cull_radius * cull_radius))
 			discard;
 	}
 	out_color = diffuse_color;

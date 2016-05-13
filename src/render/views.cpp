@@ -132,12 +132,6 @@ void View::draw(const RenderParams& params) const
 		sync->write<Vec3>(params.camera->range_center);
 
 		sync->write(RenderOp::Uniform);
-		sync->write(Asset::Uniform::cull_normal);
-		sync->write(RenderDataType::Vec3);
-		sync->write<s32>(1);
-		sync->write<Vec3>(params.camera->wall_normal);
-
-		sync->write(RenderOp::Uniform);
 		sync->write(Asset::Uniform::cull_radius);
 		sync->write(RenderDataType::R32);
 		sync->write<s32>(1);

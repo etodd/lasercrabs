@@ -122,6 +122,19 @@ b8 Team::is_draw()
 	return Game::time.total > GAME_TIME_LIMIT && teams_with_players() != 1;
 }
 
+r32 Team::game_over_time()
+{
+	if (is_draw())
+		return Game::time.total - GAME_TIME_LIMIT;
+	else
+	{
+		r32 result = GAME_OVER_TIME;
+		for (s32 i = 0; i < Team::list.length; i++)
+			result = vi_min(result, Team::list[i].victory_timer);
+		return GAME_OVER_TIME - result;
+	}
+}
+
 b8 Team::has_player() const
 {
 	for (auto j = PlayerManager::list.iterator(); !j.is_last(); j.next())

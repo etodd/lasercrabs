@@ -19,12 +19,12 @@ struct TargetEvent;
 struct PlayerManager;
 
 #define GAME_TIME_LIMIT (60.0f * 10.0f)
-#define CREDITS_MINION 10
-#define CREDITS_DAMAGE 30
-#define CREDITS_DETECT 10
 #define CREDITS_INITIAL 40
-#define CREDITS_SENSOR_DESTROY 10
+#define CREDITS_MINION 5
+#define CREDITS_DAMAGE 10
+#define CREDITS_DETECT 10
 #define CREDITS_CONTROL_POINT 2
+#define CREDITS_DEFAULT_INCREMENT 2
 
 #define ABILITY_UPGRADE_TIME 1.5f
 
@@ -73,6 +73,8 @@ struct Team
 	static const Vec4 color_enemy;
 	static const Vec4 color_friend;
 	static r32 control_point_timer;
+
+	static r32 game_over_time();
 
 	static inline const Vec4& ui_color(AI::Team me, AI::Team them)
 	{

@@ -41,7 +41,7 @@ AbilityInfo AbilityInfo::list[] =
 		Asset::Mesh::icon_sensor,
 		2.5f,
 		10,
-		{ 50, 50 },
+		{ 50, 100 },
 		strings::sensor,
 		{ strings::description_sensor_1, strings::description_sensor_2 },
 	},
@@ -69,7 +69,6 @@ Team::Team()
 	: victory_timer(GAME_OVER_TIME),
 	player_tracks(),
 	player_track_history(),
-	stealth_enable(true),
 	player_spawn()
 {
 }
@@ -290,14 +289,11 @@ void Team::update_all(const Update& u)
 
 		AI::Team team = i.item()->team.ref()->team();
 
-		// if stealth is enabled for this team,
-		// and if we are within range of their own sensors
+		// if we are within range of their own sensors
 		// and not detected by enemy sensors
 		// then we should be stealthed
 		b8 stealth_enabled = true;
-		if (!i.item()->team.ref()->stealth_enable)
-			stealth_enabled = false;
-		else if (!visibility[i.index][(s32)team])
+		if (!visibility[i.index][(s32)team])
 			stealth_enabled = false;
 		else
 		{
@@ -457,6 +453,16 @@ void Team::update_all(const Update& u)
 				extract_history(i.item(), &j_team->player_track_history[i.index]);
 		}
 	}
+}
+
+b8 PlayerManager::can_steal_health() const
+{
+	return ability_level[(s32)Ability::Sensor] >= 2;
+}
+
+b8 PlayerManager::minion_containment_fields() const
+{
+	return ability_level[(s32)Ability::Minion] >= 2;
 }
 
 b8 PlayerManager::ability_spawn_start(Ability ability)
@@ -619,6 +625,12 @@ b8 PlayerManager::ability_upgrade_start(Ability a)
 	return false;
 }
 
+// sensor lvl 1 - spawn sensors
+// sensor lvl 2 - can steal enemy health
+// teleporter lvl 1 - spawn teleporters
+// teleporter lvl 2 - faster cooldowns
+// minion lvl 1 - spawn minions
+// minion lvl 2 - minion shields?
 b8 PlayerManager::ability_upgrade_complete()
 {
 	Ability a = current_upgrade_ability;
@@ -626,6 +638,9 @@ b8 PlayerManager::ability_upgrade_complete()
 
 	u8& level = ability_level[(s32)a];
 	if (level >= MAX_ABILITY_LEVELS)
+		return false;
+
+	if (!entity.ref())
 		return false;
 
 	const AbilityInfo& info = AbilityInfo::list[(s32)a];
@@ -637,25 +652,23 @@ b8 PlayerManager::ability_upgrade_complete()
 	add_credits(-cost);
 	if (a == Ability::Sensor)
 	{
-		if (level == 2)
-		{
-			// disable other teams' stealth
-			for (s32 i = 0; i < Team::list.length; i++)
-			{
-				if (&Team::list[i] != team.ref())
-					Team::list[i].stealth_enable = false;
-			}
-		}
 	}
 	else if (a == Ability::Teleporter)
 	{
-		vi_assert(entity.ref());
 		if (level == 2)
 			entity.ref()->get<PlayerCommon>()->cooldown_multiplier = 1.25f;
 	}
 	else if (a == Ability::Minion)
 	{
-		// todo: make minions attack enemy health pickups
+		// todo: minion shields
+		if (level == 2)
+		{
+			for (auto i = MinionCommon::list.iterator(); !i.is_last(); i.next())
+			{
+				if (i.item()->owner.ref() == this)
+					i.item()->create_containment_field();
+			}
+		}
 	}
 
 	return true;

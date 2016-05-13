@@ -2253,10 +2253,22 @@ void build_awk_nav_mesh(Map<Mesh>& meshes, cJSON* json, AwkNavMesh* out, s32* ad
 	for (s32 chunk_index = 0; chunk_index < out->chunks.length; chunk_index++)
 	{
 		AwkNavMeshChunk* chunk = &out->chunks[chunk_index];
+		s32 chunk_orphans = 0;
 		for (s32 vertex_index = 0; vertex_index < chunk->vertices.length; vertex_index++)
 		{
 			if (chunk->adjacency[vertex_index].length == 0)
+			{
+				chunk_orphans++;
 				(*orphans)++;
+			}
+		}
+
+		if (chunk_orphans == chunk->vertices.length)
+		{
+			// this chunk is all orphans; just remove them.
+			chunk->vertices.length = 0;
+			chunk->adjacency.length = 0;
+			chunk->normals.length = 0;
 		}
 	}
 }

@@ -324,7 +324,7 @@ void LocalPlayer::update(const Update& u)
 
 				const Rect2& viewport = camera ? camera->viewport : manager.ref()->entity.ref()->get<LocalPlayerControl>()->camera->viewport;
 
-				Vec2 pos(viewport.size.x * 0.5f + MENU_ITEM_WIDTH * -1.0f, viewport.size.y * 0.5f + UIMenu::height(3) * 0.5f);
+				Vec2 pos(viewport.size.x * 0.5f + MENU_ITEM_WIDTH * -0.5f, viewport.size.y * 0.6f + UIMenu::height(3) * 0.5f);
 
 				if (menu.item(u, &pos, _(strings::close), nullptr, upgrade_in_progress))
 				{
@@ -592,21 +592,24 @@ void LocalPlayer::draw_alpha(const RenderParams& params) const
 			if (manager.ref()->current_upgrade_ability == Ability::None
 				&& manager.ref()->ability_upgrade_available(ability))
 			{
+				r32 padding = 8.0f * UI::scale;
+
 				const AbilityInfo& info = AbilityInfo::list[(s32)ability];
 				UIText text;
 				text.font = Asset::Font::lowpoly;
-				text.color = UI::default_color;
+				text.color = UI::accent_color;
 				text.size = text_size;
 				text.anchor_x = UIText::Anchor::Min;
-				text.anchor_y = UIText::Anchor::Center;
+				text.anchor_y = UIText::Anchor::Max;
 				text.clip = 1 + (s32)((Game::real_time.total - upgrade_animation_time) * 150.0f);
-				text.wrap_width = MENU_ITEM_WIDTH;
+				text.wrap_width = MENU_ITEM_WIDTH - padding * 2.0f;
 				u8 level = manager.ref()->ability_level[(s32)ability];
 				u16 cost = manager.ref()->ability_upgrade_cost(ability);
 				text.text(_(strings::ability_description), level + 1, cost, _(info.description[level]));
-				const Rect2& viewport = params.camera->viewport;
-				Vec2 pos(viewport.size.x * 0.5f + 16.0f * UI::scale, viewport.size.y * 0.5f);
-				UI::box(params, text.rect(pos).outset(8.0f * UI::scale), UI::background_color);
+
+				const Rect2& last_item = menu.items[menu.items.length - 1].rect();
+				Vec2 pos(last_item.pos.x + padding, last_item.pos.y - padding * 2.0f);
+				UI::box(params, text.rect(pos).outset(padding), UI::background_color);
 				text.draw(params, pos);
 			}
 		}
@@ -1317,7 +1320,7 @@ void LocalPlayerControl::update(const Update& u)
 			AwkRaycastCallback rayCallback(trace_start, trace_end, entity());
 			rayCallback.m_flags = btTriangleRaycastCallback::EFlags::kF_FilterBackfaces
 				| btTriangleRaycastCallback::EFlags::kF_KeepUnflippedNormal;
-			rayCallback.m_collisionFilterMask = rayCallback.m_collisionFilterGroup = ~CollisionAwkIgnore;
+			rayCallback.m_collisionFilterMask = rayCallback.m_collisionFilterGroup = ~CollisionAwkIgnore & ~get<Awk>()->ally_containment_field_mask();
 
 			Physics::btWorld->rayTest(trace_start, trace_end, rayCallback);
 
@@ -1387,9 +1390,11 @@ void LocalPlayerControl::update(const Update& u)
 		// health pickups
 		if (get<Health>()->hp < get<Health>()->hp_max)
 		{
+			b8 can_steal_health = player.ref()->manager.ref()->can_steal_health();
 			for (auto i = HealthPickup::list.iterator(); !i.is_last(); i.next())
 			{
-				if (!i.item()->owner.ref())
+				Health* owner = i.item()->owner.ref();
+				if (!owner || (can_steal_health && owner != get<Health>()))
 				{
 					add_target_indicator(i.item()->get<Target>(), UI::accent_color);
 					if (indicators.length == indicators.capacity())
@@ -1514,7 +1519,7 @@ void LocalPlayerControl::update(const Update& u)
 
 			get<PlayerCommon>()->clamp_rotation(wall_normal);
 		}
-		else if (parkour_state == Parkour::State::Slide || parkour_state == Parkour::State::Roll)
+		else if (parkour_state == Parkour::State::Slide || parkour_state == Parkour::State::Roll || parkour_state == Parkour::State::HardLanding || parkour_state == Parkour::State::Mantle)
 		{
 			get<PlayerCommon>()->clamp_rotation(Quat::euler(0, get<Walker>()->target_rotation, 0) * Vec3(0, 0, 1));
 		}

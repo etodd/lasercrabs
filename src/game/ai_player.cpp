@@ -414,7 +414,11 @@ b8 AIPlayerControl::aim_and_shoot(const Update& u, const Vec3& target, b8 exact)
 
 b8 health_pickup_filter(const AIPlayerControl* control, const Entity* e)
 {
-	return !e->get<HealthPickup>()->owner.ref();
+	Health* owner = e->get<HealthPickup>()->owner.ref();
+	if (control->player.ref()->manager.ref()->can_steal_health())
+		return !owner || owner != control->get<Health>();
+	else
+		return !owner;
 }
 
 b8 minion_filter(const AIPlayerControl* control, const Entity* e)

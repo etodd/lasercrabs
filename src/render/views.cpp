@@ -117,10 +117,17 @@ void View::draw(const RenderParams& params) const
 	sync->write(Asset::Uniform::diffuse_color);
 	sync->write(RenderDataType::Vec4);
 	sync->write<s32>(1);
+
 	if (team == (u8)AI::Team::None)
 		sync->write<Vec4>(color);
 	else
-		sync->write<Vec4>(Team::color((AI::Team)team, (AI::Team)params.camera->team));
+	{
+		const Vec4& team_color = Team::color((AI::Team)team, (AI::Team)params.camera->team);
+		if (list_alpha.get(id()) || list_additive.get(id()))
+			sync->write<Vec4>(Vec4(team_color.xyz(), color.w));
+		else
+			sync->write<Vec4>(team_color);
+	}
 
 	if (shader == Asset::Shader::culled)
 	{

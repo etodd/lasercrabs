@@ -132,26 +132,28 @@ void HealthPickup::reset()
 
 void HealthPickup::hit(const TargetEvent& e)
 {
-	if (e.hit_by->has<AIAgent>()
-		&& e.hit_by->has<Health>()
-		&& !owner.ref())
+	if (e.hit_by->has<AIAgent>() && e.hit_by->has<Health>())
 	{
 		Health* health = e.hit_by->get<Health>();
 
 		if (health->hp < health->hp_max)
 		{
-			health->add(1);
-			owner = health;
+			if (!owner.ref()
+				|| (e.hit_by->get<PlayerCommon>()->manager.ref()->can_steal_health() && owner.ref() != health))
+			{
+				health->add(1);
+				owner = health;
 
-			AI::Team team = e.hit_by->get<AIAgent>()->team;
-			get<PointLight>()->team = (u8)team;
-			get<View>()->team = (u8)team;
-			return;
+				AI::Team team = e.hit_by->get<AIAgent>()->team;
+				get<PointLight>()->team = (u8)team;
+				get<View>()->team = (u8)team;
+				return;
+			}
 		}
 	}
 
 	// thing hitting us already has max health
-	// or someone else already owns us
+	// or someone else already owns us and this guy can't steal us
 	if (e.hit_by->has<LocalPlayerControl>())
 		e.hit_by->get<LocalPlayerControl>()->player.ref()->msg(_(strings::no_effect), false);
 }

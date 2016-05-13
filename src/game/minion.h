@@ -22,6 +22,8 @@ struct Minion : public Entity
 struct MinionCommon : public ComponentType<MinionCommon>
 {
 	Ref<PlayerManager> owner;
+	Ref<Entity> containment_field;
+	void create_containment_field();
 	void awake();
 	Vec3 head_pos();
 	b8 headshot_test(const Vec3&, const Vec3&);
@@ -30,6 +32,7 @@ struct MinionCommon : public ComponentType<MinionCommon>
 	void landed(r32);
 	void footstep();
 	void update(const Update&);
+	~MinionCommon();
 };
 
 struct MinionAI : public ComponentType<MinionAI>

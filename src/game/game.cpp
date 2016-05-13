@@ -572,7 +572,6 @@ void Game::execute(const Update& u, const char* cmd)
 			if (level != AssetNull)
 			{
 				Game::save.reset(level);
-				Game::state.reset();
 				Menu::transition(level, Game::Mode::Parkour);
 			}
 		}
@@ -588,7 +587,6 @@ void Game::execute(const Update& u, const char* cmd)
 			if (level != AssetNull)
 			{
 				Game::save.reset(level);
-				Game::state.reset();
 				Game::load_level(u, level, Game::Mode::Pvp, true);
 			}
 		}
@@ -604,7 +602,6 @@ void Game::execute(const Update& u, const char* cmd)
 			if (level != AssetNull)
 			{
 				Game::save.reset(level);
-				Game::state.reset();
 				Menu::transition(level, Game::Mode::Pvp);
 			}
 		}
@@ -620,7 +617,6 @@ void Game::execute(const Update& u, const char* cmd)
 			if (level != AssetNull)
 			{
 				Game::save.reset(level);
-				Game::state.reset();
 				Menu::transition(level, Game::Mode::Special);
 			}
 		}

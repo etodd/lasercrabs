@@ -18,12 +18,15 @@ enum CollisionGroup
 	CollisionTarget = 1 << 8,
 	CollisionShield = 1 << 9,
 	CollisionAwkIgnore = 1 << 10,
-	CollisionAwk = 1 < 11,
+	CollisionAwk = 1 << 11,
+	CollisionContainmentField = 1 << 12,
+	CollisionTeamAContainmentField = 1 << 13,
+	CollisionTeamBContainmentField = 1 << 14,
 	CollisionInaccessibleMask = btBroadphaseProxy::AllFilter,
 };
 
 #define AWK_PERMEABLE_MASK (CollisionTarget | CollisionShield | CollisionAwkIgnore)
-#define AWK_INACCESSIBLE_MASK (CollisionInaccessible | CollisionWalker | AWK_PERMEABLE_MASK)
+#define AWK_INACCESSIBLE_MASK (CollisionInaccessible | CollisionWalker | AWK_PERMEABLE_MASK | CollisionTeamAContainmentField | CollisionTeamBContainmentField)
 
 struct RaycastCallbackExcept : btCollisionWorld::ClosestRayResultCallback
 {

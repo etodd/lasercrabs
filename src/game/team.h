@@ -96,7 +96,6 @@ struct Team
 	r32 victory_timer;
 	SensorTrack player_tracks[MAX_PLAYERS];
 	SensorTrackHistory player_track_history[MAX_PLAYERS];
-	b8 stealth_enable;
 
 	Team();
 	void awake();
@@ -148,6 +147,9 @@ struct PlayerManager
 	b8 ability_upgrade_complete();
 	b8 ability_upgrade_available(Ability = Ability::None) const;
 	u16 ability_upgrade_cost(Ability) const;
+
+	b8 can_steal_health() const;
+	b8 minion_containment_fields() const;
 
 	void add_credits(u16);
 

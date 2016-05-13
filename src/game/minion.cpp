@@ -60,6 +60,9 @@ Minion::Minion(const Vec3& pos, const Quat& quat, AI::Team team, PlayerManager* 
 	create<Target>();
 
 	create<MinionAI>();
+
+	if (manager->minion_containment_fields())
+		get<MinionCommon>()->create_containment_field();
 }
 
 void MinionCommon::awake()
@@ -72,6 +75,51 @@ void MinionCommon::awake()
 	link<&MinionCommon::footstep>(animator->trigger(Asset::Animation::character_walk, 0.3375f));
 	link<&MinionCommon::footstep>(animator->trigger(Asset::Animation::character_walk, 0.75f));
 	link_arg<r32, &MinionCommon::landed>(get<Walker>()->land);
+}
+
+MinionCommon::~MinionCommon()
+{
+	if (containment_field.ref())
+		World::remove_deferred(containment_field.ref());
+}
+
+void MinionCommon::create_containment_field()
+{
+	Entity* f = World::alloc<Empty>();
+	f->get<Transform>()->absolute_pos(get<Transform>()->absolute_pos());
+
+	View* view = f->add<View>();
+	AI::Team team = get<AIAgent>()->team;
+	view->team = (u8)team;
+	view->mesh = Asset::Mesh::containment_field;
+	view->shader = Asset::Shader::flat;
+	view->alpha();
+	view->color.w = 0.2f;
+
+	Mesh* mesh = Loader::mesh(view->mesh);
+
+	CollisionGroup team_mask;
+	switch (team)
+	{
+		case AI::Team::A:
+		{
+			team_mask = CollisionTeamAContainmentField;
+			break;
+		}
+		case AI::Team::B:
+		{
+			team_mask = CollisionTeamBContainmentField;
+			break;
+		}
+		default:
+		{
+			vi_assert(false);
+			break;
+		}
+	}
+	f->add<RigidBody>(RigidBody::Type::Mesh, Vec3::zero, 0.0f, team_mask, CollisionContainmentField, view->mesh);
+
+	containment_field = f;
 }
 
 void MinionCommon::landed(r32 speed)
@@ -103,6 +151,9 @@ void MinionCommon::update(const Update& u)
 		Quat rot = Quat::identity;
 		get<Animator>()->to_local(Asset::Bone::character_head, &get<Target>()->local_offset, &rot);
 	}
+
+	if (containment_field.ref())
+		containment_field.ref()->get<Transform>()->absolute_pos(get<Transform>()->absolute_pos());
 
 	get<SkinnedModel>()->offset.make_transform(
 		Vec3(0, -1.1f, 0),
@@ -213,17 +264,17 @@ Entity* closest_target_to(const Vec3& pos, AI::Team team)
 		}
 	}
 
-	for (auto i = Teleporter::list.iterator(); !i.is_last(); i.next())
+	for (auto i = MinionCommon::list.iterator(); !i.is_last(); i.next())
 	{
-		Teleporter* teleporter = i.item();
-		if (teleporter->team != team)
+		MinionCommon* minion = i.item();
+		if (minion->get<AIAgent>()->team != team)
 		{
-			Vec3 teleporter_pos = teleporter->get<Transform>()->absolute_pos();
+			Vec3 teleporter_pos = minion->get<Transform>()->absolute_pos();
 
 			r32 total_distance = (teleporter_pos - pos).length();
 			if (total_distance < closest_distance)
 			{
-				closest = teleporter->entity();
+				closest = minion->entity();
 				closest_distance = total_distance;
 			}
 		}

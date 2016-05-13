@@ -71,6 +71,8 @@ struct Awk : public ComponentType<Awk>
 	void killed(Entity*);
 	void update_shield_visibility();
 
+	s32 ally_containment_field_mask() const;
+
 	b8 predict_intersection(const Target*, Vec3*) const;
 
 	void stealth(b8);

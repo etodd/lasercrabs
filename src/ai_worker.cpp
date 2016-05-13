@@ -390,8 +390,8 @@ void loop()
 				const Vec3* end;
 				while (true)
 				{
-					s32 vertex_index = mersenne::randf_co() * chunk.vertices.length - 1;
-					if (chunk.adjacency[vertex_index].length > 0) // it's not an orphan
+					s32 vertex_index = mersenne::randf_co() * chunk.vertices.length;
+					if (chunk.adjacency[vertex_index].length > 0) // make sure it's not an orphan
 					{
 						end = &chunk.vertices[vertex_index];
 						break;

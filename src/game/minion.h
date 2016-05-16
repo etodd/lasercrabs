@@ -33,6 +33,7 @@ struct MinionCommon : public ComponentType<MinionCommon>
 	void footstep();
 	void update(const Update&);
 	~MinionCommon();
+	void player_exited(Entity*);
 };
 
 struct MinionAI : public ComponentType<MinionAI>

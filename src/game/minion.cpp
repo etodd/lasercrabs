@@ -16,6 +16,7 @@
 #include "BulletCollision/NarrowPhaseCollision/btRaycastCallback.h"
 #include "data/ragdoll.h"
 #include "entities.h"
+#include "render/particles.h"
 
 #define MINION_VIEW_RANGE 30.0f
 
@@ -61,6 +62,8 @@ Minion::Minion(const Vec3& pos, const Quat& quat, AI::Team team, PlayerManager* 
 
 	create<MinionAI>();
 
+	create<PlayerTrigger>()->radius = 0.0f;
+
 	if (manager->minion_containment_fields())
 		get<MinionCommon>()->create_containment_field();
 }
@@ -75,6 +78,7 @@ void MinionCommon::awake()
 	link<&MinionCommon::footstep>(animator->trigger(Asset::Animation::character_walk, 0.3375f));
 	link<&MinionCommon::footstep>(animator->trigger(Asset::Animation::character_walk, 0.75f));
 	link_arg<r32, &MinionCommon::landed>(get<Walker>()->land);
+	link_arg<Entity*, &MinionCommon::player_exited>(get<PlayerTrigger>()->exited);
 }
 
 MinionCommon::~MinionCommon()
@@ -85,6 +89,8 @@ MinionCommon::~MinionCommon()
 
 void MinionCommon::create_containment_field()
 {
+	get<PlayerTrigger>()->radius = AWK_MAX_DISTANCE;
+
 	Entity* f = World::alloc<Empty>();
 	f->get<Transform>()->absolute_pos(get<Transform>()->absolute_pos());
 
@@ -120,6 +126,28 @@ void MinionCommon::create_containment_field()
 	f->add<RigidBody>(RigidBody::Type::Mesh, Vec3::zero, 0.0f, team_mask, CollisionContainmentField, view->mesh);
 
 	containment_field = f;
+}
+
+void MinionCommon::player_exited(Entity* player)
+{
+	if (player->get<AIAgent>()->team != get<AIAgent>()->team)
+	{
+		Vec3 pos;
+		Quat rot;
+		player->get<Transform>()->absolute(&pos, &rot);
+
+		player->get<Health>()->damage(entity(), 1);
+
+		for (s32 i = 0; i < 50; i++)
+		{
+			Particles::sparks.add
+			(
+				pos,
+				rot * Vec3(mersenne::randf_oo() * 2.0f - 1.0f, mersenne::randf_oo() * 2.0f - 1.0f, mersenne::randf_oo()) * 10.0f,
+				Vec4(1, 1, 1, 1)
+			);
+		}
+	}
 }
 
 void MinionCommon::landed(r32 speed)

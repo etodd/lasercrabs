@@ -722,7 +722,7 @@ r32 UI::get_scale(s32 width, s32 height)
 	else if (area > 640 * 480)
 		return 1.0f;
 	else
-		return 0.5f;
+		return 0.75f;
 }
 
 void UI::update(const RenderParams& p)

@@ -554,7 +554,7 @@ void Projectile::update(const Update& u)
 		if (hit_object != owner.ref())
 		{
 			Vec3 basis;
-			if (hit_object->has<Health>())
+			if (hit_object->has<MinionCommon>() || hit_object->has<Sensor>())
 			{
 				hit_object->get<Health>()->damage(owner.ref(), damage);
 				basis = Vec3::normalize(velocity);

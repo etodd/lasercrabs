@@ -904,8 +904,8 @@ void Awk::update(const Update& u)
 							else if (entity->get<Health>()->hp > 1)
 								stop = true; // they have shield to spare; we'll bounce off the shield
 						}
-						else if (!(group & (AWK_PERMEABLE_MASK | CollisionWalker | ally_containment_field_mask()))) // it's not a target or a person; we can't go through it
-							stop = true;
+						else if (!(group & (AWK_PERMEABLE_MASK | CollisionWalker | CollisionTeamAContainmentField | CollisionTeamBContainmentField)))
+							stop = true; // we can't go through it
 
 						if (stop)
 						{
@@ -932,14 +932,6 @@ void Awk::update(const Update& u)
 							get<Health>()->damage(entity(), AWK_HEALTH); // Kill self
 							return;
 						}
-						else if (group & (CollisionTeamAContainmentField | CollisionTeamBContainmentField))
-						{
-							if (group & ~ally_containment_field_mask()) // enemy containment field
-							{
-								get<Health>()->damage(entity(), AWK_HEALTH); // Kill self
-								return;
-							}
-						}
 						else if (group & CollisionTarget)
 						{
 							Ref<Entity> hit = &Entity::list[ray_callback.m_collisionObjects[i]->getUserIndex()];
@@ -954,7 +946,7 @@ void Awk::update(const Update& u)
 								}
 							}
 						}
-						else if (group & CollisionAwkIgnore)
+						else if (group & (CollisionTeamAContainmentField | CollisionTeamBContainmentField | CollisionAwkIgnore))
 						{
 							// ignore
 						}

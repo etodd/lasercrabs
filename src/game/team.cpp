@@ -630,7 +630,7 @@ b8 PlayerManager::ability_upgrade_start(Ability a)
 // teleporter lvl 1 - spawn teleporters
 // teleporter lvl 2 - faster cooldowns
 // minion lvl 1 - spawn minions
-// minion lvl 2 - minion shields?
+// minion lvl 2 - minion shields
 b8 PlayerManager::ability_upgrade_complete()
 {
 	Ability a = current_upgrade_ability;

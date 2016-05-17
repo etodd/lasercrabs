@@ -2560,6 +2560,8 @@ void import_font(ImporterState& state, const std::string& asset_in_path, const s
 	{
 		std::string asset_intermediate_path = asset_out_folder + asset_name + model_intermediate_extension;
 
+		printf("%s\n", asset_out_path.c_str());
+
 		// Export to FBX first
 		std::ostringstream cmdbuilder;
 		cmdbuilder << "blender --background --factory-startup --python " << asset_in_folder << "script/ttf_to_fbx.py -- ";

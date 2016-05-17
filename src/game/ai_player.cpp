@@ -33,10 +33,18 @@ AIPlayer::Config::Config()
 }
 
 AIPlayer::AIPlayer(PlayerManager* m)
-	: manager(m), revision(), config()
+	: manager(m),
+	revision(),
+	config(),
+	ready_time(2.1f + mersenne::randf_cc() * 4.0f)
 {
 	m->spawn.link<AIPlayer, &AIPlayer::spawn>(this);
-	m->ready = true;
+}
+
+void AIPlayer::update(const Update& u)
+{
+	if (!manager.ref()->ready && Game::real_time.total > ready_time)
+		manager.ref()->ready = true;
 }
 
 void AIPlayer::spawn()
@@ -69,7 +77,8 @@ AIPlayerControl::AIPlayerControl(AIPlayer* p)
 	loop_low_level_2(),
 	loop_memory(),
 	target(),
-	hit_target()
+	hit_target(),
+	panic()
 {
 #if DEBUG_AI_CONTROL
 	camera = Camera::add();
@@ -141,7 +150,7 @@ void AIPlayerControl::set_target(Target* t)
 void AIPlayerControl::set_path(const AI::Path& p)
 {
 	path = p;
-	path_index = 0;
+	path_index = 1; // first point is the starting point, should be roughly where we are already
 	aim_timer = 0.0f;
 	target = nullptr;
 	hit_target = false;
@@ -276,7 +285,7 @@ void update_component_memory(AIPlayerControl* control, b8 (*filter)(const AIPlay
 }
 
 // if exact is true, we need to land exactly at the given target point
-b8 AIPlayerControl::aim_and_shoot(const Update& u, const Vec3& target, b8 exact)
+b8 AIPlayerControl::aim_and_shoot(const Update& u, const Vec3& path_node, const Vec3& target, b8 exact)
 {
 	PlayerCommon* common = get<PlayerCommon>();
 
@@ -297,36 +306,46 @@ b8 AIPlayerControl::aim_and_shoot(const Update& u, const Vec3& target, b8 exact)
 			could_go_before_crawling = get<Awk>()->can_go(to_target, &hit);
 			if (could_go_before_crawling)
 			{
-				// we could go generally toward the target
+				// we can go generally toward the target
 				if (exact && (hit - target).length() > AWK_RADIUS) // make sure we would actually land at the right spot
 					could_go_before_crawling = false;
 			}
 		}
 
-		Vec3 old_pos;
-		Quat old_rot;
-		get<Transform>()->absolute(&old_pos, &old_rot);
-		ID old_parent = get<Transform>()->parent.ref()->entity_id;
-		get<Awk>()->crawl(to_target, u);
-
-		Vec3 new_pos = get<Transform>()->absolute_pos();
-
-		b8 revert = false;
-
 		if (could_go_before_crawling)
 		{
-			revert = true;
-			Vec3 hit;
-			if (get<Awk>()->can_go(Vec3::normalize(target - new_pos), &hit))
-			{
-				// we can go generally toward the target
-				if (!exact || (hit - target).length() < AWK_RADIUS) // make sure we're actually going to land at the right spot
-					revert = false;
-			}
-		}
+			// try to crawl toward the target
+			Vec3 old_pos;
+			Quat old_rot;
+			get<Transform>()->absolute(&old_pos, &old_rot);
+			ID old_parent = get<Transform>()->parent.ref()->entity_id;
+			get<Awk>()->crawl(to_target, u);
 
-		if (revert)
-			get<Awk>()->move(old_pos, old_rot, old_parent); // revert the crawling we just did
+			Vec3 new_pos = get<Transform>()->absolute_pos();
+
+			b8 revert = false;
+
+			if (could_go_before_crawling)
+			{
+				revert = true;
+				Vec3 hit;
+				if (get<Awk>()->can_go(Vec3::normalize(target - new_pos), &hit))
+				{
+					// we can go generally toward the target
+					if (!exact || (hit - target).length() < AWK_RADIUS) // make sure we're actually going to land at the right spot
+						revert = false;
+				}
+			}
+
+			if (revert)
+				get<Awk>()->move(old_pos, old_rot, old_parent); // revert the crawling we just did
+		}
+		else
+		{
+			// we can't currently get to the target
+			// crawl toward our current path node in an attempt to get a clear shot
+			get<Awk>()->crawl(path_node - get<Transform>()->absolute_pos(), u);
+		}
 	}
 
 	Vec3 pos = get<Awk>()->center();
@@ -426,7 +445,20 @@ b8 minion_filter(const AIPlayerControl* control, const Entity* e)
 	return e->get<AIAgent>()->team != control->get<AIAgent>()->team;
 }
 
-b8 awk_filter(const AIPlayerControl* control, const Entity* e)
+b8 awk_memory_filter(const AIPlayerControl* control, const Entity* e)
+{
+	return e->get<AIAgent>()->team != control->get<AIAgent>()->team
+		&& !e->get<AIAgent>()->stealth;
+}
+
+b8 awk_run_filter(const AIPlayerControl* control, const Entity* e)
+{
+	return e->get<AIAgent>()->team != control->get<AIAgent>()->team
+		&& !e->get<AIAgent>()->stealth
+		&& e->get<Health>()->hp > control->get<Health>()->hp;
+}
+
+b8 awk_attack_filter(const AIPlayerControl* control, const Entity* e)
 {
 	return e->get<AIAgent>()->team != control->get<AIAgent>()->team
 		&& !e->get<AIAgent>()->stealth
@@ -475,7 +507,8 @@ Repeat* make_low_level_loop(AIPlayerControl* control, const AIPlayer::Config& co
 						(
 							Select::alloc // if any of these succeed, they will abort the high level loop
 							(
-								AIBehaviors::ReactTarget::alloc(Awk::family, 4, 5, &awk_filter),
+								AIBehaviors::RunAway::alloc(Awk::family, 4, &awk_run_filter),
+								AIBehaviors::ReactTarget::alloc(Awk::family, 4, 5, &awk_attack_filter),
 								Sequence::alloc
 								(
 									Invert::alloc(Execute::alloc()->method<Health, &Health::is_full>(control->get<Health>())), // make sure we need health
@@ -528,8 +561,9 @@ Repeat* make_high_level_loop(AIPlayerControl* control, const AIPlayer::Config& c
 								AIBehaviors::Find::alloc(HealthPickup::family, 2, &health_pickup_filter)
 							),
 							AIBehaviors::Find::alloc(MinionAI::family, 2, &minion_filter),
-							AIBehaviors::Find::alloc(Awk::family, 2, &awk_filter),
-							AIBehaviors::RandomPath::alloc()
+							AIBehaviors::Find::alloc(Awk::family, 2, &awk_attack_filter),
+							AIBehaviors::RandomPath::alloc(),
+							AIBehaviors::Panic::alloc()
 						)
 					)
 				)
@@ -581,7 +615,7 @@ b8 AIPlayerControl::update_memory()
 	update_component_memory<HealthPickup>(this, &default_filter);
 	update_component_memory<MinionAI>(this, &minion_filter);
 	update_component_memory<SensorInterestPoint>(this, &default_filter);
-	update_component_memory<Awk>(this, &awk_filter);
+	update_component_memory<Awk>(this, &awk_memory_filter);
 
 	// update memory of enemy AWK positions based on team sensor data
 	const Team& team = Team::list[(s32)get<AIAgent>()->team];
@@ -597,7 +631,7 @@ b8 AIPlayerControl::update_memory()
 
 void AIPlayerControl::update(const Update& u)
 {
-	if (get<Transform>()->parent.ref())
+	if (get<Transform>()->parent.ref() && !Team::game_over())
 	{
 		if (!loop_high_level)
 			init_behavior_trees();
@@ -608,7 +642,7 @@ void AIPlayerControl::update(const Update& u)
 		{
 			Vec3 intersection;
 			if (get<Awk>()->can_hit(target.ref(), &intersection))
-				aim_and_shoot(u, intersection, false);
+				aim_and_shoot(u, intersection, intersection, false);
 			else
 				behavior_done(false); // we can't hit it
 		}
@@ -618,7 +652,7 @@ void AIPlayerControl::update(const Update& u)
 			if (aim_timer > config.aim_timeout)
 				behavior_done(false); // we can't hit it
 			else
-				aim_and_shoot(u, path[path_index], true);
+				aim_and_shoot(u, path[path_index - 1], path[path_index], true); // path_index starts at 1 so we're good here
 		}
 		else
 		{
@@ -629,10 +663,31 @@ void AIPlayerControl::update(const Update& u)
 			common->angle_vertical += noise::sample3d(Vec3(offset + 64)) * config.aim_speed * u.time.delta;
 			common->angle_vertical = LMath::clampf(common->angle_vertical, PI * -0.495f, PI * 0.495f);
 			common->clamp_rotation(common->attach_quat * Vec3(0, 0, 1), 0.5f);
+
+			if (panic)
+			{
+				// pathfinding routines failed; we are stuck
+				if (common->movement_enabled() && common->cooldown == 0.0f)
+				{
+					// cooldown is done; we can shoot.
+					Vec3 look_dir = common->look_dir();
+					get<Awk>()->crawl(look_dir, u);
+					if (get<Awk>()->can_go(look_dir))
+					{
+						if (get<Awk>()->detach(look_dir))
+						{
+							panic = false; // we did it!
+							// when we land, behavior_done will get called
+						}
+					}
+				}
+			}
 		}
 	}
 
-	if (target_path_callback && ((!target.ref() && path_index >= path.length) || (target.ref() && hit_target)))
+	if (target_path_callback
+		&& !panic
+		&& ((!target.ref() && path_index >= path.length) || (target.ref() && hit_target))) // we completed our path or hit our target
 		behavior_done(hit_target || path.length > 0);
 
 #if DEBUG_AI_CONTROL
@@ -691,7 +746,7 @@ void Find::run()
 		}
 	}
 	if (closest)
-		this->pathfind(closest->pos, false);
+		this->pathfind(closest->pos, AI::AwkPathfind::LongRange);
 	else
 		this->done(false);
 }
@@ -705,7 +760,44 @@ void RandomPath::run()
 {
 	active(true);
 	if (control->path_priority < RandomPath::path_priority)
+	{
+#if DEBUG_AI_CONTROL
+		vi_debug("Awk pathfind: %s", typeid(*this).name());
+#endif
 		AI::awk_random_path(control->get<AIAgent>()->team, control->get<Transform>()->absolute_pos(), ObjectLinkEntryArg<Base<RandomPath>, const AI::Result&, &Base<RandomPath>::path_callback>(id()));
+	}
+	else
+		done(false);
+}
+
+Panic::Panic()
+{
+	Panic::path_priority = 1;
+}
+
+void Panic::abort()
+{
+	if (active())
+		control->panic = false;
+	Base<Panic>::abort();
+}
+
+void Panic::done(b8 a)
+{
+	if (active())
+		control->panic = false;
+	Base<Panic>::done(a);
+}
+
+// pathfinding routines failed; we are stuck
+void Panic::run()
+{
+	active(true);
+	if (control->path_priority < Panic::path_priority)
+	{
+		control->panic = true;
+		control->behavior_start(this, true, Panic::path_priority);
+	}
 	else
 		done(false);
 }
@@ -797,9 +889,48 @@ void ReactTarget::run()
 			}
 			else if (can_path)
 			{
-				pathfind(closest->get<Target>()->absolute_pos(), true);
+				pathfind(closest->get<Target>()->absolute_pos(), AI::AwkPathfind::Target);
 				return;
 			}
+		}
+	}
+	done(false);
+}
+
+RunAway::RunAway(Family fam, s8 priority_path, b8(*filter)(const AIPlayerControl*, const Entity*))
+	: filter(filter), family(fam)
+{
+	path_priority = priority_path;
+}
+
+void RunAway::run()
+{
+	active(true);
+	if (path_priority > control->path_priority)
+	{
+		Entity* closest = nullptr;
+		r32 closest_distance = AWK_MAX_DISTANCE * AWK_MAX_DISTANCE;
+		Vec3 pos = control->get<Transform>()->absolute_pos();
+		const AIPlayerControl::MemoryArray& memory = control->memory[family];
+		for (s32 i = 0; i < memory.length; i++)
+		{
+			r32 distance = (memory[i].pos - pos).length_squared();
+			if (distance < closest_distance)
+			{
+				if (control->in_range(memory[i].pos, AWK_MAX_DISTANCE)
+					&& memory[i].entity.ref()
+					&& filter(control, memory[i].entity.ref())
+					&& memory[i].entity.ref()->get<Awk>()->can_hit(control->get<Target>()))
+				{
+					closest_distance = distance;
+					closest = memory[i].entity.ref();
+				}
+			}
+		}
+		if (closest)
+		{
+			pathfind(closest->get<Transform>()->absolute_pos(), AI::AwkPathfind::Away);
+			return;
 		}
 	}
 	done(false);

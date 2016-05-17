@@ -14,11 +14,7 @@
 #include "asset/level.h"
 #include "walker.h"
 
-#if DEBUG
-#define PLAYER_SPAWN_DELAY 1.0f
-#else
-#define PLAYER_SPAWN_DELAY 5.0f
-#endif
+#define PLAYER_SPAWN_DELAY 3.0f
 
 #define CREDITS_FLASH_TIME 0.5f
 

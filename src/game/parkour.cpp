@@ -21,7 +21,7 @@ namespace VI
 
 #define RUN_SPEED 5.0f
 #define WALK_SPEED 2.0f
-#define MAX_SPEED 7.0f
+#define MAX_SPEED 8.0f
 #define MIN_WALLRUN_SPEED 2.0f
 
 #define JUMP_GRACE_PERIOD 0.3f
@@ -827,6 +827,7 @@ b8 Parkour::try_parkour(b8 force)
 
 			if (ray_callback.hasHit() && ray_callback.m_hitNormalWorld.getY() > 0.25f)
 			{
+				get<Walker>()->last_supported_speed = get<RigidBody>()->btBody->getLinearVelocity().length();
 				get<Animator>()->layers[1].play(Asset::Animation::character_mantle);
 				fsm.transition(State::Mantle);
 				last_support = Entity::list[ray_callback.m_collisionObject->getUserIndex()].get<RigidBody>();

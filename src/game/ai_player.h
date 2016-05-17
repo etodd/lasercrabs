@@ -56,12 +56,14 @@ struct AIPlayer
 	Ref<PlayerManager> manager;
 	Revision revision;
 	Config config;
+	r32 ready_time;
 
 	AIPlayer(PlayerManager*);
 	inline ID id() const
 	{
 		return this - &list[0];
 	}
+	void update(const Update&);
 	void spawn();
 };
 
@@ -92,6 +94,7 @@ struct AIPlayerControl : public ComponentType<AIPlayerControl>
 	Ref<Target> target;
 	b8 shot_at_target;
 	b8 hit_target;
+	b8 panic;
 	r32 aim_timer;
 	r32 inaccuracy;
 #if DEBUG_AI_CONTROL
@@ -107,7 +110,7 @@ struct AIPlayerControl : public ComponentType<AIPlayerControl>
 	void behavior_start(Behavior*, b8, s8);
 	void behavior_done(b8);
 	b8 restore_loops();
-	b8 aim_and_shoot(const Update&, const Vec3&, b8);
+	b8 aim_and_shoot(const Update&, const Vec3&, const Vec3&, b8);
 	b8 in_range(const Vec3&, r32) const;
 	void set_target(Target*);
 	void set_path(const AI::Path&);
@@ -142,7 +145,7 @@ namespace AIBehaviors
 			}
 		}
 
-		void pathfind(const Vec3& target, b8 hit)
+		void pathfind(const Vec3& target, AI::AwkPathfind type)
 		{
 			// if hit is false, pathfind as close as possible to the given target
 			// if hit is true, pathfind to a point from which we can shoot through the given target
@@ -151,10 +154,7 @@ namespace AIBehaviors
 #endif
 			auto ai_callback = ObjectLinkEntryArg<Base<Derived>, const AI::Result&, &Base<Derived>::path_callback>(this->id());
 			Vec3 pos = this->control->template get<Transform>()->absolute_pos();
-			if (hit)
-				AI::awk_pathfind_hit(this->control->template get<AIAgent>()->team, pos, target, ai_callback);
-			else
-				AI::awk_pathfind(this->control->template get<AIAgent>()->team, pos, target, ai_callback);
+			AI::awk_pathfind(type, this->control->template get<AIAgent>()->team, pos, target, ai_callback);
 		}
 	};
 
@@ -192,6 +192,22 @@ namespace AIBehaviors
 		Family family;
 		ReactTarget(Family, s8, s8, b8(*)(const AIPlayerControl*, const Entity*));
 
+		void run();
+	};
+
+	struct RunAway : Base<RunAway>
+	{
+		b8(*filter)(const AIPlayerControl*, const Entity*);
+		Family family;
+		RunAway(Family, s8, b8(*)(const AIPlayerControl*, const Entity*));
+		void run();
+	};
+
+	struct Panic : Base<Panic>
+	{
+		Panic();
+		void abort();
+		void done(b8);
 		void run();
 	};
 

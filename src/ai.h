@@ -26,9 +26,7 @@ namespace AI
 		ObstacleRemove,
 		Pathfind,
 		AwkPathfind,
-		AwkPathfindHit,
 		RandomPath,
-		AwkRandomPath,
 		UpdateSensors,
 		Quit,
 	};
@@ -37,6 +35,14 @@ namespace AI
 	{
 		Path,
 		AwkPath,
+	};
+
+	enum class AwkPathfind
+	{
+		LongRange,
+		Target,
+		Away,
+		Random,
 	};
 
 	const s32 MAX_PATH_LENGTH = 32;
@@ -75,8 +81,7 @@ namespace AI
 	u32 obstacle_add(const Vec3&, r32, r32);
 	void obstacle_remove(u32);
 	u32 pathfind(const Vec3&, const Vec3&, const LinkEntryArg<const Result&>&);
-	u32 awk_pathfind(AI::Team, const Vec3&, const Vec3&, const LinkEntryArg<const Result&>&);
-	u32 awk_pathfind_hit(AI::Team, const Vec3&, const Vec3&, const LinkEntryArg<const Result&>&);
+	u32 awk_pathfind(AwkPathfind, AI::Team, const Vec3&, const Vec3&, const LinkEntryArg<const Result&>&);
 	u32 random_path(const Vec3&, const LinkEntryArg<const Result&>&);
 	u32 awk_random_path(AI::Team, const Vec3&, const LinkEntryArg<const Result&>&);
 	void load(const u8*, s32);
@@ -86,7 +91,6 @@ namespace AI
 	void debug_draw_nav_mesh(const RenderParams&);
 	void debug_draw_awk_nav_mesh(const RenderParams&);
 
-	Entity* vision_query(const AIAgent*, const Vec3&, const Vec3&, r32, r32, r32 = -1.0f, ComponentMask = -1);
 	b8 vision_check(const Vec3&, const Vec3&, const Entity* = nullptr, const Entity* = nullptr);
 
 	namespace Internal
@@ -126,13 +130,6 @@ namespace AI
 		extern NavMeshProcess nav_tile_mesh_process;
 
 		void loop();
-
-		dtPolyRef get_poly(const Vec3&, const r32*);
-
-		void awk_pathfind(AI::Team, const Vec3&, const Vec3&, Path*);
-		void awk_pathfind_hit(AI::Team, const Vec3&, const Vec3&, Path*);
-
-		AwkNavMeshNode awk_closest_point(const Vec3&);
 	}
 }
 

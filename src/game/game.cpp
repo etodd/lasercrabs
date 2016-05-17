@@ -260,6 +260,8 @@ void Game::update(const Update& update_in)
 	for (auto i = PlayerManager::list.iterator(); !i.is_last(); i.next())
 		i.item()->update(u);
 	LocalPlayer::update_all(u);
+	for (auto i = AIPlayer::list.iterator(); !i.is_last(); i.next())
+		i.item()->update(u);
 	for (auto i = Walker::list.iterator(); !i.is_last(); i.next())
 		i.item()->update(u);
 	for (auto i = Awk::list.iterator(); !i.is_last(); i.next())

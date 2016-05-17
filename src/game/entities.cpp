@@ -141,8 +141,8 @@ void HealthPickup::hit(const TargetEvent& e)
 			if (!owner.ref()
 				|| (e.hit_by->get<PlayerCommon>()->manager.ref()->can_steal_health() && owner.ref() != health))
 			{
-				health->add(1);
 				owner = health;
+				health->add(1);
 
 				AI::Team team = e.hit_by->get<AIAgent>()->team;
 				get<PointLight>()->team = (u8)team;
@@ -154,6 +154,7 @@ void HealthPickup::hit(const TargetEvent& e)
 
 	// thing hitting us already has max health
 	// or someone else already owns us and this guy can't steal us
+	// regardless, nothing happened. I award you no points
 	if (e.hit_by->has<LocalPlayerControl>())
 		e.hit_by->get<LocalPlayerControl>()->player.ref()->msg(_(strings::no_effect), false);
 }

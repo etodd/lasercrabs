@@ -273,11 +273,15 @@ void LocalPlayer::update(const Update& u)
 
 	// close/open pause menu if needed
 	{
-		b8 pause_hit = Game::time.total > 0.5f && u.input->get(Controls::Pause, gamepad) && !u.last_input->get(Controls::Pause, gamepad);
+		b8 pause_hit = Game::time.total > 0.5f && u.last_input->get(Controls::Pause, gamepad) && !u.input->get(Controls::Pause, gamepad);
 		if (pause_hit && !upgrading && (menu_state == Menu::State::Hidden || menu_state == Menu::State::Visible))
 		{
 			menu_state = (menu_state == Menu::State::Hidden) ? Menu::State::Visible : Menu::State::Hidden;
 			menu.animate();
+		}
+		else if (menu_state == Menu::State::Visible && u.last_input->get(Controls::Cancel, gamepad) && !u.input->get(Controls::Cancel, gamepad))
+		{
+			menu_state = Menu::State::Hidden;
 		}
 	}
 
@@ -1655,7 +1659,7 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 					UI::box(params, Rect2(p + icon_size * -0.5f, icon_size).outset(4.0f * UI::scale), UI::background_color);
 
 					AI::Team control_point_team = i.item()->team;
-					const Vec4& color = control_point_team == team ? Team::ui_color_friend : (control_point_team == AI::Team::None ? UI::default_color : Team::ui_color_enemy);
+					const Vec4& color = control_point_team == team ? Team::ui_color_friend : (control_point_team == AI::Team::None ? UI::accent_color : Team::ui_color_enemy);
 					UI::mesh(params, Asset::Mesh::icon_credits, p, icon_size, color);
 				}
 			}

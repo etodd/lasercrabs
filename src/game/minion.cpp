@@ -322,7 +322,7 @@ b8 MinionAI::can_see(Entity* target) const
 	if (target->has<AIAgent>() && get<AIAgent>()->stealth)
 		return false;
 
-	Vec3 pos = get<Transform>()->absolute_pos();
+	Vec3 pos = get<MinionCommon>()->head_pos();
 	Vec3 target_pos = target->get<Transform>()->absolute_pos();
 	Vec3 diff_flattened = target_pos - pos;
 	diff_flattened.y = 0.0f;

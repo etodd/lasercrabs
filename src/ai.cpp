@@ -102,52 +102,6 @@ void update(const Update& u)
 	sync_out.unlock();
 }
 
-b8 vision_check(const Vec3& pos, const Vec3& enemy_pos, const Entity* a, const Entity* b)
-{
-	btCollisionWorld::ClosestRayResultCallback rayCallback(pos, enemy_pos);
-	rayCallback.m_flags = btTriangleRaycastCallback::EFlags::kF_FilterBackfaces
-		| btTriangleRaycastCallback::EFlags::kF_KeepUnflippedNormal;
-	rayCallback.m_collisionFilterMask = rayCallback.m_collisionFilterGroup = ~CollisionTarget;
-
-	Physics::btWorld->rayTest(pos, enemy_pos, rayCallback);
-
-	if (!rayCallback.hasHit())
-		return true;
-
-	ID id = rayCallback.m_collisionObject->getUserIndex();
-	return (a && id == a->id()) || (b && id == b->id());
-}
-
-Entity* vision_query(const AIAgent* queryer, const Vec3& pos, const Vec3& forward, r32 radius, r32 angle, r32 max_height_diff, ComponentMask component_mask)
-{
-	r32 angle_dot = cosf(angle);
-	for (auto i = AIAgent::list.iterator(); !i.is_last(); i.next())
-	{
-		AIAgent* agent = i.item();
-		if (agent->team == queryer->team || !(agent->entity()->component_mask & component_mask))
-			continue;
-
-		Vec3 enemy_pos = agent->get<Transform>()->absolute_pos();
-
-		Vec3 to_enemy = enemy_pos - pos;
-		if (max_height_diff > 0.0f && to_enemy.y > max_height_diff)
-			continue;
-
-		r32 distance_to_enemy = to_enemy.length();
-
-		if (distance_to_enemy < radius)
-		{
-			to_enemy /= distance_to_enemy;
-
-			r32 dot = forward.dot(to_enemy);
-			if (dot > angle_dot && vision_check(pos, enemy_pos, queryer->entity(), agent->entity()))
-				return agent->entity();
-		}
-	}
-
-	return nullptr;
-}
-
 u32 obstacle_add(const Vec3& pos, r32 radius, r32 height)
 {
 	u32 id;
@@ -216,17 +170,7 @@ u32 random_path(const Vec3& pos, const LinkEntryArg<const Result&>& callback)
 
 u32 awk_random_path(AI::Team team, const Vec3& pos, const LinkEntryArg<const Result&>& callback)
 {
-	u32 id = callback_in_id;
-	callback_in_id++;
-
-	sync_in.lock();
-	sync_in.write(Op::AwkRandomPath);
-	sync_in.write(team);
-	sync_in.write(pos);
-	sync_in.write(callback);
-	sync_in.unlock();
-
-	return id;
+	return awk_pathfind(AwkPathfind::Random, team, pos, Vec3::zero, callback);
 }
 
 u32 pathfind(const Vec3& a, const Vec3& b, const LinkEntryArg<const Result&>& callback)
@@ -244,35 +188,21 @@ u32 pathfind(const Vec3& a, const Vec3& b, const LinkEntryArg<const Result&>& ca
 	return id;
 }
 
-u32 awk_pathfind(AI::Team team, const Vec3& a, const Vec3& b, const LinkEntryArg<const Result&>& callback)
+u32 awk_pathfind(AI::AwkPathfind type, AI::Team team, const Vec3& a, const Vec3& b, const LinkEntryArg<const Result&>& callback)
 {
 	u32 id = callback_in_id;
 	callback_in_id++;
 
 	sync_in.lock();
 	sync_in.write(Op::AwkPathfind);
+	sync_in.write(type);
 	sync_in.write(team);
-	sync_in.write(a);
-	sync_in.write(b);
 	sync_in.write(callback);
+	sync_in.write(a);
+	if (type != AwkPathfind::Random)
+		sync_in.write(b);
 	sync_in.unlock();
 	
-	return id;
-}
-
-u32 awk_pathfind_hit(AI::Team team, const Vec3& a, const Vec3& b, const LinkEntryArg<const Result&>& callback)
-{
-	u32 id = callback_in_id;
-	callback_in_id++;
-
-	sync_in.lock();
-	sync_in.write(Op::AwkPathfindHit);
-	sync_in.write(team);
-	sync_in.write(a);
-	sync_in.write(b);
-	sync_in.write(callback);
-	sync_in.unlock();
-
 	return id;
 }
 

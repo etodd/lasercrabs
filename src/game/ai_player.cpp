@@ -835,17 +835,20 @@ void AbilitySpawn::run()
 		&& filter(control))
 	{
 		if (manager->ability_spawn_start(ability))
+		{
 			control->behavior_start(this, false, AbilitySpawn::path_priority);
-		else
-			done(false);
+			return;
+		}
 	}
-	else
-		done(false);
+
+	done(false);
 }
 
 void AbilitySpawn::abort()
 {
-	control->player.ref()->manager.ref()->ability_spawn_stop(ability);
+	if (active())
+		control->player.ref()->manager.ref()->ability_spawn_stop(ability);
+	Base<AbilitySpawn>::abort();
 }
 
 ReactTarget::ReactTarget(Family fam, s8 priority_path, s8 react_priority, b8(*filter)(const AIPlayerControl*, const Entity*))

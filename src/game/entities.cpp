@@ -381,9 +381,21 @@ Teleporter* Teleporter::closest(const Vec3& pos, AI::Team t)
 	return closest_teleporter;
 }
 
-void Teleportee::go()
+b8 Teleportee::go()
 {
+	AI::Team team = get<AIAgent>()->team;
+	Entity* e = entity();
+	for (auto i = MinionCommon::list.iterator(); !i.is_last(); i.next())
+	{
+		if (i.item()->get<AIAgent>()->team != team && i.item()->get<PlayerTrigger>()->is_triggered(e))
+		{
+			target = nullptr;
+			return false; // we are inside an enemy containment field
+		}
+	}
+
 	timer = TELEPORT_TIME + TELEPORT_INVINCIBLE_PERIOD;
+	return true;
 }
 
 void Teleportee::cancel()

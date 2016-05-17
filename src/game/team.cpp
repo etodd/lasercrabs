@@ -53,7 +53,7 @@ AbilityInfo AbilityInfo::list[] =
 		Asset::Mesh::icon_minion,
 		1.5f,
 		5,
-		{ 50, 100 },
+		{ 50, 120 },
 		strings::minion,
 		{ strings::description_minion_1, strings::description_minion_2 },
 	},
@@ -478,11 +478,14 @@ b8 PlayerManager::ability_spawn_start(Ability ability)
 	if (ability_level[(s32)ability] == 0)
 		return false;
 
+	if (ability == Ability::Teleporter)
+	{
+		if (!awk->get<Teleportee>()->go())
+			return false;
+	}
+
 	current_spawn_ability = ability;
 	spawn_ability_timer = info.spawn_time;
-
-	if (ability == Ability::Teleporter)
-		awk->get<Teleportee>()->go();
 
 	return true;
 }

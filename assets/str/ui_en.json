@@ -35,6 +35,7 @@
 	"minion": "Minion",
 	"target_damaged": "Target damaged",
 	"minion_killed": "Minion killed",
+	"upgrade_notification": "Upgrade",
 	"upgrade_prompt": "[{{Interact}}] Upgrade",
 	"ability_spawn_cost": "Cost: %d",
 	"accept": "[{{Interact}}] Accept",

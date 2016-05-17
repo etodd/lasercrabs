@@ -103,7 +103,7 @@ struct Teleportee : public ComponentType<Teleportee>
 	void update(const Update&);
 	b8 in_progress() const;
 	b8 invincible() const;
-	void go();
+	b8 go();
 	void cancel();
 };
 

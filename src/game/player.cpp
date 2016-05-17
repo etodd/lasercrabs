@@ -1587,54 +1587,6 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 
 	AI::Team team = get<AIAgent>()->team;
 
-	{
-		// compass
-		b8 enemy_attacking = false;
-
-		Vec3 me = get<Transform>()->absolute_pos();
-
-		for (auto i = PlayerCommon::list.iterator(); !i.is_last(); i.next())
-		{
-			if (PlayerCommon::visibility.get(PlayerCommon::visibility_hash(get<PlayerCommon>(), i.item())))
-			{
-				// determine if they're attacking us
-				if (!i.item()->get<Transform>()->parent.ref()
-					&& Vec3::normalize(i.item()->get<Awk>()->velocity).dot(Vec3::normalize(me - i.item()->get<Transform>()->absolute_pos())) > 0.95f)
-					enemy_attacking = true;
-			}
-		}
-
-		Vec2 compass_size = Vec2(vi_min(viewport.size.x, viewport.size.y) * 0.3f);
-
-		if (enemy_attacking)
-		{
-			// we're being attacked; flash the compass
-			b8 show = flash_function(Game::real_time.total);
-			if (show)
-			{
-				UI::mesh(params, Asset::Mesh::compass_inner, viewport.size * Vec2(0.5f, 0.5f), compass_size, UI::alert_color);
-			}
-			if (show && !flash_function(Game::real_time.total - Game::real_time.delta))
-				Audio::post_global_event(AK::EVENTS::PLAY_BEEP_BAD);
-		}
-
-		// indicators pointing toward player spawns
-		for (s32 i = 0; i < Team::list.capacity(); i++)
-		{
-			Team* t = &Team::list[i];
-			if (t->player_spawn.ref())
-			{
-				Vec3 to_spawn = t->player_spawn.ref()->get<Transform>()->absolute_pos() - me;
-				r32 distance = to_spawn.length();
-				if (distance > PLAYER_SPAWN_RADIUS)
-				{
-					to_spawn /= distance;
-					UI::mesh(params, Asset::Mesh::compass_indicator, viewport.size * Vec2(0.5f, 0.5f), compass_size, Team::ui_color(team, t->team()), atan2f(to_spawn.x, to_spawn.z) - get<PlayerCommon>()->angle_horizontal);
-				}
-			}
-		}
-	}
-
 	// indicators
 	{
 		for (s32 i = 0; i < indicators.length; i++)
@@ -1737,7 +1689,10 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 					// highlight the username and draw it even if it's offscreen
 					is_onscreen(params, pos3d, &p);
 					draw = true;
-					color = &Team::ui_color(team, other_player.item()->get<AIAgent>()->team);
+					if (team == other_player.item()->get<AIAgent>()->team) // friend
+						color = &Team::ui_color_friend;
+					else // enemy
+						color = visible ? &Team::ui_color_enemy : &UI::accent_color;
 				}
 				else
 				{
@@ -1787,6 +1742,71 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 
 				if (draw_danger && flash_function(Game::real_time.total))
 					danger.draw(params, danger_pos); // danger!
+			}
+		}
+	}
+
+	{
+		// compass
+		b8 enemy_attacking = false;
+
+		Vec3 me = get<Transform>()->absolute_pos();
+
+		for (auto i = PlayerCommon::list.iterator(); !i.is_last(); i.next())
+		{
+			if (PlayerCommon::visibility.get(PlayerCommon::visibility_hash(get<PlayerCommon>(), i.item())))
+			{
+				// determine if they're attacking us
+				if (!i.item()->get<Transform>()->parent.ref()
+					&& Vec3::normalize(i.item()->get<Awk>()->velocity).dot(Vec3::normalize(me - i.item()->get<Transform>()->absolute_pos())) > 0.95f)
+					enemy_attacking = true;
+			}
+		}
+
+		Vec2 compass_size = Vec2(vi_min(viewport.size.x, viewport.size.y) * 0.3f);
+
+		if (enemy_attacking)
+		{
+			// we're being attacked; flash the compass
+			b8 show = flash_function(Game::real_time.total);
+			if (show)
+			{
+				UI::mesh(params, Asset::Mesh::compass_inner, viewport.size * Vec2(0.5f, 0.5f), compass_size, UI::alert_color);
+			}
+			if (show && !flash_function(Game::real_time.total - Game::real_time.delta))
+				Audio::post_global_event(AK::EVENTS::PLAY_BEEP_BAD);
+		}
+
+		// indicators pointing toward player spawns
+		for (s32 i = 0; i < Team::list.capacity(); i++)
+		{
+			Team* t = &Team::list[i];
+			if (t->player_spawn.ref())
+			{
+				Vec3 to_spawn = t->player_spawn.ref()->get<Transform>()->absolute_pos() - me;
+				r32 distance = to_spawn.length();
+				if (distance > PLAYER_SPAWN_RADIUS)
+				{
+					to_spawn /= distance;
+					r32 angle = atan2f(to_spawn.x, to_spawn.z) - get<PlayerCommon>()->angle_horizontal;
+
+					if (team == t->team() && player.ref()->manager.ref()->ability_upgrade_available())
+					{
+						// upgrade notification
+						UIText text;
+						text.color = Team::ui_color_friend;
+						text.text(_(strings::upgrade_notification));
+						text.font = Asset::Font::lowpoly;
+						text.anchor_x = UIText::Anchor::Center;
+						text.anchor_y = UIText::Anchor::Center;
+						text.size = text_size;
+						Vec2 pos = viewport.size * Vec2(0.5f) + Vec2(cosf(angle + PI * 0.5f), sinf(angle + PI * 0.5f)) * (compass_size.x - (text_size * UI::scale * 2.0f));
+						UI::box(params, text.rect(pos).outset(8.0f * UI::scale), UI::background_color);
+						text.draw(params, pos);
+					}
+
+					UI::mesh(params, Asset::Mesh::compass_indicator, viewport.size * Vec2(0.5f), compass_size, Team::ui_color(team, t->team()), angle);
+				}
 			}
 		}
 	}

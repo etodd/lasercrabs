@@ -8,7 +8,7 @@ namespace Asset
 {
 	namespace String
 	{
-		const s32 count = 319;
+		const s32 count = 320;
 		const AssetID _default = 0;
 		const AssetID ability_description = 1;
 		const AssetID ability_lvl = 2;
@@ -324,10 +324,11 @@ namespace Asset
 		const AssetID tut_pvp_sensors = 312;
 		const AssetID tutorial = 313;
 		const AssetID tutorial_intro = 314;
-		const AssetID upgrade_prompt = 315;
-		const AssetID upgrading = 316;
-		const AssetID victory = 317;
-		const AssetID yes = 318;
+		const AssetID upgrade_notification = 315;
+		const AssetID upgrade_prompt = 316;
+		const AssetID upgrading = 317;
+		const AssetID victory = 318;
+		const AssetID yes = 319;
 	}
 }
 

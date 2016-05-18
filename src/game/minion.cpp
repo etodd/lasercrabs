@@ -64,7 +64,7 @@ Minion::Minion(const Vec3& pos, const Quat& quat, AI::Team team, PlayerManager* 
 
 	create<PlayerTrigger>()->radius = 0.0f;
 
-	if (manager->minion_containment_fields())
+	if (manager && manager->minion_containment_fields())
 		get<MinionCommon>()->create_containment_field();
 }
 

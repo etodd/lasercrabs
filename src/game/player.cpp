@@ -1778,34 +1778,36 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 		}
 
 		// indicators pointing toward player spawns
-		for (s32 i = 0; i < Team::list.capacity(); i++)
 		{
-			Team* t = &Team::list[i];
-			if (t->player_spawn.ref())
+			for (s32 i = 0; i < Team::list.capacity(); i++)
 			{
-				Vec3 to_spawn = t->player_spawn.ref()->get<Transform>()->absolute_pos() - me;
-				r32 distance = to_spawn.length();
-				if (distance > PLAYER_SPAWN_RADIUS)
+				Team* t = &Team::list[i];
+				if (t->player_spawn.ref())
 				{
-					to_spawn /= distance;
-					r32 angle = atan2f(to_spawn.x, to_spawn.z) - get<PlayerCommon>()->angle_horizontal;
-
-					if (team == t->team() && player.ref()->manager.ref()->ability_upgrade_available())
+					Vec3 to_spawn = t->player_spawn.ref()->get<Transform>()->absolute_pos() - me;
+					r32 distance = to_spawn.length();
+					if (distance > PLAYER_SPAWN_RADIUS)
 					{
-						// upgrade notification
-						UIText text;
-						text.color = Team::ui_color_friend;
-						text.text(_(strings::upgrade_notification));
-						text.font = Asset::Font::lowpoly;
-						text.anchor_x = UIText::Anchor::Center;
-						text.anchor_y = UIText::Anchor::Center;
-						text.size = text_size;
-						Vec2 pos = viewport.size * Vec2(0.5f) + Vec2(cosf(angle + PI * 0.5f), sinf(angle + PI * 0.5f)) * (compass_size.x - (text_size * UI::scale * 2.0f));
-						UI::box(params, text.rect(pos).outset(8.0f * UI::scale), UI::background_color);
-						text.draw(params, pos);
-					}
+						to_spawn /= distance;
+						r32 angle = atan2f(to_spawn.x, to_spawn.z) - get<PlayerCommon>()->angle_horizontal;
 
-					UI::mesh(params, Asset::Mesh::compass_indicator, viewport.size * Vec2(0.5f), compass_size, Team::ui_color(team, t->team()), angle);
+						if (team == t->team() && Game::level.has_feature(Game::FeatureLevel::ControlPoints) && player.ref()->manager.ref()->ability_upgrade_available())
+						{
+							// upgrade notification
+							UIText text;
+							text.color = Team::ui_color_friend;
+							text.text(_(strings::upgrade_notification));
+							text.font = Asset::Font::lowpoly;
+							text.anchor_x = UIText::Anchor::Center;
+							text.anchor_y = UIText::Anchor::Center;
+							text.size = text_size;
+							Vec2 pos = viewport.size * Vec2(0.5f) + Vec2(cosf(angle + PI * 0.5f), sinf(angle + PI * 0.5f)) * (compass_size.x - (text_size * UI::scale * 2.0f));
+							UI::box(params, text.rect(pos).outset(8.0f * UI::scale), UI::background_color);
+							text.draw(params, pos);
+						}
+
+						UI::mesh(params, Asset::Mesh::compass_indicator, viewport.size * Vec2(0.5f), compass_size, Team::ui_color(team, t->team()), angle);
+					}
 				}
 			}
 		}

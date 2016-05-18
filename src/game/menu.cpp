@@ -24,13 +24,8 @@ namespace Menu
 #define fov_initial (80.0f * PI * 0.5f / 180.0f)
 
 #define CONNECT_OFFLINE_DELAY 1.0f
-#if DEBUG
-#define CONNECT_DELAY_MIN 0.5f
-#define CONNECT_DELAY_RANGE 0.0f
-#else
-#define CONNECT_DELAY_MIN 2.0f
+#define CONNECT_DELAY_MIN 1.0f
 #define CONNECT_DELAY_RANGE 2.0f
-#endif
 
 static Camera* cameras[MAX_GAMEPADS] = {};
 static UIText player_text[MAX_GAMEPADS];

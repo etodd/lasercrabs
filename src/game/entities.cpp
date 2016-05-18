@@ -323,26 +323,29 @@ void ControlPoint::update_all(const Update& u)
 		i.item()->get<View>()->team = (u8)control_point_team;
 	}
 
-	timer -= u.time.delta;
-	if (timer < 0.0f)
+	if (Game::level.has_feature(Game::FeatureLevel::ControlPoints))
 	{
-		// give points to teams based on how many control points they own
-		s32 reward_buffer[(s32)AI::Team::count] = { CREDITS_DEFAULT_INCREMENT, CREDITS_DEFAULT_INCREMENT };
-
-		for (auto i = list.iterator(); !i.is_last(); i.next())
+		timer -= u.time.delta;
+		if (timer < 0.0f)
 		{
-			if (i.item()->team != AI::Team::None)
-				reward_buffer[(s32)i.item()->team] += CREDITS_CONTROL_POINT;
-		}
+			// give points to teams based on how many control points they own
+			s32 reward_buffer[(s32)AI::Team::count] = { CREDITS_DEFAULT_INCREMENT, CREDITS_DEFAULT_INCREMENT };
 
-		// add credits to players
-		for (auto i = PlayerManager::list.iterator(); !i.is_last(); i.next())
-		{
-			s32 reward = reward_buffer[(s32)i.item()->team.ref()->team()];
-			i.item()->add_credits(reward);
-		}
+			for (auto i = list.iterator(); !i.is_last(); i.next())
+			{
+				if (i.item()->team != AI::Team::None)
+					reward_buffer[(s32)i.item()->team] += CREDITS_CONTROL_POINT;
+			}
 
-		timer = CONTROL_POINT_INTERVAL;
+			// add credits to players
+			for (auto i = PlayerManager::list.iterator(); !i.is_last(); i.next())
+			{
+				s32 reward = reward_buffer[(s32)i.item()->team.ref()->team()];
+				i.item()->add_credits(reward);
+			}
+
+			timer = CONTROL_POINT_INTERVAL;
+		}
 	}
 
 }

@@ -39,6 +39,7 @@ struct PhysicsSync
 {
 	b8 quit;
 	GameTime time;
+	r32 timestep;
 };
 
 typedef Sync<PhysicsSync, 1>::Swapper PhysicsSwapper;

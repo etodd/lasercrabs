@@ -1,0 +1,19 @@
+The Yearning
+===========
+
+Requirements
+------------
+
+- Windows 7+, OS X 10.11+, or some sort of linux...
+- 2 GB RAM
+- GPU supporting OpenGL 4.1
+- Xbox 360 controller recommended
+
+Settings
+--------
+
+Settings are stored in the following locations:
+
+- Windows: C:\Users\<user>\AppData\Roaming\PoorMan\Yearning\config.txt
+- Mac: /Users/<user>/Library/Application Support/PoorMan/Yearning/config.txt
+- Linux: /home/<user>/.local/share/PoorMan/Yearning/config.txt

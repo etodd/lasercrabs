@@ -102,14 +102,14 @@ cJSON* input_binding_json(const InputBinding& binding)
 	return json;
 }
 
-void Loader::settings_load()
+void Loader::settings_load(s32 default_width, s32 default_height)
 {
 	char path[max_user_data_path_length];
 	user_data_path(path, config_filename);
 	cJSON* json = Json::load(path);
 
-	Settings::width = Json::get_s32(json, "width", 1920);
-	Settings::height = Json::get_s32(json, "height", 1080);
+	Settings::width = Json::get_s32(json, "width", default_width);
+	Settings::height = Json::get_s32(json, "height", default_height);
 	Settings::fullscreen = (b8)Json::get_s32(json, "fullscreen", 0);
 	Settings::vsync = (b8)Json::get_s32(json, "vsync", 0);
 	Settings::sfx = (u8)Json::get_s32(json, "sfx", 100);
@@ -148,6 +148,9 @@ void Loader::settings_load()
 		bindings->sensitivity = Json::get_r32(gamepad, "sensitivity", 1.0f);
 		gamepad = gamepad ? gamepad->next : nullptr;
 	}
+
+	if (!json)
+		settings_save(); // failed to load the config file; save our own
 }
 
 void Loader::settings_save()
@@ -159,6 +162,7 @@ void Loader::settings_save()
 	cJSON_AddNumberToObject(json, "vsync", Settings::vsync);
 	cJSON_AddNumberToObject(json, "sfx", Settings::sfx);
 	cJSON_AddNumberToObject(json, "music", Settings::music);
+	cJSON_AddNumberToObject(json, "framerate_limit", Settings::framerate_limit);
 
 	cJSON* gamepads = cJSON_CreateArray();
 	cJSON_AddItemToObject(json, "gamepads", gamepads);

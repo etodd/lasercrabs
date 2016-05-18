@@ -88,7 +88,11 @@ namespace VI
 		SDL_SetHint(SDL_HINT_MOUSE_RELATIVE_MODE_WARP, "1");
 #endif
 
-		Loader::settings_load();
+		{
+			SDL_DisplayMode display;
+			SDL_GetDesktopDisplayMode(0, &display);
+			Loader::settings_load(display.w, display.h);
+		}
 
 		window = SDL_CreateWindow
 		(

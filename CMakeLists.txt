@@ -239,12 +239,6 @@ add_library(sha1 STATIC
 
 ## Source
 
-add_custom_command(
-	OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/gamecontrollerdb.txt
-	COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_SOURCE_DIR}/external/sdl_controllers/gamecontrollerdb.txt ${CMAKE_CURRENT_BINARY_DIR}/gamecontrollerdb.txt
-	MAIN_DEPENDENCY ${CMAKE_CURRENT_SOURCE_DIR}/external/sdl_controllers/gamecontrollerdb.txt
-)
-
 add_executable(yearning
 	CMakeLists.txt
 	src/data/array.h
@@ -373,10 +367,13 @@ add_executable(yearning
 	assets/str/ui_en.json
 )
 
-target_include_directories(yearning PRIVATE ${ALL_INCLUDES})
+add_custom_command(
+	OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/gamecontrollerdb.txt
+	COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_SOURCE_DIR}/external/sdl_controllers/gamecontrollerdb.txt ${CMAKE_CURRENT_BINARY_DIR}/gamecontrollerdb.txt
+	MAIN_DEPENDENCY ${CMAKE_CURRENT_SOURCE_DIR}/external/sdl_controllers/gamecontrollerdb.txt
+)
 
-# Config file
-file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/language.txt DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/)
+target_include_directories(yearning PRIVATE ${ALL_INCLUDES})
 
 if(WIN32)
 	set_property(TARGET yearning APPEND PROPERTY LINK_FLAGS_DEBUG "/SUBSYSTEM:CONSOLE")

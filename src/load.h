@@ -93,7 +93,7 @@ struct Loader
 	static b8 soundbank_permanent(AssetID);
 	static void soundbank_free(AssetID);
 	
-	static void settings_load();
+	static void settings_load(s32, s32);
 	static void settings_save();
 
 	static void transients_free();

@@ -17,7 +17,7 @@ void Physics::loop(PhysicsSwapper* swapper)
 	PhysicsSync* data = swapper->swap<SwapType_Read>();
 	while (!data->quit)
 	{
-		btWorld->stepSimulation(vi_min(data->time.delta, 0.1f), 0);
+		btWorld->stepSimulation(vi_min(data->time.delta, 0.1f), 2, data->timestep);
 		data = swapper->swap<SwapType_Read>();
 	}
 }

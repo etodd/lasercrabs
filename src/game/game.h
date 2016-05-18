@@ -29,7 +29,7 @@ struct EntityFinder
 };
 
 #if DEBUG
-#define DEBUG_AI_CONTROL 0
+#define DEBUG_AI_CONTROL 1
 #endif
 
 struct Game
@@ -106,6 +106,7 @@ struct Game
 	static b8 quit;
 	static GameTime time;
 	static GameTime real_time;
+	static r32 physics_timestep;
 	static Vec2 cursor;
 	static b8 cursor_updated;
 	static AssetID scheduled_load_level;

@@ -30,7 +30,7 @@ inline void vi_assert(bool x)
 
 #else
 
-#define vi_debug(fmt, args...) ((void)0)
+#define vi_debug(fmt, ...) ((void)0)
 
 #define vi_assert(x) ((void)0)
 

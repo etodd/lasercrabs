@@ -255,7 +255,8 @@ void MinionCommon::killed(Entity* killer)
 		if (killer->has<PlayerCommon>())
 		{
 			Team* team = &Team::list[(s32)get<AIAgent>()->team];
-			team->track(killer->get<PlayerCommon>()->manager.ref(), owner.ref());
+			if (team->team() != killer->get<AIAgent>()->team)
+				team->track(killer->get<PlayerCommon>()->manager.ref(), owner.ref());
 		}
 
 		if (killer->has<Awk>())

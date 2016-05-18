@@ -56,8 +56,9 @@ namespace VI
 {
 
 b8 Game::quit = false;
-GameTime Game::time = GameTime();
-GameTime Game::real_time = GameTime();
+GameTime Game::time;
+GameTime Game::real_time;
+r32 Game::physics_timestep;
 
 AssetID Game::scheduled_load_level = AssetNull;
 Game::Mode Game::scheduled_mode = Game::Mode::Pvp;
@@ -227,6 +228,7 @@ void Game::update(const Update& update_in)
 	real_time = update_in.time;
 	time.delta = update_in.time.delta * state.time_scale;
 	time.total += time.delta;
+	physics_timestep = (1.0f / 60.0f) * state.time_scale;
 
 	cursor_updated = false;
 

@@ -367,12 +367,15 @@ void MinionAI::new_goal()
 	auto path_callback = ObjectLinkEntryArg<MinionAI, const AI::Result&, &MinionAI::set_path>(id());
 	if (goal.entity.ref())
 	{
-		Vec3 target = goal.entity.ref()->get<Transform>()->absolute_pos();
-		teleport_if_necessary(target);
-		path_request = PathRequest::Target;
 		goal.type = Goal::Type::Target;
-		path_timer = PATH_RECALC_TIME;
-		AI::pathfind(pos, target, path_callback);
+		if (!can_see(goal.entity.ref()))
+		{
+			Vec3 target = goal.entity.ref()->get<Transform>()->absolute_pos();
+			teleport_if_necessary(target);
+			path_request = PathRequest::Target;
+			path_timer = PATH_RECALC_TIME;
+			AI::pathfind(pos, target, path_callback);
+		}
 	}
 	else
 	{

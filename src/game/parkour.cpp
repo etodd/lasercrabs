@@ -340,7 +340,7 @@ void Parkour::update(const Update& u)
 			{
 				// check in front of us
 				Vec3 ray_dir = rot * Vec3(wall_run_state == WallRunState::Left ? 1 : -1, 0, 1);
-				Vec3 ray_end = ray_start + ray_dir * get<Walker>()->radius * WALL_RUN_DISTANCE_RATIO * 2.0f;
+				Vec3 ray_end = ray_start + ray_dir * (get<Walker>()->radius * WALL_RUN_DISTANCE_RATIO);
 				btCollisionWorld::ClosestRayResultCallback ray_callback(ray_start, ray_end);
 				ray_callback.m_flags = btTriangleRaycastCallback::EFlags::kF_FilterBackfaces
 					| btTriangleRaycastCallback::EFlags::kF_KeepUnflippedNormal;

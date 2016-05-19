@@ -107,7 +107,7 @@ void RigidBody::awake()
 			break;
 		case Type::Mesh:
 		{
-			Mesh* mesh = Loader::mesh(mesh_id);
+			const Mesh* mesh = Loader::mesh(mesh_id);
 			btMesh = new btTriangleIndexVertexArray(mesh->indices.length / 3, mesh->indices.data, 3 * sizeof(s32), mesh->vertices.length, (btScalar*)mesh->vertices.data, sizeof(Vec3));
 			btShape = new btBvhTriangleMeshShape(btMesh, true, mesh->bounds_min, mesh->bounds_max);
 			break;

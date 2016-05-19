@@ -755,7 +755,7 @@ void Awk::update(const Update& u)
 		r32 leg_blend_speed = vi_max(AWK_MIN_LEG_BLEND_SPEED, AWK_LEG_BLEND_SPEED * (last_speed / AWK_CRAWL_SPEED));
 		last_speed = 0.0f;
 
-		Armature* arm = Loader::armature(get<Animator>()->armature);
+		const Armature* arm = Loader::armature(get<Animator>()->armature);
 		for (s32 i = 0; i < AWK_LEGS; i++)
 		{
 			b8 find_footing = false;

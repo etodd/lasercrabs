@@ -26,6 +26,8 @@
 namespace VI
 {
 
+#define BUILD_NAV_MESHES 1
+
 typedef Chunks<Array<Vec3>> ChunkedTris;
 
 const s32 version = 24;
@@ -2327,6 +2329,7 @@ void import_level(ImporterState& state, const std::string& asset_in_path, const 
 			return;
 		}
 
+#if BUILD_NAV_MESHES
 		// Parse the scene graph
 		cJSON* json = Json::load(asset_out_path.c_str());
 
@@ -2406,6 +2409,7 @@ void import_level(ImporterState& state, const std::string& asset_in_path, const 
 
 		nav_tiles.free();
 		Json::json_free(json);
+#endif
 	}
 }
 

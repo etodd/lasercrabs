@@ -42,6 +42,7 @@ struct Walker : public ComponentType<Walker>
 	Vec3 base_pos() const;
 	void absolute_pos(const Vec3&);
 	Vec3 forward() const;
+	r32 capsule_height() const;
 
 	void update(const Update&);
 };

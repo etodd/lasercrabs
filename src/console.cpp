@@ -134,7 +134,7 @@ void Console::update(const Update& u)
 
 	if (visible)
 	{
-		Font* font = Loader::font_permanent(font_asset);
+		const Font* font = Loader::font_permanent(font_asset);
 		b8 update = false;
 		b8 shift = u.input->keys[(s32)KeyCode::LShift]
 			|| u.input->keys[(s32)KeyCode::RShift];

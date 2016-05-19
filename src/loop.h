@@ -34,10 +34,20 @@ ScreenQuad screen_quad = ScreenQuad();
 
 #define SHADOW_MAP_CASCADES 2
 
-const s32 shadow_map_size[SHADOW_MAP_CASCADES] =
+const s32 shadow_map_size[(s32)Settings::ShadowQuality::count][SHADOW_MAP_CASCADES] =
 {
-	1024, // detail
-	1024, // global
+	{
+		512, // detail
+		512, // global
+	},
+	{
+		1024, // detail
+		1024, // global
+	},
+	{
+		2048, // detail
+		2048, // global
+	},
 };
 
 s32 color_buffer;
@@ -242,7 +252,7 @@ void render_spot_lights(const RenderParams& render_params, s32 fbo, RenderBlendM
 			shadow_camera.viewport =
 			{
 				Vec2(0, 0),
-				Vec2(shadow_map_size[0], shadow_map_size[0]),
+				Vec2(shadow_map_size[(s32)Settings::shadow_quality][0], shadow_map_size[(s32)Settings::shadow_quality][0]),
 			};
 			shadow_camera.perspective(light->fov, 1.0f, 0.1f, light->radius);
 			shadow_camera.pos = abs_pos;
@@ -481,9 +491,9 @@ void draw(LoopSync* sync, const Camera* camera)
 		{
 			// Global light (directional and player lights)
 			const s32 max_lights = 3;
-			Vec3 colors[max_lights];
-			Vec3 directions[max_lights];
-			Vec3 abs_directions[max_lights];
+			Vec3 colors[max_lights] = {};
+			Vec3 directions[max_lights] = {};
+			Vec3 abs_directions[max_lights] = {};
 			b8 shadowed = false;
 			s32 j = 0;
 			for (auto i = DirectionalLight::list.iterator(); !i.is_last(); i.next())
@@ -496,7 +506,7 @@ void draw(LoopSync* sync, const Camera* camera)
 				colors[j] = light->color;
 				abs_directions[j] = light->get<Transform>()->absolute_rot() * Vec3(0, 1, 0);
 				directions[j] = (render_params.view * Vec4(abs_directions[j], 0)).xyz();
-				if (light->shadowed)
+				if (Settings::shadow_quality != Settings::ShadowQuality::Off && light->shadowed)
 				{
 					if (j > 0 && !shadowed)
 					{
@@ -529,9 +539,9 @@ void draw(LoopSync* sync, const Camera* camera)
 				shadow_camera.viewport =
 				{
 					Vec2(0, 0),
-					Vec2(shadow_map_size[1], shadow_map_size[1]),
+					Vec2(shadow_map_size[(s32)Settings::shadow_quality][1], shadow_map_size[(s32)Settings::shadow_quality][1]),
 				};
-				r32 size = vi_min(800.0f, render_params.camera->far_plane);
+				r32 size = vi_min(800.0f, render_params.camera->far_plane * 1.5f);
 				Vec3 pos = render_params.camera->pos;
 				const r32 interval = size * 0.025f;
 				pos = Vec3((s32)(pos.x / interval), (s32)(pos.y / interval), (s32)(pos.z / interval)) * interval;
@@ -548,9 +558,9 @@ void draw(LoopSync* sync, const Camera* camera)
 				shadow_camera.viewport =
 				{
 					Vec2(0, 0),
-					Vec2(shadow_map_size[0], shadow_map_size[0]),
+					Vec2(shadow_map_size[(s32)Settings::shadow_quality][0], shadow_map_size[(s32)Settings::shadow_quality][0]),
 				};
-				shadow_camera.orthographic(size * 0.1f, size * 0.1f, 1.0f, size * 2.0f);
+				shadow_camera.orthographic(size * 0.15f, size * 0.15f, 1.0f, size * 2.0f);
 
 				detail_light_vp = render_shadows(sync, shadow_fbo[0], *render_params.camera, shadow_camera);
 
@@ -1196,7 +1206,7 @@ void loop(LoopSwapper* swapper, PhysicsSwapper* physics_swapper)
 	normal_buffer = Loader::dynamic_texture_permanent(sync->input.width, sync->input.height, RenderDynamicTextureType::Color);
 	depth_buffer = Loader::dynamic_texture_permanent(sync->input.width, sync->input.height, RenderDynamicTextureType::Depth);
 	for (s32 i = 0; i < SHADOW_MAP_CASCADES; i++)
-		shadow_buffer[i] = Loader::dynamic_texture_permanent(shadow_map_size[i], shadow_map_size[i], RenderDynamicTextureType::Depth, RenderTextureWrap::Clamp, RenderTextureFilter::Linear, RenderTextureCompare::RefToTexture);
+		shadow_buffer[i] = Loader::dynamic_texture_permanent(shadow_map_size[(s32)Settings::shadow_quality][i], shadow_map_size[(s32)Settings::shadow_quality][i], RenderDynamicTextureType::Depth, RenderTextureWrap::Clamp, RenderTextureFilter::Linear, RenderTextureCompare::RefToTexture);
 
 	g_fbo = Loader::framebuffer_permanent(3);
 	Loader::framebuffer_attach(RenderFramebufferAttachment::Color0, color_buffer);

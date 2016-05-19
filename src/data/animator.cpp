@@ -2,6 +2,7 @@
 #include "load.h"
 #include "components.h"
 #include "ease.h"
+#include "mersenne/mersenne-twister.h"
 
 namespace VI
 {
@@ -39,7 +40,7 @@ Animator::Animator()
 }
 
 template<typename T>
-static s32 find_keyframe_index(Array<T>& keyframes, r32 time)
+static s32 find_keyframe_index(const Array<T>& keyframes, r32 time)
 {
 	s32 index;
 	for (index = 0; index < keyframes.length - 2; index++)
@@ -52,13 +53,19 @@ static s32 find_keyframe_index(Array<T>& keyframes, r32 time)
 
 void Animator::Layer::play(AssetID a)
 {
-	animation = a;
-	time = 0.0f;
+	if (animation != a)
+	{
+		animation = a;
+		if (loop)
+			time = mersenne::randf_co() * Loader::animation(a)->duration;
+		else
+			time = 0.0f;
+	}
 }
 
 void Animator::Layer::update(const Update& u, const Animator& animator)
 {
-	Animation* anim = Loader::animation(animation);
+	const Animation* anim = Loader::animation(animation);
 
 	if (blend_time == 0.0f)
 		blend = 1.0f;
@@ -105,7 +112,7 @@ void Animator::Layer::update(const Update& u, const Animator& animator)
 		channels.resize(anim->channels.length);
 		for (s32 i = 0; i < anim->channels.length; i++)
 		{
-			Channel* c = &anim->channels[i];
+			const Channel* c = &anim->channels[i];
 
 			Vec3 position;
 			Vec3 scale;
@@ -187,7 +194,7 @@ void Animator::update(const Update& u)
 
 void Animator::update_world_transforms()
 {
-	Armature* arm = Loader::armature(armature);
+	const Armature* arm = Loader::armature(armature);
 	bones.resize(arm->hierarchy.length);
 	if (offsets.length < arm->hierarchy.length)
 	{
@@ -225,7 +232,7 @@ void Animator::update_world_transforms()
 				for (s32 i = 0; i < layer.last_animation_channels.length; i++)
 				{
 					AnimatorChannel& channel = layer.last_animation_channels[i];
-					bone_channels[channel.bone].blend(blend * layer.weight, channel.transform);
+					bone_channels[channel.bone].blend(blend, channel.transform);
 				}
 			}
 
@@ -357,7 +364,7 @@ void Animator::from_bone_body(const s32 index, const Vec3& pos, const Quat& rot,
 
 	Vec3 parent_pos = Vec3::zero;
 	Quat parent_rot = Quat::identity;
-	Armature* arm = Loader::armature(armature);
+	const Armature* arm = Loader::armature(armature);
 	s32 parent = arm->hierarchy[index];
 	if (parent != -1)
 		bone_transform(parent, &parent_pos, &parent_rot);
@@ -381,7 +388,7 @@ void Animator::override_bone(const s32 index, const Vec3& pos, const Quat& rot)
 
 void Animator::reset_overrides()
 {
-	Armature* arm = Loader::armature(armature);
+	const Armature* arm = Loader::armature(armature);
 	if (override_mode == OverrideMode::Offset)
 	{
 		for (s32 i = 0; i < offsets.length; i++)

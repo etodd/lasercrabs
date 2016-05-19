@@ -124,7 +124,7 @@ b8 UIText::has_text() const
 
 void UIText::refresh_bounds()
 {
-	Font* f = Loader::font(font);
+	const Font* f = Loader::font(font);
 	normalized_bounds = Vec2::zero;
 	Vec3 pos(0, -1.0f, 0);
 	s32 char_index = 0;
@@ -133,7 +133,7 @@ void UIText::refresh_bounds()
 	r32 wrap = wrap_width / (size * UI::scale);
 	while ((c = rendered_string[char_index]))
 	{
-		Font::Character* character = &f->get(&c);
+		const Font::Character* character = &f->get(&c);
 		if (c == '\n')
 		{
 			pos.x = 0.0f;
@@ -284,7 +284,7 @@ void UIText::draw(const RenderParams& params, const Vec2& pos, r32 rot) const
 	Vec2 scale = Vec2(1.0f / screen.x, 1.0f / screen.y);
 	r32 cs = cosf(rot), sn = sinf(rot);
 
-	Font* f = Loader::font(font);
+	const Font* f = Loader::font(font);
 	s32 vertex_index = UI::vertices.length;
 	s32 index_index = UI::indices.length;
 	Vec3 p(0, -1.0f, 0);
@@ -295,7 +295,7 @@ void UIText::draw(const RenderParams& params, const Vec2& pos, r32 rot) const
 	r32 wrap = wrap_width / scaled_size;
 	while ((clip == 0 || char_index <= clip) && (c = rendered_string[char_index]))
 	{
-		Font::Character* character = &f->get(&c);
+		const Font::Character* character = &f->get(&c);
 		if (c == '\n')
 		{
 			p.x = 0.0f;
@@ -662,7 +662,7 @@ void UI::mesh(const RenderParams& params, const AssetID mesh, const Vec2& pos, c
 
 		r32 cs = cosf(rot), sn = sinf(rot);
 
-		Mesh* m = Loader::mesh(mesh);
+		const Mesh* m = Loader::mesh(mesh);
 		for (s32 i = 0; i < m->vertices.length; i++)
 		{
 			UI::vertices.add(Vec3(scaled_pos.x + (m->vertices[i].x * cs - m->vertices[i].y * sn) * scale.x, scaled_pos.y + (m->vertices[i].x * sn + m->vertices[i].y * cs) * scale.y, 0));

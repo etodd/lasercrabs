@@ -129,7 +129,7 @@ struct Font
 	{
 	}
 
-	Character& get(const void*);
+	const Character& get(const void*) const;
 };
 
 struct FastLZCompressor : public dtTileCacheCompressor

@@ -25,6 +25,7 @@ namespace Settings
 	u8 sfx;
 	u8 music;
 	s32 framerate_limit;
+	ShadowQuality shadow_quality;
 }
 
 Array<Loader::Entry<Mesh> > Loader::meshes;
@@ -115,6 +116,7 @@ void Loader::settings_load(s32 default_width, s32 default_height)
 	Settings::sfx = (u8)Json::get_s32(json, "sfx", 100);
 	Settings::music = (u8)Json::get_s32(json, "music", 100);
 	Settings::framerate_limit = vi_max(30, Json::get_s32(json, "framerate_limit", 120));
+	Settings::shadow_quality = (Settings::ShadowQuality)vi_max(0, vi_min(Json::get_s32(json, "shadow_quality", (s32)Settings::ShadowQuality::High), (s32)Settings::ShadowQuality::count - 1));
 
 	cJSON* gamepads = json ? cJSON_GetObjectItem(json, "gamepads") : nullptr;
 	cJSON* gamepad = gamepads ? gamepads->child : nullptr;
@@ -163,6 +165,7 @@ void Loader::settings_save()
 	cJSON_AddNumberToObject(json, "sfx", Settings::sfx);
 	cJSON_AddNumberToObject(json, "music", Settings::music);
 	cJSON_AddNumberToObject(json, "framerate_limit", Settings::framerate_limit);
+	cJSON_AddNumberToObject(json, "shadow_quality", (s32)Settings::shadow_quality);
 
 	cJSON* gamepads = cJSON_CreateArray();
 	cJSON_AddItemToObject(json, "gamepads", gamepads);
@@ -254,7 +257,7 @@ void read_mesh(Mesh* mesh, const char* path, Array<Attrib>* extra_attribs = null
 	fclose(f);
 }
 
-Mesh* Loader::mesh(AssetID id)
+const Mesh* Loader::mesh(AssetID id)
 {
 	if (id == AssetNull)
 		return 0;
@@ -312,17 +315,17 @@ Mesh* Loader::mesh(AssetID id)
 	return &meshes[id].data;
 }
 
-Mesh* Loader::mesh_permanent(const AssetID id)
+const Mesh* Loader::mesh_permanent(const AssetID id)
 {
-	Mesh* m = mesh(id);
+	const Mesh* m = mesh(id);
 	if (m)
 		meshes[id].type = AssetPermanent;
 	return m;
 }
 
-Mesh* Loader::mesh_instanced(AssetID id)
+const Mesh* Loader::mesh_instanced(AssetID id)
 {
-	Mesh* m = mesh(id);
+	Mesh* m = (Mesh*)mesh(id);
 	if (m && !m->instanced)
 	{
 		RenderSync* sync = swapper->get();
@@ -345,7 +348,7 @@ void Loader::mesh_free(const AssetID id)
 	}
 }
 
-Armature* Loader::armature(AssetID id)
+const Armature* Loader::armature(AssetID id)
 {
 	if (id == AssetNull)
 		return 0;
@@ -389,9 +392,9 @@ Armature* Loader::armature(AssetID id)
 	return &armatures[id].data;
 }
 
-Armature* Loader::armature_permanent(const AssetID id)
+const Armature* Loader::armature_permanent(const AssetID id)
 {
-	Armature* m = armature(id);
+	const Armature* m = armature(id);
 	if (m)
 		armatures[id].type = AssetPermanent;
 	return m;
@@ -461,7 +464,7 @@ void Loader::dynamic_mesh_free(s32 id)
 	}
 }
 
-Animation* Loader::animation(AssetID id)
+const Animation* Loader::animation(AssetID id)
 {
 	if (id == AssetNull)
 		return 0;
@@ -518,9 +521,9 @@ Animation* Loader::animation(AssetID id)
 	return &animations[id].data;
 }
 
-Animation* Loader::animation_permanent(AssetID id)
+const Animation* Loader::animation_permanent(AssetID id)
 {
-	Animation* anim = animation(id);
+	const Animation* anim = animation(id);
 	if (anim)
 		animations[id].type = AssetPermanent;
 	return anim;
@@ -761,7 +764,7 @@ void Loader::shader_free(AssetID id)
 	}
 }
 
-Font* Loader::font(AssetID id)
+const Font* Loader::font(AssetID id)
 {
 	if (id == AssetNull)
 		return 0;
@@ -814,9 +817,9 @@ Font* Loader::font(AssetID id)
 	return &fonts[id].data;
 }
 
-Font* Loader::font_permanent(AssetID id)
+const Font* Loader::font_permanent(AssetID id)
 {
-	Font* f = font(id);
+	const Font* f = font(id);
 	if (f)
 		fonts[id].type = AssetPermanent;
 	return f;
@@ -872,7 +875,7 @@ cJSON* Loader::level(AssetID id, b8 load_nav_mesh)
 
 void Loader::level_free(cJSON* json)
 {
-	Json::json_free(json);
+	Json::json_free((cJSON*)json);
 }
 
 cJSON* Loader::dialogue_tree(AssetID id)

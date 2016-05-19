@@ -30,7 +30,7 @@ SkinnedModel::SkinnedModel()
 
 void SkinnedModel::awake()
 {
-	Mesh* m = Loader::mesh(mesh);
+	const Mesh* m = Loader::mesh(mesh);
 	if (m)
 	{
 		if (color.x < 0.0f)
@@ -108,7 +108,7 @@ void SkinnedModel::draw(const RenderParams& params)
 	
 	m = offset * m;
 
-	Mesh* mesh_data = Loader::mesh(mesh);
+	const Mesh* mesh_data = Loader::mesh(mesh);
 	{
 		Vec3 radius = (offset * Vec4(mesh_data->bounds_radius, mesh_data->bounds_radius, mesh_data->bounds_radius, 0)).xyz();
 		if (!params.camera->visible_sphere(m.translation(), vi_max(radius.x, vi_max(radius.y, radius.z))))
@@ -139,7 +139,7 @@ void SkinnedModel::draw(const RenderParams& params)
 	sync->write<RenderTextureType>(RenderTextureType::Texture2D);
 	sync->write<AssetID>(texture);
 
-	Armature* arm = Loader::armature(get<Animator>()->armature);
+	const Armature* arm = Loader::armature(get<Animator>()->armature);
 	StaticArray<Mat4, MAX_BONES>& bones = get<Animator>()->bones;
 	skin_transforms.resize(bones.length);
 	for (s32 i = 0; i < bones.length; i++)

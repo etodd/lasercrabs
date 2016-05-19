@@ -79,7 +79,7 @@ void View::draw(const RenderParams& params) const
 	if (mesh == AssetNull || shader == AssetNull || !(mask & params.camera->mask))
 		return;
 
-	Mesh* mesh_data = Loader::mesh(mesh);
+	const Mesh* mesh_data = Loader::mesh(mesh);
 
 	Mat4 m;
 	get<Transform>()->mat(&m);
@@ -162,7 +162,7 @@ void View::draw(const RenderParams& params) const
 
 void View::awake()
 {
-	Mesh* m = Loader::mesh(mesh);
+	const Mesh* m = Loader::mesh(mesh);
 	if (m)
 	{
 		if (color.x < 0.0f)
@@ -465,7 +465,7 @@ void SkyPattern::draw_alpha(const RenderParams& p)
 
 void Cube::draw(const RenderParams& params, const Vec3& pos, const b8 alpha, const Vec3& scale, const Quat& rot, const Vec4& color)
 {
-	Mesh* mesh = Loader::mesh_permanent(Asset::Mesh::cube);
+	const Mesh* mesh = Loader::mesh_permanent(Asset::Mesh::cube);
 	Loader::shader_permanent(Asset::Shader::flat);
 
 	Vec3 radius = mesh->bounds_radius * scale;

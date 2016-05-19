@@ -10,8 +10,8 @@ namespace VI
 
 Walker::Walker(r32 rot)
 	: dir(),
-	height(1.0f),
-	support_height(0.7f),
+	height(1.2f),
+	support_height(0.35f),
 	radius(0.35f),
 	mass(1.0f),
 	speed(2.5f),
@@ -105,7 +105,7 @@ btCollisionWorld::ClosestRayResultCallback Walker::check_support(r32 extra_dista
 	for (s32 i = 0; i < num_corners; i++)
 	{
 		Vec3 ray_start = pos + (corners[i] * (radius * 0.75f));
-		Vec3 ray_end = ray_start + Vec3(0, (height * -0.5f) + (support_height * -1.5f) - extra_distance, 0);
+		Vec3 ray_end = ray_start + Vec3(0, (capsule_height() * -0.5f) + (support_height * -1.5f) - extra_distance, 0);
 
 		btCollisionWorld::ClosestRayResultCallback ray_callback(ray_start, ray_end);
 		ray_callback.m_flags = btTriangleRaycastCallback::EFlags::kF_FilterBackfaces
@@ -165,12 +165,13 @@ void Walker::update(const Update& u)
 				if (velocity_diff < expected_vertical_speed - 0.5f)
 					land.fire(velocity_diff - expected_vertical_speed);
 
-				r32 target_y = ray_callback.m_hitPointWorld.y() + support_height + height * 0.5f;
-				r32 height_difference = target_y - pos.y;
-				const r32 max_adjustment_speed = 5.0f;
-				r32 y_adjustment = vi_min(vi_max(height_difference, (support_velocity.y - max_adjustment_speed) * u.time.delta), (support_velocity.y + max_adjustment_speed) * u.time.delta);
-
-				body->translate(btVector3(0, y_adjustment, 0));
+				{
+					r32 target_y = ray_callback.m_hitPointWorld.y() + support_height + capsule_height() * 0.5f;
+					r32 height_difference = target_y - pos.y;
+					const r32 max_adjustment_speed = 5.0f;
+					pos.y += vi_min(vi_max(height_difference, (support_velocity.y - max_adjustment_speed) * u.time.delta), (support_velocity.y + max_adjustment_speed) * u.time.delta);
+					absolute_pos(pos);
+				}
 
 				r32 normal_velocity = velocity.dot(Vec3(ray_callback.m_hitNormalWorld));
 				r32 support_normal_velocity = support_velocity.dot(support_normal);
@@ -290,7 +291,7 @@ void Walker::update(const Update& u)
 		obstacle_id = (u32)-1;
 	}
 	else if (net_speed < 0.01f && obstacle_id == (u32)-1)
-		obstacle_id = AI::obstacle_add(base_pos(), radius * 2.0f, height + support_height);
+		obstacle_id = AI::obstacle_add(base_pos(), radius * 2.0f, capsule_height() + support_height);
 
 	// Handle rotation
 
@@ -309,12 +310,17 @@ void Walker::absolute_pos(const Vec3& p)
 
 Vec3 Walker::base_pos() const
 {
-	return get<Transform>()->to_world(Vec3(0, (height * -0.5f) - support_height, 0));
+	return get<Transform>()->to_world(Vec3(0, (capsule_height() * -0.5f) - support_height, 0));
 }
 
 Vec3 Walker::forward() const
 {
 	return Quat::euler(0, rotation, 0) * Vec3(0, 0, 1);
+}
+
+r32 Walker::capsule_height() const
+{
+	return height + radius * 2.0f;
 }
 
 }

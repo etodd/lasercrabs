@@ -183,7 +183,7 @@ TileCacheData::~TileCacheData()
 	}
 }
 
-Font::Character& Font::get(const void* character)
+const Font::Character& Font::get(const void* character) const
 {
 	// TODO: unicode
 	char c = *((char*)character);

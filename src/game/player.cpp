@@ -90,7 +90,7 @@ b8 is_onscreen(const RenderParams& params, const Vec3& pos, Vec2* out, Vec2* dir
 	return on_screen;
 }
 
-void draw_indicator(const RenderParams& params, const Vec3& pos, const Vec4& color, b8 offscreen)
+void draw_indicator(const RenderParams& params, const Vec3& pos, const Vec4& color, b8 offscreen, r32 scale = 1.0f)
 {
 	if (offscreen)
 	{
@@ -98,15 +98,15 @@ void draw_indicator(const RenderParams& params, const Vec3& pos, const Vec4& col
 		Vec2 p;
 		Vec2 offset;
 		if (is_onscreen(params, pos, &p, &offset))
-			UI::triangle_border(params, { p, Vec2(32) * UI::scale }, 4, color);
+			UI::triangle_border(params, { p, Vec2(32 * scale) * UI::scale }, 4 * scale, color);
 		else
-			UI::triangle(params, { p, Vec2(48 * UI::scale) }, color, atan2f(offset.y, offset.x) + PI * -0.5f);
+			UI::triangle(params, { p, Vec2(48 * UI::scale * scale) }, color, atan2f(offset.y, offset.x) + PI * -0.5f);
 	}
 	else
 	{
 		Vec2 p;
 		if (UI::project(params, pos, &p))
-			UI::triangle_border(params, { p, Vec2(32) * UI::scale }, 4, color);
+			UI::triangle_border(params, { p, Vec2(32 * UI::scale * scale) }, 4 * scale, color);
 	}
 }
 
@@ -1173,13 +1173,6 @@ void determine_visibility(PlayerCommon* me, PlayerCommon* other_player, b8* visi
 
 void LocalPlayerControl::update(const Update& u)
 {
-	// rumble
-	if (rumble > 0.0f)
-	{
-		rumble = vi_max(0.0f, rumble - u.time.delta);
-		u.input->gamepads[gamepad].rumble = vi_min(1.0f, rumble);
-	}
-
 	// camera viewport
 	{
 		s32 player_count;
@@ -1369,7 +1362,7 @@ void LocalPlayerControl::update(const Update& u)
 					determine_visibility(get<PlayerCommon>(), other_player.item(), &visible, &tracking);
 
 					if (tracking || visible)
-						add_target_indicator(other_player.item()->get<Target>(), UI::alert_color, true);
+						add_target_indicator(other_player.item()->get<Target>(), visible ? UI::alert_color : UI::accent_color, true);
 
 					if (indicators.length == indicators.capacity())
 						break;
@@ -1553,7 +1546,9 @@ void LocalPlayerControl::update(const Update& u)
 		{
 			r32 speed = get<RigidBody>()->btBody->getLinearVelocity().length();
 			get<Audio>()->param(AK::GAME_PARAMETERS::FLY_VOLUME, LMath::clampf((speed - 8.0f) / 25.0f, 0, 1));
-			r32 shake = LMath::clampf((speed - 13.0f) / 30.0f, 0, 1) * 0.2f;
+			r32 shake = LMath::clampf((speed - 13.0f) / 30.0f, 0, 1);
+			rumble = vi_max(rumble, shake);
+			shake *= 0.2f;
 			r32 offset = Game::time.total * 10.0f;
 			look_quat = look_quat * Quat::euler(noise::sample3d(Vec3(offset)) * shake, noise::sample3d(Vec3(offset + 64)) * shake, noise::sample3d(Vec3(offset + 128)) * shake);
 		}
@@ -1566,6 +1561,13 @@ void LocalPlayerControl::update(const Update& u)
 	}
 
 	Audio::listener_update(gamepad, camera->pos, camera->rot);
+
+	// rumble
+	if (rumble > 0.0f)
+	{
+		u.input->gamepads[gamepad].rumble = vi_min(1.0f, rumble);
+		rumble = vi_max(0.0f, rumble - u.time.delta);
+	}
 }
 
 LocalPlayerControl* LocalPlayerControl::player_for_camera(const Camera* cam)
@@ -1618,15 +1620,15 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 		}
 	}
 
-	// if we are teleporting, highlight teleporters
-	if (player.ref()->manager.ref()->current_spawn_ability == Ability::Teleporter
-		&& !player.ref()->manager.ref()->at_spawn())
+	// highlight teleporters
 	{
 		Teleporter* target = get<Teleportee>()->target.ref();
+		// if we are in the act of teleporting, draw big highlights
+		r32 scale = target ? 1.0f : 0.5f;
 		for (auto t = Teleporter::list.iterator(); !t.is_last(); t.next())
 		{
 			if (t.item()->team == team)
-				draw_indicator(params, t.item()->get<Transform>()->absolute_pos(), t.item() == target ? UI::default_color : Team::ui_color_friend, t.item() == target);
+				draw_indicator(params, t.item()->get<Transform>()->absolute_pos(), target && t.item() == target ? UI::accent_color : Team::ui_color_friend, t.item() == target, scale);
 		}
 
 		if (target)

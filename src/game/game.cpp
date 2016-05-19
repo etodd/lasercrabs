@@ -91,6 +91,7 @@ const s32 Game::levels[] =
 	Asset::Level::level1,
 	Asset::Level::level2,
 	Asset::Level::level3,
+	Asset::Level::level4,
 	AssetNull,
 };
 
@@ -410,17 +411,17 @@ void Game::draw_alpha(const RenderParams& render_params)
 				case RigidBody::Type::CapsuleX:
 					// capsules: size.x = radius, size.y = height
 					mesh_id = Asset::Mesh::cube;
-					radius = Vec3(body->size.y * 0.5f, body->size.x, body->size.x);
+					radius = Vec3((body->size.y + body->size.x * 2.0f) * 0.5f, body->size.x, body->size.x);
 					color = Vec4(0, 1, 0, 1);
 					break;
 				case RigidBody::Type::CapsuleY:
 					mesh_id = Asset::Mesh::cube;
-					radius = Vec3(body->size.x, body->size.y * 0.5f, body->size.x);
+					radius = Vec3(body->size.x, (body->size.y + body->size.x * 2.0f) * 0.5f, body->size.x);
 					color = Vec4(0, 1, 0, 1);
 					break;
 				case RigidBody::Type::CapsuleZ:
 					mesh_id = Asset::Mesh::cube;
-					radius = Vec3(body->size.x, body->size.x, body->size.y * 0.5f);
+					radius = Vec3(body->size.x, body->size.x, (body->size.y + body->size.x * 2.0f) * 0.5f);
 					color = Vec4(0, 1, 0, 1);
 					break;
 				default:
@@ -800,8 +801,8 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 				if (mesh_id != AssetNull)
 				{
 					Entity* m;
-					Mesh* mesh = Loader::mesh(mesh_id);
-					if (mesh->color.w < 0.5f)
+					const Mesh* mesh = Loader::mesh(mesh_id);
+					if (mesh->color.w < 0.5f && !(alpha || additive))
 					{
 						// inaccessible
 						m = World::alloc<StaticGeom>(mesh_id, absolute_pos, absolute_rot, CollisionInaccessible, CollisionInaccessibleMask);

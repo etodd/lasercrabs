@@ -8,6 +8,7 @@ namespace VI
 {
 
 struct Transform;
+struct Armature;
 
 #define MAX_ANIMATIONS 3
 

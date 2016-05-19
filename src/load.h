@@ -44,9 +44,9 @@ struct Loader
 	static Array<Entry<AkBankID> > soundbanks;
 	static void user_data_path(char*, const char*);
 
-	static Mesh* mesh(AssetID);
-	static Mesh* mesh_permanent(AssetID);
-	static Mesh* mesh_instanced(AssetID);
+	static const Mesh* mesh(AssetID);
+	static const Mesh* mesh_permanent(AssetID);
+	static const Mesh* mesh_instanced(AssetID);
 	static void mesh_free(s32);
 
 	static s32 dynamic_mesh(s32, b8 dynamic = true);
@@ -54,12 +54,12 @@ struct Loader
 	static s32 dynamic_mesh_permanent(s32, b8 dynamic = true);
 	static void dynamic_mesh_free(s32);
 
-	static Animation* animation(AssetID);
-	static Animation* animation_permanent(AssetID);
+	static const Animation* animation(AssetID);
+	static const Animation* animation_permanent(AssetID);
 	static void animation_free(AssetID);
 
-	static Armature* armature(AssetID);
-	static Armature* armature_permanent(AssetID);
+	static const Armature* armature(AssetID);
+	static const Armature* armature_permanent(AssetID);
 	static void armature_free(AssetID);
 
 	static void texture(AssetID, RenderTextureWrap = RenderTextureWrap::Repeat, RenderTextureFilter = RenderTextureFilter::Linear);
@@ -79,8 +79,8 @@ struct Loader
 	static void shader_permanent(AssetID);
 	static void shader_free(AssetID);
 
-	static Font* font(AssetID);
-	static Font* font_permanent(AssetID);
+	static const Font* font(AssetID);
+	static const Font* font_permanent(AssetID);
 	static void font_free(AssetID);
 
 	static cJSON* level(AssetID, b8);

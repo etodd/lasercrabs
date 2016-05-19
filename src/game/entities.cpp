@@ -404,6 +404,7 @@ b8 Teleportee::go()
 void Teleportee::cancel()
 {
 	timer = 0.0f;
+	target = nullptr;
 }
 
 #define TELEPORT_PARTICLE_INTERVAL 0.01f
@@ -507,7 +508,7 @@ Terminal::Terminal()
 
 	create<PlayerTrigger>()->radius = TERMINAL_TRIGGER_RADIUS;
 
-	create<RigidBody>(RigidBody::Type::CapsuleY, Vec3(0.2f, TERMINAL_HEIGHT, 0), 0.0f, CollisionWalker, ~CollisionAwk & ~CollisionShield);
+	create<RigidBody>(RigidBody::Type::CapsuleY, Vec3(0.35f, TERMINAL_HEIGHT, 0), 0.0f, CollisionWalker, ~CollisionAwk & ~CollisionShield);
 
 	PointLight* light = create<PointLight>();
 	light->radius = TERMINAL_LIGHT_RADIUS;
@@ -684,7 +685,7 @@ void Rope::draw_opaque(const RenderParams& params)
 {
 	instances.length = 0;
 
-	Mesh* mesh_data = Loader::mesh_instanced(Asset::Mesh::tri_tube);
+	const Mesh* mesh_data = Loader::mesh_instanced(Asset::Mesh::tri_tube);
 	Vec3 radius = (Vec4(mesh_data->bounds_radius, mesh_data->bounds_radius, mesh_data->bounds_radius, 0)).xyz();
 	r32 f_radius = vi_max(radius.x, vi_max(radius.y, radius.z));
 
@@ -933,7 +934,7 @@ void Tile::draw_alpha(const RenderParams& params)
 {
 	instances.length = 0;
 
-	Mesh* mesh_data = Loader::mesh_instanced(Asset::Mesh::plane);
+	const Mesh* mesh_data = Loader::mesh_instanced(Asset::Mesh::plane);
 	Vec3 radius = (Vec4(mesh_data->bounds_radius, mesh_data->bounds_radius, mesh_data->bounds_radius, 0)).xyz();
 	r32 f_radius = vi_max(radius.x, vi_max(radius.y, radius.z));
 

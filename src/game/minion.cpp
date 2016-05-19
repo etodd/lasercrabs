@@ -38,7 +38,7 @@ Minion::Minion(const Vec3& pos, const Quat& quat, AI::Team team, PlayerManager* 
 	SkinnedModel* model = create<SkinnedModel>();
 
 	animator->armature = Asset::Armature::character;
-	animator->layers[0].animation = Asset::Animation::character_idle;
+	animator->layers[0].play(Asset::Animation::character_idle);
 
 	model->shader = Asset::Shader::armature;
 	model->mesh = Asset::Mesh::character;
@@ -102,7 +102,7 @@ void MinionCommon::create_containment_field()
 	view->alpha();
 	view->color.w = 0.2f;
 
-	Mesh* mesh = Loader::mesh(view->mesh);
+	const Mesh* mesh = Loader::mesh(view->mesh);
 
 	CollisionGroup team_mask;
 	switch (team)
@@ -184,7 +184,7 @@ void MinionCommon::update(const Update& u)
 		containment_field.ref()->get<Transform>()->absolute_pos(get<Transform>()->absolute_pos());
 
 	get<SkinnedModel>()->offset.make_transform(
-		Vec3(0, -1.1f, 0),
+		Vec3(0, get<Walker>()->capsule_height() * -0.5f - get<Walker>()->support_height, 0),
 		Vec3(1.0f, 1.0f, 1.0f),
 		Quat::euler(0, get<Walker>()->rotation + PI * 0.5f, 0)
 	);
@@ -205,7 +205,7 @@ void MinionCommon::update(const Update& u)
 		layer->speed = 1.0f;
 	}
 
-	layer->animation = anim;
+	layer->play(anim);
 }
 
 void MinionCommon::hit_by(const TargetEvent& e)

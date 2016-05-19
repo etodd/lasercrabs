@@ -479,7 +479,6 @@ void LocalPlayer::draw_alpha(const RenderParams& params) const
 		return;
 
 	const r32 line_thickness = 2.0f * UI::scale;
-	const r32 padding = 6.0f * UI::scale;
 
 	const Rect2& vp = params.camera->viewport;
 
@@ -648,7 +647,7 @@ void LocalPlayer::draw_alpha(const RenderParams& params) const
 						UIText text;
 						text.size = text_size;
 						text.font = Asset::Font::lowpoly;
-						text.wrap_width = MENU_ITEM_WIDTH;
+						text.wrap_width = MENU_ITEM_WIDTH - MENU_ITEM_PADDING * 2.0f;
 						text.anchor_x = UIText::Anchor::Center;
 						text.anchor_y = UIText::Anchor::Center;
 						text.color = UI::accent_color;
@@ -662,16 +661,15 @@ void LocalPlayer::draw_alpha(const RenderParams& params) const
 						};
 						text.text(_(tutorials[(s32)Game::level.tutorial]));
 						Vec2 p = vp.size * Vec2(0.5f);
-						const r32 padding = 8.0f * UI::scale;
-						UI::box(params, text.rect(p).outset(padding), UI::background_color);
+						UI::box(params, text.rect(p).outset(MENU_ITEM_PADDING), UI::background_color);
 						text.draw(params, p);
 
 						if (Game::time.total > TUTORIAL_TIME)
 						{
-							p.y -= text.bounds().y + padding * 2.0f;
+							p.y -= text.bounds().y + MENU_ITEM_PADDING * 2.0f;
 							text.text(_(strings::accept));
 							text.color = UI::accent_color;
-							UI::box(params, text.rect(p).outset(padding), UI::background_color);
+							UI::box(params, text.rect(p).outset(MENU_ITEM_PADDING), UI::background_color);
 							text.draw(params, p);
 						}
 					}
@@ -698,7 +696,7 @@ void LocalPlayer::draw_alpha(const RenderParams& params) const
 			UIText text;
 			text.size = text_size;
 			text.font = Asset::Font::lowpoly;
-			text.wrap_width = MENU_ITEM_WIDTH;
+			text.wrap_width = MENU_ITEM_WIDTH - MENU_ITEM_PADDING * 2.0f;
 			text.anchor_x = UIText::Anchor::Center;
 			text.anchor_y = UIText::Anchor::Max;
 			text.color = UI::default_color;
@@ -707,29 +705,28 @@ void LocalPlayer::draw_alpha(const RenderParams& params) const
 			{
 				// "spawning..."
 				text.text(_(strings::spawn_timer), (s32)manager.ref()->spawn_timer + 1);
-				const r32 padding = 8.0f * UI::scale;
-				UI::box(params, text.rect(p).outset(padding), UI::background_color);
+				UI::box(params, text.rect(p).outset(MENU_ITEM_PADDING), UI::background_color);
 				text.draw(params, p);
-				p.y -= text.bounds().y + padding * 2.0f;
+				p.y -= text.bounds().y + MENU_ITEM_PADDING * 2.0f;
 			}
 
 			// show map name
 			text.text(AssetLookup::Level::names[Game::state.level]);
 			text.color = UI::default_color;
-			UI::box(params, text.rect(p).outset(padding), UI::background_color);
+			UI::box(params, text.rect(p).outset(MENU_ITEM_PADDING), UI::background_color);
 			text.draw(params, p);
-			p.y -= text.bounds().y + padding * 2.0f;
+			p.y -= text.bounds().y + MENU_ITEM_PADDING * 2.0f;
 
 			// show player list
 			text.anchor_x = UIText::Anchor::Min;
-			p.x -= MENU_ITEM_WIDTH * 0.5f;
+			p.x -= (MENU_ITEM_WIDTH - MENU_ITEM_PADDING * 2.0f) * 0.5f;
 			for (auto i = PlayerManager::list.iterator(); !i.is_last(); i.next())
 			{
 				text.text(i.item()->username);
 				text.color = Team::ui_color(manager.ref()->team.ref()->team(), i.item()->team.ref()->team());
-				UI::box(params, text.rect(p).outset(padding), UI::background_color);
+				UI::box(params, text.rect(p).outset(MENU_ITEM_PADDING), UI::background_color);
 				text.draw(params, p);
-				p.y -= text.bounds().y + padding * 2.0f;
+				p.y -= text.bounds().y + MENU_ITEM_PADDING * 2.0f;
 			}
 		}
 	}
@@ -1193,9 +1190,6 @@ void LocalPlayerControl::update(const Update& u)
 		camera->perspective(LMath::lerpf(fov_blend, fov_initial, fov_zoom), aspect, 0.02f, Game::level.skybox.far_plane);
 	}
 
-	Vec3 camera_pos;
-	Quat look_quat;
-
 	if (has<Awk>())
 	{
 		// pvp mode
@@ -1227,6 +1221,8 @@ void LocalPlayerControl::update(const Update& u)
 				fov_blend = vi_max(fov_blend - u.time.delta * zoom_speed, fov_blend_target);
 		}
 
+		Quat look_quat;
+
 		if (get<Transform>()->parent.ref())
 		{
 			// Look
@@ -1240,8 +1236,6 @@ void LocalPlayerControl::update(const Update& u)
 		}
 		else
 			look_quat = get<PlayerCommon>()->attach_quat;
-
-		camera_pos = get<Awk>()->center();
 
 		// abilities
 		if (input_enabled())
@@ -1277,7 +1271,7 @@ void LocalPlayerControl::update(const Update& u)
 		// camera setup
 		Vec3 abs_wall_normal = (get<Transform>()->absolute_rot() * get<Awk>()->lerped_rotation) * Vec3(0, 0, 1);
 		camera->wall_normal = look_quat.inverse() * abs_wall_normal;
-		camera->pos = camera_pos + look_quat * Vec3(0, 0, -third_person_offset);
+		camera->pos = get<Awk>()->center() + look_quat * Vec3(0, 0, -third_person_offset);
 		if (get<Transform>()->parent.ref())
 		{
 			camera->pos += abs_wall_normal * 0.5f;
@@ -1404,13 +1398,6 @@ void LocalPlayerControl::update(const Update& u)
 	{
 		// parkour mode
 		update_camera_input(u);
-		look_quat = Quat::euler(get<Parkour>()->lean, get<PlayerCommon>()->angle_horizontal, get<PlayerCommon>()->angle_vertical);
-		{
-			camera_pos = Vec3(0, 0, 0.05f);
-			Quat q = Quat::identity;
-			get<Parkour>()->head_to_object_space(&camera_pos, &q);
-			camera_pos = get<Transform>()->to_world(camera_pos);
-		}
 
 		Vec3 movement = get_movement(u, Quat::euler(0, get<PlayerCommon>()->angle_horizontal, 0));
 		Vec2 dir = Vec2(movement.x, movement.z);
@@ -1497,6 +1484,8 @@ void LocalPlayerControl::update(const Update& u)
 
 		r32 lean_target = 0.0f;
 
+		Quat look_quat = Quat::euler(get<Parkour>()->lean, get<PlayerCommon>()->angle_horizontal, get<PlayerCommon>()->angle_vertical);
+
 		if (parkour_state == Parkour::State::WallRun)
 		{
 			Parkour::WallRunState state = get<Parkour>()->wall_run_state;
@@ -1532,10 +1521,16 @@ void LocalPlayerControl::update(const Update& u)
 				get<Walker>()->rotation = LMath::angle_range(get<Walker>()->rotation + delta + PI * 0.5f);
 		}
 
+		Vec3 camera_pos;
 		if (Game::state.third_person)
 			camera_pos = get<Transform>()->absolute_pos() + look_quat * Vec3(0, 1, -3);
 		else
 		{
+			camera_pos = Vec3(0, 0, 0.05f);
+			Quat q = Quat::identity;
+			get<Parkour>()->head_to_object_space(&camera_pos, &q);
+			camera_pos = get<Transform>()->to_world(camera_pos);
+
 			// camera bone affects rotation only
 			Quat camera_animation = Quat::euler(PI * -0.5f, 0, 0);
 			get<Animator>()->bone_transform(Asset::Bone::character_camera, nullptr, &camera_animation);
@@ -1724,7 +1719,7 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 
 				u16 my_hp = get<Health>()->hp;
 				UIText danger;
-				b8 draw_danger = !friendly && visible && (my_hp == 1 || history.hp > my_hp);
+				b8 draw_danger = !friendly && visible && history.hp > my_hp;
 				if (draw_danger)
 				{
 					danger = username;

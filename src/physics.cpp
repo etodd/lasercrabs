@@ -31,7 +31,6 @@ void Physics::sync_static()
 		{
 			btTransform transform;
 			i.item()->get<Transform>()->get_bullet(transform);
-			btTransform existing_transform = body->getWorldTransform();
 			body->setWorldTransform(transform);
 		}
 	}
@@ -43,7 +42,7 @@ void Physics::sync_dynamic()
 	{
 		btRigidBody* body = i.item()->btBody;
 		if (body->isActive() && !body->isStaticOrKinematicObject())
-			i.item()->get<Transform>()->set_bullet(body->getWorldTransform());
+			i.item()->get<Transform>()->set_bullet(body->getInterpolationWorldTransform());
 	}
 }
 

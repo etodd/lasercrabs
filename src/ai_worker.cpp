@@ -77,12 +77,13 @@ struct AwayScorer : AstarScorer
 	}
 };
 
-AwkNavMeshNode awk_closest_point(const Vec3& p)
+AwkNavMeshNode awk_closest_point(const Vec3& p, const Vec3& normal)
 {
 	AwkNavMesh::Coord chunk_coord = awk_nav_mesh.coord(p);
 	r32 closest_distance = FLT_MAX;
 	b8 found = false;
 	AwkNavMeshNode closest;
+	b8 ignore_normals = normal.dot(normal) == 0.0f;
 	for (s32 chunk_x = vi_max(chunk_coord.x - 1, 0); chunk_x < vi_min(chunk_coord.x + 2, awk_nav_mesh.size.x); chunk_x++)
 	{
 		for (s32 chunk_y = vi_max(chunk_coord.y - 1, 0); chunk_y < vi_min(chunk_coord.y + 2, awk_nav_mesh.size.y); chunk_y++)
@@ -96,13 +97,17 @@ AwkNavMeshNode awk_closest_point(const Vec3& p)
 					const AwkNavMeshAdjacency& adjacency = chunk.adjacency[vertex_index];
 					if (adjacency.length > 0) // ignore orphans
 					{
-						const Vec3& vertex = chunk.vertices[vertex_index];
-						r32 distance = (vertex - p).length_squared();
-						if (distance < closest_distance)
+						const Vec3& vertex_normal = chunk.normals[vertex_index];
+						if (ignore_normals || normal.dot(vertex_normal) > 0.8f) // make sure it's roughly facing the right way
 						{
-							closest_distance = distance;
-							closest = { (u16)chunk_index, (u16)vertex_index };
-							found = true;
+							const Vec3& vertex = chunk.vertices[vertex_index];
+							r32 distance = (vertex - p).length_squared();
+							if (distance < closest_distance)
+							{
+								closest_distance = distance;
+								closest = { (u16)chunk_index, (u16)vertex_index };
+								found = true;
+							}
 						}
 					}
 				}
@@ -280,11 +285,11 @@ void awk_pathfind_internal(AI::Team team, const AwkNavMeshNode& start_vertex, co
 
 // find a path using vertices as close as possible to the given points
 // find our way to a point from which we can shoot through the given target
-void awk_pathfind_hit(AI::Team team, const Vec3& start, const Vec3& target, Path* path)
+void awk_pathfind_hit(AI::Team team, const Vec3& start, const Vec3& start_normal, const Vec3& target, Path* path)
 {
-	AwkNavMeshNode target_closest_vertex = awk_closest_point(target);
+	AwkNavMeshNode target_closest_vertex = awk_closest_point(target, Vec3::zero);
 
-	AwkNavMeshNode start_vertex = awk_closest_point(start);
+	AwkNavMeshNode start_vertex = awk_closest_point(start, start_normal);
 
 	// even if we are supposed to be able to hit the target from the start vertex, don't just return a 0-length path.
 	// find another vertex where we can hit the target
@@ -636,11 +641,13 @@ void loop()
 				AI::AwkPathfind type;
 				AI::Team team;
 				Vec3 start;
+				Vec3 start_normal;
 				sync_in.read(&type);
 				sync_in.read(&team);
 				LinkEntryArg<Path> callback;
 				sync_in.read(&callback);
 				sync_in.read(&start);
+				sync_in.read(&start_normal);
 
 				Path path;
 
@@ -650,8 +657,10 @@ void loop()
 					{
 						Vec3 end;
 						sync_in.read(&end);
+						Vec3 end_normal;
+						sync_in.read(&end_normal);
 						sync_in.unlock();
-						awk_pathfind_internal(team, awk_closest_point(start), awk_closest_point(end), &path);
+						awk_pathfind_internal(team, awk_closest_point(start, start_normal), awk_closest_point(end, end_normal), &path);
 						break;
 					}
 					case AwkPathfind::Target:
@@ -659,7 +668,7 @@ void loop()
 						Vec3 end;
 						sync_in.read(&end);
 						sync_in.unlock();
-						awk_pathfind_hit(team, start, end, &path);
+						awk_pathfind_hit(team, start, start_normal, end, &path);
 						break;
 					}
 					case AwkPathfind::Random:
@@ -685,18 +694,20 @@ void loop()
 							}
 						}
 
-						awk_pathfind_internal(team, awk_closest_point(start), end_vertex, &path);
+						awk_pathfind_internal(team, awk_closest_point(start, start_normal), end_vertex, &path);
 						break;
 					}
 					case AwkPathfind::Away:
 					{
 						Vec3 away;
 						sync_in.read(&away);
+						Vec3 away_normal;
+						sync_in.read(&away_normal);
 						sync_in.unlock();
 
 						AwayScorer scorer;
-						scorer.start_vertex = awk_closest_point(start);
-						scorer.away_vertex = awk_closest_point(away);
+						scorer.start_vertex = awk_closest_point(start, start_normal);
+						scorer.away_vertex = awk_closest_point(away, away_normal);
 						scorer.away_pos = away;
 
 						awk_astar(team, scorer.start_vertex, &scorer, &path);

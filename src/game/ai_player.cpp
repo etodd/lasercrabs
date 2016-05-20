@@ -27,7 +27,19 @@ AIPlayer::Config::Config()
 	inaccuracy_min(PI * 0.002f),
 	inaccuracy_range(PI * 0.022f),
 	aim_timeout(2.5f),
-	aim_speed(2.0f)
+	aim_speed(2.0f),
+	ability_priority
+	{
+		Ability::Minion,
+		Ability::Sensor,
+		Ability::Teleporter,
+	},
+	ability_strategies
+	{
+		{ AbilityStrategy::Ignore, AbilityStrategy::Ignore },
+		{ AbilityStrategy::Ignore, AbilityStrategy::Ignore },
+		{ AbilityStrategy::SaveUp, AbilityStrategy::IfAvailable },
+	}
 {
 
 }
@@ -65,6 +77,21 @@ void AIPlayer::spawn()
 	e->get<Transform>()->absolute(pos, rot);
 }
 
+Ability AIPlayer::saving_up() const
+{
+	for (s32 i = 0; i < (s32)Ability::count; i++)
+	{
+		Ability ability = config.ability_priority[i];
+		if (manager.ref()->ability_upgrade_available(ability))
+		{
+			s32 level = manager.ref()->ability_level[(s32)ability];
+			if (config.ability_strategies[(s32)ability][level] == AbilityStrategy::SaveUp)
+				return ability;
+		}
+	}
+	return Ability::None;
+}
+
 AIPlayerControl::AIPlayerControl(AIPlayer* p)
 	: player(p),
 	path_index(),
@@ -77,6 +104,7 @@ AIPlayerControl::AIPlayerControl(AIPlayer* p)
 	loop_low_level_2(),
 	loop_memory(),
 	target(),
+	shot_at_target(),
 	hit_target(),
 	panic()
 {
@@ -122,14 +150,12 @@ void AIPlayerControl::awk_attached()
 	inaccuracy = config.inaccuracy_min + (mersenne::randf_cc() * config.inaccuracy_range);
 	aim_timer = 0.0f;
 	if (path_index < path.length)
-	{
-		if ((path[path_index] - get<Awk>()->center()).length_squared() < (AWK_RADIUS * 2.0f) * (AWK_RADIUS * 2.0f))
-			path_index++;
-	}
+		path_index++;
 }
 
 void AIPlayerControl::awk_detached()
 {
+	shot_at_target = true;
 	hit_target = false;
 	aim_timer = 0.0f;
 }
@@ -139,7 +165,7 @@ void AIPlayerControl::awk_hit(Entity* e)
 	hit_target = true;
 }
 
-void AIPlayerControl::set_target(Target* t)
+void AIPlayerControl::set_target(Entity* t)
 {
 	aim_timer = 0.0f;
 	target = t;
@@ -165,7 +191,6 @@ void AIPlayerControl::behavior_start(Behavior* caller, b8 callback, s8 priority)
 	{
 		if (loop_high_level->active())
 			loop_high_level->abort();
-
 		if (loop_low_level_2->active())
 			loop_low_level_2->abort();
 		loop_low_level_2->run();
@@ -174,9 +199,17 @@ void AIPlayerControl::behavior_start(Behavior* caller, b8 callback, s8 priority)
 	{
 		if (loop_high_level->active())
 			loop_high_level->abort();
-
 		if (loop_low_level->active())
 			loop_low_level->abort();
+		loop_low_level->run();
+	}
+	else
+	{
+		// high-level loop
+		if (loop_low_level->active())
+			loop_low_level->abort();
+		if (loop_low_level_2->active())
+			loop_low_level_2->abort();
 		loop_low_level->run();
 	}
 
@@ -191,11 +224,14 @@ void AIPlayerControl::behavior_start(Behavior* caller, b8 callback, s8 priority)
 	vi_debug("Awk %s: %s", loop, typeid(*caller).name());
 #endif
 
+	vi_assert(!target_path_callback || !target_path_callback->active());
+
 	if (callback)
 		target_path_callback = caller;
 	else
 		target_path_callback = nullptr;
 	path_priority = priority;
+	shot_at_target = false;
 }
 
 void AIPlayerControl::behavior_done(b8 success)
@@ -205,6 +241,7 @@ void AIPlayerControl::behavior_done(b8 success)
 #endif
 	Behavior* cb = target_path_callback;
 	target_path_callback = nullptr;
+	shot_at_target = false;
 	path_priority = 0;
 	path.length = 0;
 	target = nullptr;
@@ -455,7 +492,8 @@ b8 awk_run_filter(const AIPlayerControl* control, const Entity* e)
 {
 	return e->get<AIAgent>()->team != control->get<AIAgent>()->team
 		&& !e->get<AIAgent>()->stealth
-		&& e->get<Health>()->hp > control->get<Health>()->hp;
+		&& e->get<Health>()->hp > control->get<Health>()->hp
+		&& (e->get<Awk>()->can_hit(control->get<Target>()) || (e->get<Transform>()->absolute_pos() - control->get<Transform>()->absolute_pos()).length_squared() < 10.0f * 10.0f);
 }
 
 b8 awk_attack_filter(const AIPlayerControl* control, const Entity* e)
@@ -465,25 +503,98 @@ b8 awk_attack_filter(const AIPlayerControl* control, const Entity* e)
 		&& e->get<Health>()->hp <= control->get<Health>()->hp;
 }
 
+b8 sensor_interest_point_filter(const AIPlayerControl* control, const Entity* e)
+{
+	if (e->has<ControlPoint>()) // only interested in control points we don't own yet
+		return e->get<ControlPoint>()->team != control->get<AIAgent>()->team;
+	else
+	{
+		// only interested in interest points we don't have control over yet
+		r32 closest_distance;
+		Sensor::closest(control->get<AIAgent>()->team, e->get<Transform>()->absolute_pos(), &closest_distance);
+		return closest_distance > SENSOR_RANGE;
+	}
+}
+
 b8 default_filter(const AIPlayerControl* control, const Entity* e)
 {
 	return true;
 }
 
+Ability want_available_upgrade(const AIPlayerControl* control)
+{
+	if (!Game::level.has_feature(Game::FeatureLevel::ControlPoints))
+		return Ability::None;
+
+	PlayerManager* manager = control->player.ref()->manager.ref();
+	const AIPlayer::Config& config = control->config();
+	Ability if_available = Ability::None;
+	for (s32 i = 0; i < (s32)Ability::count; i++)
+	{
+		Ability ability = config.ability_priority[i];
+		if (manager->ability_upgrade_available(ability)
+			&& manager->credits >= manager->ability_upgrade_cost(ability))
+		{
+			s32 level = manager->ability_level[(s32)ability];
+			AIPlayer::AbilityStrategy strategy = config.ability_strategies[(s32)ability][level];
+			if (strategy == AIPlayer::AbilityStrategy::SaveUp)
+				return ability;
+			else if (strategy == AIPlayer::AbilityStrategy::IfAvailable)
+				if_available = ability;
+		}
+	}
+	return if_available;
+}
+
 b8 should_spawn_sensor(const AIPlayerControl* control)
 {
-	PlayerManager* manager = control->player.ref()->manager.ref();
-	const AbilityInfo& info = AbilityInfo::list[(s32)Ability::Sensor];
-	if (manager->credits > info.spawn_cost * 2)
-	{
-		Vec3 me = control->get<Transform>()->absolute_pos();
+	Vec3 me = control->get<Transform>()->absolute_pos();
 
-		r32 closest_friendly_sensor;
-		Sensor::closest(control->get<AIAgent>()->team, me, &closest_friendly_sensor);
-		if (closest_friendly_sensor > SENSOR_RANGE)
+	r32 closest_friendly_sensor;
+	Sensor::closest(control->get<AIAgent>()->team, me, &closest_friendly_sensor);
+	if (closest_friendly_sensor > SENSOR_RANGE)
+	{
+		if (ControlPoint::visible_from(me)) // always capture a control point
+			return true;
+		else if (control->player.ref()->saving_up() == Ability::None) // only capture other stuff if we're not saving up for anything
 		{
 			if (SensorInterestPoint::in_range(me))
 				return true;
+		}
+	}
+
+	return false;
+}
+
+b8 should_spawn_teleporter(const AIPlayerControl* control)
+{
+	// todo
+	return false;
+}
+
+b8 should_spawn_minion(const AIPlayerControl* control)
+{
+	if (control->player.ref()->saving_up() == Ability::None) // minions are a luxury
+	{
+		AI::Team my_team = control->get<AIAgent>()->team;
+		Vec3 my_pos;
+		Quat my_rot;
+		control->get<Transform>()->absolute(&my_pos, &my_rot);
+		r32 closest_minion;
+		MinionCommon::closest(my_team, my_pos, &closest_minion);
+		if (closest_minion > AWK_MAX_DISTANCE)
+		{
+			r32 closest_enemy_sensor;
+			Sensor::closest(AI::other(my_team), my_pos, &closest_enemy_sensor);
+			if (closest_enemy_sensor < SENSOR_RANGE + AWK_MAX_DISTANCE * 1.25f)
+			{
+				// make sure the minion won't die of fall damage
+				Vec3 ray_start = my_pos + my_rot * Vec3(0, 0, 1);
+				btCollisionWorld::ClosestRayResultCallback ray_callback(ray_start, ray_start + Vec3(0, -8, 0));
+				Physics::raycast(&ray_callback, ~CollisionWalker & ~CollisionTarget & ~CollisionShield & ~CollisionAwk & ~CollisionTeamAContainmentField & ~CollisionTeamBContainmentField);
+				if (ray_callback.hasHit())
+					return true;
+			}
 		}
 	}
 	return false;
@@ -507,15 +618,23 @@ Repeat* make_low_level_loop(AIPlayerControl* control, const AIPlayer::Config& co
 						(
 							Select::alloc // if any of these succeed, they will abort the high level loop
 							(
-								AIBehaviors::RunAway::alloc(Awk::family, 4, &awk_run_filter),
-								AIBehaviors::ReactTarget::alloc(Awk::family, 4, 5, &awk_attack_filter),
+								AIBehaviors::RunAway::alloc(Awk::family, 5, &awk_run_filter),
+								AIBehaviors::ReactTarget::alloc(Awk::family, 4, 6, &awk_attack_filter),
 								Sequence::alloc
 								(
 									Invert::alloc(Execute::alloc()->method<Health, &Health::is_full>(control->get<Health>())), // make sure we need health
-									AIBehaviors::ReactTarget::alloc(HealthPickup::family, 3, 4, &health_pickup_filter)
+									AIBehaviors::ReactTarget::alloc(HealthPickup::family, 3, 5, &health_pickup_filter)
 								),
 								AIBehaviors::ReactTarget::alloc(MinionAI::family, 3, 4, &default_filter),
-								AIBehaviors::AbilitySpawn::alloc(3, Ability::Sensor, &should_spawn_sensor)
+								AIBehaviors::AbilitySpawn::alloc(3, Ability::Sensor, &should_spawn_sensor),
+								AIBehaviors::AbilitySpawn::alloc(3, Ability::Teleporter, &should_spawn_teleporter),
+								AIBehaviors::AbilitySpawn::alloc(3, Ability::Minion, &should_spawn_minion),
+								Sequence::alloc
+								(
+									AIBehaviors::WantUpgrade::alloc(),
+									AIBehaviors::ReactSpawn::alloc(4),
+									AIBehaviors::Upgrade::alloc(4)
+								)
 							)
 						),
 						Execute::alloc()->method<AIPlayerControl, &AIPlayerControl::restore_loops>(control) // restart the high level loop if necessary
@@ -560,10 +679,16 @@ Repeat* make_high_level_loop(AIPlayerControl* control, const AIPlayer::Config& c
 								Invert::alloc(Execute::alloc()->method<Health, &Health::is_full>(control->get<Health>())), // make sure we need health
 								AIBehaviors::Find::alloc(HealthPickup::family, 2, &health_pickup_filter)
 							),
+							Sequence::alloc
+							(
+								AIBehaviors::WantUpgrade::alloc(),
+								AIBehaviors::ToSpawn::alloc(4)
+							),
 							AIBehaviors::Find::alloc(MinionAI::family, 2, &minion_filter),
 							AIBehaviors::Find::alloc(Awk::family, 2, &awk_attack_filter),
-							AIBehaviors::RandomPath::alloc(),
-							AIBehaviors::Panic::alloc()
+							AIBehaviors::Find::alloc(SensorInterestPoint::family, 2, &sensor_interest_point_filter),
+							AIBehaviors::RandomPath::alloc(1),
+							AIBehaviors::Panic::alloc(1)
 						)
 					)
 				)
@@ -640,11 +765,26 @@ void AIPlayerControl::update(const Update& u)
 
 		if (target.ref())
 		{
-			Vec3 intersection;
-			if (get<Awk>()->can_hit(target.ref(), &intersection))
-				aim_and_shoot(u, intersection, intersection, false);
+			if (target.ref()->has<Target>())
+			{
+				// trying to a hit a moving thingy
+				Vec3 intersection;
+				if (get<Awk>()->can_hit(target.ref()->get<Target>(), &intersection))
+					aim_and_shoot(u, intersection, intersection, false);
+				else
+					behavior_done(false); // we can't hit it
+			}
 			else
-				behavior_done(false); // we can't hit it
+			{
+				// just trying to go to a certain spot (probably our spawn)
+				if (aim_timer > config.aim_timeout)
+					behavior_done(false); // something went wrong
+				else
+				{
+					Vec3 t = target.ref()->get<Transform>()->absolute_pos();
+					aim_and_shoot(u, t, t, true);
+				}
+			}
 		}
 		else if (path_index < path.length)
 		{
@@ -685,10 +825,30 @@ void AIPlayerControl::update(const Update& u)
 		}
 	}
 
-	if (target_path_callback
-		&& !panic
-		&& ((!target.ref() && path_index >= path.length) || (target.ref() && hit_target))) // we completed our path or hit our target
-		behavior_done(hit_target || path.length > 0);
+	if (target_path_callback && !panic)
+	{
+		// a behavior is waiting for a callback; see if we're done executing it
+		if (target.ref())
+		{
+			if (target.ref()->has<Target>())
+			{
+				if (shot_at_target)
+					behavior_done(hit_target); // call it success if we hit our target, or if there was nothing to hit
+			}
+			else
+			{
+				// the only other kind of target we can have is our spawn
+				if ((target.ref()->get<Transform>()->absolute_pos() - get<Transform>()->absolute_pos()).length_squared() < PLAYER_SPAWN_RADIUS * PLAYER_SPAWN_RADIUS)
+					behavior_done(true);
+			}
+		}
+		else
+		{
+			// following a path
+			if (path_index >= path.length)
+				behavior_done(path.length > 1); // call it success if the path we followed was actually valid
+		}
+	}
 
 #if DEBUG_AI_CONTROL
 	// update camera
@@ -710,6 +870,11 @@ void AIPlayerControl::update(const Update& u)
 #endif
 }
 
+const AIPlayer::Config& AIPlayerControl::config() const
+{
+	return player.ref()->config;
+}
+
 namespace AIBehaviors
 {
 
@@ -722,57 +887,59 @@ Find::Find(Family fam, s8 priority, b8(*filter)(const AIPlayerControl*, const En
 void Find::run()
 {
 	active(true);
-	if (path_priority < control->path_priority)
+	if (path_priority > control->path_priority)
 	{
-		done(false);
-		return;
-	}
-
-	const AIPlayerControl::MemoryArray& memory = control->memory[family];
-	const AIPlayerControl::Memory* closest = nullptr;
-	Entity* closest_entity;
-	r32 closest_distance = FLT_MAX;
-	Vec3 pos = control->get<Transform>()->absolute_pos();
-	for (s32 i = 0; i < memory.length; i++)
-	{
-		r32 distance = (memory[i].pos - pos).length_squared();
-		if (distance < closest_distance)
+		const AIPlayerControl::MemoryArray& memory = control->memory[family];
+		const AIPlayerControl::Memory* closest = nullptr;
+		Entity* closest_entity;
+		r32 closest_distance = FLT_MAX;
+		Vec3 pos = control->get<Transform>()->absolute_pos();
+		for (s32 i = 0; i < memory.length; i++)
 		{
-			if (!control->in_range(memory[i].pos, VISIBLE_RANGE) || (memory[i].entity.ref() && filter(control, memory[i].entity.ref())))
+			r32 distance = (memory[i].pos - pos).length_squared();
+			if (distance < closest_distance)
 			{
-				closest_distance = distance;
-				closest = &memory[i];
+				if (!control->in_range(memory[i].pos, VISIBLE_RANGE) || (memory[i].entity.ref() && filter(control, memory[i].entity.ref())))
+				{
+					closest_distance = distance;
+					closest = &memory[i];
+				}
 			}
 		}
+		if (closest)
+		{
+			pathfind(closest->pos, Vec3::zero, AI::AwkPathfind::LongRange);
+			return;
+		}
 	}
-	if (closest)
-		this->pathfind(closest->pos, AI::AwkPathfind::LongRange);
-	else
-		this->done(false);
+	done(false);
 }
 
-RandomPath::RandomPath()
+RandomPath::RandomPath(s8 priority)
 {
-	RandomPath::path_priority = 1;
+	RandomPath::path_priority = priority;
 }
 
 void RandomPath::run()
 {
 	active(true);
-	if (control->path_priority < RandomPath::path_priority)
+	if (path_priority > control->path_priority)
 	{
 #if DEBUG_AI_CONTROL
 		vi_debug("Awk pathfind: %s", typeid(*this).name());
 #endif
-		AI::awk_random_path(control->get<AIAgent>()->team, control->get<Transform>()->absolute_pos(), ObjectLinkEntryArg<Base<RandomPath>, const AI::Result&, &Base<RandomPath>::path_callback>(id()));
+		Vec3 pos;
+		Quat rot;
+		control->get<Transform>()->absolute(&pos, &rot);
+		AI::awk_random_path(control->get<AIAgent>()->team, pos, rot * Vec3(0, 0, 1), ObjectLinkEntryArg<Base<RandomPath>, const AI::Result&, &Base<RandomPath>::path_callback>(id()));
 	}
 	else
 		done(false);
 }
 
-Panic::Panic()
+Panic::Panic(s8 priority)
 {
-	Panic::path_priority = 1;
+	Panic::path_priority = priority;
 }
 
 void Panic::abort()
@@ -793,10 +960,10 @@ void Panic::done(b8 a)
 void Panic::run()
 {
 	active(true);
-	if (control->path_priority < Panic::path_priority)
+	if (path_priority > control->path_priority)
 	{
 		control->panic = true;
-		control->behavior_start(this, true, Panic::path_priority);
+		control->behavior_start(this, true, 10000000); // if we're panicking, nothing can interrupt us
 	}
 	else
 		done(false);
@@ -829,9 +996,12 @@ void AbilitySpawn::run()
 
 	PlayerManager* manager = control->player.ref()->manager.ref();
 
+	const AbilityInfo& info = AbilityInfo::list[(s32)Ability::Sensor];
+
 	if (AbilitySpawn::path_priority > control->path_priority
 		&& control->get<Transform>()->parent.ref()
 		&& manager->ability_level[(s32)ability] > 0
+		&& manager->credits > info.spawn_cost
 		&& filter(control))
 	{
 		if (manager->ability_spawn_start(ability))
@@ -887,12 +1057,12 @@ void ReactTarget::run()
 			if (can_hit_now && can_react)
 			{
 				control->behavior_start(this, true, react_priority);
-				control->set_target(closest->get<Target>());
+				control->set_target(closest);
 				return;
 			}
 			else if (can_path)
 			{
-				pathfind(closest->get<Target>()->absolute_pos(), AI::AwkPathfind::Target);
+				pathfind(closest->get<Target>()->absolute_pos(), Vec3::zero, AI::AwkPathfind::Target);
 				return;
 			}
 		}
@@ -909,11 +1079,12 @@ RunAway::RunAway(Family fam, s8 priority_path, b8(*filter)(const AIPlayerControl
 void RunAway::run()
 {
 	active(true);
-	if (path_priority > control->path_priority)
+	Vec3 pos = control->get<Transform>()->absolute_pos();
+	if (path_priority > control->path_priority
+		&& !MinionCommon::inside_containment_field(control->get<AIAgent>()->team, pos)) // if we're inside a containment field, running away is probably useless
 	{
 		Entity* closest = nullptr;
 		r32 closest_distance = AWK_MAX_DISTANCE * AWK_MAX_DISTANCE;
-		Vec3 pos = control->get<Transform>()->absolute_pos();
 		const AIPlayerControl::MemoryArray& memory = control->memory[family];
 		for (s32 i = 0; i < memory.length; i++)
 		{
@@ -922,8 +1093,7 @@ void RunAway::run()
 			{
 				if (control->in_range(memory[i].pos, AWK_MAX_DISTANCE)
 					&& memory[i].entity.ref()
-					&& filter(control, memory[i].entity.ref())
-					&& memory[i].entity.ref()->get<Awk>()->can_hit(control->get<Target>()))
+					&& filter(control, memory[i].entity.ref()))
 				{
 					closest_distance = distance;
 					closest = memory[i].entity.ref();
@@ -932,8 +1102,120 @@ void RunAway::run()
 		}
 		if (closest)
 		{
-			pathfind(closest->get<Transform>()->absolute_pos(), AI::AwkPathfind::Away);
+			Vec3 enemy_pos;
+			Quat enemy_rot;
+			closest->get<Transform>()->absolute(&enemy_pos, &enemy_rot);
+			pathfind(enemy_pos, enemy_rot * Vec3(0, 0, 1), AI::AwkPathfind::Away);
 			return;
+		}
+	}
+	done(false);
+}
+
+WantUpgrade::WantUpgrade()
+{
+}
+
+void WantUpgrade::run()
+{
+	active(true);
+	Ability a = want_available_upgrade(control);
+	done(a != Ability::None);
+}
+
+ToSpawn::ToSpawn(s8 priority)
+{
+	path_priority = priority;
+}
+
+void ToSpawn::run()
+{
+	active(true);
+	if (path_priority > control->path_priority)
+	{
+		PlayerManager* manager = control->player.ref()->manager.ref();
+		pathfind(manager->team.ref()->player_spawn.ref()->absolute_pos(), Vec3(0, 1, 0), AI::AwkPathfind::LongRange);
+		return;
+	}
+	done(false);
+}
+
+ReactSpawn::ReactSpawn(s8 priority)
+{
+	path_priority = priority;
+}
+
+void ReactSpawn::run()
+{
+	active(true);
+	if (path_priority > control->path_priority)
+	{
+		PlayerManager* manager = control->player.ref()->manager.ref();
+		Transform* spawn = manager->team.ref()->player_spawn.ref();
+
+		Vec3 me = control->get<Awk>()->center();
+		Vec3 target = spawn->absolute_pos();
+		Vec3 to_target = target - me;
+		r32 distance_squared = to_target.length_squared();
+		if (distance_squared < PLAYER_SPAWN_RADIUS * PLAYER_SPAWN_RADIUS)
+		{
+			done(true);
+			return;
+		}
+		if (distance_squared < AWK_MAX_DISTANCE * AWK_MAX_DISTANCE)
+		{
+			Vec3 hit;
+			if (control->get<Awk>()->can_go(to_target, &hit))
+			{
+				if ((hit - target).length_squared() < PLAYER_SPAWN_RADIUS * PLAYER_SPAWN_RADIUS)
+				{
+					control->behavior_start(this, true, path_priority);
+					control->set_target(spawn->entity());
+					return;
+				}
+			}
+		}
+	}
+	done(false);
+}
+
+Upgrade::Upgrade(s8 priority)
+{
+	path_priority = priority;
+}
+
+void Upgrade::set_context(void* ctx)
+{
+	Base::set_context(ctx);
+	control->player.ref()->manager.ref()->ability_upgraded.link<Upgrade, Ability, &Upgrade::completed>(this);
+}
+
+void Upgrade::completed(Ability a)
+{
+	if (active())
+	{
+		control->behavior_done(true);
+		done(true);
+	}
+}
+
+void Upgrade::run()
+{
+	active(true);
+	if (path_priority > control->path_priority)
+	{
+		PlayerManager* manager = control->player.ref()->manager.ref();
+		if (manager->at_spawn() && manager->current_upgrade_ability == Ability::None)
+		{
+			Ability a = want_available_upgrade(control);
+			if (a != Ability::None)
+			{
+				if (manager->ability_upgrade_start(a))
+				{
+					control->behavior_start(this, false, 10000); // set the priority higher than everything else; upgrades can't be cancelled
+					return;
+				}
+			}
 		}
 	}
 	done(false);

@@ -100,6 +100,7 @@ template<typename Derived> struct BehaviorComposite : public BehaviorBase<Derive
 	template<typename... Args> BehaviorComposite(Args... args)
 		: children{ args... }, num_children(sizeof...(Args))
 	{
+		vi_assert(num_children <= MAX_COMPOSITE);
 		for (s32 i = 0; i < num_children; i++)
 			children[i]->parent = this;
 	}
@@ -112,12 +113,12 @@ template<typename Derived> struct BehaviorComposite : public BehaviorBase<Derive
 
 	virtual void abort()
 	{
-		BehaviorBase<Derived>::abort();
 		for (s32 i = 0; i < num_children; i++)
 		{
 			if (children[i]->active())
 				children[i]->abort();
 		}
+		BehaviorBase<Derived>::abort();
 	}
 
 	virtual ~BehaviorComposite()
@@ -144,9 +145,9 @@ template<typename Derived> struct BehaviorDecorator : public BehaviorBase<Derive
 
 	virtual void abort()
 	{
-		BehaviorBase<Derived>::abort();
 		if (child->active())
 			child->abort();
+		BehaviorBase<Derived>::abort();
 	}
 
 	virtual ~BehaviorDecorator()

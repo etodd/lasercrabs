@@ -34,6 +34,8 @@ struct MinionCommon : public ComponentType<MinionCommon>
 	void update(const Update&);
 	~MinionCommon();
 	void player_exited(Entity*);
+	static MinionCommon* closest(AI::Team, const Vec3&, r32* = nullptr);
+	static b8 inside_containment_field(AI::Team, const Vec3&);
 };
 
 struct MinionAI : public ComponentType<MinionAI>

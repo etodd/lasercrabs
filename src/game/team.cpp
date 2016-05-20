@@ -195,15 +195,10 @@ void level_next()
 	}
 	else
 	{
+		// campaign mode; advance to next level
 		next_mode = Game::Mode::Parkour;
-		if (Game::level.lock_teams || Game::save.round == (s32)AI::Team::count - 1)
-		{
-			// advance to next level
-			Game::save.level_index++;
-			Game::save.round = 0;
-		}
-		else
-			Game::save.round = (Game::save.round + 1) % (s32)AI::Team::count;
+		Game::save.level_index++;
+		Game::save.round = 0;
 	}
 
 	AssetID next_level = Game::levels[Game::save.level_index];
@@ -413,8 +408,8 @@ void Team::update_all(const Update& u)
 
 			b8 visible;
 			{
-				Vec3 start = i_entity->has<MinionCommon>() ? i_entity->get<MinionCommon>()->head_pos() : i_entity->get<Awk>()->center();
-				Vec3 end = j_entity->has<MinionCommon>() ? j_entity->get<MinionCommon>()->head_pos() : j_entity->get<Awk>()->center();
+				Vec3 start = i_entity->get<Awk>()->center();
+				Vec3 end = j_entity->get<Awk>()->center();
 				Vec3 diff = end - start;
 
 				if (btVector3(diff).fuzzyZero())
@@ -598,7 +593,8 @@ PlayerManager::PlayerManager(Team* team)
 	current_spawn_ability(Ability::None),
 	current_upgrade_ability(Ability::None),
 	upgrade_timer(),
-	ability_spawned()
+	ability_spawned(),
+	ability_upgraded()
 {
 }
 
@@ -630,22 +626,20 @@ b8 PlayerManager::ability_upgrade_start(Ability a)
 // teleporter lvl 2 - faster cooldowns
 // minion lvl 1 - spawn minions
 // minion lvl 2 - minion shields
-b8 PlayerManager::ability_upgrade_complete()
+void PlayerManager::ability_upgrade_complete()
 {
 	Ability a = current_upgrade_ability;
 	current_upgrade_ability = Ability::None;
 
 	u8& level = ability_level[(s32)a];
-	if (level >= MAX_ABILITY_LEVELS)
-		return false;
+	vi_assert(level < MAX_ABILITY_LEVELS);
 
 	if (!entity.ref())
-		return false;
+		return;
 
 	const AbilityInfo& info = AbilityInfo::list[(s32)a];
 	u16 cost = ability_upgrade_cost(a);
-	if (credits < cost)
-		return false;
+	vi_assert(credits >= cost);
 
 	level += 1;
 	add_credits(-cost);
@@ -659,7 +653,6 @@ b8 PlayerManager::ability_upgrade_complete()
 	}
 	else if (a == Ability::Minion)
 	{
-		// todo: minion shields
 		if (level == 2)
 		{
 			for (auto i = MinionCommon::list.iterator(); !i.is_last(); i.next())
@@ -670,7 +663,7 @@ b8 PlayerManager::ability_upgrade_complete()
 		}
 	}
 
-	return true;
+	ability_upgraded.fire(a);
 }
 
 u16 PlayerManager::ability_upgrade_cost(Ability a) const

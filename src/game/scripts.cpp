@@ -462,16 +462,19 @@ namespace Penelope
 
 	void clear()
 	{
-		data->current_text_node = IDNull;
-		data->time = 0.0f;
-		data->text.text(nullptr);
-		data->mode = Mode::Hidden;
-		data->texts.clear();
-		data->faces.clear();
-		data->audio_events.clear();
-		data->callbacks.clear();
-		data->choices.clear();
-		data->node_executions.clear();
+		if (data)
+		{
+			data->current_text_node = IDNull;
+			data->time = 0.0f;
+			data->text.text(nullptr);
+			data->mode = Mode::Hidden;
+			data->texts.clear();
+			data->faces.clear();
+			data->audio_events.clear();
+			data->callbacks.clear();
+			data->choices.clear();
+			data->node_executions.clear();
+		}
 		Audio::post_global_event(AK::EVENTS::STOP_DIALOGUE);
 		Audio::dialogue_done = false;
 	}

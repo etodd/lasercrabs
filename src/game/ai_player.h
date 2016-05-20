@@ -38,6 +38,13 @@ struct AIPlayer
 		Noop,
 	};
 
+	enum class AbilityStrategy
+	{
+		SaveUp,
+		IfAvailable,
+		Ignore,
+	};
+
 	struct Config
 	{
 		LowLevelLoop low_level;
@@ -50,6 +57,8 @@ struct AIPlayer
 		r32 inaccuracy_range;
 		r32 aim_timeout;
 		r32 aim_speed;
+		Ability ability_priority[(s32)Ability::count];
+		AbilityStrategy ability_strategies[(s32)Ability::count][MAX_ABILITY_LEVELS];
 		Config();
 	};
 
@@ -65,6 +74,7 @@ struct AIPlayer
 	}
 	void update(const Update&);
 	void spawn();
+	Ability saving_up() const;
 };
 
 #define MAX_MEMORY 8
@@ -91,7 +101,7 @@ struct AIPlayerControl : public ComponentType<AIPlayerControl>
 	AI::Path path;
 	s32 path_index;
 	Ref<AIPlayer> player;
-	Ref<Target> target;
+	Ref<Entity> target;
 	b8 shot_at_target;
 	b8 hit_target;
 	b8 panic;
@@ -112,12 +122,13 @@ struct AIPlayerControl : public ComponentType<AIPlayerControl>
 	b8 restore_loops();
 	b8 aim_and_shoot(const Update&, const Vec3&, const Vec3&, b8);
 	b8 in_range(const Vec3&, r32) const;
-	void set_target(Target*);
+	void set_target(Entity*);
 	void set_path(const AI::Path&);
 	void awk_attached();
 	void awk_hit(Entity*);
 	void awk_detached();
 	void update(const Update&);
+	const AIPlayer::Config& config() const;
 };
 
 namespace AIBehaviors
@@ -135,7 +146,7 @@ namespace AIBehaviors
 		{
 			if (this->active())
 			{
-				if (result.path.length > 0 && this->path_priority > this->control->path_priority)
+				if (result.path.length > 1 && this->path_priority > this->control->path_priority)
 				{
 					this->control->behavior_start(this, true, this->path_priority);
 					this->control->set_path(result.path);
@@ -145,7 +156,7 @@ namespace AIBehaviors
 			}
 		}
 
-		void pathfind(const Vec3& target, AI::AwkPathfind type)
+		void pathfind(const Vec3& target, const Vec3& normal, AI::AwkPathfind type)
 		{
 			// if hit is false, pathfind as close as possible to the given target
 			// if hit is true, pathfind to a point from which we can shoot through the given target
@@ -153,14 +164,16 @@ namespace AIBehaviors
 			vi_debug("Awk pathfind: %s", typeid(*this).name());
 #endif
 			auto ai_callback = ObjectLinkEntryArg<Base<Derived>, const AI::Result&, &Base<Derived>::path_callback>(this->id());
-			Vec3 pos = this->control->template get<Transform>()->absolute_pos();
-			AI::awk_pathfind(type, this->control->template get<AIAgent>()->team, pos, target, ai_callback);
+			Vec3 pos;
+			Quat rot;
+			this->control->template get<Transform>()->absolute(&pos, &rot);
+			AI::awk_pathfind(type, this->control->template get<AIAgent>()->team, pos, rot * Vec3(0, 0, 1), target, normal, ai_callback);
 		}
 	};
 
 	struct RandomPath : Base<RandomPath>
 	{
-		RandomPath();
+		RandomPath(s8);
 		void run();
 	};
 
@@ -172,6 +185,28 @@ namespace AIBehaviors
 
 		void run();
 	};
+
+	struct ToSpawn : Base<ToSpawn>
+	{
+		ToSpawn(s8);
+		void run();
+	};
+
+	struct Panic : Base<Panic>
+	{
+		Panic(s8);
+		void abort();
+		void done(b8);
+		void run();
+	};
+
+	struct WantUpgrade : Base<WantUpgrade>
+	{
+		WantUpgrade();
+		void run();
+	};
+
+	// low-level behaviors
 
 	typedef b8(*AbilitySpawnFilter)(const AIPlayerControl*);
 	struct AbilitySpawn : Base<AbilitySpawn>
@@ -195,19 +230,25 @@ namespace AIBehaviors
 		void run();
 	};
 
+	struct ReactSpawn : Base<ReactSpawn>
+	{
+		ReactSpawn(s8);
+		void run();
+	};
+
+	struct Upgrade : Base<Upgrade>
+	{
+		Upgrade(s8);
+		void completed(Ability);
+		virtual void set_context(void*);
+		void run();
+	};
+
 	struct RunAway : Base<RunAway>
 	{
 		b8(*filter)(const AIPlayerControl*, const Entity*);
 		Family family;
 		RunAway(Family, s8, b8(*)(const AIPlayerControl*, const Entity*));
-		void run();
-	};
-
-	struct Panic : Base<Panic>
-	{
-		Panic();
-		void abort();
-		void done(b8);
 		void run();
 	};
 

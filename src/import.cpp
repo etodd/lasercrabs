@@ -1828,7 +1828,7 @@ b8 default_filter(const Mesh* m)
 	return true;
 }
 
-const r32 grid_spacing = 3.0f;
+const r32 grid_spacing = 2.0f;
 
 r32 sign(const Vec2& p1, const Vec2& p2, const Vec2& p3)
 {

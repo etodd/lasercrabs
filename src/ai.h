@@ -81,9 +81,9 @@ namespace AI
 	u32 obstacle_add(const Vec3&, r32, r32);
 	void obstacle_remove(u32);
 	u32 pathfind(const Vec3&, const Vec3&, const LinkEntryArg<const Result&>&);
-	u32 awk_pathfind(AwkPathfind, AI::Team, const Vec3&, const Vec3&, const LinkEntryArg<const Result&>&);
+	u32 awk_pathfind(AwkPathfind, AI::Team, const Vec3&, const Vec3&, const Vec3&, const Vec3&, const LinkEntryArg<const Result&>&);
 	u32 random_path(const Vec3&, const LinkEntryArg<const Result&>&);
-	u32 awk_random_path(AI::Team, const Vec3&, const LinkEntryArg<const Result&>&);
+	u32 awk_random_path(AI::Team, const Vec3&, const Vec3&, const LinkEntryArg<const Result&>&);
 	void load(const u8*, s32);
 	void loop();
 	void quit();

@@ -123,7 +123,7 @@ void Parkour::footstep()
 
 		Audio::post_global_event(AK::EVENTS::PLAY_FOOTSTEP, base_pos);
 
-		ShockwaveEntity* shockwave = World::create<ShockwaveEntity>(3.0f);
+		ShockwaveEntity* shockwave = World::create<ShockwaveEntity>(1.0f, 5.0f);
 		shockwave->get<Transform>()->pos = base_pos;
 		shockwave->get<Transform>()->reparent(get<Transform>()->parent.ref());
 	}

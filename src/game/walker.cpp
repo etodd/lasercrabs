@@ -108,11 +108,7 @@ btCollisionWorld::ClosestRayResultCallback Walker::check_support(r32 extra_dista
 		Vec3 ray_end = ray_start + Vec3(0, (capsule_height() * -0.5f) + (support_height * -1.5f) - extra_distance, 0);
 
 		btCollisionWorld::ClosestRayResultCallback ray_callback(ray_start, ray_end);
-		ray_callback.m_flags = btTriangleRaycastCallback::EFlags::kF_FilterBackfaces
-			| btTriangleRaycastCallback::EFlags::kF_KeepUnflippedNormal;
-		ray_callback.m_collisionFilterMask = ray_callback.m_collisionFilterGroup = ~CollisionWalker & ~CollisionTarget & ~CollisionShield & ~CollisionAwk;
-
-		Physics::btWorld->rayTest(ray_start, ray_end, ray_callback);
+		Physics::raycast(&ray_callback, ~CollisionWalker & ~CollisionTarget & ~CollisionShield & ~CollisionAwk & ~CollisionTeamAContainmentField & ~CollisionTeamBContainmentField);
 		if (ray_callback.hasHit())
 			return ray_callback;
 	}

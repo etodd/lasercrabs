@@ -100,7 +100,7 @@ void draw_indicator(const RenderParams& params, const Vec3& pos, const Vec4& col
 		if (is_onscreen(params, pos, &p, &offset))
 			UI::triangle_border(params, { p, Vec2(32 * scale) * UI::scale }, 4 * scale, color);
 		else
-			UI::triangle(params, { p, Vec2(48 * UI::scale * scale) }, color, atan2f(offset.y, offset.x) + PI * -0.5f);
+			UI::triangle(params, { p, Vec2(24 * UI::scale * scale) }, color, atan2f(offset.y, offset.x) + PI * -0.5f);
 	}
 	else
 	{
@@ -158,7 +158,7 @@ LocalPlayer::LocalPlayer(PlayerManager* m, u8 g)
 	upgrading(),
 	upgrade_animation_time()
 {
-	sprintf(manager.ref()->username, _(strings::player), gamepad);
+	sprintf(manager.ref()->username, gamepad == 0 ? "etodd" : "etodd[%d]", gamepad); // todo: actual usernames
 
 	msg_text.font = Asset::Font::lowpoly;
 	msg_text.size = text_size;
@@ -1308,16 +1308,12 @@ void LocalPlayerControl::update(const Update& u)
 			Vec3 trace_start = camera->pos + trace_dir * third_person_offset;
 			Vec3 trace_end = trace_start + trace_dir * (AWK_MAX_DISTANCE + third_person_offset);
 
-			AwkRaycastCallback rayCallback(trace_start, trace_end, entity());
-			rayCallback.m_flags = btTriangleRaycastCallback::EFlags::kF_FilterBackfaces
-				| btTriangleRaycastCallback::EFlags::kF_KeepUnflippedNormal;
-			rayCallback.m_collisionFilterMask = rayCallback.m_collisionFilterGroup = ~CollisionAwkIgnore & ~get<Awk>()->ally_containment_field_mask();
+			AwkRaycastCallback ray_callback(trace_start, trace_end, entity());
+			Physics::raycast(&ray_callback, ~CollisionAwkIgnore & ~get<Awk>()->ally_containment_field_mask());
 
-			Physics::btWorld->rayTest(trace_start, trace_end, rayCallback);
-
-			if (rayCallback.hasHit())
+			if (ray_callback.hasHit())
 			{
-				reticle.pos = rayCallback.m_hitPointWorld;
+				reticle.pos = ray_callback.m_hitPointWorld;
 				Vec3 center = get<Awk>()->center();
 				detach_dir = reticle.pos - center;
 				r32 distance = detach_dir.length();
@@ -1326,7 +1322,7 @@ void LocalPlayerControl::update(const Update& u)
 				if (get<Awk>()->can_go(detach_dir, &hit))
 				{
 					if (fabs((hit - center).length() - distance) < AWK_RADIUS)
-						reticle.type = rayCallback.hit_target() ? ReticleType::Target : ReticleType::Normal;
+						reticle.type = ray_callback.hit_target() ? ReticleType::Target : ReticleType::Normal;
 				}
 			}
 			else

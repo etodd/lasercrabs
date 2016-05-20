@@ -211,7 +211,7 @@ void Sensor::update_all(const Update& u)
 	{
 		r32 offset = i.index * sensor_shockwave_interval * 0.3f;
 		if ((s32)((time + offset) / sensor_shockwave_interval) != (s32)((last_time + offset) / sensor_shockwave_interval))
-			World::create<ShockwaveEntity>(10.0f)->get<Transform>()->absolute_pos(i.item()->get<Transform>()->absolute_pos());
+			World::create<ShockwaveEntity>(10.0f, 1.5f)->get<Transform>()->absolute_pos(i.item()->get<Transform>()->absolute_pos());
 	}
 }
 
@@ -222,7 +222,7 @@ b8 Sensor::can_see(AI::Team team, const Vec3& pos, const Vec3& normal)
 		if (i.item()->team == team)
 		{
 			Vec3 to_sensor = i.item()->get<Transform>()->absolute_pos() - pos;
-			if (to_sensor.dot(normal) > 0.0f)
+			if (to_sensor.length_squared() < SENSOR_RANGE * SENSOR_RANGE && to_sensor.dot(normal) > 0.0f)
 				return true;
 		}
 	}
@@ -253,6 +253,7 @@ Sensor* Sensor::closest(AI::Team team, const Vec3& pos, r32* distance)
 	return closest;
 }
 
+// returns the closest sensor interest point within range of the given position, or null
 SensorInterestPoint* SensorInterestPoint::in_range(const Vec3& pos)
 {
 	SensorInterestPoint* closest = nullptr;
@@ -347,8 +348,23 @@ void ControlPoint::update_all(const Update& u)
 			timer = CONTROL_POINT_INTERVAL;
 		}
 	}
-
 }
+
+// gets the first control point that would be visible to a sensor at the given position
+ControlPoint* ControlPoint::visible_from(const Vec3& query)
+{
+	for (auto i = list.iterator(); !i.is_last(); i.next())
+	{
+		Vec3 control_point_pos;
+		Quat control_point_rot;
+		i.item()->get<Transform>()->absolute(&control_point_pos, &control_point_rot);
+		Vec3 to_query = query - control_point_pos;
+		if (to_query.length_squared() < SENSOR_RANGE * SENSOR_RANGE && to_query.dot(control_point_rot * Vec3(0, 0, 1)) > 0.0f)
+			return i.item();
+	}
+	return nullptr;
+}
+
 #define TELEPORTER_RADIUS 0.5f
 TeleporterEntity::TeleporterEntity(const Vec3& pos, const Quat& rot, AI::Team team)
 {
@@ -1069,7 +1085,7 @@ void Mover::refresh()
 		World::remove(entity());
 }
 
-ShockwaveEntity::ShockwaveEntity(r32 max_radius)
+ShockwaveEntity::ShockwaveEntity(r32 max_radius, r32 duration)
 {
 	create<Transform>();
 
@@ -1077,40 +1093,31 @@ ShockwaveEntity::ShockwaveEntity(r32 max_radius)
 	light->radius = 0.0f;
 	light->type = PointLight::Type::Shockwave;
 
-	create<Shockwave>(max_radius);
+	create<Shockwave>(max_radius, duration);
 }
 
-Shockwave::Shockwave(r32 max_radius)
-	: timer(), max_radius(max_radius)
+Shockwave::Shockwave(r32 max_radius, r32 duration)
+	: timer(), max_radius(max_radius), duration(duration)
 {
 }
-
-#define shockwave_duration 2.0f
-#define shockwave_duration_multiplier (1.0f / shockwave_duration)
 
 r32 Shockwave::radius() const
 {
 	return get<PointLight>()->radius;
 }
 
-r32 Shockwave::duration() const
-{
-	return max_radius * (2.0f / 15.0f);
-}
-
 void Shockwave::update(const Update& u)
 {
-	PointLight* light = get<PointLight>();
 	timer += u.time.delta;
-	r32 d = duration();
-	if (timer > d)
+	if (timer > duration)
 		World::remove(entity());
 	else
 	{
+		PointLight* light = get<PointLight>();
 		r32 fade_radius = max_radius * (2.0f / 15.0f);
-		light->radius = Ease::cubic_out(timer * (1.0f / d), 0.0f, max_radius);
+		light->radius = Ease::cubic_out(timer / duration, 0.0f, max_radius);
 		r32 fade = 1.0f - vi_max(0.0f, ((light->radius - (max_radius - fade_radius)) / fade_radius));
-		light->color = Vec3(fade);
+		light->color = Vec3(fade * 0.8f);
 	}
 }
 

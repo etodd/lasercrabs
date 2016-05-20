@@ -121,18 +121,18 @@ struct SensorInterestPoint : public ComponentType<SensorInterestPoint>
 
 struct ShockwaveEntity : public Entity
 {
-	ShockwaveEntity(r32);
+	ShockwaveEntity(r32, r32);
 };
 
 struct Shockwave : public ComponentType<Shockwave>
 {
 	r32 max_radius;
 	r32 timer;
+	r32 duration;
 
-	Shockwave(r32);
+	Shockwave(r32, r32);
 	void awake() {}
 
-	r32 duration() const;
 	r32 radius() const;
 	void update(const Update&);
 };
@@ -203,6 +203,7 @@ struct ControlPoint : public ComponentType<ControlPoint>
 {
 	static r32 timer;
 	static void update_all(const Update&);
+	static ControlPoint* visible_from(const Vec3&);
 	AI::Team team;
 	ControlPoint();
 	void awake() {}

@@ -128,6 +128,37 @@ void MinionCommon::create_containment_field()
 	containment_field = f;
 }
 
+b8 MinionCommon::inside_containment_field(AI::Team my_team, const Vec3& pos)
+{
+	for (auto i = list.iterator(); !i.is_last(); i.next())
+	{
+		if (i.item()->get<AIAgent>()->team != my_team && (pos - i.item()->get<Transform>()->absolute_pos()).length_squared() < AWK_MAX_DISTANCE * AWK_MAX_DISTANCE)
+			return true;
+	}
+	return false;
+}
+
+MinionCommon* MinionCommon::closest(AI::Team my_team, const Vec3& pos, r32* distance)
+{
+	MinionCommon* closest = nullptr;
+	r32 closest_distance = FLT_MAX;
+	for (auto i = list.iterator(); !i.is_last(); i.next())
+	{
+		if (i.item()->get<AIAgent>()->team == my_team)
+		{
+			r32 d = (pos - i.item()->get<Transform>()->absolute_pos()).length_squared();
+			if (d < closest_distance)
+			{
+				closest = i.item();
+				closest_distance = d;
+			}
+		}
+	}
+	if (distance)
+		*distance = sqrtf(closest_distance);
+	return closest;
+}
+
 void MinionCommon::player_exited(Entity* player)
 {
 	if (player->get<AIAgent>()->team != get<AIAgent>()->team)

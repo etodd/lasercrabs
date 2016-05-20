@@ -137,6 +137,7 @@ struct PlayerManager
 	Ability current_spawn_ability;
 	Ability current_upgrade_ability;
 	LinkArg<Ability> ability_spawned;
+	LinkArg<Ability> ability_upgraded;
 
 	static b8 all_ready();
 
@@ -144,7 +145,7 @@ struct PlayerManager
 	void ability_spawn_stop(Ability);
 	void ability_spawn_complete();
 	b8 ability_upgrade_start(Ability);
-	b8 ability_upgrade_complete();
+	void ability_upgrade_complete();
 	b8 ability_upgrade_available(Ability = Ability::None) const;
 	u16 ability_upgrade_cost(Ability) const;
 

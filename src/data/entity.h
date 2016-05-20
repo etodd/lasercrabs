@@ -311,7 +311,7 @@ struct FunctionPointerLinkEntryArg : public LinkEntryArg<T>
 	}
 };
 
-#define MAX_ENTITY_LINKS 4
+#define MAX_ENTITY_LINKS 8
 
 struct Link
 {

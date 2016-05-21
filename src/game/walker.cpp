@@ -123,10 +123,15 @@ void Walker::update(const Update& u)
 
 	net_speed = 0.0f;
 
+	Vec3 pos = get<Transform>()->absolute_pos();
+	if (pos.y < Game::level.min_y)
+	{
+		World::remove_deferred(entity());
+		return;
+	}
+
 	if (enabled)
 	{
-		Vec3 pos = get<Transform>()->absolute_pos();
-
 		btRigidBody* body = get<RigidBody>()->btBody;
 
 		Vec3 velocity = body->getLinearVelocity();

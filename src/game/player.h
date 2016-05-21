@@ -56,8 +56,6 @@ struct LocalPlayer
 
 struct PlayerCommon : public ComponentType<PlayerCommon>
 {
-	r32 cooldown;
-	r32 cooldown_multiplier;
 	Ref<PlayerManager> manager;
 	r32 angle_horizontal;
 	r32 last_angle_horizontal;
@@ -84,6 +82,7 @@ struct LocalPlayerControl : public ComponentType<LocalPlayerControl>
 	enum class ReticleType
 	{
 		None,
+		Error,
 		Normal,
 		Target,
 	};
@@ -94,11 +93,18 @@ struct LocalPlayerControl : public ComponentType<LocalPlayerControl>
 		Vec3 pos;
 	};
 
-	struct Indicator
+	struct TargetIndicator
 	{
+		enum class Type
+		{
+			AwkVisible,
+			AwkTracking,
+			Minion,
+			Health,
+		};
+
 		Vec3 pos;
-		const Vec4* color;
-		b8 offscreen;
+		Type type;
 	};
 
 	static LocalPlayerControl* player_for_camera(const Camera*);
@@ -106,7 +112,7 @@ struct LocalPlayerControl : public ComponentType<LocalPlayerControl>
 	Ref<LocalPlayer> player;
 
 	Reticle reticle;
-	StaticArray<Indicator, 32> indicators;
+	StaticArray<TargetIndicator, 32> target_indicators;
 	Camera* camera;
 	r32 fov_blend;
 	r32 damage_timer;
@@ -128,7 +134,7 @@ struct LocalPlayerControl : public ComponentType<LocalPlayerControl>
 	void damaged(const DamageEvent&);
 	void hit_by(const TargetEvent&);
 	void health_picked_up();
-	void add_target_indicator(Target*, const Vec4&, b8 = false);
+	b8 add_target_indicator(Target*, TargetIndicator::Type);
 	void parkour_landed(r32);
 
 	void update(const Update&);

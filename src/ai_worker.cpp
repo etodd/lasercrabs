@@ -84,11 +84,14 @@ AwkNavMeshNode awk_closest_point(const Vec3& p, const Vec3& normal)
 	b8 found = false;
 	AwkNavMeshNode closest;
 	b8 ignore_normals = normal.dot(normal) == 0.0f;
-	for (s32 chunk_x = vi_max(chunk_coord.x - 1, 0); chunk_x < vi_min(chunk_coord.x + 2, awk_nav_mesh.size.x); chunk_x++)
+	s32 end_x = vi_min(vi_max(chunk_coord.x + 2, 1), awk_nav_mesh.size.x);
+	for (s32 chunk_x = vi_min(vi_max(chunk_coord.x - 1, 0), awk_nav_mesh.size.x - 1); chunk_x < end_x; chunk_x++)
 	{
-		for (s32 chunk_y = vi_max(chunk_coord.y - 1, 0); chunk_y < vi_min(chunk_coord.y + 2, awk_nav_mesh.size.y); chunk_y++)
+		s32 end_y = vi_min(vi_max(chunk_coord.y + 2, 1), awk_nav_mesh.size.y);
+		for (s32 chunk_y = vi_min(vi_max(chunk_coord.y - 1, 0), awk_nav_mesh.size.y - 1); chunk_y < end_y; chunk_y++)
 		{
-			for (s32 chunk_z = vi_max(chunk_coord.z - 1, 0); chunk_z < vi_min(chunk_coord.z + 2, awk_nav_mesh.size.z); chunk_z++)
+			s32 end_z = vi_min(vi_max(chunk_coord.z + 2, 1), awk_nav_mesh.size.z);
+			for (s32 chunk_z = vi_min(vi_max(chunk_coord.z - 1, 0), awk_nav_mesh.size.z - 1); chunk_z < end_z; chunk_z++)
 			{
 				s32 chunk_index = awk_nav_mesh.index({ chunk_x, chunk_y, chunk_z });
 				const AwkNavMeshChunk& chunk = awk_nav_mesh.chunks[chunk_index];

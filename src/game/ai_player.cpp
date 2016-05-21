@@ -286,8 +286,15 @@ void add_memory(AIPlayerControl::MemoryArray* component_memories, Entity* entity
 	}
 }
 
+enum class MemoryStatus
+{
+	Update, // add or update existing memory
+	Keep, // keep any existing memory, but don't update it
+	Forget, // ignore and delete any existing memory
+};
+
 template<typename Component>
-void update_component_memory(AIPlayerControl* control, b8 (*filter)(const AIPlayerControl*, const Entity*))
+void update_component_memory(AIPlayerControl* control, MemoryStatus (*filter)(const AIPlayerControl*, const Entity*))
 {
 	AIPlayerControl::MemoryArray* component_memories = &control->memory[Component::family];
 	// remove outdated memories
@@ -296,8 +303,9 @@ void update_component_memory(AIPlayerControl* control, b8 (*filter)(const AIPlay
 		AIPlayerControl::Memory* m = &(*component_memories)[i];
 		if (control->in_range(m->pos, VISIBLE_RANGE))
 		{
-			b8 now_in_range = m->entity.ref() && control->in_range(m->entity.ref()->get<Transform>()->absolute_pos(), VISIBLE_RANGE) && filter(control, m->entity.ref());
-			if (!now_in_range)
+			MemoryStatus status = MemoryStatus::Keep;
+			Entity* entity = m->entity.ref();
+			if (entity && control->in_range(entity->get<Transform>()->absolute_pos(), VISIBLE_RANGE) && filter(control, entity) == MemoryStatus::Forget)
 			{
 				component_memories->remove(i);
 				i--;
@@ -305,13 +313,13 @@ void update_component_memory(AIPlayerControl* control, b8 (*filter)(const AIPlay
 		}
 	}
 
-	// add new memories
+	// add or update memories
 	if (component_memories->length < component_memories->capacity())
 	{
 		for (auto i = Component::list.iterator(); !i.is_last(); i.next())
 		{
 			Vec3 pos = i.item()->template get<Transform>()->absolute_pos();
-			if (control->in_range(pos, VISIBLE_RANGE) && filter(control, i.item()->entity()))
+			if (control->in_range(pos, VISIBLE_RANGE) && filter(control, i.item()->entity()) == MemoryStatus::Update)
 			{
 				add_memory(component_memories, i.item()->entity(), pos);
 				if (component_memories->length == component_memories->capacity())
@@ -326,10 +334,10 @@ b8 AIPlayerControl::aim_and_shoot(const Update& u, const Vec3& path_node, const 
 {
 	PlayerCommon* common = get<PlayerCommon>();
 
-	if (common->cooldown == 0.0f)
-		aim_timer += u.time.delta;
-
 	b8 enable_movement = common->movement_enabled();
+
+	if (enable_movement)
+		aim_timer += u.time.delta;
 
 	// crawling
 	if (enable_movement)
@@ -432,7 +440,7 @@ b8 AIPlayerControl::aim_and_shoot(const Update& u, const Vec3& path_node, const 
 	common->angle_vertical = LMath::clampf(common->angle_vertical, PI * -0.495f, PI * 0.495f);
 	common->clamp_rotation(wall_normal, 0.5f);
 
-	if (enable_movement && common->cooldown == 0.0f)
+	if (enable_movement && common->movement_enabled())
 	{
 		// cooldown is done; we can shoot.
 		// check if we're done aiming
@@ -479,19 +487,36 @@ b8 health_pickup_filter(const AIPlayerControl* control, const Entity* e)
 
 b8 minion_filter(const AIPlayerControl* control, const Entity* e)
 {
-	return e->get<AIAgent>()->team != control->get<AIAgent>()->team;
-}
-
-b8 awk_memory_filter(const AIPlayerControl* control, const Entity* e)
-{
 	return e->get<AIAgent>()->team != control->get<AIAgent>()->team
 		&& !e->get<AIAgent>()->stealth;
 }
 
+MemoryStatus minion_memory_filter(const AIPlayerControl* control, const Entity* e)
+{
+	if (e->get<AIAgent>()->stealth)
+		return MemoryStatus::Keep;
+
+	if (e->get<AIAgent>()->team == control->get<AIAgent>()->team)
+		return MemoryStatus::Forget;
+	else
+		return MemoryStatus::Update;
+}
+
+MemoryStatus awk_memory_filter(const AIPlayerControl* control, const Entity* e)
+{
+	if (e->get<AIAgent>()->stealth)
+		return MemoryStatus::Keep; // don't update it, but also don't forget it
+
+	if (e->get<AIAgent>()->team == control->get<AIAgent>()->team)
+		return MemoryStatus::Forget; // don't care
+	else
+		return MemoryStatus::Update;
+}
+
 b8 awk_run_filter(const AIPlayerControl* control, const Entity* e)
 {
-	return e->get<AIAgent>()->team != control->get<AIAgent>()->team
-		&& !e->get<AIAgent>()->stealth
+	return !control->player.ref()->manager.ref()->can_steal_health()
+		&& e->get<AIAgent>()->team != control->get<AIAgent>()->team
 		&& e->get<Health>()->hp > control->get<Health>()->hp
 		&& (e->get<Awk>()->can_hit(control->get<Target>()) || (e->get<Transform>()->absolute_pos() - control->get<Transform>()->absolute_pos()).length_squared() < 10.0f * 10.0f);
 }
@@ -500,7 +525,7 @@ b8 awk_attack_filter(const AIPlayerControl* control, const Entity* e)
 {
 	return e->get<AIAgent>()->team != control->get<AIAgent>()->team
 		&& !e->get<AIAgent>()->stealth
-		&& e->get<Health>()->hp <= control->get<Health>()->hp;
+		&& (e->get<Health>()->hp <= control->get<Health>()->hp || control->player.ref()->manager.ref()->can_steal_health());
 }
 
 b8 sensor_interest_point_filter(const AIPlayerControl* control, const Entity* e)
@@ -519,6 +544,11 @@ b8 sensor_interest_point_filter(const AIPlayerControl* control, const Entity* e)
 b8 default_filter(const AIPlayerControl* control, const Entity* e)
 {
 	return true;
+}
+
+MemoryStatus default_memory_filter(const AIPlayerControl* control, const Entity* e)
+{
+	return MemoryStatus::Update;
 }
 
 Ability want_available_upgrade(const AIPlayerControl* control)
@@ -737,10 +767,9 @@ void AIPlayerControl::init_behavior_trees()
 
 b8 AIPlayerControl::update_memory()
 {
-	update_component_memory<HealthPickup>(this, &default_filter);
-	update_component_memory<MinionAI>(this, &minion_filter);
-	update_component_memory<SensorInterestPoint>(this, &default_filter);
-	update_component_memory<Awk>(this, &awk_memory_filter);
+	update_component_memory<HealthPickup>(this, &default_memory_filter);
+	update_component_memory<MinionAI>(this, &minion_memory_filter);
+	update_component_memory<SensorInterestPoint>(this, &default_memory_filter);
 
 	// update memory of enemy AWK positions based on team sensor data
 	const Team& team = Team::list[(s32)get<AIAgent>()->team];
@@ -751,7 +780,9 @@ b8 AIPlayerControl::update_memory()
 			add_memory(&memory[Awk::family], track.entity.ref(), track.entity.ref()->get<Transform>()->absolute_pos());
 	}
 
-	return true;
+	update_component_memory<Awk>(this, &awk_memory_filter);
+
+	return true; // this returns true so we can call this from an Execute behavior
 }
 
 void AIPlayerControl::update(const Update& u)
@@ -807,7 +838,7 @@ void AIPlayerControl::update(const Update& u)
 			if (panic)
 			{
 				// pathfinding routines failed; we are stuck
-				if (common->movement_enabled() && common->cooldown == 0.0f)
+				if (common->movement_enabled())
 				{
 					// cooldown is done; we can shoot.
 					Vec3 look_dir = common->look_dir();

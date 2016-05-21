@@ -31,6 +31,7 @@ namespace VI
 #define AWK_LEG_BLEND_SPEED (1.0f / 0.05f)
 #define AWK_MIN_LEG_BLEND_SPEED (AWK_LEG_BLEND_SPEED * 0.1f)
 #define AWK_SHIELD_RADIUS 0.75f
+#define AWK_STUN_TIME 2.0f
 
 AwkRaycastCallback::AwkRaycastCallback(const Vec3& a, const Vec3& b, const Entity* awk)
 	: btCollisionWorld::ClosestRayResultCallback(a, b)
@@ -86,7 +87,9 @@ Awk::Awk()
 	last_footstep(),
 	shield(),
 	bounce(),
-	hit_targets()
+	hit_targets(),
+	cooldown(),
+	cooldown_multiplier(1.0f)
 {
 }
 
@@ -169,6 +172,7 @@ Vec3 Awk::center() const
 
 void Awk::hit_by(const TargetEvent& e)
 {
+	// hit by an enemy Awk
 	Vec3 me = get<Transform>()->absolute_pos();
 	Vec3 awk_pos = e.hit_by->get<Transform>()->absolute_pos();
 	Vec3 awk_dir = Vec3::normalize(e.hit_by->get<Awk>()->velocity);
@@ -177,30 +181,28 @@ void Awk::hit_by(const TargetEvent& e)
 	u16 my_hp = get<Health>()->hp;
 
 	b8 damaged = false;
-	if (!get<Teleportee>()->invincible())
+	b8 stunned = false;
+	// only take damage if we're attached to a wall and not invincible
+	if (get<Transform>()->parent.ref() && !get<Teleportee>()->invincible())
 	{
-		if (get<Transform>()->parent.ref())
+		// normally, the enemy needs the same or higher HP to damage us
+		// but they can also buy an upgrade that lets them damage us no matter what
+		if (enemy_hp >= my_hp
+			|| e.hit_by->get<PlayerCommon>()->manager.ref()->can_steal_health())
 		{
-			// if we're attached to a wall, take damage if the enemy has equal or higher health than us
-			if (enemy_hp >= my_hp)
-			{
-				get<Health>()->damage(e.hit_by, 1);
-				damaged = true;
-			}
+			get<Health>()->damage(e.hit_by, 1);
+			damaged = true;
 		}
 		else
 		{
-			// if we're in flight, only take damage if the enemy has higher health than us
-			if (enemy_hp > my_hp)
-			{
-				get<Health>()->damage(e.hit_by, 1);
-				damaged = true;
-			}
+			// they have lower HP and thus can't hurt us
+			stun_timer = AWK_STUN_TIME;
+			stunned = true;
 		}
 	}
 
 	if (!damaged && e.hit_by->has<LocalPlayerControl>())
-		e.hit_by->get<LocalPlayerControl>()->player.ref()->msg(_(strings::no_effect), false);
+		e.hit_by->get<LocalPlayerControl>()->player.ref()->msg(_(stunned ? strings::target_stunned : strings::no_effect), false);
 }
 
 void Awk::hit_target(Entity* target)
@@ -382,7 +384,7 @@ void Awk::detach_teleport()
 	hit_targets.length = 0;
 
 	attach_time = Game::time.total;
-	get<PlayerCommon>()->cooldown = AWK_MIN_COOLDOWN;
+	cooldown = AWK_MIN_COOLDOWN;
 	get<Transform>()->reparent(nullptr);
 	get<SkinnedModel>()->offset = Mat4::identity;
 
@@ -396,7 +398,7 @@ void Awk::detach_teleport()
 
 b8 Awk::detach(const Vec3& dir)
 {
-	if (get<PlayerCommon>()->cooldown == 0.0f)
+	if (cooldown == 0.0f && stun_timer == 0.0f)
 	{
 		Vec3 dir_normalized = Vec3::normalize(dir);
 		velocity = dir_normalized * AWK_FLY_SPEED;
@@ -528,6 +530,9 @@ void Awk::move(const Vec3& new_pos, const Quat& new_rotation, const ID entity_id
 
 void Awk::crawl(const Vec3& dir_raw, const Update& u)
 {
+	if (stun_timer > 0)
+		return;
+
 	r32 dir_length = dir_raw.length();
 	Vec3 dir_normalized = dir_raw / dir_length;
 
@@ -731,8 +736,12 @@ void Awk::stealth(b8 enable)
 
 void Awk::update(const Update& u)
 {
+	stun_timer = vi_max(stun_timer - u.time.delta, 0.0f);
 	if (get<Transform>()->parent.ref())
 	{
+		if (stun_timer == 0.0f)
+			cooldown = vi_max(0.0f, cooldown - u.time.delta * cooldown_multiplier);
+
 		Quat rot = get<Transform>()->rot;
 
 		{
@@ -970,7 +979,7 @@ void Awk::update(const Update& u)
 					}
 				}
 			}
-			get<PlayerCommon>()->cooldown = vi_min(get<PlayerCommon>()->cooldown + (next_position - position).length() * AWK_COOLDOWN_DISTANCE_RATIO, AWK_MAX_DISTANCE_COOLDOWN);
+			cooldown = vi_min(cooldown + (next_position - position).length() * AWK_COOLDOWN_DISTANCE_RATIO, AWK_MAX_DISTANCE_COOLDOWN);
 		}
 	}
 }

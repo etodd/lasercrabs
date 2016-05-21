@@ -13,6 +13,7 @@
 #include "asset/Wwise_IDs.h"
 #include "asset/level.h"
 #include "walker.h"
+#include "mersenne/mersenne-twister.h"
 
 #define PLAYER_SPAWN_DELAY 3.0f
 
@@ -37,7 +38,7 @@ AbilityInfo AbilityInfo::list[] =
 		Asset::Mesh::icon_sensor,
 		2.5f,
 		10,
-		{ 50, 100 },
+		{ 50, 200 },
 		strings::sensor,
 		{ strings::description_sensor_1, strings::description_sensor_2 },
 	},
@@ -45,7 +46,7 @@ AbilityInfo AbilityInfo::list[] =
 		Asset::Mesh::icon_teleporter,
 		TELEPORT_TIME,
 		10,
-		{ 50, 50 },
+		{ 50, 80 },
 		strings::teleporter,
 		{ strings::description_teleporter_1, strings::description_teleporter_2 },
 	},
@@ -179,6 +180,7 @@ void level_retry()
 void level_next()
 {
 	Game::Mode next_mode;
+	AssetID next_level;
 
 	if (Game::state.local_multiplayer)
 	{
@@ -192,16 +194,27 @@ void level_next()
 		}
 		else
 			Game::save.round = (Game::save.round + 1) % (s32)AI::Team::count;
+		next_level = Game::levels[Game::save.level_index];
 	}
 	else
 	{
 		// campaign mode; advance to next level
 		next_mode = Game::Mode::Parkour;
-		Game::save.level_index++;
-		Game::save.round = 0;
+		if (Game::level.lock_teams || Game::save.round == (s32)AI::Team::count - 1)
+		{
+			// advance to next level
+			Game::save.level_index++;
+			Game::save.round = 0;
+			next_level = Game::levels[Game::save.level_index];
+		}
+		else
+		{
+			// play another round before advancing
+			Game::save.round = (Game::save.round + 1) % (s32)AI::Team::count;
+			next_level = Game::levels[Game::save.level_index];
+		}
 	}
 
-	AssetID next_level = Game::levels[Game::save.level_index];
 	if (next_level == AssetNull) // done; go to main menu
 		Menu::transition(Asset::Level::title, Game::Mode::Special);
 	else
@@ -649,7 +662,7 @@ void PlayerManager::ability_upgrade_complete()
 	else if (a == Ability::Teleporter)
 	{
 		if (level == 2)
-			entity.ref()->get<PlayerCommon>()->cooldown_multiplier = 1.25f;
+			entity.ref()->get<Awk>()->cooldown_multiplier = 1.25f;
 	}
 	else if (a == Ability::Minion)
 	{

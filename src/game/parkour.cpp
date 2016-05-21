@@ -242,12 +242,6 @@ b8 Parkour::TilePos::operator!=(const Parkour::TilePos& other) const
 
 void Parkour::update(const Update& u)
 {
-	if (get<Transform>()->absolute_pos().y < Game::level.min_y)
-	{
-		World::remove_deferred(entity());
-		return;
-	}
-
 	fsm.time += u.time.delta;
 	get<SkinnedModel>()->offset.make_transform(
 		Vec3(0, get<Walker>()->capsule_height() * -0.5f - get<Walker>()->support_height, 0),

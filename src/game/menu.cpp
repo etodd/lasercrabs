@@ -235,6 +235,18 @@ void update(const Update& u)
 
 			b8 cameras_changed = false;
 			s32 screen_count = 0;
+
+			s32 team_a_count = 0;
+			s32 team_b_count = 0;
+			for (s32 j = 0; j < MAX_GAMEPADS; j++)
+			{
+				AI::Team team = Game::state.local_player_config[j];
+				if (team == AI::Team::A)
+					team_a_count++;
+				else if (team == AI::Team::B)
+					team_b_count++;
+			}
+
 			for (s32 i = 0; i < MAX_GAMEPADS; i++)
 			{
 				b8 screen_active = u.input->gamepads[i].active || i == 0;
@@ -251,25 +263,44 @@ void update(const Update& u)
 					cameras_changed = true;
 				}
 
+				AI::Team* team = &Game::state.local_player_config[i];
 				if (screen_active)
 				{
 					screen_count++;
-					if (i > 0) // player 0 must stay in
+					if (i > 0 || main_menu_state == State::Hidden) // ignore player 0 input if the main menu is open
 					{
 						if (u.input->get(Controls::Cancel, i) && !u.last_input->get(Controls::Cancel, i))
 						{
-							Game::state.local_player_config[i] = AI::Team::None;
-							Audio::post_global_event(AK::EVENTS::PLAY_BEEP_GOOD);
+							if (i > 0) // player 0 must stay in
+							{
+								*team = AI::Team::None;
+								Audio::post_global_event(AK::EVENTS::PLAY_BEEP_GOOD);
+							}
 						}
 						else if (u.input->get(Controls::Action, i) && !u.last_input->get(Controls::Action, i))
 						{
-							Game::state.local_player_config[i] = i % 2 == 0 ? AI::Team::A : AI::Team::B;
+							if (*team == AI::Team::None)
+							{
+								// initial join; try to keep the teams balanced
+								if (team_a_count > team_b_count)
+								{
+									*team = AI::Team::B;
+									team_b_count++;
+								}
+								else
+								{
+									*team = AI::Team::A;
+									team_a_count++;
+								}
+							}
+							else // toggle
+								*team = *team == AI::Team::A ? AI::Team::B : AI::Team::A;
 							Audio::post_global_event(AK::EVENTS::PLAY_BEEP_GOOD);
 						}
 					}
 				}
-				else
-					Game::state.local_player_config[i] = AI::Team::None;
+				else // controller is gone
+					*team = AI::Team::None;
 			}
 
 			if (cameras_changed)
@@ -292,18 +323,16 @@ void update(const Update& u)
 				}
 			}
 
-			b8 start = false;
 			s32 player_count = 0;
 			for (s32 i = 0; i < MAX_GAMEPADS; i++)
 			{
 				if (Game::state.local_player_config[i] != AI::Team::None)
-				{
 					player_count++;
-					start |= u.input->get(Controls::Start, i) && !u.last_input->get(Controls::Start, i);
-				}
 			}
 
-			if (player_count > 1 && start)
+			if (u.input->get(Controls::Start, 0) && !u.last_input->get(Controls::Start, 0)
+				&& player_count > 1
+				&& team_a_count > 0 && team_b_count > 0)
 			{
 				Game::save = Game::Save();
 				Game::save.level_index = 1; // skip tutorial
@@ -415,12 +444,14 @@ void draw(const RenderParams& params)
 				{
 					UI::box(params, { viewport.size * 0.5f - box_size * 0.5f, box_size }, UI::background_color);
 					player_text[i].draw(params, viewport.size * 0.5f);
+					AI::Team team = Game::state.local_player_config[i];
+					const char* team_string = _(team == AI::Team::A ? strings::team_a : strings::team_b);
 					if (i > 0)
 					{
-						if (Game::state.local_player_config[i] == AI::Team::None)
+						if (team == AI::Team::None)
 							text.text(_(strings::join));
 						else
-							text.text(_(strings::leave));
+							text.text(_(strings::leave), team_string);
 					}
 					else // player 0 must stay in
 					{
@@ -431,7 +462,7 @@ void draw(const RenderParams& params)
 								gamepad_count++;
 						}
 						if (gamepad_count > 1)
-							text.text(_(strings::begin));
+							text.text(_(strings::begin), team_string);
 						else
 							text.text(_(strings::connect_gamepads));
 					}

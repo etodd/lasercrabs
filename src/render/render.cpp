@@ -17,9 +17,9 @@ Camera::ViewportBlueprint Camera::two_player_viewports[] =
 
 Camera::ViewportBlueprint Camera::three_player_viewports[] =
 {
+	{ 0, 0.5f, 1, 0.5f, },
 	{ 0, 0, 0.5f, 0.5f, },
 	{ 0.5f, 0, 0.5f, 0.5f, },
-	{ 0, 0.5f, 1, 0.5f, },
 };
 
 Camera::ViewportBlueprint Camera::four_player_viewports[] =

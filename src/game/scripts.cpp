@@ -1054,7 +1054,16 @@ namespace Penelope
 		else if (node == Asset::String::penelope_hide)
 			clear();
 		else if (node == Asset::String::match_go)
-			Menu::transition(Game::state.level, Game::Mode::Pvp); // reload current level in PvP mode
+		{
+			if (Game::save.round == 0)
+				Menu::transition(Game::state.level, Game::Mode::Pvp); // reload current level in PvP mode
+			else
+			{
+				// must play another round before advancing to the next level
+				// play a random map that has already been unlocked so far (except the tutorial map)
+				Menu::transition(Game::levels[1 + (s32)(mersenne::randf_co() * (Game::save.level_index - 1))], Game::Mode::Pvp);
+			}
+		}
 		else if (node == Asset::String::matchmaking_start)
 			matchmake_search();
 	}

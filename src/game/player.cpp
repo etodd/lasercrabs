@@ -90,7 +90,7 @@ b8 is_onscreen(const RenderParams& params, const Vec3& pos, Vec2* out, Vec2* dir
 	return on_screen;
 }
 
-void draw_indicator(const RenderParams& params, const Vec3& pos, const Vec4& color, b8 offscreen, r32 scale = 1.0f)
+void draw_indicator(const RenderParams& params, const Vec3& pos, const Vec4& color, b8 offscreen, r32 scale = 1.0f, r32 rotation = 0.0f)
 {
 	if (offscreen)
 	{
@@ -98,7 +98,7 @@ void draw_indicator(const RenderParams& params, const Vec3& pos, const Vec4& col
 		Vec2 p;
 		Vec2 offset;
 		if (is_onscreen(params, pos, &p, &offset))
-			UI::triangle_border(params, { p, Vec2(32 * scale) * UI::scale }, 4 * scale, color);
+			UI::triangle_border(params, { p, Vec2(32 * scale) * UI::scale }, 4 * scale, color, rotation);
 		else
 			UI::triangle(params, { p, Vec2(24 * UI::scale * scale) }, color, atan2f(offset.y, offset.x) + PI * -0.5f);
 	}
@@ -106,7 +106,7 @@ void draw_indicator(const RenderParams& params, const Vec3& pos, const Vec4& col
 	{
 		Vec2 p;
 		if (UI::project(params, pos, &p))
-			UI::triangle_border(params, { p, Vec2(32 * UI::scale * scale) }, 4 * scale, color);
+			UI::triangle_border(params, { p, Vec2(32 * UI::scale * scale) }, 4 * scale, color, rotation);
 	}
 }
 
@@ -206,7 +206,7 @@ void LocalPlayer::ensure_camera(const Update& u, b8 active)
 		player_count = list.count();
 #endif
 		Camera::ViewportBlueprint* viewports = Camera::viewport_blueprints[player_count - 1];
-		Camera::ViewportBlueprint* blueprint = &viewports[gamepad];
+		Camera::ViewportBlueprint* blueprint = &viewports[id()];
 
 		camera->viewport =
 		{
@@ -824,9 +824,7 @@ PlayerCommon::PlayerCommon(PlayerManager* m)
 	: angle_horizontal(),
 	angle_vertical(),
 	attach_quat(Quat::identity),
-	cooldown(),
-	manager(m),
-	cooldown_multiplier(1.0f)
+	manager(m)
 {
 }
 
@@ -842,19 +840,19 @@ void PlayerCommon::awake()
 
 b8 PlayerCommon::movement_enabled() const
 {
-	return manager.ref()->current_spawn_ability == Ability::None // can't move while trying to spawn an ability
-		&& !get<Teleportee>()->in_progress(); // or while teleporting
+	if (has<Awk>())
+	{
+		return get<Transform>()->parent.ref() // must be attached to wall
+			&& manager.ref()->current_spawn_ability == Ability::None // can't move while trying to spawn an ability
+			&& !get<Teleportee>()->in_progress() // or while teleporting
+			&& get<Awk>()->stun_timer == 0.0f; // or while stunned
+	}
+	else
+		return true;
 }
 
 void PlayerCommon::update(const Update& u)
 {
-	if (has<Parkour>() || get<Transform>()->parent.ref())
-	{
-		// Either we are a Minion, or we're an Awk and we're attached to a surface
-		// Either way, we need to decrement the cooldown timer
-		cooldown = vi_max(0.0f, cooldown - u.time.delta * cooldown_multiplier);
-	}
-
 	if (has<Awk>())
 	{
 		Quat rot = get<Transform>()->absolute_rot();
@@ -992,7 +990,8 @@ LocalPlayerControl::LocalPlayerControl(u8 gamepad)
 	try_parkour(),
 	damage_timer(),
 	health_flash_timer(),
-	rumble()
+	rumble(),
+	target_indicators()
 {
 	camera = Camera::add();
 }
@@ -1143,10 +1142,14 @@ void LocalPlayerControl::detach()
 	}
 }
 
-void LocalPlayerControl::add_target_indicator(Target* target, const Vec4& color, b8 offscreen)
+// returns false if there is no more room in the target indicator array
+b8 LocalPlayerControl::add_target_indicator(Target* target, TargetIndicator::Type type)
 {
 	Vec3 me = get<Awk>()->center();
-	if (offscreen || (target->absolute_pos() - me).length_squared() < AWK_MAX_DISTANCE * AWK_MAX_DISTANCE)
+
+	b8 show_even_out_of_range = type == TargetIndicator::Type::AwkTracking;
+
+	if (show_even_out_of_range || (target->absolute_pos() - me).length_squared() < AWK_MAX_DISTANCE * AWK_MAX_DISTANCE)
 	{
 		// calculate head intersection trajectory
 		Vec3 intersection;
@@ -1154,9 +1157,12 @@ void LocalPlayerControl::add_target_indicator(Target* target, const Vec4& color,
 		{
 			if (reticle.type == ReticleType::Normal && LMath::ray_sphere_intersect(me, reticle.pos, intersection, MINION_HEAD_RADIUS))
 				reticle.type = ReticleType::Target;
-			indicators.add({ intersection, &color, offscreen });
+			target_indicators.add({ intersection, type });
+			if (target_indicators.length == target_indicators.capacity())
+				return false;
 		}
 	}
+	return true;
 }
 
 void determine_visibility(PlayerCommon* me, PlayerCommon* other_player, b8* visible, b8* tracking)
@@ -1179,7 +1185,7 @@ void LocalPlayerControl::update(const Update& u)
 		player_count = LocalPlayer::list.count();
 #endif
 		Camera::ViewportBlueprint* viewports = Camera::viewport_blueprints[player_count - 1];
-		Camera::ViewportBlueprint* blueprint = &viewports[gamepad];
+		Camera::ViewportBlueprint* blueprint = &viewports[player.ref()->id()];
 
 		camera->viewport =
 		{
@@ -1298,51 +1304,50 @@ void LocalPlayerControl::update(const Update& u)
 		camera->rot = look_quat;
 
 		// reticle
-		reticle.type = ReticleType::None;
-		if (get<Transform>()->parent.ref() && get<PlayerCommon>()->cooldown == 0.0f)
 		{
-			// Display trajectory
 			Vec3 trace_dir = look_quat * Vec3(0, 0, 1);
-			// Make sure we're not shooting into the wall we're on.
-
 			Vec3 trace_start = camera->pos + trace_dir * third_person_offset;
 			Vec3 trace_end = trace_start + trace_dir * (AWK_MAX_DISTANCE + third_person_offset);
 
-			AwkRaycastCallback ray_callback(trace_start, trace_end, entity());
-			Physics::raycast(&ray_callback, ~CollisionAwkIgnore & ~get<Awk>()->ally_containment_field_mask());
+			reticle.type = ReticleType::None;
 
-			if (ray_callback.hasHit())
+			if (movement_enabled())
 			{
-				reticle.pos = ray_callback.m_hitPointWorld;
-				Vec3 center = get<Awk>()->center();
-				detach_dir = reticle.pos - center;
-				r32 distance = detach_dir.length();
-				detach_dir /= distance;
-				Vec3 hit;
-				if (get<Awk>()->can_go(detach_dir, &hit))
+				AwkRaycastCallback ray_callback(trace_start, trace_end, entity());
+				Physics::raycast(&ray_callback, ~CollisionAwkIgnore & ~get<Awk>()->ally_containment_field_mask());
+
+				if (ray_callback.hasHit())
 				{
-					if (fabs((hit - center).length() - distance) < AWK_RADIUS)
-						reticle.type = ray_callback.hit_target() ? ReticleType::Target : ReticleType::Normal;
+					reticle.pos = ray_callback.m_hitPointWorld;
+					Vec3 center = get<Awk>()->center();
+					detach_dir = reticle.pos - center;
+					r32 distance = detach_dir.length();
+					detach_dir /= distance;
+					Vec3 hit;
+					if (get<Awk>()->can_go(detach_dir, &hit))
+					{
+						if (fabs((hit - center).length() - distance) < AWK_RADIUS)
+						{
+							if (get<Awk>()->cooldown == 0.0f)
+								reticle.type = ray_callback.hit_target() ? ReticleType::Target : ReticleType::Normal;
+						}
+					}
 				}
+				else
+					reticle.pos = trace_end;
 			}
 			else
-				reticle.pos = trace_end;
-
-			if (reticle.type != ReticleType::None && movement_enabled())
-			{
-				if (u.input->get(Controls::Primary, gamepad) && !u.last_input->get(Controls::Primary, gamepad))
-					detach();
-			}
+				reticle.pos = trace_start + trace_dir * third_person_offset;
 		}
 
-		// collect indicators
-		indicators.length = 0;
+		// collect target indicators
+		target_indicators.length = 0;
 
 		Vec3 me = get<Transform>()->absolute_pos();
 		AI::Team team = get<AIAgent>()->team;
 
 		// awk indicators
-		if (indicators.length < indicators.capacity())
+		if (target_indicators.length < target_indicators.capacity())
 		{
 			for (auto other_player = PlayerCommon::list.iterator(); !other_player.is_last(); other_player.next())
 			{
@@ -1352,24 +1357,23 @@ void LocalPlayerControl::update(const Update& u)
 					determine_visibility(get<PlayerCommon>(), other_player.item(), &visible, &tracking);
 
 					if (tracking || visible)
-						add_target_indicator(other_player.item()->get<Target>(), visible ? UI::alert_color : UI::accent_color, true);
-
-					if (indicators.length == indicators.capacity())
-						break;
+					{
+						if (!add_target_indicator(other_player.item()->get<Target>(), visible ? TargetIndicator::Type::AwkVisible : TargetIndicator::Type::AwkTracking))
+							break; // no more room for indicators
+					}
 				}
 			}
 		}
 
 		// headshot indicators
-		if (indicators.length < indicators.capacity())
+		if (target_indicators.length < target_indicators.capacity())
 		{
 			for (auto i = MinionCommon::list.iterator(); !i.is_last(); i.next())
 			{
 				if (i.item()->get<AIAgent>()->team != team)
 				{
-					add_target_indicator(i.item()->get<Target>(), UI::alert_color);
-					if (indicators.length == indicators.capacity())
-						break;
+					if (!add_target_indicator(i.item()->get<Target>(), TargetIndicator::Type::Minion))
+						break; // no more room for indicators
 				}
 			}
 		}
@@ -1383,11 +1387,23 @@ void LocalPlayerControl::update(const Update& u)
 				Health* owner = i.item()->owner.ref();
 				if (!owner || (can_steal_health && owner != get<Health>()))
 				{
-					add_target_indicator(i.item()->get<Target>(), UI::accent_color);
-					if (indicators.length == indicators.capacity())
-						break;
+					if (!add_target_indicator(i.item()->get<Target>(), TargetIndicator::Type::Health))
+						break; // no more room for indicators
 				}
 			}
+		}
+
+		if (reticle.type == ReticleType::None)
+		{
+			// can't shoot
+			if (u.input->get(Controls::Primary, gamepad)) // player is mashing the fire button; give them some feedback
+				reticle.type = ReticleType::Error;
+		}
+		else
+		{
+			// we're aiming at something
+			if (u.input->get(Controls::Primary, gamepad) && !u.last_input->get(Controls::Primary, gamepad))
+				detach();
 		}
 	}
 	else
@@ -1580,12 +1596,34 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 
 	AI::Team team = get<AIAgent>()->team;
 
-	// indicators
+	// target indicators
 	{
-		for (s32 i = 0; i < indicators.length; i++)
+		for (s32 i = 0; i < target_indicators.length; i++)
 		{
-			const Indicator& indicator = indicators[i];
-			draw_indicator(params, indicator.pos, *indicator.color, indicator.offscreen);
+			const TargetIndicator& indicator = target_indicators[i];
+			switch (indicator.type)
+			{
+				case TargetIndicator::Type::AwkVisible:
+				{
+					draw_indicator(params, indicator.pos, UI::alert_color, true);
+					break;
+				}
+				case TargetIndicator::Type::AwkTracking:
+				{
+					draw_indicator(params, indicator.pos, UI::accent_color, true);
+					break;
+				}
+				case TargetIndicator::Type::Health:
+				{
+					draw_indicator(params, indicator.pos, UI::accent_color, true, 1.0f, PI);
+					break;
+				}
+				case TargetIndicator::Type::Minion:
+				{
+					draw_indicator(params, indicator.pos, UI::alert_color, false);
+					break;
+				}
+			}
 		}
 	}
 
@@ -1645,6 +1683,28 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 		}
 	}
 
+	// upgrade notification
+	if (Game::level.has_feature(Game::FeatureLevel::ControlPoints)
+		&& player.ref()->manager.ref()->ability_upgrade_available()
+		&& !player.ref()->manager.ref()->at_spawn())
+	{
+		Vec3 spawn_pos = Team::list[(s32)team].player_spawn.ref()->absolute_pos();
+		draw_indicator(params, spawn_pos, Team::ui_color_friend, true);
+
+		UIText text;
+		text.color = Team::ui_color_friend;
+		text.text(_(strings::upgrade_notification));
+		text.font = Asset::Font::lowpoly;
+		text.anchor_x = UIText::Anchor::Center;
+		text.anchor_y = UIText::Anchor::Center;
+		text.size = text_size;
+		Vec2 p;
+		is_onscreen(params, spawn_pos, &p);
+		p.y += text_size * 2.0f * UI::scale;
+		UI::box(params, text.rect(p).outset(8.0f * UI::scale), UI::background_color);
+		text.draw(params, p);
+	}
+
 	// usernames directly over players' 3D positions
 	for (auto other_player = PlayerCommon::list.iterator(); !other_player.is_last(); other_player.next())
 	{
@@ -1702,8 +1762,8 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 				Vec2 username_pos = hp_pos;
 				username_pos.y += (text_size * UI::scale) + HP_BOX_SPACING * 0.5f;
 
-				Vec2 danger_pos = username_pos;
-				danger_pos.y += (text_size * UI::scale) + HP_BOX_SPACING * 0.5f;
+				Vec2 invincible_pos = username_pos;
+				invincible_pos.y += (text_size * UI::scale) + HP_BOX_SPACING * 0.5f;
 
 				UIText username;
 				username.size = text_size;
@@ -1714,13 +1774,15 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 				username.text(other_player.item()->manager.ref()->username);
 
 				u16 my_hp = get<Health>()->hp;
-				UIText danger;
-				b8 draw_danger = !friendly && visible && history.hp > my_hp;
-				if (draw_danger)
+				UIText invincible;
+				// normally, enemies are invincible if they have higher health
+				// but if we buy the right upgrade they become vulnerable
+				b8 draw_invincible = !friendly && visible && history.hp > my_hp && !player.ref()->manager.ref()->can_steal_health();
+				if (draw_invincible)
 				{
-					danger = username;
-					danger.text(_(strings::danger));
-					UI::box(params, danger.rect(danger_pos).outset(HP_BOX_SPACING), UI::background_color);
+					invincible = username;
+					invincible.text(_(strings::invincible));
+					UI::box(params, invincible.rect(invincible_pos).outset(HP_BOX_SPACING), UI::background_color);
 				}
 
 				UI::box(params, username.rect(username_pos).outset(HP_BOX_SPACING), UI::background_color);
@@ -1733,8 +1795,8 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 
 				username.draw(params, username_pos);
 
-				if (draw_danger && flash_function(Game::real_time.total))
-					danger.draw(params, danger_pos); // danger!
+				if (draw_invincible && flash_function(Game::real_time.total))
+					invincible.draw(params, invincible_pos); // danger!
 			}
 		}
 	}
@@ -1763,46 +1825,9 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 			// we're being attacked; flash the compass
 			b8 show = flash_function(Game::real_time.total);
 			if (show)
-			{
-				UI::mesh(params, Asset::Mesh::compass_inner, viewport.size * Vec2(0.5f, 0.5f), compass_size, UI::alert_color);
-			}
+				UI::mesh(params, Asset::Mesh::compass, viewport.size * Vec2(0.5f, 0.5f), compass_size, UI::alert_color);
 			if (show && !flash_function(Game::real_time.total - Game::real_time.delta))
 				Audio::post_global_event(AK::EVENTS::PLAY_BEEP_BAD);
-		}
-
-		// indicators pointing toward player spawns
-		{
-			for (s32 i = 0; i < Team::list.capacity(); i++)
-			{
-				Team* t = &Team::list[i];
-				if (t->player_spawn.ref())
-				{
-					Vec3 to_spawn = t->player_spawn.ref()->get<Transform>()->absolute_pos() - me;
-					r32 distance = to_spawn.length();
-					if (distance > PLAYER_SPAWN_RADIUS)
-					{
-						to_spawn /= distance;
-						r32 angle = atan2f(to_spawn.x, to_spawn.z) - get<PlayerCommon>()->angle_horizontal;
-
-						if (team == t->team() && Game::level.has_feature(Game::FeatureLevel::ControlPoints) && player.ref()->manager.ref()->ability_upgrade_available())
-						{
-							// upgrade notification
-							UIText text;
-							text.color = Team::ui_color_friend;
-							text.text(_(strings::upgrade_notification));
-							text.font = Asset::Font::lowpoly;
-							text.anchor_x = UIText::Anchor::Center;
-							text.anchor_y = UIText::Anchor::Center;
-							text.size = text_size;
-							Vec2 pos = viewport.size * Vec2(0.5f) + Vec2(cosf(angle + PI * 0.5f), sinf(angle + PI * 0.5f)) * (compass_size.x - (text_size * UI::scale * 2.0f));
-							UI::box(params, text.rect(pos).outset(8.0f * UI::scale), UI::background_color);
-							text.draw(params, pos);
-						}
-
-						UI::mesh(params, Asset::Mesh::compass_indicator, viewport.size * Vec2(0.5f), compass_size, Team::ui_color(team, t->team()), angle);
-					}
-				}
-			}
 		}
 	}
 
@@ -1835,27 +1860,39 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 		text.draw(params, pos);
 	}
 
+	// stunned indicator
+	if (get<Awk>()->stun_timer > 0.0f)
+	{
+		UIText text;
+		text.color = UI::alert_color;
+		text.text(_(strings::stunned));
+		text.font = Asset::Font::lowpoly;
+		text.anchor_x = UIText::Anchor::Center;
+		text.anchor_y = UIText::Anchor::Center;
+		text.size = text_size;
+		Vec2 pos = viewport.size * Vec2(0.5f, 0.6f);
+		UI::box(params, text.rect(pos).outset(8.0f * UI::scale), UI::background_color);
+		text.draw(params, pos);
+	}
+
 	// detect danger
 	{
 		r32 detect_danger = get<PlayerCommon>()->detect_danger();
 		Vec2 pos = params.camera->viewport.size * Vec2(0.5f, 0.4f);
 		if (detect_danger == 1.0f)
 		{
-			if (flash_function(Game::real_time.total))
-			{
-				UIText text;
-				text.font = Asset::Font::lowpoly;
-				text.size = 18.0f;
-				text.color = UI::alert_color;
-				text.anchor_x = UIText::Anchor::Center;
-				text.anchor_y = UIText::Anchor::Center;
+			UIText text;
+			text.font = Asset::Font::lowpoly;
+			text.size = 18.0f;
+			text.color = UI::alert_color;
+			text.anchor_x = UIText::Anchor::Center;
+			text.anchor_y = UIText::Anchor::Center;
 
-				text.text(_(strings::detected));
+			text.text(_(strings::enemy_tracking));
 
-				Rect2 box = text.rect(pos).outset(6 * UI::scale);
-				UI::box(params, box, UI::background_color);
-				text.draw(params, pos);
-			}
+			Rect2 box = text.rect(pos).outset(6 * UI::scale);
+			UI::box(params, box, UI::background_color);
+			text.draw(params, pos);
 		}
 		else if (detect_danger > 0.0f)
 		{
@@ -1923,22 +1960,31 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 	}
 
 	// reticle
-	if (get<Transform>()->parent.ref() && movement_enabled() && !get<Teleportee>()->in_progress())
+	if (movement_enabled())
 	{
-		r32 cooldown = get<PlayerCommon>()->cooldown;
-		r32 radius = cooldown == 0.0f ? 0.0f : vi_max(0.0f, 32.0f * (get<PlayerCommon>()->cooldown / AWK_MAX_DISTANCE_COOLDOWN));
-		if (radius > 0 || reticle.type == ReticleType::None)
+		switch (reticle.type)
 		{
-			// hollow reticle
-			UI::triangle_border(params, { viewport.size * Vec2(0.5f, 0.5f), Vec2(4.0f + radius) * 2 * UI::scale }, 2, UI::accent_color, PI);
-		}
-		else
-		{
-			// solid reticle
-			Vec2 a;
-			if (UI::project(params, reticle.pos, &a))
+			case ReticleType::None:
+			case ReticleType::Error:
 			{
-				if (reticle.type == ReticleType::Target)
+				// hollow reticle
+				r32 cooldown = get<Awk>()->cooldown;
+				r32 radius = cooldown == 0.0f ? 0.0f : vi_max(0.0f, 32.0f * (cooldown / AWK_MAX_DISTANCE_COOLDOWN));
+				UI::triangle_border(params, { viewport.size * Vec2(0.5f, 0.5f), Vec2(4.0f + radius) * 2 * UI::scale }, 2, reticle.type == ReticleType::Error ? UI::alert_color : UI::accent_color, PI);
+				break;
+			}
+			case ReticleType::Normal:
+			{
+				// solid reticle
+				Vec2 a;
+				if (UI::project(params, reticle.pos, &a))
+					UI::triangle(params, { a, Vec2(12) * UI::scale }, UI::accent_color, PI);
+				break;
+			}
+			case ReticleType::Target:
+			{
+				Vec2 a;
+				if (UI::project(params, reticle.pos, &a))
 				{
 					UI::triangle(params, { a, Vec2(12) * UI::scale }, UI::alert_color, PI);
 
@@ -1947,8 +1993,12 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 					UI::centered_box(params, { a + Vec2(-12.0f * ratio, -6.0f) * UI::scale, Vec2(8.0f, 2.0f) * UI::scale }, UI::accent_color, PI * 0.5f * 0.33f);
 					UI::centered_box(params, { a + Vec2(0, 12.0f) * UI::scale, Vec2(2.0f, 8.0f) * UI::scale }, UI::accent_color);
 				}
-				else
-					UI::triangle(params, { a, Vec2(12) * UI::scale }, UI::accent_color, PI);
+				break;
+			}
+			default:
+			{
+				vi_assert(false);
+				break;
 			}
 		}
 	}

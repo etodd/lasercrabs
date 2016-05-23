@@ -171,7 +171,7 @@ void level_retry()
 	if (Game::state.local_multiplayer)
 		Menu::transition(Game::state.level, Game::Mode::Pvp);
 	else
-		Menu::transition(Game::state.level, Game::Mode::Parkour);
+		Menu::transition(Game::levels[Game::save.level_index], Game::Mode::Parkour);
 }
 
 void level_next()

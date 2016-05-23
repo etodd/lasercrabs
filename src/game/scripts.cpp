@@ -695,7 +695,7 @@ namespace Penelope
 
 		// show choices
 		data->menu.clear();
-		if (data->choices.active() && !fragment)
+		if (data->choices.active() && data->active_data_fragment == AssetNull)
 		{
 			const Choice& choice = data->choices.current();
 			if (choice.a != IDNull)

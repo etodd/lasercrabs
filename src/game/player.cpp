@@ -288,7 +288,8 @@ void LocalPlayer::update(const Update& u)
 						manager.ref()->ability_upgrade_start(Ability::Sensor);
 				}
 				{
-					b8 can_upgrade = !upgrade_in_progress
+					b8 can_upgrade = Game::level.has_feature(Game::FeatureLevel::All)
+						&& !upgrade_in_progress
 						&& manager.ref()->ability_upgrade_available(Ability::Teleporter)
 						&& manager.ref()->credits >= manager.ref()->ability_upgrade_cost(Ability::Teleporter);
 					u8 level = manager.ref()->ability_level[(s32)Ability::Teleporter];
@@ -297,7 +298,8 @@ void LocalPlayer::update(const Update& u)
 						manager.ref()->ability_upgrade_start(Ability::Teleporter);
 				}
 				{
-					b8 can_upgrade = !upgrade_in_progress
+					b8 can_upgrade = Game::level.has_feature(Game::FeatureLevel::All)
+						&& !upgrade_in_progress
 						&& manager.ref()->ability_upgrade_available(Ability::Minion)
 						&& manager.ref()->credits >= manager.ref()->ability_upgrade_cost(Ability::Minion);
 					u8 level = manager.ref()->ability_level[(s32)Ability::Minion];

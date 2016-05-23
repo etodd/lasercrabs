@@ -182,7 +182,7 @@ struct Mover : public ComponentType<Mover>
 };
 
 #define rope_segment_length 0.5f
-#define rope_radius 0.05f
+#define rope_radius 0.1f
 
 struct Rope : public ComponentType<Rope>
 {

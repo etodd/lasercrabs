@@ -77,20 +77,9 @@ struct Game
 		void reset(AssetID);
 	};
 
-	enum class Tutorial
-	{
-		Movement,
-		Health,
-		Sensors,
-		ControlPoints,
-		None,
-		count = None,
-	};
-
 	struct Level
 	{
 		FeatureLevel feature_level;
-		Tutorial tutorial;
 		r32 min_y;
 		Skybox::Config skybox;
 		b8 lock_teams;

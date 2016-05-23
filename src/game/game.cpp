@@ -92,7 +92,6 @@ const s32 Game::levels[] =
 	Asset::Level::level1,
 	Asset::Level::level2,
 	Asset::Level::level3,
-	Asset::Level::level4,
 	AssetNull,
 };
 
@@ -906,7 +905,6 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 			}
 
 			level.feature_level = (FeatureLevel)Json::get_s32(element, "feature_level", (s32)FeatureLevel::All);
-			level.tutorial = (Tutorial)Json::get_s32(element, "tutorial", (s32)Tutorial::None);
 
 			{
 				level.lock_teams = Json::get_s32(element, "lock_teams");

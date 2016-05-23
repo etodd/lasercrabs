@@ -65,7 +65,6 @@ struct AIPlayer
 	Ref<PlayerManager> manager;
 	Revision revision;
 	Config config;
-	r32 ready_time;
 
 	AIPlayer(PlayerManager*);
 	inline ID id() const

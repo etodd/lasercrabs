@@ -22,6 +22,7 @@
 #include "asset/shader.h"
 #include "asset/lookup.h"
 #include "asset/soundbank.h"
+#include "asset/font.h"
 #include "asset/Wwise_IDs.h"
 #include "asset/level.h"
 #include "strings.h"
@@ -108,16 +109,16 @@ void Game::Save::reset(AssetID level)
 	level_index = i;
 }
 
-void Game::Save::note(s32 id, b8 b)
+void Game::Save::data_fragment(s32 id, AssetID b)
 {
-	notes[id] = b;
+	data_fragments[id] = b;
 }
 
-b8 Game::Save::note(s32 id) const
+AssetID Game::Save::data_fragment(s32 id) const
 {
-	auto i = notes.find(id);
-	if (i == notes.end())
-		return false;
+	auto i = data_fragments.find(id);
+	if (i == data_fragments.end())
+		return AssetNull;
 	else
 		return i->second;
 }
@@ -140,6 +141,8 @@ b8 Game::init(LoopSync* sync)
 	if (!Audio::init())
 		return false;
 
+	Loader::font_permanent(Asset::Font::lowpoly);
+
 	if (!Loader::soundbank_permanent(Asset::Soundbank::Init))
 		return false;
 	if (!Loader::soundbank_permanent(Asset::Soundbank::SOUNDBANK))
@@ -156,8 +159,8 @@ b8 Game::init(LoopSync* sync)
 		sprintf(dialogue_string_file, "assets/str/dialogue_%s.json", language);
 		char misc_file[255];
 		sprintf(misc_file, "assets/str/misc_%s.json", language);
-		char notes_file[255];
-		sprintf(notes_file, "assets/str/notes_%s.json", language);
+		char data_fragments_file[255];
+		sprintf(data_fragments_file, "assets/str/data_fragments_%s.json", language);
 		Json::json_free(json_language);
 
 		// UI
@@ -193,9 +196,9 @@ b8 Game::init(LoopSync* sync)
 			}
 		}
 
-		// notes
+		// data fragments
 		{
-			cJSON* json = Json::load(notes_file);
+			cJSON* json = Json::load(data_fragments_file);
 			cJSON* element = json->child;
 			while (element)
 			{
@@ -758,7 +761,7 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 	const Vec3 pvp_accessible(0.6f);
 	const Vec3 pvp_inaccessible(0.0f);
 	const Vec3 pvp_sky(0.0f);
-	const Vec3 pvp_ambient(0.15f);
+	const Vec3 pvp_ambient(0.17f);
 	const Vec3 pvp_zenith(0.0f);
 	const Vec3 pvp_player_light(1.0f);
 
@@ -1022,7 +1025,7 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 		{
 			if (level.has_feature(FeatureLevel::HealthPickups))
 			{
-				entity = World::alloc<HealthPickupEntity>();
+				entity = World::alloc<HealthPickupEntity>(absolute_pos);
 
 				RopeEntry* rope = ropes.add();
 				rope->pos = absolute_pos + Vec3(0, 1, 0);
@@ -1075,10 +1078,7 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 		else if (cJSON_GetObjectItem(element, "DataFragment"))
 		{
 			if (state.mode == Mode::Parkour)
-			{
-				AssetID note = strings_get(Json::get_string(element, "DataFragment"));
-				entity = World::alloc<DataFragmentEntity>(absolute_pos, absolute_rot, note);
-			}
+				entity = World::alloc<DataFragmentEntity>(absolute_pos, absolute_rot);
 		}
 		else if (cJSON_GetObjectItem(element, "Prop"))
 		{

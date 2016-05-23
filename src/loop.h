@@ -70,7 +70,19 @@ s32 half_fbo3;
 s32 ui_buffer;
 s32 ui_fbo;
 
-Mat4 render_shadows(LoopSync* sync, s32 fbo, const Camera& main_camera, const Camera& shadow_camera)
+b8 draw_far_shadow_cascade = true;
+Mat4 far_shadow_cascade_vp;
+
+Mat4 relative_shadow_vp(const Camera& main_camera, const Camera& shadow_camera)
+{
+	Camera view_offset_camera = shadow_camera;
+
+	view_offset_camera.pos = shadow_camera.pos - main_camera.pos;
+	
+	return view_offset_camera.view() * shadow_camera.projection;
+}
+
+void render_shadows(LoopSync* sync, s32 fbo, const Camera& main_camera, const Camera& shadow_camera)
 {
 	// Render shadows
 	sync->write<RenderOp>(RenderOp::BindFramebuffer);
@@ -93,12 +105,6 @@ Mat4 render_shadows(LoopSync* sync, s32 fbo, const Camera& main_camera, const Ca
 	shadow_render_params.technique = RenderTechnique::Shadow;
 
 	Game::draw_opaque(shadow_render_params);
-
-	Camera view_offset_camera = shadow_camera;
-
-	view_offset_camera.pos = shadow_camera.pos - main_camera.pos;
-	
-	return view_offset_camera.view() * shadow_camera.projection;
 }
 
 void render_point_lights(const RenderParams& render_params, s32 type_mask, const Vec2& inv_buffer_size, u8 team)
@@ -257,7 +263,8 @@ void render_spot_lights(const RenderParams& render_params, s32 fbo, RenderBlendM
 			shadow_camera.perspective(light->fov, 1.0f, 0.1f, light->radius);
 			shadow_camera.pos = abs_pos;
 			shadow_camera.rot = abs_rot;
-			light_vp = render_shadows(sync, shadow_fbo[0], *render_params.camera, shadow_camera);
+			render_shadows(sync, shadow_fbo[0], *render_params.camera, shadow_camera);
+			light_vp = relative_shadow_vp(*render_params.camera, shadow_camera);
 
 			sync->write(RenderOp::DepthMask);
 			sync->write<b8>(false);
@@ -529,30 +536,35 @@ void draw(LoopSync* sync, const Camera* camera)
 					break;
 			}
 
-			Mat4 light_vp;
 			Mat4 detail_light_vp;
 
 			if (shadowed)
 			{
 				// Global shadow map
 				Camera shadow_camera;
-				shadow_camera.viewport =
-				{
-					Vec2(0, 0),
-					Vec2(shadow_map_size[(s32)Settings::shadow_quality][1], shadow_map_size[(s32)Settings::shadow_quality][1]),
-				};
 				r32 size = vi_min(800.0f, render_params.camera->far_plane * 1.5f);
 				Vec3 pos = render_params.camera->pos;
 				const r32 interval = size * 0.025f;
 				pos = Vec3((s32)(pos.x / interval), (s32)(pos.y / interval), (s32)(pos.z / interval)) * interval;
 				shadow_camera.pos = pos + (abs_directions[0] * size * -0.5f);
 				shadow_camera.rot = Quat::look(abs_directions[0]);
-
-				shadow_camera.orthographic(size, size, 1.0f, size * 2.0f);
 				shadow_camera.mask = RENDER_MASK_SHADOW;
 
-				light_vp = render_params.shadow_vp = render_shadows(sync, shadow_fbo[1], *render_params.camera, shadow_camera);
-				render_params.shadow_buffer = shadow_buffer[1];
+				if (draw_far_shadow_cascade) // only draw far shadow cascade every other frame
+				{
+					shadow_camera.viewport =
+					{
+						Vec2(0, 0),
+						Vec2(shadow_map_size[(s32)Settings::shadow_quality][1], shadow_map_size[(s32)Settings::shadow_quality][1]),
+					};
+					shadow_camera.orthographic(size, size, 1.0f, size * 2.0f);
+					far_shadow_cascade_vp = relative_shadow_vp(*render_params.camera, shadow_camera);
+					render_shadows(sync, shadow_fbo[1], *render_params.camera, shadow_camera);
+				}
+				draw_far_shadow_cascade = !draw_far_shadow_cascade;
+
+				render_params.shadow_vp = far_shadow_cascade_vp;
+				render_params.shadow_buffer = shadow_buffer[1]; // skybox needs this for volumetric lighting
 
 				// Detail shadow map
 				shadow_camera.viewport =
@@ -562,7 +574,8 @@ void draw(LoopSync* sync, const Camera* camera)
 				};
 				shadow_camera.orthographic(size * 0.15f, size * 0.15f, 1.0f, size * 2.0f);
 
-				detail_light_vp = render_shadows(sync, shadow_fbo[0], *render_params.camera, shadow_camera);
+				render_shadows(sync, shadow_fbo[0], *render_params.camera, shadow_camera);
+				detail_light_vp = relative_shadow_vp(*render_params.camera, shadow_camera);
 
 				sync->write<RenderOp>(RenderOp::Viewport);
 				sync->write<Rect2>(camera->viewport);
@@ -608,7 +621,7 @@ void draw(LoopSync* sync, const Camera* camera)
 				sync->write(Asset::Uniform::light_vp);
 				sync->write(RenderDataType::Mat4);
 				sync->write<s32>(1);
-				sync->write<Mat4>(inverse_view_rotation_only * light_vp);
+				sync->write<Mat4>(inverse_view_rotation_only * far_shadow_cascade_vp);
 
 				sync->write(RenderOp::Uniform);
 				sync->write(Asset::Uniform::shadow_map);

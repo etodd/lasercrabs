@@ -1,6 +1,5 @@
 #include "menu.h"
 #include "asset/level.h"
-#include "asset/font.h"
 #include "asset/mesh.h"
 #include "game.h"
 #include "player.h"
@@ -40,12 +39,10 @@ static State main_menu_state;
 
 void init()
 {
-	Loader::font_permanent(Asset::Font::lowpoly);
 	refresh_variables();
 
 	for (s32 i = 0; i < MAX_GAMEPADS; i++)
 	{
-		player_text[i].font = Asset::Font::lowpoly;
 		player_text[i].size = 18.0f;
 		player_text[i].anchor_x = UIText::Anchor::Center;
 		player_text[i].anchor_y = UIText::Anchor::Min;

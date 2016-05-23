@@ -8,7 +8,6 @@
 #include "console.h"
 #include "bullet/src/BulletCollision/NarrowPhaseCollision/btRaycastCallback.h"
 #include "physics.h"
-#include "asset/font.h"
 #include "asset/lookup.h"
 #include "asset/mesh.h"
 #include "asset/shader.h"
@@ -52,63 +51,6 @@ namespace VI
 #define text_size 16.0f
 #define damage_shake_time 0.7f
 #define third_person_offset 2.0f
-
-b8 flash_function(r32 time)
-{
-	return (b8)((s32)(time * 16.0f) % 2);
-}
-
-// projects a 3D point into screen space, limiting it to stay onscreen
-// returns true if the point is in front of the camera
-b8 is_onscreen(const RenderParams& params, const Vec3& pos, Vec2* out, Vec2* dir = nullptr)
-{
-	b8 on_screen = UI::project(params, pos, out);
-
-	const Rect2& viewport = params.camera->viewport;
-
-	Vec2 center = viewport.size * 0.5f;
-	Vec2 offset = *out - center;
-	if (!on_screen)
-		offset *= -1.0f;
-
-	r32 pointer_size = 48 * UI::scale;
-
-	r32 radius = vi_min(viewport.size.x, viewport.size.y) * 0.5f - pointer_size;
-
-	r32 offset_length = offset.length();
-	if ((offset_length > radius || (offset_length > 0.0f && !on_screen)))
-	{
-		offset *= radius / offset_length;
-		*out = center + offset;
-		if (dir)
-			*dir = offset;
-		return false;
-	}
-
-	if (dir)
-		*dir = offset;
-	return on_screen;
-}
-
-void draw_indicator(const RenderParams& params, const Vec3& pos, const Vec4& color, b8 offscreen, r32 scale = 1.0f, r32 rotation = 0.0f)
-{
-	if (offscreen)
-	{
-		// if the target is offscreen, point toward it
-		Vec2 p;
-		Vec2 offset;
-		if (is_onscreen(params, pos, &p, &offset))
-			UI::triangle_border(params, { p, Vec2(32 * scale) * UI::scale }, 4 * scale, color, rotation);
-		else
-			UI::triangle(params, { p, Vec2(24 * UI::scale * scale) }, color, atan2f(offset.y, offset.x) + PI * -0.5f);
-	}
-	else
-	{
-		Vec2 p;
-		if (UI::project(params, pos, &p))
-			UI::triangle_border(params, { p, Vec2(32 * UI::scale * scale) }, 4 * scale, color, rotation);
-	}
-}
 
 #define HP_BOX_SIZE (Vec2(text_size) * UI::scale)
 #define HP_BOX_SPACING (8.0f * UI::scale)
@@ -160,7 +102,6 @@ LocalPlayer::LocalPlayer(PlayerManager* m, u8 g)
 {
 	sprintf(manager.ref()->username, gamepad == 0 ? "etodd" : "etodd[%d]", gamepad); // todo: actual usernames
 
-	msg_text.font = Asset::Font::lowpoly;
 	msg_text.size = text_size;
 	msg_text.anchor_x = UIText::Anchor::Center;
 	msg_text.anchor_y = UIText::Anchor::Center;
@@ -385,13 +326,6 @@ void LocalPlayer::update(const Update& u)
 			// Player is currently dead
 			ensure_camera(u, true);
 
-			// if we are showing a tutorial message, make the user accept it
-			if (!manager.ref()->ready)
-			{
-				if (Game::time.total > TUTORIAL_TIME && !u.input->get(Controls::Interact, gamepad) && u.last_input->get(Controls::Interact, gamepad))
-					manager.ref()->ready = true;
-			}
-
 			break;
 		}
 		default:
@@ -443,7 +377,6 @@ void draw_icon_text(const RenderParams& params, const Vec2& pos, AssetID icon, c
 	r32 padding = 8 * UI::scale;
 
 	UIText text;
-	text.font = Asset::Font::lowpoly;
 	text.color = color;
 	text.size = text_size;
 	text.anchor_x = UIText::Anchor::Min;
@@ -466,7 +399,7 @@ void draw_ability(const RenderParams& params, PlayerManager* manager, const Vec2
 	const Vec4* color;
 	if (manager->current_spawn_ability == ability)
 		color = &UI::default_color;
-	else if (manager->credits > cost)
+	else if (manager->credits >= cost)
 		color = &UI::accent_color;
 	else
 		color = &UI::alert_color;
@@ -486,8 +419,8 @@ void LocalPlayer::draw_alpha(const RenderParams& params) const
 	if (msg_timer < msg_time)
 	{
 		r32 last_timer = msg_timer;
-		b8 flash = flash_function(Game::real_time.total);
-		b8 last_flash = flash_function(Game::real_time.total - Game::real_time.delta);
+		b8 flash = UI::flash_function(Game::real_time.total);
+		b8 last_flash = UI::flash_function(Game::real_time.total - Game::real_time.delta);
 		if (flash)
 		{
 			Vec2 pos = params.camera->viewport.size * Vec2(0.5f, 0.6f);
@@ -512,7 +445,7 @@ void LocalPlayer::draw_alpha(const RenderParams& params) const
 		b8 draw = true;
 		b8 flashing = manager.ref()->credits_flash_timer > 0.0f;
 		if (flashing)
-			draw = flash_function(Game::real_time.total);
+			draw = UI::flash_function(Game::real_time.total);
 
 		char buffer[128];
 		sprintf(buffer, "%d", manager.ref()->credits);
@@ -521,18 +454,9 @@ void LocalPlayer::draw_alpha(const RenderParams& params) const
 
 		// control point increment amount
 		{
-			AI::Team team = manager.ref()->team.ref()->team();
-			s32 control_points = 0;
-			for (auto i = ControlPoint::list.iterator(); !i.is_last(); i.next())
-			{
-				if (i.item()->team == team)
-					control_points++;
-			}
-
 			UIText text;
 			text.color = UI::accent_color;
-			text.text("+%d", CREDITS_DEFAULT_INCREMENT + control_points * CREDITS_CONTROL_POINT);
-			text.font = Asset::Font::lowpoly;
+			text.text("+%d", ControlPoint::increment(manager.ref()->team.ref()->team()));
 			text.anchor_x = UIText::Anchor::Center;
 			text.anchor_y = UIText::Anchor::Center;
 			text.size = text_size;
@@ -552,7 +476,6 @@ void LocalPlayer::draw_alpha(const RenderParams& params) const
 				UIText text;
 				text.color = UI::accent_color;
 				text.text(_(strings::upgrade_prompt));
-				text.font = Asset::Font::lowpoly;
 				text.anchor_x = UIText::Anchor::Center;
 				text.anchor_y = UIText::Anchor::Center;
 				text.size = text_size;
@@ -599,7 +522,6 @@ void LocalPlayer::draw_alpha(const RenderParams& params) const
 
 				const AbilityInfo& info = AbilityInfo::list[(s32)ability];
 				UIText text;
-				text.font = Asset::Font::lowpoly;
 				text.color = UI::accent_color;
 				text.size = text_size;
 				text.anchor_x = UIText::Anchor::Min;
@@ -628,52 +550,8 @@ void LocalPlayer::draw_alpha(const RenderParams& params) const
 			if (manager.ref()->spawn_timer > 0.0f)
 			{
 				// haven't spawned yet
-				if (PlayerManager::all_ready())
-				{
-					show_player_list = true;
-					show_spawning = true;
-				}
-				else 
-				{
-					// we need to show a tutorial message first
-					show_spawning = false;
-
-					if (manager.ref()->ready)
-						show_player_list = true;
-					else
-					{
-						show_player_list = false;
-
-						UIText text;
-						text.size = text_size;
-						text.font = Asset::Font::lowpoly;
-						text.wrap_width = MENU_ITEM_WIDTH - MENU_ITEM_PADDING * 2.0f;
-						text.anchor_x = UIText::Anchor::Center;
-						text.anchor_y = UIText::Anchor::Center;
-						text.color = UI::accent_color;
-						vi_assert(Game::level.tutorial < Game::Tutorial::count);
-						const AssetID tutorials[(s32)Game::Tutorial::count] =
-						{
-							strings::tut_pvp_movement,
-							strings::tut_pvp_health,
-							strings::tut_pvp_sensors,
-							strings::tut_pvp_control_points,
-						};
-						text.text(_(tutorials[(s32)Game::level.tutorial]));
-						Vec2 p = vp.size * Vec2(0.5f);
-						UI::box(params, text.rect(p).outset(MENU_ITEM_PADDING), UI::background_color);
-						text.draw(params, p);
-
-						if (Game::time.total > TUTORIAL_TIME)
-						{
-							p.y -= text.bounds().y + MENU_ITEM_PADDING * 2.0f;
-							text.text(_(strings::accept));
-							text.color = UI::accent_color;
-							UI::box(params, text.rect(p).outset(MENU_ITEM_PADDING), UI::background_color);
-							text.draw(params, p);
-						}
-					}
-				}
+				show_player_list = true;
+				show_spawning = true;
 			}
 			else
 			{
@@ -695,7 +573,6 @@ void LocalPlayer::draw_alpha(const RenderParams& params) const
 
 			UIText text;
 			text.size = text_size;
-			text.font = Asset::Font::lowpoly;
 			text.wrap_width = MENU_ITEM_WIDTH - MENU_ITEM_PADDING * 2.0f;
 			text.anchor_x = UIText::Anchor::Center;
 			text.anchor_y = UIText::Anchor::Max;
@@ -770,14 +647,13 @@ void LocalPlayer::draw_alpha(const RenderParams& params) const
 				color = &UI::alert_color;
 			}
 
-			if (remaining > 30.0f || flash_function(Game::real_time.total))
+			if (remaining > 30.0f || UI::flash_function(Game::real_time.total))
 				UI::mesh(params, icon, icon_pos, Vec2(text_size * UI::scale), *color);
 			
 			s32 remaining_minutes = remaining / 60.0f;
 			s32 remaining_seconds = remaining - (remaining_minutes * 60.0f);
 
 			UIText text;
-			text.font = Asset::Font::lowpoly;
 			text.anchor_x = UIText::Anchor::Min;
 			text.anchor_y = UIText::Anchor::Center;
 			text.color = *color;
@@ -789,7 +665,6 @@ void LocalPlayer::draw_alpha(const RenderParams& params) const
 		{
 			// show victory/defeat/draw message
 			UIText text;
-			text.font = Asset::Font::lowpoly;
 			text.anchor_x = UIText::Anchor::Center;
 			text.anchor_y = UIText::Anchor::Center;
 			text.size = 32.0f;
@@ -1605,22 +1480,22 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 			{
 				case TargetIndicator::Type::AwkVisible:
 				{
-					draw_indicator(params, indicator.pos, UI::alert_color, true);
+					UI::indicator(params, indicator.pos, UI::alert_color, true);
 					break;
 				}
 				case TargetIndicator::Type::AwkTracking:
 				{
-					draw_indicator(params, indicator.pos, UI::accent_color, true);
+					UI::indicator(params, indicator.pos, UI::accent_color, true);
 					break;
 				}
 				case TargetIndicator::Type::Health:
 				{
-					draw_indicator(params, indicator.pos, UI::accent_color, true, 1.0f, PI);
+					UI::indicator(params, indicator.pos, UI::accent_color, true, 1.0f, PI);
 					break;
 				}
 				case TargetIndicator::Type::Minion:
 				{
-					draw_indicator(params, indicator.pos, UI::alert_color, false);
+					UI::indicator(params, indicator.pos, UI::alert_color, false);
 					break;
 				}
 			}
@@ -1657,7 +1532,7 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 		for (auto t = Teleporter::list.iterator(); !t.is_last(); t.next())
 		{
 			if (t.item()->team == team)
-				draw_indicator(params, t.item()->get<Transform>()->absolute_pos(), target && t.item() == target ? UI::accent_color : Team::ui_color_friend, t.item() == target, scale);
+				UI::indicator(params, t.item()->get<Transform>()->absolute_pos(), target && t.item() == target ? UI::accent_color : Team::ui_color_friend, t.item() == target, scale);
 		}
 
 		if (target)
@@ -1666,13 +1541,12 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 			Vec3 pos3d = target->get<Transform>()->absolute_pos() + Vec3(0, AWK_RADIUS * 2.0f, 0);
 
 			Vec2 p;
-			is_onscreen(params, pos3d, &p);
+			UI::is_onscreen(params, pos3d, &p);
 
 			p.y += text_size * UI::scale;
 
 			UIText text;
 			text.size = text_size;
-			text.font = Asset::Font::lowpoly;
 			text.anchor_x = UIText::Anchor::Center;
 			text.anchor_y = UIText::Anchor::Min;
 			text.color = UI::accent_color;
@@ -1689,17 +1563,16 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 		&& !player.ref()->manager.ref()->at_spawn())
 	{
 		Vec3 spawn_pos = Team::list[(s32)team].player_spawn.ref()->absolute_pos();
-		draw_indicator(params, spawn_pos, Team::ui_color_friend, true);
+		UI::indicator(params, spawn_pos, Team::ui_color_friend, true);
 
 		UIText text;
 		text.color = Team::ui_color_friend;
 		text.text(_(strings::upgrade_notification));
-		text.font = Asset::Font::lowpoly;
 		text.anchor_x = UIText::Anchor::Center;
 		text.anchor_y = UIText::Anchor::Center;
 		text.size = text_size;
 		Vec2 p;
-		is_onscreen(params, spawn_pos, &p);
+		UI::is_onscreen(params, spawn_pos, &p);
 		p.y += text_size * 2.0f * UI::scale;
 		UI::box(params, text.rect(p).outset(8.0f * UI::scale), UI::background_color);
 		text.draw(params, p);
@@ -1733,14 +1606,14 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 				history = Team::list[(s32)team].player_track_history[other_player.item()->manager.id];
 
 				if (!tracking && !visible) // if we can actually see them, the indicator has already been added using add_target_indicator in the update function
-					draw_indicator(params, history.pos, UI::disabled_color, false);
+					UI::indicator(params, history.pos, UI::disabled_color, false);
 
 				Vec3 pos3d = history.pos + Vec3(0, AWK_RADIUS * 2.0f, 0);
 
 				if (tracking || visible)
 				{
 					// highlight the username and draw it even if it's offscreen
-					is_onscreen(params, pos3d, &p);
+					UI::is_onscreen(params, pos3d, &p);
 					draw = true;
 					if (team == other_player.item()->get<AIAgent>()->team) // friend
 						color = &Team::ui_color_friend;
@@ -1767,7 +1640,6 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 
 				UIText username;
 				username.size = text_size;
-				username.font = Asset::Font::lowpoly;
 				username.anchor_x = UIText::Anchor::Center;
 				username.anchor_y = UIText::Anchor::Min;
 				username.color = *color;
@@ -1795,7 +1667,7 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 
 				username.draw(params, username_pos);
 
-				if (draw_invincible && flash_function(Game::real_time.total))
+				if (draw_invincible && UI::flash_function(Game::real_time.total))
 					invincible.draw(params, invincible_pos); // danger!
 			}
 		}
@@ -1823,10 +1695,10 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 		if (enemy_attacking)
 		{
 			// we're being attacked; flash the compass
-			b8 show = flash_function(Game::real_time.total);
+			b8 show = UI::flash_function(Game::real_time.total);
 			if (show)
 				UI::mesh(params, Asset::Mesh::compass, viewport.size * Vec2(0.5f, 0.5f), compass_size, UI::alert_color);
-			if (show && !flash_function(Game::real_time.total - Game::real_time.delta))
+			if (show && !UI::flash_function(Game::real_time.total - Game::real_time.delta))
 				Audio::post_global_event(AK::EVENTS::PLAY_BEEP_BAD);
 		}
 	}
@@ -1841,7 +1713,7 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 		draw_hp_box(params, pos, health->hp_max);
 
 		b8 flash_hp = health_flash_timer > 0.0f;
-		if (!flash_hp || flash_function(Game::real_time.total))
+		if (!flash_hp || UI::flash_function(Game::real_time.total))
 			draw_hp_indicator(params, pos, health->hp, health->hp_max, flash_hp ? UI::default_color : Team::ui_color_friend);
 	}
 
@@ -1851,7 +1723,6 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 		UIText text;
 		text.color = UI::accent_color;
 		text.text(_(strings::stealth));
-		text.font = Asset::Font::lowpoly;
 		text.anchor_x = UIText::Anchor::Center;
 		text.anchor_y = UIText::Anchor::Center;
 		text.size = text_size;
@@ -1866,7 +1737,6 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 		UIText text;
 		text.color = UI::alert_color;
 		text.text(_(strings::stunned));
-		text.font = Asset::Font::lowpoly;
 		text.anchor_x = UIText::Anchor::Center;
 		text.anchor_y = UIText::Anchor::Center;
 		text.size = text_size;
@@ -1882,7 +1752,6 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 		if (detect_danger == 1.0f)
 		{
 			UIText text;
-			text.font = Asset::Font::lowpoly;
 			text.size = 18.0f;
 			text.color = UI::alert_color;
 			text.anchor_x = UIText::Anchor::Center;
@@ -1904,7 +1773,6 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 			UI::box(params, { bar.pos, Vec2(bar.size.x * detect_danger, bar.size.y) }, UI::alert_color);
 
 			UIText text;
-			text.font = Asset::Font::lowpoly;
 			text.size = 18.0f;
 			text.color = UI::background_color;
 			text.anchor_x = UIText::Anchor::Center;
@@ -1949,7 +1817,6 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 			UI::box(params, { bar.pos, Vec2(bar.size.x * (1.0f - (ability_timer / total_time)), bar.size.y) }, UI::accent_color);
 
 			UIText text;
-			text.font = Asset::Font::lowpoly;
 			text.size = 18.0f;
 			text.color = UI::background_color;
 			text.anchor_x = UIText::Anchor::Center;

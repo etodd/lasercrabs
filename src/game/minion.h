@@ -13,6 +13,7 @@ struct PlayerManager;
 struct Teleporter;
 
 #define MINION_HEAD_RADIUS 0.35f
+#define CONTAINMENT_FIELD_RADIUS 20.0f
 
 struct Minion : public Entity
 {

@@ -95,9 +95,6 @@ b8 Team::game_over()
 	if (NoclipControl::list.count() > 0)
 		return false;
 
-	if (!PlayerManager::all_ready())
-		return false;
-
 	if (Game::time.total > GAME_TIME_LIMIT)
 		return true;
 
@@ -602,23 +599,12 @@ PlayerManager::PlayerManager(Team* team)
 	ability_level{ (u8)(Game::level.has_feature(Game::FeatureLevel::Abilities) ? 1 : 0), 0, 0 },
 	entity(),
 	spawn(),
-	ready(Game::state.mode == Game::Mode::Parkour || Game::level.tutorial == Game::Tutorial::None || Game::save.round > 0),
 	current_spawn_ability(Ability::None),
 	current_upgrade_ability(Ability::None),
 	upgrade_timer(),
 	ability_spawned(),
 	ability_upgraded()
 {
-}
-
-b8 PlayerManager::all_ready()
-{
-	for (auto i = PlayerManager::list.iterator(); !i.is_last(); i.next())
-	{
-		if (!i.item()->ready)
-			return false;
-	}
-	return true;
 }
 
 b8 PlayerManager::ability_upgrade_start(Ability a)
@@ -727,7 +713,7 @@ void PlayerManager::update(const Update& u)
 {
 	credits_flash_timer = vi_max(0.0f, credits_flash_timer - Game::real_time.delta);
 
-	if (!entity.ref() && spawn_timer > 0.0f && all_ready() && team.ref()->player_spawn.ref())
+	if (!entity.ref() && spawn_timer > 0.0f && team.ref()->player_spawn.ref())
 	{
 		spawn_timer -= u.time.delta;
 		if (spawn_timer <= 0.0f)

@@ -68,11 +68,12 @@ struct Game
 	struct Save
 	{
 		s32 level_index;
+		s32 data_fragment_index;
 		s32 round;
 		std::unordered_map<AssetID, AssetID> variables; // todo: kill STL
-		std::unordered_map<s32, b8> notes;
-		b8 note(s32) const;
-		void note(s32, b8);
+		std::unordered_map<s32, AssetID> data_fragments;
+		AssetID data_fragment(s32) const;
+		void data_fragment(s32, AssetID);
 		void reset(AssetID);
 	};
 

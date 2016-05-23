@@ -4,13 +4,14 @@
 #include "render/render.h"
 #include "utf8/utf8.h"
 #include "strings.h"
+#include "asset/font.h"
 
 namespace VI
 {
 
 UIText::UIText()
 	: color(UI::default_color),
-	font(),
+	font(Asset::Font::lowpoly),
 	size(16),
 	rendered_string(),
 	normalized_bounds(),
@@ -902,6 +903,63 @@ void UI::sprite(const RenderParams& p, s32 texture, const Rect2& r, const Vec4& 
 		tb->uv = uv;
 		tb->rect = r;
 		tb->rotation = rot;
+	}
+}
+
+b8 UI::flash_function(r32 time)
+{
+	return (b8)((s32)(time * 16.0f) % 2);
+}
+
+// projects a 3D point into screen space, limiting it to stay onscreen
+// returns true if the point is in front of the camera
+b8 UI::is_onscreen(const RenderParams& params, const Vec3& pos, Vec2* out, Vec2* dir)
+{
+	b8 on_screen = UI::project(params, pos, out);
+
+	const Rect2& viewport = params.camera->viewport;
+
+	Vec2 center = viewport.size * 0.5f;
+	Vec2 offset = *out - center;
+	if (!on_screen)
+		offset *= -1.0f;
+
+	r32 pointer_size = 48 * UI::scale;
+
+	r32 radius = vi_min(viewport.size.x, viewport.size.y) * 0.5f - pointer_size;
+
+	r32 offset_length = offset.length();
+	if ((offset_length > radius || (offset_length > 0.0f && !on_screen)))
+	{
+		offset *= radius / offset_length;
+		*out = center + offset;
+		if (dir)
+			*dir = offset;
+		return false;
+	}
+
+	if (dir)
+		*dir = offset;
+	return on_screen;
+}
+
+void UI::indicator(const RenderParams& params, const Vec3& pos, const Vec4& color, b8 offscreen, r32 scale, r32 rotation)
+{
+	if (offscreen)
+	{
+		// if the target is offscreen, point toward it
+		Vec2 p;
+		Vec2 offset;
+		if (is_onscreen(params, pos, &p, &offset))
+			UI::triangle_border(params, { p, Vec2(28 * scale) * UI::scale }, 4 * scale, color, rotation);
+		else
+			UI::triangle(params, { p, Vec2(24 * UI::scale * scale) }, color, atan2f(offset.y, offset.x) + PI * -0.5f);
+	}
+	else
+	{
+		Vec2 p;
+		if (UI::project(params, pos, &p))
+			UI::triangle_border(params, { p, Vec2(28 * UI::scale * scale) }, 4 * scale, color, rotation);
 	}
 }
 

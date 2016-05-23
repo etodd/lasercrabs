@@ -7,7 +7,6 @@
 #include "asset/shader.h"
 #include "asset/texture.h"
 #include "asset/mesh.h"
-#include "asset/font.h"
 #include "recast/Detour/Include/DetourNavMeshQuery.h"
 #include "mersenne/mersenne-twister.h"
 #include "game.h"
@@ -94,9 +93,9 @@ b8 Health::is_full() const
 	return hp >= hp_max;
 }
 
-HealthPickupEntity::HealthPickupEntity()
+HealthPickupEntity::HealthPickupEntity(const Vec3& p)
 {
-	create<Transform>();
+	create<Transform>()->pos = p;
 	View* model = create<View>();
 	model->color = Vec4(0.6f, 0.6f, 0.6f, MATERIAL_NO_OVERRIDE);
 	model->mesh = Asset::Mesh::target;
@@ -330,7 +329,8 @@ void ControlPoint::update_all(const Update& u)
 		if (timer < 0.0f)
 		{
 			// give points to teams based on how many control points they own
-			s32 reward_buffer[(s32)AI::Team::count] = { CREDITS_DEFAULT_INCREMENT, CREDITS_DEFAULT_INCREMENT };
+			s32 initial = Game::level.has_feature(Game::FeatureLevel::All) ? CREDITS_DEFAULT_INCREMENT : 0;
+			s32 reward_buffer[(s32)AI::Team::count] = { initial, initial };
 
 			for (auto i = list.iterator(); !i.is_last(); i.next())
 			{
@@ -348,6 +348,18 @@ void ControlPoint::update_all(const Update& u)
 			timer = CONTROL_POINT_INTERVAL;
 		}
 	}
+}
+
+u16 ControlPoint::increment(AI::Team team)
+{
+	s32 control_points = 0;
+	for (auto i = list.iterator(); !i.is_last(); i.next())
+	{
+		if (i.item()->team == team)
+			control_points++;
+	}
+	u16 initial = Game::level.has_feature(Game::FeatureLevel::All) ? CREDITS_DEFAULT_INCREMENT : 0;
+	return initial + control_points * CREDITS_CONTROL_POINT;
 }
 
 // gets the first control point that would be visible to a sensor at the given position
@@ -1135,9 +1147,14 @@ void DataFragment::awake()
 	}
 }
 
+AssetID DataFragment::text() const
+{
+	return Game::save.data_fragment(hash());
+}
+
 b8 DataFragment::collected() const
 {
-	return Game::save.note(hash());
+	return text() != AssetNull;
 }
 
 s32 DataFragment::hash() const
@@ -1147,19 +1164,27 @@ s32 DataFragment::hash() const
 
 void DataFragment::collect()
 {
-	Game::save.note(hash(), true);
-	get<PointLight>()->radius = 0.0f;
-	get<View>()->color = Vec3(0.5f);
-
-	Vec3 pos = get<Transform>()->absolute_pos();
-	for (s32 i = 0; i < 50; i++)
+	if (!collected())
 	{
-		Particles::sparks.add
-		(
-			pos,
-			Vec3(mersenne::randf_oo() * 2.0f - 1.0f, mersenne::randf_oo(), mersenne::randf_oo() * 2.0f - 1.0f) * 10.0f,
-			Vec4(1, 1, 0, 1)
-		);
+		char key[64];
+		sprintf(key, "fragment_%d", Game::save.data_fragment_index);
+		AssetID text = strings_get(key);
+		Game::save.data_fragment(hash(), text);
+		Game::save.data_fragment_index++;
+
+		get<PointLight>()->radius = 0.0f;
+		get<View>()->color = Vec3(0.5f);
+
+		Vec3 pos = get<Transform>()->absolute_pos();
+		for (s32 i = 0; i < 50; i++)
+		{
+			Particles::sparks.add
+			(
+				pos,
+				Vec3(mersenne::randf_oo() * 2.0f - 1.0f, mersenne::randf_oo(), mersenne::randf_oo() * 2.0f - 1.0f) * 10.0f,
+				Vec4(1, 1, 0, 1)
+			);
+		}
 	}
 }
 
@@ -1189,7 +1214,7 @@ s32 DataFragment::count_collected()
 	return count;
 }
 
-DataFragmentEntity::DataFragmentEntity(const Vec3& abs_pos, const Quat& abs_rot, AssetID note)
+DataFragmentEntity::DataFragmentEntity(const Vec3& abs_pos, const Quat& abs_rot)
 {
 	Transform* transform = create<Transform>();
 	transform->pos = abs_pos;
@@ -1204,7 +1229,7 @@ DataFragmentEntity::DataFragmentEntity(const Vec3& abs_pos, const Quat& abs_rot,
 	model->alpha();
 	model->shader = Asset::Shader::flat;
 
-	create<DataFragment>()->note = note;
+	create<DataFragment>();
 }
 
 

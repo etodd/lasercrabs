@@ -46,7 +46,7 @@ struct Health : public ComponentType<Health>
 #define HEALTH_PICKUP_RADIUS 0.55f
 struct HealthPickupEntity : public Entity
 {
-	HealthPickupEntity();
+	HealthPickupEntity(const Vec3&);
 };
 
 struct HealthPickup : public ComponentType<HealthPickup>
@@ -141,7 +141,7 @@ struct DataFragment : public ComponentType<DataFragment>
 {
 	b8 collected() const;
 	s32 hash() const;
-	AssetID note;
+	AssetID text() const;
 	void awake();
 	void collect();
 	static DataFragment* in_range(const Vec3&);
@@ -150,7 +150,7 @@ struct DataFragment : public ComponentType<DataFragment>
 
 struct DataFragmentEntity : public Entity
 {
-	DataFragmentEntity(const Vec3&, const Quat&, AssetID);
+	DataFragmentEntity(const Vec3&, const Quat&);
 };
 
 struct MoverEntity : public Entity
@@ -204,6 +204,7 @@ struct ControlPoint : public ComponentType<ControlPoint>
 	static r32 timer;
 	static void update_all(const Update&);
 	static ControlPoint* visible_from(const Vec3&);
+	static u16 increment(AI::Team);
 	AI::Team team;
 	ControlPoint();
 	void awake() {}

@@ -131,15 +131,12 @@ struct PlayerManager
 	Ref<Entity> entity;
 	Link spawn;
 	u8 ability_level[(s32)Ability::count];
-	b8 ready;
 	r32 spawn_ability_timer;
 	r32 upgrade_timer;
 	Ability current_spawn_ability;
 	Ability current_upgrade_ability;
 	LinkArg<Ability> ability_spawned;
 	LinkArg<Ability> ability_upgraded;
-
-	static b8 all_ready();
 
 	b8 ability_spawn_start(Ability);
 	void ability_spawn_stop(Ability);

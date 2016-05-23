@@ -47,16 +47,13 @@ AIPlayer::Config::Config()
 AIPlayer::AIPlayer(PlayerManager* m)
 	: manager(m),
 	revision(),
-	config(),
-	ready_time(2.1f + mersenne::randf_cc() * 4.0f)
+	config()
 {
 	m->spawn.link<AIPlayer, &AIPlayer::spawn>(this);
 }
 
 void AIPlayer::update(const Update& u)
 {
-	if (!manager.ref()->ready && Game::real_time.total > ready_time)
-		manager.ref()->ready = true;
 }
 
 void AIPlayer::spawn()

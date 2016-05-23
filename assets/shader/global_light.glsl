@@ -39,7 +39,7 @@ uniform sampler2DShadow detail_shadow_map;
 uniform vec3 player_light;
 uniform float far_plane;
 
-const float AWK_MAX_DISTANCE = 30.0f;
+const float AWK_MAX_DISTANCE = 25.0f + 2.0f; // includes third-person camera offset
 
 out vec4 out_color;
 

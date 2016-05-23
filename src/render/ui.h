@@ -95,6 +95,11 @@ struct UI
 
 	// Cue up a sprite to be rendered later
 	static void sprite(const RenderParams&, s32, const Rect2&, const Vec4& = Vec4(1, 1, 1, 1), const Rect2& = { Vec2::zero, Vec2(1, 1) }, r32 = 0.0f, const Vec2& = Vec2(0.5f), AssetID = AssetNull);
+
+	static b8 flash_function(r32);
+	static b8 is_onscreen(const RenderParams&, const Vec3&, Vec2*, Vec2* = nullptr);
+	static void indicator(const RenderParams&, const Vec3&, const Vec4&, b8, r32 = 1.0f, r32 = 0.0f);
+
 #if DEBUG
 	static Array<Vec3> debugs;
 	static void debug(const Vec3&);

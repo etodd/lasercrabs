@@ -8,7 +8,7 @@ namespace Asset
 {
 	namespace String
 	{
-		const s32 count = 327;
+		const s32 count = 328;
 		const AssetID _default = 0;
 		const AssetID ability_description = 1;
 		const AssetID ability_lvl = 2;
@@ -327,15 +327,16 @@ namespace Asset
 		const AssetID tut_parkour_wallrun = 315;
 		const AssetID tut_pvp_control_points = 316;
 		const AssetID tut_pvp_health = 317;
-		const AssetID tut_pvp_movement = 318;
-		const AssetID tut_pvp_sensors = 319;
-		const AssetID tutorial = 320;
-		const AssetID tutorial_intro = 321;
-		const AssetID upgrade_notification = 322;
-		const AssetID upgrade_prompt = 323;
-		const AssetID upgrading = 324;
-		const AssetID victory = 325;
-		const AssetID yes = 326;
+		const AssetID tut_pvp_kill_player = 318;
+		const AssetID tut_pvp_minion = 319;
+		const AssetID tut_pvp_upgrade = 320;
+		const AssetID tutorial = 321;
+		const AssetID tutorial_intro = 322;
+		const AssetID upgrade_notification = 323;
+		const AssetID upgrade_prompt = 324;
+		const AssetID upgrading = 325;
+		const AssetID victory = 326;
+		const AssetID yes = 327;
 	}
 }
 

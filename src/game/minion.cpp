@@ -89,7 +89,7 @@ MinionCommon::~MinionCommon()
 
 void MinionCommon::create_containment_field()
 {
-	get<PlayerTrigger>()->radius = AWK_MAX_DISTANCE;
+	get<PlayerTrigger>()->radius = CONTAINMENT_FIELD_RADIUS;
 
 	Entity* f = World::alloc<Empty>();
 	f->get<Transform>()->absolute_pos(get<Transform>()->absolute_pos());
@@ -132,7 +132,7 @@ b8 MinionCommon::inside_containment_field(AI::Team my_team, const Vec3& pos)
 {
 	for (auto i = list.iterator(); !i.is_last(); i.next())
 	{
-		if (i.item()->get<AIAgent>()->team != my_team && (pos - i.item()->get<Transform>()->absolute_pos()).length_squared() < AWK_MAX_DISTANCE * AWK_MAX_DISTANCE)
+		if (i.item()->get<AIAgent>()->team != my_team && (pos - i.item()->get<Transform>()->absolute_pos()).length_squared() < CONTAINMENT_FIELD_RADIUS * CONTAINMENT_FIELD_RADIUS)
 			return true;
 	}
 	return false;
@@ -161,14 +161,14 @@ MinionCommon* MinionCommon::closest(AI::Team my_team, const Vec3& pos, r32* dist
 
 void MinionCommon::player_exited(Entity* player)
 {
-	if (player->get<AIAgent>()->team != get<AIAgent>()->team)
+	if (player->get<AIAgent>()->team != get<AIAgent>()->team
+		&& player->get<Health>()->hp > 1) // don't kill the player
 	{
+		player->get<Health>()->damage(entity(), 1);
+
 		Vec3 pos;
 		Quat rot;
 		player->get<Transform>()->absolute(&pos, &rot);
-
-		player->get<Health>()->damage(entity(), 1);
-
 		for (s32 i = 0; i < 50; i++)
 		{
 			Particles::sparks.add

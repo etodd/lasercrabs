@@ -12,6 +12,7 @@
 #include "asset/texture.h"
 #include "asset/shader.h"
 #include "asset/dialogue.h"
+#include "asset/font.h"
 #include "menu.h"
 #include "render/views.h"
 #include "cjson/cJSON.h"
@@ -127,6 +128,8 @@ namespace Penelope
 
 	void global_init()
 	{
+		Loader::font_permanent(Asset::Font::pt_sans);
+
 		Array<cJSON*> trees;
 		std::unordered_map<std::string, ID> id_lookup;
 
@@ -424,6 +427,7 @@ namespace Penelope
 		Mode mode;
 		ID current_text_node;
 		AssetID entry_point;
+		AssetID active_data_fragment;
 		r32 fragment_time;
 		Matchmake matchmake_mode;
 		r32 matchmake_timer;
@@ -440,7 +444,7 @@ namespace Penelope
 
 	b8 has_focus()
 	{
-		return data && data->mode == Mode::Center;
+		return data && (data->mode == Mode::Center || data->active_data_fragment != AssetNull);
 	}
 
 	void terminal_active(b8 active)
@@ -684,9 +688,14 @@ namespace Penelope
 		if (data->choices.update(u, data->time))
 			data->menu.animate();
 
+		// data fragment
+		DataFragment* fragment = nullptr;
+		if (PlayerCommon::list.count() > 0)
+			fragment = DataFragment::in_range(PlayerCommon::list.iterator().item()->get<Transform>()->absolute_pos());
+
 		// show choices
 		data->menu.clear();
-		if (data->choices.active())
+		if (data->choices.active() && !fragment)
 		{
 			const Choice& choice = data->choices.current();
 			if (choice.a != IDNull)
@@ -727,36 +736,34 @@ namespace Penelope
 			}
 		}
 
-		// data fragment
-		DataFragment* fragment = nullptr;
-		if (PlayerCommon::list.count() > 0)
-			fragment = DataFragment::in_range(PlayerCommon::list.iterator().item()->get<Transform>()->absolute_pos());
-
 		// get focus if we need it
-		if (data->choices.active() && !has_focus()) // penelope is waiting on us, but she doesn't have focus yet
+		if (data->choices.active() && !has_focus() // penelope is waiting on us, but she doesn't have focus yet
+			&& !fragment) // fragments take precedence over dialogue
 		{
-			if (!fragment || fragment->collected()) // uncollected fragments take precedence over dialogue
-			{
-				if (!Console::visible && u.last_input->get(Controls::Interact, 0) && !u.input->get(Controls::Interact, 0))
-					data->mode = Mode::Center; // we have focus now!
-			}
+			if (!Console::visible && u.last_input->get(Controls::Interact, 0) && !u.input->get(Controls::Interact, 0))
+				data->mode = Mode::Center; // we have focus now!
 		}
 
-		// collect data fragment
+		// data fragments
 		{
-			if (fragment && !fragment->collected())
+			if (data->active_data_fragment == AssetNull)
 			{
-				if (!Console::visible && u.last_input->get(Controls::Interact, 0) && !u.input->get(Controls::Interact, 0))
-					fragment->collect();
-			}
-
-			if (fragment && fragment->collected())
-			{
-				if (data->fragment_time == 0.0f)
-					data->fragment_time = Game::real_time.total;
+				if (fragment)
+				{
+					if (!Console::visible && u.last_input->get(Controls::Interact, 0) && !u.input->get(Controls::Interact, 0))
+					{
+						fragment->collect();
+						data->active_data_fragment = fragment->text();
+						data->fragment_time = Game::real_time.total;
+					}
+				}
 			}
 			else
-				data->fragment_time = 0.0f;
+			{
+				// we're reading a data fragment
+				if (!Console::visible && u.last_input->get(Controls::Cancel, 0) && !u.input->get(Controls::Cancel, 0))
+					data->active_data_fragment = AssetNull;
+			}
 		}
 
 		switch (data->matchmake_mode)
@@ -772,6 +779,7 @@ namespace Penelope
 				{
 					data->matchmake_mode = Matchmake::Found;
 					data->matchmake_timer = 15.0f;
+					data->active_data_fragment = AssetNull; // if we're looking at a data fragment, close it
 					clear_and_execute(node_lookup[Asset::String::match_found], 0.25f);
 				}
 				break;
@@ -812,33 +820,52 @@ namespace Penelope
 		}
 
 		// fragment UI
-		if (fragment)
+		if (data->active_data_fragment == AssetNull)
 		{
+			if (fragment)
+			{
+				// prompt to read it
+				UIText text;
+				text.anchor_x = UIText::Anchor::Center;
+				text.anchor_y = UIText::Anchor::Max;
+				text.size = 16.0f;
+				text.color = UI::accent_color;
+				text.text("[{{Interact}}]");
+
+				Vec2 p = vp.size * Vec2(0.5f, 0.9f);
+				UI::box(params, text.rect(p).outset(8.0f * UI::scale), UI::background_color);
+				text.draw(params, p);
+			}
+		}
+		else
+		{
+			// reading the data fragment
 			UIText text;
 			text.anchor_x = UIText::Anchor::Center;
 			text.anchor_y = UIText::Anchor::Max;
-			text.size = 16.0f;
-
-			if (fragment->collected())
-			{
-				text.color = UI::default_color;
-				text.wrap_width = MENU_ITEM_WIDTH - MENU_ITEM_PADDING * 2.0f;
-				text.text(_(strings::data_fragment), DataFragment::count_collected(), DataFragment::list.count(), _(fragment->note));
-				text.clip = 1 + (s32)((Game::real_time.total - data->fragment_time) * 80.0f);
-			}
-			else // hasn't been collected yet
-			{
-				text.color = UI::accent_color;
-				text.text("[{{Interact}}]");
-			}
-
+			text.size = 20.0f;
+			text.font = Asset::Font::pt_sans;
+			text.color = UI::default_color;
+			text.wrap_width = MENU_ITEM_WIDTH * 1.5f;
+			text.text(_(strings::data_fragment), DataFragment::count_collected(), DataFragment::list.count(), _(fragment->text()));
+			text.clip = 1 + (s32)((Game::real_time.total - data->fragment_time) * 160.0f);
 			Vec2 p = vp.size * Vec2(0.5f, 0.9f);
+			UI::box(params, text.rect(p).outset(16.0f * UI::scale), UI::background_color);
+			text.draw(params, p);
+
+			text.color = UI::accent_color;
+			text.font = Asset::Font::lowpoly;
+			text.size = 16.0f;
+			text.clip = 0;
+			text.wrap_width = 0;
+			text.text("[{{Cancel}}]");
+			p = vp.size * Vec2(0.5f, 0.1f);
 			UI::box(params, text.rect(p).outset(8.0f * UI::scale), UI::background_color);
 			text.draw(params, p);
 		}
 
 		// prompt the player to interact if near a terminal or if penelope is waiting on the player to answer a question
-		if (!fragment || fragment->collected()) // if there's an uncollected fragment, that takes precedence
+		if (!fragment) // if there's a fragment, that takes precedence
 		{
 			b8 show_interact_prompt = false;
 			Vec2 p;
@@ -897,37 +924,37 @@ namespace Penelope
 
 		// penelope face and UI
 
-		Face face = data->faces.current();
-
-		r32 scale = UI::scale;
-		Vec2 pos;
-		switch (data->mode)
+		if (data->mode != Mode::Hidden && data->active_data_fragment == AssetNull) // hide penelope while reading a data fragment
 		{
-			case Mode::Center:
-			{
-				pos = vp.pos + vp.size * Vec2(0.5f, 0.6f);
-				scale *= 4.0f;
-				break;
-			}
-			case Mode::Left:
-			{
-				pos = vp.pos + vp.size * Vec2(0.1f, 0.25f);
-				scale *= 3.0f;
-				break;
-			}
-			case Mode::Hidden:
-			{
-				break;
-			}
-			default:
-			{
-				vi_assert(false);
-				break;
-			}
-		}
+			Face face = data->faces.current();
 
-		if (data->mode != Mode::Hidden)
-		{
+			r32 scale = UI::scale;
+			Vec2 pos;
+			switch (data->mode)
+			{
+				case Mode::Center:
+				{
+					pos = vp.pos + vp.size * Vec2(0.5f, 0.6f);
+					scale *= 4.0f;
+					break;
+				}
+				case Mode::Left:
+				{
+					pos = vp.pos + vp.size * Vec2(0.1f, 0.25f);
+					scale *= 3.0f;
+					break;
+				}
+				case Mode::Hidden:
+				{
+					break;
+				}
+				default:
+				{
+					vi_assert(false);
+					break;
+				}
+			}
+
 			if (face == Face::Default)
 			{
 				// blink
@@ -999,7 +1026,7 @@ namespace Penelope
 		}
 
 		// text
-		if (data->text.has_text())
+		if (data->text.has_text() && data->active_data_fragment == AssetNull)
 		{
 			Vec2 pos;
 			switch (data->mode)
@@ -1008,20 +1035,23 @@ namespace Penelope
 				{
 					data->text.anchor_x = UIText::Anchor::Center;
 					data->text.anchor_y = UIText::Anchor::Max;
+					data->text.color = UI::default_color;
 					pos = Vec2(vp.size.x * 0.5f, vp.size.y * 0.6f) + Vec2(0, -100 * UI::scale);
 					break;
 				}
 				case Mode::Hidden:
 				{
 					data->text.anchor_x = UIText::Anchor::Center;
-					data->text.anchor_y = UIText::Anchor::Min;
-					pos = Vec2(vp.size.x * 0.5f, vp.size.y * 0.3f);
+					data->text.anchor_y = UIText::Anchor::Max;
+					data->text.color = UI::accent_color;
+					pos = Vec2(vp.size.x * 0.5f, vp.size.y * 0.9f);
 					break;
 				}
 				case Mode::Left:
 				{
 					data->text.anchor_x = UIText::Anchor::Min;
 					data->text.anchor_y = UIText::Anchor::Center;
+					data->text.color = UI::default_color;
 					pos = Vec2(vp.size.x * 0.18f, vp.size.y * 0.25f);
 					break;
 				}
@@ -1037,8 +1067,7 @@ namespace Penelope
 		}
 
 		// menu
-		if (!fragment || fragment->collected()) // if there's an uncollected fragment, that takes precedence
-			data->menu.draw_alpha(params);
+		data->menu.draw_alpha(params);
 	}
 
 	void cleanup()
@@ -1070,21 +1099,20 @@ namespace Penelope
 
 	void init(AssetID entry_point)
 	{
+		data = new Data();
+		data->entry_point = entry_point;
+		data->active_data_fragment = AssetNull;
+		Audio::dialogue_done = false;
+		Game::updates.add(update);
+		Game::cleanups.add(cleanup);
+		Game::draws.add(draw);
+
+		data->node_executed.link(&node_executed);
+
+		variable(strings::matchmaking, AssetNull);
+
 		if (Game::state.mode == Game::Mode::Parkour)
-		{
-			data = new Data();
-			data->entry_point = entry_point;
-			Audio::dialogue_done = false;
-			Game::updates.add(update);
-			Game::cleanups.add(cleanup);
-			Game::draws.add(draw);
-
 			Loader::texture(Asset::Texture::penelope, RenderTextureWrap::Clamp, RenderTextureFilter::Nearest);
-
-			data->node_executed.link(&node_executed);
-
-			variable(strings::matchmaking, AssetNull);
-		}
 	}
 
 	void add_terminal(Entity* term)
@@ -1134,20 +1162,27 @@ namespace scene
 
 namespace tutorial
 {
-	enum class TutorialState { Jump, Climb, Done };
+	enum class TutorialState
+	{
+		ParkourJump, ParkourClimb,
+		PvpKillMinion, PvpGetHealth, PvpControlPoint, PvpUpgrade, PvpKillPlayer,
+		Done,
+	};
 
 	struct Data
 	{
 		TutorialState state;
+		Ref<Transform> health_location;
+		Ref<ControlPoint> control_point;
 	};
 
 	Data* data;
 
 	void jump_success(Entity*)
 	{
-		if (data->state == TutorialState::Jump)
+		if (data->state == TutorialState::ParkourJump)
 		{
-			data->state = TutorialState::Climb;
+			data->state = TutorialState::ParkourClimb;
 			Penelope::data->texts.clear();
 			Penelope::data->texts.schedule(0.0f, _(strings::tut_parkour_climb));
 		}
@@ -1155,11 +1190,64 @@ namespace tutorial
 
 	void climb_success(Entity*)
 	{
-		if (data->state == TutorialState::Climb)
+		if (data->state == TutorialState::ParkourClimb)
 		{
 			data->state = TutorialState::Done;
 			Penelope::clear();
 		}
+	}
+
+	void health_got(const TargetEvent& e)
+	{
+		LocalPlayer::list.iterator().item()->manager.ref()->credits = CREDITS_INITIAL;
+		data->state = TutorialState::PvpControlPoint;
+		Penelope::data->texts.clear();
+		Penelope::data->texts.schedule(0.0f, _(strings::tut_pvp_control_points));
+		Game::level.feature_level = Game::FeatureLevel::ControlPoints;
+	}
+
+	void minion_killed(Entity*)
+	{
+		// spawn health
+		Vec3 pos = data->health_location.ref()->absolute_pos();
+		Entity* health = World::create<HealthPickupEntity>(pos);
+		Rope::spawn(pos + Vec3(0, 1, 0), Vec3(0, 1, 0), 20.0f);
+		health->get<Target>()->target_hit.link(&health_got);
+
+		Game::level.feature_level = Game::FeatureLevel::HealthPickups;
+
+		data->state = TutorialState::PvpGetHealth;
+		Penelope::data->texts.clear();
+		Penelope::data->texts.schedule(0.0f, _(strings::tut_pvp_health));
+	}
+
+	void update(const Update& u)
+	{
+		if (data->state == TutorialState::PvpControlPoint)
+		{
+			if (data->control_point.ref()->team != AI::Team::None)
+			{
+				LocalPlayer::list.iterator().item()->manager.ref()->credits = 300;
+				data->state = TutorialState::PvpUpgrade;
+				Penelope::data->texts.clear();
+				Penelope::data->texts.schedule(0.0f, _(strings::tut_pvp_upgrade));
+			}
+		}
+		else if (data->state == TutorialState::PvpUpgrade)
+		{
+			if (LocalPlayer::list.iterator().item()->manager.ref()->ability_level[(s32)Ability::Sensor] == 2)
+			{
+				data->state = TutorialState::PvpKillPlayer;
+				Penelope::data->texts.clear();
+				Penelope::data->texts.schedule(0.0f, _(strings::tut_pvp_kill_player));
+			}
+		}
+	}
+
+	void draw(const RenderParams& params)
+	{
+		if (data->state == TutorialState::PvpControlPoint)
+			UI::indicator(params, data->control_point.ref()->get<Transform>()->absolute_pos(), UI::accent_color, true);
 	}
 
 	void cleanup()
@@ -1170,8 +1258,20 @@ namespace tutorial
 
 	void init(const Update& u, const EntityFinder& entities)
 	{
+		Game::level.feature_level = Game::FeatureLevel::Base;
+
+		data = new Data();
+		Game::draws.add(&draw);
+		Game::updates.add(&update);
+		Game::cleanups.add(&cleanup);
+
 		if (Game::state.mode == Game::Mode::Pvp)
 		{
+			data->health_location = entities.find("health")->get<Transform>();
+			data->control_point = entities.find("control_point")->get<ControlPoint>();
+
+			entities.find("minion")->get<Health>()->killed.link(&minion_killed);
+
 			PlayerManager* manager = PlayerManager::list.add();
 			new (manager) PlayerManager(&Team::list[(s32)AI::Team::B]);
 
@@ -1184,12 +1284,12 @@ namespace tutorial
 			config->high_level = AIPlayer::HighLevelLoop::Noop;
 			config->low_level = AIPlayer::LowLevelLoop::Noop;
 			config->hp_start = AWK_HEALTH;
+
+			Penelope::init(); // have to init manually since penelope normally isn't loaded in PvP mode
+			Penelope::data->texts.schedule(3.0f, _(strings::tut_pvp_minion));
 		}
 		else if (Penelope::variable(strings::tutorial_intro) != strings::yes)
 		{
-			data = new Data();
-			Game::cleanups.add(&cleanup);
-
 			entities.find("jump_success")->get<PlayerTrigger>()->entered.link(&jump_success);
 			entities.find("climb_success")->get<PlayerTrigger>()->entered.link(&climb_success);
 

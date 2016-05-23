@@ -379,6 +379,7 @@ const char* AssetLookup::Uniform::names[] =
 const char* AssetLookup::Font::values[] =
 {
 	"assets/lowpoly.fnt",
+	"assets/pt_sans.fnt",
 	0,
 };
 
@@ -386,6 +387,7 @@ const char* AssetLookup::Font::values[] =
 const char* AssetLookup::Font::names[] =
 {
 	"lowpoly",
+	"pt_sans",
 	0,
 };
 
@@ -766,8 +768,9 @@ const char* AssetLookup::String::names[] =
 	"tut_parkour_wallrun",
 	"tut_pvp_control_points",
 	"tut_pvp_health",
-	"tut_pvp_movement",
-	"tut_pvp_sensors",
+	"tut_pvp_kill_player",
+	"tut_pvp_minion",
+	"tut_pvp_upgrade",
 	"tutorial",
 	"tutorial_intro",
 	"upgrade_notification",

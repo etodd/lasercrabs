@@ -239,7 +239,7 @@ struct Tile : public ComponentType<Tile>
 	static void draw_alpha(const RenderParams&);
 };
 
-#define PLAYER_SPAWN_RADIUS 2.0f
+#define PLAYER_SPAWN_RADIUS 3.0f
 struct PlayerSpawn : public Entity
 {
 	PlayerSpawn(AI::Team);

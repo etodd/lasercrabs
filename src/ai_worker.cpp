@@ -100,14 +100,19 @@ AwkNavMeshNode awk_closest_point(const Vec3& p, const Vec3& normal)
 					const AwkNavMeshAdjacency& adjacency = chunk.adjacency[vertex_index];
 					if (adjacency.length > 0) // ignore orphans
 					{
-						const Vec3& vertex_normal = chunk.normals[vertex_index];
-						if (ignore_normals || normal.dot(vertex_normal) > 0.8f) // make sure it's roughly facing the right way
+						const Vec3& vertex = chunk.vertices[vertex_index];
+						r32 distance = (vertex - p).length_squared();
+						if (distance < closest_distance)
 						{
-							const Vec3& vertex = chunk.vertices[vertex_index];
-							r32 distance = (vertex - p).length_squared();
-							if (distance < closest_distance)
+							const Vec3& vertex_normal = chunk.normals[vertex_index];
+							if (ignore_normals || normal.dot(vertex_normal) > 0.8f) // make sure it's roughly facing the right way
 							{
 								closest_distance = distance;
+								closest = { (u16)chunk_index, (u16)vertex_index };
+								found = true;
+							}
+							else if (!found) // the normal is wrong, but we'll use it in an emergency
+							{
 								closest = { (u16)chunk_index, (u16)vertex_index };
 								found = true;
 							}

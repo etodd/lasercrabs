@@ -869,18 +869,13 @@ void Rope::spawn(const Vec3& pos, const Vec3& dir, r32 max_distance, r32 slack)
 	Vec3 start_pos = pos;
 	Vec3 end = start_pos + dir_normalized * max_distance;
 	btCollisionWorld::ClosestRayResultCallback ray_callback(start_pos, end);
-	ray_callback.m_flags = btTriangleRaycastCallback::EFlags::kF_FilterBackfaces | btTriangleRaycastCallback::EFlags::kF_KeepUnflippedNormal;
-	ray_callback.m_collisionFilterGroup = ray_callback.m_collisionFilterMask = btBroadphaseProxy::AllFilter;
-
-	Physics::btWorld->rayTest(start_pos, end, ray_callback);
+	Physics::raycast(&ray_callback, btBroadphaseProxy::AllFilter);
 	if (ray_callback.hasHit())
 	{
 		Vec3 end2 = start_pos + dir_normalized * -max_distance;
 
 		btCollisionWorld::ClosestRayResultCallback ray_callback2(start_pos, end2);
-		ray_callback2.m_flags = btTriangleRaycastCallback::EFlags::kF_FilterBackfaces | btTriangleRaycastCallback::EFlags::kF_KeepUnflippedNormal;
-		ray_callback2.m_collisionFilterGroup = ray_callback2.m_collisionFilterMask = btBroadphaseProxy::AllFilter;
-		Physics::btWorld->rayTest(start_pos, end2, ray_callback2);
+		Physics::raycast(&ray_callback2, btBroadphaseProxy::AllFilter);
 
 		if (ray_callback2.hasHit())
 		{

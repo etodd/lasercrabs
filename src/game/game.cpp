@@ -472,10 +472,10 @@ void Game::draw_alpha(const RenderParams& render_params)
 	for (auto i = LocalPlayer::list.iterator(); !i.is_last(); i.next())
 		i.item()->draw_alpha(render_params);
 
-	Menu::draw(render_params);
-
 	for (s32 i = 0; i < draws.length; i++)
 		(*draws[i])(render_params);
+
+	Menu::draw(render_params);
 
 	Console::draw(render_params);
 }
@@ -809,7 +809,7 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 						// inaccessible
 						m = World::alloc<StaticGeom>(mesh_id, absolute_pos, absolute_rot, CollisionInaccessible, CollisionInaccessibleMask);
 						Vec4 color = Loader::mesh(mesh_id)->color;
-						if (state.mode != Mode::Parkour) // override colors
+						if (state.mode == Mode::Pvp) // override colors
 							color.xyz(pvp_inaccessible);
 						color.w = MATERIAL_NO_OVERRIDE; // special G-buffer index for inaccessible materials
 						m->get<View>()->color = color;
@@ -820,7 +820,7 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 						m = World::alloc<StaticGeom>(mesh_id, absolute_pos, absolute_rot);
 
 						Vec4 color = Loader::mesh(mesh_id)->color;
-						if (state.mode != Mode::Parkour) // override colors
+						if (state.mode == Mode::Pvp) // override colors
 							color.xyz(pvp_accessible);
 						m->get<View>()->color = color;
 					}
@@ -996,7 +996,7 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 		else if (cJSON_GetObjectItem(element, "DirectionalLight"))
 		{
 			entity = World::alloc<Empty>();
-			if (state.mode == Mode::Parkour)
+			if (state.mode != Mode::Pvp)
 			{
 				DirectionalLight* light = entity->create<DirectionalLight>();
 				light->color = Json::get_vec3(element, "color");
@@ -1053,7 +1053,7 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 		{
 			entity = World::alloc<Empty>();
 
-			if (state.mode == Mode::Parkour)
+			if (state.mode != Mode::Pvp)
 			{
 				SkyDecal* decal = entity->create<SkyDecal>();
 				decal->color = Vec4(Json::get_r32(element, "r", 1.0f), Json::get_r32(element, "g", 1.0f), Json::get_r32(element, "b", 1.0f), Json::get_r32(element, "a", 1.0f));
@@ -1085,6 +1085,7 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 			b8 alpha = (b8)Json::get_s32(element, "alpha");
 			b8 additive = (b8)Json::get_s32(element, "additive");
 			s32 order = Json::get_s32(element, "order");
+			r32 scale = Json::get_r32(element, "scale", 1.0f);
 			const char* armature = Json::get_string(element, "armature");
 			const char* animation = Json::get_string(element, "animation");
 
@@ -1107,6 +1108,7 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 						entity->get<View>()->alpha();
 					if (additive)
 						entity->get<View>()->additive();
+					entity->get<View>()->offset.scale(Vec3(scale));
 				}
 				else
 				{
@@ -1124,6 +1126,7 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 						entity->get<SkinnedModel>()->alpha();
 					if (additive)
 						entity->get<SkinnedModel>()->additive();
+					entity->get<SkinnedModel>()->offset.scale(Vec3(scale));
 				}
 			}
 
@@ -1163,6 +1166,7 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 						m->get<View>()->alpha();
 					if (additive)
 						m->get<View>()->additive();
+					m->get<View>()->offset.scale(Vec3(scale));
 
 					mesh = mesh->next;
 				}

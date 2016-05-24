@@ -61,6 +61,16 @@ struct UIMenu
 namespace Menu
 {
 
+enum class State
+{
+	Hidden,
+	Visible,
+	Options,
+};
+
+extern AssetID next_level;
+extern Game::Mode next_mode;
+
 void init();
 void transition(AssetID, Game::Mode);
 void update(const Update&);
@@ -69,12 +79,6 @@ void draw(const RenderParams&);
 void splitscreen();
 void title();
 void refresh_variables();
-enum class State
-{
-	Hidden,
-	Visible,
-	Options,
-};
 void pause_menu(const Update&, const Rect2&, u8, UIMenu*, State*);
 b8 options(const Update&, u8, UIMenu*, Vec2*);
 r32 options_height();

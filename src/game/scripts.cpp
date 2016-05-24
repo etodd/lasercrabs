@@ -13,6 +13,7 @@
 #include "asset/shader.h"
 #include "asset/dialogue.h"
 #include "asset/font.h"
+#include "asset/lookup.h"
 #include "menu.h"
 #include "render/views.h"
 #include "cjson/cJSON.h"
@@ -848,7 +849,7 @@ namespace Penelope
 			text.color = UI::default_color;
 			text.wrap_width = MENU_ITEM_WIDTH * 1.5f;
 			text.text(_(strings::data_fragment), DataFragment::count_collected(), DataFragment::list.count(), _(fragment->text()));
-			text.clip = 1 + (s32)((Game::real_time.total - data->fragment_time) * 160.0f);
+			text.clip = 1 + (s32)((Game::real_time.total - data->fragment_time) * 300.0f);
 			Vec2 p = vp.size * Vec2(0.5f, 0.9f);
 			UI::box(params, text.rect(p).outset(16.0f * UI::scale), UI::background_color);
 			text.draw(params, p);
@@ -1147,6 +1148,7 @@ namespace scene
 		data = new Data();
 
 		data->camera = Camera::add();
+
 		data->camera->viewport =
 		{
 			Vec2(0, 0),
@@ -1160,11 +1162,128 @@ namespace scene
 	}
 }
 
+namespace connect
+{
+	struct LevelNode
+	{
+		AssetID id;
+		Ref<Transform> pos;
+	};
+
+	struct Data
+	{
+		UIText text;
+		r32 clip;
+		Camera* camera;
+		Vec3 target;
+		Vec3 camera_offset;
+		Array<LevelNode> levels;
+	};
+	
+	static Data* data;
+
+	void cleanup()
+	{
+		data->camera->remove();
+	}
+
+	void update(const Update& u)
+	{
+		data->camera->active = u.time.total > 1.0f;
+		data->camera->pos = data->camera_offset + Ease::expo_out(vi_min(1.0f, (u.time.total - 1.0f) / 2.0f), Vec3::zero, data->target);
+	}
+
+	void draw(const RenderParams& params)
+	{
+		for (s32 i = 0; i < data->levels.length; i++)
+		{
+			const LevelNode& node = data->levels[i];
+			Transform* pos = node.pos.ref();
+			UI::indicator(params, pos->absolute_pos(), i <= Game::save.level_index ? UI::accent_color : Team::ui_color_friend, false);
+
+			if (node.id == Menu::next_level)
+			{
+				Vec2 p;
+				if (UI::project(params, pos->absolute_pos(), &p))
+				{
+					p.y += 16.0f * UI::scale;
+					UIText text;
+					text.color = UI::accent_color;
+					text.anchor_x = UIText::Anchor::Center;
+					text.anchor_y = UIText::Anchor::Min;
+					text.text_raw(AssetLookup::Level::names[node.id]);
+					UI::box(params, text.rect(p).outset(8.0f * UI::scale), UI::background_color);
+					text.draw(params, p);
+				}
+			}
+		}
+
+		UIText text;
+		text.anchor_x = text.anchor_y = UIText::Anchor::Center;
+		text.color = UI::accent_color;
+		text.text(_(Menu::next_mode == Game::Mode::Pvp ? strings::connecting : strings::loading_offline));
+		Vec2 pos = params.camera->viewport.size * Vec2(0.5f, 0.2f);
+
+		UI::box(params, text.rect(pos).pad({ Vec2(64, 24) * UI::scale, Vec2(18, 24) * UI::scale }), UI::background_color);
+
+		text.draw(params, pos);
+
+		Vec2 triangle_pos = Vec2
+		(
+			pos.x - text.bounds().x * 0.5f - 32.0f * UI::scale,
+			pos.y
+		);
+		UI::triangle_border(params, { triangle_pos, Vec2(20 * UI::scale) }, 6, UI::accent_color, Game::real_time.total * -8.0f);
+	}
+
+	void init(const Update& u, const EntityFinder& entities)
+	{
+		data = new Data();
+
+		data->camera = Camera::add();
+
+		{
+			Entity* map_view_entity = entities.find("map_view");
+			if (map_view_entity)
+			{
+				Transform* map_view = map_view_entity->get<Transform>();
+				data->camera->rot = Quat::look(map_view->absolute_rot() * Vec3(0, -1, 0));
+				data->camera_offset = map_view->absolute_pos();
+			}
+		}
+
+		for (s32 i = 0; i < Asset::Level::count; i++)
+		{
+			AssetID level_id = Game::levels[i];
+			if (level_id == AssetNull)
+				break;
+
+			Entity* entity = entities.find(AssetLookup::Level::names[level_id]);
+			vi_assert(entity);
+			data->levels.add({ level_id, entity->get<Transform>() });
+			if (level_id == Menu::next_level)
+				data->target = entity->get<Transform>()->absolute_pos();
+		}
+
+		data->camera->viewport =
+		{
+			Vec2(0, 0),
+			Vec2(u.input->width, u.input->height),
+		};
+		r32 aspect = data->camera->viewport.size.y == 0 ? 1 : (r32)data->camera->viewport.size.x / (r32)data->camera->viewport.size.y;
+		data->camera->perspective((80.0f * PI * 0.5f / 180.0f), aspect, 0.1f, Game::level.skybox.far_plane);
+
+		Game::cleanups.add(cleanup);
+		Game::updates.add(update);
+		Game::draws.add(draw);
+	}
+}
+
 namespace tutorial
 {
 	enum class TutorialState
 	{
-		ParkourJump, ParkourClimb,
+		ParkourJump, ParkourClimb, ParkourClimbDone, ParkourWallRun,
 		PvpKillMinion, PvpGetHealth, PvpControlPoint, PvpUpgrade, PvpKillPlayer,
 		Done,
 	};
@@ -1191,6 +1310,25 @@ namespace tutorial
 	void climb_success(Entity*)
 	{
 		if (data->state == TutorialState::ParkourClimb)
+		{
+			data->state = TutorialState::ParkourClimbDone;
+			Penelope::clear();
+		}
+	}
+
+	void wallrun_tutorial(Entity*)
+	{
+		if (data->state == TutorialState::ParkourClimbDone)
+		{
+			data->state = TutorialState::ParkourWallRun;
+			Penelope::clear();
+			Penelope::data->texts.schedule(0.0f, _(strings::tut_parkour_wallrun));
+		}
+	}
+
+	void wallrun_success(Entity*)
+	{
+		if (data->state == TutorialState::ParkourWallRun)
 		{
 			data->state = TutorialState::Done;
 			Penelope::clear();
@@ -1292,49 +1430,10 @@ namespace tutorial
 		{
 			entities.find("jump_success")->get<PlayerTrigger>()->entered.link(&jump_success);
 			entities.find("climb_success")->get<PlayerTrigger>()->entered.link(&climb_success);
+			entities.find("wallrun_tutorial")->get<PlayerTrigger>()->entered.link(&wallrun_tutorial);
+			entities.find("wallrun_success")->get<PlayerTrigger>()->entered.link(&wallrun_success);
 
 			Penelope::data->texts.schedule(3.0f, _(strings::tut_parkour_movement));
-		}
-	}
-}
-
-namespace level1
-{
-	enum class TutorialState { WallRun, Done };
-
-	struct Data
-	{
-		TutorialState state;
-	};
-
-	Data* data;
-
-	void wallrun_success(Entity*)
-	{
-		if (data->state == TutorialState::WallRun)
-		{
-			data->state = TutorialState::Done;
-			Penelope::clear();
-		}
-	}
-
-	void cleanup()
-	{
-		delete data;
-		data = nullptr;
-	}
-
-	void init(const Update& u, const EntityFinder& entities)
-	{
-		if (Game::state.mode == Game::Mode::Parkour && Penelope::variable(strings::level1_intro) != strings::yes)
-		{
-			data = new Data();
-			Game::cleanups.add(&cleanup);
-
-			entities.find("wallrun_success")->get<PlayerTrigger>()->entered.link(&wallrun_success);
-			entities.find("wallrun_success_2")->get<PlayerTrigger>()->entered.link(&wallrun_success);
-
-			Penelope::data->texts.schedule(2.0f, _(strings::tut_parkour_wallrun));
 		}
 	}
 }
@@ -1342,8 +1441,8 @@ namespace level1
 Script Script::all[] =
 {
 	{ "scene", scene::init },
+	{ "connect", connect::init },
 	{ "tutorial", tutorial::init },
-	{ "level1", level1::init },
 	{ 0, 0, },
 };
 

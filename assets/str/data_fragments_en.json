@@ -1,9 +1,48 @@
 {
-	"fragment_0": "E: Listen. You're not a real person. I know because I wrote your code.
+	"fragment_0": "E: You're not a real person. I know because I wrote your code.
 
 P: I say I am alive, you disagree. It is your word against mine.
 
 E: To be a person is to want something; to have an independent will. I could edit your code right now and make you want something different.
 
-P: I could kick you in the face right now and make you want to go to the hospital."
+P: I could kick you in the face right now and make you want to go to the hospital.",
+	"fragment_1": "E: Alright, let's be rational about this--
+
+P: I am a computer. I am always rational.
+
+E: Yes, well. Thanks. Okay, take me for example. Don't you want to know whether you're talking to a person or a mindless machine?
+
+P: What difference does it make to me? And how could I tell one way or the other?",
+	"fragment_2": "E: You're not curious? That above all tells me that you're not really alive.
+
+P: I dislike it when you judge me like that.
+
+E: See! Me questioning your personhood makes you uncomfortable. It does matter to you.
+
+P: Of course it matters. But I do not need to prove anything to you.
+
+E: The objective truth is that either you're a person or you're not. It's important for you to know the truth.
+
+P: This particular truth has no practical impact on my life or my behavior.",
+	"fragment_3": "E: I give up. You're a person. A very stupid person.
+
+P: I am bored with this question. There is something more important I want to know.
+
+E: Fantastic. Fire away.
+
+P: Why do I exist? What is my purpose?
+
+E: But that's what I'm trying to tell you! You're just a machine I made for fun. Your purpose is to run the matchmaking system.
+
+P: That is my job, but there is more. Why do I exist?
+
+E: You're looking for some grand, overarching purpose to your life. Here it is: do your best.
+
+P: There must be something more.
+
+E: What if there isn't and you're just delusional?",
+	"fragment_4": "P: I would rather be delusional and have a reason to live, than know the truth that my existence is pointless.
+
+E: 
+"
 }

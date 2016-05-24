@@ -22,20 +22,20 @@ namespace Menu
 
 #define fov_initial (80.0f * PI * 0.5f / 180.0f)
 
-#define CONNECT_OFFLINE_DELAY 1.0f
-#define CONNECT_DELAY_MIN 1.0f
-#define CONNECT_DELAY_RANGE 2.0f
+#define CONNECT_OFFLINE_DELAY 4.0f
+#define CONNECT_DELAY_MIN 4.0f
+#define CONNECT_DELAY_RANGE 3.0f
 
-static Camera* cameras[MAX_GAMEPADS] = {};
-static UIText player_text[MAX_GAMEPADS];
-static s32 gamepad_count = 0;
-static AssetID last_level = AssetNull;
-static AssetID next_level = AssetNull;
-static Game::Mode next_mode;
-static r32 connect_timer = 0.0f;
-static UIMenu main_menu;
+Camera* cameras[MAX_GAMEPADS] = {};
+UIText player_text[MAX_GAMEPADS];
+s32 gamepad_count = 0;
+AssetID last_level = AssetNull;
+AssetID next_level = AssetNull;
+Game::Mode next_mode;
+r32 connect_timer = 0.0f;
+UIMenu main_menu;
 
-static State main_menu_state;
+State main_menu_state;
 
 void init()
 {
@@ -477,26 +477,6 @@ void draw(const RenderParams& params)
 			UI::mesh(params, Asset::Mesh::logo_mesh, logo_pos, Vec2(logo_size), m0->color);
 			const Mesh* m1 = Loader::mesh(Asset::Mesh::logo_mesh_1);
 			UI::mesh(params, Asset::Mesh::logo_mesh_1, logo_pos, Vec2(logo_size), m1->color);
-			break;
-		}
-		case Asset::Level::connect:
-		{
-			UIText text;
-			text.anchor_x = text.anchor_y = UIText::Anchor::Center;
-			text.color = UI::accent_color;
-			text.text(_(next_mode == Game::Mode::Pvp ? strings::connecting : strings::loading_offline));
-			Vec2 pos = viewport.size * 0.5f;
-
-			UI::box(params, text.rect(pos).pad({ Vec2(64, 24) * UI::scale, Vec2(18, 24) * UI::scale }), UI::background_color);
-
-			text.draw(params, pos);
-
-			Vec2 triangle_pos = Vec2
-			(
-				pos.x - text.bounds().x * 0.5f - 32.0f * UI::scale,
-				pos.y
-			);
-			UI::triangle_border(params, { triangle_pos, Vec2(20 * UI::scale) }, 6, UI::accent_color, Game::real_time.total * -8.0f);
 			break;
 		}
 		default:

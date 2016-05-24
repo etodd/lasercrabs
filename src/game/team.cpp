@@ -430,12 +430,9 @@ void Team::update_all(const Update& u)
 						visible = false;
 					else
 					{
-						btCollisionWorld::ClosestRayResultCallback rayCallback(start, end);
-						rayCallback.m_flags = btTriangleRaycastCallback::EFlags::kF_FilterBackfaces
-							| btTriangleRaycastCallback::EFlags::kF_KeepUnflippedNormal;
-						rayCallback.m_collisionFilterMask = rayCallback.m_collisionFilterGroup = btBroadphaseProxy::StaticFilter | CollisionInaccessible;
-						Physics::btWorld->rayTest(start, end, rayCallback);
-						visible = !rayCallback.hasHit();
+						btCollisionWorld::ClosestRayResultCallback ray_callback(start, end);
+						Physics::raycast(&ray_callback, btBroadphaseProxy::StaticFilter | CollisionInaccessible);
+						visible = !ray_callback.hasHit();
 					}
 				}
 			}

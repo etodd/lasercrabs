@@ -49,15 +49,15 @@ void UIText::text(const char* format, ...)
 {
 	va_list args;
 	va_start(args, format);
-	char string[512];
+	char string[1024];
 
 	if (!format)
 		format = "";
 
 #if defined(_WIN32)
-	vsprintf_s(string, 512, format, args);
+	vsprintf_s(string, 1024, format, args);
 #else
-	vsnprintf(string, 512, format, args);
+	vsnprintf(string, 1024, format, args);
 #endif
 
 	va_end(args);

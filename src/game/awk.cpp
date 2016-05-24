@@ -363,11 +363,7 @@ b8 Awk::can_go(const Vec3& dir, Vec3* final_pos) const
 	Vec3 trace_end = trace_start + trace_dir * AWK_MAX_DISTANCE;
 
 	AwkRaycastCallback ray_callback(trace_start, trace_end, entity());
-	ray_callback.m_flags = btTriangleRaycastCallback::EFlags::kF_FilterBackfaces
-		| btTriangleRaycastCallback::EFlags::kF_KeepUnflippedNormal;
-	ray_callback.m_collisionFilterMask = ray_callback.m_collisionFilterGroup = ~AWK_PERMEABLE_MASK & ~ally_containment_field_mask();
-
-	Physics::btWorld->rayTest(trace_start, trace_end, ray_callback);
+	Physics::raycast(&ray_callback, ~AWK_PERMEABLE_MASK & ~ally_containment_field_mask());
 
 	if (ray_callback.hasHit() && !(ray_callback.m_collisionObject->getBroadphaseHandle()->m_collisionFilterGroup & AWK_INACCESSIBLE_MASK))
 	{
@@ -463,11 +459,7 @@ void Awk::crawl_wall_edge(const Vec3& dir, const Vec3& other_wall_normal, const 
 		Vec3 wall_ray_end = next_pos + wall_normal * AWK_RADIUS * -2.0f;
 
 		btCollisionWorld::ClosestRayResultCallback ray_callback(wall_ray_start, wall_ray_end);
-		ray_callback.m_flags = btTriangleRaycastCallback::EFlags::kF_FilterBackfaces
-			| btTriangleRaycastCallback::EFlags::kF_KeepUnflippedNormal;
-		ray_callback.m_collisionFilterMask = ray_callback.m_collisionFilterGroup = ~AWK_INACCESSIBLE_MASK & ~CollisionAwk & ~ally_containment_field_mask();
-
-		Physics::btWorld->rayTest(wall_ray_start, wall_ray_end, ray_callback);
+		Physics::raycast(&ray_callback, ~AWK_INACCESSIBLE_MASK & ~CollisionAwk & ~ally_containment_field_mask());
 
 		if (ray_callback.hasHit())
 		{
@@ -551,11 +543,7 @@ void Awk::crawl(const Vec3& dir_raw, const Update& u)
 			// Check for obstacles
 			Vec3 ray_end = next_pos + (dir_normalized * AWK_RADIUS * 1.5f);
 			btCollisionWorld::ClosestRayResultCallback ray_callback(pos, ray_end);
-			ray_callback.m_flags = btTriangleRaycastCallback::EFlags::kF_FilterBackfaces
-				| btTriangleRaycastCallback::EFlags::kF_KeepUnflippedNormal;
-			ray_callback.m_collisionFilterMask = ray_callback.m_collisionFilterGroup = ~AWK_PERMEABLE_MASK & ~CollisionAwk & ~ally_containment_field_mask();
-
-			Physics::btWorld->rayTest(pos, ray_end, ray_callback);
+			Physics::raycast(&ray_callback, ~AWK_PERMEABLE_MASK & ~CollisionAwk & ~ally_containment_field_mask());
 
 			if (ray_callback.hasHit())
 			{
@@ -577,11 +565,7 @@ void Awk::crawl(const Vec3& dir_raw, const Update& u)
 		{
 			Vec3 ray_end = next_pos + (dir_flattened * AWK_RADIUS);
 			btCollisionWorld::ClosestRayResultCallback ray_callback(pos, ray_end);
-			ray_callback.m_flags = btTriangleRaycastCallback::EFlags::kF_FilterBackfaces
-				| btTriangleRaycastCallback::EFlags::kF_KeepUnflippedNormal;
-			ray_callback.m_collisionFilterMask = ray_callback.m_collisionFilterGroup = ~AWK_PERMEABLE_MASK & ~CollisionAwk & ~ally_containment_field_mask();
-
-			Physics::btWorld->rayTest(pos, ray_end, ray_callback);
+			Physics::raycast(&ray_callback, ~AWK_PERMEABLE_MASK & ~CollisionAwk & ~ally_containment_field_mask());
 
 			if (ray_callback.hasHit())
 			{
@@ -600,11 +584,7 @@ void Awk::crawl(const Vec3& dir_raw, const Update& u)
 		Vec3 wall_ray_end = next_pos + wall_normal * AWK_RADIUS * -2.0f;
 
 		btCollisionWorld::ClosestRayResultCallback ray_callback(wall_ray_start, wall_ray_end);
-		ray_callback.m_flags = btTriangleRaycastCallback::EFlags::kF_FilterBackfaces
-			| btTriangleRaycastCallback::EFlags::kF_KeepUnflippedNormal;
-		ray_callback.m_collisionFilterMask = ray_callback.m_collisionFilterGroup = ~AWK_PERMEABLE_MASK & ~CollisionAwk & ~ally_containment_field_mask();
-
-		Physics::btWorld->rayTest(wall_ray_start, wall_ray_end, ray_callback);
+		Physics::raycast(&ray_callback, ~AWK_PERMEABLE_MASK & ~CollisionAwk & ~ally_containment_field_mask());
 
 		if (ray_callback.hasHit())
 		{
@@ -633,11 +613,7 @@ void Awk::crawl(const Vec3& dir_raw, const Update& u)
 			Vec3 wall_ray2_end = wall_ray2_start + dir_flattened * AWK_RADIUS * -2.0f;
 
 			btCollisionWorld::ClosestRayResultCallback ray_callback(wall_ray2_start, wall_ray2_end);
-			ray_callback.m_flags = btTriangleRaycastCallback::EFlags::kF_FilterBackfaces
-				| btTriangleRaycastCallback::EFlags::kF_KeepUnflippedNormal;
-			ray_callback.m_collisionFilterMask = ray_callback.m_collisionFilterGroup = ~AWK_PERMEABLE_MASK & ~CollisionAwk & ~ally_containment_field_mask();
-
-			Physics::btWorld->rayTest(wall_ray2_start, wall_ray2_end, ray_callback);
+			Physics::raycast(&ray_callback, ~AWK_PERMEABLE_MASK & ~CollisionAwk & ~ally_containment_field_mask());
 
 			if (ray_callback.hasHit())
 			{
@@ -810,11 +786,7 @@ void Awk::update(const Update& u)
 				Vec3 ray_start = get<Transform>()->to_world((bind_pose_mat * Vec4(0, 0, AWK_LEG_LENGTH * 1.75f, 1)).xyz());
 				Vec3 ray_end = get<Transform>()->to_world((bind_pose_mat * Vec4(find_footing_offset + Vec3(0, 0, AWK_LEG_LENGTH * -1.0f), 1)).xyz());
 				btCollisionWorld::ClosestRayResultCallback ray_callback(ray_start, ray_end);
-				ray_callback.m_flags = btTriangleRaycastCallback::EFlags::kF_FilterBackfaces
-					| btTriangleRaycastCallback::EFlags::kF_KeepUnflippedNormal;
-				ray_callback.m_collisionFilterMask = ray_callback.m_collisionFilterGroup = ~AWK_PERMEABLE_MASK & ~CollisionAwk & ~ally_containment_field_mask();
-
-				Physics::btWorld->rayTest(ray_start, ray_end, ray_callback);
+				Physics::raycast(&ray_callback, ~AWK_PERMEABLE_MASK & ~CollisionAwk & ~ally_containment_field_mask());
 				if (ray_callback.hasHit())
 					set_footing(i, Entity::list[ray_callback.m_collisionObject->getUserIndex()].get<Transform>(), ray_callback.m_hitPointWorld);
 				else
@@ -822,10 +794,7 @@ void Awk::update(const Update& u)
 					Vec3 new_ray_start = get<Transform>()->to_world((bind_pose_mat * Vec4(AWK_LEG_LENGTH * 1.5f, 0, 0, 1)).xyz());
 					Vec3 new_ray_end = get<Transform>()->to_world((bind_pose_mat * Vec4(AWK_LEG_LENGTH * -1.0f, find_footing_offset.y, AWK_LEG_LENGTH * -1.0f, 1)).xyz());
 					btCollisionWorld::ClosestRayResultCallback ray_callback(new_ray_start, new_ray_end);
-					ray_callback.m_flags = btTriangleRaycastCallback::EFlags::kF_FilterBackfaces
-						| btTriangleRaycastCallback::EFlags::kF_KeepUnflippedNormal;
-					ray_callback.m_collisionFilterMask = ray_callback.m_collisionFilterGroup = ~AWK_PERMEABLE_MASK & ~CollisionAwk & ~ally_containment_field_mask();
-					Physics::btWorld->rayTest(new_ray_start, new_ray_end, ray_callback);
+					Physics::raycast(&ray_callback, ~AWK_PERMEABLE_MASK & ~CollisionAwk & ~ally_containment_field_mask());
 					if (ray_callback.hasHit())
 						set_footing(i, Entity::list[ray_callback.m_collisionObject->getUserIndex()].get<Transform>(), ray_callback.m_hitPointWorld);
 					else

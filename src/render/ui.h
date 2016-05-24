@@ -27,7 +27,7 @@ struct UIText
 		Center,
 		Max,
 	};
-	char rendered_string[512];
+	char rendered_string[1024];
 	Vec4 color;
 	AssetID font;
 	r32 size;

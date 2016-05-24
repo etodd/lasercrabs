@@ -1189,8 +1189,8 @@ namespace connect
 
 	void update(const Update& u)
 	{
-		data->camera->active = u.time.total > 1.0f;
-		data->camera->pos = data->camera_offset + Ease::expo_out(vi_min(1.0f, (u.time.total - 1.0f) / 2.0f), Vec3::zero, data->target);
+		data->camera->active = u.time.total > 0.5f && Menu::connect_timer > 0.5f;
+		data->camera->pos = data->camera_offset + Ease::expo_out(vi_min(1.0f, (u.time.total - 0.5f) / 2.0f), Vec3::zero, data->target);
 	}
 
 	void draw(const RenderParams& params)

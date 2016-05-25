@@ -1175,6 +1175,7 @@ namespace connect
 		UIText text;
 		r32 clip;
 		Camera* camera;
+		Vec3 start;
 		Vec3 target;
 		Vec3 camera_offset;
 		Array<LevelNode> levels;
@@ -1190,7 +1191,7 @@ namespace connect
 	void update(const Update& u)
 	{
 		data->camera->active = u.time.total > 0.5f && Menu::connect_timer > 0.5f;
-		data->camera->pos = data->camera_offset + Ease::expo_out(vi_min(1.0f, (u.time.total - 0.5f) / 2.0f), Vec3::zero, data->target);
+		data->camera->pos = data->camera_offset + Ease::expo_out(vi_min(1.0f, (u.time.total - 0.5f) / 2.0f), data->start, data->target);
 	}
 
 	void draw(const RenderParams& params)
@@ -1263,6 +1264,8 @@ namespace connect
 			data->levels.add({ level_id, entity->get<Transform>() });
 			if (level_id == Menu::next_level)
 				data->target = entity->get<Transform>()->absolute_pos();
+			if (level_id == Menu::transition_previous_level)
+				data->start = entity->get<Transform>()->absolute_pos();
 		}
 
 		data->camera->viewport =

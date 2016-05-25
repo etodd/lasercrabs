@@ -30,6 +30,7 @@ Camera* cameras[MAX_GAMEPADS] = {};
 UIText player_text[MAX_GAMEPADS];
 s32 gamepad_count = 0;
 AssetID last_level = AssetNull;
+AssetID transition_previous_level = AssetNull;
 AssetID next_level = AssetNull;
 Game::Mode next_mode;
 r32 connect_timer = 0.0f;
@@ -403,6 +404,7 @@ void transition(AssetID level, Game::Mode mode)
 		Game::schedule_load_level(level, mode);
 	else
 	{
+		transition_previous_level = Game::state.level;
 		next_level = level;
 		next_mode = mode;
 		Game::schedule_load_level(Asset::Level::connect, Game::Mode::Special);

@@ -181,8 +181,8 @@ void AIPlayerControl::set_path(const AI::Path& p)
 
 void AIPlayerControl::behavior_start(Behavior* caller, b8 callback, s8 priority)
 {
-	// if this gets called by either loop_low_level or loop_low_level_2
-	// we need to abort the other one and restart it
+	// depending on which loop this behavior is in,
+	// we need to abort the others and restart them
 	Behavior* r = caller->root();
 	if (r == loop_low_level)
 	{
@@ -221,7 +221,7 @@ void AIPlayerControl::behavior_start(Behavior* caller, b8 callback, s8 priority)
 	vi_debug("Awk %s: %s", loop, typeid(*caller).name());
 #endif
 
-	vi_assert(!target_path_callback || !target_path_callback->active());
+	vi_assert(!target_path_callback);
 
 	if (callback)
 		target_path_callback = caller;
@@ -617,7 +617,7 @@ b8 should_spawn_minion(const AIPlayerControl* control)
 			{
 				// make sure the minion won't die of fall damage
 				Vec3 ray_start = my_pos + my_rot * Vec3(0, 0, 1);
-				btCollisionWorld::ClosestRayResultCallback ray_callback(ray_start, ray_start + Vec3(0, -8, 0));
+				btCollisionWorld::ClosestRayResultCallback ray_callback(ray_start, ray_start + Vec3(0, -6, 0));
 				Physics::raycast(&ray_callback, ~CollisionWalker & ~CollisionTarget & ~CollisionShield & ~CollisionAwk & ~CollisionTeamAContainmentField & ~CollisionTeamBContainmentField);
 				if (ray_callback.hasHit())
 					return true;

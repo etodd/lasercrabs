@@ -382,7 +382,7 @@ void debug_draw_nav_mesh(const RenderParams& params)
 void debug_draw_awk_nav_mesh(const RenderParams& params)
 {
 	refresh_nav_render_meshes(params);
-	render_helper(params, awk_render_mesh, RenderPrimitiveMode::Lines, RenderFillMode::Line);
+	render_helper(params, awk_render_mesh, RenderPrimitiveMode::Points, RenderFillMode::Point);
 }
 
 #endif

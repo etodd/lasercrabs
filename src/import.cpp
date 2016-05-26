@@ -1830,19 +1830,20 @@ b8 default_filter(const Mesh* m)
 
 const r32 grid_spacing = 2.0f;
 
-r32 sign(const Vec2& p1, const Vec2& p2, const Vec2& p3)
+inline r32 sign(const Vec2& p1, const Vec2& p2, const Vec2& p3)
 {
 	return (p1.x - p3.x) * (p2.y - p3.y) - (p2.x - p3.x) * (p1.y - p3.y);
 }
 
-b8 point_in_tri(const Vec2& pt, const Vec2& v1, const Vec2& v2, const Vec2& v3)
+inline b8 point_in_tri(const Vec2& pt, const Vec2& v1, const Vec2& v2, const Vec2& v3)
 {
 	b8 b1 = sign(pt, v1, v2) < 0.0f;
 	b8 b2 = sign(pt, v2, v3) < 0.0f;
 	b8 b3 = sign(pt, v3, v1) < 0.0f;
-	return b1 == b2 && b2 == b3;
+	return b1 == b2 && b1 == b3;
 }
 
+// v1 is at the bottom, v2 and v3 flush with the top
 void rasterize_top_flat_triangle(AwkNavMesh* out, const Vec3& normal, const Vec3& normal_offset, const Vec3& u, const Vec3& v, const Vec2& v1, const Vec2& v2, const Vec2& v3)
 {
 	r32 invslope1 = grid_spacing * (v2.x - v1.x) / (v2.y - v1.y);
@@ -1858,15 +1859,15 @@ void rasterize_top_flat_triangle(AwkNavMesh* out, const Vec3& normal, const Vec3
 	r32 curx1 = v1.x;
 	r32 curx2 = v1.x;
 
-	for (s32 y = (s32)(v1.y / grid_spacing); y <= (s32)(v2.y / grid_spacing); y++)
+	for (s32 y = (s32)(v1.y / grid_spacing); y <= (s32)(v2.y / grid_spacing) + 1; y++)
 	{
-		for (s32 x = (s32)(curx1 / grid_spacing); x <= (s32)(curx2 / grid_spacing); x++)
+		for (s32 x = (s32)(curx1 / grid_spacing) - 1; x <= (s32)(curx2 / grid_spacing) + 1; x++)
 		{
 			Vec2 p(x * grid_spacing, y * grid_spacing);
 			if (point_in_tri(p, v1, v2, v3))
 			{
 				Vec3 vertex = normal_offset + (u * p.x) + (v * p.y);
-				s32 chunk_index = out->index(out->coord(vertex));
+				s32 chunk_index = out->index(out->clamped_coord(out->coord(vertex)));
 				out->chunks[chunk_index].vertices.add(vertex);
 				out->chunks[chunk_index].normals.add(normal);
 			}
@@ -1876,6 +1877,7 @@ void rasterize_top_flat_triangle(AwkNavMesh* out, const Vec3& normal, const Vec3
 	}
 }
 
+// v1 and v2 are flush with the bottom, v3 is at the top
 void rasterize_bottom_flat_triangle(AwkNavMesh* out, const Vec3& normal, const Vec3& normal_offset, const Vec3& u, const Vec3& v, const Vec2& v1, const Vec2& v2, const Vec2& v3)
 {
 	r32 invslope1 = grid_spacing * (v3.x - v1.x) / (v3.y - v1.y);
@@ -1891,17 +1893,17 @@ void rasterize_bottom_flat_triangle(AwkNavMesh* out, const Vec3& normal, const V
 	r32 curx1 = v3.x;
 	r32 curx2 = v3.x;
 
-	for (s32 y = (s32)(v3.y / grid_spacing); y >= (s32)(v1.y / grid_spacing); y--)
+	for (s32 y = (s32)(v3.y / grid_spacing); y >= (s32)(v1.y / grid_spacing) - 1; y--)
 	{
 		curx1 -= invslope1;
 		curx2 -= invslope2;
-		for (s32 x = (s32)(curx1 / grid_spacing); x <= (s32)(curx2 / grid_spacing); x++)
+		for (s32 x = (s32)(curx1 / grid_spacing) - 1; x <= (s32)(curx2 / grid_spacing) + 1; x++)
 		{
 			Vec2 p(x * grid_spacing, y * grid_spacing);
 			if (point_in_tri(p, v1, v2, v3))
 			{
 				Vec3 vertex = normal_offset + (u * p.x) + (v * p.y);
-				s32 chunk_index = out->index(out->coord(vertex));
+				s32 chunk_index = out->index(out->clamped_coord(out->coord(vertex)));
 				out->chunks[chunk_index].vertices.add(vertex);
 				out->chunks[chunk_index].normals.add(normal);
 			}
@@ -3137,33 +3139,8 @@ s32 proc(s32 argc, char* argv[])
 			close_asset_header(f);
 		}
 
-		if (state.rebuild || update_manifest || filemtime(asset_src_path) < state.manifest_mtime)
+		if (state.rebuild || update_manifest || filemtime(dialogue_strings_out_path) < state.manifest_mtime)
 		{
-			printf("Writing asset values\n");
-			FILE* f = fopen(asset_src_path, "w+");
-			if (!f)
-			{
-				fprintf(stderr, "Error: Failed to open asset source file %s for writing.\n", asset_src_path);
-				return exit_error();
-			}
-			fprintf(f, "#include \"lookup.h\"\n");
-			fprintf(f, "\nnamespace VI\n{ \n\n");
-			write_asset_source(f, "Mesh", flattened_meshes, flattened_level_meshes);
-			write_asset_source(f, "Animation", flattened_animations);
-			write_asset_source(f, "Armature", flattened_armatures);
-			write_asset_source(f, "Texture", state.manifest.textures);
-			write_asset_source(f, "Soundbank", state.manifest.soundbanks);
-			write_asset_source(f, "Shader", state.manifest.shaders);
-			write_asset_source_names_only(f, "Uniform", flattened_uniforms);
-			write_asset_source(f, "Font", state.manifest.fonts);
-			write_asset_source(f, "Level", state.manifest.levels);
-			write_asset_source(f, "NavMesh", state.manifest.nav_meshes);
-			write_asset_source_names_only(f, "String", state.manifest.strings);
-			write_asset_source(f, "DialogueTree", state.manifest.dialogue_trees);
-
-			fprintf(f, "\n}");
-			fclose(f);
-
 			{
 				// collect all dialogue strings into a single file
 				cJSON* dialogue = cJSON_CreateObject();
@@ -3193,6 +3170,34 @@ s32 proc(s32 argc, char* argv[])
 				Json::save(dynamic, dynamic_strings_out_path);
 				Json::json_free(dynamic);
 			}
+		}
+
+		if (state.rebuild || update_manifest || filemtime(asset_src_path) < state.manifest_mtime)
+		{
+			printf("Writing asset values\n");
+			FILE* f = fopen(asset_src_path, "w+");
+			if (!f)
+			{
+				fprintf(stderr, "Error: Failed to open asset source file %s for writing.\n", asset_src_path);
+				return exit_error();
+			}
+			fprintf(f, "#include \"lookup.h\"\n");
+			fprintf(f, "\nnamespace VI\n{ \n\n");
+			write_asset_source(f, "Mesh", flattened_meshes, flattened_level_meshes);
+			write_asset_source(f, "Animation", flattened_animations);
+			write_asset_source(f, "Armature", flattened_armatures);
+			write_asset_source(f, "Texture", state.manifest.textures);
+			write_asset_source(f, "Soundbank", state.manifest.soundbanks);
+			write_asset_source(f, "Shader", state.manifest.shaders);
+			write_asset_source_names_only(f, "Uniform", flattened_uniforms);
+			write_asset_source(f, "Font", state.manifest.fonts);
+			write_asset_source(f, "Level", state.manifest.levels);
+			write_asset_source(f, "NavMesh", state.manifest.nav_meshes);
+			write_asset_source_names_only(f, "String", state.manifest.strings);
+			write_asset_source(f, "DialogueTree", state.manifest.dialogue_trees);
+
+			fprintf(f, "\n}");
+			fclose(f);
 		}
 	}
 

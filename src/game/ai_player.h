@@ -155,6 +155,13 @@ namespace AIBehaviors
 			}
 		}
 
+		virtual void abort()
+		{
+			if (this->control->target_path_callback == this)
+				this->control->target_path_callback = nullptr;
+			BehaviorBase<Derived>::abort();
+		}
+
 		void pathfind(const Vec3& target, const Vec3& normal, AI::AwkPathfind type)
 		{
 			// if hit is false, pathfind as close as possible to the given target

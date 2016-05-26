@@ -249,11 +249,11 @@ void AIPlayerControl::behavior_done(b8 success)
 b8 AIPlayerControl::restore_loops()
 {
 	// return to normal state
-	if (!loop_high_level->active())
-		loop_high_level->run();
-
 	if (loop_low_level_2->active())
 		loop_low_level_2->abort();
+
+	if (!loop_high_level->active())
+		loop_high_level->run();
 
 	if (!loop_low_level->active())
 		loop_low_level->run();
@@ -641,6 +641,7 @@ Repeat* make_low_level_loop(AIPlayerControl* control, const AIPlayer::Config& co
 					Delay::alloc(config.interval_low_level),
 					Sequence::alloc
 					(
+						AIBehaviors::WaitForAttachment::alloc(),
 						Succeed::alloc
 						(
 							Select::alloc // if any of these succeed, they will abort the high level loop
@@ -697,6 +698,7 @@ Repeat* make_high_level_loop(AIPlayerControl* control, const AIPlayer::Config& c
 				Sequence::alloc
 				(
 					Delay::alloc(config.interval_high_level),
+					AIBehaviors::WaitForAttachment::alloc(),
 					Succeed::alloc
 					(
 						Select::alloc
@@ -915,7 +917,7 @@ Find::Find(Family fam, s8 priority, b8(*filter)(const AIPlayerControl*, const En
 void Find::run()
 {
 	active(true);
-	if (path_priority > control->path_priority)
+	if (control->get<Transform>()->parent.ref() && path_priority > control->path_priority)
 	{
 		const AIPlayerControl::MemoryArray& memory = control->memory[family];
 		const AIPlayerControl::Memory* closest = nullptr;
@@ -951,7 +953,7 @@ RandomPath::RandomPath(s8 priority)
 void RandomPath::run()
 {
 	active(true);
-	if (path_priority > control->path_priority)
+	if (control->get<Transform>()->parent.ref() && path_priority > control->path_priority)
 	{
 #if DEBUG_AI_CONTROL
 		vi_debug("Awk pathfind: %s", typeid(*this).name());
@@ -995,6 +997,25 @@ void Panic::run()
 	}
 	else
 		done(false);
+}
+
+void WaitForAttachment::set_context(void* ctx)
+{
+	Base::set_context(ctx);
+	control->get<Awk>()->attached.link<WaitForAttachment, &WaitForAttachment::attached>(this);
+}
+
+void WaitForAttachment::attached()
+{
+	if (active())
+		done(true);
+}
+
+void WaitForAttachment::run()
+{
+	active(true);
+	if (control->get<Transform>()->parent.ref())
+		done(true);
 }
 
 AbilitySpawn::AbilitySpawn(s8 priority, Ability ability, AbilitySpawnFilter filter)
@@ -1060,7 +1081,7 @@ void ReactTarget::run()
 	active(true);
 	b8 can_path = path_priority > control->path_priority;
 	b8 can_react = react_priority > control->path_priority;
-	if (can_path || can_react)
+	if (control->get<Transform>()->parent.ref() && (can_path || can_react))
 	{
 		Entity* closest = nullptr;
 		r32 closest_distance = AWK_MAX_DISTANCE * AWK_MAX_DISTANCE;
@@ -1108,7 +1129,8 @@ void RunAway::run()
 {
 	active(true);
 	Vec3 pos = control->get<Transform>()->absolute_pos();
-	if (path_priority > control->path_priority
+	if (control->get<Transform>()->parent.ref()
+		&& path_priority > control->path_priority
 		&& !MinionCommon::inside_containment_field(control->get<AIAgent>()->team, pos)) // if we're inside a containment field, running away is probably useless
 	{
 		Entity* closest = nullptr;
@@ -1159,7 +1181,7 @@ ToSpawn::ToSpawn(s8 priority)
 void ToSpawn::run()
 {
 	active(true);
-	if (path_priority > control->path_priority)
+	if (control->get<Transform>()->parent.ref() && path_priority > control->path_priority)
 	{
 		PlayerManager* manager = control->player.ref()->manager.ref();
 		pathfind(manager->team.ref()->player_spawn.ref()->absolute_pos(), Vec3(0, 1, 0), AI::AwkPathfind::LongRange);

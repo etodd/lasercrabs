@@ -145,7 +145,7 @@ namespace AIBehaviors
 		{
 			if (this->active())
 			{
-				if (result.path.length > 1 && this->path_priority > this->control->path_priority)
+				if (result.path.length > 1 && this->control->get<Transform>()->parent.ref() && this->path_priority > this->control->path_priority)
 				{
 					this->control->behavior_start(this, true, this->path_priority);
 					this->control->set_path(result.path);
@@ -169,6 +169,7 @@ namespace AIBehaviors
 #if DEBUG_AI_CONTROL
 			vi_debug("Awk pathfind: %s", typeid(*this).name());
 #endif
+			vi_assert(this->control->template get<Transform>()->parent.ref());
 			auto ai_callback = ObjectLinkEntryArg<Base<Derived>, const AI::Result&, &Base<Derived>::path_callback>(this->id());
 			Vec3 pos;
 			Quat rot;
@@ -214,6 +215,13 @@ namespace AIBehaviors
 
 	// low-level behaviors
 
+	struct WaitForAttachment : Base<WaitForAttachment>
+	{
+		void set_context(void*);
+		void attached();
+		void run();
+	};
+
 	typedef b8(*AbilitySpawnFilter)(const AIPlayerControl*);
 	struct AbilitySpawn : Base<AbilitySpawn>
 	{
@@ -221,9 +229,9 @@ namespace AIBehaviors
 		Ability ability;
 		AbilitySpawn(s8, Ability, AbilitySpawnFilter);
 		void completed(Ability);
-		virtual void set_context(void*);
+		void set_context(void*);
 		void run();
-		virtual void abort();
+		void abort();
 	};
 
 	struct ReactTarget : Base<ReactTarget>
@@ -246,7 +254,7 @@ namespace AIBehaviors
 	{
 		Upgrade(s8);
 		void completed(Ability);
-		virtual void set_context(void*);
+		void set_context(void*);
 		void run();
 	};
 

@@ -248,7 +248,7 @@ void Awk::hit_target(Entity* target)
 b8 Awk::predict_intersection(const Target* target, Vec3* intersection) const
 {
 	Vec3 target_pos = target->absolute_pos();
-	Vec3 target_velocity = target->get<RigidBody>()->btBody->getLinearVelocity();
+	Vec3 target_velocity = target->get<RigidBody>()->btBody->getInterpolationLinearVelocity();
 	Vec3 to_target = target_pos - get<Transform>()->absolute_pos();
 	r32 intersect_time_squared = to_target.dot(to_target) / ((AWK_FLY_SPEED * AWK_FLY_SPEED) - 2.0f * to_target.dot(target_velocity) - target_velocity.dot(target_velocity));
 	if (intersect_time_squared > 0.0f)

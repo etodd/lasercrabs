@@ -833,7 +833,7 @@ namespace Penelope
 				text.color = UI::accent_color;
 				text.text("[{{Interact}}]");
 
-				Vec2 p = vp.size * Vec2(0.5f, 0.9f);
+				Vec2 p = vp.size * Vec2(0.5f, 0.8f);
 				UI::box(params, text.rect(p).outset(8.0f * UI::scale), UI::background_color);
 				text.draw(params, p);
 			}

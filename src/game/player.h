@@ -104,6 +104,7 @@ struct LocalPlayerControl : public ComponentType<LocalPlayerControl>
 		};
 
 		Vec3 pos;
+		Vec3 velocity;
 		Type type;
 	};
 
@@ -124,6 +125,8 @@ struct LocalPlayerControl : public ComponentType<LocalPlayerControl>
 	b8 try_slide;
 	u8 gamepad;
 	r32 rumble;
+	Vec3 last_pos;
+	r32 last_gamepad_input_time;
 
 	LocalPlayerControl(u8);
 	~LocalPlayerControl();
@@ -142,7 +145,7 @@ struct LocalPlayerControl : public ComponentType<LocalPlayerControl>
 
 	void detach();
 
-	void update_camera_input(const Update&);
+	void update_camera_input(const Update&, r32 = 1.0f);
 	Vec3 get_movement(const Update&, const Quat&);
 	b8 input_enabled() const;
 	b8 movement_enabled() const;

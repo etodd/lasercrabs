@@ -215,7 +215,10 @@ void LocalPlayer::update(const Update& u)
 	// close/open pause menu if needed
 	{
 		b8 pause_hit = Game::time.total > 0.5f && u.last_input->get(Controls::Pause, gamepad) && !u.input->get(Controls::Pause, gamepad);
-		if (pause_hit && !upgrading && (menu_state == Menu::State::Hidden || menu_state == Menu::State::Visible))
+		if (pause_hit
+			&& !upgrading
+			&& (menu_state == Menu::State::Hidden || menu_state == Menu::State::Visible)
+			&& !Penelope::has_focus())
 		{
 			menu_state = (menu_state == Menu::State::Hidden) ? Menu::State::Visible : Menu::State::Hidden;
 			menu.animate();
@@ -868,7 +871,8 @@ LocalPlayerControl::LocalPlayerControl(u8 gamepad)
 	damage_timer(),
 	health_flash_timer(),
 	rumble(),
-	target_indicators()
+	target_indicators(),
+	last_gamepad_input_time()
 {
 	camera = Camera::add();
 }
@@ -886,6 +890,7 @@ void LocalPlayerControl::awake()
 
 	if (has<Awk>())
 	{
+		last_pos = get<Awk>()->center();
 		link<&LocalPlayerControl::awk_attached>(get<Awk>()->attached);
 		link_arg<Entity*, &LocalPlayerControl::hit_target>(get<Awk>()->hit);
 		link_arg<const DamageEvent&, &LocalPlayerControl::damaged>(get<Health>()->damaged);
@@ -958,7 +963,7 @@ b8 LocalPlayerControl::movement_enabled() const
 	return input_enabled() && get<PlayerCommon>()->movement_enabled();
 }
 
-void LocalPlayerControl::update_camera_input(const Update& u)
+void LocalPlayerControl::update_camera_input(const Update& u, r32 gamepad_rotation_multiplier)
 {
 	if (input_enabled())
 	{
@@ -972,8 +977,15 @@ void LocalPlayerControl::update_camera_input(const Update& u)
 		if (u.input->gamepads[gamepad].active)
 		{
 			r32 s = LMath::lerpf(fov_blend, speed_joystick, speed_joystick_zoom);
-			get<PlayerCommon>()->angle_horizontal -= s * u.time.delta * Input::dead_zone(u.input->gamepads[gamepad].right_x);
-			get<PlayerCommon>()->angle_vertical += s * u.time.delta * Input::dead_zone(u.input->gamepads[gamepad].right_y);
+			Vec2 adjustment = Vec2
+			(
+				-Input::dead_zone(u.input->gamepads[gamepad].right_x),
+				Input::dead_zone(u.input->gamepads[gamepad].right_y)
+			) * s * u.time.delta * gamepad_rotation_multiplier;
+			if (adjustment.length_squared() > 0.0f)
+				last_gamepad_input_time = Game::real_time.total;
+			get<PlayerCommon>()->angle_horizontal += adjustment.x;
+			get<PlayerCommon>()->angle_vertical += adjustment.y;
 		}
 
 		get<PlayerCommon>()->angle_vertical = LMath::clampf(get<PlayerCommon>()->angle_vertical, PI * -0.495f, PI * 0.495f);
@@ -1034,7 +1046,7 @@ b8 LocalPlayerControl::add_target_indicator(Target* target, TargetIndicator::Typ
 		{
 			if (reticle.type == ReticleType::Normal && LMath::ray_sphere_intersect(me, reticle.pos, intersection, MINION_HEAD_RADIUS))
 				reticle.type = ReticleType::Target;
-			target_indicators.add({ intersection, type });
+			target_indicators.add({ intersection, target->get<RigidBody>()->btBody->getInterpolationLinearVelocity(), type });
 			if (target_indicators.length == target_indicators.capacity())
 				return false;
 		}
@@ -1077,9 +1089,9 @@ void LocalPlayerControl::update(const Update& u)
 	{
 		// pvp mode
 		{
-			// Zoom
+			// zoom
 			r32 fov_blend_target = 0.0f;
-			if (has<Awk>() && get<Transform>()->parent.ref() && input_enabled())
+			if (get<Transform>()->parent.ref() && input_enabled())
 			{
 				if (u.input->get(Controls::Secondary, gamepad))
 				{
@@ -1108,14 +1120,83 @@ void LocalPlayerControl::update(const Update& u)
 
 		if (get<Transform>()->parent.ref())
 		{
-			// Look
-			update_camera_input(u);
+			r32 gamepad_rotation_multiplier = 1.0f;
+
+			if (input_enabled() && u.input->gamepads[gamepad].active)
+			{
+				// gamepad aim assist based on data from last frame
+				Vec3 to_reticle = reticle.pos - camera->pos;
+				r32 reticle_distance = to_reticle.length();
+				to_reticle /= reticle_distance;
+				for (s32 i = 0; i < target_indicators.length; i++)
+				{
+					const TargetIndicator indicator = target_indicators[i];
+					if (indicator.type == TargetIndicator::Type::AwkVisible
+						|| indicator.type == TargetIndicator::Type::Health
+						|| indicator.type == TargetIndicator::Type::Minion)
+					{
+						Vec3 to_indicator = indicator.pos - camera->pos;
+						r32 indicator_distance = to_indicator.length();
+						if (indicator_distance < reticle_distance)
+						{
+							to_indicator /= indicator_distance;
+							if (to_indicator.dot(to_reticle) > 0.99f)
+							{
+								// slow down gamepad rotation if we're hovering over this target
+								gamepad_rotation_multiplier = 0.6f;
+
+								if (Game::real_time.total - last_gamepad_input_time < 0.5f)
+								{
+									// adjust for relative velocity
+									Vec2 predicted_offset;
+									{
+										Vec3 me = get<Awk>()->center();
+										Vec3 my_velocity = get<Awk>()->center() - last_pos;
+										{
+											r32 my_speed = my_velocity.length_squared();
+											if (my_speed == 0.0f || my_speed > AWK_CRAWL_SPEED * AWK_CRAWL_SPEED * 1.5f) // don't adjust if we're going too fast or not moving
+												break;
+										}
+										Vec3 me_predicted = me + my_velocity;
+
+										if (indicator.velocity.length_squared() > AWK_CRAWL_SPEED * AWK_CRAWL_SPEED * 1.5f) // enemy moving too fast
+											break;
+
+										Vec3 target_predicted = indicator.pos + indicator.velocity * u.time.delta;
+										Vec3 predicted_ray = Vec3::normalize(target_predicted - me_predicted);
+										Vec2 predicted_angles(atan2f(predicted_ray.x, predicted_ray.z), -asinf(predicted_ray.y));
+										predicted_offset = Vec2(LMath::angle_to(get<PlayerCommon>()->angle_horizontal, predicted_angles.x), LMath::angle_to(get<PlayerCommon>()->angle_vertical, predicted_angles.y));
+									}
+
+									Vec2 current_offset;
+									{
+										Vec3 current_ray = Vec3::normalize(indicator.pos - get<Awk>()->center());
+										Vec2 current_angles(atan2f(current_ray.x, current_ray.z), -asinf(current_ray.y));
+										current_offset = Vec2(LMath::angle_to(get<PlayerCommon>()->angle_horizontal, current_angles.x), LMath::angle_to(get<PlayerCommon>()->angle_vertical, current_angles.y));
+									}
+
+									Vec2 adjustment(LMath::angle_to(current_offset.x, predicted_offset.x), LMath::angle_to(current_offset.y, predicted_offset.y));
+									get<PlayerCommon>()->angle_horizontal += adjustment.x;
+									get<PlayerCommon>()->angle_vertical += adjustment.y;
+								}
+
+								break;
+							}
+						}
+					}
+				}
+			}
+
+			// look
+			update_camera_input(u, gamepad_rotation_multiplier);
 			get<PlayerCommon>()->clamp_rotation(get<PlayerCommon>()->attach_quat * Vec3(0, 0, 1), 0.5f);
 			look_quat = Quat::euler(0, get<PlayerCommon>()->angle_horizontal, get<PlayerCommon>()->angle_vertical);
 
 			// crawling
 			Vec3 movement = get_movement(u, Quat::euler(0, get<PlayerCommon>()->angle_horizontal, get<PlayerCommon>()->angle_vertical));
 			get<Awk>()->crawl(movement, u);
+
+			last_pos = get<Awk>()->center();
 		}
 		else
 			look_quat = get<PlayerCommon>()->attach_quat;
@@ -1428,7 +1509,7 @@ void LocalPlayerControl::update(const Update& u)
 
 		// wind sound and camera shake at high speed
 		{
-			r32 speed = get<RigidBody>()->btBody->getLinearVelocity().length();
+			r32 speed = get<RigidBody>()->btBody->getInterpolationLinearVelocity().length();
 			get<Audio>()->param(AK::GAME_PARAMETERS::FLY_VOLUME, LMath::clampf((speed - 8.0f) / 25.0f, 0, 1));
 			r32 shake = LMath::clampf((speed - 13.0f) / 30.0f, 0, 1);
 			rumble = vi_max(rumble, shake);

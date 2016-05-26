@@ -293,15 +293,13 @@ void Game::update(const Update& update_in)
 		i.item()->update(u);
 	for (auto i = Teleportee::list.iterator(); !i.is_last(); i.next())
 		i.item()->update(u);
+	for (auto i = PlayerCommon::list.iterator(); !i.is_last(); i.next())
+		i.item()->update(u);
+	for (auto i = LocalPlayerControl::list.iterator(); !i.is_last(); i.next())
+		i.item()->update(u);
 
 	for (s32 i = 0; i < updates.length; i++)
 		(*updates[i])(u);
-
-	for (auto i = PlayerCommon::list.iterator(); !i.is_last(); i.next())
-		i.item()->update(u);
-
-	for (auto i = LocalPlayerControl::list.iterator(); !i.is_last(); i.next())
-		i.item()->update(u);
 
 	Console::update(u);
 
@@ -876,7 +874,7 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 		{
 			entity = World::alloc<Empty>();
 			PlayerTrigger* trigger = entity->create<PlayerTrigger>();
-			trigger->radius = Json::get_r32(element, "scale", 1.0f) * 0.5f;
+			trigger->radius = Json::get_r32(element, "scale", 1.0f);
 		}
 		else if (cJSON_GetObjectItem(element, "Mover"))
 		{

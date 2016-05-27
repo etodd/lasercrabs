@@ -479,7 +479,7 @@ void LocalPlayer::draw_alpha(const RenderParams& params) const
 			{
 				// "upgrade!"
 				UIText text;
-				text.color = UI::accent_color;
+				text.color = manager.ref()->ability_upgrade_available() ? UI::accent_color : UI::disabled_color;
 				text.text(_(strings::upgrade_prompt));
 				text.anchor_x = UIText::Anchor::Center;
 				text.anchor_y = UIText::Anchor::Center;

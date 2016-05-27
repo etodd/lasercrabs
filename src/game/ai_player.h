@@ -118,6 +118,7 @@ struct AIPlayerControl : public ComponentType<AIPlayerControl>
 	void init_behavior_trees();
 	void behavior_start(Behavior*, b8, s8);
 	void behavior_done(b8);
+	void behavior_clear();
 	b8 restore_loops();
 	b8 aim_and_shoot(const Update&, const Vec3&, const Vec3&, b8);
 	b8 in_range(const Vec3&, r32) const;
@@ -158,16 +159,22 @@ namespace AIBehaviors
 		virtual void abort()
 		{
 			if (this->control->target_path_callback == this)
-				this->control->target_path_callback = nullptr;
+				this->control->behavior_clear();
 			BehaviorBase<Derived>::abort();
 		}
 
 		void pathfind(const Vec3& target, const Vec3& normal, AI::AwkPathfind type)
 		{
-			// if hit is false, pathfind as close as possible to the given target
-			// if hit is true, pathfind to a point from which we can shoot through the given target
 #if DEBUG_AI_CONTROL
-			vi_debug("Awk pathfind: %s", typeid(*this).name());
+			Behavior* r = this->root();
+			const char* loop;
+			if (r == this->control->loop_low_level)
+				loop = "low-level 1";
+			else if (r == this->control->loop_low_level_2)
+				loop = "low-level 2";
+			else
+				loop = "high-level";
+			vi_debug("Awk %s: %s", loop, typeid(*this).name());
 #endif
 			vi_assert(this->control->template get<Transform>()->parent.ref());
 			auto ai_callback = ObjectLinkEntryArg<Base<Derived>, const AI::Result&, &Base<Derived>::path_callback>(this->id());
@@ -219,6 +226,7 @@ namespace AIBehaviors
 	{
 		void set_context(void*);
 		void attached();
+		void ability_upgrade_completed(Ability);
 		void run();
 	};
 

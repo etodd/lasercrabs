@@ -1200,7 +1200,7 @@ namespace connect
 		{
 			const LevelNode& node = data->levels[i];
 			Transform* pos = node.pos.ref();
-			UI::indicator(params, pos->absolute_pos(), i <= Game::save.level_index ? UI::accent_color : Team::ui_color_friend, false);
+			UI::indicator(params, pos->absolute_pos(), i <= Game::save.level_index ? UI::accent_color : UI::alert_color, false);
 
 			if (node.id == Menu::next_level)
 			{

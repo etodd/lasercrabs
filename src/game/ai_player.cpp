@@ -121,6 +121,7 @@ void AIPlayerControl::awake()
 	link<&AIPlayerControl::awk_attached>(get<Awk>()->attached);
 	link_arg<Entity*, &AIPlayerControl::awk_hit>(get<Awk>()->hit);
 	link<&AIPlayerControl::awk_detached>(get<Awk>()->detached);
+	init_behavior_trees();
 }
 
 b8 AIPlayerControl::in_range(const Vec3& p, r32 range) const
@@ -221,14 +222,20 @@ void AIPlayerControl::behavior_start(Behavior* caller, b8 callback, s8 priority)
 	vi_debug("Awk %s: %s", loop, typeid(*caller).name());
 #endif
 
-	vi_assert(!target_path_callback);
+	vi_assert(!target_path_callback || target_path_callback == caller);
 
 	if (callback)
 		target_path_callback = caller;
-	else
-		target_path_callback = nullptr;
 	path_priority = priority;
+}
+
+void AIPlayerControl::behavior_clear()
+{
+	target_path_callback = nullptr;
 	shot_at_target = false;
+	path_priority = 0;
+	path.length = 0;
+	target = nullptr;
 }
 
 void AIPlayerControl::behavior_done(b8 success)
@@ -237,11 +244,7 @@ void AIPlayerControl::behavior_done(b8 success)
 	vi_debug("Awk behavior done: %d", success);
 #endif
 	Behavior* cb = target_path_callback;
-	target_path_callback = nullptr;
-	shot_at_target = false;
-	path_priority = 0;
-	path.length = 0;
-	target = nullptr;
+	behavior_clear();
 	if (cb)
 		cb->done(success);
 }
@@ -638,12 +641,12 @@ Repeat* make_low_level_loop(AIPlayerControl* control, const AIPlayer::Config& co
 			(
 				Sequence::alloc
 				(
-					Delay::alloc(config.interval_low_level),
-					Sequence::alloc
+					Succeed::alloc
 					(
-						AIBehaviors::WaitForAttachment::alloc(),
-						Succeed::alloc
+						Sequence::alloc
 						(
+							Delay::alloc(config.interval_low_level),
+							AIBehaviors::WaitForAttachment::alloc(),
 							Select::alloc // if any of these succeed, they will abort the high level loop
 							(
 								AIBehaviors::RunAway::alloc(Awk::family, 5, &awk_run_filter),
@@ -664,9 +667,9 @@ Repeat* make_low_level_loop(AIPlayerControl* control, const AIPlayer::Config& co
 									AIBehaviors::Upgrade::alloc(4)
 								)
 							)
-						),
-						Execute::alloc()->method<AIPlayerControl, &AIPlayerControl::restore_loops>(control) // restart the high level loop if necessary
-					)
+						)
+					),
+					Execute::alloc()->method<AIPlayerControl, &AIPlayerControl::restore_loops>(control) // restart the high level loop if necessary
 				)
 			);
 			break;
@@ -788,9 +791,6 @@ void AIPlayerControl::update(const Update& u)
 {
 	if (get<Transform>()->parent.ref() && !Team::game_over())
 	{
-		if (!loop_high_level)
-			init_behavior_trees();
-
 		const AIPlayer::Config& config = player.ref()->config;
 
 		if (target.ref())
@@ -974,15 +974,13 @@ Panic::Panic(s8 priority)
 
 void Panic::abort()
 {
-	if (active())
-		control->panic = false;
+	control->panic = false;
 	Base<Panic>::abort();
 }
 
 void Panic::done(b8 a)
 {
-	if (active())
-		control->panic = false;
+	control->panic = false;
 	Base<Panic>::done(a);
 }
 
@@ -999,22 +997,30 @@ void Panic::run()
 		done(false);
 }
 
+// WaitForAttachment waits for us to be on a surface and done with any ability upgrades
 void WaitForAttachment::set_context(void* ctx)
 {
 	Base::set_context(ctx);
 	control->get<Awk>()->attached.link<WaitForAttachment, &WaitForAttachment::attached>(this);
+	control->player.ref()->manager.ref()->ability_upgraded.link<WaitForAttachment, Ability, &WaitForAttachment::ability_upgrade_completed>(this);
 }
 
 void WaitForAttachment::attached()
 {
-	if (active())
+	if (active() && control->player.ref()->manager.ref()->current_upgrade_ability == Ability::None)
+		done(true);
+}
+
+void WaitForAttachment::ability_upgrade_completed(Ability a)
+{
+	if (active() && control->get<Transform>()->parent.ref())
 		done(true);
 }
 
 void WaitForAttachment::run()
 {
 	active(true);
-	if (control->get<Transform>()->parent.ref())
+	if (control->get<Transform>()->parent.ref() && control->player.ref()->manager.ref()->current_upgrade_ability == Ability::None)
 		done(true);
 }
 
@@ -1065,8 +1071,7 @@ void AbilitySpawn::run()
 
 void AbilitySpawn::abort()
 {
-	if (active())
-		control->player.ref()->manager.ref()->ability_spawn_stop(ability);
+	control->player.ref()->manager.ref()->ability_spawn_stop(ability);
 	Base<AbilitySpawn>::abort();
 }
 

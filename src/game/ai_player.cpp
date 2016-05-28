@@ -93,7 +93,7 @@ AIPlayerControl::AIPlayerControl(AIPlayer* p)
 	: player(p),
 	path_index(),
 	memory(),
-	target_path_callback(),
+	active_behavior(),
 	path_priority(),
 	path(),
 	loop_high_level(),
@@ -180,7 +180,7 @@ void AIPlayerControl::set_path(const AI::Path& p)
 	hit_target = false;
 }
 
-void AIPlayerControl::behavior_start(Behavior* caller, b8 callback, s8 priority)
+void AIPlayerControl::behavior_start(Behavior* caller, s8 priority)
 {
 	// depending on which loop this behavior is in,
 	// we need to abort the others and restart them
@@ -222,44 +222,19 @@ void AIPlayerControl::behavior_start(Behavior* caller, b8 callback, s8 priority)
 	vi_debug("%s: %s", loop, typeid(*caller).name());
 #endif
 
-	vi_assert(!target_path_callback || target_path_callback == caller);
+	vi_assert(!active_behavior);
 
-	if (callback)
-		target_path_callback = caller;
+	active_behavior = caller;
 	path_priority = priority;
 }
 
 void AIPlayerControl::behavior_clear()
 {
-	target_path_callback = nullptr;
+	active_behavior = nullptr;
 	shot_at_target = false;
 	path_priority = 0;
 	path.length = 0;
 	target = nullptr;
-}
-
-void AIPlayerControl::behavior_done(b8 success)
-{
-	Behavior* cb = target_path_callback;
-#if DEBUG_AI_CONTROL
-	if (cb)
-	{
-		Behavior* r = cb->root();
-		const char* loop;
-		if (r == loop_low_level)
-			loop = "Low-level 1";
-		else if (r == loop_low_level_2)
-			loop = "Low-level 2";
-		else
-			loop = "High-level";
-		vi_debug("%s: %s", loop, typeid(*cb).name());
-	}
-	else
-		vi_debug("Unknown behavior");
-#endif
-	behavior_clear();
-	if (cb)
-		cb->done(success);
 }
 
 b8 AIPlayerControl::restore_loops()
@@ -815,13 +790,13 @@ void AIPlayerControl::update(const Update& u)
 				if (get<Awk>()->can_hit(target.ref()->get<Target>(), &intersection))
 					aim_and_shoot(u, intersection, intersection, false);
 				else
-					behavior_done(false); // we can't hit it
+					active_behavior->done(false); // we can't hit it
 			}
 			else
 			{
 				// just trying to go to a certain spot (probably our spawn)
 				if (aim_timer > config.aim_timeout)
-					behavior_done(false); // something went wrong
+					active_behavior->done(false); // something went wrong
 				else
 				{
 					Vec3 t = target.ref()->get<Transform>()->absolute_pos();
@@ -833,7 +808,7 @@ void AIPlayerControl::update(const Update& u)
 		{
 			// look at next target
 			if (aim_timer > config.aim_timeout)
-				behavior_done(false); // we can't hit it
+				active_behavior->done(false); // we can't hit it
 			else
 				aim_and_shoot(u, path[path_index - 1], path[path_index], true); // path_index starts at 1 so we're good here
 		}
@@ -860,7 +835,7 @@ void AIPlayerControl::update(const Update& u)
 						if (get<Awk>()->detach(look_dir))
 						{
 							panic = false; // we did it!
-							// when we land, behavior_done will get called
+							// when we land, active_behavior->done() will get called
 						}
 					}
 				}
@@ -868,28 +843,29 @@ void AIPlayerControl::update(const Update& u)
 		}
 	}
 
-	if (target_path_callback && !panic)
+	if (!panic)
 	{
-		// a behavior is waiting for a callback; see if we're done executing it
 		if (target.ref())
 		{
+			// a behavior is waiting for a callback; see if we're done executing it
 			if (target.ref()->has<Target>())
 			{
 				if (shot_at_target)
-					behavior_done(hit_target); // call it success if we hit our target, or if there was nothing to hit
+					active_behavior->done(hit_target); // call it success if we hit our target, or if there was nothing to hit
 			}
 			else
 			{
 				// the only other kind of target we can have is our spawn
 				if ((target.ref()->get<Transform>()->absolute_pos() - get<Transform>()->absolute_pos()).length_squared() < PLAYER_SPAWN_RADIUS * PLAYER_SPAWN_RADIUS)
-					behavior_done(true);
+					active_behavior->done(true);
 			}
 		}
-		else
+		else if (path.length > 0)
 		{
+			// a behavior is waiting for a callback; see if we're done executing it
 			// following a path
 			if (path_index >= path.length)
-				behavior_done(path.length > 1); // call it success if the path we followed was actually valid
+				active_behavior->done(path.length > 1); // call it success if the path we followed was actually valid
 		}
 	}
 
@@ -1004,7 +980,7 @@ void Panic::run()
 	if (path_priority > control->path_priority)
 	{
 		control->panic = true;
-		control->behavior_start(this, true, 10000000); // if we're panicking, nothing can interrupt us
+		control->behavior_start(this, 10000000); // if we're panicking, nothing can interrupt us
 	}
 	else
 		done(false);
@@ -1052,10 +1028,7 @@ void AbilitySpawn::set_context(void* ctx)
 void AbilitySpawn::completed(Ability a)
 {
 	if (active())
-	{
-		control->behavior_done(a == ability);
 		done(a == ability);
-	}
 }
 
 void AbilitySpawn::run()
@@ -1074,7 +1047,7 @@ void AbilitySpawn::run()
 	{
 		if (manager->ability_spawn_start(ability))
 		{
-			control->behavior_start(this, false, AbilitySpawn::path_priority);
+			control->behavior_start(this, AbilitySpawn::path_priority);
 			return;
 		}
 	}
@@ -1123,7 +1096,7 @@ void ReactTarget::run()
 			b8 can_hit_now = control->get<Awk>()->can_hit(closest->get<Target>());
 			if (can_hit_now && can_react)
 			{
-				control->behavior_start(this, true, react_priority);
+				control->behavior_start(this, react_priority);
 				control->set_target(closest);
 				return;
 			}
@@ -1237,7 +1210,7 @@ void ReactSpawn::run()
 			{
 				if ((hit - target).length_squared() < PLAYER_SPAWN_RADIUS * PLAYER_SPAWN_RADIUS)
 				{
-					control->behavior_start(this, true, path_priority);
+					control->behavior_start(this, path_priority);
 					control->set_target(spawn->entity());
 					return;
 				}
@@ -1261,10 +1234,7 @@ void Upgrade::set_context(void* ctx)
 void Upgrade::completed(Ability a)
 {
 	if (active())
-	{
-		control->behavior_done(true);
 		done(true);
-	}
 }
 
 void Upgrade::run()
@@ -1280,7 +1250,7 @@ void Upgrade::run()
 			{
 				if (manager->ability_upgrade_start(a))
 				{
-					control->behavior_start(this, false, 10000); // set the priority higher than everything else; upgrades can't be cancelled
+					control->behavior_start(this, 10000); // set the priority higher than everything else; upgrades can't be cancelled
 					return;
 				}
 			}

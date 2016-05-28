@@ -18,6 +18,10 @@ struct Behavior
 	virtual void set_context(void*) {}
 	virtual void done(b8 = true) {}
 	virtual b8 active() const { return false; }
+	virtual Behavior* active_child() const
+	{
+		return active() ? (Behavior*)this : nullptr;
+	}
 	virtual ~Behavior() {}
 	Behavior* root() const;
 };
@@ -121,6 +125,16 @@ template<typename Derived> struct BehaviorComposite : public BehaviorBase<Derive
 		BehaviorBase<Derived>::abort();
 	}
 
+	Behavior* active_child() const
+	{
+		for (s32 i = 0; i < num_children; i++)
+		{
+			if (children[i]->active())
+				return children[i]->active_child();
+		}
+		return nullptr;
+	}
+
 	virtual ~BehaviorComposite()
 	{
 		for (s32 i = 0; i < num_children; i++)
@@ -148,6 +162,11 @@ template<typename Derived> struct BehaviorDecorator : public BehaviorBase<Derive
 		if (child->active())
 			child->abort();
 		BehaviorBase<Derived>::abort();
+	}
+
+	Behavior* active_child() const
+	{
+		return child->active() ? child->active_child() : nullptr;
 	}
 
 	virtual ~BehaviorDecorator()

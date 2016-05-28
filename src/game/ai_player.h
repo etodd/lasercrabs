@@ -95,7 +95,7 @@ struct AIPlayerControl : public ComponentType<AIPlayerControl>
 	Repeat* loop_low_level;
 	Repeat* loop_low_level_2;
 	Repeat* loop_memory;
-	Behavior* target_path_callback;
+	Behavior* active_behavior;
 	MemoryArray memory[MAX_FAMILIES];
 	AI::Path path;
 	s32 path_index;
@@ -116,8 +116,7 @@ struct AIPlayerControl : public ComponentType<AIPlayerControl>
 
 	b8 update_memory();
 	void init_behavior_trees();
-	void behavior_start(Behavior*, b8, s8);
-	void behavior_done(b8);
+	void behavior_start(Behavior*, s8);
 	void behavior_clear();
 	b8 restore_loops();
 	b8 aim_and_shoot(const Update&, const Vec3&, const Vec3&, b8);
@@ -148,7 +147,8 @@ namespace AIBehaviors
 			{
 				if (result.path.length > 1 && this->control->get<Transform>()->parent.ref() && this->path_priority > this->control->path_priority)
 				{
-					this->control->behavior_start(this, true, this->path_priority);
+					vi_assert(this->control->active_behavior != this);
+					this->control->behavior_start(this, this->path_priority);
 					this->control->set_path(result.path);
 				}
 				else
@@ -156,9 +156,40 @@ namespace AIBehaviors
 			}
 		}
 
+		virtual void done(b8 success)
+		{
+			if (this->control->active_behavior == this)
+			{
+				this->control->behavior_clear();
+#if DEBUG_AI_CONTROL
+				Behavior* r = this->root();
+				const char* loop;
+				if (r == this->control->loop_low_level)
+					loop = "Low-level 1";
+				else if (r == this->control->loop_low_level_2)
+					loop = "Low-level 2";
+				else
+					loop = "High-level";
+				vi_debug("%s: %s", loop, typeid(*this).name());
+#endif
+			}
+			BehaviorBase<Derived>::done(success);
+		}
+
 		virtual void abort()
 		{
-			if (this->control->target_path_callback == this)
+#if DEBUG_AI_CONTROL
+			Behavior* r = this->root();
+			const char* loop;
+			if (r == this->control->loop_low_level)
+				loop = "Low-level 1";
+			else if (r == this->control->loop_low_level_2)
+				loop = "Low-level 2";
+			else
+				loop = "High-level";
+			vi_debug("%s: %s", loop, typeid(*this).name());
+#endif
+			if (this->control->active_behavior == this)
 				this->control->behavior_clear();
 			BehaviorBase<Derived>::abort();
 		}

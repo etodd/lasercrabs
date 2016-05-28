@@ -254,7 +254,9 @@ void awk_astar(AI::Team team, const AwkNavMeshNode& start_vertex, const AstarSco
 
 				const Vec3& adjacent_pos = awk_nav_mesh.chunks[adjacent_node.chunk].vertices[adjacent_node.vertex];
 
-				r32 candidate_travel_score = vertex_data->travel_score + (adjacent_pos - vertex_pos).length();
+				r32 candidate_travel_score = vertex_data->travel_score
+					+ (adjacent_pos - vertex_pos).length()
+					+ 10.0f; // bias toward fewer, longer shots
 
 				if (existing_queue_index == -1)
 				{

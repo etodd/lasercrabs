@@ -106,6 +106,7 @@ namespace AI
 			b8 visited;
 			r32 travel_score;
 			r32 estimate_score;
+			r32 sensor_score;
 		};
 
 		struct AwkNavMeshKey

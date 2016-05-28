@@ -169,12 +169,12 @@ namespace AIBehaviors
 			Behavior* r = this->root();
 			const char* loop;
 			if (r == this->control->loop_low_level)
-				loop = "low-level 1";
+				loop = "Low-level 1";
 			else if (r == this->control->loop_low_level_2)
-				loop = "low-level 2";
+				loop = "Low-level 2";
 			else
-				loop = "high-level";
-			vi_debug("Awk %s: %s", loop, typeid(*this).name());
+				loop = "High-level";
+			vi_debug("%s: %s", loop, typeid(*this).name());
 #endif
 			vi_assert(this->control->template get<Transform>()->parent.ref());
 			auto ai_callback = ObjectLinkEntryArg<Base<Derived>, const AI::Result&, &Base<Derived>::path_callback>(this->id());

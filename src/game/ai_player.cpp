@@ -214,12 +214,12 @@ void AIPlayerControl::behavior_start(Behavior* caller, b8 callback, s8 priority)
 #if DEBUG_AI_CONTROL
 	const char* loop;
 	if (r == loop_low_level)
-		loop = "low-level 1";
+		loop = "Low-level 1";
 	else if (r == loop_low_level_2)
-		loop = "low-level 2";
+		loop = "Low-level 2";
 	else
-		loop = "high-level";
-	vi_debug("Awk %s: %s", loop, typeid(*caller).name());
+		loop = "High-level";
+	vi_debug("%s: %s", loop, typeid(*caller).name());
 #endif
 
 	vi_assert(!target_path_callback || target_path_callback == caller);
@@ -240,10 +240,23 @@ void AIPlayerControl::behavior_clear()
 
 void AIPlayerControl::behavior_done(b8 success)
 {
-#if DEBUG_AI_CONTROL
-	vi_debug("Awk behavior done: %d", success);
-#endif
 	Behavior* cb = target_path_callback;
+#if DEBUG_AI_CONTROL
+	if (cb)
+	{
+		Behavior* r = cb->root();
+		const char* loop;
+		if (r == loop_low_level)
+			loop = "Low-level 1";
+		else if (r == loop_low_level_2)
+			loop = "Low-level 2";
+		else
+			loop = "High-level";
+		vi_debug("%s: %s", loop, typeid(*cb).name());
+	}
+	else
+		vi_debug("Unknown behavior");
+#endif
 	behavior_clear();
 	if (cb)
 		cb->done(success);
@@ -620,7 +633,7 @@ b8 should_spawn_minion(const AIPlayerControl* control)
 			{
 				// make sure the minion won't die of fall damage
 				Vec3 ray_start = my_pos + my_rot * Vec3(0, 0, 1);
-				btCollisionWorld::ClosestRayResultCallback ray_callback(ray_start, ray_start + Vec3(0, -6, 0));
+				btCollisionWorld::ClosestRayResultCallback ray_callback(ray_start, ray_start + Vec3(0, -5, 0));
 				Physics::raycast(&ray_callback, ~CollisionWalker & ~CollisionTarget & ~CollisionShield & ~CollisionAwk & ~CollisionTeamAContainmentField & ~CollisionTeamBContainmentField);
 				if (ray_callback.hasHit())
 					return true;
@@ -956,7 +969,7 @@ void RandomPath::run()
 	if (control->get<Transform>()->parent.ref() && path_priority > control->path_priority)
 	{
 #if DEBUG_AI_CONTROL
-		vi_debug("Awk pathfind: %s", typeid(*this).name());
+		vi_debug("Pathfind: %s", typeid(*this).name());
 #endif
 		Vec3 pos;
 		Quat rot;

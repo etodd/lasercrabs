@@ -298,8 +298,8 @@
 	"btn_RightTrigger": "Right Trigger",
 	"btn_None": "None",
 
-	"victory": "Opponent Defeated",
-	"defeat": "Defeated",
+	"victory": "Enemy Terminated",
+	"defeat": "Connection Lost",
 	"draw": "Time Expired",
 	"timer": "%d:%02d",
 	"yes": "Yes.",

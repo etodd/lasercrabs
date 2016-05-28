@@ -168,7 +168,7 @@ r32 sensor_cost(AI::Team team, const AwkNavMeshNode& node)
 	for (s32 i = 0; i < sensors.length; i++)
 	{
 		Vec3 to_sensor = sensors[i].pos - pos;
-		if (to_sensor.length() < SENSOR_RANGE)
+		if (to_sensor.length_squared() < SENSOR_RANGE * SENSOR_RANGE)
 		{
 			if (normal.dot(to_sensor) > 0.0f)
 			{
@@ -206,6 +206,7 @@ void awk_astar(AI::Team team, const AwkNavMeshNode& start_vertex, const AstarSco
 		AwkNavMeshNodeData* start_data = &awk_nav_mesh_key.get(start_vertex);
 		start_data->travel_score = 0;
 		start_data->estimate_score = scorer->score(start_pos);
+		start_data->sensor_score = sensor_cost(team, start_vertex);
 		start_data->parent = { (u16)-1, (u16)-1 };
 	}
 
@@ -235,7 +236,7 @@ void awk_astar(AI::Team team, const AwkNavMeshNode& start_vertex, const AstarSco
 		for (s32 i = 0; i < adjacency.length; i++)
 		{
 			// visit neighbors
-			const AwkNavMeshNode& adjacent_node = adjacency[i];
+			const AwkNavMeshNode adjacent_node = adjacency[i];
 			AwkNavMeshNodeData* adjacent_data = &awk_nav_mesh_key.get(adjacent_node);
 
 			if (!adjacent_data->visited)
@@ -253,14 +254,13 @@ void awk_astar(AI::Team team, const AwkNavMeshNode& start_vertex, const AstarSco
 
 				const Vec3& adjacent_pos = awk_nav_mesh.chunks[adjacent_node.chunk].vertices[adjacent_node.vertex];
 
-				r32 candidate_travel_score = vertex_data->travel_score
-					+ (adjacent_pos - vertex_pos).length()
-					+ sensor_cost(team, adjacent_node);
+				r32 candidate_travel_score = vertex_data->travel_score + (adjacent_pos - vertex_pos).length();
 
 				if (existing_queue_index == -1)
 				{
 					// totally new node
 					adjacent_data->parent = vertex_node;
+					adjacent_data->sensor_score = sensor_cost(team, adjacent_node);
 					adjacent_data->travel_score = candidate_travel_score;
 					adjacent_data->estimate_score = scorer->score(adjacent_pos);
 					queue.push(adjacent_node);
@@ -779,7 +779,7 @@ void AwkNavMeshKey::reset(const AwkNavMesh& nav)
 r32 AwkNavMeshKey::priority(const AwkNavMeshNode& a)
 {
 	const AwkNavMeshNodeData& data = get(a);
-	return data.travel_score + data.estimate_score;
+	return data.travel_score + data.estimate_score + data.sensor_score;
 }
 
 AwkNavMeshNodeData& AwkNavMeshKey::get(const AwkNavMeshNode& node)

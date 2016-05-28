@@ -631,20 +631,25 @@ void LocalPlayer::draw_alpha(const RenderParams& params) const
 
 			AssetID icon;
 			const Vec4* color;
-			if (remaining > GAME_TIME_LIMIT * 0.75f)
+			if (remaining > GAME_TIME_LIMIT * 0.8f)
 			{
 				icon = Asset::Mesh::icon_battery_3;
 				color = &UI::default_color;
 			}
-			else if (remaining > GAME_TIME_LIMIT * 0.5f)
+			else if (remaining > GAME_TIME_LIMIT * 0.6f)
 			{
 				icon = Asset::Mesh::icon_battery_2;
 				color = &UI::default_color;
 			}
-			else if (remaining > GAME_TIME_LIMIT * 0.25f)
+			else if (remaining > GAME_TIME_LIMIT * 0.4f)
 			{
 				icon = Asset::Mesh::icon_battery_1;
 				color = &UI::accent_color;
+			}
+			else if (remaining > 60.0f)
+			{
+				icon = Asset::Mesh::icon_battery_1;
+				color = &UI::alert_color;
 			}
 			else
 			{
@@ -652,7 +657,7 @@ void LocalPlayer::draw_alpha(const RenderParams& params) const
 				color = &UI::alert_color;
 			}
 
-			if (remaining > 30.0f || UI::flash_function(Game::real_time.total))
+			if (remaining > 60.0f || UI::flash_function(Game::real_time.total))
 				UI::mesh(params, icon, icon_pos, Vec2(text_size * UI::scale), *color);
 			
 			s32 remaining_minutes = remaining / 60.0f;

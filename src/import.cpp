@@ -1829,6 +1829,7 @@ b8 default_filter(const Mesh* m)
 }
 
 const r32 grid_spacing = 2.0f;
+const r32 inv_grid_spacing = 1.0f / grid_spacing;
 
 inline r32 sign(const Vec2& p1, const Vec2& p2, const Vec2& p3)
 {
@@ -1856,12 +1857,15 @@ void rasterize_top_flat_triangle(AwkNavMesh* out, const Vec3& normal, const Vec3
 		invslope2 = tmp;
 	}
 
+	s32 min_x = (s32)(vi_min(v1.x, vi_min(v2.x, v3.x)) * inv_grid_spacing);
+	s32 max_x = (s32)(vi_max(v1.x, vi_max(v2.x, v3.x)) * inv_grid_spacing) + 1;
+
 	r32 curx1 = v1.x;
 	r32 curx2 = v1.x;
 
-	for (s32 y = (s32)(v1.y / grid_spacing); y <= (s32)(v2.y / grid_spacing) + 1; y++)
+	for (s32 y = (s32)(v1.y * inv_grid_spacing); y <= (s32)(v2.y * inv_grid_spacing) + 1; y++)
 	{
-		for (s32 x = (s32)(curx1 / grid_spacing) - 1; x <= (s32)(curx2 / grid_spacing) + 1; x++)
+		for (s32 x = vi_max(min_x, (s32)(curx1 * inv_grid_spacing)) - 1; x <= vi_min(max_x, (s32)(curx2 * inv_grid_spacing)) + 1; x++)
 		{
 			Vec2 p(x * grid_spacing, y * grid_spacing);
 			if (point_in_tri(p, v1, v2, v3))
@@ -1890,14 +1894,17 @@ void rasterize_bottom_flat_triangle(AwkNavMesh* out, const Vec3& normal, const V
 		invslope2 = tmp;
 	}
 
+	s32 min_x = (s32)(vi_min(v1.x, vi_min(v2.x, v3.x)) * inv_grid_spacing);
+	s32 max_x = (s32)(vi_max(v1.x, vi_max(v2.x, v3.x)) * inv_grid_spacing) + 1;
+
 	r32 curx1 = v3.x;
 	r32 curx2 = v3.x;
 
-	for (s32 y = (s32)(v3.y / grid_spacing); y >= (s32)(v1.y / grid_spacing) - 1; y--)
+	for (s32 y = (s32)(v3.y * inv_grid_spacing); y >= (s32)(v1.y * inv_grid_spacing) - 1; y--)
 	{
 		curx1 -= invslope1;
 		curx2 -= invslope2;
-		for (s32 x = (s32)(curx1 / grid_spacing) - 1; x <= (s32)(curx2 / grid_spacing) + 1; x++)
+		for (s32 x = vi_max(min_x, (s32)(curx1 * inv_grid_spacing)) - 1; x <= vi_min(max_x, (s32)(curx2 * inv_grid_spacing)) + 1; x++)
 		{
 			Vec2 p(x * grid_spacing, y * grid_spacing);
 			if (point_in_tri(p, v1, v2, v3))
@@ -2047,7 +2054,8 @@ b8 awk_raycast(const ChunkedTris& mesh, const Vec3& start, const Vec3& end, cons
 
 void build_awk_nav_mesh(Map<Mesh>& meshes, cJSON* json, AwkNavMesh* out, s32* adjacency_buffer_overflows, s32* orphans)
 {
-	const r32 chunk_size = 12.0f;
+	u32 timer = SDL_GetTicks();
+	const r32 chunk_size = 10.0f;
 	const r32 chunk_padding = AWK_RADIUS;
 
 	ChunkedTris accessible_chunked;
@@ -2055,6 +2063,9 @@ void build_awk_nav_mesh(Map<Mesh>& meshes, cJSON* json, AwkNavMesh* out, s32* ad
 	{
 		Mesh accessible;
 		consolidate_nav_geometry(&accessible, meshes, json, is_accessible);
+
+		printf("Consolidating accessible surfaces done: %ums\n", SDL_GetTicks() - timer);
+		timer = SDL_GetTicks();
 
 		out->resize(accessible.bounds_min, accessible.bounds_max, chunk_size);
 
@@ -2152,7 +2163,13 @@ void build_awk_nav_mesh(Map<Mesh>& meshes, cJSON* json, AwkNavMesh* out, s32* ad
 			}
 		}
 
+		printf("Rasterizing accessible surfaces done: %ums\n", SDL_GetTicks() - timer);
+		timer = SDL_GetTicks();
+
 		chunk_mesh<Array<Vec3>, &chunk_handle_tris>(accessible, &accessible_chunked, chunk_size, chunk_padding);
+
+		printf("Chunking accessible surfaces done: %ums\n", SDL_GetTicks() - timer);
+		timer = SDL_GetTicks();
 	}
 
 	// chunk inaccessible mesh
@@ -2160,7 +2177,14 @@ void build_awk_nav_mesh(Map<Mesh>& meshes, cJSON* json, AwkNavMesh* out, s32* ad
 	{
 		Mesh inaccessible;
 		consolidate_nav_geometry(&inaccessible, meshes, json, is_inaccessible);
+
+		printf("Consolidating inaccessible surfaces done: %ums\n", SDL_GetTicks() - timer);
+		timer = SDL_GetTicks();
+
 		chunk_mesh<Array<Vec3>, &chunk_handle_tris>(inaccessible, &inaccessible_chunked, chunk_size, chunk_padding);
+
+		printf("Chunking inaccessible surfaces done: %ums\n", SDL_GetTicks() - timer);
+		timer = SDL_GetTicks();
 	}
 	
 	// build adjacency
@@ -2171,7 +2195,7 @@ void build_awk_nav_mesh(Map<Mesh>& meshes, cJSON* json, AwkNavMesh* out, s32* ad
 	// how many vertices had overflowing adjacency buffers?
 	*adjacency_buffer_overflows = 0;
 
-	Array<AwkNavMeshNode> vertex_adjacency_buffer;
+	Array<AwkNavMeshNode> potential_neighbors;
 	for (s32 chunk_index = 0; chunk_index < out->chunks.length; chunk_index++)
 	{
 		AwkNavMeshChunk* chunk = &out->chunks[chunk_index];
@@ -2183,7 +2207,7 @@ void build_awk_nav_mesh(Map<Mesh>& meshes, cJSON* json, AwkNavMesh* out, s32* ad
 			const Vec3 vertex_surface = chunk->vertices[vertex_index];
 			const Vec3 vertex = vertex_surface + vertex_normal * AWK_RADIUS;
 
-			vertex_adjacency_buffer.length = 0;
+			potential_neighbors.length = 0;
 
 			// visit neighbors
 			AwkNavMesh::Coord chunk_coord = out->coord(chunk_index);
@@ -2219,15 +2243,7 @@ void build_awk_nav_mesh(Map<Mesh>& meshes, cJSON* json, AwkNavMesh* out, s32* ad
 									{
 										const Vec3& normal_neighbor = neighbor_chunk->normals[neighbor_index];
 										if (normal_neighbor.dot(to_neighbor) < 0.0f)
-										{
-											if (!awk_raycast(inaccessible_chunked, vertex, neighbor))
-											{
-												b8 hit_close;
-												awk_raycast(accessible_chunked, vertex, neighbor, &normal_neighbor, &hit_close);
-												if (hit_close)
-													vertex_adjacency_buffer.add(neighbor_node);
-											}
-										}
+											potential_neighbors.add(neighbor_node);
 									}
 								}
 							}
@@ -2236,21 +2252,42 @@ void build_awk_nav_mesh(Map<Mesh>& meshes, cJSON* json, AwkNavMesh* out, s32* ad
 				}
 			}
 
-			// remove random neighbors until we fit in the adjacency list
-			s32 remove = vertex_adjacency_buffer.length - AWK_NAV_MESH_ADJACENCY;
-			if (remove > 0)
+			// shuffle potential neighbors
+			for (s32 i = 0; i < potential_neighbors.length - 1; i++)
 			{
-				for (s32 i = 0; i < remove; i++)
-					vertex_adjacency_buffer.remove(mersenne::rand() % vertex_adjacency_buffer.length);
-				(*adjacency_buffer_overflows)++;
+				s32 j = i + mersenne::rand() % (potential_neighbors.length - i);
+				const AwkNavMeshNode tmp = potential_neighbors[i];
+				potential_neighbors[i] = potential_neighbors[j];
+				potential_neighbors[j] = tmp;
 			}
 
-			// copy buffer to actual adjacency list
+			// raycast potential neighbors
 			AwkNavMeshAdjacency* vertex_adjacency = &chunk->adjacency[vertex_index];
-			vertex_adjacency->resize(vertex_adjacency_buffer.length);
-			memcpy(vertex_adjacency->data, vertex_adjacency_buffer.data, sizeof(AwkNavMeshNode) * vertex_adjacency_buffer.length);
+			for (s32 i = 0; i < potential_neighbors.length; i++)
+			{
+				const AwkNavMeshNode neighbor_index = potential_neighbors[i];
+				const Vec3& neighbor_vertex = out->chunks[neighbor_index.chunk].vertices[neighbor_index.vertex];
+				if (!awk_raycast(inaccessible_chunked, vertex, neighbor_vertex))
+				{
+					const Vec3& neighbor_normal = out->chunks[neighbor_index.chunk].normals[neighbor_index.vertex];
+					b8 hit_close;
+					awk_raycast(accessible_chunked, vertex, neighbor_vertex, &neighbor_normal, &hit_close);
+					if (hit_close)
+					{
+						vertex_adjacency->add(neighbor_index);
+						if (vertex_adjacency->length == vertex_adjacency->capacity())
+						{
+							(*adjacency_buffer_overflows)++;
+							break;
+						}
+					}
+				}
+			}
 		}
 	}
+
+	printf("Building adjacency graph done: %ums\n", SDL_GetTicks() - timer);
+	timer = SDL_GetTicks();
 
 	// count orphans
 	*orphans = 0;
@@ -2293,6 +2330,8 @@ void build_awk_nav_mesh(Map<Mesh>& meshes, cJSON* json, AwkNavMesh* out, s32* ad
 			}
 		}
 	}
+
+	printf("Orphan cleaning done: %ums\n", SDL_GetTicks() - timer);
 }
 
 void import_level(ImporterState& state, const std::string& asset_in_path, const std::string& out_folder)

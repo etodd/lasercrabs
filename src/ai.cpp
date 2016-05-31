@@ -32,7 +32,7 @@ u32 callback_out_id;
 
 void loop()
 {
-	Internal::loop();
+	Worker::loop();
 }
 
 void quit()
@@ -237,11 +237,11 @@ void refresh_nav_render_meshes(const RenderParams& params)
 
 	// nav mesh
 	{
-		if (Internal::nav_mesh)
+		if (Worker::nav_mesh)
 		{
-			for (s32 tile_id = 0; tile_id < Internal::nav_mesh->getMaxTiles(); tile_id++)
+			for (s32 tile_id = 0; tile_id < Worker::nav_mesh->getMaxTiles(); tile_id++)
 			{
-				const dtMeshTile* tile = ((const dtNavMesh*)Internal::nav_mesh)->getTile(tile_id);
+				const dtMeshTile* tile = ((const dtNavMesh*)Worker::nav_mesh)->getTile(tile_id);
 				if (!tile->header)
 					continue;
 
@@ -288,9 +288,9 @@ void refresh_nav_render_meshes(const RenderParams& params)
 	// awk nav mesh
 	{
 		s32 vertex_count = 0;
-		for (s32 chunk_index = 0; chunk_index < Internal::awk_nav_mesh.chunks.length; chunk_index++)
+		for (s32 chunk_index = 0; chunk_index < Worker::awk_nav_mesh.chunks.length; chunk_index++)
 		{
-			const AwkNavMeshChunk& chunk = Internal::awk_nav_mesh.chunks[chunk_index];
+			const AwkNavMeshChunk& chunk = Worker::awk_nav_mesh.chunks[chunk_index];
 
 			for (s32 i = 0; i < chunk.vertices.length; i++)
 				vertices.add(chunk.vertices[i]);
@@ -305,7 +305,7 @@ void refresh_nav_render_meshes(const RenderParams& params)
 
 					s32 neighbor_chunk_vertex_index = 0;
 					for (s32 k = 0; k < neighbor.chunk; k++)
-						neighbor_chunk_vertex_index += Internal::awk_nav_mesh.chunks[k].vertices.length;
+						neighbor_chunk_vertex_index += Worker::awk_nav_mesh.chunks[k].vertices.length;
 					indices.add(neighbor_chunk_vertex_index + neighbor.vertex);
 				}
 			}
@@ -382,7 +382,7 @@ void debug_draw_nav_mesh(const RenderParams& params)
 void debug_draw_awk_nav_mesh(const RenderParams& params)
 {
 	refresh_nav_render_meshes(params);
-	render_helper(params, awk_render_mesh, RenderPrimitiveMode::Points, RenderFillMode::Point);
+	render_helper(params, awk_render_mesh, RenderPrimitiveMode::Lines, RenderFillMode::Line);
 }
 
 #endif

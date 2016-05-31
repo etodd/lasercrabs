@@ -62,7 +62,7 @@ struct Awk : public ComponentType<Awk>
 	r32 last_footstep;
 	Vec3 lerped_pos;
 	Quat lerped_rotation;
-	Ref<View> shield;
+	Ref<Entity> shield;
 
 	Awk();
 	void awake();
@@ -72,7 +72,6 @@ struct Awk : public ComponentType<Awk>
 	void hit_target(Entity*); // Called when we hit a target
 	void damaged(const DamageEvent&);
 	void killed(Entity*);
-	void update_shield_visibility();
 
 	s32 ally_containment_field_mask() const;
 

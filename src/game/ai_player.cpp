@@ -833,10 +833,7 @@ void AIPlayerControl::update(const Update& u)
 					if (get<Awk>()->can_go(look_dir))
 					{
 						if (get<Awk>()->detach(look_dir))
-						{
-							panic = false; // we did it!
-							// when we land, active_behavior->done() will get called
-						}
+							active_behavior->done(true);
 					}
 				}
 			}

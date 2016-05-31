@@ -338,10 +338,10 @@ void Game::draw_alpha(const RenderParams& render_params)
 #if DEBUG_AI_PATH
 	{
 		UIText text;
+		text.color = UI::accent_color;
 		for (auto i = MinionAI::list.iterator(); !i.is_last(); i.next())
 		{
 			MinionAI* minion = i.item();
-			text.color = Team::ui_colors[(s32)minion->get<AIAgent>()->team];
 			for (s32 j = minion->path_index; j < minion->path.length; j++)
 			{
 				Vec2 p;

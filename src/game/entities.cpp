@@ -131,23 +131,24 @@ void HealthPickup::reset()
 
 void HealthPickup::hit(const TargetEvent& e)
 {
-	if (e.hit_by->has<AIAgent>() && e.hit_by->has<Health>())
+	Health* health = e.hit_by->get<Health>();
+
+	if (health->hp < health->hp_max)
 	{
-		Health* health = e.hit_by->get<Health>();
-
-		if (health->hp < health->hp_max)
+		// if we're already owned by someone,
+		// they need the right upgrade to be able to steal us
+		if (!owner.ref()
+			|| (e.hit_by->get<PlayerCommon>()->manager.ref()->can_steal_health() && owner.ref() != health))
 		{
-			if (!owner.ref()
-				|| (e.hit_by->get<PlayerCommon>()->manager.ref()->can_steal_health() && owner.ref() != health))
-			{
-				owner = health;
-				health->add(1);
+			if (owner.ref()) // looks like we're being stolen
+				owner.ref()->damage(e.hit_by, 1);
+			owner = health;
+			health->add(1);
 
-				AI::Team team = e.hit_by->get<AIAgent>()->team;
-				get<PointLight>()->team = (u8)team;
-				get<View>()->team = (u8)team;
-				return;
-			}
+			AI::Team team = e.hit_by->get<AIAgent>()->team;
+			get<PointLight>()->team = (u8)team;
+			get<View>()->team = (u8)team;
+			return;
 		}
 	}
 

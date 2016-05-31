@@ -10,7 +10,6 @@ namespace VI
 
 struct TargetEvent;
 struct PlayerManager;
-struct Teleporter;
 
 #define MINION_HEAD_RADIUS 0.35f
 #define CONTAINMENT_FIELD_RADIUS 20.0f
@@ -75,11 +74,9 @@ struct MinionAI : public ComponentType<MinionAI>
 	b8 can_see(Entity*) const;
 
 	void new_goal();
-	void find_goal_near(const Vec3&);
 	void set_path(const AI::Result&);
 	void update(const Update&);
 	void turn_to(const Vec3&);
-	void teleport_if_necessary(const Vec3&);
 };
 
 

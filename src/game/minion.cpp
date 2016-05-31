@@ -24,6 +24,8 @@
 
 #define HEALTH 5
 
+#define DEBUG_MINION 1
+
 namespace VI
 {
 
@@ -31,8 +33,6 @@ Minion::Minion(const Vec3& pos, const Quat& quat, AI::Team team, PlayerManager* 
 {
 	Transform* transform = create<Transform>();
 	transform->pos = pos;
-
-	create<Teleportee>();
 
 	Animator* animator = create<Animator>();
 	SkinnedModel* model = create<SkinnedModel>();
@@ -303,19 +303,20 @@ void MinionCommon::killed(Entity* killer)
 
 // Minion AI
 
-Entity* closest_target_to(const Vec3& pos, AI::Team team)
+Entity* closest_target(MinionAI* me, AI::Team team)
 {
+	Vec3 pos = me->get<Transform>()->absolute_pos();
 	Entity* closest = nullptr;
 
 	r32 closest_distance = FLT_MAX;
 	for (auto i = Sensor::list.iterator(); !i.is_last(); i.next())
 	{
 		Sensor* sensor = i.item();
-		if (sensor->team != team && !sensor->has<MinionCommon>())
+		if (sensor->team != team)
 		{
-			Vec3 sensor_pos = sensor->get<Transform>()->absolute_pos();
-
-			r32 total_distance = (sensor_pos - pos).length();
+			if (me->can_see(sensor->entity()))
+				return sensor->entity();
+			r32 total_distance = (sensor->get<Transform>()->absolute_pos() - pos).length_squared();
 			if (total_distance < closest_distance)
 			{
 				closest = sensor->entity();
@@ -329,9 +330,9 @@ Entity* closest_target_to(const Vec3& pos, AI::Team team)
 		MinionCommon* minion = i.item();
 		if (minion->get<AIAgent>()->team != team)
 		{
-			Vec3 teleporter_pos = minion->get<Transform>()->absolute_pos();
-
-			r32 total_distance = (teleporter_pos - pos).length();
+			if (me->can_see(minion->entity()))
+				return minion->entity();
+			r32 total_distance = (minion->get<Transform>()->absolute_pos() - pos).length_squared();
 			if (total_distance < closest_distance)
 			{
 				closest = minion->entity();
@@ -341,6 +342,31 @@ Entity* closest_target_to(const Vec3& pos, AI::Team team)
 	}
 
 	return closest;
+}
+
+Entity* visible_target(MinionAI* me, AI::Team team)
+{
+	for (auto i = Sensor::list.iterator(); !i.is_last(); i.next())
+	{
+		Sensor* sensor = i.item();
+		if (sensor->team != team)
+		{
+			if (me->can_see(sensor->entity()))
+				return sensor->entity();
+		}
+	}
+
+	for (auto i = MinionCommon::list.iterator(); !i.is_last(); i.next())
+	{
+		MinionCommon* minion = i.item();
+		if (minion->get<AIAgent>()->team != team)
+		{
+			if (me->can_see(minion->entity()))
+				return minion->entity();
+		}
+	}
+
+	return nullptr;
 }
 
 void MinionAI::awake()
@@ -370,31 +396,10 @@ b8 MinionAI::can_see(Entity* target) const
 
 #define PATH_RECALC_TIME 1.0f
 
-void MinionAI::teleport_if_necessary(const Vec3& target)
-{
-	// find a teleporter to use
-	Teleporter* closest_teleporter = Teleporter::closest(target, get<AIAgent>()->team);
-	Vec3 closest_teleporter_pos;
-	Quat closest_teleporter_rot;
-	r32 closest_distance;
-	if (closest_teleporter)
-	{
-		closest_teleporter->get<Transform>()->absolute(&closest_teleporter_pos, &closest_teleporter_rot);
-		closest_distance = (closest_teleporter_pos - target).length_squared();
-
-		Vec3 pos = get<Transform>()->absolute_pos();
-		if (closest_teleporter && (closest_distance < (pos - target).length_squared())) // use the teleporter
-		{
-			get<Teleportee>()->target = closest_teleporter;
-			get<Teleportee>()->go();
-		}
-	}
-}
-
 void MinionAI::new_goal()
 {
 	Vec3 pos = get<Transform>()->absolute_pos();
-	goal.entity = closest_target_to(pos, get<AIAgent>()->team);
+	goal.entity = closest_target(this, get<AIAgent>()->team);
 	auto path_callback = ObjectLinkEntryArg<MinionAI, const AI::Result&, &MinionAI::set_path>(id());
 	if (goal.entity.ref())
 	{
@@ -402,7 +407,6 @@ void MinionAI::new_goal()
 		if (!can_see(goal.entity.ref()))
 		{
 			Vec3 target = goal.entity.ref()->get<Transform>()->absolute_pos();
-			teleport_if_necessary(target);
 			path_request = PathRequest::Target;
 			path_timer = PATH_RECALC_TIME;
 			AI::pathfind(pos, target, path_callback);
@@ -413,35 +417,6 @@ void MinionAI::new_goal()
 		path_request = PathRequest::Random;
 		goal.type = Goal::Type::Position;
 		AI::random_path(pos, path_callback);
-	}
-}
-
-void MinionAI::find_goal_near(const Vec3& target)
-{
-	Entity* entity = closest_target_to(target, get<AIAgent>()->team);
-	Vec3 end;
-	if (entity)
-		end = entity->get<Transform>()->absolute_pos();
-	else
-		end = target;
-
-	teleport_if_necessary(end);
-
-	auto path_callback = ObjectLinkEntryArg<MinionAI, const AI::Result&, &MinionAI::set_path>(id());
-	Vec3 pos = get<Transform>()->absolute_pos();
-	if (entity && (end - target).length_squared() < AWK_MAX_DISTANCE)
-	{
-		goal.entity = entity;
-		goal.type = Goal::Type::Target;
-		path_request = PathRequest::Target;
-		path_timer = PATH_RECALC_TIME;
-		AI::pathfind(pos, end, path_callback);
-	}
-	else
-	{
-		path_request = PathRequest::Position;
-		goal.type = Goal::Type::Position;
-		AI::pathfind(pos, end, path_callback);
 	}
 }
 
@@ -504,10 +479,23 @@ void MinionAI::update(const Update& u)
 			path_timer = vi_max(0.0f, path_timer - u.time.delta);
 			if (path_timer == 0.0f)
 			{
-				// recalc path
-				path_timer = PATH_RECALC_TIME;
-				path_request = PathRequest::Repath;
-				AI::pathfind(pos, goal.type == Goal::Type::Position ? goal.pos : goal.entity.ref()->get<Transform>()->absolute_pos(), ObjectLinkEntryArg<MinionAI, const AI::Result&, &MinionAI::set_path>(id()));
+				// first check if we can see any other targets from where we're standing
+				Entity* target_candidate = visible_target(this, get<AIAgent>()->team);
+				if (target_candidate)
+				{
+					// look, a shiny!
+					path.length = 0;
+					goal.type = Goal::Type::Target;
+					goal.entity = target_candidate;
+					goal.pos = target_candidate->get<Transform>()->absolute_pos();
+				}
+				else
+				{
+					// recalc path
+					path_timer = PATH_RECALC_TIME;
+					path_request = PathRequest::Repath;
+					AI::pathfind(pos, goal.type == Goal::Type::Position ? goal.pos : goal.entity.ref()->get<Transform>()->absolute_pos(), ObjectLinkEntryArg<MinionAI, const AI::Result&, &MinionAI::set_path>(id()));
+				}
 			}
 		}
 	}
@@ -542,14 +530,13 @@ void MinionAI::update(const Update& u)
 
 void MinionAI::set_path(const AI::Result& result)
 {
-	Vec3 pos = get<Transform>()->absolute_pos();
 	path = result.path;
 	if (path_request != PathRequest::Repath)
 	{
 		if (path.length > 0)
 			goal.pos = path[path.length - 1];
 		else
-			goal.pos = pos;
+			goal.pos = get<Transform>()->absolute_pos();
 	}
 	path_request = PathRequest::None;
 	path_index = 0;

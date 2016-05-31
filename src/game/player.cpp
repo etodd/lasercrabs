@@ -1150,7 +1150,7 @@ void LocalPlayerControl::update(const Update& u)
 								// slow down gamepad rotation if we're hovering over this target
 								gamepad_rotation_multiplier = 0.6f;
 
-								if (Game::real_time.total - last_gamepad_input_time < 0.5f)
+								if (Game::real_time.total - last_gamepad_input_time < 0.25f)
 								{
 									// adjust for relative velocity
 									Vec2 predicted_offset;

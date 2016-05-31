@@ -93,7 +93,7 @@ namespace AI
 
 	b8 vision_check(const Vec3&, const Vec3&, const Entity* = nullptr, const Entity* = nullptr);
 
-	namespace Internal
+	namespace Worker
 	{
 		struct NavMeshProcess : public dtTileCacheMeshProcess
 		{

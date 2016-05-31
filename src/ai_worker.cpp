@@ -12,7 +12,7 @@ namespace VI
 namespace AI
 {
 
-namespace Internal
+namespace Worker
 {
 
 
@@ -30,7 +30,7 @@ struct AstarScorer
 	// calculate heuristic score for nav mesh vertex
 	virtual r32 score(const Vec3&) const = 0;
 	// did we find what we're looking for?
-	virtual b8 done(AwkNavMeshNode) const = 0;
+	virtual b8 done(AwkNavMeshNode, const AwkNavMeshNodeData&) const = 0;
 };
 
 // pathfind to a target vertex
@@ -44,7 +44,7 @@ struct PathfindScorer : AstarScorer
 		return (end_pos - pos).length();
 	}
 
-	virtual b8 done(AwkNavMeshNode v) const
+	virtual b8 done(AwkNavMeshNode v, const AwkNavMeshNodeData&) const
 	{
 		return v.equals(end_vertex);
 	}
@@ -62,10 +62,13 @@ struct AwayScorer : AstarScorer
 		return AWK_MAX_DISTANCE - (away_pos - pos).length();
 	}
 
-	virtual b8 done(AwkNavMeshNode v) const
+	virtual b8 done(AwkNavMeshNode v, const AwkNavMeshNodeData& data) const
 	{
 		if (v.equals(start_vertex)) // we need to go somewhere other than here
 			return false;
+
+		if (data.sensor_score == 0.0f) // inside a friendly sensor zone
+			return true;
 
 		const AwkNavMeshAdjacency& adjacency = awk_nav_mesh.chunks[away_vertex.chunk].adjacency[away_vertex.vertex];
 		for (s32 i = 0; i < adjacency.length; i++)
@@ -214,7 +217,9 @@ void awk_astar(AI::Team team, const AwkNavMeshNode& start_vertex, const AstarSco
 	{
 		AwkNavMeshNode vertex_node = queue.pop();
 
-		if (scorer->done(vertex_node))
+		AwkNavMeshNodeData* vertex_data = &awk_nav_mesh_key.get(vertex_node);
+
+		if (scorer->done(vertex_node, *vertex_data))
 		{
 			// reconstruct path
 			AwkNavMeshNode n = vertex_node;
@@ -228,7 +233,6 @@ void awk_astar(AI::Team team, const AwkNavMeshNode& start_vertex, const AstarSco
 			break; // done!
 		}
 
-		AwkNavMeshNodeData* vertex_data = &awk_nav_mesh_key.get(vertex_node);
 		vertex_data->visited = true;
 		const Vec3& vertex_pos = awk_nav_mesh.chunks[vertex_node.chunk].vertices[vertex_node.vertex];
 		
@@ -255,6 +259,7 @@ void awk_astar(AI::Team team, const AwkNavMeshNode& start_vertex, const AstarSco
 				const Vec3& adjacent_pos = awk_nav_mesh.chunks[adjacent_node.chunk].vertices[adjacent_node.vertex];
 
 				r32 candidate_travel_score = vertex_data->travel_score
+					+ vertex_data->sensor_score
 					+ (adjacent_pos - vertex_pos).length()
 					+ 10.0f; // bias toward fewer, longer shots
 
@@ -354,7 +359,7 @@ FastLZCompressor nav_tile_compressor;
 NavMeshProcess nav_tile_mesh_process;
 dtNavMeshQuery* nav_mesh_query = nullptr;
 dtQueryFilter default_query_filter = dtQueryFilter();
-const r32 default_search_extents[] = { 20, 50, 20 };
+const r32 default_search_extents[] = { 15, 30, 15 };
 
 void pathfind(const Vec3& a, const Vec3& b, dtPolyRef start_poly, dtPolyRef end_poly, Path* path)
 {
@@ -376,12 +381,16 @@ void pathfind(const Vec3& a, const Vec3& b, dtPolyRef start_poly, dtPolyRef end_
 		else
 			nav_mesh_query->closestPointOnPoly(path_polys[path_poly_count - 1], (r32*)&b, (r32*)&end, 0);
 
+		Vec3 start;
+		nav_mesh_query->closestPointOnPoly(path_polys[0], (r32*)&a, (r32*)&start, 0);
+
 		nav_mesh_query->findStraightPath
 		(
 			(const r32*)&a, (const r32*)&end, path_polys, path_poly_count,
 			(r32*)path->data, path_straight_flags,
 			path_straight_polys, &path->length, MAX_PATH_LENGTH, 0
 		);
+
 		if (path->length > 1)
 			path->remove_ordered(0);
 	}
@@ -596,9 +605,9 @@ void loop()
 			{
 				Vec3 a;
 				Vec3 b;
+				LinkEntryArg<Path> callback;
 				sync_in.read(&a);
 				sync_in.read(&b);
-				LinkEntryArg<Path> callback;
 				sync_in.read(&callback);
 				sync_in.unlock();
 

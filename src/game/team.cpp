@@ -645,7 +645,10 @@ void PlayerManager::ability_upgrade_complete()
 	else if (a == Ability::Teleporter)
 	{
 		if (level == 2)
-			entity.ref()->get<Awk>()->cooldown_multiplier = 1.25f;
+		{
+			entity.ref()->get<Health>()->hp_max = AWK_HEALTH + 1;
+			entity.ref()->get<Health>()->added.fire(); // trigger UI animation
+		}
 	}
 	else if (a == Ability::Minion)
 	{

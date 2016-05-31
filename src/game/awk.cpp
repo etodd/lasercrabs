@@ -97,23 +97,13 @@ void Awk::awake()
 {
 	link_arg<Entity*, &Awk::killed>(get<Health>()->killed);
 	link_arg<const DamageEvent&, &Awk::damaged>(get<Health>()->damaged);
-	link<&Awk::update_shield_visibility>(get<Health>()->added);
 	link_arg<const TargetEvent&, &Awk::hit_by>(get<Target>()->target_hit);
 	if (!shield.ref())
 	{
 		Entity* shield_entity = World::create<Empty>();
 		shield_entity->get<Transform>()->parent = get<Transform>();
 		shield_entity->add<RigidBody>(RigidBody::Type::Sphere, Vec3(AWK_SHIELD_RADIUS), 0.0f, CollisionTarget | CollisionShield, CollisionDefault, AssetNull, entity_id);
-
-		View* s = shield_entity->add<View>();
-		s->mask = ~(1 << (s32)get<AIAgent>()->team); // don't display to fellow teammates
-		s->additive();
-		s->color = Vec4(1, 1, 1, 0.05f);
-		s->mesh = Asset::Mesh::sphere;
-		s->offset.scale(Vec3(AWK_SHIELD_RADIUS));
-		s->shader = Asset::Shader::flat;
-		shield = s;
-		update_shield_visibility();
+		shield = shield_entity;
 	}
 }
 
@@ -128,17 +118,7 @@ Awk::~Awk()
 	}
 
 	if (shield.ref())
-		World::remove_deferred(shield.ref()->entity());
-}
-
-void Awk::update_shield_visibility()
-{
-	if (get<Health>()->hp < 2)
-		shield.ref()->mask = 0;
-	else if (get<AIAgent>()->stealth)
-		shield.ref()->mask = 1 << (s32)get<AIAgent>()->team; // only teammates see me
-	else
-		shield.ref()->mask = RENDER_MASK_DEFAULT; // everyone sees me
+		World::remove_deferred(shield.ref());
 }
 
 s32 Awk::ally_containment_field_mask() const
@@ -305,8 +285,6 @@ void Awk::damaged(const DamageEvent& e)
 			health_pickup_count--;
 		}
 	}
-
-	update_shield_visibility();
 }
 
 void Awk::killed(Entity* e)
@@ -706,7 +684,6 @@ void Awk::stealth(b8 enable)
 			get<SkinnedModel>()->color.w = MATERIAL_NO_OVERRIDE;
 			get<SkinnedModel>()->mask = RENDER_MASK_DEFAULT; // display to everyone
 		}
-		update_shield_visibility();
 	}
 }
 

@@ -35,8 +35,6 @@ Traceur::Traceur(const Vec3& pos, const Quat& quat, AI::Team team)
 	Transform* transform = create<Transform>();
 	transform->pos = pos;
 
-	create<Teleportee>();
-
 	Animator* animator = create<Animator>();
 	SkinnedModel* model = create<SkinnedModel>();
 

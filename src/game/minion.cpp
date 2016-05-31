@@ -341,6 +341,22 @@ Entity* closest_target(MinionAI* me, AI::Team team)
 		}
 	}
 
+	for (auto i = Rocket::list.iterator(); !i.is_last(); i.next())
+	{
+		Rocket* rocket = i.item();
+		if (rocket->get<AIAgent>()->team != team)
+		{
+			if (me->can_see(rocket->entity()))
+				return rocket->entity();
+			r32 total_distance = (rocket->get<Transform>()->absolute_pos() - pos).length_squared();
+			if (total_distance < closest_distance)
+			{
+				closest = rocket->entity();
+				closest_distance = total_distance;
+			}
+		}
+	}
+
 	return closest;
 }
 
@@ -363,6 +379,16 @@ Entity* visible_target(MinionAI* me, AI::Team team)
 		{
 			if (me->can_see(minion->entity()))
 				return minion->entity();
+		}
+	}
+
+	for (auto i = Rocket::list.iterator(); !i.is_last(); i.next())
+	{
+		Rocket* rocket = i.item();
+		if (rocket->get<AIAgent>()->team != team)
+		{
+			if (me->can_see(rocket->entity()))
+				return rocket->entity();
 		}
 	}
 

@@ -34,7 +34,7 @@ struct PlayerManager;
 enum class Ability
 {
 	Sensor,
-	Teleporter,
+	Rocket,
 	Minion,
 	count,
 	None = count,

@@ -152,37 +152,37 @@ Vec3 Awk::center() const
 
 void Awk::hit_by(const TargetEvent& e)
 {
-	// hit by an enemy Awk
-	Vec3 me = get<Transform>()->absolute_pos();
-	Vec3 awk_pos = e.hit_by->get<Transform>()->absolute_pos();
-	Vec3 awk_dir = Vec3::normalize(e.hit_by->get<Awk>()->velocity);
-	Vec3 intersection;
-	u16 enemy_hp = e.hit_by->get<Health>()->hp;
-	u16 my_hp = get<Health>()->hp;
-
-	b8 damaged = false;
-	b8 stunned = false;
-	// only take damage if we're attached to a wall and not invincible
-	if (get<Transform>()->parent.ref() && !get<Teleportee>()->invincible())
+	if (e.hit_by->has<Awk>())
 	{
-		// normally, the enemy needs the same or higher HP to damage us
-		// but they can also buy an upgrade that lets them damage us no matter what
-		if (enemy_hp >= my_hp
-			|| e.hit_by->get<PlayerCommon>()->manager.ref()->can_steal_health())
-		{
-			get<Health>()->damage(e.hit_by, 1);
-			damaged = true;
-		}
-		else
-		{
-			// they have lower HP and thus can't hurt us
-			stun_timer = AWK_STUN_TIME;
-			stunned = true;
-		}
-	}
+		u16 enemy_hp = e.hit_by->get<Health>()->hp;
+		u16 my_hp = get<Health>()->hp;
 
-	if (!damaged && e.hit_by->has<LocalPlayerControl>())
-		e.hit_by->get<LocalPlayerControl>()->player.ref()->msg(_(stunned ? strings::target_stunned : strings::no_effect), false);
+		b8 damaged = false;
+		b8 stunned = false;
+		// only take damage if we're attached to a wall and not invincible
+		if (get<Transform>()->parent.ref())
+		{
+			// normally, the enemy needs the same or higher HP to damage us
+			// but they can also buy an upgrade that lets them damage us no matter what
+			if (enemy_hp >= my_hp
+				|| e.hit_by->get<PlayerCommon>()->manager.ref()->can_steal_health())
+			{
+				get<Health>()->damage(e.hit_by, 1);
+				damaged = true;
+			}
+			else
+			{
+				// they have lower HP and thus can't hurt us
+				stun_timer = AWK_STUN_TIME;
+				stunned = true;
+			}
+		}
+
+		if (!damaged && e.hit_by->has<LocalPlayerControl>())
+			e.hit_by->get<LocalPlayerControl>()->player.ref()->msg(_(stunned ? strings::target_stunned : strings::no_effect), false);
+	}
+	else
+		get<Health>()->damage(e.hit_by, 1);
 }
 
 void Awk::hit_target(Entity* target)

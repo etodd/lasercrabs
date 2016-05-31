@@ -8,7 +8,7 @@ namespace Asset
 {
 	namespace String
 	{
-		const s32 count = 328;
+		const s32 count = 329;
 		const AssetID _default = 0;
 		const AssetID ability_description = 1;
 		const AssetID ability_lvl = 2;
@@ -38,10 +38,10 @@ namespace Asset
 		const AssetID defeat = 26;
 		const AssetID description_minion_1 = 27;
 		const AssetID description_minion_2 = 28;
-		const AssetID description_sensor_1 = 29;
-		const AssetID description_sensor_2 = 30;
-		const AssetID description_teleporter_1 = 31;
-		const AssetID description_teleporter_2 = 32;
+		const AssetID description_rocket_1 = 29;
+		const AssetID description_rocket_2 = 30;
+		const AssetID description_sensor_1 = 31;
+		const AssetID description_sensor_2 = 32;
 		const AssetID draw = 33;
 		const AssetID dummy = 34;
 		const AssetID enemy_detected = 35;
@@ -307,36 +307,37 @@ namespace Asset
 		const AssetID player = 295;
 		const AssetID resume = 296;
 		const AssetID right_joystick = 297;
-		const AssetID second_round = 298;
-		const AssetID sensor = 299;
-		const AssetID sfx = 300;
-		const AssetID spawn_timer = 301;
-		const AssetID splitscreen = 302;
-		const AssetID stealth = 303;
-		const AssetID stunned = 304;
-		const AssetID target_damaged = 305;
-		const AssetID target_stunned = 306;
-		const AssetID team_a = 307;
-		const AssetID team_b = 308;
-		const AssetID teleport = 309;
-		const AssetID teleporter = 310;
-		const AssetID terminal_reset = 311;
-		const AssetID timer = 312;
-		const AssetID tut_parkour_climb = 313;
-		const AssetID tut_parkour_movement = 314;
-		const AssetID tut_parkour_wallrun = 315;
-		const AssetID tut_pvp_control_points = 316;
-		const AssetID tut_pvp_health = 317;
-		const AssetID tut_pvp_kill_player = 318;
-		const AssetID tut_pvp_minion = 319;
-		const AssetID tut_pvp_upgrade = 320;
-		const AssetID tutorial = 321;
-		const AssetID tutorial_intro = 322;
-		const AssetID upgrade_notification = 323;
-		const AssetID upgrade_prompt = 324;
-		const AssetID upgrading = 325;
-		const AssetID victory = 326;
-		const AssetID yes = 327;
+		const AssetID rocket = 298;
+		const AssetID rocket_incoming = 299;
+		const AssetID second_round = 300;
+		const AssetID sensor = 301;
+		const AssetID sfx = 302;
+		const AssetID spawn_timer = 303;
+		const AssetID splitscreen = 304;
+		const AssetID stealth = 305;
+		const AssetID stunned = 306;
+		const AssetID target_damaged = 307;
+		const AssetID target_stunned = 308;
+		const AssetID team_a = 309;
+		const AssetID team_b = 310;
+		const AssetID teleport = 311;
+		const AssetID terminal_reset = 312;
+		const AssetID timer = 313;
+		const AssetID tut_parkour_climb = 314;
+		const AssetID tut_parkour_movement = 315;
+		const AssetID tut_parkour_wallrun = 316;
+		const AssetID tut_pvp_control_points = 317;
+		const AssetID tut_pvp_health = 318;
+		const AssetID tut_pvp_kill_player = 319;
+		const AssetID tut_pvp_minion = 320;
+		const AssetID tut_pvp_upgrade = 321;
+		const AssetID tutorial = 322;
+		const AssetID tutorial_intro = 323;
+		const AssetID upgrade_notification = 324;
+		const AssetID upgrade_prompt = 325;
+		const AssetID upgrading = 326;
+		const AssetID victory = 327;
+		const AssetID yes = 328;
 	}
 }
 

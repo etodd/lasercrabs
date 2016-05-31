@@ -50,12 +50,11 @@ COMPONENT_TYPE(28, Parkour) \
 COMPONENT_TYPE(29, Tile) \
 COMPONENT_TYPE(30, HealthPickup) \
 COMPONENT_TYPE(31, Sensor) \
-COMPONENT_TYPE(32, Teleporter) \
-COMPONENT_TYPE(33, Teleportee) \
-COMPONENT_TYPE(34, SensorInterestPoint) \
-COMPONENT_TYPE(35, DataFragment) \
+COMPONENT_TYPE(32, Rocket) \
+COMPONENT_TYPE(33, SensorInterestPoint) \
+COMPONENT_TYPE(34, DataFragment) \
 
-Family World::families = 36;
+Family World::families = 35;
 
 #define COMPONENT_TYPE(INDEX, TYPE) \
 template<> Family ComponentType<TYPE>::family = (INDEX); \

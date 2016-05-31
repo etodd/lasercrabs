@@ -303,10 +303,12 @@ Sparks Particles::sparks
 	Vec3(0.0f, -12.0f, 0.0f)
 );
 
-ParticleSystem Particles::teleport_sparks
+StandardParticleSystem Particles::tracers
 (
-	0.15f,
-	Asset::Shader::spark_teleport
+	Vec2(0.05f),
+	Vec2(0.0f),
+	4.0f,
+	Vec3::zero
 );
 
 }

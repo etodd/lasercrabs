@@ -81,35 +81,21 @@ struct Sensor : public ComponentType<Sensor>
 	static void update_all(const Update&);
 };
 
-struct Teleporter : public ComponentType<Teleporter>
+struct Rocket : public ComponentType<Rocket>
 {
-	static Teleporter* closest(const Vec3&, AI::Team);
-
 	AI::Team team;
-
-	void awake() {}
-};
-
-#define TELEPORT_TIME 2.0f
-#define TELEPORT_INVINCIBLE_PERIOD 1.0f
-// yes really
-struct Teleportee : public ComponentType<Teleportee>
-{
-	Ref<Teleporter> target;
-	r32 accumulator;
-	r32 timer;
+	Ref<Entity> target;
+	Ref<Entity> owner;
+	r32 particle_accumulator;
 
 	void awake() {}
 	void update(const Update&);
-	b8 in_progress() const;
-	b8 invincible() const;
-	b8 go();
-	void cancel();
+	void launch(Entity*);
 };
 
-struct TeleporterEntity : public Entity
+struct RocketEntity : public Entity
 {
-	TeleporterEntity(const Vec3&, const Quat&, AI::Team);
+	RocketEntity(Entity*, Transform*, const Vec3&, const Quat&, AI::Team);
 };
 
 // for AI

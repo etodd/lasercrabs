@@ -43,12 +43,12 @@ AbilityInfo AbilityInfo::list[] =
 		{ strings::description_sensor_1, strings::description_sensor_2 },
 	},
 	{
-		Asset::Mesh::icon_teleporter,
-		TELEPORT_TIME,
-		10,
-		{ 50, 80 },
-		strings::teleporter,
-		{ strings::description_teleporter_1, strings::description_teleporter_2 },
+		Asset::Mesh::icon_rocket,
+		1.0f,
+		5,
+		{ 50, 150 },
+		strings::rocket,
+		{ strings::description_rocket_1, strings::description_rocket_2 },
 	},
 	{
 		Asset::Mesh::icon_minion,
@@ -351,8 +351,6 @@ void Team::update_all(const Update& u)
 			if (sensor)
 			{
 				// team's sensors are picking up the Awk
-				// if this team is already tracking the Awk, increment the timer
-				// if not, add the Awk to the tracking list
 
 				if (track->entity.ref() == player_entity)
 				{
@@ -366,7 +364,6 @@ void Team::update_all(const Update& u)
 						if (track->timer >= SENSOR_TIME)
 							team->track(player.item(), sensor->player_manager.ref());
 					}
-					break;
 				}
 				else if (player_entity->get<Transform>()->parent.ref())
 				{
@@ -390,6 +387,35 @@ void Team::update_all(const Update& u)
 						// done tracking
 						track->entity = nullptr;
 						track->tracking = false;
+					}
+				}
+			}
+
+			if (player_entity && track->tracking)
+			{
+				// launch a rocket if one is available, and if there isn't already one in flight
+				b8 launch = true;
+				for (auto rocket = Rocket::list.iterator(); !rocket.is_last(); rocket.next())
+				{
+					if (rocket.item()->target.ref() == player_entity)
+					{
+						launch = false; // a rocket is already en route
+						break;
+					}
+				}
+
+				if (launch)
+				{
+					Vec3 player_pos = player_entity->get<Transform>()->absolute_pos();
+					for (auto rocket = Rocket::list.iterator(); !rocket.is_last(); rocket.next())
+					{
+						if (rocket.item()->team == team->team()
+							&& rocket.item()->get<Transform>()->parent.ref() // it's waiting to be fired
+							&& (rocket.item()->get<Transform>()->absolute_pos() - player_pos).length_squared() < AWK_MAX_DISTANCE * 2.0f * AWK_MAX_DISTANCE * 2.0f)
+						{
+							rocket.item()->launch(player_entity);
+							break;
+						}
 					}
 				}
 			}
@@ -480,12 +506,6 @@ b8 PlayerManager::ability_spawn_start(Ability ability)
 	if (ability_level[(s32)ability] == 0)
 		return false;
 
-	if (ability == Ability::Teleporter)
-	{
-		if (!awk->get<Teleportee>()->go())
-			return false;
-	}
-
 	current_spawn_ability = ability;
 	spawn_ability_timer = info.spawn_time;
 
@@ -497,17 +517,7 @@ void PlayerManager::ability_spawn_stop(Ability ability)
 	if (current_spawn_ability == ability)
 	{
 		current_spawn_ability = Ability::None;
-		r32 timer = spawn_ability_timer;
 		spawn_ability_timer = 0.0f;
-
-		const AbilityInfo& info = AbilityInfo::list[(s32)ability];
-
-		if (ability == Ability::Teleporter)
-		{
-			Entity* awk = entity.ref();
-			if (awk)
-				awk->get<Teleportee>()->cancel();
-		}
 	}
 }
 
@@ -548,16 +558,23 @@ void PlayerManager::ability_spawn_complete()
 			}
 			break;
 		}
-		case Ability::Teleporter:
+		case Ability::Rocket:
 		{
 			if (awk->get<Transform>()->parent.ref())
 			{
 				add_credits(-cost);
 
-				// spawn a teleporter
+				// spawn a rocket pod
 				Quat rot = awk->get<Transform>()->absolute_rot();
 				Vec3 pos = awk->get<Transform>()->absolute_pos() + rot * Vec3(0, 0, -AWK_RADIUS);
-				World::create<TeleporterEntity>(pos, rot, team.ref()->team());
+				Transform* parent = awk->get<Transform>()->parent.ref();
+				World::create<RocketEntity>(awk, parent, pos, rot, team.ref()->team());
+
+				// rocket base
+				Entity* base = World::alloc<Prop>(Asset::Mesh::rocket_base);
+				base->get<Transform>()->absolute(pos, rot);
+				base->get<Transform>()->reparent(parent);
+				base->get<View>()->team = (u8)team.ref()->team();
 			}
 			break;
 		}
@@ -642,7 +659,7 @@ void PlayerManager::ability_upgrade_complete()
 	if (a == Ability::Sensor)
 	{
 	}
-	else if (a == Ability::Teleporter)
+	else if (a == Ability::Rocket)
 	{
 		if (level == 2)
 		{
@@ -734,39 +751,6 @@ void PlayerManager::update(const Update& u)
 	if (spawn_ability_timer > 0.0f)
 	{
 		spawn_ability_timer = vi_max(0.0f, spawn_ability_timer - u.time.delta);
-
-		if (current_spawn_ability == Ability::Teleporter)
-		{
-			Entity* awk = entity.ref();
-			if (awk)
-			{
-				AI::Team t = team.ref()->team();
-				r32 closest_dot = -2.0f;
-				Teleporter* closest = nullptr;
-
-				Vec3 me = awk->get<Transform>()->absolute_pos();
-				Vec3 look_dir = awk->get<PlayerCommon>()->look_dir();
-
-				for (auto teleporter = Teleporter::list.iterator(); !teleporter.is_last(); teleporter.next())
-				{
-					if (teleporter.item()->team == t)
-					{
-						Vec3 to_teleporter = teleporter.item()->get<Transform>()->absolute_pos() - me;
-						r32 distance = to_teleporter.length();
-						if (distance > AWK_RADIUS * 2.0f)
-						{
-							r32 dot = look_dir.dot(to_teleporter / distance);
-							if (dot > closest_dot)
-							{
-								closest = teleporter.item();
-								closest_dot = dot;
-							}
-						}
-					}
-				}
-				awk->get<Teleportee>()->target = closest;
-			}
-		}
 
 		if (spawn_ability_timer == 0.0f && current_spawn_ability != Ability::None)
 			ability_spawn_complete();

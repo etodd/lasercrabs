@@ -289,9 +289,9 @@ void Game::update(const Update& update_in)
 		i.item()->update(u);
 	for (auto i = Projectile::list.iterator(); !i.is_last(); i.next())
 		i.item()->update(u);
-	for (auto i = Tile::list.iterator(); !i.is_last(); i.next())
+	for (auto i = Rocket::list.iterator(); !i.is_last(); i.next())
 		i.item()->update(u);
-	for (auto i = Teleportee::list.iterator(); !i.is_last(); i.next())
+	for (auto i = Tile::list.iterator(); !i.is_last(); i.next())
 		i.item()->update(u);
 	for (auto i = PlayerCommon::list.iterator(); !i.is_last(); i.next())
 		i.item()->update(u);
@@ -563,6 +563,26 @@ void Game::execute(const Update& u, const char* cmd)
 					for (auto i = PlayerManager::list.iterator(); !i.is_last(); i.next())
 						i.item()->credits += value;
 				}
+			}
+		}
+	}
+	else if (strstr(cmd, "unlock") == cmd)
+	{
+		if (PlayerManager::list.count() > 0)
+		{
+			for (auto i = PlayerManager::list.iterator(); !i.is_last(); i.next())
+			{
+				u16 credits = i.item()->credits;
+				i.item()->credits = 10000000;
+				for (s32 ability = 0; ability < (s32)Ability::count; ability++)
+				{
+					while (i.item()->ability_upgrade_available((Ability)ability))
+					{
+						i.item()->ability_upgrade_start((Ability)ability);
+						i.item()->ability_upgrade_complete();
+					}
+				}
+				i.item()->credits = credits;
 			}
 		}
 	}

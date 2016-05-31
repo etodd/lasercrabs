@@ -60,7 +60,7 @@ struct Sparks : public ParticleSystem
 struct Particles
 {
 	static Sparks sparks;
-	static ParticleSystem teleport_sparks;
+	static StandardParticleSystem tracers;
 };
 
 }

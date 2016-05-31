@@ -293,12 +293,12 @@ void LocalPlayer::update(const Update& u)
 				{
 					b8 can_upgrade = Game::level.has_feature(Game::FeatureLevel::All)
 						&& !upgrade_in_progress
-						&& manager.ref()->ability_upgrade_available(Ability::Teleporter)
-						&& manager.ref()->credits >= manager.ref()->ability_upgrade_cost(Ability::Teleporter);
-					u8 level = manager.ref()->ability_level[(s32)Ability::Teleporter];
+						&& manager.ref()->ability_upgrade_available(Ability::Rocket)
+						&& manager.ref()->credits >= manager.ref()->ability_upgrade_cost(Ability::Rocket);
+					u8 level = manager.ref()->ability_level[(s32)Ability::Rocket];
 					sprintf(lvl, _(level == MAX_ABILITY_LEVELS ? strings::ability_max_lvl : strings::ability_lvl), level);
-					if (menu.item(u, &pos, _(strings::teleporter), level == 0 ? nullptr : lvl, !can_upgrade, Asset::Mesh::icon_teleporter))
-						manager.ref()->ability_upgrade_start(Ability::Teleporter);
+					if (menu.item(u, &pos, _(strings::rocket), level == 0 ? nullptr : lvl, !can_upgrade, Asset::Mesh::icon_rocket))
+						manager.ref()->ability_upgrade_start(Ability::Rocket);
 				}
 				{
 					b8 can_upgrade = Game::level.has_feature(Game::FeatureLevel::All)
@@ -498,10 +498,10 @@ void LocalPlayer::draw_alpha(const RenderParams& params) const
 			}
 
 			// ability 2
-			if (manager.ref()->ability_level[(s32)Ability::Teleporter] > 0)
+			if (manager.ref()->ability_level[(s32)Ability::Rocket] > 0)
 			{
 				const char* binding = Settings::gamepads[gamepad].bindings[(s32)Controls::Ability2].string(is_gamepad);
-				draw_ability(params, manager.ref(), center + Vec2(0, radius * 0.5f), Ability::Teleporter, Asset::Mesh::icon_teleporter, binding);
+				draw_ability(params, manager.ref(), center + Vec2(0, radius * 0.5f), Ability::Rocket, Asset::Mesh::icon_rocket, binding);
 			}
 
 			// ability 3
@@ -729,7 +729,6 @@ b8 PlayerCommon::movement_enabled() const
 	{
 		return get<Transform>()->parent.ref() // must be attached to wall
 			&& manager.ref()->current_spawn_ability == Ability::None // can't move while trying to spawn an ability
-			&& !get<Teleportee>()->in_progress() // or while teleporting
 			&& get<Awk>()->stun_timer == 0.0f; // or while stunned
 	}
 	else
@@ -1222,9 +1221,9 @@ void LocalPlayerControl::update(const Update& u)
 				b8 current = u.input->get(Controls::Ability2, gamepad);
 				b8 last = u.last_input->get(Controls::Ability2, gamepad);
 				if (current && !last)
-					player.ref()->manager.ref()->ability_spawn_start(Ability::Teleporter);
+					player.ref()->manager.ref()->ability_spawn_start(Ability::Rocket);
 				else if (!current && last)
-					player.ref()->manager.ref()->ability_spawn_stop(Ability::Teleporter);
+					player.ref()->manager.ref()->ability_spawn_stop(Ability::Rocket);
 			}
 
 			{
@@ -1612,36 +1611,28 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 		}
 	}
 
-	// highlight teleporters
+	// highlight enemy rockets
 	{
-		Teleporter* target = get<Teleportee>()->target.ref();
-		// if we are in the act of teleporting, draw big highlights
-		r32 scale = target ? 1.0f : 0.5f;
-		for (auto t = Teleporter::list.iterator(); !t.is_last(); t.next())
+		for (auto i = Rocket::list.iterator(); !i.is_last(); i.next())
 		{
-			if (t.item()->team == team)
-				UI::indicator(params, t.item()->get<Transform>()->absolute_pos(), target && t.item() == target ? UI::accent_color : Team::ui_color_friend, t.item() == target, scale);
-		}
+			if (i.item()->target.ref() == entity())
+			{
+				Vec3 pos = i.item()->get<Transform>()->absolute_pos();
+				UI::indicator(params, pos, Team::ui_color_enemy, true);
 
-		if (target)
-		{
-			// highlight targeted teleporter
-			Vec3 pos3d = target->get<Transform>()->absolute_pos() + Vec3(0, AWK_RADIUS * 2.0f, 0);
-
-			Vec2 p;
-			UI::is_onscreen(params, pos3d, &p);
-
-			p.y += text_size * UI::scale;
-
-			UIText text;
-			text.size = text_size;
-			text.anchor_x = UIText::Anchor::Center;
-			text.anchor_y = UIText::Anchor::Min;
-			text.color = UI::accent_color;
-			text.text(_(strings::teleport));
-
-			UI::box(params, text.rect(p).outset(HP_BOX_SPACING), UI::background_color);
-			text.draw(params, p);
+				UIText text;
+				text.color = Team::ui_color_enemy;
+				text.text(_(strings::rocket_incoming));
+				text.anchor_x = UIText::Anchor::Center;
+				text.anchor_y = UIText::Anchor::Center;
+				text.size = text_size;
+				Vec2 p;
+				UI::is_onscreen(params, pos, &p);
+				p.y += text_size * 2.0f * UI::scale;
+				UI::box(params, text.rect(p).outset(8.0f * UI::scale), UI::background_color);
+				if (UI::flash_function(Game::real_time.total))
+					text.draw(params, p);
+			}
 		}
 	}
 

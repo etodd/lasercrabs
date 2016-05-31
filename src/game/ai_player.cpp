@@ -32,7 +32,7 @@ AIPlayer::Config::Config()
 	{
 		Ability::Minion,
 		Ability::Sensor,
-		Ability::Teleporter,
+		Ability::Rocket,
 	},
 	ability_strategies
 	{
@@ -584,7 +584,7 @@ b8 should_spawn_sensor(const AIPlayerControl* control)
 	return false;
 }
 
-b8 should_spawn_teleporter(const AIPlayerControl* control)
+b8 should_spawn_rocket(const AIPlayerControl* control)
 {
 	// todo
 	return false;
@@ -646,7 +646,7 @@ Repeat* make_low_level_loop(AIPlayerControl* control, const AIPlayer::Config& co
 								),
 								AIBehaviors::ReactTarget::alloc(MinionAI::family, 3, 4, &default_filter),
 								AIBehaviors::AbilitySpawn::alloc(3, Ability::Sensor, &should_spawn_sensor),
-								AIBehaviors::AbilitySpawn::alloc(3, Ability::Teleporter, &should_spawn_teleporter),
+								AIBehaviors::AbilitySpawn::alloc(3, Ability::Rocket, &should_spawn_rocket),
 								AIBehaviors::AbilitySpawn::alloc(3, Ability::Minion, &should_spawn_minion),
 								Sequence::alloc
 								(
@@ -1118,6 +1118,7 @@ void RunAway::run()
 	active(true);
 	Vec3 pos = control->get<Transform>()->absolute_pos();
 	if (control->get<Transform>()->parent.ref()
+		&& !control->get<AIAgent>()->stealth // if we're stealthed, no need to run away
 		&& path_priority > control->path_priority
 		&& !MinionCommon::inside_containment_field(control->get<AIAgent>()->team, pos)) // if we're inside a containment field, running away is probably useless
 	{

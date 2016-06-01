@@ -568,9 +568,9 @@ void Game::execute(const Update& u, const char* cmd)
 	}
 	else if (strstr(cmd, "unlock") == cmd)
 	{
-		if (PlayerManager::list.count() > 0)
+		for (auto i = PlayerManager::list.iterator(); !i.is_last(); i.next())
 		{
-			for (auto i = PlayerManager::list.iterator(); !i.is_last(); i.next())
+			if (i.item()->entity.ref())
 			{
 				u16 credits = i.item()->credits;
 				i.item()->credits = 10000000;

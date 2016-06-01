@@ -18,8 +18,6 @@
 #include "entities.h"
 #include "render/particles.h"
 
-#define MINION_VIEW_RANGE 30.0f
-
 #define WALK_SPEED 3.0f
 
 #define HEALTH 5
@@ -344,7 +342,7 @@ Entity* closest_target(MinionAI* me, AI::Team team)
 	for (auto i = Rocket::list.iterator(); !i.is_last(); i.next())
 	{
 		Rocket* rocket = i.item();
-		if (rocket->get<AIAgent>()->team != team)
+		if (rocket->team != team)
 		{
 			if (me->can_see(rocket->entity()))
 				return rocket->entity();
@@ -385,7 +383,7 @@ Entity* visible_target(MinionAI* me, AI::Team team)
 	for (auto i = Rocket::list.iterator(); !i.is_last(); i.next())
 	{
 		Rocket* rocket = i.item();
-		if (rocket->get<AIAgent>()->team != team)
+		if (rocket->team != team)
 		{
 			if (me->can_see(rocket->entity()))
 				return rocket->entity();
@@ -410,7 +408,7 @@ b8 MinionAI::can_see(Entity* target) const
 	Vec3 target_pos = target->get<Transform>()->absolute_pos();
 	Vec3 diff_flattened = target_pos - pos;
 	diff_flattened.y = 0.0f;
-	if (diff_flattened.length_squared() < MINION_VIEW_RANGE * MINION_VIEW_RANGE)
+	if (diff_flattened.length_squared() < CONTAINMENT_FIELD_RADIUS * CONTAINMENT_FIELD_RADIUS)
 	{
 		btCollisionWorld::ClosestRayResultCallback ray_callback(pos, target_pos);
 		Physics::raycast(&ray_callback, btBroadphaseProxy::StaticFilter | CollisionInaccessible);

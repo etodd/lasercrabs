@@ -22,7 +22,7 @@ namespace Menu
 
 #define fov_initial (80.0f * PI * 0.5f / 180.0f)
 
-#define CONNECT_OFFLINE_DELAY 4.0f
+#define CONNECT_OFFLINE_DELAY 3.0f
 #define CONNECT_DELAY_MIN 4.0f
 #define CONNECT_DELAY_RANGE 3.0f
 

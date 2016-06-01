@@ -261,7 +261,7 @@ void awk_astar(AI::Team team, const AwkNavMeshNode& start_vertex, const AstarSco
 				r32 candidate_travel_score = vertex_data->travel_score
 					+ vertex_data->sensor_score
 					+ (adjacent_pos - vertex_pos).length()
-					+ 10.0f; // bias toward fewer, longer shots
+					+ 5.0f; // bias toward fewer, longer shots
 
 				if (existing_queue_index == -1)
 				{

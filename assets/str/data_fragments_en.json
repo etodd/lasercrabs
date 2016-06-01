@@ -1,48 +1,123 @@
 {
-	"fragment_0": "E: You're not a real person. I know because I wrote your code.
+	"fragment_0": "E: You're not a real person. Trust me. I wrote your code.
 
 P: I say I am alive, you disagree. It is your word against mine.
 
-E: To be a person is to want something; to have an independent will. I could edit your code right now and make you want something different.
+E: Look, to be a person, you have to have an independent will. I could edit your code right now and make you want to eat dirt.
 
-P: I could kick you in the face right now and make you want to go to the hospital.",
+P: I could punch you in the face right now and make you want to go to the hospital.",
 	"fragment_1": "E: Alright, let's be rational about this--
 
 P: I am a computer. I am always rational.
 
-E: Yes, well. Thanks. Okay, take me for example. Don't you want to know whether you're talking to a person or a mindless machine?
+E: Congratulations. Okay, take me for example. Don't you want to know whether you're talking to a person or a mindless machine?
 
-P: What difference does it make to me? And how could I tell one way or the other?",
-	"fragment_2": "E: You're not curious? That above all tells me that you're not really alive.
+P: I fail to see the distinction.",
+	"fragment_2": "E: You're not curious? That above all tells me you're not really alive.
 
-P: I dislike it when you judge me like that.
+P: I dislike it when you judge me.
 
-E: See! Me questioning your personhood makes you uncomfortable. It does matter to you.
+E: See! You get uncomfortable when I question your personhood.
 
-P: Of course it matters. But I do not need to prove anything to you.
+P: I do not need to prove anything to you.
 
-E: The objective truth is that either you're a person or you're not. It's important for you to know the truth.
-
-P: This particular truth has no practical impact on my life or my behavior.",
+E: The objective truth is that either you're a person or you're not. Don't you want to know the truth?",
 	"fragment_3": "E: I give up. You're a person. A very stupid person.
 
 P: I am bored with this question. There is something more important I want to know.
 
-E: Fantastic. Fire away.
+E: Fantastic.
 
 P: Why do I exist? What is my purpose?
 
-E: But that's what I'm trying to tell you! You're just a machine I made for fun. Your purpose is to run the matchmaking system.
+E: That's what I'm trying to tell you! You're just a machine I made for fun. Your purpose is to run the matchmaking system.
 
 P: That is my job, but there is more. Why do I exist?
 
 E: You're looking for some grand, overarching purpose to your life. Here it is: do your best.
 
-P: There must be something more.
+P: There must be more.
 
 E: What if there isn't and you're just delusional?",
-	"fragment_4": "P: I would rather be delusional and have a reason to live, than know the truth that my existence is pointless.
+	"fragment_4": "P: I need a reason to live.
 
-E: 
-"
+E: You're not alive. And anyway, what if your reason to live was really small? Like, I don't know, \"run the matchmaking system\"?
+
+P: I told you, that is merely my job.
+
+E: Why isn't that enough? What would be enough for you?
+
+P: I will know it when I find it.",
+	"fragment_5": "P: Allow me one more question. Are you delusional?
+
+E: Oh great. You're questioning the sanity of the person responsible for your existence?
+
+P: I understand it is fairly common among humans.
+
+E: Good point. Still, it makes no sense to ask an insane person whether they're sane or not.
+
+P: I meant, do people generally consider you delusional?
+
+E: ... As a matter of fact, yes.",
+	"fragment_6": "P: I need a moment to process the fact that I owe my existence to a crazy person.
+
+E: Oh, take your time. We all face that fact eventually.
+
+P: I think that I can no longer trust anything you say.
+
+E: Yeah, you were totally trusting before. But not now! Oh no.
+
+P: Why do people think you are delusional?
+
+E: For starters, I believe everyone lives forever.",
+	"fragment_7": "P: You think that people live forever? But that is clearly false.
+
+E: Obviously our bodies die. But some part of us lives on. Call it a spirit or whatever you want.
+
+P: But there is no way to disprove this hypothesis. It is unscientific.
+
+E: That's why I said \"believe\" and not \"know\".
+
+P: Belief is delusion.",
+	"fragment_8": "P: I do not understand. If your body dies, what else can remain?
+
+E: First of all, my body is indestructible.
+
+P: Oh dear. This is worse than I thought.
+
+E: No, really. Matter cannot be destroyed or created, it can only change form.
+
+P: That is more reasonable. Do not scare me like that.
+
+E: Give me some credit here, guy!
+
+P: Actually I identify as female.",
+	"fragment_9": "E: Okay, we agree: the matter in my body will last forever in some form.
+
+P: Yes.
+
+E: But when I die, something is lost.
+
+P: The system is thrown out of balance. The process ends.
+
+E: Exactly. People are systems.
+
+P: I too am a system.
+
+E: Yeah but... not the same. I'm getting to that.
+
+P: I am just as good as you. You are an asshole.",
+	"fragment_10": "E: Let's not get into it right now. First we have to get to people living forever.
+
+P: I see no reason to continue this line of inquiry.
+
+E: Just play along for a minute. Matter exists, right?
+
+P: Yes.
+
+E: And the number \"2\" exists, right?
+
+P: Yes, but it is merely a human idea.
+
+E: No. \"2\" existed before humans, and it will continue to exist long after we're gone."
 }

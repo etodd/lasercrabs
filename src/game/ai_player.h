@@ -237,6 +237,11 @@ namespace AIBehaviors
 		void run();
 	};
 
+	struct RocketInbound : Base<RocketInbound>
+	{
+		void run();
+	};
+
 	struct Panic : Base<Panic>
 	{
 		Panic(s8);

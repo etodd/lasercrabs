@@ -637,22 +637,33 @@ Repeat* make_low_level_loop(AIPlayerControl* control, const AIPlayer::Config& co
 							AIBehaviors::WaitForAttachment::alloc(),
 							Select::alloc // if any of these succeed, they will abort the high level loop
 							(
-								AIBehaviors::RunAway::alloc(Awk::family, 5, &awk_run_filter),
-								AIBehaviors::ReactTarget::alloc(Awk::family, 4, 6, &awk_attack_filter),
-								Sequence::alloc
+								Select::alloc
 								(
-									Invert::alloc(Execute::alloc()->method<Health, &Health::is_full>(control->get<Health>())), // make sure we need health
-									AIBehaviors::ReactTarget::alloc(HealthPickup::family, 3, 5, &health_pickup_filter)
+									Sequence::alloc
+									(
+										AIBehaviors::RocketInbound::alloc(),
+										AIBehaviors::Panic::alloc(10000)
+									),
+									AIBehaviors::RunAway::alloc(Awk::family, 5, &awk_run_filter),
+									AIBehaviors::ReactTarget::alloc(Awk::family, 4, 6, &awk_attack_filter),
+									Sequence::alloc
+									(
+										Invert::alloc(Execute::alloc()->method<Health, &Health::is_full>(control->get<Health>())), // make sure we need health
+										AIBehaviors::ReactTarget::alloc(HealthPickup::family, 3, 5, &health_pickup_filter)
+									)
 								),
-								AIBehaviors::ReactTarget::alloc(MinionAI::family, 3, 4, &default_filter),
-								AIBehaviors::AbilitySpawn::alloc(3, Ability::Sensor, &should_spawn_sensor),
-								AIBehaviors::AbilitySpawn::alloc(3, Ability::Rocket, &should_spawn_rocket),
-								AIBehaviors::AbilitySpawn::alloc(3, Ability::Minion, &should_spawn_minion),
-								Sequence::alloc
+								Select::alloc
 								(
-									AIBehaviors::WantUpgrade::alloc(),
-									AIBehaviors::ReactSpawn::alloc(4),
-									AIBehaviors::Upgrade::alloc(4)
+									AIBehaviors::ReactTarget::alloc(MinionAI::family, 3, 4, &default_filter),
+									AIBehaviors::AbilitySpawn::alloc(3, Ability::Sensor, &should_spawn_sensor),
+									AIBehaviors::AbilitySpawn::alloc(3, Ability::Rocket, &should_spawn_rocket),
+									AIBehaviors::AbilitySpawn::alloc(3, Ability::Minion, &should_spawn_minion),
+									Sequence::alloc
+									(
+										AIBehaviors::WantUpgrade::alloc(),
+										AIBehaviors::ReactSpawn::alloc(4),
+										AIBehaviors::Upgrade::alloc(4)
+									)
 								)
 							)
 						)
@@ -951,6 +962,24 @@ void RandomPath::run()
 	}
 	else
 		done(false);
+}
+
+void RocketInbound::run()
+{
+	active(true);
+	if (!control->get<AIAgent>()->stealth)
+	{
+		Rocket* rocket = Rocket::inbound(control->entity());
+		if (rocket)
+		{
+			// only worry about it if the rocket can actually see us
+			btCollisionWorld::ClosestRayResultCallback ray_callback(control->get<Transform>()->absolute_pos(), rocket->get<Transform>()->absolute_pos());
+			Physics::raycast(&ray_callback, ~CollisionAwk & ~CollisionAwkIgnore & ~CollisionShield);
+			done(!ray_callback.hasHit());
+			return;
+		}
+	}
+	done(false);
 }
 
 Panic::Panic(s8 priority)

@@ -377,6 +377,16 @@ ControlPoint* ControlPoint::visible_from(const Vec3& query)
 	return nullptr;
 }
 
+void Rocket::awake()
+{
+	get<Health>()->killed.link<Rocket, Entity*, &Rocket::killed>(this);
+}
+
+void Rocket::killed(Entity*)
+{
+	World::remove_deferred(entity());
+}
+
 void Rocket::launch(Entity* t)
 {
 	vi_assert(!target.ref() && get<Transform>()->parent.ref());
@@ -387,6 +397,16 @@ void Rocket::launch(Entity* t)
 	light->color = Vec3(1, 1, 1);
 
 	get<Transform>()->reparent(nullptr);
+}
+
+Rocket* Rocket::inbound(Entity* target)
+{
+	for (auto rocket = Rocket::list.iterator(); !rocket.is_last(); rocket.next())
+	{
+		if (rocket.item()->target.ref() == target)
+			return rocket.item();
+	}
+	return nullptr;
 }
 
 void Rocket::update(const Update& u)
@@ -403,17 +423,17 @@ void Rocket::update(const Update& u)
 			if (angle > 0)
 				get<Transform>()->rot = Quat::slerp(vi_min(1.0f, 5.0f * u.time.delta), get<Transform>()->rot, target_rot);
 		}
-		Vec3 velocity = get<Transform>()->rot * Vec3(0, 0, 20.0f);
+		Vec3 velocity = get<Transform>()->rot * Vec3(0, 0, 15.0f);
 		Vec3 next_pos = get<Transform>()->pos + velocity * u.time.delta;
 		btCollisionWorld::ClosestRayResultCallback ray_callback(get<Transform>()->pos, next_pos + Vec3::normalize(velocity) * 0.1f);
-		Physics::raycast(&ray_callback, -1);
+		Physics::raycast(&ray_callback, ~CollisionContainmentField & ~CollisionTeamAContainmentField & ~CollisionTeamBContainmentField & ~CollisionAwkIgnore);
 		if (ray_callback.hasHit())
 		{
 			// kaboom
 
 			// do damage
 			Entity* hit = &Entity::list[ray_callback.m_collisionObject->getUserIndex()];
-			if (hit->has<Target>())
+			if (hit->has<Target>() && hit->has<Health>())
 			{
 				hit->get<Target>()->hit(entity());
 				if (hit->get<Health>()->hp > 0 && owner.ref() && owner.ref()->get<LocalPlayerControl>())
@@ -467,6 +487,8 @@ RocketEntity::RocketEntity(Entity* owner, Transform* parent, const Vec3& pos, co
 	model->mesh = Asset::Mesh::rocket_pod;
 	model->team = (u8)team;
 	model->shader = Asset::Shader::standard;
+
+	create<RigidBody>(RigidBody::Type::CapsuleZ, Vec3(0.1f, 0.3f, 0.3f), 0.0f, CollisionAwkIgnore, btBroadphaseProxy::AllFilter);
 }
 
 PlayerSpawn::PlayerSpawn(AI::Team team)
@@ -553,14 +575,14 @@ void Projectile::update(const Update& u)
 	Vec3 pos = get<Transform>()->absolute_pos();
 	Vec3 next_pos = pos + velocity * u.time.delta;
 	btCollisionWorld::ClosestRayResultCallback ray_callback(pos, next_pos + Vec3::normalize(velocity) * PROJECTILE_LENGTH);
-	Physics::raycast(&ray_callback, -1);
+	Physics::raycast(&ray_callback, ~CollisionContainmentField & ~CollisionTeamAContainmentField & ~CollisionTeamBContainmentField);
 	if (ray_callback.hasHit())
 	{
 		Entity* hit_object = &Entity::list[ray_callback.m_collisionObject->getUserIndex()];
 		if (hit_object != owner.ref())
 		{
 			Vec3 basis;
-			if (hit_object->has<MinionCommon>() || hit_object->has<Sensor>())
+			if (hit_object->has<MinionCommon>() || hit_object->has<Sensor>() || hit_object->has<Rocket>())
 			{
 				hit_object->get<Health>()->damage(owner.ref(), damage);
 				basis = Vec3::normalize(velocity);

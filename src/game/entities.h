@@ -88,7 +88,10 @@ struct Rocket : public ComponentType<Rocket>
 	Ref<Entity> owner;
 	r32 particle_accumulator;
 
-	void awake() {}
+	static Rocket* inbound(Entity*);
+
+	void awake();
+	void killed(Entity*);
 	void update(const Update&);
 	void launch(Entity*);
 };

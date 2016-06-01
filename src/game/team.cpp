@@ -44,8 +44,8 @@ AbilityInfo AbilityInfo::list[] =
 	},
 	{
 		Asset::Mesh::icon_rocket,
-		1.0f,
-		5,
+		1.5f,
+		8,
 		{ 50, 150 },
 		strings::rocket,
 		{ strings::description_rocket_1, strings::description_rocket_2 },
@@ -92,6 +92,9 @@ s32 teams_with_players()
 
 b8 Team::game_over()
 {
+	if (Game::state.mode != Game::Mode::Pvp)
+		return false;
+
 	if (NoclipControl::list.count() > 0)
 		return false;
 
@@ -312,6 +315,62 @@ void Team::update_all(const Update& u)
 		i_entity->get<Awk>()->stealth(stealth_enabled);
 	}
 
+	// update player visibility
+	for (auto i = PlayerManager::list.iterator(); !i.is_last(); i.next())
+	{
+		Entity* i_entity = i.item()->entity.ref();
+		if (!i_entity)
+			continue;
+
+		AI::Team team = i.item()->team.ref()->team();
+
+		auto j = i;
+		j.next();
+		for (; !j.is_last(); j.next())
+		{
+			Entity* j_entity = j.item()->entity.ref();
+			if (!j_entity)
+				continue;
+
+			if (team == j.item()->team.ref()->team())
+				continue;
+
+			b8 visible;
+			{
+				Vec3 start = i_entity->get<Awk>()->center();
+				Vec3 end = j_entity->get<Awk>()->center();
+				Vec3 diff = end - start;
+
+				if (btVector3(diff).fuzzyZero())
+					visible = true;
+				else
+				{
+					if (diff.length_squared() > AWK_MAX_DISTANCE * AWK_MAX_DISTANCE)
+						visible = false;
+					else
+					{
+						btCollisionWorld::ClosestRayResultCallback ray_callback(start, end);
+						Physics::raycast(&ray_callback, btBroadphaseProxy::StaticFilter | CollisionInaccessible);
+						visible = !ray_callback.hasHit();
+					}
+				}
+			}
+
+			b8 i_can_see_j = visible && !j_entity->get<AIAgent>()->stealth;
+			b8 j_can_see_i = visible && !i_entity->get<AIAgent>()->stealth;
+			PlayerCommon::visibility.set(PlayerCommon::visibility_hash(i_entity->get<PlayerCommon>(), j_entity->get<PlayerCommon>()), i_can_see_j);
+			PlayerCommon::visibility.set(PlayerCommon::visibility_hash(j_entity->get<PlayerCommon>(), i_entity->get<PlayerCommon>()), j_can_see_i);
+
+			// update history
+			Team* i_team = i.item()->team.ref();
+			Team* j_team = j.item()->team.ref();
+			if (i_can_see_j || i_team->player_tracks[j.index].tracking) 
+				extract_history(j.item(), &i_team->player_track_history[j.index]);
+			if (j_can_see_i || j_team->player_tracks[i.index].tracking)
+				extract_history(i.item(), &j_team->player_track_history[i.index]);
+		}
+	}
+
 	for (s32 team_id = 0; team_id < list.length; team_id++)
 	{
 		Team* team = &list[team_id];
@@ -391,27 +450,18 @@ void Team::update_all(const Update& u)
 				}
 			}
 
-			if (player_entity && track->tracking)
+			if (player_entity)
 			{
-				// launch a rocket if one is available, and if there isn't already one in flight
-				b8 launch = true;
-				for (auto rocket = Rocket::list.iterator(); !rocket.is_last(); rocket.next())
-				{
-					if (rocket.item()->target.ref() == player_entity)
-					{
-						launch = false; // a rocket is already en route
-						break;
-					}
-				}
-
-				if (launch)
+				// launch a rocket at this player if the conditions are right
+				if (!Rocket::inbound(player_entity))
 				{
 					Vec3 player_pos = player_entity->get<Transform>()->absolute_pos();
 					for (auto rocket = Rocket::list.iterator(); !rocket.is_last(); rocket.next())
 					{
-						if (rocket.item()->team == team->team()
+						if (rocket.item()->team == team->team() // it belongs to our team
 							&& rocket.item()->get<Transform>()->parent.ref() // it's waiting to be fired
-							&& (rocket.item()->get<Transform>()->absolute_pos() - player_pos).length_squared() < AWK_MAX_DISTANCE * 2.0f * AWK_MAX_DISTANCE * 2.0f)
+							&& (rocket.item()->get<Transform>()->absolute_pos() - player_pos).length_squared() < AWK_MAX_DISTANCE * 2.0f * AWK_MAX_DISTANCE * 2.0f // it's in range
+							&& (track->tracking || (rocket.item()->owner.ref() && PlayerCommon::visibility.get(PlayerCommon::visibility_hash(rocket.item()->owner.ref()->get<PlayerCommon>(), player_entity->get<PlayerCommon>()))))) // we're tracking the player, or the owner is alive and can see the player
 						{
 							rocket.item()->launch(player_entity);
 							break;
@@ -419,62 +469,6 @@ void Team::update_all(const Update& u)
 					}
 				}
 			}
-		}
-	}
-
-	// update player visibility
-	for (auto i = PlayerManager::list.iterator(); !i.is_last(); i.next())
-	{
-		Entity* i_entity = i.item()->entity.ref();
-		if (!i_entity)
-			continue;
-
-		AI::Team team = i.item()->team.ref()->team();
-
-		auto j = i;
-		j.next();
-		for (; !j.is_last(); j.next())
-		{
-			Entity* j_entity = j.item()->entity.ref();
-			if (!j_entity)
-				continue;
-
-			if (team == j.item()->team.ref()->team())
-				continue;
-
-			b8 visible;
-			{
-				Vec3 start = i_entity->get<Awk>()->center();
-				Vec3 end = j_entity->get<Awk>()->center();
-				Vec3 diff = end - start;
-
-				if (btVector3(diff).fuzzyZero())
-					visible = true;
-				else
-				{
-					if (diff.length_squared() > AWK_MAX_DISTANCE * AWK_MAX_DISTANCE)
-						visible = false;
-					else
-					{
-						btCollisionWorld::ClosestRayResultCallback ray_callback(start, end);
-						Physics::raycast(&ray_callback, btBroadphaseProxy::StaticFilter | CollisionInaccessible);
-						visible = !ray_callback.hasHit();
-					}
-				}
-			}
-
-			b8 i_can_see_j = visible && !j_entity->get<AIAgent>()->stealth;
-			b8 j_can_see_i = visible && !i_entity->get<AIAgent>()->stealth;
-			PlayerCommon::visibility.set(PlayerCommon::visibility_hash(i_entity->get<PlayerCommon>(), j_entity->get<PlayerCommon>()), i_can_see_j);
-			PlayerCommon::visibility.set(PlayerCommon::visibility_hash(j_entity->get<PlayerCommon>(), i_entity->get<PlayerCommon>()), j_can_see_i);
-
-			// update history
-			Team* i_team = i.item()->team.ref();
-			Team* j_team = j.item()->team.ref();
-			if (i_can_see_j || i_team->player_tracks[j.index].tracking) 
-				extract_history(j.item(), &i_team->player_track_history[j.index]);
-			if (j_can_see_i || j_team->player_tracks[i.index].tracking)
-				extract_history(i.item(), &j_team->player_track_history[i.index]);
 		}
 	}
 }

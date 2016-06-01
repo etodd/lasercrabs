@@ -594,7 +594,7 @@ void LocalPlayer::draw_alpha(const RenderParams& params) const
 
 			// show map name
 			text.text(AssetLookup::Level::names[Game::state.level]);
-			text.color = UI::default_color;
+			text.color = UI::accent_color;
 			UI::box(params, text.rect(p).outset(MENU_ITEM_PADDING), UI::background_color);
 			text.draw(params, p);
 			p.y -= text.bounds().y + MENU_ITEM_PADDING * 2.0f;

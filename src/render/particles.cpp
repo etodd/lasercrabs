@@ -237,11 +237,12 @@ void ParticleSystem::clear()
 	first_free = first_active = first_new = 0;
 }
 
-StandardParticleSystem::StandardParticleSystem(const Vec2& start_size, const Vec2& end_size, r32 lifetime, const Vec3& gravity, AssetID shader, AssetID texture)
-	: ParticleSystem(lifetime, shader == AssetNull ? Asset::Shader::standard_particle : shader, texture),
+StandardParticleSystem::StandardParticleSystem(const Vec2& start_size, const Vec2& end_size, r32 lifetime, const Vec3& gravity, const Vec4& color, AssetID shader, AssetID texture)
+	: ParticleSystem(lifetime, shader == AssetNull ? (texture == AssetNull ? Asset::Shader::standard_particle : Asset::Shader::standard_particle_textured) : shader, texture),
 	start_size(start_size),
 	end_size(end_size),
-	gravity(gravity)
+	gravity(gravity),
+	color(color)
 {
 }
 
@@ -260,6 +261,12 @@ void StandardParticleSystem::add(const Vec3& pos, const Vec3& velocity)
 
 void StandardParticleSystem::pre_draw(const RenderParams& params)
 {
+	params.sync->write(RenderOp::Uniform);
+	params.sync->write(Asset::Uniform::diffuse_color);
+	params.sync->write(RenderDataType::Vec4);
+	params.sync->write<s32>(1);
+	params.sync->write<Vec4>(color);
+
 	params.sync->write(RenderOp::Uniform);
 	params.sync->write(Asset::Uniform::gravity);
 	params.sync->write(RenderDataType::Vec3);
@@ -305,10 +312,11 @@ Sparks Particles::sparks
 
 StandardParticleSystem Particles::tracers
 (
-	Vec2(0.05f),
+	Vec2(0.07f),
 	Vec2(0.0f),
 	4.0f,
-	Vec3::zero
+	Vec3::zero,
+	Vec4(1, 1, 1, 1)
 );
 
 }

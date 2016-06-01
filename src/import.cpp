@@ -319,6 +319,22 @@ b8 has_extension(const std::string& path, const char* extension)
 	return false;
 }
 
+template<typename T>
+void clean_name(T& name)
+{
+	for (s32 i = 0; ; i++)
+	{
+		char c = name[i];
+		if (c == 0)
+			break;
+		if ((c < 'A' || c > 'Z')
+			&& (c < 'a' || c > 'z')
+			&& (i == 0 || c < '0' || c > '9')
+			&& c != '_')
+			name[i] = '_';
+	}
+}
+
 void write_asset_header(FILE* file, const std::string& name, const Map<std::string>& assets)
 {
 	s32 asset_count = assets.size();
@@ -326,7 +342,9 @@ void write_asset_header(FILE* file, const std::string& name, const Map<std::stri
 	s32 index = 0;
 	for (auto i = assets.begin(); i != assets.end(); i++)
 	{
-		fprintf(file, "\t\tconst AssetID %s = %d;\n", i->first.c_str(), index);
+		std::string name = i->first;
+		clean_name(name);
+		fprintf(file, "\t\tconst AssetID %s = %d;\n", name.c_str(), index);
 		index++;
 	}
 	fprintf(file, "\t}\n");
@@ -337,7 +355,11 @@ void write_asset_header(FILE* file, const std::string& name, const Map<s32>& ass
 	s32 asset_count = assets.size();
 	fprintf(file, "\tnamespace %s\n\t{\n\t\tconst s32 count = %d;\n", name.c_str(), asset_count);
 	for (auto i = assets.begin(); i != assets.end(); i++)
-		fprintf(file, "\t\tconst AssetID %s = %d;\n", i->first.c_str(), i->second);
+	{
+		std::string name = i->first;
+		clean_name(name);
+		fprintf(file, "\t\tconst AssetID %s = %d;\n", name.c_str(), i->second);
+	}
 	fprintf(file, "\t}\n");
 }
 
@@ -745,23 +767,7 @@ const aiNode* find_mesh_node(const aiScene* scene, const aiNode* node, const aiM
 	return 0;
 }
 
-template<typename T>
-void clean_name(T& name)
-{
-	for (s32 i = 0; ; i++)
-	{
-		char c = name[i];
-		if (c == 0)
-			break;
-		if ((c < 'A' || c > 'Z')
-			&& (c < 'a' || c > 'z')
-			&& (i == 0 || c < '0' || c > '9')
-			&& c != '_')
-			name[i] = '_';
-	}
-}
-
-std::string get_mesh_name(const aiScene* scene, const std::string& asset_name, const aiMesh* ai_mesh, const aiNode* mesh_node, b8 level_mesh = false)
+std::string get_mesh_name(const aiScene* scene, const std::string& clean_asset_name, const aiMesh* ai_mesh, const aiNode* mesh_node, b8 level_mesh = false)
 {
 	s32 material_index = 0;
 	for (s32 i = 0; i < mesh_node->mNumMeshes; i++)
@@ -773,7 +779,7 @@ std::string get_mesh_name(const aiScene* scene, const std::string& asset_name, c
 	if (scene->mNumMeshes > 1 || level_mesh)
 	{
 		std::ostringstream name_builder;
-		name_builder << asset_name << "_";
+		name_builder << clean_asset_name << "_";
 		if (material_index > 0)
 			name_builder << mesh_node->mName.C_Str() << "_" << material_index;
 		else
@@ -783,7 +789,7 @@ std::string get_mesh_name(const aiScene* scene, const std::string& asset_name, c
 		return name;
 	}
 	else
-		return asset_name;
+		return clean_asset_name;
 }
 
 b8 load_anim(const Armature& armature, const aiAnimation* in, Animation* out, const Map<s32>& bone_map)
@@ -1049,11 +1055,13 @@ b8 write_armature(const Armature& armature, const std::string& path)
 const aiScene* load_blend(ImporterState& state, Assimp::Importer& importer, const std::string& asset_in_path, const std::string& out_folder, b8 tangents = false)
 {
 	// Export to FBX first
-	std::string asset_intermediate_path = out_folder + get_asset_name(asset_in_path) + model_intermediate_extension;
+	std::string clean_asset_name = get_asset_name(asset_in_path);
+	clean_name(clean_asset_name);
+	std::string asset_intermediate_path = out_folder + clean_asset_name + model_intermediate_extension;
 
 	std::ostringstream cmdbuilder;
-	cmdbuilder << "blender " << asset_in_path << " --background --factory-startup --python " << asset_in_folder << "script/blend_to_fbx.py -- ";
-	cmdbuilder << asset_intermediate_path;
+	cmdbuilder << "blender \"" << asset_in_path << "\" --background --factory-startup --python " << asset_in_folder << "script/blend_to_fbx.py -- ";
+	cmdbuilder << "\"" << asset_intermediate_path << "\"";
 	std::string cmd = cmdbuilder.str();
 
 	if (!run_cmd(cmd))
@@ -1143,7 +1151,9 @@ b8 write_mesh(
 b8 import_meshes(ImporterState& state, const std::string& asset_in_path, const std::string& out_folder, Array<Mesh>& meshes, b8 force_rebuild, b8 tangents = false)
 {
 	std::string asset_name = get_asset_name(asset_in_path);
-	std::string asset_out_path = out_folder + asset_name + mesh_out_extension;
+	std::string clean_asset_name = asset_name;
+	clean_name(clean_asset_name);
+	std::string asset_out_path = out_folder + clean_asset_name + mesh_out_extension;
 
 	s64 mtime = filemtime(asset_in_path);
 	if (force_rebuild
@@ -1173,10 +1183,10 @@ b8 import_meshes(ImporterState& state, const std::string& asset_in_path, const s
 			if (ai_mesh->mNumVertices > 0)
 			{
 				const aiNode* mesh_node = find_mesh_node(scene, scene->mRootNode, ai_mesh);
-				std::string mesh_name = get_mesh_name(scene, asset_name, ai_mesh, mesh_node);
-				std::string mesh_out_filename = out_folder + mesh_name + mesh_out_extension;
-				map_add(state.manifest.meshes, asset_name, mesh_name, mesh_out_filename);
-				map_add(mesh_indices, mesh_name, i);
+				std::string clean_mesh_name = get_mesh_name(scene, clean_asset_name, ai_mesh, mesh_node);
+				std::string mesh_out_filename = out_folder + clean_mesh_name + mesh_out_extension;
+				map_add(state.manifest.meshes, asset_name, clean_mesh_name, mesh_out_filename);
+				map_add(mesh_indices, clean_mesh_name, i);
 			}
 		}
 
@@ -1381,7 +1391,8 @@ b8 import_meshes(ImporterState& state, const std::string& asset_in_path, const s
 b8 import_level_meshes(ImporterState& state, const std::string& asset_in_path, const std::string& out_folder, Map<Mesh>& meshes, b8 force_rebuild)
 {
 	std::string asset_name = get_asset_name(asset_in_path);
-	std::string asset_out_path = out_folder + asset_name + mesh_out_extension;
+	std::string clean_asset_name = asset_name;
+	clean_name(clean_asset_name);
 
 	s64 mtime = filemtime(asset_in_path);
 	if (force_rebuild
@@ -2337,8 +2348,10 @@ void build_awk_nav_mesh(Map<Mesh>& meshes, cJSON* json, AwkNavMesh* out, s32* ad
 void import_level(ImporterState& state, const std::string& asset_in_path, const std::string& out_folder)
 {
 	std::string asset_name = get_asset_name(asset_in_path);
-	std::string asset_out_path = out_folder + asset_name + level_out_extension;
-	std::string nav_mesh_out_path = out_folder + asset_name + nav_mesh_out_extension;
+	std::string clean_asset_name = asset_name;
+	clean_name(clean_asset_name);
+	std::string asset_out_path = out_folder + clean_asset_name + level_out_extension;
+	std::string nav_mesh_out_path = out_folder + clean_asset_name + nav_mesh_out_extension;
 
 	s64 mtime = filemtime(asset_in_path);
 	b8 rebuild = state.rebuild
@@ -2357,9 +2370,8 @@ void import_level(ImporterState& state, const std::string& asset_in_path, const 
 	{
 		printf("%s\n", asset_out_path.c_str());
 		std::ostringstream cmdbuilder;
-		cmdbuilder << "blender " << asset_in_path;
-		cmdbuilder << " --background --factory-startup --python " << asset_in_folder << "script/blend_to_lvl.py -- ";
-		cmdbuilder << asset_out_path;
+		cmdbuilder << "blender \"" << asset_in_path << "\" --background --factory-startup --python " << asset_in_folder << "script/blend_to_lvl.py -- ";
+		cmdbuilder << "\"" << asset_out_path << "\"";
 		std::string cmd = cmdbuilder.str();
 
 		if (!run_cmd(cmd))
@@ -2457,7 +2469,9 @@ void import_level(ImporterState& state, const std::string& asset_in_path, const 
 b8 import_copy(ImporterState& state, Map<std::string>& manifest, const std::string& asset_in_path, const std::string& out_folder, const std::string& extension)
 {
 	std::string asset_name = get_asset_name(asset_in_path);
-	std::string asset_out_path = out_folder + asset_name + extension;
+	std::string clean_asset_name = asset_name;
+	clean_name(clean_asset_name);
+	std::string asset_out_path = out_folder + clean_asset_name + extension;
 	map_add(manifest, asset_name, asset_out_path);
 	s64 mtime = filemtime(asset_in_path);
 	if (state.rebuild
@@ -2477,7 +2491,9 @@ b8 import_copy(ImporterState& state, Map<std::string>& manifest, const std::stri
 void import_shader(ImporterState& state, const std::string& asset_in_path, const std::string& out_folder)
 {
 	std::string asset_name = get_asset_name(asset_in_path);
-	std::string asset_out_path = out_folder + asset_name + shader_extension;
+	std::string clean_asset_name = asset_name;
+	clean_name(clean_asset_name);
+	std::string asset_out_path = out_folder + clean_asset_name + shader_extension;
 	map_add(state.manifest.shaders, asset_name, asset_out_path);
 	s64 mtime = filemtime(asset_in_path);
 	if (state.rebuild
@@ -2595,7 +2611,9 @@ b8 load_font(const aiScene* scene, Font& font)
 void import_font(ImporterState& state, const std::string& asset_in_path, const std::string& out_folder)
 {
 	std::string asset_name = get_asset_name(asset_in_path);
-	std::string asset_out_path = out_folder + asset_name + font_out_extension;
+	std::string clean_asset_name = asset_name;
+	clean_name(clean_asset_name);
+	std::string asset_out_path = out_folder + clean_asset_name + font_out_extension;
 
 	map_add(state.manifest.fonts, asset_name, asset_out_path);
 
@@ -2610,7 +2628,7 @@ void import_font(ImporterState& state, const std::string& asset_in_path, const s
 		// Export to FBX first
 		std::ostringstream cmdbuilder;
 		cmdbuilder << "blender --background --factory-startup --python " << asset_in_folder << "script/ttf_to_fbx.py -- ";
-		cmdbuilder << asset_in_path << " " << asset_intermediate_path;
+		cmdbuilder << "\"" << asset_in_path << "\" \"" << asset_intermediate_path << "\"";
 		std::string cmd = cmdbuilder.str();
 
 		if (!run_cmd(cmd))
@@ -2936,10 +2954,10 @@ s32 proc(s32 argc, char* argv[])
 		std::ostringstream cmdbuilder;
 		b8 success;
 #if _WIN32
-		cmdbuilder << "WwiseCLI " << wwise_project_path << " -GenerateSoundBanks";
+		cmdbuilder << "WwiseCLI \"" << wwise_project_path << "\" -GenerateSoundBanks";
 		success = run_cmd(cmdbuilder.str());
 #elif defined(__APPLE__)
-		cmdbuilder << "WwiseCLI.sh " << wwise_project_path << " -GenerateSoundBanks";
+		cmdbuilder << "WwiseCLI.sh \"" << wwise_project_path << "\" -GenerateSoundBanks";
 		success = run_cmd(cmdbuilder.str());
 #else
 		success = true;

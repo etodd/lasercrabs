@@ -1100,6 +1100,7 @@ namespace Penelope
 
 	void init(AssetID entry_point)
 	{
+		vi_assert(!data);
 		data = new Data();
 		data->entry_point = entry_point;
 		data->active_data_fragment = AssetNull;

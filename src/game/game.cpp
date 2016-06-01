@@ -89,7 +89,7 @@ void Game::State::reset()
 const s32 Game::levels[] =
 {
 	Asset::Level::tutorial,
-	Asset::Level::level1,
+	Asset::Level::In_Medias_Res,
 	Asset::Level::level2,
 	Asset::Level::level3,
 	AssetNull,
@@ -917,9 +917,8 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 
 			if (state.mode == Mode::Parkour)
 			{
-				const char* entry_point_str = Json::get_string(element, "dialogue");
-				AssetID entry_point = strings_get(entry_point_str);
-				Penelope::init(entry_point);
+				const char* entry_point_str = AssetLookup::Level::names[state.level];
+				Penelope::init(strings_get(entry_point_str));
 			}
 
 			level.feature_level = (FeatureLevel)Json::get_s32(element, "feature_level", (s32)FeatureLevel::All);

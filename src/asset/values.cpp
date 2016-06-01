@@ -38,19 +38,19 @@ const char* AssetLookup::Mesh::values[] =
 	"assets/terminal_base.msh",
 	"assets/terminal_light.msh",
 	"assets/tri_tube.msh",
+	"assets/lvl/In_Medias_Res_Cube.msh",
+	"assets/lvl/In_Medias_Res_Cube_001.msh",
+	"assets/lvl/In_Medias_Res_Cube_001_1.msh",
+	"assets/lvl/In_Medias_Res_Cube_003.msh",
+	"assets/lvl/In_Medias_Res_Cube_004.msh",
+	"assets/lvl/In_Medias_Res_Cube_004_1.msh",
+	"assets/lvl/In_Medias_Res_Cube_005.msh",
+	"assets/lvl/In_Medias_Res_Cube_005_1.msh",
+	"assets/lvl/In_Medias_Res_Cube_006.msh",
+	"assets/lvl/In_Medias_Res_Cube_007.msh",
+	"assets/lvl/In_Medias_Res_Cube_008.msh",
+	"assets/lvl/In_Medias_Res_Cube_1.msh",
 	"assets/lvl/connect_Cube.msh",
-	"assets/lvl/level1_Cube.msh",
-	"assets/lvl/level1_Cube_001.msh",
-	"assets/lvl/level1_Cube_001_1.msh",
-	"assets/lvl/level1_Cube_003.msh",
-	"assets/lvl/level1_Cube_004.msh",
-	"assets/lvl/level1_Cube_004_1.msh",
-	"assets/lvl/level1_Cube_005.msh",
-	"assets/lvl/level1_Cube_005_1.msh",
-	"assets/lvl/level1_Cube_006.msh",
-	"assets/lvl/level1_Cube_007.msh",
-	"assets/lvl/level1_Cube_008.msh",
-	"assets/lvl/level1_Cube_1.msh",
 	"assets/lvl/level2_Cube.msh",
 	"assets/lvl/level2_Cube_001.msh",
 	"assets/lvl/level2_Cube_002.msh",
@@ -121,19 +121,19 @@ const char* AssetLookup::Mesh::names[] =
 	"terminal_base",
 	"terminal_light",
 	"tri_tube",
+	"In_Medias_Res_Cube",
+	"In_Medias_Res_Cube_001",
+	"In_Medias_Res_Cube_001_1",
+	"In_Medias_Res_Cube_003",
+	"In_Medias_Res_Cube_004",
+	"In_Medias_Res_Cube_004_1",
+	"In_Medias_Res_Cube_005",
+	"In_Medias_Res_Cube_005_1",
+	"In_Medias_Res_Cube_006",
+	"In_Medias_Res_Cube_007",
+	"In_Medias_Res_Cube_008",
+	"In_Medias_Res_Cube_1",
 	"connect_Cube",
-	"level1_Cube",
-	"level1_Cube_001",
-	"level1_Cube_001_1",
-	"level1_Cube_003",
-	"level1_Cube_004",
-	"level1_Cube_004_1",
-	"level1_Cube_005",
-	"level1_Cube_005_1",
-	"level1_Cube_006",
-	"level1_Cube_007",
-	"level1_Cube_008",
-	"level1_Cube_1",
 	"level2_Cube",
 	"level2_Cube_001",
 	"level2_Cube_002",
@@ -226,7 +226,6 @@ const char* AssetLookup::Armature::names[] =
 
 const char* AssetLookup::Texture::values[] =
 {
-	"assets/blank.png",
 	"assets/flare.png",
 	"assets/gradient.png",
 	"assets/noise.png",
@@ -238,7 +237,6 @@ const char* AssetLookup::Texture::values[] =
 
 const char* AssetLookup::Texture::names[] =
 {
-	"blank",
 	"flare",
 	"gradient",
 	"noise",
@@ -288,6 +286,7 @@ const char* AssetLookup::Shader::values[] =
 	"assets/shader/standard.glsl",
 	"assets/shader/standard_instanced.glsl",
 	"assets/shader/standard_particle.glsl",
+	"assets/shader/standard_particle_textured.glsl",
 	"assets/shader/ui.glsl",
 	"assets/shader/ui_texture.glsl",
 	0,
@@ -318,6 +317,7 @@ const char* AssetLookup::Shader::names[] =
 	"standard",
 	"standard_instanced",
 	"standard_particle",
+	"standard_particle_textured",
 	"ui",
 	"ui_texture",
 	0,
@@ -394,8 +394,8 @@ const char* AssetLookup::Font::names[] =
 
 const char* AssetLookup::Level::values[] =
 {
+	"assets/lvl/In_Medias_Res.lvl",
 	"assets/lvl/connect.lvl",
-	"assets/lvl/level1.lvl",
 	"assets/lvl/level2.lvl",
 	"assets/lvl/level3.lvl",
 	"assets/lvl/splitscreen.lvl",
@@ -407,8 +407,8 @@ const char* AssetLookup::Level::values[] =
 
 const char* AssetLookup::Level::names[] =
 {
+	"In Medias Res",
 	"connect",
-	"level1",
 	"level2",
 	"level3",
 	"splitscreen",
@@ -420,8 +420,8 @@ const char* AssetLookup::Level::names[] =
 
 const char* AssetLookup::NavMesh::values[] =
 {
+	"assets/lvl/In_Medias_Res.nav",
 	"assets/lvl/connect.nav",
-	"assets/lvl/level1.nav",
 	"assets/lvl/level2.nav",
 	"assets/lvl/level3.nav",
 	"assets/lvl/splitscreen.nav",
@@ -433,8 +433,8 @@ const char* AssetLookup::NavMesh::values[] =
 
 const char* AssetLookup::NavMesh::names[] =
 {
+	"In Medias Res",
 	"connect",
-	"level1",
 	"level2",
 	"level3",
 	"splitscreen",
@@ -446,6 +446,7 @@ const char* AssetLookup::NavMesh::names[] =
 
 const char* AssetLookup::String::names[] =
 {
+	"In Medias Res",
 	"_default",
 	"ability_description",
 	"ability_lvl",
@@ -713,7 +714,6 @@ const char* AssetLookup::String::names[] =
 	"leaderboard_show",
 	"leave",
 	"left_joystick",
-	"level1",
 	"level1_intro",
 	"level1_tried",
 	"level2",
@@ -781,8 +781,8 @@ const char* AssetLookup::String::names[] =
 
 const char* AssetLookup::DialogueTree::values[] =
 {
+	"assets/dl/In_Medias_Res.dlz",
 	"assets/dl/common.dlz",
-	"assets/dl/level1.dlz",
 	"assets/dl/level2.dlz",
 	"assets/dl/level3.dlz",
 	"assets/dl/level4.dlz",
@@ -793,8 +793,8 @@ const char* AssetLookup::DialogueTree::values[] =
 
 const char* AssetLookup::DialogueTree::names[] =
 {
+	"In Medias Res",
 	"common",
-	"level1",
 	"level2",
 	"level3",
 	"level4",

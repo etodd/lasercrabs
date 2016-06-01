@@ -58,7 +58,7 @@ namespace Asset
 	}
 	namespace Shader
 	{
-		const s32 count = 24;
+		const s32 count = 25;
 		const AssetID armature = 0;
 		const AssetID bloom_downsample = 1;
 		const AssetID blur = 2;
@@ -81,8 +81,9 @@ namespace Asset
 		const AssetID standard = 19;
 		const AssetID standard_instanced = 20;
 		const AssetID standard_particle = 21;
-		const AssetID ui = 22;
-		const AssetID ui_texture = 23;
+		const AssetID standard_particle_textured = 22;
+		const AssetID ui = 23;
+		const AssetID ui_texture = 24;
 	}
 }
 

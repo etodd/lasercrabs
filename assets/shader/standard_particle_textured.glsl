@@ -14,6 +14,7 @@ uniform float lifetime;
 uniform vec3 gravity;
 
 out float alpha;
+out vec2 uv;
 
 void main()
 {
@@ -37,17 +38,23 @@ void main()
 	gl_Position = projected;
 
 	alpha = dt < 0.25 ? dt * 4.0 : 1 - (dt - 0.25) / (lifetime - 0.25);
+
+	uv = in_uv;
 }
 
 #else
 
 in float alpha;
+in vec2 uv;
 out vec4 out_color;
+uniform sampler2D diffuse_map;
 uniform vec4 diffuse_color;
 
 void main()
 {
-	out_color = diffuse_color * vec4(1, 1, 1, alpha);
+	vec4 color = diffuse_color * texture(diffuse_map, uv);
+	color.a *= alpha;
+	out_color = color;
 }
 
 #endif

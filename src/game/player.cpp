@@ -1180,8 +1180,11 @@ void LocalPlayerControl::update(const Update& u)
 									}
 
 									Vec2 adjustment(LMath::angle_to(current_offset.x, predicted_offset.x), LMath::angle_to(current_offset.y, predicted_offset.y));
-									get<PlayerCommon>()->angle_horizontal += adjustment.x;
-									get<PlayerCommon>()->angle_vertical += adjustment.y;
+									if (current_offset.x > 0 == adjustment.x > 0 // only adjust if it's an adjustment toward the target
+										&& fabs(get<PlayerCommon>()->angle_vertical) < PI * 0.4f) // only adjust if we're not looking straight up or down
+										get<PlayerCommon>()->angle_horizontal = LMath::angle_range(get<PlayerCommon>()->angle_horizontal + adjustment.x);
+									if (current_offset.y > 0 == adjustment.y > 0) // only adjust if it's an adjustment toward the target
+										get<PlayerCommon>()->angle_vertical = LMath::angle_range(get<PlayerCommon>()->angle_vertical + adjustment.y);
 								}
 
 								break;

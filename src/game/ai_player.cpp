@@ -503,15 +503,16 @@ MemoryStatus awk_memory_filter(const AIPlayerControl* control, const Entity* e)
 
 b8 awk_run_filter(const AIPlayerControl* control, const Entity* e)
 {
-	return !control->player.ref()->manager.ref()->can_steal_health()
+	return !control->get<AIAgent>()->stealth
 		&& e->get<AIAgent>()->team != control->get<AIAgent>()->team
 		&& e->get<Health>()->hp > control->get<Health>()->hp
-		&& (e->get<Awk>()->can_hit(control->get<Target>()) || (e->get<Transform>()->absolute_pos() - control->get<Transform>()->absolute_pos()).length_squared() < 10.0f * 10.0f);
+		&& (e->get<Awk>()->can_hit(control->get<Target>()) || (e->get<Transform>()->absolute_pos() - control->get<Transform>()->absolute_pos()).length_squared() < AWK_RUN_RADIUS * AWK_RUN_RADIUS);
 }
 
 b8 awk_attack_filter(const AIPlayerControl* control, const Entity* e)
 {
 	return e->get<AIAgent>()->team != control->get<AIAgent>()->team
+		&& e->get<Awk>()->invincible_timer == 0.0f
 		&& !e->get<AIAgent>()->stealth
 		&& (e->get<Health>()->hp <= control->get<Health>()->hp || control->player.ref()->manager.ref()->can_steal_health());
 }

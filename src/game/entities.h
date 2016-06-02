@@ -171,7 +171,7 @@ struct Mover : public ComponentType<Mover>
 };
 
 #define rope_segment_length 0.5f
-#define rope_radius 0.1f
+#define rope_radius 0.075f
 
 struct Rope : public ComponentType<Rope>
 {
@@ -191,6 +191,7 @@ struct Rope : public ComponentType<Rope>
 struct ControlPoint : public ComponentType<ControlPoint>
 {
 	static r32 timer;
+	static r32 particle_timer;
 	static void update_all(const Update&);
 	static ControlPoint* visible_from(const Vec3&);
 	static u16 increment(AI::Team);

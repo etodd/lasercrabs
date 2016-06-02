@@ -70,6 +70,10 @@ struct AwayScorer : AstarScorer
 		if (data.sensor_score == 0.0f) // inside a friendly sensor zone
 			return true;
 
+		const Vec3& vertex = awk_nav_mesh.chunks[v.chunk].vertices[v.vertex];
+		if ((vertex - away_pos).length_squared() < AWK_RUN_RADIUS * AWK_RUN_RADIUS)
+			return false; // needs to be farther away
+
 		const AwkNavMeshAdjacency& adjacency = awk_nav_mesh.chunks[away_vertex.chunk].adjacency[away_vertex.vertex];
 		for (s32 i = 0; i < adjacency.length; i++)
 		{

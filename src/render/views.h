@@ -41,7 +41,6 @@ struct Skybox
 		r32 far_plane;
 		Vec3 color;
 		Vec3 ambient_color;
-		Vec3 zenith_color;
 		Vec3 player_light;
 		AssetID texture;
 		AssetID mesh;

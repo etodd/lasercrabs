@@ -21,6 +21,7 @@ struct DamageEvent;
 #define AWK_COOLDOWN_DISTANCE_RATIO (AWK_MAX_DISTANCE_COOLDOWN / AWK_MAX_DISTANCE)
 #define AWK_SHOCKWAVE_RADIUS 8
 #define AWK_LEGS 3
+#define AWK_INVINCIBLE_TIME 8.0f
 
 // If we raycast through a Minion's head, keep going.
 struct AwkRaycastCallback : btCollisionWorld::ClosestRayResultCallback
@@ -29,7 +30,7 @@ struct AwkRaycastCallback : btCollisionWorld::ClosestRayResultCallback
 	b8 hit_target() const;
 	ID entity_id;
 
-	AwkRaycastCallback(const Vec3& a, const Vec3& b, const Entity*);
+	AwkRaycastCallback(const Vec3&, const Vec3&, const Entity*);
 
 	virtual	btScalar addSingleResult(btCollisionWorld::LocalRayResult&, b8);
 };
@@ -55,8 +56,8 @@ struct Awk : public ComponentType<Awk>
 	Link detached;
 	r32 attach_time;
 	r32 stun_timer;
+	r32 invincible_timer;
 	r32 cooldown;
-	r32 cooldown_multiplier;
 	Footing footing[AWK_LEGS];
 	r32 last_speed;
 	r32 last_footstep;

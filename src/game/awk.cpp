@@ -89,7 +89,8 @@ Awk::Awk()
 	bounce(),
 	hit_targets(),
 	cooldown(),
-	cooldown_multiplier(1.0f)
+	stun_timer(),
+	invincible_timer()
 {
 }
 
@@ -104,6 +105,13 @@ void Awk::awake()
 		shield_entity->get<Transform>()->parent = get<Transform>();
 		shield_entity->add<RigidBody>(RigidBody::Type::Sphere, Vec3(AWK_SHIELD_RADIUS), 0.0f, CollisionTarget | CollisionShield, CollisionDefault, AssetNull, entity_id);
 		shield = shield_entity;
+
+		View* s = shield_entity->add<View>();
+		s->additive();
+		s->color = Vec4(1, 1, 1, 0.05f);
+		s->mesh = Asset::Mesh::sphere;
+		s->offset.scale(Vec3(AWK_SHIELD_RADIUS));
+		s->shader = Asset::Shader::flat;
 	}
 }
 
@@ -152,37 +160,30 @@ Vec3 Awk::center() const
 
 void Awk::hit_by(const TargetEvent& e)
 {
-	if (e.hit_by->has<Awk>())
+	b8 damaged = false;
+	b8 stunned = false;
+
+	// only take damage if we're attached to a wall and not invincible
+	if (get<Transform>()->parent.ref())
 	{
-		u16 enemy_hp = e.hit_by->get<Health>()->hp;
-		u16 my_hp = get<Health>()->hp;
-
-		b8 damaged = false;
-		b8 stunned = false;
-		// only take damage if we're attached to a wall and not invincible
-		if (get<Transform>()->parent.ref())
+		if (invincible_timer == 0.0f)
 		{
-			// normally, the enemy needs the same or higher HP to damage us
-			// but they can also buy an upgrade that lets them damage us no matter what
-			if (enemy_hp >= my_hp
-				|| e.hit_by->get<PlayerCommon>()->manager.ref()->can_steal_health())
-			{
-				get<Health>()->damage(e.hit_by, 1);
-				damaged = true;
-			}
-			else
-			{
-				// they have lower HP and thus can't hurt us
-				stun_timer = AWK_STUN_TIME;
-				stunned = true;
-			}
+			// we can take damage
+			get<Health>()->damage(e.hit_by, 1);
+			damaged = true;
+			if (!e.hit_by->has<Health>() || get<Health>()->hp < e.hit_by->get<Health>()->hp)
+				invincible_timer = AWK_INVINCIBLE_TIME;
 		}
-
-		if (!damaged && e.hit_by->has<LocalPlayerControl>())
-			e.hit_by->get<LocalPlayerControl>()->player.ref()->msg(_(stunned ? strings::target_stunned : strings::no_effect), false);
+		else
+		{
+			// we're invincible
+			stun_timer = AWK_STUN_TIME;
+			stunned = true;
+		}
 	}
-	else
-		get<Health>()->damage(e.hit_by, 1);
+
+	if (!damaged && e.hit_by->has<LocalPlayerControl>())
+		e.hit_by->get<LocalPlayerControl>()->player.ref()->msg(_(stunned ? strings::target_stunned : strings::no_effect), false);
 }
 
 void Awk::hit_target(Entity* target)
@@ -690,10 +691,22 @@ void Awk::stealth(b8 enable)
 void Awk::update(const Update& u)
 {
 	stun_timer = vi_max(stun_timer - u.time.delta, 0.0f);
+
+	invincible_timer = vi_max(invincible_timer - u.time.delta, 0.0f);
+	if (invincible_timer > 0.0f)
+	{
+		if (get<AIAgent>()->stealth)
+			shield.ref()->get<View>()->mask = 1 << (s32)get<AIAgent>()->team; // only display to fellow teammates
+		else
+			shield.ref()->get<View>()->mask = RENDER_MASK_DEFAULT; // everyone can see
+	}
+	else
+		shield.ref()->get<View>()->mask = 0;
+
 	if (get<Transform>()->parent.ref())
 	{
 		if (stun_timer == 0.0f)
-			cooldown = vi_max(0.0f, cooldown - u.time.delta * cooldown_multiplier);
+			cooldown = vi_max(0.0f, cooldown - u.time.delta);
 
 		Quat rot = get<Transform>()->rot;
 
@@ -884,8 +897,8 @@ void Awk::update(const Update& u)
 						}
 						else if (group & CollisionInaccessible)
 						{
-							get<Health>()->damage(entity(), AWK_HEALTH); // Kill self
-							return;
+							// this shouldn't happen, but if it does, bounce off
+							reflect(ray_callback.m_hitPointWorld[i], ray_callback.m_hitNormalWorld[i], u);
 						}
 						else if (group & CollisionTarget)
 						{

@@ -26,7 +26,6 @@ in vec2 uv;
 in vec3 view_ray;
 
 uniform vec3 ambient_color;
-uniform vec3 zenith_color;
 uniform sampler2D color_buffer;
 uniform sampler2D lighting_buffer;
 uniform sampler2D depth_buffer;
@@ -63,8 +62,10 @@ void main()
 		else
 		{
 			vec3 pos = (view_ray * depth) - range_center;
-			bool in_range = length(pos) < range && dot(pos, wall_normal) > 0.0;
-			final_color = in_range ? lighting_color : zenith_color;
+			if (dot(pos, pos) < range * range)
+				final_color = lighting_color * (dot(pos, wall_normal) > 0.0 ? 1.0 : 0.4);
+			else
+				final_color = vec3(0, 0, 0);
 		}
 	}
 	out_color = vec4(final_color, 1);

@@ -18,7 +18,7 @@
 #include "entities.h"
 #include "render/particles.h"
 
-#define WALK_SPEED 3.0f
+#define WALK_SPEED 2.0f
 
 #define HEALTH 5
 

@@ -11,7 +11,7 @@ namespace VI
 struct TargetEvent;
 struct PlayerManager;
 
-#define MINION_HEAD_RADIUS 0.35f
+#define MINION_HEAD_RADIUS 0.4f
 #define CONTAINMENT_FIELD_RADIUS 20.0f
 
 struct Minion : public Entity

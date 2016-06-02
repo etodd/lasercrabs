@@ -238,7 +238,7 @@ void ParticleSystem::clear()
 }
 
 StandardParticleSystem::StandardParticleSystem(const Vec2& start_size, const Vec2& end_size, r32 lifetime, const Vec3& gravity, const Vec4& color, AssetID shader, AssetID texture)
-	: ParticleSystem(lifetime, shader == AssetNull ? (texture == AssetNull ? Asset::Shader::standard_particle : Asset::Shader::standard_particle_textured) : shader, texture),
+	: ParticleSystem(lifetime, shader == AssetNull ? (texture == AssetNull ? Asset::Shader::particle_standard : Asset::Shader::particle_textured) : shader, texture),
 	start_size(start_size),
 	end_size(end_size),
 	gravity(gravity),
@@ -246,17 +246,22 @@ StandardParticleSystem::StandardParticleSystem(const Vec2& start_size, const Vec
 {
 }
 
-void StandardParticleSystem::add(const Vec3& pos, const Vec3& velocity)
+void StandardParticleSystem::add(const Vec3& pos, const Vec3& velocity, r32 rotation)
 {
 	r32 size_scale = mersenne::randf_oo();
 	Vec4 param
 	(
-		mersenne::randf_oo() * PI * 2.0f, // start rotation
+		rotation,
 		start_size.x + size_scale * (start_size.y - start_size.x), // start size
 		end_size.x + size_scale * (end_size.y - end_size.x), // end size
 		0.0f // unused
 	);
 	add_raw(pos, Vec4(velocity, 0), param);
+}
+
+void StandardParticleSystem::add(const Vec3& pos, const Vec3& velocity)
+{
+	add(pos, velocity, mersenne::randf_co() * PI * 2.0f);
 }
 
 void StandardParticleSystem::pre_draw(const RenderParams& params)
@@ -275,7 +280,7 @@ void StandardParticleSystem::pre_draw(const RenderParams& params)
 }
 
 Sparks::Sparks(const Vec2& size, r32 lifetime, const Vec3& gravity)
-	: ParticleSystem(lifetime, Asset::Shader::spark, AssetNull),
+	: ParticleSystem(lifetime, Asset::Shader::particle_spark, AssetNull),
 	size(size),
 	gravity(gravity)
 {
@@ -312,9 +317,9 @@ Sparks Particles::sparks
 
 StandardParticleSystem Particles::tracers
 (
-	Vec2(0.07f),
+	Vec2(0.1f),
 	Vec2(0.0f),
-	4.0f,
+	3.0f,
 	Vec3::zero,
 	Vec4(1, 1, 1, 1)
 );

@@ -35,34 +35,29 @@ const s32 version = 24;
 const char* model_in_extension = ".blend";
 const char* model_intermediate_extension = ".fbx";
 const char* mesh_out_extension = ".msh";
-
 const char* font_in_extension = ".ttf";
 const char* font_in_extension_2 = ".otf"; // Must be same length
 const char* font_out_extension = ".fnt";
-
 const char* soundbank_extension = ".bnk";
-
 const char* nav_mesh_out_extension = ".nav";
 const char* anim_out_extension = ".anm";
 const char* arm_out_extension = ".arm";
 const char* texture_extension = ".png";
 const char* shader_extension = ".glsl";
+const char* dialogue_tree_extension = ".dlz";
+const char* level_out_extension = ".lvl";
+const char* string_extension = ".json";
+
 const char* shader_in_folder = "../assets/shader/";
 const char* shader_out_folder = "assets/shader/";
-const char* dialogue_tree_extension = ".dlz";
 const char* asset_in_folder = "../assets/";
 const char* asset_out_folder = "assets/";
-const char* level_out_extension = ".lvl";
 const char* level_in_folder = "../assets/lvl/";
 const char* level_out_folder = "assets/lvl/";
-const char* string_extension = ".json";
 const char* string_in_folder = "../assets/str/";
 const char* string_out_folder = "assets/str/";
-const char* dialogue_strings_out_path = "assets/str/dialogue_en.json";
-const char* dynamic_strings_out_path = "assets/str/misc_en.json";
-const char* string_default_asset_name = "strings";
-const char* wwise_project_path = "../assets/audio/audio.wproj";
-const char* wwise_header_in_path = "../assets/audio/GeneratedSoundBanks/Wwise_IDs.h";
+const char* dialogue_in_folder = "../assets/dl/";
+const char* dialogue_out_folder = "assets/dl/";
 #if _WIN32
 const char* soundbank_in_folder = "../assets/audio/GeneratedSoundBanks/Windows/";
 #else
@@ -72,9 +67,14 @@ const char* soundbank_in_folder = "../assets/audio/GeneratedSoundBanks/Mac/";
 const char* soundbank_in_folder = "../assets/audio/GeneratedSoundBanks/Linux/";
 #endif
 #endif
-const char* dialogue_in_folder = "../assets/dl/";
-const char* dialogue_out_folder = "assets/dl/";
+
+const char* wwise_project_path = "../assets/audio/audio.wproj";
+const char* dialogue_strings_out_path = "assets/str/dialogue_en.json";
+const char* dynamic_strings_out_path = "assets/str/misc_en.json";
+
 const char* manifest_path = ".manifest";
+
+const char* wwise_header_in_path = "../assets/audio/GeneratedSoundBanks/Wwise_IDs.h";
 const char* asset_src_path = "../src/asset/values.cpp";
 const char* mesh_header_path = "../src/asset/mesh.h";
 const char* animation_header_path = "../src/asset/animation.h";
@@ -652,6 +652,72 @@ b8 manifest_requires_update(const Manifest& a, const Manifest& b)
 		|| !maps_equal(a.dialogue_trees, b.dialogue_trees)
 		|| !maps_equal2(a.dialogue_strings, b.dialogue_strings)
 		|| !maps_equal2(a.dynamic_strings, b.dynamic_strings);
+}
+
+template<typename T>
+b8 map_contains_value(const Map<T>& map, const T& t)
+{
+	for (auto i = map.begin(); i != map.end(); i++)
+	{
+		if (i->second == t)
+			return true;
+	}
+	return false;
+}
+
+template<typename T>
+b8 map_contains_value2(const Map2<T>& map, const T& t)
+{
+	for (auto i = map.begin(); i != map.end(); i++)
+	{
+		if (map_contains_value(i->second, t))
+			return true;
+	}
+	return false;
+}
+
+b8 output_file_in_use(const Manifest& m, const char* filename)
+{
+	if (strcmp(filename, dialogue_strings_out_path) == 0
+		|| strcmp(filename, dynamic_strings_out_path) == 0)
+		return true;
+
+	std::string filename_str = filename;
+	return map_contains_value2(m.meshes, filename_str)
+		|| map_contains_value2(m.level_meshes, filename_str)
+		|| map_contains_value2(m.animations, filename_str)
+		|| map_contains_value2(m.armatures, filename_str)
+		|| map_contains_value(m.textures, filename_str)
+		|| map_contains_value(m.soundbanks, filename_str)
+		|| map_contains_value(m.shaders, filename_str)
+		|| map_contains_value2(m.uniforms, filename_str)
+		|| map_contains_value(m.fonts, filename_str)
+		|| map_contains_value(m.levels, filename_str)
+		|| map_contains_value(m.nav_meshes, filename_str)
+		|| map_contains_value(m.string_files, filename_str)
+		|| map_contains_value(m.dialogue_trees, filename_str);
+}
+
+void clean_unused_output_files(const Manifest& m, const char* folder)
+{
+	DIR* dir = opendir(folder);
+	if (dir)
+	{
+		struct dirent* entry;
+		while ((entry = readdir(dir)))
+		{
+			if (entry->d_type == DT_REG)
+			{
+				std::string filepath = folder + std::string(entry->d_name);
+				if (!output_file_in_use(m, filepath.c_str()))
+				{
+					printf("Removing %s\n", filepath.c_str());
+					remove(filepath.c_str());
+				}
+			}
+		}
+		closedir(dir);
+	}
 }
 
 b8 manifest_read(const char* path, Manifest& manifest)
@@ -3255,6 +3321,12 @@ s32 proc(s32 argc, char* argv[])
 
 			fprintf(f, "\n}");
 			fclose(f);
+
+			clean_unused_output_files(state.manifest, asset_out_folder);
+			clean_unused_output_files(state.manifest, shader_out_folder);
+			clean_unused_output_files(state.manifest, level_out_folder);
+			clean_unused_output_files(state.manifest, string_out_folder);
+			clean_unused_output_files(state.manifest, dialogue_out_folder);
 		}
 	}
 

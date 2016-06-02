@@ -1208,7 +1208,7 @@ namespace connect
 				Vec2 p;
 				if (UI::project(params, pos->absolute_pos(), &p))
 				{
-					p.y += 16.0f * UI::scale;
+					p.y += 32.0f * UI::scale;
 					UIText text;
 					text.color = UI::accent_color;
 					text.anchor_x = UIText::Anchor::Center;

@@ -170,7 +170,7 @@ SensorEntity::SensorEntity(PlayerManager* owner, const Vec3& abs_pos, const Quat
 	model->mesh = Asset::Mesh::sphere;
 	model->team = (u8)team;
 	model->shader = Asset::Shader::standard;
-	model->offset.scale(Vec3(SENSOR_RADIUS));
+	model->offset.scale(Vec3(SENSOR_RADIUS * 1.2f)); // a little bigger for aesthetic reasons
 
 	create<Health>(5, 5);
 
@@ -293,8 +293,16 @@ ControlPoint::ControlPoint()
 
 #define CONTROL_POINT_INTERVAL 15.0f
 r32 ControlPoint::timer = CONTROL_POINT_INTERVAL;
+r32 ControlPoint::particle_timer;
 void ControlPoint::update_all(const Update& u)
 {
+	const r32 particle_interval = 0.2f;
+	const r32 particle_reset = 4.0f;
+	b8 emit_particles = (s32)(particle_timer / particle_interval) < (s32)((particle_timer + u.time.delta) / particle_interval);
+	particle_timer += u.time.delta;
+	while (particle_timer > particle_reset)
+		particle_timer -= particle_reset;
+
 	for (auto i = list.iterator(); !i.is_last(); i.next())
 	{
 		Vec3 control_point_pos;
@@ -302,21 +310,42 @@ void ControlPoint::update_all(const Update& u)
 		i.item()->get<Transform>()->absolute(&control_point_pos, &control_point_rot);
 
 		AI::Team control_point_team = AI::Team::None;
+		Sensor* closest_sensor = nullptr;
+		r32 closest_distance_squared = FLT_MAX;
 		for (auto sensor = Sensor::list.iterator(); !sensor.is_last(); sensor.next())
 		{
 			Vec3 to_sensor = sensor.item()->get<Transform>()->absolute_pos() - control_point_pos;
-			if (to_sensor.length_squared() < SENSOR_RANGE * SENSOR_RANGE
+			r32 distance_squared = to_sensor.length_squared();
+			if (distance_squared < SENSOR_RANGE * SENSOR_RANGE
 				&& to_sensor.dot(control_point_rot * Vec3(0, 0, 1)) > 0.0f) // make sure the control point is facing the sensor
 			{
 				AI::Team sensor_team = sensor.item()->team;
 				if (control_point_team == AI::Team::None)
+				{
 					control_point_team = sensor_team;
+					if (distance_squared < closest_distance_squared)
+					{
+						closest_sensor = sensor.item();
+						closest_distance_squared = distance_squared;
+					}
+				}
 				else if (control_point_team != sensor_team)
 				{
 					control_point_team = AI::Team::None; // control point is contested
 					break;
 				}
 			}
+		}
+
+		if (emit_particles && control_point_team != AI::Team::None)
+		{
+			// particle effect to closest sensor
+			Particles::tracers.add
+			(
+				Vec3::lerp(particle_timer / particle_reset, control_point_pos, closest_sensor->get<Transform>()->absolute_pos()),
+				Vec3::zero,
+				PI * 0.25f
+			);
 		}
 
 		i.item()->team = control_point_team;
@@ -463,7 +492,8 @@ void Rocket::update(const Update& u)
 				Particles::tracers.add
 				(
 					get<Transform>()->pos + velocity * particle_accumulator,
-					Vec3::zero
+					Vec3::zero,
+					PI * 0.25f
 				);
 			}
 			get<Transform>()->pos = next_pos;
@@ -820,6 +850,10 @@ RigidBody* rope_add(RigidBody* start, const Vec3& start_relative_pos, const Vec3
 
 Rope* Rope::start(RigidBody* start, const Vec3& abs_pos, const Vec3& abs_normal, const Quat& abs_rot, r32 slack)
 {
+	Entity* base = World::create<Prop>(Asset::Mesh::rope_base);
+	base->get<Transform>()->absolute(abs_pos, Quat::look(abs_normal));
+	base->get<Transform>()->reparent(start->get<Transform>());
+
 	// add the first rope segment
 	Vec3 p = abs_pos + abs_normal * rope_radius;
 	Transform* start_trans = start->get<Transform>();

@@ -8,7 +8,7 @@ namespace Asset
 {
 	namespace Uniform
 	{
-		const s32 count = 46;
+		const s32 count = 45;
 		const AssetID ambient_color = 0;
 		const AssetID bones = 1;
 		const AssetID color_buffer = 2;
@@ -54,11 +54,10 @@ namespace Asset
 		const AssetID viewport_scale = 42;
 		const AssetID vp = 43;
 		const AssetID wall_normal = 44;
-		const AssetID zenith_color = 45;
 	}
 	namespace Shader
 	{
-		const s32 count = 25;
+		const s32 count = 24;
 		const AssetID armature = 0;
 		const AssetID bloom_downsample = 1;
 		const AssetID blur = 2;
@@ -69,21 +68,20 @@ namespace Asset
 		const AssetID flat = 7;
 		const AssetID flat_texture = 8;
 		const AssetID global_light = 9;
-		const AssetID point_light = 10;
-		const AssetID sky_decal = 11;
-		const AssetID skybox = 12;
-		const AssetID spark = 13;
-		const AssetID spark_teleport = 14;
-		const AssetID spot_light = 15;
-		const AssetID ssao = 16;
-		const AssetID ssao_blur = 17;
-		const AssetID ssao_downsample = 18;
-		const AssetID standard = 19;
-		const AssetID standard_instanced = 20;
-		const AssetID standard_particle = 21;
-		const AssetID standard_particle_textured = 22;
-		const AssetID ui = 23;
-		const AssetID ui_texture = 24;
+		const AssetID particle_spark = 10;
+		const AssetID particle_standard = 11;
+		const AssetID particle_textured = 12;
+		const AssetID point_light = 13;
+		const AssetID sky_decal = 14;
+		const AssetID skybox = 15;
+		const AssetID spot_light = 16;
+		const AssetID ssao = 17;
+		const AssetID ssao_blur = 18;
+		const AssetID ssao_downsample = 19;
+		const AssetID standard = 20;
+		const AssetID standard_instanced = 21;
+		const AssetID ui = 22;
+		const AssetID ui_texture = 23;
 	}
 }
 

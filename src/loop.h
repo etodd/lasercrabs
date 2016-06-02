@@ -924,12 +924,6 @@ void draw(LoopSync* sync, const Camera* camera)
 		sync->write<Vec3>(Game::level.skybox.ambient_color);
 
 		sync->write(RenderOp::Uniform);
-		sync->write(Asset::Uniform::zenith_color);
-		sync->write(RenderDataType::Vec3);
-		sync->write<s32>(1);
-		sync->write<Vec3>(Game::level.skybox.zenith_color);
-
-		sync->write(RenderOp::Uniform);
 		sync->write(Asset::Uniform::ssao_buffer);
 		sync->write(RenderDataType::Texture);
 		sync->write<s32>(1);

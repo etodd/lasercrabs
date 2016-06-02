@@ -48,7 +48,7 @@
 	#define DEBUG_AI_PATH 0
 	#define DEBUG_AWK_NAV_MESH 0
 	#define DEBUG_AWK_AI_PATH 0
-	#define DEBUG_PHYSICS 0
+	#define DEBUG_PHYSICS 1
 #endif
 
 #include "game.h"
@@ -88,8 +88,8 @@ void Game::State::reset()
 
 const s32 Game::levels[] =
 {
-	Asset::Level::tutorial,
-	Asset::Level::In_Medias_Res,
+	Asset::Level::Safe_Zone,
+	Asset::Level::Medias_Res,
 	Asset::Level::level2,
 	Asset::Level::level3,
 	AssetNull,
@@ -453,6 +453,37 @@ void Game::draw_alpha(const RenderParams& render_params)
 			sync->write(RenderPrimitiveMode::Triangles);
 			sync->write(mesh_id);
 		}
+
+		for (auto i = MinionCommon::list.iterator(); !i.is_last(); i.next())
+		{
+			// render a sphere for the headshot collision volume
+			Vec3 head_pos = i.item()->head_pos();
+			if (!render_params.camera->visible_sphere(head_pos, MINION_HEAD_RADIUS))
+				continue;
+
+			Loader::mesh_permanent(Asset::Mesh::sphere);
+
+			Mat4 m;
+			m.make_transform(head_pos, Vec3(MINION_HEAD_RADIUS), Quat::identity);
+			Mat4 mvp = m * render_params.view_projection;
+
+			sync->write(RenderOp::Uniform);
+			sync->write(Asset::Uniform::mvp);
+			sync->write(RenderDataType::Mat4);
+			sync->write<s32>(1);
+			sync->write<Mat4>(mvp);
+
+			sync->write(RenderOp::Uniform);
+			sync->write(Asset::Uniform::diffuse_color);
+			sync->write(RenderDataType::Vec4);
+			sync->write<s32>(1);
+			sync->write<Vec4>(Vec4(1, 1, 1, 1));
+
+			sync->write(RenderOp::Mesh);
+			sync->write(RenderPrimitiveMode::Triangles);
+			sync->write(Asset::Mesh::sphere);
+		}
+
 		sync->write(RenderOp::FillMode);
 		sync->write(RenderFillMode::Fill);
 	}
@@ -683,7 +714,6 @@ void Game::unload_level()
 	level.skybox.fog_start = level.skybox.far_plane * 0.25f;
 	level.skybox.color = Vec3::zero;
 	level.skybox.ambient_color = Vec3::zero;
-	level.skybox.zenith_color = Vec3::zero;
 	level.skybox.shader = AssetNull;
 	level.skybox.texture = AssetNull;
 	level.skybox.mesh = AssetNull;
@@ -775,11 +805,10 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 	
 	cJSON* json = Loader::level(state.level, m == Mode::Pvp);
 
-	const Vec3 pvp_accessible(0.6f);
+	const Vec3 pvp_accessible(0.7f);
 	const Vec3 pvp_inaccessible(0.0f);
 	const Vec3 pvp_sky(0.0f);
-	const Vec3 pvp_ambient(0.17f);
-	const Vec3 pvp_zenith(0.0f);
+	const Vec3 pvp_ambient(0.2f);
 	const Vec3 pvp_player_light(1.0f);
 
 	AI::Team teams[(s32)AI::Team::count];
@@ -948,7 +977,6 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 				level.skybox.fog_start = level.skybox.far_plane;
 				level.skybox.color = pvp_sky;
 				level.skybox.ambient_color = pvp_ambient;
-				level.skybox.zenith_color = pvp_zenith;
 				level.skybox.player_light = pvp_player_light;
 			}
 			else
@@ -956,7 +984,6 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 				level.skybox.fog_start = level.skybox.far_plane * 0.25f;
 				level.skybox.color = Json::get_vec3(element, "skybox_color");
 				level.skybox.ambient_color = Json::get_vec3(element, "ambient_color");
-				level.skybox.zenith_color = Json::get_vec3(element, "zenith_color");
 				level.skybox.player_light = Vec3::zero;
 			}
 

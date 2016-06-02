@@ -104,24 +104,34 @@ namespace LMath
 
 	b8 ray_sphere_intersect(const Vec3& ray_start, const Vec3& ray_end, const Vec3& sphere_pos, r32 sphere_radius, Vec3* intersection)
 	{
-		Vec3 ray = ray_end - ray_start;
-		Vec3 head_to_ray_start = ray_start - sphere_pos;
+		const Vec3& raydir = Vec3::normalize(ray_end - ray_start);
+		const Vec3& rayorig = ray_start - sphere_pos;
 
-		r32 a = ray.length_squared();
-		r32 b = 2.0f * ray.dot(head_to_ray_start);
-		r32 c = head_to_ray_start.length_squared() - (sphere_radius * sphere_radius);
+		// Mmm, quadratics
+		// Build coeffs which can be used with std quadratic solver
+		// ie t = (-b +/- sqrt(b*b + 4ac)) / 2a
+		r32 a = raydir.dot(raydir);
+		r32 b = 2.0f * rayorig.dot(raydir);
+		r32 c = rayorig.dot(rayorig) - (sphere_radius * sphere_radius);
 
-		r32 delta = (b * b) - 4.0f * a * c;
-
-		if (delta > 0.0f)
+		// Calc determinant
+		r32 d = (b * b) - (4.0f * a * c);
+		if (d < 0)
 		{
-			r32 distance = (-b - sqrtf(delta)) / (2.0f * a);
-			if (distance < 1.0f)
-			{
-				if (intersection)
-					*intersection = ray_start + ray * distance;
-				return true;
-			}
+			// No intersection
+			return false;
+		}
+		else
+		{
+			// BTW, if d=0 there is one intersection, if d > 0 there are 2
+			// But we only want the closest one, so that's ok, just use the 
+			// '-' version of the solver
+			r32 t = (-b - sqrtf(d)) / (2.0f * a);
+			if (t < 0)
+				t = (-b + sqrtf(d)) / (2.0f * a);
+			if (intersection)
+				*intersection = ray_start + raydir * t;
+			return true;
 		}
 		return false;
 	}

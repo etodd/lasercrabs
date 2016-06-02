@@ -15,6 +15,12 @@ uniform vec3 gravity;
 
 out float alpha;
 
+// in_param
+// x = start rotation
+// y = start size
+// z = end size
+// w = unused
+
 void main()
 {
 	float dt = time - in_birth;

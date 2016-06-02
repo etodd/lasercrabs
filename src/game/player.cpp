@@ -1687,16 +1687,13 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 			{
 				history = Team::list[(s32)team].player_track_history[other_player.item()->manager.id];
 
-				if (!tracking && !visible) // if we can actually see them, the indicator has already been added using add_target_indicator in the update function
-					UI::indicator(params, history.pos, UI::disabled_color, false);
-
 				Vec3 pos3d = history.pos + Vec3(0, AWK_RADIUS * 2.0f, 0);
 
+				// highlight the username and draw it even if it's offscreen
+				UI::is_onscreen(params, pos3d, &p);
+				draw = true;
 				if (tracking || visible)
 				{
-					// highlight the username and draw it even if it's offscreen
-					UI::is_onscreen(params, pos3d, &p);
-					draw = true;
 					if (team == other_player.item()->get<AIAgent>()->team) // friend
 						color = &Team::ui_color_friend;
 					else // enemy
@@ -1704,21 +1701,19 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 				}
 				else
 				{
-					draw = UI::project(params, pos3d, &p);
-					color = &UI::disabled_color;
+					color = &UI::disabled_color; // not visible or tracking right now
+					// if we can see or track them, the indicator has already been added using add_target_indicator in the update function
+					UI::indicator(params, history.pos, UI::disabled_color, true);
 				}
 			}
 
 			if (draw)
 			{
 				Vec2 hp_pos = p;
-				hp_pos.y += text_size * UI::scale;
+				hp_pos.y += text_size * 1.5f * UI::scale;
 
 				Vec2 username_pos = hp_pos;
 				username_pos.y += (text_size * UI::scale) + HP_BOX_SPACING * 0.5f;
-
-				Vec2 invincible_pos = username_pos;
-				invincible_pos.y += (text_size * UI::scale) + HP_BOX_SPACING * 0.5f;
 
 				UIText username;
 				username.size = text_size;
@@ -1726,18 +1721,6 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 				username.anchor_y = UIText::Anchor::Min;
 				username.color = *color;
 				username.text(other_player.item()->manager.ref()->username);
-
-				u16 my_hp = get<Health>()->hp;
-				UIText invincible;
-				// normally, enemies are invincible if they have higher health
-				// but if we buy the right upgrade they become vulnerable
-				b8 draw_invincible = !friendly && visible && history.hp > my_hp && !player.ref()->manager.ref()->can_steal_health();
-				if (draw_invincible)
-				{
-					invincible = username;
-					invincible.text(_(strings::invincible));
-					UI::box(params, invincible.rect(invincible_pos).outset(HP_BOX_SPACING), UI::background_color);
-				}
 
 				UI::box(params, username.rect(username_pos).outset(HP_BOX_SPACING), UI::background_color);
 
@@ -1749,8 +1732,32 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 
 				username.draw(params, username_pos);
 
-				if (draw_invincible && UI::flash_function(Game::real_time.total))
-					invincible.draw(params, invincible_pos); // danger!
+				// invincible indicator
+				if (!friendly && visible)
+				{
+					r32 enemy_invincible_timer = other_player.item()->get<Awk>()->invincible_timer;
+					if (enemy_invincible_timer > 0.0f)
+					{
+						UIText text;
+						text.size = text_size - 2.0f;
+						text.color = UI::background_color;
+						text.anchor_x = UIText::Anchor::Center;
+						text.anchor_y = UIText::Anchor::Center;
+						text.text(_(strings::invincible));
+
+						Vec2 invincible_pos = username_pos;
+						invincible_pos.y += (text_size * UI::scale) + HP_BOX_SPACING;
+
+						Vec2 bar_size = text.bounds() + Vec2(HP_BOX_SPACING);
+
+						Rect2 bar = { invincible_pos + Vec2(bar_size.x * -0.5f, 0), bar_size };
+						UI::box(params, bar, UI::background_color);
+						UI::border(params, bar, 2, UI::alert_color);
+						UI::box(params, { bar.pos, Vec2(bar.size.x * (enemy_invincible_timer / AWK_INVINCIBLE_TIME), bar.size.y) }, UI::alert_color);
+
+						text.draw(params, bar.pos + bar.size * 0.5f);
+					}
+				}
 			}
 		}
 	}
@@ -1811,6 +1818,27 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 		Vec2 pos = viewport.size * Vec2(0.5f, 0.7f);
 		UI::box(params, text.rect(pos).outset(8.0f * UI::scale), UI::background_color);
 		text.draw(params, pos);
+	}
+
+	// invincibility indicator
+	{
+		r32 invincible_timer = get<Awk>()->invincible_timer;
+		if (invincible_timer > 0.0f)
+		{
+			Vec2 bar_size(180.0f * UI::scale, 32.0f * UI::scale);
+			Rect2 bar = { viewport.size * Vec2(0.5f, 0.75f) + bar_size * -0.5f, bar_size };
+			UI::box(params, bar, UI::background_color);
+			UI::border(params, bar, 2, UI::accent_color);
+			UI::box(params, { bar.pos, Vec2(bar.size.x * (invincible_timer / AWK_INVINCIBLE_TIME), bar.size.y) }, UI::accent_color);
+
+			UIText text;
+			text.size = 18.0f;
+			text.color = UI::background_color;
+			text.anchor_x = UIText::Anchor::Center;
+			text.anchor_y = UIText::Anchor::Center;
+			text.text(_(strings::invincible));
+			text.draw(params, bar.pos + bar.size * 0.5f);
+		}
 	}
 
 	// stunned indicator

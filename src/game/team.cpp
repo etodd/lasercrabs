@@ -542,13 +542,13 @@ void PlayerManager::ability_spawn_complete()
 				Quat abs_rot;
 				awk->get<Transform>()->absolute(&abs_pos, &abs_rot);
 
-				Entity* sensor = World::create<SensorEntity>(this, abs_pos + abs_rot * Vec3(0, 0, -AWK_RADIUS + rope_segment_length + SENSOR_RADIUS), abs_rot);
+				Entity* sensor = World::create<SensorEntity>(this, abs_pos + abs_rot * Vec3(0, 0, -AWK_RADIUS + (rope_segment_length * 2.0f) - rope_radius + SENSOR_RADIUS), abs_rot);
 
 				Audio::post_global_event(AK::EVENTS::PLAY_SENSOR_SPAWN, abs_pos);
 
 				// attach it to the wall
 				Rope* rope = Rope::start(awk->get<Transform>()->parent.ref()->get<RigidBody>(), abs_pos + abs_rot * Vec3(0, 0, -AWK_RADIUS), abs_rot * Vec3(0, 0, 1), abs_rot);
-				rope->end(abs_pos + abs_rot * Vec3(0, 0, -AWK_RADIUS + rope_segment_length), abs_rot * Vec3(0, 0, -1), sensor->get<RigidBody>());
+				rope->end(abs_pos + abs_rot * Vec3(0, 0, -AWK_RADIUS + (rope_segment_length * 2.0f)), abs_rot * Vec3(0, 0, -1), sensor->get<RigidBody>());
 			}
 			break;
 		}
@@ -628,11 +628,11 @@ b8 PlayerManager::ability_upgrade_start(Ability a)
 }
 
 // sensor lvl 1 - spawn sensors
-// sensor lvl 2 - can steal enemy health
-// teleporter lvl 1 - spawn teleporters
-// teleporter lvl 2 - faster cooldowns
+// sensor lvl 2 - steal enemy health
+// rocket lvl 1 - spawn rocket pods
+// rocket lvl 2 - +1 max HP
 // minion lvl 1 - spawn minions
-// minion lvl 2 - minion shields
+// minion lvl 2 - containment field
 void PlayerManager::ability_upgrade_complete()
 {
 	Ability a = current_upgrade_ability;

@@ -1044,11 +1044,11 @@ b8 LocalPlayerControl::add_target_indicator(Target* target, TargetIndicator::Typ
 
 	if (show_even_out_of_range || (target->absolute_pos() - me).length_squared() < AWK_MAX_DISTANCE * AWK_MAX_DISTANCE)
 	{
-		// calculate head intersection trajectory
+		// calculate target intersection trajectory
 		Vec3 intersection;
 		if (get<Awk>()->predict_intersection(target, &intersection))
 		{
-			if (reticle.type == ReticleType::Normal && LMath::ray_sphere_intersect(me, reticle.pos, intersection, MINION_HEAD_RADIUS))
+			if (reticle.type == ReticleType::Normal && LMath::ray_sphere_intersect(me, reticle.pos, intersection, target->get<RigidBody>()->size.x))
 				reticle.type = ReticleType::Target;
 			target_indicators.add({ intersection, target->get<RigidBody>()->btBody->getInterpolationLinearVelocity(), type });
 			if (target_indicators.length == target_indicators.capacity())
@@ -1272,13 +1272,13 @@ void LocalPlayerControl::update(const Update& u)
 		{
 			Vec3 trace_dir = look_quat * Vec3(0, 0, 1);
 			Vec3 trace_start = camera->pos + trace_dir * third_person_offset;
-			Vec3 trace_end = trace_start + trace_dir * (AWK_MAX_DISTANCE + third_person_offset);
 
 			reticle.type = ReticleType::None;
 
 			if (movement_enabled())
 			{
-				AwkRaycastCallback ray_callback(trace_start, trace_end, entity());
+				Vec3 trace_end = trace_start + trace_dir * (AWK_MAX_DISTANCE + third_person_offset);
+				btCollisionWorld::ClosestRayResultCallback ray_callback(trace_start, trace_end);
 				Physics::raycast(&ray_callback, ~CollisionAwkIgnore & ~get<Awk>()->ally_containment_field_mask());
 
 				if (ray_callback.hasHit())
@@ -1289,12 +1289,13 @@ void LocalPlayerControl::update(const Update& u)
 					r32 distance = detach_dir.length();
 					detach_dir /= distance;
 					Vec3 hit;
-					if (get<Awk>()->can_go(detach_dir, &hit))
+					b8 hit_target;
+					if (get<Awk>()->can_go(detach_dir, &hit, &hit_target))
 					{
-						if (fabs((hit - center).length() - distance) < AWK_RADIUS)
+						if ((hit - center).length() > distance - AWK_RADIUS)
 						{
 							if (get<Awk>()->cooldown == 0.0f)
-								reticle.type = ray_callback.hit_target() ? ReticleType::Target : ReticleType::Normal;
+								reticle.type = hit_target ? ReticleType::Target : ReticleType::Normal;
 						}
 					}
 				}

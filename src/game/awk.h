@@ -19,7 +19,6 @@ struct DamageEvent;
 #define AWK_MIN_COOLDOWN 0.75f
 #define AWK_MAX_DISTANCE_COOLDOWN 2.0f
 #define AWK_COOLDOWN_DISTANCE_RATIO (AWK_MAX_DISTANCE_COOLDOWN / AWK_MAX_DISTANCE)
-#define AWK_SHOCKWAVE_RADIUS 8
 #define AWK_LEGS 3
 #define AWK_INVINCIBLE_TIME 8.0f
 
@@ -32,7 +31,7 @@ struct AwkRaycastCallback : btCollisionWorld::ClosestRayResultCallback
 
 	AwkRaycastCallback(const Vec3&, const Vec3&, const Entity*);
 
-	virtual	btScalar addSingleResult(btCollisionWorld::LocalRayResult&, b8);
+	btScalar addSingleResult(btCollisionWorld::LocalRayResult&, b8);
 };
 
 struct TargetEvent;
@@ -94,7 +93,7 @@ struct Awk : public ComponentType<Awk>
 	void detach_teleport();
 	b8 detach(const Vec3&);
 
-	b8 can_go(const Vec3&, Vec3* = nullptr) const;
+	b8 can_go(const Vec3&, Vec3* = nullptr, b8* = nullptr) const;
 	b8 can_hit(const Target*, Vec3* = nullptr) const;
 
 	void update(const Update&);

@@ -45,36 +45,38 @@ b8 AwkRaycastCallback::hit_target() const
 	return closest_target_hit < m_closestHitFraction;
 }
 
-btScalar AwkRaycastCallback::addSingleResult(btCollisionWorld::LocalRayResult& rayResult, b8 normalInWorldSpace)
+btScalar AwkRaycastCallback::addSingleResult(btCollisionWorld::LocalRayResult& ray_result, b8 normalInWorldSpace)
 {
-	short filter_group = rayResult.m_collisionObject->getBroadphaseHandle()->m_collisionFilterGroup;
+	short filter_group = ray_result.m_collisionObject->getBroadphaseHandle()->m_collisionFilterGroup;
 	if (filter_group & CollisionWalker)
 	{
-		Entity* entity = &Entity::list[rayResult.m_collisionObject->getUserIndex()];
+		Entity* entity = &Entity::list[ray_result.m_collisionObject->getUserIndex()];
 		if (entity->has<MinionCommon>() && entity->get<MinionCommon>()->headshot_test(m_rayFromWorld, m_rayToWorld))
 		{
-			closest_target_hit = rayResult.m_hitFraction;
+			closest_target_hit = ray_result.m_hitFraction;
 			return m_closestHitFraction;
 		}
 	}
-	else if (filter_group & CollisionTarget)
+	else if (filter_group & (CollisionTarget | CollisionShield))
 	{
-		if (rayResult.m_collisionObject->getUserIndex() != entity_id)
-			closest_target_hit = rayResult.m_hitFraction;
-		return m_closestHitFraction;
+		if (ray_result.m_collisionObject->getUserIndex() != entity_id)
+		{
+			closest_target_hit = ray_result.m_hitFraction;
+			return m_closestHitFraction;
+		}
 	}
 
-	m_closestHitFraction = rayResult.m_hitFraction;
-	m_collisionObject = rayResult.m_collisionObject;
+	m_closestHitFraction = ray_result.m_hitFraction;
+	m_collisionObject = ray_result.m_collisionObject;
 	if (normalInWorldSpace)
-		m_hitNormalWorld = rayResult.m_hitNormalLocal;
+		m_hitNormalWorld = ray_result.m_hitNormalLocal;
 	else
 	{
 		// need to transform normal into worldspace
-		m_hitNormalWorld = m_collisionObject->getWorldTransform().getBasis() * rayResult.m_hitNormalLocal;
+		m_hitNormalWorld = m_collisionObject->getWorldTransform().getBasis() * ray_result.m_hitNormalLocal;
 	}
-	m_hitPointWorld.setInterpolate3(m_rayFromWorld, m_rayToWorld, rayResult.m_hitFraction);
-	return rayResult.m_hitFraction;
+	m_hitPointWorld.setInterpolate3(m_rayFromWorld, m_rayToWorld, ray_result.m_hitFraction);
+	return ray_result.m_hitFraction;
 }
 
 Awk::Awk()
@@ -323,7 +325,7 @@ b8 Awk::can_hit(const Target* target, Vec3* out_intersection) const
 	return false;
 }
 
-b8 Awk::can_go(const Vec3& dir, Vec3* final_pos) const
+b8 Awk::can_go(const Vec3& dir, Vec3* final_pos, b8* hit_target) const
 {
 	Vec3 trace_dir = Vec3::normalize(dir);
 
@@ -342,12 +344,14 @@ b8 Awk::can_go(const Vec3& dir, Vec3* final_pos) const
 	Vec3 trace_end = trace_start + trace_dir * AWK_MAX_DISTANCE;
 
 	AwkRaycastCallback ray_callback(trace_start, trace_end, entity());
-	Physics::raycast(&ray_callback, ~AWK_PERMEABLE_MASK & ~ally_containment_field_mask());
+	Physics::raycast(&ray_callback, ~CollisionAwkIgnore & ~ally_containment_field_mask());
 
 	if (ray_callback.hasHit() && !(ray_callback.m_collisionObject->getBroadphaseHandle()->m_collisionFilterGroup & AWK_INACCESSIBLE_MASK))
 	{
 		if (final_pos)
 			*final_pos = ray_callback.m_hitPointWorld;
+		if (hit_target)
+			*hit_target = ray_callback.hit_target();
 		return true;
 	}
 	else

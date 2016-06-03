@@ -458,31 +458,37 @@ void Rocket::update(const Update& u)
 		Physics::raycast(&ray_callback, ~CollisionContainmentField & ~CollisionTeamAContainmentField & ~CollisionTeamBContainmentField & ~CollisionAwkIgnore);
 		if (ray_callback.hasHit())
 		{
-			// kaboom
-
-			// do damage
+			// we hit something
 			Entity* hit = &Entity::list[ray_callback.m_collisionObject->getUserIndex()];
-			if (hit->has<Target>() && hit->has<Health>())
+			if (!hit->has<AIAgent>() || hit->get<AIAgent>()->team != team) // fly through friendlies
 			{
-				hit->get<Target>()->hit(entity());
-				if (hit->get<Health>()->hp > 0 && owner.ref() && owner.ref()->get<LocalPlayerControl>())
-					owner.ref()->get<LocalPlayerControl>()->player.ref()->msg(_(strings::target_damaged), true);
-			}
+				// kaboom
 
-			// effects
-			for (s32 i = 0; i < 50; i++)
-			{
-				Particles::sparks.add
-				(
-					get<Transform>()->pos,
-					Vec3(mersenne::randf_oo() * 2.0f - 1.0f, mersenne::randf_oo() * 2.0f - 1.0f, mersenne::randf_oo() * 2.0f - 1.0f) * 10.0f,
-					Vec4(1, 1, 1, 1)
-				);
-			}
+				// do damage
+				if (hit->has<Target>() && hit->has<Health>())
+				{
+					hit->get<Target>()->hit(entity());
+					if (hit->get<Health>()->hp > 0 && owner.ref() && owner.ref()->get<LocalPlayerControl>())
+						owner.ref()->get<LocalPlayerControl>()->player.ref()->msg(_(strings::target_damaged), true);
+				}
 
-			World::remove_deferred(entity());
+				// effects
+				for (s32 i = 0; i < 50; i++)
+				{
+					Particles::sparks.add
+					(
+						get<Transform>()->pos,
+						Vec3(mersenne::randf_oo() * 2.0f - 1.0f, mersenne::randf_oo() * 2.0f - 1.0f, mersenne::randf_oo() * 2.0f - 1.0f) * 10.0f,
+						Vec4(1, 1, 1, 1)
+					);
+				}
+
+				World::remove_deferred(entity());
+				return;
+			}
 		}
-		else
+
+		// keep flying
 		{
 			particle_accumulator += u.time.delta;
 			const r32 interval = 0.07f;

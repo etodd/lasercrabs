@@ -103,7 +103,7 @@ void Console::init()
 	shift_map[(s32)KeyCode::Semicolon] = ':';
 	shift_map[(s32)KeyCode::Backslash] = '|';
 
-	for (s32 i = 0; i < (s32)KeyCode::Z - (s32)KeyCode::A; i++)
+	for (s32 i = 0; i <= (s32)KeyCode::Z - (s32)KeyCode::A; i++)
 	{
 		normal_map[(s32)KeyCode::A + i] = 'a' + i;
 		shift_map[(s32)KeyCode::A + i] = 'A' + i;

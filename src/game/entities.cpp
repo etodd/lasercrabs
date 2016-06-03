@@ -465,12 +465,15 @@ void Rocket::update(const Update& u)
 				// kaboom
 
 				// do damage
-				if (hit->has<Target>() && hit->has<Health>())
+				if (hit->has<Awk>())
 				{
+					b8 shielded = hit->get<Awk>()->invincible_timer > 0.0f;
 					hit->get<Target>()->hit(entity());
 					if (hit->get<Health>()->hp > 0 && owner.ref() && owner.ref()->get<LocalPlayerControl>())
-						owner.ref()->get<LocalPlayerControl>()->player.ref()->msg(_(strings::target_damaged), true);
+						owner.ref()->get<LocalPlayerControl>()->player.ref()->msg(_(shielded ? strings::target_shield_down : strings::target_damaged), true);
 				}
+				else if (hit->has<Health>())
+					hit->get<Health>()->damage(entity(), get<Health>()->hp_max);
 
 				// effects
 				for (s32 i = 0; i < 50; i++)

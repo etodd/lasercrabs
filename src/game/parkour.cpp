@@ -551,7 +551,7 @@ void Parkour::spawn_tiles(const Vec3& relative_wall_right, const Vec3& relative_
 						}
 					}
 
-					if (create)
+					if (create && Tile::list.count() < MAX_ENTITIES / 2)
 					{
 						Vec2 relative_tile_wall_coord = Vec2(wall_coord.x + x, wall_coord.y + y) * TILE_SIZE;
 						Vec3 relative_tile_pos = (relative_wall_right * relative_tile_wall_coord.x)

@@ -450,22 +450,19 @@ void Team::update_all(const Update& u)
 				}
 			}
 
-			if (player_entity)
+			// launch a rocket at this player if the conditions are right
+			if (player_entity && !Rocket::inbound(player_entity))
 			{
-				// launch a rocket at this player if the conditions are right
-				if (!Rocket::inbound(player_entity))
+				Vec3 player_pos = player_entity->get<Transform>()->absolute_pos();
+				for (auto rocket = Rocket::list.iterator(); !rocket.is_last(); rocket.next())
 				{
-					Vec3 player_pos = player_entity->get<Transform>()->absolute_pos();
-					for (auto rocket = Rocket::list.iterator(); !rocket.is_last(); rocket.next())
+					if (rocket.item()->team == team->team() // it belongs to our team
+						&& rocket.item()->get<Transform>()->parent.ref() // it's waiting to be fired
+						&& (rocket.item()->get<Transform>()->absolute_pos() - player_pos).length_squared() < AWK_MAX_DISTANCE * 2.0f * AWK_MAX_DISTANCE * 2.0f // it's in range
+						&& (track->tracking || (rocket.item()->owner.ref() && PlayerCommon::visibility.get(PlayerCommon::visibility_hash(rocket.item()->owner.ref()->get<PlayerCommon>(), player_entity->get<PlayerCommon>()))))) // we're tracking the player, or the owner is alive and can see the player
 					{
-						if (rocket.item()->team == team->team() // it belongs to our team
-							&& rocket.item()->get<Transform>()->parent.ref() // it's waiting to be fired
-							&& (rocket.item()->get<Transform>()->absolute_pos() - player_pos).length_squared() < AWK_MAX_DISTANCE * 2.0f * AWK_MAX_DISTANCE * 2.0f // it's in range
-							&& (track->tracking || (rocket.item()->owner.ref() && PlayerCommon::visibility.get(PlayerCommon::visibility_hash(rocket.item()->owner.ref()->get<PlayerCommon>(), player_entity->get<PlayerCommon>()))))) // we're tracking the player, or the owner is alive and can see the player
-						{
-							rocket.item()->launch(player_entity);
-							break;
-						}
+						rocket.item()->launch(player_entity);
+						break;
 					}
 				}
 			}

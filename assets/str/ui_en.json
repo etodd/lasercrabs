@@ -39,6 +39,7 @@
 	"sensor": "Proximity Sensor",
 	"minion": "Minion",
 	"target_damaged": "Target damaged",
+	"target_shield_down": "Target shield down",
 	"minion_killed": "Minion killed",
 	"upgrade_notification": "Upgrade",
 	"upgrade_prompt": "[{{Interact}}] Upgrade",

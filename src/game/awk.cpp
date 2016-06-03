@@ -31,7 +31,7 @@ namespace VI
 #define AWK_LEG_BLEND_SPEED (1.0f / 0.05f)
 #define AWK_MIN_LEG_BLEND_SPEED (AWK_LEG_BLEND_SPEED * 0.1f)
 #define AWK_SHIELD_RADIUS 0.75f
-#define AWK_STUN_TIME 2.0f
+#define AWK_STUN_TIME 3.0f
 
 AwkRaycastCallback::AwkRaycastCallback(const Vec3& a, const Vec3& b, const Entity* awk)
 	: btCollisionWorld::ClosestRayResultCallback(a, b)
@@ -163,7 +163,7 @@ Vec3 Awk::center() const
 void Awk::hit_by(const TargetEvent& e)
 {
 	b8 damaged = false;
-	b8 stunned = false;
+	b8 shield_taken_down = false;
 
 	// only take damage if we're attached to a wall and not invincible
 	if (get<Transform>()->parent.ref())
@@ -173,19 +173,26 @@ void Awk::hit_by(const TargetEvent& e)
 			// we can take damage
 			get<Health>()->damage(e.hit_by, 1);
 			damaged = true;
-			if (!e.hit_by->has<Health>() || get<Health>()->hp < e.hit_by->get<Health>()->hp)
-				invincible_timer = AWK_INVINCIBLE_TIME;
+			invincible_timer = AWK_INVINCIBLE_TIME;
 		}
 		else
 		{
 			// we're invincible
-			stun_timer = AWK_STUN_TIME;
-			stunned = true;
+			if (e.hit_by->has<Awk>())
+			{
+				// stun the enemy
+				e.hit_by->get<Awk>()->stun_timer = AWK_STUN_TIME;
+				if (has<LocalPlayerControl>())
+					get<LocalPlayerControl>()->player.ref()->msg(_(strings::target_stunned), true);
+			}
+			shield_taken_down = true;
+			invincible_timer = 0.0f; // shield is now down
 		}
 	}
 
+	// let them know they didn't hurt us
 	if (!damaged && e.hit_by->has<LocalPlayerControl>())
-		e.hit_by->get<LocalPlayerControl>()->player.ref()->msg(_(stunned ? strings::target_stunned : strings::no_effect), false);
+		e.hit_by->get<LocalPlayerControl>()->player.ref()->msg(_(shield_taken_down ? strings::target_shield_down : strings::no_effect), shield_taken_down);
 }
 
 void Awk::hit_target(Entity* target)
@@ -210,6 +217,13 @@ void Awk::hit_target(Entity* target)
 			body->btBody->applyImpulse(velocity * Game::physics_timestep * 8.0f, Vec3::zero);
 			body->btBody->activate(true);
 		}
+	}
+
+	if (invincible_timer > 0.0f && target->has<Awk>())
+	{
+		invincible_timer = 0.0f; // damaging an Awk takes our shield down
+		if (target->has<LocalPlayerControl>()) // let them know they our shield is down
+			target->get<LocalPlayerControl>()->player.ref()->msg(_(strings::target_shield_down), true);
 	}
 
 	Vec3 pos;

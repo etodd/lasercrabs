@@ -800,6 +800,7 @@ const char* AssetLookup::String::names[] =
 	"stealth",
 	"stunned",
 	"target_damaged",
+	"target_shield_down",
 	"target_stunned",
 	"team_a",
 	"team_b",

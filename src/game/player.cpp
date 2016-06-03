@@ -1851,7 +1851,7 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 		text.anchor_x = UIText::Anchor::Center;
 		text.anchor_y = UIText::Anchor::Center;
 		text.size = text_size;
-		Vec2 pos = viewport.size * Vec2(0.5f, 0.6f);
+		Vec2 pos = viewport.size * Vec2(0.5f, 0.55f);
 		UI::box(params, text.rect(pos).outset(8.0f * UI::scale), UI::background_color);
 		text.draw(params, pos);
 	}

@@ -504,6 +504,7 @@ MemoryStatus awk_memory_filter(const AIPlayerControl* control, const Entity* e)
 b8 awk_run_filter(const AIPlayerControl* control, const Entity* e)
 {
 	return !control->get<AIAgent>()->stealth
+		&& control->get<Awk>()->invincible_timer == 0.0f
 		&& e->get<AIAgent>()->team != control->get<AIAgent>()->team
 		&& e->get<Health>()->hp > control->get<Health>()->hp
 		&& (e->get<Awk>()->can_hit(control->get<Target>()) || (e->get<Transform>()->absolute_pos() - control->get<Transform>()->absolute_pos()).length_squared() < AWK_RUN_RADIUS * AWK_RUN_RADIUS);
@@ -511,10 +512,12 @@ b8 awk_run_filter(const AIPlayerControl* control, const Entity* e)
 
 b8 awk_attack_filter(const AIPlayerControl* control, const Entity* e)
 {
+	u16 my_hp = control->get<Health>()->hp;
+	u16 enemy_hp = e->get<Health>()->hp;
 	return e->get<AIAgent>()->team != control->get<AIAgent>()->team
-		&& e->get<Awk>()->invincible_timer == 0.0f
 		&& !e->get<AIAgent>()->stealth
-		&& (e->get<Health>()->hp <= control->get<Health>()->hp || control->player.ref()->manager.ref()->can_steal_health());
+		&& (e->get<Awk>()->invincible_timer == 0.0f || (enemy_hp == 1 && my_hp > enemy_hp + 1))
+		&& (enemy_hp <= my_hp || (my_hp > 1 && control->get<Awk>()->invincible_timer > 0.0f));
 }
 
 b8 sensor_interest_point_filter(const AIPlayerControl* control, const Entity* e)

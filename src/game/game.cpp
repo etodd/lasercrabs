@@ -605,12 +605,12 @@ void Game::execute(const Update& u, const char* cmd)
 			{
 				u16 credits = i.item()->credits;
 				i.item()->credits = 10000000;
-				for (s32 ability = 0; ability < (s32)Ability::count; ability++)
+				for (s32 upgrade = 0; upgrade < (s32)Upgrade::count; upgrade++)
 				{
-					while (i.item()->ability_upgrade_available((Ability)ability))
+					while (i.item()->upgrade_available((Upgrade)upgrade))
 					{
-						i.item()->ability_upgrade_start((Ability)ability);
-						i.item()->ability_upgrade_complete();
+						i.item()->upgrade_start((Upgrade)upgrade);
+						i.item()->upgrade_complete();
 					}
 				}
 				i.item()->credits = credits;

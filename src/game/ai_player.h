@@ -38,7 +38,7 @@ struct AIPlayer
 		Noop,
 	};
 
-	enum class AbilityStrategy
+	enum class UpgradeStrategy
 	{
 		SaveUp,
 		IfAvailable,
@@ -57,8 +57,8 @@ struct AIPlayer
 		r32 inaccuracy_range;
 		r32 aim_timeout;
 		r32 aim_speed;
-		Ability ability_priority[(s32)Ability::count];
-		AbilityStrategy ability_strategies[(s32)Ability::count][MAX_ABILITY_LEVELS];
+		Upgrade upgrade_priority[(s32)Upgrade::count];
+		UpgradeStrategy upgrade_strategies[(s32)Upgrade::count];
 		Config();
 	};
 
@@ -73,7 +73,7 @@ struct AIPlayer
 	}
 	void update(const Update&);
 	void spawn();
-	Ability saving_up() const;
+	Upgrade saving_up() const;
 };
 
 #define MAX_MEMORY 8
@@ -262,7 +262,7 @@ namespace AIBehaviors
 	{
 		void set_context(void*);
 		void attached();
-		void ability_upgrade_completed(Ability);
+		void upgrade_completed(Upgrade);
 		void run();
 	};
 
@@ -294,10 +294,10 @@ namespace AIBehaviors
 		void run();
 	};
 
-	struct Upgrade : Base<Upgrade>
+	struct DoUpgrade : Base<DoUpgrade>
 	{
-		Upgrade(s8);
-		void completed(Ability);
+		DoUpgrade(s8);
+		void completed(Upgrade);
 		void set_context(void*);
 		void run();
 	};

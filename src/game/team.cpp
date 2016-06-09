@@ -38,25 +38,56 @@ AbilityInfo AbilityInfo::list[] =
 		Asset::Mesh::icon_sensor,
 		2.5f,
 		10,
-		{ 50, 200 },
-		strings::sensor,
-		{ strings::description_sensor_1, strings::description_sensor_2 },
 	},
 	{
 		Asset::Mesh::icon_rocket,
 		1.5f,
 		8,
-		{ 50, 150 },
-		strings::rocket,
-		{ strings::description_rocket_1, strings::description_rocket_2 },
 	},
 	{
 		Asset::Mesh::icon_minion,
 		1.5f,
 		5,
-		{ 50, 120 },
+	},
+};
+
+UpgradeInfo UpgradeInfo::list[] =
+{
+	{
+		strings::sensor,
+		strings::description_sensor,
+		Asset::Mesh::icon_sensor,
+		50,
+	},
+	{
+		strings::rocket,
+		strings::description_rocket,
+		Asset::Mesh::icon_rocket,
+		50,
+	},
+	{
 		strings::minion,
-		{ strings::description_minion_1, strings::description_minion_2 },
+		strings::description_minion,
+		Asset::Mesh::icon_minion,
+		50,
+	},
+	{
+		strings::health_steal,
+		strings::description_health_steal,
+		AssetNull,
+		50,
+	},
+	{
+		strings::health_buff,
+		strings::description_health_buff,
+		AssetNull,
+		50,
+	},
+	{
+		strings::containment_field,
+		strings::description_containment_field,
+		AssetNull,
+		50,
 	},
 };
 
@@ -470,14 +501,19 @@ void Team::update_all(const Update& u)
 	}
 }
 
+b8 PlayerManager::has_upgrade(Upgrade u) const
+{
+	return upgrades & (1 << (u32)u);
+}
+
 b8 PlayerManager::can_steal_health() const
 {
-	return ability_level[(s32)Ability::Sensor] >= 2;
+	return has_upgrade(Upgrade::HealthSteal);
 }
 
 b8 PlayerManager::minion_containment_fields() const
 {
-	return ability_level[(s32)Ability::Minion] >= 2;
+	return has_upgrade(Upgrade::ContainmentField);
 }
 
 b8 PlayerManager::ability_spawn_start(Ability ability)
@@ -494,7 +530,7 @@ b8 PlayerManager::ability_spawn_start(Ability ability)
 	if (credits < info.spawn_cost)
 		return false;
 
-	if (ability_level[(s32)ability] == 0)
+	if (!has_upgrade((Upgrade)ability))
 		return false;
 
 	current_spawn_ability = ability;
@@ -525,7 +561,6 @@ void PlayerManager::ability_spawn_complete()
 	if (credits < cost)
 		return;
 
-	const u8 level = ability_level[(s32)ability];
 	switch (ability)
 	{
 		case Ability::Sensor:
@@ -601,24 +636,23 @@ PlayerManager::PlayerManager(Team* team)
 	: spawn_timer(PLAYER_SPAWN_DELAY),
 	team(team),
 	credits(Game::level.has_feature(Game::FeatureLevel::Abilities) ? CREDITS_INITIAL : 0),
-	ability_level{ (u8)(Game::level.has_feature(Game::FeatureLevel::Abilities) ? 1 : 0), 0, 0 },
+	upgrades(Game::level.has_feature(Game::FeatureLevel::Abilities) ? (1 << (u32)Upgrade::Sensor) : 0),
 	entity(),
 	spawn(),
 	current_spawn_ability(Ability::None),
-	current_upgrade_ability(Ability::None),
+	current_upgrade(Upgrade::None),
 	upgrade_timer(),
 	ability_spawned(),
-	ability_upgraded()
+	upgrade_completed()
 {
 }
 
-b8 PlayerManager::ability_upgrade_start(Ability a)
+b8 PlayerManager::upgrade_start(Upgrade u)
 {
-	// we're upgrading this ability
-	if (ability_upgrade_available(a) && credits >= ability_upgrade_cost(a))
+	if (upgrade_available(u) && credits >= upgrade_cost(u))
 	{
-		current_upgrade_ability = a;
-		upgrade_timer = ABILITY_UPGRADE_TIME;
+		current_upgrade = u;
+		upgrade_timer = UPGRADE_TIME;
 		return true;
 	}
 	return false;
@@ -630,73 +664,62 @@ b8 PlayerManager::ability_upgrade_start(Ability a)
 // rocket lvl 2 - +1 max HP
 // minion lvl 1 - spawn minions
 // minion lvl 2 - containment field
-void PlayerManager::ability_upgrade_complete()
+void PlayerManager::upgrade_complete()
 {
-	Ability a = current_upgrade_ability;
-	current_upgrade_ability = Ability::None;
+	Upgrade u = current_upgrade;
+	current_upgrade = Upgrade::None;
 
-	u8& level = ability_level[(s32)a];
-	vi_assert(level < MAX_ABILITY_LEVELS);
+	vi_assert(!has_upgrade(u));
 
 	if (!entity.ref())
 		return;
 
-	const AbilityInfo& info = AbilityInfo::list[(s32)a];
-	u16 cost = ability_upgrade_cost(a);
+	const AbilityInfo& info = AbilityInfo::list[(s32)u];
+	u16 cost = upgrade_cost(u);
 	vi_assert(credits >= cost);
 
-	level += 1;
+	upgrades |= 1 << (u32)u;
 	add_credits(-cost);
-	if (a == Ability::Sensor)
+	if (u == Upgrade::Sensor)
 	{
 	}
-	else if (a == Ability::Rocket)
+	else if (u == Upgrade::HealthBuff)
 	{
-		if (level == 2)
-		{
-			entity.ref()->get<Health>()->hp_max = AWK_HEALTH + 1;
-			entity.ref()->get<Health>()->added.fire(); // trigger UI animation
-		}
+		entity.ref()->get<Health>()->hp_max = AWK_HEALTH + 1;
+		entity.ref()->get<Health>()->added.fire(); // trigger UI animation
 	}
-	else if (a == Ability::Minion)
+	else if (u == Upgrade::ContainmentField)
 	{
-		if (level == 2)
+		for (auto i = MinionCommon::list.iterator(); !i.is_last(); i.next())
 		{
-			for (auto i = MinionCommon::list.iterator(); !i.is_last(); i.next())
-			{
-				if (i.item()->owner.ref() == this)
-					i.item()->create_containment_field();
-			}
+			if (i.item()->owner.ref() == this)
+				i.item()->create_containment_field();
 		}
 	}
 
-	ability_upgraded.fire(a);
+	upgrade_completed.fire(u);
 }
 
-u16 PlayerManager::ability_upgrade_cost(Ability a) const
+u16 PlayerManager::upgrade_cost(Upgrade u) const
 {
-	vi_assert(a != Ability::None);
-	const AbilityInfo& info = AbilityInfo::list[(s32)a];
-	return info.upgrade_cost[ability_level[(s32)a]];
+	vi_assert(u != Upgrade::None);
+	const UpgradeInfo& info = UpgradeInfo::list[(s32)u];
+	return info.cost;
 }
 
-b8 PlayerManager::ability_upgrade_available(Ability a) const
+b8 PlayerManager::upgrade_available(Upgrade u) const
 {
-	if (a == Ability::None)
+	if (u == Upgrade::None)
 	{
-		for (s32 i = 0; i < (s32)Ability::count; i++)
+		for (s32 i = 0; i < (s32)Upgrade::count; i++)
 		{
-			if (ability_upgrade_available((Ability)i) && credits >= ability_upgrade_cost((Ability)i))
+			if (!has_upgrade((Upgrade)i) && credits >= upgrade_cost((Upgrade)i))
 				return true;
 		}
 		return false;
 	}
 	else
-	{
-		const AbilityInfo& info = AbilityInfo::list[(s32)a];
-		s32 level = ability_level[(s32)a];
-		return level < MAX_ABILITY_LEVELS;
-	}
+		return !has_upgrade(u);
 }
 
 void PlayerManager::add_credits(u16 c)
@@ -735,8 +758,8 @@ void PlayerManager::update(const Update& u)
 	if (upgrade_timer > 0.0f)
 	{
 		upgrade_timer = vi_max(0.0f, upgrade_timer - u.time.delta);
-		if (upgrade_timer == 0.0f && current_upgrade_ability != Ability::None)
-			ability_upgrade_complete();
+		if (upgrade_timer == 0.0f && current_upgrade != Upgrade::None)
+			upgrade_complete();
 	}
 
 	if (spawn_ability_timer > 0.0f)

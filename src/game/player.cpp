@@ -252,14 +252,15 @@ void LocalPlayer::update(const Update& u)
 		}
 		case UIMode::Upgrading:
 		{
+			// upgrade menu
 			if (u.last_input->get(Controls::Cancel, gamepad) && !u.input->get(Controls::Cancel, gamepad))
 			{
-				if (manager.ref()->current_upgrade_ability == Ability::None)
+				if (manager.ref()->current_upgrade == Upgrade::None)
 					upgrading = false;
 			}
 			else
 			{
-				b8 upgrade_in_progress = manager.ref()->current_upgrade_ability != Ability::None;
+				b8 upgrade_in_progress = manager.ref()->current_upgrade != Upgrade::None;
 				if (upgrade_in_progress)
 				{
 					// we are upgrading an ability; disable all menu input
@@ -276,39 +277,19 @@ void LocalPlayer::update(const Update& u)
 
 				if (menu.item(u, &pos, _(strings::close), nullptr, upgrade_in_progress))
 				{
-					if (manager.ref()->current_upgrade_ability == Ability::None)
+					if (manager.ref()->current_upgrade == Upgrade::None)
 						upgrading = false;
 				}
 
-				char lvl[255];
+				for (s32 i = 0; i < (s32)Upgrade::count; i++)
 				{
+					Upgrade upgrade = (Upgrade)i;
 					b8 can_upgrade = !upgrade_in_progress
-						&& manager.ref()->ability_upgrade_available(Ability::Sensor)
-						&& manager.ref()->credits >= manager.ref()->ability_upgrade_cost(Ability::Sensor);
-					u8 level = manager.ref()->ability_level[(s32)Ability::Sensor];
-					sprintf(lvl, _(level == MAX_ABILITY_LEVELS ? strings::ability_max_lvl : strings::ability_lvl), level);
-					if (menu.item(u, &pos, _(strings::sensor), level == 0 ? nullptr : lvl, !can_upgrade, Asset::Mesh::icon_sensor))
-						manager.ref()->ability_upgrade_start(Ability::Sensor);
-				}
-				{
-					b8 can_upgrade = Game::level.has_feature(Game::FeatureLevel::All)
-						&& !upgrade_in_progress
-						&& manager.ref()->ability_upgrade_available(Ability::Rocket)
-						&& manager.ref()->credits >= manager.ref()->ability_upgrade_cost(Ability::Rocket);
-					u8 level = manager.ref()->ability_level[(s32)Ability::Rocket];
-					sprintf(lvl, _(level == MAX_ABILITY_LEVELS ? strings::ability_max_lvl : strings::ability_lvl), level);
-					if (menu.item(u, &pos, _(strings::rocket), level == 0 ? nullptr : lvl, !can_upgrade, Asset::Mesh::icon_rocket))
-						manager.ref()->ability_upgrade_start(Ability::Rocket);
-				}
-				{
-					b8 can_upgrade = Game::level.has_feature(Game::FeatureLevel::All)
-						&& !upgrade_in_progress
-						&& manager.ref()->ability_upgrade_available(Ability::Minion)
-						&& manager.ref()->credits >= manager.ref()->ability_upgrade_cost(Ability::Minion);
-					u8 level = manager.ref()->ability_level[(s32)Ability::Minion];
-					sprintf(lvl, _(level == MAX_ABILITY_LEVELS ? strings::ability_max_lvl : strings::ability_lvl), level);
-					if (menu.item(u, &pos, _(strings::minion), level == 0 ? nullptr : lvl, !can_upgrade, Asset::Mesh::icon_minion))
-						manager.ref()->ability_upgrade_start(Ability::Minion);
+						&& manager.ref()->upgrade_available(upgrade)
+						&& manager.ref()->credits >= manager.ref()->upgrade_cost(upgrade);
+					const UpgradeInfo& info = UpgradeInfo::list[(s32)upgrade];
+					if (menu.item(u, &pos, _(info.name), nullptr, !can_upgrade, info.icon))
+						manager.ref()->upgrade_start(upgrade);
 				}
 
 				menu.end();
@@ -479,7 +460,7 @@ void LocalPlayer::draw_alpha(const RenderParams& params) const
 			{
 				// "upgrade!"
 				UIText text;
-				text.color = manager.ref()->ability_upgrade_available() ? UI::accent_color : UI::disabled_color;
+				text.color = manager.ref()->upgrade_available() ? UI::accent_color : UI::disabled_color;
 				text.text(_(strings::upgrade_prompt));
 				text.anchor_x = UIText::Anchor::Center;
 				text.anchor_y = UIText::Anchor::Center;
@@ -491,21 +472,21 @@ void LocalPlayer::draw_alpha(const RenderParams& params) const
 
 			// ability 1
 			b8 is_gamepad = params.sync->input.gamepads[gamepad].active;
-			if (manager.ref()->ability_level[(s32)Ability::Sensor] > 0)
+			if (manager.ref()->has_upgrade(Upgrade::Sensor))
 			{
 				const char* binding = Settings::gamepads[gamepad].bindings[(s32)Controls::Ability1].string(is_gamepad);
 				draw_ability(params, manager.ref(), center + Vec2(-radius, 0), Ability::Sensor, Asset::Mesh::icon_sensor, binding);
 			}
 
 			// ability 2
-			if (manager.ref()->ability_level[(s32)Ability::Rocket] > 0)
+			if (manager.ref()->has_upgrade(Upgrade::Rocket))
 			{
 				const char* binding = Settings::gamepads[gamepad].bindings[(s32)Controls::Ability2].string(is_gamepad);
 				draw_ability(params, manager.ref(), center + Vec2(0, radius * 0.5f), Ability::Rocket, Asset::Mesh::icon_rocket, binding);
 			}
 
 			// ability 3
-			if (manager.ref()->ability_level[(s32)Ability::Minion] > 0)
+			if (manager.ref()->has_upgrade(Upgrade::Minion))
 			{
 				const char* binding = Settings::gamepads[gamepad].bindings[(s32)Controls::Ability3].string(is_gamepad);
 				draw_ability(params, manager.ref(), center + Vec2(radius, 0), Ability::Minion, Asset::Mesh::icon_minion, binding);
@@ -519,13 +500,13 @@ void LocalPlayer::draw_alpha(const RenderParams& params) const
 		if (menu.selected > 0)
 		{
 			// show details of currently highlighted upgrade
-			Ability ability = (Ability)(menu.selected - 1);
-			if (manager.ref()->current_upgrade_ability == Ability::None
-				&& manager.ref()->ability_upgrade_available(ability))
+			Upgrade upgrade = (Upgrade)(menu.selected - 1);
+			if (manager.ref()->current_upgrade == Upgrade::None
+				&& manager.ref()->upgrade_available(upgrade))
 			{
 				r32 padding = 8.0f * UI::scale;
 
-				const AbilityInfo& info = AbilityInfo::list[(s32)ability];
+				const UpgradeInfo& info = UpgradeInfo::list[(s32)upgrade];
 				UIText text;
 				text.color = UI::accent_color;
 				text.size = text_size;
@@ -533,9 +514,8 @@ void LocalPlayer::draw_alpha(const RenderParams& params) const
 				text.anchor_y = UIText::Anchor::Max;
 				text.clip = 1 + (s32)((Game::real_time.total - upgrade_animation_time) * 150.0f);
 				text.wrap_width = MENU_ITEM_WIDTH - padding * 2.0f;
-				u8 level = manager.ref()->ability_level[(s32)ability];
-				u16 cost = manager.ref()->ability_upgrade_cost(ability);
-				text.text(_(strings::ability_description), level + 1, cost, _(info.description[level]));
+				u16 cost = manager.ref()->upgrade_cost(upgrade);
+				text.text(_(strings::upgrade_description), cost, _(info.description));
 
 				const Rect2& last_item = menu.items[menu.items.length - 1].rect();
 				Vec2 pos(last_item.pos.x + padding, last_item.pos.y - padding * 2.0f);
@@ -1642,7 +1622,7 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 
 	// upgrade notification
 	if (Game::level.has_feature(Game::FeatureLevel::ControlPoints)
-		&& player.ref()->manager.ref()->ability_upgrade_available()
+		&& player.ref()->manager.ref()->upgrade_available()
 		&& !player.ref()->manager.ref()->at_spawn())
 	{
 		Vec3 spawn_pos = Team::list[(s32)team].player_spawn.ref()->absolute_pos();
@@ -1899,40 +1879,49 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 	{
 		PlayerManager* manager = get<PlayerCommon>()->manager.ref();
 		if (manager->current_spawn_ability != Ability::None
-			|| manager->current_upgrade_ability != Ability::None)
+			|| manager->current_upgrade != Upgrade::None)
 		{
-			const AbilityInfo& info = AbilityInfo::list[manager->current_upgrade_ability != Ability::None ? (s32)manager->current_upgrade_ability : (s32)manager->current_spawn_ability];
-			r32 ability_timer = manager->current_upgrade_ability != Ability::None ? manager->upgrade_timer : manager->spawn_ability_timer;
-			
-			// draw bar
-
+			r32 timer;
 			r32 total_time;
 			AssetID string;
-			if (manager->current_upgrade_ability != Ability::None)
+			u16 cost;
+
+			if (manager->current_spawn_ability != Ability::None)
 			{
-				// if we're at the spawn, we're upgrading the ability, not spawning it
-				total_time = ABILITY_UPGRADE_TIME;
-				string = strings::upgrading;
+				// spawning an ability
+				timer = manager->spawn_ability_timer;
+				string = strings::ability_spawn_cost;
+
+				const AbilityInfo& info = AbilityInfo::list[(s32)manager->current_spawn_ability];
+				cost = info.spawn_cost;
+				total_time = info.spawn_time;
 			}
 			else
 			{
-				total_time = info.spawn_time;
-				string = strings::ability_spawn_cost;
+				// getting an upgrade
+				timer = manager->upgrade_timer;
+				string = strings::upgrading;
+
+				const UpgradeInfo& info = UpgradeInfo::list[(s32)manager->current_upgrade];
+				cost = info.cost;
+				total_time = UPGRADE_TIME;
 			}
+
+			// draw bar
 
 			Vec2 pos = params.camera->viewport.size * Vec2(0.5f, 0.2f);
 			Vec2 bar_size(180.0f * UI::scale, 32.0f * UI::scale);
 			Rect2 bar = { pos + bar_size * -0.5f, bar_size };
 			UI::box(params, bar, UI::background_color);
 			UI::border(params, bar, 2, UI::accent_color);
-			UI::box(params, { bar.pos, Vec2(bar.size.x * (1.0f - (ability_timer / total_time)), bar.size.y) }, UI::accent_color);
+			UI::box(params, { bar.pos, Vec2(bar.size.x * (1.0f - (timer / total_time)), bar.size.y) }, UI::accent_color);
 
 			UIText text;
 			text.size = 18.0f;
 			text.color = UI::background_color;
 			text.anchor_x = UIText::Anchor::Center;
 			text.anchor_y = UIText::Anchor::Center;
-			text.text(_(string), info.spawn_cost);
+			text.text(_(string), (s32)cost);
 			text.draw(params, bar.pos + bar.size * 0.5f);
 		}
 	}

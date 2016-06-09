@@ -26,7 +26,7 @@ struct PlayerManager;
 #define CREDITS_CONTROL_POINT 3
 #define CREDITS_DEFAULT_INCREMENT 3
 
-#define ABILITY_UPGRADE_TIME 1.5f
+#define UPGRADE_TIME 1.5f
 
 // if the ability cooldown is lower than this, we can use the ability
 // we should flash the ability icon during this time to indicate the ability is now usable
@@ -40,16 +40,33 @@ enum class Ability
 	None = count,
 };
 
-#define MAX_ABILITY_LEVELS 2
 struct AbilityInfo
 {
 	AssetID icon;
 	r32 spawn_time;
 	u16 spawn_cost;
-	u16 upgrade_cost[MAX_ABILITY_LEVELS];
-	AssetID name;
-	AssetID description[MAX_ABILITY_LEVELS];
 	static AbilityInfo list[(s32)Ability::count];
+};
+
+enum class Upgrade
+{
+	Sensor,
+	Rocket,
+	Minion,
+	HealthSteal,
+	HealthBuff,
+	ContainmentField,
+	count,
+	None = count,
+};
+
+struct UpgradeInfo
+{
+	AssetID name;
+	AssetID description;
+	AssetID icon;
+	u16 cost;
+	static UpgradeInfo list[(s32)Upgrade::count];
 };
 
 struct Team
@@ -130,21 +147,22 @@ struct PlayerManager
 	Ref<Team> team;
 	Ref<Entity> entity;
 	Link spawn;
-	u8 ability_level[(s32)Ability::count];
+	u32 upgrades;
+	b8 has_upgrade(Upgrade) const;
 	r32 spawn_ability_timer;
 	r32 upgrade_timer;
 	Ability current_spawn_ability;
-	Ability current_upgrade_ability;
+	Upgrade current_upgrade;
 	LinkArg<Ability> ability_spawned;
-	LinkArg<Ability> ability_upgraded;
+	LinkArg<Upgrade> upgrade_completed;
 
 	b8 ability_spawn_start(Ability);
 	void ability_spawn_stop(Ability);
 	void ability_spawn_complete();
-	b8 ability_upgrade_start(Ability);
-	void ability_upgrade_complete();
-	b8 ability_upgrade_available(Ability = Ability::None) const;
-	u16 ability_upgrade_cost(Ability) const;
+	b8 upgrade_start(Upgrade);
+	void upgrade_complete();
+	b8 upgrade_available(Upgrade = Upgrade::None) const;
+	u16 upgrade_cost(Upgrade) const;
 
 	b8 can_steal_health() const;
 	b8 minion_containment_fields() const;

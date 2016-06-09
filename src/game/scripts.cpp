@@ -1377,7 +1377,7 @@ namespace tutorial
 		}
 		else if (data->state == TutorialState::PvpUpgrade)
 		{
-			if (LocalPlayer::list.iterator().item()->manager.ref()->ability_level[(s32)Ability::Sensor] == 2)
+			if (LocalPlayer::list.iterator().item()->manager.ref()->has_upgrade(Upgrade::HealthSteal))
 			{
 				data->state = TutorialState::PvpKillPlayer;
 				Penelope::data->texts.clear();

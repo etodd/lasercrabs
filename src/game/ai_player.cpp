@@ -28,20 +28,22 @@ AIPlayer::Config::Config()
 	inaccuracy_range(PI * 0.022f),
 	aim_timeout(2.5f),
 	aim_speed(2.0f),
-	ability_priority
+	upgrade_priority
 	{
-		Ability::Minion,
-		Ability::Sensor,
-		Ability::Rocket,
+		Upgrade::Minion,
+		Upgrade::Sensor,
+		Upgrade::Rocket,
 	},
-	ability_strategies
+	upgrade_strategies
 	{
-		{ AbilityStrategy::Ignore, AbilityStrategy::Ignore },
-		{ AbilityStrategy::Ignore, AbilityStrategy::Ignore },
-		{ AbilityStrategy::SaveUp, AbilityStrategy::IfAvailable },
+		UpgradeStrategy::Ignore,
+		UpgradeStrategy::Ignore,
+		UpgradeStrategy::SaveUp,
+		UpgradeStrategy::Ignore,
+		UpgradeStrategy::Ignore,
+		UpgradeStrategy::IfAvailable,
 	}
 {
-
 }
 
 AIPlayer::AIPlayer(PlayerManager* m)
@@ -74,19 +76,19 @@ void AIPlayer::spawn()
 	e->get<Transform>()->absolute(pos, rot);
 }
 
-Ability AIPlayer::saving_up() const
+Upgrade AIPlayer::saving_up() const
 {
-	for (s32 i = 0; i < (s32)Ability::count; i++)
+	for (s32 i = 0; i < (s32)Upgrade::count; i++)
 	{
-		Ability ability = config.ability_priority[i];
-		if (manager.ref()->ability_upgrade_available(ability))
+		Upgrade upgrade = config.upgrade_priority[i];
+		if (manager.ref()->upgrade_available(upgrade)
+			&& !manager.ref()->has_upgrade(upgrade)
+			&& config.upgrade_strategies[(s32)upgrade] == UpgradeStrategy::SaveUp)
 		{
-			s32 level = manager.ref()->ability_level[(s32)ability];
-			if (config.ability_strategies[(s32)ability][level] == AbilityStrategy::SaveUp)
-				return ability;
+			return upgrade;
 		}
 	}
-	return Ability::None;
+	return Upgrade::None;
 }
 
 AIPlayerControl::AIPlayerControl(AIPlayer* p)
@@ -543,26 +545,25 @@ MemoryStatus default_memory_filter(const AIPlayerControl* control, const Entity*
 	return MemoryStatus::Update;
 }
 
-Ability want_available_upgrade(const AIPlayerControl* control)
+Upgrade want_available_upgrade(const AIPlayerControl* control)
 {
 	if (!Game::level.has_feature(Game::FeatureLevel::ControlPoints))
-		return Ability::None;
+		return Upgrade::None;
 
 	PlayerManager* manager = control->player.ref()->manager.ref();
 	const AIPlayer::Config& config = control->config();
-	Ability if_available = Ability::None;
-	for (s32 i = 0; i < (s32)Ability::count; i++)
+	Upgrade if_available = Upgrade::None;
+	for (s32 i = 0; i < (s32)Upgrade::count; i++)
 	{
-		Ability ability = config.ability_priority[i];
-		if (manager->ability_upgrade_available(ability)
-			&& manager->credits >= manager->ability_upgrade_cost(ability))
+		Upgrade upgrade = config.upgrade_priority[i];
+		if (manager->upgrade_available(upgrade)
+			&& manager->credits >= manager->upgrade_cost(upgrade))
 		{
-			s32 level = manager->ability_level[(s32)ability];
-			AIPlayer::AbilityStrategy strategy = config.ability_strategies[(s32)ability][level];
-			if (strategy == AIPlayer::AbilityStrategy::SaveUp)
-				return ability;
-			else if (strategy == AIPlayer::AbilityStrategy::IfAvailable)
-				if_available = ability;
+			AIPlayer::UpgradeStrategy strategy = config.upgrade_strategies[(s32)upgrade];
+			if (strategy == AIPlayer::UpgradeStrategy::SaveUp)
+				return upgrade;
+			else if (strategy == AIPlayer::UpgradeStrategy::IfAvailable)
+				if_available = upgrade;
 		}
 	}
 	return if_available;
@@ -578,7 +579,7 @@ b8 should_spawn_sensor(const AIPlayerControl* control)
 	{
 		if (ControlPoint::visible_from(me)) // always capture a control point
 			return true;
-		else if (control->player.ref()->saving_up() == Ability::None) // only capture other stuff if we're not saving up for anything
+		else if (control->player.ref()->saving_up() == Upgrade::None) // only capture other stuff if we're not saving up for anything
 		{
 			if (SensorInterestPoint::in_range(me))
 				return true;
@@ -596,7 +597,7 @@ b8 should_spawn_rocket(const AIPlayerControl* control)
 
 b8 should_spawn_minion(const AIPlayerControl* control)
 {
-	if (control->player.ref()->saving_up() == Ability::None) // minions are a luxury
+	if (control->player.ref()->saving_up() == Upgrade::None) // minions are a luxury
 	{
 		AI::Team my_team = control->get<AIAgent>()->team;
 		Vec3 my_pos;
@@ -666,7 +667,7 @@ Repeat* make_low_level_loop(AIPlayerControl* control, const AIPlayer::Config& co
 									(
 										AIBehaviors::WantUpgrade::alloc(),
 										AIBehaviors::ReactSpawn::alloc(4),
-										AIBehaviors::Upgrade::alloc(4)
+										AIBehaviors::DoUpgrade::alloc(4)
 									)
 								)
 							)
@@ -1021,16 +1022,16 @@ void WaitForAttachment::set_context(void* ctx)
 {
 	Base::set_context(ctx);
 	control->get<Awk>()->attached.link<WaitForAttachment, &WaitForAttachment::attached>(this);
-	control->player.ref()->manager.ref()->ability_upgraded.link<WaitForAttachment, Ability, &WaitForAttachment::ability_upgrade_completed>(this);
+	control->player.ref()->manager.ref()->upgrade_completed.link<WaitForAttachment, Upgrade, &WaitForAttachment::upgrade_completed>(this);
 }
 
 void WaitForAttachment::attached()
 {
-	if (active() && control->player.ref()->manager.ref()->current_upgrade_ability == Ability::None)
+	if (active() && control->player.ref()->manager.ref()->current_upgrade == Upgrade::None)
 		done(true);
 }
 
-void WaitForAttachment::ability_upgrade_completed(Ability a)
+void WaitForAttachment::upgrade_completed(Upgrade)
 {
 	if (active() && control->get<Transform>()->parent.ref())
 		done(true);
@@ -1039,7 +1040,7 @@ void WaitForAttachment::ability_upgrade_completed(Ability a)
 void WaitForAttachment::run()
 {
 	active(true);
-	if (control->get<Transform>()->parent.ref() && control->player.ref()->manager.ref()->current_upgrade_ability == Ability::None)
+	if (control->get<Transform>()->parent.ref() && control->player.ref()->manager.ref()->current_upgrade == Upgrade::None)
 		done(true);
 }
 
@@ -1071,7 +1072,7 @@ void AbilitySpawn::run()
 
 	if (AbilitySpawn::path_priority > control->path_priority
 		&& control->get<Transform>()->parent.ref()
-		&& manager->ability_level[(s32)ability] > 0
+		&& manager->has_upgrade((Upgrade)ability)
 		&& manager->credits > info.spawn_cost
 		&& filter(control))
 	{
@@ -1191,8 +1192,8 @@ WantUpgrade::WantUpgrade()
 void WantUpgrade::run()
 {
 	active(true);
-	Ability a = want_available_upgrade(control);
-	done(a != Ability::None);
+	Upgrade u = want_available_upgrade(control);
+	done(u != Upgrade::None);
 }
 
 ToSpawn::ToSpawn(s8 priority)
@@ -1251,35 +1252,35 @@ void ReactSpawn::run()
 	done(false);
 }
 
-Upgrade::Upgrade(s8 priority)
+DoUpgrade::DoUpgrade(s8 priority)
 {
 	path_priority = priority;
 }
 
-void Upgrade::set_context(void* ctx)
+void DoUpgrade::set_context(void* ctx)
 {
 	Base::set_context(ctx);
-	control->player.ref()->manager.ref()->ability_upgraded.link<Upgrade, Ability, &Upgrade::completed>(this);
+	control->player.ref()->manager.ref()->upgrade_completed.link<DoUpgrade, Upgrade, &DoUpgrade::completed>(this);
 }
 
-void Upgrade::completed(Ability a)
+void DoUpgrade::completed(Upgrade)
 {
 	if (active())
 		done(true);
 }
 
-void Upgrade::run()
+void DoUpgrade::run()
 {
 	active(true);
 	if (path_priority > control->path_priority)
 	{
 		PlayerManager* manager = control->player.ref()->manager.ref();
-		if (manager->at_spawn() && manager->current_upgrade_ability == Ability::None)
+		if (manager->at_spawn() && manager->current_upgrade == Upgrade::None)
 		{
-			Ability a = want_available_upgrade(control);
-			if (a != Ability::None)
+			Upgrade u = want_available_upgrade(control);
+			if (u != Upgrade::None)
 			{
-				if (manager->ability_upgrade_start(a))
+				if (manager->upgrade_start(u))
 				{
 					control->behavior_start(this, 10000); // set the priority higher than everything else; upgrades can't be cancelled
 					return;

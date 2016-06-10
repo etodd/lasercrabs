@@ -163,10 +163,11 @@ struct Mover : public ComponentType<Mover>
 	r32 speed;
 	b8 last_moving;
 
-	Mover(const b8 = false, const b8 = true, const b8 = true);
+	Mover(b8 = false, b8 = true, b8 = true);
 	void awake() {}
 	void update(const Update&);
-	void setup(Transform*, Transform*, const r32);
+	void setup(Transform*, Transform*, r32);
+	void go();
 	void refresh();
 };
 

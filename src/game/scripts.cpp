@@ -125,7 +125,7 @@ namespace Penelope
 
 	// map string IDs to node IDs
 	// note: multiple nodes may use the same string ID
-	ID node_lookup[(s32)Asset::String::count];
+	ID node_lookup[(s32)strings::count];
 
 	void global_init()
 	{
@@ -195,7 +195,7 @@ namespace Penelope
 					}
 
 					node.name = strings_get(name_str);
-					if (node.name != AssetNull && node.name < (s32)Asset::String::count)
+					if (node.name != AssetNull && node.name < (s32)strings::count)
 						node_lookup[node.name] = current_node_id;
 				}
 
@@ -323,13 +323,6 @@ namespace Penelope
 			Loader::dialogue_tree_free(trees[i]);
 	}
 
-	enum class Mode
-	{
-		Hidden,
-		Center,
-		Left,
-	};
-
 	// UV origin: top left
 	const Vec2 face_texture_size = Vec2(91.0f, 57.0f);
 	const Vec2 face_size = Vec2(17.0f, 27.0f);
@@ -426,6 +419,7 @@ namespace Penelope
 		Schedule<Choice> choices;
 		Schedule<AssetID> node_executions;
 		Mode mode;
+		Mode default_mode;
 		ID current_text_node;
 		AssetID entry_point;
 		AssetID active_data_fragment;
@@ -539,7 +533,7 @@ namespace Penelope
 					// take default option
 					for (s32 i = 0; i < MAX_BRANCHES; i++)
 					{
-						if (node.branch.branches[i].value == Asset::String::_default)
+						if (node.branch.branches[i].value == strings::_default)
 						{
 							if (node.branch.branches[i].target != IDNull)
 								execute(node.branch.branches[i].target, time);
@@ -592,7 +586,7 @@ namespace Penelope
 	void clear_and_execute(ID id, r32 delay = 0.0f)
 	{
 		clear();
-		data->mode = Mode::Left;
+		data->mode = data->default_mode;
 		execute(id, delay);
 	}
 
@@ -665,7 +659,7 @@ namespace Penelope
 #if DEBUG
 			// HACK to keep things working even with missing audio
 			if (!success)
-				Audio::post_dialogue_event(AK::EVENTS::PLAY_1B01EC530AC7B8BA379559A9096890869E9D0769);
+				Audio::post_dialogue_event(AK::EVENTS::PLAY_00B7746D3BBD6D2C14D869021B8274601642011B);
 #endif
 		}
 
@@ -738,7 +732,8 @@ namespace Penelope
 		}
 
 		// get focus if we need it
-		if (data->choices.active() && !has_focus() // penelope is waiting on us, but she doesn't have focus yet
+		if (data->choices.active()
+			&& !has_focus() // penelope is waiting on us, but she doesn't have focus yet
 			&& !fragment) // fragments take precedence over dialogue
 		{
 			if (!Console::visible && u.last_input->get(Controls::Interact, 0) && !u.input->get(Controls::Interact, 0))
@@ -781,7 +776,7 @@ namespace Penelope
 					data->matchmake_mode = Matchmake::Found;
 					data->matchmake_timer = 15.0f;
 					data->active_data_fragment = AssetNull; // if we're looking at a data fragment, close it
-					clear_and_execute(node_lookup[Asset::String::match_found], 0.25f);
+					clear_and_execute(node_lookup[strings::match_found], 0.25f);
 				}
 				break;
 			}
@@ -1079,30 +1074,32 @@ namespace Penelope
 
 	void node_executed(AssetID node)
 	{
-		if (node == Asset::String::terminal_reset)
+		if (node == strings::terminal_reset)
 			terminal_active(true);
-		else if (node == Asset::String::penelope_hide)
+		else if (node == strings::penelope_hide)
 			clear();
-		else if (node == Asset::String::match_go)
+		else if (node == strings::match_go)
 		{
 			if (Game::save.round == 0)
 				Menu::transition(Game::state.level, Game::Mode::Pvp); // reload current level in PvP mode
 			else
 			{
 				// must play another round before advancing to the next level
-				// play a random map that has already been unlocked so far (except the tutorial map)
-				Menu::transition(Game::levels[1 + (s32)(mersenne::randf_co() * (Game::save.level_index - 1))], Game::Mode::Pvp);
+				// play a random map that has already been unlocked so far (except the starting/tutorial maps)
+				const s32 skip_levels = 2;
+				Menu::transition(Game::levels[skip_levels + (s32)(mersenne::randf_co() * (Game::save.level_index - skip_levels))], Game::Mode::Pvp);
 			}
 		}
-		else if (node == Asset::String::matchmaking_start)
+		else if (node == strings::matchmaking_start)
 			matchmake_search();
 	}
 
-	void init(AssetID entry_point)
+	void init(AssetID entry_point, Mode default_mode)
 	{
 		vi_assert(!data);
 		data = new Data();
 		data->entry_point = entry_point;
+		data->default_mode = default_mode;
 		data->active_data_fragment = AssetNull;
 		Audio::dialogue_done = false;
 		Game::updates.add(update);
@@ -1113,8 +1110,7 @@ namespace Penelope
 
 		variable(strings::matchmaking, AssetNull);
 
-		if (Game::state.mode == Game::Mode::Parkour)
-			Loader::texture(Asset::Texture::penelope, RenderTextureWrap::Clamp, RenderTextureFilter::Nearest);
+		Loader::texture(Asset::Texture::penelope, RenderTextureWrap::Clamp, RenderTextureFilter::Nearest);
 	}
 
 	void add_terminal(Entity* term)
@@ -1163,10 +1159,31 @@ namespace scene
 	}
 }
 
+namespace intro
+{
+	void node_executed(AssetID node)
+	{
+		if (node == strings::intro_done)
+		{
+			b8 skip_tutorial = Penelope::variable(strings::skip_tutorial) == strings::yes;
+			Game::save.level_index++;
+			Menu::transition(Game::levels[Game::save.level_index], Game::Mode::Pvp);
+		}
+	}
+
+	void init(const Update& u, const EntityFinder& entities)
+	{
+		Penelope::init(AssetNull, Penelope::Mode::Center);
+		Penelope::data->node_executed.link(&node_executed);
+		Penelope::clear_and_execute(Penelope::node_lookup[strings::intro], 1.0f);
+	}
+}
+
 namespace connect
 {
 	struct LevelNode
 	{
+		s32 index;
 		AssetID id;
 		Ref<Transform> pos;
 	};
@@ -1201,7 +1218,7 @@ namespace connect
 		{
 			const LevelNode& node = data->levels[i];
 			Transform* pos = node.pos.ref();
-			UI::indicator(params, pos->absolute_pos(), i <= Game::save.level_index ? UI::accent_color : UI::alert_color, false);
+			UI::indicator(params, pos->absolute_pos(), node.index <= Game::save.level_index ? UI::accent_color : UI::alert_color, false);
 
 			if (node.id == Menu::next_level)
 			{
@@ -1261,12 +1278,14 @@ namespace connect
 				break;
 
 			Entity* entity = entities.find(AssetLookup::Level::names[level_id]);
-			vi_assert(entity);
-			data->levels.add({ level_id, entity->get<Transform>() });
-			if (level_id == Menu::next_level)
-				data->target = entity->get<Transform>()->absolute_pos();
-			if (level_id == Menu::transition_previous_level)
-				data->start = entity->get<Transform>()->absolute_pos();
+			if (entity)
+			{
+				data->levels.add({ i, level_id, entity->get<Transform>() });
+				if (level_id == Menu::next_level)
+					data->target = entity->get<Transform>()->absolute_pos();
+				if (level_id == Menu::transition_previous_level)
+					data->start = entity->get<Transform>()->absolute_pos();
+			}
 		}
 
 		data->camera->viewport =
@@ -1295,6 +1314,7 @@ namespace tutorial
 	struct Data
 	{
 		TutorialState state;
+		Ref<Mover> door_mover;
 		Ref<Transform> health_location;
 		Ref<ControlPoint> control_point;
 	};
@@ -1369,7 +1389,7 @@ namespace tutorial
 		{
 			if (data->control_point.ref()->team != AI::Team::None)
 			{
-				LocalPlayer::list.iterator().item()->manager.ref()->credits = 300;
+				LocalPlayer::list.iterator().item()->manager.ref()->credits = UpgradeInfo::list[(s32)Upgrade::Minion].cost;
 				data->state = TutorialState::PvpUpgrade;
 				Penelope::data->texts.clear();
 				Penelope::data->texts.schedule(0.0f, _(strings::tut_pvp_upgrade));
@@ -1377,11 +1397,17 @@ namespace tutorial
 		}
 		else if (data->state == TutorialState::PvpUpgrade)
 		{
-			if (LocalPlayer::list.iterator().item()->manager.ref()->has_upgrade(Upgrade::HealthSteal))
+			PlayerManager* manager = LocalPlayer::list.iterator().item()->manager.ref();
+			for (s32 i = (s32)Upgrade::Sensor + 1; i < (s32)Upgrade::count; i++)
 			{
-				data->state = TutorialState::PvpKillPlayer;
-				Penelope::data->texts.clear();
-				Penelope::data->texts.schedule(0.0f, _(strings::tut_pvp_kill_player));
+				if (manager->has_upgrade((Upgrade)i))
+				{
+					data->state = TutorialState::PvpKillPlayer;
+					data->door_mover.ref()->go();
+					Penelope::data->texts.clear();
+					Penelope::data->texts.schedule(0.0f, _(strings::tut_pvp_kill_player));
+					break;
+				}
 			}
 		}
 	}
@@ -1409,6 +1435,7 @@ namespace tutorial
 
 		if (Game::state.mode == Game::Mode::Pvp)
 		{
+			data->door_mover = entities.find("door_mover")->get<Mover>();
 			data->health_location = entities.find("health")->get<Transform>();
 			data->control_point = entities.find("control_point")->get<ControlPoint>();
 
@@ -1425,7 +1452,6 @@ namespace tutorial
 			AIPlayer::Config* config = &player->config;
 			config->high_level = AIPlayer::HighLevelLoop::Noop;
 			config->low_level = AIPlayer::LowLevelLoop::Noop;
-			config->hp_start = AWK_HEALTH;
 
 			Penelope::init(); // have to init manually since penelope normally isn't loaded in PvP mode
 			Penelope::data->texts.schedule(3.0f, _(strings::tut_pvp_minion));
@@ -1446,6 +1472,7 @@ Script Script::all[] =
 {
 	{ "scene", scene::init },
 	{ "connect", connect::init },
+	{ "intro", intro::init },
 	{ "tutorial", tutorial::init },
 	{ 0, 0, },
 };

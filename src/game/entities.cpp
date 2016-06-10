@@ -1037,13 +1037,25 @@ void Tile::draw_alpha(const RenderParams& params)
 	sync->write<Mat4>(instances.data, instances.length);
 }
 
-MoverEntity::MoverEntity(const b8 reversed, const b8 trans, const b8 rot)
+MoverEntity::MoverEntity(b8 reversed, b8 trans, b8 rot)
 {
 	create<Mover>(reversed, trans, rot);
 }
 
-Mover::Mover(const b8 reversed, const b8 trans, const b8 rot)
-	: reversed(reversed), x(), translation(trans), rotation(rot), target(reversed ? 1.0f : 0.0f), speed(), object(), start_pos(), start_rot(), end_pos(), end_rot(), last_moving(), ease()
+Mover::Mover(b8 reversed, b8 trans, b8 rot)
+	: reversed(reversed),
+	x(),
+	translation(trans),
+	rotation(rot),
+	target(reversed ? 1.0f : 0.0f),
+	speed(),
+	object(),
+	start_pos(),
+	start_rot(),
+	end_pos(),
+	end_rot(),
+	last_moving(),
+	ease()
 {
 }
 
@@ -1084,7 +1096,12 @@ void Mover::update(const Update& u)
 		World::remove(entity());
 }
 
-void Mover::setup(Transform* obj, Transform* end, const r32 _speed)
+void Mover::go()
+{
+	target = 1.0f;
+}
+
+void Mover::setup(Transform* obj, Transform* end, r32 _speed)
 {
 	object = obj;
 	obj->absolute(&start_pos, &start_rot);

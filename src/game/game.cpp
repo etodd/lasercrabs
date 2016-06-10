@@ -88,6 +88,7 @@ void Game::State::reset()
 
 const s32 Game::levels[] =
 {
+	Asset::Level::intro,
 	Asset::Level::Safe_Zone,
 	Asset::Level::Medias_Res,
 	Asset::Level::level2,

@@ -75,7 +75,6 @@ void refresh_variables()
 	b8 is_gamepad = gamepad_count > 0;
 	const Settings::Gamepad& gamepad = Settings::gamepads[0];
 	UIText::set_variable("Start", gamepad.bindings[(s32)Controls::Start].string(is_gamepad));
-	UIText::set_variable("Resume", gamepad.bindings[(s32)Controls::Pause].string(is_gamepad));
 	UIText::set_variable("Action", gamepad.bindings[(s32)Controls::Action].string(is_gamepad));
 	UIText::set_variable("Cancel", gamepad.bindings[(s32)Controls::Cancel].string(is_gamepad));
 
@@ -125,7 +124,10 @@ void title_menu(const Update& u, u8 gamepad, UIMenu* menu, State* state)
 			{
 				Game::save = Game::Save();
 				Game::state.reset();
-				transition(Game::levels[Game::save.level_index], Game::Mode::Parkour);
+				if (Game::save.level_index == 0)
+					transition(Game::levels[0], Game::Mode::Special);
+				else
+					transition(Game::levels[Game::save.level_index], Game::Mode::Parkour);
 				return;
 			}
 			if (menu->item(u, &pos, _(strings::options)))
@@ -172,7 +174,7 @@ void pause_menu(const Update& u, const Rect2& viewport, u8 gamepad, UIMenu* menu
 		case State::Visible:
 		{
 			Vec2 pos(0, viewport.size.y * 0.5f + UIMenu::height(3) * 0.5f);
-			if (menu->item(u, &pos, _(strings::resume)))
+			if (menu->item(u, &pos, _(strings::back)))
 				*state = State::Hidden;
 			if (menu->item(u, &pos, _(strings::options)))
 			{

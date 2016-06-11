@@ -75,7 +75,6 @@ void refresh_variables()
 	b8 is_gamepad = gamepad_count > 0;
 	const Settings::Gamepad& gamepad = Settings::gamepads[0];
 	UIText::set_variable("Start", gamepad.bindings[(s32)Controls::Start].string(is_gamepad));
-	UIText::set_variable("Action", gamepad.bindings[(s32)Controls::Action].string(is_gamepad));
 	UIText::set_variable("Cancel", gamepad.bindings[(s32)Controls::Cancel].string(is_gamepad));
 
 	UIText::set_variable("Primary", gamepad.bindings[(s32)Controls::Primary].string(is_gamepad));
@@ -277,7 +276,7 @@ void update(const Update& u)
 								Audio::post_global_event(AK::EVENTS::PLAY_BEEP_GOOD);
 							}
 						}
-						else if (u.input->get(Controls::Action, i) && !u.last_input->get(Controls::Action, i))
+						else if (u.input->get(Controls::Interact, i) && !u.last_input->get(Controls::Interact, i))
 						{
 							if (*team == AI::Team::None)
 							{
@@ -682,8 +681,8 @@ b8 UIMenu::item(const Update& u, Vec2* menu_pos, const char* string, const char*
 	}
 
 	if (selected == items.length - 1
-		&& !u.input->get(Controls::Action, gamepad)
-		&& u.last_input->get(Controls::Action, gamepad)
+		&& !u.input->get(Controls::Interact, gamepad)
+		&& u.last_input->get(Controls::Interact, gamepad)
 		&& Game::time.total > 0.5f
 		&& !Console::visible
 		&& !disabled)

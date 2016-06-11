@@ -20,9 +20,9 @@
 
 #define WALK_SPEED 2.0f
 
-#define HEALTH 5
+#define HEALTH 3
 
-#define DEBUG_MINION 1
+#define ATTACK_TIME 2.0f
 
 namespace VI
 {
@@ -307,6 +307,7 @@ Entity* closest_target(MinionAI* me, AI::Team team)
 	Entity* closest = nullptr;
 
 	r32 closest_distance = FLT_MAX;
+
 	for (auto i = Sensor::list.iterator(); !i.is_last(); i.next())
 	{
 		Sensor* sensor = i.item();
@@ -360,6 +361,16 @@ Entity* closest_target(MinionAI* me, AI::Team team)
 
 Entity* visible_target(MinionAI* me, AI::Team team)
 {
+	for (auto i = Awk::list.iterator(); !i.is_last(); i.next())
+	{
+		Awk* awk = i.item();
+		if (awk->get<AIAgent>()->team != team)
+		{
+			if (me->can_see(awk->entity(), true))
+				return awk->entity();
+		}
+	}
+
 	for (auto i = Sensor::list.iterator(); !i.is_last(); i.next())
 	{
 		Sensor* sensor = i.item();
@@ -399,21 +410,26 @@ void MinionAI::awake()
 	new_goal();
 }
 
-b8 MinionAI::can_see(Entity* target) const
+b8 MinionAI::can_see(Entity* target, b8 limit_vision_cone) const
 {
 	if (target->has<AIAgent>() && get<AIAgent>()->stealth)
 		return false;
 
 	Vec3 pos = get<MinionCommon>()->head_pos();
 	Vec3 target_pos = target->get<Transform>()->absolute_pos();
-	Vec3 diff_flattened = target_pos - pos;
+	Vec3 diff = target_pos - pos;
+	Vec3 diff_flattened = diff;
 	diff_flattened.y = 0.0f;
 	if (diff_flattened.length_squared() < CONTAINMENT_FIELD_RADIUS * CONTAINMENT_FIELD_RADIUS)
 	{
-		btCollisionWorld::ClosestRayResultCallback ray_callback(pos, target_pos);
-		Physics::raycast(&ray_callback, btBroadphaseProxy::StaticFilter | CollisionInaccessible);
-		if (!ray_callback.hasHit())
-			return true;
+		diff.normalize();
+		if (!limit_vision_cone || diff.dot(get<Walker>()->forward()) > 0.707f)
+		{
+			btCollisionWorld::ClosestRayResultCallback ray_callback(pos, target_pos);
+			Physics::raycast(&ray_callback, btBroadphaseProxy::StaticFilter | CollisionInaccessible);
+			if (!ray_callback.hasHit())
+				return true;
+		}
 	}
 	return false;
 }
@@ -465,10 +481,10 @@ void MinionAI::update(const Update& u)
 				attack_timer = vi_max(0.0f, attack_timer - u.time.delta);
 				if (goal.entity.ref())
 				{
-					// we're going after the sensor
+					// we're going after the target
 					if (can_see(goal.entity.ref()))
 					{
-						// turn to and attack the sensor
+						// turn to and attack the target
 						Vec3 target_pos = goal.entity.ref()->get<Transform>()->absolute_pos();
 						turn_to(target_pos);
 						enable_recalc = false;
@@ -481,7 +497,7 @@ void MinionAI::update(const Update& u)
 						if (attack_timer == 0.0f && Vec3::normalize(to_target).dot(get<Walker>()->forward()) > 0.9f)
 						{
 							World::create<ProjectileEntity>(entity(), head_pos, 1, target_pos - head_pos);
-							attack_timer = 1.0f;
+							attack_timer = ATTACK_TIME;
 						}
 					}
 				}

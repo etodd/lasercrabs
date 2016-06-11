@@ -22,12 +22,12 @@ AIPlayer::Config::Config()
 	high_level(HighLevelLoop::Default),
 	hp_start(1),
 	interval_memory_update(0.1f),
-	interval_low_level(0.3f),
-	interval_high_level(1.0f),
-	inaccuracy_min(PI * 0.002f),
-	inaccuracy_range(PI * 0.022f),
-	aim_timeout(2.5f),
-	aim_speed(2.0f),
+	interval_low_level(0.2f),
+	interval_high_level(0.5f),
+	inaccuracy_min(PI * 0.001f),
+	inaccuracy_range(PI * 0.01f),
+	aim_timeout(2.0f),
+	aim_speed(4.0f),
 	upgrade_priority
 	{
 		Upgrade::Minion,
@@ -508,7 +508,7 @@ b8 awk_run_filter(const AIPlayerControl* control, const Entity* e)
 	return !control->get<AIAgent>()->stealth
 		&& control->get<Awk>()->invincible_timer == 0.0f
 		&& e->get<AIAgent>()->team != control->get<AIAgent>()->team
-		&& e->get<Health>()->hp > control->get<Health>()->hp
+		&& ((e->get<Health>()->hp > control->get<Health>()->hp && control->get<Health>()->hp == 1) || mersenne::randf_co() < 0.5f)
 		&& (e->get<Awk>()->can_hit(control->get<Target>()) || (e->get<Transform>()->absolute_pos() - control->get<Transform>()->absolute_pos()).length_squared() < AWK_RUN_RADIUS * AWK_RUN_RADIUS);
 }
 
@@ -957,9 +957,6 @@ void RandomPath::run()
 	active(true);
 	if (control->get<Transform>()->parent.ref() && path_priority > control->path_priority)
 	{
-#if DEBUG_AI_CONTROL
-		vi_debug("Pathfind: %s", typeid(*this).name());
-#endif
 		Vec3 pos;
 		Quat rot;
 		control->get<Transform>()->absolute(&pos, &rot);

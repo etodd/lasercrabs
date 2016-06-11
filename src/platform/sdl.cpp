@@ -14,9 +14,33 @@
 #if _WIN32
 #include <Windows.h>
 #endif
+#include <time.h>
 
 namespace VI
 {
+
+	namespace platform
+	{
+
+		u64 timestamp()
+		{
+			time_t t;
+			::time(&t);
+			return (u64)t;
+		}
+
+		double time()
+		{
+			return (SDL_GetTicks() / 1000.0);
+		}
+
+		void sleep(float time)
+		{
+			SDL_Delay(time * 1000.0f);
+		}
+
+	}
+
 	SDL_Window* window = 0;
 	SDL_GameController* controllers[MAX_GAMEPADS] = {};
 	SDL_Haptic* haptics[MAX_GAMEPADS] = {};

@@ -71,7 +71,7 @@ struct MinionAI : public ComponentType<MinionAI>
 
 	void awake();
 
-	b8 can_see(Entity*) const;
+	b8 can_see(Entity*, b8 = false) const;
 
 	void new_goal();
 	void set_path(const AI::Result&);

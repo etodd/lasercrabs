@@ -315,7 +315,6 @@ enum class Controls
 	Ability2,
 	Ability3,
 	Start,
-	Action,
 	Click,
 	Cancel,
 	Pause,

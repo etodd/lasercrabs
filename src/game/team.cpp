@@ -41,8 +41,8 @@ AbilityInfo AbilityInfo::list[] =
 	},
 	{
 		Asset::Mesh::icon_rocket,
-		1.5f,
-		8,
+		1.25f,
+		7,
 	},
 	{
 		Asset::Mesh::icon_minion,
@@ -63,7 +63,7 @@ UpgradeInfo UpgradeInfo::list[] =
 		strings::rocket,
 		strings::description_rocket,
 		Asset::Mesh::icon_rocket,
-		50,
+		80,
 	},
 	{
 		strings::minion,
@@ -75,19 +75,19 @@ UpgradeInfo UpgradeInfo::list[] =
 		strings::health_steal,
 		strings::description_health_steal,
 		AssetNull,
-		50,
+		150,
 	},
 	{
 		strings::health_buff,
 		strings::description_health_buff,
 		AssetNull,
-		50,
+		200,
 	},
 	{
 		strings::containment_field,
 		strings::description_containment_field,
 		AssetNull,
-		50,
+		150,
 	},
 };
 
@@ -518,8 +518,14 @@ b8 PlayerManager::minion_containment_fields() const
 
 b8 PlayerManager::ability_spawn_start(Ability ability)
 {
+	if (!Game::level.has_feature(Game::FeatureLevel::Abilities))
+		return false;
+
 	Entity* awk = entity.ref();
 	if (!awk)
+		return false;
+
+	if (!has_upgrade((Upgrade)ability))
 		return false;
 
 	// need to be sitting on some kind of surface
@@ -528,9 +534,6 @@ b8 PlayerManager::ability_spawn_start(Ability ability)
 
 	const AbilityInfo& info = AbilityInfo::list[(s32)ability];
 	if (credits < info.spawn_cost)
-		return false;
-
-	if (!has_upgrade((Upgrade)ability))
 		return false;
 
 	current_spawn_ability = ability;

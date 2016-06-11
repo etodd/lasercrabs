@@ -137,11 +137,10 @@ void Loader::settings_load(s32 default_width, s32 default_height)
 		bindings->bindings[(s32)Controls::Ability1] = input_binding(gamepad, "ability1", { KeyCode::D1, KeyCode::None, Gamepad::Btn::X });
 		bindings->bindings[(s32)Controls::Ability2] = input_binding(gamepad, "ability2", { KeyCode::D2, KeyCode::None, Gamepad::Btn::Y });
 		bindings->bindings[(s32)Controls::Ability3] = input_binding(gamepad, "ability3", { KeyCode::D3, KeyCode::None, Gamepad::Btn::B });
-		bindings->bindings[(s32)Controls::Interact] = input_binding(gamepad, "interact", { KeyCode::F, KeyCode::None, Gamepad::Btn::A });
+		bindings->bindings[(s32)Controls::Interact] = input_binding(gamepad, "interact", { KeyCode::F, KeyCode::Return, Gamepad::Btn::A });
 
 		// these bindings cannot be changed
 		bindings->bindings[(s32)Controls::Start] = { KeyCode::Space, KeyCode::None, Gamepad::Btn::Start };
-		bindings->bindings[(s32)Controls::Action] = { KeyCode::Return, KeyCode::None, Gamepad::Btn::A };
 		bindings->bindings[(s32)Controls::Click] = { KeyCode::MouseLeft, KeyCode::None, Gamepad::Btn::None };
 		bindings->bindings[(s32)Controls::Cancel] = { KeyCode::Escape, KeyCode::None, Gamepad::Btn::B };
 		bindings->bindings[(s32)Controls::Pause] = { KeyCode::Escape, KeyCode::None, Gamepad::Btn::Start };

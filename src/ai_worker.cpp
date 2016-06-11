@@ -6,6 +6,12 @@
 #include "data/priority_queue.h"
 #include "mersenne/mersenne-twister.h"
 
+#define DEBUG_AI 0
+
+#if DEBUG_AI
+#include "platform/util.h"
+#endif
+
 namespace VI
 {
 
@@ -15,6 +21,18 @@ namespace AI
 namespace Worker
 {
 
+
+dtNavMesh* nav_mesh = nullptr;
+AwkNavMesh awk_nav_mesh;
+AwkNavMeshKey awk_nav_mesh_key;
+PriorityQueue<AwkNavMeshNode, AwkNavMeshKey> astar_queue(&awk_nav_mesh_key);
+dtTileCache* nav_tile_cache = nullptr;
+dtTileCacheAlloc nav_tile_allocator;
+FastLZCompressor nav_tile_compressor;
+NavMeshProcess nav_tile_mesh_process;
+dtNavMeshQuery* nav_mesh_query = nullptr;
+dtQueryFilter default_query_filter = dtQueryFilter();
+const r32 default_search_extents[] = { 15, 30, 15 };
 
 dtPolyRef get_poly(const Vec3& pos, const r32* search_extents)
 {
@@ -200,14 +218,17 @@ r32 sensor_cost(AI::Team team, const AwkNavMeshNode& node)
 // A*
 void awk_astar(AI::Team team, const AwkNavMeshNode& start_vertex, const AstarScorer* scorer, Path* path)
 {
+#if DEBUG_AI
+	r64 start_time = platform::time();
+#endif
+
 	path->length = 0;
 
 	const Vec3& start_pos = awk_nav_mesh.chunks[start_vertex.chunk].vertices[start_vertex.vertex];
 
-	awk_nav_mesh_key.reset(awk_nav_mesh);
-
-	PriorityQueue<AwkNavMeshNode, AwkNavMeshKey> queue(&awk_nav_mesh_key);
-	queue.push(start_vertex);
+	awk_nav_mesh_key.reset();
+	astar_queue.clear();
+	astar_queue.push(start_vertex);
 
 	{
 		AwkNavMeshNodeData* start_data = &awk_nav_mesh_key.get(start_vertex);
@@ -215,11 +236,16 @@ void awk_astar(AI::Team team, const AwkNavMeshNode& start_vertex, const AstarSco
 		start_data->estimate_score = scorer->score(start_pos);
 		start_data->sensor_score = sensor_cost(team, start_vertex);
 		start_data->parent = { (u16)-1, (u16)-1 };
+		start_data->in_queue = true;
+
+#if DEBUG_AI
+		vi_debug("estimate: %f - %s", start_data->estimate_score, typeid(*scorer).name());
+#endif
 	}
 
-	while (queue.size() > 0)
+	while (astar_queue.size() > 0)
 	{
-		AwkNavMeshNode vertex_node = queue.pop();
+		AwkNavMeshNode vertex_node = astar_queue.pop();
 
 		AwkNavMeshNodeData* vertex_data = &awk_nav_mesh_key.get(vertex_node);
 
@@ -238,6 +264,7 @@ void awk_astar(AI::Team team, const AwkNavMeshNode& start_vertex, const AstarSco
 		}
 
 		vertex_data->visited = true;
+		vertex_data->in_queue = false;
 		const Vec3& vertex_pos = awk_nav_mesh.chunks[vertex_node.chunk].vertices[vertex_node.vertex];
 		
 		const AwkNavMeshAdjacency& adjacency = awk_nav_mesh.chunks[vertex_node.chunk].adjacency[vertex_node.vertex];
@@ -249,48 +276,52 @@ void awk_astar(AI::Team team, const AwkNavMeshNode& start_vertex, const AstarSco
 
 			if (!adjacent_data->visited)
 			{
-				// hasn't been visited yet; check if this node is already in the queue
-				s32 existing_queue_index = -1;
-				for (s32 j = 0; j < queue.size(); j++)
-				{
-					if (queue.heap[j].equals(adjacent_node))
-					{
-						existing_queue_index = j;
-						break;
-					}
-				}
+				// hasn't been visited yet
 
 				const Vec3& adjacent_pos = awk_nav_mesh.chunks[adjacent_node.chunk].vertices[adjacent_node.vertex];
 
 				r32 candidate_travel_score = vertex_data->travel_score
 					+ vertex_data->sensor_score
 					+ (adjacent_pos - vertex_pos).length()
-					+ 5.0f; // bias toward fewer, longer shots
+					+ 5.0f; // bias toward longer shots
 
-				if (existing_queue_index == -1)
-				{
-					// totally new node
-					adjacent_data->parent = vertex_node;
-					adjacent_data->sensor_score = sensor_cost(team, adjacent_node);
-					adjacent_data->travel_score = candidate_travel_score;
-					adjacent_data->estimate_score = scorer->score(adjacent_pos);
-					queue.push(adjacent_node);
-				}
-				else
+				if (adjacent_data->in_queue)
 				{
 					// it's already in the queue
 					if (candidate_travel_score < adjacent_data->travel_score)
 					{
 						// this is a better path
+
 						adjacent_data->parent = vertex_node;
 						adjacent_data->travel_score = candidate_travel_score;
+
 						// update its position in the queue due to the score change
-						queue.update(existing_queue_index);
+						for (s32 j = 0; j < astar_queue.size(); j++)
+						{
+							if (astar_queue.heap[j].equals(adjacent_node))
+							{
+								astar_queue.update(j);
+								break;
+							}
+						}
 					}
+				}
+				else
+				{
+					// totally new node, not in queue yet
+					adjacent_data->parent = vertex_node;
+					adjacent_data->sensor_score = sensor_cost(team, adjacent_node);
+					adjacent_data->travel_score = candidate_travel_score;
+					adjacent_data->estimate_score = scorer->score(adjacent_pos);
+					adjacent_data->in_queue = true;
+					astar_queue.push(adjacent_node);
 				}
 			}
 		}
 	}
+#if DEBUG_AI
+	vi_debug("%d nodes in %fs - %s", path->length, (r32)(platform::time() - start_time), typeid(*scorer).name());
+#endif
 }
 
 // find a path from vertex a to vertex b
@@ -354,17 +385,6 @@ void NavMeshProcess::process(struct dtNavMeshCreateParams* params, u8* polyAreas
 		polyFlags[i] = 1;
 }
 
-dtNavMesh* nav_mesh = nullptr;
-AwkNavMesh awk_nav_mesh;
-AwkNavMeshKey awk_nav_mesh_key;
-dtTileCache* nav_tile_cache = nullptr;
-dtTileCacheAlloc nav_tile_allocator;
-FastLZCompressor nav_tile_compressor;
-NavMeshProcess nav_tile_mesh_process;
-dtNavMeshQuery* nav_mesh_query = nullptr;
-dtQueryFilter default_query_filter = dtQueryFilter();
-const r32 default_search_extents[] = { 15, 30, 15 };
-
 void pathfind(const Vec3& a, const Vec3& b, dtPolyRef start_poly, dtPolyRef end_poly, Path* path)
 {
 	dtPolyRef path_polys[AI::MAX_PATH_LENGTH];
@@ -418,6 +438,9 @@ void loop()
 		{
 			case Op::Load:
 			{
+#if DEBUG_AI
+				vi_debug("Loading nav mesh...");
+#endif
 				// free old data if necessary
 				{
 					if (nav_mesh)
@@ -560,9 +583,20 @@ void loop()
 					}
 				}
 
-				awk_nav_mesh_key.reset(awk_nav_mesh);
+				awk_nav_mesh_key.resize(awk_nav_mesh);
+				{
+					// reserve space in the A* queue
+					s32 vertex_count = 0;
+					for (s32 i = 0; i < awk_nav_mesh.chunks.length; i++)
+						vertex_count += awk_nav_mesh.chunks[i].adjacency.length;
+					astar_queue.reserve(vertex_count);
+				}
 
 				sync_in.unlock();
+
+#if DEBUG_AI
+				vi_debug("Done.");
+#endif
 
 				break;
 			}
@@ -776,7 +810,7 @@ void loop()
 
 // Awk nav mesh stuff
 
-void AwkNavMeshKey::reset(const AwkNavMesh& nav)
+void AwkNavMeshKey::resize(const AwkNavMesh& nav)
 {
 	data.chunk_size = nav.chunk_size;
 	data.size.x = nav.size.x;
@@ -785,10 +819,13 @@ void AwkNavMeshKey::reset(const AwkNavMesh& nav)
 	data.vmin = nav.vmin;
 	data.resize();
 	for (s32 i = 0; i < data.chunks.length; i++)
-	{
 		data.chunks[i].resize(nav.chunks[i].vertices.length);
+}
+
+void AwkNavMeshKey::reset()
+{
+	for (s32 i = 0; i < data.chunks.length; i++)
 		memset(data.chunks[i].data, 0, sizeof(AwkNavMeshNodeData) * data.chunks[i].length);
-	}
 }
 
 r32 AwkNavMeshKey::priority(const AwkNavMeshNode& a)

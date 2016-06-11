@@ -551,6 +551,7 @@ const char* AssetLookup::String::names[] =
 	"exit",
 	"health_buff",
 	"health_steal",
+	"hp_added",
 	"intro",
 	"intro_done",
 	"invincible",

@@ -65,6 +65,7 @@ struct SensorEntity : public Entity
 #define SENSOR_TIME 1.5f
 #define SENSOR_TIMEOUT 5.0f
 #define SENSOR_RADIUS 0.15f
+#define SENSOR_HEALTH 3
 struct Sensor : public ComponentType<Sensor>
 {
 	AI::Team team;
@@ -74,6 +75,8 @@ struct Sensor : public ComponentType<Sensor>
 
 	void killed_by(Entity*);
 	void awake();
+
+	void hit_by(const TargetEvent&);
 
 	static b8 can_see(AI::Team, const Vec3&, const Vec3&);
 	static Sensor* closest(AI::Team, const Vec3&, r32* = nullptr);

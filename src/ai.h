@@ -104,6 +104,7 @@ namespace AI
 		{
 			AwkNavMeshNode parent;
 			b8 visited;
+			b8 in_queue;
 			r32 travel_score;
 			r32 estimate_score;
 			r32 sensor_score;
@@ -113,7 +114,8 @@ namespace AI
 		{
 			Chunks<Array<AwkNavMeshNodeData>> data;
 			r32 priority(const AwkNavMeshNode&);
-			void reset(const AwkNavMesh&);
+			void resize(const AwkNavMesh&);
+			void reset();
 			AwkNavMeshNodeData& get(const AwkNavMeshNode&);
 		};
 

@@ -67,6 +67,16 @@ public:
 		return heap.length;
 	}
 
+	void clear()
+	{
+		heap.length = 0;
+	}
+
+	void reserve(s32 size)
+	{
+		heap.reserve(size);
+	}
+
 	void push(const T& entry)
 	{
 		heap.add(entry);

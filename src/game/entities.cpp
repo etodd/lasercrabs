@@ -172,7 +172,7 @@ SensorEntity::SensorEntity(PlayerManager* owner, const Vec3& abs_pos, const Quat
 	model->shader = Asset::Shader::standard;
 	model->offset.scale(Vec3(SENSOR_RADIUS * 1.2f)); // a little bigger for aesthetic reasons
 
-	create<Health>(5, 5);
+	create<Health>(SENSOR_HEALTH, SENSOR_HEALTH);
 
 	PointLight* light = create<PointLight>();
 	light->type = PointLight::Type::Override;
@@ -181,7 +181,9 @@ SensorEntity::SensorEntity(PlayerManager* owner, const Vec3& abs_pos, const Quat
 
 	create<Sensor>(team, owner);
 
-	RigidBody* body = create<RigidBody>(RigidBody::Type::Sphere, Vec3(SENSOR_RADIUS), 1.0f, CollisionAwkIgnore, btBroadphaseProxy::AllFilter);
+	create<Target>();
+
+	RigidBody* body = create<RigidBody>(RigidBody::Type::Sphere, Vec3(SENSOR_RADIUS), 1.0f, CollisionAwkIgnore | CollisionTarget, ~CollisionAwk & ~CollisionShield);
 	body->set_damping(0.5f, 0.5f);
 }
 
@@ -194,6 +196,12 @@ Sensor::Sensor(AI::Team t, PlayerManager* m)
 void Sensor::awake()
 {
 	link_arg<Entity*, &Sensor::killed_by>(get<Health>()->killed);
+	link_arg<const TargetEvent&, &Sensor::hit_by>(get<Target>()->target_hit);
+}
+
+void Sensor::hit_by(const TargetEvent& e)
+{
+	get<Health>()->damage(e.hit_by, get<Health>()->hp_max);
 }
 
 void Sensor::killed_by(Entity* e)
@@ -520,7 +528,7 @@ RocketEntity::RocketEntity(Entity* owner, Transform* parent, const Vec3& pos, co
 	rocket->team = team;
 	rocket->owner = owner;
 
-	create<Health>(5, 5);
+	create<Health>(SENSOR_HEALTH, SENSOR_HEALTH);
 
 	View* model = create<View>();
 	model->mesh = Asset::Mesh::rocket_pod;
@@ -572,10 +580,10 @@ Terminal::Terminal()
 	l->offset = view->offset;
 }
 
-#define PROJECTILE_SPEED 100.0f
-#define PROJECTILE_LENGTH 2.0f
-#define PROJECTILE_THICKNESS 0.04f
-#define PROJECTILE_MAX_LIFETIME 3.0f
+#define PROJECTILE_SPEED 30.0f
+#define PROJECTILE_LENGTH 1.0f
+#define PROJECTILE_THICKNESS 0.05f
+#define PROJECTILE_MAX_LIFETIME 5.0f
 ProjectileEntity::ProjectileEntity(Entity* owner, const Vec3& pos, u16 damage, const Vec3& velocity)
 {
 	Vec3 dir = Vec3::normalize(velocity);
@@ -621,10 +629,10 @@ void Projectile::update(const Update& u)
 		if (hit_object != owner.ref())
 		{
 			Vec3 basis;
-			if (hit_object->has<MinionCommon>() || hit_object->has<Sensor>() || hit_object->has<Rocket>())
+			if (hit_object->has<Health>())
 			{
-				hit_object->get<Health>()->damage(owner.ref(), damage);
 				basis = Vec3::normalize(velocity);
+				hit_object->get<Health>()->damage(owner.ref(), damage);
 			}
 			else
 				basis = ray_callback.m_hitNormalWorld;

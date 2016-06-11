@@ -934,6 +934,7 @@ void LocalPlayerControl::hit_by(const TargetEvent& e)
 
 void LocalPlayerControl::health_picked_up()
 {
+	player.ref()->msg(_(strings::hp_added), true);
 	health_flash_timer = msg_time;
 }
 
@@ -1714,7 +1715,7 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 				username.draw(params, username_pos);
 
 				// invincible indicator
-				if (!friendly && visible)
+				if (!friendly && (tracking || visible))
 				{
 					r32 enemy_invincible_timer = other_player.item()->get<Awk>()->invincible_timer;
 					if (enemy_invincible_timer > 0.0f)
@@ -1731,10 +1732,12 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 
 						Vec2 bar_size = text.bounds() + Vec2(HP_BOX_SPACING);
 
+						const Vec4& color = visible ? UI::alert_color : UI::accent_color;
+
 						Rect2 bar = { invincible_pos + Vec2(bar_size.x * -0.5f, 0), bar_size };
 						UI::box(params, bar, UI::background_color);
-						UI::border(params, bar, 2, UI::alert_color);
-						UI::box(params, { bar.pos, Vec2(bar.size.x * (enemy_invincible_timer / AWK_INVINCIBLE_TIME), bar.size.y) }, UI::alert_color);
+						UI::border(params, bar, 2, color);
+						UI::box(params, { bar.pos, Vec2(bar.size.x * (enemy_invincible_timer / AWK_INVINCIBLE_TIME), bar.size.y) }, color);
 
 						text.draw(params, bar.pos + bar.size * 0.5f);
 					}

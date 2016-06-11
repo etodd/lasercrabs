@@ -196,17 +196,6 @@ namespace AIBehaviors
 
 		void pathfind(const Vec3& target, const Vec3& normal, AI::AwkPathfind type)
 		{
-#if DEBUG_AI_CONTROL
-			Behavior* r = this->root();
-			const char* loop;
-			if (r == this->control->loop_low_level)
-				loop = "Low-level 1";
-			else if (r == this->control->loop_low_level_2)
-				loop = "Low-level 2";
-			else
-				loop = "High-level";
-			vi_debug("%s: %s", loop, typeid(*this).name());
-#endif
 			vi_assert(this->control->template get<Transform>()->parent.ref());
 			auto ai_callback = ObjectLinkEntryArg<Base<Derived>, const AI::Result&, &Base<Derived>::path_callback>(this->id());
 			Vec3 pos;

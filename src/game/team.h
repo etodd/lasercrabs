@@ -26,6 +26,7 @@ struct PlayerManager;
 #define CREDITS_DETECT 10
 #define CREDITS_CONTROL_POINT 4
 #define CREDITS_DEFAULT_INCREMENT 4
+#define MAX_ABILITIES 3
 
 #define UPGRADE_TIME 1.5f
 
@@ -37,6 +38,7 @@ enum class Ability
 	Sensor,
 	Rocket,
 	Minion,
+	ContainmentField,
 	count,
 	None = count,
 };
@@ -54,9 +56,9 @@ enum class Upgrade
 	Sensor,
 	Rocket,
 	Minion,
+	ContainmentField,
 	HealthSteal,
 	HealthBuff,
-	ContainmentField,
 	count,
 	None = count,
 };
@@ -149,6 +151,7 @@ struct PlayerManager
 	Ref<Entity> entity;
 	Link spawn;
 	u32 upgrades;
+	Ability abilities[MAX_ABILITIES];
 	b8 has_upgrade(Upgrade) const;
 	r32 spawn_ability_timer;
 	r32 upgrade_timer;
@@ -157,6 +160,7 @@ struct PlayerManager
 	LinkArg<Ability> ability_spawned;
 	LinkArg<Upgrade> upgrade_completed;
 
+	s32 ability_count() const;
 	b8 ability_spawn_start(Ability);
 	void ability_spawn_stop(Ability);
 	void ability_spawn_complete();
@@ -164,9 +168,6 @@ struct PlayerManager
 	void upgrade_complete();
 	b8 upgrade_available(Upgrade = Upgrade::None) const;
 	u16 upgrade_cost(Upgrade) const;
-
-	b8 can_steal_health() const;
-	b8 minion_containment_fields() const;
 
 	void add_credits(u16);
 

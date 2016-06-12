@@ -137,7 +137,7 @@ void HealthPickup::hit(const TargetEvent& e)
 		// if we're already owned by someone,
 		// they need the right upgrade to be able to steal us
 		if (!owner.ref()
-			|| (e.hit_by->get<PlayerCommon>()->manager.ref()->can_steal_health() && owner.ref() != health))
+			|| (e.hit_by->get<PlayerCommon>()->manager.ref()->has_upgrade(Upgrade::HealthSteal) && owner.ref() != health))
 		{
 			if (owner.ref()) // looks like we're being stolen
 				owner.ref()->damage(e.hit_by, 1);
@@ -540,6 +540,121 @@ RocketEntity::RocketEntity(Entity* owner, Transform* parent, const Vec3& pos, co
 	model->shader = Asset::Shader::standard;
 
 	create<RigidBody>(RigidBody::Type::CapsuleZ, Vec3(0.1f, 0.3f, 0.3f), 0.0f, CollisionAwkIgnore, btBroadphaseProxy::AllFilter);
+}
+
+b8 ContainmentField::inside(AI::Team my_team, const Vec3& pos)
+{
+	for (auto i = list.iterator(); !i.is_last(); i.next())
+	{
+		if (i.item()->team != my_team && (pos - i.item()->get<Transform>()->absolute_pos()).length_squared() < CONTAINMENT_FIELD_RADIUS * CONTAINMENT_FIELD_RADIUS)
+			return true;
+	}
+	return false;
+}
+
+ContainmentField::ContainmentField(const Vec3& abs_pos, AI::Team team)
+	: team(team)
+{
+	Entity* f = World::alloc<Empty>();
+	f->get<Transform>()->absolute_pos(abs_pos);
+
+	View* view = f->add<View>();
+	view->team = (u8)team;
+	view->mesh = Asset::Mesh::containment_field_sphere;
+	view->shader = Asset::Shader::flat;
+	view->alpha();
+	view->color.w = 0.2f;
+
+	CollisionGroup team_mask;
+	switch (team)
+	{
+		case AI::Team::A:
+		{
+			team_mask = CollisionTeamAContainmentField;
+			break;
+		}
+		case AI::Team::B:
+		{
+			team_mask = CollisionTeamBContainmentField;
+			break;
+		}
+		default:
+		{
+			vi_assert(false);
+			break;
+		}
+	}
+
+	Loader::mesh(view->mesh);
+	f->add<RigidBody>(RigidBody::Type::Mesh, Vec3::zero, 0.0f, team_mask, CollisionContainmentField, view->mesh);
+
+	field = f;
+}
+
+void ContainmentField::awake()
+{
+	link_arg<const TargetEvent&, &ContainmentField::hit_by>(get<Target>()->target_hit);
+	link_arg<Entity*, &ContainmentField::killed>(get<Health>()->killed);
+	link_arg<Entity*, &ContainmentField::player_exited>(get<PlayerTrigger>()->exited);
+}
+
+ContainmentField::~ContainmentField()
+{
+	if (field.ref())
+		World::remove_deferred(field.ref());
+}
+
+void ContainmentField::hit_by(const TargetEvent& e)
+{
+	get<Health>()->damage(e.hit_by, get<Health>()->hp_max);
+}
+
+void ContainmentField::killed(Entity*)
+{
+	World::remove_deferred(entity());
+}
+
+void ContainmentField::player_exited(Entity* player)
+{
+	if (player->get<AIAgent>()->team != team
+		&& player->get<Health>()->hp > 1) // don't kill the player
+	{
+		player->get<Health>()->damage(entity(), 1);
+
+		Vec3 pos;
+		Quat rot;
+		player->get<Transform>()->absolute(&pos, &rot);
+		for (s32 i = 0; i < 50; i++)
+		{
+			Particles::sparks.add
+			(
+				pos,
+				rot * Vec3(mersenne::randf_oo() * 2.0f - 1.0f, mersenne::randf_oo() * 2.0f - 1.0f, mersenne::randf_oo()) * 10.0f,
+				Vec4(1, 1, 1, 1)
+			);
+		}
+	}
+}
+
+
+ContainmentFieldEntity::ContainmentFieldEntity(Transform* parent, const Vec3& abs_pos, const Quat& abs_rot, AI::Team team)
+{
+	Transform* transform = create<Transform>();
+	transform->absolute(abs_pos, abs_rot);
+	transform->reparent(parent);
+
+	View* model = create<View>();
+	model->team = (u8)team;
+	model->mesh = Asset::Mesh::containment_field_base;
+	model->shader = Asset::Shader::standard;
+
+	create<PlayerTrigger>()->radius = CONTAINMENT_FIELD_RADIUS;
+	create<Target>();
+	create<Health>(SENSOR_HEALTH, SENSOR_HEALTH);
+	create<ContainmentField>(abs_pos, team);
+
+	RigidBody* body = create<RigidBody>(RigidBody::Type::Sphere, Vec3(HEALTH_PICKUP_RADIUS), 0.0f, CollisionAwkIgnore | CollisionTarget, ~CollisionAwk & ~CollisionShield);
+	body->set_damping(0.5f, 0.5f);
 }
 
 PlayerSpawn::PlayerSpawn(AI::Team team)

@@ -59,11 +59,6 @@ Minion::Minion(const Vec3& pos, const Quat& quat, AI::Team team, PlayerManager* 
 	create<Target>();
 
 	create<MinionAI>();
-
-	create<PlayerTrigger>()->radius = 0.0f;
-
-	if (manager && manager->minion_containment_fields())
-		get<MinionCommon>()->create_containment_field();
 }
 
 void MinionCommon::awake()
@@ -76,64 +71,6 @@ void MinionCommon::awake()
 	link<&MinionCommon::footstep>(animator->trigger(Asset::Animation::character_walk, 0.3375f));
 	link<&MinionCommon::footstep>(animator->trigger(Asset::Animation::character_walk, 0.75f));
 	link_arg<r32, &MinionCommon::landed>(get<Walker>()->land);
-	link_arg<Entity*, &MinionCommon::player_exited>(get<PlayerTrigger>()->exited);
-}
-
-MinionCommon::~MinionCommon()
-{
-	if (containment_field.ref())
-		World::remove_deferred(containment_field.ref());
-}
-
-void MinionCommon::create_containment_field()
-{
-	get<PlayerTrigger>()->radius = CONTAINMENT_FIELD_RADIUS;
-
-	Entity* f = World::alloc<Empty>();
-	f->get<Transform>()->absolute_pos(get<Transform>()->absolute_pos());
-
-	View* view = f->add<View>();
-	AI::Team team = get<AIAgent>()->team;
-	view->team = (u8)team;
-	view->mesh = Asset::Mesh::containment_field;
-	view->shader = Asset::Shader::flat;
-	view->alpha();
-	view->color.w = 0.2f;
-
-	const Mesh* mesh = Loader::mesh(view->mesh);
-
-	CollisionGroup team_mask;
-	switch (team)
-	{
-		case AI::Team::A:
-		{
-			team_mask = CollisionTeamAContainmentField;
-			break;
-		}
-		case AI::Team::B:
-		{
-			team_mask = CollisionTeamBContainmentField;
-			break;
-		}
-		default:
-		{
-			vi_assert(false);
-			break;
-		}
-	}
-	f->add<RigidBody>(RigidBody::Type::Mesh, Vec3::zero, 0.0f, team_mask, CollisionContainmentField, view->mesh);
-
-	containment_field = f;
-}
-
-b8 MinionCommon::inside_containment_field(AI::Team my_team, const Vec3& pos)
-{
-	for (auto i = list.iterator(); !i.is_last(); i.next())
-	{
-		if (i.item()->get<AIAgent>()->team != my_team && (pos - i.item()->get<Transform>()->absolute_pos()).length_squared() < CONTAINMENT_FIELD_RADIUS * CONTAINMENT_FIELD_RADIUS)
-			return true;
-	}
-	return false;
 }
 
 MinionCommon* MinionCommon::closest(AI::Team my_team, const Vec3& pos, r32* distance)
@@ -155,28 +92,6 @@ MinionCommon* MinionCommon::closest(AI::Team my_team, const Vec3& pos, r32* dist
 	if (distance)
 		*distance = sqrtf(closest_distance);
 	return closest;
-}
-
-void MinionCommon::player_exited(Entity* player)
-{
-	if (player->get<AIAgent>()->team != get<AIAgent>()->team
-		&& player->get<Health>()->hp > 1) // don't kill the player
-	{
-		player->get<Health>()->damage(entity(), 1);
-
-		Vec3 pos;
-		Quat rot;
-		player->get<Transform>()->absolute(&pos, &rot);
-		for (s32 i = 0; i < 50; i++)
-		{
-			Particles::sparks.add
-			(
-				pos,
-				rot * Vec3(mersenne::randf_oo() * 2.0f - 1.0f, mersenne::randf_oo() * 2.0f - 1.0f, mersenne::randf_oo()) * 10.0f,
-				Vec4(1, 1, 1, 1)
-			);
-		}
-	}
 }
 
 void MinionCommon::landed(r32 speed)
@@ -210,9 +125,6 @@ void MinionCommon::update(const Update& u)
 		Quat rot = Quat::identity;
 		get<Animator>()->to_local(Asset::Bone::character_head, &get<Target>()->local_offset, &rot);
 	}
-
-	if (containment_field.ref())
-		containment_field.ref()->get<Transform>()->absolute_pos(get<Transform>()->absolute_pos());
 
 	get<SkinnedModel>()->offset.make_transform(
 		Vec3(0, get<Walker>()->capsule_height() * -0.5f - get<Walker>()->support_height, 0),
@@ -351,6 +263,22 @@ Entity* closest_target(MinionAI* me, AI::Team team)
 		}
 	}
 
+	for (auto i = ContainmentField::list.iterator(); !i.is_last(); i.next())
+	{
+		ContainmentField* field = i.item();
+		if (field->team != team)
+		{
+			if (me->can_see(field->entity()))
+				return field->entity();
+			r32 total_distance = (field->get<Transform>()->absolute_pos() - pos).length_squared();
+			if (total_distance < closest_distance)
+			{
+				closest = field->entity();
+				closest_distance = total_distance;
+			}
+		}
+	}
+
 	return closest;
 }
 
@@ -393,6 +321,16 @@ Entity* visible_target(MinionAI* me, AI::Team team)
 		{
 			if (me->can_see(rocket->entity()))
 				return rocket->entity();
+		}
+	}
+
+	for (auto i = ContainmentField::list.iterator(); !i.is_last(); i.next())
+	{
+		ContainmentField* field = i.item();
+		if (field->team != team)
+		{
+			if (me->can_see(field->entity()))
+				return field->entity();
 		}
 	}
 

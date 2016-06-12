@@ -472,24 +472,36 @@ void LocalPlayer::draw_alpha(const RenderParams& params) const
 
 			// ability 1
 			b8 is_gamepad = params.sync->input.gamepads[gamepad].active;
-			if (manager.ref()->has_upgrade(Upgrade::Sensor))
 			{
-				const char* binding = Settings::gamepads[gamepad].bindings[(s32)Controls::Ability1].string(is_gamepad);
-				draw_ability(params, manager.ref(), center + Vec2(-radius, 0), Ability::Sensor, Asset::Mesh::icon_sensor, binding);
+				Ability ability = manager.ref()->abilities[0];
+				if (ability != Ability::None)
+				{
+					const char* binding = Settings::gamepads[gamepad].bindings[(s32)Controls::Ability1].string(is_gamepad);
+					const AbilityInfo& info = AbilityInfo::list[(s32)ability];
+					draw_ability(params, manager.ref(), center + Vec2(-radius, 0), ability, info.icon, binding);
+				}
 			}
 
 			// ability 2
-			if (manager.ref()->has_upgrade(Upgrade::Rocket))
 			{
-				const char* binding = Settings::gamepads[gamepad].bindings[(s32)Controls::Ability2].string(is_gamepad);
-				draw_ability(params, manager.ref(), center + Vec2(0, radius * 0.5f), Ability::Rocket, Asset::Mesh::icon_rocket, binding);
+				Ability ability = manager.ref()->abilities[1];
+				if (ability != Ability::None)
+				{
+					const char* binding = Settings::gamepads[gamepad].bindings[(s32)Controls::Ability2].string(is_gamepad);
+					const AbilityInfo& info = AbilityInfo::list[(s32)ability];
+					draw_ability(params, manager.ref(), center + Vec2(0, radius * 0.5f), ability, info.icon, binding);
+				}
 			}
 
 			// ability 3
-			if (manager.ref()->has_upgrade(Upgrade::Minion))
 			{
-				const char* binding = Settings::gamepads[gamepad].bindings[(s32)Controls::Ability3].string(is_gamepad);
-				draw_ability(params, manager.ref(), center + Vec2(radius, 0), Ability::Minion, Asset::Mesh::icon_minion, binding);
+				Ability ability = manager.ref()->abilities[2];
+				if (ability != Ability::None)
+				{
+					const char* binding = Settings::gamepads[gamepad].bindings[(s32)Controls::Ability3].string(is_gamepad);
+					const AbilityInfo& info = AbilityInfo::list[(s32)ability];
+					draw_ability(params, manager.ref(), center + Vec2(radius, 0), ability, info.icon, binding);
+				}
 			}
 		}
 	}
@@ -1190,31 +1202,32 @@ void LocalPlayerControl::update(const Update& u)
 		// abilities
 		if (input_enabled())
 		{
+			PlayerManager* manager = player.ref()->manager.ref();
 			{
 				b8 current = u.input->get(Controls::Ability1, gamepad);
 				b8 last = u.last_input->get(Controls::Ability1, gamepad);
 				if (current && !last)
-					player.ref()->manager.ref()->ability_spawn_start(Ability::Sensor);
+					manager->ability_spawn_start(manager->abilities[0]);
 				else if (!current && last)
-					player.ref()->manager.ref()->ability_spawn_stop(Ability::Sensor);
+					manager->ability_spawn_stop(manager->abilities[0]);
 			}
 
 			{
 				b8 current = u.input->get(Controls::Ability2, gamepad);
 				b8 last = u.last_input->get(Controls::Ability2, gamepad);
 				if (current && !last)
-					player.ref()->manager.ref()->ability_spawn_start(Ability::Rocket);
+					manager->ability_spawn_start(manager->abilities[1]);
 				else if (!current && last)
-					player.ref()->manager.ref()->ability_spawn_stop(Ability::Rocket);
+					manager->ability_spawn_stop(manager->abilities[1]);
 			}
 
 			{
 				b8 current = u.input->get(Controls::Ability3, gamepad);
 				b8 last = u.last_input->get(Controls::Ability3, gamepad);
 				if (current && !last)
-					player.ref()->manager.ref()->ability_spawn_start(Ability::Minion);
+					manager->ability_spawn_start(manager->abilities[2]);
 				else if (!current && last)
-					player.ref()->manager.ref()->ability_spawn_stop(Ability::Minion);
+					manager->ability_spawn_stop(manager->abilities[2]);
 			}
 		}
 
@@ -1326,7 +1339,7 @@ void LocalPlayerControl::update(const Update& u)
 		// health pickups
 		if (get<Health>()->hp < get<Health>()->hp_max)
 		{
-			b8 can_steal_health = player.ref()->manager.ref()->can_steal_health();
+			b8 can_steal_health = player.ref()->manager.ref()->has_upgrade(Upgrade::HealthSteal);
 			for (auto i = HealthPickup::list.iterator(); !i.is_last(); i.next())
 			{
 				Health* owner = i.item()->owner.ref();

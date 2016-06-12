@@ -472,7 +472,7 @@ b8 AIPlayerControl::aim_and_shoot(const Update& u, const Vec3& path_node, const 
 b8 health_pickup_filter(const AIPlayerControl* control, const Entity* e)
 {
 	Health* owner = e->get<HealthPickup>()->owner.ref();
-	if (control->player.ref()->manager.ref()->can_steal_health())
+	if (control->player.ref()->manager.ref()->has_upgrade(Upgrade::HealthSteal))
 		return !owner || owner != control->get<Health>();
 	else
 		return !owner;
@@ -1172,7 +1172,7 @@ void RunAway::run()
 	if (control->get<Transform>()->parent.ref()
 		&& !control->get<AIAgent>()->stealth // if we're stealthed, no need to run away
 		&& path_priority > control->path_priority
-		&& !MinionCommon::inside_containment_field(control->get<AIAgent>()->team, pos)) // if we're inside a containment field, running away is probably useless
+		&& !ContainmentField::inside(control->get<AIAgent>()->team, pos)) // if we're inside a containment field, running away is probably useless
 	{
 		Entity* closest = nullptr;
 		r32 closest_distance = AWK_MAX_DISTANCE * AWK_MAX_DISTANCE;

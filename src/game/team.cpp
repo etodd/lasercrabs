@@ -49,6 +49,11 @@ AbilityInfo AbilityInfo::list[] =
 		1.5f,
 		7,
 	},
+	{
+		Asset::Mesh::icon_containment_field,
+		0.75f,
+		12,
+	},
 };
 
 UpgradeInfo UpgradeInfo::list[] =
@@ -72,6 +77,12 @@ UpgradeInfo UpgradeInfo::list[] =
 		50,
 	},
 	{
+		strings::containment_field,
+		strings::description_containment_field,
+		Asset::Mesh::icon_containment_field,
+		150,
+	},
+	{
 		strings::health_steal,
 		strings::description_health_steal,
 		AssetNull,
@@ -82,12 +93,6 @@ UpgradeInfo UpgradeInfo::list[] =
 		strings::description_health_buff,
 		AssetNull,
 		200,
-	},
-	{
-		strings::containment_field,
-		strings::description_containment_field,
-		AssetNull,
-		150,
 	},
 };
 
@@ -513,18 +518,11 @@ b8 PlayerManager::has_upgrade(Upgrade u) const
 	return upgrades & (1 << (u32)u);
 }
 
-b8 PlayerManager::can_steal_health() const
-{
-	return has_upgrade(Upgrade::HealthSteal);
-}
-
-b8 PlayerManager::minion_containment_fields() const
-{
-	return has_upgrade(Upgrade::ContainmentField);
-}
-
 b8 PlayerManager::ability_spawn_start(Ability ability)
 {
+	if (ability == Ability::None)
+		return false;
+
 	if (!Game::level.has_feature(Game::FeatureLevel::Abilities))
 		return false;
 
@@ -625,9 +623,24 @@ void PlayerManager::ability_spawn_complete()
 				Quat rot;
 				awk->get<Transform>()->absolute(&pos, &rot);
 				pos += rot * Vec3(0, 0, 1.0f);
-				Entity* minion = World::create<Minion>(pos, Quat::euler(0, awk->get<PlayerCommon>()->angle_horizontal, 0), team.ref()->team(), this);
+				World::create<Minion>(pos, Quat::euler(0, awk->get<PlayerCommon>()->angle_horizontal, 0), team.ref()->team(), this);
 
 				Audio::post_global_event(AK::EVENTS::PLAY_MINION_SPAWN, pos);
+			}
+			break;
+		}
+		case Ability::ContainmentField:
+		{
+			if (awk->get<Transform>()->parent.ref())
+			{
+				add_credits(-cost);
+
+				// spawn a containment field
+				Vec3 pos;
+				Quat rot;
+				awk->get<Transform>()->absolute(&pos, &rot);
+				pos += rot * Vec3(0, 0, CONTAINMENT_FIELD_BASE_OFFSET);
+				World::create<ContainmentFieldEntity>(awk->get<Transform>()->parent.ref(), pos, rot, team.ref()->team());
 			}
 			break;
 		}
@@ -647,6 +660,7 @@ PlayerManager::PlayerManager(Team* team)
 	team(team),
 	credits(Game::level.has_feature(Game::FeatureLevel::Abilities) ? CREDITS_INITIAL : 0),
 	upgrades(0),
+	abilities{ Ability::None, Ability::None, Ability::None },
 	entity(),
 	spawn(),
 	current_spawn_ability(Ability::None),
@@ -668,12 +682,6 @@ b8 PlayerManager::upgrade_start(Upgrade u)
 	return false;
 }
 
-// sensor lvl 1 - spawn sensors
-// sensor lvl 2 - steal enemy health
-// rocket lvl 1 - spawn rocket pods
-// rocket lvl 2 - +1 max HP
-// minion lvl 1 - spawn minions
-// minion lvl 2 - containment field
 void PlayerManager::upgrade_complete()
 {
 	Upgrade u = current_upgrade;
@@ -690,21 +698,17 @@ void PlayerManager::upgrade_complete()
 
 	upgrades |= 1 << (u32)u;
 	add_credits(-cost);
-	if (u == Upgrade::Sensor)
+
+	if ((s32)u < (s32)Ability::count)
 	{
+		// it's an ability
+		abilities[ability_count()] = (Ability)u;
 	}
-	else if (u == Upgrade::HealthBuff)
+
+	if (u == Upgrade::HealthBuff)
 	{
 		entity.ref()->get<Health>()->hp_max = AWK_HEALTH + 1;
 		entity.ref()->get<Health>()->added.fire(); // trigger UI animation
-	}
-	else if (u == Upgrade::ContainmentField)
-	{
-		for (auto i = MinionCommon::list.iterator(); !i.is_last(); i.next())
-		{
-			if (i.item()->owner.ref() == this)
-				i.item()->create_containment_field();
-		}
 	}
 
 	upgrade_completed.fire(u);
@@ -724,12 +728,29 @@ b8 PlayerManager::upgrade_available(Upgrade u) const
 		for (s32 i = 0; i < (s32)Upgrade::count; i++)
 		{
 			if (!has_upgrade((Upgrade)i) && credits >= upgrade_cost((Upgrade)i))
-				return true;
+			{
+				if (i >= (s32)Ability::count || ability_count() < MAX_ABILITIES)
+					return true; // either it's not an ability, or it is an ability and we have enough room for it
+			}
 		}
 		return false;
 	}
 	else
-		return !has_upgrade(u);
+	{
+		// make sure that either it's not an ability, or it is an ability and we have enough room for it
+		return !has_upgrade(u) && ((s32)u >= (s32)Ability::count || ability_count() < MAX_ABILITIES);
+	}
+}
+
+s32 PlayerManager::ability_count() const
+{
+	s32 count = 0;
+	for (s32 i = 0; i < MAX_ABILITIES; i++)
+	{
+		if (abilities[i] != Ability::None)
+			count++;
+	}
+	return count;
 }
 
 void PlayerManager::add_credits(u16 c)

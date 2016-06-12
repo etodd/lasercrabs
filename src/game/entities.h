@@ -104,6 +104,28 @@ struct RocketEntity : public Entity
 	RocketEntity(Entity*, Transform*, const Vec3&, const Quat&, AI::Team);
 };
 
+#define CONTAINMENT_FIELD_RADIUS 20.0f
+#define CONTAINMENT_FIELD_BASE_OFFSET 1.5f
+struct ContainmentField : public ComponentType<ContainmentField>
+{
+	static b8 inside(AI::Team, const Vec3&);
+
+	AI::Team team;
+	Ref<Entity> field;
+
+	ContainmentField(const Vec3&, AI::Team);
+	void awake();
+	~ContainmentField();
+	void hit_by(const TargetEvent&);
+	void killed(Entity*);
+	void player_exited(Entity*);
+};
+
+struct ContainmentFieldEntity : public Entity
+{
+	ContainmentFieldEntity(Transform*, const Vec3&, const Quat&, AI::Team);
+};
+
 // for AI
 struct SensorInterestPoint : public ComponentType<SensorInterestPoint>
 {

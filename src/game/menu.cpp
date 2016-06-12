@@ -334,7 +334,7 @@ void update(const Update& u)
 				&& team_a_count > 0 && team_b_count > 0)
 			{
 				Game::save = Game::Save();
-				Game::save.level_index = 1; // skip tutorial
+				Game::save.level_index = 2; // skip tutorials
 				transition(Game::levels[Game::save.level_index], Game::Mode::Pvp);
 			}
 			break;

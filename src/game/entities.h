@@ -249,17 +249,16 @@ struct Terminal : public Entity
 
 struct ProjectileEntity : public Entity
 {
-	ProjectileEntity(Entity*, const Vec3&, u16, const Vec3&);
+	ProjectileEntity(Entity*, const Vec3&, const Vec3&);
 };
 
 struct Projectile : public ComponentType<Projectile>
 {
 	Ref<Entity> owner;
 	Vec3 velocity;
-	u16 damage;
 	r32 lifetime;
 
-	Projectile(Entity*, u16, const Vec3&);
+	Projectile(Entity*, const Vec3&);
 	void awake();
 
 	void update(const Update&);

@@ -226,8 +226,15 @@ namespace AIBehaviors
 		void run();
 	};
 
-	struct RocketInbound : Base<RocketInbound>
+	struct AttackInbound : Base<AttackInbound>
 	{
+		void run();
+	};
+
+	struct HasUpgrade : Base<HasUpgrade>
+	{
+		Upgrade upgrade;
+		HasUpgrade(Upgrade);
 		void run();
 	};
 
@@ -260,7 +267,8 @@ namespace AIBehaviors
 	{
 		AbilitySpawnFilter filter;
 		Ability ability;
-		AbilitySpawn(s8, Ability, AbilitySpawnFilter);
+		Upgrade required_upgrade;
+		AbilitySpawn(s8, Upgrade, Ability, AbilitySpawnFilter);
 		void completed(Ability);
 		void set_context(void*);
 		void run();

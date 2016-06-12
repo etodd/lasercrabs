@@ -910,10 +910,11 @@ void LocalPlayerControl::hit_target(Entity* target)
 {
 	rumble = vi_max(rumble, 0.5f);
 	if (target->has<MinionAI>())
-	{
 		player.ref()->msg(_(strings::minion_killed), true);
-		if (target->get<AIAgent>()->team != get<AIAgent>()->team)
-			player.ref()->manager.ref()->add_credits(CREDITS_MINION);
+	else if (target->has<Sensor>())
+	{
+		b8 is_enemy = target->get<Sensor>()->team != get<AIAgent>()->team;
+		player.ref()->msg(_(strings::sensor_destroyed), is_enemy);
 	}
 }
 
@@ -924,12 +925,9 @@ void LocalPlayerControl::damaged(const DamageEvent& e)
 
 void LocalPlayerControl::hit_by(const TargetEvent& e)
 {
-	if (get<Health>()->hp <= e.hit_by->get<Health>()->hp)
-	{
-		// we were physically hit by the enemy; shake the camera
-		damage_timer = damage_shake_time;
-		rumble = vi_max(rumble, 1.0f);
-	}
+	// we were physically hit by something; shake the camera
+	damage_timer = damage_shake_time;
+	rumble = vi_max(rumble, 1.0f);
 }
 
 void LocalPlayerControl::health_picked_up()
@@ -1567,16 +1565,42 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 				}
 				case TargetIndicator::Type::Minion:
 				{
-					UI::indicator(params, indicator.pos, UI::alert_color, false);
+					UI::indicator(params, indicator.pos, UI::alert_color, true);
 					break;
 				}
 			}
 		}
 	}
 
-	// highlight control points
 	{
 		Vec3 me = get<Transform>()->absolute_pos();
+
+		// minion cooldown bars
+		for (auto i = MinionCommon::list.iterator(); !i.is_last(); i.next())
+		{
+			if (i.item()->attack_timer > 0.0f)
+			{
+				Vec3 head = i.item()->head_pos();
+				if ((head - me).length_squared() < AWK_MAX_DISTANCE * AWK_MAX_DISTANCE)
+				{
+					AI::Team minion_team = i.item()->get<AIAgent>()->team;
+					// if the minion is on our team, we can let the indicator go offscreen
+					// if it's an enemy minion, clamp the indicator inside the screen
+					Vec2 p;
+					if (UI::is_onscreen(params, head, &p) || minion_team != team)
+					{
+						Vec2 bar_size(40.0f * UI::scale, 8.0f * UI::scale);
+						Rect2 bar = { p + Vec2(0, 40.0f * UI::scale) + (bar_size * -0.5f), bar_size };
+						UI::box(params, bar, UI::background_color);
+						const Vec4& color = Team::ui_color(team, minion_team);
+						UI::border(params, bar, 2, color);
+						UI::box(params, { bar.pos, Vec2(bar.size.x * (1.0f - (i.item()->attack_timer / MINION_ATTACK_TIME)), bar.size.y) }, color);
+					}
+				}
+			}
+		}
+
+		// highlight control points
 		for (auto i = ControlPoint::list.iterator(); !i.is_last(); i.next())
 		{
 			Vec3 pos = i.item()->get<Transform>()->absolute_pos();
@@ -1746,34 +1770,18 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 		}
 	}
 
+	// incoming attack warning indicator
+	if (get<Awk>()->incoming_attacker())
 	{
-		// compass
-		b8 enemy_attacking = false;
-
-		Vec3 me = get<Transform>()->absolute_pos();
-
-		for (auto i = PlayerCommon::list.iterator(); !i.is_last(); i.next())
+		// we're being attacked; flash the compass
+		b8 show = UI::flash_function(Game::real_time.total);
+		if (show)
 		{
-			if (PlayerCommon::visibility.get(PlayerCommon::visibility_hash(get<PlayerCommon>(), i.item())))
-			{
-				// determine if they're attacking us
-				if (!i.item()->get<Transform>()->parent.ref()
-					&& Vec3::normalize(i.item()->get<Awk>()->velocity).dot(Vec3::normalize(me - i.item()->get<Transform>()->absolute_pos())) > 0.95f)
-					enemy_attacking = true;
-			}
+			Vec2 compass_size = Vec2(vi_min(viewport.size.x, viewport.size.y) * 0.3f);
+			UI::mesh(params, Asset::Mesh::compass, viewport.size * Vec2(0.5f, 0.5f), compass_size, UI::alert_color);
 		}
-
-		Vec2 compass_size = Vec2(vi_min(viewport.size.x, viewport.size.y) * 0.3f);
-
-		if (enemy_attacking)
-		{
-			// we're being attacked; flash the compass
-			b8 show = UI::flash_function(Game::real_time.total);
-			if (show)
-				UI::mesh(params, Asset::Mesh::compass, viewport.size * Vec2(0.5f, 0.5f), compass_size, UI::alert_color);
-			if (show && !UI::flash_function(Game::real_time.total - Game::real_time.delta))
-				Audio::post_global_event(AK::EVENTS::PLAY_BEEP_BAD);
-		}
+		if (show && !UI::flash_function(Game::real_time.total - Game::real_time.delta))
+			Audio::post_global_event(AK::EVENTS::PLAY_BEEP_BAD);
 	}
 
 	// health indicator
@@ -1871,7 +1879,7 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 			text.color = UI::background_color;
 			text.anchor_x = UIText::Anchor::Center;
 			text.anchor_y = UIText::Anchor::Center;
-			text.text(_(strings::alarm));
+			text.text(_(strings::enemy_tracking));
 			text.draw(params, bar.pos + bar.size * 0.5f);
 
 			// todo: sound

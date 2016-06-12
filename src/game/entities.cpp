@@ -446,6 +446,15 @@ Rocket* Rocket::inbound(Entity* target)
 	return nullptr;
 }
 
+// apply damage from a surrogate (rocket pod, projectile, etc.) to an enemy Awk
+void do_surrogate_damage(Entity* awk, Entity* surrogate, Entity* owner)
+{
+	b8 shielded = awk->get<Awk>()->invincible_timer > 0.0f;
+	awk->get<Target>()->hit(surrogate);
+	if (awk->get<Health>()->hp > 0 && owner && owner->has<LocalPlayerControl>())
+		owner->get<LocalPlayerControl>()->player.ref()->msg(_(shielded ? strings::target_shield_down : strings::target_damaged), true);
+}
+
 void Rocket::update(const Update& u)
 {
 	if (!get<Transform>()->parent.ref())
@@ -474,12 +483,7 @@ void Rocket::update(const Update& u)
 
 				// do damage
 				if (hit->has<Awk>())
-				{
-					b8 shielded = hit->get<Awk>()->invincible_timer > 0.0f;
-					hit->get<Target>()->hit(entity());
-					if (hit->get<Health>()->hp > 0 && owner.ref() && owner.ref()->get<LocalPlayerControl>())
-						owner.ref()->get<LocalPlayerControl>()->player.ref()->msg(_(shielded ? strings::target_shield_down : strings::target_damaged), true);
-				}
+					do_surrogate_damage(hit, entity(), owner.ref());
 				else if (hit->has<Health>())
 					hit->get<Health>()->damage(entity(), get<Health>()->hp_max);
 
@@ -580,11 +584,12 @@ Terminal::Terminal()
 	l->offset = view->offset;
 }
 
-#define PROJECTILE_SPEED 30.0f
+#define PROJECTILE_SPEED 25.0f
 #define PROJECTILE_LENGTH 1.0f
 #define PROJECTILE_THICKNESS 0.05f
 #define PROJECTILE_MAX_LIFETIME 5.0f
-ProjectileEntity::ProjectileEntity(Entity* owner, const Vec3& pos, u16 damage, const Vec3& velocity)
+#define PROJECTILE_DAMAGE 1
+ProjectileEntity::ProjectileEntity(Entity* owner, const Vec3& pos, const Vec3& velocity)
 {
 	Vec3 dir = Vec3::normalize(velocity);
 	Transform* transform = create<Transform>();
@@ -597,11 +602,11 @@ ProjectileEntity::ProjectileEntity(Entity* owner, const Vec3& pos, u16 damage, c
 
 	create<Audio>();
 
-	create<Projectile>(owner, damage, dir * PROJECTILE_SPEED);
+	create<Projectile>(owner, dir * PROJECTILE_SPEED);
 }
 
-Projectile::Projectile(Entity* entity, u16 damage, const Vec3& velocity)
-	: owner(entity), damage(damage), velocity(velocity), lifetime()
+Projectile::Projectile(Entity* entity, const Vec3& velocity)
+	: owner(entity), velocity(velocity), lifetime()
 {
 }
 
@@ -629,10 +634,15 @@ void Projectile::update(const Update& u)
 		if (hit_object != owner.ref())
 		{
 			Vec3 basis;
-			if (hit_object->has<Health>())
+			if (hit_object->has<Awk>())
 			{
 				basis = Vec3::normalize(velocity);
-				hit_object->get<Health>()->damage(owner.ref(), damage);
+				do_surrogate_damage(hit_object, entity(), owner.ref());
+			}
+			else if (hit_object->has<Health>())
+			{
+				basis = Vec3::normalize(velocity);
+				hit_object->get<Health>()->damage(owner.ref(), PROJECTILE_DAMAGE);
 			}
 			else
 				basis = ray_callback.m_hitNormalWorld;

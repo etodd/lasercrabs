@@ -12,6 +12,7 @@ struct TargetEvent;
 struct PlayerManager;
 
 #define MINION_HEAD_RADIUS 0.4f
+#define MINION_ATTACK_TIME 4.0f
 #define CONTAINMENT_FIELD_RADIUS 20.0f
 
 struct Minion : public Entity
@@ -21,10 +22,17 @@ struct Minion : public Entity
 
 struct MinionCommon : public ComponentType<MinionCommon>
 {
+	static MinionCommon* closest(AI::Team, const Vec3&, r32* = nullptr);
+	static b8 inside_containment_field(AI::Team, const Vec3&);
+
 	Ref<PlayerManager> owner;
 	Ref<Entity> containment_field;
-	void create_containment_field();
+	r32 attack_timer;
+
 	void awake();
+	~MinionCommon();
+
+	void create_containment_field();
 	Vec3 head_pos();
 	b8 headshot_test(const Vec3&, const Vec3&);
 	void hit_by(const TargetEvent& e);
@@ -32,10 +40,7 @@ struct MinionCommon : public ComponentType<MinionCommon>
 	void landed(r32);
 	void footstep();
 	void update(const Update&);
-	~MinionCommon();
 	void player_exited(Entity*);
-	static MinionCommon* closest(AI::Team, const Vec3&, r32* = nullptr);
-	static b8 inside_containment_field(AI::Team, const Vec3&);
 };
 
 struct MinionAI : public ComponentType<MinionAI>
@@ -67,7 +72,6 @@ struct MinionAI : public ComponentType<MinionAI>
 	AI::Path path;
 	u8 path_index;
 	r32 path_timer;
-	r32 attack_timer;
 
 	void awake();
 

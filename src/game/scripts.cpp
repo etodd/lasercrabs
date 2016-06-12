@@ -1362,10 +1362,16 @@ namespace tutorial
 	void health_got(const TargetEvent& e)
 	{
 		LocalPlayer::list.iterator().item()->manager.ref()->credits = CREDITS_INITIAL;
+		LocalPlayer::list.iterator().item()->manager.ref()->upgrades |= 1 << (u32)Upgrade::Sensor;
 		data->state = TutorialState::PvpControlPoint;
 		Penelope::data->texts.clear();
 		Penelope::data->texts.schedule(0.0f, _(strings::tut_pvp_control_points));
 		Game::level.feature_level = Game::FeatureLevel::ControlPoints;
+	}
+
+	void spawned()
+	{
+		LocalPlayerControl::list.iterator().item()->get<Health>()->hp = 2;
 	}
 
 	void minion_killed(Entity*)
@@ -1375,8 +1381,6 @@ namespace tutorial
 		Entity* health = World::create<HealthPickupEntity>(pos);
 		Rope::spawn(pos + Vec3(0, 1, 0), Vec3(0, 1, 0), 20.0f);
 		health->get<Target>()->target_hit.link(&health_got);
-
-		Game::level.feature_level = Game::FeatureLevel::HealthPickups;
 
 		data->state = TutorialState::PvpGetHealth;
 		Penelope::data->texts.clear();
@@ -1426,7 +1430,7 @@ namespace tutorial
 
 	void init(const Update& u, const EntityFinder& entities)
 	{
-		Game::level.feature_level = Game::FeatureLevel::Base;
+		Game::level.feature_level = Game::FeatureLevel::HealthPickups;
 
 		data = new Data();
 		Game::draws.add(&draw);
@@ -1452,6 +1456,8 @@ namespace tutorial
 			AIPlayer::Config* config = &player->config;
 			config->high_level = AIPlayer::HighLevelLoop::Noop;
 			config->low_level = AIPlayer::LowLevelLoop::Noop;
+
+			LocalPlayer::list.iterator().item()->manager.ref()->spawn.link(&spawned);
 
 			Penelope::init(); // have to init manually since penelope normally isn't loaded in PvP mode
 			Penelope::data->texts.schedule(3.0f, _(strings::tut_pvp_minion));

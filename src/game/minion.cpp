@@ -19,10 +19,9 @@
 #include "render/particles.h"
 
 #define WALK_SPEED 2.0f
+#define ROTATION_SPEED 6.0f
 
 #define HEALTH 3
-
-#define ATTACK_TIME 2.0f
 
 namespace VI
 {
@@ -51,6 +50,7 @@ Minion::Minion(const Vec3& pos, const Quat& quat, AI::Team team, PlayerManager* 
 
 	Walker* walker = create<Walker>(atan2f(forward.x, forward.z));
 	walker->max_speed = WALK_SPEED;
+	walker->rotation_speed = ROTATION_SPEED;
 
 	create<MinionCommon>()->owner = manager;
 
@@ -202,6 +202,8 @@ b8 MinionCommon::headshot_test(const Vec3& ray_start, const Vec3& ray_end)
 
 void MinionCommon::update(const Update& u)
 {
+	attack_timer = vi_max(0.0f, attack_timer - u.time.delta);
+
 	// update head position
 	{
 		get<Target>()->local_offset = Vec3(0.1f, 0, 0);
@@ -281,13 +283,6 @@ void MinionCommon::killed(Entity* killer)
 
 	if (killer)
 	{
-		if (killer->has<PlayerCommon>())
-		{
-			Team* team = &Team::list[(s32)get<AIAgent>()->team];
-			if (team->team() != killer->get<AIAgent>()->team)
-				team->track(killer->get<PlayerCommon>()->manager.ref(), owner.ref());
-		}
-
 		if (killer->has<Awk>())
 			head->applyImpulse(killer->get<Awk>()->velocity * 0.1f, Vec3::zero);
 		else
@@ -478,7 +473,6 @@ void MinionAI::update(const Update& u)
 			}
 			case Goal::Type::Target:
 			{
-				attack_timer = vi_max(0.0f, attack_timer - u.time.delta);
 				if (goal.entity.ref())
 				{
 					// we're going after the target
@@ -494,12 +488,15 @@ void MinionAI::update(const Update& u)
 
 						Vec3 to_target = target_pos - head_pos;
 						to_target.y = 0.0f;
-						if (attack_timer == 0.0f && Vec3::normalize(to_target).dot(get<Walker>()->forward()) > 0.9f)
+						if (get<MinionCommon>()->attack_timer == 0.0f && Vec3::normalize(to_target).dot(get<Walker>()->forward()) > 0.98f)
 						{
-							World::create<ProjectileEntity>(entity(), head_pos, 1, target_pos - head_pos);
-							attack_timer = ATTACK_TIME;
+							PlayerManager* owner = get<MinionCommon>()->owner.ref();
+							World::create<ProjectileEntity>(owner ? owner->entity.ref() : nullptr, head_pos, target_pos - head_pos);
+							get<MinionCommon>()->attack_timer = MINION_ATTACK_TIME;
 						}
 					}
+					else if (goal.entity.ref()->has<Awk>()) // if we can't see the Awk anymore, let them go
+						need_new_goal = true;
 				}
 				else
 					need_new_goal = true;

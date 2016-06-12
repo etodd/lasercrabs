@@ -72,6 +72,7 @@ struct Awk : public ComponentType<Awk>
 	void hit_target(Entity*); // Called when we hit a target
 	void damaged(const DamageEvent&);
 	void killed(Entity*);
+	Entity* incoming_attacker() const;
 
 	s32 ally_containment_field_mask() const;
 

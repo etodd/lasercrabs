@@ -30,18 +30,21 @@ AIPlayer::Config::Config()
 	aim_speed(4.0f),
 	upgrade_priority
 	{
-		Upgrade::Minion,
 		Upgrade::Sensor,
+		Upgrade::Minion,
 		Upgrade::Rocket,
+		Upgrade::HealthBuff,
+		Upgrade::HealthSteal,
+		Upgrade::ContainmentField,
 	},
 	upgrade_strategies
 	{
-		UpgradeStrategy::Ignore,
-		UpgradeStrategy::Ignore,
 		UpgradeStrategy::SaveUp,
 		UpgradeStrategy::Ignore,
-		UpgradeStrategy::Ignore,
+		UpgradeStrategy::SaveUp,
 		UpgradeStrategy::IfAvailable,
+		UpgradeStrategy::IfAvailable,
+		UpgradeStrategy::Ignore,
 	}
 {
 }
@@ -492,6 +495,14 @@ MemoryStatus minion_memory_filter(const AIPlayerControl* control, const Entity* 
 		return MemoryStatus::Update;
 }
 
+MemoryStatus sensor_memory_filter(const AIPlayerControl* control, const Entity* e)
+{
+	if (e->get<Sensor>()->team == control->get<AIAgent>()->team)
+		return MemoryStatus::Forget;
+	else
+		return MemoryStatus::Update;
+}
+
 MemoryStatus awk_memory_filter(const AIPlayerControl* control, const Entity* e)
 {
 	if (e->get<AIAgent>()->stealth)
@@ -591,7 +602,11 @@ b8 should_spawn_sensor(const AIPlayerControl* control)
 
 b8 should_spawn_rocket(const AIPlayerControl* control)
 {
-	// todo
+	if (control->player.ref()->saving_up() == Upgrade::None) // rockets are a luxury
+	{
+		// todo
+		return false;
+	}
 	return false;
 }
 
@@ -646,23 +661,24 @@ Repeat* make_low_level_loop(AIPlayerControl* control, const AIPlayer::Config& co
 								(
 									Sequence::alloc
 									(
-										AIBehaviors::RocketInbound::alloc(),
+										AIBehaviors::AttackInbound::alloc(),
 										AIBehaviors::Panic::alloc(10000)
 									),
 									AIBehaviors::RunAway::alloc(Awk::family, 5, &awk_run_filter),
 									AIBehaviors::ReactTarget::alloc(Awk::family, 4, 6, &awk_attack_filter),
+									AIBehaviors::ReactTarget::alloc(MinionAI::family, 4, 5, &default_filter),
 									Sequence::alloc
 									(
 										Invert::alloc(Execute::alloc()->method<Health, &Health::is_full>(control->get<Health>())), // make sure we need health
-										AIBehaviors::ReactTarget::alloc(HealthPickup::family, 3, 5, &health_pickup_filter)
+										AIBehaviors::ReactTarget::alloc(HealthPickup::family, 3, 4, &health_pickup_filter)
 									)
 								),
 								Select::alloc
 								(
-									AIBehaviors::ReactTarget::alloc(MinionAI::family, 3, 4, &default_filter),
-									AIBehaviors::AbilitySpawn::alloc(3, Ability::Sensor, &should_spawn_sensor),
-									AIBehaviors::AbilitySpawn::alloc(3, Ability::Rocket, &should_spawn_rocket),
-									AIBehaviors::AbilitySpawn::alloc(3, Ability::Minion, &should_spawn_minion),
+									AIBehaviors::ReactTarget::alloc(Sensor::family, 3, 3, &default_filter),
+									AIBehaviors::AbilitySpawn::alloc(3, Upgrade::Sensor, Ability::Sensor, &should_spawn_sensor),
+									AIBehaviors::AbilitySpawn::alloc(3, Upgrade::Rocket, Ability::Rocket, &should_spawn_rocket),
+									AIBehaviors::AbilitySpawn::alloc(3, Upgrade::Minion, Ability::Minion, &should_spawn_minion),
 									Sequence::alloc
 									(
 										AIBehaviors::WantUpgrade::alloc(),
@@ -721,8 +737,13 @@ Repeat* make_high_level_loop(AIPlayerControl* control, const AIPlayer::Config& c
 								AIBehaviors::ToSpawn::alloc(4)
 							),
 							AIBehaviors::Find::alloc(MinionAI::family, 2, &minion_filter),
+							AIBehaviors::Find::alloc(Sensor::family, 2, &default_filter),
 							AIBehaviors::Find::alloc(Awk::family, 2, &awk_attack_filter),
-							AIBehaviors::Find::alloc(SensorInterestPoint::family, 2, &sensor_interest_point_filter),
+							Sequence::alloc
+							(
+								AIBehaviors::HasUpgrade::alloc(Upgrade::Sensor),
+								AIBehaviors::Find::alloc(SensorInterestPoint::family, 2, &sensor_interest_point_filter)
+							),
 							AIBehaviors::RandomPath::alloc(1),
 							AIBehaviors::Panic::alloc(1)
 						)
@@ -775,6 +796,7 @@ b8 AIPlayerControl::update_memory()
 {
 	update_component_memory<HealthPickup>(this, &default_memory_filter);
 	update_component_memory<MinionAI>(this, &minion_memory_filter);
+	update_component_memory<Sensor>(this, &sensor_memory_filter);
 	update_component_memory<SensorInterestPoint>(this, &default_memory_filter);
 
 	// update memory of enemy AWK positions based on team sensor data
@@ -966,22 +988,21 @@ void RandomPath::run()
 		done(false);
 }
 
-void RocketInbound::run()
+void AttackInbound::run()
 {
 	active(true);
-	if (!control->get<AIAgent>()->stealth)
-	{
-		Rocket* rocket = Rocket::inbound(control->entity());
-		if (rocket)
-		{
-			// only worry about it if the rocket can actually see us
-			btCollisionWorld::ClosestRayResultCallback ray_callback(control->get<Transform>()->absolute_pos(), rocket->get<Transform>()->absolute_pos());
-			Physics::raycast(&ray_callback, ~CollisionAwk & ~CollisionAwkIgnore & ~CollisionShield);
-			done(!ray_callback.hasHit());
-			return;
-		}
-	}
-	done(false);
+	done(control->get<Awk>()->incoming_attacker() != nullptr);
+}
+
+HasUpgrade::HasUpgrade(Upgrade u)
+	: upgrade(u)
+{
+}
+
+void HasUpgrade::run()
+{
+	active(true);
+	done(control->player.ref()->manager.ref()->has_upgrade(upgrade));
 }
 
 Panic::Panic(s8 priority)
@@ -1041,8 +1062,8 @@ void WaitForAttachment::run()
 		done(true);
 }
 
-AbilitySpawn::AbilitySpawn(s8 priority, Ability ability, AbilitySpawnFilter filter)
-	: ability(ability), filter(filter)
+AbilitySpawn::AbilitySpawn(s8 priority, Upgrade required_upgrade, Ability ability, AbilitySpawnFilter filter)
+	: required_upgrade(required_upgrade), ability(ability), filter(filter)
 {
 	AbilitySpawn::path_priority = priority;
 }
@@ -1069,7 +1090,7 @@ void AbilitySpawn::run()
 
 	if (AbilitySpawn::path_priority > control->path_priority
 		&& control->get<Transform>()->parent.ref()
-		&& manager->has_upgrade((Upgrade)ability)
+		&& manager->has_upgrade(required_upgrade)
 		&& manager->credits > info.spawn_cost
 		&& filter(control))
 	{
@@ -1260,10 +1281,15 @@ void DoUpgrade::set_context(void* ctx)
 	control->player.ref()->manager.ref()->upgrade_completed.link<DoUpgrade, Upgrade, &DoUpgrade::completed>(this);
 }
 
-void DoUpgrade::completed(Upgrade)
+void DoUpgrade::completed(Upgrade u)
 {
 	if (active())
+	{
+#if DEBUG_AI_CONTROL
+		vi_debug("Upgrade: %d", u);
+#endif
 		done(true);
+	}
 }
 
 void DoUpgrade::run()

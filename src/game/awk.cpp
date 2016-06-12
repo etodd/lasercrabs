@@ -160,6 +160,58 @@ Vec3 Awk::center() const
 	return get<Transform>()->to_world((get<SkinnedModel>()->offset * Vec4(0, 0, 0, 1)).xyz());
 }
 
+Entity* Awk::incoming_attacker() const
+{
+	Vec3 me = center();
+
+	// check incoming Awks
+	for (auto i = PlayerCommon::list.iterator(); !i.is_last(); i.next())
+	{
+		if (PlayerCommon::visibility.get(PlayerCommon::visibility_hash(get<PlayerCommon>(), i.item())))
+		{
+			// determine if they're attacking us
+			if (!i.item()->get<Transform>()->parent.ref()
+				&& Vec3::normalize(i.item()->get<Awk>()->velocity).dot(Vec3::normalize(me - i.item()->get<Transform>()->absolute_pos())) > 0.98f)
+			{
+				return i.item()->entity();
+			}
+		}
+	}
+
+	// check incoming projectiles
+	for (auto i = Projectile::list.iterator(); !i.is_last(); i.next())
+	{
+		Vec3 velocity = Vec3::normalize(i.item()->velocity);
+		Vec3 projectile_pos = i.item()->get<Transform>()->absolute_pos();
+		Vec3 to_me = me - projectile_pos;
+		r32 dot = velocity.dot(to_me);
+		if (dot > 0.0f && dot < AWK_MAX_DISTANCE && velocity.dot(Vec3::normalize(to_me)) > 0.98f)
+		{
+			// only worry about it if it can actually see us
+			btCollisionWorld::ClosestRayResultCallback ray_callback(me, projectile_pos);
+			Physics::raycast(&ray_callback, ~CollisionAwk & ~CollisionAwkIgnore & ~CollisionShield);
+			if (!ray_callback.hasHit())
+				return i.item()->entity();
+		}
+	}
+
+	// check incoming rockets
+	if (!get<AIAgent>()->stealth)
+	{
+		Rocket* rocket = Rocket::inbound(entity());
+		if (rocket)
+		{
+			// only worry about it if the rocket can actually see us
+			btCollisionWorld::ClosestRayResultCallback ray_callback(me, rocket->get<Transform>()->absolute_pos());
+			Physics::raycast(&ray_callback, ~CollisionAwk & ~CollisionAwkIgnore & ~CollisionShield);
+			if (!ray_callback.hasHit())
+				return rocket->entity();
+		}
+	}
+
+	return nullptr;
+}
+
 void Awk::hit_by(const TargetEvent& e)
 {
 	b8 damaged = false;
@@ -239,6 +291,19 @@ void Awk::hit_target(Entity* target)
 		);
 	}
 
+	// award credits for hitting stuff
+	if (target->has<MinionAI>())
+	{
+		if (target->get<AIAgent>()->team != get<AIAgent>()->team)
+			get<PlayerCommon>()->manager.ref()->add_credits(CREDITS_MINION);
+	}
+	else if (target->has<Sensor>())
+	{
+		b8 is_enemy = target->get<Sensor>()->team != get<AIAgent>()->team;
+		if (is_enemy)
+			get<PlayerCommon>()->manager.ref()->add_credits(CREDITS_SENSOR_DESTROY);
+	}
+
 	hit.fire(target);
 }
 
@@ -295,11 +360,10 @@ void Awk::damaged(const DamageEvent& e)
 				pickups.push(i.item());
 		}
 
-		while (new_health_pickup_count < health_pickup_count && health_pickup_count > 0)
+		while (new_health_pickup_count < health_pickup_count && pickups.size() > 0)
 		{
 			HealthPickup* p = pickups.pop();
 			p->reset();
-			health_pickup_count--;
 		}
 	}
 }

@@ -42,12 +42,12 @@ AbilityInfo AbilityInfo::list[] =
 	{
 		Asset::Mesh::icon_rocket,
 		1.25f,
-		7,
+		5,
 	},
 	{
 		Asset::Mesh::icon_minion,
 		1.5f,
-		5,
+		7,
 	},
 };
 
@@ -57,7 +57,7 @@ UpgradeInfo UpgradeInfo::list[] =
 		strings::sensor,
 		strings::description_sensor,
 		Asset::Mesh::icon_sensor,
-		50,
+		40,
 	},
 	{
 		strings::rocket,
@@ -205,7 +205,12 @@ void level_retry()
 	if (Game::state.local_multiplayer)
 		Menu::transition(Game::state.level, Game::Mode::Pvp);
 	else
-		Menu::transition(Game::levels[Game::save.level_index], Game::Mode::Parkour);
+	{
+		if (Game::save.level_index < 2) // tutorial levels; just retry
+			Menu::transition(Game::levels[Game::save.level_index], Game::Mode::Pvp);
+		else
+			Menu::transition(Game::levels[Game::save.level_index], Game::Mode::Parkour);
+	}
 }
 
 void level_next()
@@ -231,7 +236,9 @@ void level_next()
 	{
 		// campaign mode; advance to next level
 		next_mode = Game::Mode::Parkour;
-		if (Game::level.lock_teams || Game::save.round == (s32)AI::Team::count - 1)
+		if (Game::level.lock_teams
+			|| Game::save.level_index < 3 // advance past tutorials and first level after only one round
+			|| Game::save.round == (s32)AI::Team::count - 1)
 		{
 			// advance to next level
 			Game::save.level_index++;
@@ -639,7 +646,7 @@ PlayerManager::PlayerManager(Team* team)
 	: spawn_timer(PLAYER_SPAWN_DELAY),
 	team(team),
 	credits(Game::level.has_feature(Game::FeatureLevel::Abilities) ? CREDITS_INITIAL : 0),
-	upgrades(Game::level.has_feature(Game::FeatureLevel::Abilities) ? (1 << (u32)Upgrade::Sensor) : 0),
+	upgrades(0),
 	entity(),
 	spawn(),
 	current_spawn_ability(Ability::None),

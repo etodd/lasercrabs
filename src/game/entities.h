@@ -105,9 +105,12 @@ struct RocketEntity : public Entity
 };
 
 #define CONTAINMENT_FIELD_RADIUS 20.0f
-#define CONTAINMENT_FIELD_BASE_OFFSET 1.5f
+#define CONTAINMENT_FIELD_BASE_OFFSET 1.0f
 struct ContainmentField : public ComponentType<ContainmentField>
 {
+	static r32 particle_accumulator;
+
+	static void update_all(const Update&);
 	static b8 inside(AI::Team, const Vec3&);
 
 	AI::Team team;
@@ -118,7 +121,6 @@ struct ContainmentField : public ComponentType<ContainmentField>
 	~ContainmentField();
 	void hit_by(const TargetEvent&);
 	void killed(Entity*);
-	void player_exited(Entity*);
 };
 
 struct ContainmentFieldEntity : public Entity

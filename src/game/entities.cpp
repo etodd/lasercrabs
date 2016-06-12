@@ -595,7 +595,6 @@ void ContainmentField::awake()
 {
 	link_arg<const TargetEvent&, &ContainmentField::hit_by>(get<Target>()->target_hit);
 	link_arg<Entity*, &ContainmentField::killed>(get<Health>()->killed);
-	link_arg<Entity*, &ContainmentField::player_exited>(get<PlayerTrigger>()->exited);
 }
 
 ContainmentField::~ContainmentField()
@@ -614,29 +613,29 @@ void ContainmentField::killed(Entity*)
 	World::remove_deferred(entity());
 }
 
-void ContainmentField::player_exited(Entity* player)
+r32 ContainmentField::particle_accumulator;
+void ContainmentField::update_all(const Update& u)
 {
-	if (player->get<AIAgent>()->team != team
-		&& player->get<Health>()->hp > 1) // don't kill the player
+	const r32 interval = 0.1f;
+	particle_accumulator += u.time.delta;
+	if (particle_accumulator > interval)
 	{
-		player->get<Health>()->damage(entity(), 1);
-
-		Vec3 pos;
-		Quat rot;
-		player->get<Transform>()->absolute(&pos, &rot);
-		for (s32 i = 0; i < 50; i++)
+		particle_accumulator -= interval;
+		for (auto i = list.iterator(); !i.is_last(); i.next())
 		{
-			Particles::sparks.add
+			Vec3 pos = i.item()->get<Transform>()->absolute_pos();
+
+			Particles::eased_particles.add
 			(
+				pos + Quat::euler(0.0f, mersenne::randf_co() * PI * 2.0f, (mersenne::randf_co() - 0.5f) * PI) * Vec3(0, 0, 2.0f),
 				pos,
-				rot * Vec3(mersenne::randf_oo() * 2.0f - 1.0f, mersenne::randf_oo() * 2.0f - 1.0f, mersenne::randf_oo()) * 10.0f,
-				Vec4(1, 1, 1, 1)
+				PI * 0.25f
 			);
 		}
 	}
 }
 
-
+#define CONTAINMENT_FIELD_BASE_RADIUS 0.385f
 ContainmentFieldEntity::ContainmentFieldEntity(Transform* parent, const Vec3& abs_pos, const Quat& abs_rot, AI::Team team)
 {
 	Transform* transform = create<Transform>();
@@ -648,12 +647,11 @@ ContainmentFieldEntity::ContainmentFieldEntity(Transform* parent, const Vec3& ab
 	model->mesh = Asset::Mesh::containment_field_base;
 	model->shader = Asset::Shader::standard;
 
-	create<PlayerTrigger>()->radius = CONTAINMENT_FIELD_RADIUS;
 	create<Target>();
 	create<Health>(SENSOR_HEALTH, SENSOR_HEALTH);
 	create<ContainmentField>(abs_pos, team);
 
-	RigidBody* body = create<RigidBody>(RigidBody::Type::Sphere, Vec3(HEALTH_PICKUP_RADIUS), 0.0f, CollisionAwkIgnore | CollisionTarget, ~CollisionAwk & ~CollisionShield);
+	RigidBody* body = create<RigidBody>(RigidBody::Type::Sphere, Vec3(CONTAINMENT_FIELD_BASE_RADIUS), 0.0f, CollisionAwkIgnore | CollisionTarget, ~CollisionAwk & ~CollisionShield);
 	body->set_damping(0.5f, 0.5f);
 }
 

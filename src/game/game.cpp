@@ -285,6 +285,7 @@ void Game::update(const Update& update_in)
 	for (auto i = Parkour::list.iterator(); !i.is_last(); i.next())
 		i.item()->update(u);
 	Sensor::update_all(u);
+	ContainmentField::update_all(u);
 	ControlPoint::update_all(u);
 	for (auto i = Shockwave::list.iterator(); !i.is_last(); i.next())
 		i.item()->update(u);

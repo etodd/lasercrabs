@@ -337,6 +337,7 @@ add_executable(yearning
 	src/game/usernames.cpp
 	external/sdl_controllers/gamecontrollerdb.txt
 	assets/shader/particle_standard.glsl
+	assets/shader/particle_eased.glsl
 	assets/shader/particle_textured.glsl
 	assets/shader/particle_spark.glsl
 	assets/shader/armature.glsl

@@ -303,6 +303,12 @@ void Awk::hit_target(Entity* target)
 		if (is_enemy)
 			get<PlayerCommon>()->manager.ref()->add_credits(CREDITS_SENSOR_DESTROY);
 	}
+	else if (target->has<ContainmentField>())
+	{
+		b8 is_enemy = target->get<ContainmentField>()->team != get<AIAgent>()->team;
+		if (is_enemy)
+			get<PlayerCommon>()->manager.ref()->add_credits(CREDITS_CONTAINMENT_FIELD_DESTROY);
+	}
 
 	hit.fire(target);
 }

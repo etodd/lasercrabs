@@ -928,6 +928,11 @@ void LocalPlayerControl::hit_target(Entity* target)
 		b8 is_enemy = target->get<Sensor>()->team != get<AIAgent>()->team;
 		player.ref()->msg(_(strings::sensor_destroyed), is_enemy);
 	}
+	else if (target->has<ContainmentField>())
+	{
+		b8 is_enemy = target->get<ContainmentField>()->team != get<AIAgent>()->team;
+		player.ref()->msg(_(strings::containment_field_destroyed), is_enemy);
+	}
 }
 
 void LocalPlayerControl::damaged(const DamageEvent& e)

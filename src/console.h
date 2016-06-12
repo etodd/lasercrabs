@@ -25,6 +25,7 @@ struct Console
 	static UIText log_text;
 	static s32 fps_count;
 	static r32 fps_accumulator;
+	static r32 longest_frame_time;
 	static b8 fps_visible;
 	static char shift_map[127];
 	static char normal_map[127];

@@ -61,6 +61,7 @@ struct Particles
 {
 	static Sparks sparks;
 	static StandardParticleSystem tracers;
+	static StandardParticleSystem eased_particles;
 };
 
 }

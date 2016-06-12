@@ -18,6 +18,7 @@ UIText Console::log_text;
 b8 Console::fps_visible = false;
 s32 Console::fps_count = 0;
 r32 Console::fps_accumulator = 0;
+r32 Console::longest_frame_time = 0;
 b8 Console::visible = false;
 char Console::shift_map[127];
 char Console::normal_map[127];
@@ -122,13 +123,15 @@ void Console::update(const Update& u)
 	{
 		fps_count += 1;
 		fps_accumulator += Game::real_time.delta;
+		longest_frame_time = vi_max(Game::real_time.delta, longest_frame_time);
 		if (fps_accumulator > 0.5f)
 		{
 			char fps_label[256];
-			sprintf(fps_label, "%.0f %.0fms", fps_count / fps_accumulator, (fps_accumulator / fps_count) * 1000.0f);
+			sprintf(fps_label, "%.0f %.0fms", fps_count / fps_accumulator, longest_frame_time * 1000.0f);
 			fps_text.text(fps_label);
 			fps_accumulator = 0.0f;
 			fps_count = 0;
+			longest_frame_time = 0;
 		}
 	}
 

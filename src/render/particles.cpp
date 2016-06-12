@@ -324,4 +324,14 @@ StandardParticleSystem Particles::tracers
 	Vec4(1, 1, 1, 1)
 );
 
+StandardParticleSystem Particles::eased_particles
+(
+	Vec2(0.1f),
+	Vec2(0.0f),
+	3.0f,
+	Vec3::zero,
+	Vec4(1, 1, 1, 1),
+	Asset::Shader::particle_eased
+);
+
 }

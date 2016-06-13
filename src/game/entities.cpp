@@ -189,7 +189,7 @@ SensorEntity::SensorEntity(PlayerManager* owner, const Vec3& abs_pos, const Quat
 
 Sensor::Sensor(AI::Team t, PlayerManager* m)
 	: team(t),
-	player_manager(m)
+	owner(m)
 {
 }
 
@@ -552,8 +552,8 @@ b8 ContainmentField::inside(AI::Team my_team, const Vec3& pos)
 	return false;
 }
 
-ContainmentField::ContainmentField(const Vec3& abs_pos, AI::Team team)
-	: team(team)
+ContainmentField::ContainmentField(const Vec3& abs_pos, PlayerManager* m)
+	: team(m->team.ref()->team()), owner(m)
 {
 	Entity* f = World::alloc<Empty>();
 	f->get<Transform>()->absolute_pos(abs_pos);
@@ -636,20 +636,20 @@ void ContainmentField::update_all(const Update& u)
 }
 
 #define CONTAINMENT_FIELD_BASE_RADIUS 0.385f
-ContainmentFieldEntity::ContainmentFieldEntity(Transform* parent, const Vec3& abs_pos, const Quat& abs_rot, AI::Team team)
+ContainmentFieldEntity::ContainmentFieldEntity(Transform* parent, const Vec3& abs_pos, const Quat& abs_rot, PlayerManager* m)
 {
 	Transform* transform = create<Transform>();
 	transform->absolute(abs_pos, abs_rot);
 	transform->reparent(parent);
 
 	View* model = create<View>();
-	model->team = (u8)team;
+	model->team = (u8)m->team.ref()->team();
 	model->mesh = Asset::Mesh::containment_field_base;
 	model->shader = Asset::Shader::standard;
 
 	create<Target>();
 	create<Health>(SENSOR_HEALTH, SENSOR_HEALTH);
-	create<ContainmentField>(abs_pos, team);
+	create<ContainmentField>(abs_pos, m);
 
 	RigidBody* body = create<RigidBody>(RigidBody::Type::Sphere, Vec3(CONTAINMENT_FIELD_BASE_RADIUS), 0.0f, CollisionAwkIgnore | CollisionTarget, ~CollisionAwk & ~CollisionShield);
 	body->set_damping(0.5f, 0.5f);

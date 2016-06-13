@@ -295,19 +295,28 @@ void Awk::hit_target(Entity* target)
 	if (target->has<MinionAI>())
 	{
 		if (target->get<AIAgent>()->team != get<AIAgent>()->team)
+		{
+			target->get<MinionCommon>()->owner.ref()->add_credits(-CREDITS_MINION);
 			get<PlayerCommon>()->manager.ref()->add_credits(CREDITS_MINION);
+		}
 	}
 	else if (target->has<Sensor>())
 	{
 		b8 is_enemy = target->get<Sensor>()->team != get<AIAgent>()->team;
 		if (is_enemy)
+		{
+			target->get<Sensor>()->owner.ref()->add_credits(-CREDITS_SENSOR_DESTROY);
 			get<PlayerCommon>()->manager.ref()->add_credits(CREDITS_SENSOR_DESTROY);
+		}
 	}
 	else if (target->has<ContainmentField>())
 	{
 		b8 is_enemy = target->get<ContainmentField>()->team != get<AIAgent>()->team;
 		if (is_enemy)
+		{
+			target->get<ContainmentField>()->owner.ref()->add_credits(-CREDITS_CONTAINMENT_FIELD_DESTROY);
 			get<PlayerCommon>()->manager.ref()->add_credits(CREDITS_CONTAINMENT_FIELD_DESTROY);
+		}
 	}
 
 	hit.fire(target);
@@ -331,7 +340,10 @@ b8 Awk::predict_intersection(const Target* target, Vec3* intersection) const
 void Awk::damaged(const DamageEvent& e)
 {
 	if (e.damager->has<PlayerCommon>())
+	{
+		get<PlayerCommon>()->manager.ref()->add_credits(-CREDITS_DAMAGE);
 		e.damager->get<PlayerCommon>()->manager.ref()->add_credits(CREDITS_DAMAGE);
+	}
 	if (get<Health>()->hp > 0 && e.damager->has<LocalPlayerControl>())
 		e.damager->get<LocalPlayerControl>()->player.ref()->msg(_(strings::target_damaged), true);
 	s32 new_health_pickup_count = get<Health>()->hp - 1;

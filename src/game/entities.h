@@ -69,7 +69,7 @@ struct SensorEntity : public Entity
 struct Sensor : public ComponentType<Sensor>
 {
 	AI::Team team;
-	Ref<PlayerManager> player_manager;
+	Ref<PlayerManager> owner;
 
 	Sensor(AI::Team, PlayerManager* = nullptr);
 
@@ -105,7 +105,7 @@ struct RocketEntity : public Entity
 };
 
 #define CONTAINMENT_FIELD_RADIUS 20.0f
-#define CONTAINMENT_FIELD_BASE_OFFSET 1.0f
+#define CONTAINMENT_FIELD_BASE_OFFSET 0.95f
 struct ContainmentField : public ComponentType<ContainmentField>
 {
 	static r32 particle_accumulator;
@@ -115,8 +115,9 @@ struct ContainmentField : public ComponentType<ContainmentField>
 
 	AI::Team team;
 	Ref<Entity> field;
+	Ref<PlayerManager> owner;
 
-	ContainmentField(const Vec3&, AI::Team);
+	ContainmentField(const Vec3&, PlayerManager*);
 	void awake();
 	~ContainmentField();
 	void hit_by(const TargetEvent&);
@@ -125,7 +126,7 @@ struct ContainmentField : public ComponentType<ContainmentField>
 
 struct ContainmentFieldEntity : public Entity
 {
-	ContainmentFieldEntity(Transform*, const Vec3&, const Quat&, AI::Team);
+	ContainmentFieldEntity(Transform*, const Vec3&, const Quat&, PlayerManager*);
 };
 
 // for AI

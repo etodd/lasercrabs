@@ -607,6 +607,56 @@ void LocalPlayer::draw_alpha(const RenderParams& params) const
 
 	if (Game::state.mode == Game::Mode::Pvp)
 	{
+		// upgrade / ability spawn timer
+		{
+			if (manager.ref()->current_spawn_ability != Ability::None
+				|| manager.ref()->current_upgrade != Upgrade::None)
+			{
+				r32 timer;
+				r32 total_time;
+				AssetID string;
+				u16 cost;
+
+				if (manager.ref()->current_spawn_ability != Ability::None)
+				{
+					// spawning an ability
+					timer = manager.ref()->spawn_ability_timer;
+					string = strings::ability_spawn_cost;
+
+					const AbilityInfo& info = AbilityInfo::list[(s32)manager.ref()->current_spawn_ability];
+					cost = info.spawn_cost;
+					total_time = info.spawn_time;
+				}
+				else
+				{
+					// getting an upgrade
+					timer = manager.ref()->upgrade_timer;
+					string = strings::upgrading;
+
+					const UpgradeInfo& info = UpgradeInfo::list[(s32)manager.ref()->current_upgrade];
+					cost = info.cost;
+					total_time = UPGRADE_TIME;
+				}
+
+				// draw bar
+
+				Vec2 pos = params.camera->viewport.size * Vec2(0.5f, 0.2f);
+				Vec2 bar_size(180.0f * UI::scale, 32.0f * UI::scale);
+				Rect2 bar = { pos + bar_size * -0.5f, bar_size };
+				UI::box(params, bar, UI::background_color);
+				UI::border(params, bar, 2, UI::accent_color);
+				UI::box(params, { bar.pos, Vec2(bar.size.x * (1.0f - (timer / total_time)), bar.size.y) }, UI::accent_color);
+
+				UIText text;
+				text.size = 18.0f;
+				text.color = UI::background_color;
+				text.anchor_x = UIText::Anchor::Center;
+				text.anchor_y = UIText::Anchor::Center;
+				text.text(_(string), (s32)cost);
+				text.draw(params, bar.pos + bar.size * 0.5f);
+			}
+		}
+
 		{
 			// timer
 
@@ -1901,57 +1951,6 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 			text.draw(params, bar.pos + bar.size * 0.5f);
 
 			// todo: sound
-		}
-	}
-
-	// ability spawn timer
-	{
-		PlayerManager* manager = get<PlayerCommon>()->manager.ref();
-		if (manager->current_spawn_ability != Ability::None
-			|| manager->current_upgrade != Upgrade::None)
-		{
-			r32 timer;
-			r32 total_time;
-			AssetID string;
-			u16 cost;
-
-			if (manager->current_spawn_ability != Ability::None)
-			{
-				// spawning an ability
-				timer = manager->spawn_ability_timer;
-				string = strings::ability_spawn_cost;
-
-				const AbilityInfo& info = AbilityInfo::list[(s32)manager->current_spawn_ability];
-				cost = info.spawn_cost;
-				total_time = info.spawn_time;
-			}
-			else
-			{
-				// getting an upgrade
-				timer = manager->upgrade_timer;
-				string = strings::upgrading;
-
-				const UpgradeInfo& info = UpgradeInfo::list[(s32)manager->current_upgrade];
-				cost = info.cost;
-				total_time = UPGRADE_TIME;
-			}
-
-			// draw bar
-
-			Vec2 pos = params.camera->viewport.size * Vec2(0.5f, 0.2f);
-			Vec2 bar_size(180.0f * UI::scale, 32.0f * UI::scale);
-			Rect2 bar = { pos + bar_size * -0.5f, bar_size };
-			UI::box(params, bar, UI::background_color);
-			UI::border(params, bar, 2, UI::accent_color);
-			UI::box(params, { bar.pos, Vec2(bar.size.x * (1.0f - (timer / total_time)), bar.size.y) }, UI::accent_color);
-
-			UIText text;
-			text.size = 18.0f;
-			text.color = UI::background_color;
-			text.anchor_x = UIText::Anchor::Center;
-			text.anchor_y = UIText::Anchor::Center;
-			text.text(_(string), (s32)cost);
-			text.draw(params, bar.pos + bar.size * 0.5f);
 		}
 	}
 

@@ -52,7 +52,7 @@ AbilityInfo AbilityInfo::list[] =
 	{
 		Asset::Mesh::icon_containment_field,
 		0.75f,
-		12,
+		20,
 	},
 };
 
@@ -279,6 +279,7 @@ void Team::track(PlayerManager* player, PlayerManager* tracked_by)
 		Entity* player_entity = tracked_by->entity.ref();
 		if (player_entity && player_entity->has<LocalPlayerControl>())
 			player_entity->get<LocalPlayerControl>()->player.ref()->msg(_(strings::enemy_detected), true);
+		player->add_credits(-CREDITS_DETECT);
 		tracked_by->add_credits(CREDITS_DETECT);
 
 		track->tracking = true; // got em
@@ -464,7 +465,7 @@ void Team::update_all(const Update& u)
 						// tracking but not yet alerted
 						track->timer += u.time.delta;
 						if (track->timer >= SENSOR_TIME)
-							team->track(player.item(), sensor->player_manager.ref());
+							team->track(player.item(), sensor->owner.ref());
 					}
 				}
 				else if (player_entity->get<Transform>()->parent.ref())
@@ -640,7 +641,7 @@ void PlayerManager::ability_spawn_complete()
 				Quat rot;
 				awk->get<Transform>()->absolute(&pos, &rot);
 				pos += rot * Vec3(0, 0, CONTAINMENT_FIELD_BASE_OFFSET);
-				World::create<ContainmentFieldEntity>(awk->get<Transform>()->parent.ref(), pos, rot, team.ref()->team());
+				World::create<ContainmentFieldEntity>(awk->get<Transform>()->parent.ref(), pos, rot, this);
 			}
 			break;
 		}
@@ -757,8 +758,7 @@ void PlayerManager::add_credits(u16 c)
 {
 	if (c != 0)
 	{
-		vi_assert(c > 0 || credits >= c);
-		credits += c;
+		credits = vi_max(0, credits + c);
 		credits_flash_timer = CREDITS_FLASH_TIME;
 	}
 }

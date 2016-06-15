@@ -170,7 +170,7 @@ struct PlayerManager
 	b8 upgrade_available(Upgrade = Upgrade::None) const;
 	u16 upgrade_cost(Upgrade) const;
 
-	void add_credits(u16);
+	s32 add_credits(s32);
 
 	PlayerManager(Team*);
 

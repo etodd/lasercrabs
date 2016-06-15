@@ -345,7 +345,7 @@ void MinionAI::awake()
 
 b8 MinionAI::can_see(Entity* target, b8 limit_vision_cone) const
 {
-	if (target->has<AIAgent>() && get<AIAgent>()->stealth)
+	if (target->has<AIAgent>() && target->get<AIAgent>()->stealth)
 		return false;
 
 	Vec3 pos = get<MinionCommon>()->head_pos();

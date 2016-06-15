@@ -279,8 +279,8 @@ void Team::track(PlayerManager* player, PlayerManager* tracked_by)
 		Entity* player_entity = tracked_by->entity.ref();
 		if (player_entity && player_entity->has<LocalPlayerControl>())
 			player_entity->get<LocalPlayerControl>()->player.ref()->msg(_(strings::enemy_detected), true);
-		player->add_credits(-CREDITS_DETECT);
-		tracked_by->add_credits(CREDITS_DETECT);
+		s32 diff = player->add_credits(-CREDITS_DETECT);
+		tracked_by->add_credits(-diff);
 
 		track->tracking = true; // got em
 		track->entity = player->entity;
@@ -674,10 +674,12 @@ PlayerManager::PlayerManager(Team* team)
 
 b8 PlayerManager::upgrade_start(Upgrade u)
 {
-	if (upgrade_available(u) && credits >= upgrade_cost(u))
+	u16 cost = upgrade_cost(u);
+	if (upgrade_available(u) && credits >= cost)
 	{
 		current_upgrade = u;
 		upgrade_timer = UPGRADE_TIME;
+		add_credits(-cost);
 		return true;
 	}
 	return false;
@@ -693,12 +695,7 @@ void PlayerManager::upgrade_complete()
 	if (!entity.ref())
 		return;
 
-	const AbilityInfo& info = AbilityInfo::list[(s32)u];
-	u16 cost = upgrade_cost(u);
-	vi_assert(credits >= cost);
-
 	upgrades |= 1 << (u32)u;
-	add_credits(-cost);
 
 	if ((s32)u < (s32)Ability::count)
 	{
@@ -754,13 +751,17 @@ s32 PlayerManager::ability_count() const
 	return count;
 }
 
-void PlayerManager::add_credits(u16 c)
+// returns the difference actually applied (never goes below 0)
+s32 PlayerManager::add_credits(s32 c)
 {
 	if (c != 0)
 	{
-		credits = vi_max(0, credits + c);
+		s32 old_credits = credits;
+		credits = (u16)vi_max(0, (s32)credits + c);
 		credits_flash_timer = CREDITS_FLASH_TIME;
+		return credits - old_credits;
 	}
+	return 0;
 }
 
 b8 PlayerManager::at_spawn() const

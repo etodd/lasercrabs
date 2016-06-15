@@ -296,8 +296,8 @@ void Awk::hit_target(Entity* target)
 	{
 		if (target->get<AIAgent>()->team != get<AIAgent>()->team)
 		{
-			target->get<MinionCommon>()->owner.ref()->add_credits(-CREDITS_MINION);
-			get<PlayerCommon>()->manager.ref()->add_credits(CREDITS_MINION);
+			s32 diff = target->get<MinionCommon>()->owner.ref()->add_credits(-CREDITS_MINION);
+			get<PlayerCommon>()->manager.ref()->add_credits(-diff);
 		}
 	}
 	else if (target->has<Sensor>())
@@ -305,8 +305,8 @@ void Awk::hit_target(Entity* target)
 		b8 is_enemy = target->get<Sensor>()->team != get<AIAgent>()->team;
 		if (is_enemy)
 		{
-			target->get<Sensor>()->owner.ref()->add_credits(-CREDITS_SENSOR_DESTROY);
-			get<PlayerCommon>()->manager.ref()->add_credits(CREDITS_SENSOR_DESTROY);
+			s32 diff = target->get<Sensor>()->owner.ref()->add_credits(-CREDITS_SENSOR_DESTROY);
+			get<PlayerCommon>()->manager.ref()->add_credits(-diff);
 		}
 	}
 	else if (target->has<ContainmentField>())
@@ -314,8 +314,8 @@ void Awk::hit_target(Entity* target)
 		b8 is_enemy = target->get<ContainmentField>()->team != get<AIAgent>()->team;
 		if (is_enemy)
 		{
-			target->get<ContainmentField>()->owner.ref()->add_credits(-CREDITS_CONTAINMENT_FIELD_DESTROY);
-			get<PlayerCommon>()->manager.ref()->add_credits(CREDITS_CONTAINMENT_FIELD_DESTROY);
+			s32 diff = target->get<ContainmentField>()->owner.ref()->add_credits(-CREDITS_CONTAINMENT_FIELD_DESTROY);
+			get<PlayerCommon>()->manager.ref()->add_credits(-diff);
 		}
 	}
 
@@ -341,8 +341,8 @@ void Awk::damaged(const DamageEvent& e)
 {
 	if (e.damager->has<PlayerCommon>())
 	{
-		get<PlayerCommon>()->manager.ref()->add_credits(-CREDITS_DAMAGE);
-		e.damager->get<PlayerCommon>()->manager.ref()->add_credits(CREDITS_DAMAGE);
+		s32 diff = get<PlayerCommon>()->manager.ref()->add_credits(-CREDITS_DAMAGE);
+		e.damager->get<PlayerCommon>()->manager.ref()->add_credits(-diff);
 	}
 	if (get<Health>()->hp > 0 && e.damager->has<LocalPlayerControl>())
 		e.damager->get<LocalPlayerControl>()->player.ref()->msg(_(strings::target_damaged), true);

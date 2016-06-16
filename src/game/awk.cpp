@@ -31,7 +31,7 @@ namespace VI
 #define AWK_LEG_BLEND_SPEED (1.0f / 0.05f)
 #define AWK_MIN_LEG_BLEND_SPEED (AWK_LEG_BLEND_SPEED * 0.1f)
 #define AWK_SHIELD_RADIUS 0.75f
-#define AWK_STUN_TIME 3.0f
+#define AWK_STUN_TIME 2.0f
 
 AwkRaycastCallback::AwkRaycastCallback(const Vec3& a, const Vec3& b, const Entity* awk)
 	: btCollisionWorld::ClosestRayResultCallback(a, b)
@@ -224,6 +224,7 @@ void Awk::hit_by(const TargetEvent& e)
 		{
 			// we can take damage
 			get<Health>()->damage(e.hit_by, 1);
+			stun_timer = AWK_STUN_TIME;
 			damaged = true;
 			invincible_timer = AWK_INVINCIBLE_TIME;
 		}

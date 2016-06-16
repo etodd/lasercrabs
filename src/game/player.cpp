@@ -1947,7 +1947,7 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 			text.color = UI::background_color;
 			text.anchor_x = UIText::Anchor::Center;
 			text.anchor_y = UIText::Anchor::Center;
-			text.text(_(strings::enemy_tracking));
+			text.text(_(strings::ability_spawn_cost), CREDITS_DETECT);
 			text.draw(params, bar.pos + bar.size * 0.5f);
 
 			// todo: sound

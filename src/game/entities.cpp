@@ -463,15 +463,52 @@ void Rocket::update(const Update& u)
 		if (target.ref() && !target.ref()->get<AIAgent>()->stealth)
 		{
 			// aim toward target
-			Vec3 to_target = Vec3::normalize(target.ref()->get<Transform>()->absolute_pos() - get<Transform>()->pos);
+			Vec3 to_target = target.ref()->get<Transform>()->absolute_pos() - get<Transform>()->pos;
+			r32 distance = to_target.length();
+			to_target /= distance;
 			Quat target_rot = Quat::look(to_target);
+
+			const r32 whisker_length = 3.0f;
+			const s32 whisker_count = 4;
+			static const Vec3 whiskers[whisker_count] =
+			{
+				Vec3(0, 0, 1.0f) * whisker_length,
+				Vec3(0, 0.7f, 1.0f) * whisker_length,
+				Vec3(-1.0f, -0.7f, 1.0f) * whisker_length,
+				Vec3(1.0f, -0.7f, 1.0f) * whisker_length,
+			};
+
+			if (distance > 3.5f)
+			{
+				// avoid walls
+				for (s32 i = 0; i < whisker_count; i++)
+				{
+					btCollisionWorld::ClosestRayResultCallback ray_callback(get<Transform>()->pos, get<Transform>()->pos + get<Transform>()->rot * whiskers[i]);
+					Physics::raycast(&ray_callback, ~CollisionContainmentField & ~CollisionTeamAContainmentField & ~CollisionTeamBContainmentField & ~CollisionAwkIgnore);
+					if (ray_callback.hasHit())
+					{
+						// avoid the obstacle
+						Vec3 wall_normal = ray_callback.m_hitNormalWorld;
+
+						Vec3 dir_flattened = to_target - (wall_normal * wall_normal.dot(to_target));
+						if (dir_flattened.length_squared() < 0.00001f)
+							dir_flattened = -wall_normal; // we are headed smack into the wall; nowhere to go, just try to turn around
+
+						target_rot = Quat::look(dir_flattened);
+						break;
+					}
+				}
+			}
+
 			r32 angle = Quat::angle(get<Transform>()->rot, target_rot);
 			if (angle > 0)
 				get<Transform>()->rot = Quat::slerp(vi_min(1.0f, 5.0f * u.time.delta), get<Transform>()->rot, target_rot);
 		}
+
 		Vec3 velocity = get<Transform>()->rot * Vec3(0, 0, 15.0f);
 		Vec3 next_pos = get<Transform>()->pos + velocity * u.time.delta;
-		btCollisionWorld::ClosestRayResultCallback ray_callback(get<Transform>()->pos, next_pos + Vec3::normalize(velocity) * 0.1f);
+
+		btCollisionWorld::ClosestRayResultCallback ray_callback(get<Transform>()->pos, next_pos + get<Transform>()->rot * Vec3(0, 0, 0.1f));
 		Physics::raycast(&ray_callback, ~CollisionContainmentField & ~CollisionTeamAContainmentField & ~CollisionTeamBContainmentField & ~CollisionAwkIgnore);
 		if (ray_callback.hasHit())
 		{

@@ -113,6 +113,8 @@ LocalPlayer::UIMode LocalPlayer::ui_mode() const
 {
 	if (menu_state != Menu::State::Hidden)
 		return UIMode::Pause;
+	else if (Team::game_over())
+		return UIMode::GameOver;
 	else if (manager.ref()->entity.ref() || NoclipControl::list.count() > 0)
 	{
 		if (upgrading)
@@ -308,10 +310,10 @@ void LocalPlayer::update(const Update& u)
 			break;
 		}
 		case UIMode::Spawning:
+		case UIMode::GameOver:
 		{
 			// Player is currently dead
 			ensure_camera(u, true);
-
 			break;
 		}
 		default:
@@ -607,113 +609,7 @@ void LocalPlayer::draw_alpha(const RenderParams& params) const
 
 	if (Game::state.mode == Game::Mode::Pvp)
 	{
-		// upgrade / ability spawn timer
-		{
-			if (manager.ref()->current_spawn_ability != Ability::None
-				|| manager.ref()->current_upgrade != Upgrade::None)
-			{
-				r32 timer;
-				r32 total_time;
-				AssetID string;
-				u16 cost;
-
-				if (manager.ref()->current_spawn_ability != Ability::None)
-				{
-					// spawning an ability
-					timer = manager.ref()->spawn_ability_timer;
-					string = strings::ability_spawn_cost;
-
-					const AbilityInfo& info = AbilityInfo::list[(s32)manager.ref()->current_spawn_ability];
-					cost = info.spawn_cost;
-					total_time = info.spawn_time;
-				}
-				else
-				{
-					// getting an upgrade
-					timer = manager.ref()->upgrade_timer;
-					string = strings::upgrading;
-
-					const UpgradeInfo& info = UpgradeInfo::list[(s32)manager.ref()->current_upgrade];
-					cost = info.cost;
-					total_time = UPGRADE_TIME;
-				}
-
-				// draw bar
-
-				Vec2 pos = params.camera->viewport.size * Vec2(0.5f, 0.2f);
-				Vec2 bar_size(180.0f * UI::scale, 32.0f * UI::scale);
-				Rect2 bar = { pos + bar_size * -0.5f, bar_size };
-				UI::box(params, bar, UI::background_color);
-				UI::border(params, bar, 2, UI::accent_color);
-				UI::box(params, { bar.pos, Vec2(bar.size.x * (1.0f - (timer / total_time)), bar.size.y) }, UI::accent_color);
-
-				UIText text;
-				text.size = 18.0f;
-				text.color = UI::background_color;
-				text.anchor_x = UIText::Anchor::Center;
-				text.anchor_y = UIText::Anchor::Center;
-				text.text(_(string), (s32)cost);
-				text.draw(params, bar.pos + bar.size * 0.5f);
-			}
-		}
-
-		{
-			// timer
-
-			r32 remaining = vi_max(0.0f, GAME_TIME_LIMIT - Game::time.total);
-
-			const Vec2 box(text_size * 5 * UI::scale, text_size * UI::scale);
-			const r32 padding = 8.0f * UI::scale;
-
-			Vec2 p = vp.size * Vec2(0.9f, 0.1f) + Vec2(-box.x, 0);
-
-			UI::box(params, Rect2(p, box).outset(padding), UI::background_color);
-
-			Vec2 icon_pos = p + Vec2(0.75f, 0.5f) * text_size * UI::scale;
-
-			AssetID icon;
-			const Vec4* color;
-			if (remaining > GAME_TIME_LIMIT * 0.8f)
-			{
-				icon = Asset::Mesh::icon_battery_3;
-				color = &UI::default_color;
-			}
-			else if (remaining > GAME_TIME_LIMIT * 0.6f)
-			{
-				icon = Asset::Mesh::icon_battery_2;
-				color = &UI::default_color;
-			}
-			else if (remaining > GAME_TIME_LIMIT * 0.4f)
-			{
-				icon = Asset::Mesh::icon_battery_1;
-				color = &UI::accent_color;
-			}
-			else if (remaining > 60.0f)
-			{
-				icon = Asset::Mesh::icon_battery_1;
-				color = &UI::alert_color;
-			}
-			else
-			{
-				icon = Asset::Mesh::icon_battery_0;
-				color = &UI::alert_color;
-			}
-
-			if (remaining > 60.0f || UI::flash_function(Game::real_time.total))
-				UI::mesh(params, icon, icon_pos, Vec2(text_size * UI::scale), *color);
-			
-			s32 remaining_minutes = remaining / 60.0f;
-			s32 remaining_seconds = remaining - (remaining_minutes * 60.0f);
-
-			UIText text;
-			text.anchor_x = UIText::Anchor::Min;
-			text.anchor_y = UIText::Anchor::Center;
-			text.color = *color;
-			text.text(_(strings::timer), remaining_minutes, remaining_seconds);
-			text.draw(params, icon_pos + Vec2(text_size * UI::scale * 1.5f, 0));
-		}
-
-		if (Team::game_over())
+		if (mode == UIMode::GameOver)
 		{
 			// show victory/defeat/draw message
 			UIText text;
@@ -740,6 +636,116 @@ void LocalPlayer::draw_alpha(const RenderParams& params) const
 			Vec2 pos = vp.size * Vec2(0.5f, 0.5f);
 			UI::box(params, text.rect(pos).outset(16 * UI::scale), UI::background_color);
 			text.draw(params, pos);
+		}
+		else
+		{
+			// game is not yet over
+
+			{
+				// upgrade / ability spawn timer
+				if (manager.ref()->current_spawn_ability != Ability::None
+					|| manager.ref()->current_upgrade != Upgrade::None)
+				{
+					r32 timer;
+					r32 total_time;
+					AssetID string;
+					u16 cost;
+
+					if (manager.ref()->current_spawn_ability != Ability::None)
+					{
+						// spawning an ability
+						timer = manager.ref()->spawn_ability_timer;
+						string = strings::ability_spawn_cost;
+
+						const AbilityInfo& info = AbilityInfo::list[(s32)manager.ref()->current_spawn_ability];
+						cost = info.spawn_cost;
+						total_time = info.spawn_time;
+					}
+					else
+					{
+						// getting an upgrade
+						timer = manager.ref()->upgrade_timer;
+						string = strings::upgrading;
+
+						const UpgradeInfo& info = UpgradeInfo::list[(s32)manager.ref()->current_upgrade];
+						cost = info.cost;
+						total_time = UPGRADE_TIME;
+					}
+
+					// draw bar
+
+					Vec2 pos = params.camera->viewport.size * Vec2(0.5f, 0.2f);
+					Vec2 bar_size(180.0f * UI::scale, 32.0f * UI::scale);
+					Rect2 bar = { pos + bar_size * -0.5f, bar_size };
+					UI::box(params, bar, UI::background_color);
+					UI::border(params, bar, 2, UI::accent_color);
+					UI::box(params, { bar.pos, Vec2(bar.size.x * (1.0f - (timer / total_time)), bar.size.y) }, UI::accent_color);
+
+					UIText text;
+					text.size = 18.0f;
+					text.color = UI::background_color;
+					text.anchor_x = UIText::Anchor::Center;
+					text.anchor_y = UIText::Anchor::Center;
+					text.text(_(string), (s32)cost);
+					text.draw(params, bar.pos + bar.size * 0.5f);
+				}
+			}
+
+			{
+				// draw battery/timer
+
+				r32 remaining = vi_max(0.0f, GAME_TIME_LIMIT - Game::time.total);
+
+				const Vec2 box(text_size * 5 * UI::scale, text_size * UI::scale);
+				const r32 padding = 8.0f * UI::scale;
+
+				Vec2 p = vp.size * Vec2(0.9f, 0.1f) + Vec2(-box.x, 0);
+
+				UI::box(params, Rect2(p, box).outset(padding), UI::background_color);
+
+				Vec2 icon_pos = p + Vec2(0.75f, 0.5f) * text_size * UI::scale;
+
+				AssetID icon;
+				const Vec4* color;
+				if (remaining > GAME_TIME_LIMIT * 0.8f)
+				{
+					icon = Asset::Mesh::icon_battery_3;
+					color = &UI::default_color;
+				}
+				else if (remaining > GAME_TIME_LIMIT * 0.6f)
+				{
+					icon = Asset::Mesh::icon_battery_2;
+					color = &UI::default_color;
+				}
+				else if (remaining > GAME_TIME_LIMIT * 0.4f)
+				{
+					icon = Asset::Mesh::icon_battery_1;
+					color = &UI::accent_color;
+				}
+				else if (remaining > 60.0f)
+				{
+					icon = Asset::Mesh::icon_battery_1;
+					color = &UI::alert_color;
+				}
+				else
+				{
+					icon = Asset::Mesh::icon_battery_0;
+					color = &UI::alert_color;
+				}
+
+				if (remaining > 60.0f || UI::flash_function(Game::real_time.total))
+					UI::mesh(params, icon, icon_pos, Vec2(text_size * UI::scale), *color);
+
+				s32 remaining_minutes = remaining / 60.0f;
+				s32 remaining_seconds = remaining - (remaining_minutes * 60.0f);
+
+				UIText text;
+				text.anchor_x = UIText::Anchor::Min;
+				text.anchor_y = UIText::Anchor::Center;
+				text.color = *color;
+				text.text(_(strings::timer), remaining_minutes, remaining_seconds);
+				text.draw(params, icon_pos + Vec2(text_size * UI::scale * 1.5f, 0));
+			}
 		}
 	}
 

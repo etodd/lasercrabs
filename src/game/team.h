@@ -159,6 +159,7 @@ struct PlayerManager
 	Ability current_spawn_ability;
 	Upgrade current_upgrade;
 	LinkArg<Ability> ability_spawned;
+	LinkArg<Ability> ability_spawn_canceled;
 	LinkArg<Upgrade> upgrade_completed;
 
 	s32 ability_count() const;

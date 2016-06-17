@@ -115,6 +115,9 @@ AIPlayerControl::AIPlayerControl(AIPlayer* p)
 #endif
 }
 
+Repeat* make_high_level_loop(AIPlayerControl*, const AIPlayer::Config&);
+Repeat* make_low_level_loop(AIPlayerControl*, const AIPlayer::Config&);
+
 void AIPlayerControl::awake()
 {
 #if DEBUG_AI_CONTROL
@@ -126,7 +129,29 @@ void AIPlayerControl::awake()
 	link<&AIPlayerControl::awk_attached>(get<Awk>()->attached);
 	link_arg<Entity*, &AIPlayerControl::awk_hit>(get<Awk>()->hit);
 	link<&AIPlayerControl::awk_detached>(get<Awk>()->detached);
-	init_behavior_trees();
+
+	// init behavior trees
+	const AIPlayer::Config& config = player.ref()->config;
+
+	loop_memory = Repeat::alloc // memory update loop
+	(
+		Sequence::alloc
+		(
+			Delay::alloc(config.interval_memory_update),
+			Execute::alloc()->method<AIPlayerControl, &AIPlayerControl::update_memory >(this)
+		)
+	);
+	loop_memory->set_context(this);
+
+	loop_high_level = make_high_level_loop(this, config);
+
+	loop_low_level = make_low_level_loop(this, config);
+
+	loop_low_level_2 = make_low_level_loop(this, config);
+
+	loop_memory->run();
+	loop_high_level->run();
+	loop_low_level->run();
 }
 
 b8 AIPlayerControl::in_range(const Vec3& p, r32 range) const
@@ -176,7 +201,7 @@ void AIPlayerControl::set_target(Entity* t)
 	path.length = 0;
 }
 
-void AIPlayerControl::set_path(const AI::Path& p)
+void AIPlayerControl::set_path(const AI::AwkPath& p)
 {
 	path = p;
 	path_index = 1; // first point is the starting point, should be roughly where we are already
@@ -322,18 +347,19 @@ void update_component_memory(AIPlayerControl* control, MemoryStatus (*filter)(co
 	}
 }
 
-// if exact is true, we need to land exactly at the given target point
-b8 AIPlayerControl::aim_and_shoot(const Update& u, const Vec3& path_node, const Vec3& target, b8 exact)
+// if tolerance is greater than 0, we need to land within that distance of the given target point
+b8 AIPlayerControl::aim_and_shoot(const Update& u, const Vec3& path_node, const Vec3& target, r32 tolerance)
 {
 	PlayerCommon* common = get<PlayerCommon>();
 
-	b8 enable_movement = common->movement_enabled();
+	b8 can_move = common->movement_enabled();
+	b8 can_shoot = can_move && get<Awk>()->cooldown == 0.0f;
 
-	if (enable_movement)
+	if (can_shoot)
 		aim_timer += u.time.delta;
 
 	// crawling
-	if (enable_movement)
+	if (can_move)
 	{
 		Vec3 pos = get<Awk>()->center();
 		Vec3 to_target = Vec3::normalize(target - pos);
@@ -345,7 +371,7 @@ b8 AIPlayerControl::aim_and_shoot(const Update& u, const Vec3& path_node, const 
 			if (could_go_before_crawling)
 			{
 				// we can go generally toward the target
-				if (exact && (hit - target).length() > AWK_RADIUS) // make sure we would actually land at the right spot
+				if (tolerance > 0.0f && (hit - target).length_squared() > tolerance * tolerance) // make sure we would actually land at the right spot
 					could_go_before_crawling = false;
 			}
 		}
@@ -370,7 +396,9 @@ b8 AIPlayerControl::aim_and_shoot(const Update& u, const Vec3& path_node, const 
 				if (get<Awk>()->can_go(Vec3::normalize(target - new_pos), &hit))
 				{
 					// we can go generally toward the target
-					if (!exact || (hit - target).length() < AWK_RADIUS) // make sure we're actually going to land at the right spot
+					// now make sure we're actually going to land at the right spot
+					if (tolerance < 0.0f // don't worry about where we land
+						|| (hit - target).length_squared() < tolerance * tolerance) // check the tolerance
 						revert = false;
 				}
 			}
@@ -433,12 +461,12 @@ b8 AIPlayerControl::aim_and_shoot(const Update& u, const Vec3& path_node, const 
 	common->angle_vertical = LMath::clampf(common->angle_vertical, PI * -0.495f, PI * 0.495f);
 	common->clamp_rotation(wall_normal, 0.5f);
 
-	if (enable_movement && common->movement_enabled())
+	if (can_shoot)
 	{
 		// cooldown is done; we can shoot.
 		// check if we're done aiming
 		b8 aim_lined_up;
-		if (exact)
+		if (tolerance > 0.0f)
 		{
 			// must aim exactly
 			aim_lined_up = common->angle_horizontal == target_angle_horizontal
@@ -457,7 +485,9 @@ b8 AIPlayerControl::aim_and_shoot(const Update& u, const Vec3& path_node, const 
 			Vec3 hit;
 			if (get<Awk>()->can_go(look_dir, &hit))
 			{
-				if (!exact || (hit - target).length() < AWK_RADIUS) // make sure we're actually going to land at the right spot
+				// make sure we're actually going to land at the right spot
+				if (tolerance < 0.0f // don't worry about where we land
+					|| (hit - target).length_squared() < tolerance * tolerance) // check the tolerance
 				{
 					if (get<Awk>()->detach(look_dir))
 						return true;
@@ -519,7 +549,7 @@ b8 awk_run_filter(const AIPlayerControl* control, const Entity* e)
 	return !control->get<AIAgent>()->stealth
 		&& control->get<Awk>()->invincible_timer == 0.0f
 		&& e->get<AIAgent>()->team != control->get<AIAgent>()->team
-		&& ((e->get<Health>()->hp > control->get<Health>()->hp && control->get<Health>()->hp == 1) || mersenne::randf_co() < 0.5f)
+		&& ((e->get<Health>()->hp > control->get<Health>()->hp && control->get<Health>()->hp == 1) || mersenne::randf_co() < 0.05f)
 		&& (e->get<Awk>()->can_hit(control->get<Target>()) || (e->get<Transform>()->absolute_pos() - control->get<Transform>()->absolute_pos()).length_squared() < AWK_RUN_RADIUS * AWK_RUN_RADIUS);
 }
 
@@ -767,31 +797,6 @@ Repeat* make_high_level_loop(AIPlayerControl* control, const AIPlayer::Config& c
 	return loop;
 }
 
-void AIPlayerControl::init_behavior_trees()
-{
-	const AIPlayer::Config& config = player.ref()->config;
-
-	loop_memory = Repeat::alloc // memory update loop
-	(
-		Sequence::alloc
-		(
-			Delay::alloc(config.interval_memory_update),
-			Execute::alloc()->method<AIPlayerControl, &AIPlayerControl::update_memory >(this)
-		)
-	);
-	loop_memory->set_context(this);
-
-	loop_high_level = make_high_level_loop(this, config);
-
-	loop_low_level = make_low_level_loop(this, config);
-
-	loop_low_level_2 = make_low_level_loop(this, config);
-
-	loop_memory->run();
-	loop_high_level->run();
-	loop_low_level->run();
-}
-
 b8 AIPlayerControl::update_memory()
 {
 	update_component_memory<HealthPickup>(this, &default_memory_filter);
@@ -826,7 +831,7 @@ void AIPlayerControl::update(const Update& u)
 				// trying to a hit a moving thingy
 				Vec3 intersection;
 				if (get<Awk>()->can_hit(target.ref()->get<Target>(), &intersection))
-					aim_and_shoot(u, intersection, intersection, false);
+					aim_and_shoot(u, intersection, intersection, -1.0f);
 				else
 					active_behavior->done(false); // we can't hit it
 			}
@@ -838,7 +843,7 @@ void AIPlayerControl::update(const Update& u)
 				else
 				{
 					Vec3 t = target.ref()->get<Transform>()->absolute_pos();
-					aim_and_shoot(u, t, t, true);
+					aim_and_shoot(u, t, t, PLAYER_SPAWN_RADIUS); // assume the target is a player spawn
 				}
 			}
 		}
@@ -846,9 +851,17 @@ void AIPlayerControl::update(const Update& u)
 		{
 			// look at next target
 			if (aim_timer > config.aim_timeout)
-				active_behavior->done(false); // we can't hit it
+			{
+				// timeout; we can't hit it
+				// mark path bad
+#if DEBUG_AI_CONTROL
+				vi_debug("Marking bad Awk adjacency");
+#endif
+				AI::awk_mark_adjacency_bad(path[path_index - 1].ref, path[path_index].ref);
+				active_behavior->done(false); // active behavior failed
+			}
 			else
-				aim_and_shoot(u, path[path_index - 1], path[path_index], true); // path_index starts at 1 so we're good here
+				aim_and_shoot(u, path[path_index - 1].pos, path[path_index].pos, AWK_RADIUS); // path_index starts at 1 so we're good here
 		}
 		else
 		{
@@ -982,7 +995,7 @@ void RandomPath::run()
 		Vec3 pos;
 		Quat rot;
 		control->get<Transform>()->absolute(&pos, &rot);
-		AI::awk_random_path(control->get<AIAgent>()->team, pos, rot * Vec3(0, 0, 1), ObjectLinkEntryArg<Base<RandomPath>, const AI::Result&, &Base<RandomPath>::path_callback>(id()));
+		AI::awk_random_path(control->get<AIAgent>()->team, pos, rot * Vec3(0, 0, 1), ObjectLinkEntryArg<Base<RandomPath>, const AI::AwkResult&, &Base<RandomPath>::path_callback>(id()));
 	}
 	else
 		done(false);
@@ -1072,12 +1085,19 @@ void AbilitySpawn::set_context(void* ctx)
 {
 	Base::set_context(ctx);
 	control->player.ref()->manager.ref()->ability_spawned.link<AbilitySpawn, Ability, &AbilitySpawn::completed>(this);
+	control->player.ref()->manager.ref()->ability_spawn_canceled.link<AbilitySpawn, Ability, &AbilitySpawn::canceled>(this);
 }
 
 void AbilitySpawn::completed(Ability a)
 {
 	if (active())
 		done(a == ability);
+}
+
+void AbilitySpawn::canceled(Ability a)
+{
+	if (active() && a == ability)
+		done(false);
 }
 
 void AbilitySpawn::run()
@@ -1106,8 +1126,10 @@ void AbilitySpawn::run()
 
 void AbilitySpawn::abort()
 {
-	control->player.ref()->manager.ref()->ability_spawn_stop(ability);
+	// we have to deactivate ourselves first before we call ability_spawn_stop()
+	// that way, when we get the notification that the ability spawn has been canceled, we'll already be inactive, so we won't care.
 	Base<AbilitySpawn>::abort();
+	control->player.ref()->manager.ref()->ability_spawn_stop(ability);
 }
 
 ReactTarget::ReactTarget(Family fam, s8 priority_path, s8 react_priority, b8(*filter)(const AIPlayerControl*, const Entity*))

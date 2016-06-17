@@ -224,7 +224,6 @@ void Awk::hit_by(const TargetEvent& e)
 		{
 			// we can take damage
 			get<Health>()->damage(e.hit_by, 1);
-			stun_timer = AWK_STUN_TIME;
 			damaged = true;
 			invincible_timer = AWK_INVINCIBLE_TIME;
 		}
@@ -297,8 +296,12 @@ void Awk::hit_target(Entity* target)
 	{
 		if (target->get<AIAgent>()->team != get<AIAgent>()->team)
 		{
-			s32 diff = target->get<MinionCommon>()->owner.ref()->add_credits(-CREDITS_MINION);
-			get<PlayerCommon>()->manager.ref()->add_credits(-diff);
+			PlayerManager* owner = target->get<MinionCommon>()->owner.ref();
+			if (owner)
+			{
+				s32 diff = owner->add_credits(-CREDITS_MINION);
+				get<PlayerCommon>()->manager.ref()->add_credits(-diff);
+			}
 		}
 	}
 	else if (target->has<Sensor>())

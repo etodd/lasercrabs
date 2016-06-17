@@ -366,8 +366,7 @@ void ControlPoint::update_all(const Update& u)
 		if (timer < 0.0f)
 		{
 			// give points to teams based on how many control points they own
-			s32 initial = Game::level.has_feature(Game::FeatureLevel::All) ? CREDITS_DEFAULT_INCREMENT : 0;
-			s32 reward_buffer[(s32)AI::Team::count] = { initial, initial };
+			s32 reward_buffer[(s32)AI::Team::count] = { CREDITS_DEFAULT_INCREMENT, CREDITS_DEFAULT_INCREMENT };
 
 			for (auto i = list.iterator(); !i.is_last(); i.next())
 			{
@@ -395,8 +394,7 @@ u16 ControlPoint::increment(AI::Team team)
 		if (i.item()->team == team)
 			control_points++;
 	}
-	u16 initial = Game::level.has_feature(Game::FeatureLevel::All) ? CREDITS_DEFAULT_INCREMENT : 0;
-	return initial + control_points * CREDITS_CONTROL_POINT;
+	return CREDITS_DEFAULT_INCREMENT + control_points * CREDITS_CONTROL_POINT;
 }
 
 // gets the first control point that would be visible to a sensor at the given position

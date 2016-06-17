@@ -542,8 +542,13 @@ b8 PlayerManager::ability_spawn_start(Ability ability)
 	if (credits < info.spawn_cost)
 		return false;
 
+	Ability old = current_spawn_ability;
+
 	current_spawn_ability = ability;
 	spawn_ability_timer = info.spawn_time;
+
+	if (old != Ability::None)
+		ability_spawn_canceled.fire(old);
 
 	return true;
 }
@@ -554,6 +559,7 @@ void PlayerManager::ability_spawn_stop(Ability ability)
 	{
 		current_spawn_ability = Ability::None;
 		spawn_ability_timer = 0.0f;
+		ability_spawn_canceled.fire(ability);
 	}
 }
 
@@ -564,11 +570,17 @@ void PlayerManager::ability_spawn_complete()
 
 	Entity* awk = entity.ref();
 	if (!awk)
+	{
+		ability_spawn_canceled.fire(ability);
 		return;
+	}
 
 	u16 cost = AbilityInfo::list[(s32)ability].spawn_cost;
 	if (credits < cost)
+	{
+		ability_spawn_canceled.fire(ability);
 		return;
+	}
 
 	switch (ability)
 	{
@@ -590,7 +602,11 @@ void PlayerManager::ability_spawn_complete()
 				// attach it to the wall
 				Rope* rope = Rope::start(awk->get<Transform>()->parent.ref()->get<RigidBody>(), abs_pos + abs_rot * Vec3(0, 0, -AWK_RADIUS), abs_rot * Vec3(0, 0, 1), abs_rot);
 				rope->end(abs_pos + abs_rot * Vec3(0, 0, -AWK_RADIUS + (rope_segment_length * 2.0f)), abs_rot * Vec3(0, 0, -1), sensor->get<RigidBody>());
+
+				ability_spawned.fire(ability);
 			}
+			else
+				ability_spawn_canceled.fire(ability);
 			break;
 		}
 		case Ability::Rocket:
@@ -610,7 +626,11 @@ void PlayerManager::ability_spawn_complete()
 				base->get<Transform>()->absolute(pos, rot);
 				base->get<Transform>()->reparent(parent);
 				base->get<View>()->team = (u8)team.ref()->team();
+
+				ability_spawned.fire(ability);
 			}
+			else
+				ability_spawn_canceled.fire(ability);
 			break;
 		}
 		case Ability::Minion:
@@ -627,7 +647,11 @@ void PlayerManager::ability_spawn_complete()
 				World::create<Minion>(pos, Quat::euler(0, awk->get<PlayerCommon>()->angle_horizontal, 0), team.ref()->team(), this);
 
 				Audio::post_global_event(AK::EVENTS::PLAY_MINION_SPAWN, pos);
+
+				ability_spawned.fire(ability);
 			}
+			else
+				ability_spawn_canceled.fire(ability);
 			break;
 		}
 		case Ability::ContainmentField:
@@ -642,7 +666,11 @@ void PlayerManager::ability_spawn_complete()
 				awk->get<Transform>()->absolute(&pos, &rot);
 				pos += rot * Vec3(0, 0, CONTAINMENT_FIELD_BASE_OFFSET);
 				World::create<ContainmentFieldEntity>(awk->get<Transform>()->parent.ref(), pos, rot, this);
+
+				ability_spawned.fire(ability);
 			}
+			else
+				ability_spawn_canceled.fire(ability);
 			break;
 		}
 		default:
@@ -651,7 +679,6 @@ void PlayerManager::ability_spawn_complete()
 			break;
 		}
 	}
-	ability_spawned.fire(ability);
 }
 
 PinArray<PlayerManager, MAX_PLAYERS> PlayerManager::list;
@@ -668,6 +695,7 @@ PlayerManager::PlayerManager(Team* team)
 	current_upgrade(Upgrade::None),
 	upgrade_timer(),
 	ability_spawned(),
+	ability_spawn_canceled(),
 	upgrade_completed()
 {
 }

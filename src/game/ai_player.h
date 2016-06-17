@@ -97,7 +97,7 @@ struct AIPlayerControl : public ComponentType<AIPlayerControl>
 	Repeat* loop_memory;
 	Behavior* active_behavior;
 	MemoryArray memory[MAX_FAMILIES];
-	AI::Path path;
+	AI::AwkPath path;
 	s32 path_index;
 	Ref<AIPlayer> player;
 	Ref<Entity> target;
@@ -115,14 +115,13 @@ struct AIPlayerControl : public ComponentType<AIPlayerControl>
 	~AIPlayerControl();
 
 	b8 update_memory();
-	void init_behavior_trees();
 	void behavior_start(Behavior*, s8);
 	void behavior_clear();
 	b8 restore_loops();
-	b8 aim_and_shoot(const Update&, const Vec3&, const Vec3&, b8);
+	b8 aim_and_shoot(const Update&, const Vec3&, const Vec3&, r32);
 	b8 in_range(const Vec3&, r32) const;
 	void set_target(Entity*);
-	void set_path(const AI::Path&);
+	void set_path(const AI::AwkPath&);
 	void awk_attached();
 	void awk_hit(Entity*);
 	void awk_detached();
@@ -141,7 +140,7 @@ namespace AIBehaviors
 			this->control = (AIPlayerControl*)ctx;
 		}
 
-		void path_callback(const AI::Result& result)
+		void path_callback(const AI::AwkResult& result)
 		{
 			if (this->active())
 			{
@@ -160,6 +159,7 @@ namespace AIBehaviors
 		{
 			if (this->control->active_behavior == this)
 			{
+				vi_assert(this->active());
 				this->control->behavior_clear();
 #if DEBUG_AI_CONTROL
 				Behavior* r = this->root();
@@ -178,17 +178,20 @@ namespace AIBehaviors
 
 		virtual void abort()
 		{
+			if (this->active())
+			{
 #if DEBUG_AI_CONTROL
-			Behavior* r = this->root();
-			const char* loop;
-			if (r == this->control->loop_low_level)
-				loop = "Low-level 1";
-			else if (r == this->control->loop_low_level_2)
-				loop = "Low-level 2";
-			else
-				loop = "High-level";
-			vi_debug("%s: %s", loop, typeid(*this).name());
+				Behavior* r = this->root();
+				const char* loop;
+				if (r == this->control->loop_low_level)
+					loop = "Low-level 1";
+				else if (r == this->control->loop_low_level_2)
+					loop = "Low-level 2";
+				else
+					loop = "High-level";
+				vi_debug("%s: %s", loop, typeid(*this).name());
 #endif
+			}
 			if (this->control->active_behavior == this)
 				this->control->behavior_clear();
 			BehaviorBase<Derived>::abort();
@@ -197,7 +200,7 @@ namespace AIBehaviors
 		void pathfind(const Vec3& target, const Vec3& normal, AI::AwkPathfind type)
 		{
 			vi_assert(this->control->template get<Transform>()->parent.ref());
-			auto ai_callback = ObjectLinkEntryArg<Base<Derived>, const AI::Result&, &Base<Derived>::path_callback>(this->id());
+			auto ai_callback = ObjectLinkEntryArg<Base<Derived>, const AI::AwkResult&, &Base<Derived>::path_callback>(this->id());
 			Vec3 pos;
 			Quat rot;
 			this->control->template get<Transform>()->absolute(&pos, &rot);
@@ -270,6 +273,7 @@ namespace AIBehaviors
 		Upgrade required_upgrade;
 		AbilitySpawn(s8, Upgrade, Ability, AbilitySpawnFilter);
 		void completed(Ability);
+		void canceled(Ability);
 		void set_context(void*);
 		void run();
 		void abort();

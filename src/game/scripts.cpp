@@ -1361,8 +1361,11 @@ namespace tutorial
 
 	void health_got(const TargetEvent& e)
 	{
-		LocalPlayer::list.iterator().item()->manager.ref()->credits = CREDITS_INITIAL;
-		LocalPlayer::list.iterator().item()->manager.ref()->upgrades |= 1 << (u32)Upgrade::Sensor;
+		PlayerManager* manager = LocalPlayer::list.iterator().item()->manager.ref();
+		manager->credits = UpgradeInfo::list[(s32)Upgrade::Sensor].cost + AbilityInfo::list[(s32)Ability::Sensor].spawn_cost * 2;
+		manager->upgrade_start(Upgrade::Sensor);
+		manager->upgrade_complete();
+
 		data->state = TutorialState::PvpControlPoint;
 		Penelope::data->texts.clear();
 		Penelope::data->texts.schedule(0.0f, _(strings::tut_pvp_control_points));
@@ -1393,7 +1396,9 @@ namespace tutorial
 		{
 			if (data->control_point.ref()->team != AI::Team::None)
 			{
-				LocalPlayer::list.iterator().item()->manager.ref()->credits = UpgradeInfo::list[(s32)Upgrade::Minion].cost;
+				PlayerManager* manager = LocalPlayer::list.iterator().item()->manager.ref();
+				manager->credits += UpgradeInfo::list[(s32)Upgrade::Minion].cost;
+
 				data->state = TutorialState::PvpUpgrade;
 				Penelope::data->texts.clear();
 				Penelope::data->texts.schedule(0.0f, _(strings::tut_pvp_upgrade));

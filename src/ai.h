@@ -26,6 +26,7 @@ namespace AI
 		ObstacleRemove,
 		Pathfind,
 		AwkPathfind,
+		AwkMarkAdjacencyBad,
 		RandomPath,
 		UpdateSensors,
 		Quit,
@@ -48,9 +49,22 @@ namespace AI
 	const s32 MAX_PATH_LENGTH = 32;
 	typedef StaticArray<Vec3, MAX_PATH_LENGTH> Path;
 
+	struct AwkPathNode
+	{
+		Vec3 pos;
+		AwkNavMeshNode ref;
+	};
+	typedef StaticArray<AwkPathNode, MAX_PATH_LENGTH> AwkPath;
+
 	struct Result
 	{
 		Path path;
+		u32 id;
+	};
+
+	struct AwkResult
+	{
+		AwkPath path;
 		u32 id;
 	};
 
@@ -81,9 +95,10 @@ namespace AI
 	u32 obstacle_add(const Vec3&, r32, r32);
 	void obstacle_remove(u32);
 	u32 pathfind(const Vec3&, const Vec3&, const LinkEntryArg<const Result&>&);
-	u32 awk_pathfind(AwkPathfind, AI::Team, const Vec3&, const Vec3&, const Vec3&, const Vec3&, const LinkEntryArg<const Result&>&);
+	u32 awk_pathfind(AwkPathfind, AI::Team, const Vec3&, const Vec3&, const Vec3&, const Vec3&, const LinkEntryArg<const AwkResult&>&);
+	void awk_mark_adjacency_bad(AwkNavMeshNode, AwkNavMeshNode);
 	u32 random_path(const Vec3&, const LinkEntryArg<const Result&>&);
-	u32 awk_random_path(AI::Team, const Vec3&, const Vec3&, const LinkEntryArg<const Result&>&);
+	u32 awk_random_path(AI::Team, const Vec3&, const Vec3&, const LinkEntryArg<const AwkResult&>&);
 	void load(const u8*, s32);
 	void loop();
 	void quit();

@@ -216,7 +216,7 @@ r32 sensor_cost(AI::Team team, const AwkNavMeshNode& node)
 }
 
 // A*
-void awk_astar(AI::Team team, const AwkNavMeshNode& start_vertex, const AstarScorer* scorer, Path* path)
+void awk_astar(AI::Team team, const AwkNavMeshNode& start_vertex, const AstarScorer* scorer, AwkPath* path)
 {
 #if DEBUG_AI
 	r64 start_time = platform::time();
@@ -255,7 +255,8 @@ void awk_astar(AI::Team team, const AwkNavMeshNode& start_vertex, const AstarSco
 			AwkNavMeshNode n = vertex_node;
 			while (true)
 			{
-				path->insert(0, awk_nav_mesh.chunks[n.chunk].vertices[n.vertex]);
+				AwkPathNode* node = path->insert(0);
+				*node = { awk_nav_mesh.chunks[n.chunk].vertices[n.vertex], n };
 				if (n.equals(start_vertex))
 					break;
 				n = awk_nav_mesh_key.get(n).parent;
@@ -325,7 +326,7 @@ void awk_astar(AI::Team team, const AwkNavMeshNode& start_vertex, const AstarSco
 }
 
 // find a path from vertex a to vertex b
-void awk_pathfind_internal(AI::Team team, const AwkNavMeshNode& start_vertex, const AwkNavMeshNode& end_vertex, Path* path)
+void awk_pathfind_internal(AI::Team team, const AwkNavMeshNode& start_vertex, const AwkNavMeshNode& end_vertex, AwkPath* path)
 {
 	PathfindScorer scorer;
 	scorer.end_vertex = end_vertex;
@@ -335,7 +336,7 @@ void awk_pathfind_internal(AI::Team team, const AwkNavMeshNode& start_vertex, co
 
 // find a path using vertices as close as possible to the given points
 // find our way to a point from which we can shoot through the given target
-void awk_pathfind_hit(AI::Team team, const Vec3& start, const Vec3& start_normal, const Vec3& target, Path* path)
+void awk_pathfind_hit(AI::Team team, const Vec3& start, const Vec3& start_normal, const Vec3& target, AwkPath* path)
 {
 	AwkNavMeshNode target_closest_vertex = awk_closest_point(target, Vec3::zero);
 
@@ -701,12 +702,12 @@ void loop()
 				Vec3 start_normal;
 				sync_in.read(&type);
 				sync_in.read(&team);
-				LinkEntryArg<Path> callback;
+				LinkEntryArg<AwkPath> callback;
 				sync_in.read(&callback);
 				sync_in.read(&start);
 				sync_in.read(&start_normal);
 
-				Path path;
+				AwkPath path;
 
 				switch (type)
 				{
@@ -782,6 +783,30 @@ void loop()
 				sync_out.write(callback);
 				sync_out.write(path);
 				sync_out.unlock();
+				break;
+			}
+			case Op::AwkMarkAdjacencyBad:
+			{
+				AwkNavMeshNode a;
+				sync_in.read(&a);
+				AwkNavMeshNode b;
+				sync_in.read(&b);
+				sync_in.unlock();
+
+				// remove b from a's adjacency list
+				AwkNavMeshAdjacency* adjacency = &awk_nav_mesh.chunks[a.chunk].adjacency[a.vertex];
+				b8 found = false;
+				for (s32 i = 0; i < adjacency->length; i++)
+				{
+					if ((*adjacency)[i].equals(b))
+					{
+						adjacency->remove(i);
+						found = true;
+						break;
+					}
+				}
+				vi_assert(found);
+
 				break;
 			}
 			case Op::UpdateSensors:

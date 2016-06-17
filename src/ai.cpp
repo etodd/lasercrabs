@@ -83,9 +83,9 @@ void update(const Update& u)
 			}
 			case Callback::AwkPath:
 			{
-				LinkEntryArg<const Result&> link;
+				LinkEntryArg<const AwkResult&> link;
 				sync_out.read(&link);
-				Result result;
+				AwkResult result;
 				sync_out.read(&result.path);
 				result.id = callback_out_id;
 				callback_out_id++;
@@ -168,7 +168,7 @@ u32 random_path(const Vec3& pos, const LinkEntryArg<const Result&>& callback)
 	return id;
 }
 
-u32 awk_random_path(AI::Team team, const Vec3& pos, const Vec3& normal, const LinkEntryArg<const Result&>& callback)
+u32 awk_random_path(AI::Team team, const Vec3& pos, const Vec3& normal, const LinkEntryArg<const AwkResult&>& callback)
 {
 	return awk_pathfind(AwkPathfind::Random, team, pos, normal, Vec3::zero, Vec3::zero, callback);
 }
@@ -188,7 +188,7 @@ u32 pathfind(const Vec3& a, const Vec3& b, const LinkEntryArg<const Result&>& ca
 	return id;
 }
 
-u32 awk_pathfind(AI::AwkPathfind type, AI::Team team, const Vec3& a, const Vec3& a_normal, const Vec3& b, const Vec3& b_normal, const LinkEntryArg<const Result&>& callback)
+u32 awk_pathfind(AI::AwkPathfind type, AI::Team team, const Vec3& a, const Vec3& a_normal, const Vec3& b, const Vec3& b_normal, const LinkEntryArg<const AwkResult&>& callback)
 {
 	u32 id = callback_in_id;
 	callback_in_id++;
@@ -209,6 +209,15 @@ u32 awk_pathfind(AI::AwkPathfind type, AI::Team team, const Vec3& a, const Vec3&
 	sync_in.unlock();
 	
 	return id;
+}
+
+void awk_mark_adjacency_bad(AwkNavMeshNode a, AwkNavMeshNode b)
+{
+	sync_in.lock();
+	sync_in.write(Op::AwkMarkAdjacencyBad);
+	sync_in.write(a);
+	sync_in.write(b);
+	sync_in.unlock();
 }
 
 #if DEBUG

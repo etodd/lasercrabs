@@ -246,7 +246,7 @@ void level_next()
 		Game::save.last_round_loss = false;
 		next_mode = Game::Mode::Parkour;
 		if (Game::level.lock_teams
-			|| Game::save.level_index < 3 // advance past tutorials and first level after only one round
+			|| Game::save.level_index < 4 // advance past tutorials and first two levels after only one round
 			|| Game::save.round == (s32)AI::Team::count - 1)
 		{
 			// advance to next level

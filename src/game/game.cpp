@@ -92,7 +92,7 @@ const s32 Game::levels[] =
 	Asset::Level::Soteria,
 	Asset::Level::Medias_Res,
 	Asset::Level::Ponos,
-	Asset::Level::level3,
+	Asset::Level::Ioke,
 	AssetNull,
 };
 

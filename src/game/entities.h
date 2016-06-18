@@ -51,7 +51,11 @@ struct HealthPickupEntity : public Entity
 
 struct HealthPickup : public ComponentType<HealthPickup>
 {
+	static r32 particle_accumulator;
+	static void update_all(const Update&);
+
 	Ref<Health> owner;
+
 	void awake();
 	void hit(const TargetEvent&);
 	void reset();

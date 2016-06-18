@@ -214,7 +214,10 @@ void level_retry()
 		if (Game::save.level_index < 2) // tutorial levels; just retry
 			Menu::transition(Game::levels[Game::save.level_index], Game::Mode::Pvp);
 		else
+		{
+			Game::save.last_round_loss = true;
 			Menu::transition(Game::levels[Game::save.level_index], Game::Mode::Parkour);
+		}
 	}
 }
 
@@ -240,6 +243,7 @@ void level_next()
 	else
 	{
 		// campaign mode; advance to next level
+		Game::save.last_round_loss = false;
 		next_mode = Game::Mode::Parkour;
 		if (Game::level.lock_teams
 			|| Game::save.level_index < 3 // advance past tutorials and first level after only one round

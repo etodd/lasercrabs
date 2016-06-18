@@ -158,6 +158,28 @@ void HealthPickup::hit(const TargetEvent& e)
 		e.hit_by->get<LocalPlayerControl>()->player.ref()->msg(_(strings::no_effect), false);
 }
 
+r32 HealthPickup::particle_accumulator;
+void HealthPickup::update_all(const Update& u)
+{
+	const r32 interval = 0.1f;
+	particle_accumulator += u.time.delta;
+	while (particle_accumulator > interval)
+	{
+		particle_accumulator -= interval;
+		for (auto i = list.iterator(); !i.is_last(); i.next())
+		{
+			Vec3 pos = i.item()->get<Transform>()->absolute_pos();
+
+			Particles::tracers.add
+			(
+				pos + Quat::euler(0.0f, mersenne::randf_co() * PI * 2.0f, (mersenne::randf_co() - 0.5f) * PI) * Vec3(0, 0, mersenne::randf_co() * 0.6f),
+				Vec3::zero,
+				PI * 0.25f
+			);
+		}
+	}
+}
+
 SensorEntity::SensorEntity(PlayerManager* owner, const Vec3& abs_pos, const Quat& abs_rot)
 {
 	Transform* transform = create<Transform>();
@@ -653,7 +675,7 @@ void ContainmentField::update_all(const Update& u)
 {
 	const r32 interval = 0.1f;
 	particle_accumulator += u.time.delta;
-	if (particle_accumulator > interval)
+	while (particle_accumulator > interval)
 	{
 		particle_accumulator -= interval;
 		for (auto i = list.iterator(); !i.is_last(); i.next())

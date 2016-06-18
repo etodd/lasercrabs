@@ -580,14 +580,14 @@ void LocalPlayer::draw_alpha(const RenderParams& params) const
 			if (show_spawning)
 			{
 				// "spawning..."
-				text.text(_(strings::spawn_timer), (s32)manager.ref()->spawn_timer + 1);
+				text.text(_(Game::state.mode == Game::Mode::Pvp ? strings::deploy_timer : strings::spawn_timer), (s32)manager.ref()->spawn_timer + 1);
 				UI::box(params, text.rect(p).outset(MENU_ITEM_PADDING), UI::background_color);
 				text.draw(params, p);
 				p.y -= text.bounds().y + MENU_ITEM_PADDING * 2.0f;
 			}
 
 			// show map name
-			text.text(AssetLookup::Level::names[Game::state.level]);
+			text.text(Game::state.mode == Game::Mode::Pvp ? "%s" : _(strings::map_simulation), AssetLookup::Level::names[Game::state.level]);
 			text.color = UI::accent_color;
 			UI::box(params, text.rect(p).outset(MENU_ITEM_PADDING), UI::background_color);
 			text.draw(params, p);
@@ -1609,6 +1609,9 @@ LocalPlayerControl* LocalPlayerControl::player_for_camera(const Camera* cam)
 void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 {
 	if (!has<Awk>() || params.technique != RenderTechnique::Default || params.camera != camera)
+		return;
+
+	if (Team::game_over())
 		return;
 
 	const Rect2& viewport = params.camera->viewport;

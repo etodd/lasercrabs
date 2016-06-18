@@ -10,9 +10,9 @@ namespace Asset
 	{
 		const s32 count = 6;
 		const AssetID Medias_Res = 0;
-		const AssetID common = 1;
-		const AssetID intro = 2;
-		const AssetID level2 = 3;
+		const AssetID Ponos = 1;
+		const AssetID common = 2;
+		const AssetID intro = 3;
 		const AssetID level3 = 4;
 		const AssetID level4 = 5;
 	}

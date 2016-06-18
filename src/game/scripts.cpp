@@ -47,7 +47,7 @@ Script* Script::find(const char* name)
 }
 
 #define MAX_NODES 4096
-#define MAX_BRANCHES 4
+#define MAX_BRANCHES 8
 #define MAX_CHOICES 4
 namespace Penelope
 {
@@ -146,6 +146,7 @@ namespace Penelope
 
 				while (json_node)
 				{
+					vi_assert(current_node_id < MAX_NODES);
 					const char* id = Json::get_string(json_node, "id");
 					id_lookup[id] = current_node_id;
 					current_node_id++;
@@ -164,21 +165,21 @@ namespace Penelope
 
 			while (json_node)
 			{
-				Node& node = Node::list[current_node_id];
+				Node* node = &Node::list[current_node_id];
 
 				// type
 				{
 					const char* type = Json::get_string(json_node, "type");
 					if (utf8cmp(type, "Node") == 0)
-						node.type = Node::Type::Node;
+						node->type = Node::Type::Node;
 					else if (utf8cmp(type, "Text") == 0)
-						node.type = Node::Type::Text;
+						node->type = Node::Type::Text;
 					else if (utf8cmp(type, "Choice") == 0)
-						node.type = Node::Type::Choice;
+						node->type = Node::Type::Choice;
 					else if (utf8cmp(type, "Branch") == 0)
-						node.type = Node::Type::Branch;
+						node->type = Node::Type::Branch;
 					else if (utf8cmp(type, "Set") == 0)
-						node.type = Node::Type::Set;
+						node->type = Node::Type::Set;
 					else
 						vi_assert(false);
 				}
@@ -188,59 +189,59 @@ namespace Penelope
 				char hash[41];
 
 				{
-					if (node.type == Node::Type::Text || node.type == Node::Type::Choice)
+					if (node->type == Node::Type::Text || node->type == Node::Type::Choice)
 					{
 						sha1::hash(name_str, hash);
 						name_str = hash;
 					}
 
-					node.name = strings_get(name_str);
-					if (node.name != AssetNull && node.name < (s32)strings::count)
-						node_lookup[node.name] = current_node_id;
+					node->name = strings_get(name_str);
+					if (node->name != AssetNull && node->name < (s32)strings::count)
+						node_lookup[node->name] = current_node_id;
 				}
 
 				// next
 				{
 					const char* next = Json::get_string(json_node, "next");
 					if (next)
-						node.next = id_lookup[next];
+						node->next = id_lookup[next];
 					else
-						node.next = IDNull;
+						node->next = IDNull;
 				}
 
-				if (node.type == Node::Type::Text)
+				if (node->type == Node::Type::Text)
 				{
 					const char* face = Json::get_string(json_node, "face");
 					if (face)
 					{
 						if (utf8cmp(face, "Sad") == 0)
-							node.text.face = Face::Sad;
+							node->text.face = Face::Sad;
 						else if (utf8cmp(face, "Upbeat") == 0)
-							node.text.face = Face::Upbeat;
+							node->text.face = Face::Upbeat;
 						else if (utf8cmp(face, "Urgent") == 0)
-							node.text.face = Face::Urgent;
+							node->text.face = Face::Urgent;
 						else if (utf8cmp(face, "EyesClosed") == 0)
-							node.text.face = Face::EyesClosed;
+							node->text.face = Face::EyesClosed;
 						else if (utf8cmp(face, "Smile") == 0)
-							node.text.face = Face::Smile;
+							node->text.face = Face::Smile;
 						else if (utf8cmp(face, "Wat") == 0)
-							node.text.face = Face::Wat;
+							node->text.face = Face::Wat;
 						else if (utf8cmp(face, "Unamused") == 0)
-							node.text.face = Face::Unamused;
+							node->text.face = Face::Unamused;
 						else if (utf8cmp(face, "Angry") == 0)
-							node.text.face = Face::Angry;
+							node->text.face = Face::Angry;
 						else if (utf8cmp(face, "Concerned") == 0)
-							node.text.face = Face::Concerned;
+							node->text.face = Face::Concerned;
 						else
-							node.text.face = Face::Default;
+							node->text.face = Face::Default;
 					}
 					else
-						node.text.face = Face::Default;
+						node->text.face = Face::Default;
 
 					// choices
 					{
 						for (s32 i = 0; i < MAX_CHOICES; i++)
-							node.text.choices[i] = IDNull;
+							node->text.choices[i] = IDNull;
 
 						cJSON* json_choices = cJSON_GetObjectItem(json_node, "choices");
 						if (json_choices)
@@ -250,7 +251,7 @@ namespace Penelope
 							while (json_choice)
 							{
 								vi_assert(i < MAX_CHOICES);
-								node.text.choices[i] = id_lookup[json_choice->valuestring];
+								node->text.choices[i] = id_lookup[json_choice->valuestring];
 								i++;
 								json_choice = json_choice->next;
 							}
@@ -262,54 +263,67 @@ namespace Penelope
 					{
 						char event_name[512];
 						sprintf(event_name, "Play_%s", name_str);
-						node.text.sound = Audio::get_id(event_name);
+						node->text.sound = Audio::get_id(event_name);
 					}
 					else
-						node.text.sound = AK_INVALID_UNIQUE_ID;
+						node->text.sound = AK_INVALID_UNIQUE_ID;
 				}
 
-				if (node.type == Node::Type::Branch || node.type == Node::Type::Set)
+				if (node->type == Node::Type::Branch || node->type == Node::Type::Set)
 				{
 					const char* variable = Json::get_string(json_node, "variable");
 					if (variable)
 					{
-						node.set.variable = strings_get(variable);
-						vi_assert(node.set.variable != AssetNull);
+						node->set.variable = strings_get(variable);
+						vi_assert(node->set.variable != AssetNull);
 					}
 
 					const char* value = Json::get_string(json_node, "value");
 					if (value)
 					{
-						node.set.value = strings_get(value);
-						vi_assert(node.set.value != AssetNull);
+						node->set.value = strings_get(value);
+						vi_assert(node->set.value != AssetNull);
 					}
 				}
 
-				if (node.type == Node::Type::Branch)
+				if (node->type == Node::Type::Branch)
 				{
 					cJSON* json_branches = cJSON_GetObjectItem(json_node, "branches");
 					if (json_branches)
 					{
 						for (s32 j = 0; j < MAX_BRANCHES; j++)
 						{
-							node.branch.branches[j].target = IDNull;
-							node.branch.branches[j].value = AssetNull;
+							node->branch.branches[j].target = IDNull;
+							node->branch.branches[j].value = AssetNull;
 						}
 
 						cJSON* json_branch = json_branches->child;
 						s32 j = 0;
 						while (json_branch)
 						{
-							node.branch.branches[j].value = strings_get(json_branch->string);
-							vi_assert(node.branch.branches[j].value != AssetNull);
+							vi_assert(j < MAX_BRANCHES);
+							node->branch.branches[j].value = strings_get(json_branch->string);
+							vi_assert(node->branch.branches[j].value != AssetNull);
 							if (json_branch->valuestring)
-								node.branch.branches[j].target = id_lookup[json_branch->valuestring];
+								node->branch.branches[j].target = id_lookup[json_branch->valuestring];
 							else
-								node.branch.branches[j].target = IDNull;
+								node->branch.branches[j].target = IDNull;
 							json_branch = json_branch->next;
 							j++;
 						}
 					}
+				}
+
+				// check for disconnected nodes
+				if (
+					node->next == IDNull
+					&& node->type != Node::Type::Node // okay for us to end on a node
+					&& (node->type != Node::Type::Text || node->text.choices[0] == IDNull) // if it's a text and it doesn't have a next, it must have a choice
+					&& (node->type != Node::Type::Branch || node->branch.branches[0].target == IDNull) // if it's a branch, it must have at least one branch target
+					)
+				{
+					vi_debug("Dangling dialogue node in file: %s - %s", AssetLookup::DialogueTree::values[tree_index], Json::get_string(json_node, "name"));
+					vi_assert(false);
 				}
 
 				json_node = json_node->next;
@@ -590,6 +604,28 @@ namespace Penelope
 		execute(id, delay);
 	}
 
+	void normal_conversation()
+	{
+		switch (Game::save.round)
+		{
+			case 0:
+			{
+				clear_and_execute(node_lookup[data->entry_point], 0.5f);
+				break;
+			}
+			case 1:
+			{
+				clear_and_execute(node_lookup[strings::second_round], 0.5f);
+				break;
+			}
+			default:
+			{
+				vi_assert(false);
+				break;
+			}
+		}
+	}
+
 	void update(const Update& u)
 	{
 		PlayerTrigger* terminal = nullptr;
@@ -605,12 +641,10 @@ namespace Penelope
 		if (terminal && !Console::visible && u.last_input->get(Controls::Interact, 0) && !u.input->get(Controls::Interact, 0))
 		{
 			terminal_active(false);
-			if (Game::save.round == 0)
-				clear_and_execute(node_lookup[data->entry_point], 0.5f);
-			else if (Game::save.round == 1)
-				clear_and_execute(node_lookup[strings::second_round], 0.5f);
+			if (Game::save.last_round_loss)
+				clear_and_execute(node_lookup[strings::consolation], 0.5f);
 			else
-				vi_assert(false);
+				normal_conversation();
 		}
 
 		if (Audio::dialogue_done)
@@ -659,7 +693,7 @@ namespace Penelope
 #if DEBUG
 			// HACK to keep things working even with missing audio
 			if (!success)
-				Audio::post_dialogue_event(AK::EVENTS::PLAY_00B7746D3BBD6D2C14D869021B8274601642011B);
+				Audio::post_dialogue_event(AK::EVENTS::PLAY_4E8907711D4DB021E656CB8CC752C7A4AF11E1F8);
 #endif
 		}
 
@@ -1078,6 +1112,8 @@ namespace Penelope
 			terminal_active(true);
 		else if (node == strings::penelope_hide)
 			clear();
+		else if (node == strings::consolation_done) // we're done consoling; enter into normal conversation mode
+			normal_conversation();
 		else if (node == strings::match_go)
 		{
 			if (Game::save.round == 0)

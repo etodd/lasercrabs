@@ -89,9 +89,9 @@ void Game::State::reset()
 const s32 Game::levels[] =
 {
 	Asset::Level::intro,
-	Asset::Level::Safe_Zone,
+	Asset::Level::Soteria,
 	Asset::Level::Medias_Res,
-	Asset::Level::level2,
+	Asset::Level::Ponos,
 	Asset::Level::level3,
 	AssetNull,
 };
@@ -284,6 +284,7 @@ void Game::update(const Update& update_in)
 		i.item()->update(u);
 	for (auto i = Parkour::list.iterator(); !i.is_last(); i.next())
 		i.item()->update(u);
+	HealthPickup::update_all(u);
 	Sensor::update_all(u);
 	ContainmentField::update_all(u);
 	ControlPoint::update_all(u);

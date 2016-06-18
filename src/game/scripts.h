@@ -32,6 +32,7 @@ namespace Penelope
 	void variable(AssetID, AssetID);
 	AssetID variable(AssetID);
 	void clear();
+	void go(AssetID);
 	b8 has_focus();
 };
 

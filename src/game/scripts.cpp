@@ -604,18 +604,23 @@ namespace Penelope
 		execute(id, delay);
 	}
 
+	void go(AssetID name, r32 delay = 0.0f)
+	{
+		clear_and_execute(node_lookup[name], delay);
+	}
+
 	void normal_conversation()
 	{
 		switch (Game::save.round)
 		{
 			case 0:
 			{
-				clear_and_execute(node_lookup[data->entry_point], 0.5f);
+				go(data->entry_point, 0.5f);
 				break;
 			}
 			case 1:
 			{
-				clear_and_execute(node_lookup[strings::second_round], 0.5f);
+				go(strings::second_round, 0.5f);
 				break;
 			}
 			default:
@@ -642,7 +647,7 @@ namespace Penelope
 		{
 			terminal_active(false);
 			if (Game::save.last_round_loss)
-				clear_and_execute(node_lookup[strings::consolation], 0.5f);
+				go(strings::consolation, 0.5f);
 			else
 				normal_conversation();
 		}
@@ -810,7 +815,7 @@ namespace Penelope
 					data->matchmake_mode = Matchmake::Found;
 					data->matchmake_timer = 15.0f;
 					data->active_data_fragment = AssetNull; // if we're looking at a data fragment, close it
-					clear_and_execute(node_lookup[strings::match_found], 0.25f);
+					go(strings::match_found, 0.25f);
 				}
 				break;
 			}
@@ -1211,7 +1216,7 @@ namespace intro
 	{
 		Penelope::init(AssetNull, Penelope::Mode::Center);
 		Penelope::data->node_executed.link(&node_executed);
-		Penelope::clear_and_execute(Penelope::node_lookup[strings::intro], 1.0f);
+		Penelope::go(strings::intro, 1.0f);
 	}
 }
 
@@ -1373,6 +1378,7 @@ namespace tutorial
 		{
 			data->state = TutorialState::ParkourClimbDone;
 			Penelope::clear();
+			data->door_mover.ref()->go();
 		}
 	}
 
@@ -1469,6 +1475,28 @@ namespace tutorial
 		data = nullptr;
 	}
 
+	void node_executed(AssetID node)
+	{
+		if (node == strings::tutorial_intro_done)
+		{
+			Penelope::data->default_mode = Penelope::Mode::Left;
+			Penelope::clear();
+			Penelope::data->texts.schedule(0.0f, _(strings::tut_parkour_movement));
+		}
+		else if (node == strings::tutorial_done)
+		{
+			Game::save.level_index++;
+			Game::save.round = 0;
+			Menu::transition(Game::levels[Game::save.level_index], Game::Mode::Parkour);
+		}
+	}
+
+	void tutorial_intro(const Update&)
+	{
+		Penelope::data->default_mode = Penelope::Mode::Center;
+		Penelope::go(strings::tutorial_intro, 1.0f);
+	}
+
 	void init(const Update& u, const EntityFinder& entities)
 	{
 		Game::level.feature_level = Game::FeatureLevel::HealthPickups;
@@ -1478,9 +1506,10 @@ namespace tutorial
 		Game::updates.add(&update);
 		Game::cleanups.add(&cleanup);
 
+		data->door_mover = entities.find("door_mover")->get<Mover>();
+
 		if (Game::state.mode == Game::Mode::Pvp)
 		{
-			data->door_mover = entities.find("door_mover")->get<Mover>();
 			data->health_location = entities.find("health")->get<Transform>();
 			data->control_point = entities.find("control_point")->get<ControlPoint>();
 
@@ -1503,14 +1532,15 @@ namespace tutorial
 			Penelope::init(); // have to init manually since penelope normally isn't loaded in PvP mode
 			Penelope::data->texts.schedule(3.0f, _(strings::tut_pvp_minion));
 		}
-		else if (Penelope::variable(strings::tutorial_intro) != strings::yes)
+		else
 		{
+			Penelope::data->node_executed.link(&node_executed);
 			entities.find("jump_success")->get<PlayerTrigger>()->entered.link(&jump_success);
 			entities.find("climb_success")->get<PlayerTrigger>()->entered.link(&climb_success);
 			entities.find("wallrun_tutorial")->get<PlayerTrigger>()->entered.link(&wallrun_tutorial);
 			entities.find("wallrun_success")->get<PlayerTrigger>()->entered.link(&wallrun_success);
 
-			Penelope::data->texts.schedule(3.0f, _(strings::tut_parkour_movement));
+			Penelope::data->callbacks.schedule(4.0f, tutorial_intro);
 		}
 	}
 }

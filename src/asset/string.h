@@ -8,7 +8,7 @@ namespace Asset
 {
 	namespace String
 	{
-		const s32 count = 343;
+		const s32 count = 345;
 		const AssetID Ioke = 0;
 		const AssetID Medias_Res = 1;
 		const AssetID Ponos = 2;
@@ -345,13 +345,15 @@ namespace Asset
 		const AssetID tut_pvp_kill_player = 333;
 		const AssetID tut_pvp_minion = 334;
 		const AssetID tut_pvp_upgrade = 335;
-		const AssetID tutorial_intro = 336;
-		const AssetID upgrade_description = 337;
-		const AssetID upgrade_notification = 338;
-		const AssetID upgrade_prompt = 339;
-		const AssetID upgrading = 340;
-		const AssetID victory = 341;
-		const AssetID yes = 342;
+		const AssetID tutorial_done = 336;
+		const AssetID tutorial_intro = 337;
+		const AssetID tutorial_intro_done = 338;
+		const AssetID upgrade_description = 339;
+		const AssetID upgrade_notification = 340;
+		const AssetID upgrade_prompt = 341;
+		const AssetID upgrading = 342;
+		const AssetID victory = 343;
+		const AssetID yes = 344;
 	}
 }
 

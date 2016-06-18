@@ -14,6 +14,7 @@
 #include "asset/level.h"
 #include "walker.h"
 #include "mersenne/mersenne-twister.h"
+#include "scripts.h"
 
 #define PLAYER_SPAWN_DELAY 3.0f
 
@@ -249,10 +250,15 @@ void level_next()
 			|| Game::save.level_index < 4 // advance past tutorials and first two levels after only one round
 			|| Game::save.round == (s32)AI::Team::count - 1)
 		{
-			// advance to next level
-			Game::save.level_index++;
-			Game::save.round = 0;
-			next_level = Game::levels[Game::save.level_index];
+			if (Game::save.level_index == 1 && Penelope::variable(strings::skip_tutorial) != strings::yes) // tutorial
+				next_level = Game::levels[Game::save.level_index]; // reload map in parkour mode
+			else
+			{
+				// advance to next level
+				Game::save.level_index++;
+				Game::save.round = 0;
+				next_level = Game::levels[Game::save.level_index];
+			}
 		}
 		else
 		{

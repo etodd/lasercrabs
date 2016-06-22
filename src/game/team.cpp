@@ -548,11 +548,13 @@ b8 PlayerManager::ability_spawn_start(Ability ability)
 	if (!awk->get<Transform>()->parent.ref())
 		return false;
 
+	Ability old = current_spawn_ability;
+	if (ability == old)
+		return false;
+
 	const AbilityInfo& info = AbilityInfo::list[(s32)ability];
 	if (credits < info.spawn_cost)
 		return false;
-
-	Ability old = current_spawn_ability;
 
 	current_spawn_ability = ability;
 	spawn_ability_timer = info.spawn_time;

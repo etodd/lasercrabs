@@ -8,7 +8,7 @@ namespace Asset
 {
 	namespace String
 	{
-		const s32 count = 345;
+		const s32 count = 348;
 		const AssetID Ioke = 0;
 		const AssetID Medias_Res = 1;
 		const AssetID Ponos = 2;
@@ -338,22 +338,25 @@ namespace Asset
 		const AssetID terminal_reset = 326;
 		const AssetID timer = 327;
 		const AssetID tut_parkour_climb = 328;
-		const AssetID tut_parkour_movement = 329;
-		const AssetID tut_parkour_wallrun = 330;
-		const AssetID tut_pvp_control_points = 331;
-		const AssetID tut_pvp_health = 332;
-		const AssetID tut_pvp_kill_player = 333;
-		const AssetID tut_pvp_minion = 334;
-		const AssetID tut_pvp_upgrade = 335;
-		const AssetID tutorial_done = 336;
-		const AssetID tutorial_intro = 337;
-		const AssetID tutorial_intro_done = 338;
-		const AssetID upgrade_description = 339;
-		const AssetID upgrade_notification = 340;
-		const AssetID upgrade_prompt = 341;
-		const AssetID upgrading = 342;
-		const AssetID victory = 343;
-		const AssetID yes = 344;
+		const AssetID tut_parkour_double_jump = 329;
+		const AssetID tut_parkour_movement = 330;
+		const AssetID tut_parkour_roll = 331;
+		const AssetID tut_parkour_slide = 332;
+		const AssetID tut_parkour_wallrun = 333;
+		const AssetID tut_pvp_control_points = 334;
+		const AssetID tut_pvp_health = 335;
+		const AssetID tut_pvp_kill_player = 336;
+		const AssetID tut_pvp_minion = 337;
+		const AssetID tut_pvp_upgrade = 338;
+		const AssetID tutorial_done = 339;
+		const AssetID tutorial_intro = 340;
+		const AssetID tutorial_intro_done = 341;
+		const AssetID upgrade_description = 342;
+		const AssetID upgrade_notification = 343;
+		const AssetID upgrade_prompt = 344;
+		const AssetID upgrading = 345;
+		const AssetID victory = 346;
+		const AssetID yes = 347;
 	}
 }
 

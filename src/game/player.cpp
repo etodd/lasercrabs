@@ -1266,28 +1266,25 @@ void LocalPlayerControl::update(const Update& u)
 			PlayerManager* manager = player.ref()->manager.ref();
 			{
 				b8 current = u.input->get(Controls::Ability1, gamepad);
-				b8 last = u.last_input->get(Controls::Ability1, gamepad);
-				if (current && !last)
+				if (current)
 					manager->ability_spawn_start(manager->abilities[0]);
-				else if (!current && last)
+				else if (!current && u.last_input->get(Controls::Ability1, gamepad))
 					manager->ability_spawn_stop(manager->abilities[0]);
 			}
 
 			{
 				b8 current = u.input->get(Controls::Ability2, gamepad);
-				b8 last = u.last_input->get(Controls::Ability2, gamepad);
-				if (current && !last)
+				if (current)
 					manager->ability_spawn_start(manager->abilities[1]);
-				else if (!current && last)
+				else if (!current && u.last_input->get(Controls::Ability2, gamepad))
 					manager->ability_spawn_stop(manager->abilities[1]);
 			}
 
 			{
 				b8 current = u.input->get(Controls::Ability3, gamepad);
-				b8 last = u.last_input->get(Controls::Ability3, gamepad);
-				if (current && !last)
+				if (current)
 					manager->ability_spawn_start(manager->abilities[2]);
-				else if (!current && last)
+				else if (!current && u.last_input->get(Controls::Ability3, gamepad))
 					manager->ability_spawn_stop(manager->abilities[2]);
 			}
 		}

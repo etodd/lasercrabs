@@ -639,7 +639,7 @@ b8 Parkour::try_jump(r32 rotation)
 				{
 					// we couldn't wall-jump
 					// try to double-jump
-					if (can_double_jump)
+					if (can_double_jump && Game::state.allow_double_jump)
 					{
 						Vec3 spawn_offset = get<RigidBody>()->btBody->getLinearVelocity() * 1.5f;
 						spawn_offset.y = 5.0f;

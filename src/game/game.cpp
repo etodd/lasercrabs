@@ -75,7 +75,8 @@ Game::State::State()
 	third_person(),
 	local_multiplayer(),
 	time_scale(1.0f),
-	level(AssetNull)
+	level(AssetNull),
+	allow_double_jump(true)
 {
 }
 

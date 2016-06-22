@@ -26,6 +26,8 @@
 #include "console.h"
 #include <unordered_map>
 #include <string>
+#include "walker.h"
+#include "parkour.h"
 
 namespace VI
 {
@@ -1347,7 +1349,7 @@ namespace tutorial
 {
 	enum class TutorialState
 	{
-		ParkourJump, ParkourClimb, ParkourClimbDone, ParkourWallRun,
+		ParkourJump, ParkourClimb, ParkourClimbDone, ParkourWallRun, ParkourWallRunDone, ParkourSlide, ParkourSlideDone, ParkourRoll, ParkourDoubleJump,
 		PvpKillMinion, PvpGetHealth, PvpControlPoint, PvpUpgrade, PvpKillPlayer,
 		Done,
 	};
@@ -1355,6 +1357,9 @@ namespace tutorial
 	struct Data
 	{
 		TutorialState state;
+		Ref<Transform> slide_retry;
+		Ref<Transform> roll_retry;
+		Ref<PlayerTrigger> roll_success;
 		Ref<Mover> door_mover;
 		Ref<Transform> health_location;
 		Ref<ControlPoint> control_point;
@@ -1395,6 +1400,52 @@ namespace tutorial
 	void wallrun_success(Entity*)
 	{
 		if (data->state == TutorialState::ParkourWallRun)
+		{
+			data->state = TutorialState::ParkourWallRunDone;
+			Penelope::clear();
+		}
+	}
+
+	void slide_tutorial(Entity*)
+	{
+		if (data->state == TutorialState::ParkourWallRunDone)
+		{
+			data->state = TutorialState::ParkourSlide;
+			Penelope::clear();
+			Penelope::data->texts.schedule(0.0f, _(strings::tut_parkour_slide));
+		}
+	}
+
+	void slide_fail(Entity*)
+	{
+		Entity* player = LocalPlayerControl::list.iterator().item()->entity();
+		player->get<Walker>()->absolute_pos(data->slide_retry.ref()->absolute_pos());
+		player->get<Walker>()->rotation = player->get<Walker>()->rotation = player->get<PlayerCommon>()->angle_horizontal = 0.0f;
+		player->get<RigidBody>()->btBody->setLinearVelocity(Vec3::zero);
+	}
+
+	void slide_success(Entity*)
+	{
+		if (data->state == TutorialState::ParkourSlide)
+		{
+			data->state = TutorialState::ParkourSlideDone;
+			Penelope::clear();
+		}
+	}
+
+	void roll_tutorial(Entity*)
+	{
+		if (data->state == TutorialState::ParkourSlideDone)
+		{
+			data->state = TutorialState::ParkourRoll;
+			Penelope::clear();
+			Penelope::data->texts.schedule(0.0f, _(strings::tut_parkour_roll));
+		}
+	}
+
+	void double_jump_success(Entity*)
+	{
+		if (data->state == TutorialState::ParkourDoubleJump)
 		{
 			data->state = TutorialState::Done;
 			Penelope::clear();
@@ -1461,6 +1512,28 @@ namespace tutorial
 				}
 			}
 		}
+		else if (data->state == TutorialState::ParkourRoll)
+		{
+			Entity* player = LocalPlayerControl::list.iterator().item()->entity();
+			if (data->roll_success.ref()->is_triggered(player))
+			{
+				if (player->get<Parkour>()->fsm.current == Parkour::State::Roll)
+				{
+					data->state = TutorialState::ParkourDoubleJump;
+					Game::state.allow_double_jump = true;
+					Penelope::clear();
+					Penelope::data->texts.schedule(0.0f, _(strings::tut_parkour_double_jump));
+				}
+				else if (Vec3(player->get<RigidBody>()->btBody->getLinearVelocity()).y > -1.0f)
+				{
+					// player did not roll correctly
+					Entity* player = LocalPlayerControl::list.iterator().item()->entity();
+					player->get<Walker>()->absolute_pos(data->roll_retry.ref()->absolute_pos());
+					player->get<Walker>()->rotation = player->get<Walker>()->rotation = player->get<PlayerCommon>()->angle_horizontal = 0.0f;
+					player->get<RigidBody>()->btBody->setLinearVelocity(Vec3::zero);
+				}
+			}
+		}
 	}
 
 	void draw(const RenderParams& params)
@@ -1485,6 +1558,7 @@ namespace tutorial
 		}
 		else if (node == strings::tutorial_done)
 		{
+			Game::state.allow_double_jump = true;
 			Game::save.level_index++;
 			Game::save.round = 0;
 			Menu::transition(Game::levels[Game::save.level_index], Game::Mode::Parkour);
@@ -1534,11 +1608,20 @@ namespace tutorial
 		}
 		else
 		{
+			Game::state.allow_double_jump = false;
+
 			Penelope::data->node_executed.link(&node_executed);
 			entities.find("jump_success")->get<PlayerTrigger>()->entered.link(&jump_success);
 			entities.find("climb_success")->get<PlayerTrigger>()->entered.link(&climb_success);
 			entities.find("wallrun_tutorial")->get<PlayerTrigger>()->entered.link(&wallrun_tutorial);
 			entities.find("wallrun_success")->get<PlayerTrigger>()->entered.link(&wallrun_success);
+			entities.find("slide_tutorial")->get<PlayerTrigger>()->entered.link(&slide_tutorial);
+			entities.find("slide_fail")->get<PlayerTrigger>()->entered.link(&slide_fail);
+			entities.find("slide_success")->get<PlayerTrigger>()->entered.link(&slide_success);
+			entities.find("roll_tutorial")->get<PlayerTrigger>()->entered.link(&roll_tutorial);
+			data->roll_success = entities.find("roll_success")->get<PlayerTrigger>();
+			data->slide_retry = entities.find("slide_retry")->get<Transform>();
+			data->roll_retry = entities.find("roll_retry")->get<Transform>();
 
 			Penelope::data->callbacks.schedule(4.0f, tutorial_intro);
 		}

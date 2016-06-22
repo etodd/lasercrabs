@@ -60,6 +60,7 @@ struct Game
 		// games rotate through all the possible team configurations before moving on to the next map
 		// local multiplayer games shift all the team IDs by this amount
 		r32 time_scale;
+		b8 allow_double_jump;
 		AssetID level;
 		void reset();
 		State();

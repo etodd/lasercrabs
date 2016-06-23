@@ -174,7 +174,7 @@ void HealthPickup::update_all(const Update& u)
 			(
 				pos + Quat::euler(0.0f, mersenne::randf_co() * PI * 2.0f, (mersenne::randf_co() - 0.5f) * PI) * Vec3(0, 0, mersenne::randf_co() * 0.6f),
 				Vec3::zero,
-				PI * 0.25f
+				0
 			);
 		}
 	}
@@ -374,7 +374,7 @@ void ControlPoint::update_all(const Update& u)
 			(
 				Vec3::lerp(particle_timer / particle_reset, control_point_pos, closest_sensor->get<Transform>()->absolute_pos()),
 				Vec3::zero,
-				PI * 0.25f
+				0
 			);
 		}
 
@@ -571,7 +571,7 @@ void Rocket::update(const Update& u)
 				(
 					get<Transform>()->pos + velocity * particle_accumulator,
 					Vec3::zero,
-					PI * 0.25f
+					0
 				);
 			}
 			get<Transform>()->pos = next_pos;
@@ -686,7 +686,7 @@ void ContainmentField::update_all(const Update& u)
 			(
 				pos + Quat::euler(0.0f, mersenne::randf_co() * PI * 2.0f, (mersenne::randf_co() - 0.5f) * PI) * Vec3(0, 0, 2.0f),
 				pos,
-				PI * 0.25f
+				0
 			);
 		}
 	}

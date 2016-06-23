@@ -10,13 +10,14 @@ struct ParticleSystem
 {
 	static const s32 MAX_PARTICLE_SYSTEMS = 500;
 	static const s32 MAX_PARTICLES = 5000;
-	static const s32 VERTICES_PER_PARTICLE = 4;
 	static StaticArray<ParticleSystem*, MAX_PARTICLE_SYSTEMS> all;
 
-	Vec3 positions[MAX_PARTICLES * VERTICES_PER_PARTICLE];
-	Vec4 velocities[MAX_PARTICLES * VERTICES_PER_PARTICLE];
-	r32 births[MAX_PARTICLES * VERTICES_PER_PARTICLE];
-	Vec4 params[MAX_PARTICLES * VERTICES_PER_PARTICLE];
+	s32 vertices_per_particle;
+	s32 indices_per_particle;
+	Array<Vec3> positions;
+	Array<Vec4> velocities;
+	Array<r32> births;
+	Array<Vec4> params;
 	s32 first_active;
 	s32 first_new;
 	s32 first_free;
@@ -25,7 +26,7 @@ struct ParticleSystem
 	AssetID shader;
 	AssetID texture;
 	
-	ParticleSystem(r32, AssetID, AssetID = AssetNull);
+	ParticleSystem(s32, s32, r32, AssetID, AssetID = AssetNull);
 	void init(LoopSync*);
 
 	void upload_range(RenderSync*, s32, s32);
@@ -42,7 +43,7 @@ struct StandardParticleSystem : public ParticleSystem
 	Vec3 gravity;
 	Vec4 color;
 	AssetID texture;
-	StandardParticleSystem(const Vec2&, const Vec2&, r32, const Vec3&, const Vec4&, AssetID = AssetNull, AssetID = AssetNull);
+	StandardParticleSystem(s32, s32, const Vec2&, const Vec2&, r32, const Vec3&, const Vec4&, AssetID = AssetNull, AssetID = AssetNull);
 	void pre_draw(const RenderParams&);
 	void add(const Vec3&, const Vec3&, r32);
 	void add(const Vec3&, const Vec3& = Vec3::zero);

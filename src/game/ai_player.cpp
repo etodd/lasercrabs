@@ -26,6 +26,7 @@ AIPlayer::Config::Config()
 	interval_high_level(0.5f),
 	inaccuracy_min(PI * 0.001f),
 	inaccuracy_range(PI * 0.01f),
+	cooldown_skip_chance(0.1f),
 	aim_timeout(2.0f),
 	aim_speed(4.0f),
 	upgrade_priority
@@ -108,7 +109,8 @@ AIPlayerControl::AIPlayerControl(AIPlayer* p)
 	target(),
 	shot_at_target(),
 	hit_target(),
-	panic()
+	panic(),
+	cooldown_skip()
 {
 #if DEBUG_AI_CONTROL
 	camera = Camera::add();
@@ -176,6 +178,7 @@ void AIPlayerControl::awk_attached()
 {
 	const AIPlayer::Config& config = player.ref()->config;
 	inaccuracy = config.inaccuracy_min + (mersenne::randf_cc() * config.inaccuracy_range);
+	cooldown_skip = mersenne::randf_cc() < config.cooldown_skip_chance;
 	aim_timer = 0.0f;
 	if (path_index < path.length)
 		path_index++;
@@ -353,7 +356,7 @@ b8 AIPlayerControl::aim_and_shoot(const Update& u, const Vec3& path_node, const 
 	PlayerCommon* common = get<PlayerCommon>();
 
 	b8 can_move = common->movement_enabled();
-	b8 can_shoot = can_move && get<Awk>()->cooldown == 0.0f;
+	b8 can_shoot = can_move && (get<Awk>()->cooldown == 0.0f || (cooldown_skip && get<Awk>()->cooldown_can_go()));
 
 	if (can_shoot)
 		aim_timer += u.time.delta;

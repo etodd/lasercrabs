@@ -32,6 +32,8 @@ namespace VI
 #define AWK_MIN_LEG_BLEND_SPEED (AWK_LEG_BLEND_SPEED * 0.1f)
 #define AWK_SHIELD_RADIUS 0.75f
 #define AWK_STUN_TIME 2.0f
+#define AWK_COOLDOWN_SKIP (AWK_MAX_DISTANCE_COOLDOWN * 0.5f)
+#define AWK_COOLDOWN_SKIP_WINDOW 0.1f
 
 AwkRaycastCallback::AwkRaycastCallback(const Vec3& a, const Vec3& b, const Entity* awk)
 	: btCollisionWorld::ClosestRayResultCallback(a, b)
@@ -91,8 +93,10 @@ Awk::Awk()
 	bounce(),
 	hit_targets(),
 	cooldown(),
+	cooldown_total(),
 	stun_timer(),
-	invincible_timer()
+	invincible_timer(),
+	disable_cooldown_skip()
 {
 }
 
@@ -475,9 +479,15 @@ void Awk::detach_teleport()
 	detached.fire();
 }
 
+b8 Awk::cooldown_can_go() const
+{
+	return cooldown == 0.0f
+		|| (!disable_cooldown_skip && cooldown_total - cooldown > AWK_COOLDOWN_SKIP - AWK_COOLDOWN_SKIP_WINDOW && cooldown_total - cooldown < AWK_COOLDOWN_SKIP + AWK_COOLDOWN_SKIP_WINDOW);
+}
+
 b8 Awk::detach(const Vec3& dir)
 {
-	if (cooldown == 0.0f && stun_timer == 0.0f)
+	if (cooldown_can_go() && stun_timer == 0.0f)
 	{
 		Vec3 dir_normalized = Vec3::normalize(dir);
 		velocity = dir_normalized * AWK_FLY_SPEED;
@@ -1033,6 +1043,8 @@ void Awk::update(const Update& u)
 
 							get<Animator>()->layers[0].animation = AssetNull;
 
+							disable_cooldown_skip = false;
+
 							attached.fire();
 							get<Audio>()->post_event(has<LocalPlayerControl>() ? AK::EVENTS::PLAY_LAND_PLAYER : AK::EVENTS::PLAY_LAND);
 							attach_time = u.time.total;
@@ -1043,6 +1055,7 @@ void Awk::update(const Update& u)
 				}
 			}
 			cooldown = vi_min(cooldown + (next_position - position).length() * AWK_COOLDOWN_DISTANCE_RATIO, AWK_MAX_DISTANCE_COOLDOWN);
+			cooldown_total = cooldown;
 		}
 	}
 }

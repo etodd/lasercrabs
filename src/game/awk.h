@@ -56,20 +56,23 @@ struct Awk : public ComponentType<Awk>
 	r32 attach_time;
 	r32 stun_timer;
 	r32 invincible_timer;
-	r32 cooldown;
+	r32 cooldown_total; // total cooldown time
+	r32 cooldown; // remaining cooldown time
 	Footing footing[AWK_LEGS];
 	r32 last_speed;
 	r32 last_footstep;
 	Vec3 lerped_pos;
 	Quat lerped_rotation;
 	Ref<Entity> shield;
+	b8 disable_cooldown_skip;
 
 	Awk();
 	void awake();
 	~Awk();
 
-	void hit_by(const TargetEvent&); // Called when we get hit
-	void hit_target(Entity*); // Called when we hit a target
+	b8 cooldown_can_go() const; // can we go?
+	void hit_by(const TargetEvent&); // called when we get hit
+	void hit_target(Entity*); // called when we hit a target
 	void damaged(const DamageEvent&);
 	void killed(Entity*);
 	Entity* incoming_attacker() const;

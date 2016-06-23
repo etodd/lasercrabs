@@ -53,6 +53,7 @@ struct AIPlayer
 		r32 interval_memory_update;
 		r32 interval_low_level;
 		r32 interval_high_level;
+		r32 cooldown_skip_chance;
 		r32 inaccuracy_min;
 		r32 inaccuracy_range;
 		r32 aim_timeout;
@@ -106,6 +107,7 @@ struct AIPlayerControl : public ComponentType<AIPlayerControl>
 	b8 panic;
 	r32 aim_timer;
 	r32 inaccuracy;
+	b8 cooldown_skip;
 #if DEBUG_AI_CONTROL
 	Camera* camera;
 #endif

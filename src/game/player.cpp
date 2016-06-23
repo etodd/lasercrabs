@@ -1344,7 +1344,7 @@ void LocalPlayerControl::update(const Update& u)
 					{
 						if ((hit - center).length() > distance - AWK_RADIUS)
 						{
-							if (get<Awk>()->cooldown == 0.0f)
+							if (get<Awk>()->cooldown_can_go())
 								reticle.type = hit_target ? ReticleType::Target : ReticleType::Normal;
 						}
 					}
@@ -1413,7 +1413,11 @@ void LocalPlayerControl::update(const Update& u)
 		{
 			// can't shoot
 			if (u.input->get(Controls::Primary, gamepad)) // player is mashing the fire button; give them some feedback
+			{
 				reticle.type = ReticleType::Error;
+				if (get<Awk>()->cooldown > 0.0f) // prevent the player from mashing the fire button to nail the cooldown skip
+					get<Awk>()->disable_cooldown_skip = true;
+			}
 		}
 		else
 		{
@@ -1963,15 +1967,19 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 	// reticle
 	if (movement_enabled())
 	{
+		// hollow reticle
+		r32 cooldown = get<Awk>()->cooldown;
+		if (cooldown > 0.0f || reticle.type == ReticleType::None || reticle.type == ReticleType::Error)
+		{
+			r32 radius = cooldown == 0.0f ? 0.0f : vi_max(0.0f, 32.0f * (cooldown / AWK_MAX_DISTANCE_COOLDOWN));
+			UI::triangle_border(params, { viewport.size * Vec2(0.5f, 0.5f), Vec2(4.0f + radius) * 2 * UI::scale }, 2, reticle.type == ReticleType::Error ? UI::alert_color : UI::accent_color, PI);
+		}
+
 		switch (reticle.type)
 		{
 			case ReticleType::None:
 			case ReticleType::Error:
 			{
-				// hollow reticle
-				r32 cooldown = get<Awk>()->cooldown;
-				r32 radius = cooldown == 0.0f ? 0.0f : vi_max(0.0f, 32.0f * (cooldown / AWK_MAX_DISTANCE_COOLDOWN));
-				UI::triangle_border(params, { viewport.size * Vec2(0.5f, 0.5f), Vec2(4.0f + radius) * 2 * UI::scale }, 2, reticle.type == ReticleType::Error ? UI::alert_color : UI::accent_color, PI);
 				break;
 			}
 			case ReticleType::Normal:

@@ -1263,28 +1263,32 @@ void LocalPlayerControl::update(const Update& u)
 		// abilities
 		if (input_enabled())
 		{
+			b8 just_attached = u.time.total - get<Awk>()->attach_time < 0.2f;
 			PlayerManager* manager = player.ref()->manager.ref();
 			{
 				b8 current = u.input->get(Controls::Ability1, gamepad);
-				if (current)
+				b8 last = u.last_input->get(Controls::Ability1, gamepad);
+				if (current && (!last || just_attached))
 					manager->ability_spawn_start(manager->abilities[0]);
-				else if (!current && u.last_input->get(Controls::Ability1, gamepad))
+				else if (!current)
 					manager->ability_spawn_stop(manager->abilities[0]);
 			}
 
 			{
 				b8 current = u.input->get(Controls::Ability2, gamepad);
-				if (current)
+				b8 last = u.last_input->get(Controls::Ability2, gamepad);
+				if (current && (!last || just_attached))
 					manager->ability_spawn_start(manager->abilities[1]);
-				else if (!current && u.last_input->get(Controls::Ability2, gamepad))
+				else if (!current)
 					manager->ability_spawn_stop(manager->abilities[1]);
 			}
 
 			{
 				b8 current = u.input->get(Controls::Ability3, gamepad);
-				if (current)
+				b8 last = u.last_input->get(Controls::Ability3, gamepad);
+				if (current && (!last || just_attached))
 					manager->ability_spawn_start(manager->abilities[2]);
-				else if (!current && u.last_input->get(Controls::Ability3, gamepad))
+				else if (!current)
 					manager->ability_spawn_stop(manager->abilities[2]);
 			}
 		}

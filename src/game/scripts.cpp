@@ -1211,7 +1211,7 @@ namespace intro
 	{
 		Penelope::init(AssetNull, Penelope::Mode::Center);
 		Penelope::data->node_executed.link(&node_executed);
-		Penelope::go(strings::intro, 1.0f);
+		Penelope::go(strings::intro_start, 1.0f);
 	}
 }
 

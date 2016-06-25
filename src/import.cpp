@@ -3264,35 +3264,32 @@ s32 proc(s32 argc, char* argv[])
 
 		if (state.rebuild || update_manifest || filemtime(dialogue_strings_out_path) < state.manifest_mtime)
 		{
+			// collect all dialogue strings into a single file
+			Map<std::string> flattened_dialogue_strings;
+			map_flatten(state.manifest.dialogue_strings, flattened_dialogue_strings);
+			cJSON* dialogue = cJSON_CreateObject();
+			for (auto i = flattened_dialogue_strings.begin(); i != flattened_dialogue_strings.end(); i++)
 			{
-				// collect all dialogue strings into a single file
-				cJSON* dialogue = cJSON_CreateObject();
-				for (auto i = state.manifest.dialogue_strings.begin(); i != state.manifest.dialogue_strings.end(); i++)
-				{
-					for (auto j = i->second.begin(); j != i->second.end(); j++)
-					{
-						cJSON* value = cJSON_CreateString(j->second.c_str());
-						cJSON_AddItemToObject(dialogue, j->first.c_str(), value);
-					}
-				}
-				Json::save(dialogue, dialogue_strings_out_path);
-				Json::json_free(dialogue);
+				cJSON* value = cJSON_CreateString(i->second.c_str());
+				cJSON_AddItemToObject(dialogue, i->first.c_str(), value);
 			}
+			Json::save(dialogue, dialogue_strings_out_path);
+			Json::json_free(dialogue);
+		}
 
+		if (state.rebuild || update_manifest || filemtime(dynamic_strings_out_path) < state.manifest_mtime)
+		{
+			// collect all dynamic strings into a single file
+			Map<std::string> flattened_dynamic_strings;
+			map_flatten(state.manifest.dynamic_strings, flattened_dynamic_strings);
+			cJSON* dynamic = cJSON_CreateObject();
+			for (auto i = flattened_dynamic_strings.begin(); i != flattened_dynamic_strings.end(); i++)
 			{
-				// collect all dynamic strings into a single file
-				cJSON* dynamic = cJSON_CreateObject();
-				for (auto i = state.manifest.dynamic_strings.begin(); i != state.manifest.dynamic_strings.end(); i++)
-				{
-					for (auto j = i->second.begin(); j != i->second.end(); j++)
-					{
-						cJSON* value = cJSON_CreateString(j->second.c_str());
-						cJSON_AddItemToObject(dynamic, j->first.c_str(), value);
-					}
-				}
-				Json::save(dynamic, dynamic_strings_out_path);
-				Json::json_free(dynamic);
+				cJSON* value = cJSON_CreateString(i->second.c_str());
+				cJSON_AddItemToObject(dynamic, i->first.c_str(), value);
 			}
+			Json::save(dynamic, dynamic_strings_out_path);
+			Json::json_free(dynamic);
 		}
 
 		if (state.rebuild || update_manifest || filemtime(asset_src_path) < state.manifest_mtime)

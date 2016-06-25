@@ -245,6 +245,8 @@ void level_next()
 	{
 		// campaign mode; advance to next level
 		Game::save.last_round_loss = false;
+		Penelope::variable(strings::intro, AssetNull);
+		Penelope::variable(strings::tried, AssetNull);
 		next_mode = Game::Mode::Parkour;
 		if (Game::level.lock_teams
 			|| Game::save.level_index < 4 // advance past tutorials and first two levels after only one round

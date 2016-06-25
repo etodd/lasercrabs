@@ -347,13 +347,16 @@ b8 Awk::predict_intersection(const Target* target, Vec3* intersection) const
 
 void Awk::damaged(const DamageEvent& e)
 {
-	if (e.damager->has<PlayerCommon>())
+	if (e.damager)
 	{
-		s32 diff = get<PlayerCommon>()->manager.ref()->add_credits(-CREDITS_DAMAGE);
-		e.damager->get<PlayerCommon>()->manager.ref()->add_credits(-diff);
+		if (e.damager->has<PlayerCommon>())
+		{
+			s32 diff = get<PlayerCommon>()->manager.ref()->add_credits(-CREDITS_DAMAGE);
+			e.damager->get<PlayerCommon>()->manager.ref()->add_credits(-diff);
+		}
+		if (get<Health>()->hp > 0 && e.damager->has<LocalPlayerControl>())
+			e.damager->get<LocalPlayerControl>()->player.ref()->msg(_(strings::target_damaged), true);
 	}
-	if (get<Health>()->hp > 0 && e.damager->has<LocalPlayerControl>())
-		e.damager->get<LocalPlayerControl>()->player.ref()->msg(_(strings::target_damaged), true);
 	s32 new_health_pickup_count = get<Health>()->hp - 1;
 	s32 health_pickup_count = 0;
 	for (auto i = HealthPickup::list.iterator(); !i.is_last(); i.next())

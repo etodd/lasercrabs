@@ -96,7 +96,6 @@ namespace Penelope
 		struct Text
 		{
 			Face face;
-			ID choices[MAX_CHOICES];
 			AkUniqueID sound;
 		};
 
@@ -115,6 +114,7 @@ namespace Penelope
 		Type type;
 		AssetID name;
 		ID next;
+		ID choices[MAX_CHOICES];
 		union
 		{
 			Text text;
@@ -240,26 +240,6 @@ namespace Penelope
 					else
 						node->text.face = Face::Default;
 
-					// choices
-					{
-						for (s32 i = 0; i < MAX_CHOICES; i++)
-							node->text.choices[i] = IDNull;
-
-						cJSON* json_choices = cJSON_GetObjectItem(json_node, "choices");
-						if (json_choices)
-						{
-							s32 i = 0;
-							cJSON* json_choice = json_choices->child;
-							while (json_choice)
-							{
-								vi_assert(i < MAX_CHOICES);
-								node->text.choices[i] = id_lookup[json_choice->valuestring];
-								i++;
-								json_choice = json_choice->next;
-							}
-						}
-					}
-
 					// sound
 					if (name_str)
 					{
@@ -269,6 +249,26 @@ namespace Penelope
 					}
 					else
 						node->text.sound = AK_INVALID_UNIQUE_ID;
+				}
+
+				// choices
+				{
+					for (s32 i = 0; i < MAX_CHOICES; i++)
+						node->choices[i] = IDNull;
+
+					cJSON* json_choices = cJSON_GetObjectItem(json_node, "choices");
+					if (json_choices)
+					{
+						s32 i = 0;
+						cJSON* json_choice = json_choices->child;
+						while (json_choice)
+						{
+							vi_assert(i < MAX_CHOICES);
+							node->choices[i] = id_lookup[json_choice->valuestring];
+							i++;
+							json_choice = json_choice->next;
+						}
+					}
 				}
 
 				if (node->type == Node::Type::Branch || node->type == Node::Type::Set)
@@ -320,7 +320,7 @@ namespace Penelope
 				if (
 					node->next == IDNull
 					&& node->type != Node::Type::Node // okay for us to end on a node
-					&& (node->type != Node::Type::Text || node->text.choices[0] == IDNull) // if it's a text and it doesn't have a next, it must have a choice
+					&& (node->type != Node::Type::Text || node->choices[0] == IDNull) // if it's a text and it doesn't have a next, it must have a choice
 					&& (node->type != Node::Type::Branch || node->branch.branches[0].target == IDNull) // if it's a branch, it must have at least one branch target
 					)
 				{
@@ -587,7 +587,18 @@ namespace Penelope
 			}
 			case Node::Type::Node:
 			{
-				if (node.next != IDNull)
+				if (node.next == IDNull)
+				{
+					for (s32 i = 0; i < MAX_CHOICES; i++)
+					{
+						ID choice = node.choices[i];
+						if (choice == IDNull)
+							break;
+						else
+							execute(choice, data->time);
+					}
+				}
+				else
 					execute(node.next, time);
 				break;
 			}
@@ -611,28 +622,6 @@ namespace Penelope
 		clear_and_execute(node_lookup[name], delay);
 	}
 
-	void normal_conversation()
-	{
-		switch (Game::save.round)
-		{
-			case 0:
-			{
-				go(data->entry_point, 0.5f);
-				break;
-			}
-			case 1:
-			{
-				go(strings::second_round, 0.5f);
-				break;
-			}
-			default:
-			{
-				vi_assert(false);
-				break;
-			}
-		}
-	}
-
 	void update(const Update& u)
 	{
 		PlayerTrigger* terminal = nullptr;
@@ -651,7 +640,7 @@ namespace Penelope
 			if (Game::save.last_round_loss)
 				go(strings::consolation, 0.5f);
 			else
-				normal_conversation();
+				go(data->entry_point, 0.5f);
 		}
 
 		if (Audio::dialogue_done)
@@ -666,7 +655,7 @@ namespace Penelope
 				{
 					for (s32 i = 0; i < MAX_CHOICES; i++)
 					{
-						ID choice = node.text.choices[i];
+						ID choice = node.choices[i];
 						if (choice == IDNull)
 							break;
 						else
@@ -1120,7 +1109,9 @@ namespace Penelope
 		else if (node == strings::penelope_hide)
 			clear();
 		else if (node == strings::consolation_done) // we're done consoling; enter into normal conversation mode
-			normal_conversation();
+			go(data->entry_point, 0.5f);
+		else if (node == strings::second_round_go)
+			go(strings::second_round, 0.5f);
 		else if (node == strings::match_go)
 		{
 			if (Game::save.round == 0)
@@ -1152,6 +1143,8 @@ namespace Penelope
 		data->node_executed.link(&node_executed);
 
 		variable(strings::matchmaking, AssetNull);
+		variable(strings::round, Game::save.round == 0 ? AssetNull : strings::second_round);
+		variable(strings::tried, Game::save.last_round_loss ? strings::yes : AssetNull);
 
 		Loader::texture(Asset::Texture::penelope, RenderTextureWrap::Clamp, RenderTextureFilter::Nearest);
 	}

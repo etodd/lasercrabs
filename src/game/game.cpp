@@ -541,6 +541,14 @@ void Game::execute(const Update& u, const char* cmd)
 	{
 		state.third_person = !state.third_person;
 	}
+	else if (utf8cmp(cmd, "killai") == 0)
+	{
+		for (auto i = AIPlayerControl::list.iterator(); !i.is_last(); i.next())
+		{
+			Health* health = i.item()->get<Health>();
+			health->damage(nullptr, health->hp_max);
+		}
+	}
 	else if (utf8cmp(cmd, "noclip") == 0)
 	{
 		Vec3 pos = Vec3::zero;

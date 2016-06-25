@@ -311,47 +311,13 @@
 	"defeat": "Connection Lost",
 	"draw": "Battery Expired",
 	"timer": "%d:%02d",
-	"yes": "Yes.",
-	"no": "No.",
 
-	"terminal_reset": null,
-	"second_round": null,
-	"penelope_hide": null,
-	"match_found": null,
-	"match_go": null,
-	"matchmaking": null,
-	"matchmaking_start": null,
+	"yes": "Yes",
+	"no": "No",
+
 	"_default": null,
-	"leaderboard_show": null,
-	"leaderboard_hide": null,
-
-	"round": null,
-	"second_round": null,
-	"intro": null,
-	"tried": null,
-	"second_round_go": null,
-
-	"consolation": null,
-	"consolation_done": null,
-	"consolation_index": null,
-	"consolation1": null,
-	"consolation2": null,
-	"consolation3": null,
-
-	"intro_start": null,
-	"intro_done": null,
-	"skip_tutorial": null,
-
 	"Soteria": null,
-	"tutorial_intro": null,
-	"tutorial_intro_done": null,
-	"tutorial_done": null,
-
 	"Medias Res": null,
-
 	"Ponos": null,
-
-	"Ioke": null,
-
-	"level4": null
+	"Ioke": null
 }

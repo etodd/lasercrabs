@@ -30,7 +30,7 @@ namespace VI
 
 typedef Chunks<Array<Vec3>> ChunkedTris;
 
-const s32 version = 24;
+const s32 version = 25;
 
 const char* model_in_extension = ".blend";
 const char* model_intermediate_extension = ".fbx";
@@ -48,6 +48,7 @@ const char* dialogue_tree_extension = ".dlz";
 const char* level_out_extension = ".lvl";
 const char* string_extension = ".json";
 
+const char* ui_string_asset_name = "ui_en";
 const char* shader_in_folder = "../assets/shader/";
 const char* shader_out_folder = "assets/shader/";
 const char* asset_in_folder = "../assets/";
@@ -627,7 +628,7 @@ struct Manifest
 	Map<std::string> levels;
 	Map<std::string> nav_meshes;
 	Map<std::string> string_files;
-	Map<std::string> strings;
+	Map2<std::string> strings;
 	Map<std::string> dialogue_trees;
 	Map2<std::string> dialogue_strings;
 	Map2<std::string> dynamic_strings;
@@ -648,7 +649,7 @@ b8 manifest_requires_update(const Manifest& a, const Manifest& b)
 		|| !maps_equal(a.levels, b.levels)
 		|| !maps_equal(a.nav_meshes, b.nav_meshes)
 		|| !maps_equal(a.string_files, b.string_files)
-		|| !maps_equal(a.strings, b.strings)
+		|| !maps_equal2(a.strings, b.strings)
 		|| !maps_equal(a.dialogue_trees, b.dialogue_trees)
 		|| !maps_equal2(a.dialogue_strings, b.dialogue_strings)
 		|| !maps_equal2(a.dynamic_strings, b.dynamic_strings);
@@ -2744,7 +2745,7 @@ void import_strings(ImporterState& state, const std::string& asset_in_path, cons
 {
 	std::string asset_name = get_asset_name(asset_in_path);
 	b8 modified = import_copy(state, state.manifest.string_files, asset_in_path, out_folder, string_extension);
-	if (asset_name == "ui_en")
+	if (asset_name == std::string(ui_string_asset_name))
 	{
 		if (modified)
 		{
@@ -2760,12 +2761,12 @@ void import_strings(ImporterState& state, const std::string& asset_in_path, cons
 			while (element)
 			{
 				std::string key = element->string;
-				map_add(state.manifest.strings, key, key);
+				map_add(state.manifest.strings, asset_name, key, key);
 				element = element->next;
 			}
 		}
 		else
-			map_copy(state.cached_manifest.strings, state.manifest.strings);
+			map_copy(state.cached_manifest.strings, asset_name, state.manifest.strings);
 	}
 }
 
@@ -2801,11 +2802,66 @@ void import_dialogue_tree(ImporterState& state, const std::string& asset_in_path
 				sha1::hash(text, hash);
 				map_add(state.manifest.dynamic_strings, asset_name, std::string(hash), std::string(text));
 			}
+			else if (strcmp(type, "Node") == 0)
+			{
+				const char* text = Json::get_string(element, "name");
+				if (text[0] != '\0')
+					map_add(state.manifest.strings, asset_name, std::string(text), std::string(text));
+			}
+			else
+			{
+				b8 is_branch = strcmp(type, "Branch") == 0;
+				b8 is_set = strcmp(type, "Set") == 0;
+				if (is_branch || is_set)
+				{
+					const char* variable = Json::get_string(element, "variable");
+					if (variable[0] == '\0')
+					{
+						printf("Error in %s: missing variable name in %s node.\n", asset_in_path.c_str(), type);
+						state.error = true;
+					}
+					else
+						map_add(state.manifest.strings, asset_name, std::string(variable), std::string(variable));
+				}
+
+				if (is_branch)
+				{
+					cJSON* json_branches = cJSON_GetObjectItem(element, "branches");
+					if (json_branches)
+					{
+						cJSON* json_branch = json_branches->child;
+						while (json_branch)
+						{
+							const char* value = json_branch->string;
+							if (value[0] == '\0')
+							{
+								printf("Error in %s: missing value in %s node.\n", asset_in_path.c_str(), type);
+								state.error = true;
+							}
+							else
+								map_add(state.manifest.strings, asset_name, std::string(value), std::string(value));
+							json_branch = json_branch->next;
+						}
+					}
+				}
+				else if (is_set)
+				{
+					const char* value = Json::get_string(element, "value");
+					if (value[0] == '\0')
+					{
+						printf("Error in %s: missing value in %s node.\n", asset_in_path.c_str(), type);
+						state.error = true;
+					}
+					else
+						map_add(state.manifest.strings, asset_name, std::string(value), std::string(value));
+				}
+			}
 			element = element->next;
 		}
 	}
 	else
 	{
+		map_copy(state.cached_manifest.strings, asset_name, state.manifest.strings);
 		map_copy(state.cached_manifest.dialogue_strings, asset_name, state.manifest.dialogue_strings);
 		map_copy(state.cached_manifest.dynamic_strings, asset_name, state.manifest.dynamic_strings);
 	}
@@ -2988,27 +3044,60 @@ s32 proc(s32 argc, char* argv[])
 		return exit_error();
 
 	{
-		// Import strings
-		DIR* dir = opendir(string_in_folder);
-		if (!dir)
+		// dialogue trees and strings
+
+		b8 force_parse_strings = false;
 		{
-			fprintf(stderr, "Failed to open input string directory.\n");
+			// Copy dialogue trees
+			DIR* dir = opendir(dialogue_in_folder);
+			if (!dir)
+			{
+				fprintf(stderr, "Error: Failed to open input dialogue tree directory.\n");
+				return exit_error();
+			}
+			struct dirent* entry;
+			while ((entry = readdir(dir)))
+			{
+				if (entry->d_type != DT_REG)
+					continue; // Not a file
+
+				std::string asset_in_path = dialogue_in_folder + std::string(entry->d_name);
+
+				if (has_extension(asset_in_path, dialogue_tree_extension))
+					import_dialogue_tree(state, asset_in_path, dialogue_out_folder);
+
+				if (state.error)
+					break;
+			}
+			closedir(dir);
+		}
+
+		if (state.error)
 			return exit_error();
-		}
-		struct dirent* entry;
-		while ((entry = readdir(dir)))
+
 		{
-			if (entry->d_type != DT_REG)
-				continue; // Not a file
+			// Import strings
+			DIR* dir = opendir(string_in_folder);
+			if (!dir)
+			{
+				fprintf(stderr, "Failed to open input string directory.\n");
+				return exit_error();
+			}
+			struct dirent* entry;
+			while ((entry = readdir(dir)))
+			{
+				if (entry->d_type != DT_REG)
+					continue; // Not a file
 
-			std::string asset_in_path = string_in_folder + std::string(entry->d_name);
+				std::string asset_in_path = string_in_folder + std::string(entry->d_name);
 
-			if (has_extension(asset_in_path, string_extension))
-				import_strings(state, asset_in_path, string_out_folder);
-			if (state.error)
-				break;
+				if (has_extension(asset_in_path, string_extension))
+					import_strings(state, asset_in_path, string_out_folder);
+				if (state.error)
+					break;
+			}
+			closedir(dir);
 		}
-		closedir(dir);
 	}
 
 	if (state.error)
@@ -3058,31 +3147,6 @@ s32 proc(s32 argc, char* argv[])
 			}
 			closedir(dir);
 		}
-
-		{
-			// Copy dialogue trees
-			DIR* dir = opendir(dialogue_in_folder);
-			if (!dir)
-			{
-				fprintf(stderr, "Error: Failed to open input dialogue tree directory.\n");
-				return exit_error();
-			}
-			struct dirent* entry;
-			while ((entry = readdir(dir)))
-			{
-				if (entry->d_type != DT_REG)
-					continue; // Not a file
-
-				std::string asset_in_path = dialogue_in_folder + std::string(entry->d_name);
-
-				if (has_extension(asset_in_path, dialogue_tree_extension))
-					import_dialogue_tree(state, asset_in_path, dialogue_out_folder);
-
-				if (state.error)
-					break;
-			}
-			closedir(dir);
-		}
 	}
 
 	if (state.error)
@@ -3126,12 +3190,14 @@ s32 proc(s32 argc, char* argv[])
 		map_flatten(state.manifest.armatures, flattened_armatures);
 		Map<s32> flattened_bones;
 		map_flatten(state.manifest.bones, flattened_bones);
+		Map<std::string> flattened_strings;
+		map_flatten(state.manifest.strings, flattened_strings);
 
 		if (state.rebuild
 			|| !maps_equal2(state.manifest.meshes, state.cached_manifest.meshes)
 			|| filemtime(mesh_header_path) == 0)
 		{
-			printf("Writing mesh header\n");
+			printf("%s\n", mesh_header_path);
 			FILE* f = open_asset_header(mesh_header_path);
 			if (!f)
 				return exit_error();
@@ -3156,7 +3222,7 @@ s32 proc(s32 argc, char* argv[])
 			|| !maps_equal2(state.manifest.bones, state.cached_manifest.bones)
 			|| filemtime(armature_header_path) == 0)
 		{
-			printf("Writing armature header\n");
+			printf("%s\n", armature_header_path);
 			FILE* f = open_asset_header(armature_header_path);
 			if (!f)
 				return exit_error();
@@ -3171,7 +3237,7 @@ s32 proc(s32 argc, char* argv[])
 			|| !maps_equal(state.manifest.textures, state.cached_manifest.textures)
 			|| filemtime(texture_header_path) == 0)
 		{
-			printf("Writing texture header\n");
+			printf("%s\n", texture_header_path);
 			FILE* f = open_asset_header(texture_header_path);
 			if (!f)
 				return exit_error();
@@ -3184,7 +3250,7 @@ s32 proc(s32 argc, char* argv[])
 			|| !maps_equal(state.manifest.soundbanks, state.cached_manifest.soundbanks)
 			|| filemtime(soundbank_header_path) == 0)
 		{
-			printf("Writing soundbank header\n");
+			printf("%s\n", soundbank_header_path);
 			FILE* f = open_asset_header(soundbank_header_path);
 			if (!f)
 				return exit_error();
@@ -3198,7 +3264,7 @@ s32 proc(s32 argc, char* argv[])
 			|| !maps_equal(state.manifest.shaders, state.cached_manifest.shaders)
 			|| filemtime(shader_header_path) == 0)
 		{
-			printf("Writing shader header\n");
+			printf("%s\n", shader_header_path);
 			FILE* f = open_asset_header(shader_header_path);
 			if (!f)
 				return exit_error();
@@ -3212,7 +3278,7 @@ s32 proc(s32 argc, char* argv[])
 			|| !maps_equal(state.manifest.fonts, state.cached_manifest.fonts)
 			|| filemtime(font_header_path) == 0)
 		{
-			printf("Writing font header\n");
+			printf("%s\n", font_header_path);
 			FILE* f = open_asset_header(font_header_path);
 			if (!f)
 				return exit_error();
@@ -3225,7 +3291,7 @@ s32 proc(s32 argc, char* argv[])
 			|| !maps_equal(state.manifest.levels, state.cached_manifest.levels)
 			|| filemtime(level_header_path) == 0)
 		{
-			printf("Writing level header\n");
+			printf("%s\n", level_header_path);
 			FILE* f = open_asset_header(level_header_path);
 			if (!f)
 				return exit_error();
@@ -3237,15 +3303,15 @@ s32 proc(s32 argc, char* argv[])
 		}
 
 		if (state.rebuild
-			|| !maps_equal(state.manifest.strings, state.cached_manifest.strings)
+			|| !maps_equal2(state.manifest.strings, state.cached_manifest.strings)
 			|| filemtime(string_header_path) == 0)
 		{
-			printf("Writing string header\n");
+			printf("%s\n", string_header_path);
 			FILE* f = open_asset_header(string_header_path);
 			if (!f)
 				return exit_error();
 			
-			write_asset_header(f, "String", state.manifest.strings);
+			write_asset_header(f, "String", flattened_strings);
 			close_asset_header(f);
 		}
 
@@ -3253,7 +3319,7 @@ s32 proc(s32 argc, char* argv[])
 			|| !maps_equal(state.manifest.dialogue_trees, state.cached_manifest.dialogue_trees)
 			|| filemtime(dialogue_header_path) == 0)
 		{
-			printf("Writing dialogue tree header\n");
+			printf("%s\n", dialogue_header_path);
 			FILE* f = open_asset_header(dialogue_header_path);
 			if (!f)
 				return exit_error();
@@ -3262,9 +3328,10 @@ s32 proc(s32 argc, char* argv[])
 			close_asset_header(f);
 		}
 
-		if (state.rebuild || update_manifest || filemtime(dialogue_strings_out_path) < state.manifest_mtime)
+		if (state.rebuild || update_manifest || filemtime(dialogue_strings_out_path) == 0)
 		{
 			// collect all dialogue strings into a single file
+			printf("%s\n", dialogue_strings_out_path);
 			Map<std::string> flattened_dialogue_strings;
 			map_flatten(state.manifest.dialogue_strings, flattened_dialogue_strings);
 			cJSON* dialogue = cJSON_CreateObject();
@@ -3277,9 +3344,10 @@ s32 proc(s32 argc, char* argv[])
 			Json::json_free(dialogue);
 		}
 
-		if (state.rebuild || update_manifest || filemtime(dynamic_strings_out_path) < state.manifest_mtime)
+		if (state.rebuild || update_manifest || filemtime(dynamic_strings_out_path) == 0)
 		{
 			// collect all dynamic strings into a single file
+			printf("%s\n", dynamic_strings_out_path);
 			Map<std::string> flattened_dynamic_strings;
 			map_flatten(state.manifest.dynamic_strings, flattened_dynamic_strings);
 			cJSON* dynamic = cJSON_CreateObject();
@@ -3294,7 +3362,7 @@ s32 proc(s32 argc, char* argv[])
 
 		if (state.rebuild || update_manifest || filemtime(asset_src_path) < state.manifest_mtime)
 		{
-			printf("Writing asset values\n");
+			printf("%s\n", asset_src_path);
 			FILE* f = fopen(asset_src_path, "w+");
 			if (!f)
 			{
@@ -3313,7 +3381,7 @@ s32 proc(s32 argc, char* argv[])
 			write_asset_source(f, "Font", state.manifest.fonts);
 			write_asset_source(f, "Level", state.manifest.levels);
 			write_asset_source(f, "NavMesh", state.manifest.nav_meshes);
-			write_asset_source_names_only(f, "String", state.manifest.strings);
+			write_asset_source_names_only(f, "String", flattened_strings);
 			write_asset_source(f, "DialogueTree", state.manifest.dialogue_trees);
 
 			fprintf(f, "\n}");

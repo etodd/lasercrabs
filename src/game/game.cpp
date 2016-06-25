@@ -171,7 +171,7 @@ b8 Game::init(LoopSync* sync)
 			{
 				const char* name = AssetLookup::String::names[i];
 				cJSON* value = cJSON_GetObjectItem(json, name);
-				strings_set(i, value->valuestring);
+				strings_set(i, value ? value->valuestring : nullptr);
 			}
 		}
 

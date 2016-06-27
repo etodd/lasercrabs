@@ -86,6 +86,9 @@ const char* AssetLookup::Mesh::values[] =
 	"assets/lvl/Medias_Res_Cube_007.msh",
 	"assets/lvl/Medias_Res_Cube_008.msh",
 	"assets/lvl/Medias_Res_Cube_1.msh",
+	"assets/lvl/Moros_Cube.msh",
+	"assets/lvl/Moros_Plane.msh",
+	"assets/lvl/Moros_bsp_model_0_000.msh",
 	"assets/lvl/Ponos_Cube.msh",
 	"assets/lvl/Ponos_Cube_001.msh",
 	"assets/lvl/Ponos_Cube_002.msh",
@@ -204,6 +207,9 @@ const char* AssetLookup::Mesh::names[] =
 	"Medias_Res_Cube_007",
 	"Medias_Res_Cube_008",
 	"Medias_Res_Cube_1",
+	"Moros_Cube",
+	"Moros_Plane",
+	"Moros_bsp_model_0_000",
 	"Ponos_Cube",
 	"Ponos_Cube_001",
 	"Ponos_Cube_002",
@@ -465,6 +471,7 @@ const char* AssetLookup::Level::values[] =
 {
 	"assets/lvl/Ioke.lvl",
 	"assets/lvl/Medias_Res.lvl",
+	"assets/lvl/Moros.lvl",
 	"assets/lvl/Ponos.lvl",
 	"assets/lvl/Soteria.lvl",
 	"assets/lvl/connect.lvl",
@@ -479,6 +486,7 @@ const char* AssetLookup::Level::names[] =
 {
 	"Ioke",
 	"Medias Res",
+	"Moros",
 	"Ponos",
 	"Soteria",
 	"connect",
@@ -493,6 +501,7 @@ const char* AssetLookup::NavMesh::values[] =
 {
 	"assets/lvl/Ioke.nav",
 	"assets/lvl/Medias_Res.nav",
+	"assets/lvl/Moros.nav",
 	"assets/lvl/Ponos.nav",
 	"assets/lvl/Soteria.nav",
 	"assets/lvl/connect.nav",
@@ -507,6 +516,7 @@ const char* AssetLookup::NavMesh::names[] =
 {
 	"Ioke",
 	"Medias Res",
+	"Moros",
 	"Ponos",
 	"Soteria",
 	"connect",
@@ -521,6 +531,7 @@ const char* AssetLookup::String::names[] =
 {
 	"Ioke",
 	"Medias Res",
+	"Moros",
 	"Ponos",
 	"Soteria",
 	"_default",
@@ -801,7 +812,6 @@ const char* AssetLookup::String::names[] =
 	"leaderboard_show",
 	"leave",
 	"left_joystick",
-	"level4",
 	"loading_offline",
 	"main_menu",
 	"map_simulation",
@@ -871,11 +881,11 @@ const char* AssetLookup::DialogueTree::values[] =
 {
 	"assets/dl/Ioke.dlz",
 	"assets/dl/Medias_Res.dlz",
+	"assets/dl/Moros.dlz",
 	"assets/dl/Ponos.dlz",
 	"assets/dl/Soteria.dlz",
 	"assets/dl/common.dlz",
 	"assets/dl/intro.dlz",
-	"assets/dl/level4.dlz",
 	0,
 };
 
@@ -884,11 +894,11 @@ const char* AssetLookup::DialogueTree::names[] =
 {
 	"Ioke",
 	"Medias Res",
+	"Moros",
 	"Ponos",
 	"Soteria",
 	"common",
 	"intro",
-	"level4",
 	0,
 };
 

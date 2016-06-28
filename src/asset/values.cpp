@@ -307,6 +307,7 @@ const char* AssetLookup::Texture::values[] =
 	"assets/noise.png",
 	"assets/penelope.png",
 	"assets/skybox_horizon.png",
+	"assets/water.png",
 	0,
 };
 
@@ -318,6 +319,7 @@ const char* AssetLookup::Texture::names[] =
 	"noise",
 	"penelope",
 	"skybox_horizon",
+	"water",
 	0,
 };
 
@@ -365,6 +367,7 @@ const char* AssetLookup::Shader::values[] =
 	"assets/shader/standard_instanced.glsl",
 	"assets/shader/ui.glsl",
 	"assets/shader/ui_texture.glsl",
+	"assets/shader/water.glsl",
 	0,
 };
 
@@ -396,6 +399,7 @@ const char* AssetLookup::Shader::names[] =
 	"standard_instanced",
 	"ui",
 	"ui_texture",
+	"water",
 	0,
 };
 

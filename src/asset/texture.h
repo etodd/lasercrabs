@@ -8,12 +8,13 @@ namespace Asset
 {
 	namespace Texture
 	{
-		const s32 count = 5;
+		const s32 count = 6;
 		const AssetID flare = 0;
 		const AssetID gradient = 1;
 		const AssetID noise = 2;
 		const AssetID penelope = 3;
 		const AssetID skybox_horizon = 4;
+		const AssetID water = 5;
 	}
 }
 

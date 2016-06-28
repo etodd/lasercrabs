@@ -94,6 +94,7 @@ const s32 Game::levels[] =
 	Asset::Level::Medias_Res,
 	Asset::Level::Ponos,
 	Asset::Level::Ioke,
+	Asset::Level::Moros,
 	AssetNull,
 };
 
@@ -846,7 +847,6 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 
 		b8 alpha = (b8)Json::get_s32(element, "alpha");
 		b8 additive = (b8)Json::get_s32(element, "additive");
-		s32 order = Json::get_s32(element, "order");
 
 		if (cJSON_GetObjectItem(element, "StaticGeom"))
 		{
@@ -1140,20 +1140,34 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 
 			b8 alpha = (b8)Json::get_s32(element, "alpha");
 			b8 additive = (b8)Json::get_s32(element, "additive");
-			s32 order = Json::get_s32(element, "order");
 			r32 scale = Json::get_r32(element, "scale", 1.0f);
 			const char* armature = Json::get_string(element, "armature");
 			const char* animation = Json::get_string(element, "animation");
+			const char* shader_name = Json::get_string(element, "shader");
+
+			AssetID texture = Loader::find(Json::get_string(element, "texture"), AssetLookup::Texture::names);
+
+			AssetID shader;
+			if (shader_name)
+				shader = Loader::find(shader_name, AssetLookup::Shader::names);
+			else
+			{
+				if (armature)
+					shader = Asset::Shader::armature; // todo: alpha support for skinned meshes
+				else
+					shader = alpha || additive ? Asset::Shader::flat : Asset::Shader::standard;
+			}
 
 			if (name)
 			{
-				entity = World::alloc<Prop>(Loader::find(name, AssetLookup::Mesh::names), Loader::find(armature, AssetLookup::Armature::names), Loader::find(animation, AssetLookup::Animation::names));
+				entity = World::create<Prop>(Loader::find(name, AssetLookup::Mesh::names), Loader::find(armature, AssetLookup::Armature::names), Loader::find(animation, AssetLookup::Animation::names));
 				// todo: clean this up
 				if (entity->has<View>())
 				{
-					if (alpha || additive)
-						entity->get<View>()->shader = Asset::Shader::flat;
-					else if (state.mode == Mode::Pvp)
+					// View
+					entity->get<View>()->texture = texture;
+					entity->get<View>()->shader = shader;
+					if (state.mode == Mode::Pvp && !alpha && !additive)
 					{
 						if (entity->get<View>()->color.w < 0.5f)
 							entity->get<View>()->color = Vec4(pvp_inaccessible, MATERIAL_NO_OVERRIDE);
@@ -1169,9 +1183,9 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 				else
 				{
 					// SkinnedModel
-					if (alpha || additive)
-						entity->get<SkinnedModel>()->shader = Asset::Shader::flat;
-					else if (state.mode == Mode::Pvp)
+					entity->get<SkinnedModel>()->texture = texture;
+					entity->get<SkinnedModel>()->shader = shader;
+					if (state.mode == Mode::Pvp && !alpha && !additive)
 					{
 						if (entity->get<SkinnedModel>()->color.w < 0.5f)
 							entity->get<SkinnedModel>()->color = Vec4(pvp_inaccessible, MATERIAL_NO_OVERRIDE);
@@ -1208,9 +1222,9 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 					else
 						entity = m;
 
-					if (alpha || additive)
-						m->get<View>()->shader = Asset::Shader::flat;
-					else if (state.mode == Mode::Pvp)
+					m->get<View>()->texture = texture;
+					m->get<View>()->shader = shader;
+					if (state.mode == Mode::Pvp && !alpha && !additive)
 					{
 						if (entity->get<View>()->color.w < 0.5f)
 							entity->get<View>()->color = Vec4(pvp_inaccessible, MATERIAL_NO_OVERRIDE);

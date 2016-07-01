@@ -143,6 +143,7 @@ struct PlayerManager
 {
 	static PinArray<PlayerManager, MAX_PLAYERS> list;
 
+	u16 hp_start;
 	r32 spawn_timer;
 	Revision revision;
 	char username[255];
@@ -173,7 +174,7 @@ struct PlayerManager
 
 	s32 add_credits(s32);
 
-	PlayerManager(Team*);
+	PlayerManager(Team*, u16);
 
 	inline ID id() const
 	{

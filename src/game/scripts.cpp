@@ -1583,7 +1583,7 @@ namespace tutorial
 			entities.find("minion")->get<Health>()->killed.link(&minion_killed);
 
 			PlayerManager* manager = PlayerManager::list.add();
-			new (manager) PlayerManager(&Team::list[(s32)AI::Team::B]);
+			new (manager) PlayerManager(&Team::list[(s32)AI::Team::B], 1);
 
 			utf8cpy(manager->username, _(strings::dummy));
 

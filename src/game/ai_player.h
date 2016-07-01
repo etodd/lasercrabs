@@ -49,7 +49,6 @@ struct AIPlayer
 	{
 		LowLevelLoop low_level;
 		HighLevelLoop high_level;
-		u16 hp_start;
 		r32 interval_memory_update;
 		r32 interval_low_level;
 		r32 interval_high_level;

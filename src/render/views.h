@@ -63,6 +63,15 @@ struct SkyDecal : ComponentType<SkyDecal>
 	void awake() {}
 };
 
+struct Water : public ComponentType<Water>
+{
+	AssetID mesh;
+
+	Water(AssetID);
+	void awake() {}
+	void draw_alpha(const RenderParams&);
+};
+
 struct SkyPattern
 {
 	static void draw_alpha(const RenderParams&);

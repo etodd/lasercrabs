@@ -35,6 +35,13 @@ template<s32 size> struct Bitmask
 		return i;
 	}
 
+	void clear()
+	{
+		start = size;
+		end = 0;
+		memset(data, 0, sizeof(data));
+	}
+
 	void set(s32 i, b8 value)
 	{
 		vi_assert(i >= 0 && i < size);
@@ -150,6 +157,14 @@ struct PinArray
 		i.index = mask.start;
 		i.array = this;
 		return i;
+	}
+
+	void clear()
+	{
+		mask.clear();
+		free_list.length = size;
+		for (s32 i = 0; i < size; i++)
+			free_list[i] = (size - 1) - i;
 	}
 
 	T* add()

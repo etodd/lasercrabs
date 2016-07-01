@@ -4,29 +4,25 @@ layout(location = 0) in vec3 in_position;
 layout(location = 2) in vec2 in_uv;
 
 uniform mat4 mvp;
-
-out vec2 uv;
+uniform sampler2D normal_map;
+uniform float time;
 
 void main()
 {
-	gl_Position = mvp * vec4(in_position, 1);
-
-	uv = in_uv;
+	vec3 pos = in_position + (texture(normal_map, in_uv * vec2(0.01) + time * vec2(0.01, 0.02)).xyz * 2.0 - 1.0) * vec3(2.0, 0.75, 2.0);
+	gl_Position = mvp * vec4(pos, 1);
 }
 
 #else
 
-in vec2 uv;
-
 // Values that stay constant for the whole mesh.
 uniform vec4 diffuse_color;
-uniform sampler2D diffuse_map;
 
-layout (location = 0) out vec4 out_color;
+out vec4 out_color;
 
 void main()
 {
-	out_color = texture(diffuse_map, uv) * diffuse_color;
+	out_color = diffuse_color;
 }
 
 #endif

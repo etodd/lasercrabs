@@ -94,6 +94,7 @@ struct Game
 	static Level level;
 
 	static const s32 levels[];
+	static const s32 local_multiplayer_levels[];
 
 	static b8 quit;
 	static GameTime time;

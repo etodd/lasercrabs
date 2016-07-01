@@ -22,40 +22,41 @@ COMPONENT_TYPE(0,  Transform) \
 COMPONENT_TYPE(1,  RigidBody) \
 COMPONENT_TYPE(2,  AIAgent) \
 COMPONENT_TYPE(3,  Animator) \
-COMPONENT_TYPE(4,  Audio) \
-COMPONENT_TYPE(5,  Awk) \
-COMPONENT_TYPE(6,  NoclipControl) \
-COMPONENT_TYPE(7,  PointLight) \
-COMPONENT_TYPE(8,  SpotLight) \
-COMPONENT_TYPE(9,  DirectionalLight) \
-COMPONENT_TYPE(10, AIPlayerControl) \
-COMPONENT_TYPE(11, Health) \
-COMPONENT_TYPE(12, MinionAI) \
-COMPONENT_TYPE(13, PlayerCommon) \
-COMPONENT_TYPE(14, Shockwave) \
-COMPONENT_TYPE(15, Mover) \
-COMPONENT_TYPE(16, Rope) \
-COMPONENT_TYPE(17, MinionCommon) \
-COMPONENT_TYPE(18, SkyDecal) \
-COMPONENT_TYPE(19, Walker) \
-COMPONENT_TYPE(20, Target) \
-COMPONENT_TYPE(21, PlayerTrigger) \
-COMPONENT_TYPE(22, LocalPlayerControl) \
-COMPONENT_TYPE(23, Ragdoll) \
-COMPONENT_TYPE(24, SkinnedModel) \
-COMPONENT_TYPE(25, View) \
-COMPONENT_TYPE(26, ControlPoint) \
-COMPONENT_TYPE(27, Projectile) \
-COMPONENT_TYPE(28, Parkour) \
-COMPONENT_TYPE(29, Tile) \
-COMPONENT_TYPE(30, HealthPickup) \
-COMPONENT_TYPE(31, Sensor) \
-COMPONENT_TYPE(32, Rocket) \
-COMPONENT_TYPE(33, ContainmentField) \
-COMPONENT_TYPE(34, SensorInterestPoint) \
-COMPONENT_TYPE(35, DataFragment) \
+COMPONENT_TYPE(4,  Awk) \
+COMPONENT_TYPE(5,  NoclipControl) \
+COMPONENT_TYPE(6,  PointLight) \
+COMPONENT_TYPE(7,  SpotLight) \
+COMPONENT_TYPE(8,  DirectionalLight) \
+COMPONENT_TYPE(9,  AIPlayerControl) \
+COMPONENT_TYPE(10, Health) \
+COMPONENT_TYPE(11, MinionAI) \
+COMPONENT_TYPE(12, PlayerCommon) \
+COMPONENT_TYPE(13, Shockwave) \
+COMPONENT_TYPE(14, Mover) \
+COMPONENT_TYPE(15, Rope) \
+COMPONENT_TYPE(16, MinionCommon) \
+COMPONENT_TYPE(17, SkyDecal) \
+COMPONENT_TYPE(18, Walker) \
+COMPONENT_TYPE(19, Target) \
+COMPONENT_TYPE(20, PlayerTrigger) \
+COMPONENT_TYPE(21, LocalPlayerControl) \
+COMPONENT_TYPE(22, Ragdoll) \
+COMPONENT_TYPE(23, SkinnedModel) \
+COMPONENT_TYPE(24, View) \
+COMPONENT_TYPE(25, ControlPoint) \
+COMPONENT_TYPE(26, Projectile) \
+COMPONENT_TYPE(27, Parkour) \
+COMPONENT_TYPE(28, Tile) \
+COMPONENT_TYPE(29, HealthPickup) \
+COMPONENT_TYPE(30, Sensor) \
+COMPONENT_TYPE(31, Rocket) \
+COMPONENT_TYPE(32, ContainmentField) \
+COMPONENT_TYPE(33, SensorInterestPoint) \
+COMPONENT_TYPE(34, DataFragment) \
+COMPONENT_TYPE(35, Water) \
+COMPONENT_TYPE(36, Audio) \
 
-Family World::families = 36;
+Family World::families = 37;
 
 #define COMPONENT_TYPE(INDEX, TYPE) \
 template<> Family ComponentType<TYPE>::family = (INDEX); \

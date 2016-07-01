@@ -54,10 +54,20 @@ struct HealthPickup : public ComponentType<HealthPickup>
 	static r32 particle_accumulator;
 	static void update_all(const Update&);
 
+	struct Key
+	{
+		Vec3 me;
+		b8 closest_first;
+		r32 priority(HealthPickup*);
+	};
+
+	static void sort_all(const Vec3&, Array<Ref<HealthPickup>>*, b8, Health* = nullptr);
+
 	Ref<Health> owner;
 
 	void awake();
 	void hit(const TargetEvent&);
+	b8 set_owner(Health*);
 	void reset();
 };
 
@@ -201,6 +211,11 @@ struct Mover : public ComponentType<Mover>
 	void setup(Transform*, Transform*, r32);
 	void go();
 	void refresh();
+};
+
+struct WaterEntity : public Entity
+{
+	WaterEntity(AssetID);
 };
 
 #define rope_segment_length 0.5f

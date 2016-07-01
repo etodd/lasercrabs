@@ -98,6 +98,15 @@ const s32 Game::levels[] =
 	AssetNull,
 };
 
+const s32 Game::local_multiplayer_levels[] =
+{
+	Asset::Level::Tyche,
+	Asset::Level::Ioke,
+	Asset::Level::Medias_Res,
+	Asset::Level::Ponos,
+	AssetNull,
+};
+
 void Game::Save::reset(AssetID level)
 {
 	*this = Save();
@@ -494,6 +503,9 @@ void Game::draw_alpha(const RenderParams& render_params)
 	}
 #endif
 
+	for (auto i = Water::list.iterator(); !i.is_last(); i.next())
+		i.item()->draw_alpha(render_params);
+
 	View::draw_alpha(render_params);
 
 	Tile::draw_alpha(render_params);
@@ -705,12 +717,11 @@ void Game::unload_level()
 
 	World::remove_buffer.length = 0; // any deferred requests to remove entities should be ignored; they're all gone
 
-	for (auto i = LocalPlayer::list.iterator(); !i.is_last(); i.next())
-		LocalPlayer::list.remove(i.index);
-	for (auto i = AIPlayer::list.iterator(); !i.is_last(); i.next())
-		AIPlayer::list.remove(i.index);
-	for (auto i = PlayerManager::list.iterator(); !i.is_last(); i.next())
-		PlayerManager::list.remove(i.index);
+	// clear local player list to make sure IDs match up
+	LocalPlayer::list.clear();
+
+	AIPlayer::list.clear();
+	PlayerManager::list.clear();
 	Team::list.length = 0;
 
 	for (s32 i = 0; i < ParticleSystem::all.length; i++)
@@ -825,6 +836,7 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 	const Vec3 pvp_player_light(1.0f);
 
 	AI::Team teams[(s32)AI::Team::count];
+	u16 hp_start = 1;
 
 	cJSON* element = json->child;
 	while (element)
@@ -1001,6 +1013,8 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 
 			level.min_y = Json::get_r32(element, "min_y", -20.0f);
 
+			hp_start = (u16)Json::get_s32(element, "hp_start", 1);
+
 			// initialize teams
 			if (m != Mode::Special)
 			{
@@ -1017,7 +1031,7 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 						AI::Team team = team_lookup(teams, (s32)state.local_player_config[i]);
 
 						PlayerManager* manager = PlayerManager::list.add();
-						new (manager) PlayerManager(&Team::list[(s32)team]);
+						new (manager) PlayerManager(&Team::list[(s32)team], hp_start);
 
 						if (ai_test)
 						{
@@ -1067,7 +1081,7 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 				AI::Team team = team_lookup(teams, Json::get_s32(element, "team", (s32)AI::Team::B));
 
 				PlayerManager* manager = PlayerManager::list.add();
-				new (manager) PlayerManager(&Team::list[(s32)team]);
+				new (manager) PlayerManager(&Team::list[(s32)team], hp_start);
 
 				utf8cpy(manager->username, Usernames::all[mersenne::rand_u32() % Usernames::count]);
 
@@ -1133,6 +1147,23 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 		{
 			if (state.mode == Mode::Parkour)
 				entity = World::alloc<DataFragmentEntity>(absolute_pos, absolute_rot);
+		}
+		else if (cJSON_GetObjectItem(element, "Water"))
+		{
+			cJSON* meshes = cJSON_GetObjectItem(element, "meshes");
+
+			vi_assert(meshes);
+			cJSON* mesh_json = meshes->child;
+			vi_assert(mesh_json);
+
+			char* mesh_ref = mesh_json->valuestring;
+
+			AssetID mesh_id = Loader::find(mesh_ref, AssetLookup::Mesh::names);
+			vi_assert(mesh_id != AssetNull);
+
+			const Mesh* mesh = Loader::mesh(mesh_id);
+
+			entity = World::alloc<WaterEntity>(mesh_id);
 		}
 		else if (cJSON_GetObjectItem(element, "Prop"))
 		{

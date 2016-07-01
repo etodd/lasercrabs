@@ -20,7 +20,6 @@ PinArray<AIPlayer, MAX_AI_PLAYERS> AIPlayer::list;
 AIPlayer::Config::Config()
 	: low_level(LowLevelLoop::Default),
 	high_level(HighLevelLoop::Default),
-	hp_start(1),
 	interval_memory_update(0.1f),
 	interval_low_level(0.2f),
 	interval_high_level(0.5f),
@@ -66,18 +65,17 @@ void AIPlayer::spawn()
 {
 	Entity* e = World::create<AwkEntity>(manager.ref()->team.ref()->team());
 
-	e->add<PlayerCommon>(manager.ref());
-
-	e->get<Health>()->set(config.hp_start);
-
-	manager.ref()->entity = e;
-
-	e->add<AIPlayerControl>(this);
 	Vec3 pos;
 	Quat rot;
 	manager.ref()->team.ref()->player_spawn.ref()->absolute(&pos, &rot);
 	pos += Vec3(0, 0, PLAYER_SPAWN_RADIUS * 0.5f); // spawn it around the edges
 	e->get<Transform>()->absolute(pos, rot);
+
+	e->add<PlayerCommon>(manager.ref());
+
+	manager.ref()->entity = e;
+
+	e->add<AIPlayerControl>(this);
 }
 
 Upgrade AIPlayer::saving_up() const

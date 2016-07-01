@@ -119,6 +119,7 @@ const char* AssetLookup::Mesh::values[] =
 	"assets/lvl/Soteria_Cube_008.msh",
 	"assets/lvl/Soteria_bsp_model_0_000.msh",
 	"assets/lvl/Soteria_door.msh",
+	"assets/lvl/Tyche_Cube.msh",
 	"assets/lvl/connect_Cube.msh",
 	0,
 };
@@ -239,6 +240,7 @@ const char* AssetLookup::Mesh::names[] =
 	"Soteria_Cube_008",
 	"Soteria_bsp_model_0_000",
 	"Soteria_door",
+	"Tyche_Cube",
 	"connect_Cube",
 	0,
 };
@@ -306,6 +308,7 @@ const char* AssetLookup::Texture::values[] =
 	"assets/penelope.png",
 	"assets/skybox_horizon.png",
 	"assets/water.png",
+	"assets/water_normal.png",
 	0,
 };
 
@@ -318,6 +321,7 @@ const char* AssetLookup::Texture::names[] =
 	"penelope",
 	"skybox_horizon",
 	"water",
+	"water_normal",
 	0,
 };
 
@@ -434,6 +438,7 @@ const char* AssetLookup::Uniform::names[] =
 	"mvp",
 	"noise_sampler",
 	"normal_buffer",
+	"normal_map",
 	"p",
 	"player_light",
 	"range",
@@ -476,6 +481,7 @@ const char* AssetLookup::Level::values[] =
 	"assets/lvl/Moros.lvl",
 	"assets/lvl/Ponos.lvl",
 	"assets/lvl/Soteria.lvl",
+	"assets/lvl/Tyche.lvl",
 	"assets/lvl/connect.lvl",
 	"assets/lvl/intro.lvl",
 	"assets/lvl/splitscreen.lvl",
@@ -491,6 +497,7 @@ const char* AssetLookup::Level::names[] =
 	"Moros",
 	"Ponos",
 	"Soteria",
+	"Tyche",
 	"connect",
 	"intro",
 	"splitscreen",
@@ -506,6 +513,7 @@ const char* AssetLookup::NavMesh::values[] =
 	"assets/lvl/Moros.nav",
 	"assets/lvl/Ponos.nav",
 	"assets/lvl/Soteria.nav",
+	"assets/lvl/Tyche.nav",
 	"assets/lvl/connect.nav",
 	"assets/lvl/intro.nav",
 	"assets/lvl/splitscreen.nav",
@@ -521,6 +529,7 @@ const char* AssetLookup::NavMesh::names[] =
 	"Moros",
 	"Ponos",
 	"Soteria",
+	"Tyche",
 	"connect",
 	"intro",
 	"splitscreen",

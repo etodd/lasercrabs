@@ -83,10 +83,15 @@ namespace VI
 
 	s32 proc()
 	{
+#if defined(__APPLE__)
+		SDL_SetHint(SDL_HINT_MOUSE_RELATIVE_MODE_WARP, "1");
+#endif
+
 #if _WIN32
 		SetProcessDPIAware();
 #endif
-		// Initialise SDL
+
+		// Initialize SDL
 		if (SDL_Init(
 			SDL_INIT_VIDEO
 			| SDL_INIT_EVENTS
@@ -108,9 +113,6 @@ namespace VI
 		SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 4);
 		SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 1);
 		SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 0);
-#if defined(__APPLE__)
-		SDL_SetHint(SDL_HINT_MOUSE_RELATIVE_MODE_WARP, "1");
-#endif
 
 		{
 			SDL_DisplayMode display;
@@ -126,13 +128,12 @@ namespace VI
 			Settings::width, Settings::height,
 			SDL_WINDOW_OPENGL
 			| SDL_WINDOW_SHOWN
-			| SDL_WINDOW_BORDERLESS
 			| SDL_WINDOW_INPUT_GRABBED
 			| SDL_WINDOW_INPUT_FOCUS
 			| SDL_WINDOW_MOUSE_FOCUS
 			| SDL_WINDOW_MOUSE_CAPTURE
 			| SDL_WINDOW_ALLOW_HIGHDPI
-			| (Settings::fullscreen ? SDL_WINDOW_FULLSCREEN : 0)
+			| (Settings::fullscreen ? SDL_WINDOW_FULLSCREEN : SDL_WINDOW_BORDERLESS)
 		);
 
 #if defined(__APPLE__)

@@ -22,6 +22,7 @@
 #include "minion.h"
 #include "render/particles.h"
 #include "strings.h"
+#include "data/priority_queue.h"
 
 namespace VI
 {
@@ -115,6 +116,29 @@ HealthPickupEntity::HealthPickupEntity(const Vec3& p)
 	body->set_damping(0.5f, 0.5f);
 }
 
+r32 HealthPickup::Key::priority(HealthPickup* p)
+{
+	return (p->get<Transform>()->absolute_pos() - me).length_squared() * (closest_first ? 1.0f : -1.0f);
+}
+
+void HealthPickup::sort_all(const Vec3& pos, Array<Ref<HealthPickup>>* result, b8 closest_first, Health* owner)
+{
+	Key key;
+	key.me = pos;
+	key.closest_first = closest_first;
+	PriorityQueue<HealthPickup*, Key> pickups(&key);
+
+	for (auto i = list.iterator(); !i.is_last(); i.next())
+	{
+		if (i.item()->owner.ref() == owner)
+			pickups.push(i.item());
+	}
+
+	result->length = 0;
+	while (pickups.size() > 0)
+		result->add(pickups.pop());
+}
+
 void HealthPickup::awake()
 {
 	link_arg<const TargetEvent&, &HealthPickup::hit>(get<Target>()->target_hit);
@@ -130,32 +154,39 @@ void HealthPickup::reset()
 
 void HealthPickup::hit(const TargetEvent& e)
 {
-	Health* health = e.hit_by->get<Health>();
+	if (!set_owner(e.hit_by->get<Health>()))
+	{
+		// thing hitting us already has max health
+		// or someone else already owns us and this guy can't steal us
+		// regardless, nothing happened. I award you no points
+		if (e.hit_by->has<LocalPlayerControl>())
+			e.hit_by->get<LocalPlayerControl>()->player.ref()->msg(_(strings::no_effect), false);
+	}
+}
 
+// return true if we were successfully captured
+b8 HealthPickup::set_owner(Health* health)
+{
 	if (health->hp < health->hp_max)
 	{
 		// if we're already owned by someone,
 		// they need the right upgrade to be able to steal us
 		if (!owner.ref()
-			|| (e.hit_by->get<PlayerCommon>()->manager.ref()->has_upgrade(Upgrade::HealthSteal) && owner.ref() != health))
+			|| (health->get<PlayerCommon>()->manager.ref()->has_upgrade(Upgrade::HealthSteal) && owner.ref() != health))
 		{
 			if (owner.ref()) // looks like we're being stolen
-				owner.ref()->damage(e.hit_by, 1);
+				owner.ref()->damage(health->entity(), 1);
 			owner = health;
 			health->add(1);
 
-			AI::Team team = e.hit_by->get<AIAgent>()->team;
+			AI::Team team = health->get<AIAgent>()->team;
 			get<PointLight>()->team = (u8)team;
 			get<View>()->team = (u8)team;
-			return;
+			return true;
 		}
 	}
 
-	// thing hitting us already has max health
-	// or someone else already owns us and this guy can't steal us
-	// regardless, nothing happened. I award you no points
-	if (e.hit_by->has<LocalPlayerControl>())
-		e.hit_by->get<LocalPlayerControl>()->player.ref()->msg(_(strings::no_effect), false);
+	return false;
 }
 
 r32 HealthPickup::particle_accumulator;
@@ -1321,6 +1352,12 @@ void Mover::refresh()
 	}
 	else
 		World::remove(entity());
+}
+
+WaterEntity::WaterEntity(AssetID mesh_id)
+{
+	create<Transform>();
+	create<Water>(mesh_id);
 }
 
 ShockwaveEntity::ShockwaveEntity(r32 max_radius, r32 duration)

@@ -19,7 +19,6 @@
 #include "minion.h"
 #include "strings.h"
 #include "render/particles.h"
-#include "data/priority_queue.h"
 
 namespace VI
 {
@@ -370,29 +369,13 @@ void Awk::damaged(const DamageEvent& e)
 		// reset health pickups that belong to us
 		// starting with the farthest first
 
-		struct HealthPickupKey
-		{
-			Vec3 me;
-			r32 priority(HealthPickup* p)
-			{
-				return -(p->get<Transform>()->absolute_pos() - me).length_squared();
-			}
-		};
+		Array<Ref<HealthPickup>> farthest_owned_health_pickups;
+		HealthPickup::sort_all(get<Transform>()->absolute_pos(), &farthest_owned_health_pickups, false, get<Health>());
 
-		HealthPickupKey key;
-		key.me = get<Transform>()->absolute_pos();
-		PriorityQueue<HealthPickup*, HealthPickupKey> pickups(&key);
-
-		for (auto i = HealthPickup::list.iterator(); !i.is_last(); i.next())
+		for (s32 i = 0; i < farthest_owned_health_pickups.length && new_health_pickup_count < health_pickup_count; i++)
 		{
-			if (i.item()->owner.ref() == get<Health>())
-				pickups.push(i.item());
-		}
-
-		while (new_health_pickup_count < health_pickup_count && pickups.size() > 0)
-		{
-			HealthPickup* p = pickups.pop();
-			p->reset();
+			farthest_owned_health_pickups[i].ref()->reset();
+			new_health_pickup_count--;
 		}
 	}
 }

@@ -35,6 +35,7 @@ AssetID next_level = AssetNull;
 Game::Mode next_mode;
 r32 connect_timer = 0.0f;
 UIMenu main_menu;
+b8 splitscreen_level_selected = false;
 
 State main_menu_state;
 
@@ -334,8 +335,8 @@ void update(const Update& u)
 				&& team_a_count > 0 && team_b_count > 0)
 			{
 				Game::save = Game::Save();
-				Game::save.level_index = 0;
-				transition(Game::local_multiplayer_levels[Game::save.level_index], Game::Mode::Pvp);
+				Game::save.level_index = Game::tutorial_levels; // start at first non-tutorial level
+				transition(Game::levels[Game::save.level_index], Game::Mode::Pvp);
 			}
 			break;
 		}
@@ -359,11 +360,19 @@ void update(const Update& u)
 					connect_timer = CONNECT_OFFLINE_DELAY;
 			}
 
-			connect_timer -= u.time.delta;
-			if (connect_timer < 0.0f)
+			if (Game::state.local_multiplayer && !splitscreen_level_selected)
 			{
-				clear();
-				Game::schedule_load_level(next_level, next_mode);
+				if (u.last_input->get(Controls::Interact, 0) && !u.input->get(Controls::Interact, 0))
+					splitscreen_level_selected = true;
+			}
+			else
+			{
+				connect_timer -= u.time.delta;
+				if (connect_timer < 0.0f)
+				{
+					clear();
+					Game::schedule_load_level(next_level, next_mode);
+				}
 			}
 			break;
 		}
@@ -408,6 +417,7 @@ void transition(AssetID level, Game::Mode mode)
 		transition_previous_level = Game::state.level;
 		next_level = level;
 		next_mode = mode;
+		splitscreen_level_selected = false;
 		Game::schedule_load_level(Asset::Level::connect, Game::Mode::Special);
 	}
 }

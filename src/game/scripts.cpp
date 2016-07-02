@@ -1229,8 +1229,6 @@ namespace connect
 		UIText text;
 		r32 clip;
 		Camera* camera;
-		Vec3 start;
-		Vec3 target;
 		Vec3 camera_offset;
 		Array<LevelNode> levels;
 	};
@@ -1245,50 +1243,116 @@ namespace connect
 	void update(const Update& u)
 	{
 		data->camera->active = u.time.total > 0.5f && Menu::connect_timer > 0.5f;
-		data->camera->pos = data->camera_offset + Ease::expo_out(vi_min(1.0f, (u.time.total - 0.5f) / 2.0f), data->start, data->target);
+
+		s32 index = -1;
+		for (s32 i = 0; i < data->levels.length; i++)
+		{
+			const LevelNode& node = data->levels[i];
+			if (node.id == Menu::next_level)
+			{
+				index = i;
+				break;
+			}
+		}
+
+		if (index != -1)
+		{
+			if (Game::state.local_multiplayer
+				&& !Menu::splitscreen_level_selected
+				&& !UIMenu::active[0])
+			{
+				// select level
+				if ((!u.input->get(Controls::Forward, 0)
+					&& u.last_input->get(Controls::Forward, 0))
+					|| (Input::dead_zone(u.last_input->gamepads[0].left_y) < 0.0f
+						&& Input::dead_zone(u.input->gamepads[0].left_y) >= 0.0f))
+				{
+					index = vi_min(index + 1, data->levels.length - 1);
+					Menu::next_level = data->levels[index].id;
+				}
+				else if ((!u.input->get(Controls::Backward, 0)
+					&& u.last_input->get(Controls::Backward, 0))
+					|| (Input::dead_zone(u.last_input->gamepads[0].left_y) > 0.0f
+						&& Input::dead_zone(u.input->gamepads[0].left_y) <= 0.0f))
+				{
+					index = vi_max(index - 1, 0);
+					Menu::next_level = data->levels[index].id;
+				}
+			}
+
+			Vec3 target = data->camera_offset + data->levels[index].pos.ref()->absolute_pos();
+			data->camera->pos += (target - data->camera->pos) * vi_min(1.0f, u.time.delta) * 3.0f;
+		}
 	}
 
 	void draw(const RenderParams& params)
 	{
+		// highlight level locations
+		const LevelNode* current_level = nullptr;
 		for (s32 i = 0; i < data->levels.length; i++)
 		{
 			const LevelNode& node = data->levels[i];
 			Transform* pos = node.pos.ref();
-			UI::indicator(params, pos->absolute_pos(), node.index <= Game::save.level_index ? UI::accent_color : UI::alert_color, false);
+			const Vec4* color;
+			if (Game::state.local_multiplayer)
+				color = node.id == Menu::next_level ? &UI::accent_color : &Team::ui_color_friend;
+			else
+				color = i <= Game::save.level_index ? &UI::accent_color : &UI::alert_color;
+			UI::indicator(params, pos->absolute_pos(), *color, false);
 
 			if (node.id == Menu::next_level)
+				current_level = &node;
+		}
+
+		// draw current level name
+		if (current_level)
+		{
+			Vec2 p;
+			if (UI::project(params, current_level->pos.ref()->absolute_pos(), &p))
 			{
-				Vec2 p;
-				if (UI::project(params, pos->absolute_pos(), &p))
-				{
-					p.y += 32.0f * UI::scale;
-					UIText text;
-					text.color = UI::accent_color;
-					text.anchor_x = UIText::Anchor::Center;
-					text.anchor_y = UIText::Anchor::Min;
-					text.text_raw(AssetLookup::Level::names[node.id]);
-					UI::box(params, text.rect(p).outset(8.0f * UI::scale), UI::background_color);
-					text.draw(params, p);
-				}
+				p.y += 32.0f * UI::scale;
+				UIText text;
+				text.color = UI::accent_color;
+				text.anchor_x = UIText::Anchor::Center;
+				text.anchor_y = UIText::Anchor::Min;
+				text.text_raw(AssetLookup::Level::names[current_level->id]);
+				UI::box(params, text.rect(p).outset(8.0f * UI::scale), UI::background_color);
+				text.draw(params, p);
 			}
 		}
 
-		UIText text;
-		text.anchor_x = text.anchor_y = UIText::Anchor::Center;
-		text.color = UI::accent_color;
-		text.text(_(Menu::next_mode == Game::Mode::Pvp ? strings::connecting : strings::loading_offline));
-		Vec2 pos = params.camera->viewport.size * Vec2(0.5f, 0.2f);
+		if (!Game::state.local_multiplayer || Menu::splitscreen_level_selected)
+		{
+			UIText text;
+			text.anchor_x = text.anchor_y = UIText::Anchor::Center;
+			text.color = UI::accent_color;
+			text.text(_(Menu::next_mode == Game::Mode::Pvp ? strings::connecting : strings::loading_offline));
+			Vec2 pos = params.camera->viewport.size * Vec2(0.5f, 0.2f);
 
-		UI::box(params, text.rect(pos).pad({ Vec2(64, 24) * UI::scale, Vec2(18, 24) * UI::scale }), UI::background_color);
+			UI::box(params, text.rect(pos).pad({ Vec2(64, 24) * UI::scale, Vec2(18, 24) * UI::scale }), UI::background_color);
 
-		text.draw(params, pos);
+			text.draw(params, pos);
 
-		Vec2 triangle_pos = Vec2
-		(
-			pos.x - text.bounds().x * 0.5f - 32.0f * UI::scale,
-			pos.y
-		);
-		UI::triangle_border(params, { triangle_pos, Vec2(20 * UI::scale) }, 6, UI::accent_color, Game::real_time.total * -8.0f);
+			Vec2 triangle_pos = Vec2
+			(
+				pos.x - text.bounds().x * 0.5f - 32.0f * UI::scale,
+				pos.y
+			);
+			UI::triangle_border(params, { triangle_pos, Vec2(20 * UI::scale) }, 6, UI::accent_color, Game::real_time.total * -8.0f);
+		}
+		else
+		{
+			UIText text;
+			text.anchor_x = text.anchor_y = UIText::Anchor::Center;
+			text.color = UI::accent_color;
+			text.text(_(strings::deploy_prompt));
+
+			Vec2 pos = params.camera->viewport.size * Vec2(0.5f, 0.2f);
+
+			UI::box(params, text.rect(pos).outset(8 * UI::scale), UI::background_color);
+
+			text.draw(params, pos);
+		}
 	}
 
 	void init(const Update& u, const EntityFinder& entities)
@@ -1307,7 +1371,8 @@ namespace connect
 			}
 		}
 
-		for (s32 i = 0; i < Asset::Level::count; i++)
+		s32 start_level = Game::state.local_multiplayer ? Game::tutorial_levels : 0; // skip tutorial levels if we're in splitscreen mode
+		for (s32 i = start_level; i < Asset::Level::count; i++)
 		{
 			AssetID level_id = Game::levels[i];
 			if (level_id == AssetNull)
@@ -1317,10 +1382,8 @@ namespace connect
 			if (entity)
 			{
 				data->levels.add({ i, level_id, entity->get<Transform>() });
-				if (level_id == Menu::next_level)
-					data->target = entity->get<Transform>()->absolute_pos();
 				if (level_id == Menu::transition_previous_level)
-					data->start = entity->get<Transform>()->absolute_pos();
+					data->camera->pos = entity->get<Transform>()->absolute_pos() + data->camera_offset;
 			}
 		}
 

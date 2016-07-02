@@ -231,15 +231,8 @@ namespace VI
 		{
 			// we're in local multiplayer mode
 			next_mode = Game::Mode::Pvp;
-
-			if (Game::level.lock_teams || Game::save.round == (s32)AI::Team::count - 1)
-			{
-				Game::save.level_index++; // advance to next level
-				Game::save.round = 0;
-			}
-			else
-				Game::save.round = (Game::save.round + 1) % (s32)AI::Team::count;
-			next_level = Game::local_multiplayer_levels[Game::save.level_index];
+			next_level = Game::state.level;
+			Game::save.round++;
 		}
 		else
 		{
@@ -249,7 +242,7 @@ namespace VI
 			Penelope::variable(strings::tried, AssetNull);
 			next_mode = Game::Mode::Parkour;
 			if (Game::level.lock_teams
-				|| Game::save.level_index < 4 // advance past tutorials and first two levels after only one round
+				|| Game::save.level_index < Game::tutorial_levels + 2 // advance past tutorials and first two levels after only one round
 				|| Game::save.round == (s32)AI::Team::count - 1)
 			{
 				if (Game::save.level_index == 1 && Penelope::variable(strings::skip_tutorial) != strings::yes) // tutorial

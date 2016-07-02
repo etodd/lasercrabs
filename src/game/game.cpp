@@ -91,19 +91,11 @@ const s32 Game::levels[] =
 {
 	Asset::Level::intro,
 	Asset::Level::Soteria,
+	Asset::Level::Tyche,
 	Asset::Level::Medias_Res,
 	Asset::Level::Ponos,
 	Asset::Level::Ioke,
 	Asset::Level::Moros,
-	AssetNull,
-};
-
-const s32 Game::local_multiplayer_levels[] =
-{
-	Asset::Level::Tyche,
-	Asset::Level::Ioke,
-	Asset::Level::Medias_Res,
-	Asset::Level::Ponos,
 	AssetNull,
 };
 

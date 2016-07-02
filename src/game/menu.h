@@ -71,6 +71,7 @@ enum class State
 extern AssetID next_level;
 extern Game::Mode next_mode;
 extern r32 connect_timer;
+extern b8 splitscreen_level_selected;
 extern AssetID transition_previous_level;
 
 void init();

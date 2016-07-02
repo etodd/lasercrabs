@@ -19,6 +19,7 @@
 	"player": "Player %d",
 	"exit": "Exit",
 	"deploy_timer": "Deploying... %d",
+	"deploy_prompt": "[{{Interact}}] Deploy",
 	"spawn_timer": "Spawning... %d",
 	"map_simulation": "%s (simulation)",
 	"main_menu": "Disconnect",

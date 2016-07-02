@@ -576,6 +576,7 @@ const char* AssetLookup::String::names[] =
 	"containment_field_destroyed",
 	"data_fragment",
 	"defeat",
+	"deploy_prompt",
 	"deploy_timer",
 	"description_containment_field",
 	"description_health_buff",

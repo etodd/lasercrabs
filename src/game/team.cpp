@@ -16,8 +16,6 @@
 #include "mersenne/mersenne-twister.h"
 #include "scripts.h"
 
-#define PLAYER_SPAWN_DELAY 3.0f
-
 #define CREDITS_FLASH_TIME 0.5f
 
 namespace VI

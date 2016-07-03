@@ -69,6 +69,7 @@ struct Water : public ComponentType<Water>
 
 	Water(AssetID);
 	void awake() {}
+	void draw_opaque(const RenderParams&);
 	void draw_alpha(const RenderParams&);
 };
 

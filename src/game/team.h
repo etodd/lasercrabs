@@ -18,7 +18,9 @@ struct Target;
 struct TargetEvent;
 struct PlayerManager;
 
-#define GAME_TIME_LIMIT (60.0f * 10.0f)
+
+#define PLAYER_SPAWN_DELAY 3.0f
+#define GAME_TIME_LIMIT ((60.0f * 10.0f) + PLAYER_SPAWN_DELAY)
 #define CREDITS_INITIAL 80
 #define CREDITS_MINION 10
 #define CREDITS_SENSOR_DESTROY 10

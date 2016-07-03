@@ -71,7 +71,7 @@ s32 ui_buffer;
 s32 ui_fbo;
 
 b8 draw_far_shadow_cascade = true;
-Mat4 far_shadow_cascade_vp;
+Camera far_shadow_cascade_camera;
 
 Mat4 relative_shadow_vp(const Camera& main_camera, const Camera& shadow_camera)
 {
@@ -558,12 +558,12 @@ void draw(LoopSync* sync, const Camera* camera)
 						Vec2(shadow_map_size[(s32)Settings::shadow_quality][1], shadow_map_size[(s32)Settings::shadow_quality][1]),
 					};
 					shadow_camera.orthographic(size, size, 1.0f, size * 2.0f);
-					far_shadow_cascade_vp = relative_shadow_vp(*render_params.camera, shadow_camera);
+					far_shadow_cascade_camera = shadow_camera;
 					render_shadows(sync, shadow_fbo[1], *render_params.camera, shadow_camera);
 				}
 				draw_far_shadow_cascade = !draw_far_shadow_cascade;
 
-				render_params.shadow_vp = far_shadow_cascade_vp;
+				render_params.shadow_vp = relative_shadow_vp(*render_params.camera, far_shadow_cascade_camera);
 				render_params.shadow_buffer = shadow_buffer[1]; // skybox needs this for volumetric lighting
 
 				// Detail shadow map
@@ -621,7 +621,7 @@ void draw(LoopSync* sync, const Camera* camera)
 				sync->write(Asset::Uniform::light_vp);
 				sync->write(RenderDataType::Mat4);
 				sync->write<s32>(1);
-				sync->write<Mat4>(inverse_view_rotation_only * far_shadow_cascade_vp);
+				sync->write<Mat4>(inverse_view_rotation_only * render_params.shadow_vp);
 
 				sync->write(RenderOp::Uniform);
 				sync->write(Asset::Uniform::shadow_map);

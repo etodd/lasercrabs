@@ -322,12 +322,19 @@ void Game::term()
 void Game::draw_opaque(const RenderParams& render_params)
 {
 	View::draw_opaque(render_params);
+
+	for (auto i = Water::list.iterator(); !i.is_last(); i.next())
+		i.item()->draw_opaque(render_params);
+
 	Rope::draw_opaque(render_params);
 	SkinnedModel::draw_opaque(render_params);
 }
 
 void Game::draw_alpha(const RenderParams& render_params)
 {
+	for (auto i = Water::list.iterator(); !i.is_last(); i.next())
+		i.item()->draw_alpha(render_params);
+
 	Skybox::draw_alpha(render_params, level.skybox);
 	SkyDecal::draw_alpha(render_params, level.skybox);
 	SkyPattern::draw_alpha(render_params);
@@ -494,9 +501,6 @@ void Game::draw_alpha(const RenderParams& render_params)
 		sync->write(RenderFillMode::Fill);
 	}
 #endif
-
-	for (auto i = Water::list.iterator(); !i.is_last(); i.next())
-		i.item()->draw_alpha(render_params);
 
 	View::draw_alpha(render_params);
 

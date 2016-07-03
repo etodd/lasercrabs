@@ -691,6 +691,7 @@ void LocalPlayer::draw_alpha(const RenderParams& params) const
 				}
 			}
 
+			if (mode == UIMode::Default || mode == UIMode::Upgrading)
 			{
 				// draw battery/timer
 
@@ -1005,8 +1006,11 @@ void LocalPlayerControl::hit_by(const TargetEvent& e)
 
 void LocalPlayerControl::health_picked_up()
 {
-	player.ref()->msg(_(strings::hp_added), true);
-	health_flash_timer = msg_time;
+	if (Game::time.total > PLAYER_SPAWN_DELAY + 0.5f) // if we're picking up initial health at the very beginning of the match, don't flash the message
+	{
+		player.ref()->msg(_(strings::hp_added), true);
+		health_flash_timer = msg_time;
+	}
 }
 
 b8 LocalPlayerControl::input_enabled() const

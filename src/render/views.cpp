@@ -469,8 +469,11 @@ Water::Water(AssetID mesh_id)
 
 }
 
-void Water::draw_alpha(const RenderParams& params)
+void Water::draw_opaque(const RenderParams& params)
 {
+	if (params.technique != RenderTechnique::Default)
+		return;
+
 	const Mesh* mesh_data = Loader::mesh(mesh);
 
 	Mat4 m;
@@ -487,13 +490,72 @@ void Water::draw_alpha(const RenderParams& params)
 	sync->write(Asset::Shader::water);
 	sync->write(params.technique);
 
-	Mat4 mvp = m * params.view_projection;
+	sync->write(RenderOp::Uniform);
+	sync->write(Asset::Uniform::mvp);
+	sync->write(RenderDataType::Mat4);
+	sync->write<s32>(1);
+	sync->write<Mat4>(m * params.view_projection);
+
+	sync->write(RenderOp::Uniform);
+	sync->write(Asset::Uniform::mv);
+	sync->write(RenderDataType::Mat4);
+	sync->write<s32>(1);
+	sync->write<Mat4>(m * params.view);
+
+	sync->write(RenderOp::Uniform);
+	sync->write(Asset::Uniform::time);
+	sync->write(RenderDataType::R32);
+	sync->write<s32>(1);
+	sync->write<r32>(params.sync->time.total);
+
+	sync->write(RenderOp::Uniform);
+	sync->write(Asset::Uniform::normal_map);
+	sync->write(RenderDataType::Texture);
+	sync->write<s32>(1);
+	sync->write<RenderTextureType>(RenderTextureType::Texture2D);
+	sync->write<AssetID>(Asset::Texture::water_normal);
+
+	sync->write(RenderOp::Uniform);
+	sync->write(Asset::Uniform::diffuse_color);
+	sync->write(RenderDataType::Vec4);
+	sync->write<s32>(1);
+	sync->write<Vec4>(mesh_data->color);
+
+	sync->write(RenderOp::CullMode);
+	sync->write(RenderCullMode::None);
+
+	sync->write(RenderOp::Mesh);
+	sync->write(RenderPrimitiveMode::Triangles);
+	sync->write(mesh);
+
+	sync->write(RenderOp::CullMode);
+	sync->write(RenderCullMode::Back);
+}
+
+void Water::draw_alpha(const RenderParams& params)
+{
+	const Mesh* mesh_data = Loader::mesh(mesh);
+
+	Mat4 m;
+	get<Transform>()->mat(&m);
+	m.translate(Vec3(0, 0.02f, 0));
+
+	if (!params.camera->visible_sphere(m.translation(), mesh_data->bounds_radius))
+		return;
+
+	Loader::shader(Asset::Shader::water);
+	Loader::texture(Asset::Texture::water_normal);
+
+	RenderSync* sync = params.sync;
+	sync->write(RenderOp::Shader);
+	sync->write(Asset::Shader::water);
+	sync->write(params.technique);
 
 	sync->write(RenderOp::Uniform);
 	sync->write(Asset::Uniform::mvp);
 	sync->write(RenderDataType::Mat4);
 	sync->write<s32>(1);
-	sync->write<Mat4>(mvp);
+	sync->write<Mat4>(m * params.view_projection);
 
 	sync->write(RenderOp::Uniform);
 	sync->write(Asset::Uniform::mv);
@@ -505,7 +567,7 @@ void Water::draw_alpha(const RenderParams& params)
 	sync->write(Asset::Uniform::diffuse_color);
 	sync->write(RenderDataType::Vec4);
 	sync->write<s32>(1);
-	sync->write<Vec4>(mesh_data->color);
+	sync->write<Vec4>(Vec4(1));
 
 	sync->write(RenderOp::Uniform);
 	sync->write(Asset::Uniform::time);
@@ -522,8 +584,9 @@ void Water::draw_alpha(const RenderParams& params)
 
 	sync->write(RenderOp::FillMode);
 	sync->write(RenderFillMode::Point);
-	sync->write(RenderOp::CullMode);
-	sync->write(RenderCullMode::None);
+
+	sync->write(RenderOp::PointSize);
+	sync->write<r32>(4.0f * UI::scale);
 
 	sync->write(RenderOp::Mesh);
 	sync->write(RenderPrimitiveMode::Points);
@@ -531,8 +594,6 @@ void Water::draw_alpha(const RenderParams& params)
 
 	sync->write(RenderOp::FillMode);
 	sync->write(RenderFillMode::Fill);
-	sync->write(RenderOp::CullMode);
-	sync->write(RenderCullMode::Back);
 }
 
 void Cube::draw(const RenderParams& params, const Vec3& pos, const b8 alpha, const Vec3& scale, const Quat& rot, const Vec4& color)

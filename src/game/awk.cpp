@@ -217,6 +217,8 @@ Entity* Awk::incoming_attacker() const
 
 void Awk::hit_by(const TargetEvent& e)
 {
+	get<Audio>()->post_event(has<LocalPlayerControl>() ? AK::EVENTS::PLAY_HURT_PLAYER : AK::EVENTS::PLAY_HURT);
+
 	b8 damaged = false;
 	b8 shield_taken_down = false;
 
@@ -387,8 +389,6 @@ void Awk::killed(Entity* e)
 		if (i.item()->owner.ref() == get<Health>())
 			i.item()->reset();
 	}
-
-	get<Audio>()->post_event(has<LocalPlayerControl>() ? AK::EVENTS::PLAY_HURT_PLAYER : AK::EVENTS::PLAY_HURT);
 	get<Audio>()->post_event(AK::EVENTS::STOP_FLY);
 	World::remove_deferred(entity());
 }
@@ -518,7 +518,6 @@ void Awk::reflect(const Vec3& hit, const Vec3& normal, const Update& u)
 	bounce.fire(new_velocity);
 	get<Transform>()->rot = Quat::look(Vec3::normalize(new_velocity));
 	velocity = new_velocity;
-	get<Audio>()->post_event(has<LocalPlayerControl>() ? AK::EVENTS::PLAY_BOUNCE_PLAYER : AK::EVENTS::PLAY_BOUNCE);
 }
 
 void Awk::crawl_wall_edge(const Vec3& dir, const Vec3& other_wall_normal, const Update& u, r32 speed)

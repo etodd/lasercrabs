@@ -464,9 +464,26 @@ void SkyPattern::draw_alpha(const RenderParams& p)
 }
 
 Water::Water(AssetID mesh_id)
-	: mesh(mesh_id)
+	: mesh(mesh_id),
+	color(-1, -1, -1, -1)
 {
 
+}
+
+void Water::awake()
+{
+	const Mesh* m = Loader::mesh(mesh);
+	if (m)
+	{
+		if (color.x < 0.0f)
+			color.x = m->color.x;
+		if (color.y < 0.0f)
+			color.y = m->color.y;
+		if (color.z < 0.0f)
+			color.z = m->color.z;
+		if (color.w < 0.0f)
+			color.w = m->color.w;
+	}
 }
 
 void Water::draw_opaque(const RenderParams& params)
@@ -519,7 +536,7 @@ void Water::draw_opaque(const RenderParams& params)
 	sync->write(Asset::Uniform::diffuse_color);
 	sync->write(RenderDataType::Vec4);
 	sync->write<s32>(1);
-	sync->write<Vec4>(mesh_data->color);
+	sync->write<Vec4>(color);
 
 	sync->write(RenderOp::CullMode);
 	sync->write(RenderCullMode::None);

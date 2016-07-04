@@ -92,9 +92,9 @@ const s32 Game::levels[] =
 	Asset::Level::intro,
 	Asset::Level::Soteria,
 	Asset::Level::Tyche,
+	Asset::Level::Ioke,
 	Asset::Level::Medias_Res,
 	Asset::Level::Ponos,
-	Asset::Level::Ioke,
 	Asset::Level::Moros,
 	AssetNull,
 };
@@ -1160,6 +1160,8 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 			const Mesh* mesh = Loader::mesh(mesh_id);
 
 			entity = World::alloc<WaterEntity>(mesh_id);
+			if (state.mode == Mode::Pvp)
+				entity->get<Water>()->color = Vec4(pvp_inaccessible, MATERIAL_NO_OVERRIDE);
 		}
 		else if (cJSON_GetObjectItem(element, "Prop"))
 		{

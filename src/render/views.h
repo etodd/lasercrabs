@@ -66,9 +66,10 @@ struct SkyDecal : ComponentType<SkyDecal>
 struct Water : public ComponentType<Water>
 {
 	AssetID mesh;
+	Vec4 color;
 
 	Water(AssetID);
-	void awake() {}
+	void awake();
 	void draw_opaque(const RenderParams&);
 	void draw_alpha(const RenderParams&);
 };

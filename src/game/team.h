@@ -96,8 +96,7 @@ struct Team
 	static const Vec4 color_enemy;
 	static const Vec4 color_friend;
 	static r32 control_point_timer;
-
-	static r32 game_over_time();
+	static r32 game_over_timer;
 
 	static inline const Vec4& ui_color(AI::Team me, AI::Team them)
 	{
@@ -111,12 +110,11 @@ struct Team
 
 	static StaticArray<Team, (s32)AI::Team::count> list;
 
-	static b8 game_over();
-	static b8 is_draw();
+	static b8 game_over;
+	static Ref<Team> winner;
 
 	Ref<Transform> player_spawn;
 	Revision revision;
-	r32 victory_timer;
 	SensorTrack player_tracks[MAX_PLAYERS];
 	SensorTrackHistory player_track_history[MAX_PLAYERS];
 
@@ -125,7 +123,6 @@ struct Team
 
 	static void extract_history(PlayerManager*, SensorTrackHistory*);
 	b8 has_player() const;
-	b8 is_local() const;
 	void track(PlayerManager*, PlayerManager*);
 
 	static void update_all(const Update&);
@@ -151,6 +148,7 @@ struct PlayerManager
 	char username[255];
 	u16 credits;
 	r32 credits_flash_timer;
+	b8 score_accepted;
 	Ref<Team> team;
 	Ref<Entity> entity;
 	Link spawn;
@@ -165,6 +163,7 @@ struct PlayerManager
 	LinkArg<Ability> ability_spawn_canceled;
 	LinkArg<Upgrade> upgrade_completed;
 
+	b8 is_local() const;
 	s32 ability_count() const;
 	b8 ability_spawn_start(Ability);
 	void ability_spawn_stop(Ability);

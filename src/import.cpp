@@ -3158,6 +3158,7 @@ s32 proc(s32 argc, char* argv[])
 		if (state.rebuild
 			|| mtime > filemtime(wwise_header_out_path))
 		{
+			printf("%s\n", wwise_header_out_path);
 			if (!cp(wwise_header_in_path, wwise_header_out_path))
 			{
 				fprintf(stderr, "Error: Failed to copy %s to %s.\n", wwise_header_in_path, wwise_header_out_path);
@@ -3209,7 +3210,7 @@ s32 proc(s32 argc, char* argv[])
 			|| !maps_equal2(state.manifest.animations, state.cached_manifest.animations)
 			|| filemtime(animation_header_path) == 0)
 		{
-			printf("Writing animation header\n");
+			printf("%s\n", animation_header_path);
 			FILE* f = open_asset_header(animation_header_path);
 			if (!f)
 				return exit_error();

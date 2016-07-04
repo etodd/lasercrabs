@@ -599,7 +599,7 @@ void UIMenu::start(const Update& u, u8 g, b8 input)
 
 	gamepad = g;
 
-	if (!input)
+	if (Console::visible || !input)
 		return;
 
 	if (active[g])
@@ -671,7 +671,7 @@ b8 UIMenu::item(const Update& u, Vec2* menu_pos, const char* string, const char*
 {
 	Rect2 box = add_item(menu_pos, false, string, value, disabled, icon);
 
-	if (active[gamepad] != this)
+	if (Console::visible || active[gamepad] != this)
 		return false;
 
 	if (gamepad == 0 && box.contains(Game::cursor))
@@ -708,7 +708,7 @@ UIMenu::Delta UIMenu::slider_item(const Update& u, Vec2* menu_pos, const char* l
 {
 	Rect2 box = add_item(menu_pos, true, label, value, disabled, icon);
 
-	if (active[gamepad] != this)
+	if (Console::visible || active[gamepad] != this)
 		return Delta::None;
 
 	if (gamepad == 0 && box.contains(Game::cursor))

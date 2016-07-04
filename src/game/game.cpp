@@ -91,9 +91,9 @@ const s32 Game::levels[] =
 {
 	Asset::Level::intro,
 	Asset::Level::Soteria,
-	Asset::Level::Tyche,
-	Asset::Level::Ioke,
 	Asset::Level::Medias_Res,
+	Asset::Level::Ioke,
+	Asset::Level::Tyche,
 	Asset::Level::Ponos,
 	Asset::Level::Moros,
 	AssetNull,

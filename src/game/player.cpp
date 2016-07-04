@@ -113,7 +113,7 @@ LocalPlayer::UIMode LocalPlayer::ui_mode() const
 {
 	if (menu_state != Menu::State::Hidden)
 		return UIMode::Pause;
-	else if (Team::game_over())
+	else if (Team::game_over)
 		return UIMode::GameOver;
 	else if (manager.ref()->entity.ref() || NoclipControl::list.count() > 0)
 	{
@@ -617,22 +617,23 @@ void LocalPlayer::draw_alpha(const RenderParams& params) const
 			text.anchor_y = UIText::Anchor::Center;
 			text.size = 32.0f;
 
-			if (Team::is_draw())
-			{
-				text.color = UI::alert_color;
-				text.text(_(strings::draw));
-			}
-			else if (manager.ref()->team.ref()->has_player())
+			Team* winner = Team::winner.ref();
+			if (winner == manager.ref()->team.ref()) // we won
 			{
 				text.color = UI::accent_color;
 				text.text(_(strings::victory));
 			}
-			else
+			else if (!winner) // it's a draw
+			{
+				text.color = UI::alert_color;
+				text.text(_(strings::draw));
+			}
+			else // we lost
 			{
 				text.color = UI::alert_color;
 				text.text(_(strings::defeat));
 			}
-			text.clip = 1 + (s32)(Team::game_over_time() * 20.0f);
+			text.clip = 1 + (s32)(Team::game_over_timer * 20.0f);
 			Vec2 pos = vp.size * Vec2(0.5f, 0.5f);
 			UI::box(params, text.rect(pos).outset(16 * UI::scale), UI::background_color);
 			text.draw(params, pos);
@@ -1015,7 +1016,7 @@ void LocalPlayerControl::health_picked_up()
 
 b8 LocalPlayerControl::input_enabled() const
 {
-	return !Console::visible && player.ref()->ui_mode() == LocalPlayer::UIMode::Default && !Penelope::has_focus() && !Team::game_over();
+	return !Console::visible && player.ref()->ui_mode() == LocalPlayer::UIMode::Default && !Penelope::has_focus() && !Team::game_over;
 }
 
 b8 LocalPlayerControl::movement_enabled() const
@@ -1620,7 +1621,7 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 	if (!has<Awk>() || params.technique != RenderTechnique::Default || params.camera != camera)
 		return;
 
-	if (Team::game_over())
+	if (Team::game_over)
 		return;
 
 	const Rect2& viewport = params.camera->viewport;

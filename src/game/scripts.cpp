@@ -249,6 +249,9 @@ namespace Penelope
 					}
 					else
 						node->text.sound = AK_INVALID_UNIQUE_ID;
+#if !DEBUG
+					vi_assert(node->text.sound != AK_INVALID_UNIQUE_ID);
+#endif
 				}
 
 				// choices
@@ -1297,7 +1300,7 @@ namespace connect
 			if (Game::state.local_multiplayer)
 				color = node.id == Menu::next_level ? &UI::accent_color : &Team::ui_color_friend;
 			else
-				color = i <= Game::save.level_index ? &UI::accent_color : &UI::alert_color;
+				color = node.index <= Game::save.level_index ? &UI::accent_color : &UI::alert_color;
 			UI::indicator(params, pos->absolute_pos(), *color, false);
 
 			if (node.id == Menu::next_level)

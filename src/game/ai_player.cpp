@@ -821,7 +821,7 @@ b8 AIPlayerControl::update_memory()
 
 void AIPlayerControl::update(const Update& u)
 {
-	if (get<Transform>()->parent.ref() && !Team::game_over())
+	if (get<Transform>()->parent.ref() && !Team::game_over)
 	{
 		const AIPlayer::Config& config = player.ref()->config;
 

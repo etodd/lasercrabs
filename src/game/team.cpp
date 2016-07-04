@@ -30,6 +30,9 @@ namespace VI
 
 	StaticArray<Team, (s32)AI::Team::count> Team::list;
 	r32 Team::control_point_timer;
+	r32 Team::game_over_timer;
+	b8 Team::game_over;
+	Ref<Team> Team::winner;
 
 	AbilityInfo AbilityInfo::list[] =
 	{
@@ -95,11 +98,8 @@ namespace VI
 		},
 	};
 
-#define GAME_OVER_TIME 5.0f
-
 	Team::Team()
-		: victory_timer(GAME_OVER_TIME),
-		player_tracks(),
+		: player_tracks(),
 		player_track_history(),
 		player_spawn()
 	{
@@ -107,6 +107,8 @@ namespace VI
 
 	void Team::awake()
 	{
+		Team::game_over_timer = 0.0f;
+		Team::winner = nullptr;
 		for (auto i = PlayerManager::list.iterator(); !i.is_last(); i.next())
 		{
 			if (i.item()->team.ref() != this)
@@ -125,62 +127,12 @@ namespace VI
 		return t;
 	}
 
-	b8 Team::game_over()
-	{
-		if (Game::state.mode != Game::Mode::Pvp)
-			return false;
-
-		if (NoclipControl::list.count() > 0)
-			return false;
-
-		if (Game::time.total > GAME_TIME_LIMIT)
-			return true;
-
-		if (PlayerManager::list.count() == 1)
-			return false;
-
-		for (auto i = PlayerManager::list.iterator(); !i.is_last(); i.next())
-		{
-			if (i.item()->spawn_timer > 0.0f)
-				return false;
-		}
-
-		return teams_with_players() < 2;
-	}
-
-	b8 Team::is_draw()
-	{
-		return Game::time.total > GAME_TIME_LIMIT && teams_with_players() != 1;
-	}
-
-	r32 Team::game_over_time()
-	{
-		if (is_draw())
-			return Game::time.total - GAME_TIME_LIMIT;
-		else
-		{
-			r32 result = GAME_OVER_TIME;
-			for (s32 i = 0; i < Team::list.length; i++)
-				result = vi_min(result, Team::list[i].victory_timer);
-			return GAME_OVER_TIME - result;
-		}
-	}
-
 	b8 Team::has_player() const
 	{
 		for (auto j = PlayerManager::list.iterator(); !j.is_last(); j.next())
 		{
-			if (j.item()->team.ref() == this && j.item()->entity.ref())
-				return true;
-		}
-		return false;
-	}
-
-	b8 Team::is_local() const
-	{
-		for (auto j = LocalPlayer::list.iterator(); !j.is_last(); j.next())
-		{
-			if (j.item()->manager.ref()->team.ref() == this)
+			if (j.item()->team.ref() == this
+				&& (j.item()->spawn_timer > 0.0f || j.item()->entity.ref()))
 				return true;
 		}
 		return false;
@@ -296,11 +248,76 @@ namespace VI
 		if (Game::state.mode != Game::Mode::Pvp)
 			return;
 
-		b8 is_game_over = game_over();
-		if (is_game_over && is_draw())
+		if (!game_over)
 		{
-			if (Game::time.total > GAME_TIME_LIMIT + GAME_OVER_TIME)
-				level_retry(); // it's a draw; try again
+			if (Game::state.mode == Game::Mode::Pvp
+			&& NoclipControl::list.count() == 0
+			&& (Game::time.total > GAME_TIME_LIMIT
+				|| (PlayerManager::list.count() > 1 && teams_with_players() <= 1)))
+			{
+				game_over = true;
+
+				// determine the winner, if any
+				Team* result = nullptr;
+				s32 teams_with_players = 0;
+				for (s32 i = 0; i < Team::list.length; i++)
+				{
+					if (Team::list[i].has_player())
+					{
+						result = &Team::list[i];
+						teams_with_players++;
+					}
+				}
+				if (teams_with_players == 1)
+					winner = result;
+				else
+					winner = nullptr;
+			}
+		}
+
+		if (game_over)
+		{
+			game_over_timer += u.time.delta;
+
+			// wait for all local players to accept scores
+			b8 score_accepted = true;
+			for (auto i = PlayerManager::list.iterator(); !i.is_last(); i.next())
+			{
+				if (i.item()->is_local() && !i.item()->score_accepted)
+					score_accepted = false;
+			}
+
+			if (score_accepted)
+			{
+				// time to get out of here
+
+				if (winner.ref())
+				{
+					// somebody won
+					b8 advance = false;
+					if (Game::state.local_multiplayer)
+						advance = true;
+					else
+					{
+						// if we're in campaign mode, only advance if the local team won
+						for (auto i = PlayerManager::list.iterator(); !i.is_last(); i.next())
+						{
+							if (i.item()->team.ref() == winner.ref() && i.item()->is_local())
+							{
+								advance = true; // there's a local player on the winning team; advance
+								break;
+							}
+						}
+					}
+
+					if (advance)
+						level_next();
+					else
+						level_retry();
+				}
+				else
+					level_retry(); // it's a draw; try again
+			}
 		}
 
 		// determine which Awks are seen by which teams
@@ -421,26 +438,6 @@ namespace VI
 		for (s32 team_id = 0; team_id < list.length; team_id++)
 		{
 			Team* team = &list[team_id];
-
-			if (team->has_player() && is_game_over)
-			{
-				// we win
-				team->victory_timer -= u.time.delta;
-				if (team->victory_timer < 0.0f)
-				{
-					// done letting the player gloat
-					b8 advance = false;
-					if (Game::state.local_multiplayer)
-						advance = true;
-					else
-						advance = team->is_local(); // if we're in campaign mode, only advance if the local team won
-
-					if (advance)
-						level_next();
-					else
-						level_retry();
-				}
-			}
 
 			// update tracking timers
 
@@ -690,6 +687,7 @@ namespace VI
 
 	PlayerManager::PlayerManager(Team* team, u16 hp_start)
 		: spawn_timer(PLAYER_SPAWN_DELAY),
+		score_accepted(),
 		team(team),
 		hp_start(hp_start),
 		credits(Game::level.has_feature(Game::FeatureLevel::Abilities) ? CREDITS_INITIAL : 0),
@@ -849,5 +847,14 @@ namespace VI
 		}
 	}
 
+	b8 PlayerManager::is_local() const
+	{
+		for (auto j = LocalPlayer::list.iterator(); !j.is_last(); j.next())
+		{
+			if (j.item()->manager.ref() == this)
+				return true;
+		}
+		return false;
+	}
 
 }

@@ -119,7 +119,7 @@ struct Team
 	SensorTrackHistory player_track_history[MAX_PLAYERS];
 
 	Team();
-	void awake();
+	static void awake_all();
 
 	static void extract_history(PlayerManager*, SensorTrackHistory*);
 	b8 has_player() const;
@@ -140,6 +140,12 @@ struct Team
 
 struct PlayerManager
 {
+	struct RatingItem
+	{
+		AssetID label;
+		s32 amount;
+	};
+
 	static PinArray<PlayerManager, MAX_PLAYERS> list;
 
 	u16 hp_start;
@@ -162,6 +168,7 @@ struct PlayerManager
 	LinkArg<Ability> ability_spawned;
 	LinkArg<Ability> ability_spawn_canceled;
 	LinkArg<Upgrade> upgrade_completed;
+	StaticArray<RatingItem, 8> rating_summary;
 
 	b8 is_local() const;
 	s32 ability_count() const;

@@ -18,6 +18,8 @@
 
 #define CREDITS_FLASH_TIME 0.5f
 
+#define CREDITS_VICTORY 300
+
 namespace VI
 {
 
@@ -105,14 +107,20 @@ namespace VI
 	{
 	}
 
-	void Team::awake()
+	void Team::awake_all()
 	{
-		Team::game_over_timer = 0.0f;
-		Team::winner = nullptr;
-		for (auto i = PlayerManager::list.iterator(); !i.is_last(); i.next())
+		game_over = false;
+		game_over_timer = 0.0f;
+		winner = nullptr;
+
+		for (s32 i = 0; i < Team::list.length; i++)
 		{
-			if (i.item()->team.ref() != this)
-				extract_history(i.item(), &player_track_history[i.index]);
+			Team* team = &Team::list[i];
+			for (auto j = PlayerManager::list.iterator(); !j.is_last(); j.next())
+			{
+				if (j.item()->team.ref() != team)
+					extract_history(j.item(), &team->player_track_history[j.index]);
+			}
 		}
 	}
 
@@ -268,8 +276,30 @@ namespace VI
 						teams_with_players++;
 					}
 				}
+
 				if (teams_with_players == 1)
+				{
 					winner = result;
+					for (auto i = PlayerManager::list.iterator(); !i.is_last(); i.next())
+					{
+						s32 total = 0;
+
+						if (i.item()->team.ref() == winner.ref())
+						{
+							i.item()->rating_summary.add({ strings::victory, CREDITS_VICTORY });
+							total += CREDITS_VICTORY;
+						}
+
+						total += i.item()->credits;
+						i.item()->rating_summary.add({ strings::leftover_energy, i.item()->credits });
+
+						if (i.item()->is_local() && !Game::state.local_multiplayer)
+						{
+							// we're in campaign mode and this is a local player; save their rating
+							Game::save.rating += total;
+						}
+					}
+				}
 				else
 					winner = nullptr;
 			}
@@ -700,7 +730,8 @@ namespace VI
 		upgrade_timer(),
 		ability_spawned(),
 		ability_spawn_canceled(),
-		upgrade_completed()
+		upgrade_completed(),
+		rating_summary()
 	{
 	}
 

@@ -71,6 +71,7 @@ struct Game
 		s32 level_index;
 		s32 data_fragment_index;
 		s32 round;
+		s32 rating;
 		b8 last_round_loss;
 		std::unordered_map<AssetID, AssetID> variables; // todo: kill STL
 		std::unordered_map<s32, AssetID> data_fragments;

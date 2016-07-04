@@ -829,6 +829,7 @@ const char* AssetLookup::String::names[] =
 	"leaderboard_show",
 	"leave",
 	"left_joystick",
+	"leftover_energy",
 	"loading_offline",
 	"main_menu",
 	"map_simulation",
@@ -869,6 +870,7 @@ const char* AssetLookup::String::names[] =
 	"teleport",
 	"terminal_reset",
 	"timer",
+	"total_rating_gain",
 	"tried",
 	"tut_parkour_climb",
 	"tut_parkour_double_jump",
@@ -889,6 +891,7 @@ const char* AssetLookup::String::names[] =
 	"upgrade_prompt",
 	"upgrading",
 	"victory",
+	"waiting",
 	"yes",
 	0,
 };

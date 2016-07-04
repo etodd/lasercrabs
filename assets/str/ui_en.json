@@ -46,6 +46,7 @@
 	"upgrade_prompt": "[{{Interact}}] Upgrade",
 	"ability_spawn_cost": "-%d energy",
 	"accept": "[{{Interact}}] Accept",
+	"waiting": "Waiting...",
 	"upgrade_description": "Cost: %d\n%s",
 	"sensor": "Collector",
 	"description_sensor": "Collectors detect enemies, provide stealth, and collect energy.",
@@ -308,7 +309,9 @@
 	"btn_RightTrigger": "Right Trigger",
 	"btn_None": "None",
 
-	"victory": "Zone Cleared",
+	"victory": "Zone cleared",
+	"leftover_energy": "Energy surplus",
+	"total_rating_gain": "Total rating gain",
 	"defeat": "Connection Lost",
 	"draw": "Battery Expired",
 	"timer": "%d:%02d",

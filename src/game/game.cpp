@@ -1337,8 +1337,7 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 
 	Loader::level_free(json);
 
-	for (s32 i = 0; i < Team::list.length; i++)
-		Team::list[i].awake();
+	Team::awake_all();
 }
 
 }

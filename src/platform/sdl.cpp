@@ -105,7 +105,7 @@ namespace VI
 			return -1;
 		}
 
-		Loader::data_directory = SDL_GetPrefPath("PoorMan", "Yearning");
+		Loader::data_directory = SDL_GetPrefPath("HelveticaScenario", "Yearning");
 
 		SDL_GameControllerAddMappingsFromFile("gamecontrollerdb.txt");
 

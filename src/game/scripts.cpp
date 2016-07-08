@@ -1524,9 +1524,21 @@ namespace tutorial
 		Game::level.feature_level = Game::FeatureLevel::ControlPoints;
 	}
 
-	void spawned()
+	void player_or_ai_killed(Entity*)
+	{
+		data->state = TutorialState::Done;
+		Penelope::clear();
+	}
+
+	void ai_spawned()
+	{
+		AIPlayerControl::list.iterator().item()->get<Health>()->killed.link(&player_or_ai_killed);
+	}
+
+	void player_spawned()
 	{
 		LocalPlayerControl::list.iterator().item()->get<Health>()->hp = 2;
+		LocalPlayerControl::list.iterator().item()->get<Health>()->killed.link(&player_or_ai_killed);
 	}
 
 	void minion_killed(Entity*)
@@ -1648,19 +1660,20 @@ namespace tutorial
 
 			entities.find("minion")->get<Health>()->killed.link(&minion_killed);
 
-			PlayerManager* manager = PlayerManager::list.add();
-			new (manager) PlayerManager(&Team::list[(s32)AI::Team::B], 1);
+			PlayerManager* ai_manager = PlayerManager::list.add();
+			new (ai_manager) PlayerManager(&Team::list[(s32)AI::Team::B], 1);
 
-			utf8cpy(manager->username, _(strings::dummy));
+			utf8cpy(ai_manager->username, _(strings::dummy));
 
-			AIPlayer* player = AIPlayer::list.add();
-			new (player) AIPlayer(manager);
+			AIPlayer* ai_player = AIPlayer::list.add();
+			new (ai_player) AIPlayer(ai_manager);
 
-			AIPlayer::Config* config = &player->config;
+			AIPlayer::Config* config = &ai_player->config;
 			config->high_level = AIPlayer::HighLevelLoop::Noop;
 			config->low_level = AIPlayer::LowLevelLoop::Noop;
 
-			LocalPlayer::list.iterator().item()->manager.ref()->spawn.link(&spawned);
+			LocalPlayer::list.iterator().item()->manager.ref()->spawn.link(&player_spawned);
+			ai_manager->spawn.link(&ai_spawned);
 
 			Penelope::init(); // have to init manually since penelope normally isn't loaded in PvP mode
 			Penelope::data->texts.schedule(3.0f, _(strings::tut_pvp_minion));

@@ -23,8 +23,8 @@
 namespace VI
 {
 
-#define LERP_ROTATION_SPEED 15.0f
-#define LERP_TRANSLATION_SPEED 3.0f
+#define LERP_ROTATION_SPEED 10.0f
+#define LERP_TRANSLATION_SPEED 2.0f
 #define MAX_FLIGHT_TIME 2.0f
 #define AWK_LEG_LENGTH (0.277f - 0.101f)
 #define AWK_LEG_BLEND_SPEED (1.0f / 0.05f)
@@ -32,7 +32,7 @@ namespace VI
 #define AWK_SHIELD_RADIUS 0.75f
 #define AWK_STUN_TIME 2.0f
 #define AWK_COOLDOWN_SKIP (AWK_MAX_DISTANCE_COOLDOWN * 0.5f)
-#define AWK_COOLDOWN_SKIP_WINDOW 0.1f
+#define AWK_COOLDOWN_SKIP_WINDOW 0.125f
 
 AwkRaycastCallback::AwkRaycastCallback(const Vec3& a, const Vec3& b, const Entity* awk)
 	: btCollisionWorld::ClosestRayResultCallback(a, b)
@@ -792,7 +792,7 @@ void Awk::update(const Update& u)
 	stun_timer = vi_max(stun_timer - u.time.delta, 0.0f);
 
 	invincible_timer = vi_max(invincible_timer - u.time.delta, 0.0f);
-	if (invincible_timer > 0.0f)
+	if (invincible_timer > 0.0f || !get<Transform>()->parent.ref())
 	{
 		if (get<AIAgent>()->stealth)
 			shield.ref()->get<View>()->mask = 1 << (s32)get<AIAgent>()->team; // only display to fellow teammates

@@ -22,7 +22,7 @@ enum CollisionGroup
 	CollisionContainmentField = 1 << 12,
 	CollisionTeamAContainmentField = 1 << 13,
 	CollisionTeamBContainmentField = 1 << 14,
-	CollisionInaccessibleMask = btBroadphaseProxy::AllFilter,
+	CollisionInaccessibleMask = ~CollisionInaccessible,
 };
 
 #define AWK_PERMEABLE_MASK (CollisionTarget | CollisionShield | CollisionAwkIgnore)

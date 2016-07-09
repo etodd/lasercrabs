@@ -127,6 +127,7 @@ struct LocalPlayerControl : public ComponentType<LocalPlayerControl>
 	r32 rumble;
 	Vec3 last_pos;
 	r32 last_gamepad_input_time;
+	r32 gamepad_rotation_speed;
 
 	LocalPlayerControl(u8);
 	~LocalPlayerControl();

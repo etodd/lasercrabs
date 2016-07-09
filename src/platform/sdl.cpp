@@ -83,12 +83,12 @@ namespace VI
 
 	s32 proc()
 	{
-#if defined(__APPLE__)
-		SDL_SetHint(SDL_HINT_MOUSE_RELATIVE_MODE_WARP, "1");
-#endif
-
 #if _WIN32
 		SetProcessDPIAware();
+#endif
+
+#if defined(__APPLE__)
+		SDL_SetHint(SDL_HINT_MOUSE_RELATIVE_MODE_WARP, "1");
 #endif
 
 		// Initialize SDL
@@ -120,11 +120,17 @@ namespace VI
 			Loader::settings_load(display.w, display.h);
 		}
 
+		if (SDL_SetRelativeMouseMode(SDL_TRUE) != 0)
+		{
+			fprintf(stderr, "Failed to set relative mouse mode: %s\n", SDL_GetError());
+			return -1;
+		}
+
 		window = SDL_CreateWindow
 		(
 			"The Yearning",
-			SDL_WINDOWPOS_CENTERED,
-			SDL_WINDOWPOS_CENTERED,
+			0,
+			0,
 			Settings::width, Settings::height,
 			SDL_WINDOW_OPENGL
 			| SDL_WINDOW_SHOWN
@@ -158,12 +164,6 @@ namespace VI
 		if (SDL_GL_SetSwapInterval(Settings::vsync ? 1 : 0) != 0)
 		{
 			fprintf(stderr, "Failed to set OpenGL swap interval: %s\n", SDL_GetError());
-			return -1;
-		}
-
-		if (SDL_SetRelativeMouseMode(SDL_TRUE) != 0)
-		{
-			fprintf(stderr, "Failed to set relative mouse mode: %s\n", SDL_GetError());
 			return -1;
 		}
 

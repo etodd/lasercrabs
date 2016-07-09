@@ -66,7 +66,7 @@
 	"tut_parkour_slide": "Run and hold [{{Slide}}] to slide off the ledge, then press [{{Jump}}] to jump to the next ledge.",
 	"tut_parkour_roll": "Jump down and hold [{{Slide}}] to skill-roll on landing. This preserves your momentum.",
 	"tut_parkour_double_jump": "Jump and press [{{Jump}}] in mid-air to double jump.",
-	"tut_pvp_minion": "Kill the enemy minion.\n[{{Secondary}}] to zoom.\n[{{Primary}}] to shoot.",
+	"tut_pvp_minion": "Shoot through the enemy minion's head.\n[{{Secondary}}] to zoom.\n[{{Primary}}] to shoot.",
 	"tut_pvp_health": "Capture the armor pickup to gain 1 armor point. You can have up to 3.",
 	"tut_pvp_control_points": "Find the energy port and hold [{{Ability1}}] to place a collector near it.",
 	"tut_pvp_upgrade": "Now you are collecting energy. Return to base and use your energy to buy an upgrade.",

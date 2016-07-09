@@ -36,14 +36,16 @@
 namespace VI
 {
 
-#define fov_initial (80.0f * PI * 0.5f / 180.0f)
+#define fov_pvp (70.0f * PI * 0.5f / 180.0f)
+#define fov_parkour (80.0f * PI * 0.5f / 180.0f)
 #define zoom_ratio 0.5f
+#define fov_pvp_zoom (fov_pvp * zoom_ratio)
 #define zoom_speed (1.0f / 0.1f)
 #define speed_mouse 0.0025f
-#define fov_zoom (fov_initial * zoom_ratio)
 #define speed_mouse_zoom (speed_mouse * zoom_ratio * 0.5f)
 #define speed_joystick 4.0f
 #define speed_joystick_zoom (speed_joystick * zoom_ratio * 0.5f)
+#define gamepad_rotation_acceleration (1.0f / 0.2f)
 #define attach_speed 5.0f
 #define max_attach_time 0.35f
 #define rotation_speed 20.0f
@@ -999,7 +1001,8 @@ LocalPlayerControl::LocalPlayerControl(u8 gamepad)
 	health_flash_timer(),
 	rumble(),
 	target_indicators(),
-	last_gamepad_input_time()
+	last_gamepad_input_time(),
+	gamepad_rotation_speed()
 {
 	camera = Camera::add();
 }
@@ -1116,10 +1119,22 @@ void LocalPlayerControl::update_camera_input(const Update& u, r32 gamepad_rotati
 				-Input::dead_zone(u.input->gamepads[gamepad].right_x),
 				Input::dead_zone(u.input->gamepads[gamepad].right_y)
 			) * s * u.time.delta * gamepad_rotation_multiplier;
-			if (adjustment.length_squared() > 0.0f)
+			r32 adjustment_length = adjustment.length();
+			if (adjustment_length > 0.0f)
+			{
 				last_gamepad_input_time = Game::real_time.total;
-			get<PlayerCommon>()->angle_horizontal += adjustment.x;
-			get<PlayerCommon>()->angle_vertical += adjustment.y;
+
+				// ramp gamepad rotation speed up at a constant rate until we reach the desired speed
+				adjustment /= adjustment_length;
+				gamepad_rotation_speed = vi_min(adjustment_length, gamepad_rotation_speed + u.time.delta * gamepad_rotation_acceleration);
+			}
+			else
+			{
+				// ramp gamepad rotation speed back down
+				gamepad_rotation_speed = vi_max(0.0f, gamepad_rotation_speed + u.time.delta * -gamepad_rotation_acceleration);
+			}
+			get<PlayerCommon>()->angle_horizontal += adjustment.x * gamepad_rotation_speed;
+			get<PlayerCommon>()->angle_vertical += adjustment.y * gamepad_rotation_speed;
 		}
 
 		get<PlayerCommon>()->angle_vertical = LMath::clampf(get<PlayerCommon>()->angle_vertical, PI * -0.495f, PI * 0.495f);
@@ -1216,7 +1231,10 @@ void LocalPlayerControl::update(const Update& u)
 			Vec2((s32)(blueprint->w * (r32)u.input->width), (s32)(blueprint->h * (r32)u.input->height)),
 		};
 		r32 aspect = camera->viewport.size.y == 0 ? 1 : (r32)camera->viewport.size.x / (r32)camera->viewport.size.y;
-		camera->perspective(LMath::lerpf(fov_blend, fov_initial, fov_zoom), aspect, 0.02f, Game::level.skybox.far_plane);
+		if (has<Awk>())
+			camera->perspective(LMath::lerpf(fov_blend, fov_pvp, fov_pvp_zoom), aspect, 0.02f, Game::level.skybox.far_plane);
+		else
+			camera->perspective(fov_parkour, aspect, 0.02f, Game::level.skybox.far_plane);
 	}
 
 	if (has<Awk>())
@@ -1288,12 +1306,12 @@ void LocalPlayerControl::update(const Update& u)
 										Vec3 my_velocity = get<Awk>()->center() - last_pos;
 										{
 											r32 my_speed = my_velocity.length_squared();
-											if (my_speed == 0.0f || my_speed > AWK_CRAWL_SPEED * AWK_CRAWL_SPEED * 1.5f) // don't adjust if we're going too fast or not moving
+											if (my_speed == 0.0f || my_speed > AWK_CRAWL_SPEED * 1.5f * AWK_CRAWL_SPEED * 1.5f) // don't adjust if we're going too fast or not moving
 												break;
 										}
 										Vec3 me_predicted = me + my_velocity;
 
-										if (indicator.velocity.length_squared() > AWK_CRAWL_SPEED * AWK_CRAWL_SPEED * 1.5f) // enemy moving too fast
+										if (indicator.velocity.length_squared() > AWK_CRAWL_SPEED * 1.5f * AWK_CRAWL_SPEED * 1.5f) // enemy moving too fast
 											break;
 
 										Vec3 target_predicted = indicator.pos + indicator.velocity * u.time.delta;
@@ -1411,7 +1429,7 @@ void LocalPlayerControl::update(const Update& u)
 			{
 				Vec3 trace_end = trace_start + trace_dir * (AWK_MAX_DISTANCE + third_person_offset);
 				btCollisionWorld::ClosestRayResultCallback ray_callback(trace_start, trace_end);
-				Physics::raycast(&ray_callback, ~CollisionAwkIgnore & ~get<Awk>()->ally_containment_field_mask());
+				Physics::raycast(&ray_callback, ~CollisionAwkIgnore & ~get<Awk>()->ally_containment_field_mask() & ~CollisionTarget & ~CollisionWalker & ~CollisionAwk & ~CollisionShield);
 
 				if (ray_callback.hasHit())
 				{
@@ -1425,10 +1443,7 @@ void LocalPlayerControl::update(const Update& u)
 					if (get<Awk>()->can_go(detach_dir, &hit, &hit_target))
 					{
 						if ((hit - center).length() > distance - AWK_RADIUS)
-						{
-							if (get<Awk>()->cooldown_can_go())
-								reticle.type = hit_target ? ReticleType::Target : ReticleType::Normal;
-						}
+							reticle.type = hit_target ? ReticleType::Target : ReticleType::Normal;
 					}
 				}
 				else
@@ -1491,7 +1506,7 @@ void LocalPlayerControl::update(const Update& u)
 			}
 		}
 
-		if (reticle.type == ReticleType::None)
+		if (reticle.type == ReticleType::None || !get<Awk>()->cooldown_can_go())
 		{
 			// can't shoot
 			if (u.input->get(Controls::Primary, gamepad)) // player is mashing the fire button; give them some feedback
@@ -2049,47 +2064,52 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 	// reticle
 	if (movement_enabled())
 	{
-		// hollow reticle
+		// cooldown indicator
 		r32 cooldown = get<Awk>()->cooldown;
-		if (cooldown > 0.0f || reticle.type == ReticleType::None || reticle.type == ReticleType::Error)
+		if (cooldown > 0.0f)
 		{
 			r32 radius = cooldown == 0.0f ? 0.0f : vi_max(0.0f, 32.0f * (cooldown / AWK_MAX_DISTANCE_COOLDOWN));
 			UI::triangle_border(params, { viewport.size * Vec2(0.5f, 0.5f), Vec2(4.0f + radius) * 2 * UI::scale }, 2, reticle.type == ReticleType::Error ? UI::alert_color : UI::accent_color, PI);
 		}
 
-		switch (reticle.type)
+		if (get<Awk>()->cooldown_can_go())
 		{
-			case ReticleType::None:
-			case ReticleType::Error:
+			switch (reticle.type)
 			{
-				break;
-			}
-			case ReticleType::Normal:
-			{
-				// solid reticle
-				Vec2 a;
-				if (UI::project(params, reticle.pos, &a))
-					UI::triangle(params, { a, Vec2(12) * UI::scale }, UI::accent_color, PI);
-				break;
-			}
-			case ReticleType::Target:
-			{
-				Vec2 a;
-				if (UI::project(params, reticle.pos, &a))
+				case ReticleType::None:
+				case ReticleType::Error:
 				{
-					UI::triangle(params, { a, Vec2(12) * UI::scale }, UI::alert_color, PI);
-
-					const r32 ratio = 0.8660254037844386f;
-					UI::centered_box(params, { a + Vec2(12.0f * ratio, -6.0f) * UI::scale, Vec2(8.0f, 2.0f) * UI::scale }, UI::accent_color, PI * 0.5f * -0.33f);
-					UI::centered_box(params, { a + Vec2(-12.0f * ratio, -6.0f) * UI::scale, Vec2(8.0f, 2.0f) * UI::scale }, UI::accent_color, PI * 0.5f * 0.33f);
-					UI::centered_box(params, { a + Vec2(0, 12.0f) * UI::scale, Vec2(2.0f, 8.0f) * UI::scale }, UI::accent_color);
+					// hollow reticle
+					UI::triangle_border(params, { viewport.size * Vec2(0.5f, 0.5f), Vec2(4.0f) * 2 * UI::scale }, 2, reticle.type == ReticleType::Error ? UI::alert_color : UI::accent_color, PI);
+					break;
 				}
-				break;
-			}
-			default:
-			{
-				vi_assert(false);
-				break;
+				case ReticleType::Normal:
+				{
+					// solid reticle
+					Vec2 a;
+					if (UI::project(params, reticle.pos, &a))
+						UI::triangle(params, { a, Vec2(12) * UI::scale }, UI::accent_color, PI);
+					break;
+				}
+				case ReticleType::Target:
+				{
+					Vec2 a;
+					if (UI::project(params, reticle.pos, &a))
+					{
+						UI::triangle(params, { a, Vec2(12) * UI::scale }, UI::alert_color, PI);
+
+						const r32 ratio = 0.8660254037844386f;
+						UI::centered_box(params, { a + Vec2(12.0f * ratio, -6.0f) * UI::scale, Vec2(8.0f, 2.0f) * UI::scale }, UI::accent_color, PI * 0.5f * -0.33f);
+						UI::centered_box(params, { a + Vec2(-12.0f * ratio, -6.0f) * UI::scale, Vec2(8.0f, 2.0f) * UI::scale }, UI::accent_color, PI * 0.5f * 0.33f);
+						UI::centered_box(params, { a + Vec2(0, 12.0f) * UI::scale, Vec2(2.0f, 8.0f) * UI::scale }, UI::accent_color);
+					}
+					break;
+				}
+				default:
+				{
+					vi_assert(false);
+					break;
+				}
 			}
 		}
 	}

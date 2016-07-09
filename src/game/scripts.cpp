@@ -1416,6 +1416,7 @@ namespace tutorial
 	struct Data
 	{
 		TutorialState state;
+		b8 penelope_done;
 		Ref<Transform> slide_retry;
 		Ref<Transform> roll_retry;
 		Ref<PlayerTrigger> roll_success;
@@ -1431,8 +1432,11 @@ namespace tutorial
 		if (data->state == TutorialState::ParkourJump)
 		{
 			data->state = TutorialState::ParkourClimb;
-			Penelope::data->texts.clear();
-			Penelope::data->texts.schedule(0.0f, _(strings::tut_parkour_climb));
+			if (data->penelope_done)
+			{
+				Penelope::data->texts.clear();
+				Penelope::data->texts.schedule(0.0f, _(strings::tut_parkour_climb));
+			}
 		}
 	}
 
@@ -1441,8 +1445,9 @@ namespace tutorial
 		if (data->state == TutorialState::ParkourClimb)
 		{
 			data->state = TutorialState::ParkourClimbDone;
-			Penelope::clear();
 			data->door_mover.ref()->go();
+			if (data->penelope_done)
+				Penelope::clear();
 		}
 	}
 
@@ -1451,8 +1456,11 @@ namespace tutorial
 		if (data->state == TutorialState::ParkourClimbDone)
 		{
 			data->state = TutorialState::ParkourWallRun;
-			Penelope::clear();
-			Penelope::data->texts.schedule(0.0f, _(strings::tut_parkour_wallrun));
+			if (data->penelope_done)
+			{
+				Penelope::clear();
+				Penelope::data->texts.schedule(0.0f, _(strings::tut_parkour_wallrun));
+			}
 		}
 	}
 
@@ -1461,7 +1469,8 @@ namespace tutorial
 		if (data->state == TutorialState::ParkourWallRun)
 		{
 			data->state = TutorialState::ParkourWallRunDone;
-			Penelope::clear();
+			if (data->penelope_done)
+				Penelope::clear();
 		}
 	}
 
@@ -1470,8 +1479,11 @@ namespace tutorial
 		if (data->state == TutorialState::ParkourWallRunDone)
 		{
 			data->state = TutorialState::ParkourSlide;
-			Penelope::clear();
-			Penelope::data->texts.schedule(0.0f, _(strings::tut_parkour_slide));
+			if (data->penelope_done)
+			{
+				Penelope::clear();
+				Penelope::data->texts.schedule(0.0f, _(strings::tut_parkour_slide));
+			}
 		}
 	}
 
@@ -1488,7 +1500,8 @@ namespace tutorial
 		if (data->state == TutorialState::ParkourSlide)
 		{
 			data->state = TutorialState::ParkourSlideDone;
-			Penelope::clear();
+			if (data->penelope_done)
+				Penelope::clear();
 		}
 	}
 
@@ -1497,8 +1510,11 @@ namespace tutorial
 		if (data->state == TutorialState::ParkourSlideDone)
 		{
 			data->state = TutorialState::ParkourRoll;
-			Penelope::clear();
-			Penelope::data->texts.schedule(0.0f, _(strings::tut_parkour_roll));
+			if (data->penelope_done)
+			{
+				Penelope::clear();
+				Penelope::data->texts.schedule(0.0f, _(strings::tut_parkour_roll));
+			}
 		}
 	}
 
@@ -1507,7 +1523,8 @@ namespace tutorial
 		if (data->state == TutorialState::ParkourDoubleJump)
 		{
 			data->state = TutorialState::Done;
-			Penelope::clear();
+			if (data->penelope_done)
+				Penelope::clear();
 		}
 	}
 
@@ -1592,8 +1609,11 @@ namespace tutorial
 				{
 					data->state = TutorialState::ParkourDoubleJump;
 					Game::state.allow_double_jump = true;
-					Penelope::clear();
-					Penelope::data->texts.schedule(0.0f, _(strings::tut_parkour_double_jump));
+					if (data->penelope_done)
+					{
+						Penelope::clear();
+						Penelope::data->texts.schedule(0.0f, _(strings::tut_parkour_double_jump));
+					}
 				}
 				else if (Vec3(player->get<RigidBody>()->btBody->getLinearVelocity()).y > -1.0f)
 				{
@@ -1623,9 +1643,24 @@ namespace tutorial
 	{
 		if (node == strings::tutorial_intro_done)
 		{
-			Penelope::data->default_mode = Penelope::Mode::Left;
+			data->penelope_done = true;
+
+			AssetID parkour_tutorials[] =
+			{
+				strings::tut_parkour_movement,
+				strings::tut_parkour_climb,
+				AssetNull,
+				strings::tut_parkour_wallrun,
+				AssetNull,
+				strings::tut_parkour_slide,
+				AssetNull,
+				strings::tut_parkour_roll,
+				strings::tut_parkour_double_jump,
+			};
 			Penelope::clear();
-			Penelope::data->texts.schedule(0.0f, _(strings::tut_parkour_movement));
+			AssetID current_tutorial = parkour_tutorials[(s32)data->state];
+			if (current_tutorial != AssetNull)
+				Penelope::data->texts.schedule(0.0f, _(current_tutorial));
 		}
 		else if (node == strings::tutorial_done)
 		{
@@ -1638,7 +1673,6 @@ namespace tutorial
 
 	void tutorial_intro(const Update&)
 	{
-		Penelope::data->default_mode = Penelope::Mode::Center;
 		Penelope::go(strings::tutorial_intro, 1.0f);
 	}
 
@@ -1676,7 +1710,7 @@ namespace tutorial
 			ai_manager->spawn.link(&ai_spawned);
 
 			Penelope::init(); // have to init manually since penelope normally isn't loaded in PvP mode
-			Penelope::data->texts.schedule(3.0f, _(strings::tut_pvp_minion));
+			Penelope::data->texts.schedule(PLAYER_SPAWN_DELAY, _(strings::tut_pvp_minion));
 		}
 		else
 		{
@@ -1695,7 +1729,7 @@ namespace tutorial
 			data->slide_retry = entities.find("slide_retry")->get<Transform>();
 			data->roll_retry = entities.find("roll_retry")->get<Transform>();
 
-			Penelope::data->callbacks.schedule(4.0f, tutorial_intro);
+			Penelope::data->callbacks.schedule(PLAYER_SPAWN_DELAY + 1.0f, tutorial_intro);
 		}
 	}
 }

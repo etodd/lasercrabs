@@ -76,7 +76,12 @@ Game::State::State()
 	local_multiplayer(),
 	time_scale(1.0f),
 	level(AssetNull),
-	allow_double_jump(true)
+	allow_double_jump(true),
+	network_timer(),
+	network_time(),
+	network_state(),
+	network_quality(),
+	forfeit()
 {
 }
 
@@ -241,6 +246,71 @@ void Game::update(const Update& update_in)
 
 	Update u = update_in;
 	u.time = time;
+
+	// lag simulation
+	if (state.mode == Mode::Pvp && !state.local_multiplayer && state.network_quality != NetworkQuality::Perfect)
+	{
+		state.network_timer -= Game::real_time.delta;
+		if (state.network_timer < 0.0f)
+		{
+			switch (state.network_state)
+			{
+				case NetworkState::Normal:
+				{
+					state.network_state = NetworkState::Lag;
+					state.time_scale = 0.0f;
+					if (state.network_quality == NetworkQuality::Bad)
+						state.network_time = 0.2f + mersenne::randf_cc() * (mersenne::randf_cc() < 0.1f ? 4.0f : 0.3f);
+					else
+						state.network_time = 0.05f + mersenne::randf_cc() * 1.0f;
+					break;
+				}
+				case NetworkState::Lag:
+				{
+					state.network_state = NetworkState::Recover;
+					if (state.network_time > 0.5f)
+					{
+						state.time_scale = 2.0f;
+						state.network_time = state.network_time * 0.5f + mersenne::randf_cc() * 0.3f; // recovery time is proportional to lag time
+					}
+					else
+					{
+						state.time_scale = 4.0f;
+						state.network_time = 0.05f + mersenne::randf_cc() * 0.2f;
+					}
+					break;
+				}
+				case NetworkState::Recover:
+				{
+					state.network_state = NetworkState::Normal;
+					state.time_scale = 1.0f;
+					if (mersenne::randf_cc() < (state.network_quality == NetworkQuality::Bad ? 0.6f : 0.3f))
+						state.network_time = 0.05f + mersenne::randf_cc() * 0.15f; // go right back into lag state
+					else
+					{
+						// some time before next lag
+						if (state.network_quality == NetworkQuality::Bad)
+							state.network_time = 2.0f + mersenne::randf_cc() * 8.0f;
+						else
+							state.network_time = 20.0f + mersenne::randf_cc() * 30.0f;
+					}
+					break;
+				}
+			}
+			state.network_timer = state.network_time;
+		}
+		else
+		{
+			if (state.network_state == NetworkState::Lag && state.network_time - state.network_timer > 3.0f)
+			{
+				// disconnect
+				state.forfeit = Forfeit::NetworkError;
+				Team::level_next();
+			}
+		}
+	}
+	else
+		state.time_scale = 1.0f;
 
 	Menu::update(u);
 
@@ -800,6 +870,21 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 	time.total = 0.0f;
 
 	state.mode = m;
+
+	if (state.mode == Mode::Pvp && !state.local_multiplayer)
+	{
+		// choose network quality
+		r32 random = mersenne::randf_cc();
+		if (random < 0.7f)
+			state.network_quality = NetworkQuality::Perfect;
+		else if (random < 0.95f)
+			state.network_quality = NetworkQuality::Okay;
+		else
+			state.network_quality = NetworkQuality::Bad;
+		state.network_state = NetworkState::Normal;
+		state.network_timer = state.network_time = 0.0f;
+		state.time_scale = 1.0f;
+	}
 
 	scheduled_load_level = AssetNull;
 

@@ -98,6 +98,11 @@ struct Team
 	static r32 control_point_timer;
 	static r32 game_over_real_time;
 
+	static StaticArray<Team, (s32)AI::Team::count> list;
+
+	static b8 game_over;
+	static Ref<Team> winner;
+
 	static inline const Vec4& ui_color(AI::Team me, AI::Team them)
 	{
 		return me == them ? ui_color_friend : ui_color_enemy;
@@ -108,10 +113,12 @@ struct Team
 		return me == them ? color_friend : color_enemy;
 	}
 
-	static StaticArray<Team, (s32)AI::Team::count> list;
+	static void awake_all();
 
-	static b8 game_over;
-	static Ref<Team> winner;
+	static void extract_history(PlayerManager*, SensorTrackHistory*);
+
+	static void level_retry();
+	static void level_next();
 
 	Ref<Transform> player_spawn;
 	Revision revision;
@@ -119,9 +126,6 @@ struct Team
 	SensorTrackHistory player_track_history[MAX_PLAYERS];
 
 	Team();
-	static void awake_all();
-
-	static void extract_history(PlayerManager*, SensorTrackHistory*);
 	b8 has_player() const;
 	void track(PlayerManager*, PlayerManager*);
 

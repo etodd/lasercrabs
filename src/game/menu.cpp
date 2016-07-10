@@ -368,10 +368,12 @@ void update(const Update& u)
 			}
 			else
 			{
-				connect_timer -= u.time.delta;
+				connect_timer -= Game::real_time.delta;
 				if (connect_timer < 0.0f)
 				{
 					clear();
+					// clear any flag indicating that the enemy forfeit the game or was disconnected
+					Game::state.forfeit = Game::Forfeit::NetworkError;
 					Game::schedule_load_level(next_level, next_mode);
 				}
 			}
@@ -799,7 +801,7 @@ void UIMenu::text_clip(UIText* text, r32 start_time, r32 speed)
 		
 	s32 mod = speed < 40.0f ? 1 : (speed < 100.0f ? 2 : 3);
 	if (text->clip % mod == 0
-		&& (s32)(clip - Game::time.delta * speed) < (s32)clip
+		&& (s32)(clip - Game::real_time.delta * speed) < (s32)clip
 		&& text->rendered_string[text->clip] != ' '
 		&& text->rendered_string[text->clip] != '\t'
 		&& text->rendered_string[text->clip] != '\n'

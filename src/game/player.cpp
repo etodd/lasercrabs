@@ -825,6 +825,10 @@ void LocalPlayer::draw_alpha(const RenderParams& params) const
 				text.text(_(strings::timer), remaining_minutes, remaining_seconds);
 				text.draw(params, icon_pos + Vec2(text_size * UI::scale * 1.5f, 0));
 			}
+
+			// network error icon
+			if (Game::state.network_state == Game::NetworkState::Lag && Game::state.network_time - Game::state.network_timer > 0.25f)
+				UI::mesh(params, Asset::Mesh::icon_network_error, vp.size * Vec2(0.9f, 0.5f), Vec2(text_size * 2.0f * UI::scale), UI::alert_color);
 		}
 	}
 
@@ -1120,7 +1124,7 @@ void LocalPlayerControl::update_camera_input(const Update& u, r32 gamepad_rotati
 			(
 				-Input::dead_zone(u.input->gamepads[gamepad].right_x),
 				Input::dead_zone(u.input->gamepads[gamepad].right_y)
-			) * s * u.time.delta * gamepad_rotation_multiplier;
+			) * s * Game::real_time.delta * gamepad_rotation_multiplier;
 			r32 adjustment_length = adjustment.length();
 			if (adjustment_length > 0.0f)
 			{
@@ -1128,12 +1132,12 @@ void LocalPlayerControl::update_camera_input(const Update& u, r32 gamepad_rotati
 
 				// ramp gamepad rotation speed up at a constant rate until we reach the desired speed
 				adjustment /= adjustment_length;
-				gamepad_rotation_speed = vi_min(adjustment_length, gamepad_rotation_speed + u.time.delta * gamepad_rotation_acceleration);
+				gamepad_rotation_speed = vi_min(adjustment_length, gamepad_rotation_speed + Game::real_time.delta * gamepad_rotation_acceleration);
 			}
 			else
 			{
 				// ramp gamepad rotation speed back down
-				gamepad_rotation_speed = vi_max(0.0f, gamepad_rotation_speed + u.time.delta * -gamepad_rotation_acceleration);
+				gamepad_rotation_speed = vi_max(0.0f, gamepad_rotation_speed + Game::real_time.delta * -gamepad_rotation_acceleration);
 			}
 			get<PlayerCommon>()->angle_horizontal += adjustment.x * gamepad_rotation_speed;
 			get<PlayerCommon>()->angle_vertical += adjustment.y * gamepad_rotation_speed;

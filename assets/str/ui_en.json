@@ -48,6 +48,8 @@
 	"accept": "[{{Interact}}] Accept",
 	"waiting": "Waiting...",
 	"upgrade_description": "Cost: %d\n%s",
+	"forfeit_network_error": "Network connection lost. The match will count as a win.",
+	"forfeit_opponent_quit": "Your opponent forfeit the match.",
 	"sensor": "Collector",
 	"description_sensor": "Collectors detect enemies, provide stealth, and collect energy.",
 	"rocket": "Rocket Pod",
@@ -312,7 +314,7 @@
 	"victory": "Zone cleared",
 	"leftover_energy": "Energy surplus",
 	"total_rating_gain": "Total rating gain",
-	"defeat": "Connection Lost",
+	"defeat": "Zone Lost",
 	"draw": "Battery Expired",
 	"timer": "%d:%02d",
 

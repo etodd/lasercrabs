@@ -813,7 +813,7 @@ namespace Penelope
 			}
 		}
 
-		data->time += u.time.delta;
+		data->time += Game::real_time.delta;
 	}
 
 	void draw(const RenderParams& params)
@@ -1229,7 +1229,7 @@ namespace connect
 
 	void update(const Update& u)
 	{
-		data->camera->active = u.time.total > 0.5f && Menu::connect_timer > 0.5f;
+		data->camera->active = Game::real_time.total > 0.5f && Menu::connect_timer > 0.5f;
 
 		s32 index = -1;
 		for (s32 i = 0; i < data->levels.length; i++)
@@ -1268,7 +1268,7 @@ namespace connect
 			}
 
 			Vec3 target = data->camera_offset + data->levels[index].pos.ref()->absolute_pos();
-			data->camera->pos += (target - data->camera->pos) * vi_min(1.0f, u.time.delta) * 3.0f;
+			data->camera->pos += (target - data->camera->pos) * vi_min(1.0f, Game::real_time.delta) * 3.0f;
 		}
 	}
 
@@ -1335,6 +1335,21 @@ namespace connect
 			text.text(_(strings::deploy_prompt));
 
 			Vec2 pos = params.camera->viewport.size * Vec2(0.5f, 0.2f);
+
+			UI::box(params, text.rect(pos).outset(8 * UI::scale), UI::background_color);
+
+			text.draw(params, pos);
+		}
+
+		if (Game::state.forfeit != Game::Forfeit::None)
+		{
+			// the previous match was forfeit; let the player know
+			UIText text;
+			text.anchor_x = text.anchor_y = UIText::Anchor::Center;
+			text.color = UI::accent_color;
+			text.text(_(Game::state.forfeit == Game::Forfeit::NetworkError ? strings::forfeit_network_error : strings::forfeit_opponent_quit));
+
+			Vec2 pos = params.camera->viewport.size * Vec2(0.5f, 0.8f);
 
 			UI::box(params, text.rect(pos).outset(8 * UI::scale), UI::background_color);
 

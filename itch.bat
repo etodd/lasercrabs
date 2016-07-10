@@ -1,6 +1,7 @@
 @echo off
 rm -rf final
 mkdir final
+mkdir final/mod
 cp build/Release/yearning.exe final
 cp build/Release/import.exe final
 cp -R build/assets/ final/assets

@@ -164,7 +164,7 @@ namespace VI
 		}
 	}
 
-	void level_retry()
+	void Team::level_retry()
 	{
 		if (Game::state.local_multiplayer)
 			Menu::transition(Game::state.level, Game::Mode::Pvp);
@@ -180,7 +180,7 @@ namespace VI
 		}
 	}
 
-	void level_next()
+	void Team::level_next()
 	{
 		Game::Mode next_mode;
 		AssetID next_level;

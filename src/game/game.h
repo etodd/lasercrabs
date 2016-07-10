@@ -51,9 +51,35 @@ struct Game
 		count = All,
 	};
 
+	enum class NetworkQuality
+	{
+		Perfect,
+		Okay,
+		Bad,
+	};
+
+	enum class NetworkState
+	{
+		Normal,
+		Lag,
+		Recover,
+	};
+
+	enum class Forfeit
+	{
+		None,
+		NetworkError,
+		OpponentQuit,
+	};
+
 	struct State
 	{
 		Mode mode;
+		NetworkQuality network_quality;
+		NetworkState network_state;
+		Forfeit forfeit;
+		r32 network_time;
+		r32 network_timer;
 		AI::Team local_player_config[MAX_GAMEPADS];
 		b8 third_person;
 		b8 local_multiplayer;

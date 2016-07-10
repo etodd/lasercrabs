@@ -821,7 +821,8 @@ struct ImporterState
 		manifest(),
 		rebuild(),
 		error(),
-		manifest_mtime()
+		manifest_mtime(),
+		mod()
 	{
 
 	}

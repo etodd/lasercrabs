@@ -96,7 +96,7 @@ struct Team
 	static const Vec4 color_enemy;
 	static const Vec4 color_friend;
 	static r32 control_point_timer;
-	static r32 game_over_timer;
+	static r32 game_over_real_time;
 
 	static inline const Vec4& ui_color(AI::Team me, AI::Team them)
 	{

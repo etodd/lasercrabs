@@ -319,7 +319,7 @@ void LocalPlayer::update(const Update& u)
 			ensure_camera(u, true);
 
 			// accept score summary
-			if (Team::game_over_timer > score_summary_delay
+			if (Game::real_time.total - Team::game_over_real_time > score_summary_delay
 				&& !u.input->get(Controls::Interact, gamepad) && u.last_input->get(Controls::Interact, gamepad))
 				manager.ref()->score_accepted = true;
 			break;
@@ -534,10 +534,10 @@ void LocalPlayer::draw_alpha(const RenderParams& params) const
 				text.size = text_size;
 				text.anchor_x = UIText::Anchor::Min;
 				text.anchor_y = UIText::Anchor::Max;
-				text.clip = 1 + (s32)((Game::real_time.total - upgrade_animation_time) * 150.0f);
 				text.wrap_width = MENU_ITEM_WIDTH - padding * 2.0f;
 				u16 cost = manager.ref()->upgrade_cost(upgrade);
 				text.text(_(strings::upgrade_description), cost, _(info.description));
+				UIMenu::text_clip(&text, upgrade_animation_time, 150.0f);
 
 				const Rect2& last_item = menu.items[menu.items.length - 1].rect();
 				Vec2 pos(last_item.pos.x + padding, last_item.pos.y - padding * 2.0f);
@@ -641,14 +641,16 @@ void LocalPlayer::draw_alpha(const RenderParams& params) const
 				text.color = UI::alert_color;
 				text.text(_(strings::defeat));
 			}
-			text.clip = 1 + (s32)(Team::game_over_timer * 20.0f);
-			Vec2 title_pos = Team::game_over_timer > score_summary_delay
+			UIMenu::text_clip(&text, Team::game_over_real_time, 20.0f);
+
+			b8 show_score_summary = Game::real_time.total - Team::game_over_real_time > score_summary_delay;
+			Vec2 title_pos = show_score_summary
 				? vp.size * Vec2(0.5f, 1.0f) + Vec2(0, (text.size + 32) * -UI::scale)
 				: vp.size * Vec2(0.5f, 0.5f);
 			UI::box(params, text.rect(title_pos).outset(16 * UI::scale), UI::background_color);
 			text.draw(params, title_pos);
 
-			if (Team::game_over_timer > score_summary_delay)
+			if (show_score_summary)
 			{
 				// score summary screen
 
@@ -671,7 +673,7 @@ void LocalPlayer::draw_alpha(const RenderParams& params) const
 
 					// username
 					text.text(player.item()->username);
-					text.clip = 1 + (s32)((Team::game_over_timer - score_summary_delay) * (50.0f + (r32)vi_min(score_summary_count, 6) * -5.0f));
+					UIMenu::text_clip(&text, Team::game_over_real_time + score_summary_delay, 50.0f + (r32)vi_min(score_summary_count, 6) * -5.0f);
 					UI::box(params, text.rect(p).outset(MENU_ITEM_PADDING), UI::background_color);
 					text.draw(params, p);
 					p.y -= text.bounds().y + MENU_ITEM_PADDING * 2.0f;
@@ -683,7 +685,7 @@ void LocalPlayer::draw_alpha(const RenderParams& params) const
 					for (s32 i = 0; i < rating_summary.length; i++)
 					{
 						text.text(_(rating_summary[i].label));
-						text.clip = 1 + (s32)((Team::game_over_timer - score_summary_delay) * (50.0f + (r32)vi_min(score_summary_count, 6) * -5.0f));
+						UIMenu::text_clip(&text, Team::game_over_real_time + score_summary_delay, 50.0f + (r32)vi_min(score_summary_count, 6) * -5.0f);
 						UI::box(params, text.rect(p).outset(MENU_ITEM_PADDING), UI::background_color);
 						text.draw(params, p);
 						total += rating_summary[i].amount;
@@ -695,7 +697,7 @@ void LocalPlayer::draw_alpha(const RenderParams& params) const
 
 					// total
 					text.text(_(strings::total_rating_gain));
-					text.clip = 1 + (s32)((Team::game_over_timer - score_summary_delay) * (50.0f + (r32)vi_min(score_summary_count, 6) * -5.0f));
+					UIMenu::text_clip(&text, Team::game_over_real_time + score_summary_delay, 50.0f + (r32)vi_min(score_summary_count, 6) * -5.0f);
 					UI::box(params, text.rect(p).outset(MENU_ITEM_PADDING), UI::background_color);
 					text.draw(params, p);
 					amount.text("%d", total);
@@ -1429,7 +1431,7 @@ void LocalPlayerControl::update(const Update& u)
 			{
 				Vec3 trace_end = trace_start + trace_dir * (AWK_MAX_DISTANCE + third_person_offset);
 				btCollisionWorld::ClosestRayResultCallback ray_callback(trace_start, trace_end);
-				Physics::raycast(&ray_callback, ~CollisionAwkIgnore & ~get<Awk>()->ally_containment_field_mask() & ~CollisionTarget & ~CollisionWalker & ~CollisionAwk & ~CollisionShield);
+				Physics::raycast(&ray_callback, ~CollisionAwkIgnore & ~get<Awk>()->ally_containment_field_mask());
 
 				if (ray_callback.hasHit())
 				{

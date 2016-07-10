@@ -39,6 +39,8 @@ Array<Loader::Entry<void*> > Loader::dynamic_textures;
 Array<Loader::Entry<void*> > Loader::framebuffers;
 Array<Loader::Entry<AkBankID> > Loader::soundbanks;
 
+s32 Loader::compiled_level_count = 0;
+s32 Loader::compiled_static_mesh_count = 0;
 s32 Loader::static_mesh_count = 0;
 s32 Loader::static_texture_count = 0;
 
@@ -50,16 +52,61 @@ struct Attrib
 };
 
 #define config_filename "config.txt"
+#define mod_manifest_filename "mod.json"
+
+Array<const char*> mod_level_names;
+Array<const char*> mod_level_paths;
+Array<const char*> mod_nav_paths;
+Array<const char*> mod_level_mesh_names;
+Array<const char*> mod_level_mesh_paths;
 
 void Loader::init(LoopSwapper* s)
 {
 	swapper = s;
 
+	// count levels, static meshes, and static textures at runtime to avoid recompiling all the time
 	const char* p;
-	while ((p = AssetLookup::Mesh::names[static_mesh_count]))
-		static_mesh_count++;
+	while ((p = AssetLookup::Level::names[compiled_level_count]))
+		compiled_level_count++;
+
 	while ((p = AssetLookup::Texture::names[static_texture_count]))
 		static_texture_count++;
+
+	while ((p = AssetLookup::Mesh::names[compiled_static_mesh_count]))
+		compiled_static_mesh_count++;
+	static_mesh_count = compiled_static_mesh_count;
+
+	// load mod levels and meshes
+	{
+		cJSON* mod_manifest = Json::load(mod_manifest_filename);
+		if (mod_manifest)
+		{
+			{
+				cJSON* mod_levels = cJSON_GetObjectItem(mod_manifest, "lvl");
+				cJSON* mod_level = mod_levels->child;
+				while (mod_level)
+				{
+					mod_level_names.add(mod_level->string);
+					mod_level_paths.add(Json::get_string(mod_level, "lvl"));
+					mod_nav_paths.add(Json::get_string(mod_level, "nav"));
+					mod_level = mod_level->next;
+				}
+			}
+
+			{
+				cJSON* mod_level_meshes = cJSON_GetObjectItem(mod_manifest, "lvl_mesh");
+				cJSON* mod_level_mesh = mod_level_meshes->child;
+				while (mod_level_mesh)
+				{
+					mod_level_mesh_names.add(mod_level_mesh->string);
+					mod_level_mesh_paths.add(mod_level_mesh->valuestring);
+					mod_level_mesh = mod_level_mesh->next;
+					static_mesh_count++;
+				}
+			}
+		}
+		// don't free the json object; we'll read strings directly from it
+	}
 
 	RenderSync* sync = swapper->get();
 	s32 i = 0;
@@ -267,7 +314,7 @@ const Mesh* Loader::mesh(AssetID id)
 	{
 		Array<Attrib> extra_attribs;
 		Mesh* mesh = &meshes[id].data;
-		read_mesh(mesh, AssetLookup::Mesh::values[id], &extra_attribs);
+		read_mesh(mesh, mesh_path(id), &extra_attribs);
 
 		// GL
 		RenderSync* sync = Loader::swapper->get();
@@ -335,7 +382,7 @@ const Mesh* Loader::mesh_instanced(AssetID id)
 	return m;
 }
 
-void Loader::mesh_free(const AssetID id)
+void Loader::mesh_free(AssetID id)
 {
 	if (id != AssetNull && meshes[id].type != AssetNone)
 	{
@@ -833,6 +880,14 @@ void Loader::font_free(AssetID id)
 	}
 }
 
+const char* nav_mesh_path(AssetID id)
+{
+	if (id < Loader::compiled_level_count)
+		return AssetLookup::NavMesh::values[id];
+	else
+		return mod_nav_paths[id - Loader::compiled_level_count];
+}
+
 cJSON* Loader::level(AssetID id, b8 load_nav_mesh)
 {
 	if (id == AssetNull)
@@ -843,7 +898,7 @@ cJSON* Loader::level(AssetID id, b8 load_nav_mesh)
 
 	if (load_nav_mesh)
 	{
-		const char* nav_path = AssetLookup::NavMesh::values[id];
+		const char* nav_path = nav_mesh_path(id);
 		FILE* f = fopen(nav_path, "rb");
 		if (!f)
 		{
@@ -869,7 +924,7 @@ cJSON* Loader::level(AssetID id, b8 load_nav_mesh)
 	else
 		AI::load(nullptr, 0);
 	
-	return Json::load(AssetLookup::Level::values[id]);
+	return Json::load(level_path(id));
 }
 
 void Loader::level_free(cJSON* json)
@@ -981,19 +1036,77 @@ void Loader::transients_free()
 	}
 }
 
-AssetID Loader::find(const char* name, const char** list)
+AssetID Loader::find(const char* name, const char** list, s32 max_id)
 {
-	if (!name)
+	if (!name || !list)
 		return AssetNull;
 	const char* p;
 	s32 i = 0;
 	while ((p = list[i]))
 	{
+		if (max_id >= 0 && i >= max_id)
+			break;
 		if (utf8cmp(name, p) == 0)
 			return i;
 		i++;
 	}
 	return AssetNull;
+}
+
+AssetID Loader::find_level(const char* name)
+{
+	AssetID result = find(name, AssetLookup::Level::names);
+	if (result == AssetNull)
+	{
+		result = find(name, mod_level_names.data, mod_level_names.length);
+		if (result != AssetNull)
+			result += compiled_level_count;
+	}
+	return result;
+}
+
+AssetID Loader::find_mesh(const char* name)
+{
+	AssetID result = find(name, AssetLookup::Mesh::names);
+	if (result == AssetNull)
+	{
+		result = find(name, mod_level_mesh_names.data, mod_level_mesh_names.length);
+		if (result != AssetNull)
+			result += compiled_static_mesh_count;
+	}
+	return result;
+}
+
+const char* Loader::level_name(AssetID lvl)
+{
+	if (lvl < compiled_level_count)
+		return AssetLookup::Level::names[lvl];
+	else
+		return mod_level_names[lvl - compiled_level_count];
+}
+
+const char* Loader::level_path(AssetID lvl)
+{
+	if (lvl < compiled_level_count)
+		return AssetLookup::Level::values[lvl];
+	else
+		return mod_level_paths[lvl - compiled_level_count];
+}
+
+const char* Loader::mesh_name(AssetID mesh)
+{
+	if (mesh < compiled_static_mesh_count)
+		return AssetLookup::Mesh::names[mesh];
+	else
+		return mod_level_mesh_names[mesh - compiled_static_mesh_count];
+}
+
+const char* Loader::mesh_path(AssetID mesh)
+{
+	if (mesh < compiled_static_mesh_count)
+		return AssetLookup::Mesh::values[mesh];
+	else
+		return mod_level_mesh_paths[mesh - compiled_static_mesh_count];
 }
 
 void Loader::user_data_path(char* path, const char* filename)

@@ -32,7 +32,7 @@ namespace VI
 
 	StaticArray<Team, (s32)AI::Team::count> Team::list;
 	r32 Team::control_point_timer;
-	r32 Team::game_over_timer;
+	r32 Team::game_over_real_time;
 	b8 Team::game_over;
 	Ref<Team> Team::winner;
 
@@ -41,17 +41,17 @@ namespace VI
 		{
 			Asset::Mesh::icon_sensor,
 			2.5f,
-			10,
+			15,
 		},
 		{
 			Asset::Mesh::icon_rocket,
 			1.25f,
-			5,
+			8,
 		},
 		{
 			Asset::Mesh::icon_minion,
 			1.5f,
-			7,
+			10,
 		},
 		{
 			Asset::Mesh::icon_containment_field,
@@ -66,13 +66,13 @@ namespace VI
 			strings::sensor,
 			strings::description_sensor,
 			Asset::Mesh::icon_sensor,
-			40,
+			60,
 		},
 		{
 			strings::rocket,
 			strings::description_rocket,
 			Asset::Mesh::icon_rocket,
-			80,
+			50,
 		},
 		{
 			strings::minion,
@@ -84,7 +84,7 @@ namespace VI
 			strings::containment_field,
 			strings::description_containment_field,
 			Asset::Mesh::icon_containment_field,
-			150,
+			100,
 		},
 		{
 			strings::health_steal,
@@ -96,7 +96,7 @@ namespace VI
 			strings::health_buff,
 			strings::description_health_buff,
 			AssetNull,
-			200,
+			150,
 		},
 	};
 
@@ -110,7 +110,7 @@ namespace VI
 	void Team::awake_all()
 	{
 		game_over = false;
-		game_over_timer = 0.0f;
+		game_over_real_time = 0.0f;
 		winner = nullptr;
 
 		for (s32 i = 0; i < Team::list.length; i++)
@@ -264,6 +264,7 @@ namespace VI
 				|| (PlayerManager::list.count() > 1 && teams_with_players() <= 1)))
 			{
 				game_over = true;
+				game_over_real_time = Game::real_time.total;
 
 				// determine the winner, if any
 				Team* result = nullptr;
@@ -307,8 +308,6 @@ namespace VI
 
 		if (game_over)
 		{
-			game_over_timer += u.time.delta;
-
 			// wait for all local players to accept scores
 			b8 score_accepted = true;
 			for (auto i = PlayerManager::list.iterator(); !i.is_last(); i.next())

@@ -447,7 +447,7 @@ namespace Penelope
 		r32 matchmake_timer;
 
 		UIText text;
-		r32 text_clip;
+		r32 text_animation_time;
 
 		UIMenu menu;
 
@@ -678,7 +678,8 @@ namespace Penelope
 
 		if (data->texts.update(u, data->time))
 		{
-			data->text.clip = data->text_clip = 1;
+			data->text.clip = 1;
+			data->text_animation_time = Game::real_time.total;
 			data->text.wrap_width = MENU_ITEM_WIDTH - MENU_ITEM_PADDING * 2.0f;
 			data->text.text_raw(data->texts.current());
 		}
@@ -696,22 +697,7 @@ namespace Penelope
 #endif
 		}
 
-		if (data->text.clipped())
-		{
-			// We haven't shown the whole string yet
-			r32 delta = u.time.delta * 80.0f;
-			data->text_clip += delta;
-			data->text.clip = data->text_clip;
-
-			if ((s32)data->text_clip % 3 == 0
-				&& (s32)(data->text_clip - delta) < (s32)data->text_clip
-				&& data->text.rendered_string[(s32)data->text_clip] != ' '
-				&& data->text.rendered_string[(s32)data->text_clip] != '\t'
-				&& data->text.rendered_string[(s32)data->text_clip] != '\n')
-			{
-				Audio::post_global_event(AK::EVENTS::PLAY_CONSOLE_KEY);
-			}
-		}
+		UIMenu::text_clip(&data->text, data->text_animation_time, 80.0f);
 
 		if (data->choices.update(u, data->time))
 			data->menu.animate();
@@ -877,7 +863,7 @@ namespace Penelope
 			text.color = UI::default_color;
 			text.wrap_width = MENU_ITEM_WIDTH * 1.5f;
 			text.text(_(strings::data_fragment), DataFragment::count_collected(), DataFragment::list.count(), _(fragment->text()));
-			text.clip = 1 + (s32)((Game::real_time.total - data->fragment_time) * 300.0f);
+			UIMenu::text_clip(&text, data->fragment_time, 300.0f);
 			Vec2 p = vp.size * Vec2(0.5f, 0.9f);
 			UI::box(params, text.rect(p).outset(16.0f * UI::scale), UI::background_color);
 			text.draw(params, p);
@@ -1163,7 +1149,6 @@ namespace scene
 	struct Data
 	{
 		UIText text;
-		r32 clip;
 		Camera* camera;
 	};
 	
@@ -1230,7 +1215,6 @@ namespace connect
 	struct Data
 	{
 		UIText text;
-		r32 clip;
 		Camera* camera;
 		Vec3 camera_offset;
 		Array<LevelNode> levels;

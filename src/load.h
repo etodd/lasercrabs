@@ -28,6 +28,8 @@ struct Loader
 
 	static const char* data_directory;
 
+	static s32 compiled_level_count;
+	static s32 compiled_static_mesh_count;
 	static s32 static_mesh_count;
 	static s32 static_texture_count;
 	static LoopSwapper* swapper;
@@ -47,7 +49,7 @@ struct Loader
 	static const Mesh* mesh(AssetID);
 	static const Mesh* mesh_permanent(AssetID);
 	static const Mesh* mesh_instanced(AssetID);
-	static void mesh_free(s32);
+	static void mesh_free(AssetID);
 
 	static s32 dynamic_mesh(s32, b8 dynamic = true);
 	static void dynamic_mesh_attrib(RenderDataType, s32 = 1);
@@ -98,7 +100,13 @@ struct Loader
 
 	static void transients_free();
 
-	static AssetID find(const char*, const char**);
+	static AssetID find(const char*, const char**, s32 = -1);
+	static AssetID find_level(const char*);
+	static AssetID find_mesh(const char*);
+	static const char* level_name(AssetID);
+	static const char* level_path(AssetID);
+	static const char* mesh_name(AssetID);
+	static const char* mesh_path(AssetID);
 };
 
 }

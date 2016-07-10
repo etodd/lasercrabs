@@ -529,7 +529,7 @@ void Rocket::update(const Update& u)
 				Vec3(1.0f, -0.7f, 1.0f) * whisker_length,
 			};
 
-			if (distance > 3.5f)
+			if (distance > 5.0f)
 			{
 				// avoid walls
 				for (s32 i = 0; i < whisker_count; i++)

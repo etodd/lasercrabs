@@ -645,7 +645,7 @@ void Game::execute(const Update& u, const char* cmd)
 		if (delimiter)
 		{
 			const char* level_name = delimiter + 1;
-			AssetID level = Loader::find(level_name, AssetLookup::Level::names);
+			AssetID level = Loader::find_level(level_name);
 			if (level != AssetNull)
 			{
 				Game::save.reset(level);
@@ -660,7 +660,7 @@ void Game::execute(const Update& u, const char* cmd)
 		if (delimiter)
 		{
 			const char* level_name = delimiter + 1;
-			AssetID level = Loader::find(level_name, AssetLookup::Level::names);
+			AssetID level = Loader::find_level(level_name);
 			if (level != AssetNull)
 			{
 				Game::save.reset(level);
@@ -675,7 +675,7 @@ void Game::execute(const Update& u, const char* cmd)
 		if (delimiter)
 		{
 			const char* level_name = delimiter + 1;
-			AssetID level = Loader::find(level_name, AssetLookup::Level::names);
+			AssetID level = Loader::find_level(level_name);
 			if (level != AssetNull)
 			{
 				Game::save.reset(level);
@@ -690,7 +690,7 @@ void Game::execute(const Update& u, const char* cmd)
 		if (delimiter)
 		{
 			const char* level_name = delimiter + 1;
-			AssetID level = Loader::find(level_name, AssetLookup::Level::names);
+			AssetID level = Loader::find_level(level_name);
 			if (level != AssetNull)
 			{
 				Game::save.reset(level);
@@ -865,7 +865,7 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 			{
 				char* mesh_ref = json_mesh->valuestring;
 
-				AssetID mesh_id = Loader::find(mesh_ref, AssetLookup::Mesh::names);
+				AssetID mesh_id = Loader::find_mesh(mesh_ref);
 
 				if (mesh_id != AssetNull)
 				{
@@ -966,7 +966,7 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 
 			if (state.mode == Mode::Parkour)
 			{
-				const char* entry_point_str = AssetLookup::Level::names[state.level];
+				const char* entry_point_str = Loader::level_name(state.level);
 				Penelope::init(strings_get(entry_point_str));
 			}
 
@@ -1154,7 +1154,7 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 
 			char* mesh_ref = mesh_json->valuestring;
 
-			AssetID mesh_id = Loader::find(mesh_ref, AssetLookup::Mesh::names);
+			AssetID mesh_id = Loader::find_mesh(mesh_ref);
 			vi_assert(mesh_id != AssetNull);
 
 			const Mesh* mesh = Loader::mesh(mesh_id);
@@ -1189,7 +1189,7 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 
 			if (name)
 			{
-				entity = World::create<Prop>(Loader::find(name, AssetLookup::Mesh::names), Loader::find(armature, AssetLookup::Armature::names), Loader::find(animation, AssetLookup::Animation::names));
+				entity = World::create<Prop>(Loader::find_mesh(name), Loader::find(armature, AssetLookup::Armature::names), Loader::find(animation, AssetLookup::Animation::names));
 				// todo: clean this up
 				if (entity->has<View>())
 				{
@@ -1240,7 +1240,7 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 				{
 					char* mesh_ref = mesh->valuestring;
 
-					AssetID mesh_id = Loader::find(mesh_ref, AssetLookup::Mesh::names);
+					AssetID mesh_id = Loader::find_mesh(mesh_ref);
 
 					Entity* m = World::alloc<Prop>(mesh_id);
 					if (entity)

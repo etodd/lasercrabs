@@ -42,6 +42,8 @@ struct UIMenu
 
 	static r32 height(s32);
 
+	static void text_clip(UIText*, r32, r32);
+
 	char selected;
 	StaticArray<Item, 10> items;
 	u8 gamepad;

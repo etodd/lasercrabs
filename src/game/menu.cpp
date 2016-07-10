@@ -13,6 +13,7 @@
 #include "mersenne/mersenne-twister.h"
 #include "strings.h"
 #include "settings.h"
+#include "audio.h"
 
 namespace VI
 {
@@ -651,7 +652,7 @@ Rect2 UIMenu::add_item(Vec2* pos, b8 slider, const char* string, const char* val
 	b8 is_selected = active[gamepad] == this && selected == items.length - 1;
 	item->label.color = item->value.color = disabled ? UI::disabled_color : (is_selected ? UI::accent_color : UI::default_color);
 	item->label.text(string);
-	item->label.clip = 1 + (s32)((Game::real_time.total - animation_time) * (50.0f + vi_min(items.length, 6) * -5.0f));
+	text_clip(&item->label, animation_time, 50.0f + vi_min(items.length, 6) * -5.0f);
 
 	item->value.anchor_x = UIText::Anchor::Center;
 	item->value.text(value);
@@ -789,6 +790,23 @@ void UIMenu::end()
 r32 UIMenu::height(s32 items)
 {
 	return (items * MENU_ITEM_HEIGHT) - MENU_ITEM_PADDING * 2.0f;
+}
+
+void UIMenu::text_clip(UIText* text, r32 start_time, r32 speed)
+{
+	r32 clip = (Game::real_time.total - start_time) * speed;
+	text->clip = 1 + (s32)clip;
+		
+	s32 mod = speed < 40.0f ? 1 : (speed < 100.0f ? 2 : 3);
+	if (text->clip % mod == 0
+		&& (s32)(clip - Game::time.delta * speed) < (s32)clip
+		&& text->rendered_string[text->clip] != ' '
+		&& text->rendered_string[text->clip] != '\t'
+		&& text->rendered_string[text->clip] != '\n'
+		&& text->clipped())
+	{
+		Audio::post_global_event(AK::EVENTS::PLAY_CONSOLE_KEY);
+	}
 }
 
 void UIMenu::draw_alpha(const RenderParams& params) const

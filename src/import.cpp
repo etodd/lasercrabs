@@ -49,45 +49,60 @@ const char* level_out_extension = ".lvl";
 const char* string_extension = ".json";
 
 const char* ui_string_asset_name = "ui_en";
-const char* shader_in_folder = "../assets/shader/";
-const char* shader_out_folder = "assets/shader/";
-const char* asset_in_folder = "../assets/";
-const char* asset_out_folder = "assets/";
-const char* level_in_folder = "../assets/lvl/";
-const char* level_out_folder = "assets/lvl/";
-const char* string_in_folder = "../assets/str/";
-const char* string_out_folder = "assets/str/";
-const char* dialogue_in_folder = "../assets/dl/";
-const char* dialogue_out_folder = "assets/dl/";
+
+#define ASSET_IN_FOLDER "../assets/"
+#define ASSET_OUT_FOLDER "assets/"
+#define ASSET_SRC_FOLDER "../src/asset/"
+const char* asset_in_folder = ASSET_IN_FOLDER;
+const char* asset_out_folder = ASSET_OUT_FOLDER;
+const char* shader_in_folder = ASSET_IN_FOLDER"shader/";
+const char* shader_out_folder = ASSET_OUT_FOLDER"shader/";
+const char* level_in_folder = ASSET_IN_FOLDER"lvl/";
+const char* level_out_folder = ASSET_OUT_FOLDER"lvl/";
+const char* string_in_folder = ASSET_IN_FOLDER"str/";
+const char* string_out_folder = ASSET_OUT_FOLDER"str/";
+const char* dialogue_in_folder = ASSET_IN_FOLDER"dl/";
+const char* dialogue_out_folder = ASSET_OUT_FOLDER"dl/";
 #if _WIN32
-const char* soundbank_in_folder = "../assets/audio/GeneratedSoundBanks/Windows/";
+const char* soundbank_in_folder = ASSET_IN_FOLDER"audio/GeneratedSoundBanks/Windows/";
 #else
 #if defined(__APPLE__)
-const char* soundbank_in_folder = "../assets/audio/GeneratedSoundBanks/Mac/";
+const char* soundbank_in_folder = ASSET_IN_FOLDER"audio/GeneratedSoundBanks/Mac/";
 #else
-const char* soundbank_in_folder = "../assets/audio/GeneratedSoundBanks/Linux/";
+const char* soundbank_in_folder = ASSET_IN_FOLDER"audio/GeneratedSoundBanks/Linux/";
 #endif
 #endif
 
-const char* wwise_project_path = "../assets/audio/audio.wproj";
-const char* dialogue_strings_out_path = "assets/str/dialogue_en.json";
-const char* dynamic_strings_out_path = "assets/str/misc_en.json";
+const char* wwise_project_path = ASSET_IN_FOLDER"audio/audio.wproj";
+const char* dialogue_strings_out_path = ASSET_OUT_FOLDER"str/dialogue_en.json";
+const char* dynamic_strings_out_path = ASSET_OUT_FOLDER"str/misc_en.json";
 
 const char* manifest_path = ".manifest";
 
-const char* wwise_header_in_path = "../assets/audio/GeneratedSoundBanks/Wwise_IDs.h";
-const char* asset_src_path = "../src/asset/values.cpp";
-const char* mesh_header_path = "../src/asset/mesh.h";
-const char* animation_header_path = "../src/asset/animation.h";
-const char* texture_header_path = "../src/asset/texture.h";
-const char* soundbank_header_path = "../src/asset/soundbank.h";
-const char* shader_header_path = "../src/asset/shader.h";
-const char* armature_header_path = "../src/asset/armature.h";
-const char* font_header_path = "../src/asset/font.h";
-const char* level_header_path = "../src/asset/level.h";
-const char* wwise_header_out_path = "../src/asset/Wwise_IDs.h";
-const char* string_header_path = "../src/asset/string.h";
-const char* dialogue_header_path = "../src/asset/dialogue.h";
+const char* wwise_header_in_path = ASSET_IN_FOLDER"audio/GeneratedSoundBanks/Wwise_IDs.h";
+const char* asset_src_path = ASSET_SRC_FOLDER"values.cpp";
+const char* mesh_header_path = ASSET_SRC_FOLDER"mesh.h";
+const char* animation_header_path = ASSET_SRC_FOLDER"animation.h";
+const char* texture_header_path = ASSET_SRC_FOLDER"texture.h";
+const char* soundbank_header_path = ASSET_SRC_FOLDER"soundbank.h";
+const char* shader_header_path = ASSET_SRC_FOLDER"shader.h";
+const char* armature_header_path = ASSET_SRC_FOLDER"armature.h";
+const char* font_header_path = ASSET_SRC_FOLDER"font.h";
+const char* level_header_path = ASSET_SRC_FOLDER"level.h";
+const char* wwise_header_out_path = ASSET_SRC_FOLDER"Wwise_IDs.h";
+const char* string_header_path = ASSET_SRC_FOLDER"string.h";
+const char* dialogue_header_path = ASSET_SRC_FOLDER"dialogue.h";
+
+const char* mod_folder = "mod/";
+const char* mod_manifest_path = "mod.json";
+
+const char* script_blend_to_fbx_path_build = ASSET_IN_FOLDER"script/blend_to_fbx.py";
+const char* script_blend_to_lvl_path_build = ASSET_IN_FOLDER"script/blend_to_lvl.py";
+const char* script_ttf_to_fbx_path_build = ASSET_IN_FOLDER"script/ttf_to_fbx.py";
+
+const char* script_blend_to_fbx_path_mod = "script/blend_to_fbx.py";
+const char* script_blend_to_lvl_path_mod = "script/blend_to_lvl.py";
+const char* script_ttf_to_fbx_path_mod = "script/ttf_to_fbx.py";
 
 template <typename T>
 T read(FILE* f)
@@ -791,6 +806,8 @@ b8 manifest_write(Manifest& manifest, const char* path)
 
 struct ImporterState
 {
+	b8 mod; // true if we are importing dynamic data at runtime (a "mod")
+
 	Manifest cached_manifest;
 	Manifest manifest;
 
@@ -809,6 +826,21 @@ struct ImporterState
 
 	}
 };
+
+const char* script_blend_to_fbx_path(const ImporterState& state)
+{
+	return state.mod ? script_blend_to_fbx_path_mod : script_blend_to_fbx_path_build;
+}
+
+const char* script_blend_to_lvl_path(const ImporterState& state)
+{
+	return state.mod ? script_blend_to_lvl_path_mod : script_blend_to_lvl_path_build;
+}
+
+const char* script_ttf_to_fbx_path(const ImporterState& state)
+{
+	return state.mod ? script_ttf_to_fbx_path_mod : script_ttf_to_fbx_path_build;
+}
 
 s32 exit_error()
 {
@@ -1127,7 +1159,7 @@ const aiScene* load_blend(ImporterState& state, Assimp::Importer& importer, cons
 	std::string asset_intermediate_path = out_folder + clean_asset_name + model_intermediate_extension;
 
 	std::ostringstream cmdbuilder;
-	cmdbuilder << "blender \"" << asset_in_path << "\" --background --factory-startup --python " << asset_in_folder << "script/blend_to_fbx.py -- ";
+	cmdbuilder << "blender \"" << asset_in_path << "\" --background --factory-startup --python " << script_blend_to_fbx_path(state) << " -- ";
 	cmdbuilder << "\"" << asset_intermediate_path << "\"";
 	std::string cmd = cmdbuilder.str();
 
@@ -2437,7 +2469,7 @@ void import_level(ImporterState& state, const std::string& asset_in_path, const 
 	{
 		printf("%s\n", asset_out_path.c_str());
 		std::ostringstream cmdbuilder;
-		cmdbuilder << "blender \"" << asset_in_path << "\" --background --factory-startup --python " << asset_in_folder << "script/blend_to_lvl.py -- ";
+		cmdbuilder << "blender \"" << asset_in_path << "\" --background --factory-startup --python " << script_blend_to_lvl_path(state) << " -- ";
 		cmdbuilder << "\"" << asset_out_path << "\"";
 		std::string cmd = cmdbuilder.str();
 
@@ -2694,7 +2726,7 @@ void import_font(ImporterState& state, const std::string& asset_in_path, const s
 
 		// Export to FBX first
 		std::ostringstream cmdbuilder;
-		cmdbuilder << "blender --background --factory-startup --python " << asset_in_folder << "script/ttf_to_fbx.py -- ";
+		cmdbuilder << "blender --background --factory-startup --python " << script_ttf_to_fbx_path(state) << " -- ";
 		cmdbuilder << "\"" << asset_in_path << "\" \"" << asset_intermediate_path << "\"";
 		std::string cmd = cmdbuilder.str();
 
@@ -2885,9 +2917,98 @@ void close_asset_header(FILE* f)
 	fclose(f);
 }
 
+s32 mod_proc()
+{
+	// we are importing dynamic data at runtime (a "mod")
+	printf("Importing runtime assets...\n");
+
+	ImporterState state;
+	state.mod = true;
+	state.manifest_mtime = filemtime(manifest_path);
+
+	if (!manifest_read(manifest_path, state.cached_manifest))
+		state.rebuild = true;
+
+	{
+		// import levels
+		DIR* dir = opendir(mod_folder);
+		if (dir)
+		{
+			struct dirent* entry;
+			while ((entry = readdir(dir)))
+			{
+				if (entry->d_type != DT_REG)
+					continue; // not a file
+
+				std::string asset_in_path = mod_folder + std::string(entry->d_name);
+
+				if (has_extension(asset_in_path, model_in_extension))
+					import_level(state, asset_in_path, level_out_folder);
+				if (state.error)
+					break;
+			}
+			closedir(dir);
+		}
+	}
+
+	if (state.error)
+		return exit_error();
+
+	b8 update_manifest = manifest_requires_update(state.cached_manifest, state.manifest);
+	if (state.rebuild || update_manifest)
+	{
+		if (!manifest_write(state.manifest, manifest_path))
+			return exit_error();
+	}
+
+	if (state.rebuild || update_manifest || filemtime(mod_manifest_path) < state.manifest_mtime)
+	{
+		cJSON* mod_manifest = cJSON_CreateObject();
+
+		// levels
+		cJSON* lvl_manifest = cJSON_CreateObject();
+		cJSON_AddItemToObject(mod_manifest, "lvl", lvl_manifest);
+		for (auto i = state.manifest.levels.begin(); i != state.manifest.levels.end(); i++)
+		{
+			cJSON* item = cJSON_CreateObject();
+
+			cJSON* path = cJSON_CreateString(i->second.c_str());
+			cJSON_AddItemToObject(item, "lvl", path);
+			cJSON* nav_path = cJSON_CreateString(state.manifest.nav_meshes[i->first].c_str());
+			cJSON_AddItemToObject(item, "nav", nav_path);
+
+			cJSON_AddItemToObject(lvl_manifest, i->first.c_str(), item);
+		}
+
+		// level meshes
+		cJSON* lvl_mesh_manifest = cJSON_CreateObject();
+		cJSON_AddItemToObject(mod_manifest, "lvl_mesh", lvl_mesh_manifest);
+		Map<std::string> flattened_level_meshes;
+		map_flatten(state.manifest.level_meshes, flattened_level_meshes);
+		for (auto i = flattened_level_meshes.begin(); i != flattened_level_meshes.end(); i++)
+		{
+			cJSON* value = cJSON_CreateString(i->second.c_str());
+			cJSON_AddItemToObject(lvl_mesh_manifest, i->first.c_str(), value);
+		}
+
+		Json::save(mod_manifest, mod_manifest_path);
+		Json::json_free(mod_manifest);
+	}
+
+	return 0;
+}
+
 s32 proc(s32 argc, char* argv[])
 {
 	mersenne::seed(0xabad1dea);
+
+	{
+		DIR* dir = opendir(mod_folder);
+		b8 do_mod = dir != nullptr;
+		closedir(dir);
+		if (do_mod)
+			return mod_proc();
+	}
 
 	// Initialise SDL
 	if (SDL_Init(SDL_INIT_VIDEO) < 0)
@@ -3046,7 +3167,6 @@ s32 proc(s32 argc, char* argv[])
 	{
 		// dialogue trees and strings
 
-		b8 force_parse_strings = false;
 		{
 			// Copy dialogue trees
 			DIR* dir = opendir(dialogue_in_folder);

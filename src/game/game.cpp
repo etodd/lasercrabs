@@ -908,7 +908,7 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 
 	EntityFinder finder;
 	
-	cJSON* json = Loader::level(state.level, m == Mode::Pvp);
+	cJSON* json = Loader::level(state.level, m != Mode::Parkour);
 
 	const Vec3 pvp_accessible(0.7f);
 	const Vec3 pvp_inaccessible(0.0f);
@@ -1006,7 +1006,7 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 		}
 		else if (cJSON_GetObjectItem(element, "Minion"))
 		{
-			if (state.mode == Game::Mode::Pvp)
+			if (state.mode != Game::Mode::Parkour)
 			{
 				AI::Team team = (AI::Team)Json::get_s32(element, "team");
 				entity = World::alloc<Minion>(absolute_pos, absolute_rot, team);
@@ -1117,7 +1117,7 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 						if (ai_test)
 						{
 							AIPlayer* player = AIPlayer::list.add();
-							new (player) AIPlayer(manager);
+							new (player) AIPlayer(manager, AIPlayer::generate_config());
 						}
 						else
 						{
@@ -1167,7 +1167,7 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 				utf8cpy(manager->username, Usernames::all[mersenne::rand_u32() % Usernames::count]);
 
 				AIPlayer* player = AIPlayer::list.add();
-				new (player) AIPlayer(manager);
+				new (player) AIPlayer(manager, AIPlayer::generate_config());
 			}
 		}
 		else if (cJSON_GetObjectItem(element, "HealthPickup"))

@@ -1159,6 +1159,46 @@ namespace scene
 		data->camera->remove();
 	}
 
+	void init(const Update& u, const EntityFinder& entities)
+	{
+		if (Game::state.mode == Game::Mode::Special)
+		{
+			data = new Data();
+
+			data->camera = Camera::add();
+
+			data->camera->viewport =
+			{
+				Vec2(0, 0),
+				Vec2(u.input->width, u.input->height),
+			};
+			r32 aspect = data->camera->viewport.size.y == 0 ? 1 : (r32)data->camera->viewport.size.x / (r32)data->camera->viewport.size.y;
+			data->camera->perspective((80.0f * PI * 0.5f / 180.0f), aspect, 0.1f, Game::level.skybox.far_plane);
+
+			Quat rot;
+			entities.find("map_view")->get<Transform>()->absolute(&data->camera->pos, &rot);
+			data->camera->rot = Quat::look(rot * Vec3(0, -1, 0));
+
+			Game::cleanups.add(cleanup);
+		}
+	}
+}
+
+namespace camera_rotate
+{
+	struct Data
+	{
+		UIText text;
+		Camera* camera;
+	};
+	
+	static Data* data;
+
+	void cleanup()
+	{
+		data->camera->remove();
+	}
+
 	void update(const Update& u)
 	{
 		data->camera->rot = Quat::euler(0.0f, Game::real_time.total * 0.01f, 0.0f);
@@ -1166,20 +1206,23 @@ namespace scene
 
 	void init(const Update& u, const EntityFinder& entities)
 	{
-		data = new Data();
-
-		data->camera = Camera::add();
-
-		data->camera->viewport =
+		if (Game::state.mode == Game::Mode::Special)
 		{
-			Vec2(0, 0),
-			Vec2(u.input->width, u.input->height),
-		};
-		r32 aspect = data->camera->viewport.size.y == 0 ? 1 : (r32)data->camera->viewport.size.x / (r32)data->camera->viewport.size.y;
-		data->camera->perspective((80.0f * PI * 0.5f / 180.0f), aspect, 0.1f, Game::level.skybox.far_plane);
+			data = new Data();
 
-		Game::cleanups.add(cleanup);
-		Game::updates.add(update);
+			data->camera = Camera::add();
+
+			data->camera->viewport =
+			{
+				Vec2(0, 0),
+				Vec2(u.input->width, u.input->height),
+			};
+			r32 aspect = data->camera->viewport.size.y == 0 ? 1 : (r32)data->camera->viewport.size.x / (r32)data->camera->viewport.size.y;
+			data->camera->perspective((80.0f * PI * 0.5f / 180.0f), aspect, 0.1f, Game::level.skybox.far_plane);
+
+			Game::cleanups.add(cleanup);
+			Game::updates.add(update);
+		}
 	}
 }
 
@@ -1699,7 +1742,7 @@ namespace tutorial
 			utf8cpy(ai_manager->username, _(strings::dummy));
 
 			AIPlayer* ai_player = AIPlayer::list.add();
-			new (ai_player) AIPlayer(ai_manager);
+			new (ai_player) AIPlayer(ai_manager, AIPlayer::generate_config());
 
 			AIPlayer::Config* config = &ai_player->config;
 			config->high_level = AIPlayer::HighLevelLoop::Noop;
@@ -1735,6 +1778,7 @@ namespace tutorial
 
 Script Script::all[] =
 {
+	{ "camera_rotate", camera_rotate::init },
 	{ "scene", scene::init },
 	{ "connect", connect::init },
 	{ "intro", intro::init },

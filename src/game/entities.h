@@ -118,7 +118,7 @@ struct RocketEntity : public Entity
 	RocketEntity(Entity*, Transform*, const Vec3&, const Quat&, AI::Team);
 };
 
-#define CONTAINMENT_FIELD_RADIUS 20.0f
+#define CONTAINMENT_FIELD_RADIUS 18.0f
 #define CONTAINMENT_FIELD_BASE_OFFSET 0.95f
 struct ContainmentField : public ComponentType<ContainmentField>
 {

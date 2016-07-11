@@ -62,11 +62,13 @@ struct AIPlayer
 		Config();
 	};
 
+	static Config generate_config();
+
 	Ref<PlayerManager> manager;
 	Revision revision;
 	Config config;
 
-	AIPlayer(PlayerManager*);
+	AIPlayer(PlayerManager*, const Config&);
 	inline ID id() const
 	{
 		return this - &list[0];

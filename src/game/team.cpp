@@ -84,19 +84,19 @@ namespace VI
 			strings::containment_field,
 			strings::description_containment_field,
 			Asset::Mesh::icon_containment_field,
-			100,
+			80,
 		},
 		{
 			strings::health_steal,
 			strings::description_health_steal,
 			AssetNull,
-			150,
+			60,
 		},
 		{
 			strings::health_buff,
 			strings::description_health_buff,
 			AssetNull,
-			150,
+			80,
 		},
 	};
 

@@ -1450,7 +1450,7 @@ namespace tutorial
 {
 	enum class TutorialState
 	{
-		ParkourJump, ParkourClimb, ParkourClimbDone, ParkourWallRun, ParkourWallRunDone, ParkourSlide, ParkourSlideDone, ParkourRoll, ParkourDoubleJump,
+		ParkourJump, ParkourClimb, ParkourClimbDone, ParkourWallRun, ParkourWallRunDone, ParkourSlide, ParkourRoll, ParkourDoubleJump,
 		PvpKillMinion, PvpGetHealth, PvpControlPoint, PvpUpgrade, PvpKillPlayer,
 		Done,
 	};
@@ -1533,23 +1533,13 @@ namespace tutorial
 	{
 		Entity* player = LocalPlayerControl::list.iterator().item()->entity();
 		player->get<Walker>()->absolute_pos(data->slide_retry.ref()->absolute_pos());
-		player->get<Walker>()->rotation = player->get<Walker>()->rotation = player->get<PlayerCommon>()->angle_horizontal = 0.0f;
+		player->get<Walker>()->rotation = player->get<Walker>()->rotation = player->get<PlayerCommon>()->angle_horizontal = PI;
 		player->get<RigidBody>()->btBody->setLinearVelocity(Vec3::zero);
-	}
-
-	void slide_success(Entity*)
-	{
-		if (data->state == TutorialState::ParkourSlide)
-		{
-			data->state = TutorialState::ParkourSlideDone;
-			if (data->penelope_done)
-				Penelope::clear();
-		}
 	}
 
 	void roll_tutorial(Entity*)
 	{
-		if (data->state == TutorialState::ParkourSlideDone)
+		if (data->state == TutorialState::ParkourSlide)
 		{
 			data->state = TutorialState::ParkourRoll;
 			if (data->penelope_done)
@@ -1662,7 +1652,7 @@ namespace tutorial
 					// player did not roll correctly
 					Entity* player = LocalPlayerControl::list.iterator().item()->entity();
 					player->get<Walker>()->absolute_pos(data->roll_retry.ref()->absolute_pos());
-					player->get<Walker>()->rotation = player->get<Walker>()->rotation = player->get<PlayerCommon>()->angle_horizontal = 0.0f;
+					player->get<Walker>()->rotation = player->get<Walker>()->rotation = player->get<PlayerCommon>()->angle_horizontal = PI;
 					player->get<RigidBody>()->btBody->setLinearVelocity(Vec3::zero);
 				}
 			}
@@ -1765,7 +1755,6 @@ namespace tutorial
 			entities.find("wallrun_success")->get<PlayerTrigger>()->entered.link(&wallrun_success);
 			entities.find("slide_tutorial")->get<PlayerTrigger>()->entered.link(&slide_tutorial);
 			entities.find("slide_fail")->get<PlayerTrigger>()->entered.link(&slide_fail);
-			entities.find("slide_success")->get<PlayerTrigger>()->entered.link(&slide_success);
 			entities.find("roll_tutorial")->get<PlayerTrigger>()->entered.link(&roll_tutorial);
 			data->roll_success = entities.find("roll_success")->get<PlayerTrigger>();
 			data->slide_retry = entities.find("slide_retry")->get<Transform>();

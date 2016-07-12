@@ -74,7 +74,8 @@ void Physics::raycast(btCollisionWorld::ClosestRayResultCallback* ray_callback, 
 {
 	ray_callback->m_flags = btTriangleRaycastCallback::EFlags::kF_FilterBackfaces
 		| btTriangleRaycastCallback::EFlags::kF_KeepUnflippedNormal;
-	ray_callback->m_collisionFilterMask = ray_callback->m_collisionFilterGroup = mask;
+	ray_callback->m_collisionFilterMask = mask;
+	ray_callback->m_collisionFilterGroup = -1;
 	Physics::btWorld->rayTest(ray_callback->m_rayFromWorld, ray_callback->m_rayToWorld, *ray_callback);
 }
 

@@ -334,7 +334,7 @@ void Parkour::update(const Update& u)
 				Vec3 ray_dir = rot * Vec3(wall_run_state == WallRunState::Left ? 1 : -1, 0, 1);
 				Vec3 ray_end = ray_start + ray_dir * (get<Walker>()->radius * WALL_RUN_DISTANCE_RATIO);
 				btCollisionWorld::ClosestRayResultCallback ray_callback(ray_start, ray_end);
-				Physics::raycast(&ray_callback, ~CollisionWalker & ~CollisionTarget);
+				Physics::raycast(&ray_callback, CollisionParkour);
 
 				r32 forward_dot = forward.dot(ray_callback.m_hitNormalWorld);
 				if (ray_callback.hasHit()
@@ -353,7 +353,7 @@ void Parkour::update(const Update& u)
 
 			Vec3 ray_end = ray_start + wall_run_normal * get<Walker>()->radius * WALL_RUN_DISTANCE_RATIO * -2.0f;
 			btCollisionWorld::ClosestRayResultCallback ray_callback(ray_start, ray_end);
-			Physics::raycast(&ray_callback, ~CollisionWalker & ~CollisionTarget);
+			Physics::raycast(&ray_callback, CollisionParkour);
 
 			if (ray_callback.hasHit()
 				&& wall_run_normal.dot(ray_callback.m_hitNormalWorld) > 0.5f
@@ -623,7 +623,7 @@ b8 Parkour::try_jump(r32 rotation)
 				{
 					Vec3 ray_end = ray_start + wall_directions[i] * get<Walker>()->radius * WALL_JUMP_RAYCAST_RADIUS_RATIO;
 					btCollisionWorld::ClosestRayResultCallback ray_callback(ray_start, ray_end);
-					Physics::raycast(&ray_callback, ~CollisionWalker & ~CollisionTarget);
+					Physics::raycast(&ray_callback, CollisionParkour);
 
 					if (ray_callback.hasHit())
 					{
@@ -810,7 +810,7 @@ b8 Parkour::try_parkour(b8 force)
 			Vec3 ray_end = pos + Vec3(dir_offset.x, walker->height * -0.5f + (force ? -walker->support_height - 0.5f : 0.0f), dir_offset.z);
 
 			btCollisionWorld::ClosestRayResultCallback ray_callback(ray_start, ray_end);
-			Physics::raycast(&ray_callback, ~CollisionWalker & ~CollisionTarget);
+			Physics::raycast(&ray_callback, CollisionParkour);
 
 			if (ray_callback.hasHit() && ray_callback.m_hitNormalWorld.getY() > 0.25f)
 			{
@@ -845,7 +845,7 @@ b8 Parkour::try_wall_run(WallRunState s, const Vec3& wall_direction)
 	Vec3 ray_start = get<Walker>()->base_pos() + Vec3(0, get<Walker>()->support_height, 0);
 	Vec3 ray_end = ray_start + wall_direction * get<Walker>()->radius * WALL_RUN_DISTANCE_RATIO * 2.0f;
 	btCollisionWorld::ClosestRayResultCallback ray_callback(ray_start, ray_end);
-	Physics::raycast(&ray_callback, ~CollisionWalker & ~CollisionTarget);
+	Physics::raycast(&ray_callback, CollisionParkour);
 
 	if (ray_callback.hasHit()
 		&& fabs(ray_callback.m_hitNormalWorld.getY()) < 0.25f

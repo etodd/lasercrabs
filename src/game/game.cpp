@@ -938,11 +938,13 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 				transforms[parent]->to_world(&absolute_pos, &absolute_rot);
 		}
 
-		b8 alpha = (b8)Json::get_s32(element, "alpha");
-		b8 additive = (b8)Json::get_s32(element, "additive");
-
 		if (cJSON_GetObjectItem(element, "StaticGeom"))
 		{
+			b8 alpha = (b8)Json::get_s32(element, "alpha");
+			b8 additive = (b8)Json::get_s32(element, "additive");
+			b8 no_parkour = cJSON_HasObjectItem(element, "no_parkour");
+			AssetID texture = (AssetID)Loader::find(Json::get_string(element, "texture"), AssetLookup::Texture::names);
+
 			cJSON* meshes = cJSON_GetObjectItem(element, "meshes");
 			cJSON* json_mesh = meshes->child;
 
@@ -959,7 +961,7 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 					if (mesh->color.w < 0.5f && !(alpha || additive))
 					{
 						// inaccessible
-						m = World::alloc<StaticGeom>(mesh_id, absolute_pos, absolute_rot, CollisionInaccessible, CollisionInaccessibleMask);
+						m = World::alloc<StaticGeom>(mesh_id, absolute_pos, absolute_rot, CollisionParkour | CollisionInaccessible, ~CollisionParkour & CollisionInaccessibleMask);
 						Vec4 color = Loader::mesh(mesh_id)->color;
 						if (state.mode == Mode::Pvp) // override colors
 							color.xyz(pvp_inaccessible);
@@ -969,7 +971,10 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 					else
 					{
 						// accessible
-						m = World::alloc<StaticGeom>(mesh_id, absolute_pos, absolute_rot);
+						if (no_parkour) // no parkour material
+							m = World::alloc<StaticGeom>(mesh_id, absolute_pos, absolute_rot, 0, ~CollisionParkour & ~CollisionInaccessible);
+						else
+							m = World::alloc<StaticGeom>(mesh_id, absolute_pos, absolute_rot, CollisionParkour, ~CollisionParkour);
 
 						Vec4 color = Loader::mesh(mesh_id)->color;
 						if (state.mode == Mode::Pvp) // override colors
@@ -985,8 +990,9 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 					else
 						entity = m;
 
+					m->get<View>()->texture = texture;
 					if (alpha || additive)
-						m->get<View>()->shader = Asset::Shader::flat;
+						m->get<View>()->shader = texture == AssetNull ? Asset::Shader::flat : Asset::Shader::flat_texture;
 					if (alpha)
 						m->get<View>()->alpha();
 					if (additive)

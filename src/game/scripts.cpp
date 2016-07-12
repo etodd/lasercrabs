@@ -445,6 +445,7 @@ namespace Penelope
 		r32 fragment_time;
 		Matchmake matchmake_mode;
 		r32 matchmake_timer;
+		Link terminal_activated;
 
 		UIText text;
 		r32 text_animation_time;
@@ -455,6 +456,11 @@ namespace Penelope
 	};
 
 	static Data* data;
+
+	Link& terminal_activated()
+	{
+		return data->terminal_activated;
+	}
 
 	b8 has_focus()
 	{
@@ -644,6 +650,7 @@ namespace Penelope
 				go(strings::consolation, 0.5f);
 			else
 				go(data->entry_point, 0.5f);
+			data->terminal_activated.fire();
 		}
 
 		if (Audio::dialogue_done)
@@ -1465,6 +1472,7 @@ namespace tutorial
 		Ref<Mover> door_mover;
 		Ref<Transform> health_location;
 		Ref<ControlPoint> control_point;
+		Ref<Entity> transparent_wall;
 	};
 
 	Data* data;
@@ -1708,6 +1716,11 @@ namespace tutorial
 		Penelope::go(strings::tutorial_intro, 1.0f);
 	}
 
+	void remove_transparent_wall()
+	{
+		World::remove(data->transparent_wall.ref());
+	}
+
 	void init(const Update& u, const EntityFinder& entities)
 	{
 		Game::level.feature_level = Game::FeatureLevel::HealthPickups;
@@ -1743,6 +1756,8 @@ namespace tutorial
 
 			Penelope::init(); // have to init manually since penelope normally isn't loaded in PvP mode
 			Penelope::data->texts.schedule(PLAYER_SPAWN_DELAY, _(strings::tut_pvp_minion));
+
+			World::remove(entities.find("transparent_wall"));
 		}
 		else
 		{
@@ -1759,6 +1774,8 @@ namespace tutorial
 			data->roll_success = entities.find("roll_success")->get<PlayerTrigger>();
 			data->slide_retry = entities.find("slide_retry")->get<Transform>();
 			data->roll_retry = entities.find("roll_retry")->get<Transform>();
+			data->transparent_wall = entities.find("transparent_wall");
+			Penelope::terminal_activated().link(&remove_transparent_wall);
 
 			Penelope::data->callbacks.schedule(PLAYER_SPAWN_DELAY + 1.0f, tutorial_intro);
 		}

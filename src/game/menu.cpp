@@ -373,7 +373,7 @@ void update(const Update& u)
 				{
 					clear();
 					// clear any flag indicating that the enemy forfeit the game or was disconnected
-					Game::state.forfeit = Game::Forfeit::NetworkError;
+					Game::state.forfeit = Game::Forfeit::None;
 					Game::schedule_load_level(next_level, next_mode);
 				}
 			}

@@ -295,6 +295,7 @@ void Awk::hit_target(Entity* target)
 			Vec4(1, 1, 1, 1)
 		);
 	}
+	World::create<ShockwaveEntity>(8.0f, 1.5f)->get<Transform>()->absolute_pos(pos);
 
 	// award credits for hitting stuff
 	if (target->has<MinionAI>())

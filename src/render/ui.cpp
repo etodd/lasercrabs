@@ -599,7 +599,7 @@ void UI::triangle_border(const RenderParams& params, const Rect2& r, r32 thickne
 		const Vec2 screen = params.camera->viewport.size * 0.5f;
 		const Vec2 scale = Vec2(1.0f / screen.x, 1.0f / screen.y);
 		const Vec2 scaled_pos = (r.pos - screen) * scale;
-		r32 scaled_thickness = thickness * UI::scale * 2;
+		r32 scaled_thickness = thickness * UI::scale * 1.5f;
 
 		const r32 ratio = 0.8660254037844386f;
 		const Vec2 corners[6] =
@@ -911,11 +911,16 @@ b8 UI::flash_function(r32 time)
 	return (b8)((s32)(time * 16.0f) % 2);
 }
 
+b8 UI::flash_function_slow(r32 time)
+{
+	return (b8)((s32)(time * 4.0f) % 4);
+}
+
 // projects a 3D point into screen space, limiting it to stay onscreen
 // returns true if the point is in front of the camera
 b8 UI::is_onscreen(const RenderParams& params, const Vec3& pos, Vec2* out, Vec2* dir)
 {
-	b8 on_screen = UI::project(params, pos, out);
+	b8 on_screen = project(params, pos, out);
 
 	const Rect2& viewport = params.camera->viewport;
 
@@ -951,15 +956,15 @@ void UI::indicator(const RenderParams& params, const Vec3& pos, const Vec4& colo
 		Vec2 p;
 		Vec2 offset;
 		if (is_onscreen(params, pos, &p, &offset))
-			UI::triangle_border(params, { p, Vec2(28 * scale) * UI::scale }, 4 * scale, color, rotation);
+			triangle_border(params, { p, Vec2(28 * scale * UI::scale) }, 6 * scale, color, rotation);
 		else
-			UI::triangle(params, { p, Vec2(24 * UI::scale * scale) }, color, atan2f(offset.y, offset.x) + PI * -0.5f);
+			triangle(params, { p, Vec2(24 * UI::scale * scale) }, color, atan2f(offset.y, offset.x) + PI * -0.5f);
 	}
 	else
 	{
 		Vec2 p;
-		if (UI::project(params, pos, &p))
-			UI::triangle_border(params, { p, Vec2(28 * UI::scale * scale) }, 4 * scale, color, rotation);
+		if (project(params, pos, &p))
+			triangle_border(params, { p, Vec2(28 * UI::scale * scale) }, 6 * scale, color, rotation);
 	}
 }
 

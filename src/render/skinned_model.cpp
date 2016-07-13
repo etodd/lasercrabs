@@ -19,8 +19,8 @@ Bitmask<MAX_ENTITIES> SkinnedModel::list_additive;
 
 SkinnedModel::SkinnedModel()
 	: mesh(),
-	shader(),
-	texture(),
+	shader(AssetNull),
+	texture(AssetNull),
 	offset(Mat4::identity),
 	color(-1, -1, -1, -1),
 	mask(RENDER_MASK_DEFAULT),

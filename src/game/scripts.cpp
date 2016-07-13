@@ -937,7 +937,7 @@ namespace Penelope
 			);
 
 			if (data->matchmake_mode == Matchmake::Searching)
-				UI::triangle_border(params, { triangle_pos, Vec2(text.size * 0.5f * UI::scale) }, 3, UI::accent_color, Game::real_time.total * -8.0f);
+				UI::triangle_border(params, { triangle_pos, Vec2(text.size * 0.5f * UI::scale) }, 9, UI::accent_color, Game::real_time.total * -8.0f);
 			else
 				UI::triangle(params, { triangle_pos, Vec2(text.size * UI::scale) }, UI::accent_color);
 
@@ -1375,7 +1375,7 @@ namespace connect
 				pos.x - text.bounds().x * 0.5f - 32.0f * UI::scale,
 				pos.y
 			);
-			UI::triangle_border(params, { triangle_pos, Vec2(20 * UI::scale) }, 6, UI::accent_color, Game::real_time.total * -8.0f);
+			UI::triangle_border(params, { triangle_pos, Vec2(20 * UI::scale) }, 9, UI::accent_color, Game::real_time.total * -8.0f);
 		}
 		else
 		{
@@ -1718,7 +1718,9 @@ namespace tutorial
 
 	void remove_transparent_wall()
 	{
-		World::remove(data->transparent_wall.ref());
+		Entity* transparent_wall = data->transparent_wall.ref();
+		if (transparent_wall)
+			World::remove(transparent_wall);
 	}
 
 	void init(const Update& u, const EntityFinder& entities)

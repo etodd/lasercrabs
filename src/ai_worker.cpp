@@ -456,6 +456,8 @@ void loop()
 					}
 					awk_nav_mesh.~AwkNavMesh();
 					new (&awk_nav_mesh) AwkNavMesh();
+					awk_nav_mesh_key.~AwkNavMeshKey();
+					new (&awk_nav_mesh_key) AwkNavMeshKey();
 
 					sensors.length = 0;
 				}

@@ -616,7 +616,7 @@ void Loader::texture(AssetID id, RenderTextureWrap wrap, RenderTextureFilter fil
 		sync->write(filter);
 		sync->write<u32>(width);
 		sync->write<u32>(height);
-		sync->write<u8>(buffer, 4 * width * height);
+		sync->write<u32>((u32*)buffer, width * height);
 		free(buffer);
 	}
 }
@@ -882,6 +882,7 @@ void Loader::font_free(AssetID id)
 
 const char* nav_mesh_path(AssetID id)
 {
+	vi_assert(id != AssetNull);
 	if (id < Loader::compiled_level_count)
 		return AssetLookup::NavMesh::values[id];
 	else
@@ -910,16 +911,11 @@ cJSON* Loader::level(AssetID id, b8 load_nav_mesh)
 		s32 fsize = ftell(f);
 		fseek(f, 0, SEEK_SET);
 
-		if (fsize > 0)
-		{
-			Array<u8> data(fsize, fsize);
-			fread(data.data, sizeof(u8), data.length, f);
-			AI::load(data.data, data.length);
-		}
-		else
-			AI::load(nullptr, 0);
-
+		Array<u8> data(fsize, fsize);
+		fread(data.data, sizeof(u8), data.length, f);
 		fclose(f);
+
+		AI::load(data.data, data.length);
 	}
 	else
 		AI::load(nullptr, 0);
@@ -1079,6 +1075,7 @@ AssetID Loader::find_mesh(const char* name)
 
 const char* Loader::level_name(AssetID lvl)
 {
+	vi_assert(lvl != AssetNull);
 	if (lvl < compiled_level_count)
 		return AssetLookup::Level::names[lvl];
 	else
@@ -1087,6 +1084,7 @@ const char* Loader::level_name(AssetID lvl)
 
 const char* Loader::level_path(AssetID lvl)
 {
+	vi_assert(lvl != AssetNull);
 	if (lvl < compiled_level_count)
 		return AssetLookup::Level::values[lvl];
 	else
@@ -1095,6 +1093,7 @@ const char* Loader::level_path(AssetID lvl)
 
 const char* Loader::mesh_name(AssetID mesh)
 {
+	vi_assert(mesh != AssetNull);
 	if (mesh < compiled_static_mesh_count)
 		return AssetLookup::Mesh::names[mesh];
 	else
@@ -1103,6 +1102,7 @@ const char* Loader::mesh_name(AssetID mesh)
 
 const char* Loader::mesh_path(AssetID mesh)
 {
+	vi_assert(mesh != AssetNull);
 	if (mesh < compiled_static_mesh_count)
 		return AssetLookup::Mesh::values[mesh];
 	else

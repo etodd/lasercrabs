@@ -585,6 +585,7 @@ void Rocket::update(const Update& u)
 						Vec4(1, 1, 1, 1)
 					);
 				}
+				World::create<ShockwaveEntity>(8.0f, 1.5f)->get<Transform>()->absolute_pos(ray_callback.m_hitPointWorld);
 
 				World::remove_deferred(entity());
 				return;
@@ -857,6 +858,7 @@ void Projectile::update(const Update& u)
 					Vec4(1, 1, 1, 1)
 				);
 			}
+			World::create<ShockwaveEntity>(8.0f, 1.5f)->get<Transform>()->absolute_pos(ray_callback.m_hitPointWorld);
 			World::remove(entity());
 			return;
 		}
@@ -990,7 +992,7 @@ void Rope::draw_opaque(const RenderParams& params)
 	if (instances.length == 0)
 		return;
 
-	Loader::shader(Asset::Shader::standard_instanced);
+	Loader::shader_permanent(Asset::Shader::standard_instanced);
 
 	RenderSync* sync = params.sync;
 	sync->write(RenderOp::Shader);
@@ -1223,7 +1225,7 @@ void Tile::draw_alpha(const RenderParams& params)
 	if (instances.length == 0)
 		return;
 
-	Loader::shader(Asset::Shader::standard_instanced);
+	Loader::shader_permanent(Asset::Shader::standard_instanced);
 
 	RenderSync* sync = params.sync;
 	sync->write(RenderOp::Shader);
@@ -1448,6 +1450,7 @@ void DataFragment::collect()
 				Vec4(1, 1, 0, 1)
 			);
 		}
+		World::create<ShockwaveEntity>(8.0f, 1.5f)->get<Transform>()->absolute_pos(pos);
 	}
 }
 

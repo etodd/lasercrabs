@@ -82,7 +82,7 @@ void draw_hp_indicator(const RenderParams& params, Vec2 pos, u16 hp, u16 hp_max,
 
 	for (s32 i = 0; i < hp_max; i++)
 	{
-		UI::triangle_border(params, { pos, box_size }, 2, color, PI);
+		UI::triangle_border(params, { pos, box_size }, 3, color, PI);
 		if (i < hp)
 			UI::triangle(params, { pos, box_size }, color, PI);
 		pos.x += box_size.x + HP_BOX_SPACING;
@@ -1525,7 +1525,7 @@ void LocalPlayerControl::update(const Update& u)
 		else
 		{
 			// we're aiming at something
-			if (u.input->get(Controls::Primary, gamepad) && !u.last_input->get(Controls::Primary, gamepad))
+			if (u.input->get(Controls::Primary, gamepad))
 				detach();
 		}
 	}
@@ -1975,7 +1975,12 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 		draw_hp_box(params, pos, health->hp_max);
 
 		b8 flash_hp = health_flash_timer > 0.0f;
-		if (!flash_hp || UI::flash_function(Game::real_time.total))
+		b8 draw_hp;
+		if (flash_hp)
+			draw_hp = UI::flash_function(Game::real_time.total);
+		else
+			draw_hp = health->hp > 1 || UI::flash_function_slow(Game::real_time.total);
+		if (draw_hp)
 			draw_hp_indicator(params, pos, health->hp, health->hp_max, flash_hp ? UI::default_color : Team::ui_color_friend);
 	}
 
@@ -2072,51 +2077,27 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 	{
 		// cooldown indicator
 		r32 cooldown = get<Awk>()->cooldown;
+		Vec2 pos = viewport.size * Vec2(0.5f, 0.5f);
+		r32 blend = vi_max(0.0f, cooldown / AWK_MAX_DISTANCE_COOLDOWN);
+		const r32 spoke_length = 10.0f;
+		const r32 spoke_width = 3.0f;
+		r32 start_radius = 8.0f + blend * 32.0f + spoke_length * 0.5f;
+		const Vec4& color = reticle.type == ReticleType::Error ? UI::alert_color : UI::accent_color;
+		const r32 ratio = 0.8660254037844386f;
+		UI::centered_box(params, { pos + Vec2(ratio, -0.5f) * UI::scale * start_radius, Vec2(spoke_length, spoke_width) * UI::scale }, color, PI * 0.5f * -0.33f);
+		UI::centered_box(params, { pos + Vec2(-ratio, -0.5f) * UI::scale * start_radius, Vec2(spoke_length, spoke_width) * UI::scale }, color, PI * 0.5f * 0.33f);
+		UI::centered_box(params, { pos + Vec2(0, 1.0f) * UI::scale * start_radius, Vec2(spoke_width, spoke_length) * UI::scale }, color);
+
+		b8 cooldown_can_go = get<Awk>()->cooldown_can_go();
+
 		if (cooldown > 0.0f)
-		{
-			r32 radius = cooldown == 0.0f ? 0.0f : vi_max(0.0f, 32.0f * (cooldown / AWK_MAX_DISTANCE_COOLDOWN));
-			UI::triangle_border(params, { viewport.size * Vec2(0.5f, 0.5f), Vec2(4.0f + radius) * 2 * UI::scale }, 2, reticle.type == ReticleType::Error ? UI::alert_color : UI::accent_color, PI);
-		}
+			UI::triangle_border(params, { pos, Vec2(start_radius * 6.0f * UI::scale) }, spoke_width, cooldown_can_go ? color : UI::alert_color);
 
-		if (get<Awk>()->cooldown_can_go())
+		if (cooldown_can_go && (reticle.type == ReticleType::Normal || reticle.type == ReticleType::Target))
 		{
-			switch (reticle.type)
-			{
-				case ReticleType::None:
-				case ReticleType::Error:
-				{
-					// hollow reticle
-					UI::triangle_border(params, { viewport.size * Vec2(0.5f, 0.5f), Vec2(4.0f) * 2 * UI::scale }, 2, reticle.type == ReticleType::Error ? UI::alert_color : UI::accent_color, PI);
-					break;
-				}
-				case ReticleType::Normal:
-				{
-					// solid reticle
-					Vec2 a;
-					if (UI::project(params, reticle.pos, &a))
-						UI::triangle(params, { a, Vec2(12) * UI::scale }, UI::accent_color, PI);
-					break;
-				}
-				case ReticleType::Target:
-				{
-					Vec2 a;
-					if (UI::project(params, reticle.pos, &a))
-					{
-						UI::triangle(params, { a, Vec2(12) * UI::scale }, UI::alert_color, PI);
-
-						const r32 ratio = 0.8660254037844386f;
-						UI::centered_box(params, { a + Vec2(12.0f * ratio, -6.0f) * UI::scale, Vec2(8.0f, 2.0f) * UI::scale }, UI::accent_color, PI * 0.5f * -0.33f);
-						UI::centered_box(params, { a + Vec2(-12.0f * ratio, -6.0f) * UI::scale, Vec2(8.0f, 2.0f) * UI::scale }, UI::accent_color, PI * 0.5f * 0.33f);
-						UI::centered_box(params, { a + Vec2(0, 12.0f) * UI::scale, Vec2(2.0f, 8.0f) * UI::scale }, UI::accent_color);
-					}
-					break;
-				}
-				default:
-				{
-					vi_assert(false);
-					break;
-				}
-			}
+			Vec2 a;
+			if (UI::project(params, reticle.pos, &a))
+				UI::triangle(params, { a, Vec2(10.0f * UI::scale) }, reticle.type == ReticleType::Normal ? UI::accent_color : UI::alert_color, PI);
 		}
 	}
 }

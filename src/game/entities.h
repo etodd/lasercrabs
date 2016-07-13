@@ -130,6 +130,7 @@ struct ContainmentField : public ComponentType<ContainmentField>
 	AI::Team team;
 	Ref<Entity> field;
 	Ref<PlayerManager> owner;
+	r32 remaining_lifetime;
 
 	ContainmentField(const Vec3&, PlayerManager*);
 	void awake();

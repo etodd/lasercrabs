@@ -4,6 +4,7 @@
 #include "entities.h"
 #include "game.h"
 #include "BulletCollision/NarrowPhaseCollision/btRaycastCallback.h"
+#include "console.h"
 
 namespace VI
 {
@@ -211,6 +212,10 @@ void Walker::update(const Update& u)
 
 					// Increase acceleration if we're turning
 					acceleration += fabs(Vec2(x.x, x.z).dot(Vec2(velocity.x - support_velocity.x, velocity.z - support_velocity.z))) * accel2 * 2.0f;
+
+					// Increase acceleration if we're climbing
+					if (z.y > 0.0f)
+						acceleration += z.y * accel2 * 2.0f;
 
 					// Don't let net_speed get above max_speed
 					if (net_z_speed > movement_length * max_speed)

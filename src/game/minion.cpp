@@ -169,6 +169,11 @@ void MinionCommon::killed(Entity* killer)
 	SkinnedModel* new_skin = ragdoll->add<SkinnedModel>();
 	SkinnedModel* old_skin = get<SkinnedModel>();
 	new_skin->mesh = old_skin->mesh;
+	new_skin->shader = old_skin->shader;
+	new_skin->texture = old_skin->texture;
+	new_skin->color = old_skin->color;
+	new_skin->team = old_skin->team;
+	new_skin->mask = old_skin->mask;
 
 	// No rotation
 	new_skin->offset.make_transform(
@@ -176,9 +181,6 @@ void MinionCommon::killed(Entity* killer)
 		Vec3(1.0f, 1.0f, 1.0f),
 		Quat::identity
 	);
-
-	new_skin->color = old_skin->color;
-	new_skin->team = old_skin->team;
 
 	Animator* new_anim = ragdoll->add<Animator>();
 	Animator* old_anim = get<Animator>();

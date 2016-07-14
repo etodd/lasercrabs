@@ -214,6 +214,10 @@ void LocalPlayer::update(const Update& u)
 	if (Console::visible)
 		return;
 
+	// flash message when the buy period expires
+	if (Game::time.total > GAME_BUY_PERIOD && Game::time.total - Game::time.delta <= GAME_BUY_PERIOD)
+		msg(_(strings::buy_period_expired), true);
+
 	if (msg_timer < msg_time)
 		msg_timer += u.time.delta;
 
@@ -245,8 +249,7 @@ void LocalPlayer::update(const Update& u)
 				&& Game::level.has_feature(Game::FeatureLevel::ControlPoints)
 				&& manager.ref()->at_spawn())
 			{
-				if ((!u.input->get(Controls::Interact, gamepad) && u.last_input->get(Controls::Interact, gamepad))
-					|| Game::time.total < PLAYER_SPAWN_DELAY + 0.5f)
+				if (!u.input->get(Controls::Interact, gamepad) && u.last_input->get(Controls::Interact, gamepad))
 				{
 					upgrading = true;
 					menu.animate();
@@ -411,23 +414,6 @@ void LocalPlayer::draw_alpha(const RenderParams& params) const
 	const r32 line_thickness = 2.0f * UI::scale;
 
 	const Rect2& vp = params.camera->viewport;
-
-	// message
-	if (msg_timer < msg_time)
-	{
-		r32 last_timer = msg_timer;
-		b8 flash = UI::flash_function(Game::real_time.total);
-		b8 last_flash = UI::flash_function(Game::real_time.total - Game::real_time.delta);
-		if (flash)
-		{
-			Vec2 pos = params.camera->viewport.size * Vec2(0.5f, 0.6f);
-			Rect2 box = msg_text.rect(pos).outset(6 * UI::scale);
-			UI::box(params, box, UI::background_color);
-			msg_text.draw(params, pos);
-			if (!last_flash)
-				Audio::post_global_event(msg_good ? AK::EVENTS::PLAY_BEEP_GOOD : AK::EVENTS::PLAY_BEEP_BAD);
-		}
-	}
 
 	UIMode mode = ui_mode();
 
@@ -832,6 +818,23 @@ void LocalPlayer::draw_alpha(const RenderParams& params) const
 			// network error icon
 			if (Game::state.network_state == Game::NetworkState::Lag && Game::state.network_time - Game::state.network_timer > 0.25f)
 				UI::mesh(params, Asset::Mesh::icon_network_error, vp.size * Vec2(0.9f, 0.5f), Vec2(text_size * 2.0f * UI::scale), UI::alert_color);
+		}
+	}
+
+	// message
+	if (msg_timer < msg_time)
+	{
+		r32 last_timer = msg_timer;
+		b8 flash = UI::flash_function(Game::real_time.total);
+		b8 last_flash = UI::flash_function(Game::real_time.total - Game::real_time.delta);
+		if (flash)
+		{
+			Vec2 pos = params.camera->viewport.size * Vec2(0.5f, 0.6f);
+			Rect2 box = msg_text.rect(pos).outset(6 * UI::scale);
+			UI::box(params, box, UI::background_color);
+			msg_text.draw(params, pos);
+			if (!last_flash)
+				Audio::post_global_event(msg_good ? AK::EVENTS::PLAY_BEEP_GOOD : AK::EVENTS::PLAY_BEEP_BAD);
 		}
 	}
 
@@ -2114,7 +2117,7 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 		text.anchor_x = UIText::Anchor::Center;
 		text.anchor_y = UIText::Anchor::Center;
 		text.size = text_size;
-		Vec2 pos = viewport.size * Vec2(0.5f, 0.9f);
+		Vec2 pos = viewport.size * Vec2(0.5f, 0.25f);
 		UI::box(params, text.rect(pos).outset(8.0f * UI::scale), UI::background_color);
 		text.draw(params, pos);
 	}

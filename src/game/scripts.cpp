@@ -1268,9 +1268,23 @@ namespace connect
 		Camera* camera;
 		Vec3 camera_offset;
 		Array<LevelNode> levels;
+		s32 tip_index;
 	};
 	
 	static Data* data;
+
+	const s32 tip_count = 8;
+	const AssetID tips[tip_count] =
+	{
+		strings::tip_0,
+		strings::tip_1,
+		strings::tip_2,
+		strings::tip_3,
+		strings::tip_4,
+		strings::tip_5,
+		strings::tip_6,
+		strings::tip_7,
+	};
 
 	void cleanup()
 	{
@@ -1360,6 +1374,7 @@ namespace connect
 
 		if (!Game::state.local_multiplayer || Menu::splitscreen_level_selected)
 		{
+			// show "loading..."
 			UIText text;
 			text.anchor_x = text.anchor_y = UIText::Anchor::Center;
 			text.color = UI::accent_color;
@@ -1376,6 +1391,23 @@ namespace connect
 				pos.y
 			);
 			UI::triangle_border(params, { triangle_pos, Vec2(20 * UI::scale) }, 9, UI::accent_color, Game::real_time.total * -8.0f);
+
+			if (Game::state.forfeit == Game::Forfeit::None)
+			{
+				// show a tip
+				UIText text;
+				text.anchor_x = UIText::Anchor::Center;
+				text.anchor_y = UIText::Anchor::Min;
+				text.color = UI::accent_color;
+				text.wrap_width = MENU_ITEM_WIDTH;
+				text.text(_(tips[data->tip_index]));
+
+				Vec2 pos = params.camera->viewport.size * Vec2(0.5f, 0.2f) + Vec2(0, 48.0f * UI::scale);
+
+				UI::box(params, text.rect(pos).outset(8 * UI::scale), UI::background_color);
+
+				text.draw(params, pos);
+			}
 		}
 		else
 		{
@@ -1410,6 +1442,8 @@ namespace connect
 	void init(const Update& u, const EntityFinder& entities)
 	{
 		data = new Data();
+
+		data->tip_index = mersenne::rand() % tip_count;
 
 		data->camera = Camera::add();
 

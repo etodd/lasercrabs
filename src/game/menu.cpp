@@ -363,7 +363,7 @@ void update(const Update& u)
 
 			if (Game::state.local_multiplayer && !splitscreen_level_selected)
 			{
-				if (u.last_input->get(Controls::Interact, 0) && !u.input->get(Controls::Interact, 0))
+				if (!u.last_input->get(Controls::Interact, 0) && u.input->get(Controls::Interact, 0))
 					splitscreen_level_selected = true;
 			}
 			else

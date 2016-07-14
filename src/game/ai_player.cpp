@@ -30,8 +30,8 @@ AIPlayer::Config::Config()
 	aim_speed(4.0f),
 	upgrade_priority
 	{
-		Upgrade::Sensor,
 		Upgrade::Minion,
+		Upgrade::Sensor,
 		Upgrade::Rocket,
 		Upgrade::HealthBuff,
 		Upgrade::HealthSteal,
@@ -39,12 +39,12 @@ AIPlayer::Config::Config()
 	},
 	upgrade_strategies
 	{
-		UpgradeStrategy::SaveUp,
-		UpgradeStrategy::Ignore,
-		UpgradeStrategy::SaveUp,
-		UpgradeStrategy::IfAvailable,
-		UpgradeStrategy::IfAvailable,
-		UpgradeStrategy::Ignore,
+		UpgradeStrategy::IfAvailable, // sensor
+		UpgradeStrategy::Ignore, // rocket
+		UpgradeStrategy::SaveUp, // minion
+		UpgradeStrategy::IfAvailable, // containment field
+		UpgradeStrategy::IfAvailable, // health steal
+		UpgradeStrategy::Ignore, // health buff
 	}
 {
 }
@@ -289,14 +289,17 @@ void AIPlayerControl::behavior_clear()
 b8 AIPlayerControl::restore_loops()
 {
 	// return to normal state
-	if (loop_low_level_2->active())
-		loop_low_level_2->abort();
+	if (!active_behavior)
+	{
+		if (loop_low_level_2->active())
+			loop_low_level_2->abort();
 
-	if (!loop_high_level->active())
-		loop_high_level->run();
+		if (!loop_high_level->active())
+			loop_high_level->run();
 
-	if (!loop_low_level->active())
-		loop_low_level->run();
+		if (!loop_low_level->active())
+			loop_low_level->run();
+	}
 
 	return true;
 }
@@ -622,7 +625,7 @@ Upgrade want_available_upgrade(const AIPlayerControl* control)
 			AIPlayer::UpgradeStrategy strategy = config.upgrade_strategies[(s32)upgrade];
 			if (strategy == AIPlayer::UpgradeStrategy::SaveUp)
 				return upgrade;
-			else if (strategy == AIPlayer::UpgradeStrategy::IfAvailable)
+			else if (strategy == AIPlayer::UpgradeStrategy::IfAvailable && if_available == Upgrade::None)
 				if_available = upgrade;
 		}
 	}
@@ -725,9 +728,9 @@ Repeat* make_low_level_loop(AIPlayerControl* control, const AIPlayer::Config& co
 								Select::alloc
 								(
 									AIBehaviors::ReactTarget::alloc(Sensor::family, 3, 3, &default_filter),
-									AIBehaviors::AbilitySpawn::alloc(3, Upgrade::Sensor, Ability::Sensor, &should_spawn_sensor),
-									AIBehaviors::AbilitySpawn::alloc(3, Upgrade::Rocket, Ability::Rocket, &should_spawn_rocket),
-									AIBehaviors::AbilitySpawn::alloc(3, Upgrade::Minion, Ability::Minion, &should_spawn_minion),
+									AIBehaviors::AbilitySpawn::alloc(4, Upgrade::Minion, Ability::Minion, &should_spawn_minion),
+									AIBehaviors::AbilitySpawn::alloc(4, Upgrade::Sensor, Ability::Sensor, &should_spawn_sensor),
+									AIBehaviors::AbilitySpawn::alloc(4, Upgrade::Rocket, Ability::Rocket, &should_spawn_rocket),
 									Sequence::alloc
 									(
 										AIBehaviors::WantUpgrade::alloc(),

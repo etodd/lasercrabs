@@ -31,7 +31,6 @@ struct MinionCommon : public ComponentType<MinionCommon>
 	b8 headshot_test(const Vec3&, const Vec3&);
 	void hit_by(const TargetEvent& e);
 	void killed(Entity*);
-	void landed(r32);
 	void footstep();
 	void update(const Update&);
 };
@@ -65,6 +64,7 @@ struct MinionAI : public ComponentType<MinionAI>
 	AI::Path path;
 	u8 path_index;
 	r32 path_timer;
+	r32 target_timer;
 
 	void awake();
 

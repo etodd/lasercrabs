@@ -70,7 +70,6 @@ void MinionCommon::awake()
 	animator->layers[1].loop = false;
 	link<&MinionCommon::footstep>(animator->trigger(Asset::Animation::character_walk, 0.3375f));
 	link<&MinionCommon::footstep>(animator->trigger(Asset::Animation::character_walk, 0.75f));
-	link_arg<r32, &MinionCommon::landed>(get<Walker>()->land);
 }
 
 MinionCommon* MinionCommon::closest(AI::Team my_team, const Vec3& pos, r32* distance)
@@ -92,12 +91,6 @@ MinionCommon* MinionCommon::closest(AI::Team my_team, const Vec3& pos, r32* dist
 	if (distance)
 		*distance = sqrtf(closest_distance);
 	return closest;
-}
-
-void MinionCommon::landed(r32 speed)
-{
-	if (speed < -10.0f)
-		get<Health>()->damage(nullptr, HEALTH);
 }
 
 void MinionCommon::footstep()
@@ -393,10 +386,13 @@ void MinionAI::new_goal()
 		goal.type = Goal::Type::Position;
 		AI::random_path(pos, path_callback);
 	}
+	target_timer = 0.0f;
 }
 
 void MinionAI::update(const Update& u)
 {
+	target_timer += u.time.delta;
+
 	Vec3 pos = get<Transform>()->absolute_pos();
 
 	if (path_request == PathRequest::None)
@@ -428,7 +424,9 @@ void MinionAI::update(const Update& u)
 
 						Vec3 to_target = target_pos - head_pos;
 						to_target.y = 0.0f;
-						if (get<MinionCommon>()->attack_timer == 0.0f && Vec3::normalize(to_target).dot(get<Walker>()->forward()) > 0.98f)
+						if (get<MinionCommon>()->attack_timer == 0.0f // make sure our cooldown is done
+							&& Vec3::normalize(to_target).dot(get<Walker>()->forward()) > 0.98f // make sure we're looking at the target
+							&& target_timer > MINION_ATTACK_TIME * 0.5f) // give some reaction time
 						{
 							PlayerManager* owner = get<MinionCommon>()->owner.ref();
 							World::create<ProjectileEntity>(owner ? owner->entity.ref() : nullptr, head_pos, target_pos - head_pos);
@@ -465,6 +463,7 @@ void MinionAI::update(const Update& u)
 					goal.type = Goal::Type::Target;
 					goal.entity = target_candidate;
 					goal.pos = target_candidate->get<Transform>()->absolute_pos();
+					target_timer = 0;
 				}
 				else
 				{

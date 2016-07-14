@@ -849,7 +849,7 @@ namespace VI
 				else if (Game::state.mode == Game::Mode::Pvp)
 				{
 					// make sure the player has enough health
-					if (hp_start > 1)
+					if (hp_start > 1 && PlayerManager::list.count() <= 2)
 					{
 						Array<Ref<HealthPickup>> closest_free_health_pickups;
 						HealthPickup::sort_all(team.ref()->player_spawn.ref()->get<Transform>()->absolute_pos(), &closest_free_health_pickups, true, nullptr);

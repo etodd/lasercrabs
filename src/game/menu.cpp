@@ -390,11 +390,13 @@ void update(const Update& u)
 	else if (Game::state.mode == Game::Mode::Special)
 	{
 		// toggle the pause menu
-		b8 pause_hit;
-		if (Game::state.level == Asset::Level::splitscreen || main_menu_state != State::Hidden)
-			pause_hit = u.input->get(Controls::Cancel, 0) && !u.last_input->get(Controls::Cancel, 0);
-		else
-			pause_hit = u.input->get(Controls::Pause, 0) && !u.last_input->get(Controls::Pause, 0);
+		b8 pause_hit = u.input->get(Controls::Pause, 0) && !u.last_input->get(Controls::Pause, 0);
+		if (Game::state.level == Asset::Level::splitscreen
+			|| Game::state.level == Asset::Level::connect
+			|| main_menu_state != State::Hidden)
+		{
+			pause_hit |= u.input->get(Controls::Cancel, 0) && !u.last_input->get(Controls::Cancel, 0);
+		}
 
 		if (pause_hit && Game::time.total > 0.0f && (main_menu_state == State::Hidden || main_menu_state == State::Visible))
 		{

@@ -64,6 +64,7 @@
 	"description_containment_field": "Force fields are temporarily impermeable to enemy Praetor drones.",
 	"tut_parkour_movement": "[{{Movement}}] to move.\n[{{Jump}}] to jump.",
 	"tut_parkour_climb": "Hold [{{Parkour}}] to climb.",
+	"buy_period": "Buy period (%d)",
 	"tut_parkour_wallrun": "Run alongside a wall and hold [{{Parkour}}] to wall-run on it.",
 	"tut_parkour_slide": "Run and hold [{{Slide}}] to slide off the ledge, then press [{{Jump}}] to jump to the next ledge.",
 	"tut_parkour_roll": "Jump down and hold [{{Slide}}] to skill-roll on landing. This preserves your momentum.",

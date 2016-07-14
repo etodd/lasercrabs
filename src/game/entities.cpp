@@ -364,6 +364,10 @@ void ControlPoint::update_all(const Update& u)
 	while (particle_timer > particle_reset)
 		particle_timer -= particle_reset;
 
+	// clear powered state for all containment fields; we're going to update this flag
+	for (auto field = ContainmentField::list.iterator(); !field.is_last(); field.next())
+		field.item()->powered = false;
+
 	for (auto i = list.iterator(); !i.is_last(); i.next())
 	{
 		Vec3 control_point_pos;
@@ -398,15 +402,46 @@ void ControlPoint::update_all(const Update& u)
 			}
 		}
 
-		if (emit_particles && control_point_team != AI::Team::None)
+		// update powered state of all containment fields in range
+		StaticArray<Vec3, 10> containment_fields;
+		for (auto field = ContainmentField::list.iterator(); !field.is_last(); field.next())
 		{
-			// particle effect to closest sensor
-			Particles::tracers.add
-			(
-				Vec3::lerp(particle_timer / particle_reset, control_point_pos, closest_sensor->get<Transform>()->absolute_pos()),
-				Vec3::zero,
-				0
-			);
+			Vec3 field_pos = field.item()->get<Transform>()->absolute_pos();
+			Vec3 to_field = field_pos - control_point_pos;
+			r32 distance_squared = to_field.length_squared();
+			if (distance_squared < CONTAINMENT_FIELD_RADIUS * CONTAINMENT_FIELD_RADIUS
+				&& to_field.dot(control_point_rot * Vec3(0, 0, 1)) > 0.0f) // make sure the control point is facing the containment field
+			{
+				if (containment_fields.length < containment_fields.capacity())
+					containment_fields.add(field_pos);
+				field.item()->powered = true;
+			}
+		}
+
+		if (emit_particles)
+		{
+			r32 particle_blend = particle_timer / particle_reset;
+			if (control_point_team != AI::Team::None)
+			{
+				// particle effect to closest sensor
+				Particles::tracers.add
+				(
+					Vec3::lerp(particle_blend, control_point_pos, closest_sensor->get<Transform>()->absolute_pos()),
+					Vec3::zero,
+					0
+				);
+			}
+
+			// particle effects to all containment fields in range
+			for (s32 i = 0; i < containment_fields.length; i++)
+			{
+				Particles::tracers.add
+				(
+					Vec3::lerp(particle_blend, control_point_pos, containment_fields[i]),
+					Vec3::zero,
+					0
+				);
+			}
 		}
 
 		i.item()->team = control_point_team;
@@ -451,7 +486,7 @@ u16 ControlPoint::increment(AI::Team team)
 }
 
 // gets the first control point that would be visible to a sensor at the given position
-ControlPoint* ControlPoint::visible_from(const Vec3& query)
+ControlPoint* ControlPoint::visible_from(const Vec3& query, r32 range)
 {
 	for (auto i = list.iterator(); !i.is_last(); i.next())
 	{
@@ -459,7 +494,7 @@ ControlPoint* ControlPoint::visible_from(const Vec3& query)
 		Quat control_point_rot;
 		i.item()->get<Transform>()->absolute(&control_point_pos, &control_point_rot);
 		Vec3 to_query = query - control_point_pos;
-		if (to_query.length_squared() < SENSOR_RANGE * SENSOR_RANGE && to_query.dot(control_point_rot * Vec3(0, 0, 1)) > 0.0f)
+		if (to_query.length_squared() < range * range && to_query.dot(control_point_rot * Vec3(0, 0, 1)) > 0.0f)
 			return i.item();
 	}
 	return nullptr;
@@ -642,7 +677,7 @@ b8 ContainmentField::inside(AI::Team my_team, const Vec3& pos)
 }
 
 ContainmentField::ContainmentField(const Vec3& abs_pos, PlayerManager* m)
-	: team(m->team.ref()->team()), owner(m), remaining_lifetime(10.0f)
+	: team(m->team.ref()->team()), owner(m), remaining_lifetime(8.0f), powered()
 {
 	Entity* f = World::alloc<Empty>();
 	f->get<Transform>()->absolute_pos(abs_pos);
@@ -722,23 +757,27 @@ void ContainmentField::update_all(const Update& u)
 				0
 			);
 
-			i.item()->remaining_lifetime -= u.time.delta;	
-
-			// check if we need to kill this field
-			if (i.item()->remaining_lifetime < 0)
+			// if a containment field is powered, it will never expire
+			if (!i.item()->powered)
 			{
-				Quat rot = i.item()->get<Transform>()->absolute_rot();
-				for (s32 i = 0; i < 50; i++)
+				i.item()->remaining_lifetime -= u.time.delta;
+
+				// check if we need to kill this field
+				if (i.item()->remaining_lifetime < 0)
 				{
-					Particles::sparks.add
-					(
-						pos,
-						rot * Vec3(mersenne::randf_oo() * 2.0f - 1.0f, mersenne::randf_oo() * 2.0f - 1.0f, mersenne::randf_oo()) * 10.0f,
-						Vec4(1, 1, 1, 1)
-					);
+					Quat rot = i.item()->get<Transform>()->absolute_rot();
+					for (s32 i = 0; i < 50; i++)
+					{
+						Particles::sparks.add
+						(
+							pos,
+							rot * Vec3(mersenne::randf_oo() * 2.0f - 1.0f, mersenne::randf_oo() * 2.0f - 1.0f, mersenne::randf_oo()) * 10.0f,
+							Vec4(1, 1, 1, 1)
+						);
+					}
+					World::create<ShockwaveEntity>(8.0f, 1.5f)->get<Transform>()->absolute_pos(pos);
+					World::remove_deferred(i.item()->entity());
 				}
-				World::create<ShockwaveEntity>(8.0f, 1.5f)->get<Transform>()->absolute_pos(pos);
-				World::remove_deferred(i.item()->entity());
 			}
 		}
 	}

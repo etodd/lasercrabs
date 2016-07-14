@@ -131,6 +131,7 @@ struct ContainmentField : public ComponentType<ContainmentField>
 	Ref<Entity> field;
 	Ref<PlayerManager> owner;
 	r32 remaining_lifetime;
+	b8 powered;
 
 	ContainmentField(const Vec3&, PlayerManager*);
 	void awake();
@@ -242,7 +243,7 @@ struct ControlPoint : public ComponentType<ControlPoint>
 	static r32 timer;
 	static r32 particle_timer;
 	static void update_all(const Update&);
-	static ControlPoint* visible_from(const Vec3&);
+	static ControlPoint* visible_from(const Vec3&, r32 = SENSOR_RANGE);
 	static u16 increment(AI::Team);
 	AI::Team team;
 	ControlPoint();

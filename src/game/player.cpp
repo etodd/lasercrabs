@@ -245,7 +245,8 @@ void LocalPlayer::update(const Update& u)
 				&& Game::level.has_feature(Game::FeatureLevel::ControlPoints)
 				&& manager.ref()->at_spawn())
 			{
-				if (!u.input->get(Controls::Interact, gamepad) && u.last_input->get(Controls::Interact, gamepad))
+				if ((!u.input->get(Controls::Interact, gamepad) && u.last_input->get(Controls::Interact, gamepad))
+					|| Game::time.total < PLAYER_SPAWN_DELAY + 0.5f)
 				{
 					upgrading = true;
 					menu.animate();
@@ -278,7 +279,7 @@ void LocalPlayer::update(const Update& u)
 
 				const Rect2& viewport = camera ? camera->viewport : manager.ref()->entity.ref()->get<LocalPlayerControl>()->camera->viewport;
 
-				Vec2 pos(viewport.size.x * 0.5f + MENU_ITEM_WIDTH * -0.5f, viewport.size.y * 0.6f + UIMenu::height(3) * 0.5f);
+				Vec2 pos(viewport.size.x * 0.5f + MENU_ITEM_WIDTH * -0.5f, viewport.size.y * 0.8f);
 
 				if (menu.item(u, &pos, _(strings::close), nullptr, upgrade_in_progress))
 				{
@@ -707,12 +708,14 @@ void LocalPlayer::draw_alpha(const RenderParams& params) const
 				}
 
 				// press x to continue
-				p.y -= MENU_ITEM_PADDING;
-				text.wrap_width = 0;
-				text.color = UI::accent_color;
-				text.text(_(manager.ref()->score_accepted ? strings::waiting : strings::accept));
-				UI::box(params, text.rect(p).outset(MENU_ITEM_PADDING), UI::background_color);
-				text.draw(params, p);
+				{
+					Vec2 p = vp.size * Vec2(0.5f, 0.2f);
+					text.wrap_width = 0;
+					text.color = UI::accent_color;
+					text.text(_(manager.ref()->score_accepted ? strings::waiting : strings::accept));
+					UI::box(params, text.rect(p).outset(MENU_ITEM_PADDING), UI::background_color);
+					text.draw(params, p);
+				}
 			}
 		}
 		else
@@ -860,7 +863,8 @@ b8 PlayerCommon::movement_enabled() const
 	{
 		return get<Transform>()->parent.ref() // must be attached to wall
 			&& manager.ref()->current_spawn_ability == Ability::None // can't move while trying to spawn an ability
-			&& get<Awk>()->stun_timer == 0.0f; // or while stunned
+			&& get<Awk>()->stun_timer == 0.0f // or while stunned
+			&& (Game::time.total > GAME_BUY_PERIOD || !Game::level.has_feature(Game::FeatureLevel::Abilities)); // or during the buy period
 	}
 	else
 		return true;
@@ -2099,6 +2103,20 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 			if (UI::project(params, reticle.pos, &a))
 				UI::triangle(params, { a, Vec2(10.0f * UI::scale) }, reticle.type == ReticleType::Normal ? UI::accent_color : UI::alert_color, PI);
 		}
+	}
+
+	// buy period indicator
+	if (Game::level.has_feature(Game::FeatureLevel::Abilities) && Game::time.total < GAME_BUY_PERIOD)
+	{
+		UIText text;
+		text.color = UI::accent_color;
+		text.text(_(strings::buy_period), (s32)(GAME_BUY_PERIOD - Game::time.total) + 1);
+		text.anchor_x = UIText::Anchor::Center;
+		text.anchor_y = UIText::Anchor::Center;
+		text.size = text_size;
+		Vec2 pos = viewport.size * Vec2(0.5f, 0.9f);
+		UI::box(params, text.rect(pos).outset(8.0f * UI::scale), UI::background_color);
+		text.draw(params, pos);
 	}
 }
 

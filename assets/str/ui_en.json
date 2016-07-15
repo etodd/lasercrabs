@@ -70,9 +70,11 @@
 	"tip_2": "Contested energy ports return to neutral, generating no energy for either team.",
 	"tip_3": "Force fields last a limited time unless they are powered by a nearby energy port.",
 	"tip_4": "Use force fields to keep enemy drones out, or keep them in.",
-	"tip_5": "Minions attack enemy drones, collectors, rocket pods, and force fields.",
+	"tip_5": "Minions attack enemy drones, collectors, rocket pods, minions, and force fields.",
 	"tip_6": "Minions are only vulnerable to headshots.",
 	"tip_7": "Return to base frequently to buy upgrades and gain an advantage.",
+	"tip_8": "Rocket pods will not fire until an enemy enters your line of sight, or is detected by one of your collectors.",
+	"tip_9": "Armor pickups claimed by other drones cannot be stolen without the Armor Thief upgrade.",
 
 	"tut_parkour_movement": "[{{Movement}}] to move.\n[{{Jump}}] to jump.",
 	"tut_parkour_climb": "Hold [{{Parkour}}] to climb.",

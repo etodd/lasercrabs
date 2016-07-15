@@ -215,7 +215,9 @@ void LocalPlayer::update(const Update& u)
 		return;
 
 	// flash message when the buy period expires
-	if (Game::time.total > GAME_BUY_PERIOD && Game::time.total - Game::time.delta <= GAME_BUY_PERIOD)
+	if (Game::state.mode == Game::Mode::Pvp
+		&& Game::time.total > GAME_BUY_PERIOD
+		&& Game::time.total - Game::time.delta <= GAME_BUY_PERIOD)
 		msg(_(strings::buy_period_expired), true);
 
 	if (msg_timer < msg_time)
@@ -867,7 +869,7 @@ b8 PlayerCommon::movement_enabled() const
 		return get<Transform>()->parent.ref() // must be attached to wall
 			&& manager.ref()->current_spawn_ability == Ability::None // can't move while trying to spawn an ability
 			&& get<Awk>()->stun_timer == 0.0f // or while stunned
-			&& (Game::time.total > GAME_BUY_PERIOD || !Game::level.has_feature(Game::FeatureLevel::Abilities)); // or during the buy period
+			&& (Game::state.mode != Game::Mode::Pvp || Game::time.total > GAME_BUY_PERIOD || !Game::level.has_feature(Game::FeatureLevel::Abilities)); // or during the buy period
 	}
 	else
 		return true;
@@ -1298,7 +1300,8 @@ void LocalPlayerControl::update(const Update& u)
 					const TargetIndicator indicator = target_indicators[i];
 					if (indicator.type == TargetIndicator::Type::AwkVisible
 						|| indicator.type == TargetIndicator::Type::Health
-						|| indicator.type == TargetIndicator::Type::Minion)
+						|| indicator.type == TargetIndicator::Type::Minion
+						|| indicator.type == TargetIndicator::Type::MinionAttacking)
 					{
 						Vec3 to_indicator = indicator.pos - camera->pos;
 						r32 indicator_distance = to_indicator.length();
@@ -1498,7 +1501,8 @@ void LocalPlayerControl::update(const Update& u)
 			{
 				if (i.item()->get<AIAgent>()->team != team)
 				{
-					if (!add_target_indicator(i.item()->get<Target>(), TargetIndicator::Type::Minion))
+					TargetIndicator::Type type = i.item()->get<MinionAI>()->goal.entity.ref() == entity() ? TargetIndicator::Type::MinionAttacking : TargetIndicator::Type::Minion;
+					if (!add_target_indicator(i.item()->get<Target>(), type))
 						break; // no more room for indicators
 				}
 			}
@@ -1756,6 +1760,16 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 					UI::indicator(params, indicator.pos, UI::alert_color, true);
 					break;
 				}
+				case TargetIndicator::Type::MinionAttacking:
+				{
+					if (UI::flash_function(Game::real_time.total))
+					{
+						if (!UI::flash_function(Game::real_time.total - Game::real_time.delta))
+							Audio::post_global_event(AK::EVENTS::PLAY_BEEP_BAD);
+						UI::indicator(params, indicator.pos, UI::alert_color, true);
+					}
+					break;
+				}
 			}
 		}
 	}
@@ -1988,7 +2002,7 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 		else
 			draw_hp = health->hp > 1 || UI::flash_function_slow(Game::real_time.total);
 		if (draw_hp)
-			draw_hp_indicator(params, pos, health->hp, health->hp_max, flash_hp ? UI::default_color : Team::ui_color_friend);
+			draw_hp_indicator(params, pos, health->hp, health->hp_max, flash_hp ? UI::default_color : UI::accent_color);
 	}
 
 	// stealth indicator
@@ -2089,7 +2103,10 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 		const r32 spoke_length = 10.0f;
 		const r32 spoke_width = 3.0f;
 		r32 start_radius = 8.0f + blend * 32.0f + spoke_length * 0.5f;
-		const Vec4& color = reticle.type == ReticleType::Error ? UI::alert_color : UI::accent_color;
+		const Vec4& color =
+			reticle.type == ReticleType::Error
+			? UI::disabled_color
+			: (reticle.type == ReticleType::None ? UI::alert_color : UI::accent_color);
 		const r32 ratio = 0.8660254037844386f;
 		UI::centered_box(params, { pos + Vec2(ratio, -0.5f) * UI::scale * start_radius, Vec2(spoke_length, spoke_width) * UI::scale }, color, PI * 0.5f * -0.33f);
 		UI::centered_box(params, { pos + Vec2(-ratio, -0.5f) * UI::scale * start_radius, Vec2(spoke_length, spoke_width) * UI::scale }, color, PI * 0.5f * 0.33f);

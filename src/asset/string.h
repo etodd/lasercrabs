@@ -8,7 +8,7 @@ namespace Asset
 {
 	namespace String
 	{
-		const s32 count = 361;
+		const s32 count = 363;
 		const AssetID Ioke = 0;
 		const AssetID Medias_Res = 1;
 		const AssetID Moros = 2;
@@ -347,29 +347,31 @@ namespace Asset
 		const AssetID tip_5 = 335;
 		const AssetID tip_6 = 336;
 		const AssetID tip_7 = 337;
-		const AssetID total_rating_gain = 338;
-		const AssetID tried = 339;
-		const AssetID tut_parkour_climb = 340;
-		const AssetID tut_parkour_double_jump = 341;
-		const AssetID tut_parkour_movement = 342;
-		const AssetID tut_parkour_roll = 343;
-		const AssetID tut_parkour_slide = 344;
-		const AssetID tut_parkour_wallrun = 345;
-		const AssetID tut_pvp_control_points = 346;
-		const AssetID tut_pvp_health = 347;
-		const AssetID tut_pvp_kill_player = 348;
-		const AssetID tut_pvp_minion = 349;
-		const AssetID tut_pvp_upgrade = 350;
-		const AssetID tutorial_done = 351;
-		const AssetID tutorial_intro = 352;
-		const AssetID tutorial_intro_done = 353;
-		const AssetID upgrade_description = 354;
-		const AssetID upgrade_notification = 355;
-		const AssetID upgrade_prompt = 356;
-		const AssetID upgrading = 357;
-		const AssetID victory = 358;
-		const AssetID waiting = 359;
-		const AssetID yes = 360;
+		const AssetID tip_8 = 338;
+		const AssetID tip_9 = 339;
+		const AssetID total_rating_gain = 340;
+		const AssetID tried = 341;
+		const AssetID tut_parkour_climb = 342;
+		const AssetID tut_parkour_double_jump = 343;
+		const AssetID tut_parkour_movement = 344;
+		const AssetID tut_parkour_roll = 345;
+		const AssetID tut_parkour_slide = 346;
+		const AssetID tut_parkour_wallrun = 347;
+		const AssetID tut_pvp_control_points = 348;
+		const AssetID tut_pvp_health = 349;
+		const AssetID tut_pvp_kill_player = 350;
+		const AssetID tut_pvp_minion = 351;
+		const AssetID tut_pvp_upgrade = 352;
+		const AssetID tutorial_done = 353;
+		const AssetID tutorial_intro = 354;
+		const AssetID tutorial_intro_done = 355;
+		const AssetID upgrade_description = 356;
+		const AssetID upgrade_notification = 357;
+		const AssetID upgrade_prompt = 358;
+		const AssetID upgrading = 359;
+		const AssetID victory = 360;
+		const AssetID waiting = 361;
+		const AssetID yes = 362;
 	}
 }
 

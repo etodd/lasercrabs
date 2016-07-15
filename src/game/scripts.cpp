@@ -643,7 +643,10 @@ namespace Penelope
 			}
 		}
 
-		if (terminal && !Console::visible && u.last_input->get(Controls::Interact, 0) && !u.input->get(Controls::Interact, 0))
+		if (terminal
+			&& !Console::visible
+			&& !UIMenu::active[0]
+			&& u.last_input->get(Controls::Interact, 0) && !u.input->get(Controls::Interact, 0))
 		{
 			terminal_active(false);
 			if (Game::save.last_round_loss)
@@ -762,7 +765,10 @@ namespace Penelope
 			&& !has_focus() // penelope is waiting on us, but she doesn't have focus yet
 			&& !fragment) // fragments take precedence over dialogue
 		{
-			if (!Console::visible && u.last_input->get(Controls::Interact, 0) && !u.input->get(Controls::Interact, 0))
+			if (!Console::visible
+				&& !UIMenu::active[0]
+				&& u.last_input->get(Controls::Interact, 0)
+				&& !u.input->get(Controls::Interact, 0))
 				data->mode = Mode::Center; // we have focus now!
 		}
 
@@ -772,7 +778,10 @@ namespace Penelope
 			{
 				if (fragment)
 				{
-					if (!Console::visible && u.last_input->get(Controls::Interact, 0) && !u.input->get(Controls::Interact, 0))
+					if (!Console::visible
+						&& !UIMenu::active[0]
+						&& u.last_input->get(Controls::Interact, 0)
+						&& !u.input->get(Controls::Interact, 0))
 					{
 						fragment->collect();
 						data->active_data_fragment = fragment->text();
@@ -1269,11 +1278,12 @@ namespace connect
 		Vec3 camera_offset;
 		Array<LevelNode> levels;
 		s32 tip_index;
+		r32 tip_time;
 	};
 	
 	static Data* data;
 
-	const s32 tip_count = 8;
+	const s32 tip_count = 10;
 	const AssetID tips[tip_count] =
 	{
 		strings::tip_0,
@@ -1284,6 +1294,8 @@ namespace connect
 		strings::tip_5,
 		strings::tip_6,
 		strings::tip_7,
+		strings::tip_8,
+		strings::tip_9,
 	};
 
 	void cleanup()
@@ -1334,6 +1346,9 @@ namespace connect
 			Vec3 target = data->camera_offset + data->levels[index].pos.ref()->absolute_pos();
 			data->camera->pos += (target - data->camera->pos) * vi_min(1.0f, Game::real_time.delta) * 3.0f;
 		}
+
+		if (data->tip_time == 0.0f && (!Game::state.local_multiplayer || Menu::splitscreen_level_selected))
+			data->tip_time = Game::real_time.total;
 	}
 
 	void draw(const RenderParams& params)
@@ -1392,7 +1407,7 @@ namespace connect
 			);
 			UI::triangle_border(params, { triangle_pos, Vec2(20 * UI::scale) }, 9, UI::accent_color, Game::real_time.total * -8.0f);
 
-			if (Game::state.forfeit == Game::Forfeit::None)
+			if (Game::state.forfeit == Game::Forfeit::None && Menu::next_mode == Game::Mode::Pvp)
 			{
 				// show a tip
 				UIText text;
@@ -1401,10 +1416,11 @@ namespace connect
 				text.color = UI::accent_color;
 				text.wrap_width = MENU_ITEM_WIDTH;
 				text.text(_(tips[data->tip_index]));
+				UIMenu::text_clip(&text, data->tip_time, 80.0f);
 
 				Vec2 pos = params.camera->viewport.size * Vec2(0.5f, 0.2f) + Vec2(0, 48.0f * UI::scale);
 
-				UI::box(params, text.rect(pos).outset(8 * UI::scale), UI::background_color);
+				UI::box(params, text.rect(pos).outset(12 * UI::scale), UI::background_color);
 
 				text.draw(params, pos);
 			}

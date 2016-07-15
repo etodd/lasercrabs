@@ -678,7 +678,7 @@ b8 should_spawn_minion(const AIPlayerControl* control)
 			Sensor::closest(AI::other(my_team), my_pos, &closest_enemy_sensor);
 			if (closest_enemy_sensor < SENSOR_RANGE + AWK_MAX_DISTANCE * 1.25f)
 			{
-				// make sure the minion won't die of fall damage
+				// make sure the minion has a reasonably close surface to stand on
 				Vec3 ray_start = my_pos + my_rot * Vec3(0, 0, 1);
 				btCollisionWorld::ClosestRayResultCallback ray_callback(ray_start, ray_start + Vec3(0, -5, 0));
 				Physics::raycast(&ray_callback, ~CollisionWalker & ~CollisionTarget & ~CollisionShield & ~CollisionAwk & ~CollisionTeamAContainmentField & ~CollisionTeamBContainmentField);

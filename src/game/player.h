@@ -100,6 +100,7 @@ struct LocalPlayerControl : public ComponentType<LocalPlayerControl>
 			AwkVisible,
 			AwkTracking,
 			Minion,
+			MinionAttacking,
 			Health,
 		};
 

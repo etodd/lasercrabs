@@ -890,6 +890,8 @@ const char* AssetLookup::String::names[] =
 	"tip_5",
 	"tip_6",
 	"tip_7",
+	"tip_8",
+	"tip_9",
 	"total_rating_gain",
 	"tried",
 	"tut_parkour_climb",

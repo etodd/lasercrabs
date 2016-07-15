@@ -355,7 +355,7 @@ void update(const Update& u)
 		{
 			if (Game::state.level != last_level)
 			{
-				if (next_mode == Game::Mode::Pvp)
+				if (next_mode == Game::Mode::Pvp && !Game::state.local_multiplayer)
 					connect_timer = CONNECT_DELAY_MIN + mersenne::randf_co() * CONNECT_DELAY_RANGE;
 				else
 					connect_timer = CONNECT_OFFLINE_DELAY;

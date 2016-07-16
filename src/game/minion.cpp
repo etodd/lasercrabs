@@ -19,7 +19,7 @@
 #include "render/particles.h"
 
 #define WALK_SPEED 2.0f
-#define ROTATION_SPEED 6.0f
+#define ROTATION_SPEED 4.0f
 
 #define HEALTH 3
 
@@ -348,13 +348,13 @@ b8 MinionAI::can_see(Entity* target, b8 limit_vision_cone) const
 	Vec3 diff = target_pos - pos;
 	Vec3 diff_flattened = diff;
 	diff_flattened.y = 0.0f;
-	if (diff_flattened.length_squared() < CONTAINMENT_FIELD_RADIUS * CONTAINMENT_FIELD_RADIUS)
+	if (diff_flattened.length_squared() < SENSOR_RANGE * SENSOR_RANGE)
 	{
 		diff.normalize();
 		if (!limit_vision_cone || diff.dot(get<Walker>()->forward()) > 0.707f)
 		{
 			btCollisionWorld::ClosestRayResultCallback ray_callback(pos, target_pos);
-			Physics::raycast(&ray_callback, btBroadphaseProxy::StaticFilter | CollisionInaccessible);
+			Physics::raycast(&ray_callback, (btBroadphaseProxy::StaticFilter | CollisionInaccessible | CollisionContainmentField | CollisionTeamAContainmentField | CollisionTeamBContainmentField) & ~Team::containment_field_mask(get<AIAgent>()->team));
 			if (!ray_callback.hasHit())
 				return true;
 		}

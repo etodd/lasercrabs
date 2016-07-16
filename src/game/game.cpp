@@ -302,7 +302,7 @@ void Game::update(const Update& update_in)
 		}
 		else
 		{
-			if (state.network_state == NetworkState::Lag && state.network_time - state.network_timer > 3.0f)
+			if (state.network_state == NetworkState::Lag && state.network_time - state.network_timer > 3.5f)
 			{
 				// disconnect
 				state.forfeit = Forfeit::NetworkError;
@@ -899,9 +899,9 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 	{
 		// choose network quality
 		r32 random = mersenne::randf_cc();
-		if (random < 0.9f)
+		if (random < 0.93f)
 			state.network_quality = NetworkQuality::Perfect;
-		else if (random < 0.97f)
+		else if (random < 0.98f)
 			state.network_quality = NetworkQuality::Okay;
 		else
 			state.network_quality = NetworkQuality::Bad;

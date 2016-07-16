@@ -218,6 +218,7 @@ void LocalPlayer::update(const Update& u)
 	// flash message when the buy period expires
 	if (Game::state.mode == Game::Mode::Pvp
 		&& !Team::game_over
+		&& Game::level.has_feature(Game::FeatureLevel::ControlPoints)
 		&& Game::time.total > GAME_BUY_PERIOD
 		&& Game::time.total - Game::time.delta <= GAME_BUY_PERIOD)
 		msg(_(strings::buy_period_expired), true);

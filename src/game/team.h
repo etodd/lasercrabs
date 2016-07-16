@@ -121,6 +121,8 @@ struct Team
 	static void level_retry();
 	static void level_next();
 
+	static s32 containment_field_mask(AI::Team);
+
 	Ref<Transform> player_spawn;
 	Revision revision;
 	SensorTrack player_tracks[MAX_PLAYERS];

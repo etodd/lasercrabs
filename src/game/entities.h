@@ -118,14 +118,14 @@ struct RocketEntity : public Entity
 	RocketEntity(Entity*, Transform*, const Vec3&, const Quat&, AI::Team);
 };
 
-#define CONTAINMENT_FIELD_RADIUS 18.0f
+#define CONTAINMENT_FIELD_RADIUS 16.0f
 #define CONTAINMENT_FIELD_BASE_OFFSET 0.95f
 struct ContainmentField : public ComponentType<ContainmentField>
 {
 	static r32 particle_accumulator;
 
 	static void update_all(const Update&);
-	static b8 inside(AI::Team, const Vec3&);
+	static ContainmentField* inside(AI::Team, const Vec3&);
 
 	AI::Team team;
 	Ref<Entity> field;

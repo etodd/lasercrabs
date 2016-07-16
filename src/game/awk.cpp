@@ -136,26 +136,7 @@ Awk::~Awk()
 
 s32 Awk::ally_containment_field_mask() const
 {
-	s32 mask;
-	switch (get<AIAgent>()->team)
-	{
-		case AI::Team::A:
-		{
-			mask = CollisionTeamAContainmentField;
-			break;
-		}
-		case AI::Team::B:
-		{
-			mask = CollisionTeamBContainmentField;
-			break;
-		}
-		default:
-		{
-			vi_assert(false);
-			break;
-		}
-	}
-	return mask;
+	return Team::containment_field_mask(get<AIAgent>()->team);
 }
 
 Vec3 Awk::center() const

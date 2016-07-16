@@ -84,7 +84,7 @@ namespace VI
 			strings::containment_field,
 			strings::description_containment_field,
 			Asset::Mesh::icon_containment_field,
-			80,
+			50,
 		},
 		{
 			strings::health_steal,
@@ -225,6 +225,30 @@ namespace VI
 			Menu::transition(Asset::Level::title, Game::Mode::Special);
 		else
 			Menu::transition(next_level, next_mode);
+	}
+
+	s32 Team::containment_field_mask(AI::Team t)
+	{
+		s32 mask;
+		switch (t)
+		{
+			case AI::Team::A:
+			{
+				mask = CollisionTeamAContainmentField;
+				break;
+			}
+			case AI::Team::B:
+			{
+				mask = CollisionTeamBContainmentField;
+				break;
+			}
+			default:
+			{
+				vi_assert(false);
+				break;
+			}
+		}
+		return mask;
 	}
 
 	void Team::track(PlayerManager* player, PlayerManager* tracked_by)
@@ -529,9 +553,11 @@ namespace VI
 					Vec3 player_pos = player_entity->get<Transform>()->absolute_pos();
 					for (auto rocket = Rocket::list.iterator(); !rocket.is_last(); rocket.next())
 					{
+						Vec3 rocket_pos = rocket.item()->get<Transform>()->absolute_pos();
 						if (rocket.item()->team == team->team() // it belongs to our team
 							&& rocket.item()->get<Transform>()->parent.ref() // it's waiting to be fired
-							&& (rocket.item()->get<Transform>()->absolute_pos() - player_pos).length_squared() < AWK_MAX_DISTANCE * 2.0f * AWK_MAX_DISTANCE * 2.0f // it's in range
+							&& (rocket_pos - player_pos).length_squared() < AWK_MAX_DISTANCE * 2.0f * AWK_MAX_DISTANCE * 2.0f // it's in range
+							&& ContainmentField::inside(team->team(), player_pos) == ContainmentField::inside(team->team(), rocket_pos)  // force fields will not get between the rocket and the player
 							&& (track->tracking || (rocket.item()->owner.ref() && PlayerCommon::visibility.get(PlayerCommon::visibility_hash(rocket.item()->owner.ref()->get<PlayerCommon>(), player_entity->get<PlayerCommon>()))))) // we're tracking the player, or the owner is alive and can see the player
 						{
 							rocket.item()->launch(player_entity);

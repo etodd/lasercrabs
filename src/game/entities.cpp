@@ -570,7 +570,7 @@ void Rocket::update(const Update& u)
 				for (s32 i = 0; i < whisker_count; i++)
 				{
 					btCollisionWorld::ClosestRayResultCallback ray_callback(get<Transform>()->pos, get<Transform>()->pos + get<Transform>()->rot * whiskers[i]);
-					Physics::raycast(&ray_callback, ~CollisionContainmentField & ~CollisionTeamAContainmentField & ~CollisionTeamBContainmentField & ~CollisionAwkIgnore);
+					Physics::raycast(&ray_callback, ~CollisionAwkIgnore & ~Team::containment_field_mask(team));
 					if (ray_callback.hasHit())
 					{
 						// avoid the obstacle
@@ -595,7 +595,7 @@ void Rocket::update(const Update& u)
 		Vec3 next_pos = get<Transform>()->pos + velocity * u.time.delta;
 
 		btCollisionWorld::ClosestRayResultCallback ray_callback(get<Transform>()->pos, next_pos + get<Transform>()->rot * Vec3(0, 0, 0.1f));
-		Physics::raycast(&ray_callback, ~CollisionContainmentField & ~CollisionTeamAContainmentField & ~CollisionTeamBContainmentField & ~CollisionAwkIgnore);
+		Physics::raycast(&ray_callback, ~CollisionAwkIgnore & ~Team::containment_field_mask(team));
 		if (ray_callback.hasHit())
 		{
 			// we hit something
@@ -666,14 +666,15 @@ RocketEntity::RocketEntity(Entity* owner, Transform* parent, const Vec3& pos, co
 	create<RigidBody>(RigidBody::Type::CapsuleZ, Vec3(0.1f, 0.3f, 0.3f), 0.0f, CollisionAwkIgnore, btBroadphaseProxy::AllFilter);
 }
 
-b8 ContainmentField::inside(AI::Team my_team, const Vec3& pos)
+// returns true if the given position is inside an enemy containment field
+ContainmentField* ContainmentField::inside(AI::Team my_team, const Vec3& pos)
 {
 	for (auto i = list.iterator(); !i.is_last(); i.next())
 	{
 		if (i.item()->team != my_team && (pos - i.item()->get<Transform>()->absolute_pos()).length_squared() < CONTAINMENT_FIELD_RADIUS * CONTAINMENT_FIELD_RADIUS)
-			return true;
+			return i.item();
 	}
-	return false;
+	return nullptr;
 }
 
 ContainmentField::ContainmentField(const Vec3& abs_pos, PlayerManager* m)
@@ -888,7 +889,7 @@ void Projectile::update(const Update& u)
 	Vec3 pos = get<Transform>()->absolute_pos();
 	Vec3 next_pos = pos + velocity * u.time.delta;
 	btCollisionWorld::ClosestRayResultCallback ray_callback(pos, next_pos + Vec3::normalize(velocity) * PROJECTILE_LENGTH);
-	Physics::raycast(&ray_callback, ~CollisionContainmentField & ~CollisionTeamAContainmentField & ~CollisionTeamBContainmentField);
+	Physics::raycast(&ray_callback, ~Team::containment_field_mask(owner.ref()->get<AIAgent>()->team));
 	if (ray_callback.hasHit())
 	{
 		Entity* hit_object = &Entity::list[ray_callback.m_collisionObject->getUserIndex()];

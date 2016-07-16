@@ -364,6 +364,79 @@ void UIText::draw(const RenderParams& params, const Vec2& pos, r32 rot) const
 	}
 }
 
+// handles input
+void UIScroll::update(const Update& u, s32 item_count, s32 gamepad, b8 input)
+{
+	update_menu(u, item_count, gamepad, input);
+
+	if (input)
+	{
+		// joystick
+		if (u.input->gamepads[gamepad].active)
+		{
+			r32 last_y = Input::dead_zone(u.last_input->gamepads[gamepad].left_y, UI_JOYSTICK_DEAD_ZONE);
+			if (last_y == 0.0f)
+			{
+				r32 y = Input::dead_zone(u.input->gamepads[gamepad].left_y, UI_JOYSTICK_DEAD_ZONE);
+				if (y < 0.0f)
+					pos--;
+				else if (y > 0.0f)
+					pos++;
+			}
+		}
+
+		// keyboard / D-pad
+		if ((u.input->get(Controls::Forward, gamepad) && !u.last_input->get(Controls::Forward, gamepad)))
+			pos--;
+
+		if (u.input->get(Controls::Backward, gamepad) && !u.last_input->get(Controls::Backward, gamepad))
+			pos++;
+
+		// keep within range
+		pos = vi_max(0, vi_min(count - UI_SCROLL_MAX, pos));
+	}
+}
+
+void UIScroll::update_menu(const Update& u, s32 item_count, s32 gamepad, b8 input)
+{
+	count = item_count;
+
+	// mouse wheel
+	if (input && gamepad == 0)
+	{
+		if (u.input->keys[(s32)KeyCode::MouseWheelUp] && !u.last_input->keys[(s32)KeyCode::MouseWheelUp])
+			pos--;
+		if (u.input->keys[(s32)KeyCode::MouseWheelDown] && !u.last_input->keys[(s32)KeyCode::MouseWheelDown])
+			pos++;
+	}
+
+	// keep within range
+	pos = vi_max(0, vi_min(count - UI_SCROLL_MAX, pos));
+}
+
+void UIScroll::scroll_into_view(s32 i)
+{
+	pos = vi_min(i, pos);
+	pos = vi_max(i + 1 - UI_SCROLL_MAX, pos);
+}
+
+void UIScroll::start(const RenderParams& params, const Vec2& p) const
+{
+	if (pos > 0)
+		UI::triangle(params, { p, Vec2(32.0f * UI::scale) }, UI::accent_color);
+}
+
+void UIScroll::end(const RenderParams& params, const Vec2& p) const
+{
+	if (pos + UI_SCROLL_MAX < count)
+		UI::triangle(params, { p, Vec2(32.0f * UI::scale) }, UI::accent_color, PI);
+}
+
+b8 UIScroll::item(s32 i) const
+{
+	return pos <= i && i < pos + UI_SCROLL_MAX;
+}
+
 const Vec4 UI::default_color = Vec4(1, 1, 1, 1);
 const Vec4 UI::alert_color = Vec4(1.0f, 0.5f, 0.5f, 1);
 const Vec4 UI::accent_color = Vec4(1.0f, 0.9f, 0.4f, 1);

@@ -68,6 +68,7 @@ Game::Level Game::level;
 Game::State Game::state;
 Vec2 Game::cursor(200, 200);
 b8 Game::cursor_updated = false;
+b8 Game::cursor_active = false;
 
 Game::State::State()
 	: mode(Game::Mode::Special),
@@ -603,8 +604,31 @@ void Game::update_cursor(const Update& u)
 	if (!cursor_updated)
 	{
 		cursor_updated = true;
+
 		cursor.x = LMath::clampf(cursor.x + u.input->cursor_x, 0.0f, u.input->width);
 		cursor.y = LMath::clampf(cursor.y - u.input->cursor_y, 0.0f, u.input->height);
+		if (cursor_active)
+		{
+			// disable cursor when a gamepad is used
+			const Gamepad& gamepad = u.input->gamepads[0];
+			if (gamepad.active)
+			{
+				if (gamepad.btns
+					|| Input::dead_zone(gamepad.left_x) != 0.0f
+					|| Input::dead_zone(gamepad.left_y) != 0.0f
+					|| Input::dead_zone(gamepad.right_x) != 0.0f
+					|| Input::dead_zone(gamepad.right_y) != 0.0f)
+				{
+					cursor_active = false;
+				}
+			}
+		}
+		else
+		{
+			// enable cursor when the mouse is moved
+			if (u.input->cursor_x != 0 || u.input->cursor_y != 0)
+				cursor_active = true;
+		}
 	}
 }
 

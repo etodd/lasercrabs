@@ -115,12 +115,12 @@ void title_menu(const Update& u, u8 gamepad, UIMenu* menu, State* state)
 		*state = State::Visible;
 		menu->animate();
 	}
-	menu->start(u, 0);
 	switch (*state)
 	{
 		case State::Visible:
 		{
 			Vec2 pos(logo_padding * 2.0f + logo_size, u.input->height * 0.5f + UIMenu::height(4) * 0.5f);
+			menu->start(u, 0, 4);
 			if (menu->item(u, &pos, _(strings::play)))
 			{
 				Game::save = Game::Save();
@@ -140,6 +140,7 @@ void title_menu(const Update& u, u8 gamepad, UIMenu* menu, State* state)
 				splitscreen();
 			if (menu->item(u, &pos, _(strings::exit)))
 				Game::quit = true;
+			menu->end();
 			break;
 		}
 		case State::Options:
@@ -158,7 +159,6 @@ void title_menu(const Update& u, u8 gamepad, UIMenu* menu, State* state)
 			break;
 		}
 	}
-	menu->end();
 }
 
 void pause_menu(const Update& u, const Rect2& viewport, u8 gamepad, UIMenu* menu, State* state)
@@ -169,12 +169,12 @@ void pause_menu(const Update& u, const Rect2& viewport, u8 gamepad, UIMenu* menu
 		return;
 	}
 
-	menu->start(u, gamepad);
 	switch (*state)
 	{
 		case State::Visible:
 		{
 			Vec2 pos(0, viewport.size.y * 0.5f + UIMenu::height(3) * 0.5f);
+			menu->start(u, gamepad, 3);
 			if (menu->item(u, &pos, _(strings::back)))
 				*state = State::Hidden;
 			if (menu->item(u, &pos, _(strings::options)))
@@ -184,6 +184,7 @@ void pause_menu(const Update& u, const Rect2& viewport, u8 gamepad, UIMenu* menu
 			}
 			if (menu->item(u, &pos, _(strings::main_menu)))
 				Menu::title();
+			menu->end();
 			break;
 		}
 		case State::Options:
@@ -202,7 +203,6 @@ void pause_menu(const Update& u, const Rect2& viewport, u8 gamepad, UIMenu* menu
 			break;
 		}
 	}
-	menu->end();
 }
 
 void update(const Update& u)
@@ -510,6 +510,7 @@ void draw(const RenderParams& params)
 
 b8 options(const Update& u, u8 gamepad, UIMenu* menu, Vec2* pos)
 {
+	menu->start(u, gamepad, 3);
 	bool menu_open = true;
 	if (menu->item(u, pos, _(strings::back)) || (!u.input->get(Controls::Cancel, gamepad) && u.last_input->get(Controls::Cancel, gamepad)))
 		menu_open = false;
@@ -537,6 +538,8 @@ b8 options(const Update& u, u8 gamepad, UIMenu* menu, Vec2* pos)
 
 	if (!menu_open)
 		Loader::settings_save();
+
+	menu->end();
 
 	return menu_open;
 }
@@ -581,7 +584,8 @@ Rect2 UIMenu::Item::up_rect() const
 UIMenu::UIMenu()
 	: selected(),
 	items(),
-	animation_time()
+	animation_time(),
+	scroll()
 {
 }
 
@@ -593,16 +597,17 @@ void UIMenu::clear()
 void UIMenu::animate()
 {
 	selected = 0;
+	scroll.pos = 0;
 	animation_time = Game::real_time.total;
 }
 
-#define JOYSTICK_DEAD_ZONE 0.5f
-
-void UIMenu::start(const Update& u, u8 g, b8 input)
+void UIMenu::start(const Update& u, u8 g, s32 item_count, b8 input)
 {
 	clear();
 
 	gamepad = g;
+
+	scroll.update_menu(u, item_count, gamepad, !Console::visible && input && (!active[g] || active[g] == this));
 
 	if (Console::visible || !input)
 		return;
@@ -620,10 +625,10 @@ void UIMenu::start(const Update& u, u8 g, b8 input)
 
 	if (u.input->gamepads[gamepad].active)
 	{
-		r32 last_y = Input::dead_zone(u.last_input->gamepads[gamepad].left_y, JOYSTICK_DEAD_ZONE);
+		r32 last_y = Input::dead_zone(u.last_input->gamepads[gamepad].left_y, UI_JOYSTICK_DEAD_ZONE);
 		if (last_y == 0.0f)
 		{
-			r32 y = Input::dead_zone(u.input->gamepads[gamepad].left_y, JOYSTICK_DEAD_ZONE);
+			r32 y = Input::dead_zone(u.input->gamepads[gamepad].left_y, UI_JOYSTICK_DEAD_ZONE);
 			if (y < 0.0f)
 				selected--;
 			else if (y > 0.0f)
@@ -633,14 +638,27 @@ void UIMenu::start(const Update& u, u8 g, b8 input)
 
 	if (u.input->get(Controls::Forward, gamepad)
 		&& !u.last_input->get(Controls::Forward, gamepad))
+	{
+		Game::cursor_active = false;
 		selected--;
+	}
 
 	if (u.input->get(Controls::Backward, gamepad)
 		&& !u.last_input->get(Controls::Backward, gamepad))
+	{
+		Game::cursor_active = false;
 		selected++;
+	}
+
+	if (selected < 0)
+		selected = item_count - 1;
+	if (selected >= item_count)
+		selected = 0;
+
+	scroll.scroll_into_view(selected);
 }
 
-Rect2 UIMenu::add_item(Vec2* pos, b8 slider, const char* string, const char* value, b8 disabled, AssetID icon)
+b8 UIMenu::add_item(Vec2* pos, b8 slider, const char* string, const char* value, b8 disabled, AssetID icon, Rect2* out_rect)
 {
 	Item* item = items.add();
 	item->icon = icon;
@@ -661,6 +679,9 @@ Rect2 UIMenu::add_item(Vec2* pos, b8 slider, const char* string, const char* val
 	item->value.anchor_x = UIText::Anchor::Center;
 	item->value.text(value);
 
+	if (!scroll.item(items.length - 1)) // this item is not visible
+		return false;
+
 	item->pos = *pos;
 	item->pos.x += MENU_ITEM_PADDING_LEFT;
 
@@ -668,18 +689,23 @@ Rect2 UIMenu::add_item(Vec2* pos, b8 slider, const char* string, const char* val
 
 	pos->y -= box.size.y;
 
-	return box;
+	if (out_rect)
+		*out_rect = box;
+
+	return true;
 }
 
 // render a single menu item and increment the position for the next item
 b8 UIMenu::item(const Update& u, Vec2* menu_pos, const char* string, const char* value, b8 disabled, AssetID icon)
 {
-	Rect2 box = add_item(menu_pos, false, string, value, disabled, icon);
+	Rect2 box;
+	if (!add_item(menu_pos, false, string, value, disabled, icon, &box))
+		return false;
 
 	if (Console::visible || active[gamepad] != this)
 		return false;
 
-	if (gamepad == 0 && box.contains(Game::cursor))
+	if (gamepad == 0 && Game::cursor_active && box.contains(Game::cursor))
 	{
 		selected = items.length - 1;
 
@@ -711,12 +737,14 @@ b8 UIMenu::item(const Update& u, Vec2* menu_pos, const char* string, const char*
 
 UIMenu::Delta UIMenu::slider_item(const Update& u, Vec2* menu_pos, const char* label, const char* value, b8 disabled, AssetID icon)
 {
-	Rect2 box = add_item(menu_pos, true, label, value, disabled, icon);
+	Rect2 box;
+	if (!add_item(menu_pos, true, label, value, disabled, icon, &box))
+		return Delta::None;
 
 	if (Console::visible || active[gamepad] != this)
 		return Delta::None;
 
-	if (gamepad == 0 && box.contains(Game::cursor))
+	if (gamepad == 0 && Game::cursor_active && box.contains(Game::cursor))
 		selected = items.length - 1;
 
 	if (disabled)
@@ -741,10 +769,10 @@ UIMenu::Delta UIMenu::slider_item(const Update& u, Vec2* menu_pos, const char* l
 
 		if (u.input->gamepads[gamepad].active)
 		{
-			r32 last_x = Input::dead_zone(u.last_input->gamepads[gamepad].left_x, JOYSTICK_DEAD_ZONE);
+			r32 last_x = Input::dead_zone(u.last_input->gamepads[gamepad].left_x, UI_JOYSTICK_DEAD_ZONE);
 			if (last_x == 0.0f)
 			{
-				r32 x = Input::dead_zone(u.input->gamepads[gamepad].left_x, JOYSTICK_DEAD_ZONE);
+				r32 x = Input::dead_zone(u.input->gamepads[gamepad].left_x, UI_JOYSTICK_DEAD_ZONE);
 				if (x < 0.0f)
 				{
 					Audio::post_global_event(AK::EVENTS::PLAY_BEEP_GOOD);
@@ -758,7 +786,7 @@ UIMenu::Delta UIMenu::slider_item(const Update& u, Vec2* menu_pos, const char* l
 			}
 		}
 
-		if (gamepad == 0)
+		if (gamepad == 0 && Game::cursor_active)
 		{
 			if (!u.input->get(Controls::Click, gamepad)
 				&& u.last_input->get(Controls::Click, gamepad)
@@ -785,10 +813,6 @@ UIMenu::Delta UIMenu::slider_item(const Update& u, Vec2* menu_pos, const char* l
 
 void UIMenu::end()
 {
-	if (selected < 0)
-		selected = items.length - 1;
-	if (selected >= items.length)
-		selected = 0;
 }
 
 r32 UIMenu::height(s32 items)
@@ -804,13 +828,23 @@ void UIMenu::text_clip(UIText* text, r32 start_time, r32 speed)
 	s32 mod = speed < 40.0f ? 1 : (speed < 100.0f ? 2 : 3);
 	if (text->clip % mod == 0
 		&& (s32)(clip - Game::real_time.delta * speed) < (s32)clip
+		&& text->clipped()
 		&& text->rendered_string[text->clip] != ' '
 		&& text->rendered_string[text->clip] != '\t'
-		&& text->rendered_string[text->clip] != '\n'
-		&& text->clipped())
+		&& text->rendered_string[text->clip] != '\n')
 	{
 		Audio::post_global_event(AK::EVENTS::PLAY_CONSOLE_KEY);
 	}
+}
+
+const UIMenu::Item* UIMenu::last_visible_item() const
+{
+	for (s32 i = items.length - 1; i >= 0; i--)
+	{
+		if (scroll.item(i))
+			return &items[i];
+	}
+	return nullptr;
 }
 
 void UIMenu::draw_alpha(const RenderParams& params) const
@@ -818,36 +852,55 @@ void UIMenu::draw_alpha(const RenderParams& params) const
 	if (items.length == 0)
 		return;
 
+	b8 scroll_started = false;
+
+	Rect2 last_item_rect;
+
 	for (s32 i = 0; i < items.length; i++)
 	{
-		const Item* item = &items[i];
-		Rect2 rect = item->rect();
+		if (!scroll.item(i))
+			continue;
+
+		const Item& item = items[i];
+
+		Rect2 rect = item.rect();
+
+		if (!scroll_started)
+		{
+			scroll.start(params, rect.pos + Vec2(rect.size.x * 0.5f, rect.size.y * 1.5f));
+			scroll_started = true;
+		}
+
 		UI::box(params, rect, UI::background_color);
 		if (active[gamepad] == this && i == selected)
-			UI::box(params, { item->pos + Vec2(-MENU_ITEM_PADDING_LEFT, item->label.size * -UI::scale), Vec2(4 * UI::scale, item->label.size * UI::scale) }, UI::accent_color);
+			UI::box(params, { item.pos + Vec2(-MENU_ITEM_PADDING_LEFT, item.label.size * -UI::scale), Vec2(4 * UI::scale, item.label.size * UI::scale) }, UI::accent_color);
 
-		if (item->icon != AssetNull)
-			UI::mesh(params, item->icon, item->pos + Vec2(MENU_ITEM_PADDING_LEFT * -0.5f, MENU_ITEM_FONT_SIZE * -0.5f), Vec2(UI::scale * MENU_ITEM_FONT_SIZE), item->label.color);
+		if (item.icon != AssetNull)
+			UI::mesh(params, item.icon, item.pos + Vec2(MENU_ITEM_PADDING_LEFT * -0.5f, MENU_ITEM_FONT_SIZE * -0.5f), Vec2(UI::scale * MENU_ITEM_FONT_SIZE), item.label.color);
 
-		item->label.draw(params, item->pos);
+		item.label.draw(params, item.pos);
 
 		r32 value_offset_time = (2 + vi_min(i, 6)) * 0.06f;
 		if (Game::real_time.total - animation_time > value_offset_time)
 		{
-			if (item->value.has_text())
-				item->value.draw(params, item->pos + Vec2(MENU_ITEM_VALUE_OFFSET, 0));
-			if (item->slider)
+			if (item.value.has_text())
+				item.value.draw(params, item.pos + Vec2(MENU_ITEM_VALUE_OFFSET, 0));
+			if (item.slider)
 			{
-				const Rect2& down_rect = item->down_rect();
-				UI::triangle(params, { down_rect.pos + down_rect.size * 0.5f, down_rect.size * 0.5f }, item->label.color, PI * 0.5f);
+				const Rect2& down_rect = item.down_rect();
+				UI::triangle(params, { down_rect.pos + down_rect.size * 0.5f, down_rect.size * 0.5f }, item.label.color, PI * 0.5f);
 
-				const Rect2& up_rect = item->up_rect();
-				UI::triangle(params, { up_rect.pos + up_rect.size * 0.5f, up_rect.size * 0.5f }, item->label.color, PI * -0.5f);
+				const Rect2& up_rect = item.up_rect();
+				UI::triangle(params, { up_rect.pos + up_rect.size * 0.5f, up_rect.size * 0.5f }, item.label.color, PI * -0.5f);
 			}
 		}
+
+		last_item_rect = rect;
 	}
 
-	if (gamepad == 0 && active[gamepad] == this)
+	scroll.end(params, last_item_rect.pos + Vec2(last_item_rect.size.x * 0.5f, last_item_rect.size.y * -0.5f));
+
+	if (gamepad == 0 && active[gamepad] == this && Game::cursor_active)
 		Game::draw_cursor(params);
 }
 

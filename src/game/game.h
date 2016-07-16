@@ -129,6 +129,7 @@ struct Game
 	static r32 physics_timestep;
 	static Vec2 cursor;
 	static b8 cursor_updated;
+	static b8 cursor_active;
 	static AssetID scheduled_load_level;
 	static Mode scheduled_mode;
 	static Array<UpdateFunction> updates;

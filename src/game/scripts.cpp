@@ -724,7 +724,15 @@ namespace Penelope
 			const Choice& choice = data->choices.current();
 			if (choice.a != IDNull)
 			{
-				data->menu.start(u, 0, has_focus());
+				s32 choice_count = 1;
+				if (choice.b != IDNull)
+					choice_count++;
+				if (choice.c != IDNull)
+					choice_count++;
+				if (choice.d != IDNull)
+					choice_count++;
+
+				data->menu.start(u, 0, choice_count, has_focus());
 
 				Vec2 p;
 				if (data->mode == Mode::Left)

@@ -101,7 +101,8 @@ LocalPlayer::LocalPlayer(PlayerManager* m, u8 g)
 	revision(),
 	menu_state(),
 	upgrading(),
-	upgrade_animation_time()
+	upgrade_animation_time(),
+	score_summary_scroll()
 {
 	sprintf(manager.ref()->username, gamepad == 0 ? "etodd" : "etodd[%d]", gamepad); // todo: actual usernames
 
@@ -216,6 +217,7 @@ void LocalPlayer::update(const Update& u)
 
 	// flash message when the buy period expires
 	if (Game::state.mode == Game::Mode::Pvp
+		&& !Team::game_over
 		&& Game::time.total > GAME_BUY_PERIOD
 		&& Game::time.total - Game::time.delta <= GAME_BUY_PERIOD)
 		msg(_(strings::buy_period_expired), true);
@@ -280,7 +282,7 @@ void LocalPlayer::update(const Update& u)
 
 				u8 last_selected = menu.selected;
 
-				menu.start(u, gamepad);
+				menu.start(u, gamepad, (s32)Upgrade::count + 1);
 
 				const Rect2& viewport = camera ? camera->viewport : manager.ref()->entity.ref()->get<LocalPlayerControl>()->camera->viewport;
 
@@ -319,15 +321,26 @@ void LocalPlayer::update(const Update& u)
 			break;
 		}
 		case UIMode::Spawning:
+		{
+			ensure_camera(u, true);
+			break;
+		}
 		case UIMode::GameOver:
 		{
-			// Player is currently dead
 			ensure_camera(u, true);
 
-			// accept score summary
-			if (Game::real_time.total - Team::game_over_real_time > score_summary_delay
-				&& !u.input->get(Controls::Interact, gamepad) && u.last_input->get(Controls::Interact, gamepad))
-				manager.ref()->score_accepted = true;
+			if (Game::real_time.total - Team::game_over_real_time > score_summary_delay)
+			{
+				// update score summary scroll
+				s32 score_summary_count = 0;
+				for (auto player = PlayerManager::list.iterator(); !player.is_last(); player.next())
+					score_summary_count += 2 + player.item()->rating_summary.length;
+				score_summary_scroll.update(u, score_summary_count, gamepad);
+
+				// accept score summary
+				if (!u.input->get(Controls::Interact, gamepad) && u.last_input->get(Controls::Interact, gamepad))
+					manager.ref()->score_accepted = true;
+			}
 			break;
 		}
 		default:
@@ -528,8 +541,8 @@ void LocalPlayer::draw_alpha(const RenderParams& params) const
 				text.text(_(strings::upgrade_description), cost, _(info.description));
 				UIMenu::text_clip(&text, upgrade_animation_time, 150.0f);
 
-				const Rect2& last_item = menu.items[menu.items.length - 1].rect();
-				Vec2 pos(last_item.pos.x + padding, last_item.pos.y - padding * 2.0f);
+				const Rect2& last_item = menu.last_visible_item()->rect();
+				Vec2 pos(last_item.pos.x + padding, last_item.pos.y - MENU_ITEM_HEIGHT - padding * 2.0f);
 				UI::box(params, text.rect(pos).outset(padding), UI::background_color);
 				text.draw(params, pos);
 			}
@@ -649,9 +662,10 @@ void LocalPlayer::draw_alpha(const RenderParams& params) const
 				text.anchor_x = UIText::Anchor::Center;
 				text.anchor_y = UIText::Anchor::Max;
 
-				Vec2 p = title_pos + Vec2(0, -MENU_ITEM_HEIGHT - MENU_ITEM_PADDING);
+				Vec2 p = title_pos + Vec2(0, -2.0f * (MENU_ITEM_HEIGHT + MENU_ITEM_PADDING));
 
-				s32 score_summary_count = 0;
+				score_summary_scroll.start(params, p + Vec2(0, MENU_ITEM_PADDING + MENU_ITEM_HEIGHT * 0.5f));
+				s32 item_counter = 0;
 				for (auto player = PlayerManager::list.iterator(); !player.is_last(); player.next())
 				{
 					text.color = player.item() == manager.ref() ? UI::accent_color : Team::ui_color(manager.ref()->team.ref()->team(), player.item()->team.ref()->team());
@@ -661,39 +675,49 @@ void LocalPlayer::draw_alpha(const RenderParams& params) const
 					amount.wrap_width = 0;
 
 					// username
-					text.text(player.item()->username);
-					UIMenu::text_clip(&text, Team::game_over_real_time + score_summary_delay, 50.0f + (r32)vi_min(score_summary_count, 6) * -5.0f);
-					UI::box(params, text.rect(p).outset(MENU_ITEM_PADDING), UI::background_color);
-					text.draw(params, p);
-					p.y -= text.bounds().y + MENU_ITEM_PADDING * 2.0f;
-					score_summary_count++;
+					if (score_summary_scroll.item(item_counter))
+					{
+						text.text(player.item()->username);
+						UIMenu::text_clip(&text, Team::game_over_real_time + score_summary_delay, 50.0f + (r32)vi_min(item_counter, 6) * -5.0f);
+						UI::box(params, text.rect(p).outset(MENU_ITEM_PADDING), UI::background_color);
+						text.draw(params, p);
+						p.y -= text.bounds().y + MENU_ITEM_PADDING * 2.0f;
+					}
+					item_counter++;
 
 					// rating breakdown
 					s32 total = 0;
 					const auto& rating_summary = player.item()->rating_summary;
 					for (s32 i = 0; i < rating_summary.length; i++)
 					{
-						text.text(_(rating_summary[i].label));
-						UIMenu::text_clip(&text, Team::game_over_real_time + score_summary_delay, 50.0f + (r32)vi_min(score_summary_count, 6) * -5.0f);
-						UI::box(params, text.rect(p).outset(MENU_ITEM_PADDING), UI::background_color);
-						text.draw(params, p);
+						if (score_summary_scroll.item(item_counter))
+						{
+							text.text(_(rating_summary[i].label));
+							UIMenu::text_clip(&text, Team::game_over_real_time + score_summary_delay, 50.0f + (r32)vi_min(item_counter, 6) * -5.0f);
+							UI::box(params, text.rect(p).outset(MENU_ITEM_PADDING), UI::background_color);
+							text.draw(params, p);
+							amount.text("%d", rating_summary[i].amount);
+							amount.draw(params, p + Vec2(MENU_ITEM_WIDTH * 0.5f - MENU_ITEM_PADDING, 0));
+							p.y -= text.bounds().y + MENU_ITEM_PADDING * 2.0f;
+						}
 						total += rating_summary[i].amount;
-						amount.text("%d", rating_summary[i].amount);
-						amount.draw(params, p + Vec2(MENU_ITEM_WIDTH * 0.5f - MENU_ITEM_PADDING, 0));
-						p.y -= text.bounds().y + MENU_ITEM_PADDING * 2.0f;
-						score_summary_count++;
+						item_counter++;
 					}
 
 					// total
-					text.text(_(strings::total_rating_gain));
-					UIMenu::text_clip(&text, Team::game_over_real_time + score_summary_delay, 50.0f + (r32)vi_min(score_summary_count, 6) * -5.0f);
-					UI::box(params, text.rect(p).outset(MENU_ITEM_PADDING), UI::background_color);
-					text.draw(params, p);
-					amount.text("%d", total);
-					amount.draw(params, p + Vec2(MENU_ITEM_WIDTH * 0.5f - MENU_ITEM_PADDING, 0));
-					p.y -= text.bounds().y + MENU_ITEM_PADDING * 2.0f;
-					score_summary_count++;
+					if (score_summary_scroll.item(item_counter))
+					{
+						text.text(_(strings::total_rating_gain));
+						UIMenu::text_clip(&text, Team::game_over_real_time + score_summary_delay, 50.0f + (r32)vi_min(item_counter, 6) * -5.0f);
+						UI::box(params, text.rect(p).outset(MENU_ITEM_PADDING), UI::background_color);
+						text.draw(params, p);
+						amount.text("%d", total);
+						amount.draw(params, p + Vec2(MENU_ITEM_WIDTH * 0.5f - MENU_ITEM_PADDING, 0));
+						p.y -= text.bounds().y + MENU_ITEM_PADDING * 2.0f;
+					}
+					item_counter++;
 				}
+				score_summary_scroll.end(params, p);
 
 				// press x to continue
 				{

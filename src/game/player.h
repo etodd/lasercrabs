@@ -36,6 +36,7 @@ struct LocalPlayer
 	Menu::State menu_state;
 	b8 upgrading;
 	r32 upgrade_animation_time;
+	UIScroll score_summary_scroll;
 
 	inline ID id() const
 	{

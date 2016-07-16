@@ -221,11 +221,26 @@ namespace VI
 
 			SDL_PumpEvents();
 
+			memcpy(sync->input.keys, sdl_keys, sizeof(sync->input.keys));
+
+			sync->input.keys[(s32)KeyCode::MouseWheelDown] = false;
+			sync->input.keys[(s32)KeyCode::MouseWheelUp] = false;
+
 			SDL_Event sdl_event;
 			while (SDL_PollEvent(&sdl_event))
 			{
 				if (sdl_event.type == SDL_QUIT)
 					sync->quit = true;
+				else if (sdl_event.type == SDL_MOUSEWHEEL)
+				{ 
+					b8 up = sdl_event.wheel.y > 0;
+					if (sdl_event.wheel.direction == SDL_MOUSEWHEEL_FLIPPED)
+						up = !up;
+					if (up)
+						sync->input.keys[(s32)KeyCode::MouseWheelUp] = true;
+					else
+						sync->input.keys[(s32)KeyCode::MouseWheelDown] = true;
+				} 
 				else if (sdl_event.type == SDL_JOYDEVICEADDED
 					|| sdl_event.type == SDL_JOYDEVICEREMOVED)
 					refresh_controllers();
@@ -239,8 +254,6 @@ namespace VI
 			}
 
 			sync->input.focus = has_focus;
-
-			memcpy(sync->input.keys, sdl_keys, sizeof(sync->input.keys));
 
 			u32 mouse_buttons = SDL_GetRelativeMouseState(&sync->input.cursor_x, &sync->input.cursor_y);
 

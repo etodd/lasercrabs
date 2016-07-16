@@ -7,6 +7,9 @@
 namespace VI
 {
 
+
+#define UI_JOYSTICK_DEAD_ZONE 0.5f
+
 struct RenderParams;
 
 struct UIText
@@ -48,6 +51,20 @@ struct UIText
 	b8 has_text() const;
 	void draw(const RenderParams&, const Vec2&, r32 = 0.0f) const;
 	UIText();
+};
+
+#define UI_SCROLL_MAX 7
+struct UIScroll
+{
+	s32 pos;
+	s32 count;
+
+	void update(const Update&, s32, s32, b8 = true); // for non-menu things
+	void update_menu(const Update&, s32, s32, b8 = true); // for menus
+	void scroll_into_view(s32);
+	void start(const RenderParams&, const Vec2&) const;
+	void end(const RenderParams&, const Vec2&) const;
+	b8 item(s32) const;
 };
 
 struct LoopSync;

@@ -244,6 +244,9 @@ enum class KeyCode
 	MouseRight,
 	MouseMiddle,
 
+	MouseWheelUp,
+	MouseWheelDown,
+
 	Count,
 };
 

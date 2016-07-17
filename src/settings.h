@@ -25,6 +25,7 @@ namespace Settings
 	extern u8 music;
 	extern s32 framerate_limit;
 	extern ShadowQuality shadow_quality;
+	extern b8 volumetric_lighting;
 };
 
 

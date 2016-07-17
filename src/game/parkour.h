@@ -54,6 +54,7 @@ struct Parkour : public ComponentType<Parkour>
 	b8 can_double_jump;
 	b8 slide_continue;
 	r32 lean;
+	r32 last_angular_velocity;
 
 	b8 wallrun(const Update&, RigidBody*, const Vec3&, const Vec3&);
 

@@ -564,7 +564,8 @@ void draw(LoopSync* sync, const Camera* camera)
 				draw_far_shadow_cascade = !draw_far_shadow_cascade;
 
 				render_params.shadow_vp = relative_shadow_vp(*render_params.camera, far_shadow_cascade_camera);
-				render_params.shadow_buffer = shadow_buffer[1]; // skybox needs this for volumetric lighting
+				if (Settings::volumetric_lighting)
+					render_params.shadow_buffer = shadow_buffer[1]; // skybox needs this for volumetric lighting
 
 				// Detail shadow map
 				shadow_camera.viewport =
@@ -1082,10 +1083,23 @@ void draw(LoopSync* sync, const Camera* camera)
 		sync->write(RenderTechnique::Default);
 
 		sync->write(RenderOp::Uniform);
+		sync->write(Asset::Uniform::p);
+		sync->write(RenderDataType::Mat4);
+		sync->write<s32>(1);
+		sync->write<Mat4>(render_params.camera->projection);
+
+		sync->write(RenderOp::Uniform);
 		sync->write(Asset::Uniform::buffer_size);
 		sync->write(RenderDataType::Vec2);
 		sync->write<s32>(1);
 		sync->write<Vec2>(buffer_size);
+
+		sync->write(RenderOp::Uniform);
+		sync->write(Asset::Uniform::depth_buffer);
+		sync->write(RenderDataType::Texture);
+		sync->write<s32>(1);
+		sync->write<RenderTextureType>(RenderTextureType::Texture2D);
+		sync->write<AssetID>(depth_buffer);
 
 		sync->write(RenderOp::Uniform);
 		sync->write(Asset::Uniform::time);

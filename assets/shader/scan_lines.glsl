@@ -16,15 +16,26 @@ void main()
 in vec2 uv;
 
 uniform vec2 buffer_size;
+uniform sampler2D depth_buffer;
 uniform float time;
+uniform mat4 p;
 
 out vec4 out_color;
 
 void main()
 {
-	float value = float(int(time * 60 + uv.y * buffer_size.y) % 4 > 0);
-	float add = value * 0.1;
-	out_color = vec4(add, add, add, 0.8 + value * 0.2);
+	float y = time * 16 + uv.y * buffer_size.y;
+	int y0 = int(y);
+	int y1 = y0 + 1;
+	float line1 = float(y0 % 4 == 0);
+	float line2 = float(y1 % 4 == 0);
+	float value = mix(line1, line2, y - y0);
+	float clip_depth = texture(depth_buffer, uv).x;
+	float clip_depth_scaled = clip_depth * 2.0 - 1.0;
+	float depth = p[3][2] / (clip_depth_scaled - p[2][2]);
+	float strength = 0.05 + clamp((depth - 5.0) / 40.0, 0, 1) * 0.3;
+	float add = value * strength;
+	out_color = vec4(add, add, add, 1);
 }
 
 #endif

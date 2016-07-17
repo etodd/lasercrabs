@@ -556,7 +556,7 @@ namespace VI
 						Vec3 rocket_pos = rocket.item()->get<Transform>()->absolute_pos();
 						if (rocket.item()->team == team->team() // it belongs to our team
 							&& rocket.item()->get<Transform>()->parent.ref() // it's waiting to be fired
-							&& (rocket_pos - player_pos).length_squared() < AWK_MAX_DISTANCE * 2.0f * AWK_MAX_DISTANCE * 2.0f // it's in range
+							&& (rocket_pos - player_pos).length_squared() < ROCKET_RANGE * ROCKET_RANGE // it's in range
 							&& ContainmentField::inside(team->team(), player_pos) == ContainmentField::inside(team->team(), rocket_pos)  // force fields will not get between the rocket and the player
 							&& (track->tracking || (rocket.item()->owner.ref() && PlayerCommon::visibility.get(PlayerCommon::visibility_hash(rocket.item()->owner.ref()->get<PlayerCommon>(), player_entity->get<PlayerCommon>()))))) // we're tracking the player, or the owner is alive and can see the player
 						{

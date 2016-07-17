@@ -308,7 +308,12 @@ Sensor* Sensor::closest(AI::Team team, const Vec3& pos, r32* distance)
 	}
 
 	if (distance)
-		*distance = sqrtf(closest_distance);
+	{
+		if (closest)
+			*distance = sqrtf(closest_distance);
+		else
+			*distance = FLT_MAX;
+	}
 
 	return closest;
 }
@@ -532,6 +537,35 @@ Rocket* Rocket::inbound(Entity* target)
 	return nullptr;
 }
 
+Rocket* Rocket::closest(AI::Team team, const Vec3& pos, r32* distance)
+{
+	Rocket* closest = nullptr;
+	r32 closest_distance = FLT_MAX;
+
+	for (auto i = list.iterator(); !i.is_last(); i.next())
+	{
+		if (i.item()->team == team)
+		{
+			r32 d = (i.item()->get<Transform>()->absolute_pos() - pos).length_squared();
+			if (d < closest_distance)
+			{
+				closest = i.item();
+				closest_distance = d;
+			}
+		}
+	}
+
+	if (distance)
+	{
+		if (closest)
+			*distance = sqrtf(closest_distance);
+		else
+			*distance = FLT_MAX;
+	}
+
+	return closest;
+}
+
 // apply damage from a surrogate (rocket pod, projectile, etc.) to an enemy Awk
 void do_surrogate_damage(Entity* awk, Entity* surrogate, Entity* owner)
 {
@@ -736,6 +770,35 @@ void ContainmentField::hit_by(const TargetEvent& e)
 void ContainmentField::killed(Entity*)
 {
 	World::remove_deferred(entity());
+}
+
+ContainmentField* ContainmentField::closest(AI::Team team, const Vec3& pos, r32* distance)
+{
+	ContainmentField* closest = nullptr;
+	r32 closest_distance = FLT_MAX;
+
+	for (auto i = list.iterator(); !i.is_last(); i.next())
+	{
+		if (i.item()->team == team)
+		{
+			r32 d = (i.item()->get<Transform>()->absolute_pos() - pos).length_squared();
+			if (d < closest_distance)
+			{
+				closest = i.item();
+				closest_distance = d;
+			}
+		}
+	}
+
+	if (distance)
+	{
+		if (closest)
+			*distance = sqrtf(closest_distance);
+		else
+			*distance = FLT_MAX;
+	}
+
+	return closest;
 }
 
 r32 ContainmentField::particle_accumulator;

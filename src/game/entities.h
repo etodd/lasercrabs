@@ -98,6 +98,7 @@ struct Sensor : public ComponentType<Sensor>
 	static void update_all(const Update&);
 };
 
+#define ROCKET_RANGE (AWK_MAX_DISTANCE * 2.0f)
 struct Rocket : public ComponentType<Rocket>
 {
 	AI::Team team;
@@ -106,6 +107,7 @@ struct Rocket : public ComponentType<Rocket>
 	r32 particle_accumulator;
 
 	static Rocket* inbound(Entity*);
+	static Rocket* closest(AI::Team, const Vec3&, r32* = nullptr);
 
 	void awake();
 	void killed(Entity*);
@@ -126,6 +128,7 @@ struct ContainmentField : public ComponentType<ContainmentField>
 
 	static void update_all(const Update&);
 	static ContainmentField* inside(AI::Team, const Vec3&);
+	static ContainmentField* closest(AI::Team, const Vec3&, r32*);
 
 	AI::Team team;
 	Ref<Entity> field;

@@ -261,6 +261,10 @@ void Parkour::update(const Update& u)
 
 	r32 lean_target = 0.0f;
 
+	r32 angular_velocity = LMath::angle_to(get<PlayerCommon>()->angle_horizontal, get<PlayerCommon>()->last_angle_horizontal);
+	angular_velocity = (0.5f * angular_velocity) + (0.5f * last_angular_velocity); // smooth it out a bit
+	last_angular_velocity = angular_velocity;
+
 	if (fsm.current == State::Mantle)
 	{
 		get<Animator>()->layers[1].play(Asset::Animation::character_mantle);
@@ -400,7 +404,7 @@ void Parkour::update(const Update& u)
 			last_support_time = Game::time.total;
 			last_support = get<Walker>()->support;
 			relative_support_pos = last_support.ref()->get<Transform>()->to_local(get<Walker>()->base_pos());
-			lean_target = get<Walker>()->net_speed * LMath::angle_to(get<PlayerCommon>()->angle_horizontal, get<PlayerCommon>()->last_angle_horizontal) * (1.0f / 180.0f) / u.time.delta;
+			lean_target = get<Walker>()->net_speed * angular_velocity * (1.0f / 180.0f) / u.time.delta;
 		}
 	}
 	else if (fsm.current == State::Slide || fsm.current == State::Roll)

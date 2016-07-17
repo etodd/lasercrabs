@@ -705,9 +705,29 @@ b8 should_spawn_minion(const AIPlayerControl* control)
 		MinionCommon::closest(my_team, my_pos, &closest_minion);
 		if (closest_minion > AWK_MAX_DISTANCE)
 		{
+			b8 spawn = false;
 			r32 closest_enemy_sensor;
 			Sensor::closest(AI::other(my_team), my_pos, &closest_enemy_sensor);
-			if (closest_enemy_sensor < SENSOR_RANGE + AWK_MAX_DISTANCE * 1.25f)
+			if (closest_enemy_sensor < SENSOR_RANGE + AWK_MAX_DISTANCE)
+				spawn = true;
+
+			if (!spawn)
+			{
+				r32 closest_enemy_rocket;
+				Rocket::closest(AI::other(my_team), my_pos, &closest_enemy_rocket);
+				if (closest_enemy_rocket < ROCKET_RANGE)
+					spawn = true;
+			}
+
+			if (!spawn)
+			{
+				r32 closest_enemy_field;
+				ContainmentField::closest(AI::other(my_team), my_pos, &closest_enemy_field);
+				if (closest_enemy_field < CONTAINMENT_FIELD_RADIUS + AWK_MAX_DISTANCE)
+					spawn = true;
+			}
+
+			if (spawn)
 			{
 				// make sure the minion has a reasonably close surface to stand on
 				Vec3 ray_start = my_pos + my_rot * Vec3(0, 0, 1);

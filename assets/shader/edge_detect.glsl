@@ -55,9 +55,9 @@ void main()
 	float normal_delta = max(0, 2.0 - dot(normal1, normal3) - dot(normal2, normal4));
 
 	float depth_delta = (4.0 * dot(abs(vec4(depth) - depths), vec4(1)) / depth) * -dot(view_ray, normal);
-	out_color = vec4(color
-		+ ((vec3(1) - color) * step(0.5, normal_delta * 16.0f + depth_delta) * float(length(view_ray)))
-		, 1);
+	vec3 final_color = color
+		+ ((vec3(1) - color) * step(0.5, normal_delta * 16.0f + depth_delta) * float(length(view_ray)));
+	out_color = vec4(final_color, 1);
 }
 
 #endif

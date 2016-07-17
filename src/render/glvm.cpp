@@ -953,6 +953,18 @@ void render(RenderSync* sync)
 						glBlendFuncSeparatei(0, GL_DST_ALPHA, GL_ONE_MINUS_DST_ALPHA, GL_ZERO, GL_ONE);
 						break;
 					}
+					case RenderBlendMode::AddMultiply:
+					{
+						glEnablei(GL_BLEND, 0);
+						glBlendFunci(0, GL_ONE, GL_SRC_ALPHA);
+						break;
+					}
+					case RenderBlendMode::Multiply:
+					{
+						glEnablei(GL_BLEND, 0);
+						glBlendFunci(0, GL_ZERO, GL_SRC_ALPHA);
+						break;
+					}
 					default:
 					{
 						vi_assert(false);

@@ -438,8 +438,8 @@ b8 UIScroll::item(s32 i) const
 }
 
 const Vec4 UI::default_color = Vec4(1, 1, 1, 1);
-const Vec4 UI::alert_color = Vec4(1.0f, 0.5f, 0.5f, 1);
-const Vec4 UI::accent_color = Vec4(1.0f, 0.9f, 0.4f, 1);
+const Vec4 UI::alert_color = Vec4(1.0f, 0.4f, 0.4f, 1);
+const Vec4 UI::accent_color = Vec4(1.0f, 0.85f, 0.35f, 1);
 const Vec4 UI::background_color = Vec4(0, 0, 0, 1);
 const Vec4 UI::disabled_color = Vec4(0.5f, 0.5f, 0.5f, 1);
 r32 UI::scale = 1.0f;

@@ -62,6 +62,37 @@ AIPlayer::Config AIPlayer::generate_config()
 		config.inaccuracy_range = PI * 0.03f;
 		config.aim_timeout = 2.5f;
 		config.aim_speed = 1.8f;
+
+		if (mersenne::rand() % 2 == 0)
+		{
+			config.upgrade_priority[0] = Upgrade::Minion;
+			config.upgrade_priority[1] = Upgrade::Sensor;
+			config.upgrade_priority[2] = Upgrade::Rocket;
+			config.upgrade_priority[3] = Upgrade::HealthBuff;
+			config.upgrade_priority[4] = Upgrade::HealthSteal;
+			config.upgrade_priority[5] = Upgrade::ContainmentField;
+			config.upgrade_strategies[0] = UpgradeStrategy::IfAvailable; // sensor
+			config.upgrade_strategies[1] = UpgradeStrategy::Ignore; // rocket
+			config.upgrade_strategies[2] = UpgradeStrategy::SaveUp; // minion
+			config.upgrade_strategies[3] = UpgradeStrategy::IfAvailable; // containment field
+			config.upgrade_strategies[4] = UpgradeStrategy::IfAvailable; // health steal
+			config.upgrade_strategies[5] = UpgradeStrategy::Ignore; // health buff
+		}
+		else
+		{
+			config.upgrade_priority[0] = Upgrade::Sensor;
+			config.upgrade_priority[1] = Upgrade::Minion;
+			config.upgrade_priority[2] = Upgrade::Rocket;
+			config.upgrade_priority[3] = Upgrade::HealthBuff;
+			config.upgrade_priority[4] = Upgrade::HealthSteal;
+			config.upgrade_priority[5] = Upgrade::ContainmentField;
+			config.upgrade_strategies[0] = UpgradeStrategy::SaveUp; // sensor
+			config.upgrade_strategies[1] = UpgradeStrategy::Ignore; // rocket
+			config.upgrade_strategies[2] = UpgradeStrategy::IfAvailable; // minion
+			config.upgrade_strategies[3] = UpgradeStrategy::IfAvailable; // containment field
+			config.upgrade_strategies[4] = UpgradeStrategy::IfAvailable; // health steal
+			config.upgrade_strategies[5] = UpgradeStrategy::Ignore; // health buff
+		}
 	}
 
 	return config;

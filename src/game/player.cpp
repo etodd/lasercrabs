@@ -1034,9 +1034,8 @@ void LocalPlayerControl::awk_attached()
 LocalPlayerControl::LocalPlayerControl(u8 gamepad)
 	: gamepad(gamepad),
 	fov_blend(),
-	allow_zoom(true),
-	try_jump(),
-	try_parkour(),
+	try_primary(),
+	try_secondary(),
 	damage_timer(),
 	health_flash_timer(),
 	rumble(),
@@ -1215,7 +1214,8 @@ void LocalPlayerControl::detach()
 {
 	if (get<Awk>()->detach(detach_dir))
 	{
-		allow_zoom = false;
+		try_primary = false;
+		try_secondary = false;
 		get<Audio>()->post_event(AK::EVENTS::PLAY_FLY);
 	}
 }
@@ -1282,25 +1282,25 @@ void LocalPlayerControl::update(const Update& u)
 		// pvp mode
 		{
 			// zoom
-			r32 fov_blend_target = 0.0f;
-			if (get<Transform>()->parent.ref() && input_enabled())
+			b8 secondary_pressed = u.input->get(Controls::Secondary, gamepad);
+			b8 last_secondary_pressed = u.last_input->get(Controls::Secondary, gamepad);
+			if (secondary_pressed && !last_secondary_pressed)
 			{
-				if (u.input->get(Controls::Secondary, gamepad))
+				if (get<Transform>()->parent.ref() && input_enabled())
 				{
-					if (allow_zoom)
-					{
-						fov_blend_target = 1.0f;
-						if (!u.last_input->get(Controls::Secondary, gamepad))
-							get<Audio>()->post_event(AK::EVENTS::PLAY_ZOOM_IN);
-					}
-				}
-				else
-				{
-					if (allow_zoom && u.last_input->get(Controls::Secondary, gamepad))
-						get<Audio>()->post_event(AK::EVENTS::PLAY_ZOOM_OUT);
-					allow_zoom = true;
+					// we can actually zoom
+					try_secondary = true;
+					get<Audio>()->post_event(AK::EVENTS::PLAY_ZOOM_IN);
 				}
 			}
+			else if (!secondary_pressed)
+			{
+				if (try_secondary)
+					get<Audio>()->post_event(AK::EVENTS::PLAY_ZOOM_OUT);
+				try_secondary = false;
+			}
+
+			r32 fov_blend_target = try_secondary ? 1.0f : 0.0f;
 
 			if (fov_blend < fov_blend_target)
 				fov_blend = vi_min(fov_blend + u.time.delta * zoom_speed, fov_blend_target);
@@ -1548,6 +1548,14 @@ void LocalPlayerControl::update(const Update& u)
 			}
 		}
 
+		{
+			b8 primary_pressed = u.input->get(Controls::Primary, gamepad);
+			if (primary_pressed && !u.last_input->get(Controls::Primary, gamepad))
+				try_primary = true;
+			else if (!primary_pressed)
+				try_primary = false;
+		}
+
 		if (reticle.type == ReticleType::None || !get<Awk>()->cooldown_can_go())
 		{
 			// can't shoot
@@ -1561,7 +1569,7 @@ void LocalPlayerControl::update(const Update& u)
 		else
 		{
 			// we're aiming at something
-			if (u.input->get(Controls::Primary, gamepad))
+			if (try_primary)
 				detach();
 		}
 	}
@@ -1581,16 +1589,16 @@ void LocalPlayerControl::update(const Update& u)
 			get<Parkour>()->fsm.transition(Parkour::State::Normal);
 
 		if (parkour_pressed && !u.last_input->get(Controls::Parkour, gamepad))
-			try_parkour = true;
+			try_secondary = true;
 		else if (!parkour_pressed)
-			try_parkour = false;
+			try_secondary = false;
 
-		if (try_parkour)
+		if (try_secondary)
 		{
 			if (get<Parkour>()->try_parkour())
 			{
-				try_parkour = false;
-				try_jump = false;
+				try_secondary = false;
+				try_primary = false;
 				try_slide = false;
 			}
 		}
@@ -1598,16 +1606,16 @@ void LocalPlayerControl::update(const Update& u)
 		// jump button
 		b8 jump_pressed = movement_enabled() && u.input->get(Controls::Jump, gamepad);
 		if (jump_pressed && !u.last_input->get(Controls::Jump, gamepad))
-			try_jump = true;
+			try_primary = true;
 		else if (!jump_pressed)
-			try_jump = false;
+			try_primary = false;
 
-		if (try_jump)
+		if (try_primary)
 		{
 			if (get<Parkour>()->try_jump(get<PlayerCommon>()->angle_horizontal))
 			{
-				try_parkour = false;
-				try_jump = false;
+				try_secondary = false;
+				try_primary = false;
 				try_slide = false;
 			}
 		}
@@ -1626,8 +1634,8 @@ void LocalPlayerControl::update(const Update& u)
 		{
 			if (get<Parkour>()->try_slide())
 			{
-				try_parkour = false;
-				try_jump = false;
+				try_secondary = false;
+				try_primary = false;
 				try_slide = false;
 			}
 		}

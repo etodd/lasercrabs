@@ -35,11 +35,6 @@ uniform vec3 wall_normal;
 uniform float range;
 uniform vec3 range_center;
 
-float bump_contrast(float x)
-{
-	return ((x - 0.5f) * 1.5f) + 0.5f;
-}
-
 out vec4 out_color;
 
 void main()

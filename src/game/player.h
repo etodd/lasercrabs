@@ -121,9 +121,8 @@ struct LocalPlayerControl : public ComponentType<LocalPlayerControl>
 	r32 damage_timer;
 	r32 health_flash_timer;
 	Vec3 detach_dir;
-	b8 allow_zoom;
-	b8 try_parkour;
-	b8 try_jump;
+	b8 try_secondary;
+	b8 try_primary;
 	b8 try_slide;
 	u8 gamepad;
 	r32 rumble;

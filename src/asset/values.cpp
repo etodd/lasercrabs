@@ -369,6 +369,7 @@ const char* AssetLookup::Shader::values[] =
 	"assets/shader/particle_standard.glsl",
 	"assets/shader/particle_textured.glsl",
 	"assets/shader/point_light.glsl",
+	"assets/shader/scan_lines.glsl",
 	"assets/shader/sky_decal.glsl",
 	"assets/shader/skybox.glsl",
 	"assets/shader/spot_light.glsl",
@@ -401,6 +402,7 @@ const char* AssetLookup::Shader::names[] =
 	"particle_standard",
 	"particle_textured",
 	"point_light",
+	"scan_lines",
 	"sky_decal",
 	"skybox",
 	"spot_light",
@@ -420,6 +422,7 @@ const char* AssetLookup::Uniform::names[] =
 {
 	"ambient_color",
 	"bones",
+	"buffer_size",
 	"color_buffer",
 	"cull_behind_wall",
 	"cull_center",

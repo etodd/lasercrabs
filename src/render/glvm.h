@@ -62,6 +62,8 @@ enum class RenderBlendMode
 	Alpha,
 	Additive,
 	AlphaDestination,
+	AddMultiply,
+	Multiply,
 };
 
 enum class RenderDynamicTextureType

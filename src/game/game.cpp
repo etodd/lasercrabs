@@ -959,7 +959,7 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 	const Vec3 pvp_accessible(0.7f);
 	const Vec3 pvp_inaccessible(0.0f);
 	const Vec3 pvp_sky(0.0f);
-	const Vec3 pvp_ambient(0.2f);
+	const Vec3 pvp_ambient(0.25f);
 	const Vec3 pvp_player_light(1.0f);
 
 	AI::Team teams[(s32)AI::Team::count];

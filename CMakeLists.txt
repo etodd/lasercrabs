@@ -358,6 +358,7 @@ add_executable(yearning
 	assets/shader/ssao_blur.glsl
 	assets/shader/ssao_downsample.glsl
 	assets/shader/edge_detect.glsl
+	assets/shader/scan_lines.glsl
 	assets/shader/bloom_downsample.glsl
 	assets/shader/blur.glsl
 	assets/shader/skybox.glsl

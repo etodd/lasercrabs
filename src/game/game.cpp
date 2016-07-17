@@ -86,6 +86,25 @@ Game::State::State()
 {
 }
 
+r32 Game::State::effective_time_scale() const
+{
+	switch (network_state)
+	{
+		case NetworkState::Lag:
+		{
+			return 0.0f;
+		}
+		case NetworkState::Recover:
+		{
+			return time_scale * 3.0f;
+		}
+		default:
+		{
+			return time_scale;
+		}
+	}
+}
+
 void Game::State::reset()
 {
 	AssetID l = level;
@@ -99,8 +118,8 @@ const s32 Game::levels[] =
 	Asset::Level::Soteria,
 	Asset::Level::Medias_Res,
 	Asset::Level::Ioke,
-	Asset::Level::Tyche,
 	Asset::Level::Ponos,
+	Asset::Level::Tyche,
 	Asset::Level::Moros,
 	AssetNull,
 };
@@ -239,9 +258,9 @@ b8 Game::init(LoopSync* sync)
 void Game::update(const Update& update_in)
 {
 	real_time = update_in.time;
-	time.delta = update_in.time.delta * state.time_scale;
+	time.delta = update_in.time.delta * state.effective_time_scale();
 	time.total += time.delta;
-	physics_timestep = (1.0f / 60.0f) * state.time_scale;
+	physics_timestep = (1.0f / 60.0f) * state.effective_time_scale();
 
 	cursor_updated = false;
 
@@ -259,7 +278,6 @@ void Game::update(const Update& update_in)
 				case NetworkState::Normal:
 				{
 					state.network_state = NetworkState::Lag;
-					state.time_scale = 0.0f;
 					if (state.network_quality == NetworkQuality::Bad)
 						state.network_time = 0.2f + mersenne::randf_cc() * (mersenne::randf_cc() < 0.1f ? 4.0f : 0.3f);
 					else
@@ -270,21 +288,14 @@ void Game::update(const Update& update_in)
 				{
 					state.network_state = NetworkState::Recover;
 					if (state.network_time > 0.5f)
-					{
-						state.time_scale = 2.0f;
 						state.network_time = state.network_time * 0.5f + mersenne::randf_cc() * 0.3f; // recovery time is proportional to lag time
-					}
 					else
-					{
-						state.time_scale = 4.0f;
 						state.network_time = 0.05f + mersenne::randf_cc() * 0.2f;
-					}
 					break;
 				}
 				case NetworkState::Recover:
 				{
 					state.network_state = NetworkState::Normal;
-					state.time_scale = 1.0f;
 					if (mersenne::randf_cc() < (state.network_quality == NetworkQuality::Bad ? 0.6f : 0.3f))
 						state.network_time = 0.05f + mersenne::randf_cc() * 0.15f; // go right back into lag state
 					else
@@ -310,8 +321,6 @@ void Game::update(const Update& update_in)
 			}
 		}
 	}
-	else
-		state.time_scale = 1.0f;
 
 	Menu::update(u);
 
@@ -392,10 +401,23 @@ void Game::term()
 
 void Game::draw_opaque(const RenderParams& render_params)
 {
+	// disable backface culling in PvP mode
+	if (state.mode == Mode::Pvp && render_params.technique == RenderTechnique::Default)
+	{
+		render_params.sync->write(RenderOp::CullMode);
+		render_params.sync->write(RenderCullMode::None);
+	}
+
 	View::draw_opaque(render_params);
 
 	for (auto i = Water::list.iterator(); !i.is_last(); i.next())
 		i.item()->draw_opaque(render_params);
+
+	if (state.mode == Mode::Pvp && render_params.technique == RenderTechnique::Default)
+	{
+		render_params.sync->write(RenderOp::CullMode);
+		render_params.sync->write(RenderCullMode::Back);
+	}
 
 	Rope::draw_opaque(render_params);
 	SkinnedModel::draw_opaque(render_params);

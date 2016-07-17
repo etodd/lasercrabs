@@ -91,12 +91,16 @@ void View::draw(const RenderParams& params) const
 			return;
 	}
 
-	Loader::shader(shader);
+	// if allow_culled_shader is false, replace the culled shader with the standard shader.
+	b8 allow_culled_shader = params.camera->cull_range > 0.0f;
+	AssetID actual_shader = allow_culled_shader || shader != Asset::Shader::culled ? shader : Asset::Shader::standard;
+
+	Loader::shader(actual_shader);
 	Loader::texture(texture);
 
 	RenderSync* sync = params.sync;
 	sync->write(RenderOp::Shader);
-	sync->write(shader);
+	sync->write(actual_shader);
 	sync->write(params.technique);
 
 	Mat4 mvp = m * params.view_projection;
@@ -129,7 +133,7 @@ void View::draw(const RenderParams& params) const
 			sync->write<Vec4>(team_color);
 	}
 
-	if (shader == Asset::Shader::culled)
+	if (actual_shader == Asset::Shader::culled)
 	{
 		// write culling info
 		sync->write(RenderOp::Uniform);
@@ -143,6 +147,18 @@ void View::draw(const RenderParams& params) const
 		sync->write(RenderDataType::R32);
 		sync->write<s32>(1);
 		sync->write<r32>(params.camera->cull_range);
+
+		sync->write(RenderOp::Uniform);
+		sync->write(Asset::Uniform::wall_normal);
+		sync->write(RenderDataType::Vec3);
+		sync->write<s32>(1);
+		sync->write<Vec3>(params.camera->wall_normal);
+
+		sync->write(RenderOp::Uniform);
+		sync->write(Asset::Uniform::cull_behind_wall);
+		sync->write(RenderDataType::S32);
+		sync->write<s32>(1);
+		sync->write<s32>(params.camera->cull_behind_wall);
 	}
 
 	if (texture != AssetNull)
@@ -538,15 +554,9 @@ void Water::draw_opaque(const RenderParams& params)
 	sync->write<s32>(1);
 	sync->write<Vec4>(color);
 
-	sync->write(RenderOp::CullMode);
-	sync->write(RenderCullMode::None);
-
 	sync->write(RenderOp::Mesh);
 	sync->write(RenderPrimitiveMode::Triangles);
 	sync->write(mesh);
-
-	sync->write(RenderOp::CullMode);
-	sync->write(RenderCullMode::Back);
 }
 
 void Water::draw_alpha(const RenderParams& params)

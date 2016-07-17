@@ -54,20 +54,28 @@ in vec3 pos_viewspace;
 // Values that stay constant for the whole mesh.
 uniform vec4 diffuse_color;
 uniform vec3 cull_center;
-uniform vec3 cull_normal;
+uniform vec3 wall_normal;
 uniform float cull_radius;
+uniform bool cull_behind_wall;
 
 layout (location = 0) out vec4 out_color;
 layout (location = 1) out vec4 out_normal;
 
 void main()
 {
-	if (cull_radius != 0.0f)
+	vec3 p = pos_viewspace - cull_center;
+	bool behind_wall = dot(p, wall_normal) < 0.0f;
+	if (cull_behind_wall)
 	{
-		vec3 p = pos_viewspace - cull_center;
-		if (dot(pos_viewspace, pos_viewspace) < cull_radius && dot(p, p) < (cull_radius * cull_radius))
+		if (dot(pos_viewspace, pos_viewspace) < (cull_radius * cull_radius) || (behind_wall && dot(p, p) < (cull_radius * cull_radius * 0.25)))
 			discard;
 	}
+	else
+	{
+		if (!behind_wall && dot(pos_viewspace, pos_viewspace) < (cull_radius * cull_radius))
+			discard;
+	}
+
 	out_color = diffuse_color;
 	out_normal = vec4(normalize(normal_viewspace) * 0.5 + 0.5, 1.0);
 }

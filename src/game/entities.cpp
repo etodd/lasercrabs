@@ -826,7 +826,7 @@ Terminal::Terminal()
 	create<Transform>();
 
 	View* view = create<View>();
-	view->mesh = Asset::Mesh::terminal_base;
+	view->mesh = Asset::Mesh::terminal;
 	view->shader = Asset::Shader::standard;
 	view->offset = Mat4::make_translation(0.0f, TERMINAL_HEIGHT * -0.5f, 0.0f);
 
@@ -836,14 +836,6 @@ Terminal::Terminal()
 
 	PointLight* light = create<PointLight>();
 	light->radius = TERMINAL_LIGHT_RADIUS;
-
-	Entity* light_entity = World::create<Empty>();
-	light_entity->get<Transform>()->parent = get<Transform>();
-
-	View* l = light_entity->add<View>(Asset::Mesh::terminal_light);
-	l->color.w = MATERIAL_UNLIT;
-	l->shader = Asset::Shader::standard;
-	l->offset = view->offset;
 }
 
 #define PROJECTILE_SPEED 25.0f
@@ -889,7 +881,10 @@ void Projectile::update(const Update& u)
 	Vec3 pos = get<Transform>()->absolute_pos();
 	Vec3 next_pos = pos + velocity * u.time.delta;
 	btCollisionWorld::ClosestRayResultCallback ray_callback(pos, next_pos + Vec3::normalize(velocity) * PROJECTILE_LENGTH);
-	Physics::raycast(&ray_callback, ~Team::containment_field_mask(owner.ref()->get<AIAgent>()->team));
+
+	// if we have an owner, we can go through their team's force fields. otherwise, collide with everything.
+	s16 mask = owner.ref() ? ~Team::containment_field_mask(owner.ref()->get<AIAgent>()->team) : -1;
+	Physics::raycast(&ray_callback, mask);
 	if (ray_callback.hasHit())
 	{
 		Entity* hit_object = &Entity::list[ray_callback.m_collisionObject->getUserIndex()];
@@ -1077,7 +1072,7 @@ void Rope::draw_opaque(const RenderParams& params)
 	sync->write(Asset::Uniform::diffuse_color);
 	sync->write(RenderDataType::Vec4);
 	sync->write<s32>(1);
-	sync->write<Vec4>(Vec4(1, 1, 1, MATERIAL_UNLIT));
+	sync->write<Vec4>(Vec4(1, 1, 1, 1));
 
 	sync->write(RenderOp::Instances);
 	sync->write(Asset::Mesh::tri_tube);

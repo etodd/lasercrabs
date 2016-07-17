@@ -55,6 +55,7 @@ Camera::Camera()
 	range(),
 	range_center(),
 	cull_range(),
+	cull_behind_wall(),
 	team(-1)
 {
 }

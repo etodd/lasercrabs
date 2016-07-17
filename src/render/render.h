@@ -23,9 +23,6 @@ struct Frustum
 // material not affected by override lights
 #define MATERIAL_NO_OVERRIDE 0.0f
 
-// material not affected by lights at all
-#define MATERIAL_UNLIT (1.0f / 255.0f)
-
 struct Camera
 {
 	static const s32 max_cameras = 8;
@@ -56,6 +53,7 @@ struct Camera
 	r32 range;
 	Vec3 range_center;
 	r32 cull_range;
+	b8 cull_behind_wall;
 	Vec3 pos;
 	Quat rot;
 	Rect2 viewport;

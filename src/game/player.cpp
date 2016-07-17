@@ -224,7 +224,7 @@ void LocalPlayer::update(const Update& u)
 		msg(_(strings::buy_period_expired), true);
 
 	if (msg_timer < msg_time)
-		msg_timer += u.time.delta;
+		msg_timer += Game::real_time.delta;
 
 	// close/open pause menu if needed
 	{
@@ -1431,29 +1431,29 @@ void LocalPlayerControl::update(const Update& u)
 		}
 
 		// camera setup
-		Vec3 abs_wall_normal = (get<Transform>()->absolute_rot() * get<Awk>()->lerped_rotation) * Vec3(0, 0, 1);
-		camera->wall_normal = look_quat.inverse() * abs_wall_normal;
-		camera->pos = get<Awk>()->center() + look_quat * Vec3(0, 0, -third_person_offset);
-		if (get<Transform>()->parent.ref())
 		{
-			camera->pos += abs_wall_normal * 0.5f;
-			camera->pos.y += 0.5f - vi_min((r32)fabs(abs_wall_normal.y), 0.5f);
-		}
+			Vec3 abs_wall_normal = (get<Transform>()->absolute_rot() * get<Awk>()->lerped_rotation) * Vec3(0, 0, 1);
+			camera->wall_normal = look_quat.inverse() * abs_wall_normal;
+			camera->pos = get<Awk>()->center() + look_quat * Vec3(0, 0, -third_person_offset);
+			if (get<Transform>()->parent.ref())
+			{
+				camera->pos += abs_wall_normal * 0.5f;
+				camera->pos.y += 0.5f - vi_min((r32)fabs(abs_wall_normal.y), 0.5f);
+			}
 
-		if (damage_timer > 0.0f)
-		{
-			damage_timer -= u.time.delta;
-			r32 shake = (damage_timer / damage_shake_time) * 0.3f;
-			r32 offset = Game::time.total * 10.0f;
-			look_quat = look_quat * Quat::euler(noise::sample3d(Vec3(offset)) * shake, noise::sample3d(Vec3(offset + 64)) * shake, noise::sample3d(Vec3(offset + 128)) * shake);
-		}
+			if (damage_timer > 0.0f)
+			{
+				damage_timer -= u.time.delta;
+				r32 shake = (damage_timer / damage_shake_time) * 0.3f;
+				r32 offset = Game::time.total * 10.0f;
+				look_quat = look_quat * Quat::euler(noise::sample3d(Vec3(offset)) * shake, noise::sample3d(Vec3(offset + 64)) * shake, noise::sample3d(Vec3(offset + 128)) * shake);
+			}
 
-		camera->range = AWK_MAX_DISTANCE;
-		camera->range_center = look_quat.inverse() * (get<Awk>()->center() - camera->pos);
-		if (!get<Transform>()->parent.ref())
-			camera->cull_range = 0.0f; // there is no wall; no need to cull anything
-		else
-			camera->cull_range = third_person_offset + 0.5f; // need to cull stuff
+			camera->range = AWK_MAX_DISTANCE;
+			camera->range_center = look_quat.inverse() * (get<Awk>()->center() - camera->pos);
+			camera->cull_range = third_person_offset + 0.5f;
+			camera->cull_behind_wall = abs_wall_normal.dot(camera->pos - get<Awk>()->attach_point()) < 0.0f;
+		}
 
 		health_flash_timer = vi_max(0.0f, health_flash_timer - Game::real_time.delta);
 

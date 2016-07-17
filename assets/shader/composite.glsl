@@ -45,28 +45,23 @@ out vec4 out_color;
 void main()
 {
 	vec4 color = texture(color_buffer, uv);
+	float clip_depth = texture(depth_buffer, uv).x;
+	float clip_depth_scaled = clip_depth * 2.0 - 1.0;
+	float depth = p[3][2] / (clip_depth_scaled - p[2][2]);
+
+	vec4 lighting = texture(lighting_buffer, uv);
+	lighting.rgb += ambient_color * texture(ssao_buffer, uv).x;
+	vec3 lighting_color = color.rgb * lighting.rgb;
 	vec3 final_color;
-	if (color.a == 1.0 / 255.0)
-		final_color = color.rgb;
+	if (range == 0.0f)
+		final_color = lighting_color;
 	else
 	{
-		float clip_depth = texture(depth_buffer, uv).x;
-		float clip_depth_scaled = clip_depth * 2.0 - 1.0;
-		float depth = p[3][2] / (clip_depth_scaled - p[2][2]);
-
-		vec4 lighting = texture(lighting_buffer, uv);
-		lighting.rgb += ambient_color * texture(ssao_buffer, uv).x;
-		vec3 lighting_color = color.rgb * lighting.rgb;
-		if (range == 0.0f)
-			final_color = lighting_color;
+		vec3 pos = (view_ray * depth) - range_center;
+		if (dot(pos, pos) < range * range)
+			final_color = lighting_color * (dot(pos, wall_normal) > 0.0 ? 1.0 : 0.4);
 		else
-		{
-			vec3 pos = (view_ray * depth) - range_center;
-			if (dot(pos, pos) < range * range)
-				final_color = lighting_color * (dot(pos, wall_normal) > 0.0 ? 1.0 : 0.4);
-			else
-				final_color = vec3(0, 0, 0);
-		}
+			final_color = vec3(0, 0, 0);
 	}
 	out_color = vec4(final_color, 1);
 }

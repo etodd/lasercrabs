@@ -56,12 +56,12 @@ AIPlayer::Config AIPlayer::generate_config()
 	if (Game::save.level_index < 5)
 	{
 		// slower, less accurate
-		config.interval_low_level = 0.3f;
-		config.interval_high_level = 1.0f;
-		config.inaccuracy_min = PI * 0.002f;
-		config.inaccuracy_range = PI * 0.022f;
+		config.interval_low_level = 0.5f;
+		config.interval_high_level = 1.5f;
+		config.inaccuracy_min = PI * 0.003f;
+		config.inaccuracy_range = PI * 0.03f;
 		config.aim_timeout = 2.5f;
-		config.aim_speed = 2.0f;
+		config.aim_speed = 1.8f;
 	}
 
 	return config;

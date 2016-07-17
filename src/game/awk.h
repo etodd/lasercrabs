@@ -93,6 +93,7 @@ struct Awk : public ComponentType<Awk>
 	void set_footing(s32, const Transform*, const Vec3&);
 
 	Vec3 center() const;
+	Vec3 attach_point() const;
 
 	void detach_teleport();
 	b8 detach(const Vec3&);

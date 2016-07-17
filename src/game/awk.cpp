@@ -144,6 +144,14 @@ Vec3 Awk::center() const
 	return get<Transform>()->to_world((get<SkinnedModel>()->offset * Vec4(0, 0, 0, 1)).xyz());
 }
 
+Vec3 Awk::attach_point() const
+{
+	Quat rot;
+	Vec3 pos;
+	get<Transform>()->absolute(&pos, &rot);
+	return pos + rot * Vec3(0, 0, -AWK_RADIUS);
+}
+
 Entity* Awk::incoming_attacker() const
 {
 	Vec3 me = center();

@@ -28,6 +28,7 @@
 #include <string>
 #include "walker.h"
 #include "parkour.h"
+#include "render/particles.h"
 
 namespace VI
 {
@@ -446,6 +447,8 @@ namespace Penelope
 		Matchmake matchmake_mode;
 		r32 matchmake_timer;
 		Link terminal_activated;
+		b8 terminal_active;
+		r32 particle_accumulator;
 
 		UIText text;
 		r32 text_animation_time;
@@ -469,6 +472,7 @@ namespace Penelope
 
 	void terminal_active(b8 active)
 	{
+		data->terminal_active = active;
 		for (s32 i = 0; i < data->terminals.length; i++)
 		{
 			PlayerTrigger* terminal = data->terminals[i].ref();
@@ -640,6 +644,30 @@ namespace Penelope
 			{
 				terminal = data->terminals[i].ref();
 				break;
+			}
+		}
+
+		if (data->terminal_active)
+		{
+			// spawn particles on terminals
+			const r32 interval = 0.1f;
+			data->particle_accumulator += u.time.delta;
+			while (data->particle_accumulator > interval)
+			{
+				data->particle_accumulator -= interval;
+				for (s32 i = 0; i < data->terminals.length; i++)
+				{
+					PlayerTrigger* terminal = data->terminals[i].ref();
+					Vec3 pos = terminal->get<Transform>()->absolute_pos();
+					pos.y += 1.0f;
+
+					Particles::eased_particles.add
+					(
+						pos + Quat::euler(0.0f, mersenne::randf_co() * PI * 2.0f, (mersenne::randf_co() - 0.5f) * PI) * Vec3(0, 0, 2.0f),
+						pos,
+						0
+					);
+				}
 			}
 		}
 
@@ -945,7 +973,7 @@ namespace Penelope
 			text.text(_(data->matchmake_mode == Matchmake::Searching ? strings::match_searching : strings::match_starting), ((s32)data->matchmake_timer) + 1);
 			Vec2 pos = vp.pos + vp.size * Vec2(0.1f, 0.25f) + Vec2(12.0f * UI::scale, -100 * UI::scale);
 
-			UI::box(params, text.rect(pos).pad({ Vec2((8.0f + 24.0f) * UI::scale, 8.0f * UI::scale), Vec2(8.0f * UI::scale) }), UI::background_color);
+			UI::box(params, text.rect(pos).pad({ Vec2((10.0f + 24.0f) * UI::scale, 10.0f * UI::scale), Vec2(8.0f * UI::scale) }), UI::background_color);
 
 			Vec2 triangle_pos
 			(
@@ -954,7 +982,7 @@ namespace Penelope
 			);
 
 			if (data->matchmake_mode == Matchmake::Searching)
-				UI::triangle_border(params, { triangle_pos, Vec2(text.size * 0.5f * UI::scale) }, 9, UI::accent_color, Game::real_time.total * -8.0f);
+				UI::triangle_border(params, { triangle_pos, Vec2(text.size * 0.5f * UI::scale) }, 4, UI::accent_color, Game::real_time.total * -8.0f);
 			else
 				UI::triangle(params, { triangle_pos, Vec2(text.size * UI::scale) }, UI::accent_color);
 
@@ -1148,6 +1176,7 @@ namespace Penelope
 		data->entry_point = entry_point;
 		data->default_mode = default_mode;
 		data->active_data_fragment = AssetNull;
+		data->terminal_active = true;
 		Audio::dialogue_done = false;
 		Game::updates.add(update);
 		Game::cleanups.add(cleanup);

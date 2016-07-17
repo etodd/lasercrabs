@@ -83,9 +83,8 @@ struct Game
 		AI::Team local_player_config[MAX_GAMEPADS];
 		b8 third_person;
 		b8 local_multiplayer;
-		// games rotate through all the possible team configurations before moving on to the next map
-		// local multiplayer games shift all the team IDs by this amount
 		r32 time_scale;
+		r32 effective_time_scale() const;
 		b8 allow_double_jump;
 		AssetID level;
 		void reset();

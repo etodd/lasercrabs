@@ -41,7 +41,7 @@ namespace VI
 #define zoom_ratio 0.5f
 #define fov_pvp_zoom (fov_pvp * zoom_ratio)
 #define zoom_speed (1.0f / 0.1f)
-#define speed_mouse 0.0025f
+#define speed_mouse 0.001f
 #define speed_mouse_zoom (speed_mouse * zoom_ratio * 0.5f)
 #define speed_joystick 4.0f
 #define speed_joystick_zoom (speed_joystick * zoom_ratio * 0.5f)

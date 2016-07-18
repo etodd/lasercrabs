@@ -1072,44 +1072,6 @@ void draw(LoopSync* sync, const Camera* camera)
 		UI::texture(render_params, color_buffer2, { Vec2::zero, camera->viewport.size }, Vec4(1, 1, 1, 1), screen_quad_uv);
 	}
 
-	{
-		// scan lines
-		sync->write<RenderOp>(RenderOp::BlendMode);
-		sync->write<RenderBlendMode>(RenderBlendMode::AddMultiply);
-
-		Loader::shader_permanent(Asset::Shader::scan_lines);
-		sync->write(RenderOp::Shader);
-		sync->write<AssetID>(Asset::Shader::scan_lines);
-		sync->write(RenderTechnique::Default);
-
-		sync->write(RenderOp::Uniform);
-		sync->write(Asset::Uniform::p);
-		sync->write(RenderDataType::Mat4);
-		sync->write<s32>(1);
-		sync->write<Mat4>(render_params.camera->projection);
-
-		sync->write(RenderOp::Uniform);
-		sync->write(Asset::Uniform::buffer_size);
-		sync->write(RenderDataType::Vec2);
-		sync->write<s32>(1);
-		sync->write<Vec2>(buffer_size);
-
-		sync->write(RenderOp::Uniform);
-		sync->write(Asset::Uniform::depth_buffer);
-		sync->write(RenderDataType::Texture);
-		sync->write<s32>(1);
-		sync->write<RenderTextureType>(RenderTextureType::Texture2D);
-		sync->write<AssetID>(depth_buffer);
-
-		sync->write(RenderOp::Uniform);
-		sync->write(Asset::Uniform::time);
-		sync->write(RenderDataType::R32);
-		sync->write<s32>(1);
-		sync->write<r32>(Game::real_time.total);
-
-		UI::texture(render_params, AssetNull, { Vec2::zero, camera->viewport.size }, Vec4(1, 1, 1, 1), screen_quad_uv, Asset::Shader::scan_lines);
-	}
-
 	// Bloom
 	{
 		// Downsample
@@ -1204,6 +1166,45 @@ void draw(LoopSync* sync, const Camera* camera)
 	sync->write<RenderOp>(RenderOp::BlendMode);
 	sync->write<RenderBlendMode>(RenderBlendMode::Additive);
 	UI::texture(render_params, half_buffer2, { Vec2::zero, camera->viewport.size }, Vec4(1, 1, 1, 0.5f), screen_quad_uv);
+
+	{
+		// scan lines
+		sync->write<RenderOp>(RenderOp::BlendMode);
+		sync->write<RenderBlendMode>(RenderBlendMode::Additive);
+
+		Loader::shader_permanent(Asset::Shader::scan_lines);
+		sync->write(RenderOp::Shader);
+		sync->write<AssetID>(Asset::Shader::scan_lines);
+		sync->write(RenderTechnique::Default);
+
+		sync->write(RenderOp::Uniform);
+		sync->write(Asset::Uniform::p);
+		sync->write(RenderDataType::Mat4);
+		sync->write<s32>(1);
+		sync->write<Mat4>(render_params.camera->projection);
+
+		sync->write(RenderOp::Uniform);
+		sync->write(Asset::Uniform::buffer_size);
+		sync->write(RenderDataType::Vec2);
+		sync->write<s32>(1);
+		sync->write<Vec2>(buffer_size);
+
+		sync->write(RenderOp::Uniform);
+		sync->write(Asset::Uniform::depth_buffer);
+		sync->write(RenderDataType::Texture);
+		sync->write<s32>(1);
+		sync->write<RenderTextureType>(RenderTextureType::Texture2D);
+		sync->write<AssetID>(depth_buffer);
+
+		sync->write(RenderOp::Uniform);
+		sync->write(Asset::Uniform::time);
+		sync->write(RenderDataType::R32);
+		sync->write<s32>(1);
+		sync->write<r32>(Game::real_time.total);
+
+		UI::texture(render_params, AssetNull, { Vec2::zero, camera->viewport.size }, Vec4(1, 1, 1, 1), screen_quad_uv, Asset::Shader::scan_lines);
+	}
+
 
 	sync->write<RenderOp>(RenderOp::BlendMode);
 	sync->write<RenderBlendMode>(RenderBlendMode::Opaque);

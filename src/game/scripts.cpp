@@ -449,6 +449,7 @@ namespace Penelope
 		Link terminal_activated;
 		b8 terminal_active;
 		r32 particle_accumulator;
+		r32 penelope_animation_time;
 
 		UIText text;
 		r32 text_animation_time;
@@ -630,8 +631,16 @@ namespace Penelope
 		execute(id, delay);
 	}
 
-	void go(AssetID name, r32 delay = 0.0f)
+	void go(AssetID name)
 	{
+		r32 delay;
+		if (data->mode == Mode::Hidden)
+		{
+			data->penelope_animation_time = Game::real_time.total;
+			delay = 1.0f;
+		}
+		else
+			delay = 0.5f;
 		clear_and_execute(node_lookup[name], delay);
 	}
 
@@ -678,9 +687,9 @@ namespace Penelope
 		{
 			terminal_active(false);
 			if (Game::save.last_round_loss)
-				go(strings::consolation, 0.5f);
+				go(strings::consolation);
 			else
-				go(data->entry_point, 0.5f);
+				go(data->entry_point);
 			data->terminal_activated.fire();
 		}
 
@@ -847,7 +856,7 @@ namespace Penelope
 					data->matchmake_mode = Matchmake::Found;
 					data->matchmake_timer = 15.0f;
 					data->active_data_fragment = AssetNull; // if we're looking at a data fragment, close it
-					go(strings::match_found, 0.25f);
+					go(strings::match_found);
 				}
 				break;
 			}
@@ -1031,6 +1040,8 @@ namespace Penelope
 					face = Face::EyesClosed;
 			}
 
+			r32 animation_time = Game::real_time.total - data->penelope_animation_time;
+
 			// frame
 			{
 				// visualize dialogue volume
@@ -1039,7 +1050,11 @@ namespace Penelope
 					volume_scale = 1.0f + (Audio::dialogue_volume / ((r32)Settings::sfx / 100.0f)) * 0.5f;
 				else
 					volume_scale = 1.0f;
-				Vec2 frame_size(32.0f * scale * volume_scale);
+
+				// animate the frame into existence
+				r32 animation_scale = Ease::cubic_out(vi_min(1.0f, animation_time * 2.0f), 0.0f, 1.0f);
+
+				Vec2 frame_size(32.0f * scale * volume_scale * animation_scale);
 				UI::centered_box(params, { pos, frame_size }, UI::background_color, PI * 0.25f);
 
 				const Vec4* color;
@@ -1086,6 +1101,8 @@ namespace Penelope
 			}
 
 			// face
+			// animation: wait 0.5 seconds before displaying, then flash for 0.5 seconds, then display
+			if (animation_time > 1.0f || (animation_time > 0.5f && UI::flash_function(Game::real_time.total)))
 			{
 				Vec2 face_uv = faces[(s32)face];
 				UI::sprite(params, Asset::Texture::penelope, { pos, face_size * scale }, UI::default_color, { face_uv, face_uv_size });
@@ -1150,9 +1167,9 @@ namespace Penelope
 		else if (node == strings::penelope_hide)
 			clear();
 		else if (node == strings::consolation_done) // we're done consoling; enter into normal conversation mode
-			go(data->entry_point, 0.5f);
+			go(data->entry_point);
 		else if (node == strings::second_round_go)
-			go(strings::second_round, 0.5f);
+			go(strings::second_round);
 		else if (node == strings::match_go)
 		{
 			if (Game::save.round == 0)
@@ -1295,7 +1312,7 @@ namespace intro
 	{
 		Penelope::init(AssetNull, Penelope::Mode::Center);
 		Penelope::data->node_executed.link(&node_executed);
-		Penelope::go(strings::intro_start, 1.0f);
+		Penelope::go(strings::intro_start);
 	}
 }
 
@@ -1800,7 +1817,7 @@ namespace tutorial
 
 	void tutorial_intro(const Update&)
 	{
-		Penelope::go(strings::tutorial_intro, 1.0f);
+		Penelope::go(strings::tutorial_intro);
 	}
 
 	void remove_transparent_wall()

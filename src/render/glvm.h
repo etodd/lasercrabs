@@ -62,7 +62,6 @@ enum class RenderBlendMode
 	Alpha,
 	Additive,
 	AlphaDestination,
-	AddMultiply,
 	Multiply,
 };
 

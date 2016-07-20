@@ -56,14 +56,15 @@ AIPlayer::Config AIPlayer::generate_config()
 	if (Game::save.level_index < 5)
 	{
 		// slower, less accurate
-		config.interval_low_level = 0.5f;
-		config.interval_high_level = 1.5f;
+		config.interval_low_level = 1.0f;
+		config.interval_high_level = 3.0f;
+		config.interval_memory_update = 0.25f;
 		config.inaccuracy_min = PI * 0.003f;
 		config.inaccuracy_range = PI * 0.03f;
 		config.aim_timeout = 2.5f;
-		config.aim_speed = 1.8f;
+		config.aim_speed = 1.0f;
 
-		if (mersenne::rand() % 2 == 0)
+		if (Game::save.level_index <= Game::tutorial_levels || mersenne::rand() % 2 == 0)
 		{
 			config.upgrade_priority[0] = Upgrade::Minion;
 			config.upgrade_priority[1] = Upgrade::Sensor;
@@ -618,15 +619,10 @@ b8 awk_attack_filter(const AIPlayerControl* control, const Entity* e)
 
 b8 sensor_interest_point_filter(const AIPlayerControl* control, const Entity* e)
 {
-	if (e->has<ControlPoint>()) // only interested in control points we don't own yet
-		return e->get<ControlPoint>()->team != control->get<AIAgent>()->team;
-	else
-	{
-		// only interested in interest points we don't have control over yet
-		r32 closest_distance;
-		Sensor::closest(control->get<AIAgent>()->team, e->get<Transform>()->absolute_pos(), &closest_distance);
-		return closest_distance > SENSOR_RANGE;
-	}
+	// only interested in interest points we don't have control over yet
+	r32 closest_distance;
+	Sensor::closest(control->get<AIAgent>()->team, e->get<Transform>()->absolute_pos(), &closest_distance);
+	return closest_distance > SENSOR_RANGE;
 }
 
 b8 default_filter(const AIPlayerControl* control, const Entity* e)
@@ -671,9 +667,7 @@ b8 should_spawn_sensor(const AIPlayerControl* control)
 	Sensor::closest(control->get<AIAgent>()->team, me, &closest_friendly_sensor);
 	if (closest_friendly_sensor > SENSOR_RANGE)
 	{
-		if (ControlPoint::visible_from(me)) // always capture a control point
-			return true;
-		else if (control->player.ref()->saving_up() == Upgrade::None) // only capture other stuff if we're not saving up for anything
+		if (control->player.ref()->saving_up() == Upgrade::None) // only capture other stuff if we're not saving up for anything
 		{
 			if (SensorInterestPoint::in_range(me))
 				return true;

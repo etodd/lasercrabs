@@ -492,9 +492,9 @@ void draw(const RenderParams& params)
 			Vec2 logo_pos(logo_padding + logo_size * 0.5f, viewport.size.y * 0.5f);
 			UI::box(params, { Vec2(0, logo_pos.y - logo_size * 0.5f - logo_padding), Vec2(logo_size + logo_padding * 2.0f + MENU_ITEM_WIDTH, logo_size + logo_padding * 2.0f) }, UI::background_color);
 			const Mesh* m0 = Loader::mesh(Asset::Mesh::logo_mesh);
-			UI::mesh(params, Asset::Mesh::logo_mesh, logo_pos, Vec2(logo_size), m0->color);
+			UI::mesh(params, Asset::Mesh::logo_mesh, logo_pos, Vec2(logo_size), UI::accent_color);
 			const Mesh* m1 = Loader::mesh(Asset::Mesh::logo_mesh_1);
-			UI::mesh(params, Asset::Mesh::logo_mesh_1, logo_pos, Vec2(logo_size), m1->color);
+			UI::mesh(params, Asset::Mesh::logo_mesh_1, logo_pos, Vec2(logo_size), UI::default_color);
 			break;
 		}
 		default:

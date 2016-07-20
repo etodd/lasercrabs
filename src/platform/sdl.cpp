@@ -128,7 +128,7 @@ namespace VI
 
 		window = SDL_CreateWindow
 		(
-			"The Yearning",
+			"Yearning",
 			0,
 			0,
 			Settings::width, Settings::height,

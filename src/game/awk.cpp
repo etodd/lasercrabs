@@ -485,6 +485,7 @@ void Awk::reflect(const Vec3& hit, const Vec3& normal, const Update& u)
 	Vec3 target_velocity = velocity.reflect(normal);
 
 	// the actual direction we end up going
+	b8 fallback_found = false;
 	Vec3 new_velocity = target_velocity;
 
 	get<Transform>()->absolute_pos(hit + normal * AWK_RADIUS);
@@ -497,10 +498,19 @@ void Awk::reflect(const Vec3& hit, const Vec3& normal, const Update& u)
 		Vec3 candidate_velocity = Quat::euler(((mersenne::randf_oo() * 2.0f) - 1.0f) * random_range, ((mersenne::randf_oo() * 2.0f) - 1.0f) * random_range, ((mersenne::randf_oo() * 2.0f) - 1.0f) * random_range) * target_velocity;
 		if (candidate_velocity.dot(normal) < 0.0f)
 			candidate_velocity = candidate_velocity.reflect(normal);
-		if (get<Awk>()->can_go(candidate_velocity))
+		Vec3 next_hit;
+		if (get<Awk>()->can_go(candidate_velocity, &next_hit))
 		{
-			new_velocity = candidate_velocity;
-			break;
+			if (!fallback_found)
+			{
+				new_velocity = candidate_velocity;
+				fallback_found = true;
+			}
+			if ((next_hit - hit).length_squared() > (AWK_MAX_DISTANCE * 0.5f * AWK_MAX_DISTANCE * 0.5f)) // try to bounce to a spot at least 10 units away
+			{
+				new_velocity = candidate_velocity;
+				break;
+			}
 		}
 		random_range += PI * (2.0f / (r32)tries);
 	}

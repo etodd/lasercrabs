@@ -43,20 +43,19 @@ COMPONENT_TYPE(21, LocalPlayerControl) \
 COMPONENT_TYPE(22, Ragdoll) \
 COMPONENT_TYPE(23, SkinnedModel) \
 COMPONENT_TYPE(24, View) \
-COMPONENT_TYPE(25, ControlPoint) \
-COMPONENT_TYPE(26, Projectile) \
-COMPONENT_TYPE(27, Parkour) \
-COMPONENT_TYPE(28, Tile) \
-COMPONENT_TYPE(29, HealthPickup) \
-COMPONENT_TYPE(30, Sensor) \
-COMPONENT_TYPE(31, Rocket) \
-COMPONENT_TYPE(32, ContainmentField) \
-COMPONENT_TYPE(33, SensorInterestPoint) \
-COMPONENT_TYPE(34, DataFragment) \
-COMPONENT_TYPE(35, Water) \
-COMPONENT_TYPE(36, Audio) \
+COMPONENT_TYPE(25, Projectile) \
+COMPONENT_TYPE(26, Parkour) \
+COMPONENT_TYPE(27, Tile) \
+COMPONENT_TYPE(28, HealthPickup) \
+COMPONENT_TYPE(29, Sensor) \
+COMPONENT_TYPE(30, Rocket) \
+COMPONENT_TYPE(31, ContainmentField) \
+COMPONENT_TYPE(32, SensorInterestPoint) \
+COMPONENT_TYPE(33, DataFragment) \
+COMPONENT_TYPE(34, Water) \
+COMPONENT_TYPE(35, Audio) \
 
-Family World::families = 37;
+Family World::families = 36;
 
 #define COMPONENT_TYPE(INDEX, TYPE) \
 template<> Family ComponentType<TYPE>::family = (INDEX); \

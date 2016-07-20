@@ -61,7 +61,7 @@ namespace VI
 r32 hp_width(u16 hp)
 {
 	const Vec2 box_size = HP_BOX_SIZE;
-	return (hp * (box_size.x + HP_BOX_SPACING)) - HP_BOX_SPACING;
+	return ((hp - 1) * (box_size.x + HP_BOX_SPACING)) - HP_BOX_SPACING;
 }
 
 void draw_hp_box(const RenderParams& params, const Vec2& pos, u16 hp_max)
@@ -80,7 +80,7 @@ void draw_hp_indicator(const RenderParams& params, Vec2 pos, u16 hp, u16 hp_max,
 	pos.x += total_width * -0.5f + HP_BOX_SPACING;
 	pos.y += box_size.y * 0.6f;
 
-	for (s32 i = 0; i < hp_max; i++)
+	for (s32 i = 1; i < hp_max; i++)
 	{
 		UI::triangle_border(params, { pos, box_size }, 3, color, PI);
 		if (i < hp)
@@ -455,7 +455,7 @@ void LocalPlayer::draw_alpha(const RenderParams& params) const
 		{
 			UIText text;
 			text.color = UI::accent_color;
-			text.text("+%d", ControlPoint::increment(manager.ref()->team.ref()->team()));
+			text.text("+%d", HealthPickup::increment(manager.ref()->entity.ref() ? manager.ref()->entity.ref()->get<PlayerCommon>() : nullptr));
 			text.anchor_x = UIText::Anchor::Center;
 			text.anchor_y = UIText::Anchor::Center;
 			text.size = text_size;
@@ -828,8 +828,17 @@ void LocalPlayer::draw_alpha(const RenderParams& params) const
 					color = &UI::alert_color;
 				}
 
-				if (remaining > 60.0f || UI::flash_function(Game::real_time.total))
-					UI::mesh(params, icon, icon_pos, Vec2(text_size * UI::scale), *color);
+				{
+					b8 draw;
+					if (remaining > GAME_TIME_LIMIT * 0.4f)
+						draw = true;
+					else if (remaining > 60.0f)
+						draw = UI::flash_function_slow(Game::real_time.total);
+					else
+						draw = UI::flash_function(Game::real_time.total);
+					if (draw)
+						UI::mesh(params, icon, icon_pos, Vec2(text_size * UI::scale), *color);
+				}
 
 				s32 remaining_minutes = remaining / 60.0f;
 				s32 remaining_seconds = remaining - (remaining_minutes * 60.0f);
@@ -1834,25 +1843,6 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 				}
 			}
 		}
-
-		// highlight control points
-		for (auto i = ControlPoint::list.iterator(); !i.is_last(); i.next())
-		{
-			Vec3 pos = i.item()->get<Transform>()->absolute_pos();
-			if ((pos - me).length_squared() < AWK_MAX_DISTANCE * AWK_MAX_DISTANCE)
-			{
-				Vec2 p;
-				if (UI::project(params, pos, &p))
-				{
-					Vec2 icon_size(text_size * UI::scale);
-					UI::box(params, Rect2(p + icon_size * -0.5f, icon_size).outset(4.0f * UI::scale), UI::background_color);
-
-					AI::Team control_point_team = i.item()->team;
-					const Vec4& color = control_point_team == team ? Team::ui_color_friend : (control_point_team == AI::Team::None ? UI::accent_color : Team::ui_color_enemy);
-					UI::mesh(params, Asset::Mesh::icon_credits, p, icon_size, color);
-				}
-			}
-		}
 	}
 
 	// highlight enemy rockets
@@ -1898,7 +1888,8 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 		UI::is_onscreen(params, spawn_pos, &p);
 		p.y += text_size * 2.0f * UI::scale;
 		UI::box(params, text.rect(p).outset(8.0f * UI::scale), UI::background_color);
-		text.draw(params, p);
+		if (UI::flash_function_slow(Game::real_time.total))
+			text.draw(params, p);
 	}
 
 	// usernames directly over players' 3D positions

@@ -29,6 +29,7 @@
 #include "walker.h"
 #include "parkour.h"
 #include "render/particles.h"
+#include "usernames.h"
 
 namespace VI
 {
@@ -428,6 +429,14 @@ namespace Penelope
 		ID d;
 	};
 
+	struct LeaderboardEntry
+	{
+		const char* name;
+		s32 rating;
+	};
+
+#define LEADERBOARD_COUNT 5
+
 	struct Data
 	{
 		r32 time;
@@ -450,6 +459,9 @@ namespace Penelope
 		b8 terminal_active;
 		r32 particle_accumulator;
 		r32 penelope_animation_time;
+		b8 leaderboard_active;
+		r32 leaderboard_animation_time;
+		LeaderboardEntry leaderboard[LEADERBOARD_COUNT];
 
 		UIText text;
 		r32 text_animation_time;
@@ -633,6 +645,7 @@ namespace Penelope
 
 	void go(AssetID name)
 	{
+		data->leaderboard_active = false;
 		r32 delay;
 		if (data->mode == Mode::Hidden)
 		{
@@ -756,7 +769,7 @@ namespace Penelope
 
 		// show choices
 		data->menu.clear();
-		if (data->choices.active() && data->active_data_fragment == AssetNull)
+		if (data->choices.active() && data->active_data_fragment == AssetNull && !fragment)
 		{
 			const Choice& choice = data->choices.current();
 			if (choice.a != IDNull)
@@ -842,6 +855,7 @@ namespace Penelope
 			}
 		}
 
+		// update matchmaking
 		switch (data->matchmake_mode)
 		{
 			case Matchmake::None:
@@ -906,7 +920,7 @@ namespace Penelope
 				text.anchor_y = UIText::Anchor::Max;
 				text.size = 16.0f;
 				text.color = UI::accent_color;
-				text.text("[{{Interact}}]");
+				text.text(_(strings::data_fragment_prompt));
 
 				Vec2 p = vp.size * Vec2(0.5f, 0.8f);
 				UI::box(params, text.rect(p).outset(8.0f * UI::scale), UI::background_color);
@@ -941,7 +955,7 @@ namespace Penelope
 		}
 
 		// prompt the player to interact if near a terminal or if penelope is waiting on the player to answer a question
-		if (!fragment) // if there's a fragment, that takes precedence
+		if (!fragment && data->active_data_fragment == AssetNull) // if there's a fragment, that takes precedence
 		{
 			b8 show_interact_prompt = false;
 			Vec2 p;
@@ -1150,6 +1164,37 @@ namespace Penelope
 			data->text.draw(params, pos);
 		}
 
+		// leaderboard
+		if (data->leaderboard_active)
+		{
+			UIText text;
+			text.size = 16.0f;
+			text.wrap_width = MENU_ITEM_WIDTH - MENU_ITEM_PADDING * 2.0f;
+			text.anchor_x = UIText::Anchor::Min;
+			text.anchor_y = UIText::Anchor::Min;
+
+			Vec2 p = Vec2(vp.size.x * 0.9f - MENU_ITEM_WIDTH, vp.size.y * 0.3f - MENU_ITEM_HEIGHT * 2);
+
+			for (s32 i = LEADERBOARD_COUNT - 1; i >= 0; i--)
+			{
+				text.color = i == 2 ? UI::accent_color : UI::default_color;
+
+				// username
+				text.text("%d %s", i + 1308 - (Game::save.rating / 300), data->leaderboard[i].name);
+				UI::box(params, text.rect(p).outset(MENU_ITEM_PADDING), UI::background_color);
+				UIMenu::text_clip(&text, data->leaderboard_animation_time, 50.0f + vi_min(i, 6) * -5.0f);
+				text.draw(params, p);
+
+				// rating
+				UIText rating = text;
+				rating.anchor_x = UIText::Anchor::Max;
+				rating.wrap_width = 0;
+				rating.text("%d", data->leaderboard[i].rating);
+				rating.draw(params, p + Vec2(MENU_ITEM_WIDTH - MENU_ITEM_PADDING * 2.0f, 0));
+				p.y += text.bounds().y + MENU_ITEM_PADDING * 2.0f;
+			}
+		}
+
 		// menu
 		data->menu.draw_alpha(params);
 	}
@@ -1184,6 +1229,13 @@ namespace Penelope
 		}
 		else if (node == strings::matchmaking_start)
 			matchmake_search();
+		else if (node == strings::leaderboard_show)
+		{
+			data->leaderboard_active = true;
+			data->leaderboard_animation_time = Game::real_time.total;
+		}
+		else if (node == strings::leaderboard_hide)
+			data->leaderboard_active = false;
 	}
 
 	void init(AssetID entry_point, Mode default_mode)
@@ -1198,6 +1250,36 @@ namespace Penelope
 		Game::updates.add(update);
 		Game::cleanups.add(cleanup);
 		Game::draws.add(draw);
+
+		// fill out leaderboard
+		if (Game::state.mode == Game::Mode::Parkour)
+		{
+			s32 rating = Game::save.rating + 21 + (mersenne::rand() % 600);
+			for (s32 i = 0; i < 2; i++)
+			{
+				data->leaderboard[i] =
+				{
+					Usernames::all[mersenne::rand_u32() % Usernames::count],
+					rating,
+				};
+				rating = vi_max(Game::save.rating + 11, rating - (mersenne::rand() % 300));
+			}
+			data->leaderboard[2] =
+			{
+				LocalPlayer::list.iterator().item()->manager.ref()->username,
+				Game::save.rating
+			};
+			rating = Game::save.rating;
+			for (s32 i = 3; i < LEADERBOARD_COUNT; i++)
+			{
+				rating -= 11 + (mersenne::rand() % 300);
+				data->leaderboard[i] =
+				{
+					Usernames::all[mersenne::rand_u32() % Usernames::count],
+					rating,
+				};
+			}
+		}
 
 		data->node_executed.link(&node_executed);
 
@@ -1562,7 +1644,7 @@ namespace tutorial
 	enum class TutorialState
 	{
 		ParkourJump, ParkourClimb, ParkourClimbDone, ParkourWallRun, ParkourWallRunDone, ParkourSlide, ParkourRoll, ParkourDoubleJump,
-		PvpKillMinion, PvpGetHealth, PvpControlPoint, PvpUpgrade, PvpKillPlayer,
+		PvpKillMinion, PvpGetHealth, PvpUpgrade, PvpKillPlayer,
 		Done,
 	};
 
@@ -1575,7 +1657,6 @@ namespace tutorial
 		Ref<PlayerTrigger> roll_success;
 		Ref<Mover> door_mover;
 		Ref<Transform> health_location;
-		Ref<ControlPoint> control_point;
 		Ref<Entity> transparent_wall;
 	};
 
@@ -1675,13 +1756,13 @@ namespace tutorial
 	void health_got(const TargetEvent& e)
 	{
 		PlayerManager* manager = LocalPlayer::list.iterator().item()->manager.ref();
-		manager->credits = UpgradeInfo::list[(s32)Upgrade::Sensor].cost + AbilityInfo::list[(s32)Ability::Sensor].spawn_cost * 2;
+		manager->credits = UpgradeInfo::list[(s32)Upgrade::Minion].cost + AbilityInfo::list[(s32)Ability::Sensor].spawn_cost * 2;
 		manager->upgrade_start(Upgrade::Sensor);
 		manager->upgrade_complete();
 
-		data->state = TutorialState::PvpControlPoint;
+		data->state = TutorialState::PvpUpgrade;
 		Penelope::data->texts.clear();
-		Penelope::data->texts.schedule(0.0f, _(strings::tut_pvp_control_points));
+		Penelope::data->texts.schedule(0.0f, _(strings::tut_pvp_upgrade));
 		Game::level.feature_level = Game::FeatureLevel::ControlPoints;
 	}
 
@@ -1717,19 +1798,7 @@ namespace tutorial
 
 	void update(const Update& u)
 	{
-		if (data->state == TutorialState::PvpControlPoint)
-		{
-			if (data->control_point.ref()->team != AI::Team::None)
-			{
-				PlayerManager* manager = LocalPlayer::list.iterator().item()->manager.ref();
-				manager->credits += UpgradeInfo::list[(s32)Upgrade::Minion].cost;
-
-				data->state = TutorialState::PvpUpgrade;
-				Penelope::data->texts.clear();
-				Penelope::data->texts.schedule(0.0f, _(strings::tut_pvp_upgrade));
-			}
-		}
-		else if (data->state == TutorialState::PvpUpgrade)
+		if (data->state == TutorialState::PvpUpgrade)
 		{
 			PlayerManager* manager = LocalPlayer::list.iterator().item()->manager.ref();
 			for (s32 i = (s32)Upgrade::Sensor + 1; i < (s32)Upgrade::count; i++)
@@ -1769,12 +1838,6 @@ namespace tutorial
 				}
 			}
 		}
-	}
-
-	void draw(const RenderParams& params)
-	{
-		if (data->state == TutorialState::PvpControlPoint)
-			UI::indicator(params, data->control_point.ref()->get<Transform>()->absolute_pos(), UI::accent_color, true);
 	}
 
 	void cleanup()
@@ -1832,7 +1895,6 @@ namespace tutorial
 		Game::level.feature_level = Game::FeatureLevel::HealthPickups;
 
 		data = new Data();
-		Game::draws.add(&draw);
 		Game::updates.add(&update);
 		Game::cleanups.add(&cleanup);
 
@@ -1841,7 +1903,6 @@ namespace tutorial
 		if (Game::state.mode == Game::Mode::Pvp)
 		{
 			data->health_location = entities.find("health")->get<Transform>();
-			data->control_point = entities.find("control_point")->get<ControlPoint>();
 
 			entities.find("minion")->get<Health>()->killed.link(&minion_killed);
 

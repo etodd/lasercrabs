@@ -28,15 +28,15 @@
      borderopacity="1.0"
      inkscape:pageopacity="0.0"
      inkscape:pageshadow="2"
-     inkscape:zoom="0.86914063"
-     inkscape:cx="-217.25014"
-     inkscape:cy="242.74359"
+     inkscape:zoom="2.6328125"
+     inkscape:cx="128"
+     inkscape:cy="128"
      inkscape:document-units="px"
      inkscape:current-layer="layer1"
      showgrid="false"
      units="px"
-     inkscape:window-width="1920"
-     inkscape:window-height="1057"
+     inkscape:window-width="1536"
+     inkscape:window-height="841"
      inkscape:window-x="-8"
      inkscape:window-y="-8"
      inkscape:window-maximized="1" />
@@ -65,25 +65,12 @@
        x="0"
        y="796.36218" />
     <path
-       inkscape:connector-curvature="0"
-       style="opacity:1;fill:#ffffff;fill-opacity:1;stroke:none;stroke-width:1;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
-       d="m 100.49502,891.03687 -65.957727,114.24133 186.925427,0 -65.95778,-114.24133 -55.00992,0 z"
-       id="path4146" />
+       style="opacity:1;fill:#ffffff;fill-opacity:1;stroke:none;stroke-width:4;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+       d="m 34.537109,847.42075 39.085938,67.69922 108.753903,0 39.08594,-67.69922 -186.925781,0 z"
+       id="path4740" />
     <path
-       sodipodi:type="star"
-       style="opacity:1;fill:#ffe666;fill-opacity:1;stroke:none;stroke-width:1;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
-       id="path4154"
-       sodipodi:sides="3"
-       sodipodi:cx="128.00092"
-       sodipodi:cy="868.6709"
-       sodipodi:r1="25.224697"
-       sodipodi:r2="12.612349"
-       sodipodi:arg1="0.52359878"
-       sodipodi:arg2="1.5707963"
-       inkscape:flatsided="true"
-       inkscape:rounded="0"
-       inkscape:randomized="0"
-       d="m 149.84614,881.28325 -43.69045,0 21.84523,-37.83705 z"
-       inkscape:transform-center-y="18.914613" />
+       style="opacity:1;fill:#ffff00;fill-opacity:1;stroke:none;stroke-width:4;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+       d="M 82.681641,930.80943 128,1009.3036 l 45.31836,-78.49417 -90.636719,0 z"
+       id="path4354" />
   </g>
 </svg>

@@ -189,24 +189,107 @@ b8 HealthPickup::set_owner(Health* health)
 	return false;
 }
 
+#define CONTROL_POINT_INTERVAL 15.0f
+r32 HealthPickup::timer = CONTROL_POINT_INTERVAL;
+r32 HealthPickup::power_particle_timer;
 r32 HealthPickup::particle_accumulator;
 void HealthPickup::update_all(const Update& u)
 {
-	const r32 interval = 0.1f;
-	particle_accumulator += u.time.delta;
-	while (particle_accumulator > interval)
 	{
-		particle_accumulator -= interval;
-		for (auto i = list.iterator(); !i.is_last(); i.next())
+		// normal particles
+		const r32 interval = 0.1f;
+		particle_accumulator += u.time.delta;
+		while (particle_accumulator > interval)
 		{
-			Vec3 pos = i.item()->get<Transform>()->absolute_pos();
+			particle_accumulator -= interval;
+			for (auto i = list.iterator(); !i.is_last(); i.next())
+			{
+				Vec3 pos = i.item()->get<Transform>()->absolute_pos();
 
-			Particles::tracers.add
-			(
-				pos + Quat::euler(0.0f, mersenne::randf_co() * PI * 2.0f, (mersenne::randf_co() - 0.5f) * PI) * Vec3(0, 0, mersenne::randf_co() * 0.6f),
-				Vec3::zero,
-				0
-			);
+				Particles::tracers.add
+				(
+					pos + Quat::euler(0.0f, mersenne::randf_co() * PI * 2.0f, (mersenne::randf_co() - 0.5f) * PI) * Vec3(0, 0, mersenne::randf_co() * 0.6f),
+					Vec3::zero,
+					0
+				);
+			}
+		}
+	}
+
+	// power particles
+	const r32 particle_interval = 0.2f;
+	const r32 particle_reset = 4.0f;
+	b8 emit_particles = (s32)(power_particle_timer / particle_interval) < (s32)((power_particle_timer + u.time.delta) / particle_interval);
+	power_particle_timer += u.time.delta;
+	while (power_particle_timer > particle_reset)
+		power_particle_timer -= particle_reset;
+
+	// clear powered state for all containment fields; we're going to update this flag
+	for (auto field = ContainmentField::list.iterator(); !field.is_last(); field.next())
+		field.item()->powered = false;
+
+	for (auto i = list.iterator(); !i.is_last(); i.next())
+	{
+		if (!i.item()->owner.ref())
+			continue;
+
+		Vec3 control_point_pos = i.item()->get<Transform>()->absolute_pos();
+
+		// update powered state of all containment fields in range
+		StaticArray<Vec3, 10> containment_fields;
+		for (auto field = ContainmentField::list.iterator(); !field.is_last(); field.next())
+		{
+			if (field.item()->team == i.item()->owner.ref()->get<AIAgent>()->team)
+			{
+				Vec3 field_pos = field.item()->get<Transform>()->absolute_pos();
+				if ((field_pos - control_point_pos).length_squared() < CONTAINMENT_FIELD_RADIUS * CONTAINMENT_FIELD_RADIUS)
+				{
+					if (containment_fields.length < containment_fields.capacity())
+						containment_fields.add(field_pos);
+					field.item()->powered = true;
+				}
+			}
+		}
+
+		if (emit_particles)
+		{
+			r32 particle_blend = power_particle_timer / particle_reset;
+
+			// particle effects to all containment fields in range
+			for (s32 i = 0; i < containment_fields.length; i++)
+			{
+				Particles::tracers.add
+				(
+					Vec3::lerp(particle_blend, control_point_pos, containment_fields[i]),
+					Vec3::zero,
+					0
+				);
+			}
+		}
+	}
+
+	if (Game::state.mode == Game::Mode::Pvp && Game::level.has_feature(Game::FeatureLevel::ControlPoints))
+	{
+		timer -= u.time.delta;
+		if (timer < 0.0f)
+		{
+			// give points to players based on how many control points they own
+			for (auto i = PlayerCommon::list.iterator(); !i.is_last(); i.next())
+			{
+				Health* health = i.item()->get<Health>();
+				s32 reward_buffer = CREDITS_DEFAULT_INCREMENT;
+
+				for (auto j = list.iterator(); !j.is_last(); j.next())
+				{
+					if (j.item()->owner.ref() == health)
+						reward_buffer += CREDITS_CONTROL_POINT;
+				}
+
+				// add credits to players
+				i.item()->manager.ref()->add_credits(reward_buffer);
+			}
+
+			timer = CONTROL_POINT_INTERVAL;
 		}
 	}
 }
@@ -340,169 +423,16 @@ SensorInterestPoint* SensorInterestPoint::in_range(const Vec3& pos)
 	return closest;
 }
 
-ControlPointEntity::ControlPointEntity()
+u16 HealthPickup::increment(PlayerCommon* player)
 {
-	create<Transform>();
-	create<ControlPoint>();
-	create<SensorInterestPoint>();
-
-	View* model = create<View>();
-	model->mesh = Asset::Mesh::control_point;
-	model->color = Vec4(1.0f, 1.0f, 1.0f, MATERIAL_NO_OVERRIDE);
-	model->shader = Asset::Shader::standard;
-}
-
-ControlPoint::ControlPoint()
-	: team(AI::Team::None)
-{
-}
-
-#define CONTROL_POINT_INTERVAL 15.0f
-r32 ControlPoint::timer = CONTROL_POINT_INTERVAL;
-r32 ControlPoint::particle_timer;
-void ControlPoint::update_all(const Update& u)
-{
-	const r32 particle_interval = 0.2f;
-	const r32 particle_reset = 4.0f;
-	b8 emit_particles = (s32)(particle_timer / particle_interval) < (s32)((particle_timer + u.time.delta) / particle_interval);
-	particle_timer += u.time.delta;
-	while (particle_timer > particle_reset)
-		particle_timer -= particle_reset;
-
-	// clear powered state for all containment fields; we're going to update this flag
-	for (auto field = ContainmentField::list.iterator(); !field.is_last(); field.next())
-		field.item()->powered = false;
-
-	for (auto i = list.iterator(); !i.is_last(); i.next())
-	{
-		Vec3 control_point_pos;
-		Quat control_point_rot;
-		i.item()->get<Transform>()->absolute(&control_point_pos, &control_point_rot);
-
-		AI::Team control_point_team = AI::Team::None;
-		Sensor* closest_sensor = nullptr;
-		r32 closest_distance_squared = FLT_MAX;
-		for (auto sensor = Sensor::list.iterator(); !sensor.is_last(); sensor.next())
-		{
-			Vec3 to_sensor = sensor.item()->get<Transform>()->absolute_pos() - control_point_pos;
-			r32 distance_squared = to_sensor.length_squared();
-			if (distance_squared < SENSOR_RANGE * SENSOR_RANGE
-				&& to_sensor.dot(control_point_rot * Vec3(0, 0, 1)) > 0.0f) // make sure the control point is facing the sensor
-			{
-				AI::Team sensor_team = sensor.item()->team;
-				if (control_point_team == AI::Team::None)
-				{
-					control_point_team = sensor_team;
-					if (distance_squared < closest_distance_squared)
-					{
-						closest_sensor = sensor.item();
-						closest_distance_squared = distance_squared;
-					}
-				}
-				else if (control_point_team != sensor_team)
-				{
-					control_point_team = AI::Team::None; // control point is contested
-					break;
-				}
-			}
-		}
-
-		// update powered state of all containment fields in range
-		StaticArray<Vec3, 10> containment_fields;
-		for (auto field = ContainmentField::list.iterator(); !field.is_last(); field.next())
-		{
-			Vec3 field_pos = field.item()->get<Transform>()->absolute_pos();
-			Vec3 to_field = field_pos - control_point_pos;
-			r32 distance_squared = to_field.length_squared();
-			if (distance_squared < CONTAINMENT_FIELD_RADIUS * CONTAINMENT_FIELD_RADIUS
-				&& to_field.dot(control_point_rot * Vec3(0, 0, 1)) > 0.0f) // make sure the control point is facing the containment field
-			{
-				if (containment_fields.length < containment_fields.capacity())
-					containment_fields.add(field_pos);
-				field.item()->powered = true;
-			}
-		}
-
-		if (emit_particles)
-		{
-			r32 particle_blend = particle_timer / particle_reset;
-			if (control_point_team != AI::Team::None)
-			{
-				// particle effect to closest sensor
-				Particles::tracers.add
-				(
-					Vec3::lerp(particle_blend, control_point_pos, closest_sensor->get<Transform>()->absolute_pos()),
-					Vec3::zero,
-					0
-				);
-			}
-
-			// particle effects to all containment fields in range
-			for (s32 i = 0; i < containment_fields.length; i++)
-			{
-				Particles::tracers.add
-				(
-					Vec3::lerp(particle_blend, control_point_pos, containment_fields[i]),
-					Vec3::zero,
-					0
-				);
-			}
-		}
-
-		i.item()->team = control_point_team;
-		i.item()->get<View>()->team = (u8)control_point_team;
-	}
-
-	if (Game::level.has_feature(Game::FeatureLevel::ControlPoints))
-	{
-		timer -= u.time.delta;
-		if (timer < 0.0f)
-		{
-			// give points to teams based on how many control points they own
-			s32 reward_buffer[(s32)AI::Team::count] = { CREDITS_DEFAULT_INCREMENT, CREDITS_DEFAULT_INCREMENT };
-
-			for (auto i = list.iterator(); !i.is_last(); i.next())
-			{
-				if (i.item()->team != AI::Team::None)
-					reward_buffer[(s32)i.item()->team] += CREDITS_CONTROL_POINT;
-			}
-
-			// add credits to players
-			for (auto i = PlayerManager::list.iterator(); !i.is_last(); i.next())
-			{
-				s32 reward = reward_buffer[(s32)i.item()->team.ref()->team()];
-				i.item()->add_credits(reward);
-			}
-
-			timer = CONTROL_POINT_INTERVAL;
-		}
-	}
-}
-
-u16 ControlPoint::increment(AI::Team team)
-{
+	Health* health = player->get<Health>();
 	s32 control_points = 0;
 	for (auto i = list.iterator(); !i.is_last(); i.next())
 	{
-		if (i.item()->team == team)
+		if (i.item()->owner.ref() == health)
 			control_points++;
 	}
 	return CREDITS_DEFAULT_INCREMENT + control_points * CREDITS_CONTROL_POINT;
-}
-
-// gets the first control point that would be visible to a sensor at the given position
-ControlPoint* ControlPoint::visible_from(const Vec3& query, r32 range)
-{
-	for (auto i = list.iterator(); !i.is_last(); i.next())
-	{
-		Vec3 control_point_pos;
-		Quat control_point_rot;
-		i.item()->get<Transform>()->absolute(&control_point_pos, &control_point_rot);
-		Vec3 to_query = query - control_point_pos;
-		if (to_query.length_squared() < range * range && to_query.dot(control_point_rot * Vec3(0, 0, 1)) > 0.0f)
-			return i.item();
-	}
-	return nullptr;
 }
 
 void Rocket::awake()

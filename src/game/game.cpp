@@ -370,7 +370,6 @@ void Game::update(const Update& update_in)
 	HealthPickup::update_all(u);
 	Sensor::update_all(u);
 	ContainmentField::update_all(u);
-	ControlPoint::update_all(u);
 	for (auto i = Shockwave::list.iterator(); !i.is_last(); i.next())
 		i.item()->update(u);
 	for (auto i = Projectile::list.iterator(); !i.is_last(); i.next())
@@ -1101,12 +1100,6 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 		{
 			// World is guaranteed to be the first element in the entity list
 
-			if (state.mode == Mode::Parkour)
-			{
-				const char* entry_point_str = Loader::level_name(state.level);
-				Penelope::init(strings_get(entry_point_str));
-			}
-
 			level.feature_level = (FeatureLevel)Json::get_s32(element, "feature_level", (s32)FeatureLevel::All);
 
 			{
@@ -1180,6 +1173,12 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 				}
 				if (state.mode == Mode::Pvp)
 					Audio::post_global_event(AK::EVENTS::PLAY_MUSIC_01);
+			}
+
+			if (state.mode == Mode::Parkour)
+			{
+				const char* entry_point_str = Loader::level_name(state.level);
+				Penelope::init(strings_get(entry_point_str));
 			}
 		}
 		else if (cJSON_GetObjectItem(element, "PointLight"))
@@ -1263,11 +1262,6 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 				decal->scale = Json::get_r32(element, "scale", 1.0f);
 				decal->texture = Loader::find(Json::get_string(element, "SkyDecal"), AssetLookup::Texture::names);
 			}
-		}
-		else if (cJSON_GetObjectItem(element, "ControlPoint"))
-		{
-			if (level.has_feature(FeatureLevel::ControlPoints))
-				entity = World::alloc<ControlPointEntity>();
 		}
 		else if (cJSON_GetObjectItem(element, "Script"))
 		{

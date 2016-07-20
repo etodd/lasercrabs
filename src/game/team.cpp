@@ -41,17 +41,17 @@ namespace VI
 		{
 			Asset::Mesh::icon_sensor,
 			2.5f,
-			15,
+			10,
 		},
 		{
 			Asset::Mesh::icon_rocket,
 			1.25f,
-			8,
+			10,
 		},
 		{
 			Asset::Mesh::icon_minion,
 			1.5f,
-			10,
+			15,
 		},
 		{
 			Asset::Mesh::icon_containment_field,
@@ -66,37 +66,37 @@ namespace VI
 			strings::sensor,
 			strings::description_sensor,
 			Asset::Mesh::icon_sensor,
-			60,
+			40,
 		},
 		{
 			strings::rocket,
 			strings::description_rocket,
 			Asset::Mesh::icon_rocket,
-			50,
+			40,
 		},
 		{
 			strings::minion,
 			strings::description_minion,
 			Asset::Mesh::icon_minion,
-			50,
+			40,
 		},
 		{
 			strings::containment_field,
 			strings::description_containment_field,
 			Asset::Mesh::icon_containment_field,
-			50,
+			40,
 		},
 		{
 			strings::health_steal,
 			strings::description_health_steal,
 			AssetNull,
-			60,
+			50,
 		},
 		{
 			strings::health_buff,
 			strings::description_health_buff,
 			AssetNull,
-			80,
+			60,
 		},
 	};
 

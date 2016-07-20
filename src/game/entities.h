@@ -51,8 +51,11 @@ struct HealthPickupEntity : public Entity
 
 struct HealthPickup : public ComponentType<HealthPickup>
 {
+	static r32 timer;
+	static r32 power_particle_timer;
 	static r32 particle_accumulator;
 	static void update_all(const Update&);
+	static u16 increment(PlayerCommon*);
 
 	struct Key
 	{
@@ -239,23 +242,6 @@ struct Rope : public ComponentType<Rope>
 	void awake() {}
 	static Rope* start(RigidBody*, const Vec3&, const Vec3&, const Quat&, r32 = 0.0f);
 	void end(const Vec3&, const Vec3&, RigidBody*, r32 = 0.0f);
-};
-
-struct ControlPoint : public ComponentType<ControlPoint>
-{
-	static r32 timer;
-	static r32 particle_timer;
-	static void update_all(const Update&);
-	static ControlPoint* visible_from(const Vec3&, r32 = SENSOR_RANGE);
-	static u16 increment(AI::Team);
-	AI::Team team;
-	ControlPoint();
-	void awake() {}
-};
-
-struct ControlPointEntity : public Entity
-{
-	ControlPointEntity();
 };
 
 struct TileEntity : public Entity

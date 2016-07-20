@@ -1756,9 +1756,7 @@ namespace tutorial
 	void health_got(const TargetEvent& e)
 	{
 		PlayerManager* manager = LocalPlayer::list.iterator().item()->manager.ref();
-		manager->credits = UpgradeInfo::list[(s32)Upgrade::Minion].cost + AbilityInfo::list[(s32)Ability::Sensor].spawn_cost * 2;
-		manager->upgrade_start(Upgrade::Sensor);
-		manager->upgrade_complete();
+		manager->credits = UpgradeInfo::list[(s32)Upgrade::Sensor].cost + AbilityInfo::list[(s32)Ability::Sensor].spawn_cost * 2;
 
 		data->state = TutorialState::PvpUpgrade;
 		Penelope::data->texts.clear();

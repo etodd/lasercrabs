@@ -63,6 +63,7 @@ struct Awk : public ComponentType<Awk>
 	r32 last_footstep;
 	Vec3 lerped_pos;
 	Quat lerped_rotation;
+	Vec3 last_pos;
 	Ref<Entity> shield;
 	b8 disable_cooldown_skip;
 

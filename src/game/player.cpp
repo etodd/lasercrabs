@@ -2094,7 +2094,8 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 
 			Rect2 box = text.rect(pos).outset(6 * UI::scale);
 			UI::box(params, box, UI::background_color);
-			text.draw(params, pos);
+			if (UI::flash_function_slow(Game::real_time.total))
+				text.draw(params, pos);
 		}
 		else if (detect_danger > 0.0f)
 		{

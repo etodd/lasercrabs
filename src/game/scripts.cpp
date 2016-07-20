@@ -1543,7 +1543,9 @@ namespace connect
 			);
 			UI::triangle_border(params, { triangle_pos, Vec2(20 * UI::scale) }, 9, UI::accent_color, Game::real_time.total * -8.0f);
 
-			if (Game::state.forfeit == Game::Forfeit::None && Menu::next_mode == Game::Mode::Pvp)
+			if (Game::state.forfeit == Game::Forfeit::None
+				&& Menu::next_mode == Game::Mode::Pvp
+				&& Game::save.level_index >= Game::tutorial_levels)
 			{
 				// show a tip
 				UIText text;
@@ -1761,7 +1763,7 @@ namespace tutorial
 		data->state = TutorialState::PvpUpgrade;
 		Penelope::data->texts.clear();
 		Penelope::data->texts.schedule(0.0f, _(strings::tut_pvp_upgrade));
-		Game::level.feature_level = Game::FeatureLevel::ControlPoints;
+		Game::level.feature_level = Game::FeatureLevel::Abilities;
 	}
 
 	void player_or_ai_killed(Entity*)

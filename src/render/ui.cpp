@@ -1002,9 +1002,7 @@ b8 UI::is_onscreen(const RenderParams& params, const Vec3& pos, Vec2* out, Vec2*
 	if (!on_screen)
 		offset *= -1.0f;
 
-	r32 pointer_size = 48 * UI::scale;
-
-	r32 radius = vi_min(viewport.size.x, viewport.size.y) * 0.5f - pointer_size;
+	r32 radius = vi_min(viewport.size.x, viewport.size.y) * 0.5f - (64.0f * UI::scale);
 
 	r32 offset_length = offset.length();
 	if ((offset_length > radius || (offset_length > 0.0f && !on_screen)))

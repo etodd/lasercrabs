@@ -637,7 +637,7 @@ MemoryStatus default_memory_filter(const AIPlayerControl* control, const Entity*
 
 Upgrade want_available_upgrade(const AIPlayerControl* control)
 {
-	if (!Game::level.has_feature(Game::FeatureLevel::ControlPoints))
+	if (!Game::level.has_feature(Game::FeatureLevel::Abilities))
 		return Upgrade::None;
 
 	PlayerManager* manager = control->player.ref()->manager.ref();

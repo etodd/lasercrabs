@@ -268,7 +268,7 @@ void HealthPickup::update_all(const Update& u)
 		}
 	}
 
-	if (Game::state.mode == Game::Mode::Pvp && Game::level.has_feature(Game::FeatureLevel::ControlPoints))
+	if (Game::state.mode == Game::Mode::Pvp && Game::level.has_feature(Game::FeatureLevel::HealthPickups))
 	{
 		timer -= u.time.delta;
 		if (timer < 0.0f)

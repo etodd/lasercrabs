@@ -46,7 +46,6 @@ struct Game
 		Base,
 		HealthPickups,
 		Abilities,
-		ControlPoints,
 		All,
 		count = All,
 	};

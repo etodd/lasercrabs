@@ -218,7 +218,7 @@ void LocalPlayer::update(const Update& u)
 	// flash message when the buy period expires
 	if (Game::state.mode == Game::Mode::Pvp
 		&& !Team::game_over
-		&& Game::level.has_feature(Game::FeatureLevel::ControlPoints)
+		&& Game::level.has_feature(Game::FeatureLevel::Abilities)
 		&& Game::time.total > GAME_BUY_PERIOD
 		&& Game::time.total - Game::time.delta <= GAME_BUY_PERIOD)
 		msg(_(strings::buy_period_expired), true);
@@ -251,7 +251,7 @@ void LocalPlayer::update(const Update& u)
 			ensure_camera(u, false);
 
 			if (Game::state.mode == Game::Mode::Pvp
-				&& Game::level.has_feature(Game::FeatureLevel::ControlPoints)
+				&& Game::level.has_feature(Game::FeatureLevel::Abilities)
 				&& manager.ref()->at_spawn())
 			{
 				if (!u.input->get(Controls::Interact, gamepad) && u.last_input->get(Controls::Interact, gamepad))
@@ -469,7 +469,7 @@ void LocalPlayer::draw_alpha(const RenderParams& params) const
 	{
 		if (Game::state.mode == Game::Mode::Pvp && Game::level.has_feature(Game::FeatureLevel::Abilities))
 		{
-			if (Game::level.has_feature(Game::FeatureLevel::ControlPoints) && manager.ref()->at_spawn())
+			if (manager.ref()->at_spawn())
 			{
 				// "upgrade!"
 				UIText text;
@@ -1871,7 +1871,7 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 	}
 
 	// upgrade notification
-	if (Game::level.has_feature(Game::FeatureLevel::ControlPoints)
+	if (Game::level.has_feature(Game::FeatureLevel::Abilities)
 		&& player.ref()->manager.ref()->upgrade_available()
 		&& !player.ref()->manager.ref()->at_spawn())
 	{

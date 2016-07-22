@@ -66,6 +66,7 @@ struct Awk : public ComponentType<Awk>
 	Vec3 last_pos;
 	Ref<Entity> shield;
 	b8 disable_cooldown_skip;
+	r32 particle_accumulator;
 
 	Awk();
 	void awake();

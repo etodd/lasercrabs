@@ -661,7 +661,7 @@ void Game::draw_additive(const RenderParams& render_params)
 
 void Game::execute(const Update& u, const char* cmd)
 {
-	if (utf8cmp(cmd, "third_person") == 0)
+	if (utf8cmp(cmd, "thirdperson") == 0)
 	{
 		state.third_person = !state.third_person;
 	}

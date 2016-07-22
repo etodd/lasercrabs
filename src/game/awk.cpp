@@ -43,7 +43,7 @@ AwkRaycastCallback::AwkRaycastCallback(const Vec3& a, const Vec3& b, const Entit
 
 b8 AwkRaycastCallback::hit_target() const
 {
-	return closest_target_hit < m_closestHitFraction;
+	return closest_target_hit < FLT_MAX;
 }
 
 btScalar AwkRaycastCallback::addSingleResult(btCollisionWorld::LocalRayResult& ray_result, b8 normalInWorldSpace)
@@ -55,15 +55,22 @@ btScalar AwkRaycastCallback::addSingleResult(btCollisionWorld::LocalRayResult& r
 		if (entity->has<MinionCommon>() && entity->get<MinionCommon>()->headshot_test(m_rayFromWorld, m_rayToWorld))
 		{
 			closest_target_hit = ray_result.m_hitFraction;
-			return m_closestHitFraction;
+			return m_closestHitFraction; // keep going
 		}
 	}
-	else if (filter_group & (CollisionTarget | CollisionShield))
+	else if (filter_group & CollisionShield)
+	{
+		if (ray_result.m_collisionObject->getUserIndex() == entity_id)
+			return m_closestHitFraction; // keep going
+		else
+			closest_target_hit = ray_result.m_hitFraction; // stop here
+	}
+	else if (filter_group & CollisionTarget)
 	{
 		if (ray_result.m_collisionObject->getUserIndex() != entity_id)
 		{
 			closest_target_hit = ray_result.m_hitFraction;
-			return m_closestHitFraction;
+			return m_closestHitFraction; // keep going
 		}
 	}
 
@@ -95,7 +102,8 @@ Awk::Awk()
 	cooldown_total(),
 	stun_timer(),
 	invincible_timer(),
-	disable_cooldown_skip()
+	disable_cooldown_skip(),
+	particle_accumulator()
 {
 }
 
@@ -108,7 +116,7 @@ void Awk::awake()
 	{
 		Entity* shield_entity = World::create<Empty>();
 		shield_entity->get<Transform>()->parent = get<Transform>();
-		shield_entity->add<RigidBody>(RigidBody::Type::Sphere, Vec3(AWK_SHIELD_RADIUS), 0.0f, CollisionTarget | CollisionShield, CollisionDefault, AssetNull, entity_id);
+		shield_entity->add<RigidBody>(RigidBody::Type::Sphere, Vec3(AWK_SHIELD_RADIUS), 0.0f, CollisionShield, CollisionDefault, AssetNull, entity_id);
 		shield = shield_entity;
 
 		View* s = shield_entity->add<View>();
@@ -435,7 +443,7 @@ b8 Awk::can_go(const Vec3& dir, Vec3* final_pos, b8* hit_target) const
 	AwkRaycastCallback ray_callback(trace_start, trace_end, entity());
 	Physics::raycast(&ray_callback, ~CollisionAwkIgnore & ~ally_containment_field_mask());
 
-	if (ray_callback.hasHit() && !(ray_callback.m_collisionObject->getBroadphaseHandle()->m_collisionFilterGroup & AWK_INACCESSIBLE_MASK))
+	if (ray_callback.hasHit() && !(ray_callback.m_collisionObject->getBroadphaseHandle()->m_collisionFilterGroup & (AWK_INACCESSIBLE_MASK & ~CollisionShield)))
 	{
 		if (final_pos)
 			*final_pos = ray_callback.m_hitPointWorld;
@@ -461,6 +469,7 @@ void Awk::detach_teleport()
 	get<Animator>()->reset_overrides();
 	get<Animator>()->layers[0].animation = Asset::Animation::awk_fly;
 
+	particle_accumulator = 0;
 	detached.fire();
 }
 
@@ -494,34 +503,37 @@ void Awk::reflect(const Vec3& hit, const Vec3& normal, const Update& u)
 	Vec3 target_velocity = velocity.reflect(normal);
 
 	// the actual direction we end up going
-	b8 fallback_found = false;
 	Vec3 new_velocity = target_velocity;
 
 	get<Transform>()->absolute_pos(hit + normal * AWK_RADIUS);
 
+	r32 target_speed = target_velocity.length();
+	Quat target_quat = Quat::look(target_velocity / target_speed);
+
 	// make sure we have somewhere to land.
 	const s32 tries = 20; // try 20 raycasts. if they all fail, just shoot off into space.
 	r32 random_range = 0.0f;
+	r32 farthest_distance = 0;
 	for (s32 i = 0; i < tries; i++)
 	{
-		Vec3 candidate_velocity = Quat::euler(((mersenne::randf_oo() * 2.0f) - 1.0f) * random_range, ((mersenne::randf_oo() * 2.0f) - 1.0f) * random_range, ((mersenne::randf_oo() * 2.0f) - 1.0f) * random_range) * target_velocity;
-		if (candidate_velocity.dot(normal) < 0.0f)
-			candidate_velocity = candidate_velocity.reflect(normal);
+		Vec3 candidate_velocity = target_quat * Quat::euler(0.0f, mersenne::randf_co() * random_range * 2.0f, (mersenne::randf_co() - 0.5f) * random_range) * Vec3(0, 0, target_speed);
 		Vec3 next_hit;
 		if (get<Awk>()->can_go(candidate_velocity, &next_hit))
 		{
-			if (!fallback_found)
+			r32 distance_to_next_hit = (next_hit - hit).length_squared();
+			if (distance_to_next_hit > farthest_distance)
 			{
 				new_velocity = candidate_velocity;
-				fallback_found = true;
+				farthest_distance = distance_to_next_hit;
 			}
-			if ((next_hit - hit).length_squared() > (AWK_MAX_DISTANCE * 0.5f * AWK_MAX_DISTANCE * 0.5f)) // try to bounce to a spot at least 10 units away
+
+			if (distance_to_next_hit > (AWK_MAX_DISTANCE * 0.5f * AWK_MAX_DISTANCE * 0.5f)) // try to bounce to a spot at least X units away
 			{
 				new_velocity = candidate_velocity;
 				break;
 			}
 		}
-		random_range += PI * (2.0f / (r32)tries);
+		random_range += PI * 0.5f / (r32)tries;
 	}
 
 	bounce.fire(new_velocity);
@@ -952,6 +964,22 @@ void Awk::update(const Update& u)
 			Vec3 next_position = position + velocity * u.time.delta;
 			get<Transform>()->absolute_pos(next_position);
 
+			// emit particles
+			{
+				const r32 particle_interval = 0.05f;
+				particle_accumulator += u.time.delta;
+				while (particle_accumulator > particle_interval)
+				{
+					particle_accumulator -= particle_interval;
+					Particles::tracers.add
+					(
+						Vec3::lerp(particle_accumulator / u.time.delta, position, next_position),
+						Vec3::zero,
+						0
+					);
+				}
+			}
+
 			if (!btVector3(velocity).fuzzyZero())
 			{
 				Vec3 dir = Vec3::normalize(velocity);
@@ -1010,7 +1038,7 @@ void Awk::update(const Update& u)
 							// this shouldn't happen, but if it does, bounce off
 							reflect(ray_callback.m_hitPointWorld[i], ray_callback.m_hitNormalWorld[i], u);
 						}
-						else if (group & CollisionTarget)
+						else if (group & (CollisionTarget | CollisionShield))
 						{
 							Ref<Entity> hit = &Entity::list[ray_callback.m_collisionObjects[i]->getUserIndex()];
 							if (hit.ref() != entity())

@@ -74,6 +74,7 @@ struct PlayerCommon : public ComponentType<PlayerCommon>
 	void update(const Update&);
 	void awk_detached();
 	void awk_attached();
+	void awk_bounce(const Vec3&);
 	void clamp_rotation(const Vec3&, r32 = 0.0f);
 	b8 movement_enabled() const;
 };

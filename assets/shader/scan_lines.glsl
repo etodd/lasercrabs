@@ -24,12 +24,12 @@ out vec4 out_color;
 
 void main()
 {
-	float y = time * 16 + uv.y * buffer_size.y;
-	int y0 = int(y);
-	int y1 = y0 + 1;
-	float line1 = float(y0 % 4 == 0);
-	float line2 = float(y1 % 4 == 0);
-	float value = mix(line1, line2, y - y0);
+	float y = time * 16.0 + uv.y * buffer_size.y;
+	int y_pixel = int(y);
+	float line1 = float(y_pixel % 4 == 0);
+	float line2 = float((y_pixel + 1) % 4 == 0);
+	float y_subpixel = min(y - float(y_pixel), 0.25);
+	float value = mix(line1, line2, y_subpixel);
 	float clip_depth = texture(depth_buffer, uv).x;
 	float clip_depth_scaled = clip_depth * 2.0 - 1.0;
 	float depth = p[3][2] / (clip_depth_scaled - p[2][2]);

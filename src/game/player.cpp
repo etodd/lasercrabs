@@ -43,7 +43,7 @@ namespace VI
 #define zoom_speed (1.0f / 0.1f)
 #define speed_mouse 0.001f
 #define speed_mouse_zoom (speed_mouse * zoom_ratio * 0.5f)
-#define speed_joystick 4.0f
+#define speed_joystick 5.0f
 #define speed_joystick_zoom (speed_joystick * zoom_ratio * 0.5f)
 #define gamepad_rotation_acceleration (1.0f / 0.2f)
 #define attach_speed 5.0f
@@ -893,6 +893,7 @@ void PlayerCommon::awake()
 		get<Health>()->hp_max = AWK_HEALTH;
 		link<&PlayerCommon::awk_attached>(get<Awk>()->attached);
 		link<&PlayerCommon::awk_detached>(get<Awk>()->detached);
+		link_arg<const Vec3&, &PlayerCommon::awk_bounce>(get<Awk>()->bounce);
 	}
 }
 
@@ -946,19 +947,17 @@ r32 PlayerCommon::detect_danger() const
 void PlayerCommon::awk_attached()
 {
 	Quat absolute_rot = get<Transform>()->absolute_rot();
-	Vec3 direction = Vec3::normalize(get<Awk>()->velocity);
 	Vec3 wall_normal = absolute_rot * Vec3(0, 0, 1);
 
 	// If we are spawning on to a flat floor, set attach_quat immediately
 	// This preserves the camera rotation set by the PlayerSpawn
-	if (direction.y == -1.0f && wall_normal.y > 0.9f)
+	if (Vec3::normalize(get<Awk>()->velocity).y == -1.0f && wall_normal.y > 0.9f)
 		attach_quat = absolute_rot;
 	else
 	{
-		// set our angles when we land, that way if we bounce off anything in transit,
-		// the new direction will be taken into account
-		angle_horizontal = atan2f(direction.x, direction.z);
-		angle_vertical = -asinf(direction.y);
+		// we are attaching to a wall or something
+		// set the attach quat to be perpendicular to the camera, so we can ease the camera gently away from the wall
+		Vec3 direction = look_dir();
 
 		Vec3 up = Vec3::normalize(wall_normal.cross(direction));
 		Vec3 right = direction.cross(up);
@@ -986,6 +985,12 @@ void PlayerCommon::awk_attached()
 void PlayerCommon::awk_detached()
 {
 	Vec3 direction = Vec3::normalize(get<Awk>()->velocity);
+	attach_quat = Quat::look(direction);
+}
+
+void PlayerCommon::awk_bounce(const Vec3& new_velocity)
+{
+	Vec3 direction = Vec3::normalize(new_velocity);
 	attach_quat = Quat::look(direction);
 }
 
@@ -1404,7 +1409,7 @@ void LocalPlayerControl::update(const Update& u)
 			last_pos = get<Awk>()->center();
 		}
 		else
-			look_quat = get<PlayerCommon>()->attach_quat;
+			look_quat = Quat::euler(0, get<PlayerCommon>()->angle_horizontal, get<PlayerCommon>()->angle_vertical);
 
 		// abilities
 		if (input_enabled())
@@ -1711,7 +1716,7 @@ void LocalPlayerControl::update(const Update& u)
 
 		Vec3 camera_pos;
 		if (Game::state.third_person)
-			camera_pos = get<Transform>()->absolute_pos() + look_quat * Vec3(0, 1, -3);
+			camera_pos = get<Transform>()->absolute_pos() + look_quat * Vec3(0, 1, -7);
 		else
 		{
 			camera_pos = Vec3(0, 0, 0.05f);

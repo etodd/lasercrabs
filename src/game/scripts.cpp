@@ -1655,6 +1655,7 @@ namespace tutorial
 		TutorialState state;
 		b8 penelope_done;
 		Ref<Transform> slide_retry;
+		Ref<Transform> wallrun_retry;
 		Ref<Transform> roll_retry;
 		Ref<PlayerTrigger> roll_success;
 		Ref<Mover> door_mover;
@@ -1729,6 +1730,14 @@ namespace tutorial
 		Entity* player = LocalPlayerControl::list.iterator().item()->entity();
 		player->get<Walker>()->absolute_pos(data->slide_retry.ref()->absolute_pos());
 		player->get<Walker>()->rotation = player->get<Walker>()->rotation = player->get<PlayerCommon>()->angle_horizontal = PI;
+		player->get<RigidBody>()->btBody->setLinearVelocity(Vec3::zero);
+	}
+
+	void wallrun_fail(Entity*)
+	{
+		Entity* player = LocalPlayerControl::list.iterator().item()->entity();
+		player->get<Walker>()->absolute_pos(data->wallrun_retry.ref()->absolute_pos());
+		player->get<Walker>()->rotation = player->get<Walker>()->rotation = player->get<PlayerCommon>()->angle_horizontal = 0;
 		player->get<RigidBody>()->btBody->setLinearVelocity(Vec3::zero);
 	}
 
@@ -1934,12 +1943,14 @@ namespace tutorial
 			entities.find("jump_success")->get<PlayerTrigger>()->entered.link(&jump_success);
 			entities.find("climb_success")->get<PlayerTrigger>()->entered.link(&climb_success);
 			entities.find("wallrun_tutorial")->get<PlayerTrigger>()->entered.link(&wallrun_tutorial);
+			entities.find("wallrun_fail")->get<PlayerTrigger>()->entered.link(&wallrun_fail);
 			entities.find("wallrun_success")->get<PlayerTrigger>()->entered.link(&wallrun_success);
 			entities.find("slide_tutorial")->get<PlayerTrigger>()->entered.link(&slide_tutorial);
 			entities.find("slide_fail")->get<PlayerTrigger>()->entered.link(&slide_fail);
 			entities.find("roll_tutorial")->get<PlayerTrigger>()->entered.link(&roll_tutorial);
 			data->roll_success = entities.find("roll_success")->get<PlayerTrigger>();
 			data->slide_retry = entities.find("slide_retry")->get<Transform>();
+			data->wallrun_retry = entities.find("wallrun_retry")->get<Transform>();
 			data->roll_retry = entities.find("roll_retry")->get<Transform>();
 			data->transparent_wall = entities.find("transparent_wall");
 			Penelope::terminal_activated().link(&remove_transparent_wall);

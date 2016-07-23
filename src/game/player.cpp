@@ -1016,22 +1016,6 @@ void PlayerCommon::clamp_rotation(const Vec3& direction, r32 dot_limit)
 	}
 }
 
-s32 factorial(s32 x)
-{
-	s32 accum = 1;
-	while (x > 1)
-	{
-		accum *= x;
-		x--;
-	}
-	return accum;
-}
-
-s32 combination(s32 n, s32 choose)
-{
-	return factorial(n) / (factorial(n - choose) * factorial(choose));
-}
-
 Bitmask<MAX_PLAYERS * MAX_PLAYERS> PlayerCommon::visibility;
 
 s32 PlayerCommon::visibility_hash(const PlayerCommon* awk_a, const PlayerCommon* awk_b)
@@ -1623,6 +1607,9 @@ void LocalPlayerControl::update(const Update& u)
 			try_primary = true;
 		else if (!jump_pressed)
 			try_primary = false;
+
+		if (jump_pressed)
+			get<Parkour>()->lessen_gravity(); // jump higher when the player holds the jump button
 
 		if (try_primary)
 		{

@@ -23,6 +23,7 @@ namespace VI
 #define WALK_SPEED 2.0f
 #define MAX_SPEED 8.0f
 #define MIN_WALLRUN_SPEED 2.0f
+#define JUMP_SPEED 6.0f
 
 #define JUMP_GRACE_PERIOD 0.3f
 
@@ -326,34 +327,51 @@ void Parkour::update(const Update& u)
 
 		if (!exit_wallrun)
 		{
+
+			// check if we need to transfer to a different wall
+			{
+				Vec3 ray_start = get<Walker>()->base_pos() + Vec3(0, get<Walker>()->support_height, 0);
+
+				Vec3 wall_run_normal = last_support.ref()->get<Transform>()->to_world_normal(relative_wall_run_normal);
+
+				Quat rot = Quat::euler(0, get<Walker>()->rotation, 0);
+				Vec3 forward = rot * Vec3(0, 0, 1);
+				if (wall_run_state == WallRunState::Left || wall_run_state == WallRunState::Right)
+				{
+					// check if we need to switch to a perpendicular wall right in front of us
+					if (!try_wall_run(WallRunState::Forward, forward))
+					{
+						// check if we need to transfer between walls that are slightly angled
+						Vec3 ray_dir = rot * Vec3(wall_run_state == WallRunState::Left ? 1 : -1, 0, 1);
+						Vec3 ray_end = ray_start + ray_dir * (get<Walker>()->radius * WALL_RUN_DISTANCE_RATIO);
+						btCollisionWorld::ClosestRayResultCallback ray_callback(ray_start, ray_end);
+						Physics::raycast(&ray_callback, CollisionParkour);
+
+						r32 forward_dot = forward.dot(ray_callback.m_hitNormalWorld);
+						if (ray_callback.hasHit()
+							&& wall_run_normal.dot(ray_callback.m_hitNormalWorld) < 0.99f
+							&& fabs(ray_callback.m_hitNormalWorld.getY()) < 0.25f
+							&& forward_dot > -0.9f
+							&& forward_dot < 0.1f)
+						{
+							// transition from one wall to another
+							last_support = Entity::list[ray_callback.m_collisionObject->getUserIndex()].get<RigidBody>();
+							relative_support_pos = last_support.ref()->get<Transform>()->to_local(ray_callback.m_hitPointWorld);
+							wall_run_normal = ray_callback.m_hitNormalWorld;
+							relative_wall_run_normal = last_support.ref()->get<Transform>()->to_local_normal(wall_run_normal);
+						}
+					}
+				}
+			}
+
+			// keep us glued to the wall
+
 			Vec3 ray_start = get<Walker>()->base_pos() + Vec3(0, get<Walker>()->support_height, 0);
 
 			Vec3 wall_run_normal = last_support.ref()->get<Transform>()->to_world_normal(relative_wall_run_normal);
 
 			Quat rot = Quat::euler(0, get<Walker>()->rotation, 0);
 			Vec3 forward = rot * Vec3(0, 0, 1);
-			if (wall_run_state == WallRunState::Left || wall_run_state == WallRunState::Right)
-			{
-				// check in front of us
-				Vec3 ray_dir = rot * Vec3(wall_run_state == WallRunState::Left ? 1 : -1, 0, 1);
-				Vec3 ray_end = ray_start + ray_dir * (get<Walker>()->radius * WALL_RUN_DISTANCE_RATIO);
-				btCollisionWorld::ClosestRayResultCallback ray_callback(ray_start, ray_end);
-				Physics::raycast(&ray_callback, CollisionParkour);
-
-				r32 forward_dot = forward.dot(ray_callback.m_hitNormalWorld);
-				if (ray_callback.hasHit()
-					&& wall_run_normal.dot(ray_callback.m_hitNormalWorld) < 0.99f
-					&& fabs(ray_callback.m_hitNormalWorld.getY()) < 0.25f
-					&& forward_dot > -0.9f
-					&& forward_dot < 0.1f)
-				{
-					// transition from one wall to another
-					last_support = Entity::list[ray_callback.m_collisionObject->getUserIndex()].get<RigidBody>();
-					relative_support_pos = last_support.ref()->get<Transform>()->to_local(ray_callback.m_hitPointWorld);
-					wall_run_normal = ray_callback.m_hitNormalWorld;
-					relative_wall_run_normal = last_support.ref()->get<Transform>()->to_local_normal(wall_run_normal);
-				}
-			}
 
 			Vec3 ray_end = ray_start + wall_run_normal * get<Walker>()->radius * WALL_RUN_DISTANCE_RATIO * -2.0f;
 			btCollisionWorld::ClosestRayResultCallback ray_callback(ray_start, ray_end);
@@ -590,13 +608,21 @@ Vec3 wall_directions[wall_jump_direction_count] =
 void Parkour::do_normal_jump()
 {
 	btRigidBody* body = get<RigidBody>()->btBody;
-	const r32 speed = 6.0f;
 	Vec3 new_velocity = body->getLinearVelocity();
-	new_velocity.y = vi_max(0.0f, new_velocity.y) + speed;
+	new_velocity.y = vi_max(0.0f, new_velocity.y) + JUMP_SPEED;
 	body->setLinearVelocity(new_velocity);
 	last_support = get<Walker>()->support = nullptr;
 	wall_run_state = WallRunState::None;
 	get<Animator>()->layers[1].play(Asset::Animation::character_jump1);
+}
+
+void Parkour::lessen_gravity()
+{
+	// slightly increase vertical velocity
+	// this results in higher jumps when the player holds the jump button
+	btRigidBody* body = get<RigidBody>()->btBody;
+	if (body->getLinearVelocity().y() > 0.0f)
+		body->applyCentralForce(Physics::btWorld->getGravity() * -0.15f);
 }
 
 b8 Parkour::try_jump(r32 rotation)
@@ -777,6 +803,8 @@ b8 Parkour::try_slide()
 			relative_support_pos = last_support.ref()->get<Transform>()->to_local(support_callback.m_hitPointWorld);
 			relative_wall_run_normal = last_support.ref()->get<Transform>()->to_local_normal(support_callback.m_hitNormalWorld);
 			can_double_jump = true;
+
+			slide_continue = true;
 
 			return true;
 		}

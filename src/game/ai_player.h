@@ -147,7 +147,7 @@ namespace AIBehaviors
 		{
 			if (this->active())
 			{
-				if (result.path.length > 1 && this->control->get<Transform>()->parent.ref() && this->path_priority > this->control->path_priority)
+				if (result.path.length > 1 && this->control->template get<Awk>()->state() == Awk::State::Crawl && this->path_priority > this->control->path_priority)
 				{
 					vi_assert(this->control->active_behavior != this);
 					this->control->behavior_start(this, this->path_priority);
@@ -202,7 +202,7 @@ namespace AIBehaviors
 
 		void pathfind(const Vec3& target, const Vec3& normal, AI::AwkPathfind type)
 		{
-			vi_assert(this->control->template get<Transform>()->parent.ref());
+			vi_assert(this->control->template get<Awk>()->state() == Awk::State::Crawl);
 			auto ai_callback = ObjectLinkEntryArg<Base<Derived>, const AI::AwkResult&, &Base<Derived>::path_callback>(this->id());
 			Vec3 pos;
 			Quat rot;

@@ -379,7 +379,7 @@ namespace VI
 		{
 			Entity* player_entity = player.item()->entity.ref();
 
-			if (player_entity && player_entity->has<Awk>() && player_entity->get<Transform>()->parent.ref())
+			if (player_entity && player_entity->has<Awk>() && player_entity->get<Awk>()->state() == Awk::State::Crawl)
 			{
 				// we're on a wall and can thus be detected
 				AI::Team player_team = player.item()->team.ref()->team();
@@ -521,7 +521,7 @@ namespace VI
 								team->track(player.item(), sensor->owner.ref());
 						}
 					}
-					else if (player_entity->get<Transform>()->parent.ref())
+					else if (player_entity->get<Awk>()->state() == Awk::State::Crawl)
 					{
 						// not tracking yet; insert new track entry
 						// (only start tracking if the Awk is attached to a wall; don't start tracking if Awk is mid-air)
@@ -590,7 +590,7 @@ namespace VI
 			return false;
 
 		// need to be sitting on some kind of surface
-		if (!awk->get<Transform>()->parent.ref())
+		if (awk->get<Awk>()->state() != Awk::State::Crawl)
 			return false;
 
 		Ability old = current_spawn_ability;
@@ -639,103 +639,88 @@ namespace VI
 			return;
 		}
 
-		switch (ability)
+		if (awk->get<Awk>()->state() == Awk::State::Crawl)
 		{
-		case Ability::Sensor:
-		{
-			if (awk->get<Transform>()->parent.ref())
+			switch (ability)
 			{
-				add_credits(-cost);
+				case Ability::Sensor:
+				{
+					add_credits(-cost);
 
-				// place a proximity sensor
-				Vec3 abs_pos;
-				Quat abs_rot;
-				awk->get<Transform>()->absolute(&abs_pos, &abs_rot);
+					// place a proximity sensor
+					Vec3 abs_pos;
+					Quat abs_rot;
+					awk->get<Transform>()->absolute(&abs_pos, &abs_rot);
 
-				Entity* sensor = World::create<SensorEntity>(this, abs_pos + abs_rot * Vec3(0, 0, -AWK_RADIUS + (rope_segment_length * 2.0f) - rope_radius + SENSOR_RADIUS), abs_rot);
+					Entity* sensor = World::create<SensorEntity>(this, abs_pos + abs_rot * Vec3(0, 0, -AWK_RADIUS + (rope_segment_length * 2.0f) - rope_radius + SENSOR_RADIUS), abs_rot);
 
-				Audio::post_global_event(AK::EVENTS::PLAY_SENSOR_SPAWN, abs_pos);
+					Audio::post_global_event(AK::EVENTS::PLAY_SENSOR_SPAWN, abs_pos);
 
-				// attach it to the wall
-				Rope* rope = Rope::start(awk->get<Transform>()->parent.ref()->get<RigidBody>(), abs_pos + abs_rot * Vec3(0, 0, -AWK_RADIUS), abs_rot * Vec3(0, 0, 1), abs_rot);
-				rope->end(abs_pos + abs_rot * Vec3(0, 0, -AWK_RADIUS + (rope_segment_length * 2.0f)), abs_rot * Vec3(0, 0, -1), sensor->get<RigidBody>());
+					// attach it to the wall
+					Rope* rope = Rope::start(awk->get<Transform>()->parent.ref()->get<RigidBody>(), abs_pos + abs_rot * Vec3(0, 0, -AWK_RADIUS), abs_rot * Vec3(0, 0, 1), abs_rot);
+					rope->end(abs_pos + abs_rot * Vec3(0, 0, -AWK_RADIUS + (rope_segment_length * 2.0f)), abs_rot * Vec3(0, 0, -1), sensor->get<RigidBody>());
 
-				ability_spawned.fire(ability);
+					ability_spawned.fire(ability);
+					break;
+				}
+				case Ability::Rocket:
+				{
+					add_credits(-cost);
+
+					// spawn a rocket pod
+					Quat rot = awk->get<Transform>()->absolute_rot();
+					Vec3 pos = awk->get<Transform>()->absolute_pos() + rot * Vec3(0, 0, -AWK_RADIUS);
+					Transform* parent = awk->get<Transform>()->parent.ref();
+					World::create<RocketEntity>(awk, parent, pos, rot, team.ref()->team());
+
+					// rocket base
+					Entity* base = World::alloc<Prop>(Asset::Mesh::rocket_base);
+					base->get<Transform>()->absolute(pos, rot);
+					base->get<Transform>()->reparent(parent);
+					base->get<View>()->team = (u8)team.ref()->team();
+
+					ability_spawned.fire(ability);
+					break;
+				}
+				case Ability::Minion:
+				{
+					add_credits(-cost);
+
+					// spawn a minion
+					Vec3 pos;
+					Quat rot;
+					awk->get<Transform>()->absolute(&pos, &rot);
+					pos += rot * Vec3(0, 0, 1.0f);
+					World::create<Minion>(pos, Quat::euler(0, awk->get<PlayerCommon>()->angle_horizontal, 0), team.ref()->team(), this);
+
+					Audio::post_global_event(AK::EVENTS::PLAY_MINION_SPAWN, pos);
+
+					ability_spawned.fire(ability);
+					break;
+				}
+				case Ability::ContainmentField:
+				{
+					add_credits(-cost);
+
+					// spawn a containment field
+					Vec3 pos;
+					Quat rot;
+					awk->get<Transform>()->absolute(&pos, &rot);
+					pos += rot * Vec3(0, 0, CONTAINMENT_FIELD_BASE_OFFSET);
+					World::create<ContainmentFieldEntity>(awk->get<Transform>()->parent.ref(), pos, rot, this);
+
+					ability_spawned.fire(ability);
+					break;
+				}
+				default:
+				{
+					vi_assert(false);
+					break;
+				}
 			}
-			else
-				ability_spawn_canceled.fire(ability);
-			break;
 		}
-		case Ability::Rocket:
-		{
-			if (awk->get<Transform>()->parent.ref())
-			{
-				add_credits(-cost);
-
-				// spawn a rocket pod
-				Quat rot = awk->get<Transform>()->absolute_rot();
-				Vec3 pos = awk->get<Transform>()->absolute_pos() + rot * Vec3(0, 0, -AWK_RADIUS);
-				Transform* parent = awk->get<Transform>()->parent.ref();
-				World::create<RocketEntity>(awk, parent, pos, rot, team.ref()->team());
-
-				// rocket base
-				Entity* base = World::alloc<Prop>(Asset::Mesh::rocket_base);
-				base->get<Transform>()->absolute(pos, rot);
-				base->get<Transform>()->reparent(parent);
-				base->get<View>()->team = (u8)team.ref()->team();
-
-				ability_spawned.fire(ability);
-			}
-			else
-				ability_spawn_canceled.fire(ability);
-			break;
-		}
-		case Ability::Minion:
-		{
-			if (awk->get<Transform>()->parent.ref())
-			{
-				add_credits(-cost);
-
-				// spawn a minion
-				Vec3 pos;
-				Quat rot;
-				awk->get<Transform>()->absolute(&pos, &rot);
-				pos += rot * Vec3(0, 0, 1.0f);
-				World::create<Minion>(pos, Quat::euler(0, awk->get<PlayerCommon>()->angle_horizontal, 0), team.ref()->team(), this);
-
-				Audio::post_global_event(AK::EVENTS::PLAY_MINION_SPAWN, pos);
-
-				ability_spawned.fire(ability);
-			}
-			else
-				ability_spawn_canceled.fire(ability);
-			break;
-		}
-		case Ability::ContainmentField:
-		{
-			if (awk->get<Transform>()->parent.ref())
-			{
-				add_credits(-cost);
-
-				// spawn a containment field
-				Vec3 pos;
-				Quat rot;
-				awk->get<Transform>()->absolute(&pos, &rot);
-				pos += rot * Vec3(0, 0, CONTAINMENT_FIELD_BASE_OFFSET);
-				World::create<ContainmentFieldEntity>(awk->get<Transform>()->parent.ref(), pos, rot, this);
-
-				ability_spawned.fire(ability);
-			}
-			else
-				ability_spawn_canceled.fire(ability);
-			break;
-		}
-		default:
-		{
-			vi_assert(false);
-			break;
-		}
-		}
+		else // we're not in Crawl state
+			ability_spawn_canceled.fire(ability);
 	}
 
 	PinArray<PlayerManager, MAX_PLAYERS> PlayerManager::list;
@@ -855,7 +840,7 @@ namespace VI
 	b8 PlayerManager::at_spawn() const
 	{
 		if (Game::state.mode == Game::Mode::Pvp)
-			return entity.ref() && entity.ref()->get<Transform>()->parent.ref() && team.ref()->player_spawn.ref()->get<PlayerTrigger>()->is_triggered(entity.ref());
+			return entity.ref() && entity.ref()->get<Awk>()->state() == Awk::State::Crawl && team.ref()->player_spawn.ref()->get<PlayerTrigger>()->is_triggered(entity.ref());
 		else
 			return false;
 	}

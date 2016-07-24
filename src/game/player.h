@@ -87,6 +87,7 @@ struct LocalPlayerControl : public ComponentType<LocalPlayerControl>
 		Error,
 		Normal,
 		Target,
+		Dash,
 	};
 
 	struct Reticle
@@ -121,7 +122,6 @@ struct LocalPlayerControl : public ComponentType<LocalPlayerControl>
 	r32 fov_blend;
 	r32 damage_timer;
 	r32 health_flash_timer;
-	Vec3 detach_dir;
 	b8 try_secondary;
 	b8 try_primary;
 	b8 try_slide;
@@ -145,8 +145,6 @@ struct LocalPlayerControl : public ComponentType<LocalPlayerControl>
 
 	void update(const Update&);
 	void draw_alpha(const RenderParams&) const;
-
-	void detach();
 
 	void update_camera_input(const Update&, r32 = 1.0f);
 	Vec3 get_movement(const Update&, const Quat&);

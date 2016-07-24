@@ -29,6 +29,7 @@ const char* AssetLookup::Mesh::values[] =
 	"assets/logo_mesh.msh",
 	"assets/logo_mesh_1.msh",
 	"assets/plane.msh",
+	"assets/reticle_dash.msh",
 	"assets/rocket_base.msh",
 	"assets/rocket_pod.msh",
 	"assets/rope_base.msh",
@@ -154,6 +155,7 @@ const char* AssetLookup::Mesh::names[] =
 	"logo_mesh",
 	"logo_mesh_1",
 	"plane",
+	"reticle_dash",
 	"rocket_base",
 	"rocket_pod",
 	"rope_base",
@@ -256,6 +258,7 @@ const char* AssetLookup::Mesh::names[] =
 
 const char* AssetLookup::Animation::values[] =
 {
+	"assets/awk_dash.anm",
 	"assets/awk_fly.anm",
 	"assets/character_fall.anm",
 	"assets/character_idle.anm",
@@ -275,6 +278,7 @@ const char* AssetLookup::Animation::values[] =
 
 const char* AssetLookup::Animation::names[] =
 {
+	"awk_dash",
 	"awk_fly",
 	"character_fall",
 	"character_idle",

@@ -26,6 +26,7 @@ namespace VI
 #define LERP_ROTATION_SPEED 10.0f
 #define LERP_TRANSLATION_SPEED 2.0f
 #define MAX_FLIGHT_TIME 2.0f
+#define AWK_DASH_TIME 0.3f
 #define AWK_LEG_LENGTH (0.277f - 0.101f)
 #define AWK_LEG_BLEND_SPEED (1.0f / 0.05f)
 #define AWK_MIN_LEG_BLEND_SPEED (AWK_LEG_BLEND_SPEED * 0.1f)
@@ -91,6 +92,8 @@ Awk::Awk()
 	: velocity(0.0f, -AWK_FLY_SPEED, 0.0f),
 	attached(),
 	detached(),
+	dashed(),
+	dash_timer(),
 	attach_time(),
 	footing(),
 	last_speed(),
@@ -142,6 +145,24 @@ Awk::~Awk()
 		World::remove_deferred(shield.ref());
 }
 
+Awk::State Awk::state() const
+{
+	if (dash_timer > 0.0f)
+		return State::Dash;
+	else if (get<Transform>()->parent.ref())
+		return State::Crawl;
+	else
+		return State::Fly;
+}
+
+Vec3 Awk::calculated_velocity() const
+{
+	if (state() == State::Fly)
+		return velocity;
+	else
+		return (get<Transform>()->absolute_pos() - last_pos) / Game::time.delta;
+}
+
 s32 Awk::ally_containment_field_mask() const
 {
 	return Team::containment_field_mask(get<AIAgent>()->team);
@@ -170,7 +191,7 @@ Entity* Awk::incoming_attacker() const
 		if (PlayerCommon::visibility.get(PlayerCommon::visibility_hash(get<PlayerCommon>(), i.item())))
 		{
 			// determine if they're attacking us
-			if (!i.item()->get<Transform>()->parent.ref()
+			if (i.item()->get<Awk>()->state() != Awk::State::Crawl
 				&& Vec3::normalize(i.item()->get<Awk>()->velocity).dot(Vec3::normalize(me - i.item()->get<Transform>()->absolute_pos())) > 0.98f)
 			{
 				return i.item()->entity();
@@ -220,7 +241,7 @@ void Awk::hit_by(const TargetEvent& e)
 	b8 shield_taken_down = false;
 
 	// only take damage if we're attached to a wall and not invincible
-	if (get<Transform>()->parent.ref())
+	if (state() == Awk::State::Crawl)
 	{
 		if (invincible_timer == 0.0f)
 		{
@@ -334,12 +355,7 @@ b8 Awk::predict_intersection(const Target* target, Vec3* intersection) const
 	Vec3 target_pos = target->absolute_pos();
 	Vec3 target_velocity;
 	if (target->has<Awk>())
-	{
-		if (target->get<Transform>()->parent.ref())
-			target_velocity = (target->get<Transform>()->absolute_pos() - target->get<Awk>()->last_pos) / Game::time.delta;
-		else
-			target_velocity = target->get<Awk>()->velocity;
-	}
+		target->get<Awk>()->calculated_velocity();
 	else
 		target_velocity = target->get<RigidBody>()->btBody->getInterpolationLinearVelocity();
 	Vec3 to_target = target_pos - get<Transform>()->absolute_pos();
@@ -422,6 +438,12 @@ b8 Awk::can_hit(const Target* target, Vec3* out_intersection) const
 	return false;
 }
 
+b8 Awk::direction_is_toward_attached_wall(const Vec3& dir) const
+{
+	Vec3 wall_normal = get<Transform>()->absolute_rot() * Vec3(0, 0, 1);
+	return dir.dot(wall_normal) < 0.0f;
+}
+
 b8 Awk::can_go(const Vec3& dir, Vec3* final_pos, b8* hit_target) const
 {
 	Vec3 trace_dir = Vec3::normalize(dir);
@@ -430,10 +452,9 @@ b8 Awk::can_go(const Vec3& dir, Vec3* final_pos, b8* hit_target) const
 		return false;
 
 	// if we're attached to a wall, make sure we're not shooting into the wall
-	if (get<Transform>()->parent.ref())
+	if (state() == Awk::State::Crawl)
 	{
-		Vec3 wall_normal = get<Transform>()->absolute_rot() * Vec3(0, 0, 1);
-		if (trace_dir.dot(wall_normal) < 0.0f)
+		if (direction_is_toward_attached_wall(trace_dir))
 			return false;
 	}
 
@@ -473,6 +494,34 @@ void Awk::detach_teleport()
 	detached.fire();
 }
 
+b8 Awk::dash_start(const Vec3& dir)
+{
+	if (state() != State::Crawl)
+		return false;
+
+	if (!direction_is_toward_attached_wall(dir))
+		return false;
+
+	velocity = Vec3::normalize(dir) * AWK_DASH_SPEED;
+	dash_timer = AWK_DASH_TIME;
+
+	hit_targets.length = 0;
+
+	attach_time = Game::time.total;
+	cooldown = AWK_MIN_COOLDOWN;
+
+	for (s32 i = 0; i < AWK_LEGS; i++)
+		footing[i].parent = nullptr;
+	get<Animator>()->reset_overrides();
+	get<Animator>()->layers[0].animation = Asset::Animation::awk_dash;
+
+	particle_accumulator = 0;
+
+	dashed.fire();
+
+	return true;
+}
+
 b8 Awk::cooldown_can_go() const
 {
 	return cooldown == 0.0f
@@ -499,6 +548,12 @@ b8 Awk::detach(const Vec3& dir)
 
 void Awk::reflect(const Vec3& hit, const Vec3& normal, const Update& u)
 {
+	// it's possible to reflect off a shield while we are dashing (still parented to an object)
+	// so we need to make sure we're not dashing anymore
+	get<Transform>()->reparent(nullptr);
+	dash_timer = 0.0f;
+	get<Animator>()->layers[0].animation = Asset::Animation::awk_fly;
+
 	// our goal
 	Vec3 target_velocity = velocity.reflect(normal);
 
@@ -518,7 +573,7 @@ void Awk::reflect(const Vec3& hit, const Vec3& normal, const Update& u)
 	{
 		Vec3 candidate_velocity = target_quat * Quat::euler(0.0f, mersenne::randf_co() * random_range * 2.0f, (mersenne::randf_co() - 0.5f) * random_range) * Vec3(0, 0, target_speed);
 		Vec3 next_hit;
-		if (get<Awk>()->can_go(candidate_velocity, &next_hit))
+		if (can_go(candidate_velocity, &next_hit))
 		{
 			r32 distance_to_next_hit = (next_hit - hit).length_squared();
 			if (distance_to_next_hit > farthest_distance)
@@ -607,7 +662,7 @@ void Awk::move(const Vec3& new_pos, const Quat& new_rotation, const ID entity_id
 	Entity* entity = &Entity::list[entity_id];
 	if (entity->get<Transform>() != get<Transform>()->parent.ref())
 	{
-		if (get<Transform>()->parent.ref())
+		if (state() == State::Crawl)
 		{
 			Vec3 abs_lerped_pos = get<Transform>()->parent.ref()->to_world(lerped_pos);
 			lerped_pos = entity->get<Transform>()->to_local(abs_lerped_pos);
@@ -627,9 +682,10 @@ void Awk::crawl(const Vec3& dir_raw, const Update& u)
 	r32 dir_length = dir_raw.length();
 	Vec3 dir_normalized = dir_raw / dir_length;
 
-	if (get<Transform>()->parent.ref() && dir_length > 0)
+	State s = state();
+	if (s != State::Fly && dir_length > 0)
 	{
-		r32 speed = last_speed = vi_min(dir_length, 1.0f) * AWK_CRAWL_SPEED;
+		r32 speed = last_speed = s == State::Dash ? AWK_DASH_SPEED : (vi_min(dir_length, 1.0f) * AWK_CRAWL_SPEED);
 
 		Vec3 wall_normal = get<Transform>()->absolute_rot() * Vec3(0, 0, 1);
 		Vec3 pos = get<Transform>()->absolute_pos();
@@ -778,7 +834,7 @@ void Awk::set_footing(const s32 index, const Transform* parent, const Vec3& pos)
 void Awk::update_offset()
 {
 	get<SkinnedModel>()->offset.rotation(lerped_rotation);
-	if (get<Transform>()->parent.ref())
+	if (state() == State::Crawl)
 	{
 		Vec3 abs_lerped_pos = get<Transform>()->parent.ref()->to_world(lerped_pos);
 		get<SkinnedModel>()->offset.translation(get<Transform>()->to_local(abs_lerped_pos));
@@ -808,14 +864,47 @@ void Awk::stealth(b8 enable)
 	}
 }
 
+void Awk::finish_flying_or_dashing()
+{
+	lerped_pos = get<Transform>()->pos;
+
+	get<Animator>()->layers[0].animation = AssetNull;
+
+	disable_cooldown_skip = false;
+	get<Audio>()->post_event(has<LocalPlayerControl>() ? AK::EVENTS::PLAY_LAND_PLAYER : AK::EVENTS::PLAY_LAND);
+	attach_time = Game::time.total;
+
+	velocity = Vec3::zero;
+
+	attached.fire();
+}
+
+void Awk::update_lerped_pos(r32 speed_multiplier, const Update& u)
+{
+	{
+		r32 angle = Quat::angle(lerped_rotation, Quat::identity);
+		if (angle > 0)
+			lerped_rotation = Quat::slerp(vi_min(1.0f, (speed_multiplier * LERP_ROTATION_SPEED / angle) * u.time.delta), lerped_rotation, Quat::identity);
+	}
+
+	{
+		Vec3 to_transform = get<Transform>()->pos - lerped_pos;
+		r32 distance = to_transform.length();
+		if (distance > 0.0f)
+			lerped_pos = Vec3::lerp(vi_min(1.0f, (speed_multiplier * LERP_TRANSLATION_SPEED / distance) * u.time.delta), lerped_pos, get<Transform>()->pos);
+	}
+}
+
 void Awk::update(const Update& u)
 {
 	last_pos = get<Transform>()->absolute_pos();
 
 	stun_timer = vi_max(stun_timer - u.time.delta, 0.0f);
 
+	State s = state();
+
 	invincible_timer = vi_max(invincible_timer - u.time.delta, 0.0f);
-	if (invincible_timer > 0.0f || !get<Transform>()->parent.ref())
+	if (invincible_timer > 0.0f || s != Awk::State::Crawl)
 	{
 		if (get<AIAgent>()->stealth)
 			shield.ref()->get<View>()->mask = 1 << (s32)get<AIAgent>()->team; // only display to fellow teammates
@@ -825,27 +914,15 @@ void Awk::update(const Update& u)
 	else
 		shield.ref()->get<View>()->mask = 0;
 
-	if (get<Transform>()->parent.ref())
+	if (s == Awk::State::Crawl)
 	{
 		if (stun_timer == 0.0f)
 			cooldown = vi_max(0.0f, cooldown - u.time.delta);
 
-		Quat rot = get<Transform>()->rot;
-
-		{
-			r32 angle = Quat::angle(lerped_rotation, Quat::identity);
-			if (angle > 0)
-				lerped_rotation = Quat::slerp(vi_min(1.0f, (LERP_ROTATION_SPEED / angle) * u.time.delta), lerped_rotation, Quat::identity);
-		}
-
-		{
-			Vec3 to_transform = get<Transform>()->pos - lerped_pos;
-			r32 distance = to_transform.length();
-			if (distance > 0.0f)
-				lerped_pos = Vec3::lerp(vi_min(1.0f, (LERP_TRANSLATION_SPEED / distance) * u.time.delta), lerped_pos, get<Transform>()->pos);
-		}
-
+		update_lerped_pos(1.0f, u);
 		update_offset();
+
+		// update footing
 
 		Mat4 inverse_offset = get<SkinnedModel>()->offset.inverse();
 
@@ -956,13 +1033,35 @@ void Awk::update(const Update& u)
 	}
 	else
 	{
+		// flying or dashing
+
 		if (attach_time > 0.0f && u.time.total - attach_time > MAX_FLIGHT_TIME)
 			get<Health>()->damage(entity(), AWK_HEALTH); // Kill self
 		else
 		{
 			Vec3 position = get<Transform>()->absolute_pos();
-			Vec3 next_position = position + velocity * u.time.delta;
-			get<Transform>()->absolute_pos(next_position);
+			Vec3 next_position;
+			if (s == State::Dash)
+			{
+				dash_timer -= u.time.delta;
+				if (dash_timer < 0.0f)
+				{
+					finish_flying_or_dashing();
+					return;
+				}
+				else
+				{
+					get<Awk>()->crawl(velocity, u);
+					next_position = get<Transform>()->absolute_pos();
+					update_lerped_pos(3.0f, u);
+					update_offset();
+				}
+			}
+			else
+			{
+				next_position = position + velocity * u.time.delta;
+				get<Transform>()->absolute_pos(next_position);
+			}
 
 			// emit particles
 			{
@@ -1005,7 +1104,7 @@ void Awk::update(const Update& u)
 						b8 stop = false;
 						if ((entity->has<Awk>() && (group & CollisionShield))) // it's an AWK shield
 						{
-							if (!entity->get<Transform>()->parent.ref()) // it's in flight; always bounce off
+							if (entity->get<Awk>()->state() != Awk::State::Crawl) // it's flying or dashing; always bounce off
 								stop = true;
 							else if (entity->get<Health>()->hp > 1)
 								stop = true; // they have shield to spare; we'll bounce off the shield
@@ -1036,7 +1135,8 @@ void Awk::update(const Update& u)
 						else if (group & CollisionInaccessible)
 						{
 							// this shouldn't happen, but if it does, bounce off
-							reflect(ray_callback.m_hitPointWorld[i], ray_callback.m_hitNormalWorld[i], u);
+							if (s == State::Fly)
+								reflect(ray_callback.m_hitPointWorld[i], ray_callback.m_hitNormalWorld[i], u);
 						}
 						else if (group & (CollisionTarget | CollisionShield))
 						{
@@ -1056,24 +1156,15 @@ void Awk::update(const Update& u)
 						{
 							// ignore
 						}
-						else
+						else if (s == State::Fly)
 						{
+							// we hit a normal surface; attach to it
 							Entity* entity = &Entity::list[ray_callback.m_collisionObjects[i]->getUserIndex()];
 							get<Transform>()->parent = entity->get<Transform>();
 							next_position = ray_callback.m_hitPointWorld[i] + ray_callback.m_hitNormalWorld[i] * AWK_RADIUS;
 							get<Transform>()->absolute(next_position, Quat::look(ray_callback.m_hitNormalWorld[i]));
 
-							lerped_pos = get<Transform>()->pos;
-
-							get<Animator>()->layers[0].animation = AssetNull;
-
-							disable_cooldown_skip = false;
-
-							attached.fire();
-							get<Audio>()->post_event(has<LocalPlayerControl>() ? AK::EVENTS::PLAY_LAND_PLAYER : AK::EVENTS::PLAY_LAND);
-							attach_time = u.time.total;
-
-							velocity = Vec3::zero;
+							finish_flying_or_dashing();
 						}
 					}
 				}

@@ -179,6 +179,7 @@ void AIPlayerControl::awake()
 	link<&AIPlayerControl::awk_attached>(get<Awk>()->attached);
 	link_arg<Entity*, &AIPlayerControl::awk_hit>(get<Awk>()->hit);
 	link<&AIPlayerControl::awk_detached>(get<Awk>()->detached);
+	link<&AIPlayerControl::awk_detached>(get<Awk>()->dashed);
 
 	// init behavior trees
 	const AIPlayer::Config& config = player.ref()->config;
@@ -887,7 +888,7 @@ b8 AIPlayerControl::update_memory()
 
 void AIPlayerControl::update(const Update& u)
 {
-	if (get<Transform>()->parent.ref() && !Team::game_over)
+	if (get<Awk>()->state() == Awk::State::Crawl && !Team::game_over)
 	{
 		const AIPlayer::Config& config = player.ref()->config;
 
@@ -1021,7 +1022,7 @@ Find::Find(Family fam, s8 priority, b8(*filter)(const AIPlayerControl*, const En
 void Find::run()
 {
 	active(true);
-	if (control->get<Transform>()->parent.ref() && path_priority > control->path_priority)
+	if (control->get<Awk>()->state() == Awk::State::Crawl && path_priority > control->path_priority)
 	{
 		const AIPlayerControl::MemoryArray& memory = control->memory[family];
 		const AIPlayerControl::Memory* closest = nullptr;
@@ -1057,7 +1058,7 @@ RandomPath::RandomPath(s8 priority)
 void RandomPath::run()
 {
 	active(true);
-	if (control->get<Transform>()->parent.ref() && path_priority > control->path_priority)
+	if (control->get<Awk>()->state() == Awk::State::Crawl && path_priority > control->path_priority)
 	{
 		Vec3 pos;
 		Quat rot;
@@ -1131,14 +1132,14 @@ void WaitForAttachment::attached()
 
 void WaitForAttachment::upgrade_completed(Upgrade)
 {
-	if (active() && control->get<Transform>()->parent.ref())
+	if (active() && control->get<Awk>()->state() == Awk::State::Crawl)
 		done(true);
 }
 
 void WaitForAttachment::run()
 {
 	active(true);
-	if (control->get<Transform>()->parent.ref() && control->player.ref()->manager.ref()->current_upgrade == Upgrade::None)
+	if (control->get<Awk>()->state() == Awk::State::Crawl && control->player.ref()->manager.ref()->current_upgrade == Upgrade::None)
 		done(true);
 }
 
@@ -1176,7 +1177,7 @@ void AbilitySpawn::run()
 	const AbilityInfo& info = AbilityInfo::list[(s32)Ability::Sensor];
 
 	if (AbilitySpawn::path_priority > control->path_priority
-		&& control->get<Transform>()->parent.ref()
+		&& control->get<Awk>()->state() == Awk::State::Crawl
 		&& manager->has_upgrade(required_upgrade)
 		&& manager->credits > info.spawn_cost
 		&& filter(control))
@@ -1210,7 +1211,7 @@ void ReactTarget::run()
 	active(true);
 	b8 can_path = path_priority > control->path_priority;
 	b8 can_react = react_priority > control->path_priority;
-	if (control->get<Transform>()->parent.ref() && (can_path || can_react))
+	if (control->get<Awk>()->state() == Awk::State::Crawl && (can_path || can_react))
 	{
 		Entity* closest = nullptr;
 		r32 closest_distance = AWK_MAX_DISTANCE * AWK_MAX_DISTANCE;
@@ -1258,7 +1259,7 @@ void RunAway::run()
 {
 	active(true);
 	Vec3 pos = control->get<Transform>()->absolute_pos();
-	if (control->get<Transform>()->parent.ref()
+	if (control->get<Awk>()->state() == Awk::State::Crawl
 		&& !control->get<AIAgent>()->stealth // if we're stealthed, no need to run away
 		&& path_priority > control->path_priority
 		&& !ContainmentField::inside(control->get<AIAgent>()->team, pos)) // if we're inside a containment field, running away is probably useless
@@ -1311,7 +1312,7 @@ ToSpawn::ToSpawn(s8 priority)
 void ToSpawn::run()
 {
 	active(true);
-	if (control->get<Transform>()->parent.ref() && path_priority > control->path_priority)
+	if (control->get<Awk>()->state() == Awk::State::Crawl && path_priority > control->path_priority)
 	{
 		PlayerManager* manager = control->player.ref()->manager.ref();
 		pathfind(manager->team.ref()->player_spawn.ref()->absolute_pos(), Vec3(0, 1, 0), AI::AwkPathfind::LongRange);

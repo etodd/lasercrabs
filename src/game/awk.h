@@ -15,6 +15,7 @@ struct DamageEvent;
 
 #define AWK_HEALTH 4
 #define AWK_FLY_SPEED 45.0f
+#define AWK_DASH_SPEED 20.0f
 #define AWK_CRAWL_SPEED 1.5f
 #define AWK_MIN_COOLDOWN 0.75f
 #define AWK_MAX_DISTANCE_COOLDOWN 2.0f
@@ -39,6 +40,13 @@ struct Target;
 
 struct Awk : public ComponentType<Awk>
 {
+	enum class State
+	{
+		Crawl,
+		Dash,
+		Fly,
+	};
+
 	struct Footing
 	{
 		Ref<const Transform> parent;
@@ -53,6 +61,7 @@ struct Awk : public ComponentType<Awk>
 	LinkArg<Entity*> hit;
 	StaticArray<Ref<Entity>, 4> hit_targets;
 	Link detached;
+	Link dashed;
 	r32 attach_time;
 	r32 stun_timer;
 	r32 invincible_timer;
@@ -67,11 +76,15 @@ struct Awk : public ComponentType<Awk>
 	Ref<Entity> shield;
 	b8 disable_cooldown_skip;
 	r32 particle_accumulator;
+	r32 dash_timer;
 
 	Awk();
 	void awake();
 	~Awk();
 
+	State state() const;
+	Vec3 calculated_velocity() const;
+	b8 dash_start(const Vec3&);
 	b8 cooldown_can_go() const; // can we go?
 	void hit_by(const TargetEvent&); // called when we get hit
 	void hit_target(Entity*); // called when we hit a target
@@ -89,8 +102,9 @@ struct Awk : public ComponentType<Awk>
 	void crawl_wall_edge(const Vec3&, const Vec3&, const Update&, r32);
 	b8 transfer_wall(const Vec3&, const btCollisionWorld::ClosestRayResultCallback&);
 	void move(const Vec3&, const Quat&, const ID);
-	void crawl(const Vec3& dir, const Update& u);
+	void crawl(const Vec3&, const Update&);
 	void update_offset();
+	void update_lerped_pos(r32, const Update&);
 
 	void set_footing(s32, const Transform*, const Vec3&);
 
@@ -100,6 +114,8 @@ struct Awk : public ComponentType<Awk>
 	void detach_teleport();
 	b8 detach(const Vec3&);
 
+	void finish_flying_or_dashing();
+	b8 direction_is_toward_attached_wall(const Vec3&) const;
 	b8 can_go(const Vec3&, Vec3* = nullptr, b8* = nullptr) const;
 	b8 can_hit(const Target*, Vec3* = nullptr) const;
 

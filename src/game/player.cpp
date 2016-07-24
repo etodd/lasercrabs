@@ -901,7 +901,7 @@ b8 PlayerCommon::movement_enabled() const
 {
 	if (has<Awk>())
 	{
-		return get<Transform>()->parent.ref() // must be attached to wall
+		return get<Awk>()->state() == Awk::State::Crawl // must be attached to wall
 			&& manager.ref()->current_spawn_ability == Ability::None // can't move while trying to spawn an ability
 			&& get<Awk>()->stun_timer == 0.0f // or while stunned
 			&& (Game::state.mode != Game::Mode::Pvp || Game::time.total > GAME_BUY_PERIOD || !Game::level.has_feature(Game::FeatureLevel::Abilities)); // or during the buy period
@@ -997,7 +997,7 @@ void PlayerCommon::awk_bounce(const Vec3& new_velocity)
 Vec3 PlayerCommon::look_dir() const
 {
 	if (has<LocalPlayerControl>()) // HACK for third-person camera
-		return get<LocalPlayerControl>()->detach_dir;
+		return Vec3::normalize(get<LocalPlayerControl>()->reticle.pos - get<Awk>()->center());
 	else
 		return Quat::euler(0.0f, angle_horizontal, angle_vertical) * Vec3(0, 0, 1);
 }
@@ -1206,16 +1206,6 @@ Vec3 LocalPlayerControl::get_movement(const Update& u, const Quat& rot)
 			movement.y -= 1;
 	}
 	return movement;
-}
-
-void LocalPlayerControl::detach()
-{
-	if (get<Awk>()->detach(detach_dir))
-	{
-		try_primary = false;
-		try_secondary = false;
-		get<Audio>()->post_event(AK::EVENTS::PLAY_FLY);
-	}
 }
 
 // returns false if there is no more room in the target indicator array
@@ -1474,15 +1464,20 @@ void LocalPlayerControl::update(const Update& u)
 				{
 					reticle.pos = ray_callback.m_hitPointWorld;
 					Vec3 center = get<Awk>()->center();
-					detach_dir = reticle.pos - center;
+					Vec3 detach_dir = reticle.pos - center;
 					r32 distance = detach_dir.length();
 					detach_dir /= distance;
-					Vec3 hit;
-					b8 hit_target;
-					if (get<Awk>()->can_go(detach_dir, &hit, &hit_target))
+					if (get<Awk>()->direction_is_toward_attached_wall(detach_dir))
+						reticle.type = ReticleType::Dash;
+					else
 					{
-						if ((hit - center).length() > distance - AWK_RADIUS)
-							reticle.type = hit_target ? ReticleType::Target : ReticleType::Normal;
+						Vec3 hit;
+						b8 hit_target;
+						if (get<Awk>()->can_go(detach_dir, &hit, &hit_target))
+						{
+							if ((hit - center).length() > distance - AWK_RADIUS)
+								reticle.type = hit_target ? ReticleType::Target : ReticleType::Normal;
+						}
 					}
 				}
 				else
@@ -1568,7 +1563,21 @@ void LocalPlayerControl::update(const Update& u)
 		{
 			// we're aiming at something
 			if (try_primary)
-				detach();
+			{
+				b8 success = false;
+				Vec3 detach_dir = reticle.pos - get<Awk>()->center();
+				if (reticle.type == ReticleType::Dash)
+					success = get<Awk>()->dash_start(detach_dir);
+				else
+					success = get<Awk>()->detach(detach_dir);
+
+				if (success)
+				{
+					try_primary = false;
+					try_secondary = false;
+					get<Audio>()->post_event(AK::EVENTS::PLAY_FLY);
+				}
+			}
 		}
 	}
 	else
@@ -2124,21 +2133,31 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 			reticle.type == ReticleType::Error
 			? UI::disabled_color
 			: (reticle.type == ReticleType::None ? UI::alert_color : UI::accent_color);
-		const r32 ratio = 0.8660254037844386f;
-		UI::centered_box(params, { pos + Vec2(ratio, -0.5f) * UI::scale * start_radius, Vec2(spoke_length, spoke_width) * UI::scale }, color, PI * 0.5f * -0.33f);
-		UI::centered_box(params, { pos + Vec2(-ratio, -0.5f) * UI::scale * start_radius, Vec2(spoke_length, spoke_width) * UI::scale }, color, PI * 0.5f * 0.33f);
-		UI::centered_box(params, { pos + Vec2(0, 1.0f) * UI::scale * start_radius, Vec2(spoke_width, spoke_length) * UI::scale }, color);
 
 		b8 cooldown_can_go = get<Awk>()->cooldown_can_go();
 
 		if (cooldown > 0.0f)
 			UI::triangle_border(params, { pos, Vec2(start_radius * 6.0f * UI::scale) }, spoke_width, cooldown_can_go ? color : UI::alert_color);
 
-		if (cooldown_can_go && (reticle.type == ReticleType::Normal || reticle.type == ReticleType::Target))
+		if (reticle.type == ReticleType::Dash)
 		{
 			Vec2 a;
 			if (UI::project(params, reticle.pos, &a))
-				UI::triangle(params, { a, Vec2(10.0f * UI::scale) }, reticle.type == ReticleType::Normal ? UI::accent_color : UI::alert_color, PI);
+				UI::mesh(params, Asset::Mesh::reticle_dash, a, Vec2(10.0f * UI::scale), UI::accent_color);
+		}
+		else
+		{
+			const r32 ratio = 0.8660254037844386f;
+			UI::centered_box(params, { pos + Vec2(ratio, -0.5f) * UI::scale * start_radius, Vec2(spoke_length, spoke_width) * UI::scale }, color, PI * 0.5f * -0.33f);
+			UI::centered_box(params, { pos + Vec2(-ratio, -0.5f) * UI::scale * start_radius, Vec2(spoke_length, spoke_width) * UI::scale }, color, PI * 0.5f * 0.33f);
+			UI::centered_box(params, { pos + Vec2(0, 1.0f) * UI::scale * start_radius, Vec2(spoke_width, spoke_length) * UI::scale }, color);
+
+			if (cooldown_can_go && (reticle.type == ReticleType::Normal || reticle.type == ReticleType::Target))
+			{
+				Vec2 a;
+				if (UI::project(params, reticle.pos, &a))
+					UI::triangle(params, { a, Vec2(10.0f * UI::scale) }, reticle.type == ReticleType::Normal ? UI::accent_color : UI::alert_color, PI);
+			}
 		}
 	}
 

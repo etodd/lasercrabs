@@ -20,7 +20,7 @@ namespace VI
 #define WALL_RUN_DISTANCE_RATIO 1.1f
 
 #define RUN_SPEED 5.0f
-#define WALK_SPEED 2.0f
+#define WALK_SPEED 2.5f
 #define MAX_SPEED 8.0f
 #define MIN_WALLRUN_SPEED 2.0f
 #define JUMP_SPEED 6.0f
@@ -622,7 +622,7 @@ void Parkour::lessen_gravity()
 	// this results in higher jumps when the player holds the jump button
 	btRigidBody* body = get<RigidBody>()->btBody;
 	if (body->getLinearVelocity().y() > 0.0f)
-		body->applyCentralForce(Physics::btWorld->getGravity() * -0.15f);
+		body->applyCentralForce(Physics::btWorld->getGravity() * -0.2f);
 }
 
 b8 Parkour::try_jump(r32 rotation)

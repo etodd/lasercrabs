@@ -102,6 +102,7 @@ LocalPlayer::LocalPlayer(PlayerManager* m, u8 g)
 	menu_state(),
 	upgrading(),
 	upgrade_animation_time(),
+	last_supported(),
 	score_summary_scroll()
 {
 	sprintf(manager.ref()->username, gamepad == 0 ? "etodd" : "etodd[%d]", gamepad); // todo: actual usernames
@@ -214,6 +215,37 @@ void LocalPlayer::update(const Update& u)
 {
 	if (Console::visible)
 		return;
+
+	{
+		Entity* entity = manager.ref()->entity.ref();
+		if (Game::state.mode == Game::Mode::Parkour && entity)
+		{
+			RigidBody* support = entity->get<Walker>()->support.ref();
+			if (support)
+			{
+				Vec3 relative_position = support->get<Transform>()->to_local(entity->get<Transform>()->absolute_pos());
+				b8 record_support = false;
+				if (last_supported.length == 0)
+					record_support = true;
+				else
+				{
+					const SupportEntry& last_entry = last_supported[last_supported.length - 1];
+					if (last_entry.support.ref() != support || (last_entry.relative_position - relative_position).length_squared() > 2.0f * 2.0f)
+						record_support = true;
+				}
+
+				if (record_support)
+				{
+					if (last_supported.length == last_supported.capacity())
+						last_supported.remove_ordered(0);
+					SupportEntry* entry = last_supported.add();
+					entry->support = support;
+					entry->relative_position = relative_position;
+					entry->rotation = entity->get<Walker>()->target_rotation;
+				}
+			}
+		}
+	}
 
 	// flash message when the buy period expires
 	if (Game::state.mode == Game::Mode::Pvp
@@ -374,10 +406,23 @@ void LocalPlayer::spawn()
 	else // parkour mode
 	{
 		// Spawn traceur
-		spawned = World::create<Traceur>(pos + Vec3(0, 1.0f, 0), Quat::euler(0, angle, 0), manager.ref()->team.ref()->team());
+		if (last_supported.length > 1) // don't spawn at the last supported location, but the one before that
+			last_supported.remove_ordered(last_supported.length - 1);
+		while (last_supported.length > 0) // try to spawn at last supported location
+		{
+			SupportEntry entry = last_supported[last_supported.length - 1];
+			last_supported.remove_ordered(last_supported.length - 1);
+			if (entry.support.ref())
+			{
+				pos = entry.support.ref()->get<Transform>()->to_world(entry.relative_position);
+				angle = entry.rotation;
+				break;
+			}
+		}
+		spawned = World::create<Traceur>(pos + Vec3(0, 2, 0), Quat::euler(0, angle, 0), manager.ref()->team.ref()->team());
 	}
 
-	spawned->get<Transform>()->absolute(pos, rot);
+	spawned->get<Transform>()->absolute_pos(pos);
 	PlayerCommon* common = spawned->add<PlayerCommon>(manager.ref());
 	common->angle_horizontal = angle;
 
@@ -1120,7 +1165,7 @@ void LocalPlayerControl::hit_by(const TargetEvent& e)
 
 void LocalPlayerControl::health_picked_up()
 {
-	if (Game::time.total > PLAYER_SPAWN_DELAY + 0.5f) // if we're picking up initial health at the very beginning of the match, don't flash the message
+	if (Game::time.total > PLAYER_SPAWN_DELAY_PVP + 0.5f) // if we're picking up initial health at the very beginning of the match, don't flash the message
 	{
 		player.ref()->msg(_(strings::hp_added), true);
 		health_flash_timer = msg_time;
@@ -1554,7 +1599,10 @@ void LocalPlayerControl::update(const Update& u)
 			// can't shoot
 			if (u.input->get(Controls::Primary, gamepad)) // player is mashing the fire button; give them some feedback
 			{
-				reticle.type = ReticleType::Error;
+				if (reticle.type == ReticleType::Dash)
+					reticle.type = ReticleType::DashError;
+				else
+					reticle.type = ReticleType::Error;
 				if (get<Awk>()->cooldown > 0.0f) // prevent the player from mashing the fire button to nail the cooldown skip
 					get<Awk>()->disable_cooldown_skip = true;
 			}
@@ -2125,25 +2173,25 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 		// cooldown indicator
 		r32 cooldown = get<Awk>()->cooldown;
 		Vec2 pos = viewport.size * Vec2(0.5f, 0.5f);
-		r32 blend = vi_max(0.0f, cooldown / AWK_MAX_DISTANCE_COOLDOWN);
+		r32 cooldown_blend = vi_max(0.0f, cooldown / AWK_MAX_DISTANCE_COOLDOWN);
 		const r32 spoke_length = 10.0f;
 		const r32 spoke_width = 3.0f;
-		r32 start_radius = 8.0f + blend * 32.0f + spoke_length * 0.5f;
-		const Vec4& color =
-			reticle.type == ReticleType::Error
-			? UI::disabled_color
-			: (reticle.type == ReticleType::None ? UI::alert_color : UI::accent_color);
+		r32 start_radius = 8.0f + cooldown_blend * 32.0f + spoke_length * 0.5f;
 
 		b8 cooldown_can_go = get<Awk>()->cooldown_can_go();
+		const Vec4& color =
+			(reticle.type == ReticleType::Error || reticle.type == ReticleType::DashError)
+			? UI::disabled_color
+			: ((reticle.type != ReticleType::None && cooldown_can_go) ? UI::accent_color : UI::alert_color);
 
 		if (cooldown > 0.0f)
-			UI::triangle_border(params, { pos, Vec2(start_radius * 6.0f * UI::scale) }, spoke_width, cooldown_can_go ? color : UI::alert_color);
+			UI::triangle_border(params, { pos, Vec2(start_radius * 6.0f * UI::scale) }, spoke_width, color);
 
-		if (reticle.type == ReticleType::Dash)
+		if (reticle.type == ReticleType::Dash || reticle.type == ReticleType::DashError)
 		{
 			Vec2 a;
 			if (UI::project(params, reticle.pos, &a))
-				UI::mesh(params, Asset::Mesh::reticle_dash, a, Vec2(10.0f * UI::scale), UI::accent_color);
+				UI::mesh(params, Asset::Mesh::reticle_dash, a, Vec2(10.0f * UI::scale), color);
 		}
 		else
 		{

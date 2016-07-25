@@ -12,7 +12,7 @@
 namespace VI
 {
 
-#define SENSOR_RANGE 18.0f
+#define SENSOR_RANGE 20.0f
 
 struct AIAgent;
 struct RenderParams;

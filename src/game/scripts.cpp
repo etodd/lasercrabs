@@ -455,6 +455,7 @@ namespace Penelope
 		r32 fragment_time;
 		Matchmake matchmake_mode;
 		r32 matchmake_timer;
+		s32 matchmake_player_count;
 		Link terminal_activated;
 		b8 terminal_active;
 		r32 particle_accumulator;
@@ -865,6 +866,12 @@ namespace Penelope
 			case Matchmake::Searching:
 			{
 				data->matchmake_timer -= Game::real_time.delta;
+				if ((s32)data->matchmake_timer % 5 == 0
+					&& (s32)data->matchmake_timer != (s32)(data->matchmake_timer + Game::real_time.delta))
+				{
+					data->matchmake_player_count = vi_max(5, data->matchmake_player_count + (mersenne::rand() % 5 - 2));
+				}
+
 				if (data->matchmake_timer < 0.0f)
 				{
 					data->matchmake_mode = Matchmake::Found;
@@ -993,7 +1000,10 @@ namespace Penelope
 			text.anchor_x = UIText::Anchor::Center;
 			text.anchor_y = UIText::Anchor::Center;
 			text.color = UI::accent_color;
-			text.text(_(data->matchmake_mode == Matchmake::Searching ? strings::match_searching : strings::match_starting), ((s32)data->matchmake_timer) + 1);
+			if (data->matchmake_mode == Matchmake::Searching)
+				text.text(_(strings::match_searching), (s32)data->matchmake_player_count);
+			else
+				text.text(_(strings::match_starting), ((s32)data->matchmake_timer) + 1);
 			Vec2 pos = vp.pos + vp.size * Vec2(0.1f, 0.25f) + Vec2(12.0f * UI::scale, -100 * UI::scale);
 
 			UI::box(params, text.rect(pos).pad({ Vec2((10.0f + 24.0f) * UI::scale, 10.0f * UI::scale), Vec2(8.0f * UI::scale) }), UI::background_color);
@@ -1245,6 +1255,7 @@ namespace Penelope
 		data->entry_point = entry_point;
 		data->default_mode = default_mode;
 		data->active_data_fragment = AssetNull;
+		data->matchmake_player_count = 8 + mersenne::rand() % 9;
 		data->terminal_active = true;
 		Audio::dialogue_done = false;
 		Game::updates.add(update);
@@ -1931,7 +1942,7 @@ namespace tutorial
 			ai_manager->spawn.link(&ai_spawned);
 
 			Penelope::init(); // have to init manually since penelope normally isn't loaded in PvP mode
-			Penelope::data->texts.schedule(PLAYER_SPAWN_DELAY, _(strings::tut_pvp_minion));
+			Penelope::data->texts.schedule(PLAYER_SPAWN_DELAY_PVP, _(strings::tut_pvp_minion));
 
 			World::remove(entities.find("transparent_wall"));
 		}
@@ -1955,7 +1966,7 @@ namespace tutorial
 			data->transparent_wall = entities.find("transparent_wall");
 			Penelope::terminal_activated().link(&remove_transparent_wall);
 
-			Penelope::data->callbacks.schedule(PLAYER_SPAWN_DELAY + 1.0f, tutorial_intro);
+			Penelope::data->callbacks.schedule(PLAYER_SPAWN_DELAY_PVP + 1.0f, tutorial_intro);
 		}
 	}
 }

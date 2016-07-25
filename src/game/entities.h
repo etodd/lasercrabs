@@ -65,6 +65,7 @@ struct HealthPickup : public ComponentType<HealthPickup>
 	};
 
 	static void sort_all(const Vec3&, Array<Ref<HealthPickup>>*, b8, Health* = nullptr);
+	static s32 available_count();
 
 	Ref<Health> owner;
 

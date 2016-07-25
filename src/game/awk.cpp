@@ -424,10 +424,10 @@ b8 Awk::can_hit(const Target* target, Vec3* out_intersection) const
 		Vec3 me = center();
 		Vec3 to_intersection = intersection - me;
 		Vec3 final_pos;
-		if (can_go(to_intersection, &final_pos))
+		b8 hit_target;
+		if (can_go(to_intersection, &final_pos, &hit_target))
 		{
-			r32 intersection_length_squared = to_intersection.length_squared();
-			if ((final_pos - me).length_squared() > intersection_length_squared)
+			if (hit_target || (final_pos - me).length() > to_intersection.length() - AWK_RADIUS * 2.0f)
 			{
 				if (out_intersection)
 					*out_intersection = intersection;
@@ -516,6 +516,8 @@ b8 Awk::dash_start(const Vec3& dir)
 	get<Animator>()->layers[0].animation = Asset::Animation::awk_dash;
 
 	particle_accumulator = 0;
+
+	get<Audio>()->post_event(has<LocalPlayerControl>() ? AK::EVENTS::PLAY_LAUNCH_PLAYER : AK::EVENTS::PLAY_LAUNCH);
 
 	dashed.fire();
 

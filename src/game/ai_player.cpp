@@ -61,7 +61,7 @@ AIPlayer::Config AIPlayer::generate_config()
 		config.interval_memory_update = 0.25f;
 		config.inaccuracy_min = PI * 0.003f;
 		config.inaccuracy_range = PI * 0.03f;
-		config.aim_timeout = 2.5f;
+		config.aim_timeout = 4.0f;
 		config.aim_speed = 1.0f;
 
 		if (Game::save.level_index <= Game::tutorial_levels || mersenne::rand() % 2 == 0)
@@ -601,10 +601,8 @@ MemoryStatus awk_memory_filter(const AIPlayerControl* control, const Entity* e)
 
 b8 awk_run_filter(const AIPlayerControl* control, const Entity* e)
 {
-	return !control->get<AIAgent>()->stealth
-		&& control->get<Awk>()->invincible_timer == 0.0f
-		&& e->get<AIAgent>()->team != control->get<AIAgent>()->team
-		&& ((e->get<Health>()->hp > control->get<Health>()->hp && control->get<Health>()->hp == 1) || mersenne::randf_co() < 0.05f)
+	return e->get<AIAgent>()->team != control->get<AIAgent>()->team
+		&& e->get<Health>()->hp > control->get<Health>()->hp && (control->get<Health>()->hp == 1 || mersenne::randf_co() < 0.05f)
 		&& (e->get<Awk>()->can_hit(control->get<Target>()) || (e->get<Transform>()->absolute_pos() - control->get<Transform>()->absolute_pos()).length_squared() < AWK_RUN_RADIUS * AWK_RUN_RADIUS);
 }
 
@@ -1261,7 +1259,9 @@ void RunAway::run()
 	Vec3 pos = control->get<Transform>()->absolute_pos();
 	if (control->get<Awk>()->state() == Awk::State::Crawl
 		&& !control->get<AIAgent>()->stealth // if we're stealthed, no need to run away
+		&& control->get<Awk>()->invincible_timer == 0.0f // if we're invincible, no need to run away
 		&& path_priority > control->path_priority
+		&& (HealthPickup::available_count() > 0 || control->player.ref()->manager.ref()->has_upgrade(Upgrade::HealthSteal))
 		&& !ContainmentField::inside(control->get<AIAgent>()->team, pos)) // if we're inside a containment field, running away is probably useless
 	{
 		Entity* closest = nullptr;

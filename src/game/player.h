@@ -37,6 +37,14 @@ struct LocalPlayer
 	b8 upgrading;
 	r32 upgrade_animation_time;
 	UIScroll score_summary_scroll;
+	
+	struct SupportEntry
+	{
+		Ref<RigidBody> support;
+		Vec3 relative_position;
+		r32 rotation;
+	};
+	StaticArray<SupportEntry, 4> last_supported;
 
 	inline ID id() const
 	{
@@ -88,6 +96,7 @@ struct LocalPlayerControl : public ComponentType<LocalPlayerControl>
 		Normal,
 		Target,
 		Dash,
+		DashError,
 	};
 
 	struct Reticle

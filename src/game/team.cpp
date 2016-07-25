@@ -40,7 +40,7 @@ namespace VI
 	{
 		{
 			Asset::Mesh::icon_sensor,
-			2.5f,
+			1.25f,
 			10,
 		},
 		{
@@ -50,7 +50,7 @@ namespace VI
 		},
 		{
 			Asset::Mesh::icon_minion,
-			1.5f,
+			2.0f,
 			15,
 		},
 		{
@@ -726,7 +726,7 @@ namespace VI
 	PinArray<PlayerManager, MAX_PLAYERS> PlayerManager::list;
 
 	PlayerManager::PlayerManager(Team* team, u16 hp_start)
-		: spawn_timer(PLAYER_SPAWN_DELAY),
+		: spawn_timer(Game::state.mode == Game::Mode::Pvp ? PLAYER_SPAWN_DELAY_PVP : PLAYER_SPAWN_DELAY_PARKOUR),
 		score_accepted(),
 		team(team),
 		hp_start(hp_start),
@@ -856,7 +856,7 @@ namespace VI
 			{
 				spawn.fire();
 				if (Game::state.mode == Game::Mode::Parkour)
-					spawn_timer = PLAYER_SPAWN_DELAY; // reset timer so we can respawn next time
+					spawn_timer = PLAYER_SPAWN_DELAY_PARKOUR; // reset timer so we can respawn next time
 				else if (Game::state.mode == Game::Mode::Pvp)
 				{
 					// make sure the player has enough health

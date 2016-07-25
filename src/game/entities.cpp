@@ -139,6 +139,17 @@ void HealthPickup::sort_all(const Vec3& pos, Array<Ref<HealthPickup>>* result, b
 		result->add(pickups.pop());
 }
 
+s32 HealthPickup::available_count()
+{
+	s32 count = 0;
+	for (auto i = list.iterator(); !i.is_last(); i.next())
+	{
+		if (i.item()->owner.ref() == nullptr)
+			count++;
+	}
+	return count;
+}
+
 void HealthPickup::awake()
 {
 	link_arg<const TargetEvent&, &HealthPickup::hit>(get<Target>()->target_hit);

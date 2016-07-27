@@ -126,6 +126,7 @@ struct RocketEntity : public Entity
 
 #define CONTAINMENT_FIELD_RADIUS 16.0f
 #define CONTAINMENT_FIELD_BASE_OFFSET 0.95f
+#define CONTAINMENT_FIELD_LIFETIME 20.0f
 struct ContainmentField : public ComponentType<ContainmentField>
 {
 	static r32 particle_accumulator;

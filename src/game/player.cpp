@@ -1910,6 +1910,28 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 				}
 			}
 		}
+
+		// force field battery bars
+		for (auto i = ContainmentField::list.iterator(); !i.is_last(); i.next())
+		{
+			if (!i.item()->powered)
+			{
+				Vec3 pos = i.item()->get<Transform>()->absolute_pos();
+				if ((pos - me).length_squared() < AWK_MAX_DISTANCE * AWK_MAX_DISTANCE)
+				{
+					Vec2 p;
+					if (UI::project(params, pos, &p))
+					{
+						Vec2 bar_size(40.0f * UI::scale, 8.0f * UI::scale);
+						Rect2 bar = { p + Vec2(0, 40.0f * UI::scale) + (bar_size * -0.5f), bar_size };
+						UI::box(params, bar, UI::background_color);
+						const Vec4& color = Team::ui_color(team, i.item()->team);
+						UI::border(params, bar, 2, color);
+						UI::box(params, { bar.pos, Vec2(bar.size.x * (i.item()->remaining_lifetime / CONTAINMENT_FIELD_LIFETIME), bar.size.y) }, color);
+					}
+				}
+			}
+		}
 	}
 
 	// highlight enemy rockets

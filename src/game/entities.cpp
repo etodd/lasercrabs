@@ -653,7 +653,7 @@ ContainmentField* ContainmentField::inside(AI::Team my_team, const Vec3& pos)
 }
 
 ContainmentField::ContainmentField(const Vec3& abs_pos, PlayerManager* m)
-	: team(m->team.ref()->team()), owner(m), remaining_lifetime(8.0f), powered()
+	: team(m->team.ref()->team()), owner(m), remaining_lifetime(CONTAINMENT_FIELD_LIFETIME), powered()
 {
 	Entity* f = World::alloc<Empty>();
 	f->get<Transform>()->absolute_pos(abs_pos);
@@ -761,28 +761,34 @@ void ContainmentField::update_all(const Update& u)
 				pos,
 				0
 			);
+		}
 
-			// if a containment field is powered, it will never expire
-			if (!i.item()->powered)
+	}
+
+	for (auto i = list.iterator(); !i.is_last(); i.next())
+	{
+		// if a containment field is powered, it will never expire
+		if (!i.item()->powered)
+		{
+			i.item()->remaining_lifetime -= u.time.delta;
+
+			// check if we need to kill this field
+			if (i.item()->remaining_lifetime < 0)
 			{
-				i.item()->remaining_lifetime -= u.time.delta;
-
-				// check if we need to kill this field
-				if (i.item()->remaining_lifetime < 0)
+				Vec3 pos;
+				Quat rot;
+				i.item()->get<Transform>()->absolute(&pos, &rot);
+				for (s32 i = 0; i < 50; i++)
 				{
-					Quat rot = i.item()->get<Transform>()->absolute_rot();
-					for (s32 i = 0; i < 50; i++)
-					{
-						Particles::sparks.add
-						(
-							pos,
-							rot * Vec3(mersenne::randf_oo() * 2.0f - 1.0f, mersenne::randf_oo() * 2.0f - 1.0f, mersenne::randf_oo()) * 10.0f,
-							Vec4(1, 1, 1, 1)
-						);
-					}
-					World::create<ShockwaveEntity>(8.0f, 1.5f)->get<Transform>()->absolute_pos(pos);
-					World::remove_deferred(i.item()->entity());
+					Particles::sparks.add
+					(
+						pos,
+						rot * Vec3(mersenne::randf_oo() * 2.0f - 1.0f, mersenne::randf_oo() * 2.0f - 1.0f, mersenne::randf_oo()) * 10.0f,
+						Vec4(1, 1, 1, 1)
+					);
 				}
+				World::create<ShockwaveEntity>(8.0f, 1.5f)->get<Transform>()->absolute_pos(pos);
+				World::remove_deferred(i.item()->entity());
 			}
 		}
 	}

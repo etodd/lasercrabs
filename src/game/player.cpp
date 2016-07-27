@@ -2087,7 +2087,10 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 		const Health* health = get<Health>();
 
 		// danger indicator
-		b8 danger = enemy_visible && health->hp == 1 && !get<AIAgent>()->stealth;
+		b8 danger = enemy_visible
+			&& health->hp == 1
+			&& !get<AIAgent>()->stealth
+			&& get<Awk>()->invincible_timer == 0.0f;
 		if (danger)
 		{
 			UIText text;

@@ -54,6 +54,7 @@ namespace VI
 #define damage_shake_time 0.7f
 #define third_person_offset 2.0f
 #define score_summary_delay 2.0f
+#define score_summary_accept_delay 3.0f
 
 #define HP_BOX_SIZE (Vec2(text_size) * UI::scale)
 #define HP_BOX_SPACING (8.0f * UI::scale)
@@ -370,9 +371,12 @@ void LocalPlayer::update(const Update& u)
 					score_summary_count += 2 + player.item()->rating_summary.length;
 				score_summary_scroll.update(u, score_summary_count, gamepad);
 
-				// accept score summary
-				if (!u.input->get(Controls::Interact, gamepad) && u.last_input->get(Controls::Interact, gamepad))
-					manager.ref()->score_accepted = true;
+				if (Game::real_time.total - Team::game_over_real_time > score_summary_delay + score_summary_accept_delay)
+				{
+					// accept score summary
+					if (!u.input->get(Controls::Interact, gamepad) && u.last_input->get(Controls::Interact, gamepad))
+						manager.ref()->score_accepted = true;
+				}
 			}
 			break;
 		}
@@ -510,24 +514,25 @@ void LocalPlayer::draw_alpha(const RenderParams& params) const
 		}
 	}
 
-	if (mode == UIMode::Default)
+	// draw abilities
+	if (Game::level.has_feature(Game::FeatureLevel::Abilities) && Game::state.mode == Game::Mode::Pvp)
 	{
-		if (Game::state.mode == Game::Mode::Pvp && Game::level.has_feature(Game::FeatureLevel::Abilities))
+		if (mode == UIMode::Default && manager.ref()->at_spawn())
 		{
-			if (manager.ref()->at_spawn())
-			{
-				// "upgrade!"
-				UIText text;
-				text.color = manager.ref()->upgrade_available() ? UI::accent_color : UI::disabled_color;
-				text.text(_(strings::upgrade_prompt));
-				text.anchor_x = UIText::Anchor::Center;
-				text.anchor_y = UIText::Anchor::Center;
-				text.size = text_size;
-				Vec2 pos = vp.size * Vec2(0.5f, 0.55f);
-				UI::box(params, text.rect(pos).outset(8.0f * UI::scale), UI::background_color);
-				text.draw(params, pos);
-			}
+			// "upgrade!" prompt
+			UIText text;
+			text.color = manager.ref()->upgrade_available() ? UI::accent_color : UI::disabled_color;
+			text.text(_(strings::upgrade_prompt));
+			text.anchor_x = UIText::Anchor::Center;
+			text.anchor_y = UIText::Anchor::Center;
+			text.size = text_size;
+			Vec2 pos = vp.size * Vec2(0.5f, 0.55f);
+			UI::box(params, text.rect(pos).outset(8.0f * UI::scale), UI::background_color);
+			text.draw(params, pos);
+		}
 
+		if (mode == UIMode::Default || mode == UIMode::Upgrading)
+		{
 			// ability 1
 			b8 is_gamepad = params.sync->input.gamepads[gamepad].active;
 			{
@@ -563,7 +568,8 @@ void LocalPlayer::draw_alpha(const RenderParams& params) const
 			}
 		}
 	}
-	else if (mode == UIMode::Upgrading)
+
+	if (mode == UIMode::Upgrading)
 	{
 		menu.draw_alpha(params);
 
@@ -766,6 +772,7 @@ void LocalPlayer::draw_alpha(const RenderParams& params) const
 				score_summary_scroll.end(params, p);
 
 				// press x to continue
+				if (Game::real_time.total - Team::game_over_real_time > score_summary_delay + score_summary_accept_delay)
 				{
 					Vec2 p = vp.size * Vec2(0.5f, 0.2f);
 					text.wrap_width = 0;
@@ -1363,7 +1370,7 @@ void LocalPlayerControl::update(const Update& u)
 					{
 						Vec3 to_indicator = indicator.pos - camera->pos;
 						r32 indicator_distance = to_indicator.length();
-						if (indicator_distance < reticle_distance)
+						if (indicator_distance > third_person_offset)
 						{
 							to_indicator /= indicator_distance;
 							if (to_indicator.dot(to_reticle) > 0.99f)
@@ -1505,10 +1512,11 @@ void LocalPlayerControl::update(const Update& u)
 				btCollisionWorld::ClosestRayResultCallback ray_callback(trace_start, trace_end);
 				Physics::raycast(&ray_callback, ~CollisionAwkIgnore & ~get<Awk>()->ally_containment_field_mask());
 
+				Vec3 center = get<Awk>()->center();
+
 				if (ray_callback.hasHit())
 				{
 					reticle.pos = ray_callback.m_hitPointWorld;
-					Vec3 center = get<Awk>()->center();
 					Vec3 detach_dir = reticle.pos - center;
 					r32 distance = detach_dir.length();
 					detach_dir /= distance;
@@ -1526,7 +1534,11 @@ void LocalPlayerControl::update(const Update& u)
 					}
 				}
 				else
+				{
 					reticle.pos = trace_end;
+					if (get<Awk>()->direction_is_toward_attached_wall(reticle.pos - center))
+						reticle.type = ReticleType::Dash;
+				}
 			}
 			else
 				reticle.pos = trace_start + trace_dir * third_person_offset;
@@ -1865,6 +1877,8 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 		}
 	}
 
+	b8 enemy_visible = false;
+
 	{
 		Vec3 me = get<Transform>()->absolute_pos();
 
@@ -1877,6 +1891,10 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 				if ((head - me).length_squared() < AWK_MAX_DISTANCE * AWK_MAX_DISTANCE)
 				{
 					AI::Team minion_team = i.item()->get<AIAgent>()->team;
+
+					if (minion_team != team)
+						enemy_visible = true;
+
 					// if the minion is on our team, we can let the indicator go offscreen
 					// if it's an enemy minion, clamp the indicator inside the screen
 					Vec2 p;
@@ -1900,6 +1918,8 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 		{
 			if (i.item()->target.ref() == entity())
 			{
+				enemy_visible = true;
+
 				Vec3 pos = i.item()->get<Transform>()->absolute_pos();
 				UI::indicator(params, pos, Team::ui_color_enemy, true);
 
@@ -1951,7 +1971,10 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 			determine_visibility(get<PlayerCommon>(), other_player.item(), &visible, &tracking);
 
 			b8 friendly = other_player.item()->get<AIAgent>()->team == team;
-			
+
+			if (visible && !friendly)
+				enemy_visible = true;
+
 			b8 draw;
 			Vec2 p;
 			const Vec4* color;
@@ -2059,23 +2082,63 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 			Audio::post_global_event(AK::EVENTS::PLAY_BEEP_BAD);
 	}
 
-	// health indicator
 	if (Game::level.has_feature(Game::FeatureLevel::HealthPickups))
 	{
 		const Health* health = get<Health>();
-		
-		Vec2 pos = viewport.size * Vec2(0.5f, 0.1f);
 
-		draw_hp_box(params, pos, health->hp_max);
+		// danger indicator
+		b8 danger = enemy_visible && health->hp == 1 && !get<AIAgent>()->stealth;
+		if (danger)
+		{
+			UIText text;
+			text.size = 24.0f;
+			text.color = UI::alert_color;
+			text.anchor_x = UIText::Anchor::Center;
+			text.anchor_y = UIText::Anchor::Min;
 
-		b8 flash_hp = health_flash_timer > 0.0f;
-		b8 draw_hp;
-		if (flash_hp)
-			draw_hp = UI::flash_function(Game::real_time.total);
-		else
-			draw_hp = health->hp > 1 || UI::flash_function_slow(Game::real_time.total);
-		if (draw_hp)
-			draw_hp_indicator(params, pos, health->hp, health->hp_max, flash_hp ? UI::default_color : UI::accent_color);
+			text.text(_(strings::danger));
+
+			Vec2 pos = viewport.size * Vec2(0.5f, 0.2f);
+
+			Rect2 box = text.rect(pos).outset(8 * UI::scale);
+			UI::box(params, box, UI::background_color);
+			if (UI::flash_function(Game::real_time.total))
+				text.draw(params, pos);
+		}
+
+		// health indicator
+		{
+			Vec2 pos = viewport.size * Vec2(0.5f, 0.1f);
+
+			draw_hp_box(params, pos, health->hp_max);
+
+			b8 draw_hp;
+			const Vec4* color;
+
+			if (danger)
+			{
+				draw_hp = UI::flash_function(Game::real_time.total);
+				color = &UI::alert_color;
+			}
+			else if (health_flash_timer > 0.0f)
+			{
+				draw_hp = UI::flash_function(Game::real_time.total);
+				color = &UI::default_color;
+			}
+			else if (health->hp == 1)
+			{
+				draw_hp = UI::flash_function_slow(Game::real_time.total);
+				color = &UI::alert_color;
+			}
+			else
+			{
+				draw_hp = true;
+				color = &UI::accent_color;
+			}
+
+			if (draw_hp)
+				draw_hp_indicator(params, pos, health->hp, health->hp_max, *color);
+		}
 	}
 
 	// stealth indicator

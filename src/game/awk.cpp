@@ -24,7 +24,7 @@ namespace VI
 {
 
 #define LERP_ROTATION_SPEED 10.0f
-#define LERP_TRANSLATION_SPEED 2.0f
+#define LERP_TRANSLATION_SPEED 3.0f
 #define MAX_FLIGHT_TIME 2.0f
 #define AWK_DASH_TIME 0.3f
 #define AWK_LEG_LENGTH (0.277f - 0.101f)
@@ -1055,7 +1055,7 @@ void Awk::update(const Update& u)
 				{
 					get<Awk>()->crawl(velocity, u);
 					next_position = get<Transform>()->absolute_pos();
-					update_lerped_pos(3.0f, u);
+					update_lerped_pos(5.0f, u);
 					update_offset();
 				}
 			}

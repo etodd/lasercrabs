@@ -53,6 +53,7 @@ Script* Script::find(const char* name)
 #define MAX_NODES 4096
 #define MAX_BRANCHES 8
 #define MAX_CHOICES 4
+#define MAX_JOIN_TIME 15.0f
 namespace Penelope
 {
 	enum class Face
@@ -75,6 +76,7 @@ namespace Penelope
 		None,
 		Searching,
 		Found,
+		Joining,
 	};
 
 	struct Node
@@ -499,7 +501,7 @@ namespace Penelope
 	{
 		variable(strings::matchmaking, strings::yes);
 		data->matchmake_mode = Matchmake::Searching;
-		data->matchmake_timer = 20.0f + mersenne::randf_oo() * 100.0f;
+		data->matchmake_timer = 10.0f + mersenne::randf_oo() * 90.0f;
 	}
 
 	void clear()
@@ -768,6 +770,9 @@ namespace Penelope
 		if (PlayerCommon::list.count() > 0)
 			fragment = DataFragment::in_range(PlayerCommon::list.iterator().item()->get<Transform>()->absolute_pos());
 
+		if (data->active_data_fragment != AssetNull && !fragment)
+			data->active_data_fragment = AssetNull; // player was reading a fragment, but now it's out of range; stop reading it
+
 		// show choices
 		data->menu.clear();
 		if (data->choices.active() && data->active_data_fragment == AssetNull && !fragment)
@@ -875,7 +880,7 @@ namespace Penelope
 				if (data->matchmake_timer < 0.0f)
 				{
 					data->matchmake_mode = Matchmake::Found;
-					data->matchmake_timer = 15.0f;
+					data->matchmake_timer = MAX_JOIN_TIME;
 					data->active_data_fragment = AssetNull; // if we're looking at a data fragment, close it
 					go(strings::match_found);
 				}
@@ -885,7 +890,28 @@ namespace Penelope
 			{
 				data->matchmake_timer -= Game::real_time.delta;
 				if (data->matchmake_timer < 0.0f)
-					Menu::transition(Game::state.level, Game::Mode::Pvp);
+				{
+					clear();
+					// don't reset timer; time expired, instantly start the game
+					data->matchmake_mode = Matchmake::Joining;
+				}
+				break;
+			}
+			case Matchmake::Joining:
+			{
+				data->matchmake_timer -= Game::real_time.delta;
+				if (data->matchmake_timer < 0.0f)
+				{
+					if (Game::save.round == 0)
+						Menu::transition(Game::state.level, Game::Mode::Pvp); // reload current level in PvP mode
+					else
+					{
+						// must play another round before advancing to the next level
+						// play a random map that has already been unlocked so far (except the starting/tutorial maps)
+						const s32 skip_levels = 2;
+						Menu::transition(Game::levels[skip_levels + (s32)(mersenne::randf_co() * (Game::save.level_index - skip_levels))], Game::Mode::Pvp);
+					}
+				}
 				break;
 			}
 			default:
@@ -1000,10 +1026,14 @@ namespace Penelope
 			text.anchor_x = UIText::Anchor::Center;
 			text.anchor_y = UIText::Anchor::Center;
 			text.color = UI::accent_color;
+
 			if (data->matchmake_mode == Matchmake::Searching)
 				text.text(_(strings::match_searching), (s32)data->matchmake_player_count);
-			else
+			else if (data->matchmake_mode == Matchmake::Found)
 				text.text(_(strings::match_starting), ((s32)data->matchmake_timer) + 1);
+			else // joining
+				text.text(_(strings::waiting));
+
 			Vec2 pos = vp.pos + vp.size * Vec2(0.1f, 0.25f) + Vec2(12.0f * UI::scale, -100 * UI::scale);
 
 			UI::box(params, text.rect(pos).pad({ Vec2((10.0f + 24.0f) * UI::scale, 10.0f * UI::scale), Vec2(8.0f * UI::scale) }), UI::background_color);
@@ -1014,10 +1044,10 @@ namespace Penelope
 				pos.y
 			);
 
-			if (data->matchmake_mode == Matchmake::Searching)
-				UI::triangle_border(params, { triangle_pos, Vec2(text.size * 0.5f * UI::scale) }, 4, UI::accent_color, Game::real_time.total * -8.0f);
-			else
+			if (data->matchmake_mode == Matchmake::Found) // solid triangle
 				UI::triangle(params, { triangle_pos, Vec2(text.size * UI::scale) }, UI::accent_color);
+			else // hollow, rotating triangle
+				UI::triangle_border(params, { triangle_pos, Vec2(text.size * 0.5f * UI::scale) }, 4, UI::accent_color, Game::real_time.total * -8.0f);
 
 			text.draw(params, pos);
 		}
@@ -1190,7 +1220,7 @@ namespace Penelope
 				text.color = i == 2 ? UI::accent_color : UI::default_color;
 
 				// username
-				text.text("%d %s", i + 1308 - (Game::save.rating / 300), data->leaderboard[i].name);
+				text.text("%d %s", vi_max(1, i + 79 - (Game::save.rating / 400)), data->leaderboard[i].name);
 				UI::box(params, text.rect(p).outset(MENU_ITEM_PADDING), UI::background_color);
 				UIMenu::text_clip(&text, data->leaderboard_animation_time, 50.0f + vi_min(i, 6) * -5.0f);
 				text.draw(params, p);
@@ -1227,15 +1257,9 @@ namespace Penelope
 			go(strings::second_round);
 		else if (node == strings::match_go)
 		{
-			if (Game::save.round == 0)
-				Menu::transition(Game::state.level, Game::Mode::Pvp); // reload current level in PvP mode
-			else
-			{
-				// must play another round before advancing to the next level
-				// play a random map that has already been unlocked so far (except the starting/tutorial maps)
-				const s32 skip_levels = 2;
-				Menu::transition(Game::levels[skip_levels + (s32)(mersenne::randf_co() * (Game::save.level_index - skip_levels))], Game::Mode::Pvp);
-			}
+			clear();
+			data->matchmake_timer -= mersenne::randf_co() * (MAX_JOIN_TIME * 0.75f); // the other player hit "join" at a random time
+			data->matchmake_mode = Matchmake::Joining;
 		}
 		else if (node == strings::matchmaking_start)
 			matchmake_search();
@@ -1255,7 +1279,7 @@ namespace Penelope
 		data->entry_point = entry_point;
 		data->default_mode = default_mode;
 		data->active_data_fragment = AssetNull;
-		data->matchmake_player_count = 8 + mersenne::rand() % 9;
+		data->matchmake_player_count = 7 + mersenne::rand() % 9;
 		data->terminal_active = true;
 		Audio::dialogue_done = false;
 		Game::updates.add(update);

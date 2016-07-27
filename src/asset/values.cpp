@@ -601,6 +601,7 @@ const char* AssetLookup::String::names[] =
 	"consolation_index",
 	"containment_field",
 	"containment_field_destroyed",
+	"danger",
 	"data_fragment",
 	"data_fragment_prompt",
 	"defeat",

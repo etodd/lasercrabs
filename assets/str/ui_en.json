@@ -30,6 +30,7 @@
 	"hp_added": "+1 Armor",
 	"no_effect": "No effect",
 	"enemy_tracking": "Enemy tracking",
+	"danger": "Danger",
 	"rocket_incoming": "Rocket",
 	"invincible": "Shield",
 	"dummy": "Test Dummy",

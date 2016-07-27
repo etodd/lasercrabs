@@ -916,6 +916,9 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 
 	state.mode = m;
 
+	state.network_state = NetworkState::Normal;
+	state.network_timer = state.network_time = 0.0f;
+
 	if (state.mode == Mode::Pvp && !state.local_multiplayer)
 	{
 		// choose network quality
@@ -926,10 +929,9 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 			state.network_quality = NetworkQuality::Okay;
 		else
 			state.network_quality = NetworkQuality::Bad;
-		state.network_state = NetworkState::Normal;
-		state.network_timer = state.network_time = 0.0f;
-		state.time_scale = 1.0f;
 	}
+	else
+		state.network_quality = NetworkQuality::Perfect;
 
 	scheduled_load_level = AssetNull;
 

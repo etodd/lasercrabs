@@ -27,9 +27,8 @@ namespace Menu
 #define CONNECT_DELAY_MIN 4.0f
 #define CONNECT_DELAY_RANGE 3.0f
 
-Camera* cameras[MAX_GAMEPADS] = {};
-UIText player_text[MAX_GAMEPADS];
-s32 gamepad_count = 0;
+Camera* camera = nullptr;
+b8 gamepad_active[MAX_GAMEPADS] = {};
 AssetID last_level = AssetNull;
 AssetID transition_previous_level = AssetNull;
 AssetID next_level = AssetNull;
@@ -44,16 +43,6 @@ void init()
 {
 	refresh_variables();
 
-	for (s32 i = 0; i < MAX_GAMEPADS; i++)
-	{
-		player_text[i].size = 18.0f;
-		player_text[i].anchor_x = UIText::Anchor::Center;
-		player_text[i].anchor_y = UIText::Anchor::Min;
-		char buffer[255];
-		sprintf(buffer, _(strings::player), i + 1);
-		player_text[i].text(buffer);
-	}
-
 	Game::state.reset();
 
 	title();
@@ -61,20 +50,25 @@ void init()
 
 void clear()
 {
-	for (s32 i = 0; i < MAX_GAMEPADS; i++)
+	if (camera)
 	{
-		if (cameras[i])
-		{
-			cameras[i]->remove();
-			cameras[i] = nullptr;
-		}
+		camera->remove();
+		camera = nullptr;
 	}
 	main_menu_state = State::Hidden;
 }
 
 void refresh_variables()
 {
-	b8 is_gamepad = gamepad_count > 0;
+	b8 is_gamepad = false;
+	for (s32 i = 0; i < MAX_GAMEPADS; i++)
+	{
+		if (gamepad_active[i])
+		{
+			is_gamepad = true;
+			break;
+		}
+	}
 	const Settings::Gamepad& gamepad = Settings::gamepads[0];
 	UIText::set_variable("Start", gamepad.bindings[(s32)Controls::Start].string(is_gamepad));
 	UIText::set_variable("Cancel", gamepad.bindings[(s32)Controls::Cancel].string(is_gamepad));
@@ -205,20 +199,41 @@ void pause_menu(const Update& u, const Rect2& viewport, u8 gamepad, UIMenu* menu
 	}
 }
 
+
+b8 splitscreen_teams_are_valid()
+{
+	s32 player_count = 0;
+	s32 team_a_count = 0;
+	s32 team_b_count = 0;
+	for (s32 i = 0; i < MAX_GAMEPADS; i++)
+	{
+		if (Game::state.local_player_config[i] != AI::Team::None)
+			player_count++;
+		AI::Team team = Game::state.local_player_config[i];
+		if (team == AI::Team::A)
+			team_a_count++;
+		else if (team == AI::Team::B)
+			team_b_count++;
+	}
+	return player_count > 1 && team_a_count > 0 && team_b_count > 0;
+}
+
 void update(const Update& u)
 {
 	for (s32 i = 0; i < MAX_GAMEPADS; i++)
 		UIMenu::active[i] = nullptr;
 
-	s32 last_gamepad_count = gamepad_count;
-	gamepad_count = 0;
+	b8 refresh = false;
 	for (s32 i = 0; i < MAX_GAMEPADS; i++)
 	{
-		if (u.input->gamepads[i].active)
-			gamepad_count++;
+		if (gamepad_active[i] != u.input->gamepads[i].active)
+		{
+			gamepad_active[i] = u.input->gamepads[i].active;
+			refresh = true;
+		}
 	}
 
-	if ((last_gamepad_count == 0) != (gamepad_count != 0))
+	if (refresh)
 		refresh_variables();
 
 	if (Console::visible)
@@ -234,42 +249,44 @@ void update(const Update& u)
 				Game::state.local_multiplayer = true;
 			}
 
-			b8 cameras_changed = false;
-			s32 screen_count = 0;
-
-			s32 team_a_count = 0;
-			s32 team_b_count = 0;
-			for (s32 j = 0; j < MAX_GAMEPADS; j++)
+			if (!camera)
 			{
-				AI::Team team = Game::state.local_player_config[j];
-				if (team == AI::Team::A)
-					team_a_count++;
-				else if (team == AI::Team::B)
-					team_b_count++;
+				camera = Camera::add();
+				camera->viewport =
+				{
+					Vec2((r32)u.input->width, (r32)u.input->height),
+					Vec2((r32)u.input->width, (r32)u.input->height),
+				};
+				r32 aspect = camera->viewport.size.y == 0 ? 1 : (r32)camera->viewport.size.x / (r32)camera->viewport.size.y;
+				camera->perspective(fov_initial, aspect, 0.01f, Game::level.skybox.far_plane);
 			}
 
 			for (s32 i = 0; i < MAX_GAMEPADS; i++)
 			{
-				b8 screen_active = u.input->gamepads[i].active || i == 0;
-
-				if (screen_active && !cameras[i])
-				{
-					cameras[i] = Camera::add();
-					cameras_changed = true;
-				}
-				else if (cameras[i] && !screen_active)
-				{
-					cameras[i]->remove();
-					cameras[i] = nullptr;
-					cameras_changed = true;
-				}
+				b8 player_active = u.input->gamepads[i].active || i == 0;
 
 				AI::Team* team = &Game::state.local_player_config[i];
-				if (screen_active)
+				if (player_active)
 				{
-					screen_count++;
 					if (i > 0 || main_menu_state == State::Hidden) // ignore player 0 input if the main menu is open
 					{
+						// handle D-pad
+						b8 left = u.input->get(Controls::Left, i) && !u.last_input->get(Controls::Left, i);
+						b8 right = u.input->get(Controls::Right, i) && !u.last_input->get(Controls::Right, i);
+
+						// handle joysticks
+						{
+							r32 last_x = Input::dead_zone(u.last_input->gamepads[i].left_x, UI_JOYSTICK_DEAD_ZONE);
+							if (last_x == 0.0f)
+							{
+								r32 x = Input::dead_zone(u.input->gamepads[i].left_x, UI_JOYSTICK_DEAD_ZONE);
+								if (x < 0.0f)
+									left = true;
+								else if (x > 0.0f)
+									right = true;
+							}
+						}
+
 						if (u.input->get(Controls::Cancel, i) && !u.last_input->get(Controls::Cancel, i))
 						{
 							if (i > 0) // player 0 must stay in
@@ -278,25 +295,37 @@ void update(const Update& u)
 								Audio::post_global_event(AK::EVENTS::PLAY_BEEP_GOOD);
 							}
 						}
-						else if (u.input->get(Controls::Interact, i) && !u.last_input->get(Controls::Interact, i))
+						else if (left)
 						{
-							if (*team == AI::Team::None)
+							if (*team == AI::Team::B)
 							{
-								// initial join; try to keep the teams balanced
-								if (team_a_count > team_b_count)
-								{
-									*team = AI::Team::B;
-									team_b_count++;
-								}
-								else
-								{
+								if (i == 0) // player 0 must stay in
 									*team = AI::Team::A;
-									team_a_count++;
-								}
+								else
+									*team = AI::Team::None;
+								Audio::post_global_event(AK::EVENTS::PLAY_BEEP_GOOD);
 							}
-							else // toggle
-								*team = *team == AI::Team::A ? AI::Team::B : AI::Team::A;
-							Audio::post_global_event(AK::EVENTS::PLAY_BEEP_GOOD);
+							else if (*team == AI::Team::None)
+							{
+								*team = AI::Team::A;
+								Audio::post_global_event(AK::EVENTS::PLAY_BEEP_GOOD);
+							}
+						}
+						else if (right)
+						{
+							if (*team == AI::Team::A)
+							{
+								if (i == 0) // player 0 must stay in
+									*team = AI::Team::B;
+								else
+									*team = AI::Team::None;
+								Audio::post_global_event(AK::EVENTS::PLAY_BEEP_GOOD);
+							}
+							else if (*team == AI::Team::None)
+							{
+								*team = AI::Team::B;
+								Audio::post_global_event(AK::EVENTS::PLAY_BEEP_GOOD);
+							}
 						}
 					}
 				}
@@ -304,36 +333,8 @@ void update(const Update& u)
 					*team = AI::Team::None;
 			}
 
-			if (cameras_changed)
-			{
-				Camera::ViewportBlueprint* viewports = Camera::viewport_blueprints[screen_count - 1];
-				for (s32 i = 0; i < MAX_GAMEPADS; i++)
-				{
-					Camera* camera = cameras[i];
-					if (camera)
-					{
-						Camera::ViewportBlueprint* viewport = &viewports[i];
-						camera->viewport =
-						{
-							Vec2((s32)(viewport->x * (r32)u.input->width), (s32)(viewport->y * (r32)u.input->height)),
-							Vec2((s32)(viewport->w * (r32)u.input->width), (s32)(viewport->h * (r32)u.input->height)),
-						};
-						r32 aspect = camera->viewport.size.y == 0 ? 1 : (r32)camera->viewport.size.x / (r32)camera->viewport.size.y;
-						camera->perspective(fov_initial, aspect, 0.01f, Game::level.skybox.far_plane);
-					}
-				}
-			}
-
-			s32 player_count = 0;
-			for (s32 i = 0; i < MAX_GAMEPADS; i++)
-			{
-				if (Game::state.local_player_config[i] != AI::Team::None)
-					player_count++;
-			}
-
-			if (u.input->get(Controls::Start, 0) && !u.last_input->get(Controls::Start, 0)
-				&& player_count > 1
-				&& team_a_count > 0 && team_b_count > 0)
+			if (u.input->get(Controls::Interact, 0) && !u.last_input->get(Controls::Interact, 0)
+				&& splitscreen_teams_are_valid())
 			{
 				Game::save = Game::Save();
 				Game::save.level_index = Game::tutorial_levels; // start at first non-tutorial level
@@ -405,7 +406,7 @@ void update(const Update& u)
 		}
 
 		// do pause menu
-		const Rect2& viewport = cameras[0] ? cameras[0]->viewport : Rect2(Vec2(0, 0), Vec2(u.input->width, u.input->height));
+		const Rect2& viewport = camera ? camera->viewport : Rect2(Vec2(0, 0), Vec2(u.input->width, u.input->height));
 		pause_menu(u, viewport, 0, &main_menu, &main_menu_state);
 	}
 
@@ -449,41 +450,68 @@ void draw(const RenderParams& params)
 	{
 		case Asset::Level::splitscreen:
 		{
+			const Vec2 box_size(512 * UI::scale, (512 - 64) * UI::scale);
+			UI::box(params, { viewport.size * 0.5f - box_size * 0.5f, box_size }, UI::background_color);
+
 			UIText text;
 			text.anchor_x = UIText::Anchor::Center;
 			text.anchor_y = UIText::Anchor::Max;
-			const Vec2 box_size(256 * UI::scale);
+			text.color = UI::accent_color;
+			text.wrap_width = box_size.x - 48.0f * UI::scale;
+			text.text(_(splitscreen_teams_are_valid() ? strings::splitscreen_prompt_ready : strings::splitscreen_prompt));
+			Vec2 pos(viewport.size.x * 0.5f, viewport.size.y * 0.5f + box_size.y * 0.5f - (16.0f * UI::scale));
+			text.draw(params, pos);
+			pos.y -= 64.0f * UI::scale;
+
+			// draw team labels
+			const r32 team_offset = 128.0f * UI::scale;
+			text.wrap_width = 0;
+			text.text(_(strings::team_a));
+			text.draw(params, pos + Vec2(-team_offset, 0));
+			text.text(_(strings::team_b));
+			text.draw(params, pos + Vec2(team_offset, 0));
+
+			// set up text for gamepad number labels
+			text.color = UI::background_color;
+			text.wrap_width = 0;
+			text.anchor_x = UIText::Anchor::Center;
+			text.anchor_y = UIText::Anchor::Center;
+
 			for (s32 i = 0; i < MAX_GAMEPADS; i++)
 			{
-				if (params.camera == cameras[i])
+				pos.y -= 64.0f * UI::scale;
+
+				AI::Team team = Game::state.local_player_config[i];
+
+				const Vec4* color;
+				r32 x_offset;
+				if (!gamepad_active[i])
 				{
-					UI::box(params, { viewport.size * 0.5f - box_size * 0.5f, box_size }, UI::background_color);
-					player_text[i].draw(params, viewport.size * 0.5f);
-					AI::Team team = Game::state.local_player_config[i];
-					const char* team_string = _(team == AI::Team::A ? strings::team_a : strings::team_b);
-					if (i > 0)
-					{
-						if (team == AI::Team::None)
-							text.text(_(strings::join));
-						else
-							text.text(_(strings::leave), team_string);
-					}
-					else // player 0 must stay in
-					{
-						s32 gamepad_count = 0;
-						for (s32 j = 0; j < MAX_GAMEPADS; j++)
-						{
-							if (params.sync->input.gamepads[j].active)
-								gamepad_count++;
-						}
-						if (gamepad_count > 1)
-							text.text(_(strings::begin), team_string);
-						else
-							text.text(_(strings::connect_gamepads));
-					}
-					text.draw(params, viewport.size * 0.5f + Vec2(0, -16.0f * UI::scale));
-					break;
+					color = &UI::disabled_color;
+					x_offset = 0.0f;
 				}
+				else if (team == AI::Team::None)
+				{
+					color = &UI::default_color;
+					x_offset = 0.0f;
+				}
+				else if (team == AI::Team::A)
+				{
+					color = &UI::accent_color;
+					x_offset = -team_offset;
+				}
+				else if (team == AI::Team::B)
+				{
+					color = &UI::accent_color;
+					x_offset = team_offset;
+				}
+				else
+					vi_assert(false);
+
+				Vec2 icon_pos = pos + Vec2(x_offset, 0);
+				UI::mesh(params, Asset::Mesh::icon_gamepad, icon_pos, Vec2(48.0f * UI::scale), *color);
+				text.text("%d", i + 1);
+				text.draw(params, icon_pos);
 			}
 			break;
 		}
@@ -502,10 +530,7 @@ void draw(const RenderParams& params)
 	}
 
 	if (Game::state.mode == Game::Mode::Special)
-	{
-		if (!cameras[0] || params.camera == cameras[0]) // if we have cameras active, only draw the main menu on the first one
-			main_menu.draw_alpha(params);
-	}
+		main_menu.draw_alpha(params);
 }
 
 b8 options(const Update& u, u8 gamepad, UIMenu* menu, Vec2* pos)

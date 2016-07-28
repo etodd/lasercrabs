@@ -36,6 +36,7 @@ struct Health : public ComponentType<Health>
 
 	Health(u16, u16);
 
+	u16 increment() const;
 	void set(u16);
 	void awake() {}
 	void damage(Entity*, u16);
@@ -55,7 +56,6 @@ struct HealthPickup : public ComponentType<HealthPickup>
 	static r32 power_particle_timer;
 	static r32 particle_accumulator;
 	static void update_all(const Update&);
-	static u16 increment(PlayerCommon*);
 
 	struct Key
 	{

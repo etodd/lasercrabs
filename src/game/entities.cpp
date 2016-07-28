@@ -80,6 +80,11 @@ void Health::damage(Entity* e, u16 damage)
 	}
 }
 
+u16 Health::increment() const
+{
+	return CREDITS_DEFAULT_INCREMENT + vi_max(0, hp - 1) * CREDITS_CONTROL_POINT;
+}
+
 void Health::add(u16 amount)
 {
 	u16 old_hp = hp;
@@ -286,19 +291,7 @@ void HealthPickup::update_all(const Update& u)
 		{
 			// give points to players based on how many control points they own
 			for (auto i = PlayerCommon::list.iterator(); !i.is_last(); i.next())
-			{
-				Health* health = i.item()->get<Health>();
-				s32 reward_buffer = CREDITS_DEFAULT_INCREMENT;
-
-				for (auto j = list.iterator(); !j.is_last(); j.next())
-				{
-					if (j.item()->owner.ref() == health)
-						reward_buffer += CREDITS_CONTROL_POINT;
-				}
-
-				// add credits to players
-				i.item()->manager.ref()->add_credits(reward_buffer);
-			}
+				i.item()->manager.ref()->add_credits(i.item()->get<Health>()->increment());
 
 			timer = CONTROL_POINT_INTERVAL;
 		}
@@ -432,18 +425,6 @@ SensorInterestPoint* SensorInterestPoint::in_range(const Vec3& pos)
 	}
 
 	return closest;
-}
-
-u16 HealthPickup::increment(PlayerCommon* player)
-{
-	Health* health = player->get<Health>();
-	s32 control_points = 0;
-	for (auto i = list.iterator(); !i.is_last(); i.next())
-	{
-		if (i.item()->owner.ref() == health)
-			control_points++;
-	}
-	return CREDITS_DEFAULT_INCREMENT + control_points * CREDITS_CONTROL_POINT;
 }
 
 void Rocket::awake()

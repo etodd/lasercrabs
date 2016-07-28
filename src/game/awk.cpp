@@ -61,10 +61,7 @@ btScalar AwkRaycastCallback::addSingleResult(btCollisionWorld::LocalRayResult& r
 	}
 	else if (filter_group & CollisionShield)
 	{
-		if (ray_result.m_collisionObject->getUserIndex() == entity_id)
-			return m_closestHitFraction; // keep going
-		else
-			closest_target_hit = ray_result.m_hitFraction; // stop here
+		return m_closestHitFraction; // keep going
 	}
 	else if (filter_group & CollisionTarget)
 	{

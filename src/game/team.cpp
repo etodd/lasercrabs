@@ -40,8 +40,8 @@ namespace VI
 	{
 		{
 			Asset::Mesh::icon_sensor,
-			1.25f,
-			10,
+			2.0f,
+			15,
 		},
 		{
 			Asset::Mesh::icon_rocket,

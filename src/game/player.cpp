@@ -504,7 +504,7 @@ void LocalPlayer::draw_alpha(const RenderParams& params) const
 		{
 			UIText text;
 			text.color = UI::accent_color;
-			text.text("+%d", HealthPickup::increment(manager.ref()->entity.ref() ? manager.ref()->entity.ref()->get<PlayerCommon>() : nullptr));
+			text.text("+%d", manager.ref()->entity.ref() ? manager.ref()->entity.ref()->get<Health>()->increment() : 0);
 			text.anchor_x = UIText::Anchor::Center;
 			text.anchor_y = UIText::Anchor::Center;
 			text.size = text_size;
@@ -2090,9 +2090,12 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 		}
 	}
 
+	b8 is_vulnerable = !get<AIAgent>()->stealth && get<Awk>()->invincible_timer == 0.0f;
+
 	// incoming attack warning indicator
-	if (get<Awk>()->incoming_attacker())
+	if (is_vulnerable && get<Awk>()->incoming_attacker())
 	{
+		enemy_visible = true;
 		// we're being attacked; flash the compass
 		b8 show = UI::flash_function(Game::real_time.total);
 		if (show)
@@ -2109,10 +2112,7 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 		const Health* health = get<Health>();
 
 		// danger indicator
-		b8 danger = enemy_visible
-			&& health->hp == 1
-			&& !get<AIAgent>()->stealth
-			&& get<Awk>()->invincible_timer == 0.0f;
+		b8 danger = enemy_visible && is_vulnerable && health->hp == 1;
 		if (danger)
 		{
 			UIText text;

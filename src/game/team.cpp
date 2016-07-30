@@ -290,6 +290,18 @@ namespace VI
 				game_over = true;
 				game_over_real_time = Game::real_time.total;
 
+				// remove in-flight projectiles
+				{
+					for (auto i = Projectile::list.iterator(); !i.is_last(); i.next())
+						World::remove_deferred(i.item()->entity());
+
+					for (auto i = Rocket::list.iterator(); !i.is_last(); i.next())
+					{
+						if (!i.item()->get<Transform>()->parent.ref()) // it's in flight
+							World::remove_deferred(i.item()->entity());
+					}
+				}
+
 				// determine the winner, if any
 				Team* result = nullptr;
 				s32 teams_with_players = 0;
@@ -548,7 +560,7 @@ namespace VI
 				}
 
 				// launch a rocket at this player if the conditions are right
-				if (player_entity && !Rocket::inbound(player_entity))
+				if (player_entity && !Rocket::inbound(player_entity) && !game_over)
 				{
 					Vec3 player_pos = player_entity->get<Transform>()->absolute_pos();
 					for (auto rocket = Rocket::list.iterator(); !rocket.is_last(); rocket.next())

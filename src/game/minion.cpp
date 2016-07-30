@@ -426,7 +426,8 @@ void MinionAI::update(const Update& u)
 						to_target.y = 0.0f;
 						if (get<MinionCommon>()->attack_timer == 0.0f // make sure our cooldown is done
 							&& Vec3::normalize(to_target).dot(get<Walker>()->forward()) > 0.98f // make sure we're looking at the target
-							&& target_timer > MINION_ATTACK_TIME * 0.5f) // give some reaction time
+							&& target_timer > MINION_ATTACK_TIME * 0.5f // give some reaction time
+							&& !Team::game_over)
 						{
 							PlayerManager* owner = get<MinionCommon>()->owner.ref();
 							World::create<ProjectileEntity>(owner ? owner->entity.ref() : nullptr, head_pos, target_pos - head_pos);

@@ -176,7 +176,8 @@ void AIPlayerControl::awake()
 	camera->mask = 1 << camera->team;
 	camera->range = AWK_MAX_DISTANCE;
 #endif
-	link<&AIPlayerControl::awk_attached>(get<Awk>()->attached);
+	link<&AIPlayerControl::awk_done_flying_or_dashing>(get<Awk>()->done_flying);
+	link<&AIPlayerControl::awk_done_flying_or_dashing>(get<Awk>()->done_dashing);
 	link_arg<Entity*, &AIPlayerControl::awk_hit>(get<Awk>()->hit);
 	link<&AIPlayerControl::awk_detached>(get<Awk>()->detached);
 	link<&AIPlayerControl::awk_detached>(get<Awk>()->dashed);
@@ -223,7 +224,7 @@ AIPlayerControl::~AIPlayerControl()
 	loop_memory->~Repeat();
 }
 
-void AIPlayerControl::awk_attached()
+void AIPlayerControl::awk_done_flying_or_dashing()
 {
 	const AIPlayer::Config& config = player.ref()->config;
 	inaccuracy = config.inaccuracy_min + (mersenne::randf_cc() * config.inaccuracy_range);
@@ -1118,11 +1119,12 @@ void Panic::run()
 void WaitForAttachment::set_context(void* ctx)
 {
 	Base::set_context(ctx);
-	control->get<Awk>()->attached.link<WaitForAttachment, &WaitForAttachment::attached>(this);
+	control->get<Awk>()->done_flying.link<WaitForAttachment, &WaitForAttachment::done_flying_or_dashing>(this);
+	control->get<Awk>()->done_dashing.link<WaitForAttachment, &WaitForAttachment::done_flying_or_dashing>(this);
 	control->player.ref()->manager.ref()->upgrade_completed.link<WaitForAttachment, Upgrade, &WaitForAttachment::upgrade_completed>(this);
 }
 
-void WaitForAttachment::attached()
+void WaitForAttachment::done_flying_or_dashing()
 {
 	if (active() && control->player.ref()->manager.ref()->current_upgrade == Upgrade::None)
 		done(true);

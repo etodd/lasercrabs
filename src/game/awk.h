@@ -56,7 +56,8 @@ struct Awk : public ComponentType<Awk>
 	};
 
 	Vec3 velocity;
-	Link attached;
+	Link done_flying;
+	Link done_dashing;
 	LinkArg<const Vec3&> bounce;
 	LinkArg<Entity*> hit;
 	StaticArray<Ref<Entity>, 4> hit_targets;
@@ -114,7 +115,9 @@ struct Awk : public ComponentType<Awk>
 	void detach_teleport();
 	b8 detach(const Vec3&);
 
-	void finish_flying_or_dashing();
+	void finish_flying_dashing_common();
+	void finish_flying();
+	void finish_dashing();
 	b8 direction_is_toward_attached_wall(const Vec3&) const;
 	b8 can_go(const Vec3&, Vec3* = nullptr, b8* = nullptr) const;
 	b8 can_hit(const Target*, Vec3* = nullptr) const;

@@ -125,7 +125,7 @@ struct AIPlayerControl : public ComponentType<AIPlayerControl>
 	b8 in_range(const Vec3&, r32) const;
 	void set_target(Entity*);
 	void set_path(const AI::AwkPath&);
-	void awk_attached();
+	void awk_done_flying_or_dashing();
 	void awk_hit(Entity*);
 	void awk_detached();
 	void update(const Update&);
@@ -263,7 +263,7 @@ namespace AIBehaviors
 	struct WaitForAttachment : Base<WaitForAttachment>
 	{
 		void set_context(void*);
-		void attached();
+		void done_flying_or_dashing();
 		void upgrade_completed(Upgrade);
 		void run();
 	};

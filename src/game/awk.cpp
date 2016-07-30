@@ -88,7 +88,8 @@ btScalar AwkRaycastCallback::addSingleResult(btCollisionWorld::LocalRayResult& r
 
 Awk::Awk()
 	: velocity(0.0f, -AWK_FLY_SPEED, 0.0f),
-	attached(),
+	done_flying(),
+	done_dashing(),
 	detached(),
 	dashed(),
 	dash_timer(),
@@ -864,7 +865,7 @@ void Awk::stealth(b8 enable)
 	}
 }
 
-void Awk::finish_flying_or_dashing()
+void Awk::finish_flying_dashing_common()
 {
 	lerped_pos = get<Transform>()->pos;
 
@@ -875,8 +876,18 @@ void Awk::finish_flying_or_dashing()
 	attach_time = Game::time.total;
 
 	velocity = Vec3::zero;
+}
 
-	attached.fire();
+void Awk::finish_flying()
+{
+	finish_flying_dashing_common();
+	done_flying.fire();
+}
+
+void Awk::finish_dashing()
+{
+	finish_flying_dashing_common();
+	done_dashing.fire();
 }
 
 void Awk::update_lerped_pos(r32 speed_multiplier, const Update& u)
@@ -1046,7 +1057,7 @@ void Awk::update(const Update& u)
 				dash_timer -= u.time.delta;
 				if (dash_timer < 0.0f)
 				{
-					finish_flying_or_dashing();
+					finish_dashing();
 					return;
 				}
 				else
@@ -1164,7 +1175,7 @@ void Awk::update(const Update& u)
 							next_position = ray_callback.m_hitPointWorld[i] + ray_callback.m_hitNormalWorld[i] * AWK_RADIUS;
 							get<Transform>()->absolute(next_position, Quat::look(ray_callback.m_hitNormalWorld[i]));
 
-							finish_flying_or_dashing();
+							finish_flying();
 						}
 					}
 				}

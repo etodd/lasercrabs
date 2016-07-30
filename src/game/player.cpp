@@ -943,7 +943,7 @@ void PlayerCommon::awake()
 	if (has<Awk>())
 	{
 		get<Health>()->hp_max = AWK_HEALTH;
-		link<&PlayerCommon::awk_attached>(get<Awk>()->attached);
+		link<&PlayerCommon::awk_done_flying>(get<Awk>()->done_flying);
 		link<&PlayerCommon::awk_detached>(get<Awk>()->detached);
 		link_arg<const Vec3&, &PlayerCommon::awk_bounce>(get<Awk>()->bounce);
 	}
@@ -996,7 +996,7 @@ r32 PlayerCommon::detect_danger() const
 	return 0.0f;
 }
 
-void PlayerCommon::awk_attached()
+void PlayerCommon::awk_done_flying()
 {
 	Quat absolute_rot = get<Transform>()->absolute_rot();
 	Vec3 wall_normal = absolute_rot * Vec3(0, 0, 1);
@@ -1075,7 +1075,7 @@ s32 PlayerCommon::visibility_hash(const PlayerCommon* awk_a, const PlayerCommon*
 	return awk_a->id() * MAX_PLAYERS + awk_b->id();
 }
 
-void LocalPlayerControl::awk_attached()
+void LocalPlayerControl::awk_done_flying_or_dashing()
 {
 	rumble = vi_max(rumble, 0.2f);
 	get<Audio>()->post_event(AK::EVENTS::STOP_FLY);
@@ -1110,7 +1110,8 @@ void LocalPlayerControl::awake()
 	if (has<Awk>())
 	{
 		last_pos = get<Awk>()->center();
-		link<&LocalPlayerControl::awk_attached>(get<Awk>()->attached);
+		link<&LocalPlayerControl::awk_done_flying_or_dashing>(get<Awk>()->done_flying);
+		link<&LocalPlayerControl::awk_done_flying_or_dashing>(get<Awk>()->done_dashing);
 		link_arg<Entity*, &LocalPlayerControl::hit_target>(get<Awk>()->hit);
 		link_arg<const DamageEvent&, &LocalPlayerControl::damaged>(get<Health>()->damaged);
 		link_arg<const TargetEvent&, &LocalPlayerControl::hit_by>(get<Target>()->target_hit);
@@ -1509,7 +1510,7 @@ void LocalPlayerControl::update(const Update& u)
 			if (movement_enabled())
 			{
 				Vec3 trace_end = trace_start + trace_dir * (AWK_MAX_DISTANCE + third_person_offset);
-				btCollisionWorld::ClosestRayResultCallback ray_callback(trace_start, trace_end);
+				RaycastCallbackExcept ray_callback(trace_start, trace_end, entity());
 				Physics::raycast(&ray_callback, ~CollisionAwkIgnore & ~get<Awk>()->ally_containment_field_mask());
 
 				Vec3 center = get<Awk>()->center();

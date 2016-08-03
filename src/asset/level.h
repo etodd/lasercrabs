@@ -15,9 +15,9 @@ namespace Asset
 		const AssetID Ponos = 3;
 		const AssetID Soteria = 4;
 		const AssetID Tyche = 5;
-		const AssetID connect = 6;
-		const AssetID intro = 7;
-		const AssetID splitscreen = 8;
+		const AssetID intro = 6;
+		const AssetID splitscreen = 7;
+		const AssetID terminal = 8;
 		const AssetID title = 9;
 	}
 }

@@ -38,14 +38,6 @@ struct LocalPlayer
 	r32 upgrade_animation_time;
 	UIScroll score_summary_scroll;
 	
-	struct SupportEntry
-	{
-		Ref<RigidBody> support;
-		Vec3 relative_position;
-		r32 rotation;
-	};
-	StaticArray<SupportEntry, 4> last_supported;
-
 	inline ID id() const
 	{
 		return this - &list[0];
@@ -133,7 +125,6 @@ struct LocalPlayerControl : public ComponentType<LocalPlayerControl>
 	r32 health_flash_timer;
 	b8 try_secondary;
 	b8 try_primary;
-	b8 try_slide;
 	u8 gamepad;
 	r32 rumble;
 	Vec3 last_pos;
@@ -150,7 +141,6 @@ struct LocalPlayerControl : public ComponentType<LocalPlayerControl>
 	void hit_by(const TargetEvent&);
 	void health_picked_up();
 	b8 add_target_indicator(Target*, TargetIndicator::Type);
-	void parkour_landed(r32);
 
 	void update(const Update&);
 	void draw_alpha(const RenderParams&) const;

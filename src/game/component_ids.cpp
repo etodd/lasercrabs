@@ -12,7 +12,6 @@
 #include "data/ragdoll.h"
 #include "minion.h"
 #include "ai_player.h"
-#include "parkour.h"
 
 namespace VI
 {
@@ -44,18 +43,17 @@ COMPONENT_TYPE(22, Ragdoll) \
 COMPONENT_TYPE(23, SkinnedModel) \
 COMPONENT_TYPE(24, View) \
 COMPONENT_TYPE(25, Projectile) \
-COMPONENT_TYPE(26, Parkour) \
-COMPONENT_TYPE(27, Tile) \
-COMPONENT_TYPE(28, HealthPickup) \
-COMPONENT_TYPE(29, Sensor) \
-COMPONENT_TYPE(30, Rocket) \
-COMPONENT_TYPE(31, ContainmentField) \
-COMPONENT_TYPE(32, SensorInterestPoint) \
-COMPONENT_TYPE(33, DataFragment) \
-COMPONENT_TYPE(34, Water) \
-COMPONENT_TYPE(35, Audio) \
+COMPONENT_TYPE(26, Tile) \
+COMPONENT_TYPE(27, HealthPickup) \
+COMPONENT_TYPE(28, Sensor) \
+COMPONENT_TYPE(29, Rocket) \
+COMPONENT_TYPE(30, ContainmentField) \
+COMPONENT_TYPE(31, SensorInterestPoint) \
+COMPONENT_TYPE(32, DataFragment) \
+COMPONENT_TYPE(33, Water) \
+COMPONENT_TYPE(34, Audio) \
 
-Family World::families = 36;
+Family World::families = 35;
 
 #define COMPONENT_TYPE(INDEX, TYPE) \
 template<> Family ComponentType<TYPE>::family = (INDEX); \

@@ -4,6 +4,7 @@
 #include "data/array.h"
 #include "render/ui.h"
 #include "game.h"
+#include "terminal.h"
 
 namespace VI
 {
@@ -72,18 +73,12 @@ enum class State
 	Options,
 };
 
-extern AssetID next_level;
-extern Game::Mode next_mode;
-extern r32 connect_timer;
-extern b8 splitscreen_level_selected;
-extern AssetID transition_previous_level;
+extern State main_menu_state;
 
 void init();
-void transition(AssetID, Game::Mode);
 void update(const Update&);
 void clear();
 void draw(const RenderParams&);
-void splitscreen();
 void title();
 void refresh_variables();
 void pause_menu(const Update&, const Rect2&, u8, UIMenu*, State*);

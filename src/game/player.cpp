@@ -25,7 +25,6 @@
 #include "walker.h"
 #include "data/animator.h"
 #include "mersenne/mersenne-twister.h"
-#include "parkour.h"
 #include "noise.h"
 #include "settings.h"
 #if DEBUG_AI_CONTROL
@@ -103,10 +102,9 @@ LocalPlayer::LocalPlayer(PlayerManager* m, u8 g)
 	menu_state(),
 	upgrading(),
 	upgrade_animation_time(),
-	last_supported(),
 	score_summary_scroll()
 {
-	sprintf(manager.ref()->username, gamepad == 0 ? "etodd" : "etodd[%d]", gamepad); // todo: actual usernames
+	sprintf(manager.ref()->username, gamepad == 0 ? "%s" : "%s[%d]", Game::save.username, gamepad);
 
 	msg_text.size = text_size;
 	msg_text.anchor_x = UIText::Anchor::Center;
@@ -145,7 +143,7 @@ void LocalPlayer::ensure_camera(const Update& u, b8 active)
 	if (active && !camera && !manager.ref()->entity.ref())
 	{
 		camera = Camera::add();
-		camera->fog = Game::state.mode == Game::Mode::Parkour;
+		camera->fog = false;
 		camera->team = (u8)manager.ref()->team.ref()->team();
 		camera->mask = 1 << camera->team;
 		s32 player_count;
@@ -216,37 +214,6 @@ void LocalPlayer::update(const Update& u)
 {
 	if (Console::visible)
 		return;
-
-	{
-		Entity* entity = manager.ref()->entity.ref();
-		if (Game::state.mode == Game::Mode::Parkour && entity)
-		{
-			RigidBody* support = entity->get<Walker>()->support.ref();
-			if (support)
-			{
-				Vec3 relative_position = support->get<Transform>()->to_local(entity->get<Transform>()->absolute_pos());
-				b8 record_support = false;
-				if (last_supported.length == 0)
-					record_support = true;
-				else
-				{
-					const SupportEntry& last_entry = last_supported[last_supported.length - 1];
-					if (last_entry.support.ref() != support || (last_entry.relative_position - relative_position).length_squared() > 2.0f * 2.0f)
-						record_support = true;
-				}
-
-				if (record_support)
-				{
-					if (last_supported.length == last_supported.capacity())
-						last_supported.remove_ordered(0);
-					SupportEntry* entry = last_supported.add();
-					entry->support = support;
-					entry->relative_position = relative_position;
-					entry->rotation = entity->get<Walker>()->target_rotation;
-				}
-			}
-		}
-	}
 
 	// flash message when the buy period expires
 	if (Game::state.mode == Game::Mode::Pvp
@@ -399,32 +366,9 @@ void LocalPlayer::spawn()
 	Vec3 dir = rot * Vec3(0, 1, 0);
 	r32 angle = atan2f(dir.x, dir.z);
 
-	Entity* spawned;
-
-	if (Game::state.mode == Game::Mode::Pvp)
-	{
-		// Spawn AWK
-		pos += Quat::euler(0, angle + (gamepad * PI * 0.5f), 0) * Vec3(0, 0, PLAYER_SPAWN_RADIUS * 0.5f); // spawn it around the edges
-		spawned = World::create<AwkEntity>(manager.ref()->team.ref()->team());
-	}
-	else // parkour mode
-	{
-		// Spawn traceur
-		if (last_supported.length > 1) // don't spawn at the last supported location, but the one before that
-			last_supported.remove_ordered(last_supported.length - 1);
-		while (last_supported.length > 0) // try to spawn at last supported location
-		{
-			SupportEntry entry = last_supported[last_supported.length - 1];
-			last_supported.remove_ordered(last_supported.length - 1);
-			if (entry.support.ref())
-			{
-				pos = entry.support.ref()->get<Transform>()->to_world(entry.relative_position);
-				angle = entry.rotation;
-				break;
-			}
-		}
-		spawned = World::create<Traceur>(pos + Vec3(0, 2, 0), Quat::euler(0, angle, 0), manager.ref()->team.ref()->team());
-	}
+	// Spawn AWK
+	pos += Quat::euler(0, angle + (gamepad * PI * 0.5f), 0) * Vec3(0, 0, PLAYER_SPAWN_RADIUS * 0.5f); // spawn it around the edges
+	Entity* spawned = World::create<AwkEntity>(manager.ref()->team.ref()->team());
 
 	spawned->get<Transform>()->absolute_pos(pos);
 	PlayerCommon* common = spawned->add<PlayerCommon>(manager.ref());
@@ -1117,29 +1061,10 @@ void LocalPlayerControl::awake()
 		link_arg<const TargetEvent&, &LocalPlayerControl::hit_by>(get<Target>()->target_hit);
 		link<&LocalPlayerControl::health_picked_up>(get<Health>()->added);
 	}
-	else
-	{
-		link_arg<r32, &LocalPlayerControl::parkour_landed>(get<Walker>()->land);
-		get<Audio>()->post_event(AK::EVENTS::PLAY_FLY);
-		get<Audio>()->param(AK::GAME_PARAMETERS::FLY_VOLUME, 0.0f);
-	}
 
-	camera->fog = Game::state.mode == Game::Mode::Parkour;
+	camera->fog = false;
 	camera->team = (u8)get<AIAgent>()->team;
 	camera->mask = 1 << camera->team;
-}
-
-void LocalPlayerControl::parkour_landed(r32 velocity_diff)
-{
-	Parkour::State parkour_state = get<Parkour>()->fsm.current;
-	if (velocity_diff < LANDING_VELOCITY_LIGHT
-		&& (parkour_state == Parkour::State::Normal || parkour_state == Parkour::State::HardLanding))
-	{
-		if (velocity_diff < LANDING_VELOCITY_HARD)
-			rumble = vi_max(rumble, 0.5f);
-		else
-			rumble = vi_max(rumble, 0.2f);
-	}
 }
 
 void LocalPlayerControl::hit_target(Entity* target)
@@ -1173,7 +1098,7 @@ void LocalPlayerControl::hit_by(const TargetEvent& e)
 
 void LocalPlayerControl::health_picked_up()
 {
-	if (Game::time.total > PLAYER_SPAWN_DELAY_PVP + 0.5f) // if we're picking up initial health at the very beginning of the match, don't flash the message
+	if (Game::time.total > PLAYER_SPAWN_DELAY + 0.5f) // if we're picking up initial health at the very beginning of the match, don't flash the message
 	{
 		player.ref()->msg(_(strings::hp_added), true);
 		health_flash_timer = msg_time;
@@ -1640,169 +1565,6 @@ void LocalPlayerControl::update(const Update& u)
 				}
 			}
 		}
-	}
-	else
-	{
-		// parkour mode
-		update_camera_input(u);
-
-		Vec3 movement = get_movement(u, Quat::euler(0, get<PlayerCommon>()->angle_horizontal, 0));
-		Vec2 dir = Vec2(movement.x, movement.z);
-		get<Walker>()->dir = dir;
-
-		// parkour button
-		b8 parkour_pressed = movement_enabled() && u.input->get(Controls::Parkour, gamepad);
-
-		if (get<Parkour>()->fsm.current == Parkour::State::WallRun && !parkour_pressed)
-			get<Parkour>()->fsm.transition(Parkour::State::Normal);
-
-		if (parkour_pressed && !u.last_input->get(Controls::Parkour, gamepad))
-			try_secondary = true;
-		else if (!parkour_pressed)
-			try_secondary = false;
-
-		if (try_secondary)
-		{
-			if (get<Parkour>()->try_parkour())
-			{
-				try_secondary = false;
-				try_primary = false;
-				try_slide = false;
-			}
-		}
-
-		// jump button
-		b8 jump_pressed = movement_enabled() && u.input->get(Controls::Jump, gamepad);
-		if (jump_pressed && !u.last_input->get(Controls::Jump, gamepad))
-			try_primary = true;
-		else if (!jump_pressed)
-			try_primary = false;
-
-		if (jump_pressed)
-			get<Parkour>()->lessen_gravity(); // jump higher when the player holds the jump button
-
-		if (try_primary)
-		{
-			if (get<Parkour>()->try_jump(get<PlayerCommon>()->angle_horizontal))
-			{
-				try_secondary = false;
-				try_primary = false;
-				try_slide = false;
-			}
-		}
-
-		// slide button
-		b8 slide_pressed = movement_enabled() && u.input->get(Controls::Slide, gamepad);
-
-		get<Parkour>()->slide_continue = slide_pressed;
-
-		if (slide_pressed && !u.last_input->get(Controls::Slide, gamepad))
-			try_slide = true;
-		else if (!slide_pressed)
-			try_slide = false;
-
-		if (try_slide)
-		{
-			if (get<Parkour>()->try_slide())
-			{
-				try_secondary = false;
-				try_primary = false;
-				try_slide = false;
-			}
-		}
-
-		Parkour::State parkour_state = get<Parkour>()->fsm.current;
-
-		{
-			// if we're just running and not doing any parkour
-			// rotate arms to match the camera view
-			// blend smoothly between the two states (rotating and not rotating)
-
-			r32 arm_angle = LMath::clampf(get<PlayerCommon>()->angle_vertical * 0.5f, -PI * 0.15f, PI * 0.15f);
-
-			const r32 blend_time = 0.2f;
-			r32 blend;
-			if (parkour_state == Parkour::State::Normal)
-				blend = vi_min(1.0f, get<Parkour>()->fsm.time / blend_time);
-			else if (get<Parkour>()->fsm.last == Parkour::State::Normal)
-				blend = vi_max(0.0f, 1.0f - (get<Parkour>()->fsm.time / blend_time));
-			else
-				blend = 0.0f;
-			get<Animator>()->override_bone(Asset::Bone::character_upper_arm_L, Vec3::zero, Quat::euler(arm_angle * blend, 0, 0));
-			get<Animator>()->override_bone(Asset::Bone::character_upper_arm_R, Vec3::zero, Quat::euler(arm_angle * -blend, 0, 0));
-		}
-
-		r32 lean_target = 0.0f;
-
-		Quat look_quat = Quat::euler(get<Parkour>()->lean, get<PlayerCommon>()->angle_horizontal, get<PlayerCommon>()->angle_vertical);
-
-		if (parkour_state == Parkour::State::WallRun)
-		{
-			Parkour::WallRunState state = get<Parkour>()->wall_run_state;
-
-			Vec3 wall_normal = get<Parkour>()->last_support.ref()->get<Transform>()->to_world_normal(get<Parkour>()->relative_wall_run_normal);
-
-			Vec3 forward = look_quat * Vec3(0, 0, 1);
-
-			if (get<Parkour>()->wall_run_state == Parkour::WallRunState::Forward)
-				wall_normal *= -1.0f; // Make sure we're always facing the wall
-			else
-			{
-				// We're running along the wall
-				// Make sure we can't look backward
-				get<PlayerCommon>()->clamp_rotation(Quat::euler(0, get<Walker>()->target_rotation, 0) * Vec3(0, 0, 1));
-			}
-
-			get<PlayerCommon>()->clamp_rotation(wall_normal);
-		}
-		else if (parkour_state == Parkour::State::Slide || parkour_state == Parkour::State::Roll || parkour_state == Parkour::State::HardLanding || parkour_state == Parkour::State::Mantle)
-		{
-			get<PlayerCommon>()->clamp_rotation(Quat::euler(0, get<Walker>()->target_rotation, 0) * Vec3(0, 0, 1));
-		}
-		else
-		{
-			get<Walker>()->target_rotation = get<PlayerCommon>()->angle_horizontal;
-
-			// make sure our body is facing within 90 degrees of our target rotation
-			r32 delta = LMath::angle_to(get<Walker>()->rotation, get<PlayerCommon>()->angle_horizontal);
-			if (delta > PI * 0.5f)
-				get<Walker>()->rotation = LMath::angle_range(get<Walker>()->rotation + delta - PI * 0.5f);
-			else if (delta < PI * -0.5f)
-				get<Walker>()->rotation = LMath::angle_range(get<Walker>()->rotation + delta + PI * 0.5f);
-		}
-
-		Vec3 camera_pos;
-		if (Game::state.third_person)
-			camera_pos = get<Transform>()->absolute_pos() + look_quat * Vec3(0, 1, -7);
-		else
-		{
-			camera_pos = Vec3(0, 0, 0.05f);
-			Quat q = Quat::identity;
-			get<Parkour>()->head_to_object_space(&camera_pos, &q);
-			camera_pos = get<Transform>()->to_world(camera_pos);
-
-			// camera bone affects rotation only
-			Quat camera_animation = Quat::euler(PI * -0.5f, 0, 0);
-			get<Animator>()->bone_transform(Asset::Bone::character_camera, nullptr, &camera_animation);
-			look_quat = Quat::euler(get<Parkour>()->lean, get<PlayerCommon>()->angle_horizontal, get<PlayerCommon>()->angle_vertical) * Quat::euler(0, PI * 0.5f, 0) * camera_animation * Quat::euler(0, PI * -0.5f, 0);
-		}
-
-		// wind sound and camera shake at high speed
-		{
-			r32 speed = get<RigidBody>()->btBody->getInterpolationLinearVelocity().length();
-			get<Audio>()->param(AK::GAME_PARAMETERS::FLY_VOLUME, LMath::clampf((speed - 8.0f) / 25.0f, 0, 1));
-			r32 shake = LMath::clampf((speed - 13.0f) / 30.0f, 0, 1);
-			rumble = vi_max(rumble, shake);
-			shake *= 0.2f;
-			r32 offset = Game::time.total * 10.0f;
-			look_quat = look_quat * Quat::euler(noise::sample3d(Vec3(offset)) * shake, noise::sample3d(Vec3(offset + 64)) * shake, noise::sample3d(Vec3(offset + 128)) * shake);
-		}
-
-		// camera setup
-		camera->wall_normal = Vec3(0, 0, 1);
-		camera->pos = camera_pos;
-		camera->range = 0.0f;
-		camera->rot = look_quat;
 	}
 
 	Audio::listener_update(gamepad, camera->pos, camera->rot);

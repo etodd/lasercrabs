@@ -23,19 +23,10 @@ namespace Menu
 
 #define fov_initial (80.0f * PI * 0.5f / 180.0f)
 
-#define CONNECT_OFFLINE_DELAY 3.0f
-#define CONNECT_DELAY_MIN 4.0f
-#define CONNECT_DELAY_RANGE 3.0f
-
 Camera* camera = nullptr;
-b8 gamepad_active[MAX_GAMEPADS] = {};
-AssetID last_level = AssetNull;
-AssetID transition_previous_level = AssetNull;
-AssetID next_level = AssetNull;
 Game::Mode next_mode;
-r32 connect_timer = 0.0f;
 UIMenu main_menu;
-b8 splitscreen_level_selected = false;
+b8 gamepad_active[MAX_GAMEPADS] = {};
 
 State main_menu_state;
 
@@ -119,10 +110,7 @@ void title_menu(const Update& u, u8 gamepad, UIMenu* menu, State* state)
 			{
 				Game::save = Game::Save();
 				Game::state.reset();
-				if (Game::save.level_index == 0)
-					transition(Game::levels[0], Game::Mode::Special);
-				else
-					transition(Game::levels[Game::save.level_index], Game::Mode::Parkour);
+				Terminal::show();
 				return;
 			}
 			if (menu->item(u, &pos, _(strings::options)))
@@ -131,7 +119,12 @@ void title_menu(const Update& u, u8 gamepad, UIMenu* menu, State* state)
 				menu->animate();
 			}
 			if (menu->item(u, &pos, _(strings::splitscreen)))
-				splitscreen();
+			{
+				Game::save = Game::Save();
+				Game::state.reset();
+				Game::state.local_multiplayer = true;
+				Terminal::show();
+			}
 			if (menu->item(u, &pos, _(strings::exit)))
 				Game::quit = true;
 			menu->end();
@@ -200,24 +193,6 @@ void pause_menu(const Update& u, const Rect2& viewport, u8 gamepad, UIMenu* menu
 }
 
 
-b8 splitscreen_teams_are_valid()
-{
-	s32 player_count = 0;
-	s32 team_a_count = 0;
-	s32 team_b_count = 0;
-	for (s32 i = 0; i < MAX_GAMEPADS; i++)
-	{
-		if (Game::state.local_player_config[i] != AI::Team::None)
-			player_count++;
-		AI::Team team = Game::state.local_player_config[i];
-		if (team == AI::Team::A)
-			team_a_count++;
-		else if (team == AI::Team::B)
-			team_b_count++;
-	}
-	return player_count > 1 && team_a_count > 0 && team_b_count > 0;
-}
-
 void update(const Update& u)
 {
 	for (s32 i = 0; i < MAX_GAMEPADS; i++)
@@ -239,162 +214,13 @@ void update(const Update& u)
 	if (Console::visible)
 		return;
 
-	switch (Game::state.level)
-	{
-		case Asset::Level::splitscreen:
-		{
-			if (Game::state.level != last_level)
-			{
-				Game::state.reset();
-				Game::state.local_multiplayer = true;
-			}
-
-			if (!camera)
-			{
-				camera = Camera::add();
-				camera->viewport =
-				{
-					Vec2((r32)u.input->width, (r32)u.input->height),
-					Vec2((r32)u.input->width, (r32)u.input->height),
-				};
-				r32 aspect = camera->viewport.size.y == 0 ? 1 : (r32)camera->viewport.size.x / (r32)camera->viewport.size.y;
-				camera->perspective(fov_initial, aspect, 0.01f, Game::level.skybox.far_plane);
-			}
-
-			for (s32 i = 0; i < MAX_GAMEPADS; i++)
-			{
-				b8 player_active = u.input->gamepads[i].active || i == 0;
-
-				AI::Team* team = &Game::state.local_player_config[i];
-				if (player_active)
-				{
-					if (i > 0 || main_menu_state == State::Hidden) // ignore player 0 input if the main menu is open
-					{
-						// handle D-pad
-						b8 left = u.input->get(Controls::Left, i) && !u.last_input->get(Controls::Left, i);
-						b8 right = u.input->get(Controls::Right, i) && !u.last_input->get(Controls::Right, i);
-
-						// handle joysticks
-						{
-							r32 last_x = Input::dead_zone(u.last_input->gamepads[i].left_x, UI_JOYSTICK_DEAD_ZONE);
-							if (last_x == 0.0f)
-							{
-								r32 x = Input::dead_zone(u.input->gamepads[i].left_x, UI_JOYSTICK_DEAD_ZONE);
-								if (x < 0.0f)
-									left = true;
-								else if (x > 0.0f)
-									right = true;
-							}
-						}
-
-						if (u.input->get(Controls::Cancel, i) && !u.last_input->get(Controls::Cancel, i))
-						{
-							if (i > 0) // player 0 must stay in
-							{
-								*team = AI::Team::None;
-								Audio::post_global_event(AK::EVENTS::PLAY_BEEP_GOOD);
-							}
-						}
-						else if (left)
-						{
-							if (*team == AI::Team::B)
-							{
-								if (i == 0) // player 0 must stay in
-									*team = AI::Team::A;
-								else
-									*team = AI::Team::None;
-								Audio::post_global_event(AK::EVENTS::PLAY_BEEP_GOOD);
-							}
-							else if (*team == AI::Team::None)
-							{
-								*team = AI::Team::A;
-								Audio::post_global_event(AK::EVENTS::PLAY_BEEP_GOOD);
-							}
-						}
-						else if (right)
-						{
-							if (*team == AI::Team::A)
-							{
-								if (i == 0) // player 0 must stay in
-									*team = AI::Team::B;
-								else
-									*team = AI::Team::None;
-								Audio::post_global_event(AK::EVENTS::PLAY_BEEP_GOOD);
-							}
-							else if (*team == AI::Team::None)
-							{
-								*team = AI::Team::B;
-								Audio::post_global_event(AK::EVENTS::PLAY_BEEP_GOOD);
-							}
-						}
-					}
-				}
-				else // controller is gone
-					*team = AI::Team::None;
-			}
-
-			if (u.input->get(Controls::Interact, 0) && !u.last_input->get(Controls::Interact, 0)
-				&& splitscreen_teams_are_valid())
-			{
-				Game::save = Game::Save();
-				Game::save.level_index = Game::tutorial_levels; // start at first non-tutorial level
-				transition(Game::levels[Game::save.level_index], Game::Mode::Pvp);
-			}
-			break;
-		}
-		case Asset::Level::title:
-		{
-			if (Game::state.level != last_level)
-			{
-				Game::state.reset();
-				main_menu_state = State::Visible;
-				main_menu.animate();
-			}
-			break;
-		}
-		case Asset::Level::connect:
-		{
-			if (Game::state.level != last_level)
-			{
-				if (next_mode == Game::Mode::Pvp && !Game::state.local_multiplayer)
-					connect_timer = CONNECT_DELAY_MIN + mersenne::randf_co() * CONNECT_DELAY_RANGE;
-				else
-					connect_timer = CONNECT_OFFLINE_DELAY;
-			}
-
-			if (Game::state.local_multiplayer && !splitscreen_level_selected)
-			{
-				if (!u.last_input->get(Controls::Interact, 0) && u.input->get(Controls::Interact, 0))
-					splitscreen_level_selected = true;
-			}
-			else
-			{
-				connect_timer -= Game::real_time.delta;
-				if (connect_timer < 0.0f)
-				{
-					clear();
-					// clear any flag indicating that the enemy forfeit the game or was disconnected
-					Game::state.forfeit = Game::Forfeit::None;
-					Game::schedule_load_level(next_level, next_mode);
-				}
-			}
-			break;
-		}
-		case AssetNull:
-			break;
-		default: // just playing normally
-			break;
-	}
-
 	if (Game::state.level == Asset::Level::title)
 		title_menu(u, 0, &main_menu, &main_menu_state);
 	else if (Game::state.mode == Game::Mode::Special)
 	{
 		// toggle the pause menu
 		b8 pause_hit = u.input->get(Controls::Pause, 0) && !u.last_input->get(Controls::Pause, 0);
-		if (Game::state.level == Asset::Level::splitscreen
-			|| Game::state.level == Asset::Level::connect
-			|| main_menu_state != State::Hidden)
+		if (Game::state.level == Asset::Level::terminal || main_menu_state != State::Hidden)
 		{
 			pause_hit |= u.input->get(Controls::Cancel, 0) && !u.last_input->get(Controls::Cancel, 0);
 		}
@@ -409,34 +235,14 @@ void update(const Update& u)
 		const Rect2& viewport = camera ? camera->viewport : Rect2(Vec2(0, 0), Vec2(u.input->width, u.input->height));
 		pause_menu(u, viewport, 0, &main_menu, &main_menu_state);
 	}
-
-	last_level = Game::state.level;
-}
-
-void transition(AssetID level, Game::Mode mode)
-{
-	clear();
-	if (mode == Game::Mode::Special)
-		Game::schedule_load_level(level, mode);
-	else
-	{
-		transition_previous_level = Game::state.level;
-		next_level = level;
-		next_mode = mode;
-		splitscreen_level_selected = false;
-		Game::schedule_load_level(Asset::Level::connect, Game::Mode::Special);
-	}
-}
-
-void splitscreen()
-{
-	clear();
-	Game::schedule_load_level(Asset::Level::splitscreen, Game::Mode::Special);
 }
 
 void title()
 {
 	clear();
+	Game::state.reset();
+	main_menu_state = State::Visible;
+	main_menu.animate();
 	Game::schedule_load_level(Asset::Level::title, Game::Mode::Special);
 }
 
@@ -446,90 +252,17 @@ void draw(const RenderParams& params)
 		return;
 
 	const Rect2& viewport = params.camera->viewport;
-	switch (Game::state.level)
+	if (Game::state.level == Asset::Level::title)
 	{
-		case Asset::Level::splitscreen:
-		{
-			const Vec2 box_size(512 * UI::scale, (512 - 64) * UI::scale);
-			UI::box(params, { viewport.size * 0.5f - box_size * 0.5f, box_size }, UI::background_color);
-
-			UIText text;
-			text.anchor_x = UIText::Anchor::Center;
-			text.anchor_y = UIText::Anchor::Max;
-			text.color = UI::accent_color;
-			text.wrap_width = box_size.x - 48.0f * UI::scale;
-			text.text(_(splitscreen_teams_are_valid() ? strings::splitscreen_prompt_ready : strings::splitscreen_prompt));
-			Vec2 pos(viewport.size.x * 0.5f, viewport.size.y * 0.5f + box_size.y * 0.5f - (16.0f * UI::scale));
-			text.draw(params, pos);
-			pos.y -= 64.0f * UI::scale;
-
-			// draw team labels
-			const r32 team_offset = 128.0f * UI::scale;
-			text.wrap_width = 0;
-			text.text(_(strings::team_a));
-			text.draw(params, pos + Vec2(-team_offset, 0));
-			text.text(_(strings::team_b));
-			text.draw(params, pos + Vec2(team_offset, 0));
-
-			// set up text for gamepad number labels
-			text.color = UI::background_color;
-			text.wrap_width = 0;
-			text.anchor_x = UIText::Anchor::Center;
-			text.anchor_y = UIText::Anchor::Center;
-
-			for (s32 i = 0; i < MAX_GAMEPADS; i++)
-			{
-				pos.y -= 64.0f * UI::scale;
-
-				AI::Team team = Game::state.local_player_config[i];
-
-				const Vec4* color;
-				r32 x_offset;
-				if (!gamepad_active[i])
-				{
-					color = &UI::disabled_color;
-					x_offset = 0.0f;
-				}
-				else if (team == AI::Team::None)
-				{
-					color = &UI::default_color;
-					x_offset = 0.0f;
-				}
-				else if (team == AI::Team::A)
-				{
-					color = &UI::accent_color;
-					x_offset = -team_offset;
-				}
-				else if (team == AI::Team::B)
-				{
-					color = &UI::accent_color;
-					x_offset = team_offset;
-				}
-				else
-					vi_assert(false);
-
-				Vec2 icon_pos = pos + Vec2(x_offset, 0);
-				UI::mesh(params, Asset::Mesh::icon_gamepad, icon_pos, Vec2(48.0f * UI::scale), *color);
-				text.text("%d", i + 1);
-				text.draw(params, icon_pos);
-			}
-			break;
-		}
-		case Asset::Level::title:
-		{
-			Vec2 logo_pos(logo_padding + logo_size * 0.5f, viewport.size.y * 0.5f);
-			UI::box(params, { Vec2(0, logo_pos.y - logo_size * 0.5f - logo_padding), Vec2(logo_size + logo_padding * 2.0f + MENU_ITEM_WIDTH, logo_size + logo_padding * 2.0f) }, UI::background_color);
-			const Mesh* m0 = Loader::mesh(Asset::Mesh::logo_mesh);
-			UI::mesh(params, Asset::Mesh::logo_mesh, logo_pos, Vec2(logo_size), UI::accent_color);
-			const Mesh* m1 = Loader::mesh(Asset::Mesh::logo_mesh_1);
-			UI::mesh(params, Asset::Mesh::logo_mesh_1, logo_pos, Vec2(logo_size), UI::default_color);
-			break;
-		}
-		default:
-			break;
+		Vec2 logo_pos(logo_padding + logo_size * 0.5f, viewport.size.y * 0.5f);
+		UI::box(params, { Vec2(0, logo_pos.y - logo_size * 0.5f - logo_padding), Vec2(logo_size + logo_padding * 2.0f + MENU_ITEM_WIDTH, logo_size + logo_padding * 2.0f) }, UI::background_color);
+		const Mesh* m0 = Loader::mesh(Asset::Mesh::logo_mesh);
+		UI::mesh(params, Asset::Mesh::logo_mesh, logo_pos, Vec2(logo_size), UI::accent_color);
+		const Mesh* m1 = Loader::mesh(Asset::Mesh::logo_mesh_1);
+		UI::mesh(params, Asset::Mesh::logo_mesh_1, logo_pos, Vec2(logo_size), UI::default_color);
 	}
 
-	if (Game::state.mode == Game::Mode::Special)
+	if (main_menu_state != State::Hidden)
 		main_menu.draw_alpha(params);
 }
 

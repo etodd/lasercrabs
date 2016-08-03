@@ -313,12 +313,12 @@ add_executable(yearning
 	src/game/entities.cpp
 	src/game/minion.h
 	src/game/minion.cpp
-	src/game/parkour.h
-	src/game/parkour.cpp
 	src/game/player.h
 	src/game/player.cpp
 	src/game/team.h
 	src/game/team.cpp
+	src/game/terminal.h
+	src/game/terminal.cpp
 	src/game/ai_player.h
 	src/game/ai_player.cpp
 	src/game/awk.h

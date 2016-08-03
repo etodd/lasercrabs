@@ -167,29 +167,19 @@ namespace VI
 	void Team::level_retry()
 	{
 		if (Game::state.local_multiplayer)
-			Menu::transition(Game::state.level, Game::Mode::Pvp);
+			Terminal::show();
 		else
 		{
-			if (Game::save.level_index < 2) // tutorial levels; just retry
-				Menu::transition(Game::levels[Game::save.level_index], Game::Mode::Pvp);
-			else
-			{
-				Game::save.last_round_loss = true;
-				Menu::transition(Game::levels[Game::save.level_index], Game::Mode::Parkour);
-			}
+			Game::save.last_round_loss = true;
+			Terminal::show();
 		}
 	}
 
 	void Team::level_next()
 	{
-		Game::Mode next_mode;
-		AssetID next_level;
-
 		if (Game::state.local_multiplayer)
 		{
 			// we're in local multiplayer mode
-			next_mode = Game::Mode::Pvp;
-			next_level = Game::state.level;
 			Game::save.round++;
 		}
 		else
@@ -198,33 +188,22 @@ namespace VI
 			Game::save.last_round_loss = false;
 			Penelope::variable(strings::intro, AssetNull);
 			Penelope::variable(strings::tried, AssetNull);
-			next_mode = Game::Mode::Parkour;
 			if (Game::level.lock_teams
 				|| Game::save.level_index < Game::tutorial_levels + 2 // advance past tutorials and first two levels after only one round
 				|| Game::save.round == (s32)AI::Team::count - 1)
 			{
-				if (Game::save.level_index == 1 && Penelope::variable(strings::skip_tutorial) != strings::yes) // tutorial
-					next_level = Game::levels[Game::save.level_index]; // reload map in parkour mode
-				else
-				{
-					// advance to next level
-					Game::save.level_index++;
-					Game::save.round = 0;
-					next_level = Game::levels[Game::save.level_index];
-				}
+				// advance to next level
+				Game::save.level_index++;
+				Game::save.round = 0;
 			}
 			else
 			{
 				// play another round before advancing
 				Game::save.round = (Game::save.round + 1) % (s32)AI::Team::count;
-				next_level = Game::levels[Game::save.level_index];
 			}
 		}
 
-		if (next_level == AssetNull) // done; go to main menu
-			Menu::transition(Asset::Level::title, Game::Mode::Special);
-		else
-			Menu::transition(next_level, next_mode);
+		Terminal::show();
 	}
 
 	s32 Team::containment_field_mask(AI::Team t)
@@ -738,7 +717,7 @@ namespace VI
 	PinArray<PlayerManager, MAX_PLAYERS> PlayerManager::list;
 
 	PlayerManager::PlayerManager(Team* team, u16 hp_start)
-		: spawn_timer(Game::state.mode == Game::Mode::Pvp ? PLAYER_SPAWN_DELAY_PVP : PLAYER_SPAWN_DELAY_PARKOUR),
+		: spawn_timer(PLAYER_SPAWN_DELAY),
 		score_accepted(),
 		team(team),
 		hp_start(hp_start),
@@ -867,19 +846,14 @@ namespace VI
 			if (spawn_timer <= 0.0f)
 			{
 				spawn.fire();
-				if (Game::state.mode == Game::Mode::Parkour)
-					spawn_timer = PLAYER_SPAWN_DELAY_PARKOUR; // reset timer so we can respawn next time
-				else if (Game::state.mode == Game::Mode::Pvp)
+				// make sure the player has enough health
+				if (hp_start > 1 && PlayerManager::list.count() <= 2)
 				{
-					// make sure the player has enough health
-					if (hp_start > 1 && PlayerManager::list.count() <= 2)
-					{
-						Array<Ref<HealthPickup>> closest_free_health_pickups;
-						HealthPickup::sort_all(team.ref()->player_spawn.ref()->get<Transform>()->absolute_pos(), &closest_free_health_pickups, true, nullptr);
-						vi_assert(hp_start - 1 <= closest_free_health_pickups.length);
-						for (s32 i = 0; i < hp_start - 1; i++)
-							closest_free_health_pickups[i].ref()->set_owner(entity.ref()->get<Health>());
-					}
+					Array<Ref<HealthPickup>> closest_free_health_pickups;
+					HealthPickup::sort_all(team.ref()->player_spawn.ref()->get<Transform>()->absolute_pos(), &closest_free_health_pickups, true, nullptr);
+					vi_assert(hp_start - 1 <= closest_free_health_pickups.length);
+					for (s32 i = 0; i < hp_start - 1; i++)
+						closest_free_health_pickups[i].ref()->set_owner(entity.ref()->get<Health>());
 				}
 			}
 		}

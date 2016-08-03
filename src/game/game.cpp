@@ -36,7 +36,6 @@
 #include "console.h"
 #include "ease.h"
 #include "minion.h"
-#include "parkour.h"
 #include "data/behavior.h"
 #include "render/particles.h"
 #include "ai_player.h"
@@ -127,6 +126,7 @@ const s32 Game::levels[] =
 void Game::Save::reset(AssetID level)
 {
 	*this = Save();
+	username = "etodd";
 	s32 i = 0;
 	while (Game::levels[i] != AssetNull)
 	{
@@ -323,6 +323,7 @@ void Game::update(const Update& update_in)
 	}
 
 	Menu::update(u);
+	Terminal::update(u);
 
 	if (scheduled_load_level != AssetNull)
 		load_level(u, scheduled_load_level, scheduled_mode);
@@ -364,8 +365,6 @@ void Game::update(const Update& update_in)
 	for (auto i = AIPlayerControl::list.iterator(); !i.is_last(); i.next())
 		i.item()->update(u);
 	for (auto i = MinionCommon::list.iterator(); !i.is_last(); i.next())
-		i.item()->update(u);
-	for (auto i = Parkour::list.iterator(); !i.is_last(); i.next())
 		i.item()->update(u);
 	HealthPickup::update_all(u);
 	Sensor::update_all(u);
@@ -610,6 +609,7 @@ void Game::draw_alpha(const RenderParams& render_params)
 		(*draws[i])(render_params);
 
 	Menu::draw(render_params);
+	Terminal::draw(render_params);
 
 	Console::draw(render_params);
 }
@@ -753,9 +753,9 @@ void Game::execute(const Update& u, const char* cmd)
 			}
 		}
 	}
-	else if (strstr(cmd, "loadp ") == cmd)
+	else if (strstr(cmd, "loadt ") == cmd)
 	{
-		// parkour mode
+		// show terminal
 		const char* delimiter = strchr(cmd, ' ');
 		if (delimiter)
 		{
@@ -764,7 +764,7 @@ void Game::execute(const Update& u, const char* cmd)
 			if (level != AssetNull)
 			{
 				Game::save.reset(level);
-				Menu::transition(level, Game::Mode::Parkour);
+				Terminal::show();
 			}
 		}
 	}
@@ -794,7 +794,7 @@ void Game::execute(const Update& u, const char* cmd)
 			if (level != AssetNull)
 			{
 				Game::save.reset(level);
-				Menu::transition(level, Game::Mode::Pvp);
+				Game::schedule_load_level(level, Game::Mode::Pvp);
 			}
 		}
 	}
@@ -809,7 +809,7 @@ void Game::execute(const Update& u, const char* cmd)
 			if (level != AssetNull)
 			{
 				Game::save.reset(level);
-				Menu::transition(level, Game::Mode::Special);
+				Game::schedule_load_level(level, Game::Mode::Special);
 			}
 		}
 	}
@@ -914,6 +914,8 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 {
 	time.total = 0.0f;
 
+	Menu::clear();
+
 	state.mode = m;
 
 	state.network_state = NetworkState::Normal;
@@ -955,7 +957,7 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 
 	EntityFinder finder;
 	
-	cJSON* json = Loader::level(state.level, m != Mode::Parkour);
+	cJSON* json = Loader::level(state.level);
 
 	const Vec3 pvp_accessible(0.7f);
 	const Vec3 pvp_inaccessible(0.0f);
@@ -1059,14 +1061,11 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 		}
 		else if (cJSON_GetObjectItem(element, "Minion"))
 		{
-			if (state.mode != Game::Mode::Parkour)
-			{
-				AI::Team team = (AI::Team)Json::get_s32(element, "team");
-				entity = World::alloc<Minion>(absolute_pos, absolute_rot, team);
-				s32 health = Json::get_s32(element, "health");
-				if (health)
-					entity->get<Health>()->hp = health;
-			}
+			AI::Team team = (AI::Team)Json::get_s32(element, "team");
+			entity = World::alloc<Minion>(absolute_pos, absolute_rot, team);
+			s32 health = Json::get_s32(element, "health");
+			if (health)
+				entity->get<Health>()->hp = health;
 		}
 		else if (cJSON_GetObjectItem(element, "PlayerSpawn"))
 		{
@@ -1176,12 +1175,6 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 				if (state.mode == Mode::Pvp)
 					Audio::post_global_event(AK::EVENTS::PLAY_MUSIC_01);
 			}
-
-			if (state.mode == Mode::Parkour)
-			{
-				const char* entry_point_str = Loader::level_name(state.level);
-				Penelope::init(strings_get(entry_point_str));
-			}
 		}
 		else if (cJSON_GetObjectItem(element, "PointLight"))
 		{
@@ -1236,15 +1229,6 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 				rope->max_distance = 100.0f;
 			}
 		}
-		else if (cJSON_GetObjectItem(element, "Terminal"))
-		{
-			if (state.mode == Mode::Parkour)
-			{
-				entity = World::alloc<Terminal>();
-				absolute_pos.y += TERMINAL_HEIGHT * 0.5f;
-				Penelope::add_terminal(entity);
-			}
-		}
 		else if (cJSON_GetObjectItem(element, "SensorInterestPoint"))
 		{
 			if (state.mode == Mode::Pvp)
@@ -1274,8 +1258,7 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 		}
 		else if (cJSON_GetObjectItem(element, "DataFragment"))
 		{
-			if (state.mode == Mode::Parkour)
-				entity = World::alloc<DataFragmentEntity>(absolute_pos, absolute_rot);
+			entity = World::alloc<DataFragmentEntity>(absolute_pos, absolute_rot);
 		}
 		else if (cJSON_GetObjectItem(element, "Water"))
 		{
@@ -1467,6 +1450,9 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 
 	for (s32 i = 0; i < scripts.length; i++)
 		scripts[i]->function(u, finder);
+
+	if (state.level == Asset::Level::terminal)
+		Terminal::init(u, finder);
 
 	Loader::level_free(json);
 

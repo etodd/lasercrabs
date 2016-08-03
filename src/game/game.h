@@ -38,7 +38,6 @@ struct Game
 	{
 		Special,
 		Pvp,
-		Parkour,
 	};
 
 	enum class FeatureLevel
@@ -97,6 +96,7 @@ struct Game
 		s32 round;
 		s32 rating;
 		b8 last_round_loss;
+		const char* username;
 		std::unordered_map<AssetID, AssetID> variables; // todo: kill STL
 		std::unordered_map<s32, AssetID> data_fragments;
 		AssetID data_fragment(s32) const;

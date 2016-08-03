@@ -17,24 +17,4 @@ struct Script
 	ScriptFunction function;
 };
 
-namespace Penelope
-{
-	enum class Mode
-	{
-		Hidden,
-		Center,
-		Left,
-	};
-
-	void global_init();
-	void init(AssetID = AssetNull, Mode = Mode::Left);
-	void add_terminal(Entity*);
-	void variable(AssetID, AssetID);
-	AssetID variable(AssetID);
-	Link& terminal_activated();
-	void clear();
-	void go(AssetID);
-	b8 has_focus();
-};
-
 }

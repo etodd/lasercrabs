@@ -80,7 +80,7 @@ struct SensorEntity : public Entity
 	SensorEntity(PlayerManager*, const Vec3&, const Quat&);
 };
 
-#define SENSOR_TIME 1.5f
+#define SENSOR_TIME 1.0f
 #define SENSOR_TIMEOUT 5.0f
 #define SENSOR_RADIUS 0.15f
 #define SENSOR_HEALTH 3

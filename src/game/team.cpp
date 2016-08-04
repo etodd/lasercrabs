@@ -250,7 +250,7 @@ namespace VI
 
 			track->tracking = true; // got em
 			track->entity = player->entity;
-			track->timer = SENSOR_TIME;
+			track->timer = SENSOR_TIMEOUT;
 		}
 	}
 

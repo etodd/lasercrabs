@@ -40,7 +40,7 @@ namespace VI
 #define zoom_ratio 0.5f
 #define fov_pvp_zoom (fov_pvp * zoom_ratio)
 #define zoom_speed (1.0f / 0.1f)
-#define speed_mouse 0.001f
+#define speed_mouse 0.1f
 #define speed_mouse_zoom (speed_mouse * zoom_ratio * 0.5f)
 #define speed_joystick 5.0f
 #define speed_joystick_zoom (speed_joystick * zoom_ratio * 0.5f)
@@ -1026,8 +1026,11 @@ void LocalPlayerControl::awake()
 void LocalPlayerControl::hit_target(Entity* target)
 {
 	rumble = vi_max(rumble, 0.5f);
-	if (target->has<MinionAI>())
-		player.ref()->msg(_(strings::minion_killed), true);
+	if (target->has<MinionCommon>())
+	{
+		b8 is_enemy = target->get<AIAgent>()->team != get<AIAgent>()->team;
+		player.ref()->msg(_(strings::minion_killed), is_enemy);
+	}
 	else if (target->has<Sensor>())
 	{
 		b8 is_enemy = target->get<Sensor>()->team != get<AIAgent>()->team;

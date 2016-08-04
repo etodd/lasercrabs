@@ -245,9 +245,12 @@ void Awk::hit_by(const TargetEvent& e)
 		if (invincible_timer == 0.0f)
 		{
 			// we can take damage
-			get<Health>()->damage(e.hit_by, 1);
-			damaged = true;
-			invincible_timer = AWK_INVINCIBLE_TIME;
+			if (!e.hit_by->has<Awk>() || e.hit_by->get<AIAgent>()->team != get<AIAgent>()->team)
+			{
+				get<Health>()->damage(e.hit_by, 1);
+				damaged = true;
+				invincible_timer = AWK_INVINCIBLE_TIME;
+			}
 		}
 		else
 		{
@@ -322,6 +325,7 @@ void Awk::hit_target(Entity* target)
 			PlayerManager* owner = target->get<MinionCommon>()->owner.ref();
 			if (owner)
 			{
+				owner->team.ref()->track(get<PlayerCommon>()->manager.ref(), owner);
 				s32 diff = owner->add_credits(-CREDITS_MINION);
 				get<PlayerCommon>()->manager.ref()->add_credits(-diff);
 			}

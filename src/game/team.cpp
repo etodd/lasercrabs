@@ -370,7 +370,7 @@ namespace VI
 		{
 			Entity* player_entity = player.item()->entity.ref();
 
-			if (player_entity && player_entity->has<Awk>() && player_entity->get<Awk>()->state() == Awk::State::Crawl)
+			if (player_entity && player_entity->get<Awk>()->state() == Awk::State::Crawl)
 			{
 				// we're on a wall and can thus be detected
 				AI::Team player_team = player.item()->team.ref()->team();

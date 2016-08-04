@@ -178,11 +178,8 @@ void Loader::settings_load(s32 default_width, s32 default_height)
 		bindings->bindings[(s32)Controls::Right] = input_binding(gamepad, "right", { KeyCode::D, KeyCode::Right, Gamepad::Btn::DRight });
 		bindings->bindings[(s32)Controls::Up] = input_binding(gamepad, "up", { KeyCode::Space, KeyCode::None, Gamepad::Btn::RightShoulder });
 		bindings->bindings[(s32)Controls::Down] = input_binding(gamepad, "down", { KeyCode::LCtrl, KeyCode::None, Gamepad::Btn::LeftShoulder });
-		bindings->bindings[(s32)Controls::Jump] = input_binding(gamepad, "jump", { KeyCode::Space, KeyCode::None, Gamepad::Btn::RightTrigger });
 		bindings->bindings[(s32)Controls::Primary] = input_binding(gamepad, "primary", { KeyCode::MouseLeft, KeyCode::E, Gamepad::Btn::RightTrigger });
 		bindings->bindings[(s32)Controls::Secondary] = input_binding(gamepad, "secondary", { KeyCode::MouseRight, KeyCode::Q, Gamepad::Btn::LeftTrigger });
-		bindings->bindings[(s32)Controls::Parkour] = input_binding(gamepad, "parkour", { KeyCode::LShift, KeyCode::None, Gamepad::Btn::LeftTrigger });
-		bindings->bindings[(s32)Controls::Slide] = input_binding(gamepad, "slide", { KeyCode::MouseLeft, KeyCode::Q, Gamepad::Btn::LeftShoulder });
 		bindings->bindings[(s32)Controls::Ability1] = input_binding(gamepad, "ability1", { KeyCode::D1, KeyCode::None, Gamepad::Btn::X });
 		bindings->bindings[(s32)Controls::Ability2] = input_binding(gamepad, "ability2", { KeyCode::D2, KeyCode::None, Gamepad::Btn::Y });
 		bindings->bindings[(s32)Controls::Ability3] = input_binding(gamepad, "ability3", { KeyCode::D3, KeyCode::None, Gamepad::Btn::B });
@@ -194,8 +191,8 @@ void Loader::settings_load(s32 default_width, s32 default_height)
 		bindings->bindings[(s32)Controls::Cancel] = { KeyCode::Escape, KeyCode::None, Gamepad::Btn::B };
 		bindings->bindings[(s32)Controls::Pause] = { KeyCode::Escape, KeyCode::None, Gamepad::Btn::Start };
 
-		bindings->invert = Json::get_s32(gamepad, "invert", 0);
-		bindings->sensitivity = Json::get_r32(gamepad, "sensitivity", 1.0f);
+		bindings->invert_y = Json::get_s32(gamepad, "invert_y", 0);
+		bindings->sensitivity = (u8)Json::get_s32(gamepad, "sensitivity", 100);
 		gamepad = gamepad ? gamepad->next : nullptr;
 	}
 
@@ -229,16 +226,13 @@ void Loader::settings_save()
 		cJSON_AddItemToObject(gamepad, "right", input_binding_json(bindings->bindings[(s32)Controls::Right]));
 		cJSON_AddItemToObject(gamepad, "up", input_binding_json(bindings->bindings[(s32)Controls::Up]));
 		cJSON_AddItemToObject(gamepad, "down", input_binding_json(bindings->bindings[(s32)Controls::Down]));
-		cJSON_AddItemToObject(gamepad, "jump", input_binding_json(bindings->bindings[(s32)Controls::Jump]));
 		cJSON_AddItemToObject(gamepad, "primary", input_binding_json(bindings->bindings[(s32)Controls::Primary]));
 		cJSON_AddItemToObject(gamepad, "secondary", input_binding_json(bindings->bindings[(s32)Controls::Secondary]));
-		cJSON_AddItemToObject(gamepad, "parkour", input_binding_json(bindings->bindings[(s32)Controls::Parkour]));
-		cJSON_AddItemToObject(gamepad, "slide", input_binding_json(bindings->bindings[(s32)Controls::Slide]));
 		cJSON_AddItemToObject(gamepad, "ability1", input_binding_json(bindings->bindings[(s32)Controls::Ability1]));
 		cJSON_AddItemToObject(gamepad, "ability2", input_binding_json(bindings->bindings[(s32)Controls::Ability2]));
 		cJSON_AddItemToObject(gamepad, "ability3", input_binding_json(bindings->bindings[(s32)Controls::Ability3]));
 		cJSON_AddItemToObject(gamepad, "interact", input_binding_json(bindings->bindings[(s32)Controls::Interact]));
-		cJSON_AddItemToObject(gamepad, "invert", cJSON_CreateNumber(bindings->invert));
+		cJSON_AddItemToObject(gamepad, "invert_y", cJSON_CreateNumber(bindings->invert_y));
 		cJSON_AddItemToObject(gamepad, "sensitivity", cJSON_CreateNumber(bindings->sensitivity));
 		cJSON_AddItemToArray(gamepads, gamepad);
 	}

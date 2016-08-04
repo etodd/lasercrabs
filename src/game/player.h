@@ -20,7 +20,7 @@ struct DamageEvent;
 
 struct LocalPlayer
 {
-	enum class UIMode { Default, Pause, Spawning, Upgrading, GameOver };
+	enum class UIMode { Default, Pause, Dead, Upgrading, GameOver };
 
 	static PinArray<LocalPlayer, MAX_PLAYERS> list;
 

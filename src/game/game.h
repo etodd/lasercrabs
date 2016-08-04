@@ -92,7 +92,6 @@ struct Game
 	struct Save
 	{
 		s32 level_index;
-		s32 data_fragment_index;
 		s32 round;
 		s32 rating;
 		b8 last_round_loss;
@@ -116,7 +115,7 @@ struct Game
 	static Level level;
 
 	static const s32 levels[];
-	static const s32 tutorial_levels = 2;
+	static const s32 tutorial_levels = 1;
 
 	static b8 quit;
 	static GameTime time;

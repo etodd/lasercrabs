@@ -9,8 +9,12 @@ namespace Settings
 	struct Gamepad
 	{
 		InputBinding bindings[(s32)Controls::count];
-		r32 sensitivity;
-		b8 invert;
+		u8 sensitivity;
+		b8 invert_y;
+		r32 effective_sensitivity() const
+		{
+			return (r32)sensitivity * 0.01f;
+		}
 	};
 
 	enum ShadowQuality { Off, Medium, High, count };

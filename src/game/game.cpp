@@ -114,7 +114,6 @@ void Game::State::reset()
 
 const s32 Game::levels[] =
 {
-	Asset::Level::intro,
 	Asset::Level::Soteria,
 	Asset::Level::Medias_Res,
 	Asset::Level::Ioke,
@@ -173,9 +172,6 @@ b8 Game::init(LoopSync* sync)
 		sprintf(dialogue_string_file, "assets/str/dialogue_%s.json", language);
 		char misc_file[255];
 		sprintf(misc_file, "assets/str/misc_%s.json", language);
-		char data_fragments_file[255];
-		sprintf(data_fragments_file, "assets/str/data_fragments_%s.json", language);
-		Json::json_free(json_language);
 
 		// UI
 		{
@@ -202,17 +198,6 @@ b8 Game::init(LoopSync* sync)
 		// misc strings
 		{
 			cJSON* json = Json::load(misc_file);
-			cJSON* element = json->child;
-			while (element)
-			{
-				strings_add_dynamic(element->string, element->valuestring);
-				element = element->next;
-			}
-		}
-
-		// data fragments
-		{
-			cJSON* json = Json::load(data_fragments_file);
 			cJSON* element = json->child;
 			while (element)
 			{
@@ -977,7 +962,6 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 		{
 			b8 alpha = (b8)Json::get_s32(element, "alpha");
 			b8 additive = (b8)Json::get_s32(element, "additive");
-			b8 no_parkour = cJSON_HasObjectItem(element, "no_parkour");
 			AssetID texture = (AssetID)Loader::find(Json::get_string(element, "texture"), AssetLookup::Texture::names);
 
 			cJSON* meshes = cJSON_GetObjectItem(element, "meshes");
@@ -996,7 +980,7 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 					if (mesh->color.w < 0.5f && !(alpha || additive))
 					{
 						// inaccessible
-						m = World::alloc<StaticGeom>(mesh_id, absolute_pos, absolute_rot, CollisionParkour | CollisionInaccessible, ~CollisionParkour & CollisionInaccessibleMask);
+						m = World::alloc<StaticGeom>(mesh_id, absolute_pos, absolute_rot, CollisionInaccessible, CollisionInaccessibleMask);
 						Vec4 color = Loader::mesh(mesh_id)->color;
 						if (state.mode == Mode::Pvp) // override colors
 							color.xyz(pvp_inaccessible);
@@ -1006,10 +990,7 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 					else
 					{
 						// accessible
-						if (no_parkour) // no parkour material
-							m = World::alloc<StaticGeom>(mesh_id, absolute_pos, absolute_rot, 0, ~CollisionParkour & ~CollisionInaccessible);
-						else
-							m = World::alloc<StaticGeom>(mesh_id, absolute_pos, absolute_rot, CollisionParkour, ~CollisionParkour);
+						m = World::alloc<StaticGeom>(mesh_id, absolute_pos, absolute_rot);
 
 						Vec4 color = Loader::mesh(mesh_id)->color;
 						if (state.mode == Mode::Pvp) // override colors

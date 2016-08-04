@@ -23,7 +23,6 @@ enum CollisionGroup
 	CollisionTeamAContainmentField = 1 << 13,
 	CollisionTeamBContainmentField = 1 << 14,
 	CollisionInaccessibleMask = ~CollisionInaccessible,
-	CollisionParkour = 1 << 15,
 };
 
 #define AWK_PERMEABLE_MASK (CollisionTarget | CollisionShield | CollisionAwkIgnore)

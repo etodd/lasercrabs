@@ -75,9 +75,6 @@ void refresh_variables()
 		);
 		UIText::set_variable("Movement", buffer);
 	}
-	UIText::set_variable("Parkour", gamepad.bindings[(s32)Controls::Parkour].string(is_gamepad));
-	UIText::set_variable("Jump", gamepad.bindings[(s32)Controls::Jump].string(is_gamepad));
-	UIText::set_variable("Slide", gamepad.bindings[(s32)Controls::Slide].string(is_gamepad));
 	UIText::set_variable("Ability1", gamepad.bindings[(s32)Controls::Ability1].string(is_gamepad));
 	UIText::set_variable("Ability2", gamepad.bindings[(s32)Controls::Ability2].string(is_gamepad));
 	UIText::set_variable("Ability3", gamepad.bindings[(s32)Controls::Ability3].string(is_gamepad));
@@ -156,14 +153,14 @@ void pause_menu(const Update& u, const Rect2& viewport, u8 gamepad, UIMenu* menu
 		{
 			Vec2 pos(0, viewport.size.y * 0.5f + UIMenu::height(3) * 0.5f);
 			menu->start(u, gamepad, 3);
-			if (menu->item(u, &pos, _(strings::back)))
+			if (menu->item(u, &pos, _(strings::close)))
 				*state = State::Hidden;
 			if (menu->item(u, &pos, _(strings::options)))
 			{
 				*state = State::Options;
 				menu->animate();
 			}
-			if (menu->item(u, &pos, _(strings::main_menu)))
+			if (menu->item(u, &pos, _(Game::state.local_multiplayer ? strings::main_menu : strings::disconnect)))
 				Menu::title();
 			menu->end();
 			break;
@@ -257,45 +254,70 @@ void draw(const RenderParams& params)
 		main_menu.draw_alpha(params);
 }
 
+#define OPTIONS_COUNT 5
+
+// returns true if options menu is still open
 b8 options(const Update& u, u8 gamepad, UIMenu* menu, Vec2* pos)
 {
-	menu->start(u, gamepad, 3);
-	bool menu_open = true;
+	menu->start(u, gamepad, OPTIONS_COUNT);
 	if (menu->item(u, pos, _(strings::back)) || (!u.input->get(Controls::Cancel, gamepad) && u.last_input->get(Controls::Cancel, gamepad)))
-		menu_open = false;
+	{
+		menu->end();
+		Loader::settings_save();
+		return false;
+	}
 
 	char str[128];
 	UIMenu::Delta delta;
 
-	sprintf(str, "%d", Settings::sfx);
-	delta = menu->slider_item(u, pos, _(strings::sfx), str);
-	if (delta == UIMenu::Delta::Down)
-		Settings::sfx = vi_max(0, Settings::sfx - 10);
-	else if (delta == UIMenu::Delta::Up)
-		Settings::sfx = vi_min(100, Settings::sfx + 10);
-	if (delta != UIMenu::Delta::None)
-		Audio::global_param(AK::GAME_PARAMETERS::SFXVOL, (r32)Settings::sfx / 100.0f);
+	{
+		u8* sensitivity = &Settings::gamepads[gamepad].sensitivity;
+		sprintf(str, "%u", *sensitivity);
+		delta = menu->slider_item(u, pos, _(strings::sensitivity), str);
+		if (delta == UIMenu::Delta::Down)
+			*sensitivity = vi_max(10, (s32)(*sensitivity) - 10);
+		else if (delta == UIMenu::Delta::Up)
+			*sensitivity = vi_min(255, (s32)(*sensitivity) + 10);
+	}
 
-	sprintf(str, "%d", Settings::music);
-	delta = menu->slider_item(u, pos, _(strings::music), str);
-	if (delta == UIMenu::Delta::Down)
-		Settings::music = vi_max(0, Settings::music - 10);
-	else if (delta == UIMenu::Delta::Up)
-		Settings::music = vi_min(100, Settings::music + 10);
-	if (delta != UIMenu::Delta::None)
-		Audio::global_param(AK::GAME_PARAMETERS::MUSICVOL, (r32)Settings::music / 100.0f);
+	{
+		b8* invert_y = &Settings::gamepads[gamepad].invert_y;
+		sprintf(str, "%s", _(*invert_y ? strings::yes : strings::no));
+		delta = menu->slider_item(u, pos, _(strings::invert_y), str);
+		if (delta != UIMenu::Delta::None)
+			*invert_y = !(*invert_y);
+	}
 
-	if (!menu_open)
-		Loader::settings_save();
+	{
+		sprintf(str, "%d", Settings::sfx);
+		delta = menu->slider_item(u, pos, _(strings::sfx), str);
+		if (delta == UIMenu::Delta::Down)
+			Settings::sfx = vi_max(0, Settings::sfx - 10);
+		else if (delta == UIMenu::Delta::Up)
+			Settings::sfx = vi_min(100, Settings::sfx + 10);
+		if (delta != UIMenu::Delta::None)
+			Audio::global_param(AK::GAME_PARAMETERS::SFXVOL, (r32)Settings::sfx / 100.0f);
+	}
+
+	{
+		sprintf(str, "%d", Settings::music);
+		delta = menu->slider_item(u, pos, _(strings::music), str);
+		if (delta == UIMenu::Delta::Down)
+			Settings::music = vi_max(0, Settings::music - 10);
+		else if (delta == UIMenu::Delta::Up)
+			Settings::music = vi_min(100, Settings::music + 10);
+		if (delta != UIMenu::Delta::None)
+			Audio::global_param(AK::GAME_PARAMETERS::MUSICVOL, (r32)Settings::music / 100.0f);
+	}
 
 	menu->end();
 
-	return menu_open;
+	return true;
 }
 
 r32 options_height()
 {
-	return UIMenu::height(3);
+	return UIMenu::height(OPTIONS_COUNT);
 }
 
 }

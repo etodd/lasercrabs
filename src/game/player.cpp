@@ -31,6 +31,7 @@
 #include "ai_player.h"
 #endif
 #include "scripts.h"
+#include "penelope.h"
 
 namespace VI
 {

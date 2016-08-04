@@ -2,7 +2,7 @@
 	"data_fragment": "[%d/%d chat logs]\n\n%s",
 	"data_fragment_prompt": "[{{Interact}}] to read",
 	"connecting": "Connecting to Praetor...",
-	"loading_offline": "Loading simulation...",
+	"loading_offline": "Loading...",
 	"match_searching": "Searching...\n(%d players)",
 	"match_starting": "Connecting in %d...",
 	"play": "Begin",

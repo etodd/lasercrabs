@@ -8,6 +8,7 @@
 #include "console.h"
 #include <unordered_map>
 #include <string>
+#include "penelope.h"
 
 namespace VI
 {
@@ -121,7 +122,7 @@ namespace intro
 	void init(const Update& u, const EntityFinder& entities)
 	{
 		Penelope::init(AssetNull, Penelope::Mode::Center);
-		Penelope::link_node_executed(&node_executed);
+		Penelope::node_executed().link(&node_executed);
 		Penelope::go(strings::intro_start);
 	}
 }

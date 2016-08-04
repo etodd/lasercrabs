@@ -49,11 +49,10 @@ COMPONENT_TYPE(28, Sensor) \
 COMPONENT_TYPE(29, Rocket) \
 COMPONENT_TYPE(30, ContainmentField) \
 COMPONENT_TYPE(31, SensorInterestPoint) \
-COMPONENT_TYPE(32, DataFragment) \
-COMPONENT_TYPE(33, Water) \
-COMPONENT_TYPE(34, Audio) \
+COMPONENT_TYPE(32, Water) \
+COMPONENT_TYPE(33, Audio) \
 
-Family World::families = 35;
+Family World::families = 34;
 
 #define COMPONENT_TYPE(INDEX, TYPE) \
 template<> Family ComponentType<TYPE>::family = (INDEX); \

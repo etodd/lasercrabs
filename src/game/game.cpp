@@ -41,6 +41,7 @@
 #include "ai_player.h"
 #include "usernames.h"
 #include "utf8/utf8.h"
+#include "penelope.h"
 
 #if DEBUG
 	#define DEBUG_NAV_MESH 0
@@ -126,7 +127,6 @@ const s32 Game::levels[] =
 void Game::Save::reset(AssetID level)
 {
 	*this = Save();
-	username = "etodd";
 	s32 i = 0;
 	while (Game::levels[i] != AssetNull)
 	{
@@ -135,20 +135,6 @@ void Game::Save::reset(AssetID level)
 		i++;
 	}
 	level_index = i;
-}
-
-void Game::Save::data_fragment(s32 id, AssetID b)
-{
-	data_fragments[id] = b;
-}
-
-AssetID Game::Save::data_fragment(s32 id) const
-{
-	auto i = data_fragments.find(id);
-	if (i == data_fragments.end())
-		return AssetNull;
-	else
-		return i->second;
 }
 
 b8 Game::Level::has_feature(Game::FeatureLevel f) const
@@ -1256,10 +1242,6 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 			vi_assert(script);
 			scripts.add(script);
 		}
-		else if (cJSON_GetObjectItem(element, "DataFragment"))
-		{
-			entity = World::alloc<DataFragmentEntity>(absolute_pos, absolute_rot);
-		}
 		else if (cJSON_GetObjectItem(element, "Water"))
 		{
 			cJSON* meshes = cJSON_GetObjectItem(element, "meshes");
@@ -1451,8 +1433,7 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 	for (s32 i = 0; i < scripts.length; i++)
 		scripts[i]->function(u, finder);
 
-	if (state.level == Asset::Level::terminal)
-		Terminal::init(u, finder);
+	Terminal::init(u, finder);
 
 	Loader::level_free(json);
 

@@ -14,7 +14,7 @@
 #include "asset/level.h"
 #include "walker.h"
 #include "mersenne/mersenne-twister.h"
-#include "scripts.h"
+#include "penelope.h"
 
 #define CREDITS_FLASH_TIME 0.5f
 

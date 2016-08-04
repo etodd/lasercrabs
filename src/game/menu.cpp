@@ -23,7 +23,6 @@ namespace Menu
 
 #define fov_initial (80.0f * PI * 0.5f / 180.0f)
 
-Camera* camera = nullptr;
 Game::Mode next_mode;
 UIMenu main_menu;
 b8 gamepad_active[MAX_GAMEPADS] = {};
@@ -41,11 +40,6 @@ void init()
 
 void clear()
 {
-	if (camera)
-	{
-		camera->remove();
-		camera = nullptr;
-	}
 	main_menu_state = State::Hidden;
 }
 
@@ -219,11 +213,8 @@ void update(const Update& u)
 	else if (Game::state.mode == Game::Mode::Special)
 	{
 		// toggle the pause menu
-		b8 pause_hit = u.input->get(Controls::Pause, 0) && !u.last_input->get(Controls::Pause, 0);
-		if (Game::state.level == Asset::Level::terminal || main_menu_state != State::Hidden)
-		{
-			pause_hit |= u.input->get(Controls::Cancel, 0) && !u.last_input->get(Controls::Cancel, 0);
-		}
+		b8 pause_hit = (u.input->get(Controls::Pause, 0) && !u.last_input->get(Controls::Pause, 0))
+			|| (u.input->get(Controls::Cancel, 0) && !u.last_input->get(Controls::Cancel, 0));
 
 		if (pause_hit && Game::time.total > 0.0f && (main_menu_state == State::Hidden || main_menu_state == State::Visible))
 		{
@@ -232,7 +223,7 @@ void update(const Update& u)
 		}
 
 		// do pause menu
-		const Rect2& viewport = camera ? camera->viewport : Rect2(Vec2(0, 0), Vec2(u.input->width, u.input->height));
+		const Rect2& viewport = { Vec2(0, 0), Vec2(u.input->width, u.input->height) };
 		pause_menu(u, viewport, 0, &main_menu, &main_menu_state);
 	}
 }

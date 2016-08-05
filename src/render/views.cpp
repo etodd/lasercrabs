@@ -20,7 +20,7 @@ View::View(AssetID m)
 	offset(Mat4::identity),
 	color(-1, -1, -1, -1),
 	mask(RENDER_MASK_DEFAULT),
-	team((u8)AI::Team::None)
+	team((u8)AI::NoTeam)
 {
 }
 
@@ -122,7 +122,7 @@ void View::draw(const RenderParams& params) const
 	sync->write(RenderDataType::Vec4);
 	sync->write<s32>(1);
 
-	if (team == (u8)AI::Team::None)
+	if (team == (u8)AI::NoTeam)
 		sync->write<Vec4>(color);
 	else
 	{

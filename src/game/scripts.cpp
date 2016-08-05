@@ -230,7 +230,7 @@ namespace tutorial
 		entities.find("minion")->get<Health>()->killed.link(&minion_killed);
 
 		PlayerManager* ai_manager = PlayerManager::list.add();
-		new (ai_manager) PlayerManager(&Team::list[(s32)AI::Team::B], 1);
+		new (ai_manager) PlayerManager(&Team::list[1], 1);
 
 		utf8cpy(ai_manager->username, _(strings::dummy));
 

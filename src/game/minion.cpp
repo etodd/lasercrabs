@@ -72,13 +72,13 @@ void MinionCommon::awake()
 	link<&MinionCommon::footstep>(animator->trigger(Asset::Animation::character_walk, 0.75f));
 }
 
-MinionCommon* MinionCommon::closest(AI::Team my_team, const Vec3& pos, r32* distance)
+MinionCommon* MinionCommon::closest(AI::TeamMask mask, const Vec3& pos, r32* distance)
 {
 	MinionCommon* closest = nullptr;
 	r32 closest_distance = FLT_MAX;
 	for (auto i = list.iterator(); !i.is_last(); i.next())
 	{
-		if (i.item()->get<AIAgent>()->team == my_team)
+		if (mask & (1 << i.item()->get<AIAgent>()->team))
 		{
 			r32 d = (pos - i.item()->get<Transform>()->absolute_pos()).length_squared();
 			if (d < closest_distance)

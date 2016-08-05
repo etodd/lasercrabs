@@ -97,7 +97,7 @@ struct Sensor : public ComponentType<Sensor>
 	void hit_by(const TargetEvent&);
 
 	static b8 can_see(AI::Team, const Vec3&, const Vec3&);
-	static Sensor* closest(AI::Team, const Vec3&, r32* = nullptr);
+	static Sensor* closest(AI::TeamMask, const Vec3&, r32* = nullptr);
 
 	static void update_all(const Update&);
 };
@@ -111,7 +111,7 @@ struct Rocket : public ComponentType<Rocket>
 	r32 particle_accumulator;
 
 	static Rocket* inbound(Entity*);
-	static Rocket* closest(AI::Team, const Vec3&, r32* = nullptr);
+	static Rocket* closest(AI::TeamMask, const Vec3&, r32* = nullptr);
 
 	void awake();
 	void killed(Entity*);
@@ -133,7 +133,7 @@ struct ContainmentField : public ComponentType<ContainmentField>
 
 	static void update_all(const Update&);
 	static ContainmentField* inside(AI::Team, const Vec3&);
-	static ContainmentField* closest(AI::Team, const Vec3&, r32*);
+	static ContainmentField* closest(AI::TeamMask, const Vec3&, r32*);
 
 	AI::Team team;
 	Ref<Entity> field;

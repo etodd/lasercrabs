@@ -24,7 +24,7 @@ SkinnedModel::SkinnedModel()
 	offset(Mat4::identity),
 	color(-1, -1, -1, -1),
 	mask(RENDER_MASK_DEFAULT),
-	team((u8)AI::Team::None)
+	team((u8)AI::NoTeam)
 {
 }
 
@@ -155,7 +155,7 @@ void SkinnedModel::draw(const RenderParams& params)
 	sync->write(Asset::Uniform::diffuse_color);
 	sync->write(RenderDataType::Vec4);
 	sync->write<s32>(1);
-	if (team == (u8)AI::Team::None)
+	if (team == (u8)AI::NoTeam)
 		sync->write<Vec4>(color);
 	else
 		sync->write<Vec4>(Team::color((AI::Team)team, (AI::Team)params.camera->team));

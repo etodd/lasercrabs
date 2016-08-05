@@ -621,7 +621,7 @@ b8 sensor_interest_point_filter(const AIPlayerControl* control, const Entity* e)
 {
 	// only interested in interest points we don't have control over yet
 	r32 closest_distance;
-	Sensor::closest(control->get<AIAgent>()->team, e->get<Transform>()->absolute_pos(), &closest_distance);
+	Sensor::closest(1 << control->get<AIAgent>()->team, e->get<Transform>()->absolute_pos(), &closest_distance);
 	return closest_distance > SENSOR_RANGE;
 }
 
@@ -664,7 +664,7 @@ b8 should_spawn_sensor(const AIPlayerControl* control)
 	Vec3 me = control->get<Transform>()->absolute_pos();
 
 	r32 closest_friendly_sensor;
-	Sensor::closest(control->get<AIAgent>()->team, me, &closest_friendly_sensor);
+	Sensor::closest(1 << control->get<AIAgent>()->team, me, &closest_friendly_sensor);
 	if (closest_friendly_sensor > SENSOR_RANGE)
 	{
 		if (control->player.ref()->saving_up() == Upgrade::None) // only capture other stuff if we're not saving up for anything
@@ -696,19 +696,19 @@ b8 should_spawn_minion(const AIPlayerControl* control)
 		Quat my_rot;
 		control->get<Transform>()->absolute(&my_pos, &my_rot);
 		r32 closest_minion;
-		MinionCommon::closest(my_team, my_pos, &closest_minion);
+		MinionCommon::closest(1 << my_team, my_pos, &closest_minion);
 		if (closest_minion > AWK_MAX_DISTANCE)
 		{
 			b8 spawn = false;
 			r32 closest_enemy_sensor;
-			Sensor::closest(AI::other(my_team), my_pos, &closest_enemy_sensor);
+			Sensor::closest(~(1 << my_team), my_pos, &closest_enemy_sensor);
 			if (closest_enemy_sensor < SENSOR_RANGE + AWK_MAX_DISTANCE)
 				spawn = true;
 
 			if (!spawn)
 			{
 				r32 closest_enemy_rocket;
-				Rocket::closest(AI::other(my_team), my_pos, &closest_enemy_rocket);
+				Rocket::closest(~(1 << my_team), my_pos, &closest_enemy_rocket);
 				if (closest_enemy_rocket < ROCKET_RANGE)
 					spawn = true;
 			}
@@ -716,7 +716,7 @@ b8 should_spawn_minion(const AIPlayerControl* control)
 			if (!spawn)
 			{
 				r32 closest_enemy_field;
-				ContainmentField::closest(AI::other(my_team), my_pos, &closest_enemy_field);
+				ContainmentField::closest(~(1 << my_team), my_pos, &closest_enemy_field);
 				if (closest_enemy_field < CONTAINMENT_FIELD_RADIUS + AWK_MAX_DISTANCE)
 					spawn = true;
 			}

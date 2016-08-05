@@ -30,7 +30,7 @@ namespace VI
 	const Vec4 Team::ui_color_friend = Vec4(0.35f, 0.85f, 1.0f, 1);
 	const Vec4 Team::ui_color_enemy = Vec4(1.0f, 0.4f, 0.4f, 1);
 
-	StaticArray<Team, (s32)AI::Team::count> Team::list;
+	StaticArray<Team, MAX_PLAYERS> Team::list;
 	r32 Team::control_point_timer;
 	r32 Team::game_over_real_time;
 	b8 Team::game_over;
@@ -190,7 +190,7 @@ namespace VI
 			Penelope::variable(strings::tried, AssetNull);
 			if (Game::level.lock_teams
 				|| Game::save.level_index < Game::tutorial_levels + 2 // advance past tutorials and first two levels after only one round
-				|| Game::save.round == (s32)AI::Team::count - 1)
+				|| Game::save.round == Game::state.teams)
 			{
 				// advance to next level
 				Game::save.level_index++;
@@ -199,7 +199,7 @@ namespace VI
 			else
 			{
 				// play another round before advancing
-				Game::save.round = (Game::save.round + 1) % (s32)AI::Team::count;
+				Game::save.round = (Game::save.round + 1) % Game::state.teams;
 			}
 		}
 
@@ -211,12 +211,12 @@ namespace VI
 		s32 mask;
 		switch (t)
 		{
-			case AI::Team::A:
+			case 0:
 			{
 				mask = CollisionTeamAContainmentField;
 				break;
 			}
-			case AI::Team::B:
+			case 1:
 			{
 				mask = CollisionTeamBContainmentField;
 				break;
@@ -242,14 +242,18 @@ namespace VI
 
 			SensorTrack* track = &player_tracks[player->id()];
 
-			Entity* player_entity = tracked_by->entity.ref();
-			if (player_entity && player_entity->has<LocalPlayerControl>())
-				player_entity->get<LocalPlayerControl>()->player.ref()->msg(_(strings::enemy_detected), true);
-			s32 diff = player->add_credits(-CREDITS_DETECT);
-			tracked_by->add_credits(-diff);
+			if (!track->tracking)
+			{
+				track->tracking = true; // got em
+				track->entity = player->entity;
 
-			track->tracking = true; // got em
-			track->entity = player->entity;
+				Entity* player_entity = tracked_by->entity.ref();
+				if (player_entity && player_entity->has<LocalPlayerControl>())
+					player_entity->get<LocalPlayerControl>()->player.ref()->msg(_(strings::enemy_detected), true);
+				s32 diff = player->add_credits(-CREDITS_DETECT);
+				tracked_by->add_credits(-diff);
+			}
+
 			track->timer = SENSOR_TIMEOUT;
 		}
 	}
@@ -365,7 +369,7 @@ namespace VI
 		}
 
 		// determine which Awks are seen by which teams
-		Sensor* visibility[MAX_PLAYERS][(s32)AI::Team::count] = {};
+		Sensor* visibility[MAX_PLAYERS][MAX_PLAYERS] = {};
 		for (auto player = PlayerManager::list.iterator(); !player.is_last(); player.next())
 		{
 			Entity* player_entity = player.item()->entity.ref();

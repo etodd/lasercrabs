@@ -72,7 +72,7 @@ b8 Game::cursor_active = false;
 
 Game::State::State()
 	: mode(Game::Mode::Special),
-	local_player_config{ AI::Team::A, AI::Team::None, AI::Team::None, AI::Team::None },
+	local_player_config{ 0, AI::NoTeam, AI::NoTeam, AI::NoTeam },
 	third_person(),
 	local_multiplayer(),
 	time_scale(1.0f),
@@ -82,7 +82,8 @@ Game::State::State()
 	network_time(),
 	network_state(),
 	network_quality(),
-	forfeit()
+	forfeit(),
+	teams(2)
 {
 }
 
@@ -147,7 +148,7 @@ Array<CleanupFunction> Game::cleanups;
 
 b8 Game::init(LoopSync* sync)
 {
-	state.local_player_config[0] = AI::Team::A;
+	state.local_player_config[0] = 0;
 	state.mode = Mode::Special;
 	state.time_scale = 1.0f;
 
@@ -876,9 +877,9 @@ struct RopeEntry
 	r32 slack;
 };
 
-AI::Team team_lookup(AI::Team* table, s32 i)
+AI::Team team_lookup(const Array<AI::Team>& table, s32 i)
 {
-	return table[vi_max(0, vi_min((s32)AI::Team::count - 1, i))];
+	return table[vi_max(0, vi_min(table.length - 1, i))];
 }
 
 void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
@@ -936,7 +937,7 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 	const Vec3 pvp_ambient(0.25f);
 	const Vec3 pvp_player_light(1.0f);
 
-	AI::Team teams[(s32)AI::Team::count];
+	Array<AI::Team> teams(state.teams, state.teams);
 	u16 hp_start = 1;
 
 	cJSON* element = json->child;
@@ -1079,10 +1080,10 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 				if (level.lock_teams)
 					offset = 0;
 				else
-					offset = state.local_multiplayer ? save.round : mersenne::rand() % (s32)AI::Team::count;
+					offset = state.local_multiplayer ? save.round : mersenne::rand() % state.teams;
 
-				for (s32 i = 0; i < (s32)AI::Team::count; i++)
-					teams[i] = (AI::Team)((offset + i) % (s32)AI::Team::count);
+				for (s32 i = 0; i < state.teams; i++)
+					teams[i] = (AI::Team)((offset + i) % state.teams);
 			}
 
 			level.skybox.far_plane = Json::get_r32(element, "far_plane", 100.0f);
@@ -1112,7 +1113,7 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 			// initialize teams
 			if (m != Mode::Special)
 			{
-				for (s32 i = 0; i < (s32)AI::Team::count; i++)
+				for (s32 i = 0; i < (s32)state.teams; i++)
 				{
 					Team* team = Team::list.add();
 					new (team) Team();
@@ -1120,7 +1121,7 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 
 				for (s32 i = 0; i < MAX_GAMEPADS; i++)
 				{
-					if (state.local_player_config[i] != AI::Team::None)
+					if (state.local_player_config[i] != AI::NoTeam)
 					{
 						AI::Team team = team_lookup(teams, (s32)state.local_player_config[i]);
 
@@ -1172,7 +1173,7 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 			// only add an AI player if we are in online pvp mode
 			if (state.mode == Mode::Pvp && !state.local_multiplayer)
 			{
-				AI::Team team = team_lookup(teams, Json::get_s32(element, "team", (s32)AI::Team::B));
+				AI::Team team = team_lookup(teams, Json::get_s32(element, "team", 1));
 
 				PlayerManager* manager = PlayerManager::list.add();
 				new (manager) PlayerManager(&Team::list[(s32)team], hp_start);

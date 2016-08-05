@@ -81,14 +81,14 @@ const AssetID tips[tip_count] =
 b8 splitscreen_teams_are_valid()
 {
 	s32 player_count = 0;
-	s32 team_counts[(s32)AI::Team::count] = {};
+	s32 team_counts[MAX_PLAYERS] = {};
 	for (s32 i = 0; i < MAX_GAMEPADS; i++)
 	{
 		AI::Team team = Game::state.local_player_config[i];
-		if (team != AI::Team::None)
+		if (team != AI::NoTeam)
 			team_counts[(s32)team]++;
 	}
-	for (s32 i = 0; i < (s32)AI::Team::count; i++)
+	for (s32 i = 0; i < MAX_PLAYERS; i++)
 	{
 		if (team_counts[i] == 0)
 			return false;
@@ -181,46 +181,46 @@ void splitscreen_select_teams_update(const Update& u)
 				{
 					if (i > 0) // player 0 must stay in
 					{
-						*team = AI::Team::None;
+						*team = AI::NoTeam;
 						Audio::post_global_event(AK::EVENTS::PLAY_BEEP_GOOD);
 					}
 				}
 				else if (left)
 				{
-					if (*team == AI::Team::B)
+					if (*team == 1)
 					{
 						if (i == 0) // player 0 must stay in
-							*team = AI::Team::A;
+							*team = 0;
 						else
-							*team = AI::Team::None;
+							*team = AI::NoTeam;
 						Audio::post_global_event(AK::EVENTS::PLAY_BEEP_GOOD);
 					}
-					else if (*team == AI::Team::None)
+					else if (*team == AI::NoTeam)
 					{
-						*team = AI::Team::A;
+						*team = 0;
 						Audio::post_global_event(AK::EVENTS::PLAY_BEEP_GOOD);
 					}
 				}
 				else if (right)
 				{
-					if (*team == AI::Team::A)
+					if (*team == 0)
 					{
 						if (i == 0) // player 0 must stay in
-							*team = AI::Team::B;
+							*team = 1;
 						else
-							*team = AI::Team::None;
+							*team = AI::NoTeam;
 						Audio::post_global_event(AK::EVENTS::PLAY_BEEP_GOOD);
 					}
-					else if (*team == AI::Team::None)
+					else if (*team == AI::NoTeam)
 					{
-						*team = AI::Team::B;
+						*team = 1;
 						Audio::post_global_event(AK::EVENTS::PLAY_BEEP_GOOD);
 					}
 				}
 			}
 		}
 		else // controller is gone
-			*team = AI::Team::None;
+			*team = AI::NoTeam;
 	}
 
 	if (u.last_input->get(Controls::Interact, 0)
@@ -275,17 +275,17 @@ void splitscreen_select_teams_draw(const RenderParams& params)
 			color = &UI::disabled_color;
 			x_offset = 0.0f;
 		}
-		else if (team == AI::Team::None)
+		else if (team == AI::NoTeam)
 		{
 			color = &UI::default_color;
 			x_offset = 0.0f;
 		}
-		else if (team == AI::Team::A)
+		else if (team == 0)
 		{
 			color = &UI::accent_color;
 			x_offset = -team_offset;
 		}
-		else if (team == AI::Team::B)
+		else if (team == 1)
 		{
 			color = &UI::accent_color;
 			x_offset = team_offset;

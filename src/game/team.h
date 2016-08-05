@@ -99,7 +99,7 @@ struct Team
 	static r32 control_point_timer;
 	static r32 game_over_real_time;
 
-	static StaticArray<Team, (s32)AI::Team::count> list;
+	static StaticArray<Team, MAX_PLAYERS> list;
 
 	static b8 game_over;
 	static Ref<Team> winner;

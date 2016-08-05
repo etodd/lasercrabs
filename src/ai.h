@@ -67,16 +67,11 @@ namespace AI
 		AwkPath path;
 		u32 id;
 	};
+	
+	typedef u8 Team;
+	typedef u32 TeamMask;
 
-	enum class Team
-	{
-		A,
-		B,
-		None,
-		count = None,
-	};
-
-	Team other(Team);
+	const Team NoTeam = 255;
 
 	struct SensorState
 	{

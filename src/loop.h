@@ -107,7 +107,7 @@ void render_shadows(LoopSync* sync, s32 fbo, const Camera& main_camera, const Ca
 	Game::draw_opaque(shadow_render_params);
 }
 
-void render_point_lights(const RenderParams& render_params, s32 type_mask, const Vec2& inv_buffer_size, u8 team)
+void render_point_lights(const RenderParams& render_params, s32 type_mask, const Vec2& inv_buffer_size, u16 team_mask)
 {
 	LoopSync* sync = render_params.sync;
 
@@ -162,7 +162,7 @@ void render_point_lights(const RenderParams& render_params, s32 type_mask, const
 		if (!((s32)light->type & type_mask) || !(light->mask & render_params.camera->mask))
 			continue;
 
-		if (team != (u8)AI::Team::None && light->team != (u8)AI::Team::None && light->team != team)
+		if (light->team != (u8)AI::NoTeam && !((1 << light->team) & team_mask))
 			continue;
 
 		Vec3 light_pos = light->get<Transform>()->to_world(light->offset);
@@ -195,7 +195,7 @@ void render_point_lights(const RenderParams& render_params, s32 type_mask, const
 		sync->write(Asset::Uniform::light_color);
 		sync->write(RenderDataType::Vec3);
 		sync->write<s32>(1);
-		if (light->team == (u8)AI::Team::None)
+		if (light->team == (u8)AI::NoTeam)
 			sync->write<Vec3>(light->color);
 		else
 			sync->write<Vec3>(Team::color((AI::Team)render_params.camera->team, (AI::Team)light->team).xyz());
@@ -212,7 +212,7 @@ void render_point_lights(const RenderParams& render_params, s32 type_mask, const
 	}
 }
 
-void render_spot_lights(const RenderParams& render_params, s32 fbo, RenderBlendMode blend_mode, const Vec2& inv_buffer_size, const Mat4& inverse_view_rotation_only, u8 team)
+void render_spot_lights(const RenderParams& render_params, s32 fbo, RenderBlendMode blend_mode, const Vec2& inv_buffer_size, const Mat4& inverse_view_rotation_only, u16 team_mask)
 {
 	LoopSync* sync = render_params.sync;
 
@@ -227,7 +227,7 @@ void render_spot_lights(const RenderParams& render_params, s32 fbo, RenderBlendM
 		if (!(light->mask & render_params.camera->mask))
 			continue;
 
-		if (team != (u8)AI::Team::None && light->team != (u8)AI::Team::None && light->team != team)
+		if (light->team != (u8)AI::NoTeam && !((1 << light->team) & team_mask))
 			continue;
 
 		if (light->color.length_squared() == 0.0f || light->fov == 0.0f || light->radius == 0.0f)
@@ -336,7 +336,7 @@ void render_spot_lights(const RenderParams& render_params, s32 fbo, RenderBlendM
 		sync->write(Asset::Uniform::light_color);
 		sync->write(RenderDataType::Vec3);
 		sync->write<s32>(1);
-		if (light->team == (u8)AI::Team::None)
+		if (light->team == (u8)AI::NoTeam)
 			sync->write<Vec3>(light->color);
 		else
 			sync->write<Vec3>(Team::color((AI::Team)light->team, (AI::Team)render_params.camera->team).xyz());
@@ -470,18 +470,18 @@ void draw(LoopSync* sync, const Camera* camera)
 		sync->write<RenderOp>(RenderOp::BlendMode);
 		sync->write<RenderBlendMode>(RenderBlendMode::AlphaDestination);
 
-		if (camera->team == (u8)-1)
+		if (camera->team == (u16)-1)
 		{
 			// render all override lights
-			render_point_lights(render_params, (s32)PointLight::Type::Override, inv_buffer_size, (u8)AI::Team::None);
+			render_point_lights(render_params, (s32)PointLight::Type::Override, inv_buffer_size, (u16)-1);
 		}
 		else
 		{
 			// render our team lights first
-			render_point_lights(render_params, (s32)PointLight::Type::Override, inv_buffer_size, camera->team);
+			render_point_lights(render_params, (s32)PointLight::Type::Override, inv_buffer_size, 1 << camera->team);
 
 			// render other team lights
-			render_point_lights(render_params, (s32)PointLight::Type::Override, inv_buffer_size, (u8)AI::other((AI::Team)camera->team));
+			render_point_lights(render_params, (s32)PointLight::Type::Override, inv_buffer_size, ~(1 << camera->team));
 		}
 
 		sync->write<RenderOp>(RenderOp::CullMode);
@@ -683,12 +683,12 @@ void draw(LoopSync* sync, const Camera* camera)
 			sync->write<RenderOp>(RenderOp::BlendMode);
 			sync->write<RenderBlendMode>(RenderBlendMode::Additive);
 
-			render_point_lights(render_params, (s32)PointLight::Type::Normal | (s32)PointLight::Type::Shockwave, inv_buffer_size, (u8)AI::Team::None);
+			render_point_lights(render_params, (s32)PointLight::Type::Normal | (s32)PointLight::Type::Shockwave, inv_buffer_size, (u16)-1);
 		}
 
 		{
 			// Spot lights
-			render_spot_lights(render_params, lighting_fbo, RenderBlendMode::Additive, inv_buffer_size, inverse_view_rotation_only, (u8)AI::Team::None);
+			render_spot_lights(render_params, lighting_fbo, RenderBlendMode::Additive, inv_buffer_size, inverse_view_rotation_only, (u16)-1);
 		}
 
 	}

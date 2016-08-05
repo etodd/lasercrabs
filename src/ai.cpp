@@ -18,11 +18,6 @@ namespace VI
 namespace AI
 {
 
-Team other(Team t)
-{
-	return t == Team::A ? Team::B : Team::A;
-}
-
 Array<b8> obstacles;
 SyncRingBuffer<SYNC_IN_SIZE> sync_in;
 SyncRingBuffer<SYNC_OUT_SIZE> sync_out;

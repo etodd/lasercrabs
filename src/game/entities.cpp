@@ -164,8 +164,8 @@ void HealthPickup::awake()
 void HealthPickup::reset()
 {
 	owner = nullptr;
-	get<View>()->team = (u8)AI::Team::None;
-	get<PointLight>()->team = (u8)AI::Team::None;
+	get<View>()->team = (u8)AI::NoTeam;
+	get<PointLight>()->team = (u8)AI::NoTeam;
 }
 
 void HealthPickup::hit(const TargetEvent& e)
@@ -376,14 +376,14 @@ b8 Sensor::can_see(AI::Team team, const Vec3& pos, const Vec3& normal)
 	return false;
 }
 
-Sensor* Sensor::closest(AI::Team team, const Vec3& pos, r32* distance)
+Sensor* Sensor::closest(AI::TeamMask mask, const Vec3& pos, r32* distance)
 {
 	Sensor* closest = nullptr;
 	r32 closest_distance = FLT_MAX;
 
 	for (auto i = list.iterator(); !i.is_last(); i.next())
 	{
-		if (i.item()->team == team)
+		if (mask & (1 << i.item()->team))
 		{
 			r32 d = (i.item()->get<Transform>()->absolute_pos() - pos).length_squared();
 			if (d < closest_distance)
@@ -459,14 +459,14 @@ Rocket* Rocket::inbound(Entity* target)
 	return nullptr;
 }
 
-Rocket* Rocket::closest(AI::Team team, const Vec3& pos, r32* distance)
+Rocket* Rocket::closest(AI::TeamMask mask, const Vec3& pos, r32* distance)
 {
 	Rocket* closest = nullptr;
 	r32 closest_distance = FLT_MAX;
 
 	for (auto i = list.iterator(); !i.is_last(); i.next())
 	{
-		if (i.item()->team == team)
+		if (mask & (1 << i.item()->team))
 		{
 			r32 d = (i.item()->get<Transform>()->absolute_pos() - pos).length_squared();
 			if (d < closest_distance)
@@ -649,12 +649,12 @@ ContainmentField::ContainmentField(const Vec3& abs_pos, PlayerManager* m)
 	CollisionGroup team_mask;
 	switch (team)
 	{
-		case AI::Team::A:
+		case 0:
 		{
 			team_mask = CollisionTeamAContainmentField;
 			break;
 		}
-		case AI::Team::B:
+		case 1:
 		{
 			team_mask = CollisionTeamBContainmentField;
 			break;
@@ -694,14 +694,14 @@ void ContainmentField::killed(Entity*)
 	World::remove_deferred(entity());
 }
 
-ContainmentField* ContainmentField::closest(AI::Team team, const Vec3& pos, r32* distance)
+ContainmentField* ContainmentField::closest(AI::TeamMask mask, const Vec3& pos, r32* distance)
 {
 	ContainmentField* closest = nullptr;
 	r32 closest_distance = FLT_MAX;
 
 	for (auto i = list.iterator(); !i.is_last(); i.next())
 	{
-		if (i.item()->team == team)
+		if (mask & (1 << i.item()->team))
 		{
 			r32 d = (i.item()->get<Transform>()->absolute_pos() - pos).length_squared();
 			if (d < closest_distance)

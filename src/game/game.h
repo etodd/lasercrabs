@@ -84,6 +84,7 @@ struct Game
 		r32 time_scale;
 		r32 effective_time_scale() const;
 		b8 allow_double_jump;
+		AI::Team teams;
 		AssetID level;
 		void reset();
 		State();

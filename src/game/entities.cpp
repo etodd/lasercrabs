@@ -646,28 +646,10 @@ ContainmentField::ContainmentField(const Vec3& abs_pos, PlayerManager* m)
 	view->alpha();
 	view->color.w = 0.2f;
 
-	CollisionGroup team_mask;
-	switch (team)
-	{
-		case 0:
-		{
-			team_mask = CollisionTeamAContainmentField;
-			break;
-		}
-		case 1:
-		{
-			team_mask = CollisionTeamBContainmentField;
-			break;
-		}
-		default:
-		{
-			vi_assert(false);
-			break;
-		}
-	}
+	CollisionGroup team_mask = (CollisionGroup)(1 << (8 + team));
 
 	Loader::mesh(view->mesh);
-	f->add<RigidBody>(RigidBody::Type::Mesh, Vec3::zero, 0.0f, team_mask, CollisionContainmentField, view->mesh);
+	f->add<RigidBody>(RigidBody::Type::Mesh, Vec3::zero, 0.0f, team_mask, CollisionAwkIgnore, view->mesh);
 
 	field = f;
 }

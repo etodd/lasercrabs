@@ -6,6 +6,8 @@
 #include "render/ui.h"
 #include "ai.h"
 
+// NOTE: this is also the max number of teams
+// if you change this, make sure to allocate more physics categories for each team's containment field
 #define MAX_PLAYERS 4
 
 namespace VI
@@ -121,7 +123,7 @@ struct Team
 	static void level_retry();
 	static void level_next();
 
-	static s32 containment_field_mask(AI::Team);
+	static s16 containment_field_mask(AI::Team);
 
 	Ref<Transform> player_spawn;
 	Revision revision;

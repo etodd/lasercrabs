@@ -12,17 +12,26 @@ namespace VI
 
 enum CollisionGroup
 {
-	CollisionDefault = btBroadphaseProxy::DefaultFilter,
-	CollisionWalker = 1 << 6,
-	CollisionInaccessible = 1 << 7,
-	CollisionTarget = 1 << 8,
-	CollisionShield = 1 << 9,
-	CollisionAwkIgnore = 1 << 10,
-	CollisionAwk = 1 << 11,
-	CollisionContainmentField = 1 << 12,
-	CollisionTeamAContainmentField = 1 << 13,
-	CollisionTeamBContainmentField = 1 << 14,
+	CollisionDefault = btBroadphaseProxy::DefaultFilter, // 1 << 0
+	CollisionStatic = btBroadphaseProxy::StaticFilter, // 1 << 1
+	CollisionWalker = 1 << 2,
+	CollisionInaccessible = 1 << 3,
+	CollisionTarget = 1 << 4,
+	CollisionShield = 1 << 5,
+	CollisionAwkIgnore = 1 << 6,
+	CollisionAwk = 1 << 7,
+	CollisionTeamAContainmentField = 1 << 8,
+	CollisionTeamBContainmentField = 1 << 9,
+	CollisionTeamCContainmentField = 1 << 10,
+	CollisionTeamDContainmentField = 1 << 11,
 	CollisionInaccessibleMask = ~CollisionInaccessible,
+	CollisionAllTeamsContainmentField =
+	(
+		CollisionTeamAContainmentField
+		| CollisionTeamBContainmentField
+		| CollisionTeamCContainmentField
+		| CollisionTeamDContainmentField
+	)
 };
 
 #define AWK_PERMEABLE_MASK (CollisionTarget | CollisionShield | CollisionAwkIgnore)

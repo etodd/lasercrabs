@@ -88,12 +88,13 @@ b8 splitscreen_teams_are_valid()
 		if (team != AI::NoTeam)
 			team_counts[(s32)team]++;
 	}
+	s32 teams_with_players = 0;
 	for (s32 i = 0; i < MAX_PLAYERS; i++)
 	{
-		if (team_counts[i] == 0)
-			return false;
+		if (team_counts[i] > 0)
+			teams_with_players++;
 	}
-	return true;
+	return teams_with_players > 1;
 }
 
 void init(const Update& u, const EntityFinder& entities)

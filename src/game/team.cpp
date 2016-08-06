@@ -206,28 +206,9 @@ namespace VI
 		Terminal::show();
 	}
 
-	s32 Team::containment_field_mask(AI::Team t)
+	s16 Team::containment_field_mask(AI::Team t)
 	{
-		s32 mask;
-		switch (t)
-		{
-			case 0:
-			{
-				mask = CollisionTeamAContainmentField;
-				break;
-			}
-			case 1:
-			{
-				mask = CollisionTeamBContainmentField;
-				break;
-			}
-			default:
-			{
-				vi_assert(false);
-				break;
-			}
-		}
-		return mask;
+		return 1 << (8 + t);
 	}
 
 	void Team::track(PlayerManager* player, PlayerManager* tracked_by)

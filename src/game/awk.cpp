@@ -162,7 +162,7 @@ Vec3 Awk::calculated_velocity() const
 		return (get<Transform>()->absolute_pos() - last_pos) / Game::time.delta;
 }
 
-s32 Awk::ally_containment_field_mask() const
+s16 Awk::ally_containment_field_mask() const
 {
 	return Team::containment_field_mask(get<AIAgent>()->team);
 }
@@ -681,15 +681,13 @@ void Awk::move(const Vec3& new_pos, const Quat& new_rotation, const ID entity_id
 
 void Awk::crawl(const Vec3& dir_raw, const Update& u)
 {
-	if (stun_timer > 0)
-		return;
-
 	r32 dir_length = dir_raw.length();
-	Vec3 dir_normalized = dir_raw / dir_length;
 
 	State s = state();
-	if (s != State::Fly && dir_length > 0)
+	if (s != State::Fly && dir_length > 0.0f && stun_timer == 0.0f)
 	{
+		Vec3 dir_normalized = dir_raw / dir_length;
+
 		r32 speed = last_speed = s == State::Dash ? AWK_DASH_SPEED : (vi_min(dir_length, 1.0f) * AWK_CRAWL_SPEED);
 
 		Vec3 wall_normal = get<Transform>()->absolute_rot() * Vec3(0, 0, 1);

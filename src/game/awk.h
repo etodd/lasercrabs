@@ -93,7 +93,7 @@ struct Awk : public ComponentType<Awk>
 	void killed(Entity*);
 	Entity* incoming_attacker() const;
 
-	s32 ally_containment_field_mask() const;
+	s16 ally_containment_field_mask() const;
 
 	b8 predict_intersection(const Target*, Vec3*) const;
 

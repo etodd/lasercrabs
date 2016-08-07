@@ -38,8 +38,8 @@ uniform mat4 detail_light_vp;
 uniform sampler2DShadow detail_shadow_map;
 uniform vec3 player_light;
 uniform float far_plane;
-
-const float AWK_MAX_DISTANCE = 25.0f + 2.0f; // includes third-person camera offset
+uniform float range;
+uniform vec3 range_center;
 
 out vec4 out_color;
 
@@ -56,7 +56,7 @@ void main()
 	{
 		// Player light
 		float normal_attenuation = dot(normal, view_pos / -view_distance);
-		float distance_attenuation = 1.0f - (view_distance / AWK_MAX_DISTANCE);
+		float distance_attenuation = 1.0f - (length(view_pos - range_center) / range);
 		float light = max(0, distance_attenuation) * max(0, normal_attenuation);
 		out_color = vec4(player_light * light, 1);
 	}

@@ -106,7 +106,7 @@ btCollisionWorld::ClosestRayResultCallback Walker::check_support(r32 extra_dista
 		Vec3 ray_end = ray_start + Vec3(0, (capsule_height() * -0.5f) + (support_height * -1.5f) - extra_distance, 0);
 
 		btCollisionWorld::ClosestRayResultCallback ray_callback(ray_start, ray_end);
-		Physics::raycast(&ray_callback, ~CollisionWalker & ~CollisionTarget & ~CollisionShield & ~CollisionAwk & ~CollisionTeamAContainmentField & ~CollisionTeamBContainmentField);
+		Physics::raycast(&ray_callback, ~CollisionWalker & ~CollisionTarget & ~CollisionShield & ~CollisionAwk & ~CollisionAllTeamsContainmentField);
 		if (ray_callback.hasHit())
 			return ray_callback;
 	}

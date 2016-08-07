@@ -53,7 +53,7 @@ AIPlayer::Config AIPlayer::generate_config()
 {
 	Config config;
 
-	if (Game::save.level_index < 5)
+	if (Game::save.level_index <= 2)
 	{
 		// slower, less accurate
 		config.interval_low_level = 1.0f;
@@ -726,7 +726,7 @@ b8 should_spawn_minion(const AIPlayerControl* control)
 				// make sure the minion has a reasonably close surface to stand on
 				Vec3 ray_start = my_pos + my_rot * Vec3(0, 0, 1);
 				btCollisionWorld::ClosestRayResultCallback ray_callback(ray_start, ray_start + Vec3(0, -5, 0));
-				Physics::raycast(&ray_callback, ~CollisionWalker & ~CollisionTarget & ~CollisionShield & ~CollisionAwk & ~CollisionTeamAContainmentField & ~CollisionTeamBContainmentField);
+				Physics::raycast(&ray_callback, ~CollisionWalker & ~CollisionTarget & ~CollisionShield & ~CollisionAwk & ~CollisionAllTeamsContainmentField);
 				if (ray_callback.hasHit())
 					return true;
 			}

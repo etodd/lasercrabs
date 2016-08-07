@@ -35,7 +35,7 @@ enum CollisionGroup
 };
 
 #define AWK_PERMEABLE_MASK (CollisionTarget | CollisionShield | CollisionAwkIgnore)
-#define AWK_INACCESSIBLE_MASK (CollisionInaccessible | CollisionWalker | AWK_PERMEABLE_MASK | CollisionTeamAContainmentField | CollisionTeamBContainmentField)
+#define AWK_INACCESSIBLE_MASK (CollisionInaccessible | CollisionWalker | AWK_PERMEABLE_MASK | CollisionAllTeamsContainmentField)
 
 struct RaycastCallbackExcept : btCollisionWorld::ClosestRayResultCallback
 {

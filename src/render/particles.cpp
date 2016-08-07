@@ -346,6 +346,16 @@ StandardParticleSystem Particles::tracers
 	Vec4(1, 1, 1, 1)
 );
 
+StandardParticleSystem Particles::fast_tracers
+(
+	3, 3,
+	Vec2(0.1f),
+	Vec2(0.0f),
+	0.25f,
+	Vec3::zero,
+	Vec4(1, 1, 1, 1)
+);
+
 StandardParticleSystem Particles::eased_particles
 (
 	3, 3,

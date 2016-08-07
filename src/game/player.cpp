@@ -36,17 +36,17 @@
 namespace VI
 {
 
-#define fov_pvp (70.0f * PI * 0.5f / 180.0f)
-#define zoom_ratio 0.5f
-#define fov_pvp_zoom (fov_pvp * zoom_ratio)
-#define zoom_speed (1.0f / 0.1f)
+
+#define fov_default (70.0f * PI * 0.5f / 180.0f)
+#define fov_zoom (fov_default * 0.5f)
+#define fov_sniper (fov_default * 0.25f)
+#define zoom_speed_multiplier 0.25f
+#define zoom_speed_multiplier_sniper 0.15f
+#define zoom_speed (0.5f / 0.1f)
 #define speed_mouse 0.1f
-#define speed_mouse_zoom (speed_mouse * zoom_ratio * 0.5f)
 #define speed_joystick 5.0f
-#define speed_joystick_zoom (speed_joystick * zoom_ratio * 0.5f)
 #define gamepad_rotation_acceleration (1.0f / 0.2f)
 #define attach_speed 5.0f
-#define max_attach_time 0.35f
 #define rotation_speed 20.0f
 #define msg_time 0.75f
 #define text_size 16.0f
@@ -986,7 +986,7 @@ void LocalPlayerControl::awk_done_flying_or_dashing()
 
 LocalPlayerControl::LocalPlayerControl(u8 gamepad)
 	: gamepad(gamepad),
-	fov_blend(),
+	fov(fov_default),
 	try_primary(),
 	try_secondary(),
 	damage_timer(),
@@ -1074,20 +1074,28 @@ b8 LocalPlayerControl::movement_enabled() const
 	return input_enabled() && get<PlayerCommon>()->movement_enabled();
 }
 
+r32 LocalPlayerControl::look_speed() const
+{
+	if (try_secondary)
+		return get<Awk>()->snipe ? zoom_speed_multiplier_sniper : zoom_speed_multiplier;
+	else
+		return 1.0f;
+}
+
 void LocalPlayerControl::update_camera_input(const Update& u, r32 gamepad_rotation_multiplier)
 {
 	if (input_enabled())
 	{
 		if (gamepad == 0)
 		{
-			r32 s = LMath::lerpf(fov_blend, speed_mouse, speed_mouse_zoom) * Settings::gamepads[gamepad].effective_sensitivity() * Game::real_time.delta;
+			r32 s = look_speed() * speed_mouse * Settings::gamepads[gamepad].effective_sensitivity() * Game::real_time.delta;
 			get<PlayerCommon>()->angle_horizontal -= (r32)u.input->cursor_x * s;
 			get<PlayerCommon>()->angle_vertical += (r32)u.input->cursor_y * s * (Settings::gamepads[gamepad].invert_y ? -1.0f : 1.0f);
 		}
 
 		if (u.input->gamepads[gamepad].active)
 		{
-			r32 s = LMath::lerpf(fov_blend, speed_joystick, speed_joystick_zoom) * Settings::gamepads[gamepad].effective_sensitivity() * Game::real_time.delta * gamepad_rotation_multiplier;
+			r32 s = look_speed() * speed_joystick * Settings::gamepads[gamepad].effective_sensitivity() * Game::real_time.delta * gamepad_rotation_multiplier;
 			Vec2 adjustment = Vec2
 			(
 				-Input::dead_zone(u.input->gamepads[gamepad].right_x) * s,
@@ -1196,7 +1204,7 @@ void LocalPlayerControl::update(const Update& u)
 			Vec2((s32)(blueprint->w * (r32)u.input->width), (s32)(blueprint->h * (r32)u.input->height)),
 		};
 		r32 aspect = camera->viewport.size.y == 0 ? 1 : (r32)camera->viewport.size.x / (r32)camera->viewport.size.y;
-		camera->perspective(LMath::lerpf(fov_blend, fov_pvp, fov_pvp_zoom), aspect, 0.02f, Game::level.skybox.far_plane);
+		camera->perspective(fov, aspect, 0.02f, Game::level.skybox.far_plane);
 	}
 
 	{
@@ -1219,12 +1227,12 @@ void LocalPlayerControl::update(const Update& u)
 			try_secondary = false;
 		}
 
-		r32 fov_blend_target = try_secondary ? 1.0f : 0.0f;
+		r32 fov_target = try_secondary ? (get<Awk>()->snipe ? fov_sniper : fov_zoom) : fov_default;
 
-		if (fov_blend < fov_blend_target)
-			fov_blend = vi_min(fov_blend + u.time.delta * zoom_speed, fov_blend_target);
-		else if (fov_blend > fov_blend_target)
-			fov_blend = vi_max(fov_blend - u.time.delta * zoom_speed, fov_blend_target);
+		if (fov < fov_target)
+			fov = vi_min(fov + u.time.delta * zoom_speed, fov_target);
+		else if (fov > fov_target)
+			fov = vi_max(fov - u.time.delta * zoom_speed, fov_target);
 	}
 
 	Quat look_quat;
@@ -1368,7 +1376,7 @@ void LocalPlayerControl::update(const Update& u)
 			look_quat = look_quat * Quat::euler(noise::sample3d(Vec3(offset)) * shake, noise::sample3d(Vec3(offset + 64)) * shake, noise::sample3d(Vec3(offset + 128)) * shake);
 		}
 
-		camera->range = AWK_MAX_DISTANCE;
+		camera->range = get<Awk>()->snipe ? camera->far_plane * 0.5f : AWK_MAX_DISTANCE;
 		camera->range_center = look_quat.inverse() * (get<Awk>()->center() - camera->pos);
 		camera->cull_range = third_person_offset + 0.5f;
 		camera->cull_behind_wall = abs_wall_normal.dot(camera->pos - get<Awk>()->attach_point()) < 0.0f;
@@ -1387,7 +1395,8 @@ void LocalPlayerControl::update(const Update& u)
 
 		if (movement_enabled())
 		{
-			Vec3 trace_end = trace_start + trace_dir * (AWK_MAX_DISTANCE + third_person_offset);
+			r32 range = get<Awk>()->snipe ? AWK_SNIPE_DISTANCE : AWK_MAX_DISTANCE;
+			Vec3 trace_end = trace_start + trace_dir * (range + third_person_offset);
 			RaycastCallbackExcept ray_callback(trace_start, trace_end, entity());
 			Physics::raycast(&ray_callback, ~CollisionAwkIgnore & ~get<Awk>()->ally_containment_field_mask());
 
@@ -1399,7 +1408,7 @@ void LocalPlayerControl::update(const Update& u)
 				Vec3 detach_dir = reticle.pos - center;
 				r32 distance = detach_dir.length();
 				detach_dir /= distance;
-				if (get<Awk>()->direction_is_toward_attached_wall(detach_dir))
+				if (get<Awk>()->direction_is_toward_attached_wall(detach_dir) && !get<Awk>()->snipe)
 					reticle.type = ReticleType::Dash;
 				else
 				{
@@ -1415,7 +1424,7 @@ void LocalPlayerControl::update(const Update& u)
 			else
 			{
 				reticle.pos = trace_end;
-				if (get<Awk>()->direction_is_toward_attached_wall(reticle.pos - center))
+				if (get<Awk>()->direction_is_toward_attached_wall(reticle.pos - center) && !get<Awk>()->snipe)
 					reticle.type = ReticleType::Dash;
 			}
 		}
@@ -1503,18 +1512,32 @@ void LocalPlayerControl::update(const Update& u)
 		// we're aiming at something
 		if (try_primary)
 		{
-			b8 success = false;
 			Vec3 detach_dir = reticle.pos - get<Awk>()->center();
 			if (reticle.type == ReticleType::Dash)
-				success = get<Awk>()->dash_start(detach_dir);
-			else
-				success = get<Awk>()->detach(detach_dir);
-
-			if (success)
 			{
-				try_primary = false;
-				try_secondary = false;
-				get<Audio>()->post_event(AK::EVENTS::PLAY_FLY);
+				if (get<Awk>()->dash_start(detach_dir))
+				{
+					get<Audio>()->post_event(AK::EVENTS::PLAY_FLY);
+					try_primary = false;
+					try_secondary = false;
+				}
+			}
+			else if (get<Awk>()->snipe)
+			{
+				if (get<Awk>()->detach(detach_dir))
+				{
+					rumble = vi_max(rumble, 0.5f);
+					try_primary = false;
+				}
+			}
+			else
+			{
+				if (get<Awk>()->detach(detach_dir))
+				{
+					get<Audio>()->post_event(AK::EVENTS::PLAY_FLY);
+					try_primary = false;
+					try_secondary = false;
+				}
 			}
 		}
 	}
@@ -1963,7 +1986,7 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 			text.color = UI::background_color;
 			text.anchor_x = UIText::Anchor::Center;
 			text.anchor_y = UIText::Anchor::Center;
-			text.text(_(strings::ability_spawn_cost), CREDITS_DETECT);
+			text.text(_(strings::enemy_tracking));
 			text.draw(params, bar.pos + bar.size * 0.5f);
 
 			// todo: sound
@@ -2002,6 +2025,9 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 			UI::centered_box(params, { pos + Vec2(ratio, -0.5f) * UI::scale * start_radius, Vec2(spoke_length, spoke_width) * UI::scale }, color, PI * 0.5f * -0.33f);
 			UI::centered_box(params, { pos + Vec2(-ratio, -0.5f) * UI::scale * start_radius, Vec2(spoke_length, spoke_width) * UI::scale }, color, PI * 0.5f * 0.33f);
 			UI::centered_box(params, { pos + Vec2(0, 1.0f) * UI::scale * start_radius, Vec2(spoke_width, spoke_length) * UI::scale }, color);
+
+			if (get<Awk>()->snipe)
+				UI::mesh(params, Asset::Mesh::icon_sniper, pos + Vec2(0, -32.0f * UI::scale), Vec2(18.0f * UI::scale), color);
 
 			if (cooldown_can_go && (reticle.type == ReticleType::Normal || reticle.type == ReticleType::Target))
 			{

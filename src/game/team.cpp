@@ -15,6 +15,7 @@
 #include "walker.h"
 #include "mersenne/mersenne-twister.h"
 #include "penelope.h"
+#include "render/particles.h"
 
 #define CREDITS_FLASH_TIME 0.5f
 
@@ -36,7 +37,7 @@ namespace VI
 	b8 Team::game_over;
 	Ref<Team> Team::winner;
 
-	AbilityInfo AbilityInfo::list[] =
+	AbilityInfo AbilityInfo::list[(s32)Ability::count] =
 	{
 		{
 			Asset::Mesh::icon_sensor,
@@ -58,9 +59,14 @@ namespace VI
 			0.75f,
 			20,
 		},
+		{
+			Asset::Mesh::icon_sniper,
+			0.75f,
+			15,
+		},
 	};
 
-	UpgradeInfo UpgradeInfo::list[] =
+	UpgradeInfo UpgradeInfo::list[(s32)Upgrade::count] =
 	{
 		{
 			strings::sensor,
@@ -85,6 +91,12 @@ namespace VI
 			strings::description_containment_field,
 			Asset::Mesh::icon_containment_field,
 			40,
+		},
+		{
+			strings::sniper,
+			strings::description_sniper,
+			Asset::Mesh::icon_sniper,
+			50,
 		},
 		{
 			strings::health_steal,
@@ -211,32 +223,16 @@ namespace VI
 		return 1 << (8 + t);
 	}
 
-	void Team::track(PlayerManager* player, PlayerManager* tracked_by)
+	void Team::track(PlayerManager* player)
 	{
 		// enemy player has been detected by `tracked_by`
 		vi_assert(player->entity.ref());
 		vi_assert(player->team.ref() != this);
 
-		if (tracked_by)
-		{
-			vi_assert(tracked_by->team.ref() == this);
-
-			SensorTrack* track = &player_tracks[player->id()];
-
-			if (!track->tracking)
-			{
-				track->tracking = true; // got em
-				track->entity = player->entity;
-
-				Entity* player_entity = tracked_by->entity.ref();
-				if (player_entity && player_entity->has<LocalPlayerControl>())
-					player_entity->get<LocalPlayerControl>()->player.ref()->msg(_(strings::enemy_detected), true);
-				s32 diff = player->add_credits(-CREDITS_DETECT);
-				tracked_by->add_credits(-diff);
-			}
-
-			track->timer = SENSOR_TIMEOUT;
-		}
+		SensorTrack* track = &player_tracks[player->id()];
+		track->tracking = true; // got em
+		track->entity = player->entity;
+		track->timer = SENSOR_TIMEOUT;
 	}
 
 	void Team::update_all(const Update& u)
@@ -494,7 +490,7 @@ namespace VI
 							// tracking but not yet alerted
 							track->timer += u.time.delta;
 							if (track->timer >= SENSOR_TIME)
-								team->track(player.item(), sensor->owner.ref());
+								team->track(player.item());
 						}
 					}
 					else if (player_entity->get<Awk>()->state() == Awk::State::Crawl)
@@ -577,6 +573,9 @@ namespace VI
 		if (credits < info.spawn_cost)
 			return false;
 
+		if (ability == Ability::Sniper && awk->get<Awk>()->snipe)
+			return false; // already sniping
+
 		current_spawn_ability = ability;
 		spawn_ability_timer = info.spawn_time;
 
@@ -617,12 +616,11 @@ namespace VI
 
 		if (awk->get<Awk>()->state() == Awk::State::Crawl)
 		{
+			add_credits(-cost);
 			switch (ability)
 			{
 				case Ability::Sensor:
 				{
-					add_credits(-cost);
-
 					// place a proximity sensor
 					Vec3 abs_pos;
 					Quat abs_rot;
@@ -635,14 +633,10 @@ namespace VI
 					// attach it to the wall
 					Rope* rope = Rope::start(awk->get<Transform>()->parent.ref()->get<RigidBody>(), abs_pos + abs_rot * Vec3(0, 0, -AWK_RADIUS), abs_rot * Vec3(0, 0, 1), abs_rot);
 					rope->end(abs_pos + abs_rot * Vec3(0, 0, -AWK_RADIUS + (rope_segment_length * 2.0f)), abs_rot * Vec3(0, 0, -1), sensor->get<RigidBody>());
-
-					ability_spawned.fire(ability);
 					break;
 				}
 				case Ability::Rocket:
 				{
-					add_credits(-cost);
-
 					// spawn a rocket pod
 					Quat rot = awk->get<Transform>()->absolute_rot();
 					Vec3 pos = awk->get<Transform>()->absolute_pos() + rot * Vec3(0, 0, -AWK_RADIUS);
@@ -654,14 +648,10 @@ namespace VI
 					base->get<Transform>()->absolute(pos, rot);
 					base->get<Transform>()->reparent(parent);
 					base->get<View>()->team = (u8)team.ref()->team();
-
-					ability_spawned.fire(ability);
 					break;
 				}
 				case Ability::Minion:
 				{
-					add_credits(-cost);
-
 					// spawn a minion
 					Vec3 pos;
 					Quat rot;
@@ -670,22 +660,21 @@ namespace VI
 					World::create<Minion>(pos, Quat::euler(0, awk->get<PlayerCommon>()->angle_horizontal, 0), team.ref()->team(), this);
 
 					Audio::post_global_event(AK::EVENTS::PLAY_MINION_SPAWN, pos);
-
-					ability_spawned.fire(ability);
 					break;
 				}
 				case Ability::ContainmentField:
 				{
-					add_credits(-cost);
-
 					// spawn a containment field
 					Vec3 pos;
 					Quat rot;
 					awk->get<Transform>()->absolute(&pos, &rot);
 					pos += rot * Vec3(0, 0, CONTAINMENT_FIELD_BASE_OFFSET);
 					World::create<ContainmentFieldEntity>(awk->get<Transform>()->parent.ref(), pos, rot, this);
-
-					ability_spawned.fire(ability);
+					break;
+				}
+				case Ability::Sniper:
+				{
+					awk->get<Awk>()->snipe = true;
 					break;
 				}
 				default:
@@ -694,6 +683,7 @@ namespace VI
 					break;
 				}
 			}
+			ability_spawned.fire(ability);
 		}
 		else // we're not in Crawl state
 			ability_spawn_canceled.fire(ability);
@@ -717,7 +707,8 @@ namespace VI
 		ability_spawned(),
 		ability_spawn_canceled(),
 		upgrade_completed(),
-		rating_summary()
+		rating_summary(),
+		particle_accumulator()
 	{
 	}
 
@@ -853,6 +844,27 @@ namespace VI
 		if (spawn_ability_timer > 0.0f)
 		{
 			spawn_ability_timer = vi_max(0.0f, spawn_ability_timer - u.time.delta);
+
+			// particles
+			if (entity.ref())
+			{
+				const r32 interval = 0.015f;
+				particle_accumulator += u.time.delta;
+				Vec3 pos = entity.ref()->get<Transform>()->absolute_pos();
+				while (particle_accumulator > interval)
+				{
+					particle_accumulator -= interval;
+
+					// spawn particle effect
+					Vec3 offset = Quat::euler(0.0f, mersenne::randf_co() * PI * 2.0f, (mersenne::randf_co() - 0.5f) * PI) * Vec3(0, 0, 1.0f);
+					Particles::fast_tracers.add
+					(
+						pos + offset,
+						offset * -3.5f,
+						0
+					);
+				}
+			}
 
 			if (spawn_ability_timer == 0.0f && current_spawn_ability != Ability::None)
 				ability_spawn_complete();

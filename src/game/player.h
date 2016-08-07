@@ -115,25 +115,26 @@ struct LocalPlayerControl : public ComponentType<LocalPlayerControl>
 
 	static LocalPlayerControl* player_for_camera(const Camera*);
 
+	Camera* camera;
 	Ref<LocalPlayer> player;
-
 	Reticle reticle;
 	StaticArray<TargetIndicator, 32> target_indicators;
-	Camera* camera;
-	r32 fov_blend;
+	Vec3 last_pos;
+	r32 fov;
 	r32 damage_timer;
 	r32 health_flash_timer;
+	r32 rumble;
+	r32 last_gamepad_input_time;
+	r32 gamepad_rotation_speed;
 	b8 try_secondary;
 	b8 try_primary;
 	u8 gamepad;
-	r32 rumble;
-	Vec3 last_pos;
-	r32 last_gamepad_input_time;
-	r32 gamepad_rotation_speed;
 
 	LocalPlayerControl(u8);
 	~LocalPlayerControl();
 	void awake();
+
+	r32 look_speed() const;
 
 	void awk_done_flying_or_dashing();
 	void hit_target(Entity*);

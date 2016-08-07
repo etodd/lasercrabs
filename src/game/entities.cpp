@@ -725,7 +725,6 @@ void ContainmentField::update_all(const Update& u)
 				0
 			);
 		}
-
 	}
 
 	for (auto i = list.iterator(); !i.is_last(); i.next())

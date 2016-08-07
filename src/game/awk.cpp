@@ -105,7 +105,8 @@ Awk::Awk()
 	stun_timer(),
 	invincible_timer(),
 	disable_cooldown_skip(),
-	particle_accumulator()
+	particle_accumulator(),
+	snipe()
 {
 }
 
@@ -255,7 +256,7 @@ void Awk::hit_by(const TargetEvent& e)
 		else
 		{
 			// we're invincible
-			if (e.hit_by->has<Awk>())
+			if (e.hit_by->has<Awk>() && !e.hit_by->get<Awk>()->snipe) // if they sniped us, they won't get stunned
 			{
 				// stun the enemy
 				e.hit_by->get<Awk>()->stun_timer = AWK_STUN_TIME;
@@ -272,7 +273,7 @@ void Awk::hit_by(const TargetEvent& e)
 		e.hit_by->get<LocalPlayerControl>()->player.ref()->msg(_(shield_taken_down ? strings::target_shield_down : strings::no_effect), shield_taken_down);
 }
 
-void Awk::hit_target(Entity* target)
+void Awk::hit_target(Entity* target, const Vec3& hit_pos)
 {
 	for (s32 i = 0; i < hit_targets.length; i++)
 	{
@@ -282,11 +283,28 @@ void Awk::hit_target(Entity* target)
 	if (hit_targets.length < hit_targets.capacity())
 		hit_targets.add(target);
 
+	// particles
+	{
+		Quat rot = Quat::look(Vec3::normalize(velocity));
+		for (s32 i = 0; i < 50; i++)
+		{
+			Particles::sparks.add
+			(
+				hit_pos,
+				rot * Vec3(mersenne::randf_oo() * 2.0f - 1.0f, mersenne::randf_oo() * 2.0f - 1.0f, mersenne::randf_oo()) * 10.0f,
+				Vec4(1, 1, 1, 1)
+			);
+		}
+		World::create<ShockwaveEntity>(8.0f, 1.5f)->get<Transform>()->absolute_pos(hit_pos);
+	}
+
 	if (target->has<Target>())
 	{
 		Ref<Target> t = target->get<Target>();
 
-		t.ref()->hit(entity());
+		// you can't capture health pickups by sniping them
+		if (!snipe || !t.ref()->has<HealthPickup>())
+			t.ref()->hit(entity());
 
 		if (t.ref() && t.ref()->has<RigidBody>()) // is it still around and does it have a rigidbody?
 		{
@@ -296,26 +314,12 @@ void Awk::hit_target(Entity* target)
 		}
 	}
 
-	if (invincible_timer > 0.0f && target->has<Awk>())
+	if (!snipe && invincible_timer > 0.0f && target->has<Awk>())
 	{
 		invincible_timer = 0.0f; // damaging an Awk takes our shield down
 		if (target->has<LocalPlayerControl>()) // let them know they our shield is down
 			target->get<LocalPlayerControl>()->player.ref()->msg(_(strings::target_shield_down), true);
 	}
-
-	Vec3 pos;
-	Quat rot;
-	get<Transform>()->absolute(&pos, &rot);
-	for (s32 i = 0; i < 50; i++)
-	{
-		Particles::sparks.add
-		(
-			pos,
-			rot * Vec3(mersenne::randf_oo() * 2.0f - 1.0f, mersenne::randf_oo() * 2.0f - 1.0f, mersenne::randf_oo()) * 10.0f,
-			Vec4(1, 1, 1, 1)
-		);
-	}
-	World::create<ShockwaveEntity>(8.0f, 1.5f)->get<Transform>()->absolute_pos(pos);
 
 	// award credits for hitting stuff
 	if (target->has<MinionAI>())
@@ -325,7 +329,7 @@ void Awk::hit_target(Entity* target)
 			PlayerManager* owner = target->get<MinionCommon>()->owner.ref();
 			if (owner)
 			{
-				owner->team.ref()->track(get<PlayerCommon>()->manager.ref(), owner);
+				owner->team.ref()->track(get<PlayerCommon>()->manager.ref());
 				s32 diff = owner->add_credits(-CREDITS_MINION);
 				get<PlayerCommon>()->manager.ref()->add_credits(-diff);
 			}
@@ -356,20 +360,28 @@ void Awk::hit_target(Entity* target)
 b8 Awk::predict_intersection(const Target* target, Vec3* intersection) const
 {
 	Vec3 target_pos = target->absolute_pos();
-	Vec3 target_velocity;
-	if (target->has<Awk>())
-		target->get<Awk>()->calculated_velocity();
-	else
-		target_velocity = target->get<RigidBody>()->btBody->getInterpolationLinearVelocity();
-	Vec3 to_target = target_pos - get<Transform>()->absolute_pos();
-	r32 intersect_time_squared = to_target.dot(to_target) / ((AWK_FLY_SPEED * AWK_FLY_SPEED) - 2.0f * to_target.dot(target_velocity) - target_velocity.dot(target_velocity));
-	if (intersect_time_squared > 0.0f)
+	if (snipe) // instant bullet travel time
 	{
-		*intersection = target_pos + target_velocity * sqrtf(intersect_time_squared);
+		*intersection = target_pos;
 		return true;
 	}
 	else
-		return false;
+	{
+		Vec3 target_velocity;
+		if (target->has<Awk>())
+			target->get<Awk>()->calculated_velocity();
+		else
+			target_velocity = target->get<RigidBody>()->btBody->getInterpolationLinearVelocity();
+		Vec3 to_target = target_pos - get<Transform>()->absolute_pos();
+		r32 intersect_time_squared = to_target.dot(to_target) / ((AWK_FLY_SPEED * AWK_FLY_SPEED) - 2.0f * to_target.dot(target_velocity) - target_velocity.dot(target_velocity));
+		if (intersect_time_squared > 0.0f)
+		{
+			*intersection = target_pos + target_velocity * sqrtf(intersect_time_squared);
+			return true;
+		}
+		else
+			return false;
+	}
 }
 
 void Awk::damaged(const DamageEvent& e)
@@ -462,21 +474,42 @@ b8 Awk::can_go(const Vec3& dir, Vec3* final_pos, b8* hit_target) const
 	}
 
 	Vec3 trace_start = center();
-	Vec3 trace_end = trace_start + trace_dir * AWK_MAX_DISTANCE;
+	Vec3 trace_end = trace_start + trace_dir * (snipe ? AWK_SNIPE_DISTANCE : AWK_MAX_DISTANCE);
 
 	AwkRaycastCallback ray_callback(trace_start, trace_end, entity());
 	Physics::raycast(&ray_callback, ~CollisionAwkIgnore & ~ally_containment_field_mask());
 
-	if (ray_callback.hasHit() && !(ray_callback.m_collisionObject->getBroadphaseHandle()->m_collisionFilterGroup & (AWK_INACCESSIBLE_MASK & ~CollisionShield)))
+	if (snipe)
 	{
-		if (final_pos)
-			*final_pos = ray_callback.m_hitPointWorld;
-		if (hit_target)
-			*hit_target = ray_callback.hit_target();
-		return true;
+		if (ray_callback.hasHit())
+		{
+			if (final_pos)
+				*final_pos = ray_callback.m_hitPointWorld;
+			if (hit_target)
+				*hit_target = ray_callback.hit_target();
+		}
+		else
+		{
+			if (final_pos)
+				*final_pos = trace_end;
+			if (hit_target)
+				*hit_target = false;
+		}
+		return true; // we can always snipe, even if the bullet goes into space
 	}
 	else
-		return false;
+	{
+		if (ray_callback.hasHit() && !(ray_callback.m_collisionObject->getBroadphaseHandle()->m_collisionFilterGroup & (AWK_INACCESSIBLE_MASK & ~CollisionShield)))
+		{
+			if (final_pos)
+				*final_pos = ray_callback.m_hitPointWorld;
+			if (hit_target)
+				*hit_target = ray_callback.hit_target();
+			return true;
+		}
+		else
+			return false;
+	}
 }
 
 void Awk::detach_teleport()
@@ -499,7 +532,7 @@ void Awk::detach_teleport()
 
 b8 Awk::dash_start(const Vec3& dir)
 {
-	if (state() != State::Crawl)
+	if (state() != State::Crawl || snipe)
 		return false;
 
 	if (!direction_is_toward_attached_wall(dir))
@@ -538,20 +571,59 @@ b8 Awk::detach(const Vec3& dir)
 	if (cooldown_can_go() && stun_timer == 0.0f)
 	{
 		Vec3 dir_normalized = Vec3::normalize(dir);
-		velocity = dir_normalized * AWK_FLY_SPEED;
-		get<Transform>()->absolute_pos(center() + dir_normalized * AWK_RADIUS * 0.5f);
-		get<Transform>()->absolute_rot(Quat::look(dir_normalized));
+		if (snipe)
+		{
+			hit_targets.length = 0;
 
-		get<Audio>()->post_event(has<LocalPlayerControl>() ? AK::EVENTS::PLAY_LAUNCH_PLAYER : AK::EVENTS::PLAY_LAUNCH);
+			cooldown = AWK_MAX_DISTANCE_COOLDOWN;
 
-		detach_teleport();
+			Vec3 pos = center();
+			Vec3 ray_start = pos + dir_normalized * -AWK_RADIUS;
+			Vec3 ray_end = pos + dir_normalized * AWK_SNIPE_DISTANCE;
+			velocity = dir_normalized * AWK_FLY_SPEED;
+			movement_raycast(ray_start, ray_end);
+
+			const r32 interval = 2.0f;
+			s32 particle_count = AWK_SNIPE_DISTANCE / interval;
+			Vec3 interval_pos = dir_normalized * interval;
+			for (s32 i = 0; i < particle_count; i++)
+			{
+				pos += interval_pos;
+				Particles::tracers.add
+				(
+					pos,
+					Vec3::zero,
+					0
+				);
+			}
+
+			// everyone instantly knows where we are
+			AI::Team team = get<AIAgent>()->team;
+			for (s32 i = 0; i < Team::list.length; i++)
+			{
+				if (Team::list[i].team() != team)
+					Team::list[i].track(get<PlayerCommon>()->manager.ref());
+			}
+
+			snipe = false;
+		}
+		else
+		{
+			velocity = dir_normalized * AWK_FLY_SPEED;
+			get<Transform>()->absolute_pos(center() + dir_normalized * AWK_RADIUS * 0.5f);
+			get<Transform>()->absolute_rot(Quat::look(dir_normalized));
+
+			get<Audio>()->post_event(has<LocalPlayerControl>() ? AK::EVENTS::PLAY_LAUNCH_PLAYER : AK::EVENTS::PLAY_LAUNCH);
+
+			detach_teleport();
+		}
 
 		return true;
 	}
 	return false;
 }
 
-void Awk::reflect(const Vec3& hit, const Vec3& normal, const Update& u)
+void Awk::reflect(const Vec3& hit, const Vec3& normal)
 {
 	// it's possible to reflect off a shield while we are dashing (still parented to an object)
 	// so we need to make sure we're not dashing anymore
@@ -1097,93 +1169,115 @@ void Awk::update(const Update& u)
 				Vec3 dir = Vec3::normalize(velocity);
 				Vec3 ray_start = position + dir * -AWK_RADIUS;
 				Vec3 ray_end = next_position + dir * AWK_RADIUS;
-				btCollisionWorld::AllHitsRayResultCallback ray_callback(ray_start, ray_end);
-				ray_callback.m_flags = btTriangleRaycastCallback::EFlags::kF_FilterBackfaces
-					| btTriangleRaycastCallback::EFlags::kF_KeepUnflippedNormal;
-				ray_callback.m_collisionFilterMask = ray_callback.m_collisionFilterGroup = btBroadphaseProxy::AllFilter;
-
-				Physics::btWorld->rayTest(ray_start, ray_end, ray_callback);
-
-				// determine which ray collision is the one we stop at
-				r32 fraction_end = 2.0f;
-				s32 index_end = -1;
-				for (s32 i = 0; i < ray_callback.m_collisionObjects.size(); i++)
-				{
-					if (ray_callback.m_hitFractions[i] < fraction_end)
-					{
-						short group = ray_callback.m_collisionObjects[i]->getBroadphaseHandle()->m_collisionFilterGroup;
-						Entity* entity = &Entity::list[ray_callback.m_collisionObjects[i]->getUserIndex()];
-
-						b8 stop = false;
-						if ((entity->has<Awk>() && (group & CollisionShield))) // it's an AWK shield
-						{
-							if (entity->get<Awk>()->state() != Awk::State::Crawl) // it's flying or dashing; always bounce off
-								stop = true;
-							else if (entity->get<Health>()->hp > 1)
-								stop = true; // they have shield to spare; we'll bounce off the shield
-						}
-						else if (!(group & (AWK_PERMEABLE_MASK | CollisionWalker | CollisionTeamAContainmentField | CollisionTeamBContainmentField)))
-							stop = true; // we can't go through it
-
-						if (stop)
-						{
-							// stop raycast here
-							fraction_end = ray_callback.m_hitFractions[i];
-							index_end = i;
-						}
-					}
-				}
-
-				for (s32 i = 0; i < ray_callback.m_collisionObjects.size(); i++)
-				{
-					if (i == index_end || ray_callback.m_hitFractions[i] < fraction_end)
-					{
-						s16 group = ray_callback.m_collisionObjects[i]->getBroadphaseHandle()->m_collisionFilterGroup;
-						if (group & CollisionWalker)
-						{
-							Entity* t = &Entity::list[ray_callback.m_collisionObjects[i]->getUserIndex()];
-							if (t->has<MinionCommon>() && t->get<MinionCommon>()->headshot_test(ray_start, ray_end))
-								hit_target(t);
-						}
-						else if (group & CollisionInaccessible)
-						{
-							// this shouldn't happen, but if it does, bounce off
-							if (s == State::Fly)
-								reflect(ray_callback.m_hitPointWorld[i], ray_callback.m_hitNormalWorld[i], u);
-						}
-						else if (group & (CollisionTarget | CollisionShield))
-						{
-							Ref<Entity> hit = &Entity::list[ray_callback.m_collisionObjects[i]->getUserIndex()];
-							if (hit.ref() != entity())
-							{
-								hit_target(hit.ref());
-								if (group & CollisionShield)
-								{
-									// if we didn't destroy the shield, then bounce off it
-									if (hit.ref() && hit.ref()->get<Health>()->hp > 0)
-										reflect(ray_callback.m_hitPointWorld[i], ray_callback.m_hitNormalWorld[i], u);
-								}
-							}
-						}
-						else if (group & (CollisionTeamAContainmentField | CollisionTeamBContainmentField | CollisionAwkIgnore))
-						{
-							// ignore
-						}
-						else if (s == State::Fly)
-						{
-							// we hit a normal surface; attach to it
-							Entity* entity = &Entity::list[ray_callback.m_collisionObjects[i]->getUserIndex()];
-							get<Transform>()->parent = entity->get<Transform>();
-							next_position = ray_callback.m_hitPointWorld[i] + ray_callback.m_hitNormalWorld[i] * AWK_RADIUS;
-							get<Transform>()->absolute(next_position, Quat::look(ray_callback.m_hitNormalWorld[i]));
-
-							finish_flying();
-						}
-					}
-				}
+				movement_raycast(ray_start, ray_end);
 			}
 			cooldown = vi_min(cooldown + (next_position - position).length() * AWK_COOLDOWN_DISTANCE_RATIO, AWK_MAX_DISTANCE_COOLDOWN);
 			cooldown_total = cooldown;
+		}
+	}
+}
+
+void Awk::movement_raycast(const Vec3& ray_start, const Vec3& ray_end)
+{
+	btCollisionWorld::AllHitsRayResultCallback ray_callback(ray_start, ray_end);
+	ray_callback.m_flags = btTriangleRaycastCallback::EFlags::kF_FilterBackfaces
+		| btTriangleRaycastCallback::EFlags::kF_KeepUnflippedNormal;
+	ray_callback.m_collisionFilterMask = ray_callback.m_collisionFilterGroup = btBroadphaseProxy::AllFilter;
+
+	Physics::btWorld->rayTest(ray_start, ray_end, ray_callback);
+
+	// determine which ray collision is the one we stop at
+	r32 fraction_end = 2.0f;
+	s32 index_end = -1;
+	for (s32 i = 0; i < ray_callback.m_collisionObjects.size(); i++)
+	{
+		if (ray_callback.m_hitFractions[i] < fraction_end)
+		{
+			short group = ray_callback.m_collisionObjects[i]->getBroadphaseHandle()->m_collisionFilterGroup;
+			Entity* entity = &Entity::list[ray_callback.m_collisionObjects[i]->getUserIndex()];
+
+			b8 stop = false;
+			if ((entity->has<Awk>() && (group & CollisionShield))) // it's an AWK shield
+			{
+				if (entity->get<Awk>()->state() != Awk::State::Crawl) // it's flying or dashing; always bounce off
+					stop = true;
+				else if (entity->get<Health>()->hp > 1)
+					stop = true; // they have shield to spare; we'll bounce off the shield
+			}
+			else if (!(group & (AWK_PERMEABLE_MASK | CollisionWalker | CollisionAllTeamsContainmentField)))
+			{
+				stop = true; // we can't go through it
+				if (snipe) // we just shot at a wall; spawn some particles
+				{
+					Quat rot = Quat::look(ray_callback.m_hitNormalWorld[i]);
+					for (s32 j = 0; j < 50; j++)
+					{
+						Particles::sparks.add
+						(
+							ray_callback.m_hitPointWorld[i],
+							rot * Vec3(mersenne::randf_oo() * 2.0f - 1.0f, mersenne::randf_oo() * 2.0f - 1.0f, mersenne::randf_oo()) * 10.0f,
+							Vec4(1, 1, 1, 1)
+						);
+					}
+				}
+			}
+
+			if (stop)
+			{
+				// stop raycast here
+				fraction_end = ray_callback.m_hitFractions[i];
+				index_end = i;
+			}
+		}
+	}
+
+	State s = state();
+
+	for (s32 i = 0; i < ray_callback.m_collisionObjects.size(); i++)
+	{
+		if (i == index_end || ray_callback.m_hitFractions[i] < fraction_end)
+		{
+			s16 group = ray_callback.m_collisionObjects[i]->getBroadphaseHandle()->m_collisionFilterGroup;
+			if (group & CollisionWalker)
+			{
+				Entity* t = &Entity::list[ray_callback.m_collisionObjects[i]->getUserIndex()];
+				if (t->has<MinionCommon>() && t->get<MinionCommon>()->headshot_test(ray_start, ray_end))
+					hit_target(t, t->get<MinionCommon>()->head_pos());
+			}
+			else if (group & CollisionInaccessible)
+			{
+				// this shouldn't happen, but if it does, bounce off
+				if (s == State::Fly)
+					reflect(ray_callback.m_hitPointWorld[i], ray_callback.m_hitNormalWorld[i]);
+			}
+			else if (group & (CollisionTarget | CollisionShield))
+			{
+				Ref<Entity> hit = &Entity::list[ray_callback.m_collisionObjects[i]->getUserIndex()];
+				if (hit.ref() != entity())
+				{
+					hit_target(hit.ref(), hit.ref()->get<Transform>()->absolute_pos());
+					if (group & CollisionShield)
+					{
+						// if we didn't destroy the shield, then bounce off it
+						if (s != State::Crawl && hit.ref() && hit.ref()->get<Health>()->hp > 0)
+							reflect(ray_callback.m_hitPointWorld[i], ray_callback.m_hitNormalWorld[i]);
+					}
+				}
+			}
+			else if (group & (CollisionAllTeamsContainmentField | CollisionAwkIgnore))
+			{
+				// ignore
+			}
+			else if (s == State::Fly)
+			{
+				// we hit a normal surface; attach to it
+				Entity* entity = &Entity::list[ray_callback.m_collisionObjects[i]->getUserIndex()];
+				get<Transform>()->parent = entity->get<Transform>();
+				Vec3 next_position = ray_callback.m_hitPointWorld[i] + ray_callback.m_hitNormalWorld[i] * AWK_RADIUS;
+				get<Transform>()->absolute(next_position, Quat::look(ray_callback.m_hitNormalWorld[i]));
+
+				finish_flying();
+			}
 		}
 	}
 }

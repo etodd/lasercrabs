@@ -354,7 +354,7 @@ b8 MinionAI::can_see(Entity* target, b8 limit_vision_cone) const
 		if (!limit_vision_cone || diff.dot(get<Walker>()->forward()) > 0.707f)
 		{
 			btCollisionWorld::ClosestRayResultCallback ray_callback(pos, target_pos);
-			Physics::raycast(&ray_callback, (btBroadphaseProxy::StaticFilter | CollisionInaccessible | CollisionTeamAContainmentField | CollisionTeamBContainmentField) & ~Team::containment_field_mask(get<AIAgent>()->team));
+			Physics::raycast(&ray_callback, (btBroadphaseProxy::StaticFilter | CollisionInaccessible | CollisionAllTeamsContainmentField) & ~Team::containment_field_mask(get<AIAgent>()->team));
 			if (!ray_callback.hasHit())
 				return true;
 		}

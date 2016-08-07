@@ -22,6 +22,7 @@ struct DamageEvent;
 #define AWK_COOLDOWN_DISTANCE_RATIO (AWK_MAX_DISTANCE_COOLDOWN / AWK_MAX_DISTANCE)
 #define AWK_LEGS 3
 #define AWK_INVINCIBLE_TIME 5.0f
+#define AWK_SNIPE_DISTANCE 100.0f
 
 // If we raycast through a Minion's head, keep going.
 struct AwkRaycastCallback : btCollisionWorld::ClosestRayResultCallback
@@ -75,9 +76,10 @@ struct Awk : public ComponentType<Awk>
 	Quat lerped_rotation;
 	Vec3 last_pos;
 	Ref<Entity> shield;
-	b8 disable_cooldown_skip;
 	r32 particle_accumulator;
 	r32 dash_timer;
+	b8 disable_cooldown_skip;
+	b8 snipe;
 
 	Awk();
 	void awake();
@@ -88,7 +90,7 @@ struct Awk : public ComponentType<Awk>
 	b8 dash_start(const Vec3&);
 	b8 cooldown_can_go() const; // can we go?
 	void hit_by(const TargetEvent&); // called when we get hit
-	void hit_target(Entity*); // called when we hit a target
+	void hit_target(Entity*, const Vec3&); // called when we hit a target
 	void damaged(const DamageEvent&);
 	void killed(Entity*);
 	Entity* incoming_attacker() const;
@@ -99,7 +101,7 @@ struct Awk : public ComponentType<Awk>
 
 	void stealth(b8);
 
-	void reflect(const Vec3&, const Vec3&, const Update&);
+	void reflect(const Vec3&, const Vec3&);
 	void crawl_wall_edge(const Vec3&, const Vec3&, const Update&, r32);
 	b8 transfer_wall(const Vec3&, const btCollisionWorld::ClosestRayResultCallback&);
 	void move(const Vec3&, const Quat&, const ID);
@@ -121,6 +123,8 @@ struct Awk : public ComponentType<Awk>
 	b8 direction_is_toward_attached_wall(const Vec3&) const;
 	b8 can_go(const Vec3&, Vec3* = nullptr, b8* = nullptr) const;
 	b8 can_hit(const Target*, Vec3* = nullptr) const;
+
+	void movement_raycast(const Vec3&, const Vec3&);
 
 	void update(const Update&);
 };

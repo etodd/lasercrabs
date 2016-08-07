@@ -25,8 +25,7 @@ struct PlayerManager;
 #define GAME_TIME_LIMIT ((60.0f * 10.0f) + PLAYER_SPAWN_DELAY)
 #define GAME_BUY_PERIOD (10.0f + PLAYER_SPAWN_DELAY)
 #define CREDITS_INITIAL 60
-#define CREDITS_DETECT 10
-#define CREDITS_MINION (10 + CREDITS_DETECT)
+#define CREDITS_MINION 10
 #define CREDITS_SENSOR_DESTROY 10
 #define CREDITS_CONTAINMENT_FIELD_DESTROY 10
 #define CREDITS_DAMAGE 15
@@ -36,15 +35,13 @@ struct PlayerManager;
 
 #define UPGRADE_TIME 1.5f
 
-// if the ability cooldown is lower than this, we can use the ability
-// we should flash the ability icon during this time to indicate the ability is now usable
-
 enum class Ability
 {
 	Sensor,
 	Rocket,
 	Minion,
 	ContainmentField,
+	Sniper,
 	count,
 	None = count,
 };
@@ -63,6 +60,7 @@ enum class Upgrade
 	Rocket,
 	Minion,
 	ContainmentField,
+	Sniper,
 	HealthSteal,
 	HealthBuff,
 	count,
@@ -132,7 +130,7 @@ struct Team
 
 	Team();
 	b8 has_player() const;
-	void track(PlayerManager*, PlayerManager*);
+	void track(PlayerManager*);
 
 	static void update_all(const Update&);
 
@@ -157,19 +155,14 @@ struct PlayerManager
 
 	static PinArray<PlayerManager, MAX_PLAYERS> list;
 
-	u16 hp_start;
 	r32 spawn_timer;
 	Revision revision;
-	char username[255];
-	u16 credits;
 	r32 credits_flash_timer;
-	b8 score_accepted;
 	Ref<Team> team;
 	Ref<Entity> entity;
 	Link spawn;
 	u32 upgrades;
 	Ability abilities[MAX_ABILITIES];
-	b8 has_upgrade(Upgrade) const;
 	r32 spawn_ability_timer;
 	r32 upgrade_timer;
 	Ability current_spawn_ability;
@@ -178,7 +171,13 @@ struct PlayerManager
 	LinkArg<Ability> ability_spawn_canceled;
 	LinkArg<Upgrade> upgrade_completed;
 	StaticArray<RatingItem, 8> rating_summary;
+	r32 particle_accumulator;
+	u16 hp_start;
+	u16 credits;
+	char username[255];
+	b8 score_accepted;
 
+	b8 has_upgrade(Upgrade) const;
 	b8 is_local() const;
 	s32 ability_count() const;
 	b8 ability_spawn_start(Ability);

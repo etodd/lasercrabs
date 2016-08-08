@@ -27,7 +27,7 @@ AIPlayer::Config::Config()
 	inaccuracy_range(PI * 0.01f),
 	cooldown_skip_chance(0.1f),
 	aim_timeout(2.0f),
-	aim_speed(4.0f),
+	aim_speed(3.0f),
 	upgrade_priority
 	{
 		Upgrade::Minion,
@@ -409,66 +409,93 @@ b8 AIPlayerControl::aim_and_shoot(const Update& u, const Vec3& path_node, const 
 	PlayerCommon* common = get<PlayerCommon>();
 
 	b8 can_move = common->movement_enabled();
+
+	b8 dashing = false;
+
+	{
+		// crawling
+
+		Vec3 pos = get<Awk>()->center();
+		Vec3 diff = target - pos;
+		r32 distance_to_target = diff.length();
+		if (distance_to_target < AWK_RADIUS * 1.5f)
+		{
+			// we're already there
+			awk_done_flying_or_dashing();
+			return true;
+		}
+
+		// crawling
+		if (can_move)
+		{
+			Vec3 to_target = diff / distance_to_target;
+
+			if (get<Awk>()->direction_is_toward_attached_wall(to_target))
+			{
+				// we're gonna be crawling and dashing there
+				get<Awk>()->crawl(to_target, u);
+				dashing = true;
+			}
+			else
+			{
+				b8 could_go_before_crawling;
+				{
+					Vec3 hit;
+					could_go_before_crawling = get<Awk>()->can_go(to_target, &hit);
+					if (could_go_before_crawling)
+					{
+						// we can go generally toward the target
+						if (tolerance > 0.0f && (hit - target).length_squared() > tolerance * tolerance) // make sure we would actually land at the right spot
+							could_go_before_crawling = false;
+					}
+				}
+
+				if (could_go_before_crawling)
+				{
+					// try to crawl toward the target
+					Vec3 old_pos;
+					Quat old_rot;
+					get<Transform>()->absolute(&old_pos, &old_rot);
+					ID old_parent = get<Transform>()->parent.ref()->entity_id;
+					get<Awk>()->crawl(to_target, u);
+
+					Vec3 new_pos = get<Transform>()->absolute_pos();
+
+					b8 revert = false;
+
+					if (could_go_before_crawling)
+					{
+						revert = true;
+						Vec3 hit;
+						if (get<Awk>()->can_go(Vec3::normalize(target - new_pos), &hit))
+						{
+							// we can go generally toward the target
+							// now make sure we're actually going to land at the right spot
+							if (tolerance < 0.0f // don't worry about where we land
+								|| (hit - target).length_squared() < tolerance * tolerance) // check the tolerance
+								revert = false;
+						}
+					}
+
+					if (revert)
+						get<Awk>()->move(old_pos, old_rot, old_parent); // revert the crawling we just did
+				}
+				else
+				{
+					// we can't currently get to the target
+					// crawl toward our current path node in an attempt to get a clear shot
+					get<Awk>()->crawl(path_node - get<Transform>()->absolute_pos(), u);
+				}
+			}
+		}
+	}
+
+	// shooting / dashing
+
 	b8 can_shoot = can_move && (get<Awk>()->cooldown == 0.0f || (cooldown_skip && get<Awk>()->cooldown_can_go()));
 
 	if (can_shoot)
 		aim_timer += u.time.delta;
-
-	// crawling
-	if (can_move)
-	{
-		Vec3 pos = get<Awk>()->center();
-		Vec3 to_target = Vec3::normalize(target - pos);
-
-		b8 could_go_before_crawling;
-		{
-			Vec3 hit;
-			could_go_before_crawling = get<Awk>()->can_go(to_target, &hit);
-			if (could_go_before_crawling)
-			{
-				// we can go generally toward the target
-				if (tolerance > 0.0f && (hit - target).length_squared() > tolerance * tolerance) // make sure we would actually land at the right spot
-					could_go_before_crawling = false;
-			}
-		}
-
-		if (could_go_before_crawling)
-		{
-			// try to crawl toward the target
-			Vec3 old_pos;
-			Quat old_rot;
-			get<Transform>()->absolute(&old_pos, &old_rot);
-			ID old_parent = get<Transform>()->parent.ref()->entity_id;
-			get<Awk>()->crawl(to_target, u);
-
-			Vec3 new_pos = get<Transform>()->absolute_pos();
-
-			b8 revert = false;
-
-			if (could_go_before_crawling)
-			{
-				revert = true;
-				Vec3 hit;
-				if (get<Awk>()->can_go(Vec3::normalize(target - new_pos), &hit))
-				{
-					// we can go generally toward the target
-					// now make sure we're actually going to land at the right spot
-					if (tolerance < 0.0f // don't worry about where we land
-						|| (hit - target).length_squared() < tolerance * tolerance) // check the tolerance
-						revert = false;
-				}
-			}
-
-			if (revert)
-				get<Awk>()->move(old_pos, old_rot, old_parent); // revert the crawling we just did
-		}
-		else
-		{
-			// we can't currently get to the target
-			// crawl toward our current path node in an attempt to get a clear shot
-			get<Awk>()->crawl(path_node - get<Transform>()->absolute_pos(), u);
-		}
-	}
 
 	Vec3 pos = get<Awk>()->center();
 	Vec3 to_target = Vec3::normalize(target - pos);
@@ -538,15 +565,27 @@ b8 AIPlayerControl::aim_and_shoot(const Update& u, const Vec3& path_node, const 
 		if (aim_lined_up)
 		{
 			Vec3 look_dir = common->look_dir();
-			Vec3 hit;
-			if (get<Awk>()->can_go(look_dir, &hit))
+			if (dashing)
 			{
-				// make sure we're actually going to land at the right spot
-				if (tolerance < 0.0f // don't worry about where we land
-					|| (hit - target).length_squared() < tolerance * tolerance) // check the tolerance
+				// don't dash around corners or anything; only dash toward coplanar points
+				if (fabs(look_dir.dot(get<Transform>()->absolute_rot() * Vec3(0, 0, 1))) < 0.1)
 				{
-					if (get<Awk>()->detach(look_dir))
+					if (get<Awk>()->dash_start(look_dir))
 						return true;
+				}
+			}
+			else
+			{
+				Vec3 hit;
+				if (get<Awk>()->can_go(look_dir, &hit))
+				{
+					// make sure we're actually going to land at the right spot
+					if (tolerance < 0.0f // don't worry about where we land
+						|| (hit - target).length_squared() < tolerance * tolerance) // check the tolerance
+					{
+						if (get<Awk>()->detach(look_dir))
+							return true;
+					}
 				}
 			}
 		}
@@ -1033,7 +1072,7 @@ void Find::run()
 			r32 distance = (memory[i].pos - pos).length_squared();
 			if (distance < closest_distance)
 			{
-				if (!control->in_range(memory[i].pos, VISIBLE_RANGE) || (memory[i].entity.ref() && filter(control, memory[i].entity.ref())))
+				if (memory[i].entity.ref() && filter(control, memory[i].entity.ref()))
 				{
 					closest_distance = distance;
 					closest = &memory[i];

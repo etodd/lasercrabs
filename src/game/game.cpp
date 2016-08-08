@@ -441,7 +441,7 @@ void Game::draw_alpha(const RenderParams& render_params)
 			for (s32 j = 0; j < ai->path.length; j++)
 			{
 				Vec2 p;
-				if (UI::project(render_params, ai->path[j], &p))
+				if (UI::project(render_params, ai->path[j].pos, &p))
 				{
 					text.text("%d", j);
 					text.draw(render_params, p);

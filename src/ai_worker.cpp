@@ -126,20 +126,25 @@ AwkNavMeshNode awk_closest_point(const Vec3& p, const Vec3& normal)
 					if (adjacency.length > 0) // ignore orphans
 					{
 						const Vec3& vertex = chunk.vertices[vertex_index];
-						r32 distance = (vertex - p).length_squared();
-						if (distance < closest_distance)
+						const Vec3& normal = chunk.normals[vertex_index];
+						Vec3 to_vertex = vertex - p;
+						if (to_vertex.dot(normal) < 0.0f)
 						{
-							const Vec3& vertex_normal = chunk.normals[vertex_index];
-							if (ignore_normals || normal.dot(vertex_normal) > 0.8f) // make sure it's roughly facing the right way
+							r32 distance = to_vertex.length_squared();
+							if (distance < closest_distance)
 							{
-								closest_distance = distance;
-								closest = { (u16)chunk_index, (u16)vertex_index };
-								found = true;
-							}
-							else if (!found) // the normal is wrong, but we'll use it in an emergency
-							{
-								closest = { (u16)chunk_index, (u16)vertex_index };
-								found = true;
+								const Vec3& vertex_normal = chunk.normals[vertex_index];
+								if (ignore_normals || normal.dot(vertex_normal) > 0.8f) // make sure it's roughly facing the right way
+								{
+									closest_distance = distance;
+									closest = { (u16)chunk_index, (u16)vertex_index };
+									found = true;
+								}
+								else if (!found) // the normal is wrong, but we'll use it in an emergency
+								{
+									closest = { (u16)chunk_index, (u16)vertex_index };
+									found = true;
+								}
 							}
 						}
 					}
@@ -155,6 +160,7 @@ AwkNavMeshNode awk_closest_point(const Vec3& p, const Vec3& normal)
 b8 can_hit_from(AwkNavMeshNode start_vertex, const Vec3& target, r32 dot_threshold, r32* closest_dot = nullptr)
 {
 	const Vec3& start = awk_nav_mesh.chunks[start_vertex.chunk].vertices[start_vertex.vertex];
+	const Vec3& start_normal = awk_nav_mesh.chunks[start_vertex.chunk].normals[start_vertex.vertex];
 	Vec3 to_target = target - start;
 	r32 target_distance_squared = to_target.length_squared();
 	to_target /= sqrtf(target_distance_squared); // normalize
@@ -166,16 +172,19 @@ b8 can_hit_from(AwkNavMeshNode start_vertex, const Vec3& target, r32 dot_thresho
 		const Vec3& adjacent = awk_nav_mesh.chunks[adjacent_vertex.chunk].vertices[adjacent_vertex.vertex];
 
 		Vec3 to_adjacent = adjacent - start;
-		r32 adjacent_distance_squared = to_adjacent.length_squared();
-		if (adjacent_distance_squared > target_distance_squared) // make sure the target is in between us and the adjacent vertex
+		if (to_adjacent.dot(start_normal) > 0.07f) // must not be a neighbor for crawling (co-planar or around a corner)
 		{
-			to_adjacent /= sqrtf(adjacent_distance_squared); // normalize
-			r32 dot = to_adjacent.dot(to_target);
-			if (dot > dot_threshold) // make sure the target is lined up with us and the adjacent vertex
+			r32 adjacent_distance_squared = to_adjacent.length_squared();
+			if (adjacent_distance_squared > target_distance_squared) // make sure the target is in between us and the adjacent vertex
 			{
-				if (closest_dot)
-					*closest_dot = dot;
-				return true;
+				to_adjacent /= sqrtf(adjacent_distance_squared); // normalize
+				r32 dot = to_adjacent.dot(to_target);
+				if (dot > dot_threshold) // make sure the target is lined up with us and the adjacent vertex
+				{
+					if (closest_dot)
+						*closest_dot = dot;
+					return true;
+				}
 			}
 		}
 	}

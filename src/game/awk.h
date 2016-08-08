@@ -15,7 +15,6 @@ struct DamageEvent;
 
 #define AWK_HEALTH 4
 #define AWK_FLY_SPEED 45.0f
-#define AWK_DASH_SPEED 20.0f
 #define AWK_CRAWL_SPEED 1.5f
 #define AWK_MIN_COOLDOWN 0.75f
 #define AWK_MAX_DISTANCE_COOLDOWN 2.0f

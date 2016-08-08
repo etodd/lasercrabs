@@ -12,6 +12,9 @@ struct rcPolyMeshDetail;
 namespace VI
 {
 
+#define AWK_DASH_SPEED 20.0f
+#define AWK_DASH_TIME 0.3f
+#define AWK_DASH_DISTANCE (AWK_DASH_SPEED * AWK_DASH_TIME)
 #define AWK_MAX_DISTANCE 25.0f
 #define AWK_RADIUS 0.2f
 #define AWK_RUN_RADIUS 10.0f

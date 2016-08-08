@@ -61,8 +61,8 @@ namespace VI
 		},
 		{
 			Asset::Mesh::icon_sniper,
-			0.75f,
-			15,
+			0.5f,
+			10,
 		},
 	};
 

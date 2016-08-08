@@ -1312,7 +1312,7 @@ b8 import_meshes(ImporterState& state, const std::string& asset_in_path, const s
 
 			if (load_mesh(ai_mesh, mesh))
 			{
-				printf("%s Indices: %d Vertices: %d\n", mesh_name.c_str(), mesh->indices.length, mesh->vertices.length);
+				printf("%s\n", mesh_out_filename.c_str());
 
 				Array<Array<Vec2>> uv_layers;
 				for (s32 j = 0; j < 8; j++)
@@ -1528,7 +1528,7 @@ b8 import_level_meshes(ImporterState& state, const std::string& asset_in_path, c
 
 			if (load_mesh(ai_mesh, mesh))
 			{
-				printf("%s Indices: %d Vertices: %d\n", mesh_name.c_str(), mesh->indices.length, mesh->vertices.length);
+				printf("%s\n", mesh_out_filename.c_str());
 
 				Array<Array<Vec2>> uv_layers;
 				for (s32 j = 0; j < 8; j++)
@@ -2307,6 +2307,8 @@ void build_awk_nav_mesh(Map<Mesh>& meshes, cJSON* json, AwkNavMesh* out, s32* ad
 	*adjacency_buffer_overflows = 0;
 
 	Array<AwkNavMeshNode> potential_neighbors;
+	Array<AwkNavMeshNode> potential_crawl_neighbors;
+	Array<AwkNavMeshNode> filtered_crawl_neighbors;
 	for (s32 chunk_index = 0; chunk_index < out->chunks.length; chunk_index++)
 	{
 		AwkNavMeshChunk* chunk = &out->chunks[chunk_index];
@@ -2317,8 +2319,11 @@ void build_awk_nav_mesh(Map<Mesh>& meshes, cJSON* json, AwkNavMesh* out, s32* ad
 			const Vec3& vertex_normal = chunk->normals[vertex_index];
 			const Vec3 vertex_surface = chunk->vertices[vertex_index];
 			const Vec3 vertex = vertex_surface + vertex_normal * AWK_RADIUS;
+			AwkNavMeshAdjacency* vertex_adjacency = &chunk->adjacency[vertex_index];
 
 			potential_neighbors.length = 0;
+			potential_crawl_neighbors.length = 0;
+			filtered_crawl_neighbors.length = 0;
 
 			// visit neighbors
 			AwkNavMesh::Coord chunk_coord = out->coord(chunk_index);
@@ -2345,6 +2350,7 @@ void build_awk_nav_mesh(Map<Mesh>& meshes, cJSON* json, AwkNavMesh* out, s32* ad
 							Vec3 to_neighbor = neighbor - vertex;
 							if (vertex_normal.dot(to_neighbor) > 0.07f)
 							{
+								// neighbor is in front of our surface; we might be able to shoot there
 								r32 distance_squared = to_neighbor.length_squared();
 								if (distance_squared < (AWK_MAX_DISTANCE - AWK_RADIUS) * (AWK_MAX_DISTANCE - AWK_RADIUS)
 									&& distance_squared > (AWK_RADIUS * 2.0f) * (AWK_RADIUS * 2.0f))
@@ -2358,38 +2364,199 @@ void build_awk_nav_mesh(Map<Mesh>& meshes, cJSON* json, AwkNavMesh* out, s32* ad
 									}
 								}
 							}
+							else
+							{
+								// neighbor is co-planar or behind our surface; we might be able to crawl there
+								r32 distance_squared = to_neighbor.length_squared();
+								if (distance_squared < (grid_spacing * 2.0f) * (grid_spacing * 2.0f))
+									potential_crawl_neighbors.add(neighbor_node);
+							}
 						}
 					}
 				}
 			}
 
-			// shuffle potential neighbors
-			for (s32 i = 0; i < potential_neighbors.length - 1; i++)
 			{
-				s32 j = i + mersenne::rand() % (potential_neighbors.length - i);
-				const AwkNavMeshNode tmp = potential_neighbors[i];
-				potential_neighbors[i] = potential_neighbors[j];
-				potential_neighbors[j] = tmp;
-			}
+				// filter potential crawl neighbors
 
-			// raycast potential neighbors
-			AwkNavMeshAdjacency* vertex_adjacency = &chunk->adjacency[vertex_index];
-			for (s32 i = 0; i < potential_neighbors.length; i++)
-			{
-				const AwkNavMeshNode neighbor_index = potential_neighbors[i];
-				const Vec3& neighbor_vertex = out->chunks[neighbor_index.chunk].vertices[neighbor_index.vertex];
-				if (!awk_raycast(inaccessible_chunked, vertex, neighbor_vertex))
+				// first, only consider neighbors where we are the closest neighbor to them
+				for (s32 i = 0; i < potential_crawl_neighbors.length; i++)
 				{
+					b8 found_closer_neighbor = false;
+					const AwkNavMeshNode candidate_index = potential_crawl_neighbors[i];
+					const Vec3& candidate_vertex = out->chunks[candidate_index.chunk].vertices[candidate_index.vertex];
+					r32 distance_to_candidate = (candidate_vertex - vertex).length_squared();
+					for (s32 j = 0; j < potential_crawl_neighbors.length; j++)
+					{
+						const AwkNavMeshNode neighbor_index = potential_crawl_neighbors[j];
+						const Vec3& neighbor_vertex = out->chunks[neighbor_index.chunk].vertices[neighbor_index.vertex];
+						if ((neighbor_vertex - vertex).length_squared() < distance_to_candidate
+							&& (neighbor_vertex - candidate_vertex).length_squared() < distance_to_candidate)
+						{
+							// there is another neighbor between us and the candidate
+							found_closer_neighbor = true;
+							break;
+						}
+					}
+
+					if (!found_closer_neighbor)
+						filtered_crawl_neighbors.add(candidate_index);
+				}
+
+				// raycast to make sure we can actually get to the neighbor
+				for (s32 i = 0; i < filtered_crawl_neighbors.length; i++)
+				{
+					const AwkNavMeshNode neighbor_index = filtered_crawl_neighbors[i];
 					const Vec3& neighbor_normal = out->chunks[neighbor_index.chunk].normals[neighbor_index.vertex];
-					b8 hit_close;
-					awk_raycast(accessible_chunked, vertex, neighbor_vertex, &neighbor_normal, &hit_close);
-					if (hit_close)
+					const Vec3& neighbor_vertex = out->chunks[neighbor_index.chunk].vertices[neighbor_index.vertex] + neighbor_normal * AWK_RADIUS;
+
+					b8 add_neighbor = true;
+
+					Vec3 to_neighbor = neighbor_vertex - vertex;
+
+					r32 neighbor_dot = to_neighbor.dot(vertex_normal);
+					if (neighbor_dot > 0.07f) // neighbor is in front of vertex surface
+					{
+						if (awk_raycast(inaccessible_chunked, vertex, neighbor_vertex)
+							|| awk_raycast(accessible_chunked, vertex, neighbor_vertex))
+							add_neighbor = false;
+					}
+					else if (neighbor_dot > -0.07f) // neighbor is coplanar
+					{
+						if (awk_raycast(inaccessible_chunked, vertex, neighbor_vertex)
+							|| awk_raycast(accessible_chunked, vertex, neighbor_vertex))
+							add_neighbor = false;
+					}
+					else // neighbor is behind our surface
+					{
+						r32 normals_dot = neighbor_normal.dot(vertex_normal);
+						if (normals_dot < -0.495f)
+							add_neighbor = false; // angle is too sharp to go around the corner
+						else
+						{
+							// we're going around a corner
+
+							// calculate a line in the vertex plane pointing toward the neighbor plane
+							Vec3 line_to_neighbor_plane = neighbor_normal + (vertex_normal * -normals_dot);
+							// figure out how far along that line the neighbor plane is
+							r32 line_length = to_neighbor.dot(neighbor_normal) / line_to_neighbor_plane.dot(neighbor_normal);
+
+							// this line is the intersection between the two planes
+							Vec3 intersection_line_origin = vertex + line_to_neighbor_plane * line_length;
+							Vec3 intersection_line_dir = neighbor_normal.cross(vertex_normal);
+
+							// now we need to find the point on the intersection line that is closest to the to_neighbor line.
+							// as part of this process, we also find the point on the to_neighbor line that is closest.
+							// the two lines are:
+							// p = p0 + s*d0 // intersection_line
+							// p = p1 + t*d1 // to_neighbor
+							// the vector 'v' between the two closest points will be orthogonal to both lines, so:
+							// v = (p0 + s*d0) - (p1 + t*d1)
+							// v . d0 = 0
+							// v . d1 = 0
+							// we substitute and end up with a system of two equations:
+							// (d0.d0)*s + -(d1.d0)*t = p1.d0 - p0.d0
+							// (d0.d1)*s + -(d1.d1)*t = p1.d1 - p0.d1
+							// which can also be written as a matrix equation:
+							//   A                     X       B
+							// [ d0.d0  -(d1.d0) ]   [ s ]   [ p1.d0 - p0.d0 ]
+							// [ d0.d1  -(d1.d1) ] * [ t ] = [ p1.d1 - p0.d1 ]
+							// to find X:
+							// X = A^-1 * B
+							// so we need to find the inverse of matrix A.
+							// first let's define the matrix.
+							// A =    [ a  b ]
+							//        [ c  d ]
+							r32 a = intersection_line_dir.dot(intersection_line_dir); // d0.d0
+							r32 b = -to_neighbor.dot(intersection_line_dir); // -d1.d0
+							r32 c = -b; // d0.d1
+							r32 d = -to_neighbor.dot(to_neighbor); // -d1.d1
+							// now let's invert it.
+							// for 2x2 matrices, the inverse can be calculated like so:
+							// A^-1 = (1 / (ad - bc)) * [ d -b ]
+							//                          [ -c a ]
+							r32 inverse_determinant = 1.0f / ((a * d) - (b * c));
+							r32 a0 = inverse_determinant * d;
+							r32 b0 = inverse_determinant * -b;
+							//r32 c0 = inverse_determinant * -c; // unneeded
+							//r32 d0 = inverse_determinant * a;
+							// now we calculate B
+							// where B = [ e ]
+							//           [ f ]
+							r32 e = vertex.dot(intersection_line_dir) - intersection_line_origin.dot(intersection_line_dir); // p1.d0 - p0.d0
+							r32 f = vertex.dot(to_neighbor) - intersection_line_origin.dot(to_neighbor); // p1.d1 - p0.d1
+							// now we calculate X = A^-1 * B = [ a0  b0 ]   [ e ]
+							//                                 [ c0  d0 ] * [ f ]
+							r32 s = (a0 * e) + (b0 * f);
+							//r32 t = (c0 * e) + (d0 * f); // unneeded
+
+							// closest point on the intersection line
+							Vec3 intersection = intersection_line_origin + intersection_line_dir * s;
+
+							// check if the Awk will actually go the right direction if it tries to crawl toward the point
+							if ((intersection - vertex).dot(to_neighbor) < 0.0f)
+								add_neighbor = false;
+							else
+							{
+								// check vertex surface for obstacles
+								{
+									if (awk_raycast(inaccessible_chunked, vertex, intersection)
+										|| awk_raycast(accessible_chunked, vertex, intersection))
+										add_neighbor = false;
+								}
+								// check neighbor surface for obstacles
+								{
+									if (awk_raycast(inaccessible_chunked, intersection, neighbor_vertex)
+										|| awk_raycast(accessible_chunked, intersection, neighbor_vertex))
+										add_neighbor = false;
+								}
+							}
+						}
+					}
+
+					if (add_neighbor)
 					{
 						vertex_adjacency->add(neighbor_index);
 						if (vertex_adjacency->length == vertex_adjacency->capacity())
 						{
 							(*adjacency_buffer_overflows)++;
 							break;
+						}
+					}
+				}
+			}
+
+			if (vertex_adjacency->length < vertex_adjacency->capacity())
+			{
+				// filter potential neighbors
+
+				// shuffle potential neighbors
+				for (s32 i = 0; i < potential_neighbors.length - 1; i++)
+				{
+					s32 j = i + mersenne::rand() % (potential_neighbors.length - i);
+					const AwkNavMeshNode tmp = potential_neighbors[i];
+					potential_neighbors[i] = potential_neighbors[j];
+					potential_neighbors[j] = tmp;
+				}
+
+				// raycast potential neighbors
+				for (s32 i = 0; i < potential_neighbors.length; i++)
+				{
+					const AwkNavMeshNode neighbor_index = potential_neighbors[i];
+					const Vec3& neighbor_vertex = out->chunks[neighbor_index.chunk].vertices[neighbor_index.vertex];
+					if (!awk_raycast(inaccessible_chunked, vertex, neighbor_vertex))
+					{
+						const Vec3& neighbor_normal = out->chunks[neighbor_index.chunk].normals[neighbor_index.vertex];
+						b8 hit_close;
+						awk_raycast(accessible_chunked, vertex, neighbor_vertex, &neighbor_normal, &hit_close);
+						if (hit_close)
+						{
+							vertex_adjacency->add(neighbor_index);
+							if (vertex_adjacency->length == vertex_adjacency->capacity())
+							{
+								(*adjacency_buffer_overflows)++;
+								break;
+							}
 						}
 					}
 				}

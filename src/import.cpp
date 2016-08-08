@@ -2297,6 +2297,36 @@ void build_awk_nav_mesh(Map<Mesh>& meshes, cJSON* json, AwkNavMesh* out, s32* ad
 		printf("Chunking inaccessible surfaces done: %ums\n", SDL_GetTicks() - timer);
 		timer = SDL_GetTicks();
 	}
+
+	// filter out bad nav graph vertices where there is an obstruction between the surface point
+	// and the Awk's actual location which is offset by AWK_RADIUS
+	{
+		s32 vertex_removals = 0;
+		for (s32 chunk_index = 0; chunk_index < out->chunks.length; chunk_index++)
+		{
+			AwkNavMeshChunk* chunk = &out->chunks[chunk_index];
+
+			for (s32 vertex_index = 0; vertex_index < chunk->vertices.length; vertex_index++)
+			{
+				AwkNavMeshNode vertex_node = { (u16)chunk_index, (u16)vertex_index };
+				const Vec3& vertex_normal = chunk->normals[vertex_index];
+				const Vec3 vertex_surface = chunk->vertices[vertex_index];
+				const Vec3 a = vertex_surface + vertex_normal * 0.001f;
+				const Vec3 b = vertex_surface + vertex_normal * (AWK_RADIUS + 0.02f);
+				if (awk_raycast(inaccessible_chunked, a, b)
+					|| awk_raycast(accessible_chunked, a, b))
+				{
+					// remove vertex
+					vertex_removals++;
+					chunk->vertices.remove(vertex_index);
+					chunk->normals.remove(vertex_index);
+					vertex_index--;
+				}
+			}
+		}
+		printf("Removing %d bad vertices done: %ums\n", vertex_removals, SDL_GetTicks() - timer);
+		timer = SDL_GetTicks();
+	}
 	
 	// build adjacency
 

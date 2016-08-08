@@ -425,28 +425,27 @@ namespace VI
 					continue;
 
 				b8 visible;
+				Vec3 diff;
 				{
 					Vec3 start = i_entity->get<Awk>()->center();
 					Vec3 end = j_entity->get<Awk>()->center();
-					Vec3 diff = end - start;
+					diff = end - start;
 
 					if (btVector3(diff).fuzzyZero())
 						visible = true;
 					else
 					{
-						if (diff.length_squared() > AWK_MAX_DISTANCE * AWK_MAX_DISTANCE)
-							visible = false;
-						else
-						{
-							btCollisionWorld::ClosestRayResultCallback ray_callback(start, end);
-							Physics::raycast(&ray_callback, btBroadphaseProxy::StaticFilter | CollisionInaccessible);
-							visible = !ray_callback.hasHit();
-						}
+						btCollisionWorld::ClosestRayResultCallback ray_callback(start, end);
+						Physics::raycast(&ray_callback, btBroadphaseProxy::StaticFilter | CollisionInaccessible);
+						visible = !ray_callback.hasHit();
 					}
 				}
 
-				b8 i_can_see_j = visible && !j_entity->get<AIAgent>()->stealth;
-				b8 j_can_see_i = visible && !i_entity->get<AIAgent>()->stealth;
+				r32 distance = diff.length_squared();
+				r32 i_range = i_entity->get<Awk>()->snipe ? AWK_SNIPE_DISTANCE : AWK_MAX_DISTANCE;
+				b8 i_can_see_j = visible && !j_entity->get<AIAgent>()->stealth && distance < i_range * i_range;
+				r32 j_range = j_entity->get<Awk>()->snipe ? AWK_SNIPE_DISTANCE : AWK_MAX_DISTANCE;
+				b8 j_can_see_i = visible && !i_entity->get<AIAgent>()->stealth && distance < j_range * j_range;
 				PlayerCommon::visibility.set(PlayerCommon::visibility_hash(i_entity->get<PlayerCommon>(), j_entity->get<PlayerCommon>()), i_can_see_j);
 				PlayerCommon::visibility.set(PlayerCommon::visibility_hash(j_entity->get<PlayerCommon>(), i_entity->get<PlayerCommon>()), j_can_see_i);
 

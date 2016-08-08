@@ -42,7 +42,7 @@ namespace VI
 #define fov_sniper (fov_default * 0.25f)
 #define zoom_speed_multiplier 0.25f
 #define zoom_speed_multiplier_sniper 0.15f
-#define zoom_speed (0.5f / 0.1f)
+#define zoom_speed (1.0f / 0.1f)
 #define speed_mouse 0.1f
 #define speed_joystick 5.0f
 #define gamepad_rotation_acceleration (1.0f / 0.2f)
@@ -1230,9 +1230,9 @@ void LocalPlayerControl::update(const Update& u)
 		r32 fov_target = try_secondary ? (get<Awk>()->snipe ? fov_sniper : fov_zoom) : fov_default;
 
 		if (fov < fov_target)
-			fov = vi_min(fov + u.time.delta * zoom_speed, fov_target);
+			fov = vi_min(fov + zoom_speed * sinf(fov) * u.time.delta, fov_target);
 		else if (fov > fov_target)
-			fov = vi_max(fov - u.time.delta * zoom_speed, fov_target);
+			fov = vi_max(fov - zoom_speed * sinf(fov) * u.time.delta, fov_target);
 	}
 
 	Quat look_quat;

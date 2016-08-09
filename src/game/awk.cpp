@@ -1128,7 +1128,7 @@ void Awk::update(const Update& u)
 			if (s == State::Dash)
 			{
 				dash_timer -= u.time.delta;
-				if (dash_timer < 0.0f)
+				if (dash_timer <= 0.0f)
 				{
 					finish_dashing();
 					return;
@@ -1270,10 +1270,24 @@ void Awk::movement_raycast(const Vec3& ray_start, const Vec3& ray_end)
 			else if (s == State::Fly)
 			{
 				// we hit a normal surface; attach to it
+				Vec3 point = ray_callback.m_hitPointWorld[i];
+				Vec3 normal = ray_callback.m_hitNormalWorld[i];
+
+				// check for obstacles
+				{
+					btCollisionWorld::ClosestRayResultCallback obstacle_ray_callback(point, point + normal * (AWK_RADIUS * 1.1f));
+					Physics::raycast(&obstacle_ray_callback, ~AWK_PERMEABLE_MASK & ~CollisionAwk & ~ally_containment_field_mask());
+					if (obstacle_ray_callback.hasHit())
+					{
+						// push us away from the obstacle
+						Vec3 obstacle_normal_flattened = obstacle_ray_callback.m_hitNormalWorld - normal * normal.dot(obstacle_ray_callback.m_hitNormalWorld);
+						point += obstacle_normal_flattened * AWK_RADIUS;
+					}
+				}
+
 				Entity* entity = &Entity::list[ray_callback.m_collisionObjects[i]->getUserIndex()];
 				get<Transform>()->parent = entity->get<Transform>();
-				Vec3 next_position = ray_callback.m_hitPointWorld[i] + ray_callback.m_hitNormalWorld[i] * AWK_RADIUS;
-				get<Transform>()->absolute(next_position, Quat::look(ray_callback.m_hitNormalWorld[i]));
+				get<Transform>()->absolute(point + normal * AWK_RADIUS, Quat::look(ray_callback.m_hitNormalWorld[i]));
 
 				finish_flying();
 			}

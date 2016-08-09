@@ -45,7 +45,7 @@ void update(const Update& u)
 	sensor_timer -= u.time.delta;
 	if (sensor_timer < 0.0f)
 	{
-		sensor_timer = SENSOR_UPDATE_INTERVAL;
+		sensor_timer += SENSOR_UPDATE_INTERVAL;
 
 		Array<SensorState> sensors;
 		for (auto i = Sensor::list.iterator(); !i.is_last(); i.next())

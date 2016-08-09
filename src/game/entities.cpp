@@ -293,7 +293,7 @@ void HealthPickup::update_all(const Update& u)
 			for (auto i = PlayerCommon::list.iterator(); !i.is_last(); i.next())
 				i.item()->manager.ref()->add_credits(i.item()->get<Health>()->increment());
 
-			timer = CONTROL_POINT_INTERVAL;
+			timer += CONTROL_POINT_INTERVAL;
 		}
 	}
 }

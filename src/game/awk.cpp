@@ -122,7 +122,7 @@ void Awk::awake()
 		shield = shield_entity;
 
 		View* s = shield_entity->add<View>();
-		s->additive();
+		s->alpha_depth();
 		s->color = Vec4(1, 1, 1, 0.05f);
 		s->mesh = Asset::Mesh::sphere;
 		s->offset.scale(Vec3(AWK_SHIELD_RADIUS));
@@ -329,8 +329,7 @@ void Awk::hit_target(Entity* target, const Vec3& hit_pos)
 			if (owner)
 			{
 				owner->team.ref()->track(get<PlayerCommon>()->manager.ref());
-				s32 diff = owner->add_credits(-CREDITS_MINION);
-				get<PlayerCommon>()->manager.ref()->add_credits(-diff);
+				get<PlayerCommon>()->manager.ref()->add_credits(CREDITS_MINION_KILL);
 			}
 		}
 	}
@@ -338,19 +337,13 @@ void Awk::hit_target(Entity* target, const Vec3& hit_pos)
 	{
 		b8 is_enemy = target->get<Sensor>()->team != get<AIAgent>()->team;
 		if (is_enemy)
-		{
-			s32 diff = target->get<Sensor>()->owner.ref()->add_credits(-CREDITS_SENSOR_DESTROY);
-			get<PlayerCommon>()->manager.ref()->add_credits(-diff);
-		}
+			get<PlayerCommon>()->manager.ref()->add_credits(CREDITS_SENSOR_DESTROY);
 	}
 	else if (target->has<ContainmentField>())
 	{
 		b8 is_enemy = target->get<ContainmentField>()->team != get<AIAgent>()->team;
 		if (is_enemy)
-		{
-			s32 diff = target->get<ContainmentField>()->owner.ref()->add_credits(-CREDITS_CONTAINMENT_FIELD_DESTROY);
-			get<PlayerCommon>()->manager.ref()->add_credits(-diff);
-		}
+			get<PlayerCommon>()->manager.ref()->add_credits(CREDITS_CONTAINMENT_FIELD_DESTROY);
 	}
 
 	hit.fire(target);
@@ -387,11 +380,6 @@ void Awk::damaged(const DamageEvent& e)
 {
 	if (e.damager)
 	{
-		if (e.damager->has<PlayerCommon>())
-		{
-			s32 diff = get<PlayerCommon>()->manager.ref()->add_credits(-CREDITS_DAMAGE);
-			e.damager->get<PlayerCommon>()->manager.ref()->add_credits(-diff);
-		}
 		if (get<Health>()->hp > 0 && e.damager->has<LocalPlayerControl>())
 			e.damager->get<LocalPlayerControl>()->player.ref()->msg(_(strings::target_damaged), true);
 	}
@@ -462,7 +450,7 @@ b8 Awk::can_go(const Vec3& dir, Vec3* final_pos, b8* hit_target) const
 {
 	Vec3 trace_dir = Vec3::normalize(dir);
 
-	if (fabs(trace_dir.y) > AWK_VERTICAL_ANGLE_LIMIT) // can't shoot straight up or straight down
+	if (fabs(trace_dir.y) > AWK_VERTICAL_DOT_LIMIT) // can't shoot straight up or straight down
 		return false;
 
 	// if we're attached to a wall, make sure we're not shooting into the wall
@@ -924,7 +912,7 @@ void Awk::stealth(b8 enable)
 		if (enable)
 		{
 			get<AIAgent>()->stealth = true;
-			get<SkinnedModel>()->alpha();
+			get<SkinnedModel>()->alpha_depth();
 			get<SkinnedModel>()->color.w = 0.05f;
 			get<SkinnedModel>()->mask = 1 << (s32)get<AIAgent>()->team; // only display to fellow teammates
 		}
@@ -1203,7 +1191,7 @@ void Awk::movement_raycast(const Vec3& ray_start, const Vec3& ray_end)
 				else if (entity->get<Health>()->hp > 1)
 					stop = true; // they have shield to spare; we'll bounce off the shield
 			}
-			else if (!(group & (AWK_PERMEABLE_MASK | CollisionWalker | CollisionAllTeamsContainmentField)))
+			else if (!(group & (AWK_PERMEABLE_MASK | CollisionWalker | ally_containment_field_mask())))
 			{
 				stop = true; // we can't go through it
 				if (snipe) // we just shot at a wall; spawn some particles
@@ -1243,7 +1231,7 @@ void Awk::movement_raycast(const Vec3& ray_start, const Vec3& ray_end)
 				if (t->has<MinionCommon>() && t->get<MinionCommon>()->headshot_test(ray_start, ray_end))
 					hit_target(t, t->get<MinionCommon>()->head_pos());
 			}
-			else if (group & CollisionInaccessible)
+			else if (group & (CollisionInaccessible | (CollisionAllTeamsContainmentField & ~ally_containment_field_mask())))
 			{
 				// this shouldn't happen, but if it does, bounce off
 				if (s == State::Fly)

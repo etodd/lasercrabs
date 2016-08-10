@@ -2386,7 +2386,7 @@ void build_awk_nav_mesh(Map<Mesh>& meshes, cJSON* json, AwkNavMesh* out, s32* ad
 									&& distance_squared > (AWK_RADIUS * 2.0f) * (AWK_RADIUS * 2.0f))
 								{
 									to_neighbor /= sqrtf(distance_squared);
-									if (fabs(to_neighbor.y) < AWK_VERTICAL_ANGLE_LIMIT) // can't shoot straight up or straight down
+									if (fabs(to_neighbor.y) < AWK_VERTICAL_DOT_LIMIT) // can't shoot straight up or straight down
 									{
 										const Vec3& normal_neighbor = neighbor_chunk->normals[neighbor_index];
 										if (normal_neighbor.dot(to_neighbor) < 0.0f)

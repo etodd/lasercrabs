@@ -983,7 +983,7 @@ void draw(LoopSync* sync, const Camera* camera)
 		sync->write<RenderOp>(RenderOp::DepthTest);
 		sync->write<b8>(true);
 		sync->write<RenderOp>(RenderOp::DepthMask);
-		sync->write<b8>(true);
+		sync->write<b8>(false);
 
 		render_params.depth_buffer = depth_buffer;
 

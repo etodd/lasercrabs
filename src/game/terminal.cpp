@@ -63,7 +63,7 @@ struct Data
 
 Data data;
 
-const s32 tip_count = 10;
+const s32 tip_count = 12;
 const AssetID tips[tip_count] =
 {
 	strings::tip_0,
@@ -76,6 +76,8 @@ const AssetID tips[tip_count] =
 	strings::tip_7,
 	strings::tip_8,
 	strings::tip_9,
+	strings::tip_10,
+	strings::tip_11,
 };
 
 b8 splitscreen_teams_are_valid()
@@ -484,7 +486,6 @@ void deploy_draw(const RenderParams& params)
 	);
 	UI::triangle_border(params, { triangle_pos, Vec2(20 * UI::scale) }, 9, UI::accent_color, Game::real_time.total * -8.0f);
 
-	if (Game::save.level_index >= Game::tutorial_levels)
 	{
 		// show a tip
 		UIText text;

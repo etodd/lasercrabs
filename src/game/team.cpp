@@ -98,18 +98,6 @@ namespace VI
 			Asset::Mesh::icon_sniper,
 			50,
 		},
-		{
-			strings::health_steal,
-			strings::description_health_steal,
-			AssetNull,
-			50,
-		},
-		{
-			strings::health_buff,
-			strings::description_health_buff,
-			AssetNull,
-			60,
-		},
 	};
 
 	Team::Team()
@@ -528,7 +516,6 @@ namespace VI
 						if (rocket.item()->team == team->team() // it belongs to our team
 							&& rocket.item()->get<Transform>()->parent.ref() // it's waiting to be fired
 							&& (rocket_pos - player_pos).length_squared() < ROCKET_RANGE * ROCKET_RANGE // it's in range
-							&& ContainmentField::inside(team->team(), player_pos) == ContainmentField::inside(team->team(), rocket_pos)  // force fields will not get between the rocket and the player
 							&& (track->tracking || (rocket.item()->owner.ref() && PlayerCommon::visibility.get(PlayerCommon::visibility_hash(rocket.item()->owner.ref()->get<PlayerCommon>(), player_entity->get<PlayerCommon>()))))) // we're tracking the player, or the owner is alive and can see the player
 						{
 							rocket.item()->launch(player_entity);
@@ -557,6 +544,9 @@ namespace VI
 		if (!awk)
 			return false;
 
+		if (awk->get<Awk>()->snipe)
+			return false; // can't do anything while sniping
+
 		if (!has_upgrade((Upgrade)ability))
 			return false;
 
@@ -571,9 +561,6 @@ namespace VI
 		const AbilityInfo& info = AbilityInfo::list[(s32)ability];
 		if (credits < info.spawn_cost)
 			return false;
-
-		if (ability == Ability::Sniper && awk->get<Awk>()->snipe)
-			return false; // already sniping
 
 		current_spawn_ability = ability;
 		spawn_ability_timer = info.spawn_time;
@@ -740,12 +727,6 @@ namespace VI
 		{
 			// it's an ability
 			abilities[ability_count()] = (Ability)u;
-		}
-
-		if (u == Upgrade::HealthBuff)
-		{
-			entity.ref()->get<Health>()->hp_max = AWK_HEALTH + 1;
-			entity.ref()->get<Health>()->added.fire(); // trigger UI animation
 		}
 
 		upgrade_completed.fire(u);

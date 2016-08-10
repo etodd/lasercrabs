@@ -19,7 +19,8 @@ namespace VI
 #define AWK_RADIUS 0.2f
 #define AWK_RUN_RADIUS 10.0f
 #define MAX_BONE_WEIGHTS 4
-#define AWK_VERTICAL_ANGLE_LIMIT 0.9998f
+#define AWK_VERTICAL_DOT_LIMIT 0.9998f
+#define AWK_VERTICAL_ANGLE_LIMIT ((PI * 0.5f) - 0.021f)
 
 namespace Json
 {

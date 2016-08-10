@@ -12,6 +12,7 @@ namespace VI
 
 Bitmask<MAX_ENTITIES> View::list_alpha;
 Bitmask<MAX_ENTITIES> View::list_additive;
+Bitmask<MAX_ENTITIES> View::list_alpha_depth;
 
 View::View(AssetID m)
 	: mesh(m),
@@ -33,7 +34,7 @@ void View::draw_opaque(const RenderParams& params)
 {
 	for (auto i = View::list.iterator(); !i.is_last(); i.next())
 	{
-		if (!list_alpha.get(i.index) && !list_additive.get(i.index))
+		if (!list_alpha.get(i.index) && !list_additive.get(i.index) && !list_alpha_depth.get(i.index))
 			i.item()->draw(params);
 	}
 }
@@ -56,22 +57,41 @@ void View::draw_alpha(const RenderParams& params)
 	}
 }
 
+void View::draw_alpha_depth(const RenderParams& params)
+{
+	for (auto i = View::list.iterator(); !i.is_last(); i.next())
+	{
+		if (list_alpha_depth.get(i.index))
+			i.item()->draw(params);
+	}
+}
+
 void View::alpha()
 {
 	list_alpha.set(id(), true);
 	list_additive.set(id(), false);
+	list_alpha_depth.set(id(), false);
 }
 
 void View::additive()
 {
 	list_alpha.set(id(), false);
 	list_additive.set(id(), true);
+	list_alpha_depth.set(id(), false);
+}
+
+void View::alpha_depth()
+{
+	list_alpha.set(id(), false);
+	list_additive.set(id(), false);
+	list_alpha_depth.set(id(), true);
 }
 
 void View::alpha_disable()
 {
 	list_alpha.set(id(), false);
 	list_additive.set(id(), false);
+	list_alpha_depth.set(id(), false);
 }
 
 void View::draw(const RenderParams& params) const
@@ -127,7 +147,7 @@ void View::draw(const RenderParams& params) const
 	else
 	{
 		const Vec4& team_color = Team::color((AI::Team)team, (AI::Team)params.camera->team);
-		if (list_alpha.get(id()) || list_additive.get(id()))
+		if (list_alpha.get(id()) || list_additive.get(id()) || list_alpha_depth.get(id()))
 			sync->write<Vec4>(Vec4(team_color.xyz(), color.w));
 		else
 			sync->write<Vec4>(team_color);

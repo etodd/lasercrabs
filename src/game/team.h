@@ -25,10 +25,9 @@ struct PlayerManager;
 #define GAME_TIME_LIMIT ((60.0f * 10.0f) + PLAYER_SPAWN_DELAY)
 #define GAME_BUY_PERIOD (10.0f + PLAYER_SPAWN_DELAY)
 #define CREDITS_INITIAL 60
-#define CREDITS_MINION 10
+#define CREDITS_MINION_KILL 10
 #define CREDITS_SENSOR_DESTROY 10
 #define CREDITS_CONTAINMENT_FIELD_DESTROY 10
-#define CREDITS_DAMAGE 15
 #define CREDITS_CONTROL_POINT 5
 #define CREDITS_DEFAULT_INCREMENT 5
 #define MAX_ABILITIES 3
@@ -61,8 +60,6 @@ enum class Upgrade
 	Minion,
 	ContainmentField,
 	Sniper,
-	HealthSteal,
-	HealthBuff,
 	count,
 	None = count,
 };

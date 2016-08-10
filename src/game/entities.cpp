@@ -144,17 +144,6 @@ void HealthPickup::sort_all(const Vec3& pos, Array<Ref<HealthPickup>>* result, b
 		result->add(pickups.pop());
 }
 
-s32 HealthPickup::available_count()
-{
-	s32 count = 0;
-	for (auto i = list.iterator(); !i.is_last(); i.next())
-	{
-		if (i.item()->owner.ref() == nullptr)
-			count++;
-	}
-	return count;
-}
-
 void HealthPickup::awake()
 {
 	link_arg<const TargetEvent&, &HealthPickup::hit>(get<Target>()->target_hit);
@@ -185,10 +174,8 @@ b8 HealthPickup::set_owner(Health* health)
 {
 	if (health->hp < health->hp_max)
 	{
-		// if we're already owned by someone,
-		// they need the right upgrade to be able to steal us
-		if (!owner.ref()
-			|| (health->get<PlayerCommon>()->manager.ref()->has_upgrade(Upgrade::HealthSteal) && owner.ref() != health))
+		// must be neutral or owned by someone else
+		if (!owner.ref() || owner.ref() != health)
 		{
 			if (owner.ref()) // looks like we're being stolen
 				owner.ref()->damage(health->entity(), 1);
@@ -526,7 +513,7 @@ void Rocket::update(const Update& u)
 				for (s32 i = 0; i < whisker_count; i++)
 				{
 					btCollisionWorld::ClosestRayResultCallback ray_callback(get<Transform>()->pos, get<Transform>()->pos + get<Transform>()->rot * whiskers[i]);
-					Physics::raycast(&ray_callback, ~CollisionAwkIgnore & ~Team::containment_field_mask(team));
+					Physics::raycast(&ray_callback, ~CollisionAwkIgnore & ~CollisionAllTeamsContainmentField);
 					if (ray_callback.hasHit())
 					{
 						// avoid the obstacle
@@ -551,7 +538,7 @@ void Rocket::update(const Update& u)
 		Vec3 next_pos = get<Transform>()->pos + velocity * u.time.delta;
 
 		btCollisionWorld::ClosestRayResultCallback ray_callback(get<Transform>()->pos, next_pos + get<Transform>()->rot * Vec3(0, 0, 0.1f));
-		Physics::raycast(&ray_callback, ~CollisionAwkIgnore & ~Team::containment_field_mask(team));
+		Physics::raycast(&ray_callback, ~CollisionAwkIgnore & ~CollisionAllTeamsContainmentField);
 		if (ray_callback.hasHit())
 		{
 			// we hit something

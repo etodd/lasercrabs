@@ -16,6 +16,7 @@ namespace VI
 
 Bitmask<MAX_ENTITIES> SkinnedModel::list_alpha;
 Bitmask<MAX_ENTITIES> SkinnedModel::list_additive;
+Bitmask<MAX_ENTITIES> SkinnedModel::list_alpha_depth;
 
 SkinnedModel::SkinnedModel()
 	: mesh(),
@@ -55,7 +56,7 @@ void SkinnedModel::draw_opaque(const RenderParams& params)
 {
 	for (auto i = SkinnedModel::list.iterator(); !i.is_last(); i.next())
 	{
-		if (!list_alpha.get(i.index) && !list_additive.get(i.index))
+		if (!list_alpha.get(i.index) && !list_additive.get(i.index) && !list_alpha_depth.get(i.index))
 			i.item()->draw(params);
 	}
 }
@@ -78,22 +79,41 @@ void SkinnedModel::draw_alpha(const RenderParams& params)
 	}
 }
 
+void SkinnedModel::draw_alpha_depth(const RenderParams& params)
+{
+	for (auto i = SkinnedModel::list.iterator(); !i.is_last(); i.next())
+	{
+		if (list_alpha_depth.get(i.index))
+			i.item()->draw(params);
+	}
+}
+
 void SkinnedModel::alpha()
 {
 	list_alpha.set(id(), true);
 	list_additive.set(id(), false);
+	list_alpha_depth.set(id(), false);
 }
 
 void SkinnedModel::additive()
 {
 	list_alpha.set(id(), false);
 	list_additive.set(id(), true);
+	list_alpha_depth.set(id(), false);
+}
+
+void SkinnedModel::alpha_depth()
+{
+	list_alpha.set(id(), false);
+	list_additive.set(id(), false);
+	list_alpha_depth.set(id(), true);
 }
 
 void SkinnedModel::alpha_disable()
 {
 	list_alpha.set(id(), false);
 	list_additive.set(id(), false);
+	list_alpha_depth.set(id(), false);
 }
 
 void SkinnedModel::draw(const RenderParams& params)
@@ -158,7 +178,13 @@ void SkinnedModel::draw(const RenderParams& params)
 	if (team == (u8)AI::NoTeam)
 		sync->write<Vec4>(color);
 	else
-		sync->write<Vec4>(Team::color((AI::Team)team, (AI::Team)params.camera->team));
+	{
+		const Vec4& team_color = Team::color((AI::Team)team, (AI::Team)params.camera->team);
+		if (list_alpha.get(id()) || list_additive.get(id()) || list_alpha_depth.get(id()))
+			sync->write<Vec4>(Vec4(team_color.xyz(), color.w));
+		else
+			sync->write<Vec4>(team_color);
+	}
 
 	sync->write(RenderOp::Mesh);
 	sync->write(RenderPrimitiveMode::Triangles);

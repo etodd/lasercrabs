@@ -33,8 +33,7 @@ AIPlayer::Config::Config()
 		Upgrade::Minion,
 		Upgrade::Sensor,
 		Upgrade::Rocket,
-		Upgrade::HealthBuff,
-		Upgrade::HealthSteal,
+		Upgrade::Sniper,
 		Upgrade::ContainmentField,
 	},
 	upgrade_strategies
@@ -43,8 +42,7 @@ AIPlayer::Config::Config()
 		UpgradeStrategy::Ignore, // rocket
 		UpgradeStrategy::SaveUp, // minion
 		UpgradeStrategy::IfAvailable, // containment field
-		UpgradeStrategy::IfAvailable, // health steal
-		UpgradeStrategy::Ignore, // health buff
+		UpgradeStrategy::IfAvailable, // sniper
 	}
 {
 }
@@ -69,30 +67,26 @@ AIPlayer::Config AIPlayer::generate_config()
 			config.upgrade_priority[0] = Upgrade::Minion;
 			config.upgrade_priority[1] = Upgrade::Sensor;
 			config.upgrade_priority[2] = Upgrade::Rocket;
-			config.upgrade_priority[3] = Upgrade::HealthBuff;
-			config.upgrade_priority[4] = Upgrade::HealthSteal;
-			config.upgrade_priority[5] = Upgrade::ContainmentField;
+			config.upgrade_priority[3] = Upgrade::ContainmentField;
+			config.upgrade_priority[4] = Upgrade::Sniper;
 			config.upgrade_strategies[0] = UpgradeStrategy::IfAvailable; // sensor
 			config.upgrade_strategies[1] = UpgradeStrategy::Ignore; // rocket
 			config.upgrade_strategies[2] = UpgradeStrategy::SaveUp; // minion
 			config.upgrade_strategies[3] = UpgradeStrategy::IfAvailable; // containment field
-			config.upgrade_strategies[4] = UpgradeStrategy::IfAvailable; // health steal
-			config.upgrade_strategies[5] = UpgradeStrategy::Ignore; // health buff
+			config.upgrade_strategies[4] = UpgradeStrategy::Ignore; // sniper
 		}
 		else
 		{
 			config.upgrade_priority[0] = Upgrade::Sensor;
 			config.upgrade_priority[1] = Upgrade::Minion;
 			config.upgrade_priority[2] = Upgrade::Rocket;
-			config.upgrade_priority[3] = Upgrade::HealthBuff;
-			config.upgrade_priority[4] = Upgrade::HealthSteal;
-			config.upgrade_priority[5] = Upgrade::ContainmentField;
+			config.upgrade_priority[3] = Upgrade::ContainmentField;
+			config.upgrade_priority[4] = Upgrade::Sniper;
 			config.upgrade_strategies[0] = UpgradeStrategy::SaveUp; // sensor
 			config.upgrade_strategies[1] = UpgradeStrategy::Ignore; // rocket
 			config.upgrade_strategies[2] = UpgradeStrategy::IfAvailable; // minion
 			config.upgrade_strategies[3] = UpgradeStrategy::IfAvailable; // containment field
-			config.upgrade_strategies[4] = UpgradeStrategy::IfAvailable; // health steal
-			config.upgrade_strategies[5] = UpgradeStrategy::Ignore; // health buff
+			config.upgrade_strategies[4] = UpgradeStrategy::Ignore; // sniper
 		}
 	}
 
@@ -597,10 +591,7 @@ b8 AIPlayerControl::aim_and_shoot(const Update& u, const Vec3& path_node, const 
 b8 health_pickup_filter(const AIPlayerControl* control, const Entity* e)
 {
 	Health* owner = e->get<HealthPickup>()->owner.ref();
-	if (control->player.ref()->manager.ref()->has_upgrade(Upgrade::HealthSteal))
-		return !owner || owner != control->get<Health>();
-	else
-		return !owner;
+	return !owner || owner != control->get<Health>();
 }
 
 b8 minion_filter(const AIPlayerControl* control, const Entity* e)
@@ -1302,7 +1293,6 @@ void RunAway::run()
 		&& !control->get<AIAgent>()->stealth // if we're stealthed, no need to run away
 		&& control->get<Awk>()->invincible_timer == 0.0f // if we're invincible, no need to run away
 		&& path_priority > control->path_priority
-		&& (HealthPickup::available_count() > 0 || control->player.ref()->manager.ref()->has_upgrade(Upgrade::HealthSteal))
 		&& !ContainmentField::inside(control->get<AIAgent>()->team, pos)) // if we're inside a containment field, running away is probably useless
 	{
 		Entity* closest = nullptr;

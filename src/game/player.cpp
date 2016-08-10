@@ -39,9 +39,7 @@ namespace VI
 
 #define fov_default (70.0f * PI * 0.5f / 180.0f)
 #define fov_zoom (fov_default * 0.5f)
-#define fov_sniper (fov_default * 0.25f)
 #define zoom_speed_multiplier 0.25f
-#define zoom_speed_multiplier_sniper 0.15f
 #define zoom_speed (1.0f / 0.1f)
 #define speed_mouse 0.1f
 #define speed_joystick 5.0f
@@ -227,17 +225,26 @@ void LocalPlayer::update(const Update& u)
 
 	// close/open pause menu if needed
 	{
-		b8 pause_hit = Game::time.total > 0.5f && u.last_input->get(Controls::Pause, gamepad) && !u.input->get(Controls::Pause, gamepad);
+		b8 pause_hit = Game::time.total > 0.5f
+			&& u.last_input->get(Controls::Pause, gamepad)
+			&& !u.input->get(Controls::Pause, gamepad)
+			&& (!manager.ref()->entity.ref() || !manager.ref()->entity.ref()->get<Awk>()->snipe) // HACK because cancel and pause are on the same dang key
+			&& !Game::cancel_event_eaten[gamepad];
 		if (pause_hit
 			&& !upgrading
 			&& (menu_state == Menu::State::Hidden || menu_state == Menu::State::Visible)
 			&& !Penelope::has_focus())
 		{
+			Game::cancel_event_eaten[gamepad] = true;
 			menu_state = (menu_state == Menu::State::Hidden) ? Menu::State::Visible : Menu::State::Hidden;
 			menu.animate();
 		}
-		else if (menu_state == Menu::State::Visible && u.last_input->get(Controls::Cancel, gamepad) && !u.input->get(Controls::Cancel, gamepad))
+		else if (menu_state == Menu::State::Visible
+			&& u.last_input->get(Controls::Cancel, gamepad)
+			&& !u.input->get(Controls::Cancel, gamepad)
+			&& !Game::cancel_event_eaten[gamepad])
 		{
+			Game::cancel_event_eaten[gamepad] = true;
 			menu_state = Menu::State::Hidden;
 		}
 	}
@@ -250,7 +257,8 @@ void LocalPlayer::update(const Update& u)
 			ensure_camera(u, false);
 
 			if (Game::level.has_feature(Game::FeatureLevel::Abilities)
-				&& manager.ref()->at_spawn())
+				&& manager.ref()->at_spawn()
+				&& !manager.ref()->entity.ref()->get<Awk>()->snipe)
 			{
 				if (!u.input->get(Controls::Interact, gamepad) && u.last_input->get(Controls::Interact, gamepad))
 				{
@@ -265,8 +273,11 @@ void LocalPlayer::update(const Update& u)
 		case UIMode::Upgrading:
 		{
 			// upgrade menu
-			if (u.last_input->get(Controls::Cancel, gamepad) && !u.input->get(Controls::Cancel, gamepad))
+			if (u.last_input->get(Controls::Cancel, gamepad)
+				&& !u.input->get(Controls::Cancel, gamepad)
+				&& !Game::cancel_event_eaten[gamepad])
 			{
+				Game::cancel_event_eaten[gamepad] = true;
 				if (manager.ref()->current_upgrade == Upgrade::None)
 					upgrading = false;
 			}
@@ -458,7 +469,9 @@ void LocalPlayer::draw_alpha(const RenderParams& params) const
 	// draw abilities
 	if (Game::level.has_feature(Game::FeatureLevel::Abilities))
 	{
-		if (mode == UIMode::Default && manager.ref()->at_spawn())
+		if (mode == UIMode::Default
+			&& manager.ref()->at_spawn()
+			&& !manager.ref()->entity.ref()->get<Awk>()->snipe)
 		{
 			// "upgrade!" prompt
 			UIText text;
@@ -472,10 +485,14 @@ void LocalPlayer::draw_alpha(const RenderParams& params) const
 			text.draw(params, pos);
 		}
 
-		if (mode == UIMode::Default || mode == UIMode::Upgrading)
+		if ((mode == UIMode::Default || mode == UIMode::Upgrading)
+			&& !manager.ref()->entity.ref()->get<Awk>()->snipe)
 		{
-			// ability 1
+			// draw abilities
+
 			b8 is_gamepad = params.sync->input.gamepads[gamepad].active;
+
+			// ability 1
 			{
 				Ability ability = manager.ref()->abilities[0];
 				if (ability != Ability::None)
@@ -1076,10 +1093,7 @@ b8 LocalPlayerControl::movement_enabled() const
 
 r32 LocalPlayerControl::look_speed() const
 {
-	if (try_secondary)
-		return get<Awk>()->snipe ? zoom_speed_multiplier_sniper : zoom_speed_multiplier;
-	else
-		return 1.0f;
+	return try_secondary ? zoom_speed_multiplier : 1.0f;
 }
 
 void LocalPlayerControl::update_camera_input(const Update& u, r32 gamepad_rotation_multiplier)
@@ -1119,7 +1133,7 @@ void LocalPlayerControl::update_camera_input(const Update& u, r32 gamepad_rotati
 			get<PlayerCommon>()->angle_vertical += adjustment.y * gamepad_rotation_speed;
 		}
 
-		get<PlayerCommon>()->angle_vertical = LMath::clampf(get<PlayerCommon>()->angle_vertical, PI * -0.495f, PI * 0.495f);
+		get<PlayerCommon>()->angle_vertical = LMath::clampf(get<PlayerCommon>()->angle_vertical, -AWK_VERTICAL_ANGLE_LIMIT, AWK_VERTICAL_ANGLE_LIMIT);
 	}
 }
 
@@ -1227,7 +1241,7 @@ void LocalPlayerControl::update(const Update& u)
 			try_secondary = false;
 		}
 
-		r32 fov_target = try_secondary ? (get<Awk>()->snipe ? fov_sniper : fov_zoom) : fov_default;
+		r32 fov_target = try_secondary ? fov_zoom : fov_default;
 
 		if (fov < fov_target)
 			fov = vi_min(fov + zoom_speed * sinf(fov) * u.time.delta, fov_target);
@@ -1257,7 +1271,7 @@ void LocalPlayerControl::update(const Update& u)
 				{
 					Vec3 to_indicator = indicator.pos - camera->pos;
 					r32 indicator_distance = to_indicator.length();
-					if (indicator_distance > third_person_offset)
+					if (indicator_distance > third_person_offset && indicator_distance < reticle_distance + 2.5f)
 					{
 						to_indicator /= indicator_distance;
 						if (to_indicator.dot(to_reticle) > 0.99f)
@@ -1324,36 +1338,52 @@ void LocalPlayerControl::update(const Update& u)
 	else
 		look_quat = Quat::euler(0, get<PlayerCommon>()->angle_horizontal, get<PlayerCommon>()->angle_vertical);
 
-	// abilities
 	if (input_enabled())
 	{
-		b8 just_attached = u.time.total - get<Awk>()->attach_time < 0.2f;
-		PlayerManager* manager = player.ref()->manager.ref();
+		if (get<Awk>()->snipe)
 		{
-			b8 current = u.input->get(Controls::Ability1, gamepad);
-			b8 last = u.last_input->get(Controls::Ability1, gamepad);
-			if (current && (!last || just_attached))
-				manager->ability_spawn_start(manager->abilities[0]);
-			else if (!current)
-				manager->ability_spawn_stop(manager->abilities[0]);
+			// cancel snipe
+			if (u.input->get(Controls::Cancel, gamepad)
+				&& !u.last_input->get(Controls::Cancel, gamepad)
+				&& !Game::cancel_event_eaten[gamepad])
+			{
+				Game::cancel_event_eaten[gamepad] = true;
+				get<Awk>()->snipe = false;
+				player.ref()->manager.ref()->add_credits(AbilityInfo::list[(s32)Ability::Sniper].spawn_cost);
+			}
 		}
-
+		else
 		{
-			b8 current = u.input->get(Controls::Ability2, gamepad);
-			b8 last = u.last_input->get(Controls::Ability2, gamepad);
-			if (current && (!last || just_attached))
-				manager->ability_spawn_start(manager->abilities[1]);
-			else if (!current)
-				manager->ability_spawn_stop(manager->abilities[1]);
-		}
+			// abilities
 
-		{
-			b8 current = u.input->get(Controls::Ability3, gamepad);
-			b8 last = u.last_input->get(Controls::Ability3, gamepad);
-			if (current && (!last || just_attached))
-				manager->ability_spawn_start(manager->abilities[2]);
-			else if (!current)
-				manager->ability_spawn_stop(manager->abilities[2]);
+			b8 just_attached = u.time.total - get<Awk>()->attach_time < 0.2f;
+			PlayerManager* manager = player.ref()->manager.ref();
+			{
+				b8 current = u.input->get(Controls::Ability1, gamepad);
+				b8 last = u.last_input->get(Controls::Ability1, gamepad);
+				if (current && (!last || just_attached))
+					manager->ability_spawn_start(manager->abilities[0]);
+				else if (!current)
+					manager->ability_spawn_stop(manager->abilities[0]);
+			}
+
+			{
+				b8 current = u.input->get(Controls::Ability2, gamepad);
+				b8 last = u.last_input->get(Controls::Ability2, gamepad);
+				if (current && (!last || just_attached))
+					manager->ability_spawn_start(manager->abilities[1]);
+				else if (!current)
+					manager->ability_spawn_stop(manager->abilities[1]);
+			}
+
+			{
+				b8 current = u.input->get(Controls::Ability3, gamepad);
+				b8 last = u.last_input->get(Controls::Ability3, gamepad);
+				if (current && (!last || just_attached))
+					manager->ability_spawn_start(manager->abilities[2]);
+				else if (!current)
+					manager->ability_spawn_stop(manager->abilities[2]);
+			}
 		}
 	}
 
@@ -1376,7 +1406,7 @@ void LocalPlayerControl::update(const Update& u)
 			look_quat = look_quat * Quat::euler(noise::sample3d(Vec3(offset)) * shake, noise::sample3d(Vec3(offset + 64)) * shake, noise::sample3d(Vec3(offset + 128)) * shake);
 		}
 
-		camera->range = get<Awk>()->snipe ? camera->far_plane * 0.5f : AWK_MAX_DISTANCE;
+		camera->range = get<Awk>()->snipe ? AWK_SNIPE_DISTANCE : AWK_MAX_DISTANCE;
 		camera->range_center = look_quat.inverse() * (get<Awk>()->center() - camera->pos);
 		camera->cull_range = third_person_offset + 0.5f;
 		camera->cull_behind_wall = abs_wall_normal.dot(camera->pos - get<Awk>()->attach_point()) < 0.0f;
@@ -1474,11 +1504,10 @@ void LocalPlayerControl::update(const Update& u)
 	// health pickups
 	if (get<Health>()->hp < get<Health>()->hp_max)
 	{
-		b8 can_steal_health = player.ref()->manager.ref()->has_upgrade(Upgrade::HealthSteal);
 		for (auto i = HealthPickup::list.iterator(); !i.is_last(); i.next())
 		{
 			Health* owner = i.item()->owner.ref();
-			if (!owner || (can_steal_health && owner != get<Health>()))
+			if (!owner || owner != get<Health>())
 			{
 				if (!add_target_indicator(i.item()->get<Target>(), TargetIndicator::Type::Health))
 					break; // no more room for indicators
@@ -1652,21 +1681,18 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 		// force field battery bars
 		for (auto i = ContainmentField::list.iterator(); !i.is_last(); i.next())
 		{
-			if (!i.item()->powered)
+			Vec3 pos = i.item()->get<Transform>()->absolute_pos();
+			if ((pos - me).length_squared() < AWK_MAX_DISTANCE * AWK_MAX_DISTANCE)
 			{
-				Vec3 pos = i.item()->get<Transform>()->absolute_pos();
-				if ((pos - me).length_squared() < AWK_MAX_DISTANCE * AWK_MAX_DISTANCE)
+				Vec2 p;
+				if (UI::project(params, pos, &p))
 				{
-					Vec2 p;
-					if (UI::project(params, pos, &p))
-					{
-						Vec2 bar_size(40.0f * UI::scale, 8.0f * UI::scale);
-						Rect2 bar = { p + Vec2(0, 40.0f * UI::scale) + (bar_size * -0.5f), bar_size };
-						UI::box(params, bar, UI::background_color);
-						const Vec4& color = Team::ui_color(team, i.item()->team);
-						UI::border(params, bar, 2, color);
-						UI::box(params, { bar.pos, Vec2(bar.size.x * (i.item()->remaining_lifetime / CONTAINMENT_FIELD_LIFETIME), bar.size.y) }, color);
-					}
+					Vec2 bar_size(40.0f * UI::scale, 8.0f * UI::scale);
+					Rect2 bar = { p + Vec2(0, 40.0f * UI::scale) + (bar_size * -0.5f), bar_size };
+					UI::box(params, bar, UI::background_color);
+					const Vec4& color = Team::ui_color(team, i.item()->team);
+					UI::border(params, bar, 2, color);
+					UI::box(params, { bar.pos, Vec2(bar.size.x * (i.item()->remaining_lifetime / CONTAINMENT_FIELD_LIFETIME), bar.size.y) }, color);
 				}
 			}
 		}
@@ -2027,7 +2053,20 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 			UI::centered_box(params, { pos + Vec2(0, 1.0f) * UI::scale * start_radius, Vec2(spoke_width, spoke_length) * UI::scale }, color);
 
 			if (get<Awk>()->snipe)
+			{
 				UI::mesh(params, Asset::Mesh::icon_sniper, pos + Vec2(0, -32.0f * UI::scale), Vec2(18.0f * UI::scale), color);
+
+				// cancel prompt
+				UIText text;
+				text.color = UI::accent_color;
+				text.text(_(strings::cancel_prompt));
+				text.anchor_x = UIText::Anchor::Center;
+				text.anchor_y = UIText::Anchor::Max;
+				text.size = text_size;
+				Vec2 p = pos + Vec2(0, -80.0f *UI::scale);
+				UI::box(params, text.rect(p).outset(8.0f * UI::scale), UI::background_color);
+				text.draw(params, p);
+			}
 
 			if (cooldown_can_go && (reticle.type == ReticleType::Normal || reticle.type == ReticleType::Target))
 			{

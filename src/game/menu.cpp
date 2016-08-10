@@ -277,7 +277,7 @@ b8 options(const Update& u, u8 gamepad, UIMenu* menu, Vec2* pos)
 		if (delta == UIMenu::Delta::Down)
 			*sensitivity = vi_max(10, (s32)(*sensitivity) - 10);
 		else if (delta == UIMenu::Delta::Up)
-			*sensitivity = vi_min(255, (s32)(*sensitivity) + 10);
+			*sensitivity = vi_min(250, (s32)(*sensitivity) + 10);
 	}
 
 	{

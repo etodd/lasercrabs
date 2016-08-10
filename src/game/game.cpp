@@ -69,6 +69,7 @@ Game::State Game::state;
 Vec2 Game::cursor(200, 200);
 b8 Game::cursor_updated = false;
 b8 Game::cursor_active = false;
+b8 Game::cancel_event_eaten[] = {};
 
 Game::State::State()
 	: mode(Game::Mode::Special),
@@ -362,6 +363,14 @@ void Game::update(const Update& update_in)
 	Audio::update();
 
 	World::flush();
+
+
+	// reset cancel event eaten flags
+	for (s32 i = 0; i < MAX_GAMEPADS; i++)
+	{
+		if (!u.input->get(Controls::Cancel, i) && !u.last_input->get(Controls::Cancel, i))
+			cancel_event_eaten[i] = false;
+	}
 }
 
 void Game::term()
@@ -401,7 +410,6 @@ void Game::draw_alpha(const RenderParams& render_params)
 	Skybox::draw_alpha(render_params, level.skybox);
 	SkyDecal::draw_alpha(render_params, level.skybox);
 	SkyPattern::draw_alpha(render_params);
-	SkinnedModel::draw_alpha(render_params);
 
 #if DEBUG_NAV_MESH
 	AI::debug_draw_nav_mesh(render_params);
@@ -565,12 +573,22 @@ void Game::draw_alpha(const RenderParams& render_params)
 	}
 #endif
 
+	SkinnedModel::draw_alpha(render_params);
+
 	View::draw_alpha(render_params);
 
 	Tile::draw_alpha(render_params);
 
 	for (s32 i = 0; i < ParticleSystem::all.length; i++)
 		ParticleSystem::all[i]->draw(render_params);
+
+	// enable depth writing for "alpha depth" geometry
+	render_params.sync->write<RenderOp>(RenderOp::DepthMask);
+	render_params.sync->write<b8>(true);
+	SkinnedModel::draw_alpha_depth(render_params);
+	View::draw_alpha_depth(render_params);
+	render_params.sync->write<RenderOp>(RenderOp::DepthMask);
+	render_params.sync->write<b8>(false);
 
 	for (auto i = LocalPlayerControl::list.iterator(); !i.is_last(); i.next())
 		i.item()->draw_alpha(render_params);
@@ -959,7 +977,92 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 				transforms[parent]->to_world(&absolute_pos, &absolute_rot);
 		}
 
-		if (cJSON_GetObjectItem(element, "StaticGeom"))
+		if (cJSON_GetObjectItem(element, "World"))
+		{
+			// World is guaranteed to be the first element in the entity list
+
+			level.feature_level = (FeatureLevel)Json::get_s32(element, "feature_level", (s32)FeatureLevel::All);
+
+			{
+				level.lock_teams = Json::get_s32(element, "lock_teams");
+				// shuffle teams
+				// if we're in local multiplayer mode, rotate the teams by a set amount
+				// local multiplayer games rotate through the possible team configurations on each map before moving to the next map
+				s32 offset;
+				if (level.lock_teams)
+					offset = 0;
+				else
+					offset = state.local_multiplayer ? save.round : mersenne::rand() % state.teams;
+
+				for (s32 i = 0; i < state.teams; i++)
+					teams[i] = (AI::Team)((offset + i) % state.teams);
+			}
+
+			level.skybox.far_plane = Json::get_r32(element, "far_plane", 100.0f);
+			level.skybox.texture = Loader::find(Json::get_string(element, "skybox_texture"), AssetLookup::Texture::names);
+			level.skybox.shader = Asset::Shader::skybox;
+			level.skybox.mesh = Asset::Mesh::skybox;
+			if (state.mode == Mode::Pvp)
+			{
+				// override colors
+				level.skybox.fog_start = level.skybox.far_plane;
+				level.skybox.color = pvp_sky;
+				level.skybox.ambient_color = pvp_ambient;
+				level.skybox.player_light = pvp_player_light;
+			}
+			else
+			{
+				level.skybox.fog_start = level.skybox.far_plane * 0.25f;
+				level.skybox.color = Json::get_vec3(element, "skybox_color");
+				level.skybox.ambient_color = Json::get_vec3(element, "ambient_color");
+				level.skybox.player_light = Vec3::zero;
+			}
+
+			level.min_y = Json::get_r32(element, "min_y", -20.0f);
+
+			hp_start = (u16)Json::get_s32(element, "hp_start", 1);
+
+			// initialize teams
+			if (m != Mode::Special)
+			{
+				for (s32 i = 0; i < (s32)state.teams; i++)
+				{
+					Team* team = Team::list.add();
+					new (team) Team();
+				}
+
+				for (s32 i = 0; i < MAX_GAMEPADS; i++)
+				{
+					if (state.local_player_config[i] != AI::NoTeam)
+					{
+						AI::Team team = team_lookup(teams, (s32)state.local_player_config[i]);
+
+						PlayerManager* manager = PlayerManager::list.add();
+						new (manager) PlayerManager(&Team::list[(s32)team], hp_start);
+
+						if (ai_test)
+						{
+							AIPlayer* player = AIPlayer::list.add();
+							new (player) AIPlayer(manager, AIPlayer::generate_config());
+						}
+						else
+						{
+							LocalPlayer* player = LocalPlayer::list.add();
+							new (player) LocalPlayer(manager, i);
+						}
+					}
+				}
+				if (state.mode == Mode::Pvp)
+					Audio::post_global_event(AK::EVENTS::PLAY_MUSIC_01);
+			}
+		}
+		else if (Json::get_s32(element, "min_players") > PlayerManager::list.count()
+			|| Json::get_s32(element, "min_teams") > Team::list.length)
+		{
+			// not enough players or teams
+			// don't spawn the entity
+		}
+		else if (cJSON_GetObjectItem(element, "StaticGeom"))
 		{
 			b8 alpha = (b8)Json::get_s32(element, "alpha");
 			b8 additive = (b8)Json::get_s32(element, "additive");
@@ -1064,85 +1167,6 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 			}
 			Mover* mover = entity->get<Mover>();
 			mover->ease = (Ease::Type)Json::get_enum(element, "ease", Ease::type_names);
-		}
-		else if (cJSON_GetObjectItem(element, "World"))
-		{
-			// World is guaranteed to be the first element in the entity list
-
-			level.feature_level = (FeatureLevel)Json::get_s32(element, "feature_level", (s32)FeatureLevel::All);
-
-			{
-				level.lock_teams = Json::get_s32(element, "lock_teams");
-				// shuffle teams
-				// if we're in local multiplayer mode, rotate the teams by a set amount
-				// local multiplayer games rotate through the possible team configurations on each map before moving to the next map
-				s32 offset;
-				if (level.lock_teams)
-					offset = 0;
-				else
-					offset = state.local_multiplayer ? save.round : mersenne::rand() % state.teams;
-
-				for (s32 i = 0; i < state.teams; i++)
-					teams[i] = (AI::Team)((offset + i) % state.teams);
-			}
-
-			level.skybox.far_plane = Json::get_r32(element, "far_plane", 100.0f);
-			level.skybox.texture = Loader::find(Json::get_string(element, "skybox_texture"), AssetLookup::Texture::names);
-			level.skybox.shader = Asset::Shader::skybox;
-			level.skybox.mesh = Asset::Mesh::skybox;
-			if (state.mode == Mode::Pvp)
-			{
-				// override colors
-				level.skybox.fog_start = level.skybox.far_plane;
-				level.skybox.color = pvp_sky;
-				level.skybox.ambient_color = pvp_ambient;
-				level.skybox.player_light = pvp_player_light;
-			}
-			else
-			{
-				level.skybox.fog_start = level.skybox.far_plane * 0.25f;
-				level.skybox.color = Json::get_vec3(element, "skybox_color");
-				level.skybox.ambient_color = Json::get_vec3(element, "ambient_color");
-				level.skybox.player_light = Vec3::zero;
-			}
-
-			level.min_y = Json::get_r32(element, "min_y", -20.0f);
-
-			hp_start = (u16)Json::get_s32(element, "hp_start", 1);
-
-			// initialize teams
-			if (m != Mode::Special)
-			{
-				for (s32 i = 0; i < (s32)state.teams; i++)
-				{
-					Team* team = Team::list.add();
-					new (team) Team();
-				}
-
-				for (s32 i = 0; i < MAX_GAMEPADS; i++)
-				{
-					if (state.local_player_config[i] != AI::NoTeam)
-					{
-						AI::Team team = team_lookup(teams, (s32)state.local_player_config[i]);
-
-						PlayerManager* manager = PlayerManager::list.add();
-						new (manager) PlayerManager(&Team::list[(s32)team], hp_start);
-
-						if (ai_test)
-						{
-							AIPlayer* player = AIPlayer::list.add();
-							new (player) AIPlayer(manager, AIPlayer::generate_config());
-						}
-						else
-						{
-							LocalPlayer* player = LocalPlayer::list.add();
-							new (player) LocalPlayer(manager, i);
-						}
-					}
-				}
-				if (state.mode == Mode::Pvp)
-					Audio::post_global_event(AK::EVENTS::PLAY_MUSIC_01);
-			}
 		}
 		else if (cJSON_GetObjectItem(element, "PointLight"))
 		{

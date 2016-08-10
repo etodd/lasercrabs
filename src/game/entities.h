@@ -65,8 +65,6 @@ struct HealthPickup : public ComponentType<HealthPickup>
 	};
 
 	static void sort_all(const Vec3&, Array<Ref<HealthPickup>>*, b8, Health* = nullptr);
-	static s32 available_count();
-
 	Ref<Health> owner;
 
 	void awake();
@@ -124,7 +122,7 @@ struct RocketEntity : public Entity
 	RocketEntity(Entity*, Transform*, const Vec3&, const Quat&, AI::Team);
 };
 
-#define CONTAINMENT_FIELD_RADIUS 16.0f
+#define CONTAINMENT_FIELD_RADIUS 12.0f
 #define CONTAINMENT_FIELD_BASE_OFFSET 0.95f
 #define CONTAINMENT_FIELD_LIFETIME 20.0f
 struct ContainmentField : public ComponentType<ContainmentField>

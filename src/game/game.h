@@ -130,6 +130,7 @@ struct Game
 	static Array<UpdateFunction> updates;
 	static Array<DrawFunction> draws;
 	static Array<CleanupFunction> cleanups;
+	static b8 cancel_event_eaten[MAX_GAMEPADS];
 
 	static b8 init(LoopSync*);
 	static void execute(const Update&, const char*);

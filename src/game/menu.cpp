@@ -81,9 +81,6 @@ void refresh_variables()
 	UIText::set_variable("Interact", gamepad.bindings[(s32)Controls::Interact].string(is_gamepad));
 }
 
-#define logo_size (128.0f * UI::scale)
-#define logo_padding (46.0f * UI::scale)
-
 void title_menu(const Update& u, u8 gamepad, UIMenu* menu, State* state)
 {
 	if (*state == State::Hidden)
@@ -95,7 +92,7 @@ void title_menu(const Update& u, u8 gamepad, UIMenu* menu, State* state)
 	{
 		case State::Visible:
 		{
-			Vec2 pos(logo_padding * 2.0f + logo_size, u.input->height * 0.5f + UIMenu::height(4) * 0.5f);
+			Vec2 pos(0, u.input->height * 0.5f + UIMenu::height(4) * 0.5f);
 			menu->start(u, 0, 4);
 			if (menu->item(u, &pos, _(strings::play)))
 			{
@@ -104,17 +101,17 @@ void title_menu(const Update& u, u8 gamepad, UIMenu* menu, State* state)
 				Terminal::show();
 				return;
 			}
-			if (menu->item(u, &pos, _(strings::options)))
-			{
-				*state = State::Options;
-				menu->animate();
-			}
 			if (menu->item(u, &pos, _(strings::splitscreen)))
 			{
 				Game::save = Game::Save();
 				Game::state.reset();
 				Game::state.local_multiplayer = true;
 				Terminal::show();
+			}
+			if (menu->item(u, &pos, _(strings::options)))
+			{
+				*state = State::Options;
+				menu->animate();
 			}
 			if (menu->item(u, &pos, _(strings::exit)))
 				Game::quit = true;
@@ -123,7 +120,7 @@ void title_menu(const Update& u, u8 gamepad, UIMenu* menu, State* state)
 		}
 		case State::Options:
 		{
-			Vec2 pos(logo_padding * 2.0f + logo_size, u.input->height * 0.5f + options_height() * 0.5f);
+			Vec2 pos(0, u.input->height * 0.5f + options_height() * 0.5f);
 			if (!options(u, 0, menu, &pos))
 			{
 				*state = State::Visible;
@@ -242,8 +239,8 @@ void draw(const RenderParams& params)
 	const Rect2& viewport = params.camera->viewport;
 	if (Game::state.level == Asset::Level::title)
 	{
-		Vec2 logo_pos(logo_padding + logo_size * 0.5f, viewport.size.y * 0.5f);
-		UI::box(params, { Vec2(0, logo_pos.y - logo_size * 0.5f - logo_padding), Vec2(logo_size + logo_padding * 2.0f + MENU_ITEM_WIDTH, logo_size + logo_padding * 2.0f) }, UI::background_color);
+		Vec2 logo_pos(viewport.size.x * 0.5f, viewport.size.y * 0.5f);
+		Vec2 logo_size(256.0f * UI::scale);
 		const Mesh* m0 = Loader::mesh(Asset::Mesh::logo_mesh);
 		UI::mesh(params, Asset::Mesh::logo_mesh, logo_pos, Vec2(logo_size), UI::accent_color);
 		const Mesh* m1 = Loader::mesh(Asset::Mesh::logo_mesh_1);

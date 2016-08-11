@@ -484,10 +484,44 @@ void do_surrogate_damage(Entity* awk, Entity* surrogate, Entity* owner)
 		owner->get<LocalPlayerControl>()->player.ref()->msg(_(shielded ? strings::target_shield_down : strings::target_damaged), true);
 }
 
+Rocket::Rocket()
+	: team(),
+	target(),
+	owner(),
+	particle_accumulator(),
+	remaining_lifetime(30.0f)
+{
+}
+
+void Rocket::explode()
+{
+	Vec3 pos = get<Transform>()->absolute_pos();
+	// effects
+	for (s32 i = 0; i < 50; i++)
+	{
+		Particles::sparks.add
+		(
+			pos,
+			Vec3(mersenne::randf_oo() * 2.0f - 1.0f, mersenne::randf_oo() * 2.0f - 1.0f, mersenne::randf_oo() * 2.0f - 1.0f) * 10.0f,
+			Vec4(1, 1, 1, 1)
+		);
+	}
+	World::create<ShockwaveEntity>(8.0f, 1.5f)->get<Transform>()->absolute_pos(pos);
+
+	World::remove_deferred(entity());
+}
+
 void Rocket::update(const Update& u)
 {
 	if (!get<Transform>()->parent.ref())
 	{
+		remaining_lifetime -= u.time.delta;
+		if (remaining_lifetime < 0.0f)
+		{
+			explode();
+			return;
+		}
+
 		// we're in flight
 		if (target.ref() && !target.ref()->get<AIAgent>()->stealth)
 		{
@@ -553,19 +587,7 @@ void Rocket::update(const Update& u)
 				else if (hit->has<Health>())
 					hit->get<Health>()->damage(entity(), get<Health>()->hp_max);
 
-				// effects
-				for (s32 i = 0; i < 50; i++)
-				{
-					Particles::sparks.add
-					(
-						get<Transform>()->pos,
-						Vec3(mersenne::randf_oo() * 2.0f - 1.0f, mersenne::randf_oo() * 2.0f - 1.0f, mersenne::randf_oo() * 2.0f - 1.0f) * 10.0f,
-						Vec4(1, 1, 1, 1)
-					);
-				}
-				World::create<ShockwaveEntity>(8.0f, 1.5f)->get<Transform>()->absolute_pos(ray_callback.m_hitPointWorld);
-
-				World::remove_deferred(entity());
+				explode();
 				return;
 			}
 		}

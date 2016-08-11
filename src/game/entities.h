@@ -80,7 +80,7 @@ struct SensorEntity : public Entity
 
 #define SENSOR_TIME 1.0f
 #define SENSOR_TIMEOUT 5.0f
-#define SENSOR_RADIUS 0.15f
+#define SENSOR_RADIUS 0.2f
 #define SENSOR_HEALTH 3
 struct Sensor : public ComponentType<Sensor>
 {
@@ -107,9 +107,14 @@ struct Rocket : public ComponentType<Rocket>
 	Ref<Entity> target;
 	Ref<Entity> owner;
 	r32 particle_accumulator;
+	r32 remaining_lifetime;
 
 	static Rocket* inbound(Entity*);
 	static Rocket* closest(AI::TeamMask, const Vec3&, r32* = nullptr);
+
+	Rocket();
+
+	void explode();
 
 	void awake();
 	void killed(Entity*);

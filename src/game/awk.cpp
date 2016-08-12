@@ -814,12 +814,24 @@ void Awk::crawl(const Vec3& dir_raw, const Update& u)
 			if (dir_flattened_other_wall.dot(dir_flattened) > 0.0f
 				&& !(ray_callback.m_collisionObject->getBroadphaseHandle()->m_collisionFilterGroup & AWK_INACCESSIBLE_MASK))
 			{
-				move
-				(
-					ray_callback.m_hitPointWorld + ray_callback.m_hitNormalWorld * AWK_RADIUS,
-					Quat::look(ray_callback.m_hitNormalWorld),
-					ray_callback.m_collisionObject->getUserIndex()
-				);
+				Vec3 next_wall_to_awk = attach_point() - Vec3(ray_callback.m_hitPointWorld);
+				b8 next_wall_curves_away = other_wall_normal.dot(next_wall_to_awk) < 0.0f;
+				r32 dir_flattened_dot = dir_flattened_other_wall.dot(wall_normal);
+				if ((next_wall_curves_away && dir_flattened_dot < 0.01f)
+					|| (!next_wall_curves_away && dir_flattened_dot > -0.01f))
+				{
+					move
+					(
+						ray_callback.m_hitPointWorld + ray_callback.m_hitNormalWorld * AWK_RADIUS,
+						Quat::look(ray_callback.m_hitNormalWorld),
+						ray_callback.m_collisionObject->getUserIndex()
+					);
+				}
+				else
+				{
+					// Stay on our current wall
+					crawl_wall_edge(dir_normalized, other_wall_normal, u, speed);
+				}
 			}
 		}
 		else

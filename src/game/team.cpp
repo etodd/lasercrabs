@@ -96,7 +96,7 @@ namespace VI
 			strings::sniper,
 			strings::description_sniper,
 			Asset::Mesh::icon_sniper,
-			50,
+			40,
 		},
 	};
 

@@ -39,7 +39,9 @@ namespace VI
 
 #define fov_default (70.0f * PI * 0.5f / 180.0f)
 #define fov_zoom (fov_default * 0.5f)
+#define fov_sniper (fov_default * 0.25f)
 #define zoom_speed_multiplier 0.25f
+#define zoom_speed_multiplier_sniper 0.15f
 #define zoom_speed (1.0f / 0.1f)
 #define speed_mouse 0.1f
 #define speed_joystick 5.0f
@@ -1093,7 +1095,10 @@ b8 LocalPlayerControl::movement_enabled() const
 
 r32 LocalPlayerControl::look_speed() const
 {
-	return try_secondary ? zoom_speed_multiplier : 1.0f;
+	if (try_secondary)
+		return get<Awk>()->snipe ? zoom_speed_multiplier_sniper : zoom_speed_multiplier;
+	else
+		return 1.0f;
 }
 
 void LocalPlayerControl::update_camera_input(const Update& u, r32 gamepad_rotation_multiplier)
@@ -1241,7 +1246,7 @@ void LocalPlayerControl::update(const Update& u)
 			try_secondary = false;
 		}
 
-		r32 fov_target = try_secondary ? fov_zoom : fov_default;
+		r32 fov_target = try_secondary ? (get<Awk>()->snipe ? fov_sniper : fov_zoom) : fov_default;
 
 		if (fov < fov_target)
 			fov = vi_min(fov + zoom_speed * sinf(fov) * u.time.delta, fov_target);

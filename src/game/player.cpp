@@ -488,7 +488,7 @@ void LocalPlayer::draw_alpha(const RenderParams& params) const
 		}
 
 		if ((mode == UIMode::Default || mode == UIMode::Upgrading)
-			&& !manager.ref()->entity.ref()->get<Awk>()->snipe)
+			&& manager.ref()->entity.ref() && !manager.ref()->entity.ref()->get<Awk>()->snipe)
 		{
 			// draw abilities
 

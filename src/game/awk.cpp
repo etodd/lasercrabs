@@ -814,8 +814,8 @@ void Awk::crawl(const Vec3& dir_raw, const Update& u)
 			if (dir_flattened_other_wall.dot(dir_flattened) > 0.0f
 				&& !(ray_callback.m_collisionObject->getBroadphaseHandle()->m_collisionFilterGroup & AWK_INACCESSIBLE_MASK))
 			{
-				Vec3 next_wall_to_awk = attach_point() - Vec3(ray_callback.m_hitPointWorld);
-				b8 next_wall_curves_away = other_wall_normal.dot(next_wall_to_awk) < 0.0f;
+				Vec3 to_next_wall = Vec3(ray_callback.m_hitPointWorld) - attach_point();
+				b8 next_wall_curves_away = wall_normal.dot(to_next_wall) < 0.0f;
 				r32 dir_flattened_dot = dir_flattened_other_wall.dot(wall_normal);
 				if ((next_wall_curves_away && dir_flattened_dot < 0.01f)
 					|| (!next_wall_curves_away && dir_flattened_dot > -0.01f))

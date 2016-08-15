@@ -730,7 +730,7 @@ void Game::execute(const Update& u, const char* cmd)
 			if (i.item()->entity.ref())
 			{
 				u16 credits = i.item()->credits;
-				i.item()->credits = 10000000;
+				i.item()->credits = 10000;
 				for (s32 upgrade = 0; upgrade < (s32)Upgrade::count; upgrade++)
 				{
 					while (i.item()->upgrade_available((Upgrade)upgrade))

@@ -22,6 +22,8 @@
 #include "cjson/cJSON.h"
 #include "settings.h"
 #include "usernames.h"
+#include <string>
+#include <unordered_map>
 
 namespace VI
 {

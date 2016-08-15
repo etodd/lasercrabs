@@ -3203,9 +3203,11 @@ s32 proc(s32 argc, char* argv[])
 	{
 		DIR* dir = opendir(mod_folder);
 		b8 do_mod = dir != nullptr;
-		closedir(dir);
 		if (do_mod)
+		{
+			closedir(dir);
 			return mod_proc();
+		}
 	}
 
 	// Initialise SDL

@@ -1139,7 +1139,7 @@ void Panic::run()
 	if (path_priority > control->path_priority)
 	{
 		control->panic = true;
-		control->behavior_start(this, 10000000); // if we're panicking, nothing can interrupt us
+		control->behavior_start(this, 127); // if we're panicking, nothing can interrupt us
 	}
 	else
 		done(false);
@@ -1426,7 +1426,7 @@ void DoUpgrade::run()
 			{
 				if (manager->upgrade_start(u))
 				{
-					control->behavior_start(this, 10000); // set the priority higher than everything else; upgrades can't be cancelled
+					control->behavior_start(this, 127); // set the priority higher than everything else; upgrades can't be cancelled
 					return;
 				}
 			}

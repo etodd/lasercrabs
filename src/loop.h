@@ -470,7 +470,7 @@ void draw(LoopSync* sync, const Camera* camera)
 		sync->write<RenderOp>(RenderOp::BlendMode);
 		sync->write<RenderBlendMode>(RenderBlendMode::AlphaDestination);
 
-		if (camera->team == (u16)-1)
+		if (camera->team == (u8)-1)
 		{
 			// render all override lights
 			render_point_lights(render_params, (s32)PointLight::Type::Override, inv_buffer_size, (u16)-1);

@@ -104,7 +104,10 @@ LocalPlayer::LocalPlayer(PlayerManager* m, u8 g)
 	upgrade_animation_time(),
 	score_summary_scroll()
 {
-	sprintf(manager.ref()->username, gamepad == 0 ? "%s" : "%s[%d]", Game::save.username, gamepad);
+	if (gamepad == 0)
+		sprintf(manager.ref()->username, "%s", Game::save.username);
+	else
+		sprintf(manager.ref()->username, "%s[%d]", Game::save.username, gamepad);
 
 	msg_text.size = text_size;
 	msg_text.anchor_x = UIText::Anchor::Center;

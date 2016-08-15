@@ -1202,7 +1202,7 @@ void draw(LoopSync* sync, const Camera* camera)
 		sync->write(Asset::Uniform::buffer_size);
 		sync->write(RenderDataType::Vec2);
 		sync->write<s32>(1);
-		sync->write<Vec2>(buffer_size * (1.0f / vi_max(1.0f, UI::scale)));
+		sync->write<Vec2>(buffer_size);
 
 		sync->write(RenderOp::Uniform);
 		sync->write(Asset::Uniform::depth_buffer);
@@ -1210,6 +1210,12 @@ void draw(LoopSync* sync, const Camera* camera)
 		sync->write<s32>(1);
 		sync->write<RenderTextureType>(RenderTextureType::Texture2D);
 		sync->write<AssetID>(depth_buffer);
+
+		sync->write(RenderOp::Uniform);
+		sync->write(Asset::Uniform::range);
+		sync->write(RenderDataType::R32);
+		sync->write<s32>(1);
+		sync->write<r32>(render_params.camera->range * 2.0f);
 
 		sync->write(RenderOp::Uniform);
 		sync->write(Asset::Uniform::time);

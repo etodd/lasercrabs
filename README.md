@@ -19,8 +19,13 @@ separate threads for physics, rendering, AI, and game logic
 - Automatic navmesh generation with realtime mutations via Recast
 - Audio via Wwise
 - Physics via Bullet
-- Almost all dependencies are GitHub submodules
+- Almost all dependencies are open source GitHub submodules
 - Builds and runs on Win/Mac/Linux
+
+Is this good code?
+------------------
+
+It's alright. It uses templates too often. Otherwise not too bad.
 
 Windows quickstart
 ------------------

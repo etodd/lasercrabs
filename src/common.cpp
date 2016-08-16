@@ -73,7 +73,7 @@ PhysicsEntity::PhysicsEntity(AssetID mesh, const Vec3& pos, const Quat& quat, Ri
 		model->shader = Asset::Shader::standard;
 	}
 	
-	RigidBody* body = create<RigidBody>(type, scale, mass, filter_group, filter_mask, mesh);
+	create<RigidBody>(type, scale, mass, filter_group, filter_mask, mesh);
 }
 
 Noclip::Noclip()

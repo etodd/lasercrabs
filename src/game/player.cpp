@@ -283,17 +283,11 @@ void LocalPlayer::update(const Update& u)
 				&& !Game::cancel_event_eaten[gamepad])
 			{
 				Game::cancel_event_eaten[gamepad] = true;
-				if (manager.ref()->current_upgrade == Upgrade::None)
-					upgrading = false;
+				upgrading = false;
 			}
 			else
 			{
 				b8 upgrade_in_progress = manager.ref()->current_upgrade != Upgrade::None;
-				if (upgrade_in_progress)
-				{
-					// we are upgrading an ability; disable all menu input
-					UIMenu::active[gamepad] = (UIMenu*)1; // hack! invalid menu pointer to make this menu think that it doesn't have focus
-				}
 
 				u8 last_selected = menu.selected;
 
@@ -303,11 +297,8 @@ void LocalPlayer::update(const Update& u)
 
 				Vec2 pos(viewport.size.x * 0.5f + MENU_ITEM_WIDTH * -0.5f, viewport.size.y * 0.8f);
 
-				if (menu.item(u, &pos, _(strings::close), nullptr, upgrade_in_progress))
-				{
-					if (manager.ref()->current_upgrade == Upgrade::None)
-						upgrading = false;
-				}
+				if (menu.item(u, &pos, _(strings::close), nullptr))
+					upgrading = false;
 
 				for (s32 i = 0; i < (s32)Upgrade::count; i++)
 				{

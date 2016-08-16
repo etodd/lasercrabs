@@ -101,22 +101,23 @@ struct RigidBody : public ComponentType<RigidBody>
 	static ID add_constraint(Constraint&);
 	static void remove_constraint(ID);
 
-	short collision_group;
-	short collision_filter;
-	Type type;
-	r32 mass;
 	Vec3 size;
-	s32 mesh_id;
-	ID linked_entity; // set the rigid body's user index to this. if IDNull, it's "this" entity's ID.
 	Vec2 damping; // use set_damping to ensure the btBody will be updated
-	
 	btCollisionShape* btShape;
 	btStridingMeshInterface* btMesh;
 	btRigidBody* btBody;
+	Type type;
+	r32 mass;
+	s32 mesh_id;
+	ID linked_entity; // set the rigid body's user index to this. if IDNull, it's "this" entity's ID.
+	short collision_group;
+	short collision_filter;
+	b8 ccd; // continuous collision detection
 
 	void rebuild(); // rebuild bullet objects from our settings
 
 	void set_damping(r32, r32);
+	void set_ccd(b8);
 
 	RigidBody(Type, const Vec3&, r32, short, short, AssetID = AssetNull, ID = IDNull);
 	~RigidBody();

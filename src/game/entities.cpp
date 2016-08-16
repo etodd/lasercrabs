@@ -119,6 +119,7 @@ HealthPickupEntity::HealthPickupEntity(const Vec3& p)
 
 	RigidBody* body = create<RigidBody>(RigidBody::Type::Sphere, Vec3(HEALTH_PICKUP_RADIUS), 0.1f, CollisionAwkIgnore | CollisionTarget, ~CollisionAwk & ~CollisionShield);
 	body->set_damping(0.5f, 0.5f);
+	body->set_ccd(true);
 }
 
 r32 HealthPickup::Key::priority(HealthPickup* p)
@@ -177,14 +178,16 @@ b8 HealthPickup::set_owner(Health* health)
 		// must be neutral or owned by someone else
 		if (!owner.ref() || owner.ref() != health)
 		{
-			if (owner.ref()) // looks like we're being stolen
-				owner.ref()->damage(health->entity(), 1);
+			Health* old_owner = owner.ref();
+
 			owner = health;
 			health->add(1);
-
 			AI::Team team = health->get<AIAgent>()->team;
 			get<PointLight>()->team = (u8)team;
 			get<View>()->team = (u8)team;
+
+			if (old_owner) // looks like we're being stolen
+				old_owner->damage(health->entity(), 1);
 			return true;
 		}
 	}
@@ -1062,7 +1065,7 @@ RigidBody* rope_add(RigidBody* start, const Vec3& start_relative_pos, const Vec3
 			if (length > rope_interval * 0.5f)
 			{
 				Vec3 spawn_pos = last_segment_pos + (diff / length) * rope_interval * 0.5f;
-				Entity* box = World::create<PhysicsEntity>(AssetNull, spawn_pos, rot, RigidBody::Type::CapsuleZ, Vec3(rope_radius, rope_segment_length - rope_radius * 2.0f, 0.0f), 0.05f, CollisionAwkIgnore, CollisionInaccessibleMask);
+				Entity* box = World::create<PhysicsEntity>(AssetNull, spawn_pos, rot, RigidBody::Type::CapsuleZ, Vec3(rope_radius, rope_segment_length - rope_radius * 2.0f, 0.0f), 0.05f, CollisionAwkIgnore, CollisionAwkIgnore);
 				Rope* r = box->add<Rope>();
 				if (last_segment->has<Rope>())
 					last_segment->get<Rope>()->next = box->get<RigidBody>();
@@ -1156,125 +1159,6 @@ void Rope::spawn(const Vec3& pos, const Vec3& dir, r32 max_distance, r32 slack)
 				rope->end(ray_callback2.m_hitPointWorld, ray_callback2.m_hitNormalWorld, b, slack);
 		}
 	}
-}
-
-TileEntity::TileEntity(const Vec3& pos, const Quat& rot, Transform* parent, const Vec3& offset, r32 anim_time)
-{
-	Transform* transform = create<Transform>();
-
-	transform->absolute(pos + offset, rot * Quat::euler(PI * 0.5f, PI * 0.5f, fmod((Game::time.total + (anim_time * 2.0f)) * 5.0f, PI * 2.0f)));
-
-	transform->reparent(parent);
-
-	Vec3 relative_target_pos = pos;
-	Quat relative_target_rot = rot;
-	if (parent)
-		parent->to_local(&relative_target_pos, &relative_target_rot);
-
-	create<Tile>(relative_target_pos, relative_target_rot, anim_time);
-}
-
-Array<Mat4> Tile::instances;
-
-Tile::Tile(const Vec3& pos, const Quat& rot, r32 anim_time)
-	: relative_target_pos(pos),
-	relative_target_rot(rot),
-	timer(),
-	anim_time(anim_time)
-{
-}
-
-void Tile::awake()
-{
-	relative_start_pos = get<Transform>()->pos;
-	relative_start_rot = get<Transform>()->rot;
-}
-
-#define TILE_LIFE_TIME 6.0f
-#define TILE_ANIM_OUT_TIME 0.3f
-void Tile::update(const Update& u)
-{
-	timer += u.time.delta;
-	if (timer > TILE_LIFE_TIME)
-		World::remove(entity());
-	else
-	{
-		r32 blend = vi_min(timer / anim_time, 1.0f);
-
-		Vec3 blend_pos = Vec3::lerp(blend, relative_start_pos, relative_target_pos) + Vec3(sinf(blend * PI) * 0.25f);
-		Quat blend_rot = Quat::slerp(blend, relative_start_rot, relative_target_rot);
-
-		get<Transform>()->pos = blend_pos;
-		get<Transform>()->rot = blend_rot;
-	}
-}
-
-r32 Tile::scale() const
-{
-	r32 blend;
-	if (timer < TILE_LIFE_TIME - TILE_ANIM_OUT_TIME)
-		blend = vi_min(timer / anim_time, 1.0f);
-	else
-		blend = Ease::quad_in(((timer - (TILE_LIFE_TIME - TILE_ANIM_OUT_TIME)) / TILE_ANIM_OUT_TIME), 1.0f, 0.0f);
-	return blend * TILE_SIZE;
-}
-
-void Tile::draw_alpha(const RenderParams& params)
-{
-	instances.length = 0;
-
-	const Mesh* mesh_data = Loader::mesh_instanced(Asset::Mesh::plane);
-	Vec3 radius = (Vec4(mesh_data->bounds_radius, mesh_data->bounds_radius, mesh_data->bounds_radius, 0)).xyz();
-	r32 f_radius = vi_max(radius.x, vi_max(radius.y, radius.z));
-
-	{
-		for (auto i = Tile::list.iterator(); !i.is_last(); i.next())
-		{
-			Tile* tile = i.item();
-			const r32 size = tile->scale();
-			if (params.camera->visible_sphere(tile->get<Transform>()->absolute_pos(), size * f_radius))
-			{
-				Mat4* m = instances.add();
-				tile->get<Transform>()->mat(m);
-				m->scale(Vec3(size));
-			}
-		}
-	}
-
-	if (instances.length == 0)
-		return;
-
-	Loader::shader_permanent(Asset::Shader::standard_instanced);
-
-	RenderSync* sync = params.sync;
-	sync->write(RenderOp::Shader);
-	sync->write(Asset::Shader::standard_instanced);
-	sync->write(params.technique);
-
-	Mat4 vp = params.view_projection;
-
-	sync->write(RenderOp::Uniform);
-	sync->write(Asset::Uniform::vp);
-	sync->write(RenderDataType::Mat4);
-	sync->write<s32>(1);
-	sync->write<Mat4>(vp);
-
-	sync->write(RenderOp::Uniform);
-	sync->write(Asset::Uniform::v);
-	sync->write(RenderDataType::Mat4);
-	sync->write<s32>(1);
-	sync->write<Mat4>(params.view);
-
-	sync->write(RenderOp::Uniform);
-	sync->write(Asset::Uniform::diffuse_color);
-	sync->write(RenderDataType::Vec4);
-	sync->write<s32>(1);
-	sync->write<Vec4>(Vec4(1, 1, 0.25f, 0.5f));
-
-	sync->write(RenderOp::Instances);
-	sync->write(Asset::Mesh::plane);
-	sync->write(instances.length);
-	sync->write<Mat4>(instances.data, instances.length);
 }
 
 MoverEntity::MoverEntity(b8 reversed, b8 trans, b8 rot)

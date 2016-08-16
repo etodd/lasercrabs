@@ -43,16 +43,15 @@ COMPONENT_TYPE(22, Ragdoll) \
 COMPONENT_TYPE(23, SkinnedModel) \
 COMPONENT_TYPE(24, View) \
 COMPONENT_TYPE(25, Projectile) \
-COMPONENT_TYPE(26, Tile) \
-COMPONENT_TYPE(27, HealthPickup) \
-COMPONENT_TYPE(28, Sensor) \
-COMPONENT_TYPE(29, Rocket) \
-COMPONENT_TYPE(30, ContainmentField) \
-COMPONENT_TYPE(31, SensorInterestPoint) \
-COMPONENT_TYPE(32, Water) \
-COMPONENT_TYPE(33, Audio) \
+COMPONENT_TYPE(26, HealthPickup) \
+COMPONENT_TYPE(27, Sensor) \
+COMPONENT_TYPE(28, Rocket) \
+COMPONENT_TYPE(29, ContainmentField) \
+COMPONENT_TYPE(30, SensorInterestPoint) \
+COMPONENT_TYPE(31, Water) \
+COMPONENT_TYPE(32, Audio) \
 
-Family World::families = 34;
+Family World::families = 33;
 
 #define COMPONENT_TYPE(INDEX, TYPE) \
 template<> Family ComponentType<TYPE>::family = (INDEX); \

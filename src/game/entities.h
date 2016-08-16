@@ -233,30 +233,6 @@ struct Rope : public ComponentType<Rope>
 	void end(const Vec3&, const Vec3&, RigidBody*, r32 = 0.0f);
 };
 
-struct TileEntity : public Entity
-{
-	TileEntity(const Vec3&, const Quat&, Transform*, const Vec3&, r32 = 0.3f);
-};
-
-#define TILE_SIZE 0.5f
-struct Tile : public ComponentType<Tile>
-{
-	static Array<Mat4> instances;
-
-	Vec3 relative_start_pos;
-	Quat relative_start_rot;
-	Vec3 relative_target_pos;
-	Quat relative_target_rot;
-	r32 timer;
-	r32 anim_time;
-
-	Tile(const Vec3&, const Quat&, r32 = 0.3f);
-	void awake();
-	r32 scale() const;
-	void update(const Update&);
-	static void draw_alpha(const RenderParams&);
-};
-
 #define PLAYER_SPAWN_RADIUS 3.0f
 struct PlayerSpawn : public Entity
 {

@@ -206,20 +206,27 @@ void update(const Update& u)
 		title_menu(u, 0, &main_menu, &main_menu_state);
 	else if (Game::state.mode == Game::Mode::Special)
 	{
-		// toggle the pause menu
-		b8 pause_hit = (u.input->get(Controls::Pause, 0) && !u.last_input->get(Controls::Pause, 0))
-			|| (u.input->get(Controls::Cancel, 0) && !u.last_input->get(Controls::Cancel, 0));
-
-		if (pause_hit && Game::time.total > 0.0f && (main_menu_state == State::Hidden || main_menu_state == State::Visible))
-		{
-			main_menu_state = main_menu_state == State::Hidden ? State::Visible : State::Hidden;
-			main_menu.animate();
-		}
-
 		// do pause menu
-		const Rect2& viewport = { Vec2(0, 0), Vec2(u.input->width, u.input->height) };
-		pause_menu(u, viewport, 0, &main_menu, &main_menu_state);
+		if (main_menu_state == State::Visible
+			&& u.input->get(Controls::Pause, 0) && !u.last_input->get(Controls::Pause, 0)
+			&& (!Game::cancel_event_eaten[0] && u.input->get(Controls::Cancel, 0) && !u.last_input->get(Controls::Cancel, 0))
+			&& Game::time.total > 0.0f)
+		{
+			main_menu_state = State::Hidden;
+			main_menu.clear();
+		}
+		else
+		{
+			const Rect2& viewport = { Vec2(0, 0), Vec2(u.input->width, u.input->height) };
+			pause_menu(u, viewport, 0, &main_menu, &main_menu_state);
+		}
 	}
+}
+
+void show()
+{
+	main_menu_state = State::Visible;
+	main_menu.animate();
 }
 
 void title()

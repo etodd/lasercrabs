@@ -81,6 +81,7 @@ void clear();
 void draw(const RenderParams&);
 void title();
 void refresh_variables();
+void show();
 void pause_menu(const Update&, const Rect2&, u8, UIMenu*, State*);
 b8 options(const Update&, u8, UIMenu*, Vec2*);
 r32 options_height();

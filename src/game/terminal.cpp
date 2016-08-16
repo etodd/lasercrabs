@@ -107,7 +107,7 @@ void init(const Update& u, const EntityFinder& entities)
 	data = Data();
 
 	data.tip_index = mersenne::rand() % tip_count;
-
+	data.next_level = Game::levels[Game::tutorial_levels];
 	data.camera = Camera::add();
 
 	{
@@ -154,6 +154,12 @@ void init(const Update& u, const EntityFinder& entities)
 
 void splitscreen_select_teams_update(const Update& u)
 {
+	if (u.last_input->get(Controls::Cancel, 0) && !u.input->get(Controls::Cancel, 0))
+	{
+		Menu::title();
+		return;
+	}
+
 	for (s32 i = 0; i < MAX_GAMEPADS; i++)
 	{
 		b8 player_active = u.input->gamepads[i].active || i == 0;
@@ -161,64 +167,61 @@ void splitscreen_select_teams_update(const Update& u)
 		AI::Team* team = &Game::state.local_player_config[i];
 		if (player_active)
 		{
-			if (i > 0 || Menu::main_menu_state == Menu::State::Hidden) // ignore player 0 input if the main menu is open
+			// handle D-pad
+			b8 left = u.input->get(Controls::Left, i) && !u.last_input->get(Controls::Left, i);
+			b8 right = u.input->get(Controls::Right, i) && !u.last_input->get(Controls::Right, i);
+
+			// handle joysticks
 			{
-				// handle D-pad
-				b8 left = u.input->get(Controls::Left, i) && !u.last_input->get(Controls::Left, i);
-				b8 right = u.input->get(Controls::Right, i) && !u.last_input->get(Controls::Right, i);
-
-				// handle joysticks
+				r32 last_x = Input::dead_zone(u.last_input->gamepads[i].left_x, UI_JOYSTICK_DEAD_ZONE);
+				if (last_x == 0.0f)
 				{
-					r32 last_x = Input::dead_zone(u.last_input->gamepads[i].left_x, UI_JOYSTICK_DEAD_ZONE);
-					if (last_x == 0.0f)
-					{
-						r32 x = Input::dead_zone(u.input->gamepads[i].left_x, UI_JOYSTICK_DEAD_ZONE);
-						if (x < 0.0f)
-							left = true;
-						else if (x > 0.0f)
-							right = true;
-					}
+					r32 x = Input::dead_zone(u.input->gamepads[i].left_x, UI_JOYSTICK_DEAD_ZONE);
+					if (x < 0.0f)
+						left = true;
+					else if (x > 0.0f)
+						right = true;
 				}
+			}
 
-				if (u.input->get(Controls::Cancel, i) && !u.last_input->get(Controls::Cancel, i))
+			if (u.input->get(Controls::Cancel, i) && !u.last_input->get(Controls::Cancel, i))
+			{
+				if (i > 0) // player 0 must stay in
 				{
-					if (i > 0) // player 0 must stay in
-					{
-						*team = AI::NoTeam;
-						Audio::post_global_event(AK::EVENTS::PLAY_BEEP_GOOD);
-					}
+					*team = AI::NoTeam;
+					Audio::post_global_event(AK::EVENTS::PLAY_BEEP_GOOD);
 				}
-				else if (left)
+			}
+			else if (left)
+			{
+				if (*team == 1)
 				{
-					if (*team == 1)
-					{
-						if (i == 0) // player 0 must stay in
-							*team = 0;
-						else
-							*team = AI::NoTeam;
-						Audio::post_global_event(AK::EVENTS::PLAY_BEEP_GOOD);
-					}
-					else if (*team == AI::NoTeam)
-					{
+					if (i == 0) // player 0 must stay in
 						*team = 0;
-						Audio::post_global_event(AK::EVENTS::PLAY_BEEP_GOOD);
-					}
+					else
+						*team = AI::NoTeam;
+					Audio::post_global_event(AK::EVENTS::PLAY_BEEP_GOOD);
 				}
-				else if (right)
+				else if (*team == AI::NoTeam)
 				{
-					if (*team == 0)
-					{
-						if (i == 0) // player 0 must stay in
-							*team = 1;
-						else
-							*team = AI::NoTeam;
-						Audio::post_global_event(AK::EVENTS::PLAY_BEEP_GOOD);
-					}
-					else if (*team == AI::NoTeam)
-					{
+					*team = 0;
+					Audio::post_global_event(AK::EVENTS::PLAY_BEEP_GOOD);
+				}
+			}
+			else if (right)
+			{
+				if (*team == 0)
+				{
+					if (i == 0) // player 0 must stay in
 						*team = 1;
-						Audio::post_global_event(AK::EVENTS::PLAY_BEEP_GOOD);
-					}
+					else
+						*team = AI::NoTeam;
+					Audio::post_global_event(AK::EVENTS::PLAY_BEEP_GOOD);
+				}
+				else if (*team == AI::NoTeam)
+				{
+					*team = 1;
+					Audio::post_global_event(AK::EVENTS::PLAY_BEEP_GOOD);
 				}
 			}
 		}
@@ -231,7 +234,6 @@ void splitscreen_select_teams_update(const Update& u)
 		&& splitscreen_teams_are_valid())
 	{
 		data.splitscreen_state = SplitscreenState::SelectLevel;
-		data.next_level = Game::levels[Game::tutorial_levels];
 	}
 }
 
@@ -336,6 +338,12 @@ void splitscreen_select_level_update(const Update& u)
 	{
 		if (!UIMenu::active[0])
 		{
+			if (u.last_input->get(Controls::Cancel, 0) && !u.input->get(Controls::Cancel, 0))
+			{
+				data.splitscreen_state = SplitscreenState::SelectTeams;
+				return;
+			}
+
 			// select level
 			if ((!u.input->get(Controls::Forward, 0)
 				&& u.last_input->get(Controls::Forward, 0))

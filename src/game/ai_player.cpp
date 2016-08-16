@@ -1126,17 +1126,18 @@ void Panic::abort()
 	Base<Panic>::abort();
 }
 
-void Panic::done(b8 a)
+void Panic::done(b8 success)
 {
-	control->panic = false;
-	Base<Panic>::done(a);
+	if (success)
+		control->panic = false;
+	Base<Panic>::done(success);
 }
 
 // pathfinding routines failed; we are stuck
 void Panic::run()
 {
 	active(true);
-	if (path_priority > control->path_priority)
+	if (!control->panic && path_priority > control->path_priority)
 	{
 		control->panic = true;
 		control->behavior_start(this, 127); // if we're panicking, nothing can interrupt us

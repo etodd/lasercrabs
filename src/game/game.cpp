@@ -348,8 +348,6 @@ void Game::update(const Update& update_in)
 		i.item()->update(u);
 	for (auto i = Rocket::list.iterator(); !i.is_last(); i.next())
 		i.item()->update(u);
-	for (auto i = Tile::list.iterator(); !i.is_last(); i.next())
-		i.item()->update(u);
 	for (auto i = PlayerCommon::list.iterator(); !i.is_last(); i.next())
 		i.item()->update(u);
 	for (auto i = LocalPlayerControl::list.iterator(); !i.is_last(); i.next())
@@ -576,8 +574,6 @@ void Game::draw_alpha(const RenderParams& render_params)
 	SkinnedModel::draw_alpha(render_params);
 
 	View::draw_alpha(render_params);
-
-	Tile::draw_alpha(render_params);
 
 	for (s32 i = 0; i < ParticleSystem::all.length; i++)
 		ParticleSystem::all[i]->draw(render_params);

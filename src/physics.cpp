@@ -82,7 +82,7 @@ void Physics::raycast(btCollisionWorld::ClosestRayResultCallback* ray_callback, 
 PinArray<RigidBody::Constraint, MAX_ENTITIES> RigidBody::global_constraints;
 
 RigidBody::RigidBody(Type type, const Vec3& size, r32 mass, short group, short mask, AssetID mesh_id, ID linked_entity)
-	: type(type), size(size), mass(mass), collision_group(group), collision_filter(mask), linked_entity(linked_entity), btBody(), btMesh(), btShape(), mesh_id(mesh_id)
+	: type(type), size(size), mass(mass), collision_group(group), collision_filter(mask), linked_entity(linked_entity), btBody(), btMesh(), btShape(), mesh_id(mesh_id), ccd(false)
 {
 }
 
@@ -136,8 +136,34 @@ void RigidBody::awake()
 
 	btBody->setUserIndex(linked_entity == IDNull ? entity()->id() : linked_entity);
 	btBody->setDamping(damping.x, damping.y);
+	set_ccd(ccd);
 
 	Physics::btWorld->addRigidBody(btBody, collision_group, collision_filter);
+}
+
+void RigidBody::set_ccd(b8 c)
+{
+	ccd = c;
+	if (btBody)
+	{
+		if (c)
+		{
+			r32 min_radius = FLT_MAX;
+			if (size.x > 0.0f)
+				min_radius = vi_min(min_radius, size.x);
+			if (size.y > 0.0f)
+				min_radius = vi_min(min_radius, size.y);
+			if (size.z > 0.0f)
+				min_radius = vi_min(min_radius, size.z);
+			btBody->setCcdMotionThreshold(min_radius);
+			btBody->setCcdSweptSphereRadius(min_radius * 0.5f);
+		}
+		else
+		{
+			btBody->setCcdMotionThreshold(0.0f);
+			btBody->setCcdSweptSphereRadius(0.0f);
+		}
+	}
 }
 
 void RigidBody::rebuild()

@@ -50,6 +50,7 @@ struct HealthPickupEntity : public Entity
 	HealthPickupEntity(const Vec3&);
 };
 
+#define CONTROL_POINT_INTERVAL 15.0f
 struct HealthPickup : public ComponentType<HealthPickup>
 {
 	static r32 timer;

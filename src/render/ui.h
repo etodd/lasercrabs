@@ -101,6 +101,7 @@ struct UI
 	static void border(const RenderParams&, const Rect2&, r32, const Vec4& = Vec4(1, 1, 1, 1));
 	static void centered_border(const RenderParams&, const Rect2&, r32, const Vec4& = Vec4(1, 1, 1, 1), r32 = 0.0f);
 	static void triangle(const RenderParams&, const Rect2&, const Vec4& = Vec4(1, 1, 1, 1), r32 = 0.0f);
+	static void triangle_percentage(const RenderParams&, const Rect2&, r32, const Vec4& = Vec4(1, 1, 1, 1), r32 = 0.0f);
 	static void triangle_border(const RenderParams&, const Rect2&, r32, const Vec4& = Vec4(1, 1, 1, 1), r32 = 0.0f);
 	static void update(const RenderParams&);
 	static void draw(const RenderParams&);

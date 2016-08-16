@@ -664,6 +664,90 @@ void UI::triangle(const RenderParams& params, const Rect2& r, const Vec4& color,
 	}
 }
 
+void UI::triangle_percentage(const RenderParams& params, const Rect2& r, r32 percent, const Vec4& color, r32 rot)
+{
+	if (r.size.x > 0 && r.size.y > 0 && color.w > 0)
+	{
+		s32 vertex_start = UI::vertices.length;
+		const Vec2 screen = params.camera->viewport.size * 0.5f;
+		const Vec2 scale = Vec2(1.0f / screen.x, 1.0f / screen.y);
+		const Vec2 scaled_pos = (r.pos - screen) * scale;
+
+		const r32 ratio = 0.8660254037844386f;
+		const Vec2 corners[3] =
+		{
+			Vec2(r.size.x * 0.5f * ratio, r.size.y * -0.25f),
+			Vec2(0, r.size.y * 0.5f),
+			Vec2(r.size.x * -0.5f * ratio, r.size.y * -0.25f),
+		};
+
+		r32 cs = cosf(rot);
+		r32 sn = sinf(rot);
+		const Vec3 transformed_corners[3] =
+		{
+			Vec3(scaled_pos.x + (corners[0].x * cs - corners[0].y * sn) * scale.x, scaled_pos.y + (corners[0].x * sn + corners[0].y * cs) * scale.y, 0),
+			Vec3(scaled_pos.x + (corners[1].x * cs - corners[1].y * sn) * scale.x, scaled_pos.y + (corners[1].x * sn + corners[1].y * cs) * scale.y, 0),
+			Vec3(scaled_pos.x + (corners[2].x * cs - corners[2].y * sn) * scale.x, scaled_pos.y + (corners[2].x * sn + corners[2].y * cs) * scale.y, 0),
+		};
+		UI::vertices.add(transformed_corners[0]);
+		UI::vertices.add(transformed_corners[1]);
+		UI::vertices.add(transformed_corners[2]);
+		UI::vertices.add(Vec3(scaled_pos.x, scaled_pos.y, 0)); // center
+
+		UI::colors.add(color);
+		UI::colors.add(color);
+		UI::colors.add(color);
+		UI::colors.add(color);
+
+		// vertices and animation go clockwise starting at bottom right
+		r32 stop_angle = PI * -(30.0f / 180.0f) - percent * (PI * 2.0f);
+		Vec2 stop_local = Vec2(cosf(stop_angle), sinf(stop_angle)) * r.size.x * 0.5f;
+		// clamp stop vertex to the triangle
+		Vec3 stop_projected = LMath::triangle_closest_point
+		(
+			transformed_corners[0],
+			transformed_corners[1],
+			transformed_corners[2],
+			Vec3(scaled_pos.x + (stop_local.x * cs - stop_local.y * sn) * scale.x, scaled_pos.y + (stop_local.x * sn + stop_local.y * cs) * scale.y, 0)
+		);
+		UI::vertices.add(stop_projected);
+		UI::colors.add(color);
+
+		if (percent <= 0.3333f)
+		{
+			// stop here
+			UI::indices.add(vertex_start + 0); // bottom right
+			UI::indices.add(vertex_start + 3); // center
+			UI::indices.add(vertex_start + 4); // stop
+		}
+		else // percent > 0.3333f
+		{
+			UI::indices.add(vertex_start + 0); // bottom right
+			UI::indices.add(vertex_start + 3); // center
+			UI::indices.add(vertex_start + 2); // bottom left
+
+			if (percent <= 0.6666f)
+			{
+				// stop here
+				UI::indices.add(vertex_start + 2); // bottom left
+				UI::indices.add(vertex_start + 3); // center
+				UI::indices.add(vertex_start + 4); // stop
+			}
+			else // percent > 0.6666f
+			{
+				UI::indices.add(vertex_start + 2); // bottom left
+				UI::indices.add(vertex_start + 3); // center
+				UI::indices.add(vertex_start + 1); // top
+
+				// stop here
+				UI::indices.add(vertex_start + 1); // top
+				UI::indices.add(vertex_start + 3); // center
+				UI::indices.add(vertex_start + 4); // stop
+			}
+		}
+	}
+}
+
 void UI::triangle_border(const RenderParams& params, const Rect2& r, r32 thickness, const Vec4& color, r32 rot)
 {
 	if (r.size.x > 0 && r.size.y > 0 && color.w > 0)
@@ -796,7 +880,7 @@ r32 UI::get_scale(s32 width, s32 height)
 	else if (area > 640 * 480)
 		return 1.0f;
 	else
-		return 0.75f;
+		return 0.6f;
 }
 
 void UI::update(const RenderParams& p)

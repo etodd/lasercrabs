@@ -195,7 +195,6 @@ b8 HealthPickup::set_owner(Health* health)
 	return false;
 }
 
-#define CONTROL_POINT_INTERVAL 15.0f
 r32 HealthPickup::timer = CONTROL_POINT_INTERVAL;
 r32 HealthPickup::power_particle_timer;
 r32 HealthPickup::particle_accumulator;

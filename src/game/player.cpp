@@ -450,15 +450,29 @@ void LocalPlayer::draw_alpha(const RenderParams& params) const
 
 		// control point increment amount
 		{
+			r32 icon_size = text_size * UI::scale;
+			r32 padding = 8 * UI::scale;
+
 			UIText text;
 			text.color = UI::accent_color;
 			text.text("+%d", manager.ref()->entity.ref() ? manager.ref()->entity.ref()->get<Health>()->increment() : 0);
-			text.anchor_x = UIText::Anchor::Center;
+			text.anchor_x = UIText::Anchor::Min;
 			text.anchor_y = UIText::Anchor::Center;
 			text.size = text_size;
+
+			r32 total_width = icon_size + padding + text.bounds().x;
+
 			Vec2 pos = credits_pos + Vec2(0, text_size * UI::scale * -2.0f);
-			UI::box(params, text.rect(pos).outset(8.0f * UI::scale), UI::background_color);
-			text.draw(params, pos);
+			UI::box(params, Rect2(pos + Vec2(total_width * -0.5f, icon_size * -0.5f), Vec2(total_width, icon_size)).outset(padding), UI::background_color);
+			UI::triangle_percentage
+			(
+				params,
+				{ pos + Vec2(total_width * -0.5f + icon_size - padding, 0), Vec2(icon_size * 1.25f) },
+				1.0f - (HealthPickup::timer / CONTROL_POINT_INTERVAL),
+				text.color,
+				PI
+			);
+			text.draw(params, pos + Vec2(total_width * -0.5f + icon_size + padding, 0));
 		}
 	}
 

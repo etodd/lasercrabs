@@ -343,6 +343,11 @@ b8 MinionAI::can_see(Entity* target, b8 limit_vision_cone) const
 	if (target->has<AIAgent>() && target->get<AIAgent>()->stealth)
 		return false;
 
+	// if the awk is flying or just flew recently, then don't limit detection to the minion's vision cone
+	// this essentially means the minion can hear the awk flying around
+	if (limit_vision_cone && target->has<Awk>() && Game::time.total - target->get<Awk>()->attach_time < 0.5f)
+		limit_vision_cone = false;
+
 	Vec3 pos = get<MinionCommon>()->head_pos();
 	Vec3 target_pos = target->get<Transform>()->absolute_pos();
 	Vec3 diff = target_pos - pos;

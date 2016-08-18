@@ -783,8 +783,7 @@ ContainmentFieldEntity::ContainmentFieldEntity(Transform* parent, const Vec3& ab
 	create<Health>(SENSOR_HEALTH, SENSOR_HEALTH);
 	create<ContainmentField>(abs_pos, m);
 
-	RigidBody* body = create<RigidBody>(RigidBody::Type::Sphere, Vec3(CONTAINMENT_FIELD_BASE_RADIUS), 0.0f, CollisionAwkIgnore | CollisionTarget, ~CollisionAwk & ~CollisionShield);
-	body->set_damping(0.5f, 0.5f);
+	create<RigidBody>(RigidBody::Type::Sphere, Vec3(CONTAINMENT_FIELD_BASE_RADIUS), 0.0f, CollisionAwkIgnore | CollisionTarget, ~CollisionAwk & ~CollisionShield);
 }
 
 PlayerSpawn::PlayerSpawn(AI::Team team)
@@ -1064,7 +1063,7 @@ RigidBody* rope_add(RigidBody* start, const Vec3& start_relative_pos, const Vec3
 			if (length > rope_interval * 0.5f)
 			{
 				Vec3 spawn_pos = last_segment_pos + (diff / length) * rope_interval * 0.5f;
-				Entity* box = World::create<PhysicsEntity>(AssetNull, spawn_pos, rot, RigidBody::Type::CapsuleZ, Vec3(rope_radius, rope_segment_length - rope_radius * 2.0f, 0.0f), 0.05f, CollisionAwkIgnore, CollisionAwkIgnore);
+				Entity* box = World::create<PhysicsEntity>(AssetNull, spawn_pos, rot, RigidBody::Type::CapsuleZ, Vec3(rope_radius, rope_segment_length - rope_radius * 2.0f, 0.0f), 0.05f, CollisionAwkIgnore, CollisionInaccessibleMask);
 				Rope* r = box->add<Rope>();
 				if (last_segment->has<Rope>())
 					last_segment->get<Rope>()->next = box->get<RigidBody>();
@@ -1082,6 +1081,7 @@ RigidBody* rope_add(RigidBody* start, const Vec3& start_relative_pos, const Vec3
 				constraint.b = box->get<RigidBody>();
 				RigidBody::add_constraint(constraint);
 
+				box->get<RigidBody>()->set_ccd(true);
 				box->get<RigidBody>()->set_damping(0.5f, 0.5f);
 				last_segment = box->get<RigidBody>();
 				last_segment_relative_pos = Vec3(0, 0, rope_segment_length * 0.5f);

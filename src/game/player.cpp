@@ -141,39 +141,31 @@ void LocalPlayer::msg(const char* msg, b8 good)
 	msg_good = good;
 }
 
-void LocalPlayer::ensure_camera(const Update& u, b8 active)
+void LocalPlayer::awake(const Update& u)
 {
-	if (active && !camera && !manager.ref()->entity.ref())
-	{
-		camera = Camera::add();
-		camera->fog = false;
-		camera->team = (u8)manager.ref()->team.ref()->team();
-		camera->mask = 1 << camera->team;
-		s32 player_count;
+	camera = Camera::add();
+	camera->fog = false;
+	camera->team = (u8)manager.ref()->team.ref()->team();
+	camera->mask = 1 << camera->team;
+	s32 player_count;
 #if DEBUG_AI_CONTROL
-		player_count = list.count() + AIPlayer::list.count();
+	player_count = list.count() + AIPlayer::list.count();
 #else
-		player_count = list.count();
+	player_count = list.count();
 #endif
-		Camera::ViewportBlueprint* viewports = Camera::viewport_blueprints[player_count - 1];
-		Camera::ViewportBlueprint* blueprint = &viewports[id()];
+	Camera::ViewportBlueprint* viewports = Camera::viewport_blueprints[player_count - 1];
+	Camera::ViewportBlueprint* blueprint = &viewports[id()];
 
-		camera->viewport =
-		{
-			Vec2((s32)(blueprint->x * (r32)u.input->width), (s32)(blueprint->y * (r32)u.input->height)),
-			Vec2((s32)(blueprint->w * (r32)u.input->width), (s32)(blueprint->h * (r32)u.input->height)),
-		};
-		r32 aspect = camera->viewport.size.y == 0 ? 1 : (r32)camera->viewport.size.x / (r32)camera->viewport.size.y;
-		camera->perspective(60.0f * PI * 0.5f / 180.0f, aspect, 1.0f, Game::level.skybox.far_plane * 2.0f);
-		Quat rot;
-		map_view.ref()->absolute(&camera->pos, &rot);
-		camera->rot = Quat::look(rot * Vec3(0, -1, 0));
-	}
-	else if (camera && (!active || manager.ref()->entity.ref()))
+	camera->viewport =
 	{
-		camera->remove();
-		camera = nullptr;
-	}
+		Vec2((s32)(blueprint->x * (r32)u.input->width), (s32)(blueprint->y * (r32)u.input->height)),
+		Vec2((s32)(blueprint->w * (r32)u.input->width), (s32)(blueprint->h * (r32)u.input->height)),
+	};
+	r32 aspect = camera->viewport.size.y == 0 ? 1 : (r32)camera->viewport.size.x / (r32)camera->viewport.size.y;
+	camera->perspective(60.0f * PI * 0.5f / 180.0f, aspect, 1.0f, Game::level.skybox.far_plane);
+	Quat rot;
+	map_view.ref()->absolute(&camera->pos, &rot);
+	camera->rot = Quat::look(rot * Vec3(0, -1, 0));
 }
 
 #define DANGER_RAMP_UP_TIME 2.0f
@@ -258,9 +250,6 @@ void LocalPlayer::update(const Update& u)
 	{
 		case UIMode::Default:
 		{
-			// nothing going on
-			ensure_camera(u, false);
-
 			if (Game::level.has_feature(Game::FeatureLevel::Abilities)
 				&& manager.ref()->at_spawn()
 				&& !manager.ref()->entity.ref()->get<Awk>()->snipe)
@@ -293,9 +282,7 @@ void LocalPlayer::update(const Update& u)
 
 				menu.start(u, gamepad, (s32)Upgrade::count + 1);
 
-				const Rect2& viewport = camera ? camera->viewport : manager.ref()->entity.ref()->get<LocalPlayerControl>()->camera->viewport;
-
-				Vec2 pos(viewport.size.x * 0.5f + MENU_ITEM_WIDTH * -0.5f, viewport.size.y * 0.8f);
+				Vec2 pos(camera->viewport.size.x * 0.5f + MENU_ITEM_WIDTH * -0.5f, camera->viewport.size.y * 0.8f);
 
 				if (menu.item(u, &pos, _(strings::close), nullptr))
 					upgrading = false;
@@ -321,20 +308,15 @@ void LocalPlayer::update(const Update& u)
 		}
 		case UIMode::Pause:
 		{
-			ensure_camera(u, true);
-			const Rect2& viewport = camera ? camera->viewport : manager.ref()->entity.ref()->get<LocalPlayerControl>()->camera->viewport;
-			Menu::pause_menu(u, viewport, gamepad, &menu, &menu_state);
+			Menu::pause_menu(u, camera->viewport, gamepad, &menu, &menu_state);
 			break;
 		}
 		case UIMode::Dead:
 		{
-			ensure_camera(u, true);
 			break;
 		}
 		case UIMode::GameOver:
 		{
-			ensure_camera(u, true);
-
 			if (Game::real_time.total - Team::game_over_real_time > score_summary_delay)
 			{
 				// update score summary scroll
@@ -362,9 +344,6 @@ void LocalPlayer::update(const Update& u)
 
 void LocalPlayer::spawn()
 {
-	if (NoclipControl::list.count() > 0)
-		return;
-
 	Vec3 pos;
 	Quat rot;
 	manager.ref()->team.ref()->player_spawn.ref()->absolute(&pos, &rot);
@@ -422,7 +401,7 @@ void draw_ability(const RenderParams& params, PlayerManager* manager, const Vec2
 
 void LocalPlayer::draw_alpha(const RenderParams& params) const
 {
-	if (params.camera != camera && (!manager.ref()->entity.ref() || params.camera != manager.ref()->entity.ref()->get<LocalPlayerControl>()->camera))
+	if (params.camera != camera)
 		return;
 
 	const r32 line_thickness = 2.0f * UI::scale;
@@ -1023,14 +1002,12 @@ LocalPlayerControl::LocalPlayerControl(u8 gamepad)
 	last_gamepad_input_time(),
 	gamepad_rotation_speed()
 {
-	camera = Camera::add();
 }
 
 LocalPlayerControl::~LocalPlayerControl()
 {
 	Audio::listener_disable(gamepad);
 	get<Audio>()->post_event(AK::EVENTS::STOP_FLY);
-	camera->remove();
 }
 
 void LocalPlayerControl::awake()
@@ -1044,10 +1021,6 @@ void LocalPlayerControl::awake()
 	link_arg<const DamageEvent&, &LocalPlayerControl::damaged>(get<Health>()->damaged);
 	link_arg<const TargetEvent&, &LocalPlayerControl::hit_by>(get<Target>()->target_hit);
 	link<&LocalPlayerControl::health_picked_up>(get<Health>()->added);
-
-	camera->fog = false;
-	camera->team = (u8)get<AIAgent>()->team;
-	camera->mask = 1 << camera->team;
 }
 
 void LocalPlayerControl::hit_target(Entity* target)
@@ -1214,26 +1187,7 @@ void determine_visibility(PlayerCommon* me, PlayerCommon* other_player, b8* visi
 
 void LocalPlayerControl::update(const Update& u)
 {
-	// camera viewport
-	{
-		s32 player_count;
-#if DEBUG_AI_CONTROL
-		player_count = LocalPlayer::list.count() + AIPlayer::list.count(); // AI player views are shown on screen as well
-#else
-		player_count = LocalPlayer::list.count();
-#endif
-		Camera::ViewportBlueprint* viewports = Camera::viewport_blueprints[player_count - 1];
-		Camera::ViewportBlueprint* blueprint = &viewports[player.ref()->id()];
-
-		camera->viewport =
-		{
-			Vec2((s32)(blueprint->x * (r32)u.input->width), (s32)(blueprint->y * (r32)u.input->height)),
-			Vec2((s32)(blueprint->w * (r32)u.input->width), (s32)(blueprint->h * (r32)u.input->height)),
-		};
-		r32 aspect = camera->viewport.size.y == 0 ? 1 : (r32)camera->viewport.size.x / (r32)camera->viewport.size.y;
-		camera->perspective(fov, aspect, 0.02f, Game::level.skybox.far_plane);
-	}
-
+	Camera* camera = player.ref()->camera;
 	{
 		// zoom
 		b8 secondary_pressed = u.input->get(Controls::Secondary, gamepad);
@@ -1260,6 +1214,12 @@ void LocalPlayerControl::update(const Update& u)
 			fov = vi_min(fov + zoom_speed * sinf(fov) * u.time.delta, fov_target);
 		else if (fov > fov_target)
 			fov = vi_max(fov - zoom_speed * sinf(fov) * u.time.delta, fov_target);
+	}
+
+	// update camera projection
+	{
+		r32 aspect = camera->viewport.size.y == 0 ? 1 : (r32)camera->viewport.size.x / (r32)camera->viewport.size.y;
+		camera->perspective(fov, aspect, 0.02f, Game::level.skybox.far_plane);
 	}
 
 	Quat look_quat;
@@ -1422,7 +1382,7 @@ void LocalPlayerControl::update(const Update& u)
 		camera->range = get<Awk>()->snipe ? AWK_SNIPE_DISTANCE : AWK_MAX_DISTANCE;
 		camera->range_center = look_quat.inverse() * (get<Awk>()->center() - camera->pos);
 		camera->cull_range = third_person_offset + 0.5f;
-		camera->cull_behind_wall = abs_wall_normal.dot(camera->pos - get<Awk>()->attach_point()) < 0.0f;
+		camera->cull_behind_wall = abs_wall_normal.dot(camera->pos - get<Awk>()->center()) < 0.0f;
 	}
 
 	health_flash_timer = vi_max(0.0f, health_flash_timer - Game::real_time.delta);
@@ -1594,19 +1554,9 @@ void LocalPlayerControl::update(const Update& u)
 	}
 }
 
-LocalPlayerControl* LocalPlayerControl::player_for_camera(const Camera* cam)
-{
-	for (auto i = LocalPlayerControl::list.iterator(); !i.is_last(); i.next())
-	{
-		if (i.item()->camera == cam)
-			return i.item();
-	}
-	return nullptr;
-}
-
 void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 {
-	if (params.technique != RenderTechnique::Default || params.camera != camera)
+	if (params.technique != RenderTechnique::Default || params.camera != player.ref()->camera)
 		return;
 
 	if (Team::game_over)

@@ -28,12 +28,12 @@ struct PhysicsEntity : public Entity
 	PhysicsEntity(AssetID, const Vec3&, const Quat&, RigidBody::Type, const Vec3&, r32, short, short);
 };
 
+struct Camera;
+
 struct Noclip : public Entity
 {
-	Noclip();
+	Noclip(Camera*);
 };
-
-struct Camera;
 
 struct NoclipControl : public ComponentType<NoclipControl>
 {
@@ -42,11 +42,10 @@ struct NoclipControl : public ComponentType<NoclipControl>
 
 	Camera* camera;
 
-	NoclipControl();
-	~NoclipControl();
+	NoclipControl(Camera*);
 
 	void update(const Update&);
-	void awake();
+	void awake() {}
 };
 
 

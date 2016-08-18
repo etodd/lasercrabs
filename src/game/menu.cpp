@@ -261,12 +261,7 @@ void draw(const RenderParams& params)
 b8 options(const Update& u, u8 gamepad, UIMenu* menu, Vec2* pos)
 {
 	menu->start(u, gamepad, OPTIONS_COUNT);
-	if (menu->item(u, pos, _(strings::back)) || (!u.input->get(Controls::Cancel, gamepad) && u.last_input->get(Controls::Cancel, gamepad)))
-	{
-		menu->end();
-		Loader::settings_save();
-		return false;
-	}
+	b8 exit = menu->item(u, pos, _(strings::back)) || (!u.input->get(Controls::Cancel, gamepad) && u.last_input->get(Controls::Cancel, gamepad));
 
 	char str[128];
 	UIMenu::Delta delta;
@@ -312,6 +307,13 @@ b8 options(const Update& u, u8 gamepad, UIMenu* menu, Vec2* pos)
 	}
 
 	menu->end();
+
+	if (exit)
+	{
+		menu->end();
+		Loader::settings_save();
+		return false;
+	}
 
 	return true;
 }

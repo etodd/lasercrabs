@@ -20,6 +20,7 @@ uniform sampler2D depth_buffer;
 uniform float time;
 uniform float range;
 uniform mat4 p;
+uniform int scan_line_interval;
 
 out vec4 out_color;
 
@@ -27,8 +28,8 @@ void main()
 {
 	float y = time * 16.0 + uv.y * buffer_size.y;
 	int y_pixel = int(y);
-	float line1 = float(y_pixel % 4 == 0);
-	float line2 = float((y_pixel + 1) % 4 == 0);
+	float line1 = float(y_pixel % scan_line_interval == 0);
+	float line2 = float((y_pixel + 1) % scan_line_interval == 0);
 	float y_subpixel = min(y - float(y_pixel), 0.25);
 	float value = mix(line1, line2, y_subpixel);
 	float clip_depth = texture(depth_buffer, uv).x;

@@ -44,6 +44,7 @@ struct LocalPlayer
 	}
 
 	LocalPlayer(PlayerManager*, u8);
+	void awake(const Update&);
 
 	static r32 danger;
 	static void update_all(const Update&);
@@ -51,7 +52,6 @@ struct LocalPlayer
 	UIMode ui_mode() const;
 	void update(const Update&);
 	void draw_alpha(const RenderParams&) const;
-	void ensure_camera(const Update&, b8);
 	void spawn();
 };
 
@@ -113,9 +113,6 @@ struct LocalPlayerControl : public ComponentType<LocalPlayerControl>
 		Type type;
 	};
 
-	static LocalPlayerControl* player_for_camera(const Camera*);
-
-	Camera* camera;
 	Ref<LocalPlayer> player;
 	Reticle reticle;
 	StaticArray<TargetIndicator, 32> target_indicators;

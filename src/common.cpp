@@ -76,26 +76,23 @@ PhysicsEntity::PhysicsEntity(AssetID mesh, const Vec3& pos, const Quat& quat, Ri
 	create<RigidBody>(type, scale, mass, filter_group, filter_mask, mesh);
 }
 
-Noclip::Noclip()
+Noclip::Noclip(Camera* camera)
 {
 	Transform* transform = create<Transform>();
-	create<NoclipControl>();
+	transform->pos = camera->pos;
+	create<NoclipControl>(camera);
 }
 
-NoclipControl::NoclipControl()
+NoclipControl::NoclipControl(Camera* camera)
 	: angle_horizontal(),
-	angle_vertical()
+	angle_vertical(),
+	camera(camera)
 {
-}
-
-void NoclipControl::awake()
-{
-	camera = Camera::add();
-}
-
-NoclipControl::~NoclipControl()
-{
-	camera->remove();
+	camera->range = 0;
+	camera->cull_range = false;
+	camera->cull_behind_wall = false;
+	camera->team = (u8)-1;
+	camera->mask = RENDER_MASK_DEFAULT;
 }
 
 void NoclipControl::update(const Update& u)
@@ -133,14 +130,6 @@ void NoclipControl::update(const Update& u)
 			box->get<RigidBody>()->btBody->setLinearVelocity(look_quat * Vec3(0, 0, 15));
 		}
 	}
-	
-	camera->viewport =
-	{
-		Vec2(0, 0),
-		Vec2(u.input->width, u.input->height),
-	};
-	r32 aspect = camera->viewport.size.y == 0 ? 1 : (r32)camera->viewport.size.x / (r32)camera->viewport.size.y;
-	camera->perspective(fov_initial, aspect, 0.02f, Game::level.skybox.far_plane);
 
 	// Camera matrix
 	Vec3 pos = get<Transform>()->absolute_pos();

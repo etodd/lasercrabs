@@ -666,31 +666,26 @@ void Game::execute(const Update& u, const char* cmd)
 	}
 	else if (utf8cmp(cmd, "noclip") == 0)
 	{
-		Vec3 pos = Vec3::zero;
-		Quat quat = Quat::identity;
-		if (LocalPlayerControl::list.count() > 0)
+		if (NoclipControl::list.count() == 0)
 		{
 			Penelope::clear();
 
-			auto players = LocalPlayerControl::list.iterator();
-			LocalPlayerControl* p = players.item();
-			pos = p->get<Transform>()->absolute_pos();
-			quat = p->camera->rot;
+			auto players = LocalPlayer::list.iterator();
+			LocalPlayer* p = players.item();
 
 			while (!players.is_last())
 			{
-				World::remove(players.item()->entity());
+				Entity* entity = players.item()->manager.ref()->entity.ref();
+				if (entity)
+					World::remove(entity);
 				players.next();
 			}
 
-			Noclip* noclip = World::create<Noclip>();
-			noclip->get<Transform>()->pos = pos;
+			World::create<Noclip>(p->camera);
 		}
-		else if (NoclipControl::list.count() > 0)
+		else
 		{
 			NoclipControl* noclip = NoclipControl::list.iterator().item();
-			pos = noclip->get<Transform>()->absolute_pos();
-			quat = noclip->camera->rot;
 			World::remove(noclip->entity());
 		}
 	}
@@ -1445,6 +1440,9 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 	Loader::level_free(json);
 
 	Team::awake_all();
+
+	for (auto i = LocalPlayer::list.iterator(); !i.is_last(); i.next())
+		i.item()->awake(u);
 }
 
 }

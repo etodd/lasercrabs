@@ -796,7 +796,7 @@ namespace VI
 	{
 		credits_flash_timer = vi_max(0.0f, credits_flash_timer - Game::real_time.delta);
 
-		if (!entity.ref() && spawn_timer > 0.0f && team.ref()->player_spawn.ref())
+		if (!entity.ref() && spawn_timer > 0.0f && team.ref()->player_spawn.ref() && NoclipControl::list.count() == 0)
 		{
 			spawn_timer -= u.time.delta;
 			if (spawn_timer <= 0.0f)

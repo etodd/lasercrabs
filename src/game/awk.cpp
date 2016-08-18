@@ -308,7 +308,7 @@ void Awk::hit_target(Entity* target, const Vec3& hit_pos)
 		if (t.ref() && t.ref()->has<RigidBody>()) // is it still around and does it have a rigidbody?
 		{
 			RigidBody* body = t.ref()->get<RigidBody>();
-			body->btBody->applyImpulse(velocity * Game::physics_timestep * 8.0f, Vec3::zero);
+			body->btBody->applyImpulse(velocity * 0.1f, Vec3::zero);
 			body->btBody->activate(true);
 		}
 	}

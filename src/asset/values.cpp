@@ -431,6 +431,7 @@ const char* AssetLookup::Uniform::names[] =
 	"player_light",
 	"range",
 	"range_center",
+	"scan_line_interval",
 	"shadow_map",
 	"size",
 	"ssao_buffer",

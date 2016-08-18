@@ -351,8 +351,9 @@ add_executable(yearning
 	assets/shader/global_light.glsl
 	assets/shader/spot_light.glsl
 	assets/shader/standard.glsl
-	assets/shader/culled.glsl
+	assets/shader/standard_flat.glsl
 	assets/shader/standard_instanced.glsl
+	assets/shader/culled.glsl
 	assets/shader/ui.glsl
 	assets/shader/ui_texture.glsl
 	assets/shader/debug_depth.glsl

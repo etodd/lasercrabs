@@ -1184,9 +1184,6 @@ void draw(LoopSync* sync, const Camera* camera)
 
 	{
 		// scan lines
-		sync->write<RenderOp>(RenderOp::BlendMode);
-		sync->write<RenderBlendMode>(RenderBlendMode::Additive);
-
 		Loader::shader_permanent(Asset::Shader::scan_lines);
 		sync->write(RenderOp::Shader);
 		sync->write<AssetID>(Asset::Shader::scan_lines);
@@ -1215,7 +1212,10 @@ void draw(LoopSync* sync, const Camera* camera)
 		sync->write(Asset::Uniform::range);
 		sync->write(RenderDataType::R32);
 		sync->write<s32>(1);
-		sync->write<r32>(render_params.camera->range * 2.0f);
+		if (render_params.camera->range == 0.0f)
+			sync->write<r32>(render_params.camera->far_plane);
+		else
+			sync->write<r32>(render_params.camera->range * 2.0f);
 
 		sync->write(RenderOp::Uniform);
 		sync->write(Asset::Uniform::time);

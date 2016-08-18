@@ -58,7 +58,7 @@ namespace scene
 				Vec2(u.input->width, u.input->height),
 			};
 			r32 aspect = data->camera->viewport.size.y == 0 ? 1 : (r32)data->camera->viewport.size.x / (r32)data->camera->viewport.size.y;
-			data->camera->perspective((80.0f * PI * 0.5f / 180.0f), aspect, 0.1f, Game::level.skybox.far_plane);
+			data->camera->perspective((40.0f * PI * 0.5f / 180.0f), aspect, 0.1f, Game::level.skybox.far_plane);
 
 			Quat rot;
 			entities.find("map_view")->get<Transform>()->absolute(&data->camera->pos, &rot);

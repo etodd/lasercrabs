@@ -21,8 +21,6 @@ namespace VI
 namespace Menu
 {
 
-#define fov_initial (80.0f * PI * 0.5f / 180.0f)
-
 Game::Mode next_mode;
 UIMenu main_menu;
 b8 gamepad_active[MAX_GAMEPADS] = {};
@@ -88,11 +86,11 @@ void title_menu(const Update& u, u8 gamepad, UIMenu* menu, State* state)
 		*state = State::Visible;
 		menu->animate();
 	}
+	Vec2 pos(u.input->width * 0.5f + (MENU_ITEM_WIDTH * -0.5f), u.input->height * 0.65f + MENU_ITEM_HEIGHT * -1.5f);
 	switch (*state)
 	{
 		case State::Visible:
 		{
-			Vec2 pos(0, u.input->height * 0.5f + UIMenu::height(4) * 0.5f);
 			menu->start(u, 0, 4);
 			if (menu->item(u, &pos, _(strings::play)))
 			{
@@ -120,7 +118,6 @@ void title_menu(const Update& u, u8 gamepad, UIMenu* menu, State* state)
 		}
 		case State::Options:
 		{
-			Vec2 pos(0, u.input->height * 0.5f + options_height() * 0.5f);
 			if (!options(u, 0, menu, &pos))
 			{
 				*state = State::Visible;
@@ -246,12 +243,12 @@ void draw(const RenderParams& params)
 	const Rect2& viewport = params.camera->viewport;
 	if (Game::state.level == Asset::Level::title)
 	{
-		Vec2 logo_pos(viewport.size.x * 0.5f, viewport.size.y * 0.5f);
-		Vec2 logo_size(256.0f * UI::scale);
-		const Mesh* m0 = Loader::mesh(Asset::Mesh::logo_mesh);
-		UI::mesh(params, Asset::Mesh::logo_mesh, logo_pos, Vec2(logo_size), UI::accent_color);
-		const Mesh* m1 = Loader::mesh(Asset::Mesh::logo_mesh_1);
-		UI::mesh(params, Asset::Mesh::logo_mesh_1, logo_pos, Vec2(logo_size), UI::default_color);
+		Vec2 logo_pos(viewport.size.x * 0.5f, viewport.size.y * 0.65f);
+		Vec2 logo_size(MENU_ITEM_WIDTH);
+		UI::mesh(params, Asset::Mesh::logo_mesh_3, logo_pos, Vec2(logo_size), UI::background_color);
+		UI::mesh(params, Asset::Mesh::logo_mesh_2, logo_pos, Vec2(logo_size), UI::default_color);
+		UI::mesh(params, Asset::Mesh::logo_mesh_1, logo_pos, Vec2(logo_size), UI::accent_color);
+		UI::mesh(params, Asset::Mesh::logo_mesh, logo_pos, Vec2(logo_size), UI::background_color);
 	}
 
 	if (main_menu_state != State::Hidden)

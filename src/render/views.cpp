@@ -456,6 +456,49 @@ void Skybox::draw_alpha(const RenderParams& p, const Config& config)
 	sync->write<b8>(true);
 }
 
+void SkyPattern::draw_opaque(const RenderParams& p)
+{
+	// only render depth
+
+	if (p.technique != RenderTechnique::Default)
+		return;
+
+	Loader::shader_permanent(Asset::Shader::standard_flat);
+	Loader::mesh_permanent(Asset::Mesh::sky_pattern);
+
+	RenderSync* sync = p.sync;
+
+	sync->write(RenderOp::ColorMask);
+	sync->write<u8>(0);
+
+	sync->write(RenderOp::Shader);
+	sync->write(Asset::Shader::standard_flat);
+	sync->write(p.technique);
+
+	Mat4 mvp = p.view * Mat4::make_scale(Vec3(p.camera->far_plane));
+	mvp.translation(Vec3::zero);
+	mvp = mvp * p.camera->projection;
+
+	sync->write(RenderOp::Uniform);
+	sync->write(Asset::Uniform::diffuse_color);
+	sync->write(RenderDataType::Vec4);
+	sync->write<s32>(1);
+	sync->write<Vec4>(Vec4(0, 0, 0, 1));
+
+	sync->write(RenderOp::Uniform);
+	sync->write(Asset::Uniform::mvp);
+	sync->write(RenderDataType::Mat4);
+	sync->write<s32>(1);
+	sync->write<Mat4>(mvp);
+
+	sync->write(RenderOp::Mesh);
+	sync->write(RenderPrimitiveMode::Triangles);
+	sync->write(Asset::Mesh::sky_pattern);
+
+	sync->write(RenderOp::ColorMask);
+	sync->write<u8>(RENDER_COLOR_MASK_DEFAULT);
+}
+
 void SkyPattern::draw_alpha(const RenderParams& p)
 {
 	if (p.technique != RenderTechnique::Default)
@@ -475,7 +518,7 @@ void SkyPattern::draw_alpha(const RenderParams& p)
 	sync->write(Asset::Shader::flat);
 	sync->write(p.technique);
 
-	Mat4 mvp = p.view * Mat4::make_scale(Vec3(p.camera->far_plane));
+	Mat4 mvp = p.view * Mat4::make_scale(Vec3(p.camera->far_plane - 1.0f));
 	mvp.translation(Vec3::zero);
 	mvp = mvp * p.camera->projection;
 

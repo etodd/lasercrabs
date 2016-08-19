@@ -58,34 +58,34 @@ namespace VI
 #define HP_BOX_SIZE (Vec2(text_size) * UI::scale)
 #define HP_BOX_SPACING (8.0f * UI::scale)
 
-r32 hp_width(u16 hp)
+r32 hp_width(u16 hp, r32 scale = 1.0f)
 {
 	const Vec2 box_size = HP_BOX_SIZE;
-	return ((hp - 1) * (box_size.x + HP_BOX_SPACING)) - HP_BOX_SPACING;
+	return scale * ((hp - 1) * (box_size.x + HP_BOX_SPACING) - HP_BOX_SPACING);
 }
 
-void draw_hp_box(const RenderParams& params, const Vec2& pos, u16 hp_max)
+void draw_hp_box(const RenderParams& params, const Vec2& pos, u16 hp_max, r32 scale = 1.0f)
 {
-	const Vec2 box_size = HP_BOX_SIZE;
+	const Vec2 box_size = HP_BOX_SIZE * scale;
 
-	r32 total_width = hp_width(hp_max);
+	r32 total_width = hp_width(hp_max, scale);
 
 	UI::box(params, Rect2(pos + Vec2(total_width * -0.5f, 0), Vec2(total_width, box_size.y)).outset(HP_BOX_SPACING), UI::background_color);
 }
 
-void draw_hp_indicator(const RenderParams& params, Vec2 pos, u16 hp, u16 hp_max, const Vec4& color)
+void draw_hp_indicator(const RenderParams& params, Vec2 pos, u16 hp, u16 hp_max, const Vec4& color, r32 scale = 1.0f)
 {
-	const Vec2 box_size = HP_BOX_SIZE;
-	r32 total_width = hp_width(hp_max);
-	pos.x += total_width * -0.5f + HP_BOX_SPACING;
+	const Vec2 box_size = HP_BOX_SIZE * scale;
+	r32 total_width = hp_width(hp_max, scale);
+	pos.x += total_width * -0.5f + HP_BOX_SPACING * scale;
 	pos.y += box_size.y * 0.6f;
 
 	for (s32 i = 1; i < hp_max; i++)
 	{
-		UI::triangle_border(params, { pos, box_size }, 3, color, PI);
+		UI::triangle_border(params, { pos, box_size }, 3 * scale, color, PI);
 		if (i < hp)
 			UI::triangle(params, { pos, box_size }, color, PI);
-		pos.x += box_size.x + HP_BOX_SPACING;
+		pos.x += box_size.x + HP_BOX_SPACING * scale;
 	}
 }
 
@@ -1762,9 +1762,11 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 	// highlight control points
 	{
 		PlayerManager* manager = player.ref()->manager.ref();
-		if (Game::level.has_feature(Game::FeatureLevel::Abilities))
+		if (Game::level.has_feature(Game::FeatureLevel::Abilities) && !manager->at_control_point())
 		{
-			b8 upgrade_available = manager->upgrade_available();
+			// highlight friendly control points if there is an upgrade available
+			b8 highlight_friendlies = manager->upgrade_available();
+
 			Vec3 me = get<Transform>()->absolute_pos();
 			for (auto i = ControlPoint::list.iterator(); !i.is_last(); i.next())
 			{
@@ -1772,7 +1774,7 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 				{
 					if (manager->friendly_control_point(i.item()))
 					{
-						if (upgrade_available)
+						if (highlight_friendlies)
 						{
 							Vec3 pos = i.item()->get<Transform>()->absolute_pos();
 							UI::indicator(params, pos, Team::ui_color_friend, true);
@@ -1855,10 +1857,10 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 			if (draw)
 			{
 				Vec2 hp_pos = p;
-				hp_pos.y += text_size * 1.5f * UI::scale;
+				hp_pos.y += text_size * UI::scale;
 
 				Vec2 username_pos = hp_pos;
-				username_pos.y += (text_size * UI::scale) + HP_BOX_SPACING * 0.5f;
+				username_pos.y += text_size * UI::scale;
 
 				UIText username;
 				username.size = text_size;
@@ -1869,20 +1871,14 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 
 				UI::box(params, username.rect(username_pos).outset(HP_BOX_SPACING), UI::background_color);
 
-				if (Game::level.has_feature(Game::FeatureLevel::HealthPickups))
-				{
-					draw_hp_box(params, hp_pos, history.hp_max);
-					draw_hp_indicator(params, hp_pos, history.hp, history.hp_max, *color);
-				}
-
-				username.draw(params, username_pos);
-
 				// invincible indicator
+				b8 invincible = false;
 				if (!friendly && (tracking || visible))
 				{
 					r32 enemy_invincible_timer = other_player.item()->get<Awk>()->invincible_timer;
 					if (enemy_invincible_timer > 0.0f)
 					{
+						invincible = true;
 						UIText text;
 						text.size = text_size - 2.0f;
 						text.color = UI::background_color;
@@ -1890,14 +1886,11 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 						text.anchor_y = UIText::Anchor::Center;
 						text.text(_(strings::invincible));
 
-						Vec2 invincible_pos = username_pos;
-						invincible_pos.y += (text_size * UI::scale) + HP_BOX_SPACING;
-
 						Vec2 bar_size = text.bounds() + Vec2(HP_BOX_SPACING);
 
 						const Vec4& color = visible ? UI::alert_color : UI::accent_color;
 
-						Rect2 bar = { invincible_pos + Vec2(bar_size.x * -0.5f, 0), bar_size };
+						Rect2 bar = { hp_pos + Vec2(bar_size.x * -0.5f, bar_size.y * -0.5f), bar_size };
 						UI::box(params, bar, UI::background_color);
 						UI::border(params, bar, 2, color);
 						UI::box(params, { bar.pos, Vec2(bar.size.x * (enemy_invincible_timer / AWK_INVINCIBLE_TIME), bar.size.y) }, color);
@@ -1905,6 +1898,14 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 						text.draw(params, bar.pos + bar.size * 0.5f);
 					}
 				}
+
+				if (!invincible && Game::level.has_feature(Game::FeatureLevel::HealthPickups))
+				{
+					draw_hp_box(params, hp_pos, history.hp_max, 0.75f);
+					draw_hp_indicator(params, hp_pos, history.hp, history.hp_max, *color, 0.75f);
+				}
+
+				username.draw(params, username_pos);
 			}
 		}
 	}

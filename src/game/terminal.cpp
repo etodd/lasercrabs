@@ -41,9 +41,11 @@ struct LevelNode
 	Ref<Transform> pos;
 };
 
-enum class SplitscreenState
+enum class State
 {
-	SelectTeams,
+	SplitscreenSelectTeams,
+	SplitscreenSelectLevel,
+	SplitscreenDeploying,
 	SelectLevel,
 	Deploying,
 };
@@ -53,7 +55,7 @@ struct Data
 	r32 deploy_timer;
 	AssetID last_level = AssetNull;
 	AssetID next_level = AssetNull;
-	SplitscreenState splitscreen_state = SplitscreenState::SelectTeams;
+	State state;
 	Camera* camera;
 	Vec3 camera_offset;
 	Array<LevelNode> levels;
@@ -63,7 +65,7 @@ struct Data
 
 Data data;
 
-const s32 tip_count = 12;
+const s32 tip_count = 13;
 const AssetID tips[tip_count] =
 {
 	strings::tip_0,
@@ -78,6 +80,7 @@ const AssetID tips[tip_count] =
 	strings::tip_9,
 	strings::tip_10,
 	strings::tip_11,
+	strings::tip_12,
 };
 
 b8 splitscreen_teams_are_valid()
@@ -107,7 +110,8 @@ void init(const Update& u, const EntityFinder& entities)
 	data = Data();
 
 	data.tip_index = mersenne::rand() % tip_count;
-	data.next_level = Game::levels[Game::tutorial_levels];
+	s32 start_level = Game::state.local_multiplayer ? Game::tutorial_levels : 0; // skip tutorial levels if we're in splitscreen mode
+	data.next_level = Game::levels[start_level];
 	data.camera = Camera::add();
 
 	{
@@ -120,7 +124,6 @@ void init(const Update& u, const EntityFinder& entities)
 		}
 	}
 
-	s32 start_level = Game::state.local_multiplayer ? Game::tutorial_levels : 0; // skip tutorial levels if we're in splitscreen mode
 	for (s32 i = start_level; i < Asset::Level::count; i++)
 	{
 		AssetID level_id = Game::levels[i];
@@ -144,11 +147,23 @@ void init(const Update& u, const EntityFinder& entities)
 	r32 aspect = data.camera->viewport.size.y == 0 ? 1 : (r32)data.camera->viewport.size.x / (r32)data.camera->viewport.size.y;
 	data.camera->perspective((80.0f * PI * 0.5f / 180.0f), aspect, 0.1f, Game::level.skybox.far_plane);
 
-	if (!Game::state.local_multiplayer)
+	if (Game::state.local_multiplayer)
+	{
+		if (Game::save.round == 0)
+			data.state = State::SplitscreenSelectTeams;
+		else
+		{
+			// if we've already played a round, skip the team select and go straight to level select
+			// the player can always go back
+			data.state = State::SplitscreenSelectLevel;
+		}
+	}
+	else
 	{
 		// singleplayer
 		const char* entry_point_str = Loader::level_name(Game::levels[Game::save.level_index]);
 		Penelope::init(strings_get(entry_point_str));
+		data.state = State::SelectLevel;
 	}
 }
 
@@ -233,7 +248,7 @@ void splitscreen_select_teams_update(const Update& u)
 		&& !u.input->get(Controls::Interact, 0)
 		&& splitscreen_teams_are_valid())
 	{
-		data.splitscreen_state = SplitscreenState::SelectLevel;
+		data.state = State::SplitscreenSelectLevel;
 	}
 }
 
@@ -321,6 +336,53 @@ void focus_camera_on_level(const Update& u, const LevelNode& level)
 	data.camera->pos += (target - data.camera->pos) * vi_min(1.0f, Game::real_time.delta) * 3.0f;
 }
 
+void select_level_update(const Update& u)
+{
+	s32 index = -1;
+	for (s32 i = 0; i < data.levels.length; i++)
+	{
+		const LevelNode& node = data.levels[i];
+		if (node.id == data.next_level)
+		{
+			index = i;
+			break;
+		}
+	}
+
+	if (index != -1)
+	{
+		if (!UIMenu::active[0])
+		{
+			// select level
+			if ((!u.input->get(Controls::Forward, 0)
+				&& u.last_input->get(Controls::Forward, 0))
+				|| (Input::dead_zone(u.last_input->gamepads[0].left_y) < 0.0f
+					&& Input::dead_zone(u.input->gamepads[0].left_y) >= 0.0f))
+			{
+				index = vi_min(index + 1, data.levels.length - 1);
+				data.next_level = data.levels[index].id;
+			}
+			else if ((!u.input->get(Controls::Backward, 0)
+				&& u.last_input->get(Controls::Backward, 0))
+				|| (Input::dead_zone(u.last_input->gamepads[0].left_y) > 0.0f
+					&& Input::dead_zone(u.input->gamepads[0].left_y) <= 0.0f))
+			{
+				index = vi_max(index - 1, 0);
+				data.next_level = data.levels[index].id;
+			}
+
+			if (u.last_input->get(Controls::Interact, 0) && !u.input->get(Controls::Interact, 0))
+			{
+				data.state = State::Deploying;
+				data.deploy_timer = DEPLOY_TIME_OFFLINE;
+				data.tip_time = Game::real_time.total;
+			}
+		}
+
+		focus_camera_on_level(u, data.levels[index]);
+	}
+}
+
 void splitscreen_select_level_update(const Update& u)
 {
 	s32 index = -1;
@@ -340,7 +402,7 @@ void splitscreen_select_level_update(const Update& u)
 		{
 			if (u.last_input->get(Controls::Cancel, 0) && !u.input->get(Controls::Cancel, 0))
 			{
-				data.splitscreen_state = SplitscreenState::SelectTeams;
+				data.state = State::SplitscreenSelectTeams;
 				return;
 			}
 
@@ -364,7 +426,7 @@ void splitscreen_select_level_update(const Update& u)
 
 			if (u.last_input->get(Controls::Interact, 0) && !u.input->get(Controls::Interact, 0))
 			{
-				data.splitscreen_state = SplitscreenState::Deploying;
+				data.state = State::SplitscreenDeploying;
 				data.deploy_timer = DEPLOY_TIME_OFFLINE;
 				data.tip_time = Game::real_time.total;
 			}
@@ -393,12 +455,8 @@ const LevelNode* levels_draw(const RenderParams& params)
 	{
 		const LevelNode& node = data.levels[i];
 		Transform* pos = node.pos.ref();
-		const Vec4* color;
-		if (Game::state.local_multiplayer)
-			color = node.id == data.next_level ? &UI::accent_color : &Team::ui_color_friend;
-		else
-			color = node.index <= Game::save.level_index ? &UI::accent_color : &UI::alert_color;
-		UI::indicator(params, pos->absolute_pos(), *color, false);
+		const Vec4& color = node.id == data.next_level ? UI::accent_color : Team::ui_color_friend;
+		UI::indicator(params, pos->absolute_pos(), color, false);
 
 		if (node.id == data.next_level)
 			current_level = &node;
@@ -424,7 +482,7 @@ const LevelNode* levels_draw(const RenderParams& params)
 	return current_level;
 }
 
-void splitscreen_select_level_draw(const RenderParams& params)
+void select_level_draw(const RenderParams& params)
 {
 	levels_draw(params);
 
@@ -501,7 +559,7 @@ void deploy_draw(const RenderParams& params)
 		text.anchor_y = UIText::Anchor::Min;
 		text.color = UI::accent_color;
 		text.wrap_width = MENU_ITEM_WIDTH;
-		text.text(_(tips[data.tip_index]));
+		text.text(_(strings::tip), _(tips[data.tip_index]));
 		UIMenu::text_clip(&text, data.tip_time, 80.0f);
 
 		Vec2 pos = params.camera->viewport.size * Vec2(0.5f, 0.2f) + Vec2(0, 48.0f * UI::scale);
@@ -517,35 +575,34 @@ void update(const Update& u)
 	if (Console::visible || Game::state.level != Asset::Level::terminal)
 		return;
 
-	if (Game::state.local_multiplayer)
+	switch (data.state)
 	{
-		switch (data.splitscreen_state)
+		case State::SelectLevel:
 		{
-			case SplitscreenState::SelectTeams:
-			{
-				splitscreen_select_teams_update(u);
-				break;
-			}
-			case SplitscreenState::SelectLevel:
-			{
-				splitscreen_select_level_update(u);
-				break;
-			}
-			case SplitscreenState::Deploying:
-			{
-				deploy_update(u);
-				break;
-			}
-			default:
-			{
-				vi_assert(false);
-				break;
-			}
+			select_level_update(u);
+			break;
 		}
-	}
-	else
-	{
-		// singleplayer
+		case State::SplitscreenSelectTeams:
+		{
+			splitscreen_select_teams_update(u);
+			break;
+		}
+		case State::SplitscreenSelectLevel:
+		{
+			splitscreen_select_level_update(u);
+			break;
+		}
+		case State::Deploying:
+		case State::SplitscreenDeploying:
+		{
+			deploy_update(u);
+			break;
+		}
+		default:
+		{
+			vi_assert(false);
+			break;
+		}
 	}
 }
 
@@ -554,35 +611,30 @@ void draw(const RenderParams& params)
 	if (params.technique != RenderTechnique::Default || Game::state.level != Asset::Level::terminal)
 		return;
 
-	if (Game::state.local_multiplayer)
+	switch (data.state)
 	{
-		switch (data.splitscreen_state)
+		case State::SplitscreenSelectTeams:
 		{
-			case SplitscreenState::SelectTeams:
-			{
-				splitscreen_select_teams_draw(params);
-				break;
-			}
-			case SplitscreenState::SelectLevel:
-			{
-				splitscreen_select_level_draw(params);
-				break;
-			}
-			case SplitscreenState::Deploying:
-			{
-				deploy_draw(params);
-				break;
-			}
-			default:
-			{
-				vi_assert(false);
-				break;
-			}
+			splitscreen_select_teams_draw(params);
+			break;
 		}
-	}
-	else
-	{
-		// singleplayer
+		case State::SelectLevel:
+		case State::SplitscreenSelectLevel:
+		{
+			select_level_draw(params);
+			break;
+		}
+		case State::Deploying:
+		case State::SplitscreenDeploying:
+		{
+			deploy_draw(params);
+			break;
+		}
+		default:
+		{
+			vi_assert(false);
+			break;
+		}
 	}
 }
 

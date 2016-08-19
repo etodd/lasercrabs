@@ -20,7 +20,7 @@
 
 #define WALK_SPEED 2.0f
 #define ROTATION_SPEED 4.0f
-
+#define MINION_HEARING_RANGE 8.0f
 #define HEALTH 3
 
 namespace VI
@@ -343,17 +343,23 @@ b8 MinionAI::can_see(Entity* target, b8 limit_vision_cone) const
 	if (target->has<AIAgent>() && target->get<AIAgent>()->stealth)
 		return false;
 
-	// if the awk is flying or just flew recently, then don't limit detection to the minion's vision cone
-	// this essentially means the minion can hear the awk flying around
-	if (limit_vision_cone && target->has<Awk>() && Game::time.total - target->get<Awk>()->attach_time < 1.0f)
-		limit_vision_cone = false;
-
 	Vec3 pos = get<MinionCommon>()->head_pos();
 	Vec3 target_pos = target->get<Transform>()->absolute_pos();
 	Vec3 diff = target_pos - pos;
-	Vec3 diff_flattened = diff;
-	diff_flattened.y = 0.0f;
-	if (diff_flattened.length_squared() < SENSOR_RANGE * SENSOR_RANGE)
+	r32 distance_squared = diff.length_squared();
+
+	// if we're targeting an awk that is flying or just flew recently,
+	// then don't limit detection to the minion's vision cone
+	// this essentially means the minion can hear the awk flying around
+	if (limit_vision_cone
+		&& target->has<Awk>()
+		&& distance_squared < MINION_HEARING_RANGE * MINION_HEARING_RANGE
+		&& Game::time.total - target->get<Awk>()->attach_time < 1.0f)
+	{
+		limit_vision_cone = false;
+	}
+
+	if (distance_squared < SENSOR_RANGE * SENSOR_RANGE)
 	{
 		diff.normalize();
 		if (!limit_vision_cone || diff.dot(get<Walker>()->forward()) > 0.707f)

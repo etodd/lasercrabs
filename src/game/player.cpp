@@ -261,7 +261,9 @@ void LocalPlayer::update(const Update& u)
 		&& Game::level.has_feature(Game::FeatureLevel::Abilities)
 		&& Game::time.total > GAME_BUY_PERIOD
 		&& Game::time.total - Game::time.delta <= GAME_BUY_PERIOD)
+	{
 		msg(_(strings::buy_period_expired), true);
+	}
 
 	if (msg_timer < msg_time)
 		msg_timer += Game::real_time.delta;
@@ -291,6 +293,10 @@ void LocalPlayer::update(const Update& u)
 			menu_state = Menu::State::Hidden;
 		}
 	}
+
+	// reset camera range after the player dies
+	if (!manager.ref()->entity.ref())
+		camera->range = 0;
 
 	switch (ui_mode())
 	{
@@ -375,7 +381,7 @@ void LocalPlayer::update(const Update& u)
 				// update score summary scroll
 				s32 score_summary_count = 0;
 				for (auto player = PlayerManager::list.iterator(); !player.is_last(); player.next())
-					score_summary_count += 2 + player.item()->rating_summary.length;
+					score_summary_count += 1 + player.item()->credits_summary.length;
 				score_summary_scroll.update(u, score_summary_count, gamepad);
 
 				if (Game::real_time.total - Team::game_over_real_time > score_summary_delay + score_summary_accept_delay)
@@ -499,7 +505,7 @@ void LocalPlayer::draw_alpha(const RenderParams& params) const
 			UI::triangle_percentage
 			(
 				params,
-				{ pos + Vec2(total_width * -0.5f + icon_size - padding, 0), Vec2(icon_size * 1.25f) },
+				{ pos + Vec2(total_width * -0.5f + icon_size - padding, 3.0f * UI::scale), Vec2(icon_size * 1.25f) },
 				1.0f - (PlayerManager::timer / CONTROL_POINT_INTERVAL),
 				text.color,
 				PI
@@ -720,37 +726,22 @@ void LocalPlayer::draw_alpha(const RenderParams& params) const
 				}
 				item_counter++;
 
-				// rating breakdown
-				s32 total = 0;
-				const auto& rating_summary = player.item()->rating_summary;
-				for (s32 i = 0; i < rating_summary.length; i++)
+				// score breakdown
+				const auto& credits_summary = player.item()->credits_summary;
+				for (s32 i = 0; i < credits_summary.length; i++)
 				{
 					if (score_summary_scroll.item(item_counter))
 					{
-						text.text(_(rating_summary[i].label));
+						text.text(_(credits_summary[i].label));
 						UIMenu::text_clip(&text, Team::game_over_real_time + score_summary_delay, 50.0f + (r32)vi_min(item_counter, 6) * -5.0f);
 						UI::box(params, text.rect(p).outset(MENU_ITEM_PADDING), UI::background_color);
 						text.draw(params, p);
-						amount.text("%d", rating_summary[i].amount);
+						amount.text("%d", credits_summary[i].amount);
 						amount.draw(params, p + Vec2(MENU_ITEM_WIDTH * 0.5f - MENU_ITEM_PADDING, 0));
 						p.y -= text.bounds().y + MENU_ITEM_PADDING * 2.0f;
 					}
-					total += rating_summary[i].amount;
 					item_counter++;
 				}
-
-				// total
-				if (score_summary_scroll.item(item_counter))
-				{
-					text.text(_(strings::total_rating_gain));
-					UIMenu::text_clip(&text, Team::game_over_real_time + score_summary_delay, 50.0f + (r32)vi_min(item_counter, 6) * -5.0f);
-					UI::box(params, text.rect(p).outset(MENU_ITEM_PADDING), UI::background_color);
-					text.draw(params, p);
-					amount.text("%d", total);
-					amount.draw(params, p + Vec2(MENU_ITEM_WIDTH * 0.5f - MENU_ITEM_PADDING, 0));
-					p.y -= text.bounds().y + MENU_ITEM_PADDING * 2.0f;
-				}
-				item_counter++;
 			}
 			score_summary_scroll.end(params, p);
 
@@ -1768,30 +1759,45 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 		}
 	}
 
-	// upgrade notification
-	if (Game::level.has_feature(Game::FeatureLevel::Abilities)
-		&& player.ref()->manager.ref()->upgrade_available()
-		&& !player.ref()->manager.ref()->friendly_control_point(player.ref()->manager.ref()->at_control_point()))
+	// highlight control points
 	{
-		for (auto i = ControlPoint::list.iterator(); !i.is_last(); i.next())
+		PlayerManager* manager = player.ref()->manager.ref();
+		if (Game::level.has_feature(Game::FeatureLevel::Abilities))
 		{
-			if (i.item()->team == team)
+			b8 upgrade_available = manager->upgrade_available();
+			Vec3 me = get<Transform>()->absolute_pos();
+			for (auto i = ControlPoint::list.iterator(); !i.is_last(); i.next())
 			{
-				Vec3 spawn_pos = i.item()->get<Transform>()->absolute_pos();
-				UI::indicator(params, spawn_pos, Team::ui_color_friend, true);
+				if (!i.item()->get<PlayerTrigger>()->is_triggered(entity()))
+				{
+					if (manager->friendly_control_point(i.item()))
+					{
+						if (upgrade_available)
+						{
+							Vec3 pos = i.item()->get<Transform>()->absolute_pos();
+							UI::indicator(params, pos, Team::ui_color_friend, true);
 
-				UIText text;
-				text.color = Team::ui_color_friend;
-				text.text(_(strings::upgrade_notification));
-				text.anchor_x = UIText::Anchor::Center;
-				text.anchor_y = UIText::Anchor::Center;
-				text.size = text_size;
-				Vec2 p;
-				UI::is_onscreen(params, spawn_pos, &p);
-				p.y += text_size * 2.0f * UI::scale;
-				UI::box(params, text.rect(p).outset(8.0f * UI::scale), UI::background_color);
-				if (UI::flash_function_slow(Game::real_time.total))
-					text.draw(params, p);
+							UIText text;
+							text.color = Team::ui_color_friend;
+							text.text(_(strings::upgrade_notification));
+							text.anchor_x = UIText::Anchor::Center;
+							text.anchor_y = UIText::Anchor::Center;
+							text.size = text_size;
+							Vec2 p;
+							UI::is_onscreen(params, pos, &p);
+							p.y += text_size * 2.0f * UI::scale;
+							UI::box(params, text.rect(p).outset(8.0f * UI::scale), UI::background_color);
+							if (UI::flash_function_slow(Game::real_time.total))
+								text.draw(params, p);
+						}
+					}
+					else
+					{
+						Vec3 pos = i.item()->get<Transform>()->absolute_pos();
+						if ((pos - me).length_squared() < AWK_MAX_DISTANCE * AWK_MAX_DISTANCE)
+							UI::indicator(params, pos, i.item()->team == AI::NoTeam ? UI::accent_color : Team::ui_color_enemy, true);
+					}
+				}
 			}
 		}
 	}

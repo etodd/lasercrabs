@@ -142,7 +142,7 @@ struct ControlPoint;
 
 struct PlayerManager
 {
-	struct RatingItem
+	struct SummaryItem
 	{
 		AssetID label;
 		s32 amount;
@@ -161,7 +161,7 @@ struct PlayerManager
 
 	static void update_all(const Update&);
 
-	StaticArray<RatingItem, 8> rating_summary;
+	StaticArray<SummaryItem, 1> credits_summary;
 	r32 spawn_timer;
 	r32 credits_flash_timer;
 	r32 particle_accumulator;

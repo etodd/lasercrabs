@@ -1034,7 +1034,7 @@ namespace Penelope
 				text.color = i == 2 ? UI::accent_color : UI::default_color;
 
 				// username
-				text.text("%d %s", vi_max(1, i + 79 - (Game::save.rating / 400)), data->leaderboard[i].name);
+				text.text("%d %s", vi_max(1, i + 79 - (Game::save.credits / 400)), data->leaderboard[i].name);
 				UI::box(params, text.rect(p).outset(MENU_ITEM_PADDING), UI::background_color);
 				UIMenu::text_clip(&text, data->leaderboard_animation_time, 50.0f + vi_min(i, 6) * -5.0f);
 				text.draw(params, p);
@@ -1102,7 +1102,7 @@ namespace Penelope
 		// fill out leaderboard
 		if (Game::state.mode == Game::Mode::Special)
 		{
-			s32 rating = Game::save.rating + 21 + (mersenne::rand() % 600);
+			s32 rating = Game::save.credits + 21 + (mersenne::rand() % 600);
 			for (s32 i = 0; i < 2; i++)
 			{
 				data->leaderboard[i] =
@@ -1110,14 +1110,14 @@ namespace Penelope
 					Usernames::all[mersenne::rand_u32() % Usernames::count],
 					rating,
 				};
-				rating = vi_max(Game::save.rating + 11, rating - (mersenne::rand() % 300));
+				rating = vi_max(Game::save.credits + 11, rating - (mersenne::rand() % 300));
 			}
 			data->leaderboard[2] =
 			{
 				Game::save.username,
-				Game::save.rating
+				Game::save.credits
 			};
-			rating = Game::save.rating;
+			rating = Game::save.credits;
 			for (s32 i = 3; i < LEADERBOARD_COUNT; i++)
 			{
 				rating -= 11 + (mersenne::rand() % 300);

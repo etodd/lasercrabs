@@ -19,8 +19,6 @@
 
 #define CREDITS_FLASH_TIME 0.5f
 
-#define CREDITS_VICTORY 300
-
 namespace VI
 {
 
@@ -170,8 +168,13 @@ namespace VI
 			Terminal::show();
 		else
 		{
-			Game::save.last_round_loss = true;
-			Terminal::show();
+			if (Game::save.level_index < Game::tutorial_levels) // retry tutorial levels automatically
+				Game::schedule_load_level(Game::state.level, Game::Mode::Pvp);
+			else
+			{
+				Game::save.last_round_loss = true;
+				Terminal::show();
+			}
 		}
 	}
 
@@ -280,19 +283,13 @@ namespace VI
 					{
 						s32 total = 0;
 
-						if (i.item()->team.ref() == winner.ref())
-						{
-							i.item()->rating_summary.add({ strings::victory, CREDITS_VICTORY });
-							total += CREDITS_VICTORY;
-						}
-
 						total += i.item()->credits;
-						i.item()->rating_summary.add({ strings::leftover_energy, i.item()->credits });
+						i.item()->credits_summary.add({ strings::leftover_energy, i.item()->credits });
 
 						if (i.item()->is_local() && !Game::state.local_multiplayer)
 						{
 							// we're in campaign mode and this is a local player; save their rating
-							Game::save.rating += total;
+							Game::save.credits += total;
 						}
 					}
 				}
@@ -698,7 +695,7 @@ namespace VI
 		ability_spawn_canceled(),
 		upgrade_completed(),
 		control_point_captured(),
-		rating_summary(),
+		credits_summary(),
 		particle_accumulator()
 	{
 	}
@@ -884,7 +881,9 @@ namespace VI
 	r32 PlayerManager::timer = CONTROL_POINT_INTERVAL;
 	void PlayerManager::update_all(const Update& u)
 	{
-		if (Game::state.mode == Game::Mode::Pvp && Game::level.has_feature(Game::FeatureLevel::HealthPickups))
+		if (Game::state.mode == Game::Mode::Pvp
+			&& Game::level.has_feature(Game::FeatureLevel::HealthPickups)
+			&& u.time.total > GAME_BUY_PERIOD)
 		{
 			timer -= u.time.delta;
 			if (timer < 0.0f)

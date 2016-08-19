@@ -29,7 +29,7 @@ struct EntityFinder
 };
 
 #if DEBUG
-#define DEBUG_AI_CONTROL 1
+#define DEBUG_AI_CONTROL 0
 #endif
 
 struct Game
@@ -94,7 +94,7 @@ struct Game
 	{
 		s32 level_index;
 		s32 round;
-		s32 rating;
+		s32 credits;
 		b8 last_round_loss;
 		const char* username = "etodd";
 		std::unordered_map<AssetID, AssetID> variables; // todo: kill STL

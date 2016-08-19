@@ -139,6 +139,7 @@ namespace tutorial
 	{
 		TutorialState state;
 		Ref<Transform> health_location;
+		Ref<Entity> door;
 	};
 
 	Data* data;
@@ -189,13 +190,14 @@ namespace tutorial
 		if (data->state == TutorialState::PvpUpgrade)
 		{
 			PlayerManager* manager = LocalPlayer::list.iterator().item()->manager.ref();
-			for (s32 i = (s32)Upgrade::Sensor + 1; i < (s32)Upgrade::count; i++)
+			for (s32 i = 0; i < (s32)Upgrade::count; i++)
 			{
 				if (manager->has_upgrade((Upgrade)i))
 				{
 					data->state = TutorialState::PvpKillPlayer;
 					Penelope::text_clear();
 					Penelope::text_schedule(0.0f, _(strings::tut_pvp_kill_player));
+					World::remove_deferred(data->door.ref());
 					break;
 				}
 			}
@@ -222,6 +224,7 @@ namespace tutorial
 		Game::cleanups.add(&cleanup);
 
 		data->health_location = entities.find("health")->get<Transform>();
+		data->door = entities.find("door");
 
 		entities.find("minion")->get<Health>()->killed.link(&minion_killed);
 

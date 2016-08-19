@@ -29,7 +29,7 @@ struct EntityFinder
 };
 
 #if DEBUG
-#define DEBUG_AI_CONTROL 0
+#define DEBUG_AI_CONTROL 1
 #endif
 
 struct Game
@@ -107,6 +107,7 @@ struct Game
 		r32 min_y;
 		Skybox::Config skybox;
 		b8 lock_teams;
+		b8 continue_match_after_death;
 
 		b8 has_feature(FeatureLevel) const;
 	};

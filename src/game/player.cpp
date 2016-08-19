@@ -100,7 +100,7 @@ LocalPlayer::LocalPlayer(PlayerManager* m, u8 g)
 	menu(),
 	revision(),
 	menu_state(),
-	upgrading(),
+	upgrade_menu_open(),
 	upgrade_animation_time(),
 	score_summary_scroll()
 {
@@ -122,9 +122,9 @@ LocalPlayer::UIMode LocalPlayer::ui_mode() const
 		return UIMode::Pause;
 	else if (Team::game_over)
 		return UIMode::GameOver;
-	else if (manager.ref()->entity.ref() || NoclipControl::list.count() > 0)
+	else if (manager.ref()->entity.ref())
 	{
-		if (upgrading)
+		if (upgrade_menu_open)
 			return UIMode::Upgrading;
 		else
 			return UIMode::Default;
@@ -167,6 +167,52 @@ void LocalPlayer::awake(const Update& u)
 	map_view.ref()->absolute(&camera->pos, &rot);
 	camera->rot = Quat::look(rot * Vec3(0, -1, 0));
 }
+
+// TODO: noclip control
+/*
+void NoclipControl::update(const Update& u)
+{
+	angle_horizontal -= speed_mouse * (r32)u.input->cursor_x;
+	angle_vertical += speed_mouse * (r32)u.input->cursor_y;
+
+	if (angle_vertical < PI * -0.495f)
+		angle_vertical = PI * -0.495f;
+	if (angle_vertical > PI * 0.495f)
+		angle_vertical = PI * 0.495f;
+
+	Quat look_quat = Quat::euler(0, angle_horizontal, angle_vertical);
+
+	if (!Console::visible)
+	{
+		r32 speed = u.input->keys[(s32)KeyCode::LShift] ? 24.0f : 4.0f;
+		if (u.input->keys[(s32)KeyCode::Space])
+			get<Transform>()->pos += Vec3(0, 1, 0) * u.time.delta * speed;
+		if (u.input->keys[(s32)KeyCode::LCtrl])
+			get<Transform>()->pos += Vec3(0, -1, 0) * u.time.delta * speed;
+		if (u.input->keys[(s32)KeyCode::W])
+			get<Transform>()->pos += look_quat * Vec3(0, 0, 1) * u.time.delta * speed;
+		if (u.input->keys[(s32)KeyCode::S])
+			get<Transform>()->pos += look_quat * Vec3(0, 0, -1) * u.time.delta * speed;
+		if (u.input->keys[(s32)KeyCode::D])
+			get<Transform>()->pos += look_quat * Vec3(-1, 0, 0) * u.time.delta * speed;
+		if (u.input->keys[(s32)KeyCode::A])
+			get<Transform>()->pos += look_quat * Vec3(1, 0, 0) * u.time.delta * speed;
+
+		if (u.input->keys[(s32)KeyCode::MouseLeft] && !u.last_input->keys[(s32)KeyCode::MouseLeft])
+		{
+			static const Vec3 scale = Vec3(0.1f, 0.2f, 0.1f);
+			Entity* box = World::create<PhysicsEntity>(Asset::Mesh::cube, get<Transform>()->absolute_pos() + look_quat * Vec3(0, 0, 0.25f), look_quat, RigidBody::Type::Box, scale, 1.0f, btBroadphaseProxy::AllFilter, btBroadphaseProxy::AllFilter);
+			box->get<RigidBody>()->btBody->setLinearVelocity(look_quat * Vec3(0, 0, 15));
+		}
+	}
+
+	// Camera matrix
+	Vec3 pos = get<Transform>()->absolute_pos();
+	Vec3 look = look_quat * Vec3(0, 0, 1);
+	camera->pos = pos;
+	camera->rot = look_quat;
+}
+*/
 
 #define DANGER_RAMP_UP_TIME 2.0f
 #define DANGER_LINGER_TIME 3.0f
@@ -228,7 +274,7 @@ void LocalPlayer::update(const Update& u)
 			&& (!manager.ref()->entity.ref() || !manager.ref()->entity.ref()->get<Awk>()->snipe) // HACK because cancel and pause are on the same dang key
 			&& !Game::cancel_event_eaten[gamepad];
 		if (pause_hit
-			&& !upgrading
+			&& !upgrade_menu_open
 			&& (menu_state == Menu::State::Hidden || menu_state == Menu::State::Visible)
 			&& !Penelope::has_focus())
 		{
@@ -250,15 +296,22 @@ void LocalPlayer::update(const Update& u)
 	{
 		case UIMode::Default:
 		{
-			if (Game::level.has_feature(Game::FeatureLevel::Abilities)
-				&& manager.ref()->at_spawn()
-				&& !manager.ref()->entity.ref()->get<Awk>()->snipe)
+			if (manager.ref()->at_control_point() && manager.ref()->can_transition_state())
 			{
 				if (!u.input->get(Controls::Interact, gamepad) && u.last_input->get(Controls::Interact, gamepad))
 				{
-					upgrading = true;
-					menu.animate();
-					upgrade_animation_time = Game::real_time.total;
+					if (manager.ref()->friendly_control_point(manager.ref()->at_control_point()))
+					{
+						// friendly control point; upgrade
+						upgrade_menu_open = true;
+						menu.animate();
+						upgrade_animation_time = Game::real_time.total;
+					}
+					else
+					{
+						// enemy control point; capture
+						manager.ref()->capture_start();
+					}
 				}
 			}
 
@@ -272,11 +325,11 @@ void LocalPlayer::update(const Update& u)
 				&& !Game::cancel_event_eaten[gamepad])
 			{
 				Game::cancel_event_eaten[gamepad] = true;
-				upgrading = false;
+				upgrade_menu_open = false;
 			}
 			else
 			{
-				b8 upgrade_in_progress = manager.ref()->current_upgrade != Upgrade::None;
+				b8 upgrade_in_progress = !manager.ref()->can_transition_state();
 
 				u8 last_selected = menu.selected;
 
@@ -285,7 +338,7 @@ void LocalPlayer::update(const Update& u)
 				Vec2 pos(camera->viewport.size.x * 0.5f + MENU_ITEM_WIDTH * -0.5f, camera->viewport.size.y * 0.8f);
 
 				if (menu.item(u, &pos, _(strings::close), nullptr))
-					upgrading = false;
+					upgrade_menu_open = false;
 
 				for (s32 i = 0; i < (s32)Upgrade::count; i++)
 				{
@@ -351,7 +404,7 @@ void LocalPlayer::spawn()
 	r32 angle = atan2f(dir.x, dir.z);
 
 	// Spawn AWK
-	pos += Quat::euler(0, angle + (gamepad * PI * 0.5f), 0) * Vec3(0, 0, PLAYER_SPAWN_RADIUS * 0.5f); // spawn it around the edges
+	pos += Quat::euler(0, angle + (gamepad * PI * 0.5f), 0) * Vec3(0, 0, CONTROL_POINT_RADIUS * 0.5f); // spawn it around the edges
 	Entity* spawned = World::create<AwkEntity>(manager.ref()->team.ref()->team());
 
 	spawned->get<Transform>()->absolute_pos(pos);
@@ -434,7 +487,7 @@ void LocalPlayer::draw_alpha(const RenderParams& params) const
 
 			UIText text;
 			text.color = UI::accent_color;
-			text.text("+%d", manager.ref()->entity.ref() ? manager.ref()->entity.ref()->get<Health>()->increment() : 0);
+			text.text("+%d", manager.ref()->increment());
 			text.anchor_x = UIText::Anchor::Min;
 			text.anchor_y = UIText::Anchor::Center;
 			text.size = text_size;
@@ -447,7 +500,7 @@ void LocalPlayer::draw_alpha(const RenderParams& params) const
 			(
 				params,
 				{ pos + Vec2(total_width * -0.5f + icon_size - padding, 0), Vec2(icon_size * 1.25f) },
-				1.0f - (HealthPickup::timer / CONTROL_POINT_INTERVAL),
+				1.0f - (PlayerManager::timer / CONTROL_POINT_INTERVAL),
 				text.color,
 				PI
 			);
@@ -459,13 +512,22 @@ void LocalPlayer::draw_alpha(const RenderParams& params) const
 	if (Game::level.has_feature(Game::FeatureLevel::Abilities))
 	{
 		if (mode == UIMode::Default
-			&& manager.ref()->at_spawn()
-			&& !manager.ref()->entity.ref()->get<Awk>()->snipe)
+			&& manager.ref()->at_control_point()
+			&& manager.ref()->can_transition_state())
 		{
-			// "upgrade!" prompt
 			UIText text;
-			text.color = manager.ref()->upgrade_available() ? UI::accent_color : UI::disabled_color;
-			text.text(_(strings::upgrade_prompt));
+			if (manager.ref()->friendly_control_point(manager.ref()->at_control_point()))
+			{
+				// "upgrade!" prompt
+				text.color = manager.ref()->upgrade_available() ? UI::accent_color : UI::disabled_color;
+				text.text(_(strings::upgrade_prompt));
+			}
+			else
+			{
+				// "capture!" prompt
+				text.color = UI::accent_color;
+				text.text(_(strings::capture_prompt));
+			}
 			text.anchor_x = UIText::Anchor::Center;
 			text.anchor_y = UIText::Anchor::Center;
 			text.size = text_size;
@@ -475,7 +537,7 @@ void LocalPlayer::draw_alpha(const RenderParams& params) const
 		}
 
 		if ((mode == UIMode::Default || mode == UIMode::Upgrading)
-			&& manager.ref()->entity.ref() && !manager.ref()->entity.ref()->get<Awk>()->snipe)
+			&& manager.ref()->can_transition_state())
 		{
 			// draw abilities
 
@@ -709,34 +771,49 @@ void LocalPlayer::draw_alpha(const RenderParams& params) const
 		// game is not yet over
 
 		{
-			// upgrade / ability spawn timer
-			if (manager.ref()->current_spawn_ability != Ability::None
-				|| manager.ref()->current_upgrade != Upgrade::None)
+			// upgrade / spawn / capture timer
+			PlayerManager::State manager_state = manager.ref()->state();
+			if (manager_state != PlayerManager::State::Default)
 			{
-				r32 timer;
 				r32 total_time;
 				AssetID string;
 				u16 cost;
 
-				if (manager.ref()->current_spawn_ability != Ability::None)
+				switch (manager_state)
 				{
-					// spawning an ability
-					timer = manager.ref()->spawn_ability_timer;
-					string = strings::ability_spawn_cost;
+					case PlayerManager::State::Spawning:
+					{
+						// spawning an ability
+						string = strings::ability_spawn_cost;
 
-					const AbilityInfo& info = AbilityInfo::list[(s32)manager.ref()->current_spawn_ability];
-					cost = info.spawn_cost;
-					total_time = info.spawn_time;
-				}
-				else
-				{
-					// getting an upgrade
-					timer = manager.ref()->upgrade_timer;
-					string = strings::upgrading;
+						const AbilityInfo& info = AbilityInfo::list[(s32)manager.ref()->current_spawn_ability];
+						cost = info.spawn_cost;
+						total_time = info.spawn_time;
+						break;
+					}
+					case PlayerManager::State::Upgrading:
+					{
+						// getting an upgrade
+						string = strings::upgrading;
 
-					const UpgradeInfo& info = UpgradeInfo::list[(s32)manager.ref()->current_upgrade];
-					cost = info.cost;
-					total_time = UPGRADE_TIME;
+						const UpgradeInfo& info = UpgradeInfo::list[(s32)manager.ref()->current_upgrade];
+						cost = info.cost;
+						total_time = UPGRADE_TIME;
+						break;
+					}
+					case PlayerManager::State::Capturing:
+					{
+						// capturing a control point
+						string = strings::capturing;
+						cost = 0;
+						total_time = CAPTURE_TIME;
+						break;
+					}
+					default:
+					{
+						vi_assert(false);
+						break;
+					}
 				}
 
 				// draw bar
@@ -746,7 +823,7 @@ void LocalPlayer::draw_alpha(const RenderParams& params) const
 				Rect2 bar = { pos + bar_size * -0.5f, bar_size };
 				UI::box(params, bar, UI::background_color);
 				UI::border(params, bar, 2, UI::accent_color);
-				UI::box(params, { bar.pos, Vec2(bar.size.x * (1.0f - (timer / total_time)), bar.size.y) }, UI::accent_color);
+				UI::box(params, { bar.pos, Vec2(bar.size.x * (1.0f - (manager.ref()->state_timer / total_time)), bar.size.y) }, UI::accent_color);
 
 				UIText text;
 				text.size = 18.0f;
@@ -869,7 +946,7 @@ void PlayerCommon::awake()
 b8 PlayerCommon::movement_enabled() const
 {
 	return get<Awk>()->state() == Awk::State::Crawl // must be attached to wall
-		&& manager.ref()->current_spawn_ability == Ability::None // can't move while trying to spawn an ability
+		&& manager.ref()->state() == PlayerManager::State::Default // can't move while upgrading and stuff
 		&& get<Awk>()->stun_timer == 0.0f // or while stunned
 		&& (Game::time.total > GAME_BUY_PERIOD || !Game::level.has_feature(Game::FeatureLevel::Abilities)); // or during the buy period
 }
@@ -1331,6 +1408,7 @@ void LocalPlayerControl::update(const Update& u)
 
 			b8 just_attached = u.time.total - get<Awk>()->attach_time < 0.2f;
 			PlayerManager* manager = player.ref()->manager.ref();
+			if (manager->abilities[0] != Ability::None)
 			{
 				b8 current = u.input->get(Controls::Ability1, gamepad);
 				b8 last = u.last_input->get(Controls::Ability1, gamepad);
@@ -1340,6 +1418,7 @@ void LocalPlayerControl::update(const Update& u)
 					manager->ability_spawn_stop(manager->abilities[0]);
 			}
 
+			if (manager->abilities[1] != Ability::None)
 			{
 				b8 current = u.input->get(Controls::Ability2, gamepad);
 				b8 last = u.last_input->get(Controls::Ability2, gamepad);
@@ -1349,6 +1428,7 @@ void LocalPlayerControl::update(const Update& u)
 					manager->ability_spawn_stop(manager->abilities[1]);
 			}
 
+			if (manager->abilities[2] != Ability::None)
 			{
 				b8 current = u.input->get(Controls::Ability3, gamepad);
 				b8 last = u.last_input->get(Controls::Ability3, gamepad);
@@ -1691,23 +1771,29 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 	// upgrade notification
 	if (Game::level.has_feature(Game::FeatureLevel::Abilities)
 		&& player.ref()->manager.ref()->upgrade_available()
-		&& !player.ref()->manager.ref()->at_spawn())
+		&& !player.ref()->manager.ref()->friendly_control_point(player.ref()->manager.ref()->at_control_point()))
 	{
-		Vec3 spawn_pos = Team::list[(s32)team].player_spawn.ref()->absolute_pos();
-		UI::indicator(params, spawn_pos, Team::ui_color_friend, true);
+		for (auto i = ControlPoint::list.iterator(); !i.is_last(); i.next())
+		{
+			if (i.item()->team == team)
+			{
+				Vec3 spawn_pos = i.item()->get<Transform>()->absolute_pos();
+				UI::indicator(params, spawn_pos, Team::ui_color_friend, true);
 
-		UIText text;
-		text.color = Team::ui_color_friend;
-		text.text(_(strings::upgrade_notification));
-		text.anchor_x = UIText::Anchor::Center;
-		text.anchor_y = UIText::Anchor::Center;
-		text.size = text_size;
-		Vec2 p;
-		UI::is_onscreen(params, spawn_pos, &p);
-		p.y += text_size * 2.0f * UI::scale;
-		UI::box(params, text.rect(p).outset(8.0f * UI::scale), UI::background_color);
-		if (UI::flash_function_slow(Game::real_time.total))
-			text.draw(params, p);
+				UIText text;
+				text.color = Team::ui_color_friend;
+				text.text(_(strings::upgrade_notification));
+				text.anchor_x = UIText::Anchor::Center;
+				text.anchor_y = UIText::Anchor::Center;
+				text.size = text_size;
+				Vec2 p;
+				UI::is_onscreen(params, spawn_pos, &p);
+				p.y += text_size * 2.0f * UI::scale;
+				UI::box(params, text.rect(p).outset(8.0f * UI::scale), UI::background_color);
+				if (UI::flash_function_slow(Game::real_time.total))
+					text.draw(params, p);
+			}
+		}
 	}
 
 	// usernames directly over players' 3D positions

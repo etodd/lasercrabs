@@ -28,25 +28,4 @@ struct PhysicsEntity : public Entity
 	PhysicsEntity(AssetID, const Vec3&, const Quat&, RigidBody::Type, const Vec3&, r32, short, short);
 };
 
-struct Camera;
-
-struct Noclip : public Entity
-{
-	Noclip(Camera*);
-};
-
-struct NoclipControl : public ComponentType<NoclipControl>
-{
-	r32 angle_horizontal;
-	r32 angle_vertical;
-
-	Camera* camera;
-
-	NoclipControl(Camera*);
-
-	void update(const Update&);
-	void awake() {}
-};
-
-
 }

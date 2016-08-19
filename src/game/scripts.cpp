@@ -138,7 +138,6 @@ namespace tutorial
 	struct Data
 	{
 		TutorialState state;
-		Ref<Mover> door_mover;
 		Ref<Transform> health_location;
 	};
 
@@ -195,7 +194,6 @@ namespace tutorial
 				if (manager->has_upgrade((Upgrade)i))
 				{
 					data->state = TutorialState::PvpKillPlayer;
-					data->door_mover.ref()->go();
 					Penelope::text_clear();
 					Penelope::text_schedule(0.0f, _(strings::tut_pvp_kill_player));
 					break;
@@ -222,8 +220,6 @@ namespace tutorial
 		data = new Data();
 		Game::updates.add(&update);
 		Game::cleanups.add(&cleanup);
-
-		data->door_mover = entities.find("door_mover")->get<Mover>();
 
 		data->health_location = entities.find("health")->get<Transform>();
 

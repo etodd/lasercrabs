@@ -226,9 +226,9 @@ namespace AIBehaviors
 		void run();
 	};
 
-	struct ToSpawn : Base<ToSpawn>
+	struct ToControlPoint : Base<ToControlPoint>
 	{
-		ToSpawn(s8);
+		ToControlPoint(s8);
 		void run();
 	};
 
@@ -292,9 +292,9 @@ namespace AIBehaviors
 		void run();
 	};
 
-	struct ReactSpawn : Base<ReactSpawn>
+	struct ReactControlPoint : Base<ReactControlPoint>
 	{
-		ReactSpawn(s8);
+		ReactControlPoint(s8);
 		void run();
 	};
 
@@ -302,6 +302,14 @@ namespace AIBehaviors
 	{
 		DoUpgrade(s8);
 		void completed(Upgrade);
+		void set_context(void*);
+		void run();
+	};
+
+	struct CaptureControlPoint : Base<CaptureControlPoint>
+	{
+		CaptureControlPoint(s8);
+		void completed();
 		void set_context(void*);
 		void run();
 	};

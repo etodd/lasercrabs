@@ -24,19 +24,19 @@ struct LocalPlayer
 
 	static PinArray<LocalPlayer, MAX_PLAYERS> list;
 
-	u8 gamepad;
+	Camera* camera;
 	UIMenu menu;
+	UIScroll score_summary_scroll;
+	UIText msg_text;
+	r32 msg_timer;
+	Menu::State menu_state;
+	r32 upgrade_animation_time;
+	Revision revision;
 	Ref<Transform> map_view;
 	Ref<PlayerManager> manager;
-	Camera* camera;
-	r32 msg_timer;
-	UIText msg_text;
 	b8 msg_good;
-	Revision revision;
-	Menu::State menu_state;
-	b8 upgrading;
-	r32 upgrade_animation_time;
-	UIScroll score_summary_scroll;
+	b8 upgrade_menu_open;
+	u8 gamepad;
 	
 	inline ID id() const
 	{
@@ -57,11 +57,11 @@ struct LocalPlayer
 
 struct PlayerCommon : public ComponentType<PlayerCommon>
 {
-	Ref<PlayerManager> manager;
+	Quat attach_quat;
 	r32 angle_horizontal;
 	r32 last_angle_horizontal;
 	r32 angle_vertical;
-	Quat attach_quat;
+	Ref<PlayerManager> manager;
 
 	static s32 visibility_hash(const PlayerCommon*, const PlayerCommon*);
 	static Bitmask<MAX_PLAYERS * MAX_PLAYERS> visibility;
@@ -113,7 +113,6 @@ struct LocalPlayerControl : public ComponentType<LocalPlayerControl>
 		Type type;
 	};
 
-	Ref<LocalPlayer> player;
 	Reticle reticle;
 	StaticArray<TargetIndicator, 32> target_indicators;
 	Vec3 last_pos;
@@ -123,6 +122,7 @@ struct LocalPlayerControl : public ComponentType<LocalPlayerControl>
 	r32 rumble;
 	r32 last_gamepad_input_time;
 	r32 gamepad_rotation_speed;
+	Ref<LocalPlayer> player;
 	b8 try_secondary;
 	b8 try_primary;
 	u8 gamepad;

@@ -80,11 +80,6 @@ void Health::damage(Entity* e, u16 damage)
 	}
 }
 
-u16 Health::increment() const
-{
-	return CREDITS_DEFAULT_INCREMENT + vi_max(0, hp - 1) * CREDITS_CONTROL_POINT;
-}
-
 void Health::add(u16 amount)
 {
 	u16 old_hp = hp;
@@ -106,7 +101,7 @@ HealthPickupEntity::HealthPickupEntity(const Vec3& p)
 	model->mesh = Asset::Mesh::target;
 	model->shader = Asset::Shader::standard;
 
-	create<SensorInterestPoint>();
+	create<InterestPoint>();
 
 	PointLight* light = create<PointLight>();
 	light->radius = 8.0f;
@@ -195,7 +190,6 @@ b8 HealthPickup::set_owner(Health* health)
 	return false;
 }
 
-r32 HealthPickup::timer = CONTROL_POINT_INTERVAL;
 r32 HealthPickup::power_particle_timer;
 r32 HealthPickup::particle_accumulator;
 void HealthPickup::update_all(const Update& u)
@@ -272,19 +266,78 @@ void HealthPickup::update_all(const Update& u)
 			}
 		}
 	}
+}
 
-	if (Game::state.mode == Game::Mode::Pvp && Game::level.has_feature(Game::FeatureLevel::HealthPickups))
+ControlPointEntity::ControlPointEntity(AI::Team team)
+{
+	create<Transform>();
+
+	View* view = create<View>();
+	view->mesh = Asset::Mesh::spawn;
+	view->shader = Asset::Shader::standard;
+
+	create<PlayerTrigger>()->radius = CONTROL_POINT_RADIUS;
+
+	PointLight* light = create<PointLight>();
+	light->offset.z = 2.0f;
+	light->radius = 12.0f;
+
+	light->team = (u8)team;
+	view->team = (u8)team;
+
+	create<ControlPoint>(team);
+}
+
+ControlPoint::ControlPoint(AI::Team t)
+	: team(t)
+{
+}
+
+void ControlPoint::set_team(AI::Team t)
+{
+	team = t;
+	get<PointLight>()->team = (u8)team;
+	get<View>()->team = (u8)team;
+}
+
+s32 ControlPoint::count(AI::TeamMask mask)
+{
+	s32 count = 0;
+	for (auto i = list.iterator(); !i.is_last(); i.next())
 	{
-		timer -= u.time.delta;
-		if (timer < 0.0f)
-		{
-			// give points to players based on how many control points they own
-			for (auto i = PlayerCommon::list.iterator(); !i.is_last(); i.next())
-				i.item()->manager.ref()->add_credits(i.item()->get<Health>()->increment());
+		if (mask & (1 << i.item()->team))
+			count++;
+	}
+	return count;
+}
 
-			timer += CONTROL_POINT_INTERVAL;
+ControlPoint* ControlPoint::closest(AI::TeamMask mask, const Vec3& pos, r32* distance)
+{
+	ControlPoint* closest = nullptr;
+	r32 closest_distance = FLT_MAX;
+
+	for (auto i = list.iterator(); !i.is_last(); i.next())
+	{
+		if (mask & (1 << i.item()->team))
+		{
+			r32 d = (i.item()->get<Transform>()->absolute_pos() - pos).length_squared();
+			if (d < closest_distance)
+			{
+				closest = i.item();
+				closest_distance = d;
+			}
 		}
 	}
+
+	if (distance)
+	{
+		if (closest)
+			*distance = sqrtf(closest_distance);
+		else
+			*distance = FLT_MAX;
+	}
+
+	return closest;
 }
 
 SensorEntity::SensorEntity(PlayerManager* owner, const Vec3& abs_pos, const Quat& abs_rot)
@@ -395,9 +448,9 @@ Sensor* Sensor::closest(AI::TeamMask mask, const Vec3& pos, r32* distance)
 }
 
 // returns the closest sensor interest point within range of the given position, or null
-SensorInterestPoint* SensorInterestPoint::in_range(const Vec3& pos)
+InterestPoint* InterestPoint::in_range(const Vec3& pos)
 {
-	SensorInterestPoint* closest = nullptr;
+	InterestPoint* closest = nullptr;
 	r32 closest_distance = SENSOR_RANGE * SENSOR_RANGE;
 
 	for (auto i = list.iterator(); !i.is_last(); i.next())
@@ -786,23 +839,6 @@ ContainmentFieldEntity::ContainmentFieldEntity(Transform* parent, const Vec3& ab
 	create<RigidBody>(RigidBody::Type::Sphere, Vec3(CONTAINMENT_FIELD_BASE_RADIUS), 0.0f, CollisionAwkIgnore | CollisionTarget, ~CollisionAwk & ~CollisionShield);
 }
 
-PlayerSpawn::PlayerSpawn(AI::Team team)
-{
-	create<Transform>();
-
-	View* view = create<View>();
-	view->mesh = Asset::Mesh::spawn;
-	view->shader = Asset::Shader::standard;
-	view->team = (u8)team;
-
-	create<PlayerTrigger>()->radius = PLAYER_SPAWN_RADIUS;
-
-	PointLight* light = create<PointLight>();
-	light->team = (u8)team;
-	light->offset.z = 2.0f;
-	light->radius = 12.0f;
-}
-
 #define PROJECTILE_SPEED 25.0f
 #define PROJECTILE_LENGTH 1.0f
 #define PROJECTILE_THICKNESS 0.05f
@@ -1158,104 +1194,6 @@ void Rope::spawn(const Vec3& pos, const Vec3& dir, r32 max_distance, r32 slack)
 				rope->end(ray_callback2.m_hitPointWorld, ray_callback2.m_hitNormalWorld, b, slack);
 		}
 	}
-}
-
-MoverEntity::MoverEntity(b8 reversed, b8 trans, b8 rot)
-{
-	create<Mover>(reversed, trans, rot);
-}
-
-Mover::Mover(b8 reversed, b8 trans, b8 rot)
-	: reversed(reversed),
-	x(),
-	translation(trans),
-	rotation(rot),
-	target(reversed ? 1.0f : 0.0f),
-	speed(),
-	object(),
-	start_pos(),
-	start_rot(),
-	end_pos(),
-	end_rot(),
-	last_moving(),
-	ease()
-{
-}
-
-void Mover::update(const Update& u)
-{
-	if (object.ref())
-	{
-		r32 actual_target = reversed ? 1.0f - target : target;
-		b8 moving;
-		if (x == actual_target)
-		{
-			RigidBody* body = object.ref()->get<RigidBody>();
-			if (body)
-				body->btBody->setActivationState(ISLAND_SLEEPING);
-
-			moving = false;
-		}
-		else
-		{
-			if (x < actual_target)
-				x = vi_min(actual_target, x + speed * u.time.delta);
-			else
-				x = vi_max(actual_target, x - speed * u.time.delta);
-			refresh();
-
-			moving = true;
-		}
-
-		if (!object.ref()->has<Audio>())
-			object.ref()->entity()->add<Audio>();
-		if (moving && !last_moving)
-			object.ref()->get<Audio>()->post_event(AK::EVENTS::MOVER_LOOP);
-		else if (!moving && last_moving)
-			object.ref()->get<Audio>()->post_event(AK::EVENTS::MOVER_STOP);
-		last_moving = moving;
-	}
-	else
-		World::remove(entity());
-}
-
-void Mover::go()
-{
-	target = 1.0f;
-}
-
-void Mover::setup(Transform* obj, Transform* end, r32 _speed)
-{
-	object = obj;
-	obj->absolute(&start_pos, &start_rot);
-	end->absolute(&end_pos, &end_rot);
-	if (translation)
-		speed = _speed / (end_pos - start_pos).length();
-	else
-		speed = _speed / Quat::angle(start_rot, end_rot);
-	refresh();
-}
-
-void Mover::refresh()
-{
-	if (object.ref())
-	{
-		r32 eased = Ease::ease(ease, x, 0.0f, 1.0f);
-		if (translation && rotation)
-			object.ref()->absolute(Vec3::lerp(eased, start_pos, end_pos), Quat::slerp(eased, start_rot, end_rot));
-		else
-		{
-			if (rotation)
-				object.ref()->absolute_rot(Quat::slerp(eased, start_rot, end_rot));
-			if (translation)
-				object.ref()->absolute_pos(Vec3::lerp(eased, start_pos, end_pos));
-		}
-		RigidBody* body = object.ref()->get<RigidBody>();
-		if (body)
-			body->btBody->activate(true);
-	}
-	else
-		World::remove(entity());
 }
 
 WaterEntity::WaterEntity(AssetID mesh_id)

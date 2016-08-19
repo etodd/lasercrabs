@@ -309,8 +309,6 @@ void Game::update(const Update& update_in)
 		i.item()->update(u);
 	for (auto i = Animator::list.iterator(); !i.is_last(); i.next())
 		i.item()->update(u);
-	for (auto i = Mover::list.iterator(); !i.is_last(); i.next())
-		i.item()->update(u);
 
 	LerpTo<Vec3>::update_active(u);
 	Delay::update_active(u);
@@ -320,16 +318,13 @@ void Game::update(const Update& update_in)
 	AI::update(u);
 
 	Team::update_all(u);
-	for (auto i = PlayerManager::list.iterator(); !i.is_last(); i.next())
-		i.item()->update(u);
+	PlayerManager::update_all(u);
 	LocalPlayer::update_all(u);
 	for (auto i = AIPlayer::list.iterator(); !i.is_last(); i.next())
 		i.item()->update(u);
 	for (auto i = Walker::list.iterator(); !i.is_last(); i.next())
 		i.item()->update(u);
 	for (auto i = Awk::list.iterator(); !i.is_last(); i.next())
-		i.item()->update(u);
-	for (auto i = NoclipControl::list.iterator(); !i.is_last(); i.next())
 		i.item()->update(u);
 	for (auto i = MinionAI::list.iterator(); !i.is_last(); i.next())
 		i.item()->update(u);
@@ -666,27 +661,12 @@ void Game::execute(const Update& u, const char* cmd)
 	}
 	else if (utf8cmp(cmd, "noclip") == 0)
 	{
-		if (NoclipControl::list.count() == 0)
+		level.continue_match_after_death = true;
+		for (auto i = LocalPlayer::list.iterator(); !i.is_last(); i.next())
 		{
-			Penelope::clear();
-
-			auto players = LocalPlayer::list.iterator();
-			LocalPlayer* p = players.item();
-
-			while (!players.is_last())
-			{
-				Entity* entity = players.item()->manager.ref()->entity.ref();
-				if (entity)
-					World::remove(entity);
-				players.next();
-			}
-
-			World::create<Noclip>(p->camera);
-		}
-		else
-		{
-			NoclipControl* noclip = NoclipControl::list.iterator().item();
-			World::remove(noclip->entity());
+			Entity* entity = i.item()->manager.ref()->entity.ref();
+			if (entity)
+				World::remove(entity);
 		}
 	}
 	else if (strstr(cmd, "timescale ") == cmd)
@@ -875,14 +855,6 @@ struct LevelLink
 	const char* target_name;
 };
 
-struct MoverEntry
-{
-	Mover* mover;
-	const char* object_name;
-	const char* end_name;
-	r32 speed;
-};
-
 struct RopeEntry
 {
 	Vec3 pos;
@@ -939,7 +911,6 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 
 	Array<LevelLink<Entity>> links;
 	Array<LevelLink<Transform>> transform_links;
-	Array<MoverEntry> mover_links;
 
 	EntityFinder finder;
 	
@@ -1134,35 +1105,23 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 			if (health)
 				entity->get<Health>()->hp = health;
 		}
-		else if (cJSON_GetObjectItem(element, "PlayerSpawn"))
+		else if (cJSON_GetObjectItem(element, "ControlPoint"))
 		{
 			AI::Team team = (AI::Team)Json::get_s32(element, "team");
 
-			entity = World::alloc<PlayerSpawn>(team);
-
-			if (Team::list.length > 0)
+			if (Team::list.length > (s32)team)
+			{
+				entity = World::alloc<ControlPointEntity>(team);
 				Team::list[(s32)team].player_spawn = entity->get<Transform>();
+			}
+			else
+				entity = World::alloc<ControlPointEntity>(AI::NoTeam);
 		}
 		else if (cJSON_GetObjectItem(element, "PlayerTrigger"))
 		{
 			entity = World::alloc<Empty>();
 			PlayerTrigger* trigger = entity->create<PlayerTrigger>();
 			trigger->radius = Json::get_r32(element, "scale", 1.0f);
-		}
-		else if (cJSON_GetObjectItem(element, "Mover"))
-		{
-			entity = World::alloc<MoverEntity>((b8)Json::get_s32(element, "reversed"), (b8)Json::get_s32(element, "translation", 1), (b8)Json::get_s32(element, "rotation", 1));
-			cJSON* entity_link = cJSON_GetObjectItem(element, "links")->child;
-			if (entity_link)
-			{
-				MoverEntry* entry = mover_links.add();
-				entry->mover = entity->get<Mover>();
-				entry->object_name = entity_link->valuestring;
-				entry->end_name = entity_link->next->valuestring;
-				entry->speed = Json::get_r32(element, "speed", 1.0f);
-			}
-			Mover* mover = entity->get<Mover>();
-			mover->ease = (Ease::Type)Json::get_enum(element, "ease", Ease::type_names);
 		}
 		else if (cJSON_GetObjectItem(element, "PointLight"))
 		{
@@ -1217,12 +1176,12 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 				rope->max_distance = 100.0f;
 			}
 		}
-		else if (cJSON_GetObjectItem(element, "SensorInterestPoint"))
+		else if (cJSON_GetObjectItem(element, "InterestPoint"))
 		{
 			if (state.mode == Mode::Pvp)
 			{
 				entity = World::alloc<Empty>();
-				entity->create<SensorInterestPoint>();
+				entity->create<InterestPoint>();
 			}
 		}
 		else if (cJSON_GetObjectItem(element, "SkyDecal"))
@@ -1410,14 +1369,6 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 		World::awake(finder.map[i].entity.ref());
 
 	Physics::sync_static();
-
-	for (s32 i = 0; i < mover_links.length; i++)
-	{
-		MoverEntry& link = mover_links[i];
-		Entity* object = finder.find(link.object_name);
-		Entity* end = finder.find(link.end_name);
-		link.mover->setup(object->get<Transform>(), end->get<Transform>(), link.speed);
-	}
 
 	for (s32 i = 0; i < ropes.length; i++)
 		Rope::spawn(ropes[i].pos, ropes[i].rot * Vec3(0, 1, 0), ropes[i].max_distance, ropes[i].slack);

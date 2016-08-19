@@ -29,10 +29,11 @@ struct PlayerManager;
 #define CREDITS_SENSOR_DESTROY 10
 #define CREDITS_CONTAINMENT_FIELD_DESTROY 10
 #define CREDITS_CONTROL_POINT 5
-#define CREDITS_DEFAULT_INCREMENT 5
+#define CREDITS_HEALTH_PICKUP 5
 #define MAX_ABILITIES 3
 
 #define UPGRADE_TIME 1.5f
+#define CAPTURE_TIME 2.5f
 
 enum class Ability
 {
@@ -95,11 +96,16 @@ struct Team
 	static const Vec4 color_friend;
 	static r32 control_point_timer;
 	static r32 game_over_real_time;
-
 	static StaticArray<Team, MAX_PLAYERS> list;
-
 	static b8 game_over;
 	static Ref<Team> winner;
+
+	static void awake_all();
+	static void extract_history(PlayerManager*, SensorTrackHistory*);
+	static void level_retry();
+	static void level_next();
+	static s16 containment_field_mask(AI::Team);
+	static void update_all(const Update&);
 
 	static inline const Vec4& ui_color(AI::Team me, AI::Team them)
 	{
@@ -111,25 +117,15 @@ struct Team
 		return me == them ? color_friend : color_enemy;
 	}
 
-	static void awake_all();
-
-	static void extract_history(PlayerManager*, SensorTrackHistory*);
-
-	static void level_retry();
-	static void level_next();
-
-	static s16 containment_field_mask(AI::Team);
-
-	Ref<Transform> player_spawn;
-	Revision revision;
 	SensorTrack player_tracks[MAX_PLAYERS];
 	SensorTrackHistory player_track_history[MAX_PLAYERS];
+	Ref<Transform> player_spawn;
+	Revision revision;
 
 	Team();
 	b8 has_player() const;
 	void track(PlayerManager*);
-
-	static void update_all(const Update&);
+	s32 control_point_count() const;
 
 	inline ID id() const
 	{
@@ -142,6 +138,8 @@ struct Team
 	}
 };
 
+struct ControlPoint;
+
 struct PlayerManager
 {
 	struct RatingItem
@@ -150,53 +148,67 @@ struct PlayerManager
 		s32 amount;
 	};
 
-	static PinArray<PlayerManager, MAX_PLAYERS> list;
+	enum State
+	{
+		Default,
+		Upgrading,
+		Spawning,
+		Capturing,
+	};
 
+	static PinArray<PlayerManager, MAX_PLAYERS> list;
+	static r32 timer;
+
+	static void update_all(const Update&);
+
+	StaticArray<RatingItem, 8> rating_summary;
 	r32 spawn_timer;
-	Revision revision;
 	r32 credits_flash_timer;
-	Ref<Team> team;
-	Ref<Entity> entity;
-	Link spawn;
+	r32 particle_accumulator;
+	r32 state_timer;
 	u32 upgrades;
 	Ability abilities[MAX_ABILITIES];
-	r32 spawn_ability_timer;
-	r32 upgrade_timer;
 	Ability current_spawn_ability;
 	Upgrade current_upgrade;
+	Revision revision;
+	Link spawn;
 	LinkArg<Ability> ability_spawned;
 	LinkArg<Ability> ability_spawn_canceled;
 	LinkArg<Upgrade> upgrade_completed;
-	StaticArray<RatingItem, 8> rating_summary;
-	r32 particle_accumulator;
+	Link control_point_captured;
+	Ref<Team> team;
+	Ref<Entity> entity;
 	u16 hp_start;
 	u16 credits;
 	char username[255];
 	b8 score_accepted;
 
+	PlayerManager(Team*, u16);
+
+	State state() const;
+	b8 can_transition_state() const;
 	b8 has_upgrade(Upgrade) const;
 	b8 is_local() const;
 	s32 ability_count() const;
 	b8 ability_spawn_start(Ability);
-	void ability_spawn_stop(Ability);
+	void ability_spawn_stop(Ability = Ability::None);
 	void ability_spawn_complete();
 	b8 upgrade_start(Upgrade);
 	void upgrade_complete();
+	b8 capture_start();
+	void capture_complete();
 	b8 upgrade_available(Upgrade = Upgrade::None) const;
 	u16 upgrade_cost(Upgrade) const;
-
 	s32 add_credits(s32);
-
-	PlayerManager(Team*, u16);
+	ControlPoint* at_control_point() const;
+	b8 friendly_control_point(ControlPoint*) const;
+	u16 increment() const;
+	void update(const Update&);
 
 	inline ID id() const
 	{
 		return this - &list[0];
 	}
-
-	b8 at_spawn() const;
-
-	void update(const Update&);
 };
 
 

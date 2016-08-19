@@ -223,6 +223,17 @@ namespace VI
 		track->timer = SENSOR_TIMEOUT;
 	}
 
+	s32 Team::control_point_count() const
+	{
+		s32 count = 0;
+		for (auto i = ControlPoint::list.iterator(); !i.is_last(); i.next())
+		{
+			if (i.item()->team == team())
+				count++;
+		}
+		return count;
+	}
+
 	void Team::update_all(const Update& u)
 	{
 		if (Game::state.mode != Game::Mode::Pvp)
@@ -231,7 +242,7 @@ namespace VI
 		if (!game_over)
 		{
 			if (Game::state.mode == Game::Mode::Pvp
-			&& NoclipControl::list.count() == 0
+			&& !Game::level.continue_match_after_death
 			&& (Game::time.total > GAME_TIME_LIMIT
 				|| (PlayerManager::list.count() > 1 && teams_with_players() <= 1)))
 			{
@@ -540,18 +551,10 @@ namespace VI
 		if (!Game::level.has_feature(Game::FeatureLevel::Abilities))
 			return false;
 
-		Entity* awk = entity.ref();
-		if (!awk)
+		if (!can_transition_state())
 			return false;
-
-		if (awk->get<Awk>()->snipe)
-			return false; // can't do anything while sniping
 
 		if (!has_upgrade((Upgrade)ability))
-			return false;
-
-		// need to be sitting on some kind of surface
-		if (awk->get<Awk>()->state() != Awk::State::Crawl)
 			return false;
 
 		Ability old = current_spawn_ability;
@@ -563,7 +566,7 @@ namespace VI
 			return false;
 
 		current_spawn_ability = ability;
-		spawn_ability_timer = info.spawn_time;
+		state_timer = info.spawn_time;
 
 		if (old != Ability::None)
 			ability_spawn_canceled.fire(old);
@@ -573,10 +576,11 @@ namespace VI
 
 	void PlayerManager::ability_spawn_stop(Ability ability)
 	{
-		if (current_spawn_ability == ability)
+		if (current_spawn_ability != Ability::None
+			&& (current_spawn_ability == ability || ability == Ability::None))
 		{
 			current_spawn_ability = Ability::None;
-			spawn_ability_timer = 0.0f;
+			state_timer = 0.0f;
 			ability_spawn_canceled.fire(ability);
 		}
 	}
@@ -689,10 +693,11 @@ namespace VI
 		spawn(),
 		current_spawn_ability(Ability::None),
 		current_upgrade(Upgrade::None),
-		upgrade_timer(),
+		state_timer(),
 		ability_spawned(),
 		ability_spawn_canceled(),
 		upgrade_completed(),
+		control_point_captured(),
 		rating_summary(),
 		particle_accumulator()
 	{
@@ -701,10 +706,14 @@ namespace VI
 	b8 PlayerManager::upgrade_start(Upgrade u)
 	{
 		u16 cost = upgrade_cost(u);
-		if (upgrade_available(u) && credits >= cost)
+		if (can_transition_state()
+			&& upgrade_available(u)
+			&& credits >= cost
+			&& friendly_control_point(at_control_point()))
 		{
+			ability_spawn_stop();
 			current_upgrade = u;
-			upgrade_timer = UPGRADE_TIME;
+			state_timer = UPGRADE_TIME;
 			add_credits(-cost);
 			return true;
 		}
@@ -730,6 +739,31 @@ namespace VI
 		}
 
 		upgrade_completed.fire(u);
+	}
+
+	b8 PlayerManager::capture_start()
+	{
+		ControlPoint* control_point = at_control_point();
+		if (can_transition_state() && control_point && !friendly_control_point(control_point))
+		{
+			ability_spawn_stop();
+			vi_assert(current_upgrade == Upgrade::None);
+			state_timer = CAPTURE_TIME;
+			return true;
+		}
+		return false;
+	}
+
+	void PlayerManager::capture_complete()
+	{
+		if (!entity.ref())
+			return;
+
+		ControlPoint* control_point = at_control_point();
+		if (control_point)
+			control_point->set_team(team.ref()->team());
+
+		control_point_captured.fire();
 	}
 
 	u16 PlayerManager::upgrade_cost(Upgrade u) const
@@ -784,19 +818,94 @@ namespace VI
 		return 0;
 	}
 
-	b8 PlayerManager::at_spawn() const
+	ControlPoint* PlayerManager::at_control_point() const
 	{
 		if (Game::state.mode == Game::Mode::Pvp)
-			return entity.ref() && entity.ref()->get<Awk>()->state() == Awk::State::Crawl && team.ref()->player_spawn.ref()->get<PlayerTrigger>()->is_triggered(entity.ref());
+		{
+			Entity* e = entity.ref();
+			if (e && e->get<Awk>()->state() == Awk::State::Crawl)
+			{
+				for (auto i = ControlPoint::list.iterator(); !i.is_last(); i.next())
+				{
+					if (i.item()->get<PlayerTrigger>()->is_triggered(e))
+						return i.item();
+				}
+			}
+		}
+		return nullptr;
+	}
+
+	b8 PlayerManager::friendly_control_point(ControlPoint* p) const
+	{
+		return p && p->team == team.ref()->team();
+	}
+
+	PlayerManager::State PlayerManager::state() const
+	{
+		if (state_timer == 0.0f)
+			return State::Default;
 		else
+		{
+			if (current_spawn_ability != Ability::None)
+				return State::Spawning;
+			else if (current_upgrade != Upgrade::None)
+				return State::Upgrading;
+			else
+				return State::Capturing;
+		}
+	}
+
+	b8 PlayerManager::can_transition_state() const
+	{
+		if (!Game::level.has_feature(Game::FeatureLevel::Abilities))
 			return false;
+
+		Entity* e = entity.ref();
+		if (!e)
+			return false;
+
+		State s = state();
+		if (s != State::Default && s != State::Spawning) // you can transition states if you're spawning
+			return false;
+
+		Awk* awk = e->get<Awk>();
+		return awk->state() == Awk::State::Crawl && !awk->snipe;
+	}
+
+	u16 PlayerManager::increment() const
+	{
+		if (!entity.ref())
+			return 0;
+
+		return ControlPoint::count(1 << team.ref()->team()) * CREDITS_CONTROL_POINT
+			+ (entity.ref()->get<Health>()->hp - 1) * CREDITS_HEALTH_PICKUP;
+	}
+
+	r32 PlayerManager::timer = CONTROL_POINT_INTERVAL;
+	void PlayerManager::update_all(const Update& u)
+	{
+		if (Game::state.mode == Game::Mode::Pvp && Game::level.has_feature(Game::FeatureLevel::HealthPickups))
+		{
+			timer -= u.time.delta;
+			if (timer < 0.0f)
+			{
+				// give points to players based on how many control points they own
+				for (auto i = list.iterator(); !i.is_last(); i.next())
+					i.item()->add_credits(i.item()->increment());
+
+				timer += CONTROL_POINT_INTERVAL;
+			}
+		}
+
+		for (auto i = list.iterator(); !i.is_last(); i.next())
+			i.item()->update(u);
 	}
 
 	void PlayerManager::update(const Update& u)
 	{
 		credits_flash_timer = vi_max(0.0f, credits_flash_timer - Game::real_time.delta);
 
-		if (!entity.ref() && spawn_timer > 0.0f && team.ref()->player_spawn.ref() && NoclipControl::list.count() == 0)
+		if (!entity.ref() && spawn_timer > 0.0f && team.ref()->player_spawn.ref() && !Game::level.continue_match_after_death)
 		{
 			spawn_timer -= u.time.delta;
 			if (spawn_timer <= 0.0f)
@@ -814,40 +923,58 @@ namespace VI
 			}
 		}
 
-		if (upgrade_timer > 0.0f)
+		State s = state();
+
+		if (s == State::Spawning && entity.ref())
 		{
-			upgrade_timer = vi_max(0.0f, upgrade_timer - u.time.delta);
-			if (upgrade_timer == 0.0f && current_upgrade != Upgrade::None)
-				upgrade_complete();
+			// particles
+			const r32 interval = 0.015f;
+			particle_accumulator += u.time.delta;
+			Vec3 pos = entity.ref()->get<Transform>()->absolute_pos();
+			while (particle_accumulator > interval)
+			{
+				particle_accumulator -= interval;
+
+				// spawn particle effect
+				Vec3 offset = Quat::euler(0.0f, mersenne::randf_co() * PI * 2.0f, (mersenne::randf_co() - 0.5f) * PI) * Vec3(0, 0, 1.0f);
+				Particles::fast_tracers.add
+				(
+					pos + offset,
+					offset * -3.5f,
+					0
+				);
+			}
 		}
 
-		if (spawn_ability_timer > 0.0f)
+		if (state_timer > 0.0f)
 		{
-			spawn_ability_timer = vi_max(0.0f, spawn_ability_timer - u.time.delta);
-
-			// particles
-			if (entity.ref())
+			state_timer = vi_max(0.0f, state_timer - u.time.delta);
+			if (state_timer == 0.0f)
 			{
-				const r32 interval = 0.015f;
-				particle_accumulator += u.time.delta;
-				Vec3 pos = entity.ref()->get<Transform>()->absolute_pos();
-				while (particle_accumulator > interval)
+				switch (s)
 				{
-					particle_accumulator -= interval;
-
-					// spawn particle effect
-					Vec3 offset = Quat::euler(0.0f, mersenne::randf_co() * PI * 2.0f, (mersenne::randf_co() - 0.5f) * PI) * Vec3(0, 0, 1.0f);
-					Particles::fast_tracers.add
-					(
-						pos + offset,
-						offset * -3.5f,
-						0
-					);
+					case State::Capturing:
+					{
+						capture_complete();
+						break;
+					}
+					case State::Upgrading:
+					{
+						upgrade_complete();
+						break;
+					}
+					case State::Spawning:
+					{
+						ability_spawn_complete();
+						break;
+					}
+					default:
+					{
+						vi_assert(false);
+						break;
+					}
 				}
 			}
-
-			if (spawn_ability_timer == 0.0f && current_spawn_ability != Ability::None)
-				ability_spawn_complete();
 		}
 	}
 

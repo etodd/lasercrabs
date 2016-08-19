@@ -36,7 +36,6 @@ struct Health : public ComponentType<Health>
 
 	Health(u16, u16);
 
-	u16 increment() const;
 	void set(u16);
 	void awake() {}
 	void damage(Entity*, u16);
@@ -53,7 +52,6 @@ struct HealthPickupEntity : public Entity
 #define CONTROL_POINT_INTERVAL 15.0f
 struct HealthPickup : public ComponentType<HealthPickup>
 {
-	static r32 timer;
 	static r32 power_particle_timer;
 	static r32 particle_accumulator;
 	static void update_all(const Update&);
@@ -72,6 +70,24 @@ struct HealthPickup : public ComponentType<HealthPickup>
 	void hit(const TargetEvent&);
 	b8 set_owner(Health*);
 	void reset();
+};
+
+struct ControlPointEntity : public Entity
+{
+	ControlPointEntity(AI::Team);
+};
+
+#define CONTROL_POINT_RADIUS 3.0f
+struct ControlPoint : public ComponentType<ControlPoint>
+{
+	static ControlPoint* closest(AI::TeamMask, const Vec3&, r32* = nullptr);
+	static s32 count(AI::TeamMask);
+
+	AI::Team team;
+
+	ControlPoint(AI::Team);
+	void awake() {}
+	void set_team(AI::Team);
 };
 
 struct SensorEntity : public Entity
@@ -158,10 +174,10 @@ struct ContainmentFieldEntity : public Entity
 };
 
 // for AI
-struct SensorInterestPoint : public ComponentType<SensorInterestPoint>
+struct InterestPoint : public ComponentType<InterestPoint>
 {
 	void awake() {}
-	static SensorInterestPoint* in_range(const Vec3&);
+	static InterestPoint* in_range(const Vec3&);
 };
 
 struct ShockwaveEntity : public Entity
@@ -180,35 +196,6 @@ struct Shockwave : public ComponentType<Shockwave>
 
 	r32 radius() const;
 	void update(const Update&);
-};
-
-struct MoverEntity : public Entity
-{
-	MoverEntity(const b8, const b8, const b8);
-};
-
-struct Mover : public ComponentType<Mover>
-{
-	Vec3 start_pos;
-	Quat start_rot;
-	Vec3 end_pos;
-	Quat end_rot;
-	Ref<Transform> object;
-	Ease::Type ease;
-	b8 reversed;
-	b8 translation;
-	b8 rotation;
-	r32 x;
-	r32 target;
-	r32 speed;
-	b8 last_moving;
-
-	Mover(b8 = false, b8 = true, b8 = true);
-	void awake() {}
-	void update(const Update&);
-	void setup(Transform*, Transform*, r32);
-	void go();
-	void refresh();
 };
 
 struct WaterEntity : public Entity
@@ -232,12 +219,6 @@ struct Rope : public ComponentType<Rope>
 	void awake() {}
 	static Rope* start(RigidBody*, const Vec3&, const Vec3&, const Quat&, r32 = 0.0f);
 	void end(const Vec3&, const Vec3&, RigidBody*, r32 = 0.0f);
-};
-
-#define PLAYER_SPAWN_RADIUS 3.0f
-struct PlayerSpawn : public Entity
-{
-	PlayerSpawn(AI::Team);
 };
 
 struct ProjectileEntity : public Entity

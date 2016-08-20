@@ -339,7 +339,7 @@ void LocalPlayer::update(const Update& u)
 
 				u8 last_selected = menu.selected;
 
-				menu.start(u, gamepad, (s32)Upgrade::count + 1);
+				menu.start(u, camera->viewport, gamepad, (s32)Upgrade::count + 1);
 
 				Vec2 pos(camera->viewport.size.x * 0.5f + MENU_ITEM_WIDTH * -0.5f, camera->viewport.size.y * 0.8f);
 

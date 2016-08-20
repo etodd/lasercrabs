@@ -54,7 +54,7 @@ struct UIMenu
 	UIMenu();
 	void clear();
 	void animate();
-	void start(const Update&, u8, s32, b8 = true);
+	void start(const Update&, const Rect2&, u8, s32, b8 = true);
 	const Item* last_visible_item() const;
 	b8 add_item(Vec2*, b8, const char*, const char* = nullptr, b8 = false, AssetID = AssetNull, Rect2* = nullptr);
 	b8 item(const Update&, Vec2*, const char*, const char* = nullptr, b8 = false, AssetID = AssetNull);
@@ -83,7 +83,7 @@ void title();
 void refresh_variables();
 void show();
 void pause_menu(const Update&, const Rect2&, u8, UIMenu*, State*);
-b8 options(const Update&, u8, UIMenu*, Vec2*);
+b8 options(const Update&, const Rect2&, u8, UIMenu*, Vec2*);
 r32 options_height();
 
 }

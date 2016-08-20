@@ -721,7 +721,7 @@ namespace Penelope
 				if (choice.d != IDNull)
 					choice_count++;
 
-				data->menu.start(u, 0, choice_count, has_focus());
+				data->menu.start(u, { Vec2(0, 0), Vec2(u.input->width, u.input->height) }, 0, choice_count, has_focus());
 
 				Vec2 p;
 				if (data->mode == Mode::Left)

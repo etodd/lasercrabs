@@ -91,7 +91,7 @@ void title_menu(const Update& u, u8 gamepad, UIMenu* menu, State* state)
 	{
 		case State::Visible:
 		{
-			menu->start(u, 0, 4);
+			menu->start(u, { Vec2(0, 0), Vec2(u.input->width, u.input->height) }, 0, 4);
 			if (menu->item(u, &pos, _(strings::play)))
 			{
 				Game::save = Game::Save();
@@ -118,7 +118,7 @@ void title_menu(const Update& u, u8 gamepad, UIMenu* menu, State* state)
 		}
 		case State::Options:
 		{
-			if (!options(u, 0, menu, &pos))
+			if (!options(u, { Vec2(0, 0), Vec2(u.input->width, u.input->height) }, 0, menu, &pos))
 			{
 				*state = State::Visible;
 				menu->animate();
@@ -146,7 +146,7 @@ void pause_menu(const Update& u, const Rect2& viewport, u8 gamepad, UIMenu* menu
 		case State::Visible:
 		{
 			Vec2 pos(0, viewport.size.y * 0.5f + UIMenu::height(3) * 0.5f);
-			menu->start(u, gamepad, 3);
+			menu->start(u, viewport, gamepad, 3);
 			if (menu->item(u, &pos, _(strings::close)))
 				*state = State::Hidden;
 			if (menu->item(u, &pos, _(strings::options)))
@@ -162,7 +162,7 @@ void pause_menu(const Update& u, const Rect2& viewport, u8 gamepad, UIMenu* menu
 		case State::Options:
 		{
 			Vec2 pos(0, viewport.size.y * 0.5f + options_height() * 0.5f);
-			if (!options(u, gamepad, menu, &pos))
+			if (!options(u, viewport, gamepad, menu, &pos))
 			{
 				*state = State::Visible;
 				menu->animate();
@@ -214,8 +214,7 @@ void update(const Update& u)
 		}
 		else
 		{
-			const Rect2& viewport = { Vec2(0, 0), Vec2(u.input->width, u.input->height) };
-			pause_menu(u, viewport, 0, &main_menu, &main_menu_state);
+			pause_menu(u, { Vec2(0, 0), Vec2(u.input->width, u.input->height) }, 0, &main_menu, &main_menu_state);
 		}
 	}
 }
@@ -258,9 +257,9 @@ void draw(const RenderParams& params)
 #define OPTIONS_COUNT 5
 
 // returns true if options menu is still open
-b8 options(const Update& u, u8 gamepad, UIMenu* menu, Vec2* pos)
+b8 options(const Update& u, const Rect2& viewport, u8 gamepad, UIMenu* menu, Vec2* pos)
 {
-	menu->start(u, gamepad, OPTIONS_COUNT);
+	menu->start(u, viewport, gamepad, OPTIONS_COUNT);
 	b8 exit = menu->item(u, pos, _(strings::back)) || (!u.input->get(Controls::Cancel, gamepad) && u.last_input->get(Controls::Cancel, gamepad));
 
 	char str[128];
@@ -375,11 +374,13 @@ void UIMenu::animate()
 	animation_time = Game::real_time.total;
 }
 
-void UIMenu::start(const Update& u, u8 g, s32 item_count, b8 input)
+void UIMenu::start(const Update& u, const Rect2& viewport, u8 g, s32 item_count, b8 input)
 {
 	clear();
 
 	gamepad = g;
+
+	UI::scale = UI::get_scale(viewport.size.x, viewport.size.y);
 
 	scroll.update_menu(u, item_count, gamepad, !Console::visible && input && (!active[g] || active[g] == this));
 

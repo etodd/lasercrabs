@@ -168,23 +168,29 @@ void HealthPickup::hit(const TargetEvent& e)
 // return true if we were successfully captured
 b8 HealthPickup::set_owner(Health* health)
 {
-	if (health->hp < health->hp_max)
+	// must be neutral or owned by someone else
+	if (!owner.ref() || owner.ref() != health)
 	{
-		// must be neutral or owned by someone else
-		if (!owner.ref() || owner.ref() != health)
-		{
-			Health* old_owner = owner.ref();
+		Health* old_owner = owner.ref();
 
+		if (health->hp < health->hp_max)
+		{
 			owner = health;
 			health->add(1);
 			AI::Team team = health->get<AIAgent>()->team;
 			get<PointLight>()->team = (u8)team;
 			get<View>()->team = (u8)team;
-
-			if (old_owner) // looks like we're being stolen
-				old_owner->damage(health->entity(), 1);
-			return true;
 		}
+		else
+		{
+			owner = nullptr;
+			get<PointLight>()->team = (u8)AI::NoTeam;
+			get<View>()->team = (u8)AI::NoTeam;
+		}
+
+		if (old_owner) // looks like we're being stolen
+			old_owner->damage(health->entity(), 1);
+		return true;
 	}
 
 	return false;

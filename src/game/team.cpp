@@ -110,6 +110,7 @@ namespace VI
 		game_over = false;
 		game_over_real_time = 0.0f;
 		winner = nullptr;
+		PlayerManager::timer = CONTROL_POINT_INTERVAL;
 
 		for (s32 i = 0; i < Team::list.length; i++)
 		{

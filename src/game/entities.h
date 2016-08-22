@@ -176,6 +176,12 @@ struct ContainmentFieldEntity : public Entity
 // for AI
 struct InterestPoint : public ComponentType<InterestPoint>
 {
+	enum class Type
+	{
+		Sensor,
+		Rocket,
+		Snipe,
+	};
 	void awake() {}
 	static InterestPoint* in_range(const Vec3&);
 };

@@ -1857,7 +1857,7 @@ void consolidate_nav_geometry(Mesh* result, Map<Mesh>& meshes, cJSON* json, b8(*
 
 		transforms.add(mat);
 
-		if (cJSON_GetObjectItem(element, "StaticGeom") && cJSON_GetObjectItem(element, "nav"))
+		if (cJSON_GetObjectItem(element, "StaticGeom") && !cJSON_GetObjectItem(element, "nonav"))
 		{
 			cJSON* mesh_refs = cJSON_GetObjectItem(element, "meshes");
 			cJSON* mesh_ref_json = mesh_refs->child;

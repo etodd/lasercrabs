@@ -99,6 +99,8 @@ LocalPlayer::LocalPlayer(PlayerManager* m, u8 g)
 	msg_timer(msg_time),
 	menu(),
 	revision(),
+	angle_horizontal(),
+	angle_vertical(),
 	menu_state(),
 	upgrade_menu_open(),
 	upgrade_animation_time(),
@@ -168,52 +170,6 @@ void LocalPlayer::awake(const Update& u)
 	camera->rot = Quat::look(rot * Vec3(0, -1, 0));
 }
 
-// TODO: noclip control
-/*
-void NoclipControl::update(const Update& u)
-{
-	angle_horizontal -= speed_mouse * (r32)u.input->cursor_x;
-	angle_vertical += speed_mouse * (r32)u.input->cursor_y;
-
-	if (angle_vertical < PI * -0.495f)
-		angle_vertical = PI * -0.495f;
-	if (angle_vertical > PI * 0.495f)
-		angle_vertical = PI * 0.495f;
-
-	Quat look_quat = Quat::euler(0, angle_horizontal, angle_vertical);
-
-	if (!Console::visible)
-	{
-		r32 speed = u.input->keys[(s32)KeyCode::LShift] ? 24.0f : 4.0f;
-		if (u.input->keys[(s32)KeyCode::Space])
-			get<Transform>()->pos += Vec3(0, 1, 0) * u.time.delta * speed;
-		if (u.input->keys[(s32)KeyCode::LCtrl])
-			get<Transform>()->pos += Vec3(0, -1, 0) * u.time.delta * speed;
-		if (u.input->keys[(s32)KeyCode::W])
-			get<Transform>()->pos += look_quat * Vec3(0, 0, 1) * u.time.delta * speed;
-		if (u.input->keys[(s32)KeyCode::S])
-			get<Transform>()->pos += look_quat * Vec3(0, 0, -1) * u.time.delta * speed;
-		if (u.input->keys[(s32)KeyCode::D])
-			get<Transform>()->pos += look_quat * Vec3(-1, 0, 0) * u.time.delta * speed;
-		if (u.input->keys[(s32)KeyCode::A])
-			get<Transform>()->pos += look_quat * Vec3(1, 0, 0) * u.time.delta * speed;
-
-		if (u.input->keys[(s32)KeyCode::MouseLeft] && !u.last_input->keys[(s32)KeyCode::MouseLeft])
-		{
-			static const Vec3 scale = Vec3(0.1f, 0.2f, 0.1f);
-			Entity* box = World::create<PhysicsEntity>(Asset::Mesh::cube, get<Transform>()->absolute_pos() + look_quat * Vec3(0, 0, 0.25f), look_quat, RigidBody::Type::Box, scale, 1.0f, btBroadphaseProxy::AllFilter, btBroadphaseProxy::AllFilter);
-			box->get<RigidBody>()->btBody->setLinearVelocity(look_quat * Vec3(0, 0, 15));
-		}
-	}
-
-	// Camera matrix
-	Vec3 pos = get<Transform>()->absolute_pos();
-	Vec3 look = look_quat * Vec3(0, 0, 1);
-	camera->pos = pos;
-	camera->rot = look_quat;
-}
-*/
-
 #define DANGER_RAMP_UP_TIME 2.0f
 #define DANGER_LINGER_TIME 3.0f
 #define DANGER_RAMP_DOWN_TIME 4.0f
@@ -263,6 +219,55 @@ void LocalPlayer::update(const Update& u)
 		&& Game::time.total - Game::time.delta <= GAME_BUY_PERIOD)
 	{
 		msg(_(strings::buy_period_expired), true);
+	}
+
+	// noclip
+	if (Game::level.continue_match_after_death)
+	{
+		r32 s = speed_mouse * Settings::gamepads[gamepad].effective_sensitivity() * Game::real_time.delta;
+		angle_horizontal -= (r32)u.input->cursor_x * s;
+		angle_vertical += (r32)u.input->cursor_y * s * (Settings::gamepads[gamepad].invert_y ? -1.0f : 1.0f);
+
+		if (u.input->gamepads[gamepad].active)
+		{
+			r32 s = speed_joystick * Settings::gamepads[gamepad].effective_sensitivity() * Game::real_time.delta;
+			angle_horizontal -= Input::dead_zone(u.input->gamepads[gamepad].right_x) * s;
+			angle_vertical += Input::dead_zone(u.input->gamepads[gamepad].right_y) * s * (Settings::gamepads[gamepad].invert_y ? -1.0f : 1.0f);
+		}
+
+		if (angle_vertical < PI * -0.495f)
+			angle_vertical = PI * -0.495f;
+		if (angle_vertical > PI * 0.495f)
+			angle_vertical = PI * 0.495f;
+
+		Quat look_quat = Quat::euler(0, angle_horizontal, angle_vertical);
+		camera->rot = look_quat;
+		camera->range = 0;
+		camera->cull_range = 0;
+
+		if (!Console::visible)
+		{
+			r32 speed = u.input->keys[(s32)KeyCode::LShift] ? 24.0f : 4.0f;
+			if (u.input->get(Controls::Up, gamepad))
+				camera->pos += Vec3(0, 1, 0) * u.time.delta * speed;
+			if (u.input->get(Controls::Down, gamepad))
+				camera->pos += Vec3(0, -1, 0) * u.time.delta * speed;
+			if (u.input->get(Controls::Forward, gamepad))
+				camera->pos += look_quat * Vec3(0, 0, 1) * u.time.delta * speed;
+			if (u.input->get(Controls::Backward, gamepad))
+				camera->pos += look_quat * Vec3(0, 0, -1) * u.time.delta * speed;
+			if (u.input->get(Controls::Right, gamepad))
+				camera->pos += look_quat * Vec3(-1, 0, 0) * u.time.delta * speed;
+			if (u.input->get(Controls::Left, gamepad))
+				camera->pos += look_quat * Vec3(1, 0, 0) * u.time.delta * speed;
+
+			if (u.input->keys[(s32)KeyCode::MouseLeft] && !u.last_input->keys[(s32)KeyCode::MouseLeft])
+			{
+				static const Vec3 scale = Vec3(0.1f, 0.2f, 0.1f);
+				Entity* box = World::create<PhysicsEntity>(Asset::Mesh::cube, camera->pos + look_quat * Vec3(0, 0, 0.25f), look_quat, RigidBody::Type::Box, scale, 1.0f, btBroadphaseProxy::AllFilter, btBroadphaseProxy::AllFilter);
+				box->get<RigidBody>()->btBody->setLinearVelocity(look_quat * Vec3(0, 0, 15));
+			}
+		}
 	}
 
 	if (msg_timer < msg_time)
@@ -460,7 +465,7 @@ void draw_ability(const RenderParams& params, PlayerManager* manager, const Vec2
 
 void LocalPlayer::draw_alpha(const RenderParams& params) const
 {
-	if (params.camera != camera)
+	if (params.camera != camera || Game::level.continue_match_after_death)
 		return;
 
 	const r32 line_thickness = 2.0f * UI::scale;

@@ -4,7 +4,7 @@ from math import pi
 import sys
 import os
 
-sys.path.append(os.path.join(os.getcwd(), '../assets'))
+sys.path.append(os.path.dirname(__file__))
 from etodd_blender_fbx import export_fbx_bin
  
 class DummyOperator(object):

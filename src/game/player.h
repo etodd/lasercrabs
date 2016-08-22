@@ -31,6 +31,8 @@ struct LocalPlayer
 	r32 msg_timer;
 	Menu::State menu_state;
 	r32 upgrade_animation_time;
+	r32 angle_horizontal;
+	r32 angle_vertical;
 	Revision revision;
 	Ref<Transform> map_view;
 	Ref<PlayerManager> manager;

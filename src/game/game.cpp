@@ -925,6 +925,8 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 	Array<AI::Team> teams(state.teams, state.teams);
 	u16 hp_start = 1;
 
+	level = Level();
+
 	cJSON* element = json->child;
 	while (element)
 	{

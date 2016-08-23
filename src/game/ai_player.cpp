@@ -644,6 +644,15 @@ b8 awk_attack_filter(const AIPlayerControl* control, const Entity* e)
 		&& (enemy_hp <= my_hp || (my_hp > 1 && control->get<Awk>()->invincible_timer > 0.0f));
 }
 
+b8 containment_field_filter(const AIPlayerControl* control, const Entity* e)
+{
+	if (!default_filter(control, e))
+		return false;
+
+	ContainmentField* field = e->get<ContainmentField>();
+	return field->team != control->get<AIAgent>()->team && field->contains(control->get<Transform>()->absolute_pos());
+}
+
 b8 sensor_interest_point_filter(const AIPlayerControl* control, const Entity* e)
 {
 	// only interested in interest points we don't have control over yet
@@ -679,6 +688,11 @@ Upgrade want_available_upgrade(const AIPlayerControl* control)
 		}
 	}
 	return if_available;
+}
+
+b8 want_upgrade_filter(const AIPlayerControl* control)
+{
+	return want_available_upgrade(control) != Upgrade::None;
 }
 
 b8 should_spawn_sensor(const AIPlayerControl* control)
@@ -784,6 +798,7 @@ Repeat* make_low_level_loop(AIPlayerControl* control, const AIPlayer::Config& co
 										AIBehaviors::Panic::alloc(10000)
 									),
 									AIBehaviors::RunAway::alloc(Awk::family, 5, &awk_run_filter),
+									AIBehaviors::ReactTarget::alloc(ContainmentField::family, 4, 6, &containment_field_filter),
 									AIBehaviors::ReactTarget::alloc(Awk::family, 4, 6, &awk_attack_filter),
 									AIBehaviors::ReactTarget::alloc(MinionAI::family, 4, 5, &default_filter),
 									AIBehaviors::ReactTarget::alloc(HealthPickup::family, 3, 4, &health_pickup_filter)
@@ -801,7 +816,7 @@ Repeat* make_low_level_loop(AIPlayerControl* control, const AIPlayer::Config& co
 									),
 									Sequence::alloc
 									(
-										AIBehaviors::WantUpgrade::alloc(),
+										AIBehaviors::Test::alloc(&want_upgrade_filter),
 										AIBehaviors::ReactControlPoint::alloc(5, &default_filter),
 										AIBehaviors::CaptureControlPoint::alloc(5),
 										AIBehaviors::DoUpgrade::alloc(4)
@@ -852,7 +867,7 @@ Repeat* make_high_level_loop(AIPlayerControl* control, const AIPlayer::Config& c
 								AIBehaviors::Find::alloc(HealthPickup::family, 2, &health_pickup_filter),
 								Sequence::alloc
 								(
-									AIBehaviors::WantUpgrade::alloc(),
+									AIBehaviors::Test::alloc(&want_upgrade_filter),
 									AIBehaviors::Find::alloc(ControlPoint::family, 4, &default_filter)
 								),
 								AIBehaviors::Find::alloc(ControlPoint::family, 2, &enemy_control_point_filter),
@@ -898,6 +913,7 @@ b8 AIPlayerControl::update_memory()
 	update_component_memory<Sensor>(this, &sensor_memory_filter);
 	update_component_memory<AICue>(this, &default_memory_filter);
 	update_component_memory<ControlPoint>(this, &default_memory_filter);
+	update_component_memory<ContainmentField>(this, &default_memory_filter);
 
 	// update memory of enemy AWK positions based on team sensor data
 	const Team& team = Team::list[(s32)get<AIAgent>()->team];
@@ -1327,15 +1343,15 @@ void RunAway::run()
 	done(false);
 }
 
-WantUpgrade::WantUpgrade()
+Test::Test(b8(*f)(const AIPlayerControl*))
+	: filter(f)
 {
 }
 
-void WantUpgrade::run()
+void Test::run()
 {
 	active(true);
-	Upgrade u = want_available_upgrade(control);
-	done(u != Upgrade::None);
+	done(filter(control));
 }
 
 ReactControlPoint::ReactControlPoint(s8 priority, b8(*f)(const AIPlayerControl*, const Entity*))

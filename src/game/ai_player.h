@@ -247,9 +247,10 @@ namespace AIBehaviors
 		void run();
 	};
 
-	struct WantUpgrade : Base<WantUpgrade>
+	struct Test : Base<Test>
 	{
-		WantUpgrade();
+		b8(*filter)(const AIPlayerControl*);
+		Test(b8(*)(const AIPlayerControl*));
 		void run();
 	};
 

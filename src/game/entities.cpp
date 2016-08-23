@@ -708,10 +708,15 @@ ContainmentField* ContainmentField::inside(AI::Team my_team, const Vec3& pos)
 {
 	for (auto i = list.iterator(); !i.is_last(); i.next())
 	{
-		if (i.item()->team != my_team && (pos - i.item()->get<Transform>()->absolute_pos()).length_squared() < CONTAINMENT_FIELD_RADIUS * CONTAINMENT_FIELD_RADIUS)
+		if (i.item()->team != my_team && i.item()->contains(pos))
 			return i.item();
 	}
 	return nullptr;
+}
+
+b8 ContainmentField::contains(const Vec3& pos) const
+{
+	return (pos - get<Transform>()->absolute_pos()).length_squared() < CONTAINMENT_FIELD_RADIUS * CONTAINMENT_FIELD_RADIUS;
 }
 
 // describes which enemy containment fields you are currently inside

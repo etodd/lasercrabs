@@ -168,6 +168,7 @@ struct ContainmentField : public ComponentType<ContainmentField>
 	~ContainmentField();
 	void hit_by(const TargetEvent&);
 	void killed(Entity*);
+	b8 contains(const Vec3&) const;
 };
 
 struct ContainmentFieldEntity : public Entity

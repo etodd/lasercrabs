@@ -8,7 +8,7 @@ namespace Asset
 {
 	namespace String
 	{
-		const s32 count = 359;
+		const s32 count = 358;
 		const AssetID Ioke = 0;
 		const AssetID Medias_Res = 1;
 		const AssetID Moros = 2;
@@ -333,41 +333,40 @@ namespace Asset
 		const AssetID stunned = 321;
 		const AssetID target_damaged = 322;
 		const AssetID target_shield_down = 323;
-		const AssetID target_stunned = 324;
-		const AssetID team_a = 325;
-		const AssetID team_b = 326;
-		const AssetID teleport = 327;
-		const AssetID terminal_reset = 328;
-		const AssetID timer = 329;
-		const AssetID tip = 330;
-		const AssetID tip_0 = 331;
-		const AssetID tip_1 = 332;
-		const AssetID tip_10 = 333;
-		const AssetID tip_11 = 334;
-		const AssetID tip_12 = 335;
-		const AssetID tip_2 = 336;
-		const AssetID tip_3 = 337;
-		const AssetID tip_4 = 338;
-		const AssetID tip_5 = 339;
-		const AssetID tip_6 = 340;
-		const AssetID tip_7 = 341;
-		const AssetID tip_8 = 342;
-		const AssetID tip_9 = 343;
-		const AssetID tried = 344;
-		const AssetID tut_pvp_health = 345;
-		const AssetID tut_pvp_kill_player = 346;
-		const AssetID tut_pvp_minion = 347;
-		const AssetID tut_pvp_upgrade = 348;
-		const AssetID tutorial_done = 349;
-		const AssetID tutorial_intro = 350;
-		const AssetID tutorial_intro_done = 351;
-		const AssetID upgrade_description = 352;
-		const AssetID upgrade_notification = 353;
-		const AssetID upgrade_prompt = 354;
-		const AssetID upgrading = 355;
-		const AssetID victory = 356;
-		const AssetID waiting = 357;
-		const AssetID yes = 358;
+		const AssetID team_a = 324;
+		const AssetID team_b = 325;
+		const AssetID teleport = 326;
+		const AssetID terminal_reset = 327;
+		const AssetID timer = 328;
+		const AssetID tip = 329;
+		const AssetID tip_0 = 330;
+		const AssetID tip_1 = 331;
+		const AssetID tip_10 = 332;
+		const AssetID tip_11 = 333;
+		const AssetID tip_12 = 334;
+		const AssetID tip_2 = 335;
+		const AssetID tip_3 = 336;
+		const AssetID tip_4 = 337;
+		const AssetID tip_5 = 338;
+		const AssetID tip_6 = 339;
+		const AssetID tip_7 = 340;
+		const AssetID tip_8 = 341;
+		const AssetID tip_9 = 342;
+		const AssetID tried = 343;
+		const AssetID tut_pvp_health = 344;
+		const AssetID tut_pvp_kill_player = 345;
+		const AssetID tut_pvp_minion = 346;
+		const AssetID tut_pvp_upgrade = 347;
+		const AssetID tutorial_done = 348;
+		const AssetID tutorial_intro = 349;
+		const AssetID tutorial_intro_done = 350;
+		const AssetID upgrade_description = 351;
+		const AssetID upgrade_notification = 352;
+		const AssetID upgrade_prompt = 353;
+		const AssetID upgrading = 354;
+		const AssetID victory = 355;
+		const AssetID waiting = 356;
+		const AssetID yes = 357;
 	}
 }
 

@@ -125,7 +125,7 @@ struct LocalPlayerControl : public ComponentType<LocalPlayerControl>
 	r32 last_gamepad_input_time;
 	r32 gamepad_rotation_speed;
 	Ref<LocalPlayer> player;
-	b8 try_secondary;
+	b8 try_zoom;
 	b8 try_primary;
 	u8 gamepad;
 

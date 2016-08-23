@@ -875,7 +875,7 @@ namespace VI
 			return 0;
 
 		return ControlPoint::count(1 << team.ref()->team()) * CREDITS_CONTROL_POINT
-			+ (entity.ref()->get<Health>()->hp - 1) * CREDITS_HEALTH_PICKUP;
+			+ HealthPickup::count(entity.ref()->get<Health>()) * CREDITS_HEALTH_PICKUP;
 	}
 
 	r32 PlayerManager::timer = CONTROL_POINT_INTERVAL;
@@ -900,11 +900,6 @@ namespace VI
 			i.item()->update(u);
 	}
 
-	u16 PlayerManager::hp_start()
-	{
-		return vi_min(AWK_HEALTH, 1 + (HealthPickup::list.count() / PlayerManager::list.count()));
-	}
-
 	void PlayerManager::update(const Update& u)
 	{
 		credits_flash_timer = vi_max(0.0f, credits_flash_timer - Game::real_time.delta);
@@ -913,19 +908,7 @@ namespace VI
 		{
 			spawn_timer -= u.time.delta;
 			if (spawn_timer <= 0.0f)
-			{
 				spawn.fire();
-				// make sure the player has enough health
-				u16 hp = hp_start();
-				if (hp > 1)
-				{
-					Array<Ref<HealthPickup>> closest_free_health_pickups;
-					HealthPickup::sort_all(team.ref()->player_spawn.ref()->get<Transform>()->absolute_pos(), &closest_free_health_pickups, true, nullptr);
-					vi_assert(hp - 1 <= closest_free_health_pickups.length);
-					for (s32 i = 0; i < hp - 1; i++)
-						closest_free_health_pickups[i].ref()->set_owner(entity.ref()->get<Health>());
-				}
-			}
 		}
 
 		State s = state();

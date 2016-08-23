@@ -310,7 +310,7 @@ enum class Controls
 	Down,
 	Up,
 	Primary,
-	Secondary,
+	Zoom,
 	Ability1,
 	Ability2,
 	Ability3,

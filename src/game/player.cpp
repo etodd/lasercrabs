@@ -1067,7 +1067,7 @@ LocalPlayerControl::LocalPlayerControl(u8 gamepad)
 	: gamepad(gamepad),
 	fov(fov_default),
 	try_primary(),
-	try_secondary(),
+	try_zoom(),
 	damage_timer(),
 	health_flash_timer(),
 	rumble(),
@@ -1149,7 +1149,7 @@ b8 LocalPlayerControl::movement_enabled() const
 
 r32 LocalPlayerControl::look_speed() const
 {
-	if (try_secondary)
+	if (try_zoom)
 		return get<Awk>()->snipe ? zoom_speed_multiplier_sniper : zoom_speed_multiplier;
 	else
 		return 1.0f;
@@ -1263,25 +1263,25 @@ void LocalPlayerControl::update(const Update& u)
 	Camera* camera = player.ref()->camera;
 	{
 		// zoom
-		b8 secondary_pressed = u.input->get(Controls::Secondary, gamepad);
-		b8 last_secondary_pressed = u.last_input->get(Controls::Secondary, gamepad);
-		if (secondary_pressed && !last_secondary_pressed)
+		b8 zoom_pressed = u.input->get(Controls::Zoom, gamepad);
+		b8 last_zoom_pressed = u.last_input->get(Controls::Zoom, gamepad);
+		if (zoom_pressed && !last_zoom_pressed)
 		{
 			if (get<Transform>()->parent.ref() && input_enabled())
 			{
 				// we can actually zoom
-				try_secondary = true;
+				try_zoom = true;
 				get<Audio>()->post_event(AK::EVENTS::PLAY_ZOOM_IN);
 			}
 		}
-		else if (!secondary_pressed)
+		else if (!zoom_pressed)
 		{
-			if (try_secondary)
+			if (try_zoom)
 				get<Audio>()->post_event(AK::EVENTS::PLAY_ZOOM_OUT);
-			try_secondary = false;
+			try_zoom = false;
 		}
 
-		r32 fov_target = try_secondary ? (get<Awk>()->snipe ? fov_sniper : fov_zoom) : fov_default;
+		r32 fov_target = try_zoom ? (get<Awk>()->snipe ? fov_sniper : fov_zoom) : fov_default;
 
 		if (fov < fov_target)
 			fov = vi_min(fov + zoom_speed * sinf(fov) * u.time.delta, fov_target);
@@ -1587,19 +1587,19 @@ void LocalPlayerControl::update(const Update& u)
 		// we're aiming at something
 		if (try_primary)
 		{
-			Vec3 detach_dir = reticle.pos - get<Awk>()->center();
+			Vec3 dir = reticle.pos - get<Awk>()->center();
 			if (reticle.type == ReticleType::Dash)
 			{
-				if (get<Awk>()->dash_start(detach_dir))
+				if (get<Awk>()->dash_start(dir))
 				{
 					get<Audio>()->post_event(AK::EVENTS::PLAY_FLY);
 					try_primary = false;
-					try_secondary = false;
+					try_zoom = false;
 				}
 			}
 			else if (get<Awk>()->snipe)
 			{
-				if (get<Awk>()->detach(detach_dir))
+				if (get<Awk>()->detach(dir))
 				{
 					rumble = vi_max(rumble, 0.5f);
 					try_primary = false;
@@ -1607,11 +1607,11 @@ void LocalPlayerControl::update(const Update& u)
 			}
 			else
 			{
-				if (get<Awk>()->detach(detach_dir))
+				if (get<Awk>()->detach(dir))
 				{
 					get<Audio>()->post_event(AK::EVENTS::PLAY_FLY);
 					try_primary = false;
-					try_secondary = false;
+					try_zoom = false;
 				}
 			}
 		}

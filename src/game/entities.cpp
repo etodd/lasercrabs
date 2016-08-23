@@ -35,7 +35,7 @@ AwkEntity::AwkEntity(AI::Team team)
 	create<Awk>();
 	create<AIAgent>()->team = team;
 
-	Health* health = create<Health>(1, AWK_HEALTH);
+	Health* health = create<Health>(AWK_START_HEALTH, AWK_HEALTH);
 
 	SkinnedModel* model = create<SkinnedModel>();
 	model->mesh = Asset::Mesh::awk;
@@ -120,6 +120,17 @@ HealthPickupEntity::HealthPickupEntity(const Vec3& p)
 r32 HealthPickup::Key::priority(HealthPickup* p)
 {
 	return (p->get<Transform>()->absolute_pos() - me).length_squared() * (closest_first ? 1.0f : -1.0f);
+}
+
+s32 HealthPickup::count(Health* owner)
+{
+	s32 count = 0;
+	for (auto i = list.iterator(); !i.is_last(); i.next())
+	{
+		if (i.item()->owner.ref() == owner)
+			count++;
+	}
+	return count;
 }
 
 void HealthPickup::sort_all(const Vec3& pos, Array<Ref<HealthPickup>>* result, b8 closest_first, Health* owner)
@@ -861,10 +872,10 @@ ContainmentFieldEntity::ContainmentFieldEntity(Transform* parent, const Vec3& ab
 	create<RigidBody>(RigidBody::Type::Sphere, Vec3(CONTAINMENT_FIELD_BASE_RADIUS), 0.0f, CollisionAwkIgnore | CollisionTarget, ~CollisionAwk & ~CollisionShield);
 }
 
-#define PROJECTILE_SPEED 25.0f
-#define PROJECTILE_LENGTH 1.0f
+#define PROJECTILE_SPEED 20.0f
+#define PROJECTILE_LENGTH 0.5f
 #define PROJECTILE_THICKNESS 0.05f
-#define PROJECTILE_MAX_LIFETIME 5.0f
+#define PROJECTILE_MAX_LIFETIME 10.0f
 #define PROJECTILE_DAMAGE 1
 ProjectileEntity::ProjectileEntity(Entity* owner, const Vec3& pos, const Vec3& velocity)
 {

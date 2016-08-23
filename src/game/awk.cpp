@@ -30,7 +30,7 @@ namespace VI
 #define AWK_LEG_BLEND_SPEED (1.0f / 0.05f)
 #define AWK_MIN_LEG_BLEND_SPEED (AWK_LEG_BLEND_SPEED * 0.1f)
 #define AWK_SHIELD_RADIUS 0.75f
-#define AWK_STUN_TIME 2.0f
+#define AWK_STUN_TIME 1.5f
 
 AwkRaycastCallback::AwkRaycastCallback(const Vec3& a, const Vec3& b, const Entity* awk)
 	: btCollisionWorld::ClosestRayResultCallback(a, b)
@@ -252,16 +252,11 @@ void Awk::hit_by(const TargetEvent& e)
 		else
 		{
 			// we're invincible
-			if (e.hit_by->has<Awk>() && !e.hit_by->get<Awk>()->snipe) // if they sniped us, they won't get stunned
-			{
-				// stun the enemy
-				e.hit_by->get<Awk>()->stun_timer = AWK_STUN_TIME;
-				if (has<LocalPlayerControl>())
-					get<LocalPlayerControl>()->player.ref()->msg(_(strings::target_stunned), true);
-			}
 			shield_taken_down = true;
 			invincible_timer = 0.0f; // shield is now down
 		}
+		if (e.hit_by->has<Awk>() && !e.hit_by->get<Awk>()->snipe) // if they sniped us, they won't get stunned
+			e.hit_by->get<Awk>()->stun_timer = AWK_STUN_TIME;
 	}
 
 	// let them know they didn't hurt us
@@ -505,7 +500,7 @@ b8 Awk::can_shoot(const Vec3& dir, Vec3* final_pos, b8* hit_target) const
 	}
 }
 
-void Awk::cooldown_setup()
+void Awk::cooldown_setup(r32 value)
 {
 	cooldown_index = AWK_CHARGES;
 	for (s32 i = 0; i < AWK_CHARGES; i++)
@@ -517,7 +512,7 @@ void Awk::cooldown_setup()
 		}
 	}
 	vi_assert(cooldown_index < AWK_CHARGES);
-	cooldowns[cooldown_index] = AWK_MIN_COOLDOWN;
+	cooldowns[cooldown_index] = value;
 }
 
 void Awk::detach_teleport()
@@ -776,8 +771,7 @@ b8 Awk::transfer_wall(const Vec3& dir, const btCollisionWorld::ClosestRayResultC
 			return true;
 		}
 	}
-	else
-		return false;
+	return false;
 }
 
 void Awk::move(const Vec3& new_pos, const Quat& new_rotation, const ID entity_id)

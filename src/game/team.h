@@ -160,7 +160,6 @@ struct PlayerManager
 	static r32 timer;
 
 	static void update_all(const Update&);
-	static u16 hp_start();
 
 	StaticArray<SummaryItem, 1> credits_summary;
 	r32 spawn_timer;

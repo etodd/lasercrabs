@@ -13,14 +13,15 @@ struct Rope;
 struct View;
 struct DamageEvent;
 
-#define AWK_HEALTH 4
+#define AWK_START_HEALTH 3
+#define AWK_HEALTH 6
 #define AWK_FLY_SPEED 35.0f
-#define AWK_CRAWL_SPEED 1.75f
-#define AWK_MIN_COOLDOWN 1.0f
-#define AWK_MAX_DISTANCE_COOLDOWN 4.0f
+#define AWK_CRAWL_SPEED 2.0f
+#define AWK_MIN_COOLDOWN 2.0f
+#define AWK_MAX_DISTANCE_COOLDOWN 6.0f
 #define AWK_COOLDOWN_DISTANCE_RATIO (AWK_MAX_DISTANCE_COOLDOWN / AWK_MAX_DISTANCE)
 #define AWK_LEGS 3
-#define AWK_INVINCIBLE_TIME 5.0f
+#define AWK_INVINCIBLE_TIME 3.0f
 #define AWK_SNIPE_DISTANCE 100.0f
 #define AWK_CHARGES 3
 
@@ -88,7 +89,7 @@ struct Awk : public ComponentType<Awk>
 	r32 range() const;
 
 	s32 charges() const;
-	void cooldown_setup();
+	void cooldown_setup(r32 = AWK_MIN_COOLDOWN);
 	State state() const;
 	Vec3 calculated_velocity() const;
 	b8 dash_start(const Vec3&);

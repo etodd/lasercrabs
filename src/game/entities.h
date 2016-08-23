@@ -52,10 +52,6 @@ struct HealthPickupEntity : public Entity
 #define CONTROL_POINT_INTERVAL 15.0f
 struct HealthPickup : public ComponentType<HealthPickup>
 {
-	static r32 power_particle_timer;
-	static r32 particle_accumulator;
-	static void update_all(const Update&);
-
 	struct Key
 	{
 		Vec3 me;
@@ -63,7 +59,13 @@ struct HealthPickup : public ComponentType<HealthPickup>
 		r32 priority(HealthPickup*);
 	};
 
+	static r32 power_particle_timer;
+	static r32 particle_accumulator;
+
+	static void update_all(const Update&);
 	static void sort_all(const Vec3&, Array<Ref<HealthPickup>>*, b8, Health* = nullptr);
+	static s32 count(Health*);
+
 	Ref<Health> owner;
 
 	void awake();

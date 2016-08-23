@@ -57,7 +57,7 @@ void refresh_variables()
 	UIText::set_variable("Cancel", gamepad.bindings[(s32)Controls::Cancel].string(is_gamepad));
 
 	UIText::set_variable("Primary", gamepad.bindings[(s32)Controls::Primary].string(is_gamepad));
-	UIText::set_variable("Secondary", gamepad.bindings[(s32)Controls::Secondary].string(is_gamepad));
+	UIText::set_variable("Zoom", gamepad.bindings[(s32)Controls::Zoom].string(is_gamepad));
 	if (is_gamepad)
 		UIText::set_variable("Movement", _(strings::left_joystick));
 	else

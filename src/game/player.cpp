@@ -1550,12 +1550,12 @@ void LocalPlayerControl::update(const Update& u)
 	}
 
 	// health pickups
-	if (get<Health>()->hp < get<Health>()->hp_max)
 	{
+		b8 full_health = get<Health>()->hp == get<Health>()->hp_max;
 		for (auto i = HealthPickup::list.iterator(); !i.is_last(); i.next())
 		{
 			Health* owner = i.item()->owner.ref();
-			if (!owner || owner != get<Health>())
+			if (owner != get<Health>() && (owner || !full_health))
 			{
 				if (!add_target_indicator(i.item()->get<Target>(), TargetIndicator::Type::Health))
 					break; // no more room for indicators

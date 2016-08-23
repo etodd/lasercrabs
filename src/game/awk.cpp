@@ -685,7 +685,7 @@ void Awk::reflect(const Vec3& hit, const Vec3& normal)
 	r32 farthest_distance = 0;
 	for (s32 i = 0; i < tries; i++)
 	{
-		Vec3 candidate_velocity = target_quat * Quat::euler(0.0f, mersenne::randf_co() * random_range * 2.0f, (mersenne::randf_co() - 0.5f) * random_range) * Vec3(0, 0, target_speed);
+		Vec3 candidate_velocity = target_quat * (Quat::euler(PI + (mersenne::randf_co() - 0.5f) * random_range, (PI * 0.5f) + (mersenne::randf_co() - 0.5f) * random_range, 0) * Vec3(target_speed, 0, 0));
 		Vec3 next_hit;
 		if (can_shoot(candidate_velocity, &next_hit))
 		{
@@ -702,7 +702,7 @@ void Awk::reflect(const Vec3& hit, const Vec3& normal)
 				break;
 			}
 		}
-		random_range += PI * 0.5f / (r32)tries;
+		random_range += PI / (r32)tries;
 	}
 
 	bounce.fire(new_velocity);

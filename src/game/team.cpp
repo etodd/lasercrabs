@@ -935,13 +935,15 @@ namespace VI
 			// particles
 			const r32 interval = 0.015f;
 			particle_accumulator += u.time.delta;
-			Vec3 pos = entity.ref()->get<Transform>()->absolute_pos();
+			Quat rot;
+			Vec3 pos;
+			entity.ref()->get<Transform>()->absolute(&pos, &rot);
 			while (particle_accumulator > interval)
 			{
 				particle_accumulator -= interval;
 
 				// spawn particle effect
-				Vec3 offset = Quat::euler(0.0f, mersenne::randf_co() * PI * 2.0f, (mersenne::randf_co() - 0.5f) * PI) * Vec3(0, 0, 1.0f);
+				Vec3 offset = rot * (Quat::euler((mersenne::randf_co() + 0.5f) * PI, mersenne::randf_co() * PI, 0) * Vec3(1, 0, 0));
 				Particles::fast_tracers.add
 				(
 					pos + offset,

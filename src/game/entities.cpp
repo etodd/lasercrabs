@@ -877,7 +877,6 @@ ContainmentFieldEntity::ContainmentFieldEntity(Transform* parent, const Vec3& ab
 	create<RigidBody>(RigidBody::Type::Sphere, Vec3(CONTAINMENT_FIELD_BASE_RADIUS), 0.0f, CollisionAwkIgnore | CollisionTarget, ~CollisionAwk & ~CollisionShield);
 }
 
-#define PROJECTILE_SPEED 20.0f
 #define PROJECTILE_LENGTH 0.5f
 #define PROJECTILE_THICKNESS 0.05f
 #define PROJECTILE_MAX_LIFETIME 10.0f
@@ -959,6 +958,25 @@ void Projectile::update(const Update& u)
 	}
 	else
 		get<Transform>()->absolute_pos(next_pos);
+}
+
+b8 Target::predict_intersection(const Vec3& from, r32 speed, Vec3* intersection) const
+{
+	Vec3 velocity;
+	if (has<Awk>())
+		velocity = get<Awk>()->velocity;
+	else
+		velocity = get<RigidBody>()->btBody->getInterpolationLinearVelocity();
+	Vec3 pos = absolute_pos();
+	Vec3 to_target = pos - from;
+	r32 intersect_time_squared = to_target.dot(to_target) / ((speed * speed) - 2.0f * to_target.dot(velocity) - velocity.dot(velocity));
+	if (intersect_time_squared > 0.0f)
+	{
+		*intersection = pos + velocity * sqrtf(intersect_time_squared);
+		return true;
+	}
+	else
+		return false;
 }
 
 void Target::hit(Entity* hit_by)

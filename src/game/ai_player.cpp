@@ -27,6 +27,8 @@ AIPlayer::Config::Config()
 	inaccuracy_range(PI * 0.01f),
 	aim_timeout(2.0f),
 	aim_speed(3.0f),
+	aim_min_delay(0.3f),
+	dodge_chance(0.5f),
 	upgrade_priority
 	{
 		Upgrade::Minion,
@@ -489,7 +491,9 @@ b8 AIPlayerControl::aim_and_shoot(const Update& u, const Vec3& path_node, const 
 
 	// shooting / dashing
 
-	b8 can_shoot = can_move && get<Awk>()->cooldown_can_shoot();
+	const AIPlayer::Config& config = player.ref()->config;
+
+	b8 can_shoot = can_move && get<Awk>()->cooldown_can_shoot() && u.time.total - get<Awk>()->attach_time > config.aim_min_delay;
 
 	if (can_shoot)
 		aim_timer += u.time.delta;
@@ -497,8 +501,6 @@ b8 AIPlayerControl::aim_and_shoot(const Update& u, const Vec3& path_node, const 
 	Vec3 pos = get<Awk>()->center();
 	Vec3 to_target = Vec3::normalize(target - pos);
 	Vec3 wall_normal = common->attach_quat * Vec3(0, 0, 1);
-
-	const AIPlayer::Config& config = player.ref()->config;
 
 	Vec2 target_angles = aim(u, to_target);
 
@@ -713,6 +715,11 @@ b8 should_spawn_sensor(const AIPlayerControl* control)
 	return false;
 }
 
+b8 attack_inbound(const AIPlayerControl* control)
+{
+	return control->get<Awk>()->incoming_attacker() != nullptr;
+}
+
 b8 should_spawn_rocket(const AIPlayerControl* control)
 {
 	if (control->player.ref()->saving_up() == Upgrade::None) // rockets are a luxury
@@ -794,8 +801,9 @@ Repeat* make_low_level_loop(AIPlayerControl* control, const AIPlayer::Config& co
 								(
 									Sequence::alloc
 									(
-										AIBehaviors::AttackInbound::alloc(),
-										AIBehaviors::Panic::alloc(10000)
+										AIBehaviors::Chance::alloc(config.dodge_chance),
+										AIBehaviors::Test::alloc(&attack_inbound),
+										AIBehaviors::Panic::alloc(127)
 									),
 									AIBehaviors::RunAway::alloc(Awk::family, 5, &awk_run_filter),
 									AIBehaviors::ReactTarget::alloc(ContainmentField::family, 4, 6, &containment_field_filter),
@@ -1116,10 +1124,15 @@ void RandomPath::run()
 		done(false);
 }
 
-void AttackInbound::run()
+Chance::Chance(r32 odds)
+	: odds(odds)
+{
+}
+
+void Chance::run()
 {
 	active(true);
-	done(control->get<Awk>()->incoming_attacker() != nullptr);
+	done(mersenne::randf_co() < odds);
 }
 
 HasUpgrade::HasUpgrade(Upgrade u)

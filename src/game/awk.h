@@ -91,7 +91,6 @@ struct Awk : public ComponentType<Awk>
 	s32 charges() const;
 	void cooldown_setup(r32 = AWK_MIN_COOLDOWN);
 	State state() const;
-	Vec3 calculated_velocity() const;
 	b8 dash_start(const Vec3&);
 	b8 cooldown_can_shoot() const; // can we go?
 	void hit_by(const TargetEvent&); // called when we get hit

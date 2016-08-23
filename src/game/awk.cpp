@@ -151,14 +151,6 @@ Awk::State Awk::state() const
 		return State::Fly;
 }
 
-Vec3 Awk::calculated_velocity() const
-{
-	if (state() == State::Fly)
-		return velocity;
-	else
-		return (get<Transform>()->absolute_pos() - last_pos) / Game::time.delta;
-}
-
 s16 Awk::ally_containment_field_mask() const
 {
 	return Team::containment_field_mask(get<AIAgent>()->team);
@@ -343,29 +335,13 @@ void Awk::hit_target(Entity* target, const Vec3& hit_pos)
 
 b8 Awk::predict_intersection(const Target* target, Vec3* intersection) const
 {
-	Vec3 target_pos = target->absolute_pos();
 	if (snipe) // instant bullet travel time
 	{
-		*intersection = target_pos;
+		*intersection = target->absolute_pos();
 		return true;
 	}
 	else
-	{
-		Vec3 target_velocity;
-		if (target->has<Awk>())
-			target->get<Awk>()->calculated_velocity();
-		else
-			target_velocity = target->get<RigidBody>()->btBody->getInterpolationLinearVelocity();
-		Vec3 to_target = target_pos - get<Transform>()->absolute_pos();
-		r32 intersect_time_squared = to_target.dot(to_target) / ((AWK_FLY_SPEED * AWK_FLY_SPEED) - 2.0f * to_target.dot(target_velocity) - target_velocity.dot(target_velocity));
-		if (intersect_time_squared > 0.0f)
-		{
-			*intersection = target_pos + target_velocity * sqrtf(intersect_time_squared);
-			return true;
-		}
-		else
-			return false;
-	}
+		return target->predict_intersection(get<Transform>()->absolute_pos(), AWK_FLY_SPEED, intersection);
 }
 
 void Awk::damaged(const DamageEvent& e)
@@ -451,7 +427,12 @@ b8 Awk::can_shoot(const Vec3& dir, Vec3* final_pos, b8* hit_target) const
 {
 	Vec3 trace_dir = Vec3::normalize(dir);
 
-	if (fabs(trace_dir.y) > AWK_VERTICAL_DOT_LIMIT) // can't shoot straight up or straight down
+	// can't shoot straight up or straight down
+	// HACK: if it's a local player, let them do what they want because it's frustrating
+	// in certain cases where the drone won't let you go where you should be able to go
+	// due to the third-person camera offset
+	// the AI however needs to know whether it can hit actually hit a target
+	if (!has<LocalPlayerControl>() && fabs(trace_dir.y) > AWK_VERTICAL_DOT_LIMIT)
 		return false;
 
 	// if we're attached to a wall, make sure we're not shooting into the wall
@@ -1037,11 +1018,16 @@ void Awk::update_lerped_pos(r32 speed_multiplier, const Update& u)
 
 void Awk::update(const Update& u)
 {
-	last_pos = get<Transform>()->absolute_pos();
-
 	stun_timer = vi_max(stun_timer - u.time.delta, 0.0f);
 
 	State s = state();
+
+	if (s != State::Fly)
+	{
+		Vec3 pos = get<Transform>()->absolute_pos();
+		velocity = velocity * 0.75f + ((pos - last_pos) / u.time.delta) * 0.25f;
+		last_pos = pos;
+	}
 
 	invincible_timer = vi_max(invincible_timer - u.time.delta, 0.0f);
 	if (invincible_timer > 0.0f || s != Awk::State::Crawl)

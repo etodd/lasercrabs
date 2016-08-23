@@ -236,6 +236,7 @@ struct ProjectileEntity : public Entity
 	ProjectileEntity(Entity*, const Vec3&, const Vec3&);
 };
 
+#define PROJECTILE_SPEED 20.0f
 struct Projectile : public ComponentType<Projectile>
 {
 	Ref<Entity> owner;
@@ -259,8 +260,10 @@ struct Target : public ComponentType<Target>
 	Vec3 local_offset;
 	Vec3 absolute_pos() const;
 	LinkArg<const TargetEvent&> target_hit;
+
 	void hit(Entity*);
 	void awake() {}
+	b8 predict_intersection(const Vec3&, r32, Vec3*) const;
 };
 
 struct PlayerTrigger : public ComponentType<PlayerTrigger>

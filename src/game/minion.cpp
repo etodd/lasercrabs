@@ -420,20 +420,22 @@ void MinionAI::update(const Update& u)
 			}
 			case Goal::Type::Target:
 			{
-				if (goal.entity.ref())
+				Entity* g = goal.entity.ref();
+				if (g)
 				{
 					// we're going after the target
-					if (can_see(goal.entity.ref()))
+					if (can_see(g))
 					{
 						// turn to and attack the target
-						Vec3 target_pos = goal.entity.ref()->get<Transform>()->absolute_pos();
-						turn_to(target_pos);
+						Vec3 head_pos = get<MinionCommon>()->head_pos();
+						Vec3 aim_pos;
+						if (!g->has<Target>() || !g->get<Target>()->predict_intersection(head_pos, PROJECTILE_SPEED, &aim_pos))
+							aim_pos = g->get<Transform>()->absolute_pos();
+						turn_to(aim_pos);
 						enable_recalc = false;
 						path.length = 0;
 
-						Vec3 head_pos = get<MinionCommon>()->head_pos();
-
-						Vec3 to_target = target_pos - head_pos;
+						Vec3 to_target = aim_pos - head_pos;
 						to_target.y = 0.0f;
 						if (get<MinionCommon>()->attack_timer == 0.0f // make sure our cooldown is done
 							&& Vec3::normalize(to_target).dot(get<Walker>()->forward()) > 0.98f // make sure we're looking at the target
@@ -441,7 +443,7 @@ void MinionAI::update(const Update& u)
 							&& !Team::game_over)
 						{
 							PlayerManager* owner = get<MinionCommon>()->owner.ref();
-							World::create<ProjectileEntity>(owner ? owner->entity.ref() : nullptr, head_pos, target_pos - head_pos);
+							World::create<ProjectileEntity>(owner ? owner->entity.ref() : nullptr, head_pos, aim_pos - head_pos);
 							get<MinionCommon>()->attack_timer = MINION_ATTACK_TIME;
 						}
 					}

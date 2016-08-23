@@ -57,6 +57,8 @@ struct AIPlayer
 		r32 inaccuracy_range;
 		r32 aim_timeout;
 		r32 aim_speed;
+		r32 aim_min_delay;
+		r32 dodge_chance;
 		Upgrade upgrade_priority[(s32)Upgrade::count];
 		UpgradeStrategy upgrade_strategies[(s32)Upgrade::count];
 		Config();
@@ -227,8 +229,10 @@ namespace AIBehaviors
 		void run();
 	};
 
-	struct AttackInbound : Base<AttackInbound>
+	struct Chance : Base<Chance>
 	{
+		r32 odds;
+		Chance(r32);
 		void run();
 	};
 

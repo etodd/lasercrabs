@@ -2338,7 +2338,6 @@ void build_awk_nav_mesh(Map<Mesh>& meshes, cJSON* json, AwkNavMesh* out, s32* ad
 
 	Array<AwkNavMeshNode> potential_neighbors;
 	Array<AwkNavMeshNode> potential_crawl_neighbors;
-	Array<AwkNavMeshNode> filtered_crawl_neighbors;
 	for (s32 chunk_index = 0; chunk_index < out->chunks.length; chunk_index++)
 	{
 		AwkNavMeshChunk* chunk = &out->chunks[chunk_index];
@@ -2353,7 +2352,6 @@ void build_awk_nav_mesh(Map<Mesh>& meshes, cJSON* json, AwkNavMesh* out, s32* ad
 
 			potential_neighbors.length = 0;
 			potential_crawl_neighbors.length = 0;
-			filtered_crawl_neighbors.length = 0;
 
 			// visit neighbors
 			AwkNavMesh::Coord chunk_coord = out->coord(chunk_index);
@@ -2398,7 +2396,7 @@ void build_awk_nav_mesh(Map<Mesh>& meshes, cJSON* json, AwkNavMesh* out, s32* ad
 							{
 								// neighbor is co-planar or behind our surface; we might be able to crawl there
 								r32 distance_squared = to_neighbor.length_squared();
-								if (distance_squared < (grid_spacing * 2.0f) * (grid_spacing * 2.0f))
+								if (distance_squared < (grid_spacing * 1.5f) * (grid_spacing * 1.5f))
 									potential_crawl_neighbors.add(neighbor_node);
 							}
 						}
@@ -2407,36 +2405,10 @@ void build_awk_nav_mesh(Map<Mesh>& meshes, cJSON* json, AwkNavMesh* out, s32* ad
 			}
 
 			{
-				// filter potential crawl neighbors
-
-				// first, only consider neighbors where we are the closest neighbor to them
+				// raycast to make sure we can actually get to the neighbor
 				for (s32 i = 0; i < potential_crawl_neighbors.length; i++)
 				{
-					b8 found_closer_neighbor = false;
-					const AwkNavMeshNode candidate_index = potential_crawl_neighbors[i];
-					const Vec3& candidate_vertex = out->chunks[candidate_index.chunk].vertices[candidate_index.vertex];
-					r32 distance_to_candidate = (candidate_vertex - vertex).length_squared();
-					for (s32 j = 0; j < potential_crawl_neighbors.length; j++)
-					{
-						const AwkNavMeshNode neighbor_index = potential_crawl_neighbors[j];
-						const Vec3& neighbor_vertex = out->chunks[neighbor_index.chunk].vertices[neighbor_index.vertex];
-						if ((neighbor_vertex - vertex).length_squared() < distance_to_candidate
-							&& (neighbor_vertex - candidate_vertex).length_squared() < distance_to_candidate)
-						{
-							// there is another neighbor between us and the candidate
-							found_closer_neighbor = true;
-							break;
-						}
-					}
-
-					if (!found_closer_neighbor)
-						filtered_crawl_neighbors.add(candidate_index);
-				}
-
-				// raycast to make sure we can actually get to the neighbor
-				for (s32 i = 0; i < filtered_crawl_neighbors.length; i++)
-				{
-					const AwkNavMeshNode neighbor_index = filtered_crawl_neighbors[i];
+					const AwkNavMeshNode neighbor_index = potential_crawl_neighbors[i];
 					const Vec3& neighbor_normal = out->chunks[neighbor_index.chunk].normals[neighbor_index.vertex];
 					const Vec3& neighbor_vertex = out->chunks[neighbor_index.chunk].vertices[neighbor_index.vertex] + neighbor_normal * AWK_RADIUS;
 
@@ -2558,8 +2530,6 @@ void build_awk_nav_mesh(Map<Mesh>& meshes, cJSON* json, AwkNavMesh* out, s32* ad
 
 			if (vertex_adjacency->length < vertex_adjacency->capacity())
 			{
-				// filter potential neighbors
-
 				// shuffle potential neighbors
 				for (s32 i = 0; i < potential_neighbors.length - 1; i++)
 				{

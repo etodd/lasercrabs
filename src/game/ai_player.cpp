@@ -25,7 +25,6 @@ AIPlayer::Config::Config()
 	interval_high_level(0.5f),
 	inaccuracy_min(PI * 0.001f),
 	inaccuracy_range(PI * 0.01f),
-	cooldown_skip_chance(0.1f),
 	aim_timeout(2.0f),
 	aim_speed(3.0f),
 	upgrade_priority
@@ -50,46 +49,6 @@ AIPlayer::Config::Config()
 AIPlayer::Config AIPlayer::generate_config()
 {
 	Config config;
-
-	if (Game::save.level_index <= 2)
-	{
-		// slower, less accurate
-		config.interval_low_level = 1.0f;
-		config.interval_high_level = 3.0f;
-		config.interval_memory_update = 0.25f;
-		config.inaccuracy_min = PI * 0.003f;
-		config.inaccuracy_range = PI * 0.03f;
-		config.aim_timeout = 4.0f;
-		config.aim_speed = 1.0f;
-
-		if (Game::save.level_index <= Game::tutorial_levels || mersenne::rand() % 2 == 0)
-		{
-			config.upgrade_priority[0] = Upgrade::Minion;
-			config.upgrade_priority[1] = Upgrade::Sensor;
-			config.upgrade_priority[2] = Upgrade::Rocket;
-			config.upgrade_priority[3] = Upgrade::ContainmentField;
-			config.upgrade_priority[4] = Upgrade::Sniper;
-			config.upgrade_strategies[0] = UpgradeStrategy::IfAvailable; // sensor
-			config.upgrade_strategies[1] = UpgradeStrategy::Ignore; // rocket
-			config.upgrade_strategies[2] = UpgradeStrategy::SaveUp; // minion
-			config.upgrade_strategies[3] = UpgradeStrategy::IfAvailable; // containment field
-			config.upgrade_strategies[4] = UpgradeStrategy::Ignore; // sniper
-		}
-		else
-		{
-			config.upgrade_priority[0] = Upgrade::Sensor;
-			config.upgrade_priority[1] = Upgrade::Minion;
-			config.upgrade_priority[2] = Upgrade::Rocket;
-			config.upgrade_priority[3] = Upgrade::ContainmentField;
-			config.upgrade_priority[4] = Upgrade::Sniper;
-			config.upgrade_strategies[0] = UpgradeStrategy::SaveUp; // sensor
-			config.upgrade_strategies[1] = UpgradeStrategy::Ignore; // rocket
-			config.upgrade_strategies[2] = UpgradeStrategy::IfAvailable; // minion
-			config.upgrade_strategies[3] = UpgradeStrategy::IfAvailable; // containment field
-			config.upgrade_strategies[4] = UpgradeStrategy::Ignore; // sniper
-		}
-	}
-
 	return config;
 }
 
@@ -152,7 +111,7 @@ AIPlayerControl::AIPlayerControl(AIPlayer* p)
 	shot_at_target(),
 	hit_target(),
 	panic(),
-	cooldown_skip()
+	random_look(0, 0, 1)
 {
 #if DEBUG_AI_CONTROL
 	camera = Camera::add();
@@ -222,7 +181,6 @@ void AIPlayerControl::awk_done_flying_or_dashing()
 {
 	const AIPlayer::Config& config = player.ref()->config;
 	inaccuracy = config.inaccuracy_min + (mersenne::randf_cc() * config.inaccuracy_range);
-	cooldown_skip = mersenne::randf_cc() < config.cooldown_skip_chance;
 	aim_timer = 0.0f;
 	if (path_index < path.length)
 		path_index++;
@@ -397,106 +355,11 @@ void update_component_memory(AIPlayerControl* control, MemoryStatus (*filter)(co
 	}
 }
 
-// if tolerance is greater than 0, we need to land within that distance of the given target point
-b8 AIPlayerControl::aim_and_shoot(const Update& u, const Vec3& path_node, const Vec3& target, r32 tolerance)
+Vec2 AIPlayerControl::aim(const Update& u, const Vec3& to_target)
 {
 	PlayerCommon* common = get<PlayerCommon>();
-
-	b8 can_move = common->movement_enabled();
-
-	b8 dashing = false;
-
-	{
-		// crawling
-
-		Vec3 pos = get<Awk>()->center();
-		Vec3 diff = target - pos;
-		r32 distance_to_target = diff.length();
-		if (distance_to_target < AWK_RADIUS * 1.5f)
-		{
-			// we're already there
-			awk_done_flying_or_dashing();
-			return true;
-		}
-
-		// crawling
-		if (can_move)
-		{
-			Vec3 to_target = diff / distance_to_target;
-
-			if (get<Awk>()->direction_is_toward_attached_wall(to_target))
-			{
-				// we're gonna be crawling and dashing there
-				get<Awk>()->crawl(to_target, u);
-				dashing = true;
-			}
-			else
-			{
-				b8 could_go_before_crawling;
-				{
-					Vec3 hit;
-					could_go_before_crawling = get<Awk>()->can_go(to_target, &hit);
-					if (could_go_before_crawling)
-					{
-						// we can go generally toward the target
-						if (tolerance > 0.0f && (hit - target).length_squared() > tolerance * tolerance) // make sure we would actually land at the right spot
-							could_go_before_crawling = false;
-					}
-				}
-
-				if (could_go_before_crawling)
-				{
-					// try to crawl toward the target
-					Vec3 old_pos;
-					Quat old_rot;
-					get<Transform>()->absolute(&old_pos, &old_rot);
-					ID old_parent = get<Transform>()->parent.ref()->entity_id;
-					get<Awk>()->crawl(to_target, u);
-
-					Vec3 new_pos = get<Transform>()->absolute_pos();
-
-					b8 revert = false;
-
-					if (could_go_before_crawling)
-					{
-						revert = true;
-						Vec3 hit;
-						if (get<Awk>()->can_go(Vec3::normalize(target - new_pos), &hit))
-						{
-							// we can go generally toward the target
-							// now make sure we're actually going to land at the right spot
-							if (tolerance < 0.0f // don't worry about where we land
-								|| (hit - target).length_squared() < tolerance * tolerance) // check the tolerance
-								revert = false;
-						}
-					}
-
-					if (revert)
-						get<Awk>()->move(old_pos, old_rot, old_parent); // revert the crawling we just did
-				}
-				else
-				{
-					// we can't currently get to the target
-					// crawl toward our current path node in an attempt to get a clear shot
-					get<Awk>()->crawl(path_node - get<Transform>()->absolute_pos(), u);
-				}
-			}
-		}
-	}
-
-	// shooting / dashing
-
-	b8 can_shoot = can_move && (get<Awk>()->cooldown == 0.0f || (cooldown_skip && get<Awk>()->cooldown_can_go()));
-
-	if (can_shoot)
-		aim_timer += u.time.delta;
-
-	Vec3 pos = get<Awk>()->center();
-	Vec3 to_target = Vec3::normalize(target - pos);
 	Vec3 wall_normal = common->attach_quat * Vec3(0, 0, 1);
-
 	const AIPlayer::Config& config = player.ref()->config;
-
 	r32 target_angle_horizontal;
 	{
 		target_angle_horizontal = LMath::closest_angle(atan2(to_target.x, to_target.z), common->angle_horizontal);
@@ -535,6 +398,110 @@ b8 AIPlayerControl::aim_and_shoot(const Update& u, const Vec3& path_node, const 
 		common->angle_vertical = LMath::angle_range(common->angle_vertical);
 	}
 
+	return Vec2(target_angle_horizontal, target_angle_vertical);
+}
+
+// if tolerance is greater than 0, we need to land within that distance of the given target point
+b8 AIPlayerControl::aim_and_shoot(const Update& u, const Vec3& path_node, const Vec3& target, Target* target_entity, r32 tolerance)
+{
+	PlayerCommon* common = get<PlayerCommon>();
+
+	b8 can_move = common->movement_enabled();
+
+	b8 dashing = false;
+
+	{
+		// crawling
+
+		Vec3 pos = get<Awk>()->center();
+		Vec3 diff = target - pos;
+		r32 distance_to_target = diff.length();
+		if (distance_to_target < AWK_RADIUS * 1.5f)
+		{
+			// we're already there
+			awk_done_flying_or_dashing();
+			return true;
+		}
+
+		// crawling
+		if (can_move && !target_entity) // if we're going for a target, don't crawl
+		{
+			Vec3 to_target = diff / distance_to_target;
+
+			if (get<Awk>()->direction_is_toward_attached_wall(to_target))
+			{
+				// we're gonna be crawling and dashing there
+				get<Awk>()->crawl(to_target, u);
+				dashing = true;
+			}
+			else
+			{
+				b8 could_go_before_crawling;
+				Vec3 hit;
+				could_go_before_crawling = get<Awk>()->can_shoot(to_target, &hit);
+				if (could_go_before_crawling)
+				{
+					// we can go generally toward the target
+					if (tolerance > 0.0f && (hit - target).length_squared() > tolerance * tolerance) // make sure we would actually land at the right spot
+						could_go_before_crawling = false;
+				}
+
+				if (could_go_before_crawling)
+				{
+					// try to crawl toward the target
+					Vec3 old_pos;
+					Quat old_rot;
+					get<Transform>()->absolute(&old_pos, &old_rot);
+					ID old_parent = get<Transform>()->parent.ref()->entity_id;
+					get<Awk>()->crawl(to_target, u);
+
+					Vec3 new_pos = get<Transform>()->absolute_pos();
+
+					b8 revert = false;
+
+					if (could_go_before_crawling)
+					{
+						// make sure we can still go where we need to go
+						revert = true;
+						Vec3 hit;
+						if (get<Awk>()->can_shoot(Vec3::normalize(target - new_pos), &hit))
+						{
+							// we can go generally toward the target
+							// now make sure we're actually going to land at the right spot
+							if (tolerance < 0.0f // don't worry about where we land
+								|| (hit - target).length_squared() < tolerance * tolerance) // check the tolerance
+								revert = false;
+						}
+					}
+
+					if (revert)
+						get<Awk>()->move(old_pos, old_rot, old_parent); // revert the crawling we just did
+				}
+				else
+				{
+					// we can't currently get to the target
+					// crawl toward our current path node in an attempt to get a clear shot
+					get<Awk>()->crawl(path_node - get<Transform>()->absolute_pos(), u);
+				}
+			}
+		}
+	}
+
+	// shooting / dashing
+
+	b8 can_shoot = can_move && get<Awk>()->cooldown_can_shoot();
+
+	if (can_shoot)
+		aim_timer += u.time.delta;
+
+	Vec3 pos = get<Awk>()->center();
+	Vec3 to_target = Vec3::normalize(target - pos);
+	Vec3 wall_normal = common->attach_quat * Vec3(0, 0, 1);
+
+	const AIPlayer::Config& config = player.ref()->config;
+
+	Vec2 target_angles = aim(u, to_target);
+
 	common->angle_vertical = LMath::clampf(common->angle_vertical, PI * -0.495f, PI * 0.495f);
 	common->clamp_rotation(wall_normal, 0.5f);
 
@@ -546,14 +513,14 @@ b8 AIPlayerControl::aim_and_shoot(const Update& u, const Vec3& path_node, const 
 		if (tolerance > 0.0f)
 		{
 			// must aim exactly
-			aim_lined_up = common->angle_horizontal == target_angle_horizontal
-				&& common->angle_vertical == target_angle_vertical;
+			aim_lined_up = common->angle_horizontal == target_angles.x
+				&& common->angle_vertical == target_angles.y;
 		}
 		else
 		{
 			// include some inaccuracy
-			aim_lined_up = fabs(LMath::angle_to(common->angle_horizontal, target_angle_horizontal)) < inaccuracy
-				&& fabs(LMath::angle_to(common->angle_vertical, target_angle_vertical)) < inaccuracy;
+			aim_lined_up = fabs(LMath::angle_to(common->angle_horizontal, target_angles.x)) < inaccuracy
+				&& fabs(LMath::angle_to(common->angle_vertical, target_angles.y)) < inaccuracy;
 		}
 
 		if (aim_lined_up)
@@ -571,7 +538,7 @@ b8 AIPlayerControl::aim_and_shoot(const Update& u, const Vec3& path_node, const 
 			else
 			{
 				Vec3 hit;
-				if (get<Awk>()->can_go(look_dir, &hit))
+				if (get<Awk>()->can_shoot(look_dir, &hit))
 				{
 					// make sure we're actually going to land at the right spot
 					if (tolerance < 0.0f // don't worry about where we land
@@ -588,16 +555,41 @@ b8 AIPlayerControl::aim_and_shoot(const Update& u, const Vec3& path_node, const 
 	return false;
 }
 
+b8 default_filter(const AIPlayerControl* control, const Entity* e)
+{
+	AI::Team team = control->get<AIAgent>()->team;
+	return ContainmentField::hash(team, control->get<Transform>()->absolute_pos())
+		== ContainmentField::hash(team, e->get<Transform>()->absolute_pos());
+}
+
 b8 health_pickup_filter(const AIPlayerControl* control, const Entity* e)
 {
+	if (!default_filter(control, e))
+		return false;
+
+	Health* health = control->get<Health>();
 	Health* owner = e->get<HealthPickup>()->owner.ref();
-	return !owner || owner != control->get<Health>();
+	if (health->hp < health->hp_max)
+		return owner != control->get<Health>(); // any health pickup we don't own
+	else
+		return owner && owner != control->get<Health>(); // we have full health; attack neutral pickups does no good
 }
 
 b8 minion_filter(const AIPlayerControl* control, const Entity* e)
 {
+	if (!default_filter(control, e))
+		return false;
+
 	return e->get<AIAgent>()->team != control->get<AIAgent>()->team
 		&& !e->get<AIAgent>()->stealth;
+}
+
+b8 enemy_control_point_filter(const AIPlayerControl* control, const Entity* e)
+{
+	if (!default_filter(control, e))
+		return false;
+
+	return e->get<ControlPoint>()->team != control->get<AIAgent>()->team;
 }
 
 MemoryStatus minion_memory_filter(const AIPlayerControl* control, const Entity* e)
@@ -632,13 +624,18 @@ MemoryStatus awk_memory_filter(const AIPlayerControl* control, const Entity* e)
 
 b8 awk_run_filter(const AIPlayerControl* control, const Entity* e)
 {
+	r32 run_chance = control->get<Health>()->hp == 1 ? 0.5f : 0.2f;
 	return e->get<AIAgent>()->team != control->get<AIAgent>()->team
-		&& e->get<Health>()->hp > control->get<Health>()->hp && (control->get<Health>()->hp == 1 || mersenne::randf_co() < 0.05f)
+		&& e->get<Health>()->hp > control->get<Health>()->hp
+		&& mersenne::randf_co() < run_chance
 		&& (e->get<Awk>()->can_hit(control->get<Target>()) || (e->get<Transform>()->absolute_pos() - control->get<Transform>()->absolute_pos()).length_squared() < AWK_RUN_RADIUS * AWK_RUN_RADIUS);
 }
 
 b8 awk_attack_filter(const AIPlayerControl* control, const Entity* e)
 {
+	if (!default_filter(control, e))
+		return false;
+
 	u16 my_hp = control->get<Health>()->hp;
 	u16 enemy_hp = e->get<Health>()->hp;
 	return e->get<AIAgent>()->team != control->get<AIAgent>()->team
@@ -653,11 +650,6 @@ b8 sensor_interest_point_filter(const AIPlayerControl* control, const Entity* e)
 	r32 closest_distance;
 	Sensor::closest(1 << control->get<AIAgent>()->team, e->get<Transform>()->absolute_pos(), &closest_distance);
 	return closest_distance > SENSOR_RANGE;
-}
-
-b8 default_filter(const AIPlayerControl* control, const Entity* e)
-{
-	return true;
 }
 
 MemoryStatus default_memory_filter(const AIPlayerControl* control, const Entity* e)
@@ -699,7 +691,7 @@ b8 should_spawn_sensor(const AIPlayerControl* control)
 	{
 		if (control->player.ref()->saving_up() == Upgrade::None) // only capture other stuff if we're not saving up for anything
 		{
-			if (InterestPoint::in_range(me))
+			if (AICue::in_range(me))
 				return true;
 		}
 	}
@@ -794,11 +786,7 @@ Repeat* make_low_level_loop(AIPlayerControl* control, const AIPlayer::Config& co
 									AIBehaviors::RunAway::alloc(Awk::family, 5, &awk_run_filter),
 									AIBehaviors::ReactTarget::alloc(Awk::family, 4, 6, &awk_attack_filter),
 									AIBehaviors::ReactTarget::alloc(MinionAI::family, 4, 5, &default_filter),
-									Sequence::alloc
-									(
-										Invert::alloc(Execute::alloc()->method<Health, &Health::is_full>(control->get<Health>())), // make sure we need health
-										AIBehaviors::ReactTarget::alloc(HealthPickup::family, 3, 4, &health_pickup_filter)
-									)
+									AIBehaviors::ReactTarget::alloc(HealthPickup::family, 3, 4, &health_pickup_filter)
 								),
 								Select::alloc
 								(
@@ -808,8 +796,13 @@ Repeat* make_low_level_loop(AIPlayerControl* control, const AIPlayer::Config& co
 									AIBehaviors::AbilitySpawn::alloc(4, Upgrade::Rocket, Ability::Rocket, &should_spawn_rocket),
 									Sequence::alloc
 									(
+										AIBehaviors::ReactControlPoint::alloc(4, &enemy_control_point_filter),
+										AIBehaviors::CaptureControlPoint::alloc(5)
+									),
+									Sequence::alloc
+									(
 										AIBehaviors::WantUpgrade::alloc(),
-										AIBehaviors::ReactControlPoint::alloc(5),
+										AIBehaviors::ReactControlPoint::alloc(5, &default_filter),
 										AIBehaviors::CaptureControlPoint::alloc(5),
 										AIBehaviors::DoUpgrade::alloc(4)
 									)
@@ -854,26 +847,29 @@ Repeat* make_high_level_loop(AIPlayerControl* control, const AIPlayer::Config& c
 					(
 						Select::alloc
 						(
-							Sequence::alloc
+							Select::alloc
 							(
-								Invert::alloc(Execute::alloc()->method<Health, &Health::is_full>(control->get<Health>())), // make sure we need health
-								AIBehaviors::Find::alloc(HealthPickup::family, 2, &health_pickup_filter)
+								AIBehaviors::Find::alloc(HealthPickup::family, 2, &health_pickup_filter),
+								Sequence::alloc
+								(
+									AIBehaviors::WantUpgrade::alloc(),
+									AIBehaviors::Find::alloc(ControlPoint::family, 4, &default_filter)
+								),
+								AIBehaviors::Find::alloc(ControlPoint::family, 2, &enemy_control_point_filter),
+								AIBehaviors::Find::alloc(MinionAI::family, 2, &minion_filter),
+								AIBehaviors::Find::alloc(Sensor::family, 2, &default_filter)
 							),
-							Sequence::alloc
+							Select::alloc
 							(
-								AIBehaviors::WantUpgrade::alloc(),
-								AIBehaviors::ToControlPoint::alloc(4)
-							),
-							AIBehaviors::Find::alloc(MinionAI::family, 2, &minion_filter),
-							AIBehaviors::Find::alloc(Sensor::family, 2, &default_filter),
-							AIBehaviors::Find::alloc(Awk::family, 2, &awk_attack_filter),
-							Sequence::alloc
-							(
-								AIBehaviors::HasUpgrade::alloc(Upgrade::Sensor),
-								AIBehaviors::Find::alloc(InterestPoint::family, 2, &sensor_interest_point_filter)
-							),
-							AIBehaviors::RandomPath::alloc(1),
-							AIBehaviors::Panic::alloc(1)
+								AIBehaviors::Find::alloc(Awk::family, 2, &awk_attack_filter),
+								Sequence::alloc
+								(
+									AIBehaviors::HasUpgrade::alloc(Upgrade::Sensor),
+									AIBehaviors::Find::alloc(AICue::family, 2, &sensor_interest_point_filter)
+								),
+								AIBehaviors::RandomPath::alloc(1),
+								AIBehaviors::Panic::alloc(1)
+							)
 						)
 					)
 				)
@@ -900,7 +896,8 @@ b8 AIPlayerControl::update_memory()
 	update_component_memory<HealthPickup>(this, &default_memory_filter);
 	update_component_memory<MinionAI>(this, &minion_memory_filter);
 	update_component_memory<Sensor>(this, &sensor_memory_filter);
-	update_component_memory<InterestPoint>(this, &default_memory_filter);
+	update_component_memory<AICue>(this, &default_memory_filter);
+	update_component_memory<ControlPoint>(this, &default_memory_filter);
 
 	// update memory of enemy AWK positions based on team sensor data
 	const Team& team = Team::list[(s32)get<AIAgent>()->team];
@@ -921,6 +918,14 @@ void AIPlayerControl::update(const Update& u)
 	if (get<Awk>()->state() == Awk::State::Crawl && !Team::game_over)
 	{
 		const AIPlayer::Config& config = player.ref()->config;
+		if ((s32)(u.time.total * config.aim_speed * 0.3f) != (s32)((u.time.total - u.time.delta) * config.aim_speed * 0.3f))
+		{
+			random_look = Vec3(mersenne::randf_cc() - 0.5f, mersenne::randf_cc() - 0.5f, mersenne::randf_cc() - 0.5f);
+			random_look.normalize();
+			Vec3 wall_normal = get<PlayerCommon>()->attach_quat * Vec3(0, 0, 1);
+			if (random_look.dot(wall_normal) < 0.0f)
+				random_look = random_look.reflect(wall_normal);
+		}
 
 		if (target.ref())
 		{
@@ -929,7 +934,7 @@ void AIPlayerControl::update(const Update& u)
 				// trying to a hit a moving thingy
 				Vec3 intersection;
 				if (get<Awk>()->can_hit(target.ref()->get<Target>(), &intersection))
-					aim_and_shoot(u, intersection, intersection, -1.0f);
+					aim_and_shoot(u, intersection, intersection, target.ref()->get<Target>(), -1.0f);
 				else
 					active_behavior->done(false); // we can't hit it
 			}
@@ -941,7 +946,7 @@ void AIPlayerControl::update(const Update& u)
 				else
 				{
 					Vec3 t = target.ref()->get<Transform>()->absolute_pos();
-					aim_and_shoot(u, t, t, CONTROL_POINT_RADIUS); // assume the target is a control point
+					aim_and_shoot(u, t, t, nullptr, CONTROL_POINT_RADIUS); // assume the target is a control point
 				}
 			}
 		}
@@ -959,27 +964,23 @@ void AIPlayerControl::update(const Update& u)
 				active_behavior->done(false); // active behavior failed
 			}
 			else
-				aim_and_shoot(u, path[path_index - 1].pos, path[path_index].pos, AWK_RADIUS); // path_index starts at 1 so we're good here
+				aim_and_shoot(u, path[path_index - 1].pos, path[path_index].pos, nullptr, AWK_RADIUS); // path_index starts at 1 so we're good here
 		}
 		else
 		{
 			// look randomly
-			PlayerCommon* common = get<PlayerCommon>();
-			r32 offset = Game::time.total * 0.2f;
-			common->angle_horizontal += noise::sample3d(Vec3(offset)) * config.aim_speed * 2.0f * u.time.delta;
-			common->angle_vertical += noise::sample3d(Vec3(offset + 64)) * config.aim_speed * u.time.delta;
-			common->angle_vertical = LMath::clampf(common->angle_vertical, PI * -0.495f, PI * 0.495f);
-			common->clamp_rotation(common->attach_quat * Vec3(0, 0, 1), 0.5f);
+			aim(u, random_look);
 
 			if (panic)
 			{
 				// pathfinding routines failed; we are stuck
+				PlayerCommon* common = get<PlayerCommon>();
 				if (common->movement_enabled())
 				{
 					// cooldown is done; we can shoot.
 					Vec3 look_dir = common->look_dir();
 					get<Awk>()->crawl(look_dir, u);
-					if (get<Awk>()->can_go(look_dir))
+					if (get<Awk>()->can_shoot(look_dir))
 					{
 						if (get<Awk>()->detach(look_dir))
 							active_behavior->done(true);
@@ -1082,7 +1083,7 @@ void Find::run()
 
 RandomPath::RandomPath(s8 priority)
 {
-	RandomPath::path_priority = priority;
+	path_priority = priority;
 }
 
 void RandomPath::run()
@@ -1118,7 +1119,7 @@ void HasUpgrade::run()
 
 Panic::Panic(s8 priority)
 {
-	Panic::path_priority = priority;
+	path_priority = priority;
 }
 
 void Panic::abort()
@@ -1178,7 +1179,7 @@ void WaitForAttachment::run()
 AbilitySpawn::AbilitySpawn(s8 priority, Upgrade required_upgrade, Ability ability, AbilitySpawnFilter filter)
 	: required_upgrade(required_upgrade), ability(ability), filter(filter)
 {
-	AbilitySpawn::path_priority = priority;
+	path_priority = priority;
 }
 
 void AbilitySpawn::set_context(void* ctx)
@@ -1266,8 +1267,7 @@ void ReactTarget::run()
 
 		if (closest)
 		{
-			b8 can_hit_now = control->get<Awk>()->can_hit(closest->get<Target>());
-			if (can_hit_now && can_react)
+			if (can_react && control->get<Awk>()->can_hit(closest->get<Target>()))
 			{
 				control->behavior_start(this, react_priority);
 				control->set_target(closest);
@@ -1296,8 +1296,7 @@ void RunAway::run()
 	if (control->get<Awk>()->state() == Awk::State::Crawl
 		&& !control->get<AIAgent>()->stealth // if we're stealthed, no need to run away
 		&& control->get<Awk>()->invincible_timer == 0.0f // if we're invincible, no need to run away
-		&& path_priority > control->path_priority
-		&& !ContainmentField::inside(control->get<AIAgent>()->team, pos)) // if we're inside a containment field, running away is probably useless
+		&& path_priority > control->path_priority)
 	{
 		Entity* closest = nullptr;
 		r32 closest_distance = AWK_MAX_DISTANCE * AWK_MAX_DISTANCE;
@@ -1339,29 +1338,10 @@ void WantUpgrade::run()
 	done(u != Upgrade::None);
 }
 
-ToControlPoint::ToControlPoint(s8 priority)
+ReactControlPoint::ReactControlPoint(s8 priority, b8(*f)(const AIPlayerControl*, const Entity*))
 {
 	path_priority = priority;
-}
-
-void ToControlPoint::run()
-{
-	active(true);
-	if (control->get<Awk>()->state() == Awk::State::Crawl && path_priority > control->path_priority)
-	{
-		ControlPoint* closest_control_point = ControlPoint::closest(AI::NoTeam, control->get<Awk>()->center());
-		if (closest_control_point)
-		{
-			pathfind(closest_control_point->get<Transform>()->absolute_pos(), Vec3(0, 1, 0), AI::AwkPathfind::LongRange);
-			return;
-		}
-	}
-	done(false);
-}
-
-ReactControlPoint::ReactControlPoint(s8 priority)
-{
-	path_priority = priority;
+	filter = f;
 }
 
 void ReactControlPoint::run()
@@ -1372,23 +1352,25 @@ void ReactControlPoint::run()
 		Vec3 me = control->get<Awk>()->center();
 		r32 closest_distance;
 		ControlPoint* control_point = ControlPoint::closest(AI::NoTeam, me, &closest_distance);
-
-		if (closest_distance < CONTROL_POINT_RADIUS)
+		if (filter(control, control_point->entity()))
 		{
-			done(true);
-			return;
-		}
-		if (closest_distance < AWK_MAX_DISTANCE)
-		{
-			Vec3 target = control_point->get<Transform>()->absolute_pos();
-			Vec3 hit;
-			if (control->get<Awk>()->can_go(target - me, &hit))
+			if (closest_distance < CONTROL_POINT_RADIUS)
 			{
-				if ((hit - target).length_squared() < CONTROL_POINT_RADIUS * CONTROL_POINT_RADIUS)
+				done(true);
+				return;
+			}
+			if (closest_distance < AWK_MAX_DISTANCE)
+			{
+				Vec3 target = control_point->get<Transform>()->absolute_pos();
+				Vec3 hit;
+				if (control->get<Awk>()->can_shoot(target - me, &hit))
 				{
-					control->behavior_start(this, path_priority);
-					control->set_target(control_point->entity());
-					return;
+					if ((hit - target).length_squared() < CONTROL_POINT_RADIUS * CONTROL_POINT_RADIUS)
+					{
+						control->behavior_start(this, path_priority);
+						control->set_target(control_point->entity());
+						return;
+					}
 				}
 			}
 		}

@@ -45,7 +45,7 @@ COMPONENT_TYPE(24, HealthPickup) \
 COMPONENT_TYPE(25, Sensor) \
 COMPONENT_TYPE(26, Rocket) \
 COMPONENT_TYPE(27, ContainmentField) \
-COMPONENT_TYPE(28, InterestPoint) \
+COMPONENT_TYPE(28, AICue) \
 COMPONENT_TYPE(29, Water) \
 COMPONENT_TYPE(30, DirectionalLight) \
 COMPONENT_TYPE(31, SkyDecal) \

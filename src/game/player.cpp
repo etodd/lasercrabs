@@ -1455,7 +1455,7 @@ void LocalPlayerControl::update(const Update& u)
 			look_quat = look_quat * Quat::euler(noise::sample3d(Vec3(offset)) * shake, noise::sample3d(Vec3(offset + 64)) * shake, noise::sample3d(Vec3(offset + 128)) * shake);
 		}
 
-		camera->range = get<Awk>()->snipe ? AWK_SNIPE_DISTANCE : AWK_MAX_DISTANCE;
+		camera->range = get<Awk>()->range();
 		camera->range_center = look_quat.inverse() * (get<Awk>()->center() - camera->pos);
 		camera->cull_range = third_person_offset + 0.5f;
 		camera->cull_behind_wall = abs_wall_normal.dot(camera->pos - get<Awk>()->center()) < 0.0f;
@@ -1474,8 +1474,7 @@ void LocalPlayerControl::update(const Update& u)
 
 		if (movement_enabled())
 		{
-			r32 range = get<Awk>()->snipe ? AWK_SNIPE_DISTANCE : AWK_MAX_DISTANCE;
-			Vec3 trace_end = trace_start + trace_dir * (range + third_person_offset);
+			Vec3 trace_end = trace_start + trace_dir * (get<Awk>()->range() + third_person_offset);
 			RaycastCallbackExcept ray_callback(trace_start, trace_end, entity());
 			Physics::raycast(&ray_callback, ~CollisionAwkIgnore & ~get<Awk>()->ally_containment_field_mask());
 
@@ -1493,7 +1492,7 @@ void LocalPlayerControl::update(const Update& u)
 				{
 					Vec3 hit;
 					b8 hit_target;
-					if (get<Awk>()->can_go(detach_dir, &hit, &hit_target))
+					if (get<Awk>()->can_shoot(detach_dir, &hit, &hit_target))
 					{
 						if ((hit - center).length() > distance - AWK_RADIUS)
 							reticle.type = hit_target ? ReticleType::Target : ReticleType::Normal;
@@ -1572,7 +1571,7 @@ void LocalPlayerControl::update(const Update& u)
 			try_primary = false;
 	}
 
-	if (reticle.type == ReticleType::None || !get<Awk>()->cooldown_can_go())
+	if (reticle.type == ReticleType::None || !get<Awk>()->cooldown_can_shoot())
 	{
 		// can't shoot
 		if (u.input->get(Controls::Primary, gamepad)) // player is mashing the fire button; give them some feedback
@@ -1581,8 +1580,6 @@ void LocalPlayerControl::update(const Update& u)
 				reticle.type = ReticleType::DashError;
 			else
 				reticle.type = ReticleType::Error;
-			if (get<Awk>()->cooldown > 0.0f) // prevent the player from mashing the fire button to nail the cooldown skip
-				get<Awk>()->disable_cooldown_skip = true;
 		}
 	}
 	else
@@ -2083,22 +2080,29 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 	// reticle
 	if (movement_enabled())
 	{
-		// cooldown indicator
-		r32 cooldown = get<Awk>()->cooldown;
 		Vec2 pos = viewport.size * Vec2(0.5f, 0.5f);
-		r32 cooldown_blend = vi_max(0.0f, cooldown / AWK_MAX_DISTANCE_COOLDOWN);
 		const r32 spoke_length = 10.0f;
 		const r32 spoke_width = 3.0f;
-		r32 start_radius = 8.0f + cooldown_blend * 32.0f + spoke_length * 0.5f;
+		const r32 start_radius = 8.0f + spoke_length * 0.5f;
 
-		b8 cooldown_can_go = get<Awk>()->cooldown_can_go();
+		b8 cooldown_can_go = get<Awk>()->cooldown_can_shoot();
+
 		const Vec4& color =
 			(reticle.type == ReticleType::Error || reticle.type == ReticleType::DashError)
 			? UI::disabled_color
 			: ((reticle.type != ReticleType::None && cooldown_can_go) ? UI::accent_color : UI::alert_color);
 
-		if (cooldown > 0.0f)
-			UI::triangle_border(params, { pos, Vec2(start_radius * 6.0f * UI::scale) }, spoke_width, color);
+		// cooldown indicator
+		if (!get<Awk>()->snipe)
+		{
+			s32 charges = get<Awk>()->charges();
+			const Vec2 box_size = Vec2(10.0f) * UI::scale;
+			for (s32 i = 0; i < charges; i++)
+			{
+				Vec2 p = pos + Vec2(0.0f, -20.0f + i * -16.0f) * UI::scale;
+				UI::triangle(params, { p, box_size }, color);
+			}
+		}
 
 		if (reticle.type == ReticleType::Dash || reticle.type == ReticleType::DashError)
 		{

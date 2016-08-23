@@ -59,7 +59,7 @@ namespace VI
 		},
 		{
 			Asset::Mesh::icon_sniper,
-			0.5f,
+			0.25f,
 			10,
 		},
 	};
@@ -439,9 +439,9 @@ namespace VI
 				}
 
 				r32 distance = diff.length_squared();
-				r32 i_range = i_entity->get<Awk>()->snipe ? AWK_SNIPE_DISTANCE : AWK_MAX_DISTANCE;
+				r32 i_range = i_entity->get<Awk>()->range();
 				b8 i_can_see_j = visible && !j_entity->get<AIAgent>()->stealth && distance < i_range * i_range;
-				r32 j_range = j_entity->get<Awk>()->snipe ? AWK_SNIPE_DISTANCE : AWK_MAX_DISTANCE;
+				r32 j_range = j_entity->get<Awk>()->range();
 				b8 j_can_see_i = visible && !i_entity->get<AIAgent>()->stealth && distance < j_range * j_range;
 				PlayerCommon::visibility.set(PlayerCommon::visibility_hash(i_entity->get<PlayerCommon>(), j_entity->get<PlayerCommon>()), i_can_see_j);
 				PlayerCommon::visibility.set(PlayerCommon::visibility_hash(j_entity->get<PlayerCommon>(), i_entity->get<PlayerCommon>()), j_can_see_i);
@@ -662,7 +662,7 @@ namespace VI
 				}
 				case Ability::Sniper:
 				{
-					awk->get<Awk>()->snipe = true;
+					awk->get<Awk>()->snipe_start();
 					break;
 				}
 				default:
@@ -679,11 +679,10 @@ namespace VI
 
 	PinArray<PlayerManager, MAX_PLAYERS> PlayerManager::list;
 
-	PlayerManager::PlayerManager(Team* team, u16 hp_start)
+	PlayerManager::PlayerManager(Team* team)
 		: spawn_timer(PLAYER_SPAWN_DELAY),
 		score_accepted(),
 		team(team),
-		hp_start(hp_start),
 		credits(Game::level.has_feature(Game::FeatureLevel::Abilities) ? CREDITS_INITIAL : 0),
 		upgrades(0),
 		abilities{ Ability::None, Ability::None, Ability::None },
@@ -901,6 +900,11 @@ namespace VI
 			i.item()->update(u);
 	}
 
+	u16 PlayerManager::hp_start()
+	{
+		return vi_min(AWK_HEALTH, 1 + (HealthPickup::list.count() / PlayerManager::list.count()));
+	}
+
 	void PlayerManager::update(const Update& u)
 	{
 		credits_flash_timer = vi_max(0.0f, credits_flash_timer - Game::real_time.delta);
@@ -912,12 +916,13 @@ namespace VI
 			{
 				spawn.fire();
 				// make sure the player has enough health
-				if (hp_start > 1 && PlayerManager::list.count() <= 2)
+				u16 hp = hp_start();
+				if (hp > 1)
 				{
 					Array<Ref<HealthPickup>> closest_free_health_pickups;
 					HealthPickup::sort_all(team.ref()->player_spawn.ref()->get<Transform>()->absolute_pos(), &closest_free_health_pickups, true, nullptr);
-					vi_assert(hp_start - 1 <= closest_free_health_pickups.length);
-					for (s32 i = 0; i < hp_start - 1; i++)
+					vi_assert(hp - 1 <= closest_free_health_pickups.length);
+					for (s32 i = 0; i < hp - 1; i++)
 						closest_free_health_pickups[i].ref()->set_owner(entity.ref()->get<Health>());
 				}
 			}

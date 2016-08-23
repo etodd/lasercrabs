@@ -160,6 +160,7 @@ struct PlayerManager
 	static r32 timer;
 
 	static void update_all(const Update&);
+	static u16 hp_start();
 
 	StaticArray<SummaryItem, 1> credits_summary;
 	r32 spawn_timer;
@@ -178,12 +179,11 @@ struct PlayerManager
 	Link control_point_captured;
 	Ref<Team> team;
 	Ref<Entity> entity;
-	u16 hp_start;
 	u16 credits;
 	char username[255];
 	b8 score_accepted;
 
-	PlayerManager(Team*, u16);
+	PlayerManager(Team*);
 
 	State state() const;
 	b8 can_transition_state() const;

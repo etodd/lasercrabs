@@ -14,14 +14,15 @@ struct View;
 struct DamageEvent;
 
 #define AWK_HEALTH 4
-#define AWK_FLY_SPEED 45.0f
-#define AWK_CRAWL_SPEED 1.5f
-#define AWK_MIN_COOLDOWN 0.75f
-#define AWK_MAX_DISTANCE_COOLDOWN 2.0f
+#define AWK_FLY_SPEED 35.0f
+#define AWK_CRAWL_SPEED 1.75f
+#define AWK_MIN_COOLDOWN 1.0f
+#define AWK_MAX_DISTANCE_COOLDOWN 4.0f
 #define AWK_COOLDOWN_DISTANCE_RATIO (AWK_MAX_DISTANCE_COOLDOWN / AWK_MAX_DISTANCE)
 #define AWK_LEGS 3
 #define AWK_INVINCIBLE_TIME 5.0f
 #define AWK_SNIPE_DISTANCE 100.0f
+#define AWK_CHARGES 3
 
 // If we raycast through a Minion's head, keep going.
 struct AwkRaycastCallback : btCollisionWorld::ClosestRayResultCallback
@@ -66,8 +67,8 @@ struct Awk : public ComponentType<Awk>
 	r32 attach_time;
 	r32 stun_timer;
 	r32 invincible_timer;
-	r32 cooldown_total; // total cooldown time
-	r32 cooldown; // remaining cooldown time
+	r32 snipe_time;
+	r32 cooldowns[AWK_CHARGES]; // remaining cooldown time
 	Footing footing[AWK_LEGS];
 	r32 last_speed;
 	r32 last_footstep;
@@ -77,17 +78,21 @@ struct Awk : public ComponentType<Awk>
 	Ref<Entity> shield;
 	r32 particle_accumulator;
 	r32 dash_timer;
-	b8 disable_cooldown_skip;
 	b8 snipe;
+	u8 cooldown_index;
 
 	Awk();
 	void awake();
 	~Awk();
 
+	r32 range() const;
+
+	s32 charges() const;
+	void cooldown_setup();
 	State state() const;
 	Vec3 calculated_velocity() const;
 	b8 dash_start(const Vec3&);
-	b8 cooldown_can_go() const; // can we go?
+	b8 cooldown_can_shoot() const; // can we go?
 	void hit_by(const TargetEvent&); // called when we get hit
 	void hit_target(Entity*, const Vec3&); // called when we hit a target
 	void damaged(const DamageEvent&);
@@ -116,11 +121,13 @@ struct Awk : public ComponentType<Awk>
 	void detach_teleport();
 	b8 detach(const Vec3&);
 
+	void snipe_start();
+
 	void finish_flying_dashing_common();
 	void finish_flying();
 	void finish_dashing();
 	b8 direction_is_toward_attached_wall(const Vec3&) const;
-	b8 can_go(const Vec3&, Vec3* = nullptr, b8* = nullptr) const;
+	b8 can_shoot(const Vec3&, Vec3* = nullptr, b8* = nullptr) const;
 	b8 can_hit(const Target*, Vec3* = nullptr) const;
 
 	void movement_raycast(const Vec3&, const Vec3&);

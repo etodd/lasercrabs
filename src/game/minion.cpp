@@ -78,7 +78,7 @@ MinionCommon* MinionCommon::closest(AI::TeamMask mask, const Vec3& pos, r32* dis
 	r32 closest_distance = FLT_MAX;
 	for (auto i = list.iterator(); !i.is_last(); i.next())
 	{
-		if (mask & (1 << i.item()->get<AIAgent>()->team))
+		if (AI::match(i.item()->get<AIAgent>()->team, mask))
 		{
 			r32 d = (pos - i.item()->get<Transform>()->absolute_pos()).length_squared();
 			if (d < closest_distance)

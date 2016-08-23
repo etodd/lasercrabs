@@ -19,6 +19,7 @@ struct Transform;
 struct PlayerManager;
 struct Camera;
 struct Target;
+struct ControlPoint;
 
 #define MAX_AI_PLAYERS 3
 
@@ -52,7 +53,6 @@ struct AIPlayer
 		r32 interval_memory_update;
 		r32 interval_low_level;
 		r32 interval_high_level;
-		r32 cooldown_skip_chance;
 		r32 inaccuracy_min;
 		r32 inaccuracy_range;
 		r32 aim_timeout;
@@ -86,32 +86,32 @@ struct AIPlayerControl : public ComponentType<AIPlayerControl>
 {
 	struct Memory
 	{
-		Ref<Entity> entity;
 		Vec3 pos;
+		Ref<Entity> entity;
 	};
 
 	typedef StaticArray<AIPlayerControl::Memory, MAX_MEMORY> MemoryArray;
 
-	s8 path_priority;
+#if DEBUG_AI_CONTROL
+	Camera* camera;
+#endif
 	Repeat* loop_high_level;
 	Repeat* loop_low_level;
 	Repeat* loop_low_level_2;
 	Repeat* loop_memory;
 	Behavior* active_behavior;
-	MemoryArray memory[MAX_FAMILIES];
+	Vec3 random_look;
+	r32 aim_timer;
+	r32 inaccuracy;
 	AI::AwkPath path;
 	s32 path_index;
+	MemoryArray memory[MAX_FAMILIES];
 	Ref<AIPlayer> player;
 	Ref<Entity> target;
 	b8 shot_at_target;
 	b8 hit_target;
 	b8 panic;
-	r32 aim_timer;
-	r32 inaccuracy;
-	b8 cooldown_skip;
-#if DEBUG_AI_CONTROL
-	Camera* camera;
-#endif
+	s8 path_priority;
 
 	AIPlayerControl(AIPlayer*);
 	void awake();
@@ -121,7 +121,8 @@ struct AIPlayerControl : public ComponentType<AIPlayerControl>
 	void behavior_start(Behavior*, s8);
 	void behavior_clear();
 	b8 restore_loops();
-	b8 aim_and_shoot(const Update&, const Vec3&, const Vec3&, r32);
+	Vec2 aim(const Update&, const Vec3&);
+	b8 aim_and_shoot(const Update&, const Vec3&, const Vec3&, Target*, r32);
 	b8 in_range(const Vec3&, r32) const;
 	void set_target(Entity*);
 	void set_path(const AI::AwkPath&);
@@ -168,12 +169,12 @@ namespace AIBehaviors
 				Behavior* r = this->root();
 				const char* loop;
 				if (r == this->control->loop_low_level)
-					loop = "Low-level 1";
+					loop = "low-level 1";
 				else if (r == this->control->loop_low_level_2)
-					loop = "Low-level 2";
+					loop = "low-level 2";
 				else
-					loop = "High-level";
-				vi_debug("%s: %s", loop, typeid(*this).name());
+					loop = "high-level";
+				vi_debug("%s %s: %s", success ? "succ" : "fail", loop, typeid(*this).name());
 #endif
 			}
 			BehaviorBase<Derived>::done(success);
@@ -187,11 +188,11 @@ namespace AIBehaviors
 				Behavior* r = this->root();
 				const char* loop;
 				if (r == this->control->loop_low_level)
-					loop = "Low-level 1";
+					loop = "low-level 1";
 				else if (r == this->control->loop_low_level_2)
-					loop = "Low-level 2";
+					loop = "low-level 2";
 				else
-					loop = "High-level";
+					loop = "high-level";
 				vi_debug("%s: %s", loop, typeid(*this).name());
 #endif
 			}
@@ -223,12 +224,6 @@ namespace AIBehaviors
 		Family family;
 		Find(Family, s8, b8(*)(const AIPlayerControl*, const Entity*));
 
-		void run();
-	};
-
-	struct ToControlPoint : Base<ToControlPoint>
-	{
-		ToControlPoint(s8);
 		void run();
 	};
 
@@ -294,7 +289,8 @@ namespace AIBehaviors
 
 	struct ReactControlPoint : Base<ReactControlPoint>
 	{
-		ReactControlPoint(s8);
+		ReactControlPoint(s8, b8(*)(const AIPlayerControl*, const Entity*));
+		b8(*filter)(const AIPlayerControl*, const Entity*);
 		void run();
 	};
 

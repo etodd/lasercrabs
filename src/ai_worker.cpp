@@ -102,13 +102,65 @@ struct AwayScorer : AstarScorer
 	}
 };
 
-AwkNavMeshNode awk_closest_point(const Vec3& p, const Vec3& normal)
+Array<SensorState> sensors;
+Array<ContainmentFieldState> containment_fields;
+
+// describes which enemy containment fields you are currently inside
+u32 containment_field_hash(AI::Team my_team, const Vec3& pos)
+{
+	u32 result = 0;
+	for (s32 i = 0; i < containment_fields.length; i++)
+	{
+		const ContainmentFieldState& field = containment_fields[i];
+		if (field.team != my_team && (pos - field.pos).length_squared() < CONTAINMENT_FIELD_RADIUS * CONTAINMENT_FIELD_RADIUS)
+		{
+			if (result == 0)
+				result = 1;
+			result += MAX_ENTITIES % (i + 37); // todo: learn how to math
+		}
+	}
+	return result;
+}
+
+r32 sensor_cost(AI::Team team, const AwkNavMeshNode& node)
+{
+	const Vec3& pos = awk_nav_mesh.chunks[node.chunk].vertices[node.vertex];
+	const Vec3& normal = awk_nav_mesh.chunks[node.chunk].normals[node.vertex];
+	b8 in_friendly_zone = false;
+	b8 in_enemy_zone = false;
+	for (s32 i = 0; i < sensors.length; i++)
+	{
+		Vec3 to_sensor = sensors[i].pos - pos;
+		if (to_sensor.length_squared() < SENSOR_RANGE * SENSOR_RANGE)
+		{
+			if (normal.dot(to_sensor) > 0.0f)
+			{
+				if (sensors[i].team == team)
+					in_friendly_zone = true;
+				else
+				{
+					in_enemy_zone = true;
+					break;
+				}
+			}
+		}
+	}
+	if (in_enemy_zone)
+		return 24.0f;
+	else if (in_friendly_zone)
+		return 0;
+	else
+		return 8.0f;
+}
+
+AwkNavMeshNode awk_closest_point(AI::Team team, const Vec3& p, const Vec3& normal)
 {
 	AwkNavMesh::Coord chunk_coord = awk_nav_mesh.coord(p);
 	r32 closest_distance = FLT_MAX;
 	b8 found = false;
 	AwkNavMeshNode closest;
 	b8 ignore_normals = normal.dot(normal) == 0.0f;
+	u32 desired_hash = containment_field_hash(team, p);
 	s32 end_x = vi_min(vi_max(chunk_coord.x + 2, 1), awk_nav_mesh.size.x);
 	for (s32 chunk_x = vi_min(vi_max(chunk_coord.x - 1, 0), awk_nav_mesh.size.x - 1); chunk_x < end_x; chunk_x++)
 	{
@@ -131,7 +183,8 @@ AwkNavMeshNode awk_closest_point(const Vec3& p, const Vec3& normal)
 						if (to_vertex.dot(normal) < 0.0f)
 						{
 							r32 distance = to_vertex.length_squared();
-							if (distance < closest_distance)
+							if (distance < closest_distance
+								&& containment_field_hash(team, vertex) == desired_hash)
 							{
 								const Vec3& vertex_normal = chunk.normals[vertex_index];
 								if (ignore_normals || normal.dot(vertex_normal) > 0.8f) // make sure it's roughly facing the right way
@@ -191,39 +244,6 @@ b8 can_hit_from(AwkNavMeshNode start_vertex, const Vec3& target, r32 dot_thresho
 	return false;
 }
 
-Array<SensorState> sensors;
-
-r32 sensor_cost(AI::Team team, const AwkNavMeshNode& node)
-{
-	const Vec3& pos = awk_nav_mesh.chunks[node.chunk].vertices[node.vertex];
-	const Vec3& normal = awk_nav_mesh.chunks[node.chunk].normals[node.vertex];
-	b8 in_friendly_zone = false;
-	b8 in_enemy_zone = false;
-	for (s32 i = 0; i < sensors.length; i++)
-	{
-		Vec3 to_sensor = sensors[i].pos - pos;
-		if (to_sensor.length_squared() < SENSOR_RANGE * SENSOR_RANGE)
-		{
-			if (normal.dot(to_sensor) > 0.0f)
-			{
-				if (sensors[i].team == team)
-					in_friendly_zone = true;
-				else
-				{
-					in_enemy_zone = true;
-					break;
-				}
-			}
-		}
-	}
-	if (in_enemy_zone)
-		return 24.0f;
-	else if (in_friendly_zone)
-		return 0;
-	else
-		return 8.0f;
-}
-
 // A*
 void awk_astar(AI::Team team, const AwkNavMeshNode& start_vertex, const AstarScorer* scorer, AwkPath* path)
 {
@@ -234,6 +254,8 @@ void awk_astar(AI::Team team, const AwkNavMeshNode& start_vertex, const AstarSco
 	path->length = 0;
 
 	const Vec3& start_pos = awk_nav_mesh.chunks[start_vertex.chunk].vertices[start_vertex.vertex];
+
+	u32 start_field_hash = containment_field_hash(team, start_pos);
 
 	awk_nav_mesh_key.reset();
 	astar_queue.clear();
@@ -258,6 +280,13 @@ void awk_astar(AI::Team team, const AwkNavMeshNode& start_vertex, const AstarSco
 
 		AwkNavMeshNodeData* vertex_data = &awk_nav_mesh_key.get(vertex_node);
 
+		vertex_data->visited = true;
+		vertex_data->in_queue = false;
+
+		const Vec3& vertex_pos = awk_nav_mesh.chunks[vertex_node.chunk].vertices[vertex_node.vertex];
+		if (containment_field_hash(team, vertex_pos) != start_field_hash)
+			continue; // it's in a different containment field; unreachable
+
 		if (scorer->done(vertex_node, *vertex_data))
 		{
 			// reconstruct path
@@ -272,10 +301,6 @@ void awk_astar(AI::Team team, const AwkNavMeshNode& start_vertex, const AstarSco
 			}
 			break; // done!
 		}
-
-		vertex_data->visited = true;
-		vertex_data->in_queue = false;
-		const Vec3& vertex_pos = awk_nav_mesh.chunks[vertex_node.chunk].vertices[vertex_node.vertex];
 		
 		const AwkNavMeshAdjacency& adjacency = awk_nav_mesh.chunks[vertex_node.chunk].adjacency[vertex_node.vertex];
 		for (s32 i = 0; i < adjacency.length; i++)
@@ -340,16 +365,27 @@ void awk_pathfind_internal(AI::Team team, const AwkNavMeshNode& start_vertex, co
 	PathfindScorer scorer;
 	scorer.end_vertex = end_vertex;
 	scorer.end_pos = awk_nav_mesh.chunks[end_vertex.chunk].vertices[end_vertex.vertex];
-	awk_astar(team, start_vertex, &scorer, path);
+	const Vec3& start_pos = awk_nav_mesh.chunks[start_vertex.chunk].vertices[start_vertex.vertex];
+	if (containment_field_hash(team, start_pos) != containment_field_hash(team, scorer.end_pos))
+		path->length = 0; // in a different containment field; unreachable
+	else
+		awk_astar(team, start_vertex, &scorer, path);
 }
 
 // find a path using vertices as close as possible to the given points
 // find our way to a point from which we can shoot through the given target
 void awk_pathfind_hit(AI::Team team, const Vec3& start, const Vec3& start_normal, const Vec3& target, AwkPath* path)
 {
-	AwkNavMeshNode target_closest_vertex = awk_closest_point(target, Vec3::zero);
+	if (containment_field_hash(team, start) != containment_field_hash(team, target))
+	{
+		// in a different containment field; unreachable
+		path->length = 0;
+		return;
+	}
 
-	AwkNavMeshNode start_vertex = awk_closest_point(start, start_normal);
+	AwkNavMeshNode target_closest_vertex = awk_closest_point(team, target, Vec3::zero);
+
+	AwkNavMeshNode start_vertex = awk_closest_point(team, start, start_normal);
 
 	// even if we are supposed to be able to hit the target from the start vertex, don't just return a 0-length path.
 	// find another vertex where we can hit the target
@@ -385,7 +421,14 @@ void awk_pathfind_hit(AI::Team team, const Vec3& start, const Vec3& start_normal
 		if (closest_distance == AWK_MAX_DISTANCE)
 			path->length = 0; // can't find a path to hit this thing
 		else
+		{
 			awk_pathfind_internal(team, start_vertex, closest_vertex, path);
+			if (path->length > 0 && path->length < path->capacity())
+			{
+				AwkPathNode* node = path->add();
+				*node = { awk_nav_mesh.chunks[target_closest_vertex.chunk].vertices[target_closest_vertex.vertex], target_closest_vertex };
+			}
+		}
 	}
 }
 
@@ -729,7 +772,7 @@ void loop()
 						Vec3 end_normal;
 						sync_in.read(&end_normal);
 						sync_in.unlock();
-						awk_pathfind_internal(team, awk_closest_point(start, start_normal), awk_closest_point(end, end_normal), &path);
+						awk_pathfind_internal(team, awk_closest_point(team, start, start_normal), awk_closest_point(team, end, end_normal), &path);
 						break;
 					}
 					case AwkPathfind::Target:
@@ -763,7 +806,7 @@ void loop()
 							}
 						}
 
-						awk_pathfind_internal(team, awk_closest_point(start, start_normal), end_vertex, &path);
+						awk_pathfind_internal(team, awk_closest_point(team, start, start_normal), end_vertex, &path);
 						break;
 					}
 					case AwkPathfind::Away:
@@ -775,8 +818,8 @@ void loop()
 						sync_in.unlock();
 
 						AwayScorer scorer;
-						scorer.start_vertex = awk_closest_point(start, start_normal);
-						scorer.away_vertex = awk_closest_point(away, away_normal);
+						scorer.start_vertex = awk_closest_point(team, start, start_normal);
+						scorer.away_vertex = awk_closest_point(team, away, away_normal);
 						scorer.away_pos = away;
 
 						awk_astar(team, scorer.start_vertex, &scorer, &path);
@@ -820,12 +863,15 @@ void loop()
 
 				break;
 			}
-			case Op::UpdateSensors:
+			case Op::UpdateState:
 			{
 				s32 count;
 				sync_in.read(&count);
 				sensors.resize(count);
 				sync_in.read(sensors.data, sensors.length);
+				sync_in.read(&count);
+				containment_fields.resize(count);
+				sync_in.read(containment_fields.data, containment_fields.length);
 				sync_in.unlock();
 				break;
 			}

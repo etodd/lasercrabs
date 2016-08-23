@@ -51,10 +51,16 @@ void update(const Update& u)
 		for (auto i = Sensor::list.iterator(); !i.is_last(); i.next())
 			sensors.add({ i.item()->get<Transform>()->absolute_pos(), i.item()->team });
 
+		Array<ContainmentFieldState> containment_fields;
+		for (auto i = ContainmentField::list.iterator(); !i.is_last(); i.next())
+			containment_fields.add({ i.item()->get<Transform>()->absolute_pos(), i.item()->team });
+
 		sync_in.lock();
-		sync_in.write(Op::UpdateSensors);
+		sync_in.write(Op::UpdateState);
 		sync_in.write(sensors.length);
 		sync_in.write(sensors.data, sensors.length);
+		sync_in.write(containment_fields.length);
+		sync_in.write(containment_fields.data, containment_fields.length);
 		sync_in.unlock();
 	}
 
@@ -95,6 +101,11 @@ void update(const Update& u)
 		}
 	}
 	sync_out.unlock();
+}
+
+b8 match(Team t, TeamMask m)
+{
+	return (t == AI::NoTeam && m == AI::NoTeam) || (m & (1 << t));
 }
 
 u32 obstacle_add(const Vec3& pos, r32 radius, r32 height)

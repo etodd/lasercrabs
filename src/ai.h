@@ -13,6 +13,7 @@ namespace VI
 {
 
 #define SENSOR_RANGE 20.0f
+#define CONTAINMENT_FIELD_RADIUS 12.0f
 
 struct AIAgent;
 struct RenderParams;
@@ -28,7 +29,7 @@ namespace AI
 		AwkPathfind,
 		AwkMarkAdjacencyBad,
 		RandomPath,
-		UpdateSensors,
+		UpdateState,
 		Quit,
 	};
 
@@ -79,6 +80,8 @@ namespace AI
 		AI::Team team;
 	};
 
+	typedef SensorState ContainmentFieldState;
+
 	static const s32 SYNC_IN_SIZE = 6 * 1024 * 1024;
 	static const s32 SYNC_OUT_SIZE = 1 * 1024 * 1024;
 	extern Array<b8> obstacles;
@@ -87,6 +90,7 @@ namespace AI
 	extern u32 callback_in_id;
 	extern u32 callback_out_id;
 
+	b8 match(AI::Team, AI::TeamMask);
 	u32 obstacle_add(const Vec3&, r32, r32);
 	void obstacle_remove(u32);
 	u32 pathfind(const Vec3&, const Vec3&, const LinkEntryArg<const Result&>&);

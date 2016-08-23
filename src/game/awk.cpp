@@ -31,8 +31,6 @@ namespace VI
 #define AWK_MIN_LEG_BLEND_SPEED (AWK_LEG_BLEND_SPEED * 0.1f)
 #define AWK_SHIELD_RADIUS 0.75f
 #define AWK_STUN_TIME 2.0f
-#define AWK_COOLDOWN_SKIP (AWK_MAX_DISTANCE_COOLDOWN * 0.5f)
-#define AWK_COOLDOWN_SKIP_WINDOW 0.125f
 
 AwkRaycastCallback::AwkRaycastCallback(const Vec3& a, const Vec3& b, const Entity* awk)
 	: btCollisionWorld::ClosestRayResultCallback(a, b)
@@ -99,11 +97,10 @@ Awk::Awk()
 	shield(),
 	bounce(),
 	hit_targets(),
-	cooldown(),
-	cooldown_total(),
+	cooldowns(),
+	cooldown_index(),
 	stun_timer(),
 	invincible_timer(),
-	disable_cooldown_skip(),
 	particle_accumulator(),
 	snipe()
 {
@@ -425,11 +422,20 @@ b8 Awk::can_hit(const Target* target, Vec3* out_intersection) const
 	{
 		Vec3 me = center();
 		Vec3 to_intersection = intersection - me;
+		r32 distance = to_intersection.length();
+		to_intersection /= distance;
+		if (distance < AWK_DASH_DISTANCE
+			&& fabs(to_intersection.dot(get<Transform>()->absolute_rot() * Vec3(0, 0, 1))) < 0.1f)
+		{
+			if (out_intersection)
+				*out_intersection = intersection;
+			return true;
+		}
 		Vec3 final_pos;
 		b8 hit_target;
-		if (can_go(to_intersection, &final_pos, &hit_target))
+		if (can_shoot(to_intersection, &final_pos, &hit_target))
 		{
-			if (hit_target || (final_pos - me).length() > to_intersection.length() - AWK_RADIUS * 2.0f)
+			if (hit_target || (final_pos - me).length() > distance - AWK_RADIUS * 2.0f)
 			{
 				if (out_intersection)
 					*out_intersection = intersection;
@@ -446,7 +452,7 @@ b8 Awk::direction_is_toward_attached_wall(const Vec3& dir) const
 	return dir.dot(wall_normal) < 0.0f;
 }
 
-b8 Awk::can_go(const Vec3& dir, Vec3* final_pos, b8* hit_target) const
+b8 Awk::can_shoot(const Vec3& dir, Vec3* final_pos, b8* hit_target) const
 {
 	Vec3 trace_dir = Vec3::normalize(dir);
 
@@ -461,7 +467,7 @@ b8 Awk::can_go(const Vec3& dir, Vec3* final_pos, b8* hit_target) const
 	}
 
 	Vec3 trace_start = center();
-	Vec3 trace_end = trace_start + trace_dir * (snipe ? AWK_SNIPE_DISTANCE : AWK_MAX_DISTANCE);
+	Vec3 trace_end = trace_start + trace_dir * range();
 
 	AwkRaycastCallback ray_callback(trace_start, trace_end, entity());
 	Physics::raycast(&ray_callback, ~CollisionAwkIgnore & ~ally_containment_field_mask());
@@ -499,12 +505,29 @@ b8 Awk::can_go(const Vec3& dir, Vec3* final_pos, b8* hit_target) const
 	}
 }
 
+void Awk::cooldown_setup()
+{
+	cooldown_index = AWK_CHARGES;
+	for (s32 i = 0; i < AWK_CHARGES; i++)
+	{
+		if (cooldowns[i] == 0.0f)
+		{
+			cooldown_index = i;
+			break;
+		}
+	}
+	vi_assert(cooldown_index < AWK_CHARGES);
+	cooldowns[cooldown_index] = AWK_MIN_COOLDOWN;
+}
+
 void Awk::detach_teleport()
 {
 	hit_targets.length = 0;
 
 	attach_time = Game::time.total;
-	cooldown = AWK_MIN_COOLDOWN;
+
+	cooldown_setup();
+
 	get<Transform>()->reparent(nullptr);
 	get<SkinnedModel>()->offset = Mat4::identity;
 
@@ -531,7 +554,7 @@ b8 Awk::dash_start(const Vec3& dir)
 	hit_targets.length = 0;
 
 	attach_time = Game::time.total;
-	cooldown = AWK_MIN_COOLDOWN;
+	cooldown_setup();
 
 	for (s32 i = 0; i < AWK_LEGS; i++)
 		footing[i].parent = nullptr;
@@ -547,31 +570,58 @@ b8 Awk::dash_start(const Vec3& dir)
 	return true;
 }
 
-b8 Awk::cooldown_can_go() const
+s32 Awk::charges() const
 {
-	return cooldown == 0.0f
-		|| (!disable_cooldown_skip && cooldown_total - cooldown > AWK_COOLDOWN_SKIP - AWK_COOLDOWN_SKIP_WINDOW && cooldown_total - cooldown < AWK_COOLDOWN_SKIP + AWK_COOLDOWN_SKIP_WINDOW);
+	s32 count = 0;
+	for (s32 i = 0; i < AWK_CHARGES; i++)
+	{
+		if (cooldowns[i] == 0.0f)
+			count++;
+	}
+	return count;
+}
+
+b8 Awk::cooldown_can_shoot() const
+{
+	return charges() > 0;
+}
+
+#define SNIPE_RANGE_TIME 0.5f
+
+r32 Awk::range() const
+{
+	if (snipe)
+		return Ease::cubic_out(vi_min(1.0f, (Game::time.total - snipe_time) / SNIPE_RANGE_TIME), AWK_MAX_DISTANCE, AWK_SNIPE_DISTANCE);
+	else
+		return AWK_MAX_DISTANCE;
+}
+
+void Awk::snipe_start()
+{
+	snipe = true;
+	snipe_time = Game::time.total;
 }
 
 b8 Awk::detach(const Vec3& dir)
 {
-	if (cooldown_can_go() && stun_timer == 0.0f)
+	if (cooldown_can_shoot() && stun_timer == 0.0f)
 	{
 		Vec3 dir_normalized = Vec3::normalize(dir);
 		if (snipe)
 		{
 			hit_targets.length = 0;
 
-			cooldown = AWK_MAX_DISTANCE_COOLDOWN;
+			for (s32 i = 0; i < AWK_CHARGES; i++)
+				cooldowns[i] = vi_max(cooldowns[i], AWK_MAX_DISTANCE_COOLDOWN * 0.25f);
 
 			Vec3 pos = center();
 			Vec3 ray_start = pos + dir_normalized * -AWK_RADIUS;
-			Vec3 ray_end = pos + dir_normalized * AWK_SNIPE_DISTANCE;
+			Vec3 ray_end = pos + dir_normalized * range();
 			velocity = dir_normalized * AWK_FLY_SPEED;
 			movement_raycast(ray_start, ray_end);
 
 			const r32 interval = 2.0f;
-			s32 particle_count = AWK_SNIPE_DISTANCE / interval;
+			s32 particle_count = range() / interval;
 			Vec3 interval_pos = dir_normalized * interval;
 			for (s32 i = 0; i < particle_count; i++)
 			{
@@ -637,7 +687,7 @@ void Awk::reflect(const Vec3& hit, const Vec3& normal)
 	{
 		Vec3 candidate_velocity = target_quat * Quat::euler(0.0f, mersenne::randf_co() * random_range * 2.0f, (mersenne::randf_co() - 0.5f) * random_range) * Vec3(0, 0, target_speed);
 		Vec3 next_hit;
-		if (can_go(candidate_velocity, &next_hit))
+		if (can_shoot(candidate_velocity, &next_hit))
 		{
 			r32 distance_to_next_hit = (next_hit - hit).length_squared();
 			if (distance_to_next_hit > farthest_distance)
@@ -672,7 +722,8 @@ void Awk::crawl_wall_edge(const Vec3& dir, const Vec3& other_wall_normal, const 
 	if (dir_flattened_length > 0.1f)
 	{
 		dir_flattened /= dir_flattened_length;
-		Vec3 next_pos = get<Transform>()->absolute_pos() + dir_flattened * u.time.delta * speed;
+		Vec3 pos = get<Transform>()->absolute_pos();
+		Vec3 next_pos = pos + dir_flattened * u.time.delta * speed;
 		Vec3 wall_ray_start = next_pos + wall_normal * AWK_RADIUS;
 		Vec3 wall_ray_end = next_pos + wall_normal * AWK_RADIUS * -2.0f;
 
@@ -681,13 +732,19 @@ void Awk::crawl_wall_edge(const Vec3& dir, const Vec3& other_wall_normal, const 
 
 		if (ray_callback.hasHit())
 		{
-			// All good, go ahead
-			move
-			(
-				ray_callback.m_hitPointWorld + ray_callback.m_hitNormalWorld * AWK_RADIUS,
-				Quat::look(ray_callback.m_hitNormalWorld),
-				ray_callback.m_collisionObject->getUserIndex()
-			);
+			// check for obstacles
+			btCollisionWorld::ClosestRayResultCallback ray_callback2(pos, next_pos + dir_flattened * AWK_RADIUS);
+			Physics::raycast(&ray_callback2, ~AWK_PERMEABLE_MASK & ~CollisionAwk & ~ally_containment_field_mask());
+			if (!ray_callback2.hasHit())
+			{
+				// all good, go ahead
+				move
+				(
+					ray_callback.m_hitPointWorld + ray_callback.m_hitNormalWorld * AWK_RADIUS,
+					Quat::look(ray_callback.m_hitNormalWorld),
+					ray_callback.m_collisionObject->getUserIndex()
+				);
+			}
 		}
 	}
 }
@@ -705,13 +762,19 @@ b8 Awk::transfer_wall(const Vec3& dir, const btCollisionWorld::ClosestRayResultC
 	if (dir_flattened_other_wall.dot(wall_normal) > 0.0f
 		&& !(ray_callback.m_collisionObject->getBroadphaseHandle()->m_collisionFilterGroup & AWK_INACCESSIBLE_MASK))
 	{
-		move
-		(
-			ray_callback.m_hitPointWorld + ray_callback.m_hitNormalWorld * AWK_RADIUS,
-			Quat::look(ray_callback.m_hitNormalWorld),
-			ray_callback.m_collisionObject->getUserIndex()
-		);
-		return true;
+		// check for obstacles
+		btCollisionWorld::ClosestRayResultCallback obstacle_ray_callback(ray_callback.m_hitPointWorld, ray_callback.m_hitPointWorld + ray_callback.m_hitNormalWorld * (AWK_RADIUS * 1.1f));
+		Physics::raycast(&obstacle_ray_callback, ~AWK_PERMEABLE_MASK & ~CollisionAwk & ~ally_containment_field_mask());
+		if (!obstacle_ray_callback.hasHit())
+		{
+			move
+			(
+				ray_callback.m_hitPointWorld + ray_callback.m_hitNormalWorld * AWK_RADIUS,
+				Quat::look(ray_callback.m_hitNormalWorld),
+				ray_callback.m_collisionObject->getUserIndex()
+			);
+			return true;
+		}
 	}
 	else
 		return false;
@@ -944,7 +1007,6 @@ void Awk::finish_flying_dashing_common()
 
 	get<Animator>()->layers[0].animation = AssetNull;
 
-	disable_cooldown_skip = false;
 	get<Audio>()->post_event(has<LocalPlayerControl>() ? AK::EVENTS::PLAY_LAND_PLAYER : AK::EVENTS::PLAY_LAND);
 	attach_time = Game::time.total;
 
@@ -1001,7 +1063,10 @@ void Awk::update(const Update& u)
 	if (s == Awk::State::Crawl)
 	{
 		if (stun_timer == 0.0f)
-			cooldown = vi_max(0.0f, cooldown - u.time.delta);
+		{
+			for (s32 i = 0; i < AWK_CHARGES; i++)
+				cooldowns[i] = vi_max(0.0f, cooldowns[i] - u.time.delta);
+		}
 
 		update_lerped_pos(1.0f, u);
 		update_offset();
@@ -1170,8 +1235,7 @@ void Awk::update(const Update& u)
 				Vec3 ray_end = next_position + dir * AWK_RADIUS;
 				movement_raycast(ray_start, ray_end);
 			}
-			cooldown = vi_min(cooldown + (next_position - position).length() * AWK_COOLDOWN_DISTANCE_RATIO, AWK_MAX_DISTANCE_COOLDOWN);
-			cooldown_total = cooldown;
+			cooldowns[cooldown_index] = vi_min(cooldowns[cooldown_index] + (next_position - position).length() * AWK_COOLDOWN_DISTANCE_RATIO, AWK_MAX_DISTANCE_COOLDOWN);
 		}
 	}
 }

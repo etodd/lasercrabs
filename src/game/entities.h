@@ -144,7 +144,6 @@ struct RocketEntity : public Entity
 	RocketEntity(Entity*, Transform*, const Vec3&, const Quat&, AI::Team);
 };
 
-#define CONTAINMENT_FIELD_RADIUS 12.0f
 #define CONTAINMENT_FIELD_BASE_OFFSET 0.95f
 #define CONTAINMENT_FIELD_LIFETIME 20.0f
 struct ContainmentField : public ComponentType<ContainmentField>
@@ -154,6 +153,7 @@ struct ContainmentField : public ComponentType<ContainmentField>
 	static void update_all(const Update&);
 	static ContainmentField* inside(AI::Team, const Vec3&);
 	static ContainmentField* closest(AI::TeamMask, const Vec3&, r32*);
+	static u32 hash(AI::Team, const Vec3&);
 
 	AI::Team team;
 	Ref<Entity> field;
@@ -173,8 +173,7 @@ struct ContainmentFieldEntity : public Entity
 	ContainmentFieldEntity(Transform*, const Vec3&, const Quat&, PlayerManager*);
 };
 
-// for AI
-struct InterestPoint : public ComponentType<InterestPoint>
+struct AICue : public ComponentType<AICue>
 {
 	enum class Type
 	{
@@ -182,8 +181,10 @@ struct InterestPoint : public ComponentType<InterestPoint>
 		Rocket,
 		Snipe,
 	};
+	Type type;
+	r32 radius;
 	void awake() {}
-	static InterestPoint* in_range(const Vec3&);
+	static AICue* in_range(const Vec3&);
 };
 
 struct ShockwaveEntity : public Entity

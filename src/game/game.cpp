@@ -269,7 +269,7 @@ void Game::update(const Update& update_in)
 				case NetworkState::Recover:
 				{
 					state.network_state = NetworkState::Normal;
-					if (mersenne::randf_cc() < (state.network_quality == NetworkQuality::Bad ? 0.6f : 0.3f))
+					if (mersenne::randf_cc() < (state.network_quality == NetworkQuality::Bad ? 0.5f : 0.2f))
 						state.network_time = 0.05f + mersenne::randf_cc() * 0.15f; // go right back into lag state
 					else
 					{
@@ -277,7 +277,7 @@ void Game::update(const Update& update_in)
 						if (state.network_quality == NetworkQuality::Bad)
 							state.network_time = 2.0f + mersenne::randf_cc() * 8.0f;
 						else
-							state.network_time = 20.0f + mersenne::randf_cc() * 30.0f;
+							state.network_time = 20.0f + mersenne::randf_cc() * 50.0f;
 					}
 					break;
 				}
@@ -883,9 +883,9 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 	{
 		// choose network quality
 		r32 random = mersenne::randf_cc();
-		if (random < 0.93f)
+		if (random < 0.95f)
 			state.network_quality = NetworkQuality::Perfect;
-		else if (random < 0.98f)
+		else if (random < 0.99f)
 			state.network_quality = NetworkQuality::Okay;
 		else
 			state.network_quality = NetworkQuality::Bad;
@@ -923,7 +923,6 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 	const Vec3 pvp_player_light(1.0f);
 
 	Array<AI::Team> teams(state.teams, state.teams);
-	u16 hp_start = 1;
 
 	level = Level();
 
@@ -989,8 +988,6 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 
 			level.min_y = Json::get_r32(element, "min_y", -20.0f);
 
-			hp_start = (u16)Json::get_s32(element, "hp_start", 1);
-
 			// initialize teams
 			if (m != Mode::Special)
 			{
@@ -1007,7 +1004,7 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 						AI::Team team = team_lookup(teams, (s32)state.local_player_config[i]);
 
 						PlayerManager* manager = PlayerManager::list.add();
-						new (manager) PlayerManager(&Team::list[(s32)team], hp_start);
+						new (manager) PlayerManager(&Team::list[(s32)team]);
 
 						if (ai_test)
 						{
@@ -1157,7 +1154,7 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 				AI::Team team = team_lookup(teams, Json::get_s32(element, "team", 1));
 
 				PlayerManager* manager = PlayerManager::list.add();
-				new (manager) PlayerManager(&Team::list[(s32)team], hp_start);
+				new (manager) PlayerManager(&Team::list[(s32)team]);
 
 				utf8cpy(manager->username, Usernames::all[mersenne::rand_u32() % Usernames::count]);
 
@@ -1170,6 +1167,7 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 			if (level.has_feature(FeatureLevel::HealthPickups))
 			{
 				entity = World::alloc<HealthPickupEntity>(absolute_pos);
+				absolute_rot = Quat::identity;
 
 				RopeEntry* rope = ropes.add();
 				rope->pos = absolute_pos + Vec3(0, 1, 0);
@@ -1178,12 +1176,12 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 				rope->max_distance = 100.0f;
 			}
 		}
-		else if (cJSON_GetObjectItem(element, "InterestPoint"))
+		else if (cJSON_GetObjectItem(element, "AICue"))
 		{
 			if (state.mode == Mode::Pvp)
 			{
 				entity = World::alloc<Empty>();
-				entity->create<InterestPoint>();
+				entity->create<AICue>();
 			}
 		}
 		else if (cJSON_GetObjectItem(element, "SkyDecal"))

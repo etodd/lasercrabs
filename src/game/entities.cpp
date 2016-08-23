@@ -101,7 +101,7 @@ HealthPickupEntity::HealthPickupEntity(const Vec3& p)
 	model->mesh = Asset::Mesh::target;
 	model->shader = Asset::Shader::standard;
 
-	create<InterestPoint>();
+	create<AICue>();
 
 	PointLight* light = create<PointLight>();
 	light->radius = 8.0f;
@@ -311,7 +311,7 @@ s32 ControlPoint::count(AI::TeamMask mask)
 	s32 count = 0;
 	for (auto i = list.iterator(); !i.is_last(); i.next())
 	{
-		if (mask & (1 << i.item()->team))
+		if (AI::match(i.item()->team, mask))
 			count++;
 	}
 	return count;
@@ -324,7 +324,7 @@ ControlPoint* ControlPoint::closest(AI::TeamMask mask, const Vec3& pos, r32* dis
 
 	for (auto i = list.iterator(); !i.is_last(); i.next())
 	{
-		if (mask & (1 << i.item()->team))
+		if (AI::match(i.item()->team, mask))
 		{
 			r32 d = (i.item()->get<Transform>()->absolute_pos() - pos).length_squared();
 			if (d < closest_distance)
@@ -431,7 +431,7 @@ Sensor* Sensor::closest(AI::TeamMask mask, const Vec3& pos, r32* distance)
 
 	for (auto i = list.iterator(); !i.is_last(); i.next())
 	{
-		if (mask & (1 << i.item()->team))
+		if (AI::match(i.item()->team, mask))
 		{
 			r32 d = (i.item()->get<Transform>()->absolute_pos() - pos).length_squared();
 			if (d < closest_distance)
@@ -454,9 +454,9 @@ Sensor* Sensor::closest(AI::TeamMask mask, const Vec3& pos, r32* distance)
 }
 
 // returns the closest sensor interest point within range of the given position, or null
-InterestPoint* InterestPoint::in_range(const Vec3& pos)
+AICue* AICue::in_range(const Vec3& pos)
 {
-	InterestPoint* closest = nullptr;
+	AICue* closest = nullptr;
 	r32 closest_distance = SENSOR_RANGE * SENSOR_RANGE;
 
 	for (auto i = list.iterator(); !i.is_last(); i.next())
@@ -514,7 +514,7 @@ Rocket* Rocket::closest(AI::TeamMask mask, const Vec3& pos, r32* distance)
 
 	for (auto i = list.iterator(); !i.is_last(); i.next())
 	{
-		if (mask & (1 << i.item()->team))
+		if (AI::match(i.item()->team, mask))
 		{
 			r32 d = (i.item()->get<Transform>()->absolute_pos() - pos).length_squared();
 			if (d < closest_distance)
@@ -703,6 +703,22 @@ ContainmentField* ContainmentField::inside(AI::Team my_team, const Vec3& pos)
 	return nullptr;
 }
 
+// describes which enemy containment fields you are currently inside
+u32 ContainmentField::hash(AI::Team my_team, const Vec3& pos)
+{
+	u32 result = 0;
+	for (auto i = list.iterator(); !i.is_last(); i.next())
+	{
+		if (i.item()->team != my_team && (pos - i.item()->get<Transform>()->absolute_pos()).length_squared() < CONTAINMENT_FIELD_RADIUS * CONTAINMENT_FIELD_RADIUS)
+		{
+			if (result == 0)
+				result = 1;
+			result += MAX_ENTITIES % (i.index + 37); // todo: learn how to math
+		}
+	}
+	return result;
+}
+
 ContainmentField::ContainmentField(const Vec3& abs_pos, PlayerManager* m)
 	: team(m->team.ref()->team()), owner(m), remaining_lifetime(CONTAINMENT_FIELD_LIFETIME), powered()
 {
@@ -753,7 +769,7 @@ ContainmentField* ContainmentField::closest(AI::TeamMask mask, const Vec3& pos, 
 
 	for (auto i = list.iterator(); !i.is_last(); i.next())
 	{
-		if (mask & (1 << i.item()->team))
+		if (AI::match(i.item()->team, mask))
 		{
 			r32 d = (i.item()->get<Transform>()->absolute_pos() - pos).length_squared();
 			if (d < closest_distance)

@@ -83,6 +83,35 @@ btScalar AwkRaycastCallback::addSingleResult(btCollisionWorld::LocalRayResult& r
 	return ray_result.m_hitFraction;
 }
 
+Awk* Awk::closest(AI::TeamMask mask, const Vec3& pos, r32* distance)
+{
+	Awk* closest = nullptr;
+	r32 closest_distance = FLT_MAX;
+
+	for (auto i = list.iterator(); !i.is_last(); i.next())
+	{
+		if (AI::match(i.item()->get<AIAgent>()->team, mask))
+		{
+			r32 d = (i.item()->get<Transform>()->absolute_pos() - pos).length_squared();
+			if (d < closest_distance)
+			{
+				closest = i.item();
+				closest_distance = d;
+			}
+		}
+	}
+
+	if (distance)
+	{
+		if (closest)
+			*distance = sqrtf(closest_distance);
+		else
+			*distance = FLT_MAX;
+	}
+
+	return closest;
+}
+
 Awk::Awk()
 	: velocity(0.0f, -AWK_FLY_SPEED, 0.0f),
 	done_flying(),

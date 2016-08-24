@@ -105,7 +105,10 @@ void update(const Update& u)
 
 b8 match(Team t, TeamMask m)
 {
-	return (t == AI::NoTeam && m == AI::NoTeam) || (m & (1 << t));
+	if (t == AI::NoTeam)
+		return m == AI::NoTeam;
+	else
+		return m & (1 << t);
 }
 
 u32 obstacle_add(const Vec3& pos, r32 radius, r32 height)

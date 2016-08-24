@@ -4,6 +4,7 @@
 #include "lmath.h"
 #include "bullet/src/BulletCollision/CollisionDispatch/btCollisionWorld.h"
 #include "data/import_common.h"
+#include "ai.h"
 
 namespace VI
 {
@@ -56,6 +57,8 @@ struct Awk : public ComponentType<Awk>
 		Vec3 last_abs_pos;
 		r32 blend;
 	};
+
+	static Awk* closest(AI::TeamMask, const Vec3&, r32* = nullptr);
 
 	Vec3 velocity;
 	Link done_flying;

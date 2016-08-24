@@ -77,7 +77,7 @@ struct AIPlayer
 	}
 	void update(const Update&);
 	void spawn();
-	Upgrade saving_up() const;
+	s32 save_up_priority() const;
 };
 
 #define MAX_MEMORY 8

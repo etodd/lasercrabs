@@ -1180,8 +1180,16 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 		{
 			if (state.mode == Mode::Pvp)
 			{
+				const char* type = Json::get_string(element, "AICue");
+				AICue::Type t;
+				if (strcmp(type, "rocket") == 0)
+					t = AICue::Type::Rocket;
+				else if (strcmp(type, "snipe") == 0)
+					t = AICue::Type::Snipe;
+				else
+					t = AICue::Type::Sensor;
 				entity = World::alloc<Empty>();
-				entity->create<AICue>();
+				entity->create<AICue>(t);
 			}
 		}
 		else if (cJSON_GetObjectItem(element, "SkyDecal"))

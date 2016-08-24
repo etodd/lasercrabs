@@ -29,28 +29,60 @@ AIPlayer::Config::Config()
 	aim_speed(3.0f),
 	aim_min_delay(0.3f),
 	dodge_chance(0.5f),
-	upgrade_priority
-	{
-		Upgrade::Minion,
-		Upgrade::Sensor,
-		Upgrade::Rocket,
-		Upgrade::Sniper,
-		Upgrade::ContainmentField,
-	},
-	upgrade_strategies
-	{
-		UpgradeStrategy::IfAvailable, // sensor
-		UpgradeStrategy::Ignore, // rocket
-		UpgradeStrategy::SaveUp, // minion
-		UpgradeStrategy::IfAvailable, // containment field
-		UpgradeStrategy::IfAvailable, // sniper
-	}
+	upgrade_priority { },
+	upgrade_strategies { }
 {
 }
 
 AIPlayer::Config AIPlayer::generate_config()
 {
 	Config config;
+
+	switch (mersenne::rand() % 3)
+	{
+		case 0:
+		{
+			config.upgrade_priority[0] = Upgrade::ContainmentField;
+			config.upgrade_priority[1] = Upgrade::Rocket;
+			config.upgrade_priority[2] = Upgrade::Minion;
+			config.upgrade_priority[3] = Upgrade::Sensor;
+			config.upgrade_priority[4] = Upgrade::Sniper;
+			config.upgrade_strategies[0] = UpgradeStrategy::Ignore; // sensor
+			config.upgrade_strategies[1] = UpgradeStrategy::SaveUp; // rocket
+			config.upgrade_strategies[2] = UpgradeStrategy::Ignore; // minion
+			config.upgrade_strategies[3] = UpgradeStrategy::IfAvailable; // containment field
+			config.upgrade_strategies[4] = UpgradeStrategy::Ignore; // sniper
+			break;
+		}
+		case 1:
+		{
+			config.upgrade_priority[0] = Upgrade::Sensor;
+			config.upgrade_priority[1] = Upgrade::Rocket;
+			config.upgrade_priority[2] = Upgrade::Minion;
+			config.upgrade_priority[3] = Upgrade::Sensor;
+			config.upgrade_priority[4] = Upgrade::Sniper;
+			config.upgrade_strategies[0] = UpgradeStrategy::IfAvailable; // sensor
+			config.upgrade_strategies[1] = UpgradeStrategy::SaveUp; // rocket
+			config.upgrade_strategies[2] = UpgradeStrategy::IfAvailable; // minion
+			config.upgrade_strategies[3] = UpgradeStrategy::Ignore; // containment field
+			config.upgrade_strategies[4] = UpgradeStrategy::Ignore; // sniper
+			break;
+		}
+		default:
+		{
+			config.upgrade_priority[0] = Upgrade::Minion;
+			config.upgrade_priority[1] = Upgrade::ContainmentField;
+			config.upgrade_priority[2] = Upgrade::Sensor;
+			config.upgrade_priority[3] = Upgrade::Rocket;
+			config.upgrade_priority[4] = Upgrade::Sniper;
+			config.upgrade_strategies[0] = UpgradeStrategy::SaveUp; // sensor
+			config.upgrade_strategies[1] = UpgradeStrategy::Ignore; // rocket
+			config.upgrade_strategies[2] = UpgradeStrategy::IfAvailable; // minion
+			config.upgrade_strategies[3] = UpgradeStrategy::IfAvailable; // containment field
+			config.upgrade_strategies[4] = UpgradeStrategy::Ignore; // sniper
+			break;
+		}
+	}
 	return config;
 }
 
@@ -83,19 +115,42 @@ void AIPlayer::spawn()
 	e->add<AIPlayerControl>(this);
 }
 
-Upgrade AIPlayer::saving_up() const
+// save up priority ranges from -2 to 3
+s32 AIPlayer::save_up_priority() const
 {
+	u16 increment = manager.ref()->increment();
+	u16 credits = manager.ref()->credits;
 	for (s32 i = 0; i < (s32)Upgrade::count; i++)
 	{
 		Upgrade upgrade = config.upgrade_priority[i];
-		if (manager.ref()->upgrade_available(upgrade)
-			&& !manager.ref()->has_upgrade(upgrade)
-			&& config.upgrade_strategies[(s32)upgrade] == UpgradeStrategy::SaveUp)
+		if (manager.ref()->upgrade_available(upgrade))
 		{
-			return upgrade;
+			UpgradeStrategy strategy = config.upgrade_strategies[(s32)upgrade];
+			s32 priority;
+			if (strategy == UpgradeStrategy::Ignore)
+				continue;
+			else if (strategy == UpgradeStrategy::IfAvailable)
+				priority = 1;
+			else // save up
+				priority = 2;
+
+			if (credits < manager.ref()->upgrade_cost(upgrade) * 1.2f)
+				priority += 1;
+
+			if (increment > 20)
+				priority -= 2;
+			else if (increment > 10)
+				priority -= 1;
+			else if (increment < 5)
+				priority += 1;
+			return priority;
 		}
 	}
-	return Upgrade::None;
+
+	if (credits < 80 && increment < 5)
+		return 1;
+
+	return 0;
 }
 
 AIPlayerControl::AIPlayerControl(AIPlayer* p)
@@ -655,12 +710,16 @@ b8 containment_field_filter(const AIPlayerControl* control, const Entity* e)
 	return field->team != control->get<AIAgent>()->team && field->contains(control->get<Transform>()->absolute_pos());
 }
 
-b8 sensor_interest_point_filter(const AIPlayerControl* control, const Entity* e)
+b8 aicue_sensor_filter(const AIPlayerControl* control, const Entity* e)
 {
 	// only interested in interest points we don't have control over yet
-	r32 closest_distance;
-	Sensor::closest(1 << control->get<AIAgent>()->team, e->get<Transform>()->absolute_pos(), &closest_distance);
-	return closest_distance > SENSOR_RANGE;
+	if (e->get<AICue>()->type & AICue::Type::Sensor)
+	{
+		r32 closest_distance;
+		Sensor::closest(1 << control->get<AIAgent>()->team, e->get<Transform>()->absolute_pos(), &closest_distance);
+		return closest_distance > SENSOR_RANGE;
+	}
+	return false;
 }
 
 MemoryStatus default_memory_filter(const AIPlayerControl* control, const Entity* e)
@@ -675,26 +734,27 @@ Upgrade want_available_upgrade(const AIPlayerControl* control)
 
 	PlayerManager* manager = control->player.ref()->manager.ref();
 	const AIPlayer::Config& config = control->config();
-	Upgrade if_available = Upgrade::None;
 	for (s32 i = 0; i < (s32)Upgrade::count; i++)
 	{
 		Upgrade upgrade = config.upgrade_priority[i];
 		if (manager->upgrade_available(upgrade)
-			&& manager->credits >= manager->upgrade_cost(upgrade))
+			&& manager->credits > manager->upgrade_cost(upgrade)
+			&& config.upgrade_strategies[(s32)upgrade] != AIPlayer::UpgradeStrategy::Ignore)
 		{
-			AIPlayer::UpgradeStrategy strategy = config.upgrade_strategies[(s32)upgrade];
-			if (strategy == AIPlayer::UpgradeStrategy::SaveUp)
-				return upgrade;
-			else if (strategy == AIPlayer::UpgradeStrategy::IfAvailable && if_available == Upgrade::None)
-				if_available = upgrade;
+			return upgrade;
 		}
 	}
-	return if_available;
+	return Upgrade::None;
 }
 
 b8 want_upgrade_filter(const AIPlayerControl* control)
 {
-	return want_available_upgrade(control) != Upgrade::None;
+	return want_available_upgrade(control) != Upgrade::None && control->player.ref()->save_up_priority() > 0;
+}
+
+b8 really_want_upgrade_filter(const AIPlayerControl* control)
+{
+	return want_available_upgrade(control) != Upgrade::None && control->player.ref()->save_up_priority() > 1;
 }
 
 b8 should_spawn_sensor(const AIPlayerControl* control)
@@ -705,11 +765,9 @@ b8 should_spawn_sensor(const AIPlayerControl* control)
 	Sensor::closest(1 << control->get<AIAgent>()->team, me, &closest_friendly_sensor);
 	if (closest_friendly_sensor > SENSOR_RANGE)
 	{
-		if (control->player.ref()->saving_up() == Upgrade::None) // only capture other stuff if we're not saving up for anything
-		{
-			if (AICue::in_range(me))
-				return true;
-		}
+		s32 cues_in_range;
+		AICue::in_range(AICue::Type::Sensor, me, SENSOR_RANGE, &cues_in_range);
+		return cues_in_range > 0 && cues_in_range >= control->player.ref()->save_up_priority();
 	}
 
 	return false;
@@ -722,57 +780,100 @@ b8 attack_inbound(const AIPlayerControl* control)
 
 b8 should_spawn_rocket(const AIPlayerControl* control)
 {
-	if (control->player.ref()->saving_up() == Upgrade::None) // rockets are a luxury
+	Vec3 pos;
+	Quat rot;
+	control->get<Transform>()->absolute(&pos, &rot);
+
+	s32 priority = AICue::in_range(AICue::Type::Rocket, pos, 8.0f) ? 2 : 1;
+
+	if (Sensor::can_see(control->get<AIAgent>()->team, pos, rot * Vec3(0, 0, 1)))
+		priority += 1;
+
+	r32 closest_enemy_awk;
+	Awk::closest(~(1 << control->get<AIAgent>()->team), control->get<Transform>()->absolute_pos(), &closest_enemy_awk);
+	if (closest_enemy_awk < 8.0f)
+		priority -= 1; // too close
+	else if (closest_enemy_awk < AWK_MAX_DISTANCE)
+		priority += 1;
+
+	if (control->player.ref()->save_up_priority() < priority)
 	{
-		// todo
-		return false;
+		// make sure it's in a relatively open area
+		s16 mask = ~AWK_PERMEABLE_MASK & ~CollisionAwk & ~control->get<Awk>()->ally_containment_field_mask();
+		s32 count = 0;
+		for (s32 i = 0; i < 16; i++)
+		{
+			Vec3 ray = rot * (Quat::euler(PI + (mersenne::randf_co() - 0.5f) * PI, (PI * 0.5f) + (mersenne::randf_co() - 0.5f) * PI, 0) * Vec3(1, 0, 0));
+			btCollisionWorld::ClosestRayResultCallback ray_callback(pos, pos + ray * AWK_MAX_DISTANCE * 0.5f);
+			Physics::raycast(&ray_callback, mask);
+			if (ray_callback.hasHit())
+				count++;
+		}
+		return count < 8;
+	}
+	return false;
+}
+
+b8 should_spawn_containment_field(const AIPlayerControl* control)
+{
+	s32 save_up_priority = control->player.ref()->save_up_priority();
+	if (save_up_priority < 2)
+	{
+		r32 closest_distance;
+		HealthPickup::closest(1 << control->get<AIAgent>()->team, control->get<Transform>()->absolute_pos(), &closest_distance);
+		if (closest_distance < CONTAINMENT_FIELD_RADIUS)
+			return true;
+	}
+
+	if (save_up_priority < 1)
+	{
+		r32 closest_distance;
+		Awk* closest = Awk::closest(~(1 << control->get<AIAgent>()->team), control->get<Transform>()->absolute_pos(), &closest_distance);
+		if (closest_distance < CONTAINMENT_FIELD_RADIUS && closest->get<Health>()->hp <= control->get<Health>()->hp)
+			return true;
 	}
 	return false;
 }
 
 b8 should_spawn_minion(const AIPlayerControl* control)
 {
-	if (control->player.ref()->saving_up() == Upgrade::None) // minions are a luxury
+	if (control->player.ref()->save_up_priority() < 2)
 	{
 		AI::Team my_team = control->get<AIAgent>()->team;
 		Vec3 my_pos;
 		Quat my_rot;
 		control->get<Transform>()->absolute(&my_pos, &my_rot);
-		r32 closest_minion;
-		MinionCommon::closest(1 << my_team, my_pos, &closest_minion);
-		if (closest_minion > AWK_MAX_DISTANCE)
+
+		b8 spawn = false;
+		r32 closest_enemy_sensor;
+		Sensor::closest(~(1 << my_team), my_pos, &closest_enemy_sensor);
+		if (closest_enemy_sensor < SENSOR_RANGE + AWK_MAX_DISTANCE)
+			spawn = true;
+
+		if (!spawn)
 		{
-			b8 spawn = false;
-			r32 closest_enemy_sensor;
-			Sensor::closest(~(1 << my_team), my_pos, &closest_enemy_sensor);
-			if (closest_enemy_sensor < SENSOR_RANGE + AWK_MAX_DISTANCE)
+			r32 closest_enemy_rocket;
+			Rocket::closest(~(1 << my_team), my_pos, &closest_enemy_rocket);
+			if (closest_enemy_rocket < ROCKET_RANGE)
 				spawn = true;
+		}
 
-			if (!spawn)
-			{
-				r32 closest_enemy_rocket;
-				Rocket::closest(~(1 << my_team), my_pos, &closest_enemy_rocket);
-				if (closest_enemy_rocket < ROCKET_RANGE)
-					spawn = true;
-			}
+		if (!spawn)
+		{
+			r32 closest_enemy_field;
+			ContainmentField::closest(~(1 << my_team), my_pos, &closest_enemy_field);
+			if (closest_enemy_field < CONTAINMENT_FIELD_RADIUS + AWK_MAX_DISTANCE)
+				spawn = true;
+		}
 
-			if (!spawn)
-			{
-				r32 closest_enemy_field;
-				ContainmentField::closest(~(1 << my_team), my_pos, &closest_enemy_field);
-				if (closest_enemy_field < CONTAINMENT_FIELD_RADIUS + AWK_MAX_DISTANCE)
-					spawn = true;
-			}
-
-			if (spawn)
-			{
-				// make sure the minion has a reasonably close surface to stand on
-				Vec3 ray_start = my_pos + my_rot * Vec3(0, 0, 1);
-				btCollisionWorld::ClosestRayResultCallback ray_callback(ray_start, ray_start + Vec3(0, -5, 0));
-				Physics::raycast(&ray_callback, ~CollisionWalker & ~CollisionTarget & ~CollisionShield & ~CollisionAwk & ~CollisionAllTeamsContainmentField);
-				if (ray_callback.hasHit())
-					return true;
-			}
+		if (spawn)
+		{
+			// make sure the minion has a reasonably close surface to stand on
+			Vec3 ray_start = my_pos + my_rot * Vec3(0, 0, 1);
+			btCollisionWorld::ClosestRayResultCallback ray_callback(ray_start, ray_start + Vec3(0, -5, 0));
+			Physics::raycast(&ray_callback, ~AWK_PERMEABLE_MASK & ~CollisionAwk & ~control->get<Awk>()->ally_containment_field_mask());
+			if (ray_callback.hasHit())
+				return true;
 		}
 	}
 	return false;
@@ -817,6 +918,7 @@ Repeat* make_low_level_loop(AIPlayerControl* control, const AIPlayer::Config& co
 									AIBehaviors::AbilitySpawn::alloc(4, Upgrade::Minion, Ability::Minion, &should_spawn_minion),
 									AIBehaviors::AbilitySpawn::alloc(4, Upgrade::Sensor, Ability::Sensor, &should_spawn_sensor),
 									AIBehaviors::AbilitySpawn::alloc(4, Upgrade::Rocket, Ability::Rocket, &should_spawn_rocket),
+									AIBehaviors::AbilitySpawn::alloc(4, Upgrade::ContainmentField, Ability::ContainmentField, &should_spawn_containment_field),
 									Sequence::alloc
 									(
 										AIBehaviors::ReactControlPoint::alloc(4, &enemy_control_point_filter),
@@ -876,6 +978,11 @@ Repeat* make_high_level_loop(AIPlayerControl* control, const AIPlayer::Config& c
 								Sequence::alloc
 								(
 									AIBehaviors::Test::alloc(&want_upgrade_filter),
+									AIBehaviors::Find::alloc(ControlPoint::family, 3, &default_filter)
+								),
+								Sequence::alloc
+								(
+									AIBehaviors::Test::alloc(&really_want_upgrade_filter),
 									AIBehaviors::Find::alloc(ControlPoint::family, 4, &default_filter)
 								),
 								AIBehaviors::Find::alloc(ControlPoint::family, 2, &enemy_control_point_filter),
@@ -888,7 +995,7 @@ Repeat* make_high_level_loop(AIPlayerControl* control, const AIPlayer::Config& c
 								Sequence::alloc
 								(
 									AIBehaviors::HasUpgrade::alloc(Upgrade::Sensor),
-									AIBehaviors::Find::alloc(AICue::family, 2, &sensor_interest_point_filter)
+									AIBehaviors::Find::alloc(AICue::family, 2, &aicue_sensor_filter)
 								),
 								AIBehaviors::RandomPath::alloc(1),
 								AIBehaviors::Panic::alloc(1)

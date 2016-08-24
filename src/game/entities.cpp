@@ -101,7 +101,7 @@ HealthPickupEntity::HealthPickupEntity(const Vec3& p)
 	model->mesh = Asset::Mesh::target;
 	model->shader = Asset::Shader::standard;
 
-	create<AICue>();
+	create<AICue>(AICue::Type::Sensor | AICue::Type::Rocket);
 
 	PointLight* light = create<PointLight>();
 	light->radius = 8.0f;
@@ -120,6 +120,37 @@ HealthPickupEntity::HealthPickupEntity(const Vec3& p)
 r32 HealthPickup::Key::priority(HealthPickup* p)
 {
 	return (p->get<Transform>()->absolute_pos() - me).length_squared() * (closest_first ? 1.0f : -1.0f);
+}
+
+HealthPickup* HealthPickup::closest(AI::TeamMask mask, const Vec3& pos, r32* distance)
+{
+	HealthPickup* closest = nullptr;
+	r32 closest_distance = FLT_MAX;
+
+	for (auto i = list.iterator(); !i.is_last(); i.next())
+	{
+		Health* owner = i.item()->owner.ref();
+		AI::Team team = owner ? owner->get<AIAgent>()->team : AI::NoTeam;
+		if (AI::match(team, mask))
+		{
+			r32 d = (i.item()->get<Transform>()->absolute_pos() - pos).length_squared();
+			if (d < closest_distance)
+			{
+				closest = i.item();
+				closest_distance = d;
+			}
+		}
+	}
+
+	if (distance)
+	{
+		if (closest)
+			*distance = sqrtf(closest_distance);
+		else
+			*distance = FLT_MAX;
+	}
+
+	return closest;
 }
 
 s32 HealthPickup::count(Health* owner)
@@ -464,24 +495,37 @@ Sensor* Sensor::closest(AI::TeamMask mask, const Vec3& pos, r32* distance)
 	return closest;
 }
 
+AICue::AICue(TypeMask t)
+	: type(t)
+{
+}
+
 // returns the closest sensor interest point within range of the given position, or null
-AICue* AICue::in_range(const Vec3& pos)
+AICue* AICue::in_range(AICue::TypeMask mask, const Vec3& pos, r32 radius, s32* count)
 {
 	AICue* closest = nullptr;
-	r32 closest_distance = SENSOR_RANGE * SENSOR_RANGE;
+	r32 closest_distance = radius * radius;
+
+	s32 c = 0;
 
 	for (auto i = list.iterator(); !i.is_last(); i.next())
 	{
-		Vec3 point_pos;
-		Quat point_rot;
-		i.item()->get<Transform>()->absolute(&point_pos, &point_rot);
-		r32 d = (point_pos - pos).length_squared();
-		if (d < closest_distance)
+		if (mask & i.item()->type)
 		{
-			closest = i.item();
-			closest_distance = d;
+			r32 d = (i.item()->get<Transform>()->absolute_pos() - pos).length_squared();
+			if (d < closest_distance)
+			{
+				closest = i.item();
+				closest_distance = d;
+			}
+
+			if (d < radius * radius)
+				c++;
 		}
 	}
+
+	if (count)
+		*count = c;
 
 	return closest;
 }

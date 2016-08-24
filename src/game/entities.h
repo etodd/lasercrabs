@@ -64,6 +64,7 @@ struct HealthPickup : public ComponentType<HealthPickup>
 
 	static void update_all(const Update&);
 	static void sort_all(const Vec3&, Array<Ref<HealthPickup>>*, b8, Health* = nullptr);
+	static HealthPickup* closest(AI::TeamMask, const Vec3&, r32* = nullptr);
 	static s32 count(Health*);
 
 	Ref<Health> owner;
@@ -178,16 +179,21 @@ struct ContainmentFieldEntity : public Entity
 
 struct AICue : public ComponentType<AICue>
 {
-	enum class Type
+	enum Type
 	{
-		Sensor,
-		Rocket,
-		Snipe,
+		Sensor = 1,
+		Rocket = 1 << 1,
+		Snipe = 1 << 2,
 	};
-	Type type;
-	r32 radius;
+
+	typedef s32 TypeMask;
+	static const TypeMask TypeAll = (TypeMask)-1;
+
+	static AICue* in_range(TypeMask, const Vec3&, r32, s32* = nullptr);
+
+	TypeMask type;
+	AICue(TypeMask);
 	void awake() {}
-	static AICue* in_range(const Vec3&);
 };
 
 struct ShockwaveEntity : public Entity

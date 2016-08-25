@@ -44,7 +44,7 @@ namespace VI
 		},
 		{
 			Asset::Mesh::icon_rocket,
-			1.25f,
+			1.0f,
 			10,
 		},
 		{
@@ -54,7 +54,7 @@ namespace VI
 		},
 		{
 			Asset::Mesh::icon_containment_field,
-			0.75f,
+			1.0f,
 			20,
 		},
 		{
@@ -252,6 +252,7 @@ namespace VI
 			{
 				game_over = true;
 				game_over_real_time = Game::real_time.total;
+				vi_debug("Game over. Time: %f\n", Game::time.total);
 
 				// remove in-flight projectiles
 				{
@@ -563,6 +564,11 @@ namespace VI
 		if (credits < info.spawn_cost)
 			return false;
 
+		// can't spawn a containment field inside another containment field
+		if (ability == Ability::ContainmentField
+			&& ContainmentField::inside(AI::NoTeam, entity.ref()->get<Transform>()->absolute_pos()))
+			return false;
+
 		current_spawn_ability = ability;
 		state_timer = info.spawn_time;
 
@@ -596,85 +602,82 @@ namespace VI
 		}
 
 		u16 cost = AbilityInfo::list[(s32)ability].spawn_cost;
-		if (credits < cost)
+		if (credits < cost
+			|| awk->get<Awk>()->state() != Awk::State::Crawl
+			|| (ability == Ability::ContainmentField && ContainmentField::inside(AI::NoTeam, entity.ref()->get<Transform>()->absolute_pos()))) // can't spawn containment fields inside each other
 		{
 			ability_spawn_canceled.fire(ability);
 			return;
 		}
 
-		if (awk->get<Awk>()->state() == Awk::State::Crawl)
+		add_credits(-cost);
+		switch (ability)
 		{
-			add_credits(-cost);
-			switch (ability)
+			case Ability::Sensor:
 			{
-				case Ability::Sensor:
-				{
-					// place a proximity sensor
-					Vec3 abs_pos;
-					Quat abs_rot;
-					awk->get<Transform>()->absolute(&abs_pos, &abs_rot);
+				// place a proximity sensor
+				Vec3 abs_pos;
+				Quat abs_rot;
+				awk->get<Transform>()->absolute(&abs_pos, &abs_rot);
 
-					Entity* sensor = World::create<SensorEntity>(this, abs_pos + abs_rot * Vec3(0, 0, -AWK_RADIUS + (rope_segment_length * 2.0f) - rope_radius + SENSOR_RADIUS), abs_rot);
+				Entity* sensor = World::create<SensorEntity>(this, abs_pos + abs_rot * Vec3(0, 0, -AWK_RADIUS + (rope_segment_length * 2.0f) - rope_radius + SENSOR_RADIUS), abs_rot);
 
-					Audio::post_global_event(AK::EVENTS::PLAY_SENSOR_SPAWN, abs_pos);
+				Audio::post_global_event(AK::EVENTS::PLAY_SENSOR_SPAWN, abs_pos);
 
-					// attach it to the wall
-					Rope* rope = Rope::start(awk->get<Transform>()->parent.ref()->get<RigidBody>(), abs_pos + abs_rot * Vec3(0, 0, -AWK_RADIUS), abs_rot * Vec3(0, 0, 1), abs_rot);
-					rope->end(abs_pos + abs_rot * Vec3(0, 0, -AWK_RADIUS + (rope_segment_length * 2.0f)), abs_rot * Vec3(0, 0, -1), sensor->get<RigidBody>());
-					break;
-				}
-				case Ability::Rocket:
-				{
-					// spawn a rocket pod
-					Quat rot = awk->get<Transform>()->absolute_rot();
-					Vec3 pos = awk->get<Transform>()->absolute_pos() + rot * Vec3(0, 0, -AWK_RADIUS);
-					Transform* parent = awk->get<Transform>()->parent.ref();
-					World::create<RocketEntity>(awk, parent, pos, rot, team.ref()->team());
-
-					// rocket base
-					Entity* base = World::alloc<Prop>(Asset::Mesh::rocket_base);
-					base->get<Transform>()->absolute(pos, rot);
-					base->get<Transform>()->reparent(parent);
-					base->get<View>()->team = (u8)team.ref()->team();
-					break;
-				}
-				case Ability::Minion:
-				{
-					// spawn a minion
-					Vec3 pos;
-					Quat rot;
-					awk->get<Transform>()->absolute(&pos, &rot);
-					pos += rot * Vec3(0, 0, 1.0f);
-					World::create<Minion>(pos, Quat::euler(0, awk->get<PlayerCommon>()->angle_horizontal, 0), team.ref()->team(), this);
-
-					Audio::post_global_event(AK::EVENTS::PLAY_MINION_SPAWN, pos);
-					break;
-				}
-				case Ability::ContainmentField:
-				{
-					// spawn a containment field
-					Vec3 pos;
-					Quat rot;
-					awk->get<Transform>()->absolute(&pos, &rot);
-					pos += rot * Vec3(0, 0, CONTAINMENT_FIELD_BASE_OFFSET);
-					World::create<ContainmentFieldEntity>(awk->get<Transform>()->parent.ref(), pos, rot, this);
-					break;
-				}
-				case Ability::Sniper:
-				{
-					awk->get<Awk>()->snipe_start();
-					break;
-				}
-				default:
-				{
-					vi_assert(false);
-					break;
-				}
+				// attach it to the wall
+				Rope* rope = Rope::start(awk->get<Transform>()->parent.ref()->get<RigidBody>(), abs_pos + abs_rot * Vec3(0, 0, -AWK_RADIUS), abs_rot * Vec3(0, 0, 1), abs_rot);
+				rope->end(abs_pos + abs_rot * Vec3(0, 0, -AWK_RADIUS + (rope_segment_length * 2.0f)), abs_rot * Vec3(0, 0, -1), sensor->get<RigidBody>());
+				break;
 			}
-			ability_spawned.fire(ability);
+			case Ability::Rocket:
+			{
+				// spawn a rocket pod
+				Quat rot = awk->get<Transform>()->absolute_rot();
+				Vec3 pos = awk->get<Transform>()->absolute_pos() + rot * Vec3(0, 0, -AWK_RADIUS);
+				Transform* parent = awk->get<Transform>()->parent.ref();
+				World::create<RocketEntity>(awk, parent, pos, rot, team.ref()->team());
+
+				// rocket base
+				Entity* base = World::alloc<Prop>(Asset::Mesh::rocket_base);
+				base->get<Transform>()->absolute(pos, rot);
+				base->get<Transform>()->reparent(parent);
+				base->get<View>()->team = (u8)team.ref()->team();
+				break;
+			}
+			case Ability::Minion:
+			{
+				// spawn a minion
+				Vec3 pos;
+				Quat rot;
+				awk->get<Transform>()->absolute(&pos, &rot);
+				pos += rot * Vec3(0, 0, 1.0f);
+				World::create<Minion>(pos, Quat::euler(0, awk->get<PlayerCommon>()->angle_horizontal, 0), team.ref()->team(), this);
+
+				Audio::post_global_event(AK::EVENTS::PLAY_MINION_SPAWN, pos);
+				break;
+			}
+			case Ability::ContainmentField:
+			{
+				// spawn a containment field
+				Vec3 pos;
+				Quat rot;
+				awk->get<Transform>()->absolute(&pos, &rot);
+				pos += rot * Vec3(0, 0, CONTAINMENT_FIELD_BASE_OFFSET);
+				World::create<ContainmentFieldEntity>(awk->get<Transform>()->parent.ref(), pos, rot, this);
+				break;
+			}
+			case Ability::Sniper:
+			{
+				awk->get<Awk>()->snipe_start();
+				break;
+			}
+			default:
+			{
+				vi_assert(false);
+				break;
+			}
 		}
-		else // we're not in Crawl state
-			ability_spawn_canceled.fire(ability);
+		ability_spawned.fire(ability);
 	}
 
 	PinArray<PlayerManager, MAX_PLAYERS> PlayerManager::list;

@@ -53,6 +53,7 @@ namespace AI
 	struct AwkPathNode
 	{
 		Vec3 pos;
+		Vec3 normal;
 		AwkNavMeshNode ref;
 	};
 	typedef StaticArray<AwkPathNode, MAX_PATH_LENGTH> AwkPath;

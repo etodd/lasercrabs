@@ -284,8 +284,6 @@ void awk_astar(AI::Team team, const AwkNavMeshNode& start_vertex, const AstarSco
 		vertex_data->in_queue = false;
 
 		const Vec3& vertex_pos = awk_nav_mesh.chunks[vertex_node.chunk].vertices[vertex_node.vertex];
-		if (containment_field_hash(team, vertex_pos) != start_field_hash)
-			continue; // it's in a different containment field; unreachable
 
 		if (scorer->done(vertex_node, *vertex_data))
 		{
@@ -294,7 +292,12 @@ void awk_astar(AI::Team team, const AwkNavMeshNode& start_vertex, const AstarSco
 			while (true)
 			{
 				AwkPathNode* node = path->insert(0);
-				*node = { awk_nav_mesh.chunks[n.chunk].vertices[n.vertex], n };
+				*node =
+				{
+					awk_nav_mesh.chunks[n.chunk].vertices[n.vertex],
+					awk_nav_mesh.chunks[n.chunk].normals[n.vertex],
+					n,
+				};
 				if (n.equals(start_vertex))
 					break;
 				n = awk_nav_mesh_key.get(n).parent;
@@ -315,41 +318,49 @@ void awk_astar(AI::Team team, const AwkNavMeshNode& start_vertex, const AstarSco
 
 				const Vec3& adjacent_pos = awk_nav_mesh.chunks[adjacent_node.chunk].vertices[adjacent_node.vertex];
 
-				r32 candidate_travel_score = vertex_data->travel_score
-					+ vertex_data->sensor_score
-					+ (adjacent_pos - vertex_pos).length()
-					+ 5.0f; // bias toward longer shots
-
-				if (adjacent_data->in_queue)
+				if (containment_field_hash(team, adjacent_pos) != start_field_hash)
 				{
-					// it's already in the queue
-					if (candidate_travel_score < adjacent_data->travel_score)
-					{
-						// this is a better path
-
-						adjacent_data->parent = vertex_node;
-						adjacent_data->travel_score = candidate_travel_score;
-
-						// update its position in the queue due to the score change
-						for (s32 j = 0; j < astar_queue.size(); j++)
-						{
-							if (astar_queue.heap[j].equals(adjacent_node))
-							{
-								astar_queue.update(j);
-								break;
-							}
-						}
-					}
+					// it's in a different containment field; unreachable
+					adjacent_data->visited = true;
 				}
 				else
 				{
-					// totally new node, not in queue yet
-					adjacent_data->parent = vertex_node;
-					adjacent_data->sensor_score = sensor_cost(team, adjacent_node);
-					adjacent_data->travel_score = candidate_travel_score;
-					adjacent_data->estimate_score = scorer->score(adjacent_pos);
-					adjacent_data->in_queue = true;
-					astar_queue.push(adjacent_node);
+					r32 candidate_travel_score = vertex_data->travel_score
+						+ vertex_data->sensor_score
+						+ (adjacent_pos - vertex_pos).length()
+						+ 5.0f; // bias toward longer shots
+
+					if (adjacent_data->in_queue)
+					{
+						// it's already in the queue
+						if (candidate_travel_score < adjacent_data->travel_score)
+						{
+							// this is a better path
+
+							adjacent_data->parent = vertex_node;
+							adjacent_data->travel_score = candidate_travel_score;
+
+							// update its position in the queue due to the score change
+							for (s32 j = 0; j < astar_queue.size(); j++)
+							{
+								if (astar_queue.heap[j].equals(adjacent_node))
+								{
+									astar_queue.update(j);
+									break;
+								}
+							}
+						}
+					}
+					else
+					{
+						// totally new node, not in queue yet
+						adjacent_data->parent = vertex_node;
+						adjacent_data->sensor_score = sensor_cost(team, adjacent_node);
+						adjacent_data->travel_score = candidate_travel_score;
+						adjacent_data->estimate_score = scorer->score(adjacent_pos);
+						adjacent_data->in_queue = true;
+						astar_queue.push(adjacent_node);
+					}
 				}
 			}
 		}
@@ -426,7 +437,12 @@ void awk_pathfind_hit(AI::Team team, const Vec3& start, const Vec3& start_normal
 			if (path->length > 0 && path->length < path->capacity())
 			{
 				AwkPathNode* node = path->add();
-				*node = { awk_nav_mesh.chunks[target_closest_vertex.chunk].vertices[target_closest_vertex.vertex], target_closest_vertex };
+				*node =
+				{
+					awk_nav_mesh.chunks[target_closest_vertex.chunk].vertices[target_closest_vertex.vertex],
+					awk_nav_mesh.chunks[target_closest_vertex.chunk].normals[target_closest_vertex.vertex],
+					target_closest_vertex,
+				};
 			}
 		}
 	}
@@ -493,6 +509,7 @@ void loop()
 			{
 #if DEBUG_AI
 				vi_debug("Loading nav mesh...");
+				r32 start_time = platform::time();
 #endif
 				// free old data if necessary
 				{
@@ -650,7 +667,7 @@ void loop()
 				sync_in.unlock();
 
 #if DEBUG_AI
-				vi_debug("Done.");
+				vi_debug("Done in %fs.", (r32)(platform::time() - start_time));
 #endif
 
 				break;
@@ -849,17 +866,14 @@ void loop()
 
 				// remove b from a's adjacency list
 				AwkNavMeshAdjacency* adjacency = &awk_nav_mesh.chunks[a.chunk].adjacency[a.vertex];
-				b8 found = false;
 				for (s32 i = 0; i < adjacency->length; i++)
 				{
 					if ((*adjacency)[i].equals(b))
 					{
 						adjacency->remove(i);
-						found = true;
 						break;
 					}
 				}
-				vi_assert(found);
 
 				break;
 			}

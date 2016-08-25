@@ -154,7 +154,7 @@ struct ContainmentField : public ComponentType<ContainmentField>
 	static r32 particle_accumulator;
 
 	static void update_all(const Update&);
-	static ContainmentField* inside(AI::Team, const Vec3&);
+	static ContainmentField* inside(AI::TeamMask, const Vec3&);
 	static ContainmentField* closest(AI::TeamMask, const Vec3&, r32*);
 	static u32 hash(AI::Team, const Vec3&);
 

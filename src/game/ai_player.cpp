@@ -27,7 +27,7 @@ AIPlayer::Config::Config()
 	inaccuracy_range(PI * 0.01f),
 	aim_timeout(2.0f),
 	aim_speed(3.0f),
-	aim_min_delay(0.3f),
+	aim_min_delay(0.5f),
 	dodge_chance(0.5f),
 	upgrade_priority { },
 	upgrade_strategies { }
@@ -416,6 +416,7 @@ Vec2 AIPlayerControl::aim(const Update& u, const Vec3& to_target)
 {
 	PlayerCommon* common = get<PlayerCommon>();
 	Vec3 wall_normal = common->attach_quat * Vec3(0, 0, 1);
+
 	const AIPlayer::Config& config = player.ref()->config;
 	r32 target_angle_horizontal;
 	{
@@ -426,7 +427,10 @@ Vec2 AIPlayerControl::aim(const Update& u, const Vec3& to_target)
 			// make sure we don't try to turn through the wall
 			r32 half_angle = (common->angle_horizontal + target_angle_horizontal) * 0.5f;
 			if ((Quat::euler(0, half_angle, 0) * Vec3(0, 0, 1)).dot(wall_normal) < -0.5f)
+			{
 				dir_horizontal *= -1.0f; // go the other way
+				target_angle_horizontal = common->angle_horizontal - (target_angle_horizontal - common->angle_horizontal);
+			}
 		}
 
 		common->angle_horizontal = dir_horizontal > 0.0f
@@ -446,7 +450,10 @@ Vec2 AIPlayerControl::aim(const Update& u, const Vec3& to_target)
 			if (half_angle < -PI * 0.5f
 				|| half_angle > PI * 0.5f
 				|| (Quat::euler(half_angle, common->angle_horizontal, 0) * Vec3(0, 0, 1)).dot(wall_normal) < -0.5f)
+			{
 				dir_vertical *= -1.0f; // go the other way
+				target_angle_vertical = common->angle_vertical - (target_angle_vertical - common->angle_vertical);
+			}
 		}
 
 		common->angle_vertical = dir_vertical > 0.0f
@@ -455,11 +462,14 @@ Vec2 AIPlayerControl::aim(const Update& u, const Vec3& to_target)
 		common->angle_vertical = LMath::angle_range(common->angle_vertical);
 	}
 
+	common->angle_vertical = LMath::clampf(common->angle_vertical, -AWK_VERTICAL_ANGLE_LIMIT, AWK_VERTICAL_ANGLE_LIMIT);
+	common->clamp_rotation(wall_normal, 0.5f);
+
 	return Vec2(target_angle_horizontal, target_angle_vertical);
 }
 
 // if tolerance is greater than 0, we need to land within that distance of the given target point
-b8 AIPlayerControl::aim_and_shoot(const Update& u, const Vec3& path_node, const Vec3& target, Target* target_entity, r32 tolerance)
+b8 AIPlayerControl::aim_and_shoot(const Update& u, const Vec3& path_node, const Vec3& target, const Vec3& target_normal, Target* target_entity, r32 tolerance)
 {
 	PlayerCommon* common = get<PlayerCommon>();
 
@@ -480,19 +490,26 @@ b8 AIPlayerControl::aim_and_shoot(const Update& u, const Vec3& path_node, const 
 			return true;
 		}
 
-		// crawling
-		if (can_move && !target_entity) // if we're going for a target, don't crawl
-		{
-			Vec3 to_target = diff / distance_to_target;
+		Vec3 to_target = diff / distance_to_target;
 
-			if (get<Awk>()->direction_is_toward_attached_wall(to_target))
+		if (get<Awk>()->direction_is_toward_attached_wall(to_target))
+			dashing = true;
+
+		// crawling
+		// if we're shooting for a normal target (health or something), don't crawl
+		// except if we're shooting at an enemy Awk and we're on the same surface as them, then crawl
+		if (can_move && (!target_entity || (dashing && target_entity->has<Awk>())))
+		{
+			Vec3 to_target_crawl = Vec3::normalize((target + target_normal * AWK_RADIUS) - pos);
+
+			if (dashing)
 			{
-				// we're gonna be crawling and dashing there
-				get<Awk>()->crawl(to_target, u);
-				dashing = true;
+				// we're only going to be crawling and dashing there
+				get<Awk>()->crawl(to_target_crawl, u);
 			}
 			else
 			{
+				// eventually we will shoot there
 				b8 could_go_before_crawling;
 				Vec3 hit;
 				could_go_before_crawling = get<Awk>()->can_shoot(to_target, &hit);
@@ -510,7 +527,7 @@ b8 AIPlayerControl::aim_and_shoot(const Update& u, const Vec3& path_node, const 
 					Quat old_rot;
 					get<Transform>()->absolute(&old_pos, &old_rot);
 					ID old_parent = get<Transform>()->parent.ref()->entity_id;
-					get<Awk>()->crawl(to_target, u);
+					get<Awk>()->crawl(to_target_crawl, u);
 
 					Vec3 new_pos = get<Transform>()->absolute_pos();
 
@@ -558,9 +575,6 @@ b8 AIPlayerControl::aim_and_shoot(const Update& u, const Vec3& path_node, const 
 	Vec3 wall_normal = common->attach_quat * Vec3(0, 0, 1);
 
 	Vec2 target_angles = aim(u, to_target);
-
-	common->angle_vertical = LMath::clampf(common->angle_vertical, PI * -0.495f, PI * 0.495f);
-	common->clamp_rotation(wall_normal, 0.5f);
 
 	if (can_shoot)
 	{
@@ -646,7 +660,8 @@ b8 enemy_control_point_filter(const AIPlayerControl* control, const Entity* e)
 	if (!default_filter(control, e))
 		return false;
 
-	return e->get<ControlPoint>()->team != control->get<AIAgent>()->team;
+	return Game::level.has_feature(Game::FeatureLevel::Abilities)
+		&& e->get<ControlPoint>()->team != control->get<AIAgent>()->team;
 }
 
 MemoryStatus minion_memory_filter(const AIPlayerControl* control, const Entity* e)
@@ -784,17 +799,26 @@ b8 should_spawn_rocket(const AIPlayerControl* control)
 	Quat rot;
 	control->get<Transform>()->absolute(&pos, &rot);
 
+	{
+		r32 closest_rocket;
+		Rocket::closest(1 << control->get<AIAgent>()->team, pos, &closest_rocket);
+		if (closest_rocket < 0.75f)
+			return false;
+	}
+
 	s32 priority = AICue::in_range(AICue::Type::Rocket, pos, 8.0f) ? 2 : 1;
 
 	if (Sensor::can_see(control->get<AIAgent>()->team, pos, rot * Vec3(0, 0, 1)))
 		priority += 1;
 
-	r32 closest_enemy_awk;
-	Awk::closest(~(1 << control->get<AIAgent>()->team), control->get<Transform>()->absolute_pos(), &closest_enemy_awk);
-	if (closest_enemy_awk < 8.0f)
-		priority -= 1; // too close
-	else if (closest_enemy_awk < AWK_MAX_DISTANCE)
-		priority += 1;
+	{
+		r32 closest_enemy_awk;
+		Awk::closest(~(1 << control->get<AIAgent>()->team), control->get<Transform>()->absolute_pos(), &closest_enemy_awk);
+		if (closest_enemy_awk < 8.0f)
+			priority -= 1; // too close
+		else if (closest_enemy_awk < AWK_MAX_DISTANCE)
+			priority += 1;
+	}
 
 	if (control->player.ref()->save_up_priority() < priority)
 	{
@@ -816,11 +840,15 @@ b8 should_spawn_rocket(const AIPlayerControl* control)
 
 b8 should_spawn_containment_field(const AIPlayerControl* control)
 {
+	Vec3 me = control->get<Transform>()->absolute_pos();
+	if (ContainmentField::inside(AI::NoTeam, me)) // can't spawn containment fields inside each other
+		return false;
+
 	s32 save_up_priority = control->player.ref()->save_up_priority();
 	if (save_up_priority < 2)
 	{
 		r32 closest_distance;
-		HealthPickup::closest(1 << control->get<AIAgent>()->team, control->get<Transform>()->absolute_pos(), &closest_distance);
+		HealthPickup::closest(1 << control->get<AIAgent>()->team, me, &closest_distance);
 		if (closest_distance < CONTAINMENT_FIELD_RADIUS)
 			return true;
 	}
@@ -828,7 +856,7 @@ b8 should_spawn_containment_field(const AIPlayerControl* control)
 	if (save_up_priority < 1)
 	{
 		r32 closest_distance;
-		Awk* closest = Awk::closest(~(1 << control->get<AIAgent>()->team), control->get<Transform>()->absolute_pos(), &closest_distance);
+		Awk* closest = Awk::closest(~(1 << control->get<AIAgent>()->team), me, &closest_distance);
 		if (closest_distance < CONTAINMENT_FIELD_RADIUS && closest->get<Health>()->hp <= control->get<Health>()->hp)
 			return true;
 	}
@@ -1049,14 +1077,10 @@ void AIPlayerControl::update(const Update& u)
 	if (get<Awk>()->state() == Awk::State::Crawl && !Team::game_over)
 	{
 		const AIPlayer::Config& config = player.ref()->config;
+
+		// new random look direction
 		if ((s32)(u.time.total * config.aim_speed * 0.3f) != (s32)((u.time.total - u.time.delta) * config.aim_speed * 0.3f))
-		{
-			random_look = Vec3(mersenne::randf_cc() - 0.5f, mersenne::randf_cc() - 0.5f, mersenne::randf_cc() - 0.5f);
-			random_look.normalize();
-			Vec3 wall_normal = get<PlayerCommon>()->attach_quat * Vec3(0, 0, 1);
-			if (random_look.dot(wall_normal) < 0.0f)
-				random_look = random_look.reflect(wall_normal);
-		}
+			random_look = get<PlayerCommon>()->attach_quat * (Quat::euler(PI + (mersenne::randf_co() - 0.5f) * PI * 1.2f, (PI * 0.5f) + (mersenne::randf_co() - 0.5f) * PI * 1.2f, 0) * Vec3(1, 0, 0));
 
 		if (target.ref())
 		{
@@ -1065,7 +1089,7 @@ void AIPlayerControl::update(const Update& u)
 				// trying to a hit a moving thingy
 				Vec3 intersection;
 				if (get<Awk>()->can_hit(target.ref()->get<Target>(), &intersection))
-					aim_and_shoot(u, intersection, intersection, target.ref()->get<Target>(), -1.0f);
+					aim_and_shoot(u, intersection, intersection, Vec3::zero, target.ref()->get<Target>(), -1.0f);
 				else
 					active_behavior->done(false); // we can't hit it
 			}
@@ -1076,8 +1100,10 @@ void AIPlayerControl::update(const Update& u)
 					active_behavior->done(false); // something went wrong
 				else
 				{
-					Vec3 t = target.ref()->get<Transform>()->absolute_pos();
-					aim_and_shoot(u, t, t, nullptr, CONTROL_POINT_RADIUS); // assume the target is a control point
+					Vec3 target_pos;
+					Quat target_rot;
+					target.ref()->get<Transform>()->absolute(&target_pos, &target_rot);
+					aim_and_shoot(u, target_pos, target_pos, target_rot * Vec3(0, 0, 1), nullptr, CONTROL_POINT_RADIUS); // assume the target is a control point
 				}
 			}
 		}
@@ -1095,7 +1121,7 @@ void AIPlayerControl::update(const Update& u)
 				active_behavior->done(false); // active behavior failed
 			}
 			else
-				aim_and_shoot(u, path[path_index - 1].pos, path[path_index].pos, nullptr, AWK_RADIUS); // path_index starts at 1 so we're good here
+				aim_and_shoot(u, path[path_index - 1].pos, path[path_index].pos, path[path_index].normal, nullptr, AWK_RADIUS); // path_index starts at 1 so we're good here
 		}
 		else
 		{
@@ -1162,8 +1188,19 @@ void AIPlayerControl::update(const Update& u)
 	camera->perspective((80.0f * PI * 0.5f / 180.0f), aspect, 0.02f, Game::level.skybox.far_plane);
 	camera->rot = Quat::euler(0.0f, get<PlayerCommon>()->angle_horizontal, get<PlayerCommon>()->angle_vertical);
 	camera->range = AWK_MAX_DISTANCE;
-	camera->wall_normal = camera->rot.inverse() * ((get<Transform>()->absolute_rot() * get<Awk>()->lerped_rotation) * Vec3(0, 0, 1));
-	camera->pos = get<Awk>()->center();
+	Vec3 abs_wall_normal = ((get<Transform>()->absolute_rot() * get<Awk>()->lerped_rotation) * Vec3(0, 0, 1));;
+	const r32 third_person_offset = 2.0f;
+	camera->pos = get<Awk>()->center() + camera->rot * Vec3(0, 0, -third_person_offset);
+	if (get<Transform>()->parent.ref())
+	{
+		camera->pos += abs_wall_normal * 0.5f;
+		camera->pos.y += 0.5f - vi_min((r32)fabs(abs_wall_normal.y), 0.5f);
+	}
+	Quat inverse_rot = camera->rot.inverse();
+	camera->wall_normal = inverse_rot * abs_wall_normal;
+	camera->range_center = inverse_rot * (get<Awk>()->center() - camera->pos);
+	camera->cull_range = third_person_offset + 0.5f;
+	camera->cull_behind_wall = abs_wall_normal.dot(camera->pos - get<Awk>()->center()) < 0.0f;
 #endif
 }
 

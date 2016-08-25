@@ -45,7 +45,7 @@ AwkEntity::AwkEntity(AI::Team team)
 	Animator* anim = create<Animator>();
 	anim->armature = Asset::Armature::awk;
 
-	create<Target>();
+	create<Target>()->local_offset = Vec3(0, 0, AWK_RADIUS * -1.1f);
 
 	Vec3 abs_pos;
 	Quat abs_quat;
@@ -748,11 +748,11 @@ RocketEntity::RocketEntity(Entity* owner, Transform* parent, const Vec3& pos, co
 }
 
 // returns true if the given position is inside an enemy containment field
-ContainmentField* ContainmentField::inside(AI::Team my_team, const Vec3& pos)
+ContainmentField* ContainmentField::inside(AI::TeamMask mask, const Vec3& pos)
 {
 	for (auto i = list.iterator(); !i.is_last(); i.next())
 	{
-		if (i.item()->team != my_team && i.item()->contains(pos))
+		if (AI::match(i.item()->team, mask) && i.item()->contains(pos))
 			return i.item();
 	}
 	return nullptr;

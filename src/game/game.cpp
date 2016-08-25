@@ -443,7 +443,7 @@ void Game::draw_alpha(const RenderParams& render_params)
 		for (auto i = AIPlayerControl::list.iterator(); !i.is_last(); i.next())
 		{
 			AIPlayerControl* ai = i.item();
-			text.color = Team::ui_color_enemy;
+			text.color = Team::ui_color(render_params.camera->team, i.item()->get<AIAgent>()->team);
 			for (s32 j = 0; j < ai->path.length; j++)
 			{
 				Vec2 p;

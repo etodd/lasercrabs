@@ -124,7 +124,7 @@ struct AIPlayerControl : public ComponentType<AIPlayerControl>
 	void behavior_clear();
 	b8 restore_loops();
 	Vec2 aim(const Update&, const Vec3&);
-	b8 aim_and_shoot(const Update&, const Vec3&, const Vec3&, Target*, r32);
+	b8 aim_and_shoot(const Update&, const Vec3&, const Vec3&, const Vec3&, Target*, r32);
 	b8 in_range(const Vec3&, r32) const;
 	void set_target(Entity*);
 	void set_path(const AI::AwkPath&);

@@ -6,7 +6,7 @@
 #include "data/priority_queue.h"
 #include "mersenne/mersenne-twister.h"
 
-#define DEBUG_AI 1
+#define DEBUG_AI 0
 
 #if DEBUG_AI
 #include "platform/util.h"

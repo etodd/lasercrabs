@@ -47,7 +47,7 @@
 	#define DEBUG_NAV_MESH 0
 	#define DEBUG_AI_PATH 0
 	#define DEBUG_AWK_NAV_MESH 0
-	#define DEBUG_AWK_AI_PATH 1
+	#define DEBUG_AWK_AI_PATH 0
 	#define DEBUG_PHYSICS 0
 #endif
 

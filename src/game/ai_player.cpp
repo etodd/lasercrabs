@@ -483,9 +483,9 @@ b8 AIPlayerControl::aim_and_shoot(const Update& u, const Vec3& path_node, const 
 		Vec3 pos = get<Awk>()->center();
 		Vec3 diff = target - pos;
 		r32 distance_to_target = diff.length();
-		if (distance_to_target < AWK_RADIUS * 1.5f)
+		if (!target_entity && distance_to_target < AWK_RADIUS * 1.5f)
 		{
-			// we're already there
+			// we're headed toward a waypoint, not a target, and we're already there
 			awk_done_flying_or_dashing();
 			return true;
 		}
@@ -505,7 +505,9 @@ b8 AIPlayerControl::aim_and_shoot(const Update& u, const Vec3& path_node, const 
 			if (dashing)
 			{
 				// we're only going to be crawling and dashing there
-				get<Awk>()->crawl(to_target_crawl, u);
+				// crawl toward it, but if it's a target we're trying to shoot/dash through, don't get too close
+				if (!target_entity || distance_to_target > AWK_RADIUS * 2.0f)
+					get<Awk>()->crawl(to_target_crawl, u);
 			}
 			else
 			{

@@ -89,7 +89,7 @@ struct ControlPoint : public ComponentType<ControlPoint>
 	AI::Team team;
 
 	ControlPoint(AI::Team);
-	void awake() {}
+	void awake();
 	void set_team(AI::Team);
 };
 

@@ -49,6 +49,7 @@ struct Skybox
 		AssetID mesh;
 		AssetID shader;
 		r32 fog_start;
+		r32 sky_decal_fog_start;
 		b8 valid() const;
 	};
 

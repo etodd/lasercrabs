@@ -47,7 +47,7 @@
 	#define DEBUG_NAV_MESH 0
 	#define DEBUG_AI_PATH 0
 	#define DEBUG_AWK_NAV_MESH 0
-	#define DEBUG_AWK_AI_PATH 0
+	#define DEBUG_AWK_AI_PATH 1
 	#define DEBUG_PHYSICS 0
 #endif
 
@@ -403,10 +403,8 @@ void Game::draw_alpha(const RenderParams& render_params)
 		i.item()->draw_alpha(render_params);
 
 	if (Game::state.mode == Game::Mode::Special)
-	{
 		Skybox::draw_alpha(render_params, level.skybox);
-		SkyDecal::draw_alpha(render_params, level.skybox);
-	}
+	SkyDecal::draw_alpha(render_params, level.skybox);
 	SkyPattern::draw_alpha(render_params);
 
 #if DEBUG_NAV_MESH
@@ -916,11 +914,9 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 	
 	cJSON* json = Loader::level(state.level);
 
+	// material override colors
 	const Vec3 pvp_accessible(0.7f);
 	const Vec3 pvp_inaccessible(0.0f);
-	const Vec3 pvp_sky(0.0f);
-	const Vec3 pvp_ambient(0.25f);
-	const Vec3 pvp_player_light(1.0f);
 
 	Array<AI::Team> teams(state.teams, state.teams);
 
@@ -970,21 +966,14 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 			level.skybox.texture = Loader::find(Json::get_string(element, "skybox_texture"), AssetLookup::Texture::names);
 			level.skybox.shader = Asset::Shader::skybox;
 			level.skybox.mesh = Asset::Mesh::skybox;
+			level.skybox.color = Json::get_vec3(element, "skybox_color");
+			level.skybox.ambient_color = Json::get_vec3(element, "ambient_color");
+			level.skybox.player_light = Json::get_vec3(element, "zenith_color");
+			level.skybox.sky_decal_fog_start = level.skybox.far_plane * 0.25f;
 			if (state.mode == Mode::Pvp)
-			{
-				// override colors
 				level.skybox.fog_start = level.skybox.far_plane;
-				level.skybox.color = pvp_sky;
-				level.skybox.ambient_color = pvp_ambient;
-				level.skybox.player_light = pvp_player_light;
-			}
 			else
-			{
 				level.skybox.fog_start = level.skybox.far_plane * 0.25f;
-				level.skybox.color = Json::get_vec3(element, "skybox_color");
-				level.skybox.ambient_color = Json::get_vec3(element, "ambient_color");
-				level.skybox.player_light = Vec3::zero;
-			}
 
 			level.min_y = Json::get_r32(element, "min_y", -20.0f);
 
@@ -1131,20 +1120,19 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 		}
 		else if (cJSON_GetObjectItem(element, "SpotLight"))
 		{
+			absolute_rot = absolute_rot * Quat::euler(0, 0, PI * 0.5f);
 			entity = World::alloc<Empty>();
 			SpotLight* light = entity->create<SpotLight>();
 			light->color = Json::get_vec3(element, "color");
 			light->radius = Json::get_r32(element, "radius");
+			light->fov = Json::get_r32(element, "fov");
 		}
 		else if (cJSON_GetObjectItem(element, "DirectionalLight"))
 		{
 			entity = World::alloc<Empty>();
-			if (state.mode != Mode::Pvp)
-			{
-				DirectionalLight* light = entity->create<DirectionalLight>();
-				light->color = Json::get_vec3(element, "color");
-				light->shadowed = Json::get_s32(element, "shadowed");
-			}
+			DirectionalLight* light = entity->create<DirectionalLight>();
+			light->color = Json::get_vec3(element, "color");
+			light->shadowed = Json::get_s32(element, "shadowed");
 		}
 		else if (cJSON_GetObjectItem(element, "AIPlayer"))
 		{
@@ -1178,31 +1166,25 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 		}
 		else if (cJSON_GetObjectItem(element, "AICue"))
 		{
-			if (state.mode == Mode::Pvp)
-			{
-				const char* type = Json::get_string(element, "AICue");
-				AICue::Type t;
-				if (strcmp(type, "rocket") == 0)
-					t = AICue::Type::Rocket;
-				else if (strcmp(type, "snipe") == 0)
-					t = AICue::Type::Snipe;
-				else
-					t = AICue::Type::Sensor;
-				entity = World::alloc<Empty>();
-				entity->create<AICue>(t);
-			}
+			const char* type = Json::get_string(element, "AICue");
+			AICue::Type t;
+			if (strcmp(type, "rocket") == 0)
+				t = AICue::Type::Rocket;
+			else if (strcmp(type, "snipe") == 0)
+				t = AICue::Type::Snipe;
+			else
+				t = AICue::Type::Sensor;
+			entity = World::alloc<Empty>();
+			entity->create<AICue>(t);
 		}
 		else if (cJSON_GetObjectItem(element, "SkyDecal"))
 		{
 			entity = World::alloc<Empty>();
 
-			if (state.mode != Mode::Pvp)
-			{
-				SkyDecal* decal = entity->create<SkyDecal>();
-				decal->color = Vec4(Json::get_r32(element, "r", 1.0f), Json::get_r32(element, "g", 1.0f), Json::get_r32(element, "b", 1.0f), Json::get_r32(element, "a", 1.0f));
-				decal->scale = Json::get_r32(element, "scale", 1.0f);
-				decal->texture = Loader::find(Json::get_string(element, "SkyDecal"), AssetLookup::Texture::names);
-			}
+			SkyDecal* decal = entity->create<SkyDecal>();
+			decal->color = Vec4(Json::get_r32(element, "r", 1.0f), Json::get_r32(element, "g", 1.0f), Json::get_r32(element, "b", 1.0f), Json::get_r32(element, "a", 1.0f));
+			decal->scale = Json::get_r32(element, "scale", 1.0f);
+			decal->texture = Loader::find(Json::get_string(element, "SkyDecal"), AssetLookup::Texture::names);
 		}
 		else if (cJSON_GetObjectItem(element, "Script"))
 		{

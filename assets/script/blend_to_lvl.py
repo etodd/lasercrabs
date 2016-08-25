@@ -57,6 +57,11 @@ def add(obj, parent_index = -1):
 			node['DirectionalLight'] = True
 			node['color'] = list(obj.data.color)
 			node['shadowed'] = obj.data.shadow_method != 'NOSHADOW'
+		elif lamp_type == 'SPOT':
+			node['SpotLight'] = True
+			node['radius'] = obj.data.distance
+			node['color'] = list(obj.data.color)
+			node['fov'] = obj.data.spot_size * 0.5
 	elif obj_type == 'CAMERA':
 		node['Camera'] = True
 		node['far_plane'] = obj.data.clip_end

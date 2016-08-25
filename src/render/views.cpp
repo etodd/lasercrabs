@@ -6,6 +6,7 @@
 #include "console.h"
 #include "data/components.h"
 #include "game/team.h"
+#include "game/game.h"
 
 namespace VI
 {
@@ -238,13 +239,13 @@ void SkyDecal::draw_alpha(const RenderParams& p, const Skybox::Config& skybox_co
 	sync->write(Asset::Uniform::fog_start);
 	sync->write(RenderDataType::R32);
 	sync->write<s32>(1);
-	sync->write<r32>(skybox_config.fog_start);
+	sync->write<r32>(skybox_config.sky_decal_fog_start);
 
 	sync->write(RenderOp::Uniform);
 	sync->write(Asset::Uniform::fog_extent);
 	sync->write(RenderDataType::R32);
 	sync->write<s32>(1);
-	sync->write<r32>(p.camera->far_plane - skybox_config.fog_start);
+	sync->write<r32>(p.camera->far_plane - skybox_config.sky_decal_fog_start);
 
 	Vec2 inv_buffer_size = Vec2(1.0f / (r32)p.sync->input.width, 1.0f / (r32)p.sync->input.height);
 

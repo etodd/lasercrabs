@@ -604,11 +604,24 @@ void draw(LoopSync* sync, const Camera* camera)
 			sync->write<s32>(1);
 			sync->write<Mat4>(render_params.camera->projection);
 
+			// player light settings
 			sync->write(RenderOp::Uniform);
 			sync->write(Asset::Uniform::player_light);
 			sync->write(RenderDataType::Vec3);
 			sync->write<s32>(1);
 			sync->write<Vec3>(Game::level.skybox.player_light);
+
+			sync->write(RenderOp::Uniform);
+			sync->write(Asset::Uniform::range);
+			sync->write(RenderDataType::R32);
+			sync->write<s32>(1);
+			sync->write<r32>(render_params.camera->range);
+
+			sync->write(RenderOp::Uniform);
+			sync->write(Asset::Uniform::range_center);
+			sync->write(RenderDataType::Vec3);
+			sync->write<s32>(1);
+			sync->write<Vec3>(render_params.camera->range_center);
 
 			sync->write(RenderOp::Uniform);
 			sync->write(Asset::Uniform::far_plane);
@@ -643,21 +656,6 @@ void draw(LoopSync* sync, const Camera* camera)
 				sync->write<s32>(1);
 				sync->write<RenderTextureType>(RenderTextureType::Texture2D);
 				sync->write<s32>(shadow_buffer[0]);
-			}
-			else
-			{
-				// player light settings
-				sync->write(RenderOp::Uniform);
-				sync->write(Asset::Uniform::range);
-				sync->write(RenderDataType::R32);
-				sync->write<s32>(1);
-				sync->write<r32>(render_params.camera->range);
-
-				sync->write(RenderOp::Uniform);
-				sync->write(Asset::Uniform::range_center);
-				sync->write(RenderDataType::Vec3);
-				sync->write<s32>(1);
-				sync->write<Vec3>(render_params.camera->range_center);
 			}
 
 			sync->write(RenderOp::Uniform);

@@ -323,6 +323,7 @@ ControlPointEntity::ControlPointEntity(AI::Team team)
 	View* view = create<View>();
 	view->mesh = Asset::Mesh::spawn;
 	view->shader = Asset::Shader::standard;
+	view->color = Vec4(0.6f, 0.6f, 0.6f, MATERIAL_NO_OVERRIDE);
 
 	create<PlayerTrigger>()->radius = CONTROL_POINT_RADIUS;
 
@@ -330,15 +331,17 @@ ControlPointEntity::ControlPointEntity(AI::Team team)
 	light->offset.z = 2.0f;
 	light->radius = 12.0f;
 
-	light->team = (u8)team;
-	view->team = (u8)team;
-
 	create<ControlPoint>(team);
 }
 
 ControlPoint::ControlPoint(AI::Team t)
 	: team(t)
 {
+}
+
+void ControlPoint::awake()
+{
+	set_team(team);
 }
 
 void ControlPoint::set_team(AI::Team t)
@@ -1173,7 +1176,7 @@ void Rope::draw_opaque(const RenderParams& params)
 	sync->write(Asset::Uniform::diffuse_color);
 	sync->write(RenderDataType::Vec4);
 	sync->write<s32>(1);
-	sync->write<Vec4>(Vec4(1, 1, 1, 1));
+	sync->write<Vec4>(Vec4(1, 1, 1, MATERIAL_NO_OVERRIDE));
 
 	sync->write(RenderOp::Instances);
 	sync->write(Asset::Mesh::tri_tube);

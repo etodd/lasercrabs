@@ -761,6 +761,17 @@ ContainmentField* ContainmentField::inside(AI::TeamMask mask, const Vec3& pos)
 	return nullptr;
 }
 
+// don't allow overlapping friendly containment fields
+b8 ContainmentField::can_spawn(AI::Team team, const Vec3& pos)
+{
+	for (auto i = list.iterator(); !i.is_last(); i.next())
+	{
+		if (i.item()->team == team && (i.item()->get<Transform>()->absolute_pos() - pos).length_squared() < CONTAINMENT_FIELD_RADIUS * 2.0f * CONTAINMENT_FIELD_RADIUS * 2.0f)
+			return false;
+	}
+	return true;
+}
+
 b8 ContainmentField::contains(const Vec3& pos) const
 {
 	return (pos - get<Transform>()->absolute_pos()).length_squared() < CONTAINMENT_FIELD_RADIUS * CONTAINMENT_FIELD_RADIUS;

@@ -566,7 +566,7 @@ namespace VI
 
 		// can't spawn a containment field inside another containment field
 		if (ability == Ability::ContainmentField
-			&& ContainmentField::inside(AI::NoTeam, entity.ref()->get<Transform>()->absolute_pos()))
+			&& !ContainmentField::can_spawn(team.ref()->team(), entity.ref()->get<Transform>()->absolute_pos()))
 			return false;
 
 		current_spawn_ability = ability;
@@ -604,7 +604,7 @@ namespace VI
 		u16 cost = AbilityInfo::list[(s32)ability].spawn_cost;
 		if (credits < cost
 			|| awk->get<Awk>()->state() != Awk::State::Crawl
-			|| (ability == Ability::ContainmentField && ContainmentField::inside(AI::NoTeam, entity.ref()->get<Transform>()->absolute_pos()))) // can't spawn containment fields inside each other
+			|| (ability == Ability::ContainmentField && !ContainmentField::can_spawn(team.ref()->team(), entity.ref()->get<Transform>()->absolute_pos()))) // can't spawn containment fields inside each other
 		{
 			ability_spawn_canceled.fire(ability);
 			return;

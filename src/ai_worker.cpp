@@ -139,6 +139,17 @@ u32 containment_field_hash(Team my_team, const Vec3& pos)
 	return result;
 }
 
+b8 containment_field_raycast(Team my_team, const Vec3& a, const Vec3& b)
+{
+	for (s32 i = 0; i < containment_fields.length; i++)
+	{
+		const ContainmentFieldState& field = containment_fields[i];
+		if (field.team != my_team && LMath::ray_sphere_intersect(a, b, field.pos, CONTAINMENT_FIELD_RADIUS))
+			return true;
+	}
+	return false;
+}
+
 r32 sensor_cost(Team team, const AwkNavMeshNode& node)
 {
 	const Vec3& pos = awk_nav_mesh.chunks[node.chunk].vertices[node.vertex];
@@ -162,12 +173,33 @@ r32 sensor_cost(Team team, const AwkNavMeshNode& node)
 			}
 		}
 	}
+
+	r32 sensor_cost;
+
 	if (in_enemy_zone)
-		return 24.0f;
+		sensor_cost = 24.0f;
 	else if (in_friendly_zone)
-		return 0;
+		sensor_cost = 0;
 	else
-		return 8.0f;
+		sensor_cost = 8.0f;
+
+	r32 containment_field_cost = 8.0f;
+
+	for (s32 i = 0; i < containment_fields.length; i++)
+	{
+		const ContainmentFieldState& field = containment_fields[i];
+		if (field.team == team)
+		{
+			Vec3 to_field = field.pos - pos;
+			if (to_field.length_squared() < CONTAINMENT_FIELD_RADIUS * CONTAINMENT_FIELD_RADIUS)
+			{
+				containment_field_cost = 0.0f;
+				break;
+			}
+		}
+	}
+
+	return sensor_cost + containment_field_cost;
 }
 
 AwkNavMeshNode awk_closest_point(Team team, const Vec3& p, const Vec3& normal)
@@ -345,7 +377,7 @@ void awk_astar(AwkAllow rule, Team team, const AwkNavMeshNode& start_vertex, Ast
 				const Vec3& adjacent_pos = awk_nav_mesh.chunks[adjacent_node.chunk].vertices[adjacent_node.vertex];
 
 				if (!awk_flags_match(adjacency.flag(i), rule)
-					|| containment_field_hash(team, adjacent_pos) != start_field_hash)
+					|| containment_field_raycast(team, vertex_pos, adjacent_pos))
 				{
 					// flags don't match or it's in a different containment field
 					// therefore it's unreachable
@@ -848,6 +880,7 @@ void loop()
 						);
 
 						awk_astar(rule, team, scorer.start_vertex, &scorer, &path);
+
 						break;
 					}
 					case AwkPathfind::Away:

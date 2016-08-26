@@ -38,15 +38,15 @@ AIPlayer::Config AIPlayer::generate_config()
 {
 	Config config;
 
-	switch (mersenne::rand() % 3)
+	switch (mersenne::rand() % 4)
 	{
 		case 0:
 		{
 			config.upgrade_priority[0] = Upgrade::ContainmentField;
 			config.upgrade_priority[1] = Upgrade::Rocket;
 			config.upgrade_priority[2] = Upgrade::Minion;
-			config.upgrade_priority[3] = Upgrade::Sensor;
-			config.upgrade_priority[4] = Upgrade::Sniper;
+			config.upgrade_priority[3] = Upgrade::None;
+			config.upgrade_priority[4] = Upgrade::None;
 			config.upgrade_strategies[0] = UpgradeStrategy::Ignore; // sensor
 			config.upgrade_strategies[1] = UpgradeStrategy::SaveUp; // rocket
 			config.upgrade_strategies[2] = UpgradeStrategy::Ignore; // minion
@@ -58,14 +58,28 @@ AIPlayer::Config AIPlayer::generate_config()
 		{
 			config.upgrade_priority[0] = Upgrade::Sensor;
 			config.upgrade_priority[1] = Upgrade::Rocket;
-			config.upgrade_priority[2] = Upgrade::Minion;
-			config.upgrade_priority[3] = Upgrade::Sensor;
-			config.upgrade_priority[4] = Upgrade::Sniper;
+			config.upgrade_priority[2] = Upgrade::Sniper;
+			config.upgrade_priority[3] = Upgrade::None;
+			config.upgrade_priority[4] = Upgrade::None;
 			config.upgrade_strategies[0] = UpgradeStrategy::IfAvailable; // sensor
 			config.upgrade_strategies[1] = UpgradeStrategy::SaveUp; // rocket
-			config.upgrade_strategies[2] = UpgradeStrategy::IfAvailable; // minion
+			config.upgrade_strategies[2] = UpgradeStrategy::Ignore; // minion
 			config.upgrade_strategies[3] = UpgradeStrategy::Ignore; // containment field
-			config.upgrade_strategies[4] = UpgradeStrategy::Ignore; // sniper
+			config.upgrade_strategies[4] = UpgradeStrategy::IfAvailable; // sniper
+			break;
+		}
+		case 3:
+		{
+			config.upgrade_priority[0] = Upgrade::ContainmentField;
+			config.upgrade_priority[1] = Upgrade::Sniper;
+			config.upgrade_priority[2] = Upgrade::Minion;
+			config.upgrade_priority[3] = Upgrade::None;
+			config.upgrade_priority[4] = Upgrade::None;
+			config.upgrade_strategies[0] = UpgradeStrategy::Ignore; // sensor
+			config.upgrade_strategies[1] = UpgradeStrategy::Ignore; // rocket
+			config.upgrade_strategies[2] = UpgradeStrategy::IfAvailable; // minion
+			config.upgrade_strategies[3] = UpgradeStrategy::SaveUp; // containment field
+			config.upgrade_strategies[4] = UpgradeStrategy::IfAvailable; // sniper
 			break;
 		}
 		default:
@@ -73,8 +87,8 @@ AIPlayer::Config AIPlayer::generate_config()
 			config.upgrade_priority[0] = Upgrade::Minion;
 			config.upgrade_priority[1] = Upgrade::ContainmentField;
 			config.upgrade_priority[2] = Upgrade::Sensor;
-			config.upgrade_priority[3] = Upgrade::Rocket;
-			config.upgrade_priority[4] = Upgrade::Sniper;
+			config.upgrade_priority[3] = Upgrade::None;
+			config.upgrade_priority[4] = Upgrade::None;
 			config.upgrade_strategies[0] = UpgradeStrategy::SaveUp; // sensor
 			config.upgrade_strategies[1] = UpgradeStrategy::Ignore; // rocket
 			config.upgrade_strategies[2] = UpgradeStrategy::IfAvailable; // minion
@@ -123,7 +137,8 @@ s32 AIPlayer::save_up_priority() const
 	for (s32 i = 0; i < (s32)Upgrade::count; i++)
 	{
 		Upgrade upgrade = config.upgrade_priority[i];
-		if (manager.ref()->upgrade_available(upgrade))
+		if (upgrade != Upgrade::None
+			&& manager.ref()->upgrade_available(upgrade))
 		{
 			UpgradeStrategy strategy = config.upgrade_strategies[(s32)upgrade];
 			s32 priority;
@@ -577,51 +592,59 @@ b8 AIPlayerControl::aim_and_shoot(const Update& u, const Vec3& path_node, const 
 	Vec3 to_target = Vec3::normalize(target - pos);
 	Vec3 wall_normal = common->attach_quat * Vec3(0, 0, 1);
 
-	Vec2 target_angles = aim(u, to_target);
-
-	if (can_shoot)
+	if (!target_entity && get<Awk>()->snipe)
 	{
-		// cooldown is done; we can shoot.
-		// check if we're done aiming
-		b8 aim_lined_up;
-		if (tolerance > 0.0f)
-		{
-			// must aim exactly
-			aim_lined_up = common->angle_horizontal == target_angles.x
-				&& common->angle_vertical == target_angles.y;
-		}
-		else
-		{
-			// include some inaccuracy
-			aim_lined_up = fabs(LMath::angle_to(common->angle_horizontal, target_angles.x)) < inaccuracy
-				&& fabs(LMath::angle_to(common->angle_vertical, target_angles.y)) < inaccuracy;
-		}
+		// we're in sniper mode but we don't have a target
+		aim(u, random_look);
+	}
+	else
+	{
+		// aiming
+		Vec2 target_angles = aim(u, to_target);
 
-		if (aim_lined_up)
+		if (can_shoot)
 		{
-			Vec3 look_dir = common->look_dir();
-			if (dashing)
+			// cooldown is done; we can shoot.
+			// check if we're done aiming
+			b8 aim_lined_up;
+			if (tolerance > 0.0f)
 			{
-				// don't dash around corners or anything; only dash toward coplanar points
-				if (!get<Awk>()->snipe
-					&& fabs(look_dir.dot(get<Transform>()->absolute_rot() * Vec3(0, 0, 1))) < 0.1)
-				{
-					if (get<Awk>()->dash_start(look_dir))
-						return true;
-				}
+				// must aim exactly
+				aim_lined_up = common->angle_horizontal == target_angles.x
+					&& common->angle_vertical == target_angles.y;
 			}
 			else
 			{
-				Vec3 hit;
-				if ((!get<Awk>()->snipe || (target_entity && target_entity->has<Target>())) // if we're sniping, make sure we're shooting at a target and not a path node
-					&& get<Awk>()->can_shoot(look_dir, &hit))
+				// include some inaccuracy
+				aim_lined_up = fabs(LMath::angle_to(common->angle_horizontal, target_angles.x)) < inaccuracy
+					&& fabs(LMath::angle_to(common->angle_vertical, target_angles.y)) < inaccuracy;
+			}
+
+			if (aim_lined_up)
+			{
+				Vec3 look_dir = common->look_dir();
+				if (dashing)
 				{
-					// make sure we're actually going to land at the right spot
-					if (tolerance < 0.0f // don't worry about where we land
-						|| (hit - target).length_squared() < tolerance * tolerance) // check the tolerance
+					// don't dash around corners or anything; only dash toward coplanar points
+					if (fabs(look_dir.dot(get<Transform>()->absolute_rot() * Vec3(0, 0, 1))) < 0.1)
 					{
-						if (get<Awk>()->detach(look_dir))
+						if (get<Awk>()->dash_start(look_dir))
 							return true;
+					}
+				}
+				else
+				{
+					Vec3 hit;
+					if ((!get<Awk>()->snipe || (target_entity && target_entity->has<Target>())) // if we're sniping, make sure we're shooting at a target and not a path node
+						&& get<Awk>()->can_shoot(look_dir, &hit))
+					{
+						// make sure we're actually going to land at the right spot
+						if (tolerance < 0.0f // don't worry about where we land
+							|| (hit - target).length_squared() < tolerance * tolerance) // check the tolerance
+						{
+							if (get<Awk>()->detach(look_dir))
+								return true;
+						}
 					}
 				}
 			}
@@ -757,7 +780,8 @@ Upgrade want_available_upgrade(const AIPlayerControl* control)
 	for (s32 i = 0; i < (s32)Upgrade::count; i++)
 	{
 		Upgrade upgrade = config.upgrade_priority[i];
-		if (manager->upgrade_available(upgrade)
+		if (upgrade != Upgrade::None
+			&& manager->upgrade_available(upgrade)
 			&& manager->credits > manager->upgrade_cost(upgrade)
 			&& config.upgrade_strategies[(s32)upgrade] != AIPlayer::UpgradeStrategy::Ignore)
 		{
@@ -798,24 +822,24 @@ b8 attack_inbound(const AIPlayerControl* control)
 	return control->get<Awk>()->incoming_attacker() != nullptr;
 }
 
-s32 geometry_query(const AIPlayerControl* control)
+s32 geometry_query(const AIPlayerControl* control, s32 count)
 {
 	Vec3 pos;
 	Quat rot;
 	control->get<Transform>()->absolute(&pos, &rot);
 
 	s16 mask = ~AWK_PERMEABLE_MASK & ~CollisionAwk & ~control->get<Awk>()->ally_containment_field_mask();
-	s32 count = 0;
-	for (s32 i = 0; i < 16; i++)
+	s32 result = 0;
+	for (s32 i = 0; i < count; i++)
 	{
 		Vec3 ray = rot * (Quat::euler(PI + (mersenne::randf_co() - 0.5f) * PI, (PI * 0.5f) + (mersenne::randf_co() - 0.5f) * PI, 0) * Vec3(1, 0, 0));
 		btCollisionWorld::ClosestRayResultCallback ray_callback(pos, pos + ray * AWK_MAX_DISTANCE * 0.5f);
 		Physics::raycast(&ray_callback, mask);
 		if (ray_callback.hasHit())
-			count++;
+			result++;
 	}
 
-	return count;
+	return result;
 }
 
 b8 should_spawn_rocket(const AIPlayerControl* control)
@@ -852,7 +876,7 @@ b8 should_spawn_rocket(const AIPlayerControl* control)
 		return false;
 
 	// make sure it's in a relatively open area
-	return geometry_query(control) < 8;
+	return geometry_query(control, 16) < 8;
 }
 
 b8 sniping(const AIPlayerControl* control)
@@ -866,6 +890,9 @@ b8 should_snipe(const AIPlayerControl* control)
 	Quat rot;
 	control->get<Transform>()->absolute(&pos, &rot);
 
+	if (mersenne::randf_co() < 0.5f)
+		return false;
+
 	s32 priority = AICue::in_range(AICue::Type::Snipe, pos, 8.0f) ? 2 : 1;
 
 	if (Sensor::can_see(control->get<AIAgent>()->team, pos, rot * Vec3(0, 0, 1)))
@@ -874,23 +901,46 @@ b8 should_snipe(const AIPlayerControl* control)
 	if (ContainmentField::inside(1 << control->get<AIAgent>()->team, pos))
 		priority += 1;
 
-	{
-		r32 closest_enemy_awk;
-		Awk::closest(~(1 << control->get<AIAgent>()->team), control->get<Transform>()->absolute_pos(), &closest_enemy_awk);
-		if (closest_enemy_awk < AWK_MAX_DISTANCE * 0.75f)
-			return false;
-	}
-
 	if (control->player.ref()->save_up_priority() >= priority)
 		return false;
 
-	return geometry_query(control) < 8;
+	if (geometry_query(control, 16) < 8)
+	{
+		b8 result = false;
+		{
+			const AIPlayerControl::MemoryArray& memory = control->memory[Awk::family];
+			for (s32 i = 0; i < memory.length; i++)
+			{
+				Vec3 to_awk = memory[i].pos - pos;
+				if (to_awk.length_squared() < AWK_MAX_DISTANCE * 0.6f * AWK_MAX_DISTANCE * 0.6f)
+					return false; // too close
+				if (!control->get<Awk>()->direction_is_toward_attached_wall(to_awk))
+					result = true; // the awk is at the right distance and it's in front of us
+			}
+		}
+
+		{
+			const AIPlayerControl::MemoryArray& memory = control->memory[MinionCommon::family];
+			for (s32 i = 0; i < memory.length; i++)
+			{
+				Vec3 to_minion = memory[i].pos - pos;
+				if (!control->get<Awk>()->direction_is_toward_attached_wall(to_minion))
+				{
+					if (to_minion.length_squared() < AWK_MAX_DISTANCE * 0.6f * AWK_MAX_DISTANCE * 0.6f)
+						return false; // too close
+					result = true; // the minion is at the right distance and it's in front of us
+				}
+			}
+		}
+
+		return result;
+	}
 }
 
 b8 should_spawn_containment_field(const AIPlayerControl* control)
 {
 	Vec3 me = control->get<Transform>()->absolute_pos();
-	if (ContainmentField::inside(AI::NoTeam, me)) // can't spawn containment fields inside each other
+	if (!ContainmentField::can_spawn(control->get<AIAgent>()->team, me)) // can't spawn containment fields inside each other
 		return false;
 
 	s32 save_up_priority = control->player.ref()->save_up_priority();
@@ -1012,8 +1062,8 @@ Repeat* make_low_level_loop(AIPlayerControl* control, const AIPlayer::Config& co
 									AIBehaviors::AbilitySpawn::alloc(4, Upgrade::Minion, Ability::Minion, &should_spawn_minion),
 									AIBehaviors::AbilitySpawn::alloc(4, Upgrade::Sensor, Ability::Sensor, &should_spawn_sensor),
 									AIBehaviors::AbilitySpawn::alloc(4, Upgrade::Rocket, Ability::Rocket, &should_spawn_rocket),
-									AIBehaviors::AbilitySpawn::alloc(4, Upgrade::Sniper, Ability::Sniper, &should_snipe),
 									AIBehaviors::AbilitySpawn::alloc(4, Upgrade::ContainmentField, Ability::ContainmentField, &should_spawn_containment_field),
+									AIBehaviors::AbilitySpawn::alloc(4, Upgrade::Sniper, Ability::Sniper, &should_snipe),
 									Sequence::alloc
 									(
 										AIBehaviors::ReactControlPoint::alloc(4, &enemy_control_point_filter),
@@ -1393,6 +1443,7 @@ void Panic::run()
 	if (!control->panic && path_priority > control->path_priority)
 	{
 		control->panic = true;
+		control->get<Awk>()->snipe_enable(false);
 		control->behavior_start(this, 127); // if we're panicking, nothing can interrupt us
 	}
 	else

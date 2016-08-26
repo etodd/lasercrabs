@@ -82,8 +82,6 @@ struct AIPlayer
 
 #define MAX_MEMORY 8
 
-#define VISIBLE_RANGE (AWK_MAX_DISTANCE * 1.5f)
-
 struct AIPlayerControl : public ComponentType<AIPlayerControl>
 {
 	struct Memory
@@ -123,6 +121,7 @@ struct AIPlayerControl : public ComponentType<AIPlayerControl>
 	void behavior_start(Behavior*, s8);
 	void behavior_clear();
 	b8 restore_loops();
+	b8 snipe_stop();
 	Vec2 aim(const Update&, const Vec3&);
 	b8 aim_and_shoot(const Update&, const Vec3&, const Vec3&, const Vec3&, Target*, r32);
 	b8 in_range(const Vec3&, r32) const;

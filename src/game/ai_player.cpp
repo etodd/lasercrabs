@@ -380,15 +380,16 @@ template<typename Component>
 void update_component_memory(AIPlayerControl* control, MemoryStatus (*filter)(const AIPlayerControl*, const Entity*))
 {
 	AIPlayerControl::MemoryArray* component_memories = &control->memory[Component::family];
+	r32 range = control->get<Awk>()->range() * 1.5f;
 	// remove outdated memories
 	for (s32 i = 0; i < component_memories->length; i++)
 	{
 		AIPlayerControl::Memory* m = &(*component_memories)[i];
-		if (control->in_range(m->pos, VISIBLE_RANGE))
+		if (control->in_range(m->pos, range))
 		{
 			MemoryStatus status = MemoryStatus::Keep;
 			Entity* entity = m->entity.ref();
-			if (entity && control->in_range(entity->get<Transform>()->absolute_pos(), VISIBLE_RANGE) && filter(control, entity) == MemoryStatus::Forget)
+			if (entity && control->in_range(entity->get<Transform>()->absolute_pos(), range) && filter(control, entity) == MemoryStatus::Forget)
 			{
 				component_memories->remove(i);
 				i--;
@@ -402,7 +403,7 @@ void update_component_memory(AIPlayerControl* control, MemoryStatus (*filter)(co
 		for (auto i = Component::list.iterator(); !i.is_last(); i.next())
 		{
 			Vec3 pos = i.item()->template get<Transform>()->absolute_pos();
-			if (control->in_range(pos, VISIBLE_RANGE) && filter(control, i.item()->entity()) == MemoryStatus::Update)
+			if (control->in_range(pos, range) && filter(control, i.item()->entity()) == MemoryStatus::Update)
 			{
 				add_memory(component_memories, i.item()->entity(), pos);
 				if (component_memories->length == component_memories->capacity())
@@ -602,7 +603,8 @@ b8 AIPlayerControl::aim_and_shoot(const Update& u, const Vec3& path_node, const 
 			if (dashing)
 			{
 				// don't dash around corners or anything; only dash toward coplanar points
-				if (fabs(look_dir.dot(get<Transform>()->absolute_rot() * Vec3(0, 0, 1))) < 0.1)
+				if (!get<Awk>()->snipe
+					&& fabs(look_dir.dot(get<Transform>()->absolute_rot() * Vec3(0, 0, 1))) < 0.1)
 				{
 					if (get<Awk>()->dash_start(look_dir))
 						return true;
@@ -611,7 +613,8 @@ b8 AIPlayerControl::aim_and_shoot(const Update& u, const Vec3& path_node, const 
 			else
 			{
 				Vec3 hit;
-				if (get<Awk>()->can_shoot(look_dir, &hit))
+				if ((!get<Awk>()->snipe || (target_entity && target_entity->has<Target>())) // if we're sniping, make sure we're shooting at a target and not a path node
+					&& get<Awk>()->can_shoot(look_dir, &hit))
 				{
 					// make sure we're actually going to land at the right spot
 					if (tolerance < 0.0f // don't worry about where we land
@@ -978,7 +981,18 @@ Repeat* make_low_level_loop(AIPlayerControl* control, const AIPlayer::Config& co
 									(
 										// sniper mode
 										AIBehaviors::Test::alloc(&sniping),
-										AIBehaviors::RandomPath::alloc(1)
+										Select::alloc
+										(
+											AIBehaviors::ReactTarget::alloc(Awk::family, 0, 6, &awk_attack_filter),
+											AIBehaviors::ReactTarget::alloc(MinionCommon::family, 0, 5, &default_filter),
+											AIBehaviors::RandomPath::alloc(4),
+											Sequence::alloc
+											(
+												AIBehaviors::Chance::alloc(0.05f),
+												Execute::alloc()->method<AIPlayerControl, &AIPlayerControl::snipe_stop>(control)
+											),
+											Succeed::alloc() // make sure we never hit minions or anything
+										)
 									),
 									Sequence::alloc
 									(
@@ -989,7 +1003,7 @@ Repeat* make_low_level_loop(AIPlayerControl* control, const AIPlayer::Config& co
 									AIBehaviors::RunAway::alloc(Awk::family, 5, &awk_run_filter),
 									AIBehaviors::ReactTarget::alloc(ContainmentField::family, 4, 6, &containment_field_filter),
 									AIBehaviors::ReactTarget::alloc(Awk::family, 4, 6, &awk_attack_filter),
-									AIBehaviors::ReactTarget::alloc(MinionAI::family, 4, 5, &default_filter),
+									AIBehaviors::ReactTarget::alloc(MinionCommon::family, 4, 5, &default_filter),
 									AIBehaviors::ReactTarget::alloc(HealthPickup::family, 3, 4, &health_pickup_filter)
 								),
 								Select::alloc
@@ -1067,7 +1081,7 @@ Repeat* make_high_level_loop(AIPlayerControl* control, const AIPlayer::Config& c
 									AIBehaviors::Find::alloc(ControlPoint::family, 4, &default_filter)
 								),
 								AIBehaviors::Find::alloc(ControlPoint::family, 2, &enemy_control_point_filter),
-								AIBehaviors::Find::alloc(MinionAI::family, 2, &minion_filter),
+								AIBehaviors::Find::alloc(MinionCommon::family, 2, &minion_filter),
 								AIBehaviors::Find::alloc(Sensor::family, 2, &default_filter)
 							),
 							Select::alloc
@@ -1105,7 +1119,7 @@ Repeat* make_high_level_loop(AIPlayerControl* control, const AIPlayer::Config& c
 b8 AIPlayerControl::update_memory()
 {
 	update_component_memory<HealthPickup>(this, &default_memory_filter);
-	update_component_memory<MinionAI>(this, &minion_memory_filter);
+	update_component_memory<MinionCommon>(this, &minion_memory_filter);
 	update_component_memory<Sensor>(this, &sensor_memory_filter);
 	update_component_memory<AICue>(this, &default_memory_filter);
 	update_component_memory<ControlPoint>(this, &default_memory_filter);
@@ -1122,6 +1136,12 @@ b8 AIPlayerControl::update_memory()
 
 	update_component_memory<Awk>(this, &awk_memory_filter);
 
+	return true; // this returns true so we can call this from an Execute behavior
+}
+
+b8 AIPlayerControl::snipe_stop()
+{
+	get<Awk>()->snipe_enable(false);
 	return true; // this returns true so we can call this from an Execute behavior
 }
 
@@ -1480,7 +1500,8 @@ void ReactTarget::run()
 	if (control->get<Awk>()->state() == Awk::State::Crawl && (can_path || can_react))
 	{
 		Entity* closest = nullptr;
-		r32 closest_distance = AWK_MAX_DISTANCE * AWK_MAX_DISTANCE;
+		r32 range = control->get<Awk>()->range();
+		r32 closest_distance = range * range;
 		Vec3 pos = control->get<Transform>()->absolute_pos();
 		const AIPlayerControl::MemoryArray& memory = control->memory[family];
 		for (s32 i = 0; i < memory.length; i++)
@@ -1488,7 +1509,7 @@ void ReactTarget::run()
 			r32 distance = (memory[i].pos - pos).length_squared();
 			if (distance < closest_distance)
 			{
-				if (!control->in_range(memory[i].pos, AWK_MAX_DISTANCE) || (memory[i].entity.ref() && filter(control, memory[i].entity.ref())))
+				if (!control->in_range(memory[i].pos, range) || (memory[i].entity.ref() && filter(control, memory[i].entity.ref())))
 				{
 					closest_distance = distance;
 					closest = memory[i].entity.ref();
@@ -1506,7 +1527,7 @@ void ReactTarget::run()
 			}
 			else if (can_path)
 			{
-				pathfind(closest->get<Target>()->absolute_pos(), Vec3::zero, AI::AwkPathfind::Target);
+				pathfind(closest->get<Target>()->absolute_pos(), Vec3::zero, AI::AwkPathfind::Target, control->get<Awk>()->snipe ? AI::AwkAllow::Crawl : AI::AwkAllow::All);
 				return;
 			}
 		}
@@ -1530,14 +1551,15 @@ void RunAway::run()
 		&& path_priority > control->path_priority)
 	{
 		Entity* closest = nullptr;
-		r32 closest_distance = AWK_MAX_DISTANCE * AWK_MAX_DISTANCE;
+		r32 range = control->get<Awk>()->range();
+		r32 closest_distance = range * range;
 		const AIPlayerControl::MemoryArray& memory = control->memory[family];
 		for (s32 i = 0; i < memory.length; i++)
 		{
 			r32 distance = (memory[i].pos - pos).length_squared();
 			if (distance < closest_distance)
 			{
-				if (control->in_range(memory[i].pos, AWK_MAX_DISTANCE)
+				if (control->in_range(memory[i].pos, range)
 					&& memory[i].entity.ref()
 					&& filter(control, memory[i].entity.ref()))
 				{

@@ -149,29 +149,32 @@ template<typename Derived> struct BehaviorDecorator : public BehaviorBase<Derive
 	BehaviorDecorator(Behavior* c)
 		: child(c)
 	{
-		c->parent = this;
+		if (c)
+			c->parent = this;
 	}
 
 	virtual void set_context(void* ctx)
 	{
-		child->set_context(ctx);
+		if (child)
+			child->set_context(ctx);
 	}
 
 	virtual void abort()
 	{
-		if (child->active())
+		if (child && child->active())
 			child->abort();
 		BehaviorBase<Derived>::abort();
 	}
 
 	Behavior* active_child() const
 	{
-		return child->active() ? child->active_child() : nullptr;
+		return child && child->active() ? child->active_child() : nullptr;
 	}
 
 	virtual ~BehaviorDecorator()
 	{
-		child->~Behavior();
+		if (child)
+			child->~Behavior();
 	}
 };
 
@@ -242,7 +245,7 @@ struct Delay : public BehaviorBase<Delay>
 
 struct Succeed : public BehaviorDecorator<Succeed>
 {
-	Succeed(Behavior*);
+	Succeed(Behavior* = nullptr);
 	void run();
 	void child_done(Behavior*, b8);
 };

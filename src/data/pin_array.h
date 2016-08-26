@@ -65,7 +65,7 @@ template<u16 size> struct Bitmask
 					if (get(j))
 						break;
 				}
-				end = (u16)j;
+				end = (u16)(j > 0 ? j : 0);
 			}
 			if (i == start)
 			{

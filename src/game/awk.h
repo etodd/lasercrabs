@@ -124,7 +124,7 @@ struct Awk : public ComponentType<Awk>
 	void detach_teleport();
 	b8 detach(const Vec3&);
 
-	void snipe_start();
+	void snipe_enable(b8);
 
 	void finish_flying_dashing_common();
 	void finish_flying();

@@ -668,7 +668,7 @@ namespace VI
 			}
 			case Ability::Sniper:
 			{
-				awk->get<Awk>()->snipe_start();
+				awk->get<Awk>()->snipe_enable(true);
 				break;
 			}
 			default:

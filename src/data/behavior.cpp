@@ -143,7 +143,10 @@ Succeed::Succeed(Behavior* b) : BehaviorDecorator(b) { }
 void Succeed::run()
 {
 	active(true);
-	child->run();
+	if (child)
+		child->run();
+	else
+		done(true);
 }
 
 void Succeed::child_done(Behavior* b, b8 success)

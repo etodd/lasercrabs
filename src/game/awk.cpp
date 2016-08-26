@@ -601,10 +601,15 @@ r32 Awk::range() const
 		return AWK_MAX_DISTANCE;
 }
 
-void Awk::snipe_start()
+void Awk::snipe_enable(b8 s)
 {
-	snipe = true;
-	snipe_time = Game::time.total;
+	if (s)
+	{
+		snipe = true;
+		snipe_time = Game::time.total;
+	}
+	else
+		snipe = false;
 }
 
 b8 Awk::detach(const Vec3& dir)
@@ -647,7 +652,7 @@ b8 Awk::detach(const Vec3& dir)
 					Team::list[i].track(get<PlayerCommon>()->manager.ref());
 			}
 
-			snipe = false;
+			snipe_enable(false);
 		}
 		else
 		{

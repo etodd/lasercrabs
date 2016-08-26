@@ -1231,9 +1231,17 @@ b8 LocalPlayerControl::add_target_indicator(Target* target, TargetIndicator::Typ
 {
 	Vec3 me = get<Awk>()->center();
 
-	b8 show_even_out_of_range = type == TargetIndicator::Type::AwkTracking;
+	b8 show;
 
-	if (show_even_out_of_range || (target->absolute_pos() - me).length_squared() < AWK_MAX_DISTANCE * AWK_MAX_DISTANCE)
+	if (type == TargetIndicator::Type::AwkTracking)
+		show = true; // show even out of range
+	else
+	{
+		r32 range = get<Awk>()->range();
+		show = (target->absolute_pos() - me).length_squared() < range * range;
+	}
+
+	if (show)
 	{
 		// calculate target intersection trajectory
 		Vec3 intersection;
@@ -1394,7 +1402,7 @@ void LocalPlayerControl::update(const Update& u)
 				&& !Game::cancel_event_eaten[gamepad])
 			{
 				Game::cancel_event_eaten[gamepad] = true;
-				get<Awk>()->snipe = false;
+				get<Awk>()->snipe_enable(false);
 				player.ref()->manager.ref()->add_credits(AbilityInfo::list[(s32)Ability::Sniper].spawn_cost);
 			}
 		}
@@ -1637,6 +1645,8 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 
 	const Rect2& viewport = params.camera->viewport;
 
+	r32 range = get<Awk>()->range();
+
 	AI::Team team = get<AIAgent>()->team;
 
 	// target indicators
@@ -1691,7 +1701,7 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 			if (i.item()->attack_timer > 0.0f)
 			{
 				Vec3 head = i.item()->head_pos();
-				if ((head - me).length_squared() < AWK_MAX_DISTANCE * AWK_MAX_DISTANCE)
+				if ((head - me).length_squared() < range * range)
 				{
 					AI::Team minion_team = i.item()->get<AIAgent>()->team;
 
@@ -1718,7 +1728,7 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 		for (auto i = ContainmentField::list.iterator(); !i.is_last(); i.next())
 		{
 			Vec3 pos = i.item()->get<Transform>()->absolute_pos();
-			if ((pos - me).length_squared() < AWK_MAX_DISTANCE * AWK_MAX_DISTANCE)
+			if ((pos - me).length_squared() < range * range)
 			{
 				Vec2 p;
 				if (UI::project(params, pos, &p))
@@ -1798,7 +1808,7 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 					else
 					{
 						Vec3 pos = i.item()->get<Transform>()->absolute_pos();
-						if ((pos - me).length_squared() < AWK_MAX_DISTANCE * AWK_MAX_DISTANCE)
+						if ((pos - me).length_squared() < range * range)
 							UI::indicator(params, pos, i.item()->team == AI::NoTeam ? UI::accent_color : Team::ui_color_enemy, true);
 					}
 				}

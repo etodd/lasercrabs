@@ -105,7 +105,7 @@ struct AwayScorer : AstarScorer
 struct RandomScorer : AstarScorer
 {
 	AwkNavMeshNode start_vertex;
-	s32 iterations;
+	Vec3 start_pos;
 	Vec3 goal;
 
 	virtual r32 score(const Vec3& pos)
@@ -115,8 +115,7 @@ struct RandomScorer : AstarScorer
 
 	virtual b8 done(AwkNavMeshNode v, const AwkNavMeshNodeData& data)
 	{
-		iterations++;
-		return iterations > 10;
+		return (start_pos - awk_nav_mesh.chunks[v.chunk].vertices[v.vertex]).length_squared() > (AWK_MAX_DISTANCE * 0.5f * AWK_MAX_DISTANCE * 0.5f);
 	}
 };
 
@@ -316,6 +315,8 @@ void awk_astar(AwkAllow rule, Team team, const AwkNavMeshNode& start_vertex, Ast
 			AwkNavMeshNode n = vertex_node;
 			while (true)
 			{
+				if (path->length == path->capacity())
+					path->remove(path->length - 1);
 				AwkPathNode* node = path->insert(0);
 				*node =
 				{
@@ -412,7 +413,7 @@ void awk_pathfind_internal(AwkAllow rule, Team team, const AwkNavMeshNode& start
 
 // find a path using vertices as close as possible to the given points
 // find our way to a point from which we can shoot through the given target
-void awk_pathfind_hit(Team team, const Vec3& start, const Vec3& start_normal, const Vec3& target, AwkPath* path)
+void awk_pathfind_hit(AwkAllow rule, Team team, const Vec3& start, const Vec3& start_normal, const Vec3& target, AwkPath* path)
 {
 	if (containment_field_hash(team, start) != containment_field_hash(team, target))
 	{
@@ -432,7 +433,7 @@ void awk_pathfind_hit(Team team, const Vec3& start, const Vec3& start_normal, co
 	// this prevents us from getting stuck at a point where we think we should be able to hit the target, but we actually can't
 
 	if (!target_closest_vertex.equals(start_vertex) && can_hit_from(target_closest_vertex, target, 0.999f))
-		awk_pathfind_internal(AwkAllow::All, team, start_vertex, target_closest_vertex, path);
+		awk_pathfind_internal(rule, team, start_vertex, target_closest_vertex, path);
 	else
 	{
 		const AwkNavMeshAdjacency& target_adjacency = awk_nav_mesh.chunks[target_closest_vertex.chunk].adjacency[target_closest_vertex.vertex];
@@ -460,7 +461,7 @@ void awk_pathfind_hit(Team team, const Vec3& start, const Vec3& start_normal, co
 			path->length = 0; // can't find a path to hit this thing
 		else
 		{
-			awk_pathfind_internal(AwkAllow::All, team, start_vertex, closest_vertex, path);
+			awk_pathfind_internal(rule, team, start_vertex, closest_vertex, path);
 			if (path->length > 0 && path->length < path->capacity())
 			{
 				AwkPathNode* node = path->add();
@@ -828,7 +829,7 @@ void loop()
 						Vec3 end;
 						sync_in.read(&end);
 						sync_in.unlock();
-						awk_pathfind_hit(team, start, start_normal, end, &path);
+						awk_pathfind_hit(rule, team, start, start_normal, end, &path);
 						break;
 					}
 					case AwkPathfind::Random:
@@ -837,6 +838,7 @@ void loop()
 
 						RandomScorer scorer;
 						scorer.start_vertex = awk_closest_point(team, start, start_normal);
+						scorer.start_pos = start;
 						scorer.goal = awk_nav_mesh.vmin +
 						Vec3
 						(

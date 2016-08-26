@@ -449,7 +449,7 @@ b8 UIMenu::add_item(Vec2* pos, b8 slider, const char* string, const char* value,
 	b8 is_selected = active[gamepad] == this && selected == items.length - 1;
 	item->label.color = item->value.color = disabled ? UI::disabled_color : (is_selected ? UI::accent_color : UI::default_color);
 	item->label.text(string);
-	text_clip(&item->label, animation_time, 50.0f + vi_min(items.length, 6) * -5.0f);
+	text_clip(&item->label, animation_time, 50.0f + vi_min((s32)items.length, 6) * -5.0f);
 
 	item->value.anchor_x = UIText::Anchor::Center;
 	item->value.text(value);

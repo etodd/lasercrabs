@@ -47,6 +47,13 @@ namespace AI
 		Random,
 	};
 
+	enum class AwkAllow
+	{
+		Crawl = 1,
+		Shoot = 1 << 1,
+		All = Crawl | Shoot,
+	};
+
 	const s32 MAX_PATH_LENGTH = 32;
 	typedef StaticArray<Vec3, MAX_PATH_LENGTH> Path;
 
@@ -95,10 +102,10 @@ namespace AI
 	u32 obstacle_add(const Vec3&, r32, r32);
 	void obstacle_remove(u32);
 	u32 pathfind(const Vec3&, const Vec3&, const LinkEntryArg<const Result&>&);
-	u32 awk_pathfind(AwkPathfind, AI::Team, const Vec3&, const Vec3&, const Vec3&, const Vec3&, const LinkEntryArg<const AwkResult&>&);
+	u32 awk_pathfind(AwkPathfind, AwkAllow, AI::Team, const Vec3&, const Vec3&, const Vec3&, const Vec3&, const LinkEntryArg<const AwkResult&>&);
 	void awk_mark_adjacency_bad(AwkNavMeshNode, AwkNavMeshNode);
 	u32 random_path(const Vec3&, const LinkEntryArg<const Result&>&);
-	u32 awk_random_path(AI::Team, const Vec3&, const Vec3&, const LinkEntryArg<const AwkResult&>&);
+	u32 awk_random_path(AwkAllow, AI::Team, const Vec3&, const Vec3&, const LinkEntryArg<const AwkResult&>&);
 	void load(const u8*, s32);
 	void loop();
 	void quit();

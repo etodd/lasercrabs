@@ -2518,8 +2518,9 @@ void build_awk_nav_mesh(Map<Mesh>& meshes, cJSON* json, AwkNavMesh* out, s32* ad
 
 					if (add_neighbor)
 					{
-						vertex_adjacency->add(neighbor_index);
-						if (vertex_adjacency->length == vertex_adjacency->capacity())
+						vertex_adjacency->neighbors.add(neighbor_index);
+						vertex_adjacency->flag(vertex_adjacency->neighbors.length - 1, true); // set crawl flag
+						if (vertex_adjacency->neighbors.length == vertex_adjacency->neighbors.capacity())
 						{
 							(*adjacency_buffer_overflows)++;
 							break;
@@ -2528,7 +2529,7 @@ void build_awk_nav_mesh(Map<Mesh>& meshes, cJSON* json, AwkNavMesh* out, s32* ad
 				}
 			}
 
-			if (vertex_adjacency->length < vertex_adjacency->capacity())
+			if (vertex_adjacency->neighbors.length < vertex_adjacency->neighbors.capacity())
 			{
 				// shuffle potential neighbors
 				for (s32 i = 0; i < potential_neighbors.length - 1; i++)
@@ -2551,8 +2552,9 @@ void build_awk_nav_mesh(Map<Mesh>& meshes, cJSON* json, AwkNavMesh* out, s32* ad
 						awk_raycast(accessible_chunked, vertex, neighbor_vertex, &neighbor_normal, &hit_close);
 						if (hit_close)
 						{
-							vertex_adjacency->add(neighbor_index);
-							if (vertex_adjacency->length == vertex_adjacency->capacity())
+							vertex_adjacency->neighbors.add(neighbor_index);
+							vertex_adjacency->flag(vertex_adjacency->neighbors.length - 1, false); // clear crawl flag
+							if (vertex_adjacency->neighbors.length == vertex_adjacency->neighbors.capacity())
 							{
 								(*adjacency_buffer_overflows)++;
 								break;
@@ -2575,7 +2577,7 @@ void build_awk_nav_mesh(Map<Mesh>& meshes, cJSON* json, AwkNavMesh* out, s32* ad
 		s32 chunk_orphans = 0;
 		for (s32 vertex_index = 0; vertex_index < chunk->vertices.length; vertex_index++)
 		{
-			if (chunk->adjacency[vertex_index].length == 0)
+			if (chunk->adjacency[vertex_index].neighbors.length == 0)
 			{
 				chunk_orphans++;
 				(*orphans)++;
@@ -2596,9 +2598,9 @@ void build_awk_nav_mesh(Map<Mesh>& meshes, cJSON* json, AwkNavMesh* out, s32* ad
 				for (s32 k = 0; k < c->adjacency.length; k++)
 				{
 					AwkNavMeshAdjacency* adjacency = &c->adjacency[k];
-					for (s32 l = 0; l < adjacency->length; l++)
+					for (s32 l = 0; l < adjacency->neighbors.length; l++)
 					{
-						if ((*adjacency)[l].chunk == chunk_index)
+						if (adjacency->neighbors[l].chunk == chunk_index)
 						{
 							adjacency->remove(l);
 							l--;

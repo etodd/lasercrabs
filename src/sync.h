@@ -14,14 +14,14 @@ template<s32 size> struct SyncRingBuffer
 	s32 read_pos;
 	s32 write_pos;
 	mutable std::mutex mutex;
-	StaticArray<u8, size> data;
+	Array<u8> data;
 	std::condition_variable condition;
 
 	SyncRingBuffer() :
 		read_pos(),
 		write_pos(),
 		mutex(),
-		data(size),
+		data(size, size),
 		condition()
 	{
 	}

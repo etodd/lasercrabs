@@ -46,9 +46,9 @@ dtPolyRef get_poly(const Vec3& pos, const r32* search_extents)
 struct AstarScorer
 {
 	// calculate heuristic score for nav mesh vertex
-	virtual r32 score(const Vec3&) const = 0;
+	virtual r32 score(const Vec3&) = 0;
 	// did we find what we're looking for?
-	virtual b8 done(AwkNavMeshNode, const AwkNavMeshNodeData&) const = 0;
+	virtual b8 done(AwkNavMeshNode, const AwkNavMeshNodeData&) = 0;
 };
 
 // pathfind to a target vertex
@@ -57,12 +57,12 @@ struct PathfindScorer : AstarScorer
 	AwkNavMeshNode end_vertex;
 	Vec3 end_pos;
 
-	virtual r32 score(const Vec3& pos) const
+	virtual r32 score(const Vec3& pos)
 	{
 		return (end_pos - pos).length();
 	}
 
-	virtual b8 done(AwkNavMeshNode v, const AwkNavMeshNodeData&) const
+	virtual b8 done(AwkNavMeshNode v, const AwkNavMeshNodeData&)
 	{
 		return v.equals(end_vertex);
 	}
@@ -75,12 +75,12 @@ struct AwayScorer : AstarScorer
 	AwkNavMeshNode away_vertex;
 	Vec3 away_pos;
 
-	virtual r32 score(const Vec3& pos) const
+	virtual r32 score(const Vec3& pos)
 	{
 		return AWK_MAX_DISTANCE - (away_pos - pos).length();
 	}
 
-	virtual b8 done(AwkNavMeshNode v, const AwkNavMeshNodeData& data) const
+	virtual b8 done(AwkNavMeshNode v, const AwkNavMeshNodeData& data)
 	{
 		if (v.equals(start_vertex)) // we need to go somewhere other than here
 			return false;
@@ -93,12 +93,30 @@ struct AwayScorer : AstarScorer
 			return false; // needs to be farther away
 
 		const AwkNavMeshAdjacency& adjacency = awk_nav_mesh.chunks[away_vertex.chunk].adjacency[away_vertex.vertex];
-		for (s32 i = 0; i < adjacency.length; i++)
+		for (s32 i = 0; i < adjacency.neighbors.length; i++)
 		{
-			if (adjacency[i].equals(v))
+			if (adjacency.neighbors[i].equals(v))
 				return false;
 		}
 		return true; // the enemy can't get there, it's safe
+	}
+};
+
+struct RandomScorer : AstarScorer
+{
+	AwkNavMeshNode start_vertex;
+	s32 iterations;
+	Vec3 goal;
+
+	virtual r32 score(const Vec3& pos)
+	{
+		return (goal - pos).length();
+	}
+
+	virtual b8 done(AwkNavMeshNode v, const AwkNavMeshNodeData& data)
+	{
+		iterations++;
+		return iterations > 10;
 	}
 };
 
@@ -106,7 +124,7 @@ Array<SensorState> sensors;
 Array<ContainmentFieldState> containment_fields;
 
 // describes which enemy containment fields you are currently inside
-u32 containment_field_hash(AI::Team my_team, const Vec3& pos)
+u32 containment_field_hash(Team my_team, const Vec3& pos)
 {
 	u32 result = 0;
 	for (s32 i = 0; i < containment_fields.length; i++)
@@ -122,7 +140,7 @@ u32 containment_field_hash(AI::Team my_team, const Vec3& pos)
 	return result;
 }
 
-r32 sensor_cost(AI::Team team, const AwkNavMeshNode& node)
+r32 sensor_cost(Team team, const AwkNavMeshNode& node)
 {
 	const Vec3& pos = awk_nav_mesh.chunks[node.chunk].vertices[node.vertex];
 	const Vec3& normal = awk_nav_mesh.chunks[node.chunk].normals[node.vertex];
@@ -153,7 +171,7 @@ r32 sensor_cost(AI::Team team, const AwkNavMeshNode& node)
 		return 8.0f;
 }
 
-AwkNavMeshNode awk_closest_point(AI::Team team, const Vec3& p, const Vec3& normal)
+AwkNavMeshNode awk_closest_point(Team team, const Vec3& p, const Vec3& normal)
 {
 	AwkNavMesh::Coord chunk_coord = awk_nav_mesh.coord(p);
 	r32 closest_distance = FLT_MAX;
@@ -175,7 +193,7 @@ AwkNavMeshNode awk_closest_point(AI::Team team, const Vec3& p, const Vec3& norma
 				for (s32 vertex_index = 0; vertex_index < chunk.vertices.length; vertex_index++)
 				{
 					const AwkNavMeshAdjacency& adjacency = chunk.adjacency[vertex_index];
-					if (adjacency.length > 0) // ignore orphans
+					if (adjacency.neighbors.length > 0) // ignore orphans
 					{
 						const Vec3& vertex = chunk.vertices[vertex_index];
 						const Vec3& normal = chunk.normals[vertex_index];
@@ -219,9 +237,9 @@ b8 can_hit_from(AwkNavMeshNode start_vertex, const Vec3& target, r32 dot_thresho
 	to_target /= sqrtf(target_distance_squared); // normalize
 	const AwkNavMeshAdjacency& start_adjacency = awk_nav_mesh.chunks[start_vertex.chunk].adjacency[start_vertex.vertex];
 
-	for (s32 i = 0; i < start_adjacency.length; i++)
+	for (s32 i = 0; i < start_adjacency.neighbors.length; i++)
 	{
-		const AwkNavMeshNode adjacent_vertex = start_adjacency[i];
+		const AwkNavMeshNode adjacent_vertex = start_adjacency.neighbors[i];
 		const Vec3& adjacent = awk_nav_mesh.chunks[adjacent_vertex.chunk].vertices[adjacent_vertex.vertex];
 
 		Vec3 to_adjacent = adjacent - start;
@@ -244,8 +262,15 @@ b8 can_hit_from(AwkNavMeshNode start_vertex, const Vec3& target, r32 dot_thresho
 	return false;
 }
 
+inline b8 awk_flags_match(b8 flags, AwkAllow mask)
+{
+	// true = crawl
+	// false = shoot
+	return (s32)mask & (s32)(flags ? AwkAllow::Crawl : AwkAllow::Shoot);
+}
+
 // A*
-void awk_astar(AI::Team team, const AwkNavMeshNode& start_vertex, const AstarScorer* scorer, AwkPath* path)
+void awk_astar(AwkAllow rule, Team team, const AwkNavMeshNode& start_vertex, AstarScorer* scorer, AwkPath* path)
 {
 #if DEBUG_AI
 	r64 start_time = platform::time();
@@ -306,10 +331,10 @@ void awk_astar(AI::Team team, const AwkNavMeshNode& start_vertex, const AstarSco
 		}
 		
 		const AwkNavMeshAdjacency& adjacency = awk_nav_mesh.chunks[vertex_node.chunk].adjacency[vertex_node.vertex];
-		for (s32 i = 0; i < adjacency.length; i++)
+		for (s32 i = 0; i < adjacency.neighbors.length; i++)
 		{
 			// visit neighbors
-			const AwkNavMeshNode adjacent_node = adjacency[i];
+			const AwkNavMeshNode adjacent_node = adjacency.neighbors[i];
 			AwkNavMeshNodeData* adjacent_data = &awk_nav_mesh_key.get(adjacent_node);
 
 			if (!adjacent_data->visited)
@@ -318,9 +343,11 @@ void awk_astar(AI::Team team, const AwkNavMeshNode& start_vertex, const AstarSco
 
 				const Vec3& adjacent_pos = awk_nav_mesh.chunks[adjacent_node.chunk].vertices[adjacent_node.vertex];
 
-				if (containment_field_hash(team, adjacent_pos) != start_field_hash)
+				if (!awk_flags_match(adjacency.flag(i), rule)
+					|| containment_field_hash(team, adjacent_pos) != start_field_hash)
 				{
-					// it's in a different containment field; unreachable
+					// flags don't match or it's in a different containment field
+					// therefore it's unreachable
 					adjacent_data->visited = true;
 				}
 				else
@@ -371,7 +398,7 @@ void awk_astar(AI::Team team, const AwkNavMeshNode& start_vertex, const AstarSco
 }
 
 // find a path from vertex a to vertex b
-void awk_pathfind_internal(AI::Team team, const AwkNavMeshNode& start_vertex, const AwkNavMeshNode& end_vertex, AwkPath* path)
+void awk_pathfind_internal(AwkAllow rule, Team team, const AwkNavMeshNode& start_vertex, const AwkNavMeshNode& end_vertex, AwkPath* path)
 {
 	PathfindScorer scorer;
 	scorer.end_vertex = end_vertex;
@@ -380,12 +407,12 @@ void awk_pathfind_internal(AI::Team team, const AwkNavMeshNode& start_vertex, co
 	if (containment_field_hash(team, start_pos) != containment_field_hash(team, scorer.end_pos))
 		path->length = 0; // in a different containment field; unreachable
 	else
-		awk_astar(team, start_vertex, &scorer, path);
+		awk_astar(rule, team, start_vertex, &scorer, path);
 }
 
 // find a path using vertices as close as possible to the given points
 // find our way to a point from which we can shoot through the given target
-void awk_pathfind_hit(AI::Team team, const Vec3& start, const Vec3& start_normal, const Vec3& target, AwkPath* path)
+void awk_pathfind_hit(Team team, const Vec3& start, const Vec3& start_normal, const Vec3& target, AwkPath* path)
 {
 	if (containment_field_hash(team, start) != containment_field_hash(team, target))
 	{
@@ -405,16 +432,16 @@ void awk_pathfind_hit(AI::Team team, const Vec3& start, const Vec3& start_normal
 	// this prevents us from getting stuck at a point where we think we should be able to hit the target, but we actually can't
 
 	if (!target_closest_vertex.equals(start_vertex) && can_hit_from(target_closest_vertex, target, 0.999f))
-		awk_pathfind_internal(team, start_vertex, target_closest_vertex, path);
+		awk_pathfind_internal(AwkAllow::All, team, start_vertex, target_closest_vertex, path);
 	else
 	{
 		const AwkNavMeshAdjacency& target_adjacency = awk_nav_mesh.chunks[target_closest_vertex.chunk].adjacency[target_closest_vertex.vertex];
 		r32 closest_distance = AWK_MAX_DISTANCE;
 		r32 closest_dot = 0.7f;
 		AwkNavMeshNode closest_vertex;
-		for (s32 i = 0; i < target_adjacency.length; i++)
+		for (s32 i = 0; i < target_adjacency.neighbors.length; i++)
 		{
-			const AwkNavMeshNode adjacent_vertex = target_adjacency[i];
+			const AwkNavMeshNode adjacent_vertex = target_adjacency.neighbors[i];
 			if (!adjacent_vertex.equals(start_vertex))
 			{
 				const Vec3& adjacent = awk_nav_mesh.chunks[adjacent_vertex.chunk].vertices[adjacent_vertex.vertex];
@@ -433,7 +460,7 @@ void awk_pathfind_hit(AI::Team team, const Vec3& start, const Vec3& start_normal
 			path->length = 0; // can't find a path to hit this thing
 		else
 		{
-			awk_pathfind_internal(team, start_vertex, closest_vertex, path);
+			awk_pathfind_internal(AwkAllow::All, team, start_vertex, closest_vertex, path);
 			if (path->length > 0 && path->length < path->capacity())
 			{
 				AwkPathNode* node = path->add();
@@ -456,10 +483,10 @@ void NavMeshProcess::process(struct dtNavMeshCreateParams* params, u8* polyAreas
 
 void pathfind(const Vec3& a, const Vec3& b, dtPolyRef start_poly, dtPolyRef end_poly, Path* path)
 {
-	dtPolyRef path_polys[AI::MAX_PATH_LENGTH];
-	dtPolyRef path_parents[AI::MAX_PATH_LENGTH];
-	u8 path_straight_flags[AI::MAX_PATH_LENGTH];
-	dtPolyRef path_straight_polys[AI::MAX_PATH_LENGTH];
+	dtPolyRef path_polys[MAX_PATH_LENGTH];
+	dtPolyRef path_parents[MAX_PATH_LENGTH];
+	u8 path_straight_flags[MAX_PATH_LENGTH];
+	dtPolyRef path_straight_polys[MAX_PATH_LENGTH];
 	s32 path_poly_count;
 
 	nav_mesh_query->findPath(start_poly, end_poly, (r32*)&a, (r32*)&b, &default_query_filter, path_polys, &path_poly_count, MAX_PATH_LENGTH);
@@ -477,12 +504,14 @@ void pathfind(const Vec3& a, const Vec3& b, dtPolyRef start_poly, dtPolyRef end_
 		Vec3 start;
 		nav_mesh_query->closestPointOnPoly(path_polys[0], (r32*)&a, (r32*)&start, 0);
 
+		s32 path_length;
 		nav_mesh_query->findStraightPath
 		(
 			(const r32*)&a, (const r32*)&end, path_polys, path_poly_count,
 			(r32*)path->data, path_straight_flags,
-			path_straight_polys, &path->length, MAX_PATH_LENGTH, 0
+			path_straight_polys, &path_length, MAX_PATH_LENGTH, 0
 		);
+		path->length = (u16)path_length;
 
 		if (path->length > 1)
 			path->remove_ordered(0);
@@ -767,11 +796,13 @@ void loop()
 			}
 			case Op::AwkPathfind:
 			{
-				AI::AwkPathfind type;
-				AI::Team team;
+				AwkPathfind type;
+				AwkAllow rule;
+				Team team;
 				Vec3 start;
 				Vec3 start_normal;
 				sync_in.read(&type);
+				sync_in.read(&rule);
 				sync_in.read(&team);
 				LinkEntryArg<AwkPath> callback;
 				sync_in.read(&callback);
@@ -789,7 +820,7 @@ void loop()
 						Vec3 end_normal;
 						sync_in.read(&end_normal);
 						sync_in.unlock();
-						awk_pathfind_internal(team, awk_closest_point(team, start, start_normal), awk_closest_point(team, end, end_normal), &path);
+						awk_pathfind_internal(rule, team, awk_closest_point(team, start, start_normal), awk_closest_point(team, end, end_normal), &path);
 						break;
 					}
 					case AwkPathfind::Target:
@@ -804,26 +835,17 @@ void loop()
 					{
 						sync_in.unlock();
 
-						Array<s32> chunks_with_vertices(awk_nav_mesh.chunks.length);
-						for (s32 i = 0; i < awk_nav_mesh.chunks.length; i++)
-						{
-							if (awk_nav_mesh.chunks[i].vertices.length > 0)
-								chunks_with_vertices.add(i);
-						}
-						s32 chunk_index = chunks_with_vertices[mersenne::randf_co() * chunks_with_vertices.length];
-						const AwkNavMeshChunk& chunk = awk_nav_mesh.chunks[chunk_index];
-						AwkNavMeshNode end_vertex;
-						while (true)
-						{
-							s32 vertex_index = mersenne::randf_co() * (u16)chunk.vertices.length;
-							if (chunk.adjacency[vertex_index].length > 0) // make sure it's not an orphan
-							{
-								end_vertex = { (u16)chunk_index, (u16)vertex_index };
-								break;
-							}
-						}
+						RandomScorer scorer;
+						scorer.start_vertex = awk_closest_point(team, start, start_normal);
+						scorer.goal = awk_nav_mesh.vmin +
+						Vec3
+						(
+							mersenne::randf_co() * awk_nav_mesh.size.x * awk_nav_mesh.chunk_size,
+							mersenne::randf_co() * awk_nav_mesh.size.y * awk_nav_mesh.chunk_size,
+							mersenne::randf_co() * awk_nav_mesh.size.z * awk_nav_mesh.chunk_size
+						);
 
-						awk_pathfind_internal(team, awk_closest_point(team, start, start_normal), end_vertex, &path);
+						awk_astar(rule, team, scorer.start_vertex, &scorer, &path);
 						break;
 					}
 					case AwkPathfind::Away:
@@ -839,7 +861,7 @@ void loop()
 						scorer.away_vertex = awk_closest_point(team, away, away_normal);
 						scorer.away_pos = away;
 
-						awk_astar(team, scorer.start_vertex, &scorer, &path);
+						awk_astar(rule, team, scorer.start_vertex, &scorer, &path);
 						break;
 					}
 					default:
@@ -866,9 +888,9 @@ void loop()
 
 				// remove b from a's adjacency list
 				AwkNavMeshAdjacency* adjacency = &awk_nav_mesh.chunks[a.chunk].adjacency[a.vertex];
-				for (s32 i = 0; i < adjacency->length; i++)
+				for (s32 i = 0; i < adjacency->neighbors.length; i++)
 				{
-					if ((*adjacency)[i].equals(b))
+					if (adjacency->neighbors[i].equals(b))
 					{
 						adjacency->remove(i);
 						break;

@@ -5,11 +5,11 @@
 namespace VI
 {
 
-template<s32 size> struct Bitmask
+template<u16 size> struct Bitmask
 {
-	s32 start;
-	s32 end;
-	u32 data[(size / sizeof(u32)) + 1];
+	u32 data[(size / (sizeof(u32) * 8)) + 1];
+	u16 start;
+	u16 end;
 
 	Bitmask()
 		: start(size), end(0)
@@ -51,7 +51,7 @@ template<s32 size> struct Bitmask
 		{
 			data[index] |= mask;
 			start = start < i ? start : i;
-			end = end > i + 1 ? end : i + 1;
+			end = end > i + 1 ? end : (u16)(i + 1);
 		}
 		else
 		{
@@ -65,7 +65,7 @@ template<s32 size> struct Bitmask
 					if (get(j))
 						break;
 				}
-				end = j;
+				end = (u16)j;
 			}
 			if (i == start)
 			{
@@ -75,7 +75,7 @@ template<s32 size> struct Bitmask
 					if (get(j))
 						break;
 				}
-				start = j;
+				start = (u16)j;
 			}
 			if (start >= end)
 			{

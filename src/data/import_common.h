@@ -4,6 +4,7 @@
 #include "lmath.h"
 #include <array>
 #include "recast/DetourTileCache/Include/DetourTileCacheBuilder.h"
+#include "pin_array.h"
 
 struct cJSON;
 struct rcPolyMesh;
@@ -276,7 +277,7 @@ template<typename T> struct Chunks
 	}
 };
 
-#define AWK_NAV_MESH_ADJACENCY 48
+#define AWK_NAV_MESH_ADJACENCY 48 // must be <= 64 because flags is a u64
 struct AwkNavMeshNode
 {
 	u16 chunk;
@@ -288,7 +289,17 @@ struct AwkNavMeshNode
 	}
 };
 
-typedef StaticArray<AwkNavMeshNode, AWK_NAV_MESH_ADJACENCY> AwkNavMeshAdjacency;
+struct AwkNavMeshAdjacency
+{
+	// true = crawl
+	// false = shoot
+	u64 flags;
+	StaticArray<AwkNavMeshNode, AWK_NAV_MESH_ADJACENCY> neighbors;
+	b8 flag(s32) const;
+	void flag(s32, b8);
+	void remove(s32);
+};
+
 struct AwkNavMeshChunk
 {
 	Array<Vec3> vertices;

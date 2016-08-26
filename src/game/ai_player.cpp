@@ -795,6 +795,26 @@ b8 attack_inbound(const AIPlayerControl* control)
 	return control->get<Awk>()->incoming_attacker() != nullptr;
 }
 
+s32 geometry_query(const AIPlayerControl* control)
+{
+	Vec3 pos;
+	Quat rot;
+	control->get<Transform>()->absolute(&pos, &rot);
+
+	s16 mask = ~AWK_PERMEABLE_MASK & ~CollisionAwk & ~control->get<Awk>()->ally_containment_field_mask();
+	s32 count = 0;
+	for (s32 i = 0; i < 16; i++)
+	{
+		Vec3 ray = rot * (Quat::euler(PI + (mersenne::randf_co() - 0.5f) * PI, (PI * 0.5f) + (mersenne::randf_co() - 0.5f) * PI, 0) * Vec3(1, 0, 0));
+		btCollisionWorld::ClosestRayResultCallback ray_callback(pos, pos + ray * AWK_MAX_DISTANCE * 0.5f);
+		Physics::raycast(&ray_callback, mask);
+		if (ray_callback.hasHit())
+			count++;
+	}
+
+	return count;
+}
+
 b8 should_spawn_rocket(const AIPlayerControl* control)
 {
 	Vec3 pos;
@@ -813,6 +833,9 @@ b8 should_spawn_rocket(const AIPlayerControl* control)
 	if (Sensor::can_see(control->get<AIAgent>()->team, pos, rot * Vec3(0, 0, 1)))
 		priority += 1;
 
+	if (ContainmentField::inside(1 << control->get<AIAgent>()->team, pos))
+		priority += 1;
+
 	{
 		r32 closest_enemy_awk;
 		Awk::closest(~(1 << control->get<AIAgent>()->team), control->get<Transform>()->absolute_pos(), &closest_enemy_awk);
@@ -822,22 +845,43 @@ b8 should_spawn_rocket(const AIPlayerControl* control)
 			priority += 1;
 	}
 
-	if (control->player.ref()->save_up_priority() < priority)
+	if (control->player.ref()->save_up_priority() >= priority)
+		return false;
+
+	// make sure it's in a relatively open area
+	return geometry_query(control) < 8;
+}
+
+b8 sniping(const AIPlayerControl* control)
+{
+	return control->get<Awk>()->snipe;
+}
+
+b8 should_snipe(const AIPlayerControl* control)
+{
+	Vec3 pos;
+	Quat rot;
+	control->get<Transform>()->absolute(&pos, &rot);
+
+	s32 priority = AICue::in_range(AICue::Type::Snipe, pos, 8.0f) ? 2 : 1;
+
+	if (Sensor::can_see(control->get<AIAgent>()->team, pos, rot * Vec3(0, 0, 1)))
+		priority += 1;
+
+	if (ContainmentField::inside(1 << control->get<AIAgent>()->team, pos))
+		priority += 1;
+
 	{
-		// make sure it's in a relatively open area
-		s16 mask = ~AWK_PERMEABLE_MASK & ~CollisionAwk & ~control->get<Awk>()->ally_containment_field_mask();
-		s32 count = 0;
-		for (s32 i = 0; i < 16; i++)
-		{
-			Vec3 ray = rot * (Quat::euler(PI + (mersenne::randf_co() - 0.5f) * PI, (PI * 0.5f) + (mersenne::randf_co() - 0.5f) * PI, 0) * Vec3(1, 0, 0));
-			btCollisionWorld::ClosestRayResultCallback ray_callback(pos, pos + ray * AWK_MAX_DISTANCE * 0.5f);
-			Physics::raycast(&ray_callback, mask);
-			if (ray_callback.hasHit())
-				count++;
-		}
-		return count < 8;
+		r32 closest_enemy_awk;
+		Awk::closest(~(1 << control->get<AIAgent>()->team), control->get<Transform>()->absolute_pos(), &closest_enemy_awk);
+		if (closest_enemy_awk < AWK_MAX_DISTANCE * 0.75f)
+			return false;
 	}
-	return false;
+
+	if (control->player.ref()->save_up_priority() >= priority)
+		return false;
+
+	return geometry_query(control) < 8;
 }
 
 b8 should_spawn_containment_field(const AIPlayerControl* control)
@@ -932,6 +976,12 @@ Repeat* make_low_level_loop(AIPlayerControl* control, const AIPlayer::Config& co
 								(
 									Sequence::alloc
 									(
+										// sniper mode
+										AIBehaviors::Test::alloc(&sniping),
+										AIBehaviors::RandomPath::alloc(1)
+									),
+									Sequence::alloc
+									(
 										AIBehaviors::Chance::alloc(config.dodge_chance),
 										AIBehaviors::Test::alloc(&attack_inbound),
 										AIBehaviors::Panic::alloc(127)
@@ -948,6 +998,7 @@ Repeat* make_low_level_loop(AIPlayerControl* control, const AIPlayer::Config& co
 									AIBehaviors::AbilitySpawn::alloc(4, Upgrade::Minion, Ability::Minion, &should_spawn_minion),
 									AIBehaviors::AbilitySpawn::alloc(4, Upgrade::Sensor, Ability::Sensor, &should_spawn_sensor),
 									AIBehaviors::AbilitySpawn::alloc(4, Upgrade::Rocket, Ability::Rocket, &should_spawn_rocket),
+									AIBehaviors::AbilitySpawn::alloc(4, Upgrade::Sniper, Ability::Sniper, &should_snipe),
 									AIBehaviors::AbilitySpawn::alloc(4, Upgrade::ContainmentField, Ability::ContainmentField, &should_spawn_containment_field),
 									Sequence::alloc
 									(
@@ -1189,7 +1240,7 @@ void AIPlayerControl::update(const Update& u)
 	r32 aspect = camera->viewport.size.y == 0 ? 1 : (r32)camera->viewport.size.x / (r32)camera->viewport.size.y;
 	camera->perspective((80.0f * PI * 0.5f / 180.0f), aspect, 0.02f, Game::level.skybox.far_plane);
 	camera->rot = Quat::euler(0.0f, get<PlayerCommon>()->angle_horizontal, get<PlayerCommon>()->angle_vertical);
-	camera->range = AWK_MAX_DISTANCE;
+	camera->range = get<Awk>()->range();
 	Vec3 abs_wall_normal = ((get<Transform>()->absolute_rot() * get<Awk>()->lerped_rotation) * Vec3(0, 0, 1));;
 	const r32 third_person_offset = 2.0f;
 	camera->pos = get<Awk>()->center() + camera->rot * Vec3(0, 0, -third_person_offset);
@@ -1264,7 +1315,12 @@ void RandomPath::run()
 		Vec3 pos;
 		Quat rot;
 		control->get<Transform>()->absolute(&pos, &rot);
-		AI::awk_random_path(control->get<AIAgent>()->team, pos, rot * Vec3(0, 0, 1), ObjectLinkEntryArg<Base<RandomPath>, const AI::AwkResult&, &Base<RandomPath>::path_callback>(id()));
+		AI::AwkAllow rule;
+		if (control->get<Awk>()->snipe)
+			rule = AI::AwkAllow::Crawl;
+		else
+			rule = AI::AwkAllow::All;
+		AI::awk_random_path(rule, control->get<AIAgent>()->team, pos, rot * Vec3(0, 0, 1), ObjectLinkEntryArg<Base<RandomPath>, const AI::AwkResult&, &Base<RandomPath>::path_callback>(id()));
 	}
 	else
 		done(false);

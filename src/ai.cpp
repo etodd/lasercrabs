@@ -105,8 +105,8 @@ void update(const Update& u)
 
 b8 match(Team t, TeamMask m)
 {
-	if (t == AI::NoTeam)
-		return m == AI::NoTeam;
+	if (t == NoTeam)
+		return m == NoTeam;
 	else
 		return m & (1 << t);
 }
@@ -177,9 +177,9 @@ u32 random_path(const Vec3& pos, const LinkEntryArg<const Result&>& callback)
 	return id;
 }
 
-u32 awk_random_path(AI::Team team, const Vec3& pos, const Vec3& normal, const LinkEntryArg<const AwkResult&>& callback)
+u32 awk_random_path(AwkAllow rule, Team team, const Vec3& pos, const Vec3& normal, const LinkEntryArg<const AwkResult&>& callback)
 {
-	return awk_pathfind(AwkPathfind::Random, team, pos, normal, Vec3::zero, Vec3::zero, callback);
+	return awk_pathfind(AwkPathfind::Random, rule, team, pos, normal, Vec3::zero, Vec3::zero, callback);
 }
 
 u32 pathfind(const Vec3& a, const Vec3& b, const LinkEntryArg<const Result&>& callback)
@@ -197,7 +197,7 @@ u32 pathfind(const Vec3& a, const Vec3& b, const LinkEntryArg<const Result&>& ca
 	return id;
 }
 
-u32 awk_pathfind(AI::AwkPathfind type, AI::Team team, const Vec3& a, const Vec3& a_normal, const Vec3& b, const Vec3& b_normal, const LinkEntryArg<const AwkResult&>& callback)
+u32 awk_pathfind(AwkPathfind type, AwkAllow rule, Team team, const Vec3& a, const Vec3& a_normal, const Vec3& b, const Vec3& b_normal, const LinkEntryArg<const AwkResult&>& callback)
 {
 	u32 id = callback_in_id;
 	callback_in_id++;
@@ -205,6 +205,7 @@ u32 awk_pathfind(AI::AwkPathfind type, AI::Team team, const Vec3& a, const Vec3&
 	sync_in.lock();
 	sync_in.write(Op::AwkPathfind);
 	sync_in.write(type);
+	sync_in.write(rule);
 	sync_in.write(team);
 	sync_in.write(callback);
 	sync_in.write(a);
@@ -316,9 +317,9 @@ void refresh_nav_render_meshes(const RenderParams& params)
 			for (s32 i = 0; i < chunk.adjacency.length; i++)
 			{
 				const AwkNavMeshAdjacency& adjacency = chunk.adjacency[i];
-				for (s32 j = 0; j < adjacency.length; j++)
+				for (s32 j = 0; j < adjacency.neighbors.length; j++)
 				{
-					const AwkNavMeshNode& neighbor = adjacency[j];
+					const AwkNavMeshNode& neighbor = adjacency.neighbors[j];
 					indices.add(vertex_count + i);
 
 					s32 neighbor_chunk_vertex_index = 0;

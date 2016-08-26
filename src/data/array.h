@@ -13,7 +13,7 @@ namespace VI
 #define ARRAY_GROWTH_FACTOR 1.5
 #define ARRAY_INITIAL_RESERVATION 1
 
-template <typename T, s32 size>
+template <typename T, u16 size>
 struct StaticArray
 {
 	union
@@ -21,19 +21,19 @@ struct StaticArray
 		char _nil[size * sizeof(T)];
 		T data[size];
 	};
-	s32 length;
+	u16 length;
 
 	StaticArray()
 		: _nil(), length()
 	{
 	}
 
-	StaticArray(s32 l)
+	StaticArray(u16 l)
 		: _nil(), length(l)
 	{
 	}
 	
-	s32 capacity() const
+	u16 capacity() const
 	{
 		return size;
 	}

@@ -203,14 +203,14 @@ namespace AIBehaviors
 			BehaviorBase<Derived>::abort();
 		}
 
-		void pathfind(const Vec3& target, const Vec3& normal, AI::AwkPathfind type)
+		void pathfind(const Vec3& target, const Vec3& normal, AI::AwkPathfind type, AI::AwkAllow rule = AI::AwkAllow::All)
 		{
 			vi_assert(this->control->template get<Awk>()->state() == Awk::State::Crawl);
 			auto ai_callback = ObjectLinkEntryArg<Base<Derived>, const AI::AwkResult&, &Base<Derived>::path_callback>(this->id());
 			Vec3 pos;
 			Quat rot;
 			this->control->template get<Transform>()->absolute(&pos, &rot);
-			AI::awk_pathfind(type, this->control->template get<AIAgent>()->team, pos, rot * Vec3(0, 0, 1), target, normal, ai_callback);
+			AI::awk_pathfind(type, rule, this->control->template get<AIAgent>()->team, pos, rot * Vec3(0, 0, 1), target, normal, ai_callback);
 		}
 	};
 

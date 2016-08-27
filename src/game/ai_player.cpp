@@ -437,19 +437,15 @@ Vec2 AIPlayerControl::aim(const Update& u, const Vec3& to_target)
 	r32 target_angle_horizontal;
 	{
 		target_angle_horizontal = LMath::closest_angle(atan2(to_target.x, to_target.z), common->angle_horizontal);
-		r32 dir_horizontal = target_angle_horizontal > common->angle_horizontal ? 1.0f : -1.0f;
 
 		{
 			// make sure we don't try to turn through the wall
 			r32 half_angle = (common->angle_horizontal + target_angle_horizontal) * 0.5f;
-			if ((Quat::euler(0, half_angle, 0) * Vec3(0, 0, 1)).dot(wall_normal) < -0.5f)
-			{
-				dir_horizontal *= -1.0f; // go the other way
+			if ((Quat::euler(common->angle_vertical, half_angle, 0) * Vec3(0, 0, 1)).dot(wall_normal) < -0.5f)
 				target_angle_horizontal = common->angle_horizontal - (target_angle_horizontal - common->angle_horizontal);
-			}
 		}
 
-		common->angle_horizontal = dir_horizontal > 0.0f
+		common->angle_horizontal = target_angle_horizontal > common->angle_horizontal
 			? vi_min(target_angle_horizontal, common->angle_horizontal + vi_max(0.2f, target_angle_horizontal - common->angle_horizontal) * config.aim_speed * u.time.delta)
 			: vi_max(target_angle_horizontal, common->angle_horizontal + vi_min(-0.2f, target_angle_horizontal - common->angle_horizontal) * config.aim_speed * u.time.delta);
 		common->angle_horizontal = LMath::angle_range(common->angle_horizontal);
@@ -458,7 +454,6 @@ Vec2 AIPlayerControl::aim(const Update& u, const Vec3& to_target)
 	r32 target_angle_vertical;
 	{
 		target_angle_vertical = LMath::closest_angle(atan2(-to_target.y, Vec2(to_target.x, to_target.z).length()), common->angle_vertical);
-		r32 dir_vertical = target_angle_vertical > common->angle_vertical ? 1.0f : -1.0f;
 
 		{
 			// make sure we don't try to turn through the wall
@@ -467,12 +462,11 @@ Vec2 AIPlayerControl::aim(const Update& u, const Vec3& to_target)
 				|| half_angle > PI * 0.5f
 				|| (Quat::euler(half_angle, common->angle_horizontal, 0) * Vec3(0, 0, 1)).dot(wall_normal) < -0.5f)
 			{
-				dir_vertical *= -1.0f; // go the other way
 				target_angle_vertical = common->angle_vertical - (target_angle_vertical - common->angle_vertical);
 			}
 		}
 
-		common->angle_vertical = dir_vertical > 0.0f
+		common->angle_vertical = target_angle_vertical > common->angle_vertical
 			? vi_min(target_angle_vertical, common->angle_vertical + vi_max(0.2f, target_angle_vertical - common->angle_vertical) * config.aim_speed * u.time.delta)
 			: vi_max(target_angle_vertical, common->angle_vertical + vi_min(-0.2f, target_angle_vertical - common->angle_vertical) * config.aim_speed * u.time.delta);
 		common->angle_vertical = LMath::angle_range(common->angle_vertical);
@@ -1211,7 +1205,7 @@ void AIPlayerControl::update(const Update& u)
 			{
 				// trying to a hit a moving thingy
 				Vec3 intersection;
-				if (get<Awk>()->can_hit(target.ref()->get<Target>(), &intersection))
+				if (aim_timer < config.aim_timeout && get<Awk>()->can_hit(target.ref()->get<Target>(), &intersection))
 					aim_and_shoot(u, intersection, intersection, Vec3::zero, target.ref()->get<Target>(), -1.0f);
 				else
 					active_behavior->done(false); // we can't hit it

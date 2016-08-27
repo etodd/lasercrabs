@@ -85,7 +85,7 @@ struct AwayScorer : AstarScorer
 		if (v.equals(start_vertex)) // we need to go somewhere other than here
 			return false;
 
-		if (data.sensor_score == 0.0f) // inside a friendly sensor zone
+		if (data.sensor_score <= 8.0f) // inside a friendly sensor zone or containment field
 			return true;
 
 		const Vec3& vertex = awk_nav_mesh.chunks[v.chunk].vertices[v.vertex];
@@ -107,6 +107,7 @@ struct RandomScorer : AstarScorer
 	AwkNavMeshNode start_vertex;
 	Vec3 start_pos;
 	Vec3 goal;
+	r32 minimum_distance;
 
 	virtual r32 score(const Vec3& pos)
 	{
@@ -115,7 +116,7 @@ struct RandomScorer : AstarScorer
 
 	virtual b8 done(AwkNavMeshNode v, const AwkNavMeshNodeData& data)
 	{
-		return (start_pos - awk_nav_mesh.chunks[v.chunk].vertices[v.vertex]).length_squared() > (AWK_MAX_DISTANCE * 0.5f * AWK_MAX_DISTANCE * 0.5f);
+		return (start_pos - awk_nav_mesh.chunks[v.chunk].vertices[v.vertex]).length_squared() > (minimum_distance * minimum_distance);
 	}
 };
 
@@ -388,7 +389,7 @@ void awk_astar(AwkAllow rule, Team team, const AwkNavMeshNode& start_vertex, Ast
 					r32 candidate_travel_score = vertex_data->travel_score
 						+ vertex_data->sensor_score
 						+ (adjacent_pos - vertex_pos).length()
-						+ 5.0f; // bias toward longer shots
+						+ adjacency.flag(i) ? 2.0f : 5.0f; // if the crawl flag is set, use a smaller bias. if it's shooting rather than crawling, then bias toward longer shots
 
 					if (adjacent_data->in_queue)
 					{
@@ -871,12 +872,15 @@ void loop()
 						RandomScorer scorer;
 						scorer.start_vertex = awk_closest_point(team, start, start_normal);
 						scorer.start_pos = start;
+						scorer.minimum_distance = rule == AwkAllow::Crawl ? AWK_MAX_DISTANCE * 0.5f : AWK_MAX_DISTANCE * 3.0f;
+						scorer.minimum_distance = vi_min(scorer.minimum_distance,
+							vi_min(awk_nav_mesh.size.x, awk_nav_mesh.size.z) * awk_nav_mesh.chunk_size * 0.5f);
 						scorer.goal = awk_nav_mesh.vmin +
 						Vec3
 						(
-							mersenne::randf_co() * awk_nav_mesh.size.x * awk_nav_mesh.chunk_size,
-							mersenne::randf_co() * awk_nav_mesh.size.y * awk_nav_mesh.chunk_size,
-							mersenne::randf_co() * awk_nav_mesh.size.z * awk_nav_mesh.chunk_size
+							mersenne::randf_co() * (awk_nav_mesh.size.x * awk_nav_mesh.chunk_size),
+							mersenne::randf_co() * (awk_nav_mesh.size.y * awk_nav_mesh.chunk_size),
+							mersenne::randf_co() * (awk_nav_mesh.size.z * awk_nav_mesh.chunk_size)
 						);
 
 						awk_astar(rule, team, scorer.start_vertex, &scorer, &path);

@@ -35,37 +35,49 @@ namespace VI
 AwkRaycastCallback::AwkRaycastCallback(const Vec3& a, const Vec3& b, const Entity* awk)
 	: btCollisionWorld::ClosestRayResultCallback(a, b)
 {
-	closest_target_hit = FLT_MAX;
+	closest_target_hit_fraction = 2.0f;
 	entity_id = awk->id();
 }
 
 b8 AwkRaycastCallback::hit_target() const
 {
-	return closest_target_hit < FLT_MAX;
+	return closest_target_hit_fraction < 2.0f;
 }
 
 btScalar AwkRaycastCallback::addSingleResult(btCollisionWorld::LocalRayResult& ray_result, b8 normalInWorldSpace)
 {
-	short filter_group = ray_result.m_collisionObject->getBroadphaseHandle()->m_collisionFilterGroup;
+	s16 filter_group = ray_result.m_collisionObject->getBroadphaseHandle()->m_collisionFilterGroup;
 	if (filter_group & CollisionWalker)
 	{
 		Entity* entity = &Entity::list[ray_result.m_collisionObject->getUserIndex()];
 		if (entity->has<MinionCommon>() && entity->get<MinionCommon>()->headshot_test(m_rayFromWorld, m_rayToWorld))
 		{
-			closest_target_hit = ray_result.m_hitFraction;
+			if (ray_result.m_hitFraction < closest_target_hit_fraction)
+			{
+				closest_target_hit_fraction = ray_result.m_hitFraction;
+				closest_target_hit_group = filter_group;
+			}
 			return m_closestHitFraction; // keep going
 		}
 	}
 	else if (filter_group & CollisionShield)
 	{
-		closest_target_hit = ray_result.m_hitFraction;
+		if (ray_result.m_hitFraction < closest_target_hit_fraction)
+		{
+			closest_target_hit_fraction = ray_result.m_hitFraction;
+			closest_target_hit_group = filter_group;
+		}
 		return m_closestHitFraction; // keep going
 	}
 	else if (filter_group & CollisionTarget)
 	{
 		if (ray_result.m_collisionObject->getUserIndex() != entity_id)
 		{
-			closest_target_hit = ray_result.m_hitFraction;
+			if (ray_result.m_hitFraction < closest_target_hit_fraction)
+			{
+				closest_target_hit_fraction = ray_result.m_hitFraction;
+				closest_target_hit_group = filter_group;
+			}
 			return m_closestHitFraction; // keep going
 		}
 	}
@@ -424,12 +436,18 @@ b8 Awk::can_hit(const Target* target, Vec3* out_intersection) const
 		Vec3 to_intersection = intersection - me;
 		r32 distance = to_intersection.length();
 		to_intersection /= distance;
-		if (distance < AWK_DASH_DISTANCE
-			&& fabs(to_intersection.dot(get<Transform>()->absolute_rot() * Vec3(0, 0, 1))) < 0.1f)
+		if (distance < AWK_DASH_DISTANCE)
 		{
-			if (out_intersection)
-				*out_intersection = intersection;
-			return true;
+			// the Target is situated at the base of the enemy Awk, where it attaches to the surface.
+			// we need to recalculate the vector starting from our own base attach point, otherwise the dot product will be messed up.
+			Vec3 dash_to_intersection = intersection - get<Target>()->absolute_pos();
+			r32 dot = to_intersection.dot(get<Transform>()->absolute_rot() * Vec3(0, 0, 1));
+			if (fabs(dot) < 0.1f)
+			{
+				if (out_intersection)
+					*out_intersection = intersection;
+				return true;
+			}
 		}
 		Vec3 final_pos;
 		b8 hit_target;
@@ -472,7 +490,7 @@ b8 Awk::can_shoot(const Vec3& dir, Vec3* final_pos, b8* hit_target) const
 	}
 
 	Vec3 trace_start = center();
-	Vec3 trace_end = trace_start + trace_dir * range();
+	Vec3 trace_end = trace_start + trace_dir * AWK_SNIPE_DISTANCE;
 
 	AwkRaycastCallback ray_callback(trace_start, trace_end, entity());
 	Physics::raycast(&ray_callback, ~CollisionAwkIgnore & ~ally_containment_field_mask());
@@ -497,16 +515,45 @@ b8 Awk::can_shoot(const Vec3& dir, Vec3* final_pos, b8* hit_target) const
 	}
 	else
 	{
-		if (ray_callback.hasHit() && !(ray_callback.m_collisionObject->getBroadphaseHandle()->m_collisionFilterGroup & (AWK_INACCESSIBLE_MASK & ~CollisionShield)))
+		if (ray_callback.hasHit()
+			&& !(ray_callback.m_collisionObject->getBroadphaseHandle()->m_collisionFilterGroup & (AWK_INACCESSIBLE_MASK & ~CollisionShield)))
 		{
-			if (final_pos)
-				*final_pos = ray_callback.m_hitPointWorld;
-			if (hit_target)
-				*hit_target = ray_callback.hit_target();
-			return true;
+			r32 r = range();
+			b8 can_shoot = false;
+			if (ray_callback.m_closestHitFraction * AWK_SNIPE_DISTANCE < r)
+				can_shoot = true;
+			else if ((ray_callback.closest_target_hit_group & (CollisionAwk | CollisionShield))
+				&& ray_callback.closest_target_hit_fraction * AWK_SNIPE_DISTANCE < r)
+			{
+				can_shoot = true; // allow awk to shoot if we're aiming at an enemy awk in range but the backing behind it is out of range
+			}
+			else
+			{
+				// check target predictions
+				for (auto i = list.iterator(); !i.is_last(); i.next())
+				{
+					Vec3 intersection;
+					if (i.item() != this && predict_intersection(i.item()->get<Target>(), &intersection))
+					{
+						if (LMath::ray_sphere_intersect(trace_start, trace_end, intersection, AWK_SHIELD_RADIUS))
+						{
+							can_shoot = true;
+							break;
+						}
+					}
+				}
+			}
+
+			if (can_shoot)
+			{
+				if (final_pos)
+					*final_pos = ray_callback.m_hitPointWorld;
+				if (hit_target)
+					*hit_target = ray_callback.hit_target();
+				return true;
+			}
 		}
-		else
-			return false;
+		return false;
 	}
 }
 

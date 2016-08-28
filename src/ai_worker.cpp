@@ -389,7 +389,7 @@ void awk_astar(AwkAllow rule, Team team, const AwkNavMeshNode& start_vertex, Ast
 					r32 candidate_travel_score = vertex_data->travel_score
 						+ vertex_data->sensor_score
 						+ (adjacent_pos - vertex_pos).length()
-						+ adjacency.flag(i) ? 2.0f : 5.0f; // if the crawl flag is set, use a smaller bias. if it's shooting rather than crawling, then bias toward longer shots
+						+ 4.0f; // bias toward longer shots
 
 					if (adjacent_data->in_queue)
 					{

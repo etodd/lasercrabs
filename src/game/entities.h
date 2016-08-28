@@ -155,7 +155,6 @@ struct ContainmentField : public ComponentType<ContainmentField>
 
 	static void update_all(const Update&);
 	static ContainmentField* inside(AI::TeamMask, const Vec3&);
-	static b8 can_spawn(AI::Team, const Vec3&);
 	static ContainmentField* closest(AI::TeamMask, const Vec3&, r32*);
 	static u32 hash(AI::Team, const Vec3&);
 
@@ -170,6 +169,7 @@ struct ContainmentField : public ComponentType<ContainmentField>
 	~ContainmentField();
 	void hit_by(const TargetEvent&);
 	void killed(Entity*);
+	void destroy();
 	b8 contains(const Vec3&) const;
 };
 

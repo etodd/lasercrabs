@@ -1482,7 +1482,7 @@ void LocalPlayerControl::update(const Update& u)
 
 		if (movement_enabled())
 		{
-			Vec3 trace_end = trace_start + trace_dir * (get<Awk>()->range() + third_person_offset);
+			Vec3 trace_end = trace_start + trace_dir * (AWK_SNIPE_DISTANCE + third_person_offset);
 			RaycastCallbackExcept ray_callback(trace_start, trace_end, entity());
 			Physics::raycast(&ray_callback, ~CollisionAwkIgnore & ~get<Awk>()->ally_containment_field_mask());
 
@@ -2103,14 +2103,24 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 			: ((reticle.type != ReticleType::None && cooldown_can_go) ? UI::accent_color : UI::alert_color);
 
 		// cooldown indicator
-		if (!get<Awk>()->snipe)
 		{
 			s32 charges = get<Awk>()->charges();
-			const Vec2 box_size = Vec2(10.0f) * UI::scale;
-			for (s32 i = 0; i < charges; i++)
+			if (charges == 0)
 			{
-				Vec2 p = pos + Vec2(0.0f, -20.0f + i * -16.0f) * UI::scale;
-				UI::triangle(params, { p, box_size }, color);
+				r32 cooldown = AWK_MAX_DISTANCE_COOLDOWN;
+				for (s32 i = 0; i < AWK_CHARGES; i++)
+					cooldown = vi_min(cooldown, get<Awk>()->cooldowns[i]);
+
+				UI::triangle_border(params, { pos, Vec2((start_radius + spoke_length) * (2.5f + 5.0f * (cooldown / AWK_MAX_DISTANCE_COOLDOWN)) * UI::scale) }, spoke_width, UI::alert_color, PI);
+			}
+			else if (!get<Awk>()->snipe)
+			{
+				const Vec2 box_size = Vec2(10.0f) * UI::scale;
+				for (s32 i = 0; i < charges; i++)
+				{
+					Vec2 p = pos + Vec2(0.0f, -36.0f + i * -16.0f) * UI::scale;
+					UI::triangle(params, { p, box_size }, color, PI);
+				}
 			}
 		}
 
@@ -2123,13 +2133,13 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 		else
 		{
 			const r32 ratio = 0.8660254037844386f;
-			UI::centered_box(params, { pos + Vec2(ratio, -0.5f) * UI::scale * start_radius, Vec2(spoke_length, spoke_width) * UI::scale }, color, PI * 0.5f * -0.33f);
-			UI::centered_box(params, { pos + Vec2(-ratio, -0.5f) * UI::scale * start_radius, Vec2(spoke_length, spoke_width) * UI::scale }, color, PI * 0.5f * 0.33f);
-			UI::centered_box(params, { pos + Vec2(0, 1.0f) * UI::scale * start_radius, Vec2(spoke_width, spoke_length) * UI::scale }, color);
+			UI::centered_box(params, { pos + Vec2(ratio, 0.5f) * UI::scale * start_radius, Vec2(spoke_length, spoke_width) * UI::scale }, color, PI * 0.5f * 0.33f);
+			UI::centered_box(params, { pos + Vec2(-ratio, 0.5f) * UI::scale * start_radius, Vec2(spoke_length, spoke_width) * UI::scale }, color, PI * 0.5f * -0.33f);
+			UI::centered_box(params, { pos + Vec2(0, -1.0f) * UI::scale * start_radius, Vec2(spoke_width, spoke_length) * UI::scale }, color);
 
 			if (get<Awk>()->snipe)
 			{
-				UI::mesh(params, Asset::Mesh::icon_sniper, pos + Vec2(0, -32.0f * UI::scale), Vec2(18.0f * UI::scale), color);
+				UI::mesh(params, Asset::Mesh::icon_sniper, pos + Vec2(0, -64.0f * UI::scale), Vec2(18.0f * UI::scale), color);
 
 				// cancel prompt
 				UIText text;
@@ -2138,16 +2148,16 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 				text.anchor_x = UIText::Anchor::Center;
 				text.anchor_y = UIText::Anchor::Max;
 				text.size = text_size;
-				Vec2 p = pos + Vec2(0, -80.0f *UI::scale);
+				Vec2 p = pos + Vec2(0, -96.0f * UI::scale);
 				UI::box(params, text.rect(p).outset(8.0f * UI::scale), UI::background_color);
 				text.draw(params, p);
 			}
 
-			if (cooldown_can_go && (reticle.type == ReticleType::Normal || reticle.type == ReticleType::Target))
+			if (reticle.type == ReticleType::Normal || reticle.type == ReticleType::Target)
 			{
 				Vec2 a;
 				if (UI::project(params, reticle.pos, &a))
-					UI::triangle(params, { a, Vec2(10.0f * UI::scale) }, reticle.type == ReticleType::Normal ? UI::accent_color : UI::alert_color, PI);
+					UI::triangle(params, { a, Vec2(10.0f * UI::scale) }, cooldown_can_go && reticle.type == ReticleType::Normal ? UI::accent_color : UI::alert_color, PI);
 			}
 		}
 	}

@@ -20,7 +20,7 @@ struct DamageEvent;
 #define AWK_CRAWL_SPEED 2.0f
 #define AWK_MIN_COOLDOWN 2.0f
 #define AWK_MAX_DISTANCE_COOLDOWN 6.0f
-#define AWK_COOLDOWN_DISTANCE_RATIO (AWK_MAX_DISTANCE_COOLDOWN / AWK_MAX_DISTANCE)
+#define AWK_COOLDOWN_DISTANCE_RATIO ((AWK_MAX_DISTANCE_COOLDOWN - AWK_MIN_COOLDOWN) / AWK_MAX_DISTANCE)
 #define AWK_LEGS 3
 #define AWK_INVINCIBLE_TIME 3.0f
 #define AWK_SNIPE_DISTANCE 100.0f
@@ -29,7 +29,8 @@ struct DamageEvent;
 // If we raycast through a Minion's head, keep going.
 struct AwkRaycastCallback : btCollisionWorld::ClosestRayResultCallback
 {
-	r32 closest_target_hit;
+	r32 closest_target_hit_fraction;
+	s16 closest_target_hit_group;
 	b8 hit_target() const;
 	ID entity_id;
 

@@ -761,17 +761,6 @@ ContainmentField* ContainmentField::inside(AI::TeamMask mask, const Vec3& pos)
 	return nullptr;
 }
 
-// don't allow overlapping friendly containment fields
-b8 ContainmentField::can_spawn(AI::Team team, const Vec3& pos)
-{
-	for (auto i = list.iterator(); !i.is_last(); i.next())
-	{
-		if (i.item()->team == team && (i.item()->get<Transform>()->absolute_pos() - pos).length_squared() < CONTAINMENT_FIELD_RADIUS * 2.0f * CONTAINMENT_FIELD_RADIUS * 2.0f)
-			return false;
-	}
-	return true;
-}
-
 b8 ContainmentField::contains(const Vec3& pos) const
 {
 	return (pos - get<Transform>()->absolute_pos()).length_squared() < CONTAINMENT_FIELD_RADIUS * CONTAINMENT_FIELD_RADIUS;
@@ -796,6 +785,17 @@ u32 ContainmentField::hash(AI::Team my_team, const Vec3& pos)
 ContainmentField::ContainmentField(const Vec3& abs_pos, PlayerManager* m)
 	: team(m->team.ref()->team()), owner(m), remaining_lifetime(CONTAINMENT_FIELD_LIFETIME), powered()
 {
+	// destroy any overlapping friendly containment field
+	for (auto i = list.iterator(); !i.is_last(); i.next())
+	{
+		if (i.item() != this
+			&& i.item()->team == team
+			&& (i.item()->get<Transform>()->absolute_pos() - abs_pos).length_squared() < CONTAINMENT_FIELD_RADIUS * 2.0f * CONTAINMENT_FIELD_RADIUS * 2.0f)
+		{
+			i.item()->destroy();
+		}
+	}
+
 	Entity* f = World::alloc<Empty>();
 	f->get<Transform>()->absolute_pos(abs_pos);
 
@@ -896,24 +896,27 @@ void ContainmentField::update_all(const Update& u)
 
 			// check if we need to kill this field
 			if (i.item()->remaining_lifetime < 0)
-			{
-				Vec3 pos;
-				Quat rot;
-				i.item()->get<Transform>()->absolute(&pos, &rot);
-				for (s32 i = 0; i < 50; i++)
-				{
-					Particles::sparks.add
-					(
-						pos,
-						rot * Vec3(mersenne::randf_oo() * 2.0f - 1.0f, mersenne::randf_oo() * 2.0f - 1.0f, mersenne::randf_oo()) * 10.0f,
-						Vec4(1, 1, 1, 1)
-					);
-				}
-				World::create<ShockwaveEntity>(8.0f, 1.5f)->get<Transform>()->absolute_pos(pos);
-				World::remove_deferred(i.item()->entity());
-			}
+				i.item()->destroy();
 		}
 	}
+}
+
+void ContainmentField::destroy()
+{
+	Vec3 pos;
+	Quat rot;
+	get<Transform>()->absolute(&pos, &rot);
+	for (s32 i = 0; i < 50; i++)
+	{
+		Particles::sparks.add
+		(
+			pos,
+			rot * Vec3(mersenne::randf_oo() * 2.0f - 1.0f, mersenne::randf_oo() * 2.0f - 1.0f, mersenne::randf_oo()) * 10.0f,
+			Vec4(1, 1, 1, 1)
+		);
+	}
+	World::create<ShockwaveEntity>(8.0f, 1.5f)->get<Transform>()->absolute_pos(pos);
+	World::remove_deferred(entity());
 }
 
 #define CONTAINMENT_FIELD_BASE_RADIUS 0.385f

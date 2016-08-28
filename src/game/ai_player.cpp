@@ -934,14 +934,23 @@ b8 should_snipe(const AIPlayerControl* control)
 b8 should_spawn_containment_field(const AIPlayerControl* control)
 {
 	Vec3 me = control->get<Transform>()->absolute_pos();
-	if (!ContainmentField::can_spawn(control->get<AIAgent>()->team, me)) // can't spawn containment fields inside each other
-		return false;
+	AI::Team team = control->get<AIAgent>()->team;
+
+	// make sure we're not overlapping with an existing friendly containment field
+	for (auto i = ContainmentField::list.iterator(); !i.is_last(); i.next())
+	{
+		if (i.item()->team == team
+			&& (i.item()->get<Transform>()->absolute_pos() - me).length_squared() < CONTAINMENT_FIELD_RADIUS * 2.0f * CONTAINMENT_FIELD_RADIUS * 2.0f)
+		{
+			return false;
+		}
+	}
 
 	s32 save_up_priority = control->player.ref()->save_up_priority();
 	if (save_up_priority < 2)
 	{
 		r32 closest_distance;
-		HealthPickup::closest(1 << control->get<AIAgent>()->team, me, &closest_distance);
+		HealthPickup::closest(1 << team, me, &closest_distance);
 		if (closest_distance < CONTAINMENT_FIELD_RADIUS)
 			return true;
 	}
@@ -949,9 +958,11 @@ b8 should_spawn_containment_field(const AIPlayerControl* control)
 	if (save_up_priority < 1)
 	{
 		r32 closest_distance;
-		Awk* closest = Awk::closest(~(1 << control->get<AIAgent>()->team), me, &closest_distance);
+		Awk* closest = Awk::closest(~(1 << team), me, &closest_distance);
 		if (closest_distance < CONTAINMENT_FIELD_RADIUS && closest->get<Health>()->hp <= control->get<Health>()->hp)
 			return true;
+
+		// todo: use containment field to protect friendly minions, control points, and sensors
 	}
 	return false;
 }

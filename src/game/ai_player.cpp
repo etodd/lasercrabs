@@ -929,6 +929,8 @@ b8 should_snipe(const AIPlayerControl* control)
 
 		return result;
 	}
+
+	return false;
 }
 
 b8 should_spawn_containment_field(const AIPlayerControl* control)

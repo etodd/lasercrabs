@@ -436,12 +436,12 @@ Vec2 AIPlayerControl::aim(const Update& u, const Vec3& to_target)
 	const AIPlayer::Config& config = player.ref()->config;
 	r32 target_angle_horizontal;
 	{
-		target_angle_horizontal = LMath::closest_angle(atan2(to_target.x, to_target.z), common->angle_horizontal);
+		target_angle_horizontal = LMath::closest_angle(atan2f(to_target.x, to_target.z), common->angle_horizontal);
 
 		{
 			// make sure we don't try to turn through the wall
 			r32 half_angle = (common->angle_horizontal + target_angle_horizontal) * 0.5f;
-			if ((Quat::euler(common->angle_vertical, half_angle, 0) * Vec3(0, 0, 1)).dot(wall_normal) < -0.5f)
+			if ((Quat::euler(0, half_angle, common->angle_vertical) * Vec3(0, 0, 1)).dot(wall_normal) < -0.5f)
 				target_angle_horizontal = common->angle_horizontal - (target_angle_horizontal - common->angle_horizontal);
 		}
 
@@ -453,14 +453,14 @@ Vec2 AIPlayerControl::aim(const Update& u, const Vec3& to_target)
 
 	r32 target_angle_vertical;
 	{
-		target_angle_vertical = LMath::closest_angle(atan2(-to_target.y, Vec2(to_target.x, to_target.z).length()), common->angle_vertical);
+		target_angle_vertical = LMath::closest_angle(atan2f(-to_target.y, Vec2(to_target.x, to_target.z).length()), common->angle_vertical);
 
 		{
 			// make sure we don't try to turn through the wall
 			r32 half_angle = (common->angle_vertical + target_angle_vertical) * 0.5f;
 			if (half_angle < -PI * 0.5f
 				|| half_angle > PI * 0.5f
-				|| (Quat::euler(half_angle, common->angle_horizontal, 0) * Vec3(0, 0, 1)).dot(wall_normal) < -0.5f)
+				|| (Quat::euler(0, common->angle_horizontal, half_angle) * Vec3(0, 0, 1)).dot(wall_normal) < -0.5f)
 			{
 				target_angle_vertical = common->angle_vertical - (target_angle_vertical - common->angle_vertical);
 			}

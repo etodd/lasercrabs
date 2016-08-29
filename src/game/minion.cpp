@@ -535,7 +535,7 @@ void MinionAI::set_path(const AI::Result& result)
 void MinionAI::turn_to(const Vec3& target)
 {
 	Vec3 forward = Vec3::normalize(target - get<Transform>()->absolute_pos());
-	get<Walker>()->target_rotation = atan2(forward.x, forward.z);
+	get<Walker>()->target_rotation = atan2f(forward.x, forward.z);
 }
 
 

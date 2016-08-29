@@ -760,14 +760,14 @@ b8 Mat3::to_euler_angles_xyz(r32& rfYAngle, r32& rfPAngle, r32& rfRAngle) const
 	{
 		if (rfPAngle > r32(-HALF_PI))
 		{
-			rfYAngle = atan2(-m[1][2],m[2][2]);
-			rfRAngle = atan2(-m[0][1],m[0][0]);
+			rfYAngle = atan2f(-m[1][2],m[2][2]);
+			rfRAngle = atan2f(-m[0][1],m[0][0]);
 			return true;
 		}
 		else
 		{
 			// WARNING.  Not a unique solution.
-			r32 fRmY = atan2(m[1][0],m[1][1]);
+			r32 fRmY = atan2f(m[1][0],m[1][1]);
 			rfRAngle = r32(0.0);  // any angle works
 			rfYAngle = rfRAngle - fRmY;
 			return false;
@@ -776,7 +776,7 @@ b8 Mat3::to_euler_angles_xyz(r32& rfYAngle, r32& rfPAngle, r32& rfRAngle) const
 	else
 	{
 		// WARNING.  Not a unique solution.
-		r32 fRpY = atan2(m[1][0],m[1][1]);
+		r32 fRpY = atan2f(m[1][0],m[1][1]);
 		rfRAngle = r32(0.0);  // any angle works
 		rfYAngle = fRpY - rfRAngle;
 		return false;
@@ -794,14 +794,14 @@ b8 Mat3::to_euler_angles_xzy(r32& rfYAngle, r32& rfPAngle, r32& rfRAngle) const
 	{
 		if (rfPAngle > r32(-HALF_PI))
 		{
-			rfYAngle = atan2(m[2][1],m[1][1]);
-			rfRAngle = atan2(m[0][2],m[0][0]);
+			rfYAngle = atan2f(m[2][1],m[1][1]);
+			rfRAngle = atan2f(m[0][2],m[0][0]);
 			return true;
 		}
 		else
 		{
 			// WARNING.  Not a unique solution.
-			r32 fRmY = atan2(-m[2][0],m[2][2]);
+			r32 fRmY = atan2f(-m[2][0],m[2][2]);
 			rfRAngle = r32(0.0);  // any angle works
 			rfYAngle = rfRAngle - fRmY;
 			return false;
@@ -810,7 +810,7 @@ b8 Mat3::to_euler_angles_xzy(r32& rfYAngle, r32& rfPAngle, r32& rfRAngle) const
 	else
 	{
 		// WARNING.  Not a unique solution.
-		r32 fRpY = atan2(-m[2][0],m[2][2]);
+		r32 fRpY = atan2f(-m[2][0],m[2][2]);
 		rfRAngle = r32(0.0);  // any angle works
 		rfYAngle = fRpY - rfRAngle;
 		return false;
@@ -828,14 +828,14 @@ b8 Mat3::to_euler_angles_yxz(r32& rfYAngle, r32& rfPAngle, r32& rfRAngle) const
 	{
 		if (rfPAngle > r32(-HALF_PI))
 		{
-			rfYAngle = atan2(m[0][2],m[2][2]);
-			rfRAngle = atan2(m[1][0],m[1][1]);
+			rfYAngle = atan2f(m[0][2],m[2][2]);
+			rfRAngle = atan2f(m[1][0],m[1][1]);
 			return true;
 		}
 		else
 		{
 			// WARNING.  Not a unique solution.
-			r32 fRmY = atan2(-m[0][1],m[0][0]);
+			r32 fRmY = atan2f(-m[0][1],m[0][0]);
 			rfRAngle = r32(0.0);  // any angle works
 			rfYAngle = rfRAngle - fRmY;
 			return false;
@@ -844,7 +844,7 @@ b8 Mat3::to_euler_angles_yxz(r32& rfYAngle, r32& rfPAngle, r32& rfRAngle) const
 	else
 	{
 		// WARNING.  Not a unique solution.
-		r32 fRpY = atan2(-m[0][1],m[0][0]);
+		r32 fRpY = atan2f(-m[0][1],m[0][0]);
 		rfRAngle = r32(0.0);  // any angle works
 		rfYAngle = fRpY - rfRAngle;
 		return false;
@@ -862,14 +862,14 @@ b8 Mat3::to_euler_angles_yzx(r32& rfYAngle, r32& rfPAngle, r32& rfRAngle) const
 	{
 		if (rfPAngle > r32(-HALF_PI))
 		{
-			rfYAngle = atan2(-m[2][0],m[0][0]);
-			rfRAngle = atan2(-m[1][2],m[1][1]);
+			rfYAngle = atan2f(-m[2][0],m[0][0]);
+			rfRAngle = atan2f(-m[1][2],m[1][1]);
 			return true;
 		}
 		else
 		{
 			// WARNING.  Not a unique solution.
-			r32 fRmY = atan2(m[2][1],m[2][2]);
+			r32 fRmY = atan2f(m[2][1],m[2][2]);
 			rfRAngle = r32(0.0);  // any angle works
 			rfYAngle = rfRAngle - fRmY;
 			return false;
@@ -878,7 +878,7 @@ b8 Mat3::to_euler_angles_yzx(r32& rfYAngle, r32& rfPAngle, r32& rfRAngle) const
 	else
 	{
 		// WARNING.  Not a unique solution.
-		r32 fRpY = atan2(m[2][1],m[2][2]);
+		r32 fRpY = atan2f(m[2][1],m[2][2]);
 		rfRAngle = r32(0.0);  // any angle works
 		rfYAngle = fRpY - rfRAngle;
 		return false;
@@ -896,14 +896,14 @@ b8 Mat3::to_euler_angles_zxy(r32& rfYAngle, r32& rfPAngle, r32& rfRAngle) const
 	{
 		if (rfPAngle > r32(-HALF_PI))
 		{
-			rfYAngle = atan2(-m[0][1],m[1][1]);
-			rfRAngle = atan2(-m[2][0],m[2][2]);
+			rfYAngle = atan2f(-m[0][1],m[1][1]);
+			rfRAngle = atan2f(-m[2][0],m[2][2]);
 			return true;
 		}
 		else
 		{
 			// WARNING.  Not a unique solution.
-			r32 fRmY = atan2(m[0][2],m[0][0]);
+			r32 fRmY = atan2f(m[0][2],m[0][0]);
 			rfRAngle = r32(0.0);  // any angle works
 			rfYAngle = rfRAngle - fRmY;
 			return false;
@@ -912,7 +912,7 @@ b8 Mat3::to_euler_angles_zxy(r32& rfYAngle, r32& rfPAngle, r32& rfRAngle) const
 	else
 	{
 		// WARNING.  Not a unique solution.
-		r32 fRpY = atan2(m[0][2],m[0][0]);
+		r32 fRpY = atan2f(m[0][2],m[0][0]);
 		rfRAngle = r32(0.0);  // any angle works
 		rfYAngle = fRpY - rfRAngle;
 		return false;
@@ -930,14 +930,14 @@ b8 Mat3::to_euler_angles_zyx(r32& rfYAngle, r32& rfPAngle, r32& rfRAngle) const
 	{
 		if (rfPAngle > r32(-HALF_PI))
 		{
-			rfYAngle = atan2(m[1][0],m[0][0]);
-			rfRAngle = atan2(m[2][1],m[2][2]);
+			rfYAngle = atan2f(m[1][0],m[0][0]);
+			rfRAngle = atan2f(m[2][1],m[2][2]);
 			return true;
 		}
 		else
 		{
 			// WARNING.  Not a unique solution.
-			r32 fRmY = atan2(-m[0][1],m[0][2]);
+			r32 fRmY = atan2f(-m[0][1],m[0][2]);
 			rfRAngle = r32(0.0);  // any angle works
 			rfYAngle = rfRAngle - fRmY;
 			return false;
@@ -946,7 +946,7 @@ b8 Mat3::to_euler_angles_zyx(r32& rfYAngle, r32& rfPAngle, r32& rfRAngle) const
 	else
 	{
 		// WARNING.  Not a unique solution.
-		r32 fRpY = atan2(-m[0][1],m[0][2]);
+		r32 fRpY = atan2f(-m[0][1],m[0][2]);
 		rfRAngle = r32(0.0);  // any angle works
 		rfYAngle = fRpY - rfRAngle;
 		return false;

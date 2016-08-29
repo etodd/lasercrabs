@@ -490,7 +490,7 @@ b8 AIPlayerControl::aim_and_shoot(const Update& u, const Vec3& path_node, const 
 	{
 		// crawling
 
-		Vec3 pos = get<Awk>()->center();
+		Vec3 pos = get<Transform>()->absolute_pos();
 		Vec3 diff = target - pos;
 		r32 distance_to_target = diff.length();
 		if (!target_entity && distance_to_target < AWK_RADIUS * 1.5f)
@@ -522,46 +522,51 @@ b8 AIPlayerControl::aim_and_shoot(const Update& u, const Vec3& path_node, const 
 			else
 			{
 				// eventually we will shoot there
-				b8 could_go_before_crawling;
+				b8 could_go_before_crawling = false;
 				Vec3 hit;
-				could_go_before_crawling = get<Awk>()->can_shoot(to_target, &hit);
-				if (could_go_before_crawling)
+				if (get<Awk>()->can_shoot(to_target, &hit))
 				{
 					// we can go generally toward the target
-					if (tolerance > 0.0f && (hit - target).length_squared() > tolerance * tolerance) // make sure we would actually land at the right spot
-						could_go_before_crawling = false;
+					// now make sure we're actually going to land at the right spot
+					if (tolerance < 0.0f // don't worry about where we land
+						|| (hit - target).length_squared() < tolerance * tolerance) // check the tolerance
+						could_go_before_crawling = true;
 				}
 
 				if (could_go_before_crawling)
 				{
 					// try to crawl toward the target
-					Vec3 old_pos;
-					Quat old_rot;
-					get<Transform>()->absolute(&old_pos, &old_rot);
-					ID old_parent = get<Transform>()->parent.ref()->entity_id;
+					Vec3 old_pos = get<Transform>()->pos;
+					Quat old_rot = get<Transform>()->rot;
+					Vec3 old_lerped_pos = get<Awk>()->lerped_pos;
+					Quat old_lerped_rot = get<Awk>()->lerped_rotation;
+					Transform* old_parent = get<Transform>()->parent.ref();
 					get<Awk>()->crawl(to_target_crawl, u);
 
 					Vec3 new_pos = get<Transform>()->absolute_pos();
 
-					b8 revert = false;
-
-					if (could_go_before_crawling)
+					// make sure we can still go where we need to go
+					b8 revert = true;
+					Vec3 hit;
+					if (get<Awk>()->can_shoot(Vec3::normalize(target - new_pos), &hit))
 					{
-						// make sure we can still go where we need to go
-						revert = true;
-						Vec3 hit;
-						if (get<Awk>()->can_shoot(Vec3::normalize(target - new_pos), &hit))
-						{
-							// we can go generally toward the target
-							// now make sure we're actually going to land at the right spot
-							if (tolerance < 0.0f // don't worry about where we land
-								|| (hit - target).length_squared() < tolerance * tolerance) // check the tolerance
-								revert = false;
-						}
+						// we can go generally toward the target
+						// now make sure we're actually going to land at the right spot
+						if (tolerance < 0.0f // don't worry about where we land
+							|| (hit - target).length_squared() < tolerance * tolerance) // check the tolerance
+							revert = false;
 					}
 
 					if (revert)
-						get<Awk>()->move(old_pos, old_rot, old_parent); // revert the crawling we just did
+					{
+						// revert the crawling we just did
+						get<Transform>()->pos = old_pos;
+						get<Transform>()->rot = old_rot;
+						get<Transform>()->parent = old_parent;
+						get<Awk>()->lerped_pos = old_lerped_pos;
+						get<Awk>()->lerped_rotation = old_lerped_rot;
+						get<Awk>()->update_offset();
+					}
 				}
 				else
 				{
@@ -582,7 +587,7 @@ b8 AIPlayerControl::aim_and_shoot(const Update& u, const Vec3& path_node, const 
 	if (can_shoot)
 		aim_timer += u.time.delta;
 
-	Vec3 pos = get<Awk>()->center();
+	Vec3 pos = get<Transform>()->absolute_pos();
 	Vec3 to_target = Vec3::normalize(target - pos);
 	Vec3 wall_normal = common->attach_quat * Vec3(0, 0, 1);
 
@@ -816,7 +821,7 @@ b8 attack_inbound(const AIPlayerControl* control)
 	return control->get<Awk>()->incoming_attacker() != nullptr;
 }
 
-s32 geometry_query(const AIPlayerControl* control, s32 count)
+s32 geometry_query(const AIPlayerControl* control, r32 range, r32 angle_range, s32 count)
 {
 	Vec3 pos;
 	Quat rot;
@@ -826,8 +831,8 @@ s32 geometry_query(const AIPlayerControl* control, s32 count)
 	s32 result = 0;
 	for (s32 i = 0; i < count; i++)
 	{
-		Vec3 ray = rot * (Quat::euler(PI + (mersenne::randf_co() - 0.5f) * PI, (PI * 0.5f) + (mersenne::randf_co() - 0.5f) * PI, 0) * Vec3(1, 0, 0));
-		btCollisionWorld::ClosestRayResultCallback ray_callback(pos, pos + ray * AWK_MAX_DISTANCE * 0.5f);
+		Vec3 ray = rot * (Quat::euler(PI + (mersenne::randf_co() - 0.5f) * angle_range, (PI * 0.5f) + (mersenne::randf_co() - 0.5f) * angle_range, 0) * Vec3(1, 0, 0));
+		btCollisionWorld::ClosestRayResultCallback ray_callback(pos, pos + ray * range);
 		Physics::raycast(&ray_callback, mask);
 		if (ray_callback.hasHit())
 			result++;
@@ -870,7 +875,7 @@ b8 should_spawn_rocket(const AIPlayerControl* control)
 		return false;
 
 	// make sure it's in a relatively open area
-	return geometry_query(control, 16) < 8;
+	return geometry_query(control, AWK_MAX_DISTANCE * 0.4f, PI * 0.35f, 8) < 4;
 }
 
 b8 sniping(const AIPlayerControl* control)
@@ -898,7 +903,7 @@ b8 should_snipe(const AIPlayerControl* control)
 	if (control->player.ref()->save_up_priority() >= priority)
 		return false;
 
-	if (geometry_query(control, 16) < 8)
+	if (geometry_query(control, AWK_MAX_DISTANCE * 0.4f, PI * 0.35f, 8) < 4)
 	{
 		b8 result = false;
 		{
@@ -1320,7 +1325,7 @@ void AIPlayerControl::update(const Update& u)
 	camera->range = get<Awk>()->range();
 	Vec3 abs_wall_normal = ((get<Transform>()->absolute_rot() * get<Awk>()->lerped_rotation) * Vec3(0, 0, 1));;
 	const r32 third_person_offset = 2.0f;
-	camera->pos = get<Awk>()->center() + camera->rot * Vec3(0, 0, -third_person_offset);
+	camera->pos = get<Awk>()->center_lerped() + camera->rot * Vec3(0, 0, -third_person_offset);
 	if (get<Transform>()->parent.ref())
 	{
 		camera->pos += abs_wall_normal * 0.5f;
@@ -1328,9 +1333,9 @@ void AIPlayerControl::update(const Update& u)
 	}
 	Quat inverse_rot = camera->rot.inverse();
 	camera->wall_normal = inverse_rot * abs_wall_normal;
-	camera->range_center = inverse_rot * (get<Awk>()->center() - camera->pos);
+	camera->range_center = inverse_rot * (get<Awk>()->center_lerped() - camera->pos);
 	camera->cull_range = third_person_offset + 0.5f;
-	camera->cull_behind_wall = abs_wall_normal.dot(camera->pos - get<Awk>()->center()) < 0.0f;
+	camera->cull_behind_wall = abs_wall_normal.dot(camera->pos - get<Awk>()->center_lerped()) < 0.0f;
 #endif
 }
 
@@ -1660,7 +1665,7 @@ void ReactControlPoint::run()
 	active(true);
 	if (path_priority > control->path_priority)
 	{
-		Vec3 me = control->get<Awk>()->center();
+		Vec3 me = control->get<Transform>()->absolute_pos();
 		r32 closest_distance;
 		ControlPoint* control_point = ControlPoint::closest(AI::NoTeam, me, &closest_distance);
 		if (filter(control, control_point->entity()))

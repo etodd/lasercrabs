@@ -425,8 +425,8 @@ namespace VI
 				b8 visible;
 				Vec3 diff;
 				{
-					Vec3 start = i_entity->get<Awk>()->center();
-					Vec3 end = j_entity->get<Awk>()->center();
+					Vec3 start = i_entity->get<Awk>()->center_lerped();
+					Vec3 end = j_entity->get<Awk>()->center_lerped();
 					diff = end - start;
 
 					if (btVector3(diff).fuzzyZero())

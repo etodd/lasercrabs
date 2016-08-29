@@ -666,7 +666,7 @@ void Rocket::update(const Update& u)
 				for (s32 i = 0; i < whisker_count; i++)
 				{
 					btCollisionWorld::ClosestRayResultCallback ray_callback(get<Transform>()->pos, get<Transform>()->pos + get<Transform>()->rot * whiskers[i]);
-					Physics::raycast(&ray_callback, ~CollisionAwkIgnore & ~CollisionAllTeamsContainmentField);
+					Physics::raycast(&ray_callback, ~CollisionTarget & ~CollisionAwkIgnore & ~CollisionAllTeamsContainmentField);
 					if (ray_callback.hasHit())
 					{
 						// avoid the obstacle
@@ -691,7 +691,7 @@ void Rocket::update(const Update& u)
 		Vec3 next_pos = get<Transform>()->pos + velocity * u.time.delta;
 
 		btCollisionWorld::ClosestRayResultCallback ray_callback(get<Transform>()->pos, next_pos + get<Transform>()->rot * Vec3(0, 0, 0.1f));
-		Physics::raycast(&ray_callback, ~CollisionAwkIgnore & ~CollisionAllTeamsContainmentField);
+		Physics::raycast(&ray_callback, ~CollisionTarget & ~CollisionAwkIgnore & ~CollisionAllTeamsContainmentField);
 		if (ray_callback.hasHit())
 		{
 			// we hit something
@@ -703,8 +703,6 @@ void Rocket::update(const Update& u)
 				// do damage
 				if (hit->has<Awk>())
 					do_surrogate_damage(hit, entity(), owner.ref());
-				else if (hit->has<Health>())
-					hit->get<Health>()->damage(entity(), get<Health>()->hp_max);
 
 				explode();
 				return;

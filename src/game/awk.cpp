@@ -197,7 +197,7 @@ s16 Awk::ally_containment_field_mask() const
 	return Team::containment_field_mask(get<AIAgent>()->team);
 }
 
-Vec3 Awk::center() const
+Vec3 Awk::center_lerped() const
 {
 	return get<Transform>()->to_world((get<SkinnedModel>()->offset * Vec4(0, 0, 0, 1)).xyz());
 }
@@ -212,7 +212,7 @@ Vec3 Awk::attach_point() const
 
 Entity* Awk::incoming_attacker() const
 {
-	Vec3 me = center();
+	Vec3 me = get<Transform>()->absolute_pos();
 
 	// check incoming Awks
 	for (auto i = PlayerCommon::list.iterator(); !i.is_last(); i.next())
@@ -432,7 +432,7 @@ b8 Awk::can_hit(const Target* target, Vec3* out_intersection) const
 	Vec3 intersection;
 	if (predict_intersection(target, &intersection))
 	{
-		Vec3 me = center();
+		Vec3 me = get<Transform>()->absolute_pos();
 		Vec3 to_intersection = intersection - me;
 		r32 distance = to_intersection.length();
 		to_intersection /= distance;
@@ -489,7 +489,7 @@ b8 Awk::can_shoot(const Vec3& dir, Vec3* final_pos, b8* hit_target) const
 			return false;
 	}
 
-	Vec3 trace_start = center();
+	Vec3 trace_start = get<Transform>()->absolute_pos();
 	Vec3 trace_end = trace_start + trace_dir * AWK_SNIPE_DISTANCE;
 
 	AwkRaycastCallback ray_callback(trace_start, trace_end, entity());
@@ -671,7 +671,7 @@ b8 Awk::detach(const Vec3& dir)
 			for (s32 i = 0; i < AWK_CHARGES; i++)
 				cooldowns[i] = vi_max(cooldowns[i], AWK_MAX_DISTANCE_COOLDOWN * 0.25f);
 
-			Vec3 pos = center();
+			Vec3 pos = get<Transform>()->absolute_pos();
 			Vec3 ray_start = pos + dir_normalized * -AWK_RADIUS;
 			Vec3 ray_end = pos + dir_normalized * range();
 			velocity = dir_normalized * AWK_FLY_SPEED;
@@ -704,7 +704,7 @@ b8 Awk::detach(const Vec3& dir)
 		else
 		{
 			velocity = dir_normalized * AWK_FLY_SPEED;
-			get<Transform>()->absolute_pos(center() + dir_normalized * AWK_RADIUS * 0.5f);
+			get<Transform>()->absolute_pos(get<Transform>()->absolute_pos() + dir_normalized * AWK_RADIUS * 0.5f);
 			get<Transform>()->absolute_rot(Quat::look(dir_normalized));
 
 			get<Audio>()->post_event(has<LocalPlayerControl>() ? AK::EVENTS::PLAY_LAUNCH_PLAYER : AK::EVENTS::PLAY_LAUNCH);

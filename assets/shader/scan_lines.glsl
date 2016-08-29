@@ -35,7 +35,7 @@ void main()
 	float clip_depth = texture(depth_buffer, uv).x;
 	float clip_depth_scaled = clip_depth * 2.0 - 1.0;
 	float depth = p[3][2] / (clip_depth_scaled - p[2][2]);
-	float strength = 0.075 + clamp((depth - 5.0) / range, 0, 1) * 0.35;
+	float strength = 0.1 + clamp((depth - 5.0) / range, 0, 1) * 0.35;
 	float add = value * strength;
 	out_color = vec4(add, add, add, 1);
 }

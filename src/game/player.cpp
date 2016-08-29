@@ -1031,7 +1031,7 @@ void PlayerCommon::awk_bounce(const Vec3& new_velocity)
 Vec3 PlayerCommon::look_dir() const
 {
 	if (has<LocalPlayerControl>()) // HACK for third-person camera
-		return Vec3::normalize(get<LocalPlayerControl>()->reticle.pos - get<Awk>()->center());
+		return Vec3::normalize(get<LocalPlayerControl>()->reticle.pos - get<Transform>()->absolute_pos());
 	else
 		return Quat::euler(0.0f, angle_horizontal, angle_vertical) * Vec3(0, 0, 1);
 }
@@ -1087,7 +1087,7 @@ void LocalPlayerControl::awake()
 {
 	Audio::listener_enable(gamepad);
 
-	last_pos = get<Awk>()->center();
+	last_pos = get<Awk>()->center_lerped();
 	link<&LocalPlayerControl::awk_done_flying_or_dashing>(get<Awk>()->done_flying);
 	link<&LocalPlayerControl::awk_done_flying_or_dashing>(get<Awk>()->done_dashing);
 	link_arg<Entity*, &LocalPlayerControl::hit_target>(get<Awk>()->hit);
@@ -1229,7 +1229,7 @@ Vec3 LocalPlayerControl::get_movement(const Update& u, const Quat& rot)
 // returns false if there is no more room in the target indicator array
 b8 LocalPlayerControl::add_target_indicator(Target* target, TargetIndicator::Type type)
 {
-	Vec3 me = get<Awk>()->center();
+	Vec3 me = get<Transform>()->absolute_pos();
 
 	b8 show;
 
@@ -1338,8 +1338,8 @@ void LocalPlayerControl::update(const Update& u)
 								// adjust for relative velocity
 								Vec2 predicted_offset;
 								{
-									Vec3 me = get<Awk>()->center();
-									Vec3 my_velocity = get<Awk>()->center() - last_pos;
+									Vec3 me = get<Awk>()->center_lerped();
+									Vec3 my_velocity = get<Awk>()->center_lerped() - last_pos;
 									{
 										r32 my_speed = my_velocity.length_squared();
 										if (my_speed == 0.0f || my_speed > AWK_CRAWL_SPEED * 1.5f * AWK_CRAWL_SPEED * 1.5f) // don't adjust if we're going too fast or not moving
@@ -1358,7 +1358,7 @@ void LocalPlayerControl::update(const Update& u)
 
 								Vec2 current_offset;
 								{
-									Vec3 current_ray = Vec3::normalize(indicator.pos - get<Awk>()->center());
+									Vec3 current_ray = Vec3::normalize(indicator.pos - get<Transform>()->absolute_pos());
 									Vec2 current_angles(atan2f(current_ray.x, current_ray.z), -asinf(current_ray.y));
 									current_offset = Vec2(LMath::angle_to(get<PlayerCommon>()->angle_horizontal, current_angles.x), LMath::angle_to(get<PlayerCommon>()->angle_vertical, current_angles.y));
 								}
@@ -1384,10 +1384,12 @@ void LocalPlayerControl::update(const Update& u)
 		look_quat = Quat::euler(0, get<PlayerCommon>()->angle_horizontal, get<PlayerCommon>()->angle_vertical);
 
 		// crawling
-		Vec3 movement = get_movement(u, Quat::euler(0, get<PlayerCommon>()->angle_horizontal, get<PlayerCommon>()->angle_vertical));
-		get<Awk>()->crawl(movement, u);
+		{
+			Vec3 movement = get_movement(u, Quat::euler(0, get<PlayerCommon>()->angle_horizontal, get<PlayerCommon>()->angle_vertical));
+			get<Awk>()->crawl(movement, u);
+		}
 
-		last_pos = get<Awk>()->center();
+		last_pos = get<Awk>()->center_lerped();
 	}
 	else
 		look_quat = Quat::euler(0, get<PlayerCommon>()->angle_horizontal, get<PlayerCommon>()->angle_vertical);
@@ -1448,7 +1450,7 @@ void LocalPlayerControl::update(const Update& u)
 	{
 		Vec3 abs_wall_normal = (get<Transform>()->absolute_rot() * get<Awk>()->lerped_rotation) * Vec3(0, 0, 1);
 		camera->wall_normal = look_quat.inverse() * abs_wall_normal;
-		camera->pos = get<Awk>()->center() + look_quat * Vec3(0, 0, -third_person_offset);
+		camera->pos = get<Awk>()->center_lerped() + look_quat * Vec3(0, 0, -third_person_offset);
 		if (get<Transform>()->parent.ref())
 		{
 			camera->pos += abs_wall_normal * 0.5f;
@@ -1464,9 +1466,9 @@ void LocalPlayerControl::update(const Update& u)
 		}
 
 		camera->range = get<Awk>()->range();
-		camera->range_center = look_quat.inverse() * (get<Awk>()->center() - camera->pos);
+		camera->range_center = look_quat.inverse() * (get<Awk>()->center_lerped() - camera->pos);
 		camera->cull_range = third_person_offset + 0.5f;
-		camera->cull_behind_wall = abs_wall_normal.dot(camera->pos - get<Awk>()->center()) < 0.0f;
+		camera->cull_behind_wall = abs_wall_normal.dot(camera->pos - get<Awk>()->center_lerped()) < 0.0f;
 	}
 
 	health_flash_timer = vi_max(0.0f, health_flash_timer - Game::real_time.delta);
@@ -1486,7 +1488,7 @@ void LocalPlayerControl::update(const Update& u)
 			RaycastCallbackExcept ray_callback(trace_start, trace_end, entity());
 			Physics::raycast(&ray_callback, ~CollisionAwkIgnore & ~get<Awk>()->ally_containment_field_mask());
 
-			Vec3 center = get<Awk>()->center();
+			Vec3 center = get<Transform>()->absolute_pos();
 
 			if (ray_callback.hasHit())
 			{
@@ -1595,7 +1597,7 @@ void LocalPlayerControl::update(const Update& u)
 		// we're aiming at something
 		if (try_primary)
 		{
-			Vec3 dir = reticle.pos - get<Awk>()->center();
+			Vec3 dir = reticle.pos - get<Transform>()->absolute_pos();
 			if (reticle.type == ReticleType::Dash)
 			{
 				if (get<Awk>()->dash_start(dir))

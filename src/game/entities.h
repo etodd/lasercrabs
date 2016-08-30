@@ -120,7 +120,7 @@ struct Sensor : public ComponentType<Sensor>
 	static void update_all(const Update&);
 };
 
-#define ROCKET_RANGE (AWK_MAX_DISTANCE * 2.0f)
+#define ROCKET_RANGE (AWK_MAX_DISTANCE * 1.5f)
 struct Rocket : public ComponentType<Rocket>
 {
 	AI::Team team;

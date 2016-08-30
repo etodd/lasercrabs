@@ -18,7 +18,6 @@ namespace VI
 #define AWK_DASH_DISTANCE (AWK_DASH_SPEED * AWK_DASH_TIME)
 #define AWK_MAX_DISTANCE 25.0f
 #define AWK_RADIUS 0.2f
-#define AWK_RUN_RADIUS 15.0f
 #define MAX_BONE_WEIGHTS 4
 #define AWK_VERTICAL_DOT_LIMIT 0.9998f
 #define AWK_VERTICAL_ANGLE_LIMIT ((PI * 0.5f) - 0.021f)
@@ -169,7 +168,7 @@ struct TileCacheData
 const r32 nav_mesh_max_error = 2.0f;
 const r32 nav_agent_height = 2.0f;
 const r32 nav_agent_max_climb = 0.5f;
-const r32 nav_agent_radius = 0.45f;
+const r32 nav_agent_radius = 0.4f;
 const r32 nav_edge_max_length = 12.0f;
 const r32 nav_min_region_size = 8.0f;
 const r32 nav_merged_region_size = 20.0f;

@@ -74,10 +74,12 @@ struct AwayScorer : AstarScorer
 	AwkNavMeshNode start_vertex;
 	AwkNavMeshNode away_vertex;
 	Vec3 away_pos;
+	r32 minimum_distance;
 
 	virtual r32 score(const Vec3& pos)
 	{
-		return AWK_MAX_DISTANCE - (away_pos - pos).length();
+		// estimated distance to goal
+		return vi_max(0.0f, minimum_distance - (away_pos - pos).length());
 	}
 
 	virtual b8 done(AwkNavMeshNode v, const AwkNavMeshNodeData& data)
@@ -89,7 +91,7 @@ struct AwayScorer : AstarScorer
 			return true;
 
 		const Vec3& vertex = awk_nav_mesh.chunks[v.chunk].vertices[v.vertex];
-		if ((vertex - away_pos).length_squared() < AWK_RUN_RADIUS * AWK_RUN_RADIUS)
+		if ((vertex - away_pos).length_squared() < minimum_distance * minimum_distance)
 			return false; // needs to be farther away
 
 		const AwkNavMeshAdjacency& adjacency = awk_nav_mesh.chunks[away_vertex.chunk].adjacency[away_vertex.vertex];
@@ -899,6 +901,9 @@ void loop()
 						scorer.start_vertex = awk_closest_point(team, start, start_normal);
 						scorer.away_vertex = awk_closest_point(team, away, away_normal);
 						scorer.away_pos = away;
+						scorer.minimum_distance = rule == AwkAllow::Crawl ? AWK_MAX_DISTANCE * 0.5f : AWK_MAX_DISTANCE * 3.0f;
+						scorer.minimum_distance = vi_min(scorer.minimum_distance,
+							vi_min(awk_nav_mesh.size.x, awk_nav_mesh.size.z) * awk_nav_mesh.chunk_size * 0.5f);
 
 						awk_astar(rule, team, scorer.start_vertex, &scorer, &path);
 						break;

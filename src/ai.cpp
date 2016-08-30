@@ -379,8 +379,6 @@ void render_helper(const RenderParams& params, AssetID m, RenderPrimitiveMode pr
 	params.sync->write<r32>(4 * UI::scale);
 	params.sync->write(RenderOp::LineWidth);
 	params.sync->write<r32>(1 * UI::scale);
-	params.sync->write(RenderOp::CullMode);
-	params.sync->write(RenderCullMode::None);
 
 	params.sync->write(RenderOp::Mesh);
 	params.sync->write(primitive_mode);
@@ -388,8 +386,6 @@ void render_helper(const RenderParams& params, AssetID m, RenderPrimitiveMode pr
 
 	params.sync->write(RenderOp::FillMode);
 	params.sync->write(RenderFillMode::Fill);
-	params.sync->write(RenderOp::CullMode);
-	params.sync->write(RenderCullMode::Back);
 }
 
 void debug_draw_nav_mesh(const RenderParams& params)

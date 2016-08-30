@@ -93,6 +93,17 @@ MinionCommon* MinionCommon::closest(AI::TeamMask mask, const Vec3& pos, r32* dis
 	return closest;
 }
 
+s32 MinionCommon::count(AI::TeamMask mask)
+{
+	s32 result = 0;
+	for (auto i = list.iterator(); !i.is_last(); i.next())
+	{
+		if (AI::match(i.item()->get<AIAgent>()->team, mask))
+			result++;
+	}
+	return result;
+}
+
 void MinionCommon::footstep()
 {
 	Audio::post_global_event(AK::EVENTS::PLAY_FOOTSTEP, get<Walker>()->base_pos());

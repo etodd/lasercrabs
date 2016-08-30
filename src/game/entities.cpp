@@ -611,7 +611,7 @@ Rocket::Rocket()
 	target(),
 	owner(),
 	particle_accumulator(),
-	remaining_lifetime(30.0f)
+	remaining_lifetime(15.0f)
 {
 }
 
@@ -1103,18 +1103,18 @@ void Projectile::update(const Update& u)
 			else
 				basis = ray_callback.m_hitNormalWorld;
 
+			Quat rot = Quat::look(basis);
 			for (s32 i = 0; i < 50; i++)
 			{
 				Particles::sparks.add
 				(
 					ray_callback.m_hitPointWorld,
-					Quat::look(basis) * Vec3(mersenne::randf_oo() * 2.0f - 1.0f, mersenne::randf_oo() * 2.0f - 1.0f, mersenne::randf_oo()) * 10.0f,
+					rot * Vec3(mersenne::randf_oo() * 2.0f - 1.0f, mersenne::randf_oo() * 2.0f - 1.0f, mersenne::randf_oo()) * 10.0f,
 					Vec4(1, 1, 1, 1)
 				);
 			}
 			World::create<ShockwaveEntity>(8.0f, 1.5f)->get<Transform>()->absolute_pos(ray_callback.m_hitPointWorld);
 			World::remove(entity());
-			return;
 		}
 	}
 	else

@@ -38,7 +38,7 @@ AIPlayer::Config AIPlayer::generate_config()
 {
 	Config config;
 
-	switch (mersenne::rand() % 4)
+	switch (mersenne::rand() % 6)
 	{
 		case 0:
 		{
@@ -88,18 +88,41 @@ AIPlayer::Config AIPlayer::generate_config()
 			config.upgrade_strategies[5] = UpgradeStrategy::IfAvailable; // sniper
 			break;
 		}
-		default:
+		case 4:
 		{
 			config.upgrade_priority[0] = Upgrade::Minion;
-			config.upgrade_priority[1] = Upgrade::ContainmentField;
+			config.upgrade_priority[1] = Upgrade::Teleporter;
 			config.upgrade_priority[2] = Upgrade::Sensor;
 			config.upgrade_priority[3] = Upgrade::None;
 			config.upgrade_priority[4] = Upgrade::None;
+			config.upgrade_priority[5] = Upgrade::None;
 			config.upgrade_strategies[0] = UpgradeStrategy::SaveUp; // sensor
 			config.upgrade_strategies[1] = UpgradeStrategy::Ignore; // rocket
 			config.upgrade_strategies[2] = UpgradeStrategy::IfAvailable; // minion
-			config.upgrade_strategies[3] = UpgradeStrategy::IfAvailable; // containment field
-			config.upgrade_strategies[4] = UpgradeStrategy::Ignore; // sniper
+			config.upgrade_strategies[3] = UpgradeStrategy::IfAvailable; // teleporter
+			config.upgrade_strategies[4] = UpgradeStrategy::Ignore; // containment field
+			config.upgrade_strategies[5] = UpgradeStrategy::Ignore; // sniper
+			break;
+		}
+		case 5:
+		{
+			config.upgrade_priority[0] = Upgrade::Teleporter;
+			config.upgrade_priority[1] = Upgrade::Minion;
+			config.upgrade_priority[2] = Upgrade::Rocket;
+			config.upgrade_priority[3] = Upgrade::None;
+			config.upgrade_priority[4] = Upgrade::None;
+			config.upgrade_priority[5] = Upgrade::None;
+			config.upgrade_strategies[0] = UpgradeStrategy::Ignore; // sensor
+			config.upgrade_strategies[1] = UpgradeStrategy::SaveUp; // rocket
+			config.upgrade_strategies[2] = UpgradeStrategy::IfAvailable; // minion
+			config.upgrade_strategies[3] = UpgradeStrategy::IfAvailable; // teleporter
+			config.upgrade_strategies[4] = UpgradeStrategy::Ignore; // containment field
+			config.upgrade_strategies[5] = UpgradeStrategy::Ignore; // sniper
+			break;
+		}
+		default:
+		{
+			vi_assert(false);
 			break;
 		}
 	}
@@ -758,7 +781,7 @@ b8 awk_run_filter(const AIPlayerControl* control, const Entity* e)
 	return e->get<AIAgent>()->team != control->get<AIAgent>()->team
 		&& e->get<Health>()->hp > control->get<Health>()->hp
 		&& mersenne::randf_co() < run_chance
-		&& (e->get<Awk>()->can_hit(control->get<Target>()) || (e->get<Transform>()->absolute_pos() - control->get<Transform>()->absolute_pos()).length_squared() < AWK_RUN_RADIUS * AWK_RUN_RADIUS);
+		&& (e->get<Awk>()->can_hit(control->get<Target>()) || (e->get<Transform>()->absolute_pos() - control->get<Transform>()->absolute_pos()).length_squared() < AWK_MAX_DISTANCE * 0.5f * AWK_MAX_DISTANCE * 0.5f);
 }
 
 b8 awk_attack_filter(const AIPlayerControl* control, const Entity* e)
@@ -1005,6 +1028,83 @@ b8 should_spawn_containment_field(const AIPlayerControl* control)
 	return false;
 }
 
+s32 team_density(AI::TeamMask mask, const Vec3& pos, r32 radius)
+{
+	r32 radius_sq = radius * radius;
+	s32 score = 0;
+	for (auto i = Awk::list.iterator(); !i.is_last(); i.next())
+	{
+		if (AI::match(i.item()->get<AIAgent>()->team, mask)
+			&& (i.item()->get<Transform>()->absolute_pos() - pos).length_squared() < radius_sq)
+		{
+			score += 3;
+		}
+	}
+
+	for (auto i = MinionCommon::list.iterator(); !i.is_last(); i.next())
+	{
+		if (AI::match(i.item()->get<AIAgent>()->team, mask)
+			&& (i.item()->get<Transform>()->absolute_pos() - pos).length_squared() < radius_sq)
+		{
+			score += 2;
+		}
+	}
+
+	for (auto i = ContainmentField::list.iterator(); !i.is_last(); i.next())
+	{
+		if (AI::match(i.item()->team, mask)
+			&& (i.item()->get<Transform>()->absolute_pos() - pos).length_squared() < radius_sq)
+		{
+			score += 2;
+		}
+	}
+
+	for (auto i = Rocket::list.iterator(); !i.is_last(); i.next())
+	{
+		if (AI::match(i.item()->team, mask)
+			&& (i.item()->get<Transform>()->absolute_pos() - pos).length_squared() < radius_sq)
+		{
+			score += 1;
+		}
+	}
+
+	for (auto i = Sensor::list.iterator(); !i.is_last(); i.next())
+	{
+		if (AI::match(i.item()->team, mask)
+			&& (i.item()->get<Transform>()->absolute_pos() - pos).length_squared() < radius_sq)
+		{
+			score += 1;
+		}
+	}
+
+	for (auto i = Teleporter::list.iterator(); !i.is_last(); i.next())
+	{
+		if (AI::match(i.item()->team, mask)
+			&& (i.item()->get<Transform>()->absolute_pos() - pos).length_squared() < radius_sq)
+		{
+			score += 1;
+		}
+	}
+
+	return score;
+}
+
+b8 should_teleport(const AIPlayerControl* control)
+{
+	if (control->get<Health>()->hp <= 2 && danger(control) > 1)
+		return true;
+
+	AI::Team team = control->get<AIAgent>()->team;
+	Vec3 pos = control->get<Transform>()->absolute_pos();
+
+	if (MinionCommon::count(1 << team) > 2
+		&& team_density(1 << team, pos, AWK_MAX_DISTANCE) < 5
+		&& team_density(~(1 << team), pos, AWK_MAX_DISTANCE) > 3)
+		return true;
+
+	return false;
+}
+
 b8 should_spawn_minion(const AIPlayerControl* control)
 {
 	if (control->player.ref()->save_up_priority() < 2 && danger(control) <= 1)
@@ -1093,7 +1193,7 @@ Repeat* make_low_level_loop(AIPlayerControl* control, const AIPlayer::Config& co
 										AIBehaviors::Test::alloc(&attack_inbound),
 										AIBehaviors::Panic::alloc(127)
 									),
-									AIBehaviors::RunAway::alloc(Awk::family, 5, &awk_run_filter),
+									AIBehaviors::RunAway::alloc(Awk::family, 6, &awk_run_filter),
 									AIBehaviors::ReactTarget::alloc(ContainmentField::family, 4, 6, &containment_field_filter),
 									AIBehaviors::ReactTarget::alloc(Awk::family, 4, 6, &awk_attack_filter),
 									AIBehaviors::ReactTarget::alloc(MinionCommon::family, 4, 5, &default_filter),
@@ -1102,11 +1202,7 @@ Repeat* make_low_level_loop(AIPlayerControl* control, const AIPlayer::Config& co
 								Select::alloc
 								(
 									AIBehaviors::ReactTarget::alloc(Sensor::family, 3, 4, &default_filter),
-									AIBehaviors::AbilitySpawn::alloc(4, Upgrade::Minion, Ability::Minion, &should_spawn_minion),
-									AIBehaviors::AbilitySpawn::alloc(4, Upgrade::Sensor, Ability::Sensor, &should_spawn_sensor),
-									AIBehaviors::AbilitySpawn::alloc(4, Upgrade::Rocket, Ability::Rocket, &should_spawn_rocket),
-									AIBehaviors::AbilitySpawn::alloc(4, Upgrade::ContainmentField, Ability::ContainmentField, &should_spawn_containment_field),
-									AIBehaviors::AbilitySpawn::alloc(4, Upgrade::Sniper, Ability::Sniper, &should_snipe),
+									AIBehaviors::AbilitySpawn::alloc(),
 									Sequence::alloc
 									(
 										AIBehaviors::ReactControlPoint::alloc(4, &enemy_control_point_filter),
@@ -1525,10 +1621,10 @@ void WaitForAttachment::run()
 		done(true);
 }
 
-AbilitySpawn::AbilitySpawn(s8 priority, Upgrade required_upgrade, Ability ability, AbilitySpawnFilter filter)
-	: required_upgrade(required_upgrade), ability(ability), filter(filter)
+AbilitySpawn::AbilitySpawn()
+	: ability(Ability::None)
 {
-	path_priority = priority;
+	path_priority = 0;
 }
 
 void AbilitySpawn::set_context(void* ctx)
@@ -1550,26 +1646,43 @@ void AbilitySpawn::canceled(Ability a)
 		done(false);
 }
 
-void AbilitySpawn::run()
+b8 AbilitySpawn::try_spawn(s8 priority, Upgrade required_upgrade, Ability a, AbilitySpawnFilter filter)
 {
-	active(true);
-
 	PlayerManager* manager = control->player.ref()->manager.ref();
-
 	const AbilityInfo& info = AbilityInfo::list[(s32)Ability::Sensor];
-
-	if (AbilitySpawn::path_priority > control->path_priority
+	if (priority > control->path_priority
 		&& control->get<Awk>()->state() == Awk::State::Crawl
 		&& manager->has_upgrade(required_upgrade)
 		&& manager->credits > info.spawn_cost
 		&& filter(control))
 	{
-		if (manager->ability_spawn_start(ability))
+		if (manager->ability_spawn_start(a))
 		{
-			control->behavior_start(this, AbilitySpawn::path_priority);
-			return;
+			ability = a;
+			path_priority = priority;
+			control->behavior_start(this, priority);
+			return true;
 		}
 	}
+	return false;
+}
+
+void AbilitySpawn::run()
+{
+	active(true);
+
+	if (try_spawn(5, Upgrade::Teleporter, Ability::Teleporter, &should_teleport))
+		return;
+	if (try_spawn(4, Upgrade::Minion, Ability::Minion, &should_spawn_minion))
+		return;
+	if (try_spawn(4, Upgrade::Sensor, Ability::Sensor, &should_spawn_sensor))
+		return;
+	if (try_spawn(4, Upgrade::Rocket, Ability::Rocket, &should_spawn_rocket))
+		return;
+	if (try_spawn(4, Upgrade::ContainmentField, Ability::ContainmentField, &should_spawn_containment_field))
+		return;
+	if (try_spawn(4, Upgrade::Sniper, Ability::Sniper, &should_snipe))
+		return;
 
 	done(false);
 }

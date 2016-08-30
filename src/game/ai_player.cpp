@@ -682,9 +682,34 @@ b8 minion_filter(const AIPlayerControl* control, const Entity* e)
 		&& !e->get<AIAgent>()->stealth;
 }
 
-b8 enemy_control_point_filter(const AIPlayerControl* control, const Entity* e)
+s32 danger(const AIPlayerControl* control)
+{
+	if (control->get<Awk>()->incoming_attacker())
+		return 3;
+
+	r32 closest_awk;
+	Awk::closest(~(1 << control->get<AIAgent>()->team), control->get<Transform>()->absolute_pos(), &closest_awk);
+
+	if (closest_awk < AWK_MAX_DISTANCE * 0.5f)
+		return 2;
+
+	if (closest_awk < AWK_MAX_DISTANCE)
+		return 1;
+
+	return 0;
+}
+
+b8 control_point_filter(const AIPlayerControl* control, const Entity* e)
 {
 	if (!default_filter(control, e))
+		return false;
+
+	return danger(control) <= 0;
+}
+
+b8 enemy_control_point_filter(const AIPlayerControl* control, const Entity* e)
+{
+	if (!control_point_filter(control, e))
 		return false;
 
 	return Game::level.has_feature(Game::FeatureLevel::Abilities)
@@ -976,7 +1001,7 @@ b8 should_spawn_containment_field(const AIPlayerControl* control)
 
 b8 should_spawn_minion(const AIPlayerControl* control)
 {
-	if (control->player.ref()->save_up_priority() < 2)
+	if (control->player.ref()->save_up_priority() < 2 && danger(control) <= 1)
 	{
 		AI::Team my_team = control->get<AIAgent>()->team;
 		Vec3 my_pos;
@@ -1070,7 +1095,7 @@ Repeat* make_low_level_loop(AIPlayerControl* control, const AIPlayer::Config& co
 								),
 								Select::alloc
 								(
-									AIBehaviors::ReactTarget::alloc(Sensor::family, 3, 3, &default_filter),
+									AIBehaviors::ReactTarget::alloc(Sensor::family, 3, 4, &default_filter),
 									AIBehaviors::AbilitySpawn::alloc(4, Upgrade::Minion, Ability::Minion, &should_spawn_minion),
 									AIBehaviors::AbilitySpawn::alloc(4, Upgrade::Sensor, Ability::Sensor, &should_spawn_sensor),
 									AIBehaviors::AbilitySpawn::alloc(4, Upgrade::Rocket, Ability::Rocket, &should_spawn_rocket),
@@ -1084,7 +1109,7 @@ Repeat* make_low_level_loop(AIPlayerControl* control, const AIPlayer::Config& co
 									Sequence::alloc
 									(
 										AIBehaviors::Test::alloc(&want_upgrade_filter),
-										AIBehaviors::ReactControlPoint::alloc(5, &default_filter),
+										AIBehaviors::ReactControlPoint::alloc(5, &control_point_filter),
 										AIBehaviors::CaptureControlPoint::alloc(5),
 										AIBehaviors::DoUpgrade::alloc(4)
 									)

@@ -289,16 +289,6 @@ Entity* visible_target(MinionAI* me, AI::Team team)
 		}
 	}
 
-	for (auto i = Sensor::list.iterator(); !i.is_last(); i.next())
-	{
-		Sensor* sensor = i.item();
-		if (sensor->team != team)
-		{
-			if (me->can_see(sensor->entity()))
-				return sensor->entity();
-		}
-	}
-
 	for (auto i = MinionCommon::list.iterator(); !i.is_last(); i.next())
 	{
 		MinionCommon* minion = i.item();
@@ -309,16 +299,6 @@ Entity* visible_target(MinionAI* me, AI::Team team)
 		}
 	}
 
-	for (auto i = Rocket::list.iterator(); !i.is_last(); i.next())
-	{
-		Rocket* rocket = i.item();
-		if (rocket->team != team)
-		{
-			if (me->can_see(rocket->entity()))
-				return rocket->entity();
-		}
-	}
-
 	for (auto i = ContainmentField::list.iterator(); !i.is_last(); i.next())
 	{
 		ContainmentField* field = i.item();
@@ -326,6 +306,26 @@ Entity* visible_target(MinionAI* me, AI::Team team)
 		{
 			if (me->can_see(field->entity()))
 				return field->entity();
+		}
+	}
+
+	for (auto i = Sensor::list.iterator(); !i.is_last(); i.next())
+	{
+		Sensor* sensor = i.item();
+		if (sensor->team != team)
+		{
+			if (me->can_see(sensor->entity()))
+				return sensor->entity();
+		}
+	}
+
+	for (auto i = Rocket::list.iterator(); !i.is_last(); i.next())
+	{
+		Rocket* rocket = i.item();
+		if (rocket->team != team)
+		{
+			if (me->can_see(rocket->entity()))
+				return rocket->entity();
 		}
 	}
 
@@ -352,11 +352,16 @@ b8 MinionAI::can_see(Entity* target, b8 limit_vision_cone) const
 	// then don't limit detection to the minion's vision cone
 	// this essentially means the minion can hear the awk flying around
 	if (limit_vision_cone
-		&& target->has<Awk>()
-		&& distance_squared < MINION_HEARING_RANGE * MINION_HEARING_RANGE
-		&& Game::time.total - target->get<Awk>()->attach_time < 1.0f)
+		&& target->has<Awk>())
 	{
-		limit_vision_cone = false;
+		if (distance_squared < MINION_HEARING_RANGE * MINION_HEARING_RANGE && Game::time.total - target->get<Awk>()->attach_time < 1.0f) // we can hear the awk
+			limit_vision_cone = false;
+		else
+		{
+			PlayerManager* manager = target->get<PlayerCommon>()->manager.ref();
+			if (Team::list[(s32)get<AIAgent>()->team].player_tracks[manager->id()].tracking)
+				limit_vision_cone = false;
+		}
 	}
 
 	if (distance_squared < SENSOR_RANGE * SENSOR_RANGE)
@@ -387,7 +392,6 @@ void MinionAI::new_goal()
 		{
 			Vec3 target = goal.entity.ref()->get<Transform>()->absolute_pos();
 			path_request = PathRequest::Target;
-			path_timer = PATH_RECALC_TIME;
 			AI::pathfind(pos, target, path_callback);
 		}
 	}
@@ -398,6 +402,7 @@ void MinionAI::new_goal()
 		AI::random_path(pos, path_callback);
 	}
 	target_timer = 0.0f;
+	path_timer = PATH_RECALC_TIME;
 }
 
 void MinionAI::update(const Update& u)
@@ -408,14 +413,42 @@ void MinionAI::update(const Update& u)
 
 	if (path_request == PathRequest::None)
 	{
-		b8 need_new_goal = false;
-		b8 enable_recalc = true;
+		b8 recalc = false;
+		path_timer = vi_max(0.0f, path_timer - u.time.delta);
+		if (path_timer == 0.0f)
+		{
+			path_timer = PATH_RECALC_TIME;
+			recalc = true;
+		}
+
+		if (recalc)
+		{
+			Entity* target_candidate = visible_target(this, get<AIAgent>()->team);
+			if (target_candidate && target_candidate != goal.entity.ref())
+			{
+				// look, a shiny!
+				path.length = 0;
+				goal.type = Goal::Type::Target;
+				goal.entity = target_candidate;
+				target_timer = 0;
+			}
+		}
+
 		switch (goal.type)
 		{
 			case Goal::Type::Position:
 			{
 				if (path.length == 0 || (path[path.length - 1] - pos).length_squared() < 3.0f * 3.0f)
-					need_new_goal = true;
+					new_goal();
+				else
+				{
+					if (recalc)
+					{
+						// recalc path
+						path_request = PathRequest::Repath;
+						AI::pathfind(pos, goal.pos, ObjectLinkEntryArg<MinionAI, const AI::Result&, &MinionAI::set_path>(id()));
+					}
+				}
 				break;
 			}
 			case Goal::Type::Target:
@@ -432,7 +465,6 @@ void MinionAI::update(const Update& u)
 						if (!g->has<Target>() || !g->get<Target>()->predict_intersection(head_pos, PROJECTILE_SPEED, &aim_pos))
 							aim_pos = g->get<Transform>()->absolute_pos();
 						turn_to(aim_pos);
-						enable_recalc = false;
 						path.length = 0;
 
 						Vec3 to_target = aim_pos - head_pos;
@@ -447,11 +479,22 @@ void MinionAI::update(const Update& u)
 							get<MinionCommon>()->attack_timer = MINION_ATTACK_TIME;
 						}
 					}
-					else if (goal.entity.ref()->has<Awk>()) // if we can't see the Awk anymore, let them go
-						need_new_goal = true;
+					else
+					{
+						if (goal.entity.ref()->has<Awk>()) // if we can't see the Awk anymore, let them go
+							new_goal();
+						else
+						{
+							if (recalc)
+							{
+								path_request = PathRequest::Target;
+								AI::pathfind(pos, g->get<Transform>()->absolute_pos(), ObjectLinkEntryArg<MinionAI, const AI::Result&, &MinionAI::set_path>(id()));
+							}
+						}
+					}
 				}
 				else
-					need_new_goal = true;
+					new_goal();
 				break;
 			}
 			default:
@@ -460,35 +503,9 @@ void MinionAI::update(const Update& u)
 				break;
 			}
 		}
-
-		if (need_new_goal)
-			new_goal();
-		else if (enable_recalc)
-		{
-			path_timer = vi_max(0.0f, path_timer - u.time.delta);
-			if (path_timer == 0.0f)
-			{
-				// first check if we can see any other targets from where we're standing
-				Entity* target_candidate = visible_target(this, get<AIAgent>()->team);
-				if (target_candidate)
-				{
-					// look, a shiny!
-					path.length = 0;
-					goal.type = Goal::Type::Target;
-					goal.entity = target_candidate;
-					goal.pos = target_candidate->get<Transform>()->absolute_pos();
-					target_timer = 0;
-				}
-				else
-				{
-					// recalc path
-					path_timer = PATH_RECALC_TIME;
-					path_request = PathRequest::Repath;
-					AI::pathfind(pos, goal.type == Goal::Type::Position ? goal.pos : goal.entity.ref()->get<Transform>()->absolute_pos(), ObjectLinkEntryArg<MinionAI, const AI::Result&, &MinionAI::set_path>(id()));
-				}
-			}
-		}
 	}
+
+	// path following
 
 	if (path_index < path.length)
 	{

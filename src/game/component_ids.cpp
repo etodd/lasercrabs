@@ -45,12 +45,13 @@ COMPONENT_TYPE(24, HealthPickup) \
 COMPONENT_TYPE(25, Sensor) \
 COMPONENT_TYPE(26, Rocket) \
 COMPONENT_TYPE(27, ContainmentField) \
-COMPONENT_TYPE(28, AICue) \
-COMPONENT_TYPE(29, Water) \
-COMPONENT_TYPE(30, DirectionalLight) \
-COMPONENT_TYPE(31, SkyDecal) \
+COMPONENT_TYPE(28, Teleporter) \
+COMPONENT_TYPE(29, AICue) \
+COMPONENT_TYPE(30, Water) \
+COMPONENT_TYPE(31, DirectionalLight) \
+COMPONENT_TYPE(32, SkyDecal) \
 
-Family World::families = 32;
+Family World::families = 33;
 
 #define COMPONENT_TYPE(INDEX, TYPE) \
 template<> Family ComponentType<TYPE>::family = (INDEX); \

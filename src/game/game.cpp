@@ -326,13 +326,12 @@ void Game::update(const Update& update_in)
 		i.item()->update(u);
 	for (auto i = AIPlayerControl::list.iterator(); !i.is_last(); i.next())
 		i.item()->update(u);
-	for (auto i = Walker::list.iterator(); !i.is_last(); i.next())
-		i.item()->update(u);
 	for (auto i = PlayerTrigger::list.iterator(); !i.is_last(); i.next())
 		i.item()->update(u);
-	for (auto i = MinionAI::list.iterator(); !i.is_last(); i.next())
-		i.item()->update(u);
+	MinionAI::update_all(u);
 	for (auto i = MinionCommon::list.iterator(); !i.is_last(); i.next())
+		i.item()->update(u);
+	for (auto i = Walker::list.iterator(); !i.is_last(); i.next())
 		i.item()->update(u);
 	HealthPickup::update_all(u);
 	Sensor::update_all(u);

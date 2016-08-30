@@ -53,6 +53,11 @@ namespace VI
 			15,
 		},
 		{
+			Asset::Mesh::icon_teleporter,
+			0.35f,
+			10,
+		},
+		{
 			Asset::Mesh::icon_containment_field,
 			1.0f,
 			20,
@@ -83,6 +88,12 @@ namespace VI
 			strings::description_minion,
 			Asset::Mesh::icon_minion,
 			40,
+		},
+		{
+			strings::teleporter,
+			strings::description_teleporter,
+			Asset::Mesh::icon_teleporter,
+			20,
 		},
 		{
 			strings::containment_field,
@@ -550,18 +561,22 @@ namespace VI
 		if (!Game::level.has_feature(Game::FeatureLevel::Abilities))
 			return false;
 
+		Ability old = current_spawn_ability;
+		if (ability == old)
+			return false;
+
 		if (!can_transition_state())
 			return false;
 
 		if (!has_upgrade((Upgrade)ability))
 			return false;
 
-		Ability old = current_spawn_ability;
-		if (ability == old)
-			return false;
-
 		const AbilityInfo& info = AbilityInfo::list[(s32)ability];
 		if (credits < info.spawn_cost)
+			return false;
+
+		if (ability == Ability::Teleporter
+			&& ControlPoint::count(1 << team.ref()->team()) == 0)
 			return false;
 
 		current_spawn_ability = ability;
@@ -597,7 +612,9 @@ namespace VI
 		}
 
 		u16 cost = AbilityInfo::list[(s32)ability].spawn_cost;
-		if (credits < cost || awk->get<Awk>()->state() != Awk::State::Crawl)
+		if (credits < cost
+			|| awk->get<Awk>()->state() != Awk::State::Crawl
+			|| (ability == Ability::Teleporter && ControlPoint::count(1 << team.ref()->team()) == 0))
 		{
 			ability_spawn_canceled.fire(ability);
 			return;
@@ -662,6 +679,30 @@ namespace VI
 			case Ability::Sniper:
 			{
 				awk->get<Awk>()->snipe_enable(true);
+				break;
+			}
+			case Ability::Teleporter:
+			{
+				ControlPoint* farthest = nullptr;
+				r32 farthest_distance = 0.0f;
+				AI::TeamMask mask = 1 << team.ref()->team();
+				Vec3 pos;
+				Quat rot;
+				awk->get<Transform>()->absolute(&pos, &rot);
+				for (auto i = ControlPoint::list.iterator(); !i.is_last(); i.next())
+				{
+					if (AI::match(i.item()->team, mask))
+					{
+						r32 d = (i.item()->get<Transform>()->absolute_pos() - pos).length_squared();
+						if (d > farthest_distance)
+						{
+							farthest = i.item();
+							farthest_distance = d;
+						}
+					}
+				}
+				World::create<TeleporterEntity>(pos + rot * Vec3(0, 0, -AWK_RADIUS), rot, team.ref()->team());
+				teleport(awk, farthest->get<Teleporter>());
 				break;
 			}
 			default:

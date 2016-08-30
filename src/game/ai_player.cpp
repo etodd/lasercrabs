@@ -47,11 +47,13 @@ AIPlayer::Config AIPlayer::generate_config()
 			config.upgrade_priority[2] = Upgrade::Minion;
 			config.upgrade_priority[3] = Upgrade::None;
 			config.upgrade_priority[4] = Upgrade::None;
+			config.upgrade_priority[5] = Upgrade::None;
 			config.upgrade_strategies[0] = UpgradeStrategy::Ignore; // sensor
 			config.upgrade_strategies[1] = UpgradeStrategy::SaveUp; // rocket
 			config.upgrade_strategies[2] = UpgradeStrategy::Ignore; // minion
-			config.upgrade_strategies[3] = UpgradeStrategy::IfAvailable; // containment field
-			config.upgrade_strategies[4] = UpgradeStrategy::Ignore; // sniper
+			config.upgrade_strategies[3] = UpgradeStrategy::Ignore; // teleporter
+			config.upgrade_strategies[4] = UpgradeStrategy::IfAvailable; // containment field
+			config.upgrade_strategies[5] = UpgradeStrategy::Ignore; // sniper
 			break;
 		}
 		case 1:
@@ -61,11 +63,13 @@ AIPlayer::Config AIPlayer::generate_config()
 			config.upgrade_priority[2] = Upgrade::Sniper;
 			config.upgrade_priority[3] = Upgrade::None;
 			config.upgrade_priority[4] = Upgrade::None;
+			config.upgrade_priority[5] = Upgrade::None;
 			config.upgrade_strategies[0] = UpgradeStrategy::IfAvailable; // sensor
 			config.upgrade_strategies[1] = UpgradeStrategy::SaveUp; // rocket
 			config.upgrade_strategies[2] = UpgradeStrategy::Ignore; // minion
-			config.upgrade_strategies[3] = UpgradeStrategy::Ignore; // containment field
-			config.upgrade_strategies[4] = UpgradeStrategy::IfAvailable; // sniper
+			config.upgrade_strategies[3] = UpgradeStrategy::Ignore; // teleporter
+			config.upgrade_strategies[4] = UpgradeStrategy::Ignore; // containment field
+			config.upgrade_strategies[5] = UpgradeStrategy::IfAvailable; // sniper
 			break;
 		}
 		case 3:
@@ -75,11 +79,13 @@ AIPlayer::Config AIPlayer::generate_config()
 			config.upgrade_priority[2] = Upgrade::Minion;
 			config.upgrade_priority[3] = Upgrade::None;
 			config.upgrade_priority[4] = Upgrade::None;
+			config.upgrade_priority[5] = Upgrade::None;
 			config.upgrade_strategies[0] = UpgradeStrategy::Ignore; // sensor
 			config.upgrade_strategies[1] = UpgradeStrategy::Ignore; // rocket
 			config.upgrade_strategies[2] = UpgradeStrategy::IfAvailable; // minion
-			config.upgrade_strategies[3] = UpgradeStrategy::SaveUp; // containment field
-			config.upgrade_strategies[4] = UpgradeStrategy::IfAvailable; // sniper
+			config.upgrade_strategies[3] = UpgradeStrategy::Ignore; // teleporter
+			config.upgrade_strategies[4] = UpgradeStrategy::SaveUp; // containment field
+			config.upgrade_strategies[5] = UpgradeStrategy::IfAvailable; // sniper
 			break;
 		}
 		default:
@@ -1228,7 +1234,11 @@ b8 AIPlayerControl::update_memory()
 
 b8 AIPlayerControl::snipe_stop()
 {
-	get<Awk>()->snipe_enable(false);
+	if (get<Awk>()->snipe)
+	{
+		player.ref()->manager.ref()->add_credits(AbilityInfo::list[(s32)Ability::Sniper].spawn_cost);
+		get<Awk>()->snipe_enable(false);
+	}
 	return true; // this returns true so we can call this from an Execute behavior
 }
 
@@ -1480,7 +1490,7 @@ void Panic::run()
 	if (!control->panic && path_priority > control->path_priority)
 	{
 		control->panic = true;
-		control->get<Awk>()->snipe_enable(false);
+		control->snipe_stop();
 		control->behavior_start(this, 127); // if we're panicking, nothing can interrupt us
 	}
 	else

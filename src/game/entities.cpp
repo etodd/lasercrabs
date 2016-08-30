@@ -320,6 +320,8 @@ ControlPointEntity::ControlPointEntity(AI::Team team)
 {
 	create<Transform>();
 
+	create<Teleporter>()->team = team;
+
 	View* view = create<View>();
 	view->mesh = Asset::Mesh::spawn;
 	view->shader = Asset::Shader::standard;
@@ -349,6 +351,7 @@ void ControlPoint::set_team(AI::Team t)
 	team = t;
 	get<PointLight>()->team = (u8)team;
 	get<View>()->team = (u8)team;
+	get<Teleporter>()->team = team;
 }
 
 s32 ControlPoint::count(AI::TeamMask mask)
@@ -934,6 +937,105 @@ ContainmentFieldEntity::ContainmentFieldEntity(Transform* parent, const Vec3& ab
 	create<ContainmentField>(abs_pos, m);
 
 	create<RigidBody>(RigidBody::Type::Sphere, Vec3(CONTAINMENT_FIELD_BASE_RADIUS), 0.0f, CollisionAwkIgnore | CollisionTarget, ~CollisionAwk & ~CollisionShield);
+}
+
+#define TELEPORTER_RADIUS 0.5f
+TeleporterEntity::TeleporterEntity(const Vec3& pos, const Quat& rot, AI::Team team)
+{
+	create<Transform>()->absolute(pos, rot);
+	create<Teleporter>()->team = team;
+	create<RigidBody>(RigidBody::Type::Sphere, Vec3(TELEPORTER_RADIUS), 0.0f, CollisionAwkIgnore, CollisionAwkIgnore);
+
+	View* model = create<View>();
+	model->mesh = Asset::Mesh::teleporter;
+	model->team = (u8)team;
+	model->shader = Asset::Shader::standard;
+
+	create<Health>(SENSOR_HEALTH, SENSOR_HEALTH);
+}
+
+Teleporter* Teleporter::closest(AI::TeamMask mask, const Vec3& pos, r32* distance)
+{
+	r32 closest_distance = FLT_MAX;
+	Teleporter* closest = nullptr;
+	for (auto i = Teleporter::list.iterator(); !i.is_last(); i.next())
+	{
+		if (AI::match(i.item()->team, mask))
+		{
+			r32 distance = (pos - i.item()->get<Transform>()->absolute_pos()).length_squared();
+			if (distance < closest_distance)
+			{
+				closest = i.item();
+				closest_distance = distance;
+			}
+		}
+	}
+
+	if (distance)
+	{
+		if (closest)
+			*distance = sqrtf(closest_distance);
+		else
+			*distance = FLT_MAX;
+	}
+
+	return closest;
+}
+
+void Teleporter::awake()
+{
+	if (has<Health>())
+		link_arg<Entity*, &Teleporter::killed>(get<Health>()->killed);
+}
+
+void Teleporter::killed(Entity*)
+{
+	destroy();
+}
+
+void Teleporter::destroy()
+{
+	Vec3 pos;
+	Quat rot;
+	get<Transform>()->absolute(&pos, &rot);
+	for (s32 i = 0; i < 50; i++)
+	{
+		Particles::sparks.add
+		(
+			pos,
+			rot * Vec3(mersenne::randf_oo() * 2.0f - 1.0f, mersenne::randf_oo() * 2.0f - 1.0f, mersenne::randf_oo()) * 10.0f,
+			Vec4(1, 1, 1, 1)
+		);
+	}
+	World::create<ShockwaveEntity>(8.0f, 1.5f)->get<Transform>()->absolute_pos(pos);
+	World::remove_deferred(entity());
+}
+
+void teleport(Entity* e, Teleporter* target)
+{
+	World::create<ShockwaveEntity>(8.0f, 1.5f)->get<Transform>()->absolute_pos(e->get<Transform>()->absolute_pos());
+
+	Vec3 pos;
+	Quat rot;
+	target->get<Transform>()->absolute(&pos, &rot);
+
+	if (e->has<Walker>())
+	{
+		// space minions out around the teleporter
+		Vec3 teleport_pos = pos + rot * Quat::euler(0, 0, e->get<Walker>()->id() * PI * 0.25f) * Vec3(1, 0, 1);
+		e->get<Walker>()->absolute_pos(teleport_pos);
+	}
+	else if (e->has<Awk>())
+	{
+		e->get<Awk>()->detach_teleport();
+		e->get<Transform>()->absolute(pos + rot * Quat::euler(0, 0, e->get<Awk>()->id() * PI * 0.25f) * Vec3(CONTROL_POINT_RADIUS * 0.5f, 0, AWK_RADIUS * 4.0f), rot);
+		e->get<Awk>()->velocity = rot * Vec3(0.0f, 0.0f, -AWK_FLY_SPEED); // make sure it shoots into the wall
+		e->get<Awk>()->invincible_timer = AWK_INVINCIBLE_TIME;
+	}
+	else
+		vi_assert(false);
+
+	World::create<ShockwaveEntity>(8.0f, 1.5f)->get<Transform>()->absolute_pos(pos);
 }
 
 #define PROJECTILE_LENGTH 0.5f

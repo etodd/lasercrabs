@@ -108,6 +108,7 @@ b8 MinionCommon::headshot_test(const Vec3& ray_start, const Vec3& ray_end)
 	return LMath::ray_sphere_intersect(ray_start, ray_end, head_pos(), MINION_HEAD_RADIUS);
 }
 
+#define TELEPORT_TIME 0.75f
 void MinionCommon::update(const Update& u)
 {
 	attack_timer = vi_max(0.0f, attack_timer - u.time.delta);
@@ -119,7 +120,8 @@ void MinionCommon::update(const Update& u)
 		get<Animator>()->to_local(Asset::Bone::character_head, &get<Target>()->local_offset, &rot);
 	}
 
-	get<SkinnedModel>()->offset.make_transform(
+	get<SkinnedModel>()->offset.make_transform
+	(
 		Vec3(0, get<Walker>()->capsule_height() * -0.5f - get<Walker>()->support_height, 0),
 		Vec3(1.0f, 1.0f, 1.0f),
 		Quat::euler(0, get<Walker>()->rotation + PI * 0.5f, 0)
@@ -210,6 +212,22 @@ Entity* closest_target(MinionAI* me, AI::Team team)
 
 	r32 closest_distance = FLT_MAX;
 
+	for (auto i = ContainmentField::list.iterator(); !i.is_last(); i.next())
+	{
+		ContainmentField* field = i.item();
+		if (field->team != team)
+		{
+			if (me->can_see(field->entity()))
+				return field->entity();
+			r32 total_distance = (field->get<Transform>()->absolute_pos() - pos).length_squared();
+			if (total_distance < closest_distance)
+			{
+				closest = field->entity();
+				closest_distance = total_distance;
+			}
+		}
+	}
+
 	for (auto i = Sensor::list.iterator(); !i.is_last(); i.next())
 	{
 		Sensor* sensor = i.item();
@@ -245,7 +263,7 @@ Entity* closest_target(MinionAI* me, AI::Team team)
 	for (auto i = Rocket::list.iterator(); !i.is_last(); i.next())
 	{
 		Rocket* rocket = i.item();
-		if (rocket->team != team)
+		if (rocket->team != team && rocket->get<Transform>()->parent.ref())
 		{
 			if (me->can_see(rocket->entity()))
 				return rocket->entity();
@@ -258,17 +276,17 @@ Entity* closest_target(MinionAI* me, AI::Team team)
 		}
 	}
 
-	for (auto i = ContainmentField::list.iterator(); !i.is_last(); i.next())
+	for (auto i = Teleporter::list.iterator(); !i.is_last(); i.next())
 	{
-		ContainmentField* field = i.item();
-		if (field->team != team)
+		Teleporter* teleporter = i.item();
+		if (teleporter->team != team && !teleporter->has<ControlPoint>())
 		{
-			if (me->can_see(field->entity()))
-				return field->entity();
-			r32 total_distance = (field->get<Transform>()->absolute_pos() - pos).length_squared();
+			if (me->can_see(teleporter->entity()))
+				return teleporter->entity();
+			r32 total_distance = (teleporter->get<Transform>()->absolute_pos() - pos).length_squared();
 			if (total_distance < closest_distance)
 			{
-				closest = field->entity();
+				closest = teleporter->entity();
 				closest_distance = total_distance;
 			}
 		}
@@ -322,10 +340,20 @@ Entity* visible_target(MinionAI* me, AI::Team team)
 	for (auto i = Rocket::list.iterator(); !i.is_last(); i.next())
 	{
 		Rocket* rocket = i.item();
-		if (rocket->team != team)
+		if (rocket->team != team && rocket->get<Transform>()->parent.ref())
 		{
 			if (me->can_see(rocket->entity()))
 				return rocket->entity();
+		}
+	}
+
+	for (auto i = Teleporter::list.iterator(); !i.is_last(); i.next())
+	{
+		Teleporter* teleporter = i.item();
+		if (teleporter->team != team && !teleporter->has<ControlPoint>())
+		{
+			if (me->can_see(teleporter->entity()))
+				return teleporter->entity();
 		}
 	}
 
@@ -405,6 +433,62 @@ void MinionAI::new_goal()
 	path_timer = PATH_RECALC_TIME;
 }
 
+Vec3 goal_pos(const MinionAI::Goal& g)
+{
+	if (g.type == MinionAI::Goal::Type::Position || !g.entity.ref())
+		return g.pos;
+	else
+		return g.entity.ref()->get<Transform>()->absolute_pos();
+}
+
+Teleporter* teleporter_candidate(const MinionAI* minion, const MinionAI::Goal& g)
+{
+	// must have the upgrade in order for minions to teleport
+	if (!minion->get<MinionCommon>()->owner.ref()->has_upgrade(Upgrade::Teleporter))
+		return nullptr;
+
+	Vec3 target = goal_pos(g);
+	r32 distance;
+	Teleporter* teleporter = Teleporter::closest(1 << minion->get<AIAgent>()->team, target, &distance);
+	if (teleporter && distance < (target - minion->get<Transform>()->absolute_pos()).length() - 5.0f)
+		return teleporter;
+	return nullptr;
+}
+
+r32 MinionAI::particle_accumulator = 0.0f;
+void MinionAI::update_all(const Update& u)
+{
+	particle_accumulator -= u.time.delta;
+
+	s32 count = 0;
+	while (particle_accumulator < 0.0f)
+	{
+		const r32 TELEPORT_PARTICLE_INTERVAL = 0.02f;
+		particle_accumulator += TELEPORT_PARTICLE_INTERVAL;
+		count++;
+	}
+
+	for (auto i = list.iterator(); !i.is_last(); i.next())
+	{
+		if (i.item()->teleport_timer > 0.0f)
+		{
+			Vec3 pos = i.item()->get<Walker>()->base_pos();
+			for (s32 j = 0; j < count; j++)
+			{
+				const r32 TELEPORT_PARTICLE_RADIUS = 0.5f;
+				const Vec3 particle_velocity(0, 10.0f, 0);
+				Particles::sparks.add
+				(
+					pos + Vec3((mersenne::randf_oo() * 2.0f - 1.0f) * TELEPORT_PARTICLE_RADIUS, -0.3f, (mersenne::randf_oo() * 2.0f - 1.0f) * TELEPORT_PARTICLE_RADIUS),
+					particle_velocity,
+					Vec4(1, 1, 1, 1)
+				);
+			}
+		}
+		i.item()->update(u);
+	}
+}
+
 void MinionAI::update(const Update& u)
 {
 	target_timer += u.time.delta;
@@ -434,73 +518,101 @@ void MinionAI::update(const Update& u)
 			}
 		}
 
-		switch (goal.type)
+		if (teleport_timer > 0.0f)
 		{
-			case Goal::Type::Position:
+			r32 old_timer = teleport_timer;
+			teleport_timer = vi_max(0.0f, teleport_timer - u.time.delta);
+			if (teleport_timer < TELEPORT_TIME && old_timer >= TELEPORT_TIME)
 			{
-				if (path.length == 0 || (path[path.length - 1] - pos).length_squared() < 3.0f * 3.0f)
-					new_goal();
+				path_timer = 0.0f;
+				Teleporter* teleporter = teleporter_candidate(this, goal);
+				if (teleporter)
+					teleport(entity(), teleporter);
 				else
-				{
-					if (recalc)
-					{
-						// recalc path
-						path_request = PathRequest::Repath;
-						AI::pathfind(pos, goal.pos, ObjectLinkEntryArg<MinionAI, const AI::Result&, &MinionAI::set_path>(id()));
-					}
-				}
-				break;
+					teleport_timer = 0.0f;
 			}
-			case Goal::Type::Target:
+		}
+		else
+		{
+			switch (goal.type)
 			{
-				Entity* g = goal.entity.ref();
-				if (g)
+				case Goal::Type::Position:
 				{
-					// we're going after the target
-					if (can_see(g))
-					{
-						// turn to and attack the target
-						Vec3 head_pos = get<MinionCommon>()->head_pos();
-						Vec3 aim_pos;
-						if (!g->has<Target>() || !g->get<Target>()->predict_intersection(head_pos, PROJECTILE_SPEED, &aim_pos))
-							aim_pos = g->get<Transform>()->absolute_pos();
-						turn_to(aim_pos);
-						path.length = 0;
-
-						Vec3 to_target = aim_pos - head_pos;
-						to_target.y = 0.0f;
-						if (get<MinionCommon>()->attack_timer == 0.0f // make sure our cooldown is done
-							&& Vec3::normalize(to_target).dot(get<Walker>()->forward()) > 0.98f // make sure we're looking at the target
-							&& target_timer > MINION_ATTACK_TIME * 0.5f // give some reaction time
-							&& !Team::game_over)
-						{
-							PlayerManager* owner = get<MinionCommon>()->owner.ref();
-							World::create<ProjectileEntity>(owner ? owner->entity.ref() : nullptr, head_pos, aim_pos - head_pos);
-							get<MinionCommon>()->attack_timer = MINION_ATTACK_TIME;
-						}
-					}
+					if (path.length == 0 || (path[path.length - 1] - pos).length_squared() < 3.0f * 3.0f)
+						new_goal();
 					else
 					{
-						if (goal.entity.ref()->has<Awk>()) // if we can't see the Awk anymore, let them go
-							new_goal();
-						else
+						if (recalc)
 						{
-							if (recalc)
+							// recalc path
+							if (teleporter_candidate(this, goal))
+								teleport_timer = TELEPORT_TIME * 2.0f;
+							else
 							{
-								path_request = PathRequest::Target;
-								AI::pathfind(pos, g->get<Transform>()->absolute_pos(), ObjectLinkEntryArg<MinionAI, const AI::Result&, &MinionAI::set_path>(id()));
+								path_request = PathRequest::Repath;
+								AI::pathfind(pos, goal.pos, ObjectLinkEntryArg<MinionAI, const AI::Result&, &MinionAI::set_path>(id()));
 							}
 						}
 					}
+					break;
 				}
-				else
-					new_goal();
-				break;
-			}
-			default:
-			{
-				vi_assert(false);
-				break;
+				case Goal::Type::Target:
+				{
+					Entity* g = goal.entity.ref();
+					if (g)
+					{
+						// we're going after the target
+						if (can_see(g))
+						{
+							// turn to and attack the target
+							Vec3 head_pos = get<MinionCommon>()->head_pos();
+							Vec3 aim_pos;
+							if (!g->has<Target>() || !g->get<Target>()->predict_intersection(head_pos, PROJECTILE_SPEED, &aim_pos))
+								aim_pos = g->get<Transform>()->absolute_pos();
+							turn_to(aim_pos);
+							path.length = 0;
+
+							Vec3 to_target = aim_pos - head_pos;
+							to_target.y = 0.0f;
+							if (get<MinionCommon>()->attack_timer == 0.0f // make sure our cooldown is done
+								&& Vec3::normalize(to_target).dot(get<Walker>()->forward()) > 0.98f // make sure we're looking at the target
+								&& target_timer > MINION_ATTACK_TIME * 0.5f // give some reaction time
+								&& !Team::game_over)
+							{
+								PlayerManager* owner = get<MinionCommon>()->owner.ref();
+								World::create<ProjectileEntity>(owner ? owner->entity.ref() : nullptr, head_pos, aim_pos - head_pos);
+								get<MinionCommon>()->attack_timer = MINION_ATTACK_TIME;
+							}
+						}
+						else
+						{
+							if (goal.entity.ref()->has<Awk>()) // if we can't see the Awk anymore, let them go
+								new_goal();
+							else
+							{
+								if (recalc)
+								{
+									// recalc path
+									if (teleporter_candidate(this, goal))
+										teleport_timer = TELEPORT_TIME * 2.0f;
+									else
+									{
+										path_request = PathRequest::Target;
+										AI::pathfind(pos, g->get<Transform>()->absolute_pos(), ObjectLinkEntryArg<MinionAI, const AI::Result&, &MinionAI::set_path>(id()));
+									}
+								}
+							}
+						}
+					}
+					else
+						new_goal();
+					break;
+				}
+				default:
+				{
+					vi_assert(false);
+					break;
+				}
 			}
 		}
 	}

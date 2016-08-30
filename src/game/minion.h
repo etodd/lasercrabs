@@ -59,12 +59,16 @@ struct MinionAI : public ComponentType<MinionAI>
 		Repath,
 	};
 
+	static r32 particle_accumulator;
+	static void update_all(const Update& u);
+
 	PathRequest path_request;
 	Goal goal;
 	AI::Path path;
 	u8 path_index;
 	r32 path_timer;
 	r32 target_timer;
+	r32 teleport_timer;
 
 	void awake();
 

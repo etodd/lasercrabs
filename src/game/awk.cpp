@@ -578,8 +578,6 @@ void Awk::detach_teleport()
 
 	attach_time = Game::time.total;
 
-	cooldown_setup();
-
 	get<Transform>()->reparent(nullptr);
 	get<SkinnedModel>()->offset = Mat4::identity;
 
@@ -709,6 +707,7 @@ b8 Awk::detach(const Vec3& dir)
 
 			get<Audio>()->post_event(has<LocalPlayerControl>() ? AK::EVENTS::PLAY_LAUNCH_PLAYER : AK::EVENTS::PLAY_LAUNCH);
 
+			cooldown_setup();
 			detach_teleport();
 		}
 

@@ -178,6 +178,24 @@ struct ContainmentFieldEntity : public Entity
 	ContainmentFieldEntity(Transform*, const Vec3&, const Quat&, PlayerManager*);
 };
 
+struct Teleporter : public ComponentType<Teleporter>
+{
+	static Teleporter* closest(AI::TeamMask, const Vec3&, r32* = nullptr);
+
+	AI::Team team;
+
+	void awake();
+	void killed(Entity*);
+	void destroy();
+};
+
+void teleport(Entity*, Teleporter*);
+
+struct TeleporterEntity : public Entity
+{
+	TeleporterEntity(const Vec3&, const Quat&, AI::Team);
+};
+
 struct AICue : public ComponentType<AICue>
 {
 	enum Type

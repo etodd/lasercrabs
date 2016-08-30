@@ -37,7 +37,6 @@
 	"capturing": "Capturing...",
 	"capture_prompt": "[{{Interact}}] Capture",
 	"binding": "[%s]",
-	"teleport": "Teleport",
 	"sensor_destroyed": "Sensor destroyed",
 	"containment_field_destroyed": "Force field destroyed",
 	"target_damaged": "Target damaged",
@@ -62,6 +61,8 @@
 	"description_minion": "Minions attack enemy Praetor drones, sensors, and rocket pods.",
 	"containment_field": "Force Field",
 	"description_containment_field": "Force fields are impervious to enemy Praetor drones. Limited battery life unless powered by a friendly energy port.",
+	"teleporter": "Teleporter",
+	"description_teleporter": "Instantly teleport to a friendly control point. Minions can also use teleporters.",
 
 	"tip": "Tip: %s",
 	"tip_0": "Capture energy ports to strengthen your armor and receive +5 energy every 15 seconds.",

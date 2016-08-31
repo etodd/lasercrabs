@@ -43,11 +43,6 @@ namespace VI
 			15,
 		},
 		{
-			Asset::Mesh::icon_rocket,
-			1.0f,
-			10,
-		},
-		{
 			Asset::Mesh::icon_minion,
 			2.0f,
 			15,
@@ -58,13 +53,18 @@ namespace VI
 			10,
 		},
 		{
+			Asset::Mesh::icon_rocket,
+			0.75f,
+			10,
+		},
+		{
 			Asset::Mesh::icon_containment_field,
 			1.0f,
 			20,
 		},
 		{
 			Asset::Mesh::icon_sniper,
-			0.25f,
+			0.35f,
 			10,
 		},
 	};
@@ -75,37 +75,37 @@ namespace VI
 			strings::sensor,
 			strings::description_sensor,
 			Asset::Mesh::icon_sensor,
-			40,
-		},
-		{
-			strings::rocket,
-			strings::description_rocket,
-			Asset::Mesh::icon_rocket,
-			40,
+			60,
 		},
 		{
 			strings::minion,
 			strings::description_minion,
 			Asset::Mesh::icon_minion,
-			40,
+			60,
 		},
 		{
 			strings::teleporter,
 			strings::description_teleporter,
 			Asset::Mesh::icon_teleporter,
-			20,
+			60,
+		},
+		{
+			strings::rocket,
+			strings::description_rocket,
+			Asset::Mesh::icon_rocket,
+			180,
 		},
 		{
 			strings::containment_field,
 			strings::description_containment_field,
 			Asset::Mesh::icon_containment_field,
-			40,
+			180,
 		},
 		{
 			strings::sniper,
 			strings::description_sniper,
 			Asset::Mesh::icon_sniper,
-			40,
+			180,
 		},
 	};
 
@@ -163,13 +163,17 @@ namespace VI
 			Health* health = manager->entity.ref()->get<Health>();
 			history->hp = health->hp;
 			history->hp_max = health->hp_max;
+			history->shield = health->shield;
+			history->shield_max = health->shield_max;
 			history->pos = manager->entity.ref()->get<Transform>()->absolute_pos();
 		}
 		else
 		{
 			// initial health
-			history->hp = 1;
+			history->hp = 0;
 			history->hp_max = AWK_HEALTH;
+			history->shield = AWK_SHIELD;
+			history->shield_max = AWK_SHIELD;
 			history->pos = manager->team.ref()->player_spawn.ref()->absolute_pos();
 		}
 	}
@@ -528,19 +532,22 @@ namespace VI
 				}
 
 				// launch a rocket at this player if the conditions are right
-				if (player_entity && !Rocket::inbound(player_entity) && !game_over)
+				if (player_entity && !game_over && !Rocket::inbound(player_entity))
 				{
 					Vec3 player_pos = player_entity->get<Transform>()->absolute_pos();
 					for (auto rocket = Rocket::list.iterator(); !rocket.is_last(); rocket.next())
 					{
-						Vec3 rocket_pos = rocket.item()->get<Transform>()->absolute_pos();
 						if (rocket.item()->team == team->team() // it belongs to our team
 							&& rocket.item()->get<Transform>()->parent.ref() // it's waiting to be fired
-							&& (rocket_pos - player_pos).length_squared() < ROCKET_RANGE * ROCKET_RANGE // it's in range
 							&& (track->tracking || (rocket.item()->owner.ref() && PlayerCommon::visibility.get(PlayerCommon::visibility_hash(rocket.item()->owner.ref()->get<PlayerCommon>(), player_entity->get<PlayerCommon>()))))) // we're tracking the player, or the owner is alive and can see the player
 						{
-							rocket.item()->launch(player_entity);
-							break;
+							Vec3 rocket_pos = rocket.item()->get<Transform>()->absolute_pos();
+							if ((rocket_pos - player_pos).length_squared() < ROCKET_RANGE * ROCKET_RANGE // it's in range
+								&& ContainmentField::hash(team->team(), rocket_pos) == ContainmentField::hash(team->team(), player_pos)) // no containment fields in the way
+							{
+								rocket.item()->launch(player_entity);
+								break;
+							}
 						}
 					}
 				}

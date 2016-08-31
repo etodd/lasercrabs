@@ -279,7 +279,6 @@ void Awk::hit_by(const TargetEvent& e)
 			{
 				get<Health>()->damage(e.hit_by, 1);
 				damaged = true;
-				invincible_timer = AWK_INVINCIBLE_TIME;
 			}
 		}
 		else
@@ -288,8 +287,6 @@ void Awk::hit_by(const TargetEvent& e)
 			shield_taken_down = true;
 			invincible_timer = 0.0f; // shield is now down
 		}
-		if (e.hit_by->has<Awk>() && !e.hit_by->get<Awk>()->snipe) // if they sniped us, they won't get stunned
-			e.hit_by->get<Awk>()->stun_timer = AWK_STUN_TIME;
 	}
 
 	// let them know they didn't hurt us
@@ -1245,7 +1242,7 @@ void Awk::update(const Update& u)
 		// flying or dashing
 
 		if (attach_time > 0.0f && u.time.total - attach_time > MAX_FLIGHT_TIME)
-			get<Health>()->damage(entity(), AWK_HEALTH); // Kill self
+			get<Health>()->kill(entity()); // Kill self
 		else
 		{
 			Vec3 position = get<Transform>()->absolute_pos();

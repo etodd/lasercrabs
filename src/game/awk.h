@@ -14,8 +14,8 @@ struct Rope;
 struct View;
 struct DamageEvent;
 
-#define AWK_START_HEALTH 3
-#define AWK_HEALTH 6
+#define AWK_SHIELD 1
+#define AWK_HEALTH 5
 #define AWK_FLY_SPEED 35.0f
 #define AWK_CRAWL_SPEED 2.0f
 #define AWK_MIN_COOLDOWN 2.0f

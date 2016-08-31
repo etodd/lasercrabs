@@ -35,7 +35,7 @@ AwkEntity::AwkEntity(AI::Team team)
 	create<Awk>();
 	create<AIAgent>()->team = team;
 
-	Health* health = create<Health>(AWK_START_HEALTH, AWK_HEALTH);
+	Health* health = create<Health>(2, AWK_HEALTH, AWK_SHIELD, AWK_SHIELD);
 
 	SkinnedModel* model = create<SkinnedModel>();
 	model->mesh = Asset::Mesh::awk;
@@ -53,44 +53,90 @@ AwkEntity::AwkEntity(AI::Team team)
 	create<RigidBody>(RigidBody::Type::Sphere, Vec3(AWK_RADIUS), 0.0f, CollisionAwk | CollisionTarget, CollisionDefault & ~CollisionTarget & ~CollisionAwkIgnore);
 }
 
-Health::Health(u16 start_value, u16 hp_max)
-	: hp(start_value), hp_max(hp_max), added(), damaged(), killed()
+Health::Health(u8 hp, u8 hp_max, u8 shield, u8 shield_max)
+	: hp(hp), hp_max(hp_max), shield(shield), shield_max(shield_max), added(), damaged(), killed(), regen_timer()
 {
 }
 
-void Health::set(u16 h)
+#define REGEN_DELAY 9.0f
+#define REGEN_TIME 1.0f
+
+void Health::update(const Update& u)
 {
-	if (h > hp)
-		add(h - hp);
-	else if (h < hp)
-		damage(nullptr, hp - h);
+	if (shield < shield_max)
+	{
+		r32 old_timer = regen_timer;
+		regen_timer -= u.time.delta;
+		if (regen_timer < REGEN_TIME)
+		{
+			const r32 regen_interval = REGEN_TIME / shield_max;
+			if ((s32)(old_timer / regen_interval) != (s32)(regen_timer / regen_interval))
+			{
+				shield += 1;
+				added.fire();
+			}
+		}
+	}
 }
 
-void Health::damage(Entity* e, u16 damage)
+void Health::damage(Entity* e, u8 damage)
 {
 	if (hp > 0 && damage > 0)
 	{
-		if (damage > hp)
+		u8 damage_accumulator = damage;
+		if (damage_accumulator > shield)
+		{
+			damage_accumulator -= shield;
+			shield = 0;
+		}
+		else
+		{
+			shield -= damage_accumulator;
+			damage_accumulator = 0;
+		}
+
+		if (damage_accumulator > hp)
 			hp = 0;
 		else
-			hp -= damage;
+			hp -= damage_accumulator;
+
+		regen_timer = REGEN_TIME + REGEN_DELAY;
+
 		damaged.fire({ e, damage });
 		if (hp == 0)
 			killed.fire(e);
 	}
 }
 
-void Health::add(u16 amount)
+void Health::take_health(Entity* e, u8 amount)
+{
+	// an enemy has stolen one of our health pickups
+	if (amount > hp)
+		hp = 0;
+	else
+		hp -= amount;
+
+	damaged.fire({ e, amount });
+	if (hp == 0)
+		killed.fire(e);
+}
+
+void Health::kill(Entity* e)
+{
+	damage(e, hp_max + shield_max);
+}
+
+void Health::add(u8 amount)
 {
 	u16 old_hp = hp;
-	hp = vi_min((u16)(hp + amount), hp_max);
+	hp = vi_min((u8)(hp + amount), hp_max);
 	if (hp > old_hp)
 		added.fire();
 }
 
-b8 Health::is_full() const
+u8 Health::total() const
 {
-	return hp >= hp_max;
+	return hp + shield;
 }
 
 HealthPickupEntity::HealthPickupEntity(const Vec3& p)
@@ -231,7 +277,7 @@ b8 HealthPickup::set_owner(Health* health)
 		}
 
 		if (old_owner) // looks like we're being stolen
-			old_owner->damage(health->entity(), 1);
+			old_owner->take_health(health->entity(), 1);
 		return true;
 	}
 
@@ -264,8 +310,8 @@ void HealthPickup::update_all(const Update& u)
 	}
 
 	// power particles
-	const r32 particle_interval = 0.2f;
-	const r32 particle_reset = 4.0f;
+	const r32 particle_interval = 0.1f;
+	const r32 particle_reset = 2.0f;
 	b8 emit_particles = (s32)(power_particle_timer / particle_interval) < (s32)((power_particle_timer + u.time.delta) / particle_interval);
 	power_particle_timer += u.time.delta;
 	while (power_particle_timer > particle_reset)
@@ -560,6 +606,9 @@ void Rocket::launch(Entity* t)
 
 Rocket* Rocket::inbound(Entity* target)
 {
+	if (target->has<AIAgent>() && target->get<AIAgent>()->stealth)
+		return nullptr;
+
 	for (auto rocket = Rocket::list.iterator(); !rocket.is_last(); rocket.next())
 	{
 		if (rocket.item()->target.ref() == target)
@@ -669,7 +718,7 @@ void Rocket::update(const Update& u)
 				for (s32 i = 0; i < whisker_count; i++)
 				{
 					btCollisionWorld::ClosestRayResultCallback ray_callback(get<Transform>()->pos, get<Transform>()->pos + get<Transform>()->rot * whiskers[i]);
-					Physics::raycast(&ray_callback, ~CollisionTarget & ~CollisionAwkIgnore & ~CollisionAllTeamsContainmentField);
+					Physics::raycast(&ray_callback, ~CollisionTarget & ~CollisionAwkIgnore);
 					if (ray_callback.hasHit())
 					{
 						// avoid the obstacle
@@ -694,7 +743,7 @@ void Rocket::update(const Update& u)
 		Vec3 next_pos = get<Transform>()->pos + velocity * u.time.delta;
 
 		btCollisionWorld::ClosestRayResultCallback ray_callback(get<Transform>()->pos, next_pos + get<Transform>()->rot * Vec3(0, 0, 0.1f));
-		Physics::raycast(&ray_callback, ~CollisionTarget & ~CollisionAwkIgnore & ~CollisionAllTeamsContainmentField);
+		Physics::raycast(&ray_callback, ~CollisionTarget & ~CollisionAwkIgnore);
 		if (ray_callback.hasHit())
 		{
 			// we hit something
@@ -866,6 +915,7 @@ ContainmentField* ContainmentField::closest(AI::TeamMask mask, const Vec3& pos, 
 	return closest;
 }
 
+// must be called after HealthPickup::update_all(), which sets the powered flag
 r32 ContainmentField::particle_accumulator;
 void ContainmentField::update_all(const Update& u)
 {
@@ -890,15 +940,9 @@ void ContainmentField::update_all(const Update& u)
 
 	for (auto i = list.iterator(); !i.is_last(); i.next())
 	{
-		// if a containment field is powered, it will never expire
-		if (!i.item()->powered)
-		{
-			i.item()->remaining_lifetime -= u.time.delta;
-
-			// check if we need to kill this field
-			if (i.item()->remaining_lifetime < 0)
-				i.item()->destroy();
-		}
+		i.item()->remaining_lifetime -= u.time.delta * (i.item()->powered ? 0.25f : 1.0f);
+		if (i.item()->remaining_lifetime < 0.0f)
+			i.item()->destroy();
 	}
 }
 

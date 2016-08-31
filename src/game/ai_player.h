@@ -41,9 +41,9 @@ struct AIPlayer
 
 	enum class UpgradeStrategy
 	{
+		Ignore,
 		SaveUp,
 		IfAvailable,
-		Ignore,
 	};
 
 	struct Config

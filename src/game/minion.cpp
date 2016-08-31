@@ -20,7 +20,7 @@
 
 #define WALK_SPEED 2.0f
 #define ROTATION_SPEED 4.0f
-#define MINION_HEARING_RANGE 8.0f
+#define MINION_HEARING_RANGE 7.0f
 #define HEALTH 3
 
 namespace VI

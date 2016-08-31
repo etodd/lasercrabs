@@ -28,19 +28,24 @@ struct DamageEvent
 
 struct Health : public ComponentType<Health>
 {
-	u16 hp;
-	u16 hp_max;
+	r32 regen_timer;
 	LinkArg<const DamageEvent&> damaged;
 	LinkArg<Entity*> killed;
 	Link added;
+	u8 shield;
+	u8 shield_max;
+	u8 hp;
+	u8 hp_max;
 
-	Health(u16, u16);
+	Health(u8, u8, u8 = 0, u8 = 0);
 
-	void set(u16);
+	void update(const Update&);
 	void awake() {}
-	void damage(Entity*, u16);
-	void add(u16);
-	b8 is_full() const;
+	void damage(Entity*, u8);
+	void take_health(Entity*, u8);
+	void kill(Entity*);
+	void add(u8);
+	u8 total() const;
 };
 
 #define HEALTH_PICKUP_RADIUS 0.55f
@@ -101,7 +106,7 @@ struct SensorEntity : public Entity
 #define SENSOR_TIME 1.0f
 #define SENSOR_TIMEOUT 5.0f
 #define SENSOR_RADIUS 0.2f
-#define SENSOR_HEALTH 3
+#define SENSOR_HEALTH 2
 struct Sensor : public ComponentType<Sensor>
 {
 	AI::Team team;
@@ -148,7 +153,7 @@ struct RocketEntity : public Entity
 };
 
 #define CONTAINMENT_FIELD_BASE_OFFSET 0.95f
-#define CONTAINMENT_FIELD_LIFETIME 20.0f
+#define CONTAINMENT_FIELD_LIFETIME 15.0f
 struct ContainmentField : public ComponentType<ContainmentField>
 {
 	static r32 particle_accumulator;

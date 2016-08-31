@@ -127,6 +127,7 @@ struct LocalPlayerControl : public ComponentType<LocalPlayerControl>
 	Ref<LocalPlayer> player;
 	b8 try_zoom;
 	b8 try_primary;
+	b8 try_ability[MAX_ABILITIES];
 	u8 gamepad;
 
 	LocalPlayerControl(u8);

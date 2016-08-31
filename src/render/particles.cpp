@@ -339,7 +339,7 @@ Sparks Particles::sparks
 StandardParticleSystem Particles::tracers
 (
 	3, 3,
-	Vec2(0.1f),
+	Vec2(0.15f),
 	Vec2(0.0f),
 	3.0f,
 	Vec3::zero,

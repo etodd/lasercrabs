@@ -12,7 +12,7 @@ struct TargetEvent;
 struct PlayerManager;
 
 #define MINION_HEAD_RADIUS 0.4f
-#define MINION_ATTACK_TIME 4.0f
+#define MINION_ATTACK_TIME 3.0f
 
 struct Minion : public Entity
 {

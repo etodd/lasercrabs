@@ -569,7 +569,6 @@ const char* AssetLookup::String::names[] =
 	"exit",
 	"forfeit_network_error",
 	"forfeit_opponent_quit",
-	"hp_added",
 	"intro",
 	"intro_done",
 	"intro_start",

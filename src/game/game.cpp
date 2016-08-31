@@ -320,6 +320,8 @@ void Game::update(const Update& update_in)
 	Team::update_all(u);
 	PlayerManager::update_all(u);
 	LocalPlayer::update_all(u);
+	for (auto i = Health::list.iterator(); !i.is_last(); i.next())
+		i.item()->update(u);
 	for (auto i = AIPlayer::list.iterator(); !i.is_last(); i.next())
 		i.item()->update(u);
 	for (auto i = Awk::list.iterator(); !i.is_last(); i.next())

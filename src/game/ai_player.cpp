@@ -38,86 +38,71 @@ AIPlayer::Config AIPlayer::generate_config()
 {
 	Config config;
 
-	switch (mersenne::rand() % 6)
+	switch (mersenne::rand() % 5)
 	{
 		case 0:
 		{
-			config.upgrade_priority[0] = Upgrade::ContainmentField;
-			config.upgrade_priority[1] = Upgrade::Rocket;
-			config.upgrade_priority[2] = Upgrade::Minion;
+			config.upgrade_priority[0] = Upgrade::Minion;
+			config.upgrade_strategies[0] = UpgradeStrategy::SaveUp;
+			config.upgrade_priority[1] = Upgrade::Teleporter;
+			config.upgrade_strategies[1] = UpgradeStrategy::IfAvailable;
+			config.upgrade_priority[2] = Upgrade::Rocket;
+			config.upgrade_strategies[2] = UpgradeStrategy::SaveUp;
 			config.upgrade_priority[3] = Upgrade::None;
 			config.upgrade_priority[4] = Upgrade::None;
 			config.upgrade_priority[5] = Upgrade::None;
-			config.upgrade_strategies[0] = UpgradeStrategy::Ignore; // sensor
-			config.upgrade_strategies[1] = UpgradeStrategy::SaveUp; // rocket
-			config.upgrade_strategies[2] = UpgradeStrategy::Ignore; // minion
-			config.upgrade_strategies[3] = UpgradeStrategy::Ignore; // teleporter
-			config.upgrade_strategies[4] = UpgradeStrategy::IfAvailable; // containment field
-			config.upgrade_strategies[5] = UpgradeStrategy::Ignore; // sniper
 			break;
 		}
 		case 1:
 		{
 			config.upgrade_priority[0] = Upgrade::Sensor;
-			config.upgrade_priority[1] = Upgrade::Rocket;
+			config.upgrade_strategies[0] = UpgradeStrategy::SaveUp;
+			config.upgrade_priority[1] = Upgrade::Teleporter;
+			config.upgrade_strategies[1] = UpgradeStrategy::IfAvailable;
 			config.upgrade_priority[2] = Upgrade::Sniper;
+			config.upgrade_strategies[2] = UpgradeStrategy::IfAvailable;
 			config.upgrade_priority[3] = Upgrade::None;
 			config.upgrade_priority[4] = Upgrade::None;
 			config.upgrade_priority[5] = Upgrade::None;
-			config.upgrade_strategies[0] = UpgradeStrategy::IfAvailable; // sensor
-			config.upgrade_strategies[1] = UpgradeStrategy::SaveUp; // rocket
-			config.upgrade_strategies[2] = UpgradeStrategy::Ignore; // minion
-			config.upgrade_strategies[3] = UpgradeStrategy::Ignore; // teleporter
-			config.upgrade_strategies[4] = UpgradeStrategy::Ignore; // containment field
-			config.upgrade_strategies[5] = UpgradeStrategy::IfAvailable; // sniper
+			break;
+		}
+		case 2:
+		{
+			config.upgrade_priority[0] = Upgrade::ContainmentField;
+			config.upgrade_strategies[0] = UpgradeStrategy::SaveUp;
+			config.upgrade_priority[1] = Upgrade::Sniper;
+			config.upgrade_strategies[1] = UpgradeStrategy::IfAvailable;
+			config.upgrade_priority[2] = Upgrade::Rocket;
+			config.upgrade_strategies[2] = UpgradeStrategy::IfAvailable;
+			config.upgrade_priority[3] = Upgrade::None;
+			config.upgrade_priority[4] = Upgrade::None;
+			config.upgrade_priority[5] = Upgrade::None;
 			break;
 		}
 		case 3:
 		{
-			config.upgrade_priority[0] = Upgrade::ContainmentField;
-			config.upgrade_priority[1] = Upgrade::Sniper;
-			config.upgrade_priority[2] = Upgrade::Minion;
+			config.upgrade_priority[0] = Upgrade::Sensor;
+			config.upgrade_strategies[0] = UpgradeStrategy::SaveUp;
+			config.upgrade_priority[1] = Upgrade::Rocket;
+			config.upgrade_strategies[1] = UpgradeStrategy::SaveUp;
+			config.upgrade_priority[2] = Upgrade::Teleporter;
+			config.upgrade_strategies[2] = UpgradeStrategy::IfAvailable;
 			config.upgrade_priority[3] = Upgrade::None;
 			config.upgrade_priority[4] = Upgrade::None;
 			config.upgrade_priority[5] = Upgrade::None;
-			config.upgrade_strategies[0] = UpgradeStrategy::Ignore; // sensor
-			config.upgrade_strategies[1] = UpgradeStrategy::Ignore; // rocket
-			config.upgrade_strategies[2] = UpgradeStrategy::IfAvailable; // minion
-			config.upgrade_strategies[3] = UpgradeStrategy::Ignore; // teleporter
-			config.upgrade_strategies[4] = UpgradeStrategy::SaveUp; // containment field
-			config.upgrade_strategies[5] = UpgradeStrategy::IfAvailable; // sniper
 			break;
 		}
 		case 4:
 		{
-			config.upgrade_priority[0] = Upgrade::Minion;
-			config.upgrade_priority[1] = Upgrade::Teleporter;
-			config.upgrade_priority[2] = Upgrade::Sensor;
-			config.upgrade_priority[3] = Upgrade::None;
-			config.upgrade_priority[4] = Upgrade::None;
-			config.upgrade_priority[5] = Upgrade::None;
-			config.upgrade_strategies[0] = UpgradeStrategy::SaveUp; // sensor
-			config.upgrade_strategies[1] = UpgradeStrategy::Ignore; // rocket
-			config.upgrade_strategies[2] = UpgradeStrategy::IfAvailable; // minion
-			config.upgrade_strategies[3] = UpgradeStrategy::IfAvailable; // teleporter
-			config.upgrade_strategies[4] = UpgradeStrategy::Ignore; // containment field
-			config.upgrade_strategies[5] = UpgradeStrategy::Ignore; // sniper
-			break;
-		}
-		case 5:
-		{
 			config.upgrade_priority[0] = Upgrade::Teleporter;
+			config.upgrade_strategies[0] = UpgradeStrategy::IfAvailable;
 			config.upgrade_priority[1] = Upgrade::Minion;
+			config.upgrade_strategies[1] = UpgradeStrategy::IfAvailable;
 			config.upgrade_priority[2] = Upgrade::Rocket;
+			config.upgrade_strategies[2] = UpgradeStrategy::IfAvailable;
 			config.upgrade_priority[3] = Upgrade::None;
 			config.upgrade_priority[4] = Upgrade::None;
 			config.upgrade_priority[5] = Upgrade::None;
-			config.upgrade_strategies[0] = UpgradeStrategy::Ignore; // sensor
-			config.upgrade_strategies[1] = UpgradeStrategy::SaveUp; // rocket
-			config.upgrade_strategies[2] = UpgradeStrategy::IfAvailable; // minion
-			config.upgrade_strategies[3] = UpgradeStrategy::IfAvailable; // teleporter
-			config.upgrade_strategies[4] = UpgradeStrategy::Ignore; // containment field
-			config.upgrade_strategies[5] = UpgradeStrategy::Ignore; // sniper
 			break;
 		}
 		default:
@@ -169,7 +154,7 @@ s32 AIPlayer::save_up_priority() const
 		if (upgrade != Upgrade::None
 			&& manager.ref()->upgrade_available(upgrade))
 		{
-			UpgradeStrategy strategy = config.upgrade_strategies[(s32)upgrade];
+			UpgradeStrategy strategy = config.upgrade_strategies[i];
 			s32 priority;
 			if (strategy == UpgradeStrategy::Ignore)
 				continue;
@@ -699,7 +684,7 @@ b8 health_pickup_filter(const AIPlayerControl* control, const Entity* e)
 	if (health->hp < health->hp_max)
 		return owner != control->get<Health>(); // any health pickup we don't own
 	else
-		return owner && owner != control->get<Health>(); // we have full health; attack neutral pickups does no good
+		return owner && owner != control->get<Health>(); // we have full health; attacking neutral pickups does no good
 }
 
 b8 minion_filter(const AIPlayerControl* control, const Entity* e)
@@ -836,7 +821,7 @@ Upgrade want_available_upgrade(const AIPlayerControl* control)
 		if (upgrade != Upgrade::None
 			&& manager->upgrade_available(upgrade)
 			&& manager->credits > manager->upgrade_cost(upgrade)
-			&& config.upgrade_strategies[(s32)upgrade] != AIPlayer::UpgradeStrategy::Ignore)
+			&& config.upgrade_strategies[i] != AIPlayer::UpgradeStrategy::Ignore)
 		{
 			return upgrade;
 		}

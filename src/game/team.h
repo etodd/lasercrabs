@@ -38,9 +38,9 @@ struct PlayerManager;
 enum class Ability
 {
 	Sensor,
-	Rocket,
 	Minion,
 	Teleporter,
+	Rocket,
 	ContainmentField,
 	Sniper,
 	count,
@@ -58,9 +58,9 @@ struct AbilityInfo
 enum class Upgrade
 {
 	Sensor,
-	Rocket,
 	Minion,
 	Teleporter,
+	Rocket,
 	ContainmentField,
 	Sniper,
 	count,
@@ -88,8 +88,10 @@ struct Team
 	struct SensorTrackHistory
 	{
 		Vec3 pos;
-		u16 hp;
-		u16 hp_max;
+		u8 hp;
+		u8 hp_max;
+		u8 shield;
+		u8 shield_max;
 	};
 
 	static const Vec4 ui_color_enemy;

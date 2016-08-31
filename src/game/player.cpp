@@ -58,33 +58,41 @@ namespace VI
 #define HP_BOX_SIZE (Vec2(text_size) * UI::scale)
 #define HP_BOX_SPACING (8.0f * UI::scale)
 
-r32 hp_width(u16 hp, r32 scale = 1.0f)
+r32 hp_width(u8 hp, u8 shield, r32 scale = 1.0f)
 {
 	const Vec2 box_size = HP_BOX_SIZE;
-	return scale * ((hp - 1) * (box_size.x + HP_BOX_SPACING) - HP_BOX_SPACING);
+	return scale * ((shield + (hp - 1)) * (box_size.x + HP_BOX_SPACING) - HP_BOX_SPACING);
 }
 
-void draw_hp_box(const RenderParams& params, const Vec2& pos, u16 hp_max, r32 scale = 1.0f)
+void draw_hp_box(const RenderParams& params, const Vec2& pos, u8 hp_max, u8 shield_max, r32 scale = 1.0f)
 {
 	const Vec2 box_size = HP_BOX_SIZE * scale;
 
-	r32 total_width = hp_width(hp_max, scale);
+	r32 total_width = hp_width(hp_max, shield_max, scale);
 
 	UI::box(params, Rect2(pos + Vec2(total_width * -0.5f, 0), Vec2(total_width, box_size.y)).outset(HP_BOX_SPACING), UI::background_color);
 }
 
-void draw_hp_indicator(const RenderParams& params, Vec2 pos, u16 hp, u16 hp_max, const Vec4& color, r32 scale = 1.0f)
+void draw_hp_indicator(const RenderParams& params, Vec2 pos, u8 hp, u8 hp_max, u8 shield, u8 shield_max, const Vec4& hp_color, const Vec4& shield_color, r32 scale = 1.0f)
 {
 	const Vec2 box_size = HP_BOX_SIZE * scale;
-	r32 total_width = hp_width(hp_max, scale);
+	r32 total_width = hp_width(hp_max, shield_max, scale);
 	pos.x += total_width * -0.5f + HP_BOX_SPACING * scale;
 	pos.y += box_size.y * 0.6f;
 
 	for (s32 i = 1; i < hp_max; i++)
 	{
-		UI::triangle_border(params, { pos, box_size }, 3 * scale, color, PI);
+		UI::triangle_border(params, { pos, box_size }, 3 * scale, hp_color, PI);
 		if (i < hp)
-			UI::triangle(params, { pos, box_size }, color, PI);
+			UI::triangle(params, { pos, box_size }, hp_color, PI);
+		pos.x += box_size.x + HP_BOX_SPACING * scale;
+	}
+
+	for (s32 i = 0; i < shield_max; i++)
+	{
+		UI::triangle_border(params, { pos, box_size }, 3 * scale, shield_color, PI);
+		if (i < shield)
+			UI::triangle(params, { pos, box_size }, shield_color, PI);
 		pos.x += box_size.x + HP_BOX_SPACING * scale;
 	}
 }
@@ -1068,6 +1076,7 @@ LocalPlayerControl::LocalPlayerControl(u8 gamepad)
 	fov(fov_default),
 	try_primary(),
 	try_zoom(),
+	try_ability(),
 	damage_timer(),
 	health_flash_timer(),
 	rumble(),
@@ -1131,10 +1140,7 @@ void LocalPlayerControl::hit_by(const TargetEvent& e)
 void LocalPlayerControl::health_picked_up()
 {
 	if (Game::time.total > PLAYER_SPAWN_DELAY + 0.5f) // if we're picking up initial health at the very beginning of the match, don't flash the message
-	{
-		player.ref()->msg(_(strings::hp_added), true);
 		health_flash_timer = msg_time;
-	}
 }
 
 b8 LocalPlayerControl::input_enabled() const
@@ -1266,6 +1272,30 @@ void determine_visibility(PlayerCommon* me, PlayerCommon* other_player, b8* visi
 		|| PlayerCommon::visibility.get(PlayerCommon::visibility_hash(me, other_player));
 }
 
+void update_ability(const Update& u, LocalPlayerControl* control, Controls binding, u8 gamepad, s32 index)
+{
+	b8 current = u.input->get(binding, gamepad);
+	b8 last = u.last_input->get(binding, gamepad);
+	if (current && !last)
+		control->try_ability[index] = true;
+
+	PlayerManager* manager = control->player.ref()->manager.ref();
+
+	if (control->try_ability[index])
+	{
+		if (control->input_enabled()
+			&& !control->get<Awk>()->snipe
+			&& manager->ability_spawn_start(manager->abilities[index]))
+			control->try_ability[index] = false;
+	}
+	else if (!current)
+	{
+		control->try_ability[index] = false;
+		if (manager->abilities[index] != Ability::None) // ability_spawn_stop(Ability::None) will stop all ability spawns
+			manager->ability_spawn_stop(manager->abilities[index]);
+	}
+}
+
 void LocalPlayerControl::update(const Update& u)
 {
 	Camera* camera = player.ref()->camera;
@@ -1394,55 +1424,24 @@ void LocalPlayerControl::update(const Update& u)
 	else
 		look_quat = Quat::euler(0, get<PlayerCommon>()->angle_horizontal, get<PlayerCommon>()->angle_vertical);
 
-	if (input_enabled())
+	if (input_enabled() && get<Awk>()->snipe)
 	{
-		if (get<Awk>()->snipe)
+		// cancel snipe
+		if (u.input->get(Controls::Cancel, gamepad)
+			&& !u.last_input->get(Controls::Cancel, gamepad)
+			&& !Game::cancel_event_eaten[gamepad])
 		{
-			// cancel snipe
-			if (u.input->get(Controls::Cancel, gamepad)
-				&& !u.last_input->get(Controls::Cancel, gamepad)
-				&& !Game::cancel_event_eaten[gamepad])
-			{
-				Game::cancel_event_eaten[gamepad] = true;
-				get<Awk>()->snipe_enable(false);
-				player.ref()->manager.ref()->add_credits(AbilityInfo::list[(s32)Ability::Sniper].spawn_cost);
-			}
+			Game::cancel_event_eaten[gamepad] = true;
+			get<Awk>()->snipe_enable(false);
+			player.ref()->manager.ref()->add_credits(AbilityInfo::list[(s32)Ability::Sniper].spawn_cost);
 		}
-		else
-		{
-			// abilities
+	}
 
-			PlayerManager* manager = player.ref()->manager.ref();
-			if (manager->abilities[0] != Ability::None)
-			{
-				b8 current = u.input->get(Controls::Ability1, gamepad);
-				b8 last = u.last_input->get(Controls::Ability1, gamepad);
-				if (current && !last)
-					manager->ability_spawn_start(manager->abilities[0]);
-				else if (!current)
-					manager->ability_spawn_stop(manager->abilities[0]);
-			}
-
-			if (manager->abilities[1] != Ability::None)
-			{
-				b8 current = u.input->get(Controls::Ability2, gamepad);
-				b8 last = u.last_input->get(Controls::Ability2, gamepad);
-				if (current && !last)
-					manager->ability_spawn_start(manager->abilities[1]);
-				else if (!current)
-					manager->ability_spawn_stop(manager->abilities[1]);
-			}
-
-			if (manager->abilities[2] != Ability::None)
-			{
-				b8 current = u.input->get(Controls::Ability3, gamepad);
-				b8 last = u.last_input->get(Controls::Ability3, gamepad);
-				if (current && !last)
-					manager->ability_spawn_start(manager->abilities[2]);
-				else if (!current)
-					manager->ability_spawn_stop(manager->abilities[2]);
-			}
-		}
+	{
+		// abilities
+		update_ability(u, this, Controls::Ability1, gamepad, 0);
+		update_ability(u, this, Controls::Ability2, gamepad, 1);
+		update_ability(u, this, Controls::Ability3, gamepad, 2);
 	}
 
 	// camera setup
@@ -1783,7 +1782,8 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 			Vec3 me = get<Transform>()->absolute_pos();
 			for (auto i = ControlPoint::list.iterator(); !i.is_last(); i.next())
 			{
-				if (!i.item()->get<PlayerTrigger>()->is_triggered(entity()))
+				r32 distance_sq = (i.item()->get<Transform>()->absolute_pos() - me).length_squared();
+				if (distance_sq > CONTROL_POINT_RADIUS * CONTROL_POINT_RADIUS && distance_sq < AWK_MAX_DISTANCE * AWK_MAX_DISTANCE)
 				{
 					if (manager->friendly_control_point(i.item()))
 					{
@@ -1833,7 +1833,8 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 
 			b8 draw;
 			Vec2 p;
-			const Vec4* color;
+			const Vec4* hp_color;
+			const Vec4* shield_color;
 
 			Team::SensorTrackHistory history;
 			if (friendly)
@@ -1841,7 +1842,8 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 				Team::extract_history(other_player.item()->manager.ref(), &history);
 				Vec3 pos3d = history.pos + Vec3(0, AWK_RADIUS * 2.0f, 0);
 				draw = UI::project(params, pos3d, &p);
-				color = &Team::ui_color_friend;
+				hp_color = &Team::ui_color_friend;
+				shield_color = &UI::default_color;
 			}
 			else
 			{
@@ -1855,13 +1857,20 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 				if (tracking || visible)
 				{
 					if (team == other_player.item()->get<AIAgent>()->team) // friend
-						color = &Team::ui_color_friend;
+					{
+						hp_color = &Team::ui_color_friend;
+						shield_color = &UI::default_color;
+					}
 					else // enemy
-						color = visible ? &Team::ui_color_enemy : &UI::accent_color;
+					{
+						hp_color = visible ? &Team::ui_color_enemy : &UI::accent_color;
+						shield_color = &UI::default_color;
+					}
 				}
 				else
 				{
-					color = &UI::disabled_color; // not visible or tracking right now
+					hp_color = &UI::disabled_color; // not visible or tracking right now
+					shield_color = &UI::disabled_color;
 					// if we can see or track them, the indicator has already been added using add_target_indicator in the update function
 					UI::indicator(params, history.pos, UI::disabled_color, true);
 				}
@@ -1879,7 +1888,7 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 				username.size = text_size;
 				username.anchor_x = UIText::Anchor::Center;
 				username.anchor_y = UIText::Anchor::Min;
-				username.color = *color;
+				username.color = *hp_color;
 				username.text(other_player.item()->manager.ref()->username);
 
 				UI::box(params, username.rect(username_pos).outset(HP_BOX_SPACING), UI::background_color);
@@ -1914,8 +1923,8 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 
 				if (!invincible && Game::level.has_feature(Game::FeatureLevel::HealthPickups))
 				{
-					draw_hp_box(params, hp_pos, history.hp_max, 0.75f);
-					draw_hp_indicator(params, hp_pos, history.hp, history.hp_max, *color, 0.75f);
+					draw_hp_box(params, hp_pos, history.hp_max, history.shield_max, 0.75f);
+					draw_hp_indicator(params, hp_pos, history.hp, history.hp_max, history.shield, history.shield_max, *hp_color, *shield_color, 0.75f);
 				}
 
 				username.draw(params, username_pos);
@@ -1945,7 +1954,7 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 		const Health* health = get<Health>();
 
 		// danger indicator
-		b8 danger = enemy_visible && is_vulnerable && health->hp == 1;
+		b8 danger = enemy_visible && is_vulnerable && health->hp == 1 && health->shield == 0;
 		if (danger)
 		{
 			UIText text;
@@ -1968,34 +1977,33 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 		{
 			Vec2 pos = viewport.size * Vec2(0.5f, 0.1f);
 
-			draw_hp_box(params, pos, health->hp_max);
+			draw_hp_box(params, pos, health->hp_max, health->shield_max);
 
 			b8 draw_hp;
-			const Vec4* color;
+			const Vec4* hp_color;
+			const Vec4* shield_color;
 
 			if (danger)
 			{
 				draw_hp = UI::flash_function(Game::real_time.total);
-				color = &UI::alert_color;
+				hp_color = &UI::alert_color;
+				shield_color = &UI::alert_color;
 			}
 			else if (health_flash_timer > 0.0f)
 			{
 				draw_hp = UI::flash_function(Game::real_time.total);
-				color = &UI::default_color;
-			}
-			else if (health->hp == 1)
-			{
-				draw_hp = UI::flash_function_slow(Game::real_time.total);
-				color = &UI::alert_color;
+				hp_color = &UI::default_color;
+				shield_color = &UI::default_color;
 			}
 			else
 			{
 				draw_hp = true;
-				color = &UI::accent_color;
+				hp_color = health->hp == 1 ? &UI::alert_color : &UI::accent_color;
+				shield_color = &UI::default_color;
 			}
 
 			if (draw_hp)
-				draw_hp_indicator(params, pos, health->hp, health->hp_max, *color);
+				draw_hp_indicator(params, pos, health->hp, health->hp_max, health->shield, health->shield_max, *hp_color, *shield_color);
 		}
 	}
 

@@ -62,6 +62,7 @@ namespace AI
 		Vec3 pos;
 		Vec3 normal;
 		AwkNavMeshNode ref;
+		b8 crawl;
 	};
 	typedef StaticArray<AwkPathNode, MAX_PATH_LENGTH> AwkPath;
 
@@ -124,12 +125,13 @@ namespace AI
 
 		struct AwkNavMeshNodeData
 		{
-			AwkNavMeshNode parent;
-			b8 visited;
-			b8 in_queue;
 			r32 travel_score;
 			r32 estimate_score;
 			r32 sensor_score;
+			AwkNavMeshNode parent;
+			b8 visited;
+			b8 in_queue;
+			b8 crawled_from_parent;
 		};
 
 		struct AwkNavMeshKey

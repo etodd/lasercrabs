@@ -325,8 +325,10 @@ void awk_astar(AwkAllow rule, Team team, const AwkNavMeshNode& start_vertex, Ast
 		start_data->travel_score = 0;
 		start_data->estimate_score = scorer->score(start_pos);
 		start_data->sensor_score = sensor_cost(team, start_vertex);
-		start_data->parent = { (u16)-1, (u16)-1 };
+		start_data->parent = AWK_NAV_MESH_NODE_NONE;
+		start_data->crawled_from_parent = true;
 		start_data->in_queue = true;
+		start_data->visited = false;
 
 #if DEBUG_AI
 		vi_debug("estimate: %f - %s", start_data->estimate_score, typeid(*scorer).name());
@@ -352,16 +354,18 @@ void awk_astar(AwkAllow rule, Team team, const AwkNavMeshNode& start_vertex, Ast
 			{
 				if (path->length == path->capacity())
 					path->remove(path->length - 1);
+				const AwkNavMeshNodeData& data = awk_nav_mesh_key.get(n);
 				AwkPathNode* node = path->insert(0);
 				*node =
 				{
 					awk_nav_mesh.chunks[n.chunk].vertices[n.vertex],
 					awk_nav_mesh.chunks[n.chunk].normals[n.vertex],
 					n,
+					data.crawled_from_parent, // crawl flag
 				};
 				if (n.equals(start_vertex))
 					break;
-				n = awk_nav_mesh_key.get(n).parent;
+				n = data.parent;
 			}
 			break; // done!
 		}
@@ -400,6 +404,7 @@ void awk_astar(AwkAllow rule, Team team, const AwkNavMeshNode& start_vertex, Ast
 						{
 							// this is a better path
 
+							adjacent_data->crawled_from_parent = adjacency.flag(i);
 							adjacent_data->parent = vertex_node;
 							adjacent_data->travel_score = candidate_travel_score;
 
@@ -417,6 +422,7 @@ void awk_astar(AwkAllow rule, Team team, const AwkNavMeshNode& start_vertex, Ast
 					else
 					{
 						// totally new node, not in queue yet
+						adjacent_data->crawled_from_parent = adjacency.flag(i);
 						adjacent_data->parent = vertex_node;
 						adjacent_data->sensor_score = sensor_cost(team, adjacent_node);
 						adjacent_data->travel_score = candidate_travel_score;
@@ -505,6 +511,7 @@ void awk_pathfind_hit(AwkAllow rule, Team team, const Vec3& start, const Vec3& s
 					awk_nav_mesh.chunks[target_closest_vertex.chunk].vertices[target_closest_vertex.vertex],
 					awk_nav_mesh.chunks[target_closest_vertex.chunk].normals[target_closest_vertex.vertex],
 					target_closest_vertex,
+					false, // crawl flag; we're shooting, so... no
 				};
 			}
 		}

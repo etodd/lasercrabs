@@ -398,6 +398,7 @@ const char* AssetLookup::Uniform::names[] =
 	"detail_shadow_map",
 	"diffuse_color",
 	"diffuse_map",
+	"displacement",
 	"far_plane",
 	"fog",
 	"fog_extent",

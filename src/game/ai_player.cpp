@@ -493,13 +493,13 @@ Vec2 AIPlayerControl::aim(const Update& u, const Vec3& to_target)
 }
 
 // if tolerance is greater than 0, we need to land within that distance of the given target point
-b8 AIPlayerControl::aim_and_shoot(const Update& u, const Vec3& path_node, const Vec3& target, const Vec3& target_normal, Target* target_entity, r32 tolerance)
+b8 AIPlayerControl::aim_and_shoot_target(const Update& u, const Vec3& target, Target* target_entity)
 {
 	PlayerCommon* common = get<PlayerCommon>();
 
 	b8 can_move = common->movement_enabled();
 
-	b8 dashing = false;
+	b8 only_crawling_dashing = false;
 
 	{
 		// crawling
@@ -507,31 +507,146 @@ b8 AIPlayerControl::aim_and_shoot(const Update& u, const Vec3& path_node, const 
 		Vec3 pos = get<Transform>()->absolute_pos();
 		Vec3 diff = target - pos;
 		r32 distance_to_target = diff.length();
-		if (!target_entity && distance_to_target < AWK_RADIUS * 1.5f)
+
+		Vec3 to_target = diff / distance_to_target;
+
+		if (get<Awk>()->direction_is_toward_attached_wall(to_target))
+			only_crawling_dashing = true;
+
+		// if we're shooting for a normal target (health or something), don't crawl
+		// except if we're shooting at an enemy Awk and we're on the same surface as them, then crawl
+		if (can_move)
 		{
-			// we're headed toward a waypoint, not a target, and we're already there
+			Vec3 to_target_crawl = Vec3::normalize(target - pos);
+
+			if (only_crawling_dashing)
+			{
+				// we're only going to be crawling and dashing there
+				// crawl toward it, but if it's a target we're trying to shoot/dash through, don't get too close
+				if (distance_to_target > AWK_RADIUS * 2.0f)
+					get<Awk>()->crawl(to_target_crawl, u);
+			}
+			else
+			{
+				// eventually we will shoot there
+
+				// try to crawl toward the target
+				Vec3 old_pos = get<Transform>()->pos;
+				Quat old_rot = get<Transform>()->rot;
+				Vec3 old_lerped_pos = get<Awk>()->lerped_pos;
+				Quat old_lerped_rot = get<Awk>()->lerped_rotation;
+				Transform* old_parent = get<Transform>()->parent.ref();
+				get<Awk>()->crawl(to_target_crawl, u);
+
+				Vec3 new_pos = get<Transform>()->absolute_pos();
+
+				// make sure we can still go where we need to go
+				if (!get<Awk>()->can_hit(target_entity))
+				{
+					// revert the crawling we just did
+					get<Transform>()->pos = old_pos;
+					get<Transform>()->rot = old_rot;
+					get<Transform>()->parent = old_parent;
+					get<Awk>()->lerped_pos = old_lerped_pos;
+					get<Awk>()->lerped_rotation = old_lerped_rot;
+					get<Awk>()->update_offset();
+				}
+			}
+		}
+	}
+
+	{
+		// shooting / dashing
+
+		const AIPlayer::Config& config = player.ref()->config;
+
+		b8 can_shoot = can_move && get<Awk>()->cooldown_can_shoot() && u.time.total - get<Awk>()->attach_time > config.aim_min_delay;
+
+		if (can_shoot)
+			aim_timer += u.time.delta;
+
+		Vec3 pos = get<Transform>()->absolute_pos();
+		Vec3 to_target = Vec3::normalize(target - pos);
+		Vec3 wall_normal = common->attach_quat * Vec3(0, 0, 1);
+
+		Vec2 target_angles = aim(u, to_target);
+
+		if (can_shoot)
+		{
+			// cooldown is done; we can shoot.
+			// check if we're done aiming
+			if (fabs(LMath::angle_to(common->angle_horizontal, target_angles.x)) < inaccuracy
+				&& fabs(LMath::angle_to(common->angle_vertical, target_angles.y)) < inaccuracy)
+			{
+				// aim is lined up
+				Vec3 look_dir = common->look_dir();
+				if (only_crawling_dashing)
+				{
+					if (get<Awk>()->dash_start(look_dir))
+						return true;
+				}
+				else
+				{
+					if (get<Awk>()->can_shoot(look_dir) && get<Awk>()->detach(look_dir))
+						return true;
+				}
+			}
+		}
+	}
+	
+	return false;
+}
+
+b8 AIPlayerControl::go(const Update& u, const AI::AwkPathNode& node_prev, const AI::AwkPathNode& node, r32 tolerance)
+{
+	PlayerCommon* common = get<PlayerCommon>();
+
+	b8 can_move = common->movement_enabled();
+
+	b8 only_crawling_dashing = false;
+
+	{
+		// crawling
+
+		Vec3 pos = get<Transform>()->absolute_pos();
+		Vec3 diff = node.pos - pos;
+		r32 distance_to_target = diff.length();
+		if (distance_to_target < AWK_RADIUS * 1.2f)
+		{
+			// and we're already there
 			awk_done_flying_or_dashing();
 			return true;
 		}
 
 		Vec3 to_target = diff / distance_to_target;
 
-		if (get<Awk>()->direction_is_toward_attached_wall(to_target))
-			dashing = true;
+		if (node.crawl || get<Awk>()->direction_is_toward_attached_wall(to_target))
+			only_crawling_dashing = true;
 
 		// crawling
 		// if we're shooting for a normal target (health or something), don't crawl
 		// except if we're shooting at an enemy Awk and we're on the same surface as them, then crawl
-		if (can_move && (!target_entity || (dashing && target_entity->has<Awk>())))
+		if (can_move)
 		{
-			Vec3 to_target_crawl = Vec3::normalize((target + target_normal * AWK_RADIUS) - pos);
+			Vec3 wall_normal = common->attach_quat * Vec3(0, 0, 1);
+			Vec3 to_target_convex = (node.pos + node.normal * AWK_RADIUS) - pos;
+			Vec3 to_target_crawl;
+			if (wall_normal.dot(to_target_convex) > 0.0f && node.normal.dot(wall_normal) < 0.9f)
+			{
+				// concave corner
+				to_target_crawl = Vec3::normalize((node.pos + node.normal * -AWK_RADIUS) - pos);
+			}
+			else
+			{
+				// coplanar or convex corner
+				to_target_crawl = Vec3::normalize(to_target_convex);
+			}
 
-			if (dashing)
+			if (only_crawling_dashing)
 			{
 				// we're only going to be crawling and dashing there
 				// crawl toward it, but if it's a target we're trying to shoot/dash through, don't get too close
-				if (!target_entity || distance_to_target > AWK_RADIUS * 2.0f)
-					get<Awk>()->crawl(to_target_crawl, u);
+				get<Awk>()->crawl(to_target_crawl, u);
 			}
 			else
 			{
@@ -543,7 +658,7 @@ b8 AIPlayerControl::aim_and_shoot(const Update& u, const Vec3& path_node, const 
 					// we can go generally toward the target
 					// now make sure we're actually going to land at the right spot
 					if (tolerance < 0.0f // don't worry about where we land
-						|| (hit - target).length_squared() < tolerance * tolerance) // check the tolerance
+						|| (hit - node.pos).length_squared() < tolerance * tolerance) // check the tolerance
 						could_go_before_crawling = true;
 				}
 
@@ -562,12 +677,12 @@ b8 AIPlayerControl::aim_and_shoot(const Update& u, const Vec3& path_node, const 
 					// make sure we can still go where we need to go
 					b8 revert = true;
 					Vec3 hit;
-					if (get<Awk>()->can_shoot(Vec3::normalize(target - new_pos), &hit))
+					if (get<Awk>()->can_shoot(Vec3::normalize(node.pos - new_pos), &hit))
 					{
 						// we can go generally toward the target
 						// now make sure we're actually going to land at the right spot
 						if (tolerance < 0.0f // don't worry about where we land
-							|| (hit - target).length_squared() < tolerance * tolerance) // check the tolerance
+							|| (hit - node.pos).length_squared() < tolerance * tolerance) // check the tolerance
 							revert = false;
 					}
 
@@ -586,7 +701,7 @@ b8 AIPlayerControl::aim_and_shoot(const Update& u, const Vec3& path_node, const 
 				{
 					// we can't currently get to the target
 					// crawl toward our current path node in an attempt to get a clear shot
-					get<Awk>()->crawl(path_node - get<Transform>()->absolute_pos(), u);
+					get<Awk>()->crawl(node_prev.pos - get<Transform>()->absolute_pos(), u);
 				}
 			}
 		}
@@ -594,49 +709,38 @@ b8 AIPlayerControl::aim_and_shoot(const Update& u, const Vec3& path_node, const 
 
 	// shooting / dashing
 
-	const AIPlayer::Config& config = player.ref()->config;
-
-	b8 can_shoot = can_move && get<Awk>()->cooldown_can_shoot() && u.time.total - get<Awk>()->attach_time > config.aim_min_delay;
-
-	if (can_shoot)
-		aim_timer += u.time.delta;
-
-	Vec3 pos = get<Transform>()->absolute_pos();
-	Vec3 to_target = Vec3::normalize(target - pos);
-	Vec3 wall_normal = common->attach_quat * Vec3(0, 0, 1);
-
-	if (!target_entity && get<Awk>()->snipe)
+	if (get<Awk>()->snipe)
 	{
-		// we're in sniper mode but we don't have a target
+		// we're in sniper mode, we're not going to be shooting anything, just look around randomly
 		aim(u, random_look);
 	}
 	else
 	{
 		// aiming
+
+		const AIPlayer::Config& config = player.ref()->config;
+
+		b8 can_shoot = can_move && get<Awk>()->cooldown_can_shoot() && u.time.total - get<Awk>()->attach_time > config.aim_min_delay;
+
+		if (can_shoot)
+			aim_timer += u.time.delta;
+
+		Vec3 pos = get<Transform>()->absolute_pos();
+		Vec3 to_target = Vec3::normalize(node.pos - pos);
+		Vec3 wall_normal = common->attach_quat * Vec3(0, 0, 1);
+
 		Vec2 target_angles = aim(u, to_target);
 
 		if (can_shoot)
 		{
 			// cooldown is done; we can shoot.
 			// check if we're done aiming
-			b8 aim_lined_up;
-			if (tolerance > 0.0f)
+			if (common->angle_horizontal == target_angles.x
+				&& common->angle_vertical == target_angles.y)
 			{
-				// must aim exactly
-				aim_lined_up = common->angle_horizontal == target_angles.x
-					&& common->angle_vertical == target_angles.y;
-			}
-			else
-			{
-				// include some inaccuracy
-				aim_lined_up = fabs(LMath::angle_to(common->angle_horizontal, target_angles.x)) < inaccuracy
-					&& fabs(LMath::angle_to(common->angle_vertical, target_angles.y)) < inaccuracy;
-			}
-
-			if (aim_lined_up)
-			{
+				// aim is lined up
 				Vec3 look_dir = common->look_dir();
-				if (dashing)
+				if (only_crawling_dashing)
 				{
 					// don't dash around corners or anything; only dash toward coplanar points
 					if (fabs(look_dir.dot(get<Transform>()->absolute_rot() * Vec3(0, 0, 1))) < 0.1)
@@ -648,12 +752,10 @@ b8 AIPlayerControl::aim_and_shoot(const Update& u, const Vec3& path_node, const 
 				else
 				{
 					Vec3 hit;
-					if ((!get<Awk>()->snipe || (target_entity && target_entity->has<Target>())) // if we're sniping, make sure we're shooting at a target and not a path node
-						&& get<Awk>()->can_shoot(look_dir, &hit))
+					if (get<Awk>()->can_shoot(look_dir, &hit))
 					{
 						// make sure we're actually going to land at the right spot
-						if (tolerance < 0.0f // don't worry about where we land
-							|| (hit - target).length_squared() < tolerance * tolerance) // check the tolerance
+						if ((hit - node.pos).length_squared() < tolerance * tolerance) // check the tolerance
 						{
 							if (get<Awk>()->detach(look_dir))
 								return true;
@@ -1340,7 +1442,7 @@ void AIPlayerControl::update(const Update& u)
 				// trying to a hit a moving thingy
 				Vec3 intersection;
 				if (aim_timer < config.aim_timeout && get<Awk>()->can_hit(target.ref()->get<Target>(), &intersection))
-					aim_and_shoot(u, intersection, intersection, Vec3::zero, target.ref()->get<Target>(), -1.0f);
+					aim_and_shoot_target(u, intersection, target.ref()->get<Target>());
 				else
 					active_behavior->done(false); // we can't hit it
 			}
@@ -1354,7 +1456,12 @@ void AIPlayerControl::update(const Update& u)
 					Vec3 target_pos;
 					Quat target_rot;
 					target.ref()->get<Transform>()->absolute(&target_pos, &target_rot);
-					aim_and_shoot(u, target_pos, target_pos, target_rot * Vec3(0, 0, 1), nullptr, CONTROL_POINT_RADIUS); // assume the target is a control point
+					AI::AwkPathNode target;
+					target.crawl = false;
+					target.pos = target_pos;
+					target.normal = target_rot * Vec3(0, 0, 1);
+					target.ref = AWK_NAV_MESH_NODE_NONE;
+					go(u, target, target, CONTROL_POINT_RADIUS); // assume the target is a control point
 				}
 			}
 		}
@@ -1372,7 +1479,7 @@ void AIPlayerControl::update(const Update& u)
 				active_behavior->done(false); // active behavior failed
 			}
 			else
-				aim_and_shoot(u, path[path_index - 1].pos, path[path_index].pos, path[path_index].normal, nullptr, AWK_RADIUS); // path_index starts at 1 so we're good here
+				go(u, path[path_index - 1], path[path_index], AWK_RADIUS); // path_index starts at 1 so we're good here
 		}
 		else
 		{

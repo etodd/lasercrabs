@@ -288,6 +288,8 @@ struct AwkNavMeshNode
 	}
 };
 
+#define AWK_NAV_MESH_NODE_NONE { (u16)-1, (u16)-1 }
+
 struct AwkNavMeshAdjacency
 {
 	// true = crawl

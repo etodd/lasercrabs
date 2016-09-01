@@ -69,8 +69,11 @@ struct SkyDecal : ComponentType<SkyDecal>
 
 struct Water : public ComponentType<Water>
 {
-	AssetID mesh;
 	Vec4 color;
+	r32 displacement_horizontal;
+	r32 displacement_vertical;
+	AssetID mesh;
+	AssetID texture;
 
 	Water(AssetID);
 	void awake();

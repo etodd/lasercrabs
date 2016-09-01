@@ -455,7 +455,8 @@ Vec3 goal_pos(const MinionAI::Goal& g)
 Teleporter* teleporter_candidate(const MinionAI* minion, const MinionAI::Goal& g)
 {
 	// must have the upgrade in order for minions to teleport
-	if (!minion->get<MinionCommon>()->owner.ref()->has_upgrade(Upgrade::Teleporter))
+	PlayerManager* owner = minion->get<MinionCommon>()->owner.ref();
+	if (!owner || !owner->has_upgrade(Upgrade::Teleporter))
 		return nullptr;
 
 	Vec3 target = goal_pos(g);

@@ -8,6 +8,7 @@ uniform mat4 mv;
 uniform sampler2D normal_map;
 uniform float time;
 uniform vec4 diffuse_color;
+uniform vec3 displacement;
 
 out vec4 color;
 out vec3 normal_viewspace;
@@ -15,7 +16,7 @@ out vec3 normal_viewspace;
 void main()
 {
 	vec3 normal = texture(normal_map, in_uv * vec2(0.01) + time * vec2(0.01, 0.02)).xyz;
-	vec3 pos = in_position + (normal * 2.0 - 1.0) * vec3(2.0, 0.75, 2.0);
+	vec3 pos = in_position + (normal * 2.0 - 1.0) * displacement;
 	gl_Position = mvp * vec4(pos, 1);
 	color = diffuse_color;
 	normal_viewspace = (mv * vec4(normal, 0)).xyz;

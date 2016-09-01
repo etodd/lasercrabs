@@ -1210,8 +1210,12 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 			const Mesh* mesh = Loader::mesh(mesh_id);
 
 			entity = World::alloc<WaterEntity>(mesh_id);
+			Water* water = entity->get<Water>();
 			if (state.mode == Mode::Pvp)
-				entity->get<Water>()->color = Vec4(pvp_inaccessible, MATERIAL_NO_OVERRIDE);
+				water->color = Vec4(pvp_inaccessible, MATERIAL_NO_OVERRIDE);
+			water->texture = Loader::find(Json::get_string(element, "texture", "water_normal"), AssetLookup::Texture::names);
+			water->displacement_horizontal = Json::get_r32(element, "displacement_horizontal", 2.0f);
+			water->displacement_vertical = Json::get_r32(element, "displacement_vertical", 0.75f);
 		}
 		else if (cJSON_GetObjectItem(element, "Prop"))
 		{

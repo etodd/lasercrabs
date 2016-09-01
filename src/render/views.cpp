@@ -545,7 +545,10 @@ void SkyPattern::draw_alpha(const RenderParams& p)
 
 Water::Water(AssetID mesh_id)
 	: mesh(mesh_id),
-	color(-1, -1, -1, -1)
+	texture(Asset::Texture::water_normal),
+	color(-1, -1, -1, -1),
+	displacement_horizontal(2.0f),
+	displacement_vertical(0.75f)
 {
 
 }
@@ -580,7 +583,7 @@ void Water::draw_opaque(const RenderParams& params)
 		return;
 
 	Loader::shader(Asset::Shader::water);
-	Loader::texture(Asset::Texture::water_normal);
+	Loader::texture(texture);
 
 	RenderSync* sync = params.sync;
 	sync->write(RenderOp::Shader);
@@ -604,6 +607,12 @@ void Water::draw_opaque(const RenderParams& params)
 	sync->write(RenderDataType::R32);
 	sync->write<s32>(1);
 	sync->write<r32>(params.sync->time.total);
+
+	sync->write(RenderOp::Uniform);
+	sync->write(Asset::Uniform::displacement);
+	sync->write(RenderDataType::Vec3);
+	sync->write<s32>(1);
+	sync->write<Vec3>(Vec3(displacement_horizontal, displacement_vertical, displacement_horizontal));
 
 	sync->write(RenderOp::Uniform);
 	sync->write(Asset::Uniform::normal_map);

@@ -58,7 +58,7 @@ Health::Health(u8 hp, u8 hp_max, u8 shield, u8 shield_max)
 {
 }
 
-#define REGEN_DELAY 9.0f
+#define REGEN_DELAY 8.0f
 #define REGEN_TIME 1.0f
 
 void Health::update(const Update& u)

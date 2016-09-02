@@ -2059,7 +2059,7 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 	// detect danger
 	{
 		r32 detect_danger = get<PlayerCommon>()->detect_danger();
-		Vec2 pos = params.camera->viewport.size * Vec2(0.5f, 0.4f);
+		Vec2 pos = params.camera->viewport.size * Vec2(0.5f, 0.4f) + Vec2(0.0f, -32.0f * UI::scale);
 		if (detect_danger == 1.0f)
 		{
 			UIText text;
@@ -2157,7 +2157,7 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 				text.anchor_x = UIText::Anchor::Center;
 				text.anchor_y = UIText::Anchor::Max;
 				text.size = text_size;
-				Vec2 p = pos + Vec2(0, -96.0f * UI::scale);
+				Vec2 p = pos + Vec2(0, -160.0f * UI::scale);
 				UI::box(params, text.rect(p).outset(8.0f * UI::scale), UI::background_color);
 				text.draw(params, p);
 			}

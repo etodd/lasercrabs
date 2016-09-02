@@ -77,6 +77,8 @@ void refresh_variables()
 	UIText::set_variable("Ability2", gamepad.bindings[(s32)Controls::Ability2].string(is_gamepad));
 	UIText::set_variable("Ability3", gamepad.bindings[(s32)Controls::Ability3].string(is_gamepad));
 	UIText::set_variable("Interact", gamepad.bindings[(s32)Controls::Interact].string(is_gamepad));
+	UIText::set_variable("TabLeft", gamepad.bindings[(s32)Controls::TabLeft].string(is_gamepad));
+	UIText::set_variable("TabRight", gamepad.bindings[(s32)Controls::TabRight].string(is_gamepad));
 }
 
 void title_menu(const Update& u, u8 gamepad, UIMenu* menu, State* state)
@@ -154,7 +156,7 @@ void pause_menu(const Update& u, const Rect2& viewport, u8 gamepad, UIMenu* menu
 				*state = State::Options;
 				menu->animate();
 			}
-			if (menu->item(u, &pos, _(Game::state.local_multiplayer ? strings::main_menu : strings::disconnect)))
+			if (menu->item(u, &pos, _(Game::state.local_multiplayer ? strings::main_menu : strings::quit)))
 				Menu::title();
 			menu->end();
 			break;
@@ -205,10 +207,12 @@ void update(const Update& u)
 	{
 		// do pause menu
 		if (main_menu_state == State::Visible
-			&& u.input->get(Controls::Pause, 0) && !u.last_input->get(Controls::Pause, 0)
-			&& (!Game::cancel_event_eaten[0] && u.input->get(Controls::Cancel, 0) && !u.last_input->get(Controls::Cancel, 0))
+			&& !Game::cancel_event_eaten[0]
+			&& ((u.last_input->get(Controls::Pause, 0) && !u.input->get(Controls::Pause, 0))
+				|| (u.input->get(Controls::Cancel, 0) && !u.last_input->get(Controls::Cancel, 0)))
 			&& Game::time.total > 0.0f)
 		{
+			Game::cancel_event_eaten[0] = true;
 			main_menu_state = State::Hidden;
 			main_menu.clear();
 		}

@@ -184,6 +184,8 @@ void Loader::settings_load(s32 default_width, s32 default_height)
 		bindings->bindings[(s32)Controls::Ability2] = input_binding(gamepad, "ability2", { KeyCode::D2, KeyCode::None, Gamepad::Btn::Y });
 		bindings->bindings[(s32)Controls::Ability3] = input_binding(gamepad, "ability3", { KeyCode::D3, KeyCode::None, Gamepad::Btn::B });
 		bindings->bindings[(s32)Controls::Interact] = input_binding(gamepad, "interact", { KeyCode::F, KeyCode::Return, Gamepad::Btn::A });
+		bindings->bindings[(s32)Controls::TabLeft] = input_binding(gamepad, "tab_left", { KeyCode::Q, KeyCode::None, Gamepad::Btn::LeftShoulder });
+		bindings->bindings[(s32)Controls::TabRight] = input_binding(gamepad, "tab_right", { KeyCode::E, KeyCode::None, Gamepad::Btn::RightShoulder });
 
 		// these bindings cannot be changed
 		bindings->bindings[(s32)Controls::Start] = { KeyCode::Space, KeyCode::None, Gamepad::Btn::Start };
@@ -232,6 +234,8 @@ void Loader::settings_save()
 		cJSON_AddItemToObject(gamepad, "ability2", input_binding_json(bindings->bindings[(s32)Controls::Ability2]));
 		cJSON_AddItemToObject(gamepad, "ability3", input_binding_json(bindings->bindings[(s32)Controls::Ability3]));
 		cJSON_AddItemToObject(gamepad, "interact", input_binding_json(bindings->bindings[(s32)Controls::Interact]));
+		cJSON_AddItemToObject(gamepad, "tab_left", input_binding_json(bindings->bindings[(s32)Controls::TabLeft]));
+		cJSON_AddItemToObject(gamepad, "tab_right", input_binding_json(bindings->bindings[(s32)Controls::TabRight]));
 		cJSON_AddItemToObject(gamepad, "invert_y", cJSON_CreateNumber(bindings->invert_y));
 		cJSON_AddItemToObject(gamepad, "sensitivity", cJSON_CreateNumber(bindings->sensitivity));
 		cJSON_AddItemToArray(gamepads, gamepad);

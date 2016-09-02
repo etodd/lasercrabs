@@ -34,7 +34,7 @@ namespace Terminal
 #define DEPLOY_TIME_RANGE 3.0f
 #define DEPLOY_TIME_OFFLINE 3.0f
 
-struct LevelNode
+struct ZoneNode
 {
 	s32 index;
 	AssetID id;
@@ -46,24 +46,42 @@ enum class State
 	SplitscreenSelectTeams,
 	SplitscreenSelectLevel,
 	SplitscreenDeploying,
-	SelectLevel,
+	StoryMode,
 	Deploying,
+};
+
+enum class Tab
+{
+	Messages,
+	Map,
+	Inventory,
+	count,
 };
 
 struct Data
 {
-	r32 deploy_timer;
+	struct StoryMode
+	{
+		Tab tab;
+		Tab tab_previous;
+		r32 tab_timer;
+		Ref<Transform> camera_messages;
+		Ref<Transform> camera_inventory;
+	};
+
+	Camera* camera;
+	Array<ZoneNode> zones;
+	Ref<Transform> camera_offset;
 	AssetID last_level = AssetNull;
 	AssetID next_level = AssetNull;
 	State state;
-	Camera* camera;
-	Vec3 camera_offset;
-	Array<LevelNode> levels;
 	s32 tip_index;
 	r32 tip_time;
+	r32 deploy_timer;
+	StoryMode story;
 };
 
-Data data;
+Data data = Data();
 
 const s32 tip_count = 13;
 const AssetID tips[tip_count] =
@@ -107,8 +125,6 @@ void init(const Update& u, const EntityFinder& entities)
 	if (Game::state.level != Asset::Level::terminal)
 		return;
 
-	data = Data();
-
 	data.tip_index = mersenne::rand() % tip_count;
 	s32 start_level = Game::state.local_multiplayer ? Game::tutorial_levels : 0; // skip tutorial levels if we're in splitscreen mode
 	data.next_level = Game::levels[start_level];
@@ -116,12 +132,13 @@ void init(const Update& u, const EntityFinder& entities)
 
 	{
 		Entity* map_view_entity = entities.find("map_view");
-		if (map_view_entity)
-		{
-			Transform* map_view = map_view_entity->get<Transform>();
-			data.camera->rot = Quat::look(map_view->absolute_rot() * Vec3(0, -1, 0));
-			data.camera->pos = data.camera_offset = map_view->absolute_pos();
-		}
+		Transform* map_view = map_view_entity->get<Transform>();
+		data.camera_offset = map_view;
+		data.camera->pos = map_view->absolute_pos();
+		data.camera->rot = Quat::look(map_view->absolute_rot() * Vec3(0, -1, 0));
+
+		data.story.camera_messages = entities.find("camera_messages")->get<Transform>();
+		data.story.camera_inventory = entities.find("camera_inventory")->get<Transform>();
 	}
 
 	for (s32 i = start_level; i < Asset::Level::count; i++)
@@ -133,9 +150,9 @@ void init(const Update& u, const EntityFinder& entities)
 		Entity* entity = entities.find(AssetLookup::Level::names[level_id]);
 		if (entity)
 		{
-			data.levels.add({ i, level_id, entity->get<Transform>() });
+			data.zones.add({ i, level_id, entity->get<Transform>() });
 			if (level_id == data.last_level)
-				data.camera->pos = entity->get<Transform>()->absolute_pos() + data.camera_offset;
+				data.camera->pos = entity->get<Transform>()->absolute_pos() + data.camera_offset.ref()->absolute_pos();
 		}
 	}
 
@@ -163,7 +180,7 @@ void init(const Update& u, const EntityFinder& entities)
 		// singleplayer
 		const char* entry_point_str = Loader::level_name(Game::levels[Game::save.level_index]);
 		Penelope::init(strings_get(entry_point_str));
-		data.state = State::SelectLevel;
+		data.state = State::StoryMode;
 	}
 }
 
@@ -325,23 +342,32 @@ void go(s32 index)
 	Game::save = Game::Save();
 	Game::save.level_index = index;
 	Game::schedule_load_level(Game::levels[index], Game::Mode::Pvp);
-
-	data.~Data();
-	memset(&data, 0, sizeof(data));
 }
 
-void focus_camera_on_level(const Update& u, const LevelNode& level)
+void focus_camera(const Update& u, const Vec3& target_pos, const Quat& target_rot)
 {
-	Vec3 target = data.camera_offset + level.pos.ref()->absolute_pos();
-	data.camera->pos += (target - data.camera->pos) * vi_min(1.0f, Game::real_time.delta) * 3.0f;
+	data.camera->pos += (target_pos - data.camera->pos) * vi_min(1.0f, 5.0f * Game::real_time.delta);
+	data.camera->rot = Quat::slerp(vi_min(1.0f, 5.0f * Game::real_time.delta), data.camera->rot, target_rot);
 }
 
-void select_level_update(const Update& u)
+void focus_camera(const Update& u, const Transform* target)
+{
+	focus_camera(u, target->absolute_pos(), Quat::look(target->absolute_rot() * Vec3(0, -1, 0)));
+}
+
+void focus_camera(const Update& u, const ZoneNode& zone)
+{
+	Vec3 target_pos = zone.pos.ref()->absolute_pos() + data.camera_offset.ref()->absolute_pos();
+	Quat target_rot = Quat::look(data.camera_offset.ref()->absolute_rot() * Vec3(0, -1, 0));
+	focus_camera(u, target_pos, target_rot);
+}
+
+void select_zone_update(const Update& u)
 {
 	s32 index = -1;
-	for (s32 i = 0; i < data.levels.length; i++)
+	for (s32 i = 0; i < data.zones.length; i++)
 	{
-		const LevelNode& node = data.levels[i];
+		const ZoneNode& node = data.zones[i];
 		if (node.id == data.next_level)
 		{
 			index = i;
@@ -359,8 +385,8 @@ void select_level_update(const Update& u)
 				|| (Input::dead_zone(u.last_input->gamepads[0].left_y) < 0.0f
 					&& Input::dead_zone(u.input->gamepads[0].left_y) >= 0.0f))
 			{
-				index = vi_min(index + 1, data.levels.length - 1);
-				data.next_level = data.levels[index].id;
+				index = vi_min(index + 1, data.zones.length - 1);
+				data.next_level = data.zones[index].id;
 			}
 			else if ((!u.input->get(Controls::Backward, 0)
 				&& u.last_input->get(Controls::Backward, 0))
@@ -368,7 +394,7 @@ void select_level_update(const Update& u)
 					&& Input::dead_zone(u.input->gamepads[0].left_y) <= 0.0f))
 			{
 				index = vi_max(index - 1, 0);
-				data.next_level = data.levels[index].id;
+				data.next_level = data.zones[index].id;
 			}
 
 			if (u.last_input->get(Controls::Interact, 0) && !u.input->get(Controls::Interact, 0))
@@ -379,16 +405,16 @@ void select_level_update(const Update& u)
 			}
 		}
 
-		focus_camera_on_level(u, data.levels[index]);
+		focus_camera(u, data.zones[index]);
 	}
 }
 
-void splitscreen_select_level_update(const Update& u)
+void splitscreen_select_zone_update(const Update& u)
 {
 	s32 index = -1;
-	for (s32 i = 0; i < data.levels.length; i++)
+	for (s32 i = 0; i < data.zones.length; i++)
 	{
-		const LevelNode& node = data.levels[i];
+		const ZoneNode& node = data.zones[i];
 		if (node.id == data.next_level)
 		{
 			index = i;
@@ -412,8 +438,8 @@ void splitscreen_select_level_update(const Update& u)
 				|| (Input::dead_zone(u.last_input->gamepads[0].left_y) < 0.0f
 					&& Input::dead_zone(u.input->gamepads[0].left_y) >= 0.0f))
 			{
-				index = vi_min(index + 1, data.levels.length - 1);
-				data.next_level = data.levels[index].id;
+				index = vi_min(index + 1, data.zones.length - 1);
+				data.next_level = data.zones[index].id;
 			}
 			else if ((!u.input->get(Controls::Backward, 0)
 				&& u.last_input->get(Controls::Backward, 0))
@@ -421,7 +447,7 @@ void splitscreen_select_level_update(const Update& u)
 					&& Input::dead_zone(u.input->gamepads[0].left_y) <= 0.0f))
 			{
 				index = vi_max(index - 1, 0);
-				data.next_level = data.levels[index].id;
+				data.next_level = data.zones[index].id;
 			}
 
 			if (u.last_input->get(Controls::Interact, 0) && !u.input->get(Controls::Interact, 0))
@@ -432,28 +458,28 @@ void splitscreen_select_level_update(const Update& u)
 			}
 		}
 
-		focus_camera_on_level(u, data.levels[index]);
+		focus_camera(u, data.zones[index]);
 	}
 }
 
-const LevelNode* get_level_node(AssetID id)
+const ZoneNode* get_level_node(AssetID id)
 {
-	for (s32 i = 0; i < data.levels.length; i++)
+	for (s32 i = 0; i < data.zones.length; i++)
 	{
-		if (data.levels[i].id == data.next_level)
-			return &data.levels[i];
+		if (data.zones[i].id == data.next_level)
+			return &data.zones[i];
 	}
 	return nullptr;
 }
 
-// returns current level node
-const LevelNode* levels_draw(const RenderParams& params)
+// returns current zone node
+const ZoneNode* zones_draw(const RenderParams& params)
 {
 	// highlight level locations
-	const LevelNode* current_level = nullptr;
-	for (s32 i = 0; i < data.levels.length; i++)
+	const ZoneNode* current_level = nullptr;
+	for (s32 i = 0; i < data.zones.length; i++)
 	{
-		const LevelNode& node = data.levels[i];
+		const ZoneNode& node = data.zones[i];
 		Transform* pos = node.pos.ref();
 		const Vec4& color = node.id == data.next_level ? UI::accent_color : Team::ui_color_friend;
 		UI::indicator(params, pos->absolute_pos(), color, false);
@@ -482,9 +508,9 @@ const LevelNode* levels_draw(const RenderParams& params)
 	return current_level;
 }
 
-void select_level_draw(const RenderParams& params)
+void select_zone_draw(const RenderParams& params)
 {
-	levels_draw(params);
+	zones_draw(params);
 
 	// press [x] to deploy
 	{
@@ -521,8 +547,8 @@ void select_level_draw(const RenderParams& params)
 
 void deploy_update(const Update& u)
 {
-	const LevelNode& level_node = *get_level_node(data.next_level);
-	focus_camera_on_level(u, level_node);
+	const ZoneNode& level_node = *get_level_node(data.next_level);
+	focus_camera(u, level_node);
 
 	data.deploy_timer -= Game::real_time.delta;
 	data.camera->active = data.deploy_timer > 0.5f;
@@ -530,15 +556,12 @@ void deploy_update(const Update& u)
 		go(level_node.index);
 }
 
-void deploy_draw(const RenderParams& params)
+void progress_draw(const RenderParams& params, const char* label)
 {
-	const LevelNode* current_level = levels_draw(params);
-
-	// show "loading..."
 	UIText text;
 	text.anchor_x = text.anchor_y = UIText::Anchor::Center;
 	text.color = UI::accent_color;
-	text.text(_(Game::state.local_multiplayer ? strings::loading_offline : strings::connecting));
+	text.text(label);
 	Vec2 pos = params.camera->viewport.size * Vec2(0.5f, 0.2f);
 
 	UI::box(params, text.rect(pos).pad({ Vec2(64, 24) * UI::scale, Vec2(18, 24) * UI::scale }), UI::background_color);
@@ -550,7 +573,15 @@ void deploy_draw(const RenderParams& params)
 		pos.x - text.bounds().x * 0.5f - 32.0f * UI::scale,
 		pos.y
 	);
-	UI::triangle_border(params, { triangle_pos, Vec2(20 * UI::scale) }, 9, UI::accent_color, Game::real_time.total * -8.0f);
+	UI::triangle_border(params, { triangle_pos, Vec2(20 * UI::scale) }, 9, UI::accent_color, Game::real_time.total * -12.0f);
+}
+
+void deploy_draw(const RenderParams& params)
+{
+	const ZoneNode* current_level = zones_draw(params);
+
+	// show "loading..."
+	progress_draw(params, _(Game::state.local_multiplayer ? strings::loading_offline : strings::connecting));
 
 	{
 		// show a tip
@@ -570,16 +601,238 @@ void deploy_draw(const RenderParams& params)
 	}
 }
 
+#define PADDING (16.0f * UI::scale)
+#define TAB_SIZE Vec2(160.0f * UI::scale, UI_TEXT_SIZE_DEFAULT * UI::scale + PADDING * 2.0f)
+#define MAIN_VIEW_SIZE (Vec2(768.0f, 512.0f) * ((UI::scale < 1.0f ? 0.5f : 1.0f) * UI::scale))
+#define BORDER 2.0f
+#define TAB_ANIMATION_TIME 0.3f
+
+void tab_messages_update(const Update& u)
+{
+	focus_camera(u, data.story.camera_messages.ref());
+}
+
+
+void tab_map_update(const Update& u)
+{
+	select_zone_update(u);
+}
+
+void tab_inventory_update(const Update& u)
+{
+	focus_camera(u, data.story.camera_inventory.ref());
+}
+
+#define STORY_MODE_INIT_TIME 2.0f
+
+void story_mode_update(const Update& u)
+{
+	// pause
+	if (!Game::cancel_event_eaten[0]
+		&& ((u.last_input->get(Controls::Cancel, 0) && !u.input->get(Controls::Cancel, 0))
+			|| (u.last_input->get(Controls::Pause, 0) && !u.input->get(Controls::Pause, 0))))
+	{
+		Game::cancel_event_eaten[0] = true;
+		Menu::show();
+	}
+
+	if (Menu::main_menu_state != Menu::State::Hidden || Game::time.total < STORY_MODE_INIT_TIME)
+		return;
+
+	data.story.tab_timer += u.time.delta;
+	if (u.last_input->get(Controls::TabLeft, 0) && !u.input->get(Controls::TabLeft, 0))
+	{
+		data.story.tab_previous = data.story.tab;
+		data.story.tab = (Tab)(vi_max(0, (s32)data.story.tab - 1));
+		if (data.story.tab != data.story.tab_previous)
+			data.story.tab_timer = 0.0f;
+	}
+	if (u.last_input->get(Controls::TabRight, 0) && !u.input->get(Controls::TabRight, 0))
+	{
+		data.story.tab_previous = data.story.tab;
+		data.story.tab = (Tab)(vi_min((s32)Tab::count - 1, (s32)data.story.tab + 1));
+		if (data.story.tab != data.story.tab_previous)
+			data.story.tab_timer = 0.0f;
+	}
+
+	if (data.story.tab_timer > TAB_ANIMATION_TIME)
+	{
+		switch (data.story.tab)
+		{
+			case Tab::Messages:
+			{
+				tab_messages_update(u);
+				break;
+			}
+			case Tab::Map:
+			{
+				tab_map_update(u);
+				break;
+			}
+			case Tab::Inventory:
+			{
+				tab_inventory_update(u);
+				break;
+			}
+			default:
+			{
+				vi_assert(false);
+				break;
+			}
+		}
+	}
+}
+
+// the lower left corner of the tab box starts at `pos`
+Rect2 tab_draw(const RenderParams& p, const Data::StoryMode& data, Tab tab, const char* label, Vec2* pos)
+{
+	b8 draw = true;
+
+	const Vec4* color;
+	if (data.tab == tab)
+	{
+		// flash the tab when it is selected
+		if (data.tab_timer < TAB_ANIMATION_TIME)
+		{
+			if (UI::flash_function(Game::real_time.total))
+				color = &UI::default_color;
+			else
+				draw = false; // don't draw the tab at all
+		}
+		else
+			color = &UI::accent_color;
+	}
+	else
+		color = &UI::disabled_color;
+
+	const Vec2 main_view_size = MAIN_VIEW_SIZE;
+	const Vec2 tab_size = TAB_SIZE;
+
+	// calculate the width of the tab right now and the width of the tab before the last transition
+	r32 current_width = data.tab == tab ? main_view_size.x : tab_size.x;
+	r32 previous_width = data.tab_previous == tab ? main_view_size.x : tab_size.x;
+	// then blend between the two widths for a nice animation
+	r32 blend = Ease::cubic_out(vi_min(1.0f, data.tab_timer / TAB_ANIMATION_TIME), 0.0f, 1.0f);
+	Vec2 size(LMath::lerpf(blend, previous_width, current_width), main_view_size.y);
+
+	if (draw)
+	{
+		// tab body
+		{
+			if (data.tab != tab) // we're minimized; fill in the background
+				UI::box(p, { *pos, size }, Vec4(UI::background_color.xyz(), 0.7f));
+			UI::border(p, { *pos, size }, BORDER, *color);
+		}
+
+		// actual tab
+		{
+			Vec2 tab_pos = *pos + Vec2(0, main_view_size.y);
+			UI::box(p, { tab_pos, tab_size }, *color);
+
+			UIText text;
+			text.anchor_x = UIText::Anchor::Min;
+			text.anchor_y = UIText::Anchor::Min;
+			text.color = UI::background_color;
+			text.text(label);
+			text.draw(p, tab_pos + Vec2(PADDING));
+		}
+	}
+
+	Rect2 result = { *pos, size };
+
+	pos->x += size.x + PADDING;
+
+	return result;
+}
+
+void tab_messages_draw(const RenderParams& p, const Data::StoryMode& data, const Rect2& rect)
+{
+}
+
+void tab_map_draw(const RenderParams& p, const Data::StoryMode& data, const Rect2& rect)
+{
+	if (data.tab == Tab::Map)
+		select_zone_draw(p);
+}
+
+void tab_inventory_draw(const RenderParams& p, const Data::StoryMode& data, const Rect2& rect)
+{
+}
+
+void story_mode_draw(const RenderParams& p)
+{
+	if (Menu::main_menu_state != Menu::State::Hidden)
+		return;
+
+	if (Game::time.total < STORY_MODE_INIT_TIME)
+	{
+		progress_draw(p, _(strings::connecting));
+		return;
+	}
+
+	const Rect2& vp = p.camera->viewport;
+
+	const Vec2 main_view_size = MAIN_VIEW_SIZE;
+	const Vec2 tab_size = TAB_SIZE;
+
+	Vec2 center = vp.size * 0.5f;
+	Vec2 bottom_left = center + (main_view_size * -0.5f) - tab_size;
+	Vec2 total_size = Vec2(main_view_size.x + (tab_size.x + PADDING) * 2.0f, main_view_size.y);
+
+	Vec2 pos = bottom_left;
+	{
+		Rect2 rect = tab_draw(p, data.story, Tab::Messages, _(strings::tab_messages), &pos);
+		if (data.story.tab_timer > TAB_ANIMATION_TIME)
+			tab_messages_draw(p, data.story, rect);
+	}
+	{
+		Rect2 rect = tab_draw(p, data.story, Tab::Map, _(strings::tab_map), &pos);
+		if (data.story.tab_timer > TAB_ANIMATION_TIME)
+			tab_map_draw(p, data.story, rect);
+	}
+	{
+		Rect2 rect = tab_draw(p, data.story, Tab::Inventory, _(strings::tab_inventory), &pos);
+		if (data.story.tab_timer > TAB_ANIMATION_TIME)
+			tab_inventory_draw(p, data.story, rect);
+	}
+
+	// left/right tab control prompt
+	{
+		UIText text;
+		text.anchor_x = UIText::Anchor::Center;
+		text.anchor_y = UIText::Anchor::Min;
+		text.color = UI::default_color;
+		text.text("[{{TabLeft}}]");
+
+		Vec2 pos = bottom_left + Vec2(tab_size.x * 0.5f, main_view_size.y + tab_size.y * 1.5f);
+		UI::box(p, text.rect(pos).outset(PADDING), UI::background_color);
+		text.draw(p, pos);
+
+		pos.x += total_size.x - tab_size.x;
+		text.text("[{{TabRight}}]");
+		UI::box(p, text.rect(pos).outset(PADDING), UI::background_color);
+		text.draw(p, pos);
+	}
+}
+
 void update(const Update& u)
 {
+	if (data.last_level == Asset::Level::terminal && Game::state.level != Asset::Level::terminal)
+	{
+		// cleanup
+		data.~Data();
+		data = Data();
+	}
+	data.last_level = Game::state.level;
+
 	if (Console::visible || Game::state.level != Asset::Level::terminal)
 		return;
 
 	switch (data.state)
 	{
-		case State::SelectLevel:
+		case State::StoryMode:
 		{
-			select_level_update(u);
+			story_mode_update(u);
 			break;
 		}
 		case State::SplitscreenSelectTeams:
@@ -589,7 +842,7 @@ void update(const Update& u)
 		}
 		case State::SplitscreenSelectLevel:
 		{
-			splitscreen_select_level_update(u);
+			splitscreen_select_zone_update(u);
 			break;
 		}
 		case State::Deploying:
@@ -618,10 +871,14 @@ void draw(const RenderParams& params)
 			splitscreen_select_teams_draw(params);
 			break;
 		}
-		case State::SelectLevel:
+		case State::StoryMode:
+		{
+			story_mode_draw(params);
+			break;
+		}
 		case State::SplitscreenSelectLevel:
 		{
-			select_level_draw(params);
+			select_zone_draw(params);
 			break;
 		}
 		case State::Deploying:

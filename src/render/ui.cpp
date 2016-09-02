@@ -12,7 +12,7 @@ namespace VI
 UIText::UIText()
 	: color(UI::default_color),
 	font(Asset::Font::lowpoly),
-	size(16),
+	size(UI_TEXT_SIZE_DEFAULT),
 	rendered_string(),
 	normalized_bounds(),
 	anchor_x(),

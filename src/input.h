@@ -319,6 +319,8 @@ enum class Controls
 	Cancel,
 	Pause,
 	Interact,
+	TabLeft,
+	TabRight,
 	count,
 };
 

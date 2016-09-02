@@ -11,6 +11,7 @@
 #include "asset/dialogue.h"
 #include "asset/texture.h"
 #include "asset/lookup.h"
+#include "asset/shader.h"
 #include "strings.h"
 #include "load.h"
 #include "entities.h"
@@ -21,7 +22,8 @@
 #include "vi_assert.h"
 #include "cjson/cJSON.h"
 #include "settings.h"
-#include "penelope.h"
+#include "cora.h"
+#include "data/priority_queue.h"
 
 namespace VI
 {
@@ -34,11 +36,18 @@ namespace Terminal
 #define DEPLOY_TIME_RANGE 3.0f
 #define DEPLOY_TIME_OFFLINE 3.0f
 
+#define PADDING (16.0f * UI::scale)
+#define TAB_SIZE Vec2(160.0f * UI::scale, UI_TEXT_SIZE_DEFAULT * UI::scale + PADDING * 2.0f)
+#define MAIN_VIEW_SIZE (Vec2(768.0f, 512.0f) * ((UI::scale < 1.0f ? 0.5f : 1.0f) * UI::scale))
+#define BORDER 2.0f
+#define OPACITY 0.8f
+
 struct ZoneNode
 {
-	s32 index;
 	AssetID id;
 	Ref<Transform> pos;
+	u8 size;
+	u8 max_teams;
 };
 
 enum class State
@@ -71,7 +80,6 @@ struct Data
 
 	Camera* camera;
 	Array<ZoneNode> zones;
-	Ref<Transform> camera_offset;
 	AssetID last_level = AssetNull;
 	AssetID next_level = AssetNull;
 	State state;
@@ -79,6 +87,7 @@ struct Data
 	r32 tip_time;
 	r32 deploy_timer;
 	StoryMode story;
+	Ref<Transform> camera_offset;
 };
 
 Data data = Data();
@@ -101,14 +110,14 @@ const AssetID tips[tip_count] =
 	strings::tip_12,
 };
 
-b8 splitscreen_teams_are_valid()
+s32 splitscreen_team_count()
 {
 	s32 player_count = 0;
 	s32 team_counts[MAX_PLAYERS] = {};
 	for (s32 i = 0; i < MAX_GAMEPADS; i++)
 	{
-		AI::Team team = Game::state.local_player_config[i];
-		if (team != AI::NoTeam)
+		AI::Team team = Game::session.local_player_config[i];
+		if (team != AI::TeamNone)
 			team_counts[(s32)team]++;
 	}
 	s32 teams_with_players = 0;
@@ -117,17 +126,21 @@ b8 splitscreen_teams_are_valid()
 		if (team_counts[i] > 0)
 			teams_with_players++;
 	}
-	return teams_with_players > 1;
+	return teams_with_players;
+}
+
+b8 splitscreen_teams_are_valid()
+{
+	return splitscreen_team_count() > 1;
 }
 
 void init(const Update& u, const EntityFinder& entities)
 {
-	if (Game::state.level != Asset::Level::terminal)
+	if (Game::session.level != Asset::Level::terminal)
 		return;
 
 	data.tip_index = mersenne::rand() % tip_count;
-	s32 start_level = Game::state.local_multiplayer ? Game::tutorial_levels : 0; // skip tutorial levels if we're in splitscreen mode
-	data.next_level = Game::levels[start_level];
+	data.next_level = Game::session.local_multiplayer ? Asset::Level::Medias_Res : Asset::Level::Soteria;
 	data.camera = Camera::add();
 
 	{
@@ -141,21 +154,36 @@ void init(const Update& u, const EntityFinder& entities)
 		data.story.camera_inventory = entities.find("camera_inventory")->get<Transform>();
 	}
 
-	for (s32 i = start_level; i < Asset::Level::count; i++)
 	{
-		AssetID level_id = Game::levels[i];
-		if (level_id == AssetNull)
-			break;
-
-		Entity* entity = entities.find(AssetLookup::Level::names[level_id]);
-		if (entity)
+		for (s32 i = 0; i < entities.map.length; i++)
 		{
-			data.zones.add({ i, level_id, entity->get<Transform>() });
-			if (level_id == data.last_level)
-				data.camera->pos = entity->get<Transform>()->absolute_pos() + data.camera_offset.ref()->absolute_pos();
+			const EntityFinder::NameEntry& entry = entities.map[i];
+			const char* zone_name = Json::get_string(entry.properties, "Zone");
+			if (zone_name)
+			{
+				View* view = entry.entity.ref()->get<View>();
+				view->mask = 0; // don't render this; we will render it manually in zones_draw_override()
+				view->shader = Asset::Shader::flat;
+
+				AssetID level_id = Loader::find_level(zone_name);
+				if (level_id != Asset::Level::Soteria || !Game::session.local_multiplayer) // only show tutorial level in story mode
+				{
+					ZoneNode* node = data.zones.add();
+					*node =
+					{
+						level_id,
+						view->get<Transform>(),
+						(u8)Json::get_s32(entry.properties, "size", 1),
+						(u8)Json::get_s32(entry.properties, "max_teams", 2),
+					};
+					if (level_id == data.next_level)
+						data.camera->pos = view->get<Transform>()->absolute_pos() + data.camera_offset.ref()->absolute_pos();
+				}
+			}
 		}
 	}
 
+	// set up camera
 	data.camera->viewport =
 	{
 		Vec2(0, 0),
@@ -164,22 +192,19 @@ void init(const Update& u, const EntityFinder& entities)
 	r32 aspect = data.camera->viewport.size.y == 0 ? 1 : (r32)data.camera->viewport.size.x / (r32)data.camera->viewport.size.y;
 	data.camera->perspective((80.0f * PI * 0.5f / 180.0f), aspect, 0.1f, Game::level.skybox.far_plane);
 
-	if (Game::state.local_multiplayer)
+	if (Game::session.local_multiplayer)
 	{
-		if (Game::save.round == 0)
+		if (Game::session.local_player_count() <= 1) // haven't selected teams yet
 			data.state = State::SplitscreenSelectTeams;
 		else
-		{
-			// if we've already played a round, skip the team select and go straight to level select
-			// the player can always go back
-			data.state = State::SplitscreenSelectLevel;
-		}
+			data.state = State::SplitscreenSelectLevel; // already selected teams, go straight to level select; the player can always go back
 	}
 	else
 	{
-		// singleplayer
-		const char* entry_point_str = Loader::level_name(Game::levels[Game::save.level_index]);
-		Penelope::init(strings_get(entry_point_str));
+		// story mode
+		// todo: figure out how to trigger Cora
+		//const char* entry_point_str = Loader::level_name(Game::levels[Game::save.level_index]);
+		//Cora::init(strings_get(entry_point_str));
 		data.state = State::StoryMode;
 	}
 }
@@ -194,24 +219,25 @@ void splitscreen_select_teams_update(const Update& u)
 
 	for (s32 i = 0; i < MAX_GAMEPADS; i++)
 	{
-		b8 player_active = u.input->gamepads[i].active || i == 0;
-
-		AI::Team* team = &Game::state.local_player_config[i];
-		if (player_active)
+		AI::Team* team = &Game::session.local_player_config[i];
+		if (u.input->gamepads[i].active || i == 0) // player is active
 		{
 			// handle D-pad
 			b8 left = u.input->get(Controls::Left, i) && !u.last_input->get(Controls::Left, i);
 			b8 right = u.input->get(Controls::Right, i) && !u.last_input->get(Controls::Right, i);
 
 			// handle joysticks
+			if (u.input->gamepads[i].active)
 			{
-				r32 last_x = Input::dead_zone(u.last_input->gamepads[i].left_x, UI_JOYSTICK_DEAD_ZONE);
-				if (last_x == 0.0f)
+				Vec2 last_joystick(u.last_input->gamepads[i].left_x, u.last_input->gamepads[i].left_y);
+				Input::dead_zone(&last_joystick.x, &last_joystick.y, UI_JOYSTICK_DEAD_ZONE);
+				if (last_joystick.x == 0.0f)
 				{
-					r32 x = Input::dead_zone(u.input->gamepads[i].left_x, UI_JOYSTICK_DEAD_ZONE);
-					if (x < 0.0f)
+					Vec2 current_joystick(u.input->gamepads[i].left_x, u.input->gamepads[i].left_y);
+					Input::dead_zone(&current_joystick.x, &current_joystick.y, UI_JOYSTICK_DEAD_ZONE);
+					if (current_joystick.x < 0.0f)
 						left = true;
-					else if (x > 0.0f)
+					else if (current_joystick.x > 0.0f)
 						right = true;
 				}
 			}
@@ -220,45 +246,46 @@ void splitscreen_select_teams_update(const Update& u)
 			{
 				if (i > 0) // player 0 must stay in
 				{
-					*team = AI::NoTeam;
+					*team = AI::TeamNone;
 					Audio::post_global_event(AK::EVENTS::PLAY_BEEP_GOOD);
 				}
 			}
 			else if (left)
 			{
-				if (*team == 1)
+				if (*team == AI::TeamNone)
 				{
-					if (i == 0) // player 0 must stay in
-						*team = 0;
-					else
-						*team = AI::NoTeam;
-					Audio::post_global_event(AK::EVENTS::PLAY_BEEP_GOOD);
+					// we're already all the way to the left
 				}
-				else if (*team == AI::NoTeam)
+				else if (*team == 0)
 				{
-					*team = 0;
+					if (i > 0) // player 0 must stay in
+					{
+						*team = AI::TeamNone;
+						Audio::post_global_event(AK::EVENTS::PLAY_BEEP_GOOD);
+					}
+				}
+				else
+				{
+					(*team) -= 1;
 					Audio::post_global_event(AK::EVENTS::PLAY_BEEP_GOOD);
 				}
 			}
 			else if (right)
 			{
-				if (*team == 0)
+				if (*team == AI::TeamNone)
 				{
-					if (i == 0) // player 0 must stay in
-						*team = 1;
-					else
-						*team = AI::NoTeam;
+					*team = 0;
 					Audio::post_global_event(AK::EVENTS::PLAY_BEEP_GOOD);
 				}
-				else if (*team == AI::NoTeam)
+				else if (*team < MAX_PLAYERS - 1)
 				{
-					*team = 1;
+					*team += 1;
 					Audio::post_global_event(AK::EVENTS::PLAY_BEEP_GOOD);
 				}
 			}
 		}
 		else // controller is gone
-			*team = AI::NoTeam;
+			*team = AI::TeamNone;
 	}
 
 	if (u.last_input->get(Controls::Interact, 0)
@@ -269,29 +296,72 @@ void splitscreen_select_teams_update(const Update& u)
 	}
 }
 
+void tab_draw_common(const RenderParams& p, const char* label, const Vec4& color, const Vec4& background_color, const Vec2& pos, r32 width)
+{
+	// body
+	Vec2 size(width, MAIN_VIEW_SIZE.y);
+	{
+		if (background_color.w > 0.0f)
+			UI::box(p, { pos, size }, background_color);
+		UI::border(p, { pos, size }, BORDER, color);
+	}
+
+	// label
+	{
+		Vec2 tab_pos = pos + Vec2(0, size.y);
+		UI::box(p, { tab_pos, TAB_SIZE }, color);
+
+		UIText text;
+		text.anchor_x = UIText::Anchor::Min;
+		text.anchor_y = UIText::Anchor::Min;
+		text.color = UI::background_color;
+		text.text(label);
+		text.draw(p, tab_pos + Vec2(PADDING));
+	}
+}
+
 void splitscreen_select_teams_draw(const RenderParams& params)
 {
-	const Rect2& viewport = params.camera->viewport;
-	const Vec2 box_size(512 * UI::scale, (512 - 64) * UI::scale);
-	UI::box(params, { viewport.size * 0.5f - box_size * 0.5f, box_size }, UI::background_color);
+	const Rect2& vp = params.camera->viewport;
+	const Vec2 main_view_size = MAIN_VIEW_SIZE;
+	const Vec2 tab_size = TAB_SIZE;
+
+	Vec2 center = vp.size * 0.5f;
+	{
+		Vec2 bottom_left = center + (main_view_size * -0.5f);
+		Vec4 background_color = Vec4(UI::background_color.xyz(), OPACITY);
+		tab_draw_common(params, _(strings::splitscreen_prompt), UI::accent_color, background_color, bottom_left, main_view_size.x);
+	}
+
+	r32 scale = (UI::scale < 1.0f ? 0.5f : 1.0f) * UI::scale;
 
 	UIText text;
 	text.anchor_x = UIText::Anchor::Center;
 	text.anchor_y = UIText::Anchor::Max;
 	text.color = UI::accent_color;
-	text.wrap_width = box_size.x - 48.0f * UI::scale;
-	text.text(_(splitscreen_teams_are_valid() ? strings::splitscreen_prompt_ready : strings::splitscreen_prompt));
-	Vec2 pos(viewport.size.x * 0.5f, viewport.size.y * 0.5f + box_size.y * 0.5f - (16.0f * UI::scale));
-	text.draw(params, pos);
-	pos.y -= 64.0f * UI::scale;
+	text.wrap_width = main_view_size.x - 48.0f * scale;
+	Vec2 pos = center + Vec2(0, main_view_size.y * 0.5f - (48.0f * scale));
+
+	// prompt
+	if (splitscreen_teams_are_valid())
+	{
+		text.text(_(strings::splitscreen_prompt_ready));
+		text.draw(params, pos);
+	}
+
+	pos.y -= 48.0f * scale;
 
 	// draw team labels
-	const r32 team_offset = 128.0f * UI::scale;
+	const r32 team_offset = 128.0f * scale;
 	text.wrap_width = 0;
 	text.text(_(strings::team_a));
-	text.draw(params, pos + Vec2(-team_offset, 0));
+	text.draw(params, pos + Vec2(team_offset * -1.0f, 0));
 	text.text(_(strings::team_b));
-	text.draw(params, pos + Vec2(team_offset, 0));
+	text.draw(params, pos + Vec2(0, 0));
+	text.text(_(strings::team_c));
+	text.draw(params, pos + Vec2(team_offset * 1.0f, 0));
+	text.text(_(strings::team_d));
+	text.draw(params, pos + Vec2(team_offset * 2.0f, 0));
 
 	// set up text for gamepad number labels
 	text.color = UI::background_color;
@@ -301,47 +371,39 @@ void splitscreen_select_teams_draw(const RenderParams& params)
 
 	for (s32 i = 0; i < MAX_GAMEPADS; i++)
 	{
-		pos.y -= 64.0f * UI::scale;
+		pos.y -= 64.0f * scale;
 
-		AI::Team team = Game::state.local_player_config[i];
+		AI::Team team = Game::session.local_player_config[i];
 
 		const Vec4* color;
 		r32 x_offset;
 		if (i > 0 && !params.sync->input.gamepads[i].active)
 		{
 			color = &UI::disabled_color;
-			x_offset = 0.0f;
+			x_offset = team_offset * -2.0f;
 		}
-		else if (team == AI::NoTeam)
+		else if (team == AI::TeamNone)
 		{
 			color = &UI::default_color;
-			x_offset = 0.0f;
-		}
-		else if (team == 0)
-		{
-			color = &UI::accent_color;
-			x_offset = -team_offset;
-		}
-		else if (team == 1)
-		{
-			color = &UI::accent_color;
-			x_offset = team_offset;
+			x_offset = team_offset * -2.0f;
 		}
 		else
-			vi_assert(false);
+		{
+			color = &UI::accent_color;
+			x_offset = ((r32)team - 1.0f) * team_offset;
+		}
 
 		Vec2 icon_pos = pos + Vec2(x_offset, 0);
-		UI::mesh(params, Asset::Mesh::icon_gamepad, icon_pos, Vec2(48.0f * UI::scale), *color);
+		UI::mesh(params, Asset::Mesh::icon_gamepad, icon_pos, Vec2(48.0f * scale), *color);
 		text.text("%d", i + 1);
 		text.draw(params, icon_pos);
 	}
 }
 
-void go(s32 index)
+void go(AssetID zone)
 {
 	Game::save = Game::Save();
-	Game::save.level_index = index;
-	Game::schedule_load_level(Game::levels[index], Game::Mode::Pvp);
+	Game::schedule_load_level(zone, Game::Mode::Pvp);
 }
 
 void focus_camera(const Update& u, const Vec3& target_pos, const Quat& target_rot)
@@ -362,107 +424,7 @@ void focus_camera(const Update& u, const ZoneNode& zone)
 	focus_camera(u, target_pos, target_rot);
 }
 
-void select_zone_update(const Update& u)
-{
-	s32 index = -1;
-	for (s32 i = 0; i < data.zones.length; i++)
-	{
-		const ZoneNode& node = data.zones[i];
-		if (node.id == data.next_level)
-		{
-			index = i;
-			break;
-		}
-	}
-
-	if (index != -1)
-	{
-		if (!UIMenu::active[0])
-		{
-			// select level
-			if ((!u.input->get(Controls::Forward, 0)
-				&& u.last_input->get(Controls::Forward, 0))
-				|| (Input::dead_zone(u.last_input->gamepads[0].left_y) < 0.0f
-					&& Input::dead_zone(u.input->gamepads[0].left_y) >= 0.0f))
-			{
-				index = vi_min(index + 1, data.zones.length - 1);
-				data.next_level = data.zones[index].id;
-			}
-			else if ((!u.input->get(Controls::Backward, 0)
-				&& u.last_input->get(Controls::Backward, 0))
-				|| (Input::dead_zone(u.last_input->gamepads[0].left_y) > 0.0f
-					&& Input::dead_zone(u.input->gamepads[0].left_y) <= 0.0f))
-			{
-				index = vi_max(index - 1, 0);
-				data.next_level = data.zones[index].id;
-			}
-
-			if (u.last_input->get(Controls::Interact, 0) && !u.input->get(Controls::Interact, 0))
-			{
-				data.state = State::Deploying;
-				data.deploy_timer = DEPLOY_TIME_OFFLINE;
-				data.tip_time = Game::real_time.total;
-			}
-		}
-
-		focus_camera(u, data.zones[index]);
-	}
-}
-
-void splitscreen_select_zone_update(const Update& u)
-{
-	s32 index = -1;
-	for (s32 i = 0; i < data.zones.length; i++)
-	{
-		const ZoneNode& node = data.zones[i];
-		if (node.id == data.next_level)
-		{
-			index = i;
-			break;
-		}
-	}
-
-	if (index != -1)
-	{
-		if (!UIMenu::active[0])
-		{
-			if (u.last_input->get(Controls::Cancel, 0) && !u.input->get(Controls::Cancel, 0))
-			{
-				data.state = State::SplitscreenSelectTeams;
-				return;
-			}
-
-			// select level
-			if ((!u.input->get(Controls::Forward, 0)
-				&& u.last_input->get(Controls::Forward, 0))
-				|| (Input::dead_zone(u.last_input->gamepads[0].left_y) < 0.0f
-					&& Input::dead_zone(u.input->gamepads[0].left_y) >= 0.0f))
-			{
-				index = vi_min(index + 1, data.zones.length - 1);
-				data.next_level = data.zones[index].id;
-			}
-			else if ((!u.input->get(Controls::Backward, 0)
-				&& u.last_input->get(Controls::Backward, 0))
-				|| (Input::dead_zone(u.last_input->gamepads[0].left_y) > 0.0f
-					&& Input::dead_zone(u.input->gamepads[0].left_y) <= 0.0f))
-			{
-				index = vi_max(index - 1, 0);
-				data.next_level = data.zones[index].id;
-			}
-
-			if (u.last_input->get(Controls::Interact, 0) && !u.input->get(Controls::Interact, 0))
-			{
-				data.state = State::SplitscreenDeploying;
-				data.deploy_timer = DEPLOY_TIME_OFFLINE;
-				data.tip_time = Game::real_time.total;
-			}
-		}
-
-		focus_camera(u, data.zones[index]);
-	}
-}
-
-const ZoneNode* get_level_node(AssetID id)
+const ZoneNode* get_zone_node(AssetID id)
 {
 	for (s32 i = 0; i < data.zones.length; i++)
 	{
@@ -472,51 +434,251 @@ const ZoneNode* get_level_node(AssetID id)
 	return nullptr;
 }
 
+void select_zone_update(const Update& u)
+{
+	const ZoneNode* zone = get_zone_node(data.next_level);
+	if (!zone)
+		return;
+
+	if (!UIMenu::active[0])
+	{
+		// cancel
+		if (Game::session.local_multiplayer
+			&& u.last_input->get(Controls::Cancel, 0) && !u.input->get(Controls::Cancel, 0))
+		{
+			data.state = State::SplitscreenSelectTeams;
+			return;
+		}
+
+		// movement
+		{
+			Vec2 movement(0, 0);
+
+			// buttons/keys
+			{
+				if (u.input->get(Controls::Left, 0) && !u.last_input->get(Controls::Left, 0))
+					movement.x -= 1.0f;
+				if (u.input->get(Controls::Right, 0) && !u.last_input->get(Controls::Right, 0))
+					movement.x += 1.0f;
+				if (u.input->get(Controls::Forward, 0) && !u.last_input->get(Controls::Forward, 0))
+					movement.y -= 1.0f;
+				if (u.input->get(Controls::Backward, 0) && !u.last_input->get(Controls::Backward, 0))
+					movement.y += 1.0f;
+			}
+
+			// joysticks
+			{
+				Vec2 last_joystick(u.last_input->gamepads[0].left_x, u.last_input->gamepads[0].left_y);
+				Input::dead_zone(&last_joystick.x, &last_joystick.y, UI_JOYSTICK_DEAD_ZONE);
+				Vec2 current_joystick(u.input->gamepads[0].left_x, u.input->gamepads[0].left_y);
+				Input::dead_zone(&current_joystick.x, &current_joystick.y, UI_JOYSTICK_DEAD_ZONE);
+
+				if (last_joystick.length_squared() == 0.0f
+					&& current_joystick.length_squared() > 0.0f)
+					movement += current_joystick;
+			}
+
+			r32 movement_amount = movement.length();
+			if (movement_amount > 0.0f)
+			{
+				// transitioning from one zone to another
+				movement /= movement_amount; // normalize
+				Vec3 movement3d = data.camera->rot * Vec3(-movement.x, 0, -movement.y);
+				movement = Vec2(movement3d.x, movement3d.z);
+				Vec3 zone_pos = zone->pos.ref()->absolute_pos();
+				const ZoneNode* closest = nullptr;
+				r32 closest_dot = 8.0f;
+				for (s32 i = 0; i < data.zones.length; i++)
+				{
+					const ZoneNode& candidate = data.zones[i];
+					if (candidate.id != AssetNull)
+					{
+						Vec3 candidate_pos = candidate.pos.ref()->absolute_pos();
+						Vec3 to_candidate = (candidate_pos - zone_pos);
+						r32 dot = movement.dot(Vec2(to_candidate.x, to_candidate.z));
+						r32 normalized_dot = movement.dot(Vec2::normalize(Vec2(to_candidate.x, to_candidate.z)));
+						if (dot < closest_dot && normalized_dot > 0.7f)
+						{
+							closest = &candidate;
+							closest_dot = dot;
+						}
+					}
+				}
+				if (closest)
+					data.next_level = closest->id;
+			}
+		}
+
+		// deploy button
+		if (u.last_input->get(Controls::Interact, 0) && !u.input->get(Controls::Interact, 0)
+			&& (!Game::session.local_multiplayer || splitscreen_team_count() <= zone->max_teams)) // if we're in splitscreen, make sure we don't have too many teams
+		{
+			data.state = Game::session.local_multiplayer ? State::SplitscreenDeploying : State::Deploying;
+			data.deploy_timer = DEPLOY_TIME_OFFLINE;
+			data.tip_time = Game::real_time.total;
+		}
+	}
+
+	focus_camera(u, *zone);
+}
+
+Vec3 zone_color(const ZoneNode& zone)
+{
+	if (zone.id == AssetNull)
+		return Vec3(0.3f);
+	else if (zone.id == data.next_level)
+		return Vec3(1);
+	else if (Game::session.local_multiplayer)
+	{
+		if (splitscreen_team_count() <= zone.max_teams)
+			return Team::color_friend.xyz();
+		else
+			return Vec3(0.3f);
+	}
+	else
+	{
+		Game::ZoneState zone_state = Game::save.zones[zone.id];
+		switch (zone_state)
+		{
+			case Game::ZoneState::Locked:
+			{
+				return Vec3(0.3f);
+			}
+			case Game::ZoneState::Friendly:
+			{
+				return Team::color_friend.xyz();
+			}
+			case Game::ZoneState::Hostile:
+			{
+				return Team::color_enemy.xyz();
+			}
+			case Game::ZoneState::Owned:
+			{
+				return UI::accent_color.xyz();
+			}
+			default:
+			{
+				vi_assert(false);
+				return Vec3::zero;
+			}
+		}
+	}
+}
+
+const Vec4& zone_ui_color(const ZoneNode& zone)
+{
+	if (zone.id == AssetNull)
+		return UI::disabled_color;
+	else if (Game::session.local_multiplayer)
+	{
+		if (splitscreen_team_count() <= zone.max_teams)
+			return Team::ui_color_friend;
+		else
+			return UI::disabled_color;
+	}
+	else
+	{
+		Game::ZoneState zone_state = Game::save.zones[zone.id];
+		switch (zone_state)
+		{
+			case Game::ZoneState::Locked:
+			{
+				return UI::disabled_color;
+			}
+			case Game::ZoneState::Friendly:
+			{
+				return Team::ui_color_friend;
+			}
+			case Game::ZoneState::Hostile:
+			{
+				return Team::ui_color_enemy;
+			}
+			case Game::ZoneState::Owned:
+			{
+				return UI::accent_color;
+			}
+			default:
+			{
+				vi_assert(false);
+				return UI::default_color;
+			}
+		}
+	}
+}
+
+#define DEFAULT_ZONE_COLOR Vec3(0.2f)
+void zones_draw_override(const RenderParams& params)
+{
+	struct SortKey
+	{
+		r32 priority(const ZoneNode& n)
+		{
+			// sort farthest zones first
+			Vec3 camera_forward = data.camera->rot * Vec3(0, 0, 1);
+			return camera_forward.dot(n.pos.ref()->absolute_pos() - data.camera->pos);
+		}
+	};
+
+	SortKey key;
+	PriorityQueue<ZoneNode, SortKey> zones(&key);
+
+	for (s32 i = 0; i < data.zones.length; i++)
+		zones.push(data.zones[i]);
+
+	RenderSync* sync = params.sync;
+
+	sync->write(RenderOp::DepthTest);
+	sync->write<b8>(true);
+
+	while (zones.size() > 0)
+	{
+		sync->write<RenderOp>(RenderOp::CullMode);
+		sync->write<RenderCullMode>(RenderCullMode::Back);
+		const ZoneNode& zone = zones.pop();
+		View* view = zone.pos.ref()->get<View>();
+		view->color = Vec4(zone_color(zone), 1.0f);
+		view->draw(params);
+		sync->write<RenderOp>(RenderOp::CullMode);
+		sync->write<RenderCullMode>(RenderCullMode::Front);
+		view->color = Vec4(DEFAULT_ZONE_COLOR, 1.0f);
+		view->draw(params);
+	}
+}
+
 // returns current zone node
 const ZoneNode* zones_draw(const RenderParams& params)
 {
 	// highlight level locations
-	const ZoneNode* current_level = nullptr;
-	for (s32 i = 0; i < data.zones.length; i++)
-	{
-		const ZoneNode& node = data.zones[i];
-		Transform* pos = node.pos.ref();
-		const Vec4& color = node.id == data.next_level ? UI::accent_color : Team::ui_color_friend;
-		UI::indicator(params, pos->absolute_pos(), color, false);
+	const ZoneNode* zone = get_zone_node(data.next_level);
 
-		if (node.id == data.next_level)
-			current_level = &node;
-	}
-
-	// draw current level name
-	if (current_level)
+	// draw current zone name
+	if (zone)
 	{
 		Vec2 p;
-		if (UI::project(params, current_level->pos.ref()->absolute_pos(), &p))
+		if (UI::project(params, zone->pos.ref()->absolute_pos(), &p))
 		{
-			p.y += 32.0f * UI::scale;
 			UIText text;
-			text.color = UI::accent_color;
+			text.color = zone_ui_color(*zone);
 			text.anchor_x = UIText::Anchor::Center;
 			text.anchor_y = UIText::Anchor::Min;
-			text.text_raw(AssetLookup::Level::names[current_level->id]);
+			text.text_raw(AssetLookup::Level::names[zone->id]);
 			UI::box(params, text.rect(p).outset(8.0f * UI::scale), UI::background_color);
 			text.draw(params, p);
 		}
 	}
 
-	return current_level;
+	return zone;
 }
 
 void select_zone_draw(const RenderParams& params)
 {
-	zones_draw(params);
+	const ZoneNode* zone = zones_draw(params);
 
 	// press [x] to deploy
 	{
 		UIText text;
 		text.anchor_x = text.anchor_y = UIText::Anchor::Center;
-		text.color = UI::accent_color;
+		text.color = zone_ui_color(*zone);
 		text.text(_(strings::deploy_prompt));
 
 		Vec2 pos = params.camera->viewport.size * Vec2(0.5f, 0.2f);
@@ -528,13 +690,13 @@ void select_zone_draw(const RenderParams& params)
 
 	// TODO: show alert box saying the previous match was forfeit
 	/*
-	if (Game::state.forfeit != Game::Forfeit::None)
+	if (Game::session.forfeit != Game::Forfeit::None)
 	{
 		// the previous match was forfeit; let the player know
 		UIText text;
 		text.anchor_x = text.anchor_y = UIText::Anchor::Center;
 		text.color = UI::accent_color;
-		text.text(_(Game::state.forfeit == Game::Forfeit::NetworkError ? strings::forfeit_network_error : strings::forfeit_opponent_quit));
+		text.text(_(Game::session.forfeit == Game::Forfeit::NetworkError ? strings::forfeit_network_error : strings::forfeit_opponent_quit));
 
 		Vec2 pos = params.camera->viewport.size * Vec2(0.5f, 0.8f);
 
@@ -547,13 +709,13 @@ void select_zone_draw(const RenderParams& params)
 
 void deploy_update(const Update& u)
 {
-	const ZoneNode& level_node = *get_level_node(data.next_level);
+	const ZoneNode& level_node = *get_zone_node(data.next_level);
 	focus_camera(u, level_node);
 
 	data.deploy_timer -= Game::real_time.delta;
 	data.camera->active = data.deploy_timer > 0.5f;
 	if (data.deploy_timer < 0.0f)
-		go(level_node.index);
+		go(data.next_level);
 }
 
 void progress_draw(const RenderParams& params, const char* label)
@@ -581,7 +743,7 @@ void deploy_draw(const RenderParams& params)
 	const ZoneNode* current_level = zones_draw(params);
 
 	// show "loading..."
-	progress_draw(params, _(Game::state.local_multiplayer ? strings::loading_offline : strings::connecting));
+	progress_draw(params, _(Game::session.local_multiplayer ? strings::loading_offline : strings::connecting));
 
 	{
 		// show a tip
@@ -601,10 +763,6 @@ void deploy_draw(const RenderParams& params)
 	}
 }
 
-#define PADDING (16.0f * UI::scale)
-#define TAB_SIZE Vec2(160.0f * UI::scale, UI_TEXT_SIZE_DEFAULT * UI::scale + PADDING * 2.0f)
-#define MAIN_VIEW_SIZE (Vec2(768.0f, 512.0f) * ((UI::scale < 1.0f ? 0.5f : 1.0f) * UI::scale))
-#define BORDER 2.0f
 #define TAB_ANIMATION_TIME 0.3f
 
 void tab_messages_update(const Update& u)
@@ -713,34 +871,18 @@ Rect2 tab_draw(const RenderParams& p, const Data::StoryMode& data, Tab tab, cons
 	r32 previous_width = data.tab_previous == tab ? main_view_size.x : tab_size.x;
 	// then blend between the two widths for a nice animation
 	r32 blend = Ease::cubic_out(vi_min(1.0f, data.tab_timer / TAB_ANIMATION_TIME), 0.0f, 1.0f);
-	Vec2 size(LMath::lerpf(blend, previous_width, current_width), main_view_size.y);
+	r32 width = LMath::lerpf(blend, previous_width, current_width);
 
 	if (draw)
 	{
-		// tab body
-		{
-			if (data.tab != tab) // we're minimized; fill in the background
-				UI::box(p, { *pos, size }, Vec4(UI::background_color.xyz(), 0.7f));
-			UI::border(p, { *pos, size }, BORDER, *color);
-		}
-
-		// actual tab
-		{
-			Vec2 tab_pos = *pos + Vec2(0, main_view_size.y);
-			UI::box(p, { tab_pos, tab_size }, *color);
-
-			UIText text;
-			text.anchor_x = UIText::Anchor::Min;
-			text.anchor_y = UIText::Anchor::Min;
-			text.color = UI::background_color;
-			text.text(label);
-			text.draw(p, tab_pos + Vec2(PADDING));
-		}
+		// if we're minimized, fill in the background
+		const Vec4& background_color = data.tab == tab ? Vec4(0, 0, 0, 0) : Vec4(UI::background_color.xyz(), OPACITY);
+		tab_draw_common(p, label, *color, background_color, *pos, width);
 	}
 
-	Rect2 result = { *pos, size };
+	Rect2 result = { *pos, { width, main_view_size.y } };
 
-	pos->x += size.x + PADDING;
+	pos->x += width + PADDING;
 
 	return result;
 }
@@ -815,53 +957,71 @@ void story_mode_draw(const RenderParams& p)
 	}
 }
 
+b8 should_draw_zones()
+{
+	return data.state == State::SplitscreenSelectLevel
+		|| data.state == State::SplitscreenDeploying
+		|| data.state == State::Deploying
+		|| (data.state == State::StoryMode && data.story.tab == Tab::Map && data.story.tab_timer > TAB_ANIMATION_TIME);
+}
+
 void update(const Update& u)
 {
-	if (data.last_level == Asset::Level::terminal && Game::state.level != Asset::Level::terminal)
+	if (data.last_level == Asset::Level::terminal && Game::session.level != Asset::Level::terminal)
 	{
 		// cleanup
 		data.~Data();
 		data = Data();
+		data.last_level = Asset::Level::terminal;
 	}
-	data.last_level = Game::state.level;
 
-	if (Console::visible || Game::state.level != Asset::Level::terminal)
+	if (Game::session.level == Asset::Level::terminal && !Console::visible)
+	{
+		switch (data.state)
+		{
+			case State::StoryMode:
+			{
+				story_mode_update(u);
+				break;
+			}
+			case State::SplitscreenSelectTeams:
+			{
+				splitscreen_select_teams_update(u);
+				break;
+			}
+			case State::SplitscreenSelectLevel:
+			{
+				select_zone_update(u);
+				break;
+			}
+			case State::Deploying:
+			case State::SplitscreenDeploying:
+			{
+				deploy_update(u);
+				break;
+			}
+			default:
+			{
+				vi_assert(false);
+				break;
+			}
+		}
+	}
+	data.last_level = Game::session.level;
+}
+
+void draw_override(const RenderParams& params)
+{
+	if (params.technique != RenderTechnique::Default || Game::session.level != Asset::Level::terminal)
 		return;
 
-	switch (data.state)
-	{
-		case State::StoryMode:
-		{
-			story_mode_update(u);
-			break;
-		}
-		case State::SplitscreenSelectTeams:
-		{
-			splitscreen_select_teams_update(u);
-			break;
-		}
-		case State::SplitscreenSelectLevel:
-		{
-			splitscreen_select_zone_update(u);
-			break;
-		}
-		case State::Deploying:
-		case State::SplitscreenDeploying:
-		{
-			deploy_update(u);
-			break;
-		}
-		default:
-		{
-			vi_assert(false);
-			break;
-		}
-	}
+	if (should_draw_zones())
+		zones_draw_override(params);
 }
 
 void draw(const RenderParams& params)
 {
-	if (params.technique != RenderTechnique::Default || Game::state.level != Asset::Level::terminal)
+	if (params.technique != RenderTechnique::Default || Game::session.level != Asset::Level::terminal)
 		return;
 
 	switch (data.state)

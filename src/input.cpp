@@ -1,6 +1,7 @@
 #include "input.h"
 #include "strings.h"
 #include <math.h>
+#include "lmath.h"
 #include "ease.h"
 #include "settings.h"
 
@@ -252,14 +253,21 @@ void load_strings()
 	btn_strings[(s32)Gamepad::Btn::None] = _(strings::btn_None);
 }
 
-r32 dead_zone(r32 x, r32 threshold)
+void dead_zone(r32* x, r32* y, r32 threshold)
 {
-	if (fabs(x) < threshold)
-		return 0.0f;
-	if (x > 0.0f)
-		return Ease::quad_in((x - threshold) * (1.0f / (1.0f - threshold)), 0.0f, 1.0f);
+	Vec2 p(*x, *y);
+	r32 length = p.length();
+	if (length < threshold)
+	{
+		*x = 0.0f;
+		*y = 0.0f;
+	}
 	else
-		return Ease::quad_in((x + threshold) * (-1.0f / (1.0f - threshold)), 0.0f, -1.0f);
+	{
+		p *= Ease::quad_in((vi_min(length, 1.0f) - threshold) / (1.0f - threshold), 0.0f, 1.0f) / length;
+		*x = p.x;
+		*y = p.y;
+	}
 }
 
 }

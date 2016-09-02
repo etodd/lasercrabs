@@ -22,7 +22,7 @@ View::View(AssetID m)
 	offset(Mat4::identity),
 	color(-1, -1, -1, -1),
 	mask(RENDER_MASK_DEFAULT),
-	team((u8)AI::NoTeam)
+	team((u8)AI::TeamNone)
 {
 }
 
@@ -35,7 +35,7 @@ void View::draw_opaque(const RenderParams& params)
 {
 	for (auto i = View::list.iterator(); !i.is_last(); i.next())
 	{
-		if (!list_alpha.get(i.index) && !list_additive.get(i.index) && !list_alpha_depth.get(i.index))
+		if (!list_alpha.get(i.index) && !list_additive.get(i.index) && !list_alpha_depth.get(i.index) && (i.item()->mask & params.camera->mask))
 			i.item()->draw(params);
 	}
 }
@@ -44,7 +44,7 @@ void View::draw_additive(const RenderParams& params)
 {
 	for (auto i = View::list.iterator(); !i.is_last(); i.next())
 	{
-		if (list_additive.get(i.index))
+		if (list_additive.get(i.index) && (i.item()->mask & params.camera->mask))
 			i.item()->draw(params);
 	}
 }
@@ -53,7 +53,7 @@ void View::draw_alpha(const RenderParams& params)
 {
 	for (auto i = View::list.iterator(); !i.is_last(); i.next())
 	{
-		if (list_alpha.get(i.index))
+		if (list_alpha.get(i.index) && (i.item()->mask & params.camera->mask))
 			i.item()->draw(params);
 	}
 }
@@ -62,7 +62,7 @@ void View::draw_alpha_depth(const RenderParams& params)
 {
 	for (auto i = View::list.iterator(); !i.is_last(); i.next())
 	{
-		if (list_alpha_depth.get(i.index))
+		if (list_alpha_depth.get(i.index) && (i.item()->mask & params.camera->mask))
 			i.item()->draw(params);
 	}
 }
@@ -97,7 +97,7 @@ void View::alpha_disable()
 
 void View::draw(const RenderParams& params) const
 {
-	if (mesh == AssetNull || shader == AssetNull || !(mask & params.camera->mask))
+	if (mesh == AssetNull || shader == AssetNull)
 		return;
 
 	const Mesh* mesh_data = Loader::mesh(mesh);
@@ -143,7 +143,7 @@ void View::draw(const RenderParams& params) const
 	sync->write(RenderDataType::Vec4);
 	sync->write<s32>(1);
 
-	if (team == (u8)AI::NoTeam)
+	if (team == (u8)AI::TeamNone)
 		sync->write<Vec4>(color);
 	else
 	{

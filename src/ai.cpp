@@ -105,8 +105,8 @@ void update(const Update& u)
 
 b8 match(Team t, TeamMask m)
 {
-	if (t == NoTeam)
-		return m == NoTeam;
+	if (t == TeamNone)
+		return m == TeamNone;
 	else
 		return m & (1 << t);
 }

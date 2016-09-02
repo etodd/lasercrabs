@@ -319,8 +319,8 @@ add_executable(yearning
 	src/game/team.cpp
 	src/game/terminal.h
 	src/game/terminal.cpp
-	src/game/penelope.h
-	src/game/penelope.cpp
+	src/game/cora.h
+	src/game/cora.cpp
 	src/game/ai_player.h
 	src/game/ai_player.cpp
 	src/game/awk.h

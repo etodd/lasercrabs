@@ -31,7 +31,7 @@ void init()
 {
 	refresh_variables();
 
-	Game::state.reset();
+	Game::session.reset();
 
 	title();
 }
@@ -97,15 +97,15 @@ void title_menu(const Update& u, u8 gamepad, UIMenu* menu, State* state)
 			if (menu->item(u, &pos, _(strings::play)))
 			{
 				Game::save = Game::Save();
-				Game::state.reset();
+				Game::session.reset();
 				Terminal::show();
 				return;
 			}
 			if (menu->item(u, &pos, _(strings::splitscreen)))
 			{
 				Game::save = Game::Save();
-				Game::state.reset();
-				Game::state.local_multiplayer = true;
+				Game::session.reset();
+				Game::session.local_multiplayer = true;
 				Terminal::show();
 			}
 			if (menu->item(u, &pos, _(strings::options)))
@@ -156,8 +156,13 @@ void pause_menu(const Update& u, const Rect2& viewport, u8 gamepad, UIMenu* menu
 				*state = State::Options;
 				menu->animate();
 			}
-			if (menu->item(u, &pos, _(Game::state.local_multiplayer ? strings::main_menu : strings::quit)))
-				Menu::title();
+			if (menu->item(u, &pos, _(strings::quit)))
+			{
+				if (Game::session.level == Asset::Level::terminal)
+					Menu::title();
+				else
+					Terminal::show();
+			}
 			menu->end();
 			break;
 		}
@@ -201,9 +206,9 @@ void update(const Update& u)
 	if (Console::visible)
 		return;
 
-	if (Game::state.level == Asset::Level::title)
+	if (Game::session.level == Asset::Level::title)
 		title_menu(u, 0, &main_menu, &main_menu_state);
-	else if (Game::state.mode == Game::Mode::Special)
+	else if (Game::session.mode == Game::Mode::Special)
 	{
 		// do pause menu
 		if (main_menu_state == State::Visible
@@ -232,7 +237,7 @@ void show()
 void title()
 {
 	clear();
-	Game::state.reset();
+	Game::session.reset();
 	main_menu_state = State::Visible;
 	main_menu.animate();
 	Game::schedule_load_level(Asset::Level::title, Game::Mode::Special);
@@ -244,7 +249,7 @@ void draw(const RenderParams& params)
 		return;
 
 	const Rect2& viewport = params.camera->viewport;
-	if (Game::state.level == Asset::Level::title)
+	if (Game::session.level == Asset::Level::title)
 	{
 		Vec2 logo_pos(viewport.size.x * 0.5f, viewport.size.y * 0.65f);
 		Vec2 logo_size(MENU_ITEM_WIDTH);
@@ -404,13 +409,15 @@ void UIMenu::start(const Update& u, const Rect2& viewport, u8 g, s32 item_count,
 
 	if (u.input->gamepads[gamepad].active)
 	{
-		r32 last_y = Input::dead_zone(u.last_input->gamepads[gamepad].left_y, UI_JOYSTICK_DEAD_ZONE);
-		if (last_y == 0.0f)
+		Vec2 last_joystick(u.last_input->gamepads[gamepad].left_x, u.last_input->gamepads[gamepad].left_y);
+		Input::dead_zone(&last_joystick.x, &last_joystick.y, UI_JOYSTICK_DEAD_ZONE);
+		if (last_joystick.y == 0.0f)
 		{
-			r32 y = Input::dead_zone(u.input->gamepads[gamepad].left_y, UI_JOYSTICK_DEAD_ZONE);
-			if (y < 0.0f)
+			Vec2 current_joystick(u.input->gamepads[gamepad].left_x, u.input->gamepads[gamepad].left_y);
+			Input::dead_zone(&current_joystick.x, &current_joystick.y, UI_JOYSTICK_DEAD_ZONE);
+			if (current_joystick.y < 0.0f)
 				selected--;
-			else if (y > 0.0f)
+			else if (current_joystick.y > 0.0f)
 				selected++;
 		}
 	}
@@ -548,16 +555,18 @@ UIMenu::Delta UIMenu::slider_item(const Update& u, Vec2* menu_pos, const char* l
 
 		if (u.input->gamepads[gamepad].active)
 		{
-			r32 last_x = Input::dead_zone(u.last_input->gamepads[gamepad].left_x, UI_JOYSTICK_DEAD_ZONE);
-			if (last_x == 0.0f)
+			Vec2 last_joystick(u.last_input->gamepads[gamepad].left_x, u.last_input->gamepads[gamepad].left_y);
+			Input::dead_zone(&last_joystick.x, &last_joystick.y, UI_JOYSTICK_DEAD_ZONE);
+			if (last_joystick.x == 0.0f)
 			{
-				r32 x = Input::dead_zone(u.input->gamepads[gamepad].left_x, UI_JOYSTICK_DEAD_ZONE);
-				if (x < 0.0f)
+				Vec2 current_joystick(u.input->gamepads[gamepad].left_x, u.input->gamepads[gamepad].left_y);
+				Input::dead_zone(&current_joystick.x, &current_joystick.y, UI_JOYSTICK_DEAD_ZONE);
+				if (current_joystick.x < 0.0f)
 				{
 					Audio::post_global_event(AK::EVENTS::PLAY_BEEP_GOOD);
 					return Delta::Down;
 				}
-				else if (x > 0.0f)
+				else if (current_joystick.x > 0.0f)
 				{
 					Audio::post_global_event(AK::EVENTS::PLAY_BEEP_GOOD);
 					return Delta::Up;

@@ -5,7 +5,7 @@
 namespace VI
 {
 
-namespace Penelope
+namespace Cora
 {
 	enum class Mode
 	{

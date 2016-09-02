@@ -1,4 +1,4 @@
-#include "penelope.h"
+#include "cora.h"
 #include "console.h"
 #include "game.h"
 #include "mersenne/mersenne-twister.h"
@@ -33,7 +33,7 @@ namespace VI
 #define MAX_BRANCHES 8
 #define MAX_CHOICES 4
 #define MAX_JOIN_TIME 15.0f
-namespace Penelope
+namespace Cora
 {
 	enum class Face
 	{
@@ -436,7 +436,7 @@ namespace Penelope
 		s32 matchmake_player_count;
 		b8 conversation_in_progress;
 		r32 particle_accumulator;
-		r32 penelope_animation_time;
+		r32 animation_time;
 		b8 leaderboard_active;
 		r32 leaderboard_animation_time;
 		LeaderboardEntry leaderboard[LEADERBOARD_COUNT];
@@ -626,7 +626,7 @@ namespace Penelope
 		r32 delay;
 		if (data->mode == Mode::Hidden)
 		{
-			data->penelope_animation_time = Game::real_time.total;
+			data->animation_time = Game::real_time.total;
 			delay = 1.0f;
 		}
 		else
@@ -642,7 +642,7 @@ namespace Penelope
 	void activate()
 	{
 		conversation_in_progress(true);
-		if (Game::save.last_round_loss)
+		if (Game::session.last_match == Game::MatchResult::Loss || Game::session.last_match == Game::MatchResult::Draw)
 			go(strings::consolation);
 		else
 			go(data->entry_point);
@@ -759,7 +759,7 @@ namespace Penelope
 
 		// get focus if we need it
 		if (data->choices.active()
-			&& !has_focus()) // penelope is waiting on us, but she doesn't have focus yet
+			&& !has_focus()) // Cora is waiting on us, but she doesn't have focus yet
 		{
 			if (!Console::visible
 				&& !UIMenu::active[0]
@@ -807,16 +807,7 @@ namespace Penelope
 			{
 				data->matchmake_timer -= Game::real_time.delta;
 				if (data->matchmake_timer < 0.0f)
-				{
-					if (Game::save.round == 0)
-						Game::schedule_load_level(Game::levels[Game::save.level_index], Game::Mode::Pvp);
-					else
-					{
-						// must play another round before advancing to the next level
-						// play a random map that has already been unlocked so far (except the starting/tutorial maps)
-						Game::schedule_load_level(Game::levels[Game::tutorial_levels + (s32)(mersenne::randf_co() * (Game::save.level_index - Game::tutorial_levels))], Game::Mode::Pvp);
-					}
-				}
+					Game::schedule_load_level(Game::session.level, Game::Mode::Pvp);
 				break;
 			}
 			default:
@@ -866,7 +857,7 @@ namespace Penelope
 			text.draw(params, pos);
 		}
 
-		// penelope face and UI
+		// Cora face and UI
 
 		if (data->mode != Mode::Hidden)
 		{
@@ -908,7 +899,7 @@ namespace Penelope
 					face = Face::EyesClosed;
 			}
 
-			r32 animation_time = Game::real_time.total - data->penelope_animation_time;
+			r32 animation_time = Game::real_time.total - data->animation_time;
 
 			// frame
 			{
@@ -973,7 +964,7 @@ namespace Penelope
 			if (animation_time > 1.0f || (animation_time > 0.5f && UI::flash_function(Game::real_time.total)))
 			{
 				Vec2 face_uv = faces[(s32)face];
-				UI::sprite(params, Asset::Texture::penelope, { pos, face_size * scale }, UI::default_color, { face_uv, face_uv_size });
+				UI::sprite(params, Asset::Texture::Cora, { pos, face_size * scale }, UI::default_color, { face_uv, face_uv_size });
 			}
 		}
 
@@ -1100,7 +1091,7 @@ namespace Penelope
 		Game::draws.add(draw);
 
 		// fill out leaderboard
-		if (Game::state.mode == Game::Mode::Special)
+		if (Game::session.mode == Game::Mode::Special)
 		{
 			s32 rating = Game::save.credits + 21 + (mersenne::rand() % 600);
 			for (s32 i = 0; i < 2; i++)
@@ -1132,10 +1123,8 @@ namespace Penelope
 		data->node_executed.link(&on_node_executed);
 
 		variable(strings::matchmaking, AssetNull);
-		variable(strings::round, Game::save.round == 0 ? AssetNull : strings::second_round);
-		variable(strings::tried, Game::save.last_round_loss ? strings::yes : AssetNull);
 
-		Loader::texture(Asset::Texture::penelope, RenderTextureWrap::Clamp, RenderTextureFilter::Nearest);
+		Loader::texture(Asset::Texture::Cora, RenderTextureWrap::Clamp, RenderTextureFilter::Nearest);
 	}
 }
 

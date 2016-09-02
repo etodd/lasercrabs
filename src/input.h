@@ -254,7 +254,7 @@ namespace Input
 {
 	void load_strings();
 
-	r32 dead_zone(r32 x, r32 = 0.1f);
+	void dead_zone(r32*, r32*, r32 = 0.1f);
 };
 
 struct Gamepad

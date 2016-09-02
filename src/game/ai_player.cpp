@@ -1907,7 +1907,7 @@ void ReactControlPoint::run()
 	{
 		Vec3 me = control->get<Transform>()->absolute_pos();
 		r32 closest_distance;
-		ControlPoint* control_point = ControlPoint::closest(AI::NoTeam, me, &closest_distance);
+		ControlPoint* control_point = ControlPoint::closest(AI::TeamNone, me, &closest_distance);
 		if (filter(control, control_point->entity()))
 		{
 			if (closest_distance < CONTROL_POINT_RADIUS)

@@ -199,12 +199,12 @@ void Transform::reparent(Transform* p)
 }
 
 PointLight::PointLight()
-	: radius(), color(1, 1, 1), offset(), type(Type::Normal), mask(-1), team((u8)AI::NoTeam)
+	: radius(), color(1, 1, 1), offset(), type(Type::Normal), mask(-1), team((u8)AI::TeamNone)
 {
 }
 
 SpotLight::SpotLight()
-	: radius(), color(1, 1, 1), fov(), mask(-1), team((u8)AI::NoTeam)
+	: radius(), color(1, 1, 1), fov(), mask(-1), team((u8)AI::TeamNone)
 {
 }
 

@@ -14,7 +14,7 @@
 #include "asset/level.h"
 #include "walker.h"
 #include "mersenne/mersenne-twister.h"
-#include "penelope.h"
+#include "cora.h"
 #include "render/particles.h"
 
 #define CREDITS_FLASH_TIME 0.5f
@@ -178,51 +178,15 @@ namespace VI
 		}
 	}
 
-	void Team::level_retry()
+	void Team::transition_next(Game::MatchResult result)
 	{
-		if (Game::state.local_multiplayer)
+		Game::session.last_match = result;
+		Cora::variable(strings::intro, AssetNull);
+		Cora::variable(strings::tried, AssetNull);
+		if (Game::session.level == Asset::Level::Soteria && result == Game::MatchResult::Loss)
+			Game::schedule_load_level(Game::session.level, Game::Mode::Pvp); // retry tutorial automatically
+		else
 			Terminal::show();
-		else
-		{
-			if (Game::save.level_index < Game::tutorial_levels) // retry tutorial levels automatically
-				Game::schedule_load_level(Game::state.level, Game::Mode::Pvp);
-			else
-			{
-				Game::save.last_round_loss = true;
-				Terminal::show();
-			}
-		}
-	}
-
-	void Team::level_next()
-	{
-		if (Game::state.local_multiplayer)
-		{
-			// we're in local multiplayer mode
-			Game::save.round++;
-		}
-		else
-		{
-			// campaign mode; advance to next level
-			Game::save.last_round_loss = false;
-			Penelope::variable(strings::intro, AssetNull);
-			Penelope::variable(strings::tried, AssetNull);
-			if (Game::level.lock_teams
-				|| Game::save.level_index < Game::tutorial_levels + 2 // advance past tutorials and first two levels after only one round
-				|| Game::save.round == Game::state.teams)
-			{
-				// advance to next level
-				Game::save.level_index++;
-				Game::save.round = 0;
-			}
-			else
-			{
-				// play another round before advancing
-				Game::save.round = (Game::save.round + 1) % Game::state.teams;
-			}
-		}
-
-		Terminal::show();
 	}
 
 	s16 Team::containment_field_mask(AI::Team t)
@@ -255,12 +219,12 @@ namespace VI
 
 	void Team::update_all(const Update& u)
 	{
-		if (Game::state.mode != Game::Mode::Pvp)
+		if (Game::session.mode != Game::Mode::Pvp)
 			return;
 
 		if (!game_over)
 		{
-			if (Game::state.mode == Game::Mode::Pvp
+			if (Game::session.mode == Game::Mode::Pvp
 			&& !Game::level.continue_match_after_death
 			&& (Game::time.total > GAME_TIME_LIMIT
 				|| (PlayerManager::list.count() > 1 && teams_with_players() <= 1)))
@@ -303,9 +267,9 @@ namespace VI
 						total += i.item()->credits;
 						i.item()->credits_summary.add({ strings::leftover_energy, i.item()->credits });
 
-						if (i.item()->is_local() && !Game::state.local_multiplayer)
+						if (i.item()->is_local() && !Game::session.local_multiplayer)
 						{
-							// we're in campaign mode and this is a local player; save their rating
+							// we're in story mode and this is a local player; save their rating
 							Game::save.credits += total;
 						}
 					}
@@ -332,29 +296,27 @@ namespace VI
 				if (winner.ref())
 				{
 					// somebody won
-					b8 advance = false;
-					if (Game::state.local_multiplayer)
-						advance = true;
+					if (Game::session.local_multiplayer)
+						transition_next(Game::MatchResult::None);
 					else
 					{
-						// if we're in campaign mode, only advance if the local team won
+						// if we're in story mode, only advance if the local team won
+						b8 won = false;
 						for (auto i = PlayerManager::list.iterator(); !i.is_last(); i.next())
 						{
 							if (i.item()->team.ref() == winner.ref() && i.item()->is_local())
 							{
-								advance = true; // there's a local player on the winning team; advance
+								transition_next(Game::MatchResult::Victory);
+								won = true;
 								break;
 							}
 						}
+						if (!won)
+							transition_next(Game::MatchResult::Loss);
 					}
-
-					if (advance)
-						level_next();
-					else
-						level_retry();
 				}
 				else
-					level_retry(); // it's a draw; try again
+					transition_next(Game::MatchResult::Draw);
 			}
 		}
 
@@ -861,7 +823,7 @@ namespace VI
 
 	ControlPoint* PlayerManager::at_control_point() const
 	{
-		if (Game::state.mode == Game::Mode::Pvp)
+		if (Game::session.mode == Game::Mode::Pvp)
 		{
 			Entity* e = entity.ref();
 			if (e && e->get<Awk>()->state() == Awk::State::Crawl)
@@ -925,7 +887,7 @@ namespace VI
 	r32 PlayerManager::timer = CONTROL_POINT_INTERVAL;
 	void PlayerManager::update_all(const Update& u)
 	{
-		if (Game::state.mode == Game::Mode::Pvp
+		if (Game::session.mode == Game::Mode::Pvp
 			&& Game::level.has_feature(Game::FeatureLevel::HealthPickups)
 			&& u.time.total > GAME_BUY_PERIOD)
 		{

@@ -21,10 +21,10 @@ struct EntityFinder
 	{
 		const char* name;
 		Ref<Entity> entity;
+		cJSON* properties;
 	};
 
 	Array<NameEntry> map;
-	void add(const char*, Entity*);
 	Entity* find(const char*) const;
 };
 
@@ -63,42 +63,53 @@ struct Game
 		Recover,
 	};
 
-	enum class Forfeit
+	enum class MatchResult
 	{
 		None,
+		Victory,
+		Loss,
 		NetworkError,
 		OpponentQuit,
+		Draw,
 	};
 
-	struct State
+	struct Session
 	{
+		AI::Team local_player_config[MAX_GAMEPADS];
 		Mode mode;
 		NetworkQuality network_quality;
 		NetworkState network_state;
-		Forfeit forfeit;
+		MatchResult last_match;
 		r32 network_time;
 		r32 network_timer;
-		AI::Team local_player_config[MAX_GAMEPADS];
-		b8 third_person;
-		b8 local_multiplayer;
 		r32 time_scale;
-		r32 effective_time_scale() const;
-		b8 allow_double_jump;
 		AI::Team teams;
 		AssetID level;
+		b8 third_person;
+		b8 local_multiplayer;
+
+		Session();
 		void reset();
-		State();
+		r32 effective_time_scale() const;
+		s32 local_player_count() const;
+	};
+
+	enum class ZoneState
+	{
+		Locked,
+		Friendly,
+		Hostile,
+		Owned,
 	};
 
 	struct Save
 	{
-		s32 level_index;
-		s32 round;
+		ZoneState zones[64];
 		s32 credits;
-		b8 last_round_loss;
-		const char* username = "etodd";
 		std::unordered_map<AssetID, AssetID> variables; // todo: kill STL
-		void reset(AssetID);
+		const char* username;
+
+		Save();
 	};
 
 	struct Level
@@ -112,12 +123,9 @@ struct Game
 		b8 has_feature(FeatureLevel) const;
 	};
 
-	static State state;
+	static Session session;
 	static Save save;
 	static Level level;
-
-	static const s32 levels[];
-	static const s32 tutorial_levels = 1;
 
 	static b8 quit;
 	static GameTime time;
@@ -144,6 +152,7 @@ struct Game
 	static void draw_opaque(const RenderParams&);
 	static void draw_alpha(const RenderParams&);
 	static void draw_additive(const RenderParams&);
+	static void draw_override(const RenderParams&);
 	static void term();
 };
 

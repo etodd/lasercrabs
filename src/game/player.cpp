@@ -31,7 +31,7 @@
 #include "ai_player.h"
 #endif
 #include "scripts.h"
-#include "penelope.h"
+#include "cora.h"
 
 namespace VI
 {
@@ -239,8 +239,10 @@ void LocalPlayer::update(const Update& u)
 		if (u.input->gamepads[gamepad].active)
 		{
 			r32 s = speed_joystick * Settings::gamepads[gamepad].effective_sensitivity() * Game::real_time.delta;
-			angle_horizontal -= Input::dead_zone(u.input->gamepads[gamepad].right_x) * s;
-			angle_vertical += Input::dead_zone(u.input->gamepads[gamepad].right_y) * s * (Settings::gamepads[gamepad].invert_y ? -1.0f : 1.0f);
+			Vec2 rotation(u.input->gamepads[gamepad].right_x, u.input->gamepads[gamepad].right_y);
+			Input::dead_zone(&rotation.x, &rotation.y);
+			angle_horizontal -= rotation.x * s;
+			angle_vertical += rotation.y * s * (Settings::gamepads[gamepad].invert_y ? -1.0f : 1.0f);
 		}
 
 		if (angle_vertical < PI * -0.495f)
@@ -291,7 +293,7 @@ void LocalPlayer::update(const Update& u)
 		if (pause_hit
 			&& !upgrade_menu_open
 			&& (menu_state == Menu::State::Hidden || menu_state == Menu::State::Visible)
-			&& !Penelope::has_focus())
+			&& !Cora::has_focus())
 		{
 			Game::cancel_event_eaten[gamepad] = true;
 			menu_state = (menu_state == Menu::State::Hidden) ? Menu::State::Visible : Menu::State::Hidden;
@@ -653,7 +655,7 @@ void LocalPlayer::draw_alpha(const RenderParams& params) const
 			}
 
 			// show map name
-			text.text("%s", AssetLookup::Level::names[Game::state.level]);
+			text.text("%s", AssetLookup::Level::names[Game::session.level]);
 			text.color = UI::accent_color;
 			UI::box(params, text.rect(p).outset(MENU_ITEM_PADDING), UI::background_color);
 			text.draw(params, p);
@@ -906,7 +908,7 @@ void LocalPlayer::draw_alpha(const RenderParams& params) const
 		}
 
 		// network error icon
-		if (Game::state.network_state == Game::NetworkState::Lag && Game::state.network_time - Game::state.network_timer > 0.25f)
+		if (Game::session.network_state == Game::NetworkState::Lag && Game::session.network_time - Game::session.network_timer > 0.25f)
 			UI::mesh(params, Asset::Mesh::icon_network_error, vp.size * Vec2(0.9f, 0.5f), Vec2(text_size * 2.0f * UI::scale), UI::alert_color);
 	}
 
@@ -1145,7 +1147,7 @@ void LocalPlayerControl::health_picked_up()
 
 b8 LocalPlayerControl::input_enabled() const
 {
-	return !Console::visible && player.ref()->ui_mode() == LocalPlayer::UIMode::Default && !Penelope::has_focus() && !Team::game_over;
+	return !Console::visible && player.ref()->ui_mode() == LocalPlayer::UIMode::Default && !Cora::has_focus() && !Team::game_over;
 }
 
 b8 LocalPlayerControl::movement_enabled() const
@@ -1174,12 +1176,13 @@ void LocalPlayerControl::update_camera_input(const Update& u, r32 gamepad_rotati
 
 		if (u.input->gamepads[gamepad].active)
 		{
-			r32 s = look_speed() * speed_joystick * Settings::gamepads[gamepad].effective_sensitivity() * Game::real_time.delta * gamepad_rotation_multiplier;
 			Vec2 adjustment = Vec2
 			(
-				-Input::dead_zone(u.input->gamepads[gamepad].right_x) * s,
-				Input::dead_zone(u.input->gamepads[gamepad].right_y) * s * (Settings::gamepads[gamepad].invert_y ? -1.0f : 1.0f)
+				-u.input->gamepads[gamepad].right_x,
+				u.input->gamepads[gamepad].right_y * (Settings::gamepads[gamepad].invert_y ? -1.0f : 1.0f)
 			);
+			Input::dead_zone(&adjustment.x, &adjustment.y);
+			adjustment *= look_speed() * speed_joystick * Settings::gamepads[gamepad].effective_sensitivity() * Game::real_time.delta * gamepad_rotation_multiplier;
 			r32 adjustment_length = adjustment.length();
 			if (adjustment_length > 0.0f)
 			{
@@ -1218,8 +1221,10 @@ Vec3 LocalPlayerControl::get_movement(const Update& u, const Quat& rot)
 
 		if (u.input->gamepads[gamepad].active)
 		{
-			movement += Vec3(-Input::dead_zone(u.input->gamepads[gamepad].left_x), 0, 0);
-			movement += Vec3(0, 0, -Input::dead_zone(u.input->gamepads[gamepad].left_y));
+			Vec2 gamepad_movement(-u.input->gamepads[gamepad].left_x, -u.input->gamepads[gamepad].left_y);
+			Input::dead_zone(&gamepad_movement.x, &gamepad_movement.y);
+			movement.x += gamepad_movement.x;
+			movement.z += gamepad_movement.y;
 		}
 
 		movement = rot * movement;
@@ -1810,7 +1815,7 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 					{
 						Vec3 pos = i.item()->get<Transform>()->absolute_pos();
 						if ((pos - me).length_squared() < range * range)
-							UI::indicator(params, pos, i.item()->team == AI::NoTeam ? UI::accent_color : Team::ui_color_enemy, true);
+							UI::indicator(params, pos, i.item()->team == AI::TeamNone ? UI::accent_color : Team::ui_color_enemy, true);
 					}
 				}
 			}

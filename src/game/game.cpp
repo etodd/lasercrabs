@@ -41,7 +41,7 @@
 #include "ai_player.h"
 #include "usernames.h"
 #include "utf8/utf8.h"
-#include "penelope.h"
+#include "cora.h"
 
 #if DEBUG
 	#define DEBUG_NAV_MESH 0
@@ -63,32 +63,31 @@ r32 Game::physics_timestep;
 
 AssetID Game::scheduled_load_level = AssetNull;
 Game::Mode Game::scheduled_mode = Game::Mode::Pvp;
-Game::Save Game::save;
+Game::Save Game::save = Game::Save();
 Game::Level Game::level;
-Game::State Game::state;
+Game::Session Game::session = Game::Session();
 Vec2 Game::cursor(200, 200);
 b8 Game::cursor_updated = false;
 b8 Game::cursor_active = false;
 b8 Game::cancel_event_eaten[] = {};
 
-Game::State::State()
+Game::Session::Session()
 	: mode(Game::Mode::Special),
-	local_player_config{ 0, AI::NoTeam, AI::NoTeam, AI::NoTeam },
+	local_player_config{ 0, AI::TeamNone, AI::TeamNone, AI::TeamNone },
 	third_person(),
 	local_multiplayer(),
 	time_scale(1.0f),
 	level(AssetNull),
-	allow_double_jump(true),
 	network_timer(),
 	network_time(),
 	network_state(),
 	network_quality(),
-	forfeit(),
+	last_match(),
 	teams(2)
 {
 }
 
-r32 Game::State::effective_time_scale() const
+r32 Game::Session::effective_time_scale() const
 {
 	switch (network_state)
 	{
@@ -107,35 +106,31 @@ r32 Game::State::effective_time_scale() const
 	}
 }
 
-void Game::State::reset()
+s32 Game::Session::local_player_count() const
+{
+	s32 count = 0;
+	for (s32 i = 0; i < MAX_GAMEPADS; i++)
+	{
+		if (local_player_config[i] != AI::TeamNone)
+			count++;
+	}
+	return count;
+}
+
+void Game::Session::reset()
 {
 	AssetID l = level;
-	*this = State();
+	*this = Session();
 	level = l;
 }
 
-const s32 Game::levels[] =
+Game::Save::Save()
+	: zones(),
+	credits(),
+	variables(),
+	username("etodd")
 {
-	Asset::Level::Soteria,
-	Asset::Level::Medias_Res,
-	Asset::Level::Ioke,
-	Asset::Level::Ponos,
-	Asset::Level::Tyche,
-	Asset::Level::Moros,
-	AssetNull,
-};
-
-void Game::Save::reset(AssetID level)
-{
-	*this = Save();
-	s32 i = 0;
-	while (Game::levels[i] != AssetNull)
-	{
-		if (Game::levels[i] == level)
-			break;
-		i++;
-	}
-	level_index = i;
+	zones[Asset::Level::Soteria] = ZoneState::Owned;
 }
 
 b8 Game::Level::has_feature(Game::FeatureLevel f) const
@@ -149,10 +144,6 @@ Array<CleanupFunction> Game::cleanups;
 
 b8 Game::init(LoopSync* sync)
 {
-	state.local_player_config[0] = 0;
-	state.mode = Mode::Special;
-	state.time_scale = 1.0f;
-
 	if (!Audio::init())
 		return false;
 
@@ -213,7 +204,7 @@ b8 Game::init(LoopSync* sync)
 		// don't free the JSON objects; we'll read strings directly from them
 	}
 
-	Penelope::global_init();
+	Cora::global_init();
 
 	World::init();
 	for (s32 i = 0; i < ParticleSystem::all.length; i++)
@@ -231,9 +222,9 @@ b8 Game::init(LoopSync* sync)
 void Game::update(const Update& update_in)
 {
 	real_time = update_in.time;
-	time.delta = update_in.time.delta * state.effective_time_scale();
+	time.delta = update_in.time.delta * session.effective_time_scale();
 	time.total += time.delta;
-	physics_timestep = (1.0f / 60.0f) * state.effective_time_scale();
+	physics_timestep = (1.0f / 60.0f) * session.effective_time_scale();
 
 	cursor_updated = false;
 
@@ -241,57 +232,53 @@ void Game::update(const Update& update_in)
 	u.time = time;
 
 	// lag simulation
-	if (state.mode == Mode::Pvp && !state.local_multiplayer && state.network_quality != NetworkQuality::Perfect)
+	if (session.mode == Mode::Pvp && !session.local_multiplayer && session.network_quality != NetworkQuality::Perfect)
 	{
-		state.network_timer -= Game::real_time.delta;
-		if (state.network_timer < 0.0f)
+		session.network_timer -= real_time.delta;
+		if (session.network_timer < 0.0f)
 		{
-			switch (state.network_state)
+			switch (session.network_state)
 			{
 				case NetworkState::Normal:
 				{
-					state.network_state = NetworkState::Lag;
-					if (state.network_quality == NetworkQuality::Bad)
-						state.network_time = 0.2f + mersenne::randf_cc() * (mersenne::randf_cc() < 0.1f ? 4.0f : 0.3f);
+					session.network_state = NetworkState::Lag;
+					if (session.network_quality == NetworkQuality::Bad)
+						session.network_time = 0.2f + mersenne::randf_cc() * (mersenne::randf_cc() < 0.1f ? 4.0f : 0.3f);
 					else
-						state.network_time = 0.05f + mersenne::randf_cc() * 1.0f;
+						session.network_time = 0.05f + mersenne::randf_cc() * 1.0f;
 					break;
 				}
 				case NetworkState::Lag:
 				{
-					state.network_state = NetworkState::Recover;
-					if (state.network_time > 0.5f)
-						state.network_time = state.network_time * 0.5f + mersenne::randf_cc() * 0.3f; // recovery time is proportional to lag time
+					session.network_state = NetworkState::Recover;
+					if (session.network_time > 0.5f)
+						session.network_time = session.network_time * 0.5f + mersenne::randf_cc() * 0.3f; // recovery time is proportional to lag time
 					else
-						state.network_time = 0.05f + mersenne::randf_cc() * 0.2f;
+						session.network_time = 0.05f + mersenne::randf_cc() * 0.2f;
 					break;
 				}
 				case NetworkState::Recover:
 				{
-					state.network_state = NetworkState::Normal;
-					if (mersenne::randf_cc() < (state.network_quality == NetworkQuality::Bad ? 0.5f : 0.2f))
-						state.network_time = 0.05f + mersenne::randf_cc() * 0.15f; // go right back into lag state
+					session.network_state = NetworkState::Normal;
+					if (mersenne::randf_cc() < (session.network_quality == NetworkQuality::Bad ? 0.5f : 0.2f))
+						session.network_time = 0.05f + mersenne::randf_cc() * 0.15f; // go right back into lag state
 					else
 					{
 						// some time before next lag
-						if (state.network_quality == NetworkQuality::Bad)
-							state.network_time = 2.0f + mersenne::randf_cc() * 8.0f;
+						if (session.network_quality == NetworkQuality::Bad)
+							session.network_time = 2.0f + mersenne::randf_cc() * 8.0f;
 						else
-							state.network_time = 20.0f + mersenne::randf_cc() * 50.0f;
+							session.network_time = 20.0f + mersenne::randf_cc() * 50.0f;
 					}
 					break;
 				}
 			}
-			state.network_timer = state.network_time;
+			session.network_timer = session.network_time;
 		}
 		else
 		{
-			if (state.network_state == NetworkState::Lag && state.network_time - state.network_timer > 3.5f)
-			{
-				// disconnect
-				state.forfeit = Forfeit::NetworkError;
-				Team::level_next();
-			}
+			if (session.network_state == NetworkState::Lag && session.network_time - session.network_timer > 3.5f)
+				Team::transition_next(MatchResult::NetworkError); // disconnect
 		}
 	}
 
@@ -375,7 +362,7 @@ void Game::term()
 void Game::draw_opaque(const RenderParams& render_params)
 {
 	// disable backface culling in PvP mode
-	if (state.mode == Mode::Pvp && render_params.technique == RenderTechnique::Default)
+	if (session.mode == Mode::Pvp && render_params.technique == RenderTechnique::Default)
 	{
 		render_params.sync->write(RenderOp::CullMode);
 		render_params.sync->write(RenderCullMode::None);
@@ -386,7 +373,7 @@ void Game::draw_opaque(const RenderParams& render_params)
 	for (auto i = Water::list.iterator(); !i.is_last(); i.next())
 		i.item()->draw_opaque(render_params);
 
-	if (state.mode == Mode::Pvp && render_params.technique == RenderTechnique::Default)
+	if (session.mode == Mode::Pvp && render_params.technique == RenderTechnique::Default)
 	{
 		render_params.sync->write(RenderOp::CullMode);
 		render_params.sync->write(RenderCullMode::Back);
@@ -398,12 +385,17 @@ void Game::draw_opaque(const RenderParams& render_params)
 	SkyPattern::draw_opaque(render_params);
 }
 
+void Game::draw_override(const RenderParams& params)
+{
+	Terminal::draw_override(params);
+}
+
 void Game::draw_alpha(const RenderParams& render_params)
 {
 	for (auto i = Water::list.iterator(); !i.is_last(); i.next())
 		i.item()->draw_alpha(render_params);
 
-	if (Game::state.mode == Game::Mode::Special)
+	if (session.mode == Mode::Special)
 		Skybox::draw_alpha(render_params, level.skybox);
 	SkyDecal::draw_alpha(render_params, level.skybox);
 	SkyPattern::draw_alpha(render_params);
@@ -601,8 +593,8 @@ void Game::draw_alpha(const RenderParams& render_params)
 
 void Game::draw_cursor(const RenderParams& params)
 {
-	UI::mesh(params, Asset::Mesh::cursor, Game::cursor + Vec2(-2, 4), Vec2(24) * UI::scale, UI::background_color);
-	UI::mesh(params, Asset::Mesh::cursor, Game::cursor, Vec2(18) * UI::scale, UI::default_color);
+	UI::mesh(params, Asset::Mesh::cursor, cursor + Vec2(-2, 4), Vec2(24) * UI::scale, UI::background_color);
+	UI::mesh(params, Asset::Mesh::cursor, cursor, Vec2(18) * UI::scale, UI::default_color);
 }
 
 void Game::update_cursor(const Update& u)
@@ -619,13 +611,21 @@ void Game::update_cursor(const Update& u)
 			const Gamepad& gamepad = u.input->gamepads[0];
 			if (gamepad.active)
 			{
-				if (gamepad.btns
-					|| Input::dead_zone(gamepad.left_x) != 0.0f
-					|| Input::dead_zone(gamepad.left_y) != 0.0f
-					|| Input::dead_zone(gamepad.right_x) != 0.0f
-					|| Input::dead_zone(gamepad.right_y) != 0.0f)
-				{
+				if (gamepad.btns)
 					cursor_active = false;
+				else
+				{
+					Vec2 left(gamepad.left_x, gamepad.left_y);
+					Input::dead_zone(&left.x, &left.y);
+					if (left.length_squared() > 0.0f)
+						cursor_active = true;
+					else
+					{
+						Vec2 right(gamepad.right_x, gamepad.right_y);
+						Input::dead_zone(&right.x, &right.y);
+						if (right.length_squared() > 0.0f)
+							cursor_active = true;
+					}
 				}
 			}
 		}
@@ -648,7 +648,7 @@ void Game::execute(const Update& u, const char* cmd)
 {
 	if (utf8cmp(cmd, "thirdperson") == 0)
 	{
-		state.third_person = !state.third_person;
+		session.third_person = !session.third_person;
 	}
 	else if (utf8cmp(cmd, "killai") == 0)
 	{
@@ -677,7 +677,7 @@ void Game::execute(const Update& u, const char* cmd)
 			char* end;
 			r32 value = std::strtod(number_string, &end);
 			if (*end == '\0')
-				state.time_scale = value;
+				session.time_scale = value;
 		}
 	}
 	else if (strstr(cmd, "credits ") == cmd)
@@ -718,21 +718,8 @@ void Game::execute(const Update& u, const char* cmd)
 			}
 		}
 	}
-	else if (strstr(cmd, "loadt ") == cmd)
-	{
-		// show terminal
-		const char* delimiter = strchr(cmd, ' ');
-		if (delimiter)
-		{
-			const char* level_name = delimiter + 1;
-			AssetID level = Loader::find_level(level_name);
-			if (level != AssetNull)
-			{
-				Game::save.reset(level);
-				Terminal::show();
-			}
-		}
-	}
+	else if (strstr(cmd, "terminal") == cmd)
+		Terminal::show();
 	else if (strstr(cmd, "loadai ") == cmd)
 	{
 		// AI test
@@ -743,8 +730,8 @@ void Game::execute(const Update& u, const char* cmd)
 			AssetID level = Loader::find_level(level_name);
 			if (level != AssetNull)
 			{
-				Game::save.reset(level);
-				Game::load_level(u, level, Game::Mode::Pvp, true);
+				save = Save();
+				load_level(u, level, Mode::Pvp, true);
 			}
 		}
 	}
@@ -758,8 +745,8 @@ void Game::execute(const Update& u, const char* cmd)
 			AssetID level = Loader::find_level(level_name);
 			if (level != AssetNull)
 			{
-				Game::save.reset(level);
-				Game::schedule_load_level(level, Game::Mode::Pvp);
+				save = Save();
+				schedule_load_level(level, Mode::Pvp);
 			}
 		}
 	}
@@ -773,8 +760,8 @@ void Game::execute(const Update& u, const char* cmd)
 			AssetID level = Loader::find_level(level_name);
 			if (level != AssetNull)
 			{
-				Game::save.reset(level);
-				Game::schedule_load_level(level, Game::Mode::Special);
+				save = Save();
+				schedule_load_level(level, Mode::Special);
 			}
 		}
 	}
@@ -820,7 +807,7 @@ void Game::unload_level()
 	level.skybox.player_light = Vec3::zero;
 
 	Audio::post_global_event(AK::EVENTS::STOP_ALL);
-	state.level = AssetNull;
+	session.level = AssetNull;
 	Menu::clear();
 
 	for (s32 i = 0; i < Camera::max_cameras; i++)
@@ -838,13 +825,6 @@ Entity* EntityFinder::find(const char* name) const
 			return map[j].entity.ref();
 	}
 	return nullptr;
-}
-
-void EntityFinder::add(const char* name, Entity* e)
-{
-	NameEntry* entry = map.add();
-	entry->name = name;
-	entry->entity = e;
 }
 
 template<typename T>
@@ -873,24 +853,24 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 
 	Menu::clear();
 
-	state.mode = m;
+	session.mode = m;
 
-	state.network_state = NetworkState::Normal;
-	state.network_timer = state.network_time = 0.0f;
+	session.network_state = NetworkState::Normal;
+	session.network_timer = session.network_time = 0.0f;
 
-	if (state.mode == Mode::Pvp && !state.local_multiplayer)
+	if (session.mode == Mode::Pvp && !session.local_multiplayer)
 	{
 		// choose network quality
 		r32 random = mersenne::randf_cc();
 		if (random < 0.95f)
-			state.network_quality = NetworkQuality::Perfect;
+			session.network_quality = NetworkQuality::Perfect;
 		else if (random < 0.99f)
-			state.network_quality = NetworkQuality::Okay;
+			session.network_quality = NetworkQuality::Okay;
 		else
-			state.network_quality = NetworkQuality::Bad;
+			session.network_quality = NetworkQuality::Bad;
 	}
 	else
-		state.network_quality = NetworkQuality::Perfect;
+		session.network_quality = NetworkQuality::Perfect;
 
 	scheduled_load_level = AssetNull;
 
@@ -898,7 +878,7 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 
 	Audio::post_global_event(AK::EVENTS::PLAY_START_SESSION);
 
-	state.level = l;
+	session.level = l;
 
 	Physics::btWorld->setGravity(btVector3(0, -12.0f, 0));
 
@@ -913,13 +893,13 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 
 	EntityFinder finder;
 	
-	cJSON* json = Loader::level(state.level);
+	cJSON* json = Loader::level(session.level);
 
 	// material override colors
 	const Vec3 pvp_accessible(0.7f);
 	const Vec3 pvp_inaccessible(0.0f);
 
-	Array<AI::Team> teams(state.teams, state.teams);
+	Array<AI::Team> teams(session.teams, session.teams);
 
 	level = Level();
 
@@ -953,14 +933,9 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 				// shuffle teams
 				// if we're in local multiplayer mode, rotate the teams by a set amount
 				// local multiplayer games rotate through the possible team configurations on each map before moving to the next map
-				s32 offset;
-				if (level.lock_teams)
-					offset = 0;
-				else
-					offset = state.local_multiplayer ? save.round : mersenne::rand() % state.teams;
-
-				for (s32 i = 0; i < state.teams; i++)
-					teams[i] = (AI::Team)((offset + i) % state.teams);
+				s32 offset = level.lock_teams ? 0 : mersenne::rand() % session.teams;
+				for (s32 i = 0; i < session.teams; i++)
+					teams[i] = (AI::Team)((offset + i) % session.teams);
 			}
 
 			level.skybox.far_plane = Json::get_r32(element, "far_plane", 100.0f);
@@ -971,7 +946,7 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 			level.skybox.ambient_color = Json::get_vec3(element, "ambient_color");
 			level.skybox.player_light = Json::get_vec3(element, "zenith_color");
 			level.skybox.sky_decal_fog_start = level.skybox.far_plane * 0.25f;
-			if (state.mode == Mode::Pvp)
+			if (session.mode == Mode::Pvp)
 				level.skybox.fog_start = level.skybox.far_plane;
 			else
 				level.skybox.fog_start = level.skybox.far_plane * 0.25f;
@@ -981,7 +956,7 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 			// initialize teams
 			if (m != Mode::Special)
 			{
-				for (s32 i = 0; i < (s32)state.teams; i++)
+				for (s32 i = 0; i < (s32)session.teams; i++)
 				{
 					Team* team = Team::list.add();
 					new (team) Team();
@@ -989,9 +964,9 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 
 				for (s32 i = 0; i < MAX_GAMEPADS; i++)
 				{
-					if (state.local_player_config[i] != AI::NoTeam)
+					if (session.local_player_config[i] != AI::TeamNone)
 					{
-						AI::Team team = team_lookup(teams, (s32)state.local_player_config[i]);
+						AI::Team team = team_lookup(teams, (s32)session.local_player_config[i]);
 
 						PlayerManager* manager = PlayerManager::list.add();
 						new (manager) PlayerManager(&Team::list[(s32)team]);
@@ -1008,7 +983,7 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 						}
 					}
 				}
-				if (state.mode == Mode::Pvp)
+				if (session.mode == Mode::Pvp)
 					Audio::post_global_event(AK::EVENTS::PLAY_MUSIC_01);
 			}
 		}
@@ -1042,7 +1017,7 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 						// inaccessible
 						m = World::alloc<StaticGeom>(mesh_id, absolute_pos, absolute_rot, CollisionInaccessible, CollisionInaccessibleMask);
 						Vec4 color = Loader::mesh(mesh_id)->color;
-						if (state.mode == Mode::Pvp) // override colors
+						if (session.mode == Mode::Pvp) // override colors
 							color.xyz(pvp_inaccessible);
 						color.w = MATERIAL_NO_OVERRIDE; // special G-buffer index for inaccessible materials
 						m->get<View>()->color = color;
@@ -1053,7 +1028,7 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 						m = World::alloc<StaticGeom>(mesh_id, absolute_pos, absolute_rot);
 
 						Vec4 color = Loader::mesh(mesh_id)->color;
-						if (state.mode == Mode::Pvp) // override colors
+						if (session.mode == Mode::Pvp) // override colors
 							color.xyz(pvp_accessible);
 						m->get<View>()->color = color;
 					}
@@ -1104,7 +1079,7 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 				Team::list[(s32)team].player_spawn = entity->get<Transform>();
 			}
 			else
-				entity = World::alloc<ControlPointEntity>(AI::NoTeam);
+				entity = World::alloc<ControlPointEntity>(AI::TeamNone);
 		}
 		else if (cJSON_GetObjectItem(element, "PlayerTrigger"))
 		{
@@ -1138,7 +1113,7 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 		else if (cJSON_GetObjectItem(element, "AIPlayer"))
 		{
 			// only add an AI player if we are in online pvp mode
-			if (state.mode == Mode::Pvp && !state.local_multiplayer)
+			if (session.mode == Mode::Pvp && !session.local_multiplayer)
 			{
 				AI::Team team = team_lookup(teams, Json::get_s32(element, "team", 1));
 
@@ -1211,7 +1186,7 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 
 			entity = World::alloc<WaterEntity>(mesh_id);
 			Water* water = entity->get<Water>();
-			if (state.mode == Mode::Pvp)
+			if (session.mode == Mode::Pvp)
 				water->color = Vec4(pvp_inaccessible, MATERIAL_NO_OVERRIDE);
 			water->texture = Loader::find(Json::get_string(element, "texture", "water_normal"), AssetLookup::Texture::names);
 			water->displacement_horizontal = Json::get_r32(element, "displacement_horizontal", 2.0f);
@@ -1250,7 +1225,7 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 					// View
 					entity->get<View>()->texture = texture;
 					entity->get<View>()->shader = shader;
-					if (state.mode == Mode::Pvp && !alpha && !additive)
+					if (session.mode == Mode::Pvp && !alpha && !additive)
 					{
 						if (entity->get<View>()->color.w < 0.5f)
 							entity->get<View>()->color = Vec4(pvp_inaccessible, MATERIAL_NO_OVERRIDE);
@@ -1268,7 +1243,7 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 					// SkinnedModel
 					entity->get<SkinnedModel>()->texture = texture;
 					entity->get<SkinnedModel>()->shader = shader;
-					if (state.mode == Mode::Pvp && !alpha && !additive)
+					if (session.mode == Mode::Pvp && !alpha && !additive)
 					{
 						if (entity->get<SkinnedModel>()->color.w < 0.5f)
 							entity->get<SkinnedModel>()->color = Vec4(pvp_inaccessible, MATERIAL_NO_OVERRIDE);
@@ -1307,7 +1282,7 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 
 					m->get<View>()->texture = texture;
 					m->get<View>()->shader = shader;
-					if (state.mode == Mode::Pvp && !alpha && !additive)
+					if (session.mode == Mode::Pvp && !alpha && !additive)
 					{
 						if (entity->get<View>()->color.w < 0.5f)
 							entity->get<View>()->color = Vec4(pvp_inaccessible, MATERIAL_NO_OVERRIDE);
@@ -1343,7 +1318,12 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 			transforms.add(nullptr);
 
 		if (entity)
-			finder.add(Json::get_string(element, "name"), entity);
+		{
+			EntityFinder::NameEntry* entry = finder.map.add();
+			entry->name = Json::get_string(element, "name");
+			entry->entity = entity;
+			entry->properties = element;
+		}
 
 		element = element->next;
 	}

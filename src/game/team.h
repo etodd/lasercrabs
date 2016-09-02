@@ -5,6 +5,7 @@
 #include "physics.h"
 #include "render/ui.h"
 #include "ai.h"
+#include "game.h"
 
 // NOTE: this is also the max number of teams
 // if you change this, make sure to allocate more physics categories for each team's containment field
@@ -106,8 +107,7 @@ struct Team
 
 	static void awake_all();
 	static void extract_history(PlayerManager*, SensorTrackHistory*);
-	static void level_retry();
-	static void level_next();
+	static void transition_next(Game::MatchResult);
 	static s16 containment_field_mask(AI::Team);
 	static void update_all(const Update&);
 

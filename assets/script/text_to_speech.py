@@ -13,7 +13,7 @@ arg_start = sys.argv.index('--') + 1
 username = sys.argv[arg_start + 0]
 password = sys.argv[arg_start + 1]
 string_path = '../../build/assets/str/dialogue_en.json'
-cache_path = 'penelope.cache'
+cache_path = 'Cora.cache'
 
 with open(string_path, 'r') as string_file:
 	input_strings = json.loads(string_file.read())
@@ -28,7 +28,7 @@ try:
 except:
 	pass
 
-audio_directory = '../audio/Originals/SFX/penelope/'
+audio_directory = '../audio/Originals/SFX/Cora/'
 
 def key_to_audio_path(key):
 	return os.path.join(audio_directory, '{}.wav'.format(key))

@@ -13,7 +13,7 @@ namespace Asset
 		const AssetID gradient = 1;
 		const AssetID noise = 2;
 		const AssetID pattern = 3;
-		const AssetID penelope = 4;
+		const AssetID Cora = 4;
 		const AssetID skybox_horizon = 5;
 		const AssetID water_normal = 6;
 	}

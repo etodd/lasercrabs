@@ -81,7 +81,7 @@ namespace AI
 	typedef u8 Team;
 	typedef u32 TeamMask;
 
-	const Team NoTeam = 255;
+	const Team TeamNone = 255;
 
 	struct SensorState
 	{

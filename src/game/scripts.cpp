@@ -8,7 +8,7 @@
 #include "console.h"
 #include <unordered_map>
 #include <string>
-#include "penelope.h"
+#include "cora.h"
 
 namespace VI
 {
@@ -46,7 +46,7 @@ namespace scene
 
 	void init(const Update& u, const EntityFinder& entities)
 	{
-		if (Game::state.mode == Game::Mode::Special)
+		if (Game::session.mode == Game::Mode::Special)
 		{
 			data = new Data();
 
@@ -66,64 +66,6 @@ namespace scene
 
 			Game::cleanups.add(cleanup);
 		}
-	}
-}
-
-namespace camera_rotate
-{
-	struct Data
-	{
-		UIText text;
-		Camera* camera;
-	};
-	
-	static Data* data;
-
-	void cleanup()
-	{
-		data->camera->remove();
-	}
-
-	void update(const Update& u)
-	{
-		data->camera->rot = Quat::euler(0.0f, Game::real_time.total * 0.01f, 0.0f);
-	}
-
-	void init(const Update& u, const EntityFinder& entities)
-	{
-		if (Game::state.mode == Game::Mode::Special)
-		{
-			data = new Data();
-
-			data->camera = Camera::add();
-
-			data->camera->viewport =
-			{
-				Vec2(0, 0),
-				Vec2(u.input->width, u.input->height),
-			};
-			r32 aspect = data->camera->viewport.size.y == 0 ? 1 : (r32)data->camera->viewport.size.x / (r32)data->camera->viewport.size.y;
-			data->camera->perspective((80.0f * PI * 0.5f / 180.0f), aspect, 0.1f, Game::level.skybox.far_plane);
-
-			Game::cleanups.add(cleanup);
-			Game::updates.add(update);
-		}
-	}
-}
-
-namespace intro
-{
-	void node_executed(AssetID node)
-	{
-		if (node == strings::intro_done)
-			Team::level_next();
-	}
-
-	void init(const Update& u, const EntityFinder& entities)
-	{
-		Penelope::init(AssetNull, Penelope::Mode::Center);
-		Penelope::node_executed().link(&node_executed);
-		Penelope::go(strings::intro_start);
 	}
 }
 
@@ -150,15 +92,15 @@ namespace tutorial
 		manager->credits = UpgradeInfo::list[(s32)Upgrade::Sensor].cost + AbilityInfo::list[(s32)Ability::Sensor].spawn_cost * 2;
 
 		data->state = TutorialState::PvpUpgrade;
-		Penelope::text_clear();
-		Penelope::text_schedule(0.0f, _(strings::tut_pvp_upgrade));
+		Cora::text_clear();
+		Cora::text_schedule(0.0f, _(strings::tut_pvp_upgrade));
 		Game::level.feature_level = Game::FeatureLevel::Abilities;
 	}
 
 	void player_or_ai_killed(Entity*)
 	{
 		data->state = TutorialState::Done;
-		Penelope::clear();
+		Cora::clear();
 	}
 
 	void ai_spawned()
@@ -181,8 +123,8 @@ namespace tutorial
 		health->get<Target>()->target_hit.link(&health_got);
 
 		data->state = TutorialState::PvpGetHealth;
-		Penelope::text_clear();
-		Penelope::text_schedule(0.0f, _(strings::tut_pvp_health));
+		Cora::text_clear();
+		Cora::text_schedule(0.0f, _(strings::tut_pvp_health));
 	}
 
 	void update(const Update& u)
@@ -195,8 +137,8 @@ namespace tutorial
 				if (manager->has_upgrade((Upgrade)i))
 				{
 					data->state = TutorialState::PvpKillPlayer;
-					Penelope::text_clear();
-					Penelope::text_schedule(0.0f, _(strings::tut_pvp_kill_player));
+					Cora::text_clear();
+					Cora::text_schedule(0.0f, _(strings::tut_pvp_kill_player));
 					World::remove_deferred(data->door.ref());
 					break;
 				}
@@ -212,7 +154,7 @@ namespace tutorial
 
 	void tutorial_intro(const Update&)
 	{
-		Penelope::go(strings::tutorial_intro);
+		Cora::go(strings::tutorial_intro);
 	}
 
 	void init(const Update& u, const EntityFinder& entities)
@@ -243,16 +185,14 @@ namespace tutorial
 		LocalPlayer::list.iterator().item()->manager.ref()->spawn.link(&player_spawned);
 		ai_manager->spawn.link(&ai_spawned);
 
-		Penelope::init(); // have to init manually since penelope normally isn't loaded in PvP mode
-		Penelope::text_schedule(PLAYER_SPAWN_DELAY, _(strings::tut_pvp_minion));
+		Cora::init(); // have to init manually since Cora normally isn't loaded in PvP mode
+		Cora::text_schedule(PLAYER_SPAWN_DELAY, _(strings::tut_pvp_minion));
 	}
 }
 
 Script Script::all[] =
 {
-	{ "camera_rotate", camera_rotate::init },
 	{ "scene", scene::init },
-	{ "intro", intro::init },
 	{ "tutorial", tutorial::init },
 	{ 0, 0, },
 };

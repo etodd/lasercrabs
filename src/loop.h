@@ -162,7 +162,7 @@ void render_point_lights(const RenderParams& render_params, s32 type_mask, const
 		if (!((s32)light->type & type_mask) || !(light->mask & render_params.camera->mask))
 			continue;
 
-		if (light->team != (u8)AI::NoTeam && !((1 << light->team) & team_mask))
+		if (light->team != (u8)AI::TeamNone && !((1 << light->team) & team_mask))
 			continue;
 
 		Vec3 light_pos = light->get<Transform>()->to_world(light->offset);
@@ -195,7 +195,7 @@ void render_point_lights(const RenderParams& render_params, s32 type_mask, const
 		sync->write(Asset::Uniform::light_color);
 		sync->write(RenderDataType::Vec3);
 		sync->write<s32>(1);
-		if (light->team == (u8)AI::NoTeam)
+		if (light->team == (u8)AI::TeamNone)
 			sync->write<Vec3>(light->color);
 		else
 			sync->write<Vec3>(Team::color((AI::Team)render_params.camera->team, (AI::Team)light->team).xyz());
@@ -227,7 +227,7 @@ void render_spot_lights(const RenderParams& render_params, s32 fbo, RenderBlendM
 		if (!(light->mask & render_params.camera->mask))
 			continue;
 
-		if (light->team != (u8)AI::NoTeam && !((1 << light->team) & team_mask))
+		if (light->team != (u8)AI::TeamNone && !((1 << light->team) & team_mask))
 			continue;
 
 		if (light->color.length_squared() == 0.0f || light->fov == 0.0f || light->radius == 0.0f)
@@ -336,7 +336,7 @@ void render_spot_lights(const RenderParams& render_params, s32 fbo, RenderBlendM
 		sync->write(Asset::Uniform::light_color);
 		sync->write(RenderDataType::Vec3);
 		sync->write<s32>(1);
-		if (light->team == (u8)AI::NoTeam)
+		if (light->team == (u8)AI::TeamNone)
 			sync->write<Vec3>(light->color);
 		else
 			sync->write<Vec3>(Team::color((AI::Team)light->team, (AI::Team)render_params.camera->team).xyz());
@@ -483,6 +483,8 @@ void draw(LoopSync* sync, const Camera* camera)
 			// render other team lights
 			render_point_lights(render_params, (s32)PointLight::Type::Override, inv_buffer_size, ~(1 << camera->team));
 		}
+
+		Game::draw_override(render_params);
 
 		sync->write<RenderOp>(RenderOp::CullMode);
 		sync->write<RenderCullMode>(RenderCullMode::Back);

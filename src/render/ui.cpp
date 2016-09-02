@@ -374,13 +374,15 @@ void UIScroll::update(const Update& u, s32 item_count, s32 gamepad, b8 input)
 		// joystick
 		if (u.input->gamepads[gamepad].active)
 		{
-			r32 last_y = Input::dead_zone(u.last_input->gamepads[gamepad].left_y, UI_JOYSTICK_DEAD_ZONE);
-			if (last_y == 0.0f)
+			Vec2 last_joystick(u.last_input->gamepads[gamepad].left_x, u.last_input->gamepads[gamepad].left_y);
+			Input::dead_zone(&last_joystick.x, &last_joystick.y, UI_JOYSTICK_DEAD_ZONE);
+			if (last_joystick.y == 0.0f)
 			{
-				r32 y = Input::dead_zone(u.input->gamepads[gamepad].left_y, UI_JOYSTICK_DEAD_ZONE);
-				if (y < 0.0f)
+				Vec2 current_joystick(u.input->gamepads[gamepad].left_x, u.input->gamepads[gamepad].left_y);
+				Input::dead_zone(&current_joystick.x, &current_joystick.y, UI_JOYSTICK_DEAD_ZONE);
+				if (current_joystick.y < 0.0f)
 					pos--;
-				else if (y > 0.0f)
+				else if (current_joystick.y > 0.0f)
 					pos++;
 			}
 		}

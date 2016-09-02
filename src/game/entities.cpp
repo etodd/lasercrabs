@@ -176,7 +176,7 @@ HealthPickup* HealthPickup::closest(AI::TeamMask mask, const Vec3& pos, r32* dis
 	for (auto i = list.iterator(); !i.is_last(); i.next())
 	{
 		Health* owner = i.item()->owner.ref();
-		AI::Team team = owner ? owner->get<AIAgent>()->team : AI::NoTeam;
+		AI::Team team = owner ? owner->get<AIAgent>()->team : AI::TeamNone;
 		if (AI::match(team, mask))
 		{
 			r32 d = (i.item()->get<Transform>()->absolute_pos() - pos).length_squared();
@@ -237,8 +237,8 @@ void HealthPickup::awake()
 void HealthPickup::reset()
 {
 	owner = nullptr;
-	get<View>()->team = (u8)AI::NoTeam;
-	get<PointLight>()->team = (u8)AI::NoTeam;
+	get<View>()->team = (u8)AI::TeamNone;
+	get<PointLight>()->team = (u8)AI::TeamNone;
 }
 
 void HealthPickup::hit(const TargetEvent& e)
@@ -272,8 +272,8 @@ b8 HealthPickup::set_owner(Health* health)
 		else
 		{
 			owner = nullptr;
-			get<PointLight>()->team = (u8)AI::NoTeam;
-			get<View>()->team = (u8)AI::NoTeam;
+			get<PointLight>()->team = (u8)AI::TeamNone;
+			get<View>()->team = (u8)AI::TeamNone;
 		}
 
 		if (old_owner) // looks like we're being stolen

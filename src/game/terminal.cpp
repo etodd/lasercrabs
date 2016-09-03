@@ -918,8 +918,8 @@ void story_mode_draw(const RenderParams& p)
 	const Vec2 tab_size = TAB_SIZE;
 
 	Vec2 center = vp.size * 0.5f;
-	Vec2 bottom_left = center + (main_view_size * -0.5f) - tab_size;
 	Vec2 total_size = Vec2(main_view_size.x + (tab_size.x + PADDING) * 2.0f, main_view_size.y);
+	Vec2 bottom_left = center + total_size * -0.5f + Vec2(0, -tab_size.y);
 
 	Vec2 pos = bottom_left;
 	{

@@ -618,13 +618,13 @@ void Game::update_cursor(const Update& u)
 					Vec2 left(gamepad.left_x, gamepad.left_y);
 					Input::dead_zone(&left.x, &left.y);
 					if (left.length_squared() > 0.0f)
-						cursor_active = true;
+						cursor_active = false;
 					else
 					{
 						Vec2 right(gamepad.right_x, gamepad.right_y);
 						Input::dead_zone(&right.x, &right.y);
 						if (right.length_squared() > 0.0f)
-							cursor_active = true;
+							cursor_active = false;
 					}
 				}
 			}
@@ -747,21 +747,6 @@ void Game::execute(const Update& u, const char* cmd)
 			{
 				save = Save();
 				schedule_load_level(level, Mode::Pvp);
-			}
-		}
-	}
-	else if (strstr(cmd, "loads ") == cmd)
-	{
-		// special mode
-		const char* delimiter = strchr(cmd, ' ');
-		if (delimiter)
-		{
-			const char* level_name = delimiter + 1;
-			AssetID level = Loader::find_level(level_name);
-			if (level != AssetNull)
-			{
-				save = Save();
-				schedule_load_level(level, Mode::Special);
 			}
 		}
 	}

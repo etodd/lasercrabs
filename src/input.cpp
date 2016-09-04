@@ -4,6 +4,7 @@
 #include "lmath.h"
 #include "ease.h"
 #include "settings.h"
+#include "render/ui.h"
 
 namespace VI
 {
@@ -268,6 +269,14 @@ void dead_zone(r32* x, r32* y, r32 threshold)
 		*x = p.x;
 		*y = p.y;
 	}
+}
+
+r32 dead_zone(r32 x)
+{
+	if (fabs(x) < UI_JOYSTICK_DEAD_ZONE)
+		return 0.0f;
+	else
+		return (x - UI_JOYSTICK_DEAD_ZONE) / (1.0f - UI_JOYSTICK_DEAD_ZONE);
 }
 
 }

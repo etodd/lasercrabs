@@ -925,7 +925,6 @@ const char* AssetLookup::String::names[] =
 	"splitscreen_prompt",
 	"splitscreen_prompt_ready",
 	"stealth",
-	"stunned",
 	"tab_inventory",
 	"tab_map",
 	"tab_messages",

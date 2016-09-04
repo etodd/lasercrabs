@@ -409,15 +409,13 @@ void UIMenu::start(const Update& u, const Rect2& viewport, u8 g, s32 item_count,
 
 	if (u.input->gamepads[gamepad].active)
 	{
-		Vec2 last_joystick(u.last_input->gamepads[gamepad].left_x, u.last_input->gamepads[gamepad].left_y);
-		Input::dead_zone(&last_joystick.x, &last_joystick.y, UI_JOYSTICK_DEAD_ZONE);
-		if (last_joystick.y == 0.0f)
+		r32 y_last = Input::dead_zone(u.last_input->gamepads[gamepad].left_y);
+		if (y_last == 0.0f)
 		{
-			Vec2 current_joystick(u.input->gamepads[gamepad].left_x, u.input->gamepads[gamepad].left_y);
-			Input::dead_zone(&current_joystick.x, &current_joystick.y, UI_JOYSTICK_DEAD_ZONE);
-			if (current_joystick.y < 0.0f)
+			r32 y_current = Input::dead_zone(u.input->gamepads[gamepad].left_y);
+			if (y_current < 0.0f)
 				selected--;
-			else if (current_joystick.y > 0.0f)
+			else if (y_current > 0.0f)
 				selected++;
 		}
 	}
@@ -555,18 +553,16 @@ UIMenu::Delta UIMenu::slider_item(const Update& u, Vec2* menu_pos, const char* l
 
 		if (u.input->gamepads[gamepad].active)
 		{
-			Vec2 last_joystick(u.last_input->gamepads[gamepad].left_x, u.last_input->gamepads[gamepad].left_y);
-			Input::dead_zone(&last_joystick.x, &last_joystick.y, UI_JOYSTICK_DEAD_ZONE);
-			if (last_joystick.x == 0.0f)
+			r32 x_last = Input::dead_zone(u.last_input->gamepads[gamepad].left_x);
+			if (x_last == 0.0f)
 			{
-				Vec2 current_joystick(u.input->gamepads[gamepad].left_x, u.input->gamepads[gamepad].left_y);
-				Input::dead_zone(&current_joystick.x, &current_joystick.y, UI_JOYSTICK_DEAD_ZONE);
-				if (current_joystick.x < 0.0f)
+				r32 x_current = Input::dead_zone(u.input->gamepads[gamepad].left_x);
+				if (x_current < 0.0f)
 				{
 					Audio::post_global_event(AK::EVENTS::PLAY_BEEP_GOOD);
 					return Delta::Down;
 				}
-				else if (current_joystick.x > 0.0f)
+				else if (x_current > 0.0f)
 				{
 					Audio::post_global_event(AK::EVENTS::PLAY_BEEP_GOOD);
 					return Delta::Up;

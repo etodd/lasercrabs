@@ -953,7 +953,6 @@ b8 PlayerCommon::movement_enabled() const
 {
 	return get<Awk>()->state() == Awk::State::Crawl // must be attached to wall
 		&& manager.ref()->state() == PlayerManager::State::Default // can't move while upgrading and stuff
-		&& get<Awk>()->stun_timer == 0.0f // or while stunned
 		&& (Game::time.total > GAME_BUY_PERIOD || !Game::level.has_feature(Game::FeatureLevel::Abilities)); // or during the buy period
 }
 
@@ -1781,39 +1780,46 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 		PlayerManager* manager = player.ref()->manager.ref();
 		if (Game::level.has_feature(Game::FeatureLevel::Abilities) && !manager->at_control_point())
 		{
-			// highlight friendly control points if there is an upgrade available
-			b8 highlight_friendlies = manager->upgrade_available();
-
 			Vec3 me = get<Transform>()->absolute_pos();
+
+			// highlight friendly control points if there is an upgrade available
+			ControlPoint* highlighted_upgrade_control_point = nullptr;
+			if (manager->upgrade_available())
+			{
+				highlighted_upgrade_control_point = ControlPoint::closest(1 << team, me);
+				if (highlighted_upgrade_control_point)
+				{
+					Vec3 pos = highlighted_upgrade_control_point->get<Transform>()->absolute_pos();
+					UI::indicator(params, pos, Team::ui_color_friend, true);
+
+					UIText text;
+					text.color = Team::ui_color_friend;
+					text.text(_(strings::upgrade_notification));
+					text.anchor_x = UIText::Anchor::Center;
+					text.anchor_y = UIText::Anchor::Center;
+					text.size = text_size;
+					Vec2 p;
+					UI::is_onscreen(params, pos, &p);
+					p.y += text_size * 2.0f * UI::scale;
+					UI::box(params, text.rect(p).outset(8.0f * UI::scale), UI::background_color);
+					if (UI::flash_function_slow(Game::real_time.total))
+						text.draw(params, p);
+				}
+			}
+
 			for (auto i = ControlPoint::list.iterator(); !i.is_last(); i.next())
 			{
 				r32 distance_sq = (i.item()->get<Transform>()->absolute_pos() - me).length_squared();
 				if (distance_sq > CONTROL_POINT_RADIUS * CONTROL_POINT_RADIUS && distance_sq < AWK_MAX_DISTANCE * AWK_MAX_DISTANCE)
 				{
+					Vec3 pos = i.item()->get<Transform>()->absolute_pos();
 					if (manager->friendly_control_point(i.item()))
 					{
-						if (highlight_friendlies)
-						{
-							Vec3 pos = i.item()->get<Transform>()->absolute_pos();
-							UI::indicator(params, pos, Team::ui_color_friend, true);
-
-							UIText text;
-							text.color = Team::ui_color_friend;
-							text.text(_(strings::upgrade_notification));
-							text.anchor_x = UIText::Anchor::Center;
-							text.anchor_y = UIText::Anchor::Center;
-							text.size = text_size;
-							Vec2 p;
-							UI::is_onscreen(params, pos, &p);
-							p.y += text_size * 2.0f * UI::scale;
-							UI::box(params, text.rect(p).outset(8.0f * UI::scale), UI::background_color);
-							if (UI::flash_function_slow(Game::real_time.total))
-								text.draw(params, p);
-						}
+						if (i.item() != highlighted_upgrade_control_point)
+							UI::indicator(params, pos, Team::ui_color_friend, false);
 					}
 					else
 					{
-						Vec3 pos = i.item()->get<Transform>()->absolute_pos();
 						if ((pos - me).length_squared() < range * range)
 							UI::indicator(params, pos, i.item()->team == AI::TeamNone ? UI::accent_color : Team::ui_color_enemy, true);
 					}
@@ -2045,20 +2051,6 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 			text.text(_(strings::invincible));
 			text.draw(params, bar.pos + bar.size * 0.5f);
 		}
-	}
-
-	// stunned indicator
-	if (get<Awk>()->stun_timer > 0.0f)
-	{
-		UIText text;
-		text.color = UI::alert_color;
-		text.text(_(strings::stunned));
-		text.anchor_x = UIText::Anchor::Center;
-		text.anchor_y = UIText::Anchor::Center;
-		text.size = text_size;
-		Vec2 pos = viewport.size * Vec2(0.5f, 0.55f);
-		UI::box(params, text.rect(pos).outset(8.0f * UI::scale), UI::background_color);
-		text.draw(params, pos);
 	}
 
 	// detect danger

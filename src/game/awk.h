@@ -70,7 +70,6 @@ struct Awk : public ComponentType<Awk>
 	Link detached;
 	Link dashed;
 	r32 attach_time;
-	r32 stun_timer;
 	r32 invincible_timer;
 	r32 snipe_time;
 	r32 cooldowns[AWK_CHARGES]; // remaining cooldown time

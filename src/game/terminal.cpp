@@ -229,15 +229,13 @@ void splitscreen_select_teams_update(const Update& u)
 			// handle joysticks
 			if (u.input->gamepads[i].active)
 			{
-				Vec2 last_joystick(u.last_input->gamepads[i].left_x, u.last_input->gamepads[i].left_y);
-				Input::dead_zone(&last_joystick.x, &last_joystick.y, UI_JOYSTICK_DEAD_ZONE);
-				if (last_joystick.x == 0.0f)
+				r32 x_last = Input::dead_zone(u.last_input->gamepads[i].left_x);
+				if (x_last == 0.0f)
 				{
-					Vec2 current_joystick(u.input->gamepads[i].left_x, u.input->gamepads[i].left_y);
-					Input::dead_zone(&current_joystick.x, &current_joystick.y, UI_JOYSTICK_DEAD_ZONE);
-					if (current_joystick.x < 0.0f)
+					r32 x_current = Input::dead_zone(u.input->gamepads[i].left_x);
+					if (x_current < 0.0f)
 						left = true;
-					else if (current_joystick.x > 0.0f)
+					else if (x_current > 0.0f)
 						right = true;
 				}
 			}

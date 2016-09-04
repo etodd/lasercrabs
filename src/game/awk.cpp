@@ -25,12 +25,11 @@ namespace VI
 
 #define LERP_ROTATION_SPEED 10.0f
 #define LERP_TRANSLATION_SPEED 3.0f
-#define MAX_FLIGHT_TIME 2.0f
+#define MAX_FLIGHT_TIME 6.0f
 #define AWK_LEG_LENGTH (0.277f - 0.101f)
 #define AWK_LEG_BLEND_SPEED (1.0f / 0.05f)
 #define AWK_MIN_LEG_BLEND_SPEED (AWK_LEG_BLEND_SPEED * 0.1f)
 #define AWK_SHIELD_RADIUS 0.75f
-#define AWK_STUN_TIME 1.5f
 
 AwkRaycastCallback::AwkRaycastCallback(const Vec3& a, const Vec3& b, const Entity* awk)
 	: btCollisionWorld::ClosestRayResultCallback(a, b)
@@ -140,7 +139,6 @@ Awk::Awk()
 	hit_targets(),
 	cooldowns(),
 	cooldown_index(),
-	stun_timer(),
 	invincible_timer(),
 	particle_accumulator(),
 	snipe()
@@ -656,7 +654,7 @@ void Awk::snipe_enable(b8 s)
 
 b8 Awk::detach(const Vec3& dir)
 {
-	if (cooldown_can_shoot() && stun_timer == 0.0f)
+	if (cooldown_can_shoot())
 	{
 		Vec3 dir_normalized = Vec3::normalize(dir);
 		if (snipe)
@@ -717,9 +715,15 @@ void Awk::reflect(const Vec3& hit, const Vec3& normal)
 {
 	// it's possible to reflect off a shield while we are dashing (still parented to an object)
 	// so we need to make sure we're not dashing anymore
-	get<Transform>()->reparent(nullptr);
-	dash_timer = 0.0f;
-	get<Animator>()->layers[0].animation = Asset::Animation::awk_fly;
+	if (get<Transform>()->parent.ref())
+	{
+		get<Transform>()->reparent(nullptr);
+		dash_timer = 0.0f;
+		get<Animator>()->layers[0].animation = Asset::Animation::awk_fly;
+	}
+
+	// normalize speed to dash speed
+	velocity *= AWK_DASH_SPEED / velocity.length();
 
 	// our goal
 	Vec3 target_velocity = velocity.reflect(normal);
@@ -858,7 +862,7 @@ void Awk::crawl(const Vec3& dir_raw, const Update& u)
 	r32 dir_length = dir_raw.length();
 
 	State s = state();
-	if (s != State::Fly && dir_length > 0.0f && stun_timer == 0.0f)
+	if (s != State::Fly && dir_length > 0.0f)
 	{
 		Vec3 dir_normalized = dir_raw / dir_length;
 
@@ -1095,8 +1099,6 @@ void Awk::update_lerped_pos(r32 speed_multiplier, const Update& u)
 
 void Awk::update(const Update& u)
 {
-	stun_timer = vi_max(stun_timer - u.time.delta, 0.0f);
-
 	State s = state();
 
 	if (s != State::Fly)
@@ -1119,11 +1121,8 @@ void Awk::update(const Update& u)
 
 	if (s == Awk::State::Crawl)
 	{
-		if (stun_timer == 0.0f)
-		{
-			for (s32 i = 0; i < AWK_CHARGES; i++)
-				cooldowns[i] = vi_max(0.0f, cooldowns[i] - u.time.delta);
-		}
+		for (s32 i = 0; i < AWK_CHARGES; i++)
+			cooldowns[i] = vi_max(0.0f, cooldowns[i] - u.time.delta);
 
 		update_lerped_pos(1.0f, u);
 		update_offset();

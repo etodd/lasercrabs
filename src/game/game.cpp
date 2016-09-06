@@ -126,11 +126,11 @@ void Game::Session::reset()
 
 Game::Save::Save()
 	: zones(),
+	story_index(),
 	credits(),
 	variables(),
 	username("etodd")
 {
-	zones[Asset::Level::Soteria] = ZoneState::Owned;
 }
 
 b8 Game::Level::has_feature(Game::FeatureLevel f) const
@@ -582,11 +582,11 @@ void Game::draw_alpha(const RenderParams& render_params)
 	for (auto i = LocalPlayer::list.iterator(); !i.is_last(); i.next())
 		i.item()->draw_alpha(render_params);
 
-	for (s32 i = 0; i < draws.length; i++)
-		(*draws[i])(render_params);
-
 	Menu::draw(render_params);
 	Terminal::draw(render_params);
+
+	for (s32 i = 0; i < draws.length; i++)
+		(*draws[i])(render_params);
 
 	Console::draw(render_params);
 }

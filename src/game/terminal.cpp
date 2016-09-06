@@ -59,6 +59,16 @@ enum class State
 	Deploying,
 };
 
+// story index describes the place in the story we are about to experience
+// so if the story index is "CoraIntro", we're ready to do Cora's intro
+enum class StoryIndex
+{
+	IntroAlbert,
+	Tutorial,
+	IntroCora,
+	IntroSissyFoos,
+};
+
 enum class Tab
 {
 	Messages,
@@ -204,7 +214,9 @@ void init(const Update& u, const EntityFinder& entities)
 		// story mode
 		// todo: figure out how to trigger Cora
 		//const char* entry_point_str = Loader::level_name(Game::levels[Game::save.level_index]);
-		//Cora::init(strings_get(entry_point_str));
+		const char* entry_point_str = "cora_intro";
+		Cora::init();
+		Cora::activate(strings_get(entry_point_str));
 		data.state = State::StoryMode;
 	}
 }

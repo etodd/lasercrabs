@@ -8,15 +8,8 @@ namespace Asset
 {
 	namespace DialogueTree
 	{
-		const s32 count = 8;
-		const AssetID Ioke = 0;
-		const AssetID Medias_Res = 1;
-		const AssetID Moros = 2;
-		const AssetID Ponos = 3;
-		const AssetID Soteria = 4;
-		const AssetID Tyche = 5;
-		const AssetID common = 6;
-		const AssetID intro = 7;
+		const s32 count = 1;
+		const AssetID intro = 0;
 	}
 }
 

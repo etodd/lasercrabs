@@ -181,8 +181,6 @@ namespace VI
 	void Team::transition_next(Game::MatchResult result)
 	{
 		Game::session.last_match = result;
-		Cora::variable(strings::intro, AssetNull);
-		Cora::variable(strings::tried, AssetNull);
 		if (Game::session.level == Asset::Level::Soteria && result == Game::MatchResult::Loss)
 			Game::schedule_load_level(Game::session.level, Game::Mode::Pvp); // retry tutorial automatically
 		else

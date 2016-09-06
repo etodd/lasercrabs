@@ -105,7 +105,8 @@ struct Game
 	struct Save
 	{
 		ZoneState zones[64];
-		s32 credits;
+		u16 story_index;
+		u16 credits;
 		std::unordered_map<AssetID, AssetID> variables; // todo: kill STL
 		const char* username;
 

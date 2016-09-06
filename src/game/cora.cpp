@@ -47,15 +47,12 @@ namespace Cora
 		Unamused,
 		Angry,
 		Concerned,
+		EyeRoll,
+		Shifty,
+		Sarcastic,
+		Evil,
+		TongueOut,
 		count,
-	};
-
-	enum class Matchmake
-	{
-		None,
-		Searching,
-		Found,
-		Joining,
 	};
 
 	struct Node
@@ -79,6 +76,7 @@ namespace Cora
 		struct Text
 		{
 			Face face;
+			r32 delay;
 			AkUniqueID sound;
 		};
 
@@ -196,6 +194,7 @@ namespace Cora
 
 				if (node->type == Node::Type::Text)
 				{
+					// face
 					const char* face = Json::get_string(json_node, "face");
 					if (face)
 					{
@@ -217,11 +216,24 @@ namespace Cora
 							node->text.face = Face::Angry;
 						else if (utf8cmp(face, "Concerned") == 0)
 							node->text.face = Face::Concerned;
+						else if (utf8cmp(face, "EyeRoll") == 0)
+							node->text.face = Face::EyeRoll;
+						else if (utf8cmp(face, "Shifty") == 0)
+							node->text.face = Face::Shifty;
+						else if (utf8cmp(face, "Sarcastic") == 0)
+							node->text.face = Face::Sarcastic;
+						else if (utf8cmp(face, "Evil") == 0)
+							node->text.face = Face::Evil;
+						else if (utf8cmp(face, "TongueOut") == 0)
+							node->text.face = Face::TongueOut;
 						else
 							node->text.face = Face::Default;
 					}
 					else
 						node->text.face = Face::Default;
+
+					// delay
+					node->text.delay = Json::get_r32(json_node, "delay");
 
 					// sound
 					if (name_str)
@@ -326,7 +338,7 @@ namespace Cora
 	}
 
 	// UV origin: top left
-	const Vec2 face_texture_size = Vec2(91.0f, 57.0f);
+	const Vec2 face_texture_size = Vec2(91.0f, 85.0f);
 	const Vec2 face_size = Vec2(17.0f, 27.0f);
 	const Vec2 face_uv_size = face_size / face_texture_size;
 	const Vec2 face_pixel = Vec2(1.0f, 1.0f) / face_texture_size;
@@ -334,16 +346,21 @@ namespace Cora
 	const Vec2 face_origin = face_pixel;
 	const Vec2 faces[(s32)Face::count] =
 	{
-		face_origin + Vec2(face_offset.x * 0, 0),
-		face_origin + Vec2(face_offset.x * 1, 0),
-		face_origin + Vec2(face_offset.x * 2, 0),
-		face_origin + Vec2(face_offset.x * 3, 0),
-		face_origin + Vec2(face_offset.x * 4, 0),
-		face_origin + Vec2(face_offset.x * 0, face_offset.y),
-		face_origin + Vec2(face_offset.x * 1, face_offset.y),
-		face_origin + Vec2(face_offset.x * 2, face_offset.y),
-		face_origin + Vec2(face_offset.x * 3, face_offset.y),
-		face_origin + Vec2(face_offset.x * 4, face_offset.y),
+		face_origin + Vec2(face_offset.x * 0, face_offset.y * 0),
+		face_origin + Vec2(face_offset.x * 1, face_offset.y * 0),
+		face_origin + Vec2(face_offset.x * 2, face_offset.y * 0),
+		face_origin + Vec2(face_offset.x * 3, face_offset.y * 0),
+		face_origin + Vec2(face_offset.x * 4, face_offset.y * 0),
+		face_origin + Vec2(face_offset.x * 0, face_offset.y * 1),
+		face_origin + Vec2(face_offset.x * 1, face_offset.y * 1),
+		face_origin + Vec2(face_offset.x * 2, face_offset.y * 1),
+		face_origin + Vec2(face_offset.x * 3, face_offset.y * 1),
+		face_origin + Vec2(face_offset.x * 4, face_offset.y * 1),
+		face_origin + Vec2(face_offset.x * 0, face_offset.y * 2),
+		face_origin + Vec2(face_offset.x * 1, face_offset.y * 2),
+		face_origin + Vec2(face_offset.x * 2, face_offset.y * 2),
+		face_origin + Vec2(face_offset.x * 3, face_offset.y * 2),
+		face_origin + Vec2(face_offset.x * 4, face_offset.y * 2),
 	};
 
 	template<typename T> struct Schedule
@@ -428,18 +445,10 @@ namespace Cora
 		Schedule<Choice> choices;
 		Schedule<AssetID> node_executions;
 		Mode mode;
-		Mode default_mode;
 		ID current_text_node;
-		AssetID entry_point;
-		Matchmake matchmake_mode;
-		r32 matchmake_timer;
-		s32 matchmake_player_count;
 		b8 conversation_in_progress;
 		r32 particle_accumulator;
 		r32 animation_time;
-		b8 leaderboard_active;
-		r32 leaderboard_animation_time;
-		LeaderboardEntry leaderboard[LEADERBOARD_COUNT];
 
 		UIText text;
 		r32 text_animation_time;
@@ -453,14 +462,7 @@ namespace Cora
 
 	b8 has_focus()
 	{
-		return data && data->mode == Mode::Center;
-	}
-
-	void matchmake_search()
-	{
-		variable(strings::matchmaking, strings::yes);
-		data->matchmake_mode = Matchmake::Searching;
-		data->matchmake_timer = 10.0f + mersenne::randf_oo() * 90.0f;
+		return data && data->mode == Mode::Active;
 	}
 
 	LinkArg<AssetID>& node_executed()
@@ -616,13 +618,12 @@ namespace Cora
 	void clear_and_execute(ID id, r32 delay = 0.0f)
 	{
 		clear();
-		data->mode = data->default_mode;
+		data->mode = Mode::Active;
 		execute(id, delay);
 	}
 
 	void go(AssetID name)
 	{
-		data->leaderboard_active = false;
 		r32 delay;
 		if (data->mode == Mode::Hidden)
 		{
@@ -639,19 +640,18 @@ namespace Cora
 		data->conversation_in_progress = a;
 	}
 
-	void activate()
+	void activate(AssetID entry_point)
 	{
 		conversation_in_progress(true);
-		if (Game::session.last_match == Game::MatchResult::Loss || Game::session.last_match == Game::MatchResult::Draw)
-			go(strings::consolation);
-		else
-			go(data->entry_point);
+		go(entry_point);
 	}
 
 	void update(const Update& u)
 	{
 		if (Audio::dialogue_done)
 		{
+			Audio::dialogue_done = false;
+
 			// we've completed displaying a text message
 			// continue executing the dialogue tree
 			if (data->current_text_node != IDNull) // might be null if the dialogue got cut off or something
@@ -666,14 +666,12 @@ namespace Cora
 						if (choice == IDNull)
 							break;
 						else
-							execute(choice, data->time);
+							execute(choice, data->time + node.text.delay);
 					}
 				}
 				else
-					execute(node.next, data->time);
+					execute(node.next, data->time + node.text.delay);
 			}
-
-			Audio::dialogue_done = false;
 		}
 
 		if (data->node_executions.update(u, data->time))
@@ -693,11 +691,12 @@ namespace Cora
 
 		if (data->audio_events.update(u, data->time))
 		{
-			b8 success = Audio::post_dialogue_event(data->audio_events.current());
 #if DEBUG
 			// HACK to keep things working even with missing audio
-			if (!success)
-				Audio::post_dialogue_event(AK::EVENTS::PLAY_4E8907711D4DB021E656CB8CC752C7A4AF11E1F8);
+			if (!Audio::post_dialogue_event(data->audio_events.current()))
+				Audio::post_dialogue_event(AK::EVENTS::PLAY_9E8F17E1A058341BE597A4032D80C01BF566D167);
+#else
+			Audio::post_dialogue_event(data->audio_events.current());
 #endif
 		}
 
@@ -723,11 +722,7 @@ namespace Cora
 
 				data->menu.start(u, { Vec2(0, 0), Vec2(u.input->width, u.input->height) }, 0, choice_count, has_focus());
 
-				Vec2 p;
-				if (data->mode == Mode::Left)
-					p = Vec2(u.input->width * 0.9f - MENU_ITEM_WIDTH, u.input->height * 0.3f);
-				else
-					p = Vec2(u.input->width * 0.5f + MENU_ITEM_WIDTH * -0.5f, u.input->height * 0.3f);
+				Vec2 p(u.input->width * 0.5f + MENU_ITEM_WIDTH * -0.5f, u.input->height * 0.3f);
 
 				{
 					Node& node = Node::list[choice.a];
@@ -757,66 +752,6 @@ namespace Cora
 			}
 		}
 
-		// get focus if we need it
-		if (data->choices.active()
-			&& !has_focus()) // Cora is waiting on us, but she doesn't have focus yet
-		{
-			if (!Console::visible
-				&& !UIMenu::active[0]
-				&& u.last_input->get(Controls::Interact, 0)
-				&& !u.input->get(Controls::Interact, 0))
-				data->mode = Mode::Center; // we have focus now!
-		}
-
-		// update matchmaking
-		switch (data->matchmake_mode)
-		{
-			case Matchmake::None:
-			{
-				break;
-			}
-			case Matchmake::Searching:
-			{
-				data->matchmake_timer -= Game::real_time.delta;
-				if ((s32)data->matchmake_timer % 5 == 0
-					&& (s32)data->matchmake_timer != (s32)(data->matchmake_timer + Game::real_time.delta))
-				{
-					data->matchmake_player_count = vi_max(5, data->matchmake_player_count + (mersenne::rand() % 5 - 2));
-				}
-
-				if (data->matchmake_timer < 0.0f)
-				{
-					data->matchmake_mode = Matchmake::Found;
-					data->matchmake_timer = MAX_JOIN_TIME;
-					go(strings::match_found);
-				}
-				break;
-			}
-			case Matchmake::Found:
-			{
-				data->matchmake_timer -= Game::real_time.delta;
-				if (data->matchmake_timer < 0.0f)
-				{
-					clear();
-					// don't reset timer; time expired, instantly start the game
-					data->matchmake_mode = Matchmake::Joining;
-				}
-				break;
-			}
-			case Matchmake::Joining:
-			{
-				data->matchmake_timer -= Game::real_time.delta;
-				if (data->matchmake_timer < 0.0f)
-					Game::schedule_load_level(Game::session.level, Game::Mode::Pvp);
-				break;
-			}
-			default:
-			{
-				vi_assert(false);
-				break;
-			}
-		}
-
 		data->time += Game::real_time.delta;
 	}
 
@@ -824,71 +759,14 @@ namespace Cora
 	{
 		const Rect2& vp = params.camera->viewport;
 
-		// matchmake UI
-		if (data->matchmake_mode != Matchmake::None)
-		{
-			UIText text;
-			text.anchor_x = UIText::Anchor::Center;
-			text.anchor_y = UIText::Anchor::Center;
-			text.color = UI::accent_color;
-
-			if (data->matchmake_mode == Matchmake::Searching)
-				text.text(_(strings::match_searching), (s32)data->matchmake_player_count);
-			else if (data->matchmake_mode == Matchmake::Found)
-				text.text(_(strings::match_starting), ((s32)data->matchmake_timer) + 1);
-			else // joining
-				text.text(_(strings::waiting));
-
-			Vec2 pos = vp.pos + vp.size * Vec2(0.1f, 0.25f) + Vec2(12.0f * UI::scale, -100 * UI::scale);
-
-			UI::box(params, text.rect(pos).pad({ Vec2((10.0f + 24.0f) * UI::scale, 10.0f * UI::scale), Vec2(8.0f * UI::scale) }), UI::background_color);
-
-			Vec2 triangle_pos
-			(
-				pos.x + text.bounds().x * -0.5f - 16.0f * UI::scale,
-				pos.y
-			);
-
-			if (data->matchmake_mode == Matchmake::Found) // solid triangle
-				UI::triangle(params, { triangle_pos, Vec2(text.size * UI::scale) }, UI::accent_color);
-			else // hollow, rotating triangle
-				UI::triangle_border(params, { triangle_pos, Vec2(text.size * 0.5f * UI::scale) }, 4, UI::accent_color, Game::real_time.total * -8.0f);
-
-			text.draw(params, pos);
-		}
-
 		// Cora face and UI
 
 		if (data->mode != Mode::Hidden)
 		{
 			Face face = data->faces.current();
 
-			r32 scale = UI::scale;
-			Vec2 pos;
-			switch (data->mode)
-			{
-				case Mode::Center:
-				{
-					pos = vp.pos + vp.size * Vec2(0.5f, 0.6f);
-					scale *= 4.0f;
-					break;
-				}
-				case Mode::Left:
-				{
-					pos = vp.pos + vp.size * Vec2(0.1f, 0.25f);
-					scale *= 3.0f;
-					break;
-				}
-				case Mode::Hidden:
-				{
-					break;
-				}
-				default:
-				{
-					vi_assert(false);
-					break;
-				}
-			}
+			r32 scale = UI::scale * 6.0f;
+			Vec2 pos = vp.pos + vp.size * Vec2(0.5f, 0.6f);
 
 			if (face == Face::Default)
 			{
@@ -913,8 +791,8 @@ namespace Cora
 				// animate the frame into existence
 				r32 animation_scale = Ease::cubic_out(vi_min(1.0f, animation_time * 2.0f), 0.0f, 1.0f);
 
-				Vec2 frame_size(32.0f * scale * volume_scale * animation_scale);
-				UI::centered_box(params, { pos, frame_size }, UI::background_color, PI * 0.25f);
+				Vec2 frame_size(24.0f * scale * volume_scale * animation_scale);
+				UI::centered_box(params, { pos, frame_size }, UI::default_color, PI * 0.25f);
 
 				const Vec4* color;
 				switch (face)
@@ -922,18 +800,20 @@ namespace Cora
 					case Face::Default:
 					case Face::Upbeat:
 					case Face::Concerned:
+					case Face::TongueOut:
 					{
-						color = &UI::default_color;
+						color = &UI::background_color;
 						break;
 					}
 					case Face::Sad:
+					case Face::Unamused:
+					case Face::Wat:
+					case Face::Shifty:
 					{
 						color = &Team::ui_color_friend;
 						break;
 					}
 					case Face::EyesClosed:
-					case Face::Unamused:
-					case Face::Wat:
 					{
 						color = &UI::disabled_color;
 						break;
@@ -945,6 +825,9 @@ namespace Cora
 						break;
 					}
 					case Face::Angry:
+					case Face::Evil:
+					case Face::Sarcastic:
+					case Face::EyeRoll:
 					{
 						color = &UI::alert_color;
 						break;
@@ -956,7 +839,7 @@ namespace Cora
 					}
 				}
 
-				UI::centered_border(params, { pos, frame_size }, 2.0f, *color, PI * 0.25f);
+				UI::centered_border(params, { pos, frame_size }, scale * 0.6666f, *color, PI * 0.25f);
 			}
 
 			// face
@@ -964,7 +847,7 @@ namespace Cora
 			if (animation_time > 1.0f || (animation_time > 0.5f && UI::flash_function(Game::real_time.total)))
 			{
 				Vec2 face_uv = faces[(s32)face];
-				UI::sprite(params, Asset::Texture::Cora, { pos, face_size * scale }, UI::default_color, { face_uv, face_uv_size });
+				UI::sprite(params, Asset::Texture::cora, { pos, face_size * scale }, UI::background_color, { face_uv, face_uv_size });
 			}
 		}
 
@@ -974,14 +857,6 @@ namespace Cora
 			Vec2 pos;
 			switch (data->mode)
 			{
-				case Mode::Center:
-				{
-					data->text.anchor_x = UIText::Anchor::Center;
-					data->text.anchor_y = UIText::Anchor::Max;
-					data->text.color = UI::default_color;
-					pos = Vec2(vp.size.x * 0.5f, vp.size.y * 0.6f) + Vec2(0, -100 * UI::scale);
-					break;
-				}
 				case Mode::Hidden:
 				{
 					data->text.anchor_x = UIText::Anchor::Center;
@@ -990,12 +865,12 @@ namespace Cora
 					pos = Vec2(vp.size.x * 0.5f, vp.size.y * 0.9f);
 					break;
 				}
-				case Mode::Left:
+				case Mode::Active:
 				{
-					data->text.anchor_x = UIText::Anchor::Min;
-					data->text.anchor_y = UIText::Anchor::Center;
+					data->text.anchor_x = UIText::Anchor::Center;
+					data->text.anchor_y = UIText::Anchor::Max;
 					data->text.color = UI::default_color;
-					pos = Vec2(vp.size.x * 0.18f, vp.size.y * 0.25f);
+					pos = Vec2(vp.size.x * 0.5f, vp.size.y * 0.6f) + Vec2(0, -128 * UI::scale);
 					break;
 				}
 				default:
@@ -1007,37 +882,6 @@ namespace Cora
 
 			UI::box(params, data->text.rect(pos).outset(MENU_ITEM_PADDING), UI::background_color);
 			data->text.draw(params, pos);
-		}
-
-		// leaderboard
-		if (data->leaderboard_active)
-		{
-			UIText text;
-			text.size = 16.0f;
-			text.wrap_width = MENU_ITEM_WIDTH - MENU_ITEM_PADDING * 2.0f;
-			text.anchor_x = UIText::Anchor::Min;
-			text.anchor_y = UIText::Anchor::Min;
-
-			Vec2 p = Vec2(vp.size.x * 0.9f - MENU_ITEM_WIDTH, vp.size.y * 0.3f - MENU_ITEM_HEIGHT * 2);
-
-			for (s32 i = LEADERBOARD_COUNT - 1; i >= 0; i--)
-			{
-				text.color = i == 2 ? UI::accent_color : UI::default_color;
-
-				// username
-				text.text("%d %s", vi_max(1, i + 79 - (Game::save.credits / 400)), data->leaderboard[i].name);
-				UI::box(params, text.rect(p).outset(MENU_ITEM_PADDING), UI::background_color);
-				UIMenu::text_clip(&text, data->leaderboard_animation_time, 50.0f + vi_min(i, 6) * -5.0f);
-				text.draw(params, p);
-
-				// rating
-				UIText rating = text;
-				rating.anchor_x = UIText::Anchor::Max;
-				rating.wrap_width = 0;
-				rating.text("%d", data->leaderboard[i].rating);
-				rating.draw(params, p + Vec2(MENU_ITEM_WIDTH - MENU_ITEM_PADDING * 2.0f, 0));
-				p.y += text.bounds().y + MENU_ITEM_PADDING * 2.0f;
-			}
 		}
 
 		// menu
@@ -1053,78 +897,25 @@ namespace Cora
 	void on_node_executed(AssetID node)
 	{
 		if (node == strings::conversation_done)
+		{
 			conversation_in_progress(false);
-		else if (node == strings::penelope_hide)
 			clear();
-		else if (node == strings::consolation_done) // we're done consoling; enter into normal conversation mode
-			go(data->entry_point);
-		else if (node == strings::second_round_go)
-			go(strings::second_round);
-		else if (node == strings::match_go)
-		{
-			clear();
-			data->matchmake_timer -= mersenne::randf_co() * (MAX_JOIN_TIME * 0.75f); // the other player hit "join" at a random time
-			data->matchmake_mode = Matchmake::Joining;
 		}
-		else if (node == strings::matchmaking_start)
-			matchmake_search();
-		else if (node == strings::leaderboard_show)
-		{
-			data->leaderboard_active = true;
-			data->leaderboard_animation_time = Game::real_time.total;
-		}
-		else if (node == strings::leaderboard_hide)
-			data->leaderboard_active = false;
 	}
 
-	void init(AssetID entry_point, Mode default_mode)
+	void init()
 	{
 		vi_assert(!data);
 		data = new Data();
-		data->entry_point = entry_point;
-		data->default_mode = default_mode;
-		data->matchmake_player_count = 7 + mersenne::rand() % 9;
 		data->conversation_in_progress = false;
 		Audio::dialogue_done = false;
 		Game::updates.add(update);
 		Game::cleanups.add(cleanup);
 		Game::draws.add(draw);
 
-		// fill out leaderboard
-		if (Game::session.mode == Game::Mode::Special)
-		{
-			s32 rating = Game::save.credits + 21 + (mersenne::rand() % 600);
-			for (s32 i = 0; i < 2; i++)
-			{
-				data->leaderboard[i] =
-				{
-					Usernames::all[mersenne::rand_u32() % Usernames::count],
-					rating,
-				};
-				rating = vi_max(Game::save.credits + 11, rating - (mersenne::rand() % 300));
-			}
-			data->leaderboard[2] =
-			{
-				Game::save.username,
-				Game::save.credits
-			};
-			rating = Game::save.credits;
-			for (s32 i = 3; i < LEADERBOARD_COUNT; i++)
-			{
-				rating -= 11 + (mersenne::rand() % 300);
-				data->leaderboard[i] =
-				{
-					Usernames::all[mersenne::rand_u32() % Usernames::count],
-					rating,
-				};
-			}
-		}
-
 		data->node_executed.link(&on_node_executed);
 
-		variable(strings::matchmaking, AssetNull);
-
-		Loader::texture(Asset::Texture::Cora, RenderTextureWrap::Clamp, RenderTextureFilter::Nearest);
+		Loader::texture(Asset::Texture::cora, RenderTextureWrap::Clamp, RenderTextureFilter::Nearest);
 	}
 }
 

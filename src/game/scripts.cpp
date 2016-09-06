@@ -152,11 +152,6 @@ namespace tutorial
 		data = nullptr;
 	}
 
-	void tutorial_intro(const Update&)
-	{
-		Cora::go(strings::tutorial_intro);
-	}
-
 	void init(const Update& u, const EntityFinder& entities)
 	{
 		Game::level.feature_level = Game::FeatureLevel::HealthPickups;

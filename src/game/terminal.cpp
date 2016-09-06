@@ -81,8 +81,8 @@ struct Data
 {
 	struct StoryMode
 	{
-		Tab tab;
-		Tab tab_previous;
+		Tab tab = Tab::Map;
+		Tab tab_previous = Tab::Messages;
 		r32 tab_timer;
 		Ref<Transform> camera_messages;
 		Ref<Transform> camera_inventory;
@@ -210,19 +210,14 @@ void init(const Update& u, const EntityFinder& entities)
 			data.state = State::SplitscreenSelectLevel; // already selected teams, go straight to level select; the player can always go back
 	}
 	else
-	{
-		// story mode
-		// todo: figure out how to trigger Cora
-		//const char* entry_point_str = Loader::level_name(Game::levels[Game::save.level_index]);
-		const char* entry_point_str = "cora_intro";
-		Cora::init();
-		Cora::activate(strings_get(entry_point_str));
 		data.state = State::StoryMode;
-	}
 }
 
 void splitscreen_select_teams_update(const Update& u)
 {
+	if (UIMenu::active[0])
+		return;
+
 	if (u.last_input->get(Controls::Cancel, 0) && !u.input->get(Controls::Cancel, 0))
 	{
 		Menu::title();
@@ -446,87 +441,87 @@ const ZoneNode* get_zone_node(AssetID id)
 
 void select_zone_update(const Update& u)
 {
+	if (UIMenu::active[0])
+		return;
+
+	// cancel
+	if (Game::session.local_multiplayer
+		&& u.last_input->get(Controls::Cancel, 0) && !u.input->get(Controls::Cancel, 0))
+	{
+		data.state = State::SplitscreenSelectTeams;
+		return;
+	}
+
 	const ZoneNode* zone = get_zone_node(data.next_level);
 	if (!zone)
 		return;
 
-	if (!UIMenu::active[0])
+	// movement
 	{
-		// cancel
-		if (Game::session.local_multiplayer
-			&& u.last_input->get(Controls::Cancel, 0) && !u.input->get(Controls::Cancel, 0))
+		Vec2 movement(0, 0);
+
+		// buttons/keys
 		{
-			data.state = State::SplitscreenSelectTeams;
-			return;
+			if (u.input->get(Controls::Left, 0) && !u.last_input->get(Controls::Left, 0))
+				movement.x -= 1.0f;
+			if (u.input->get(Controls::Right, 0) && !u.last_input->get(Controls::Right, 0))
+				movement.x += 1.0f;
+			if (u.input->get(Controls::Forward, 0) && !u.last_input->get(Controls::Forward, 0))
+				movement.y -= 1.0f;
+			if (u.input->get(Controls::Backward, 0) && !u.last_input->get(Controls::Backward, 0))
+				movement.y += 1.0f;
 		}
 
-		// movement
+		// joysticks
 		{
-			Vec2 movement(0, 0);
+			Vec2 last_joystick(u.last_input->gamepads[0].left_x, u.last_input->gamepads[0].left_y);
+			Input::dead_zone(&last_joystick.x, &last_joystick.y, UI_JOYSTICK_DEAD_ZONE);
+			Vec2 current_joystick(u.input->gamepads[0].left_x, u.input->gamepads[0].left_y);
+			Input::dead_zone(&current_joystick.x, &current_joystick.y, UI_JOYSTICK_DEAD_ZONE);
 
-			// buttons/keys
+			if (last_joystick.length_squared() == 0.0f
+				&& current_joystick.length_squared() > 0.0f)
+				movement += current_joystick;
+		}
+
+		r32 movement_amount = movement.length();
+		if (movement_amount > 0.0f)
+		{
+			// transitioning from one zone to another
+			movement /= movement_amount; // normalize
+			Vec3 movement3d = data.camera->rot * Vec3(-movement.x, 0, -movement.y);
+			movement = Vec2(movement3d.x, movement3d.z);
+			Vec3 zone_pos = zone->pos.ref()->absolute_pos();
+			const ZoneNode* closest = nullptr;
+			r32 closest_dot = 8.0f;
+			for (s32 i = 0; i < data.zones.length; i++)
 			{
-				if (u.input->get(Controls::Left, 0) && !u.last_input->get(Controls::Left, 0))
-					movement.x -= 1.0f;
-				if (u.input->get(Controls::Right, 0) && !u.last_input->get(Controls::Right, 0))
-					movement.x += 1.0f;
-				if (u.input->get(Controls::Forward, 0) && !u.last_input->get(Controls::Forward, 0))
-					movement.y -= 1.0f;
-				if (u.input->get(Controls::Backward, 0) && !u.last_input->get(Controls::Backward, 0))
-					movement.y += 1.0f;
-			}
-
-			// joysticks
-			{
-				Vec2 last_joystick(u.last_input->gamepads[0].left_x, u.last_input->gamepads[0].left_y);
-				Input::dead_zone(&last_joystick.x, &last_joystick.y, UI_JOYSTICK_DEAD_ZONE);
-				Vec2 current_joystick(u.input->gamepads[0].left_x, u.input->gamepads[0].left_y);
-				Input::dead_zone(&current_joystick.x, &current_joystick.y, UI_JOYSTICK_DEAD_ZONE);
-
-				if (last_joystick.length_squared() == 0.0f
-					&& current_joystick.length_squared() > 0.0f)
-					movement += current_joystick;
-			}
-
-			r32 movement_amount = movement.length();
-			if (movement_amount > 0.0f)
-			{
-				// transitioning from one zone to another
-				movement /= movement_amount; // normalize
-				Vec3 movement3d = data.camera->rot * Vec3(-movement.x, 0, -movement.y);
-				movement = Vec2(movement3d.x, movement3d.z);
-				Vec3 zone_pos = zone->pos.ref()->absolute_pos();
-				const ZoneNode* closest = nullptr;
-				r32 closest_dot = 8.0f;
-				for (s32 i = 0; i < data.zones.length; i++)
+				const ZoneNode& candidate = data.zones[i];
+				if (candidate.id != AssetNull)
 				{
-					const ZoneNode& candidate = data.zones[i];
-					if (candidate.id != AssetNull)
+					Vec3 candidate_pos = candidate.pos.ref()->absolute_pos();
+					Vec3 to_candidate = (candidate_pos - zone_pos);
+					r32 dot = movement.dot(Vec2(to_candidate.x, to_candidate.z));
+					r32 normalized_dot = movement.dot(Vec2::normalize(Vec2(to_candidate.x, to_candidate.z)));
+					if (dot < closest_dot && normalized_dot > 0.7f)
 					{
-						Vec3 candidate_pos = candidate.pos.ref()->absolute_pos();
-						Vec3 to_candidate = (candidate_pos - zone_pos);
-						r32 dot = movement.dot(Vec2(to_candidate.x, to_candidate.z));
-						r32 normalized_dot = movement.dot(Vec2::normalize(Vec2(to_candidate.x, to_candidate.z)));
-						if (dot < closest_dot && normalized_dot > 0.7f)
-						{
-							closest = &candidate;
-							closest_dot = dot;
-						}
+						closest = &candidate;
+						closest_dot = dot;
 					}
 				}
-				if (closest)
-					data.next_level = closest->id;
 			}
+			if (closest)
+				data.next_level = closest->id;
 		}
+	}
 
-		// deploy button
-		if (u.last_input->get(Controls::Interact, 0) && !u.input->get(Controls::Interact, 0)
-			&& (!Game::session.local_multiplayer || splitscreen_team_count() <= zone->max_teams)) // if we're in splitscreen, make sure we don't have too many teams
-		{
-			data.state = Game::session.local_multiplayer ? State::SplitscreenDeploying : State::Deploying;
-			data.deploy_timer = DEPLOY_TIME_OFFLINE;
-			data.tip_time = Game::real_time.total;
-		}
+	// deploy button
+	if (u.last_input->get(Controls::Interact, 0) && !u.input->get(Controls::Interact, 0)
+		&& (!Game::session.local_multiplayer || splitscreen_team_count() <= zone->max_teams)) // if we're in splitscreen, make sure we don't have too many teams
+	{
+		data.state = Game::session.local_multiplayer ? State::SplitscreenDeploying : State::Deploying;
+		data.deploy_timer = DEPLOY_TIME_OFFLINE;
+		data.tip_time = Game::real_time.total;
 	}
 
 	focus_camera(u, *zone);
@@ -804,7 +799,7 @@ void story_mode_update(const Update& u)
 		Menu::show();
 	}
 
-	if (Menu::main_menu_state != Menu::State::Hidden || Game::time.total < STORY_MODE_INIT_TIME)
+	if (UIMenu::active[0] || Game::time.total < STORY_MODE_INIT_TIME)
 		return;
 
 	data.story.tab_timer += u.time.delta;

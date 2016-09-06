@@ -39,12 +39,12 @@ namespace VI
 	{
 		{
 			Asset::Mesh::icon_sensor,
-			2.0f,
+			1.5f,
 			15,
 		},
 		{
 			Asset::Mesh::icon_minion,
-			2.0f,
+			1.5f,
 			15,
 		},
 		{
@@ -54,12 +54,12 @@ namespace VI
 		},
 		{
 			Asset::Mesh::icon_rocket,
-			0.75f,
+			0.7f,
 			10,
 		},
 		{
 			Asset::Mesh::icon_containment_field,
-			1.0f,
+			0.7f,
 			20,
 		},
 		{
@@ -268,7 +268,7 @@ namespace VI
 						if (i.item()->is_local() && !Game::session.local_multiplayer)
 						{
 							// we're in story mode and this is a local player; save their rating
-							Game::save.credits += total;
+							Game::save.resources[(s32)Game::Resource::Energy] += total;
 						}
 					}
 				}

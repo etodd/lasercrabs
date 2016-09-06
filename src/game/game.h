@@ -102,11 +102,18 @@ struct Game
 		Owned,
 	};
 
+	enum class Resource
+	{
+		Energy,
+		HackKits,
+		count,
+	};
+
 	struct Save
 	{
 		ZoneState zones[64];
 		u16 story_index;
-		u16 credits;
+		u16 resources[(s32)Resource::count];
 		std::unordered_map<AssetID, AssetID> variables; // todo: kill STL
 		const char* username;
 
@@ -132,9 +139,6 @@ struct Game
 	static GameTime time;
 	static GameTime real_time;
 	static r32 physics_timestep;
-	static Vec2 cursor;
-	static b8 cursor_updated;
-	static b8 cursor_active;
 	static AssetID scheduled_load_level;
 	static Mode scheduled_mode;
 	static Array<UpdateFunction> updates;
@@ -144,8 +148,6 @@ struct Game
 
 	static b8 init(LoopSync*);
 	static void execute(const Update&, const char*);
-	static void draw_cursor(const RenderParams&);
-	static void update_cursor(const Update&);
 	static void update(const Update&);
 	static void schedule_load_level(AssetID, Mode);
 	static void unload_level();

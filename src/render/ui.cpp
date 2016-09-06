@@ -294,8 +294,9 @@ void UIText::draw(const RenderParams& params, const Vec2& pos, r32 rot) const
 	const Vec2 spacing = Vec2(0.075f, 0.3f);
 	r32 scaled_size = size * UI::scale;
 	r32 wrap = wrap_width / scaled_size;
-	while ((clip == 0 || char_index <= clip) && (c = rendered_string[char_index]))
+	while ((c = rendered_string[char_index]))
 	{
+		b8 clipped = clip > 0 && char_index == clip;
 		const Font::Character* character = &f->get(&c);
 		if (c == '\n')
 		{
@@ -332,13 +333,64 @@ void UIText::draw(const RenderParams& params, const Vec2& pos, r32 rot) const
 		}
 		else
 		{
+			b8 valid_character;
 			if (character->code == c)
+				valid_character = true;
+			else
+			{
+				valid_character = false;
+				const char* space = " ";
+				character = &f->get(&space);
+			}
+			if (clipped || !valid_character)
+			{
+				// draw character as a rectangle
+				Vec3 v0 = p + Vec3(character->min.x, character->min.y, 0);
+				Vec3 v1 = p + Vec3(character->max.x, character->min.y, 0);
+				Vec3 v2 = p + Vec3(character->min.x, character->max.y, 0);
+				Vec3 v3 = p + Vec3(character->max.x, character->max.y, 0);
+				{
+					Vec3 vertex;
+					vertex.x = (offset.x + scaled_size * (v0.x * cs - v0.y * sn)) * scale.x;
+					vertex.y = (offset.y + scaled_size * (v0.x * sn + v0.y * cs)) * scale.y;
+					UI::vertices.add(vertex);
+				}
+				{
+					Vec3 vertex;
+					vertex.x = (offset.x + scaled_size * (v1.x * cs - v1.y * sn)) * scale.x;
+					vertex.y = (offset.y + scaled_size * (v1.x * sn + v1.y * cs)) * scale.y;
+					UI::vertices.add(vertex);
+				}
+				{
+					Vec3 vertex;
+					vertex.x = (offset.x + scaled_size * (v2.x * cs - v2.y * sn)) * scale.x;
+					vertex.y = (offset.y + scaled_size * (v2.x * sn + v2.y * cs)) * scale.y;
+					UI::vertices.add(vertex);
+				}
+				{
+					Vec3 vertex;
+					vertex.x = (offset.x + scaled_size * (v3.x * cs - v3.y * sn)) * scale.x;
+					vertex.y = (offset.y + scaled_size * (v3.x * sn + v3.y * cs)) * scale.y;
+					UI::vertices.add(vertex);
+				}
+				UI::colors.add(color);
+				UI::colors.add(color);
+				UI::colors.add(color);
+				UI::colors.add(color);
+				UI::indices.add(vertex_index + 0);
+				UI::indices.add(vertex_index + 1);
+				UI::indices.add(vertex_index + 2);
+				UI::indices.add(vertex_index + 1);
+				UI::indices.add(vertex_index + 3);
+				UI::indices.add(vertex_index + 2);
+			}
+			else
 			{
 				UI::vertices.resize(vertex_index + character->vertex_count);
 				UI::colors.resize(UI::vertices.length);
 				for (s32 i = 0; i < character->vertex_count; i++)
 				{
-					Vec3 v = f->vertices[character->vertex_start + i] + p;
+					Vec3 v = p + f->vertices[character->vertex_start + i];
 					Vec3 vertex;
 					vertex.x = (offset.x + scaled_size * (v.x * cs - v.y * sn)) * scale.x;
 					vertex.y = (offset.y + scaled_size * (v.x * sn + v.y * cs)) * scale.y;
@@ -346,20 +398,19 @@ void UIText::draw(const RenderParams& params, const Vec2& pos, r32 rot) const
 					UI::colors[vertex_index + i] = color;
 				}
 
-				p.x += spacing.x + character->max.x;
-
 				UI::indices.resize(index_index + character->index_count);
 				for (s32 i = 0; i < character->index_count; i++)
 					UI::indices[index_index + i] = vertex_index + f->indices[character->index_start + i] - character->vertex_start;
 			}
-			else
-			{
-				// Font is missing character
-			}
+
+			p.x += spacing.x + character->max.x;
+
 			vertex_index = UI::vertices.length;
 			index_index = UI::indices.length;
 		}
 
+		if (clipped)
+			break;
 		char_index++;
 	}
 }

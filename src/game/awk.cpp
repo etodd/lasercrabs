@@ -478,14 +478,17 @@ b8 Awk::can_shoot(const Vec3& dir, Vec3* final_pos, b8* hit_target) const
 		return false;
 
 	// if we're attached to a wall, make sure we're not shooting into the wall
-	if (state() == Awk::State::Crawl)
+	State s = state();
+	if (s == Awk::State::Crawl)
 	{
 		if (direction_is_toward_attached_wall(trace_dir))
 			return false;
 	}
 
 	Vec3 trace_start = get<Transform>()->absolute_pos();
-	Vec3 trace_end = trace_start + trace_dir * AWK_SNIPE_DISTANCE;
+	// if we're already in-air, we can only travel AWK_MAX_DISTANCE
+	// this prevents super long bounces after reflect()
+	Vec3 trace_end = trace_start + trace_dir * (s == State::Crawl ? AWK_SNIPE_DISTANCE : AWK_MAX_DISTANCE);
 
 	AwkRaycastCallback ray_callback(trace_start, trace_end, entity());
 	Physics::raycast(&ray_callback, ~CollisionAwkIgnore & ~ally_containment_field_mask());
@@ -747,7 +750,7 @@ void Awk::reflect(const Vec3& hit, const Vec3& normal)
 		if (can_shoot(candidate_velocity, &next_hit))
 		{
 			r32 distance_to_next_hit = (next_hit - hit).length_squared();
-			if (distance_to_next_hit > farthest_distance)
+			if (distance_to_next_hit > farthest_distance && distance_to_next_hit)
 			{
 				new_velocity = candidate_velocity;
 				farthest_distance = distance_to_next_hit;

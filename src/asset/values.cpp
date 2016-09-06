@@ -13,7 +13,6 @@ const char* AssetLookup::Mesh::values[] =
 	"assets/containment_field_base.msh",
 	"assets/containment_field_sphere.msh",
 	"assets/cube.msh",
-	"assets/cursor.msh",
 	"assets/icon_battery_0.msh",
 	"assets/icon_battery_1.msh",
 	"assets/icon_battery_2.msh",
@@ -175,7 +174,6 @@ const char* AssetLookup::Mesh::names[] =
 	"containment_field_base",
 	"containment_field_sphere",
 	"cube",
-	"cursor",
 	"icon_battery_0",
 	"icon_battery_1",
 	"icon_battery_2",
@@ -604,12 +602,6 @@ const char* AssetLookup::NavMesh::names[] =
 
 const char* AssetLookup::String::names[] =
 {
-	"Ioke",
-	"Medias Res",
-	"Moros",
-	"Ponos",
-	"Soteria",
-	"Tyche",
 	"_default",
 	"ability_spawn_cost",
 	"accept",
@@ -887,6 +879,7 @@ const char* AssetLookup::String::names[] =
 	"match_starting",
 	"minion",
 	"minion_killed",
+	"msg_albert_intro",
 	"music",
 	"no",
 	"no_effect",

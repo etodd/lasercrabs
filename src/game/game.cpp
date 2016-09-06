@@ -66,9 +66,6 @@ Game::Mode Game::scheduled_mode = Game::Mode::Pvp;
 Game::Save Game::save = Game::Save();
 Game::Level Game::level;
 Game::Session Game::session = Game::Session();
-Vec2 Game::cursor(200, 200);
-b8 Game::cursor_updated = false;
-b8 Game::cursor_active = false;
 b8 Game::cancel_event_eaten[] = {};
 
 Game::Session::Session()
@@ -127,8 +124,8 @@ void Game::Session::reset()
 Game::Save::Save()
 	: zones(),
 	story_index(),
-	credits(),
 	variables(),
+	resources(),
 	username("etodd")
 {
 }
@@ -225,8 +222,6 @@ void Game::update(const Update& update_in)
 	time.delta = update_in.time.delta * session.effective_time_scale();
 	time.total += time.delta;
 	physics_timestep = (1.0f / 60.0f) * session.effective_time_scale();
-
-	cursor_updated = false;
 
 	Update u = update_in;
 	u.time = time;
@@ -589,53 +584,6 @@ void Game::draw_alpha(const RenderParams& render_params)
 		(*draws[i])(render_params);
 
 	Console::draw(render_params);
-}
-
-void Game::draw_cursor(const RenderParams& params)
-{
-	UI::mesh(params, Asset::Mesh::cursor, cursor + Vec2(-2, 4), Vec2(24) * UI::scale, UI::background_color);
-	UI::mesh(params, Asset::Mesh::cursor, cursor, Vec2(18) * UI::scale, UI::default_color);
-}
-
-void Game::update_cursor(const Update& u)
-{
-	if (!cursor_updated)
-	{
-		cursor_updated = true;
-
-		cursor.x = LMath::clampf(cursor.x + u.input->cursor_x, 0.0f, u.input->width);
-		cursor.y = LMath::clampf(cursor.y - u.input->cursor_y, 0.0f, u.input->height);
-		if (cursor_active)
-		{
-			// disable cursor when a gamepad is used
-			const Gamepad& gamepad = u.input->gamepads[0];
-			if (gamepad.active)
-			{
-				if (gamepad.btns)
-					cursor_active = false;
-				else
-				{
-					Vec2 left(gamepad.left_x, gamepad.left_y);
-					Input::dead_zone(&left.x, &left.y);
-					if (left.length_squared() > 0.0f)
-						cursor_active = false;
-					else
-					{
-						Vec2 right(gamepad.right_x, gamepad.right_y);
-						Input::dead_zone(&right.x, &right.y);
-						if (right.length_squared() > 0.0f)
-							cursor_active = false;
-					}
-				}
-			}
-		}
-		else
-		{
-			// enable cursor when the mouse is moved
-			if (u.input->cursor_x != 0 || u.input->cursor_y != 0)
-				cursor_active = true;
-		}
-	}
 }
 
 void Game::draw_additive(const RenderParams& render_params)

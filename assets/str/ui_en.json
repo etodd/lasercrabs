@@ -336,10 +336,12 @@
 	"no": "No",
 
 	"_default": null,
-	"Soteria": null,
-	"Medias Res": null,
-	"Moros": null,
-	"Ponos": null,
-	"Ioke": null,
-	"Tyche": null
+	
+	"msg_albert_intro": "Hope y'all understand, I'm doing the best I can. Just getting you this workstation login was a royal pain.
+
+I'm leaving the contact info of an AI who can help you out. Call her up, tell her I sent you.
+
+Also left one hack kit to get you started. Best I could do.
+
+I'm real sorry I had to leave you in this mess. Good luck."
 }

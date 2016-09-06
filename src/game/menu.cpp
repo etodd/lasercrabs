@@ -27,31 +27,9 @@ b8 gamepad_active[MAX_GAMEPADS] = {};
 
 State main_menu_state;
 
-void init()
-{
-	refresh_variables();
-
-	Game::session.reset();
-
-	title();
-}
-
-void clear()
-{
-	main_menu_state = State::Hidden;
-}
-
+b8 is_gamepad = false;
 void refresh_variables()
 {
-	b8 is_gamepad = false;
-	for (s32 i = 0; i < MAX_GAMEPADS; i++)
-	{
-		if (gamepad_active[i])
-		{
-			is_gamepad = true;
-			break;
-		}
-	}
 	const Settings::Gamepad& gamepad = Settings::gamepads[0];
 	UIText::set_variable("Start", gamepad.bindings[(s32)Controls::Start].string(is_gamepad));
 	UIText::set_variable("Cancel", gamepad.bindings[(s32)Controls::Cancel].string(is_gamepad));
@@ -80,6 +58,71 @@ void refresh_variables()
 	UIText::set_variable("TabLeft", gamepad.bindings[(s32)Controls::TabLeft].string(is_gamepad));
 	UIText::set_variable("TabRight", gamepad.bindings[(s32)Controls::TabRight].string(is_gamepad));
 }
+
+void update_binding_variables_if_necessary(const Update& u)
+{
+	const Gamepad& gamepad = u.input->gamepads[0];
+	b8 refresh = false;
+	if (is_gamepad)
+	{
+		// check if we need to clear the gamepad flag
+		if (!gamepad.active || u.input->cursor_x != 0 || u.input->cursor_y != 0)
+		{
+			is_gamepad = false;
+			refresh = true;
+		}
+	}
+	else
+	{
+		// check if we need to set the gamepad flag
+		if (gamepad.active)
+		{
+			if (gamepad.btns)
+			{
+				is_gamepad = true;
+				refresh = true;
+			}
+			else
+			{
+				Vec2 left(gamepad.left_x, gamepad.left_y);
+				Input::dead_zone(&left.x, &left.y);
+				if (left.length_squared() > 0.0f)
+				{
+					is_gamepad = true;
+					refresh = true;
+				}
+				else
+				{
+					Vec2 right(gamepad.right_x, gamepad.right_y);
+					Input::dead_zone(&right.x, &right.y);
+					if (right.length_squared() > 0.0f)
+					{
+						is_gamepad = true;
+						refresh = true;
+					}
+				}
+			}
+		}
+	}
+
+	if (refresh)
+		refresh_variables();
+}
+
+void init()
+{
+	refresh_variables();
+
+	Game::session.reset();
+
+	title();
+}
+
+void clear()
+{
+	main_menu_state = State::Hidden;
+}
+
 
 void title_menu(const Update& u, u8 gamepad, UIMenu* menu, State* state)
 {
@@ -187,21 +230,10 @@ void pause_menu(const Update& u, const Rect2& viewport, u8 gamepad, UIMenu* menu
 
 void update(const Update& u)
 {
+	update_binding_variables_if_necessary(u);
+
 	for (s32 i = 0; i < MAX_GAMEPADS; i++)
 		UIMenu::active[i] = nullptr;
-
-	b8 refresh = false;
-	for (s32 i = 0; i < MAX_GAMEPADS; i++)
-	{
-		if (gamepad_active[i] != u.input->gamepads[i].active)
-		{
-			gamepad_active[i] = u.input->gamepads[i].active;
-			refresh = true;
-		}
-	}
-
-	if (refresh)
-		refresh_variables();
 
 	if (Console::visible)
 		return;
@@ -404,9 +436,6 @@ void UIMenu::start(const Update& u, const Rect2& viewport, u8 g, s32 item_count,
 	else
 		active[g] = this;
 
-	if (gamepad == 0)
-		Game::update_cursor(u);
-
 	if (u.input->gamepads[gamepad].active)
 	{
 		r32 y_last = Input::dead_zone(u.last_input->gamepads[gamepad].left_y);
@@ -422,17 +451,11 @@ void UIMenu::start(const Update& u, const Rect2& viewport, u8 g, s32 item_count,
 
 	if (u.input->get(Controls::Forward, gamepad)
 		&& !u.last_input->get(Controls::Forward, gamepad))
-	{
-		Game::cursor_active = false;
 		selected--;
-	}
 
 	if (u.input->get(Controls::Backward, gamepad)
 		&& !u.last_input->get(Controls::Backward, gamepad))
-	{
-		Game::cursor_active = false;
 		selected++;
-	}
 
 	if (selected < 0)
 		selected = item_count - 1;
@@ -489,22 +512,6 @@ b8 UIMenu::item(const Update& u, Vec2* menu_pos, const char* string, const char*
 	if (Console::visible || active[gamepad] != this)
 		return false;
 
-	if (gamepad == 0 && Game::cursor_active && box.contains(Game::cursor))
-	{
-		selected = items.length - 1;
-
-		if (disabled)
-			return false;
-
-		if (!u.input->get(Controls::Click, gamepad)
-			&& u.last_input->get(Controls::Click, gamepad)
-			&& Game::time.total > 0.5f)
-		{
-			Audio::post_global_event(AK::EVENTS::PLAY_BEEP_GOOD);
-			return true;
-		}
-	}
-
 	if (selected == items.length - 1
 		&& !u.input->get(Controls::Interact, gamepad)
 		&& u.last_input->get(Controls::Interact, gamepad)
@@ -527,9 +534,6 @@ UIMenu::Delta UIMenu::slider_item(const Update& u, Vec2* menu_pos, const char* l
 
 	if (Console::visible || active[gamepad] != this)
 		return Delta::None;
-
-	if (gamepad == 0 && Game::cursor_active && box.contains(Game::cursor))
-		selected = items.length - 1;
 
 	if (disabled)
 		return Delta::None;
@@ -563,27 +567,6 @@ UIMenu::Delta UIMenu::slider_item(const Update& u, Vec2* menu_pos, const char* l
 					return Delta::Down;
 				}
 				else if (x_current > 0.0f)
-				{
-					Audio::post_global_event(AK::EVENTS::PLAY_BEEP_GOOD);
-					return Delta::Up;
-				}
-			}
-		}
-
-		if (gamepad == 0 && Game::cursor_active)
-		{
-			if (!u.input->get(Controls::Click, gamepad)
-				&& u.last_input->get(Controls::Click, gamepad)
-				&& Game::time.total > 0.5f)
-			{
-				Item* item = &items[items.length - 1];
-				if (item->down_rect().contains(Game::cursor))
-				{
-					Audio::post_global_event(AK::EVENTS::PLAY_BEEP_GOOD);
-					return Delta::Down;
-				}
-
-				if (item->up_rect().contains(Game::cursor))
 				{
 					Audio::post_global_event(AK::EVENTS::PLAY_BEEP_GOOD);
 					return Delta::Up;
@@ -683,9 +666,6 @@ void UIMenu::draw_alpha(const RenderParams& params) const
 	}
 
 	scroll.end(params, last_item_rect.pos + Vec2(last_item_rect.size.x * 0.5f, last_item_rect.size.y * -0.5f));
-
-	if (gamepad == 0 && active[gamepad] == this && Game::cursor_active)
-		Game::draw_cursor(params);
 }
 
 }

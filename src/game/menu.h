@@ -25,13 +25,9 @@ struct UIMenu
 	struct Item
 	{
 		AssetID icon;
-		Vec2 pos;
 		UIText label;
 		UIText value;
 		b8 slider;
-		Rect2 rect() const;
-		Rect2 down_rect() const;
-		Rect2 up_rect() const;
 	};
 
 	enum class Delta
@@ -40,8 +36,6 @@ struct UIMenu
 		Up,
 		Down,
 	};
-
-	static r32 height(s32);
 
 	static void text_clip(UIText*, r32, r32);
 
@@ -54,12 +48,13 @@ struct UIMenu
 	UIMenu();
 	void clear();
 	void animate();
-	void start(const Update&, const Rect2&, u8, s32, b8 = true);
+	r32 height() const;
+	void start(const Update&, u8, b8 = true);
 	const Item* last_visible_item() const;
-	b8 add_item(Vec2*, b8, const char*, const char* = nullptr, b8 = false, AssetID = AssetNull, Rect2* = nullptr);
-	b8 item(const Update&, Vec2*, const char*, const char* = nullptr, b8 = false, AssetID = AssetNull);
-	Delta slider_item(const Update&, Vec2*, const char*, const char*, b8 = false, AssetID = AssetNull);
-	void draw_alpha(const RenderParams&) const;
+	b8 add_item(b8, const char*, const char* = nullptr, b8 = false, AssetID = AssetNull);
+	b8 item(const Update&, const char*, const char* = nullptr, b8 = false, AssetID = AssetNull);
+	Delta slider_item(const Update&, const char*, const char*, b8 = false, AssetID = AssetNull);
+	void draw_alpha(const RenderParams&, const Vec2&, UIText::Anchor, UIText::Anchor) const;
 	void end();
 };
 
@@ -81,9 +76,8 @@ void clear();
 void draw(const RenderParams&);
 void title();
 void show();
-void pause_menu(const Update&, const Rect2&, u8, UIMenu*, State*);
-b8 options(const Update&, const Rect2&, u8, UIMenu*, Vec2*);
-r32 options_height();
+void pause_menu(const Update&, u8, UIMenu*, State*);
+b8 options(const Update&, u8, UIMenu*);
 
 }
 

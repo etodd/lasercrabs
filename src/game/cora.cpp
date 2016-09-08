@@ -16,7 +16,6 @@
 #include "entities.h"
 #include "render/particles.h"
 #include "data/import_common.h"
-#include "utf8/utf8.h"
 #include "sha1/sha1.h"
 #include "vi_assert.h"
 #include "cjson/cJSON.h"
@@ -24,6 +23,7 @@
 #include "usernames.h"
 #include <string>
 #include <unordered_map>
+#include "utf8/utf8.h"
 
 namespace VI
 {
@@ -456,6 +456,7 @@ namespace Cora
 		UIMenu menu;
 
 		LinkArg<AssetID> node_executed;
+		Link conversation_finished;
 	};
 
 	static Data* data;
@@ -470,14 +471,20 @@ namespace Cora
 		return data->node_executed;
 	}
 
+	Link& conversation_finished()
+	{
+		return data->conversation_finished;
+	}
+
 	void text_clear()
 	{
 		data->texts.clear();
+		data->text.text("");
 	}
 
 	void text_schedule(r32 time, const char* txt)
 	{
-		data->texts.schedule(time, txt);
+		data->texts.schedule(data->time + time, txt);
 	}
 
 	void clear()
@@ -720,31 +727,29 @@ namespace Cora
 				if (choice.d != IDNull)
 					choice_count++;
 
-				data->menu.start(u, { Vec2(0, 0), Vec2(u.input->width, u.input->height) }, 0, choice_count, has_focus());
-
-				Vec2 p(u.input->width * 0.5f + MENU_ITEM_WIDTH * -0.5f, u.input->height * 0.3f);
+				data->menu.start(u, 0, has_focus());
 
 				{
 					Node& node = Node::list[choice.a];
-					if (data->menu.item(u, &p, _(node.name)))
+					if (data->menu.item(u, _(node.name)))
 						clear_and_execute(node.next, 0.25f);
 				}
 				if (choice.b != IDNull)
 				{
 					Node& node = Node::list[choice.b];
-					if (data->menu.item(u, &p, _(node.name)))
+					if (data->menu.item(u, _(node.name)))
 						clear_and_execute(node.next, 0.25f);
 				}
 				if (choice.c != IDNull)
 				{
 					Node& node = Node::list[choice.c];
-					if (data->menu.item(u, &p, _(node.name)))
+					if (data->menu.item(u, _(node.name)))
 						clear_and_execute(node.next, 0.25f);
 				}
 				if (choice.d != IDNull)
 				{
 					Node& node = Node::list[choice.d];
-					if (data->menu.item(u, &p, _(node.name)))
+					if (data->menu.item(u, _(node.name)))
 						clear_and_execute(node.next, 0.25f);
 				}
 
@@ -755,7 +760,7 @@ namespace Cora
 		data->time += Game::real_time.delta;
 	}
 
-	void draw(const RenderParams& params)
+	void draw(const RenderParams& params, const Vec2& pos_center)
 	{
 		const Rect2& vp = params.camera->viewport;
 
@@ -763,10 +768,10 @@ namespace Cora
 
 		if (data->mode != Mode::Hidden)
 		{
+			Vec2 pos = pos_center + Vec2(0.0f, 96.0f * UI::scale);
 			Face face = data->faces.current();
 
 			r32 scale = UI::scale * 6.0f;
-			Vec2 pos = vp.pos + vp.size * Vec2(0.5f, 0.6f);
 
 			if (face == Face::Default)
 			{
@@ -854,7 +859,7 @@ namespace Cora
 		// text
 		if (data->text.has_text())
 		{
-			Vec2 pos;
+			Vec2 text_pos;
 			switch (data->mode)
 			{
 				case Mode::Hidden:
@@ -862,7 +867,7 @@ namespace Cora
 					data->text.anchor_x = UIText::Anchor::Center;
 					data->text.anchor_y = UIText::Anchor::Max;
 					data->text.color = UI::accent_color;
-					pos = Vec2(vp.size.x * 0.5f, vp.size.y * 0.9f);
+					text_pos = pos_center;
 					break;
 				}
 				case Mode::Active:
@@ -870,7 +875,7 @@ namespace Cora
 					data->text.anchor_x = UIText::Anchor::Center;
 					data->text.anchor_y = UIText::Anchor::Max;
 					data->text.color = UI::default_color;
-					pos = Vec2(vp.size.x * 0.5f, vp.size.y * 0.6f) + Vec2(0, -128 * UI::scale);
+					text_pos = pos_center + Vec2(0, -64 * UI::scale);
 					break;
 				}
 				default:
@@ -880,12 +885,12 @@ namespace Cora
 				}
 			}
 
-			UI::box(params, data->text.rect(pos).outset(MENU_ITEM_PADDING), UI::background_color);
-			data->text.draw(params, pos);
-		}
+			UI::box(params, data->text.rect(text_pos).outset(MENU_ITEM_PADDING), UI::background_color);
+			data->text.draw(params, text_pos);
 
-		// menu
-		data->menu.draw_alpha(params);
+			// menu
+			data->menu.draw_alpha(params, text_pos + Vec2(0, -data->text.bounds().y + (MENU_ITEM_FONT_SIZE * -UI::scale) - MENU_ITEM_PADDING), UIText::Anchor::Center, UIText::Anchor::Max);
+		}
 	}
 
 	void cleanup()
@@ -900,6 +905,7 @@ namespace Cora
 		{
 			conversation_in_progress(false);
 			clear();
+			data->conversation_finished.fire();
 		}
 	}
 
@@ -911,7 +917,6 @@ namespace Cora
 		Audio::dialogue_done = false;
 		Game::updates.add(update);
 		Game::cleanups.add(cleanup);
-		Game::draws.add(draw);
 
 		data->node_executed.link(&on_node_executed);
 

@@ -188,7 +188,7 @@ void UIText::refresh_bounds()
 
 b8 UIText::clipped() const
 {
-	return clip > 0.0f && clip < utf8len(rendered_string);
+	return clip > 0 && clip < utf8len(rendered_string);
 }
 
 void UIText::set_size(r32 s)
@@ -296,7 +296,7 @@ void UIText::draw(const RenderParams& params, const Vec2& pos, r32 rot) const
 	r32 wrap = wrap_width / scaled_size;
 	while ((c = rendered_string[char_index]))
 	{
-		b8 clipped = clip > 0 && char_index == clip;
+		b8 clipped = clip > 0 && char_index == clip - 1;
 		const Font::Character* character = &f->get(&c);
 		if (c == '\n')
 		{
@@ -415,53 +415,52 @@ void UIText::draw(const RenderParams& params, const Vec2& pos, r32 rot) const
 	}
 }
 
-// handles input
-void UIScroll::update(const Update& u, s32 item_count, s32 gamepad, b8 input)
+s32 UI::vertical_input_delta(const Update& u, s32 gamepad)
 {
-	update_menu(u, item_count, gamepad, input);
-
-	if (input)
+	s32 result = 0;
+	// joystick
+	if (u.input->gamepads[gamepad].active)
 	{
-		// joystick
-		if (u.input->gamepads[gamepad].active)
+		Vec2 last_joystick(u.last_input->gamepads[gamepad].left_x, u.last_input->gamepads[gamepad].left_y);
+		Input::dead_zone(&last_joystick.x, &last_joystick.y, UI_JOYSTICK_DEAD_ZONE);
+		if (last_joystick.y == 0.0f)
 		{
-			Vec2 last_joystick(u.last_input->gamepads[gamepad].left_x, u.last_input->gamepads[gamepad].left_y);
-			Input::dead_zone(&last_joystick.x, &last_joystick.y, UI_JOYSTICK_DEAD_ZONE);
-			if (last_joystick.y == 0.0f)
-			{
-				Vec2 current_joystick(u.input->gamepads[gamepad].left_x, u.input->gamepads[gamepad].left_y);
-				Input::dead_zone(&current_joystick.x, &current_joystick.y, UI_JOYSTICK_DEAD_ZONE);
-				if (current_joystick.y < 0.0f)
-					pos--;
-				else if (current_joystick.y > 0.0f)
-					pos++;
-			}
+			Vec2 current_joystick(u.input->gamepads[gamepad].left_x, u.input->gamepads[gamepad].left_y);
+			Input::dead_zone(&current_joystick.x, &current_joystick.y, UI_JOYSTICK_DEAD_ZONE);
+			if (current_joystick.y < 0.0f)
+				result--;
+			else if (current_joystick.y > 0.0f)
+				result++;
 		}
+	}
 
-		// keyboard / D-pad
-		if ((u.input->get(Controls::Forward, gamepad) && !u.last_input->get(Controls::Forward, gamepad)))
-			pos--;
+	// keyboard / D-pad
+	if ((u.input->get(Controls::Forward, gamepad) && !u.last_input->get(Controls::Forward, gamepad)))
+		result--;
 
-		if (u.input->get(Controls::Backward, gamepad) && !u.last_input->get(Controls::Backward, gamepad))
-			pos++;
+	if (u.input->get(Controls::Backward, gamepad) && !u.last_input->get(Controls::Backward, gamepad))
+		result++;
+
+	return result;
+}
+
+// gamepad = -1 by default, meaning no input will be processed
+void UIScroll::update(const Update& u, s32 item_count, s32 gamepad)
+{
+	update_menu(item_count);
+
+	if (gamepad >= 0)
+	{
+		pos += UI::vertical_input_delta(u, gamepad);
 
 		// keep within range
 		pos = vi_max(0, vi_min(count - UI_SCROLL_MAX, pos));
 	}
 }
 
-void UIScroll::update_menu(const Update& u, s32 item_count, s32 gamepad, b8 input)
+void UIScroll::update_menu(s32 item_count)
 {
 	count = item_count;
-
-	// mouse wheel
-	if (input && gamepad == 0)
-	{
-		if (u.input->keys[(s32)KeyCode::MouseWheelUp] && !u.last_input->keys[(s32)KeyCode::MouseWheelUp])
-			pos--;
-		if (u.input->keys[(s32)KeyCode::MouseWheelDown] && !u.last_input->keys[(s32)KeyCode::MouseWheelDown])
-			pos++;
-	}
 
 	// keep within range
 	pos = vi_max(0, vi_min(count - UI_SCROLL_MAX, pos));
@@ -476,13 +475,21 @@ void UIScroll::scroll_into_view(s32 i)
 void UIScroll::start(const RenderParams& params, const Vec2& p) const
 {
 	if (pos > 0)
-		UI::triangle(params, { p, Vec2(32.0f * UI::scale) }, UI::accent_color);
+	{
+		Vec2 pos = p + Vec2(0, 16.0f * UI::scale);
+		UI::centered_box(params, { pos, Vec2(32.0f * UI::scale) }, UI::background_color);
+		UI::triangle(params, { pos, Vec2(16.0f * UI::scale) }, UI::accent_color);
+	}
 }
 
 void UIScroll::end(const RenderParams& params, const Vec2& p) const
 {
 	if (pos + UI_SCROLL_MAX < count)
-		UI::triangle(params, { p, Vec2(32.0f * UI::scale) }, UI::accent_color, PI);
+	{
+		Vec2 pos = p + Vec2(0, -16.0f * UI::scale);
+		UI::centered_box(params, { pos, Vec2(32.0f * UI::scale) }, UI::background_color);
+		UI::triangle(params, { pos, Vec2(16.0f * UI::scale) }, UI::accent_color, PI);
+	}
 }
 
 b8 UIScroll::item(s32 i) const

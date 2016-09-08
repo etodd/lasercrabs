@@ -308,8 +308,6 @@ enum class Controls
 	Backward,
 	Left,
 	Right,
-	Down,
-	Up,
 	Primary,
 	Zoom,
 	Ability1,
@@ -321,6 +319,7 @@ enum class Controls
 	Interact,
 	TabLeft,
 	TabRight,
+	Call,
 	count,
 };
 

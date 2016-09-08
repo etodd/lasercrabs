@@ -96,6 +96,7 @@ struct Game
 
 	enum class ZoneState
 	{
+		Inaccessible,
 		Locked,
 		Friendly,
 		Hostile,
@@ -109,12 +110,22 @@ struct Game
 		count,
 	};
 
+	struct Message
+	{
+		r64 timestamp;
+		AssetID contact;
+		AssetID text;
+		b8 read;
+	};
+
 	struct Save
 	{
+		Array<Message> messages;
+		Array<Message> messages_scheduled;
+		std::unordered_map<AssetID, AssetID> variables; // todo: kill STL
 		ZoneState zones[64];
 		u16 story_index;
 		u16 resources[(s32)Resource::count];
-		std::unordered_map<AssetID, AssetID> variables; // todo: kill STL
 		const char* username;
 
 		Save();

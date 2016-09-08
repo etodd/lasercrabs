@@ -258,10 +258,6 @@ void LocalPlayer::update(const Update& u)
 		if (!Console::visible)
 		{
 			r32 speed = u.input->keys[(s32)KeyCode::LShift] ? 24.0f : 4.0f;
-			if (u.input->get(Controls::Up, gamepad))
-				camera->pos += Vec3(0, 1, 0) * u.time.delta * speed;
-			if (u.input->get(Controls::Down, gamepad))
-				camera->pos += Vec3(0, -1, 0) * u.time.delta * speed;
 			if (u.input->get(Controls::Forward, gamepad))
 				camera->pos += look_quat * Vec3(0, 0, 1) * u.time.delta * speed;
 			if (u.input->get(Controls::Backward, gamepad))
@@ -354,11 +350,9 @@ void LocalPlayer::update(const Update& u)
 
 				u8 last_selected = menu.selected;
 
-				menu.start(u, camera->viewport, gamepad, (s32)Upgrade::count + 1);
+				menu.start(u, gamepad);
 
-				Vec2 pos(camera->viewport.size.x * 0.5f + MENU_ITEM_WIDTH * -0.5f, camera->viewport.size.y * 0.8f);
-
-				if (menu.item(u, &pos, _(strings::close), nullptr))
+				if (menu.item(u, _(strings::close), nullptr))
 					upgrade_menu_open = false;
 
 				for (s32 i = 0; i < (s32)Upgrade::count; i++)
@@ -368,7 +362,7 @@ void LocalPlayer::update(const Update& u)
 						&& manager.ref()->upgrade_available(upgrade)
 						&& manager.ref()->credits >= manager.ref()->upgrade_cost(upgrade);
 					const UpgradeInfo& info = UpgradeInfo::list[(s32)upgrade];
-					if (menu.item(u, &pos, _(info.name), nullptr, !can_upgrade, info.icon))
+					if (menu.item(u, _(info.name), nullptr, !can_upgrade, info.icon))
 						manager.ref()->upgrade_start(upgrade);
 				}
 
@@ -382,7 +376,7 @@ void LocalPlayer::update(const Update& u)
 		}
 		case UIMode::Pause:
 		{
-			Menu::pause_menu(u, camera->viewport, gamepad, &menu, &menu_state);
+			Menu::pause_menu(u, gamepad, &menu, &menu_state);
 			break;
 		}
 		case UIMode::Dead:
@@ -541,13 +535,13 @@ void LocalPlayer::draw_alpha(const RenderParams& params) const
 			{
 				// "upgrade!" prompt
 				text.color = manager.ref()->upgrade_available() ? UI::accent_color : UI::disabled_color;
-				text.text(_(strings::upgrade_prompt));
+				text.text(_(strings::prompt_upgrade));
 			}
 			else
 			{
 				// "capture!" prompt
 				text.color = UI::accent_color;
-				text.text(_(strings::capture_prompt));
+				text.text(_(strings::prompt_capture));
 			}
 			text.anchor_x = UIText::Anchor::Center;
 			text.anchor_y = UIText::Anchor::Center;
@@ -601,7 +595,8 @@ void LocalPlayer::draw_alpha(const RenderParams& params) const
 
 	if (mode == UIMode::Upgrading)
 	{
-		menu.draw_alpha(params);
+		Vec2 upgrade_menu_pos = vp.size * Vec2(0.5f, 0.6f);
+		menu.draw_alpha(params, upgrade_menu_pos, UIText::Anchor::Center, UIText::Anchor::Center);
 
 		if (menu.selected > 0)
 		{
@@ -623,8 +618,7 @@ void LocalPlayer::draw_alpha(const RenderParams& params) const
 				text.text(_(strings::upgrade_description), cost, _(info.description));
 				UIMenu::text_clip(&text, upgrade_animation_time, 150.0f);
 
-				const Rect2& last_item = menu.last_visible_item()->rect();
-				Vec2 pos(last_item.pos.x + padding, last_item.pos.y - MENU_ITEM_HEIGHT - padding * 2.0f);
+				Vec2 pos = upgrade_menu_pos + Vec2(MENU_ITEM_WIDTH * -0.5f + padding, menu.height() * -0.5f - padding * 3.0f);
 				UI::box(params, text.rect(pos).outset(padding), UI::background_color);
 				text.draw(params, pos);
 			}
@@ -720,7 +714,7 @@ void LocalPlayer::draw_alpha(const RenderParams& params) const
 
 			Vec2 p = title_pos + Vec2(0, -2.0f * (MENU_ITEM_HEIGHT + MENU_ITEM_PADDING));
 
-			score_summary_scroll.start(params, p + Vec2(0, MENU_ITEM_PADDING + MENU_ITEM_HEIGHT * 0.5f));
+			score_summary_scroll.start(params, p + Vec2(0, MENU_ITEM_PADDING));
 			s32 item_counter = 0;
 			for (auto player = PlayerManager::list.iterator(); !player.is_last(); player.next())
 			{
@@ -930,7 +924,7 @@ void LocalPlayer::draw_alpha(const RenderParams& params) const
 	}
 
 	if (mode == UIMode::Pause) // pause menu always drawn on top
-		menu.draw_alpha(params);
+		menu.draw_alpha(params, Vec2(0, params.camera->viewport.size.y * 0.5f), UIText::Anchor::Min, UIText::Anchor::Center);
 }
 
 PlayerCommon::PlayerCommon(PlayerManager* m)
@@ -1227,11 +1221,6 @@ Vec3 LocalPlayerControl::get_movement(const Update& u, const Quat& rot)
 		}
 
 		movement = rot * movement;
-
-		if (u.input->get(Controls::Up, gamepad))
-			movement.y += 1;
-		if (u.input->get(Controls::Down, gamepad))
-			movement.y -= 1;
 	}
 	return movement;
 }
@@ -2150,7 +2139,7 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 				// cancel prompt
 				UIText text;
 				text.color = UI::accent_color;
-				text.text(_(strings::cancel_prompt));
+				text.text(_(strings::prompt_cancel));
 				text.anchor_x = UIText::Anchor::Center;
 				text.anchor_y = UIText::Anchor::Max;
 				text.size = text_size;

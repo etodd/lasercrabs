@@ -60,8 +60,8 @@ struct UIScroll
 	s32 pos;
 	s32 count;
 
-	void update(const Update&, s32, s32, b8 = true); // for non-menu things
-	void update_menu(const Update&, s32, s32, b8 = true); // for menus
+	void update(const Update&, s32, s32 = -1); // for non-menu things
+	void update_menu(s32); // for menus
 	void scroll_into_view(s32);
 	void start(const RenderParams&, const Vec2&) const;
 	void end(const RenderParams&, const Vec2&) const;
@@ -108,6 +108,7 @@ struct UI
 	static void draw(const RenderParams&);
 	static void mesh(const RenderParams&, const AssetID, const Vec2&, const Vec2& = Vec2(1, 1), const Vec4& = Vec4(1, 1, 1, 1), r32 = 0.0f);
 	static b8 project(const RenderParams&, const Vec3&, Vec2*);
+	static s32 vertical_input_delta(const Update&, s32);
 
 	// Instantly draw a texture
 	static void texture(const RenderParams&, const s32, const Rect2&, const Vec4& = Vec4(1, 1, 1, 1), const Rect2& = { Vec2::zero, Vec2(1, 1) }, const AssetID = AssetNull);

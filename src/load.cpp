@@ -176,8 +176,6 @@ void Loader::settings_load(s32 default_width, s32 default_height)
 		bindings->bindings[(s32)Controls::Forward] = input_binding(gamepad, "forward", { KeyCode::W, KeyCode::Up, Gamepad::Btn::DUp });
 		bindings->bindings[(s32)Controls::Left] = input_binding(gamepad, "left", { KeyCode::A, KeyCode::Left, Gamepad::Btn::DLeft });
 		bindings->bindings[(s32)Controls::Right] = input_binding(gamepad, "right", { KeyCode::D, KeyCode::Right, Gamepad::Btn::DRight });
-		bindings->bindings[(s32)Controls::Up] = input_binding(gamepad, "up", { KeyCode::Space, KeyCode::None, Gamepad::Btn::RightShoulder });
-		bindings->bindings[(s32)Controls::Down] = input_binding(gamepad, "down", { KeyCode::LCtrl, KeyCode::None, Gamepad::Btn::LeftShoulder });
 		bindings->bindings[(s32)Controls::Primary] = input_binding(gamepad, "primary", { KeyCode::MouseLeft, KeyCode::E, Gamepad::Btn::RightTrigger });
 		bindings->bindings[(s32)Controls::Zoom] = input_binding(gamepad, "zoom", { KeyCode::MouseRight, KeyCode::Q, Gamepad::Btn::LeftTrigger });
 		bindings->bindings[(s32)Controls::Ability1] = input_binding(gamepad, "ability1", { KeyCode::D1, KeyCode::None, Gamepad::Btn::X });
@@ -186,6 +184,7 @@ void Loader::settings_load(s32 default_width, s32 default_height)
 		bindings->bindings[(s32)Controls::Interact] = input_binding(gamepad, "interact", { KeyCode::Space, KeyCode::Return, Gamepad::Btn::A });
 		bindings->bindings[(s32)Controls::TabLeft] = input_binding(gamepad, "tab_left", { KeyCode::Q, KeyCode::None, Gamepad::Btn::LeftShoulder });
 		bindings->bindings[(s32)Controls::TabRight] = input_binding(gamepad, "tab_right", { KeyCode::E, KeyCode::None, Gamepad::Btn::RightShoulder });
+		bindings->bindings[(s32)Controls::Call] = input_binding(gamepad, "call", { KeyCode::Tab, KeyCode::None, Gamepad::Btn::X });
 
 		// these bindings cannot be changed
 		bindings->bindings[(s32)Controls::Start] = { KeyCode::Space, KeyCode::None, Gamepad::Btn::Start };
@@ -225,8 +224,6 @@ void Loader::settings_save()
 		cJSON_AddItemToObject(gamepad, "forward", input_binding_json(bindings->bindings[(s32)Controls::Forward]));
 		cJSON_AddItemToObject(gamepad, "left", input_binding_json(bindings->bindings[(s32)Controls::Left]));
 		cJSON_AddItemToObject(gamepad, "right", input_binding_json(bindings->bindings[(s32)Controls::Right]));
-		cJSON_AddItemToObject(gamepad, "up", input_binding_json(bindings->bindings[(s32)Controls::Up]));
-		cJSON_AddItemToObject(gamepad, "down", input_binding_json(bindings->bindings[(s32)Controls::Down]));
 		cJSON_AddItemToObject(gamepad, "primary", input_binding_json(bindings->bindings[(s32)Controls::Primary]));
 		cJSON_AddItemToObject(gamepad, "zoom", input_binding_json(bindings->bindings[(s32)Controls::Zoom]));
 		cJSON_AddItemToObject(gamepad, "ability1", input_binding_json(bindings->bindings[(s32)Controls::Ability1]));
@@ -235,6 +232,7 @@ void Loader::settings_save()
 		cJSON_AddItemToObject(gamepad, "interact", input_binding_json(bindings->bindings[(s32)Controls::Interact]));
 		cJSON_AddItemToObject(gamepad, "tab_left", input_binding_json(bindings->bindings[(s32)Controls::TabLeft]));
 		cJSON_AddItemToObject(gamepad, "tab_right", input_binding_json(bindings->bindings[(s32)Controls::TabRight]));
+		cJSON_AddItemToObject(gamepad, "call", input_binding_json(bindings->bindings[(s32)Controls::Call]));
 		cJSON_AddItemToObject(gamepad, "invert_y", cJSON_CreateNumber(bindings->invert_y));
 		cJSON_AddItemToObject(gamepad, "sensitivity", cJSON_CreateNumber(bindings->sensitivity));
 		cJSON_AddItemToArray(gamepads, gamepad);

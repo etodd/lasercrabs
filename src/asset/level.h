@@ -13,7 +13,7 @@ namespace Asset
 		const AssetID Medias_Res = 1;
 		const AssetID Moros = 2;
 		const AssetID Ponos = 3;
-		const AssetID Soteria = 4;
+		const AssetID Safe_Zone = 4;
 		const AssetID Tyche = 5;
 		const AssetID terminal = 6;
 		const AssetID title = 7;

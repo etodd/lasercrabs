@@ -126,6 +126,8 @@ Game::Save::Save()
 	story_index(),
 	variables(),
 	resources(),
+	messages(),
+	messages_scheduled(),
 	username("etodd")
 {
 }

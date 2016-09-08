@@ -181,7 +181,7 @@ namespace VI
 	void Team::transition_next(Game::MatchResult result)
 	{
 		Game::session.last_match = result;
-		if (Game::session.level == Asset::Level::Soteria && result == Game::MatchResult::Loss)
+		if (Game::session.level == Asset::Level::Safe_Zone && result == Game::MatchResult::Loss)
 			Game::schedule_load_level(Game::session.level, Game::Mode::Pvp); // retry tutorial automatically
 		else
 			Terminal::show();

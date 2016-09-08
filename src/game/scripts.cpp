@@ -93,8 +93,13 @@ namespace tutorial
 
 		data->state = TutorialState::PvpUpgrade;
 		Cora::text_clear();
-		Cora::text_schedule(0.0f, _(strings::tut_pvp_upgrade));
+		Cora::text_schedule(1.0f, _(strings::tut_pvp_upgrade));
 		Game::level.feature_level = Game::FeatureLevel::Abilities;
+	}
+
+	void ai_killed(Entity*)
+	{
+		Game::save.story_index++;
 	}
 
 	void player_or_ai_killed(Entity*)
@@ -105,7 +110,9 @@ namespace tutorial
 
 	void ai_spawned()
 	{
-		AIPlayerControl::list.iterator().item()->get<Health>()->killed.link(&player_or_ai_killed);
+		LinkArg<Entity*>* link = &AIPlayerControl::list.iterator().item()->get<Health>()->killed;
+		link->link(&player_or_ai_killed);
+		link->link(&ai_killed);
 	}
 
 	void player_spawned()
@@ -124,7 +131,7 @@ namespace tutorial
 
 		data->state = TutorialState::PvpGetHealth;
 		Cora::text_clear();
-		Cora::text_schedule(0.0f, _(strings::tut_pvp_health));
+		Cora::text_schedule(1.0f, _(strings::tut_pvp_health));
 	}
 
 	void update(const Update& u)
@@ -138,7 +145,7 @@ namespace tutorial
 				{
 					data->state = TutorialState::PvpKillPlayer;
 					Cora::text_clear();
-					Cora::text_schedule(0.0f, _(strings::tut_pvp_kill_player));
+					Cora::text_schedule(1.0f, _(strings::tut_pvp_kill_player));
 					World::remove_deferred(data->door.ref());
 					break;
 				}
@@ -152,6 +159,11 @@ namespace tutorial
 		data = nullptr;
 	}
 
+	void draw(const RenderParams& p)
+	{
+		Cora::draw(p, p.camera->viewport.size * Vec2(0.5f, 0.9f));
+	}
+
 	void init(const Update& u, const EntityFinder& entities)
 	{
 		Game::level.feature_level = Game::FeatureLevel::HealthPickups;
@@ -159,6 +171,7 @@ namespace tutorial
 		data = new Data();
 		Game::updates.add(&update);
 		Game::cleanups.add(&cleanup);
+		Game::draws.add(&draw);
 
 		data->health_location = entities.find("health")->get<Transform>();
 		data->door = entities.find("door");
@@ -181,7 +194,7 @@ namespace tutorial
 		ai_manager->spawn.link(&ai_spawned);
 
 		Cora::init(); // have to init manually since Cora normally isn't loaded in PvP mode
-		Cora::text_schedule(PLAYER_SPAWN_DELAY, _(strings::tut_pvp_minion));
+		Cora::text_schedule(PLAYER_SPAWN_DELAY + 1.0f, _(strings::tut_pvp_minion));
 	}
 }
 

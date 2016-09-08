@@ -26,7 +26,7 @@
 	"deploy_timer": "Deploying... %d",
 	"prompt_deploy": "[{{Interact}}] Deploy",
 	"prompt_hack": "[{{Interact}}] Hack",
-	"prompt_call": "[{{Call}}] Call",
+	"prompt_call": "[{{InteractSecondary}}] Call",
 	"main_menu": "Main menu",
 	"quit": "Quit",
 	"close": "Close",
@@ -77,7 +77,6 @@
 	"tip_3": "Force fields last a limited time unless they are powered by a friendly energy port.",
 	"tip_4": "Use force fields to keep enemy drones out, or trap them inside.",
 	"tip_5": "Minions attack enemy drones, sensors, rocket pods, minions, and force fields.",
-	"tip_6": "Minions are only vulnerable to headshots.",
 	"tip_7": "Killing a minion instantly alerts its owner to your position.",
 	"tip_8": "Use control points to buy upgrades and gain an advantage.",
 	"tip_9": "Rocket pods will not fire until an enemy enters your line of sight, or is detected by one of your sensors.",
@@ -89,10 +88,12 @@
 	"tab_map": "Map",
 	"tab_inventory": "Inventory",
 
-	"tut_pvp_minion": "Shoot the minion through its head.\n[{{Zoom}}] to zoom.\n[{{Primary}}] to shoot.",
-	"tut_pvp_health": "Capture the energy port to gain +1 armor. You can capture up to 3.",
-	"tut_pvp_upgrade": "Energy ports give you energy over time. Return to base and use your energy to buy an upgrade.",
-	"tut_pvp_kill_player": "Now find and destroy the test dummy.",
+	"tut_start": "Find and destroy the test dummy.\n[{{Zoom}}] to zoom.\n[{{Primary}}] to shoot.",
+	"tut_minion": "Minions are only vulnerable to headshots.",
+	"tut_health": "Capture the hanging battery to gain +1 armor. You can capture up to 4.",
+	"tut_upgrade": "Batteries give you energy over time. Find a control point and use your energy to buy an upgrade.",
+	"tut_ability": "Hold [{{Ability1}}] to use your new ability.",
+	"tut_kill_player": "Now find and destroy the test dummy.",
 
 	"left_joystick": "Left joystick",
 	"right_joystick": "Right joystick",
@@ -352,8 +353,8 @@
 	"contact_albert": "Albert",
 	"contact_ivory_corp": "Ivory Corp",
 	
-	"msg_cora_intro": "Contact added. [{{Call}}] to call.",
-	"msg_albert_intro": "Hey friend. I hope you understand that I'm doing the best I can with what I got.
+	"msg_cora_intro": "Contact added. [{{InteractSecondary}}] to call.",
+	"msg_albert_intro": "Hey friend. I hope you understand that I'm doing the best I can with what I got. Even getting you this workstation login was a huge risk.
 
 Good luck out there.",
 	"msg_albert_intro_2": "I'm leaving the contact info of an AI who can help you out. Tell her I sent you.

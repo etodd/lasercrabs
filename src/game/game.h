@@ -146,6 +146,7 @@ struct Game
 	static Save save;
 	static Level level;
 
+	static b8 is_gamepad;
 	static b8 quit;
 	static GameTime time;
 	static GameTime real_time;

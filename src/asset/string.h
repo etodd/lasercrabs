@@ -8,7 +8,7 @@ namespace Asset
 {
 	namespace String
 	{
-		const s32 count = 349;
+		const s32 count = 350;
 		const AssetID _default = 0;
 		const AssetID ability_spawn_cost = 1;
 		const AssetID accept = 2;
@@ -344,20 +344,21 @@ namespace Asset
 		const AssetID tip_3 = 332;
 		const AssetID tip_4 = 333;
 		const AssetID tip_5 = 334;
-		const AssetID tip_6 = 335;
-		const AssetID tip_7 = 336;
-		const AssetID tip_8 = 337;
-		const AssetID tip_9 = 338;
-		const AssetID tut_pvp_health = 339;
-		const AssetID tut_pvp_kill_player = 340;
-		const AssetID tut_pvp_minion = 341;
-		const AssetID tut_pvp_upgrade = 342;
-		const AssetID upgrade_description = 343;
-		const AssetID upgrade_notification = 344;
-		const AssetID upgrading = 345;
-		const AssetID victory = 346;
-		const AssetID waiting = 347;
-		const AssetID yes = 348;
+		const AssetID tip_7 = 335;
+		const AssetID tip_8 = 336;
+		const AssetID tip_9 = 337;
+		const AssetID tut_ability = 338;
+		const AssetID tut_health = 339;
+		const AssetID tut_kill_player = 340;
+		const AssetID tut_minion = 341;
+		const AssetID tut_start = 342;
+		const AssetID tut_upgrade = 343;
+		const AssetID upgrade_description = 344;
+		const AssetID upgrade_notification = 345;
+		const AssetID upgrading = 346;
+		const AssetID victory = 347;
+		const AssetID waiting = 348;
+		const AssetID yes = 349;
 	}
 }
 

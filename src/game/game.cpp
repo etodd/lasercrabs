@@ -57,6 +57,7 @@ namespace VI
 {
 
 b8 Game::quit = false;
+b8 Game::is_gamepad = false;
 GameTime Game::time;
 GameTime Game::real_time;
 r32 Game::physics_timestep;
@@ -224,6 +225,56 @@ void Game::update(const Update& update_in)
 	time.delta = update_in.time.delta * session.effective_time_scale();
 	time.total += time.delta;
 	physics_timestep = (1.0f / 60.0f) * session.effective_time_scale();
+
+	// determine whether to display gamepad or keyboard bindings
+	{
+		const Gamepad& gamepad = update_in.input->gamepads[0];
+		b8 refresh = false;
+		if (is_gamepad)
+		{
+			// check if we need to clear the gamepad flag
+			if (!gamepad.active || update_in.input->cursor_x != 0 || update_in.input->cursor_y != 0)
+			{
+				is_gamepad = false;
+				refresh = true;
+			}
+		}
+		else
+		{
+			// check if we need to set the gamepad flag
+			if (gamepad.active)
+			{
+				if (gamepad.btns)
+				{
+					is_gamepad = true;
+					refresh = true;
+				}
+				else
+				{
+					Vec2 left(gamepad.left_x, gamepad.left_y);
+					Input::dead_zone(&left.x, &left.y);
+					if (left.length_squared() > 0.0f)
+					{
+						is_gamepad = true;
+						refresh = true;
+					}
+					else
+					{
+						Vec2 right(gamepad.right_x, gamepad.right_y);
+						Input::dead_zone(&right.x, &right.y);
+						if (right.length_squared() > 0.0f)
+						{
+							is_gamepad = true;
+							refresh = true;
+						}
+					}
+				}
+			}
+		}
+
+		if (refresh)
+			Menu::refresh_variables();
+	}
 
 	Update u = update_in;
 	u.time = time;

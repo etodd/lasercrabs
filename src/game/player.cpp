@@ -556,7 +556,7 @@ void LocalPlayer::draw_alpha(const RenderParams& params) const
 		{
 			// draw abilities
 
-			b8 is_gamepad = params.sync->input.gamepads[gamepad].active;
+			b8 is_gamepad = gamepad > 0 || Game::is_gamepad;
 
 			// ability 1
 			{

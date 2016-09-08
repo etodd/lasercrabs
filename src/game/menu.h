@@ -76,6 +76,7 @@ void clear();
 void draw(const RenderParams&);
 void title();
 void show();
+void refresh_variables();
 void pause_menu(const Update&, u8, UIMenu*, State*);
 b8 options(const Update&, u8, UIMenu*);
 

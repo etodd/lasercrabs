@@ -27,16 +27,15 @@ b8 gamepad_active[MAX_GAMEPADS] = {};
 
 State main_menu_state;
 
-b8 is_gamepad = false;
 void refresh_variables()
 {
 	const Settings::Gamepad& gamepad = Settings::gamepads[0];
-	UIText::set_variable("Start", gamepad.bindings[(s32)Controls::Start].string(is_gamepad));
-	UIText::set_variable("Cancel", gamepad.bindings[(s32)Controls::Cancel].string(is_gamepad));
+	UIText::set_variable("Start", gamepad.bindings[(s32)Controls::Start].string(Game::is_gamepad));
+	UIText::set_variable("Cancel", gamepad.bindings[(s32)Controls::Cancel].string(Game::is_gamepad));
 
-	UIText::set_variable("Primary", gamepad.bindings[(s32)Controls::Primary].string(is_gamepad));
-	UIText::set_variable("Zoom", gamepad.bindings[(s32)Controls::Zoom].string(is_gamepad));
-	if (is_gamepad)
+	UIText::set_variable("Primary", gamepad.bindings[(s32)Controls::Primary].string(Game::is_gamepad));
+	UIText::set_variable("Zoom", gamepad.bindings[(s32)Controls::Zoom].string(Game::is_gamepad));
+	if (Game::is_gamepad)
 		UIText::set_variable("Movement", _(strings::left_joystick));
 	else
 	{
@@ -44,70 +43,20 @@ void refresh_variables()
 		sprintf
 		(
 			buffer, _(strings::keyboard_movement),
-			gamepad.bindings[(s32)Controls::Forward].string(is_gamepad),
-			gamepad.bindings[(s32)Controls::Left].string(is_gamepad),
-			gamepad.bindings[(s32)Controls::Backward].string(is_gamepad),
-			gamepad.bindings[(s32)Controls::Right].string(is_gamepad)
+			gamepad.bindings[(s32)Controls::Forward].string(Game::is_gamepad),
+			gamepad.bindings[(s32)Controls::Left].string(Game::is_gamepad),
+			gamepad.bindings[(s32)Controls::Backward].string(Game::is_gamepad),
+			gamepad.bindings[(s32)Controls::Right].string(Game::is_gamepad)
 		);
 		UIText::set_variable("Movement", buffer);
 	}
-	UIText::set_variable("Ability1", gamepad.bindings[(s32)Controls::Ability1].string(is_gamepad));
-	UIText::set_variable("Ability2", gamepad.bindings[(s32)Controls::Ability2].string(is_gamepad));
-	UIText::set_variable("Ability3", gamepad.bindings[(s32)Controls::Ability3].string(is_gamepad));
-	UIText::set_variable("Interact", gamepad.bindings[(s32)Controls::Interact].string(is_gamepad));
-	UIText::set_variable("TabLeft", gamepad.bindings[(s32)Controls::TabLeft].string(is_gamepad));
-	UIText::set_variable("TabRight", gamepad.bindings[(s32)Controls::TabRight].string(is_gamepad));
-	UIText::set_variable("Call", gamepad.bindings[(s32)Controls::Call].string(is_gamepad));
-}
-
-void update_binding_variables_if_necessary(const Update& u)
-{
-	const Gamepad& gamepad = u.input->gamepads[0];
-	b8 refresh = false;
-	if (is_gamepad)
-	{
-		// check if we need to clear the gamepad flag
-		if (!gamepad.active || u.input->cursor_x != 0 || u.input->cursor_y != 0)
-		{
-			is_gamepad = false;
-			refresh = true;
-		}
-	}
-	else
-	{
-		// check if we need to set the gamepad flag
-		if (gamepad.active)
-		{
-			if (gamepad.btns)
-			{
-				is_gamepad = true;
-				refresh = true;
-			}
-			else
-			{
-				Vec2 left(gamepad.left_x, gamepad.left_y);
-				Input::dead_zone(&left.x, &left.y);
-				if (left.length_squared() > 0.0f)
-				{
-					is_gamepad = true;
-					refresh = true;
-				}
-				else
-				{
-					Vec2 right(gamepad.right_x, gamepad.right_y);
-					Input::dead_zone(&right.x, &right.y);
-					if (right.length_squared() > 0.0f)
-					{
-						is_gamepad = true;
-						refresh = true;
-					}
-				}
-			}
-		}
-	}
-
-	if (refresh)
-		refresh_variables();
+	UIText::set_variable("Ability1", gamepad.bindings[(s32)Controls::Ability1].string(Game::is_gamepad));
+	UIText::set_variable("Ability2", gamepad.bindings[(s32)Controls::Ability2].string(Game::is_gamepad));
+	UIText::set_variable("Ability3", gamepad.bindings[(s32)Controls::Ability3].string(Game::is_gamepad));
+	UIText::set_variable("Interact", gamepad.bindings[(s32)Controls::Interact].string(Game::is_gamepad));
+	UIText::set_variable("InteractSecondary", gamepad.bindings[(s32)Controls::InteractSecondary].string(Game::is_gamepad));
+	UIText::set_variable("TabLeft", gamepad.bindings[(s32)Controls::TabLeft].string(Game::is_gamepad));
+	UIText::set_variable("TabRight", gamepad.bindings[(s32)Controls::TabRight].string(Game::is_gamepad));
 }
 
 void init()
@@ -228,8 +177,6 @@ void pause_menu(const Update& u, u8 gamepad, UIMenu* menu, State* state)
 
 void update(const Update& u)
 {
-	update_binding_variables_if_necessary(u);
-
 	for (s32 i = 0; i < MAX_GAMEPADS; i++)
 		UIMenu::active[i] = nullptr;
 

@@ -13,6 +13,12 @@ namespace VI
 
 struct RenderParams;
 
+typedef enum UITextFlags
+{
+	UITextFlagNone = 0,
+	UITextFlagSingleLine = 1,
+} UITextFlags;
+
 struct UIText
 {
 	struct VariableEntry
@@ -44,7 +50,7 @@ struct UIText
 	Vec2 bounds() const;
 	Rect2 rect(const Vec2&) const;
 	void text(const char*, ...);
-	void text_raw(const char*);
+	void text_raw(const char*, UITextFlags = UITextFlagNone);
 	void refresh_bounds();
 	void set_size(r32);
 	void wrap(r32);

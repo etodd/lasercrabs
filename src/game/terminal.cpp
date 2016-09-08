@@ -45,6 +45,7 @@ namespace Terminal
 #define BORDER 2.0f
 #define OPACITY 0.8f
 #define STRING_BUFFER_SIZE 256
+#define HACK_TIME 2.0f
 
 struct ZoneNode
 {
@@ -141,7 +142,7 @@ const AssetID tips[tip_count] =
 	strings::tip_3,
 	strings::tip_4,
 	strings::tip_5,
-	strings::tip_6,
+	strings::tut_minion,
 	strings::tip_7,
 	strings::tip_8,
 	strings::tip_9,
@@ -683,6 +684,23 @@ void deploy_update(const Update& u)
 		go(data.next_level);
 }
 
+void bar_draw(const RenderParams& params, const char* label, r32 percentage, const Vec2& pos)
+{
+	Vec2 bar_size(180.0f * UI::scale, 32.0f * UI::scale);
+	Rect2 bar = { pos + bar_size * -0.5f, bar_size };
+	UI::box(params, bar, UI::background_color);
+	UI::border(params, bar, 2, UI::accent_color);
+	UI::box(params, { bar.pos, Vec2(bar.size.x * percentage, bar.size.y) }, UI::accent_color);
+
+	UIText text;
+	text.size = 18.0f;
+	text.color = UI::background_color;
+	text.anchor_x = UIText::Anchor::Center;
+	text.anchor_y = UIText::Anchor::Center;
+	text.text(label);
+	text.draw(params, bar.pos + bar.size * 0.5f);
+}
+
 void progress_draw(const RenderParams& params, const char* label, const Vec2& pos_overall)
 {
 	UIText text;
@@ -849,9 +867,9 @@ void tab_messages_update(const Update& u)
 		focus_camera(u, story->camera_messages.ref());
 
 		// call cora
-		if ((messages->mode == Data::Messages::Mode::Messages || messages->mode == Data::Messages::Mode::Message)
+		if (messages->mode != Data::Messages::Mode::Cora
 			&& messages->contact_selected == strings::contact_cora
-			&& u.last_input->get(Controls::Call, 0) && !u.input->get(Controls::Call, 0))
+			&& u.last_input->get(Controls::InteractSecondary, 0) && !u.input->get(Controls::InteractSecondary, 0))
 		{
 			messages_transition(Data::Messages::Mode::Cora);
 			if (cora_entry_points[Game::save.story_index] == AssetNull)
@@ -1049,7 +1067,7 @@ void tab_map_update(const Update& u)
 				if (zone_state == Game::ZoneState::Locked)
 				{
 					if (Game::save.resources[(s32)Game::Resource::HackKits] > 0)
-						data.story.hack_timer = 2.0f; // start hacking
+						data.story.hack_timer = HACK_TIME; // start hacking
 				}
 				else if (zone_state == Game::ZoneState::Hostile)
 					deploy_start();
@@ -1232,7 +1250,7 @@ void contacts_draw(const RenderParams& p, const Data::StoryMode& data, const Rec
 						utf8cpy(buffer, msg_text);
 				}
 				text.font = Asset::Font::pt_sans;
-				text.text(buffer);
+				text.text_raw(buffer, UITextFlagSingleLine);
 				text.draw(p, pos + Vec2(panel_size.x * 0.35f, panel_size.y * 0.5f));
 
 				text.color = selected ? UI::accent_color : UI::alert_color;
@@ -1345,7 +1363,7 @@ void tab_messages_draw(const RenderParams& p, const Data::StoryMode& data, const
 									utf8cpy(buffer, msg_text);
 							}
 							text.font = Asset::Font::pt_sans;
-							text.text(buffer);
+							text.text_raw(buffer, UITextFlagSingleLine);
 							text.color = selected ? UI::accent_color : UI::default_color;
 							text.draw(p, pos + Vec2(panel_size.x * 0.1f, panel_size.y * 0.5f));
 
@@ -1519,7 +1537,7 @@ void tab_map_draw(const RenderParams& p, const Data::StoryMode& story, const Rec
 		}
 
 		if (story.hack_timer > 0.0f)
-			progress_draw(p, _(strings::hacking), p.camera->viewport.size * Vec2(0.5f, 0.2f));
+			bar_draw(p, _(strings::hacking), 1.0f - (story.hack_timer / HACK_TIME), p.camera->viewport.size * Vec2(0.5f, 0.2f));
 	}
 }
 

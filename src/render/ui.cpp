@@ -65,7 +65,7 @@ void UIText::text(const char* format, ...)
 	text_raw(string);
 }
 
-void UIText::text_raw(const char* string)
+void UIText::text_raw(const char* string, UITextFlags flags)
 {
 	if (!string)
 		string = "";
@@ -78,6 +78,9 @@ void UIText::text_raw(const char* string)
 		while (true)
 		{
 			char c = variable && *variable ? *variable : string[char_index];
+
+			if ((flags & UITextFlagSingleLine) && c == '\n')
+				c = ' ';
 
 			if (c == '{' && string[char_index + 1] == '{')
 			{

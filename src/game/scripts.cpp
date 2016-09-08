@@ -73,15 +73,16 @@ namespace tutorial
 {
 	enum class TutorialState
 	{
-		PvpKillMinion, PvpGetHealth, PvpUpgrade, PvpKillPlayer,
-		Done,
+		Start, Minion, GetHealth, Upgrade, Ability, KillPlayer, Done,
 	};
 
 	struct Data
 	{
 		TutorialState state;
 		Ref<Transform> health_location;
-		Ref<Entity> door;
+		Ref<Transform> test_dummy_location;
+		Ref<PlayerManager> test_dummy;
+		r32 field_spawn_timer;
 	};
 
 	Data* data;
@@ -91,9 +92,9 @@ namespace tutorial
 		PlayerManager* manager = LocalPlayer::list.iterator().item()->manager.ref();
 		manager->credits = UpgradeInfo::list[(s32)Upgrade::Sensor].cost + AbilityInfo::list[(s32)Ability::Sensor].spawn_cost * 2;
 
-		data->state = TutorialState::PvpUpgrade;
+		data->state = TutorialState::Upgrade;
 		Cora::text_clear();
-		Cora::text_schedule(1.0f, _(strings::tut_pvp_upgrade));
+		Cora::text_schedule(1.0f, _(strings::tut_upgrade));
 		Game::level.feature_level = Game::FeatureLevel::Abilities;
 	}
 
@@ -110,7 +111,9 @@ namespace tutorial
 
 	void ai_spawned()
 	{
-		LinkArg<Entity*>* link = &AIPlayerControl::list.iterator().item()->get<Health>()->killed;
+		Entity* entity = AIPlayerControl::list.iterator().item()->entity();
+		entity->get<Transform>()->absolute_pos(data->test_dummy_location.ref()->absolute_pos());
+		LinkArg<Entity*>* link = &entity->get<Health>()->killed;
 		link->link(&player_or_ai_killed);
 		link->link(&ai_killed);
 	}
@@ -121,6 +124,26 @@ namespace tutorial
 		LocalPlayerControl::list.iterator().item()->get<Health>()->killed.link(&player_or_ai_killed);
 	}
 
+	void minion_spotted(Entity* player)
+	{
+		if (player->has<LocalPlayerControl>() && data->state == TutorialState::Start)
+		{
+			data->state = TutorialState::Minion;
+			Cora::text_clear();
+			Cora::text_schedule(0.25f, _(strings::tut_minion));
+		}
+	}
+
+	void ability_spawned(Ability)
+	{
+		if (data->state == TutorialState::Ability)
+		{
+			data->state = TutorialState::KillPlayer;
+			Cora::text_clear();
+			Cora::text_schedule(1.0f, _(strings::tut_kill_player));
+		}
+	}
+
 	void minion_killed(Entity*)
 	{
 		// spawn health
@@ -129,24 +152,23 @@ namespace tutorial
 		Rope::spawn(pos + Vec3(0, 1, 0), Vec3(0, 1, 0), 20.0f);
 		health->get<Target>()->target_hit.link(&health_got);
 
-		data->state = TutorialState::PvpGetHealth;
+		data->state = TutorialState::GetHealth;
 		Cora::text_clear();
-		Cora::text_schedule(1.0f, _(strings::tut_pvp_health));
+		Cora::text_schedule(1.0f, _(strings::tut_health));
 	}
 
 	void update(const Update& u)
 	{
-		if (data->state == TutorialState::PvpUpgrade)
+		if (data->state == TutorialState::Upgrade)
 		{
 			PlayerManager* manager = LocalPlayer::list.iterator().item()->manager.ref();
 			for (s32 i = 0; i < (s32)Upgrade::count; i++)
 			{
 				if (manager->has_upgrade((Upgrade)i))
 				{
-					data->state = TutorialState::PvpKillPlayer;
+					data->state = TutorialState::Ability;
 					Cora::text_clear();
-					Cora::text_schedule(1.0f, _(strings::tut_pvp_kill_player));
-					World::remove_deferred(data->door.ref());
+					Cora::text_schedule(1.0f, _(strings::tut_ability));
 					break;
 				}
 			}
@@ -174,9 +196,10 @@ namespace tutorial
 		Game::draws.add(&draw);
 
 		data->health_location = entities.find("health")->get<Transform>();
-		data->door = entities.find("door");
+		data->test_dummy_location = entities.find("test_dummy")->get<Transform>();
 
 		entities.find("minion")->get<Health>()->killed.link(&minion_killed);
+		entities.find("minion_trigger")->get<PlayerTrigger>()->entered.link(&minion_spotted);
 
 		PlayerManager* ai_manager = PlayerManager::list.add();
 		new (ai_manager) PlayerManager(&Team::list[1]);
@@ -190,11 +213,14 @@ namespace tutorial
 		config->high_level = AIPlayer::HighLevelLoop::Noop;
 		config->low_level = AIPlayer::LowLevelLoop::Noop;
 
-		LocalPlayer::list.iterator().item()->manager.ref()->spawn.link(&player_spawned);
+		PlayerManager* player_manager = LocalPlayer::list.iterator().item()->manager.ref();
+		player_manager->spawn.link(&player_spawned);
+		player_manager->ability_spawned.link(&ability_spawned);
 		ai_manager->spawn.link(&ai_spawned);
+		data->test_dummy = ai_manager;
 
 		Cora::init(); // have to init manually since Cora normally isn't loaded in PvP mode
-		Cora::text_schedule(PLAYER_SPAWN_DELAY + 1.0f, _(strings::tut_pvp_minion));
+		Cora::text_schedule(PLAYER_SPAWN_DELAY + 1.0f, _(strings::tut_start));
 	}
 }
 

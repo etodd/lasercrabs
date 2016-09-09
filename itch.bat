@@ -12,5 +12,5 @@ rm -rf final/script/etodd_blender_fbx/__pycache__
 cp build/gamecontrollerdb.txt final
 cp language.txt final
 cp shipme.txt final/readme.txt
-butler push ./final et1337/yearning:win
+butler push ./final etodd/yearning:win
 pause

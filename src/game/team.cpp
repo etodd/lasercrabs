@@ -75,37 +75,37 @@ namespace VI
 			strings::sensor,
 			strings::description_sensor,
 			Asset::Mesh::icon_sensor,
-			60,
+			50,
 		},
 		{
 			strings::minion,
 			strings::description_minion,
 			Asset::Mesh::icon_minion,
-			60,
+			50,
 		},
 		{
 			strings::teleporter,
 			strings::description_teleporter,
 			Asset::Mesh::icon_teleporter,
-			60,
+			50,
 		},
 		{
 			strings::rocket,
 			strings::description_rocket,
 			Asset::Mesh::icon_rocket,
-			180,
+			150,
 		},
 		{
 			strings::containment_field,
 			strings::description_containment_field,
 			Asset::Mesh::icon_containment_field,
-			180,
+			150,
 		},
 		{
 			strings::sniper,
 			strings::description_sniper,
 			Asset::Mesh::icon_sniper,
-			180,
+			150,
 		},
 	};
 
@@ -572,14 +572,10 @@ namespace VI
 		current_spawn_ability = Ability::None;
 
 		Entity* awk = entity.ref();
-		if (!awk)
-		{
-			ability_spawn_canceled.fire(ability);
-			return;
-		}
 
 		u16 cost = AbilityInfo::list[(s32)ability].spawn_cost;
 		if (credits < cost
+			|| !awk
 			|| awk->get<Awk>()->state() != Awk::State::Crawl
 			|| (ability == Ability::Teleporter && ControlPoint::count(1 << team.ref()->team()) == 0))
 		{

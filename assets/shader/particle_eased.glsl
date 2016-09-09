@@ -13,8 +13,6 @@ uniform float time;
 uniform vec2 viewport_scale;
 uniform float lifetime;
 
-out float alpha;
-
 // in_param
 // x = start rotation
 // y = start size
@@ -47,23 +45,20 @@ void main()
 		rotation = mat2(c, -s, s, c);
 	}
 
-	float size = in_param.y + (in_param.z - in_param.y) * x;
+	float size = (dt < 0.25 ? dt * 4.0 : 1) * (in_param.y + (in_param.z - in_param.y) * x);
 	projected.xy += rotation * ((in_uv * 2.0) - 1.0) * size * p[1][1] * viewport_scale;
 
 	gl_Position = projected;
-
-	alpha = dt < 0.25 ? dt * 4.0 : 1 - (dt - 0.25) / (lifetime - 0.25);
 }
 
 #else
 
-in float alpha;
 out vec4 out_color;
 uniform vec4 diffuse_color;
 
 void main()
 {
-	out_color = diffuse_color * vec4(1, 1, 1, alpha);
+	out_color = diffuse_color;
 }
 
 #endif

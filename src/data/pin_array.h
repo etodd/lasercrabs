@@ -19,8 +19,8 @@ template<u16 size> struct Bitmask
 	inline b8 get(s32 i) const
 	{
 		vi_assert(i >= 0 && i < size);
-		s32 index = i / sizeof(u32);
-		return data[index] & (1 << (i - (index * sizeof(u32))));
+		s32 index = i / (sizeof(u32) * 8);
+		return data[index] & (1 << (i - (index * sizeof(u32) * 8)));
 	}
 
 	inline s32 next(s32 i) const
@@ -45,8 +45,8 @@ template<u16 size> struct Bitmask
 	void set(s32 i, b8 value)
 	{
 		vi_assert(i >= 0 && i < size);
-		s32 index = i / sizeof(u32);
-		u32 mask = 1 << (i - (index * sizeof(u32)));
+		s32 index = i / (sizeof(u32) * 8);
+		u32 mask = 1 << (i - (index * sizeof(u32) * 8));
 		if (value)
 		{
 			data[index] |= mask;

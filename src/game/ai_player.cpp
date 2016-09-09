@@ -15,7 +15,7 @@ namespace VI
 {
 
 
-PinArray<AIPlayer, MAX_AI_PLAYERS> AIPlayer::list;
+PinArray<AIPlayer, MAX_PLAYERS> AIPlayer::list;
 
 AIPlayer::Config::Config()
 	: low_level(LowLevelLoop::Default),
@@ -1908,7 +1908,7 @@ void ReactControlPoint::run()
 		Vec3 me = control->get<Transform>()->absolute_pos();
 		r32 closest_distance;
 		ControlPoint* control_point = ControlPoint::closest(AI::TeamNone, me, &closest_distance);
-		if (filter(control, control_point->entity()))
+		if (control_point && filter(control, control_point->entity()))
 		{
 			if (closest_distance < CONTROL_POINT_RADIUS)
 			{

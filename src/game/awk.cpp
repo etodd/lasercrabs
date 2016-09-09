@@ -45,32 +45,16 @@ b8 AwkRaycastCallback::hit_target() const
 
 btScalar AwkRaycastCallback::addSingleResult(btCollisionWorld::LocalRayResult& ray_result, b8 normalInWorldSpace)
 {
-	s16 filter_group = ray_result.m_collisionObject->getBroadphaseHandle()->m_collisionFilterGroup;
-	if (filter_group & CollisionWalker)
-	{
-		Entity* entity = &Entity::list[ray_result.m_collisionObject->getUserIndex()];
-		if (entity->has<MinionCommon>() && entity->get<MinionCommon>()->headshot_test(m_rayFromWorld, m_rayToWorld))
-		{
-			if (ray_result.m_hitFraction < closest_target_hit_fraction)
-			{
-				closest_target_hit_fraction = ray_result.m_hitFraction;
-				closest_target_hit_group = filter_group;
-			}
-			return m_closestHitFraction; // keep going
-		}
-	}
-	else if (filter_group & CollisionShield)
-	{
-		if (ray_result.m_hitFraction < closest_target_hit_fraction)
-		{
-			closest_target_hit_fraction = ray_result.m_hitFraction;
-			closest_target_hit_group = filter_group;
-		}
+	s32 collision_entity_id = ray_result.m_collisionObject->getUserIndex();
+	if (collision_entity_id == entity_id)
 		return m_closestHitFraction; // keep going
-	}
-	else if (filter_group & CollisionTarget)
+
+	s16 filter_group = ray_result.m_collisionObject->getBroadphaseHandle()->m_collisionFilterGroup;
+	if (filter_group & (CollisionWalker | CollisionShield | CollisionTarget | CollisionAwk))
 	{
-		if (ray_result.m_collisionObject->getUserIndex() != entity_id)
+		Entity* entity = &Entity::list[collision_entity_id];
+		// if it's a minion, do an extra headshot test
+		if (!entity->has<MinionCommon>() || entity->get<MinionCommon>()->headshot_test(m_rayFromWorld, m_rayToWorld))
 		{
 			if (ray_result.m_hitFraction < closest_target_hit_fraction)
 			{
@@ -85,11 +69,8 @@ btScalar AwkRaycastCallback::addSingleResult(btCollisionWorld::LocalRayResult& r
 	m_collisionObject = ray_result.m_collisionObject;
 	if (normalInWorldSpace)
 		m_hitNormalWorld = ray_result.m_hitNormalLocal;
-	else
-	{
-		// need to transform normal into worldspace
+	else // need to transform normal into worldspace
 		m_hitNormalWorld = m_collisionObject->getWorldTransform().getBasis() * ray_result.m_hitNormalLocal;
-	}
 	m_hitPointWorld.setInterpolate3(m_rayFromWorld, m_rayToWorld, ray_result.m_hitFraction);
 	return ray_result.m_hitFraction;
 }
@@ -200,12 +181,12 @@ Vec3 Awk::center_lerped() const
 	return get<Transform>()->to_world((get<SkinnedModel>()->offset * Vec4(0, 0, 0, 1)).xyz());
 }
 
-Vec3 Awk::attach_point() const
+Vec3 Awk::attach_point(r32 offset) const
 {
 	Quat rot;
 	Vec3 pos;
 	get<Transform>()->absolute(&pos, &rot);
-	return pos + rot * Vec3(0, 0, -AWK_RADIUS);
+	return pos + rot * Vec3(0, 0, offset + -AWK_RADIUS);
 }
 
 Entity* Awk::incoming_attacker() const
@@ -486,15 +467,14 @@ b8 Awk::can_shoot(const Vec3& dir, Vec3* final_pos, b8* hit_target) const
 	}
 
 	Vec3 trace_start = get<Transform>()->absolute_pos();
-	// if we're already in-air, we can only travel AWK_MAX_DISTANCE
-	// this prevents super long bounces after reflect()
-	Vec3 trace_end = trace_start + trace_dir * (s == State::Crawl ? AWK_SNIPE_DISTANCE : AWK_MAX_DISTANCE);
+	Vec3 trace_end = trace_start + trace_dir * AWK_SNIPE_DISTANCE;
 
 	AwkRaycastCallback ray_callback(trace_start, trace_end, entity());
 	Physics::raycast(&ray_callback, ~CollisionAwkIgnore & ~ally_containment_field_mask());
 
 	if (snipe)
 	{
+		vi_assert(s == State::Crawl);
 		if (ray_callback.hasHit())
 		{
 			if (final_pos)
@@ -533,7 +513,8 @@ b8 Awk::can_shoot(const Vec3& dir, Vec3* final_pos, b8* hit_target) const
 					Vec3 intersection;
 					if (i.item() != this && predict_intersection(i.item()->get<Target>(), &intersection))
 					{
-						if (LMath::ray_sphere_intersect(trace_start, trace_end, intersection, AWK_SHIELD_RADIUS))
+						if ((intersection - trace_start).length_squared() < r * r
+							&& LMath::ray_sphere_intersect(trace_start, trace_end, intersection, AWK_SHIELD_RADIUS))
 						{
 							can_shoot = true;
 							break;
@@ -665,7 +646,7 @@ b8 Awk::detach(const Vec3& dir)
 			hit_targets.length = 0;
 
 			for (s32 i = 0; i < AWK_CHARGES; i++)
-				cooldowns[i] = vi_max(cooldowns[i], AWK_MAX_DISTANCE_COOLDOWN * 0.25f);
+				cooldowns[i] = vi_max(cooldowns[i], AWK_MAX_COOLDOWN * 0.25f);
 
 			Vec3 pos = get<Transform>()->absolute_pos();
 			Vec3 ray_start = pos + dir_normalized * -AWK_RADIUS;
@@ -725,19 +706,15 @@ void Awk::reflect(const Vec3& hit, const Vec3& normal)
 		get<Animator>()->layers[0].animation = Asset::Animation::awk_fly;
 	}
 
-	// normalize speed to dash speed
-	velocity *= AWK_DASH_SPEED / velocity.length();
-
 	// our goal
-	Vec3 target_velocity = velocity.reflect(normal);
+	Vec3 target_dir = Vec3::normalize(velocity.reflect(normal));
 
 	// the actual direction we end up going
-	Vec3 new_velocity = target_velocity;
+	Vec3 new_velocity = target_dir * AWK_DASH_SPEED;
 
 	get<Transform>()->absolute_pos(hit + normal * AWK_RADIUS);
 
-	r32 target_speed = target_velocity.length();
-	Quat target_quat = Quat::look(target_velocity / target_speed);
+	Quat target_quat = Quat::look(target_dir);
 
 	// make sure we have somewhere to land.
 	const s32 tries = 20; // try 20 raycasts. if they all fail, just shoot off into space.
@@ -745,21 +722,18 @@ void Awk::reflect(const Vec3& hit, const Vec3& normal)
 	r32 farthest_distance = 0;
 	for (s32 i = 0; i < tries; i++)
 	{
-		Vec3 candidate_velocity = target_quat * (Quat::euler(PI + (mersenne::randf_co() - 0.5f) * random_range, (PI * 0.5f) + (mersenne::randf_co() - 0.5f) * random_range, 0) * Vec3(target_speed, 0, 0));
+		Vec3 candidate_velocity = target_quat * (Quat::euler(PI + (mersenne::randf_co() - 0.5f) * random_range, (PI * 0.5f) + (mersenne::randf_co() - 0.5f) * random_range, 0) * Vec3(AWK_DASH_SPEED, 0, 0));
 		Vec3 next_hit;
 		if (can_shoot(candidate_velocity, &next_hit))
 		{
 			r32 distance_to_next_hit = (next_hit - hit).length_squared();
-			if (distance_to_next_hit > farthest_distance && distance_to_next_hit)
+			if (distance_to_next_hit > farthest_distance)
 			{
 				new_velocity = candidate_velocity;
 				farthest_distance = distance_to_next_hit;
-			}
 
-			if (distance_to_next_hit > (AWK_MAX_DISTANCE * 0.5f * AWK_MAX_DISTANCE * 0.5f)) // try to bounce to a spot at least X units away
-			{
-				new_velocity = candidate_velocity;
-				break;
+				if (distance_to_next_hit > (AWK_MAX_DISTANCE * 0.5f * AWK_MAX_DISTANCE * 0.5f)) // try to bounce to a spot at least X units away
+					break;
 			}
 		}
 		random_range += PI / (r32)tries;
@@ -1243,7 +1217,7 @@ void Awk::update(const Update& u)
 	{
 		// flying or dashing
 
-		if (attach_time > 0.0f && u.time.total - attach_time > MAX_FLIGHT_TIME)
+		if (u.time.total - attach_time > MAX_FLIGHT_TIME)
 			get<Health>()->kill(entity()); // Kill self
 		else
 		{
@@ -1272,6 +1246,10 @@ void Awk::update(const Update& u)
 			}
 
 			// emit particles
+			// but don't start until the awk has cleared the camera radius
+			// we do this so that the particles don't block the camera
+			r32 particle_start_delay = AWK_THIRD_PERSON_OFFSET / velocity.length();
+			if (u.time.total > attach_time + particle_start_delay)
 			{
 				const r32 particle_interval = 0.05f;
 				particle_accumulator += u.time.delta;
@@ -1280,7 +1258,7 @@ void Awk::update(const Update& u)
 					particle_accumulator -= particle_interval;
 					Particles::tracers.add
 					(
-						Vec3::lerp(particle_accumulator / u.time.delta, position, next_position),
+						Vec3::lerp((particle_accumulator - particle_start_delay) / u.time.delta, position, next_position),
 						Vec3::zero,
 						0
 					);
@@ -1294,7 +1272,7 @@ void Awk::update(const Update& u)
 				Vec3 ray_end = next_position + dir * AWK_RADIUS;
 				movement_raycast(ray_start, ray_end);
 			}
-			cooldowns[cooldown_index] = vi_min(cooldowns[cooldown_index] + (next_position - position).length() * AWK_COOLDOWN_DISTANCE_RATIO, AWK_MAX_DISTANCE_COOLDOWN);
+			cooldowns[cooldown_index] = vi_min(cooldowns[cooldown_index] + (next_position - position).length() * AWK_COOLDOWN_DISTANCE_RATIO, AWK_MAX_COOLDOWN);
 		}
 	}
 }

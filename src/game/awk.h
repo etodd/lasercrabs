@@ -18,13 +18,14 @@ struct DamageEvent;
 #define AWK_HEALTH 5
 #define AWK_FLY_SPEED 35.0f
 #define AWK_CRAWL_SPEED 2.0f
-#define AWK_MIN_COOLDOWN 2.0f
-#define AWK_MAX_DISTANCE_COOLDOWN 6.0f
-#define AWK_COOLDOWN_DISTANCE_RATIO ((AWK_MAX_DISTANCE_COOLDOWN - AWK_MIN_COOLDOWN) / AWK_MAX_DISTANCE)
+#define AWK_MIN_COOLDOWN 1.0f
+#define AWK_MAX_COOLDOWN 4.0f
+#define AWK_COOLDOWN_DISTANCE_RATIO ((AWK_MAX_COOLDOWN - AWK_MIN_COOLDOWN) / (AWK_MAX_DISTANCE * 0.5f))
 #define AWK_LEGS 3
 #define AWK_INVINCIBLE_TIME 3.0f
 #define AWK_SNIPE_DISTANCE 100.0f
 #define AWK_CHARGES 3
+#define AWK_THIRD_PERSON_OFFSET 2.0f
 
 // If we raycast through a Minion's head, keep going.
 struct AwkRaycastCallback : btCollisionWorld::ClosestRayResultCallback
@@ -119,7 +120,7 @@ struct Awk : public ComponentType<Awk>
 	void set_footing(s32, const Transform*, const Vec3&);
 
 	Vec3 center_lerped() const;
-	Vec3 attach_point() const;
+	Vec3 attach_point(r32 = 0.0f) const;
 
 	void detach_teleport();
 	b8 detach(const Vec3&);

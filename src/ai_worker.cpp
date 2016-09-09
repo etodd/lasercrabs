@@ -210,7 +210,7 @@ AwkNavMeshNode awk_closest_point(Team team, const Vec3& p, const Vec3& normal)
 	AwkNavMesh::Coord chunk_coord = awk_nav_mesh.coord(p);
 	r32 closest_distance = FLT_MAX;
 	b8 found = false;
-	AwkNavMeshNode closest;
+	AwkNavMeshNode closest = AWK_NAV_MESH_NODE_NONE;
 	b8 ignore_normals = normal.dot(normal) == 0.0f;
 	u32 desired_hash = containment_field_hash(team, p);
 	s32 end_x = vi_min(vi_max(chunk_coord.x + 2, 1), awk_nav_mesh.size.x);
@@ -257,7 +257,6 @@ AwkNavMeshNode awk_closest_point(Team team, const Vec3& p, const Vec3& normal)
 			}
 		}
 	}
-	vi_assert(found);
 	return closest;
 }
 
@@ -306,11 +305,14 @@ inline b8 awk_flags_match(b8 flags, AwkAllow mask)
 // A*
 void awk_astar(AwkAllow rule, Team team, const AwkNavMeshNode& start_vertex, AstarScorer* scorer, AwkPath* path)
 {
+	path->length = 0;
+
+	if (start_vertex.equals(AWK_NAV_MESH_NODE_NONE))
+		return;
+
 #if DEBUG_AI
 	r64 start_time = platform::time();
 #endif
-
-	path->length = 0;
 
 	const Vec3& start_pos = awk_nav_mesh.chunks[start_vertex.chunk].vertices[start_vertex.vertex];
 
@@ -442,12 +444,15 @@ void awk_astar(AwkAllow rule, Team team, const AwkNavMeshNode& start_vertex, Ast
 // find a path from vertex a to vertex b
 void awk_pathfind_internal(AwkAllow rule, Team team, const AwkNavMeshNode& start_vertex, const AwkNavMeshNode& end_vertex, AwkPath* path)
 {
+	path->length = 0;
+	if (start_vertex.equals(AWK_NAV_MESH_NODE_NONE) || end_vertex.equals(AWK_NAV_MESH_NODE_NONE))
+		return;
 	PathfindScorer scorer;
 	scorer.end_vertex = end_vertex;
 	scorer.end_pos = awk_nav_mesh.chunks[end_vertex.chunk].vertices[end_vertex.vertex];
 	const Vec3& start_pos = awk_nav_mesh.chunks[start_vertex.chunk].vertices[start_vertex.vertex];
 	if (containment_field_hash(team, start_pos) != containment_field_hash(team, scorer.end_pos))
-		path->length = 0; // in a different containment field; unreachable
+		return; // in a different containment field; unreachable
 	else
 		awk_astar(rule, team, start_vertex, &scorer, path);
 }
@@ -456,16 +461,17 @@ void awk_pathfind_internal(AwkAllow rule, Team team, const AwkNavMeshNode& start
 // find our way to a point from which we can shoot through the given target
 void awk_pathfind_hit(AwkAllow rule, Team team, const Vec3& start, const Vec3& start_normal, const Vec3& target, AwkPath* path)
 {
+	path->length = 0;
 	if (containment_field_hash(team, start) != containment_field_hash(team, target))
-	{
-		// in a different containment field; unreachable
-		path->length = 0;
-		return;
-	}
+		return; // in a different containment field; unreachable
 
 	AwkNavMeshNode target_closest_vertex = awk_closest_point(team, target, Vec3::zero);
+	if (target_closest_vertex.equals(AWK_NAV_MESH_NODE_NONE))
+		return;
 
 	AwkNavMeshNode start_vertex = awk_closest_point(team, start, start_normal);
+	if (start_vertex.equals(AWK_NAV_MESH_NODE_NONE))
+		return;
 
 	// even if we are supposed to be able to hit the target from the start vertex, don't just return a 0-length path.
 	// find another vertex where we can hit the target
@@ -907,12 +913,15 @@ void loop()
 						AwayScorer scorer;
 						scorer.start_vertex = awk_closest_point(team, start, start_normal);
 						scorer.away_vertex = awk_closest_point(team, away, away_normal);
-						scorer.away_pos = away;
-						scorer.minimum_distance = rule == AwkAllow::Crawl ? AWK_MAX_DISTANCE * 0.5f : AWK_MAX_DISTANCE * 3.0f;
-						scorer.minimum_distance = vi_min(scorer.minimum_distance,
-							vi_min(awk_nav_mesh.size.x, awk_nav_mesh.size.z) * awk_nav_mesh.chunk_size * 0.5f);
+						if (!scorer.away_vertex.equals(AWK_NAV_MESH_NODE_NONE))
+						{
+							scorer.away_pos = away;
+							scorer.minimum_distance = rule == AwkAllow::Crawl ? AWK_MAX_DISTANCE * 0.5f : AWK_MAX_DISTANCE * 3.0f;
+							scorer.minimum_distance = vi_min(scorer.minimum_distance,
+								vi_min(awk_nav_mesh.size.x, awk_nav_mesh.size.z) * awk_nav_mesh.chunk_size * 0.5f);
 
-						awk_astar(rule, team, scorer.start_vertex, &scorer, &path);
+							awk_astar(rule, team, scorer.start_vertex, &scorer, &path);
+						}
 						break;
 					}
 					default:

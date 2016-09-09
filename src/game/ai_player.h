@@ -21,11 +21,9 @@ struct Camera;
 struct Target;
 struct ControlPoint;
 
-#define MAX_AI_PLAYERS 3
-
 struct AIPlayer
 {
-	static PinArray<AIPlayer, MAX_AI_PLAYERS> list;
+	static PinArray<AIPlayer, MAX_PLAYERS> list;
 
 	enum class LowLevelLoop
 	{

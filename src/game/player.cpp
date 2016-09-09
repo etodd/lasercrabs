@@ -51,7 +51,6 @@ namespace VI
 #define msg_time 0.75f
 #define text_size 16.0f
 #define damage_shake_time 0.7f
-#define third_person_offset 2.0f
 #define score_summary_delay 2.0f
 #define score_summary_accept_delay 3.0f
 
@@ -752,7 +751,7 @@ void LocalPlayer::draw_alpha(const RenderParams& params) const
 					item_counter++;
 				}
 			}
-			score_summary_scroll.end(params, p);
+			score_summary_scroll.end(params, p + Vec2(0, MENU_ITEM_PADDING));
 
 			// press x to continue
 			if (Game::real_time.total - Team::game_over_real_time > score_summary_delay + score_summary_accept_delay)
@@ -1348,7 +1347,7 @@ void LocalPlayerControl::update(const Update& u)
 				{
 					Vec3 to_indicator = indicator.pos - camera->pos;
 					r32 indicator_distance = to_indicator.length();
-					if (indicator_distance > third_person_offset && indicator_distance < reticle_distance + 2.5f)
+					if (indicator_distance > AWK_THIRD_PERSON_OFFSET && indicator_distance < reticle_distance + 2.5f)
 					{
 						to_indicator /= indicator_distance;
 						if (to_indicator.dot(to_reticle) > 0.99f)
@@ -1441,7 +1440,7 @@ void LocalPlayerControl::update(const Update& u)
 	{
 		Vec3 abs_wall_normal = (get<Transform>()->absolute_rot() * get<Awk>()->lerped_rotation) * Vec3(0, 0, 1);
 		camera->wall_normal = look_quat.inverse() * abs_wall_normal;
-		camera->pos = get<Awk>()->center_lerped() + look_quat * Vec3(0, 0, -third_person_offset);
+		camera->pos = get<Awk>()->center_lerped() + look_quat * Vec3(0, 0, -AWK_THIRD_PERSON_OFFSET);
 		if (get<Transform>()->parent.ref())
 		{
 			camera->pos += abs_wall_normal * 0.5f;
@@ -1458,8 +1457,8 @@ void LocalPlayerControl::update(const Update& u)
 
 		camera->range = get<Awk>()->range();
 		camera->range_center = look_quat.inverse() * (get<Awk>()->center_lerped() - camera->pos);
-		camera->cull_range = third_person_offset + 0.5f;
-		camera->cull_behind_wall = abs_wall_normal.dot(camera->pos - get<Awk>()->center_lerped()) < 0.0f;
+		camera->cull_range = camera->range_center.length();
+		camera->cull_behind_wall = abs_wall_normal.dot(camera->pos - get<Awk>()->attach_point()) < 0.0f;
 	}
 
 	health_flash_timer = vi_max(0.0f, health_flash_timer - Game::real_time.delta);
@@ -1469,13 +1468,13 @@ void LocalPlayerControl::update(const Update& u)
 	// reticle
 	{
 		Vec3 trace_dir = look_quat * Vec3(0, 0, 1);
-		Vec3 trace_start = camera->pos + trace_dir * third_person_offset;
+		Vec3 trace_start = camera->pos + trace_dir * AWK_THIRD_PERSON_OFFSET;
 
 		reticle.type = ReticleType::None;
 
 		if (movement_enabled())
 		{
-			Vec3 trace_end = trace_start + trace_dir * (AWK_SNIPE_DISTANCE + third_person_offset);
+			Vec3 trace_end = trace_start + trace_dir * (AWK_SNIPE_DISTANCE + AWK_THIRD_PERSON_OFFSET);
 			RaycastCallbackExcept ray_callback(trace_start, trace_end, entity());
 			Physics::raycast(&ray_callback, ~CollisionAwkIgnore & ~get<Awk>()->ally_containment_field_mask());
 
@@ -1508,7 +1507,7 @@ void LocalPlayerControl::update(const Update& u)
 			}
 		}
 		else
-			reticle.pos = trace_start + trace_dir * third_person_offset;
+			reticle.pos = trace_start + trace_dir * AWK_THIRD_PERSON_OFFSET;
 	}
 
 	// collect target indicators
@@ -2102,11 +2101,11 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 			s32 charges = get<Awk>()->charges();
 			if (charges == 0)
 			{
-				r32 cooldown = AWK_MAX_DISTANCE_COOLDOWN;
+				r32 cooldown = AWK_MAX_COOLDOWN;
 				for (s32 i = 0; i < AWK_CHARGES; i++)
 					cooldown = vi_min(cooldown, get<Awk>()->cooldowns[i]);
 
-				UI::triangle_border(params, { pos, Vec2((start_radius + spoke_length) * (2.5f + 5.0f * (cooldown / AWK_MAX_DISTANCE_COOLDOWN)) * UI::scale) }, spoke_width, UI::alert_color, PI);
+				UI::triangle_border(params, { pos, Vec2((start_radius + spoke_length) * (2.5f + 5.0f * (cooldown / AWK_MAX_COOLDOWN)) * UI::scale) }, spoke_width, UI::alert_color, PI);
 			}
 			else if (!get<Awk>()->snipe)
 			{

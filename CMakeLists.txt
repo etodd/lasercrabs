@@ -360,6 +360,9 @@ add_executable(yearning
 	assets/shader/ssao.glsl
 	assets/shader/ssao_blur.glsl
 	assets/shader/ssao_downsample.glsl
+	assets/shader/downsample.glsl
+	assets/shader/g_buffer_downsample.glsl
+	assets/shader/blit.glsl
 	assets/shader/edge_detect.glsl
 	assets/shader/scan_lines.glsl
 	assets/shader/bloom_downsample.glsl

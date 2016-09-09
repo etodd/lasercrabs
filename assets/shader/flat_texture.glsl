@@ -18,7 +18,6 @@ void main()
 
 in vec2 uv;
 
-// Values that stay constant for the whole mesh.
 uniform vec4 diffuse_color;
 uniform sampler2D diffuse_map;
 

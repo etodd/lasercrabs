@@ -44,11 +44,11 @@ void main()
 	lighting.rgb += ambient_color * texture(ssao_buffer, uv).x;
 	vec3 lighting_color = color.rgb * lighting.rgb;
 	vec3 final_color;
+	float clip_depth = texture(depth_buffer, uv).x;
 	if (range == 0.0f)
 		final_color = lighting_color;
 	else
 	{
-		float clip_depth = texture(depth_buffer, uv).x;
 		float clip_depth_scaled = clip_depth * 2.0 - 1.0;
 		float depth = p[3][2] / (clip_depth_scaled - p[2][2]);
 		vec3 pos = (view_ray * depth) - range_center;
@@ -58,6 +58,8 @@ void main()
 			final_color = vec3(0, 0, 0);
 	}
 	out_color = vec4(final_color, 1);
+
+	gl_FragDepth = clip_depth;
 }
 
 #endif

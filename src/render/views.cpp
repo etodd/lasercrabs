@@ -335,10 +335,7 @@ void Skybox::draw_alpha(const RenderParams& p, const Config& config)
 
 	sync->write(RenderOp::Shader);
 	sync->write(config.shader);
-	if (p.shadow_buffer == AssetNull)
-		sync->write(p.technique);
-	else
-		sync->write(RenderTechnique::Shadow);
+	sync->write(p.technique);
 
 	Mat4 mvp = p.view * Mat4::make_scale(Vec3(p.camera->far_plane));
 	mvp.translation(Vec3::zero);
@@ -412,32 +409,6 @@ void Skybox::draw_alpha(const RenderParams& p, const Config& config)
 	sync->write<s32>(1);
 	sync->write<RenderTextureType>(RenderTextureType::Texture2D);
 	sync->write<AssetID>(p.depth_buffer);
-
-	if (p.shadow_buffer != AssetNull)
-	{
-		sync->write(RenderOp::Uniform);
-		sync->write(Asset::Uniform::shadow_map);
-		sync->write(RenderDataType::Texture);
-		sync->write<s32>(1);
-		sync->write<RenderTextureType>(RenderTextureType::Texture2D);
-		sync->write<AssetID>(p.shadow_buffer);
-
-		sync->write(RenderOp::Uniform);
-		sync->write(Asset::Uniform::light_vp);
-		sync->write(RenderDataType::Mat4);
-		sync->write<s32>(1);
-		Mat4 view_rotation = p.view;
-		view_rotation.translation(Vec3::zero);
-		sync->write<Mat4>(view_rotation.inverse() * p.shadow_vp);
-
-		Loader::texture_permanent(Asset::Texture::noise, RenderTextureWrap::Repeat, RenderTextureFilter::Nearest);
-		sync->write(RenderOp::Uniform);
-		sync->write(Asset::Uniform::noise_sampler);
-		sync->write(RenderDataType::Texture);
-		sync->write<s32>(1);
-		sync->write<RenderTextureType>(RenderTextureType::Texture2D);
-		sync->write<s32>(Asset::Texture::noise);
-	}
 
 	if (config.texture != AssetNull)
 	{

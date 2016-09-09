@@ -139,11 +139,12 @@ void Awk::awake()
 		shield = shield_entity;
 
 		View* s = shield_entity->add<View>();
-		s->alpha_depth();
-		s->color = Vec4(1, 1, 1, 0.05f);
-		s->mesh = Asset::Mesh::sphere;
+		s->team = (u8)get<AIAgent>()->team;
+		s->mesh = Asset::Mesh::sphere_highres;
 		s->offset.scale(Vec3(AWK_SHIELD_RADIUS));
 		s->shader = Asset::Shader::flat;
+		s->alpha();
+		s->color.w = 0.2f;
 	}
 }
 
@@ -1021,7 +1022,6 @@ void Awk::stealth(b8 enable)
 		{
 			get<AIAgent>()->stealth = true;
 			get<SkinnedModel>()->alpha_depth();
-			get<SkinnedModel>()->color.w = 0.05f;
 			get<SkinnedModel>()->mask = 1 << (s32)get<AIAgent>()->team; // only display to fellow teammates
 		}
 		else

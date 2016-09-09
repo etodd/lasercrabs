@@ -18,15 +18,15 @@ LoopSwapper* Loader::swapper;
 namespace Settings
 {
 	Gamepad gamepads[MAX_GAMEPADS];
+	ShadowQuality shadow_quality;
 	s32 width;
 	s32 height;
-	b8 fullscreen;
-	b8 vsync;
+	s32 framerate_limit;
 	u8 sfx;
 	u8 music;
-	s32 framerate_limit;
-	ShadowQuality shadow_quality;
-	b8 volumetric_lighting;
+	b8 fullscreen;
+	b8 vsync;
+	b8 supersampling;
 }
 
 Array<Loader::Entry<Mesh> > Loader::meshes;
@@ -165,7 +165,7 @@ void Loader::settings_load(s32 default_width, s32 default_height)
 	Settings::music = (u8)Json::get_s32(json, "music", 100);
 	Settings::framerate_limit = vi_max(30, Json::get_s32(json, "framerate_limit", 120));
 	Settings::shadow_quality = (Settings::ShadowQuality)vi_max(0, vi_min(Json::get_s32(json, "shadow_quality", (s32)Settings::ShadowQuality::High), (s32)Settings::ShadowQuality::count - 1));
-	Settings::volumetric_lighting = (b8)Json::get_s32(json, "volumetric_lighting", 1);
+	Settings::supersampling = (b8)Json::get_s32(json, "supersampling", 1);
 
 	cJSON* gamepads = json ? cJSON_GetObjectItem(json, "gamepads") : nullptr;
 	cJSON* gamepad = gamepads ? gamepads->child : nullptr;
@@ -211,7 +211,7 @@ void Loader::settings_save()
 	cJSON_AddNumberToObject(json, "music", Settings::music);
 	cJSON_AddNumberToObject(json, "framerate_limit", Settings::framerate_limit);
 	cJSON_AddNumberToObject(json, "shadow_quality", (s32)Settings::shadow_quality);
-	cJSON_AddNumberToObject(json, "volumetric_lighting", (s32)Settings::volumetric_lighting);
+	cJSON_AddNumberToObject(json, "supersampling", (s32)Settings::supersampling);
 
 	cJSON* gamepads = cJSON_CreateArray();
 	cJSON_AddItemToObject(json, "gamepads", gamepads);

@@ -617,14 +617,6 @@ void Game::draw_alpha(const RenderParams& render_params)
 	for (s32 i = 0; i < ParticleSystem::all.length; i++)
 		ParticleSystem::all[i]->draw(render_params);
 
-	// enable depth writing for "alpha depth" geometry
-	render_params.sync->write<RenderOp>(RenderOp::DepthMask);
-	render_params.sync->write<b8>(true);
-	SkinnedModel::draw_alpha_depth(render_params);
-	View::draw_alpha_depth(render_params);
-	render_params.sync->write<RenderOp>(RenderOp::DepthMask);
-	render_params.sync->write<b8>(false);
-
 	for (auto i = LocalPlayerControl::list.iterator(); !i.is_last(); i.next())
 		i.item()->draw_alpha(render_params);
 	for (auto i = LocalPlayer::list.iterator(); !i.is_last(); i.next())
@@ -637,6 +629,12 @@ void Game::draw_alpha(const RenderParams& render_params)
 		(*draws[i])(render_params);
 
 	Console::draw(render_params);
+}
+
+void Game::draw_alpha_depth(const RenderParams& render_params)
+{
+	SkinnedModel::draw_alpha_depth(render_params);
+	View::draw_alpha_depth(render_params);
 }
 
 void Game::draw_additive(const RenderParams& render_params)

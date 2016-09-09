@@ -83,7 +83,6 @@ struct Game
 		r32 network_time;
 		r32 network_timer;
 		r32 time_scale;
-		AI::Team teams;
 		AssetID level;
 		b8 third_person;
 		b8 local_multiplayer;
@@ -92,6 +91,7 @@ struct Game
 		void reset();
 		r32 effective_time_scale() const;
 		s32 local_player_count() const;
+		s32 team_count() const;
 	};
 
 	enum class ZoneState

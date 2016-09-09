@@ -80,8 +80,7 @@ Game::Session::Session()
 	network_time(),
 	network_state(),
 	network_quality(),
-	last_match(),
-	teams(2)
+	last_match()
 {
 }
 
@@ -113,6 +112,29 @@ s32 Game::Session::local_player_count() const
 			count++;
 	}
 	return count;
+}
+
+s32 Game::Session::team_count() const
+{
+	if (local_multiplayer)
+	{
+		s32 team_counts[MAX_PLAYERS] = {};
+		for (s32 i = 0; i < MAX_GAMEPADS; i++)
+		{
+			if (local_player_config[i] != AI::TeamNone)
+				team_counts[local_player_config[i]]++;
+		}
+
+		s32 count = 0;
+		for (s32 i = 0; i < MAX_PLAYERS; i++)
+		{
+			if (team_counts[i] > 0)
+				count++;
+		}
+		return count;
+	}
+	else
+		return 2;
 }
 
 void Game::Session::reset()
@@ -229,11 +251,18 @@ void Game::update(const Update& update_in)
 	// determine whether to display gamepad or keyboard bindings
 	{
 		const Gamepad& gamepad = update_in.input->gamepads[0];
+		s32 gamepad_count = 0;
+		for (s32 i = 0; i < MAX_GAMEPADS; i++)
+		{
+			if (update_in.input->gamepads[i].active)
+				gamepad_count++;
+		}
 		b8 refresh = false;
 		if (is_gamepad)
 		{
 			// check if we need to clear the gamepad flag
-			if (!gamepad.active || update_in.input->cursor_x != 0 || update_in.input->cursor_y != 0)
+			if (gamepad_count <= 1
+				&& (!gamepad.active || update_in.input->cursor_x != 0 || update_in.input->cursor_y != 0))
 			{
 				is_gamepad = false;
 				refresh = true;
@@ -242,7 +271,12 @@ void Game::update(const Update& update_in)
 		else
 		{
 			// check if we need to set the gamepad flag
-			if (gamepad.active)
+			if (gamepad_count > 1)
+			{
+				is_gamepad = true;
+				refresh = true;
+			}
+			else if (gamepad.active)
 			{
 				if (gamepad.btns)
 				{
@@ -826,9 +860,9 @@ struct RopeEntry
 	r32 slack;
 };
 
-AI::Team team_lookup(const Array<AI::Team>& table, s32 i)
+AI::Team team_lookup(const AI::Team* table, s32 i)
 {
-	return table[vi_max(0, vi_min(table.length - 1, i))];
+	return table[vi_max(0, vi_min(MAX_PLAYERS, i))];
 }
 
 void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
@@ -883,8 +917,7 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 	const Vec3 pvp_accessible(0.7f);
 	const Vec3 pvp_inaccessible(0.0f);
 
-	Array<AI::Team> teams(session.teams, session.teams);
-
+	AI::Team teams[MAX_PLAYERS];
 	level = Level();
 
 	cJSON* element = json->child;
@@ -911,15 +944,15 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 			// World is guaranteed to be the first element in the entity list
 
 			level.feature_level = (FeatureLevel)Json::get_s32(element, "feature_level", (s32)FeatureLevel::All);
+			level.lock_teams = Json::get_s32(element, "lock_teams");
+
+			s32 team_count = session.team_count();
 
 			{
-				level.lock_teams = Json::get_s32(element, "lock_teams");
-				// shuffle teams
-				// if we're in local multiplayer mode, rotate the teams by a set amount
-				// local multiplayer games rotate through the possible team configurations on each map before moving to the next map
-				s32 offset = level.lock_teams ? 0 : mersenne::rand() % session.teams;
-				for (s32 i = 0; i < session.teams; i++)
-					teams[i] = (AI::Team)((offset + i) % session.teams);
+				// shuffle teams and make sure they're packed in the array starting at 0
+				s32 offset = level.lock_teams ? 0 : mersenne::rand() % team_count;
+				for (s32 i = 0; i < MAX_PLAYERS; i++)
+					teams[i] = (AI::Team)((offset + i) % team_count);
 			}
 
 			level.skybox.far_plane = Json::get_r32(element, "far_plane", 100.0f);
@@ -940,7 +973,7 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 			// initialize teams
 			if (m != Mode::Special)
 			{
-				for (s32 i = 0; i < (s32)session.teams; i++)
+				for (s32 i = 0; i < team_count; i++)
 				{
 					Team* team = Team::list.add();
 					new (team) Team();

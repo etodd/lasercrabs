@@ -86,19 +86,22 @@ void UIText::text_raw(const char* string, UITextFlags flags)
 			{
 				const char* start = &string[char_index + 2];
 				const char* end = start;
-				while (*end != '}' || *(end + 1) != '}')
+				while (end && (*end != '}' || *(end + 1) != '}'))
 					end = strchr(end + 1, '}');
 
-				for (s32 i = 0; i < variables.length; i++)
+				if (end)
 				{
-					if (strncmp(variables[i].name, start, end - start) == 0)
+					for (s32 i = 0; i < variables.length; i++)
 					{
-						variable = variables[i].value;
+						if (strncmp(variables[i].name, start, end - start) == 0)
+						{
+							variable = variables[i].value;
 
-						c = *variable;
-						// set up char_index to resume at the end of the variable name once we're done with it
-						char_index = end + 2 - string;
-						break;
+							c = *variable;
+							// set up char_index to resume at the end of the variable name once we're done with it
+							char_index = end + 2 - string;
+							break;
+						}
 					}
 				}
 			}

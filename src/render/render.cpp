@@ -38,7 +38,7 @@ Camera::ViewportBlueprint* Camera::viewport_blueprints[] =
 	Camera::four_player_viewports,
 };
 
-Camera Camera::all[Camera::max_cameras];
+Camera Camera::list[Camera::max_cameras];
 
 Camera::Camera()
 	: active(),
@@ -60,15 +60,26 @@ Camera::Camera()
 {
 }
 
+s32 Camera::active_count()
+{
+	s32 count = 0;
+	for (s32 i = 0; i < max_cameras; i++)
+	{
+		if (list[i].active)
+			count++;
+	}
+	return count;
+}
+
 Camera* Camera::add()
 {
 	for (s32 i = 0; i < max_cameras; i++)
 	{
-		if (!all[i].active)
+		if (!list[i].active)
 		{
-			new (&all[i]) Camera();
-			all[i].active = true;
-			return &all[i];
+			new (&list[i]) Camera();
+			list[i].active = true;
+			return &list[i];
 		}
 	}
 	vi_assert(false);

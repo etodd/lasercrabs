@@ -58,7 +58,7 @@ struct ZoneNode
 enum class State
 {
 	SplitscreenSelectTeams,
-	SplitscreenSelectLevel,
+	SplitscreenSelectZone,
 	SplitscreenDeploying,
 	StoryMode,
 	Deploying,
@@ -121,8 +121,8 @@ struct Data
 
 	Camera* camera;
 	Array<ZoneNode> zones;
-	AssetID last_level = AssetNull;
-	AssetID next_level = AssetNull;
+	AssetID last_zone = AssetNull;
+	AssetID next_zone = AssetNull;
 	State state;
 	s32 tip_index;
 	r32 tip_time;
@@ -280,7 +280,7 @@ void splitscreen_select_teams_update(const Update& u)
 		&& !u.input->get(Controls::Interact, 0)
 		&& splitscreen_teams_are_valid())
 	{
-		data.state = State::SplitscreenSelectLevel;
+		data.state = State::SplitscreenSelectZone;
 	}
 }
 
@@ -308,6 +308,18 @@ void tab_draw_common(const RenderParams& p, const char* label, const Vec2& pos, 
 	}
 }
 
+void draw_gamepad_icon(const RenderParams& p, const Vec2& pos, s32 index, const Vec4& color, r32 scale = 1.0f)
+{
+	UI::mesh(p, Asset::Mesh::icon_gamepad, pos, Vec2(48.0f * scale * UI::scale), color);
+	UIText text;
+	text.size *= scale;
+	text.anchor_x = UIText::Anchor::Center;
+	text.anchor_y = UIText::Anchor::Center;
+	text.color = UI::background_color;
+	text.text("%d", index + 1);
+	text.draw(p, pos);
+}
+
 void splitscreen_select_teams_draw(const RenderParams& params)
 {
 	const Rect2& vp = params.camera->viewport;
@@ -321,14 +333,12 @@ void splitscreen_select_teams_draw(const RenderParams& params)
 		tab_draw_common(params, _(strings::prompt_splitscreen), bottom_left, main_view_size.x, UI::accent_color, background_color);
 	}
 
-	r32 scale = (UI::scale < 1.0f ? 0.5f : 1.0f) * UI::scale;
-
 	UIText text;
 	text.anchor_x = UIText::Anchor::Center;
 	text.anchor_y = UIText::Anchor::Max;
 	text.color = UI::accent_color;
-	text.wrap_width = main_view_size.x - 48.0f * scale;
-	Vec2 pos = center + Vec2(0, main_view_size.y * 0.5f - (48.0f * scale));
+	text.wrap_width = main_view_size.x - 48.0f * UI::scale * SCALE_MULTIPLIER;
+	Vec2 pos = center + Vec2(0, main_view_size.y * 0.5f - (48.0f * UI::scale * SCALE_MULTIPLIER));
 
 	// prompt
 	if (splitscreen_teams_are_valid())
@@ -337,10 +347,10 @@ void splitscreen_select_teams_draw(const RenderParams& params)
 		text.draw(params, pos);
 	}
 
-	pos.y -= 48.0f * scale;
+	pos.y -= 48.0f * UI::scale * SCALE_MULTIPLIER;
 
 	// draw team labels
-	const r32 team_offset = 128.0f * scale;
+	const r32 team_offset = 128.0f * UI::scale * SCALE_MULTIPLIER;
 	text.wrap_width = 0;
 	text.text(_(strings::team_a));
 	text.draw(params, pos + Vec2(team_offset * -1.0f, 0));
@@ -359,7 +369,7 @@ void splitscreen_select_teams_draw(const RenderParams& params)
 
 	for (s32 i = 0; i < MAX_GAMEPADS; i++)
 	{
-		pos.y -= 64.0f * scale;
+		pos.y -= 64.0f * UI::scale * SCALE_MULTIPLIER;
 
 		AI::Team team = Game::session.local_player_config[i];
 
@@ -381,10 +391,7 @@ void splitscreen_select_teams_draw(const RenderParams& params)
 			x_offset = ((r32)team - 1.0f) * team_offset;
 		}
 
-		Vec2 icon_pos = pos + Vec2(x_offset, 0);
-		UI::mesh(params, Asset::Mesh::icon_gamepad, icon_pos, Vec2(48.0f * scale), *color);
-		text.text("%d", i + 1);
-		text.draw(params, icon_pos);
+		draw_gamepad_icon(params, pos + Vec2(x_offset, 0), i, *color, SCALE_MULTIPLIER);
 	}
 }
 
@@ -415,7 +422,7 @@ const ZoneNode* get_zone_node(AssetID id)
 {
 	for (s32 i = 0; i < data.zones.length; i++)
 	{
-		if (data.zones[i].id == data.next_level)
+		if (data.zones[i].id == data.next_zone)
 			return &data.zones[i];
 	}
 	return nullptr;
@@ -433,7 +440,7 @@ void select_zone_update(const Update& u, b8 enable_movement)
 	if (UIMenu::active[0])
 		return;
 
-	const ZoneNode* zone = get_zone_node(data.next_level);
+	const ZoneNode* zone = get_zone_node(data.next_zone);
 	if (!zone)
 		return;
 
@@ -493,7 +500,7 @@ void select_zone_update(const Update& u, b8 enable_movement)
 				}
 			}
 			if (closest)
-				data.next_level = closest->id;
+				data.next_zone = closest->id;
 		}
 	}
 
@@ -632,8 +639,8 @@ void zones_draw_override(const RenderParams& params)
 // returns current zone node
 const ZoneNode* zones_draw(const RenderParams& params)
 {
-	// highlight level locations
-	const ZoneNode* zone = get_zone_node(data.next_level);
+	// highlight zone locations
+	const ZoneNode* zone = get_zone_node(data.next_zone);
 
 	// draw current zone name
 	if (zone)
@@ -663,25 +670,58 @@ void splitscreen_select_zone_draw(const RenderParams& params)
 		UIText text;
 		text.anchor_x = text.anchor_y = UIText::Anchor::Center;
 		text.color = zone_ui_color(*zone);
-		text.text(_(strings::prompt_deploy));
+		text.text("%s\n%s", _(strings::prompt_deploy), _(strings::prompt_back));
 
-		Vec2 pos = params.camera->viewport.size * Vec2(0.5f, 0.2f);
+		Vec2 pos = params.camera->viewport.size * Vec2(0.5f, 0.25f);
 
 		UI::box(params, text.rect(pos).outset(8 * UI::scale), UI::background_color);
 
 		text.draw(params, pos);
 	}
+
+	// draw teams
+	{
+		UIText text;
+		text.anchor_x = UIText::Anchor::Center;
+		text.anchor_y = UIText::Anchor::Min;
+		text.color = UI::accent_color;
+		text.size *= SCALE_MULTIPLIER;
+
+		s32 player_count = Game::session.local_player_count();
+		const r32 gamepad_spacing = 128.0f * UI::scale * SCALE_MULTIPLIER;
+		Vec2 pos = params.camera->viewport.size * Vec2(0.5f, 0.1f) + Vec2(gamepad_spacing * (player_count - 1) * -0.5f, 0);
+
+		AssetID team_labels[MAX_PLAYERS] =
+		{
+			strings::team_a,
+			strings::team_b,
+			strings::team_c,
+			strings::team_d,
+		};
+
+		for (s32 i = 0; i < MAX_GAMEPADS; i++)
+		{
+			AI::Team team = Game::session.local_player_config[i];
+			if (team != AI::TeamNone)
+			{
+				text.text(_(team_labels[(s32)team]));
+				text.draw(params, pos + Vec2(0, 32.0f * UI::scale * SCALE_MULTIPLIER));
+				draw_gamepad_icon(params, pos, i, UI::accent_color, SCALE_MULTIPLIER);
+				pos.x += gamepad_spacing;
+			}
+		}
+	}
 }
 
 void deploy_update(const Update& u)
 {
-	const ZoneNode& level_node = *get_zone_node(data.next_level);
-	focus_camera(u, level_node);
+	const ZoneNode& zone = *get_zone_node(data.next_zone);
+	focus_camera(u, zone);
 
 	data.deploy_timer -= Game::real_time.delta;
 	data.camera->active = data.deploy_timer > 0.5f;
 	if (data.deploy_timer < 0.0f)
-		go(data.next_level);
+		go(data.next_zone);
 }
 
 void bar_draw(const RenderParams& params, const char* label, r32 percentage, const Vec2& pos)
@@ -724,7 +764,7 @@ void progress_draw(const RenderParams& params, const char* label, const Vec2& po
 
 void deploy_draw(const RenderParams& params)
 {
-	const ZoneNode* current_level = zones_draw(params);
+	const ZoneNode* current_zone = zones_draw(params);
 
 	// show "loading..."
 	progress_draw(params, _(Game::session.local_multiplayer ? strings::loading_offline : strings::connecting), params.camera->viewport.size * Vec2(0.5f, 0.2f));
@@ -1032,16 +1072,16 @@ void tab_map_update(const Update& u)
 			if (data.story.hack_timer == 0.0f)
 			{
 				// hack complete
-				if (Game::save.zones[data.next_level] == Game::ZoneState::Locked
+				if (Game::save.zones[data.next_zone] == Game::ZoneState::Locked
 					&& spend_resource(Game::Resource::HackKits, 1))
 				{
-					if (data.next_level == Asset::Level::Safe_Zone)
-						Game::save.zones[data.next_level] = Game::ZoneState::Owned;
+					if (data.next_zone == Asset::Level::Safe_Zone)
+						Game::save.zones[data.next_zone] = Game::ZoneState::Owned;
 					else
-						Game::save.zones[data.next_level] = Game::ZoneState::Hostile;
+						Game::save.zones[data.next_zone] = Game::ZoneState::Hostile;
 
 					// make adjacent zones accessible (but still locked)
-					const ZoneNode* zone = get_zone_node(data.next_level);
+					const ZoneNode* zone = get_zone_node(data.next_zone);
 					Vec3 zone_pos = zone->pos.ref()->absolute_pos();
 					zone_pos.y = 0.0f;
 					for (s32 i = 0; i < data.zones.length; i++)
@@ -1063,7 +1103,7 @@ void tab_map_update(const Update& u)
 			// interact button
 			if (u.last_input->get(Controls::Interact, 0) && !u.input->get(Controls::Interact, 0))
 			{
-				Game::ZoneState zone_state = Game::save.zones[data.next_level];
+				Game::ZoneState zone_state = Game::save.zones[data.next_zone];
 				if (zone_state == Game::ZoneState::Locked)
 				{
 					if (Game::save.resources[(s32)Game::Resource::HackKits] > 0)
@@ -1071,7 +1111,7 @@ void tab_map_update(const Update& u)
 				}
 				else if (zone_state == Game::ZoneState::Hostile)
 					deploy_start();
-				else if (data.next_level == Asset::Level::Safe_Zone && zone_state == Game::ZoneState::Owned)
+				else if (data.next_zone == Asset::Level::Safe_Zone && zone_state == Game::ZoneState::Owned)
 					deploy_start();
 			}
 		}
@@ -1482,7 +1522,7 @@ void tab_map_draw(const RenderParams& p, const Data::StoryMode& story, const Rec
 			text.anchor_x = text.anchor_y = UIText::Anchor::Center;
 
 			AssetID prompt;
-			switch (Game::save.zones[data.next_level])
+			switch (Game::save.zones[data.next_zone])
 			{
 				case Game::ZoneState::Friendly:
 				{
@@ -1507,7 +1547,7 @@ void tab_map_draw(const RenderParams& p, const Data::StoryMode& story, const Rec
 				}
 				case Game::ZoneState::Owned:
 				{
-					if (data.next_level == Asset::Level::Safe_Zone)
+					if (data.next_zone == Asset::Level::Safe_Zone)
 						prompt = strings::prompt_deploy;
 					else
 						prompt = strings::prompt_inspect;
@@ -1620,7 +1660,7 @@ void story_mode_draw(const RenderParams& p)
 
 b8 should_draw_zones()
 {
-	return data.state == State::SplitscreenSelectLevel
+	return data.state == State::SplitscreenSelectZone
 		|| data.state == State::SplitscreenDeploying
 		|| data.state == State::Deploying
 		|| (data.state == State::StoryMode && data.story.tab == Tab::Map && data.story.tab_timer > TAB_ANIMATION_TIME);
@@ -1641,7 +1681,7 @@ void splitscreen_select_zone_update(const Update& u)
 	// deploy button
 	if (u.last_input->get(Controls::Interact, 0) && !u.input->get(Controls::Interact, 0))
 	{
-		const ZoneNode* zone = get_zone_node(data.next_level);
+		const ZoneNode* zone = get_zone_node(data.next_zone);
 		if (splitscreen_team_count() <= zone->max_teams)
 			deploy_start();
 	}
@@ -1649,12 +1689,12 @@ void splitscreen_select_zone_update(const Update& u)
 
 void update(const Update& u)
 {
-	if (data.last_level == Asset::Level::terminal && Game::session.level != Asset::Level::terminal)
+	if (data.last_zone == Asset::Level::terminal && Game::session.level != Asset::Level::terminal)
 	{
 		// cleanup
 		data.~Data();
 		data = Data();
-		data.last_level = Asset::Level::terminal;
+		data.last_zone = Asset::Level::terminal;
 	}
 
 	if (Game::session.level == Asset::Level::terminal && !Console::visible)
@@ -1671,7 +1711,7 @@ void update(const Update& u)
 				splitscreen_select_teams_update(u);
 				break;
 			}
-			case State::SplitscreenSelectLevel:
+			case State::SplitscreenSelectZone:
 			{
 				splitscreen_select_zone_update(u);
 				break;
@@ -1689,7 +1729,7 @@ void update(const Update& u)
 			}
 		}
 	}
-	data.last_level = Game::session.level;
+	data.last_zone = Game::session.level;
 }
 
 void draw_override(const RenderParams& params)
@@ -1718,7 +1758,7 @@ void draw(const RenderParams& params)
 			story_mode_draw(params);
 			break;
 		}
-		case State::SplitscreenSelectLevel:
+		case State::SplitscreenSelectZone:
 		{
 			splitscreen_select_zone_draw(params);
 			break;
@@ -1748,7 +1788,7 @@ void init(const Update& u, const EntityFinder& entities)
 		return;
 
 	data.tip_index = mersenne::rand() % tip_count;
-	data.next_level = Game::session.local_multiplayer ? Asset::Level::Medias_Res : Asset::Level::Safe_Zone;
+	data.next_zone = Game::session.local_multiplayer ? Asset::Level::Medias_Res : Asset::Level::Safe_Zone;
 	data.camera = Camera::add();
 
 	{
@@ -1804,7 +1844,7 @@ void init(const Update& u, const EntityFinder& entities)
 		if (Game::session.local_player_count() <= 1) // haven't selected teams yet
 			data.state = State::SplitscreenSelectTeams;
 		else
-			data.state = State::SplitscreenSelectLevel; // already selected teams, go straight to level select; the player can always go back
+			data.state = State::SplitscreenSelectZone; // already selected teams, go straight to level select; the player can always go back
 	}
 	else
 	{

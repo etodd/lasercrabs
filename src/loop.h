@@ -612,7 +612,7 @@ void draw(LoopSync* sync, const Camera* camera)
 				shadow_camera.rot = Quat::look(abs_directions[0]);
 				shadow_camera.mask = RENDER_MASK_SHADOW;
 
-				if (draw_far_shadow_cascade) // only draw far shadow cascade every other frame
+				if (draw_far_shadow_cascade || Camera::active_count() > 1) // only draw far shadow cascade every other frame, if we can
 				{
 					shadow_camera.viewport =
 					{
@@ -1471,6 +1471,9 @@ void loop(LoopSwapper* swapper, PhysicsSwapper* physics_swapper)
 
 		g_albedo_fbo = Loader::framebuffer_permanent(1);
 		Loader::framebuffer_attach(RenderFramebufferAttachment::Color0, g_albedo_buffer);
+
+		ui_buffer = AssetNull;
+		ui_fbo = AssetNull;
 	}
 	else
 	{
@@ -1479,6 +1482,10 @@ void loop(LoopSwapper* swapper, PhysicsSwapper* physics_swapper)
 		g_depth_buffer = g_depth_buffer_highres;
 		g_fbo = g_fbo_highres;
 		g_albedo_fbo = g_albedo_fbo_highres;
+
+		ui_buffer = Loader::dynamic_texture_permanent(sync->input.width, sync->input.height, RenderDynamicTextureType::ColorMultisample);
+		ui_fbo = Loader::framebuffer_permanent(1);
+		Loader::framebuffer_attach(RenderFramebufferAttachment::Color0, ui_buffer);
 	}
 
 	color1_buffer = Loader::dynamic_texture_permanent(sync->input.width, sync->input.height, RenderDynamicTextureType::Color);
@@ -1490,10 +1497,6 @@ void loop(LoopSwapper* swapper, PhysicsSwapper* physics_swapper)
 	color2_fbo = Loader::framebuffer_permanent(2);
 	Loader::framebuffer_attach(RenderFramebufferAttachment::Color0, color2_buffer);
 	Loader::framebuffer_attach(RenderFramebufferAttachment::Depth, color2_depth_buffer);
-
-	ui_buffer = Loader::dynamic_texture_permanent(sync->input.width, sync->input.height, RenderDynamicTextureType::ColorMultisample);
-	ui_fbo = Loader::framebuffer_permanent(1);
-	Loader::framebuffer_attach(RenderFramebufferAttachment::Color0, ui_buffer);
 
 	lighting_buffer = Loader::dynamic_texture_permanent(sync->input.width, sync->input.height, RenderDynamicTextureType::Color);
 	lighting_fbo = Loader::framebuffer_permanent(1);
@@ -1573,8 +1576,8 @@ void loop(LoopSwapper* swapper, PhysicsSwapper* physics_swapper)
 
 		for (s32 i = 0; i < Camera::max_cameras; i++)
 		{
-			if (Camera::all[i].active)
-				draw(sync, &Camera::all[i]);
+			if (Camera::list[i].active)
+				draw(sync, &Camera::list[i]);
 		}
 
 		sync->quit |= Game::quit;

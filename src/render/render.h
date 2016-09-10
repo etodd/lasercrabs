@@ -28,7 +28,7 @@ struct Frustum
 struct Camera
 {
 	static const s32 max_cameras = 8;
-	static Camera all[max_cameras];
+	static Camera list[max_cameras];
 
 	RenderMask mask;
 
@@ -45,6 +45,8 @@ struct Camera
 	static ViewportBlueprint* viewport_blueprints[4];
 
 	static Camera* add();
+
+	static s32 active_count();
 
 	b8 active;
 	Mat4 projection;

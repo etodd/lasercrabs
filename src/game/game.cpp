@@ -830,8 +830,8 @@ void Game::unload_level()
 
 	for (s32 i = 0; i < Camera::max_cameras; i++)
 	{
-		if (Camera::all[i].active)
-			Camera::all[i].remove();
+		if (Camera::list[i].active)
+			Camera::list[i].remove();
 	}
 }
 

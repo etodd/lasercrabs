@@ -14,7 +14,6 @@ void main()
 #else
 
 in vec2 uv;
-out vec4 out_color;
 
 uniform sampler2D color_buffer;
 uniform sampler2D normal_buffer;

@@ -501,6 +501,16 @@ void MinionAI::update_all(const Update& u)
 	}
 }
 
+// use this to set the intial value of teleport_timer such that
+// minions don't all teleport at the same time
+r32 MinionAI::teleport_time()
+{
+	r32 result = 0;
+	for (auto i = list.iterator(); !i.is_last(); i.next())
+		result = vi_max(result, i.item()->teleport_timer - TELEPORT_TIME);
+	return result + TELEPORT_TIME * 2.0f;
+}
+
 void MinionAI::update(const Update& u)
 {
 	target_timer += u.time.delta;
@@ -539,7 +549,10 @@ void MinionAI::update(const Update& u)
 				path_timer = 0.0f;
 				Teleporter* teleporter = teleporter_candidate(this, goal);
 				if (teleporter)
+				{
 					teleport(entity(), teleporter);
+					path.length = 0;
+				}
 				else
 					teleport_timer = 0.0f;
 			}
@@ -558,7 +571,7 @@ void MinionAI::update(const Update& u)
 						{
 							// recalc path
 							if (teleporter_candidate(this, goal))
-								teleport_timer = TELEPORT_TIME * 2.0f;
+								teleport_timer = teleport_time();
 							else
 							{
 								path_request = PathRequest::Repath;
@@ -606,7 +619,7 @@ void MinionAI::update(const Update& u)
 								{
 									// recalc path
 									if (teleporter_candidate(this, goal))
-										teleport_timer = TELEPORT_TIME * 2.0f;
+										teleport_timer = teleport_time();
 									else
 									{
 										path_request = PathRequest::Target;

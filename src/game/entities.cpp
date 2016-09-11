@@ -1072,6 +1072,7 @@ void teleport(Entity* e, Teleporter* target)
 	{
 		// space minions out around the teleporter
 		Vec3 teleport_pos = pos + rot * Quat::euler(0, 0, e->get<Walker>()->id() * PI * 0.25f) * Vec3(1, 0, 1);
+		teleport_pos.y = vi_max(teleport_pos.y, pos.y + 1.0f);
 		e->get<Walker>()->absolute_pos(teleport_pos);
 	}
 	else if (e->has<Awk>())

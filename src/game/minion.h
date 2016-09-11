@@ -62,6 +62,7 @@ struct MinionAI : public ComponentType<MinionAI>
 
 	static r32 particle_accumulator;
 	static void update_all(const Update& u);
+	static r32 teleport_time();
 
 	PathRequest path_request;
 	Goal goal;

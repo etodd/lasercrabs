@@ -118,7 +118,8 @@ struct RandomScorer : AstarScorer
 
 	virtual b8 done(AwkNavMeshNode v, const AwkNavMeshNodeData& data)
 	{
-		return (start_pos - awk_nav_mesh.chunks[v.chunk].vertices[v.vertex]).length_squared() > (minimum_distance * minimum_distance);
+		return awk_nav_mesh.chunks[v.chunk].adjacency[v.vertex].neighbors.length == AWK_NAV_MESH_ADJACENCY // end goal must be a highly accessible location
+			&& (start_pos - awk_nav_mesh.chunks[v.chunk].vertices[v.vertex]).length_squared() > (minimum_distance * minimum_distance);
 	}
 };
 

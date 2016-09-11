@@ -108,6 +108,11 @@ void Health::damage(Entity* e, u8 damage)
 	}
 }
 
+void Health::take_shield()
+{
+	damage(nullptr, shield);
+}
+
 void Health::take_health(Entity* e, u8 amount)
 {
 	// an enemy has stolen one of our health pickups

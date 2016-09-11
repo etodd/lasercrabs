@@ -107,6 +107,7 @@ struct Game
 	{
 		Energy,
 		HackKits,
+		Drones,
 		count,
 	};
 

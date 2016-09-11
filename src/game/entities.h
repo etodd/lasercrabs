@@ -42,6 +42,7 @@ struct Health : public ComponentType<Health>
 	void update(const Update&);
 	void awake() {}
 	void damage(Entity*, u8);
+	void take_shield();
 	void take_health(Entity*, u8);
 	void kill(Entity*);
 	void add(u8);

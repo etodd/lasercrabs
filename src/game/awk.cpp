@@ -511,14 +511,17 @@ b8 Awk::can_shoot(const Vec3& dir, Vec3* final_pos, b8* hit_target) const
 				// check target predictions
 				for (auto i = list.iterator(); !i.is_last(); i.next())
 				{
-					Vec3 intersection;
-					if (i.item() != this && predict_intersection(i.item()->get<Target>(), &intersection))
+					if (i.item() != this && (i.item()->get<Transform>()->absolute_pos() - trace_start).length_squared() > AWK_SHIELD_RADIUS * 2.0f * AWK_SHIELD_RADIUS * 2.0f)
 					{
-						if ((intersection - trace_start).length_squared() < r * r
-							&& LMath::ray_sphere_intersect(trace_start, trace_end, intersection, AWK_SHIELD_RADIUS))
+						Vec3 intersection;
+						if (predict_intersection(i.item()->get<Target>(), &intersection))
 						{
-							can_shoot = true;
-							break;
+							if ((intersection - trace_start).length_squared() < r * r
+								&& LMath::ray_sphere_intersect(trace_start, trace_end, intersection, AWK_SHIELD_RADIUS))
+							{
+								can_shoot = true;
+								break;
+							}
 						}
 					}
 				}
@@ -676,6 +679,9 @@ b8 Awk::detach(const Vec3& dir)
 				if (Team::list[i].team() != team)
 					Team::list[i].track(get<PlayerCommon>()->manager.ref());
 			}
+
+			// shield goes down
+			get<Health>()->take_shield();
 
 			snipe_enable(false);
 		}

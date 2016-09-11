@@ -267,7 +267,7 @@ namespace VI
 
 						if (i.item()->is_local() && !Game::session.local_multiplayer)
 						{
-							// we're in story mode and this is a local player; save their rating
+							// we're in story mode and this is a local player; increase their energy
 							Game::save.resources[(s32)Game::Resource::Energy] += total;
 						}
 					}

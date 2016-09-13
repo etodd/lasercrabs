@@ -1455,8 +1455,9 @@ void loop(LoopSwapper* swapper, PhysicsSwapper* physics_swapper)
 	Loader::framebuffer_attach(RenderFramebufferAttachment::Color1, g_normal_buffer_highres);
 	Loader::framebuffer_attach(RenderFramebufferAttachment::Depth, g_depth_buffer_highres);
 
-	g_albedo_fbo_highres = Loader::framebuffer_permanent(1);
+	g_albedo_fbo_highres = Loader::framebuffer_permanent(2);
 	Loader::framebuffer_attach(RenderFramebufferAttachment::Color0, g_albedo_buffer_highres);
+	Loader::framebuffer_attach(RenderFramebufferAttachment::Depth, g_depth_buffer_highres);
 
 	if (Settings::supersampling)
 	{
@@ -1469,8 +1470,9 @@ void loop(LoopSwapper* swapper, PhysicsSwapper* physics_swapper)
 		Loader::framebuffer_attach(RenderFramebufferAttachment::Color1, g_normal_buffer);
 		Loader::framebuffer_attach(RenderFramebufferAttachment::Depth, g_depth_buffer);
 
-		g_albedo_fbo = Loader::framebuffer_permanent(1);
+		g_albedo_fbo = Loader::framebuffer_permanent(2);
 		Loader::framebuffer_attach(RenderFramebufferAttachment::Color0, g_albedo_buffer);
+		Loader::framebuffer_attach(RenderFramebufferAttachment::Depth, g_depth_buffer);
 
 		ui_buffer = AssetNull;
 		ui_fbo = AssetNull;

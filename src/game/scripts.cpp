@@ -98,11 +98,6 @@ namespace tutorial
 		Game::level.feature_level = Game::FeatureLevel::Abilities;
 	}
 
-	void ai_killed(Entity*)
-	{
-		Game::save.story_index++;
-	}
-
 	void player_or_ai_killed(Entity*)
 	{
 		data->state = TutorialState::Done;
@@ -115,7 +110,6 @@ namespace tutorial
 		entity->get<Transform>()->absolute_pos(data->test_dummy_location.ref()->absolute_pos());
 		LinkArg<Entity*>* link = &entity->get<Health>()->killed;
 		link->link(&player_or_ai_killed);
-		link->link(&ai_killed);
 	}
 
 	void player_spawned()

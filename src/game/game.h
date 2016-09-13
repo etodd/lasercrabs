@@ -40,6 +40,13 @@ struct Game
 		Pvp,
 	};
 
+	enum class Group
+	{
+		None,
+		SissyFoos,
+		Ephyra,
+	};
+
 	enum class FeatureLevel
 	{
 		Base,
@@ -125,9 +132,11 @@ struct Game
 		Array<Message> messages_scheduled;
 		std::unordered_map<AssetID, AssetID> variables; // todo: kill STL
 		ZoneState zones[64];
+		Group group;
 		u16 story_index;
 		u16 resources[(s32)Resource::count];
 		const char* username;
+		b8 cora_called;
 
 		Save();
 	};

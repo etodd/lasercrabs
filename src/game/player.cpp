@@ -492,7 +492,7 @@ void LocalPlayer::draw_alpha(const RenderParams& params) const
 		char buffer[128];
 		sprintf(buffer, "%d", manager.ref()->credits);
 		Vec2 credits_pos = center + Vec2(0, radius * -0.5f);
-		draw_icon_text(params, credits_pos, Asset::Mesh::icon_credits, buffer, draw ? (flashing ? UI::default_color : UI::accent_color) : UI::background_color);
+		draw_icon_text(params, credits_pos, Asset::Mesh::icon_energy, buffer, draw ? (flashing ? UI::default_color : UI::accent_color) : UI::background_color);
 
 		// control point increment amount
 		{
@@ -648,7 +648,7 @@ void LocalPlayer::draw_alpha(const RenderParams& params) const
 			}
 
 			// show map name
-			text.text("%s", AssetLookup::Level::names[Game::session.level]);
+			text.text("%s", Loader::level_name(Game::session.level));
 			text.color = UI::accent_color;
 			UI::box(params, text.rect(p).outset(MENU_ITEM_PADDING), UI::background_color);
 			text.draw(params, p);
@@ -759,7 +759,7 @@ void LocalPlayer::draw_alpha(const RenderParams& params) const
 				Vec2 p = vp.size * Vec2(0.5f, 0.2f);
 				text.wrap_width = 0;
 				text.color = UI::accent_color;
-				text.text(_(manager.ref()->score_accepted ? strings::waiting : strings::accept));
+				text.text(_(manager.ref()->score_accepted ? strings::waiting : strings::prompt_accept));
 				UI::box(params, text.rect(p).outset(MENU_ITEM_PADDING), UI::background_color);
 				text.draw(params, p);
 			}
@@ -1476,7 +1476,7 @@ void LocalPlayerControl::update(const Update& u)
 		{
 			Vec3 trace_end = trace_start + trace_dir * (AWK_SNIPE_DISTANCE + AWK_THIRD_PERSON_OFFSET);
 			RaycastCallbackExcept ray_callback(trace_start, trace_end, entity());
-			Physics::raycast(&ray_callback, ~CollisionAwkIgnore & ~get<Awk>()->ally_containment_field_mask());
+			Physics::raycast(&ray_callback, ~CollisionAwkIgnore & ~get<Awk>()->ally_containment_field_mask() & ~CollisionShield);
 
 			Vec3 center = get<Transform>()->absolute_pos();
 

@@ -151,7 +151,9 @@ Game::Save::Save()
 	resources(),
 	messages(),
 	messages_scheduled(),
-	username("etodd")
+	username("etodd"),
+	group(),
+	cora_called()
 {
 }
 

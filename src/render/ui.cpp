@@ -55,9 +55,9 @@ void UIText::text(const char* format, ...)
 		format = "";
 
 #if defined(_WIN32)
-	vsprintf_s(string, 1024, format, args);
+	vsprintf_s(string, 1023, format, args);
 #else
-	vsnprintf(string, 1024, format, args);
+	vsnprintf(string, 1023, format, args);
 #endif
 
 	va_end(args);
@@ -346,7 +346,7 @@ void UIText::draw(const RenderParams& params, const Vec2& pos, r32 rot) const
 			{
 				valid_character = false;
 				const char* space = " ";
-				character = &f->get(&space);
+				character = &f->get(space);
 			}
 			if (clipped || !valid_character)
 			{

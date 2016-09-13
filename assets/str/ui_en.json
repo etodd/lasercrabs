@@ -2,6 +2,7 @@
 	"connecting": "Connecting...",
 	"calling": "Calling...",
 	"hacking": "Hacking...",
+	"buying": "Buying...",
 	"loading_offline": "Loading...",
 	"match_searching": "Searching...\n(%d players)",
 	"match_starting": "Connecting in %d...",
@@ -18,7 +19,11 @@
 	"team_d": "Team D",
 	"back": "Back",
 	"prompt_back": "[{{Cancel}}] Back",
-	"prompt_inspect": "[{{Interact}}] Inspect",
+	"energy": "Energy",
+	"hack_kits": "Hack kits",
+	"drones": "Drones",
+	"capture_bonus": "Capture bonus:",
+	"unknown": "Unknown",
 	"sfx": "SFX",
 	"music": "Music",
 	"player": "Player %d",
@@ -27,6 +32,14 @@
 	"prompt_deploy": "[{{Interact}}] Deploy",
 	"prompt_hack": "[{{Interact}}] Hack",
 	"prompt_call": "[{{InteractSecondary}}] Call",
+	"prompt_accept": "[{{Interact}}] Accept",
+	"prompt_buy": "Spend %d energy for 1 %s?",
+	"confirm_hack": "Spend %d hack kits to unlock this zone?",
+	"confirm_capture": "Spend %d drones to capture this zone?",
+	"energy_generation": "Energy: +%d",
+	"auto_capture_fail_prompt": "Auto-capture failed. Spend %d energy to deploy manual control?",
+	"auto_capture_fail_insufficient_resource": "Auto-capture failed. %d %s needed to deploy manual control.",
+	"insufficient_resource": "%d %s needed.",
 	"main_menu": "Main menu",
 	"quit": "Quit",
 	"close": "Close",
@@ -50,13 +63,12 @@
 	"minion_killed": "Minion killed",
 	"prompt_cancel": "[{{Cancel}}] Cancel",
 	"ability_spawn_cost": "-%d energy",
-	"accept": "[{{Interact}}] Accept",
 	"waiting": "Waiting...",
 	"upgrade_description": "Cost: %d\n%s",
 	"buy_period": "Buy period (%d)",
 	"buy_period_expired": "Movement enabled",
-	"forfeit_network_error": "Network connection lost. The match will count as a win.",
-	"forfeit_opponent_quit": "Your opponent forfeit the match.",
+	"forfeit_network_error": "Network connection lost. Match counts as a win.",
+	"forfeit_opponent_quit": "Opponent forfeit. Match counts as a win.",
 	"sensor": "Sensor",
 	"description_sensor": "Sensors detect enemies and provide stealth.",
 	"rocket": "Rocket Pod",
@@ -333,9 +345,11 @@
 	"btn_RightTrigger": "RT",
 	"btn_None": "None",
 
-	"victory": "Zone cleared",
+	"call_timed_out": "Call timed out.",
+
+	"victory": "Zone captured",
 	"leftover_energy": "Energy surplus",
-	"defeat": "Zone Lost",
+	"defeat": "Zone lost",
 	"draw": "Battery Expired",
 	"timer": "%d:%02d",
 
@@ -354,13 +368,14 @@
 	"contact_ivory_corp": "Ivory Corp",
 	
 	"msg_cora_intro": "Contact added. [{{InteractSecondary}}] to call.",
-	"msg_albert_intro": "Hey friend. I hope you understand that I'm doing the best I can with what I got. Even getting you this workstation login was a huge risk.
+	"msg_albert_intro": "Hey friend. Hope you understand that I'm doing the best I can with what I got. Even getting you this workstation login was a huge risk.
 
 Good luck out there.",
 	"msg_albert_intro_2": "I'm leaving the contact info of an AI who can help you out. Tell her I sent you.
 
-I also left one hack kit to get you started. Best I could do.",
-	"msg_ivory_corp_intro": "Your drone control interface account has been successfully created.
+I also left some stuff to get you started. Best I could do.",
+	"msg_albert_keep_trying": "Slipped my mind before, but... Cora might not take too kindly to you at first. Just keep trying.",
+	"msg_ivory_corp_intro": "Your drone control interface account has been created. Please change your password.
 
 Note: Due to a recent massive influx of new users, Ivory Corp no longer accepts support tickets."
 }

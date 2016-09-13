@@ -321,6 +321,7 @@ void HealthPickup::update_all(const Update& u)
 	power_particle_timer += u.time.delta;
 	while (power_particle_timer > particle_reset)
 		power_particle_timer -= particle_reset;
+	r32 particle_blend = power_particle_timer / particle_reset;
 
 	// clear powered state for all containment fields; we're going to update this flag
 	for (auto field = ContainmentField::list.iterator(); !field.is_last(); field.next())
@@ -351,8 +352,6 @@ void HealthPickup::update_all(const Update& u)
 
 		if (emit_particles)
 		{
-			r32 particle_blend = power_particle_timer / particle_reset;
-
 			// particle effects to all containment fields in range
 			for (s32 i = 0; i < containment_fields.length; i++)
 			{

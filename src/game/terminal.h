@@ -16,6 +16,7 @@ void update(const Update&);
 void draw_override(const RenderParams&);
 void draw(const RenderParams&);
 void show();
+void execute(const char*);
 
 }
 

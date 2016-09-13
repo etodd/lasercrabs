@@ -45,6 +45,7 @@ struct Game
 		None,
 		SissyFoos,
 		Ephyra,
+		count,
 	};
 
 	enum class FeatureLevel

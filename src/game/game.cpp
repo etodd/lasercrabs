@@ -785,6 +785,8 @@ void Game::execute(const Update& u, const char* cmd)
 			}
 		}
 	}
+	else if (Game::session.level == Asset::Level::terminal)
+		Terminal::execute(cmd);
 }
 
 void Game::schedule_load_level(AssetID level_id, Mode m)
@@ -795,6 +797,9 @@ void Game::schedule_load_level(AssetID level_id, Mode m)
 
 void Game::unload_level()
 {
+	for (s32 i = 0; i < MAX_GAMEPADS; i++)
+		Audio::listener_disable(i);
+
 	for (auto i = Entity::list.iterator(); !i.is_last(); i.next())
 		World::remove(i.item());
 

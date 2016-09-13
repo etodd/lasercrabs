@@ -25,6 +25,7 @@
 #include "data/priority_queue.h"
 #include "platform/util.h"
 #include "utf8/utf8.h"
+#include "noise.h"
 
 namespace VI
 {
@@ -91,6 +92,8 @@ enum class Tab
 
 typedef void(*DialogCallback)();
 
+#define DEPLOY_ANIMATION_TIME 1.0f
+
 struct Data
 {
 	struct Messages
@@ -108,22 +111,22 @@ struct Data
 		UIScroll message_scroll;
 		AssetID contact_selected = AssetNull;
 		AssetID message_selected = AssetNull;
-		r32 cora_timer;
+		r32 timer_cora;
 	};
 
 	struct Inventory
 	{
 		r32 resources_blink_timer[(s32)Game::Resource::count];
-		r32 buy_timer;
+		r32 timer_buy;
 		Game::Resource resource_selected;
 		u16 resources_last[(s32)Game::Resource::count];
 	};
 
 	struct Map
 	{
-		r32 hack_timer;
-		r32 capture_timer;
-		b8 in_group_queue;
+		r32 timer_hack;
+		r32 timer_capture;
+		r32 timer_group_queue;
 	};
 
 	struct StoryMode
@@ -150,7 +153,8 @@ struct Data
 	State state;
 	s32 tip_index;
 	r32 tip_time;
-	r32 deploy_timer;
+	r32 timer_deploy;
+	r32 timer_deploy_animation;
 	StoryMode story;
 	Ref<Transform> camera_offset;
 };
@@ -265,6 +269,11 @@ void dialog(DialogCallback callback, const char* format, ...)
 	data.story.dialog_callback = callback;
 	data.story.dialog_time = Game::real_time.total;
 	data.story.dialog_time_limit = 0.0f;
+}
+
+void deploy_animation_start()
+{
+	data.timer_deploy_animation = DEPLOY_ANIMATION_TIME;
 }
 
 void splitscreen_select_teams_update(const Update& u)
@@ -489,7 +498,7 @@ void focus_camera(const Update& u, const ZoneNode& zone)
 	focus_camera(u, target_pos, target_rot);
 }
 
-const ZoneNode* get_zone_node(AssetID id)
+const ZoneNode* zone_node_get(AssetID id)
 {
 	for (s32 i = 0; i < data.zones.length; i++)
 	{
@@ -511,8 +520,14 @@ b8 resource_spend(Game::Resource res, u16 amount)
 
 void deploy_start()
 {
-	data.state = Game::session.local_multiplayer ? State::SplitscreenDeploying : State::Deploying;
-	data.deploy_timer = DEPLOY_TIME_LOCAL;
+	if (Game::session.local_multiplayer)
+	{
+		data.state = State::SplitscreenDeploying;
+		deploy_animation_start();
+	}
+	else
+		data.state = State::Deploying;
+	data.timer_deploy = DEPLOY_TIME_LOCAL;
 	data.tip_time = Game::real_time.total;
 }
 
@@ -521,7 +536,7 @@ void select_zone_update(const Update& u, b8 enable_movement)
 	if (UIMenu::active[0])
 		return;
 
-	const ZoneNode* zone = get_zone_node(data.zone_selected);
+	const ZoneNode* zone = zone_node_get(data.zone_selected);
 	if (!zone)
 		return;
 
@@ -595,7 +610,7 @@ Vec3 zone_color(const ZoneNode& zone)
 		if (splitscreen_team_count() <= zone.max_teams)
 			return Team::color_friend.xyz();
 		else
-			return Vec3(0.3f);
+			return Vec3(0.25f);
 	}
 	else
 	{
@@ -620,7 +635,7 @@ Vec3 zone_color(const ZoneNode& zone)
 			}
 			case Game::ZoneState::Inaccessible:
 			{
-				return Vec3(0.3f);
+				return Vec3(0.25f);
 			}
 			default:
 			{
@@ -674,7 +689,7 @@ const Vec4& zone_ui_color(const ZoneNode& zone)
 	}
 }
 
-#define DEFAULT_ZONE_COLOR Vec3(0.2f)
+#define DEFAULT_ZONE_COLOR Vec3(0.4f)
 void zones_draw_override(const RenderParams& params)
 {
 	struct SortKey
@@ -720,10 +735,10 @@ void zones_draw_override(const RenderParams& params)
 const ZoneNode* zones_draw(const RenderParams& params)
 {
 	// highlight zone locations
-	const ZoneNode* zone = get_zone_node(data.zone_selected);
+	const ZoneNode* zone = zone_node_get(data.zone_selected);
 
 	// draw current zone name
-	if (zone && data.deploy_timer == 0.0f)
+	if (zone && data.timer_deploy == 0.0f)
 	{
 		Vec2 p;
 		if (UI::project(params, zone->pos.ref()->absolute_pos(), &p))
@@ -800,12 +815,12 @@ void splitscreen_select_zone_draw(const RenderParams& params)
 
 void deploy_update(const Update& u)
 {
-	const ZoneNode& zone = *get_zone_node(data.zone_selected);
+	const ZoneNode& zone = *zone_node_get(data.zone_selected);
 	focus_camera(u, zone);
 
-	data.deploy_timer -= Game::real_time.delta;
-	data.camera->active = data.deploy_timer > 0.5f;
-	if (data.deploy_timer < 0.0f)
+	data.timer_deploy -= Game::real_time.delta;
+	data.camera->active = data.timer_deploy > 0.5f;
+	if (data.timer_deploy < 0.0f)
 		go(data.zone_selected);
 }
 
@@ -875,11 +890,11 @@ void deploy_draw(const RenderParams& params)
 b8 can_switch_tab()
 {
 	const Data::StoryMode& story = data.story;
-	return story.map.hack_timer == 0.0f
-		&& story.map.capture_timer == 0.0f
-		&& story.inventory.buy_timer == 0.0f
+	return story.map.timer_hack == 0.0f
+		&& story.map.timer_capture == 0.0f
+		&& story.inventory.timer_buy == 0.0f
 		&& !story.dialog_callback
-		&& (story.messages.mode != Data::Messages::Mode::Cora || story.messages.cora_timer > 0.0f);
+		&& (story.messages.mode != Data::Messages::Mode::Cora || story.messages.timer_cora > 0.0f);
 }
 
 #define TAB_ANIMATION_TIME 0.3f
@@ -959,11 +974,11 @@ void message_read(Game::Message* msg)
 {
 	msg->read = true;
 	if (msg->text == strings::msg_albert_intro_2)
-		message_schedule(strings::contact_cora, strings::msg_cora_intro, 2.0);
+		message_schedule(strings::contact_cora, strings::msg_cora_intro, 1.0);
 }
 
 #define ZONE_MAX_CHILDREN 12
-void get_zone_children(const ZoneNode& node, StaticArray<Ref<Transform>, ZONE_MAX_CHILDREN>* children)
+void zone_node_children(const ZoneNode& node, StaticArray<Ref<Transform>, ZONE_MAX_CHILDREN>* children)
 {
 	children->length = 0;
 	for (auto i = Transform::list.iterator(); !i.is_last(); i.next())
@@ -974,7 +989,7 @@ void get_zone_children(const ZoneNode& node, StaticArray<Ref<Transform>, ZONE_MA
 }
 
 // make sure inaccessible/locked zones are correct
-void update_zone_states()
+void zone_states_update()
 {
 	// reset
 	for (s32 i = 0; i < data.zones.length; i++)
@@ -992,7 +1007,7 @@ void update_zone_states()
 		if (zone_state == Game::ZoneState::Friendly || zone_state == Game::ZoneState::Owned)
 		{
 			StaticArray<Ref<Transform>, ZONE_MAX_CHILDREN> children;
-			get_zone_children(zone, &children);
+			zone_node_children(zone, &children);
 			children.add(zone.pos.ref());
 			for (s32 j = 0; j < children.length; j++)
 			{
@@ -1015,7 +1030,7 @@ void update_zone_states()
 }
 
 
-void join_group(Game::Group g)
+void group_join(Game::Group g)
 {
 	Game::save.group = g;
 	for (s32 i = 0; i < data.zones.length; i++)
@@ -1037,8 +1052,7 @@ void join_group(Game::Group g)
 			}
 		}
 	}
-	update_zone_states();
-	data.story.tab = Tab::Map;
+	zone_states_update();
 }
 
 void conversation_finished()
@@ -1046,7 +1060,7 @@ void conversation_finished()
 	Game::save.story_index++;
 	messages_transition(Data::Messages::Mode::Messages);
 	if (Game::save.story_index == 3)
-		join_group(Game::Group::SissyFoos); // you are now part of sissy foos
+		group_join(Game::Group::SissyFoos); // you are now part of sissy foos
 }
 
 void tab_messages_update(const Update& u)
@@ -1068,7 +1082,7 @@ void tab_messages_update(const Update& u)
 		}
 	}
 
-	if (story->tab == Tab::Messages && story->tab_timer > TAB_ANIMATION_TIME)
+	if (story->tab == Tab::Messages && story->tab_timer > TAB_ANIMATION_TIME && can_switch_tab())
 	{
 		focus_camera(u, story->camera_messages.ref());
 
@@ -1080,9 +1094,9 @@ void tab_messages_update(const Update& u)
 			messages_transition(Data::Messages::Mode::Cora);
 			Game::save.cora_called = true;
 			if (cora_entry_points[Game::save.story_index] == AssetNull)
-				messages->cora_timer = 10.0f;
+				messages->timer_cora = 10.0f;
 			else
-				messages->cora_timer = 3.0f;
+				messages->timer_cora = 3.0f;
 		}
 
 		switch (messages->mode)
@@ -1173,19 +1187,19 @@ void tab_messages_update(const Update& u)
 			}
 			case Data::Messages::Mode::Cora:
 			{
-				if (messages->cora_timer > 0.0f)
+				if (messages->timer_cora > 0.0f)
 				{
 					if (!Game::cancel_event_eaten[0] && u.last_input->get(Controls::Cancel, 0) && !u.input->get(Controls::Cancel, 0))
 					{
 						// cancel
 						messages_transition(Data::Messages::Mode::Messages);
 						Game::cancel_event_eaten[0] = true;
-						messages->cora_timer = 0.0f;
+						messages->timer_cora = 0.0f;
 					}
 					else
 					{
-						messages->cora_timer = vi_max(0.0f, messages->cora_timer - Game::real_time.delta);
-						if (messages->cora_timer == 0.0f)
+						messages->timer_cora = vi_max(0.0f, messages->timer_cora - Game::real_time.delta);
+						if (messages->timer_cora == 0.0f)
 						{
 							AssetID entry_point = cora_entry_points[Game::save.story_index];
 							if (entry_point == AssetNull)
@@ -1207,22 +1221,23 @@ void tab_messages_update(const Update& u)
 			}
 		}
 	}
-	else
+
+	if (story->tab != Tab::Messages)
 	{
 		// minimized view; reset scroll
 		messages->contact_scroll.pos = 0;
 		if (messages->mode == Data::Messages::Mode::Cora)
 		{
 			// cancel cora call
-			messages->cora_timer = 0.0f;
-			messages->mode = Data::Messages::Mode::Messages;
+			messages->timer_cora = 0.0f;
+			messages_transition(Data::Messages::Mode::Messages);
 		}
 	}
 }
 
 void hack_start()
 {
-	data.story.map.hack_timer = HACK_TIME;
+	data.story.map.timer_hack = HACK_TIME;
 }
 
 void capture_start()
@@ -1230,9 +1245,10 @@ void capture_start()
 	if (resource_spend(Game::Resource::Drones, 1))
 	{
 		if (data.zone_selected == Asset::Level::Safe_Zone)
-			data.story.map.capture_timer = 3.0f;
+			data.story.map.timer_capture = 3.0f;
 		else
-			data.story.map.capture_timer = 3.0f + mersenne::randf_cc() * 20.0f;
+			data.story.map.timer_capture = 3.0f + mersenne::randf_cc() * 20.0f;
+		deploy_animation_start();
 	}
 }
 
@@ -1263,7 +1279,7 @@ void story_zone_done(AssetID zone, Game::MatchResult result)
 
 	if (captured)
 	{
-		const ZoneNode* z = get_zone_node(zone);
+		const ZoneNode* z = zone_node_get(zone);
 		for (s32 i = 0; i < (s32)Game::Resource::count; i++)
 			Game::save.resources[i] += z->rewards[i];
 
@@ -1271,20 +1287,20 @@ void story_zone_done(AssetID zone, Game::MatchResult result)
 			Game::save.zones[zone] = Game::ZoneState::Owned;
 		else
 			Game::save.zones[zone] = Game::ZoneState::Friendly;
-		update_zone_states();
+		zone_states_update();
 	}
 
 	if (Game::save.story_index == 0 && zone == Asset::Level::Safe_Zone && captured)
 	{
 		Game::save.story_index++;
 		if (Game::save.cora_called)
-			message_schedule(strings::contact_albert, strings::msg_albert_keep_trying, 3.0f);
+			message_schedule(strings::contact_albert, strings::msg_albert_keep_trying, 3.0);
 	}
 	else if (Game::save.story_index == 1 && zone == Asset::Level::Medias_Res)
 	{
 		Game::save.story_index++; // cora's ready to talk
 		if (Game::save.cora_called)
-			message_schedule(strings::contact_albert, strings::msg_albert_keep_trying, 3.0f);
+			message_schedule(strings::contact_albert, strings::msg_albert_keep_trying, 3.0);
 	}
 }
 
@@ -1295,25 +1311,25 @@ void tab_map_update(const Update& u)
 		b8 enable_input = can_switch_tab();
 		select_zone_update(u, enable_input); // only enable movement if can_switch_tab()
 
-		if (data.story.map.hack_timer > 0.0f)
+		if (data.story.map.timer_hack > 0.0f)
 		{
-			data.story.map.hack_timer = vi_max(0.0f, data.story.map.hack_timer - u.time.delta);
-			if (data.story.map.hack_timer == 0.0f)
+			data.story.map.timer_hack = vi_max(0.0f, data.story.map.timer_hack - u.time.delta);
+			if (data.story.map.timer_hack == 0.0f)
 			{
 				// hack complete
-				const ZoneNode* zone = get_zone_node(data.zone_selected);
+				const ZoneNode* zone = zone_node_get(data.zone_selected);
 				if (Game::save.zones[data.zone_selected] == Game::ZoneState::Locked
 					&& resource_spend(Game::Resource::HackKits, zone->size))
 				{
 					Game::save.zones[data.zone_selected] = Game::ZoneState::Hostile;
-					update_zone_states();
+					zone_states_update();
 				}
 			}
 		}
-		else if (data.story.map.capture_timer > 0.0f)
+		else if (data.story.map.timer_capture > 0.0f)
 		{
-			data.story.map.capture_timer = vi_max(0.0f, data.story.map.capture_timer - u.time.delta);
-			if (data.story.map.capture_timer == 0.0f)
+			data.story.map.timer_capture = vi_max(0.0f, data.story.map.timer_capture - u.time.delta);
+			if (data.story.map.timer_capture == 0.0f)
 			{
 				// capture complete
 				b8 auto_capture_succeed;
@@ -1336,35 +1352,75 @@ void tab_map_update(const Update& u)
 				}
 			}
 		}
-		else
+		else if (enable_input)
 		{
-			// interact button
-			if (enable_input && u.last_input->get(Controls::Interact, 0) && !u.input->get(Controls::Interact, 0))
+			// interact buttons
+			if (Game::save.group == Game::Group::None)
 			{
-				Game::ZoneState zone_state = Game::save.zones[data.zone_selected];
-				if (zone_state == Game::ZoneState::Locked)
+				// no group
+
+				// hack / capture button
+				if (u.last_input->get(Controls::Interact, 0) && !u.input->get(Controls::Interact, 0))
 				{
-					u16 cost = get_zone_node(data.zone_selected)->size;
-					if (Game::save.resources[(s32)Game::Resource::HackKits] < cost)
-						dialog(&dialog_no_action, _(strings::insufficient_resource), cost, _(strings::hack_kits));
+					Game::ZoneState zone_state = Game::save.zones[data.zone_selected];
+					if (zone_state == Game::ZoneState::Locked)
+					{
+						u16 cost = zone_node_get(data.zone_selected)->size;
+						if (Game::save.resources[(s32)Game::Resource::HackKits] < cost)
+							dialog(&dialog_no_action, _(strings::insufficient_resource), cost, _(strings::hack_kits));
+						else
+							dialog(&hack_start, _(strings::confirm_hack), cost);
+					}
 					else
-						dialog(&hack_start, _(strings::confirm_hack), cost);
+					{
+						if (zone_state == Game::ZoneState::Hostile)
+						{
+							if (Game::save.resources[(s32)Game::Resource::Drones] < DEPLOY_COST_DRONES)
+								dialog(&dialog_no_action, _(strings::insufficient_resource), DEPLOY_COST_DRONES, _(strings::drones));
+							else
+								dialog(&capture_start, _(strings::confirm_capture), DEPLOY_COST_DRONES);
+						}
+					}
+				}
+			}
+			else
+			{
+				// member of a group
+
+				// join/leave group queue
+				if (data.story.map.timer_group_queue > 0.0f)
+				{
+					if (u.last_input->get(Controls::Cancel, 0) && !u.input->get(Controls::Cancel, 0) && !Game::cancel_event_eaten[0])
+					{
+						data.story.map.timer_group_queue = 0.0f;
+						Game::cancel_event_eaten[0] = true;
+					}
 				}
 				else
 				{
-					if (zone_state == Game::ZoneState::Hostile)
-					{
-						if (Game::save.resources[(s32)Game::Resource::Drones] < DEPLOY_COST_DRONES)
-							dialog(&dialog_no_action, _(strings::insufficient_resource), DEPLOY_COST_DRONES, _(strings::drones));
-						else
-							dialog(&capture_start, _(strings::confirm_capture), DEPLOY_COST_DRONES);
-					}
+					if (u.last_input->get(Controls::InteractSecondary, 0) && !u.input->get(Controls::InteractSecondary, 0))
+						data.story.map.timer_group_queue = 3.0f + mersenne::randf_cc() * 20.0f;
 				}
 			}
 		}
 	}
-	else
-		data.story.map.hack_timer = 0.0f;
+
+	if (data.story.map.timer_group_queue > 0.0f)
+	{
+		data.story.map.timer_group_queue = vi_max(0.0f, data.story.map.timer_group_queue - u.time.delta);
+		if (data.story.map.timer_group_queue == 0.0f)
+		{
+			// pick a random valid zone
+			Array<AssetID> valid_zones;
+			for (s32 i = 0; i < data.zones.length; i++)
+			{
+				if (data.zones[i].max_teams == MAX_PLAYERS)
+					valid_zones.add(data.zones[i].id);
+			}
+			data.zone_selected = valid_zones[(s32)(mersenne::randf_co() * valid_zones.length)];
+			deploy_start();
+		}
+	}
 }
 
 struct ResourceInfo
@@ -1395,7 +1451,7 @@ ResourceInfo resource_info[(s32)Game::Resource::count] =
 
 void resource_buy()
 {
-	data.story.inventory.buy_timer = BUY_TIME;
+	data.story.inventory.timer_buy = BUY_TIME;
 }
 
 void tab_inventory_update(const Update& u)
@@ -1405,10 +1461,10 @@ void tab_inventory_update(const Update& u)
 
 	Data::Inventory* inventory = &data.story.inventory;
 
-	if (data.story.inventory.buy_timer > 0.0f)
+	if (data.story.inventory.timer_buy > 0.0f)
 	{
-		data.story.inventory.buy_timer = vi_max(0.0f, data.story.inventory.buy_timer - u.time.delta);
-		if (data.story.inventory.buy_timer == 0.0f)
+		data.story.inventory.timer_buy = vi_max(0.0f, data.story.inventory.timer_buy - u.time.delta);
+		if (data.story.inventory.timer_buy == 0.0f)
 		{
 			Game::Resource resource = data.story.inventory.resource_selected;
 			const ResourceInfo& info = resource_info[(s32)resource];
@@ -1794,7 +1850,7 @@ void tab_messages_draw(const RenderParams& p, const Data::StoryMode& data, const
 				}
 				case Data::Messages::Mode::Cora:
 				{
-					if (data.messages.cora_timer > 0.0f)
+					if (data.messages.timer_cora > 0.0f)
 					{
 						progress_draw(p, _(strings::calling), rect.pos + rect.size * 0.5f);
 
@@ -1826,15 +1882,46 @@ void tab_messages_draw(const RenderParams& p, const Data::StoryMode& data, const
 	}
 }
 
-void zone_stat_draw(const RenderParams& p, const Rect2& rect, s32 index, const char* label, const Vec4& color)
+const char* group_name[(s32)Game::Group::count] =
+{
+	"None",
+	"Sissy Foos",
+	"Ephyra",
+};
+
+void zone_stat_draw(const RenderParams& p, const Rect2& rect, UIText::Anchor anchor_x, s32 index, const char* label, const Vec4& color)
 {
 	UIText text;
-	text.anchor_x = UIText::Anchor::Min;
+	text.anchor_x = anchor_x;
 	text.anchor_y = UIText::Anchor::Max;
 	text.size = TEXT_SIZE * SCALE_MULTIPLIER * 0.75f;
 	text.color = color;
 	text.wrap_width = MENU_ITEM_WIDTH * 0.5f + (PADDING * -2.0f);
-	Vec2 pos = rect.pos + Vec2(PADDING, rect.size.y - PADDING + index * (text.size * -UI::scale - PADDING));
+	Vec2 pos = rect.pos;
+	switch (anchor_x)
+	{
+		case UIText::Anchor::Min:
+		{
+			pos.x += PADDING;
+			break;
+		}
+		case UIText::Anchor::Center:
+		{
+			pos.x += rect.size.x * 0.5f;
+			break;
+		}
+		case UIText::Anchor::Max:
+		{
+			pos.x += rect.size.x - PADDING;
+			break;
+		}
+		default:
+		{
+			vi_assert(false);
+			break;
+		}
+	}
+	pos.y += rect.size.y - PADDING + index * (text.size * -UI::scale - PADDING);
 	text.text_raw(label);
 	UI::box(p, text.rect(pos).outset(PADDING), UI::background_color);
 	text.draw(p, pos);
@@ -1851,11 +1938,11 @@ void tab_map_draw(const RenderParams& p, const Data::StoryMode& story, const Rec
 		if (zone_state == Game::ZoneState::Hostile || zone_state == Game::ZoneState::Friendly || zone_state == Game::ZoneState::Owned)
 		{
 			// show stats
-			const ZoneNode* zone = get_zone_node(data.zone_selected);
-			zone_stat_draw(p, rect, 0, Loader::level_name(data.zone_selected), zone_ui_color(*zone));
+			const ZoneNode* zone = zone_node_get(data.zone_selected);
+			zone_stat_draw(p, rect, UIText::Anchor::Min, 0, Loader::level_name(data.zone_selected), zone_ui_color(*zone));
 			char buffer[255];
 			sprintf(buffer, _(strings::energy_generation), zone->size * ENERGY_GENERATION_PER_CELL);
-			zone_stat_draw(p, rect, 1, buffer, UI::default_color);
+			zone_stat_draw(p, rect, UIText::Anchor::Min, 1, buffer, UI::default_color);
 
 			if (zone_state == Game::ZoneState::Hostile)
 			{
@@ -1872,14 +1959,14 @@ void tab_map_draw(const RenderParams& p, const Data::StoryMode& story, const Rec
 
 				if (has_rewards)
 				{
-					zone_stat_draw(p, rect, 2, _(strings::capture_bonus), UI::accent_color);
+					zone_stat_draw(p, rect, UIText::Anchor::Min, 2, _(strings::capture_bonus), UI::accent_color);
 					s32 index = 3;
 					for (s32 i = 0; i < (s32)Game::Resource::count; i++)
 					{
 						if (zone->rewards[i] > 0)
 						{
 							sprintf(buffer, "%d %s", zone->rewards[i], _(resource_info[i].description));
-							zone_stat_draw(p, rect, index, buffer, UI::default_color);
+							zone_stat_draw(p, rect, UIText::Anchor::Min, index, buffer, UI::default_color);
 							index++;
 						}
 					}
@@ -1887,38 +1974,64 @@ void tab_map_draw(const RenderParams& p, const Data::StoryMode& story, const Rec
 			}
 		}
 		else if (zone_state == Game::ZoneState::Locked)
-			zone_stat_draw(p, rect, 0, _(strings::unknown), Team::ui_color_enemy);
+			zone_stat_draw(p, rect, UIText::Anchor::Min, 0, _(strings::unknown), Team::ui_color_enemy);
 
 		if (can_switch_tab())
 		{
 			// action prompt
-			AssetID prompt;
-			if (zone_state == Game::ZoneState::Hostile)
-				prompt = strings::prompt_capture;
-			else if (zone_state == Game::ZoneState::Locked)
-				prompt = strings::prompt_hack;
-			else
-				prompt = AssetNull;
-
-			if (prompt != AssetNull)
+			if (Game::save.group == Game::Group::None)
 			{
-				UIText text;
-				text.anchor_x = text.anchor_y = UIText::Anchor::Center;
-				text.color = UI::accent_color;
-				text.text(_(prompt));
+				AssetID prompt;
+				if (zone_state == Game::ZoneState::Hostile)
+					prompt = strings::prompt_capture;
+				else if (zone_state == Game::ZoneState::Locked)
+					prompt = strings::prompt_hack;
+				else
+					prompt = AssetNull;
 
-				Vec2 pos = rect.pos + rect.size * Vec2(0.5f, 0.2f);
+				if (prompt != AssetNull)
+				{
+					UIText text;
+					text.anchor_x = text.anchor_y = UIText::Anchor::Center;
+					text.color = UI::accent_color;
+					text.text(_(prompt));
 
-				UI::box(p, text.rect(pos).outset(8 * UI::scale), UI::background_color);
+					Vec2 pos = rect.pos + rect.size * Vec2(0.5f, 0.2f);
 
-				text.draw(p, pos);
+					UI::box(p, text.rect(pos).outset(8 * UI::scale), UI::background_color);
+
+					text.draw(p, pos);
+				}
+			}
+			else
+			{
+				{
+					// "member of group X"
+					char buffer[255];
+					sprintf(buffer, _(strings::member_of_group), group_name[(s32)Game::save.group]);
+					zone_stat_draw(p, rect, UIText::Anchor::Max, 0, buffer, UI::accent_color);
+				}
+
+				{
+					// join/leave group queue
+					UIText text;
+					text.anchor_x = text.anchor_y = UIText::Anchor::Center;
+					text.color = UI::accent_color;
+					text.text(_(story.map.timer_group_queue > 0.0f ? strings::prompt_cancel : strings::prompt_join_group_queue));
+
+					Vec2 pos = rect.pos + rect.size * Vec2(0.5f, 0.2f);
+
+					UI::box(p, text.rect(pos).outset(8 * UI::scale), UI::background_color);
+
+					text.draw(p, pos);
+				}
 			}
 		}
 
-		if (story.map.hack_timer > 0.0f)
-			bar_draw(p, _(strings::hacking), 1.0f - (story.map.hack_timer / HACK_TIME), p.camera->viewport.size * Vec2(0.5f, 0.2f));
-		else if (story.map.capture_timer > 0.0f)
-			progress_draw(p, _(strings::capturing), p.camera->viewport.size * Vec2(0.5f, 0.2f));
+		if (story.map.timer_hack > 0.0f)
+			bar_draw(p, _(strings::hacking), 1.0f - (story.map.timer_hack / HACK_TIME), p.camera->viewport.size * Vec2(0.5f, 0.2f));
+		else if (story.map.timer_capture > 0.0f)
+			progress_draw(p, _(strings::auto_capturing), p.camera->viewport.size * Vec2(0.5f, 0.2f));
 	}
 }
 
@@ -1978,8 +2091,8 @@ void tab_inventory_draw(const RenderParams& p, const Data::StoryMode& data, cons
 {
 	inventory_items_draw(p, data, rect);
 
-	if (data.inventory.buy_timer > 0.0f)
-		bar_draw(p, _(strings::buying), 1.0f - (data.inventory.buy_timer / BUY_TIME), p.camera->viewport.size * Vec2(0.5f, 0.2f));
+	if (data.inventory.timer_buy > 0.0f)
+		bar_draw(p, _(strings::buying), 1.0f - (data.inventory.timer_buy / BUY_TIME), p.camera->viewport.size * Vec2(0.5f, 0.2f));
 }
 
 void story_mode_draw(const RenderParams& p)
@@ -2047,6 +2160,10 @@ void story_mode_draw(const RenderParams& p)
 		UI::box(p, text.rect(pos).outset(PADDING), UI::background_color);
 		text.draw(p, pos);
 	}
+
+	// group queue
+	if (data.story.map.timer_group_queue > 0.0f)
+		progress_draw(p, _(strings::in_group_queue), p.camera->viewport.size * Vec2(0.5f, 0.2f));
 }
 
 b8 should_draw_zones()
@@ -2074,12 +2191,13 @@ void splitscreen_select_zone_update(const Update& u)
 	// deploy button
 	if (u.last_input->get(Controls::Interact, 0) && !u.input->get(Controls::Interact, 0))
 	{
-		const ZoneNode* zone = get_zone_node(data.zone_selected);
+		const ZoneNode* zone = zone_node_get(data.zone_selected);
 		if (splitscreen_team_count() <= zone->max_teams)
 			deploy_start();
 	}
 }
 
+r32 particle_accumulator = 0.0f;
 void update(const Update& u)
 {
 	if (data.zone_last == Asset::Level::terminal && Game::session.level != Asset::Level::terminal)
@@ -2093,6 +2211,38 @@ void update(const Update& u)
 	if (Game::session.level == Asset::Level::terminal && !Console::visible)
 	{
 		DialogCallback dialog_callback_old = data.story.dialog_callback;
+
+		if (data.timer_deploy_animation > 0.0f)
+		{
+			if (data.timer_deploy_animation > 0.5f)
+			{
+				const ZoneNode* zone = zone_node_get(data.zone_selected);
+
+				r32 t = data.timer_deploy_animation;
+				data.timer_deploy_animation = vi_max(0.0f, data.timer_deploy_animation - u.time.delta);
+				// particles
+				const r32 particle_interval = 0.015f;
+				while ((s32)(t / particle_interval) > (s32)(data.timer_deploy_animation / particle_interval))
+				{
+					r32 particle_blend = (t - 0.5f) / 0.5f;
+					Particles::tracers.add
+					(
+						zone->pos.ref()->absolute_pos() + Vec3(0, -2.0f + particle_blend * 12.0f, 0),
+						Vec3::zero,
+						0
+					);
+					t -= particle_interval;
+				}
+			}
+			else
+			{
+				// screen shake
+				data.timer_deploy_animation = vi_max(0.0f, data.timer_deploy_animation - u.time.delta);
+				r32 shake = (data.timer_deploy_animation / 0.5f) * 0.05f;
+				r32 offset = Game::time.total * 20.0f;
+				data.camera->pos += Vec3(noise::sample3d(Vec3(offset)) * shake, noise::sample3d(Vec3(offset + 64)) * shake, noise::sample3d(Vec3(offset + 128)) * shake);
+			}
+		}
 
 		switch (data.state)
 		{
@@ -2253,6 +2403,25 @@ void draw(const RenderParams& params)
 void show()
 {
 	Game::schedule_load_level(Asset::Level::terminal, Game::Mode::Special);
+}
+
+void execute(const char* cmd)
+{
+	if (utf8cmp(cmd, "capture") == 0)
+		story_zone_done(data.zone_selected, Game::MatchResult::Victory);
+	else if (strstr(cmd, "join ") == cmd)
+	{
+		const char* delimiter = strchr(cmd, ' ');
+		const char* group_string = delimiter + 1;
+		for (s32 i = 0; i < (s32)Game::Group::count; i++)
+		{
+			if (utf8cmp(group_string, group_name[i]) == 0)
+			{
+				group_join((Game::Group)i);
+				break;
+			}
+		}
+	}
 }
 
 void init(const Update& u, const EntityFinder& entities)

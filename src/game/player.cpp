@@ -152,6 +152,8 @@ void LocalPlayer::msg(const char* msg, b8 good)
 
 void LocalPlayer::awake(const Update& u)
 {
+	Audio::listener_enable(gamepad);
+
 	camera = Camera::add();
 	camera->fog = false;
 	camera->team = (u8)manager.ref()->team.ref()->team();
@@ -407,6 +409,8 @@ void LocalPlayer::update(const Update& u)
 			break;
 		}
 	}
+
+	Audio::listener_update(gamepad, camera->pos, camera->rot);
 }
 
 void LocalPlayer::spawn()
@@ -1082,14 +1086,11 @@ LocalPlayerControl::LocalPlayerControl(u8 gamepad)
 
 LocalPlayerControl::~LocalPlayerControl()
 {
-	Audio::listener_disable(gamepad);
 	get<Audio>()->post_event(AK::EVENTS::STOP_FLY);
 }
 
 void LocalPlayerControl::awake()
 {
-	Audio::listener_enable(gamepad);
-
 	last_pos = get<Awk>()->center_lerped();
 	link<&LocalPlayerControl::awk_done_flying_or_dashing>(get<Awk>()->done_flying);
 	link<&LocalPlayerControl::awk_done_flying_or_dashing>(get<Awk>()->done_dashing);
@@ -1616,8 +1617,6 @@ void LocalPlayerControl::update(const Update& u)
 			}
 		}
 	}
-
-	Audio::listener_update(gamepad, camera->pos, camera->rot);
 
 	// rumble
 	if (rumble > 0.0f)

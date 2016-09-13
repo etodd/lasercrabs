@@ -230,10 +230,10 @@ void draw(const RenderParams& params)
 	{
 		Vec2 logo_pos(viewport.size.x * 0.5f, viewport.size.y * 0.65f);
 		Vec2 logo_size(MENU_ITEM_WIDTH);
-		UI::mesh(params, Asset::Mesh::logo_mesh_3, logo_pos, Vec2(logo_size), UI::background_color);
-		UI::mesh(params, Asset::Mesh::logo_mesh_2, logo_pos, Vec2(logo_size), UI::default_color);
-		UI::mesh(params, Asset::Mesh::logo_mesh_1, logo_pos, Vec2(logo_size), UI::accent_color);
-		UI::mesh(params, Asset::Mesh::logo_mesh, logo_pos, Vec2(logo_size), UI::background_color);
+		UI::mesh(params, Asset::Mesh::logo_mesh_3, logo_pos, Vec2(logo_size), UI::color_background);
+		UI::mesh(params, Asset::Mesh::logo_mesh_2, logo_pos, Vec2(logo_size), UI::color_default);
+		UI::mesh(params, Asset::Mesh::logo_mesh_1, logo_pos, Vec2(logo_size), UI::color_accent);
+		UI::mesh(params, Asset::Mesh::logo_mesh, logo_pos, Vec2(logo_size), UI::color_background);
 	}
 
 	if (main_menu_state != State::Hidden)
@@ -347,7 +347,7 @@ void UIMenu::start(const Update& u, u8 g, b8 input)
 	else
 		active[g] = this;
 
-	selected += UI::vertical_input_delta(u, gamepad);
+	selected += UI::input_delta_vertical(u, gamepad);
 }
 
 b8 UIMenu::add_item(b8 slider, const char* string, const char* value, b8 disabled, AssetID icon)
@@ -364,7 +364,7 @@ b8 UIMenu::add_item(b8 slider, const char* string, const char* value, b8 disable
 	item->label.anchor_y = item->value.anchor_y = UIText::Anchor::Max;
 
 	b8 is_selected = active[gamepad] == this && selected == items.length - 1;
-	item->label.color = item->value.color = disabled ? UI::disabled_color : (is_selected ? UI::accent_color : UI::default_color);
+	item->label.color = item->value.color = disabled ? UI::color_disabled : (is_selected ? UI::color_accent : UI::color_default);
 	item->label.text(string);
 	text_clip(&item->label, animation_time + (items.length - 1 - scroll.pos) * 0.1f, 100.0f);
 
@@ -414,37 +414,16 @@ UIMenu::Delta UIMenu::slider_item(const Update& u, const char* label, const char
 	if (selected == items.length - 1
 		&& Game::time.total > 0.5f)
 	{
-		if (!u.input->get(Controls::Left, gamepad)
-			&& u.last_input->get(Controls::Left, gamepad))
+		s32 delta = UI::input_delta_horizontal(u, gamepad);
+		if (delta < 0)
 		{
 			Audio::post_global_event(AK::EVENTS::PLAY_BEEP_GOOD);
 			return Delta::Down;
 		}
-
-		if (!u.input->get(Controls::Right, gamepad)
-			&& u.last_input->get(Controls::Right, gamepad))
+		else if (delta > 0)
 		{
 			Audio::post_global_event(AK::EVENTS::PLAY_BEEP_GOOD);
 			return Delta::Up;
-		}
-
-		if (u.input->gamepads[gamepad].active)
-		{
-			r32 x_last = Input::dead_zone(u.last_input->gamepads[gamepad].left_x);
-			if (x_last == 0.0f)
-			{
-				r32 x_current = Input::dead_zone(u.input->gamepads[gamepad].left_x);
-				if (x_current < 0.0f)
-				{
-					Audio::post_global_event(AK::EVENTS::PLAY_BEEP_GOOD);
-					return Delta::Down;
-				}
-				else if (x_current > 0.0f)
-				{
-					Audio::post_global_event(AK::EVENTS::PLAY_BEEP_GOOD);
-					return Delta::Up;
-				}
-			}
 		}
 	}
 	
@@ -573,9 +552,9 @@ void UIMenu::draw_alpha(const RenderParams& params, const Vec2& origin, UIText::
 			scroll_started = true;
 		}
 
-		UI::box(params, rect, UI::background_color);
+		UI::box(params, rect, UI::color_background);
 		if (active[gamepad] == this && i == selected)
-			UI::box(params, { pos + Vec2(-MENU_ITEM_PADDING_LEFT, item.label.size * -UI::scale), Vec2(4 * UI::scale, item.label.size * UI::scale) }, UI::accent_color);
+			UI::box(params, { pos + Vec2(-MENU_ITEM_PADDING_LEFT, item.label.size * -UI::scale), Vec2(4 * UI::scale, item.label.size * UI::scale) }, UI::color_accent);
 
 		if (item.icon != AssetNull)
 			UI::mesh(params, item.icon, pos + Vec2(MENU_ITEM_PADDING_LEFT * -0.5f, MENU_ITEM_FONT_SIZE * -0.5f), Vec2(UI::scale * MENU_ITEM_FONT_SIZE), item.label.color);

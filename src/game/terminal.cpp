@@ -49,7 +49,6 @@ namespace Terminal
 #define HACK_TIME 2.0f
 #define BUY_TIME 1.0f
 #define DEPLOY_COST_DRONES 1
-#define CREDITS_INITIAL 40
 #define ENERGY_GENERATION_PER_CELL 10
 
 struct ZoneNode
@@ -116,9 +115,17 @@ struct Data
 
 	struct Inventory
 	{
+		enum class Mode
+		{
+			Normal,
+			Buy,
+		};
+
 		r32 resources_blink_timer[(s32)Game::Resource::count];
 		r32 timer_buy;
 		Game::Resource resource_selected;
+		Mode mode;
+		u16 buy_quantity;
 		u16 resources_last[(s32)Game::Resource::count];
 	};
 
@@ -151,8 +158,6 @@ struct Data
 	AssetID zone_last = AssetNull;
 	AssetID zone_selected = AssetNull;
 	State state;
-	s32 tip_index;
-	r32 tip_time;
 	r32 timer_deploy;
 	r32 timer_deploy_animation;
 	StoryMode story;
@@ -160,24 +165,6 @@ struct Data
 };
 
 Data data = Data();
-
-const s32 tip_count = 13;
-const AssetID tips[tip_count] =
-{
-	strings::tip_0,
-	strings::tip_1,
-	strings::tip_2,
-	strings::tip_3,
-	strings::tip_4,
-	strings::tip_5,
-	strings::tut_minion,
-	strings::tip_7,
-	strings::tip_8,
-	strings::tip_9,
-	strings::tip_10,
-	strings::tip_11,
-	strings::tip_12,
-};
 
 s32 splitscreen_team_count()
 {
@@ -364,7 +351,7 @@ void splitscreen_select_teams_update(const Update& u)
 	}
 }
 
-void tab_draw_common(const RenderParams& p, const char* label, const Vec2& pos, r32 width, const Vec4& color, const Vec4& background_color, const Vec4& text_color = UI::background_color)
+void tab_draw_common(const RenderParams& p, const char* label, const Vec2& pos, r32 width, const Vec4& color, const Vec4& background_color, const Vec4& text_color = UI::color_background)
 {
 	// body
 	Vec2 size(width, MAIN_VIEW_SIZE.y);
@@ -395,7 +382,7 @@ void draw_gamepad_icon(const RenderParams& p, const Vec2& pos, s32 index, const 
 	text.size *= scale;
 	text.anchor_x = UIText::Anchor::Center;
 	text.anchor_y = UIText::Anchor::Center;
-	text.color = UI::background_color;
+	text.color = UI::color_background;
 	text.text("%d", index + 1);
 	text.draw(p, pos);
 }
@@ -409,14 +396,14 @@ void splitscreen_select_teams_draw(const RenderParams& params)
 	Vec2 center = vp.size * 0.5f;
 	{
 		Vec2 bottom_left = center + (main_view_size * -0.5f);
-		Vec4 background_color = Vec4(UI::background_color.xyz(), OPACITY);
-		tab_draw_common(params, _(strings::prompt_splitscreen), bottom_left, main_view_size.x, UI::accent_color, background_color);
+		Vec4 background_color = Vec4(UI::color_background.xyz(), OPACITY);
+		tab_draw_common(params, _(strings::prompt_splitscreen), bottom_left, main_view_size.x, UI::color_accent, background_color);
 	}
 
 	UIText text;
 	text.anchor_x = UIText::Anchor::Center;
 	text.anchor_y = UIText::Anchor::Max;
-	text.color = UI::accent_color;
+	text.color = UI::color_accent;
 	text.wrap_width = main_view_size.x - 48.0f * UI::scale * SCALE_MULTIPLIER;
 	Vec2 pos = center + Vec2(0, main_view_size.y * 0.5f - (48.0f * UI::scale * SCALE_MULTIPLIER));
 
@@ -442,7 +429,7 @@ void splitscreen_select_teams_draw(const RenderParams& params)
 	text.draw(params, pos + Vec2(team_offset * 2.0f, 0));
 
 	// set up text for gamepad number labels
-	text.color = UI::background_color;
+	text.color = UI::color_background;
 	text.wrap_width = 0;
 	text.anchor_x = UIText::Anchor::Center;
 	text.anchor_y = UIText::Anchor::Center;
@@ -457,17 +444,17 @@ void splitscreen_select_teams_draw(const RenderParams& params)
 		r32 x_offset;
 		if (i > 0 && !params.sync->input.gamepads[i].active)
 		{
-			color = &UI::disabled_color;
+			color = &UI::color_disabled;
 			x_offset = team_offset * -2.0f;
 		}
 		else if (team == AI::TeamNone)
 		{
-			color = &UI::default_color;
+			color = &UI::color_default;
 			x_offset = team_offset * -2.0f;
 		}
 		else
 		{
-			color = &UI::accent_color;
+			color = &UI::color_accent;
 			x_offset = ((r32)team - 1.0f) * team_offset;
 		}
 
@@ -528,7 +515,6 @@ void deploy_start()
 	else
 		data.state = State::Deploying;
 	data.timer_deploy = DEPLOY_TIME_LOCAL;
-	data.tip_time = Game::real_time.total;
 }
 
 void select_zone_update(const Update& u, b8 enable_movement)
@@ -623,7 +609,7 @@ Vec3 zone_color(const ZoneNode& zone)
 			}
 			case Game::ZoneState::Friendly:
 			{
-				return UI::accent_color.xyz();
+				return UI::color_accent.xyz();
 			}
 			case Game::ZoneState::Hostile:
 			{
@@ -653,7 +639,7 @@ const Vec4& zone_ui_color(const ZoneNode& zone)
 		if (splitscreen_team_count() <= zone.max_teams)
 			return Team::ui_color_friend;
 		else
-			return UI::disabled_color;
+			return UI::color_disabled;
 	}
 	else
 	{
@@ -662,11 +648,11 @@ const Vec4& zone_ui_color(const ZoneNode& zone)
 		{
 			case Game::ZoneState::Locked:
 			{
-				return UI::default_color;
+				return UI::color_default;
 			}
 			case Game::ZoneState::Friendly:
 			{
-				return UI::accent_color;
+				return UI::color_accent;
 			}
 			case Game::ZoneState::Hostile:
 			{
@@ -678,12 +664,12 @@ const Vec4& zone_ui_color(const ZoneNode& zone)
 			}
 			case Game::ZoneState::Inaccessible:
 			{
-				return UI::disabled_color;
+				return UI::color_disabled;
 			}
 			default:
 			{
 				vi_assert(false);
-				return UI::default_color;
+				return UI::color_default;
 			}
 		}
 	}
@@ -750,11 +736,11 @@ const ZoneNode* zones_draw(const RenderParams& params)
 				text.anchor_x = UIText::Anchor::Center;
 				text.anchor_y = UIText::Anchor::Min;
 				text.text_raw(AssetLookup::Level::names[zone->id]);
-				UI::box(params, text.rect(p).outset(8.0f * UI::scale), UI::background_color);
+				UI::box(params, text.rect(p).outset(8.0f * UI::scale), UI::color_background);
 				text.draw(params, p);
 			}
 			else
-				UI::triangle_border(params, { p, Vec2(32.0f * UI::scale) }, BORDER * 2.0f, UI::accent_color);
+				UI::triangle_border(params, { p, Vec2(32.0f * UI::scale) }, BORDER * 2.0f, UI::color_accent);
 		}
 	}
 
@@ -774,7 +760,7 @@ void splitscreen_select_zone_draw(const RenderParams& params)
 
 		Vec2 pos = params.camera->viewport.size * Vec2(0.5f, 0.25f);
 
-		UI::box(params, text.rect(pos).outset(8 * UI::scale), UI::background_color);
+		UI::box(params, text.rect(pos).outset(8 * UI::scale), UI::color_background);
 
 		text.draw(params, pos);
 	}
@@ -784,7 +770,7 @@ void splitscreen_select_zone_draw(const RenderParams& params)
 		UIText text;
 		text.anchor_x = UIText::Anchor::Center;
 		text.anchor_y = UIText::Anchor::Min;
-		text.color = UI::accent_color;
+		text.color = UI::color_accent;
 		text.size *= SCALE_MULTIPLIER;
 
 		s32 player_count = Game::session.local_player_count();
@@ -806,7 +792,7 @@ void splitscreen_select_zone_draw(const RenderParams& params)
 			{
 				text.text(_(team_labels[(s32)team]));
 				text.draw(params, pos + Vec2(0, 32.0f * UI::scale * SCALE_MULTIPLIER));
-				draw_gamepad_icon(params, pos, i, UI::accent_color, SCALE_MULTIPLIER);
+				draw_gamepad_icon(params, pos, i, UI::color_accent, SCALE_MULTIPLIER);
 				pos.x += gamepad_spacing;
 			}
 		}
@@ -828,13 +814,13 @@ void bar_draw(const RenderParams& params, const char* label, r32 percentage, con
 {
 	Vec2 bar_size(180.0f * UI::scale, 32.0f * UI::scale);
 	Rect2 bar = { pos + bar_size * -0.5f, bar_size };
-	UI::box(params, bar, UI::background_color);
-	UI::border(params, bar, 2, UI::accent_color);
-	UI::box(params, { bar.pos, Vec2(bar.size.x * percentage, bar.size.y) }, UI::accent_color);
+	UI::box(params, bar, UI::color_background);
+	UI::border(params, bar, 2, UI::color_accent);
+	UI::box(params, { bar.pos, Vec2(bar.size.x * percentage, bar.size.y) }, UI::color_accent);
 
 	UIText text;
 	text.size = 18.0f;
-	text.color = UI::background_color;
+	text.color = UI::color_background;
 	text.anchor_x = UIText::Anchor::Center;
 	text.anchor_y = UIText::Anchor::Center;
 	text.text(label);
@@ -845,12 +831,12 @@ void progress_draw(const RenderParams& params, const char* label, const Vec2& po
 {
 	UIText text;
 	text.anchor_x = text.anchor_y = UIText::Anchor::Center;
-	text.color = UI::accent_color;
+	text.color = UI::color_accent;
 	text.text(label);
 
 	Vec2 pos = pos_overall + Vec2(24 * UI::scale, 0);
 
-	UI::box(params, text.rect(pos).pad({ Vec2(64, 24) * UI::scale, Vec2(18, 24) * UI::scale }), UI::background_color);
+	UI::box(params, text.rect(pos).pad({ Vec2(64, 24) * UI::scale, Vec2(18, 24) * UI::scale }), UI::color_background);
 
 	text.draw(params, pos);
 
@@ -859,7 +845,7 @@ void progress_draw(const RenderParams& params, const char* label, const Vec2& po
 		pos.x - text.bounds().x * 0.5f - 32.0f * UI::scale,
 		pos.y
 	);
-	UI::triangle_border(params, { triangle_pos, Vec2(20 * UI::scale) }, 9, UI::accent_color, Game::real_time.total * -12.0f);
+	UI::triangle_border(params, { triangle_pos, Vec2(20 * UI::scale) }, 9, UI::color_accent, Game::real_time.total * -12.0f);
 }
 
 void deploy_draw(const RenderParams& params)
@@ -868,23 +854,6 @@ void deploy_draw(const RenderParams& params)
 
 	// show "loading..."
 	progress_draw(params, _(Game::session.local_multiplayer ? strings::loading_offline : strings::connecting), params.camera->viewport.size * Vec2(0.5f, 0.2f));
-
-	{
-		// show a tip
-		UIText text;
-		text.anchor_x = UIText::Anchor::Center;
-		text.anchor_y = UIText::Anchor::Min;
-		text.color = UI::accent_color;
-		text.wrap_width = MENU_ITEM_WIDTH;
-		text.text(_(strings::tip), _(tips[data.tip_index]));
-		UIMenu::text_clip(&text, data.tip_time, 80.0f);
-
-		Vec2 pos = params.camera->viewport.size * Vec2(0.5f, 0.2f) + Vec2(0, 48.0f * UI::scale);
-
-		UI::box(params, text.rect(pos).outset(12 * UI::scale), UI::background_color);
-
-		text.draw(params, pos);
-	}
 }
 
 b8 can_switch_tab()
@@ -1020,7 +989,7 @@ void zone_states_update()
 					{
 						Vec3 neighbor_pos = neighbor_zone.pos.ref()->absolute_pos();
 						neighbor_pos.y = 0.0f;
-						if ((neighbor_pos - zone_pos).length_squared() < 4.0f * 4.0f)
+						if ((neighbor_pos - zone_pos).length_squared() < 4.5f * 4.5f)
 							Game::save.zones[neighbor_zone.id] = Game::ZoneState::Locked;
 					}
 				}
@@ -1120,7 +1089,7 @@ void tab_messages_update(const Update& u)
 							break;
 						}
 					}
-					contact_index += UI::vertical_input_delta(u, 0);
+					contact_index += UI::input_delta_vertical(u, 0);
 					contact_index = vi_max(0, vi_min(contact_index, (s32)contacts.length - 1));
 					messages->contact_selected = contacts[contact_index].name;
 					messages->contact_scroll.scroll_into_view(contact_index);
@@ -1151,7 +1120,7 @@ void tab_messages_update(const Update& u)
 							break;
 						}
 					}
-					msg_index += UI::vertical_input_delta(u, 0);
+					msg_index += UI::input_delta_vertical(u, 0);
 					msg_index = vi_max(0, vi_min(msg_index, (s32)msg_list.length - 1));
 					messages->message_selected = msg_list[msg_index].text;
 					messages->message_scroll.scroll_into_view(msg_index);
@@ -1435,7 +1404,7 @@ ResourceInfo resource_info[(s32)Game::Resource::count] =
 	{
 		Asset::Mesh::icon_energy,
 		strings::energy,
-		-1,
+		0,
 	},
 	{
 		Asset::Mesh::icon_hack_kit,
@@ -1468,33 +1437,66 @@ void tab_inventory_update(const Update& u)
 		{
 			Game::Resource resource = data.story.inventory.resource_selected;
 			const ResourceInfo& info = resource_info[(s32)resource];
-			if (resource_spend(Game::Resource::Energy, info.cost))
-				Game::save.resources[(s32)resource] += 1;
+			if (resource_spend(Game::Resource::Energy, info.cost * data.story.inventory.buy_quantity))
+				Game::save.resources[(s32)resource] += data.story.inventory.buy_quantity;
+			data.story.inventory.mode = Data::Inventory::Mode::Normal;
+			data.story.inventory.buy_quantity = 1;
 		}
 	}
 
 	if (data.story.tab == Tab::Inventory && can_switch_tab())
 	{
 		// handle input
-		s32 selected = (s32)inventory->resource_selected;
-		selected += UI::vertical_input_delta(u, 0);
-		if (selected < 0)
-			selected = (s32)Game::Resource::count - 1;
-		else if (selected >= (s32)Game::Resource::count)
-			selected = 0;
-		inventory->resource_selected = (Game::Resource)selected;
-
-		if (u.last_input->get(Controls::Interact, 0) && !u.input->get(Controls::Interact, 0))
+		switch (inventory->mode)
 		{
-			const ResourceInfo& info = resource_info[(s32)inventory->resource_selected];
-			if (info.cost != (u16)-1)
+			case Data::Inventory::Mode::Normal:
 			{
-				if (Game::save.resources[(s32)Game::Resource::Energy] >= info.cost)
-					dialog(&resource_buy, _(strings::prompt_buy), info.cost, _(info.description));
-				else
-					dialog(&dialog_no_action, _(strings::insufficient_resource), info.cost, _(strings::energy));
+				s32 selected = (s32)inventory->resource_selected;
+				selected = vi_max(0, vi_min((s32)Game::Resource::count - 1, selected + UI::input_delta_vertical(u, 0)));
+				inventory->resource_selected = (Game::Resource)selected;
+
+				if (u.last_input->get(Controls::Interact, 0) && !u.input->get(Controls::Interact, 0))
+				{
+					const ResourceInfo& info = resource_info[(s32)inventory->resource_selected];
+					if (info.cost > 0)
+					{
+						inventory->mode = Data::Inventory::Mode::Buy;
+						inventory->buy_quantity = 1;
+					}
+				}
+				break;
+			}
+			case Data::Inventory::Mode::Buy:
+			{
+				inventory->buy_quantity = vi_max(1, vi_min(8, inventory->buy_quantity + UI::input_delta_horizontal(u, 0)));
+				if (u.last_input->get(Controls::Interact, 0) && !u.input->get(Controls::Interact, 0))
+				{
+					const ResourceInfo& info = resource_info[(s32)inventory->resource_selected];
+					if (Game::save.resources[(s32)Game::Resource::Energy] >= info.cost * inventory->buy_quantity)
+						dialog(&resource_buy, _(strings::prompt_buy), inventory->buy_quantity * info.cost, inventory->buy_quantity, _(info.description));
+					else
+						dialog(&dialog_no_action, _(strings::insufficient_resource), info.cost * inventory->buy_quantity, _(strings::energy));
+				}
+				else if (u.last_input->get(Controls::Cancel, 0) && !u.input->get(Controls::Cancel, 0) && !Game::cancel_event_eaten[0])
+				{
+					inventory->mode = Data::Inventory::Mode::Normal;
+					Game::cancel_event_eaten[0] = true;
+				}
+				break;
+			}
+			default:
+			{
+				vi_assert(false);
+				break;
 			}
 		}
+	}
+
+	if (data.story.tab != Tab::Inventory)
+	{
+		// minimized view; reset
+		inventory->mode = Data::Inventory::Mode::Normal;
+		inventory->buy_quantity = 1;
 	}
 
 	for (s32 i = 0; i < (s32)Game::Resource::count; i++)
@@ -1560,15 +1562,15 @@ Rect2 tab_draw(const RenderParams& p, const Data::StoryMode& data, Tab tab, cons
 		if (data.tab_timer < TAB_ANIMATION_TIME)
 		{
 			if (UI::flash_function(Game::real_time.total))
-				color = &UI::default_color;
+				color = &UI::color_default;
 			else
 				draw = false; // don't draw the tab at all
 		}
 		else
-			color = &UI::accent_color;
+			color = &UI::color_accent;
 	}
 	else
-		color = &UI::disabled_color;
+		color = &UI::color_disabled;
 
 	const Vec2 main_view_size = MAIN_VIEW_SIZE;
 	const Vec2 tab_size = TAB_SIZE;
@@ -1583,8 +1585,8 @@ Rect2 tab_draw(const RenderParams& p, const Data::StoryMode& data, Tab tab, cons
 	if (draw)
 	{
 		// if we're minimized, fill in the background
-		const Vec4& background_color = data.tab == tab ? Vec4(0, 0, 0, 0) : Vec4(UI::background_color.xyz(), OPACITY);
-		tab_draw_common(p, label, *pos, width, *color, background_color, flash && !UI::flash_function(Game::real_time.total) ? Vec4(0, 0, 0, 0) : UI::background_color);
+		const Vec4& background_color = data.tab == tab ? Vec4(0, 0, 0, 0) : Vec4(UI::color_background.xyz(), OPACITY);
+		tab_draw_common(p, label, *pos, width, *color, background_color, flash && !UI::flash_function(Game::real_time.total) ? Vec4(0, 0, 0, 0) : UI::color_background);
 	}
 
 	Rect2 result = { *pos, { width, main_view_size.y } };
@@ -1619,14 +1621,14 @@ void contacts_draw(const RenderParams& p, const Data::StoryMode& data, const Rec
 			continue;
 
 		const ContactDetails& contact = contacts[i];
-		b8 selected = data.tab == Tab::Messages && contact.name == data.messages.contact_selected;
+		b8 selected = data.tab == Tab::Messages && contact.name == data.messages.contact_selected && !data.dialog_callback;
 
-		UI::box(p, { pos, panel_size }, UI::background_color);
+		UI::box(p, { pos, panel_size }, UI::color_background);
 
 		if (time - contact.last_message_timestamp > 0.5f || UI::flash_function(Game::real_time.total)) // flash new messages
 		{
 			if (selected)
-				UI::border(p, Rect2(pos, panel_size).outset(-BORDER * UI::scale), BORDER, UI::accent_color);
+				UI::border(p, Rect2(pos, panel_size).outset(-BORDER * UI::scale), BORDER, UI::color_accent);
 
 			UIText text;
 			text.size = TEXT_SIZE * (data.tab == Tab::Messages ? 1.0f : 0.75f);
@@ -1634,17 +1636,17 @@ void contacts_draw(const RenderParams& p, const Data::StoryMode& data, const Rec
 			text.anchor_y = UIText::Anchor::Center;
 			if (data.tab == Tab::Messages)
 			{
-				text.color = selected ? UI::accent_color : Team::ui_color_friend;
+				text.color = selected ? UI::color_accent : Team::ui_color_friend;
 				UIMenu::text_clip(&text, data.mode_transition_time + (i - data.messages.contact_scroll.pos) * 0.05f, 100.0f);
 			}
 			else
-				text.color = UI::default_color;
+				text.color = UI::color_default;
 			text.text("%s (%d)", _(contact.name), contact.unread);
 			text.draw(p, pos + Vec2(PADDING, panel_size.y * 0.5f));
 
 			if (data.tab == Tab::Messages)
 			{
-				text.color = selected ? UI::accent_color : UI::default_color;
+				text.color = selected ? UI::color_accent : UI::color_default;
 				char buffer[STRING_BUFFER_SIZE];
 				{
 					// truncate if necessary
@@ -1665,7 +1667,7 @@ void contacts_draw(const RenderParams& p, const Data::StoryMode& data, const Rec
 				text.text_raw(buffer, UITextFlagSingleLine);
 				text.draw(p, pos + Vec2(panel_size.x * 0.35f, panel_size.y * 0.5f));
 
-				text.color = selected ? UI::accent_color : UI::alert_color;
+				text.color = selected ? UI::color_accent : UI::color_alert;
 				text.font = Asset::Font::lowpoly;
 				timestamp_string(contact.last_message_timestamp, buffer);
 				text.anchor_x = UIText::Anchor::Max;
@@ -1710,7 +1712,7 @@ void tab_messages_draw(const RenderParams& p, const Data::StoryMode& data, const
 
 					// top bar
 					{
-						UI::box(p, { pos, top_bar_size }, UI::background_color);
+						UI::box(p, { pos, top_bar_size }, UI::color_background);
 
 						UIText text;
 						text.size = TEXT_SIZE;
@@ -1725,7 +1727,7 @@ void tab_messages_draw(const RenderParams& p, const Data::StoryMode& data, const
 							text.text("%s    %s", _(strings::prompt_call), _(strings::prompt_back));
 						else
 							text.text(_(strings::prompt_back));
-						text.color = UI::default_color;
+						text.color = UI::color_default;
 						text.anchor_x = UIText::Anchor::Max;
 						text.draw(p, pos + Vec2(top_bar_size.x - PADDING, top_bar_size.y * 0.5f));
 
@@ -1739,24 +1741,24 @@ void tab_messages_draw(const RenderParams& p, const Data::StoryMode& data, const
 							continue;
 
 						const Game::Message& msg = msg_list[i];
-						b8 selected = msg.text == data.messages.message_selected;
+						b8 selected = msg.text == data.messages.message_selected && !data.dialog_callback;
 
-						UI::box(p, { pos, panel_size }, UI::background_color);
+						UI::box(p, { pos, panel_size }, UI::color_background);
 
 						if (time - msg.timestamp > 0.5f || UI::flash_function(Game::real_time.total)) // flash new messages
 						{
 							if (selected)
-								UI::border(p, Rect2(pos, panel_size).outset(-2.0f * UI::scale), 2.0f, UI::accent_color);
+								UI::border(p, Rect2(pos, panel_size).outset(-2.0f * UI::scale), 2.0f, UI::color_accent);
 
 							UIText text;
 							text.size = TEXT_SIZE;
 							text.anchor_x = UIText::Anchor::Min;
 							text.anchor_y = UIText::Anchor::Center;
-							text.color = selected ? UI::accent_color : UI::alert_color;
+							text.color = selected ? UI::color_accent : UI::color_alert;
 							UIMenu::text_clip(&text, data.mode_transition_time + (i - data.messages.message_scroll.pos) * 0.05f, 100.0f);
 
 							if (!msg.read)
-								UI::triangle(p, { pos + Vec2(panel_size.x * 0.05f, panel_size.y * 0.5f), Vec2(12.0f * UI::scale) }, UI::alert_color, PI * -0.5f);
+								UI::triangle(p, { pos + Vec2(panel_size.x * 0.05f, panel_size.y * 0.5f), Vec2(12.0f * UI::scale) }, UI::color_alert, PI * -0.5f);
 
 							char buffer[STRING_BUFFER_SIZE];
 							{
@@ -1776,12 +1778,12 @@ void tab_messages_draw(const RenderParams& p, const Data::StoryMode& data, const
 							}
 							text.font = Asset::Font::pt_sans;
 							text.text_raw(buffer, UITextFlagSingleLine);
-							text.color = selected ? UI::accent_color : UI::default_color;
+							text.color = selected ? UI::color_accent : UI::color_default;
 							text.draw(p, pos + Vec2(panel_size.x * 0.1f, panel_size.y * 0.5f));
 
 							timestamp_string(msg.timestamp, buffer);
 							text.font = Asset::Font::lowpoly;
-							text.color = UI::alert_color;
+							text.color = UI::color_alert;
 							text.text(buffer);
 							text.anchor_x = UIText::Anchor::Max;
 							text.draw(p, pos + Vec2(panel_size.x - PADDING, panel_size.y * 0.5f));
@@ -1797,7 +1799,7 @@ void tab_messages_draw(const RenderParams& p, const Data::StoryMode& data, const
 					Vec2 pos = rect.pos + Vec2(0, rect.size.y - top_bar_size.y);
 
 					// top bar
-					UI::box(p, { pos, top_bar_size }, UI::background_color);
+					UI::box(p, { pos, top_bar_size }, UI::color_background);
 
 					Game::Message* msg;
 					for (s32 i = 0; i < Game::save.messages.length; i++)
@@ -1821,14 +1823,14 @@ void tab_messages_draw(const RenderParams& p, const Data::StoryMode& data, const
 					char buffer[64];
 					timestamp_string(msg->timestamp, buffer);
 					text.text(buffer);
-					text.color = UI::alert_color;
+					text.color = UI::color_alert;
 					text.draw(p, pos + Vec2(top_bar_size.x * 0.5f, top_bar_size.y * 0.5f));
 
 					if (data.messages.contact_selected == strings::contact_cora)
 						text.text("%s    %s", _(strings::prompt_call), _(strings::prompt_back));
 					else
 						text.text(_(strings::prompt_back));
-					text.color = UI::default_color;
+					text.color = UI::color_default;
 					text.anchor_x = UIText::Anchor::Max;
 					text.draw(p, pos + Vec2(top_bar_size.x - PADDING, top_bar_size.y * 0.5f));
 
@@ -1843,7 +1845,7 @@ void tab_messages_draw(const RenderParams& p, const Data::StoryMode& data, const
 					UIMenu::text_clip(&text, data.mode_transition_time, 150.0f);
 					text.text(_(msg->text));
 					Vec2 text_pos = pos + Vec2(PADDING, -PADDING);
-					UI::box(p, text.rect(text_pos).outset(PADDING), UI::background_color);
+					UI::box(p, text.rect(text_pos).outset(PADDING), UI::color_background);
 					text.draw(p, text_pos);
 
 					break;
@@ -1857,12 +1859,12 @@ void tab_messages_draw(const RenderParams& p, const Data::StoryMode& data, const
 						// cancel prompt
 						UIText text;
 						text.anchor_x = text.anchor_y = UIText::Anchor::Center;
-						text.color = UI::accent_color;
+						text.color = UI::color_accent;
 						text.text(_(strings::prompt_cancel));
 
 						Vec2 pos = rect.pos + rect.size * Vec2(0.5f, 0.2f);
 
-						UI::box(p, text.rect(pos).outset(8 * UI::scale), UI::background_color);
+						UI::box(p, text.rect(pos).outset(8 * UI::scale), UI::color_background);
 						text.draw(p, pos);
 					}
 					break;
@@ -1923,7 +1925,7 @@ void zone_stat_draw(const RenderParams& p, const Rect2& rect, UIText::Anchor anc
 	}
 	pos.y += rect.size.y - PADDING + index * (text.size * -UI::scale - PADDING);
 	text.text_raw(label);
-	UI::box(p, text.rect(pos).outset(PADDING), UI::background_color);
+	UI::box(p, text.rect(pos).outset(PADDING), UI::color_background);
 	text.draw(p, pos);
 }
 
@@ -1942,7 +1944,7 @@ void tab_map_draw(const RenderParams& p, const Data::StoryMode& story, const Rec
 			zone_stat_draw(p, rect, UIText::Anchor::Min, 0, Loader::level_name(data.zone_selected), zone_ui_color(*zone));
 			char buffer[255];
 			sprintf(buffer, _(strings::energy_generation), zone->size * ENERGY_GENERATION_PER_CELL);
-			zone_stat_draw(p, rect, UIText::Anchor::Min, 1, buffer, UI::default_color);
+			zone_stat_draw(p, rect, UIText::Anchor::Min, 1, buffer, UI::color_default);
 
 			if (zone_state == Game::ZoneState::Hostile)
 			{
@@ -1959,22 +1961,22 @@ void tab_map_draw(const RenderParams& p, const Data::StoryMode& story, const Rec
 
 				if (has_rewards)
 				{
-					zone_stat_draw(p, rect, UIText::Anchor::Min, 2, _(strings::capture_bonus), UI::accent_color);
+					zone_stat_draw(p, rect, UIText::Anchor::Min, 2, _(strings::capture_bonus), UI::color_accent);
 					s32 index = 3;
 					for (s32 i = 0; i < (s32)Game::Resource::count; i++)
 					{
 						if (zone->rewards[i] > 0)
 						{
 							sprintf(buffer, "%d %s", zone->rewards[i], _(resource_info[i].description));
-							zone_stat_draw(p, rect, UIText::Anchor::Min, index, buffer, UI::default_color);
+							zone_stat_draw(p, rect, UIText::Anchor::Min, index, buffer, UI::color_default);
 							index++;
 						}
 					}
 				}
 			}
 		}
-		else if (zone_state == Game::ZoneState::Locked)
-			zone_stat_draw(p, rect, UIText::Anchor::Min, 0, _(strings::unknown), Team::ui_color_enemy);
+		else
+			zone_stat_draw(p, rect, UIText::Anchor::Min, 0, _(strings::unknown), UI::color_disabled);
 
 		if (can_switch_tab())
 		{
@@ -1993,12 +1995,12 @@ void tab_map_draw(const RenderParams& p, const Data::StoryMode& story, const Rec
 				{
 					UIText text;
 					text.anchor_x = text.anchor_y = UIText::Anchor::Center;
-					text.color = UI::accent_color;
+					text.color = UI::color_accent;
 					text.text(_(prompt));
 
 					Vec2 pos = rect.pos + rect.size * Vec2(0.5f, 0.2f);
 
-					UI::box(p, text.rect(pos).outset(8 * UI::scale), UI::background_color);
+					UI::box(p, text.rect(pos).outset(8 * UI::scale), UI::color_background);
 
 					text.draw(p, pos);
 				}
@@ -2009,19 +2011,19 @@ void tab_map_draw(const RenderParams& p, const Data::StoryMode& story, const Rec
 					// "member of group X"
 					char buffer[255];
 					sprintf(buffer, _(strings::member_of_group), group_name[(s32)Game::save.group]);
-					zone_stat_draw(p, rect, UIText::Anchor::Max, 0, buffer, UI::accent_color);
+					zone_stat_draw(p, rect, UIText::Anchor::Max, 0, buffer, UI::color_accent);
 				}
 
 				{
 					// join/leave group queue
 					UIText text;
 					text.anchor_x = text.anchor_y = UIText::Anchor::Center;
-					text.color = UI::accent_color;
+					text.color = UI::color_accent;
 					text.text(_(story.map.timer_group_queue > 0.0f ? strings::prompt_cancel : strings::prompt_join_group_queue));
 
 					Vec2 pos = rect.pos + rect.size * Vec2(0.5f, 0.2f);
 
-					UI::box(p, text.rect(pos).outset(8 * UI::scale), UI::background_color);
+					UI::box(p, text.rect(pos).outset(8 * UI::scale), UI::color_background);
 
 					text.draw(p, pos);
 				}
@@ -2041,46 +2043,84 @@ void inventory_items_draw(const RenderParams& p, const Data::StoryMode& data, co
 	Vec2 pos = rect.pos + Vec2(0, rect.size.y - panel_size.y);
 	for (s32 i = 0; i < (s32)Game::Resource::count; i++)
 	{
-		b8 selected = data.tab == Tab::Inventory && data.inventory.resource_selected == (Game::Resource)i;
+		b8 selected = data.tab == Tab::Inventory && data.inventory.resource_selected == (Game::Resource)i && !data.dialog_callback;
 
-		UI::box(p, { pos, panel_size }, UI::background_color);
+		UI::box(p, { pos, panel_size }, UI::color_background);
 		if (selected)
-			UI::border(p, Rect2(pos, panel_size).outset(BORDER * -UI::scale), BORDER, UI::accent_color);
+			UI::border(p, Rect2(pos, panel_size).outset(BORDER * -UI::scale), BORDER, UI::color_accent);
 
 		r32 icon_size = 18.0f * SCALE_MULTIPLIER * UI::scale;
 
 		b8 flash = data.inventory.resources_blink_timer[i] > 0.0f;
 		b8 draw = !flash || UI::flash_function(Game::real_time.total);
+		
+		const ResourceInfo& info = resource_info[i];
 
 		const Vec4* color;
 		if (flash)
-			color = &UI::accent_color;
+			color = &UI::color_accent;
+		else if (selected && data.inventory.mode == Data::Inventory::Mode::Buy && Game::save.resources[(s32)Game::Resource::Energy] < data.inventory.buy_quantity * info.cost)
+			color = &UI::color_alert; // not enough energy to buy
 		else if (selected)
-			color = &UI::accent_color;
+			color = &UI::color_accent;
 		else if (Game::save.resources[i] == 0)
-			color = &UI::alert_color;
+			color = &UI::color_alert;
 		else
-			color = &UI::default_color;
-		
-		const ResourceInfo& info = resource_info[i];
+			color = &UI::color_default;
 
 		if (draw)
 			UI::mesh(p, info.icon, pos + Vec2(PADDING + icon_size * 0.5f, panel_size.y * 0.5f), Vec2(icon_size), *color);
 
 		UIText text;
-		text.anchor_x = UIText::Anchor::Max;
 		text.anchor_y = UIText::Anchor::Center;
 		text.color = *color;
 		text.size = TEXT_SIZE * (data.tab == Tab::Inventory ? 1.0f : 0.75f);
-		text.text("%d", Game::save.resources[i]);
 		if (draw)
+		{
+			// current amount
+			text.anchor_x = UIText::Anchor::Max;
+			text.text("%d", Game::save.resources[i]);
 			text.draw(p, pos + Vec2(panel_size.x - PADDING, panel_size.y * 0.5f));
 
-		if (draw && data.tab == Tab::Inventory)
-		{
-			text.anchor_x = UIText::Anchor::Min;
-			text.text(_(info.description));
-			text.draw(p, pos + Vec2(icon_size * 2.0f + PADDING * 2.0f, panel_size.y * 0.5f));
+			if (data.tab == Tab::Inventory)
+			{
+				text.anchor_x = UIText::Anchor::Min;
+				text.text(_(info.description));
+				text.draw(p, pos + Vec2(icon_size * 2.0f + PADDING * 2.0f, panel_size.y * 0.5f));
+
+				if (selected)
+				{
+					if (data.inventory.mode == Data::Inventory::Mode::Buy)
+					{
+						// buy interface
+						text.anchor_x = UIText::Anchor::Center;
+						text.text("+%d", data.inventory.buy_quantity);
+
+						const r32 buy_quantity_spacing = 32.0f * UI::scale * SCALE_MULTIPLIER;
+						Vec2 buy_quantity_pos = pos + Vec2(panel_size.x * 0.4f, panel_size.y * 0.5f);
+						text.draw(p, buy_quantity_pos);
+
+						UI::triangle(p, { buy_quantity_pos + Vec2(-buy_quantity_spacing, 0), Vec2(text.size * UI::scale) }, *color, PI * 0.5f);
+						UI::triangle(p, { buy_quantity_pos + Vec2(buy_quantity_spacing, 0), Vec2(text.size * UI::scale) }, *color, PI * -0.5f);
+
+						// cost
+						text.anchor_x = UIText::Anchor::Min;
+						text.text(_(strings::ability_spawn_cost), (s32)(info.cost * data.inventory.buy_quantity));
+						text.draw(p, pos + Vec2(panel_size.x * 0.6f, panel_size.y * 0.5f));
+					}
+					else
+					{
+						// normal mode
+						if (info.cost > 0)
+						{
+							// "buy more!"
+							text.anchor_x = UIText::Anchor::Center;
+							text.text(_(strings::prompt_buy_more));
+							text.draw(p, pos + Vec2(panel_size.x * 0.5f, panel_size.y * 0.5f));
+						}
+					}
+				}
+			}
 		}
 
 		pos.y -= panel_size.y;
@@ -2091,8 +2131,11 @@ void tab_inventory_draw(const RenderParams& p, const Data::StoryMode& data, cons
 {
 	inventory_items_draw(p, data, rect);
 
-	if (data.inventory.timer_buy > 0.0f)
-		bar_draw(p, _(strings::buying), 1.0f - (data.inventory.timer_buy / BUY_TIME), p.camera->viewport.size * Vec2(0.5f, 0.2f));
+	if (data.tab == Tab::Inventory && data.tab_timer > TAB_ANIMATION_TIME)
+	{
+		if (data.inventory.timer_buy > 0.0f)
+			bar_draw(p, _(strings::buying), 1.0f - (data.inventory.timer_buy / BUY_TIME), p.camera->viewport.size * Vec2(0.5f, 0.2f));
+	}
 }
 
 void story_mode_draw(const RenderParams& p)
@@ -2148,16 +2191,16 @@ void story_mode_draw(const RenderParams& p)
 		text.size = TEXT_SIZE;
 		text.anchor_x = UIText::Anchor::Center;
 		text.anchor_y = UIText::Anchor::Min;
-		text.color = UI::default_color;
+		text.color = UI::color_default;
 		text.text("[{{TabLeft}}]");
 
 		Vec2 pos = bottom_left + Vec2(tab_size.x * 0.5f, main_view_size.y + tab_size.y * 1.5f);
-		UI::box(p, text.rect(pos).outset(PADDING), UI::background_color);
+		UI::box(p, text.rect(pos).outset(PADDING), UI::color_background);
 		text.draw(p, pos);
 
 		pos.x += total_size.x - tab_size.x;
 		text.text("[{{TabRight}}]");
-		UI::box(p, text.rect(pos).outset(PADDING), UI::background_color);
+		UI::box(p, text.rect(pos).outset(PADDING), UI::color_background);
 		text.draw(p, pos);
 	}
 
@@ -2363,40 +2406,40 @@ void draw(const RenderParams& params)
 	{
 		const r32 padding = 16.0f * UI::scale;
 		UIText text;
-		text.color = UI::default_color;
+		text.color = UI::color_default;
 		text.wrap_width = MENU_ITEM_WIDTH;
 		text.anchor_x = text.anchor_y = UIText::Anchor::Center;
 		text.text(data.story.dialog);
 		UIMenu::text_clip(&text, data.story.dialog_time, 150.0f);
 		Vec2 pos = params.camera->viewport.size * 0.5f;
 		Rect2 text_rect = text.rect(pos).outset(padding);
-		UI::box(params, text_rect, UI::background_color);
+		UI::box(params, text_rect, UI::color_background);
 		text.draw(params, pos);
 
 		// accept
 		text.wrap_width = 0;
 		text.anchor_y = UIText::Anchor::Max;
 		text.anchor_x = UIText::Anchor::Min;
-		text.color = UI::accent_color;
+		text.color = UI::color_accent;
 		text.clip = 0;
 		text.text(data.story.dialog_time_limit > 0.0f ? "%s (%d)" : "%s", _(strings::prompt_accept), (s32)(data.story.dialog_time_limit) + 1);
 		Vec2 prompt_pos = text_rect.pos + Vec2(padding, 0);
 		Rect2 prompt_rect = text.rect(prompt_pos).outset(padding);
 		prompt_rect.size.x = text_rect.size.x;
-		UI::box(params, prompt_rect, UI::background_color);
+		UI::box(params, prompt_rect, UI::color_background);
 		text.draw(params, prompt_pos);
 
 		if (data.story.dialog_callback != &dialog_no_action)
 		{
 			// cancel
 			text.anchor_x = UIText::Anchor::Max;
-			text.color = UI::alert_color;
+			text.color = UI::color_alert;
 			text.clip = 0;
 			text.text(_(strings::prompt_cancel));
 			text.draw(params, prompt_pos + Vec2(text_rect.size.x + padding * -2.0f, 0));
 		}
 
-		UI::border(params, { prompt_rect.pos, prompt_rect.size + Vec2(0, text_rect.size.y - padding) }, BORDER, UI::accent_color);
+		UI::border(params, { prompt_rect.pos, prompt_rect.size + Vec2(0, text_rect.size.y - padding) }, BORDER, UI::color_accent);
 	}
 }
 
@@ -2428,8 +2471,6 @@ void init(const Update& u, const EntityFinder& entities)
 {
 	if (Game::session.level != Asset::Level::terminal)
 		return;
-
-	data.tip_index = mersenne::rand() % tip_count;
 	if (data.zone_last == Asset::Level::title)
 		data.zone_last = Asset::Level::terminal;
 	if (data.zone_last == Asset::Level::terminal)

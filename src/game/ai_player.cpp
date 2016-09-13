@@ -133,7 +133,7 @@ void AIPlayer::spawn()
 	Vec3 pos;
 	Quat rot;
 	manager.ref()->team.ref()->player_spawn.ref()->absolute(&pos, &rot);
-	pos += Vec3(0, 0, CONTROL_POINT_RADIUS * 0.5f); // spawn it around the edges
+	pos += Quat::euler(0, (id() * PI * 0.5f), 0) * Vec3(0, 0, CONTROL_POINT_RADIUS * 0.5f); // spawn it around the edges
 	e->get<Transform>()->absolute(pos, rot);
 
 	e->add<PlayerCommon>(manager.ref());

@@ -93,19 +93,19 @@ namespace VI
 			strings::rocket,
 			strings::description_rocket,
 			Asset::Mesh::icon_rocket,
-			150,
+			120,
 		},
 		{
 			strings::containment_field,
 			strings::description_containment_field,
 			Asset::Mesh::icon_containment_field,
-			150,
+			120,
 		},
 		{
 			strings::sniper,
 			strings::description_sniper,
 			Asset::Mesh::icon_sniper,
-			150,
+			120,
 		},
 	};
 

@@ -797,7 +797,7 @@ namespace Cora
 				r32 animation_scale = Ease::cubic_out(vi_min(1.0f, animation_time * 2.0f), 0.0f, 1.0f);
 
 				Vec2 frame_size(24.0f * scale * volume_scale * animation_scale);
-				UI::centered_box(params, { pos, frame_size }, UI::default_color, PI * 0.25f);
+				UI::centered_box(params, { pos, frame_size }, UI::color_default, PI * 0.25f);
 
 				const Vec4* color;
 				switch (face)
@@ -807,7 +807,7 @@ namespace Cora
 					case Face::Concerned:
 					case Face::TongueOut:
 					{
-						color = &UI::background_color;
+						color = &UI::color_background;
 						break;
 					}
 					case Face::Sad:
@@ -820,13 +820,13 @@ namespace Cora
 					}
 					case Face::EyesClosed:
 					{
-						color = &UI::disabled_color;
+						color = &UI::color_disabled;
 						break;
 					}
 					case Face::Urgent:
 					case Face::Smile:
 					{
-						color = &UI::accent_color;
+						color = &UI::color_accent;
 						break;
 					}
 					case Face::Angry:
@@ -834,7 +834,7 @@ namespace Cora
 					case Face::Sarcastic:
 					case Face::EyeRoll:
 					{
-						color = &UI::alert_color;
+						color = &UI::color_alert;
 						break;
 					}
 					default:
@@ -852,7 +852,7 @@ namespace Cora
 			if (animation_time > 1.0f || (animation_time > 0.5f && UI::flash_function(Game::real_time.total)))
 			{
 				Vec2 face_uv = faces[(s32)face];
-				UI::sprite(params, Asset::Texture::cora, { pos, face_size * scale }, UI::background_color, { face_uv, face_uv_size });
+				UI::sprite(params, Asset::Texture::cora, { pos, face_size * scale }, UI::color_background, { face_uv, face_uv_size });
 			}
 		}
 
@@ -866,7 +866,7 @@ namespace Cora
 				{
 					data->text.anchor_x = UIText::Anchor::Center;
 					data->text.anchor_y = UIText::Anchor::Max;
-					data->text.color = UI::accent_color;
+					data->text.color = UI::color_accent;
 					text_pos = pos_center;
 					break;
 				}
@@ -874,7 +874,7 @@ namespace Cora
 				{
 					data->text.anchor_x = UIText::Anchor::Center;
 					data->text.anchor_y = UIText::Anchor::Max;
-					data->text.color = UI::default_color;
+					data->text.color = UI::color_default;
 					text_pos = pos_center + Vec2(0, -64 * UI::scale);
 					break;
 				}
@@ -885,7 +885,7 @@ namespace Cora
 				}
 			}
 
-			UI::box(params, data->text.rect(text_pos).outset(MENU_ITEM_PADDING), UI::background_color);
+			UI::box(params, data->text.rect(text_pos).outset(MENU_ITEM_PADDING), UI::color_background);
 			data->text.draw(params, text_pos);
 
 			// menu

@@ -44,7 +44,7 @@ void Console::init()
 	debug_text.anchor_y = UIText::Anchor::Max;
 	log_text.font = font_asset;
 	log_text.size = 18.0f;
-	log_text.color = UI::default_color;
+	log_text.color = UI::color_default;
 	log_text.anchor_x = UIText::Anchor::Max;
 	log_text.anchor_y = UIText::Anchor::Max;
 

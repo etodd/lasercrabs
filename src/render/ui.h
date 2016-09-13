@@ -89,11 +89,11 @@ struct UI
 		Vec2 anchor;
 	};
 
-	static const Vec4 default_color;
-	static const Vec4 alert_color;
-	static const Vec4 accent_color;
-	static const Vec4 background_color;
-	static const Vec4 disabled_color;
+	static const Vec4 color_default;
+	static const Vec4 color_alert;
+	static const Vec4 color_accent;
+	static const Vec4 color_background;
+	static const Vec4 color_disabled;
 	static r32 scale;
 	static s32 mesh_id;
 	static s32 texture_mesh_id;
@@ -114,7 +114,8 @@ struct UI
 	static void draw(const RenderParams&);
 	static void mesh(const RenderParams&, const AssetID, const Vec2&, const Vec2& = Vec2(1, 1), const Vec4& = Vec4(1, 1, 1, 1), r32 = 0.0f);
 	static b8 project(const RenderParams&, const Vec3&, Vec2*);
-	static s32 vertical_input_delta(const Update&, s32);
+	static s32 input_delta_vertical(const Update&, s32);
+	static s32 input_delta_horizontal(const Update&, s32);
 
 	// Instantly draw a texture
 	static void texture(const RenderParams&, const s32, const Rect2&, const Vec4& = Vec4(1, 1, 1, 1), const Rect2& = { Vec2::zero, Vec2(1, 1) }, const AssetID = AssetNull);

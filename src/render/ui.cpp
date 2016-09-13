@@ -10,7 +10,7 @@ namespace VI
 {
 
 UIText::UIText()
-	: color(UI::default_color),
+	: color(UI::color_default),
 	font(Asset::Font::lowpoly),
 	size(UI_TEXT_SIZE_DEFAULT),
 	rendered_string(),
@@ -421,7 +421,7 @@ void UIText::draw(const RenderParams& params, const Vec2& pos, r32 rot) const
 	}
 }
 
-s32 UI::vertical_input_delta(const Update& u, s32 gamepad)
+s32 UI::input_delta_vertical(const Update& u, s32 gamepad)
 {
 	s32 result = 0;
 	// joystick
@@ -433,9 +433,10 @@ s32 UI::vertical_input_delta(const Update& u, s32 gamepad)
 		{
 			Vec2 current_joystick(u.input->gamepads[gamepad].left_x, u.input->gamepads[gamepad].left_y);
 			Input::dead_zone(&current_joystick.x, &current_joystick.y, UI_JOYSTICK_DEAD_ZONE);
-			if (current_joystick.y < 0.0f)
+			r32 threshold = fabs(current_joystick.x);
+			if (current_joystick.y < -threshold)
 				result--;
-			else if (current_joystick.y > 0.0f)
+			else if (current_joystick.y > threshold)
 				result++;
 		}
 	}
@@ -450,6 +451,36 @@ s32 UI::vertical_input_delta(const Update& u, s32 gamepad)
 	return result;
 }
 
+s32 UI::input_delta_horizontal(const Update& u, s32 gamepad)
+{
+	s32 result = 0;
+	// joystick
+	if (u.input->gamepads[gamepad].active)
+	{
+		Vec2 last_joystick(u.last_input->gamepads[gamepad].left_x, u.last_input->gamepads[gamepad].left_y);
+		Input::dead_zone(&last_joystick.x, &last_joystick.y, UI_JOYSTICK_DEAD_ZONE);
+		if (last_joystick.x == 0.0f)
+		{
+			Vec2 current_joystick(u.input->gamepads[gamepad].left_x, u.input->gamepads[gamepad].left_y);
+			Input::dead_zone(&current_joystick.x, &current_joystick.y, UI_JOYSTICK_DEAD_ZONE);
+			r32 threshold = fabs(current_joystick.y);
+			if (current_joystick.x < -threshold)
+				result--;
+			else if (current_joystick.x > threshold)
+				result++;
+		}
+	}
+
+	// keyboard / D-pad
+	if ((u.input->get(Controls::Left, gamepad) && !u.last_input->get(Controls::Left, gamepad)))
+		result--;
+
+	if (u.input->get(Controls::Right, gamepad) && !u.last_input->get(Controls::Right, gamepad))
+		result++;
+
+	return result;
+}
+
 // gamepad = -1 by default, meaning no input will be processed
 void UIScroll::update(const Update& u, s32 item_count, s32 gamepad)
 {
@@ -457,7 +488,7 @@ void UIScroll::update(const Update& u, s32 item_count, s32 gamepad)
 
 	if (gamepad >= 0)
 	{
-		pos += UI::vertical_input_delta(u, gamepad);
+		pos += UI::input_delta_vertical(u, gamepad);
 
 		// keep within range
 		pos = vi_max(0, vi_min(count - UI_SCROLL_MAX, pos));
@@ -483,8 +514,8 @@ void UIScroll::start(const RenderParams& params, const Vec2& p) const
 	if (pos > 0)
 	{
 		Vec2 pos = p + Vec2(0, 16.0f * UI::scale);
-		UI::centered_box(params, { pos, Vec2(32.0f * UI::scale) }, UI::background_color);
-		UI::triangle(params, { pos, Vec2(16.0f * UI::scale) }, UI::accent_color);
+		UI::centered_box(params, { pos, Vec2(32.0f * UI::scale) }, UI::color_background);
+		UI::triangle(params, { pos, Vec2(16.0f * UI::scale) }, UI::color_accent);
 	}
 }
 
@@ -493,8 +524,8 @@ void UIScroll::end(const RenderParams& params, const Vec2& p) const
 	if (pos + UI_SCROLL_MAX < count)
 	{
 		Vec2 pos = p + Vec2(0, -16.0f * UI::scale);
-		UI::centered_box(params, { pos, Vec2(32.0f * UI::scale) }, UI::background_color);
-		UI::triangle(params, { pos, Vec2(16.0f * UI::scale) }, UI::accent_color, PI);
+		UI::centered_box(params, { pos, Vec2(32.0f * UI::scale) }, UI::color_background);
+		UI::triangle(params, { pos, Vec2(16.0f * UI::scale) }, UI::color_accent, PI);
 	}
 }
 
@@ -503,11 +534,11 @@ b8 UIScroll::item(s32 i) const
 	return pos <= i && i < pos + UI_SCROLL_MAX;
 }
 
-const Vec4 UI::default_color = Vec4(1, 1, 1, 1);
-const Vec4 UI::alert_color = Vec4(1.0f, 0.4f, 0.4f, 1);
-const Vec4 UI::accent_color = Vec4(1.0f, 0.95f, 0.35f, 1);
-const Vec4 UI::background_color = Vec4(0, 0, 0, 1);
-const Vec4 UI::disabled_color = Vec4(0.5f, 0.5f, 0.5f, 1);
+const Vec4 UI::color_default = Vec4(1, 1, 1, 1);
+const Vec4 UI::color_alert = Vec4(1.0f, 0.4f, 0.4f, 1);
+const Vec4 UI::color_accent = Vec4(1.0f, 0.95f, 0.35f, 1);
+const Vec4 UI::color_background = Vec4(0, 0, 0, 1);
+const Vec4 UI::color_disabled = Vec4(0.5f, 0.5f, 0.5f, 1);
 r32 UI::scale = 1.0f;
 s32 UI::mesh_id = AssetNull;
 s32 UI::texture_mesh_id = AssetNull;

@@ -33,6 +33,7 @@ struct LocalPlayer
 	r32 upgrade_animation_time;
 	r32 angle_horizontal;
 	r32 angle_vertical;
+	s32 spectate_index;
 	Revision revision;
 	Ref<Transform> map_view;
 	Ref<PlayerManager> manager;
@@ -53,6 +54,7 @@ struct LocalPlayer
 	void msg(const char*, b8);
 	UIMode ui_mode() const;
 	void update(const Update&);
+	void update_camera_rotation(const Update&);
 	void draw_alpha(const RenderParams&) const;
 	void spawn();
 };

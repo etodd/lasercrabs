@@ -495,7 +495,7 @@ void Game::draw_alpha(const RenderParams& render_params)
 #if DEBUG_AI_PATH
 	{
 		UIText text;
-		text.color = UI::accent_color;
+		text.color = UI::color_accent;
 		for (auto i = MinionAI::list.iterator(); !i.is_last(); i.next())
 		{
 			MinionAI* minion = i.item();
@@ -690,7 +690,15 @@ void Game::execute(const Update& u, const char* cmd)
 		for (auto i = AIPlayerControl::list.iterator(); !i.is_last(); i.next())
 		{
 			Health* health = i.item()->get<Health>();
-			health->damage(nullptr, health->hp_max);
+			health->damage(nullptr, health->hp_max + health->shield_max);
+		}
+	}
+	else if (utf8cmp(cmd, "die") == 0)
+	{
+		for (auto i = LocalPlayerControl::list.iterator(); !i.is_last(); i.next())
+		{
+			Health* health = i.item()->get<Health>();
+			health->damage(nullptr, health->hp_max + health->shield_max);
 		}
 	}
 	else if (utf8cmp(cmd, "noclip") == 0)

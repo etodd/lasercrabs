@@ -261,8 +261,8 @@ void HealthPickup::hit(const TargetEvent& e)
 // return true if we were successfully captured
 b8 HealthPickup::set_owner(Health* health)
 {
-	// must be neutral or owned by someone else
-	if (!owner.ref() || owner.ref() != health)
+	// must be neutral or owned by an enemy
+	if (!owner.ref() || owner.ref()->get<AIAgent>()->team != health->get<AIAgent>()->team)
 	{
 		Health* old_owner = owner.ref();
 

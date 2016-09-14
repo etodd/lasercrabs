@@ -28,7 +28,7 @@ AIPlayer::Config::Config()
 	aim_timeout(2.0f),
 	aim_speed(3.0f),
 	aim_min_delay(0.5f),
-	dodge_chance(0.5f),
+	dodge_chance(0.25f),
 	upgrade_priority { },
 	upgrade_strategies { }
 {
@@ -784,9 +784,9 @@ b8 health_pickup_filter(const AIPlayerControl* control, const Entity* e)
 	Health* health = control->get<Health>();
 	Health* owner = e->get<HealthPickup>()->owner.ref();
 	if (health->hp < health->hp_max)
-		return owner != control->get<Health>(); // any health pickup we don't own
+		return !owner || owner->get<AIAgent>()->team != control->get<AIAgent>()->team; // any health pickup we don't own
 	else
-		return owner && owner != control->get<Health>(); // we have full health; attacking neutral pickups does no good
+		return owner && owner->get<AIAgent>()->team != control->get<AIAgent>()->team; // we have full health; attacking neutral pickups does no good
 }
 
 b8 minion_filter(const AIPlayerControl* control, const Entity* e)

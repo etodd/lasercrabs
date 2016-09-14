@@ -49,7 +49,8 @@ namespace Terminal
 #define HACK_TIME 2.0f
 #define BUY_TIME 1.0f
 #define DEPLOY_COST_DRONES 1
-#define ENERGY_GENERATION_PER_CELL 10
+#define ENERGY_INCREMENT_INTERVAL 30
+#define AUTO_CAPTURE_TIME 30.0f
 
 struct ZoneNode
 {
@@ -132,12 +133,16 @@ struct Data
 	struct Map
 	{
 		r32 timer_hack;
-		r32 timer_capture;
+		r32 timer_capture; // counts up
+		r32 timer_capture_total; // if this is AUTO_CAPTURE_TIME, then the auto-capture succeeds. otherwise it gets cut off before it can finish
 		r32 timer_group_queue;
+		Game::ZoneState zones_last[MAX_ZONES];
+		r32 zones_change_time[MAX_ZONES];
 	};
 
 	struct StoryMode
 	{
+		r64 timestamp_last;
 		DialogCallback dialog_callback;
 		Tab tab = Tab::Map;
 		Tab tab_previous = Tab::Messages;
@@ -209,7 +214,7 @@ void message_add(AssetID contact, AssetID text, r64 timestamp = -1.0)
 	msg->contact = contact;
 	msg->text = text;
 	if (timestamp == -1.0)
-		msg->timestamp = platform::time();
+		msg->timestamp = platform::timestamp();
 	else
 		msg->timestamp = timestamp;
 	msg->read = false;
@@ -228,7 +233,7 @@ void message_schedule(AssetID contact, AssetID text, r64 delay)
 	Game::Message* msg = Game::save.messages_scheduled.add();
 	msg->contact = contact;
 	msg->text = text;
-	msg->timestamp = platform::time() + delay;
+	msg->timestamp = platform::timestamp() + delay;
 	msg->read = false;
 }
 
@@ -517,6 +522,26 @@ void deploy_start()
 	data.timer_deploy = DEPLOY_TIME_LOCAL;
 }
 
+u16 energy_increment_zone(const ZoneNode& zone)
+{
+	return zone.size * (zone.max_teams == MAX_PLAYERS ? 200 : 10);
+}
+
+u16 energy_increment_total()
+{
+	u16 result = 0;
+	for (s32 i = 0; i < data.zones.length; i++)
+	{
+		const ZoneNode& zone = data.zones[i];
+		Game::ZoneState zone_state = Game::save.zones[zone.id];
+		if (zone_state == Game::ZoneState::Friendly || zone_state == Game::ZoneState::Owned)
+			result += energy_increment_zone(zone);
+	}
+	if (Game::save.group != Game::Group::None)
+		result = result / 8;
+	return result;
+}
+
 void select_zone_update(const Update& u, b8 enable_movement)
 {
 	if (UIMenu::active[0])
@@ -568,17 +593,14 @@ void select_zone_update(const Update& u, b8 enable_movement)
 			for (s32 i = 0; i < data.zones.length; i++)
 			{
 				const ZoneNode& candidate = data.zones[i];
-				if (candidate.id != AssetNull)
+				Vec3 candidate_pos = candidate.pos.ref()->absolute_pos();
+				Vec3 to_candidate = (candidate_pos - zone_pos);
+				r32 dot = movement.dot(Vec2(to_candidate.x, to_candidate.z));
+				r32 normalized_dot = movement.dot(Vec2::normalize(Vec2(to_candidate.x, to_candidate.z)));
+				if (dot < closest_dot && normalized_dot > 0.7f)
 				{
-					Vec3 candidate_pos = candidate.pos.ref()->absolute_pos();
-					Vec3 to_candidate = (candidate_pos - zone_pos);
-					r32 dot = movement.dot(Vec2(to_candidate.x, to_candidate.z));
-					r32 normalized_dot = movement.dot(Vec2::normalize(Vec2(to_candidate.x, to_candidate.z)));
-					if (dot < closest_dot && normalized_dot > 0.7f)
-					{
-						closest = &candidate;
-						closest_dot = dot;
-					}
+					closest = &candidate;
+					closest_dot = dot;
 				}
 			}
 			if (closest)
@@ -693,8 +715,14 @@ void zones_draw_override(const RenderParams& params)
 
 	for (s32 i = 0; i < data.zones.length; i++)
 	{
-		if (data.zones[i].id != AssetNull)
-			zones.push(data.zones[i]);
+		const ZoneNode& zone = data.zones[i];
+		// flash if necessary
+		if (Game::session.local_multiplayer
+			|| Game::real_time.total > data.story.map.zones_change_time[zone.id] + 0.5f
+			|| UI::flash_function(Game::real_time.total))
+		{
+			zones.push(zone);
+		}
 	}
 
 	RenderSync* sync = params.sync;
@@ -810,24 +838,35 @@ void deploy_update(const Update& u)
 		go(data.zone_selected);
 }
 
-void bar_draw(const RenderParams& params, const char* label, r32 percentage, const Vec2& pos)
+void progress_spinner(const RenderParams& params, const Vec2& pos, r32 size = 20.0f)
 {
-	Vec2 bar_size(180.0f * UI::scale, 32.0f * UI::scale);
-	Rect2 bar = { pos + bar_size * -0.5f, bar_size };
-	UI::box(params, bar, UI::color_background);
-	UI::border(params, bar, 2, UI::color_accent);
-	UI::box(params, { bar.pos, Vec2(bar.size.x * percentage, bar.size.y) }, UI::color_accent);
+	UI::triangle_border(params, { pos, Vec2(size * UI::scale) }, 9, UI::color_accent, Game::real_time.total * -12.0f);
+}
 
+void progress_bar(const RenderParams& params, const char* label, r32 percentage, const Vec2& pos)
+{
 	UIText text;
-	text.size = 18.0f;
 	text.color = UI::color_background;
 	text.anchor_x = UIText::Anchor::Center;
 	text.anchor_y = UIText::Anchor::Center;
 	text.text(label);
+
+	Rect2 bar = text.rect(pos).outset(PADDING);
+	UI::box(params, bar, UI::color_background);
+	UI::border(params, bar, 2, UI::color_accent);
+	UI::box(params, { bar.pos, Vec2(bar.size.x * percentage, bar.size.y) }, UI::color_accent);
+
 	text.draw(params, bar.pos + bar.size * 0.5f);
+
+	Vec2 triangle_pos = Vec2
+	(
+		pos.x - text.bounds().x * 0.5f - 48.0f * UI::scale,
+		pos.y
+	);
+	progress_spinner(params, triangle_pos);
 }
 
-void progress_draw(const RenderParams& params, const char* label, const Vec2& pos_overall)
+void progress_infinite(const RenderParams& params, const char* label, const Vec2& pos_overall)
 {
 	UIText text;
 	text.anchor_x = text.anchor_y = UIText::Anchor::Center;
@@ -845,7 +884,7 @@ void progress_draw(const RenderParams& params, const char* label, const Vec2& po
 		pos.x - text.bounds().x * 0.5f - 32.0f * UI::scale,
 		pos.y
 	);
-	UI::triangle_border(params, { triangle_pos, Vec2(20 * UI::scale) }, 9, UI::color_accent, Game::real_time.total * -12.0f);
+	progress_spinner(params, triangle_pos);
 }
 
 void deploy_draw(const RenderParams& params)
@@ -853,14 +892,14 @@ void deploy_draw(const RenderParams& params)
 	const ZoneNode* current_zone = zones_draw(params);
 
 	// show "loading..."
-	progress_draw(params, _(Game::session.local_multiplayer ? strings::loading_offline : strings::connecting), params.camera->viewport.size * Vec2(0.5f, 0.2f));
+	progress_infinite(params, _(Game::session.local_multiplayer ? strings::loading_offline : strings::connecting), params.camera->viewport.size * Vec2(0.5f, 0.2f));
 }
 
 b8 can_switch_tab()
 {
 	const Data::StoryMode& story = data.story;
 	return story.map.timer_hack == 0.0f
-		&& story.map.timer_capture == 0.0f
+		&& story.map.timer_capture == story.map.timer_capture_total
 		&& story.inventory.timer_buy == 0.0f
 		&& !story.dialog_callback
 		&& (story.messages.mode != Data::Messages::Mode::Cora || story.messages.timer_cora > 0.0f);
@@ -1005,20 +1044,17 @@ void group_join(Game::Group g)
 	for (s32 i = 0; i < data.zones.length; i++)
 	{
 		const ZoneNode& zone = data.zones[i];
-		if (zone.id != AssetNull)
+		if (g == Game::Group::None)
 		{
-			if (g == Game::Group::None)
-			{
-				Game::save.zones[zone.id] = zone.id == Asset::Level::Safe_Zone || zone.id == Asset::Level::Medias_Res
-					? (mersenne::randf_cc() > 0.5f ? Game::ZoneState::Owned : Game::ZoneState::Hostile) : Game::ZoneState::Locked;
-			}
+			Game::save.zones[zone.id] = zone.id == Asset::Level::Safe_Zone || zone.id == Asset::Level::Medias_Res
+				? (mersenne::randf_cc() > 0.5f ? Game::ZoneState::Owned : Game::ZoneState::Hostile) : Game::ZoneState::Locked;
+		}
+		else
+		{
+			if (zone.max_teams < MAX_PLAYERS)
+				Game::save.zones[zone.id] = Game::ZoneState::Inaccessible;
 			else
-			{
-				if (zone.max_teams < MAX_PLAYERS)
-					Game::save.zones[zone.id] = Game::ZoneState::Inaccessible;
-				else
-					Game::save.zones[zone.id] = mersenne::randf_cc() > 0.5f ? Game::ZoneState::Friendly : Game::ZoneState::Hostile;
-			}
+				Game::save.zones[zone.id] = mersenne::randf_cc() > 0.5f ? Game::ZoneState::Friendly : Game::ZoneState::Hostile;
 		}
 	}
 	zone_states_update();
@@ -1038,7 +1074,7 @@ void tab_messages_update(const Update& u)
 	Data::Messages* messages = &story->messages;
 
 	{
-		r64 time = platform::time();
+		r64 time = platform::timestamp();
 		for (s32 i = 0; i < Game::save.messages_scheduled.length; i++)
 		{
 			const Game::Message& schedule = Game::save.messages_scheduled[i];
@@ -1213,10 +1249,16 @@ void capture_start()
 {
 	if (resource_spend(Game::Resource::Drones, 1))
 	{
+		data.story.map.timer_capture = 0.0f;
 		if (data.zone_selected == Asset::Level::Safe_Zone)
-			data.story.map.timer_capture = 3.0f;
+			data.story.map.timer_capture_total = 3.0f;
 		else
-			data.story.map.timer_capture = 3.0f + mersenne::randf_cc() * 20.0f;
+		{
+			if (mersenne::randf_co() < 0.5f)
+				data.story.map.timer_capture_total = 3.0f + mersenne::randf_co() * 26.0f;
+			else
+				data.story.map.timer_capture_total = AUTO_CAPTURE_TIME;
+		}
 		deploy_animation_start();
 	}
 }
@@ -1280,6 +1322,16 @@ void tab_map_update(const Update& u)
 		b8 enable_input = can_switch_tab();
 		select_zone_update(u, enable_input); // only enable movement if can_switch_tab()
 
+		for (s32 i = 0; i < data.zones.length; i++)
+		{
+			const ZoneNode& zone = data.zones[i];
+			if (Game::save.zones[zone.id] != data.story.map.zones_last[zone.id])
+			{
+				data.story.map.zones_last[zone.id] = Game::save.zones[zone.id];
+				data.story.map.zones_change_time[zone.id] = Game::real_time.total;
+			}
+		}
+
 		if (data.story.map.timer_hack > 0.0f)
 		{
 			data.story.map.timer_hack = vi_max(0.0f, data.story.map.timer_hack - u.time.delta);
@@ -1295,19 +1347,13 @@ void tab_map_update(const Update& u)
 				}
 			}
 		}
-		else if (data.story.map.timer_capture > 0.0f)
+		else if (data.story.map.timer_capture < data.story.map.timer_capture_total)
 		{
-			data.story.map.timer_capture = vi_max(0.0f, data.story.map.timer_capture - u.time.delta);
-			if (data.story.map.timer_capture == 0.0f)
+			data.story.map.timer_capture = vi_min(data.story.map.timer_capture_total, data.story.map.timer_capture + u.time.delta);
+			if (data.story.map.timer_capture == data.story.map.timer_capture_total)
 			{
 				// capture complete
-				b8 auto_capture_succeed;
-				if (data.zone_selected == Asset::Level::Safe_Zone)
-					auto_capture_succeed = false;
-				else
-					auto_capture_succeed = mersenne::randf_cc() > 0.5f;
-
-				if (auto_capture_succeed)
+				if (data.story.map.timer_capture_total == AUTO_CAPTURE_TIME) // auto-capture succeeded
 					story_zone_done(data.zone_selected, Game::MatchResult::Victory);
 				else
 				{
@@ -1380,7 +1426,7 @@ void tab_map_update(const Update& u)
 		if (data.story.map.timer_group_queue == 0.0f)
 		{
 			// pick a random valid zone
-			Array<AssetID> valid_zones;
+			StaticArray<AssetID, MAX_ZONES> valid_zones;
 			for (s32 i = 0; i < data.zones.length; i++)
 			{
 				if (data.zones[i].max_teams == MAX_PLAYERS)
@@ -1513,6 +1559,14 @@ void tab_inventory_update(const Update& u)
 
 void story_mode_update(const Update& u)
 {
+	// energy increment
+	{
+		r64 t = platform::timestamp();
+		if ((s32)(t / ENERGY_INCREMENT_INTERVAL) > (s32)(data.story.timestamp_last / ENERGY_INCREMENT_INTERVAL))
+			Game::save.resources[(s32)Game::Resource::Energy] += energy_increment_total();
+		data.story.timestamp_last = t;
+	}
+
 	if (UIMenu::active[0] || Game::time.total < STORY_MODE_INIT_TIME)
 		return;
 
@@ -1598,7 +1652,7 @@ Rect2 tab_draw(const RenderParams& p, const Data::StoryMode& data, Tab tab, cons
 
 void timestamp_string(r64 timestamp, char* str)
 {
-	r64 diff = platform::time() - timestamp;
+	r64 diff = platform::timestamp() - timestamp;
 	if (diff < 60.0f)
 		sprintf(str, _(strings::now));
 	else if (diff < 3600.0f)
@@ -1613,7 +1667,7 @@ void contacts_draw(const RenderParams& p, const Data::StoryMode& data, const Rec
 {
 	Vec2 panel_size = get_panel_size(rect);
 	Vec2 pos = rect.pos + Vec2(0, rect.size.y - panel_size.y);
-	r64 time = platform::time();
+	r64 time = platform::timestamp();
 	data.messages.contact_scroll.start(p, pos + Vec2(panel_size.x * 0.5f, panel_size.y));
 	for (s32 i = 0; i < contacts.length; i++)
 	{
@@ -1707,7 +1761,7 @@ void tab_messages_draw(const RenderParams& p, const Data::StoryMode& data, const
 					Array<Game::Message> msg_list;
 					collect_messages(&msg_list, data.messages.contact_selected);
 
-					r64 time = platform::time();
+					r64 time = platform::timestamp();
 					Vec2 pos = rect.pos + Vec2(0, rect.size.y - top_bar_size.y);
 
 					// top bar
@@ -1854,7 +1908,7 @@ void tab_messages_draw(const RenderParams& p, const Data::StoryMode& data, const
 				{
 					if (data.messages.timer_cora > 0.0f)
 					{
-						progress_draw(p, _(strings::calling), rect.pos + rect.size * 0.5f);
+						progress_infinite(p, _(strings::calling), rect.pos + rect.size * 0.5f);
 
 						// cancel prompt
 						UIText text;
@@ -1891,7 +1945,7 @@ const char* group_name[(s32)Game::Group::count] =
 	"Ephyra",
 };
 
-void zone_stat_draw(const RenderParams& p, const Rect2& rect, UIText::Anchor anchor_x, s32 index, const char* label, const Vec4& color)
+Rect2 zone_stat_draw(const RenderParams& p, const Rect2& rect, UIText::Anchor anchor_x, s32 index, const char* label, const Vec4& color)
 {
 	UIText text;
 	text.anchor_x = anchor_x;
@@ -1925,8 +1979,10 @@ void zone_stat_draw(const RenderParams& p, const Rect2& rect, UIText::Anchor anc
 	}
 	pos.y += rect.size.y - PADDING + index * (text.size * -UI::scale - PADDING);
 	text.text_raw(label);
-	UI::box(p, text.rect(pos).outset(PADDING), UI::color_background);
+	Rect2 text_rect = text.rect(pos);
+	UI::box(p, text_rect.outset(PADDING), UI::color_background);
 	text.draw(p, pos);
+	return text_rect;
 }
 
 void tab_map_draw(const RenderParams& p, const Data::StoryMode& story, const Rect2& rect)
@@ -1943,7 +1999,7 @@ void tab_map_draw(const RenderParams& p, const Data::StoryMode& story, const Rec
 			const ZoneNode* zone = zone_node_get(data.zone_selected);
 			zone_stat_draw(p, rect, UIText::Anchor::Min, 0, Loader::level_name(data.zone_selected), zone_ui_color(*zone));
 			char buffer[255];
-			sprintf(buffer, _(strings::energy_generation), zone->size * ENERGY_GENERATION_PER_CELL);
+			sprintf(buffer, _(strings::energy_generation), (s32)energy_increment_zone(*zone));
 			zone_stat_draw(p, rect, UIText::Anchor::Min, 1, buffer, UI::color_default);
 
 			if (zone_state == Game::ZoneState::Hostile)
@@ -1978,6 +2034,25 @@ void tab_map_draw(const RenderParams& p, const Data::StoryMode& story, const Rec
 		else
 			zone_stat_draw(p, rect, UIText::Anchor::Min, 0, _(strings::unknown), UI::color_disabled);
 
+		{
+			// total energy increment
+			char buffer[255];
+			sprintf(buffer, _(Game::save.group == Game::Group::None ? strings::energy_generation_total : strings::energy_generation_group), (s32)energy_increment_total());
+			Rect2 zone_stat_rect = zone_stat_draw(p, rect, UIText::Anchor::Max, 0, buffer, UI::color_default);
+
+			// energy increment timer
+			r32 icon_size = TEXT_SIZE * 1.5f * UI::scale;
+			r64 t = platform::timestamp();
+			UI::triangle_percentage
+			(
+				p,
+				{ zone_stat_rect.pos + Vec2(zone_stat_rect.size.x - icon_size * 0.5f, zone_stat_rect.size.y * 0.5f), Vec2(icon_size) },
+				fmod(t, ENERGY_INCREMENT_INTERVAL) / ENERGY_INCREMENT_INTERVAL,
+				UI::color_default,
+				PI
+			);
+		}
+
 		if (can_switch_tab())
 		{
 			// action prompt
@@ -2011,7 +2086,7 @@ void tab_map_draw(const RenderParams& p, const Data::StoryMode& story, const Rec
 					// "member of group X"
 					char buffer[255];
 					sprintf(buffer, _(strings::member_of_group), group_name[(s32)Game::save.group]);
-					zone_stat_draw(p, rect, UIText::Anchor::Max, 0, buffer, UI::color_accent);
+					zone_stat_draw(p, rect, UIText::Anchor::Max, 2, buffer, UI::color_accent);
 				}
 
 				{
@@ -2031,9 +2106,9 @@ void tab_map_draw(const RenderParams& p, const Data::StoryMode& story, const Rec
 		}
 
 		if (story.map.timer_hack > 0.0f)
-			bar_draw(p, _(strings::hacking), 1.0f - (story.map.timer_hack / HACK_TIME), p.camera->viewport.size * Vec2(0.5f, 0.2f));
-		else if (story.map.timer_capture > 0.0f)
-			progress_draw(p, _(strings::auto_capturing), p.camera->viewport.size * Vec2(0.5f, 0.2f));
+			progress_bar(p, _(strings::hacking), 1.0f - (story.map.timer_hack / HACK_TIME), p.camera->viewport.size * Vec2(0.5f, 0.2f));
+		else if (story.map.timer_capture < story.map.timer_capture_total)
+			progress_bar(p, _(strings::auto_capturing), story.map.timer_capture / AUTO_CAPTURE_TIME, p.camera->viewport.size * Vec2(0.5f, 0.2f));
 	}
 }
 
@@ -2134,7 +2209,7 @@ void tab_inventory_draw(const RenderParams& p, const Data::StoryMode& data, cons
 	if (data.tab == Tab::Inventory && data.tab_timer > TAB_ANIMATION_TIME)
 	{
 		if (data.inventory.timer_buy > 0.0f)
-			bar_draw(p, _(strings::buying), 1.0f - (data.inventory.timer_buy / BUY_TIME), p.camera->viewport.size * Vec2(0.5f, 0.2f));
+			progress_bar(p, _(strings::buying), 1.0f - (data.inventory.timer_buy / BUY_TIME), p.camera->viewport.size * Vec2(0.5f, 0.2f));
 	}
 }
 
@@ -2145,7 +2220,7 @@ void story_mode_draw(const RenderParams& p)
 
 	if (Game::time.total < STORY_MODE_INIT_TIME)
 	{
-		progress_draw(p, _(strings::connecting), p.camera->viewport.size * Vec2(0.5f, 0.2f));
+		progress_infinite(p, _(strings::connecting), p.camera->viewport.size * Vec2(0.5f, 0.2f));
 		return;
 	}
 
@@ -2163,7 +2238,7 @@ void story_mode_draw(const RenderParams& p)
 		s32 unread_count;
 		r64 most_recent_message;
 		message_statistics(&unread_count, &most_recent_message);
-		b8 flash = platform::time() - most_recent_message < 0.5f;
+		b8 flash = platform::timestamp() - most_recent_message < 0.5f;
 		char message_label[64];
 		sprintf(message_label, _(strings::tab_messages), unread_count);
 		Rect2 rect = tab_draw(p, data.story, Tab::Messages, message_label, &pos, flash).outset(-PADDING);
@@ -2206,7 +2281,7 @@ void story_mode_draw(const RenderParams& p)
 
 	// group queue
 	if (data.story.map.timer_group_queue > 0.0f)
-		progress_draw(p, _(strings::in_group_queue), p.camera->viewport.size * Vec2(0.5f, 0.2f));
+		progress_infinite(p, _(strings::in_group_queue), p.camera->viewport.size * Vec2(0.5f, 0.2f));
 }
 
 b8 should_draw_zones()
@@ -2503,7 +2578,8 @@ void init(const Update& u, const EntityFinder& entities)
 				view->shader = Asset::Shader::flat;
 
 				AssetID level_id = Loader::find_level(zone_name);
-				if (level_id != Asset::Level::Safe_Zone || !Game::session.local_multiplayer) // only show tutorial level in story mode
+				if (level_id != AssetNull
+					&& (level_id != Asset::Level::Safe_Zone || !Game::session.local_multiplayer)) // only show tutorial level in story mode
 				{
 					ZoneNode* node = data.zones.add();
 					*node =
@@ -2545,13 +2621,21 @@ void init(const Update& u, const EntityFinder& entities)
 
 		if (Game::save.messages.length == 0) // initial messages
 		{
-			message_add(strings::contact_ivory_corp, strings::msg_ivory_corp_intro, platform::time() - (86400.0 * 1.9));
-			message_add(strings::contact_albert, strings::msg_albert_intro, platform::time() - (86400.0 * 1.6));
-			message_add(strings::contact_albert, strings::msg_albert_intro_2, platform::time() - (86400.0 * 1.5));
+			message_add(strings::contact_ivory_corp, strings::msg_ivory_corp_intro, platform::timestamp() - (86400.0 * 1.9));
+			message_add(strings::contact_albert, strings::msg_albert_intro, platform::timestamp() - (86400.0 * 1.6));
+			message_add(strings::contact_albert, strings::msg_albert_intro_2, platform::timestamp() - (86400.0 * 1.5));
 			Game::save.resources[(s32)Game::Resource::HackKits] = 1;
 			Game::save.resources[(s32)Game::Resource::Drones] = 4;
 			Game::save.resources[(s32)Game::Resource::Energy] = (u16)(CREDITS_INITIAL * 3.5f);
 			Game::save.zones[Asset::Level::Safe_Zone] = Game::ZoneState::Locked;
+		}
+
+		// energy increment
+		{
+			r64 t = platform::timestamp();
+			Game::save.resources[(s32)Game::Resource::Energy] += vi_min(4 * 60 * 60 / ENERGY_INCREMENT_INTERVAL, (s32)((t - Game::save.terminal_last_opened) / (r64)ENERGY_INCREMENT_INTERVAL)) * energy_increment_total();
+			Game::save.terminal_last_opened = t;
+			data.story.timestamp_last = t;
 		}
 
 		if (data.zone_last != Asset::Level::terminal)

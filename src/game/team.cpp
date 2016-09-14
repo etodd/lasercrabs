@@ -122,6 +122,7 @@ namespace VI
 		game_over_real_time = 0.0f;
 		winner = nullptr;
 		PlayerManager::timer = CONTROL_POINT_INTERVAL;
+		Game::session.last_match = Game::MatchResult::Forfeit;
 
 		for (s32 i = 0; i < Team::list.length; i++)
 		{

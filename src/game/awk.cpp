@@ -366,8 +366,22 @@ void Awk::damaged(const DamageEvent& e)
 {
 	if (e.damager)
 	{
-		if (get<Health>()->hp > 0 && e.damager->has<LocalPlayerControl>())
-			e.damager->get<LocalPlayerControl>()->player.ref()->msg(_(strings::target_damaged), true);
+		if (get<Health>()->hp > 0)
+		{
+			// damaged
+			if (e.damager->has<LocalPlayerControl>())
+				e.damager->get<LocalPlayerControl>()->player.ref()->msg(_(strings::target_damaged), true);
+		}
+		else
+		{
+			// killed; notify everyone
+			AI::Team team = get<AIAgent>()->team;
+			for (auto i = LocalPlayer::list.iterator(); !i.is_last(); i.next())
+			{
+				b8 friendly = i.item()->manager.ref()->team.ref()->team() == team;
+				i.item()->msg(_(friendly ? strings::teammate_eliminated : strings::enemy_eliminated), !friendly);
+			}
+		}
 	}
 	s32 new_health_pickup_count = get<Health>()->hp - 1;
 	s32 health_pickup_count = 0;

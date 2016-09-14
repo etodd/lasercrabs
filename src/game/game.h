@@ -32,6 +32,8 @@ struct EntityFinder
 #define DEBUG_AI_CONTROL 0
 #endif
 
+#define MAX_ZONES 64
+
 struct Game
 {
 	enum class Mode
@@ -76,6 +78,7 @@ struct Game
 		None,
 		Victory,
 		Loss,
+		Forfeit,
 		NetworkError,
 		OpponentQuit,
 		Draw,
@@ -129,10 +132,11 @@ struct Game
 
 	struct Save
 	{
+		r64 terminal_last_opened;
 		Array<Message> messages;
 		Array<Message> messages_scheduled;
 		std::unordered_map<AssetID, AssetID> variables; // todo: kill STL
-		ZoneState zones[64];
+		ZoneState zones[MAX_ZONES];
 		Group group;
 		u16 story_index;
 		u16 resources[(s32)Resource::count];

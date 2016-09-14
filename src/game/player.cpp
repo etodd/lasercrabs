@@ -1617,7 +1617,7 @@ void LocalPlayerControl::update(const Update& u)
 		for (auto i = HealthPickup::list.iterator(); !i.is_last(); i.next())
 		{
 			Health* owner = i.item()->owner.ref();
-			if (owner != get<Health>() && (owner || !full_health))
+			if ((owner && owner->get<AIAgent>()->team != team) || (!owner && !full_health))
 			{
 				if (!add_target_indicator(i.item()->get<Target>(), TargetIndicator::Type::Health))
 					break; // no more room for indicators

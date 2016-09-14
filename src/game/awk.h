@@ -26,6 +26,7 @@ struct DamageEvent;
 #define AWK_SNIPE_DISTANCE 100.0f
 #define AWK_CHARGES 3
 #define AWK_THIRD_PERSON_OFFSET 2.0f
+#define AWK_SHIELD_RADIUS 0.75f
 
 // If we raycast through a Minion's head, keep going.
 struct AwkRaycastCallback : btCollisionWorld::ClosestRayResultCallback
@@ -105,7 +106,7 @@ struct Awk : public ComponentType<Awk>
 
 	s16 ally_containment_field_mask() const;
 
-	b8 predict_intersection(const Target*, Vec3*) const;
+	b8 predict_intersection(const Target*, Vec3*, r32 = AWK_FLY_SPEED) const;
 
 	void stealth(b8);
 
@@ -132,7 +133,9 @@ struct Awk : public ComponentType<Awk>
 	void finish_dashing();
 	b8 direction_is_toward_attached_wall(const Vec3&) const;
 	b8 can_shoot(const Vec3&, Vec3* = nullptr, b8* = nullptr) const;
-	b8 can_hit(const Target*, Vec3* = nullptr) const;
+	b8 can_shoot(const Target*, Vec3* = nullptr) const;
+	b8 can_dash(const Target*, Vec3* = nullptr) const;
+	b8 can_hit(const Target*, Vec3* = nullptr) const; // shoot or dash
 
 	void movement_raycast(const Vec3&, const Vec3&);
 

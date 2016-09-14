@@ -29,7 +29,6 @@ namespace VI
 #define AWK_LEG_LENGTH (0.277f - 0.101f)
 #define AWK_LEG_BLEND_SPEED (1.0f / 0.05f)
 #define AWK_MIN_LEG_BLEND_SPEED (AWK_LEG_BLEND_SPEED * 0.1f)
-#define AWK_SHIELD_RADIUS 0.75f
 
 AwkRaycastCallback::AwkRaycastCallback(const Vec3& a, const Vec3& b, const Entity* awk)
 	: btCollisionWorld::ClosestRayResultCallback(a, b)
@@ -351,7 +350,7 @@ void Awk::hit_target(Entity* target, const Vec3& hit_pos)
 	hit.fire(target);
 }
 
-b8 Awk::predict_intersection(const Target* target, Vec3* intersection) const
+b8 Awk::predict_intersection(const Target* target, Vec3* intersection, r32 speed) const
 {
 	if (snipe) // instant bullet travel time
 	{
@@ -359,7 +358,7 @@ b8 Awk::predict_intersection(const Target* target, Vec3* intersection) const
 		return true;
 	}
 	else
-		return target->predict_intersection(get<Transform>()->absolute_pos(), AWK_FLY_SPEED, intersection);
+		return target->predict_intersection(get<Transform>()->absolute_pos(), speed, intersection);
 }
 
 void Awk::damaged(const DamageEvent& e)
@@ -378,8 +377,11 @@ void Awk::damaged(const DamageEvent& e)
 			AI::Team team = get<AIAgent>()->team;
 			for (auto i = LocalPlayer::list.iterator(); !i.is_last(); i.next())
 			{
-				b8 friendly = i.item()->manager.ref()->team.ref()->team() == team;
-				i.item()->msg(_(friendly ? strings::teammate_eliminated : strings::enemy_eliminated), !friendly);
+				if (i.item() != get<LocalPlayerControl>()->player.ref()) // don't need to notify ourselves
+				{
+					b8 friendly = i.item()->manager.ref()->team.ref()->team() == team;
+					i.item()->msg(_(friendly ? strings::teammate_eliminated : strings::enemy_eliminated), !friendly);
+				}
 			}
 		}
 	}
@@ -418,20 +420,20 @@ void Awk::killed(Entity* e)
 	World::remove_deferred(entity());
 }
 
-b8 Awk::can_hit(const Target* target, Vec3* out_intersection) const
+b8 Awk::can_dash(const Target* target, Vec3* out_intersection) const
 {
 	Vec3 intersection;
-	if (predict_intersection(target, &intersection))
+	if (predict_intersection(target, &intersection, AWK_DASH_SPEED))
 	{
-		Vec3 me = get<Transform>()->absolute_pos();
+		// the Target is situated at the base of the enemy Awk, where it attaches to the surface.
+		// we need to calculate the vector starting from our own base attach point, otherwise the dot product will be messed up.
+		Vec3 me = get<Target>()->absolute_pos();
 		Vec3 to_intersection = intersection - me;
 		r32 distance = to_intersection.length();
 		to_intersection /= distance;
 		if (distance < AWK_DASH_DISTANCE)
 		{
-			// the Target is situated at the base of the enemy Awk, where it attaches to the surface.
-			// we need to recalculate the vector starting from our own base attach point, otherwise the dot product will be messed up.
-			Vec3 dash_to_intersection = intersection - get<Target>()->absolute_pos();
+			Vec3 dash_to_intersection = intersection - me;
 			r32 dot = to_intersection.dot(get<Transform>()->absolute_rot() * Vec3(0, 0, 1));
 			if (fabs(dot) < 0.1f)
 			{
@@ -440,6 +442,20 @@ b8 Awk::can_hit(const Target* target, Vec3* out_intersection) const
 				return true;
 			}
 		}
+	}
+	return false;
+}
+
+b8 Awk::can_shoot(const Target* target, Vec3* out_intersection) const
+{
+	Vec3 intersection;
+	if (predict_intersection(target, &intersection, AWK_FLY_SPEED))
+	{
+		Vec3 me = get<Transform>()->absolute_pos();
+		Vec3 to_intersection = intersection - me;
+		r32 distance = to_intersection.length();
+		to_intersection /= distance;
+
 		Vec3 final_pos;
 		b8 hit_target;
 		if (can_shoot(to_intersection, &final_pos, &hit_target))
@@ -452,6 +468,19 @@ b8 Awk::can_hit(const Target* target, Vec3* out_intersection) const
 			}
 		}
 	}
+	return false;
+}
+
+b8 Awk::can_hit(const Target* target, Vec3* out_intersection) const
+{
+	// first try to dash there
+	if (can_dash(target, out_intersection))
+		return true;
+
+	// now try to fly there
+	if (can_shoot(target, out_intersection))
+		return true;
+
 	return false;
 }
 

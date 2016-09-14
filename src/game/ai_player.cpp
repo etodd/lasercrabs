@@ -510,7 +510,8 @@ b8 AIPlayerControl::aim_and_shoot_target(const Update& u, const Vec3& target, Ta
 
 		Vec3 to_target = diff / distance_to_target;
 
-		if (get<Awk>()->direction_is_toward_attached_wall(to_target))
+		if (get<Awk>()->direction_is_toward_attached_wall(to_target)
+			|| (distance_to_target < AWK_DASH_DISTANCE && fabs(to_target.dot(get<Transform>()->absolute_rot() * Vec3(0, 0, 1))) < 0.1f))
 			only_crawling_dashing = true;
 
 		// if we're shooting for a normal target (health or something), don't crawl
@@ -566,7 +567,9 @@ b8 AIPlayerControl::aim_and_shoot_target(const Update& u, const Vec3& target, Ta
 			aim_timer += u.time.delta;
 
 		Vec3 pos = get<Transform>()->absolute_pos();
-		Vec3 to_target = Vec3::normalize(target - pos);
+		Vec3 to_target = target - pos;
+		r32 distance_to_target = to_target.length();
+		to_target /= distance_to_target;
 		Vec3 wall_normal = common->attach_quat * Vec3(0, 0, 1);
 
 		Vec2 target_angles = aim(u, to_target);
@@ -575,21 +578,19 @@ b8 AIPlayerControl::aim_and_shoot_target(const Update& u, const Vec3& target, Ta
 		{
 			// cooldown is done; we can shoot.
 			// check if we're done aiming
-			if (fabs(LMath::angle_to(common->angle_horizontal, target_angles.x)) < inaccuracy
-				&& fabs(LMath::angle_to(common->angle_vertical, target_angles.y)) < inaccuracy)
+			b8 lined_up = fabs(LMath::angle_to(common->angle_horizontal, target_angles.x)) < inaccuracy
+				&& fabs(LMath::angle_to(common->angle_vertical, target_angles.y)) < inaccuracy;
+
+			Vec3 look_dir = common->look_dir();
+			if (only_crawling_dashing)
 			{
-				// aim is lined up
-				Vec3 look_dir = common->look_dir();
-				if (only_crawling_dashing)
-				{
-					if (get<Awk>()->dash_start(look_dir))
-						return true;
-				}
-				else
-				{
-					if (get<Awk>()->can_shoot(look_dir) && get<Awk>()->detach(look_dir))
-						return true;
-				}
+				if ((lined_up || distance_to_target < AWK_SHIELD_RADIUS) && get<Awk>()->dash_start(look_dir))
+					return true;
+			}
+			else
+			{
+				if (lined_up && get<Awk>()->can_shoot(look_dir) && get<Awk>()->detach(look_dir))
+					return true;
 			}
 		}
 	}

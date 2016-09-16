@@ -216,8 +216,11 @@ void MinionCommon::killed(Entity* killer)
 
 // Minion AI
 
-Entity* closest_target(MinionAI* me, AI::Team team)
+Entity* closest_target(MinionAI* me, AI::Team team, const Vec3& direction)
 {
+	// if the target is in the wrong direction, add a cost to it
+	r32 direction_cost = direction.length_squared() > 0.0f ? 100.0f : 0.0f;
+
 	Vec3 pos = me->get<Transform>()->absolute_pos();
 	Entity* closest = nullptr;
 
@@ -230,7 +233,8 @@ Entity* closest_target(MinionAI* me, AI::Team team)
 		{
 			if (me->can_see(field->entity()))
 				return field->entity();
-			r32 total_distance = (field->get<Transform>()->absolute_pos() - pos).length_squared();
+			Vec3 to_field = field->get<Transform>()->absolute_pos() - pos;
+			r32 total_distance = to_field.length_squared() + (to_field.dot(direction) < 0.0f ? direction_cost : 0.0f);
 			if (total_distance < closest_distance)
 			{
 				closest = field->entity();
@@ -246,7 +250,8 @@ Entity* closest_target(MinionAI* me, AI::Team team)
 		{
 			if (me->can_see(sensor->entity()))
 				return sensor->entity();
-			r32 total_distance = (sensor->get<Transform>()->absolute_pos() - pos).length_squared();
+			Vec3 to_sensor = sensor->get<Transform>()->absolute_pos() - pos;
+			r32 total_distance = to_sensor.length_squared() + (to_sensor.dot(direction) < 0.0f ? direction_cost : 0.0f);
 			if (total_distance < closest_distance)
 			{
 				closest = sensor->entity();
@@ -262,7 +267,8 @@ Entity* closest_target(MinionAI* me, AI::Team team)
 		{
 			if (me->can_see(minion->entity()))
 				return minion->entity();
-			r32 total_distance = (minion->get<Transform>()->absolute_pos() - pos).length_squared();
+			Vec3 to_minion = minion->get<Transform>()->absolute_pos() - pos;
+			r32 total_distance = to_minion.length_squared() + (to_minion.dot(direction) < 0.0f ? direction_cost : 0.0f);
 			if (total_distance < closest_distance)
 			{
 				closest = minion->entity();
@@ -278,7 +284,8 @@ Entity* closest_target(MinionAI* me, AI::Team team)
 		{
 			if (me->can_see(rocket->entity()))
 				return rocket->entity();
-			r32 total_distance = (rocket->get<Transform>()->absolute_pos() - pos).length_squared();
+			Vec3 to_rocket = rocket->get<Transform>()->absolute_pos() - pos;
+			r32 total_distance = to_rocket.length_squared() + (to_rocket.dot(direction) < 0.0f ? direction_cost : 0.0f);
 			if (total_distance < closest_distance)
 			{
 				closest = rocket->entity();
@@ -294,7 +301,8 @@ Entity* closest_target(MinionAI* me, AI::Team team)
 		{
 			if (me->can_see(teleporter->entity()))
 				return teleporter->entity();
-			r32 total_distance = (teleporter->get<Transform>()->absolute_pos() - pos).length_squared();
+			Vec3 to_teleporter = teleporter->get<Transform>()->absolute_pos() - pos;
+			r32 total_distance = to_teleporter.length_squared() + (to_teleporter.dot(direction) < 0.0f ? direction_cost : 0.0f);
 			if (total_distance < closest_distance)
 			{
 				closest = teleporter->entity();
@@ -374,7 +382,7 @@ Entity* visible_target(MinionAI* me, AI::Team team)
 void MinionAI::awake()
 {
 	get<Walker>()->max_speed = get<Walker>()->speed;
-	new_goal();
+	new_goal(get<Walker>()->forward());
 }
 
 b8 MinionAI::can_see(Entity* target, b8 limit_vision_cone) const
@@ -419,26 +427,35 @@ b8 MinionAI::can_see(Entity* target, b8 limit_vision_cone) const
 
 #define PATH_RECALC_TIME 1.0f
 
-void MinionAI::new_goal()
+void MinionAI::new_goal(const Vec3& direction)
 {
 	Vec3 pos = get<Transform>()->absolute_pos();
-	goal.entity = closest_target(this, get<AIAgent>()->team);
+	goal.entity = closest_target(this, get<AIAgent>()->team, direction);
 	auto path_callback = ObjectLinkEntryArg<MinionAI, const AI::Result&, &MinionAI::set_path>(id());
 	if (goal.entity.ref())
 	{
 		goal.type = Goal::Type::Target;
 		if (!can_see(goal.entity.ref()))
 		{
-			Vec3 target = goal.entity.ref()->get<Transform>()->absolute_pos();
 			path_request = PathRequest::Target;
-			AI::pathfind(pos, target, path_callback);
+			goal.pos = goal.entity.ref()->get<Transform>()->absolute_pos();
+			AI::pathfind(pos, goal.pos, path_callback);
 		}
 	}
 	else
 	{
-		path_request = PathRequest::Random;
 		goal.type = Goal::Type::Position;
-		AI::random_path(pos, path_callback);
+		if (direction.length_squared() > 0.0f)
+		{
+			path_request = PathRequest::Position;
+			goal.pos = pos + direction * AWK_MAX_DISTANCE;
+			AI::pathfind(pos, goal.pos, path_callback);
+		}
+		else
+		{
+			path_request = PathRequest::Random;
+			AI::random_path(pos, path_callback);
+		}
 	}
 	target_timer = 0.0f;
 	path_timer = PATH_RECALC_TIME;

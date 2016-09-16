@@ -117,8 +117,8 @@ Awk::Awk()
 	shield(),
 	bounce(),
 	hit_targets(),
-	cooldowns(),
-	cooldown_index(),
+	cooldown(),
+	charges(AWK_CHARGES),
 	invincible_timer(),
 	particle_accumulator(),
 	snipe()
@@ -377,7 +377,7 @@ void Awk::damaged(const DamageEvent& e)
 			AI::Team team = get<AIAgent>()->team;
 			for (auto i = LocalPlayer::list.iterator(); !i.is_last(); i.next())
 			{
-				if (i.item() != get<LocalPlayerControl>()->player.ref()) // don't need to notify ourselves
+				if (i.item()->manager.ref()->entity.ref() != entity()) // don't need to notify ourselves
 				{
 					b8 friendly = i.item()->manager.ref()->team.ref()->team() == team;
 					i.item()->msg(_(friendly ? strings::teammate_eliminated : strings::enemy_eliminated), !friendly);
@@ -446,10 +446,10 @@ b8 Awk::can_dash(const Target* target, Vec3* out_intersection) const
 	return false;
 }
 
-b8 Awk::can_shoot(const Target* target, Vec3* out_intersection) const
+b8 Awk::can_shoot(const Target* target, Vec3* out_intersection, r32 speed) const
 {
 	Vec3 intersection;
-	if (predict_intersection(target, &intersection, AWK_FLY_SPEED))
+	if (predict_intersection(target, &intersection, speed))
 	{
 		Vec3 me = get<Transform>()->absolute_pos();
 		Vec3 to_intersection = intersection - me;
@@ -583,19 +583,11 @@ b8 Awk::can_shoot(const Vec3& dir, Vec3* final_pos, b8* hit_target) const
 	}
 }
 
-void Awk::cooldown_setup(r32 value)
+void Awk::cooldown_setup()
 {
-	cooldown_index = AWK_CHARGES;
-	for (s32 i = 0; i < AWK_CHARGES; i++)
-	{
-		if (cooldowns[i] == 0.0f)
-		{
-			cooldown_index = i;
-			break;
-		}
-	}
-	vi_assert(cooldown_index < AWK_CHARGES);
-	cooldowns[cooldown_index] = value;
+	vi_assert(charges > 0);
+	charges--;
+	cooldown = AWK_COOLDOWN;
 }
 
 void Awk::detach_teleport()
@@ -646,20 +638,9 @@ b8 Awk::dash_start(const Vec3& dir)
 	return true;
 }
 
-s32 Awk::charges() const
-{
-	s32 count = 0;
-	for (s32 i = 0; i < AWK_CHARGES; i++)
-	{
-		if (cooldowns[i] == 0.0f)
-			count++;
-	}
-	return count;
-}
-
 b8 Awk::cooldown_can_shoot() const
 {
-	return charges() > 0;
+	return charges > 0;
 }
 
 #define SNIPE_RANGE_TIME 0.5f
@@ -692,8 +673,8 @@ b8 Awk::detach(const Vec3& dir)
 		{
 			hit_targets.length = 0;
 
-			for (s32 i = 0; i < AWK_CHARGES; i++)
-				cooldowns[i] = vi_max(cooldowns[i], AWK_MAX_COOLDOWN * 0.25f);
+			charges = 0;
+			cooldown = AWK_COOLDOWN * 0.5f;
 
 			Vec3 pos = get<Transform>()->absolute_pos();
 			Vec3 ray_start = pos + dir_normalized * -AWK_RADIUS;
@@ -756,37 +737,59 @@ void Awk::reflect(const Vec3& hit, const Vec3& normal)
 		get<Animator>()->layers[0].animation = Asset::Animation::awk_fly;
 	}
 
+	get<Transform>()->absolute_pos(hit + normal * AWK_RADIUS);
+
 	// our goal
 	Vec3 target_dir = Vec3::normalize(velocity.reflect(normal));
 
 	// the actual direction we end up going
 	Vec3 new_velocity = target_dir * AWK_DASH_SPEED;
 
-	get<Transform>()->absolute_pos(hit + normal * AWK_RADIUS);
+	b8 found_new_velocity = false;
 
-	Quat target_quat = Quat::look(target_dir);
-
-	// make sure we have somewhere to land.
-	const s32 tries = 20; // try 20 raycasts. if they all fail, just shoot off into space.
-	r32 random_range = 0.0f;
-	r32 farthest_distance = 0;
-	for (s32 i = 0; i < tries; i++)
+	// first check for nearby targets
+	for (auto i = Target::list.iterator(); !i.is_last(); i.next())
 	{
-		Vec3 candidate_velocity = target_quat * (Quat::euler(PI + (mersenne::randf_co() - 0.5f) * random_range, (PI * 0.5f) + (mersenne::randf_co() - 0.5f) * random_range, 0) * Vec3(AWK_DASH_SPEED, 0, 0));
-		Vec3 next_hit;
-		if (can_shoot(candidate_velocity, &next_hit))
+		Vec3 intersection;
+		if (i.item()->entity() != entity() && can_shoot(i.item(), &intersection, AWK_DASH_SPEED))
 		{
-			r32 distance_to_next_hit = (next_hit - hit).length_squared();
-			if (distance_to_next_hit > farthest_distance)
+			Vec3 to_target = Vec3::normalize(intersection - get<Transform>()->absolute_pos());
+			if (target_dir.dot(to_target) > 0.9f)
 			{
-				new_velocity = candidate_velocity;
-				farthest_distance = distance_to_next_hit;
-
-				if (distance_to_next_hit > (AWK_MAX_DISTANCE * 0.5f * AWK_MAX_DISTANCE * 0.5f)) // try to bounce to a spot at least X units away
-					break;
+				new_velocity = to_target * AWK_DASH_SPEED;
+				found_new_velocity = true;
 			}
 		}
-		random_range += PI / (r32)tries;
+	}
+
+	if (!found_new_velocity)
+	{
+		// couldn't find a target to hit
+
+		Quat target_quat = Quat::look(target_dir);
+
+		// make sure we have somewhere to land.
+		const s32 tries = 20; // try 20 raycasts. if they all fail, just shoot off into space.
+		r32 random_range = 0.0f;
+		r32 farthest_distance = 0;
+		for (s32 i = 0; i < tries; i++)
+		{
+			Vec3 candidate_velocity = target_quat * (Quat::euler(PI + (mersenne::randf_co() - 0.5f) * random_range, (PI * 0.5f) + (mersenne::randf_co() - 0.5f) * random_range, 0) * Vec3(AWK_DASH_SPEED, 0, 0));
+			Vec3 next_hit;
+			if (can_shoot(candidate_velocity, &next_hit))
+			{
+				r32 distance_to_next_hit = (next_hit - hit).length_squared();
+				if (distance_to_next_hit > farthest_distance)
+				{
+					new_velocity = candidate_velocity;
+					farthest_distance = distance_to_next_hit;
+
+					if (distance_to_next_hit > (AWK_MAX_DISTANCE * 0.5f * AWK_MAX_DISTANCE * 0.5f)) // try to bounce to a spot at least X units away
+						break;
+				}
+			}
+			random_range += PI / (r32)tries;
+		}
 	}
 
 	bounce.fire(new_velocity);
@@ -1145,11 +1148,15 @@ void Awk::update(const Update& u)
 	else
 		shield.ref()->get<View>()->mask = 0;
 
+	if (cooldown > 0.0f)
+	{
+		cooldown = vi_max(0.0f, cooldown - u.time.delta);
+		if (cooldown == 0.0f)
+			charges = AWK_CHARGES;
+	}
+
 	if (s == Awk::State::Crawl)
 	{
-		for (s32 i = 0; i < AWK_CHARGES; i++)
-			cooldowns[i] = vi_max(0.0f, cooldowns[i] - u.time.delta);
-
 		update_lerped_pos(1.0f, u);
 		update_offset();
 
@@ -1321,7 +1328,6 @@ void Awk::update(const Update& u)
 				Vec3 ray_end = next_position + dir * AWK_RADIUS;
 				movement_raycast(ray_start, ray_end);
 			}
-			cooldowns[cooldown_index] = vi_min(cooldowns[cooldown_index] + (next_position - position).length() * AWK_COOLDOWN_DISTANCE_RATIO, AWK_MAX_COOLDOWN);
 		}
 	}
 }

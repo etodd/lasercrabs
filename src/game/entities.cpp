@@ -374,7 +374,7 @@ ControlPointEntity::ControlPointEntity(AI::Team team)
 
 	View* view = create<View>();
 	view->mesh = Asset::Mesh::spawn;
-	view->shader = Asset::Shader::standard;
+	view->shader = Asset::Shader::culled;
 	view->color = Vec4(0.6f, 0.6f, 0.6f, MATERIAL_NO_OVERRIDE);
 
 	create<PlayerTrigger>()->radius = CONTROL_POINT_RADIUS;

@@ -37,6 +37,7 @@ namespace VI
 {
 
 
+#define fov_map_view (60.0f * PI * 0.5f / 180.0f)
 #define fov_default (70.0f * PI * 0.5f / 180.0f)
 #define fov_zoom (fov_default * 0.5f)
 #define fov_sniper (fov_default * 0.25f)
@@ -191,7 +192,7 @@ void LocalPlayer::awake(const Update& u)
 		Vec2((s32)(blueprint->w * (r32)u.input->width), (s32)(blueprint->h * (r32)u.input->height)),
 	};
 	r32 aspect = camera->viewport.size.y == 0 ? 1 : (r32)camera->viewport.size.x / (r32)camera->viewport.size.y;
-	camera->perspective(60.0f * PI * 0.5f / 180.0f, aspect, 1.0f, Game::level.skybox.far_plane);
+	camera->perspective(fov_map_view, aspect, 1.0f, Game::level.skybox.far_plane);
 	Quat rot;
 	map_view.ref()->absolute(&camera->pos, &rot);
 	camera->rot = Quat::look(rot * Vec3(0, -1, 0));
@@ -393,6 +394,8 @@ void LocalPlayer::update(const Update& u)
 				// noclip
 				update_camera_rotation(u);
 
+				r32 aspect = camera->viewport.size.y == 0 ? 1 : (r32)camera->viewport.size.x / (r32)camera->viewport.size.y;
+				camera->perspective(fov_map_view, aspect, 0.02f, Game::level.skybox.far_plane);
 				camera->range = 0;
 				camera->cull_range = 0;
 
@@ -418,7 +421,8 @@ void LocalPlayer::update(const Update& u)
 				// we're dead but others still playing; spectate
 				update_camera_rotation(u);
 
-				camera->range = 0;
+				r32 aspect = camera->viewport.size.y == 0 ? 1 : (r32)camera->viewport.size.x / (r32)camera->viewport.size.y;
+				camera->perspective(fov_default, aspect, 0.02f, Game::level.skybox.far_plane);
 
 				if (PlayerCommon::list.count() > 0)
 				{
@@ -1204,8 +1208,11 @@ void LocalPlayerControl::damaged(const DamageEvent& e)
 void LocalPlayerControl::hit_by(const TargetEvent& e)
 {
 	// we were physically hit by something; shake the camera
-	damage_timer = damage_shake_time;
-	rumble = vi_max(rumble, 1.0f);
+	if (get<Awk>()->state() == Awk::State::Crawl) // don't shake the screen if we reflect off something in the air
+	{
+		damage_timer = damage_shake_time;
+		rumble = vi_max(rumble, 1.0f);
+	}
 }
 
 void LocalPlayerControl::health_picked_up()
@@ -1517,9 +1524,12 @@ void LocalPlayerControl::update(const Update& u)
 	if (damage_timer > 0.0f)
 	{
 		damage_timer -= u.time.delta;
-		r32 shake = (damage_timer / damage_shake_time) * 0.3f;
-		r32 offset = Game::time.total * 10.0f;
-		look_quat = look_quat * Quat::euler(noise::sample3d(Vec3(offset)) * shake, noise::sample3d(Vec3(offset + 64)) * shake, noise::sample3d(Vec3(offset + 128)) * shake);
+		if (get<Awk>()->state() == Awk::State::Crawl)
+		{
+			r32 shake = (damage_timer / damage_shake_time) * 0.3f;
+			r32 offset = Game::time.total * 10.0f;
+			look_quat = look_quat * Quat::euler(noise::sample3d(Vec3(offset)) * shake, noise::sample3d(Vec3(offset + 64)) * shake, noise::sample3d(Vec3(offset + 128)) * shake);
+		}
 	}
 
 	camera->rot = look_quat;
@@ -2158,14 +2168,12 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 
 		// cooldown indicator
 		{
-			s32 charges = get<Awk>()->charges();
+			s32 charges = get<Awk>()->charges;
 			if (charges == 0)
 			{
-				r32 cooldown = AWK_MAX_COOLDOWN;
-				for (s32 i = 0; i < AWK_CHARGES; i++)
-					cooldown = vi_min(cooldown, get<Awk>()->cooldowns[i]);
+				r32 cooldown = get<Awk>()->cooldown;
 
-				UI::triangle_border(params, { pos, Vec2((start_radius + spoke_length) * (2.5f + 5.0f * (cooldown / AWK_MAX_COOLDOWN)) * UI::scale) }, spoke_width, UI::color_alert, PI);
+				UI::triangle_border(params, { pos, Vec2((start_radius + spoke_length) * (2.5f + 5.0f * (cooldown / AWK_COOLDOWN)) * UI::scale) }, spoke_width, UI::color_alert, PI);
 			}
 			else if (!get<Awk>()->snipe)
 			{

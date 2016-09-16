@@ -51,6 +51,7 @@ namespace Terminal
 #define DEPLOY_COST_DRONES 1
 #define ENERGY_INCREMENT_INTERVAL 30
 #define AUTO_CAPTURE_TIME 30.0f
+#define ZONE_MAX_CHILDREN 12
 
 struct ZoneNode
 {
@@ -500,6 +501,17 @@ const ZoneNode* zone_node_get(AssetID id)
 	return nullptr;
 }
 
+void zone_node_children(const ZoneNode& node, StaticArray<Ref<Transform>, ZONE_MAX_CHILDREN>* children)
+{
+	children->length = 0;
+	for (auto i = Transform::list.iterator(); !i.is_last(); i.next())
+	{
+		if (i.item()->parent.ref() == node.pos.ref())
+			children->add(i.item());
+	}
+	children->add(node.pos.ref());
+}
+
 b8 resource_spend(Game::Resource res, u16 amount)
 {
 	if (Game::save.resources[(s32)res] >= amount)
@@ -518,7 +530,11 @@ void deploy_start()
 		deploy_animation_start();
 	}
 	else
+	{
 		data.state = State::Deploying;
+		if (Game::save.group != Game::Group::None)
+			deploy_animation_start(); // if we're in a group, the deploy animation hasn't played yet
+	}
 	data.timer_deploy = DEPLOY_TIME_LOCAL;
 }
 
@@ -556,16 +572,30 @@ void select_zone_update(const Update& u, b8 enable_movement)
 	{
 		Vec2 movement(0, 0);
 
+		b8 keyboard = false;
+
 		// buttons/keys
 		{
 			if (u.input->get(Controls::Left, 0) && !u.last_input->get(Controls::Left, 0))
+			{
 				movement.x -= 1.0f;
+				keyboard = true;
+			}
 			if (u.input->get(Controls::Right, 0) && !u.last_input->get(Controls::Right, 0))
+			{
 				movement.x += 1.0f;
+				keyboard = true;
+			}
 			if (u.input->get(Controls::Forward, 0) && !u.last_input->get(Controls::Forward, 0))
+			{
 				movement.y -= 1.0f;
+				keyboard = true;
+			}
 			if (u.input->get(Controls::Backward, 0) && !u.last_input->get(Controls::Backward, 0))
+			{
 				movement.y += 1.0f;
+				keyboard = true;
+			}
 		}
 
 		// joysticks
@@ -587,20 +617,37 @@ void select_zone_update(const Update& u, b8 enable_movement)
 			movement /= movement_amount; // normalize
 			Vec3 movement3d = data.camera->rot * Vec3(-movement.x, 0, -movement.y);
 			movement = Vec2(movement3d.x, movement3d.z);
-			Vec3 zone_pos = zone->pos.ref()->absolute_pos();
 			const ZoneNode* closest = nullptr;
 			r32 closest_dot = FLT_MAX;
-			for (s32 i = 0; i < data.zones.length; i++)
+			r32 closest_normalized_dot = 0.6f;
+
+			StaticArray<Ref<Transform>, ZONE_MAX_CHILDREN> children;
+			zone_node_children(*zone, &children);
+			for (s32 i = 0; i < children.length; i++)
 			{
-				const ZoneNode& candidate = data.zones[i];
-				Vec3 candidate_pos = candidate.pos.ref()->absolute_pos();
-				Vec3 to_candidate = (candidate_pos - zone_pos);
-				r32 dot = movement.dot(Vec2(to_candidate.x, to_candidate.z));
-				r32 normalized_dot = movement.dot(Vec2::normalize(Vec2(to_candidate.x, to_candidate.z)));
-				if (dot < closest_dot && normalized_dot > 0.7f)
+				Vec3 zone_pos = children[i].ref()->absolute_pos();
+				for (s32 j = 0; j < data.zones.length; j++)
 				{
-					closest = &candidate;
-					closest_dot = dot;
+					const ZoneNode& candidate = data.zones[j];
+					if (&candidate == zone)
+						continue;
+
+					StaticArray<Ref<Transform>, ZONE_MAX_CHILDREN> children2;
+					zone_node_children(candidate, &children2);
+					for (s32 k = 0; k < children2.length; k++)
+					{
+						Vec3 candidate_pos = children2[k].ref()->absolute_pos();
+						Vec3 to_candidate = (candidate_pos - zone_pos);
+						r32 dot = movement.dot(Vec2(to_candidate.x, to_candidate.z));
+						r32 normalized_dot = movement.dot(Vec2::normalize(Vec2(to_candidate.x, to_candidate.z)));
+						r32 mixed_dot = dot * vi_max(normalized_dot, 0.9f);
+						if (mixed_dot < closest_dot && normalized_dot > closest_normalized_dot)
+						{
+							closest = &candidate;
+							closest_normalized_dot = vi_min(0.8f, normalized_dot);
+							closest_dot = vi_max(2.0f, mixed_dot);
+						}
+					}
 				}
 			}
 			if (closest)
@@ -985,17 +1032,6 @@ void message_read(Game::Message* msg)
 		message_schedule(strings::contact_cora, strings::msg_cora_intro, 1.0);
 }
 
-#define ZONE_MAX_CHILDREN 12
-void zone_node_children(const ZoneNode& node, StaticArray<Ref<Transform>, ZONE_MAX_CHILDREN>* children)
-{
-	children->length = 0;
-	for (auto i = Transform::list.iterator(); !i.is_last(); i.next())
-	{
-		if (i.item()->parent.ref() == node.pos.ref())
-			children->add(i.item());
-	}
-}
-
 // make sure inaccessible/locked zones are correct
 void zone_states_update()
 {
@@ -1011,29 +1047,33 @@ void zone_states_update()
 	for (s32 i = 0; i < data.zones.length; i++)
 	{
 		const ZoneNode& zone = data.zones[i];
-		Game::ZoneState zone_state = Game::save.zones[zone.id];
-		if (zone_state == Game::ZoneState::Friendly || zone_state == Game::ZoneState::Owned)
+		if ((Game::save.group == Game::Group::None) == (zone.max_teams < MAX_PLAYERS)) // must be the right size map
 		{
-			StaticArray<Ref<Transform>, ZONE_MAX_CHILDREN> children;
-			zone_node_children(zone, &children);
-			children.add(zone.pos.ref());
-			for (s32 j = 0; j < children.length; j++)
+			Game::ZoneState zone_state = Game::save.zones[zone.id];
+			if (zone_state == Game::ZoneState::Friendly || zone_state == Game::ZoneState::Owned)
 			{
-				Vec3 zone_pos = children[j].ref()->absolute_pos();
-				zone_pos.y = 0.0f;
-				for (s32 k = 0; k < data.zones.length; k++)
+				StaticArray<Ref<Transform>, ZONE_MAX_CHILDREN> children;
+				zone_node_children(zone, &children);
+				for (s32 j = 0; j < children.length; j++)
 				{
-					const ZoneNode& neighbor_zone = data.zones[k];
-					if (Game::save.zones[neighbor_zone.id] == Game::ZoneState::Inaccessible)
+					Vec3 zone_pos = children[j].ref()->absolute_pos();
+					zone_pos.y = 0.0f;
+					for (s32 k = 0; k < data.zones.length; k++)
 					{
-						Vec3 neighbor_pos = neighbor_zone.pos.ref()->absolute_pos();
-						neighbor_pos.y = 0.0f;
-						if ((neighbor_pos - zone_pos).length_squared() < 4.5f * 4.5f)
-							Game::save.zones[neighbor_zone.id] = Game::ZoneState::Locked;
+						const ZoneNode& neighbor_zone = data.zones[k];
+						if (Game::save.zones[neighbor_zone.id] == Game::ZoneState::Inaccessible)
+						{
+							Vec3 neighbor_pos = neighbor_zone.pos.ref()->absolute_pos();
+							neighbor_pos.y = 0.0f;
+							if ((neighbor_pos - zone_pos).length_squared() < 4.5f * 4.5f)
+								Game::save.zones[neighbor_zone.id] = Game::ZoneState::Locked;
+						}
 					}
 				}
 			}
 		}
+		else
+			Game::save.zones[zone.id] = Game::ZoneState::Inaccessible; // wrong size map
 	}
 }
 
@@ -2631,6 +2671,7 @@ void init(const Update& u, const EntityFinder& entities)
 		}
 
 		// energy increment
+		// this must be done before story_zone_done changes the energy increment amount
 		{
 			r64 t = platform::timestamp();
 			Game::save.resources[(s32)Game::Resource::Energy] += vi_min(4 * 60 * 60 / ENERGY_INCREMENT_INTERVAL, (s32)((t - Game::save.terminal_last_opened) / (r64)ENERGY_INCREMENT_INTERVAL)) * energy_increment_total();

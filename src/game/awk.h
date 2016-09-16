@@ -18,9 +18,7 @@ struct DamageEvent;
 #define AWK_HEALTH 5
 #define AWK_FLY_SPEED 35.0f
 #define AWK_CRAWL_SPEED 2.0f
-#define AWK_MIN_COOLDOWN 1.0f
-#define AWK_MAX_COOLDOWN 4.0f
-#define AWK_COOLDOWN_DISTANCE_RATIO ((AWK_MAX_COOLDOWN - AWK_MIN_COOLDOWN) / (AWK_MAX_DISTANCE * 0.5f))
+#define AWK_COOLDOWN 2.5f
 #define AWK_LEGS 3
 #define AWK_INVINCIBLE_TIME 3.0f
 #define AWK_SNIPE_DISTANCE 100.0f
@@ -74,7 +72,7 @@ struct Awk : public ComponentType<Awk>
 	r32 attach_time;
 	r32 invincible_timer;
 	r32 snipe_time;
-	r32 cooldowns[AWK_CHARGES]; // remaining cooldown time
+	r32 cooldown; // remaining cooldown time
 	Footing footing[AWK_LEGS];
 	r32 last_speed;
 	r32 last_footstep;
@@ -85,7 +83,7 @@ struct Awk : public ComponentType<Awk>
 	r32 particle_accumulator;
 	r32 dash_timer;
 	b8 snipe;
-	u8 cooldown_index;
+	u8 charges;
 
 	Awk();
 	void awake();
@@ -93,8 +91,7 @@ struct Awk : public ComponentType<Awk>
 
 	r32 range() const;
 
-	s32 charges() const;
-	void cooldown_setup(r32 = AWK_MIN_COOLDOWN);
+	void cooldown_setup();
 	State state() const;
 	b8 dash_start(const Vec3&);
 	b8 cooldown_can_shoot() const; // can we go?
@@ -133,7 +130,7 @@ struct Awk : public ComponentType<Awk>
 	void finish_dashing();
 	b8 direction_is_toward_attached_wall(const Vec3&) const;
 	b8 can_shoot(const Vec3&, Vec3* = nullptr, b8* = nullptr) const;
-	b8 can_shoot(const Target*, Vec3* = nullptr) const;
+	b8 can_shoot(const Target*, Vec3* = nullptr, r32 = AWK_FLY_SPEED) const;
 	b8 can_dash(const Target*, Vec3* = nullptr) const;
 	b8 can_hit(const Target*, Vec3* = nullptr) const; // shoot or dash
 

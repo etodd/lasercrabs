@@ -20,15 +20,15 @@ PinArray<AIPlayer, MAX_PLAYERS> AIPlayer::list;
 AIPlayer::Config::Config()
 	: low_level(LowLevelLoop::Default),
 	high_level(HighLevelLoop::Default),
-	interval_memory_update(0.1f),
-	interval_low_level(0.2f),
+	interval_memory_update(0.2f),
+	interval_low_level(0.25f),
 	interval_high_level(0.5f),
 	inaccuracy_min(PI * 0.001f),
 	inaccuracy_range(PI * 0.01f),
 	aim_timeout(2.0f),
 	aim_speed(3.0f),
 	aim_min_delay(0.5f),
-	dodge_chance(0.25f),
+	dodge_chance(0.2f),
 	upgrade_priority { },
 	upgrade_strategies { }
 {
@@ -872,7 +872,7 @@ b8 awk_run_filter(const AIPlayerControl* control, const Entity* e)
 		&& (e->get<Awk>()->can_hit(control->get<Target>()) || (e->get<Transform>()->absolute_pos() - control->get<Transform>()->absolute_pos()).length_squared() < AWK_MAX_DISTANCE * 0.5f * AWK_MAX_DISTANCE * 0.5f);
 }
 
-b8 awk_attack_filter(const AIPlayerControl* control, const Entity* e)
+b8 awk_find_filter(const AIPlayerControl* control, const Entity* e)
 {
 	if (!default_filter(control, e))
 		return false;
@@ -883,6 +883,14 @@ b8 awk_attack_filter(const AIPlayerControl* control, const Entity* e)
 		&& !e->get<AIAgent>()->stealth
 		&& (e->get<Awk>()->invincible_timer == 0.0f || (enemy_hp == 1 && my_hp > enemy_hp + 1))
 		&& (enemy_hp <= my_hp || (my_hp > 1 && control->get<Awk>()->invincible_timer > 0.0f));
+}
+
+b8 awk_react_filter(const AIPlayerControl* control, const Entity* e)
+{
+	if (!awk_find_filter(control, e))
+		return false;
+
+	return e->get<Awk>()->state() == Awk::State::Crawl;
 }
 
 b8 containment_field_filter(const AIPlayerControl* control, const Entity* e)
@@ -1264,7 +1272,7 @@ Repeat* make_low_level_loop(AIPlayerControl* control, const AIPlayer::Config& co
 										AIBehaviors::Test::alloc(&sniping),
 										Select::alloc
 										(
-											AIBehaviors::ReactTarget::alloc(Awk::family, 0, 6, &awk_attack_filter),
+											AIBehaviors::ReactTarget::alloc(Awk::family, 0, 6, &awk_react_filter),
 											AIBehaviors::ReactTarget::alloc(MinionCommon::family, 0, 5, &default_filter),
 											AIBehaviors::RandomPath::alloc(4),
 											Sequence::alloc
@@ -1283,7 +1291,7 @@ Repeat* make_low_level_loop(AIPlayerControl* control, const AIPlayer::Config& co
 									),
 									AIBehaviors::RunAway::alloc(Awk::family, 6, &awk_run_filter),
 									AIBehaviors::ReactTarget::alloc(ContainmentField::family, 4, 6, &containment_field_filter),
-									AIBehaviors::ReactTarget::alloc(Awk::family, 4, 6, &awk_attack_filter),
+									AIBehaviors::ReactTarget::alloc(Awk::family, 4, 6, &awk_react_filter),
 									AIBehaviors::ReactTarget::alloc(MinionCommon::family, 4, 5, &default_filter),
 									AIBehaviors::ReactTarget::alloc(HealthPickup::family, 3, 4, &health_pickup_filter)
 								),
@@ -1363,7 +1371,7 @@ Repeat* make_high_level_loop(AIPlayerControl* control, const AIPlayer::Config& c
 							),
 							Select::alloc
 							(
-								AIBehaviors::Find::alloc(Awk::family, 2, &awk_attack_filter),
+								AIBehaviors::Find::alloc(Awk::family, 2, &awk_find_filter),
 								Sequence::alloc
 								(
 									AIBehaviors::HasUpgrade::alloc(Upgrade::Sensor),

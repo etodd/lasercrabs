@@ -52,6 +52,8 @@ namespace Terminal
 #define ENERGY_INCREMENT_INTERVAL 30
 #define AUTO_CAPTURE_TIME 30.0f
 #define ZONE_MAX_CHILDREN 12
+#define EVENT_INTERVAL_PER_ZONE (60.0f * 45.0f)
+#define EVENT_ODDS_PER_ZONE (1.0f / EVENT_INTERVAL_PER_ZONE) // an event will happen on average every X minutes per zone you own
 
 struct ZoneNode
 {
@@ -1036,14 +1038,20 @@ void message_read(Game::Message* msg)
 void zone_states_update()
 {
 	// reset
+	Game::ZoneState old_state[MAX_ZONES];
+	memcpy(old_state, Game::save.zones, sizeof(old_state));
 	for (s32 i = 0; i < data.zones.length; i++)
 	{
 		const ZoneNode& z = data.zones[i];
-		if (Game::save.zones[z.id] == Game::ZoneState::Locked && z.id != Asset::Level::Safe_Zone)
-			Game::save.zones[z.id] = Game::ZoneState::Inaccessible;
+		if (z.id != Asset::Level::Safe_Zone)
+		{
+			Game::ZoneState state = Game::save.zones[z.id];
+			if (state == Game::ZoneState::Locked || state == Game::ZoneState::Hostile)
+				Game::save.zones[z.id] = Game::ZoneState::Inaccessible;
+		}
 	}
 
-	// make zones adjacent to owned/friendly zones accessible (but still locked)
+	// make zones adjacent to owned/friendly zones accessible (but possibly still locked)
 	for (s32 i = 0; i < data.zones.length; i++)
 	{
 		const ZoneNode& zone = data.zones[i];
@@ -1061,12 +1069,19 @@ void zone_states_update()
 					for (s32 k = 0; k < data.zones.length; k++)
 					{
 						const ZoneNode& neighbor_zone = data.zones[k];
-						if (Game::save.zones[neighbor_zone.id] == Game::ZoneState::Inaccessible)
+						if (Game::save.zones[neighbor_zone.id] == Game::ZoneState::Inaccessible
+							&& (Game::save.group == Game::Group::None) == (neighbor_zone.max_teams < MAX_PLAYERS)) // must be the right size map
 						{
 							Vec3 neighbor_pos = neighbor_zone.pos.ref()->absolute_pos();
 							neighbor_pos.y = 0.0f;
 							if ((neighbor_pos - zone_pos).length_squared() < 4.5f * 4.5f)
-								Game::save.zones[neighbor_zone.id] = Game::ZoneState::Locked;
+							{
+								Game::ZoneState s = old_state[neighbor_zone.id];
+								if (s == Game::ZoneState::Inaccessible)
+									Game::save.zones[neighbor_zone.id] = Game::ZoneState::Locked; // if it was inaccessible before, make it accessible but locked
+								else
+									Game::save.zones[neighbor_zone.id] = s; // if it was something else before, restore it to that state
+							}
 						}
 					}
 				}
@@ -1094,7 +1109,10 @@ void group_join(Game::Group g)
 			if (zone.max_teams < MAX_PLAYERS)
 				Game::save.zones[zone.id] = Game::ZoneState::Inaccessible;
 			else
-				Game::save.zones[zone.id] = mersenne::randf_cc() > 0.5f ? Game::ZoneState::Friendly : Game::ZoneState::Hostile;
+			{
+				r32 r = mersenne::randf_cc();
+				Game::save.zones[zone.id] = r > 0.4f ? (r > 0.7f ? Game::ZoneState::Friendly : Game::ZoneState::Hostile) : Game::ZoneState::Inaccessible;
+			}
 		}
 	}
 	zone_states_update();
@@ -1355,6 +1373,58 @@ void story_zone_done(AssetID zone, Game::MatchResult result)
 	}
 }
 
+b8 zone_filter_default(AssetID zone_id)
+{
+	return true;
+}
+
+b8 zone_filter_not_selected(AssetID zone_id)
+{
+	return zone_id != data.zone_selected;
+}
+
+b8 zone_filter_accessible(AssetID zone_id)
+{
+	return Game::save.zones[zone_id] != Game::ZoneState::Inaccessible;
+}
+
+b8 zone_filter_can_turn_hostile(AssetID zone_id)
+{
+	if (zone_id == Asset::Level::Safe_Zone)
+		return false;
+	else if (zone_id == data.zone_last)
+		return false;
+
+	return true;
+}
+
+b8 zone_filter_captured(AssetID zone_id)
+{
+	Game::ZoneState state = Game::save.zones[zone_id];
+	return state == Game::ZoneState::Friendly || state == Game::ZoneState::Owned;
+}
+
+void zone_statistics(s32* captured, s32* hostile, s32* locked, b8 (*filter)(AssetID) = &zone_filter_default)
+{
+	*captured = 0;
+	*hostile = 0;
+	*locked = 0;
+	for (s32 i = 0; i < data.zones.length; i++)
+	{
+		const ZoneNode& zone = data.zones[i];
+		if (filter(zone.id))
+		{
+			Game::ZoneState state = Game::save.zones[zone.id];
+			if (state == Game::ZoneState::Owned || state == Game::ZoneState::Friendly)
+				(*captured)++;
+			else if (state == Game::ZoneState::Hostile)
+				(*hostile)++;
+			else if (state == Game::ZoneState::Locked)
+				(*locked)++;
+		}
+	}
+}
+
 void tab_map_update(const Update& u)
 {
 	if (data.story.tab == Tab::Map && data.story.tab_timer > TAB_ANIMATION_TIME)
@@ -1595,6 +1665,66 @@ void tab_inventory_update(const Update& u)
 	}
 }
 
+AssetID zone_random(b8(*filter1)(AssetID), b8(*filter2)(AssetID) = &zone_filter_default)
+{
+	StaticArray<AssetID, MAX_ZONES> zones;
+	for (s32 i = 0; i < data.zones.length; i++)
+	{
+		const ZoneNode& zone = data.zones[i];
+		if (filter1(zone.id) && filter2(zone.id))
+			zones.add(zone.id);
+	}
+	return zones[mersenne::randf_co() * zones.length];
+}
+
+enum ZoneRandomizeFlags
+{
+	ZoneRandomizeDefault = 0,
+	ZoneRandomizeLive = 1 << 0, // we're live and playing; let the player interfere
+	ZoneRandomizeAllowSelectedZone = 1 << 1, // allow the currently selected zone to change
+};
+
+void zone_randomize(r32 elapsed_time, s32 flags = ZoneRandomizeDefault)
+{
+	s32 captured;
+	s32 hostile;
+	s32 locked;
+	zone_statistics(&captured, &hostile, &locked, &zone_filter_can_turn_hostile);
+
+	b8 update_needed = false;
+	r32 event_odds = elapsed_time * EVENT_ODDS_PER_ZONE * captured;
+
+	b8(*selection_filter)(AssetID) = (flags & ZoneRandomizeAllowSelectedZone) ? &zone_filter_default : &zone_filter_not_selected;
+
+	while (mersenne::randf_co() < event_odds)
+	{
+		if (Game::save.group == Game::Group::None)
+		{
+			// turn a captured zone hostile
+			if (flags & ZoneRandomizeLive)
+			{
+				// todo: incoming attack
+			}
+			else
+				Game::save.zones[zone_random(&zone_filter_captured, selection_filter)] = Game::ZoneState::Hostile;
+		}
+		else
+		{
+			// flip a random zone
+			AssetID zone_id = zone_random(&zone_filter_accessible, selection_filter);
+			Game::ZoneState* state = &Game::save.zones[zone_id];
+			if (*state == Game::ZoneState::Hostile || *state == Game::ZoneState::Locked)
+				*state = Game::ZoneState::Friendly;
+			else
+				*state = Game::ZoneState::Hostile;
+		}
+		event_odds -= 1.0f;
+		update_needed = true;
+	}
+	if (update_needed)
+		zone_states_update();
+}
+
 #define STORY_MODE_INIT_TIME 2.0f
 
 void story_mode_update(const Update& u)
@@ -1633,6 +1763,10 @@ void story_mode_update(const Update& u)
 				data.story.tab_timer = 0.0f;
 		}
 	}
+
+	// if we can switch tabs, then no activity is in progress
+	// therefore, the current selected zone could change out from under us
+	zone_randomize(Game::real_time.delta, ZoneRandomizeLive | (can_switch_tab() ? ZoneRandomizeAllowSelectedZone : 0));
 
 	tab_messages_update(u);
 	tab_map_update(u);
@@ -1992,7 +2126,7 @@ Rect2 zone_stat_draw(const RenderParams& p, const Rect2& rect, UIText::Anchor an
 	text.anchor_y = UIText::Anchor::Max;
 	text.size = TEXT_SIZE * SCALE_MULTIPLIER * 0.75f;
 	text.color = color;
-	text.wrap_width = MENU_ITEM_WIDTH * 0.5f + (PADDING * -2.0f);
+	text.wrap_width = vi_min(MENU_ITEM_WIDTH * 0.5f * SCALE_MULTIPLIER, rect.size.x) + (PADDING * -2.0f);
 	Vec2 pos = rect.pos;
 	switch (anchor_x)
 	{
@@ -2027,6 +2161,57 @@ Rect2 zone_stat_draw(const RenderParams& p, const Rect2& rect, UIText::Anchor an
 
 void tab_map_draw(const RenderParams& p, const Data::StoryMode& story, const Rect2& rect)
 {
+	{
+		// draw stats
+
+		char buffer[255];
+
+		// total energy increment
+		{
+			const char* label;
+			if (story.tab == Tab::Map)
+				label = _(Game::save.group == Game::Group::None ? strings::energy_generation : strings::energy_generation_group);
+			else
+				label = "+%d";
+			sprintf(buffer, label, (s32)energy_increment_total());
+			Rect2 zone_stat_rect = zone_stat_draw(p, rect, UIText::Anchor::Max, 0, buffer, UI::color_default);
+
+			// energy increment timer
+			r32 icon_size = TEXT_SIZE * 1.5f * UI::scale * (story.tab == Tab::Map ? 1.0f : 0.75f);
+			r64 t = platform::timestamp();
+			UI::triangle_percentage
+			(
+				p,
+				{ zone_stat_rect.pos + Vec2(zone_stat_rect.size.x - icon_size * 0.5f, zone_stat_rect.size.y * 0.5f), Vec2(icon_size) },
+				fmod(t, ENERGY_INCREMENT_INTERVAL) / ENERGY_INCREMENT_INTERVAL,
+				UI::color_default,
+				PI
+			);
+		}
+
+		// member of group "x"
+		sprintf(buffer, _(strings::member_of_group), group_name[(s32)Game::save.group]);
+		zone_stat_draw(p, rect, UIText::Anchor::Max, story.tab == Tab::Map ? 2 : 1, buffer, UI::color_accent);
+
+		if (story.tab != Tab::Map)
+		{
+			// statistics
+			s32 captured;
+			s32 hostile;
+			s32 locked;
+			zone_statistics(&captured, &hostile, &locked);
+
+			sprintf(buffer, _(strings::zones_captured), captured);
+			zone_stat_draw(p, rect, UIText::Anchor::Min, 3, buffer, Game::save.group == Game::Group::None ? Team::ui_color_friend : UI::color_accent);
+
+			sprintf(buffer, _(strings::zones_hostile), hostile);
+			zone_stat_draw(p, rect, UIText::Anchor::Min, 4, buffer, UI::color_alert);
+
+			sprintf(buffer, _(strings::zones_locked), locked);
+			zone_stat_draw(p, rect, UIText::Anchor::Min, 5, buffer, UI::color_default);
+		}
+	}
+
 	if (story.tab == Tab::Map)
 	{
 		zones_draw(p);
@@ -2074,25 +2259,6 @@ void tab_map_draw(const RenderParams& p, const Data::StoryMode& story, const Rec
 		else
 			zone_stat_draw(p, rect, UIText::Anchor::Min, 0, _(strings::unknown), UI::color_disabled);
 
-		{
-			// total energy increment
-			char buffer[255];
-			sprintf(buffer, _(Game::save.group == Game::Group::None ? strings::energy_generation_total : strings::energy_generation_group), (s32)energy_increment_total());
-			Rect2 zone_stat_rect = zone_stat_draw(p, rect, UIText::Anchor::Max, 0, buffer, UI::color_default);
-
-			// energy increment timer
-			r32 icon_size = TEXT_SIZE * 1.5f * UI::scale;
-			r64 t = platform::timestamp();
-			UI::triangle_percentage
-			(
-				p,
-				{ zone_stat_rect.pos + Vec2(zone_stat_rect.size.x - icon_size * 0.5f, zone_stat_rect.size.y * 0.5f), Vec2(icon_size) },
-				fmod(t, ENERGY_INCREMENT_INTERVAL) / ENERGY_INCREMENT_INTERVAL,
-				UI::color_default,
-				PI
-			);
-		}
-
 		if (can_switch_tab())
 		{
 			// action prompt
@@ -2123,20 +2289,13 @@ void tab_map_draw(const RenderParams& p, const Data::StoryMode& story, const Rec
 			else
 			{
 				{
-					// "member of group X"
-					char buffer[255];
-					sprintf(buffer, _(strings::member_of_group), group_name[(s32)Game::save.group]);
-					zone_stat_draw(p, rect, UIText::Anchor::Max, 2, buffer, UI::color_accent);
-				}
-
-				{
 					// join/leave group queue
 					UIText text;
 					text.anchor_x = text.anchor_y = UIText::Anchor::Center;
 					text.color = UI::color_accent;
 					text.text(_(story.map.timer_group_queue > 0.0f ? strings::prompt_cancel : strings::prompt_join_group_queue));
 
-					Vec2 pos = rect.pos + rect.size * Vec2(0.5f, 0.2f);
+					Vec2 pos = rect.pos + rect.size * Vec2(0.5f, 0.3f);
 
 					UI::box(p, text.rect(pos).outset(8 * UI::scale), UI::color_background);
 
@@ -2670,13 +2829,18 @@ void init(const Update& u, const EntityFinder& entities)
 			Game::save.zones[Asset::Level::Safe_Zone] = Game::ZoneState::Locked;
 		}
 
-		// energy increment
-		// this must be done before story_zone_done changes the energy increment amount
 		{
 			r64 t = platform::timestamp();
-			Game::save.resources[(s32)Game::Resource::Energy] += vi_min(4 * 60 * 60 / ENERGY_INCREMENT_INTERVAL, (s32)((t - Game::save.terminal_last_opened) / (r64)ENERGY_INCREMENT_INTERVAL)) * energy_increment_total();
+			r64 elapsed_time = t - Game::save.terminal_last_opened;
 			Game::save.terminal_last_opened = t;
 			data.story.timestamp_last = t;
+
+			// change zones while you're gone
+			zone_randomize(vi_min((r32)elapsed_time, EVENT_INTERVAL_PER_ZONE * 0.5f));
+
+			// energy increment
+			// this must be done before story_zone_done changes the energy increment amount
+			Game::save.resources[(s32)Game::Resource::Energy] += vi_min(4 * 60 * 60 / ENERGY_INCREMENT_INTERVAL, (s32)(elapsed_time / (r64)ENERGY_INCREMENT_INTERVAL)) * energy_increment_total();
 		}
 
 		if (data.zone_last != Asset::Level::terminal)

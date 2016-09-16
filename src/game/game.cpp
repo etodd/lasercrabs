@@ -723,17 +723,19 @@ void Game::execute(const Update& u, const char* cmd)
 				session.time_scale = value;
 		}
 	}
-	else if (strstr(cmd, "credits ") == cmd)
+	else if (strstr(cmd, "energy ") == cmd)
 	{
-		if (PlayerManager::list.count() > 0)
+		const char* delimiter = strchr(cmd, ' ');
+		if (delimiter)
 		{
-			const char* delimiter = strchr(cmd, ' ');
-			if (delimiter)
+			const char* number_string = delimiter + 1;
+			char* end;
+			s32 value = (s32)std::strtol(number_string, &end, 10);
+			if (*end == '\0')
 			{
-				const char* number_string = delimiter + 1;
-				char* end;
-				s32 value = (s32)std::strtol(number_string, &end, 10);
-				if (*end == '\0')
+				if (session.level == Asset::Level::terminal)
+					Game::save.resources[(s32)Game::Resource::Energy] += value;
+				else if (PlayerManager::list.count() > 0)
 				{
 					for (auto i = PlayerManager::list.iterator(); !i.is_last(); i.next())
 						i.item()->credits += value;

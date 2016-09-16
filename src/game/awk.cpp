@@ -748,10 +748,11 @@ void Awk::reflect(const Vec3& hit, const Vec3& normal)
 	b8 found_new_velocity = false;
 
 	// first check for nearby targets
+	AI::Team team = get<AIAgent>()->team;
 	for (auto i = Target::list.iterator(); !i.is_last(); i.next())
 	{
 		Vec3 intersection;
-		if (i.item()->entity() != entity() && can_shoot(i.item(), &intersection, AWK_DASH_SPEED))
+		if ((!i.item()->has<AIAgent>() || i.item()->get<AIAgent>()->team != team) && can_shoot(i.item(), &intersection, AWK_DASH_SPEED))
 		{
 			Vec3 to_target = Vec3::normalize(intersection - get<Transform>()->absolute_pos());
 			if (target_dir.dot(to_target) > 0.9f)

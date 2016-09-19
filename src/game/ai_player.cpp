@@ -1995,17 +1995,17 @@ CaptureControlPoint::CaptureControlPoint(s8 priority)
 void CaptureControlPoint::set_context(void* ctx)
 {
 	Base::set_context(ctx);
-	control->player.ref()->manager.ref()->control_point_captured.link<CaptureControlPoint, &CaptureControlPoint::completed>(this);
+	control->player.ref()->manager.ref()->control_point_capture_completed.link<CaptureControlPoint, b8, &CaptureControlPoint::completed>(this);
 }
 
-void CaptureControlPoint::completed()
+void CaptureControlPoint::completed(b8 success)
 {
 	if (active())
 	{
 #if DEBUG_AI_CONTROL
-		vi_debug("Control point captured");
+		vi_debug("Control point captured: %s", success ? "succ" : "fail");
 #endif
-		done(true);
+		done(success);
 	}
 }
 

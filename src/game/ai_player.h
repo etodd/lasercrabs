@@ -307,7 +307,7 @@ namespace AIBehaviors
 	struct CaptureControlPoint : Base<CaptureControlPoint>
 	{
 		CaptureControlPoint(s8);
-		void completed();
+		void completed(b8);
 		void set_context(void*);
 		void run();
 	};

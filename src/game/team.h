@@ -31,6 +31,8 @@ struct PlayerManager;
 #define CREDITS_CONTAINMENT_FIELD_DESTROY 10
 #define CREDITS_CONTROL_POINT 5
 #define CREDITS_HEALTH_PICKUP 5
+#define CREDITS_CAPTURE_CONTROL_POINT 10
+#define CREDITS_CAPTURE_HEALTH_PICKUP 10
 #define MAX_ABILITIES 3
 
 #define UPGRADE_TIME 1.5f
@@ -179,7 +181,7 @@ struct PlayerManager
 	LinkArg<Ability> ability_spawned;
 	LinkArg<Ability> ability_spawn_canceled;
 	LinkArg<Upgrade> upgrade_completed;
-	Link control_point_captured;
+	LinkArg<b8> control_point_capture_completed;
 	Ref<Team> team;
 	Ref<Entity> entity;
 	u16 credits;

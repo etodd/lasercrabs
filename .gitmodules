@@ -37,3 +37,6 @@
 [submodule "external/sha1"]
 	path = external/sha1
 	url = git@github.com:etodd/sha1.git
+[submodule "src/platform/ps"]
+	path = src/platform/ps
+	url = git@bitbucket.org:etodd/yearning_ps.git

@@ -9,6 +9,7 @@
 #include <unordered_map>
 #include <string>
 #include "cora.h"
+#include "minion.h"
 
 namespace VI
 {
@@ -73,13 +74,13 @@ namespace tutorial
 {
 	enum class TutorialState
 	{
-		Start, Minion, GetHealth, Upgrade, Ability, KillPlayer, Done,
+		Start, Health, Minion, Upgrade, Ability, KillPlayer, Done,
 	};
 
 	struct Data
 	{
 		TutorialState state;
-		Ref<Transform> health_location;
+		Ref<Transform> minion_location;
 		Ref<Transform> test_dummy_location;
 		Ref<PlayerManager> test_dummy;
 		r32 field_spawn_timer;
@@ -87,15 +88,30 @@ namespace tutorial
 
 	Data* data;
 
-	void health_got(const TargetEvent& e)
+	void minion_killed(Entity*)
 	{
-		PlayerManager* manager = LocalPlayer::list.iterator().item()->manager.ref();
-		manager->credits = UpgradeInfo::list[(s32)Upgrade::Sensor].cost + AbilityInfo::list[(s32)Ability::Sensor].spawn_cost * 2;
-
 		data->state = TutorialState::Upgrade;
 		Cora::text_clear();
 		Cora::text_schedule(1.0f, _(strings::tut_upgrade));
+
 		Game::level.feature_level = Game::FeatureLevel::Abilities;
+		PlayerManager* manager = LocalPlayer::list.iterator().item()->manager.ref();
+		manager->credits = UpgradeInfo::list[(s32)Upgrade::Sensor].cost + AbilityInfo::list[(s32)Ability::Sensor].spawn_cost * 2;
+	}
+
+	void health_got(const TargetEvent& e)
+	{
+		if (data->state == TutorialState::Health)
+		{
+			// spawn minion
+			Vec3 pos = data->minion_location.ref()->absolute_pos();
+			Entity* minion = World::create<Minion>(pos, Quat::identity, data->test_dummy.ref()->team.ref()->team(), data->test_dummy.ref());
+			minion->get<Health>()->killed.link(&minion_killed);
+
+			data->state = TutorialState::Minion;
+			Cora::text_clear();
+			Cora::text_schedule(0.25f, _(strings::tut_minion));
+		}
 	}
 
 	void player_or_ai_killed(Entity*)
@@ -118,13 +134,13 @@ namespace tutorial
 		LocalPlayerControl::list.iterator().item()->get<Health>()->killed.link(&player_or_ai_killed);
 	}
 
-	void minion_spotted(Entity* player)
+	void health_spotted(Entity* player)
 	{
 		if (player->has<LocalPlayerControl>() && data->state == TutorialState::Start)
 		{
-			data->state = TutorialState::Minion;
+			data->state = TutorialState::Health;
 			Cora::text_clear();
-			Cora::text_schedule(0.25f, _(strings::tut_minion));
+			Cora::text_schedule(0.25f, _(strings::tut_health));
 		}
 	}
 
@@ -136,19 +152,6 @@ namespace tutorial
 			Cora::text_clear();
 			Cora::text_schedule(1.0f, _(strings::tut_kill_player));
 		}
-	}
-
-	void minion_killed(Entity*)
-	{
-		// spawn health
-		Vec3 pos = data->health_location.ref()->absolute_pos();
-		Entity* health = World::create<HealthPickupEntity>(pos);
-		Rope::spawn(pos + Vec3(0, 1, 0), Vec3(0, 1, 0), 20.0f);
-		health->get<Target>()->target_hit.link(&health_got);
-
-		data->state = TutorialState::GetHealth;
-		Cora::text_clear();
-		Cora::text_schedule(1.0f, _(strings::tut_health));
 	}
 
 	void update(const Update& u)
@@ -189,11 +192,11 @@ namespace tutorial
 		Game::cleanups.add(&cleanup);
 		Game::draws.add(&draw);
 
-		data->health_location = entities.find("health")->get<Transform>();
+		data->minion_location = entities.find("minion")->get<Transform>();
 		data->test_dummy_location = entities.find("test_dummy")->get<Transform>();
 
-		entities.find("minion")->get<Health>()->killed.link(&minion_killed);
-		entities.find("minion_trigger")->get<PlayerTrigger>()->entered.link(&minion_spotted);
+		entities.find("health_trigger")->get<PlayerTrigger>()->entered.link(&health_spotted);
+		entities.find("health")->get<Target>()->target_hit.link(&health_got);
 
 		PlayerManager* ai_manager = PlayerManager::list.add();
 		new (ai_manager) PlayerManager(&Team::list[1]);

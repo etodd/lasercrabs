@@ -6,7 +6,6 @@
 #include "recast/Recast/Include/Recast.h"
 #include "recast/DetourTileCache/Include/DetourTileCache.h"
 #include "recast/DetourTileCache/Include/DetourTileCacheBuilder.h"
-#include <glew/include/GL/glew.h>
 #include "fastlz/fastlz.h"
 #include "utf8/utf8.h"
 

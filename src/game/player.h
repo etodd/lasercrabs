@@ -57,6 +57,7 @@ struct LocalPlayer
 	void update_camera_rotation(const Update&);
 	void draw_alpha(const RenderParams&) const;
 	void spawn();
+	void control_point_capture_completed(b8);
 };
 
 struct PlayerCommon : public ComponentType<PlayerCommon>

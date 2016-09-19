@@ -77,7 +77,8 @@ struct HealthPickup : public ComponentType<HealthPickup>
 
 	void awake();
 	void hit(const TargetEvent&);
-	b8 set_owner(Health*);
+	b8 can_be_captured_by(Health*) const;
+	b8 set_owner(Health*, Entity*);
 	void reset();
 };
 

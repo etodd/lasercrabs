@@ -196,6 +196,8 @@ void LocalPlayer::awake(const Update& u)
 	Quat rot;
 	map_view.ref()->absolute(&camera->pos, &rot);
 	camera->rot = Quat::look(rot * Vec3(0, -1, 0));
+
+	manager.ref()->control_point_capture_completed.link<LocalPlayer, b8, &LocalPlayer::control_point_capture_completed>(this);
 }
 
 #define DANGER_RAMP_UP_TIME 2.0f
@@ -490,6 +492,12 @@ void LocalPlayer::spawn()
 
 	LocalPlayerControl* control = spawned->add<LocalPlayerControl>(gamepad);
 	control->player = this;
+}
+
+void LocalPlayer::control_point_capture_completed(b8 success)
+{
+	if (success)
+		msg(_(strings::control_point_captured), true);
 }
 
 void draw_icon_text(const RenderParams& params, const Vec2& pos, AssetID icon, char* string, const Vec4& color)

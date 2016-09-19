@@ -298,29 +298,6 @@ void Awk::hit_target(Entity* target, const Vec3& hit_pos)
 		World::create<ShockwaveEntity>(8.0f, 1.5f)->get<Transform>()->absolute_pos(hit_pos);
 	}
 
-	if (target->has<Target>())
-	{
-		Ref<Target> t = target->get<Target>();
-
-		// you can't capture health pickups by sniping them
-		if (!snipe || !t.ref()->has<HealthPickup>())
-			t.ref()->hit(entity());
-
-		if (t.ref() && t.ref()->has<RigidBody>()) // is it still around and does it have a rigidbody?
-		{
-			RigidBody* body = t.ref()->get<RigidBody>();
-			body->btBody->applyImpulse(velocity * 0.1f, Vec3::zero);
-			body->btBody->activate(true);
-		}
-	}
-
-	if (!snipe && invincible_timer > 0.0f && target->has<Awk>())
-	{
-		invincible_timer = 0.0f; // damaging an Awk takes our shield down
-		if (target->has<LocalPlayerControl>()) // let them know they our shield is down
-			target->get<LocalPlayerControl>()->player.ref()->msg(_(strings::target_shield_down), true);
-	}
-
 	// award credits for hitting stuff
 	if (target->has<MinionAI>())
 	{
@@ -345,6 +322,27 @@ void Awk::hit_target(Entity* target, const Vec3& hit_pos)
 		b8 is_enemy = target->get<ContainmentField>()->team != get<AIAgent>()->team;
 		if (is_enemy)
 			get<PlayerCommon>()->manager.ref()->add_credits(CREDITS_CONTAINMENT_FIELD_DESTROY);
+	}
+
+	if (!snipe && invincible_timer > 0.0f && target->has<Awk>())
+	{
+		invincible_timer = 0.0f; // damaging an Awk takes our shield down
+		if (target->has<LocalPlayerControl>()) // let them know they our shield is down
+			target->get<LocalPlayerControl>()->player.ref()->msg(_(strings::target_shield_down), true);
+	}
+
+	if (target->has<Target>())
+	{
+		Ref<Target> t = target->get<Target>();
+
+		t.ref()->hit(entity());
+
+		if (t.ref() && t.ref()->has<RigidBody>()) // is it still around and does it have a rigidbody?
+		{
+			RigidBody* body = t.ref()->get<RigidBody>();
+			body->btBody->applyImpulse(velocity * 0.1f, Vec3::zero);
+			body->btBody->activate(true);
+		}
 	}
 
 	hit.fire(target);
@@ -752,7 +750,10 @@ void Awk::reflect(const Vec3& hit, const Vec3& normal)
 	for (auto i = Target::list.iterator(); !i.is_last(); i.next())
 	{
 		Vec3 intersection;
-		if ((!i.item()->has<AIAgent>() || i.item()->get<AIAgent>()->team != team) && can_shoot(i.item(), &intersection, AWK_DASH_SPEED))
+		if (((i.item()->has<HealthPickup>() && i.item()->get<HealthPickup>()->can_be_captured_by(get<Health>()))
+			|| (i.item()->has<ContainmentField>() && i.item()->get<ContainmentField>()->team != team)
+			|| (i.item()->has<AIAgent>() && i.item()->get<AIAgent>()->team != team))
+			&& can_shoot(i.item(), &intersection, AWK_DASH_SPEED))
 		{
 			Vec3 to_target = Vec3::normalize(intersection - get<Transform>()->absolute_pos());
 			if (target_dir.dot(to_target) > 0.9f)

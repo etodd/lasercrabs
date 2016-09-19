@@ -695,7 +695,7 @@ namespace VI
 		ability_spawned(),
 		ability_spawn_canceled(),
 		upgrade_completed(),
-		control_point_captured(),
+		control_point_capture_completed(),
 		credits_summary(),
 		particle_accumulator()
 	{
@@ -757,11 +757,16 @@ namespace VI
 		if (!entity.ref())
 			return;
 
+		b8 success = false;
 		ControlPoint* control_point = at_control_point();
-		if (control_point)
+		if (control_point && control_point->team != team.ref()->team())
+		{
+			add_credits(CREDITS_CAPTURE_CONTROL_POINT);
 			control_point->set_team(team.ref()->team());
+			success = true;
+		}
 
-		control_point_captured.fire();
+		control_point_capture_completed.fire(success);
 	}
 
 	u16 PlayerManager::upgrade_cost(Upgrade u) const

@@ -248,7 +248,12 @@ void HealthPickup::reset()
 
 void HealthPickup::hit(const TargetEvent& e)
 {
-	if (!set_owner(e.hit_by->get<Health>()))
+	b8 had_effect;
+	if (e.hit_by->has<Awk>() && e.hit_by->get<Awk>()->snipe)
+		had_effect = set_owner(nullptr, e.hit_by); // getting sniped resets us to neutral
+	else
+		had_effect = set_owner(e.hit_by->get<Health>(), e.hit_by); // we were captured
+	if (!had_effect)
 	{
 		// thing hitting us already has max health
 		// or someone else already owns us and this guy can't steal us
@@ -258,16 +263,27 @@ void HealthPickup::hit(const TargetEvent& e)
 	}
 }
 
-// return true if we were successfully captured
-b8 HealthPickup::set_owner(Health* health)
+b8 HealthPickup::can_be_captured_by(Health* health) const
+{
+	if (owner.ref())
+		return health->get<AIAgent>()->team != owner.ref()->get<AIAgent>()->team;
+	else
+		return health->hp < health->hp_max;
+}
+
+// returns true if we were successfully captured
+// the second parameter is the entity that caused the ownership change
+b8 HealthPickup::set_owner(Health* health, Entity* caused_by)
 {
 	// must be neutral or owned by an enemy
-	if (!owner.ref() || owner.ref()->get<AIAgent>()->team != health->get<AIAgent>()->team)
+	AI::Team owner_team = health ? health->get<AIAgent>()->team : AI::TeamNone;
+	if (!owner.ref() || owner.ref()->get<AIAgent>()->team != owner_team)
 	{
 		Health* old_owner = owner.ref();
 
-		if (health->hp < health->hp_max)
+		if (health && health->hp < health->hp_max)
 		{
+			health->get<PlayerCommon>()->manager.ref()->add_credits(CREDITS_CAPTURE_HEALTH_PICKUP);
 			owner = health;
 			health->add(1);
 			AI::Team team = health->get<AIAgent>()->team;
@@ -282,7 +298,7 @@ b8 HealthPickup::set_owner(Health* health)
 		}
 
 		if (old_owner) // looks like we're being stolen
-			old_owner->take_health(health->entity(), 1);
+			old_owner->take_health(caused_by, 1);
 		return true;
 	}
 

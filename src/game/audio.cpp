@@ -5,7 +5,10 @@
 #include "load.h"
 
 #include <stdio.h>
+#include "asset/Wwise_IDs.h"
+#include "settings.h"
 
+#if !SERVER
 #include <AK/SoundEngine/Common/AkMemoryMgr.h>
 #include <AK/SoundEngine/Common/AkModule.h>
 #include <AK/SoundEngine/Common/IAkStreamMgr.h>
@@ -13,11 +16,9 @@
 #include <AK/SoundEngine/Common/AkSoundEngine.h>
 #include <AK/MusicEngine/Common/AkMusicEngine.h>
 #include <AK/Plugin/AkVorbisFactory.h>
-#include "settings.h"
 #if DEBUG
 	#include <AK/Comm/AkCommunication.h>
 #endif
-#include "asset/Wwise_IDs.h"
 
 namespace AK
 {
@@ -51,15 +52,19 @@ namespace AK
 	}
 #endif
 }
+#endif
 
 namespace VI
 {
 
+#if !SERVER
 CAkDefaultIOHookBlocking Audio::wwise_io;
+#endif
 b8 Audio::dialogue_done = true;
 
 b8 Audio::init()
 {
+#if !SERVER
 	AkMemSettings memSettings;
 	memSettings.uMaxNumPools = 20;
 
@@ -135,11 +140,15 @@ b8 Audio::init()
 
 	global_param(AK::GAME_PARAMETERS::SFXVOL, (r32)Settings::sfx / 100.0f);
 	global_param(AK::GAME_PARAMETERS::MUSICVOL, (r32)Settings::music / 100.0f);
+#endif
 
 	return true;
 }
 
 r32 Audio::dialogue_volume = 0.0f;
+
+#if !SERVER
+// Wwise callbacks
 void Audio::dialogue_volume_callback(AK::IAkMetering* metering, AkChannelConfig channel_config, AkMeteringFlags flags)
 {
 	r32 sum = 0.0f;
@@ -149,8 +158,15 @@ void Audio::dialogue_volume_callback(AK::IAkMetering* metering, AkChannelConfig 
 	dialogue_volume = sum;
 }
 
+void Audio::dialogue_done_callback(AkCallbackType type, AkCallbackInfo* info)
+{
+	dialogue_done = true;
+}
+#endif
+
 void Audio::term()
 {
+#if !SERVER
 #if DEBUG
 	AK::Comm::Term();
 #endif
@@ -160,10 +176,12 @@ void Audio::term()
 	if (AK::IAkStreamMgr::Get())
 		AK::IAkStreamMgr::Get()->Destroy();
 	AK::MemoryMgr::Term();
+#endif
 }
 
 void Audio::update()
 {
+#if !SERVER
 	for (auto i = Audio::list.iterator(); !i.is_last(); i.next())
 	{
 		Transform* transform = i.item()->get<Transform>();
@@ -185,27 +203,33 @@ void Audio::update()
 		}
 	}
 	AK::SoundEngine::RenderAudio();
+#endif
 }
 
 AkUniqueID Audio::get_id(const char* str)
 {
+#if SERVER
+	return 0;
+#else
 	return AK::SoundEngine::GetIDFromString(str);
-}
-
-void Audio::dialogue_done_callback(AkCallbackType type, AkCallbackInfo* info)
-{
-	dialogue_done = true;
+#endif
 }
 
 void Audio::post_global_event(AkUniqueID event_id)
 {
+#if !SERVER
 	AK::SoundEngine::PostEvent(event_id, MAX_ENTITIES);
+#endif
 }
 
 b8 Audio::post_dialogue_event(AkUniqueID event_id)
 {
+#if SERVER
+	return true;
+#else
 	AkPlayingID id = AK::SoundEngine::PostEvent(event_id, MAX_ENTITIES, AkCallbackType::AK_EndOfEvent, &dialogue_done_callback);
 	return id != 0;
+#endif
 }
 
 void Audio::post_global_event(AkUniqueID event_id, const Vec3& pos)
@@ -215,6 +239,7 @@ void Audio::post_global_event(AkUniqueID event_id, const Vec3& pos)
 
 void Audio::post_global_event(AkUniqueID event_id, const Vec3& pos, const Vec3& forward)
 {
+#if !SERVER
 	const AkGameObjectID id = MAX_ENTITIES + 1;
 	AK::SoundEngine::RegisterGameObj(id);
 	AK::SoundEngine::SetActiveListeners(id, 0b01111); // All listeners
@@ -230,25 +255,33 @@ void Audio::post_global_event(AkUniqueID event_id, const Vec3& pos, const Vec3& 
 
 	AK::SoundEngine::PostEvent(event_id, id);
 	AK::SoundEngine::UnregisterGameObj(id);
+#endif
 }
 
 void Audio::global_param(AkRtpcID id, AkRtpcValue value)
 {
+#if !SERVER
 	AK::SoundEngine::SetRTPCValue(id, value);
+#endif
 }
 
 void Audio::listener_disable(u32 listener_id)
 {
+#if !SERVER
 	AK::SoundEngine::SetListenerPipeline(listener_id, false, false);
+#endif
 }
 
 void Audio::listener_enable(u32 listener_id)
 {
+#if !SERVER
 	AK::SoundEngine::SetListenerPipeline(listener_id, true, false);
+#endif
 }
 
 void Audio::listener_update(u32 listener_id, const Vec3& pos, const Quat& rot)
 {
+#if !SERVER
 	AkListenerPosition listener_position;
 	listener_position.Position.X = pos.x;
 	listener_position.Position.Y = pos.y;
@@ -262,27 +295,36 @@ void Audio::listener_update(u32 listener_id, const Vec3& pos, const Quat& rot)
 	listener_position.OrientationTop.Y = up.y;
 	listener_position.OrientationTop.Z = up.z;
 	AK::SoundEngine::SetListenerPosition(listener_position, listener_id);
+#endif
 }
 
 void Audio::awake()
 {
+#if !SERVER
 	AK::SoundEngine::RegisterGameObj(entity_id);
 	AK::SoundEngine::SetActiveListeners(entity_id, 0b01111); // All listeners
+#endif
 }
 
 Audio::~Audio()
 {
+#if !SERVER
 	AK::SoundEngine::UnregisterGameObj(entity_id);
+#endif
 }
 
 void Audio::post_event(AkUniqueID event_id)
 {
+#if !SERVER
 	AK::SoundEngine::PostEvent(event_id, entity_id);
+#endif
 }
 
 void Audio::param(AkRtpcID id, AkRtpcValue value)
 {
+#if !SERVER
 	AK::SoundEngine::SetRTPCValue(id, value, entity_id);
+#endif
 }
 
 }

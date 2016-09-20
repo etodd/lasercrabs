@@ -1431,24 +1431,24 @@ void draw(LoopSync* sync, const Camera* camera)
 	sync->write(true);
 }
 
-void loop(LoopSwapper* swapper, PhysicsSwapper* physics_swapper)
+void loop(LoopSwapper* swapper_render, PhysicsSwapper* swapper_physics)
 {
 	mersenne::srand(platform::timestamp());
 	noise::reseed();
 
-	LoopSync* sync = swapper->swap<SwapType_Write>();
+	LoopSync* sync_render = swapper_render->swap<SwapType_Write>();
 
-	Loader::init(swapper);
+	Loader::init(swapper_render);
 
-	if (!Game::init(sync))
+	if (!Game::init(sync_render))
 	{
 		fprintf(stderr, "Failed to initialize game.\n");
 		exit(-1);
 	}
 
-	g_albedo_buffer_highres = Loader::dynamic_texture_permanent(sync->input.width * SUPERSAMPLING, sync->input.height * SUPERSAMPLING, RenderDynamicTextureType::Color);
-	g_normal_buffer_highres = Loader::dynamic_texture_permanent(sync->input.width * SUPERSAMPLING, sync->input.height * SUPERSAMPLING, RenderDynamicTextureType::Color);
-	g_depth_buffer_highres = Loader::dynamic_texture_permanent(sync->input.width * SUPERSAMPLING, sync->input.height * SUPERSAMPLING, RenderDynamicTextureType::Depth);
+	g_albedo_buffer_highres = Loader::dynamic_texture_permanent(sync_render->input.width * SUPERSAMPLING, sync_render->input.height * SUPERSAMPLING, RenderDynamicTextureType::Color);
+	g_normal_buffer_highres = Loader::dynamic_texture_permanent(sync_render->input.width * SUPERSAMPLING, sync_render->input.height * SUPERSAMPLING, RenderDynamicTextureType::Color);
+	g_depth_buffer_highres = Loader::dynamic_texture_permanent(sync_render->input.width * SUPERSAMPLING, sync_render->input.height * SUPERSAMPLING, RenderDynamicTextureType::Depth);
 
 	g_fbo_highres = Loader::framebuffer_permanent(3);
 	Loader::framebuffer_attach(RenderFramebufferAttachment::Color0, g_albedo_buffer_highres);
@@ -1461,9 +1461,9 @@ void loop(LoopSwapper* swapper, PhysicsSwapper* physics_swapper)
 
 	if (Settings::supersampling)
 	{
-		g_albedo_buffer = Loader::dynamic_texture_permanent(sync->input.width, sync->input.height, RenderDynamicTextureType::Color);
-		g_normal_buffer = Loader::dynamic_texture_permanent(sync->input.width, sync->input.height, RenderDynamicTextureType::Color);
-		g_depth_buffer = Loader::dynamic_texture_permanent(sync->input.width, sync->input.height, RenderDynamicTextureType::Depth);
+		g_albedo_buffer = Loader::dynamic_texture_permanent(sync_render->input.width, sync_render->input.height, RenderDynamicTextureType::Color);
+		g_normal_buffer = Loader::dynamic_texture_permanent(sync_render->input.width, sync_render->input.height, RenderDynamicTextureType::Color);
+		g_depth_buffer = Loader::dynamic_texture_permanent(sync_render->input.width, sync_render->input.height, RenderDynamicTextureType::Depth);
 
 		g_fbo = Loader::framebuffer_permanent(3);
 		Loader::framebuffer_attach(RenderFramebufferAttachment::Color0, g_albedo_buffer);
@@ -1485,22 +1485,22 @@ void loop(LoopSwapper* swapper, PhysicsSwapper* physics_swapper)
 		g_fbo = g_fbo_highres;
 		g_albedo_fbo = g_albedo_fbo_highres;
 
-		ui_buffer = Loader::dynamic_texture_permanent(sync->input.width, sync->input.height, RenderDynamicTextureType::ColorMultisample);
+		ui_buffer = Loader::dynamic_texture_permanent(sync_render->input.width, sync_render->input.height, RenderDynamicTextureType::ColorMultisample);
 		ui_fbo = Loader::framebuffer_permanent(1);
 		Loader::framebuffer_attach(RenderFramebufferAttachment::Color0, ui_buffer);
 	}
 
-	color1_buffer = Loader::dynamic_texture_permanent(sync->input.width, sync->input.height, RenderDynamicTextureType::Color);
+	color1_buffer = Loader::dynamic_texture_permanent(sync_render->input.width, sync_render->input.height, RenderDynamicTextureType::Color);
 	color1_fbo = Loader::framebuffer_permanent(1);
 	Loader::framebuffer_attach(RenderFramebufferAttachment::Color0, color1_buffer);
 
-	color2_buffer = Loader::dynamic_texture_permanent(sync->input.width, sync->input.height, RenderDynamicTextureType::Color);
-	color2_depth_buffer = Loader::dynamic_texture_permanent(sync->input.width, sync->input.height, RenderDynamicTextureType::Depth);
+	color2_buffer = Loader::dynamic_texture_permanent(sync_render->input.width, sync_render->input.height, RenderDynamicTextureType::Color);
+	color2_depth_buffer = Loader::dynamic_texture_permanent(sync_render->input.width, sync_render->input.height, RenderDynamicTextureType::Depth);
 	color2_fbo = Loader::framebuffer_permanent(2);
 	Loader::framebuffer_attach(RenderFramebufferAttachment::Color0, color2_buffer);
 	Loader::framebuffer_attach(RenderFramebufferAttachment::Depth, color2_depth_buffer);
 
-	lighting_buffer = Loader::dynamic_texture_permanent(sync->input.width, sync->input.height, RenderDynamicTextureType::Color);
+	lighting_buffer = Loader::dynamic_texture_permanent(sync_render->input.width, sync_render->input.height, RenderDynamicTextureType::Color);
 	lighting_fbo = Loader::framebuffer_permanent(1);
 	Loader::framebuffer_attach(RenderFramebufferAttachment::Color0, lighting_buffer);
 
@@ -1511,40 +1511,44 @@ void loop(LoopSwapper* swapper, PhysicsSwapper* physics_swapper)
 		Loader::framebuffer_attach(RenderFramebufferAttachment::Depth, shadow_buffer[i]);
 	}
 
-	half_buffer1 = Loader::dynamic_texture_permanent(sync->input.width / 2, sync->input.height / 2, RenderDynamicTextureType::Color);
-	half_depth_buffer = Loader::dynamic_texture_permanent(sync->input.width / 2, sync->input.height / 2, RenderDynamicTextureType::Depth);
+	half_buffer1 = Loader::dynamic_texture_permanent(sync_render->input.width / 2, sync_render->input.height / 2, RenderDynamicTextureType::Color);
+	half_depth_buffer = Loader::dynamic_texture_permanent(sync_render->input.width / 2, sync_render->input.height / 2, RenderDynamicTextureType::Depth);
 	half_fbo1 = Loader::framebuffer_permanent(2);
 	Loader::framebuffer_attach(RenderFramebufferAttachment::Color0, half_buffer1);
 	Loader::framebuffer_attach(RenderFramebufferAttachment::Depth, half_depth_buffer);
 
-	half_buffer2 = Loader::dynamic_texture_permanent(sync->input.width / 2, sync->input.height / 2, RenderDynamicTextureType::Color, RenderTextureWrap::Clamp, RenderTextureFilter::Linear);
+	half_buffer2 = Loader::dynamic_texture_permanent(sync_render->input.width / 2, sync_render->input.height / 2, RenderDynamicTextureType::Color, RenderTextureWrap::Clamp, RenderTextureFilter::Linear);
 	half_fbo2 = Loader::framebuffer_permanent(1);
 	Loader::framebuffer_attach(RenderFramebufferAttachment::Color0, half_buffer2);
 
 	half_fbo3 = Loader::framebuffer_permanent(1);
 	Loader::framebuffer_attach(RenderFramebufferAttachment::Color0, half_buffer1);
 
-	screen_quad.init(sync);
+	screen_quad.init(sync_render);
 
 	InputState last_input;
 
 	Update u;
-	u.render = sync;
-	u.input = &sync->input;
+	u.input = &sync_render->input;
 	u.last_input = &last_input;
 
-	PhysicsSync* physics_sync = nullptr;
+	PhysicsSync* sync_physics = nullptr;
 
 	r32 time_update = 0.0f; // time required for update
 
-	while (!sync->quit && !Game::quit)
+	while (!sync_render->quit && !Game::quit)
 	{
 		// Update
 
 		{
 			// limit framerate
 
-			r32 framerate_limit = u.input->focus ? Settings::framerate_limit : 30;
+			r32 framerate_limit;
+#if SERVER
+			framerate_limit = Settings::framerate_limit;
+#else
+			framerate_limit = u.input->focus ? Settings::framerate_limit : 30;
+#endif
 
 			r32 delay = (1.0f / framerate_limit) - time_update;
 			if (delay > 0)
@@ -1553,49 +1557,51 @@ void loop(LoopSwapper* swapper, PhysicsSwapper* physics_swapper)
 
 		r64 time_update_start = platform::time();
 
-		u.input = &sync->input;
-		u.time = sync->time;
+		u.input = &sync_render->input;
+		u.time = sync_render->time;
 
 #if DEBUG
 		if (u.input->keys[(s32)KeyCode::F5])
 			vi_assert(false);
 #endif
-		if (physics_sync)
-			physics_sync = physics_swapper->next<SwapType_Write>();
+		if (sync_physics)
+			sync_physics = swapper_physics->next<SwapType_Write>();
 		else
-			physics_sync = physics_swapper->get();
+			sync_physics = swapper_physics->get();
 
 		Game::update(u);
 
-		physics_sync->time = Game::time;
-		physics_sync->timestep = Game::physics_timestep;
+		sync_physics->time = Game::time;
+		sync_physics->timestep = Game::physics_timestep;
 
-		physics_swapper->done<SwapType_Write>();
+		swapper_physics->done<SwapType_Write>();
 
-		sync->write(RenderOp::Clear);
-		sync->write(true);
-		sync->write(true);
+#if !SERVER
+		sync_render->write(RenderOp::Clear);
+		sync_render->write(true);
+		sync_render->write(true);
 
 		for (s32 i = 0; i < Camera::max_cameras; i++)
 		{
 			if (Camera::list[i].active)
-				draw(sync, &Camera::list[i]);
+				draw(sync_render, &Camera::list[i]);
 		}
+#endif
 
-		sync->quit |= Game::quit;
+		sync_render->quit |= Game::quit;
 
-		memcpy(&last_input, &sync->input, sizeof(last_input));
+		memcpy(&last_input, &sync_render->input, sizeof(last_input));
 
 		time_update = (r32)(platform::time() - time_update_start);
 
-		sync = swapper->swap<SwapType_Write>();
-		sync->queue.length = 0;
+		sync_render = swapper_render->swap<SwapType_Write>();
+		sync_render->queue.length = 0;
 	}
 
 	{
-		PhysicsSync* physics_sync = physics_swapper->next<SwapType_Write>();
-		physics_sync->quit = true;
-		physics_swapper->done<SwapType_Write>();
+		PhysicsSync* sync_physics = swapper_physics->next<SwapType_Write>();
+		sync_physics->quit = true;
+		swapper_physics->done<SwapType_Write>();
 	}
 
 	Game::term();

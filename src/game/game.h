@@ -5,6 +5,7 @@
 #include "render/render.h"
 #include "render/views.h"
 #include <unordered_map>
+#include "platform/sock.h"
 
 namespace VI
 {
@@ -99,6 +100,7 @@ struct Game
 		b8 local_multiplayer;
 
 		Session();
+		~Session();
 		void reset();
 		r32 effective_time_scale() const;
 		s32 local_player_count() const;
@@ -161,21 +163,27 @@ struct Game
 	static Save save;
 	static Level level;
 
-	static b8 is_gamepad;
-	static b8 quit;
 	static GameTime time;
 	static GameTime real_time;
-	static r32 physics_timestep;
-	static AssetID scheduled_load_level;
-	static Mode scheduled_mode;
 	static Array<UpdateFunction> updates;
 	static Array<DrawFunction> draws;
 	static Array<CleanupFunction> cleanups;
+	static r32 physics_timestep;
+	static AssetID scheduled_load_level;
+	static Mode scheduled_mode;
+	static Sock::Handle sock;
 	static b8 cancel_event_eaten[MAX_GAMEPADS];
+	static b8 is_gamepad;
+	static b8 quit;
 
 	static b8 init(LoopSync*);
 	static void execute(const Update&, const char*);
 	static void update(const Update&);
+#if SERVER
+	static void update_server(const Update&);
+#else
+	static void update_client(const Update&);
+#endif
 	static void schedule_load_level(AssetID, Mode);
 	static void unload_level();
 	static void load_level(const Update&, AssetID, Mode, b8 = false);

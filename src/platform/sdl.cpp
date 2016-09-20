@@ -186,21 +186,21 @@ namespace VI
 
 		Sync<LoopSync> render_sync;
 
-		LoopSwapper update_swapper = render_sync.swapper(0);
-		LoopSwapper render_swapper = render_sync.swapper(1);
+		LoopSwapper swapper_render_update = render_sync.swapper(0);
+		LoopSwapper swapper_render = render_sync.swapper(1);
 
 		Sync<PhysicsSync, 1> physics_sync;
 
-		PhysicsSwapper physics_swapper = physics_sync.swapper();
-		PhysicsSwapper physics_update_swapper = physics_sync.swapper();
+		PhysicsSwapper swapper_physics = physics_sync.swapper();
+		PhysicsSwapper swapper_physics_update = physics_sync.swapper();
 
-		std::thread physics_thread(Physics::loop, &physics_swapper);
+		std::thread thread_physics(Physics::loop, &swapper_physics);
 
-		std::thread update_thread(Loop::loop, &update_swapper, &physics_update_swapper);
+		std::thread thread_update(Loop::loop, &swapper_render_update, &swapper_physics_update);
 
-		std::thread ai_thread(AI::loop);
+		std::thread thread_ai(AI::loop);
 
-		LoopSync* sync = render_swapper.get();
+		LoopSync* sync = swapper_render.get();
 
 		r64 last_time = SDL_GetTicks() / 1000.0;
 
@@ -332,7 +332,7 @@ namespace VI
 
 			b8 quit = sync->quit;
 
-			sync = render_swapper.swap<SwapType_Read>();
+			sync = swapper_render.swap<SwapType_Read>();
 
 			if (quit || sync->quit)
 				break;
@@ -340,9 +340,9 @@ namespace VI
 
 		AI::quit();
 
-		update_thread.join();
-		physics_thread.join();
-		ai_thread.join();
+		thread_update.join();
+		thread_physics.join();
+		thread_ai.join();
 
 		SDL_GL_DeleteContext(context);
 		SDL_DestroyWindow(window);

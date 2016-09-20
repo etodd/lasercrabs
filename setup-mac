@@ -20,7 +20,7 @@ brew install cmake pkg-config
 git submodule update --init --recursive
 mkdir -p build
 cd build
-cmake .. -DCMAKE_BUILD_TYPE=Debug
+cmake .. -DCMAKE_BUILD_TYPE=Debug -DSERVER=1 -DCLIENT=1
 cpu_count=`/usr/sbin/sysctl -n hw.ncpu`
 echo "Building with "$cpu_count" jobs"
 make -j$cpu_count

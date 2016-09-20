@@ -22,7 +22,6 @@ endif(WIN32)
 
 set(ALL_INCLUDES
 	external
-	${SDL2_BINARY_DIR}/include
 	external/bullet/src
 	src
 )
@@ -53,7 +52,7 @@ endif()
 
 if (PLAYSTATION)
 	set(SDL_LIBS "")
-else()
+elseif (CLIENT)
 	find_package(OpenGL REQUIRED)
 
 	## GLEW
@@ -106,7 +105,9 @@ include(${CMAKE_CURRENT_BINARY_DIR}/external/bullet/BulletConfig.cmake)
 include_directories()
 
 ## lodepng
+if (CLIENT)
 add_library(lodepng STATIC external/lodepng/lodepng.cpp)
+endif()
 
 ## Recast
 add_library(recast STATIC
@@ -192,8 +193,6 @@ set(SRC
 	src/data/behavior.h
 	src/data/behavior.cpp
 	src/data/priority_queue.h
-	src/render/glvm.h
-	src/render/glvm.cpp
 	src/render/render.h
 	src/render/render.cpp
 	src/render/views.h
@@ -202,6 +201,7 @@ set(SRC
 	src/render/particles.cpp
 	src/render/skinned_model.h
 	src/render/skinned_model.cpp
+	src/render/glvm.h
 	src/render/ui.h
 	src/render/ui.cpp
 	src/asset/lookup.h
@@ -218,13 +218,15 @@ set(SRC
 	src/asset/string.h
 	src/asset/dialogue.h
 	src/platform/util.h
+	src/platform/sock.h
+	src/platform/sock.cpp
 	src/sync.h
 	src/types.h
 	src/vi_assert.h
-	src/physics.h
 	src/noise.h
 	src/noise.cpp
 	src/lmath.h
+	src/lmath.cpp
 	src/input.h
 	src/input.cpp
 	src/strings.h
@@ -236,8 +238,10 @@ set(SRC
 	src/load.h
 	src/load.cpp
 	src/settings.h
+	src/net.h
+	src/net.cpp
+	src/physics.h
 	src/physics.cpp
-	src/lmath.cpp
 	src/ai.h
 	src/ai.cpp
 	src/ai_worker.cpp
@@ -311,154 +315,23 @@ set(SRC
 	assets/str/ui_en.json
 )
 
-if (PLAYSTATION)
-	set(SRC
+if (SERVER)
+	# server
+	add_executable(yearningsrv
 		${SRC}
-		src/platform/ps/main.cpp
-	)
-else()
-	set(SRC
-		${SRC}
-		src/platform/sdl.cpp
-	)
-endif()
-
-add_executable(yearning
-	${SRC}
-)
-
-add_custom_command(
-	OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/gamecontrollerdb.txt
-	COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_SOURCE_DIR}/external/sdl_controllers/gamecontrollerdb.txt ${CMAKE_CURRENT_BINARY_DIR}/gamecontrollerdb.txt
-	MAIN_DEPENDENCY ${CMAKE_CURRENT_SOURCE_DIR}/external/sdl_controllers/gamecontrollerdb.txt
-)
-
-target_include_directories(yearning PRIVATE ${ALL_INCLUDES})
-
-if(WIN32)
-	set_property(TARGET yearning APPEND PROPERTY LINK_FLAGS_DEBUG "/SUBSYSTEM:CONSOLE")
-	set_property(TARGET yearning APPEND PROPERTY COMPILE_DEFINITIONS $<$<CONFIG:Debug>:_CONSOLE>)
-	set_property(TARGET yearning APPEND PROPERTY LINK_FLAGS_RELWITHDEBINFO "/SUBSYSTEM:WINDOWS")
-	set_property(TARGET yearning APPEND PROPERTY LINK_FLAGS_RELEASE "/SUBSYSTEM:WINDOWS")
-	set_property(TARGET yearning APPEND PROPERTY LINK_FLAGS_MINSIZEREL "/SUBSYSTEM:WINDOWS")
-endif(WIN32)
-
-## Libraries
-
-target_link_libraries(yearning
-	${OPENGL_LIBRARIES}
-	${SDL_LIBS}
-	BulletDynamics
-	BulletCollision
-	BulletSoftBody
-	LinearMath
-	lodepng
-	recast
-	detour
-	fastlz
-	cJSON
-	mersenne
-	wwise_integration
-	sha1
-)
-
-if(APPLE)
-target_link_libraries(yearning "-framework AudioToolbox" "-framework CoreAudio")
-endif()
-
-if (NOT PLAYSTATION)
-	## AssImp
-
-	set(ASSIMP_LIB_INSTALL_DIR "lib")
-	set(LIBASSIMP_COMPONENT libassimp)
-	set(BUILD_STATIC_LIB ON)
-
-	# Search for external dependencies, and build them from source if not found
-	# Search for zlib
-	include(CheckIncludeFile)
-	include(CheckTypeSize)
-	include(CheckFunctionExists)
-	set(AMD64 OFF)
-	# compile from sources
-	add_subdirectory(external/assimp/contrib/zlib)
-	set(ZLIB_FOUND 1)
-	set(ZLIB_LIBRARIES zlibstatic)
-	set_target_properties(zlibstatic PROPERTIES LINKER_LANGUAGE CXX)
-
-	set(GIT_COMMIT_HASH 0)
-	configure_file(
-	  external/assimp/revision.h.in
-	  ${CMAKE_SOURCE_DIR}/external/assimp/code/revision.h
-	)
-	add_subdirectory(external/assimp/code)
-
-	# Compile without boost
-	target_compile_definitions(assimp PRIVATE
-		-DASSIMP_BUILD_BOOST_WORKAROUND
-		-DASSIMP_BUILD_NO_EXPORT
-		-DASSIMP_BUILD_NO_3DS_IMPORTER
-		-DASSIMP_BUILD_NO_AC_IMPORTER
-		-DASSIMP_BUILD_NO_ASE_IMPORTER
-		-DASSIMP_BUILD_NO_B3D_IMPORTER
-		-DASSIMP_BUILD_NO_BLEND_IMPORTER
-		-DASSIMP_BUILD_NO_BVH_IMPORTER
-		-DASSIMP_BUILD_NO_COB_IMPORTER
-		-DASSIMP_BUILD_NO_COLLADA_IMPORTER
-		-DASSIMP_BUILD_NO_CSM_IMPORTER
-		-DASSIMP_BUILD_NO_DXF_IMPORTER
-		-DASSIMP_BUILD_NO_OBJ_IMPORTER
-		-DASSIMP_BUILD_NO_STL_IMPORTER
-		-DASSIMP_BUILD_NO_PLY_IMPORTER
-		-DASSIMP_BUILD_NO_HMP_IMPORTER
-		-DASSIMP_BUILD_NO_IFC_IMPORTER
-		-DASSIMP_BUILD_NO_X_IMPORTER
-		-DASSIMP_BUILD_NO_MDL_IMPORTER
-		-DASSIMP_BUILD_NO_MD3_IMPORTER
-		-DASSIMP_BUILD_NO_MD2_IMPORTER
-		-DASSIMP_BUILD_NO_SMD_IMPORTER
-		-DASSIMP_BUILD_NO_MDC_IMPORTER
-		-DASSIMP_BUILD_NO_LWO_IMPORTER
-		-DASSIMP_BUILD_NO_LWS_IMPORTER
-		-DASSIMP_BUILD_NO_NFF_IMPORTER
-		-DASSIMP_BUILD_NO_RAW_IMPORTER
-		-DASSIMP_BUILD_NO_OFF_IMPORTER
-		-DASSIMP_BUILD_NO_IRRMESH_IMPORTER
-		-DASSIMP_BUILD_NO_IRR_IMPORTER
-		-DASSIMP_BUILD_NO_Q3D_IMPORTER
-		-DASSIMP_BUILD_NO_TERRAGEN_IMPORTER
-		-DASSIMP_BUILD_NO_3D_IMPORTER
-		-DASSIMP_BUILD_NO_OGRE_IMPORTER
-		-DASSIMP_BUILD_NO_MS3D_IMPORTER
-		-DASSIMP_BUILD_NO_Q3BSP_IMPORTER
-		-DASSIMP_BUILD_NO_NDO_IMPORTER
-		-DASSIMP_BUILD_NO_XGL_IMPORTER
-		-DASSIMP_BUILD_NO_C4D_IMPORTER
+		src/platform/server.cpp
 	)
 
-	target_include_directories(assimp PRIVATE
-		external/assimp/include
-		external/assimp/code/BoostWorkaround
-		${ZLIB_INCLUDE_DIR}
+	target_include_directories(yearningsrv PRIVATE
+		${ALL_INCLUDES}
+		external/wwise
 	)
 
-	add_executable(import
-		src/data/import_common.h
-		src/data/import_common.cpp
-		src/render/glvm.h
-		src/render/glvm.cpp
-		src/data/array.h
-		src/types.h
-		src/lmath.h
-		src/lmath.cpp
-		src/import.cpp
-	)
-
-	target_include_directories(import PRIVATE ${IMPORT_INCLUDES})
-
-	target_link_libraries(import
-		${OPENGL_LIBRARIES}
-		${SDL_LIBS}
-		assimp
+	target_link_libraries(yearningsrv
+		BulletDynamics
+		BulletCollision
+		BulletSoftBody
+		LinearMath
 		recast
 		detour
 		fastlz
@@ -467,11 +340,172 @@ if (NOT PLAYSTATION)
 		sha1
 	)
 
-	add_custom_target(
-		assets ALL
-		COMMAND $<TARGET_FILE:import>
-		WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
-	)
-	add_dependencies(assets import)
-	add_dependencies(yearning assets)
+	target_compile_definitions(yearningsrv PRIVATE -DSERVER=1)
 endif()
+
+if (CLIENT)
+	# client
+	if (PLAYSTATION)
+		add_executable(yearning
+			${SRC}
+			src/platform/ps/main.cpp
+		)
+	else()
+		add_executable(yearning
+			${SRC}
+			src/platform/glvm.cpp
+			src/platform/sdl.cpp
+		)
+		target_include_directories(yearning PRIVATE ${SDL2_BINARY_DIR}/include)
+	endif()
+
+	add_custom_command(
+		OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/gamecontrollerdb.txt
+		COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_SOURCE_DIR}/external/sdl_controllers/gamecontrollerdb.txt ${CMAKE_CURRENT_BINARY_DIR}/gamecontrollerdb.txt
+		MAIN_DEPENDENCY ${CMAKE_CURRENT_SOURCE_DIR}/external/sdl_controllers/gamecontrollerdb.txt
+	)
+
+	target_include_directories(yearning PRIVATE ${ALL_INCLUDES})
+
+	if(WIN32)
+		set_property(TARGET yearning APPEND PROPERTY LINK_FLAGS_DEBUG "/SUBSYSTEM:CONSOLE")
+		set_property(TARGET yearning APPEND PROPERTY COMPILE_DEFINITIONS $<$<CONFIG:Debug>:_CONSOLE>)
+		set_property(TARGET yearning APPEND PROPERTY LINK_FLAGS_RELWITHDEBINFO "/SUBSYSTEM:WINDOWS")
+		set_property(TARGET yearning APPEND PROPERTY LINK_FLAGS_RELEASE "/SUBSYSTEM:WINDOWS")
+		set_property(TARGET yearning APPEND PROPERTY LINK_FLAGS_MINSIZEREL "/SUBSYSTEM:WINDOWS")
+	endif(WIN32)
+
+	## Libraries
+
+	target_link_libraries(yearning
+		${OPENGL_LIBRARIES}
+		${SDL_LIBS}
+		BulletDynamics
+		BulletCollision
+		BulletSoftBody
+		LinearMath
+		recast
+		detour
+		fastlz
+		cJSON
+		mersenne
+		sha1
+		lodepng
+		wwise_integration
+	)
+
+	if(APPLE)
+		target_link_libraries(yearning "-framework AudioToolbox" "-framework CoreAudio")
+	endif()
+
+	if (NOT PLAYSTATION)
+		## AssImp
+
+		set(ASSIMP_LIB_INSTALL_DIR "lib")
+		set(LIBASSIMP_COMPONENT libassimp)
+		set(BUILD_STATIC_LIB ON)
+
+		# Search for external dependencies, and build them from source if not found
+		# Search for zlib
+		include(CheckIncludeFile)
+		include(CheckTypeSize)
+		include(CheckFunctionExists)
+		set(AMD64 OFF)
+		# compile from sources
+		add_subdirectory(external/assimp/contrib/zlib)
+		set(ZLIB_FOUND 1)
+		set(ZLIB_LIBRARIES zlibstatic)
+		set_target_properties(zlibstatic PROPERTIES LINKER_LANGUAGE CXX)
+
+		set(GIT_COMMIT_HASH 0)
+		configure_file(
+		  external/assimp/revision.h.in
+		  ${CMAKE_SOURCE_DIR}/external/assimp/code/revision.h
+		)
+		add_subdirectory(external/assimp/code)
+
+		# Compile without boost
+		target_compile_definitions(assimp PRIVATE
+			-DASSIMP_BUILD_BOOST_WORKAROUND
+			-DASSIMP_BUILD_NO_EXPORT
+			-DASSIMP_BUILD_NO_3DS_IMPORTER
+			-DASSIMP_BUILD_NO_AC_IMPORTER
+			-DASSIMP_BUILD_NO_ASE_IMPORTER
+			-DASSIMP_BUILD_NO_B3D_IMPORTER
+			-DASSIMP_BUILD_NO_BLEND_IMPORTER
+			-DASSIMP_BUILD_NO_BVH_IMPORTER
+			-DASSIMP_BUILD_NO_COB_IMPORTER
+			-DASSIMP_BUILD_NO_COLLADA_IMPORTER
+			-DASSIMP_BUILD_NO_CSM_IMPORTER
+			-DASSIMP_BUILD_NO_DXF_IMPORTER
+			-DASSIMP_BUILD_NO_OBJ_IMPORTER
+			-DASSIMP_BUILD_NO_STL_IMPORTER
+			-DASSIMP_BUILD_NO_PLY_IMPORTER
+			-DASSIMP_BUILD_NO_HMP_IMPORTER
+			-DASSIMP_BUILD_NO_IFC_IMPORTER
+			-DASSIMP_BUILD_NO_X_IMPORTER
+			-DASSIMP_BUILD_NO_MDL_IMPORTER
+			-DASSIMP_BUILD_NO_MD3_IMPORTER
+			-DASSIMP_BUILD_NO_MD2_IMPORTER
+			-DASSIMP_BUILD_NO_SMD_IMPORTER
+			-DASSIMP_BUILD_NO_MDC_IMPORTER
+			-DASSIMP_BUILD_NO_LWO_IMPORTER
+			-DASSIMP_BUILD_NO_LWS_IMPORTER
+			-DASSIMP_BUILD_NO_NFF_IMPORTER
+			-DASSIMP_BUILD_NO_RAW_IMPORTER
+			-DASSIMP_BUILD_NO_OFF_IMPORTER
+			-DASSIMP_BUILD_NO_IRRMESH_IMPORTER
+			-DASSIMP_BUILD_NO_IRR_IMPORTER
+			-DASSIMP_BUILD_NO_Q3D_IMPORTER
+			-DASSIMP_BUILD_NO_TERRAGEN_IMPORTER
+			-DASSIMP_BUILD_NO_3D_IMPORTER
+			-DASSIMP_BUILD_NO_OGRE_IMPORTER
+			-DASSIMP_BUILD_NO_MS3D_IMPORTER
+			-DASSIMP_BUILD_NO_Q3BSP_IMPORTER
+			-DASSIMP_BUILD_NO_NDO_IMPORTER
+			-DASSIMP_BUILD_NO_XGL_IMPORTER
+			-DASSIMP_BUILD_NO_C4D_IMPORTER
+		)
+
+		target_include_directories(assimp PRIVATE
+			external/assimp/include
+			external/assimp/code/BoostWorkaround
+			${ZLIB_INCLUDE_DIR}
+		)
+
+		add_executable(import
+			src/data/import_common.h
+			src/data/import_common.cpp
+			src/render/glvm.h
+			src/platform/glvm.cpp
+			src/data/array.h
+			src/types.h
+			src/lmath.h
+			src/lmath.cpp
+			src/import.cpp
+		)
+
+		target_include_directories(import PRIVATE ${IMPORT_INCLUDES})
+
+		target_link_libraries(import
+			${OPENGL_LIBRARIES}
+			${SDL_LIBS}
+			assimp
+			recast
+			detour
+			fastlz
+			cJSON
+			mersenne
+			sha1
+		)
+
+		add_custom_target(
+			assets ALL
+			COMMAND $<TARGET_FILE:import>
+			WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+		)
+		add_dependencies(assets import)
+		add_dependencies(yearning assets)
+	endif()
+endif()
+

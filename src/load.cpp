@@ -1,9 +1,11 @@
 #include "load.h"
 #include <stdio.h>
-#include "lodepng/lodepng.h"
 #include "vi_assert.h"
 #include "asset/lookup.h"
+#if !SERVER
 #include <AK/SoundEngine/Common/AkSoundEngine.h>
+#include "lodepng/lodepng.h"
+#endif
 #include "cjson/cJSON.h"
 #include "ai.h"
 #include "settings.h"
@@ -38,7 +40,9 @@ Array<Loader::Entry<Font> > Loader::fonts;
 Array<Loader::Entry<void*> > Loader::dynamic_meshes;
 Array<Loader::Entry<void*> > Loader::dynamic_textures;
 Array<Loader::Entry<void*> > Loader::framebuffers;
+#if !SERVER
 Array<Loader::Entry<AkBankID> > Loader::soundbanks;
+#endif
 
 s32 Loader::compiled_level_count = 0;
 s32 Loader::compiled_static_mesh_count = 0;
@@ -584,6 +588,7 @@ void Loader::animation_free(AssetID id)
 
 void Loader::texture(AssetID id, RenderTextureWrap wrap, RenderTextureFilter filter)
 {
+#if !SERVER
 	if (id == AssetNull)
 		return;
 
@@ -617,6 +622,7 @@ void Loader::texture(AssetID id, RenderTextureWrap wrap, RenderTextureFilter fil
 		sync->write<u32>((u32*)buffer, width * height);
 		free(buffer);
 	}
+#endif
 }
 
 void Loader::texture_permanent(AssetID id, RenderTextureWrap wrap, RenderTextureFilter filter)
@@ -941,6 +947,9 @@ void Loader::dialogue_tree_free(cJSON* json)
 
 b8 Loader::soundbank(AssetID id)
 {
+#if SERVER
+	return true;
+#else
 	if (id == AssetNull)
 		return false;
 
@@ -960,23 +969,30 @@ b8 Loader::soundbank(AssetID id)
 	}
 
 	return true;
+#endif
 }
 
 b8 Loader::soundbank_permanent(AssetID id)
 {
+#if SERVER
+	return true;
+#else
 	b8 success = soundbank(id);
 	if (success)
 		soundbanks[id].type = AssetPermanent;
 	return success;
+#endif
 }
 
 void Loader::soundbank_free(AssetID id)
 {
+#if !SERVER
 	if (id != AssetNull && soundbanks[id].type != AssetNone)
 	{
 		soundbanks[id].type = AssetNone;
 		AK::SoundEngine::UnloadBank(soundbanks[id].data, nullptr);
 	}
+#endif
 }
 
 void Loader::transients_free()
@@ -1023,11 +1039,13 @@ void Loader::transients_free()
 			framebuffer_free(i);
 	}
 
+#if !SERVER
 	for (AssetID i = 0; i < soundbanks.length; i++)
 	{
 		if (soundbanks[i].type == AssetTransient)
 			soundbank_free(i);
 	}
+#endif
 }
 
 AssetID Loader::find(const char* name, const char** list, s32 max_id)

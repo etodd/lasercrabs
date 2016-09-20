@@ -35,7 +35,6 @@ struct Update
 {
 	InputState* input;
 	const InputState* last_input;
-	RenderSync* render;
 	GameTime time;
 };
 

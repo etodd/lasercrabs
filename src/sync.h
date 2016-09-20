@@ -3,8 +3,8 @@
 #include <mutex>
 #include <condition_variable>
 #include "data/array.h"
-#include <chrono>
 #include <thread>
+#include "platform/util.h"
 
 namespace VI
 {
@@ -37,7 +37,7 @@ template<s32 size> struct SyncRingBuffer
 			else
 			{
 				mutex.unlock();
-				std::this_thread::sleep_for(std::chrono::milliseconds(16));
+				platform::sleep(1.0f / 60.0f);
 			}
 		}
 	}

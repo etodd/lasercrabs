@@ -15,7 +15,7 @@ mkdir -p build
 cd build
 export CC=/usr/bin/clang
 export CXX=/usr/bin/clang++
-cmake .. -DCMAKE_BUILD_TYPE=Debug
+cmake .. -DCMAKE_BUILD_TYPE=Debug -DSERVER=1 -DCLIENT=1
 cpu_count=`cat /proc/cpuinfo | grep -i 'processor' | wc -l`
 echo "Building with "$cpu_count" jobs"
 make -j$cpu_count

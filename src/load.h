@@ -3,7 +3,9 @@
 #include "types.h"
 #include "data/import_common.h"
 #include "render/render.h"
+#if !SERVER
 #include <AK/SoundEngine/Common/AkTypes.h>
+#endif
 
 struct cJSON;
 
@@ -43,7 +45,9 @@ struct Loader
 	static Array<Entry<void*> > dynamic_meshes; // Nothing actually stored
 	static Array<Entry<void*> > dynamic_textures; // Nothing actually stored
 	static Array<Entry<void*> > framebuffers; // Nothing actually stored
+#if !SERVER
 	static Array<Entry<AkBankID> > soundbanks;
+#endif
 	static void user_data_path(char*, const char*);
 
 	static const Mesh* mesh(AssetID);

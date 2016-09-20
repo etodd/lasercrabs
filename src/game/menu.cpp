@@ -63,8 +63,6 @@ void init()
 {
 	refresh_variables();
 
-	Game::session.reset();
-
 	title();
 }
 

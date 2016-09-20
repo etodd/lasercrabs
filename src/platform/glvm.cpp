@@ -1,7 +1,7 @@
 #include <glew/include/GL/glew.h>
 #include <array>
 
-#include "glvm.h"
+#include "render/glvm.h"
 #include "vi_assert.h"
 #include "types.h"
 

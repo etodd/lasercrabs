@@ -14,6 +14,6 @@ if not %errorlevel% == 0 (
 git submodule update --init --recursive
 mkdir build
 pushd build
-cmake .. -G "Visual Studio 14 2015 Win64"
+cmake .. -G "Visual Studio 14 2015 Win64" -DSERVER=1 -DCLIENT=1
 popd
 pause

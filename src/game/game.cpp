@@ -61,12 +61,13 @@ b8 Game::is_gamepad = false;
 GameTime Game::time;
 GameTime Game::real_time;
 r32 Game::physics_timestep;
+Sock::Handle Game::sock;
 
 AssetID Game::scheduled_load_level = AssetNull;
 Game::Mode Game::scheduled_mode = Game::Mode::Pvp;
 Game::Save Game::save = Game::Save();
 Game::Level Game::level;
-Game::Session Game::session = Game::Session();
+Game::Session Game::session;
 b8 Game::cancel_event_eaten[] = {};
 
 Game::Session::Session()
@@ -140,8 +141,16 @@ s32 Game::Session::team_count() const
 void Game::Session::reset()
 {
 	AssetID l = level;
-	*this = Session();
-	level = l;
+	if (l != AssetNull) // if the level is null, we haven't initialized the session yet; no need to reset
+	{
+		*this = Session();
+		level = l;
+	}
+}
+
+Game::Session::~Session()
+{
+	Sock::close(&sock);
 }
 
 Game::Save::Save()
@@ -168,6 +177,22 @@ Array<CleanupFunction> Game::cleanups;
 
 b8 Game::init(LoopSync* sync)
 {
+	Sock::init();
+
+#if SERVER
+	if (Sock::udp_open(&sock, 3494, true))
+	{
+		printf("%s\n", Sock::get_error());
+		return false;
+	}
+
+#else
+	if (Sock::udp_open(&sock, 3495, true))
+	{
+		printf("%s\n", Sock::get_error());
+		return false;
+	}
+
 	if (!Audio::init())
 		return false;
 
@@ -229,6 +254,7 @@ b8 Game::init(LoopSync* sync)
 	}
 
 	Cora::global_init();
+#endif
 
 	World::init();
 	for (s32 i = 0; i < ParticleSystem::all.length; i++)
@@ -238,10 +264,35 @@ b8 Game::init(LoopSync* sync)
 
 	Console::init();
 
+#if SERVER
+	// todo: init server
+#else
 	Menu::init();
+#endif
 
 	return true;
 }
+
+#if SERVER
+void Game::update_server(const Update& u)
+{
+	if ((s32)(u.time.total / 2.0f) != (s32)((u.time.total - u.time.delta) / 2.0f))
+	{
+		Sock::Address address;
+		Sock::get_address(&address, "127.0.0.1", 3495);
+		const char* data = "Testing";
+		Sock::udp_send(&sock, address, data, strlen(data) + 1);
+	}
+}
+#else
+void Game::update_client(const Update& u)
+{
+	Sock::Address address;
+	char data[1500];
+	if (Sock::udp_receive(&sock, &address, data, 1500))
+		printf("%s\n", data);
+}
+#endif
 
 void Game::update(const Update& update_in)
 {
@@ -366,8 +417,13 @@ void Game::update(const Update& update_in)
 		}
 	}
 
+#if SERVER
+	update_server(u);
+#else
+	update_client(u);
 	Menu::update(u);
 	Terminal::update(u);
+#endif
 
 	if (scheduled_load_level != AssetNull)
 		load_level(u, scheduled_load_level, scheduled_mode);
@@ -429,7 +485,6 @@ void Game::update(const Update& update_in)
 
 	World::flush();
 
-
 	// reset cancel event eaten flags
 	for (s32 i = 0; i < MAX_GAMEPADS; i++)
 	{
@@ -440,6 +495,8 @@ void Game::update(const Update& update_in)
 
 void Game::term()
 {
+	session.~Session();
+	Sock::netshutdown();
 	Audio::term();
 }
 

@@ -3422,31 +3422,31 @@ s32 proc(s32 argc, char* argv[])
 			fprintf(stderr, "Error: Wwise build failed.\n");
 			return exit_error();
 		}
+	}
 
+	{
+		// Copy soundbanks
+		DIR* dir = opendir(soundbank_in_folder);
+		if (!dir)
 		{
-			// Copy soundbanks
-			DIR* dir = opendir(soundbank_in_folder);
-			if (!dir)
-			{
-				fprintf(stderr, "Error: Failed to open input soundbank directory.\n");
-				return exit_error();
-			}
-			struct dirent* entry;
-			while ((entry = readdir(dir)))
-			{
-				if (entry->d_type != DT_REG)
-					continue; // Not a file
-
-				std::string asset_in_path = soundbank_in_folder + std::string(entry->d_name);
-
-				if (has_extension(asset_in_path, soundbank_extension))
-					import_copy(state, state.manifest.soundbanks, asset_in_path, asset_out_folder, soundbank_extension);
-
-				if (state.error)
-					break;
-			}
-			closedir(dir);
+			fprintf(stderr, "Error: Failed to open input soundbank directory.\n");
+			return exit_error();
 		}
+		struct dirent* entry;
+		while ((entry = readdir(dir)))
+		{
+			if (entry->d_type != DT_REG)
+				continue; // Not a file
+
+			std::string asset_in_path = soundbank_in_folder + std::string(entry->d_name);
+
+			if (has_extension(asset_in_path, soundbank_extension))
+				import_copy(state, state.manifest.soundbanks, asset_in_path, asset_out_folder, soundbank_extension);
+
+			if (state.error)
+				break;
+		}
+		closedir(dir);
 	}
 
 	if (state.error)
@@ -3575,6 +3575,7 @@ s32 proc(s32 argc, char* argv[])
 			close_asset_header(f);
 		}
 
+#if !LINUX
 		if (state.rebuild
 			|| !maps_equal(state.manifest.soundbanks, state.cached_manifest.soundbanks)
 			|| filemtime(soundbank_header_path) == 0)
@@ -3588,7 +3589,6 @@ s32 proc(s32 argc, char* argv[])
 			close_asset_header(f);
 		}
 
-#if !LINUX
 		if (state.rebuild
 			|| !maps_equal2(state.manifest.uniforms, state.cached_manifest.uniforms)
 			|| !maps_equal(state.manifest.shaders, state.cached_manifest.shaders)

@@ -406,115 +406,119 @@ if (CLIENT)
 	else()
 		target_link_libraries(yearning "-lpthread")
 	endif()
+endif()
 
-	if (NOT PLAYSTATION)
-		## AssImp
+if (NOT PLAYSTATION)
+	## AssImp
 
-		set(ASSIMP_LIB_INSTALL_DIR "lib")
-		set(LIBASSIMP_COMPONENT libassimp)
-		set(BUILD_STATIC_LIB ON)
+	set(ASSIMP_LIB_INSTALL_DIR "lib")
+	set(LIBASSIMP_COMPONENT libassimp)
+	set(BUILD_STATIC_LIB ON)
 
-		# Search for external dependencies, and build them from source if not found
-		# Search for zlib
-		include(CheckIncludeFile)
-		include(CheckTypeSize)
-		include(CheckFunctionExists)
-		set(AMD64 OFF)
-		# compile from sources
-		add_subdirectory(external/assimp/contrib/zlib)
-		set(ZLIB_FOUND 1)
-		set(ZLIB_LIBRARIES zlibstatic)
-		set_target_properties(zlibstatic PROPERTIES LINKER_LANGUAGE CXX)
+	# Search for external dependencies, and build them from source if not found
+	# Search for zlib
+	include(CheckIncludeFile)
+	include(CheckTypeSize)
+	include(CheckFunctionExists)
+	set(AMD64 OFF)
+	# compile from sources
+	add_subdirectory(external/assimp/contrib/zlib)
+	set(ZLIB_FOUND 1)
+	set(ZLIB_LIBRARIES zlibstatic)
+	set_target_properties(zlibstatic PROPERTIES LINKER_LANGUAGE CXX)
 
-		set(GIT_COMMIT_HASH 0)
-		configure_file(
-		  external/assimp/revision.h.in
-		  ${CMAKE_SOURCE_DIR}/external/assimp/code/revision.h
-		)
-		add_subdirectory(external/assimp/code)
+	set(GIT_COMMIT_HASH 0)
+	configure_file(
+	  external/assimp/revision.h.in
+	  ${CMAKE_SOURCE_DIR}/external/assimp/code/revision.h
+	)
+	add_subdirectory(external/assimp/code)
 
-		# Compile without boost
-		target_compile_definitions(assimp PRIVATE
-			-DASSIMP_BUILD_BOOST_WORKAROUND
-			-DASSIMP_BUILD_NO_EXPORT
-			-DASSIMP_BUILD_NO_3DS_IMPORTER
-			-DASSIMP_BUILD_NO_AC_IMPORTER
-			-DASSIMP_BUILD_NO_ASE_IMPORTER
-			-DASSIMP_BUILD_NO_B3D_IMPORTER
-			-DASSIMP_BUILD_NO_BLEND_IMPORTER
-			-DASSIMP_BUILD_NO_BVH_IMPORTER
-			-DASSIMP_BUILD_NO_COB_IMPORTER
-			-DASSIMP_BUILD_NO_COLLADA_IMPORTER
-			-DASSIMP_BUILD_NO_CSM_IMPORTER
-			-DASSIMP_BUILD_NO_DXF_IMPORTER
-			-DASSIMP_BUILD_NO_OBJ_IMPORTER
-			-DASSIMP_BUILD_NO_STL_IMPORTER
-			-DASSIMP_BUILD_NO_PLY_IMPORTER
-			-DASSIMP_BUILD_NO_HMP_IMPORTER
-			-DASSIMP_BUILD_NO_IFC_IMPORTER
-			-DASSIMP_BUILD_NO_X_IMPORTER
-			-DASSIMP_BUILD_NO_MDL_IMPORTER
-			-DASSIMP_BUILD_NO_MD3_IMPORTER
-			-DASSIMP_BUILD_NO_MD2_IMPORTER
-			-DASSIMP_BUILD_NO_SMD_IMPORTER
-			-DASSIMP_BUILD_NO_MDC_IMPORTER
-			-DASSIMP_BUILD_NO_LWO_IMPORTER
-			-DASSIMP_BUILD_NO_LWS_IMPORTER
-			-DASSIMP_BUILD_NO_NFF_IMPORTER
-			-DASSIMP_BUILD_NO_RAW_IMPORTER
-			-DASSIMP_BUILD_NO_OFF_IMPORTER
-			-DASSIMP_BUILD_NO_IRRMESH_IMPORTER
-			-DASSIMP_BUILD_NO_IRR_IMPORTER
-			-DASSIMP_BUILD_NO_Q3D_IMPORTER
-			-DASSIMP_BUILD_NO_TERRAGEN_IMPORTER
-			-DASSIMP_BUILD_NO_3D_IMPORTER
-			-DASSIMP_BUILD_NO_OGRE_IMPORTER
-			-DASSIMP_BUILD_NO_MS3D_IMPORTER
-			-DASSIMP_BUILD_NO_Q3BSP_IMPORTER
-			-DASSIMP_BUILD_NO_NDO_IMPORTER
-			-DASSIMP_BUILD_NO_XGL_IMPORTER
-			-DASSIMP_BUILD_NO_C4D_IMPORTER
-		)
+	# Compile without boost
+	target_compile_definitions(assimp PRIVATE
+		-DASSIMP_BUILD_BOOST_WORKAROUND
+		-DASSIMP_BUILD_NO_EXPORT
+		-DASSIMP_BUILD_NO_3DS_IMPORTER
+		-DASSIMP_BUILD_NO_AC_IMPORTER
+		-DASSIMP_BUILD_NO_ASE_IMPORTER
+		-DASSIMP_BUILD_NO_B3D_IMPORTER
+		-DASSIMP_BUILD_NO_BLEND_IMPORTER
+		-DASSIMP_BUILD_NO_BVH_IMPORTER
+		-DASSIMP_BUILD_NO_COB_IMPORTER
+		-DASSIMP_BUILD_NO_COLLADA_IMPORTER
+		-DASSIMP_BUILD_NO_CSM_IMPORTER
+		-DASSIMP_BUILD_NO_DXF_IMPORTER
+		-DASSIMP_BUILD_NO_OBJ_IMPORTER
+		-DASSIMP_BUILD_NO_STL_IMPORTER
+		-DASSIMP_BUILD_NO_PLY_IMPORTER
+		-DASSIMP_BUILD_NO_HMP_IMPORTER
+		-DASSIMP_BUILD_NO_IFC_IMPORTER
+		-DASSIMP_BUILD_NO_X_IMPORTER
+		-DASSIMP_BUILD_NO_MDL_IMPORTER
+		-DASSIMP_BUILD_NO_MD3_IMPORTER
+		-DASSIMP_BUILD_NO_MD2_IMPORTER
+		-DASSIMP_BUILD_NO_SMD_IMPORTER
+		-DASSIMP_BUILD_NO_MDC_IMPORTER
+		-DASSIMP_BUILD_NO_LWO_IMPORTER
+		-DASSIMP_BUILD_NO_LWS_IMPORTER
+		-DASSIMP_BUILD_NO_NFF_IMPORTER
+		-DASSIMP_BUILD_NO_RAW_IMPORTER
+		-DASSIMP_BUILD_NO_OFF_IMPORTER
+		-DASSIMP_BUILD_NO_IRRMESH_IMPORTER
+		-DASSIMP_BUILD_NO_IRR_IMPORTER
+		-DASSIMP_BUILD_NO_Q3D_IMPORTER
+		-DASSIMP_BUILD_NO_TERRAGEN_IMPORTER
+		-DASSIMP_BUILD_NO_3D_IMPORTER
+		-DASSIMP_BUILD_NO_OGRE_IMPORTER
+		-DASSIMP_BUILD_NO_MS3D_IMPORTER
+		-DASSIMP_BUILD_NO_Q3BSP_IMPORTER
+		-DASSIMP_BUILD_NO_NDO_IMPORTER
+		-DASSIMP_BUILD_NO_XGL_IMPORTER
+		-DASSIMP_BUILD_NO_C4D_IMPORTER
+	)
 
-		target_include_directories(assimp PRIVATE
-			external/assimp/include
-			external/assimp/code/BoostWorkaround
-			${ZLIB_INCLUDE_DIR}
-		)
+	target_include_directories(assimp PRIVATE
+		external/assimp/include
+		external/assimp/code/BoostWorkaround
+		${ZLIB_INCLUDE_DIR}
+	)
 
-		add_executable(import
-			src/data/import_common.h
-			src/data/import_common.cpp
-			src/render/glvm.h
-			src/platform/glvm.cpp
-			src/data/array.h
-			src/types.h
-			src/lmath.h
-			src/lmath.cpp
-			src/import.cpp
-		)
+	add_executable(import
+		src/data/import_common.h
+		src/data/import_common.cpp
+		src/render/glvm.h
+		src/data/array.h
+		src/types.h
+		src/lmath.h
+		src/lmath.cpp
+		src/import.cpp
+	)
 
-		target_include_directories(import PRIVATE ${IMPORT_INCLUDES})
+	target_include_directories(import PRIVATE ${IMPORT_INCLUDES})
 
-		target_link_libraries(import
-			${OPENGL_LIBRARIES}
-			${SDL_LIBS}
-			assimp
-			recast
-			detour
-			fastlz
-			cJSON
-			mersenne
-			sha1
-		)
+	target_link_libraries(import
+		${OPENGL_LIBRARIES}
+		${SDL_LIBS}
+		assimp
+		recast
+		detour
+		fastlz
+		cJSON
+		mersenne
+		sha1
+	)
 
-		add_custom_target(
-			assets ALL
-			COMMAND $<TARGET_FILE:import>
-			WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
-		)
-		add_dependencies(assets import)
+	add_custom_target(
+		assets ALL
+		COMMAND $<TARGET_FILE:import>
+		WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+	)
+	add_dependencies(assets import)
+	if (CLIENT)
 		add_dependencies(yearning assets)
+	endif()
+	if (SERVER)
+		add_dependencies(yearningsrv assets)
 	endif()
 endif()
 

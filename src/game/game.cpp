@@ -276,21 +276,39 @@ b8 Game::init(LoopSync* sync)
 #if SERVER
 void Game::update_server(const Update& u)
 {
+	/*
+	static Sock::Address client_address;
 	if ((s32)(u.time.total / 2.0f) != (s32)((u.time.total - u.time.delta) / 2.0f))
 	{
-		Sock::Address address;
-		Sock::get_address(&address, "127.0.0.1", 3495);
-		const char* data = "Testing";
-		Sock::udp_send(&sock, address, data, strlen(data) + 1);
+		const char* data = "from server";
+		Sock::udp_send(&sock, client_address, data, strlen(data) + 1);
 	}
+
+	Sock::Address address;
+	char data[1500];
+	if (Sock::udp_receive(&sock, &address, data, 1500))
+	{
+		printf("%s: %s\n", Sock::host_to_str(address.host), data);
+		client_address = address;
+	}
+	*/
 }
 #else
 void Game::update_client(const Update& u)
 {
+	/*
+	if ((s32)(u.time.total / 2.0f) != (s32)((u.time.total - u.time.delta) / 2.0f))
+	{
+		Sock::Address address;
+		Sock::get_address(&address, "104.236.204.240", 3494);
+		const char* data = "from client";
+		Sock::udp_send(&sock, address, data, strlen(data) + 1);
+	}
 	Sock::Address address;
 	char data[1500];
 	if (Sock::udp_receive(&sock, &address, data, 1500))
 		printf("%s\n", data);
+	*/
 }
 #endif
 

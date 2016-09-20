@@ -1828,7 +1828,7 @@ void timestamp_string(r64 timestamp, char* str)
 {
 	r64 diff = platform::timestamp() - timestamp;
 	if (diff < 60.0f)
-		sprintf(str, _(strings::now));
+		sprintf(str, "%s", _(strings::now));
 	else if (diff < 3600.0f)
 		sprintf(str, "%d%s", (s32)(diff / 60.0f), _(strings::minute));
 	else if (diff < 86400)

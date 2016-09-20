@@ -1,3 +1,7 @@
+#if !_WIN32 && !defined(__APPLE__)
+#define LINUX 1
+#endif
+
 #include <stdio.h>
 
 #include <assimp/include/assimp/Importer.hpp>
@@ -9,12 +13,15 @@
 #include <dirent.h>
 #include <map>
 #include <array>
-#include <glew/include/GL/glew.h>
 #include "mersenne/mersenne-twister.h"
 #include "sha1/sha1.h"
+#include "platform/util.h"
 
+#if !LINUX
+#include <glew/include/GL/glew.h>
 #include <sdl/include/SDL.h>
 #undef main
+#endif
 
 #include <cfloat>
 #include <sstream>
@@ -25,6 +32,28 @@
 
 namespace VI
 {
+
+namespace platform
+{
+
+	u64 timestamp()
+	{
+		time_t t;
+		::time(&t);
+		return (u64)t;
+	}
+
+	r64 time()
+	{
+		return (r64)std::chrono::high_resolution_clock::now().time_since_epoch().count() / 1000000000.0;
+	}
+
+	void sleep(r32 time)
+	{
+		std::this_thread::sleep_for(std::chrono::milliseconds((s64)(time * 1000.0f)));
+	}
+
+}
 
 #define BUILD_NAV_MESHES 1
 
@@ -845,7 +874,9 @@ const char* script_ttf_to_fbx_path(const ImporterState& state)
 
 s32 exit_error()
 {
+#if !LINUX
 	SDL_Quit();
+#endif
 	return 1;
 }
 
@@ -2165,7 +2196,7 @@ b8 awk_raycast(const ChunkedTris& mesh, const Vec3& start, const Vec3& end, cons
 
 void build_awk_nav_mesh(Map<Mesh>& meshes, cJSON* json, AwkNavMesh* out, s32* adjacency_buffer_overflows, s32* orphans)
 {
-	u32 timer = SDL_GetTicks();
+	r64 timer = platform::time();
 	const r32 chunk_size = 10.0f;
 	const r32 chunk_padding = AWK_RADIUS;
 
@@ -2175,8 +2206,8 @@ void build_awk_nav_mesh(Map<Mesh>& meshes, cJSON* json, AwkNavMesh* out, s32* ad
 		Mesh accessible;
 		consolidate_nav_geometry(&accessible, meshes, json, is_accessible);
 
-		printf("Consolidating accessible surfaces done: %ums\n", SDL_GetTicks() - timer);
-		timer = SDL_GetTicks();
+		printf("Consolidating accessible surfaces done: %fs\n", platform::time() - timer);
+		timer = platform::time();
 
 		out->resize(accessible.bounds_min, accessible.bounds_max, chunk_size);
 
@@ -2274,13 +2305,13 @@ void build_awk_nav_mesh(Map<Mesh>& meshes, cJSON* json, AwkNavMesh* out, s32* ad
 			}
 		}
 
-		printf("Rasterizing accessible surfaces done: %ums\n", SDL_GetTicks() - timer);
-		timer = SDL_GetTicks();
+		printf("Rasterizing accessible surfaces done: %fs\n", platform::time() - timer);
+		timer = platform::time();
 
 		chunk_mesh<Array<Vec3>, &chunk_handle_tris>(accessible, &accessible_chunked, chunk_size, chunk_padding);
 
-		printf("Chunking accessible surfaces done: %ums\n", SDL_GetTicks() - timer);
-		timer = SDL_GetTicks();
+		printf("Chunking accessible surfaces done: %fs\n", platform::time() - timer);
+		timer = platform::time();
 	}
 
 	// chunk inaccessible mesh
@@ -2289,13 +2320,13 @@ void build_awk_nav_mesh(Map<Mesh>& meshes, cJSON* json, AwkNavMesh* out, s32* ad
 		Mesh inaccessible;
 		consolidate_nav_geometry(&inaccessible, meshes, json, is_inaccessible);
 
-		printf("Consolidating inaccessible surfaces done: %ums\n", SDL_GetTicks() - timer);
-		timer = SDL_GetTicks();
+		printf("Consolidating inaccessible surfaces done: %fs\n", platform::time() - timer);
+		timer = platform::time();
 
 		chunk_mesh<Array<Vec3>, &chunk_handle_tris>(inaccessible, &inaccessible_chunked, chunk_size, chunk_padding);
 
-		printf("Chunking inaccessible surfaces done: %ums\n", SDL_GetTicks() - timer);
-		timer = SDL_GetTicks();
+		printf("Chunking inaccessible surfaces done: %fs\n", platform::time() - timer);
+		timer = platform::time();
 	}
 
 	// filter out bad nav graph vertices where there is an obstruction between the surface point
@@ -2324,8 +2355,8 @@ void build_awk_nav_mesh(Map<Mesh>& meshes, cJSON* json, AwkNavMesh* out, s32* ad
 				}
 			}
 		}
-		printf("Removing %d bad vertices done: %ums\n", vertex_removals, SDL_GetTicks() - timer);
-		timer = SDL_GetTicks();
+		printf("Removing %d bad vertices done: %fs\n", vertex_removals, platform::time() - timer);
+		timer = platform::time();
 	}
 	
 	// build adjacency
@@ -2566,8 +2597,8 @@ void build_awk_nav_mesh(Map<Mesh>& meshes, cJSON* json, AwkNavMesh* out, s32* ad
 		}
 	}
 
-	printf("Building adjacency graph done: %ums\n", SDL_GetTicks() - timer);
-	timer = SDL_GetTicks();
+	printf("Building adjacency graph done: %fs\n", platform::time() - timer);
+	timer = platform::time();
 
 	// count orphans
 	*orphans = 0;
@@ -2611,7 +2642,7 @@ void build_awk_nav_mesh(Map<Mesh>& meshes, cJSON* json, AwkNavMesh* out, s32* ad
 		}
 	}
 
-	printf("Orphan cleaning done: %ums\n", SDL_GetTicks() - timer);
+	printf("Orphan cleaning done: %fs\n", platform::time() - timer);
 }
 
 void import_level(ImporterState& state, const std::string& asset_in_path, const std::string& out_folder)
@@ -2770,6 +2801,7 @@ void import_shader(ImporterState& state, const std::string& asset_in_path, const
 	{
 		printf("%s\n", asset_out_path.c_str());
 
+#if !LINUX
 		FILE* f = fopen(asset_in_path.c_str(), "rb");
 		if (!f)
 		{
@@ -2816,6 +2848,7 @@ void import_shader(ImporterState& state, const std::string& asset_in_path, const
 
 			glDeleteProgram(program_id);
 		}
+#endif
 
 		if (!cp(asset_in_path, asset_out_path))
 		{
@@ -3183,6 +3216,7 @@ s32 proc(s32 argc, char* argv[])
 	}
 
 	// Initialise SDL
+#if !LINUX
 	if (SDL_Init(SDL_INIT_VIDEO) < 0)
 	{
 		fprintf(stderr, "Error: Failed to initialize SDL: %s\n", SDL_GetError());
@@ -3219,6 +3253,7 @@ s32 proc(s32 argc, char* argv[])
 			return exit_error();
 		}
 	}
+#endif
 
 	{
 		DIR* dir = opendir(asset_out_folder);
@@ -3273,33 +3308,6 @@ s32 proc(s32 argc, char* argv[])
 			}
 			else if (has_extension(asset_in_path, font_in_extension) || has_extension(asset_in_path, font_in_extension_2))
 				import_font(state, asset_in_path, asset_out_folder);
-			if (state.error)
-				break;
-		}
-		closedir(dir);
-	}
-
-	if (state.error)
-		return exit_error();
-
-	{
-		// Import levels
-		DIR* dir = opendir(level_in_folder);
-		if (!dir)
-		{
-			fprintf(stderr, "Failed to open input level directory.\n");
-			return exit_error();
-		}
-		struct dirent* entry;
-		while ((entry = readdir(dir)))
-		{
-			if (entry->d_type != DT_REG)
-				continue; // Not a file
-
-			std::string asset_in_path = level_in_folder + std::string(entry->d_name);
-
-			if (has_extension(asset_in_path, model_in_extension))
-				import_level(state, asset_in_path, level_out_folder);
 			if (state.error)
 				break;
 		}
@@ -3444,6 +3452,7 @@ s32 proc(s32 argc, char* argv[])
 	if (state.error)
 		return exit_error();
 
+#if !LINUX
 	{
 		// Copy Wwise header
 		s64 mtime = filemtime(wwise_header_in_path);
@@ -3461,7 +3470,34 @@ s32 proc(s32 argc, char* argv[])
 
 	if (state.error)
 		return exit_error();
+#endif
 
+	{
+		// Import levels
+		DIR* dir = opendir(level_in_folder);
+		if (!dir)
+		{
+			fprintf(stderr, "Failed to open input level directory.\n");
+			return exit_error();
+		}
+		struct dirent* entry;
+		while ((entry = readdir(dir)))
+		{
+			if (entry->d_type != DT_REG)
+				continue; // Not a file
+
+			std::string asset_in_path = level_in_folder + std::string(entry->d_name);
+
+			if (has_extension(asset_in_path, model_in_extension))
+				import_level(state, asset_in_path, level_out_folder);
+			if (state.error)
+				break;
+		}
+		closedir(dir);
+	}
+
+	if (state.error)
+		return exit_error();
 	
 	b8 update_manifest = manifest_requires_update(state.cached_manifest, state.manifest);
 	if (state.rebuild || update_manifest)
@@ -3552,6 +3588,7 @@ s32 proc(s32 argc, char* argv[])
 			close_asset_header(f);
 		}
 
+#if !LINUX
 		if (state.rebuild
 			|| !maps_equal2(state.manifest.uniforms, state.cached_manifest.uniforms)
 			|| !maps_equal(state.manifest.shaders, state.cached_manifest.shaders)
@@ -3566,6 +3603,7 @@ s32 proc(s32 argc, char* argv[])
 			write_asset_header(f, "Shader", state.manifest.shaders);
 			close_asset_header(f);
 		}
+#endif
 
 		if (state.rebuild
 			|| !maps_equal(state.manifest.fonts, state.cached_manifest.fonts)
@@ -3688,9 +3726,11 @@ s32 proc(s32 argc, char* argv[])
 		}
 	}
 
+#if !LINUX
 	SDL_GL_DeleteContext(context);
 	SDL_DestroyWindow(window);
 	SDL_Quit();
+#endif
 	return 0;
 }
 

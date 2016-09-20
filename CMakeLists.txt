@@ -340,6 +340,12 @@ if (SERVER)
 		sha1
 	)
 
+	if (APPLE)
+	elseif (WIN32)
+	else()
+		target_link_libraries(yearningsrv "-lpthread")
+	endif()
+
 	target_compile_definitions(yearningsrv PRIVATE -DSERVER=1)
 endif()
 
@@ -394,8 +400,11 @@ if (CLIENT)
 		wwise_integration
 	)
 
-	if(APPLE)
+	if (APPLE)
 		target_link_libraries(yearning "-framework AudioToolbox" "-framework CoreAudio")
+	elseif (WIN32)
+	else()
+		target_link_libraries(yearning "-lpthread")
 	endif()
 
 	if (NOT PLAYSTATION)

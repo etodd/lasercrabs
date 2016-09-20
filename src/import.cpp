@@ -3691,6 +3691,7 @@ s32 proc(s32 argc, char* argv[])
 			Json::json_free(dynamic);
 		}
 
+#if !LINUX
 		if (state.rebuild || update_manifest || filemtime(asset_src_path) < state.manifest_mtime)
 		{
 			printf("%s\n", asset_src_path);
@@ -3724,6 +3725,7 @@ s32 proc(s32 argc, char* argv[])
 			clean_unused_output_files(state.manifest, string_out_folder);
 			clean_unused_output_files(state.manifest, dialogue_out_folder);
 		}
+#endif
 	}
 
 #if !LINUX

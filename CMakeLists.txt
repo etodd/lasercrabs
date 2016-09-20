@@ -483,6 +483,14 @@ if (NOT PLAYSTATION)
 		${ZLIB_INCLUDE_DIR}
 	)
 
+	if (APPLE)
+		set(GLVM_IMPORT src/platform/glvm.cpp)
+	elseif (WIN32)
+		set(GLVM_IMPORT src/platform/glvm.cpp)
+	else()
+		set(GLVM_IMPORT "")
+	endif()
+
 	add_executable(import
 		src/data/import_common.h
 		src/data/import_common.cpp
@@ -492,6 +500,7 @@ if (NOT PLAYSTATION)
 		src/lmath.h
 		src/lmath.cpp
 		src/import.cpp
+		${GLVM_IMPORT}
 	)
 
 	target_include_directories(import PRIVATE ${IMPORT_INCLUDES})

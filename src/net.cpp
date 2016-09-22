@@ -1,4 +1,10 @@
 #include "net.h"
+#include "net_serialize.h"
+#include "platform/sock.h"
+#include "game/game.h"
+#if SERVER
+#include "asset/level.h"
+#endif
 
 namespace VI
 {
@@ -9,205 +15,353 @@ namespace Net
 
 // borrows heavily from https://github.com/networkprotocol/libyojimbo
 
+#define TIMEOUT 2.0f
+#define TICK_RATE (1.0f / 60.0f)
 
-StreamWrite::StreamWrite()
-	: data(),
-	scratch(),
-	scratch_bits()
+enum class ClientPacket
 {
+	Connect,
+	Update,
+	count,
+};
+
+enum class ServerPacket
+{
+	Init,
+	Update,
+	count,
+};
+
+Sock::Handle sock;
+
+void send(StreamWrite* p, const Sock::Address& address)
+{
+	p->finalize();
+	Sock::udp_send(&sock, address, p->data.data, p->data.length * sizeof(u32));
 }
 
-void StreamWrite::bits(u32 value, s32 bits)
+#if SERVER
+
+namespace Server
 {
-	vi_assert(bits > 0);
-	vi_assert(bits <= 32);
-	vi_assert((value & ((u64(1) << bits) - 1)) == value);
 
-	scratch |= u64(value) << scratch_bits;
+struct LocalPlayer;
 
-	scratch_bits += bits;
-
-	if (scratch_bits >= 32)
-	{
-		data.add(u32(scratch & 0xFFFFFFFF));
-		scratch >>= 32;
-		scratch_bits -= 32;
-	}
-}
-
-b8 StreamWrite::align()
+struct Client
 {
-	const int remainder_bits = scratch_bits % 8;
-	if (remainder_bits != 0)
+	Sock::Address address;
+	r32 timeout;
+	Ref<LocalPlayer> player;
+};
+
+Array<Client> clients;
+r32 tick_timer;
+
+b8 init()
+{
+	if (Sock::udp_open(&sock, 3494, true))
 	{
-		bits(u32(0), 8 - remainder_bits);
-		vi_assert((scratch_bits % 8) == 0);
+		printf("%s\n", Sock::get_error());
+		return false;
 	}
+
+	Game::session.multiplayer = true;
+	Game::schedule_load_level(Asset::Level::Ponos, Game::Mode::Pvp);
+
 	return true;
 }
 
-s32 StreamWrite::bits_written() const
+b8 build_packet_init(StreamWrite* p)
 {
-	return (data.length * 32) + scratch_bits;
+	using Stream = StreamWrite;
+	ServerPacket type = ServerPacket::Init;
+	serialize_enum(p, ServerPacket, type);
+	return true;
 }
 
-s32 StreamWrite::align_bits() const
+b8 build_packet_update(StreamWrite* p)
 {
-	return (8 - (scratch_bits % 8 )) % 8;
+	using Stream = StreamWrite;
+	ServerPacket type = ServerPacket::Update;
+	serialize_enum(p, ServerPacket, type);
+	return true;
 }
 
-void StreamWrite::bytes(const u8* buffer, s32 bytes)
+void update(const Update& u)
 {
-	vi_assert(align_bits() == 0);
-	vi_assert((bits_written() % 32) == 0 || (bits_written() % 32) == 8 || (bits_written() % 32) == 16 || (bits_written() % 32 ) == 24);
-
-	s32 head_bytes = (4 - (bits_written() % 32 ) / 8) % 4;
-	if (head_bytes > bytes)
-		head_bytes = bytes;
-	for (s32 i = 0; i < head_bytes; i++)
-		bits(buffer[i], 8);
-	if (head_bytes == bytes)
-		return;
-
-	flush();
-
-	vi_assert(align_bits() == 0);
-
-	s32 num_words = (bytes - head_bytes) / sizeof(u32);
-	if (num_words > 0)
+	tick_timer += Game::real_time.delta;
+	for (s32 i = 0; i < clients.length; i++)
 	{
-		vi_assert((bits_written() % 32) == 0);
-		s32 write_pos = data.length;
-		data.resize(data.length + num_words);
-		memcpy(&data[write_pos], &buffer[head_bytes], num_words * sizeof(u32));
-		scratch = 0;
+		clients[i].timeout += Game::real_time.delta;
+		if (clients[i].timeout > TIMEOUT)
+		{
+			vi_debug("Client %s:%hd timed out.", Sock::host_to_str(clients[i].address.host), clients[i].address.port);
+			clients.remove(i);
+			i--;
+		}
 	}
 
-	vi_assert(align_bits() == 0);
-
-	s32 tail_start = head_bytes + num_words * sizeof(u32);
-	s32 tail_bytes = bytes - tail_start;
-	vi_assert(tail_bytes >= 0 && tail_bytes < sizeof(u32));
-	for (s32 i = 0; i < tail_bytes; i++)
-		bits(buffer[tail_start + i], 8);
-
-	vi_assert(align_bits() == 0);
-
-	vi_assert(head_bytes + num_words * sizeof(u32) + tail_bytes == bytes);
-}
-
-void StreamWrite::flush()
-{
-	if (scratch_bits != 0)
+	if (tick_timer > TICK_RATE)
 	{
-		data.add(u32(scratch & 0xFFFFFFFF));
-		scratch >>= 32;
-		scratch_bits -= 32;
+		tick_timer = 0.0f;
+		StreamWrite p;
+		build_packet_update(&p);
+		for (s32 i = 0; i < clients.length; i++)
+			send(&p, clients[i].address);
 	}
 }
 
-b8 StreamWrite::would_overflow(s32 bits) const
+b8 handle_packet(StreamRead* packet, const Sock::Address& address)
 {
-	return false;
-}
-
-StreamRead::StreamRead()
-	: scratch(),
-	scratch_bits(),
-	data(),
-	bits_read()
-{
-}
-
-b8 StreamRead::would_overflow(s32 bits) const
-{
-	return bits_read + bits > data.length * 32;
-}
-
-void StreamRead::bits(u32& output, s32 bits)
-{
-	vi_assert(bits > 0);
-	vi_assert(bits <= 32);
-	vi_assert(bits_read + bits <= data.length * 32);
-
-	if (scratch_bits < bits)
+	Client* client = nullptr;
+	for (s32 i = 0; i < clients.length; i++)
 	{
-		scratch |= u64(data[(bits_read + scratch_bits) / 32]) << scratch_bits;
-		scratch_bits += 32;
+		if (address.equals(clients[i].address))
+		{
+			client = &clients[i];
+			break;
+		}
 	}
 
-	bits_read += bits;
-
-	vi_assert(scratch_bits >= bits);
-
-	output = scratch & ((u64(1) << bits) - 1);
-
-	scratch >>= bits;
-	scratch_bits -= bits;
-}
-
-void StreamRead::bytes(u8* buffer, s32 bytes)
-{
-	vi_assert(align_bits() == 0);
-	vi_assert(bits_read + bytes * 8 <= data.length * 32);
-	vi_assert((bits_read % 32) == 0 || (bits_read % 32) == 8 || (bits_read % 32) == 16 || (bits_read % 32) == 24);
-
-	s32 head_bytes = (4 - (bits_read % 32) / 8) % 4;
-	if (head_bytes > bytes)
-		head_bytes = bytes;
-	for (s32 i = 0; i < head_bytes; i++)
+	using Stream = StreamRead;
+	if (!packet->read_checksum())
 	{
-		u32 value;
-		bits(value, 8);
-		buffer[i] = (u8)value;
-	}
-	if (head_bytes == bytes)
-		return;
-
-	vi_assert(align_bits() == 0);
-
-	s32 num_words = (bytes - head_bytes) / 4;
-	if (num_words > 0)
-	{
-		vi_assert((bits_read % 32) == 0);
-		memcpy(&buffer[head_bytes], &data[bits_read / 32], num_words * sizeof(u32));
-		bits_read += num_words * 32;
+		vi_debug("Discarding packet for invalid checksum.");
+		return false;
 	}
 
-	vi_assert(align_bits() == 0);
+	ClientPacket type;
+	serialize_enum(packet, ClientPacket, type);
 
-	s32 tail_start = head_bytes + num_words * sizeof(u32);
-	s32 tail_bytes = bytes - tail_start;
-	vi_assert(tail_bytes >= 0 && tail_bytes < sizeof(u32));
-	for (s32 i = 0; i < tail_bytes; i++)
+	switch (type)
 	{
-		u32 value;
-		bits(value, 8);
-		buffer[tail_start + i] = (u8)value;
-	}
+		case ClientPacket::Connect:
+		{
+			b8 already_connected = false;
+			for (s32 i = 0; i < clients.length; i++)
+			{
+				if (clients[i].address.equals(address))
+				{
+					already_connected = true;
+					break;
+				}
+			}
 
-	vi_assert(align_bits() == 0);
+			if (already_connected)
+				vi_debug("Client %s:%hd already connected.", Sock::host_to_str(address.host), address.port);
+			else
+			{
+				Client* client = clients.add();
+				new (client) Client();
+				client->address = address;
+				vi_debug("Client %s:%hd connected.", Sock::host_to_str(address.host), address.port);
 
-	vi_assert(head_bytes + num_words * sizeof(u32) + tail_bytes == bytes);
-}
-
-s32 StreamRead::align_bits() const
-{
-	return (8 - bits_read % 8) % 8;
-}
-
-b8 StreamRead::align()
-{
-	const s32 remainder_bits = bits_read % 8;
-	if (remainder_bits != 0)
-	{
-		u32 value;
-		bits(value, 8 - remainder_bits);
-		vi_assert(bits_read % 8 == 0);
-		if (value != 0)
+				StreamWrite p;
+				build_packet_init(&p);
+				send(&p, address);
+			}
+			break;
+		}
+		case ClientPacket::Update:
+		{
+			if (!client)
+			{
+				vi_debug("Discarding packet from unknown client.");
+				return false;
+			}
+			client->timeout = 0.0f;
+			break;
+		}
+		default:
+		{
+			vi_debug("Discarding packet due to invalid packet type.");
 			return false;
+		}
 	}
+
 	return true;
+}
+
+}
+
+#else
+
+namespace Client
+{
+
+enum class Mode
+{
+	Disconnected,
+	Connecting,
+	Connected,
+};
+
+Sock::Address server_address;
+Mode mode;
+r32 timeout;
+r32 tick_timer;
+
+b8 init()
+{
+	if (Sock::udp_open(&sock, 3495, true))
+	{
+		printf("%s\n", Sock::get_error());
+		return false;
+	}
+
+	return true;
+}
+
+b8 build_packet_connect(StreamWrite* p)
+{
+	using Stream = StreamWrite;
+	ClientPacket type = ClientPacket::Connect;
+	serialize_enum(p, ClientPacket, type);
+
+	return true;
+}
+
+b8 build_packet_update(StreamWrite* p)
+{
+	using Stream = StreamWrite;
+	ClientPacket type = ClientPacket::Update;
+	serialize_enum(p, ClientPacket, type);
+
+	return true;
+}
+
+void update(const Update& u)
+{
+	timeout += Game::real_time.delta;
+	switch (mode)
+	{
+		case Mode::Disconnected:
+		{
+			break;
+		}
+		case Mode::Connecting:
+		{
+			if (timeout > 0.5f)
+			{
+				timeout = 0.0f;
+				vi_debug("Connecting to %s:%hd...", Sock::host_to_str(server_address.host), server_address.port);
+				StreamWrite p;
+				build_packet_connect(&p);
+				send(&p, server_address);
+			}
+			break;
+		}
+		case Mode::Connected:
+		{
+			if (timeout > TIMEOUT)
+			{
+				vi_debug("Lost connection to %s:%hd.", Sock::host_to_str(server_address.host), server_address.port);
+				mode = Mode::Disconnected;
+			}
+			tick_timer += Game::real_time.delta;
+			if (tick_timer > TICK_RATE)
+			{
+				tick_timer = 0.0f;
+				StreamWrite p;
+				build_packet_update(&p);
+				send(&p, server_address);
+			}
+			break;
+		}
+		default:
+		{
+			vi_assert(false);
+			break;
+		}
+	}
+}
+
+void connect(const char* ip, u16 port)
+{
+	Sock::get_address(&server_address, ip, port);
+	mode = Mode::Connecting;
+}
+
+b8 handle_packet(StreamRead* p, const Sock::Address& address)
+{
+	using Stream = StreamRead;
+	if (!address.equals(server_address))
+	{
+		vi_debug("Discarding packet from unexpected host.");
+		return false;
+	}
+	if (!p->read_checksum())
+	{
+		vi_debug("Discarding packet due to invalid checksum.");
+		return false;
+	}
+	ServerPacket type;
+	serialize_enum(p, ServerPacket, type);
+	switch (type)
+	{
+		case ServerPacket::Init:
+		{
+			vi_debug("Connected to %s:%hd.", Sock::host_to_str(server_address.host), server_address.port);
+			mode = Mode::Connected;
+			break;
+		}
+		case ServerPacket::Update:
+		{
+			break;
+		}
+		default:
+		{
+			vi_debug("Discarding packet due to invalid packet type.");
+			return false;
+		}
+	}
+
+	timeout = 0.0f; // reset connection timeout
+	return true;
+}
+
+}
+
+#endif
+
+b8 init()
+{
+	if (Sock::init())
+		return false;
+
+#if SERVER
+	return Server::init();
+#else
+	return Client::init();
+#endif
+}
+
+void update(const Update& u)
+{
+	static StreamRead incoming_packet;
+	Sock::Address address;
+	s32 bytes_received = Sock::udp_receive(&sock, &address, incoming_packet.data.data, MAX_PACKET_SIZE);
+	if (bytes_received > 0)
+	{
+		incoming_packet.data.length = bytes_received / sizeof(u32);
+#if SERVER
+		Server::handle_packet(&incoming_packet, address);
+#else
+		Client::handle_packet(&incoming_packet, address);
+#endif
+		incoming_packet.reset();
+	}
+
+#if SERVER
+	Server::update(u);
+#else
+	Client::update(u);
+#endif
+}
+
+void term()
+{
+	Sock::close(&sock);
 }
 
 

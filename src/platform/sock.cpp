@@ -58,6 +58,11 @@ void netshutdown(void)
 #endif
 }
 
+b8 Address::equals(const Address& other) const
+{
+	return host == other.host && port == other.port;
+}
+
 s32 get_address(Address* address, const char* host, u16 port)
 {
 	if (host == NULL)

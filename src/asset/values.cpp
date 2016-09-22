@@ -952,6 +952,7 @@ const char* AssetLookup::String::names[] =
 	"no",
 	"no_effect",
 	"now",
+	"online",
 	"options",
 	"play",
 	"player",

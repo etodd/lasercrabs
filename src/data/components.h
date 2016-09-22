@@ -3,7 +3,7 @@
 #include "entity.h"
 #include "lmath.h"
 #include "bullet/src/LinearMath/btTransform.h"
-#include "net.h"
+#include "net_serialize.h"
 
 namespace VI
 {

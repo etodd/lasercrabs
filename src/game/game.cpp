@@ -42,6 +42,7 @@
 #include "usernames.h"
 #include "utf8/utf8.h"
 #include "cora.h"
+#include "net.h"
 
 #if DEBUG
 	#define DEBUG_NAV_MESH 0
@@ -61,7 +62,6 @@ b8 Game::is_gamepad = false;
 GameTime Game::time;
 GameTime Game::real_time;
 r32 Game::physics_timestep;
-Sock::Handle Game::sock;
 
 AssetID Game::scheduled_load_level = AssetNull;
 Game::Mode Game::scheduled_mode = Game::Mode::Pvp;
@@ -73,8 +73,7 @@ b8 Game::cancel_event_eaten[] = {};
 Game::Session::Session()
 	: mode(Game::Mode::Special),
 	local_player_config{ 0, AI::TeamNone, AI::TeamNone, AI::TeamNone },
-	third_person(),
-	local_multiplayer(),
+	multiplayer(),
 	time_scale(1.0f),
 	level(AssetNull),
 	network_timer(),
@@ -117,7 +116,7 @@ s32 Game::Session::local_player_count() const
 
 s32 Game::Session::team_count() const
 {
-	if (local_multiplayer)
+	if (multiplayer)
 	{
 		s32 team_counts[MAX_PLAYERS] = {};
 		for (s32 i = 0; i < MAX_GAMEPADS; i++)
@@ -148,11 +147,6 @@ void Game::Session::reset()
 	}
 }
 
-Game::Session::~Session()
-{
-	Sock::close(&sock);
-}
-
 Game::Save::Save()
 	: zones(),
 	story_index(),
@@ -177,22 +171,12 @@ Array<CleanupFunction> Game::cleanups;
 
 b8 Game::init(LoopSync* sync)
 {
-	Sock::init();
+	World::init();
 
-#if SERVER
-	if (Sock::udp_open(&sock, 3494, true))
-	{
-		printf("%s\n", Sock::get_error());
+	if (!Net::init())
 		return false;
-	}
 
-#else
-	if (Sock::udp_open(&sock, 3495, true))
-	{
-		printf("%s\n", Sock::get_error());
-		return false;
-	}
-
+#if !SERVER
 	if (!Audio::init())
 		return false;
 
@@ -254,63 +238,19 @@ b8 Game::init(LoopSync* sync)
 	}
 
 	Cora::global_init();
-#endif
 
-	World::init();
+	Menu::init();
+
 	for (s32 i = 0; i < ParticleSystem::all.length; i++)
 		ParticleSystem::all[i]->init(sync);
 
 	UI::init(sync);
 
 	Console::init();
-
-#if SERVER
-	// todo: init server
-#else
-	Menu::init();
 #endif
 
 	return true;
 }
-
-#if SERVER
-void Game::update_server(const Update& u)
-{
-	/*
-	static Sock::Address client_address;
-	if ((s32)(u.time.total / 2.0f) != (s32)((u.time.total - u.time.delta) / 2.0f))
-	{
-		const char* data = "from server";
-		Sock::udp_send(&sock, client_address, data, strlen(data) + 1);
-	}
-
-	Sock::Address address;
-	char data[1500];
-	if (Sock::udp_receive(&sock, &address, data, 1500))
-	{
-		printf("%s: %s\n", Sock::host_to_str(address.host), data);
-		client_address = address;
-	}
-	*/
-}
-#else
-void Game::update_client(const Update& u)
-{
-	/*
-	if ((s32)(u.time.total / 2.0f) != (s32)((u.time.total - u.time.delta) / 2.0f))
-	{
-		Sock::Address address;
-		Sock::get_address(&address, "104.236.204.240", 3494);
-		const char* data = "from client";
-		Sock::udp_send(&sock, address, data, strlen(data) + 1);
-	}
-	Sock::Address address;
-	char data[1500];
-	if (Sock::udp_receive(&sock, &address, data, 1500))
-		printf("%s\n", data);
-	*/
-}
-#endif
 
 void Game::update(const Update& update_in)
 {
@@ -319,6 +259,63 @@ void Game::update(const Update& update_in)
 	time.total += time.delta;
 	physics_timestep = (1.0f / 60.0f) * session.effective_time_scale();
 
+	Update u = update_in;
+	u.time = time;
+
+	// lag simulation
+	if (session.mode == Mode::Pvp && !session.multiplayer && session.network_quality != NetworkQuality::Perfect)
+	{
+		session.network_timer -= real_time.delta;
+		if (session.network_timer < 0.0f)
+		{
+			switch (session.network_state)
+			{
+				case NetworkState::Normal:
+				{
+					session.network_state = NetworkState::Lag;
+					if (session.network_quality == NetworkQuality::Bad)
+						session.network_time = 0.2f + mersenne::randf_cc() * (mersenne::randf_cc() < 0.1f ? 4.0f : 0.3f);
+					else
+						session.network_time = 0.05f + mersenne::randf_cc() * 1.0f;
+					break;
+				}
+				case NetworkState::Lag:
+				{
+					session.network_state = NetworkState::Recover;
+					if (session.network_time > 0.5f)
+						session.network_time = session.network_time * 0.5f + mersenne::randf_cc() * 0.3f; // recovery time is proportional to lag time
+					else
+						session.network_time = 0.05f + mersenne::randf_cc() * 0.2f;
+					break;
+				}
+				case NetworkState::Recover:
+				{
+					session.network_state = NetworkState::Normal;
+					if (mersenne::randf_cc() < (session.network_quality == NetworkQuality::Bad ? 0.5f : 0.2f))
+						session.network_time = 0.05f + mersenne::randf_cc() * 0.15f; // go right back into lag state
+					else
+					{
+						// some time before next lag
+						if (session.network_quality == NetworkQuality::Bad)
+							session.network_time = 2.0f + mersenne::randf_cc() * 8.0f;
+						else
+							session.network_time = 20.0f + mersenne::randf_cc() * 50.0f;
+					}
+					break;
+				}
+			}
+			session.network_timer = session.network_time;
+		}
+		else
+		{
+			if (session.network_state == NetworkState::Lag && session.network_time - session.network_timer > 3.5f)
+				Team::transition_next(MatchResult::NetworkError); // disconnect
+		}
+	}
+
+	Net::update(u);
+
+#if !SERVER
 	// determine whether to display gamepad or keyboard bindings
 	{
 		const Gamepad& gamepad = update_in.input->gamepads[0];
@@ -381,64 +378,6 @@ void Game::update(const Update& update_in)
 			Menu::refresh_variables();
 	}
 
-	Update u = update_in;
-	u.time = time;
-
-	// lag simulation
-	if (session.mode == Mode::Pvp && !session.local_multiplayer && session.network_quality != NetworkQuality::Perfect)
-	{
-		session.network_timer -= real_time.delta;
-		if (session.network_timer < 0.0f)
-		{
-			switch (session.network_state)
-			{
-				case NetworkState::Normal:
-				{
-					session.network_state = NetworkState::Lag;
-					if (session.network_quality == NetworkQuality::Bad)
-						session.network_time = 0.2f + mersenne::randf_cc() * (mersenne::randf_cc() < 0.1f ? 4.0f : 0.3f);
-					else
-						session.network_time = 0.05f + mersenne::randf_cc() * 1.0f;
-					break;
-				}
-				case NetworkState::Lag:
-				{
-					session.network_state = NetworkState::Recover;
-					if (session.network_time > 0.5f)
-						session.network_time = session.network_time * 0.5f + mersenne::randf_cc() * 0.3f; // recovery time is proportional to lag time
-					else
-						session.network_time = 0.05f + mersenne::randf_cc() * 0.2f;
-					break;
-				}
-				case NetworkState::Recover:
-				{
-					session.network_state = NetworkState::Normal;
-					if (mersenne::randf_cc() < (session.network_quality == NetworkQuality::Bad ? 0.5f : 0.2f))
-						session.network_time = 0.05f + mersenne::randf_cc() * 0.15f; // go right back into lag state
-					else
-					{
-						// some time before next lag
-						if (session.network_quality == NetworkQuality::Bad)
-							session.network_time = 2.0f + mersenne::randf_cc() * 8.0f;
-						else
-							session.network_time = 20.0f + mersenne::randf_cc() * 50.0f;
-					}
-					break;
-				}
-			}
-			session.network_timer = session.network_time;
-		}
-		else
-		{
-			if (session.network_state == NetworkState::Lag && session.network_time - session.network_timer > 3.5f)
-				Team::transition_next(MatchResult::NetworkError); // disconnect
-		}
-	}
-
-#if SERVER
-	update_server(u);
-#else
-	update_client(u);
 	Menu::update(u);
 	Terminal::update(u);
 #endif
@@ -513,10 +452,35 @@ void Game::update(const Update& update_in)
 
 void Game::term()
 {
-	session.~Session();
-	Sock::netshutdown();
+	Net::term();
 	Audio::term();
 }
+
+#if SERVER
+
+void Game::draw_opaque(const RenderParams& render_params)
+{
+}
+
+void Game::draw_override(const RenderParams& params)
+{
+}
+
+void Game::draw_alpha(const RenderParams& params)
+{
+}
+
+void Game::draw_alpha_depth(const RenderParams& render_params)
+{
+}
+
+void Game::draw_additive(const RenderParams& render_params)
+{
+}
+
+#else
+
+// client
 
 void Game::draw_opaque(const RenderParams& render_params)
 {
@@ -754,13 +718,11 @@ void Game::draw_additive(const RenderParams& render_params)
 	SkinnedModel::draw_additive(render_params);
 }
 
+#endif
+
 void Game::execute(const Update& u, const char* cmd)
 {
-	if (utf8cmp(cmd, "thirdperson") == 0)
-	{
-		session.third_person = !session.third_person;
-	}
-	else if (utf8cmp(cmd, "killai") == 0)
+	if (utf8cmp(cmd, "killai") == 0)
 	{
 		for (auto i = AIPlayerControl::list.iterator(); !i.is_last(); i.next())
 		{
@@ -968,7 +930,7 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 	session.network_state = NetworkState::Normal;
 	session.network_timer = session.network_time = 0.0f;
 
-	if (session.mode == Mode::Pvp && !session.local_multiplayer)
+	if (session.mode == Mode::Pvp && !session.multiplayer)
 	{
 		// choose network quality
 		r32 random = mersenne::randf_cc();
@@ -1222,7 +1184,7 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 		else if (cJSON_GetObjectItem(element, "AIPlayer"))
 		{
 			// only add an AI player if we are in online pvp mode
-			if (session.mode == Mode::Pvp && !session.local_multiplayer)
+			if (session.mode == Mode::Pvp && !session.multiplayer)
 			{
 				AI::Team team = team_lookup(teams, Json::get_s32(element, "team", 1));
 

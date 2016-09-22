@@ -526,7 +526,7 @@ b8 resource_spend(Game::Resource res, u16 amount)
 
 void deploy_start()
 {
-	if (Game::session.local_multiplayer)
+	if (Game::session.multiplayer)
 	{
 		data.state = State::SplitscreenDeploying;
 		deploy_animation_start();
@@ -662,7 +662,7 @@ void select_zone_update(const Update& u, b8 enable_movement)
 
 Vec3 zone_color(const ZoneNode& zone)
 {
-	if (Game::session.local_multiplayer)
+	if (Game::session.multiplayer)
 	{
 		if (splitscreen_team_count() <= zone.max_teams)
 			return Team::color_friend.xyz();
@@ -705,7 +705,7 @@ Vec3 zone_color(const ZoneNode& zone)
 
 const Vec4& zone_ui_color(const ZoneNode& zone)
 {
-	if (Game::session.local_multiplayer)
+	if (Game::session.multiplayer)
 	{
 		if (splitscreen_team_count() <= zone.max_teams)
 			return Team::ui_color_friend;
@@ -766,7 +766,7 @@ void zones_draw_override(const RenderParams& params)
 	{
 		const ZoneNode& zone = data.zones[i];
 		// flash if necessary
-		if (Game::session.local_multiplayer
+		if (Game::session.multiplayer
 			|| Game::real_time.total > data.story.map.zones_change_time[zone.id] + 0.5f
 			|| UI::flash_function(Game::real_time.total))
 		{
@@ -806,7 +806,7 @@ const ZoneNode* zones_draw(const RenderParams& params)
 		Vec2 p;
 		if (UI::project(params, zone->pos.ref()->absolute_pos(), &p))
 		{
-			if (Game::session.local_multiplayer)
+			if (Game::session.multiplayer)
 			{
 				UIText text;
 				text.color = zone_ui_color(*zone);
@@ -941,7 +941,7 @@ void deploy_draw(const RenderParams& params)
 	const ZoneNode* current_zone = zones_draw(params);
 
 	// show "loading..."
-	progress_infinite(params, _(Game::session.local_multiplayer ? strings::loading_offline : strings::connecting), params.camera->viewport.size * Vec2(0.5f, 0.2f));
+	progress_infinite(params, _(Game::session.multiplayer ? strings::loading_offline : strings::connecting), params.camera->viewport.size * Vec2(0.5f, 0.2f));
 }
 
 b8 can_switch_tab()
@@ -2494,7 +2494,7 @@ b8 should_draw_zones()
 void splitscreen_select_zone_update(const Update& u)
 {
 	// cancel
-	if (Game::session.local_multiplayer
+	if (Game::session.multiplayer
 		&& !Game::cancel_event_eaten[0]
 		&& u.last_input->get(Controls::Cancel, 0) && !u.input->get(Controls::Cancel, 0))
 	{
@@ -2601,7 +2601,7 @@ void update(const Update& u)
 
 		// dialog buttons
 		if (data.story.dialog_callback && dialog_callback_old // make sure we don't trigger the button on the first frame the dialog is shown
-			&& (Game::session.local_multiplayer || Game::time.total > STORY_MODE_INIT_TIME)) // don't show dialog until story mode is initialized
+			&& (Game::session.multiplayer || Game::time.total > STORY_MODE_INIT_TIME)) // don't show dialog until story mode is initialized
 		{
 			if (u.last_input->get(Controls::Interact, 0) && !u.input->get(Controls::Interact, 0))
 			{
@@ -2676,7 +2676,7 @@ void draw(const RenderParams& params)
 
 	// draw dialog box
 	if (data.story.dialog_callback
-		&& (Game::session.local_multiplayer || Game::time.total > STORY_MODE_INIT_TIME)) // don't show dialog until story mode is initialized
+		&& (Game::session.multiplayer || Game::time.total > STORY_MODE_INIT_TIME)) // don't show dialog until story mode is initialized
 	{
 		const r32 padding = 16.0f * UI::scale;
 		UIText text;
@@ -2748,7 +2748,7 @@ void init(const Update& u, const EntityFinder& entities)
 	if (data.zone_last == Asset::Level::title)
 		data.zone_last = Asset::Level::terminal;
 	if (data.zone_last == Asset::Level::terminal)
-		data.zone_selected = Game::session.local_multiplayer ? Asset::Level::Medias_Res : Asset::Level::Safe_Zone;
+		data.zone_selected = Game::session.multiplayer ? Asset::Level::Medias_Res : Asset::Level::Safe_Zone;
 	else
 		data.zone_selected = data.zone_last;
 	data.camera = Camera::add();
@@ -2778,7 +2778,7 @@ void init(const Update& u, const EntityFinder& entities)
 
 				AssetID level_id = Loader::find_level(zone_name);
 				if (level_id != AssetNull
-					&& (level_id != Asset::Level::Safe_Zone || !Game::session.local_multiplayer)) // only show tutorial level in story mode
+					&& (level_id != Asset::Level::Safe_Zone || !Game::session.multiplayer)) // only show tutorial level in story mode
 				{
 					ZoneNode* node = data.zones.add();
 					*node =
@@ -2807,7 +2807,7 @@ void init(const Update& u, const EntityFinder& entities)
 	r32 aspect = data.camera->viewport.size.y == 0 ? 1 : (r32)data.camera->viewport.size.x / (r32)data.camera->viewport.size.y;
 	data.camera->perspective((80.0f * PI * 0.5f / 180.0f), aspect, 0.1f, Game::level.skybox.far_plane);
 
-	if (Game::session.local_multiplayer)
+	if (Game::session.multiplayer)
 	{
 		if (Game::session.local_player_count() <= 1) // haven't selected teams yet
 			data.state = State::SplitscreenSelectTeams;

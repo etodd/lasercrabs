@@ -8,16 +8,19 @@ namespace Sock
 {
 
 
-typedef struct {
+struct Address
+{
 	u32 host;
 	u16 port;
-} Address;
+	b8 equals(const Address&) const;
+};
 
-typedef struct {
-	int handle;
-	int non_blocking;
-	int ready;
-} Handle;
+struct Handle
+{
+	s32 handle;
+	s32 non_blocking;
+	s32 ready;
+};
 
 const char* get_error(void);
 s32 init(void);

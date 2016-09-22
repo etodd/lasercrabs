@@ -266,7 +266,7 @@ namespace VI
 						total += i.item()->credits;
 						i.item()->credits_summary.add({ strings::leftover_energy, i.item()->credits });
 
-						if (i.item()->is_local() && !Game::session.local_multiplayer)
+						if (i.item()->is_local() && !Game::session.multiplayer)
 						{
 							// we're in story mode and this is a local player; increase their energy
 							Game::save.resources[(s32)Game::Resource::Energy] += total;
@@ -295,7 +295,7 @@ namespace VI
 				if (winner.ref())
 				{
 					// somebody won
-					if (Game::session.local_multiplayer)
+					if (Game::session.multiplayer)
 						transition_next(Game::MatchResult::None);
 					else
 					{

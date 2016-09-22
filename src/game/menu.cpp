@@ -14,6 +14,7 @@
 #include "strings.h"
 #include "settings.h"
 #include "audio.h"
+#include "net.h"
 
 namespace VI
 {
@@ -21,11 +22,25 @@ namespace VI
 namespace Menu
 {
 
+State main_menu_state;
+
+#if SERVER
+
+void init() {}
+void update(const Update&) {}
+void clear() {}
+void draw(const RenderParams&) {}
+void title() {}
+void show() {}
+void refresh_variables() {}
+void pause_menu(const Update&, u8, UIMenu*, State*) {}
+b8 options(const Update&, u8, UIMenu*) { return true; }
+
+#else
+
 Game::Mode next_mode;
 UIMenu main_menu;
 b8 gamepad_active[MAX_GAMEPADS] = {};
-
-State main_menu_state;
 
 void refresh_variables()
 {
@@ -95,8 +110,16 @@ void title_menu(const Update& u, u8 gamepad, UIMenu* menu, State* state)
 			{
 				Game::save = Game::Save();
 				Game::session.reset();
-				Game::session.local_multiplayer = true;
+				Game::session.multiplayer = true;
 				Terminal::show();
+			}
+			if (menu->item(u, _(strings::online)))
+			{
+				Game::save = Game::Save();
+				Game::session.reset();
+				Game::session.multiplayer = true;
+				Game::unload_level();
+				Net::Client::connect("127.0.0.1", 3494);
 			}
 			if (menu->item(u, _(strings::options)))
 			{
@@ -303,6 +326,7 @@ b8 options(const Update& u, u8 gamepad, UIMenu* menu)
 
 	return true;
 }
+#endif
 
 }
 
@@ -587,5 +611,6 @@ void UIMenu::draw_alpha(const RenderParams& params, const Vec2& origin, UIText::
 
 	scroll.end(params, pos + Vec2(MENU_ITEM_WIDTH * 0.5f, MENU_ITEM_HEIGHT));
 }
+
 
 }

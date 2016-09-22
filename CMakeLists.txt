@@ -240,6 +240,8 @@ set(SRC
 	src/settings.h
 	src/net.h
 	src/net.cpp
+	src/net_serialize.h
+	src/net_serialize.cpp
 	src/physics.h
 	src/physics.cpp
 	src/ai.h

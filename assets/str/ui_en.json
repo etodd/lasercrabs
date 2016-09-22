@@ -11,6 +11,7 @@
 	"sensitivity": "Sensitivity",
 	"invert_y": "Invert Y Axis",
 	"splitscreen": "Quick combat",
+	"online": "Online",
 	"prompt_splitscreen": "Choose teams",
 	"prompt_splitscreen_ready": "P1 press [{{Interact}}] to begin",
 	"prompt_join_group_queue": "[{{InteractSecondary}}] Join group queue",

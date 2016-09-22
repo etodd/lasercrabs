@@ -12,7 +12,6 @@ typedef u16 Revision;
 typedef u64 ComponentMask;
 
 const Family MAX_FAMILIES = sizeof(ComponentMask) * 8;
-#define MAX_ENTITIES 2048
 
 struct ComponentPoolBase
 {

@@ -72,14 +72,14 @@ struct Loader
 	static void texture_permanent(AssetID, RenderTextureWrap = RenderTextureWrap::Repeat, RenderTextureFilter = RenderTextureFilter::Linear);
 	static void texture_free(AssetID);
 
-	static s32 dynamic_texture(s32, s32, RenderDynamicTextureType, RenderTextureWrap = RenderTextureWrap::Clamp, RenderTextureFilter = RenderTextureFilter::Nearest, RenderTextureCompare = RenderTextureCompare::None);
-	static s32 dynamic_texture_permanent(s32, s32, RenderDynamicTextureType, RenderTextureWrap = RenderTextureWrap::Clamp, RenderTextureFilter = RenderTextureFilter::Nearest, RenderTextureCompare = RenderTextureCompare::None);
-	static void dynamic_texture_free(s32);
+	static AssetID dynamic_texture(s32, s32, RenderDynamicTextureType, RenderTextureWrap = RenderTextureWrap::Clamp, RenderTextureFilter = RenderTextureFilter::Nearest, RenderTextureCompare = RenderTextureCompare::None);
+	static AssetID dynamic_texture_permanent(s32, s32, RenderDynamicTextureType, RenderTextureWrap = RenderTextureWrap::Clamp, RenderTextureFilter = RenderTextureFilter::Nearest, RenderTextureCompare = RenderTextureCompare::None);
+	static void dynamic_texture_free(AssetID);
 
-	static s32 framebuffer(s32);
-	static void framebuffer_attach(RenderFramebufferAttachment, s32);
-	static s32 framebuffer_permanent(s32);
-	static void framebuffer_free(s32);
+	static AssetID framebuffer(s32);
+	static void framebuffer_attach(RenderFramebufferAttachment, AssetID);
+	static AssetID framebuffer_permanent(s32);
+	static void framebuffer_free(AssetID);
 
 	static void shader(AssetID);
 	static void shader_permanent(AssetID);

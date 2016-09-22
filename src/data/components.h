@@ -3,6 +3,7 @@
 #include "entity.h"
 #include "lmath.h"
 #include "bullet/src/LinearMath/btTransform.h"
+#include "net.h"
 
 namespace VI
 {
@@ -38,6 +39,19 @@ struct Transform : public ComponentType<Transform>
 	Quat absolute_rot() const;
 	void absolute_rot(const Quat&);
 	void reparent(Transform*);
+
+	template<typename Stream> b8 serialize(Stream& s)
+	{
+		serialize_r32(s, pos.x);
+		serialize_r32(s, pos.y);
+		serialize_r32(s, pos.z);
+		serialize_r32(s, rot.x);
+		serialize_r32(s, rot.y);
+		serialize_r32(s, rot.z);
+		serialize_r32(s, rot.w);
+		serialize_ref(s, parent);
+		return true;
+	}
 };
 
 struct PointLight : public ComponentType<PointLight>

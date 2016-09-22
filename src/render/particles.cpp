@@ -38,7 +38,7 @@ void ParticleSystem::init(LoopSync* sync)
 	Loader::dynamic_mesh_attrib(RenderDataType::Vec4); // params
 
 	sync->write(RenderOp::UpdateAttribBuffers);
-	sync->write<s32>(mesh_id);
+	sync->write<AssetID>(mesh_id);
 	sync->write<s32>(MAX_VERTICES);
 
 	sync->write(positions.data, MAX_VERTICES);
@@ -85,7 +85,7 @@ void ParticleSystem::init(LoopSync* sync)
 	}
 
 	sync->write(RenderOp::UpdateIndexBuffer);
-	sync->write<s32>(mesh_id);
+	sync->write<AssetID>(mesh_id);
 	sync->write<s32>(max_indices);
 	sync->write(indices.data, max_indices);
 }
@@ -93,28 +93,28 @@ void ParticleSystem::init(LoopSync* sync)
 void ParticleSystem::upload_range(RenderSync* sync, s32 start, s32 count)
 {
 	sync->write(RenderOp::UpdateAttribSubBuffer);
-	sync->write<s32>(mesh_id);
+	sync->write<AssetID>(mesh_id);
 	sync->write<s32>(0); // positions
 	sync->write(start);
 	sync->write(count);
 	sync->write(&positions[start], count);
 
 	sync->write(RenderOp::UpdateAttribSubBuffer);
-	sync->write<s32>(mesh_id);
+	sync->write<AssetID>(mesh_id);
 	sync->write<s32>(1); // velocities
 	sync->write(start);
 	sync->write(count);
 	sync->write(&velocities[start], count);
 
 	sync->write(RenderOp::UpdateAttribSubBuffer);
-	sync->write<s32>(mesh_id);
+	sync->write<AssetID>(mesh_id);
 	sync->write<s32>(3); // birth
 	sync->write(start);
 	sync->write(count);
 	sync->write(&births[start], count);
 
 	sync->write(RenderOp::UpdateAttribSubBuffer);
-	sync->write<s32>(mesh_id);
+	sync->write<AssetID>(mesh_id);
 	sync->write<s32>(4); // params
 	sync->write(start);
 	sync->write(count);
@@ -212,7 +212,7 @@ void ParticleSystem::draw(const RenderParams& params)
 	{
 		// draw in one call
 		sync->write(RenderOp::SubMesh);
-		sync->write<s32>(mesh_id);
+		sync->write<AssetID>(mesh_id);
 		sync->write<s32>(first_active * indices_per_particle);
 		sync->write<s32>((first_free - first_active) * indices_per_particle);
 	}
@@ -220,12 +220,12 @@ void ParticleSystem::draw(const RenderParams& params)
 	{
 		// draw in two calls
 		sync->write(RenderOp::SubMesh);
-		sync->write<s32>(mesh_id);
+		sync->write<AssetID>(mesh_id);
 		sync->write<s32>(0);
 		sync->write<s32>(first_free * indices_per_particle);
 
 		sync->write(RenderOp::SubMesh);
-		sync->write<s32>(mesh_id);
+		sync->write<AssetID>(mesh_id);
 		sync->write<s32>(first_active * indices_per_particle);
 		sync->write<s32>((MAX_PARTICLES - first_active) * indices_per_particle);
 	}

@@ -132,9 +132,9 @@ struct GLData
 	static Array<Shader> shaders;
 	static Array<Mesh> meshes;
 	static Array<GLuint> framebuffers;
-	static s32 current_shader_asset;
+	static AssetID current_shader_asset;
 	static RenderTechnique current_shader_technique;
-	static Array<s32> samplers;
+	static Array<AssetID> samplers;
 
 	static RenderColorMask color_mask;
 	static b8 depth_mask;
@@ -144,15 +144,15 @@ struct GLData
 	static RenderBlendMode blend_mode;
 	static r32 point_size;
 	static r32 line_width;
-	static s32 current_framebuffer;
+	static AssetID current_framebuffer;
 	static Rect2 viewport;
 
 	static Array<char> uniform_name_buffer;
-	static Array<s32> uniform_names;
+	static Array<AssetID> uniform_names;
 
-	static const char* uniform_name(s32 index)
+	static const char* uniform_name(AssetID index)
 	{
-		s32 buffer_index = GLData::uniform_names[index];
+		AssetID buffer_index = GLData::uniform_names[index];
 		return &GLData::uniform_name_buffer[buffer_index];
 	}
 };
@@ -161,11 +161,11 @@ Array<GLData::Texture> GLData::textures;
 Array<GLData::Shader> GLData::shaders;
 Array<GLData::Mesh> GLData::meshes;
 Array<GLuint> GLData::framebuffers;
-s32 GLData::current_shader_asset = AssetNull;
+AssetID GLData::current_shader_asset = AssetNull;
 RenderTechnique GLData::current_shader_technique = RenderTechnique::Default;
-Array<s32> GLData::samplers;
+Array<AssetID> GLData::samplers;
 Array<char> GLData::uniform_name_buffer;
-Array<s32> GLData::uniform_names;
+Array<AssetID> GLData::uniform_names;
 RenderColorMask GLData::color_mask = RENDER_COLOR_MASK_DEFAULT;
 b8 GLData::depth_mask = true;
 b8 GLData::depth_test = true;
@@ -174,7 +174,7 @@ RenderFillMode GLData::fill_mode = RenderFillMode::Fill;
 RenderBlendMode GLData::blend_mode = RenderBlendMode::Opaque;
 r32 GLData::point_size = 1.0f;
 r32 GLData::line_width = 1.0f;
-s32 GLData::current_framebuffer = 0;
+AssetID GLData::current_framebuffer = 0;
 Rect2 GLData::viewport = { Vec2::zero, Vec2::zero };
 
 void render_init()
@@ -334,8 +334,8 @@ void render(RenderSync* sync)
 		{
 			case RenderOp::AllocUniform:
 			{
-				const s32 id = *sync->read<s32>();
-				const s32 length = *sync->read<s32>();
+				AssetID id = *sync->read<AssetID>();
+				s32 length = *sync->read<s32>();
 				const char* name = sync->read<char>(length);
 
 				if (id + 1 > GLData::uniform_names.length)
@@ -356,7 +356,7 @@ void render(RenderSync* sync)
 			}
 			case RenderOp::AllocMesh:
 			{
-				s32 id = *(sync->read<s32>());
+				AssetID id = *(sync->read<AssetID>());
 				if (id >= GLData::meshes.length)
 					GLData::meshes.resize(id + 1);
 				GLData::Mesh* mesh = &GLData::meshes[id];
@@ -418,7 +418,7 @@ void render(RenderSync* sync)
 			}
 			case RenderOp::AllocInstances:
 			{
-				s32 id = *(sync->read<s32>());
+				AssetID id = *(sync->read<AssetID>());
 
 				// Assume the mesh is already loaded
 				GLData::Mesh* mesh = &GLData::meshes[id];
@@ -453,7 +453,7 @@ void render(RenderSync* sync)
 			}
 			case RenderOp::UpdateAttribBuffers:
 			{
-				s32 id = *(sync->read<s32>());
+				AssetID id = *(sync->read<AssetID>());
 				GLData::Mesh* mesh = &GLData::meshes[id];
 				glBindVertexArray(mesh->vertex_array);
 
@@ -468,7 +468,7 @@ void render(RenderSync* sync)
 			}
 			case RenderOp::UpdateAttribSubBuffers:
 			{
-				s32 id = *(sync->read<s32>());
+				AssetID id = *(sync->read<AssetID>());
 				GLData::Mesh* mesh = &GLData::meshes[id];
 				glBindVertexArray(mesh->vertex_array);
 
@@ -484,7 +484,7 @@ void render(RenderSync* sync)
 			}
 			case RenderOp::UpdateAttribBuffer:
 			{
-				s32 id = *(sync->read<s32>());
+				AssetID id = *(sync->read<AssetID>());
 				GLData::Mesh* mesh = &GLData::meshes[id];
 				glBindVertexArray(mesh->vertex_array);
 
@@ -498,7 +498,7 @@ void render(RenderSync* sync)
 			}
 			case RenderOp::UpdateAttribSubBuffer:
 			{
-				s32 id = *(sync->read<s32>());
+				AssetID id = *(sync->read<AssetID>());
 				GLData::Mesh* mesh = &GLData::meshes[id];
 				glBindVertexArray(mesh->vertex_array);
 
@@ -513,7 +513,7 @@ void render(RenderSync* sync)
 			}
 			case RenderOp::UpdateIndexBuffer:
 			{
-				s32 id = *(sync->read<s32>());
+				AssetID id = *(sync->read<AssetID>());
 				GLData::Mesh* mesh = &GLData::meshes[id];
 				s32 index_count = *(sync->read<s32>());
 				const s32* indices = sync->read<s32>(index_count);
@@ -527,7 +527,7 @@ void render(RenderSync* sync)
 			}
 			case RenderOp::FreeMesh:
 			{
-				s32 id = *(sync->read<s32>());
+				AssetID id = *(sync->read<AssetID>());
 				GLData::Mesh* mesh = &GLData::meshes[id];
 				for (s32 i = 0; i < mesh->attribs.length; i++)
 					glDeleteBuffers(1, &mesh->attribs.data[i].handle);
@@ -541,7 +541,7 @@ void render(RenderSync* sync)
 			}
 			case RenderOp::AllocTexture:
 			{
-				s32 id = *(sync->read<s32>());
+				AssetID id = *(sync->read<AssetID>());
 				if (id >= GLData::textures.length)
 					GLData::textures.resize(id + 1);
 				glGenTextures(1, &GLData::textures[id].handle);
@@ -550,7 +550,7 @@ void render(RenderSync* sync)
 			}
 			case RenderOp::DynamicTexture:
 			{
-				s32 id = *(sync->read<s32>());
+				AssetID id = *(sync->read<AssetID>());
 				u32 width = *(sync->read<u32>());
 				u32 height = *(sync->read<u32>());
 				RenderDynamicTextureType type = *(sync->read<RenderDynamicTextureType>());
@@ -626,7 +626,7 @@ void render(RenderSync* sync)
 			}
 			case RenderOp::LoadTexture:
 			{
-				s32 id = *(sync->read<s32>());
+				AssetID id = *(sync->read<AssetID>());
 				RenderTextureWrap wrap = *(sync->read<RenderTextureWrap>());
 				RenderTextureFilter filter = *(sync->read<RenderTextureFilter>());
 				u32 width = *(sync->read<u32>());
@@ -675,14 +675,14 @@ void render(RenderSync* sync)
 			}
 			case RenderOp::FreeTexture:
 			{
-				s32 id = *(sync->read<s32>());
+				AssetID id = *(sync->read<AssetID>());
 				glDeleteTextures(1, &GLData::textures[id].handle);
 				debug_check();
 				break;
 			}
 			case RenderOp::LoadShader:
 			{
-				s32 id = *(sync->read<s32>());
+				AssetID id = *(sync->read<AssetID>());
 
 				if (id >= GLData::shaders.length)
 					GLData::shaders.resize(id + 1);
@@ -705,7 +705,7 @@ void render(RenderSync* sync)
 			}
 			case RenderOp::FreeShader:
 			{
-				s32 id = *(sync->read<s32>());
+				AssetID id = *(sync->read<AssetID>());
 				for (s32 i = 0; i < (s32)RenderTechnique::count; i++)
 					glDeleteProgram(GLData::shaders[id][i].handle);
 				debug_check();
@@ -748,7 +748,7 @@ void render(RenderSync* sync)
 			}
 			case RenderOp::Shader:
 			{
-				s32 shader_asset = *(sync->read<s32>());
+				AssetID shader_asset = *(sync->read<AssetID>());
 				RenderTechnique technique = *(sync->read<RenderTechnique>());
 				if (GLData::current_shader_asset != shader_asset || GLData::current_shader_technique != technique)
 				{
@@ -763,7 +763,7 @@ void render(RenderSync* sync)
 			}
 			case RenderOp::Uniform:
 			{
-				s32 uniform_asset = *(sync->read<s32>());
+				AssetID uniform_asset = *(sync->read<AssetID>());
 
 				GLuint uniform_id = GLData::shaders[GLData::current_shader_asset][(s32)GLData::current_shader_technique].uniforms[uniform_asset];
 				RenderDataType uniform_type = *(sync->read<RenderDataType>());
@@ -816,7 +816,7 @@ void render(RenderSync* sync)
 					{
 						vi_assert(uniform_count == 1); // Only single textures supported for now
 						RenderTextureType texture_type = *(sync->read<RenderTextureType>());
-						s32 texture_asset = *(sync->read<s32>());
+						AssetID texture_asset = *(sync->read<AssetID>());
 						GLuint texture_id;
 						if (texture_asset == AssetNull)
 							texture_id = 0;
@@ -866,7 +866,7 @@ void render(RenderSync* sync)
 			case RenderOp::Mesh:
 			{
 				RenderPrimitiveMode primitive_mode = *(sync->read<RenderPrimitiveMode>());
-				s32 id = *(sync->read<s32>());
+				AssetID id = *(sync->read<AssetID>());
 
 				GLData::Mesh* mesh = &GLData::meshes[id];
 
@@ -884,7 +884,7 @@ void render(RenderSync* sync)
 			}
 			case RenderOp::SubMesh:
 			{
-				s32 id = *(sync->read<s32>());
+				AssetID id = *(sync->read<AssetID>());
 				GLData::Mesh* mesh = &GLData::meshes[id];
 
 				s32 index_offset = *(sync->read<s32>());
@@ -904,7 +904,7 @@ void render(RenderSync* sync)
 			}
 			case RenderOp::Instances:
 			{
-				s32 id = *(sync->read<s32>());
+				AssetID id = *(sync->read<AssetID>());
 				GLData::Mesh* mesh = &GLData::meshes[id];
 
 				s32 count = *(sync->read<s32>());
@@ -1025,7 +1025,7 @@ void render(RenderSync* sync)
 			}
 			case RenderOp::AllocFramebuffer:
 			{
-				s32 id = *(sync->read<s32>());
+				AssetID id = *(sync->read<AssetID>());
 				if (id >= GLData::framebuffers.length)
 					GLData::framebuffers.resize(id + 1);
 
@@ -1040,7 +1040,7 @@ void render(RenderSync* sync)
 				for (s32 i = 0; i < attachments; i++)
 				{
 					RenderFramebufferAttachment attachment_type = *(sync->read<RenderFramebufferAttachment>());
-					s32 texture_id = *(sync->read<s32>());
+					AssetID texture_id = *(sync->read<AssetID>());
 					GLuint gl_texture_id = GLData::textures[texture_id].handle;
 
 					GLenum gl_texture_type;
@@ -1101,7 +1101,7 @@ void render(RenderSync* sync)
 			}
 			case RenderOp::BindFramebuffer:
 			{
-				s32 id = GLData::current_framebuffer = *(sync->read<s32>());
+				AssetID id = GLData::current_framebuffer = *(sync->read<AssetID>());
 				if (id == AssetNull)
 					glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
 				else
@@ -1111,14 +1111,14 @@ void render(RenderSync* sync)
 			}
 			case RenderOp::FreeFramebuffer:
 			{
-				s32 id = *(sync->read<s32>());
+				AssetID id = *(sync->read<AssetID>());
 				glDeleteFramebuffers(1, &GLData::framebuffers[id]);
 				debug_check();
 				break;
 			}
 			case RenderOp::BlitFramebuffer:
 			{
-				s32 id = *(sync->read<s32>());
+				AssetID id = *(sync->read<AssetID>());
 				glBindFramebuffer(GL_READ_FRAMEBUFFER, GLData::framebuffers[id]);
 				const Rect2* src = sync->read<Rect2>();
 				const Rect2* dst = sync->read<Rect2>();

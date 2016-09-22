@@ -5,6 +5,8 @@
 namespace VI
 {
 
+#define MAX_ENTITIES 2048
+
 typedef bool b8;
 
 typedef std::size_t memory_index;
@@ -40,12 +42,11 @@ struct Update
 
 typedef u16 RenderMask;
 
-typedef s32 AssetID;
-const AssetID AssetNull = -1;
-typedef s32 AssetRef;
+typedef u16 AssetID;
+const AssetID AssetNull = AssetID(-1);
 
 typedef u16 ID;
-const ID IDNull = (ID)-1;
+const ID IDNull = ID(MAX_ENTITIES);
 
 
 }

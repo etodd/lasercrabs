@@ -95,7 +95,7 @@ struct Cube
 struct ScreenQuad
 {
 	ScreenQuad();
-	s32 mesh;
+	AssetID mesh;
 	void init(RenderSync*);
 	void set(RenderSync*, const Rect2&, const Camera*, const Rect2& = { Vec2::zero, Vec2(1, 1) });
 };

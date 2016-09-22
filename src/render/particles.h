@@ -21,10 +21,10 @@ struct ParticleSystem
 	s32 first_active;
 	s32 first_new;
 	s32 first_free;
-	s32 mesh_id;
 	r32 lifetime;
 	AssetID shader;
 	AssetID texture;
+	AssetID mesh_id;
 	
 	ParticleSystem(s32, s32, r32, AssetID, AssetID = AssetNull);
 	void init(LoopSync*);

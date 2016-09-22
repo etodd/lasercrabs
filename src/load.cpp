@@ -119,7 +119,7 @@ void Loader::init(LoopSwapper* s)
 	while ((uniform_name = AssetLookup::Uniform::names[i]))
 	{
 		sync->write(RenderOp::AllocUniform);
-		sync->write(i);
+		sync->write<AssetID>(i);
 		s32 length = strlen(uniform_name);
 		sync->write(length);
 		sync->write(uniform_name, length);
@@ -321,7 +321,7 @@ const Mesh* Loader::mesh(AssetID id)
 		// GL
 		RenderSync* sync = Loader::swapper->get();
 		sync->write(RenderOp::AllocMesh);
-		sync->write<s32>(id);
+		sync->write<AssetID>(id);
 		sync->write<b8>(false); // Whether the buffers should be dynamic or not
 
 		sync->write<s32>(2 + extra_attribs.length); // Attribute count
@@ -340,7 +340,7 @@ const Mesh* Loader::mesh(AssetID id)
 		}
 
 		sync->write(RenderOp::UpdateAttribBuffers);
-		sync->write<s32>(id);
+		sync->write<AssetID>(id);
 
 		sync->write<s32>(mesh->vertices.length);
 		sync->write(mesh->vertices.data, mesh->vertices.length);
@@ -354,7 +354,7 @@ const Mesh* Loader::mesh(AssetID id)
 		}
 
 		sync->write(RenderOp::UpdateIndexBuffer);
-		sync->write<s32>(id);
+		sync->write<AssetID>(id);
 		sync->write<s32>(mesh->indices.length);
 		sync->write(mesh->indices.data, mesh->indices.length);
 
@@ -378,7 +378,7 @@ const Mesh* Loader::mesh_instanced(AssetID id)
 	{
 		RenderSync* sync = swapper->get();
 		sync->write(RenderOp::AllocInstances);
-		sync->write<s32>(id);
+		sync->write<AssetID>(id);
 		m->instanced = true;
 	}
 	return m;
@@ -391,7 +391,7 @@ void Loader::mesh_free(AssetID id)
 		meshes[id].data.~Mesh();
 		RenderSync* sync = swapper->get();
 		sync->write(RenderOp::FreeMesh);
-		sync->write<s32>(id);
+		sync->write<AssetID>(id);
 		meshes[id].type = AssetNone;
 	}
 }
@@ -479,7 +479,7 @@ s32 Loader::dynamic_mesh(s32 attribs, b8 dynamic)
 
 	RenderSync* sync = swapper->get();
 	sync->write(RenderOp::AllocMesh);
-	sync->write<s32>(index);
+	sync->write<AssetID>(index);
 	sync->write<b8>(dynamic);
 	sync->write<s32>(attribs);
 
@@ -507,7 +507,7 @@ void Loader::dynamic_mesh_free(s32 id)
 	{
 		RenderSync* sync = swapper->get();
 		sync->write(RenderOp::FreeMesh);
-		sync->write<s32>(id);
+		sync->write<AssetID>(id);
 		dynamic_meshes[id - static_mesh_count].type = AssetNone;
 	}
 }
@@ -643,7 +643,7 @@ void Loader::texture_free(AssetID id)
 	}
 }
 
-s32 Loader::dynamic_texture(s32 width, s32 height, RenderDynamicTextureType type, RenderTextureWrap wrap, RenderTextureFilter filter, RenderTextureCompare compare)
+AssetID Loader::dynamic_texture(s32 width, s32 height, RenderDynamicTextureType type, RenderTextureWrap wrap, RenderTextureFilter filter, RenderTextureCompare compare)
 {
 	s32 index = AssetNull;
 	for (s32 i = 0; i < dynamic_textures.length; i++)
@@ -678,15 +678,15 @@ s32 Loader::dynamic_texture(s32 width, s32 height, RenderDynamicTextureType type
 	return index;
 }
 
-s32 Loader::dynamic_texture_permanent(s32 width, s32 height, RenderDynamicTextureType type, RenderTextureWrap wrap, RenderTextureFilter filter, RenderTextureCompare compare)
+AssetID Loader::dynamic_texture_permanent(s32 width, s32 height, RenderDynamicTextureType type, RenderTextureWrap wrap, RenderTextureFilter filter, RenderTextureCompare compare)
 {
-	s32 id = dynamic_texture(width, height, type, wrap, filter, compare);
+	AssetID id = dynamic_texture(width, height, type, wrap, filter, compare);
 	if (id != AssetNull)
 		dynamic_textures[id - static_texture_count].type = AssetPermanent;
 	return id;
 }
 
-void Loader::dynamic_texture_free(s32 id)
+void Loader::dynamic_texture_free(AssetID id)
 {
 	if (id != AssetNull && dynamic_textures[id - static_texture_count].type != AssetNone)
 	{
@@ -697,7 +697,7 @@ void Loader::dynamic_texture_free(s32 id)
 	}
 }
 
-s32 Loader::framebuffer(s32 attachments)
+AssetID Loader::framebuffer(s32 attachments)
 {
 	s32 index = AssetNull;
 	for (s32 i = 0; i < framebuffers.length; i++)
@@ -719,21 +719,21 @@ s32 Loader::framebuffer(s32 attachments)
 
 	RenderSync* sync = swapper->get();
 	sync->write(RenderOp::AllocFramebuffer);
-	sync->write<s32>(index);
+	sync->write<AssetID>(index);
 	sync->write<s32>(attachments);
 
 	return index;
 }
 
 // Must be called immediately after framebuffer() or framebuffer_permanent()
-void Loader::framebuffer_attach(RenderFramebufferAttachment attachment_type, s32 dynamic_texture)
+void Loader::framebuffer_attach(RenderFramebufferAttachment attachment_type, AssetID dynamic_texture)
 {
 	RenderSync* sync = swapper->get();
 	sync->write<RenderFramebufferAttachment>(attachment_type);
-	sync->write<s32>(dynamic_texture);
+	sync->write<AssetID>(dynamic_texture);
 }
 
-s32 Loader::framebuffer_permanent(s32 attachments)
+AssetID Loader::framebuffer_permanent(s32 attachments)
 {
 	s32 id = framebuffer(attachments);
 	if (id != AssetNull)
@@ -741,13 +741,13 @@ s32 Loader::framebuffer_permanent(s32 attachments)
 	return id;
 }
 
-void Loader::framebuffer_free(s32 id)
+void Loader::framebuffer_free(AssetID id)
 {
 	if (id != AssetNull && framebuffers[id].type != AssetNone)
 	{
 		RenderSync* sync = swapper->get();
 		sync->write(RenderOp::FreeFramebuffer);
-		sync->write<s32>(id);
+		sync->write<AssetID>(id);
 		framebuffers[id].type = AssetNone;
 	}
 }

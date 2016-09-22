@@ -50,33 +50,33 @@ const s32 shadow_map_size[(s32)Settings::ShadowQuality::count][SHADOW_MAP_CASCAD
 	},
 };
 
-s32 g_albedo_buffer;
-s32 g_normal_buffer;
-s32 g_depth_buffer;
-s32 g_fbo;
-s32 g_albedo_fbo;
-s32 g_albedo_buffer_highres;
-s32 g_normal_buffer_highres;
-s32 g_depth_buffer_highres;
-s32 g_fbo_highres;
-s32 g_albedo_fbo_highres;
-s32 color1_buffer;
-s32 color1_fbo;
-s32 lighting_buffer;
-s32 lighting_fbo;
-s32 color2_buffer;
-s32 color2_depth_buffer;
-s32 color2_fbo;
-s32 shadow_buffer[SHADOW_MAP_CASCADES];
-s32 shadow_fbo[SHADOW_MAP_CASCADES];
-s32 half_depth_buffer;
-s32 half_buffer1;
-s32 half_fbo1;
-s32 half_buffer2;
-s32 half_fbo2;
-s32 half_fbo3;
-s32 ui_buffer;
-s32 ui_fbo;
+AssetID g_albedo_buffer;
+AssetID g_normal_buffer;
+AssetID g_depth_buffer;
+AssetID g_fbo;
+AssetID g_albedo_fbo;
+AssetID g_albedo_buffer_highres;
+AssetID g_normal_buffer_highres;
+AssetID g_depth_buffer_highres;
+AssetID g_fbo_highres;
+AssetID g_albedo_fbo_highres;
+AssetID color1_buffer;
+AssetID color1_fbo;
+AssetID lighting_buffer;
+AssetID lighting_fbo;
+AssetID color2_buffer;
+AssetID color2_depth_buffer;
+AssetID color2_fbo;
+AssetID shadow_buffer[SHADOW_MAP_CASCADES];
+AssetID shadow_fbo[SHADOW_MAP_CASCADES];
+AssetID half_depth_buffer;
+AssetID half_buffer1;
+AssetID half_fbo1;
+AssetID half_buffer2;
+AssetID half_fbo2;
+AssetID half_fbo3;
+AssetID ui_buffer;
+AssetID ui_fbo;
 
 b8 draw_far_shadow_cascade = true;
 Camera far_shadow_cascade_camera;
@@ -94,7 +94,7 @@ void render_shadows(LoopSync* sync, s32 fbo, const Camera& main_camera, const Ca
 {
 	// Render shadows
 	sync->write<RenderOp>(RenderOp::BindFramebuffer);
-	sync->write<s32>(fbo);
+	sync->write<AssetID>(fbo);
 
 	RenderParams shadow_render_params;
 	shadow_render_params.sync = sync;
@@ -281,7 +281,7 @@ void render_spot_lights(const RenderParams& render_params, s32 fbo, RenderBlendM
 		}
 
 		sync->write<RenderOp>(RenderOp::BindFramebuffer);
-		sync->write<s32>(fbo);
+		sync->write<AssetID>(fbo);
 
 		sync->write<RenderOp>(RenderOp::BlendMode);
 		sync->write<RenderBlendMode>(blend_mode);
@@ -372,7 +372,7 @@ void render_spot_lights(const RenderParams& render_params, s32 fbo, RenderBlendM
 		sync->write(RenderDataType::Texture);
 		sync->write<s32>(1);
 		sync->write<RenderTextureType>(RenderTextureType::Texture2D);
-		sync->write<s32>(shadow_buffer[0]);
+		sync->write<AssetID>(shadow_buffer[0]);
 
 		sync->write(RenderOp::Uniform);
 		sync->write(Asset::Uniform::mvp);
@@ -456,7 +456,7 @@ void draw(LoopSync* sync, const Camera* camera)
 	// Fill G buffer
 	{
 		sync->write<RenderOp>(RenderOp::BindFramebuffer);
-		sync->write<s32>(g_fbo_highres);
+		sync->write<AssetID>(g_fbo_highres);
 
 		sync->write(RenderOp::Clear);
 		sync->write<b8>(true); // Clear color
@@ -475,7 +475,7 @@ void draw(LoopSync* sync, const Camera* camera)
 	{
 		// downsample
 		sync->write<RenderOp>(RenderOp::BindFramebuffer);
-		sync->write<s32>(g_fbo);
+		sync->write<AssetID>(g_fbo);
 
 		sync->write<RenderOp>(RenderOp::Viewport);
 		sync->write<Rect2>(camera->viewport);
@@ -494,21 +494,21 @@ void draw(LoopSync* sync, const Camera* camera)
 		sync->write(RenderDataType::Texture);
 		sync->write<s32>(1);
 		sync->write<RenderTextureType>(RenderTextureType::Texture2D);
-		sync->write<s32>(g_albedo_buffer_highres);
+		sync->write<AssetID>(g_albedo_buffer_highres);
 
 		sync->write(RenderOp::Uniform);
 		sync->write(Asset::Uniform::normal_buffer);
 		sync->write(RenderDataType::Texture);
 		sync->write<s32>(1);
 		sync->write<RenderTextureType>(RenderTextureType::Texture2D);
-		sync->write<s32>(g_normal_buffer_highres);
+		sync->write<AssetID>(g_normal_buffer_highres);
 
 		sync->write(RenderOp::Uniform);
 		sync->write(Asset::Uniform::depth_buffer);
 		sync->write(RenderDataType::Texture);
 		sync->write<s32>(1);
 		sync->write<RenderTextureType>(RenderTextureType::Texture2D);
-		sync->write<s32>(g_depth_buffer_highres);
+		sync->write<AssetID>(g_depth_buffer_highres);
 
 		sync->write(RenderOp::Mesh);
 		sync->write(RenderPrimitiveMode::Triangles);
@@ -523,7 +523,7 @@ void draw(LoopSync* sync, const Camera* camera)
 	// Render override lights
 	{
 		sync->write<RenderOp>(RenderOp::BindFramebuffer);
-		sync->write<s32>(g_albedo_fbo);
+		sync->write<AssetID>(g_albedo_fbo);
 
 		sync->write<RenderOp>(RenderOp::CullMode);
 		sync->write<RenderCullMode>(RenderCullMode::Front);
@@ -647,7 +647,7 @@ void draw(LoopSync* sync, const Camera* camera)
 			sync->write<RenderBlendMode>(RenderBlendMode::Opaque);
 
 			sync->write<RenderOp>(RenderOp::BindFramebuffer);
-			sync->write<s32>(lighting_fbo);
+			sync->write<AssetID>(lighting_fbo);
 
 			sync->write(RenderOp::Clear);
 			sync->write<b8>(true); // Clear color
@@ -703,7 +703,7 @@ void draw(LoopSync* sync, const Camera* camera)
 				sync->write(RenderDataType::Texture);
 				sync->write<s32>(1);
 				sync->write<RenderTextureType>(RenderTextureType::Texture2D);
-				sync->write<s32>(shadow_buffer[1]);
+				sync->write<AssetID>(shadow_buffer[1]);
 
 				sync->write(RenderOp::Uniform);
 				sync->write(Asset::Uniform::detail_light_vp);
@@ -716,7 +716,7 @@ void draw(LoopSync* sync, const Camera* camera)
 				sync->write(RenderDataType::Texture);
 				sync->write<s32>(1);
 				sync->write<RenderTextureType>(RenderTextureType::Texture2D);
-				sync->write<s32>(shadow_buffer[0]);
+				sync->write<AssetID>(shadow_buffer[0]);
 			}
 
 			sync->write(RenderOp::Uniform);
@@ -770,7 +770,7 @@ void draw(LoopSync* sync, const Camera* camera)
 	// SSAO
 	{
 		sync->write(RenderOp::BindFramebuffer);
-		sync->write<s32>(half_fbo1);
+		sync->write<AssetID>(half_fbo1);
 
 		sync->write(RenderOp::Viewport);
 		sync->write<Rect2>(half_viewport);
@@ -791,14 +791,14 @@ void draw(LoopSync* sync, const Camera* camera)
 			sync->write(RenderDataType::Texture);
 			sync->write<s32>(1);
 			sync->write<RenderTextureType>(RenderTextureType::Texture2D);
-			sync->write<s32>(g_normal_buffer);
+			sync->write<AssetID>(g_normal_buffer);
 
 			sync->write(RenderOp::Uniform);
 			sync->write(Asset::Uniform::depth_buffer);
 			sync->write(RenderDataType::Texture);
 			sync->write<s32>(1);
 			sync->write<RenderTextureType>(RenderTextureType::Texture2D);
-			sync->write<s32>(g_depth_buffer);
+			sync->write<AssetID>(g_depth_buffer);
 
 			sync->write(RenderOp::Uniform);
 			sync->write(Asset::Uniform::inv_buffer_size);
@@ -814,7 +814,7 @@ void draw(LoopSync* sync, const Camera* camera)
 		// SSAO
 		{
 			sync->write(RenderOp::BindFramebuffer);
-			sync->write<s32>(half_fbo2);
+			sync->write<AssetID>(half_fbo2);
 
 			Loader::shader_permanent(Asset::Shader::ssao);
 			sync->write(RenderOp::Shader);
@@ -826,14 +826,14 @@ void draw(LoopSync* sync, const Camera* camera)
 			sync->write(RenderDataType::Texture);
 			sync->write<s32>(1);
 			sync->write<RenderTextureType>(RenderTextureType::Texture2D);
-			sync->write<s32>(half_buffer1);
+			sync->write<AssetID>(half_buffer1);
 
 			sync->write(RenderOp::Uniform);
 			sync->write(Asset::Uniform::depth_buffer);
 			sync->write(RenderDataType::Texture);
 			sync->write<s32>(1);
 			sync->write<RenderTextureType>(RenderTextureType::Texture2D);
-			sync->write<s32>(half_depth_buffer);
+			sync->write<AssetID>(half_depth_buffer);
 
 			Loader::texture_permanent(Asset::Texture::noise, RenderTextureWrap::Repeat, RenderTextureFilter::Nearest);
 			sync->write(RenderOp::Uniform);
@@ -841,7 +841,7 @@ void draw(LoopSync* sync, const Camera* camera)
 			sync->write(RenderDataType::Texture);
 			sync->write<s32>(1);
 			sync->write<RenderTextureType>(RenderTextureType::Texture2D);
-			sync->write<s32>(Asset::Texture::noise);
+			sync->write<AssetID>(Asset::Texture::noise);
 
 			sync->write(RenderOp::Uniform);
 			sync->write(Asset::Uniform::p);
@@ -892,7 +892,7 @@ void draw(LoopSync* sync, const Camera* camera)
 		// Horizontal blur
 		{
 			sync->write(RenderOp::BindFramebuffer);
-			sync->write<s32>(half_fbo1);
+			sync->write<AssetID>(half_fbo1);
 
 			Loader::shader_permanent(Asset::Shader::ssao_blur);
 			sync->write(RenderOp::Shader);
@@ -910,14 +910,14 @@ void draw(LoopSync* sync, const Camera* camera)
 			sync->write(RenderDataType::Texture);
 			sync->write<s32>(1);
 			sync->write<RenderTextureType>(RenderTextureType::Texture2D);
-			sync->write<s32>(half_buffer2);
+			sync->write<AssetID>(half_buffer2);
 
 			sync->write(RenderOp::Uniform);
 			sync->write(Asset::Uniform::depth_buffer);
 			sync->write(RenderDataType::Texture);
 			sync->write<s32>(1);
 			sync->write<RenderTextureType>(RenderTextureType::Texture2D);
-			sync->write<s32>(half_depth_buffer);
+			sync->write<AssetID>(half_depth_buffer);
 
 			sync->write(RenderOp::Mesh);
 			sync->write(RenderPrimitiveMode::Triangles);
@@ -927,7 +927,7 @@ void draw(LoopSync* sync, const Camera* camera)
 		// Vertical blur
 		{
 			sync->write(RenderOp::BindFramebuffer);
-			sync->write<s32>(half_fbo2);
+			sync->write<AssetID>(half_fbo2);
 
 			sync->write(RenderOp::Uniform);
 			sync->write(Asset::Uniform::inv_buffer_size);
@@ -940,7 +940,7 @@ void draw(LoopSync* sync, const Camera* camera)
 			sync->write(RenderDataType::Texture);
 			sync->write<s32>(1);
 			sync->write<RenderTextureType>(RenderTextureType::Texture2D);
-			sync->write<s32>(half_buffer1);
+			sync->write<AssetID>(half_buffer1);
 
 			sync->write(RenderOp::Mesh);
 			sync->write(RenderPrimitiveMode::Triangles);
@@ -956,7 +956,7 @@ void draw(LoopSync* sync, const Camera* camera)
 	// Composite
 	{
 		sync->write<RenderOp>(RenderOp::BindFramebuffer);
-		sync->write<s32>(color2_fbo);
+		sync->write<AssetID>(color2_fbo);
 
 		sync->write(RenderOp::DepthMask);
 		sync->write<b8>(true);
@@ -1076,7 +1076,7 @@ void draw(LoopSync* sync, const Camera* camera)
 	// scene is in color2 at this point
 
 	sync->write<RenderOp>(RenderOp::BindFramebuffer);
-	sync->write<s32>(Settings::supersampling ? g_albedo_fbo_highres : color1_fbo);
+	sync->write<AssetID>(Settings::supersampling ? g_albedo_fbo_highres : color1_fbo);
 
 	sync->write<RenderOp>(RenderOp::Viewport);
 	sync->write<Rect2>({ camera->viewport.pos * SUPERSAMPLING, camera->viewport.size * SUPERSAMPLING });
@@ -1208,7 +1208,7 @@ void draw(LoopSync* sync, const Camera* camera)
 				sync->write(RenderDataType::Texture);
 				sync->write<s32>(1);
 				sync->write<RenderTextureType>(RenderTextureType::Texture2D);
-				sync->write<s32>(color2_buffer);
+				sync->write<AssetID>(color2_buffer);
 
 				sync->write(RenderOp::Mesh);
 				sync->write(RenderPrimitiveMode::Triangles);
@@ -1223,7 +1223,7 @@ void draw(LoopSync* sync, const Camera* camera)
 	{
 		// Downsample
 		sync->write<RenderOp>(RenderOp::BindFramebuffer);
-		sync->write<s32>(half_fbo1);
+		sync->write<AssetID>(half_fbo1);
 
 		sync->write<RenderOp>(RenderOp::BlendMode);
 		sync->write<RenderBlendMode>(RenderBlendMode::Opaque);
@@ -1255,7 +1255,7 @@ void draw(LoopSync* sync, const Camera* camera)
 
 		// Blur x
 		sync->write<RenderOp>(RenderOp::BindFramebuffer);
-		sync->write<s32>(half_fbo3);
+		sync->write<AssetID>(half_fbo3);
 
 		Loader::shader_permanent(Asset::Shader::blur);
 		sync->write(RenderOp::Shader);
@@ -1281,7 +1281,7 @@ void draw(LoopSync* sync, const Camera* camera)
 
 		// Blur y
 		sync->write<RenderOp>(RenderOp::BindFramebuffer);
-		sync->write<s32>(half_fbo2);
+		sync->write<AssetID>(half_fbo2);
 
 		sync->write(RenderOp::Uniform);
 		sync->write(Asset::Uniform::color_buffer);
@@ -1319,7 +1319,7 @@ void draw(LoopSync* sync, const Camera* camera)
 		sync->write(RenderDataType::Texture);
 		sync->write<s32>(1);
 		sync->write<RenderTextureType>(RenderTextureType::Texture2D);
-		sync->write<s32>(color1_buffer);
+		sync->write<AssetID>(color1_buffer);
 
 		sync->write(RenderOp::Mesh);
 		sync->write(RenderPrimitiveMode::Triangles);
@@ -1340,7 +1340,7 @@ void draw(LoopSync* sync, const Camera* camera)
 		sync->write(RenderDataType::Texture);
 		sync->write<s32>(1);
 		sync->write<RenderTextureType>(RenderTextureType::Texture2D);
-		sync->write<s32>(half_buffer2);
+		sync->write<AssetID>(half_buffer2);
 
 		sync->write(RenderOp::Mesh);
 		sync->write(RenderPrimitiveMode::Triangles);

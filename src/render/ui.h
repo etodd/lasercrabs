@@ -95,8 +95,8 @@ struct UI
 	static const Vec4 color_background;
 	static const Vec4 color_disabled;
 	static r32 scale;
-	static s32 mesh_id;
-	static s32 texture_mesh_id;
+	static AssetID mesh_id;
+	static AssetID texture_mesh_id;
 	static Array<Vec3> vertices;
 	static Array<Vec4> colors;
 	static Array<s32> indices;

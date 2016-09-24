@@ -1,35 +1,87 @@
+if (WIN32)
+	set(WWISE_PLATFORM_INCLUDE_PATHS
+		AK/StreamManager/Win32
+	)
+	set(WWISE_PLATFORM_SOURCES
+		AK/StreamManager/Win32/AkDefaultIOHookBlocking.h
+		AK/StreamManager/Win32/AkDefaultIOHookBlocking.cpp
+		AK/StreamManager/Win32/AkFileHelpers.h
+		AK/StreamManager/Win32/AkIOThread.h
+		AK/StreamManager/Win32/AkIOThread.cpp
+		AK/StreamManager/Win32/AkPlatformStreamingDefaults.h
+	)
+elseif (APPLE)
+	set(WWISE_PLATFORM_INCLUDE_PATHS
+		AK/StreamManager/POSIX
+		AK/StreamManager/Mac
+	)
+	set(WWISE_PLATFORM_SOURCES
+		AK/StreamManager/POSIX/AkDefaultIOHookBlocking.h
+		AK/StreamManager/POSIX/AkDefaultIOHookBlocking.cpp
+		AK/StreamManager/POSIX/AkFileHelpers.h
+		AK/StreamManager/POSIX/AkIOThread.h
+		AK/StreamManager/POSIX/AkIOThread.cpp
+		AK/StreamManager/Mac/AkPlatformStreamingDefaults.h
+	)
+elseif (PLAYSTATION)
+	set(WWISE_PLATFORM_INCLUDE_PATHS
+	../../src/platform/ps/wwise/StreamManager
+	)
+	set(WWISE_PLATFORM_SOURCES
+		../../src/platform/ps/wwise/StreamManager/AkDefaultIOHookBlocking.h
+		../../src/platform/ps/wwise/StreamManager/AkDefaultIOHookBlocking.cpp
+		../../src/platform/ps/wwise/StreamManager/AkFileHelpers.h
+		../../src/platform/ps/wwise/StreamManager/AkIOThread.h
+		../../src/platform/ps/wwise/StreamManager/AkIOThread.cpp
+		../../src/platform/ps/wwise/StreamManager/AkPlatformStreamingDefaults.h
+	)
+else() # Linux
+	set(WWISE_PLATFORM_INCLUDE_PATHS
+		AK/StreamManager/POSIX
+		AK/StreamManager/Linux
+	)
+	set(WWISE_PLATFORM_SOURCES
+		AK/StreamManager/POSIX/AkDefaultIOHookBlocking.h
+		AK/StreamManager/POSIX/AkDefaultIOHookBlocking.cpp
+		AK/StreamManager/POSIX/AkFileHelpers.h
+		AK/StreamManager/POSIX/AkIOThread.h
+		AK/StreamManager/POSIX/AkIOThread.cpp
+		AK/StreamManager/Linux/AkPlatformStreamingDefaults.h
+	)
+endif()
+
 add_library(wwise_integration STATIC
 	CMakeLists.txt
-	AK/StreamManager/AkBuddyBlockPool.h
-	AK/StreamManager/AkDefaultIOHookBlocking.h
-	AK/StreamManager/AkDefaultIOHookBlocking.cpp
-	AK/StreamManager/AkDeviceBase.h
-	AK/StreamManager/AkDeviceBase.cpp
-	AK/StreamManager/AkDeviceBlocking.h
-	AK/StreamManager/AkDeviceBlocking.cpp
-	AK/StreamManager/AkDeviceDeferredLinedUp.h
-	AK/StreamManager/AkDeviceDeferredLinedUp.cpp
-	AK/StreamManager/AkIOMemMgr.h
-	AK/StreamManager/AkIOMemMgr.cpp
-	AK/StreamManager/AkStmDeferredLinedUpBase.h
-	AK/StreamManager/AkStmDeferredLinedUpBase.inl
-	AK/StreamManager/AkStmMemView.h
-	AK/StreamManager/AkStreamingDefaults.h
-	AK/StreamManager/AkStreamMgr.h
-	AK/StreamManager/AkStreamMgr.cpp
-	AK/StreamManager/AkTransferDeferred.h
-	AK/StreamManager/AkTransferDeferred.cpp
-	AK/StreamManager/AkIOThread.h
-	AK/StreamManager/AkIOThread.cpp
-	AK/StreamManager/AkFileLocationBase.h
-	AK/StreamManager/AkFileLocationBase.cpp
-	AK/StreamManager/AkFileHelpers.h
-	AK/StreamManager/AkMultipleFileLocation.h
-	AK/StreamManager/AkMultipleFileLocation.inl
-	AK/StreamManager/AkPlatformStreamingDefaults.h
+	AK/StreamManager/Common/AkBuddyBlockPool.h
+	AK/StreamManager/Common/AkDefaultLowLevelIODispatcher.h
+	AK/StreamManager/Common/AkDefaultLowLevelIODispatcher.cpp
+	AK/StreamManager/Common/AkDeviceBase.h
+	AK/StreamManager/Common/AkDeviceBase.cpp
+	AK/StreamManager/Common/AkDeviceBlocking.h
+	AK/StreamManager/Common/AkDeviceBlocking.cpp
+	AK/StreamManager/Common/AkDeviceDeferredLinedUp.h
+	AK/StreamManager/Common/AkDeviceDeferredLinedUp.cpp
+	AK/StreamManager/Common/AkFileLocationBase.h
+	AK/StreamManager/Common/AkFileLocationBase.cpp
+	AK/StreamManager/Common/AkIOMemMgr.h
+	AK/StreamManager/Common/AkIOMemMgr.cpp
+	AK/StreamManager/Common/AkMultipleFileLocation.h
+	AK/StreamManager/Common/AkMultipleFileLocation.inl
+	AK/StreamManager/Common/AkStmDeferredLinedUpBase.h
+	AK/StreamManager/Common/AkStmDeferredLinedUpBase.inl
+	AK/StreamManager/Common/AkStmMemView.h
+	AK/StreamManager/Common/AkStreamingDefaults.h
+	AK/StreamManager/Common/AkStreamMgr.h
+	AK/StreamManager/Common/AkStreamMgr.cpp
+	AK/StreamManager/Common/AkTransferDeferred.h
+	AK/StreamManager/Common/AkTransferDeferred.cpp
+	${WWISE_PLATFORM_SOURCES}
 )
 
-target_include_directories(wwise_integration PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+target_include_directories(wwise_integration PUBLIC
+	${CMAKE_CURRENT_SOURCE_DIR}
+	${WWISE_PLATFORM_INCLUDE_PATHS}
+)
 
 cmake_policy(SET CMP0008 OLD)
 
@@ -48,7 +100,7 @@ if (WIN32)
 		optimized ${CMAKE_CURRENT_SOURCE_DIR}/Win/Release/AkVorbisDecoder
 		debug ${CMAKE_CURRENT_SOURCE_DIR}/Win/Debug/CommunicationCentral
 	)
-elseif(APPLE)
+elseif (APPLE)
 	target_link_libraries(wwise_integration
 		debug ${CMAKE_CURRENT_SOURCE_DIR}/Mac/Debug/libAkMemoryMgr.a
 		optimized ${CMAKE_CURRENT_SOURCE_DIR}/Mac/Release/libAkMemoryMgr.a
@@ -62,18 +114,32 @@ elseif(APPLE)
 		optimized ${CMAKE_CURRENT_SOURCE_DIR}/Mac/Release/libAkVorbisDecoder.a
 		debug ${CMAKE_CURRENT_SOURCE_DIR}/Mac/Debug/libCommunicationCentral.a
 	)
+elseif (PLAYSTATION)
+	target_link_libraries(wwise_integration
+		debug ${CMAKE_CURRENT_SOURCE_DIR}/../../src/platform/ps/wwise/Debug/libAkMemoryMgr.a
+		optimized ${CMAKE_CURRENT_SOURCE_DIR}/../../src/platform/ps/wwise/Release/libAkMemoryMgr.a
+		debug ${CMAKE_CURRENT_SOURCE_DIR}/../../src/platform/ps/wwise/Debug/libAkMusicEngine.a
+		optimized ${CMAKE_CURRENT_SOURCE_DIR}/../../src/platform/ps/wwise/Release/libAkMusicEngine.a
+		debug ${CMAKE_CURRENT_SOURCE_DIR}/../../src/platform/ps/wwise/Debug/libCommunicationCentral.a
+		debug ${CMAKE_CURRENT_SOURCE_DIR}/../../src/platform/ps/wwise/Debug/libAkSoundEngine.a
+		optimized ${CMAKE_CURRENT_SOURCE_DIR}/../../src/platform/ps/wwise/Release/libAkSoundEngine.a
+		debug ${CMAKE_CURRENT_SOURCE_DIR}/../../src/platform/ps/wwise/Debug/libAkStreamMgr.a
+		optimized ${CMAKE_CURRENT_SOURCE_DIR}/../../src/platform/ps/wwise/Release/libAkStreamMgr.a
+		debug ${CMAKE_CURRENT_SOURCE_DIR}/../../src/platform/ps/wwise/Debug/libAkVorbisDecoder.a
+		optimized ${CMAKE_CURRENT_SOURCE_DIR}/../../src/platform/ps/wwise/Release/libAkVorbisDecoder.a
+	)
 else() # Linux
 	target_link_libraries(wwise_integration
 		debug ${CMAKE_CURRENT_SOURCE_DIR}/Linux/Debug/libAkMemoryMgr.a
 		optimized ${CMAKE_CURRENT_SOURCE_DIR}/Linux/Release/libAkMemoryMgr.a
 		debug ${CMAKE_CURRENT_SOURCE_DIR}/Linux/Debug/libAkMusicEngine.a
 		optimized ${CMAKE_CURRENT_SOURCE_DIR}/Linux/Release/libAkMusicEngine.a
-		debug ${CMAKE_CURRENT_SOURCE_DIR}/Linux/Debug/libCommunicationCentral.a
 		debug ${CMAKE_CURRENT_SOURCE_DIR}/Linux/Debug/libAkSoundEngine.a
 		optimized ${CMAKE_CURRENT_SOURCE_DIR}/Linux/Release/libAkSoundEngine.a
 		debug ${CMAKE_CURRENT_SOURCE_DIR}/Linux/Debug/libAkStreamMgr.a
 		optimized ${CMAKE_CURRENT_SOURCE_DIR}/Linux/Release/libAkStreamMgr.a
 		debug ${CMAKE_CURRENT_SOURCE_DIR}/Linux/Debug/libAkVorbisDecoder.a
 		optimized ${CMAKE_CURRENT_SOURCE_DIR}/Linux/Release/libAkVorbisDecoder.a
+		debug ${CMAKE_CURRENT_SOURCE_DIR}/Linux/Debug/libCommunicationCentral.a
 	)
 endif()

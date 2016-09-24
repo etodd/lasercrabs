@@ -29,6 +29,34 @@ namespace AK
 	/// Audiokinetic Sound Frame namespace.
 	namespace SoundFrame
 	{
+		/// SoundBank content text file format.
+		enum SoundBankContentTxtFileFormat
+		{
+			SoundBankContentTxtFileFormat_ANSI = 0,		///< 8-bit ANSI characters.
+			SoundBankContentTxtFileFormat_UNICODE = 1	///< 16-bit UNICODE characters.
+		};
+
+		/// SoundBank generation settings.
+		struct SoundBankGenerationSettings
+		{
+			bool bUseReferenceLanguageAsStandIn;	///< Corresponds to the setting in Language Manager.
+			bool bAllowExceedingSize;				///< Allow SoundBanks to exceed maximum size.
+			bool bUseSoundbankNames;				///< If false, use IDs.
+			bool bGenerateHeaderFile;				///< Generate a header file.
+
+			bool bGenerateContentTxtFile;			///< Generate a content text file.
+			SoundBankContentTxtFileFormat eContentTxtFileFormat; ///< Specify the content text file format.
+
+			bool bGenerateXMLMetadata;				///< Generate metadata files in XML format.
+			bool bGenerateJSONMetadata;				///< Generate metadata files in JSON format.
+			bool bGenerateMetadataFile;				///< Generate main metadata file (SoundBankInfo.xml/json).
+			bool bGeneratePerBankMetadataFile;		///< Generate per-bank metadata files.
+
+			bool bMedatadaIncludeGUID;				///< Include object GUIDs in metadata files.
+			bool bMedatadaIncludeMaxAttenuation;	///< Include max attenuation in metadata files.
+			bool bMedatadaIncludeEstimatedDuration;	///< Include estimated playback duration in metadata files.
+		};
+
 		/// Interface through which the client communicates with the instance of Wwise.
 		/// \warning The functions in this class are not thread-safe, unless stated otherwise.
 		/// \sa
@@ -444,8 +472,8 @@ namespace AK
 			/// - AK::SoundEngine::SetGameObjectOutputBusVolume()
 			virtual bool SetGameObjectOutputBusVolume( 
 				AkGameObjectID in_gameObjectID,			///< Associated game object ID
-				AkReal32 in_fControlValue				///< Dry level control value, ranging from 0.0f to 1.0f
-														///< (0.0f means 0% dry, while 1.0f means 100% dry)
+				AkReal32 in_fControlValue				///< A multiplier where 0 means silence and 1 means no change. 
+														///< (Therefore, values between 0 and 1 will attenuate the sound, and values greater than 1 will amplify it.)
 				) = 0;
 
 			/// Set a game object's obstruction and occlusion levels.\n
@@ -1035,17 +1063,27 @@ namespace AK
 				long in_cFiles 			///< Number of paths in \e in_pszPaths
 				) = 0;
 
+			/// Obtain the user or project settings for SoundBank generation.
+			/// \return	True if the operation was successful, False otherwise
+			/// \sa
+			/// - \ref soundframe_working_soundbanks
+			virtual bool GetSoundBankGenerationSettings(
+				bool in_bUser,								///< User or Project settings.
+				SoundBankGenerationSettings & out_settings	///< Returned settings.
+				) = 0;
+
 			/// Tell Wwise to immediately generate SoundBanks.
 			/// \return	True if the operation was successful, False otherwise
 			/// \sa
 			/// - \ref soundframe_working_soundbanks
 			virtual bool GenerateSoundBanks( 
-				LPCWSTR * in_pszBanks,		///< Array of bank names
-				long in_cBanks, 			///< Number of banks in \e in_pszBanks
-				LPCWSTR * in_pszPlatforms,	///< Array of platform names
-				long in_cPlatforms,			///< Number of platforms in \e in_pszPlatforms
-				LPCWSTR * in_pszLanguages,	///< Array of language names
-				long in_cLanguages			///< Number of languages in \e in_pszLanguages
+				LPCWSTR * in_pszBanks,								///< Array of bank names
+				long in_cBanks, 									///< Number of banks in \e in_pszBanks
+				LPCWSTR * in_pszPlatforms,							///< Array of platform names
+				long in_cPlatforms,									///< Number of platforms in \e in_pszPlatforms
+				LPCWSTR * in_pszLanguages,							///< Array of language names
+				long in_cLanguages,									///< Number of languages in \e in_pszLanguages
+				SoundBankGenerationSettings * in_pSettings = NULL	///< Optional settings
 				) = 0;
 
 			//@}
@@ -1055,12 +1093,12 @@ namespace AK
 			/// \sa
 			/// - \ref soundframe_working_soundbanks
 			virtual bool ConvertExternalSources( 
-				LPCWSTR * in_pszPlatforms,	///< Array of platform names
-				long in_cPlatforms,			///< Number of platforms in \e in_pszPlatforms
+				LPCWSTR * in_pszPlatforms,			///< Array of platform names
+				long in_cPlatforms,					///< Number of platforms in \e in_pszPlatforms
 				LPCWSTR * in_pszFileSourcesInput,	///< Array of input paths
-				long in_cFileSourcesInput,		///< Number of paths in \e in_pszFileSourcesInput
+				long in_cFileSourcesInput,			///< Number of paths in \e in_pszFileSourcesInput
 				LPCWSTR * in_pszFileSourcesOutput,	///< Array of output paths
-				long in_cFileSourcesOutput		///< Number of paths in \e in_pszFileSourcesOutput
+				long in_cFileSourcesOutput			///< Number of paths in \e in_pszFileSourcesOutput
 				) = 0;
 
 			/// Show location type.

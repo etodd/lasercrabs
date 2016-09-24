@@ -8,9 +8,10 @@
 #define _AK_MIXERINPUTMAP_H_
 
 #include <AK/SoundEngine/Common/AkTypes.h>
-#include <AK/SoundEngine/Common/IAkPlugin.h>
+
 #include <AK/SoundEngine/Common/IAkPluginMemAlloc.h>
 #include <AK/Tools/Common/AkArray.h>
+#include <AK/SoundEngine/Common/IAkPlugin.h>
 
 /// Collection class to manage inputs in mixer plugins.
 /// The inputs are identified by their context AK::IAkMixerInputContext. The type of data attached to it is the template argument USER_DATA.

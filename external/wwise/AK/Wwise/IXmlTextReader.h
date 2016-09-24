@@ -105,13 +105,6 @@ namespace AK
 		/// \return The text contained in the element that was read. An empty string if the element is empty. 
 		virtual CString ReadElementString( const CString& in_rcsElementNameValidation ) = 0;
 
-		/// Reads the element and decodes the BinHex content. 
-		/// \return The number of bytes written to the buffer. 
-		virtual int ReadBinHex( BYTE* io_pBuffer,	/// The buffer into which to copy the resulting text. This value cannot be NULL.
-								int in_offset,		/// The offset into the buffer where to start copying the result.
-								int in_length		/// The maximum number of bytes to copy into the buffer. The actual number of bytes copied is returned from this method.
-								) = 0;
-
 		/// Reads all the content, including markup, as a string. 
 		/// \return All the XML content, including markup, in the current node. If the current node has no children, an empty string is returned. If the current node is neither an element nor attribute, an empty string is returned. 
 		virtual void ReadInnerXml( CString& out_csXml ) = 0;

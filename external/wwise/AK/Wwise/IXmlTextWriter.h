@@ -97,12 +97,6 @@ namespace AK
 		virtual void WriteCData( const CString& in_rcsValue		/// The text to place inside the CDATA block. 
 									) = 0;
 
-		/// Encodes the specified binary bytes as BinHex and writes out the resulting text. 
-		virtual void WriteBinHex(	BYTE* in_pBuffer,	/// Byte array to encode. 
-									int in_index,		/// The position in the buffer indicating the start of the bytes to write.
-									int in_count		/// The number of bytes to write.
-									) = 0;
-
 		/// Writes raw markup manually. 
 		virtual void WriteRaw( const CString& in_rcsValue	/// String containing the text to write
 								) = 0;

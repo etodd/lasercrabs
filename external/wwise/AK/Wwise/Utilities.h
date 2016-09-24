@@ -83,9 +83,11 @@ namespace AK
 		/// License status.
 		enum LicenseStatus
 		{
-			LicenseStatus_Unlicensed,
+			//important that we start at 2, because older versions used bool, which is: 0 or 1.
+			LicenseStatus_Unlicensed = 2, 
 			LicenseStatus_Expired,
-			LicenseStatus_Valid
+			LicenseStatus_Valid,
+			LicenseStatus_Incompatible		//the plugin is for an older version of wwise
 		};
 
 		/// Log message severity.

@@ -60,9 +60,6 @@ typedef float32x4x2_t	AKSIMD_V4F32X2;
 typedef float32x4x4_t	AKSIMD_V4F32X4;
 #endif
 
-#define AKSIMD_V4F32_SUPPORTED
-
-
 //@}
 ////////////////////////////////////////////////////////////////////////
 

@@ -13,7 +13,7 @@
 	#endif
 #endif
 
-#if ! defined( AKASSERT )
+#if !defined( AKASSERT )
 
 	#include <AK/SoundEngine/Common/AkTypes.h> //For AK_Fail/Success
 	#include <AK/SoundEngine/Common/AkSoundEngineExport.h>
@@ -50,22 +50,8 @@
 			extern AKSOUNDENGINE_API AkAssertHook g_pAssertHook;
 
 			// These platforms use a built-in g_pAssertHook (and do not fall back to the regular assert macro)
-			#if defined( AK_APPLE ) || defined( AK_ANDROID ) || defined( AK_WII_FAMILY )
+			#define AKASSERT(Condition) ((Condition) ? ((void) 0) : g_pAssertHook( #Condition, __FILE__, __LINE__) )
 
-				#define AKASSERT(Condition) ((Condition) ? ((void) 0) : g_pAssertHook( #Condition, __FILE__, __LINE__) )
-
-			#else
-				
-				#include <assert.h>
-
-				#define _AkAssertHook(_Expression) (void)( (_Expression) || (g_pAssertHook( #_Expression, __FILE__, __LINE__), 0) )
-
-				#define AKASSERT(Condition) if ( g_pAssertHook )          \
-												_AkAssertHook(Condition); \
-											else                          \
-												assert(Condition)
-
-			#endif // defined( AK_WII )
 
 		#endif // defined( __SPU__ )
 
@@ -75,13 +61,13 @@
 			#define AKASSERTD AKASSERT
 		#else
 			#define AKASSERTD(Condition) ((void)0)
-		#endif
+		#endif		
 
 	#else //  defined( AK_ENABLE_ASSERTS )
 
 		#define AKASSERT(Condition) ((void)0)
 		#define AKASSERTD(Condition) ((void)0)
-		#define AKVERIFY(x) ((void)(x))
+		#define AKVERIFY(x) ((void)(x))		
 
 	#endif //  defined( AK_ENABLE_ASSERTS )
 
@@ -110,9 +96,25 @@
 	#else
 		// Compile-time assert
 		#define AKSTATICASSERT( __expr__, __msg__ ) typedef char __AKSTATICASSERT__[(__expr__)?1:-1]
-	#endif
+	#endif	
 
 #endif // ! defined( AKASSERT )
 
-#endif //_AK_AKASSERT_H_
+#ifdef AK_ENABLE_ASSERTS
+
+
+//Do nothing. This is a dummy function, so that g_pAssertHook is never NULL.
+#define DEFINEDUMMYASSERTHOOK void AkAssertHookFunc( \
+const char* in_pszExpression,\
+const char* in_pszFileName,\
+int in_lineNumber)\
+{\
+\
+}\
+AkAssertHook g_pAssertHook = AkAssertHookFunc;
+#else
+#define DEFINEDUMMYASSERTHOOK
+
+#endif
+#endif
 

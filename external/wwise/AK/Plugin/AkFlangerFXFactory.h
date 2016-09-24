@@ -1,45 +1,12 @@
-//////////////////////////////////////////////////////////////////////
-//
-// Copyright (c) 2006 Audiokinetic Inc. / All Rights Reserved
-//
-//////////////////////////////////////////////////////////////////////
-// AkFlangerFXFactory.h
-
+#pragma once
 /// \file
-/// Plug-in unique ID and creation functions (hooks) necessary to register the Flanger plug-in to the sound engine.
-/// <br><b>Wwise effect name:</b>  Wwise Flanger
+/// Registers the Wwise Flanger plugin automatically.
+/// This file should be included once in a .CPP (not a .h, really).  The simple inclusion of this file and the linking of the library is enough to use the plugin.
+/// <b>WARNING</b>: Include this file only if you wish to link statically with the plugins.  Dynamic Libaries (DLL, so, etc) are automatically detected and do not need this include file.
+/// <br><b>Wwise plugin name:</b>  Wwise Flanger
 /// <br><b>Library file:</b> AkFlangerFX.lib
 
-#ifndef _AK_FLANGERFXFACTORY_H_
-#define _AK_FLANGERFXFACTORY_H_
 
-#include <AK/SoundEngine/Common/IAkPlugin.h>
-
-/// - This is the Plug-in unique ID (when combined with Company ID AKCOMPANYID_AUDIOKINETIC)
-/// - This ID must be the same as the PluginID in the Plug-in's XML definition file, and is persisted in project files.
-/// \aknote Don't change the ID or existing projects will not recognize this plug-in anymore.
-const unsigned long AKEFFECTID_FLANGER = 125;
-
-/// Static creation function that returns an instance of the sound engine plug-in parameter node to be hooked by the sound engine plug-in manager.
-AK_FUNC( AK::IAkPluginParam *, CreateFlangerFXParams )(
-	AK::IAkPluginMemAlloc * in_pAllocator		///< Memory allocator interface.
-	);
-
-/// Static creation function that returns an instance of the sound engine plug-in to be hooked by the sound engine plug-in manager.
-AK_FUNC( AK::IAkPlugin*, CreateFlangerFX )(
-	AK::IAkPluginMemAlloc * in_pAllocator		///< Memory allocator interface.
-	);
-
-/*
-Use the following code to register your plug-in
-
-
-AK::SoundEngine::RegisterPlugin( AkPluginTypeEffect, 
-								 AKCOMPANYID_AUDIOKINETIC, 
-								 AKEFFECTID_FLANGER,
-								 CreateFlangerFX,
-								 CreateFlangerFXParams );
-*/
-
-#endif // _AK_FLANGERFXFACTORY_H_
-
+#if !defined AK_3DS && !defined AK_VITA_HW
+AK_STATIC_LINK_PLUGIN(AkFlangerFX)
+#endif

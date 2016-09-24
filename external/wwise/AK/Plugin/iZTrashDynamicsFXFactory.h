@@ -1,48 +1,12 @@
-//////////////////////////////////////////////////////////////////////
-//
-// Copyright (c) 2012 iZotope Inc. / All Rights Reserved
-//
-//////////////////////////////////////////////////////////////////////
-
-// iZTrashDynamicsFXFactory.h
-
+#pragma once
 /// \file
-/// Plug-in unique ID and creation functions (hooks) necessary to register the plug-in in the sound engine.
-/// <br><b>Wwise effect name:</b>  iZotope Trash Dynamics
+/// Registers the iZotope Trash Dynamics Mono plugin automatically.
+/// This file should be included once in a .CPP (not a .h, really).  The simple inclusion of this file and the linking of the library is enough to use the plugin.
+/// <b>WARNING</b>: Include this file only if you wish to link statically with the plugins.  Dynamic Libaries (DLL, so, etc) are automatically detected and do not need this include file.
+/// <br><b>Wwise plugin name:</b>  iZotope Trash Dynamics Mono
 /// <br><b>Library file:</b> iZTrashDynamicsFX.lib
 
-#ifndef _AK_TRASHDYNAMICSFXFACTORY_H_
-#define _AK_TRASHDYNAMICSFXFACTORY_H_
 
-#include <AK/SoundEngine/Common/IAkPlugin.h>
-
-///
-/// - This is the plug-in's unique ID (combined with the AKCOMPANYID_IZOTOPE company ID)
-/// - This ID must be the same as the plug-in ID in the plug-in's XML definition file, and is persisted in project files. 
-/// \akwarning
-/// Changing this ID will cause existing projects not to recognize the plug-in anymore.
-/// \endakwarning
-const unsigned long IZEFFECTID_TRASHDYNAMICS = 5;
-
-/// Static creation function that returns an instance of the sound engine plug-in parameter node to be hooked by the sound engine's plug-in manager.
-AK_FUNC( AK::IAkPluginParam *, CreateTrashDynamicsFXParams )(
-	AK::IAkPluginMemAlloc * in_pAllocator			///< Memory allocator interface
-	);
-
-/// Static creation function that returns an instance of the sound engine plug-in to be hooked by the sound engine's plug-in manager.
-AK_FUNC( AK::IAkPlugin*, CreateTrashDynamicsFX )(
-	AK::IAkPluginMemAlloc * in_pAllocator			///< Memory allocator interface
-	);
-
-/*
-Use the following code to register your plug-in
-
-AK::SoundEngine::RegisterPlugin( AkPluginTypeEffect, 
-                                 AKCOMPANYID_IZOTOPE, 
-                                 IZEFFECTID_TRASHDYNAMICS,
-                                 CreateTrashDynamicsFX,
-                                 CreateTrashDynamicsFXParams );
-*/
-
+#if ( defined( AK_WIN ) && (!defined( AK_USE_METRO_API ) || _MSC_VER >= 1900)) || defined( AK_XBOX360 ) || defined( AK_PS3 ) || defined( AK_XBOXONE ) || defined( AK_PS4 ) || defined( AK_LINUX )
+AK_STATIC_LINK_PLUGIN(iZTrashDynamicsFX)
 #endif
-

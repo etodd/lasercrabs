@@ -4,7 +4,7 @@
 //
 // Default blocking low level IO hook (AK::StreamMgr::IAkIOHookBlocking) 
 // and file system (AK::StreamMgr::IAkFileLocationResolver) implementation 
-// on Windows and POSIX. It can be used as a standalone implementation of the 
+// on OS X. It can be used as a standalone implementation of the 
 // Low-Level I/O system.
 // 
 // AK::StreamMgr::IAkFileLocationResolver: 
@@ -16,9 +16,7 @@
 // at class CAkDefaultLowLevelIODispatcher).
 //
 // AK::StreamMgr::IAkIOHookBlocking: 
-// On POSIX, uses the C Standard Input and Output Library.
-// On Windows, uses platform API for I/O. Calls to ::ReadFile() and ::WriteFile() 
-// block because files are opened without the FILE_FLAG_OVERLAPPED flag. 
+// Uses the C Standard Input and Output Library.
 // The AK::StreamMgr::IAkIOHookBlocking interface is meant to be used with
 // AK_SCHEDULER_BLOCKING streaming devices. 
 //
@@ -42,7 +40,7 @@
 	AK::StreamMgr::GetDefaultDeviceSettings( deviceSettings );
 	CAkDefaultIOHookBlocking hookIOBlocking;
 	AKRESULT eResult = hookIOBlocking.Init( deviceSettings );
-	AKASSERT( AK_Success == eResult );
+	AKASSERT( AK_SUCCESS == eResult );
 */
 //
 // As part of a system with multiple devices (the File Location Resolver is 
@@ -63,7 +61,7 @@
 	AK::StreamMgr::GetDefaultDeviceSettings( deviceSettings );
 	CAkDefaultIOHookBlocking hookIOBlocking;
 	AKRESULT eResult = hookIOBlocking.Init( deviceSettings );
-	AKASSERT( AK_Success == eResult );
+	AKASSERT( AK_SUCCESS == eResult );
 
 	// Add it to the global File Location Resolver.
 	lowLevelIODispatcher.AddDevice( hookIOBlocking );
@@ -80,11 +78,7 @@
 #define _AK_DEFAULT_IO_HOOK_BLOCKING_H_
 
 #include <AK/SoundEngine/Common/AkStreamMgrModule.h>
-#if _WIN32
-#include "AkFileLocationBase.h"
-#else
 #include "AkFileHelpers.h"
-#endif
 
 //-----------------------------------------------------------------------------
 // Name: class CAkDefaultIOHookBlocking.
@@ -96,11 +90,7 @@
 //-----------------------------------------------------------------------------
 class CAkDefaultIOHookBlocking : public AK::StreamMgr::IAkFileLocationResolver
 								,public AK::StreamMgr::IAkIOHookBlocking
-#if _WIN32
-								,public CAkFileLocationBase
-#else
 								,public CAkMultipleFileLocation<CAkFileHelpers>
-#endif
 {
 public:
 
@@ -174,7 +164,7 @@ public:
     virtual void GetDeviceDesc(
         AkDeviceDesc &  		out_deviceDesc      // Device description.
         );
-
+		
 	// Returns custom profiling data: 1 if file opens are asynchronous, 0 otherwise.
 	virtual AkUInt32 GetDeviceData();
 

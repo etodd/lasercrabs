@@ -1,45 +1,12 @@
-//////////////////////////////////////////////////////////////////////
-//
-// Copyright (c) 2006 Audiokinetic Inc. / All Rights Reserved
-//
-//////////////////////////////////////////////////////////////////////
-// AkRoomVerbFXFactory.h
-
+#pragma once
 /// \file
-/// Plug-in unique ID and creation functions (hooks) necessary to register the RoomVerb reverb plug-in to the sound engine.
-/// <br><b>Wwise effect name:</b>  Wwise RoomVerb
+/// Registers the Wwise RoomVerb plugin automatically.
+/// This file should be included once in a .CPP (not a .h, really).  The simple inclusion of this file and the linking of the library is enough to use the plugin.
+/// <b>WARNING</b>: Include this file only if you wish to link statically with the plugins.  Dynamic Libaries (DLL, so, etc) are automatically detected and do not need this include file.
+/// <br><b>Wwise plugin name:</b>  Wwise RoomVerb
 /// <br><b>Library file:</b> AkRoomVerbFX.lib
 
-#ifndef _AK_ROOMVERBFXFACTORY_H_
-#define _AK_ROOMVERBFXFACTORY_H_
 
-#include <AK/SoundEngine/Common/IAkPlugin.h>
-
-/// - This is the Plug-in unique ID (when combined with Company ID AKCOMPANYID_AUDIOKINETIC)
-/// - This ID must be the same as the PluginID in the Plug-in's XML definition file, and is persisted in project files.
-/// \aknote Don't change the ID or existing projects will not recognize this plug-in anymore.
-const unsigned long AKEFFECTID_ROOMVERB = 118;
-
-/// Static creation function that returns an instance of the sound engine plug-in parameter node to be hooked by the sound engine plug-in manager.
-AK_FUNC( AK::IAkPluginParam *, CreateRoomVerbFXParams )(
-	AK::IAkPluginMemAlloc * in_pAllocator		///< Memory allocator interface.
-	);
-
-/// Static creation function that returns an instance of the sound engine plug-in to be hooked by the sound engine plug-in manager.
-AK_FUNC( AK::IAkPlugin*, CreateRoomVerbFX )(
-	AK::IAkPluginMemAlloc * in_pAllocator		///< Memory allocator interface.
-	);
-
-/*
-Use the following code to register your plug-in
-
-
-AK::SoundEngine::RegisterPlugin( AkPluginTypeEffect, 
-								 AKCOMPANYID_AUDIOKINETIC, 
-								 AKEFFECTID_ROOMVERB,
-								 CreateRoomVerbFX,
-								 CreateRoomVerbFXParams );
-*/
-
-#endif // _AK_ROOMVERBFXFACTORY_H_
-
+#if !defined AK_3DS && !defined AK_VITA_HW
+AK_STATIC_LINK_PLUGIN(AkRoomVerbFX)
+#endif

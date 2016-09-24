@@ -27,3 +27,8 @@
 
 #include <AK/SoundEngine/Platforms/POSIX/AkTypes.h>
 
+#if defined AK_CPU_ARM_NEON || defined AK_CPU_X86 || defined AK_CPU_X86_64
+#define AKSIMD_V4F32_SUPPORTED
+#endif
+
+

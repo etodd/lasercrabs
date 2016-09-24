@@ -34,20 +34,13 @@ struct AkPlatformInitSettings
 	AkUInt16            uNumRefillsInVoice;		///< Number of refill buffers in voice buffer. 2 == double-buffered, defaults to 4.
 };
 
-///< API used for audio output
-///< Use with AkInitSettings to select the API used for audio output.
-///< \sa AK::SoundEngine::Init
-enum AkAudioAPI
-{
-	AkAPI_Default = 1 << 0,		///< Default audio subsystem
-	AkAPI_Dummy = 1 << 2,		///< Dummy output, simply eats the audio stream and outputs nothing.
-};
-
 ///< Used with \ref AK::SoundEngine::AddSecondaryOutput to specify the type of secondary output.
 enum AkAudioOutputType
 {
-	AkOutput_Dummy = 1 << 2,		///< Dummy output, simply eats the audio stream and outputs nothing.
-	AkOutput_MergeToMain = 1 << 3,	///< This output will mix back its content to the main output, after the master mix.
-	AkOutput_Main = 1 << 4,			///< Main output.  This cannot be used with AddSecondaryOutput, but can be used to query information about the main output (GetSpeakerConfiguration for example).	
-	AkOutput_NumOutputs = 1 << 5,	///< Do not use.
+	AkOutput_None = 0,		///< Used for uninitialized type, do not use.
+	AkOutput_Dummy,			///< Dummy output, simply eats the audio stream and outputs nothing.
+	AkOutput_Main,			///< Main output.  This cannot be used with AddSecondaryOutput, but can be used to query information about the main output (GetSpeakerConfiguration for example).	
+	AkOutput_MergeToMain,	///< This output will mix back its content to the main output, after the master mix.
+	AkOutput_NumBuiltInOutputs,		///< Do not use.
+	AkOutput_Plugin			///< Specify if using Audio Device Plugin Sink.
 };

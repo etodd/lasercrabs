@@ -83,14 +83,14 @@ struct AkCommSettings
 	/// - AK::Comm::Init()
 	Ports ports;	
 
-	///< Tells if the base console communication library should be initialized.  
-	///< If set to false, the game should load/initialize the console's communication library prior to calling this function.
-	///< Set to false only if your game already use sockets before the sound engine initialization.
-	///< Some consoles have critical requirements for initialization, see \ref initialization_comm_console_lib
+	/// Tells if the base console communication library should be initialized.  
+	/// If set to false, the game should load/initialize the console's communication library prior to calling this function.
+	/// Set to false only if your game already use sockets before the sound engine initialization.
+	/// Some consoles have critical requirements for initialization, see \ref initialization_comm_console_lib
 	bool bInitSystemLib;
 
-	///< Optional name that will be displayed over network remote connection of Wwise.
-	///< It must be a NULL terminated string.
+	/// Optional name that will be displayed over network remote connection of Wwise.
+	/// It must be a NULL terminated string.
 	char szAppNetworkName[AK_COMM_SETTINGS_MAX_STRING_SIZE];
 };
 
@@ -126,6 +126,10 @@ namespace AK
         AK_EXTERNAPIFUNC( AKRESULT, Init )(
 			const AkCommSettings &	in_settings///< Initialization settings.			
 			);
+
+		/// Gets the last error from the OS-specific communication library.
+		/// \return The system error code.  Check the code in the platform manufacturer documentation for details about the error.
+		AK_EXTERNAPIFUNC(AkInt32, GetLastError());
 
 		/// Gets the communication module's default initialization settings values.
 		/// \sa

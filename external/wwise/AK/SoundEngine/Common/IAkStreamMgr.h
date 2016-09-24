@@ -82,7 +82,9 @@ struct AkFileSystemFlags
 											///< If you pass an AkFileSystemFlags to IAkStreamMgr CreateStd|Auto(), it will be set internally to the correct value.
 	AkFileID			uCacheID;			///< Cache ID for caching system used by automatic streams. The user is responsible for guaranteeing unicity of IDs. 
 											///< When set, it supersedes the file ID passed to AK::IAkStreamMgr::CreateAuto() (ID version). Caching is optional and depends on the implementation.
-	AkUInt32			uNumBytesPrefetch;	///< For prefetch streams, indicates number of bytes to lock in cache.
+	AkUInt32			uNumBytesPrefetch;	///< Indicates the number of bytes from the beginning of the file that should be streamed into cache via a caching stream. This field is only relevant when opening caching streams via 
+											///< AK::IAkStreamMgr::PinFileInCache() and AK::SoundEngine::PinEventInStreamCache().  When using AK::SoundEngine::PinEventInStreamCache(), 
+											///< it is initialized to the prefetch size stored in the sound bank, but may be changed by the file location resolver, or set to 0 to cancel caching.
 };
 
 /// Stream information.
@@ -722,8 +724,14 @@ namespace AK
 		/// Start streaming the first "in_pFSFlags->uNumBytesPrefetch" bytes of the file with id "in_fileID" into cache.  The stream will be scheduled only after
 		/// all regular streams (not file caching streams) are serviced.  The file will stay cached until either the UnpinFileInCache is called,
 		/// or the limit as set by uMaxCachePinnedBytes is reached and another higher priority file (in_uPriority) needs the space.  
+		/// /remarks PinFileInCache()/UnpinFileInCache()/UpdateCachingPriority() are typically not used directly, but instead used via the AK::SoundEngine::PinEventInStreamCache() API. 
+		///		Using PinFileInCache() directly does not allow users to take advantage of sound bank data.  The file and the number of bytes they wish to cache must be explicitly specified.
+		/// 
 		/// \sa
 		/// - \ref streamingdevicemanager
+		/// - AK::SoundEngine::PinEventInStreamCache
+		/// - AK::SoundEngine::UnpinEventInStreamCache
+		/// - AkFileSystemFlags
 		virtual AKRESULT PinFileInCache(
 			AkFileID                    in_fileID,          ///< Application-defined ID
 			AkFileSystemFlags *         in_pFSFlags,        ///< Special file system flags (can NOT pass NULL)
@@ -733,8 +741,12 @@ namespace AK
 		/// Un-pin a file that has been previouly pinned into cache.  This function must be called once for every call to PinFileInCache() with the same file id.
 		/// The file may still remain in stream cache after this is called, until the memory is reused by the streaming memory manager in accordance with to its 
 		/// cache management algorithm.
+		/// /remarks PinFileInCache()/UnpinFileInCache()/UpdateCachingPriority() are typically not used directly, but instead used via the AK::SoundEngine::PinEventInStreamCache() API. 
+		///		Using UnpinFileInCache() directly does not allow users to take advantage of sound bank data.  The file must be explicitly specified.
 		/// \sa
 		/// - \ref streamingdevicemanager
+		/// - AK::SoundEngine::PinEventInStreamCache
+		/// - AK::SoundEngine::UnpinEventInStreamCache
 		virtual AKRESULT UnpinFileInCache(
 			AkFileID                    in_fileID,          	///< Application-defined ID
 			AkPriority					in_uPriority 		///< Priority of stream that you are unpinning
@@ -742,8 +754,12 @@ namespace AK
 		
 		/// Update the priority of the caching stream.  Higher priority streams will be serviced before lower priority caching streams, and will be more likely to stay in 
 		/// memory if the cache pin limit as set by "uMaxCachePinnedBytes" is reached.
+		/// /remarks PinFileInCache()/UnpinFileInCache()/UpdateCachingPriority() are typically not used directly, but instead used via the AK::SoundEngine::PinEventInStreamCache() API. 
+		///		Using UpdateCachingPriority() directly does not allow users to take advantage of sound bank data.  The file must be explicitly specified.
 		/// \sa
 		/// - \ref streamingdevicemanager
+		/// - AK::SoundEngine::PinEventInStreamCache
+		/// - AK::SoundEngine::UnpinEventInStreamCache
 		virtual AKRESULT UpdateCachingPriority(
 			AkFileID                    in_fileID,			///< Application-defined ID
 			AkPriority					in_uPriority, 		///< Priority

@@ -76,6 +76,7 @@ static const AkBankID					AK_INVALID_BANK_ID					=  AK_INVALID_UNIQUE_ID;///< In
 static const AkArgumentValueID			AK_FALLBACK_ARGUMENTVALUE_ID		=  0;					///< Fallback argument value ID
 static const AkChannelMask				AK_INVALID_CHANNELMASK				=  0;					///< Invalid channel mask
 static const AkUInt32					AK_INVALID_OUTPUT_DEVICE_ID			=  AK_INVALID_UNIQUE_ID;///< Invalid Device ID
+static const AkUInt32					AK_MIXER_FX_SLOT					= (AkUInt32)-1;			///< Mixer slot
 
 // Priority.
 static const AkPriority					AK_DEFAULT_PRIORITY					=  50;					///< Default sound / I/O priority
@@ -87,24 +88,7 @@ static const AkPriority					AK_DEFAULT_BANK_IO_PRIORITY			= AK_DEFAULT_PRIORITY;
 static const AkReal32					AK_DEFAULT_BANK_THROUGHPUT			= 1*1024*1024/1000.f;	///<  Default bank load throughput (1 Mb/ms)
 
 // Bank version
-static const AkUInt32					AK_SOUNDBANK_VERSION =				113;					///<  Version of the soundbank reader
-
-// Legacy: define fixed maximum number of channels for platforms that don't support 7.1 (and above).
-#if defined(AK_71AUDIO)
-#define AK_STANDARD_MAX_NUM_CHANNELS			(8)							///< Platform supports at least 7.1
-#elif defined(AK_LFECENTER) && defined(AK_REARCHANNELS)
-#define AK_VOICE_MAX_NUM_CHANNELS				(6)							///< Platform supports up to 5.1 configuration.
-#define AK_STANDARD_MAX_NUM_CHANNELS			(AK_VOICE_MAX_NUM_CHANNELS)	///< Platform supports 5.1
-#elif defined(AK_REARCHANNELS)
-	#ifdef AK_WII
-		#define AK_VOICE_MAX_NUM_CHANNELS		(2)							///< Platform supports up to stereo configuration.
-	#else
-		#define AK_VOICE_MAX_NUM_CHANNELS		(4)							///< Platform supports up to 4.0 configuration.
-	#endif
-#else 
-#define AK_VOICE_MAX_NUM_CHANNELS				(2)							///< Platform supports up to stereo configuration.
-#define AK_STANDARD_MAX_NUM_CHANNELS			(AK_VOICE_MAX_NUM_CHANNELS)	///< Platform supports stereo.
-#endif
+static const AkUInt32					AK_SOUNDBANK_VERSION =				118;					///<  Version of the soundbank reader
 
 /// Standard function call result.
 enum AKRESULT
@@ -191,7 +175,8 @@ enum AKRESULT
 	AK_MustBeVirtualized		= 80,	///< Sound was Not Allowed to play.
 	AK_CommandTooLarge			= 81,	///< SDK command is too large to fit in the command queue.
 	AK_RejectedByFilter			= 82,	///< A play request was rejected due to the MIDI filter parameters.
-	AK_InvalidCustomPlatformName= 83	///< Detecting incompatibility between Custom platform of banks and custom platform of connected application
+	AK_InvalidCustomPlatformName= 83,	///< Detecting incompatibility between Custom platform of banks and custom platform of connected application
+	AK_DLLCannotLoad			= 84	///< DLL could not be loaded, either because it is not found or one dependency is missing.
 };
 
 /// Game sync group type
@@ -284,19 +269,138 @@ struct AkVector
     AkReal32		Z;	///< Z Position
 };
 
-/// Positioning information for a sound.
-struct AkSoundPosition
+/// Position and orientation of game objects.
+class AkTransform
 {
-	AkVector		Position;		///< Position of the sound
-	AkVector		Orientation;	///< Orientation of the sound
+public:
+	//
+	// Getters.
+	//
+
+	/// Get position vector.
+	inline const AkVector & Position() const
+	{
+		return position;
+	}
+
+	/// Get orientation front vector.
+	inline const AkVector & OrientationFront() const
+	{
+		return orientationFront;
+	}
+
+	/// Get orientation top vector.
+	inline const AkVector & OrientationTop() const
+	{
+		return orientationTop;
+	}
+
+	//
+	// Setters.
+	//
+
+	/// Set position and orientation. Orientation front and top should be orthogonal and normalized.
+	inline void Set(
+		const AkVector & in_position,			///< Position vector.
+		const AkVector & in_orientationFront,	///< Orientation front
+		const AkVector & in_orientationTop		///< Orientation top
+		)
+	{
+		position = in_position;
+		orientationFront = in_orientationFront;
+		orientationTop = in_orientationTop;
+	}
+
+	/// Set position and orientation. Orientation front and top should be orthogonal and normalized.
+	inline void Set(
+		AkReal32 in_positionX,					///< Position x
+		AkReal32 in_positionY,					///< Position y
+		AkReal32 in_positionZ,					///< Position z
+		AkReal32 in_orientFrontX,				///< Orientation front x
+		AkReal32 in_orientFrontY,				///< Orientation front y
+		AkReal32 in_orientFrontZ,				///< Orientation front z
+		AkReal32 in_orientTopX,					///< Orientation top x
+		AkReal32 in_orientTopY,					///< Orientation top y
+		AkReal32 in_orientTopZ					///< Orientation top z
+		)
+	{
+		position.X = in_positionX;
+		position.Y = in_positionY;
+		position.Z = in_positionZ;
+		orientationFront.X = in_orientFrontX;
+		orientationFront.Y = in_orientFrontY;
+		orientationFront.Z = in_orientFrontZ;
+		orientationTop.X = in_orientTopX;
+		orientationTop.Y = in_orientTopY;
+		orientationTop.Z = in_orientTopZ;
+	}
+	
+	/// Set position.
+	inline void SetPosition(
+		const AkVector & in_position			///< Position vector.
+		)
+	{
+		position = in_position;
+	}
+
+	/// Set position.
+	inline void SetPosition(
+		AkReal32 in_x,							///< x
+		AkReal32 in_y,							///< y
+		AkReal32 in_z							///< z
+		)
+	{
+		position.X = in_x;
+		position.Y = in_y;
+		position.Z = in_z;
+	}
+
+	/// Set orientation. Orientation front and top should be orthogonal and normalized.
+	inline void SetOrientation(
+		const AkVector & in_orientationFront,	///< Orientation front
+		const AkVector & in_orientationTop		///< Orientation top
+		)
+	{
+		orientationFront = in_orientationFront;	
+		orientationTop = in_orientationTop;
+	}	
+
+	/// Set orientation. Orientation front and top should be orthogonal and normalized.
+	inline void SetOrientation(
+		AkReal32 in_orientFrontX,				///< Orientation front x
+		AkReal32 in_orientFrontY,				///< Orientation front y
+		AkReal32 in_orientFrontZ,				///< Orientation front z
+		AkReal32 in_orientTopX,					///< Orientation top x
+		AkReal32 in_orientTopY,					///< Orientation top y
+		AkReal32 in_orientTopZ					///< Orientation top z
+		)
+	{
+		orientationFront.X = in_orientFrontX;
+		orientationFront.Y = in_orientFrontY;
+		orientationFront.Z = in_orientFrontZ;
+		orientationTop.X = in_orientTopX;
+		orientationTop.Y = in_orientTopY;
+		orientationTop.Z = in_orientTopZ;
+	}
+
+private:
+	AkVector		orientationFront;	///< Orientation of the listener
+	AkVector		orientationTop;		///< Top orientation of the listener
+	AkVector		position;			///< Position of the listener
 };
 
+/// Positioning information for a sound.
+typedef AkTransform AkSoundPosition;
+
 /// Positioning information for a listener.
-struct AkListenerPosition
+typedef AkTransform AkListenerPosition;
+
+
+/// Positioning information for a sound, with specified subset of its channels.
+struct AkChannelEmitter
 {
-	AkVector		OrientationFront;	///< Orientation of the listener
-	AkVector		OrientationTop;		///< Top orientation of the listener
-	AkVector		Position;			///< Position of the listener
+	AkTransform		position;		///< Emitter position.
+	AkChannelMask	uInputChannels;	///< Channels to which the above position applies.
 };
 
 /// Polar coordinates.
@@ -324,6 +428,7 @@ public:
 		, fDryMixGain( 1.f )
 		, fGameDefAuxMixGain( 1.f )
 		, fUserDefAuxMixGain( 1.f )
+		, uEmitterChannelMask( 0xFFFFFFFF )
 		, m_uListenerMask( 0 )
 	{
 		r = 0;
@@ -375,10 +480,12 @@ public:
 		return uListenerIdx; 
 	}
 
+	AkTransform emitter;		/// Emitter position.
 	AkReal32 fEmitterAngle;		/// Angle between position vector and emitter orientation.
 	AkReal32 fDryMixGain;		/// Emitter-listener-pair-specific gain (due to distance and cone attenuation) for direct connections.
 	AkReal32 fGameDefAuxMixGain;/// Emitter-listener-pair-specific gain (due to distance and cone attenuation) for game-defined send connections.
 	AkReal32 fUserDefAuxMixGain;/// Emitter-listener-pair-specific gain (due to distance and cone attenuation) for user-defined send connections.
+	AkChannelMask uEmitterChannelMask;	/// Channels of the emitter that apply to this ray.
 protected:
 	AkUInt8 m_uListenerMask;	/// Listener mask (in the 3D case, only one bit should be set).
 };
@@ -434,11 +541,11 @@ enum AkCurveInterpolation
 #define AK_NUM_LISTENERS						(8)	///< Number of listeners that can be used.
 #define AK_LISTENERS_MASK_ALL					(0xFFFFFFFF)	///< All listeners.
 
-/// Auxiliary bus sends information per game object per given auxilliary bus.
+/// Auxiliary bus sends information per game object per given auxiliary bus.
 struct AkAuxSendValue
 {
 	AkAuxBusID auxBusID;	///< Auxilliary bus ID.
-	AkReal32 fControlValue; ///< Value in the range [0.0f:1.0f], send level to auxilliary bus.	
+	AkReal32 fControlValue; ///< Value in the range [0.0f:1.0f], send level to auxiliary bus.	
 };
 
 /// Volume ramp specified by end points "previous" and "next".
@@ -530,6 +637,14 @@ namespace AK
 #define AKCOMPANYID_IOSONO				(262)	///< IOSONO
 #define AKCOMPANYID_AUROTECHNOLOGIES	(263)	///< Auro Technologies
 #define AKCOMPANYID_DOLBY				(264)	///< Dolby
+#define AKCOMPANYID_TWOBIGEARS			(265)	///< Two Big Ears
+#define AKCOMPANYID_OCULUS				(266)	///< Oculus
+#define AKCOMPANYID_BLUERIPPLESOUND		(267)	///< Blue Ripple Sound
+#define AKCOMPANYID_ENZIEN				(268)	///< Enzien Audio
+#define AKCOMPANYID_KROTOS				(269)	///< Krotos (Dehumanizer)
+#define AKCOMPANYID_NURULIZE			(270) 	///< Nurulize
+#define AKCOMPANYID_SUPERPOWERED		(271)	///< Super Powered
+#define AKCOMPANYID_GOOGLE				(272)	///< Google
 
 // File/encoding types of Audiokinetic.
 #define AKCODECID_BANK                  (0)		///< Bank encoding
@@ -554,6 +669,7 @@ namespace AK
 #define	AK_WAVE_FORMAT_AT9				0xFFFC
 #define	AK_WAVE_FORMAT_VORBIS  			0xFFFF
 #define	AK_WAVE_FORMAT_AAC				0xAAC0
+#define WAVE_FORMAT_XMA2				0x166
 
 class IAkSoftwareCodec;
 /// Registered file source creation function prototype.
@@ -600,8 +716,8 @@ enum AkPositionSourceType
 /// Headphone / speakers panning rules
 enum AkPanningRule
 {
-	AkPanningRule_Speakers		= 0,	///< Left and right positioned 90 degrees apart
-	AkPanningRule_Headphones 	= 1		///< Left and right positioned 180 degrees apart
+	AkPanningRule_Speakers		= 0,	///< Left and right positioned 60 degrees apart (by default - see AK::SoundEngine::GetSpeakerAngles()).
+	AkPanningRule_Headphones 	= 1		///< Left and right positioned 180 degrees apart.
 };
 
 /// Bus type bit field.
@@ -697,8 +813,16 @@ namespace AkFileParser
 #define AK_OS_STRUCT_ALIGN	4				///< OS Structures need to be aligned at 4 bytes.
 #endif
 
+#if !defined(AK_ENDIANNESS_LITTLE) && !defined(AK_ENDIANNESS_BIG)
+#define AK_ENDIANNESS_LITTLE
+#endif
+
 #ifndef AK_UNALIGNED
 #define AK_UNALIGNED						///< Refers to the __unaligned compilation flag available on some platforms. Note that so far, on the tested platform this should always be placed before the pointer symbol *.
+#endif
+
+#ifndef AK_ASYNC_OPEN_DEFAULT
+#define AK_ASYNC_OPEN_DEFAULT	(false)				///< Refers to asynchronous file opening in default low-level IO.
 #endif
 
 #ifndef AK_COMM_DEFAULT_DISCOVERY_PORT
@@ -713,8 +837,6 @@ typedef AkInt16		AkCaptureType;			///< Default value: capture type is short.
 	#define AK_POINTER_64
 #endif // #if defined(AK_CPU_X86_64) || defined(AK_CPU_ARM_64)
 
-#if !defined(AkRegister)
-	#define AkRegister register
-#endif
+#define AkRegister
 
 #endif  //_AK_DATA_TYPES_H_

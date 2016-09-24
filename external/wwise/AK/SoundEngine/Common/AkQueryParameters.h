@@ -134,45 +134,75 @@ namespace AK
 				RTPCValue_Default,		///< The value is the Default RTPC.
 				RTPCValue_Global,		///< The value is the Global RTPC.
 				RTPCValue_GameObject,	///< The value is the game object specific RTPC.
+				RTPCValue_PlayingID,	///< The value is the playing ID specific RTPC.
 				RTPCValue_Unavailable	///< The value is not available for the RTPC specified.
 			};
 
-			/// Get the value of a real-time parameter control (by ID).
+			/// Get the value of a real-time parameter control (by ID)
+			/// An RTPC can have a any combination of a global value, a unique value for each game object, or a unique value for each playing ID.  
+			/// The value requested is determined by RTPCValue_type, in_gameObjectID and in_playingID.  
+			/// If a value at the requested scope (determined by RTPCValue_type) is not found, the value that is available at the the next broadest scope will be returned, and io_rValueType will be changed to indicate this.
+			/// \note
+			///		When looking up RTPC values via playing ID (ie. io_rValueType is RTPC_PlayingID), in_gameObjectID can be set to a specific game object (if it is available to the caller) to use as a fall back value.
+			///		If the game object is unknown or unavailable, AK_INVALID_GAME_OBJECT can be passed in in_gameObjectID, and the game object will be looked up via in_playingID.  
+			///		However in this case, it is not possible to retrieve a game object value as a fall back value if the playing id does not exist.  It is best to pass in the game object if possible.
+			///		
 			/// \return AK_Success if succeeded, AK_IDNotFound if the game object was not registered, or AK_Fail if the RTPC value could not be obtained
 			/// \sa 
 			/// - \ref soundengine_rtpc
 			/// - \ref RTPCValue_type
-			AK_EXTERNAPIFUNC( AKRESULT, GetRTPCValue )( 
+			AK_EXTERNAPIFUNC(AKRESULT, GetRTPCValue)(
 				AkRtpcID in_rtpcID, 				///< ID of the RTPC
-				AkGameObjectID in_gameObjectID,		///< Associated game object ID
+				AkGameObjectID in_gameObjectID,		///< Associated game object ID, ignored if io_rValueType is RTPCValue_Global.
+				AkPlayingID	in_playingID,			///< Associated playing ID, ignored if io_rValueType is not RTPC_PlayingID.
 				AkRtpcValue& out_rValue, 			///< Value returned
 				RTPCValue_type&	io_rValueType		///< In/Out value, the user must specify the requested type. The function will return in this variable the type of the returned value.
 				);
 
 #ifdef AK_SUPPORT_WCHAR
-			/// Get the value of a real-time parameter control.
+
+			/// Get the value of a real-time parameter control (by ID)
+			/// An RTPC can have a any combination of a global value, a unique value for each game object, or a unique value for each playing ID.  
+			/// The value requested is determined by RTPCValue_type, in_gameObjectID and in_playingID.  
+			/// If a value at the requested scope (determined by RTPCValue_type) is not found, the value that is available at the the next broadest scope will be returned, and io_rValueType will be changed to indicate this.
+			/// \note
+			///		When looking up RTPC values via playing ID (ie. io_rValueType is RTPC_PlayingID), in_gameObjectID can be set to a specific game object (if it is available to the caller) to use as a fall back value.
+			///		If the game object is unknown or unavailable, AK_INVALID_GAME_OBJECT can be passed in in_gameObjectID, and the game object will be looked up via in_playingID.  
+			///		However in this case, it is not possible to retrieve a game object value as a fall back value if the playing id does not exist.  It is best to pass in the game object if possible.
+			///		
 			/// \return AK_Success if succeeded, AK_IDNotFound if the game object was not registered or the rtpc name could not be found, or AK_Fail if the RTPC value could not be obtained
 			/// \sa 
 			/// - \ref soundengine_rtpc
 			/// - \ref RTPCValue_type
-			AK_EXTERNAPIFUNC( AKRESULT, GetRTPCValue )( 
+			AK_EXTERNAPIFUNC(AKRESULT, GetRTPCValue)(
 				const wchar_t* in_pszRtpcName,		///< String name of the RTPC
-				AkGameObjectID in_gameObjectID,		///< Associated game object ID
+				AkGameObjectID in_gameObjectID,		///< Associated game object ID, ignored if io_rValueType is RTPCValue_Global.
+				AkPlayingID	in_playingID,			///< Associated playing ID, ignored if io_rValueType is not RTPC_PlayingID.
 				AkRtpcValue& out_rValue, 			///< Value returned
-				RTPCValue_type&	io_rValueType		///< In/Out value, the user must specify the requested type. The function will return in this variable the type of the returned value.
+				RTPCValue_type&	io_rValueType		///< In/Out value, the user must specify the requested type. The function will return in this variable the type of the returned value.				);
 				);
+
 #endif //AK_SUPPORT_WCHAR
 
-			/// Get the value of a real-time parameter control.
+			/// Get the value of a real-time parameter control (by ID)
+			/// An RTPC can have a any combination of a global value, a unique value for each game object, or a unique value for each playing ID.  
+			/// The value requested is determined by RTPCValue_type, in_gameObjectID and in_playingID.  
+			/// If a value at the requested scope (determined by RTPCValue_type) is not found, the value that is available at the the next broadest scope will be returned, and io_rValueType will be changed to indicate this.
+			/// \note
+			///		When looking up RTPC values via playing ID (ie. io_rValueType is RTPC_PlayingID), in_gameObjectID can be set to a specific game object (if it is available to the caller) to use as a fall back value.
+			///		If the game object is unknown or unavailable, AK_INVALID_GAME_OBJECT can be passed in in_gameObjectID, and the game object will be looked up via in_playingID.  
+			///		However in this case, it is not possible to retrieve a game object value as a fall back value if the playing id does not exist.  It is best to pass in the game object if possible.
+			///		
 			/// \return AK_Success if succeeded, AK_IDNotFound if the game object was not registered or the rtpc name could not be found, or AK_Fail if the RTPC value could not be obtained
 			/// \sa 
 			/// - \ref soundengine_rtpc
 			/// - \ref RTPCValue_type
-			AK_EXTERNAPIFUNC( AKRESULT, GetRTPCValue )( 
+			AK_EXTERNAPIFUNC(AKRESULT, GetRTPCValue)(
 				const char* in_pszRtpcName,			///< String name of the RTPC
-				AkGameObjectID in_gameObjectID,		///< Associated game object ID
+				AkGameObjectID in_gameObjectID,		///< Associated game object ID, ignored if io_rValueType is RTPCValue_Global.
+				AkPlayingID	in_playingID,			///< Associated playing ID, ignored if io_rValueType is not RTPC_PlayingID.
 				AkRtpcValue& out_rValue, 			///< Value returned
-				RTPCValue_type&	io_rValueType		///< In/Out value, the user must specify the requested type. The function will return in this variable the type of the returned value.
+				RTPCValue_type&	io_rValueType		///< In/Out value, the user must specify the requested type. The function will return in this variable the type of the returned value.				);
 				);
 
 			/// Get the state of a switch group (by IDs).
@@ -479,15 +509,15 @@ namespace AK
 
 			/// Get the value of a custom property of integer or boolean type.
 			AK_EXTERNAPIFUNC( AKRESULT, GetCustomPropertyValue )(
-				AkUniqueID in_ObjectID,		///< Object ID
-				AkUInt32 in_uPropID,			///< Property ID
+				AkUniqueID in_ObjectID,			///< Object ID, this is the 32bit ShortID of the AudioFileSource or Sound object found in the .wwu XML file. At runtime it can only be retrieved by the AK_Duration callback when registered with PostEvent(), or by calling Query::QueryAudioObjectIDs() to get all the shortIDs associated with an event.
+				AkUInt32 in_uPropID,			///< Property ID of your custom property found under the Custom Properties tab of the Wwise project settings.
 				AkInt32& out_iValue				///< Property Value
 				);
 
 			/// Get the value of a custom property of real type.
 			AK_EXTERNAPIFUNC( AKRESULT, GetCustomPropertyValue )(
-				AkUniqueID in_ObjectID,		///< Object ID
-				AkUInt32 in_uPropID,			///< Property ID
+				AkUniqueID in_ObjectID,			///< Object ID, this is the 32bit ShortID of the AudioFileSource or Sound object found in the .wwu XML file. At runtime it can only be retrieved by the AK_Duration callback when registered with PostEvent(), or by calling Query::QueryAudioObjectIDs() to get all the shortIDs associated with an event.
+				AkUInt32 in_uPropID,			///< Property ID of your custom property found under the Custom Properties tab of the Wwise project settings.
 				AkReal32& out_fValue			///< Property Value
 				);
 

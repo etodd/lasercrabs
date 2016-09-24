@@ -129,11 +129,6 @@ void render_init();
 void render(RenderSync*);
 b8 compile_shader(const char*, const char*, s32, u32*, const char* = 0);
 
-struct TechniquePrefixes
-{
-	static const char* all[];
-};
-
 enum class RenderTechnique
 {
 	Default,

@@ -68,7 +68,11 @@
 #elif defined( AK_LINUX )
 
 	#include <AK/SoundEngine/Platforms/Linux/AkSimd.h>
-	
+
+#elif defined( AK_EMSCRIPTEN )
+
+	#include <AK/SoundEngine/Platforms/Emscripten/AkSimd.h>
+
 #elif defined( AK_QNX )
 
 	#include <AK/SoundEngine/Platforms/QNX/AkSimd.h>

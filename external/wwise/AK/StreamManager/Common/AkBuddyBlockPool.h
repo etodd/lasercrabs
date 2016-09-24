@@ -34,9 +34,11 @@ private:
 	{
 		MemBlock* pNextItem;
 
-#ifdef CHECK_POOL
+#ifdef AK_CHECK_POOL
 		MemBlock() : pNextItem(NULL), uSentinel(0xBBBBBBBB) {}
 		AkUInt32 uSentinel;
+#else
+		MemBlock() : pNextItem(NULL) {}
 #endif
 	};
 
@@ -154,7 +156,8 @@ public:
 	{
 		CHECK_POOL();
 		AKASSERT(in_uNumBytes <= m_uMaxBlockSize);
-		AKASSERT( in_pMem >= m_pMem && (AkUInt8*)in_pMem < (AkUInt8*)m_pMem + m_uPoolSize);
+		// Ensure the entire range of free'd bytes is within the pool.
+		AKASSERT( in_pMem >= m_pMem && (AkUInt8*)in_pMem + in_uNumBytes <= (AkUInt8*)m_pMem + m_uPoolSize);
 
 		CoalesceMem((AkUInt32)((AkUInt8*)in_pMem - (AkUInt8*)m_pMem), in_uNumBytes);
 
@@ -189,7 +192,7 @@ private:
 
 	inline AkUInt32 BlockAddress(MemBlock* in_pBlock)
 	{
-#ifdef CHECK_POOL
+#ifdef AK_CHECK_POOL
 		AKASSERT(in_pBlock->uSentinel == 0xBBBBBBBB);
 #endif
 		return (AkUInt32)((AkUInt8*)in_pBlock - (AkUInt8*)m_pMem);
@@ -466,6 +469,7 @@ public:
 #endif
 	}
 
+#ifdef AK_CHECK_POOL
 	void CheckPool()
 	{
 		AkUInt32 uTotalFreeBytes = 0;
@@ -495,6 +499,7 @@ public:
 		AKASSERT(uTotalFreeBytes <= m_uPoolSize);
 		AKASSERT(m_Stats.uUsed + m_uInternalFrag + uTotalFreeBytes == m_uPoolSize);
 	}
+#endif
 
 	void UpdateMaxFreeBlock()
 	{

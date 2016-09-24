@@ -78,8 +78,37 @@ namespace AK
 			/// Get the path to the registry for the current project. This path is to be used with
 			/// the HKEY_CURRENT_USER registry key.
 			/// \warning This function is not thread-safe.
-			/// \return A string containing the registry path
+			/// \return A string containing the registry path.
 			virtual LPCWSTR GetRegistryPath() = 0;
+
+			/// Set DWORD value in user preferences.
+			/// \warning This function is not thread-safe.
+			virtual void SetUserPreferenceDword(
+				LPCWSTR in_pszPreference,		///< Name of preference
+				DWORD in_dwValue				///< Value to set in user preferences.
+				) = 0;
+
+			/// Get DWORD value in user preferences.
+			/// \warning This function is not thread-safe.
+			virtual void GetUserPreferenceDword(
+				LPCWSTR in_pszPreference,		///< Name of preference
+				DWORD& io_dwValue				///< in: value to return if preference is not set; out: changed to user preference value if set
+				) = 0;
+
+			/// Set string value in user preferences.
+			/// \warning This function is not thread-safe.
+			virtual void SetUserPreferenceString(
+				LPCWSTR in_pszPreference,		///< Name of preference
+				LPCWSTR in_pszValue				///< Value to set in user preferences.
+				) = 0;
+
+			/// Get string value from user preferences.
+			/// \warning This function is not thread-safe.
+			virtual void GetUserPreferenceString(
+				LPCWSTR in_pszPreference,		///< Name of preference
+				LPWSTR io_pszValue,				///< in: value to return if preference is not set; out: changed to user preference value if set
+				DWORD in_dwSize					///< Size of out_pszValue buffer.
+				) = 0;
 
 			/// Get the root path for a move operation.  
 			/// The input file can either be a work unit or a source file

@@ -26,7 +26,7 @@ namespace AK
 		/// Motion device bus plugin interface.  This represent a device bus in Wwise.
 		/// \warning The functions in this interface are not thread-safe, unless stated otherwise.
 		/// \warning For internal use only.
-		class IMotionBusPlugin : public IAudioPlugin
+		class IMotionBusPlugin : public DefaultAudioPluginImplementation
 		{
 		public:
 			/// Returns if the data type is compatible with the device
@@ -35,7 +35,7 @@ namespace AK
 		};
 
 		///Interfaces for motion device source plugins.  Currently used only to discriminate with audio plugins.
-		class IMotionSourcePlugin : public IAudioPlugin
+		class IMotionSourcePlugin : public DefaultAudioPluginImplementation
 		{
 		};		
 	}

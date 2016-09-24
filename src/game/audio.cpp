@@ -15,7 +15,7 @@
 #include <AK/Tools/Common/AkPlatformFuncs.h>
 #include <AK/SoundEngine/Common/AkSoundEngine.h>
 #include <AK/MusicEngine/Common/AkMusicEngine.h>
-#include <AK/Plugin/AkVorbisFactory.h>
+#include <AK/Plugin/AkVorbisDecoderFactory.h>
 #if DEBUG
 	#include <AK/Comm/AkCommunication.h>
 #endif
@@ -67,7 +67,7 @@ void Audio::update() {}
 void Audio::post_global_event(AkUniqueID) {}
 b8 Audio::post_dialogue_event(AkUniqueID) { return true; }
 void Audio::post_global_event(AkUniqueID, const Vec3&) {}
-void Audio::post_global_event(AkUniqueID, const Vec3&, const Vec3&) {}
+void Audio::post_global_event(AkUniqueID, const Vec3&, const Quat&) {}
 void Audio::global_param(AkRtpcID, AkRtpcValue) {}
 void Audio::listener_enable(u32) {}
 void Audio::listener_disable(u32) {}
@@ -145,11 +145,6 @@ b8 Audio::init()
 	}
 #endif
 
-	AK::SoundEngine::RegisterCodec( AKCOMPANYID_AUDIOKINETIC, 
-									AKCODECID_VORBIS, 
-									CreateVorbisFilePlugin, 
-									CreateVorbisBankPlugin);
-
 	// Game object for global events
 	AK::SoundEngine::RegisterGameObj(MAX_ENTITIES);
 
@@ -204,13 +199,10 @@ void Audio::update()
 			transform->absolute(&pos, &rot);
 
 			AkSoundPosition sound_position;
-			sound_position.Position.X = pos.x;
-			sound_position.Position.Y = pos.y;
-			sound_position.Position.Z = pos.z;
+			sound_position.SetPosition(pos.x, pos.y, pos.z);
 			Vec3 forward = rot * Vec3(0, 0, -1.0f);
-			sound_position.Orientation.X = forward.x;
-			sound_position.Orientation.Y = forward.y;
-			sound_position.Orientation.Z = forward.z;
+			Vec3 up = rot * Vec3(0, 1.0f, 0.0f);
+			sound_position.SetOrientation(forward.x, forward.y, forward.z, up.x, up.y, up.z);
 			AK::SoundEngine::SetPosition(transform->entity_id, sound_position);
 		}
 	}
@@ -236,22 +228,20 @@ b8 Audio::post_dialogue_event(AkUniqueID event_id)
 
 void Audio::post_global_event(AkUniqueID event_id, const Vec3& pos)
 {
-	post_global_event(event_id, pos, Vec3(0, 0, 1));
+	post_global_event(event_id, pos, Quat::identity);
 }
 
-void Audio::post_global_event(AkUniqueID event_id, const Vec3& pos, const Vec3& forward)
+void Audio::post_global_event(AkUniqueID event_id, const Vec3& pos, const Quat& orientation)
 {
 	const AkGameObjectID id = MAX_ENTITIES + 1;
 	AK::SoundEngine::RegisterGameObj(id);
 	AK::SoundEngine::SetActiveListeners(id, 0b01111); // All listeners
 
 	AkSoundPosition sound_position;
-	sound_position.Position.X = pos.x;
-	sound_position.Position.Y = pos.y;
-	sound_position.Position.Z = pos.z;
-	sound_position.Orientation.X = -forward.x;
-	sound_position.Orientation.Y = -forward.y;
-	sound_position.Orientation.Z = -forward.z;
+	sound_position.SetPosition(pos.x, pos.y, pos.z);
+	Vec3 forward = orientation * Vec3(0, 0, -1.0f);
+	Vec3 up = orientation * Vec3(0, 1.0f, 0.0f);
+	sound_position.SetOrientation(forward.x, forward.y, forward.z, up.x, up.y, up.z);
 	AK::SoundEngine::SetPosition(id, sound_position);
 
 	AK::SoundEngine::PostEvent(event_id, id);
@@ -276,17 +266,10 @@ void Audio::listener_enable(u32 listener_id)
 void Audio::listener_update(u32 listener_id, const Vec3& pos, const Quat& rot)
 {
 	AkListenerPosition listener_position;
-	listener_position.Position.X = pos.x;
-	listener_position.Position.Y = pos.y;
-	listener_position.Position.Z = pos.z;
+	listener_position.SetPosition(pos.x, pos.y, pos.z);
 	Vec3 forward = rot * Vec3(0, 0, -1);
-	listener_position.OrientationFront.X = forward.x;
-	listener_position.OrientationFront.Y = forward.y;
-	listener_position.OrientationFront.Z = forward.z;
 	Vec3 up = rot * Vec3(0, 1, 0);
-	listener_position.OrientationTop.X = up.x;
-	listener_position.OrientationTop.Y = up.y;
-	listener_position.OrientationTop.Z = up.z;
+	listener_position.SetOrientation(forward.x, forward.y, forward.z, up.x, up.y, up.z);
 	AK::SoundEngine::SetListenerPosition(listener_position, listener_id);
 }
 

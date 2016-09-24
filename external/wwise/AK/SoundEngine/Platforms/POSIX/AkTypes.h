@@ -31,6 +31,9 @@
 #define AK_ALIGN_SIZE_FOR_DMA( __Size__ ) (__Size__) ///< Used to align sizes to next 16 byte boundary on platfroms that require it
 #define AK_BUFFER_ALIGNMENT AK_SIMD_ALIGNMENT
 
+#define AK_DLLEXPORT __attribute__ ((visibility("default")))
+#define AK_DLLIMPORT
+
 typedef uint8_t			AkUInt8;				///< Unsigned 8-bit integer
 typedef uint16_t		AkUInt16;				///< Unsigned 16-bit integer
 typedef uint32_t		AkUInt32;				///< Unsigned 32-bit integer

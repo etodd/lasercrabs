@@ -21,7 +21,7 @@ inline T ReadBankData(
 						)
 {
 	T l_Value;
-#if defined(AK_IOS) || defined(AK_3DS) || defined(AK_ANDROID) || defined(AK_VITA) || defined(AK_LINUX)
+#if defined(AK_IOS) || defined(AK_3DS) || defined(AK_ANDROID) || defined(AK_VITA) || defined(AK_LINUX) || defined(__EMSCRIPTEN__)
 	typedef struct {T t;} __attribute__((__packed__)) packedStruct;
 	l_Value = ((packedStruct *)in_rptr)->t;
 #else
@@ -33,6 +33,36 @@ inline T ReadBankData(
 	in_rSize -= sizeof( T );
 #endif
 	return l_Value;
+}
+
+template< typename T >
+inline T ReadVariableSizeBankData(
+	AkUInt8*& in_rptr
+#ifdef _DEBUG
+	, AkUInt32& in_rSize
+#endif
+	)
+{
+	AkUInt32 l_Value = 0;
+
+	AkUInt8 currentByte = *in_rptr;
+	++in_rptr;
+#ifdef _DEBUG
+	--in_rSize;
+#endif
+	l_Value = (currentByte & 0x7F);
+	while (0x80 & currentByte)
+	{
+		currentByte = *in_rptr;
+		++in_rptr;
+#ifdef _DEBUG
+		--in_rSize;
+#endif
+		l_Value = l_Value << 7;
+		l_Value |= (currentByte & 0x7F);
+	}
+
+	return (T)l_Value;
 }
 
 inline char * ReadBankStringUtf8( 
@@ -74,6 +104,43 @@ inline T ReadUnaligned( const AkUInt8* in_rptr, AkUInt32 in_bytesToSkip = 0 )
 #endif
 	);
 }
+
+#ifdef __EMSCRIPTEN__
+
+/// Handle reading float not aligned on proper memory boundaries (banks are byte packed).
+inline AkReal64 AlignFloat(AkReal64* ptr)
+{
+	AkReal64 LocalValue;
+
+	// Forcing the char copy instead of the memcpy, as memcpy was optimized....
+	char* pSource = (char*)ptr;
+	char* pDest = (char*)&LocalValue;
+	for( int i = 0; i < 8; ++i)
+	{
+		pDest[i] = pSource[i];
+	}
+
+	//memcpy( &LocalValue, ptr, sizeof( AkReal64 ) );
+	return LocalValue;
+}
+
+/// Read data from bank and advance pointer.
+template<> 
+inline AkReal64 ReadBankData<AkReal64>( 
+	AkUInt8*& in_rptr
+#ifdef _DEBUG
+	,AkUInt32& in_rSize
+#endif
+	)
+{
+	AkReal64 l_Value = AlignFloat( (AkReal64*)in_rptr );
+	in_rptr += sizeof( AkReal64 );
+#ifdef _DEBUG
+	in_rSize -= sizeof( AkReal64 );
+#endif
+	return l_Value;
+}
+#endif
 
 
 #ifdef AK_XBOX360
@@ -240,6 +307,9 @@ inline AkReal64 ReadBankData<AkReal64>(
 #define READBANKDATA( _Type, _Ptr, _Size )		\
 		ReadBankData<_Type>( _Ptr, _Size )
 
+#define READVARIABLESIZEBANKDATA( _Type, _Ptr, _Size )		\
+		ReadVariableSizeBankData<_Type>( _Ptr, _Size )
+
 /// Read and return non-null-terminatd UTF-8 string stored in bank, and its size.
 #define READBANKSTRING_UTF8( _Ptr, _Size, _out_StringSize )		\
 		ReadBankStringUtf8( _Ptr, _Size, _out_StringSize )
@@ -263,6 +333,9 @@ inline AkReal64 ReadBankData<AkReal64>(
 /// Read and return bank data of a given type, incrementing running pointer and decrementing block size for debug tracking purposes
 #define READBANKDATA( _Type, _Ptr, _Size )		\
 		ReadBankData<_Type>( _Ptr )
+
+#define READVARIABLESIZEBANKDATA( _Type, _Ptr, _Size )		\
+		ReadVariableSizeBankData<_Type>( _Ptr )
 
 #define READBANKSTRING_UTF8( _Ptr, _Size, _out_StringSize )		\
 		ReadBankStringUtf8( _Ptr, _out_StringSize )

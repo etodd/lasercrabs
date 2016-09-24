@@ -42,11 +42,16 @@
 			#define AK_WINPHONE
 		#endif
 	#endif
+	#if WINAPI_FAMILY_PARTITION(WINAPI_FAMILY_APP)
+		#define AK_WIN_UNIVERSAL_APP
+	#endif
 #endif
 
 #ifndef AK_WINPHONE
 #define AK_MOTION								///< Internal use
 #define AK_71AUDIO
+#define AK_71FROMSTEREOMIXER
+#define AK_51FROMSTEREOMIXER
 #endif
 
 #define AK_LFECENTER							///< Internal use
@@ -67,8 +72,15 @@
 #define AK_ALIGN_SIZE_FOR_DMA( __Size__ ) (__Size__) ///< Used to align sizes to next 16 byte boundary on platfroms that require it
 #define AK_BUFFER_ALIGNMENT AK_SIMD_ALIGNMENT
 #define AK_XAUDIO2_FLAGS 0
+#if defined AK_CPU_X86 || defined AK_CPU_X86_64 || defined AK_CPU_ARM_NEON
+#define AKSIMD_V4F32_SUPPORTED
+#endif
+
 
 #define AKSOUNDENGINE_CALL __cdecl				///< Calling convention for the Wwise API
+
+#define AK_DLLEXPORT __declspec(dllexport)
+#define AK_DLLIMPORT __declspec(dllimport)		
 
 typedef unsigned char		AkUInt8;			///< Unsigned 8-bit integer
 typedef unsigned short		AkUInt16;			///< Unsigned 16-bit integer

@@ -73,10 +73,6 @@ namespace PlatformID
     AK_ID_DECLARE GUID PS3_unsafeguid = { 0xD85DACB3, 0x8FDB, 0x4aba, { 0x8C, 0x8A, 0x1F, 0x46, 0xAF, 0xB3, 0x53, 0x66 } };
 	AK_ID_DECLARE BasePlatformID PS3 = BasePlatformID::Create( PS3_unsafeguid );
 
-    // {A11C9D5D-C4ED-42af-99E3-0376D0E11620}
-	AK_ID_DECLARE GUID Wii_unsafeguid = { 0xa11c9d5d, 0xc4ed, 0x42af, { 0x99, 0xe3, 0x3, 0x76, 0xd0, 0xe1, 0x16, 0x20 } };
-	AK_ID_DECLARE BasePlatformID Wii = BasePlatformID::Create( Wii_unsafeguid );
-
 	// {9C6217D5-DD11-4795-87C1-6CE02853C540}
 	AK_ID_DECLARE GUID Mac_unsafeguid = { 0x9c6217d5, 0xdd11, 0x4795, { 0x87, 0xc1, 0x6c, 0xe0, 0x28, 0x53, 0xc5, 0x40 } };
 	AK_ID_DECLARE BasePlatformID Mac = BasePlatformID::Create( Mac_unsafeguid );
@@ -125,11 +121,14 @@ namespace PlatformID
 	AK_ID_DECLARE GUID WindowsPhone_unsafeguid = { 0x869ad233, 0x43f2, 0x4c0f, { 0x91, 0x26, 0x79, 0xf4, 0x4c, 0x15, 0xe1, 0xd9 } };
 	AK_ID_DECLARE BasePlatformID WindowsPhone = BasePlatformID::Create( WindowsPhone_unsafeguid );
 
+	// {639AD233-23F2-4c0f-9127-79F44C15E1DA}
+	AK_ID_DECLARE GUID Emscripten_unsafeguid = { 0x639ad233, 0x23f2, 0x4c0f, { 0x91, 0x27, 0x79, 0xf4, 0x4c, 0x15, 0xe1, 0xdA } };
+	AK_ID_DECLARE BasePlatformID Emscripten = BasePlatformID::Create(Emscripten_unsafeguid);
+
 	/// Returns true if the given platform has Big Endian byte ordering. 
 	inline bool IsPlatformBigEndian( const BasePlatformID & in_guidPlatform )
 	{
-		return in_guidPlatform == PlatformID::Wii 
-			|| in_guidPlatform == PlatformID::WiiUSW
+		return in_guidPlatform == PlatformID::WiiUSW
 			|| in_guidPlatform == PlatformID::WiiUHW
 			|| in_guidPlatform == PlatformID::PS3 
 			|| in_guidPlatform == PlatformID::Xbox360;

@@ -10,6 +10,8 @@
 #include <AK/SoundEngine/Common/AkSoundEngineExport.h>
 #include <AK/SoundEngine/Common/IAkPlugin.h>
 
+#define AKMOTIONDEVICEID_RUMBLE 406
+
 /// Audiokinetic namespace
 namespace AK
 {
@@ -23,15 +25,17 @@ namespace MotionEngine
 	/// - AK_Fail if the device could not be initialized.  Usually this means the drivers are not installed.
 	/// \sa
 	/// - \ref integrating_elements_motion
-	AK_EXTERNAPIFUNC( AKRESULT, AddPlayerMotionDevice )(
+	AK_EXTERNAPIFUNC(AKRESULT, AddPlayerMotionDevice)(
 		AkUInt8 in_iPlayerID,			///< Player number, must be between 0 and 3.  See platform-specific documentation for more details.
 		AkUInt32 in_iCompanyID,			///< Company ID providing support for the device
 		AkUInt32 in_iDeviceID,			///< Device ID, must be one of the currently supported devices. 
-		void* in_pDevice = NULL			///< PS4: PS4 Device handle, returned by scePadOpen. 
+		void* in_pDevice = NULL,		///< PS4: PS4 Device handle, returned by scePadOpen. 
 										///< Windows: Windows Direct Input Device reference for DirectInput. NULL to use XInput. 
 										///< WiiU: Use AK_MOTION_WIIMOTE_DEVICE to add a Wiimote or AK_MOTION_DRC_DEVICE to add a DRC device. 
 										///< XboxOne: Use IGamepad::Id. 
-										///> Keep NULL for all other platforms.
+										///< Motion plugins: see plugin vendor documentation.
+										///< Keep NULL for all other device types.										
+		AkUInt32 in_uSize = 0			///< Reserved for plugins. Keep to zero unless plugin usage mandates it.
 		);
 
 	/// Disconnects a motion device from a player port.  Call this function from your game to tell the motion engine that
@@ -42,15 +46,6 @@ namespace MotionEngine
 		AkUInt8 in_iPlayerID,			///< Player number, must be between 0 and 3.  See platform-specific documentation for more details.
 		AkUInt32 in_iCompanyID,			///< Company ID providing support for the device
 		AkUInt32 in_iDeviceID			///< Device ID, must be one of the currently supported devices. 
-		);
-
-	/// Registers a motion device for use in the game.  
-	/// \sa
-	/// - \ref integrating_elements_motion
-	AK_EXTERNAPIFUNC( void, RegisterMotionDevice )(
-		AkUInt32 in_ulCompanyID,				///< Company ID providing support for the device
-		AkUInt32 in_ulPluginID,					///< Device ID, must be one of the currently supported devices. 
-		AkCreatePluginCallback in_pCreateFunc	///< Creation function.
 		);
 
 	/// Attaches a player to a listener.  This is necessary for the player to receive motion through the connected

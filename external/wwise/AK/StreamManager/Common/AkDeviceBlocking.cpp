@@ -8,6 +8,8 @@
 //
 //////////////////////////////////////////////////////////////////////
 
+#include <AK/SoundEngine/Common/AkTypes.h>
+#include <AK/Tools/Common/AkAssert.h>
 #include "AkDeviceBlocking.h"
 #include <AK/Tools/Common/AkPlatformFuncs.h>
 #include <AK/Tools/Common/AkMonitorError.h>

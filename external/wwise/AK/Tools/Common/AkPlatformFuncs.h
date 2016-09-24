@@ -14,6 +14,9 @@
 
 #include <AK/SoundEngine/Common/AkTypes.h>
 
+// Uncomment the following to enable built-in platform profiler markers in the sound engine
+//#define AK_ENABLE_INSTRUMENT
+
 #if defined(AK_WIN) || defined(AK_XBOXONE)
 #include <AK/Tools/Win32/AkPlatformFuncs.h>
 
@@ -48,6 +51,9 @@
 
 #elif defined (AK_PS4)
 #include <AK/Tools/PS4/AkPlatformFuncs.h>
+
+#elif defined (AK_EMSCRIPTEN)
+#include <AK/Tools/Emscripten/AkPlatformFuncs.h>
 
 #elif defined (AK_LINUX)
 #include <AK/Tools/Linux/AkPlatformFuncs.h>
@@ -105,6 +111,24 @@ namespace AK
 #endif
 #ifndef AK_PERF_RECORDING_STOP
 #define AK_PERF_RECORDING_STOP( __StorageName__, __uExecutionCountStart__, __uExecutionCountStop__ )	
+#endif
+
+#ifndef AK_INSTRUMENT_BEGIN
+	#define AK_INSTRUMENT_BEGIN( _zone_name_ )
+	#define AK_INSTRUMENT_END( _zone_name_ )
+	#define AK_INSTRUMENT_SCOPE( _zone_name_ )
+
+	#define AK_INSTRUMENT_BEGIN_C(_colour_, _zone_name_ )
+
+	#define AK_INSTRUMENT_IDLE_BEGIN( _zone_name_ )
+	#define AK_INSTRUMENT_IDLE_END( _zone_name_ )
+	#define AK_INSTRUMENT_IDLE_SCOPE( _zone_name_ )
+
+	#define AK_INSTRUMENT_STALL_BEGIN( _zone_name_ )
+	#define AK_INSTRUMENT_STALL_END( _zone_name_ )
+	#define AK_INSTRUMENT_STALL_SCOPE( _zone_name_ )
+
+	#define AK_INSTRUMENT_THREAD_START( _thread_name_ )
 #endif
 
 #endif // _AK_TOOLS_COMMON_AKPLATFORMFUNCS_H

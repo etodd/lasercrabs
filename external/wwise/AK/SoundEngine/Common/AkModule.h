@@ -29,7 +29,7 @@ namespace AK
 	{
 	    /// Memory Manager initialization.
 	    /// \sa AK::MemoryMgr
-		AK_EXTERNFUNC( AKRESULT, Init )(
+		AK_EXTERNAPIFUNC(AKRESULT, Init)(
 			AkMemSettings * in_pSettings        ///< Memory manager initialization settings.
 			);
 	}

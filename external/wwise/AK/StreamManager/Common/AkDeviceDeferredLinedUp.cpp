@@ -9,6 +9,8 @@
 //
 //////////////////////////////////////////////////////////////////////
 
+#include <AK/SoundEngine/Common/AkTypes.h>
+#include <AK/Tools/Common/AkAssert.h>
 #include "AkDeviceDeferredLinedUp.h"
 #include <AK/Tools/Common/AkAutoLock.h>
 #include <AK/Tools/Common/AkPlatformFuncs.h>

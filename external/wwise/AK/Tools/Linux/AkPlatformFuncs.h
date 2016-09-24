@@ -56,7 +56,9 @@ namespace AKPLATFORM
 	/// Platform Independent Helper
     inline void PerformanceCounter( AkInt64 * out_piLastTime )
 	{
-		*out_piLastTime = clock();
+		struct timespec clockNow;
+		clock_gettime(CLOCK_MONOTONIC, &clockNow);
+		*out_piLastTime = ((clockNow.tv_sec + clockNow.tv_nsec/ 1000000000.0) * CLOCKS_PER_SEC);
 	}
 
 	/// Platform Independent Helper

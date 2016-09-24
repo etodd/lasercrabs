@@ -91,6 +91,19 @@ namespace SpeakerVolumes
 			}
 		}
 
+		/// Compute the sum of all components of a volume vector.
+		AkForceInline AkReal32 L1Norm(ConstVectorPtr io_pVolumes, AkUInt32 in_uNumChannels)
+		{
+			AkReal32 total = 0;
+			AKASSERT((io_pVolumes) || in_uNumChannels == 0);
+			for (AkUInt32 uChan = 0; uChan < in_uNumChannels; uChan++)
+			{
+				total += io_pVolumes[uChan];
+			}
+
+			return total;
+		}
+
 		/// Multiply volume vector with a scalar.
 		AkForceInline void Mul( VectorPtr in_pVolumesDst, const AkReal32 in_fVol, AkUInt32 in_uNumChannels )
 		{
@@ -202,7 +215,7 @@ namespace SpeakerVolumes
 		}
 
 		/// Add all elements of two volume matrices, independently.
-		AkForceInline void Add(AkReal32 * in_pVolumesDst, const AkReal32 * in_pVolumesSrc, AkUInt32 in_uNumChannelsIn, AkUInt32 in_uNumChannelsOut)
+		AkForceInline void Add(MatrixPtr in_pVolumesDst, ConstMatrixPtr in_pVolumesSrc, AkUInt32 in_uNumChannelsIn, AkUInt32 in_uNumChannelsOut)
 		{
 			AkUInt32 uNumElements = Matrix::GetNumElements(in_uNumChannelsIn, in_uNumChannelsOut);
 			AKASSERT((in_pVolumesDst && in_pVolumesSrc) || uNumElements == 0);
@@ -212,14 +225,14 @@ namespace SpeakerVolumes
 			}
 		}
 		
-		/// Get max for all elements of two volume matrices, independently.
-		AkForceInline void Max( AkReal32 * in_pVolumesDst, const AkReal32 * in_pVolumesSrc, AkUInt32 in_uNumChannelsIn, AkUInt32 in_uNumChannelsOut )
+		/// Get absolute max for all elements of two volume matrices, independently.
+		AkForceInline void AbsMax(MatrixPtr in_pVolumesDst, ConstMatrixPtr in_pVolumesSrc, AkUInt32 in_uNumChannelsIn, AkUInt32 in_uNumChannelsOut)
 		{
 			AkUInt32 uNumElements = Matrix::GetNumElements( in_uNumChannelsIn, in_uNumChannelsOut );
 			AKASSERT( ( in_pVolumesDst && in_pVolumesSrc ) || uNumElements == 0 );
 			for ( AkUInt32 uChan = 0; uChan < uNumElements; uChan++ )
 			{
-				in_pVolumesDst[uChan] = AkMax( in_pVolumesDst[uChan], in_pVolumesSrc[uChan] );
+				in_pVolumesDst[uChan] = ((in_pVolumesDst[uChan] * in_pVolumesDst[uChan]) > (in_pVolumesSrc[uChan] * in_pVolumesSrc[uChan])) ? in_pVolumesDst[uChan] : in_pVolumesSrc[uChan];
 			}
 		}
 	}

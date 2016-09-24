@@ -74,11 +74,17 @@
 #define AK_SPEAKER_SETUP_AURO_13_751		(AK_SPEAKER_SETUP_7			| AK_SPEAKER_SETUP_HEIGHT_5 | AK_SPEAKER_TOP)						///< Auro-13.0 setup channel mask
 #define AK_SPEAKER_SETUP_AURO_13POINT1_751	(AK_SPEAKER_SETUP_AURO_13_751	| AK_SPEAKER_LOW_FREQUENCY)										///< Auro-13.1 setup channel mask
 
-// Dolby speaker setups: in Dolby standard, [#plane].[lfe].[#height]
+// Dolby speaker setups: in Dolby nomenclature, [#plane].[lfe].[#height]
 #define AK_SPEAKER_SETUP_DOLBY_5_0_2		(AK_SPEAKER_SETUP_5			| AK_SPEAKER_HEIGHT_FRONT_LEFT	| AK_SPEAKER_HEIGHT_FRONT_RIGHT )	///< Dolby 5.0.2 setup channel mask
 #define AK_SPEAKER_SETUP_DOLBY_5_1_2		(AK_SPEAKER_SETUP_DOLBY_5_0_2	| AK_SPEAKER_LOW_FREQUENCY )									///< Dolby 5.1.2 setup channel mask
+#define AK_SPEAKER_SETUP_DOLBY_6_0_2		(AK_SPEAKER_SETUP_6			| AK_SPEAKER_HEIGHT_FRONT_LEFT	| AK_SPEAKER_HEIGHT_FRONT_RIGHT )	///< Dolby 6.0.2 setup channel mask
+#define AK_SPEAKER_SETUP_DOLBY_6_1_2		(AK_SPEAKER_SETUP_DOLBY_6_0_2	| AK_SPEAKER_LOW_FREQUENCY )									///< Dolby 6.1.2 setup channel mask
+#define AK_SPEAKER_SETUP_DOLBY_6_0_4		(AK_SPEAKER_SETUP_DOLBY_6_0_2	| AK_SPEAKER_HEIGHT_BACK_LEFT | AK_SPEAKER_HEIGHT_BACK_RIGHT )	///< Dolby 6.0.4 setup channel mask
+#define AK_SPEAKER_SETUP_DOLBY_6_1_4		(AK_SPEAKER_SETUP_DOLBY_6_0_4	| AK_SPEAKER_LOW_FREQUENCY )									///< Dolby 6.1.4 setup channel mask
 #define AK_SPEAKER_SETUP_DOLBY_7_0_2		(AK_SPEAKER_SETUP_7			| AK_SPEAKER_HEIGHT_FRONT_LEFT	| AK_SPEAKER_HEIGHT_FRONT_RIGHT )	///< Dolby 7.0.2 setup channel mask
 #define AK_SPEAKER_SETUP_DOLBY_7_1_2		(AK_SPEAKER_SETUP_DOLBY_7_0_2	| AK_SPEAKER_LOW_FREQUENCY )									///< Dolby 7.1.2 setup channel mask
+#define AK_SPEAKER_SETUP_DOLBY_7_0_4		(AK_SPEAKER_SETUP_DOLBY_7_0_2	| AK_SPEAKER_HEIGHT_BACK_LEFT | AK_SPEAKER_HEIGHT_BACK_RIGHT )	///< Dolby 7.0.4 setup channel mask
+#define AK_SPEAKER_SETUP_DOLBY_7_1_4		(AK_SPEAKER_SETUP_DOLBY_7_0_4	| AK_SPEAKER_LOW_FREQUENCY )									///< Dolby 7.1.4 setup channel mask
 
 #define AK_SPEAKER_SETUP_ALL_SPEAKERS		(AK_SPEAKER_SETUP_7POINT1 | AK_SPEAKER_BACK_CENTER | AK_SPEAKER_SETUP_HEIGHT_ALL | AK_SPEAKER_TOP)	///< All speakers.
 
@@ -130,7 +136,7 @@
 
 #ifdef AK_71AUDIO
 #define AK_IDX_SETUP_6_FRONTLEFT	(0)	///< Index of front left channel in 6.x setups (use with AkAudioBuffer::GetChannel())
-#define AK_IDX_SETUP_6_FRONTRIGHT	(1)	///< Index of fornt right channel in 6x setups (use with AkAudioBuffer::GetChannel())
+#define AK_IDX_SETUP_6_FRONTRIGHT	(1)	///< Index of front right channel in 6x setups (use with AkAudioBuffer::GetChannel())
 #define AK_IDX_SETUP_6_REARLEFT		(2)	///< Index of rear left channel in 6.x setups (use with AkAudioBuffer::GetChannel())
 #define AK_IDX_SETUP_6_REARRIGHT	(3)	///< Index of rear right channel in 6.x setups (use with AkAudioBuffer::GetChannel())
 #define AK_IDX_SETUP_6_SIDELEFT		(4)	///< Index of side left channel in 6.x setups (use with AkAudioBuffer::GetChannel())
@@ -138,7 +144,7 @@
 #define AK_IDX_SETUP_6_LFE			(6)	///< Index of low-frequency channel in 6.1 setup (use with AkAudioBuffer::GetChannel())
 
 #define AK_IDX_SETUP_7_FRONTLEFT	(0)	///< Index of front left channel in 7.x setups (use with AkAudioBuffer::GetChannel())
-#define AK_IDX_SETUP_7_FRONTRIGHT	(1)	///< Index of fornt right channel in 7.x setups (use with AkAudioBuffer::GetChannel())
+#define AK_IDX_SETUP_7_FRONTRIGHT	(1)	///< Index of front right channel in 7.x setups (use with AkAudioBuffer::GetChannel())
 #define AK_IDX_SETUP_7_CENTER		(2)	///< Index of center channel in 7.x setups (use with AkAudioBuffer::GetChannel())
 #define AK_IDX_SETUP_7_REARLEFT		(3)	///< Index of rear left channel in 7.x setups (use with AkAudioBuffer::GetChannel())
 #define AK_IDX_SETUP_7_REARRIGHT	(4)	///< Index of rear right channel in 7.x setups (use with AkAudioBuffer::GetChannel())
@@ -177,6 +183,34 @@
 #define AK_SPEAKER_SETUP_7_0		( AK_SPEAKER_SETUP_7 )
 #define AK_SPEAKER_SETUP_7_1		( AK_SPEAKER_SETUP_7POINT1 )
 
+// Per-platform standard/largest setup definitions.
+#if defined(AK_71AUDIO)
+#define AK_SPEAKER_SETUP_DEFAULT_PLANE			(AK_SPEAKER_SETUP_7POINT1)	///< All speakers on the plane, supported on this platform.
+#define AK_SUPPORTED_STANDARD_CHANNEL_MASK		(AK_SPEAKER_SETUP_ALL_SPEAKERS)	///< Platform supports all standard channels.
+#define AK_STANDARD_MAX_NUM_CHANNELS			(8)							///< Legacy: Platform supports at least 7.1
+#elif defined(AK_LFECENTER) && defined(AK_REARCHANNELS)
+#define AK_SPEAKER_SETUP_DEFAULT_PLANE			(AK_SPEAKER_SETUP_5POINT1)	///< All speakers on the plane, supported on this platform.
+#define AK_SUPPORTED_STANDARD_CHANNEL_MASK		(AK_SPEAKER_SETUP_DEFAULT_PLANE)	///< Platform supports 5.1
+#define AK_VOICE_MAX_NUM_CHANNELS				(6)							///< Legacy: Platform supports up to 5.1 configuration.
+#define AK_STANDARD_MAX_NUM_CHANNELS			(AK_VOICE_MAX_NUM_CHANNELS)	///< Legacy: Platform supports 5.1
+#elif defined(AK_REARCHANNELS)
+#ifdef AK_WII
+#define AK_SPEAKER_SETUP_DEFAULT_PLANE	(AK_SPEAKER_SETUP_DPL2 | AK_SPEAKER_FRONT_CENTER)	///< All speakers on the plane, supported on this platform.
+#define AK_VOICE_MAX_NUM_CHANNELS		(2)							///< Legacy: Platform supports up to stereo configuration.
+#else
+#define AK_SPEAKER_SETUP_DEFAULT_PLANE	(AK_SPEAKER_SETUP_4 | AK_SPEAKER_FRONT_CENTER)		///< All speakers on the plane, supported on this platform.
+#define AK_VOICE_MAX_NUM_CHANNELS		(4)							///< Legacy: Platform supports up to 4.0 configuration.
+#endif
+#define AK_SUPPORTED_STANDARD_CHANNEL_MASK	(AK_SPEAKER_SETUP_DEFAULT_PLANE)	///< Most complete speaker configuration supported on this platform.
+#else 
+#define AK_SPEAKER_SETUP_DEFAULT_PLANE			(AK_SPEAKER_SETUP_STEREO | AK_SPEAKER_FRONT_CENTER)	///< All speakers on the plane, supported on this platform.
+#define AK_SUPPORTED_STANDARD_CHANNEL_MASK		(AK_SPEAKER_SETUP_STEREO)	///< Most complete speaker configuration supported on this platform.
+#define AK_VOICE_MAX_NUM_CHANNELS				(2)							///< Legacy: Platform supports up to stereo configuration.
+#define AK_STANDARD_MAX_NUM_CHANNELS			(AK_VOICE_MAX_NUM_CHANNELS)	///< Legacy: Platform supports stereo.
+
+#endif
+
+// Helpers.
 inline void AK_SPEAKER_SETUP_FIX_LEFT_TO_CENTER( AkUInt32 &io_uChannelMask )
 {
 	if( !(io_uChannelMask & AK_SPEAKER_FRONT_CENTER) 
@@ -202,6 +236,21 @@ inline void AK_SPEAKER_SETUP_CONVERT_TO_SUPPORTED( AkUInt32 &io_uChannelMask )
 	AK_SPEAKER_SETUP_FIX_LEFT_TO_CENTER( io_uChannelMask );
 	AK_SPEAKER_SETUP_FIX_REAR_TO_SIDE( io_uChannelMask );
 }
+
+/// Ambisonics configurations (corresponding to AkChannelConfig::eConfigType == AK_ChannelConfigType_Ambisonic).
+/// Convention: X points towards the front, and XYZ follow a right-hand rule, so Y is the side vector (pointing to the left).
+/// Channel presence and ordering are predefined according to the number of channels. The ordering convention is ACN,
+/// with the mapping of components to number of channels detailed below (source: https://en.wikipedia.org/wiki/Ambisonic_data_exchange_formats).
+/// Normalization natively used in Wwise is SN3D.
+///
+/// <table cellspacing="0" cellpadding="1" border="1" width="800px">
+/// <tr><td rowspan="2" align="center"><b>Number of channels</b></td> <td colspan="2" align="center"><b>Order</b></td><td rowspan="2" align="center"><b>Description</b></td><td rowspan="2" align="center"><b>Layout of components</b></td></tr>
+/// <tr><td align="center">Horizontal</td><td align="center">Vertical</td></tr>
+/// <tr><td align="right">1 &nbsp;&nbsp;&nbsp;</td> <td align="right">0 &nbsp;&nbsp;&nbsp;</td><td align="right">0 &nbsp;&nbsp;&nbsp;</td> <td>&nbsp;&nbsp;mono</td><td>&nbsp;</td></tr>
+/// <tr><td align="right">4 &nbsp;&nbsp;&nbsp;</td> <td align="right">1 &nbsp;&nbsp;&nbsp;</td><td align="right">1 &nbsp;&nbsp;&nbsp;</td> <td>&nbsp;&nbsp;first-order full sphere</td><td>&nbsp;&nbsp;WYZX</td></tr>
+/// <tr><td align="right">9 &nbsp;&nbsp;&nbsp;</td> <td align="right">2 &nbsp;&nbsp;&nbsp;</td><td align="right">2 &nbsp;&nbsp;&nbsp;</td> <td>&nbsp;&nbsp;second-order full sphere</td><td>&nbsp;&nbsp;WYZXVTRSU</td></tr>
+/// <tr><td align="right">16 &nbsp;&nbsp;&nbsp;</td> <td align="right">3 &nbsp;&nbsp;&nbsp;</td><td align="right">3 &nbsp;&nbsp;&nbsp;</td> <td>&nbsp;&nbsp;third-order full sphere</td><td>&nbsp;&nbsp;WYZXVTRSUQOMKLNP</td></tr>
+/// </table>
 
 namespace AK
 {
@@ -251,11 +300,49 @@ static inline AkChannelMask ChannelMaskFromNumChannels( unsigned int in_uNumChan
 	return uChannelMask;
 }
 
+/// Returns true when the LFE channel is present in a given channel configuration.
+/// \return True if the LFE channel is present.
+AkForceInline bool HasLFE(AkChannelMask in_uChannelMask)
+{
+	return (in_uChannelMask & AK_SPEAKER_LOW_FREQUENCY) > 0;
+}
+
+/// Returns true when the center channel is present in a given channel configuration.
+/// Note that mono configurations have one channel which is arbitrary set to AK_SPEAKER_FRONT_CENTER,
+/// so HasCenter() returns true for mono signals.
+/// \return True if the center channel is present.
+AkForceInline bool HasCenter(AkChannelMask in_uChannelMask)
+{
+	// All supported non-mono configurations have an AK_SPEAKER_FRONT_LEFT.
+	return (in_uChannelMask & AK_SPEAKER_FRONT_CENTER) > 0;
+}
+
+/// Returns the number of angle values required to represent the given channel configuration.
+/// Use this function with supported 2D standard channel configurations only.
+/// \sa AK::SoundEngine::SetSpeakerAngles().
+AkForceInline AkUInt32 GetNumberOfAnglesForConfig(AkChannelMask in_uChannelMask)
+{
+#ifdef AKASSERT
+	AKASSERT((in_uChannelMask & ~AK_SPEAKER_SETUP_DEFAULT_PLANE) == 0);
+#endif
+
+	// LFE is irrelevant.
+	in_uChannelMask &= ~AK_SPEAKER_LOW_FREQUENCY;
+	// Center speaker is always in the center and thus does not require an angle.
+	in_uChannelMask &= ~AK_SPEAKER_FRONT_CENTER;
+	// We should have complete pairs at this point, unless there is a speaker at 180 degrees, 
+	// in which case we need one more angle to specify it.
+#ifdef AKASSERT
+	AKASSERT((in_uChannelMask & AK_SPEAKER_BACK_CENTER) || ((ChannelMaskToNumChannels(in_uChannelMask) % 2) == 0));
+#endif
+	return ChannelMaskToNumChannels(in_uChannelMask) >> 1;
+}
+
 /// Channel ordering type. 
 enum AkChannelOrdering
 {
-	ChannelOrdering_Standard,	// L-R-C-Lfe-RL-RR-RC-SL-SR-HL-HR-HC-HRL-HRR-HRC-T
-	ChannelOrdering_RunTime		// L-R-C-RL-RR-RC-SL-SR-HL-HR-HC-HRL-HRR-HRC-T-Lfe
+	ChannelOrdering_Standard,	// L-R-C-LFE-RL-RR-RC-SL-SR-HL-HR-HC-HRL-HRR-HRC-T
+	ChannelOrdering_RunTime		// L-R-C-RL-RR-RC-SL-SR-HL-HR-HC-HRL-HRR-HRC-T-LFE
 };
 
 /// Returns true if standard configuration represented by channel mask has surround
@@ -281,6 +368,12 @@ AkForceInline bool HasSideAndRearChannels( AkChannelMask in_uChannelMask )
 	return ( in_uChannelMask & AK_SPEAKER_BACK_LEFT && in_uChannelMask & AK_SPEAKER_SIDE_LEFT );
 }
 
+/// Returns true if standard configuration represented by channel mask has at least one "height" channel (above the plane).
+AkForceInline bool HasHeightChannels(AkChannelMask in_uChannelMask)
+{
+	return (in_uChannelMask & ~AK_SPEAKER_SETUP_DEFAULT_PLANE) > 0;
+}
+
 /// Takes a channel mask and swap back channels with side channels if there is just
 /// one pair of surround channels.
 AkForceInline AkChannelMask BackToSideChannels( AkChannelMask in_uChannelMask )
@@ -293,11 +386,11 @@ AkForceInline AkChannelMask BackToSideChannels( AkChannelMask in_uChannelMask )
 	return in_uChannelMask;
 }
 
-/// Convert channel indices as they are ordered in standard (wav) or Wwise sound engine (wem) wave files 
-/// (which follow channel mask bit values, except that the Lfe is at the end in the case of wems) 
-/// into display indices. Desired display order is L-R-C-SL-SR-RL-RR-HL-HR-HC-HRL-HRR-HRC-T-Lfe. Note that 4-5.x configurations 
+/// Convert channel indices as they are ordered in standard (WAV) or Wwise sound engine (WEM) wave files 
+/// (which follow channel mask bit values, except that the LFE is at the end in the case of WEMs) 
+/// into display indices. Desired display order is L-R-C-SL-SR-RL-RR-HL-HR-HC-HRL-HRR-HRC-T-LFE. Note that 4-5.x configurations 
 /// may define back or side channels. Either way they are "Surround" channels and are assigned to "SL, SR" names.
-static inline unsigned int ChannelIndexToDisplayIndex( AkChannelOrdering in_eOrdering, unsigned int in_uChannelMask, unsigned int in_uChannelIdx )
+static inline unsigned int StdChannelIndexToDisplayIndex( AkChannelOrdering in_eOrdering, unsigned int in_uChannelMask, unsigned int in_uChannelIdx )
 {
 	if ( in_eOrdering == ChannelOrdering_Standard )
 	{
@@ -355,5 +448,214 @@ static inline unsigned int ChannelIndexToDisplayIndex( AkChannelOrdering in_eOrd
 }
 
 } // namespace AK
+
+/// Channel configuration type. 
+enum AkChannelConfigType
+{
+	AK_ChannelConfigType_Anonymous = 0x0,	///< Channel mask == 0 and channels are anonymous.
+	AK_ChannelConfigType_Standard = 0x1,	///< Channels must be identified with standard defines in AkSpeakerConfigs.	
+	AK_ChannelConfigType_Ambisonic = 0x2	///< Ambisonics. Channel mask == 0 and channels follow standard ambisonic order.
+};
+
+/// Defines a channel configuration.
+struct AkChannelConfig
+{
+	// Channel config: 
+	// - uChannelMask is a bit field, whose channel identifiers depend on AkChannelConfigType (up to 20). Channel bits are defined in AkSpeakerConfig.h.
+	// - eConfigType is a code that completes the identification of channels by uChannelMask.
+	// - uNumChannels is the number of channels, identified (deduced from channel mask) or anonymous (set directly). 
+	AkUInt32	uNumChannels : 8;	///< Number of channels.
+	AkUInt32	eConfigType : 4;	///< Channel config type (AkChannelConfigType).
+	AkUInt32	uChannelMask : 20;///< Channel mask (configuration). 
+
+	/// Constructor. Clears / sets the channel config in "invalid" state (IsValid() returns false).
+	AkForceInline AkChannelConfig()
+		: uNumChannels(0)
+		, eConfigType(0)
+		, uChannelMask(0)
+	{
+	}
+
+	/// Constructor. Sets number of channels, and config type according to whether channel mask is defined or not. If defined, it must be consistent with the number of channels.
+	AkForceInline AkChannelConfig(AkUInt32 in_uNumChannels, AkUInt32 in_uChannelMask)
+	{
+		// Input arguments should be consistent.
+		SetStandardOrAnonymous(in_uNumChannels, in_uChannelMask);
+	}
+
+	/// Operator != with a 32-bit word.
+	AkForceInline bool operator!=(AkUInt32 in_uBitField)
+	{
+		return (*((AkUInt32*)this) != in_uBitField);
+	}
+
+	/// Clear the channel config. Becomes "invalid" (IsValid() returns false).
+	AkForceInline void Clear()
+	{
+		uNumChannels = 0;
+		eConfigType = 0;
+		uChannelMask = 0;
+	}
+
+	/// Set channel config as a standard configuration specified with given channel mask.
+	AkForceInline void SetStandard(AkUInt32 in_uChannelMask)
+	{
+		uNumChannels = AK::ChannelMaskToNumChannels(in_uChannelMask);
+		eConfigType = AK_ChannelConfigType_Standard;
+		uChannelMask = in_uChannelMask;
+	}
+
+	/// Set channel config as either a standard or an anonymous configuration, specified with both a given channel mask (0 if anonymous) and a number of channels (which must match the channel mask if standard).
+	AkForceInline void SetStandardOrAnonymous(AkUInt32 in_uNumChannels, AkUInt32 in_uChannelMask)
+	{
+#ifdef AKASSERT
+		AKASSERT(in_uChannelMask == 0 || in_uNumChannels == AK::ChannelMaskToNumChannels(in_uChannelMask));
+#endif
+		uNumChannels = in_uNumChannels;
+		eConfigType = (in_uChannelMask) ? AK_ChannelConfigType_Standard : AK_ChannelConfigType_Anonymous;
+		uChannelMask = in_uChannelMask;
+	}
+
+	/// Set channel config as an anonymous configuration specified with given number of channels.
+	AkForceInline void SetAnonymous(AkUInt32 in_uNumChannels)
+	{
+		uNumChannels = in_uNumChannels;
+		eConfigType = AK_ChannelConfigType_Anonymous;
+		uChannelMask = 0;
+	}
+
+	/// Set channel config as an ambisonic configuration specified with given number of channels.
+	AkForceInline void SetAmbisonic(AkUInt32 in_uNumChannels)
+	{
+		uNumChannels = in_uNumChannels;
+		eConfigType = AK_ChannelConfigType_Ambisonic;
+		uChannelMask = 0;
+	}
+
+	/// Returns true if valid, false otherwise (as when it is constructed, or invalidated using Clear()).
+	AkForceInline bool IsValid() const
+	{
+		return uNumChannels != 0;
+	}
+
+	/// Serialize channel config into a 32-bit word.
+	AkForceInline AkUInt32 Serialize() const
+	{
+		return uNumChannels | (eConfigType << 8) | (uChannelMask << 12);
+	}
+
+	/// Deserialize channel config from a 32-bit word.
+	AkForceInline void Deserialize(AkUInt32 in_uChannelConfig)
+	{
+		uNumChannels = in_uChannelConfig & 0x000000ff;
+		eConfigType = (in_uChannelConfig >> 8) & 0x0000000f;
+		uChannelMask = (in_uChannelConfig >> 12) & 0x000fffff;
+	}
+
+	/// Returns a new config based on 'this' with no LFE.
+	AkForceInline AkChannelConfig RemoveLFE() const
+	{
+		AkChannelConfig newConfig = *this;
+#ifdef AK_LFECENTER
+		AkUInt32 uNewChannelMask = newConfig.uChannelMask & ~AK_SPEAKER_LOW_FREQUENCY;
+		AkUInt32 uNumLFEChannel = (newConfig.uChannelMask - uNewChannelMask) >> 3; // 0 or 1
+#ifdef AKASSERT
+		AKASSERT(uNumLFEChannel == 0 || uNumLFEChannel == 1);
+#endif
+		newConfig.uNumChannels -= uNumLFEChannel;
+		newConfig.uChannelMask = uNewChannelMask;
+#endif
+		return newConfig;
+	}
+
+	/// Returns a new config based on 'this' with no Front Center channel.
+	AkForceInline AkChannelConfig RemoveCenter() const
+	{
+		AkChannelConfig newConfig = *this;
+#ifdef AK_LFECENTER
+		AkUInt32 uNewChannelMask = newConfig.uChannelMask & ~AK_SPEAKER_FRONT_CENTER;
+		AkUInt32 uNumCenterChannel = (newConfig.uChannelMask - uNewChannelMask) >> 2;	// 0 or 1.
+#ifdef AKASSERT
+		AKASSERT(uNumCenterChannel == 0 || uNumCenterChannel == 1);
+#endif
+		newConfig.uNumChannels -= uNumCenterChannel;
+		newConfig.uChannelMask = uNewChannelMask;
+#endif
+		return newConfig;
+	}
+
+	/// Operator ==
+	AkForceInline bool operator==(const AkChannelConfig & in_other) const
+	{
+		return uNumChannels == in_other.uNumChannels
+			&& eConfigType == in_other.eConfigType
+			&& uChannelMask == in_other.uChannelMask;
+	}
+
+	/// Operator !=
+	AkForceInline bool operator!=(const AkChannelConfig & in_other) const
+	{
+		return uNumChannels != in_other.uNumChannels
+			|| eConfigType != in_other.eConfigType
+			|| uChannelMask != in_other.uChannelMask;
+	}
+
+	/// Checks if the channel configuration is supported by the source pipeline.
+	/// \return The interleaved type
+	AkForceInline bool IsChannelConfigSupported() const
+	{
+#ifdef AK_71AUDIO
+		return true;
+#else
+		if (eConfigType == AK_ChannelConfigType_Standard)
+		{
+			switch (uChannelMask)
+			{
+			case AK_SPEAKER_SETUP_MONO:
+			case AK_SPEAKER_SETUP_STEREO:
+#ifdef AK_LFECENTER
+			case AK_SPEAKER_SETUP_0POINT1:
+			case AK_SPEAKER_SETUP_1POINT1:
+			case AK_SPEAKER_SETUP_2POINT1:
+			case AK_SPEAKER_SETUP_3STEREO:
+			case AK_SPEAKER_SETUP_3POINT1:
+#ifdef AK_REARCHANNELS
+			case AK_SPEAKER_SETUP_4:
+			case AK_SPEAKER_SETUP_4POINT1:
+			case AK_SPEAKER_SETUP_5:
+			case AK_SPEAKER_SETUP_5POINT1:
+#endif
+#endif
+				return true;
+			}
+		}
+		return false;
+#endif
+	}
+
+	/// Query if LFE channel is present.
+	/// \return True when LFE channel is present
+	AkForceInline bool HasLFE() const
+	{
+#ifdef AK_LFECENTER
+		return AK::HasLFE(uChannelMask);
+#else
+		return false;
+#endif
+	}
+
+	/// Query if center channel is present.
+	/// Note that mono configurations have one channel which is arbitrary set to AK_SPEAKER_FRONT_CENTER,
+	/// so HasCenter() returns true for mono signals.
+	/// \return True when center channel is present and configuration has more than 2 channels.
+	AkForceInline bool HasCenter() const
+	{
+#ifdef AK_LFECENTER
+		return AK::HasCenter(uChannelMask);
+#else
+		return false;
+#endif
+	}
+};
 
 #endif //_AK_SPEAKERCONFIG_H_

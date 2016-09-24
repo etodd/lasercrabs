@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<WwiseDocument Type="WorkUnit" ID="{446B4819-1566-494F-8D50-3470FCB05102}" SchemaVersion="70">
+<WwiseDocument Type="WorkUnit" ID="{446B4819-1566-494F-8D50-3470FCB05102}" SchemaVersion="72">
 	<SoundcasterSessions>
 		<WorkUnit Name="Default Work Unit" ID="{446B4819-1566-494F-8D50-3470FCB05102}" PersistMode="Standalone">
 			<ChildrenList>
@@ -44,12 +44,12 @@
 					</ModuleList>
 					<RTPCValueList ShowAll="true">
 						<RTPCValue>
-							<GameParameterRef Name="Danger" ID="{F2CF682D-D1A7-4B62-82F0-EB53B18EEC18}"/>
-							<Value>0</Value>
-						</RTPCValue>
-						<RTPCValue>
 							<GameParameterRef Name="MusicVol" ID="{B1E54CCC-5EC7-4345-A62F-3A5A4F0365C8}"/>
 							<Value>0.84923928077455</Value>
+						</RTPCValue>
+						<RTPCValue>
+							<GameParameterRef Name="Danger" ID="{F2CF682D-D1A7-4B62-82F0-EB53B18EEC18}"/>
+							<Value>0</Value>
 						</RTPCValue>
 						<RTPCValue>
 							<GameParameterRef Name="SFXVol" ID="{31BB14DE-9BFF-4D9D-A09A-D58020485541}"/>

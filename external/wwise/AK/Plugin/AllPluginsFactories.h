@@ -9,6 +9,7 @@
 
 #include <AK/AkPlatforms.h>
 #include <AK/SoundEngine/Common/AkTypes.h>
+#include <AK/SoundEngine/Common/IAkPlugin.h>
 
 // Effect plug-ins
 #include <AK/Plugin/AkCompressorFXFactory.h>					// Compressor
@@ -29,16 +30,14 @@
 #include <AK/Plugin/AkConvolutionReverbFXFactory.h>				// Convolution reverb
 #include <AK/Plugin/AkTremoloFXFactory.h>						// Tremolo
 #include <AK/Plugin/AkHarmonizerFXFactory.h>					// Harmonizer
+#include <AK/Plugin/AkRecorderFXFactory.h>						// Recorder
 
 // Platform specific
-#if defined AK_WII_FAMILY
-#include <AK/Plugin/WiiPluginsFXFactory.h>						// All Wii plug-ins
-#endif
 #ifdef AK_3DS
 #include <AK/Plugin/3DSPluginsFXFactory.h>						// All 3DS plug-ins
 #endif
 #ifdef AK_VITA
-#include <AK/Plugin/VitaPluginsFXFactory.h>						// All Vita plug-ins
+#include <AK/Plugin/AkVitaPluginFXFactory.h>						// All Vita plug-ins
 #endif
 #ifdef AK_PS4
 #include <AK/Plugin/SceAudio3dEngineFactory.h>					// SCE Audio3d
@@ -47,11 +46,6 @@
 // McDSP plug-ins
 #include <AK/Plugin/McDSPFutzBoxFXFactory.h>					// FutzBox
 #include <AK/Plugin/McDSPLimiterFXFactory.h>					// ML1 Limiter
-
-// GenAudio plug-ins
-#include <AK/Plugin/AstoundSoundRTIFXFactory.h>					// RTI
-#include <AK/Plugin/AstoundSoundExpanderFXFactory.h>			// Expander
-#include <AK/Plugin/AstoundSoundFolddownFXFactory.h>			// folddown
 
 // iZotope plug-ins
 #include <AK/Plugin/iZHybridReverbFXFactory.h>					// Hybrid Reverb
@@ -63,7 +57,7 @@
 #include <AK/Plugin/iZTrashFiltersFXFactory.h>					// Trash Filters
 
 // Crankcase plug-ins
-#include <AK/Plugin/CrankcaseAudioREVModelPlayerFactory.h>					// Trash Filters
+#include <AK/Plugin/CrankcaseAudioREVModelPlayerFXFactory.h>					// Trash Filters
 
 // Auro plug-ins
 #include <AK/Plugin/AuroHeadphoneFXFactory.h>
@@ -76,15 +70,12 @@
 #include <AK/Plugin/AkAudioInputSourceFactory.h>				// Audio input
 #include <AK/Plugin/AkSoundSeedWooshFactory.h>					// SoundSeed Woosh
 #include <AK/Plugin/AkSoundSeedWindFactory.h>					// SoundSeed Wind
-#ifdef AK_WIN
-#include <AK/Plugin/AkMP3SourceFactory.h>						// MP3 source Note: Useable only on PC. Ok to include it on other platforms as long as it is not referenced.
-#endif
 #include <AK/Plugin/AkSynthOneFactory.h>						// SynthOne
 
 // Required by codecs plug-ins
-#include <AK/Plugin/AkVorbisFactory.h>
+#include <AK/Plugin/AkVorbisDecoderFactory.h>
 #ifdef AK_XBOX360
-#include <AK/Plugin/AkXWMAFactory.h>		// Note: Useable only on Xbox 360. Ok to include it on other platforms as long as it is not referenced.
+#include <AK/Plugin/AkXWMADecoderFactory.h>		// Note: Useable only on Xbox 360. Ok to include it on other platforms as long as it is not referenced.
 #endif
 #ifdef AK_APPLE
 #include <AK/Plugin/AkAACFactory.h>			// Note: Useable only on Apple devices. Ok to include it on other platforms as long as it is not referenced.

@@ -287,12 +287,12 @@ b8 handle_packet(StreamRead* p, const Sock::Address& address)
 	using Stream = StreamRead;
 	if (!address.equals(server_address))
 	{
-		vi_debug("Discarding packet from unexpected host.");
+		vi_debug("%s", "Discarding packet from unexpected host.");
 		return false;
 	}
 	if (!p->read_checksum())
 	{
-		vi_debug("Discarding packet due to invalid checksum.");
+		vi_debug("%s", "Discarding packet due to invalid checksum.");
 		return false;
 	}
 	ServerPacket type;
@@ -311,7 +311,7 @@ b8 handle_packet(StreamRead* p, const Sock::Address& address)
 		}
 		default:
 		{
-			vi_debug("Discarding packet due to invalid packet type.");
+			vi_debug("%s", "Discarding packet due to invalid packet type.");
 			return false;
 		}
 	}

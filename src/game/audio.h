@@ -4,7 +4,15 @@
 #if SERVER
 #include <AK/SoundEngine/Common/AkTypes.h>
 #else
-#include <AK/StreamManager/AkDefaultIOHookBlocking.h>
+#if _WIN32
+#include <AK/StreamManager/Win32/AkDefaultIOHookBlocking.h>
+#elif defined(__APPLE__)
+#include <AK/StreamManager/POSIX/AkDefaultIOHookBlocking.h>
+#elif defined(__ORBIS__)
+#include <AkDefaultIOHookBlocking.h>
+#else // linux
+#include <AK/StreamManager/POSIX/AkDefaultIOHookBlocking.h>
+#endif
 #include <AK/SoundEngine/Common/AkCommonDefs.h>
 #include <AK/SoundEngine/Common/AkCallback.h>
 #endif
@@ -31,7 +39,7 @@ struct Audio : ComponentType<Audio>
 	static void post_global_event(AkUniqueID);
 	static b8 post_dialogue_event(AkUniqueID);
 	static void post_global_event(AkUniqueID, const Vec3&);
-	static void post_global_event(AkUniqueID, const Vec3&, const Vec3&);
+	static void post_global_event(AkUniqueID, const Vec3&, const Quat&);
 	static void global_param(AkRtpcID, AkRtpcValue);
 	static void listener_enable(u32);
 	static void listener_disable(u32);

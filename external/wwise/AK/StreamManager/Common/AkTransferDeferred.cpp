@@ -8,6 +8,8 @@
 //
 //////////////////////////////////////////////////////////////////////
 
+#include <AK/SoundEngine/Common/AkTypes.h>
+#include <AK/Tools/Common/AkAssert.h>
 #include "AkTransferDeferred.h"
 #include "AkDeviceDeferredLinedUp.h"
 

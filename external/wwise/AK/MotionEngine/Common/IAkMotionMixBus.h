@@ -16,7 +16,7 @@
 class IAkMotionMixBus : public AK::IAkPlugin
 {
 public:
-	virtual AKRESULT 	Init(AK::IAkPluginMemAlloc * in_pAllocator, AkPlatformInitSettings * io_pPDSettings, AkUInt8 in_iPlayer, void * in_pDevice = NULL) = 0;
+	virtual AKRESULT 	Init(AK::IAkPluginMemAlloc * in_pAllocator, AK::IAkGlobalPluginContext * in_pContext, AkPlatformInitSettings * io_pPDSettings, AkUInt8 in_iPlayer, void * in_pDevice = NULL) = 0;
 
 	virtual AKRESULT	MixAudioBuffer( AkAudioBuffer &io_rBuffer ) = 0;
 	virtual AKRESULT	MixFeedbackBuffer( AkAudioBuffer &io_rBuffer, AkReal32 in_fVolume ) = 0;

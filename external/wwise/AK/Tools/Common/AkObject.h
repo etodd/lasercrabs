@@ -84,8 +84,8 @@ struct AkPoolNewKey
 	}
 	
 	#ifndef AK_3DS
-	AkForceInline void operator delete(void *,AkMemPoolId,const AkPoolNewKey &,char*,AkUInt32) throw() {}
-	AkForceInline void operator delete(void *,AkMemPoolId,const AkPoolNewKey &,AkUInt32,char*,AkUInt32) throw() {}
+	AkForceInline void operator delete(void *,AkMemPoolId,const AkPoolNewKey &,const char*,AkUInt32) throw() {}
+	AkForceInline void operator delete(void *,AkMemPoolId,const AkPoolNewKey &,AkUInt32,const char*,AkUInt32) throw() {}
 	#endif
 	
 #else

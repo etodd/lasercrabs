@@ -42,7 +42,6 @@ typedef float	AKSIMD_F32;		///< 32-bit float
 typedef __m128	AKSIMD_V4F32;	///< Vector of 4 32-bit floats
 typedef AKSIMD_V4F32 AKSIMD_V4COND;	 ///< Vector of 4 comparison results
 typedef AKSIMD_V4F32 AKSIMD_V4FCOND;	 ///< Vector of 4 comparison results
-#define AKSIMD_V4F32_SUPPORTED
 
 //@}
 ////////////////////////////////////////////////////////////////////////
@@ -405,7 +404,7 @@ typedef AKSIMD_V4I32 AKSIMD_V4ICOND;
 //@}
 ////////////////////////////////////////////////////////////////////////
 
-#if defined( AK_CPU_X86 ) && !defined(AK_IOS)	/// MMX
+#if defined( AK_CPU_X86 ) && !defined(AK_IOS) /// MMX
 
 typedef __m64	AKSIMD_V2F32;	///< Vector of 2 32-bit floats
 

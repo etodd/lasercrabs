@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<WwiseDocument Type="WorkUnit" ID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}" SchemaVersion="70">
+<WwiseDocument Type="WorkUnit" ID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}" SchemaVersion="72">
 	<Conversions>
 		<WorkUnit Name="Default Work Unit" ID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}" PersistMode="Standalone">
 			<ChildrenList>
@@ -8,36 +8,36 @@
 						<Property Name="Channels" Type="int32">
 							<ValueList>
 								<Value Platform="Linux">4</Value>
-								<Value Platform="Windows">4</Value>
 								<Value Platform="Mac">4</Value>
+								<Value Platform="Windows">4</Value>
 							</ValueList>
 						</Property>
 						<Property Name="LRMix" Type="Real64">
 							<ValueList>
 								<Value Platform="Linux">0</Value>
-								<Value Platform="Windows">0</Value>
 								<Value Platform="Mac">0</Value>
+								<Value Platform="Windows">0</Value>
 							</ValueList>
 						</Property>
 						<Property Name="MaxSampleRate" Type="int32">
 							<ValueList>
 								<Value Platform="Linux">0</Value>
-								<Value Platform="Windows">0</Value>
 								<Value Platform="Mac">0</Value>
+								<Value Platform="Windows">0</Value>
 							</ValueList>
 						</Property>
 						<Property Name="MinSampleRate" Type="int32">
 							<ValueList>
 								<Value Platform="Linux">0</Value>
-								<Value Platform="Windows">0</Value>
 								<Value Platform="Mac">0</Value>
+								<Value Platform="Windows">0</Value>
 							</ValueList>
 						</Property>
 						<Property Name="SampleRate" Type="int32">
 							<ValueList>
 								<Value Platform="Linux">0</Value>
-								<Value Platform="Windows">0</Value>
 								<Value Platform="Mac">0</Value>
+								<Value Platform="Windows">0</Value>
 							</ValueList>
 						</Property>
 					</PropertyList>
@@ -45,11 +45,11 @@
 						<ConversionPluginInfo Platform="Linux">
 							<ConversionPlugin Name="" ID="{D09CB1FF-6D37-46AB-8703-CDDD28586D78}" PluginName="Vorbis" CompanyID="0" PluginID="4"/>
 						</ConversionPluginInfo>
-						<ConversionPluginInfo Platform="Windows">
-							<ConversionPlugin Name="" ID="{CCDADC27-9D6D-44D7-A472-3254190417D2}" PluginName="Vorbis" CompanyID="0" PluginID="4"/>
-						</ConversionPluginInfo>
 						<ConversionPluginInfo Platform="Mac">
 							<ConversionPlugin Name="" ID="{3BC6C315-9946-4355-B15C-084D8335519D}" PluginName="Vorbis" CompanyID="0" PluginID="4"/>
+						</ConversionPluginInfo>
+						<ConversionPluginInfo Platform="Windows">
+							<ConversionPlugin Name="" ID="{CCDADC27-9D6D-44D7-A472-3254190417D2}" PluginName="Vorbis" CompanyID="0" PluginID="4"/>
 						</ConversionPluginInfo>
 					</ConversionPluginInfoList>
 				</Conversion>

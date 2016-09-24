@@ -20,63 +20,6 @@
 // AUDIO DATA FORMAT
 //-----------------------------------------------------------------------------
 
-// Per-platform standard/largest setup definitions.
-#if defined(AK_71AUDIO)
-#define AK_SPEAKER_SETUP_DEFAULT_PLANE			(AK_SPEAKER_SETUP_7POINT1)	///< All speakers on the plane, supported on this platform.
-#define AK_SUPPORTED_STANDARD_CHANNEL_MASK		(AK_SPEAKER_SETUP_ALL_SPEAKERS)	///< Platform supports all standard channels.
-#elif defined(AK_LFECENTER) && defined(AK_REARCHANNELS)
-#define AK_SPEAKER_SETUP_DEFAULT_PLANE			(AK_SPEAKER_SETUP_5POINT1)	///< All speakers on the plane, supported on this platform.
-#define AK_SUPPORTED_STANDARD_CHANNEL_MASK		(AK_SPEAKER_SETUP_DEFAULT_PLANE)	///< Platform supports 5.1
-#elif defined(AK_REARCHANNELS)
-	#ifdef AK_WII
-		#define AK_SPEAKER_SETUP_DEFAULT_PLANE	(AK_SPEAKER_SETUP_DPL2 | AK_SPEAKER_FRONT_CENTER)	///< All speakers on the plane, supported on this platform.
-	#else
-		#define AK_SPEAKER_SETUP_DEFAULT_PLANE	(AK_SPEAKER_SETUP_4 | AK_SPEAKER_FRONT_CENTER)		///< All speakers on the plane, supported on this platform.
-	#endif
-	#define AK_SUPPORTED_STANDARD_CHANNEL_MASK	(AK_SPEAKER_SETUP_DEFAULT_PLANE)	///< Most complete speaker configuration supported on this platform.
-#else 
-#define AK_SPEAKER_SETUP_DEFAULT_PLANE			(AK_SPEAKER_SETUP_STEREO | AK_SPEAKER_FRONT_CENTER)	///< All speakers on the plane, supported on this platform.
-#define AK_SUPPORTED_STANDARD_CHANNEL_MASK		(AK_SPEAKER_SETUP_STEREO)	///< Most complete speaker configuration supported on this platform.
-#endif
-
-// Channel mask helpers.
-namespace AK
-{
-	/// Returns true when the LFE channel is present in a given channel configuration.
-	/// \return True if the LFE channel is present.
-	AkForceInline bool HasLFE( AkChannelMask in_uChannelMask )
-	{ 
-		return ( in_uChannelMask & AK_SPEAKER_LOW_FREQUENCY ) > 0; 
-	}
-
-	/// Returns true when the center channel is present in a given channel configuration.
-	/// Note that mono configurations have one channel which is arbitrary set to AK_SPEAKER_FRONT_CENTER,
-	/// so HasCenter() returns true for mono signals.
-	/// \return True if the center channel is present.
-	AkForceInline bool HasCenter( AkChannelMask in_uChannelMask )
-	{ 
-		// All supported non-mono configurations have an AK_SPEAKER_FRONT_LEFT.
-		return ( in_uChannelMask & AK_SPEAKER_FRONT_CENTER ) > 0; 
-	}
-
-	/// Returns the number of angle values required to represent the given channel configuration.
-	/// Use this function with supported 2D standard channel configurations only.
-	/// \sa AK::SoundEngine::SetSpeakerAngles().
-	AkForceInline AkUInt32 GetNumberOfAnglesForConfig( AkChannelMask in_uChannelMask )
-	{
-		AKASSERT( ( in_uChannelMask & ~AK_SPEAKER_SETUP_DEFAULT_PLANE ) == 0 );
-
-		// LFE is irrelevant.
-		in_uChannelMask &= ~AK_SPEAKER_LOW_FREQUENCY;
-		// Center speaker is always in the center and thus does not require an angle.
-		in_uChannelMask &= ~AK_SPEAKER_FRONT_CENTER;
-		// We should have complete pairs at this point, unless there is a speaker at 180 degrees, 
-		// in which case we need one more angle to specify it.
-		AKASSERT( ( in_uChannelMask & AK_SPEAKER_BACK_CENTER ) || ( ( AK::GetNumNonZeroBits( in_uChannelMask ) % 2 ) == 0 ) );
-		return AK::GetNumNonZeroBits( in_uChannelMask ) >> 1;
-	}
-}
-
 // Audio data format.
 // ------------------------------------------------
 
@@ -90,221 +33,6 @@ const AkDataInterleaveID AK_NONINTERLEAVED	= 1;		///< Non-interleaved data
 const AkUInt32 AK_LE_NATIVE_BITSPERSAMPLE  = 32;					///< Native number of bits per sample.
 const AkUInt32 AK_LE_NATIVE_SAMPLETYPE = AK_FLOAT;					///< Native data type.
 const AkUInt32 AK_LE_NATIVE_INTERLEAVE = AK_NONINTERLEAVED;			///< Native interleaved setting.
-
-/// Channel configuration type. 
-enum AkChannelConfigType
-{
-	AK_ChannelConfigType_Anonymous			= 0x0,	// Channel mask == 0 and channels are anonymous.
-	AK_ChannelConfigType_Standard			= 0x1,	// Channels must be identified with standard defines in AkSpeakerConfigs.	
-	AK_ChannelConfigType_Ambisonic			= 0x2	// Ambisonic. Channel mask == 0 and channels follow standard ambisonic order.
-};
-
-/// Defines a channel configuration.
-struct AkChannelConfig
-{
-	// Channel config: 
-	// - uChannelMask is a bit field, whose channel identifiers depend on AkChannelConfigType (up to 20). Channel bits are defined in AkSpeakerConfig.h.
-	// - eConfigType is a code that completes the identification of channels by uChannelMask.
-	// - uNumChannels is the number of channels, identified (deduced from channel mask) or anonymous (set directly). 
-	AkUInt32	uNumChannels	:8;	///< Number of channels.
-	AkUInt32	eConfigType		:4;	///< Channel config type (AkChannelConfigType).
-	AkUInt32	uChannelMask	:20;///< Channel mask (configuration). 
-
-	/// Constructor. Clears / sets the channel config in "invalid" state (IsValid() returns false).
-	AkForceInline AkChannelConfig()
-		: uNumChannels( 0 )
-		, eConfigType( 0 )
-		, uChannelMask( 0 )
-	{
-	}
-
-	/// Copy constructor.
-	AkForceInline AkChannelConfig( AkChannelMask in_uChannelMask )
-	{
-		SetStandard( in_uChannelMask );
-	}
-	
-	/// Operator != with a 32-bit word.
-	AkForceInline bool operator!=( AkUInt32 in_uBitField )
-	{
-		return ( *((AkUInt32*)this) != in_uBitField );
-	}
-
-	/// Clear the channel config. Becomes "invalid" (IsValid() returns false).
-	AkForceInline void Clear()
-	{
-		uNumChannels	= 0;
-		eConfigType		= 0;
-		uChannelMask	= 0;
-	}
-
-	/// Set channel config as a standard configuration specified with given channel mask.
-	AkForceInline void SetStandard( AkUInt32 in_uChannelMask )
-	{
-		uNumChannels	= AK::GetNumNonZeroBits( in_uChannelMask );
-		eConfigType		= AK_ChannelConfigType_Standard;
-		uChannelMask	= in_uChannelMask;
-	}
-	
-	/// Set channel config as either a standard or an anonymous configuration, specified with both a given channel mask (0 if anonymous) and a number of channels (which must match the channel mask if standard).
-	AkForceInline void SetStandardOrAnonymous( AkUInt32 in_uNumChannels, AkUInt32 in_uChannelMask )
-	{
-		AKASSERT( in_uChannelMask == 0 || in_uNumChannels == AK::GetNumNonZeroBits( in_uChannelMask ) );
-		uNumChannels	= in_uNumChannels;
-		eConfigType		= ( in_uChannelMask ) ? AK_ChannelConfigType_Standard : AK_ChannelConfigType_Anonymous;
-		uChannelMask	= in_uChannelMask;
-	}
-
-	/// Set channel config as an anonymous configuration specified with given number of channels.
-	AkForceInline void SetAnonymous( AkUInt32 in_uNumChannels )
-	{
-		uNumChannels	= in_uNumChannels;
-		eConfigType		= AK_ChannelConfigType_Anonymous;
-		uChannelMask	= 0;
-	}
-
-	/// Set channel config as an ambisonic configuration specified with given number of channels.
-	AkForceInline void SetAmbisonic( AkUInt32 in_uNumChannels )
-	{
-		uNumChannels	= in_uNumChannels;
-		eConfigType		= AK_ChannelConfigType_Ambisonic;
-		uChannelMask	= 0;
-	}
-
-	/// Returns true if valid, false otherwise (as when it is constructed, or invalidated using Clear()).
-	AkForceInline bool IsValid()
-	{
-		return uNumChannels != 0;
-	}
-
-	/// Serialize channel config into a 32-bit word.
-	AkForceInline void Serialize( AkUInt32 & out_uChannelConfig ) const
-	{
-		out_uChannelConfig = uNumChannels | ( eConfigType << 8 ) | ( uChannelMask << 12 );
-	}
-	
-	/// Deserialize channel config from a 32-bit word.
-	AkForceInline void Deserialize( AkUInt32 in_uChannelConfig )
-	{
-		uNumChannels = in_uChannelConfig & 0x000000ff;
-		eConfigType = ( in_uChannelConfig >> 8 ) & 0x0000000f;
-		uChannelMask = ( in_uChannelConfig >> 12 ) & 0x000fffff;
-	}
-
-	/// Returns a new config based on 'this' with no LFE.
-	AkForceInline AkChannelConfig RemoveLFE() const
-	{
-		AkChannelConfig newConfig = *this;
-#ifdef AK_LFECENTER
-		AkUInt32 uNewChannelMask = newConfig.uChannelMask & ~AK_SPEAKER_LOW_FREQUENCY;
-		AkUInt32 uNumLFEChannel = ( newConfig.uChannelMask - uNewChannelMask ) >> 3; // 0 or 1
-		AKASSERT( uNumLFEChannel == 0 || uNumLFEChannel == 1 );
-		newConfig.uNumChannels -= uNumLFEChannel;
-		newConfig.uChannelMask = uNewChannelMask;
-#endif
-		return newConfig;
-	}
-
-	/// Returns a new config based on 'this' with no Front Center channel.
-	AkForceInline AkChannelConfig RemoveCenter() const
-	{
-		AkChannelConfig newConfig = *this;
-#ifdef AK_LFECENTER
-		AkUInt32 uNewChannelMask = newConfig.uChannelMask & ~AK_SPEAKER_FRONT_CENTER;
-		AkUInt32 uNumCenterChannel = ( newConfig.uChannelMask - uNewChannelMask ) >> 2;	// 0 or 1.
-		AKASSERT( uNumCenterChannel == 0 || uNumCenterChannel == 1 );
-		newConfig.uNumChannels -= uNumCenterChannel;
-		newConfig.uChannelMask = uNewChannelMask;
-#endif
-		return newConfig;
-	}
-
-	/// Operator ==
-	AkForceInline bool operator==( const AkChannelConfig & in_other ) const
-	{
-		return uNumChannels	== in_other.uNumChannels
-			&& eConfigType == in_other.eConfigType
-			&& uChannelMask	== in_other.uChannelMask;
-	}
-
-	/// Operator !=
-	AkForceInline bool operator!=( const AkChannelConfig & in_other ) const
-	{
-		return uNumChannels	!= in_other.uNumChannels
-			|| eConfigType != in_other.eConfigType
-			|| uChannelMask	!= in_other.uChannelMask;
-	}
-
-	/// Checks if the channel configuration is supported by the source pipeline.
-	/// \return The interleaved type
-	AkForceInline bool IsChannelConfigSupported() const
-	{
-		if ( eConfigType == AK_ChannelConfigType_Standard )
-		{
-			bool bIsSupported = true;
-			switch ( uChannelMask )
-			{
-			case AK_SPEAKER_SETUP_MONO:
-			case AK_SPEAKER_SETUP_STEREO:
-#ifdef AK_LFECENTER
-			case AK_SPEAKER_SETUP_0POINT1:
-			case AK_SPEAKER_SETUP_1POINT1:
-			case AK_SPEAKER_SETUP_2POINT1:
-			case AK_SPEAKER_SETUP_3STEREO:
-			case AK_SPEAKER_SETUP_3POINT1:
-#ifdef AK_REARCHANNELS
-			case AK_SPEAKER_SETUP_4:
-			case AK_SPEAKER_SETUP_4POINT1:
-			case AK_SPEAKER_SETUP_5:
-			case AK_SPEAKER_SETUP_5POINT1:
-#endif
-#endif
-#ifdef AK_71AUDIO
-			case AK_SPEAKER_SETUP_7:
-			case AK_SPEAKER_SETUP_7POINT1:
-#endif // AK_71AUDIO
-				break;
-			default:
-				bIsSupported = false;
-			}
-			return bIsSupported;
-		}
-		else if ( eConfigType == AK_ChannelConfigType_Anonymous )
-		{
-			return true;
-		}
-		else
-		{
-			// TODO
-			AKASSERT( eConfigType == AK_ChannelConfigType_Ambisonic );
-			return false;
-		}
-	}
-
-	/// Query if LFE channel is present.
-	/// \return True when LFE channel is present
-	AkForceInline bool HasLFE() const
-	{
-#ifdef AK_LFECENTER
-		return AK::HasLFE( uChannelMask ); 
-#else
-		return false;
-#endif
-	}
-
-	/// Query if center channel is present.
-	/// Note that mono configurations have one channel which is arbitrary set to AK_SPEAKER_FRONT_CENTER,
-	/// so HasCenter() returns true for mono signals.
-	/// \return True when center channel is present and configuration has more than 2 channels.
-	AkForceInline bool HasCenter() const
-	{ 
-#ifdef AK_LFECENTER
-		return AK::HasCenter( uChannelMask ); 
-#else
-		return false;
-#endif
-	}
-};
 
 /// Defines the parameters of an audio buffer format.
 struct AkAudioFormat
@@ -395,6 +123,25 @@ struct AkAudioFormat
 		return channelConfig.IsChannelConfigSupported();
 	}
 
+	AkForceInline bool operator==(const AkAudioFormat & in_other) const
+	{
+		return uSampleRate == in_other.uSampleRate 
+			&& channelConfig == in_other.channelConfig
+			&& uBitsPerSample == in_other.uBitsPerSample
+			&& uBlockAlign == in_other.uBlockAlign
+			&& uTypeID == in_other.uTypeID
+			&& uInterleaveID == in_other.uInterleaveID;
+	}
+
+	AkForceInline bool operator!=(const AkAudioFormat & in_other) const
+	{
+		return uSampleRate != in_other.uSampleRate
+			|| channelConfig != in_other.channelConfig
+			|| uBitsPerSample != in_other.uBitsPerSample
+			|| uBlockAlign != in_other.uBlockAlign
+			|| uTypeID != in_other.uTypeID
+			|| uInterleaveID != in_other.uInterleaveID;
+	}
 };
 
 // Build a 32 bit class identifier based on the Plug-in type,

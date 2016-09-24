@@ -73,8 +73,6 @@ namespace AK
 
 #define AK_INFINITE                             INFINITE
 
-#define AkMakeLong(a,b)							MAKELONG((a),(b))
-
 #define AkMax(x1, x2)	(((x1) > (x2))? (x1): (x2))
 #define AkMin(x1, x2)	(((x1) < (x2))? (x1): (x2))
 #define AkClamp(x, min, max)  ((x) < (min)) ? (min) : (((x) > (max) ? (max) : (x)))
@@ -237,7 +235,7 @@ namespace AKPLATFORM
 		{
 			RaiseException( MS_VC_EXCEPTION, 0, sizeof(info)/sizeof(ULONG_PTR), (ULONG_PTR*)&info );
 		}
-#pragma warning(suppress: 6312)
+#pragma warning(suppress: 6312 6322)
 		__except(EXCEPTION_CONTINUE_EXECUTION)
 		{
 		}
@@ -579,5 +577,11 @@ namespace AKPLATFORM
 			AKPLATFORM::g_uAkPerfRecExecCount++;
 	#endif // AK_ENABLE_PERF_RECORDING
 }
+
+#ifdef AK_ENABLE_INSTRUMENT
+	#ifdef AK_XBOXONE
+		#include <AK/Tools/XBoxOne/AkInstrument.h>
+	#endif
+#endif
 
 #endif  // _AK_PLATFORM_FUNCS_H_

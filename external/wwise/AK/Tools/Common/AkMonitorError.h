@@ -80,9 +80,11 @@ namespace AK
 			ErrorCode_StreamingSourceStarving,
 			ErrorCode_XMADecoderSourceStarving,
 			ErrorCode_XMADecodingError,
+			ErrorCode_InvalidXMAData,
 
 			ErrorCode_PluginNotRegistered,
 			ErrorCode_CodecNotRegistered,
+			ErrorCode_PluginVersionMismatch,
 
 			ErrorCode_EventIDNotFound,
 
@@ -107,8 +109,8 @@ namespace AK
 			ErrorCode_CannotSeekContinuous,
 			ErrorCode_SeekAfterEof,
 
-			ErrorCode_UnknownGameObjectEvent,
 			ErrorCode_UnknownGameObject,
+			ErrorCode_UnknownGameObjectEvent,
 
 			ErrorCode_ExternalSourceNotResolved,
 			ErrorCode_FileFormatMismatch,
@@ -119,6 +121,8 @@ namespace AK
 			ErrorCode_ExecuteActionOnEvent,
 			ErrorCode_StopAll,
 			ErrorCode_StopPlayingID,
+			ErrorCode_PostMIDIOnEvent,
+			ErrorCode_StopAllMIDI,
 
 			ErrorCode_XMACreateDecoderLimitReached,
 			ErrorCode_XMAStreamBufferTooSmall,
@@ -258,9 +262,11 @@ namespace AK
 			AKTEXT("Source starvation"), // ErrorCode_StreamingSourceStarving,
 			AKTEXT("XMA decoder starvation"), // ErrorCode_XMADecoderSourceStarving,
 			AKTEXT("XMA decoding error"), // ErrorCode_XMADecodingError
+			AKTEXT("Invalid XMA data - Make sure data is allocated from APU memory and is aligned to 2K."), // ErrorCode_InvalidXMAData
 
 			AKTEXT("Plug-in not registered"), // ErrorCode_PluginNotRegistered,
 			AKTEXT("Codec plug-in not registered"), // ErrorCode_CodecNotRegistered,
+			AKTEXT("Plug-in version doesn't match sound engine version.  Check your build setup"), //ErrorCode_PluginVersionMismatch
 
 			AKTEXT("Event ID not found"), // ErrorCode_EventIDNotFound,
 
@@ -286,7 +292,7 @@ namespace AK
 			AKTEXT("Seeking after end of file. Playback will stop"), // ErrorCode_SeekAfterEof
 
 			AKTEXT("Unknown game object ID. Make sure the game object is registered before using it and do not use it once it was unregistered."), // ErrorCode_UnknownGameObject,
-			AKTEXT("Unknown game object ID. Make sure the game object is registered before using it and do not use it once it was unregistered."), // ErrorCode_UnknownGameObjectEvent
+			AKTEXT("Unknown game object ID on event. Make sure the game object is registered before using it and do not use it once it was unregistered."), // ErrorCode_UnknownGameObjectEvent
 
 			AKTEXT("External source missing from PostEvent call"), // ErrorCode_ExternalSourceNotResolved
 			AKTEXT("Source file is of different format than expected"), //ErrorCode_FileFormatMismatch
@@ -296,6 +302,8 @@ namespace AK
 			AKTEXT("ExecuteActionOnEvent API called"), // ErrorCode_ExecuteActionOnEvent
 			AKTEXT("StopAll API called"), // ErrorCode_StopAll
 			AKTEXT("StopPlayingID API called"), // ErrorCode_StopPlayingID
+			AKTEXT("PostMIDIOnEvent API called"), // ErrorCode_PostMIDIOnEvent
+			AKTEXT("StopAllMIDI API called"), // ErrorCode_StopAllMIDI
 
 			AKTEXT("Failed creating XMA decoder: no more XMA voices available"), // ErrorCode_XMACreateDecoderLimitReached
 			AKTEXT("Failed seeking in XMA source: stream buffer is smaller than XMA block size"), // ErrorCode_XMAStreamBufferTooSmall

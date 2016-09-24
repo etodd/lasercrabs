@@ -14,16 +14,16 @@
 
 #include <AK/SoundEngine/Common/AkTypes.h>
 
-#if defined( AK_CPU_ARM_NEON ) || ( ( defined( AK_CPU_X86 ) || defined( AK_CPU_X86_64 ) ) && !defined(AK_IOS) && !defined(AK_ANDROID)) || defined( AK_WIIU )
+#if defined( AK_CPU_ARM_NEON ) || ( ( defined( AK_CPU_X86 ) || defined( AK_CPU_X86_64 ) ) && !defined(AK_IOS) ) || defined( AK_WIIU )
 
 	#define AKSIMD_SPEAKER_VOLUME
 
 #endif
 
 #ifdef AKSIMD_SPEAKER_VOLUME
-
-#include <AK/SoundEngine/Common/AkSimd.h>
 	
+
+
 // Extend AK::SpeakerVolumes. AKSIMD implementation
 namespace AK
 {
@@ -32,11 +32,11 @@ namespace SpeakerVolumes
 	namespace Vector
 	{
 #ifdef AKSIMD_V4F32_SUPPORTED
-
+#define SIZEOF_AKSIMD_V4F32		16	
 		/// Compute size (in number of v4 elements) required for given number of channels in vector.
 		AkForceInline AkUInt32 GetNumV4F32( AkUInt32 in_uNumChannels )
 		{
-			return ( in_uNumChannels + ( sizeof( AKSIMD_V4F32 ) / 4 ) - 1 ) >> 2;
+			return ( in_uNumChannels + ( SIZEOF_AKSIMD_V4F32 / 4 ) - 1 ) >> 2;
 		}
 
 		/// Compute size (in number of elements/floats) required for given number of channels in vector.
@@ -48,15 +48,16 @@ namespace SpeakerVolumes
 		/// Compute size (in bytes) required for given number of channels in vector.
 		AkForceInline AkUInt32 GetRequiredSize( AkUInt32 in_uNumChannels ) 
 		{
-			return GetNumV4F32( in_uNumChannels ) * sizeof( AKSIMD_V4F32 );
+			return GetNumV4F32( in_uNumChannels ) * SIZEOF_AKSIMD_V4F32;
 		}
 
 #elif defined (AKSIMD_V2F32_SUPPORTED)
+#define SIZEOF_AKSIMD_V2F32		8	
 
 		/// Compute size (in number of paired-single elements) required for given number of channels in vector.
 		AkForceInline AkUInt32 GetNumV2F32( AkUInt32 in_uNumChannels )
 		{
-			return ( in_uNumChannels + ( sizeof( AKSIMD_V2F32 ) / 2 ) - 1 ) >> 1;
+			return ( in_uNumChannels + ( SIZEOF_AKSIMD_V2F32 / 2 ) - 1 ) >> 1;
 		}
 
 		/// Compute size (in number of elements/floats) required for given number of channels in vector.
@@ -68,7 +69,7 @@ namespace SpeakerVolumes
 		/// Compute size (in bytes) required for given number of channels in vector.
 		AkForceInline AkUInt32 GetRequiredSize( AkUInt32 in_uNumChannels ) 
 		{
-			return GetNumV2F32( in_uNumChannels ) * sizeof( AKSIMD_V2F32 );
+			return GetNumV2F32( in_uNumChannels ) * SIZEOF_AKSIMD_V2F32;
 		}
 
 #else

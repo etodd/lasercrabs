@@ -64,6 +64,10 @@ namespace AK
 	{
 		return in_pAllocator->dMalloc( size, szFile, ulLine );
 	}
+
+#ifndef AK_3DS
+		AkForceInline void operator delete(void *, AK::IAkPluginMemAlloc *, const char*, AkUInt32) throw() {}
+#endif
 	
 #endif
 

@@ -9,6 +9,8 @@
 //
 //////////////////////////////////////////////////////////////////////
 
+#include <AK/SoundEngine/Common/AkTypes.h>
+#include <AK/Tools/Common/AkAssert.h>
 #include "AkStreamMgr.h"
 #include <AK/Tools/Common/AkMonitorError.h>
 #include "AkStreamingDefaults.h"
@@ -1160,6 +1162,11 @@ AKRESULT CAkStreamMgr::GetBufferStatusForPinnedFile( AkFileID in_fileID , AkReal
 		CAkAutoStmBase* pAutoStream = static_cast<CAkAutoStmBase*>(pData->pStream);
 		
 		AkUInt32 uCachingBufferSize = pAutoStream->GetNominalBuffering();
+		AkStreamInfo stmInfo;
+		pAutoStream->GetInfo(stmInfo);
+		if (stmInfo.uSize != 0)
+			uCachingBufferSize = AkMin(uCachingBufferSize, stmInfo.uSize);
+
 		AkUInt32 uBufferedBytes = pAutoStream->GetVirtualBufferingSize();
 
 		out_fPercentBuffered = ((AkReal32)uBufferedBytes / (AkReal32)uCachingBufferSize) * 100.f;

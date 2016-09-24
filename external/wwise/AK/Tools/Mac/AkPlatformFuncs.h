@@ -205,7 +205,12 @@ namespace AKPLATFORM
 										 srcEncoding,
 										 false );
 		CFRange rangeToProcess = CFRangeMake(0, CFStringGetLength(strRef));
-		return CFStringGetBytes(strRef, rangeToProcess, dstEncoding, '?', false, (UInt8 *)in_pdDest , in_MaxSize * sizeof(destType), NULL);
+		CFIndex sizeConverted = CFStringGetBytes(strRef, rangeToProcess, dstEncoding, '?', false, (UInt8 *)in_pdDest , in_MaxSize * sizeof(destType), NULL);
+        
+        //WG-28497 Memory leak when converting strings on Mac & iOS
+        CFRelease(strRef);
+        
+        return sizeConverted;
 	}
 
 	#define CONVERT_UTF16_TO_WCHAR( _astring_, _wcharstring_ ) \

@@ -23,7 +23,7 @@
 
 	#include <AK/SoundEngine/Platforms/XboxOne/AkTypes.h>
 
-#elif defined( WIN32 ) || defined ( WIN64 ) || defined( WINAPI_FAMILY )
+#elif defined( _WIN32 ) || defined ( _WIN64 ) || defined( WINAPI_FAMILY )
 
 	#include <AK/SoundEngine/Platforms/Windows/AkTypes.h>
 
@@ -59,6 +59,10 @@
 
 	#include <AK/SoundEngine/Platforms/Linux/AkTypes.h>
 
+#elif defined( __EMSCRIPTEN__ )
+
+	#include <AK/SoundEngine/Platforms/Emscripten/AkTypes.h>
+	
 #elif defined( __QNX__ )
 
 	#include <AK/SoundEngine/Platforms/QNX/AkTypes.h>

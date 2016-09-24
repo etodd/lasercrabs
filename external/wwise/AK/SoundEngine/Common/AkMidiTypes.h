@@ -22,7 +22,6 @@
 typedef AkUInt8			AkMidiChannelNo;			///< MIDI channel number, usually 0-15.  
 typedef AkUInt8			AkMidiNoteNo;				///< MIDI note number.  
 
-
 //-----------------------------------------------------------------------------
 // Constants.
 //-----------------------------------------------------------------------------
@@ -43,12 +42,6 @@ static const AkMidiNoteNo				AK_INVALID_MIDI_NOTE				=  (AkUInt8)-1;				///< Not
 #define AK_MIDI_EVENT_TYPE_SYSEX					0xf0
 #define AK_MIDI_EVENT_TYPE_ESCAPE					0xf7
 #define AK_MIDI_EVENT_TYPE_META						0xff
-
-// Macros to convert 32-bit MIDI event to 8-bit components
-#define AK_MIDI_EVENT_GET_TYPE( in_dwEvent ) (AkUInt8)((in_dwEvent >> 0) & 0xf0)
-#define AK_MIDI_EVENT_GET_CHANNEL( in_dwEvent ) (AkUInt8)((in_dwEvent >> 0) & 0x0f)
-#define AK_MIDI_EVENT_GET_PARAM1( in_dwEvent ) (AkUInt8)(in_dwEvent >> 8)
-#define AK_MIDI_EVENT_GET_PARAM2( in_dwEvent ) (AkUInt8)(in_dwEvent >> 16)
 
 // List of Continuous Controller (cc) values
 #define AK_MIDI_CC_BANK_SELECT_COARSE		0
@@ -156,130 +149,12 @@ static const AkMidiNoteNo				AK_INVALID_MIDI_NOTE				=  (AkUInt8)-1;				///< Not
 #define AK_MIDI_CC_OMNI_MONOPHONIC_ON		126
 #define AK_MIDI_CC_OMNI_POLYPHONIC_ON		127
 
+//-----------------------------------------------------------------------------
+// Structs.
+//-----------------------------------------------------------------------------
 
-
-struct AkMidiNoteChannelPair
+struct AkMIDIEvent
 {
-	AkMidiNoteChannelPair(): note(AK_INVALID_MIDI_NOTE), channel(AK_INVALID_MIDI_CHANNEL) {}
-
-	bool operator == ( const AkMidiNoteChannelPair& in_rhs ) const { return note == in_rhs.note && channel == in_rhs.channel; }
-	bool operator < ( const AkMidiNoteChannelPair& in_rhs ) const { return channel < in_rhs.channel || (channel == in_rhs.channel && note < in_rhs.note ); }
-	bool operator > ( const AkMidiNoteChannelPair& in_rhs ) const { return channel > in_rhs.channel || (channel == in_rhs.channel && note > in_rhs.note ); }
-
-	bool IsChannelValid() const	{ return channel != AK_INVALID_MIDI_CHANNEL; }
-	bool IsNoteValid() const 	{ return note != AK_INVALID_MIDI_NOTE; }
-
-	AkMidiNoteNo		note;
-	AkMidiChannelNo		channel;
-};
-
-struct AkMidiEvent
-{
-	inline AkMidiEvent()
-		: byType( AK_MIDI_EVENT_TYPE_INVALID )
-		, byChan( AK_INVALID_MIDI_CHANNEL )
-	{}
-
-	inline bool IsValid() const { return byType != AK_MIDI_EVENT_TYPE_INVALID; }
-	inline void MakeInvalid()	{ *this = AkMidiEvent(); }
-
-	inline bool IsTypeOk() const { return ( (byType & 0x80) == 0x80 ) && ( (byType & 0xf0) != 0xf0 ); }
-
-	inline bool IsSameChannel ( const AkMidiEvent& in_other ) const 
-	{
-		return byChan == in_other.byChan; 
-	}
-
-	inline bool IsNoteEvent () const
-	{
-		return byType == AK_MIDI_EVENT_TYPE_NOTE_ON ||
-			byType == AK_MIDI_EVENT_TYPE_NOTE_OFF ||
-			byType == AK_MIDI_EVENT_TYPE_NOTE_AFTERTOUCH;
-	}
-
-	inline bool IsCcEvent() const
-	{
-		return byType == AK_MIDI_EVENT_TYPE_CONTROLLER;
-	}
-
-	inline bool IsSameCc( const AkMidiEvent& in_other ) const
-	{ 
-		return IsCcEvent() && in_other.IsCcEvent() && 
-			Cc.byCc == in_other.Cc.byCc; 
-	}
-
-	inline bool IsSameNote ( const AkMidiEvent& in_other ) const
-	{ 
-		return IsNoteEvent() && in_other.IsNoteEvent() && 
-			NoteOnOff.byNote == in_other.NoteOnOff.byNote; 
-	}
-
-	inline bool IsSameChannelAndNote ( const AkMidiEvent& in_other ) const
-	{
-		return IsSameChannel( in_other ) && IsSameNote( in_other );
-	}
-
-	inline bool IsNoteOn() const
-	{
-		return ( byType == AK_MIDI_EVENT_TYPE_NOTE_ON && NoteOnOff.byVelocity > 0 );
-	}
-
-	inline bool IsNoteOff() const
-	{
-		return byType == AK_MIDI_EVENT_TYPE_NOTE_OFF || 
-			(byType == AK_MIDI_EVENT_TYPE_NOTE_ON && NoteOnOff.byVelocity == 0 );
-	}
-
-	inline bool IsNoteOnOff() const
-	{
-		return IsNoteOn() || IsNoteOff();
-	}
-
-	bool IsPitchBend() const
-	{
-		return byType == AK_MIDI_EVENT_TYPE_PITCH_BEND;
-	}
-
-	inline AkMidiNoteChannelPair GetNoteAndChannel() const
-	{
-		AkMidiNoteChannelPair noteAndCh;
-		noteAndCh.channel = byChan;
-		noteAndCh.note =  IsNoteEvent() ? NoteOnOff.byNote : AK_INVALID_MIDI_NOTE;
-		return noteAndCh;
-	}
-
-	inline void MakeSustainPedalOff( AkUInt32 in_uChan )
-	{
-		byType = AK_MIDI_EVENT_TYPE_CONTROLLER;
-		byChan = (AkUInt8)in_uChan;
-		Cc.byCc = AK_MIDI_CC_HOLD_PEDAL;
-		Cc.byValue = 0;
-	}
-
-	inline void MakeNoteOn()
-	{
-		byType = AK_MIDI_EVENT_TYPE_NOTE_ON;
-		NoteOnOff.byVelocity = 0;
-	}
-
-	inline void MakeNoteOff()
-	{
-		byType = AK_MIDI_EVENT_TYPE_NOTE_OFF;
-		NoteOnOff.byVelocity = 0;
-	}
-
-	inline void SetNoteNumber( const AkMidiNoteNo in_note )
-	{
-		AKASSERT( IsNoteOnOff() );
-		NoteOnOff.byNote = in_note;
-	}
-
-	inline AkMidiNoteNo GetNoteNumber() const
-	{
-		AKASSERT( IsNoteOnOff() );
-		return (AkMidiNoteNo)NoteOnOff.byNote;
-	}
-
 	AkUInt8			byType;		// (Ak_MIDI_EVENT_TYPE_)
 	AkMidiChannelNo	byChan;
 
@@ -327,6 +202,11 @@ struct AkMidiEvent
 		tChanAftertouch ChanAftertouch;
 		tProgramChange ProgramChange;
 	};
+};
+
+struct AkMIDIPost : public AkMIDIEvent
+{
+	AkUInt32 uOffset; // Frame offset for MIDI event post
 };
 
 #endif  //_AK_MIDI_TYPES_H_

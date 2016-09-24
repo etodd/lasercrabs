@@ -8,6 +8,8 @@
 //
 //////////////////////////////////////////////////////////////////////
 
+#include <AK/SoundEngine/Common/AkTypes.h>
+#include <AK/Tools/Common/AkAssert.h>
 #include "AkIOMemMgr.h"
 #include "AkIOThread.h"
 #include <stdio.h>
@@ -256,6 +258,7 @@ void CAkIOMemMgr::CheckCacheConsistency( AkMemBlock * in_pMustFindBlock )
 	while ( it != m_arTaggedBlocks.End() )
 	{
 		AkMemBlock * pThisBlock = (*it);
+		AKASSERT(pThisBlock->fileID != AK_INVALID_FILE_ID);	// should not be in the cache!
 		if ( pPrevBlock 
 			&& ( pPrevBlock->fileID > pThisBlock->fileID
 				|| ( pPrevBlock->fileID == pThisBlock->fileID && pPrevBlock->uPosition < pThisBlock->uPosition )
@@ -533,7 +536,6 @@ void CAkIOMemMgr::FlushCache()
 
 		m_listCachedBuffers.RemoveAll();
 
-		AkUInt32 uNewArrayLen = m_arTaggedBlocks.Length();
 		for ( AkMemBlocksDictionnary::Iterator dictIt = m_arTaggedBlocks.Begin(); dictIt != m_arTaggedBlocks.End(); ++ dictIt )
 		{
 			AkMemBlock *& pMemBlk = (*dictIt);
@@ -563,7 +565,7 @@ AKRESULT CAkIOMemMgr::TagBlock(
 
 	AKASSERT( in_pMemBlock->uRefCount == 1 );
 
-	if ( !UseCache() || in_fileID == AK_INVALID_FILE_ID )
+	if (!UseCache())
 	{
 		// Not using cache. Blocks are never kept reordered. Just set data and leave.
 		in_pMemBlock->uPosition			= in_uPosition;
@@ -576,6 +578,7 @@ AKRESULT CAkIOMemMgr::TagBlock(
 	
 	CHECK_CACHE_CONSISTENCY( in_pMemBlock );
 
+	// The block in_pMemBlock may be new, or exist in the cache. Search for it.
 	bool bFound = false;
 	AkUInt32 uOriginalLocation = m_arTaggedBlocks.Length();
 
@@ -603,9 +606,18 @@ AKRESULT CAkIOMemMgr::TagBlock(
 		while ( iTop <= iBottom );
 	}
 	
-	// If the block was not found in the list, then we have to add it.
-	if (bFound || m_arTaggedBlocks.AddLast(in_pMemBlock) != NULL )
+	// Erase the old block or replace/insert the new block.
+	if (in_fileID == AK_INVALID_FILE_ID)
 	{
+		// We don't want to tag the block: remove it from cache if it is being reused.
+		if (bFound)
+			m_arTaggedBlocks.Erase(uOriginalLocation);
+	}
+	else if (bFound || m_arTaggedBlocks.AddLast(in_pMemBlock) != NULL )
+	{
+		// Else, 
+		// If the block was found: override and reorder.
+		// If the block was not found: addlast and reorder.
 		AKASSERT(!m_arTaggedBlocks.IsEmpty());
 
 		// Find the location where our block should be inserted.
@@ -637,11 +649,10 @@ AKRESULT CAkIOMemMgr::TagBlock(
 
 		m_arTaggedBlocks.Move( uOriginalLocation, uNewLocation );
 
-		in_pMemBlock->fileID			= in_fileID;
-		
 		res = AK_Success;
 	}
 
+	in_pMemBlock->fileID			= in_fileID;
 	in_pMemBlock->uPosition			= in_uPosition;
 	in_pMemBlock->uAvailableSize	= in_uDataSize;	
 	in_pMemBlock->pTransfer			= in_pTransfer;

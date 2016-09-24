@@ -140,13 +140,10 @@ void Walker::update(const Update& u)
 
 		if (ray_callback.hasHit())
 		{
-			const btRigidBody* object = dynamic_cast<const btRigidBody*>(ray_callback.m_collisionObject);
+			const btRigidBody* object = (const btRigidBody*)(ray_callback.m_collisionObject);
 
-			if (object)
-			{
-				support_velocity = Vec3(object->getLinearVelocity())
-					+ Vec3(object->getAngularVelocity()).cross(pos - Vec3(object->getCenterOfMassPosition()));
-			}
+			support_velocity = Vec3(object->getLinearVelocity())
+				+ Vec3(object->getAngularVelocity()).cross(pos - Vec3(object->getCenterOfMassPosition()));
 
 			r32 velocity_diff = velocity.y - support_velocity.y;
 

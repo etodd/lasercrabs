@@ -8,7 +8,7 @@
 namespace VI
 {
 
-const char* TechniquePrefixes::all[] =
+const char* technique_prefixes[(s32)RenderTechnique::count] =
 {
 	"", // Default
 	"#define SHADOW\n", // Shadow
@@ -692,7 +692,7 @@ void render(RenderSync* sync)
 
 				for (s32 i = 0; i < (s32)RenderTechnique::count; i++)
 				{
-					b8 success = compile_shader(TechniquePrefixes::all[i], code, code_length, &GLData::shaders[id][i].handle);
+					b8 success = compile_shader(technique_prefixes[i], code, code_length, &GLData::shaders[id][i].handle);
 					vi_assert(success);
 
 					GLData::shaders[id][i].uniforms.resize(GLData::uniform_names.length);

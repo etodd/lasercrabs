@@ -15,6 +15,7 @@
 
 #include <AK/SoundEngine/Common/AkSoundEngineExport.h>
 #include <AK/SoundEngine/Common/AkTypes.h>
+#include <AK/SoundEngine/Common/AkCallback.h>
 
 /// Platform-independent initialization settings of the music engine
 /// \sa 
@@ -23,16 +24,6 @@
 struct AkMusicSettings
 {
 	AkReal32 fStreamingLookAheadRatio;	///< Multiplication factor for all streaming look-ahead heuristic values.
-};
-
-/// Structure used to query info on active playing segments.
-struct AkSegmentInfo
-{
-	AkTimeMs		iCurrentPosition;		///< Current position of the segment, relative to the Entry Cue, in milliseconds. Range is [-iPreEntryDuration, iActiveDuration+iPostExitDuration].
-	AkTimeMs		iPreEntryDuration;		///< Duration of the pre-entry region of the segment, in milliseconds.
-	AkTimeMs		iActiveDuration;		///< Duration of the active region of the segment (between the Entry and Exit Cues), in milliseconds.
-	AkTimeMs		iPostExitDuration;		///< Duration of the post-exit region of the segment, in milliseconds.
-	AkTimeMs		iRemainingLookAheadTime;///< Number of milliseconds remaining in the "looking-ahead" state of the segment, when it is silent but streamed tracks are being prefetched.
 };
 
 // Audiokinetic namespace

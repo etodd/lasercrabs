@@ -18,6 +18,7 @@
 
 namespace AK
 {
+	class IAkGlobalPluginContext;
 	class IAkMixerInputContext;
 	class IAkMixerPluginContext;
 }
@@ -46,7 +47,7 @@ enum AkCallbackType
 	AK_MusicSyncPoint				= 0x4000,	///< Enable notifications on Music switch transition synchronisation point.
 	AK_MusicSyncAll					= 0x7f00,	///< Use this flag if you want to receive all notifications concerning AK_MusicSync registration.
 
-	AK_MidiEvent					= 0x10000,	///< Enable notifications for MIDI events.
+	AK_MIDIEvent					= 0x10000,	///< Enable notifications for MIDI events.
 
 	AK_CallbackBits					= 0xfffff,	///< Bitmask for all callback types.
 
@@ -80,9 +81,9 @@ struct AkEventCallbackInfo : public AkCallbackInfo
 /// \sa 
 /// - AK::SoundEngine::PostEvent()
 /// - \ref soundengine_events
-struct AkMidiEventCallbackInfo : public AkEventCallbackInfo
+struct AkMIDIEventCallbackInfo : public AkEventCallbackInfo
 {
-	AkMidiEvent		midiEvent;		///< MIDI event triggered by event.
+	AkMIDIEvent		midiEvent;		///< MIDI event triggered by event.
 };
 
 
@@ -104,9 +105,10 @@ struct AkMarkerCallbackInfo : public AkEventCallbackInfo
 /// - \ref soundengine_events
 struct AkDurationCallbackInfo : public AkEventCallbackInfo
 {
-	AkReal32	fDuration;				///< Duration of the sound (unit: milliseconds )
-	AkReal32	fEstimatedDuration;		///< Estimated duration of the sound depending on source settings such as pitch. (unit: milliseconds )
+	AkReal32	fDuration;				///< Duration of the sound (unit: milliseconds)
+	AkReal32	fEstimatedDuration;		///< Estimated duration of the sound depending on source settings such as pitch. (unit: milliseconds)
 	AkUniqueID	audioNodeID;			///< Audio Node ID of playing item
+	AkUniqueID  mediaID;				///< Media ID of playing item. (corresponds to 'ID' attribute of 'File' element in SoundBank metadata file)
 	bool		bStreaming;				///< True if source is streaming, false otherwise.
 };
 
@@ -148,7 +150,7 @@ struct AkSpeakerVolumeMatrixCallbackInfo : public AkEventCallbackInfo
 	AK::IAkMixerPluginContext * pMixerContext;	///< Output mixing bus context. Use it to access a few useful panning and mixing services, as well as the ID of the output bus. NULL if pContext is the master audio bus.
 };
 
-/// Callback information structure corresponding to Ak_MusicPlaylistSelect.
+/// Callback information structure corresponding to AK_MusicPlaylistSelect.
 /// Called when a music playlist container must select its next item to play.
 /// The members uPlaylistSelection and uPlaylistItemDone are set by the sound
 /// engine before the callback function call.  They are set to the next item
@@ -166,7 +168,21 @@ struct AkMusicPlaylistCallbackInfo : public AkEventCallbackInfo
 	AkUInt32 uPlaylistItemDone;		///< Playlist node done: set by sound engine, modified by callback function (if set to anything but 0 then the current playlist item is done, and uPlaylistSelection is ignored)
 };
 
-/// Callback information structure corresponding to Ak_MusicSync.
+/// Structure used to query info on active playing segments.
+struct AkSegmentInfo
+{
+	AkTimeMs		iCurrentPosition;		///< Current position of the segment, relative to the Entry Cue, in milliseconds. Range is [-iPreEntryDuration, iActiveDuration+iPostExitDuration].
+	AkTimeMs		iPreEntryDuration;		///< Duration of the pre-entry region of the segment, in milliseconds.
+	AkTimeMs		iActiveDuration;		///< Duration of the active region of the segment (between the Entry and Exit Cues), in milliseconds.
+	AkTimeMs		iPostExitDuration;		///< Duration of the post-exit region of the segment, in milliseconds.
+	AkTimeMs		iRemainingLookAheadTime;///< Number of milliseconds remaining in the "looking-ahead" state of the segment, when it is silent but streamed tracks are being prefetched.
+	AkReal32		fBeatDuration;			///< Beat Duration in seconds.
+	AkReal32		fBarDuration;			///< Bar Duration in seconds.
+	AkReal32		fGridDuration;			///< Grid duration in seconds.
+	AkReal32		fGridOffset;			///< Grid offset in seconds.
+};
+
+/// Callback information structure corresponding to AK_MusicSync*.
 /// If you need the Tempo, you can compute it using the fBeatDuration
 /// Tempo (beats per minute) = 60/fBeatDuration
 /// \sa 
@@ -176,11 +192,8 @@ struct AkMusicPlaylistCallbackInfo : public AkEventCallbackInfo
 struct AkMusicSyncCallbackInfo : public AkCallbackInfo
 {
 	AkPlayingID playingID;			///< Playing ID of Event, returned by PostEvent()
+	AkSegmentInfo segmentInfo;		///< Segment information corresponding to the segment triggering this callback.
 	AkCallbackType musicSyncType;	///< Would be either AK_MusicSyncEntry, AK_MusicSyncBeat, AK_MusicSyncBar, AK_MusicSyncExit, AK_MusicSyncGrid, AK_MusicSyncPoint or AK_MusicSyncUserCue.
-	AkReal32 fBeatDuration;			///< Beat Duration in seconds.
-	AkReal32 fBarDuration;			///< Bar Duration in seconds.
-	AkReal32 fGridDuration;			///< Grid duration in seconds.
-	AkReal32 fGridOffset;			///< Grid offset in seconds.
 	char *	 pszUserCueName;		///< Cue name (UTF-8 string). Set for notifications AK_MusicSyncUserCue. NULL if cue has no name.
 };
 
@@ -259,13 +272,36 @@ AK_CALLBACK( void, AkBankCallbackFunc )(
 	void *			in_pCookie
 	);
 
+/// Bit field of various locations in the audio processing loop where the game can be called back.
+enum AkGlobalCallbackLocation
+{
+	AkGlobalCallbackLocation_Register = (1 << 0),	///< Right after successful registration of callback/plugin. Typically used by plugins along with AkGlobalCallbackLocation_Term for allocating memory for the lifetime of the sound engine.
+
+	AkGlobalCallbackLocation_Begin = (1 << 1),	///< Start of audio processing. The number of frames about to be rendered depends on the sink/end-point and can be zero.
+
+		AkGlobalCallbackLocation_PreProcessMessageQueueForRender = (1 << 2),	///< Start of frame rendering, before having processed game messages.
+		AkGlobalCallbackLocation_BeginRender = (1 << 3),	///< Start of frame rendering, after having processed game messages.
+		AkGlobalCallbackLocation_EndRender = (1 << 4),		///< End of frame rendering.
+
+	AkGlobalCallbackLocation_End = (1 << 5),		///< End of audio processing.
+
+	AkGlobalCallbackLocation_Term = (1 << 6),		///< Sound engine termination.
+
+	// IMPORTANT: Keep in sync with number of locations.
+	AkGlobalCallbackLocation_Num = 7				///< Total number of global callback locations.
+};
+
 /// Callback prototype used for global callback registration.
-/// \param in_bLastCall true when called for the last time, upon sound engine termination.
-/// \remarks This callback is executed from the main audio thread. The processing time in the callback function should be minimal. Having too much processing time could cause voice starvation.
+/// This callback may be called from various locations within the audio processing loop. The exact location from which it is called is passed in in_eLocation, and corresponds to one of the values
+/// that were passed to RegisterGlobalCallback(). See the possible values of AkGlobalCallbackLocation for more details about the available locations.
+/// \remarks This callback is normally executed from the main audio thread. The processing time in the callback function should be minimal. Having too much processing time could cause voice starvation.
+/// \sa
 /// - AK::SoundEngine::RegisterGlobalCallback()
 /// - AK::SoundEngine::UnregisterGlobalCallback()
 AK_CALLBACK( void, AkGlobalCallbackFunc )(
-	bool in_bLastCall
+	AK::IAkGlobalPluginContext * in_pContext,	///< Engine context.
+	AkGlobalCallbackLocation in_eLocation,		///< Location where this callback is fired.
+	void * in_pCookie							///< User cookie passed to AK::SoundEngine::RegisterGlobalCallback().
 	);
 
 #endif // _AK_CALLBACK_H_

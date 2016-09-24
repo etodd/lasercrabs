@@ -16,6 +16,8 @@
 #include <AK/SoundEngine/Common/AkSoundEngine.h> /// Dummy assert hook definition.
 #include <AK/Wwise/PlatformID.h>
 
+#include <float.h>
+
 // Audiokinetic namespace
 namespace AK
 {
@@ -119,6 +121,14 @@ namespace AK
 			/// to check the status of the undo system.
 			virtual AK::Wwise::IUndoManager * GetUndoManager() = 0;
 
+			/// Obtain licensing status for the plug-in.
+			virtual void GetLicenseStatus(
+				const GUID & in_guidPlatform,			///< GUID of the platform
+				AK::Wwise::LicenseType & out_eType,		///< License Type
+				AK::Wwise::LicenseStatus & out_eStatus, ///< License Status
+				UINT32 & out_uDaysToExpiry				///< Days until license expiry
+				) = 0;
+
 			/// Obtain licensing status for a plug-in-specific asset ID.
 			virtual void GetAssetLicenseStatus( 
 				const GUID & in_guidPlatform,			///< GUID of the platform
@@ -208,7 +218,7 @@ namespace AK
 			
 			/// Requests to set the specified file as a data input file.
 			virtual bool SetMediaSource( 
-				LPCWSTR in_pszFilePathToImport,	///< File path
+				LPCWSTR in_pszFilePathToImport,	///< File path: can be null in the case of plugin-generated data not requiring an original file
 				unsigned int in_Index = 0,		///< Optional index
 				bool in_bReplace = false		///< Optional: set to true to replace existing file if the name is already in used
 				) = 0;
@@ -540,15 +550,23 @@ namespace AK
 			virtual IPluginMediaConverter* GetPluginMediaConverterInterface() = 0;
 
 			/// Retrieve the licensing status of the plug-in for the given platform.
-			/// \return True if the license is valid, False if the license is expired or not present (the plug-in will then be omitted from SoundBanks).
+			/// \return Licensing status of the plug-in; LicenseStatus_Unlicensed or LicenseStatus_Expired will prevent the plug-in from being included in a SoundBank.
 			/// \sa
+			/// - \ref IPluginPropertySet::GetLicenseStatus
 			/// - \ref IPluginPropertySet::GetAssetLicenseStatus
-			virtual bool GetLicenseStatus(
+			virtual AK::Wwise::LicenseStatus GetLicenseStatus(
 				const GUID & in_guidPlatform,		///< GUID of the platform
 				AK::Wwise::Severity& out_eSeverity,	///< (Optional) If set, the string placed in out_pszMessage will be shown in the log with the corresponding severity. 
 				LPWSTR out_pszMessage,				///< Pointer to the buffer that will hold the message string
 				unsigned int in_uiBufferSize		///< Size of the buffer pointed by out_pszMessage (in number of WCHAR, including null terminator)
 				) = 0;
+
+			/// Return the minimum and maximum duration, in seconds.  This function is only useful with source plug-ins.
+			/// \return True if the duration values are valid, False otherwise.
+			virtual bool GetSourceDuration(
+				double& out_dblMinDuration,	///< Minimum duration, in seconds
+				double& out_dblMaxDuration	///< Maximum duration, in seconds
+				) const = 0;
 		};
 
 		/// Use this base class to quickly implement most plugin functions empty
@@ -577,17 +595,31 @@ namespace AK
 			virtual bool Help( HWND in_hWnd, eDialog in_eDialog, LPCWSTR in_szLanguageCode ) const { return false; }
 			virtual void NotifyMonitorData( void * in_pData, unsigned int in_uDataSize, bool in_bNeedsByteSwap ){}
 			virtual IPluginMediaConverter* GetPluginMediaConverterInterface() { return NULL; }
-			virtual bool GetLicenseStatus( const GUID &, AK::Wwise::Severity&, LPWSTR, unsigned int in_uiBufferSize ){ return true; }
+			virtual AK::Wwise::LicenseStatus GetLicenseStatus(const GUID &, AK::Wwise::Severity&, LPWSTR, unsigned int in_uiBufferSize){ return AK::Wwise::LicenseStatus_Valid; }
+			virtual bool GetSourceDuration( double& out_dblMinDuration, double& out_dblMaxDuration ) const { out_dblMinDuration = 0.f; out_dblMaxDuration = FLT_MAX; return false; }
 		};
+
+		typedef AKRESULT(CALLBACK* RegisterWwisePluginFn)(AK::PluginRegistration *in_pList);
+		inline AKRESULT RegisterWwisePlugin()
+		{
+			if (!g_pAKPluginList)
+			{
+				AKASSERT(!"g_pAKPluginList is NULL. Did you use the AK_STATIC_LINK_PLUGIN macro in your DLL?"); // Should be populated by now.
+				return AK_Fail;
+			}
+
+			HMODULE hLib = ::LoadLibrary(L"WwiseSoundEngine.dll");
+			if (hLib == NULL)
+				return AK_Fail;
+
+			RegisterWwisePluginFn pReg = (RegisterWwisePluginFn)::GetProcAddress(hLib, "RegisterWwisePlugin");
+			if (pReg == NULL)
+				return AK_Fail;
+
+			return pReg(g_pAKPluginList);
+		}
 	}
 }
-
-/// Dummy assert hook for Wwise plug-ins using AKASSERT (cassert used by default).
-#ifdef _DEBUG
-#define DEFINEDUMMYASSERTHOOK AkAssertHook g_pAssertHook = NULL;
-#else
-#define DEFINEDUMMYASSERTHOOK 
-#endif
 
 /// Private message sent to Wwise window to open a topic in the help file
 /// the WPARAM defines the help topic ID

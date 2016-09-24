@@ -8,6 +8,7 @@
 // This is not a delay line implementation, but rather just some services for memory managment related 
 // to specific delay line execution needs as detailed by clients
 #include <AK/AkPlatforms.h>
+#include <AK/SoundEngine/Common/AkSpeakerConfig.h>
 #ifdef AK_PS3
 #include "PS3/AkDelayLineMemory.h"
 #elif defined AK_WIIU

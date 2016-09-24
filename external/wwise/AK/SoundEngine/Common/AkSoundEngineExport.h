@@ -14,34 +14,25 @@
 
 #include <AK/AkPlatforms.h>
 
-#if defined ( AK_WIN ) && defined ( AKSOUNDENGINE_DLL )
+#ifndef AK_DLLEXPORT
+#define AK_DLLEXPORT
+#endif
 
-    // DLL exports.
+#ifndef AK_DLLIMPORT
+#define AK_DLLIMPORT
+#endif
 
-    // Sound Engine
-    #ifdef AKSOUNDENGINE_EXPORTS
-		/// Sound Engine API import/export definition
-        #define AKSOUNDENGINE_API __declspec(dllexport)
-    #else
-		/// Sound Engine API import/export definition
-        #define AKSOUNDENGINE_API __declspec(dllimport)
-    #endif // Export
-#elif defined( AK_LINUX )
-
-    #ifdef AKSOUNDENGINE_EXPORTS
-		/// Sound Engine API import/export definition
-        #define AKSOUNDENGINE_API __attribute__ ((visibility ("default")))
-	#else
-		#define AKSOUNDENGINE_API
-    #endif  
-#else // defined ( AK_WIN ) && defined ( AKSOUNDENGINE_DLL )
-
-    // Static libs.
-
+#ifdef AKSOUNDENGINE_DLL
+	#ifdef AKSOUNDENGINE_EXPORTS
 	/// Sound Engine API import/export definition
-    #define AKSOUNDENGINE_API	
-
-#endif // defined ( AK_WIN ) && defined ( AKSOUNDENGINE_DLL )
+	#define AKSOUNDENGINE_API AK_DLLEXPORT
+	#else
+	/// Sound Engine API import/export definition		
+	#define AKSOUNDENGINE_API AK_DLLIMPORT
+	#endif // Export
+#else
+	#define AKSOUNDENGINE_API	
+#endif
 
 #ifndef AKSOUNDENGINE_CALL
 	#define AKSOUNDENGINE_CALL	

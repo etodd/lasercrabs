@@ -24,26 +24,27 @@ enum AkSoundQuality
 };
 
 ///< API used for audio output
-///< Use with AkInitSettings to select the API used for audio output.  
+///< Use with AkPlatformInitSettings to select the API used for audio output.  
 ///< Use AkAPI_Default, it will select the more appropriate API depending on the computer's capabilities.  Other values should be used for testing purposes.
 ///< \sa AK::SoundEngine::Init
 enum AkAudioAPI
 {
-	AkAPI_XAudio2 = 1 << 0,								///< Use XAudio2 (this is the preferred API on Windows)
-	AkAPI_DirectSound = 1 << 1,							///< Use DirectSound
-	AkAPI_Wasapi = 1 << 2,
-	AkAPI_Default = AkAPI_Wasapi | AkAPI_XAudio2 | AkAPI_DirectSound,	///< Default value, will select the more appropriate API.	
-	AkAPI_Dummy = 1 << 3,								///< Dummy output, outputs nothing.
+	AkAPI_Wasapi = 1 << 0,								///< Use Wasapi 
+	AkAPI_XAudio2 = 1 << 1,								///< Use XAudio2 (this is the preferred API on Windows)
+	AkAPI_DirectSound = 1 << 2,							///< Use DirectSound
+	AkAPI_Default = AkAPI_Wasapi | AkAPI_XAudio2 | AkAPI_DirectSound,	///< Default value, will select the more appropriate API (XAudio2 is the default)	
 };
 
 ///< Used with \ref AK::SoundEngine::AddSecondaryOutput to specify the type of secondary output.
 enum AkAudioOutputType
 {
-	AkOutput_Dummy = 1 << 3,		///< Dummy output, simply eats the audio stream and outputs nothing.
-	AkOutput_MergeToMain = 1 << 4,	///< This output will mix back its content to the main output, after the master mix.
-	AkOutput_Main = 1 << 5,			///< Main output.  This cannot be used with AddSecondaryOutput, but can be used to query information about the main output (GetSpeakerConfiguration for example).	
-	AkOutput_Secondary = 1 << 6,	///< Adds an output linked to the hardware device specified  (See AddSecondaryOutput).  Supported ONLY with a WASAPI AkAudioAPI (see above).
-	AkOutput_NumOutputs = 1 << 7,	///< Do not use.
+	AkOutput_None = 0,		///< Used for uninitialized type, do not use.
+	AkOutput_Dummy,			///< Dummy output, simply eats the audio stream and outputs nothing.
+	AkOutput_MergeToMain,	///< This output will mix back its content to the main output, after the master mix.
+	AkOutput_Main,			///< Main output.  This cannot be used with AddSecondaryOutput, but can be used to query information about the main output (GetSpeakerConfiguration for example).	
+	AkOutput_Secondary,		///< Adds an output linked to the hardware device specified  (See AddSecondaryOutput).
+	AkOutput_NumBuiltInOutputs,		///< Do not use.
+	AkOutput_Plugin			///< Specify if using Audio Device Plugin Sink.
 };
 
 /// Platform specific initialization settings
@@ -74,36 +75,57 @@ struct AkPlatformInitSettings
 	// Voices.
 	AkUInt16            uNumRefillsInVoice;		///< Number of refill buffers in voice buffer. 2 == double-buffered, defaults to 4.
 	AkSoundQuality		eAudioQuality;			///< Quality of audio processing, default = AkSoundQuality_High.
-	
-	bool				bGlobalFocus;			///< Corresponding to DSBCAPS_GLOBALFOCUS. If using the DirectSound sink type, sounds will be muted if set to false when the game loses the focus.
-												///< This setting is ignored when using other sink types.
 
-	IXAudio2*			pXAudio2;				///< XAudio2 instance to use for the Wwise sound engine.  If NULL (default) Wwise will initialize its own instance.  Used only if the sink type is XAudio2 in AkInitSettings.eSinkType.
+	AkAudioAPI			eAudioAPI;				///< Main audio API to use. Leave to AkAPI_Default for the default sink (default value).
+												///< If a valid audioDeviceShareset plug-in is provided, the AkAudioAPI will be Ignored.
+												///< \ref AkAudioAPI
+	
+	bool				bGlobalFocus;			///< Corresponding to DSBCAPS_GLOBALFOCUS. If using the AkAPI_DirectSound AkAudioAPI type, sounds will be muted if set to false when the game loses the focus.
+												///< This setting is ignored when using other AkAudioAPI types.
+
+	IXAudio2*			pXAudio2;				///< XAudio2 instance to use for the Wwise sound engine.  If NULL (default) Wwise will initialize its own instance.  Used only if the sink type is XAudio2 in AkInitSettings.outputType.
+
+	AkUInt32			idAudioDevice;			///< Device ID to use for the main audio output, as returned from AK::GetDeviceID or AK::GetDeviceIDFromName.  
+												 												
 };
 
 struct IDirectSound8;
 struct IXAudio2;
 struct IMMDevice;
+struct IUnknown;
 
 namespace AK
 {
 	/// Get instance of XAudio2 created by the sound engine at initialization.
 	/// \return Non-addref'd pointer to XAudio2 interface. NULL if sound engine is not initialized or XAudio2 is not used.
-	AK_EXTERNAPIFUNC( IXAudio2 *, GetWwiseXAudio2Interface )();
+	/// The returned pointer can be of either XAudio 2.7, XAudio 2.8, Xaudio 2.9 depending on the Windows version the game is running on.  Use QueryInterface to identify which one and cast appropriately
+	AK_EXTERNAPIFUNC( IUnknown *, GetWwiseXAudio2Interface)();
 
 	/// Get instance of DirectSound created by the sound engine at initialization.
 	/// \return Non-addref'd pointer to DirectSound interface. NULL if sound engine is not initialized or DirectSound is not used.
 	AK_EXTERNAPIFUNC( IDirectSound8 *, GetDirectSoundInstance )();
 
-	/// Finds the device ID for particular Audio Endpoint.  
-	/// \return A device ID to use with AddSecondaryOutput
+	/// Finds the device ID for particular Audio Endpoint. 
+	/// \note CoInitialize must have been called for the calling thread.  See Microsoft's documentation about CoInitialize for more details.
+	/// \return A device ID to use with AddSecondaryOutput or AkPlatformInitSettings.idAudioDevice
 	AK_EXTERNAPIFUNC( AkUInt32, GetDeviceID ) (IMMDevice* in_pDevice);
 
 	/// Finds an audio endpoint that matches the token in the device name or device ID and returns and ID compatible with AddSecondaryOutput.  
 	/// This is a helper function that searches in the device ID (as returned by IMMDevice->GetId) and 
-	/// in the property PKEY_Device_FriendlyName.  If you need to do matching on different conditions, use IMMDeviceEnumerator directly.
+	/// in the property PKEY_Device_FriendlyName.  The token parameter is case-sensitive.  If you need to do matching on different conditions, use IMMDeviceEnumerator directly and AK::GetDeviceID.
+	/// \note CoInitialize must have been called for the calling thread.  See Microsoft's documentation about CoInitialize for more details.
 	/// \return An ID to use with AddSecondaryOutput.  The ID returned is the device ID as returned by IMMDevice->GetId, hashed by AK::SoundEngine::GetIDFromName()
 	AK_EXTERNAPIFUNC( AkUInt32, GetDeviceIDFromName )(wchar_t* in_szToken);
+
+	/// Get the user-friendly name for the specified device.  Call repeatedly with index starting at 0 and increasing to get all available devices, including disabled and unplugged devices, until the returned string is null.
+	/// You can also get the default device information by specifying index=-1.  The default device is the one with a green checkmark in the Audio Playback Device panel in Windows.
+	/// The returned out_uDeviceID parameter is the Device ID to use with Wwise.  Use it to specify the main device in AkPlatformInitSettings.idAudioDevice or in AK::SoundEngine::AddSecondaryOutput. 
+	/// \note CoInitialize must have been called for the calling thread.  See Microsoft's documentation about CoInitialize for more details.
+	/// \return The name of the device at the "index" specified.  The pointer is valid until the next call to GetWindowsDeviceName.
+	AK_EXTERNAPIFUNC(const wchar_t*, GetWindowsDeviceName) (
+		AkInt32 index,			///< Index of the device in the array.  -1 to get information on the default device.
+		AkUInt32 &out_uDeviceID	///< Device ID for Wwise.  This is the same as what is returned from AK::GetDeviceID and AK::GetDeviceIDFromName.  Use it to specify the main device in AkPlatformInitSettings.idAudioDevice or in AK::SoundEngine::AddSecondaryOutput. 
+		);
 };
 
 #endif //_AK_WIN_SOUND_ENGINE_H_

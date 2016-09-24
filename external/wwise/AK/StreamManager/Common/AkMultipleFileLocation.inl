@@ -16,9 +16,6 @@
 #include <AK/Tools/Common/AkAssert.h>
 
 #include <AK/SoundEngine/Common/AkStreamMgrModule.h>
-#ifdef AK_WIN
-#include <AK/Plugin/AkMP3SourceFactory.h> // For MP3 Codec ID.
-#endif
 #include <AK/Tools/Common/AkPlatformFuncs.h>
 #ifdef AK_SUPPORT_WCHAR
 #include <wchar.h>
@@ -176,16 +173,31 @@ AKRESULT CAkMultipleFileLocation<OPEN_POLICY>::GetFullFilePath(
 template<class OPEN_POLICY>
 AKRESULT CAkMultipleFileLocation<OPEN_POLICY>::AddBasePath(const AkOSChar* in_pszBasePath)
 {
-	AkUInt32 len = (AkUInt32)AKPLATFORM::OsStrLen( in_pszBasePath ) + 1;
-	if ( len + AKPLATFORM::OsStrLen( AK::StreamMgr::GetCurrentLanguage() ) >= AK_MAX_PATH )
+	AkUInt32 origLen = (AkUInt32)AKPLATFORM::OsStrLen(in_pszBasePath);
+    AkUInt32 newByteSize = origLen + 1;	// One for the trailing \0
+    if(in_pszBasePath[origLen - 1] != AK_PATH_SEPARATOR[0])
+    {
+        newByteSize++; // Add space for a trailing slash
+    }
+
+    // Make sure the new base path is not too long in case language gets appended
+    // Format of the test is: basePath/Language/.
+	if ( origLen + 1 + AKPLATFORM::OsStrLen( AK::StreamMgr::GetCurrentLanguage() + 1 ) >= AK_MAX_PATH )
 		return AK_InvalidParameter;
 
-	FilePath * pPath = (FilePath*)AkAlloc(AK::StreamMgr::GetPoolID(), sizeof(FilePath) + sizeof(AkOSChar)*(len - 1));
+	FilePath * pPath = (FilePath*)AkAlloc(AK::StreamMgr::GetPoolID(), sizeof(FilePath) + sizeof(AkOSChar)*(newByteSize - 1));
 	if (pPath == NULL)
 		return AK_InsufficientMemory;
 
 	// Copy the base path EVEN if the directory does not exist.
-	AKPLATFORM::SafeStrCpy( pPath->szPath, in_pszBasePath, len );
+	AKPLATFORM::SafeStrCpy( pPath->szPath, in_pszBasePath, origLen + 1);
+    
+    // Add the trailing slash, if necessary
+	if (in_pszBasePath[origLen - 1] != AK_PATH_SEPARATOR[0])
+	{
+		pPath->szPath[origLen] = AK_PATH_SEPARATOR[0];
+		pPath->szPath[origLen + 1] = 0;
+	}
 	pPath->pNextLightItem = NULL;
 	m_Locations.AddFirst(pPath);
 

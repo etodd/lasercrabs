@@ -47,6 +47,9 @@
 #elif defined (AK_LINUX)
 #include <AK/Tools/POSIX/AkLock.h>
 
+#elif defined (AK_EMSCRIPTEN)
+#include <AK/Tools/POSIX/AkLock.h>
+
 #elif defined (AK_QNX)
 #include <AK/Tools/POSIX/AkLock.h>
 

@@ -59,18 +59,16 @@ namespace AK
 #define AK_RETURN_THREAD_OK                     0x00000000
 #define AK_RETURN_THREAD_ERROR                  0x00000001
 
-// WG-21467
-// For GameSim to play AAC soundbanks on Mac, stacksize has to be bigger to avoid crashing.
-#ifdef AK_APPLE
-	#define AK_DEFAULT_STACK_SIZE                   (32768*2)
-#else
-	#define AK_DEFAULT_STACK_SIZE                   (32768)
-#endif
+#define AK_DEFAULT_STACK_SIZE                   (65536)
+
 
 #define AK_THREAD_DEFAULT_SCHED_POLICY			SCHED_FIFO
+
+
 #define AK_THREAD_PRIORITY_NORMAL				(((sched_get_priority_max( SCHED_FIFO ) - sched_get_priority_min( SCHED_FIFO )) / 2) + sched_get_priority_min( SCHED_FIFO ))
 #define AK_THREAD_PRIORITY_ABOVE_NORMAL			sched_get_priority_max( SCHED_FIFO )
 #define AK_THREAD_PRIORITY_BELOW_NORMAL			sched_get_priority_min( SCHED_FIFO )
+
 #define AK_THREAD_AFFINITY_DEFAULT				0xFFFF
 
 
@@ -78,8 +76,6 @@ namespace AK
 #define AK_NULL_THREAD                          0
 
 #define AK_INFINITE                             (AK_UINT_MAX)
-
-#define AkMakeLong(a,b)							MAKELONG((a),(b))
 
 #define AkMax(x1, x2)	(((x1) > (x2))? (x1): (x2))
 #define AkMin(x1, x2)	(((x1) < (x2))? (x1): (x2))
@@ -89,8 +85,11 @@ namespace AK
 
 namespace AKPLATFORM
 {
+#define AkExitThread( _result ) return _result;
+
 	// Simple automatic event API
     // ------------------------------------------------------------------
+
 #ifndef AK_APPLE	
 	/// Platform Independent Helper
 	inline void AkClearEvent( AkEvent & out_event )
@@ -153,8 +152,6 @@ namespace AKPLATFORM
         AkClearThread( in_pThread );
     }
 
-#define AkExitThread( _result ) return _result;
-
 	/// Platform Independent Helper
 	inline void AkGetDefaultThreadProperties( AkThreadProperties & out_threadProperties )
 	{
@@ -164,7 +161,7 @@ namespace AKPLATFORM
 		out_threadProperties.dwAffinityMask = AK_THREAD_AFFINITY_DEFAULT;	
 	}
 
-#ifndef AK_ANDROID
+#ifndef AK_ANDROID 
 	/// Platform Independent Helper
 	inline void AkCreateThread( 
 		AkThreadRoutine pStartRoutine,					// Thread routine.
@@ -180,7 +177,10 @@ namespace AKPLATFORM
 		// Create the attr
 		AKVERIFY(!pthread_attr_init(&attr));
 		// Set the stack size
+#ifndef AK_EMSCRIPTEN 
+		// Apparently Emscripten doesn't like that we try to specify stack sizes.
 		AKVERIFY(!pthread_attr_setstacksize(&attr,in_threadProperties.uStackSize));
+#endif //AK_EMSCRIPTEN
 		
 		AKVERIFY(!pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE));
 		
@@ -224,7 +224,7 @@ namespace AKPLATFORM
 			AkClearThread( out_pThread );
 			return;
 		}
-		
+
 		// ::CreateThread() return NULL if it fails.
         if ( !*out_pThread )
         {

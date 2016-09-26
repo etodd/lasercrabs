@@ -13,7 +13,7 @@ namespace Net
 
 // borrows heavily from https://github.com/networkprotocol/libyojimbo
 
-#define MAX_PACKET_SIZE 1500
+#define MAX_PACKET_SIZE 1200
 #define NET_PROTOCOL_ID 0x6906c2fe
 
 u32 crc32(const u8*, memory_index, u32 value = 0);
@@ -56,18 +56,18 @@ struct StreamWrite
 	enum { IsReading = 0 };
 
 	u64 scratch;
-	Array<u32> data;
 	s32 scratch_bits; // number of bits we've used in the last u32
-	StreamWrite();
+	StaticArray<u32, MAX_PACKET_SIZE / sizeof(u32)> data;
 
+	StreamWrite();
 	b8 would_overflow(s32) const;
 	void bits(u32, s32);
 	void bytes(const u8*, s32);
 	s32 bits_written() const;
+	s32 bytes_written() const;
 	s32 align_bits() const;
 	b8 align();
 	void flush();
-	void finalize();
 	void reset();
 };
 
@@ -80,15 +80,15 @@ struct StreamRead
 	s32 scratch_bits;
 	StaticArray<u32, MAX_PACKET_SIZE / sizeof(u32)> data;
 	s32 bits_read;
+
 	StreamRead();
-
 	b8 read_checksum();
-
 	b8 would_overflow(s32) const;
 	void bits(u32&, s32);
 	void bytes(u8*, s32);
 	s32 align_bits() const;
 	b8 align();
+	s32 bytes_read() const;
 	void reset();
 };
 
@@ -104,6 +104,12 @@ union Single
 	u32 value_u32;
 };
 
+#if DEBUG
+#define net_error() { vi_debug_break(); }
+#else
+#define net_error() { return false; }
+#endif
+
 #define BITS_REQUIRED(min, max) Net::BitsRequired<min, max>::result
 
 #define serialize_int(stream, type, value, _min, _max)\
@@ -116,27 +122,36 @@ union Single
 		vi_assert(s64(value) >= s64(_min));\
 		vi_assert(s64(value) <= s64(_max));\
 		_u = u32(s32(value) - _min);\
-	} else if (stream->would_overflow(_b))\
-		return false;\
-	stream->bits(_u, _b);\
+	} else if ((stream)->would_overflow(_b))\
+		net_error();\
+	(stream)->bits(_u, _b);\
 	if (Stream::IsReading)\
 	{\
-		value = type(s32(_min) + s32(_u));\
-		if (s64(value) < s64(_min) || s64(value) > s64(_max))\
-			return false;\
+		type _s = type(s32(_min) + s32(_u));\
+		if (s64(_s) < s64(_min) || s64(_s) > s64(_max))\
+			net_error();\
+		value = _s;\
 	}\
+}
+
+#define serialize_align(stream)\
+{\
+	if (!(stream)->align())\
+		net_error();\
 }
 
 #define serialize_bits(stream, value, count)\
 {\
 	vi_assert(count > 0);\
 	vi_assert(count <= 32);\
-	if (!Stream::IsWriting && stream->would_overflow(count))\
-		return false;\
-	stream->bits(value, count);\
+	if (!Stream::IsWriting && (stream)->would_overflow(count))\
+		net_error();\
+	(stream)->bits(value, count);\
 }
 
 #define serialize_enum(stream, type, value) serialize_int(stream, type, value, 0, s32(type::count) - 1)
+#define serialize_u8(stream, value) serialize_int(stream, u8, value, 0, 255)
+#define serialize_u16(stream, value) serialize_int(stream, u16, value, 0, 65535)
 
 #define serialize_bool(stream, value)\
 {\
@@ -167,11 +182,30 @@ union Single
 	Net::Single _s;\
 	if (Stream::IsWriting)\
 		_s.value_r32 = value;\
-	else if (stream->would_overflow(32))\
-		return false;\
-	stream->bits(_s.value_u32, 32);\
+	else if ((stream)->would_overflow(32))\
+		net_error();\
+	(stream)->bits(_s.value_u32, 32);\
 	if (Stream::IsReading)\
 		value = _s.value_r32;\
+}
+
+#define serialize_r32_range(stream, value, _min, _max, _bits)\
+{\
+	vi_assert(_min < _max);\
+	vi_assert(_bits > 0 && _bits < 32);\
+	u32 _u;\
+	u32 _umax = (1 << _bits) - 1;\
+	r32 _q = r32(_max - _min) / r32(_umax);\
+	if (Stream::IsWriting)\
+	{\
+		r32 _v = value < _min ? _min : value;\
+		_u = u32(r32(_v - _min) / _q);\
+		_u = _u < _umax ? _u : _umax;\
+	} else if ((stream)->would_overflow(_bits))\
+		net_error();\
+	(stream)->bits(_u, _bits);\
+	if (Stream::IsReading)\
+		value = _min + r32(_u) * _q;\
 }
 
 #define serialize_r64(stream, value)\
@@ -186,11 +220,11 @@ union Single
 
 #define serialize_bytes(stream, data, len)\
 {\
-	if (!stream->align())\
-		return false;\
-	if (Stream::IsReading && stream->would_overflow(len * 8))\
-		return false;\
-	stream->bytes(data, len);\
+	if (!(stream)->align())\
+		net_error();\
+	if (Stream::IsReading && (stream)->would_overflow(len * 8))\
+		net_error();\
+	(stream)->bytes(data, len);\
 }
 
 #define serialize_ref(stream, value)\

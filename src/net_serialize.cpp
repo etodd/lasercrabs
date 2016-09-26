@@ -57,7 +57,6 @@ StreamWrite::StreamWrite()
 	scratch(),
 	scratch_bits()
 {
-	data.add(NET_PROTOCOL_ID); // flush() will replace this with stream checksum
 }
 
 void StreamWrite::reset()
@@ -99,6 +98,13 @@ b8 StreamWrite::align()
 s32 StreamWrite::bits_written() const
 {
 	return (data.length * 32) + scratch_bits;
+}
+
+s32 StreamWrite::bytes_written() const
+{
+	s32 bits = bits_written();
+	s32 bytes = bits / 8;
+	return (bits % 8 == 0) ? bytes : (bytes + 1);
 }
 
 s32 StreamWrite::align_bits() const
@@ -156,17 +162,6 @@ void StreamWrite::flush()
 	}
 }
 
-void StreamWrite::finalize()
-{
-	flush();
-	if (data[0] == NET_PROTOCOL_ID) // we haven't been finalized yet
-	{
-		u32 checksum = crc32((const u8*)&data[0], sizeof(u32));
-		checksum = crc32((const u8*)&data[1], (data.length - 1) * sizeof(u32), checksum);
-		data[0] = checksum;
-	}
-}
-
 b8 StreamWrite::would_overflow(s32 bits) const
 {
 	return false;
@@ -204,6 +199,12 @@ b8 StreamRead::read_checksum()
 b8 StreamRead::would_overflow(s32 bits) const
 {
 	return bits_read + bits > data.length * 32;
+}
+
+s32 StreamRead::bytes_read() const
+{
+	s32 bytes = bits_read / 8;
+	return (bits_read % 8 == 0) ? bytes : (bytes + 1);
 }
 
 void StreamRead::bits(u32& output, s32 bits)

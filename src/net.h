@@ -20,7 +20,7 @@ struct StreamWrite;
 
 // borrows heavily from https://github.com/networkprotocol/libyojimbo
 
-#define MAX_PACKET_SIZE 1500
+#define MAX_PACKET_SIZE 1200
 
 b8 init();
 void update(const Update&);
@@ -37,6 +37,8 @@ namespace Client
 #endif
 
 void term();
+
+StreamWrite* msg_new();
 
 
 }

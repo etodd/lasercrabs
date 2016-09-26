@@ -8,9 +8,16 @@
 #include "recast/DetourTileCache/Include/DetourTileCacheBuilder.h"
 #include "fastlz/fastlz.h"
 #include "utf8/utf8.h"
+#include "render/glvm.h"
 
 namespace VI
 {
+
+const char* TechniquePrefixes::all[(s32)RenderTechnique::count] =
+{
+	"", // Default
+	"#define SHADOW\n", // Shadow
+};
 
 namespace Json
 {

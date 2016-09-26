@@ -233,6 +233,7 @@ void ParticleSystem::draw(const RenderParams& params)
 
 void ParticleSystem::add_raw(const Vec3& pos, const Vec4& velocity, const Vec4& param)
 {
+#if !SERVER
 	s32 next = first_free + 1;
 	if (next >= MAX_PARTICLES)
 		next = 0;
@@ -251,6 +252,7 @@ void ParticleSystem::add_raw(const Vec3& pos, const Vec4& velocity, const Vec4& 
 		params[vertex_start + i] = param;
 
 	first_free = next;
+#endif
 }
 
 void ParticleSystem::clear()

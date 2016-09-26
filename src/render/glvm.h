@@ -136,6 +136,11 @@ enum class RenderTechnique
 	count,
 };
 
+struct TechniquePrefixes
+{
+	static const char* all[(s32)RenderTechnique::count]; // defined in import_common.cpp
+};
+
 enum class RenderDataType
 {
 	R32,

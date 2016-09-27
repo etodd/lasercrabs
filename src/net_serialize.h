@@ -152,6 +152,7 @@ union Single
 #define serialize_enum(stream, type, value) serialize_int(stream, type, value, 0, s32(type::count) - 1)
 #define serialize_u8(stream, value) serialize_int(stream, u8, value, 0, 255)
 #define serialize_u16(stream, value) serialize_int(stream, u16, value, 0, 65535)
+#define serialize_u32(stream, value) serialize_bits(stream, value, 32)
 
 #define serialize_bool(stream, value)\
 {\

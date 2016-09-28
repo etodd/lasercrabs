@@ -8,17 +8,25 @@ namespace VI
 
 struct View : public ComponentType<View>
 {
+	enum class AlphaMode
+	{
+		Opaque,
+		Alpha,
+		Additive,
+		AlphaDepth,
+		count,
+	};
+
 	static Bitmask<MAX_ENTITIES> list_alpha;
 	static Bitmask<MAX_ENTITIES> list_additive;
 	static Bitmask<MAX_ENTITIES> list_alpha_depth;
 
+	Mat4 offset;
+	Vec4 color;
 	RenderMask mask;
-
 	AssetID mesh;
 	AssetID shader;
 	AssetID texture;
-	Vec4 color;
-	Mat4 offset;
 	u8 team;
 
 	static void draw_opaque(const RenderParams&);
@@ -30,6 +38,8 @@ struct View : public ComponentType<View>
 	void awake();
 	~View();
 
+	AlphaMode alpha_mode() const;
+	void alpha_mode(AlphaMode);
 	void alpha();
 	void alpha_depth();
 	void additive();

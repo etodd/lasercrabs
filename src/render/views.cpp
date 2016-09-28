@@ -95,6 +95,50 @@ void View::alpha_disable()
 	list_alpha_depth.set(id(), false);
 }
 
+View::AlphaMode View::alpha_mode() const
+{
+	if (list_alpha.get(id()))
+		return AlphaMode::Alpha;
+	else if (list_additive.get(id()))
+		return AlphaMode::Additive;
+	else if (list_alpha_depth.get(id()))
+		return AlphaMode::AlphaDepth;
+	else
+		return AlphaMode::Opaque;
+}
+
+void View::alpha_mode(AlphaMode m)
+{
+	switch (m)
+	{
+		case AlphaMode::Opaque:
+		{
+			alpha_disable();
+			break;
+		}
+		case AlphaMode::Alpha:
+		{
+			alpha();
+			break;
+		}
+		case AlphaMode::Additive:
+		{
+			additive();
+			break;
+		}
+		case AlphaMode::AlphaDepth:
+		{
+			alpha_depth();
+			break;
+		}
+		default:
+		{
+			vi_assert(false);
+			break;
+		}
+	}
+}
+
 void View::draw(const RenderParams& params) const
 {
 	if (mesh == AssetNull || shader == AssetNull)

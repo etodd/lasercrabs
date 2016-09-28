@@ -121,13 +121,13 @@ union Single
 	{\
 		vi_assert(s64(value) >= s64(_min));\
 		vi_assert(s64(value) <= s64(_max));\
-		_u = u32(s32(value) - _min);\
+		_u = u32(s64(value) - s64(_min));\
 	} else if ((stream)->would_overflow(_b))\
 		net_error();\
 	(stream)->bits(_u, _b);\
 	if (Stream::IsReading)\
 	{\
-		type _s = type(s32(_min) + s32(_u));\
+		type _s = type(s64(_min) + s64(_u));\
 		if (s64(_s) < s64(_min) || s64(_s) > s64(_max))\
 			net_error();\
 		value = _s;\
@@ -196,17 +196,17 @@ union Single
 	vi_assert(_bits > 0 && _bits < 32);\
 	u32 _u;\
 	u32 _umax = (1 << _bits) - 1;\
-	r32 _q = r32(_max - _min) / r32(_umax);\
+	r32 _q = r32(_umax) / r32(_max - _min);\
 	if (Stream::IsWriting)\
 	{\
 		r32 _v = value < _min ? _min : value;\
-		_u = u32(r32(_v - _min) / _q);\
+		_u = u32(r32(_v - _min) * _q);\
 		_u = _u < _umax ? _u : _umax;\
 	} else if ((stream)->would_overflow(_bits))\
 		net_error();\
 	(stream)->bits(_u, _bits);\
 	if (Stream::IsReading)\
-		value = _min + r32(_u) * _q;\
+		value = _min + r32(_u) / _q;\
 }
 
 #define serialize_r64(stream, value)\

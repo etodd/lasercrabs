@@ -6,6 +6,19 @@
 #include "asset/level.h"
 #endif
 #include "mersenne/mersenne-twister.h"
+#include "common.h"
+#include "ai.h"
+#include "render/views.h"
+#include "render/skinned_model.h"
+#include "data/animator.h"
+#include "physics.h"
+#include "game/awk.h"
+#include "game/walker.h"
+#include "game/audio.h"
+#include "game/player.h"
+#include "data/ragdoll.h"
+#include "game/minion.h"
+#include "game/ai_player.h"
 
 namespace VI
 {
@@ -58,9 +71,10 @@ struct MessageFrame // container for the amount of messages that can come in a s
 		StreamWrite write;
 	};
 	r32 timestamp;
+	s32 bytes;
 	SequenceID sequence_id;
 
-	MessageFrame(r32 t) : read(), sequence_id(), timestamp(t) {}
+	MessageFrame(r32 t, s32 bytes) : read(), sequence_id(), timestamp(t), bytes(bytes) {}
 	~MessageFrame() {}
 };
 
@@ -84,6 +98,237 @@ struct SequenceHistoryEntry
 };
 
 typedef StaticArray<SequenceHistoryEntry, SEQUENCE_RESEND_BUFFER> SequenceHistory;
+
+template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
+{
+	serialize_u64(p, e->component_mask);
+	serialize_u16(p, e->revision);
+	vi_debug("Entity %hd: rev %hd", e->id(), e->revision);
+
+	if (Stream::IsReading)
+		e->component_mask &= Transform::component_mask | View::component_mask; // hack
+
+	for (s32 i = 0; i < MAX_FAMILIES; i++)
+	{
+		if (e->component_mask & (ComponentMask(1) << i))
+		{
+			if (i == Transform::family || i == View::family) // hack
+			{
+				serialize_int(p, ID, e->components[i], 0, MAX_ENTITIES);
+				ID component_id = e->components[i];
+				Revision r;
+				if (Stream::IsWriting)
+					r = World::component_pools[i]->revision(component_id);
+				serialize_int(p, Revision, r, 0, MAX_ENTITIES);
+				if (Stream::IsReading)
+					World::component_pools[i]->net_add(component_id, e->id(), r);
+
+				vi_debug("Component %d: ID %hd, rev %hd", i, component_id, r);
+			}
+		}
+	}
+
+	if (e->has<Transform>())
+	{
+		Transform* t = e->get<Transform>();
+		serialize_r32(p, t->pos.x);
+		serialize_r32(p, t->pos.y);
+		serialize_r32(p, t->pos.z);
+		serialize_r32(p, t->rot.x);
+		serialize_r32(p, t->rot.y);
+		serialize_r32(p, t->rot.z);
+		serialize_r32(p, t->rot.w);
+		serialize_ref(p, t->parent);
+	}
+
+	if (e->has<RigidBody>())
+	{
+	}
+
+	if (e->has<View>())
+	{
+		View* v = e->get<View>();
+		b8 is_identity;
+		if (Stream::IsWriting)
+		{
+			is_identity = true;
+			for (s32 i = 0; i < 4; i++)
+			{
+				for (s32 j = 0; j < 4; j++)
+				{
+					if (v->offset.m[i][j] != Mat4::identity.m[i][j])
+					{
+						is_identity = false;
+						break;
+					}
+				}
+			}
+		}
+		serialize_bool(p, is_identity);
+		if (is_identity)
+		{
+			if (Stream::IsReading)
+				v->offset = Mat4::identity;
+		}
+		else
+		{
+			for (s32 i = 0; i < 4; i++)
+			{
+				for (s32 j = 0; j < 4; j++)
+				{
+					serialize_r32(p, v->offset.m[i][j]);
+					vi_debug("Offset: %f", v->offset.m[i][j]);
+				}
+			}
+		}
+		serialize_r32_range(p, v->color.x, -1.0f, 1.0f, 8);
+		serialize_r32_range(p, v->color.y, -1.0f, 1.0f, 8);
+		serialize_r32_range(p, v->color.z, -1.0f, 1.0f, 8);
+		serialize_r32_range(p, v->color.w, -1.0f, 1.0f, 8);
+		vi_debug("Color: %f %f %f %f", v->color.x, v->color.y, v->color.z, v->color.w);
+		serialize_u16(p, v->mask);
+		serialize_u16(p, v->mesh);
+		vi_debug("Mesh: %hu", v->mesh);
+		serialize_u16(p, v->shader);
+		vi_debug("Shader: %hu", v->shader);
+		serialize_u16(p, v->texture);
+		vi_debug("Texture: %hu", v->texture);
+		serialize_u8(p, v->team);
+		{
+			View::AlphaMode m;
+			if (Stream::IsWriting)
+				m = v->alpha_mode();
+			serialize_enum(p, View::AlphaMode, m);
+			if (Stream::IsReading)
+				v->alpha_mode(m);
+		}
+	}
+
+	if (e->has<Animator>())
+	{
+	}
+
+	if (e->has<AIAgent>())
+	{
+	}
+
+	if (e->has<Awk>())
+	{
+	}
+
+	if (e->has<AIPlayerControl>())
+	{
+	}
+
+	if (e->has<LocalPlayerControl>())
+	{
+	}
+
+	if (e->has<PlayerCommon>())
+	{
+	}
+
+	if (e->has<MinionAI>())
+	{
+	}
+
+	if (e->has<MinionCommon>())
+	{
+	}
+
+	if (e->has<Audio>())
+	{
+	}
+
+	if (e->has<Health>())
+	{
+	}
+
+	if (e->has<PointLight>())
+	{
+	}
+
+	if (e->has<SpotLight>())
+	{
+	}
+
+	if (e->has<ControlPoint>())
+	{
+	}
+
+	if (e->has<Shockwave>())
+	{
+	}
+
+	if (e->has<Rope>())
+	{
+	}
+
+	if (e->has<Walker>())
+	{
+	}
+
+	if (e->has<Ragdoll>())
+	{
+	}
+
+	if (e->has<Target>())
+	{
+	}
+
+	if (e->has<PlayerTrigger>())
+	{
+	}
+
+	if (e->has<SkinnedModel>())
+	{
+	}
+
+	if (e->has<Projectile>())
+	{
+	}
+
+	if (e->has<HealthPickup>())
+	{
+	}
+
+	if (e->has<Sensor>())
+	{
+	}
+
+	if (e->has<Rocket>())
+	{
+	}
+
+	if (e->has<ContainmentField>())
+	{
+	}
+
+	if (e->has<Teleporter>())
+	{
+	}
+
+	if (e->has<AICue>())
+	{
+	}
+
+	if (e->has<Water>())
+	{
+	}
+
+	if (e->has<DirectionalLight>())
+	{
+	}
+
+	if (e->has<SkyDecal>())
+	{
+	}
+
+	if (Stream::IsReading)
+		World::awake(e);
+
+	return true;
+}
 
 // true if s1 > s2
 b8 sequence_more_recent(SequenceID s1, SequenceID s2)
@@ -148,7 +393,7 @@ void msg_history_debug(const MessageHistory& history)
 }
 #endif
 
-MessageFrame* msg_history_add(MessageHistory* history, r32 timestamp)
+MessageFrame* msg_history_add(MessageHistory* history, r32 timestamp, s32 bytes)
 {
 	MessageFrame* frame;
 	if (history->msgs.length < history->msgs.capacity())
@@ -161,7 +406,7 @@ MessageFrame* msg_history_add(MessageHistory* history, r32 timestamp)
 		history->current_index = (history->current_index + 1) % history->msgs.capacity();
 		frame = &history->msgs[history->current_index];
 	}
-	new (frame) MessageFrame(timestamp);
+	new (frame) MessageFrame(timestamp, bytes);
 	return frame;
 }
 
@@ -261,7 +506,7 @@ void msgs_out_consolidate()
 		msgs++;
 	}
 
-	MessageFrame* frame = msg_history_add(&msgs_out_history, Game::real_time.total);
+	MessageFrame* frame = msg_history_add(&msgs_out_history, Game::real_time.total, bytes);
 
 	frame->sequence_id = local_sequence_id;
 
@@ -277,24 +522,24 @@ void msgs_out_consolidate()
 		msgs_out.remove_ordered(i);
 }
 
-const MessageFrame* msg_frame_advance(const MessageHistory& history, SequenceID* id)
+MessageFrame* msg_frame_advance(MessageHistory* history, SequenceID* id)
 {
-	if (history.msgs.length > 0)
+	if (history->msgs.length > 0)
 	{
-		s32 index = history.current_index;
+		s32 index = history->current_index;
 		SequenceID next_sequence = sequence_advance(*id, 1);
 		for (s32 i = 0; i < 64; i++)
 		{
-			const MessageFrame& msg = history.msgs[index];
-			if (msg.sequence_id == next_sequence)
+			MessageFrame* msg = &history->msgs[index];
+			if (msg->sequence_id == next_sequence)
 			{
 				*id = next_sequence;
-				return &msg;
+				return msg;
 			}
 
 			// loop backward through most recently received frames
-			index = index > 0 ? index - 1 : history.msgs.length - 1;
-			if (index == history.current_index) // we looped all the way around
+			index = index > 0 ? index - 1 : history->msgs.length - 1;
+			if (index == history->current_index) // we looped all the way around
 				break;
 		}
 	}
@@ -391,8 +636,9 @@ b8 msgs_write(StreamWrite* p, const MessageHistory& history, const Ack& remote_a
 	return true;
 }
 
-r32 calculate_rtt(r32 timestamp, const Ack& ack, const MessageHistory& send_history)
+void calculate_rtt(r32 timestamp, const Ack& ack, const MessageHistory& send_history, r32* rtt)
 {
+	r32 new_rtt = -1.0f;
 	if (send_history.msgs.length > 0)
 	{
 		s32 index = send_history.current_index;
@@ -400,13 +646,19 @@ r32 calculate_rtt(r32 timestamp, const Ack& ack, const MessageHistory& send_hist
 		{
 			const MessageFrame& msg = send_history.msgs[index];
 			if (msg.sequence_id == ack.sequence_id)
-				return timestamp - msg.timestamp;
+			{
+				new_rtt = timestamp - msg.timestamp;
+				break;
+			}
 			index = index > 0 ? index - 1 : send_history.msgs.length - 1;
 			if (index == send_history.current_index)
 				break;
 		}
 	}
-	return -1.0f;
+	if (new_rtt == -1.0f || *rtt == -1.0f)
+		*rtt = new_rtt;
+	else
+		*rtt = (*rtt * 0.9f) + (new_rtt * 0.1f);
 }
 
 b8 msgs_read(StreamRead* p, MessageHistory* history, Ack* ack)
@@ -423,10 +675,9 @@ b8 msgs_read(StreamRead* p, MessageHistory* history, Ack* ack)
 		serialize_int(p, s32, bytes, 0, MAX_MESSAGES_SIZE);
 		if (bytes)
 		{
-			MessageFrame* frame = msg_history_add(history, Game::real_time.total);
-			frame->read.data.length = bytes / sizeof(u32);
-
+			MessageFrame* frame = msg_history_add(history, Game::real_time.total, bytes);
 			serialize_int(p, SequenceID, frame->sequence_id, 0, SEQUENCE_COUNT - 1);
+			frame->read.data.length = bytes / sizeof(u32);
 			serialize_bytes(p, (u8*)frame->read.data.data, bytes);
 		}
 		else
@@ -447,7 +698,7 @@ struct Client
 {
 	Sock::Address address;
 	r32 timeout;
-	r32 rtt;
+	r32 rtt = 0.5f;
 	Ack ack = { u32(-1), 0 }; // most recent ack we've received from the client
 	MessageHistory msgs_in_history; // messages we've received from the client
 	SequenceHistory recently_resent; // sequences we resent to the client recently
@@ -499,6 +750,8 @@ b8 build_packet_init(StreamWrite* p)
 	using Stream = StreamWrite;
 	ServerPacket type = ServerPacket::Init;
 	serialize_enum(p, ServerPacket, type);
+	AssetID level = Game::session.level;
+	serialize_u16(p, level);
 	packet_finalize(p);
 	return true;
 }
@@ -534,7 +787,7 @@ void update(const Update& u)
 		Client* client = &clients[i];
 		if (client->connected)
 		{
-			while (const MessageFrame* frame = msg_frame_advance(client->msgs_in_history, &client->processed_sequence_id))
+			while (const MessageFrame* frame = msg_frame_advance(&client->msgs_in_history, &client->processed_sequence_id))
 			{
 				// todo: process messages in frame
 			}
@@ -645,7 +898,25 @@ b8 packet_handle(StreamRead* p, const Sock::Address& address)
 			}
 
 			if (connected_clients() == expected_clients)
+			{
 				mode = Mode::Active;
+				using Stream = StreamWrite;
+				s32 count = 0;
+				for (auto i = Entity::list.iterator(); !i.is_last(); i.next())
+				{
+					if (i.item()->has<View>() || i.item()->has<Transform>())
+					{
+						StreamWrite* p = msg_new();
+						MessageType type = MessageType::EntitySpawn;
+						serialize_enum(p, MessageType, type);
+						serialize_int(p, ID, i.index, 0, MAX_ENTITIES);
+						serialize_entity(p, i.item());
+						count++;
+						if (count == 2)
+							break;
+					}
+				}
+			}
 			break;
 		}
 		case ClientPacket::Update:
@@ -658,7 +929,7 @@ b8 packet_handle(StreamRead* p, const Sock::Address& address)
 
 			if (!msgs_read(p, &client->msgs_in_history, &client->ack))
 				return false;
-			client->rtt = calculate_rtt(Game::real_time.total, client->ack, msgs_out_history);
+			calculate_rtt(Game::real_time.total, client->ack, msgs_out_history, &client->rtt);
 			vi_debug("RTT client %s:%hd: %dms", Sock::host_to_str(client->address.host), client->address.port, s32(client->rtt * 1000.0f));
 
 			client->timeout = 0.0f;
@@ -695,7 +966,7 @@ r32 timeout;
 MessageHistory msgs_in_history; // messages we've received from the server
 Ack server_ack = { u32(-1), 0 }; // most recent ack we've received from the server
 SequenceHistory server_recently_resent; // sequences we recently resent to the server
-r32 server_rtt;
+r32 server_rtt = 0.5f;
 SequenceID server_processed_sequence_id; // most recent sequence ID we've processed from the server
 
 b8 init()
@@ -749,11 +1020,57 @@ b8 build_packet_update(StreamWrite* p)
 	return true;
 }
 
+b8 msg_process(StreamRead* p)
+{
+	using Stream = StreamRead;
+	MessageType type;
+	serialize_enum(p, MessageType, type);
+	switch (type)
+	{
+		case MessageType::Noop:
+		{
+			break;
+		}
+		case MessageType::EntitySpawn:
+		{
+			ID id;
+			serialize_int(p, ID, id, 0, MAX_ENTITIES);
+			Entity::list.active(id, true);
+			Entity::list.free_list.length--;
+			Entity* e = &Entity::list[id];
+			if (!serialize_entity(p, e))
+				net_error();
+			vi_debug("Processed entity %hd", id);
+			break;
+		}
+		case MessageType::EntityRemove:
+		{
+			// todo
+			break;
+		}
+		default:
+		{
+			vi_assert(false);
+			break;
+		}
+	}
+	serialize_align(p);
+	return true;
+}
+
 void update(const Update& u)
 {
-	while (const MessageFrame* frame = msg_frame_advance(msgs_in_history, &server_processed_sequence_id))
+	while (MessageFrame* frame = msg_frame_advance(&msgs_in_history, &server_processed_sequence_id))
 	{
-		// todo: process messages in frame
+		frame->read.bits_read = 0;
+		vi_debug("Reading frame: %d bytes", frame->bytes);
+		while (frame->read.bytes_read() < frame->bytes)
+		{
+			if (!msg_process(&frame->read))
+				break;
+			vi_debug("Read %d/%d bytes", frame->read.bytes_read(), frame->bytes);
+		}
+		vi_debug("Done reading frame. Read %d/%d bytes", frame->read.bytes_read(), frame->bytes);
 	}
 }
 
@@ -846,6 +1163,7 @@ b8 packet_handle(StreamRead* p, const Sock::Address& address)
 		{
 			if (mode == Mode::Connecting)
 				mode = Mode::Acking; // acknowledge the init packet
+			serialize_u16(p, Game::session.level);
 			break;
 		}
 		case ServerPacket::Keepalive:
@@ -863,7 +1181,7 @@ b8 packet_handle(StreamRead* p, const Sock::Address& address)
 
 			if (!msgs_read(p, &msgs_in_history, &server_ack))
 				return false;
-			server_rtt = calculate_rtt(Game::real_time.total, server_ack, msgs_out_history);
+			calculate_rtt(Game::real_time.total, server_ack, msgs_out_history, &server_rtt);
 			vi_debug("RTT: %dms", s32(server_rtt * 1000.0f));
 			timeout = 0.0f; // reset connection timeout
 			break;

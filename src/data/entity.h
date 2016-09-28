@@ -15,8 +15,10 @@ const Family MAX_FAMILIES = sizeof(ComponentMask) * 8;
 
 struct ComponentPoolBase
 {
-	virtual void awake(ID) {}
-	virtual void remove(ID) {}
+	virtual void awake(ID) = 0;
+	virtual void net_add(ID, ID, Revision) = 0;
+	virtual void remove(ID) = 0;
+	virtual Revision revision(ID) = 0;
 };
 
 template<typename T> struct Ref
@@ -73,12 +75,26 @@ struct ComponentPool : public ComponentPoolBase
 		T::list[id].awake();
 	}
 
+	virtual void net_add(ID id, ID entity_id, Revision rev)
+	{
+		T::list.active(id, true);
+		T* t = &T::list[id];
+		t->entity_id = entity_id;
+		t->revision = rev;
+		T::list.free_list.length--; // so count() returns the right value
+	}
+
 	virtual void remove(ID id)
 	{
 		T* item = &T::list[id];
 		item->~T();
 		item->revision++;
 		T::list.remove(id);
+	}
+
+	virtual Revision revision(ID id)
+	{
+		return T::list[id].revision;
 	}
 };
 

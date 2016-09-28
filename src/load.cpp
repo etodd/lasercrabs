@@ -44,10 +44,12 @@ Array<Loader::Entry<void*> > Loader::framebuffers;
 Array<Loader::Entry<AkBankID> > Loader::soundbanks;
 #endif
 
-s32 Loader::compiled_level_count = 0;
-s32 Loader::compiled_static_mesh_count = 0;
-s32 Loader::static_mesh_count = 0;
-s32 Loader::static_texture_count = 0;
+s32 Loader::compiled_level_count;
+s32 Loader::compiled_static_mesh_count;
+s32 Loader::static_mesh_count;
+s32 Loader::static_texture_count;
+s32 Loader::shader_count;
+s32 Loader::armature_count;
 
 struct Attrib
 {
@@ -76,6 +78,12 @@ void Loader::init(LoopSwapper* s)
 
 	while ((p = AssetLookup::Texture::names[static_texture_count]))
 		static_texture_count++;
+
+	while ((p = AssetLookup::Shader::names[shader_count]))
+		shader_count++;
+
+	while ((p = AssetLookup::Armature::names[armature_count]))
+		armature_count++;
 
 	while ((p = AssetLookup::Mesh::names[compiled_static_mesh_count]))
 		compiled_static_mesh_count++;
@@ -307,7 +315,7 @@ void read_mesh(Mesh* mesh, const char* path, Array<Attrib>* extra_attribs = null
 
 const Mesh* Loader::mesh(AssetID id)
 {
-	if (id == AssetNull)
+	if (id == AssetNull || id >= static_mesh_count)
 		return 0;
 
 	if (id >= meshes.length)
@@ -363,7 +371,7 @@ const Mesh* Loader::mesh(AssetID id)
 	return &meshes[id].data;
 }
 
-const Mesh* Loader::mesh_permanent(const AssetID id)
+const Mesh* Loader::mesh_permanent(AssetID id)
 {
 	const Mesh* m = mesh(id);
 	if (m)
@@ -398,7 +406,7 @@ void Loader::mesh_free(AssetID id)
 
 const Armature* Loader::armature(AssetID id)
 {
-	if (id == AssetNull)
+	if (id == AssetNull || id >= armature_count)
 		return 0;
 
 	if (id >= armatures.length)
@@ -440,7 +448,7 @@ const Armature* Loader::armature(AssetID id)
 	return &armatures[id].data;
 }
 
-const Armature* Loader::armature_permanent(const AssetID id)
+const Armature* Loader::armature_permanent(AssetID id)
 {
 	const Armature* m = armature(id);
 	if (m)
@@ -589,7 +597,7 @@ void Loader::animation_free(AssetID id)
 void Loader::texture(AssetID id, RenderTextureWrap wrap, RenderTextureFilter filter)
 {
 #if !SERVER
-	if (id == AssetNull)
+	if (id == AssetNull || id >= static_texture_count)
 		return;
 
 	if (id >= textures.length)
@@ -607,6 +615,7 @@ void Loader::texture(AssetID id, RenderTextureWrap wrap, RenderTextureFilter fil
 		if (error)
 		{
 			fprintf(stderr, "Error loading texture '%s': %s\n", path, lodepng_error_text(error));
+			vi_assert(false);
 			return;
 		}
 
@@ -754,7 +763,7 @@ void Loader::framebuffer_free(AssetID id)
 
 void Loader::shader(AssetID id)
 {
-	if (id == AssetNull)
+	if (id == AssetNull || id >= shader_count)
 		return;
 
 	if (id >= shaders.length)

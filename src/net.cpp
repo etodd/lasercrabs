@@ -16,9 +16,12 @@ namespace Net
 
 // borrows heavily from https://github.com/networkprotocol/libyojimbo
 
+typedef u8 SequenceID;
+
 #define TIMEOUT 2.0f
 #define TICK_RATE (1.0f / 60.0f)
-#define SEQUENCE_COUNT 65535
+#define SEQUENCE_BITS 8
+#define SEQUENCE_COUNT (1 << SEQUENCE_BITS)
 
 #define MESSAGE_BUFFER s32(TIMEOUT / TICK_RATE)
 #define MAX_MESSAGES_SIZE (MAX_PACKET_SIZE / 2)
@@ -39,7 +42,13 @@ enum class ServerPacket
 	count,
 };
 
-typedef u16 SequenceID;
+enum class MessageType
+{
+	Noop,
+	EntitySpawn,
+	EntityRemove,
+	count,
+};
 
 struct MessageFrame // container for the amount of messages that can come in a single frame
 {
@@ -48,9 +57,10 @@ struct MessageFrame // container for the amount of messages that can come in a s
 		StreamRead read;
 		StreamWrite write;
 	};
+	r32 timestamp;
 	SequenceID sequence_id;
 
-	MessageFrame() : read(), sequence_id() {}
+	MessageFrame(r32 t) : read(), sequence_id(), timestamp(t) {}
 	~MessageFrame() {}
 };
 
@@ -66,12 +76,51 @@ struct MessageHistory
 	s32 current_index;
 };
 
+#define SEQUENCE_RESEND_BUFFER 6
+struct SequenceHistoryEntry
+{
+	r32 timestamp;
+	SequenceID id;
+};
+
+typedef StaticArray<SequenceHistoryEntry, SEQUENCE_RESEND_BUFFER> SequenceHistory;
+
+// true if s1 > s2
 b8 sequence_more_recent(SequenceID s1, SequenceID s2)
 {
-	return (s1 > s2) && (s1 - s2 <= SEQUENCE_COUNT / 2) 
-	   || (s2 > s1) && (s2 - s1 > SEQUENCE_COUNT / 2);
+	return ((s1 > s2) && (s1 - s2 <= SEQUENCE_COUNT / 2))
+		|| ((s2 > s1) && (s2 - s1 > SEQUENCE_COUNT / 2));
 }
 
+s32 sequence_relative_to(SequenceID s1, SequenceID s2)
+{
+	if (sequence_more_recent(s1, s2))
+	{
+		if (s1 < s2)
+			return (s32(s1) + SEQUENCE_COUNT) - s32(s2);
+		else
+			return s32(s1) - s32(s2);
+	}
+	else
+	{
+		if (s1 < s2)
+			return s32(s1) - s32(s2);
+		else
+			return s32(s1) - (s32(s2) + SEQUENCE_COUNT);
+	}
+}
+
+SequenceID sequence_advance(SequenceID start, s32 delta)
+{
+	s32 result = s32(start) + delta;
+	while (result < 0)
+		result += SEQUENCE_COUNT;
+	while (result >= SEQUENCE_COUNT)
+		result -= SEQUENCE_COUNT;
+	return SequenceID(result);
+}
+
+#if DEBUG
 void ack_debug(const char* caption, const Ack& ack)
 {
 	char str[33] = {};
@@ -97,8 +146,9 @@ void msg_history_debug(const MessageHistory& history)
 		}
 	}
 }
+#endif
 
-MessageFrame* msg_history_add(MessageHistory* history)
+MessageFrame* msg_history_add(MessageHistory* history, r32 timestamp)
 {
 	MessageFrame* frame;
 	if (history->msgs.length < history->msgs.capacity())
@@ -111,7 +161,7 @@ MessageFrame* msg_history_add(MessageHistory* history)
 		history->current_index = (history->current_index + 1) % history->msgs.capacity();
 		frame = &history->msgs[history->current_index];
 	}
-	new (frame) MessageFrame();
+	new (frame) MessageFrame(timestamp);
 	return frame;
 }
 
@@ -146,11 +196,7 @@ Ack msg_history_ack(const MessageHistory& history)
 			const MessageFrame& msg = history.msgs[index];
 			if (msg.sequence_id != ack.sequence_id) // ignore the ack
 			{
-				s32 sequence_id_relative_to_most_recent;
-				if (msg.sequence_id < ack.sequence_id)
-					sequence_id_relative_to_most_recent = s32(msg.sequence_id) - s32(ack.sequence_id);
-				else
-					sequence_id_relative_to_most_recent = s32(msg.sequence_id) - (s32(ack.sequence_id) + SEQUENCE_COUNT);
+				s32 sequence_id_relative_to_most_recent = sequence_relative_to(msg.sequence_id, ack.sequence_id);
 				vi_assert(sequence_id_relative_to_most_recent < 0);
 				if (sequence_id_relative_to_most_recent >= -32)
 					ack.previous_sequences |= 1 << (-sequence_id_relative_to_most_recent - 1);
@@ -160,13 +206,12 @@ Ack msg_history_ack(const MessageHistory& history)
 	return ack;
 }
 
-StaticArray<MessageFrame, MESSAGE_BUFFER> msgs_out_history;
-s32 msgs_out_history_index;
+MessageHistory msgs_out_history;
 StaticArray<StreamWrite, MESSAGE_BUFFER> msgs_out;
 StreamRead incoming_packet;
 r32 tick_timer;
 Sock::Handle sock;
-SequenceID local_sequence_id;
+SequenceID local_sequence_id = 1;
 
 void packet_init(StreamWrite* p)
 {
@@ -187,60 +232,188 @@ void packet_send(const StreamWrite& p, const Sock::Address& address)
 	Sock::udp_send(&sock, address, p.data.data, p.data.length * sizeof(u32));
 }
 
-// TODO: this function removes messages from the msgs_out queue. If there is more than one client, that's not going to work.
-// Figure out a separate message queue for each client? Or figure out a better way?
-b8 msgs_write(StreamWrite* p)
+b8 msg_send_noop()
 {
 	using Stream = StreamWrite;
+
+	StreamWrite* p = msg_new();
+	MessageType type = MessageType::Noop;
+	serialize_enum(p, MessageType, type);
+	return true;
+}
+
+// consolidate msgs_out into msgs_out_history
+void msgs_out_consolidate()
+{
+	using Stream = StreamWrite;
+
+	if (msgs_out.length == 0)
+		msg_send_noop(); // we have to send SOMETHING every sequence
+
 	s32 bytes = 0;
 	s32 msgs = 0;
 	for (s32 i = 0; i < msgs_out.length; i++)
 	{
 		s32 msg_bytes = msgs_out[i].bytes_written();
-		if (64 + bytes + msg_bytes >= MAX_MESSAGES_SIZE)
+		if (64 + bytes + msg_bytes > MAX_MESSAGES_SIZE)
 			break;
 		bytes += msg_bytes;
 		msgs++;
 	}
 
-	MessageFrame* frame;
-	if (msgs_out_history.length < msgs_out_history.capacity())
-	{
-		frame = msgs_out_history.add();
-		msgs_out_history_index = msgs_out_history.length - 1;
-	}
-	else
-	{
-		msgs_out_history_index = (msgs_out_history_index + 1) % msgs_out_history.capacity();
-		frame = &msgs_out_history[msgs_out_history_index];
-		new (frame) MessageFrame();
-	}
+	MessageFrame* frame = msg_history_add(&msgs_out_history, Game::real_time.total);
 
 	frame->sequence_id = local_sequence_id;
 
-	serialize_int(&frame->write, s32, bytes, 0, MAX_MESSAGES_SIZE); // message frame szie
+	serialize_int(&frame->write, s32, bytes, 0, MAX_MESSAGES_SIZE); // message frame size
 	if (bytes > 0)
 	{
-		serialize_u16(&frame->write, frame->sequence_id);
+		serialize_int(&frame->write, SequenceID, frame->sequence_id, 0, SEQUENCE_COUNT - 1);
 		for (s32 i = 0; i < msgs; i++)
 			serialize_bytes(&frame->write, (u8*)msgs_out[i].data.data, msgs_out[i].bytes_written());
 	}
 	
 	for (s32 i = msgs - 1; i >= 0; i--)
 		msgs_out.remove_ordered(i);
+}
 
-	serialize_bytes(p, (u8*)frame->write.data.data, frame->write.bytes_written());
+const MessageFrame* msg_frame_advance(const MessageHistory& history, SequenceID* id)
+{
+	if (history.msgs.length > 0)
+	{
+		s32 index = history.current_index;
+		SequenceID next_sequence = sequence_advance(*id, 1);
+		for (s32 i = 0; i < 64; i++)
+		{
+			const MessageFrame& msg = history.msgs[index];
+			if (msg.sequence_id == next_sequence)
+			{
+				*id = next_sequence;
+				return &msg;
+			}
+
+			// loop backward through most recently received frames
+			index = index > 0 ? index - 1 : history.msgs.length - 1;
+			if (index == history.current_index) // we looped all the way around
+				break;
+		}
+	}
+	return nullptr;
+}
+
+b8 ack_get(const Ack& ack, SequenceID sequence_id)
+{
+	if (sequence_more_recent(sequence_id, ack.sequence_id))
+		return false;
+	else if (sequence_id == ack.sequence_id)
+		return true;
+	else
+	{
+		s32 relative = sequence_relative_to(sequence_id, ack.sequence_id);
+		vi_assert(relative < 0);
+		if (relative < -32)
+			return false;
+		else
+			return ack.previous_sequences & (1 << (-relative - 1));
+	}
+}
+
+void sequence_history_add(SequenceHistory* history, SequenceID id, r32 timestamp)
+{
+	if (history->length == history->capacity())
+		history->remove(history->length - 1);
+	*history->insert(0) = { timestamp, id };
+}
+
+b8 sequence_history_contains_newer_than(const SequenceHistory& history, SequenceID id, r32 timestamp_cutoff)
+{
+	for (s32 i = 0; i < history.length; i++)
+	{
+		const SequenceHistoryEntry& entry = history[i];
+		if (entry.id == id && entry.timestamp > timestamp_cutoff)
+			return true;
+	}
+	return false;
+}
+
+b8 msgs_write(StreamWrite* p, const MessageHistory& history, const Ack& remote_ack, SequenceHistory* recently_resent, r32 rtt)
+{
+	using Stream = StreamWrite;
+	s32 bytes = 0;
+
+	if (history.msgs.length > 0)
+	{
+		// resend previous frames
+		{
+			// rewind to 64 frames previous
+			s32 index = history.current_index;
+			for (s32 i = 0; i < 64; i++)
+			{
+				s32 next_index = index > 0 ? index - 1 : history.msgs.length - 1;
+				if (next_index == history.current_index)
+					break;
+				index = next_index;
+			}
+
+			// start resending frames starting at that index
+			r32 timestamp_cutoff = Game::real_time.total - (rtt * 3.0f); // wait a certain period before trying to resend a sequence
+			for (s32 i = 0; i < 64 && index != history.current_index; i++)
+			{
+				const MessageFrame& frame = history.msgs[index];
+				s32 relative_sequence = sequence_relative_to(frame.sequence_id, remote_ack.sequence_id);
+				if (relative_sequence < 0
+					&& relative_sequence >= -32
+					&& !ack_get(remote_ack, frame.sequence_id)
+					&& !sequence_history_contains_newer_than(*recently_resent, frame.sequence_id, timestamp_cutoff)
+					&& bytes + frame.write.bytes_written() <= MAX_MESSAGES_SIZE)
+				{
+					vi_debug("Resending sequence %d", s32(frame.sequence_id));
+					bytes += frame.write.bytes_written();
+					serialize_bytes(p, (u8*)frame.write.data.data, frame.write.bytes_written());
+					sequence_history_add(recently_resent, frame.sequence_id, Game::real_time.total);
+				}
+
+				index = index < history.msgs.length - 1 ? index + 1 : 0;
+			}
+		}
+
+		// current frame
+		{
+			const MessageFrame& frame = history.msgs[history.current_index];
+			if (bytes + frame.write.bytes_written() <= MAX_MESSAGES_SIZE)
+				serialize_bytes(p, (u8*)frame.write.data.data, frame.write.bytes_written());
+		}
+	}
+
 	bytes = 0;
 	serialize_int(p, s32, bytes, 0, MAX_MESSAGES_SIZE); // zero sized frame marks end of message frames
 
 	return true;
 }
 
+r32 calculate_rtt(r32 timestamp, const Ack& ack, const MessageHistory& send_history)
+{
+	if (send_history.msgs.length > 0)
+	{
+		s32 index = send_history.current_index;
+		for (s32 i = 0; i < 64; i++)
+		{
+			const MessageFrame& msg = send_history.msgs[index];
+			if (msg.sequence_id == ack.sequence_id)
+				return timestamp - msg.timestamp;
+			index = index > 0 ? index - 1 : send_history.msgs.length - 1;
+			if (index == send_history.current_index)
+				break;
+		}
+	}
+	return -1.0f;
+}
+
 b8 msgs_read(StreamRead* p, MessageHistory* history, Ack* ack)
 {
 	using Stream = StreamRead;
 
-	serialize_u16(p, ack->sequence_id);
+	serialize_int(p, SequenceID, ack->sequence_id, 0, SEQUENCE_COUNT - 1);
 	serialize_u32(p, ack->previous_sequences);
 
 	while (true)
@@ -250,13 +423,11 @@ b8 msgs_read(StreamRead* p, MessageHistory* history, Ack* ack)
 		serialize_int(p, s32, bytes, 0, MAX_MESSAGES_SIZE);
 		if (bytes)
 		{
-			MessageFrame* frame = msg_history_add(history);
+			MessageFrame* frame = msg_history_add(history, Game::real_time.total);
 			frame->read.data.length = bytes / sizeof(u32);
 
-			serialize_u16(p, frame->sequence_id);
+			serialize_int(p, SequenceID, frame->sequence_id, 0, SEQUENCE_COUNT - 1);
 			serialize_bytes(p, (u8*)frame->read.data.data, bytes);
-
-			vi_debug("Received %d bytes on sequence %d", bytes, s32(frame->sequence_id));
 		}
 		else
 			break;
@@ -277,14 +448,25 @@ struct Client
 	Sock::Address address;
 	r32 timeout;
 	r32 rtt;
-	Ack ack;
-	MessageHistory msgs_in_history;
+	Ack ack = { u32(-1), 0 }; // most recent ack we've received from the client
+	MessageHistory msgs_in_history; // messages we've received from the client
+	SequenceHistory recently_resent; // sequences we resent to the client recently
+	SequenceID processed_sequence_id; // most recent sequence ID we've processed from the client
 	Ref<LocalPlayer> player;
 	b8 connected;
 };
 
+enum Mode
+{
+	Waiting,
+	Active,
+	count,
+};
+
 Array<Client> clients;
 r32 tick_timer;
+Mode mode;
+s32 expected_clients = 1;
 
 s32 connected_clients()
 {
@@ -338,15 +520,32 @@ b8 build_packet_update(StreamWrite* p, Client* client)
 	ServerPacket type = ServerPacket::Update;
 	serialize_enum(p, ServerPacket, type);
 	Ack ack = msg_history_ack(client->msgs_in_history);
-	serialize_u16(p, ack.sequence_id);
+	serialize_int(p, SequenceID, ack.sequence_id, 0, SEQUENCE_COUNT - 1);
 	serialize_u32(p, ack.previous_sequences);
-	msgs_write(p);
+	msgs_write(p, msgs_out_history, client->ack, &client->recently_resent, client->rtt);
 	packet_finalize(p);
 	return true;
 }
 
+void update(const Update& u)
+{
+	for (s32 i = 0; i < clients.length; i++)
+	{
+		Client* client = &clients[i];
+		if (client->connected)
+		{
+			while (const MessageFrame* frame = msg_frame_advance(client->msgs_in_history, &client->processed_sequence_id))
+			{
+				// todo: process messages in frame
+			}
+		}
+	}
+}
+
 void tick(const Update& u)
 {
+	if (mode == Mode::Active)
+		msgs_out_consolidate();
 	StreamWrite p;
 	for (s32 i = 0; i < clients.length; i++)
 	{
@@ -364,12 +563,17 @@ void tick(const Update& u)
 			build_packet_update(&p, client);
 			packet_send(p, clients[i].address);
 		}
-		ack_debug("Client ack:", client->ack);
-		ack_debug("My ack:", msg_history_ack(client->msgs_in_history));
+	}
+
+	if (mode == Mode::Active)
+	{
+		local_sequence_id++;
+		if (local_sequence_id == SEQUENCE_COUNT)
+			local_sequence_id = 0;
 	}
 }
 
-b8 handle_packet(StreamRead* p, const Sock::Address& address)
+b8 packet_handle(StreamRead* p, const Sock::Address& address)
 {
 	Client* client = nullptr;
 	for (s32 i = 0; i < clients.length; i++)
@@ -395,27 +599,30 @@ b8 handle_packet(StreamRead* p, const Sock::Address& address)
 	{
 		case ClientPacket::Connect:
 		{
-			Client* client = nullptr;
-			for (s32 i = 0; i < clients.length; i++)
+			if (clients.length < expected_clients)
 			{
-				if (clients[i].address.equals(address))
+				Client* client = nullptr;
+				for (s32 i = 0; i < clients.length; i++)
 				{
-					client = &clients[i];
-					break;
+					if (clients[i].address.equals(address))
+					{
+						client = &clients[i];
+						break;
+					}
 				}
-			}
 
-			if (!client)
-			{
-				client = clients.add();
-				new (client) Client();
-				client->address = address;
-			}
+				if (!client)
+				{
+					client = clients.add();
+					new (client) Client();
+					client->address = address;
+				}
 
-			{
-				StreamWrite p;
-				build_packet_init(&p);
-				packet_send(p, address);
+				{
+					StreamWrite p;
+					build_packet_init(&p);
+					packet_send(p, address);
+				}
 			}
 			break;
 		}
@@ -436,6 +643,9 @@ b8 handle_packet(StreamRead* p, const Sock::Address& address)
 				vi_debug("Client %s:%hd connected.", Sock::host_to_str(address.host), address.port);
 				client->connected = true;
 			}
+
+			if (connected_clients() == expected_clients)
+				mode = Mode::Active;
 			break;
 		}
 		case ClientPacket::Update:
@@ -448,6 +658,8 @@ b8 handle_packet(StreamRead* p, const Sock::Address& address)
 
 			if (!msgs_read(p, &client->msgs_in_history, &client->ack))
 				return false;
+			client->rtt = calculate_rtt(Game::real_time.total, client->ack, msgs_out_history);
+			vi_debug("RTT client %s:%hd: %dms", Sock::host_to_str(client->address.host), client->address.port, s32(client->rtt * 1000.0f));
 
 			client->timeout = 0.0f;
 			break;
@@ -480,15 +692,21 @@ enum class Mode
 Sock::Address server_address;
 Mode mode;
 r32 timeout;
-MessageHistory msgs_in_history;
-Ack ack_server;
+MessageHistory msgs_in_history; // messages we've received from the server
+Ack server_ack = { u32(-1), 0 }; // most recent ack we've received from the server
+SequenceHistory server_recently_resent; // sequences we recently resent to the server
+r32 server_rtt;
+SequenceID server_processed_sequence_id; // most recent sequence ID we've processed from the server
 
 b8 init()
 {
 	if (Sock::udp_open(&sock, 3495, true))
 	{
-		printf("%s\n", Sock::get_error());
-		return false;
+		if (Sock::udp_open(&sock, 3496, true))
+		{
+			printf("%s\n", Sock::get_error());
+			return false;
+		}
 	}
 
 	return true;
@@ -523,12 +741,20 @@ b8 build_packet_update(StreamWrite* p)
 
 	// ack received messages
 	Ack ack = msg_history_ack(msgs_in_history);
-	serialize_u16(p, ack.sequence_id);
+	serialize_int(p, SequenceID, ack.sequence_id, 0, SEQUENCE_COUNT - 1);
 	serialize_u32(p, ack.previous_sequences);
 
-	msgs_write(p);
+	msgs_write(p, msgs_out_history, server_ack, &server_recently_resent, server_rtt);
 	packet_finalize(p);
 	return true;
+}
+
+void update(const Update& u)
+{
+	while (const MessageFrame* frame = msg_frame_advance(msgs_in_history, &server_processed_sequence_id))
+	{
+		// todo: process messages in frame
+	}
 }
 
 void tick(const Update& u)
@@ -571,11 +797,18 @@ void tick(const Update& u)
 				vi_debug("Lost connection to %s:%hd.", Sock::host_to_str(server_address.host), server_address.port);
 				mode = Mode::Disconnected;
 			}
-			StreamWrite p;
-			build_packet_update(&p);
-			packet_send(p, server_address);
-			ack_debug("Server ack:", ack_server);
-			ack_debug("My ack:", msg_history_ack(msgs_in_history));
+			else
+			{
+				msgs_out_consolidate();
+
+				StreamWrite p;
+				build_packet_update(&p);
+				packet_send(p, server_address);
+
+				local_sequence_id++;
+				if (local_sequence_id == SEQUENCE_COUNT)
+					local_sequence_id = 0;
+			}
 			break;
 		}
 		default:
@@ -592,7 +825,7 @@ void connect(const char* ip, u16 port)
 	mode = Mode::Connecting;
 }
 
-b8 handle_packet(StreamRead* p, const Sock::Address& address)
+b8 packet_handle(StreamRead* p, const Sock::Address& address)
 {
 	using Stream = StreamRead;
 	if (!address.equals(server_address))
@@ -628,8 +861,10 @@ b8 handle_packet(StreamRead* p, const Sock::Address& address)
 				mode = Mode::Connected;
 			}
 
-			if (!msgs_read(p, &msgs_in_history, &ack_server))
+			if (!msgs_read(p, &msgs_in_history, &server_ack))
 				return false;
+			server_rtt = calculate_rtt(Game::real_time.total, server_ack, msgs_out_history);
+			vi_debug("RTT: %dms", s32(server_rtt * 1000.0f));
 			timeout = 0.0f; // reset connection timeout
 			break;
 		}
@@ -675,13 +910,13 @@ void update(const Update& u)
 	{
 		Sock::Address address;
 		s32 bytes_received = Sock::udp_receive(&sock, &address, incoming_packet.data.data, MAX_PACKET_SIZE);
-		if (bytes_received > 0 && mersenne::randf_co() > 0.5f) // packet loss simulation
+		if (bytes_received > 0)// && mersenne::randf_co() < 0.75f) // packet loss simulation
 		{
 			incoming_packet.data.length = bytes_received / sizeof(u32);
 #if SERVER
-			Server::handle_packet(&incoming_packet, address);
+			Server::packet_handle(&incoming_packet, address);
 #else
-			Client::handle_packet(&incoming_packet, address);
+			Client::packet_handle(&incoming_packet, address);
 #endif
 			incoming_packet.reset();
 		}
@@ -689,29 +924,22 @@ void update(const Update& u)
 			break;
 	}
 
+#if SERVER
+	Server::update(u);
+#else
+	Client::update(u);
+#endif
+
 	tick_timer += Game::real_time.delta;
 	if (tick_timer > TICK_RATE)
 	{
 		tick_timer = 0.0f;
 
 #if SERVER
-		if (Server::connected_clients() > 0)
-		{
-#else
-		if (Client::mode == Client::Mode::Connected)
-		{
-#endif
-			send_garbage();
-		}
-
-		vi_debug("Local sequence ID: %d", s32(local_sequence_id));
-
-#if SERVER
 		Server::tick(u);
 #else
 		Client::tick(u);
 #endif
-		local_sequence_id++;
 	}
 }
 

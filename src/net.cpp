@@ -505,7 +505,7 @@ b8 msg_send_noop()
 }
 
 // consolidate msgs_out into msgs_out_history
-void msgs_out_consolidate()
+b8 msgs_out_consolidate()
 {
 	using Stream = StreamWrite;
 
@@ -540,6 +540,8 @@ void msgs_out_consolidate()
 	
 	for (s32 i = msgs - 1; i >= 0; i--)
 		msgs_out.remove_ordered(i);
+
+	return true;
 }
 
 MessageFrame* msg_frame_advance(MessageHistory* history, SequenceID* id)

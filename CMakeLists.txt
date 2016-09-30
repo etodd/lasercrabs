@@ -78,6 +78,7 @@ elseif (CLIENT)
 	set(SDL_FILE ON CACHE BOOL "" FORCE)
 	set(SDL_SHARED OFF CACHE BOOL "" FORCE)
 	set(SDL_STATIC ON CACHE BOOL "" FORCE)
+	set(LIBC ON CACHE BOOL "" FORCE)
 	add_subdirectory(external/sdl)
 
 	set(SDL_LIBS

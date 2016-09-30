@@ -36,6 +36,7 @@ struct Loader
 	static s32 static_texture_count;
 	static s32 shader_count;
 	static s32 armature_count;
+	static s32 animation_count;
 	static LoopSwapper* swapper;
 	static void init(LoopSwapper*);
 	static Array<Entry<Mesh> > meshes;

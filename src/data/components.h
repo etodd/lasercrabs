@@ -47,11 +47,12 @@ struct PointLight : public ComponentType<PointLight>
 		Normal = 1,
 		Override = 1 << 1,
 		Shockwave = 1 << 2,
+		count,
 	};
 
-	r32 radius;
 	Vec3 color;
 	Vec3 offset;
+	r32 radius;
 	Type type;
 	RenderMask mask;
 	u8 team;
@@ -62,8 +63,8 @@ struct PointLight : public ComponentType<PointLight>
 
 struct SpotLight : public ComponentType<SpotLight>
 {
-	r32 radius;
 	Vec3 color;
+	r32 radius;
 	r32 fov;
 	RenderMask mask;
 	u8 team;

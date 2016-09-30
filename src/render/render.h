@@ -9,6 +9,16 @@
 namespace VI
 {
 
+
+enum class AlphaMode
+{
+	Opaque,
+	Alpha,
+	Additive,
+	AlphaDepth,
+	count,
+};
+
 struct Frustum
 {
 	Plane planes[6];

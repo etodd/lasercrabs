@@ -81,7 +81,7 @@ void Physics::raycast(btCollisionWorld::ClosestRayResultCallback* ray_callback, 
 
 PinArray<RigidBody::Constraint, MAX_ENTITIES> RigidBody::global_constraints;
 
-RigidBody::RigidBody(Type type, const Vec3& size, r32 mass, short group, short mask, AssetID mesh_id, ID linked_entity)
+RigidBody::RigidBody(Type type, const Vec3& size, r32 mass, s16 group, s16 mask, AssetID mesh_id, ID linked_entity)
 	: type(type), size(size), mass(mass), collision_group(group), collision_filter(mask), linked_entity(linked_entity), btBody(), btMesh(), btShape(), mesh_id(mesh_id), ccd(false)
 {
 }

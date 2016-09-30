@@ -50,6 +50,7 @@ s32 Loader::static_mesh_count;
 s32 Loader::static_texture_count;
 s32 Loader::shader_count;
 s32 Loader::armature_count;
+s32 Loader::animation_count;
 
 struct Attrib
 {
@@ -84,6 +85,9 @@ void Loader::init(LoopSwapper* s)
 
 	while ((p = AssetLookup::Armature::names[armature_count]))
 		armature_count++;
+
+	while ((p = AssetLookup::Animation::names[animation_count]))
+		animation_count++;
 
 	while ((p = AssetLookup::Mesh::names[compiled_static_mesh_count]))
 		compiled_static_mesh_count++;

@@ -95,7 +95,7 @@ void View::alpha_disable()
 	list_alpha_depth.set(id(), false);
 }
 
-View::AlphaMode View::alpha_mode() const
+AlphaMode View::alpha_mode() const
 {
 	if (list_alpha.get(id()))
 		return AlphaMode::Alpha;

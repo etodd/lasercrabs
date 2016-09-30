@@ -78,6 +78,7 @@ struct RigidBody : public ComponentType<RigidBody>
 		CapsuleZ,
 		Sphere,
 		Mesh,
+		count,
 	};
 
 	struct Constraint
@@ -101,17 +102,17 @@ struct RigidBody : public ComponentType<RigidBody>
 	static ID add_constraint(Constraint&);
 	static void remove_constraint(ID);
 
-	Vec3 size;
-	Vec2 damping; // use set_damping to ensure the btBody will be updated
 	btCollisionShape* btShape;
 	btStridingMeshInterface* btMesh;
 	btRigidBody* btBody;
+	Vec3 size;
+	Vec2 damping; // use set_damping to ensure the btBody will be updated
 	Type type;
 	r32 mass;
-	s32 mesh_id;
 	ID linked_entity; // set the rigid body's user index to this. if IDNull, it's "this" entity's ID.
-	short collision_group;
-	short collision_filter;
+	AssetID mesh_id;
+	s16 collision_group;
+	s16 collision_filter;
 	b8 ccd; // continuous collision detection
 
 	void rebuild(); // rebuild bullet objects from our settings
@@ -119,7 +120,7 @@ struct RigidBody : public ComponentType<RigidBody>
 	void set_damping(r32, r32);
 	void set_ccd(b8);
 
-	RigidBody(Type, const Vec3&, r32, short, short, AssetID = AssetNull, ID = IDNull);
+	RigidBody(Type, const Vec3&, r32, s16, s16, AssetID = AssetNull, ID = IDNull);
 	~RigidBody();
 	void awake();
 };

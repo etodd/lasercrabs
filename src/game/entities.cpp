@@ -1382,10 +1382,7 @@ RigidBody* rope_add(RigidBody* start, const Vec3& start_relative_pos, const Vec3
 			{
 				Vec3 spawn_pos = last_segment_pos + (diff / length) * rope_interval * 0.5f;
 				Entity* box = World::create<PhysicsEntity>(AssetNull, spawn_pos, rot, RigidBody::Type::CapsuleZ, Vec3(rope_radius, rope_segment_length - rope_radius * 2.0f, 0.0f), 0.05f, CollisionAwkIgnore, CollisionInaccessibleMask);
-				Rope* r = box->add<Rope>();
-				if (last_segment->has<Rope>())
-					last_segment->get<Rope>()->next = box->get<RigidBody>();
-				r->prev = last_segment;
+				box->add<Rope>();
 
 				static Quat rotation_a = Quat::look(Vec3(0, 0, 1)) * Quat::euler(0, PI * -0.5f, 0);
 				static Quat rotation_b = Quat::look(Vec3(0, 0, -1)) * Quat::euler(PI, PI * -0.5f, 0);

@@ -6,17 +6,9 @@
 namespace VI
 {
 
+
 struct View : public ComponentType<View>
 {
-	enum class AlphaMode
-	{
-		Opaque,
-		Alpha,
-		Additive,
-		AlphaDepth,
-		count,
-	};
-
 	static Bitmask<MAX_ENTITIES> list_alpha;
 	static Bitmask<MAX_ENTITIES> list_additive;
 	static Bitmask<MAX_ENTITIES> list_alpha_depth;

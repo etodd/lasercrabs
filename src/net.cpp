@@ -99,29 +99,101 @@ struct SequenceHistoryEntry
 
 typedef StaticArray<SequenceHistoryEntry, SEQUENCE_RESEND_BUFFER> SequenceHistory;
 
+template<typename Stream, typename View> b8 serialize_view_skinnedmodel(Stream* p, View* v)
+{
+	b8 is_identity;
+	if (Stream::IsWriting)
+	{
+		is_identity = true;
+		for (s32 i = 0; i < 4; i++)
+		{
+			for (s32 j = 0; j < 4; j++)
+			{
+				if (v->offset.m[i][j] != Mat4::identity.m[i][j])
+				{
+					is_identity = false;
+					break;
+				}
+			}
+		}
+	}
+	serialize_bool(p, is_identity);
+	if (is_identity)
+	{
+		if (Stream::IsReading)
+			v->offset = Mat4::identity;
+	}
+	else
+	{
+		for (s32 i = 0; i < 4; i++)
+		{
+			for (s32 j = 0; j < 4; j++)
+				serialize_r32(p, v->offset.m[i][j]);
+		}
+	}
+	serialize_r32_range(p, v->color.x, -1.0f, 1.0f, 8);
+	serialize_r32_range(p, v->color.y, -1.0f, 1.0f, 8);
+	serialize_r32_range(p, v->color.z, -1.0f, 1.0f, 8);
+	serialize_r32_range(p, v->color.w, -1.0f, 1.0f, 8);
+	serialize_u16(p, v->mask);
+	serialize_u16(p, v->mesh);
+	serialize_asset(p, v->shader, Loader::shader_count);
+	serialize_asset(p, v->texture, Loader::static_texture_count);
+	serialize_u8(p, v->team);
+	{
+		AlphaMode m;
+		if (Stream::IsWriting)
+			m = v->alpha_mode();
+		serialize_enum(p, AlphaMode, m);
+		if (Stream::IsReading)
+			v->alpha_mode(m);
+	}
+	return true;
+}
+
 template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 {
-	serialize_u64(p, e->component_mask);
-	serialize_u16(p, e->revision);
+	const ComponentMask mask = Transform::component_mask
+		| RigidBody::component_mask
+		| View::component_mask
+		| Animator::component_mask
+		| Rope::component_mask
+		| DirectionalLight::component_mask
+		| SkyDecal::component_mask
+		| AIAgent::component_mask
+		| Health::component_mask
+		| PointLight::component_mask
+		| SpotLight::component_mask
+		| ControlPoint::component_mask
+		| Shockwave::component_mask
+		| Walker::component_mask
+		| Ragdoll::component_mask
+		| Target::component_mask
+		| SkinnedModel::component_mask
+		| Projectile::component_mask
+		| HealthPickup::component_mask
+		| Sensor::component_mask
+		| Rocket::component_mask
+		| ContainmentField::component_mask
+		| Teleporter::component_mask;
 
+	serialize_u64(p, e->component_mask);
 	if (Stream::IsReading)
-		e->component_mask &= Transform::component_mask | View::component_mask | DirectionalLight::component_mask; // hack
+		e->component_mask &= mask;
+	serialize_u16(p, e->revision);
 
 	for (s32 i = 0; i < MAX_FAMILIES; i++)
 	{
-		if (e->component_mask & (ComponentMask(1) << i))
+		if (e->component_mask & (ComponentMask(1) << i) & mask)
 		{
-			if (i == Transform::family || i == View::family || i == DirectionalLight::family) // hack
-			{
-				serialize_int(p, ID, e->components[i], 0, MAX_ENTITIES);
-				ID component_id = e->components[i];
-				Revision r;
-				if (Stream::IsWriting)
-					r = World::component_pools[i]->revision(component_id);
-				serialize_int(p, Revision, r, 0, MAX_ENTITIES);
-				if (Stream::IsReading)
-					World::component_pools[i]->net_add(component_id, e->id(), r);
-			}
+			serialize_int(p, ID, e->components[i], 0, MAX_ENTITIES);
+			ID component_id = e->components[i];
+			Revision r;
+			if (Stream::IsWriting)
+				r = World::component_pools[i]->revision(component_id);
+			serialize_int(p, Revision, r, 0, MAX_ENTITIES);
+			if (Stream::IsReading)
+				World::component_pools[i]->net_add(component_id, e->id(), r);
 		}
 	}
 
@@ -140,73 +212,54 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 
 	if (e->has<RigidBody>())
 	{
+		RigidBody* r = e->get<RigidBody>();
+		serialize_r32_range(p, r->size.x, 0, 5.0f, 8);
+		serialize_r32_range(p, r->size.y, 0, 5.0f, 8);
+		serialize_r32_range(p, r->size.z, 0, 5.0f, 8);
+		serialize_r32_range(p, r->damping.x, 0, 1.0f, 2);
+		serialize_r32_range(p, r->damping.y, 0, 1.0f, 2);
+		serialize_enum(p, RigidBody::Type, r->type);
+		serialize_r32_range(p, r->mass, 0, 1, 1);
+		serialize_int(p, ID, r->linked_entity, 0, MAX_ENTITIES);
+		serialize_asset(p, r->mesh_id, Loader::static_mesh_count);
+		serialize_int(p, s16, r->collision_group, -32767, 32767);
+		serialize_int(p, s16, r->collision_filter, -32767, 32767);
+		serialize_bool(p, r->ccd);
 	}
 
 	if (e->has<View>())
 	{
-		View* v = e->get<View>();
-		b8 is_identity;
-		if (Stream::IsWriting)
-		{
-			is_identity = true;
-			for (s32 i = 0; i < 4; i++)
-			{
-				for (s32 j = 0; j < 4; j++)
-				{
-					if (v->offset.m[i][j] != Mat4::identity.m[i][j])
-					{
-						is_identity = false;
-						break;
-					}
-				}
-			}
-		}
-		serialize_bool(p, is_identity);
-		if (is_identity)
-		{
-			if (Stream::IsReading)
-				v->offset = Mat4::identity;
-		}
-		else
-		{
-			for (s32 i = 0; i < 4; i++)
-			{
-				for (s32 j = 0; j < 4; j++)
-					serialize_r32(p, v->offset.m[i][j]);
-			}
-		}
-		serialize_r32_range(p, v->color.x, -1.0f, 1.0f, 8);
-		serialize_r32_range(p, v->color.y, -1.0f, 1.0f, 8);
-		serialize_r32_range(p, v->color.z, -1.0f, 1.0f, 8);
-		serialize_r32_range(p, v->color.w, -1.0f, 1.0f, 8);
-		serialize_u16(p, v->mask);
-		serialize_u16(p, v->mesh);
-		serialize_asset(p, v->shader, Loader::shader_count);
-		serialize_asset(p, v->texture, Loader::static_texture_count);
-		serialize_u8(p, v->team);
-		{
-			View::AlphaMode m;
-			if (Stream::IsWriting)
-				m = v->alpha_mode();
-			serialize_enum(p, View::AlphaMode, m);
-			if (Stream::IsReading)
-				v->alpha_mode(m);
-		}
+		if (!serialize_view_skinnedmodel(p, e->get<View>()))
+			net_error();
 	}
 
 	if (e->has<Animator>())
 	{
+		Animator* a = e->get<Animator>();
+		for (s32 i = 0; i < MAX_ANIMATIONS; i++)
+		{
+			const Animator::Layer& l = a->layers[i];
+			serialize_r32_range(p, l.weight, 0, 1, 8);
+			serialize_r32_range(p, l.blend, 0, 1, 8);
+			serialize_r32_range(p, l.blend_time, 0, 8, 16);
+			serialize_r32(p, l.time);
+			serialize_r32_range(p, l.speed, 0, 8, 16);
+			serialize_asset(p, l.animation, Loader::animation_count);
+			serialize_asset(p, l.last_animation, Loader::animation_count);
+			serialize_bool(p, l.loop);
+		}
+		serialize_asset(p, a->armature, Loader::armature_count);
+		serialize_enum(p, Animator::OverrideMode, a->override_mode);
 	}
 
 	if (e->has<AIAgent>())
 	{
+		AIAgent* a = e->get<AIAgent>();
+		serialize_u8(p, a->team);
+		serialize_bool(p, a->stealth);
 	}
 
 	if (e->has<Awk>())
-	{
-	}
-
-	if (e->has<AIPlayerControl>())
 	{
 	}
 
@@ -218,92 +271,141 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 	{
 	}
 
-	if (e->has<MinionAI>())
-	{
-	}
-
 	if (e->has<MinionCommon>())
-	{
-	}
-
-	if (e->has<Audio>())
 	{
 	}
 
 	if (e->has<Health>())
 	{
+		Health* h = e->get<Health>();
+		serialize_r32_range(p, h->regen_timer, 0, 10, 8);
+		serialize_u8(p, h->shield);
+		serialize_u8(p, h->shield_max);
+		serialize_u8(p, h->hp);
+		serialize_u8(p, h->hp_max);
 	}
 
 	if (e->has<PointLight>())
 	{
+		PointLight* l = e->get<PointLight>();
+		serialize_r32_range(p, l->color.x, 0, 1, 8);
+		serialize_r32_range(p, l->color.y, 0, 1, 8);
+		serialize_r32_range(p, l->color.z, 0, 1, 8);
+		serialize_r32_range(p, l->offset.x, -5, 5, 8);
+		serialize_r32_range(p, l->offset.y, -5, 5, 8);
+		serialize_r32_range(p, l->offset.z, -5, 5, 8);
+		serialize_r32_range(p, l->radius, 0, 50, 8);
+		serialize_enum(p, PointLight::Type, l->type);
+		serialize_u16(p, l->mask);
+		serialize_u8(p, l->team);
 	}
 
 	if (e->has<SpotLight>())
 	{
+		SpotLight* l = e->get<SpotLight>();
+		serialize_r32_range(p, l->color.x, 0, 1, 8);
+		serialize_r32_range(p, l->color.y, 0, 1, 8);
+		serialize_r32_range(p, l->color.z, 0, 1, 8);
+		serialize_r32_range(p, l->radius, 0, 50, 8);
+		serialize_r32_range(p, l->fov, 0, PI, 8);
+		serialize_u16(p, l->mask);
+		serialize_u8(p, l->team);
 	}
 
 	if (e->has<ControlPoint>())
 	{
+		ControlPoint* c = e->get<ControlPoint>();
+		serialize_u8(p, c->team);
 	}
 
 	if (e->has<Shockwave>())
 	{
-	}
-
-	if (e->has<Rope>())
-	{
+		Shockwave* s = e->get<Shockwave>();
+		serialize_r32_range(p, s->max_radius, 0, 50, 8);
+		serialize_r32_range(p, s->duration, 0, 5, 8);
 	}
 
 	if (e->has<Walker>())
 	{
-	}
-
-	if (e->has<Ragdoll>())
-	{
+		Walker* w = e->get<Walker>();
+		serialize_r32_range(p, w->height, 0, 10, 16);
+		serialize_r32_range(p, w->support_height, 0, 10, 16);
+		serialize_r32_range(p, w->radius, 0, 10, 16);
+		serialize_r32_range(p, w->mass, 0, 10, 16);
+		serialize_r32(p, w->rotation);
 	}
 
 	if (e->has<Target>())
 	{
-	}
-
-	if (e->has<PlayerTrigger>())
-	{
+		Target* t = e->get<Target>();
+		serialize_r32_range(p, t->local_offset.x, -10, 10, 16);
+		serialize_r32_range(p, t->local_offset.y, -10, 10, 16);
+		serialize_r32_range(p, t->local_offset.z, -10, 10, 16);
 	}
 
 	if (e->has<SkinnedModel>())
 	{
+		if (!serialize_view_skinnedmodel(p, e->get<SkinnedModel>()))
+			net_error();
 	}
 
 	if (e->has<Projectile>())
 	{
+		Projectile* x = e->get<Projectile>();
+		serialize_ref(p, x->owner);
+		serialize_r32(p, x->velocity.x);
+		serialize_r32(p, x->velocity.y);
+		serialize_r32(p, x->velocity.z);
+		serialize_r32(p, x->lifetime);
 	}
 
 	if (e->has<HealthPickup>())
 	{
+		HealthPickup* h = e->get<HealthPickup>();
+		serialize_ref(p, h->owner);
 	}
 
 	if (e->has<Sensor>())
 	{
+		Sensor* s = e->get<Sensor>();
+		serialize_ref(p, s->owner);
+		serialize_u8(p, s->team);
 	}
 
 	if (e->has<Rocket>())
 	{
+		Rocket* r = e->get<Rocket>();
+		serialize_ref(p, r->target);
+		serialize_ref(p, r->owner);
+		serialize_u8(p, r->team);
 	}
 
 	if (e->has<ContainmentField>())
 	{
+		ContainmentField* c = e->get<ContainmentField>();
+		serialize_r32(p, c->remaining_lifetime);
+		serialize_ref(p, c->field);
+		serialize_ref(p, c->owner);
+		serialize_u8(p, c->team);
 	}
 
 	if (e->has<Teleporter>())
 	{
-	}
-
-	if (e->has<AICue>())
-	{
+		Teleporter* t = e->get<Teleporter>();
+		serialize_u8(p, t->team);
 	}
 
 	if (e->has<Water>())
 	{
+		Water* w = e->get<Water>();
+		serialize_r32_range(p, w->color.x, 0, 1.0f, 8);
+		serialize_r32_range(p, w->color.y, 0, 1.0f, 8);
+		serialize_r32_range(p, w->color.z, 0, 1.0f, 8);
+		serialize_r32_range(p, w->color.w, 0, 1.0f, 8);
+		serialize_r32_range(p, w->displacement_horizontal, 0, 10, 8);
+		serialize_r32_range(p, w->displacement_vertical, 0, 10, 8);
+		serialize_u16(p, w->mesh);
+		serialize_asset(p, w->texture, Loader::static_texture_count);
 	}
 
 	if (e->has<DirectionalLight>())
@@ -317,6 +419,13 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 
 	if (e->has<SkyDecal>())
 	{
+		SkyDecal* d = e->get<SkyDecal>();
+		serialize_r32_range(p, d->color.x, 0, 1.0f, 8);
+		serialize_r32_range(p, d->color.y, 0, 1.0f, 8);
+		serialize_r32_range(p, d->color.z, 0, 1.0f, 8);
+		serialize_r32_range(p, d->color.w, 0, 1.0f, 8);
+		serialize_r32_range(p, d->scale, 0, 10.0f, 8);
+		serialize_asset(p, d->texture, Loader::static_texture_count);
 	}
 
 	if (Stream::IsReading)
@@ -761,7 +870,7 @@ b8 init()
 	}
 
 	Game::session.multiplayer = true;
-	Game::schedule_load_level(Asset::Level::Ponos, Game::Mode::Pvp);
+	Game::schedule_load_level(Asset::Level::Tyche, Game::Mode::Pvp);
 
 	return true;
 }
@@ -924,14 +1033,11 @@ b8 packet_handle(const Update& u, StreamRead* p, const Sock::Address& address)
 				using Stream = StreamWrite;
 				for (auto i = Entity::list.iterator(); !i.is_last(); i.next())
 				{
-					if (i.item()->has<View>() || i.item()->has<Transform>())
-					{
-						StreamWrite* p = msg_new();
-						MessageType type = MessageType::EntitySpawn;
-						serialize_enum(p, MessageType, type);
-						serialize_int(p, ID, i.index, 0, MAX_ENTITIES);
-						serialize_entity(p, i.item());
-					}
+					StreamWrite* p = msg_new();
+					MessageType type = MessageType::EntitySpawn;
+					serialize_enum(p, MessageType, type);
+					serialize_int(p, ID, i.index, 0, MAX_ENTITIES);
+					serialize_entity(p, i.item());
 				}
 			}
 			break;

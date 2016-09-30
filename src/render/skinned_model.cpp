@@ -116,6 +116,50 @@ void SkinnedModel::alpha_disable()
 	list_alpha_depth.set(id(), false);
 }
 
+AlphaMode SkinnedModel::alpha_mode() const
+{
+	if (list_alpha.get(id()))
+		return AlphaMode::Alpha;
+	else if (list_additive.get(id()))
+		return AlphaMode::Additive;
+	else if (list_alpha_depth.get(id()))
+		return AlphaMode::AlphaDepth;
+	else
+		return AlphaMode::Opaque;
+}
+
+void SkinnedModel::alpha_mode(AlphaMode m)
+{
+	switch (m)
+	{
+		case AlphaMode::Opaque:
+		{
+			alpha_disable();
+			break;
+		}
+		case AlphaMode::Alpha:
+		{
+			alpha();
+			break;
+		}
+		case AlphaMode::Additive:
+		{
+			additive();
+			break;
+		}
+		case AlphaMode::AlphaDepth:
+		{
+			alpha_depth();
+			break;
+		}
+		default:
+		{
+			vi_assert(false);
+			break;
+		}
+	}
+}
+
 void SkinnedModel::draw(const RenderParams& params)
 {
 	if (!(params.camera->mask & mask))

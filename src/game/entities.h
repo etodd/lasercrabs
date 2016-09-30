@@ -111,8 +111,8 @@ struct SensorEntity : public Entity
 #define SENSOR_HEALTH 2
 struct Sensor : public ComponentType<Sensor>
 {
-	AI::Team team;
 	Ref<PlayerManager> owner;
+	AI::Team team;
 
 	Sensor(AI::Team, PlayerManager* = nullptr);
 
@@ -130,11 +130,11 @@ struct Sensor : public ComponentType<Sensor>
 #define ROCKET_RANGE (AWK_MAX_DISTANCE * 1.5f)
 struct Rocket : public ComponentType<Rocket>
 {
-	AI::Team team;
-	Ref<Entity> target;
-	Ref<Entity> owner;
 	r32 particle_accumulator;
 	r32 remaining_lifetime;
+	Ref<Entity> target;
+	Ref<Entity> owner;
+	AI::Team team;
 
 	static Rocket* inbound(Entity*);
 	static Rocket* closest(AI::TeamMask, const Vec3&, r32* = nullptr);
@@ -165,10 +165,10 @@ struct ContainmentField : public ComponentType<ContainmentField>
 	static ContainmentField* closest(AI::TeamMask, const Vec3&, r32*);
 	static u32 hash(AI::Team, const Vec3&);
 
-	AI::Team team;
+	r32 remaining_lifetime;
 	Ref<Entity> field;
 	Ref<PlayerManager> owner;
-	r32 remaining_lifetime;
+	AI::Team team;
 	b8 powered;
 
 	ContainmentField(const Vec3&, PlayerManager*);
@@ -255,9 +255,6 @@ struct Rope : public ComponentType<Rope>
 	static void draw_opaque(const RenderParams&);
 	static void spawn(const Vec3&, const Vec3&, r32, r32 = 0.0f);
 
-	Ref<RigidBody> prev;
-	Ref<RigidBody> next;
-
 	void awake() {}
 	static Rope* start(RigidBody*, const Vec3&, const Vec3&, const Quat&, r32 = 0.0f);
 	void end(const Vec3&, const Vec3&, RigidBody*, r32 = 0.0f);
@@ -290,11 +287,11 @@ struct TargetEvent
 struct Target : public ComponentType<Target>
 {
 	Vec3 local_offset;
-	Vec3 absolute_pos() const;
 	LinkArg<const TargetEvent&> target_hit;
 
-	void hit(Entity*);
 	void awake() {}
+	Vec3 absolute_pos() const;
+	void hit(Entity*);
 	b8 predict_intersection(const Vec3&, r32, Vec3*) const;
 };
 

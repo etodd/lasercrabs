@@ -32,15 +32,15 @@ struct Animator : public ComponentType<Animator>
 	struct Layer
 	{
 		Layer();
-		AssetID animation;
-		AssetID last_animation;
-		StaticArray<AnimatorChannel, MAX_BONES> last_animation_channels;
-		StaticArray<AnimatorChannel, MAX_BONES> channels;
 		r32 weight;
 		r32 blend;
 		r32 blend_time;
 		r32 time;
 		r32 speed;
+		StaticArray<AnimatorChannel, MAX_BONES> last_animation_channels;
+		StaticArray<AnimatorChannel, MAX_BONES> channels;
+		AssetID animation;
+		AssetID last_animation;
 		b8 loop;
 		void update(const Update&, const Animator&);
 		void changed_animation();
@@ -49,9 +49,9 @@ struct Animator : public ComponentType<Animator>
 
 	struct TriggerEntry
 	{
+		r32 time;
 		Link link;
 		AssetID animation;
-		r32 time;
 	};
 
 	struct BindEntry
@@ -66,13 +66,13 @@ struct Animator : public ComponentType<Animator>
 		Override,
 	};
 
+	OverrideMode override_mode;
 	Layer layers[MAX_ANIMATIONS];
 	AssetID armature;
 	StaticArray<Mat4, MAX_BONES> offsets;
+	StaticArray<Mat4, MAX_BONES> bones;
 	StaticArray<BindEntry, MAX_BONES> bindings;
 	StaticArray<TriggerEntry, MAX_BONES> triggers;
-	StaticArray<Mat4, MAX_BONES> bones;
-	OverrideMode override_mode;
 
 	void update(const Update&);
 	void bind(const s32, Transform*);

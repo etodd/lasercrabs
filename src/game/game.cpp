@@ -80,7 +80,8 @@ Game::Session::Session()
 	network_time(),
 	network_state(),
 	network_quality(),
-	last_match()
+	last_match(),
+	local(true)
 {
 }
 
@@ -263,7 +264,7 @@ void Game::update(const Update& update_in)
 	u.time = time;
 
 	// lag simulation
-	if (session.mode == Mode::Pvp && !session.multiplayer && session.network_quality != NetworkQuality::Perfect)
+	if (session.mode == Mode::Pvp && session.local && !session.multiplayer && session.network_quality != NetworkQuality::Perfect)
 	{
 		session.network_timer -= real_time.delta;
 		if (session.network_timer < 0.0f)
@@ -930,7 +931,7 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 	session.network_state = NetworkState::Normal;
 	session.network_timer = session.network_time = 0.0f;
 
-	if (session.mode == Mode::Pvp && !session.multiplayer)
+	if (session.mode == Mode::Pvp && session.local && !session.multiplayer)
 	{
 		// choose network quality
 		r32 random = mersenne::randf_cc();
@@ -1054,8 +1055,6 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 						}
 					}
 				}
-				if (session.mode == Mode::Pvp)
-					Audio::post_global_event(AK::EVENTS::PLAY_MUSIC_01);
 			}
 		}
 		else if (Json::get_s32(element, "min_players") > PlayerManager::list.count()

@@ -218,13 +218,12 @@ namespace VI
 
 	void Team::update_all(const Update& u)
 	{
-		if (Game::session.mode != Game::Mode::Pvp)
+		if (Game::session.mode != Game::Mode::Pvp || !Game::session.local)
 			return;
 
 		if (!game_over)
 		{
-			if (Game::session.mode == Game::Mode::Pvp
-			&& !Game::level.continue_match_after_death
+			if (!Game::level.continue_match_after_death
 			&& (Game::time.total > GAME_TIME_LIMIT
 				|| (PlayerManager::list.count() > 1 && teams_with_players() <= 1)))
 			{
@@ -823,16 +822,13 @@ namespace VI
 
 	ControlPoint* PlayerManager::at_control_point() const
 	{
-		if (Game::session.mode == Game::Mode::Pvp)
+		Entity* e = entity.ref();
+		if (e && e->get<Awk>()->state() == Awk::State::Crawl)
 		{
-			Entity* e = entity.ref();
-			if (e && e->get<Awk>()->state() == Awk::State::Crawl)
+			for (auto i = ControlPoint::list.iterator(); !i.is_last(); i.next())
 			{
-				for (auto i = ControlPoint::list.iterator(); !i.is_last(); i.next())
-				{
-					if (i.item()->get<PlayerTrigger>()->is_triggered(e))
-						return i.item();
-				}
+				if (i.item()->get<PlayerTrigger>()->is_triggered(e))
+					return i.item();
 			}
 		}
 		return nullptr;
@@ -888,6 +884,7 @@ namespace VI
 	void PlayerManager::update_all(const Update& u)
 	{
 		if (Game::session.mode == Game::Mode::Pvp
+			&& Game::session.local
 			&& Game::level.has_feature(Game::FeatureLevel::HealthPickups)
 			&& u.time.total > GAME_BUY_PERIOD)
 		{

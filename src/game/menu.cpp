@@ -118,19 +118,9 @@ void title_menu(const Update& u, u8 gamepad, UIMenu* menu, State* state)
 				Game::save = Game::Save();
 				Game::session.reset();
 				Game::session.multiplayer = true;
+				Game::session.local = false;
 				Game::unload_level();
 				Net::Client::connect("127.0.0.1", 3494);
-
-				Camera* camera = Camera::add();
-				camera->viewport =
-				{
-					Vec2(0, 0),
-					Vec2(u.input->width, u.input->height),
-				};
-				r32 aspect = camera->viewport.size.y == 0 ? 1 : (r32)camera->viewport.size.x / (r32)camera->viewport.size.y;
-				camera->perspective((40.0f * PI * 0.5f / 180.0f), aspect, 0.1f, Game::level.skybox.far_plane);
-				camera->pos = Vec3(0, 0, 0);
-				camera->rot = Quat::look(Vec3(0, 0, 1));
 			}
 			if (menu->item(u, _(strings::options)))
 			{

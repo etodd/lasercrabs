@@ -177,10 +177,15 @@ StreamRead::StreamRead()
 
 void StreamRead::reset()
 {
+	data.length = 0;
+	rewind();
+}
+
+void StreamRead::rewind()
+{
 	scratch = 0;
 	scratch_bits = 0;
 	bits_read = 0;
-	data.length = 0;
 }
 
 b8 StreamRead::read_checksum()
@@ -277,6 +282,11 @@ void StreamRead::bytes(u8* buffer, s32 bytes)
 s32 StreamRead::align_bits() const
 {
 	return (8 - bits_read % 8) % 8;
+}
+
+void StreamRead::resize_bytes(s32 b)
+{
+	data.resize((b / sizeof(u32)) + (b % sizeof(u32) == 0 ? 0 : 1));
 }
 
 b8 StreamRead::align()

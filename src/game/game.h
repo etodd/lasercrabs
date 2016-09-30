@@ -56,7 +56,7 @@ struct Game
 		HealthPickups,
 		Abilities,
 		All,
-		count = All,
+		count,
 	};
 
 	enum class NetworkQuality
@@ -96,6 +96,7 @@ struct Game
 		r32 time_scale;
 		AssetID level;
 		b8 multiplayer;
+		b8 local;
 
 		Session();
 		void reset();

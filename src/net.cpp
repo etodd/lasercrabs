@@ -103,16 +103,15 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 {
 	serialize_u64(p, e->component_mask);
 	serialize_u16(p, e->revision);
-	vi_debug("Entity %hd: rev %hd", e->id(), e->revision);
 
 	if (Stream::IsReading)
-		e->component_mask &= Transform::component_mask | View::component_mask; // hack
+		e->component_mask &= Transform::component_mask | View::component_mask | DirectionalLight::component_mask; // hack
 
 	for (s32 i = 0; i < MAX_FAMILIES; i++)
 	{
 		if (e->component_mask & (ComponentMask(1) << i))
 		{
-			if (i == Transform::family || i == View::family) // hack
+			if (i == Transform::family || i == View::family || i == DirectionalLight::family) // hack
 			{
 				serialize_int(p, ID, e->components[i], 0, MAX_ENTITIES);
 				ID component_id = e->components[i];
@@ -122,8 +121,6 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 				serialize_int(p, Revision, r, 0, MAX_ENTITIES);
 				if (Stream::IsReading)
 					World::component_pools[i]->net_add(component_id, e->id(), r);
-
-				vi_debug("Component %d: ID %hd, rev %hd", i, component_id, r);
 			}
 		}
 	}
@@ -175,24 +172,17 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 			for (s32 i = 0; i < 4; i++)
 			{
 				for (s32 j = 0; j < 4; j++)
-				{
 					serialize_r32(p, v->offset.m[i][j]);
-					vi_debug("Offset: %f", v->offset.m[i][j]);
-				}
 			}
 		}
 		serialize_r32_range(p, v->color.x, -1.0f, 1.0f, 8);
 		serialize_r32_range(p, v->color.y, -1.0f, 1.0f, 8);
 		serialize_r32_range(p, v->color.z, -1.0f, 1.0f, 8);
 		serialize_r32_range(p, v->color.w, -1.0f, 1.0f, 8);
-		vi_debug("Color: %f %f %f %f", v->color.x, v->color.y, v->color.z, v->color.w);
 		serialize_u16(p, v->mask);
 		serialize_u16(p, v->mesh);
-		vi_debug("Mesh: %hu", v->mesh);
-		serialize_u16(p, v->shader);
-		vi_debug("Shader: %hu", v->shader);
-		serialize_u16(p, v->texture);
-		vi_debug("Texture: %hu", v->texture);
+		serialize_asset(p, v->shader, Loader::shader_count);
+		serialize_asset(p, v->texture, Loader::static_texture_count);
 		serialize_u8(p, v->team);
 		{
 			View::AlphaMode m;
@@ -318,6 +308,11 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 
 	if (e->has<DirectionalLight>())
 	{
+		DirectionalLight* d = e->get<DirectionalLight>();
+		serialize_r32_range(p, d->color.x, -1.0f, 1.0f, 8);
+		serialize_r32_range(p, d->color.y, -1.0f, 1.0f, 8);
+		serialize_r32_range(p, d->color.z, -1.0f, 1.0f, 8);
+		serialize_bool(p, d->shadowed);
 	}
 
 	if (e->has<SkyDecal>())
@@ -327,6 +322,28 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 	if (Stream::IsReading)
 		World::awake(e);
 
+	return true;
+}
+
+template<typename Stream> b8 serialize_init_packet(Stream* p)
+{
+	serialize_u16(p, Game::session.level);
+	serialize_enum(p, Game::FeatureLevel, Game::level.feature_level);
+	serialize_r32(p, Game::level.skybox.far_plane);
+	serialize_asset(p, Game::level.skybox.texture, Loader::static_texture_count);
+	serialize_asset(p, Game::level.skybox.shader, Loader::shader_count);
+	serialize_asset(p, Game::level.skybox.mesh, Loader::static_mesh_count);
+	serialize_r32_range(p, Game::level.skybox.color.x, 0.0f, 1.0f, 8);
+	serialize_r32_range(p, Game::level.skybox.color.y, 0.0f, 1.0f, 8);
+	serialize_r32_range(p, Game::level.skybox.color.z, 0.0f, 1.0f, 8);
+	serialize_r32_range(p, Game::level.skybox.ambient_color.x, 0.0f, 1.0f, 8);
+	serialize_r32_range(p, Game::level.skybox.ambient_color.y, 0.0f, 1.0f, 8);
+	serialize_r32_range(p, Game::level.skybox.ambient_color.z, 0.0f, 1.0f, 8);
+	serialize_r32_range(p, Game::level.skybox.player_light.x, 0.0f, 1.0f, 8);
+	serialize_r32_range(p, Game::level.skybox.player_light.y, 0.0f, 1.0f, 8);
+	serialize_r32_range(p, Game::level.skybox.player_light.z, 0.0f, 1.0f, 8);
+	serialize_r32(p, Game::level.skybox.sky_decal_fog_start);
+	serialize_r32(p, Game::level.skybox.fog_start);
 	return true;
 }
 
@@ -515,7 +532,10 @@ void msgs_out_consolidate()
 	{
 		serialize_int(&frame->write, SequenceID, frame->sequence_id, 0, SEQUENCE_COUNT - 1);
 		for (s32 i = 0; i < msgs; i++)
+		{
+			msgs_out[i].flush();
 			serialize_bytes(&frame->write, (u8*)msgs_out[i].data.data, msgs_out[i].bytes_written());
+		}
 	}
 	
 	for (s32 i = msgs - 1; i >= 0; i--)
@@ -677,7 +697,7 @@ b8 msgs_read(StreamRead* p, MessageHistory* history, Ack* ack)
 		{
 			MessageFrame* frame = msg_history_add(history, Game::real_time.total, bytes);
 			serialize_int(p, SequenceID, frame->sequence_id, 0, SEQUENCE_COUNT - 1);
-			frame->read.data.length = bytes / sizeof(u32);
+			frame->read.resize_bytes(bytes);
 			serialize_bytes(p, (u8*)frame->read.data.data, bytes);
 		}
 		else
@@ -750,8 +770,7 @@ b8 build_packet_init(StreamWrite* p)
 	using Stream = StreamWrite;
 	ServerPacket type = ServerPacket::Init;
 	serialize_enum(p, ServerPacket, type);
-	AssetID level = Game::session.level;
-	serialize_u16(p, level);
+	serialize_init_packet(p);
 	packet_finalize(p);
 	return true;
 }
@@ -826,7 +845,7 @@ void tick(const Update& u)
 	}
 }
 
-b8 packet_handle(StreamRead* p, const Sock::Address& address)
+b8 packet_handle(const Update& u, StreamRead* p, const Sock::Address& address)
 {
 	Client* client = nullptr;
 	for (s32 i = 0; i < clients.length; i++)
@@ -901,7 +920,6 @@ b8 packet_handle(StreamRead* p, const Sock::Address& address)
 			{
 				mode = Mode::Active;
 				using Stream = StreamWrite;
-				s32 count = 0;
 				for (auto i = Entity::list.iterator(); !i.is_last(); i.next())
 				{
 					if (i.item()->has<View>() || i.item()->has<Transform>())
@@ -911,9 +929,6 @@ b8 packet_handle(StreamRead* p, const Sock::Address& address)
 						serialize_enum(p, MessageType, type);
 						serialize_int(p, ID, i.index, 0, MAX_ENTITIES);
 						serialize_entity(p, i.item());
-						count++;
-						if (count == 2)
-							break;
 					}
 				}
 			}
@@ -930,7 +945,6 @@ b8 packet_handle(StreamRead* p, const Sock::Address& address)
 			if (!msgs_read(p, &client->msgs_in_history, &client->ack))
 				return false;
 			calculate_rtt(Game::real_time.total, client->ack, msgs_out_history, &client->rtt);
-			vi_debug("RTT client %s:%hd: %dms", Sock::host_to_str(client->address.host), client->address.port, s32(client->rtt * 1000.0f));
 
 			client->timeout = 0.0f;
 			break;
@@ -1040,7 +1054,6 @@ b8 msg_process(StreamRead* p)
 			Entity* e = &Entity::list[id];
 			if (!serialize_entity(p, e))
 				net_error();
-			vi_debug("Processed entity %hd", id);
 			break;
 		}
 		case MessageType::EntityRemove:
@@ -1062,15 +1075,12 @@ void update(const Update& u)
 {
 	while (MessageFrame* frame = msg_frame_advance(&msgs_in_history, &server_processed_sequence_id))
 	{
-		frame->read.bits_read = 0;
-		vi_debug("Reading frame: %d bytes", frame->bytes);
+		frame->read.rewind();
 		while (frame->read.bytes_read() < frame->bytes)
 		{
 			if (!msg_process(&frame->read))
 				break;
-			vi_debug("Read %d/%d bytes", frame->read.bytes_read(), frame->bytes);
 		}
-		vi_debug("Done reading frame. Read %d/%d bytes", frame->read.bytes_read(), frame->bytes);
 	}
 }
 
@@ -1085,7 +1095,7 @@ void tick(const Update& u)
 		}
 		case Mode::Connecting:
 		{
-			if (timeout > 0.5f)
+			if (timeout > 0.25f)
 			{
 				timeout = 0.0f;
 				vi_debug("Connecting to %s:%hd...", Sock::host_to_str(server_address.host), server_address.port);
@@ -1097,7 +1107,7 @@ void tick(const Update& u)
 		}
 		case Mode::Acking:
 		{
-			if (timeout > 0.5f)
+			if (timeout > 0.25f)
 			{
 				timeout = 0.0f;
 				vi_debug("Confirming connection to %s:%hd...", Sock::host_to_str(server_address.host), server_address.port);
@@ -1142,7 +1152,7 @@ void connect(const char* ip, u16 port)
 	mode = Mode::Connecting;
 }
 
-b8 packet_handle(StreamRead* p, const Sock::Address& address)
+b8 packet_handle(const Update& u, StreamRead* p, const Sock::Address& address)
 {
 	using Stream = StreamRead;
 	if (!address.equals(server_address))
@@ -1161,9 +1171,21 @@ b8 packet_handle(StreamRead* p, const Sock::Address& address)
 	{
 		case ServerPacket::Init:
 		{
-			if (mode == Mode::Connecting)
+			if (mode == Mode::Connecting && serialize_init_packet(p))
+			{
+				Camera* camera = Camera::add();
+				camera->viewport =
+				{
+					Vec2(0, 0),
+					Vec2(u.input->width, u.input->height),
+				};
+				r32 aspect = camera->viewport.size.y == 0 ? 1 : (r32)camera->viewport.size.x / (r32)camera->viewport.size.y;
+				camera->perspective((40.0f * PI * 0.5f / 180.0f), aspect, 0.1f, Game::level.skybox.far_plane);
+				camera->pos = Vec3(0, 30, -60);
+				camera->rot = Quat::look(Vec3(0, 0, 1));
+
 				mode = Mode::Acking; // acknowledge the init packet
-			serialize_u16(p, Game::session.level);
+			}
 			break;
 		}
 		case ServerPacket::Keepalive:
@@ -1182,7 +1204,6 @@ b8 packet_handle(StreamRead* p, const Sock::Address& address)
 			if (!msgs_read(p, &msgs_in_history, &server_ack))
 				return false;
 			calculate_rtt(Game::real_time.total, server_ack, msgs_out_history, &server_rtt);
-			vi_debug("RTT: %dms", s32(server_rtt * 1000.0f));
 			timeout = 0.0f; // reset connection timeout
 			break;
 		}
@@ -1228,14 +1249,17 @@ void update(const Update& u)
 	{
 		Sock::Address address;
 		s32 bytes_received = Sock::udp_receive(&sock, &address, incoming_packet.data.data, MAX_PACKET_SIZE);
-		if (bytes_received > 0)// && mersenne::randf_co() < 0.75f) // packet loss simulation
+		if (bytes_received > 0)
 		{
-			incoming_packet.data.length = bytes_received / sizeof(u32);
+			//if (mersenne::randf_co() < 0.75f) // packet loss simulation
+			{
+				incoming_packet.resize_bytes(bytes_received);
 #if SERVER
-			Server::packet_handle(&incoming_packet, address);
+				Server::packet_handle(u, &incoming_packet, address);
 #else
-			Client::packet_handle(&incoming_packet, address);
+				Client::packet_handle(u, &incoming_packet, address);
 #endif
+			}
 			incoming_packet.reset();
 		}
 		else

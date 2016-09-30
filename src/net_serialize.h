@@ -89,7 +89,9 @@ struct StreamRead
 	s32 align_bits() const;
 	b8 align();
 	s32 bytes_read() const;
+	void resize_bytes(s32);
 	void reset();
+	void rewind();
 };
 
 union Double
@@ -112,10 +114,52 @@ union Single
 
 #define BITS_REQUIRED(min, max) Net::BitsRequired<min, max>::result
 
+inline u32 popcount(u32 x)
+{
+#ifdef __GNUC__
+	return __builtin_popcount( x );
+#else // #ifdef __GNUC__
+	const u32 a = x - ((x >> 1) & 0x55555555);
+	const u32 b = (((a >> 2)       & 0x33333333) + (a & 0x33333333));
+	const u32 c = (((b >> 4) + b) & 0x0f0f0f0f);
+	const u32 d = c + (c >> 8);
+	const u32 e = d + (d >> 16);
+	const u32 result = e & 0x0000003f;
+	return result;
+#endif // #ifdef __GNUC__
+}
+
+#ifdef __GNUC__
+
+inline int bits_required(u32 min, u32 max)
+{
+	return 32 - __builtin_clz(max - min);
+}
+
+#else // #ifdef __GNUC__
+
+inline u32 log2(u32 x)
+{
+	const u32 a = x | (x >> 1);
+	const u32 b = a | (a >> 2);
+	const u32 c = b | (b >> 4);
+	const u32 d = c | (c >> 8);
+	const u32 e = d | (d >> 16);
+	const u32 f = e >> 1;
+	return popcount(f);
+}
+
+inline int bits_required(u32 min, u32 max)
+{
+	return (min == max) ? 0 : log2(max - min) + 1;
+}
+
+#endif // #ifdef __GNUC__
+
 #define serialize_int(stream, type, value, _min, _max)\
 {\
 	vi_assert(_min < _max);\
-	u32 _b = BITS_REQUIRED(_min, _max);\
+	u32 _b = bits_required(_min, _max);\
 	u32 _u;\
 	if (Stream::IsWriting)\
 	{\
@@ -246,6 +290,20 @@ union Single
 	}\
 }
 
+#define serialize_asset(stream, value, _count)\
+{\
+	b8 _b;\
+	if (Stream::IsWriting)\
+		_b = value == AssetNull ? false : true;\
+	serialize_bool(stream, _b);\
+	if (_b)\
+	{\
+		serialize_int(stream, AssetID, value, 0, _count - 1);\
+	}\
+	else if (Stream::IsReading)\
+		value = AssetNull;\
+}
+		
 
 }
 

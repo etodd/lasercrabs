@@ -64,6 +64,7 @@ struct Animator : public ComponentType<Animator>
 	{
 		Offset,
 		Override,
+		count,
 	};
 
 	OverrideMode override_mode;

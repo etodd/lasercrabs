@@ -238,15 +238,15 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 		Animator* a = e->get<Animator>();
 		for (s32 i = 0; i < MAX_ANIMATIONS; i++)
 		{
-			const Animator::Layer& l = a->layers[i];
-			serialize_r32_range(p, l.weight, 0, 1, 8);
-			serialize_r32_range(p, l.blend, 0, 1, 8);
-			serialize_r32_range(p, l.blend_time, 0, 8, 16);
-			serialize_r32(p, l.time);
-			serialize_r32_range(p, l.speed, 0, 8, 16);
-			serialize_asset(p, l.animation, Loader::animation_count);
-			serialize_asset(p, l.last_animation, Loader::animation_count);
-			serialize_bool(p, l.loop);
+			Animator::Layer* l = &a->layers[i];
+			serialize_r32_range(p, l->weight, 0, 1, 8);
+			serialize_r32_range(p, l->blend, 0, 1, 8);
+			serialize_r32_range(p, l->blend_time, 0, 8, 16);
+			serialize_r32(p, l->time);
+			serialize_r32_range(p, l->speed, 0, 8, 16);
+			serialize_asset(p, l->animation, Loader::animation_count);
+			serialize_asset(p, l->last_animation, Loader::animation_count);
+			serialize_bool(p, l->loop);
 		}
 		serialize_asset(p, a->armature, Loader::armature_count);
 		serialize_enum(p, Animator::OverrideMode, a->override_mode);

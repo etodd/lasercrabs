@@ -281,12 +281,11 @@ void LocalPlayer::update(const Update& u)
 
 	// close/open pause menu if needed
 	{
-		b8 pause_hit = Game::time.total > 0.5f
+		if (Game::time.total > 0.5f
 			&& u.last_input->get(Controls::Pause, gamepad)
 			&& !u.input->get(Controls::Pause, gamepad)
-			&& (!manager.ref()->entity.ref() || !manager.ref()->entity.ref()->get<Awk>()->snipe) // HACK because cancel and pause are on the same dang key
-			&& !Game::cancel_event_eaten[gamepad];
-		if (pause_hit
+			&& (!manager.ref()->entity.ref() || manager.ref()->entity.ref()->get<Awk>()->current_ability == Ability::None) // HACK because cancel and pause are on the same dang key
+			&& !Game::cancel_event_eaten[gamepad]
 			&& !upgrade_menu_open
 			&& (menu_state == Menu::State::Hidden || menu_state == Menu::State::Visible)
 			&& !Cora::has_focus())
@@ -500,19 +499,20 @@ void draw_icon_text(const RenderParams& params, const Vec2& pos, AssetID icon, c
 	text.draw(params, pos + Vec2(total_width * -0.5f + icon_size + padding, 0));
 }
 
-void draw_ability(const RenderParams& params, PlayerManager* manager, const Vec2& pos, Ability ability, AssetID icon, const char* control_binding)
+void ability_draw(const RenderParams& params, const LocalPlayer* player, const Vec2& pos, Ability ability, AssetID icon, const char* control_binding)
 {
 	char string[255];
 
 	u16 cost = AbilityInfo::list[(s32)ability].spawn_cost;
 	sprintf(string, "%s", control_binding);
 	const Vec4* color;
-	if (manager->current_spawn_ability == ability)
-		color = &UI::color_default;
-	else if (manager->credits >= cost)
-		color = &UI::color_accent;
-	else
+	PlayerManager* manager = player->manager.ref();
+	if (!manager->ability_valid(ability))
 		color = &UI::color_alert;
+	else if (manager->entity.ref()->get<Awk>()->current_ability == ability)
+		color = &UI::color_default;
+	else
+		color = &UI::color_accent;
 	draw_icon_text(params, pos, icon, string, *color);
 }
 
@@ -619,7 +619,7 @@ void LocalPlayer::draw_alpha(const RenderParams& params) const
 				{
 					const char* binding = Settings::gamepads[gamepad].bindings[(s32)Controls::Ability1].string(is_gamepad);
 					const AbilityInfo& info = AbilityInfo::list[(s32)ability];
-					draw_ability(params, manager.ref(), center + Vec2(-radius, 0), ability, info.icon, binding);
+					ability_draw(params, this, center + Vec2(-radius, 0), ability, info.icon, binding);
 				}
 			}
 
@@ -630,7 +630,7 @@ void LocalPlayer::draw_alpha(const RenderParams& params) const
 				{
 					const char* binding = Settings::gamepads[gamepad].bindings[(s32)Controls::Ability2].string(is_gamepad);
 					const AbilityInfo& info = AbilityInfo::list[(s32)ability];
-					draw_ability(params, manager.ref(), center + Vec2(0, radius * 0.5f), ability, info.icon, binding);
+					ability_draw(params, this, center + Vec2(0, radius * 0.5f), ability, info.icon, binding);
 				}
 			}
 
@@ -641,7 +641,7 @@ void LocalPlayer::draw_alpha(const RenderParams& params) const
 				{
 					const char* binding = Settings::gamepads[gamepad].bindings[(s32)Controls::Ability3].string(is_gamepad);
 					const AbilityInfo& info = AbilityInfo::list[(s32)ability];
-					draw_ability(params, manager.ref(), center + Vec2(radius, 0), ability, info.icon, binding);
+					ability_draw(params, this, center + Vec2(radius, 0), ability, info.icon, binding);
 				}
 			}
 		}
@@ -858,16 +858,6 @@ void LocalPlayer::draw_alpha(const RenderParams& params) const
 
 				switch (manager_state)
 				{
-					case PlayerManager::State::Spawning:
-					{
-						// spawning an ability
-						string = strings::ability_spawn_cost;
-
-						const AbilityInfo& info = AbilityInfo::list[(s32)manager.ref()->current_spawn_ability];
-						cost = info.spawn_cost;
-						total_time = info.spawn_time;
-						break;
-					}
 					case PlayerManager::State::Upgrading:
 					{
 						// getting an upgrade
@@ -900,7 +890,7 @@ void LocalPlayer::draw_alpha(const RenderParams& params) const
 				// draw bar
 
 				Vec2 pos = params.camera->viewport.size * Vec2(0.5f, 0.2f);
-				Vec2 bar_size(180.0f * UI::scale, 32.0f * UI::scale);
+				Vec2 bar_size(200.0f * UI::scale, 32.0f * UI::scale);
 				Rect2 bar = { pos + bar_size * -0.5f, bar_size };
 				UI::box(params, bar, UI::color_background);
 				UI::border(params, bar, 2, UI::color_accent);
@@ -1152,7 +1142,6 @@ LocalPlayerControl::LocalPlayerControl(u8 gamepad)
 	fov(fov_default),
 	try_primary(),
 	try_zoom(),
-	try_ability(),
 	damage_timer(),
 	health_flash_timer(),
 	rumble(),
@@ -1232,7 +1221,7 @@ b8 LocalPlayerControl::movement_enabled() const
 r32 LocalPlayerControl::look_speed() const
 {
 	if (try_zoom)
-		return get<Awk>()->snipe ? zoom_speed_multiplier_sniper : zoom_speed_multiplier;
+		return get<Awk>()->current_ability == Ability::Sniper ? zoom_speed_multiplier_sniper : zoom_speed_multiplier;
 	else
 		return 1.0f;
 }
@@ -1346,27 +1335,61 @@ void determine_visibility(PlayerCommon* me, PlayerCommon* other_player, b8* visi
 		|| PlayerCommon::visibility.get(PlayerCommon::visibility_hash(me, other_player));
 }
 
-void update_ability(const Update& u, LocalPlayerControl* control, Controls binding, u8 gamepad, s32 index)
+void ability_select(Awk* awk, Ability a)
 {
+	awk->current_ability = a;
+}
+
+void ability_cancel(Awk* awk)
+{
+	awk->current_ability = Ability::None;
+}
+
+void ability_update(const Update& u, LocalPlayerControl* control, Controls binding, u8 gamepad, s32 index)
+{
+	LocalPlayer* player = control->player.ref();
+	PlayerManager* manager = player->manager.ref();
+	Ability ability = manager->abilities[index];
+
+	if (ability == Ability::None || !control->movement_enabled())
+		return;
+
+	Awk* awk = control->get<Awk>();
+
 	b8 current = u.input->get(binding, gamepad);
 	b8 last = u.last_input->get(binding, gamepad);
-	if (current && !last)
-		control->try_ability[index] = true;
-
-	PlayerManager* manager = control->player.ref()->manager.ref();
-
-	if (control->try_ability[index])
+	if (awk->current_ability == ability)
 	{
-		if (control->input_enabled()
-			&& !control->get<Awk>()->snipe
-			&& manager->ability_spawn_start(manager->abilities[index]))
-			control->try_ability[index] = false;
+		// cancel current spawn ability
+		if (current && !last)
+			ability_cancel(awk);
+		else if (!Game::cancel_event_eaten[gamepad]
+			&& u.input->get(Controls::Cancel, gamepad) && !u.last_input->get(Controls::Cancel, gamepad))
+		{
+			Game::cancel_event_eaten[gamepad] = true;
+			ability_cancel(awk);
+		}
 	}
-	else if (!current)
+	else
 	{
-		control->try_ability[index] = false;
-		if (manager->abilities[index] != Ability::None) // ability_spawn_stop(Ability::None) will stop all ability spawns
-			manager->ability_spawn_stop(manager->abilities[index]);
+		// select new spawn ability
+		if (current && !last)
+		{
+			if (manager->ability_valid(ability))
+			{
+				b8 ability_already_selected = awk->current_ability != Ability::None;
+				if (ability_already_selected)
+					ability_cancel(awk);
+				if (!ability_already_selected || !Settings::gamepads[gamepad].bindings[(s32)binding].overlaps(Settings::gamepads[gamepad].bindings[(s32)Controls::Cancel]))
+					ability_select(awk, ability);
+			}
+			else
+			{
+				// for whatever reason, this ability is invalid
+				if (awk->current_ability == ability)
+					ability_cancel(awk);
+			}
+		}
 	}
 }
 
@@ -1393,7 +1416,7 @@ void LocalPlayerControl::update(const Update& u)
 			try_zoom = false;
 		}
 
-		r32 fov_target = try_zoom ? (get<Awk>()->snipe ? fov_sniper : fov_zoom) : fov_default;
+		r32 fov_target = try_zoom ? (get<Awk>()->current_ability == Ability::Sniper ? fov_sniper : fov_zoom) : fov_default;
 
 		if (fov < fov_target)
 			fov = vi_min(fov + zoom_speed * sinf(fov) * u.time.delta, fov_target);
@@ -1499,24 +1522,11 @@ void LocalPlayerControl::update(const Update& u)
 	else
 		look_quat = Quat::euler(0, get<PlayerCommon>()->angle_horizontal, get<PlayerCommon>()->angle_vertical);
 
-	if (input_enabled() && get<Awk>()->snipe)
-	{
-		// cancel snipe
-		if (u.input->get(Controls::Cancel, gamepad)
-			&& !u.last_input->get(Controls::Cancel, gamepad)
-			&& !Game::cancel_event_eaten[gamepad])
-		{
-			Game::cancel_event_eaten[gamepad] = true;
-			get<Awk>()->snipe_enable(false);
-			player.ref()->manager.ref()->add_credits(AbilityInfo::list[(s32)Ability::Sniper].spawn_cost);
-		}
-	}
-
 	{
 		// abilities
-		update_ability(u, this, Controls::Ability1, gamepad, 0);
-		update_ability(u, this, Controls::Ability2, gamepad, 1);
-		update_ability(u, this, Controls::Ability3, gamepad, 2);
+		ability_update(u, this, Controls::Ability1, gamepad, 0);
+		ability_update(u, this, Controls::Ability2, gamepad, 1);
+		ability_update(u, this, Controls::Ability3, gamepad, 2);
 	}
 
 	// camera shake
@@ -1554,31 +1564,54 @@ void LocalPlayerControl::update(const Update& u)
 			if (ray_callback.hasHit())
 			{
 				reticle.pos = ray_callback.m_hitPointWorld;
+				reticle.normal = ray_callback.m_hitNormalWorld;
+				reticle.entity = &Entity::list[ray_callback.m_collisionObject->getUserIndex()];
 				Vec3 detach_dir = reticle.pos - center;
 				r32 distance = detach_dir.length();
 				detach_dir /= distance;
-				if (get<Awk>()->direction_is_toward_attached_wall(detach_dir) && !get<Awk>()->snipe)
-					reticle.type = ReticleType::Dash;
-				else
+				if (get<Awk>()->current_ability == Ability::None) // normal movement
+				{
+					if (get<Awk>()->direction_is_toward_attached_wall(detach_dir))
+						reticle.type = ReticleType::Dash;
+					else
+					{
+						Vec3 hit;
+						b8 hit_target;
+						if (get<Awk>()->can_shoot(detach_dir, &hit, &hit_target))
+						{
+							if ((hit - center).length() > distance - AWK_RADIUS)
+								reticle.type = hit_target ? ReticleType::Target : ReticleType::Normal;
+						}
+					}
+				}
+				else // spawning an ability
 				{
 					Vec3 hit;
 					b8 hit_target;
-					if (get<Awk>()->can_shoot(detach_dir, &hit, &hit_target))
+					if (get<Awk>()->can_spawn(get<Awk>()->current_ability, detach_dir, &hit, nullptr, &hit_target))
 					{
-						if ((hit - center).length() > distance - AWK_RADIUS)
-							reticle.type = hit_target ? ReticleType::Target : ReticleType::Normal;
+						if (get<Awk>()->current_ability == Ability::Sniper && hit_target)
+							reticle.type = ReticleType::Target;
+						else if ((hit - Vec3(ray_callback.m_hitPointWorld)).length_squared() < AWK_RADIUS * AWK_RADIUS)
+							reticle.type = ReticleType::Normal;
 					}
 				}
 			}
 			else
 			{
 				reticle.pos = trace_end;
-				if (get<Awk>()->direction_is_toward_attached_wall(reticle.pos - center) && !get<Awk>()->snipe)
+				reticle.normal = -trace_dir;
+				reticle.entity = nullptr;
+				if (get<Awk>()->current_ability == Ability::None && get<Awk>()->direction_is_toward_attached_wall(reticle.pos - center))
 					reticle.type = ReticleType::Dash;
 			}
 		}
 		else
+		{
 			reticle.pos = trace_start + trace_dir * AWK_THIRD_PERSON_OFFSET;
+			reticle.normal = -trace_dir;
+			reticle.entity = nullptr;
+		}
 	}
 
 	// collect target indicators
@@ -1667,7 +1700,17 @@ void LocalPlayerControl::update(const Update& u)
 					try_zoom = false;
 				}
 			}
-			else if (get<Awk>()->snipe)
+			else if (get<Awk>()->current_ability == Ability::None)
+			{
+				// regular detach
+				if (get<Awk>()->detach(dir))
+				{
+					get<Audio>()->post_event(AK::EVENTS::PLAY_FLY);
+					try_primary = false;
+					try_zoom = false;
+				}
+			}
+			else if (get<Awk>()->current_ability == Ability::Sniper)
 			{
 				if (get<Awk>()->detach(dir))
 				{
@@ -1677,11 +1720,11 @@ void LocalPlayerControl::update(const Update& u)
 			}
 			else
 			{
-				if (get<Awk>()->detach(dir))
+				// spawn ability
+				if (player.ref()->manager.ref()->ability_spawn(get<Awk>()->current_ability, reticle.pos, Quat::look(reticle.normal)))
 				{
-					get<Audio>()->post_event(AK::EVENTS::PLAY_FLY);
 					try_primary = false;
-					try_zoom = false;
+					get<Awk>()->current_ability = Ability::None;
 				}
 			}
 		}
@@ -2165,27 +2208,28 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 
 		b8 cooldown_can_go = get<Awk>()->cooldown_can_shoot();
 
-		const Vec4& color =
-			(reticle.type == ReticleType::Error || reticle.type == ReticleType::DashError)
-			? UI::color_disabled
-			: ((reticle.type != ReticleType::None && cooldown_can_go) ? UI::color_accent : UI::color_alert);
+		const Vec4* color;
+		if (reticle.type == ReticleType::Error || reticle.type == ReticleType::DashError)
+			color = &UI::color_disabled;
+		else if (reticle.type != ReticleType::None
+			&& cooldown_can_go
+			&& (get<Awk>()->current_ability == Ability::None || player.ref()->manager.ref()->ability_valid(get<Awk>()->current_ability)))
+			color = &UI::color_accent;
+		else
+			color = &UI::color_alert;
 
 		// cooldown indicator
 		{
 			s32 charges = get<Awk>()->charges;
 			if (charges == 0)
-			{
-				r32 cooldown = get<Awk>()->cooldown;
-
-				UI::triangle_border(params, { pos, Vec2((start_radius + spoke_length) * (2.5f + 5.0f * (cooldown / AWK_COOLDOWN)) * UI::scale) }, spoke_width, UI::color_alert, PI);
-			}
-			else if (!get<Awk>()->snipe)
+				UI::triangle_border(params, { pos, Vec2((start_radius + spoke_length) * (2.5f + 5.0f * (get<Awk>()->cooldown / AWK_COOLDOWN)) * UI::scale) }, spoke_width, UI::color_alert, PI);
+			else if (get<Awk>()->current_ability == Ability::None)
 			{
 				const Vec2 box_size = Vec2(10.0f) * UI::scale;
 				for (s32 i = 0; i < charges; i++)
 				{
 					Vec2 p = pos + Vec2(0.0f, -36.0f + i * -16.0f) * UI::scale;
-					UI::triangle(params, { p, box_size }, color, PI);
+					UI::triangle(params, { p, box_size }, *color, PI);
 				}
 			}
 		}
@@ -2194,18 +2238,18 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 		{
 			Vec2 a;
 			if (UI::project(params, reticle.pos, &a))
-				UI::mesh(params, Asset::Mesh::reticle_dash, a, Vec2(10.0f * UI::scale), color);
+				UI::mesh(params, Asset::Mesh::reticle_dash, a, Vec2(10.0f * UI::scale), *color);
 		}
 		else
 		{
 			const r32 ratio = 0.8660254037844386f;
-			UI::centered_box(params, { pos + Vec2(ratio, 0.5f) * UI::scale * start_radius, Vec2(spoke_length, spoke_width) * UI::scale }, color, PI * 0.5f * 0.33f);
-			UI::centered_box(params, { pos + Vec2(-ratio, 0.5f) * UI::scale * start_radius, Vec2(spoke_length, spoke_width) * UI::scale }, color, PI * 0.5f * -0.33f);
-			UI::centered_box(params, { pos + Vec2(0, -1.0f) * UI::scale * start_radius, Vec2(spoke_width, spoke_length) * UI::scale }, color);
+			UI::centered_box(params, { pos + Vec2(ratio, 0.5f) * UI::scale * start_radius, Vec2(spoke_length, spoke_width) * UI::scale }, *color, PI * 0.5f * 0.33f);
+			UI::centered_box(params, { pos + Vec2(-ratio, 0.5f) * UI::scale * start_radius, Vec2(spoke_length, spoke_width) * UI::scale }, *color, PI * 0.5f * -0.33f);
+			UI::centered_box(params, { pos + Vec2(0, -1.0f) * UI::scale * start_radius, Vec2(spoke_width, spoke_length) * UI::scale }, *color);
 
-			if (get<Awk>()->snipe)
+			if (get<Awk>()->current_ability != Ability::None)
 			{
-				UI::mesh(params, Asset::Mesh::icon_sniper, pos + Vec2(0, -64.0f * UI::scale), Vec2(18.0f * UI::scale), color);
+				UI::mesh(params, AbilityInfo::list[(s32)get<Awk>()->current_ability].icon, pos + Vec2(0, -64.0f * UI::scale), Vec2(18.0f * UI::scale), *color);
 
 				// cancel prompt
 				UIText text;
@@ -2223,7 +2267,7 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 			{
 				Vec2 a;
 				if (UI::project(params, reticle.pos, &a))
-					UI::triangle(params, { a, Vec2(10.0f * UI::scale) }, cooldown_can_go && reticle.type == ReticleType::Normal ? UI::color_accent : UI::color_alert, PI);
+					UI::triangle(params, { a, Vec2(10.0f * UI::scale) }, reticle.type == ReticleType::Target ? UI::color_alert : *color, PI);
 			}
 		}
 	}

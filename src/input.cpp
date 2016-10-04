@@ -289,6 +289,11 @@ const char* InputBinding::string(b8 gamepad) const
 		return Input::key_strings[(s32)key1];
 }
 
+b8 InputBinding::overlaps(const InputBinding& other) const
+{
+	return btn == other.btn || (key1 != KeyCode::None && key1 == other.key1) || (key2 != KeyCode::None && key2 == other.key2);
+}
+
 b8 InputState::get(Controls c, s32 gamepad) const
 {
 	const InputBinding& binding = Settings::gamepads[gamepad].bindings[(s32)c];

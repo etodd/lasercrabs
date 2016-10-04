@@ -97,8 +97,10 @@ struct LocalPlayerControl : public ComponentType<LocalPlayerControl>
 
 	struct Reticle
 	{
-		ReticleType type;
 		Vec3 pos;
+		Vec3 normal;
+		ReticleType type;
+		Ref<Entity> entity;
 	};
 
 	struct TargetIndicator
@@ -129,7 +131,6 @@ struct LocalPlayerControl : public ComponentType<LocalPlayerControl>
 	Ref<LocalPlayer> player;
 	b8 try_zoom;
 	b8 try_primary;
-	b8 try_ability[MAX_ABILITIES];
 	u8 gamepad;
 
 	LocalPlayerControl(u8);

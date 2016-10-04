@@ -300,6 +300,7 @@ struct InputBinding
 	KeyCode key2;
 	Gamepad::Btn btn;
 	const char* string(b8) const;
+	b8 overlaps(const InputBinding&) const;
 };
 
 enum class Controls

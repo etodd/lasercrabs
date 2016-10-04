@@ -5,6 +5,7 @@
 #include "bullet/src/BulletCollision/CollisionDispatch/btCollisionWorld.h"
 #include "data/import_common.h"
 #include "ai.h"
+#include "team.h"
 
 namespace VI
 {
@@ -53,36 +54,35 @@ struct Awk : public ComponentType<Awk>
 
 	struct Footing
 	{
-		Ref<const Transform> parent;
 		Vec3 pos;
 		Vec3 last_abs_pos;
 		r32 blend;
+		Ref<const Transform> parent;
 	};
 
 	static Awk* closest(AI::TeamMask, const Vec3&, r32* = nullptr);
 
+	Quat lerped_rotation;
 	Vec3 velocity;
-	Link done_flying;
-	Link done_dashing;
-	LinkArg<const Vec3&> bounce;
-	LinkArg<Entity*> hit;
-	StaticArray<Ref<Entity>, 4> hit_targets;
-	Link detached;
-	Link dashed;
+	Vec3 lerped_pos;
+	Vec3 last_pos;
 	r32 attach_time;
 	r32 invincible_timer;
-	r32 snipe_time;
 	r32 cooldown; // remaining cooldown time
-	Footing footing[AWK_LEGS];
 	r32 last_speed;
 	r32 last_footstep;
-	Vec3 lerped_pos;
-	Quat lerped_rotation;
-	Vec3 last_pos;
-	Ref<Entity> shield;
 	r32 particle_accumulator;
 	r32 dash_timer;
-	b8 snipe;
+	Ability current_ability;
+	Footing footing[AWK_LEGS];
+	Ref<Entity> shield;
+	StaticArray<Ref<Entity>, 4> hit_targets;
+	LinkArg<const Vec3&> bounce;
+	LinkArg<Entity*> hit;
+	Link done_flying;
+	Link done_dashing;
+	Link detached;
+	Link dashed;
 	u8 charges;
 
 	Awk();
@@ -123,14 +123,13 @@ struct Awk : public ComponentType<Awk>
 	void detach_teleport();
 	b8 detach(const Vec3&);
 
-	void snipe_enable(b8);
-
 	void finish_flying_dashing_common();
 	void finish_flying();
 	void finish_dashing();
 	b8 direction_is_toward_attached_wall(const Vec3&) const;
 	b8 can_shoot(const Vec3&, Vec3* = nullptr, b8* = nullptr) const;
 	b8 can_shoot(const Target*, Vec3* = nullptr, r32 = AWK_FLY_SPEED) const;
+	b8 can_spawn(Ability, const Vec3&, Vec3* = nullptr, Vec3* = nullptr, b8* = nullptr) const;
 	b8 can_dash(const Target*, Vec3* = nullptr) const;
 	b8 can_hit(const Target*, Vec3* = nullptr) const; // shoot or dash
 

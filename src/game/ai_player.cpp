@@ -710,7 +710,7 @@ b8 AIPlayerControl::go(const Update& u, const AI::AwkPathNode& node_prev, const 
 
 	// shooting / dashing
 
-	if (get<Awk>()->snipe)
+	if (get<Awk>()->current_ability == Ability::Sniper)
 	{
 		// we're in sniper mode, we're not going to be shooting anything, just look around randomly
 		aim(u, random_look);
@@ -1025,7 +1025,7 @@ b8 should_spawn_rocket(const AIPlayerControl* control)
 
 b8 sniping(const AIPlayerControl* control)
 {
-	return control->get<Awk>()->snipe;
+	return control->get<Awk>()->current_ability == Ability::Sniper;
 }
 
 b8 should_snipe(const AIPlayerControl* control)
@@ -1421,11 +1421,8 @@ b8 AIPlayerControl::update_memory()
 
 b8 AIPlayerControl::snipe_stop()
 {
-	if (get<Awk>()->snipe)
-	{
-		player.ref()->manager.ref()->add_credits(AbilityInfo::list[(s32)Ability::Sniper].spawn_cost);
-		get<Awk>()->snipe_enable(false);
-	}
+	if (get<Awk>()->current_ability == Ability::Sniper)
+		get<Awk>()->current_ability = Ability::None;
 	return true; // this returns true so we can call this from an Execute behavior
 }
 
@@ -1625,7 +1622,7 @@ void RandomPath::run()
 		Quat rot;
 		control->get<Transform>()->absolute(&pos, &rot);
 		AI::AwkAllow rule;
-		if (control->get<Awk>()->snipe)
+		if (control->get<Awk>()->current_ability == Ability::Sniper)
 			rule = AI::AwkAllow::Crawl;
 		else
 			rule = AI::AwkAllow::All;
@@ -1723,25 +1720,6 @@ AbilitySpawn::AbilitySpawn()
 	path_priority = 0;
 }
 
-void AbilitySpawn::set_context(void* ctx)
-{
-	Base::set_context(ctx);
-	control->player.ref()->manager.ref()->ability_spawned.link<AbilitySpawn, Ability, &AbilitySpawn::completed>(this);
-	control->player.ref()->manager.ref()->ability_spawn_canceled.link<AbilitySpawn, Ability, &AbilitySpawn::canceled>(this);
-}
-
-void AbilitySpawn::completed(Ability a)
-{
-	if (active())
-		done(a == ability);
-}
-
-void AbilitySpawn::canceled(Ability a)
-{
-	if (active() && a == ability)
-		done(false);
-}
-
 b8 AbilitySpawn::try_spawn(s8 priority, Upgrade required_upgrade, Ability a, AbilitySpawnFilter filter)
 {
 	PlayerManager* manager = control->player.ref()->manager.ref();
@@ -1752,11 +1730,14 @@ b8 AbilitySpawn::try_spawn(s8 priority, Upgrade required_upgrade, Ability a, Abi
 		&& manager->credits > info.spawn_cost
 		&& filter(control))
 	{
-		if (manager->ability_spawn_start(a))
+		Vec3 pos;
+		Vec3 normal;
+		if (!control->get<Awk>()->can_spawn(a, control->get<PlayerCommon>()->look_dir(), &pos, &normal))
+			return false;
+		if (manager->ability_spawn(a, pos, Quat::look(normal)))
 		{
 			ability = a;
 			path_priority = priority;
-			control->behavior_start(this, priority);
 			return true;
 		}
 	}
@@ -1768,29 +1749,19 @@ void AbilitySpawn::run()
 	active(true);
 
 	if (try_spawn(5, Upgrade::Teleporter, Ability::Teleporter, &should_teleport))
-		return;
-	if (try_spawn(4, Upgrade::Minion, Ability::Minion, &should_spawn_minion))
-		return;
-	if (try_spawn(4, Upgrade::Sensor, Ability::Sensor, &should_spawn_sensor))
-		return;
-	if (try_spawn(4, Upgrade::Rocket, Ability::Rocket, &should_spawn_rocket))
-		return;
-	if (try_spawn(4, Upgrade::ContainmentField, Ability::ContainmentField, &should_spawn_containment_field))
-		return;
-	if (try_spawn(4, Upgrade::Sniper, Ability::Sniper, &should_snipe))
-		return;
-
-	done(false);
-}
-
-void AbilitySpawn::abort()
-{
-	// we have to deactivate ourselves first before we call ability_spawn_stop()
-	// that way, when we get the notification that the ability spawn has been canceled, we'll already be inactive, so we won't care.
-	b8 a = active();
-	Base<AbilitySpawn>::abort();
-	if (a)
-		control->player.ref()->manager.ref()->ability_spawn_stop(ability);
+		done(true);
+	else if (try_spawn(4, Upgrade::Minion, Ability::Minion, &should_spawn_minion))
+		done(true);
+	else if (try_spawn(4, Upgrade::Sensor, Ability::Sensor, &should_spawn_sensor))
+		done(true);
+	else if (try_spawn(4, Upgrade::Rocket, Ability::Rocket, &should_spawn_rocket))
+		done(true);
+	else if (try_spawn(4, Upgrade::ContainmentField, Ability::ContainmentField, &should_spawn_containment_field))
+		done(true);
+	else if (try_spawn(4, Upgrade::Sniper, Ability::Sniper, &should_snipe))
+		done(true);
+	else
+		done(false);
 }
 
 ReactTarget::ReactTarget(Family fam, s8 priority_path, s8 react_priority, b8(*filter)(const AIPlayerControl*, const Entity*))
@@ -1834,7 +1805,7 @@ void ReactTarget::run()
 			}
 			else if (can_path)
 			{
-				pathfind(closest->get<Target>()->absolute_pos(), Vec3::zero, AI::AwkPathfind::Target, control->get<Awk>()->snipe ? AI::AwkAllow::Crawl : AI::AwkAllow::All);
+				pathfind(closest->get<Target>()->absolute_pos(), Vec3::zero, AI::AwkPathfind::Target, control->get<Awk>()->current_ability == Ability::Sniper ? AI::AwkAllow::Crawl : AI::AwkAllow::All);
 				return;
 			}
 		}

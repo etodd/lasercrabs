@@ -1111,7 +1111,7 @@ void teleport(Entity* e, Teleporter* target)
 	else if (e->has<Awk>())
 	{
 		e->get<Awk>()->detach_teleport();
-		e->get<Transform>()->absolute(pos + rot * Quat::euler(0, 0, e->get<Awk>()->id() * PI * 0.25f) * Vec3(CONTROL_POINT_RADIUS * 0.5f, 0, AWK_RADIUS * 4.0f), rot);
+		e->get<Transform>()->absolute(pos + rot * Quat::euler(0, 0, e->get<Awk>()->id() * PI * 0.25f) * Vec3(0, 0, AWK_RADIUS * 4.0f), rot);
 		e->get<Awk>()->velocity = rot * Vec3(0.0f, 0.0f, -AWK_FLY_SPEED); // make sure it shoots into the wall
 		e->get<Awk>()->invincible_timer = AWK_INVINCIBLE_TIME;
 	}

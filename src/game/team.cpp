@@ -39,32 +39,26 @@ namespace VI
 	{
 		{
 			Asset::Mesh::icon_sensor,
-			1.5f,
 			15,
 		},
 		{
 			Asset::Mesh::icon_minion,
-			1.5f,
 			15,
 		},
 		{
 			Asset::Mesh::icon_teleporter,
-			0.35f,
 			10,
 		},
 		{
 			Asset::Mesh::icon_rocket,
-			0.7f,
 			10,
 		},
 		{
 			Asset::Mesh::icon_containment_field,
-			0.7f,
 			20,
 		},
 		{
 			Asset::Mesh::icon_sniper,
-			0.35f,
 			10,
 		},
 	};
@@ -520,16 +514,12 @@ namespace VI
 		return upgrades & (1 << (u32)u);
 	}
 
-	b8 PlayerManager::ability_spawn_start(Ability ability)
+	b8 PlayerManager::ability_valid(Ability ability) const
 	{
 		if (ability == Ability::None)
 			return false;
 
 		if (!Game::level.has_feature(Game::FeatureLevel::Abilities))
-			return false;
-
-		Ability old = current_spawn_ability;
-		if (ability == old)
 			return false;
 
 		if (!can_transition_state())
@@ -542,71 +532,42 @@ namespace VI
 		if (credits < info.spawn_cost)
 			return false;
 
-		if (ability == Ability::Teleporter
-			&& ControlPoint::count(1 << team.ref()->team()) == 0)
-			return false;
-
-		current_spawn_ability = ability;
-		state_timer = info.spawn_time;
-
-		if (old != Ability::None)
-			ability_spawn_canceled.fire(old);
-
 		return true;
 	}
 
-	void PlayerManager::ability_spawn_stop(Ability ability)
+	b8 PlayerManager::ability_spawn(Ability ability, const Vec3& pos, const Quat& rot)
 	{
-		if (current_spawn_ability != Ability::None
-			&& (current_spawn_ability == ability || ability == Ability::None))
-		{
-			current_spawn_ability = Ability::None;
-			state_timer = 0.0f;
-			ability_spawn_canceled.fire(ability);
-		}
-	}
-
-	void PlayerManager::ability_spawn_complete()
-	{
-		Ability ability = current_spawn_ability;
-		current_spawn_ability = Ability::None;
+		if (!ability_valid(ability))
+			return false;
 
 		Entity* awk = entity.ref();
 
-		u16 cost = AbilityInfo::list[(s32)ability].spawn_cost;
-		if (credits < cost
-			|| !awk
-			|| awk->get<Awk>()->state() != Awk::State::Crawl
-			|| (ability == Ability::Teleporter && ControlPoint::count(1 << team.ref()->team()) == 0))
-		{
-			ability_spawn_canceled.fire(ability);
-			return;
-		}
+		if (!awk->get<Awk>()->cooldown_can_shoot()
+			|| !awk->get<Awk>()->can_spawn(ability, pos - awk->get<Transform>()->absolute_pos()))
+			return false;
 
-		add_credits(-cost);
+		awk->get<Awk>()->cooldown_setup();
+
+		const AbilityInfo& info = AbilityInfo::list[(s32)ability];
+		add_credits(-info.spawn_cost);
+
 		switch (ability)
 		{
 			case Ability::Sensor:
 			{
 				// place a proximity sensor
-				Vec3 abs_pos;
-				Quat abs_rot;
-				awk->get<Transform>()->absolute(&abs_pos, &abs_rot);
+				Entity* sensor = World::create<SensorEntity>(this, pos + rot * Vec3(0, 0, (rope_segment_length * 2.0f) - rope_radius + SENSOR_RADIUS), rot);
 
-				Entity* sensor = World::create<SensorEntity>(this, abs_pos + abs_rot * Vec3(0, 0, -AWK_RADIUS + (rope_segment_length * 2.0f) - rope_radius + SENSOR_RADIUS), abs_rot);
-
-				Audio::post_global_event(AK::EVENTS::PLAY_SENSOR_SPAWN, abs_pos);
+				Audio::post_global_event(AK::EVENTS::PLAY_SENSOR_SPAWN, pos);
 
 				// attach it to the wall
-				Rope* rope = Rope::start(awk->get<Transform>()->parent.ref()->get<RigidBody>(), abs_pos + abs_rot * Vec3(0, 0, -AWK_RADIUS), abs_rot * Vec3(0, 0, 1), abs_rot);
-				rope->end(abs_pos + abs_rot * Vec3(0, 0, -AWK_RADIUS + (rope_segment_length * 2.0f)), abs_rot * Vec3(0, 0, -1), sensor->get<RigidBody>());
+				Rope* rope = Rope::start(awk->get<Transform>()->parent.ref()->get<RigidBody>(), pos, rot * Vec3(0, 0, 1), rot);
+				rope->end(pos + rot * Vec3(0, 0, rope_segment_length * 2.0f), rot * Vec3(0, 0, -1), sensor->get<RigidBody>());
 				break;
 			}
 			case Ability::Rocket:
 			{
 				// spawn a rocket pod
-				Quat rot = awk->get<Transform>()->absolute_rot();
-				Vec3 pos = awk->get<Transform>()->absolute_pos() + rot * Vec3(0, 0, -AWK_RADIUS);
 				Transform* parent = awk->get<Transform>()->parent.ref();
 				World::create<RocketEntity>(awk, parent, pos, rot, team.ref()->team());
 
@@ -620,52 +581,35 @@ namespace VI
 			case Ability::Minion:
 			{
 				// spawn a minion
-				Vec3 pos;
-				Quat rot;
-				awk->get<Transform>()->absolute(&pos, &rot);
-				pos += rot * Vec3(0, 0, 1.0f);
-				World::create<Minion>(pos, Quat::euler(0, awk->get<PlayerCommon>()->angle_horizontal, 0), team.ref()->team(), this);
+				Vec3 forward = rot * Vec3(0, 0, 1.0f);
+				Vec3 npos = pos + forward;
+				forward.y = 0.0f;
+				r32 angle;
+				if (forward.length_squared() > 0.0f)
+					angle = atan2f(forward.x, forward.z);
+				else
+					angle = awk->get<PlayerCommon>()->angle_horizontal;
+				World::create<Minion>(npos, Quat::euler(0, angle, 0), team.ref()->team(), this);
 
-				Audio::post_global_event(AK::EVENTS::PLAY_MINION_SPAWN, pos);
+				Audio::post_global_event(AK::EVENTS::PLAY_MINION_SPAWN, npos);
 				break;
 			}
 			case Ability::ContainmentField:
 			{
 				// spawn a containment field
-				Vec3 pos;
-				Quat rot;
-				awk->get<Transform>()->absolute(&pos, &rot);
-				pos += rot * Vec3(0, 0, CONTAINMENT_FIELD_BASE_OFFSET);
+				Vec3 npos = pos + rot * Vec3(0, 0, CONTAINMENT_FIELD_BASE_OFFSET);
 				World::create<ContainmentFieldEntity>(awk->get<Transform>()->parent.ref(), pos, rot, this);
 				break;
 			}
 			case Ability::Sniper:
 			{
-				awk->get<Awk>()->snipe_enable(true);
+				vi_assert(false);
 				break;
 			}
 			case Ability::Teleporter:
 			{
-				ControlPoint* farthest = nullptr;
-				r32 farthest_distance = 0.0f;
-				AI::TeamMask mask = 1 << team.ref()->team();
-				Vec3 pos;
-				Quat rot;
-				awk->get<Transform>()->absolute(&pos, &rot);
-				for (auto i = ControlPoint::list.iterator(); !i.is_last(); i.next())
-				{
-					if (AI::match(i.item()->team, mask))
-					{
-						r32 d = (i.item()->get<Transform>()->absolute_pos() - pos).length_squared();
-						if (d > farthest_distance)
-						{
-							farthest = i.item();
-							farthest_distance = d;
-						}
-					}
-				}
-				World::create<TeleporterEntity>(pos + rot * Vec3(0, 0, -AWK_RADIUS), rot, team.ref()->team());
-				teleport(awk, farthest->get<Teleporter>());
+				Entity* teleporter = World::create<TeleporterEntity>(pos, rot, team.ref()->team());
+				teleport(awk, teleporter->get<Teleporter>());
 				break;
 			}
 			default:
@@ -674,7 +618,9 @@ namespace VI
 				break;
 			}
 		}
+
 		ability_spawned.fire(ability);
+		return true;
 	}
 
 	PinArray<PlayerManager, MAX_PLAYERS> PlayerManager::list;
@@ -688,12 +634,10 @@ namespace VI
 		abilities{ Ability::None, Ability::None, Ability::None },
 		entity(),
 		spawn(),
-		current_spawn_ability(Ability::None),
 		current_upgrade(Upgrade::None),
 		state_timer(),
-		ability_spawned(),
-		ability_spawn_canceled(),
 		upgrade_completed(),
+		ability_spawned(),
 		control_point_capture_completed(),
 		credits_summary(),
 		particle_accumulator()
@@ -708,7 +652,6 @@ namespace VI
 			&& credits >= cost
 			&& at_upgrade_point())
 		{
-			ability_spawn_stop();
 			current_upgrade = u;
 			state_timer = UPGRADE_TIME;
 			add_credits(-cost);
@@ -743,7 +686,6 @@ namespace VI
 		ControlPoint* control_point = at_control_point();
 		if (can_transition_state() && control_point && !friendly_control_point(control_point))
 		{
-			ability_spawn_stop();
 			vi_assert(current_upgrade == Upgrade::None);
 			state_timer = CAPTURE_TIME;
 			return true;
@@ -866,9 +808,7 @@ namespace VI
 			return State::Default;
 		else
 		{
-			if (current_spawn_ability != Ability::None)
-				return State::Spawning;
-			else if (current_upgrade != Upgrade::None)
+			if (current_upgrade != Upgrade::None)
 				return State::Upgrading;
 			else
 				return State::Capturing;
@@ -885,11 +825,11 @@ namespace VI
 			return false;
 
 		State s = state();
-		if (s != State::Default && s != State::Spawning) // you can transition states if you're spawning
+		if (s != State::Default)
 			return false;
 
 		Awk* awk = e->get<Awk>();
-		return awk->state() == Awk::State::Crawl && !awk->snipe;
+		return awk->state() == Awk::State::Crawl;
 	}
 
 	u16 PlayerManager::increment() const
@@ -937,29 +877,6 @@ namespace VI
 
 		State s = state();
 
-		if (s == State::Spawning && entity.ref())
-		{
-			// particles
-			const r32 interval = 0.015f;
-			particle_accumulator += u.time.delta;
-			Quat rot;
-			Vec3 pos;
-			entity.ref()->get<Transform>()->absolute(&pos, &rot);
-			while (particle_accumulator > interval)
-			{
-				particle_accumulator -= interval;
-
-				// spawn particle effect
-				Vec3 offset = rot * (Quat::euler((mersenne::randf_co() + 0.5f) * PI, mersenne::randf_co() * PI, 0) * Vec3(1, 0, 0));
-				Particles::fast_tracers.add
-				(
-					pos + offset,
-					offset * -3.5f,
-					0
-				);
-			}
-		}
-
 		if (state_timer > 0.0f)
 		{
 			state_timer = vi_max(0.0f, state_timer - u.time.delta);
@@ -975,11 +892,6 @@ namespace VI
 					case State::Upgrading:
 					{
 						upgrade_complete();
-						break;
-					}
-					case State::Spawning:
-					{
-						ability_spawn_complete();
 						break;
 					}
 					default:

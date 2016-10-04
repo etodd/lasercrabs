@@ -53,7 +53,6 @@ enum class Ability
 struct AbilityInfo
 {
 	AssetID icon;
-	r32 spawn_time;
 	u16 spawn_cost;
 	static AbilityInfo list[(s32)Ability::count];
 };
@@ -158,7 +157,6 @@ struct PlayerManager
 	{
 		Default,
 		Upgrading,
-		Spawning,
 		Capturing,
 	};
 
@@ -167,20 +165,18 @@ struct PlayerManager
 
 	static void update_all(const Update&);
 
-	StaticArray<SummaryItem, 1> credits_summary;
 	r32 spawn_timer;
 	r32 credits_flash_timer;
 	r32 particle_accumulator;
 	r32 state_timer;
 	u32 upgrades;
+	StaticArray<SummaryItem, 1> credits_summary;
 	Ability abilities[MAX_ABILITIES];
-	Ability current_spawn_ability;
 	Upgrade current_upgrade;
 	Revision revision;
 	Link spawn;
-	LinkArg<Ability> ability_spawned;
-	LinkArg<Ability> ability_spawn_canceled;
 	LinkArg<Upgrade> upgrade_completed;
+	LinkArg<Ability> ability_spawned;
 	LinkArg<b8> control_point_capture_completed;
 	Ref<Team> team;
 	Ref<Entity> entity;
@@ -195,9 +191,8 @@ struct PlayerManager
 	b8 has_upgrade(Upgrade) const;
 	b8 is_local() const;
 	s32 ability_count() const;
-	b8 ability_spawn_start(Ability);
-	void ability_spawn_stop(Ability = Ability::None);
-	void ability_spawn_complete();
+	b8 ability_valid(Ability) const;
+	b8 ability_spawn(Ability, const Vec3&, const Quat&);
 	b8 upgrade_start(Upgrade);
 	void upgrade_complete();
 	b8 capture_start();

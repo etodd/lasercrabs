@@ -271,12 +271,8 @@ namespace AIBehaviors
 	{
 		Ability ability;
 		AbilitySpawn();
-		void completed(Ability);
-		void canceled(Ability);
 		b8 try_spawn(s8, Upgrade, Ability, AbilitySpawnFilter);
-		void set_context(void*);
 		void run();
-		void abort();
 	};
 
 	struct ReactTarget : Base<ReactTarget>

@@ -121,7 +121,7 @@ Awk::Awk()
 	charges(AWK_CHARGES),
 	invincible_timer(),
 	particle_accumulator(),
-	snipe()
+	current_ability(Ability::None)
 {
 }
 
@@ -316,7 +316,7 @@ void Awk::hit_target(Entity* target, const Vec3& hit_pos)
 			get<PlayerCommon>()->manager.ref()->add_credits(CREDITS_CONTAINMENT_FIELD_DESTROY);
 	}
 
-	if (!snipe && invincible_timer > 0.0f && target->has<Awk>())
+	if (current_ability != Ability::Sniper && invincible_timer > 0.0f && target->has<Awk>())
 	{
 		invincible_timer = 0.0f; // damaging an Awk takes our shield down
 		if (target->has<LocalPlayerControl>()) // let them know they our shield is down
@@ -342,7 +342,7 @@ void Awk::hit_target(Entity* target, const Vec3& hit_pos)
 
 b8 Awk::predict_intersection(const Target* target, Vec3* intersection, r32 speed) const
 {
-	if (snipe) // instant bullet travel time
+	if (current_ability == Ability::Sniper) // instant bullet travel time
 	{
 		*intersection = target->absolute_pos();
 		return true;
@@ -457,14 +457,6 @@ b8 Awk::can_shoot(const Vec3& dir, Vec3* final_pos, b8* hit_target) const
 {
 	Vec3 trace_dir = Vec3::normalize(dir);
 
-	// can't shoot straight up or straight down
-	// HACK: if it's a local player, let them do what they want because it's frustrating
-	// in certain cases where the drone won't let you go where you should be able to go
-	// due to the third-person camera offset
-	// the AI however needs to know whether it can hit actually hit a target
-	if (!has<LocalPlayerControl>() && fabs(trace_dir.y) > AWK_VERTICAL_DOT_LIMIT)
-		return false;
-
 	// if we're attached to a wall, make sure we're not shooting into the wall
 	State s = state();
 	if (s == Awk::State::Crawl)
@@ -473,15 +465,85 @@ b8 Awk::can_shoot(const Vec3& dir, Vec3* final_pos, b8* hit_target) const
 			return false;
 	}
 
+	// can't shoot straight up or straight down
+	// HACK: if it's a local player, let them do what they want because it's frustrating
+	// in certain cases where the drone won't let you go where you should be able to go
+	// due to the third-person camera offset
+	// the AI however needs to know whether it can hit actually hit a target
+	if (!has<LocalPlayerControl>() && fabs(trace_dir.y) > AWK_VERTICAL_DOT_LIMIT)
+		return false;
+
 	Vec3 trace_start = get<Transform>()->absolute_pos();
 	Vec3 trace_end = trace_start + trace_dir * AWK_SNIPE_DISTANCE;
 
 	AwkRaycastCallback ray_callback(trace_start, trace_end, entity());
 	Physics::raycast(&ray_callback, ~CollisionAwkIgnore & ~ally_containment_field_mask());
 
-	if (snipe)
+	if (ray_callback.hasHit()
+		&& !(ray_callback.m_collisionObject->getBroadphaseHandle()->m_collisionFilterGroup & (AWK_INACCESSIBLE_MASK & ~CollisionShield)))
 	{
-		vi_assert(s == State::Crawl);
+		r32 r = range();
+		b8 can_shoot = false;
+		if (ray_callback.m_closestHitFraction * AWK_SNIPE_DISTANCE < r)
+			can_shoot = true;
+		else if ((ray_callback.closest_target_hit_group & (CollisionAwk | CollisionShield))
+			&& ray_callback.closest_target_hit_fraction * AWK_SNIPE_DISTANCE < r)
+		{
+			can_shoot = true; // allow awk to shoot if we're aiming at an enemy awk in range but the backing behind it is out of range
+		}
+		else
+		{
+			// check target predictions
+			for (auto i = list.iterator(); !i.is_last(); i.next())
+			{
+				if (i.item() != this && (i.item()->get<Transform>()->absolute_pos() - trace_start).length_squared() > AWK_SHIELD_RADIUS * 2.0f * AWK_SHIELD_RADIUS * 2.0f)
+				{
+					Vec3 intersection;
+					if (predict_intersection(i.item()->get<Target>(), &intersection))
+					{
+						if ((intersection - trace_start).length_squared() < r * r
+							&& LMath::ray_sphere_intersect(trace_start, trace_end, intersection, AWK_SHIELD_RADIUS))
+						{
+							can_shoot = true;
+							break;
+						}
+					}
+				}
+			}
+		}
+
+		if (can_shoot)
+		{
+			if (final_pos)
+				*final_pos = ray_callback.m_hitPointWorld;
+			if (hit_target)
+				*hit_target = ray_callback.hit_target();
+			return true;
+		}
+	}
+	return false;
+}
+
+b8 Awk::can_spawn(Ability a, const Vec3& dir, Vec3* final_pos, Vec3* final_normal, b8* hit_target) const
+{
+	Vec3 trace_dir = Vec3::normalize(dir);
+
+	// can't shoot straight up or straight down
+	// HACK: if it's a local player, let them do what they want because it's frustrating
+	// in certain cases where the drone won't let you go where you should be able to go
+	// due to the third-person camera offset
+	// the AI however needs to know whether it can hit actually hit a target
+	if (!has<LocalPlayerControl>() && fabs(trace_dir.y) > AWK_VERTICAL_DOT_LIMIT)
+		return false;
+
+	Vec3 trace_start = get<Transform>()->absolute_pos();
+	Vec3 trace_end = trace_start + trace_dir * range();
+
+	AwkRaycastCallback ray_callback(trace_start, trace_end, entity());
+	Physics::raycast(&ray_callback, ~CollisionAwkIgnore & ~ally_containment_field_mask());
+
+	if (a == Ability::Sniper)
+	{
 		if (ray_callback.hasHit())
 		{
 			if (final_pos)
@@ -500,49 +562,16 @@ b8 Awk::can_shoot(const Vec3& dir, Vec3* final_pos, b8* hit_target) const
 	}
 	else
 	{
-		if (ray_callback.hasHit()
-			&& !(ray_callback.m_collisionObject->getBroadphaseHandle()->m_collisionFilterGroup & (AWK_INACCESSIBLE_MASK & ~CollisionShield)))
+		b8 can_spawn = ray_callback.hasHit()
+			&& !(ray_callback.m_collisionObject->getBroadphaseHandle()->m_collisionFilterGroup & AWK_INACCESSIBLE_MASK);
+		if (can_spawn)
 		{
-			r32 r = range();
-			b8 can_shoot = false;
-			if (ray_callback.m_closestHitFraction * AWK_SNIPE_DISTANCE < r)
-				can_shoot = true;
-			else if ((ray_callback.closest_target_hit_group & (CollisionAwk | CollisionShield))
-				&& ray_callback.closest_target_hit_fraction * AWK_SNIPE_DISTANCE < r)
-			{
-				can_shoot = true; // allow awk to shoot if we're aiming at an enemy awk in range but the backing behind it is out of range
-			}
-			else
-			{
-				// check target predictions
-				for (auto i = list.iterator(); !i.is_last(); i.next())
-				{
-					if (i.item() != this && (i.item()->get<Transform>()->absolute_pos() - trace_start).length_squared() > AWK_SHIELD_RADIUS * 2.0f * AWK_SHIELD_RADIUS * 2.0f)
-					{
-						Vec3 intersection;
-						if (predict_intersection(i.item()->get<Target>(), &intersection))
-						{
-							if ((intersection - trace_start).length_squared() < r * r
-								&& LMath::ray_sphere_intersect(trace_start, trace_end, intersection, AWK_SHIELD_RADIUS))
-							{
-								can_shoot = true;
-								break;
-							}
-						}
-					}
-				}
-			}
-
-			if (can_shoot)
-			{
-				if (final_pos)
-					*final_pos = ray_callback.m_hitPointWorld;
-				if (hit_target)
-					*hit_target = ray_callback.hit_target();
-				return true;
-			}
+			if (final_pos)
+				*final_pos = ray_callback.m_hitPointWorld;
+			if (final_normal)
+				*final_normal = ray_callback.m_hitNormalWorld;
 		}
-		return false;
+		return can_spawn;
 	}
 }
 
@@ -573,7 +602,7 @@ void Awk::detach_teleport()
 
 b8 Awk::dash_start(const Vec3& dir)
 {
-	if (state() != State::Crawl || snipe)
+	if (state() != State::Crawl || current_ability == Ability::Sniper)
 		return false;
 
 	if (!direction_is_toward_attached_wall(dir))
@@ -606,25 +635,9 @@ b8 Awk::cooldown_can_shoot() const
 	return charges > 0;
 }
 
-#define SNIPE_RANGE_TIME 0.5f
-
 r32 Awk::range() const
 {
-	if (snipe)
-		return Ease::cubic_out(vi_min(1.0f, (Game::time.total - snipe_time) / SNIPE_RANGE_TIME), AWK_MAX_DISTANCE, AWK_SNIPE_DISTANCE);
-	else
-		return AWK_MAX_DISTANCE;
-}
-
-void Awk::snipe_enable(b8 s)
-{
-	if (s)
-	{
-		snipe = true;
-		snipe_time = Game::time.total;
-	}
-	else
-		snipe = false;
+	return (current_ability == Ability::Sniper || current_ability == Ability::Teleporter) ? AWK_SNIPE_DISTANCE : AWK_MAX_DISTANCE;
 }
 
 b8 Awk::detach(const Vec3& dir)
@@ -632,8 +645,14 @@ b8 Awk::detach(const Vec3& dir)
 	if (cooldown_can_shoot())
 	{
 		Vec3 dir_normalized = Vec3::normalize(dir);
-		if (snipe)
+		if (current_ability == Ability::Sniper)
 		{
+			PlayerManager* manager = get<PlayerCommon>()->manager.ref();
+			if (!manager->ability_valid(Ability::Sniper))
+				return false;
+
+			manager->add_credits(-AbilityInfo::list[(s32)Ability::Sniper].spawn_cost);
+
 			hit_targets.length = 0;
 
 			charges = 0;
@@ -670,7 +689,8 @@ b8 Awk::detach(const Vec3& dir)
 			// shield goes down
 			get<Health>()->take_shield();
 
-			snipe_enable(false);
+			// no longer sniping
+			current_ability = Ability::None;
 		}
 		else
 		{
@@ -1332,7 +1352,7 @@ void Awk::movement_raycast(const Vec3& ray_start, const Vec3& ray_end)
 			else if (!(group & (AWK_PERMEABLE_MASK | CollisionWalker | ally_containment_field_mask())))
 			{
 				stop = true; // we can't go through it
-				if (snipe) // we just shot at a wall; spawn some particles
+				if (current_ability == Ability::Sniper) // we just shot at a wall; spawn some particles
 				{
 					Quat rot = Quat::look(ray_callback.m_hitNormalWorld[i]);
 					for (s32 j = 0; j < 50; j++)

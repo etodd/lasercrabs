@@ -88,7 +88,7 @@ struct PlayerSpawnEntity : public Entity
 
 struct ControlPointEntity : public Entity
 {
-	ControlPointEntity(AI::Team);
+	ControlPointEntity(AI::Team, const Vec3&);
 };
 
 struct PlayerSpawn : public ComponentType<PlayerSpawn>
@@ -107,8 +107,10 @@ struct ControlPoint : public ComponentType<ControlPoint>
 	r32 capture_timer;
 	AI::Team team;
 	AI::Team team_next = AI::TeamNone;
+	u32 obstacle_id;
 
 	ControlPoint(AI::Team);
+	~ControlPoint();
 	b8 owned_by(AI::Team) const;
 	void awake();
 	void set_team(AI::Team);

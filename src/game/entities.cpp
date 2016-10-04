@@ -342,9 +342,9 @@ void EnergyPickup::update_all(const Update& u)
 	}
 }
 
-ControlPointEntity::ControlPointEntity(AI::Team team)
+ControlPointEntity::ControlPointEntity(AI::Team team, const Vec3& pos)
 {
-	create<Transform>();
+	create<Transform>()->absolute_pos(pos);
 
 	View* view = create<View>();
 	view->mesh = Asset::Mesh::control_point;
@@ -382,13 +382,26 @@ PlayerSpawnEntity::PlayerSpawnEntity(AI::Team team)
 }
 
 ControlPoint::ControlPoint(AI::Team t)
-	: team(t)
+	: team(t),
+	obstacle_id(u32(-1))
 {
 }
 
 void ControlPoint::awake()
 {
 	set_team(team);
+	if (Game::session.local && obstacle_id == u32(-1))
+	{
+		Vec3 pos = get<Transform>()->absolute_pos();
+		pos.y -= 1.5f;
+		obstacle_id = AI::obstacle_add(pos, 1.0f, 3.0f);
+	}
+}
+
+ControlPoint::~ControlPoint()
+{
+	if (obstacle_id != u32(-1))
+		AI::obstacle_remove(obstacle_id);
 }
 
 void ControlPoint::set_team(AI::Team t)

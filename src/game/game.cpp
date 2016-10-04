@@ -1178,7 +1178,7 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 			if (session.type == Type::Rush && (!cJSON_GetObjectItem(element, "set") || Json::get_s32(element, "set") == control_point_set))
 			{
 				absolute_pos.y += 1.5f;
-				entity = World::alloc<ControlPointEntity>(AI::Team(0));
+				entity = World::alloc<ControlPointEntity>(AI::Team(0), absolute_pos);
 			}
 		}
 		else if (cJSON_GetObjectItem(element, "PlayerTrigger"))

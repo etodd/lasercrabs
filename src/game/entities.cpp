@@ -35,7 +35,7 @@ AwkEntity::AwkEntity(AI::Team team)
 	create<Awk>();
 	create<AIAgent>()->team = team;
 
-	Health* health = create<Health>(2, AWK_HEALTH, AWK_SHIELD, AWK_SHIELD);
+	Health* health = create<Health>(1, AWK_HEALTH, AWK_SHIELD, AWK_SHIELD);
 
 	SkinnedModel* model = create<SkinnedModel>();
 	model->mesh = Asset::Mesh::awk;
@@ -58,7 +58,7 @@ Health::Health(u8 hp, u8 hp_max, u8 shield, u8 shield_max)
 {
 }
 
-#define REGEN_DELAY 8.0f
+#define REGEN_DELAY 7.0f
 #define REGEN_TIME 1.0f
 
 void Health::update(const Update& u)
@@ -144,7 +144,7 @@ u8 Health::total() const
 	return hp + shield;
 }
 
-HealthPickupEntity::HealthPickupEntity(const Vec3& p)
+EnergyPickupEntity::EnergyPickupEntity(const Vec3& p)
 {
 	create<Transform>()->pos = p;
 	View* model = create<View>();
@@ -159,7 +159,7 @@ HealthPickupEntity::HealthPickupEntity(const Vec3& p)
 
 	Target* target = create<Target>();
 
-	HealthPickup* pickup = create<HealthPickup>();
+	EnergyPickup* pickup = create<EnergyPickup>();
 
 	model->offset.scale(Vec3(HEALTH_PICKUP_RADIUS - 0.2f));
 
@@ -168,21 +168,19 @@ HealthPickupEntity::HealthPickupEntity(const Vec3& p)
 	body->set_ccd(true);
 }
 
-r32 HealthPickup::Key::priority(HealthPickup* p)
+r32 EnergyPickup::Key::priority(EnergyPickup* p)
 {
 	return (p->get<Transform>()->absolute_pos() - me).length_squared() * (closest_first ? 1.0f : -1.0f);
 }
 
-HealthPickup* HealthPickup::closest(AI::TeamMask mask, const Vec3& pos, r32* distance)
+EnergyPickup* EnergyPickup::closest(AI::TeamMask mask, const Vec3& pos, r32* distance)
 {
-	HealthPickup* closest = nullptr;
+	EnergyPickup* closest = nullptr;
 	r32 closest_distance = FLT_MAX;
 
 	for (auto i = list.iterator(); !i.is_last(); i.next())
 	{
-		Health* owner = i.item()->owner.ref();
-		AI::Team team = owner ? owner->get<AIAgent>()->team : AI::TeamNone;
-		if (AI::match(team, mask))
+		if (AI::match(i.item()->team, mask))
 		{
 			r32 d = (i.item()->get<Transform>()->absolute_pos() - pos).length_squared();
 			if (d < closest_distance)
@@ -204,27 +202,27 @@ HealthPickup* HealthPickup::closest(AI::TeamMask mask, const Vec3& pos, r32* dis
 	return closest;
 }
 
-s32 HealthPickup::count(Health* owner)
+s32 EnergyPickup::count(AI::TeamMask m)
 {
 	s32 count = 0;
 	for (auto i = list.iterator(); !i.is_last(); i.next())
 	{
-		if (i.item()->owner.ref() == owner)
+		if (AI::match(i.item()->team, m))
 			count++;
 	}
 	return count;
 }
 
-void HealthPickup::sort_all(const Vec3& pos, Array<Ref<HealthPickup>>* result, b8 closest_first, Health* owner)
+void EnergyPickup::sort_all(const Vec3& pos, Array<Ref<EnergyPickup>>* result, b8 closest_first, AI::TeamMask mask)
 {
 	Key key;
 	key.me = pos;
 	key.closest_first = closest_first;
-	PriorityQueue<HealthPickup*, Key> pickups(&key);
+	PriorityQueue<EnergyPickup*, Key> pickups(&key);
 
 	for (auto i = list.iterator(); !i.is_last(); i.next())
 	{
-		if (i.item()->owner.ref() == owner)
+		if (AI::match(i.item()->team, mask))
 			pickups.push(i.item());
 	}
 
@@ -233,81 +231,43 @@ void HealthPickup::sort_all(const Vec3& pos, Array<Ref<HealthPickup>>* result, b
 		result->add(pickups.pop());
 }
 
-void HealthPickup::awake()
+void EnergyPickup::awake()
 {
-	link_arg<const TargetEvent&, &HealthPickup::hit>(get<Target>()->target_hit);
+	link_arg<const TargetEvent&, &EnergyPickup::hit>(get<Target>()->target_hit);
 	reset();
 }
 
-void HealthPickup::reset()
+void EnergyPickup::reset()
 {
-	owner = nullptr;
-	get<View>()->team = (u8)AI::TeamNone;
-	get<PointLight>()->team = (u8)AI::TeamNone;
+	set_team(AI::TeamNone);
 }
 
-void HealthPickup::hit(const TargetEvent& e)
+void EnergyPickup::hit(const TargetEvent& e)
 {
-	b8 had_effect;
-	if (e.hit_by->has<Awk>() && e.hit_by->get<Awk>()->snipe)
-		had_effect = set_owner(nullptr, e.hit_by); // getting sniped resets us to neutral
-	else
-		had_effect = set_owner(e.hit_by->get<Health>(), e.hit_by); // we were captured
-	if (!had_effect)
-	{
-		// thing hitting us already has max health
-		// or someone else already owns us and this guy can't steal us
-		// regardless, nothing happened. I award you no points
-		if (e.hit_by->has<LocalPlayerControl>())
-			e.hit_by->get<LocalPlayerControl>()->player.ref()->msg(_(strings::no_effect), false);
-	}
-}
-
-b8 HealthPickup::can_be_captured_by(Health* health) const
-{
-	if (owner.ref())
-		return health->get<AIAgent>()->team != owner.ref()->get<AIAgent>()->team;
-	else
-		return health->hp < health->hp_max;
+	set_team(e.hit_by->get<AIAgent>()->team, e.hit_by);
 }
 
 // returns true if we were successfully captured
 // the second parameter is the entity that caused the ownership change
-b8 HealthPickup::set_owner(Health* health, Entity* caused_by)
+b8 EnergyPickup::set_team(AI::Team t, Entity* caused_by)
 {
 	// must be neutral or owned by an enemy
-	AI::Team owner_team = health ? health->get<AIAgent>()->team : AI::TeamNone;
-	if (!owner.ref() || owner.ref()->get<AIAgent>()->team != owner_team)
+	if (t != team)
 	{
-		Health* old_owner = owner.ref();
-
-		if (health && health->hp < health->hp_max)
-		{
-			health->get<PlayerCommon>()->manager.ref()->add_credits(CREDITS_CAPTURE_HEALTH_PICKUP);
-			owner = health;
-			health->add(1);
-			AI::Team team = health->get<AIAgent>()->team;
-			get<PointLight>()->team = (u8)team;
-			get<View>()->team = (u8)team;
-		}
-		else
-		{
-			owner = nullptr;
-			get<PointLight>()->team = (u8)AI::TeamNone;
-			get<View>()->team = (u8)AI::TeamNone;
-		}
-
-		if (old_owner) // looks like we're being stolen
-			old_owner->take_health(caused_by, 1);
+		team = t;
+		get<View>()->team = (u8)t;
+		get<PointLight>()->team = (u8)t;
+		if (caused_by)
+			caused_by->get<PlayerCommon>()->manager.ref()->add_credits(CREDITS_CAPTURE_ENERGY_PICKUP);
 		return true;
 	}
 
 	return false;
 }
 
-r32 HealthPickup::power_particle_timer;
-r32 HealthPickup::particle_accumulator;
-void HealthPickup::update_all(const Update& u)
+r32 EnergyPickup::power_particle_timer;
+r32 EnergyPickup::particle_accumulator;
+void EnergyPickup::update_all(const Update& u)
 {
 	{
 		// normal particles
@@ -345,7 +305,7 @@ void HealthPickup::update_all(const Update& u)
 
 	for (auto i = list.iterator(); !i.is_last(); i.next())
 	{
-		if (!i.item()->owner.ref())
+		if (i.item()->team == AI::TeamNone)
 			continue;
 
 		Vec3 control_point_pos = i.item()->get<Transform>()->absolute_pos();
@@ -354,7 +314,7 @@ void HealthPickup::update_all(const Update& u)
 		StaticArray<Vec3, 10> containment_fields;
 		for (auto field = ContainmentField::list.iterator(); !field.is_last(); field.next())
 		{
-			if (field.item()->team == i.item()->owner.ref()->get<AIAgent>()->team)
+			if (field.item()->team == i.item()->team)
 			{
 				Vec3 field_pos = field.item()->get<Transform>()->absolute_pos();
 				if ((field_pos - control_point_pos).length_squared() < CONTAINMENT_FIELD_RADIUS * CONTAINMENT_FIELD_RADIUS)
@@ -386,10 +346,8 @@ ControlPointEntity::ControlPointEntity(AI::Team team)
 {
 	create<Transform>();
 
-	create<Teleporter>()->team = team;
-
 	View* view = create<View>();
-	view->mesh = Asset::Mesh::spawn;
+	view->mesh = Asset::Mesh::control_point;
 	view->shader = Asset::Shader::culled;
 	view->color = Vec4(0.6f, 0.6f, 0.6f, MATERIAL_NO_OVERRIDE);
 
@@ -400,6 +358,29 @@ ControlPointEntity::ControlPointEntity(AI::Team team)
 	light->radius = 12.0f;
 
 	create<ControlPoint>(team);
+
+	create<RigidBody>(RigidBody::Type::Mesh, Vec3::zero, 0.0f, btBroadphaseProxy::StaticFilter, ~btBroadphaseProxy::StaticFilter, Asset::Mesh::control_point);
+}
+
+PlayerSpawnEntity::PlayerSpawnEntity(AI::Team team)
+{
+	create<Transform>();
+
+	create<Teleporter>()->team = team;
+
+	View* view = create<View>();
+	view->mesh = Asset::Mesh::spawn;
+	view->shader = Asset::Shader::culled;
+	view->team = u8(team);
+
+	create<PlayerTrigger>()->radius = CONTROL_POINT_RADIUS;
+
+	PointLight* light = create<PointLight>();
+	light->offset.z = 2.0f;
+	light->radius = 12.0f;
+	light->team = u8(team);
+
+	create<PlayerSpawn>()->team = team;
 }
 
 ControlPoint::ControlPoint(AI::Team t)
@@ -417,7 +398,44 @@ void ControlPoint::set_team(AI::Team t)
 	team = t;
 	get<PointLight>()->team = (u8)team;
 	get<View>()->team = (u8)team;
-	get<Teleporter>()->team = team;
+}
+
+void ControlPoint::capture_start(AI::Team t)
+{
+	vi_assert(team_next == AI::TeamNone);
+	// no capture in progress; start capturing
+	team_next = t;
+	capture_timer = CONTROL_POINT_CAPTURE_TIME * (team == AI::TeamNone ? 0.5f : 1.0f);
+}
+
+void ControlPoint::capture_cancel()
+{
+	team_next = AI::TeamNone;
+	capture_timer = 0.0f;
+}
+
+b8 ControlPoint::owned_by(AI::Team t) const
+{
+	return (team == t && team_next == AI::TeamNone) || team_next == t;
+}
+
+void ControlPoint::update(const Update& u)
+{
+	if (capture_timer > 0.0f)
+	{
+		capture_timer -= u.time.delta;
+		if (capture_timer <= 0.0f)
+		{
+			// capture complete
+			set_team(team_next);
+			capture_cancel();
+		}
+		else if (capture_timer < CONTROL_POINT_CAPTURE_TIME * 0.5f && capture_timer + u.time.delta >= CONTROL_POINT_CAPTURE_TIME * 0.5f)
+		{
+			// halfway point
+			set_team(AI::TeamNone);
+		}
+	}
 }
 
 s32 ControlPoint::count(AI::TeamMask mask)
@@ -935,7 +953,7 @@ ContainmentField* ContainmentField::closest(AI::TeamMask mask, const Vec3& pos, 
 	return closest;
 }
 
-// must be called after HealthPickup::update_all(), which sets the powered flag
+// must be called after EnergyPickup::update_all(), which sets the powered flag
 r32 ContainmentField::particle_accumulator;
 void ContainmentField::update_all(const Update& u)
 {

@@ -15,10 +15,10 @@ struct View;
 struct DamageEvent;
 
 #define AWK_SHIELD 1
-#define AWK_HEALTH 5
+#define AWK_HEALTH 1
 #define AWK_FLY_SPEED 35.0f
-#define AWK_CRAWL_SPEED 2.0f
-#define AWK_COOLDOWN 2.5f
+#define AWK_CRAWL_SPEED 2.5f
+#define AWK_COOLDOWN 3.0f
 #define AWK_LEGS 3
 #define AWK_INVINCIBLE_TIME 3.0f
 #define AWK_SNIPE_DISTANCE 100.0f

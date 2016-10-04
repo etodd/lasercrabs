@@ -53,7 +53,7 @@ struct Game
 	enum class FeatureLevel
 	{
 		Base,
-		HealthPickups,
+		EnergyPickups,
 		Abilities,
 		All,
 		count,

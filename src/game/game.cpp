@@ -420,9 +420,11 @@ void Game::update(const Update& update_in)
 		i.item()->update(u);
 	for (auto i = Walker::list.iterator(); !i.is_last(); i.next())
 		i.item()->update(u);
-	HealthPickup::update_all(u);
+	EnergyPickup::update_all(u);
 	Sensor::update_all(u);
 	ContainmentField::update_all(u);
+	for (auto i = ControlPoint::list.iterator(); !i.is_last(); i.next())
+		i.item()->update(u);
 	for (auto i = Shockwave::list.iterator(); !i.is_last(); i.next())
 		i.item()->update(u);
 	for (auto i = Projectile::list.iterator(); !i.is_last(); i.next())
@@ -975,6 +977,24 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 	AI::Team teams[MAX_PLAYERS];
 	level = Level();
 
+	// count control point sets and pick one of them
+	s32 control_point_set = 0;
+	if (session.mode == Mode::Pvp)
+	{
+		s32 max_control_point_set = 0;
+		cJSON* element = json->child;
+		while (element)
+		{
+			if (cJSON_GetObjectItem(element, "ControlPoint"))
+				max_control_point_set = vi_max(max_control_point_set, Json::get_s32(element, "set", -1));
+			element = element->next;
+		}
+
+		// pick a set of control points
+		if (max_control_point_set > 0)
+			control_point_set = mersenne::rand() % (max_control_point_set + 1);
+	}
+
 	cJSON* element = json->child;
 	while (element)
 	{
@@ -1139,17 +1159,25 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 			if (health)
 				entity->get<Health>()->hp = health;
 		}
-		else if (cJSON_GetObjectItem(element, "ControlPoint"))
+		else if (cJSON_GetObjectItem(element, "PlayerSpawn"))
 		{
 			AI::Team team = (AI::Team)Json::get_s32(element, "team");
 
 			if (Team::list.length > (s32)team)
 			{
-				entity = World::alloc<ControlPointEntity>(team);
+				entity = World::alloc<PlayerSpawnEntity>(team);
 				Team::list[(s32)team].player_spawn = entity->get<Transform>();
 			}
 			else
-				entity = World::alloc<ControlPointEntity>(AI::TeamNone);
+				entity = World::alloc<PlayerSpawnEntity>(AI::TeamNone);
+		}
+		else if (cJSON_GetObjectItem(element, "ControlPoint"))
+		{
+			if (!cJSON_GetObjectItem(element, "set") || Json::get_s32(element, "set") == control_point_set)
+			{
+				absolute_pos.y += 1.5f;
+				entity = World::alloc<ControlPointEntity>(AI::Team(0));
+			}
 		}
 		else if (cJSON_GetObjectItem(element, "PlayerTrigger"))
 		{
@@ -1196,11 +1224,11 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 				new (player) AIPlayer(manager, AIPlayer::generate_config());
 			}
 		}
-		else if (cJSON_GetObjectItem(element, "HealthPickup"))
+		else if (cJSON_GetObjectItem(element, "EnergyPickup"))
 		{
-			if (level.has_feature(FeatureLevel::HealthPickups))
+			if (level.has_feature(FeatureLevel::EnergyPickups))
 			{
-				entity = World::alloc<HealthPickupEntity>(absolute_pos);
+				entity = World::alloc<EnergyPickupEntity>(absolute_pos);
 				absolute_rot = Quat::identity;
 
 				RopeEntry* rope = ropes.add();

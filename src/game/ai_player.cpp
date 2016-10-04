@@ -777,17 +777,12 @@ b8 default_filter(const AIPlayerControl* control, const Entity* e)
 		== ContainmentField::hash(team, e->get<Transform>()->absolute_pos());
 }
 
-b8 health_pickup_filter(const AIPlayerControl* control, const Entity* e)
+b8 energy_pickup_filter(const AIPlayerControl* control, const Entity* e)
 {
 	if (!default_filter(control, e))
 		return false;
 
-	Health* health = control->get<Health>();
-	Health* owner = e->get<HealthPickup>()->owner.ref();
-	if (health->hp < health->hp_max)
-		return !owner || owner->get<AIAgent>()->team != control->get<AIAgent>()->team; // any health pickup we don't own
-	else
-		return owner && owner->get<AIAgent>()->team != control->get<AIAgent>()->team; // we have full health; attacking neutral pickups does no good
+	return e->get<EnergyPickup>()->team != control->get<AIAgent>()->team;
 }
 
 b8 minion_filter(const AIPlayerControl* control, const Entity* e)
@@ -1107,7 +1102,7 @@ b8 should_spawn_containment_field(const AIPlayerControl* control)
 	if (save_up_priority < 2)
 	{
 		r32 closest_distance;
-		HealthPickup::closest(1 << team, me, &closest_distance);
+		EnergyPickup::closest(1 << team, me, &closest_distance);
 		if (closest_distance < CONTAINMENT_FIELD_RADIUS)
 			return true;
 	}
@@ -1293,7 +1288,7 @@ Repeat* make_low_level_loop(AIPlayerControl* control, const AIPlayer::Config& co
 									AIBehaviors::ReactTarget::alloc(ContainmentField::family, 4, 6, &containment_field_filter),
 									AIBehaviors::ReactTarget::alloc(Awk::family, 4, 6, &awk_react_filter),
 									AIBehaviors::ReactTarget::alloc(MinionCommon::family, 4, 5, &default_filter),
-									AIBehaviors::ReactTarget::alloc(HealthPickup::family, 3, 4, &health_pickup_filter)
+									AIBehaviors::ReactTarget::alloc(EnergyPickup::family, 3, 4, &energy_pickup_filter)
 								),
 								Select::alloc
 								(
@@ -1354,7 +1349,7 @@ Repeat* make_high_level_loop(AIPlayerControl* control, const AIPlayer::Config& c
 						(
 							Select::alloc
 							(
-								AIBehaviors::Find::alloc(HealthPickup::family, 2, &health_pickup_filter),
+								AIBehaviors::Find::alloc(EnergyPickup::family, 2, &energy_pickup_filter),
 								Sequence::alloc
 								(
 									AIBehaviors::Test::alloc(&want_upgrade_filter),
@@ -1403,7 +1398,7 @@ Repeat* make_high_level_loop(AIPlayerControl* control, const AIPlayer::Config& c
 
 b8 AIPlayerControl::update_memory()
 {
-	update_component_memory<HealthPickup>(this, &default_memory_filter);
+	update_component_memory<EnergyPickup>(this, &default_memory_filter);
 	update_component_memory<MinionCommon>(this, &minion_memory_filter);
 	update_component_memory<Sensor>(this, &sensor_memory_filter);
 	update_component_memory<AICue>(this, &default_memory_filter);
@@ -1971,7 +1966,7 @@ void DoUpgrade::run()
 	if (path_priority > control->path_priority)
 	{
 		PlayerManager* manager = control->player.ref()->manager.ref();
-		if (manager->friendly_control_point(manager->at_control_point()))
+		if (manager->at_upgrade_point())
 		{
 			Upgrade u = want_available_upgrade(control);
 			if (u != Upgrade::None

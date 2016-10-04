@@ -30,13 +30,13 @@ struct PlayerManager;
 #define CREDITS_SENSOR_DESTROY 10
 #define CREDITS_CONTAINMENT_FIELD_DESTROY 10
 #define CREDITS_CONTROL_POINT 5
-#define CREDITS_HEALTH_PICKUP 5
+#define CREDITS_ENERGY_PICKUP 5
 #define CREDITS_CAPTURE_CONTROL_POINT 10
-#define CREDITS_CAPTURE_HEALTH_PICKUP 10
+#define CREDITS_CAPTURE_ENERGY_PICKUP 10
 #define MAX_ABILITIES 3
 
 #define UPGRADE_TIME 1.5f
-#define CAPTURE_TIME 2.5f
+#define CAPTURE_TIME 1.0f
 
 enum class Ability
 {
@@ -115,7 +115,7 @@ struct Team
 
 	static inline const Vec4& ui_color(AI::Team me, AI::Team them)
 	{
-		return me == them ? ui_color_friend : ui_color_enemy;
+		return them == AI::TeamNone ? UI::color_accent : (me == them ? ui_color_friend : ui_color_enemy);
 	}
 
 	static inline const Vec4& color(AI::Team me, AI::Team them)
@@ -205,8 +205,9 @@ struct PlayerManager
 	b8 upgrade_available(Upgrade = Upgrade::None) const;
 	u16 upgrade_cost(Upgrade) const;
 	s32 add_credits(s32);
+	b8 at_upgrade_point() const;
 	ControlPoint* at_control_point() const;
-	b8 friendly_control_point(ControlPoint*) const;
+	b8 friendly_control_point(const ControlPoint*) const;
 	u16 increment() const;
 	void update(const Update&);
 

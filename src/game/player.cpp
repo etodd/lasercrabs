@@ -80,19 +80,11 @@ void draw_hp_indicator(const RenderParams& params, Vec2 pos, u8 hp, u8 hp_max, u
 	pos.x += total_width * -0.5f + HP_BOX_SPACING * scale;
 	pos.y += box_size.y * 0.6f;
 
-	for (s32 i = 1; i < hp_max; i++)
+	for (s32 i = 1; i < hp_max + shield_max; i++)
 	{
 		UI::triangle_border(params, { pos, box_size }, 3 * scale, hp_color, PI);
-		if (i < hp)
-			UI::triangle(params, { pos, box_size }, hp_color, PI);
-		pos.x += box_size.x + HP_BOX_SPACING * scale;
-	}
-
-	for (s32 i = 0; i < shield_max; i++)
-	{
-		UI::triangle_border(params, { pos, box_size }, 3 * scale, shield_color, PI);
-		if (i < shield)
-			UI::triangle(params, { pos, box_size }, shield_color, PI);
+		if (i < hp + shield)
+			UI::triangle(params, { pos, box_size }, (i < hp || i >= hp + shield_max) ? hp_color : shield_color, PI);
 		pos.x += box_size.x + HP_BOX_SPACING * scale;
 	}
 }
@@ -196,8 +188,6 @@ void LocalPlayer::awake(const Update& u)
 	Quat rot;
 	map_view.ref()->absolute(&camera->pos, &rot);
 	camera->rot = Quat::look(rot * Vec3(0, -1, 0));
-
-	manager.ref()->control_point_capture_completed.link<LocalPlayer, b8, &LocalPlayer::control_point_capture_completed>(this);
 }
 
 #define DANGER_RAMP_UP_TIME 2.0f
@@ -323,25 +313,22 @@ void LocalPlayer::update(const Update& u)
 	{
 		case UIMode::Default:
 		{
-			if (manager.ref()->at_control_point() && manager.ref()->can_transition_state())
+			if (!u.input->get(Controls::Interact, gamepad) && u.last_input->get(Controls::Interact, gamepad))
 			{
-				if (!u.input->get(Controls::Interact, gamepad) && u.last_input->get(Controls::Interact, gamepad))
+				if (manager.ref()->at_control_point()
+					&& manager.ref()->can_transition_state()
+					&& !manager.ref()->friendly_control_point(manager.ref()->at_control_point()))
 				{
-					if (manager.ref()->friendly_control_point(manager.ref()->at_control_point()))
-					{
-						// friendly control point; upgrade
-						upgrade_menu_open = true;
-						menu.animate();
-						upgrade_animation_time = Game::real_time.total;
-					}
-					else
-					{
-						// enemy control point; capture
-						manager.ref()->capture_start();
-					}
+					// enemy control point; capture
+					manager.ref()->capture_start();
+				}
+				else if (manager.ref()->at_upgrade_point())
+				{
+					upgrade_menu_open = true;
+					menu.animate();
+					upgrade_animation_time = Game::real_time.total;
 				}
 			}
-
 			break;
 		}
 		case UIMode::Upgrading:
@@ -494,12 +481,6 @@ void LocalPlayer::spawn()
 	control->player = this;
 }
 
-void LocalPlayer::control_point_capture_completed(b8 success)
-{
-	if (success)
-		msg(_(strings::control_point_captured), true);
-}
-
 void draw_icon_text(const RenderParams& params, const Vec2& pos, AssetID icon, char* string, const Vec4& color)
 {
 	r32 icon_size = text_size * UI::scale;
@@ -594,12 +575,14 @@ void LocalPlayer::draw_alpha(const RenderParams& params) const
 	// draw abilities
 	if (Game::level.has_feature(Game::FeatureLevel::Abilities))
 	{
+		ControlPoint* control_point = manager.ref()->at_control_point();
 		if (mode == UIMode::Default
-			&& manager.ref()->at_control_point()
-			&& manager.ref()->can_transition_state())
+			&& manager.ref()->can_transition_state()
+			&& ((control_point && !control_point->owned_by(manager.ref()->team.ref()->team()))
+				|| manager.ref()->at_upgrade_point()))
 		{
 			UIText text;
-			if (manager.ref()->friendly_control_point(manager.ref()->at_control_point()))
+			if (manager.ref()->at_upgrade_point())
 			{
 				// "upgrade!" prompt
 				text.color = manager.ref()->upgrade_available() ? UI::color_accent : UI::color_disabled;
@@ -607,9 +590,12 @@ void LocalPlayer::draw_alpha(const RenderParams& params) const
 			}
 			else
 			{
-				// "capture!" prompt
+				// at control point; "capture!" prompt
 				text.color = UI::color_accent;
-				text.text(_(strings::prompt_capture));
+				if (control_point->capture_timer > 0.0f)
+					text.text(_(strings::prompt_cancel_hack));
+				else
+					text.text(_(strings::prompt_hack));
 			}
 			text.anchor_x = UIText::Anchor::Center;
 			text.anchor_y = UIText::Anchor::Center;
@@ -895,7 +881,11 @@ void LocalPlayer::draw_alpha(const RenderParams& params) const
 					case PlayerManager::State::Capturing:
 					{
 						// capturing a control point
-						string = strings::capturing;
+						ControlPoint* control_point = manager.ref()->at_control_point();
+						if (control_point && control_point->team_next != AI::TeamNone) // capture is already in progress
+							string = strings::canceling_capture;
+						else
+							string = strings::starting_capture;
 						cost = 0;
 						total_time = CAPTURE_TIME;
 						break;
@@ -1433,7 +1423,8 @@ void LocalPlayerControl::update(const Update& u)
 			{
 				const TargetIndicator indicator = target_indicators[i];
 				if (indicator.type == TargetIndicator::Type::AwkVisible
-					|| indicator.type == TargetIndicator::Type::Health
+					|| indicator.type == TargetIndicator::Type::AwkTracking
+					|| indicator.type == TargetIndicator::Type::Energy
 					|| indicator.type == TargetIndicator::Type::Minion
 					|| indicator.type == TargetIndicator::Type::MinionAttacking)
 				{
@@ -1608,7 +1599,7 @@ void LocalPlayerControl::update(const Update& u)
 
 				if (tracking || visible)
 				{
-					if (!add_target_indicator(other_player.item()->get<Target>(), visible ? TargetIndicator::Type::AwkVisible : TargetIndicator::Type::AwkTracking))
+					if (!add_target_indicator(other_player.item()->get<Target>(), tracking ? TargetIndicator::Type::AwkTracking : TargetIndicator::Type::AwkVisible))
 						break; // no more room for indicators
 				}
 			}
@@ -1632,12 +1623,11 @@ void LocalPlayerControl::update(const Update& u)
 	// health pickups
 	{
 		b8 full_health = get<Health>()->hp == get<Health>()->hp_max;
-		for (auto i = HealthPickup::list.iterator(); !i.is_last(); i.next())
+		for (auto i = EnergyPickup::list.iterator(); !i.is_last(); i.next())
 		{
-			Health* owner = i.item()->owner.ref();
-			if ((owner && owner->get<AIAgent>()->team != team) || (!owner && !full_health))
+			if (i.item()->team != team)
 			{
-				if (!add_target_indicator(i.item()->get<Target>(), TargetIndicator::Type::Health))
+				if (!add_target_indicator(i.item()->get<Target>(), TargetIndicator::Type::Energy))
 					break; // no more room for indicators
 			}
 		}
@@ -1728,15 +1718,15 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 			{
 				case TargetIndicator::Type::AwkVisible:
 				{
-					UI::indicator(params, indicator.pos, UI::color_alert, true);
+					UI::indicator(params, indicator.pos, UI::color_alert, false);
 					break;
 				}
 				case TargetIndicator::Type::AwkTracking:
 				{
-					UI::indicator(params, indicator.pos, UI::color_accent, true);
+					UI::indicator(params, indicator.pos, UI::color_alert, true);
 					break;
 				}
-				case TargetIndicator::Type::Health:
+				case TargetIndicator::Type::Energy:
 				{
 					UI::indicator(params, indicator.pos, UI::color_accent, true, 1.0f, PI);
 					break;
@@ -1761,6 +1751,7 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 	}
 
 	b8 enemy_visible = false;
+	b8 enemy_close = false;
 
 	{
 		Vec3 me = get<Transform>()->absolute_pos();
@@ -1841,54 +1832,61 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 		}
 	}
 
-	// highlight control points
+	Vec3 me = get<Transform>()->absolute_pos();
+
 	{
 		PlayerManager* manager = player.ref()->manager.ref();
-		if (Game::level.has_feature(Game::FeatureLevel::Abilities) && !manager->at_control_point())
+
+		// highlight upgrade point if there is an upgrade available
+		if (Game::level.has_feature(Game::FeatureLevel::Abilities)
+			&& manager->upgrade_available()
+			&& !manager->at_upgrade_point())
 		{
-			Vec3 me = get<Transform>()->absolute_pos();
+			Vec3 pos = manager->team.ref()->player_spawn.ref()->get<Transform>()->absolute_pos();
+			UI::indicator(params, pos, Team::ui_color_friend, true);
 
-			// highlight friendly control points if there is an upgrade available
-			ControlPoint* highlighted_upgrade_control_point = nullptr;
-			if (manager->upgrade_available())
+			UIText text;
+			text.color = Team::ui_color_friend;
+			text.text(_(strings::upgrade_notification));
+			text.anchor_x = UIText::Anchor::Center;
+			text.anchor_y = UIText::Anchor::Center;
+			text.size = text_size;
+			Vec2 p;
+			UI::is_onscreen(params, pos, &p);
+			p.y += text_size * 2.0f * UI::scale;
+			UI::box(params, text.rect(p).outset(8.0f * UI::scale), UI::color_background);
+			if (UI::flash_function_slow(Game::real_time.total))
+				text.draw(params, p);
+		}
+
+		// highlight control points
+		for (auto i = ControlPoint::list.iterator(); !i.is_last(); i.next())
+		{
+			Vec3 pos = i.item()->get<Transform>()->absolute_pos();
+			if ((pos - me).length_squared() < range * range)
 			{
-				highlighted_upgrade_control_point = ControlPoint::closest(1 << team, me);
-				if (highlighted_upgrade_control_point)
+				UI::indicator(params, pos, Team::ui_color(team, i.item()->team), i.item()->capture_timer > 0.0f);
+				if (i.item()->capture_timer > 0.0f) // control point is being captured; show progress bar
 				{
-					Vec3 pos = highlighted_upgrade_control_point->get<Transform>()->absolute_pos();
-					UI::indicator(params, pos, Team::ui_color_friend, true);
-
-					UIText text;
-					text.color = Team::ui_color_friend;
-					text.text(_(strings::upgrade_notification));
-					text.anchor_x = UIText::Anchor::Center;
-					text.anchor_y = UIText::Anchor::Center;
-					text.size = text_size;
 					Vec2 p;
 					UI::is_onscreen(params, pos, &p);
-					p.y += text_size * 2.0f * UI::scale;
-					UI::box(params, text.rect(p).outset(8.0f * UI::scale), UI::color_background);
-					if (UI::flash_function_slow(Game::real_time.total))
-						text.draw(params, p);
-				}
-			}
-
-			for (auto i = ControlPoint::list.iterator(); !i.is_last(); i.next())
-			{
-				r32 distance_sq = (i.item()->get<Transform>()->absolute_pos() - me).length_squared();
-				if (distance_sq > CONTROL_POINT_RADIUS * CONTROL_POINT_RADIUS && distance_sq < AWK_MAX_DISTANCE * AWK_MAX_DISTANCE)
-				{
-					Vec3 pos = i.item()->get<Transform>()->absolute_pos();
-					if (manager->friendly_control_point(i.item()))
+					Vec2 bar_size(80.0f * UI::scale, 24.0f * UI::scale);
+					Rect2 bar = { p + Vec2(0, 40.0f * UI::scale) + (bar_size * -0.5f), bar_size };
+					UI::box(params, bar, UI::color_background);
+					const Vec4* color;
+					r32 percentage;
+					if (i.item()->capture_timer > CONTROL_POINT_CAPTURE_TIME * 0.5f)
 					{
-						if (i.item() != highlighted_upgrade_control_point)
-							UI::indicator(params, pos, Team::ui_color_friend, false);
+						color = &Team::ui_color(team, i.item()->team);
+						percentage = (i.item()->capture_timer / (CONTROL_POINT_CAPTURE_TIME * 0.5f)) - 1.0f;
 					}
 					else
 					{
-						if ((pos - me).length_squared() < range * range)
-							UI::indicator(params, pos, i.item()->team == AI::TeamNone ? UI::color_accent : Team::ui_color_enemy, true);
+						color = &Team::ui_color(team, i.item()->team_next);
+						percentage = 1.0f - (i.item()->capture_timer / (CONTROL_POINT_CAPTURE_TIME * 0.5f));
 					}
+					UI::border(params, bar, 2, *color);
+					UI::box(params, { bar.pos, Vec2(bar.size.x * percentage, bar.size.y) }, *color);
 				}
 			}
 		}
@@ -1905,8 +1903,13 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 
 			b8 friendly = other_player.item()->get<AIAgent>()->team == team;
 
-			if (visible && !friendly)
-				enemy_visible = true;
+			if (!friendly)
+			{
+				if (visible)
+					enemy_visible = true;
+				if ((other_player.item()->get<Transform>()->absolute_pos() - me).length_squared() < AWK_MAX_DISTANCE * AWK_MAX_DISTANCE)
+					enemy_close = true;
+			}
 
 			b8 draw;
 			Vec2 p;
@@ -1926,11 +1929,7 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 			{
 				history = Team::list[(s32)team].player_track_history[other_player.item()->manager.id];
 
-				Vec3 pos3d = history.pos + Vec3(0, AWK_RADIUS * 2.0f, 0);
-
 				// highlight the username and draw it even if it's offscreen
-				UI::is_onscreen(params, pos3d, &p);
-				draw = true;
 				if (tracking || visible)
 				{
 					if (team == other_player.item()->get<AIAgent>()->team) // friend
@@ -1940,25 +1939,25 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 					}
 					else // enemy
 					{
-						hp_color = visible ? &Team::ui_color_enemy : &UI::color_accent;
+						hp_color = &Team::ui_color_enemy;
 						shield_color = &UI::color_default;
 					}
+
+					// if we can see or track them, the indicator has already been added using add_target_indicator in the update function
+
+					Vec3 pos3d = history.pos + Vec3(0, AWK_RADIUS * 2.0f, 0);
+					draw = UI::project(params, pos3d, &p);
 				}
 				else
 				{
-					hp_color = &UI::color_disabled; // not visible or tracking right now
-					shield_color = &UI::color_disabled;
-					// if we can see or track them, the indicator has already been added using add_target_indicator in the update function
-					UI::indicator(params, history.pos, UI::color_disabled, true);
+					// not visible or tracking right now
+					draw = false;
 				}
 			}
 
 			if (draw)
 			{
-				Vec2 hp_pos = p;
-				hp_pos.y += text_size * UI::scale;
-
-				Vec2 username_pos = hp_pos;
+				Vec2 username_pos = p;
 				username_pos.y += text_size * UI::scale;
 
 				UIText username;
@@ -1989,7 +1988,7 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 
 						const Vec4& color = visible ? UI::color_alert : UI::color_accent;
 
-						Rect2 bar = { hp_pos + Vec2(bar_size.x * -0.5f, bar_size.y * -0.5f), bar_size };
+						Rect2 bar = { username_pos + Vec2(bar_size.x * -0.5f, bar_size.y * -0.5f), bar_size };
 						UI::box(params, bar, UI::color_background);
 						UI::border(params, bar, 2, color);
 						UI::box(params, { bar.pos, Vec2(bar.size.x * (enemy_invincible_timer / AWK_INVINCIBLE_TIME), bar.size.y) }, color);
@@ -1998,40 +1997,37 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 					}
 				}
 
-				if (!invincible && Game::level.has_feature(Game::FeatureLevel::HealthPickups))
-				{
-					draw_hp_box(params, hp_pos, history.hp_max, history.shield_max, 0.75f);
-					draw_hp_indicator(params, hp_pos, history.hp, history.hp_max, history.shield, history.shield_max, *hp_color, *shield_color, 0.75f);
-				}
-
 				username.draw(params, username_pos);
 			}
 		}
 	}
 
-	b8 is_vulnerable = !get<AIAgent>()->stealth && get<Awk>()->invincible_timer == 0.0f;
+	const Health* health = get<Health>();
 
-	// incoming attack warning indicator
-	if (is_vulnerable && get<Awk>()->incoming_attacker())
+	b8 is_vulnerable = !get<AIAgent>()->stealth && get<Awk>()->invincible_timer == 0.0f && health->hp == 1 && health->shield == 0;
+
+	// compass
 	{
-		enemy_visible = true;
-		// we're being attacked; flash the compass
-		b8 show = UI::flash_function(Game::real_time.total);
-		if (show)
+		Vec2 compass_size = Vec2(vi_min(viewport.size.x, viewport.size.y) * 0.3f);
+		if (is_vulnerable && get<Awk>()->incoming_attacker())
 		{
-			Vec2 compass_size = Vec2(vi_min(viewport.size.x, viewport.size.y) * 0.3f);
-			UI::mesh(params, Asset::Mesh::compass, viewport.size * Vec2(0.5f, 0.5f), compass_size, UI::color_alert);
+			// we're being attacked; flash the compass
+			b8 show = UI::flash_function(Game::real_time.total);
+			if (show)
+				UI::mesh(params, Asset::Mesh::compass, viewport.size * Vec2(0.5f, 0.5f), compass_size, UI::color_alert);
+			if (show && !UI::flash_function(Game::real_time.total - Game::real_time.delta))
+				Audio::post_global_event(AK::EVENTS::PLAY_BEEP_BAD);
 		}
-		if (show && !UI::flash_function(Game::real_time.total - Game::real_time.delta))
-			Audio::post_global_event(AK::EVENTS::PLAY_BEEP_BAD);
+		else if (enemy_visible)
+			UI::mesh(params, Asset::Mesh::compass, viewport.size * Vec2(0.5f, 0.5f), compass_size, UI::color_alert);
+		else if (enemy_close)
+			UI::mesh(params, Asset::Mesh::compass, viewport.size * Vec2(0.5f, 0.5f), compass_size, UI::color_accent);
 	}
 
-	if (Game::level.has_feature(Game::FeatureLevel::HealthPickups))
+	if (Game::level.has_feature(Game::FeatureLevel::EnergyPickups))
 	{
-		const Health* health = get<Health>();
-
 		// danger indicator
-		b8 danger = enemy_visible && is_vulnerable && health->hp == 1 && health->shield == 0;
+		b8 danger = enemy_visible && is_vulnerable;
 		if (danger)
 		{
 			UIText text;

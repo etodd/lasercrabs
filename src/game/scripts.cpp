@@ -185,7 +185,7 @@ namespace tutorial
 
 	void init(const Update& u, const EntityFinder& entities)
 	{
-		Game::level.feature_level = Game::FeatureLevel::HealthPickups;
+		Game::level.feature_level = Game::FeatureLevel::EnergyPickups;
 
 		data = new Data();
 		Game::updates.add(&update);

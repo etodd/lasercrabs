@@ -171,7 +171,7 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 		| Target::component_mask
 		| SkinnedModel::component_mask
 		| Projectile::component_mask
-		| HealthPickup::component_mask
+		| EnergyPickup::component_mask
 		| Sensor::component_mask
 		| Rocket::component_mask
 		| ContainmentField::component_mask
@@ -359,10 +359,10 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 		serialize_r32(p, x->lifetime);
 	}
 
-	if (e->has<HealthPickup>())
+	if (e->has<EnergyPickup>())
 	{
-		HealthPickup* h = e->get<HealthPickup>();
-		serialize_ref(p, h->owner);
+		EnergyPickup* h = e->get<EnergyPickup>();
+		serialize_u8(p, h->team);
 	}
 
 	if (e->has<Sensor>())

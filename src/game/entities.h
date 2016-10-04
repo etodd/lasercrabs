@@ -50,36 +50,40 @@ struct Health : public ComponentType<Health>
 };
 
 #define HEALTH_PICKUP_RADIUS 0.55f
-struct HealthPickupEntity : public Entity
+struct EnergyPickupEntity : public Entity
 {
-	HealthPickupEntity(const Vec3&);
+	EnergyPickupEntity(const Vec3&);
 };
 
 #define CONTROL_POINT_INTERVAL 15.0f
-struct HealthPickup : public ComponentType<HealthPickup>
+struct EnergyPickup : public ComponentType<EnergyPickup>
 {
 	struct Key
 	{
 		Vec3 me;
 		b8 closest_first;
-		r32 priority(HealthPickup*);
+		r32 priority(EnergyPickup*);
 	};
 
 	static r32 power_particle_timer;
 	static r32 particle_accumulator;
 
 	static void update_all(const Update&);
-	static void sort_all(const Vec3&, Array<Ref<HealthPickup>>*, b8, Health* = nullptr);
-	static HealthPickup* closest(AI::TeamMask, const Vec3&, r32* = nullptr);
-	static s32 count(Health*);
+	static void sort_all(const Vec3&, Array<Ref<EnergyPickup>>*, b8, AI::TeamMask);
+	static EnergyPickup* closest(AI::TeamMask, const Vec3&, r32* = nullptr);
+	static s32 count(AI::TeamMask);
 
-	Ref<Health> owner;
+	AI::Team team;
 
 	void awake();
 	void hit(const TargetEvent&);
-	b8 can_be_captured_by(Health*) const;
-	b8 set_owner(Health*, Entity*);
+	b8 set_team(AI::Team, Entity* = nullptr);
 	void reset();
+};
+
+struct PlayerSpawnEntity : public Entity
+{
+	PlayerSpawnEntity(AI::Team);
 };
 
 struct ControlPointEntity : public Entity
@@ -87,17 +91,30 @@ struct ControlPointEntity : public Entity
 	ControlPointEntity(AI::Team);
 };
 
+struct PlayerSpawn : public ComponentType<PlayerSpawn>
+{
+	AI::Team team;
+	void awake() {}
+};
+
 #define CONTROL_POINT_RADIUS 3.0f
+#define CONTROL_POINT_CAPTURE_TIME 20.0f
 struct ControlPoint : public ComponentType<ControlPoint>
 {
 	static ControlPoint* closest(AI::TeamMask, const Vec3&, r32* = nullptr);
 	static s32 count(AI::TeamMask);
 
+	r32 capture_timer;
 	AI::Team team;
+	AI::Team team_next = AI::TeamNone;
 
 	ControlPoint(AI::Team);
+	b8 owned_by(AI::Team) const;
 	void awake();
 	void set_team(AI::Team);
+	void capture_start(AI::Team);
+	void capture_cancel();
+	void update(const Update&);
 };
 
 struct SensorEntity : public Entity

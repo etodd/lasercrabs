@@ -706,7 +706,7 @@ namespace VI
 		if (can_transition_state()
 			&& upgrade_available(u)
 			&& credits >= cost
-			&& friendly_control_point(at_control_point()))
+			&& at_upgrade_point())
 		{
 			ability_spawn_stop();
 			current_upgrade = u;
@@ -751,6 +751,7 @@ namespace VI
 		return false;
 	}
 
+	// the capture is not actually complete; we've completed the process of *starting* to capture the point
 	void PlayerManager::capture_complete()
 	{
 		if (!entity.ref())
@@ -758,10 +759,25 @@ namespace VI
 
 		b8 success = false;
 		ControlPoint* control_point = at_control_point();
-		if (control_point && control_point->team != team.ref()->team())
+		if (control_point && !friendly_control_point(control_point))
 		{
 			add_credits(CREDITS_CAPTURE_CONTROL_POINT);
-			control_point->set_team(team.ref()->team());
+			if (control_point->team_next == AI::TeamNone)
+			{
+				// no capture in progress; start capturing
+				control_point->capture_start(team.ref()->team());
+			}
+			else
+			{
+				// capture already in progress; cancel if necessary
+				vi_assert(control_point->team_next != team.ref()->team());
+				control_point->capture_cancel();
+				if (control_point->team != team.ref()->team())
+				{
+					// start capturing again
+					control_point->capture_start(team.ref()->team());
+				}
+			}
 			success = true;
 		}
 
@@ -820,6 +836,11 @@ namespace VI
 		return 0;
 	}
 
+	b8 PlayerManager::at_upgrade_point() const
+	{
+		return team.ref()->player_spawn.ref()->get<PlayerTrigger>()->is_triggered(entity.ref());
+	}
+
 	ControlPoint* PlayerManager::at_control_point() const
 	{
 		Entity* e = entity.ref();
@@ -834,9 +855,9 @@ namespace VI
 		return nullptr;
 	}
 
-	b8 PlayerManager::friendly_control_point(ControlPoint* p) const
+	b8 PlayerManager::friendly_control_point(const ControlPoint* p) const
 	{
-		return p && p->team == team.ref()->team();
+		return p && p->owned_by(team.ref()->team());
 	}
 
 	PlayerManager::State PlayerManager::state() const
@@ -877,7 +898,7 @@ namespace VI
 			return 0;
 
 		return ControlPoint::count(1 << team.ref()->team()) * CREDITS_CONTROL_POINT
-			+ HealthPickup::count(entity.ref()->get<Health>()) * CREDITS_HEALTH_PICKUP;
+			+ EnergyPickup::count(1 << team.ref()->team()) * CREDITS_ENERGY_PICKUP;
 	}
 
 	r32 PlayerManager::timer = CONTROL_POINT_INTERVAL;
@@ -885,7 +906,7 @@ namespace VI
 	{
 		if (Game::session.mode == Game::Mode::Pvp
 			&& Game::session.local
-			&& Game::level.has_feature(Game::FeatureLevel::HealthPickups)
+			&& Game::level.has_feature(Game::FeatureLevel::EnergyPickups)
 			&& u.time.total > GAME_BUY_PERIOD)
 		{
 			timer -= u.time.delta;

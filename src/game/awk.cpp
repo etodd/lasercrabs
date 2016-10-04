@@ -149,14 +149,6 @@ void Awk::awake()
 
 Awk::~Awk()
 {
-	// find all health pickups owned by us and reset them
-	Health* health = get<Health>();
-	for (auto i = HealthPickup::list.iterator(); !i.is_last(); i.next())
-	{
-		if (i.item()->owner.ref() == health)
-			i.item()->reset();
-	}
-
 	if (shield.ref())
 		World::remove_deferred(shield.ref());
 }
@@ -383,37 +375,10 @@ void Awk::damaged(const DamageEvent& e)
 			}
 		}
 	}
-	s32 new_health_pickup_count = get<Health>()->hp - 1;
-	s32 health_pickup_count = 0;
-	for (auto i = HealthPickup::list.iterator(); !i.is_last(); i.next())
-	{
-		if (i.item()->owner.ref() == get<Health>())
-			health_pickup_count++;
-	}
-
-	if (health_pickup_count > 0)
-	{
-		// reset health pickups that belong to us
-		// starting with the farthest first
-
-		Array<Ref<HealthPickup>> farthest_owned_health_pickups;
-		HealthPickup::sort_all(get<Transform>()->absolute_pos(), &farthest_owned_health_pickups, false, get<Health>());
-
-		for (s32 i = 0; i < farthest_owned_health_pickups.length && new_health_pickup_count < health_pickup_count; i++)
-		{
-			farthest_owned_health_pickups[i].ref()->reset();
-			new_health_pickup_count--;
-		}
-	}
 }
 
 void Awk::killed(Entity* e)
 {
-	for (auto i = HealthPickup::list.iterator(); !i.is_last(); i.next())
-	{
-		if (i.item()->owner.ref() == get<Health>())
-			i.item()->reset();
-	}
 	get<Audio>()->post_event(AK::EVENTS::STOP_FLY);
 	World::remove_deferred(entity());
 }
@@ -726,6 +691,9 @@ b8 Awk::detach(const Vec3& dir)
 
 void Awk::reflect(const Vec3& hit, const Vec3& normal)
 {
+	if (btVector3(velocity).fuzzyZero())
+		return;
+
 	// it's possible to reflect off a shield while we are dashing (still parented to an object)
 	// so we need to make sure we're not dashing anymore
 	if (get<Transform>()->parent.ref())
@@ -750,7 +718,7 @@ void Awk::reflect(const Vec3& hit, const Vec3& normal)
 	for (auto i = Target::list.iterator(); !i.is_last(); i.next())
 	{
 		Vec3 intersection;
-		if (((i.item()->has<HealthPickup>() && i.item()->get<HealthPickup>()->can_be_captured_by(get<Health>()))
+		if (((i.item()->has<EnergyPickup>() && i.item()->get<EnergyPickup>()->team != team)
 			|| (i.item()->has<ContainmentField>() && i.item()->get<ContainmentField>()->team != team)
 			|| (i.item()->has<AIAgent>() && i.item()->get<AIAgent>()->team != team))
 			&& can_shoot(i.item(), &intersection, AWK_DASH_SPEED))
@@ -1350,7 +1318,7 @@ void Awk::movement_raycast(const Vec3& ray_start, const Vec3& ray_end)
 	{
 		if (ray_callback.m_hitFractions[i] < fraction_end)
 		{
-			short group = ray_callback.m_collisionObjects[i]->getBroadphaseHandle()->m_collisionFilterGroup;
+			s16 group = ray_callback.m_collisionObjects[i]->getBroadphaseHandle()->m_collisionFilterGroup;
 			Entity* entity = &Entity::list[ray_callback.m_collisionObjects[i]->getUserIndex()];
 
 			b8 stop = false;

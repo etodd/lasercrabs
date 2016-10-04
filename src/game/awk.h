@@ -79,6 +79,7 @@ struct Awk : public ComponentType<Awk>
 	StaticArray<Ref<Entity>, 4> hit_targets;
 	LinkArg<const Vec3&> bounce;
 	LinkArg<Entity*> hit;
+	LinkArg<Ability> ability_spawned;
 	Link done_flying;
 	Link done_dashing;
 	Link detached;
@@ -121,7 +122,7 @@ struct Awk : public ComponentType<Awk>
 	Vec3 attach_point(r32 = 0.0f) const;
 
 	void detach_teleport();
-	b8 detach(const Vec3&);
+	b8 go(const Vec3&);
 
 	void finish_flying_dashing_common();
 	void finish_flying();

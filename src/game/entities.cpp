@@ -366,8 +366,6 @@ PlayerSpawnEntity::PlayerSpawnEntity(AI::Team team)
 {
 	create<Transform>();
 
-	create<Teleporter>()->team = team;
-
 	View* view = create<View>();
 	view->mesh = Asset::Mesh::spawn;
 	view->shader = Asset::Shader::culled;

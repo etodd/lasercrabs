@@ -18,6 +18,7 @@
 #include "render/particles.h"
 
 #define CREDITS_FLASH_TIME 0.5f
+#define RESPAWNS 5
 
 namespace VI
 {
@@ -145,7 +146,7 @@ namespace VI
 		for (auto j = PlayerManager::list.iterator(); !j.is_last(); j.next())
 		{
 			if (j.item()->team.ref() == this
-				&& (j.item()->spawn_timer > 0.0f || j.item()->entity.ref()))
+				&& (j.item()->respawns > 1 || j.item()->entity.ref()))
 				return true;
 		}
 		return false;
@@ -219,7 +220,8 @@ namespace VI
 		{
 			if (!Game::level.continue_match_after_death
 			&& (Game::time.total > GAME_TIME_LIMIT
-				|| (PlayerManager::list.count() > 1 && teams_with_players() <= 1)))
+				|| (PlayerManager::list.count() > 1 && teams_with_players() <= 1)
+				|| (Game::session.type == Game::Type::Rush && Team::list[1].control_point_count() > 0)))
 			{
 				game_over = true;
 				game_over_real_time = Game::real_time.total;
@@ -265,6 +267,15 @@ namespace VI
 							Game::save.resources[(s32)Game::Resource::Energy] += total;
 						}
 					}
+				}
+				else if (Game::session.type == Game::Type::Rush)
+				{
+					if (Team::list[1].control_point_count() > 0)
+						winner = &Team::list[1]; // attackers win
+					else if (Game::time.total > GAME_TIME_LIMIT)
+						winner = &Team::list[0]; // defenders win
+					else
+						winner = nullptr; // draw
 				}
 				else
 					winner = nullptr;
@@ -535,94 +546,6 @@ namespace VI
 		return true;
 	}
 
-	b8 PlayerManager::ability_spawn(Ability ability, const Vec3& pos, const Quat& rot)
-	{
-		if (!ability_valid(ability))
-			return false;
-
-		Entity* awk = entity.ref();
-
-		if (!awk->get<Awk>()->cooldown_can_shoot()
-			|| !awk->get<Awk>()->can_spawn(ability, pos - awk->get<Transform>()->absolute_pos()))
-			return false;
-
-		awk->get<Awk>()->cooldown_setup();
-
-		const AbilityInfo& info = AbilityInfo::list[(s32)ability];
-		add_credits(-info.spawn_cost);
-
-		switch (ability)
-		{
-			case Ability::Sensor:
-			{
-				// place a proximity sensor
-				Entity* sensor = World::create<SensorEntity>(this, pos + rot * Vec3(0, 0, (rope_segment_length * 2.0f) - rope_radius + SENSOR_RADIUS), rot);
-
-				Audio::post_global_event(AK::EVENTS::PLAY_SENSOR_SPAWN, pos);
-
-				// attach it to the wall
-				Rope* rope = Rope::start(awk->get<Transform>()->parent.ref()->get<RigidBody>(), pos, rot * Vec3(0, 0, 1), rot);
-				rope->end(pos + rot * Vec3(0, 0, rope_segment_length * 2.0f), rot * Vec3(0, 0, -1), sensor->get<RigidBody>());
-				break;
-			}
-			case Ability::Rocket:
-			{
-				// spawn a rocket pod
-				Transform* parent = awk->get<Transform>()->parent.ref();
-				World::create<RocketEntity>(awk, parent, pos, rot, team.ref()->team());
-
-				// rocket base
-				Entity* base = World::alloc<Prop>(Asset::Mesh::rocket_base);
-				base->get<Transform>()->absolute(pos, rot);
-				base->get<Transform>()->reparent(parent);
-				base->get<View>()->team = (u8)team.ref()->team();
-				break;
-			}
-			case Ability::Minion:
-			{
-				// spawn a minion
-				Vec3 forward = rot * Vec3(0, 0, 1.0f);
-				Vec3 npos = pos + forward;
-				forward.y = 0.0f;
-				r32 angle;
-				if (forward.length_squared() > 0.0f)
-					angle = atan2f(forward.x, forward.z);
-				else
-					angle = awk->get<PlayerCommon>()->angle_horizontal;
-				World::create<Minion>(npos, Quat::euler(0, angle, 0), team.ref()->team(), this);
-
-				Audio::post_global_event(AK::EVENTS::PLAY_MINION_SPAWN, npos);
-				break;
-			}
-			case Ability::ContainmentField:
-			{
-				// spawn a containment field
-				Vec3 npos = pos + rot * Vec3(0, 0, CONTAINMENT_FIELD_BASE_OFFSET);
-				World::create<ContainmentFieldEntity>(awk->get<Transform>()->parent.ref(), pos, rot, this);
-				break;
-			}
-			case Ability::Sniper:
-			{
-				vi_assert(false);
-				break;
-			}
-			case Ability::Teleporter:
-			{
-				Entity* teleporter = World::create<TeleporterEntity>(pos, rot, team.ref()->team());
-				teleport(awk, teleporter->get<Teleporter>());
-				break;
-			}
-			default:
-			{
-				vi_assert(false);
-				break;
-			}
-		}
-
-		ability_spawned.fire(ability);
-		return true;
-	}
-
 	PinArray<PlayerManager, MAX_PLAYERS> PlayerManager::list;
 
 	PlayerManager::PlayerManager(Team* team)
@@ -637,10 +560,10 @@ namespace VI
 		current_upgrade(Upgrade::None),
 		state_timer(),
 		upgrade_completed(),
-		ability_spawned(),
 		control_point_capture_completed(),
 		credits_summary(),
-		particle_accumulator()
+		particle_accumulator(),
+		respawns(RESPAWNS)
 	{
 	}
 
@@ -868,11 +791,20 @@ namespace VI
 	{
 		credits_flash_timer = vi_max(0.0f, credits_flash_timer - Game::real_time.delta);
 
-		if (!entity.ref() && spawn_timer > 0.0f && team.ref()->player_spawn.ref() && !Game::level.continue_match_after_death)
+		if (!entity.ref()
+			&& spawn_timer > 0.0f
+			&& team.ref()->player_spawn.ref()
+			&& respawns > 0
+			&& !Game::level.continue_match_after_death)
 		{
 			spawn_timer -= u.time.delta;
 			if (spawn_timer <= 0.0f)
+			{
+				respawns--;
+				if (respawns > 0)
+					spawn_timer = PLAYER_SPAWN_DELAY;
 				spawn.fire();
+			}
 		}
 
 		State s = state();

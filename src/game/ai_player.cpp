@@ -128,6 +128,10 @@ void AIPlayer::update(const Update& u)
 
 void AIPlayer::spawn()
 {
+	// HACK: clear links so we can respawn the entity and have room for more links
+	manager.ref()->control_point_capture_completed.entries.length = 0;
+	manager.ref()->upgrade_completed.entries.length = 0;
+
 	Entity* e = World::create<AwkEntity>(manager.ref()->team.ref()->team());
 
 	Vec3 pos;
@@ -589,7 +593,7 @@ b8 AIPlayerControl::aim_and_shoot_target(const Update& u, const Vec3& target, Ta
 			}
 			else
 			{
-				if (lined_up && get<Awk>()->can_shoot(look_dir) && get<Awk>()->detach(look_dir))
+				if (lined_up && get<Awk>()->can_shoot(look_dir) && get<Awk>()->go(look_dir))
 					return true;
 			}
 		}
@@ -758,7 +762,7 @@ b8 AIPlayerControl::go(const Update& u, const AI::AwkPathNode& node_prev, const 
 						// make sure we're actually going to land at the right spot
 						if ((hit - node.pos).length_squared() < tolerance * tolerance) // check the tolerance
 						{
-							if (get<Awk>()->detach(look_dir))
+							if (get<Awk>()->go(look_dir))
 								return true;
 						}
 					}
@@ -1498,7 +1502,7 @@ void AIPlayerControl::update(const Update& u)
 					get<Awk>()->crawl(look_dir, u);
 					if (get<Awk>()->can_shoot(look_dir))
 					{
-						if (get<Awk>()->detach(look_dir))
+						if (get<Awk>()->go(look_dir))
 							active_behavior->done(true);
 					}
 				}
@@ -1715,7 +1719,6 @@ void WaitForAttachment::run()
 }
 
 AbilitySpawn::AbilitySpawn()
-	: ability(Ability::None)
 {
 	path_priority = 0;
 }
@@ -1730,16 +1733,14 @@ b8 AbilitySpawn::try_spawn(s8 priority, Upgrade required_upgrade, Ability a, Abi
 		&& manager->credits > info.spawn_cost
 		&& filter(control))
 	{
-		Vec3 pos;
-		Vec3 normal;
-		if (!control->get<Awk>()->can_spawn(a, control->get<PlayerCommon>()->look_dir(), &pos, &normal))
-			return false;
-		if (manager->ability_spawn(a, pos, Quat::look(normal)))
+		control->get<Awk>()->current_ability = a;
+		if (control->get<Awk>()->go(control->get<PlayerCommon>()->look_dir()))
 		{
-			ability = a;
 			path_priority = priority;
 			return true;
 		}
+		else
+			control->get<Awk>()->current_ability = Ability::None;
 	}
 	return false;
 }

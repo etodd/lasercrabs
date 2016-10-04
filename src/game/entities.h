@@ -98,7 +98,7 @@ struct PlayerSpawn : public ComponentType<PlayerSpawn>
 };
 
 #define CONTROL_POINT_RADIUS 3.0f
-#define CONTROL_POINT_CAPTURE_TIME 20.0f
+#define CONTROL_POINT_CAPTURE_TIME 45.0f
 struct ControlPoint : public ComponentType<ControlPoint>
 {
 	static ControlPoint* closest(AI::TeamMask, const Vec3&, r32* = nullptr);

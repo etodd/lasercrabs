@@ -22,8 +22,8 @@ struct TargetEvent;
 struct PlayerManager;
 
 
-#define PLAYER_SPAWN_DELAY 5.0f
-#define GAME_TIME_LIMIT ((60.0f * 10.0f) + PLAYER_SPAWN_DELAY)
+#define PLAYER_SPAWN_DELAY 3.0f
+#define GAME_TIME_LIMIT ((60.0f * 5.0f) + PLAYER_SPAWN_DELAY)
 #define GAME_BUY_PERIOD (10.0f + PLAYER_SPAWN_DELAY)
 #define CREDITS_INITIAL 60
 #define CREDITS_MINION_KILL 10
@@ -176,13 +176,13 @@ struct PlayerManager
 	Revision revision;
 	Link spawn;
 	LinkArg<Upgrade> upgrade_completed;
-	LinkArg<Ability> ability_spawned;
 	LinkArg<b8> control_point_capture_completed;
 	Ref<Team> team;
 	Ref<Entity> entity;
 	u16 credits;
 	char username[255];
 	b8 score_accepted;
+	u8 respawns;
 
 	PlayerManager(Team*);
 
@@ -192,7 +192,6 @@ struct PlayerManager
 	b8 is_local() const;
 	s32 ability_count() const;
 	b8 ability_valid(Ability) const;
-	b8 ability_spawn(Ability, const Vec3&, const Quat&);
 	b8 upgrade_start(Upgrade);
 	void upgrade_complete();
 	b8 capture_start();

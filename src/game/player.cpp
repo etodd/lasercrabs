@@ -64,31 +64,6 @@ r32 hp_width(u8 hp, u8 shield, r32 scale = 1.0f)
 	return scale * ((shield + (hp - 1)) * (box_size.x + HP_BOX_SPACING) - HP_BOX_SPACING);
 }
 
-void draw_hp_box(const RenderParams& params, const Vec2& pos, u8 hp_max, u8 shield_max, r32 scale = 1.0f)
-{
-	const Vec2 box_size = HP_BOX_SIZE * scale;
-
-	r32 total_width = hp_width(hp_max, shield_max, scale);
-
-	UI::box(params, Rect2(pos + Vec2(total_width * -0.5f, 0), Vec2(total_width, box_size.y)).outset(HP_BOX_SPACING), UI::color_background);
-}
-
-void draw_hp_indicator(const RenderParams& params, Vec2 pos, u8 hp, u8 hp_max, u8 shield, u8 shield_max, const Vec4& hp_color, const Vec4& shield_color, r32 scale = 1.0f)
-{
-	const Vec2 box_size = HP_BOX_SIZE * scale;
-	r32 total_width = hp_width(hp_max, shield_max, scale);
-	pos.x += total_width * -0.5f + HP_BOX_SPACING * scale;
-	pos.y += box_size.y * 0.6f;
-
-	for (s32 i = 1; i < hp_max + shield_max; i++)
-	{
-		UI::triangle_border(params, { pos, box_size }, 3 * scale, hp_color, PI);
-		if (i < hp + shield)
-			UI::triangle(params, { pos, box_size }, (i < hp || i >= hp + shield_max) ? hp_color : shield_color, PI);
-		pos.x += box_size.x + HP_BOX_SPACING * scale;
-	}
-}
-
 void camera_setup(Entity* e, Camera* camera, r32 offset)
 {
 	Vec3 abs_wall_normal = (e->get<Transform>()->absolute_rot() * e->get<Awk>()->lerped_rotation) * Vec3(0, 0, 1);
@@ -693,7 +668,7 @@ void LocalPlayer::draw_alpha(const RenderParams& params) const
 			text.color = UI::color_default;
 
 			// "spawning..."
-			text.text(_(strings::deploy_timer), (s32)manager.ref()->spawn_timer + 1);
+			text.text(_(strings::deploy_timer), s32(manager.ref()->respawns), s32(manager.ref()->spawn_timer + 1));
 			UI::box(params, text.rect(p).outset(MENU_ITEM_PADDING), UI::color_background);
 			text.draw(params, p);
 			p.y -= text.bounds().y + MENU_ITEM_PADDING * 2.0f;
@@ -1143,7 +1118,6 @@ LocalPlayerControl::LocalPlayerControl(u8 gamepad)
 	try_primary(),
 	try_zoom(),
 	damage_timer(),
-	health_flash_timer(),
 	rumble(),
 	target_indicators(),
 	last_gamepad_input_time(),
@@ -1159,12 +1133,11 @@ LocalPlayerControl::~LocalPlayerControl()
 void LocalPlayerControl::awake()
 {
 	last_pos = get<Awk>()->center_lerped();
+	link<&LocalPlayerControl::awk_detached>(get<Awk>()->detached);
 	link<&LocalPlayerControl::awk_done_flying_or_dashing>(get<Awk>()->done_flying);
 	link<&LocalPlayerControl::awk_done_flying_or_dashing>(get<Awk>()->done_dashing);
 	link_arg<Entity*, &LocalPlayerControl::hit_target>(get<Awk>()->hit);
-	link_arg<const DamageEvent&, &LocalPlayerControl::damaged>(get<Health>()->damaged);
 	link_arg<const TargetEvent&, &LocalPlayerControl::hit_by>(get<Target>()->target_hit);
-	link<&LocalPlayerControl::health_picked_up>(get<Health>()->added);
 }
 
 void LocalPlayerControl::hit_target(Entity* target)
@@ -1187,11 +1160,6 @@ void LocalPlayerControl::hit_target(Entity* target)
 	}
 }
 
-void LocalPlayerControl::damaged(const DamageEvent& e)
-{
-	health_flash_timer = msg_time; // damaged in some way; flash the HP indicator
-}
-
 void LocalPlayerControl::hit_by(const TargetEvent& e)
 {
 	// we were physically hit by something; shake the camera
@@ -1202,10 +1170,9 @@ void LocalPlayerControl::hit_by(const TargetEvent& e)
 	}
 }
 
-void LocalPlayerControl::health_picked_up()
+void LocalPlayerControl::awk_detached()
 {
-	if (Game::time.total > PLAYER_SPAWN_DELAY + 0.5f) // if we're picking up initial health at the very beginning of the match, don't flash the message
-		health_flash_timer = msg_time;
+	damage_timer = 0.0f; // stop screen shake
 }
 
 b8 LocalPlayerControl::input_enabled() const
@@ -1544,8 +1511,6 @@ void LocalPlayerControl::update(const Update& u)
 	camera->rot = look_quat;
 	camera_setup(entity(), camera, AWK_THIRD_PERSON_OFFSET);
 
-	health_flash_timer = vi_max(0.0f, health_flash_timer - Game::real_time.delta);
-
 	// reticle
 	{
 		Vec3 trace_dir = look_quat * Vec3(0, 0, 1);
@@ -1700,31 +1665,20 @@ void LocalPlayerControl::update(const Update& u)
 					try_zoom = false;
 				}
 			}
-			else if (get<Awk>()->current_ability == Ability::None)
-			{
-				// regular detach
-				if (get<Awk>()->detach(dir))
-				{
-					get<Audio>()->post_event(AK::EVENTS::PLAY_FLY);
-					try_primary = false;
-					try_zoom = false;
-				}
-			}
-			else if (get<Awk>()->current_ability == Ability::Sniper)
-			{
-				if (get<Awk>()->detach(dir))
-				{
-					rumble = vi_max(rumble, 0.5f);
-					try_primary = false;
-				}
-			}
 			else
 			{
-				// spawn ability
-				if (player.ref()->manager.ref()->ability_spawn(get<Awk>()->current_ability, reticle.pos, Quat::look(reticle.normal)))
+				Ability ability = get<Awk>()->current_ability;
+				if (get<Awk>()->go(dir))
 				{
 					try_primary = false;
-					get<Awk>()->current_ability = Ability::None;
+					if (ability == Ability::Sniper)
+						rumble = vi_max(rumble, 0.5f);
+					else
+					{
+						try_zoom = false;
+						if (ability == Ability::None)
+							get<Audio>()->post_event(AK::EVENTS::PLAY_FLY);
+					}
 				}
 			}
 		}
@@ -2089,37 +2043,29 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 				text.draw(params, pos);
 		}
 
-		// health indicator
+		// shield indicator
+		if (is_vulnerable)
 		{
+			UIText text;
+			text.color = UI::color_alert;
+			text.anchor_x = UIText::Anchor::Center;
+			text.anchor_y = UIText::Anchor::Min;
+			text.text(_(strings::shield_down));
+
 			Vec2 pos = viewport.size * Vec2(0.5f, 0.1f);
 
-			draw_hp_box(params, pos, health->hp_max, health->shield_max);
-
-			b8 draw_hp;
-			const Vec4* hp_color;
-			const Vec4* shield_color;
-
+			Rect2 box = text.rect(pos).outset(8 * UI::scale);
+			UI::box(params, box, UI::color_background);
 			if (danger)
 			{
-				draw_hp = UI::flash_function(Game::real_time.total);
-				hp_color = &UI::color_alert;
-				shield_color = &UI::color_alert;
-			}
-			else if (health_flash_timer > 0.0f)
-			{
-				draw_hp = UI::flash_function(Game::real_time.total);
-				hp_color = &UI::color_default;
-				shield_color = &UI::color_default;
+				if (UI::flash_function(Game::real_time.total))
+					text.draw(params, pos);
 			}
 			else
 			{
-				draw_hp = true;
-				hp_color = health->hp == 1 ? &UI::color_alert : &UI::color_accent;
-				shield_color = &UI::color_default;
+				if (UI::flash_function_slow(Game::real_time.total))
+					text.draw(params, pos);
 			}
-
-			if (draw_hp)
-				draw_hp_indicator(params, pos, health->hp, health->hp_max, health->shield, health->shield_max, *hp_color, *shield_color);
 		}
 	}
 

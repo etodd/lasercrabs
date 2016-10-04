@@ -986,6 +986,7 @@ const char* AssetLookup::String::names[] =
 	"sensor",
 	"sensor_destroyed",
 	"sfx",
+	"shield_down",
 	"sniper",
 	"spectating",
 	"splitscreen",

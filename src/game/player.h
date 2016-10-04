@@ -124,7 +124,6 @@ struct LocalPlayerControl : public ComponentType<LocalPlayerControl>
 	Vec3 last_pos;
 	r32 fov;
 	r32 damage_timer;
-	r32 health_flash_timer;
 	r32 rumble;
 	r32 last_gamepad_input_time;
 	r32 gamepad_rotation_speed;
@@ -139,11 +138,10 @@ struct LocalPlayerControl : public ComponentType<LocalPlayerControl>
 
 	r32 look_speed() const;
 
+	void awk_detached();
 	void awk_done_flying_or_dashing();
 	void hit_target(Entity*);
-	void damaged(const DamageEvent&);
 	void hit_by(const TargetEvent&);
-	void health_picked_up();
 	b8 add_target_indicator(Target*, TargetIndicator::Type);
 
 	void update(const Update&);

@@ -128,10 +128,22 @@ namespace tutorial
 		link->link(&player_or_ai_killed);
 	}
 
+	void ability_spawned(Ability)
+	{
+		if (data->state == TutorialState::Ability)
+		{
+			data->state = TutorialState::KillPlayer;
+			Cora::text_clear();
+			Cora::text_schedule(1.0f, _(strings::tut_kill_player));
+		}
+	}
+
 	void player_spawned()
 	{
-		LocalPlayerControl::list.iterator().item()->get<Health>()->hp = 2;
-		LocalPlayerControl::list.iterator().item()->get<Health>()->killed.link(&player_or_ai_killed);
+		Entity* player = LocalPlayerControl::list.iterator().item()->entity();
+		player->get<Health>()->hp = 2;
+		player->get<Health>()->killed.link(&player_or_ai_killed);
+		player->get<Awk>()->ability_spawned.link(&ability_spawned);
 	}
 
 	void health_spotted(Entity* player)
@@ -141,16 +153,6 @@ namespace tutorial
 			data->state = TutorialState::Health;
 			Cora::text_clear();
 			Cora::text_schedule(0.25f, _(strings::tut_health));
-		}
-	}
-
-	void ability_spawned(Ability)
-	{
-		if (data->state == TutorialState::Ability)
-		{
-			data->state = TutorialState::KillPlayer;
-			Cora::text_clear();
-			Cora::text_schedule(1.0f, _(strings::tut_kill_player));
 		}
 	}
 
@@ -212,7 +214,6 @@ namespace tutorial
 
 		PlayerManager* player_manager = LocalPlayer::list.iterator().item()->manager.ref();
 		player_manager->spawn.link(&player_spawned);
-		player_manager->ability_spawned.link(&ability_spawned);
 		ai_manager->spawn.link(&ai_spawned);
 		data->test_dummy = ai_manager;
 

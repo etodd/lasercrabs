@@ -979,7 +979,7 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 
 	// count control point sets and pick one of them
 	s32 control_point_set = 0;
-	if (session.mode == Mode::Pvp)
+	if (session.mode == Mode::Pvp && session.type == Type::Rush)
 	{
 		s32 max_control_point_set = 0;
 		cJSON* element = json->child;
@@ -993,6 +993,8 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 		// pick a set of control points
 		if (max_control_point_set > 0)
 			control_point_set = mersenne::rand() % (max_control_point_set + 1);
+		else if (session.type == Type::Rush) // no control points
+			session.type = Type::Deathmatch;
 	}
 
 	cJSON* element = json->child;
@@ -1173,7 +1175,7 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 		}
 		else if (cJSON_GetObjectItem(element, "ControlPoint"))
 		{
-			if (!cJSON_GetObjectItem(element, "set") || Json::get_s32(element, "set") == control_point_set)
+			if (session.type == Type::Rush && (!cJSON_GetObjectItem(element, "set") || Json::get_s32(element, "set") == control_point_set))
 			{
 				absolute_pos.y += 1.5f;
 				entity = World::alloc<ControlPointEntity>(AI::Team(0));

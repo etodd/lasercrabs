@@ -269,7 +269,6 @@ namespace AIBehaviors
 	typedef b8(*AbilitySpawnFilter)(const AIPlayerControl*);
 	struct AbilitySpawn : Base<AbilitySpawn>
 	{
-		Ability ability;
 		AbilitySpawn();
 		b8 try_spawn(s8, Upgrade, Ability, AbilitySpawnFilter);
 		void run();

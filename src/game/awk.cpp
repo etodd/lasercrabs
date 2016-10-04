@@ -110,7 +110,7 @@ Awk::Awk()
 	detached(),
 	dashed(),
 	dash_timer(),
-	attach_time(),
+	attach_time(Game::time.total),
 	footing(),
 	last_speed(),
 	last_footstep(),
@@ -119,9 +119,10 @@ Awk::Awk()
 	hit_targets(),
 	cooldown(),
 	charges(AWK_CHARGES),
-	invincible_timer(),
+	invincible_timer(AWK_INVINCIBLE_TIME),
 	particle_accumulator(),
-	current_ability(Ability::None)
+	current_ability(Ability::None),
+	ability_spawned()
 {
 }
 
@@ -358,8 +359,8 @@ void Awk::damaged(const DamageEvent& e)
 		if (get<Health>()->hp > 0)
 		{
 			// damaged
-			if (e.damager->has<LocalPlayerControl>())
-				e.damager->get<LocalPlayerControl>()->player.ref()->msg(_(strings::target_damaged), true);
+			if (get<Health>()->shield == 0 && e.damager->has<LocalPlayerControl>())
+				e.damager->get<LocalPlayerControl>()->player.ref()->msg(_(strings::target_shield_down), true);
 		}
 		else
 		{
@@ -640,73 +641,151 @@ r32 Awk::range() const
 	return (current_ability == Ability::Sniper || current_ability == Ability::Teleporter) ? AWK_SNIPE_DISTANCE : AWK_MAX_DISTANCE;
 }
 
-b8 Awk::detach(const Vec3& dir)
+b8 Awk::go(const Vec3& dir)
 {
-	if (cooldown_can_shoot())
+	if (!cooldown_can_shoot())
+		return false;
+
+	Vec3 dir_normalized = Vec3::normalize(dir);
+
+	if (current_ability == Ability::None)
 	{
-		Vec3 dir_normalized = Vec3::normalize(dir);
-		if (current_ability == Ability::Sniper)
-		{
-			PlayerManager* manager = get<PlayerCommon>()->manager.ref();
-			if (!manager->ability_valid(Ability::Sniper))
-				return false;
+		velocity = dir_normalized * AWK_FLY_SPEED;
+		get<Transform>()->absolute_pos(get<Transform>()->absolute_pos() + dir_normalized * AWK_RADIUS * 0.5f);
+		get<Transform>()->absolute_rot(Quat::look(dir_normalized));
 
-			manager->add_credits(-AbilityInfo::list[(s32)Ability::Sniper].spawn_cost);
+		get<Audio>()->post_event(has<LocalPlayerControl>() ? AK::EVENTS::PLAY_LAUNCH_PLAYER : AK::EVENTS::PLAY_LAUNCH);
 
-			hit_targets.length = 0;
-
-			charges = 0;
-			cooldown = AWK_COOLDOWN * 0.5f;
-
-			Vec3 pos = get<Transform>()->absolute_pos();
-			Vec3 ray_start = pos + dir_normalized * -AWK_RADIUS;
-			Vec3 ray_end = pos + dir_normalized * range();
-			velocity = dir_normalized * AWK_FLY_SPEED;
-			movement_raycast(ray_start, ray_end);
-
-			const r32 interval = 2.0f;
-			s32 particle_count = range() / interval;
-			Vec3 interval_pos = dir_normalized * interval;
-			for (s32 i = 0; i < particle_count; i++)
-			{
-				pos += interval_pos;
-				Particles::tracers.add
-				(
-					pos,
-					Vec3::zero,
-					0
-				);
-			}
-
-			// everyone instantly knows where we are
-			AI::Team team = get<AIAgent>()->team;
-			for (s32 i = 0; i < Team::list.length; i++)
-			{
-				if (Team::list[i].team() != team)
-					Team::list[i].track(get<PlayerCommon>()->manager.ref());
-			}
-
-			// shield goes down
-			get<Health>()->take_shield();
-
-			// no longer sniping
-			current_ability = Ability::None;
-		}
-		else
-		{
-			velocity = dir_normalized * AWK_FLY_SPEED;
-			get<Transform>()->absolute_pos(get<Transform>()->absolute_pos() + dir_normalized * AWK_RADIUS * 0.5f);
-			get<Transform>()->absolute_rot(Quat::look(dir_normalized));
-
-			get<Audio>()->post_event(has<LocalPlayerControl>() ? AK::EVENTS::PLAY_LAUNCH_PLAYER : AK::EVENTS::PLAY_LAUNCH);
-
-			cooldown_setup();
-			detach_teleport();
-		}
-
-		return true;
+		cooldown_setup();
+		detach_teleport();
 	}
-	return false;
+	else
+	{
+		// ability spawn
+
+		PlayerManager* manager = get<PlayerCommon>()->manager.ref();
+
+		if (!manager->ability_valid(current_ability))
+			return false;
+
+		Vec3 pos;
+		Vec3 normal;
+		if (!can_spawn(current_ability, dir_normalized, &pos, &normal))
+			return false;
+
+		Quat rot = Quat::look(normal);
+
+		cooldown_setup();
+
+		const AbilityInfo& info = AbilityInfo::list[(s32)current_ability];
+		manager->add_credits(-info.spawn_cost);
+
+		switch (current_ability)
+		{
+			case Ability::Sensor:
+			{
+				// place a proximity sensor
+				Entity* sensor = World::create<SensorEntity>(manager, pos + rot * Vec3(0, 0, (rope_segment_length * 2.0f) - rope_radius + SENSOR_RADIUS), rot);
+
+				Audio::post_global_event(AK::EVENTS::PLAY_SENSOR_SPAWN, pos);
+
+				// attach it to the wall
+				Rope* rope = Rope::start(get<Transform>()->parent.ref()->get<RigidBody>(), pos, rot * Vec3(0, 0, 1), rot);
+				rope->end(pos + rot * Vec3(0, 0, rope_segment_length * 2.0f), rot * Vec3(0, 0, -1), sensor->get<RigidBody>());
+				break;
+			}
+			case Ability::Rocket:
+			{
+				// spawn a rocket pod
+				Transform* parent = get<Transform>()->parent.ref();
+				World::create<RocketEntity>(entity(), parent, pos, rot, get<AIAgent>()->team);
+
+				// rocket base
+				Entity* base = World::alloc<Prop>(Asset::Mesh::rocket_base);
+				base->get<Transform>()->absolute(pos, rot);
+				base->get<Transform>()->reparent(parent);
+				base->get<View>()->team = u8(get<AIAgent>()->team);
+				break;
+			}
+			case Ability::Minion:
+			{
+				// spawn a minion
+				Vec3 forward = rot * Vec3(0, 0, 1.0f);
+				Vec3 npos = pos + forward;
+				forward.y = 0.0f;
+				r32 angle;
+				if (forward.length_squared() > 0.0f)
+					angle = atan2f(forward.x, forward.z);
+				else
+					angle = get<PlayerCommon>()->angle_horizontal;
+				World::create<Minion>(npos, Quat::euler(0, angle, 0), get<AIAgent>()->team, manager);
+
+				Audio::post_global_event(AK::EVENTS::PLAY_MINION_SPAWN, npos);
+				break;
+			}
+			case Ability::ContainmentField:
+			{
+				// spawn a containment field
+				Vec3 npos = pos + rot * Vec3(0, 0, CONTAINMENT_FIELD_BASE_OFFSET);
+				World::create<ContainmentFieldEntity>(get<Transform>()->parent.ref(), pos, rot, manager);
+				break;
+			}
+			case Ability::Sniper:
+			{
+				hit_targets.length = 0;
+
+				charges = 0;
+				cooldown = AWK_COOLDOWN * 0.5f;
+
+				Vec3 pos = get<Transform>()->absolute_pos();
+				Vec3 ray_start = pos + dir_normalized * -AWK_RADIUS;
+				Vec3 ray_end = pos + dir_normalized * range();
+				velocity = dir_normalized * AWK_FLY_SPEED;
+				movement_raycast(ray_start, ray_end);
+
+				const r32 interval = 2.0f;
+				s32 particle_count = range() / interval;
+				Vec3 interval_pos = dir_normalized * interval;
+				for (s32 i = 0; i < particle_count; i++)
+				{
+					pos += interval_pos;
+					Particles::tracers.add
+					(
+						pos,
+						Vec3::zero,
+						0
+					);
+				}
+
+				// everyone instantly knows where we are
+				AI::Team team = get<AIAgent>()->team;
+				for (s32 i = 0; i < Team::list.length; i++)
+				{
+					if (Team::list[i].team() != team)
+						Team::list[i].track(get<PlayerCommon>()->manager.ref());
+				}
+
+				break;
+			}
+			case Ability::Teleporter:
+			{
+				Entity* teleporter = World::create<TeleporterEntity>(pos, rot, get<AIAgent>()->team);
+				teleport(entity(), teleporter->get<Teleporter>());
+				break;
+			}
+			default:
+			{
+				vi_assert(false);
+				break;
+			}
+		}
+
+		Ability a = current_ability;
+		current_ability = Ability::None;
+		ability_spawned.fire(a);
+	}
+
+	return true;
 }
 
 void Awk::reflect(const Vec3& hit, const Vec3& normal)

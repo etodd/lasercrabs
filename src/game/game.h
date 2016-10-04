@@ -84,6 +84,12 @@ struct Game
 		Draw,
 	};
 
+	enum class Type
+	{
+		Rush,
+		Deathmatch,
+	};
+
 	struct Session
 	{
 		AI::Team local_player_config[MAX_GAMEPADS];
@@ -91,6 +97,7 @@ struct Game
 		NetworkQuality network_quality;
 		NetworkState network_state;
 		MatchResult last_match;
+		Type type;
 		r32 network_time;
 		r32 network_timer;
 		r32 time_scale;

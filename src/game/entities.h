@@ -103,6 +103,7 @@ struct ControlPoint : public ComponentType<ControlPoint>
 {
 	static ControlPoint* closest(AI::TeamMask, const Vec3&, r32* = nullptr);
 	static s32 count(AI::TeamMask);
+	static s32 count_capturing();
 
 	r32 capture_timer;
 	AI::Team team;
@@ -126,7 +127,7 @@ struct SensorEntity : public Entity
 
 #define SENSOR_TIME 1.0f
 #define SENSOR_TIMEOUT 5.0f
-#define SENSOR_RADIUS 0.2f
+#define SENSOR_RADIUS 0.15f
 #define SENSOR_HEALTH 2
 struct Sensor : public ComponentType<Sensor>
 {

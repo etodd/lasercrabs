@@ -231,7 +231,7 @@ void ParticleSystem::draw(const RenderParams& params)
 	}
 }
 
-void ParticleSystem::add_raw(const Vec3& pos, const Vec4& velocity, const Vec4& param)
+void ParticleSystem::add_raw(const Vec3& pos, const Vec4& velocity, const Vec4& param, r32 time_offset)
 {
 #if !SERVER
 	s32 next = first_free + 1;
@@ -245,7 +245,7 @@ void ParticleSystem::add_raw(const Vec3& pos, const Vec4& velocity, const Vec4& 
 		positions[vertex_start + i] = pos;
 	for (s32 i = 0; i < vertices_per_particle; i++)
 		velocities[vertex_start + i] = velocity;
-	r32 time = Game::time.total;
+	r32 time = Game::time.total + time_offset;
 	for (s32 i = 0; i < vertices_per_particle; i++)
 		births[vertex_start + i] = time;
 	for (s32 i = 0; i < vertices_per_particle; i++)
@@ -269,7 +269,7 @@ StandardParticleSystem::StandardParticleSystem(s32 vertices_per_particle, s32 in
 {
 }
 
-void StandardParticleSystem::add(const Vec3& pos, const Vec3& velocity, r32 rotation)
+void StandardParticleSystem::add(const Vec3& pos, const Vec3& velocity, r32 rotation, r32 time_offset)
 {
 	r32 size_scale = mersenne::randf_oo();
 	Vec4 param
@@ -279,7 +279,7 @@ void StandardParticleSystem::add(const Vec3& pos, const Vec3& velocity, r32 rota
 		end_size.x + size_scale * (end_size.y - end_size.x), // end size
 		0.0f // unused
 	);
-	add_raw(pos, Vec4(velocity, 0), param);
+	add_raw(pos, Vec4(velocity, 0), param, time_offset);
 }
 
 void StandardParticleSystem::add(const Vec3& pos, const Vec3& velocity)

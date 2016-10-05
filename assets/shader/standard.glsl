@@ -47,7 +47,6 @@ void main()
 
 in vec3 normal_viewspace;
 
-// Values that stay constant for the whole mesh.
 uniform vec4 diffuse_color;
 
 layout (location = 0) out vec4 out_color;

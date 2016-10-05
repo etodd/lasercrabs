@@ -36,7 +36,7 @@ struct PlayerManager;
 #define MAX_ABILITIES 3
 
 #define UPGRADE_TIME 1.5f
-#define CAPTURE_TIME 1.0f
+#define CAPTURE_TIME 3.0f
 
 enum class Ability
 {

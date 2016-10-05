@@ -134,7 +134,7 @@ struct Awk : public ComponentType<Awk>
 	b8 can_dash(const Target*, Vec3* = nullptr) const;
 	b8 can_hit(const Target*, Vec3* = nullptr) const; // shoot or dash
 
-	void movement_raycast(const Vec3&, const Vec3&);
+	r32 movement_raycast(const Vec3&, const Vec3&);
 
 	void update(const Update&);
 };

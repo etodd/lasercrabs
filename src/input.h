@@ -321,6 +321,7 @@ enum class Controls
 	InteractSecondary,
 	TabLeft,
 	TabRight,
+	Scoreboard,
 	count,
 };
 

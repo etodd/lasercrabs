@@ -296,6 +296,7 @@ set(SRC
 	assets/shader/composite.glsl
 	assets/shader/flat.glsl
 	assets/shader/flat_texture.glsl
+	assets/shader/fresnel.glsl
 	assets/shader/water.glsl
 	assets/shader/point_light.glsl
 	assets/shader/global_light.glsl

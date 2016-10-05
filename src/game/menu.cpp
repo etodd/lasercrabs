@@ -72,6 +72,7 @@ void refresh_variables()
 	UIText::set_variable("InteractSecondary", gamepad.bindings[(s32)Controls::InteractSecondary].string(Game::is_gamepad));
 	UIText::set_variable("TabLeft", gamepad.bindings[(s32)Controls::TabLeft].string(Game::is_gamepad));
 	UIText::set_variable("TabRight", gamepad.bindings[(s32)Controls::TabRight].string(Game::is_gamepad));
+	UIText::set_variable("Scoreboard", gamepad.bindings[(s32)Controls::Scoreboard].string(Game::is_gamepad));
 }
 
 void init()

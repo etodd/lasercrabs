@@ -301,6 +301,7 @@ void LocalPlayer::update(const Update& u)
 					upgrade_menu_open = true;
 					menu.animate();
 					upgrade_animation_time = Game::real_time.total;
+					manager.ref()->entity.ref()->get<Awk>()->current_ability = Ability::None;
 				}
 			}
 			break;
@@ -491,6 +492,54 @@ void ability_draw(const RenderParams& params, const LocalPlayer* player, const V
 	draw_icon_text(params, pos, icon, string, *color);
 }
 
+void scoreboard_draw(const RenderParams& params, const PlayerManager* manager)
+{
+	const Rect2& vp = params.camera->viewport;
+	Vec2 p = vp.size * Vec2(0.5f);
+
+	UIText text;
+	text.size = text_size;
+	r32 wrap = text.wrap_width = MENU_ITEM_WIDTH - MENU_ITEM_PADDING * 2.0f;
+	text.anchor_x = UIText::Anchor::Center;
+	text.anchor_y = UIText::Anchor::Max;
+	text.color = UI::color_default;
+
+	// "spawning..."
+	if (!manager->entity.ref() && manager->respawns > 0)
+	{
+		text.text(_(strings::deploy_timer), s32(manager->spawn_timer + 1));
+		UI::box(params, text.rect(p).outset(MENU_ITEM_PADDING), UI::color_background);
+		text.draw(params, p);
+		p.y -= text.bounds().y + MENU_ITEM_PADDING * 2.0f;
+	}
+
+	// show remaining drones label
+	text.text(_(strings::drones_remaining));
+	text.color = UI::color_accent;
+	UI::box(params, text.rect(p).outset(MENU_ITEM_PADDING), UI::color_background);
+	text.draw(params, p);
+	p.y -= text.bounds().y + MENU_ITEM_PADDING * 2.0f;
+
+	// show player list
+	p.x += wrap * -0.5f;
+	for (auto i = PlayerManager::list.iterator(); !i.is_last(); i.next())
+	{
+		text.wrap_width = wrap;
+		text.anchor_x = UIText::Anchor::Min;
+		text.color = Team::ui_color(manager->team.ref()->team(), i.item()->team.ref()->team());
+		text.text_raw(i.item()->username);
+		UI::box(params, text.rect(p).outset(MENU_ITEM_PADDING), UI::color_background);
+		text.draw(params, p);
+
+		text.anchor_x = UIText::Anchor::Max;
+		text.wrap_width = 0;
+		text.text("%d", s32(i.item()->respawns));
+		text.draw(params, p + Vec2(wrap, 0));
+
+		p.y -= text.bounds().y + MENU_ITEM_PADDING * 2.0f;
+	}
+}
+
 void LocalPlayer::draw_alpha(const RenderParams& params) const
 {
 	if (params.camera != camera || Game::level.continue_match_after_death)
@@ -622,7 +671,12 @@ void LocalPlayer::draw_alpha(const RenderParams& params) const
 		}
 	}
 
-	if (mode == UIMode::Upgrading)
+	if (mode == UIMode::Default)
+	{
+		if (params.sync->input.get(Controls::Scoreboard, gamepad))
+			scoreboard_draw(params, manager.ref());
+	}
+	else if (mode == UIMode::Upgrading)
 	{
 		Vec2 upgrade_menu_pos = vp.size * Vec2(0.5f, 0.6f);
 		menu.draw_alpha(params, upgrade_menu_pos, UIText::Anchor::Center, UIText::Anchor::Center);
@@ -657,41 +711,7 @@ void LocalPlayer::draw_alpha(const RenderParams& params) const
 	{
 		// if we haven't spawned yet, then show the player list
 		if (manager.ref()->spawn_timer > 0.0f)
-		{
-			Vec2 p = vp.size * Vec2(0.5f);
-
-			UIText text;
-			text.size = text_size;
-			text.wrap_width = MENU_ITEM_WIDTH - MENU_ITEM_PADDING * 2.0f;
-			text.anchor_x = UIText::Anchor::Center;
-			text.anchor_y = UIText::Anchor::Max;
-			text.color = UI::color_default;
-
-			// "spawning..."
-			text.text(_(strings::deploy_timer), s32(manager.ref()->respawns), s32(manager.ref()->spawn_timer + 1));
-			UI::box(params, text.rect(p).outset(MENU_ITEM_PADDING), UI::color_background);
-			text.draw(params, p);
-			p.y -= text.bounds().y + MENU_ITEM_PADDING * 2.0f;
-
-			// show map name
-			text.text("%s", Loader::level_name(Game::session.level));
-			text.color = UI::color_accent;
-			UI::box(params, text.rect(p).outset(MENU_ITEM_PADDING), UI::color_background);
-			text.draw(params, p);
-			p.y -= text.bounds().y + MENU_ITEM_PADDING * 2.0f;
-
-			// show player list
-			text.anchor_x = UIText::Anchor::Min;
-			p.x -= (MENU_ITEM_WIDTH - MENU_ITEM_PADDING * 2.0f) * 0.5f;
-			for (auto i = PlayerManager::list.iterator(); !i.is_last(); i.next())
-			{
-				text.text_raw(i.item()->username);
-				text.color = Team::ui_color(manager.ref()->team.ref()->team(), i.item()->team.ref()->team());
-				UI::box(params, text.rect(p).outset(MENU_ITEM_PADDING), UI::color_background);
-				text.draw(params, p);
-				p.y -= text.bounds().y + MENU_ITEM_PADDING * 2.0f;
-			}
-		}
+			scoreboard_draw(params, manager.ref());
 		else
 		{
 			// we're dead but others still playing; spectate
@@ -1859,31 +1879,47 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 		// highlight control points
 		for (auto i = ControlPoint::list.iterator(); !i.is_last(); i.next())
 		{
-			Vec3 pos = i.item()->get<Transform>()->absolute_pos();
-			if ((pos - me).length_squared() < range * range)
+			if (i.item()->capture_timer > 0.0f || i.item()->team == team || i.item()->team == AI::TeamNone)
 			{
+				Vec3 pos = i.item()->get<Transform>()->absolute_pos();
 				UI::indicator(params, pos, Team::ui_color(team, i.item()->team), i.item()->capture_timer > 0.0f);
-				if (i.item()->capture_timer > 0.0f) // control point is being captured; show progress bar
+				if (i.item()->capture_timer > 0.0f)
 				{
-					Vec2 p;
-					UI::is_onscreen(params, pos, &p);
-					Vec2 bar_size(80.0f * UI::scale, 24.0f * UI::scale);
-					Rect2 bar = { p + Vec2(0, 40.0f * UI::scale) + (bar_size * -0.5f), bar_size };
-					UI::box(params, bar, UI::color_background);
-					const Vec4* color;
-					r32 percentage;
-					if (i.item()->capture_timer > CONTROL_POINT_CAPTURE_TIME * 0.5f)
+					// control point is being captured; show progress bar
+					Rect2 bar;
 					{
-						color = &Team::ui_color(team, i.item()->team);
-						percentage = (i.item()->capture_timer / (CONTROL_POINT_CAPTURE_TIME * 0.5f)) - 1.0f;
+						Vec2 p;
+						UI::is_onscreen(params, pos, &p);
+						Vec2 bar_size(80.0f * UI::scale, (UI_TEXT_SIZE_DEFAULT + 12.0f) * UI::scale);
+						bar = { p + Vec2(0, 40.0f * UI::scale) + (bar_size * -0.5f), bar_size };
+						UI::box(params, bar, UI::color_background);
+						const Vec4* color;
+						r32 percentage;
+						if (i.item()->capture_timer > CONTROL_POINT_CAPTURE_TIME * 0.5f)
+						{
+							color = &Team::ui_color(team, i.item()->team);
+							percentage = (i.item()->capture_timer / (CONTROL_POINT_CAPTURE_TIME * 0.5f)) - 1.0f;
+						}
+						else
+						{
+							color = &Team::ui_color(team, i.item()->team_next);
+							percentage = 1.0f - (i.item()->capture_timer / (CONTROL_POINT_CAPTURE_TIME * 0.5f));
+						}
+						UI::border(params, bar, 2, *color);
+						UI::box(params, { bar.pos, Vec2(bar.size.x * percentage, bar.size.y) }, *color);
 					}
-					else
+
 					{
-						color = &Team::ui_color(team, i.item()->team_next);
-						percentage = 1.0f - (i.item()->capture_timer / (CONTROL_POINT_CAPTURE_TIME * 0.5f));
+						UIText text;
+						text.anchor_x = UIText::Anchor::Center;
+						text.anchor_y = UIText::Anchor::Min;
+						text.color = i.item()->team_next == team ? UI::color_accent : UI::color_alert;
+						text.text(_(team == i.item()->team_next ? strings::hacking : strings::losing));
+
+						Vec2 p = bar.pos + Vec2(bar.size.x * 0.5f, bar.size.y + 10.0f * UI::scale);
+						UI::box(params, text.rect(p).outset(8.0f * UI::scale), UI::color_background);
+						text.draw(params, p);
 					}
-					UI::border(params, bar, 2, *color);
-					UI::box(params, { bar.pos, Vec2(bar.size.x * percentage, bar.size.y) }, *color);
 				}
 			}
 		}
@@ -1910,8 +1946,7 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 
 			b8 draw;
 			Vec2 p;
-			const Vec4* hp_color;
-			const Vec4* shield_color;
+			const Vec4* color;
 
 			Team::SensorTrackHistory history;
 			if (friendly)
@@ -1919,8 +1954,7 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 				Team::extract_history(other_player.item()->manager.ref(), &history);
 				Vec3 pos3d = history.pos + Vec3(0, AWK_RADIUS * 2.0f, 0);
 				draw = UI::project(params, pos3d, &p);
-				hp_color = &Team::ui_color_friend;
-				shield_color = &UI::color_default;
+				color = &Team::ui_color_friend;
 			}
 			else
 			{
@@ -1930,15 +1964,9 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 				if (tracking || visible)
 				{
 					if (team == other_player.item()->get<AIAgent>()->team) // friend
-					{
-						hp_color = &Team::ui_color_friend;
-						shield_color = &UI::color_default;
-					}
+						color = &Team::ui_color_friend;
 					else // enemy
-					{
-						hp_color = &Team::ui_color_enemy;
-						shield_color = &UI::color_default;
-					}
+						color = &Team::ui_color_enemy;
 
 					// if we can see or track them, the indicator has already been added using add_target_indicator in the update function
 
@@ -1961,38 +1989,10 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 				username.size = text_size;
 				username.anchor_x = UIText::Anchor::Center;
 				username.anchor_y = UIText::Anchor::Min;
-				username.color = *hp_color;
+				username.color = *color;
 				username.text(other_player.item()->manager.ref()->username);
 
 				UI::box(params, username.rect(username_pos).outset(HP_BOX_SPACING), UI::color_background);
-
-				// invincible indicator
-				b8 invincible = false;
-				if (!friendly && (tracking || visible))
-				{
-					r32 enemy_invincible_timer = other_player.item()->get<Awk>()->invincible_timer;
-					if (enemy_invincible_timer > 0.0f)
-					{
-						invincible = true;
-						UIText text;
-						text.size = text_size - 2.0f;
-						text.color = UI::color_background;
-						text.anchor_x = UIText::Anchor::Center;
-						text.anchor_y = UIText::Anchor::Center;
-						text.text(_(strings::invincible));
-
-						Vec2 bar_size = text.bounds() + Vec2(HP_BOX_SPACING);
-
-						const Vec4& color = visible ? UI::color_alert : UI::color_accent;
-
-						Rect2 bar = { username_pos + Vec2(bar_size.x * -0.5f, bar_size.y * -0.5f), bar_size };
-						UI::box(params, bar, UI::color_background);
-						UI::border(params, bar, 2, color);
-						UI::box(params, { bar.pos, Vec2(bar.size.x * (enemy_invincible_timer / AWK_INVINCIBLE_TIME), bar.size.y) }, color);
-
-						text.draw(params, bar.pos + bar.size * 0.5f);
-					}
-				}
 
 				username.draw(params, username_pos);
 			}
@@ -2195,7 +2195,9 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 
 			if (get<Awk>()->current_ability != Ability::None)
 			{
-				UI::mesh(params, AbilityInfo::list[(s32)get<Awk>()->current_ability].icon, pos + Vec2(0, -64.0f * UI::scale), Vec2(18.0f * UI::scale), *color);
+				Vec2 p = pos + Vec2(0, -48.0f * UI::scale);
+				UI::centered_box(params, { p, Vec2(34.0f * UI::scale) }, UI::color_background);
+				UI::mesh(params, AbilityInfo::list[(s32)get<Awk>()->current_ability].icon, p, Vec2(18.0f * UI::scale), *color);
 
 				// cancel prompt
 				UIText text;
@@ -2204,7 +2206,7 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 				text.anchor_x = UIText::Anchor::Center;
 				text.anchor_y = UIText::Anchor::Max;
 				text.size = text_size;
-				Vec2 p = pos + Vec2(0, -160.0f * UI::scale);
+				p = pos + Vec2(0, -96.0f * UI::scale);
 				UI::box(params, text.rect(p).outset(8.0f * UI::scale), UI::color_background);
 				text.draw(params, p);
 			}

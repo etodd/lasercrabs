@@ -201,6 +201,7 @@ void Loader::settings_load(s32 default_width, s32 default_height)
 		bindings->bindings[(s32)Controls::InteractSecondary] = input_binding(gamepad, "interact_secondary", { KeyCode::F, KeyCode::None, Gamepad::Btn::X });
 		bindings->bindings[(s32)Controls::TabLeft] = input_binding(gamepad, "tab_left", { KeyCode::Q, KeyCode::None, Gamepad::Btn::LeftShoulder });
 		bindings->bindings[(s32)Controls::TabRight] = input_binding(gamepad, "tab_right", { KeyCode::E, KeyCode::None, Gamepad::Btn::RightShoulder });
+		bindings->bindings[(s32)Controls::Scoreboard] = input_binding(gamepad, "scoreboard", { KeyCode::Tab, KeyCode::None, Gamepad::Btn::LeftShoulder });
 
 		// these bindings cannot be changed
 		bindings->bindings[(s32)Controls::Start] = { KeyCode::Space, KeyCode::None, Gamepad::Btn::Start };
@@ -249,6 +250,7 @@ void Loader::settings_save()
 		cJSON_AddItemToObject(gamepad, "interact_secondary", input_binding_json(bindings->bindings[(s32)Controls::InteractSecondary]));
 		cJSON_AddItemToObject(gamepad, "tab_left", input_binding_json(bindings->bindings[(s32)Controls::TabLeft]));
 		cJSON_AddItemToObject(gamepad, "tab_right", input_binding_json(bindings->bindings[(s32)Controls::TabRight]));
+		cJSON_AddItemToObject(gamepad, "scoreboard", input_binding_json(bindings->bindings[(s32)Controls::Scoreboard]));
 		cJSON_AddItemToObject(gamepad, "invert_y", cJSON_CreateNumber(bindings->invert_y));
 		cJSON_AddItemToObject(gamepad, "sensitivity", cJSON_CreateNumber(bindings->sensitivity));
 		cJSON_AddItemToArray(gamepads, gamepad);

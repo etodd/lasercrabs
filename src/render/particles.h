@@ -32,7 +32,7 @@ struct ParticleSystem
 	void upload_range(RenderSync*, s32, s32);
 	void draw(const RenderParams&);
 	virtual void pre_draw(const RenderParams&) {}
-	void add_raw(const Vec3&, const Vec4& = Vec4::zero, const Vec4& = Vec4::zero);
+	void add_raw(const Vec3&, const Vec4& = Vec4::zero, const Vec4& = Vec4::zero, r32 = 0.0f);
 	void clear();
 };
 
@@ -45,7 +45,7 @@ struct StandardParticleSystem : public ParticleSystem
 	AssetID texture;
 	StandardParticleSystem(s32, s32, const Vec2&, const Vec2&, r32, const Vec3&, const Vec4&, AssetID = AssetNull, AssetID = AssetNull);
 	void pre_draw(const RenderParams&);
-	void add(const Vec3&, const Vec3&, r32);
+	void add(const Vec3&, const Vec3&, r32, r32 = 0.0f);
 	void add(const Vec3&, const Vec3& = Vec3::zero);
 };
 

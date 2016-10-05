@@ -142,9 +142,9 @@ void Awk::awake()
 		s->team = (u8)get<AIAgent>()->team;
 		s->mesh = Asset::Mesh::sphere_highres;
 		s->offset.scale(Vec3(AWK_SHIELD_RADIUS));
-		s->shader = Asset::Shader::flat;
+		s->shader = Asset::Shader::fresnel;
 		s->alpha();
-		s->color.w = 0.2f;
+		s->color.w = 0.35f;
 	}
 }
 
@@ -641,6 +641,24 @@ r32 Awk::range() const
 	return (current_ability == Ability::Sniper || current_ability == Ability::Teleporter) ? AWK_SNIPE_DISTANCE : AWK_MAX_DISTANCE;
 }
 
+void particle_trail(const Vec3& start, const Vec3& dir, r32 distance, r32 interval = 2.0f)
+{
+	s32 particle_count = distance / interval;
+	Vec3 interval_pos = dir * interval;
+	Vec3 pos = start;
+	for (s32 i = 0; i < particle_count; i++)
+	{
+		pos += interval_pos;
+		Particles::tracers.add
+		(
+			pos,
+			Vec3::zero,
+			0,
+			vi_min(0.25f, i * 0.05f)
+		);
+	}
+}
+
 b8 Awk::go(const Vec3& dir)
 {
 	if (!cooldown_can_shoot())
@@ -679,6 +697,9 @@ b8 Awk::go(const Vec3& dir)
 
 		const AbilityInfo& info = AbilityInfo::list[(s32)current_ability];
 		manager->add_credits(-info.spawn_cost);
+
+		Vec3 me = get<Transform>()->absolute_pos();
+		particle_trail(me, dir_normalized, (pos - me).length());
 
 		switch (current_ability)
 		{
@@ -741,21 +762,9 @@ b8 Awk::go(const Vec3& dir)
 				Vec3 ray_start = pos + dir_normalized * -AWK_RADIUS;
 				Vec3 ray_end = pos + dir_normalized * range();
 				velocity = dir_normalized * AWK_FLY_SPEED;
-				movement_raycast(ray_start, ray_end);
+				r32 distance = movement_raycast(ray_start, ray_end);
 
-				const r32 interval = 2.0f;
-				s32 particle_count = range() / interval;
-				Vec3 interval_pos = dir_normalized * interval;
-				for (s32 i = 0; i < particle_count; i++)
-				{
-					pos += interval_pos;
-					Particles::tracers.add
-					(
-						pos,
-						Vec3::zero,
-						0
-					);
-				}
+				particle_trail(ray_start, dir_normalized, distance);
 
 				// everyone instantly knows where we are
 				AI::Team team = get<AIAgent>()->team;
@@ -1401,7 +1410,7 @@ void Awk::update(const Update& u)
 	}
 }
 
-void Awk::movement_raycast(const Vec3& ray_start, const Vec3& ray_end)
+r32 Awk::movement_raycast(const Vec3& ray_start, const Vec3& ray_end)
 {
 	btCollisionWorld::AllHitsRayResultCallback ray_callback(ray_start, ray_end);
 	ray_callback.m_flags = btTriangleRaycastCallback::EFlags::kF_FilterBackfaces
@@ -1518,6 +1527,8 @@ void Awk::movement_raycast(const Vec3& ray_start, const Vec3& ray_end)
 			}
 		}
 	}
+
+	return fraction_end * (ray_end - ray_start).length();
 }
 
 }

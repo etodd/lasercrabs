@@ -460,6 +460,17 @@ s32 ControlPoint::count(AI::TeamMask mask)
 	return count;
 }
 
+s32 ControlPoint::count_capturing()
+{
+	s32 count = 0;
+	for (auto i = list.iterator(); !i.is_last(); i.next())
+	{
+		if (i.item()->capture_timer > 0.0f)
+			count++;
+	}
+	return count;
+}
+
 ControlPoint* ControlPoint::closest(AI::TeamMask mask, const Vec3& pos, r32* distance)
 {
 	ControlPoint* closest = nullptr;
@@ -901,9 +912,9 @@ ContainmentField::ContainmentField(const Vec3& abs_pos, PlayerManager* m)
 	View* view = f->add<View>();
 	view->team = (u8)team;
 	view->mesh = Asset::Mesh::containment_field_sphere;
-	view->shader = Asset::Shader::flat;
+	view->shader = Asset::Shader::fresnel;
 	view->alpha();
-	view->color.w = 0.2f;
+	view->color.w = 0.35f;
 
 	CollisionGroup team_mask = (CollisionGroup)(1 << (8 + team));
 

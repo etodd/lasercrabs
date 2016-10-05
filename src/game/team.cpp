@@ -219,7 +219,7 @@ namespace VI
 		if (!game_over)
 		{
 			if (!Game::level.continue_match_after_death
-			&& (Game::time.total > GAME_TIME_LIMIT
+			&& ((Game::time.total > GAME_TIME_LIMIT && (Game::session.type != Game::Type::Rush || ControlPoint::count_capturing() == 0))
 				|| (PlayerManager::list.count() > 1 && teams_with_players() <= 1)
 				|| (Game::session.type == Game::Type::Rush && Team::list[1].control_point_count() > 0)))
 			{
@@ -610,6 +610,7 @@ namespace VI
 		if (can_transition_state() && control_point && !friendly_control_point(control_point))
 		{
 			vi_assert(current_upgrade == Upgrade::None);
+			entity.ref()->get<Awk>()->current_ability = Ability::None;
 			state_timer = CAPTURE_TIME;
 			return true;
 		}

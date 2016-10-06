@@ -436,7 +436,7 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 
 template<typename Stream> b8 serialize_init_packet(Stream* p)
 {
-	serialize_u16(p, Game::session.level);
+	serialize_u16(p, Game::level.id);
 	serialize_enum(p, Game::FeatureLevel, Game::level.feature_level);
 	serialize_r32(p, Game::level.skybox.far_plane);
 	serialize_asset(p, Game::level.skybox.texture, Loader::static_texture_count);

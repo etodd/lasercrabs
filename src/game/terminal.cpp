@@ -2517,7 +2517,7 @@ void splitscreen_select_zone_update(const Update& u)
 r32 particle_accumulator = 0.0f;
 void update(const Update& u)
 {
-	if (data.zone_last == Asset::Level::terminal && Game::session.level != Asset::Level::terminal)
+	if (data.zone_last == Asset::Level::terminal && Game::level.id != Asset::Level::terminal)
 	{
 		// cleanup
 		data.~Data();
@@ -2525,7 +2525,7 @@ void update(const Update& u)
 		data.zone_last = Asset::Level::terminal;
 	}
 
-	if (Game::session.level == Asset::Level::terminal && !Console::visible)
+	if (Game::level.id == Asset::Level::terminal && !Console::visible)
 	{
 		DialogCallback dialog_callback_old = data.story.dialog_callback;
 
@@ -2627,12 +2627,12 @@ void update(const Update& u)
 			Menu::show();
 		}
 	}
-	data.zone_last = Game::session.level;
+	data.zone_last = Game::level.id;
 }
 
 void draw_override(const RenderParams& params)
 {
-	if (params.technique != RenderTechnique::Default || Game::session.level != Asset::Level::terminal)
+	if (params.technique != RenderTechnique::Default || Game::level.id != Asset::Level::terminal)
 		return;
 
 	if (should_draw_zones())
@@ -2641,7 +2641,7 @@ void draw_override(const RenderParams& params)
 
 void draw(const RenderParams& params)
 {
-	if (params.technique != RenderTechnique::Default || Game::session.level != Asset::Level::terminal)
+	if (params.technique != RenderTechnique::Default || Game::level.id != Asset::Level::terminal)
 		return;
 
 	switch (data.state)
@@ -2743,7 +2743,7 @@ void execute(const char* cmd)
 
 void init(const Update& u, const EntityFinder& entities)
 {
-	if (Game::session.level != Asset::Level::terminal)
+	if (Game::level.id != Asset::Level::terminal)
 		return;
 	if (data.zone_last == Asset::Level::title)
 		data.zone_last = Asset::Level::terminal;

@@ -316,10 +316,20 @@ Entity* closest_target(MinionAI* me, AI::Team team, const Vec3& direction)
 
 Entity* visible_target(MinionAI* me, AI::Team team)
 {
+	for (auto i = Decoy::list.iterator(); !i.is_last(); i.next())
+	{
+		Decoy* awk = i.item();
+		if (awk->get<AIAgent>()->team != team)
+		{
+			if (me->can_see(awk->entity(), true))
+				return awk->entity();
+		}
+	}
+
 	for (auto i = Awk::list.iterator(); !i.is_last(); i.next())
 	{
 		Awk* awk = i.item();
-		if (awk->get<AIAgent>()->team != team)
+		if (awk->get<AIAgent>()->team != team && !awk->get<PlayerCommon>()->manager.ref()->decoy())
 		{
 			if (me->can_see(awk->entity(), true))
 				return awk->entity();
@@ -410,6 +420,10 @@ b8 MinionAI::can_see(Entity* target, b8 limit_vision_cone) const
 				limit_vision_cone = false;
 		}
 	}
+
+	// if we're targeting a decoy, always go for the decoy
+	if (target->has<Decoy>())
+		limit_vision_cone = false;
 
 	if (distance_squared < SENSOR_RANGE * SENSOR_RANGE)
 	{
@@ -628,7 +642,7 @@ void MinionAI::update(const Update& u)
 						}
 						else
 						{
-							if (goal.entity.ref()->has<Awk>()) // if we can't see the Awk anymore, let them go
+							if (goal.entity.ref()->has<Awk>() || goal.entity.ref()->has<Decoy>()) // if we can't see the Awk anymore, let them go
 								new_goal();
 							else
 							{

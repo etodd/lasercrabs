@@ -45,14 +45,15 @@ COMPONENT_TYPE(24, Projectile) \
 COMPONENT_TYPE(25, EnergyPickup) \
 COMPONENT_TYPE(26, Sensor) \
 COMPONENT_TYPE(27, Rocket) \
-COMPONENT_TYPE(28, ContainmentField) \
-COMPONENT_TYPE(29, Teleporter) \
-COMPONENT_TYPE(30, AICue) \
-COMPONENT_TYPE(31, Water) \
-COMPONENT_TYPE(32, DirectionalLight) \
-COMPONENT_TYPE(33, SkyDecal) \
+COMPONENT_TYPE(28, Decoy) \
+COMPONENT_TYPE(29, ContainmentField) \
+COMPONENT_TYPE(30, Teleporter) \
+COMPONENT_TYPE(31, AICue) \
+COMPONENT_TYPE(32, Water) \
+COMPONENT_TYPE(33, DirectionalLight) \
+COMPONENT_TYPE(34, SkyDecal) \
 
-Family World::families = 34;
+Family World::families = 35;
 
 #define COMPONENT_TYPE(INDEX, TYPE) \
 template<> Family ComponentType<TYPE>::family = (INDEX); \

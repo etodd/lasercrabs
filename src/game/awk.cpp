@@ -27,7 +27,7 @@ namespace VI
 #define LERP_TRANSLATION_SPEED 3.0f
 #define MAX_FLIGHT_TIME 6.0f
 #define AWK_LEG_LENGTH (0.277f - 0.101f)
-#define AWK_LEG_BLEND_SPEED (1.0f / 0.05f)
+#define AWK_LEG_BLEND_SPEED (1.0f / 0.03f)
 #define AWK_MIN_LEG_BLEND_SPEED (AWK_LEG_BLEND_SPEED * 0.1f)
 
 AwkRaycastCallback::AwkRaycastCallback(const Vec3& a, const Vec3& b, const Entity* awk)
@@ -239,31 +239,19 @@ void Awk::hit_by(const TargetEvent& e)
 	get<Audio>()->post_event(has<LocalPlayerControl>() ? AK::EVENTS::PLAY_HURT_PLAYER : AK::EVENTS::PLAY_HURT);
 
 	b8 damaged = false;
-	b8 shield_taken_down = false;
 
 	// only take damage if we're attached to a wall and not invincible
-	if (state() == Awk::State::Crawl)
+	if (state() == Awk::State::Crawl
+		&& invincible_timer == 0.0f
+		&& (!e.hit_by->has<Awk>() || e.hit_by->get<AIAgent>()->team != get<AIAgent>()->team))
 	{
-		if (invincible_timer == 0.0f)
-		{
-			// we can take damage
-			if (!e.hit_by->has<Awk>() || e.hit_by->get<AIAgent>()->team != get<AIAgent>()->team)
-			{
-				get<Health>()->damage(e.hit_by, 1);
-				damaged = true;
-			}
-		}
-		else
-		{
-			// we're invincible
-			shield_taken_down = true;
-			invincible_timer = 0.0f; // shield is now down
-		}
+		get<Health>()->damage(e.hit_by, 1);
+		damaged = true;
 	}
 
 	// let them know they didn't hurt us
 	if (!damaged && e.hit_by->has<LocalPlayerControl>())
-		e.hit_by->get<LocalPlayerControl>()->player.ref()->msg(_(shield_taken_down ? strings::target_shield_down : strings::no_effect), shield_taken_down);
+		e.hit_by->get<LocalPlayerControl>()->player.ref()->msg(_(strings::no_effect), false);
 }
 
 void Awk::hit_target(Entity* target, const Vec3& hit_pos)
@@ -317,12 +305,8 @@ void Awk::hit_target(Entity* target, const Vec3& hit_pos)
 			get<PlayerCommon>()->manager.ref()->add_credits(CREDITS_CONTAINMENT_FIELD_DESTROY);
 	}
 
-	if (current_ability != Ability::Sniper && invincible_timer > 0.0f && target->has<Awk>())
-	{
+	if (current_ability == Ability::None && invincible_timer > 0.0f && target->has<Awk>())
 		invincible_timer = 0.0f; // damaging an Awk takes our shield down
-		if (target->has<LocalPlayerControl>()) // let them know they our shield is down
-			target->get<LocalPlayerControl>()->player.ref()->msg(_(strings::target_shield_down), true);
-	}
 
 	if (target->has<Target>())
 	{
@@ -354,25 +338,40 @@ b8 Awk::predict_intersection(const Target* target, Vec3* intersection, r32 speed
 
 void Awk::damaged(const DamageEvent& e)
 {
-	if (e.damager)
+	if (get<Health>()->hp == 0)
 	{
-		if (get<Health>()->hp > 0)
+		// killed; notify everyone
+		if (e.damager)
 		{
-			// damaged
-			if (get<Health>()->shield == 0 && e.damager->has<LocalPlayerControl>())
-				e.damager->get<LocalPlayerControl>()->player.ref()->msg(_(strings::target_shield_down), true);
-		}
-		else
-		{
-			// killed; notify everyone
-			AI::Team team = get<AIAgent>()->team;
-			for (auto i = LocalPlayer::list.iterator(); !i.is_last(); i.next())
+			PlayerCommon* enemy = nullptr;
+			if (e.damager->has<PlayerCommon>())
+				enemy = e.damager->get<PlayerCommon>();
+			else if (e.damager->has<Projectile>())
 			{
-				if (i.item()->manager.ref()->entity.ref() != entity()) // don't need to notify ourselves
-				{
-					b8 friendly = i.item()->manager.ref()->team.ref()->team() == team;
-					i.item()->msg(_(friendly ? strings::teammate_eliminated : strings::enemy_eliminated), !friendly);
-				}
+				Entity* owner = e.damager->get<Projectile>()->owner.ref();
+				if (owner)
+					enemy = owner->get<PlayerCommon>();
+			}
+			else if (e.damager->has<Rocket>())
+			{
+				Entity* owner = e.damager->get<Rocket>()->owner.ref();
+				if (owner)
+					enemy = owner->get<PlayerCommon>();
+			}
+			if (enemy)
+				enemy->manager.ref()->add_kills(1);
+		}
+
+		AI::Team team = get<AIAgent>()->team;
+		PlayerManager* manager = get<PlayerCommon>()->manager.ref();
+		for (auto i = LocalPlayer::list.iterator(); !i.is_last(); i.next())
+		{
+			if (i.item()->manager.ref() != manager) // don't need to notify ourselves
+			{
+				b8 friendly = i.item()->manager.ref()->team.ref()->team() == team;
+				char buffer[512];
+				sprintf(buffer, _(strings::player_killed), manager->username);
+				i.item()->msg(buffer, !friendly);
 			}
 		}
 	}
@@ -525,7 +524,7 @@ b8 Awk::can_shoot(const Vec3& dir, Vec3* final_pos, b8* hit_target) const
 	return false;
 }
 
-b8 Awk::can_spawn(Ability a, const Vec3& dir, Vec3* final_pos, Vec3* final_normal, b8* hit_target) const
+b8 Awk::can_spawn(Ability a, const Vec3& dir, Vec3* final_pos, Vec3* final_normal, RigidBody** hit_parent, b8* hit_target) const
 {
 	Vec3 trace_dir = Vec3::normalize(dir);
 
@@ -551,6 +550,8 @@ b8 Awk::can_spawn(Ability a, const Vec3& dir, Vec3* final_pos, Vec3* final_norma
 				*final_pos = ray_callback.m_hitPointWorld;
 			if (hit_target)
 				*hit_target = ray_callback.hit_target();
+			if (hit_parent)
+				*hit_parent = Entity::list[ray_callback.m_collisionObject->getUserIndex()].get<RigidBody>();
 		}
 		else
 		{
@@ -558,6 +559,8 @@ b8 Awk::can_spawn(Ability a, const Vec3& dir, Vec3* final_pos, Vec3* final_norma
 				*final_pos = trace_end;
 			if (hit_target)
 				*hit_target = false;
+			if (hit_parent)
+				*hit_parent = nullptr;
 		}
 		return true; // we can always snipe, even if the bullet goes into space
 	}
@@ -571,6 +574,8 @@ b8 Awk::can_spawn(Ability a, const Vec3& dir, Vec3* final_pos, Vec3* final_norma
 				*final_pos = ray_callback.m_hitPointWorld;
 			if (final_normal)
 				*final_normal = ray_callback.m_hitNormalWorld;
+			if (hit_parent)
+				*hit_parent = Entity::list[ray_callback.m_collisionObject->getUserIndex()].get<RigidBody>();
 		}
 		return can_spawn;
 	}
@@ -688,7 +693,8 @@ b8 Awk::go(const Vec3& dir)
 
 		Vec3 pos;
 		Vec3 normal;
-		if (!can_spawn(current_ability, dir_normalized, &pos, &normal))
+		RigidBody* parent;
+		if (!can_spawn(current_ability, dir_normalized, &pos, &normal, &parent))
 			return false;
 
 		Quat rot = Quat::look(normal);
@@ -701,6 +707,8 @@ b8 Awk::go(const Vec3& dir)
 		Vec3 me = get<Transform>()->absolute_pos();
 		particle_trail(me, dir_normalized, (pos - me).length());
 
+		World::create<ShockwaveEntity>(8.0f, 1.5f)->get<Transform>()->absolute_pos(pos + rot * Vec3(0, 0, AWK_RADIUS));
+
 		switch (current_ability)
 		{
 			case Ability::Sensor:
@@ -711,20 +719,21 @@ b8 Awk::go(const Vec3& dir)
 				Audio::post_global_event(AK::EVENTS::PLAY_SENSOR_SPAWN, pos);
 
 				// attach it to the wall
-				Rope* rope = Rope::start(get<Transform>()->parent.ref()->get<RigidBody>(), pos, rot * Vec3(0, 0, 1), rot);
+				Rope* rope = Rope::start(parent, pos, rot * Vec3(0, 0, 1), rot);
 				rope->end(pos + rot * Vec3(0, 0, rope_segment_length * 2.0f), rot * Vec3(0, 0, -1), sensor->get<RigidBody>());
 				break;
 			}
 			case Ability::Rocket:
 			{
 				// spawn a rocket pod
-				Transform* parent = get<Transform>()->parent.ref();
-				World::create<RocketEntity>(entity(), parent, pos, rot, get<AIAgent>()->team);
+				World::create<RocketEntity>(entity(), parent->get<Transform>(), pos, rot, get<AIAgent>()->team);
+
+				Audio::post_global_event(AK::EVENTS::PLAY_SENSOR_SPAWN, pos);
 
 				// rocket base
 				Entity* base = World::alloc<Prop>(Asset::Mesh::rocket_base);
 				base->get<Transform>()->absolute(pos, rot);
-				base->get<Transform>()->reparent(parent);
+				base->get<Transform>()->reparent(parent->get<Transform>());
 				base->get<View>()->team = u8(get<AIAgent>()->team);
 				break;
 			}
@@ -748,15 +757,15 @@ b8 Awk::go(const Vec3& dir)
 			{
 				// spawn a containment field
 				Vec3 npos = pos + rot * Vec3(0, 0, CONTAINMENT_FIELD_BASE_OFFSET);
-				World::create<ContainmentFieldEntity>(get<Transform>()->parent.ref(), pos, rot, manager);
+
+				Audio::post_global_event(AK::EVENTS::PLAY_SENSOR_SPAWN, pos);
+
+				World::create<ContainmentFieldEntity>(parent->get<Transform>(), pos, rot, manager);
 				break;
 			}
 			case Ability::Sniper:
 			{
 				hit_targets.length = 0;
-
-				charges = 0;
-				cooldown = AWK_COOLDOWN * 0.5f;
 
 				Vec3 pos = get<Transform>()->absolute_pos();
 				Vec3 ray_start = pos + dir_normalized * -AWK_RADIUS;
@@ -778,8 +787,16 @@ b8 Awk::go(const Vec3& dir)
 			}
 			case Ability::Teleporter:
 			{
-				Entity* teleporter = World::create<TeleporterEntity>(pos, rot, get<AIAgent>()->team);
+				Entity* teleporter = World::create<TeleporterEntity>(parent->get<Transform>(), pos, rot, get<AIAgent>()->team);
 				teleport(entity(), teleporter->get<Teleporter>());
+				break;
+			}
+			case Ability::Decoy:
+			{
+				Entity* existing_decoy = manager->decoy();
+				if (existing_decoy)
+					existing_decoy->get<Decoy>()->destroy();
+				World::create<DecoyEntity>(manager, parent->get<Transform>(), pos, rot);
 				break;
 			}
 			default:

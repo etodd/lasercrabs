@@ -47,7 +47,7 @@ namespace scene
 
 	void init(const Update& u, const EntityFinder& entities)
 	{
-		if (Game::session.mode == Game::Mode::Special)
+		if (Game::level.mode == Game::Mode::Special)
 		{
 			data = new Data();
 

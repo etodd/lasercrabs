@@ -93,15 +93,12 @@ struct Game
 	struct Session
 	{
 		AI::Team local_player_config[MAX_GAMEPADS];
-		Mode mode;
 		NetworkQuality network_quality;
 		NetworkState network_state;
 		MatchResult last_match;
-		Type type;
 		r32 network_time;
 		r32 network_timer;
 		r32 time_scale;
-		AssetID level;
 		b8 multiplayer;
 		b8 local;
 
@@ -156,10 +153,16 @@ struct Game
 	struct Level
 	{
 		FeatureLevel feature_level;
+		r32 time_limit;
 		r32 min_y;
+		Type type;
+		Mode mode;
 		Skybox::Config skybox;
+		AssetID id = AssetNull;
 		b8 lock_teams;
 		b8 continue_match_after_death;
+		u16 respawns;
+		u16 kill_limit;
 
 		b8 has_feature(FeatureLevel) const;
 	};

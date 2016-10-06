@@ -71,11 +71,9 @@ Game::Session Game::session;
 b8 Game::cancel_event_eaten[] = {};
 
 Game::Session::Session()
-	: mode(Game::Mode::Special),
-	local_player_config{ 0, AI::TeamNone, AI::TeamNone, AI::TeamNone },
+	: local_player_config{ 0, AI::TeamNone, AI::TeamNone, AI::TeamNone },
 	multiplayer(),
 	time_scale(1.0f),
-	level(AssetNull),
 	network_timer(),
 	network_time(),
 	network_state(),
@@ -140,12 +138,7 @@ s32 Game::Session::team_count() const
 
 void Game::Session::reset()
 {
-	AssetID l = level;
-	if (l != AssetNull) // if the level is null, we haven't initialized the session yet; no need to reset
-	{
-		*this = Session();
-		level = l;
-	}
+	*this = Session();
 }
 
 Game::Save::Save()
@@ -264,7 +257,7 @@ void Game::update(const Update& update_in)
 	u.time = time;
 
 	// lag simulation
-	if (session.mode == Mode::Pvp && session.local && !session.multiplayer && session.network_quality != NetworkQuality::Perfect)
+	if (level.mode == Mode::Pvp && session.local && !session.multiplayer && session.network_quality != NetworkQuality::Perfect)
 	{
 		session.network_timer -= real_time.delta;
 		if (session.network_timer < 0.0f)
@@ -488,7 +481,7 @@ void Game::draw_additive(const RenderParams& render_params)
 void Game::draw_opaque(const RenderParams& render_params)
 {
 	// disable backface culling in PvP mode
-	if (session.mode == Mode::Pvp && render_params.technique == RenderTechnique::Default)
+	if (level.mode == Mode::Pvp && render_params.technique == RenderTechnique::Default)
 	{
 		render_params.sync->write(RenderOp::CullMode);
 		render_params.sync->write(RenderCullMode::None);
@@ -499,7 +492,7 @@ void Game::draw_opaque(const RenderParams& render_params)
 	for (auto i = Water::list.iterator(); !i.is_last(); i.next())
 		i.item()->draw_opaque(render_params);
 
-	if (session.mode == Mode::Pvp && render_params.technique == RenderTechnique::Default)
+	if (level.mode == Mode::Pvp && render_params.technique == RenderTechnique::Default)
 	{
 		render_params.sync->write(RenderOp::CullMode);
 		render_params.sync->write(RenderCullMode::Back);
@@ -521,7 +514,7 @@ void Game::draw_alpha(const RenderParams& render_params)
 	for (auto i = Water::list.iterator(); !i.is_last(); i.next())
 		i.item()->draw_alpha(render_params);
 
-	if (session.mode == Mode::Special)
+	if (level.mode == Mode::Special)
 		Skybox::draw_alpha(render_params, level.skybox);
 	SkyDecal::draw_alpha(render_params, level.skybox);
 	SkyPattern::draw_alpha(render_params);
@@ -773,7 +766,7 @@ void Game::execute(const Update& u, const char* cmd)
 			s32 value = (s32)std::strtol(number_string, &end, 10);
 			if (*end == '\0')
 			{
-				if (session.level == Asset::Level::terminal)
+				if (level.id == Asset::Level::terminal)
 					Game::save.resources[(s32)Game::Resource::Energy] += value;
 				else if (PlayerManager::list.count() > 0)
 				{
@@ -835,7 +828,7 @@ void Game::execute(const Update& u, const char* cmd)
 			}
 		}
 	}
-	else if (Game::session.level == Asset::Level::terminal)
+	else if (level.id == Asset::Level::terminal)
 		Terminal::execute(cmd);
 }
 
@@ -882,7 +875,7 @@ void Game::unload_level()
 	level.skybox.player_light = Vec3::zero;
 
 	Audio::post_global_event(AK::EVENTS::STOP_ALL);
-	session.level = AssetNull;
+	level.id = AssetNull;
 	Menu::clear();
 
 	for (s32 i = 0; i < Camera::max_cameras; i++)
@@ -928,12 +921,12 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 
 	Menu::clear();
 
-	session.mode = m;
+	level.mode = m;
 
 	session.network_state = NetworkState::Normal;
 	session.network_timer = session.network_time = 0.0f;
 
-	if (session.mode == Mode::Pvp && session.local && !session.multiplayer)
+	if (level.mode == Mode::Pvp && session.local && !session.multiplayer)
 	{
 		// choose network quality
 		r32 random = mersenne::randf_cc();
@@ -953,8 +946,6 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 
 	Audio::post_global_event(AK::EVENTS::PLAY_START_SESSION);
 
-	session.level = l;
-
 	Physics::btWorld->setGravity(btVector3(0, -12.0f, 0));
 
 	Array<Transform*> transforms;
@@ -967,19 +958,22 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 	Array<LevelLink<Transform>> transform_links;
 
 	EntityFinder finder;
-	
-	cJSON* json = Loader::level(session.level);
 
 	// material override colors
 	const Vec3 pvp_accessible(0.7f);
 	const Vec3 pvp_inaccessible(0.0f);
 
 	AI::Team teams[MAX_PLAYERS];
+
+	cJSON* json = Loader::level(l);
+
 	level = Level();
+	level.mode = m;
+	level.id = l;
 
 	// count control point sets and pick one of them
 	s32 control_point_set = 0;
-	if (session.mode == Mode::Pvp && session.type == Type::Rush)
+	if (level.mode == Mode::Pvp && level.type == Type::Rush)
 	{
 		s32 max_control_point_set = 0;
 		cJSON* element = json->child;
@@ -993,8 +987,31 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 		// pick a set of control points
 		if (max_control_point_set > 0)
 			control_point_set = mersenne::rand() % (max_control_point_set + 1);
-		else if (session.type == Type::Rush) // no control points
-			session.type = Type::Deathmatch;
+		else if (level.type == Type::Rush) // no control points
+			level.type = Type::Deathmatch;
+	}
+
+	switch (level.type)
+	{
+		case Type::Rush:
+		{
+			level.respawns = 5;
+			level.kill_limit = 0;
+			level.time_limit = (60.0f * 5.0f) + PLAYER_SPAWN_DELAY;
+			break;
+		}
+		case Type::Deathmatch:
+		{
+			level.respawns = u8(-1);
+			level.kill_limit = 10;
+			level.time_limit = (60.0f * 10.0f) + PLAYER_SPAWN_DELAY;
+			break;
+		}
+		default:
+		{
+			vi_assert(false);
+			break;
+		}
 	}
 
 	cJSON* element = json->child;
@@ -1040,7 +1057,7 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 			level.skybox.ambient_color = Json::get_vec3(element, "ambient_color");
 			level.skybox.player_light = Json::get_vec3(element, "zenith_color");
 			level.skybox.sky_decal_fog_start = level.skybox.far_plane * 0.25f;
-			if (session.mode == Mode::Pvp)
+			if (level.mode == Mode::Pvp)
 				level.skybox.fog_start = level.skybox.far_plane;
 			else
 				level.skybox.fog_start = level.skybox.far_plane * 0.25f;
@@ -1109,7 +1126,7 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 						// inaccessible
 						m = World::alloc<StaticGeom>(mesh_id, absolute_pos, absolute_rot, CollisionInaccessible, CollisionInaccessibleMask);
 						Vec4 color = Loader::mesh(mesh_id)->color;
-						if (session.mode == Mode::Pvp) // override colors
+						if (level.mode == Mode::Pvp) // override colors
 							color.xyz(pvp_inaccessible);
 						color.w = MATERIAL_NO_OVERRIDE; // special G-buffer index for inaccessible materials
 						m->get<View>()->color = color;
@@ -1120,7 +1137,7 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 						m = World::alloc<StaticGeom>(mesh_id, absolute_pos, absolute_rot);
 
 						Vec4 color = Loader::mesh(mesh_id)->color;
-						if (session.mode == Mode::Pvp) // override colors
+						if (level.mode == Mode::Pvp) // override colors
 							color.xyz(pvp_accessible);
 						m->get<View>()->color = color;
 					}
@@ -1175,7 +1192,7 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 		}
 		else if (cJSON_GetObjectItem(element, "ControlPoint"))
 		{
-			if (session.type == Type::Rush && (!cJSON_GetObjectItem(element, "set") || Json::get_s32(element, "set") == control_point_set))
+			if (level.type == Type::Rush && (!cJSON_GetObjectItem(element, "set") || Json::get_s32(element, "set") == control_point_set))
 			{
 				absolute_pos.y += 1.5f;
 				entity = World::alloc<ControlPointEntity>(AI::Team(0), absolute_pos);
@@ -1213,7 +1230,7 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 		else if (cJSON_GetObjectItem(element, "AIPlayer"))
 		{
 			// only add an AI player if we are in online pvp mode
-			if (session.mode == Mode::Pvp && !session.multiplayer)
+			if (level.mode == Mode::Pvp && !session.multiplayer)
 			{
 				AI::Team team = team_lookup(teams, Json::get_s32(element, "team", 1));
 
@@ -1286,7 +1303,7 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 
 			entity = World::alloc<WaterEntity>(mesh_id);
 			Water* water = entity->get<Water>();
-			if (session.mode == Mode::Pvp)
+			if (level.mode == Mode::Pvp)
 				water->color = Vec4(pvp_inaccessible, MATERIAL_NO_OVERRIDE);
 			water->texture = Loader::find(Json::get_string(element, "texture", "water_normal"), AssetLookup::Texture::names);
 			water->displacement_horizontal = Json::get_r32(element, "displacement_horizontal", 2.0f);
@@ -1325,7 +1342,7 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 					// View
 					entity->get<View>()->texture = texture;
 					entity->get<View>()->shader = shader;
-					if (session.mode == Mode::Pvp && !alpha && !additive)
+					if (level.mode == Mode::Pvp && !alpha && !additive)
 					{
 						if (entity->get<View>()->color.w < 0.5f)
 							entity->get<View>()->color = Vec4(pvp_inaccessible, MATERIAL_NO_OVERRIDE);
@@ -1343,7 +1360,7 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 					// SkinnedModel
 					entity->get<SkinnedModel>()->texture = texture;
 					entity->get<SkinnedModel>()->shader = shader;
-					if (session.mode == Mode::Pvp && !alpha && !additive)
+					if (level.mode == Mode::Pvp && !alpha && !additive)
 					{
 						if (entity->get<SkinnedModel>()->color.w < 0.5f)
 							entity->get<SkinnedModel>()->color = Vec4(pvp_inaccessible, MATERIAL_NO_OVERRIDE);
@@ -1382,7 +1399,7 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 
 					m->get<View>()->texture = texture;
 					m->get<View>()->shader = shader;
-					if (session.mode == Mode::Pvp && !alpha && !additive)
+					if (level.mode == Mode::Pvp && !alpha && !additive)
 					{
 						if (entity->get<View>()->color.w < 0.5f)
 							entity->get<View>()->color = Vec4(pvp_inaccessible, MATERIAL_NO_OVERRIDE);

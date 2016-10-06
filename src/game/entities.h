@@ -15,6 +15,9 @@
 namespace VI
 {
 
+
+void explosion(const Vec3&, const Quat&);
+
 struct AwkEntity : public Entity
 {
 	AwkEntity(AI::Team);
@@ -174,6 +177,20 @@ struct RocketEntity : public Entity
 	RocketEntity(Entity*, Transform*, const Vec3&, const Quat&, AI::Team);
 };
 
+struct Decoy : public ComponentType<Decoy>
+{
+	Ref<PlayerManager> owner;
+	void awake();
+	void hit_by(const TargetEvent&);
+	void killed(Entity*);
+	void destroy();
+};
+
+struct DecoyEntity : public Entity
+{
+	DecoyEntity(PlayerManager*, Transform*, const Vec3&, const Quat&);
+};
+
 #define CONTAINMENT_FIELD_BASE_OFFSET 0.95f
 #define CONTAINMENT_FIELD_LIFETIME 15.0f
 struct ContainmentField : public ComponentType<ContainmentField>
@@ -220,7 +237,7 @@ void teleport(Entity*, Teleporter*);
 
 struct TeleporterEntity : public Entity
 {
-	TeleporterEntity(const Vec3&, const Quat&, AI::Team);
+	TeleporterEntity(Transform*, const Vec3&, const Quat&, AI::Team);
 };
 
 struct AICue : public ComponentType<AICue>

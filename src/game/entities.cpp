@@ -28,10 +28,24 @@ namespace VI
 {
 
 
+void explosion(const Vec3& pos, const Quat& rot)
+{
+	for (s32 i = 0; i < 50; i++)
+	{
+		Particles::sparks.add
+		(
+			pos,
+			rot * Vec3(mersenne::randf_oo() * 2.0f - 1.0f, mersenne::randf_oo() * 2.0f - 1.0f, mersenne::randf_oo()) * 10.0f,
+			Vec4(1, 1, 1, 1)
+		);
+	}
+	World::create<ShockwaveEntity>(8.0f, 1.5f)->get<Transform>()->absolute_pos(pos);
+}
+
 AwkEntity::AwkEntity(AI::Team team)
 {
 	create<Audio>();
-	Transform* transform = create<Transform>();
+	create<Transform>();
 	create<Awk>();
 	create<AIAgent>()->team = team;
 
@@ -47,9 +61,6 @@ AwkEntity::AwkEntity(AI::Team team)
 
 	create<Target>()->local_offset = Vec3(0, 0, AWK_RADIUS * -1.1f);
 
-	Vec3 abs_pos;
-	Quat abs_quat;
-	get<Transform>()->absolute(&abs_pos, &abs_quat);
 	create<RigidBody>(RigidBody::Type::Sphere, Vec3(AWK_RADIUS), 0.0f, CollisionAwk | CollisionTarget, CollisionDefault & ~CollisionTarget & ~CollisionAwkIgnore);
 }
 
@@ -706,15 +717,6 @@ Rocket* Rocket::closest(AI::TeamMask mask, const Vec3& pos, r32* distance)
 	return closest;
 }
 
-// apply damage from a surrogate (rocket pod, projectile, etc.) to an enemy Awk
-void do_surrogate_damage(Entity* awk, Entity* surrogate, Entity* owner)
-{
-	b8 shielded = awk->get<Awk>()->invincible_timer > 0.0f;
-	awk->get<Target>()->hit(surrogate);
-	if (awk->get<Health>()->hp > 0 && owner && owner->has<LocalPlayerControl>())
-		owner->get<LocalPlayerControl>()->player.ref()->msg(_(shielded ? strings::target_shield_down : strings::target_damaged), true);
-}
-
 Rocket::Rocket()
 	: team(),
 	target(),
@@ -756,6 +758,13 @@ void Rocket::update(const Update& u)
 		// we're in flight
 		if (target.ref() && !target.ref()->get<AIAgent>()->stealth)
 		{
+			if (target.ref()->has<PlayerCommon>()) // we're locked on to the actual player; see if we need to switch to targeting a decoy
+			{
+				Entity* decoy = target.ref()->get<PlayerCommon>()->manager.ref()->decoy();
+				if (decoy)
+					target = decoy;
+			}
+
 			// aim toward target
 			Vec3 to_target = target.ref()->get<Transform>()->absolute_pos() - get<Transform>()->pos;
 			r32 distance = to_target.length();
@@ -813,8 +822,8 @@ void Rocket::update(const Update& u)
 				// kaboom
 
 				// do damage
-				if (hit->has<Awk>())
-					do_surrogate_damage(hit, entity(), owner.ref());
+				if (hit->has<Awk>() || hit->has<Decoy>())
+					hit->get<Target>()->hit(entity());
 
 				explode();
 				return;
@@ -858,6 +867,61 @@ RocketEntity::RocketEntity(Entity* owner, Transform* parent, const Vec3& pos, co
 	model->shader = Asset::Shader::standard;
 
 	create<RigidBody>(RigidBody::Type::CapsuleZ, Vec3(0.1f, 0.3f, 0.3f), 0.0f, CollisionAwkIgnore, btBroadphaseProxy::AllFilter);
+}
+
+DecoyEntity::DecoyEntity(PlayerManager* owner, Transform* parent, const Vec3& pos, const Quat& rot)
+{
+	create<Audio>();
+
+	AI::Team team = owner->team.ref()->team();
+	Transform* transform = create<Transform>();
+	transform->parent = parent;
+	transform->absolute(pos + rot * Vec3(0, 0, AWK_RADIUS), rot);
+	create<AIAgent>()->team = team;
+
+	create<Health>(AWK_HEALTH, AWK_HEALTH, AWK_SHIELD, AWK_SHIELD);
+
+	SkinnedModel* model = create<SkinnedModel>();
+	model->mesh = Asset::Mesh::awk;
+	model->shader = Asset::Shader::armature;
+	model->team = u8(team);
+
+	Animator* anim = create<Animator>();
+	anim->armature = Asset::Armature::awk;
+	anim->layers[0].loop = true;
+	anim->layers[0].play(Asset::Animation::awk_dash);
+
+	create<Target>()->local_offset = Vec3(0, 0, AWK_RADIUS * -1.1f);
+
+	create<RigidBody>(RigidBody::Type::Sphere, Vec3(AWK_SHIELD_RADIUS), 0.0f, CollisionShield, CollisionDefault);
+
+	create<Decoy>()->owner = owner;
+}
+
+void Decoy::awake()
+{
+	link_arg<const TargetEvent&, &Decoy::hit_by>(get<Target>()->target_hit);
+	link_arg<Entity*, &Decoy::killed>(get<Health>()->killed);
+}
+
+void Decoy::killed(Entity*)
+{
+	destroy();
+}
+
+void Decoy::destroy()
+{
+	Vec3 pos;
+	Quat rot;
+	get<Transform>()->absolute(&pos, &rot);
+	explosion(pos, rot);
+	World::remove_deferred(entity());
+}
+
+void Decoy::hit_by(const TargetEvent& e)
+{
+	get<Audio>()->post_event(has<LocalPlayerControl>() ? AK::EVENTS::PLAY_HURT_PLAYER : AK::EVENTS::PLAY_HURT);
+	get<Health>()->damage(e.hit_by, 1);
 }
 
 // returns true if the given position is inside an enemy containment field
@@ -1011,16 +1075,7 @@ void ContainmentField::destroy()
 	Vec3 pos;
 	Quat rot;
 	get<Transform>()->absolute(&pos, &rot);
-	for (s32 i = 0; i < 50; i++)
-	{
-		Particles::sparks.add
-		(
-			pos,
-			rot * Vec3(mersenne::randf_oo() * 2.0f - 1.0f, mersenne::randf_oo() * 2.0f - 1.0f, mersenne::randf_oo()) * 10.0f,
-			Vec4(1, 1, 1, 1)
-		);
-	}
-	World::create<ShockwaveEntity>(8.0f, 1.5f)->get<Transform>()->absolute_pos(pos);
+	explosion(pos, rot);
 	World::remove_deferred(entity());
 }
 
@@ -1044,9 +1099,11 @@ ContainmentFieldEntity::ContainmentFieldEntity(Transform* parent, const Vec3& ab
 }
 
 #define TELEPORTER_RADIUS 0.5f
-TeleporterEntity::TeleporterEntity(const Vec3& pos, const Quat& rot, AI::Team team)
+TeleporterEntity::TeleporterEntity(Transform* parent, const Vec3& pos, const Quat& rot, AI::Team team)
 {
-	create<Transform>()->absolute(pos, rot);
+	Transform* transform = create<Transform>();
+	transform->parent = parent;
+	transform->absolute(pos, rot);
 	create<Teleporter>()->team = team;
 	create<RigidBody>(RigidBody::Type::Sphere, Vec3(TELEPORTER_RADIUS), 0.0f, CollisionAwkIgnore, CollisionAwkIgnore);
 
@@ -1129,6 +1186,7 @@ void teleport(Entity* e, Teleporter* target)
 		Vec3 teleport_pos = pos + rot * Quat::euler(0, 0, e->get<Walker>()->id() * PI * 0.25f) * Vec3(1, 0, 1);
 		teleport_pos.y = vi_max(teleport_pos.y, pos.y + 1.0f);
 		e->get<Walker>()->absolute_pos(teleport_pos);
+		World::create<ShockwaveEntity>(8.0f, 1.5f)->get<Transform>()->absolute_pos(pos);
 	}
 	else if (e->has<Awk>())
 	{
@@ -1139,8 +1197,6 @@ void teleport(Entity* e, Teleporter* target)
 	}
 	else
 		vi_assert(false);
-
-	World::create<ShockwaveEntity>(8.0f, 1.5f)->get<Transform>()->absolute_pos(pos);
 }
 
 #define PROJECTILE_LENGTH 0.5f
@@ -1163,8 +1219,8 @@ ProjectileEntity::ProjectileEntity(Entity* owner, const Vec3& pos, const Vec3& v
 	create<Projectile>(owner, dir * PROJECTILE_SPEED);
 }
 
-Projectile::Projectile(Entity* entity, const Vec3& velocity)
-	: owner(entity), velocity(velocity), lifetime()
+Projectile::Projectile(Entity* owner, const Vec3& velocity)
+	: owner(owner), velocity(velocity), lifetime()
 {
 }
 
@@ -1198,7 +1254,7 @@ void Projectile::update(const Update& u)
 			if (hit_object->has<Awk>())
 			{
 				basis = Vec3::normalize(velocity);
-				do_surrogate_damage(hit_object, entity(), owner.ref());
+				hit_object->get<Target>()->hit(entity());
 			}
 			else if (hit_object->has<Health>())
 			{

@@ -248,7 +248,10 @@ void LocalPlayer::update(const Update& u)
 		&& Game::time.total > GAME_BUY_PERIOD
 		&& Game::time.total - Game::time.delta <= GAME_BUY_PERIOD)
 	{
-		msg(_(strings::buy_period_expired), true);
+		if (Game::level.type == Game::Type::Rush)
+			msg(_(manager.ref()->team.ref()->team() == 0 ? strings::defend : strings::attack), true);
+		else
+			msg(_(strings::attack), true);
 	}
 
 	if (msg_timer < msg_time)
@@ -513,12 +516,15 @@ void scoreboard_draw(const RenderParams& params, const PlayerManager* manager)
 		p.y -= text.bounds().y + MENU_ITEM_PADDING * 2.0f;
 	}
 
-	// show remaining drones label
-	text.text(_(strings::drones_remaining));
-	text.color = UI::color_accent;
-	UI::box(params, text.rect(p).outset(MENU_ITEM_PADDING), UI::color_background);
-	text.draw(params, p);
-	p.y -= text.bounds().y + MENU_ITEM_PADDING * 2.0f;
+	if (Game::level.type == Game::Type::Rush)
+	{
+		// show remaining drones label
+		text.text(_(strings::drones_remaining));
+		text.color = UI::color_accent;
+		UI::box(params, text.rect(p).outset(MENU_ITEM_PADDING), UI::color_background);
+		text.draw(params, p);
+		p.y -= text.bounds().y + MENU_ITEM_PADDING * 2.0f;
+	}
 
 	// show player list
 	p.x += wrap * -0.5f;
@@ -533,7 +539,10 @@ void scoreboard_draw(const RenderParams& params, const PlayerManager* manager)
 
 		text.anchor_x = UIText::Anchor::Max;
 		text.wrap_width = 0;
-		text.text("%d", s32(i.item()->respawns));
+		if (Game::level.type == Game::Type::Deathmatch)
+			text.text("%d", s32(i.item()->kills));
+		else
+			text.text("%d", s32(i.item()->respawns));
 		text.draw(params, p + Vec2(wrap, 0));
 
 		p.y -= text.bounds().y + MENU_ITEM_PADDING * 2.0f;
@@ -905,7 +914,7 @@ void LocalPlayer::draw_alpha(const RenderParams& params) const
 		{
 			// draw battery/timer
 
-			r32 remaining = vi_max(0.0f, GAME_TIME_LIMIT - Game::time.total);
+			r32 remaining = vi_max(0.0f, Game::level.time_limit - Game::time.total);
 
 			const Vec2 box(text_size * 5 * UI::scale, text_size * UI::scale);
 			const r32 padding = 8.0f * UI::scale;
@@ -918,17 +927,17 @@ void LocalPlayer::draw_alpha(const RenderParams& params) const
 
 			AssetID icon;
 			const Vec4* color;
-			if (remaining > GAME_TIME_LIMIT * 0.8f)
+			if (remaining > Game::level.time_limit * 0.8f)
 			{
 				icon = Asset::Mesh::icon_battery_3;
 				color = &UI::color_default;
 			}
-			else if (remaining > GAME_TIME_LIMIT * 0.6f)
+			else if (remaining > Game::level.time_limit * 0.6f)
 			{
 				icon = Asset::Mesh::icon_battery_2;
 				color = &UI::color_default;
 			}
-			else if (remaining > GAME_TIME_LIMIT * 0.4f)
+			else if (remaining > Game::level.time_limit * 0.4f)
 			{
 				icon = Asset::Mesh::icon_battery_1;
 				color = &UI::color_accent;
@@ -946,7 +955,7 @@ void LocalPlayer::draw_alpha(const RenderParams& params) const
 
 			{
 				b8 draw;
-				if (remaining > GAME_TIME_LIMIT * 0.4f)
+				if (remaining > Game::level.time_limit * 0.4f)
 					draw = true;
 				else if (remaining > 60.0f)
 					draw = UI::flash_function_slow(Game::real_time.total);
@@ -1573,7 +1582,7 @@ void LocalPlayerControl::update(const Update& u)
 				{
 					Vec3 hit;
 					b8 hit_target;
-					if (get<Awk>()->can_spawn(get<Awk>()->current_ability, detach_dir, &hit, nullptr, &hit_target))
+					if (get<Awk>()->can_spawn(get<Awk>()->current_ability, detach_dir, &hit, nullptr, nullptr, &hit_target))
 					{
 						if (get<Awk>()->current_ability == Ability::Sniper && hit_target)
 							reticle.type = ReticleType::Target;
@@ -1691,14 +1700,13 @@ void LocalPlayerControl::update(const Update& u)
 				if (get<Awk>()->go(dir))
 				{
 					try_primary = false;
-					if (ability == Ability::Sniper)
-						rumble = vi_max(rumble, 0.5f);
-					else
+					if (ability == Ability::None)
 					{
+						get<Audio>()->post_event(AK::EVENTS::PLAY_FLY);
 						try_zoom = false;
-						if (ability == Ability::None)
-							get<Audio>()->post_event(AK::EVENTS::PLAY_FLY);
 					}
+					else
+						rumble = vi_max(rumble, 0.5f);
 				}
 			}
 		}
@@ -2107,7 +2115,7 @@ void LocalPlayerControl::draw_alpha(const RenderParams& params) const
 	// detect danger
 	{
 		r32 detect_danger = get<PlayerCommon>()->detect_danger();
-		Vec2 pos = params.camera->viewport.size * Vec2(0.5f, 0.4f) + Vec2(0.0f, -32.0f * UI::scale);
+		Vec2 pos = params.camera->viewport.size * Vec2(0.5f, 0.3f) + Vec2(0.0f, -32.0f * UI::scale);
 		if (detect_danger == 1.0f)
 		{
 			UIText text;

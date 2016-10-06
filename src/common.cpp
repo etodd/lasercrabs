@@ -51,7 +51,7 @@ StaticGeom::StaticGeom(AssetID mesh_id, const Vec3& absolute_pos, const Quat& ab
 	View* model = create<View>();
 
 	model->mesh = mesh_id;
-	model->shader = Game::session.mode == Game::Mode::Pvp ? Asset::Shader::culled : Asset::Shader::standard;
+	model->shader = Game::level.mode == Game::Mode::Pvp ? Asset::Shader::culled : Asset::Shader::standard;
 
 	const Mesh* mesh = Loader::mesh(model->mesh);
 

@@ -23,12 +23,12 @@ struct PlayerManager;
 
 
 #define PLAYER_SPAWN_DELAY 3.0f
-#define GAME_TIME_LIMIT ((60.0f * 5.0f) + PLAYER_SPAWN_DELAY)
 #define GAME_BUY_PERIOD (10.0f + PLAYER_SPAWN_DELAY)
 #define CREDITS_INITIAL 60
 #define CREDITS_MINION_KILL 10
 #define CREDITS_SENSOR_DESTROY 10
 #define CREDITS_CONTAINMENT_FIELD_DESTROY 10
+#define CREDITS_DEFAULT_INCREMENT 5
 #define CREDITS_CONTROL_POINT 5
 #define CREDITS_ENERGY_PICKUP 5
 #define CREDITS_CAPTURE_CONTROL_POINT 10
@@ -46,6 +46,7 @@ enum class Ability
 	Rocket,
 	ContainmentField,
 	Sniper,
+	Decoy,
 	count,
 	None = count,
 };
@@ -65,6 +66,7 @@ enum class Upgrade
 	Rocket,
 	ContainmentField,
 	Sniper,
+	Decoy,
 	count,
 	None = count,
 };
@@ -111,6 +113,8 @@ struct Team
 	static void transition_next(Game::MatchResult);
 	static s16 containment_field_mask(AI::Team);
 	static void update_all(const Update&);
+	static s32 teams_with_players();
+	static Team* with_most_kills();
 
 	static inline const Vec4& ui_color(AI::Team me, AI::Team them)
 	{
@@ -131,6 +135,7 @@ struct Team
 	b8 has_player() const;
 	void track(PlayerManager*);
 	s32 control_point_count() const;
+	u16 kills() const;
 
 	inline ID id() const
 	{
@@ -180,12 +185,14 @@ struct PlayerManager
 	Ref<Team> team;
 	Ref<Entity> entity;
 	u16 credits;
+	u16 kills;
+	u16 respawns;
 	char username[255];
 	b8 score_accepted;
-	u8 respawns;
 
 	PlayerManager(Team*);
 
+	Entity* decoy() const;
 	State state() const;
 	b8 can_transition_state() const;
 	b8 has_upgrade(Upgrade) const;
@@ -199,6 +206,7 @@ struct PlayerManager
 	b8 upgrade_available(Upgrade = Upgrade::None) const;
 	u16 upgrade_cost(Upgrade) const;
 	s32 add_credits(s32);
+	void add_kills(s32);
 	b8 at_upgrade_point() const;
 	ControlPoint* at_control_point() const;
 	b8 friendly_control_point(const ControlPoint*) const;

@@ -10,6 +10,7 @@
 #if DEBUG_AI_CONTROL
 #include "render/views.h"
 #endif
+#include "net.h"
 
 namespace VI
 {
@@ -144,7 +145,9 @@ void AIPlayer::spawn()
 
 	manager.ref()->entity = e;
 
-	e->add<AIPlayerControl>(this);
+	e->add<AIPlayerControl>()->player = this;
+
+	Net::finalize(e);
 }
 
 // save up priority ranges from -2 to 3
@@ -186,9 +189,8 @@ s32 AIPlayer::save_up_priority() const
 	return 0;
 }
 
-AIPlayerControl::AIPlayerControl(AIPlayer* p)
-	: player(p),
-	path_index(),
+AIPlayerControl::AIPlayerControl()
+	: path_index(),
 	memory(),
 	active_behavior(),
 	path_priority(),

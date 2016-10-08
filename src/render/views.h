@@ -77,7 +77,7 @@ struct Water : public ComponentType<Water>
 	AssetID mesh;
 	AssetID texture;
 
-	Water(AssetID);
+	Water(AssetID = AssetNull);
 	void awake();
 	void draw_opaque(const RenderParams&);
 	void draw_alpha(const RenderParams&);

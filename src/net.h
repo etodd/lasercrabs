@@ -7,6 +7,8 @@
 namespace VI
 {
 
+struct Entity;
+
 namespace Sock
 {
 	struct Address;
@@ -24,6 +26,8 @@ struct StreamWrite;
 
 b8 init();
 void update(const Update&);
+void finalize(Entity*);
+void remove(Entity*);
 
 #if SERVER
 namespace Server

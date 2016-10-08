@@ -1,5 +1,6 @@
 #include "entity.h"
 #include <new>
+#include "net.h"
 
 namespace VI
 {
@@ -7,6 +8,9 @@ namespace VI
 PinArray<Entity, MAX_ENTITIES> Entity::list;
 Array<ID> World::remove_buffer;
 ComponentPoolBase* World::component_pools[MAX_FAMILIES];
+#if SERVER && DEBUG
+Array<Ref<Entity> > World::create_queue;
+#endif
 
 LinkEntry::Data::Data()
 	: id(), revision()
@@ -52,6 +56,9 @@ void World::awake(Entity* e)
 Entity::Entity()
 	: component_mask()
 {
+#if SERVER && DEBUG
+	finalized = false;
+#endif
 }
 
 // if the entity is active, remove it
@@ -63,6 +70,7 @@ b8 internal_remove(Entity* e)
 	ID id = e->id();
 	if (Entity::list.active(id))
 	{
+		Net::remove(e);
 		for (Family i = 0; i < World::families; i++)
 		{
 			if (e->component_mask & ((ComponentMask)1 << i))

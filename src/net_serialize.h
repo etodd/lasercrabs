@@ -13,7 +13,7 @@ namespace Net
 
 // borrows heavily from https://github.com/networkprotocol/libyojimbo
 
-#define MAX_PACKET_SIZE 1200
+#define MAX_PACKET_SIZE 1500
 #define NET_PROTOCOL_ID 0x6906c2fe
 
 u32 crc32(const u8*, memory_index, u32 value = 0);
@@ -67,6 +67,7 @@ struct StreamWrite
 	s32 bytes_written() const;
 	s32 align_bits() const;
 	b8 align();
+	void resize_bytes(s32);
 	void flush();
 	void reset();
 };
@@ -276,17 +277,28 @@ inline int bits_required(u32 min, u32 max)
 {\
 	u16 _i;\
 	u32 _r;\
+	b8 _b;\
 	if (Stream::IsWriting)\
 	{\
 		_i = value.id;\
 		_r = value.revision;\
+		_b = value.id != IDNull;\
 	}\
-	serialize_int(stream, u16, _i, 0, MAX_ENTITIES);\
-	serialize_bits(stream, _r, 16);\
+	serialize_bool(stream, _b);\
+	if (_b)\
+	{\
+		serialize_int(stream, u16, _i, 0, MAX_ENTITIES - 1);\
+		serialize_bits(stream, _r, 16);\
+	}\
 	if (Stream::IsReading)\
 	{\
-		value.id = _i;\
-		value.revision = u16(_r);\
+		if (_b)\
+		{\
+			value.id = _i;\
+			value.revision = u16(_r);\
+		}\
+		else\
+			value.id = IDNull;\
 	}\
 }
 

@@ -19,6 +19,7 @@
 #include "minion.h"
 #include "strings.h"
 #include "render/particles.h"
+#include "net.h"
 
 namespace VI
 {
@@ -131,7 +132,7 @@ void Awk::awake()
 	link_arg<Entity*, &Awk::killed>(get<Health>()->killed);
 	link_arg<const DamageEvent&, &Awk::damaged>(get<Health>()->damaged);
 	link_arg<const TargetEvent&, &Awk::hit_by>(get<Target>()->target_hit);
-	if (!shield.ref())
+	if (Game::session.local && !shield.ref())
 	{
 		Entity* shield_entity = World::create<Empty>();
 		shield_entity->get<Transform>()->parent = get<Transform>();
@@ -145,6 +146,8 @@ void Awk::awake()
 		s->shader = Asset::Shader::fresnel;
 		s->alpha();
 		s->color.w = 0.35f;
+
+		Net::finalize(shield_entity);
 	}
 }
 
@@ -276,7 +279,9 @@ void Awk::hit_target(Entity* target, const Vec3& hit_pos)
 				Vec4(1, 1, 1, 1)
 			);
 		}
-		World::create<ShockwaveEntity>(8.0f, 1.5f)->get<Transform>()->absolute_pos(hit_pos);
+		Entity* shockwave = World::create<ShockwaveEntity>(8.0f, 1.5f);
+		shockwave->get<Transform>()->absolute_pos(hit_pos);
+		Net::finalize(shockwave);
 	}
 
 	// award credits for hitting stuff
@@ -707,7 +712,11 @@ b8 Awk::go(const Vec3& dir)
 		Vec3 me = get<Transform>()->absolute_pos();
 		particle_trail(me, dir_normalized, (pos - me).length());
 
-		World::create<ShockwaveEntity>(8.0f, 1.5f)->get<Transform>()->absolute_pos(pos + rot * Vec3(0, 0, AWK_RADIUS));
+		{
+			Entity* shockwave = World::create<ShockwaveEntity>(8.0f, 1.5f);
+			shockwave->get<Transform>()->absolute_pos(pos + rot * Vec3(0, 0, AWK_RADIUS));
+			Net::finalize(shockwave);
+		}
 
 		switch (current_ability)
 		{
@@ -715,6 +724,7 @@ b8 Awk::go(const Vec3& dir)
 			{
 				// place a proximity sensor
 				Entity* sensor = World::create<SensorEntity>(manager, pos + rot * Vec3(0, 0, (rope_segment_length * 2.0f) - rope_radius + SENSOR_RADIUS), rot);
+				Net::finalize(sensor);
 
 				Audio::post_global_event(AK::EVENTS::PLAY_SENSOR_SPAWN, pos);
 
@@ -726,15 +736,16 @@ b8 Awk::go(const Vec3& dir)
 			case Ability::Rocket:
 			{
 				// spawn a rocket pod
-				World::create<RocketEntity>(entity(), parent->get<Transform>(), pos, rot, get<AIAgent>()->team);
+				Net::finalize(World::create<RocketEntity>(entity(), parent->get<Transform>(), pos, rot, get<AIAgent>()->team));
 
 				Audio::post_global_event(AK::EVENTS::PLAY_SENSOR_SPAWN, pos);
 
 				// rocket base
-				Entity* base = World::alloc<Prop>(Asset::Mesh::rocket_base);
+				Entity* base = World::create<Prop>(Asset::Mesh::rocket_base);
 				base->get<Transform>()->absolute(pos, rot);
 				base->get<Transform>()->reparent(parent->get<Transform>());
 				base->get<View>()->team = u8(get<AIAgent>()->team);
+				Net::finalize(base);
 				break;
 			}
 			case Ability::Minion:
@@ -748,7 +759,7 @@ b8 Awk::go(const Vec3& dir)
 					angle = atan2f(forward.x, forward.z);
 				else
 					angle = get<PlayerCommon>()->angle_horizontal;
-				World::create<Minion>(npos, Quat::euler(0, angle, 0), get<AIAgent>()->team, manager);
+				Net::finalize(World::create<Minion>(npos, Quat::euler(0, angle, 0), get<AIAgent>()->team, manager));
 
 				Audio::post_global_event(AK::EVENTS::PLAY_MINION_SPAWN, npos);
 				break;
@@ -758,9 +769,9 @@ b8 Awk::go(const Vec3& dir)
 				// spawn a containment field
 				Vec3 npos = pos + rot * Vec3(0, 0, CONTAINMENT_FIELD_BASE_OFFSET);
 
-				Audio::post_global_event(AK::EVENTS::PLAY_SENSOR_SPAWN, pos);
+				Audio::post_global_event(AK::EVENTS::PLAY_SENSOR_SPAWN, npos);
 
-				World::create<ContainmentFieldEntity>(parent->get<Transform>(), pos, rot, manager);
+				Net::finalize(World::create<ContainmentFieldEntity>(parent->get<Transform>(), npos, rot, manager));
 				break;
 			}
 			case Ability::Sniper:
@@ -788,6 +799,7 @@ b8 Awk::go(const Vec3& dir)
 			case Ability::Teleporter:
 			{
 				Entity* teleporter = World::create<TeleporterEntity>(parent->get<Transform>(), pos, rot, get<AIAgent>()->team);
+				Net::finalize(teleporter);
 				teleport(entity(), teleporter->get<Teleporter>());
 				break;
 			}
@@ -796,7 +808,7 @@ b8 Awk::go(const Vec3& dir)
 				Entity* existing_decoy = manager->decoy();
 				if (existing_decoy)
 					existing_decoy->get<Decoy>()->destroy();
-				World::create<DecoyEntity>(manager, parent->get<Transform>(), pos, rot);
+				Net::finalize(World::create<DecoyEntity>(manager, parent->get<Transform>(), pos, rot));
 				break;
 			}
 			default:

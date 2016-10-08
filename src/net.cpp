@@ -19,6 +19,10 @@
 #include "data/ragdoll.h"
 #include "game/minion.h"
 #include "game/ai_player.h"
+#include "assimp/contrib/zlib/zlib.h"
+
+#define DEBUG_MSG 0
+#define DEBUG_ENTITY 0
 
 namespace VI
 {
@@ -58,7 +62,7 @@ enum class ServerPacket
 enum class MessageType
 {
 	Noop,
-	EntitySpawn,
+	EntityCreate,
 	EntityRemove,
 	count,
 };
@@ -178,20 +182,27 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 		| Teleporter::component_mask;
 
 	serialize_u64(p, e->component_mask);
-	if (Stream::IsReading)
-		e->component_mask &= mask;
 	serialize_u16(p, e->revision);
+
+#if DEBUG_ENTITY
+	{
+		char components[MAX_FAMILIES + 1] = {};
+		for (s32 i = 0; i < MAX_FAMILIES; i++)
+			components[i] = (e->component_mask & (ComponentMask(1) << i) & mask) ? '1' : '0';
+		vi_debug("Entity %d rev %d: %s", s32(e->id()), s32(e->revision), components);
+	}
+#endif
 
 	for (s32 i = 0; i < MAX_FAMILIES; i++)
 	{
 		if (e->component_mask & (ComponentMask(1) << i) & mask)
 		{
-			serialize_int(p, ID, e->components[i], 0, MAX_ENTITIES);
+			serialize_int(p, ID, e->components[i], 0, MAX_ENTITIES - 1);
 			ID component_id = e->components[i];
 			Revision r;
 			if (Stream::IsWriting)
 				r = World::component_pools[i]->revision(component_id);
-			serialize_int(p, Revision, r, 0, MAX_ENTITIES);
+			serialize_u16(p, r);
 			if (Stream::IsReading)
 				World::component_pools[i]->net_add(component_id, e->id(), r);
 		}
@@ -579,7 +590,6 @@ Ack msg_history_ack(const MessageHistory& history)
 
 MessageHistory msgs_out_history;
 StaticArray<StreamWrite, MESSAGE_BUFFER> msgs_out;
-StreamRead incoming_packet;
 r32 tick_timer;
 Sock::Handle sock;
 SequenceID local_sequence_id = 1;
@@ -595,7 +605,69 @@ void packet_finalize(StreamWrite* p)
 	p->flush();
 	u32 checksum = crc32((const u8*)&p->data[0], sizeof(u32));
 	checksum = crc32((const u8*)&p->data[1], (p->data.length - 1) * sizeof(u32), checksum);
+
 	p->data[0] = checksum;
+
+	StreamWrite compressed;
+	compressed.resize_bytes(MAX_PACKET_SIZE);
+	z_stream z;
+	z.zalloc = nullptr;
+	z.zfree = nullptr;
+	z.opaque = nullptr;
+	z.next_out = (Bytef*)compressed.data.data;
+	z.avail_out = MAX_PACKET_SIZE;
+	z.next_in = (Bytef*)p->data.data;
+	z.avail_in = p->bytes_written();
+
+	s32 result = deflateInit(&z, Z_DEFAULT_COMPRESSION);
+	vi_assert(result == Z_OK);
+
+	result = deflate(&z, Z_FINISH);
+
+	vi_assert(result == Z_STREAM_END && z.avail_in == 0);
+
+	result = deflateEnd(&z);
+	vi_assert(result == Z_OK);
+
+	p->reset();
+	p->resize_bytes(MAX_PACKET_SIZE - z.avail_out);
+	if (p->data.length > 0)
+	{
+		p->data[p->data.length - 1] = 0; // make sure everything gets zeroed out so the CRC32 comes out right
+		memcpy(p->data.data, compressed.data.data, MAX_PACKET_SIZE - z.avail_out);
+	}
+}
+
+void packet_decompress(StreamRead* p, s32 bytes)
+{
+	StreamRead decompressed;
+	decompressed.resize_bytes(bytes);
+	
+	z_stream z;
+	z.zalloc = nullptr;
+	z.zfree = nullptr;
+	z.opaque = nullptr;
+	z.next_in = (Bytef*)p->data.data;
+	z.avail_in = bytes;
+	z.next_out = (Bytef*)decompressed.data.data;
+	z.avail_out = MAX_PACKET_SIZE;
+
+	s32 result = inflateInit(&z);
+	vi_assert(result == Z_OK);
+	
+	result = inflate(&z, Z_NO_FLUSH);
+	vi_assert(result == Z_STREAM_END);
+
+	result = inflateEnd(&z);
+	vi_assert(result == Z_OK);
+
+	p->reset();
+	p->resize_bytes(MAX_PACKET_SIZE - z.avail_out);
+	if (p->data.length > 0)
+	{
+		p->data[p->data.length - 1] = 0; // make sure everything is zeroed out so the CRC32 comes out right
+		memcpy(p->data.data, decompressed.data.data, MAX_PACKET_SIZE - z.avail_out);
+	}
 }
 
 void packet_send(const StreamWrite& p, const Sock::Address& address)
@@ -923,6 +995,11 @@ void update(const Update& u)
 			}
 		}
 	}
+#if DEBUG
+	for (s32 i = 0; i < World::create_queue.length; i++)
+		vi_assert(World::create_queue[i].ref()->finalized);
+	World::create_queue.length = 0;
+#endif
 }
 
 void tick(const Update& u)
@@ -1034,9 +1111,9 @@ b8 packet_handle(const Update& u, StreamRead* p, const Sock::Address& address)
 				for (auto i = Entity::list.iterator(); !i.is_last(); i.next())
 				{
 					StreamWrite* p = msg_new();
-					MessageType type = MessageType::EntitySpawn;
+					MessageType type = MessageType::EntityCreate;
 					serialize_enum(p, MessageType, type);
-					serialize_int(p, ID, i.index, 0, MAX_ENTITIES);
+					serialize_int(p, ID, i.index, 0, MAX_ENTITIES - 1);
 					serialize_entity(p, i.item());
 				}
 			}
@@ -1147,16 +1224,19 @@ b8 msg_process(StreamRead* p)
 	using Stream = StreamRead;
 	MessageType type;
 	serialize_enum(p, MessageType, type);
+#if DEBUG_MSG
+	vi_debug("Processing message type %d", type);
+#endif
 	switch (type)
 	{
 		case MessageType::Noop:
 		{
 			break;
 		}
-		case MessageType::EntitySpawn:
+		case MessageType::EntityCreate:
 		{
 			ID id;
-			serialize_int(p, ID, id, 0, MAX_ENTITIES);
+			serialize_int(p, ID, id, 0, MAX_ENTITIES - 1);
 			Entity::list.active(id, true);
 			Entity::list.free_list.length--;
 			Entity* e = &Entity::list[id];
@@ -1167,6 +1247,7 @@ b8 msg_process(StreamRead* p)
 		case MessageType::EntityRemove:
 		{
 			// todo
+			vi_assert(false);
 			break;
 		}
 		default:
@@ -1186,7 +1267,11 @@ void update(const Update& u)
 		frame->read.rewind();
 		while (frame->read.bytes_read() < frame->bytes)
 		{
-			if (!msg_process(&frame->read))
+			b8 success = msg_process(&frame->read);
+#if DEBUG_MSG
+			vi_debug("Read %d/%d bytes", frame->read.bytes_read(), frame->bytes);
+#endif
+			if (!success)
 				break;
 		}
 	}
@@ -1341,14 +1426,35 @@ b8 init()
 #endif
 }
 
-b8 send_garbage()
+void finalize(Entity* e)
 {
+#if SERVER
+	if (Server::clients.length == Server::expected_clients)
+	{
+		using Stream = StreamWrite;
+		StreamWrite* p = msg_new();
+		MessageType type = MessageType::EntityCreate;
+		serialize_enum(p, MessageType, type);
+		ID id = e->id();
+		serialize_int(p, ID, id, 0, MAX_ENTITIES - 1);
+		serialize_entity(p, e);
+	}
+#if DEBUG
+	e->finalized = true;
+#endif
+#endif
+}
+
+void remove(Entity* e)
+{
+#if SERVER
 	using Stream = StreamWrite;
-	StreamWrite* msg = msg_new();
-	u8 garbage[255];
-	s32 len = 1 + mersenne::rand() % 254;
-	serialize_bytes(msg, garbage, len);
-	return true;
+	StreamWrite* p = msg_new();
+	MessageType type = MessageType::EntityRemove;
+	serialize_enum(p, MessageType, type);
+	ID id = e->id();
+	serialize_int(p, ID, id, 0, MAX_ENTITIES - 1);
+#endif
 }
 
 void update(const Update& u)
@@ -1356,19 +1462,21 @@ void update(const Update& u)
 	while (true)
 	{
 		Sock::Address address;
+		StreamRead incoming_packet;
 		s32 bytes_received = Sock::udp_receive(&sock, &address, incoming_packet.data.data, MAX_PACKET_SIZE);
 		if (bytes_received > 0)
 		{
 			//if (mersenne::randf_co() < 0.75f) // packet loss simulation
 			{
 				incoming_packet.resize_bytes(bytes_received);
+
+				packet_decompress(&incoming_packet, bytes_received);
 #if SERVER
 				Server::packet_handle(u, &incoming_packet, address);
 #else
 				Client::packet_handle(u, &incoming_packet, address);
 #endif
 			}
-			incoming_packet.reset();
 		}
 		else
 			break;

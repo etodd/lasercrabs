@@ -10,6 +10,7 @@
 #include <string>
 #include "cora.h"
 #include "minion.h"
+#include "net.h"
 
 namespace VI
 {
@@ -107,6 +108,7 @@ namespace tutorial
 			Vec3 pos = data->minion_location.ref()->absolute_pos();
 			Entity* minion = World::create<Minion>(pos, Quat::identity, data->test_dummy.ref()->team.ref()->team(), data->test_dummy.ref());
 			minion->get<Health>()->killed.link(&minion_killed);
+			Net::finalize(minion);
 
 			data->state = TutorialState::Minion;
 			Cora::text_clear();

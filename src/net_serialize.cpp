@@ -167,6 +167,13 @@ b8 StreamWrite::would_overflow(s32 bits) const
 	return false;
 }
 
+void StreamWrite::resize_bytes(s32 b)
+{
+	vi_assert(scratch_bits == 0);
+	data.resize((b / sizeof(u32)) + (b % sizeof(u32) == 0 ? 0 : 1));
+	scratch_bits = (b - bytes_written()) * 8;
+}
+
 StreamRead::StreamRead()
 	: scratch(),
 	scratch_bits(),

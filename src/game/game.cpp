@@ -1142,14 +1142,6 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 						m->get<View>()->color = color;
 					}
 
-					if (entity)
-					{
-						World::awake(m);
-						m->get<Transform>()->reparent(entity->get<Transform>());
-					}
-					else
-						entity = m;
-
 					m->get<View>()->texture = texture;
 					if (alpha || additive)
 						m->get<View>()->shader = texture == AssetNull ? Asset::Shader::flat : Asset::Shader::flat_texture;
@@ -1157,6 +1149,15 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 						m->get<View>()->alpha();
 					if (additive)
 						m->get<View>()->additive();
+
+					if (entity)
+					{
+						World::awake(m);
+						m->get<Transform>()->reparent(entity->get<Transform>());
+						Net::finalize(m);
+					}
+					else
+						entity = m;
 				}
 
 				json_mesh = json_mesh->next;
@@ -1389,22 +1390,15 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 					AssetID mesh_id = Loader::find_mesh(mesh_ref);
 
 					Entity* m = World::alloc<Prop>(mesh_id);
-					if (entity)
-					{
-						World::awake(m);
-						m->get<Transform>()->reparent(entity->get<Transform>());
-					}
-					else
-						entity = m;
 
 					m->get<View>()->texture = texture;
 					m->get<View>()->shader = shader;
 					if (level.mode == Mode::Pvp && !alpha && !additive)
 					{
-						if (entity->get<View>()->color.w < 0.5f)
-							entity->get<View>()->color = Vec4(pvp_inaccessible, MATERIAL_NO_OVERRIDE);
+						if (m->get<View>()->color.w < 0.5f)
+							m->get<View>()->color = Vec4(pvp_inaccessible, MATERIAL_NO_OVERRIDE);
 						else
-							entity->get<View>()->color.xyz(pvp_accessible);
+							m->get<View>()->color.xyz(pvp_accessible);
 					}
 
 					if (alpha)
@@ -1412,6 +1406,15 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 					if (additive)
 						m->get<View>()->additive();
 					m->get<View>()->offset.scale(Vec3(scale));
+
+					if (entity)
+					{
+						World::awake(m);
+						m->get<Transform>()->reparent(entity->get<Transform>());
+						Net::finalize(m);
+					}
+					else
+						entity = m;
 
 					mesh = mesh->next;
 				}
@@ -1440,6 +1443,8 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 			entry->name = Json::get_string(element, "name");
 			entry->entity = entity;
 			entry->properties = element;
+
+			Net::finalize(entity);
 		}
 
 		element = element->next;

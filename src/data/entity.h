@@ -79,6 +79,7 @@ struct ComponentPool : public ComponentPoolBase
 	{
 		T::list.active(id, true);
 		T* t = &T::list[id];
+		new (t) T();
 		t->entity_id = entity_id;
 		t->revision = rev;
 		T::list.free_list.length--; // so count() returns the right value
@@ -100,9 +101,12 @@ struct ComponentPool : public ComponentPoolBase
 
 struct Entity
 {
+	ComponentMask component_mask;
 	ID components[MAX_FAMILIES];
 	Revision revision;
-	ComponentMask component_mask;
+#if SERVER && DEBUG
+	b8 finalized;
+#endif
 	Entity();
 
 	template<typename T, typename... Args> T* create(Args... args);
@@ -125,12 +129,18 @@ struct World
 	static Family families;
 	static Array<ID> remove_buffer;
 	static ComponentPoolBase* component_pools[MAX_FAMILIES];
+#if SERVER && DEBUG
+	static Array<Ref<Entity> > create_queue;
+#endif
 
 	static void init();
 
 	template<typename T, typename... Args> static T* alloc(Args... args)
 	{
 		Entity* e = Entity::list.add();
+#if SERVER && DEBUG
+		create_queue.add(e);
+#endif
 		new (e) T(args...);
 		return (T*)e;
 	}

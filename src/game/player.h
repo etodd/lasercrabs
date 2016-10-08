@@ -70,7 +70,7 @@ struct PlayerCommon : public ComponentType<PlayerCommon>
 	static s32 visibility_hash(const PlayerCommon*, const PlayerCommon*);
 	static Bitmask<MAX_PLAYERS * MAX_PLAYERS> visibility;
 
-	PlayerCommon(PlayerManager*);
+	PlayerCommon(PlayerManager* = nullptr);
 	void awake();
 
 	Vec3 look_dir() const;
@@ -132,7 +132,7 @@ struct LocalPlayerControl : public ComponentType<LocalPlayerControl>
 	b8 try_primary;
 	u8 gamepad;
 
-	LocalPlayerControl(u8);
+	LocalPlayerControl();
 	~LocalPlayerControl();
 	void awake();
 

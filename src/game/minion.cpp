@@ -17,6 +17,7 @@
 #include "data/ragdoll.h"
 #include "entities.h"
 #include "render/particles.h"
+#include "net.h"
 
 #define WALK_SPEED 2.0f
 #define ROTATION_SPEED 4.0f
@@ -212,6 +213,8 @@ void MinionCommon::killed(Entity* killer)
 			head->applyImpulse(killer_to_head * 10.0f, Vec3::zero);
 		}
 	}
+
+	Net::finalize(ragdoll);
 }
 
 // Minion AI
@@ -636,7 +639,7 @@ void MinionAI::update(const Update& u)
 								&& !Team::game_over)
 							{
 								PlayerManager* owner = get<MinionCommon>()->owner.ref();
-								World::create<ProjectileEntity>(owner ? owner->entity.ref() : nullptr, head_pos, aim_pos - head_pos);
+								Net::finalize(World::create<ProjectileEntity>(owner ? owner->entity.ref() : nullptr, head_pos, aim_pos - head_pos));
 								get<MinionCommon>()->attack_timer = MINION_ATTACK_TIME;
 							}
 						}

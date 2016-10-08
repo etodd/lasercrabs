@@ -32,6 +32,7 @@
 #endif
 #include "scripts.h"
 #include "cora.h"
+#include "net.h"
 
 namespace VI
 {
@@ -455,8 +456,11 @@ void LocalPlayer::spawn()
 
 	manager.ref()->entity = spawned;
 
-	LocalPlayerControl* control = spawned->add<LocalPlayerControl>(gamepad);
+	LocalPlayerControl* control = spawned->add<LocalPlayerControl>();
 	control->player = this;
+	control->gamepad = gamepad;
+
+	Net::finalize(spawned);
 }
 
 void draw_icon_text(const RenderParams& params, const Vec2& pos, AssetID icon, char* string, const Vec4& color)
@@ -1141,8 +1145,8 @@ void LocalPlayerControl::awk_done_flying_or_dashing()
 	get<Audio>()->post_event(AK::EVENTS::STOP_FLY);
 }
 
-LocalPlayerControl::LocalPlayerControl(u8 gamepad)
-	: gamepad(gamepad),
+LocalPlayerControl::LocalPlayerControl()
+	: gamepad(),
 	fov(fov_default),
 	try_primary(),
 	try_zoom(),

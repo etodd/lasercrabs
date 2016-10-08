@@ -23,6 +23,7 @@
 #include "render/particles.h"
 #include "strings.h"
 #include "data/priority_queue.h"
+#include "net.h"
 
 namespace VI
 {
@@ -39,7 +40,9 @@ void explosion(const Vec3& pos, const Quat& rot)
 			Vec4(1, 1, 1, 1)
 		);
 	}
-	World::create<ShockwaveEntity>(8.0f, 1.5f)->get<Transform>()->absolute_pos(pos);
+	Entity* shockwave = World::create<ShockwaveEntity>(8.0f, 1.5f);
+	shockwave->get<Transform>()->absolute_pos(pos);
+	Net::finalize(shockwave);
 }
 
 AwkEntity::AwkEntity(AI::Team team)
@@ -65,7 +68,14 @@ AwkEntity::AwkEntity(AI::Team team)
 }
 
 Health::Health(u8 hp, u8 hp_max, u8 shield, u8 shield_max)
-	: hp(hp), hp_max(hp_max), shield(shield), shield_max(shield_max), added(), damaged(), killed(), regen_timer()
+	: hp(hp),
+	hp_max(hp_max),
+	shield(shield),
+	shield_max(shield_max),
+	added(),
+	damaged(),
+	killed(),
+	regen_timer()
 {
 }
 
@@ -571,7 +581,11 @@ void Sensor::update_all(const Update& u)
 	{
 		r32 offset = i.index * sensor_shockwave_interval * 0.3f;
 		if ((s32)((time + offset) / sensor_shockwave_interval) != (s32)((last_time + offset) / sensor_shockwave_interval))
-			World::create<ShockwaveEntity>(10.0f, 1.5f)->get<Transform>()->absolute_pos(i.item()->get<Transform>()->absolute_pos());
+		{
+			Entity* shockwave = World::create<ShockwaveEntity>(10.0f, 1.5f);
+			shockwave->get<Transform>()->absolute_pos(i.item()->get<Transform>()->absolute_pos());
+			Net::finalize(shockwave);
+		}
 	}
 }
 
@@ -622,6 +636,8 @@ AICue::AICue(TypeMask t)
 	: type(t)
 {
 }
+
+AICue::AICue() : type() {}
 
 // returns the closest sensor interest point within range of the given position, or null
 AICue* AICue::in_range(AICue::TypeMask mask, const Vec3& pos, r32 radius, s32* count)
@@ -728,18 +744,10 @@ Rocket::Rocket()
 
 void Rocket::explode()
 {
-	Vec3 pos = get<Transform>()->absolute_pos();
-	// effects
-	for (s32 i = 0; i < 50; i++)
-	{
-		Particles::sparks.add
-		(
-			pos,
-			Vec3(mersenne::randf_oo() * 2.0f - 1.0f, mersenne::randf_oo() * 2.0f - 1.0f, mersenne::randf_oo() * 2.0f - 1.0f) * 10.0f,
-			Vec4(1, 1, 1, 1)
-		);
-	}
-	World::create<ShockwaveEntity>(8.0f, 1.5f)->get<Transform>()->absolute_pos(pos);
+	Vec3 pos;
+	Quat rot;
+	get<Transform>()->absolute(&pos, &rot);
+	explosion(pos, rot.inverse());
 
 	World::remove_deferred(entity());
 }
@@ -956,36 +964,9 @@ u32 ContainmentField::hash(AI::Team my_team, const Vec3& pos)
 	return result;
 }
 
-ContainmentField::ContainmentField(const Vec3& abs_pos, PlayerManager* m)
-	: team(m->team.ref()->team()), owner(m), remaining_lifetime(CONTAINMENT_FIELD_LIFETIME), powered()
+ContainmentField::ContainmentField()
+	: team(AI::TeamNone), owner(), remaining_lifetime(CONTAINMENT_FIELD_LIFETIME), powered()
 {
-	// destroy any overlapping friendly containment field
-	for (auto i = list.iterator(); !i.is_last(); i.next())
-	{
-		if (i.item() != this
-			&& i.item()->team == team
-			&& (i.item()->get<Transform>()->absolute_pos() - abs_pos).length_squared() < CONTAINMENT_FIELD_RADIUS * 2.0f * CONTAINMENT_FIELD_RADIUS * 2.0f)
-		{
-			i.item()->destroy();
-		}
-	}
-
-	Entity* f = World::alloc<Empty>();
-	f->get<Transform>()->absolute_pos(abs_pos);
-
-	View* view = f->add<View>();
-	view->team = (u8)team;
-	view->mesh = Asset::Mesh::containment_field_sphere;
-	view->shader = Asset::Shader::fresnel;
-	view->alpha();
-	view->color.w = 0.35f;
-
-	CollisionGroup team_mask = (CollisionGroup)(1 << (8 + team));
-
-	Loader::mesh(view->mesh);
-	f->add<RigidBody>(RigidBody::Type::Mesh, Vec3::zero, 0.0f, team_mask, CollisionAwkIgnore, view->mesh);
-
-	field = f;
 }
 
 void ContainmentField::awake()
@@ -1086,6 +1067,18 @@ ContainmentFieldEntity::ContainmentFieldEntity(Transform* parent, const Vec3& ab
 	transform->absolute(abs_pos, abs_rot);
 	transform->reparent(parent);
 
+	AI::Team team = m->team.ref()->team();
+
+	// destroy any overlapping friendly containment field
+	for (auto i = ContainmentField::list.iterator(); !i.is_last(); i.next())
+	{
+		if (i.item()->team == team
+			&& (i.item()->get<Transform>()->absolute_pos() - abs_pos).length_squared() < CONTAINMENT_FIELD_RADIUS * 2.0f * CONTAINMENT_FIELD_RADIUS * 2.0f)
+		{
+			i.item()->destroy();
+		}
+	}
+
 	View* model = create<View>();
 	model->team = (u8)m->team.ref()->team();
 	model->mesh = Asset::Mesh::containment_field_base;
@@ -1093,9 +1086,29 @@ ContainmentFieldEntity::ContainmentFieldEntity(Transform* parent, const Vec3& ab
 
 	create<Target>();
 	create<Health>(SENSOR_HEALTH, SENSOR_HEALTH);
-	create<ContainmentField>(abs_pos, m);
-
 	create<RigidBody>(RigidBody::Type::Sphere, Vec3(CONTAINMENT_FIELD_BASE_RADIUS), 0.0f, CollisionAwkIgnore | CollisionTarget, ~CollisionAwk & ~CollisionShield);
+
+	ContainmentField* field = create<ContainmentField>();
+	field->team = team;
+	field->owner = m;
+
+	Entity* f = World::create<Empty>();
+	f->get<Transform>()->absolute_pos(abs_pos);
+
+	View* view = f->add<View>();
+	view->team = (u8)team;
+	view->mesh = Asset::Mesh::containment_field_sphere;
+	view->shader = Asset::Shader::fresnel;
+	view->alpha();
+	view->color.w = 0.35f;
+
+	CollisionGroup team_mask = (CollisionGroup)(1 << (8 + team));
+
+	f->add<RigidBody>(RigidBody::Type::Mesh, Vec3::zero, 0.0f, team_mask, CollisionAwkIgnore, view->mesh);
+
+	Net::finalize(f);
+
+	field->field = f;
 }
 
 #define TELEPORTER_RADIUS 0.5f
@@ -1159,22 +1172,17 @@ void Teleporter::destroy()
 	Vec3 pos;
 	Quat rot;
 	get<Transform>()->absolute(&pos, &rot);
-	for (s32 i = 0; i < 50; i++)
-	{
-		Particles::sparks.add
-		(
-			pos,
-			rot * Vec3(mersenne::randf_oo() * 2.0f - 1.0f, mersenne::randf_oo() * 2.0f - 1.0f, mersenne::randf_oo()) * 10.0f,
-			Vec4(1, 1, 1, 1)
-		);
-	}
-	World::create<ShockwaveEntity>(8.0f, 1.5f)->get<Transform>()->absolute_pos(pos);
+	explosion(pos, rot);
 	World::remove_deferred(entity());
 }
 
 void teleport(Entity* e, Teleporter* target)
 {
-	World::create<ShockwaveEntity>(8.0f, 1.5f)->get<Transform>()->absolute_pos(e->get<Transform>()->absolute_pos());
+	{
+		Entity* shockwave = World::create<ShockwaveEntity>(8.0f, 1.5f);
+		shockwave->get<Transform>()->absolute_pos(e->get<Transform>()->absolute_pos());
+		Net::finalize(shockwave);
+	}
 
 	Vec3 pos;
 	Quat rot;
@@ -1186,7 +1194,11 @@ void teleport(Entity* e, Teleporter* target)
 		Vec3 teleport_pos = pos + rot * Quat::euler(0, 0, e->get<Walker>()->id() * PI * 0.25f) * Vec3(1, 0, 1);
 		teleport_pos.y = vi_max(teleport_pos.y, pos.y + 1.0f);
 		e->get<Walker>()->absolute_pos(teleport_pos);
-		World::create<ShockwaveEntity>(8.0f, 1.5f)->get<Transform>()->absolute_pos(pos);
+		{
+			Entity* shockwave = World::create<ShockwaveEntity>(8.0f, 1.5f);
+			shockwave->get<Transform>()->absolute_pos(pos);
+			Net::finalize(shockwave);
+		}
 	}
 	else if (e->has<Awk>())
 	{
@@ -1216,12 +1228,9 @@ ProjectileEntity::ProjectileEntity(Entity* owner, const Vec3& pos, const Vec3& v
 
 	create<Audio>();
 
-	create<Projectile>(owner, dir * PROJECTILE_SPEED);
-}
-
-Projectile::Projectile(Entity* owner, const Vec3& velocity)
-	: owner(owner), velocity(velocity), lifetime()
-{
+	Projectile* p = create<Projectile>();
+	p->owner = owner;
+	p->velocity = dir * PROJECTILE_SPEED;
 }
 
 void Projectile::awake()
@@ -1274,7 +1283,11 @@ void Projectile::update(const Update& u)
 					Vec4(1, 1, 1, 1)
 				);
 			}
-			World::create<ShockwaveEntity>(8.0f, 1.5f)->get<Transform>()->absolute_pos(ray_callback.m_hitPointWorld);
+			{
+				Entity* shockwave = World::create<ShockwaveEntity>(8.0f, 1.5f);
+				shockwave->get<Transform>()->absolute_pos(ray_callback.m_hitPointWorld);
+				Net::finalize(shockwave);
+			}
 			World::remove(entity());
 		}
 	}
@@ -1496,6 +1509,7 @@ RigidBody* rope_add(RigidBody* start, const Vec3& start_relative_pos, const Vec3
 				box->get<RigidBody>()->set_damping(0.5f, 0.5f);
 				last_segment = box->get<RigidBody>();
 				last_segment_relative_pos = Vec3(0, 0, rope_segment_length * 0.5f);
+				Net::finalize(box);
 			}
 			else
 				break;
@@ -1515,6 +1529,7 @@ Rope* Rope::start(RigidBody* start, const Vec3& abs_pos, const Vec3& abs_normal,
 	Entity* base = World::create<Prop>(Asset::Mesh::rope_base);
 	base->get<Transform>()->absolute(abs_pos, Quat::look(abs_normal));
 	base->get<Transform>()->reparent(start->get<Transform>());
+	Net::finalize(base);
 
 	// add the first rope segment
 	Vec3 p = abs_pos + abs_normal * rope_radius;
@@ -1585,12 +1600,9 @@ ShockwaveEntity::ShockwaveEntity(r32 max_radius, r32 duration)
 	light->radius = 0.0f;
 	light->type = PointLight::Type::Shockwave;
 
-	create<Shockwave>(max_radius, duration);
-}
-
-Shockwave::Shockwave(r32 max_radius, r32 duration)
-	: timer(), max_radius(max_radius), duration(duration)
-{
+	Shockwave* shockwave = create<Shockwave>();
+	shockwave->max_radius = max_radius;
+	shockwave->duration = duration;
 }
 
 r32 Shockwave::radius() const

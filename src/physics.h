@@ -121,6 +121,7 @@ struct RigidBody : public ComponentType<RigidBody>
 	void set_ccd(b8);
 
 	RigidBody(Type, const Vec3&, r32, s16, s16, AssetID = AssetNull, ID = IDNull);
+	RigidBody();
 	~RigidBody();
 	void awake();
 };

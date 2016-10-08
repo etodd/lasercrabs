@@ -24,6 +24,7 @@ set(ALL_INCLUDES
 	external
 	external/bullet/src
 	src
+	${ZLIB_INCLUDE_DIR}
 )
 
 string(REPLACE ";" "," ALL_INCLUDES_COMMA "${ALL_INCLUDES}")
@@ -350,6 +351,7 @@ if (SERVER)
 		cJSON
 		mersenne
 		sha1
+		zlibstatic
 	)
 
 	if (APPLE)
@@ -411,6 +413,7 @@ if (CLIENT)
 		sha1
 		lodepng
 		wwise_integration
+		zlibstatic
 	)
 
 	if (APPLE)

@@ -40,7 +40,7 @@ struct Health : public ComponentType<Health>
 	u8 hp;
 	u8 hp_max;
 
-	Health(u8, u8, u8 = 0, u8 = 0);
+	Health(u8 = 0, u8 = 0, u8 = 0, u8 = 0);
 
 	void update(const Update&);
 	void awake() {}
@@ -113,7 +113,7 @@ struct ControlPoint : public ComponentType<ControlPoint>
 	AI::Team team_next = AI::TeamNone;
 	u32 obstacle_id;
 
-	ControlPoint(AI::Team);
+	ControlPoint(AI::Team = AI::TeamNone);
 	~ControlPoint();
 	b8 owned_by(AI::Team) const;
 	void awake();
@@ -137,7 +137,7 @@ struct Sensor : public ComponentType<Sensor>
 	Ref<PlayerManager> owner;
 	AI::Team team;
 
-	Sensor(AI::Team, PlayerManager* = nullptr);
+	Sensor(AI::Team = AI::TeamNone, PlayerManager* = nullptr);
 
 	void killed_by(Entity*);
 	void awake();
@@ -208,7 +208,7 @@ struct ContainmentField : public ComponentType<ContainmentField>
 	AI::Team team;
 	b8 powered;
 
-	ContainmentField(const Vec3&, PlayerManager*);
+	ContainmentField();
 	void awake();
 	~ContainmentField();
 	void hit_by(const TargetEvent&);
@@ -256,6 +256,7 @@ struct AICue : public ComponentType<AICue>
 
 	TypeMask type;
 	AICue(TypeMask);
+	AICue();
 	void awake() {}
 };
 
@@ -270,7 +271,6 @@ struct Shockwave : public ComponentType<Shockwave>
 	r32 timer;
 	r32 duration;
 
-	Shockwave(r32, r32);
 	void awake() {}
 
 	r32 radius() const;
@@ -309,7 +309,6 @@ struct Projectile : public ComponentType<Projectile>
 	Vec3 velocity;
 	r32 lifetime;
 
-	Projectile(Entity*, const Vec3&);
 	void awake();
 
 	void update(const Update&);

@@ -4,6 +4,7 @@
 #include "common.h"
 #include "load.h"
 #include "components.h"
+#include "net.h"
 
 namespace VI
 {
@@ -139,6 +140,9 @@ void Ragdoll::awake()
 			}
 		}
 	}
+
+	for (s32 i = 0; i < bodies.length; i++)
+		Net::finalize(bodies[i].body.ref()->entity());
 }
 
 RigidBody* Ragdoll::get_body(const AssetID bone)

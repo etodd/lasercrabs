@@ -111,7 +111,7 @@ struct AIPlayerControl : public ComponentType<AIPlayerControl>
 	b8 panic;
 	s8 path_priority;
 
-	AIPlayerControl();
+	AIPlayerControl(AIPlayer* = nullptr);
 	void awake();
 	~AIPlayerControl();
 

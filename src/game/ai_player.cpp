@@ -145,7 +145,7 @@ void AIPlayer::spawn()
 
 	manager.ref()->entity = e;
 
-	e->add<AIPlayerControl>()->player = this;
+	e->add<AIPlayerControl>(this);
 
 	Net::finalize(e);
 }
@@ -189,8 +189,9 @@ s32 AIPlayer::save_up_priority() const
 	return 0;
 }
 
-AIPlayerControl::AIPlayerControl()
+AIPlayerControl::AIPlayerControl(AIPlayer* p)
 	: path_index(),
+	player(p),
 	memory(),
 	active_behavior(),
 	path_priority(),

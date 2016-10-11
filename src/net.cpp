@@ -23,6 +23,8 @@
 
 #define DEBUG_MSG 0
 #define DEBUG_ENTITY 0
+#define DEBUG_TRANSFORMS 1
+#define DEBUG_BANDWIDTH 1
 
 namespace VI
 {
@@ -42,6 +44,7 @@ typedef u8 SequenceID;
 
 #define MESSAGE_BUFFER s32(TIMEOUT / TICK_RATE)
 #define MAX_MESSAGES_SIZE (MAX_PACKET_SIZE / 2)
+#define INTERPOLATION_DELAY 0.085f
 
 enum class ClientPacket
 {
@@ -80,6 +83,28 @@ struct MessageFrame // container for the amount of messages that can come in a s
 
 	MessageFrame(r32 t, s32 bytes) : read(), sequence_id(), timestamp(t), bytes(bytes) {}
 	~MessageFrame() {}
+};
+
+struct TransformState
+{
+	Vec3 pos;
+	Quat rot;
+	Ref<Transform> parent;
+};
+
+struct TransformFrame
+{
+	TransformState transforms[MAX_ENTITIES];
+	r32 timestamp;
+	Bitmask<MAX_ENTITIES> active;
+	SequenceID sequence_id;
+	u16 count;
+};
+
+struct TransformHistory
+{
+	StaticArray<TransformFrame, 256> frames;
+	s32 current_index;
 };
 
 struct Ack
@@ -180,8 +205,19 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 		| Rocket::component_mask
 		| ContainmentField::component_mask
 		| Teleporter::component_mask;
+		//| Awk::component_mask
+		//| LocalPlayerControl::component_mask
+		//| PlayerCommon::component_mask
+		//| MinionCommon::component_mask
 
-	serialize_u64(p, e->component_mask);
+	if (Stream::IsWriting)
+	{
+		ComponentMask m = e->component_mask;
+		m &= mask;
+		serialize_u64(p, m);
+	}
+	else
+		serialize_u64(p, e->component_mask);
 	serialize_u16(p, e->revision);
 
 #if DEBUG_ENTITY
@@ -672,7 +708,10 @@ void packet_decompress(StreamRead* p, s32 bytes)
 
 void packet_send(const StreamWrite& p, const Sock::Address& address)
 {
-	Sock::udp_send(&sock, address, p.data.data, p.data.length * sizeof(u32));
+#if DEBUG_BANDWIDTH
+	vi_debug("Outgoing packet size: %dB", p.bytes_written());
+#endif
+	Sock::udp_send(&sock, address, p.data.data, p.bytes_written());
 }
 
 b8 msg_send_noop()
@@ -725,7 +764,7 @@ b8 msgs_out_consolidate()
 	return true;
 }
 
-MessageFrame* msg_frame_advance(MessageHistory* history, SequenceID* id)
+MessageFrame* msg_frame_advance(MessageHistory* history, SequenceID* id, r32 timestamp)
 {
 	if (history->msgs.length > 0)
 	{
@@ -734,7 +773,7 @@ MessageFrame* msg_frame_advance(MessageHistory* history, SequenceID* id)
 		for (s32 i = 0; i < 64; i++)
 		{
 			MessageFrame* msg = &history->msgs[index];
-			if (msg->sequence_id == next_sequence)
+			if (msg->sequence_id == next_sequence && msg->timestamp < timestamp)
 			{
 				*id = next_sequence;
 				return msg;
@@ -868,8 +907,11 @@ b8 msgs_read(StreamRead* p, MessageHistory* history, Ack* ack)
 {
 	using Stream = StreamRead;
 
-	serialize_int(p, SequenceID, ack->sequence_id, 0, SEQUENCE_COUNT - 1);
-	serialize_u32(p, ack->previous_sequences);
+	Ack ack_candidate;
+	serialize_int(p, SequenceID, ack_candidate.sequence_id, 0, SEQUENCE_COUNT - 1);
+	serialize_u32(p, ack_candidate.previous_sequences);
+	if (sequence_more_recent(ack_candidate.sequence_id, ack->sequence_id))
+		*ack = ack_candidate;
 
 	while (true)
 	{
@@ -888,6 +930,267 @@ b8 msgs_read(StreamRead* p, MessageHistory* history, Ack* ack)
 	}
 
 	return true;
+}
+
+template<typename Stream> b8 serialize_quat(Stream* p, Quat* rot)
+{
+	Quat q;
+	s32 largest_index;
+	if (Stream::IsWriting)
+	{
+		q = Quat::normalize(*rot);
+		largest_index = 0; // w
+		if (fabs(q.x) > fabs(q[largest_index]))
+			largest_index = 1;
+		if (fabs(q.y) > fabs(q[largest_index]))
+			largest_index = 2;
+		if (fabs(q.z) > fabs(q[largest_index]))
+			largest_index = 3;
+		if (q[largest_index] < 0.0f)
+		{
+			q.w *= -1.0f;
+			q.x *= -1.0f;
+			q.y *= -1.0f;
+			q.z *= -1.0f;
+		}
+	}
+	serialize_int(p, s32, largest_index, 0, 3);
+
+	s32 indices[3];
+	{
+		s32 index = 0;
+		for (s32 i = 0; i < 4; i++)
+		{
+			if (i != largest_index)
+			{
+				indices[index] = i;
+				index++;
+			}
+		}
+	}
+	serialize_r32_range(p, q[indices[0]], -0.707107f, 0.707107f, 9);
+	serialize_r32_range(p, q[indices[1]], -0.707107f, 0.707107f, 9);
+	serialize_r32_range(p, q[indices[2]], -0.707107f, 0.707107f, 9);
+
+	if (Stream::IsReading)
+	{
+		r32 a = q[indices[0]];
+		r32 b = q[indices[1]];
+		r32 c = q[indices[2]];
+		q[largest_index] = sqrtf(1.0f - (a * a) - (b * b) - (c * c));
+		*rot = q;
+	}
+	return true;
+}
+
+template<typename Stream> b8 serialize_transform(Stream* p, TransformState* transform)
+{
+	serialize_r32_range(p, transform->pos.x, -256, 256, 18);
+	serialize_r32_range(p, transform->pos.y, -32, 128, 14);
+	serialize_r32_range(p, transform->pos.z, -256, 256, 18);
+	if (!serialize_quat(p, &transform->rot))
+		net_error();
+	serialize_ref(p, transform->parent);
+	return true;
+}
+
+b8 transform_frame_write(StreamWrite* p, TransformFrame* frame, const TransformFrame* base)
+{
+	using Stream = StreamWrite;
+	serialize_int(p, SequenceID, frame->sequence_id, 0, SEQUENCE_COUNT - 1);
+	serialize_int(p, u16, frame->count, 0, MAX_ENTITIES - 1);
+	s32 index = s32(frame->active.start);
+	for (s32 i = 0; i < frame->count; i++)
+	{
+		serialize_int(p, s32, index, 0, MAX_ENTITIES - 1);
+		if (!serialize_transform(p, &frame->transforms[index]))
+			net_error();
+		index = frame->active.next(index);
+	}
+#if DEBUG_TRANSFORMS
+	vi_debug("Wrote %d transforms", s32(frame->count));
+#endif
+	return true;
+}
+
+b8 transform_frame_read(StreamRead* p, TransformFrame* frame, const TransformFrame* base)
+{
+	using Stream = StreamRead;
+	frame->timestamp = Game::real_time.total;
+	serialize_int(p, SequenceID, frame->sequence_id, 0, SEQUENCE_COUNT - 1);
+	serialize_int(p, u16, frame->count, 0, MAX_ENTITIES - 1);
+	for (s32 i = 0; i < frame->count; i++)
+	{
+		s32 index;
+		serialize_int(p, s32, index, 0, MAX_ENTITIES - 1);
+		frame->active.set(index, true);
+		if (!serialize_transform(p, &frame->transforms[index]))
+			net_error();
+	}
+#if DEBUG_TRANSFORMS
+	vi_debug("Read %d transforms", s32(frame->count));
+#endif
+	return true;
+}
+
+b8 transform_filter(const Transform* t)
+{
+	return t->has<Awk>()
+		|| t->has<EnergyPickup>()
+		|| t->has<Projectile>()
+		|| t->has<Rocket>()
+		|| t->has<Walker>()
+		|| t->has<Sensor>();
+}
+
+void transform_frame_build(TransformFrame* frame)
+{
+	frame->sequence_id = local_sequence_id;
+	frame->active = Transform::list.mask;
+	frame->count = Transform::list.count();
+	for (auto i = Transform::list.iterator(); !i.is_last(); i.next())
+	{
+		if (transform_filter(i.item()))
+		{
+			TransformState* transform = &frame->transforms[i.index];
+			transform->pos = i.item()->pos;
+			transform->rot = i.item()->rot;
+			transform->parent = i.item()->parent.ref();
+		}
+		else
+		{
+			frame->active.set(i.index, false);
+			frame->count--;
+		}
+	}
+}
+
+// get the absolute pos and rot of the given transform
+void transform_absolute(const TransformFrame& frame, s32 index, Vec3* abs_pos, Quat* abs_rot)
+{
+	const TransformState* transform = &frame.transforms[index];
+	*abs_rot = Quat::identity;
+	*abs_pos = Vec3::zero;
+	while (transform)
+	{ 
+		*abs_rot = transform->rot * *abs_rot;
+		*abs_pos = (transform->rot * *abs_pos) + transform->pos;
+		if (transform->parent.id == IDNull)
+			break;
+		else
+			transform = &frame.transforms[transform->parent.id];
+	}
+}
+
+// convert the given pos and rot to the local coordinate system of the given transform
+void transform_absolute_to_relative(const TransformFrame& frame, s32 index, Vec3* pos, Quat* rot)
+{
+	Quat abs_rot;
+	Vec3 abs_pos;
+	transform_absolute(frame, index, &abs_pos, &abs_rot);
+
+	Quat abs_rot_inverse = abs_rot.inverse();
+	*rot = abs_rot_inverse * *rot;
+	*pos = abs_rot_inverse * (*pos - abs_pos);
+}
+
+void transform_frame_interpolate(const TransformFrame& a, const TransformFrame& b, TransformFrame* result, r32 timestamp)
+{
+	result->timestamp = timestamp;
+	vi_assert(timestamp >= a.timestamp);
+	r32 blend = vi_min((timestamp - a.timestamp) / (b.timestamp - a.timestamp), 1.0f);
+	result->sequence_id = b.sequence_id;
+	result->count = b.count;
+	result->active = b.active;
+	s32 index = s32(b.active.start);
+	for (s32 i = 0; i < b.count; i++)
+	{
+		TransformState* transform = &result->transforms[index];
+		transform->parent = a.transforms[index].parent;
+		transform_absolute(a, index, &transform->pos, &transform->rot);
+
+		Vec3 next_abs_pos;
+		Quat next_abs_rot;
+		transform_absolute(b, index, &next_abs_pos, &next_abs_rot);
+
+		transform->pos = Vec3::lerp(blend, transform->pos, next_abs_pos);
+		transform->rot = Quat::slerp(blend, transform->rot, next_abs_rot);
+		if (transform->parent.id != IDNull)
+			transform_absolute_to_relative(a, transform->parent.id, &transform->pos, &transform->rot);
+		index = b.active.next(index);
+	}
+}
+
+TransformFrame* transform_frame_add(TransformHistory* history)
+{
+	TransformFrame* frame;
+	if (history->frames.length < history->frames.capacity())
+	{
+		frame = history->frames.add();
+		history->current_index = history->frames.length - 1;
+	}
+	else
+	{
+		history->current_index = (history->current_index + 1) % history->frames.capacity();
+		frame = &history->frames[history->current_index];
+	}
+	new (frame) TransformFrame();
+	frame->timestamp = Game::real_time.total;
+	return frame;
+}
+
+const TransformFrame* transform_frame_by_sequence(const TransformHistory& history, SequenceID sequence_id)
+{
+	if (history.frames.length > 0)
+	{
+		s32 index = history.current_index;
+		for (s32 i = 0; i < 64; i++)
+		{
+			// loop backward through most recent frames
+			index = index > 0 ? index - 1 : history.frames.length - 1;
+			if (index == history.current_index) // we looped all the way around
+				break;
+
+			const TransformFrame* frame = &history.frames[index];
+			if (frame->sequence_id == sequence_id)
+				return frame;
+		}
+	}
+	return nullptr;
+}
+
+const TransformFrame* transform_frame_by_timestamp(const TransformHistory& history, r32 timestamp)
+{
+	if (history.frames.length > 0)
+	{
+		s32 index = history.current_index;
+		for (s32 i = 0; i < 64; i++)
+		{
+			const TransformFrame* frame = &history.frames[index];
+
+			if (frame->timestamp < timestamp)
+				return &history.frames[index];
+
+			// loop backward through most recent frames
+			index = index > 0 ? index - 1 : history.frames.length - 1;
+			if (index == history.current_index) // we looped all the way around
+				break;
+		}
+	}
+	return nullptr;
+}
+
+const TransformFrame* transform_frame_next(const TransformHistory& history, const TransformFrame& frame)
+{
+	if (history.frames.length > 1)
+	{
+		s32 index = &frame - history.frames.data;
+		index = index < history.frames.length - 1 ? index + 1 : 0;
+		const TransformFrame& frame_next = history.frames[index];
+		if (sequence_more_recent(frame_next.sequence_id, frame.sequence_id))
+			return &frame_next;
+	}
+	return nullptr;
 }
 
 #if SERVER
@@ -921,6 +1224,7 @@ Array<Client> clients;
 r32 tick_timer;
 Mode mode;
 s32 expected_clients = 1;
+TransformHistory transform_history;
 
 s32 connected_clients()
 {
@@ -942,7 +1246,7 @@ b8 init()
 	}
 
 	Game::session.multiplayer = true;
-	Game::schedule_load_level(Asset::Level::Tyche, Game::Mode::Pvp);
+	Game::load_level(Update(), Asset::Level::Ponos, Game::Mode::Pvp, true);
 
 	return true;
 }
@@ -978,6 +1282,11 @@ b8 build_packet_update(StreamWrite* p, Client* client)
 	serialize_int(p, SequenceID, ack.sequence_id, 0, SEQUENCE_COUNT - 1);
 	serialize_u32(p, ack.previous_sequences);
 	msgs_write(p, msgs_out_history, client->ack, &client->recently_resent, client->rtt);
+	serialize_int(p, SequenceID, client->ack.sequence_id, 0, SEQUENCE_COUNT - 1);
+	const TransformFrame* base = transform_frame_by_sequence(transform_history, client->ack.sequence_id);
+	TransformFrame* frame = transform_frame_add(&transform_history);
+	transform_frame_build(frame);
+	transform_frame_write(p, frame, base);
 	packet_finalize(p);
 	return true;
 }
@@ -989,7 +1298,7 @@ void update(const Update& u)
 		Client* client = &clients[i];
 		if (client->connected)
 		{
-			while (const MessageFrame* frame = msg_frame_advance(&client->msgs_in_history, &client->processed_sequence_id))
+			while (const MessageFrame* frame = msg_frame_advance(&client->msgs_in_history, &client->processed_sequence_id, Game::real_time.total))
 			{
 				// todo: process messages in frame
 			}
@@ -1049,7 +1358,7 @@ b8 packet_handle(const Update& u, StreamRead* p, const Sock::Address& address)
 	if (!p->read_checksum())
 	{
 		vi_debug("Discarding packet for invalid checksum.");
-		return false;
+		net_error();
 	}
 
 	ClientPacket type;
@@ -1124,11 +1433,11 @@ b8 packet_handle(const Update& u, StreamRead* p, const Sock::Address& address)
 			if (!client)
 			{
 				vi_debug("Discarding packet from unknown client.");
-				return false;
+				net_error();
 			}
 
 			if (!msgs_read(p, &client->msgs_in_history, &client->ack))
-				return false;
+				net_error();
 			calculate_rtt(Game::real_time.total, client->ack, msgs_out_history, &client->rtt);
 
 			client->timeout = 0.0f;
@@ -1137,7 +1446,7 @@ b8 packet_handle(const Update& u, StreamRead* p, const Sock::Address& address)
 		default:
 		{
 			vi_debug("Discarding packet due to invalid packet type.");
-			return false;
+			net_error();
 		}
 	}
 
@@ -1167,6 +1476,7 @@ Ack server_ack = { u32(-1), 0 }; // most recent ack we've received from the serv
 SequenceHistory server_recently_resent; // sequences we recently resent to the server
 r32 server_rtt = 0.5f;
 SequenceID server_processed_sequence_id; // most recent sequence ID we've processed from the server
+TransformHistory transform_history;
 
 b8 init()
 {
@@ -1262,7 +1572,9 @@ b8 msg_process(StreamRead* p)
 
 void update(const Update& u)
 {
-	while (MessageFrame* frame = msg_frame_advance(&msgs_in_history, &server_processed_sequence_id))
+	r32 interpolation_time = Game::real_time.total - INTERPOLATION_DELAY;
+
+	while (MessageFrame* frame = msg_frame_advance(&msgs_in_history, &server_processed_sequence_id, interpolation_time))
 	{
 		frame->read.rewind();
 		while (frame->read.bytes_read() < frame->bytes)
@@ -1273,6 +1585,33 @@ void update(const Update& u)
 #endif
 			if (!success)
 				break;
+		}
+	}
+
+	const TransformFrame* frame = transform_frame_by_timestamp(transform_history, interpolation_time);
+	if (frame)
+	{
+		const TransformFrame* frame_next = transform_frame_next(transform_history, *frame);
+		const TransformFrame* frame_final;
+		TransformFrame interpolated;
+		if (frame_next)
+		{
+			transform_frame_interpolate(*frame, *frame_next, &interpolated, interpolation_time);
+			frame_final = &interpolated;
+		}
+		else
+			frame_final = frame;
+
+		// apply frame_final to world
+		s32 index = frame_final->active.start;
+		for (s32 i = 0; i < frame_final->count; i++)
+		{
+			Transform* t = &Transform::list[index];
+			const TransformState& s = frame_final->transforms[index];
+			t->pos = s.pos;
+			t->rot = s.rot;
+			t->parent = s.parent;
+			index = frame_final->active.next(index);
 		}
 	}
 }
@@ -1351,12 +1690,12 @@ b8 packet_handle(const Update& u, StreamRead* p, const Sock::Address& address)
 	if (!address.equals(server_address))
 	{
 		vi_debug("%s", "Discarding packet from unexpected host.");
-		return false;
+		net_error();
 	}
 	if (!p->read_checksum())
 	{
 		vi_debug("%s", "Discarding packet due to invalid checksum.");
-		return false;
+		net_error();
 	}
 	ServerPacket type;
 	serialize_enum(p, ServerPacket, type);
@@ -1395,15 +1734,27 @@ b8 packet_handle(const Update& u, StreamRead* p, const Sock::Address& address)
 			}
 
 			if (!msgs_read(p, &msgs_in_history, &server_ack))
-				return false;
+				net_error();
 			calculate_rtt(Game::real_time.total, server_ack, msgs_out_history, &server_rtt);
+
+			{
+				SequenceID base_sequence_id;
+				serialize_int(p, SequenceID, base_sequence_id, 0, SEQUENCE_COUNT - 1);
+				const TransformFrame* base = transform_frame_by_sequence(transform_history, base_sequence_id);
+				TransformFrame frame;
+				transform_frame_read(p, &frame, base);
+				// only insert the frame into the history if it is more recent
+				if (transform_history.frames.length == 0 || sequence_more_recent(frame.sequence_id, transform_history.frames[transform_history.current_index].sequence_id))
+					memcpy(transform_frame_add(&transform_history), &frame, sizeof(TransformFrame));
+			}
+
 			timeout = 0.0f; // reset connection timeout
 			break;
 		}
 		default:
 		{
 			vi_debug("%s", "Discarding packet due to invalid packet type.");
-			return false;
+			net_error();
 		}
 	}
 
@@ -1426,7 +1777,7 @@ b8 init()
 #endif
 }
 
-void finalize(Entity* e)
+b8 finalize(Entity* e)
 {
 #if SERVER
 	if (Server::clients.length == Server::expected_clients)
@@ -1443,9 +1794,10 @@ void finalize(Entity* e)
 	e->finalized = true;
 #endif
 #endif
+	return true;
 }
 
-void remove(Entity* e)
+b8 remove(Entity* e)
 {
 #if SERVER
 	using Stream = StreamWrite;
@@ -1455,6 +1807,7 @@ void remove(Entity* e)
 	ID id = e->id();
 	serialize_int(p, ID, id, 0, MAX_ENTITIES - 1);
 #endif
+	return true;
 }
 
 void update(const Update& u)

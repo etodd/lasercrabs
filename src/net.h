@@ -22,12 +22,12 @@ struct StreamWrite;
 
 // borrows heavily from https://github.com/networkprotocol/libyojimbo
 
-#define MAX_PACKET_SIZE 1200
+#define MAX_PACKET_SIZE 1500
 
 b8 init();
 void update(const Update&);
-void finalize(Entity*);
-void remove(Entity*);
+b8 finalize(Entity*);
+b8 remove(Entity*);
 
 #if SERVER
 namespace Server

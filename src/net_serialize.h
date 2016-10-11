@@ -108,7 +108,7 @@ union Single
 };
 
 #if DEBUG
-#define net_error() { vi_debug_break(); }
+#define net_error() { vi_debug_break(); return false; }
 #else
 #define net_error() { return false; }
 #endif

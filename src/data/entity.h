@@ -153,7 +153,9 @@ struct World
 		return (T*)e;
 	}
 
+	static Entity* net_add(ID);
 	static void remove(Entity*);
+	static void net_remove(Entity*);
 	static void remove_deferred(Entity*);
 	static void awake(Entity*);
 	static void flush();

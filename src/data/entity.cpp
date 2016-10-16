@@ -61,6 +61,16 @@ Entity::Entity()
 #endif
 }
 
+void remove_components(Entity* e)
+{
+	for (Family i = 0; i < World::families; i++)
+	{
+		if (e->component_mask & ((ComponentMask)1 << i))
+			World::component_pools[i]->remove(e->components[i]);
+	}
+	e->component_mask = 0;
+}
+
 // if the entity is active, remove it
 // returns true if the entity was actually active and removed
 // World::remove_deferred WILL NOT crash when it removes an entity multiple times
@@ -71,17 +81,29 @@ b8 internal_remove(Entity* e)
 	if (Entity::list.active(id))
 	{
 		Net::remove(e);
-		for (Family i = 0; i < World::families; i++)
-		{
-			if (e->component_mask & ((ComponentMask)1 << i))
-				World::component_pools[i]->remove(e->components[i]);
-		}
-		e->component_mask = 0;
+		remove_components(e);
 		e->revision++;
 		Entity::list.remove(id);
 		return true;
 	}
 	return false;
+}
+
+Entity* World::net_add(ID id)
+{
+	Entity::list.active(id, true);
+	vi_assert(Entity::list.free_list.length > 0);
+	Entity::list.free_list.length--;
+	return &Entity::list[id];
+}
+
+void World::net_remove(Entity* e)
+{
+	vi_assert(Entity::list.active(e->id()));
+	remove_components(e);
+	e->revision++;
+	vi_assert(Entity::list.free_list.length < MAX_ENTITIES);
+	Entity::list.free_list.length++;
 }
 
 void World::remove(Entity* e)

@@ -13,7 +13,7 @@ namespace Net
 
 // borrows heavily from https://github.com/networkprotocol/libyojimbo
 
-#define MAX_PACKET_SIZE 1500
+#define MAX_PACKET_SIZE 2000
 #define NET_PROTOCOL_ID 0x6906c2fe
 
 u32 crc32(const u8*, memory_index, u32 value = 0);

@@ -90,6 +90,7 @@ struct TransformState
 	Vec3 pos;
 	Quat rot;
 	Ref<Transform> parent;
+	u16 revision;
 };
 
 struct TransformFrame
@@ -98,7 +99,6 @@ struct TransformFrame
 	r32 timestamp;
 	Bitmask<MAX_ENTITIES> active;
 	SequenceID sequence_id;
-	u16 count;
 };
 
 struct TransformHistory
@@ -994,21 +994,72 @@ template<typename Stream> b8 serialize_transform(Stream* p, TransformState* tran
 	return true;
 }
 
+b8 transform_states_equal(const TransformState& a, const TransformState& b)
+{
+	return a.revision == b.revision
+		&& a.parent.id == b.parent.id
+		&& a.parent.revision == b.parent.revision
+		&& (a.pos - b.pos).length_squared() < 0.02f * 0.02f
+		&& Quat::angle(a.rot, b.rot) < 0.01f;
+}
+
+b8 transform_states_equal(const TransformFrame* a, const TransformFrame* b, s32 index)
+{
+	if (a && b)
+	{
+		b8 a_active = a->active.get(index);
+		b8 b_active = b->active.get(index);
+		if (a_active == b_active)
+		{
+			if (a_active && b_active)
+				return transform_states_equal(a->transforms[index], b->transforms[index]);
+			else if (!a_active && !b_active)
+				return true;
+		}
+	}
+	return false;
+}
+
 b8 transform_frame_write(StreamWrite* p, TransformFrame* frame, const TransformFrame* base)
 {
 	using Stream = StreamWrite;
 	serialize_int(p, SequenceID, frame->sequence_id, 0, SEQUENCE_COUNT - 1);
-	serialize_int(p, u16, frame->count, 0, MAX_ENTITIES - 1);
-	s32 index = s32(frame->active.start);
-	for (s32 i = 0; i < frame->count; i++)
+
+	// count changed transforms
+	s32 changed_count = 0;
 	{
-		serialize_int(p, s32, index, 0, MAX_ENTITIES - 1);
-		if (!serialize_transform(p, &frame->transforms[index]))
-			net_error();
+		s32 index = s32(frame->active.start);
+		while (index <= frame->active.end)
+		{
+			if (!transform_states_equal(frame, base, index))
+				changed_count++;
+			index = frame->active.next(index);
+		}
+	}
+	serialize_int(p, s32, changed_count, 0, MAX_ENTITIES - 1);
+
+	s32 index = s32(frame->active.start);
+	while (index <= frame->active.end)
+	{
+		if (!transform_states_equal(frame, base, index))
+		{
+			serialize_int(p, s32, index, 0, MAX_ENTITIES - 1);
+			b8 active = frame->active.get(index);
+			serialize_bool(p, active);
+			if (active)
+			{
+				b8 revision_changed = base && (frame->transforms[index].revision != base->transforms[index].revision);
+				serialize_bool(p, revision_changed);
+				if (revision_changed)
+					serialize_u16(p, frame->transforms[index].revision);
+				if (!serialize_transform(p, &frame->transforms[index]))
+					net_error();
+			}
+		}
 		index = frame->active.next(index);
 	}
 #if DEBUG_TRANSFORMS
-	vi_debug("Wrote %d transforms", s32(frame->count));
+	vi_debug("Wrote %d transforms", changed_count);
 #endif
 	return true;
 }
@@ -1017,18 +1068,33 @@ b8 transform_frame_read(StreamRead* p, TransformFrame* frame, const TransformFra
 {
 	using Stream = StreamRead;
 	frame->timestamp = Game::real_time.total;
+	if (base)
+	{
+		frame->active = base->active;
+		memcpy(frame->transforms, base->transforms, sizeof(frame->transforms));
+	}
 	serialize_int(p, SequenceID, frame->sequence_id, 0, SEQUENCE_COUNT - 1);
-	serialize_int(p, u16, frame->count, 0, MAX_ENTITIES - 1);
-	for (s32 i = 0; i < frame->count; i++)
+	s32 changed_count;
+	serialize_int(p, u16, changed_count, 0, MAX_ENTITIES - 1);
+	for (s32 i = 0; i < changed_count; i++)
 	{
 		s32 index;
 		serialize_int(p, s32, index, 0, MAX_ENTITIES - 1);
-		frame->active.set(index, true);
-		if (!serialize_transform(p, &frame->transforms[index]))
-			net_error();
+		b8 active;
+		serialize_bool(p, active);
+		frame->active.set(index, active);
+		if (active)
+		{
+			b8 revision_changed;
+			serialize_bool(p, revision_changed);
+			if (revision_changed)
+				serialize_u16(p, frame->transforms[index].revision);
+			if (!serialize_transform(p, &frame->transforms[index]))
+				net_error();
+		}
 	}
 #if DEBUG_TRANSFORMS
-	vi_debug("Read %d transforms", s32(frame->count));
+	vi_debug("Read %d transforms", changed_count);
 #endif
 	return true;
 }
@@ -1040,28 +1106,26 @@ b8 transform_filter(const Transform* t)
 		|| t->has<Projectile>()
 		|| t->has<Rocket>()
 		|| t->has<Walker>()
-		|| t->has<Sensor>();
+		|| t->has<Sensor>()
+		|| t->has<Rope>();
 }
 
 void transform_frame_build(TransformFrame* frame)
 {
 	frame->sequence_id = local_sequence_id;
 	frame->active = Transform::list.mask;
-	frame->count = Transform::list.count();
 	for (auto i = Transform::list.iterator(); !i.is_last(); i.next())
 	{
 		if (transform_filter(i.item()))
 		{
 			TransformState* transform = &frame->transforms[i.index];
+			transform->revision = i.item()->revision;
 			transform->pos = i.item()->pos;
 			transform->rot = i.item()->rot;
 			transform->parent = i.item()->parent.ref();
 		}
 		else
-		{
 			frame->active.set(i.index, false);
-			frame->count--;
-		}
 	}
 }
 
@@ -1100,23 +1164,33 @@ void transform_frame_interpolate(const TransformFrame& a, const TransformFrame& 
 	vi_assert(timestamp >= a.timestamp);
 	r32 blend = vi_min((timestamp - a.timestamp) / (b.timestamp - a.timestamp), 1.0f);
 	result->sequence_id = b.sequence_id;
-	result->count = b.count;
 	result->active = b.active;
 	s32 index = s32(b.active.start);
-	for (s32 i = 0; i < b.count; i++)
+	while (index <= b.active.end)
 	{
 		TransformState* transform = &result->transforms[index];
-		transform->parent = a.transforms[index].parent;
-		transform_absolute(a, index, &transform->pos, &transform->rot);
 
-		Vec3 next_abs_pos;
-		Quat next_abs_rot;
-		transform_absolute(b, index, &next_abs_pos, &next_abs_rot);
+		if (transform->revision == a.transforms[index].revision)
+		{
+			transform->parent = a.transforms[index].parent;
+			transform_absolute(a, index, &transform->pos, &transform->rot);
 
-		transform->pos = Vec3::lerp(blend, transform->pos, next_abs_pos);
-		transform->rot = Quat::slerp(blend, transform->rot, next_abs_rot);
-		if (transform->parent.id != IDNull)
-			transform_absolute_to_relative(a, transform->parent.id, &transform->pos, &transform->rot);
+			Vec3 next_abs_pos;
+			Quat next_abs_rot;
+			transform_absolute(b, index, &next_abs_pos, &next_abs_rot);
+
+			transform->pos = Vec3::lerp(blend, transform->pos, next_abs_pos);
+			transform->rot = Quat::slerp(blend, transform->rot, next_abs_rot);
+			if (transform->parent.id != IDNull)
+				transform_absolute_to_relative(a, transform->parent.id, &transform->pos, &transform->rot);
+		}
+		else
+		{
+			const TransformState& next = b.transforms[index];
+			transform->parent = next.parent;
+			transform->pos = next.pos;
+			transform->rot = next.rot;
+		}
 		index = b.active.next(index);
 	}
 }
@@ -1272,7 +1346,7 @@ b8 build_packet_keepalive(StreamWrite* p)
 	return true;
 }
 
-b8 build_packet_update(StreamWrite* p, Client* client)
+b8 build_packet_update(StreamWrite* p, Client* client, TransformFrame* frame)
 {
 	packet_init(p);
 	using Stream = StreamWrite;
@@ -1284,8 +1358,6 @@ b8 build_packet_update(StreamWrite* p, Client* client)
 	msgs_write(p, msgs_out_history, client->ack, &client->recently_resent, client->rtt);
 	serialize_int(p, SequenceID, client->ack.sequence_id, 0, SEQUENCE_COUNT - 1);
 	const TransformFrame* base = transform_frame_by_sequence(transform_history, client->ack.sequence_id);
-	TransformFrame* frame = transform_frame_add(&transform_history);
-	transform_frame_build(frame);
 	transform_frame_write(p, frame, base);
 	packet_finalize(p);
 	return true;
@@ -1315,6 +1387,10 @@ void tick(const Update& u)
 {
 	if (mode == Mode::Active)
 		msgs_out_consolidate();
+
+	TransformFrame* frame = transform_frame_add(&transform_history);
+	transform_frame_build(frame);
+
 	StreamWrite p;
 	for (s32 i = 0; i < clients.length; i++)
 	{
@@ -1329,7 +1405,7 @@ void tick(const Update& u)
 		else if (client->connected)
 		{
 			p.reset();
-			build_packet_update(&p, client);
+			build_packet_update(&p, client, frame);
 			packet_send(p, clients[i].address);
 		}
 	}
@@ -1547,17 +1623,16 @@ b8 msg_process(StreamRead* p)
 		{
 			ID id;
 			serialize_int(p, ID, id, 0, MAX_ENTITIES - 1);
-			Entity::list.active(id, true);
-			Entity::list.free_list.length--;
-			Entity* e = &Entity::list[id];
+			Entity* e = World::net_add(id);
 			if (!serialize_entity(p, e))
 				net_error();
 			break;
 		}
 		case MessageType::EntityRemove:
 		{
-			// todo
-			vi_assert(false);
+			ID id;
+			serialize_int(p, ID, id, 0, MAX_ENTITIES - 1);
+			World::net_remove(&Entity::list[id]);
 			break;
 		}
 		default:
@@ -1604,7 +1679,7 @@ void update(const Update& u)
 
 		// apply frame_final to world
 		s32 index = frame_final->active.start;
-		for (s32 i = 0; i < frame_final->count; i++)
+		while (index <= frame_final->active.end)
 		{
 			Transform* t = &Transform::list[index];
 			const TransformState& s = frame_final->transforms[index];
@@ -1712,9 +1787,9 @@ b8 packet_handle(const Update& u, StreamRead* p, const Sock::Address& address)
 					Vec2(u.input->width, u.input->height),
 				};
 				r32 aspect = camera->viewport.size.y == 0 ? 1 : (r32)camera->viewport.size.x / (r32)camera->viewport.size.y;
-				camera->perspective((40.0f * PI * 0.5f / 180.0f), aspect, 0.1f, Game::level.skybox.far_plane);
-				camera->pos = Vec3(0, 30, -60);
-				camera->rot = Quat::look(Vec3(0, 0, 1));
+				camera->perspective((70.0f * PI * 0.5f / 180.0f), aspect, 0.1f, Game::level.skybox.far_plane);
+				camera->pos = Vec3(-28, 20, -9);
+				camera->rot = Quat::look(Vec3(-0.7f, 0, 1));
 
 				mode = Mode::Acking; // acknowledge the init packet
 			}

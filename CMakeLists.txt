@@ -172,10 +172,10 @@ add_library(mersenne STATIC
 )
 
 add_library(cJSON STATIC
-	external/cJSON/cJSON.h
-	external/cJSON/cJSON.c
-	external/cJSON/cJSON_Utils.c
-	external/cJSON/cJSON_Utils.h
+	external/cjson/cJSON.h
+	external/cjson/cJSON.c
+	external/cjson/cJSON_Utils.c
+	external/cjson/cJSON_Utils.h
 )
 
 ## SHA1

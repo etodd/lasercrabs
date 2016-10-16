@@ -1434,7 +1434,7 @@ b8 packet_handle(const Update& u, StreamRead* p, const Sock::Address& address)
 	using Stream = StreamRead;
 	if (!p->read_checksum())
 	{
-		vi_debug("Discarding packet for invalid checksum.");
+		vi_debug("%s", "Discarding packet for invalid checksum.");
 		net_error();
 	}
 
@@ -1509,7 +1509,7 @@ b8 packet_handle(const Update& u, StreamRead* p, const Sock::Address& address)
 		{
 			if (!client)
 			{
-				vi_debug("Discarding packet from unknown client.");
+				vi_debug("%s", "Discarding packet from unknown client.");
 				net_error();
 			}
 
@@ -1522,7 +1522,7 @@ b8 packet_handle(const Update& u, StreamRead* p, const Sock::Address& address)
 		}
 		default:
 		{
-			vi_debug("Discarding packet due to invalid packet type.");
+			vi_debug("%s", "Discarding packet due to invalid packet type.");
 			net_error();
 		}
 	}

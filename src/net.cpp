@@ -23,8 +23,8 @@
 
 #define DEBUG_MSG 0
 #define DEBUG_ENTITY 0
-#define DEBUG_TRANSFORMS 1
-#define DEBUG_BANDWIDTH 1
+#define DEBUG_TRANSFORMS 0
+#define DEBUG_BANDWIDTH 0
 
 namespace VI
 {
@@ -42,9 +42,9 @@ typedef u8 SequenceID;
 #define SEQUENCE_BITS 8
 #define SEQUENCE_COUNT (1 << SEQUENCE_BITS)
 
-#define MESSAGE_BUFFER s32(TIMEOUT / TICK_RATE)
+#define MESSAGE_BUFFER 256
 #define MAX_MESSAGES_SIZE (MAX_PACKET_SIZE / 2)
-#define INTERPOLATION_DELAY 0.085f
+#define INTERPOLATION_DELAY ((TICK_RATE * 5.0f) + 0.02f)
 
 enum class ClientPacket
 {
@@ -1169,25 +1169,26 @@ void transform_frame_interpolate(const TransformFrame& a, const TransformFrame& 
 	while (index <= b.active.end)
 	{
 		TransformState* transform = &result->transforms[index];
+		const TransformState& last = a.transforms[index];
+		const TransformState& next = b.transforms[index];
 
-		if (transform->revision == a.transforms[index].revision)
+		transform->parent = next.parent;
+
+		if (last.revision == next.revision)
 		{
-			transform->parent = a.transforms[index].parent;
-			transform_absolute(a, index, &transform->pos, &transform->rot);
+			// todo: fix this mess
+			Vec3 last_pos;
+			Quat last_rot;
+			transform_absolute(a, index, &last_pos, &last_rot);
 
-			Vec3 next_abs_pos;
-			Quat next_abs_rot;
-			transform_absolute(b, index, &next_abs_pos, &next_abs_rot);
+			if (next.parent.id != IDNull)
+				transform_absolute_to_relative(b, next.parent.id, &last_pos, &last_rot);
 
-			transform->pos = Vec3::lerp(blend, transform->pos, next_abs_pos);
-			transform->rot = Quat::slerp(blend, transform->rot, next_abs_rot);
-			if (transform->parent.id != IDNull)
-				transform_absolute_to_relative(a, transform->parent.id, &transform->pos, &transform->rot);
+			transform->pos = Vec3::lerp(blend, next.pos, last_pos);
+			transform->rot = Quat::slerp(blend, next.rot, last_rot);
 		}
 		else
 		{
-			const TransformState& next = b.transforms[index];
-			transform->parent = next.parent;
 			transform->pos = next.pos;
 			transform->rot = next.rot;
 		}
@@ -1788,8 +1789,8 @@ b8 packet_handle(const Update& u, StreamRead* p, const Sock::Address& address)
 				};
 				r32 aspect = camera->viewport.size.y == 0 ? 1 : (r32)camera->viewport.size.x / (r32)camera->viewport.size.y;
 				camera->perspective((70.0f * PI * 0.5f / 180.0f), aspect, 0.1f, Game::level.skybox.far_plane);
-				camera->pos = Vec3(-28, 20, -9);
-				camera->rot = Quat::look(Vec3(-0.7f, 0, 1));
+				camera->pos = Vec3(0, 20, -50);
+				camera->rot = Quat::look(Vec3(0, 0, 1));
 
 				mode = Mode::Acking; // acknowledge the init packet
 			}

@@ -999,8 +999,8 @@ b8 transform_states_equal(const TransformState& a, const TransformState& b)
 	return a.revision == b.revision
 		&& a.parent.id == b.parent.id
 		&& a.parent.revision == b.parent.revision
-		&& (a.pos - b.pos).length_squared() < 0.02f * 0.02f
-		&& Quat::angle(a.rot, b.rot) < 0.01f;
+		&& (a.pos - b.pos).length_squared() < 0.005f * 0.005f
+		&& Quat::angle(a.rot, b.rot) < 0.001f;
 }
 
 b8 transform_states_equal(const TransformFrame* a, const TransformFrame* b, s32 index)
@@ -1220,14 +1220,14 @@ const TransformFrame* transform_frame_by_sequence(const TransformHistory& histor
 		s32 index = history.current_index;
 		for (s32 i = 0; i < 64; i++)
 		{
+			const TransformFrame* frame = &history.frames[index];
+			if (frame->sequence_id == sequence_id)
+				return frame;
+
 			// loop backward through most recent frames
 			index = index > 0 ? index - 1 : history.frames.length - 1;
 			if (index == history.current_index) // we looped all the way around
 				break;
-
-			const TransformFrame* frame = &history.frames[index];
-			if (frame->sequence_id == sequence_id)
-				return frame;
 		}
 	}
 	return nullptr;

@@ -20,6 +20,7 @@
 #include "strings.h"
 #include "render/particles.h"
 #include "net.h"
+#include "net_serialize.h"
 
 namespace VI
 {
@@ -1205,16 +1206,50 @@ void Awk::finish_flying_dashing_common()
 	velocity = Vec3::zero;
 }
 
+b8 msg_send(Awk* a, Awk::NetMessage t)
+{
+	using Stream = Net::StreamWrite;
+	Net::StreamWrite* p = Net::msg_awk(a);
+	serialize_enum(p, Awk::NetMessage, t);
+	Net::msg_finalize(p);
+}
+
 void Awk::finish_flying()
 {
-	finish_flying_dashing_common();
-	done_flying.fire();
+	msg_send(this, NetMessage::DoneFlying);
 }
 
 void Awk::finish_dashing()
 {
-	finish_flying_dashing_common();
-	done_dashing.fire();
+	msg_send(this, NetMessage::DoneDashing);
+}
+
+b8 Awk::msg(Net::StreamRead* p)
+{
+	using Stream = Net::StreamRead;
+	NetMessage type;
+	serialize_enum(p, NetMessage, type);
+	switch (type)
+	{
+		case NetMessage::DoneDashing:
+		{
+			finish_flying_dashing_common();
+			done_dashing.fire();
+			break;
+		}
+		case NetMessage::DoneFlying:
+		{
+			finish_flying_dashing_common();
+			done_flying.fire();
+			break;
+		}
+		default:
+		{
+			vi_assert(false);
+			break;
+		}
+	}
+	return true;
 }
 
 void Awk::update_lerped_pos(r32 speed_multiplier, const Update& u)
@@ -1233,18 +1268,61 @@ void Awk::update_lerped_pos(r32 speed_multiplier, const Update& u)
 	}
 }
 
-void Awk::update(const Update& u)
+void Awk::update_server(const Update& u)
 {
 	State s = state();
 
-	if (s != State::Fly)
+	invincible_timer = vi_max(invincible_timer - u.time.delta, 0.0f);
+
+	if (cooldown > 0.0f)
 	{
-		Vec3 pos = get<Transform>()->absolute_pos();
-		velocity = velocity * 0.75f + ((pos - last_pos) / u.time.delta) * 0.25f;
-		last_pos = pos;
+		cooldown = vi_max(0.0f, cooldown - u.time.delta);
+		if (cooldown == 0.0f)
+			charges = AWK_CHARGES;
 	}
 
-	invincible_timer = vi_max(invincible_timer - u.time.delta, 0.0f);
+	if (s != Awk::State::Crawl)
+	{
+		// flying or dashing
+		if (u.time.total - attach_time > MAX_FLIGHT_TIME)
+			get<Health>()->kill(entity()); // Kill self
+
+		Vec3 position = get<Transform>()->absolute_pos();
+		Vec3 next_position;
+		if (s == State::Dash)
+		{
+			dash_timer -= u.time.delta;
+			if (dash_timer <= 0.0f)
+			{
+				finish_dashing();
+				return;
+			}
+			else
+			{
+				get<Awk>()->crawl(velocity, u);
+				next_position = get<Transform>()->absolute_pos();
+			}
+		}
+		else
+		{
+			next_position = position + velocity * u.time.delta;
+			get<Transform>()->absolute_pos(next_position);
+		}
+
+		if (!btVector3(velocity).fuzzyZero())
+		{
+			Vec3 dir = Vec3::normalize(velocity);
+			Vec3 ray_start = position + dir * -AWK_RADIUS;
+			Vec3 ray_end = next_position + dir * AWK_RADIUS;
+			movement_raycast(ray_start, ray_end);
+		}
+	}
+}
+
+void Awk::update_client(const Update& u)
+{
+	State s = state();
+
 	if (invincible_timer > 0.0f || s != Awk::State::Crawl)
 	{
 		if (get<AIAgent>()->stealth)
@@ -1254,13 +1332,6 @@ void Awk::update(const Update& u)
 	}
 	else
 		shield.ref()->get<View>()->mask = 0;
-
-	if (cooldown > 0.0f)
-	{
-		cooldown = vi_max(0.0f, cooldown - u.time.delta);
-		if (cooldown == 0.0f)
-			charges = AWK_CHARGES;
-	}
 
 	if (s == Awk::State::Crawl)
 	{
@@ -1379,63 +1450,39 @@ void Awk::update(const Update& u)
 	else
 	{
 		// flying or dashing
-
-		if (u.time.total - attach_time > MAX_FLIGHT_TIME)
-			get<Health>()->kill(entity()); // Kill self
-		else
+		if (s == State::Dash)
 		{
-			Vec3 position = get<Transform>()->absolute_pos();
-			Vec3 next_position;
-			if (s == State::Dash)
-			{
-				dash_timer -= u.time.delta;
-				if (dash_timer <= 0.0f)
-				{
-					finish_dashing();
-					return;
-				}
-				else
-				{
-					get<Awk>()->crawl(velocity, u);
-					next_position = get<Transform>()->absolute_pos();
-					update_lerped_pos(5.0f, u);
-					update_offset();
-				}
-			}
-			else
-			{
-				next_position = position + velocity * u.time.delta;
-				get<Transform>()->absolute_pos(next_position);
-			}
+			update_lerped_pos(5.0f, u);
+			update_offset();
+		}
 
-			// emit particles
-			// but don't start until the awk has cleared the camera radius
-			// we do this so that the particles don't block the camera
-			r32 particle_start_delay = AWK_THIRD_PERSON_OFFSET / velocity.length();
-			if (u.time.total > attach_time + particle_start_delay)
+		// emit particles
+		// but don't start until the awk has cleared the camera radius
+		// we do this so that the particles don't block the camera
+		r32 particle_start_delay = AWK_THIRD_PERSON_OFFSET / velocity.length();
+		if (u.time.total > attach_time + particle_start_delay)
+		{
+			Vec3 pos = get<Transform>()->absolute_pos();
+			const r32 particle_interval = 0.05f;
+			particle_accumulator += u.time.delta;
+			while (particle_accumulator > particle_interval)
 			{
-				const r32 particle_interval = 0.05f;
-				particle_accumulator += u.time.delta;
-				while (particle_accumulator > particle_interval)
-				{
-					particle_accumulator -= particle_interval;
-					Particles::tracers.add
-					(
-						Vec3::lerp((particle_accumulator - particle_start_delay) / u.time.delta, position, next_position),
-						Vec3::zero,
-						0
-					);
-				}
-			}
-
-			if (!btVector3(velocity).fuzzyZero())
-			{
-				Vec3 dir = Vec3::normalize(velocity);
-				Vec3 ray_start = position + dir * -AWK_RADIUS;
-				Vec3 ray_end = next_position + dir * AWK_RADIUS;
-				movement_raycast(ray_start, ray_end);
+				particle_accumulator -= particle_interval;
+				Particles::tracers.add
+				(
+					Vec3::lerp((particle_accumulator - particle_start_delay) / u.time.delta, last_pos, pos),
+					Vec3::zero,
+					0
+				);
 			}
 		}
+	}
+
+	{
+		Vec3 pos = get<Transform>()->absolute_pos();
+		if (s != State::Fly)
+			velocity = velocity * 0.75f + ((pos - last_pos) / u.time.delta) * 0.25f;
+		last_pos = pos;
 	}
 }
 

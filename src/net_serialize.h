@@ -160,7 +160,7 @@ inline int bits_required(u32 min, u32 max)
 #define serialize_int(stream, type, value, _min, _max)\
 {\
 	vi_assert(_min < _max);\
-	u32 _b = bits_required(_min, _max);\
+	u32 _b = Net::bits_required(_min, _max);\
 	u32 _u;\
 	if (Stream::IsWriting)\
 	{\

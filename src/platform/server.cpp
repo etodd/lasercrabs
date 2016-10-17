@@ -40,6 +40,9 @@ namespace VI
 
 	s32 proc()
 	{
+		Loader::data_directory = ""; // todo
+		Loader::settings_load(0, 0);
+
 		// Launch threads
 
 		Sync<LoopSync> render_sync;

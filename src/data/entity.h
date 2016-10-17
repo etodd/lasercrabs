@@ -159,6 +159,7 @@ struct World
 	static void remove_deferred(Entity*);
 	static void awake(Entity*);
 	static void flush();
+	static void clear();
 };
 
 template<typename T, typename... Args> T* Entity::create(Args... args)

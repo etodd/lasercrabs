@@ -1,6 +1,7 @@
 #include "entity.h"
 #include <new>
 #include "net.h"
+#include "game/game.h"
 
 namespace VI
 {
@@ -89,27 +90,34 @@ b8 internal_remove(Entity* e)
 	return false;
 }
 
+// add an entity on the client because the server told us to
 Entity* World::net_add(ID id)
 {
+	vi_assert(!Entity::list.active(id));
+	vi_assert(Entity::list.count() < MAX_ENTITIES);
 	Entity::list.active(id, true);
-	vi_assert(Entity::list.free_list.length > 0);
 	Entity::list.free_list.length--;
 	return &Entity::list[id];
 }
 
+// remove an entity on the client because the server told us to
 void World::net_remove(Entity* e)
 {
 	vi_assert(Entity::list.active(e->id()));
+	vi_assert(Entity::list.count() > 0);
 	remove_components(e);
+	Entity::list.active(e->id(), false);
 	e->revision++;
-	vi_assert(Entity::list.free_list.length < MAX_ENTITIES);
 	Entity::list.free_list.length++;
 }
 
 void World::remove(Entity* e)
 {
-	b8 actually_removed = internal_remove(e);
-	vi_assert(actually_removed);
+	if (Game::session.local) // if we're a client, all entity removals are handled by the server
+	{
+		b8 actually_removed = internal_remove(e);
+		vi_assert(actually_removed);
+	}
 }
 
 void World::remove_deferred(Entity* e)
@@ -122,6 +130,16 @@ void World::flush()
 	for (s32 i = 0; i < remove_buffer.length; i++)
 		internal_remove(&Entity::list[remove_buffer[i]]);
 	remove_buffer.length = 0;
+}
+
+void World::clear()
+{
+	for (auto i = Entity::list.iterator(); !i.is_last(); i.next())
+		remove(i.item());
+
+	Entity::list.clear();
+
+	remove_buffer.length = 0; // any deferred requests to remove entities should be ignored; they're all gone
 }
 
 LinkEntry::LinkEntry()

@@ -403,7 +403,11 @@ void Game::update(const Update& update_in)
 	for (auto i = AIPlayer::list.iterator(); !i.is_last(); i.next())
 		i.item()->update(u);
 	for (auto i = Awk::list.iterator(); !i.is_last(); i.next())
-		i.item()->update(u);
+	{
+		if (session.local)
+			i.item()->update_server(u);
+		i.item()->update_client(u);
+	}
 	for (auto i = AIPlayerControl::list.iterator(); !i.is_last(); i.next())
 		i.item()->update(u);
 	for (auto i = PlayerTrigger::list.iterator(); !i.is_last(); i.next())
@@ -843,10 +847,7 @@ void Game::unload_level()
 	for (s32 i = 0; i < MAX_GAMEPADS; i++)
 		Audio::listener_disable(i);
 
-	for (auto i = Entity::list.iterator(); !i.is_last(); i.next())
-		World::remove(i.item());
-
-	World::remove_buffer.length = 0; // any deferred requests to remove entities should be ignored; they're all gone
+	World::clear(); // deletes all entities
 
 	// clear local player list to make sure IDs match up
 	LocalPlayer::list.clear();
@@ -1336,7 +1337,8 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 
 			if (name)
 			{
-				entity = World::create<Prop>(Loader::find_mesh(name), Loader::find(armature, AssetLookup::Armature::names), Loader::find(animation, AssetLookup::Animation::names));
+				AssetID mesh_id = Loader::find_mesh(name);
+				entity = World::create<Prop>(mesh_id, Loader::find(armature, AssetLookup::Armature::names), Loader::find(animation, AssetLookup::Animation::names));
 				// todo: clean this up
 				if (entity->has<View>())
 				{
@@ -1345,7 +1347,8 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 					entity->get<View>()->shader = shader;
 					if (level.mode == Mode::Pvp && !alpha && !additive)
 					{
-						if (entity->get<View>()->color.w < 0.5f)
+						const Mesh* mesh = Loader::mesh(mesh_id);
+						if (mesh->color.w < 0.5f)
 							entity->get<View>()->color = Vec4(pvp_inaccessible, MATERIAL_NO_OVERRIDE);
 						else
 							entity->get<View>()->color.xyz(pvp_accessible);
@@ -1363,7 +1366,8 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 					entity->get<SkinnedModel>()->shader = shader;
 					if (level.mode == Mode::Pvp && !alpha && !additive)
 					{
-						if (entity->get<SkinnedModel>()->color.w < 0.5f)
+						const Mesh* mesh = Loader::mesh(mesh_id);
+						if (mesh->color.w < 0.5f)
 							entity->get<SkinnedModel>()->color = Vec4(pvp_inaccessible, MATERIAL_NO_OVERRIDE);
 						else
 							entity->get<SkinnedModel>()->color.xyz(pvp_accessible);
@@ -1395,7 +1399,8 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 					m->get<View>()->shader = shader;
 					if (level.mode == Mode::Pvp && !alpha && !additive)
 					{
-						if (m->get<View>()->color.w < 0.5f)
+						const Mesh* mesh = Loader::mesh(mesh_id);
+						if (mesh->color.w < 0.5f)
 							m->get<View>()->color = Vec4(pvp_inaccessible, MATERIAL_NO_OVERRIDE);
 						else
 							m->get<View>()->color.xyz(pvp_accessible);

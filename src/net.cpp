@@ -35,9 +35,11 @@ namespace Net
 
 // borrows heavily from https://github.com/networkprotocol/libyojimbo
 
+b8 msg_process(StreamRead*);
+
 typedef u8 SequenceID;
 
-#define TIMEOUT 2.0f
+#define TIMEOUT 1.0f
 #define TICK_RATE (1.0f / 60.0f)
 #define SEQUENCE_BITS 8
 #define SEQUENCE_COUNT (1 << SEQUENCE_BITS)
@@ -59,14 +61,6 @@ enum class ServerPacket
 	Init,
 	Keepalive,
 	Update,
-	count,
-};
-
-enum class MessageType
-{
-	Noop,
-	EntityCreate,
-	EntityRemove,
 	count,
 };
 
@@ -160,10 +154,10 @@ template<typename Stream, typename View> b8 serialize_view_skinnedmodel(Stream* 
 				serialize_r32(p, v->offset.m[i][j]);
 		}
 	}
-	serialize_r32_range(p, v->color.x, -1.0f, 1.0f, 8);
-	serialize_r32_range(p, v->color.y, -1.0f, 1.0f, 8);
-	serialize_r32_range(p, v->color.z, -1.0f, 1.0f, 8);
-	serialize_r32_range(p, v->color.w, -1.0f, 1.0f, 8);
+	serialize_r32_range(p, v->color.x, 0.0f, 1.0f, 8);
+	serialize_r32_range(p, v->color.y, 0.0f, 1.0f, 8);
+	serialize_r32_range(p, v->color.z, 0.0f, 1.0f, 8);
+	serialize_r32_range(p, v->color.w, 0.0f, 1.0f, 8);
 	serialize_u16(p, v->mask);
 	serialize_u16(p, v->mesh);
 	serialize_asset(p, v->shader, Loader::shader_count);
@@ -204,8 +198,9 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 		| Sensor::component_mask
 		| Rocket::component_mask
 		| ContainmentField::component_mask
-		| Teleporter::component_mask;
-		//| Awk::component_mask
+		| Teleporter::component_mask
+		| Awk::component_mask
+		| Audio::component_mask;
 		//| LocalPlayerControl::component_mask
 		//| PlayerCommon::component_mask
 		//| MinionCommon::component_mask
@@ -308,6 +303,11 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 
 	if (e->has<Awk>())
 	{
+		Awk* a = e->get<Awk>();
+		serialize_r32_range(p, a->cooldown, 0, AWK_COOLDOWN, 8);
+		serialize_int(p, Ability, a->current_ability, 0, s32(Ability::count) + 1);
+		serialize_ref(p, a->shield);
+		serialize_int(p, u8, a->charges, 0, AWK_CHARGES);
 	}
 
 	if (e->has<LocalPlayerControl>())
@@ -458,9 +458,9 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 	if (e->has<DirectionalLight>())
 	{
 		DirectionalLight* d = e->get<DirectionalLight>();
-		serialize_r32_range(p, d->color.x, -1.0f, 1.0f, 8);
-		serialize_r32_range(p, d->color.y, -1.0f, 1.0f, 8);
-		serialize_r32_range(p, d->color.z, -1.0f, 1.0f, 8);
+		serialize_r32_range(p, d->color.x, 0.0f, 1.0f, 8);
+		serialize_r32_range(p, d->color.y, 0.0f, 1.0f, 8);
+		serialize_r32_range(p, d->color.z, 0.0f, 1.0f, 8);
 		serialize_bool(p, d->shadowed);
 	}
 
@@ -714,23 +714,13 @@ void packet_send(const StreamWrite& p, const Sock::Address& address)
 	Sock::udp_send(&sock, address, p.data.data, p.bytes_written());
 }
 
-b8 msg_send_noop()
-{
-	using Stream = StreamWrite;
-
-	StreamWrite* p = msg_new();
-	MessageType type = MessageType::Noop;
-	serialize_enum(p, MessageType, type);
-	return true;
-}
-
 // consolidate msgs_out into msgs_out_history
 b8 msgs_out_consolidate()
 {
 	using Stream = StreamWrite;
 
 	if (msgs_out.length == 0)
-		msg_send_noop(); // we have to send SOMETHING every sequence
+		msg_finalize(msg_new(MessageType::Noop)); // we have to send SOMETHING every sequence
 
 	s32 bytes = 0;
 	s32 msgs = 0;
@@ -753,10 +743,12 @@ b8 msgs_out_consolidate()
 		serialize_int(&frame->write, SequenceID, frame->sequence_id, 0, SEQUENCE_COUNT - 1);
 		for (s32 i = 0; i < msgs; i++)
 		{
-			msgs_out[i].flush();
 			serialize_bytes(&frame->write, (u8*)msgs_out[i].data.data, msgs_out[i].bytes_written());
+			serialize_align(&frame->write);
 		}
 	}
+
+	frame->write.flush();
 	
 	for (s32 i = msgs - 1; i >= 0; i--)
 		msgs_out.remove_ordered(i);
@@ -856,6 +848,7 @@ b8 msgs_write(StreamWrite* p, const MessageHistory& history, const Ack& remote_a
 				{
 					vi_debug("Resending sequence %d", s32(frame.sequence_id));
 					bytes += frame.write.bytes_written();
+					serialize_align(p);
 					serialize_bytes(p, (u8*)frame.write.data.data, frame.write.bytes_written());
 					sequence_history_add(recently_resent, frame.sequence_id, Game::real_time.total);
 				}
@@ -868,10 +861,14 @@ b8 msgs_write(StreamWrite* p, const MessageHistory& history, const Ack& remote_a
 		{
 			const MessageFrame& frame = history.msgs[history.current_index];
 			if (bytes + frame.write.bytes_written() <= MAX_MESSAGES_SIZE)
+			{
+				serialize_align(p);
 				serialize_bytes(p, (u8*)frame.write.data.data, frame.write.bytes_written());
+			}
 		}
 	}
 
+	serialize_align(p);
 	bytes = 0;
 	serialize_int(p, s32, bytes, 0, MAX_MESSAGES_SIZE); // zero sized frame marks end of message frames
 
@@ -924,6 +921,7 @@ b8 msgs_read(StreamRead* p, MessageHistory* history, Ack* ack)
 			serialize_int(p, SequenceID, frame->sequence_id, 0, SEQUENCE_COUNT - 1);
 			frame->read.resize_bytes(bytes);
 			serialize_bytes(p, (u8*)frame->read.data.data, bytes);
+			serialize_align(p);
 		}
 		else
 			break;
@@ -1184,8 +1182,8 @@ void transform_frame_interpolate(const TransformFrame& a, const TransformFrame& 
 			if (next.parent.id != IDNull)
 				transform_absolute_to_relative(b, next.parent.id, &last_pos, &last_rot);
 
-			transform->pos = Vec3::lerp(blend, next.pos, last_pos);
-			transform->rot = Quat::slerp(blend, next.rot, last_rot);
+			transform->pos = Vec3::lerp(blend, last_pos, next.pos);
+			transform->rot = Quat::slerp(blend, last_rot, next.rot);
 		}
 		else
 		{
@@ -1373,7 +1371,7 @@ void update(const Update& u)
 		{
 			while (const MessageFrame* frame = msg_frame_advance(&client->msgs_in_history, &client->processed_sequence_id, Game::real_time.total))
 			{
-				// todo: process messages in frame
+				// todo: process messages from client
 			}
 		}
 	}
@@ -1496,11 +1494,10 @@ b8 packet_handle(const Update& u, StreamRead* p, const Sock::Address& address)
 				using Stream = StreamWrite;
 				for (auto i = Entity::list.iterator(); !i.is_last(); i.next())
 				{
-					StreamWrite* p = msg_new();
-					MessageType type = MessageType::EntityCreate;
-					serialize_enum(p, MessageType, type);
+					StreamWrite* p = msg_new(MessageType::EntityCreate);
 					serialize_int(p, ID, i.index, 0, MAX_ENTITIES - 1);
 					serialize_entity(p, i.item());
+					msg_finalize(p);
 				}
 			}
 			break;
@@ -1606,63 +1603,9 @@ b8 build_packet_update(StreamWrite* p)
 	return true;
 }
 
-b8 msg_process(StreamRead* p)
-{
-	using Stream = StreamRead;
-	MessageType type;
-	serialize_enum(p, MessageType, type);
-#if DEBUG_MSG
-	vi_debug("Processing message type %d", type);
-#endif
-	switch (type)
-	{
-		case MessageType::Noop:
-		{
-			break;
-		}
-		case MessageType::EntityCreate:
-		{
-			ID id;
-			serialize_int(p, ID, id, 0, MAX_ENTITIES - 1);
-			Entity* e = World::net_add(id);
-			if (!serialize_entity(p, e))
-				net_error();
-			break;
-		}
-		case MessageType::EntityRemove:
-		{
-			ID id;
-			serialize_int(p, ID, id, 0, MAX_ENTITIES - 1);
-			World::net_remove(&Entity::list[id]);
-			break;
-		}
-		default:
-		{
-			vi_assert(false);
-			break;
-		}
-	}
-	serialize_align(p);
-	return true;
-}
-
 void update(const Update& u)
 {
 	r32 interpolation_time = Game::real_time.total - INTERPOLATION_DELAY;
-
-	while (MessageFrame* frame = msg_frame_advance(&msgs_in_history, &server_processed_sequence_id, interpolation_time))
-	{
-		frame->read.rewind();
-		while (frame->read.bytes_read() < frame->bytes)
-		{
-			b8 success = msg_process(&frame->read);
-#if DEBUG_MSG
-			vi_debug("Read %d/%d bytes", frame->read.bytes_read(), frame->bytes);
-#endif
-			if (!success)
-				break;
-		}
-	}
 
 	const TransformFrame* frame = transform_frame_by_timestamp(transform_history, interpolation_time);
 	if (frame)
@@ -1689,6 +1632,26 @@ void update(const Update& u)
 			t->parent = s.parent;
 			index = frame_final->active.next(index);
 		}
+	}
+
+	while (MessageFrame* frame = msg_frame_advance(&msgs_in_history, &server_processed_sequence_id, interpolation_time))
+	{
+		frame->read.rewind();
+#if DEBUG_MSG
+		vi_debug("Processing seq %d", frame->sequence_id);
+#endif
+		while (frame->read.bytes_read() < frame->bytes)
+		{
+			b8 success = msg_process(&frame->read);
+			if (!success)
+				break;
+		}
+	}
+
+	if (Awk::list.count() > 0)
+	{
+		Camera* c = &Camera::list[0];
+		c->pos = Awk::list.iterator().item()->get<Transform>()->absolute_pos() + Vec3(0, 3, -6);
 	}
 }
 
@@ -1789,7 +1752,7 @@ b8 packet_handle(const Update& u, StreamRead* p, const Sock::Address& address)
 				};
 				r32 aspect = camera->viewport.size.y == 0 ? 1 : (r32)camera->viewport.size.x / (r32)camera->viewport.size.y;
 				camera->perspective((70.0f * PI * 0.5f / 180.0f), aspect, 0.1f, Game::level.skybox.far_plane);
-				camera->pos = Vec3(0, 20, -50);
+				camera->pos = Vec3(0, 20, -40);
 				camera->rot = Quat::look(Vec3(0, 0, 1));
 
 				mode = Mode::Acking; // acknowledge the init packet
@@ -1859,12 +1822,11 @@ b8 finalize(Entity* e)
 	if (Server::clients.length == Server::expected_clients)
 	{
 		using Stream = StreamWrite;
-		StreamWrite* p = msg_new();
-		MessageType type = MessageType::EntityCreate;
-		serialize_enum(p, MessageType, type);
+		StreamWrite* p = msg_new(MessageType::EntityCreate);
 		ID id = e->id();
 		serialize_int(p, ID, id, 0, MAX_ENTITIES - 1);
 		serialize_entity(p, e);
+		msg_finalize(p);
 	}
 #if DEBUG
 	e->finalized = true;
@@ -1876,12 +1838,15 @@ b8 finalize(Entity* e)
 b8 remove(Entity* e)
 {
 #if SERVER
+	vi_assert(Entity::list.active(e->id()));
 	using Stream = StreamWrite;
-	StreamWrite* p = msg_new();
-	MessageType type = MessageType::EntityRemove;
-	serialize_enum(p, MessageType, type);
+	StreamWrite* p = msg_new(MessageType::EntityRemove);
 	ID id = e->id();
+#if DEBUG_ENTITY
+	vi_debug("Deleting entity ID %d", s32(id));
+#endif
 	serialize_int(p, ID, id, 0, MAX_ENTITIES - 1);
+	msg_finalize(p);
 #endif
 	return true;
 }
@@ -1935,11 +1900,118 @@ void term()
 	Sock::close(&sock);
 }
 
-StreamWrite* msg_new()
+
+
+// MESSAGES
+
+
+
+b8 msg_serialize_type(StreamWrite* p, MessageType t)
+{
+	using Stream = StreamWrite;
+	serialize_enum(p, MessageType, t);
+	return true;
+}
+
+StreamWrite* msg_new(MessageType t)
 {
 	StreamWrite* result = msgs_out.add();
 	result->reset();
+	msg_serialize_type(result, t);
+#if DEBUG_MSG
+	if (t != MessageType::Noop)
+		vi_debug("Seq %d: queueing message type %d", s32(local_sequence_id), s32(t));
+#endif
 	return result;
+}
+
+template<typename T> b8 msg_serialize_ref(StreamWrite* p, T* t)
+{
+	using Stream = StreamWrite;
+	Ref<T> r = t;
+	serialize_ref(p, r);
+	return true;
+}
+
+StreamWrite* msg_awk(Awk* a)
+{
+	StreamWrite* p = msg_new(MessageType::Awk);
+	msg_serialize_ref(p, a);
+	return p;
+}
+
+// client and server function for processing messages
+b8 msg_process(StreamRead* p)
+{
+	using Stream = StreamRead;
+	MessageType type;
+	serialize_enum(p, MessageType, type);
+#if DEBUG_MSG
+	if (type != MessageType::Noop)
+		vi_debug("Processing message type %d", type);
+#endif
+	switch (type)
+	{
+		case MessageType::Noop:
+		{
+			break;
+		}
+		case MessageType::EntityCreate:
+		{
+			ID id;
+			serialize_int(p, ID, id, 0, MAX_ENTITIES - 1);
+			Entity* e = World::net_add(id);
+			if (!serialize_entity(p, e))
+				net_error();
+			break;
+		}
+		case MessageType::EntityRemove:
+		{
+			ID id;
+			serialize_int(p, ID, id, 0, MAX_ENTITIES - 1);
+#if DEBUG_ENTITY
+			vi_debug("Deleting entity ID %d", s32(id));
+#endif
+			World::net_remove(&Entity::list[id]);
+			break;
+		}
+		case MessageType::Awk:
+		{
+			Ref<Awk> ref;
+			serialize_ref(p, ref);
+			ref.ref()->msg(p);
+			break;
+		}
+		default:
+		{
+			vi_assert(false);
+			break;
+		}
+	}
+	serialize_align(p);
+	return true;
+}
+
+// after the server builds a message to send out, it also processes it locally
+// Noop, EntityCreate, and EntityRemove messages are NOT processed locally, they
+// only apply to the client
+b8 msg_finalize(StreamWrite* p)
+{
+	using Stream = StreamRead;
+	p->flush();
+	StreamRead r;
+	memcpy(&r, p, sizeof(StreamRead));
+	r.rewind();
+	MessageType type;
+	serialize_enum(&r, MessageType, type);
+	if (type != MessageType::Noop
+		&& type != MessageType::EntityCreate
+		&& type != MessageType::EntityRemove)
+	{
+		r.rewind();
+		msg_process(&r);
+	}
+	return true;
 }
 
 

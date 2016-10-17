@@ -86,7 +86,7 @@ void StreamWrite::bits(u32 value, s32 bits)
 
 b8 StreamWrite::align()
 {
-	const int remainder_bits = scratch_bits % 8;
+	s32 remainder_bits = scratch_bits % 8;
 	if (remainder_bits != 0)
 	{
 		bits(u32(0), 8 - remainder_bits);

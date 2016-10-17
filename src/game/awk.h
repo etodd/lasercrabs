@@ -15,6 +15,11 @@ struct Rope;
 struct View;
 struct DamageEvent;
 
+namespace Net
+{
+	struct StreamRead;
+}
+
 #define AWK_SHIELD 1
 #define AWK_HEALTH 1
 #define AWK_FLY_SPEED 35.0f
@@ -45,6 +50,13 @@ struct Target;
 
 struct Awk : public ComponentType<Awk>
 {
+	enum class NetMessage
+	{
+		DoneFlying,
+		DoneDashing,
+		count,
+	};
+
 	enum class State
 	{
 		Crawl,
@@ -89,6 +101,8 @@ struct Awk : public ComponentType<Awk>
 	Awk();
 	void awake();
 	~Awk();
+	
+	b8 msg(Net::StreamRead*);
 
 	r32 range() const;
 
@@ -136,7 +150,8 @@ struct Awk : public ComponentType<Awk>
 
 	r32 movement_raycast(const Vec3&, const Vec3&);
 
-	void update(const Update&);
+	void update_server(const Update&);
+	void update_client(const Update&);
 };
 
 }

@@ -1212,6 +1212,7 @@ b8 msg_send(Awk* a, Awk::NetMessage t)
 	Net::StreamWrite* p = Net::msg_awk(a);
 	serialize_enum(p, Awk::NetMessage, t);
 	Net::msg_finalize(p);
+	return true;
 }
 
 void Awk::finish_flying()

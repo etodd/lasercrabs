@@ -988,7 +988,6 @@ template<typename Stream> b8 serialize_transform(Stream* p, TransformState* tran
 	serialize_r32_range(p, transform->pos.z, -256, 256, 18);
 	if (!serialize_quat(p, &transform->rot))
 		net_error();
-	serialize_ref(p, transform->parent);
 	return true;
 }
 
@@ -1050,6 +1049,10 @@ b8 transform_frame_write(StreamWrite* p, TransformFrame* frame, const TransformF
 				serialize_bool(p, revision_changed);
 				if (revision_changed)
 					serialize_u16(p, frame->transforms[index].revision);
+				b8 parent_changed = base && !frame->transforms[index].parent.equals(base->transforms[index].parent);
+				serialize_bool(p, parent_changed);
+				if (parent_changed)
+					serialize_ref(p, frame->transforms[index].parent);
 				if (!serialize_transform(p, &frame->transforms[index]))
 					net_error();
 			}
@@ -1064,6 +1067,7 @@ b8 transform_frame_write(StreamWrite* p, TransformFrame* frame, const TransformF
 
 b8 transform_frame_read(StreamRead* p, TransformFrame* frame, const TransformFrame* base)
 {
+	new (frame) TransformFrame();
 	using Stream = StreamRead;
 	frame->timestamp = Game::real_time.total;
 	if (base)
@@ -1073,7 +1077,7 @@ b8 transform_frame_read(StreamRead* p, TransformFrame* frame, const TransformFra
 	}
 	serialize_int(p, SequenceID, frame->sequence_id, 0, SEQUENCE_COUNT - 1);
 	s32 changed_count;
-	serialize_int(p, u16, changed_count, 0, MAX_ENTITIES - 1);
+	serialize_int(p, s32, changed_count, 0, MAX_ENTITIES - 1);
 	for (s32 i = 0; i < changed_count; i++)
 	{
 		s32 index;
@@ -1087,6 +1091,10 @@ b8 transform_frame_read(StreamRead* p, TransformFrame* frame, const TransformFra
 			serialize_bool(p, revision_changed);
 			if (revision_changed)
 				serialize_u16(p, frame->transforms[index].revision);
+			b8 parent_changed;
+			serialize_bool(p, parent_changed);
+			if (parent_changed)
+				serialize_ref(p, frame->transforms[index].parent);
 			if (!serialize_transform(p, &frame->transforms[index]))
 				net_error();
 		}
@@ -1120,7 +1128,7 @@ void transform_frame_build(TransformFrame* frame)
 			transform->revision = i.item()->revision;
 			transform->pos = i.item()->pos;
 			transform->rot = i.item()->rot;
-			transform->parent = i.item()->parent.ref();
+			transform->parent = i.item()->parent.ref(); // ID must come out to IDNull if it's null; don't rely on revision to null the reference
 		}
 		else
 			frame->active.set(i.index, false);
@@ -1130,17 +1138,26 @@ void transform_frame_build(TransformFrame* frame)
 // get the absolute pos and rot of the given transform
 void transform_absolute(const TransformFrame& frame, s32 index, Vec3* abs_pos, Quat* abs_rot)
 {
-	const TransformState* transform = &frame.transforms[index];
 	*abs_rot = Quat::identity;
 	*abs_pos = Vec3::zero;
-	while (transform)
+	while (index != IDNull)
 	{ 
-		*abs_rot = transform->rot * *abs_rot;
-		*abs_pos = (transform->rot * *abs_pos) + transform->pos;
-		if (transform->parent.id == IDNull)
-			break;
+		if (frame.active.get(index))
+		{
+			// this transform is being tracked with the dynamic transform system
+			const TransformState* transform = &frame.transforms[index];
+			*abs_rot = transform->rot * *abs_rot;
+			*abs_pos = (transform->rot * *abs_pos) + transform->pos;
+			index = transform->parent.id;
+		}
 		else
-			transform = &frame.transforms[transform->parent.id];
+		{
+			// this transform is not being tracked in our system; get its info from the game state
+			Transform* transform = &Transform::list[index];
+			*abs_rot = transform->rot * *abs_rot;
+			*abs_pos = (transform->rot * *abs_pos) + transform->pos;
+			index = transform->parent.ref() ? transform->parent.id : IDNull;
+		}
 	}
 }
 
@@ -1174,16 +1191,23 @@ void transform_frame_interpolate(const TransformFrame& a, const TransformFrame& 
 
 		if (last.revision == next.revision)
 		{
-			// todo: fix this mess
-			Vec3 last_pos;
-			Quat last_rot;
-			transform_absolute(a, index, &last_pos, &last_rot);
+			if (last.parent.id == next.parent.id)
+			{
+				transform->pos = Vec3::lerp(blend, last.pos, next.pos);
+				transform->rot = Quat::slerp(blend, last.rot, next.rot);
+			}
+			else
+			{
+				Vec3 last_pos;
+				Quat last_rot;
+				transform_absolute(a, index, &last_pos, &last_rot);
 
-			if (next.parent.id != IDNull)
-				transform_absolute_to_relative(b, next.parent.id, &last_pos, &last_rot);
+				if (next.parent.id != IDNull)
+					transform_absolute_to_relative(b, next.parent.id, &last_pos, &last_rot);
 
-			transform->pos = Vec3::lerp(blend, last_pos, next.pos);
-			transform->rot = Quat::slerp(blend, last_rot, next.rot);
+				transform->pos = Vec3::lerp(blend, last_pos, next.pos);
+				transform->rot = Quat::slerp(blend, last_rot, next.rot);
+			}
 		}
 		else
 		{

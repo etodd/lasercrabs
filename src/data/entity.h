@@ -55,6 +55,11 @@ template<typename T> struct Ref
 		T* target = &T::list[id];
 		return target->revision == revision ? target : nullptr;
 	}
+
+	inline b8 equals(const Ref<T>& other) const
+	{
+		return id == other.id && revision == other.revision;
+	}
 };
 
 template<typename T>

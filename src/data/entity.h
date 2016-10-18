@@ -19,6 +19,7 @@ struct ComponentPoolBase
 	virtual void net_add(ID, ID, Revision) = 0;
 	virtual void remove(ID) = 0;
 	virtual Revision revision(ID) = 0;
+	virtual void clear() = 0;
 };
 
 template<typename T> struct Ref
@@ -96,6 +97,11 @@ struct ComponentPool : public ComponentPoolBase
 		item->~T();
 		item->revision++;
 		T::list.remove(id);
+	}
+	
+	virtual void clear()
+	{
+		T::list.clear();
 	}
 
 	virtual Revision revision(ID id)

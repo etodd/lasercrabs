@@ -25,6 +25,10 @@ Empty::Empty()
 	create<Transform>();
 }
 
+ContainerEntity::ContainerEntity()
+{
+}
+
 Prop::Prop(const AssetID mesh_id, const AssetID armature, const AssetID animation)
 {
 	Transform* transform = create<Transform>();

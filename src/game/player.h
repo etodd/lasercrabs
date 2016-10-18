@@ -13,16 +13,14 @@ namespace VI
 
 struct RigidBody;
 struct Transform;
-struct LocalPlayerControl;
+struct PlayerControlHuman;
 struct PlayerManager;
 struct Health;
 struct DamageEvent;
 
-struct LocalPlayer
+struct PlayerHuman : public ComponentType<PlayerHuman>
 {
 	enum class UIMode { Default, Pause, Dead, Upgrading, GameOver };
-
-	static PinArray<LocalPlayer, MAX_PLAYERS> list;
 
 	Camera* camera;
 	UIMenu menu;
@@ -34,20 +32,15 @@ struct LocalPlayer
 	r32 angle_horizontal;
 	r32 angle_vertical;
 	s32 spectate_index;
-	Revision revision;
 	Ref<Transform> map_view;
 	Ref<PlayerManager> manager;
 	b8 msg_good;
 	b8 upgrade_menu_open;
 	u8 gamepad;
+	b8 local;
 	
-	inline ID id() const
-	{
-		return this - &list[0];
-	}
-
-	LocalPlayer(PlayerManager*, u8);
-	void awake(const Update&);
+	PlayerHuman(PlayerManager* = nullptr, u8 = 0);
+	void awake();
 
 	static r32 danger;
 	static void update_all(const Update&);
@@ -83,7 +76,7 @@ struct PlayerCommon : public ComponentType<PlayerCommon>
 	b8 movement_enabled() const;
 };
 
-struct LocalPlayerControl : public ComponentType<LocalPlayerControl>
+struct PlayerControlHuman : public ComponentType<PlayerControlHuman>
 {
 	enum class ReticleType
 	{
@@ -127,13 +120,13 @@ struct LocalPlayerControl : public ComponentType<LocalPlayerControl>
 	r32 rumble;
 	r32 last_gamepad_input_time;
 	r32 gamepad_rotation_speed;
-	Ref<LocalPlayer> player;
+	Ref<PlayerHuman> player;
 	b8 try_zoom;
 	b8 try_primary;
 	u8 gamepad;
 
-	LocalPlayerControl();
-	~LocalPlayerControl();
+	PlayerControlHuman();
+	~PlayerControlHuman();
 	void awake();
 
 	r32 look_speed() const;

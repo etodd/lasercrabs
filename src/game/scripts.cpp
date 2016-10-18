@@ -96,7 +96,7 @@ namespace tutorial
 		Cora::text_schedule(1.0f, _(strings::tut_upgrade));
 
 		Game::level.feature_level = Game::FeatureLevel::Abilities;
-		PlayerManager* manager = LocalPlayer::list.iterator().item()->manager.ref();
+		PlayerManager* manager = PlayerHuman::list.iterator().item()->manager.ref();
 		manager->credits = UpgradeInfo::list[(s32)Upgrade::Sensor].cost + AbilityInfo::list[(s32)Ability::Sensor].spawn_cost * 2;
 	}
 
@@ -124,7 +124,7 @@ namespace tutorial
 
 	void ai_spawned()
 	{
-		Entity* entity = AIPlayerControl::list.iterator().item()->entity();
+		Entity* entity = PlayerControlAI::list.iterator().item()->entity();
 		entity->get<Transform>()->absolute_pos(data->test_dummy_location.ref()->absolute_pos());
 		LinkArg<Entity*>* link = &entity->get<Health>()->killed;
 		link->link(&player_or_ai_killed);
@@ -142,7 +142,7 @@ namespace tutorial
 
 	void player_spawned()
 	{
-		Entity* player = LocalPlayerControl::list.iterator().item()->entity();
+		Entity* player = PlayerControlHuman::list.iterator().item()->entity();
 		player->get<Health>()->hp = 2;
 		player->get<Health>()->killed.link(&player_or_ai_killed);
 		player->get<Awk>()->ability_spawned.link(&ability_spawned);
@@ -150,7 +150,7 @@ namespace tutorial
 
 	void health_spotted(Entity* player)
 	{
-		if (player->has<LocalPlayerControl>() && data->state == TutorialState::Start)
+		if (player->has<PlayerControlHuman>() && data->state == TutorialState::Start)
 		{
 			data->state = TutorialState::Health;
 			Cora::text_clear();
@@ -162,7 +162,7 @@ namespace tutorial
 	{
 		if (data->state == TutorialState::Upgrade)
 		{
-			PlayerManager* manager = LocalPlayer::list.iterator().item()->manager.ref();
+			PlayerManager* manager = PlayerHuman::list.iterator().item()->manager.ref();
 			for (s32 i = 0; i < (s32)Upgrade::count; i++)
 			{
 				if (manager->has_upgrade((Upgrade)i))
@@ -202,19 +202,19 @@ namespace tutorial
 		entities.find("health_trigger")->get<PlayerTrigger>()->entered.link(&health_spotted);
 		entities.find("health")->get<Target>()->target_hit.link(&health_got);
 
-		PlayerManager* ai_manager = PlayerManager::list.add();
-		new (ai_manager) PlayerManager(&Team::list[1]);
-
+		Entity* e = World::create<ContainerEntity>();
+		PlayerManager* ai_manager = e->add<PlayerManager>(&Team::list[1]);
 		utf8cpy(ai_manager->username, _(strings::dummy));
+		Net::finalize(e);
 
-		AIPlayer* ai_player = AIPlayer::list.add();
-		new (ai_player) AIPlayer(ai_manager, AIPlayer::generate_config());
+		PlayerAI* ai_player = PlayerAI::list.add();
+		new (ai_player) PlayerAI(ai_manager, PlayerAI::generate_config());
 
-		AIPlayer::Config* config = &ai_player->config;
-		config->high_level = AIPlayer::HighLevelLoop::Noop;
-		config->low_level = AIPlayer::LowLevelLoop::Noop;
+		PlayerAI::Config* config = &ai_player->config;
+		config->high_level = PlayerAI::HighLevelLoop::Noop;
+		config->low_level = PlayerAI::LowLevelLoop::Noop;
 
-		PlayerManager* player_manager = LocalPlayer::list.iterator().item()->manager.ref();
+		PlayerManager* player_manager = PlayerHuman::list.iterator().item()->manager.ref();
 		player_manager->spawn.link(&player_spawned);
 		ai_manager->spawn.link(&ai_spawned);
 		data->test_dummy = ai_manager;

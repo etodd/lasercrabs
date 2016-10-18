@@ -80,7 +80,7 @@ struct UpgradeInfo
 	static UpgradeInfo list[(s32)Upgrade::count];
 };
 
-struct Team
+struct Team : public ComponentType<Team>
 {
 	struct SensorTrack
 	{
@@ -104,7 +104,6 @@ struct Team
 	static const Vec4 color_friend;
 	static r32 control_point_timer;
 	static r32 game_over_real_time;
-	static StaticArray<Team, MAX_PLAYERS> list;
 	static b8 game_over;
 	static Ref<Team> winner;
 
@@ -129,18 +128,13 @@ struct Team
 	SensorTrack player_tracks[MAX_PLAYERS];
 	SensorTrackHistory player_track_history[MAX_PLAYERS];
 	Ref<Transform> player_spawn;
-	Revision revision;
 
 	Team();
+	void awake() {}
 	b8 has_player() const;
 	void track(PlayerManager*);
 	s32 control_point_count() const;
 	u16 kills() const;
-
-	inline ID id() const
-	{
-		return this - &list[0];
-	}
 
 	inline AI::Team team() const
 	{
@@ -150,7 +144,7 @@ struct Team
 
 struct ControlPoint;
 
-struct PlayerManager
+struct PlayerManager : public ComponentType<PlayerManager>
 {
 	struct SummaryItem
 	{
@@ -165,7 +159,6 @@ struct PlayerManager
 		Capturing,
 	};
 
-	static PinArray<PlayerManager, MAX_PLAYERS> list;
 	static r32 timer;
 
 	static void update_all(const Update&);
@@ -178,7 +171,6 @@ struct PlayerManager
 	StaticArray<SummaryItem, 1> credits_summary;
 	Ability abilities[MAX_ABILITIES];
 	Upgrade current_upgrade;
-	Revision revision;
 	Link spawn;
 	LinkArg<Upgrade> upgrade_completed;
 	LinkArg<b8> control_point_capture_completed;
@@ -190,7 +182,8 @@ struct PlayerManager
 	char username[255];
 	b8 score_accepted;
 
-	PlayerManager(Team*);
+	PlayerManager(Team* = nullptr);
+	void awake() {}
 
 	Entity* decoy() const;
 	State state() const;
@@ -212,11 +205,6 @@ struct PlayerManager
 	b8 friendly_control_point(const ControlPoint*) const;
 	u16 increment() const;
 	void update(const Update&);
-
-	inline ID id() const
-	{
-		return this - &list[0];
-	}
 };
 
 

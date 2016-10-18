@@ -16,9 +16,9 @@ namespace VI
 {
 
 
-PinArray<AIPlayer, MAX_PLAYERS> AIPlayer::list;
+PinArray<PlayerAI, MAX_PLAYERS> PlayerAI::list;
 
-AIPlayer::Config::Config()
+PlayerAI::Config::Config()
 	: low_level(LowLevelLoop::Default),
 	high_level(HighLevelLoop::Default),
 	interval_memory_update(0.2f),
@@ -35,7 +35,7 @@ AIPlayer::Config::Config()
 {
 }
 
-AIPlayer::Config AIPlayer::generate_config()
+PlayerAI::Config PlayerAI::generate_config()
 {
 	Config config;
 
@@ -115,19 +115,19 @@ AIPlayer::Config AIPlayer::generate_config()
 	return config;
 }
 
-AIPlayer::AIPlayer(PlayerManager* m, const Config& config)
+PlayerAI::PlayerAI(PlayerManager* m, const Config& config)
 	: manager(m),
 	revision(),
 	config(config)
 {
-	m->spawn.link<AIPlayer, &AIPlayer::spawn>(this);
+	m->spawn.link<PlayerAI, &PlayerAI::spawn>(this);
 }
 
-void AIPlayer::update(const Update& u)
+void PlayerAI::update(const Update& u)
 {
 }
 
-void AIPlayer::spawn()
+void PlayerAI::spawn()
 {
 	// HACK: clear links so we can respawn the entity and have room for more links
 	manager.ref()->control_point_capture_completed.entries.length = 0;
@@ -145,13 +145,13 @@ void AIPlayer::spawn()
 
 	manager.ref()->entity = e;
 
-	e->add<AIPlayerControl>(this);
+	e->add<PlayerControlAI>(this);
 
 	Net::finalize(e);
 }
 
 // save up priority ranges from -2 to 3
-s32 AIPlayer::save_up_priority() const
+s32 PlayerAI::save_up_priority() const
 {
 	u16 increment = manager.ref()->increment();
 	u16 credits = manager.ref()->credits;
@@ -189,7 +189,7 @@ s32 AIPlayer::save_up_priority() const
 	return 0;
 }
 
-AIPlayerControl::AIPlayerControl(AIPlayer* p)
+PlayerControlAI::PlayerControlAI(PlayerAI* p)
 	: path_index(),
 	player(p),
 	memory(),
@@ -211,10 +211,10 @@ AIPlayerControl::AIPlayerControl(AIPlayer* p)
 #endif
 }
 
-Repeat* make_high_level_loop(AIPlayerControl*, const AIPlayer::Config&);
-Repeat* make_low_level_loop(AIPlayerControl*, const AIPlayer::Config&);
+Repeat* make_high_level_loop(PlayerControlAI*, const PlayerAI::Config&);
+Repeat* make_low_level_loop(PlayerControlAI*, const PlayerAI::Config&);
 
-void AIPlayerControl::awake()
+void PlayerControlAI::awake()
 {
 #if DEBUG_AI_CONTROL
 	camera->fog = false;
@@ -222,21 +222,21 @@ void AIPlayerControl::awake()
 	camera->mask = 1 << camera->team;
 	camera->range = AWK_MAX_DISTANCE;
 #endif
-	link<&AIPlayerControl::awk_done_flying_or_dashing>(get<Awk>()->done_flying);
-	link<&AIPlayerControl::awk_done_flying_or_dashing>(get<Awk>()->done_dashing);
-	link_arg<Entity*, &AIPlayerControl::awk_hit>(get<Awk>()->hit);
-	link<&AIPlayerControl::awk_detached>(get<Awk>()->detached);
-	link<&AIPlayerControl::awk_detached>(get<Awk>()->dashed);
+	link<&PlayerControlAI::awk_done_flying_or_dashing>(get<Awk>()->done_flying);
+	link<&PlayerControlAI::awk_done_flying_or_dashing>(get<Awk>()->done_dashing);
+	link_arg<Entity*, &PlayerControlAI::awk_hit>(get<Awk>()->hit);
+	link<&PlayerControlAI::awk_detached>(get<Awk>()->detached);
+	link<&PlayerControlAI::awk_detached>(get<Awk>()->dashed);
 
 	// init behavior trees
-	const AIPlayer::Config& config = player.ref()->config;
+	const PlayerAI::Config& config = player.ref()->config;
 
 	loop_memory = Repeat::alloc // memory update loop
 	(
 		Sequence::alloc
 		(
 			Delay::alloc(config.interval_memory_update),
-			Execute::alloc()->method<AIPlayerControl, &AIPlayerControl::update_memory >(this)
+			Execute::alloc()->method<PlayerControlAI, &PlayerControlAI::update_memory >(this)
 		)
 	);
 	loop_memory->set_context(this);
@@ -252,14 +252,14 @@ void AIPlayerControl::awake()
 	loop_low_level->run();
 }
 
-b8 AIPlayerControl::in_range(const Vec3& p, r32 range) const
+b8 PlayerControlAI::in_range(const Vec3& p, r32 range) const
 {
 	Vec3 to_entity = p - get<Transform>()->absolute_pos();
 	r32 distance_squared = to_entity.length_squared();
 	return distance_squared < range * range;
 }
 
-AIPlayerControl::~AIPlayerControl()
+PlayerControlAI::~PlayerControlAI()
 {
 #if DEBUG_AI_CONTROL
 	camera->remove();
@@ -270,28 +270,28 @@ AIPlayerControl::~AIPlayerControl()
 	loop_memory->~Repeat();
 }
 
-void AIPlayerControl::awk_done_flying_or_dashing()
+void PlayerControlAI::awk_done_flying_or_dashing()
 {
-	const AIPlayer::Config& config = player.ref()->config;
+	const PlayerAI::Config& config = player.ref()->config;
 	inaccuracy = config.inaccuracy_min + (mersenne::randf_cc() * config.inaccuracy_range);
 	aim_timer = 0.0f;
 	if (path_index < path.length)
 		path_index++;
 }
 
-void AIPlayerControl::awk_detached()
+void PlayerControlAI::awk_detached()
 {
 	shot_at_target = true;
 	hit_target = false;
 	aim_timer = 0.0f;
 }
 
-void AIPlayerControl::awk_hit(Entity* e)
+void PlayerControlAI::awk_hit(Entity* e)
 {
 	hit_target = true;
 }
 
-void AIPlayerControl::set_target(Entity* t)
+void PlayerControlAI::set_target(Entity* t)
 {
 	aim_timer = 0.0f;
 	target = t;
@@ -299,7 +299,7 @@ void AIPlayerControl::set_target(Entity* t)
 	path.length = 0;
 }
 
-void AIPlayerControl::set_path(const AI::AwkPath& p)
+void PlayerControlAI::set_path(const AI::AwkPath& p)
 {
 	path = p;
 	path_index = 1; // first point is the starting point, should be roughly where we are already
@@ -308,7 +308,7 @@ void AIPlayerControl::set_path(const AI::AwkPath& p)
 	hit_target = false;
 }
 
-void AIPlayerControl::behavior_start(Behavior* caller, s8 priority)
+void PlayerControlAI::behavior_start(Behavior* caller, s8 priority)
 {
 	// depending on which loop this behavior is in,
 	// we need to abort the others and restart them
@@ -356,7 +356,7 @@ void AIPlayerControl::behavior_start(Behavior* caller, s8 priority)
 	path_priority = priority;
 }
 
-void AIPlayerControl::behavior_clear()
+void PlayerControlAI::behavior_clear()
 {
 	active_behavior = nullptr;
 	shot_at_target = false;
@@ -365,7 +365,7 @@ void AIPlayerControl::behavior_clear()
 	target = nullptr;
 }
 
-b8 AIPlayerControl::restore_loops()
+b8 PlayerControlAI::restore_loops()
 {
 	// return to normal state
 	if (!active_behavior)
@@ -383,12 +383,12 @@ b8 AIPlayerControl::restore_loops()
 	return true;
 }
 
-void add_memory(AIPlayerControl::MemoryArray* component_memories, Entity* entity, const Vec3& pos)
+void add_memory(PlayerControlAI::MemoryArray* component_memories, Entity* entity, const Vec3& pos)
 {
 	b8 already_found = false;
 	for (s32 j = 0; j < component_memories->length; j++)
 	{
-		AIPlayerControl::Memory* m = &(*component_memories)[j];
+		PlayerControlAI::Memory* m = &(*component_memories)[j];
 		if (m->entity.ref() == entity)
 		{
 			m->pos = pos;
@@ -399,7 +399,7 @@ void add_memory(AIPlayerControl::MemoryArray* component_memories, Entity* entity
 
 	if (!already_found)
 	{
-		AIPlayerControl::Memory* m = component_memories->add();
+		PlayerControlAI::Memory* m = component_memories->add();
 		m->entity = entity;
 		m->pos = pos;
 	}
@@ -413,14 +413,14 @@ enum class MemoryStatus
 };
 
 template<typename Component>
-void update_component_memory(AIPlayerControl* control, MemoryStatus (*filter)(const AIPlayerControl*, const Entity*))
+void update_component_memory(PlayerControlAI* control, MemoryStatus (*filter)(const PlayerControlAI*, const Entity*))
 {
-	AIPlayerControl::MemoryArray* component_memories = &control->memory[Component::family];
+	PlayerControlAI::MemoryArray* component_memories = &control->memory[Component::family];
 	r32 range = control->get<Awk>()->range() * 1.5f;
 	// remove outdated memories
 	for (s32 i = 0; i < component_memories->length; i++)
 	{
-		AIPlayerControl::Memory* m = &(*component_memories)[i];
+		PlayerControlAI::Memory* m = &(*component_memories)[i];
 		if (control->in_range(m->pos, range))
 		{
 			MemoryStatus status = MemoryStatus::Keep;
@@ -449,12 +449,12 @@ void update_component_memory(AIPlayerControl* control, MemoryStatus (*filter)(co
 	}
 }
 
-Vec2 AIPlayerControl::aim(const Update& u, const Vec3& to_target)
+Vec2 PlayerControlAI::aim(const Update& u, const Vec3& to_target)
 {
 	PlayerCommon* common = get<PlayerCommon>();
 	Vec3 wall_normal = common->attach_quat * Vec3(0, 0, 1);
 
-	const AIPlayer::Config& config = player.ref()->config;
+	const PlayerAI::Config& config = player.ref()->config;
 	r32 target_angle_horizontal;
 	{
 		target_angle_horizontal = LMath::closest_angle(atan2f(to_target.x, to_target.z), common->angle_horizontal);
@@ -500,7 +500,7 @@ Vec2 AIPlayerControl::aim(const Update& u, const Vec3& to_target)
 }
 
 // if tolerance is greater than 0, we need to land within that distance of the given target point
-b8 AIPlayerControl::aim_and_shoot_target(const Update& u, const Vec3& target, Target* target_entity)
+b8 PlayerControlAI::aim_and_shoot_target(const Update& u, const Vec3& target, Target* target_entity)
 {
 	PlayerCommon* common = get<PlayerCommon>();
 
@@ -566,7 +566,7 @@ b8 AIPlayerControl::aim_and_shoot_target(const Update& u, const Vec3& target, Ta
 	{
 		// shooting / dashing
 
-		const AIPlayer::Config& config = player.ref()->config;
+		const PlayerAI::Config& config = player.ref()->config;
 
 		b8 can_shoot = can_move && get<Awk>()->cooldown_can_shoot() && u.time.total - get<Awk>()->attach_time > config.aim_min_delay;
 
@@ -605,7 +605,7 @@ b8 AIPlayerControl::aim_and_shoot_target(const Update& u, const Vec3& target, Ta
 	return false;
 }
 
-b8 AIPlayerControl::go(const Update& u, const AI::AwkPathNode& node_prev, const AI::AwkPathNode& node, r32 tolerance)
+b8 PlayerControlAI::go(const Update& u, const AI::AwkPathNode& node_prev, const AI::AwkPathNode& node, r32 tolerance)
 {
 	PlayerCommon* common = get<PlayerCommon>();
 
@@ -726,7 +726,7 @@ b8 AIPlayerControl::go(const Update& u, const AI::AwkPathNode& node_prev, const 
 	{
 		// aiming
 
-		const AIPlayer::Config& config = player.ref()->config;
+		const PlayerAI::Config& config = player.ref()->config;
 
 		b8 can_shoot = can_move && get<Awk>()->cooldown_can_shoot() && u.time.total - get<Awk>()->attach_time > config.aim_min_delay;
 
@@ -777,14 +777,14 @@ b8 AIPlayerControl::go(const Update& u, const AI::AwkPathNode& node_prev, const 
 	return false;
 }
 
-b8 default_filter(const AIPlayerControl* control, const Entity* e)
+b8 default_filter(const PlayerControlAI* control, const Entity* e)
 {
 	AI::Team team = control->get<AIAgent>()->team;
 	return ContainmentField::hash(team, control->get<Transform>()->absolute_pos())
 		== ContainmentField::hash(team, e->get<Transform>()->absolute_pos());
 }
 
-b8 energy_pickup_filter(const AIPlayerControl* control, const Entity* e)
+b8 energy_pickup_filter(const PlayerControlAI* control, const Entity* e)
 {
 	if (!default_filter(control, e))
 		return false;
@@ -792,7 +792,7 @@ b8 energy_pickup_filter(const AIPlayerControl* control, const Entity* e)
 	return e->get<EnergyPickup>()->team != control->get<AIAgent>()->team;
 }
 
-b8 minion_filter(const AIPlayerControl* control, const Entity* e)
+b8 minion_filter(const PlayerControlAI* control, const Entity* e)
 {
 	if (!default_filter(control, e))
 		return false;
@@ -801,7 +801,7 @@ b8 minion_filter(const AIPlayerControl* control, const Entity* e)
 		&& !e->get<AIAgent>()->stealth;
 }
 
-s32 danger(const AIPlayerControl* control)
+s32 danger(const PlayerControlAI* control)
 {
 	if (control->get<Awk>()->incoming_attacker())
 		return 3;
@@ -818,7 +818,7 @@ s32 danger(const AIPlayerControl* control)
 	return 0;
 }
 
-b8 control_point_filter(const AIPlayerControl* control, const Entity* e)
+b8 control_point_filter(const PlayerControlAI* control, const Entity* e)
 {
 	if (!default_filter(control, e))
 		return false;
@@ -826,7 +826,7 @@ b8 control_point_filter(const AIPlayerControl* control, const Entity* e)
 	return danger(control) <= 0;
 }
 
-b8 enemy_control_point_filter(const AIPlayerControl* control, const Entity* e)
+b8 enemy_control_point_filter(const PlayerControlAI* control, const Entity* e)
 {
 	if (!control_point_filter(control, e))
 		return false;
@@ -835,7 +835,7 @@ b8 enemy_control_point_filter(const AIPlayerControl* control, const Entity* e)
 		&& e->get<ControlPoint>()->team != control->get<AIAgent>()->team;
 }
 
-MemoryStatus minion_memory_filter(const AIPlayerControl* control, const Entity* e)
+MemoryStatus minion_memory_filter(const PlayerControlAI* control, const Entity* e)
 {
 	if (e->get<AIAgent>()->stealth)
 		return MemoryStatus::Keep;
@@ -846,7 +846,7 @@ MemoryStatus minion_memory_filter(const AIPlayerControl* control, const Entity* 
 		return MemoryStatus::Update;
 }
 
-MemoryStatus sensor_memory_filter(const AIPlayerControl* control, const Entity* e)
+MemoryStatus sensor_memory_filter(const PlayerControlAI* control, const Entity* e)
 {
 	if (e->get<Sensor>()->team == control->get<AIAgent>()->team)
 		return MemoryStatus::Forget;
@@ -854,7 +854,7 @@ MemoryStatus sensor_memory_filter(const AIPlayerControl* control, const Entity* 
 		return MemoryStatus::Update;
 }
 
-MemoryStatus awk_memory_filter(const AIPlayerControl* control, const Entity* e)
+MemoryStatus awk_memory_filter(const PlayerControlAI* control, const Entity* e)
 {
 	if (e->get<AIAgent>()->stealth)
 		return MemoryStatus::Keep; // don't update it, but also don't forget it
@@ -865,7 +865,7 @@ MemoryStatus awk_memory_filter(const AIPlayerControl* control, const Entity* e)
 		return MemoryStatus::Update;
 }
 
-b8 awk_run_filter(const AIPlayerControl* control, const Entity* e)
+b8 awk_run_filter(const PlayerControlAI* control, const Entity* e)
 {
 	r32 run_chance = control->get<Health>()->hp == 1 ? 0.5f : 0.2f;
 	return e->get<AIAgent>()->team != control->get<AIAgent>()->team
@@ -874,7 +874,7 @@ b8 awk_run_filter(const AIPlayerControl* control, const Entity* e)
 		&& (e->get<Awk>()->can_hit(control->get<Target>()) || (e->get<Transform>()->absolute_pos() - control->get<Transform>()->absolute_pos()).length_squared() < AWK_MAX_DISTANCE * 0.5f * AWK_MAX_DISTANCE * 0.5f);
 }
 
-b8 awk_find_filter(const AIPlayerControl* control, const Entity* e)
+b8 awk_find_filter(const PlayerControlAI* control, const Entity* e)
 {
 	if (!default_filter(control, e))
 		return false;
@@ -887,7 +887,7 @@ b8 awk_find_filter(const AIPlayerControl* control, const Entity* e)
 		&& (enemy_hp <= my_hp || (my_hp > 1 && control->get<Awk>()->invincible_timer > 0.0f));
 }
 
-b8 awk_react_filter(const AIPlayerControl* control, const Entity* e)
+b8 awk_react_filter(const PlayerControlAI* control, const Entity* e)
 {
 	if (!awk_find_filter(control, e))
 		return false;
@@ -895,7 +895,7 @@ b8 awk_react_filter(const AIPlayerControl* control, const Entity* e)
 	return e->get<Awk>()->state() == Awk::State::Crawl;
 }
 
-b8 containment_field_filter(const AIPlayerControl* control, const Entity* e)
+b8 containment_field_filter(const PlayerControlAI* control, const Entity* e)
 {
 	if (!default_filter(control, e))
 		return false;
@@ -904,7 +904,7 @@ b8 containment_field_filter(const AIPlayerControl* control, const Entity* e)
 	return field->team != control->get<AIAgent>()->team && field->contains(control->get<Transform>()->absolute_pos());
 }
 
-b8 aicue_sensor_filter(const AIPlayerControl* control, const Entity* e)
+b8 aicue_sensor_filter(const PlayerControlAI* control, const Entity* e)
 {
 	// only interested in interest points we don't have control over yet
 	if (e->get<AICue>()->type & AICue::Type::Sensor)
@@ -916,25 +916,25 @@ b8 aicue_sensor_filter(const AIPlayerControl* control, const Entity* e)
 	return false;
 }
 
-MemoryStatus default_memory_filter(const AIPlayerControl* control, const Entity* e)
+MemoryStatus default_memory_filter(const PlayerControlAI* control, const Entity* e)
 {
 	return MemoryStatus::Update;
 }
 
-Upgrade want_available_upgrade(const AIPlayerControl* control)
+Upgrade want_available_upgrade(const PlayerControlAI* control)
 {
 	if (!Game::level.has_feature(Game::FeatureLevel::Abilities))
 		return Upgrade::None;
 
 	PlayerManager* manager = control->player.ref()->manager.ref();
-	const AIPlayer::Config& config = control->config();
+	const PlayerAI::Config& config = control->config();
 	for (s32 i = 0; i < (s32)Upgrade::count; i++)
 	{
 		Upgrade upgrade = config.upgrade_priority[i];
 		if (upgrade != Upgrade::None
 			&& manager->upgrade_available(upgrade)
 			&& manager->credits > manager->upgrade_cost(upgrade)
-			&& config.upgrade_strategies[i] != AIPlayer::UpgradeStrategy::Ignore)
+			&& config.upgrade_strategies[i] != PlayerAI::UpgradeStrategy::Ignore)
 		{
 			return upgrade;
 		}
@@ -942,17 +942,17 @@ Upgrade want_available_upgrade(const AIPlayerControl* control)
 	return Upgrade::None;
 }
 
-b8 want_upgrade_filter(const AIPlayerControl* control)
+b8 want_upgrade_filter(const PlayerControlAI* control)
 {
 	return want_available_upgrade(control) != Upgrade::None && control->player.ref()->save_up_priority() > 0;
 }
 
-b8 really_want_upgrade_filter(const AIPlayerControl* control)
+b8 really_want_upgrade_filter(const PlayerControlAI* control)
 {
 	return want_available_upgrade(control) != Upgrade::None && control->player.ref()->save_up_priority() > 1;
 }
 
-b8 should_spawn_sensor(const AIPlayerControl* control)
+b8 should_spawn_sensor(const PlayerControlAI* control)
 {
 	Vec3 me = control->get<Transform>()->absolute_pos();
 
@@ -968,12 +968,12 @@ b8 should_spawn_sensor(const AIPlayerControl* control)
 	return false;
 }
 
-b8 attack_inbound(const AIPlayerControl* control)
+b8 attack_inbound(const PlayerControlAI* control)
 {
 	return control->get<Awk>()->incoming_attacker() != nullptr;
 }
 
-s32 geometry_query(const AIPlayerControl* control, r32 range, r32 angle_range, s32 count)
+s32 geometry_query(const PlayerControlAI* control, r32 range, r32 angle_range, s32 count)
 {
 	Vec3 pos;
 	Quat rot;
@@ -993,7 +993,7 @@ s32 geometry_query(const AIPlayerControl* control, r32 range, r32 angle_range, s
 	return result;
 }
 
-b8 should_spawn_rocket(const AIPlayerControl* control)
+b8 should_spawn_rocket(const PlayerControlAI* control)
 {
 	Vec3 pos;
 	Quat rot;
@@ -1030,12 +1030,12 @@ b8 should_spawn_rocket(const AIPlayerControl* control)
 	return geometry_query(control, AWK_MAX_DISTANCE * 0.4f, PI * 0.35f, 8) < 4;
 }
 
-b8 sniping(const AIPlayerControl* control)
+b8 sniping(const PlayerControlAI* control)
 {
 	return control->get<Awk>()->current_ability == Ability::Sniper;
 }
 
-b8 should_snipe(const AIPlayerControl* control)
+b8 should_snipe(const PlayerControlAI* control)
 {
 	Vec3 pos;
 	Quat rot;
@@ -1059,7 +1059,7 @@ b8 should_snipe(const AIPlayerControl* control)
 	{
 		b8 result = false;
 		{
-			const AIPlayerControl::MemoryArray& memory = control->memory[Awk::family];
+			const PlayerControlAI::MemoryArray& memory = control->memory[Awk::family];
 			for (s32 i = 0; i < memory.length; i++)
 			{
 				Vec3 to_awk = memory[i].pos - pos;
@@ -1071,7 +1071,7 @@ b8 should_snipe(const AIPlayerControl* control)
 		}
 
 		{
-			const AIPlayerControl::MemoryArray& memory = control->memory[MinionCommon::family];
+			const PlayerControlAI::MemoryArray& memory = control->memory[MinionCommon::family];
 			for (s32 i = 0; i < memory.length; i++)
 			{
 				Vec3 to_minion = memory[i].pos - pos;
@@ -1090,7 +1090,7 @@ b8 should_snipe(const AIPlayerControl* control)
 	return false;
 }
 
-b8 should_spawn_containment_field(const AIPlayerControl* control)
+b8 should_spawn_containment_field(const PlayerControlAI* control)
 {
 	Vec3 me = control->get<Transform>()->absolute_pos();
 	AI::Team team = control->get<AIAgent>()->team;
@@ -1187,7 +1187,7 @@ s32 team_density(AI::TeamMask mask, const Vec3& pos, r32 radius)
 	return score;
 }
 
-b8 should_teleport(const AIPlayerControl* control)
+b8 should_teleport(const PlayerControlAI* control)
 {
 	if (control->get<Health>()->hp <= 2 && danger(control) > 1)
 		return true;
@@ -1203,7 +1203,7 @@ b8 should_teleport(const AIPlayerControl* control)
 	return false;
 }
 
-b8 should_spawn_minion(const AIPlayerControl* control)
+b8 should_spawn_minion(const PlayerControlAI* control)
 {
 	if (control->player.ref()->save_up_priority() < 2 && danger(control) <= 1)
 	{
@@ -1247,12 +1247,12 @@ b8 should_spawn_minion(const AIPlayerControl* control)
 	return false;
 }
 
-Repeat* make_low_level_loop(AIPlayerControl* control, const AIPlayer::Config& config)
+Repeat* make_low_level_loop(PlayerControlAI* control, const PlayerAI::Config& config)
 {
 	Repeat* loop;
 	switch (config.low_level)
 	{
-		case AIPlayer::LowLevelLoop::Default:
+		case PlayerAI::LowLevelLoop::Default:
 		{
 			loop = Repeat::alloc
 			(
@@ -1280,7 +1280,7 @@ Repeat* make_low_level_loop(AIPlayerControl* control, const AIPlayer::Config& co
 											Sequence::alloc
 											(
 												AIBehaviors::Chance::alloc(0.05f),
-												Execute::alloc()->method<AIPlayerControl, &AIPlayerControl::snipe_stop>(control)
+												Execute::alloc()->method<PlayerControlAI, &PlayerControlAI::snipe_stop>(control)
 											),
 											Succeed::alloc() // make sure we never hit minions or anything
 										)
@@ -1317,12 +1317,12 @@ Repeat* make_low_level_loop(AIPlayerControl* control, const AIPlayer::Config& co
 							)
 						)
 					),
-					Execute::alloc()->method<AIPlayerControl, &AIPlayerControl::restore_loops>(control) // restart the high level loop if necessary
+					Execute::alloc()->method<PlayerControlAI, &PlayerControlAI::restore_loops>(control) // restart the high level loop if necessary
 				)
 			);
 			break;
 		}
-		case AIPlayer::LowLevelLoop::Noop:
+		case PlayerAI::LowLevelLoop::Noop:
 		{
 			loop = Repeat::alloc(Delay::alloc(1.0f));
 			break;
@@ -1337,12 +1337,12 @@ Repeat* make_low_level_loop(AIPlayerControl* control, const AIPlayer::Config& co
 	return loop;
 }
 
-Repeat* make_high_level_loop(AIPlayerControl* control, const AIPlayer::Config& config)
+Repeat* make_high_level_loop(PlayerControlAI* control, const PlayerAI::Config& config)
 {
 	Repeat* loop;
 	switch (config.high_level)
 	{
-		case AIPlayer::HighLevelLoop::Default:
+		case PlayerAI::HighLevelLoop::Default:
 		{
 			loop = Repeat::alloc
 			(
@@ -1388,7 +1388,7 @@ Repeat* make_high_level_loop(AIPlayerControl* control, const AIPlayer::Config& c
 			);
 			break;
 		}
-		case AIPlayer::HighLevelLoop::Noop:
+		case PlayerAI::HighLevelLoop::Noop:
 		{
 			loop = Repeat::alloc(Delay::alloc(1.0f));
 			break;
@@ -1403,7 +1403,7 @@ Repeat* make_high_level_loop(AIPlayerControl* control, const AIPlayer::Config& c
 	return loop;
 }
 
-b8 AIPlayerControl::update_memory()
+b8 PlayerControlAI::update_memory()
 {
 	update_component_memory<EnergyPickup>(this, &default_memory_filter);
 	update_component_memory<MinionCommon>(this, &minion_memory_filter);
@@ -1426,18 +1426,18 @@ b8 AIPlayerControl::update_memory()
 	return true; // this returns true so we can call this from an Execute behavior
 }
 
-b8 AIPlayerControl::snipe_stop()
+b8 PlayerControlAI::snipe_stop()
 {
 	if (get<Awk>()->current_ability == Ability::Sniper)
 		get<Awk>()->current_ability = Ability::None;
 	return true; // this returns true so we can call this from an Execute behavior
 }
 
-void AIPlayerControl::update(const Update& u)
+void PlayerControlAI::update(const Update& u)
 {
 	if (get<Awk>()->state() == Awk::State::Crawl && !Team::game_over)
 	{
-		const AIPlayer::Config& config = player.ref()->config;
+		const PlayerAI::Config& config = player.ref()->config;
 
 		// new random look direction
 		if ((s32)(u.time.total * config.aim_speed * 0.3f) != (s32)((u.time.total - u.time.delta) * config.aim_speed * 0.3f))
@@ -1541,9 +1541,9 @@ void AIPlayerControl::update(const Update& u)
 
 #if DEBUG_AI_CONTROL
 	// update camera
-	s32 player_count = LocalPlayer::list.count() + AIPlayer::list.count();
+	s32 player_count = PlayerHuman::list.count() + PlayerAI::list.count();
 	Camera::ViewportBlueprint* viewports = Camera::viewport_blueprints[player_count - 1];
-	Camera::ViewportBlueprint* blueprint = &viewports[LocalPlayer::list.count() + player.id];
+	Camera::ViewportBlueprint* blueprint = &viewports[PlayerHuman::list.count() + player.id];
 
 	camera->viewport =
 	{
@@ -1570,7 +1570,7 @@ void AIPlayerControl::update(const Update& u)
 #endif
 }
 
-const AIPlayer::Config& AIPlayerControl::config() const
+const PlayerAI::Config& PlayerControlAI::config() const
 {
 	return player.ref()->config;
 }
@@ -1578,7 +1578,7 @@ const AIPlayer::Config& AIPlayerControl::config() const
 namespace AIBehaviors
 {
 
-Find::Find(Family fam, s8 priority, b8(*filter)(const AIPlayerControl*, const Entity*))
+Find::Find(Family fam, s8 priority, b8(*filter)(const PlayerControlAI*, const Entity*))
 	: filter(filter), family(fam)
 {
 	path_priority = priority;
@@ -1589,8 +1589,8 @@ void Find::run()
 	active(true);
 	if (control->get<Awk>()->state() == Awk::State::Crawl && path_priority > control->path_priority)
 	{
-		const AIPlayerControl::MemoryArray& memory = control->memory[family];
-		const AIPlayerControl::Memory* closest = nullptr;
+		const PlayerControlAI::MemoryArray& memory = control->memory[family];
+		const PlayerControlAI::Memory* closest = nullptr;
 		Entity* closest_entity;
 		r32 closest_distance = FLT_MAX;
 		Vec3 pos = control->get<Transform>()->absolute_pos();
@@ -1768,7 +1768,7 @@ void AbilitySpawn::run()
 		done(false);
 }
 
-ReactTarget::ReactTarget(Family fam, s8 priority_path, s8 react_priority, b8(*filter)(const AIPlayerControl*, const Entity*))
+ReactTarget::ReactTarget(Family fam, s8 priority_path, s8 react_priority, b8(*filter)(const PlayerControlAI*, const Entity*))
 	: react_priority(react_priority), filter(filter), family(fam)
 {
 	path_priority = priority_path;
@@ -1785,7 +1785,7 @@ void ReactTarget::run()
 		r32 range = control->get<Awk>()->range();
 		r32 closest_distance = range * range;
 		Vec3 pos = control->get<Transform>()->absolute_pos();
-		const AIPlayerControl::MemoryArray& memory = control->memory[family];
+		const PlayerControlAI::MemoryArray& memory = control->memory[family];
 		for (s32 i = 0; i < memory.length; i++)
 		{
 			r32 distance = (memory[i].pos - pos).length_squared();
@@ -1817,7 +1817,7 @@ void ReactTarget::run()
 	done(false);
 }
 
-RunAway::RunAway(Family fam, s8 priority_path, b8(*filter)(const AIPlayerControl*, const Entity*))
+RunAway::RunAway(Family fam, s8 priority_path, b8(*filter)(const PlayerControlAI*, const Entity*))
 	: filter(filter), family(fam)
 {
 	path_priority = priority_path;
@@ -1835,7 +1835,7 @@ void RunAway::run()
 		Entity* closest = nullptr;
 		r32 range = control->get<Awk>()->range();
 		r32 closest_distance = range * range;
-		const AIPlayerControl::MemoryArray& memory = control->memory[family];
+		const PlayerControlAI::MemoryArray& memory = control->memory[family];
 		for (s32 i = 0; i < memory.length; i++)
 		{
 			r32 distance = (memory[i].pos - pos).length_squared();
@@ -1862,7 +1862,7 @@ void RunAway::run()
 	done(false);
 }
 
-Test::Test(b8(*f)(const AIPlayerControl*))
+Test::Test(b8(*f)(const PlayerControlAI*))
 	: filter(f)
 {
 }
@@ -1873,7 +1873,7 @@ void Test::run()
 	done(filter(control));
 }
 
-ReactControlPoint::ReactControlPoint(s8 priority, b8(*f)(const AIPlayerControl*, const Entity*))
+ReactControlPoint::ReactControlPoint(s8 priority, b8(*f)(const PlayerControlAI*, const Entity*))
 {
 	path_priority = priority;
 	filter = f;

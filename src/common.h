@@ -8,9 +8,16 @@
 namespace VI
 {
 
+// has only a transform
 struct Empty : public Entity
 {
 	Empty();
+};
+
+// has no transform
+struct ContainerEntity : public Entity
+{
+	ContainerEntity();
 };
 
 struct Prop : public Entity

@@ -397,10 +397,10 @@ void Game::update(const Update& update_in)
 
 	Team::update_all(u);
 	PlayerManager::update_all(u);
-	LocalPlayer::update_all(u);
+	PlayerHuman::update_all(u);
 	for (auto i = Health::list.iterator(); !i.is_last(); i.next())
 		i.item()->update(u);
-	for (auto i = AIPlayer::list.iterator(); !i.is_last(); i.next())
+	for (auto i = PlayerAI::list.iterator(); !i.is_last(); i.next())
 		i.item()->update(u);
 	for (auto i = Awk::list.iterator(); !i.is_last(); i.next())
 	{
@@ -408,7 +408,7 @@ void Game::update(const Update& update_in)
 			i.item()->update_server(u);
 		i.item()->update_client(u);
 	}
-	for (auto i = AIPlayerControl::list.iterator(); !i.is_last(); i.next())
+	for (auto i = PlayerControlAI::list.iterator(); !i.is_last(); i.next())
 		i.item()->update(u);
 	for (auto i = PlayerTrigger::list.iterator(); !i.is_last(); i.next())
 		i.item()->update(u);
@@ -430,7 +430,7 @@ void Game::update(const Update& update_in)
 		i.item()->update(u);
 	for (auto i = PlayerCommon::list.iterator(); !i.is_last(); i.next())
 		i.item()->update(u);
-	for (auto i = LocalPlayerControl::list.iterator(); !i.is_last(); i.next())
+	for (auto i = PlayerControlHuman::list.iterator(); !i.is_last(); i.next())
 		i.item()->update(u);
 
 	for (s32 i = 0; i < updates.length; i++)
@@ -554,9 +554,9 @@ void Game::draw_alpha(const RenderParams& render_params)
 #if DEBUG_AWK_AI_PATH
 	{
 		UIText text;
-		for (auto i = AIPlayerControl::list.iterator(); !i.is_last(); i.next())
+		for (auto i = PlayerControlAI::list.iterator(); !i.is_last(); i.next())
 		{
-			AIPlayerControl* ai = i.item();
+			PlayerControlAI* ai = i.item();
 			text.color = Team::ui_color(render_params.camera->team, i.item()->get<AIAgent>()->team);
 			for (s32 j = 0; j < ai->path.length; j++)
 			{
@@ -692,9 +692,9 @@ void Game::draw_alpha(const RenderParams& render_params)
 	for (s32 i = 0; i < ParticleSystem::all.length; i++)
 		ParticleSystem::all[i]->draw(render_params);
 
-	for (auto i = LocalPlayerControl::list.iterator(); !i.is_last(); i.next())
+	for (auto i = PlayerControlHuman::list.iterator(); !i.is_last(); i.next())
 		i.item()->draw_alpha(render_params);
-	for (auto i = LocalPlayer::list.iterator(); !i.is_last(); i.next())
+	for (auto i = PlayerHuman::list.iterator(); !i.is_last(); i.next())
 		i.item()->draw_alpha(render_params);
 
 	Menu::draw(render_params);
@@ -724,7 +724,7 @@ void Game::execute(const Update& u, const char* cmd)
 {
 	if (utf8cmp(cmd, "killai") == 0)
 	{
-		for (auto i = AIPlayerControl::list.iterator(); !i.is_last(); i.next())
+		for (auto i = PlayerControlAI::list.iterator(); !i.is_last(); i.next())
 		{
 			Health* health = i.item()->get<Health>();
 			health->damage(nullptr, health->hp_max + health->shield_max);
@@ -732,7 +732,7 @@ void Game::execute(const Update& u, const char* cmd)
 	}
 	else if (utf8cmp(cmd, "die") == 0)
 	{
-		for (auto i = LocalPlayerControl::list.iterator(); !i.is_last(); i.next())
+		for (auto i = PlayerControlHuman::list.iterator(); !i.is_last(); i.next())
 		{
 			Health* health = i.item()->get<Health>();
 			health->damage(nullptr, health->hp_max + health->shield_max);
@@ -741,7 +741,7 @@ void Game::execute(const Update& u, const char* cmd)
 	else if (utf8cmp(cmd, "noclip") == 0)
 	{
 		level.continue_match_after_death = true;
-		for (auto i = LocalPlayer::list.iterator(); !i.is_last(); i.next())
+		for (auto i = PlayerHuman::list.iterator(); !i.is_last(); i.next())
 		{
 			Entity* entity = i.item()->manager.ref()->entity.ref();
 			if (entity)
@@ -849,12 +849,8 @@ void Game::unload_level()
 
 	World::clear(); // deletes all entities
 
-	// clear local player list to make sure IDs match up
-	LocalPlayer::list.clear();
-
-	AIPlayer::list.clear();
-	PlayerManager::list.clear();
-	Team::list.length = 0;
+	// PlayerAI is not part of the entity system
+	PlayerAI::list.clear();
 
 	for (s32 i = 0; i < ParticleSystem::all.length; i++)
 		ParticleSystem::all[i]->clear();
@@ -1070,8 +1066,8 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 			{
 				for (s32 i = 0; i < team_count; i++)
 				{
-					Team* team = Team::list.add();
-					new (team) Team();
+					Entity* e = World::alloc<ContainerEntity>();
+					e->create<Team>();
 				}
 
 				for (s32 i = 0; i < MAX_GAMEPADS; i++)
@@ -1080,25 +1076,25 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 					{
 						AI::Team team = team_lookup(teams, (s32)session.local_player_config[i]);
 
-						PlayerManager* manager = PlayerManager::list.add();
-						new (manager) PlayerManager(&Team::list[(s32)team]);
+						Entity* e = World::create<ContainerEntity>();
+						PlayerManager* manager = e->add<PlayerManager>(&Team::list[(s32)team]);
 
 						if (ai_test)
 						{
-							AIPlayer* player = AIPlayer::list.add();
-							new (player) AIPlayer(manager, AIPlayer::generate_config());
+							PlayerAI* player = PlayerAI::list.add();
+							new (player) PlayerAI(manager, PlayerAI::generate_config());
 						}
 						else
 						{
-							LocalPlayer* player = LocalPlayer::list.add();
-							new (player) LocalPlayer(manager, i);
+							PlayerHuman* player = PlayerHuman::list.add();
+							new (player) PlayerHuman(manager, i);
 						}
 					}
 				}
 			}
 		}
 		else if (Json::get_s32(element, "min_players") > PlayerManager::list.count()
-			|| Json::get_s32(element, "min_teams") > Team::list.length)
+			|| Json::get_s32(element, "min_teams") > Team::list.count())
 		{
 			// not enough players or teams
 			// don't spawn the entity
@@ -1184,7 +1180,7 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 		{
 			AI::Team team = (AI::Team)Json::get_s32(element, "team");
 
-			if (Team::list.length > (s32)team)
+			if (Team::list.count() > (s32)team)
 			{
 				entity = World::alloc<PlayerSpawnEntity>(team);
 				Team::list[(s32)team].player_spawn = entity->get<Transform>();
@@ -1236,13 +1232,13 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 			{
 				AI::Team team = team_lookup(teams, Json::get_s32(element, "team", 1));
 
-				PlayerManager* manager = PlayerManager::list.add();
-				new (manager) PlayerManager(&Team::list[(s32)team]);
-
+				Entity* e = World::create<ContainerEntity>();
+				PlayerManager* manager = e->add<PlayerManager>(&Team::list[(s32)team]);
 				utf8cpy(manager->username, Usernames::all[mersenne::rand_u32() % Usernames::count]);
+				Net::finalize(e);
 
-				AIPlayer* player = AIPlayer::list.add();
-				new (player) AIPlayer(manager, AIPlayer::generate_config());
+				PlayerAI* player = PlayerAI::list.add();
+				new (player) PlayerAI(manager, PlayerAI::generate_config());
 			}
 		}
 		else if (cJSON_GetObjectItem(element, "EnergyPickup"))
@@ -1480,7 +1476,7 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 		Entity* map_view = finder.find("map_view");
 		if (map_view && map_view->has<Transform>())
 		{
-			for (auto i = LocalPlayer::list.iterator(); !i.is_last(); i.next())
+			for (auto i = PlayerHuman::list.iterator(); !i.is_last(); i.next())
 				i.item()->map_view = map_view->get<Transform>();
 		}
 	}
@@ -1493,9 +1489,8 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 	Loader::level_free(json);
 
 	Team::awake_all();
-
-	for (auto i = LocalPlayer::list.iterator(); !i.is_last(); i.next())
-		i.item()->awake(u);
+	for (auto i = Team::list.iterator(); !i.is_last(); i.next())
+		Net::finalize(i.item()->entity());
 }
 
 }

@@ -240,7 +240,7 @@ Entity* Awk::incoming_attacker() const
 
 void Awk::hit_by(const TargetEvent& e)
 {
-	get<Audio>()->post_event(has<LocalPlayerControl>() ? AK::EVENTS::PLAY_HURT_PLAYER : AK::EVENTS::PLAY_HURT);
+	get<Audio>()->post_event(has<PlayerControlHuman>() ? AK::EVENTS::PLAY_HURT_PLAYER : AK::EVENTS::PLAY_HURT);
 
 	b8 damaged = false;
 
@@ -254,8 +254,8 @@ void Awk::hit_by(const TargetEvent& e)
 	}
 
 	// let them know they didn't hurt us
-	if (!damaged && e.hit_by->has<LocalPlayerControl>())
-		e.hit_by->get<LocalPlayerControl>()->player.ref()->msg(_(strings::no_effect), false);
+	if (!damaged && e.hit_by->has<PlayerControlHuman>())
+		e.hit_by->get<PlayerControlHuman>()->player.ref()->msg(_(strings::no_effect), false);
 }
 
 void Awk::hit_target(Entity* target, const Vec3& hit_pos)
@@ -370,7 +370,7 @@ void Awk::damaged(const DamageEvent& e)
 
 		AI::Team team = get<AIAgent>()->team;
 		PlayerManager* manager = get<PlayerCommon>()->manager.ref();
-		for (auto i = LocalPlayer::list.iterator(); !i.is_last(); i.next())
+		for (auto i = PlayerHuman::list.iterator(); !i.is_last(); i.next())
 		{
 			if (i.item()->manager.ref() != manager) // don't need to notify ourselves
 			{
@@ -476,7 +476,7 @@ b8 Awk::can_shoot(const Vec3& dir, Vec3* final_pos, b8* hit_target) const
 	// in certain cases where the drone won't let you go where you should be able to go
 	// due to the third-person camera offset
 	// the AI however needs to know whether it can hit actually hit a target
-	if (!has<LocalPlayerControl>() && fabs(trace_dir.y) > AWK_VERTICAL_DOT_LIMIT)
+	if (!has<PlayerControlHuman>() && fabs(trace_dir.y) > AWK_VERTICAL_DOT_LIMIT)
 		return false;
 
 	Vec3 trace_start = get<Transform>()->absolute_pos();
@@ -539,7 +539,7 @@ b8 Awk::can_spawn(Ability a, const Vec3& dir, Vec3* final_pos, Vec3* final_norma
 	// in certain cases where the drone won't let you go where you should be able to go
 	// due to the third-person camera offset
 	// the AI however needs to know whether it can hit actually hit a target
-	if (!has<LocalPlayerControl>() && fabs(trace_dir.y) > AWK_VERTICAL_DOT_LIMIT)
+	if (!has<PlayerControlHuman>() && fabs(trace_dir.y) > AWK_VERTICAL_DOT_LIMIT)
 		return false;
 
 	Vec3 trace_start = get<Transform>()->absolute_pos();
@@ -635,7 +635,7 @@ b8 Awk::dash_start(const Vec3& dir)
 
 	particle_accumulator = 0;
 
-	get<Audio>()->post_event(has<LocalPlayerControl>() ? AK::EVENTS::PLAY_LAUNCH_PLAYER : AK::EVENTS::PLAY_LAUNCH);
+	get<Audio>()->post_event(has<PlayerControlHuman>() ? AK::EVENTS::PLAY_LAUNCH_PLAYER : AK::EVENTS::PLAY_LAUNCH);
 
 	dashed.fire();
 
@@ -683,7 +683,7 @@ b8 Awk::go(const Vec3& dir)
 		get<Transform>()->absolute_pos(get<Transform>()->absolute_pos() + dir_normalized * AWK_RADIUS * 0.5f);
 		get<Transform>()->absolute_rot(Quat::look(dir_normalized));
 
-		get<Audio>()->post_event(has<LocalPlayerControl>() ? AK::EVENTS::PLAY_LAUNCH_PLAYER : AK::EVENTS::PLAY_LAUNCH);
+		get<Audio>()->post_event(has<PlayerControlHuman>() ? AK::EVENTS::PLAY_LAUNCH_PLAYER : AK::EVENTS::PLAY_LAUNCH);
 
 		cooldown_setup();
 		detach_teleport();
@@ -789,10 +789,10 @@ b8 Awk::go(const Vec3& dir)
 
 				// everyone instantly knows where we are
 				AI::Team team = get<AIAgent>()->team;
-				for (s32 i = 0; i < Team::list.length; i++)
+				for (auto i = Team::list.iterator(); !i.is_last(); i.next())
 				{
-					if (Team::list[i].team() != team)
-						Team::list[i].track(get<PlayerCommon>()->manager.ref());
+					if (i.item()->team() != team)
+						i.item()->track(get<PlayerCommon>()->manager.ref());
 				}
 
 				break;
@@ -1200,7 +1200,7 @@ void Awk::finish_flying_dashing_common()
 
 	get<Animator>()->layers[0].animation = AssetNull;
 
-	get<Audio>()->post_event(has<LocalPlayerControl>() ? AK::EVENTS::PLAY_LAND_PLAYER : AK::EVENTS::PLAY_LAND);
+	get<Audio>()->post_event(has<PlayerControlHuman>() ? AK::EVENTS::PLAY_LAND_PLAYER : AK::EVENTS::PLAY_LAND);
 	attach_time = Game::time.total;
 
 	velocity = Vec3::zero;
@@ -1423,7 +1423,7 @@ void Awk::update_client(const Update& u)
 					target_leg_space = Vec3::lerp(footing[i].blend, last_target_leg_space, target_leg_space);
 					if (footing[i].blend == 1.0f && Game::real_time.total - last_footstep > 0.07f)
 					{
-						get<Audio>()->post_event(has<LocalPlayerControl>() ? AK::EVENTS::PLAY_AWK_FOOTSTEP_PLAYER : AK::EVENTS::PLAY_AWK_FOOTSTEP);
+						get<Audio>()->post_event(has<PlayerControlHuman>() ? AK::EVENTS::PLAY_AWK_FOOTSTEP_PLAYER : AK::EVENTS::PLAY_AWK_FOOTSTEP);
 						last_footstep = Game::real_time.total;
 					}
 				}

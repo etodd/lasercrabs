@@ -928,7 +928,7 @@ void Decoy::destroy()
 
 void Decoy::hit_by(const TargetEvent& e)
 {
-	get<Audio>()->post_event(has<LocalPlayerControl>() ? AK::EVENTS::PLAY_HURT_PLAYER : AK::EVENTS::PLAY_HURT);
+	get<Audio>()->post_event(has<PlayerControlHuman>() ? AK::EVENTS::PLAY_HURT_PLAYER : AK::EVENTS::PLAY_HURT);
 	get<Health>()->damage(e.hit_by, 1);
 }
 

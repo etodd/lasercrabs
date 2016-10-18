@@ -29,7 +29,6 @@ const Vec4 Team::color_enemy = Vec4(1.0f, 0.3f, 0.4f, MATERIAL_NO_OVERRIDE);
 const Vec4 Team::ui_color_friend = Vec4(0.35f, 0.85f, 1.0f, 1);
 const Vec4 Team::ui_color_enemy = Vec4(1.0f, 0.4f, 0.4f, 1);
 
-StaticArray<Team, MAX_PLAYERS> Team::list;
 r32 Team::control_point_timer;
 r32 Team::game_over_real_time;
 b8 Team::game_over;
@@ -128,9 +127,9 @@ void Team::awake_all()
 	PlayerManager::timer = CONTROL_POINT_INTERVAL;
 	Game::session.last_match = Game::MatchResult::Forfeit;
 
-	for (s32 i = 0; i < list.length; i++)
+	for (auto i = list.iterator(); !i.is_last(); i.next())
 	{
-		Team* team = &list[i];
+		Team* team = i.item();
 		for (auto j = PlayerManager::list.iterator(); !j.is_last(); j.next())
 		{
 			if (j.item()->team.ref() != team)
@@ -142,9 +141,9 @@ void Team::awake_all()
 s32 Team::teams_with_players()
 {
 	s32 t = 0;
-	for (s32 i = 0; i < list.length; i++)
+	for (auto i = list.iterator(); !i.is_last(); i.next())
 	{
-		if (list[i].has_player())
+		if (i.item()->has_player())
 			t++;
 	}
 	return t;
@@ -239,15 +238,15 @@ Team* Team::with_most_kills()
 {
 	u16 highest_kills = 0;
 	Team* result = nullptr;
-	for (s32 i = 0; i < list.length; i++)
+	for (auto i = list.iterator(); !i.is_last(); i.next())
 	{
-		u16 kills = list[i].kills();
+		u16 kills = i.item()->kills();
 		if (kills == highest_kills)
 			result = nullptr;
 		else if (kills > highest_kills)
 		{
 			highest_kills = kills;
-			result = &list[i];
+			result = i.item();
 		}
 	}
 	return result;
@@ -312,11 +311,11 @@ void Team::update_all(const Update& u)
 			// determine the winner, if any
 			Team* team_with_player = nullptr;
 			s32 teams_with_players = 0;
-			for (s32 i = 0; i < list.length; i++)
+			for (auto i = list.iterator(); !i.is_last(); i.next())
 			{
-				if (list[i].has_player())
+				if (i.item()->has_player())
 				{
-					team_with_player = &list[i];
+					team_with_player = i.item();
 					teams_with_players++;
 				}
 			}
@@ -436,10 +435,10 @@ void Team::update_all(const Update& u)
 		else
 		{
 			// check if any enemy sensors can see us
-			for (s32 t = 0; t < list.length; t++)
+			for (auto t = list.iterator(); !t.is_last(); t.next())
 			{
-				if ((AI::Team)t != team
-					&& (visibility[i.index][t] || list[t].player_tracks[i.index].tracking))
+				if (t.item()->team() != team
+					&& (visibility[i.index][t.index] || t.item()->player_tracks[i.index].tracking))
 				{
 					stealth_enabled = false;
 					break;
@@ -518,9 +517,9 @@ void Team::update_all(const Update& u)
 		}
 	}
 
-	for (s32 team_id = 0; team_id < list.length; team_id++)
+	for (auto t = list.iterator(); !t.is_last(); t.next())
 	{
-		Team* team = &list[team_id];
+		Team* team = t.item();
 
 		// update tracking timers
 
@@ -639,8 +638,6 @@ b8 PlayerManager::ability_valid(Ability ability) const
 
 	return true;
 }
-
-PinArray<PlayerManager, MAX_PLAYERS> PlayerManager::list;
 
 PlayerManager::PlayerManager(Team* team)
 	: spawn_timer(PLAYER_SPAWN_DELAY),
@@ -937,7 +934,7 @@ void PlayerManager::update(const Update& u)
 
 b8 PlayerManager::is_local() const
 {
-	for (auto j = LocalPlayer::list.iterator(); !j.is_last(); j.next())
+	for (auto j = PlayerHuman::list.iterator(); !j.is_last(); j.next())
 	{
 		if (j.item()->manager.ref() == this)
 			return true;

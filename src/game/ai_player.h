@@ -14,16 +14,16 @@
 namespace VI
 {
 
-struct AIPlayerControl;
+struct PlayerControlAI;
 struct Transform;
 struct PlayerManager;
 struct Camera;
 struct Target;
 struct ControlPoint;
 
-struct AIPlayer
+struct PlayerAI
 {
-	static PinArray<AIPlayer, MAX_PLAYERS> list;
+	static PinArray<PlayerAI, MAX_PLAYERS> list;
 
 	enum class LowLevelLoop
 	{
@@ -68,7 +68,7 @@ struct AIPlayer
 	Revision revision;
 	Config config;
 
-	AIPlayer(PlayerManager*, const Config&);
+	PlayerAI(PlayerManager*, const Config&);
 	inline ID id() const
 	{
 		return this - &list[0];
@@ -80,7 +80,7 @@ struct AIPlayer
 
 #define MAX_MEMORY 8
 
-struct AIPlayerControl : public ComponentType<AIPlayerControl>
+struct PlayerControlAI : public ComponentType<PlayerControlAI>
 {
 	struct Memory
 	{
@@ -88,7 +88,7 @@ struct AIPlayerControl : public ComponentType<AIPlayerControl>
 		Ref<Entity> entity;
 	};
 
-	typedef StaticArray<AIPlayerControl::Memory, MAX_MEMORY> MemoryArray;
+	typedef StaticArray<PlayerControlAI::Memory, MAX_MEMORY> MemoryArray;
 
 #if DEBUG_AI_CONTROL
 	Camera* camera;
@@ -104,16 +104,16 @@ struct AIPlayerControl : public ComponentType<AIPlayerControl>
 	AI::AwkPath path;
 	s32 path_index;
 	MemoryArray memory[MAX_FAMILIES];
-	Ref<AIPlayer> player;
+	Ref<PlayerAI> player;
 	Ref<Entity> target;
 	b8 shot_at_target;
 	b8 hit_target;
 	b8 panic;
 	s8 path_priority;
 
-	AIPlayerControl(AIPlayer* = nullptr);
+	PlayerControlAI(PlayerAI* = nullptr);
 	void awake();
-	~AIPlayerControl();
+	~PlayerControlAI();
 
 	b8 update_memory();
 	void behavior_start(Behavior*, s8);
@@ -130,18 +130,18 @@ struct AIPlayerControl : public ComponentType<AIPlayerControl>
 	void awk_hit(Entity*);
 	void awk_detached();
 	void update(const Update&);
-	const AIPlayer::Config& config() const;
+	const PlayerAI::Config& config() const;
 };
 
 namespace AIBehaviors
 {
 	template<typename Derived> struct Base : public BehaviorBase<Derived>
 	{
-		AIPlayerControl* control;
+		PlayerControlAI* control;
 		s8 path_priority;
 		virtual void set_context(void* ctx)
 		{
-			this->control = (AIPlayerControl*)ctx;
+			this->control = (PlayerControlAI*)ctx;
 		}
 
 		void path_callback(const AI::AwkResult& result)
@@ -220,9 +220,9 @@ namespace AIBehaviors
 
 	struct Find : Base<Find>
 	{
-		b8(*filter)(const AIPlayerControl*, const Entity*);
+		b8(*filter)(const PlayerControlAI*, const Entity*);
 		Family family;
-		Find(Family, s8, b8(*)(const AIPlayerControl*, const Entity*));
+		Find(Family, s8, b8(*)(const PlayerControlAI*, const Entity*));
 
 		void run();
 	};
@@ -251,8 +251,8 @@ namespace AIBehaviors
 
 	struct Test : Base<Test>
 	{
-		b8(*filter)(const AIPlayerControl*);
-		Test(b8(*)(const AIPlayerControl*));
+		b8(*filter)(const PlayerControlAI*);
+		Test(b8(*)(const PlayerControlAI*));
 		void run();
 	};
 
@@ -266,7 +266,7 @@ namespace AIBehaviors
 		void run();
 	};
 
-	typedef b8(*AbilitySpawnFilter)(const AIPlayerControl*);
+	typedef b8(*AbilitySpawnFilter)(const PlayerControlAI*);
 	struct AbilitySpawn : Base<AbilitySpawn>
 	{
 		AbilitySpawn();
@@ -277,17 +277,17 @@ namespace AIBehaviors
 	struct ReactTarget : Base<ReactTarget>
 	{
 		s8 react_priority;
-		b8(*filter)(const AIPlayerControl*, const Entity*);
+		b8(*filter)(const PlayerControlAI*, const Entity*);
 		Family family;
-		ReactTarget(Family, s8, s8, b8(*)(const AIPlayerControl*, const Entity*));
+		ReactTarget(Family, s8, s8, b8(*)(const PlayerControlAI*, const Entity*));
 
 		void run();
 	};
 
 	struct ReactControlPoint : Base<ReactControlPoint>
 	{
-		ReactControlPoint(s8, b8(*)(const AIPlayerControl*, const Entity*));
-		b8(*filter)(const AIPlayerControl*, const Entity*);
+		ReactControlPoint(s8, b8(*)(const PlayerControlAI*, const Entity*));
+		b8(*filter)(const PlayerControlAI*, const Entity*);
 		void run();
 	};
 
@@ -309,9 +309,9 @@ namespace AIBehaviors
 
 	struct RunAway : Base<RunAway>
 	{
-		b8(*filter)(const AIPlayerControl*, const Entity*);
+		b8(*filter)(const PlayerControlAI*, const Entity*);
 		Family family;
-		RunAway(Family, s8, b8(*)(const AIPlayerControl*, const Entity*));
+		RunAway(Family, s8, b8(*)(const PlayerControlAI*, const Entity*));
 		void run();
 	};
 

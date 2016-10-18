@@ -87,7 +87,7 @@ struct TransformState
 	u16 revision;
 };
 
-struct TransformFrame
+struct StateFrame
 {
 	TransformState transforms[MAX_ENTITIES];
 	r32 timestamp;
@@ -97,7 +97,7 @@ struct TransformFrame
 
 struct TransformHistory
 {
-	StaticArray<TransformFrame, 256> frames;
+	StaticArray<StateFrame, 256> frames;
 	s32 current_index;
 };
 
@@ -201,7 +201,7 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 		| Teleporter::component_mask
 		| Awk::component_mask
 		| Audio::component_mask;
-		//| LocalPlayerControl::component_mask
+		//| PlayerControlHuman::component_mask
 		//| PlayerCommon::component_mask
 		//| MinionCommon::component_mask
 
@@ -310,7 +310,7 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 		serialize_int(p, u8, a->charges, 0, AWK_CHARGES);
 	}
 
-	if (e->has<LocalPlayerControl>())
+	if (e->has<PlayerControlHuman>())
 	{
 	}
 
@@ -1000,7 +1000,7 @@ b8 transform_states_equal(const TransformState& a, const TransformState& b)
 		&& Quat::angle(a.rot, b.rot) < 0.001f;
 }
 
-b8 transform_states_equal(const TransformFrame* a, const TransformFrame* b, s32 index)
+b8 transform_states_equal(const StateFrame* a, const StateFrame* b, s32 index)
 {
 	if (a && b)
 	{
@@ -1017,7 +1017,7 @@ b8 transform_states_equal(const TransformFrame* a, const TransformFrame* b, s32 
 	return false;
 }
 
-b8 transform_frame_write(StreamWrite* p, TransformFrame* frame, const TransformFrame* base)
+b8 state_frame_write(StreamWrite* p, StateFrame* frame, const StateFrame* base)
 {
 	using Stream = StreamWrite;
 	serialize_int(p, SequenceID, frame->sequence_id, 0, SEQUENCE_COUNT - 1);
@@ -1065,9 +1065,9 @@ b8 transform_frame_write(StreamWrite* p, TransformFrame* frame, const TransformF
 	return true;
 }
 
-b8 transform_frame_read(StreamRead* p, TransformFrame* frame, const TransformFrame* base)
+b8 state_frame_read(StreamRead* p, StateFrame* frame, const StateFrame* base)
 {
-	new (frame) TransformFrame();
+	new (frame) StateFrame();
 	using Stream = StreamRead;
 	frame->timestamp = Game::real_time.total;
 	if (base)
@@ -1116,7 +1116,7 @@ b8 transform_filter(const Transform* t)
 		|| t->has<Rope>();
 }
 
-void transform_frame_build(TransformFrame* frame)
+void state_frame_build(StateFrame* frame)
 {
 	frame->sequence_id = local_sequence_id;
 	frame->active = Transform::list.mask;
@@ -1136,7 +1136,7 @@ void transform_frame_build(TransformFrame* frame)
 }
 
 // get the absolute pos and rot of the given transform
-void transform_absolute(const TransformFrame& frame, s32 index, Vec3* abs_pos, Quat* abs_rot)
+void transform_absolute(const StateFrame& frame, s32 index, Vec3* abs_pos, Quat* abs_rot)
 {
 	*abs_rot = Quat::identity;
 	*abs_pos = Vec3::zero;
@@ -1162,7 +1162,7 @@ void transform_absolute(const TransformFrame& frame, s32 index, Vec3* abs_pos, Q
 }
 
 // convert the given pos and rot to the local coordinate system of the given transform
-void transform_absolute_to_relative(const TransformFrame& frame, s32 index, Vec3* pos, Quat* rot)
+void transform_absolute_to_relative(const StateFrame& frame, s32 index, Vec3* pos, Quat* rot)
 {
 	Quat abs_rot;
 	Vec3 abs_pos;
@@ -1173,7 +1173,7 @@ void transform_absolute_to_relative(const TransformFrame& frame, s32 index, Vec3
 	*pos = abs_rot_inverse * (*pos - abs_pos);
 }
 
-void transform_frame_interpolate(const TransformFrame& a, const TransformFrame& b, TransformFrame* result, r32 timestamp)
+void state_frame_interpolate(const StateFrame& a, const StateFrame& b, StateFrame* result, r32 timestamp)
 {
 	result->timestamp = timestamp;
 	vi_assert(timestamp >= a.timestamp);
@@ -1218,9 +1218,9 @@ void transform_frame_interpolate(const TransformFrame& a, const TransformFrame& 
 	}
 }
 
-TransformFrame* transform_frame_add(TransformHistory* history)
+StateFrame* state_frame_add(TransformHistory* history)
 {
-	TransformFrame* frame;
+	StateFrame* frame;
 	if (history->frames.length < history->frames.capacity())
 	{
 		frame = history->frames.add();
@@ -1231,19 +1231,19 @@ TransformFrame* transform_frame_add(TransformHistory* history)
 		history->current_index = (history->current_index + 1) % history->frames.capacity();
 		frame = &history->frames[history->current_index];
 	}
-	new (frame) TransformFrame();
+	new (frame) StateFrame();
 	frame->timestamp = Game::real_time.total;
 	return frame;
 }
 
-const TransformFrame* transform_frame_by_sequence(const TransformHistory& history, SequenceID sequence_id)
+const StateFrame* state_frame_by_sequence(const TransformHistory& history, SequenceID sequence_id)
 {
 	if (history.frames.length > 0)
 	{
 		s32 index = history.current_index;
 		for (s32 i = 0; i < 64; i++)
 		{
-			const TransformFrame* frame = &history.frames[index];
+			const StateFrame* frame = &history.frames[index];
 			if (frame->sequence_id == sequence_id)
 				return frame;
 
@@ -1256,14 +1256,14 @@ const TransformFrame* transform_frame_by_sequence(const TransformHistory& histor
 	return nullptr;
 }
 
-const TransformFrame* transform_frame_by_timestamp(const TransformHistory& history, r32 timestamp)
+const StateFrame* state_frame_by_timestamp(const TransformHistory& history, r32 timestamp)
 {
 	if (history.frames.length > 0)
 	{
 		s32 index = history.current_index;
 		for (s32 i = 0; i < 64; i++)
 		{
-			const TransformFrame* frame = &history.frames[index];
+			const StateFrame* frame = &history.frames[index];
 
 			if (frame->timestamp < timestamp)
 				return &history.frames[index];
@@ -1277,13 +1277,13 @@ const TransformFrame* transform_frame_by_timestamp(const TransformHistory& histo
 	return nullptr;
 }
 
-const TransformFrame* transform_frame_next(const TransformHistory& history, const TransformFrame& frame)
+const StateFrame* state_frame_next(const TransformHistory& history, const StateFrame& frame)
 {
 	if (history.frames.length > 1)
 	{
 		s32 index = &frame - history.frames.data;
 		index = index < history.frames.length - 1 ? index + 1 : 0;
-		const TransformFrame& frame_next = history.frames[index];
+		const StateFrame& frame_next = history.frames[index];
 		if (sequence_more_recent(frame_next.sequence_id, frame.sequence_id))
 			return &frame_next;
 	}
@@ -1295,7 +1295,7 @@ const TransformFrame* transform_frame_next(const TransformHistory& history, cons
 namespace Server
 {
 
-struct LocalPlayer;
+struct PlayerHuman;
 
 struct Client
 {
@@ -1306,7 +1306,7 @@ struct Client
 	MessageHistory msgs_in_history; // messages we've received from the client
 	SequenceHistory recently_resent; // sequences we resent to the client recently
 	SequenceID processed_sequence_id; // most recent sequence ID we've processed from the client
-	Ref<LocalPlayer> player;
+	Ref<PlayerHuman> player;
 	b8 connected;
 };
 
@@ -1369,7 +1369,7 @@ b8 build_packet_keepalive(StreamWrite* p)
 	return true;
 }
 
-b8 build_packet_update(StreamWrite* p, Client* client, TransformFrame* frame)
+b8 build_packet_update(StreamWrite* p, Client* client, StateFrame* frame)
 {
 	packet_init(p);
 	using Stream = StreamWrite;
@@ -1380,8 +1380,8 @@ b8 build_packet_update(StreamWrite* p, Client* client, TransformFrame* frame)
 	serialize_u32(p, ack.previous_sequences);
 	msgs_write(p, msgs_out_history, client->ack, &client->recently_resent, client->rtt);
 	serialize_int(p, SequenceID, client->ack.sequence_id, 0, SEQUENCE_COUNT - 1);
-	const TransformFrame* base = transform_frame_by_sequence(transform_history, client->ack.sequence_id);
-	transform_frame_write(p, frame, base);
+	const StateFrame* base = state_frame_by_sequence(transform_history, client->ack.sequence_id);
+	state_frame_write(p, frame, base);
 	packet_finalize(p);
 	return true;
 }
@@ -1411,8 +1411,8 @@ void tick(const Update& u)
 	if (mode == Mode::Active)
 		msgs_out_consolidate();
 
-	TransformFrame* frame = transform_frame_add(&transform_history);
-	transform_frame_build(frame);
+	StateFrame* frame = state_frame_add(&transform_history);
+	state_frame_build(frame);
 
 	StreamWrite p;
 	for (s32 i = 0; i < clients.length; i++)
@@ -1629,17 +1629,20 @@ b8 build_packet_update(StreamWrite* p)
 
 void update(const Update& u)
 {
+	if (Game::session.local)
+		return;
+
 	r32 interpolation_time = Game::real_time.total - INTERPOLATION_DELAY;
 
-	const TransformFrame* frame = transform_frame_by_timestamp(transform_history, interpolation_time);
+	const StateFrame* frame = state_frame_by_timestamp(transform_history, interpolation_time);
 	if (frame)
 	{
-		const TransformFrame* frame_next = transform_frame_next(transform_history, *frame);
-		const TransformFrame* frame_final;
-		TransformFrame interpolated;
+		const StateFrame* frame_next = state_frame_next(transform_history, *frame);
+		const StateFrame* frame_final;
+		StateFrame interpolated;
 		if (frame_next)
 		{
-			transform_frame_interpolate(*frame, *frame_next, &interpolated, interpolation_time);
+			state_frame_interpolate(*frame, *frame_next, &interpolated, interpolation_time);
 			frame_final = &interpolated;
 		}
 		else
@@ -1672,6 +1675,7 @@ void update(const Update& u)
 		}
 	}
 
+	// debug hack
 	if (Awk::list.count() > 0)
 	{
 		Camera* c = &Camera::list[0];
@@ -1803,12 +1807,12 @@ b8 packet_handle(const Update& u, StreamRead* p, const Sock::Address& address)
 			{
 				SequenceID base_sequence_id;
 				serialize_int(p, SequenceID, base_sequence_id, 0, SEQUENCE_COUNT - 1);
-				const TransformFrame* base = transform_frame_by_sequence(transform_history, base_sequence_id);
-				TransformFrame frame;
-				transform_frame_read(p, &frame, base);
+				const StateFrame* base = state_frame_by_sequence(transform_history, base_sequence_id);
+				StateFrame frame;
+				state_frame_read(p, &frame, base);
 				// only insert the frame into the history if it is more recent
 				if (transform_history.frames.length == 0 || sequence_more_recent(frame.sequence_id, transform_history.frames[transform_history.current_index].sequence_id))
-					memcpy(transform_frame_add(&transform_history), &frame, sizeof(TransformFrame));
+					memcpy(state_frame_add(&transform_history), &frame, sizeof(StateFrame));
 			}
 
 			timeout = 0.0f; // reset connection timeout

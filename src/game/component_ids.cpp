@@ -23,8 +23,8 @@ COMPONENT_TYPE(2,  View) \
 COMPONENT_TYPE(3,  Animator) \
 COMPONENT_TYPE(4,  AIAgent) \
 COMPONENT_TYPE(5,  Awk) \
-COMPONENT_TYPE(6,  AIPlayerControl) \
-COMPONENT_TYPE(7,  LocalPlayerControl) \
+COMPONENT_TYPE(6,  PlayerControlAI) \
+COMPONENT_TYPE(7,  PlayerControlHuman) \
 COMPONENT_TYPE(8,  PlayerCommon) \
 COMPONENT_TYPE(9,  MinionAI) \
 COMPONENT_TYPE(10, MinionCommon) \
@@ -52,8 +52,11 @@ COMPONENT_TYPE(31, AICue) \
 COMPONENT_TYPE(32, Water) \
 COMPONENT_TYPE(33, DirectionalLight) \
 COMPONENT_TYPE(34, SkyDecal) \
+COMPONENT_TYPE(35, Team) \
+COMPONENT_TYPE(36, PlayerManager) \
+COMPONENT_TYPE(37, PlayerHuman) \
 
-Family World::families = 35;
+Family World::families = 38;
 
 #define COMPONENT_TYPE(INDEX, TYPE) \
 template<> Family ComponentType<TYPE>::family = (INDEX); \

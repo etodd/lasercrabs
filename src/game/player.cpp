@@ -82,37 +82,34 @@ void camera_setup(Entity* e, Camera* camera, r32 offset)
 	camera->cull_behind_wall = abs_wall_normal.dot(camera->pos - e->get<Awk>()->attach_point()) < 0.0f;
 }
 
-PinArray<LocalPlayer, MAX_PLAYERS> LocalPlayer::list;
-
-LocalPlayer::LocalPlayer(PlayerManager* m, u8 g)
+PlayerHuman::PlayerHuman(PlayerManager* m, u8 g)
 	: gamepad(g),
 	manager(m),
 	camera(),
 	msg_text(),
 	msg_timer(msg_time),
 	menu(),
-	revision(),
 	angle_horizontal(),
 	angle_vertical(),
 	menu_state(),
 	upgrade_menu_open(),
 	upgrade_animation_time(),
 	score_summary_scroll(),
-	spectate_index()
+	spectate_index(),
+	local(m != nullptr)
 {
-	if (gamepad == 0)
-		sprintf(manager.ref()->username, "%s", Game::save.username);
-	else
-		sprintf(manager.ref()->username, "%s[%d]", Game::save.username, gamepad);
+	if (local)
+	{
+		if (gamepad == 0)
+			sprintf(m->username, "%s", Game::save.username);
+		else
+			sprintf(m->username, "%s[%d]", Game::save.username, gamepad);
 
-	msg_text.size = text_size;
-	msg_text.anchor_x = UIText::Anchor::Center;
-	msg_text.anchor_y = UIText::Anchor::Center;
-
-	m->spawn.link<LocalPlayer, &LocalPlayer::spawn>(this);
+		m->spawn.link<PlayerHuman, &PlayerHuman::spawn>(this);
+	}
 }
 
-LocalPlayer::UIMode LocalPlayer::ui_mode() const
+PlayerHuman::UIMode PlayerHuman::ui_mode() const
 {
 	if (menu_state != Menu::State::Hidden)
 		return UIMode::Pause;
@@ -129,7 +126,7 @@ LocalPlayer::UIMode LocalPlayer::ui_mode() const
 		return UIMode::Dead;
 }
 
-void LocalPlayer::msg(const char* msg, b8 good)
+void PlayerHuman::msg(const char* msg, b8 good)
 {
 	msg_text.text(msg);
 	msg_text.color = good ? UI::color_accent : UI::color_alert;
@@ -137,48 +134,28 @@ void LocalPlayer::msg(const char* msg, b8 good)
 	msg_good = good;
 }
 
-void LocalPlayer::awake(const Update& u)
+void PlayerHuman::awake()
 {
 	Audio::listener_enable(gamepad);
 
-	camera = Camera::add();
-	camera->fog = false;
-	camera->team = (u8)manager.ref()->team.ref()->team();
-	camera->mask = 1 << camera->team;
-	s32 player_count;
-#if DEBUG_AI_CONTROL
-	player_count = list.count() + AIPlayer::list.count();
-#else
-	player_count = list.count();
-#endif
-	Camera::ViewportBlueprint* viewports = Camera::viewport_blueprints[player_count - 1];
-	Camera::ViewportBlueprint* blueprint = &viewports[id()];
-
-	camera->viewport =
-	{
-		Vec2((s32)(blueprint->x * (r32)u.input->width), (s32)(blueprint->y * (r32)u.input->height)),
-		Vec2((s32)(blueprint->w * (r32)u.input->width), (s32)(blueprint->h * (r32)u.input->height)),
-	};
-	r32 aspect = camera->viewport.size.y == 0 ? 1 : (r32)camera->viewport.size.x / (r32)camera->viewport.size.y;
-	camera->perspective(fov_map_view, aspect, 1.0f, Game::level.skybox.far_plane);
-	Quat rot;
-	map_view.ref()->absolute(&camera->pos, &rot);
-	camera->rot = Quat::look(rot * Vec3(0, -1, 0));
+	msg_text.size = text_size;
+	msg_text.anchor_x = UIText::Anchor::Center;
+	msg_text.anchor_y = UIText::Anchor::Center;
 }
 
 #define DANGER_RAMP_UP_TIME 2.0f
 #define DANGER_LINGER_TIME 3.0f
 #define DANGER_RAMP_DOWN_TIME 4.0f
-r32 LocalPlayer::danger;
-void LocalPlayer::update_all(const Update& u)
+r32 PlayerHuman::danger;
+void PlayerHuman::update_all(const Update& u)
 {
-	for (auto i = LocalPlayer::list.iterator(); !i.is_last(); i.next())
+	for (auto i = PlayerHuman::list.iterator(); !i.is_last(); i.next())
 		i.item()->update(u);
 
 	// update audio danger parameter
 
 	b8 visible_enemy = false;
-	for (auto i = LocalPlayerControl::list.iterator(); !i.is_last(); i.next())
+	for (auto i = PlayerControlHuman::list.iterator(); !i.is_last(); i.next())
 	{
 		PlayerCommon* local_common = i.item()->get<PlayerCommon>();
 		for (auto j = PlayerCommon::list.iterator(); !j.is_last(); j.next())
@@ -203,7 +180,7 @@ void LocalPlayer::update_all(const Update& u)
 
 #define TUTORIAL_TIME 2.0f
 
-void LocalPlayer::update_camera_rotation(const Update& u)
+void PlayerHuman::update_camera_rotation(const Update& u)
 {
 	r32 s = speed_mouse * Settings::gamepads[gamepad].effective_sensitivity() * Game::real_time.delta;
 	angle_horizontal -= (r32)u.input->cursor_x * s;
@@ -238,8 +215,38 @@ Entity* live_player_get(s32 index)
 	return nullptr;
 }
 
-void LocalPlayer::update(const Update& u)
+void PlayerHuman::update(const Update& u)
 {
+	if (!local)
+		return;
+
+	if (!camera)
+	{
+		camera = Camera::add();
+		camera->fog = false;
+		camera->team = (u8)manager.ref()->team.ref()->team();
+		camera->mask = 1 << camera->team;
+		s32 player_count;
+#if DEBUG_AI_CONTROL
+		player_count = list.count() + PlayerAI::list.count();
+#else
+		player_count = list.count();
+#endif
+		Camera::ViewportBlueprint* viewports = Camera::viewport_blueprints[player_count - 1];
+		Camera::ViewportBlueprint* blueprint = &viewports[id()];
+
+		camera->viewport =
+		{
+			Vec2((s32)(blueprint->x * (r32)u.input->width), (s32)(blueprint->y * (r32)u.input->height)),
+			Vec2((s32)(blueprint->w * (r32)u.input->width), (s32)(blueprint->h * (r32)u.input->height)),
+		};
+		r32 aspect = camera->viewport.size.y == 0 ? 1 : (r32)camera->viewport.size.x / (r32)camera->viewport.size.y;
+		camera->perspective(fov_map_view, aspect, 1.0f, Game::level.skybox.far_plane);
+		Quat rot;
+		map_view.ref()->absolute(&camera->pos, &rot);
+		camera->rot = Quat::look(rot * Vec3(0, -1, 0));
+	}
+
 	if (Console::visible)
 		return;
 
@@ -438,8 +445,10 @@ void LocalPlayer::update(const Update& u)
 	Audio::listener_update(gamepad, camera->pos, camera->rot);
 }
 
-void LocalPlayer::spawn()
+void PlayerHuman::spawn()
 {
+	vi_assert(local);
+
 	Vec3 pos;
 	Quat rot;
 	manager.ref()->team.ref()->player_spawn.ref()->absolute(&pos, &rot);
@@ -456,7 +465,7 @@ void LocalPlayer::spawn()
 
 	manager.ref()->entity = spawned;
 
-	LocalPlayerControl* control = spawned->add<LocalPlayerControl>();
+	PlayerControlHuman* control = spawned->add<PlayerControlHuman>();
 	control->player = this;
 	control->gamepad = gamepad;
 
@@ -482,7 +491,7 @@ void draw_icon_text(const RenderParams& params, const Vec2& pos, AssetID icon, c
 	text.draw(params, pos + Vec2(total_width * -0.5f + icon_size + padding, 0));
 }
 
-void ability_draw(const RenderParams& params, const LocalPlayer* player, const Vec2& pos, Ability ability, AssetID icon, const char* control_binding)
+void ability_draw(const RenderParams& params, const PlayerHuman* player, const Vec2& pos, Ability ability, AssetID icon, const char* control_binding)
 {
 	char string[255];
 
@@ -553,10 +562,12 @@ void scoreboard_draw(const RenderParams& params, const PlayerManager* manager)
 	}
 }
 
-void LocalPlayer::draw_alpha(const RenderParams& params) const
+void PlayerHuman::draw_alpha(const RenderParams& params) const
 {
 	if (params.camera != camera || Game::level.continue_match_after_death)
 		return;
+
+	vi_assert(local);
 
 	const r32 line_thickness = 2.0f * UI::scale;
 
@@ -1042,9 +1053,9 @@ void PlayerCommon::update(const Update& u)
 r32 PlayerCommon::detect_danger() const
 {
 	AI::Team my_team = get<AIAgent>()->team;
-	for (s32 i = 0; i < Team::list.length; i++)
+	for (auto i = Team::list.iterator(); !i.is_last(); i.next())
 	{
-		Team* team = &Team::list[i];
+		Team* team = i.item();
 		if (team->team() == my_team)
 			continue;
 
@@ -1112,8 +1123,8 @@ void PlayerCommon::awk_bounce(const Vec3& new_velocity)
 
 Vec3 PlayerCommon::look_dir() const
 {
-	if (has<LocalPlayerControl>()) // HACK for third-person camera
-		return Vec3::normalize(get<LocalPlayerControl>()->reticle.pos - get<Transform>()->absolute_pos());
+	if (has<PlayerControlHuman>()) // HACK for third-person camera
+		return Vec3::normalize(get<PlayerControlHuman>()->reticle.pos - get<Transform>()->absolute_pos());
 	else
 		return Quat::euler(0.0f, angle_horizontal, angle_vertical) * Vec3(0, 0, 1);
 }
@@ -1139,13 +1150,13 @@ s32 PlayerCommon::visibility_hash(const PlayerCommon* awk_a, const PlayerCommon*
 	return awk_a->id() * MAX_PLAYERS + awk_b->id();
 }
 
-void LocalPlayerControl::awk_done_flying_or_dashing()
+void PlayerControlHuman::awk_done_flying_or_dashing()
 {
 	rumble = vi_max(rumble, 0.2f);
 	get<Audio>()->post_event(AK::EVENTS::STOP_FLY);
 }
 
-LocalPlayerControl::LocalPlayerControl()
+PlayerControlHuman::PlayerControlHuman()
 	: gamepad(),
 	fov(fov_default),
 	try_primary(),
@@ -1158,22 +1169,22 @@ LocalPlayerControl::LocalPlayerControl()
 {
 }
 
-LocalPlayerControl::~LocalPlayerControl()
+PlayerControlHuman::~PlayerControlHuman()
 {
 	get<Audio>()->post_event(AK::EVENTS::STOP_FLY);
 }
 
-void LocalPlayerControl::awake()
+void PlayerControlHuman::awake()
 {
 	last_pos = get<Awk>()->center_lerped();
-	link<&LocalPlayerControl::awk_detached>(get<Awk>()->detached);
-	link<&LocalPlayerControl::awk_done_flying_or_dashing>(get<Awk>()->done_flying);
-	link<&LocalPlayerControl::awk_done_flying_or_dashing>(get<Awk>()->done_dashing);
-	link_arg<Entity*, &LocalPlayerControl::hit_target>(get<Awk>()->hit);
-	link_arg<const TargetEvent&, &LocalPlayerControl::hit_by>(get<Target>()->target_hit);
+	link<&PlayerControlHuman::awk_detached>(get<Awk>()->detached);
+	link<&PlayerControlHuman::awk_done_flying_or_dashing>(get<Awk>()->done_flying);
+	link<&PlayerControlHuman::awk_done_flying_or_dashing>(get<Awk>()->done_dashing);
+	link_arg<Entity*, &PlayerControlHuman::hit_target>(get<Awk>()->hit);
+	link_arg<const TargetEvent&, &PlayerControlHuman::hit_by>(get<Target>()->target_hit);
 }
 
-void LocalPlayerControl::hit_target(Entity* target)
+void PlayerControlHuman::hit_target(Entity* target)
 {
 	rumble = vi_max(rumble, 0.5f);
 	if (target->has<MinionCommon>())
@@ -1193,7 +1204,7 @@ void LocalPlayerControl::hit_target(Entity* target)
 	}
 }
 
-void LocalPlayerControl::hit_by(const TargetEvent& e)
+void PlayerControlHuman::hit_by(const TargetEvent& e)
 {
 	// we were physically hit by something; shake the camera
 	if (get<Awk>()->state() == Awk::State::Crawl) // don't shake the screen if we reflect off something in the air
@@ -1203,22 +1214,22 @@ void LocalPlayerControl::hit_by(const TargetEvent& e)
 	}
 }
 
-void LocalPlayerControl::awk_detached()
+void PlayerControlHuman::awk_detached()
 {
 	damage_timer = 0.0f; // stop screen shake
 }
 
-b8 LocalPlayerControl::input_enabled() const
+b8 PlayerControlHuman::input_enabled() const
 {
-	return !Console::visible && player.ref()->ui_mode() == LocalPlayer::UIMode::Default && !Cora::has_focus() && !Team::game_over;
+	return !Console::visible && player.ref()->ui_mode() == PlayerHuman::UIMode::Default && !Cora::has_focus() && !Team::game_over;
 }
 
-b8 LocalPlayerControl::movement_enabled() const
+b8 PlayerControlHuman::movement_enabled() const
 {
 	return input_enabled() && get<PlayerCommon>()->movement_enabled();
 }
 
-r32 LocalPlayerControl::look_speed() const
+r32 PlayerControlHuman::look_speed() const
 {
 	if (try_zoom)
 		return get<Awk>()->current_ability == Ability::Sniper ? zoom_speed_multiplier_sniper : zoom_speed_multiplier;
@@ -1226,7 +1237,7 @@ r32 LocalPlayerControl::look_speed() const
 		return 1.0f;
 }
 
-void LocalPlayerControl::update_camera_input(const Update& u, r32 gamepad_rotation_multiplier)
+void PlayerControlHuman::update_camera_input(const Update& u, r32 gamepad_rotation_multiplier)
 {
 	if (input_enabled())
 	{
@@ -1268,7 +1279,7 @@ void LocalPlayerControl::update_camera_input(const Update& u, r32 gamepad_rotati
 	}
 }
 
-Vec3 LocalPlayerControl::get_movement(const Update& u, const Quat& rot)
+Vec3 PlayerControlHuman::get_movement(const Update& u, const Quat& rot)
 {
 	Vec3 movement = Vec3::zero;
 	if (movement_enabled())
@@ -1296,7 +1307,7 @@ Vec3 LocalPlayerControl::get_movement(const Update& u, const Quat& rot)
 }
 
 // returns false if there is no more room in the target indicator array
-b8 LocalPlayerControl::add_target_indicator(Target* target, TargetIndicator::Type type)
+b8 PlayerControlHuman::add_target_indicator(Target* target, TargetIndicator::Type type)
 {
 	Vec3 me = get<Transform>()->absolute_pos();
 
@@ -1345,9 +1356,9 @@ void ability_cancel(Awk* awk)
 	awk->current_ability = Ability::None;
 }
 
-void ability_update(const Update& u, LocalPlayerControl* control, Controls binding, u8 gamepad, s32 index)
+void ability_update(const Update& u, PlayerControlHuman* control, Controls binding, u8 gamepad, s32 index)
 {
-	LocalPlayer* player = control->player.ref();
+	PlayerHuman* player = control->player.ref();
 	PlayerManager* manager = player->manager.ref();
 	Ability ability = manager->abilities[index];
 
@@ -1393,7 +1404,7 @@ void ability_update(const Update& u, LocalPlayerControl* control, Controls bindi
 	}
 }
 
-void LocalPlayerControl::update(const Update& u)
+void PlayerControlHuman::update(const Update& u)
 {
 	Camera* camera = player.ref()->camera;
 	{
@@ -1724,7 +1735,7 @@ void LocalPlayerControl::update(const Update& u)
 	}
 }
 
-void LocalPlayerControl::draw_alpha(const RenderParams& params) const
+void PlayerControlHuman::draw_alpha(const RenderParams& params) const
 {
 	if (params.technique != RenderTechnique::Default || params.camera != player.ref()->camera)
 		return;

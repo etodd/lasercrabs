@@ -179,7 +179,13 @@ void Loader::settings_load(s32 default_width, s32 default_height)
 	Settings::vsync = (b8)Json::get_s32(json, "vsync", 0);
 	Settings::sfx = (u8)Json::get_s32(json, "sfx", 100);
 	Settings::music = (u8)Json::get_s32(json, "music", 100);
-	Settings::framerate_limit = vi_max(30, Json::get_s32(json, "framerate_limit", 120));
+	s32 default_framerate_limit;
+#if SERVER
+	default_framerate_limit = 60;
+#else
+	default_framerate_limit = 144;
+#endif
+	Settings::framerate_limit = vi_max(30, Json::get_s32(json, "framerate_limit", default_framerate_limit));
 	Settings::shadow_quality = (Settings::ShadowQuality)vi_max(0, vi_min(Json::get_s32(json, "shadow_quality", (s32)Settings::ShadowQuality::High), (s32)Settings::ShadowQuality::count - 1));
 	Settings::supersampling = (b8)Json::get_s32(json, "supersampling", 1);
 

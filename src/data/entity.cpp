@@ -139,6 +139,9 @@ void World::clear()
 
 	Entity::list.clear();
 
+	for (Family i = 0; i < World::families; i++)
+		component_pools[i]->clear();
+
 	remove_buffer.length = 0; // any deferred requests to remove entities should be ignored; they're all gone
 }
 

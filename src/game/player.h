@@ -22,6 +22,12 @@ struct PlayerHuman : public ComponentType<PlayerHuman>
 {
 	enum class UIMode { Default, Pause, Dead, Upgrading, GameOver };
 
+	static r32 danger;
+
+	static void update_all(const Update&);
+	static s32 count_local();
+
+	u64 uuid;
 	Camera* camera;
 	UIMenu menu;
 	UIScroll score_summary_scroll;
@@ -33,17 +39,14 @@ struct PlayerHuman : public ComponentType<PlayerHuman>
 	r32 angle_vertical;
 	s32 spectate_index;
 	Ref<Transform> map_view;
-	Ref<PlayerManager> manager;
 	b8 msg_good;
 	b8 upgrade_menu_open;
 	u8 gamepad;
 	b8 local;
 	
-	PlayerHuman(PlayerManager* = nullptr, u8 = 0);
+	PlayerHuman(b8 = false, u8 = 0);
 	void awake();
 
-	static r32 danger;
-	static void update_all(const Update&);
 	void msg(const char*, b8);
 	UIMode ui_mode() const;
 	void update(const Update&);
@@ -56,7 +59,6 @@ struct PlayerCommon : public ComponentType<PlayerCommon>
 {
 	Quat attach_quat;
 	r32 angle_horizontal;
-	r32 last_angle_horizontal;
 	r32 angle_vertical;
 	Ref<PlayerManager> manager;
 

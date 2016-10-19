@@ -28,6 +28,7 @@ enum class MessageType
 	Noop,
 	EntityCreate,
 	EntityRemove,
+	InitDone,
 	Awk,
 	count,
 };
@@ -42,10 +43,29 @@ b8 remove(Entity*);
 #if SERVER
 namespace Server
 {
+	enum Mode
+	{
+		Waiting,
+		Active,
+		count,
+	};
+
+	extern Mode mode;
 }
 #else
 namespace Client
 {
+	enum class Mode
+	{
+		Disconnected,
+		Connecting,
+		Acking,
+		Loading,
+		Connected,
+	};
+
+	extern Mode mode;
+
 	void connect(const char*, u16);
 }
 #endif

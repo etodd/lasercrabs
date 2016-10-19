@@ -33,6 +33,7 @@ struct EntityFinder
 #endif
 
 #define MAX_ZONES 64
+#define MAX_USERNAME 255
 
 struct Game
 {
@@ -40,6 +41,7 @@ struct Game
 	{
 		Special,
 		Pvp,
+		count,
 	};
 
 	enum class Group
@@ -88,11 +90,13 @@ struct Game
 	{
 		Rush,
 		Deathmatch,
+		count,
 	};
 
 	struct Session
 	{
 		AI::Team local_player_config[MAX_GAMEPADS];
+		u64 local_player_uuids[MAX_GAMEPADS];
 		NetworkQuality network_quality;
 		NetworkState network_state;
 		MatchResult last_match;
@@ -144,7 +148,7 @@ struct Game
 		Group group;
 		u16 story_index;
 		u16 resources[(s32)Resource::count];
-		const char* username;
+		char username[MAX_USERNAME + 1];
 		b8 cora_called;
 
 		Save();

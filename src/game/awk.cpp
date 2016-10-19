@@ -372,9 +372,9 @@ void Awk::damaged(const DamageEvent& e)
 		PlayerManager* manager = get<PlayerCommon>()->manager.ref();
 		for (auto i = PlayerHuman::list.iterator(); !i.is_last(); i.next())
 		{
-			if (i.item()->manager.ref() != manager) // don't need to notify ourselves
+			if (i.item()->get<PlayerManager>() != manager) // don't need to notify ourselves
 			{
-				b8 friendly = i.item()->manager.ref()->team.ref()->team() == team;
+				b8 friendly = i.item()->get<PlayerManager>()->team.ref()->team() == team;
 				char buffer[512];
 				sprintf(buffer, _(strings::player_killed), manager->username);
 				i.item()->msg(buffer, !friendly);

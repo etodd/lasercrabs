@@ -82,9 +82,19 @@ void camera_setup(Entity* e, Camera* camera, r32 offset)
 	camera->cull_behind_wall = abs_wall_normal.dot(camera->pos - e->get<Awk>()->attach_point()) < 0.0f;
 }
 
-PlayerHuman::PlayerHuman(PlayerManager* m, u8 g)
+s32 PlayerHuman::count_local()
+{
+	s32 count = 0;
+	for (auto i = list.iterator(); !i.is_last(); i.next())
+	{
+		if (i.item()->local)
+			count++;
+	}
+	return count;
+}
+
+PlayerHuman::PlayerHuman(b8 local, u8 g)
 	: gamepad(g),
-	manager(m),
 	camera(),
 	msg_text(),
 	msg_timer(msg_time),
@@ -96,17 +106,10 @@ PlayerHuman::PlayerHuman(PlayerManager* m, u8 g)
 	upgrade_animation_time(),
 	score_summary_scroll(),
 	spectate_index(),
-	local(m != nullptr)
+	local(local)
 {
 	if (local)
-	{
-		if (gamepad == 0)
-			sprintf(m->username, "%s", Game::save.username);
-		else
-			sprintf(m->username, "%s[%d]", Game::save.username, gamepad);
-
-		m->spawn.link<PlayerHuman, &PlayerHuman::spawn>(this);
-	}
+		uuid = Game::session.local_player_uuids[gamepad];
 }
 
 PlayerHuman::UIMode PlayerHuman::ui_mode() const
@@ -115,7 +118,7 @@ PlayerHuman::UIMode PlayerHuman::ui_mode() const
 		return UIMode::Pause;
 	else if (Team::game_over)
 		return UIMode::GameOver;
-	else if (manager.ref()->entity.ref())
+	else if (get<PlayerManager>()->entity.ref())
 	{
 		if (upgrade_menu_open)
 			return UIMode::Upgrading;
@@ -137,6 +140,8 @@ void PlayerHuman::msg(const char* msg, b8 good)
 void PlayerHuman::awake()
 {
 	Audio::listener_enable(gamepad);
+
+	get<PlayerManager>()->spawn.link<PlayerHuman, &PlayerHuman::spawn>(this);
 
 	msg_text.size = text_size;
 	msg_text.anchor_x = UIText::Anchor::Center;
@@ -224,13 +229,13 @@ void PlayerHuman::update(const Update& u)
 	{
 		camera = Camera::add();
 		camera->fog = false;
-		camera->team = (u8)manager.ref()->team.ref()->team();
+		camera->team = (u8)get<PlayerManager>()->team.ref()->team();
 		camera->mask = 1 << camera->team;
 		s32 player_count;
 #if DEBUG_AI_CONTROL
-		player_count = list.count() + PlayerAI::list.count();
+		player_count = count_local() + PlayerAI::list.count();
 #else
-		player_count = list.count();
+		player_count = count_local();
 #endif
 		Camera::ViewportBlueprint* viewports = Camera::viewport_blueprints[player_count - 1];
 		Camera::ViewportBlueprint* blueprint = &viewports[id()];
@@ -257,7 +262,7 @@ void PlayerHuman::update(const Update& u)
 		&& Game::time.total - Game::time.delta <= GAME_BUY_PERIOD)
 	{
 		if (Game::level.type == Game::Type::Rush)
-			msg(_(manager.ref()->team.ref()->team() == 0 ? strings::defend : strings::attack), true);
+			msg(_(get<PlayerManager>()->team.ref()->team() == 0 ? strings::defend : strings::attack), true);
 		else
 			msg(_(strings::attack), true);
 	}
@@ -270,7 +275,7 @@ void PlayerHuman::update(const Update& u)
 		if (Game::time.total > 0.5f
 			&& u.last_input->get(Controls::Pause, gamepad)
 			&& !u.input->get(Controls::Pause, gamepad)
-			&& (!manager.ref()->entity.ref() || manager.ref()->entity.ref()->get<Awk>()->current_ability == Ability::None) // HACK because cancel and pause are on the same dang key
+			&& (!get<PlayerManager>()->entity.ref() || get<PlayerManager>()->entity.ref()->get<Awk>()->current_ability == Ability::None) // HACK because cancel and pause are on the same dang key
 			&& !Game::cancel_event_eaten[gamepad]
 			&& !upgrade_menu_open
 			&& (menu_state == Menu::State::Hidden || menu_state == Menu::State::Visible)
@@ -291,7 +296,7 @@ void PlayerHuman::update(const Update& u)
 	}
 
 	// reset camera range after the player dies
-	if (!manager.ref()->entity.ref())
+	if (!get<PlayerManager>()->entity.ref())
 		camera->range = 0;
 
 	switch (ui_mode())
@@ -300,19 +305,19 @@ void PlayerHuman::update(const Update& u)
 		{
 			if (!u.input->get(Controls::Interact, gamepad) && u.last_input->get(Controls::Interact, gamepad))
 			{
-				if (manager.ref()->at_control_point()
-					&& manager.ref()->can_transition_state()
-					&& !manager.ref()->friendly_control_point(manager.ref()->at_control_point()))
+				if (get<PlayerManager>()->at_control_point()
+					&& get<PlayerManager>()->can_transition_state()
+					&& !get<PlayerManager>()->friendly_control_point(get<PlayerManager>()->at_control_point()))
 				{
 					// enemy control point; capture
-					manager.ref()->capture_start();
+					get<PlayerManager>()->capture_start();
 				}
-				else if (manager.ref()->at_upgrade_point())
+				else if (get<PlayerManager>()->at_upgrade_point())
 				{
 					upgrade_menu_open = true;
 					menu.animate();
 					upgrade_animation_time = Game::real_time.total;
-					manager.ref()->entity.ref()->get<Awk>()->current_ability = Ability::None;
+					get<PlayerManager>()->entity.ref()->get<Awk>()->current_ability = Ability::None;
 				}
 			}
 			break;
@@ -329,7 +334,7 @@ void PlayerHuman::update(const Update& u)
 			}
 			else
 			{
-				b8 upgrade_in_progress = !manager.ref()->can_transition_state();
+				b8 upgrade_in_progress = !get<PlayerManager>()->can_transition_state();
 
 				u8 last_selected = menu.selected;
 
@@ -342,11 +347,11 @@ void PlayerHuman::update(const Update& u)
 				{
 					Upgrade upgrade = (Upgrade)i;
 					b8 can_upgrade = !upgrade_in_progress
-						&& manager.ref()->upgrade_available(upgrade)
-						&& manager.ref()->credits >= manager.ref()->upgrade_cost(upgrade);
+						&& get<PlayerManager>()->upgrade_available(upgrade)
+						&& get<PlayerManager>()->credits >= get<PlayerManager>()->upgrade_cost(upgrade);
 					const UpgradeInfo& info = UpgradeInfo::list[(s32)upgrade];
 					if (menu.item(u, _(info.name), nullptr, !can_upgrade, info.icon))
-						manager.ref()->upgrade_start(upgrade);
+						get<PlayerManager>()->upgrade_start(upgrade);
 				}
 
 				menu.end();
@@ -387,7 +392,7 @@ void PlayerHuman::update(const Update& u)
 						camera->pos += camera->rot * Vec3(1, 0, 0) * u.time.delta * speed;
 				}
 			}
-			else if (manager.ref()->spawn_timer > 0.0f)
+			else if (get<PlayerManager>()->spawn_timer > 0.0f)
 			{
 				// we're spawning
 			}
@@ -430,7 +435,7 @@ void PlayerHuman::update(const Update& u)
 				{
 					// accept score summary
 					if (!u.input->get(Controls::Interact, gamepad) && u.last_input->get(Controls::Interact, gamepad))
-						manager.ref()->score_accepted = true;
+						get<PlayerManager>()->score_accepted = true;
 				}
 			}
 			break;
@@ -447,23 +452,21 @@ void PlayerHuman::update(const Update& u)
 
 void PlayerHuman::spawn()
 {
-	vi_assert(local);
-
 	Vec3 pos;
 	Quat rot;
-	manager.ref()->team.ref()->player_spawn.ref()->absolute(&pos, &rot);
+	get<PlayerManager>()->team.ref()->player_spawn.ref()->absolute(&pos, &rot);
 	Vec3 dir = rot * Vec3(0, 1, 0);
 	r32 angle = atan2f(dir.x, dir.z);
 
 	// Spawn AWK
 	pos += Quat::euler(0, angle + (gamepad * PI * 0.5f), 0) * Vec3(0, 0, CONTROL_POINT_RADIUS * 0.5f); // spawn it around the edges
-	Entity* spawned = World::create<AwkEntity>(manager.ref()->team.ref()->team());
+	Entity* spawned = World::create<AwkEntity>(get<PlayerManager>()->team.ref()->team());
 
 	spawned->get<Transform>()->absolute_pos(pos);
-	PlayerCommon* common = spawned->add<PlayerCommon>(manager.ref());
+	PlayerCommon* common = spawned->add<PlayerCommon>(get<PlayerManager>());
 	common->angle_horizontal = angle;
 
-	manager.ref()->entity = spawned;
+	get<PlayerManager>()->entity = spawned;
 
 	PlayerControlHuman* control = spawned->add<PlayerControlHuman>();
 	control->player = this;
@@ -498,7 +501,7 @@ void ability_draw(const RenderParams& params, const PlayerHuman* player, const V
 	u16 cost = AbilityInfo::list[(s32)ability].spawn_cost;
 	sprintf(string, "%s", control_binding);
 	const Vec4* color;
-	PlayerManager* manager = player->manager.ref();
+	PlayerManager* manager = player->get<PlayerManager>();
 	if (!manager->ability_valid(ability))
 		color = &UI::color_alert;
 	else if (manager->entity.ref()->get<Awk>()->current_ability == ability)
@@ -583,12 +586,12 @@ void PlayerHuman::draw_alpha(const RenderParams& params) const
 	{
 		// credits
 		b8 draw = true;
-		b8 flashing = manager.ref()->credits_flash_timer > 0.0f;
+		b8 flashing = get<PlayerManager>()->credits_flash_timer > 0.0f;
 		if (flashing)
 			draw = UI::flash_function(Game::real_time.total);
 
 		char buffer[128];
-		sprintf(buffer, "%d", manager.ref()->credits);
+		sprintf(buffer, "%d", get<PlayerManager>()->credits);
 		Vec2 credits_pos = center + Vec2(0, radius * -0.5f);
 		draw_icon_text(params, credits_pos, Asset::Mesh::icon_energy, buffer, draw ? (flashing ? UI::color_default : UI::color_accent) : UI::color_background);
 
@@ -599,7 +602,7 @@ void PlayerHuman::draw_alpha(const RenderParams& params) const
 
 			UIText text;
 			text.color = UI::color_accent;
-			text.text("+%d", manager.ref()->increment());
+			text.text("+%d", get<PlayerManager>()->increment());
 			text.anchor_x = UIText::Anchor::Min;
 			text.anchor_y = UIText::Anchor::Center;
 			text.size = text_size;
@@ -623,17 +626,17 @@ void PlayerHuman::draw_alpha(const RenderParams& params) const
 	// draw abilities
 	if (Game::level.has_feature(Game::FeatureLevel::Abilities))
 	{
-		ControlPoint* control_point = manager.ref()->at_control_point();
+		ControlPoint* control_point = get<PlayerManager>()->at_control_point();
 		if (mode == UIMode::Default
-			&& manager.ref()->can_transition_state()
-			&& ((control_point && !control_point->owned_by(manager.ref()->team.ref()->team()))
-				|| manager.ref()->at_upgrade_point()))
+			&& get<PlayerManager>()->can_transition_state()
+			&& ((control_point && !control_point->owned_by(get<PlayerManager>()->team.ref()->team()))
+				|| get<PlayerManager>()->at_upgrade_point()))
 		{
 			UIText text;
-			if (manager.ref()->at_upgrade_point())
+			if (get<PlayerManager>()->at_upgrade_point())
 			{
 				// "upgrade!" prompt
-				text.color = manager.ref()->upgrade_available() ? UI::color_accent : UI::color_disabled;
+				text.color = get<PlayerManager>()->upgrade_available() ? UI::color_accent : UI::color_disabled;
 				text.text(_(strings::prompt_upgrade));
 			}
 			else
@@ -654,7 +657,7 @@ void PlayerHuman::draw_alpha(const RenderParams& params) const
 		}
 
 		if ((mode == UIMode::Default || mode == UIMode::Upgrading)
-			&& manager.ref()->can_transition_state())
+			&& get<PlayerManager>()->can_transition_state())
 		{
 			// draw abilities
 
@@ -662,7 +665,7 @@ void PlayerHuman::draw_alpha(const RenderParams& params) const
 
 			// ability 1
 			{
-				Ability ability = manager.ref()->abilities[0];
+				Ability ability = get<PlayerManager>()->abilities[0];
 				if (ability != Ability::None)
 				{
 					const char* binding = Settings::gamepads[gamepad].bindings[(s32)Controls::Ability1].string(is_gamepad);
@@ -673,7 +676,7 @@ void PlayerHuman::draw_alpha(const RenderParams& params) const
 
 			// ability 2
 			{
-				Ability ability = manager.ref()->abilities[1];
+				Ability ability = get<PlayerManager>()->abilities[1];
 				if (ability != Ability::None)
 				{
 					const char* binding = Settings::gamepads[gamepad].bindings[(s32)Controls::Ability2].string(is_gamepad);
@@ -684,7 +687,7 @@ void PlayerHuman::draw_alpha(const RenderParams& params) const
 
 			// ability 3
 			{
-				Ability ability = manager.ref()->abilities[2];
+				Ability ability = get<PlayerManager>()->abilities[2];
 				if (ability != Ability::None)
 				{
 					const char* binding = Settings::gamepads[gamepad].bindings[(s32)Controls::Ability3].string(is_gamepad);
@@ -698,7 +701,7 @@ void PlayerHuman::draw_alpha(const RenderParams& params) const
 	if (mode == UIMode::Default)
 	{
 		if (params.sync->input.get(Controls::Scoreboard, gamepad))
-			scoreboard_draw(params, manager.ref());
+			scoreboard_draw(params, get<PlayerManager>());
 	}
 	else if (mode == UIMode::Upgrading)
 	{
@@ -709,8 +712,8 @@ void PlayerHuman::draw_alpha(const RenderParams& params) const
 		{
 			// show details of currently highlighted upgrade
 			Upgrade upgrade = (Upgrade)(menu.selected - 1);
-			if (manager.ref()->current_upgrade == Upgrade::None
-				&& manager.ref()->upgrade_available(upgrade))
+			if (get<PlayerManager>()->current_upgrade == Upgrade::None
+				&& get<PlayerManager>()->upgrade_available(upgrade))
 			{
 				r32 padding = 8.0f * UI::scale;
 
@@ -721,7 +724,7 @@ void PlayerHuman::draw_alpha(const RenderParams& params) const
 				text.anchor_x = UIText::Anchor::Min;
 				text.anchor_y = UIText::Anchor::Max;
 				text.wrap_width = MENU_ITEM_WIDTH - padding * 2.0f;
-				u16 cost = manager.ref()->upgrade_cost(upgrade);
+				u16 cost = get<PlayerManager>()->upgrade_cost(upgrade);
 				text.text(_(strings::upgrade_description), cost, _(info.description));
 				UIMenu::text_clip(&text, upgrade_animation_time, 150.0f);
 
@@ -734,8 +737,8 @@ void PlayerHuman::draw_alpha(const RenderParams& params) const
 	else if (mode == UIMode::Dead)
 	{
 		// if we haven't spawned yet, then show the player list
-		if (manager.ref()->spawn_timer > 0.0f)
-			scoreboard_draw(params, manager.ref());
+		if (get<PlayerManager>()->spawn_timer > 0.0f)
+			scoreboard_draw(params, get<PlayerManager>());
 		else
 		{
 			// we're dead but others still playing; spectate
@@ -749,7 +752,7 @@ void PlayerHuman::draw_alpha(const RenderParams& params) const
 				text.anchor_y = UIText::Anchor::Max;
 
 				// username
-				text.color = Team::ui_color(manager.ref()->team.ref()->team(), spectating->get<AIAgent>()->team);
+				text.color = Team::ui_color(get<PlayerManager>()->team.ref()->team(), spectating->get<AIAgent>()->team);
 				text.text_raw(spectating->get<PlayerCommon>()->manager.ref()->username);
 				Vec2 pos = vp.size * Vec2(0.5f, 0.2f);
 				UI::box(params, text.rect(pos).outset(MENU_ITEM_PADDING), UI::color_background);
@@ -774,7 +777,7 @@ void PlayerHuman::draw_alpha(const RenderParams& params) const
 		text.size = 32.0f;
 
 		Team* winner = Team::winner.ref();
-		if (winner == manager.ref()->team.ref()) // we won
+		if (winner == get<PlayerManager>()->team.ref()) // we won
 		{
 			text.color = UI::color_accent;
 			text.text(_(strings::victory));
@@ -814,7 +817,7 @@ void PlayerHuman::draw_alpha(const RenderParams& params) const
 			s32 item_counter = 0;
 			for (auto player = PlayerManager::list.iterator(); !player.is_last(); player.next())
 			{
-				text.color = player.item() == manager.ref() ? UI::color_accent : Team::ui_color(manager.ref()->team.ref()->team(), player.item()->team.ref()->team());
+				text.color = player.item() == get<PlayerManager>() ? UI::color_accent : Team::ui_color(get<PlayerManager>()->team.ref()->team(), player.item()->team.ref()->team());
 
 				UIText amount = text;
 				amount.anchor_x = UIText::Anchor::Max;
@@ -856,7 +859,7 @@ void PlayerHuman::draw_alpha(const RenderParams& params) const
 				Vec2 p = vp.size * Vec2(0.5f, 0.2f);
 				text.wrap_width = 0;
 				text.color = UI::color_accent;
-				text.text(_(manager.ref()->score_accepted ? strings::waiting : strings::prompt_accept));
+				text.text(_(get<PlayerManager>()->score_accepted ? strings::waiting : strings::prompt_accept));
 				UI::box(params, text.rect(p).outset(MENU_ITEM_PADDING), UI::color_background);
 				text.draw(params, p);
 			}
@@ -868,7 +871,7 @@ void PlayerHuman::draw_alpha(const RenderParams& params) const
 
 		{
 			// upgrade / spawn / capture timer
-			PlayerManager::State manager_state = manager.ref()->state();
+			PlayerManager::State manager_state = get<PlayerManager>()->state();
 			if (manager_state != PlayerManager::State::Default)
 			{
 				r32 total_time;
@@ -882,7 +885,7 @@ void PlayerHuman::draw_alpha(const RenderParams& params) const
 						// getting an upgrade
 						string = strings::upgrading;
 
-						const UpgradeInfo& info = UpgradeInfo::list[(s32)manager.ref()->current_upgrade];
+						const UpgradeInfo& info = UpgradeInfo::list[(s32)get<PlayerManager>()->current_upgrade];
 						cost = info.cost;
 						total_time = UPGRADE_TIME;
 						break;
@@ -890,7 +893,7 @@ void PlayerHuman::draw_alpha(const RenderParams& params) const
 					case PlayerManager::State::Capturing:
 					{
 						// capturing a control point
-						ControlPoint* control_point = manager.ref()->at_control_point();
+						ControlPoint* control_point = get<PlayerManager>()->at_control_point();
 						if (control_point && control_point->team_next != AI::TeamNone) // capture is already in progress
 							string = strings::canceling_capture;
 						else
@@ -913,7 +916,7 @@ void PlayerHuman::draw_alpha(const RenderParams& params) const
 				Rect2 bar = { pos + bar_size * -0.5f, bar_size };
 				UI::box(params, bar, UI::color_background);
 				UI::border(params, bar, 2, UI::color_accent);
-				UI::box(params, { bar.pos, Vec2(bar.size.x * (1.0f - (manager.ref()->state_timer / total_time)), bar.size.y) }, UI::color_accent);
+				UI::box(params, { bar.pos, Vec2(bar.size.x * (1.0f - (get<PlayerManager>()->state_timer / total_time)), bar.size.y) }, UI::color_accent);
 
 				UIText text;
 				text.size = 18.0f;
@@ -1046,8 +1049,6 @@ void PlayerCommon::update(const Update& u)
 	r32 angle = Quat::angle(attach_quat, rot);
 	if (angle > 0)
 		attach_quat = Quat::slerp(vi_min(1.0f, rotation_speed * u.time.delta), attach_quat, rot);
-
-	last_angle_horizontal = angle_horizontal;
 }
 
 r32 PlayerCommon::detect_danger() const
@@ -1359,7 +1360,7 @@ void ability_cancel(Awk* awk)
 void ability_update(const Update& u, PlayerControlHuman* control, Controls binding, u8 gamepad, s32 index)
 {
 	PlayerHuman* player = control->player.ref();
-	PlayerManager* manager = player->manager.ref();
+	PlayerManager* manager = player->get<PlayerManager>();
 	Ability ability = manager->abilities[index];
 
 	if (ability == Ability::None || !control->movement_enabled())
@@ -1406,332 +1407,339 @@ void ability_update(const Update& u, PlayerControlHuman* control, Controls bindi
 
 void PlayerControlHuman::update(const Update& u)
 {
-	Camera* camera = player.ref()->camera;
+	if (player.ref()->local)
 	{
-		// zoom
-		b8 zoom_pressed = u.input->get(Controls::Zoom, gamepad);
-		b8 last_zoom_pressed = u.last_input->get(Controls::Zoom, gamepad);
-		if (zoom_pressed && !last_zoom_pressed)
+		Camera* camera = player.ref()->camera;
 		{
-			if (get<Transform>()->parent.ref() && input_enabled())
+			// zoom
+			b8 zoom_pressed = u.input->get(Controls::Zoom, gamepad);
+			b8 last_zoom_pressed = u.last_input->get(Controls::Zoom, gamepad);
+			if (zoom_pressed && !last_zoom_pressed)
 			{
-				// we can actually zoom
-				try_zoom = true;
-				get<Audio>()->post_event(AK::EVENTS::PLAY_ZOOM_IN);
-			}
-		}
-		else if (!zoom_pressed)
-		{
-			if (try_zoom)
-				get<Audio>()->post_event(AK::EVENTS::PLAY_ZOOM_OUT);
-			try_zoom = false;
-		}
-
-		r32 fov_target = try_zoom ? (get<Awk>()->current_ability == Ability::Sniper ? fov_sniper : fov_zoom) : fov_default;
-
-		if (fov < fov_target)
-			fov = vi_min(fov + zoom_speed * sinf(fov) * u.time.delta, fov_target);
-		else if (fov > fov_target)
-			fov = vi_max(fov - zoom_speed * sinf(fov) * u.time.delta, fov_target);
-	}
-
-	// update camera projection
-	{
-		r32 aspect = camera->viewport.size.y == 0 ? 1 : (r32)camera->viewport.size.x / (r32)camera->viewport.size.y;
-		camera->perspective(fov, aspect, 0.02f, Game::level.skybox.far_plane);
-	}
-
-	Quat look_quat;
-
-	if (get<Transform>()->parent.ref())
-	{
-		r32 gamepad_rotation_multiplier = 1.0f;
-
-		if (input_enabled() && u.input->gamepads[gamepad].active)
-		{
-			// gamepad aim assist based on data from last frame
-			Vec3 to_reticle = reticle.pos - camera->pos;
-			r32 reticle_distance = to_reticle.length();
-			to_reticle /= reticle_distance;
-			for (s32 i = 0; i < target_indicators.length; i++)
-			{
-				const TargetIndicator indicator = target_indicators[i];
-				if (indicator.type == TargetIndicator::Type::AwkVisible
-					|| indicator.type == TargetIndicator::Type::AwkTracking
-					|| indicator.type == TargetIndicator::Type::Energy
-					|| indicator.type == TargetIndicator::Type::Minion
-					|| indicator.type == TargetIndicator::Type::MinionAttacking)
+				if (get<Transform>()->parent.ref() && input_enabled())
 				{
-					Vec3 to_indicator = indicator.pos - camera->pos;
-					r32 indicator_distance = to_indicator.length();
-					if (indicator_distance > AWK_THIRD_PERSON_OFFSET && indicator_distance < reticle_distance + 2.5f)
+					// we can actually zoom
+					try_zoom = true;
+					get<Audio>()->post_event(AK::EVENTS::PLAY_ZOOM_IN);
+				}
+			}
+			else if (!zoom_pressed)
+			{
+				if (try_zoom)
+					get<Audio>()->post_event(AK::EVENTS::PLAY_ZOOM_OUT);
+				try_zoom = false;
+			}
+
+			r32 fov_target = try_zoom ? (get<Awk>()->current_ability == Ability::Sniper ? fov_sniper : fov_zoom) : fov_default;
+
+			if (fov < fov_target)
+				fov = vi_min(fov + zoom_speed * sinf(fov) * u.time.delta, fov_target);
+			else if (fov > fov_target)
+				fov = vi_max(fov - zoom_speed * sinf(fov) * u.time.delta, fov_target);
+		}
+
+		// update camera projection
+		{
+			r32 aspect = camera->viewport.size.y == 0 ? 1 : (r32)camera->viewport.size.x / (r32)camera->viewport.size.y;
+			camera->perspective(fov, aspect, 0.02f, Game::level.skybox.far_plane);
+		}
+
+		Quat look_quat;
+
+		if (get<Transform>()->parent.ref())
+		{
+			r32 gamepad_rotation_multiplier = 1.0f;
+
+			if (input_enabled() && u.input->gamepads[gamepad].active)
+			{
+				// gamepad aim assist based on data from last frame
+				Vec3 to_reticle = reticle.pos - camera->pos;
+				r32 reticle_distance = to_reticle.length();
+				to_reticle /= reticle_distance;
+				for (s32 i = 0; i < target_indicators.length; i++)
+				{
+					const TargetIndicator indicator = target_indicators[i];
+					if (indicator.type == TargetIndicator::Type::AwkVisible
+						|| indicator.type == TargetIndicator::Type::AwkTracking
+						|| indicator.type == TargetIndicator::Type::Energy
+						|| indicator.type == TargetIndicator::Type::Minion
+						|| indicator.type == TargetIndicator::Type::MinionAttacking)
 					{
-						to_indicator /= indicator_distance;
-						if (to_indicator.dot(to_reticle) > 0.99f)
+						Vec3 to_indicator = indicator.pos - camera->pos;
+						r32 indicator_distance = to_indicator.length();
+						if (indicator_distance > AWK_THIRD_PERSON_OFFSET && indicator_distance < reticle_distance + 2.5f)
 						{
-							// slow down gamepad rotation if we're hovering over this target
-							gamepad_rotation_multiplier = 0.6f;
-
-							if (Game::real_time.total - last_gamepad_input_time < 0.25f)
+							to_indicator /= indicator_distance;
+							if (to_indicator.dot(to_reticle) > 0.99f)
 							{
-								// adjust for relative velocity
-								Vec2 predicted_offset;
+								// slow down gamepad rotation if we're hovering over this target
+								gamepad_rotation_multiplier = 0.6f;
+
+								if (Game::real_time.total - last_gamepad_input_time < 0.25f)
 								{
-									Vec3 me = get<Awk>()->center_lerped();
-									Vec3 my_velocity = get<Awk>()->center_lerped() - last_pos;
+									// adjust for relative velocity
+									Vec2 predicted_offset;
 									{
-										r32 my_speed = my_velocity.length_squared();
-										if (my_speed == 0.0f || my_speed > AWK_CRAWL_SPEED * 1.5f * AWK_CRAWL_SPEED * 1.5f) // don't adjust if we're going too fast or not moving
+										Vec3 me = get<Awk>()->center_lerped();
+										Vec3 my_velocity = get<Awk>()->center_lerped() - last_pos;
+										{
+											r32 my_speed = my_velocity.length_squared();
+											if (my_speed == 0.0f || my_speed > AWK_CRAWL_SPEED * 1.5f * AWK_CRAWL_SPEED * 1.5f) // don't adjust if we're going too fast or not moving
+												break;
+										}
+										Vec3 me_predicted = me + my_velocity;
+
+										if (indicator.velocity.length_squared() > AWK_CRAWL_SPEED * 1.5f * AWK_CRAWL_SPEED * 1.5f) // enemy moving too fast
 											break;
+
+										Vec3 target_predicted = indicator.pos + indicator.velocity * u.time.delta;
+										Vec3 predicted_ray = Vec3::normalize(target_predicted - me_predicted);
+										Vec2 predicted_angles(atan2f(predicted_ray.x, predicted_ray.z), -asinf(predicted_ray.y));
+										predicted_offset = Vec2(LMath::angle_to(get<PlayerCommon>()->angle_horizontal, predicted_angles.x), LMath::angle_to(get<PlayerCommon>()->angle_vertical, predicted_angles.y));
 									}
-									Vec3 me_predicted = me + my_velocity;
 
-									if (indicator.velocity.length_squared() > AWK_CRAWL_SPEED * 1.5f * AWK_CRAWL_SPEED * 1.5f) // enemy moving too fast
-										break;
+									Vec2 current_offset;
+									{
+										Vec3 current_ray = Vec3::normalize(indicator.pos - get<Transform>()->absolute_pos());
+										Vec2 current_angles(atan2f(current_ray.x, current_ray.z), -asinf(current_ray.y));
+										current_offset = Vec2(LMath::angle_to(get<PlayerCommon>()->angle_horizontal, current_angles.x), LMath::angle_to(get<PlayerCommon>()->angle_vertical, current_angles.y));
+									}
 
-									Vec3 target_predicted = indicator.pos + indicator.velocity * u.time.delta;
-									Vec3 predicted_ray = Vec3::normalize(target_predicted - me_predicted);
-									Vec2 predicted_angles(atan2f(predicted_ray.x, predicted_ray.z), -asinf(predicted_ray.y));
-									predicted_offset = Vec2(LMath::angle_to(get<PlayerCommon>()->angle_horizontal, predicted_angles.x), LMath::angle_to(get<PlayerCommon>()->angle_vertical, predicted_angles.y));
+									Vec2 adjustment(LMath::angle_to(current_offset.x, predicted_offset.x), LMath::angle_to(current_offset.y, predicted_offset.y));
+									if (current_offset.x > 0 == adjustment.x > 0 // only adjust if it's an adjustment toward the target
+										&& fabs(get<PlayerCommon>()->angle_vertical) < PI * 0.4f) // only adjust if we're not looking straight up or down
+										get<PlayerCommon>()->angle_horizontal = LMath::angle_range(get<PlayerCommon>()->angle_horizontal + adjustment.x);
+									if (current_offset.y > 0 == adjustment.y > 0) // only adjust if it's an adjustment toward the target
+										get<PlayerCommon>()->angle_vertical = LMath::angle_range(get<PlayerCommon>()->angle_vertical + adjustment.y);
 								}
 
-								Vec2 current_offset;
-								{
-									Vec3 current_ray = Vec3::normalize(indicator.pos - get<Transform>()->absolute_pos());
-									Vec2 current_angles(atan2f(current_ray.x, current_ray.z), -asinf(current_ray.y));
-									current_offset = Vec2(LMath::angle_to(get<PlayerCommon>()->angle_horizontal, current_angles.x), LMath::angle_to(get<PlayerCommon>()->angle_vertical, current_angles.y));
-								}
-
-								Vec2 adjustment(LMath::angle_to(current_offset.x, predicted_offset.x), LMath::angle_to(current_offset.y, predicted_offset.y));
-								if (current_offset.x > 0 == adjustment.x > 0 // only adjust if it's an adjustment toward the target
-									&& fabs(get<PlayerCommon>()->angle_vertical) < PI * 0.4f) // only adjust if we're not looking straight up or down
-									get<PlayerCommon>()->angle_horizontal = LMath::angle_range(get<PlayerCommon>()->angle_horizontal + adjustment.x);
-								if (current_offset.y > 0 == adjustment.y > 0) // only adjust if it's an adjustment toward the target
-									get<PlayerCommon>()->angle_vertical = LMath::angle_range(get<PlayerCommon>()->angle_vertical + adjustment.y);
+								break;
 							}
-
-							break;
 						}
 					}
 				}
 			}
-		}
 
-		// look
-		update_camera_input(u, gamepad_rotation_multiplier);
-		get<PlayerCommon>()->clamp_rotation(get<PlayerCommon>()->attach_quat * Vec3(0, 0, 1), 0.5f);
-		look_quat = Quat::euler(0, get<PlayerCommon>()->angle_horizontal, get<PlayerCommon>()->angle_vertical);
+			// look
+			update_camera_input(u, gamepad_rotation_multiplier);
+			get<PlayerCommon>()->clamp_rotation(get<PlayerCommon>()->attach_quat * Vec3(0, 0, 1), 0.5f);
+			look_quat = Quat::euler(0, get<PlayerCommon>()->angle_horizontal, get<PlayerCommon>()->angle_vertical);
 
-		// crawling
-		{
-			Vec3 movement = get_movement(u, Quat::euler(0, get<PlayerCommon>()->angle_horizontal, get<PlayerCommon>()->angle_vertical));
-			get<Awk>()->crawl(movement, u);
-		}
-
-		last_pos = get<Awk>()->center_lerped();
-	}
-	else
-		look_quat = Quat::euler(0, get<PlayerCommon>()->angle_horizontal, get<PlayerCommon>()->angle_vertical);
-
-	{
-		// abilities
-		ability_update(u, this, Controls::Ability1, gamepad, 0);
-		ability_update(u, this, Controls::Ability2, gamepad, 1);
-		ability_update(u, this, Controls::Ability3, gamepad, 2);
-	}
-
-	// camera shake
-	if (damage_timer > 0.0f)
-	{
-		damage_timer -= u.time.delta;
-		if (get<Awk>()->state() == Awk::State::Crawl)
-		{
-			r32 shake = (damage_timer / damage_shake_time) * 0.3f;
-			r32 offset = Game::time.total * 10.0f;
-			look_quat = look_quat * Quat::euler(noise::sample3d(Vec3(offset)) * shake, noise::sample3d(Vec3(offset + 64)) * shake, noise::sample3d(Vec3(offset + 128)) * shake);
-		}
-	}
-
-	camera->rot = look_quat;
-	camera_setup(entity(), camera, AWK_THIRD_PERSON_OFFSET);
-
-	// reticle
-	{
-		Vec3 trace_dir = look_quat * Vec3(0, 0, 1);
-		Vec3 trace_start = camera->pos + trace_dir * AWK_THIRD_PERSON_OFFSET;
-
-		reticle.type = ReticleType::None;
-
-		if (movement_enabled())
-		{
-			Vec3 trace_end = trace_start + trace_dir * (AWK_SNIPE_DISTANCE + AWK_THIRD_PERSON_OFFSET);
-			RaycastCallbackExcept ray_callback(trace_start, trace_end, entity());
-			Physics::raycast(&ray_callback, ~CollisionAwkIgnore & ~get<Awk>()->ally_containment_field_mask() & ~CollisionShield);
-
-			Vec3 center = get<Transform>()->absolute_pos();
-
-			if (ray_callback.hasHit())
+			// crawling
 			{
-				reticle.pos = ray_callback.m_hitPointWorld;
-				reticle.normal = ray_callback.m_hitNormalWorld;
-				reticle.entity = &Entity::list[ray_callback.m_collisionObject->getUserIndex()];
-				Vec3 detach_dir = reticle.pos - center;
-				r32 distance = detach_dir.length();
-				detach_dir /= distance;
-				if (get<Awk>()->current_ability == Ability::None) // normal movement
+				Vec3 movement = get_movement(u, Quat::euler(0, get<PlayerCommon>()->angle_horizontal, get<PlayerCommon>()->angle_vertical));
+				get<Awk>()->crawl(movement, u);
+			}
+
+			last_pos = get<Awk>()->center_lerped();
+		}
+		else
+			look_quat = Quat::euler(0, get<PlayerCommon>()->angle_horizontal, get<PlayerCommon>()->angle_vertical);
+
+		{
+			// abilities
+			ability_update(u, this, Controls::Ability1, gamepad, 0);
+			ability_update(u, this, Controls::Ability2, gamepad, 1);
+			ability_update(u, this, Controls::Ability3, gamepad, 2);
+		}
+
+		// camera shake
+		if (damage_timer > 0.0f)
+		{
+			damage_timer -= u.time.delta;
+			if (get<Awk>()->state() == Awk::State::Crawl)
+			{
+				r32 shake = (damage_timer / damage_shake_time) * 0.3f;
+				r32 offset = Game::time.total * 10.0f;
+				look_quat = look_quat * Quat::euler(noise::sample3d(Vec3(offset)) * shake, noise::sample3d(Vec3(offset + 64)) * shake, noise::sample3d(Vec3(offset + 128)) * shake);
+			}
+		}
+
+		camera->rot = look_quat;
+		camera_setup(entity(), camera, AWK_THIRD_PERSON_OFFSET);
+
+		// reticle
+		{
+			Vec3 trace_dir = look_quat * Vec3(0, 0, 1);
+			Vec3 trace_start = camera->pos + trace_dir * AWK_THIRD_PERSON_OFFSET;
+
+			reticle.type = ReticleType::None;
+
+			if (movement_enabled())
+			{
+				Vec3 trace_end = trace_start + trace_dir * (AWK_SNIPE_DISTANCE + AWK_THIRD_PERSON_OFFSET);
+				RaycastCallbackExcept ray_callback(trace_start, trace_end, entity());
+				Physics::raycast(&ray_callback, ~CollisionAwkIgnore & ~get<Awk>()->ally_containment_field_mask() & ~CollisionShield);
+
+				Vec3 center = get<Transform>()->absolute_pos();
+
+				if (ray_callback.hasHit())
 				{
-					if (get<Awk>()->direction_is_toward_attached_wall(detach_dir))
-						reticle.type = ReticleType::Dash;
-					else
+					reticle.pos = ray_callback.m_hitPointWorld;
+					reticle.normal = ray_callback.m_hitNormalWorld;
+					reticle.entity = &Entity::list[ray_callback.m_collisionObject->getUserIndex()];
+					Vec3 detach_dir = reticle.pos - center;
+					r32 distance = detach_dir.length();
+					detach_dir /= distance;
+					if (get<Awk>()->current_ability == Ability::None) // normal movement
+					{
+						if (get<Awk>()->direction_is_toward_attached_wall(detach_dir))
+							reticle.type = ReticleType::Dash;
+						else
+						{
+							Vec3 hit;
+							b8 hit_target;
+							if (get<Awk>()->can_shoot(detach_dir, &hit, &hit_target))
+							{
+								if ((hit - center).length() > distance - AWK_RADIUS)
+									reticle.type = hit_target ? ReticleType::Target : ReticleType::Normal;
+							}
+						}
+					}
+					else // spawning an ability
 					{
 						Vec3 hit;
 						b8 hit_target;
-						if (get<Awk>()->can_shoot(detach_dir, &hit, &hit_target))
+						if (get<Awk>()->can_spawn(get<Awk>()->current_ability, detach_dir, &hit, nullptr, nullptr, &hit_target))
 						{
-							if ((hit - center).length() > distance - AWK_RADIUS)
-								reticle.type = hit_target ? ReticleType::Target : ReticleType::Normal;
+							if (get<Awk>()->current_ability == Ability::Sniper && hit_target)
+								reticle.type = ReticleType::Target;
+							else if ((hit - Vec3(ray_callback.m_hitPointWorld)).length_squared() < AWK_RADIUS * AWK_RADIUS)
+								reticle.type = ReticleType::Normal;
 						}
 					}
 				}
-				else // spawning an ability
+				else
 				{
-					Vec3 hit;
-					b8 hit_target;
-					if (get<Awk>()->can_spawn(get<Awk>()->current_ability, detach_dir, &hit, nullptr, nullptr, &hit_target))
-					{
-						if (get<Awk>()->current_ability == Ability::Sniper && hit_target)
-							reticle.type = ReticleType::Target;
-						else if ((hit - Vec3(ray_callback.m_hitPointWorld)).length_squared() < AWK_RADIUS * AWK_RADIUS)
-							reticle.type = ReticleType::Normal;
-					}
+					reticle.pos = trace_end;
+					reticle.normal = -trace_dir;
+					reticle.entity = nullptr;
+					if (get<Awk>()->current_ability == Ability::None && get<Awk>()->direction_is_toward_attached_wall(reticle.pos - center))
+						reticle.type = ReticleType::Dash;
 				}
 			}
 			else
 			{
-				reticle.pos = trace_end;
+				reticle.pos = trace_start + trace_dir * AWK_THIRD_PERSON_OFFSET;
 				reticle.normal = -trace_dir;
 				reticle.entity = nullptr;
-				if (get<Awk>()->current_ability == Ability::None && get<Awk>()->direction_is_toward_attached_wall(reticle.pos - center))
-					reticle.type = ReticleType::Dash;
 			}
 		}
-		else
+
+		// collect target indicators
+		target_indicators.length = 0;
+
+		Vec3 me = get<Transform>()->absolute_pos();
+		AI::Team team = get<AIAgent>()->team;
+
+		// awk indicators
+		if (target_indicators.length < target_indicators.capacity())
 		{
-			reticle.pos = trace_start + trace_dir * AWK_THIRD_PERSON_OFFSET;
-			reticle.normal = -trace_dir;
-			reticle.entity = nullptr;
-		}
-	}
-
-	// collect target indicators
-	target_indicators.length = 0;
-
-	Vec3 me = get<Transform>()->absolute_pos();
-	AI::Team team = get<AIAgent>()->team;
-
-	// awk indicators
-	if (target_indicators.length < target_indicators.capacity())
-	{
-		for (auto other_player = PlayerCommon::list.iterator(); !other_player.is_last(); other_player.next())
-		{
-			if (other_player.item()->get<AIAgent>()->team != team)
+			for (auto other_player = PlayerCommon::list.iterator(); !other_player.is_last(); other_player.next())
 			{
-				b8 visible, tracking;
-				determine_visibility(get<PlayerCommon>(), other_player.item(), &visible, &tracking);
-
-				if (tracking || visible)
+				if (other_player.item()->get<AIAgent>()->team != team)
 				{
-					if (!add_target_indicator(other_player.item()->get<Target>(), tracking ? TargetIndicator::Type::AwkTracking : TargetIndicator::Type::AwkVisible))
+					b8 visible, tracking;
+					determine_visibility(get<PlayerCommon>(), other_player.item(), &visible, &tracking);
+
+					if (tracking || visible)
+					{
+						if (!add_target_indicator(other_player.item()->get<Target>(), tracking ? TargetIndicator::Type::AwkTracking : TargetIndicator::Type::AwkVisible))
+							break; // no more room for indicators
+					}
+				}
+			}
+		}
+
+		// headshot indicators
+		if (target_indicators.length < target_indicators.capacity())
+		{
+			for (auto i = MinionCommon::list.iterator(); !i.is_last(); i.next())
+			{
+				if (i.item()->get<AIAgent>()->team != team)
+				{
+					TargetIndicator::Type type = i.item()->get<MinionAI>()->goal.entity.ref() == entity() ? TargetIndicator::Type::MinionAttacking : TargetIndicator::Type::Minion;
+					if (!add_target_indicator(i.item()->get<Target>(), type))
 						break; // no more room for indicators
 				}
 			}
 		}
-	}
 
-	// headshot indicators
-	if (target_indicators.length < target_indicators.capacity())
-	{
-		for (auto i = MinionCommon::list.iterator(); !i.is_last(); i.next())
+		// health pickups
 		{
-			if (i.item()->get<AIAgent>()->team != team)
+			b8 full_health = get<Health>()->hp == get<Health>()->hp_max;
+			for (auto i = EnergyPickup::list.iterator(); !i.is_last(); i.next())
 			{
-				TargetIndicator::Type type = i.item()->get<MinionAI>()->goal.entity.ref() == entity() ? TargetIndicator::Type::MinionAttacking : TargetIndicator::Type::Minion;
-				if (!add_target_indicator(i.item()->get<Target>(), type))
-					break; // no more room for indicators
+				if (i.item()->team != team)
+				{
+					if (!add_target_indicator(i.item()->get<Target>(), TargetIndicator::Type::Energy))
+						break; // no more room for indicators
+				}
 			}
 		}
-	}
 
-	// health pickups
-	{
-		b8 full_health = get<Health>()->hp == get<Health>()->hp_max;
-		for (auto i = EnergyPickup::list.iterator(); !i.is_last(); i.next())
 		{
-			if (i.item()->team != team)
+			b8 primary_pressed = u.input->get(Controls::Primary, gamepad);
+			if (primary_pressed && !u.last_input->get(Controls::Primary, gamepad))
+				try_primary = true;
+			else if (!primary_pressed)
+				try_primary = false;
+		}
+
+		if (reticle.type == ReticleType::None || !get<Awk>()->cooldown_can_shoot())
+		{
+			// can't shoot
+			if (u.input->get(Controls::Primary, gamepad)) // player is mashing the fire button; give them some feedback
 			{
-				if (!add_target_indicator(i.item()->get<Target>(), TargetIndicator::Type::Energy))
-					break; // no more room for indicators
+				if (reticle.type == ReticleType::Dash)
+					reticle.type = ReticleType::DashError;
+				else
+					reticle.type = ReticleType::Error;
 			}
 		}
-	}
-
-	{
-		b8 primary_pressed = u.input->get(Controls::Primary, gamepad);
-		if (primary_pressed && !u.last_input->get(Controls::Primary, gamepad))
-			try_primary = true;
-		else if (!primary_pressed)
-			try_primary = false;
-	}
-
-	if (reticle.type == ReticleType::None || !get<Awk>()->cooldown_can_shoot())
-	{
-		// can't shoot
-		if (u.input->get(Controls::Primary, gamepad)) // player is mashing the fire button; give them some feedback
+		else
 		{
-			if (reticle.type == ReticleType::Dash)
-				reticle.type = ReticleType::DashError;
-			else
-				reticle.type = ReticleType::Error;
+			// we're aiming at something
+			if (try_primary)
+			{
+				Vec3 dir = reticle.pos - get<Transform>()->absolute_pos();
+				if (reticle.type == ReticleType::Dash)
+				{
+					if (get<Awk>()->dash_start(dir))
+					{
+						get<Audio>()->post_event(AK::EVENTS::PLAY_FLY);
+						try_primary = false;
+						try_zoom = false;
+					}
+				}
+				else
+				{
+					Ability ability = get<Awk>()->current_ability;
+					if (get<Awk>()->go(dir))
+					{
+						try_primary = false;
+						if (ability == Ability::None)
+						{
+							get<Audio>()->post_event(AK::EVENTS::PLAY_FLY);
+							try_zoom = false;
+						}
+						else
+							rumble = vi_max(rumble, 0.5f);
+					}
+				}
+			}
+		}
+
+		// rumble
+		if (rumble > 0.0f)
+		{
+			u.input->gamepads[gamepad].rumble = vi_min(1.0f, rumble);
+			rumble = vi_max(0.0f, rumble - u.time.delta);
 		}
 	}
 	else
 	{
-		// we're aiming at something
-		if (try_primary)
-		{
-			Vec3 dir = reticle.pos - get<Transform>()->absolute_pos();
-			if (reticle.type == ReticleType::Dash)
-			{
-				if (get<Awk>()->dash_start(dir))
-				{
-					get<Audio>()->post_event(AK::EVENTS::PLAY_FLY);
-					try_primary = false;
-					try_zoom = false;
-				}
-			}
-			else
-			{
-				Ability ability = get<Awk>()->current_ability;
-				if (get<Awk>()->go(dir))
-				{
-					try_primary = false;
-					if (ability == Ability::None)
-					{
-						get<Audio>()->post_event(AK::EVENTS::PLAY_FLY);
-						try_zoom = false;
-					}
-					else
-						rumble = vi_max(rumble, 0.5f);
-				}
-			}
-		}
-	}
-
-	// rumble
-	if (rumble > 0.0f)
-	{
-		u.input->gamepads[gamepad].rumble = vi_min(1.0f, rumble);
-		rumble = vi_max(0.0f, rumble - u.time.delta);
+		// remote control
 	}
 }
 
@@ -1875,7 +1883,7 @@ void PlayerControlHuman::draw_alpha(const RenderParams& params) const
 	Vec3 me = get<Transform>()->absolute_pos();
 
 	{
-		PlayerManager* manager = player.ref()->manager.ref();
+		PlayerManager* manager = player.ref()->get<PlayerManager>();
 
 		// highlight upgrade point if there is an upgrade available
 		if (Game::level.has_feature(Game::FeatureLevel::Abilities)
@@ -2182,7 +2190,7 @@ void PlayerControlHuman::draw_alpha(const RenderParams& params) const
 			color = &UI::color_disabled;
 		else if (reticle.type != ReticleType::None
 			&& cooldown_can_go
-			&& (get<Awk>()->current_ability == Ability::None || player.ref()->manager.ref()->ability_valid(get<Awk>()->current_ability)))
+			&& (get<Awk>()->current_ability == Ability::None || player.ref()->get<PlayerManager>()->ability_valid(get<Awk>()->current_ability)))
 			color = &UI::color_accent;
 		else
 			color = &UI::color_alert;

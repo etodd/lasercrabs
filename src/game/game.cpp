@@ -81,6 +81,8 @@ Game::Session::Session()
 	last_match(),
 	local(true)
 {
+	for (s32 i = 0; i < MAX_PLAYERS; i++)
+		local_player_uuids[i] = mersenne::rand_u64();
 }
 
 r32 Game::Session::effective_time_scale() const
@@ -248,9 +250,17 @@ b8 Game::init(LoopSync* sync)
 
 void Game::update(const Update& update_in)
 {
+	b8 update_game;
+#if SERVER
+	update_game = Net::Server::mode == Net::Server::Mode::Active;
+#else
+	update_game = session.local || Net::Client::mode == Net::Client::Mode::Connected;
+#endif
+
 	real_time = update_in.time;
 	time.delta = update_in.time.delta * session.effective_time_scale();
-	time.total += time.delta;
+	if (update_game)
+		time.total += time.delta;
 	physics_timestep = (1.0f / 60.0f) * session.effective_time_scale();
 
 	Update u = update_in;
@@ -381,60 +391,63 @@ void Game::update(const Update& update_in)
 
 	AI::update(u);
 
-	Physics::sync_dynamic();
-
-	for (auto i = Ragdoll::list.iterator(); !i.is_last(); i.next())
-		i.item()->update(u);
-	for (auto i = Animator::list.iterator(); !i.is_last(); i.next())
-		i.item()->update(u);
-
-	LerpTo<Vec3>::update_active(u);
-	Delay::update_active(u);
-
-	Physics::sync_static();
-
-	AI::update(u);
-
-	Team::update_all(u);
-	PlayerManager::update_all(u);
-	PlayerHuman::update_all(u);
-	for (auto i = Health::list.iterator(); !i.is_last(); i.next())
-		i.item()->update(u);
-	for (auto i = PlayerAI::list.iterator(); !i.is_last(); i.next())
-		i.item()->update(u);
-	for (auto i = Awk::list.iterator(); !i.is_last(); i.next())
+	if (update_game)
 	{
-		if (session.local)
-			i.item()->update_server(u);
-		i.item()->update_client(u);
-	}
-	for (auto i = PlayerControlAI::list.iterator(); !i.is_last(); i.next())
-		i.item()->update(u);
-	for (auto i = PlayerTrigger::list.iterator(); !i.is_last(); i.next())
-		i.item()->update(u);
-	MinionAI::update_all(u);
-	for (auto i = MinionCommon::list.iterator(); !i.is_last(); i.next())
-		i.item()->update(u);
-	for (auto i = Walker::list.iterator(); !i.is_last(); i.next())
-		i.item()->update(u);
-	EnergyPickup::update_all(u);
-	Sensor::update_all(u);
-	ContainmentField::update_all(u);
-	for (auto i = ControlPoint::list.iterator(); !i.is_last(); i.next())
-		i.item()->update(u);
-	for (auto i = Shockwave::list.iterator(); !i.is_last(); i.next())
-		i.item()->update(u);
-	for (auto i = Projectile::list.iterator(); !i.is_last(); i.next())
-		i.item()->update(u);
-	for (auto i = Rocket::list.iterator(); !i.is_last(); i.next())
-		i.item()->update(u);
-	for (auto i = PlayerCommon::list.iterator(); !i.is_last(); i.next())
-		i.item()->update(u);
-	for (auto i = PlayerControlHuman::list.iterator(); !i.is_last(); i.next())
-		i.item()->update(u);
+		Physics::sync_dynamic();
 
-	for (s32 i = 0; i < updates.length; i++)
-		(*updates[i])(u);
+		for (auto i = Ragdoll::list.iterator(); !i.is_last(); i.next())
+			i.item()->update(u);
+		for (auto i = Animator::list.iterator(); !i.is_last(); i.next())
+			i.item()->update(u);
+
+		LerpTo<Vec3>::update_active(u);
+		Delay::update_active(u);
+
+		Physics::sync_static();
+
+		AI::update(u);
+
+		Team::update_all(u);
+		PlayerManager::update_all(u);
+		PlayerHuman::update_all(u);
+		for (auto i = Health::list.iterator(); !i.is_last(); i.next())
+			i.item()->update(u);
+		for (auto i = PlayerAI::list.iterator(); !i.is_last(); i.next())
+			i.item()->update(u);
+		for (auto i = Awk::list.iterator(); !i.is_last(); i.next())
+		{
+			if (session.local)
+				i.item()->update_server(u);
+			i.item()->update_client(u);
+		}
+		for (auto i = PlayerControlAI::list.iterator(); !i.is_last(); i.next())
+			i.item()->update(u);
+		for (auto i = PlayerTrigger::list.iterator(); !i.is_last(); i.next())
+			i.item()->update(u);
+		MinionAI::update_all(u);
+		for (auto i = MinionCommon::list.iterator(); !i.is_last(); i.next())
+			i.item()->update(u);
+		for (auto i = Walker::list.iterator(); !i.is_last(); i.next())
+			i.item()->update(u);
+		EnergyPickup::update_all(u);
+		Sensor::update_all(u);
+		ContainmentField::update_all(u);
+		for (auto i = ControlPoint::list.iterator(); !i.is_last(); i.next())
+			i.item()->update(u);
+		for (auto i = Shockwave::list.iterator(); !i.is_last(); i.next())
+			i.item()->update(u);
+		for (auto i = Projectile::list.iterator(); !i.is_last(); i.next())
+			i.item()->update(u);
+		for (auto i = Rocket::list.iterator(); !i.is_last(); i.next())
+			i.item()->update(u);
+		for (auto i = PlayerCommon::list.iterator(); !i.is_last(); i.next())
+			i.item()->update(u);
+		for (auto i = PlayerControlHuman::list.iterator(); !i.is_last(); i.next())
+			i.item()->update(u);
+
+		for (s32 i = 0; i < updates.length; i++)
+			(*updates[i])(u);
+	}
 
 	Console::update(u);
 
@@ -743,7 +756,7 @@ void Game::execute(const Update& u, const char* cmd)
 		level.continue_match_after_death = true;
 		for (auto i = PlayerHuman::list.iterator(); !i.is_last(); i.next())
 		{
-			Entity* entity = i.item()->manager.ref()->entity.ref();
+			Entity* entity = i.item()->get<PlayerManager>()->entity.ref();
 			if (entity)
 				World::remove(entity);
 		}
@@ -1066,7 +1079,7 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 			{
 				for (s32 i = 0; i < team_count; i++)
 				{
-					Entity* e = World::alloc<ContainerEntity>();
+					Entity* e = World::alloc<ContainerEntity>(); // team entities get awoken and finalized at the end of load_level()
 					e->create<Team>();
 				}
 
@@ -1083,12 +1096,23 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 						{
 							PlayerAI* player = PlayerAI::list.add();
 							new (player) PlayerAI(manager, PlayerAI::generate_config());
+							utf8cpy(manager->username, Usernames::all[mersenne::rand_u32() % Usernames::count]);
 						}
 						else
 						{
-							PlayerHuman* player = PlayerHuman::list.add();
-							new (player) PlayerHuman(manager, i);
+							e->add<PlayerHuman>(true, i); // local = true
+
+							if (session.local && session.multiplayer)
+								sprintf(manager->username, _(strings::player), i + 1);
+							else
+							{
+								if (i == 0)
+									sprintf(manager->username, "%s", save.username);
+								else
+									sprintf(manager->username, "%s [%d]", save.username, i + 1);
+							}
 						}
+						Net::finalize(e);
 					}
 				}
 			}

@@ -1543,7 +1543,7 @@ void PlayerControlAI::update(const Update& u)
 	// update camera
 	s32 player_count = PlayerHuman::list.count() + PlayerAI::list.count();
 	Camera::ViewportBlueprint* viewports = Camera::viewport_blueprints[player_count - 1];
-	Camera::ViewportBlueprint* blueprint = &viewports[PlayerHuman::list.count() + player.id];
+	Camera::ViewportBlueprint* blueprint = &viewports[PlayerHuman::count_local() + player.id];
 
 	camera->viewport =
 	{

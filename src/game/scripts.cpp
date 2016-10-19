@@ -96,7 +96,7 @@ namespace tutorial
 		Cora::text_schedule(1.0f, _(strings::tut_upgrade));
 
 		Game::level.feature_level = Game::FeatureLevel::Abilities;
-		PlayerManager* manager = PlayerHuman::list.iterator().item()->manager.ref();
+		PlayerManager* manager = PlayerHuman::list.iterator().item()->get<PlayerManager>();
 		manager->credits = UpgradeInfo::list[(s32)Upgrade::Sensor].cost + AbilityInfo::list[(s32)Ability::Sensor].spawn_cost * 2;
 	}
 
@@ -162,7 +162,7 @@ namespace tutorial
 	{
 		if (data->state == TutorialState::Upgrade)
 		{
-			PlayerManager* manager = PlayerHuman::list.iterator().item()->manager.ref();
+			PlayerManager* manager = PlayerHuman::list.iterator().item()->get<PlayerManager>();
 			for (s32 i = 0; i < (s32)Upgrade::count; i++)
 			{
 				if (manager->has_upgrade((Upgrade)i))
@@ -214,7 +214,7 @@ namespace tutorial
 		config->high_level = PlayerAI::HighLevelLoop::Noop;
 		config->low_level = PlayerAI::LowLevelLoop::Noop;
 
-		PlayerManager* player_manager = PlayerHuman::list.iterator().item()->manager.ref();
+		PlayerManager* player_manager = PlayerHuman::list.iterator().item()->get<PlayerManager>();
 		player_manager->spawn.link(&player_spawned);
 		ai_manager->spawn.link(&ai_spawned);
 		data->test_dummy = ai_manager;

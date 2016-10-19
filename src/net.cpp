@@ -19,6 +19,7 @@
 #include "data/ragdoll.h"
 #include "game/minion.h"
 #include "game/ai_player.h"
+#include "game/player.h"
 #include "assimp/contrib/zlib/zlib.h"
 
 #define DEBUG_MSG 0
@@ -200,9 +201,12 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 		| ContainmentField::component_mask
 		| Teleporter::component_mask
 		| Awk::component_mask
-		| Audio::component_mask;
+		| Audio::component_mask
+		| Team::component_mask
+		| PlayerHuman::component_mask
+		| PlayerManager::component_mask
+		| PlayerCommon::component_mask;
 		//| PlayerControlHuman::component_mask
-		//| PlayerCommon::component_mask
 		//| MinionCommon::component_mask
 
 	if (Stream::IsWriting)
@@ -475,8 +479,65 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 		serialize_asset(p, d->texture, Loader::static_texture_count);
 	}
 
-	if (Stream::IsReading)
+	if (e->has<Team>())
+	{
+		Team* t = e->get<Team>();
+		serialize_ref(p, t->player_spawn);
+	}
+
+	if (e->has<PlayerHuman>())
+	{
+		PlayerHuman* ph = e->get<PlayerHuman>();
+		serialize_ref(p, ph->map_view);
+		serialize_u64(p, ph->uuid);
+		if (Stream::IsReading)
+		{
+			ph->local = false;
+			for (s32 i = 0; i < MAX_GAMEPADS; i++)
+			{
+				if (ph->uuid == Game::session.local_player_uuids[i])
+				{
+					ph->local = true;
+					ph->gamepad = u8(i);
+					break;
+				}
+			}
+		}
+	}
+
+	if (e->has<PlayerManager>())
+	{
+		PlayerManager* m = e->get<PlayerManager>();
+		serialize_u32(p, m->upgrades);
+		for (s32 i = 0; i < MAX_ABILITIES; i++)
+			serialize_int(p, Ability, m->abilities[i], 0, s32(Ability::count) + 1);
+		serialize_ref(p, m->team);
+		serialize_ref(p, m->entity);
+		serialize_u16(p, m->credits);
+		serialize_u16(p, m->kills);
+		serialize_u16(p, m->respawns);
+		s32 username_length;
+		if (Stream::IsWriting)
+			username_length = strlen(m->username);
+		serialize_int(p, s32, username_length, 0, MAX_USERNAME);
+		serialize_bytes(p, (u8*)m->username, username_length);
+		if (Stream::IsReading)
+			m->username[username_length] = '\0';
+	}
+
+	if (e->has<PlayerCommon>())
+	{
+		PlayerCommon* pc = e->get<PlayerCommon>();
+		serialize_quat(p, &pc->attach_quat);
+		serialize_r32_range(p, pc->angle_horizontal, PI * -2.0f, PI * 2.0f, 16);
+		serialize_r32_range(p, pc->angle_vertical, -PI, PI, 16);
+		serialize_ref(p, pc->manager);
+	}
+
+#if !SERVER
+	if (Stream::IsReading && Client::mode == Client::Mode::Connected)
 		World::awake(e);
+#endif
 
 	return true;
 }
@@ -500,6 +561,8 @@ template<typename Stream> b8 serialize_init_packet(Stream* p)
 	serialize_r32_range(p, Game::level.skybox.player_light.z, 0.0f, 1.0f, 8);
 	serialize_r32(p, Game::level.skybox.sky_decal_fog_start);
 	serialize_r32(p, Game::level.skybox.fog_start);
+	serialize_enum(p, Game::Type, Game::level.type);
+	serialize_enum(p, Game::Mode, Game::level.mode);
 	return true;
 }
 
@@ -1295,8 +1358,6 @@ const StateFrame* state_frame_next(const TransformHistory& history, const StateF
 namespace Server
 {
 
-struct PlayerHuman;
-
 struct Client
 {
 	Sock::Address address;
@@ -1306,15 +1367,7 @@ struct Client
 	MessageHistory msgs_in_history; // messages we've received from the client
 	SequenceHistory recently_resent; // sequences we resent to the client recently
 	SequenceID processed_sequence_id; // most recent sequence ID we've processed from the client
-	Ref<PlayerHuman> player;
 	b8 connected;
-};
-
-enum Mode
-{
-	Waiting,
-	Active,
-	count,
 };
 
 Array<Client> clients;
@@ -1510,18 +1563,47 @@ b8 packet_handle(const Update& u, StreamRead* p, const Sock::Address& address)
 			{
 				vi_debug("Client %s:%hd connected.", Sock::host_to_str(address.host), address.port);
 				client->connected = true;
-			}
 
-			if (connected_clients() == expected_clients)
-			{
-				mode = Mode::Active;
-				using Stream = StreamWrite;
-				for (auto i = Entity::list.iterator(); !i.is_last(); i.next())
 				{
-					StreamWrite* p = msg_new(MessageType::EntityCreate);
-					serialize_int(p, ID, i.index, 0, MAX_ENTITIES - 1);
-					serialize_entity(p, i.item());
-					msg_finalize(p);
+					// initialize players
+					char username[MAX_USERNAME + 1];
+					s32 username_length;
+					serialize_int(p, s32, username_length, 0, MAX_USERNAME);
+					serialize_bytes(p, (u8*)username, username_length);
+					username[username_length] = '\0';
+					s32 local_players;
+					serialize_int(p, s32, local_players, 0, MAX_GAMEPADS);
+					for (s32 i = 0; i < local_players; i++)
+					{
+						AI::Team team;
+						serialize_int(p, AI::Team, team, 0, MAX_PLAYERS);
+						u8 gamepad;
+						serialize_int(p, u8, gamepad, 0, MAX_GAMEPADS);
+
+						Entity* e = World::create<ContainerEntity>();
+						PlayerManager* manager = e->add<PlayerManager>(&Team::list[(s32)team]);
+						if (gamepad == 0)
+							sprintf(manager->username, "%s", username);
+						else
+							sprintf(manager->username, "%s [%d]", username, s32(gamepad + 1));
+						PlayerHuman* player = e->add<PlayerHuman>(false, gamepad);
+						serialize_u64(p, player->uuid);
+						player->local = false;
+					}
+				}
+
+				if (connected_clients() == expected_clients)
+				{
+					mode = Mode::Active;
+					using Stream = StreamWrite;
+					for (auto i = Entity::list.iterator(); !i.is_last(); i.next())
+					{
+						StreamWrite* p = msg_new(MessageType::EntityCreate);
+						serialize_int(p, ID, i.index, 0, MAX_ENTITIES - 1);
+						serialize_entity(p, i.item());
+						msg_finalize(p);
+					}
+					msg_finalize(msg_new(MessageType::InitDone));
 				}
 			}
 			break;
@@ -1557,14 +1639,6 @@ b8 packet_handle(const Update& u, StreamRead* p, const Sock::Address& address)
 
 namespace Client
 {
-
-enum class Mode
-{
-	Disconnected,
-	Connecting,
-	Acking,
-	Connected,
-};
 
 Sock::Address server_address;
 Mode mode;
@@ -1606,6 +1680,20 @@ b8 build_packet_ack_init(StreamWrite* p)
 	using Stream = StreamWrite;
 	ClientPacket type = ClientPacket::AckInit;
 	serialize_enum(p, ClientPacket, type);
+	s32 local_players = Game::session.local_player_count();
+	s32 username_length = strlen(Game::save.username);
+	serialize_int(p, s32, username_length, 0, MAX_USERNAME);
+	serialize_bytes(p, (u8*)Game::save.username, username_length);
+	serialize_int(p, s32, local_players, 0, MAX_GAMEPADS);
+	for (s32 i = 0; i < MAX_GAMEPADS; i++)
+	{
+		if (Game::session.local_player_config[i] != AI::TeamNone)
+		{
+			serialize_int(p, AI::Team, Game::session.local_player_config[i], 0, MAX_PLAYERS); // team
+			serialize_int(p, s32, i, 0, MAX_GAMEPADS); // gamepad
+			serialize_u64(p, Game::session.local_player_uuids[i]); // uuid
+		}
+	}
 	packet_finalize(p);
 	return true;
 }
@@ -1674,13 +1762,6 @@ void update(const Update& u)
 				break;
 		}
 	}
-
-	// debug hack
-	if (Awk::list.count() > 0)
-	{
-		Camera* c = &Camera::list[0];
-		c->pos = Awk::list.iterator().item()->get<Transform>()->absolute_pos() + Vec3(0, 3, -6);
-	}
 }
 
 void tick(const Update& u)
@@ -1716,6 +1797,7 @@ void tick(const Update& u)
 			}
 			break;
 		}
+		case Mode::Loading:
 		case Mode::Connected:
 		{
 			if (timeout > TIMEOUT)
@@ -1771,20 +1853,7 @@ b8 packet_handle(const Update& u, StreamRead* p, const Sock::Address& address)
 		case ServerPacket::Init:
 		{
 			if (mode == Mode::Connecting && serialize_init_packet(p))
-			{
-				Camera* camera = Camera::add();
-				camera->viewport =
-				{
-					Vec2(0, 0),
-					Vec2(u.input->width, u.input->height),
-				};
-				r32 aspect = camera->viewport.size.y == 0 ? 1 : (r32)camera->viewport.size.x / (r32)camera->viewport.size.y;
-				camera->perspective((70.0f * PI * 0.5f / 180.0f), aspect, 0.1f, Game::level.skybox.far_plane);
-				camera->pos = Vec3(0, 20, -40);
-				camera->rot = Quat::look(Vec3(0, 0, 1));
-
 				mode = Mode::Acking; // acknowledge the init packet
-			}
 			break;
 		}
 		case ServerPacket::Keepalive:
@@ -1797,7 +1866,7 @@ b8 packet_handle(const Update& u, StreamRead* p, const Sock::Address& address)
 			if (mode == Mode::Acking)
 			{
 				vi_debug("Connected to %s:%hd.", Sock::host_to_str(server_address.host), server_address.port);
-				mode = Mode::Connected;
+				mode = Mode::Loading;
 			}
 
 			if (!msgs_read(p, &msgs_in_history, &server_ack))
@@ -1847,7 +1916,7 @@ b8 init()
 b8 finalize(Entity* e)
 {
 #if SERVER
-	if (Server::clients.length == Server::expected_clients)
+	if (Server::mode == Server::Mode::Active)
 	{
 		using Stream = StreamWrite;
 		StreamWrite* p = msg_new(MessageType::EntityCreate);
@@ -1980,10 +2049,7 @@ b8 msg_process(StreamRead* p)
 #endif
 	switch (type)
 	{
-		case MessageType::Noop:
-		{
-			break;
-		}
+#if !SERVER
 		case MessageType::EntityCreate:
 		{
 			ID id;
@@ -2003,11 +2069,24 @@ b8 msg_process(StreamRead* p)
 			World::net_remove(&Entity::list[id]);
 			break;
 		}
+		case MessageType::InitDone:
+		{
+			vi_assert(Client::mode == Client::Mode::Loading);
+			for (auto i = Entity::list.iterator(); !i.is_last(); i.next())
+				World::awake(i.item());
+			Client::mode = Client::Mode::Connected;
+			break;
+		}
+#endif
 		case MessageType::Awk:
 		{
 			Ref<Awk> ref;
 			serialize_ref(p, ref);
 			ref.ref()->msg(p);
+			break;
+		}
+		case MessageType::Noop:
+		{
 			break;
 		}
 		default:
@@ -2034,7 +2113,8 @@ b8 msg_finalize(StreamWrite* p)
 	serialize_enum(&r, MessageType, type);
 	if (type != MessageType::Noop
 		&& type != MessageType::EntityCreate
-		&& type != MessageType::EntityRemove)
+		&& type != MessageType::EntityRemove
+		&& type != MessageType::InitDone)
 	{
 		r.rewind();
 		msg_process(&r);

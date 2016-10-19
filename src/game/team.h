@@ -48,7 +48,7 @@ enum class Ability
 	Sniper,
 	Decoy,
 	count,
-	None = count,
+	None,
 };
 
 struct AbilityInfo
@@ -179,7 +179,7 @@ struct PlayerManager : public ComponentType<PlayerManager>
 	u16 credits;
 	u16 kills;
 	u16 respawns;
-	char username[255];
+	char username[MAX_USERNAME + 1]; // +1 for null terminator
 	b8 score_accepted;
 
 	PlayerManager(Team* = nullptr);
@@ -204,7 +204,8 @@ struct PlayerManager : public ComponentType<PlayerManager>
 	ControlPoint* at_control_point() const;
 	b8 friendly_control_point(const ControlPoint*) const;
 	u16 increment() const;
-	void update(const Update&);
+	void update_server(const Update&);
+	void update_client(const Update&);
 };
 
 

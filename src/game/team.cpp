@@ -862,30 +862,34 @@ u16 PlayerManager::increment() const
 r32 PlayerManager::timer = CONTROL_POINT_INTERVAL;
 void PlayerManager::update_all(const Update& u)
 {
-	if (Game::level.mode == Game::Mode::Pvp
-		&& Game::session.local
-		&& Game::level.has_feature(Game::FeatureLevel::EnergyPickups)
-		&& u.time.total > GAME_BUY_PERIOD)
+	if (Game::session.local)
 	{
-		timer -= u.time.delta;
-		if (timer < 0.0f)
+		if (Game::level.mode == Game::Mode::Pvp
+			&& Game::level.has_feature(Game::FeatureLevel::EnergyPickups)
+			&& u.time.total > GAME_BUY_PERIOD)
 		{
-			// give points to players based on how many control points they own
-			for (auto i = list.iterator(); !i.is_last(); i.next())
-				i.item()->add_credits(i.item()->increment());
+			timer -= u.time.delta;
+			if (timer < 0.0f)
+			{
+				// give points to players based on how many control points they own
+				for (auto i = list.iterator(); !i.is_last(); i.next())
+					i.item()->add_credits(i.item()->increment());
 
-			timer += CONTROL_POINT_INTERVAL;
+				timer += CONTROL_POINT_INTERVAL;
+			}
 		}
 	}
 
 	for (auto i = list.iterator(); !i.is_last(); i.next())
-		i.item()->update(u);
+	{
+		if (Game::session.local)
+			i.item()->update_server(u);
+		i.item()->update_client(u);
+	}
 }
 
-void PlayerManager::update(const Update& u)
+void PlayerManager::update_server(const Update& u)
 {
-	credits_flash_timer = vi_max(0.0f, credits_flash_timer - Game::real_time.delta);
-
 	if (!entity.ref()
 		&& spawn_timer > 0.0f
 		&& team.ref()->player_spawn.ref()
@@ -932,11 +936,23 @@ void PlayerManager::update(const Update& u)
 	}
 }
 
+void PlayerManager::update_client(const Update& u)
+{
+	if (!Game::session.local)
+	{
+		if (entity.ref())
+			spawn_timer = PLAYER_SPAWN_DELAY;
+		else
+			spawn_timer = vi_max(0.0f, spawn_timer - u.time.delta);
+	}
+	credits_flash_timer = vi_max(0.0f, credits_flash_timer - Game::real_time.delta);
+}
+
 b8 PlayerManager::is_local() const
 {
 	for (auto j = PlayerHuman::list.iterator(); !j.is_last(); j.next())
 	{
-		if (j.item()->manager.ref() == this)
+		if (j.item()->get<PlayerManager>() == this)
 			return true;
 	}
 	return false;

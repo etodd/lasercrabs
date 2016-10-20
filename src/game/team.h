@@ -157,6 +157,7 @@ struct PlayerManager : public ComponentType<PlayerManager>
 		Default,
 		Upgrading,
 		Capturing,
+		count,
 	};
 
 	static r32 timer;

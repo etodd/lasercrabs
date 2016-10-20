@@ -88,11 +88,26 @@ struct TransformState
 	u16 revision;
 };
 
+struct PlayerManagerState
+{
+	r32 spawn_timer;
+	r32 state_timer;
+	u32 upgrades;
+	Ability abilities[MAX_ABILITIES];
+	Upgrade current_upgrade;
+	Ref<Entity> entity;
+	u16 credits;
+	u16 kills;
+	u16 respawns;
+	b8 active;
+};
+
 struct StateFrame
 {
 	TransformState transforms[MAX_ENTITIES];
+	PlayerManagerState players[MAX_PLAYERS];
 	r32 timestamp;
-	Bitmask<MAX_ENTITIES> active;
+	Bitmask<MAX_ENTITIES> transforms_active;
 	SequenceID sequence_id;
 };
 
@@ -193,6 +208,7 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 		| Walker::component_mask
 		| Ragdoll::component_mask
 		| Target::component_mask
+		| PlayerTrigger::component_mask
 		| SkinnedModel::component_mask
 		| Projectile::component_mask
 		| EnergyPickup::component_mask
@@ -314,14 +330,6 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 		serialize_int(p, u8, a->charges, 0, AWK_CHARGES);
 	}
 
-	if (e->has<PlayerControlHuman>())
-	{
-	}
-
-	if (e->has<PlayerCommon>())
-	{
-	}
-
 	if (e->has<MinionCommon>())
 	{
 	}
@@ -392,6 +400,12 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 		serialize_r32_range(p, t->local_offset.x, -10, 10, 16);
 		serialize_r32_range(p, t->local_offset.y, -10, 10, 16);
 		serialize_r32_range(p, t->local_offset.z, -10, 10, 16);
+	}
+
+	if (e->has<PlayerTrigger>())
+	{
+		PlayerTrigger* t = e->get<PlayerTrigger>();
+		serialize_r32(p, t->radius);
 	}
 
 	if (e->has<SkinnedModel>())
@@ -532,6 +546,10 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 		serialize_r32_range(p, pc->angle_horizontal, PI * -2.0f, PI * 2.0f, 16);
 		serialize_r32_range(p, pc->angle_vertical, -PI, PI, 16);
 		serialize_ref(p, pc->manager);
+	}
+
+	if (e->has<PlayerControlHuman>())
+	{
 	}
 
 #if !SERVER
@@ -1054,7 +1072,71 @@ template<typename Stream> b8 serialize_transform(Stream* p, TransformState* tran
 	return true;
 }
 
-b8 transform_states_equal(const TransformState& a, const TransformState& b)
+template<typename Stream> b8 serialize_player_manager(Stream* p, PlayerManagerState* state, const PlayerManagerState* old)
+{
+	b8 b;
+
+	if (Stream::IsWriting)
+		b = !old || state->spawn_timer != old->spawn_timer;
+	serialize_bool(p, b);
+	if (b)
+		serialize_r32_range(p, state->spawn_timer, 0, PLAYER_SPAWN_DELAY, 8);
+
+	if (Stream::IsWriting)
+		b = !old || state->state_timer != old->state_timer;
+	serialize_bool(p, b);
+	if (b)
+		serialize_r32_range(p, state->state_timer, 0, 10.0f, 10);
+
+	if (Stream::IsWriting)
+		b = !old || state->upgrades != old->upgrades;
+	serialize_bool(p, b);
+	if (b)
+		serialize_u32(p, state->upgrades);
+
+	for (s32 i = 0; i < MAX_ABILITIES; i++)
+	{
+		if (Stream::IsWriting)
+			b = !old || state->abilities[i] != old->abilities[i];
+		serialize_bool(p, b);
+		if (b)
+			serialize_int(p, Ability, state->abilities[i], 0, s32(Ability::count) + 1); // necessary because Ability::None = Ability::count
+	}
+
+	if (Stream::IsWriting)
+		b = !old || state->current_upgrade != old->current_upgrade;
+	serialize_bool(p, b);
+	if (b)
+		serialize_int(p, Upgrade, state->current_upgrade, 0, s32(Upgrade::count) + 1); // necessary because Upgrade::None = Upgrade::count
+
+	if (Stream::IsWriting)
+		b = !old || !state->entity.equals(old->entity);
+	serialize_bool(p, b);
+	if (b)
+		serialize_ref(p, state->entity);
+
+	if (Stream::IsWriting)
+		b = !old || state->credits != old->credits;
+	serialize_bool(p, b);
+	if (b)
+		serialize_u16(p, state->credits);
+
+	if (Stream::IsWriting)
+		b = !old || state->kills != old->kills;
+	serialize_bool(p, b);
+	if (b)
+		serialize_u16(p, state->kills);
+
+	if (Stream::IsWriting)
+		b = !old || state->respawns != old->respawns;
+	serialize_bool(p, b);
+	if (b)
+		serialize_u16(p, state->respawns);
+
+	return true;
+}
+
+b8 equal_transform_states(const TransformState& a, const TransformState& b)
 {
 	return a.revision == b.revision
 		&& a.parent.id == b.parent.id
@@ -1063,21 +1145,43 @@ b8 transform_states_equal(const TransformState& a, const TransformState& b)
 		&& Quat::angle(a.rot, b.rot) < 0.001f;
 }
 
-b8 transform_states_equal(const StateFrame* a, const StateFrame* b, s32 index)
+b8 equal_transform_states(const StateFrame* a, const StateFrame* b, s32 index)
 {
 	if (a && b)
 	{
-		b8 a_active = a->active.get(index);
-		b8 b_active = b->active.get(index);
+		b8 a_active = a->transforms_active.get(index);
+		b8 b_active = b->transforms_active.get(index);
 		if (a_active == b_active)
 		{
 			if (a_active && b_active)
-				return transform_states_equal(a->transforms[index], b->transforms[index]);
+				return equal_transform_states(a->transforms[index], b->transforms[index]);
 			else if (!a_active && !b_active)
 				return true;
 		}
 	}
 	return false;
+}
+
+b8 equal_player_states(const PlayerManagerState& a, const PlayerManagerState& b)
+{
+	if (a.spawn_timer != b.spawn_timer
+		|| a.state_timer != b.state_timer
+		|| a.upgrades != b.upgrades
+		|| a.current_upgrade != b.current_upgrade
+		|| !a.entity.equals(b.entity)
+		|| a.credits != b.credits
+		|| a.kills != b.kills
+		|| a.respawns != b.respawns
+		|| a.active != b.active)
+		return false;
+
+	for (s32 i = 0; i < MAX_ABILITIES; i++)
+	{
+		if (a.abilities[i] != b.abilities[i])
+			return false;
+	}
+
+	return true;
 }
 
 b8 state_frame_write(StreamWrite* p, StateFrame* frame, const StateFrame* base)
@@ -1088,23 +1192,23 @@ b8 state_frame_write(StreamWrite* p, StateFrame* frame, const StateFrame* base)
 	// count changed transforms
 	s32 changed_count = 0;
 	{
-		s32 index = s32(frame->active.start);
-		while (index <= frame->active.end)
+		s32 index = s32(frame->transforms_active.start);
+		while (index <= frame->transforms_active.end)
 		{
-			if (!transform_states_equal(frame, base, index))
+			if (!equal_transform_states(frame, base, index))
 				changed_count++;
-			index = frame->active.next(index);
+			index = frame->transforms_active.next(index);
 		}
 	}
 	serialize_int(p, s32, changed_count, 0, MAX_ENTITIES - 1);
 
-	s32 index = s32(frame->active.start);
-	while (index <= frame->active.end)
+	s32 index = s32(frame->transforms_active.start);
+	while (index <= frame->transforms_active.end)
 	{
-		if (!transform_states_equal(frame, base, index))
+		if (!equal_transform_states(frame, base, index))
 		{
 			serialize_int(p, s32, index, 0, MAX_ENTITIES - 1);
-			b8 active = frame->active.get(index);
+			b8 active = frame->transforms_active.get(index);
 			serialize_bool(p, active);
 			if (active)
 			{
@@ -1120,11 +1224,25 @@ b8 state_frame_write(StreamWrite* p, StateFrame* frame, const StateFrame* base)
 					net_error();
 			}
 		}
-		index = frame->active.next(index);
+		index = frame->transforms_active.next(index);
 	}
 #if DEBUG_TRANSFORMS
 	vi_debug("Wrote %d transforms", changed_count);
 #endif
+
+	// players
+	for (s32 i = 0; i < MAX_PLAYERS; i++)
+	{
+		PlayerManagerState* state = &frame->players[i];
+		b8 serialize = state->active && (!base || !equal_player_states(*state, base->players[i]));
+		serialize_bool(p, serialize);
+		if (serialize)
+		{
+			if (!serialize_player_manager(p, state, base ? &base->players[i] : nullptr))
+				net_error();
+		}
+	}
+
 	return true;
 }
 
@@ -1135,8 +1253,9 @@ b8 state_frame_read(StreamRead* p, StateFrame* frame, const StateFrame* base)
 	frame->timestamp = Game::real_time.total;
 	if (base)
 	{
-		frame->active = base->active;
+		frame->transforms_active = base->transforms_active;
 		memcpy(frame->transforms, base->transforms, sizeof(frame->transforms));
+		memcpy(frame->players, base->players, sizeof(frame->players));
 	}
 	serialize_int(p, SequenceID, frame->sequence_id, 0, SEQUENCE_COUNT - 1);
 	s32 changed_count;
@@ -1147,7 +1266,7 @@ b8 state_frame_read(StreamRead* p, StateFrame* frame, const StateFrame* base)
 		serialize_int(p, s32, index, 0, MAX_ENTITIES - 1);
 		b8 active;
 		serialize_bool(p, active);
-		frame->active.set(index, active);
+		frame->transforms_active.set(index, active);
 		if (active)
 		{
 			b8 revision_changed;
@@ -1165,6 +1284,18 @@ b8 state_frame_read(StreamRead* p, StateFrame* frame, const StateFrame* base)
 #if DEBUG_TRANSFORMS
 	vi_debug("Read %d transforms", changed_count);
 #endif
+
+	for (s32 i = 0; i < MAX_PLAYERS; i++)
+	{
+		b8 serialize;
+		serialize_bool(p, serialize);
+		if (serialize)
+		{
+			frame->players[i].active = true;
+			if (!serialize_player_manager(p, &frame->players[i], base ? &base->players[i] : nullptr))
+				net_error();
+		}
+	}
 	return true;
 }
 
@@ -1182,7 +1313,7 @@ b8 transform_filter(const Transform* t)
 void state_frame_build(StateFrame* frame)
 {
 	frame->sequence_id = local_sequence_id;
-	frame->active = Transform::list.mask;
+	frame->transforms_active = Transform::list.mask;
 	for (auto i = Transform::list.iterator(); !i.is_last(); i.next())
 	{
 		if (transform_filter(i.item()))
@@ -1194,7 +1325,22 @@ void state_frame_build(StateFrame* frame)
 			transform->parent = i.item()->parent.ref(); // ID must come out to IDNull if it's null; don't rely on revision to null the reference
 		}
 		else
-			frame->active.set(i.index, false);
+			frame->transforms_active.set(i.index, false);
+	}
+
+	for (auto i = PlayerManager::list.iterator(); !i.is_last(); i.next())
+	{
+		PlayerManagerState* state = &frame->players[i.index];
+		state->spawn_timer = i.item()->spawn_timer;
+		state->state_timer = i.item()->state_timer;
+		state->upgrades = i.item()->upgrades;
+		memcpy(state->abilities, i.item()->abilities, sizeof(state->abilities));
+		state->current_upgrade = i.item()->current_upgrade;
+		state->entity = i.item()->entity;
+		state->credits = i.item()->credits;
+		state->kills = i.item()->kills;
+		state->respawns = i.item()->respawns;
+		state->active = true;
 	}
 }
 
@@ -1205,7 +1351,7 @@ void transform_absolute(const StateFrame& frame, s32 index, Vec3* abs_pos, Quat*
 	*abs_pos = Vec3::zero;
 	while (index != IDNull)
 	{ 
-		if (frame.active.get(index))
+		if (frame.transforms_active.get(index))
 		{
 			// this transform is being tracked with the dynamic transform system
 			const TransformState* transform = &frame.transforms[index];
@@ -1242,42 +1388,60 @@ void state_frame_interpolate(const StateFrame& a, const StateFrame& b, StateFram
 	vi_assert(timestamp >= a.timestamp);
 	r32 blend = vi_min((timestamp - a.timestamp) / (b.timestamp - a.timestamp), 1.0f);
 	result->sequence_id = b.sequence_id;
-	result->active = b.active;
-	s32 index = s32(b.active.start);
-	while (index <= b.active.end)
+	result->transforms_active = b.transforms_active;
+
+	// transforms
 	{
-		TransformState* transform = &result->transforms[index];
-		const TransformState& last = a.transforms[index];
-		const TransformState& next = b.transforms[index];
-
-		transform->parent = next.parent;
-
-		if (last.revision == next.revision)
+		s32 index = s32(b.transforms_active.start);
+		while (index <= b.transforms_active.end)
 		{
-			if (last.parent.id == next.parent.id)
+			TransformState* transform = &result->transforms[index];
+			const TransformState& last = a.transforms[index];
+			const TransformState& next = b.transforms[index];
+
+			transform->parent = next.parent;
+
+			if (last.revision == next.revision)
 			{
-				transform->pos = Vec3::lerp(blend, last.pos, next.pos);
-				transform->rot = Quat::slerp(blend, last.rot, next.rot);
+				if (last.parent.id == next.parent.id)
+				{
+					transform->pos = Vec3::lerp(blend, last.pos, next.pos);
+					transform->rot = Quat::slerp(blend, last.rot, next.rot);
+				}
+				else
+				{
+					Vec3 last_pos;
+					Quat last_rot;
+					transform_absolute(a, index, &last_pos, &last_rot);
+
+					if (next.parent.id != IDNull)
+						transform_absolute_to_relative(b, next.parent.id, &last_pos, &last_rot);
+
+					transform->pos = Vec3::lerp(blend, last_pos, next.pos);
+					transform->rot = Quat::slerp(blend, last_rot, next.rot);
+				}
 			}
 			else
 			{
-				Vec3 last_pos;
-				Quat last_rot;
-				transform_absolute(a, index, &last_pos, &last_rot);
-
-				if (next.parent.id != IDNull)
-					transform_absolute_to_relative(b, next.parent.id, &last_pos, &last_rot);
-
-				transform->pos = Vec3::lerp(blend, last_pos, next.pos);
-				transform->rot = Quat::slerp(blend, last_rot, next.rot);
+				transform->pos = next.pos;
+				transform->rot = next.rot;
 			}
+			index = b.transforms_active.next(index);
 		}
-		else
+	}
+
+	// players
+	for (s32 i = 0; i < MAX_PLAYERS; i++)
+	{
+		PlayerManagerState* player = &result->players[i];
+		const PlayerManagerState& last = a.players[i];
+		const PlayerManagerState& next = b.players[i];
+		*player = last;
+		if (player->active)
 		{
-			transform->pos = next.pos;
-			transform->rot = next.rot;
+			player->spawn_timer = LMath::lerpf(blend, last.spawn_timer, next.spawn_timer);
+			player->state_timer = LMath::lerpf(blend, last.state_timer, next.state_timer);
 		}
-		index = b.active.next(index);
 	}
 }
 
@@ -1432,9 +1596,11 @@ b8 build_packet_update(StreamWrite* p, Client* client, StateFrame* frame)
 	serialize_int(p, SequenceID, ack.sequence_id, 0, SEQUENCE_COUNT - 1);
 	serialize_u32(p, ack.previous_sequences);
 	msgs_write(p, msgs_out_history, client->ack, &client->recently_resent, client->rtt);
+
 	serialize_int(p, SequenceID, client->ack.sequence_id, 0, SEQUENCE_COUNT - 1);
 	const StateFrame* base = state_frame_by_sequence(transform_history, client->ack.sequence_id);
 	state_frame_write(p, frame, base);
+
 	packet_finalize(p);
 	return true;
 }
@@ -1737,15 +1903,36 @@ void update(const Update& u)
 			frame_final = frame;
 
 		// apply frame_final to world
-		s32 index = frame_final->active.start;
-		while (index <= frame_final->active.end)
+
+		// transforms
+		s32 index = frame_final->transforms_active.start;
+		while (index <= frame_final->transforms_active.end)
 		{
 			Transform* t = &Transform::list[index];
 			const TransformState& s = frame_final->transforms[index];
 			t->pos = s.pos;
 			t->rot = s.rot;
 			t->parent = s.parent;
-			index = frame_final->active.next(index);
+			index = frame_final->transforms_active.next(index);
+		}
+
+		// players
+		for (s32 i = 0; i < MAX_PLAYERS; i++)
+		{
+			const PlayerManagerState& state = frame_final->players[i];
+			if (state.active)
+			{
+				PlayerManager* s = &PlayerManager::list[i];
+				s->spawn_timer = state.spawn_timer;
+				s->state_timer = state.state_timer;
+				s->upgrades = state.upgrades;
+				memcpy(s->abilities, state.abilities, sizeof(s->abilities));
+				s->current_upgrade = state.current_upgrade;
+				s->entity = state.entity;
+				s->credits = state.credits;
+				s->kills = state.kills;
+				s->respawns = state.respawns;
+			}
 		}
 	}
 

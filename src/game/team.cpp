@@ -938,13 +938,6 @@ void PlayerManager::update_server(const Update& u)
 
 void PlayerManager::update_client(const Update& u)
 {
-	if (!Game::session.local)
-	{
-		if (entity.ref())
-			spawn_timer = PLAYER_SPAWN_DELAY;
-		else
-			spawn_timer = vi_max(0.0f, spawn_timer - u.time.delta);
-	}
 	credits_flash_timer = vi_max(0.0f, credits_flash_timer - Game::real_time.delta);
 }
 

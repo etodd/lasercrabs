@@ -720,21 +720,18 @@ void packet_finalize(StreamWrite* p)
 {
 	vi_assert(p->data[0] == NET_PROTOCOL_ID);
 	p->flush();
-	u32 checksum = crc32((const u8*)&p->data[0], sizeof(u32));
-	checksum = crc32((const u8*)&p->data[1], (p->data.length - 1) * sizeof(u32), checksum);
 
-	p->data[0] = checksum;
-
+	// compress everything but the protocol ID
 	StreamWrite compressed;
 	compressed.resize_bytes(MAX_PACKET_SIZE);
 	z_stream z;
 	z.zalloc = nullptr;
 	z.zfree = nullptr;
 	z.opaque = nullptr;
-	z.next_out = (Bytef*)compressed.data.data;
-	z.avail_out = MAX_PACKET_SIZE;
-	z.next_in = (Bytef*)p->data.data;
-	z.avail_in = p->bytes_written();
+	z.next_out = (Bytef*)&compressed.data[1];
+	z.avail_out = MAX_PACKET_SIZE - sizeof(u32);
+	z.next_in = (Bytef*)&p->data[1];
+	z.avail_in = p->bytes_written() - sizeof(u32);
 
 	s32 result = deflateInit(&z, Z_DEFAULT_COMPRESSION);
 	vi_assert(result == Z_OK);
@@ -747,12 +744,16 @@ void packet_finalize(StreamWrite* p)
 	vi_assert(result == Z_OK);
 
 	p->reset();
-	p->resize_bytes(MAX_PACKET_SIZE - z.avail_out);
-	if (p->data.length > 0)
-	{
-		p->data[p->data.length - 1] = 0; // make sure everything gets zeroed out so the CRC32 comes out right
-		memcpy(p->data.data, compressed.data.data, MAX_PACKET_SIZE - z.avail_out);
-	}
+	p->resize_bytes(sizeof(u32) + MAX_PACKET_SIZE - z.avail_out); // include one u32 for the CRC32
+	vi_assert(p->data.length > 0);
+	p->data[p->data.length - 1] = 0; // make sure everything gets zeroed out so the CRC32 comes out right
+	memcpy(&p->data[1], &compressed.data[1], MAX_PACKET_SIZE - z.avail_out);
+
+	// replace protocol ID with CRC32
+	u32 checksum = crc32((const u8*)&p->data[0], sizeof(u32));
+	checksum = crc32((const u8*)&p->data[1], (p->data.length - 1) * sizeof(u32), checksum);
+
+	p->data[0] = checksum;
 }
 
 void packet_decompress(StreamRead* p, s32 bytes)
@@ -764,10 +765,10 @@ void packet_decompress(StreamRead* p, s32 bytes)
 	z.zalloc = nullptr;
 	z.zfree = nullptr;
 	z.opaque = nullptr;
-	z.next_in = (Bytef*)p->data.data;
-	z.avail_in = bytes;
-	z.next_out = (Bytef*)decompressed.data.data;
-	z.avail_out = MAX_PACKET_SIZE;
+	z.next_in = (Bytef*)&p->data[1];
+	z.avail_in = bytes - sizeof(u32);
+	z.next_out = (Bytef*)&decompressed.data[1];
+	z.avail_out = MAX_PACKET_SIZE - sizeof(u32);
 
 	s32 result = inflateInit(&z);
 	vi_assert(result == Z_OK);
@@ -779,12 +780,13 @@ void packet_decompress(StreamRead* p, s32 bytes)
 	vi_assert(result == Z_OK);
 
 	p->reset();
-	p->resize_bytes(MAX_PACKET_SIZE - z.avail_out);
-	if (p->data.length > 0)
-	{
-		p->data[p->data.length - 1] = 0; // make sure everything is zeroed out so the CRC32 comes out right
-		memcpy(p->data.data, decompressed.data.data, MAX_PACKET_SIZE - z.avail_out);
-	}
+	p->resize_bytes(sizeof(u32) + MAX_PACKET_SIZE - z.avail_out);
+	vi_assert(p->data.length > 0);
+
+	p->data[p->data.length - 1] = 0; // make sure everything is zeroed out so the CRC32 comes out right
+	memcpy(&p->data[1], &decompressed.data[1], MAX_PACKET_SIZE - z.avail_out);
+
+	p->bits_read = 32; // skip past the CRC32
 }
 
 void packet_send(const StreamWrite& p, const Sock::Address& address)
@@ -1673,11 +1675,6 @@ b8 packet_handle(const Update& u, StreamRead* p, const Sock::Address& address)
 	}
 
 	using Stream = StreamRead;
-	if (!p->read_checksum())
-	{
-		vi_debug("%s", "Discarding packet for invalid checksum.");
-		net_error();
-	}
 
 	ClientPacket type;
 	serialize_enum(p, ClientPacket, type);
@@ -2028,11 +2025,6 @@ b8 packet_handle(const Update& u, StreamRead* p, const Sock::Address& address)
 		vi_debug("%s", "Discarding packet from unexpected host.");
 		net_error();
 	}
-	if (!p->read_checksum())
-	{
-		vi_debug("%s", "Discarding packet due to invalid checksum.");
-		net_error();
-	}
 	ServerPacket type;
 	serialize_enum(p, ServerPacket, type);
 	switch (type)
@@ -2148,12 +2140,17 @@ void update(const Update& u)
 			{
 				incoming_packet.resize_bytes(bytes_received);
 
-				packet_decompress(&incoming_packet, bytes_received);
+				if (incoming_packet.read_checksum())
+				{
+					packet_decompress(&incoming_packet, bytes_received);
 #if SERVER
-				Server::packet_handle(u, &incoming_packet, address);
+					Server::packet_handle(u, &incoming_packet, address);
 #else
-				Client::packet_handle(u, &incoming_packet, address);
+					Client::packet_handle(u, &incoming_packet, address);
 #endif
+				}
+				else
+					vi_debug("%s", "Discarding packet due to invalid checksum.");
 			}
 		}
 		else

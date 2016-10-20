@@ -497,23 +497,13 @@ void Game::draw_additive(const RenderParams& render_params)
 
 void Game::draw_opaque(const RenderParams& render_params)
 {
-	// disable backface culling in PvP mode
-	if (level.mode == Mode::Pvp && render_params.technique == RenderTechnique::Default)
-	{
-		render_params.sync->write(RenderOp::CullMode);
-		render_params.sync->write(RenderCullMode::None);
-	}
+	for (auto i = PlayerControlHuman::list.iterator(); !i.is_last(); i.next())
+		i.item()->draw(render_params);
 
 	View::draw_opaque(render_params);
 
 	for (auto i = Water::list.iterator(); !i.is_last(); i.next())
 		i.item()->draw_opaque(render_params);
-
-	if (level.mode == Mode::Pvp && render_params.technique == RenderTechnique::Default)
-	{
-		render_params.sync->write(RenderOp::CullMode);
-		render_params.sync->write(RenderCullMode::Back);
-	}
 
 	Rope::draw_opaque(render_params);
 	SkinnedModel::draw_opaque(render_params);

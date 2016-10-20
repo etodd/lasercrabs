@@ -140,6 +140,7 @@ struct PlayerControlHuman : public ComponentType<PlayerControlHuman>
 	b8 add_target_indicator(Target*, TargetIndicator::Type);
 
 	void update(const Update&);
+	void draw(const RenderParams&) const;
 	void draw_alpha(const RenderParams&) const;
 
 	void update_camera_input(const Update&, r32 = 1.0f);

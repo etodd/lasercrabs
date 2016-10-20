@@ -1743,6 +1743,66 @@ void PlayerControlHuman::update(const Update& u)
 	}
 }
 
+void PlayerControlHuman::draw(const RenderParams& p) const
+{
+	if (p.technique != RenderTechnique::Default
+		|| p.camera != player.ref()->camera
+		|| p.camera->cull_range <= 0.0f
+		|| !p.camera->cull_behind_wall
+		|| !get<Transform>()->parent.ref())
+		return;
+
+	Loader::mesh_permanent(Asset::Mesh::cylinder_inside);
+	Loader::shader_permanent(Asset::Shader::cylinder_inside);
+
+	RenderSync* sync = p.sync;
+	sync->write(RenderOp::Shader);
+	sync->write(Asset::Shader::cylinder_inside);
+	sync->write(p.technique);
+
+	Mat4 m;
+	m.make_transform(p.camera->pos, Vec3(p.camera->cull_range, p.camera->cull_range, 10), p.camera->rot);
+	Mat4 mvp = m * p.view_projection;
+
+	sync->write(RenderOp::Uniform);
+	sync->write(Asset::Uniform::mvp);
+	sync->write(RenderDataType::Mat4);
+	sync->write<s32>(1);
+	sync->write<Mat4>(mvp);
+
+	sync->write(RenderOp::Uniform);
+	sync->write(Asset::Uniform::mv);
+	sync->write(RenderDataType::Mat4);
+	sync->write<s32>(1);
+	sync->write<Mat4>(m * p.view);
+
+	sync->write(RenderOp::Uniform);
+	sync->write(Asset::Uniform::diffuse_color);
+	sync->write(RenderDataType::Vec4);
+	sync->write<s32>(1);
+	sync->write<Vec4>(Vec4(0, 0, 0, 1));
+
+	{
+		// write culling info
+		sync->write(RenderOp::Uniform);
+		sync->write(Asset::Uniform::cull_center);
+		sync->write(RenderDataType::Vec3);
+		sync->write<s32>(1);
+		sync->write<Vec3>(p.camera->range_center);
+
+		sync->write(RenderOp::Uniform);
+		sync->write(Asset::Uniform::wall_normal);
+		sync->write(RenderDataType::Vec3);
+		sync->write<s32>(1);
+		sync->write<Vec3>(p.camera->wall_normal);
+	}
+
+	sync->write(RenderOp::Mesh);
+	sync->write(RenderPrimitiveMode::Triangles);
+	sync->write(Asset::Mesh::cylinder_inside);
+	
+}
+
 void PlayerControlHuman::draw_alpha(const RenderParams& params) const
 {
 	if (params.technique != RenderTechnique::Default || params.camera != player.ref()->camera)

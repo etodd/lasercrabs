@@ -29,9 +29,7 @@ void main()
 #ifdef VERTEX
 
 layout(location = 0) in vec3 in_position;
-layout(location = 1) in vec3 in_normal;
 
-out vec3 normal_viewspace;
 out vec3 pos_viewspace;
 
 uniform mat4 mvp;
@@ -42,23 +40,17 @@ void main()
 	gl_Position = mvp * vec4(in_position, 1);
 
 	pos_viewspace = (mv * vec4(in_position, 1)).xyz;
-
-	normal_viewspace = (mv * vec4(in_normal, 0)).xyz;
 }
 
 #else
 
-in vec3 normal_viewspace;
-in vec3 pos_viewspace;
+#define AWK_RADIUS 0.2f
 
-// Values that stay constant for the whole mesh.
 uniform vec4 diffuse_color;
 uniform vec3 cull_center;
 uniform vec3 wall_normal;
-uniform float cull_radius;
-uniform bool cull_behind_wall;
 
-#define AWK_RADIUS 0.2f
+in vec3 pos_viewspace;
 
 layout (location = 0) out vec4 out_color;
 layout (location = 1) out vec4 out_normal;
@@ -67,25 +59,14 @@ void main()
 {
 	vec3 p = pos_viewspace - cull_center;
 
-	if (dot(pos_viewspace.xy, pos_viewspace.xy) < (cull_radius * cull_radius * 0.5f * 0.5f))
+	if (dot(p, wall_normal) > -AWK_RADIUS + 0.01f) // is the pixel in front of the wall?
 	{
-		// inside cullable view cylinder
-		if (dot(p, wall_normal) > -AWK_RADIUS + 0.01f) // is the pixel in front of the wall?
-		{
-			// in front of wall
-			if (p.z < -AWK_RADIUS + 0.01f || dot(pos_viewspace, normal_viewspace) > 0.0f)
-				discard;
-		}
-		else
-		{
-			// behind wall
-			if (cull_behind_wall)
-				discard;
-		}
+		// in front of wall
+		discard;
 	}
 
 	out_color = diffuse_color;
-	out_normal = vec4(normalize(normal_viewspace) * 0.5f + 0.5f, 1.0f);
+	out_normal = vec4(0, 0, 0, 1.0);
 }
 
 #endif

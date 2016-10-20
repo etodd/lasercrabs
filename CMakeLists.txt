@@ -306,6 +306,7 @@ set(SRC
 	assets/shader/standard_flat.glsl
 	assets/shader/standard_instanced.glsl
 	assets/shader/culled.glsl
+	assets/shader/cylinder_inside.glsl
 	assets/shader/ui.glsl
 	assets/shader/ui_texture.glsl
 	assets/shader/debug_depth.glsl

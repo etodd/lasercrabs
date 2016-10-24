@@ -4,25 +4,25 @@ namespace VI
 {
 
 
-Camera::ViewportBlueprint Camera::one_player_viewports[] =
+Camera::ViewportBlueprint Camera::viewports_one_player[] =
 {
 	{ 0, 0, 1, 1, },
 };
 
-Camera::ViewportBlueprint Camera::two_player_viewports[] =
+Camera::ViewportBlueprint Camera::viewports_two_player[] =
 {
 	{ 0, 0, 0.5f, 1, },
 	{ 0.5f, 0, 0.5f, 1, },
 };
 
-Camera::ViewportBlueprint Camera::three_player_viewports[] =
+Camera::ViewportBlueprint Camera::viewports_three_player[] =
 {
 	{ 0, 0.5f, 1, 0.5f, },
 	{ 0, 0, 0.5f, 0.5f, },
 	{ 0.5f, 0, 0.5f, 0.5f, },
 };
 
-Camera::ViewportBlueprint Camera::four_player_viewports[] =
+Camera::ViewportBlueprint Camera::viewports_four_player[] =
 {
 	{ 0, 0, 0.5, 0.5f, },
 	{ 0.5f, 0, 0.5f, 0.5f, },
@@ -32,10 +32,10 @@ Camera::ViewportBlueprint Camera::four_player_viewports[] =
 
 Camera::ViewportBlueprint* Camera::viewport_blueprints[] =
 {
-	Camera::one_player_viewports,
-	Camera::two_player_viewports,
-	Camera::three_player_viewports,
-	Camera::four_player_viewports,
+	Camera::viewports_one_player,
+	Camera::viewports_two_player,
+	Camera::viewports_three_player,
+	Camera::viewports_four_player,
 };
 
 Camera Camera::list[Camera::max_cameras];
@@ -50,13 +50,13 @@ Camera::Camera()
 	near_plane(),
 	far_plane(),
 	mask(~RENDER_MASK_SHADOW),
-	fog(true),
 	wall_normal(0, 0, 0),
 	range(),
 	range_center(),
 	cull_range(),
 	cull_behind_wall(),
-	team(-1)
+	team(-1),
+	colors(true)
 {
 }
 

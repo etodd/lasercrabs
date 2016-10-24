@@ -204,7 +204,12 @@ void render_point_lights(const RenderParams& render_params, s32 type_mask, const
 		sync->write(RenderDataType::Vec3);
 		sync->write<s32>(1);
 		if (light->team == (u8)AI::TeamNone)
-			sync->write<Vec3>(light->color);
+		{
+			if (render_params.camera->colors)
+				sync->write<Vec3>(light->color);
+			else
+				sync->write<Vec3>(LMath::desaturate(light->color));
+		}
 		else
 			sync->write<Vec3>(Team::color((AI::Team)render_params.camera->team, (AI::Team)light->team).xyz());
 
@@ -345,7 +350,12 @@ void render_spot_lights(const RenderParams& render_params, s32 fbo, RenderBlendM
 		sync->write(RenderDataType::Vec3);
 		sync->write<s32>(1);
 		if (light->team == (u8)AI::TeamNone)
-			sync->write<Vec3>(light->color);
+		{
+			if (render_params.camera->colors)
+				sync->write<Vec3>(light->color);
+			else
+				sync->write<Vec3>(LMath::desaturate(light->color));
+		}
 		else
 			sync->write<Vec3>(Team::color((AI::Team)light->team, (AI::Team)render_params.camera->team).xyz());
 
@@ -572,7 +582,7 @@ void draw(LoopSync* sync, const Camera* camera)
 				if (!(light->mask & render_params.camera->mask))
 					continue;
 
-				colors[j] = light->color;
+				colors[j] = render_params.camera->colors ? light->color : LMath::desaturate(light->color);
 				abs_directions[j] = light->get<Transform>()->absolute_rot() * Vec3(0, 1, 0);
 				directions[j] = (render_params.view * Vec4(abs_directions[j], 0)).xyz();
 				if (Settings::shadow_quality != Settings::ShadowQuality::Off && light->shadowed)
@@ -626,7 +636,8 @@ void draw(LoopSync* sync, const Camera* camera)
 				draw_far_shadow_cascade = !draw_far_shadow_cascade;
 
 				render_params.shadow_vp = relative_shadow_vp(*render_params.camera, far_shadow_cascade_camera);
-				render_params.shadow_buffer = shadow_buffer[1];
+				if (Settings::volumetric_lighting)
+					render_params.shadow_buffer = shadow_buffer[1]; // skybox needs this for volumetric lighting
 
 				// Detail shadow map
 				shadow_camera.viewport =
@@ -1005,7 +1016,10 @@ void draw(LoopSync* sync, const Camera* camera)
 		sync->write(Asset::Uniform::ambient_color);
 		sync->write(RenderDataType::Vec3);
 		sync->write<s32>(1);
-		sync->write<Vec3>(Game::level.skybox.ambient_color);
+		if (camera->colors)
+			sync->write<Vec3>(Game::level.skybox.ambient_color);
+		else
+			sync->write<Vec3>(LMath::desaturate(Game::level.skybox.ambient_color));
 
 		sync->write(RenderOp::Uniform);
 		sync->write(Asset::Uniform::ssao_buffer);

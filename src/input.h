@@ -322,6 +322,9 @@ enum class Controls
 	TabLeft,
 	TabRight,
 	Scoreboard,
+	Jump,
+	Parkour,
+	Slide,
 	count,
 };
 

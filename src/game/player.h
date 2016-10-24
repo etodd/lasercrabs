@@ -20,7 +20,14 @@ struct DamageEvent;
 
 struct PlayerHuman : public ComponentType<PlayerHuman>
 {
-	enum class UIMode { Default, Pause, Dead, Upgrading, GameOver };
+	enum class UIMode { PvpDefault, ParkourDefault, Pause, Dead, Upgrading, GameOver };
+
+	struct SupportEntry
+	{
+		Ref<RigidBody> support;
+		Vec3 relative_position;
+		r32 rotation;
+	};
 
 	static r32 danger;
 
@@ -29,6 +36,7 @@ struct PlayerHuman : public ComponentType<PlayerHuman>
 
 	u64 uuid;
 	Camera* camera;
+	StaticArray<SupportEntry, 4> last_supported;
 	UIMenu menu;
 	UIScroll score_summary_scroll;
 	UIText msg_text;
@@ -123,9 +131,10 @@ struct PlayerControlHuman : public ComponentType<PlayerControlHuman>
 	r32 last_gamepad_input_time;
 	r32 gamepad_rotation_speed;
 	Ref<PlayerHuman> player;
-	b8 try_zoom;
-	b8 try_primary;
 	u8 gamepad;
+	b8 try_secondary;
+	b8 try_primary;
+	b8 try_slide;
 
 	PlayerControlHuman();
 	~PlayerControlHuman();
@@ -135,6 +144,7 @@ struct PlayerControlHuman : public ComponentType<PlayerControlHuman>
 
 	void awk_detached();
 	void awk_done_flying_or_dashing();
+	void parkour_landed(r32);
 	void hit_target(Entity*);
 	void hit_by(const TargetEvent&);
 	b8 add_target_indicator(Target*, TargetIndicator::Type);

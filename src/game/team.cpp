@@ -807,7 +807,7 @@ b8 PlayerManager::at_upgrade_point() const
 ControlPoint* PlayerManager::at_control_point() const
 {
 	Entity* e = entity.ref();
-	if (e && e->get<Awk>()->state() == Awk::State::Crawl)
+	if (e && (!e->has<Awk>() || e->get<Awk>()->state() == Awk::State::Crawl))
 	{
 		for (auto i = ControlPoint::list.iterator(); !i.is_last(); i.next())
 		{

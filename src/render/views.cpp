@@ -188,7 +188,20 @@ void View::draw(const RenderParams& params) const
 	sync->write<s32>(1);
 
 	if (team == (u8)AI::TeamNone)
-		sync->write<Vec4>(color);
+	{
+		if (params.camera->colors)
+			sync->write<Vec4>(color);
+		else
+		{
+			const Vec4 pvp_accessible(0.7f, 0.7f, 0.7f, 1.0f);
+			const Vec4 pvp_inaccessible(0.0f, 0.0f, 0.0f, MATERIAL_NO_OVERRIDE);
+
+			if (color.w == MATERIAL_NO_OVERRIDE)
+				sync->write<Vec4>(pvp_inaccessible);
+			else
+				sync->write<Vec4>(pvp_accessible);
+		}
+	}
 	else
 	{
 		const Vec4& team_color = Team::color((AI::Team)team, (AI::Team)params.camera->team);
@@ -257,7 +270,12 @@ void View::awake()
 	}
 }
 
-void SkyDecal::draw_alpha(const RenderParams& p, const Skybox::Config& skybox_config)
+r32 fog_start(const RenderParams& p)
+{
+	return Game::level.skybox.far_plane * (p.camera->colors ? 0.25f : 1.0f);
+}
+
+void SkyDecal::draw_alpha(const RenderParams& p)
 {
 	RenderSync* sync = p.sync;
 
@@ -283,13 +301,13 @@ void SkyDecal::draw_alpha(const RenderParams& p, const Skybox::Config& skybox_co
 	sync->write(Asset::Uniform::fog_start);
 	sync->write(RenderDataType::R32);
 	sync->write<s32>(1);
-	sync->write<r32>(skybox_config.sky_decal_fog_start);
+	sync->write<r32>(p.camera->far_plane * 0.25f);
 
 	sync->write(RenderOp::Uniform);
 	sync->write(Asset::Uniform::fog_extent);
 	sync->write(RenderDataType::R32);
 	sync->write<s32>(1);
-	sync->write<r32>(p.camera->far_plane - skybox_config.sky_decal_fog_start);
+	sync->write<r32>(p.camera->far_plane * 0.75f);
 
 	Vec2 inv_buffer_size = Vec2(1.0f / (r32)p.sync->input.width, 1.0f / (r32)p.sync->input.height);
 
@@ -340,7 +358,10 @@ void SkyDecal::draw_alpha(const RenderParams& p, const Skybox::Config& skybox_co
 		sync->write(Asset::Uniform::diffuse_color);
 		sync->write(RenderDataType::Vec4);
 		sync->write<s32>(1);
-		sync->write<Vec4>(d->color);
+		if (p.camera->colors)
+			sync->write<Vec4>(d->color);
+		else
+			sync->write<Vec4>(LMath::desaturate(d->color));
 
 		sync->write(RenderOp::Uniform);
 		sync->write(Asset::Uniform::diffuse_map);
@@ -363,14 +384,14 @@ b8 Skybox::Config::valid() const
 	return shader != AssetNull && mesh != AssetNull;
 }
 
-void Skybox::draw_alpha(const RenderParams& p, const Config& config)
+void Skybox::draw_alpha(const RenderParams& p)
 {
-	if (config.mesh == AssetNull || p.technique != RenderTechnique::Default)
+	if (Game::level.skybox.mesh == AssetNull || p.technique != RenderTechnique::Default)
 		return;
 
-	Loader::shader(config.shader);
-	Loader::mesh(config.mesh);
-	Loader::texture(config.texture);
+	Loader::shader(Game::level.skybox.shader);
+	Loader::mesh(Game::level.skybox.mesh);
+	Loader::texture(Game::level.skybox.texture);
 
 	RenderSync* sync = p.sync;
 
@@ -378,8 +399,14 @@ void Skybox::draw_alpha(const RenderParams& p, const Config& config)
 	sync->write<b8>(false);
 
 	sync->write(RenderOp::Shader);
-	sync->write(config.shader);
-	sync->write(p.technique);
+	sync->write(Game::level.skybox.shader);
+
+	b8 volumetric_lighting = p.shadow_buffer != AssetNull && p.camera->colors;
+
+	if (volumetric_lighting)
+		sync->write(RenderTechnique::Shadow);
+	else
+		sync->write(RenderTechnique::Default);
 
 	Mat4 mvp = p.view * Mat4::make_scale(Vec3(p.camera->far_plane));
 	mvp.translation(Vec3::zero);
@@ -395,7 +422,7 @@ void Skybox::draw_alpha(const RenderParams& p, const Config& config)
 	sync->write(Asset::Uniform::diffuse_color);
 	sync->write(RenderDataType::Vec3);
 	sync->write<s32>(1);
-	sync->write<Vec3>(config.color);
+	sync->write<Vec3>(Game::level.skybox.color);
 
 	sync->write(RenderOp::Uniform);
 	sync->write(Asset::Uniform::p);
@@ -413,13 +440,13 @@ void Skybox::draw_alpha(const RenderParams& p, const Config& config)
 	sync->write(Asset::Uniform::fog_start);
 	sync->write(RenderDataType::R32);
 	sync->write<s32>(1);
-	sync->write<r32>(config.fog_start);
+	sync->write<r32>(fog_start(p));
 
 	sync->write(RenderOp::Uniform);
 	sync->write(Asset::Uniform::fog_extent);
 	sync->write(RenderDataType::R32);
 	sync->write<s32>(1);
-	sync->write<r32>(p.camera->far_plane - config.fog_start);
+	sync->write<r32>(p.camera->far_plane - fog_start(p));
 
 	sync->write(RenderOp::Uniform);
 	sync->write(Asset::Uniform::far_plane);
@@ -431,7 +458,7 @@ void Skybox::draw_alpha(const RenderParams& p, const Config& config)
 	sync->write(Asset::Uniform::fog);
 	sync->write(RenderDataType::S32);
 	sync->write<s32>(1);
-	sync->write<r32>(p.camera->fog);
+	sync->write<s32>(p.camera->colors);
 
 	Vec2 inv_buffer_size = Vec2(1.0f / (r32)p.sync->input.width, 1.0f / (r32)p.sync->input.height);
 
@@ -454,19 +481,45 @@ void Skybox::draw_alpha(const RenderParams& p, const Config& config)
 	sync->write<RenderTextureType>(RenderTextureType::Texture2D);
 	sync->write<AssetID>(p.depth_buffer);
 
-	if (config.texture != AssetNull)
+	if (volumetric_lighting)
+	{
+		sync->write(RenderOp::Uniform);
+		sync->write(Asset::Uniform::shadow_map);
+		sync->write(RenderDataType::Texture);
+		sync->write<s32>(1);
+		sync->write<RenderTextureType>(RenderTextureType::Texture2D);
+		sync->write<AssetID>(p.shadow_buffer);
+
+		sync->write(RenderOp::Uniform);
+		sync->write(Asset::Uniform::light_vp);
+		sync->write(RenderDataType::Mat4);
+		sync->write<s32>(1);
+		Mat4 view_rotation = p.view;
+		view_rotation.translation(Vec3::zero);
+		sync->write<Mat4>(view_rotation.inverse() * p.shadow_vp);
+
+		Loader::texture_permanent(Asset::Texture::noise, RenderTextureWrap::Repeat, RenderTextureFilter::Nearest);
+		sync->write(RenderOp::Uniform);
+		sync->write(Asset::Uniform::noise_sampler);
+		sync->write(RenderDataType::Texture);
+		sync->write<s32>(1);
+		sync->write<RenderTextureType>(RenderTextureType::Texture2D);
+		sync->write<AssetID>(Asset::Texture::noise);
+	}
+
+	if (Game::level.skybox.texture != AssetNull)
 	{
 		sync->write(RenderOp::Uniform);
 		sync->write(Asset::Uniform::diffuse_map);
 		sync->write(RenderDataType::Texture);
 		sync->write<s32>(1);
 		sync->write<RenderTextureType>(RenderTextureType::Texture2D);
-		sync->write<AssetID>(config.texture);
+		sync->write<AssetID>(Game::level.skybox.texture);
 	}
 
 	sync->write(RenderOp::Mesh);
 	sync->write(RenderPrimitiveMode::Triangles);
-	sync->write(config.mesh);
+	sync->write<AssetID>(Game::level.skybox.mesh);
 
 	sync->write<RenderOp>(RenderOp::DepthTest);
 	sync->write<b8>(true);

@@ -1624,6 +1624,9 @@ namespace LMath
 	}
 
 	b8 ray_sphere_intersect(const Vec3&, const Vec3&, const Vec3&, r32, Vec3* = nullptr);
+
+	Vec3 desaturate(const Vec3&);
+	Vec4 desaturate(const Vec4&);
 }
 
 

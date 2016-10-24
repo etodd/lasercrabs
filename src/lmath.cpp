@@ -125,6 +125,18 @@ namespace LMath
 		}
 		return false;
 	}
+
+	Vec3 desaturate(const Vec3& c)
+	{
+		r32 intensity = c.x * 0.333333f + c.y * 0.333333f + c.z * 0.333333f;
+		return Vec3(intensity);
+	}
+
+	Vec4 desaturate(const Vec4& c)
+	{
+		r32 intensity = c.x * 0.333333f + c.y * 0.333333f + c.z * 0.333333f;
+		return Vec4(intensity, intensity, intensity, c.w);
+	}
 }
 
 const Vec2 Vec2::zero(0, 0);

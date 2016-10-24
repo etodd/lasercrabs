@@ -288,6 +288,8 @@ set(SRC
 	src/game/scripts.cpp
 	src/game/usernames.h
 	src/game/usernames.cpp
+	src/game/parkour.h
+	src/game/parkour.cpp
 	external/sdl_controllers/gamecontrollerdb.txt
 	assets/shader/particle_standard.glsl
 	assets/shader/particle_eased.glsl

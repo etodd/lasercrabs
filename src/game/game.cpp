@@ -43,6 +43,7 @@
 #include "utf8/utf8.h"
 #include "cora.h"
 #include "net.h"
+#include "parkour.h"
 
 #if DEBUG
 	#define DEBUG_NAV_MESH 0
@@ -440,6 +441,8 @@ void Game::update(const Update& update_in)
 			i.item()->update(u);
 		for (auto i = Rocket::list.iterator(); !i.is_last(); i.next())
 			i.item()->update(u);
+		for (auto i = Parkour::list.iterator(); !i.is_last(); i.next())
+			i.item()->update(u);
 		for (auto i = PlayerCommon::list.iterator(); !i.is_last(); i.next())
 			i.item()->update(u);
 		for (auto i = PlayerControlHuman::list.iterator(); !i.is_last(); i.next())
@@ -521,9 +524,9 @@ void Game::draw_alpha(const RenderParams& render_params)
 	for (auto i = Water::list.iterator(); !i.is_last(); i.next())
 		i.item()->draw_alpha(render_params);
 
-	if (level.mode == Mode::Special)
-		Skybox::draw_alpha(render_params, level.skybox);
-	SkyDecal::draw_alpha(render_params, level.skybox);
+	if (render_params.camera->colors)
+		Skybox::draw_alpha(render_params);
+	SkyDecal::draw_alpha(render_params);
 	SkyPattern::draw_alpha(render_params);
 
 #if DEBUG_NAV_MESH
@@ -835,6 +838,21 @@ void Game::execute(const Update& u, const char* cmd)
 			}
 		}
 	}
+	else if (strstr(cmd, "loadp ") == cmd)
+	{
+		// parkour mode
+		const char* delimiter = strchr(cmd, ' ');
+		if (delimiter)
+		{
+			const char* level_name = delimiter + 1;
+			AssetID level = Loader::find_level(level_name);
+			if (level != AssetNull)
+			{
+				save = Save();
+				schedule_load_level(level, Mode::Parkour);
+			}
+		}
+	}
 	else if (level.id == Asset::Level::terminal)
 		Terminal::execute(cmd);
 }
@@ -866,7 +884,6 @@ void Game::unload_level()
 	cleanups.length = 0;
 
 	level.skybox.far_plane = 1.0f;
-	level.skybox.fog_start = level.skybox.far_plane * 0.25f;
 	level.skybox.color = Vec3::zero;
 	level.skybox.ambient_color = Vec3::zero;
 	level.skybox.shader = AssetNull;
@@ -960,9 +977,6 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 	EntityFinder finder;
 
 	// material override colors
-	const Vec3 pvp_accessible(0.7f);
-	const Vec3 pvp_inaccessible(0.0f);
-
 	AI::Team teams[MAX_PLAYERS];
 
 	cJSON* json = Loader::level(l);
@@ -973,7 +987,7 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 
 	// count control point sets and pick one of them
 	s32 control_point_set = 0;
-	if (level.mode == Mode::Pvp && level.type == Type::Rush)
+	if (level.type == Type::Rush)
 	{
 		s32 max_control_point_set = 0;
 		cJSON* element = json->child;
@@ -1056,11 +1070,6 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 			level.skybox.color = Json::get_vec3(element, "skybox_color");
 			level.skybox.ambient_color = Json::get_vec3(element, "ambient_color");
 			level.skybox.player_light = Json::get_vec3(element, "zenith_color");
-			level.skybox.sky_decal_fog_start = level.skybox.far_plane * 0.25f;
-			if (level.mode == Mode::Pvp)
-				level.skybox.fog_start = level.skybox.far_plane;
-			else
-				level.skybox.fog_start = level.skybox.far_plane * 0.25f;
 
 			level.min_y = Json::get_r32(element, "min_y", -20.0f);
 
@@ -1117,6 +1126,7 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 		{
 			b8 alpha = (b8)Json::get_s32(element, "alpha");
 			b8 additive = (b8)Json::get_s32(element, "additive");
+			b8 no_parkour = cJSON_HasObjectItem(element, "no_parkour");
 			AssetID texture = (AssetID)Loader::find(Json::get_string(element, "texture"), AssetLookup::Texture::names);
 
 			cJSON* meshes = cJSON_GetObjectItem(element, "meshes");
@@ -1135,22 +1145,19 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 					if (mesh->color.w < 0.5f && !(alpha || additive))
 					{
 						// inaccessible
-						m = World::alloc<StaticGeom>(mesh_id, absolute_pos, absolute_rot, CollisionInaccessible, CollisionInaccessibleMask);
-						Vec4 color = Loader::mesh(mesh_id)->color;
-						if (level.mode == Mode::Pvp) // override colors
-							color.xyz(pvp_inaccessible);
-						color.w = MATERIAL_NO_OVERRIDE; // special G-buffer index for inaccessible materials
-						m->get<View>()->color = color;
+						if (no_parkour) // no parkour material
+							m = World::alloc<StaticGeom>(mesh_id, absolute_pos, absolute_rot, CollisionInaccessible, ~CollisionParkour & ~CollisionInaccessibleMask);
+						else
+							m = World::alloc<StaticGeom>(mesh_id, absolute_pos, absolute_rot, CollisionParkour | CollisionInaccessible, ~CollisionParkour & ~CollisionInaccessibleMask);
+						m->get<View>()->color.w = MATERIAL_NO_OVERRIDE;
 					}
 					else
 					{
 						// accessible
-						m = World::alloc<StaticGeom>(mesh_id, absolute_pos, absolute_rot);
-
-						Vec4 color = Loader::mesh(mesh_id)->color;
-						if (level.mode == Mode::Pvp) // override colors
-							color.xyz(pvp_accessible);
-						m->get<View>()->color = color;
+						if (no_parkour) // no parkour material
+							m = World::alloc<StaticGeom>(mesh_id, absolute_pos, absolute_rot, 0, ~CollisionParkour & ~CollisionInaccessible);
+						else
+							m = World::alloc<StaticGeom>(mesh_id, absolute_pos, absolute_rot, CollisionParkour, ~CollisionParkour);
 					}
 
 					m->get<View>()->texture = texture;
@@ -1315,8 +1322,6 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 
 			entity = World::alloc<WaterEntity>(mesh_id);
 			Water* water = entity->get<Water>();
-			if (level.mode == Mode::Pvp)
-				water->color = Vec4(pvp_inaccessible, MATERIAL_NO_OVERRIDE);
 			water->texture = Loader::find(Json::get_string(element, "texture", "water_normal"), AssetLookup::Texture::names);
 			water->displacement_horizontal = Json::get_r32(element, "displacement_horizontal", 2.0f);
 			water->displacement_vertical = Json::get_r32(element, "displacement_vertical", 0.75f);
@@ -1355,13 +1360,11 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 					// View
 					entity->get<View>()->texture = texture;
 					entity->get<View>()->shader = shader;
-					if (level.mode == Mode::Pvp && !alpha && !additive)
+					if (!alpha && !additive)
 					{
 						const Mesh* mesh = Loader::mesh(mesh_id);
 						if (mesh->color.w < 0.5f)
-							entity->get<View>()->color = Vec4(pvp_inaccessible, MATERIAL_NO_OVERRIDE);
-						else
-							entity->get<View>()->color.xyz(pvp_accessible);
+							entity->get<View>()->color.w = MATERIAL_NO_OVERRIDE;
 					}
 					if (alpha)
 						entity->get<View>()->alpha();
@@ -1374,13 +1377,11 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 					// SkinnedModel
 					entity->get<SkinnedModel>()->texture = texture;
 					entity->get<SkinnedModel>()->shader = shader;
-					if (level.mode == Mode::Pvp && !alpha && !additive)
+					if (!alpha && !additive)
 					{
 						const Mesh* mesh = Loader::mesh(mesh_id);
 						if (mesh->color.w < 0.5f)
-							entity->get<SkinnedModel>()->color = Vec4(pvp_inaccessible, MATERIAL_NO_OVERRIDE);
-						else
-							entity->get<SkinnedModel>()->color.xyz(pvp_accessible);
+							entity->get<SkinnedModel>()->color.w = MATERIAL_NO_OVERRIDE;
 					}
 					if (alpha)
 						entity->get<SkinnedModel>()->alpha();
@@ -1407,13 +1408,11 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 
 					m->get<View>()->texture = texture;
 					m->get<View>()->shader = shader;
-					if (level.mode == Mode::Pvp && !alpha && !additive)
+					if (!alpha && !additive)
 					{
 						const Mesh* mesh = Loader::mesh(mesh_id);
 						if (mesh->color.w < 0.5f)
-							m->get<View>()->color = Vec4(pvp_inaccessible, MATERIAL_NO_OVERRIDE);
-						else
-							m->get<View>()->color.xyz(pvp_accessible);
+							m->get<View>()->color.w = MATERIAL_NO_OVERRIDE;
 					}
 
 					if (alpha)

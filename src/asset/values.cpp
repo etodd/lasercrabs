@@ -360,8 +360,18 @@ const char* AssetLookup::Animation::values[] =
 {
 	"assets/awk_dash.anm",
 	"assets/awk_fly.anm",
+	"assets/character_fall.anm",
 	"assets/character_idle.anm",
+	"assets/character_jump1.anm",
+	"assets/character_land.anm",
+	"assets/character_land_hard.anm",
+	"assets/character_mantle.anm",
+	"assets/character_roll.anm",
+	"assets/character_run.anm",
+	"assets/character_slide.anm",
 	"assets/character_walk.anm",
+	"assets/character_wall_run_left.anm",
+	"assets/character_wall_run_right.anm",
 	0,
 };
 
@@ -370,8 +380,18 @@ const char* AssetLookup::Animation::names[] =
 {
 	"awk_dash",
 	"awk_fly",
+	"character_fall",
 	"character_idle",
+	"character_jump1",
+	"character_land",
+	"character_land_hard",
+	"character_mantle",
+	"character_roll",
+	"character_run",
+	"character_slide",
 	"character_walk",
+	"character_wall_run_left",
+	"character_wall_run_right",
 	0,
 };
 

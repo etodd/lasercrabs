@@ -25,6 +25,7 @@
 #include "walker.h"
 #include "data/animator.h"
 #include "mersenne/mersenne-twister.h"
+#include "parkour.h"
 #include "noise.h"
 #include "settings.h"
 #if DEBUG_AI_CONTROL
@@ -65,7 +66,7 @@ r32 hp_width(u8 hp, u8 shield, r32 scale = 1.0f)
 	return scale * ((shield + (hp - 1)) * (box_size.x + HP_BOX_SPACING) - HP_BOX_SPACING);
 }
 
-void camera_setup(Entity* e, Camera* camera, r32 offset)
+void camera_setup_awk(Entity* e, Camera* camera, r32 offset)
 {
 	Vec3 abs_wall_normal = (e->get<Transform>()->absolute_rot() * e->get<Awk>()->lerped_rotation) * Vec3(0, 0, 1);
 	camera->wall_normal = camera->rot.inverse() * abs_wall_normal;
@@ -80,6 +81,7 @@ void camera_setup(Entity* e, Camera* camera, r32 offset)
 	camera->range_center = camera->rot.inverse() * (e->get<Awk>()->center_lerped() - camera->pos);
 	camera->cull_range = camera->range_center.length();
 	camera->cull_behind_wall = abs_wall_normal.dot(camera->pos - e->get<Awk>()->attach_point()) < 0.0f;
+	camera->colors = false;
 }
 
 s32 PlayerHuman::count_local()
@@ -106,7 +108,8 @@ PlayerHuman::PlayerHuman(b8 local, u8 g)
 	upgrade_animation_time(),
 	score_summary_scroll(),
 	spectate_index(),
-	local(local)
+	local(local),
+	last_supported()
 {
 	if (local)
 		uuid = Game::session.local_player_uuids[gamepad];
@@ -123,7 +126,12 @@ PlayerHuman::UIMode PlayerHuman::ui_mode() const
 		if (upgrade_menu_open)
 			return UIMode::Upgrading;
 		else
-			return UIMode::Default;
+		{
+			if (get<PlayerManager>()->entity.ref()->has<Awk>())
+				return UIMode::PvpDefault;
+			else
+				return UIMode::ParkourDefault;
+		}
 	}
 	else
 		return UIMode::Dead;
@@ -228,7 +236,6 @@ void PlayerHuman::update(const Update& u)
 	if (!camera)
 	{
 		camera = Camera::add();
-		camera->fog = false;
 		camera->team = (u8)get<PlayerManager>()->team.ref()->team();
 		camera->mask = 1 << camera->team;
 		s32 player_count;
@@ -250,6 +257,37 @@ void PlayerHuman::update(const Update& u)
 		Quat rot;
 		map_view.ref()->absolute(&camera->pos, &rot);
 		camera->rot = Quat::look(rot * Vec3(0, -1, 0));
+	}
+
+	{
+		Entity* entity = get<PlayerManager>()->entity.ref();
+		if (entity && entity->has<Parkour>())
+		{
+			RigidBody* support = entity->get<Walker>()->support.ref();
+			if (support)
+			{
+				Vec3 relative_position = support->get<Transform>()->to_local(entity->get<Transform>()->absolute_pos());
+				b8 record_support = false;
+				if (last_supported.length == 0)
+					record_support = true;
+				else
+				{
+					const SupportEntry& last_entry = last_supported[last_supported.length - 1];
+					if (last_entry.support.ref() != support || (last_entry.relative_position - relative_position).length_squared() > 2.0f * 2.0f)
+						record_support = true;
+				}
+
+				if (record_support)
+				{
+					if (last_supported.length == last_supported.capacity())
+						last_supported.remove_ordered(0);
+					SupportEntry* entry = last_supported.add();
+					entry->support = support;
+					entry->relative_position = relative_position;
+					entry->rotation = entity->get<Walker>()->target_rotation;
+				}
+			}
+		}
 	}
 
 	if (Console::visible)
@@ -275,11 +313,11 @@ void PlayerHuman::update(const Update& u)
 		if (Game::time.total > 0.5f
 			&& u.last_input->get(Controls::Pause, gamepad)
 			&& !u.input->get(Controls::Pause, gamepad)
-			&& (!get<PlayerManager>()->entity.ref() || get<PlayerManager>()->entity.ref()->get<Awk>()->current_ability == Ability::None) // HACK because cancel and pause are on the same dang key
 			&& !Game::cancel_event_eaten[gamepad]
 			&& !upgrade_menu_open
 			&& (menu_state == Menu::State::Hidden || menu_state == Menu::State::Visible)
-			&& !Cora::has_focus())
+			&& !Cora::has_focus()
+			&& (!get<PlayerManager>()->entity.ref() || !get<PlayerManager>()->entity.ref()->has<Awk>() || get<PlayerManager>()->entity.ref()->get<Awk>()->current_ability == Ability::None)) // HACK because cancel and pause are on the same dang key
 		{
 			Game::cancel_event_eaten[gamepad] = true;
 			menu_state = (menu_state == Menu::State::Hidden) ? Menu::State::Visible : Menu::State::Hidden;
@@ -301,7 +339,7 @@ void PlayerHuman::update(const Update& u)
 
 	switch (ui_mode())
 	{
-		case UIMode::Default:
+		case UIMode::PvpDefault:
 		{
 			if (!u.input->get(Controls::Interact, gamepad) && u.last_input->get(Controls::Interact, gamepad))
 			{
@@ -320,6 +358,10 @@ void PlayerHuman::update(const Update& u)
 					get<PlayerManager>()->entity.ref()->get<Awk>()->current_ability = Ability::None;
 				}
 			}
+			break;
+		}
+		case UIMode::ParkourDefault:
+		{
 			break;
 		}
 		case UIMode::Upgrading:
@@ -415,7 +457,7 @@ void PlayerHuman::update(const Update& u)
 					Entity* spectating = live_player_get(spectate_index);
 
 					if (spectating)
-						camera_setup(spectating, camera, 6.0f);
+						camera_setup_awk(spectating, camera, 6.0f);
 				}
 			}
 			break;
@@ -458,9 +500,33 @@ void PlayerHuman::spawn()
 	Vec3 dir = rot * Vec3(0, 1, 0);
 	r32 angle = atan2f(dir.x, dir.z);
 
-	// Spawn AWK
-	pos += Quat::euler(0, angle + (gamepad * PI * 0.5f), 0) * Vec3(0, 0, CONTROL_POINT_RADIUS * 0.5f); // spawn it around the edges
-	Entity* spawned = World::create<AwkEntity>(get<PlayerManager>()->team.ref()->team());
+	Entity* spawned;
+
+	// todo: revamp spawn code to work with new combined parkour/pvp system
+	if (Game::level.mode == Game::Mode::Pvp)
+	{
+		// Spawn AWK
+		pos += Quat::euler(0, angle + (gamepad * PI * 0.5f), 0) * Vec3(0, 0, CONTROL_POINT_RADIUS * 0.5f); // spawn it around the edges
+		spawned = World::create<AwkEntity>(get<PlayerManager>()->team.ref()->team());
+	}
+	else
+	{
+		// Spawn traceur
+		if (last_supported.length > 1) // don't spawn at the last supported location, but the one before that
+			last_supported.remove_ordered(last_supported.length - 1);
+		while (last_supported.length > 0) // try to spawn at last supported location
+		{
+			SupportEntry entry = last_supported[last_supported.length - 1];
+			last_supported.remove_ordered(last_supported.length - 1);
+			if (entry.support.ref())
+			{
+				pos = entry.support.ref()->get<Transform>()->to_world(entry.relative_position);
+				angle = entry.rotation;
+				break;
+			}
+		}
+		spawned = World::create<Traceur>(pos + Vec3(0, 2, 0), Quat::euler(0, angle, 0), get<PlayerManager>()->team.ref()->team());
+	}
 
 	spawned->get<Transform>()->absolute_pos(pos);
 	PlayerCommon* common = spawned->add<PlayerCommon>(get<PlayerManager>());
@@ -567,7 +633,8 @@ void scoreboard_draw(const RenderParams& params, const PlayerManager* manager)
 
 void PlayerHuman::draw_alpha(const RenderParams& params) const
 {
-	if (params.camera != camera || Game::level.continue_match_after_death)
+	if (params.camera != camera
+		|| Game::level.continue_match_after_death)
 		return;
 
 	vi_assert(local);
@@ -581,8 +648,10 @@ void PlayerHuman::draw_alpha(const RenderParams& params) const
 	r32 radius = 64.0f * UI::scale;
 	Vec2 center = vp.size * Vec2(0.1f, 0.1f) + Vec2(radius, radius * 0.5f + (text_size * UI::scale * 0.5f));
 
-	if (Game::level.has_feature(Game::FeatureLevel::Abilities)
-		&& (mode == UIMode::Default || mode == UIMode::Upgrading))
+	// todo: revamp game mode system
+	if (Game::level.mode == Game::Mode::Pvp
+		&& Game::level.has_feature(Game::FeatureLevel::Abilities)
+		&& (mode == UIMode::PvpDefault || mode == UIMode::Upgrading))
 	{
 		// credits
 		b8 draw = true;
@@ -627,7 +696,7 @@ void PlayerHuman::draw_alpha(const RenderParams& params) const
 	if (Game::level.has_feature(Game::FeatureLevel::Abilities))
 	{
 		ControlPoint* control_point = get<PlayerManager>()->at_control_point();
-		if (mode == UIMode::Default
+		if (mode == UIMode::PvpDefault
 			&& get<PlayerManager>()->can_transition_state()
 			&& ((control_point && !control_point->owned_by(get<PlayerManager>()->team.ref()->team()))
 				|| get<PlayerManager>()->at_upgrade_point()))
@@ -656,7 +725,7 @@ void PlayerHuman::draw_alpha(const RenderParams& params) const
 			text.draw(params, pos);
 		}
 
-		if ((mode == UIMode::Default || mode == UIMode::Upgrading)
+		if ((mode == UIMode::PvpDefault || mode == UIMode::Upgrading)
 			&& get<PlayerManager>()->can_transition_state())
 		{
 			// draw abilities
@@ -698,7 +767,7 @@ void PlayerHuman::draw_alpha(const RenderParams& params) const
 		}
 	}
 
-	if (mode == UIMode::Default)
+	if (mode == UIMode::PvpDefault)
 	{
 		if (params.sync->input.get(Controls::Scoreboard, gamepad))
 			scoreboard_draw(params, get<PlayerManager>());
@@ -865,7 +934,7 @@ void PlayerHuman::draw_alpha(const RenderParams& params) const
 			}
 		}
 	}
-	else
+	else if (Game::level.mode == Game::Mode::Pvp)
 	{
 		// game is not yet over
 
@@ -928,7 +997,7 @@ void PlayerHuman::draw_alpha(const RenderParams& params) const
 			}
 		}
 
-		if (mode == UIMode::Default || mode == UIMode::Upgrading)
+		if (mode == UIMode::PvpDefault || mode == UIMode::Upgrading)
 		{
 			// draw battery/timer
 
@@ -1030,17 +1099,25 @@ PlayerCommon::PlayerCommon(PlayerManager* m)
 
 void PlayerCommon::awake()
 {
-	get<Health>()->hp_max = AWK_HEALTH;
-	link<&PlayerCommon::awk_done_flying>(get<Awk>()->done_flying);
-	link<&PlayerCommon::awk_detached>(get<Awk>()->detached);
-	link_arg<const Vec3&, &PlayerCommon::awk_bounce>(get<Awk>()->bounce);
+	if (has<Awk>())
+	{
+		get<Health>()->hp_max = AWK_HEALTH;
+		link<&PlayerCommon::awk_done_flying>(get<Awk>()->done_flying);
+		link<&PlayerCommon::awk_detached>(get<Awk>()->detached);
+		link_arg<const Vec3&, &PlayerCommon::awk_bounce>(get<Awk>()->bounce);
+	}
 }
 
 b8 PlayerCommon::movement_enabled() const
 {
-	return get<Awk>()->state() == Awk::State::Crawl // must be attached to wall
-		&& manager.ref()->state() == PlayerManager::State::Default // can't move while upgrading and stuff
-		&& (Game::time.total > GAME_BUY_PERIOD || !Game::level.has_feature(Game::FeatureLevel::Abilities)); // or during the buy period
+	if (has<Awk>())
+	{
+		return get<Awk>()->state() == Awk::State::Crawl // must be attached to wall
+			&& manager.ref()->state() == PlayerManager::State::Default // can't move while upgrading and stuff
+			&& (Game::time.total > GAME_BUY_PERIOD || !Game::level.has_feature(Game::FeatureLevel::Abilities)); // or during the buy period
+	}
+	else
+		return true;
 }
 
 void PlayerCommon::update(const Update& u)
@@ -1161,7 +1238,8 @@ PlayerControlHuman::PlayerControlHuman()
 	: gamepad(),
 	fov(fov_default),
 	try_primary(),
-	try_zoom(),
+	try_secondary(),
+	try_slide(),
 	damage_timer(),
 	rumble(),
 	target_indicators(),
@@ -1177,12 +1255,34 @@ PlayerControlHuman::~PlayerControlHuman()
 
 void PlayerControlHuman::awake()
 {
-	last_pos = get<Awk>()->center_lerped();
-	link<&PlayerControlHuman::awk_detached>(get<Awk>()->detached);
-	link<&PlayerControlHuman::awk_done_flying_or_dashing>(get<Awk>()->done_flying);
-	link<&PlayerControlHuman::awk_done_flying_or_dashing>(get<Awk>()->done_dashing);
-	link_arg<Entity*, &PlayerControlHuman::hit_target>(get<Awk>()->hit);
-	link_arg<const TargetEvent&, &PlayerControlHuman::hit_by>(get<Target>()->target_hit);
+	if (has<Awk>())
+	{
+		last_pos = get<Awk>()->center_lerped();
+		link<&PlayerControlHuman::awk_detached>(get<Awk>()->detached);
+		link<&PlayerControlHuman::awk_done_flying_or_dashing>(get<Awk>()->done_flying);
+		link<&PlayerControlHuman::awk_done_flying_or_dashing>(get<Awk>()->done_dashing);
+		link_arg<Entity*, &PlayerControlHuman::hit_target>(get<Awk>()->hit);
+		link_arg<const TargetEvent&, &PlayerControlHuman::hit_by>(get<Target>()->target_hit);
+	}
+	else
+	{
+		link_arg<r32, &PlayerControlHuman::parkour_landed>(get<Walker>()->land);
+		get<Audio>()->post_event(AK::EVENTS::PLAY_FLY);
+		get<Audio>()->param(AK::GAME_PARAMETERS::FLY_VOLUME, 0.0f);
+	}
+}
+
+void PlayerControlHuman::parkour_landed(r32 velocity_diff)
+{
+	Parkour::State parkour_state = get<Parkour>()->fsm.current;
+	if (velocity_diff < LANDING_VELOCITY_LIGHT
+		&& (parkour_state == Parkour::State::Normal || parkour_state == Parkour::State::HardLanding))
+	{
+		if (velocity_diff < LANDING_VELOCITY_HARD)
+			rumble = vi_max(rumble, 0.5f);
+		else
+			rumble = vi_max(rumble, 0.2f);
+	}
 }
 
 void PlayerControlHuman::hit_target(Entity* target)
@@ -1222,7 +1322,11 @@ void PlayerControlHuman::awk_detached()
 
 b8 PlayerControlHuman::input_enabled() const
 {
-	return !Console::visible && player.ref()->ui_mode() == PlayerHuman::UIMode::Default && !Cora::has_focus() && !Team::game_over;
+	PlayerHuman::UIMode ui_mode = player.ref()->ui_mode();
+	return !Console::visible
+		&& (ui_mode == PlayerHuman::UIMode::PvpDefault || ui_mode == PlayerHuman::UIMode::ParkourDefault)
+		&& !Cora::has_focus()
+		&& !Team::game_over;
 }
 
 b8 PlayerControlHuman::movement_enabled() const
@@ -1232,7 +1336,7 @@ b8 PlayerControlHuman::movement_enabled() const
 
 r32 PlayerControlHuman::look_speed() const
 {
-	if (try_zoom)
+	if (has<Awk>() && try_secondary)
 		return get<Awk>()->current_ability == Ability::Sniper ? zoom_speed_multiplier_sniper : zoom_speed_multiplier;
 	else
 		return 1.0f;
@@ -1407,339 +1511,519 @@ void ability_update(const Update& u, PlayerControlHuman* control, Controls bindi
 
 void PlayerControlHuman::update(const Update& u)
 {
-	if (player.ref()->local)
+	if (has<Awk>())
 	{
-		Camera* camera = player.ref()->camera;
+		if (player.ref()->local)
 		{
-			// zoom
-			b8 zoom_pressed = u.input->get(Controls::Zoom, gamepad);
-			b8 last_zoom_pressed = u.last_input->get(Controls::Zoom, gamepad);
-			if (zoom_pressed && !last_zoom_pressed)
+			Camera* camera = player.ref()->camera;
 			{
-				if (get<Transform>()->parent.ref() && input_enabled())
+				// zoom
+				b8 zoom_pressed = u.input->get(Controls::Zoom, gamepad);
+				b8 last_zoom_pressed = u.last_input->get(Controls::Zoom, gamepad);
+				if (zoom_pressed && !last_zoom_pressed)
 				{
-					// we can actually zoom
-					try_zoom = true;
-					get<Audio>()->post_event(AK::EVENTS::PLAY_ZOOM_IN);
-				}
-			}
-			else if (!zoom_pressed)
-			{
-				if (try_zoom)
-					get<Audio>()->post_event(AK::EVENTS::PLAY_ZOOM_OUT);
-				try_zoom = false;
-			}
-
-			r32 fov_target = try_zoom ? (get<Awk>()->current_ability == Ability::Sniper ? fov_sniper : fov_zoom) : fov_default;
-
-			if (fov < fov_target)
-				fov = vi_min(fov + zoom_speed * sinf(fov) * u.time.delta, fov_target);
-			else if (fov > fov_target)
-				fov = vi_max(fov - zoom_speed * sinf(fov) * u.time.delta, fov_target);
-		}
-
-		// update camera projection
-		{
-			r32 aspect = camera->viewport.size.y == 0 ? 1 : (r32)camera->viewport.size.x / (r32)camera->viewport.size.y;
-			camera->perspective(fov, aspect, 0.02f, Game::level.skybox.far_plane);
-		}
-
-		Quat look_quat;
-
-		if (get<Transform>()->parent.ref())
-		{
-			r32 gamepad_rotation_multiplier = 1.0f;
-
-			if (input_enabled() && u.input->gamepads[gamepad].active)
-			{
-				// gamepad aim assist based on data from last frame
-				Vec3 to_reticle = reticle.pos - camera->pos;
-				r32 reticle_distance = to_reticle.length();
-				to_reticle /= reticle_distance;
-				for (s32 i = 0; i < target_indicators.length; i++)
-				{
-					const TargetIndicator indicator = target_indicators[i];
-					if (indicator.type == TargetIndicator::Type::AwkVisible
-						|| indicator.type == TargetIndicator::Type::AwkTracking
-						|| indicator.type == TargetIndicator::Type::Energy
-						|| indicator.type == TargetIndicator::Type::Minion
-						|| indicator.type == TargetIndicator::Type::MinionAttacking)
+					if (get<Transform>()->parent.ref() && input_enabled())
 					{
-						Vec3 to_indicator = indicator.pos - camera->pos;
-						r32 indicator_distance = to_indicator.length();
-						if (indicator_distance > AWK_THIRD_PERSON_OFFSET && indicator_distance < reticle_distance + 2.5f)
+						// we can actually zoom
+						try_secondary = true;
+						get<Audio>()->post_event(AK::EVENTS::PLAY_ZOOM_IN);
+					}
+				}
+				else if (!zoom_pressed)
+				{
+					if (try_secondary)
+						get<Audio>()->post_event(AK::EVENTS::PLAY_ZOOM_OUT);
+					try_secondary = false;
+				}
+
+				r32 fov_target = try_secondary ? (get<Awk>()->current_ability == Ability::Sniper ? fov_sniper : fov_zoom) : fov_default;
+
+				if (fov < fov_target)
+					fov = vi_min(fov + zoom_speed * sinf(fov) * u.time.delta, fov_target);
+				else if (fov > fov_target)
+					fov = vi_max(fov - zoom_speed * sinf(fov) * u.time.delta, fov_target);
+			}
+
+			// update camera projection
+			{
+				r32 aspect = camera->viewport.size.y == 0 ? 1 : (r32)camera->viewport.size.x / (r32)camera->viewport.size.y;
+				camera->perspective(fov, aspect, 0.02f, Game::level.skybox.far_plane);
+			}
+
+			Quat look_quat;
+
+			if (get<Transform>()->parent.ref())
+			{
+				r32 gamepad_rotation_multiplier = 1.0f;
+
+				if (input_enabled() && u.input->gamepads[gamepad].active)
+				{
+					// gamepad aim assist based on data from last frame
+					Vec3 to_reticle = reticle.pos - camera->pos;
+					r32 reticle_distance = to_reticle.length();
+					to_reticle /= reticle_distance;
+					for (s32 i = 0; i < target_indicators.length; i++)
+					{
+						const TargetIndicator indicator = target_indicators[i];
+						if (indicator.type == TargetIndicator::Type::AwkVisible
+							|| indicator.type == TargetIndicator::Type::AwkTracking
+							|| indicator.type == TargetIndicator::Type::Energy
+							|| indicator.type == TargetIndicator::Type::Minion
+							|| indicator.type == TargetIndicator::Type::MinionAttacking)
 						{
-							to_indicator /= indicator_distance;
-							if (to_indicator.dot(to_reticle) > 0.99f)
+							Vec3 to_indicator = indicator.pos - camera->pos;
+							r32 indicator_distance = to_indicator.length();
+							if (indicator_distance > AWK_THIRD_PERSON_OFFSET && indicator_distance < reticle_distance + 2.5f)
 							{
-								// slow down gamepad rotation if we're hovering over this target
-								gamepad_rotation_multiplier = 0.6f;
-
-								if (Game::real_time.total - last_gamepad_input_time < 0.25f)
+								to_indicator /= indicator_distance;
+								if (to_indicator.dot(to_reticle) > 0.99f)
 								{
-									// adjust for relative velocity
-									Vec2 predicted_offset;
+									// slow down gamepad rotation if we're hovering over this target
+									gamepad_rotation_multiplier = 0.6f;
+
+									if (Game::real_time.total - last_gamepad_input_time < 0.25f)
 									{
-										Vec3 me = get<Awk>()->center_lerped();
-										Vec3 my_velocity = get<Awk>()->center_lerped() - last_pos;
+										// adjust for relative velocity
+										Vec2 predicted_offset;
 										{
-											r32 my_speed = my_velocity.length_squared();
-											if (my_speed == 0.0f || my_speed > AWK_CRAWL_SPEED * 1.5f * AWK_CRAWL_SPEED * 1.5f) // don't adjust if we're going too fast or not moving
+											Vec3 me = get<Awk>()->center_lerped();
+											Vec3 my_velocity = get<Awk>()->center_lerped() - last_pos;
+											{
+												r32 my_speed = my_velocity.length_squared();
+												if (my_speed == 0.0f || my_speed > AWK_CRAWL_SPEED * 1.5f * AWK_CRAWL_SPEED * 1.5f) // don't adjust if we're going too fast or not moving
+													break;
+											}
+											Vec3 me_predicted = me + my_velocity;
+
+											if (indicator.velocity.length_squared() > AWK_CRAWL_SPEED * 1.5f * AWK_CRAWL_SPEED * 1.5f) // enemy moving too fast
 												break;
+
+											Vec3 target_predicted = indicator.pos + indicator.velocity * u.time.delta;
+											Vec3 predicted_ray = Vec3::normalize(target_predicted - me_predicted);
+											Vec2 predicted_angles(atan2f(predicted_ray.x, predicted_ray.z), -asinf(predicted_ray.y));
+											predicted_offset = Vec2(LMath::angle_to(get<PlayerCommon>()->angle_horizontal, predicted_angles.x), LMath::angle_to(get<PlayerCommon>()->angle_vertical, predicted_angles.y));
 										}
-										Vec3 me_predicted = me + my_velocity;
 
-										if (indicator.velocity.length_squared() > AWK_CRAWL_SPEED * 1.5f * AWK_CRAWL_SPEED * 1.5f) // enemy moving too fast
-											break;
+										Vec2 current_offset;
+										{
+											Vec3 current_ray = Vec3::normalize(indicator.pos - get<Transform>()->absolute_pos());
+											Vec2 current_angles(atan2f(current_ray.x, current_ray.z), -asinf(current_ray.y));
+											current_offset = Vec2(LMath::angle_to(get<PlayerCommon>()->angle_horizontal, current_angles.x), LMath::angle_to(get<PlayerCommon>()->angle_vertical, current_angles.y));
+										}
 
-										Vec3 target_predicted = indicator.pos + indicator.velocity * u.time.delta;
-										Vec3 predicted_ray = Vec3::normalize(target_predicted - me_predicted);
-										Vec2 predicted_angles(atan2f(predicted_ray.x, predicted_ray.z), -asinf(predicted_ray.y));
-										predicted_offset = Vec2(LMath::angle_to(get<PlayerCommon>()->angle_horizontal, predicted_angles.x), LMath::angle_to(get<PlayerCommon>()->angle_vertical, predicted_angles.y));
+										Vec2 adjustment(LMath::angle_to(current_offset.x, predicted_offset.x), LMath::angle_to(current_offset.y, predicted_offset.y));
+										if (current_offset.x > 0 == adjustment.x > 0 // only adjust if it's an adjustment toward the target
+											&& fabs(get<PlayerCommon>()->angle_vertical) < PI * 0.4f) // only adjust if we're not looking straight up or down
+											get<PlayerCommon>()->angle_horizontal = LMath::angle_range(get<PlayerCommon>()->angle_horizontal + adjustment.x);
+										if (current_offset.y > 0 == adjustment.y > 0) // only adjust if it's an adjustment toward the target
+											get<PlayerCommon>()->angle_vertical = LMath::angle_range(get<PlayerCommon>()->angle_vertical + adjustment.y);
 									}
 
-									Vec2 current_offset;
-									{
-										Vec3 current_ray = Vec3::normalize(indicator.pos - get<Transform>()->absolute_pos());
-										Vec2 current_angles(atan2f(current_ray.x, current_ray.z), -asinf(current_ray.y));
-										current_offset = Vec2(LMath::angle_to(get<PlayerCommon>()->angle_horizontal, current_angles.x), LMath::angle_to(get<PlayerCommon>()->angle_vertical, current_angles.y));
-									}
-
-									Vec2 adjustment(LMath::angle_to(current_offset.x, predicted_offset.x), LMath::angle_to(current_offset.y, predicted_offset.y));
-									if (current_offset.x > 0 == adjustment.x > 0 // only adjust if it's an adjustment toward the target
-										&& fabs(get<PlayerCommon>()->angle_vertical) < PI * 0.4f) // only adjust if we're not looking straight up or down
-										get<PlayerCommon>()->angle_horizontal = LMath::angle_range(get<PlayerCommon>()->angle_horizontal + adjustment.x);
-									if (current_offset.y > 0 == adjustment.y > 0) // only adjust if it's an adjustment toward the target
-										get<PlayerCommon>()->angle_vertical = LMath::angle_range(get<PlayerCommon>()->angle_vertical + adjustment.y);
+									break;
 								}
-
-								break;
 							}
 						}
 					}
 				}
-			}
 
-			// look
-			update_camera_input(u, gamepad_rotation_multiplier);
-			get<PlayerCommon>()->clamp_rotation(get<PlayerCommon>()->attach_quat * Vec3(0, 0, 1), 0.5f);
-			look_quat = Quat::euler(0, get<PlayerCommon>()->angle_horizontal, get<PlayerCommon>()->angle_vertical);
+				// look
+				update_camera_input(u, gamepad_rotation_multiplier);
+				get<PlayerCommon>()->clamp_rotation(get<PlayerCommon>()->attach_quat * Vec3(0, 0, 1), 0.5f);
+				look_quat = Quat::euler(0, get<PlayerCommon>()->angle_horizontal, get<PlayerCommon>()->angle_vertical);
 
-			// crawling
-			{
-				Vec3 movement = get_movement(u, Quat::euler(0, get<PlayerCommon>()->angle_horizontal, get<PlayerCommon>()->angle_vertical));
-				get<Awk>()->crawl(movement, u);
-			}
-
-			last_pos = get<Awk>()->center_lerped();
-		}
-		else
-			look_quat = Quat::euler(0, get<PlayerCommon>()->angle_horizontal, get<PlayerCommon>()->angle_vertical);
-
-		{
-			// abilities
-			ability_update(u, this, Controls::Ability1, gamepad, 0);
-			ability_update(u, this, Controls::Ability2, gamepad, 1);
-			ability_update(u, this, Controls::Ability3, gamepad, 2);
-		}
-
-		// camera shake
-		if (damage_timer > 0.0f)
-		{
-			damage_timer -= u.time.delta;
-			if (get<Awk>()->state() == Awk::State::Crawl)
-			{
-				r32 shake = (damage_timer / damage_shake_time) * 0.3f;
-				r32 offset = Game::time.total * 10.0f;
-				look_quat = look_quat * Quat::euler(noise::sample3d(Vec3(offset)) * shake, noise::sample3d(Vec3(offset + 64)) * shake, noise::sample3d(Vec3(offset + 128)) * shake);
-			}
-		}
-
-		camera->rot = look_quat;
-		camera_setup(entity(), camera, AWK_THIRD_PERSON_OFFSET);
-
-		// reticle
-		{
-			Vec3 trace_dir = look_quat * Vec3(0, 0, 1);
-			Vec3 trace_start = camera->pos + trace_dir * AWK_THIRD_PERSON_OFFSET;
-
-			reticle.type = ReticleType::None;
-
-			if (movement_enabled())
-			{
-				Vec3 trace_end = trace_start + trace_dir * (AWK_SNIPE_DISTANCE + AWK_THIRD_PERSON_OFFSET);
-				RaycastCallbackExcept ray_callback(trace_start, trace_end, entity());
-				Physics::raycast(&ray_callback, ~CollisionAwkIgnore & ~get<Awk>()->ally_containment_field_mask() & ~CollisionShield);
-
-				Vec3 center = get<Transform>()->absolute_pos();
-
-				if (ray_callback.hasHit())
+				// crawling
 				{
-					reticle.pos = ray_callback.m_hitPointWorld;
-					reticle.normal = ray_callback.m_hitNormalWorld;
-					reticle.entity = &Entity::list[ray_callback.m_collisionObject->getUserIndex()];
-					Vec3 detach_dir = reticle.pos - center;
-					r32 distance = detach_dir.length();
-					detach_dir /= distance;
-					if (get<Awk>()->current_ability == Ability::None) // normal movement
+					Vec3 movement = get_movement(u, Quat::euler(0, get<PlayerCommon>()->angle_horizontal, get<PlayerCommon>()->angle_vertical));
+					get<Awk>()->crawl(movement, u);
+				}
+
+				last_pos = get<Awk>()->center_lerped();
+			}
+			else
+				look_quat = Quat::euler(0, get<PlayerCommon>()->angle_horizontal, get<PlayerCommon>()->angle_vertical);
+
+			{
+				// abilities
+				ability_update(u, this, Controls::Ability1, gamepad, 0);
+				ability_update(u, this, Controls::Ability2, gamepad, 1);
+				ability_update(u, this, Controls::Ability3, gamepad, 2);
+			}
+
+			// camera shake
+			if (damage_timer > 0.0f)
+			{
+				damage_timer -= u.time.delta;
+				if (get<Awk>()->state() == Awk::State::Crawl)
+				{
+					r32 shake = (damage_timer / damage_shake_time) * 0.3f;
+					r32 offset = Game::time.total * 10.0f;
+					look_quat = look_quat * Quat::euler(noise::sample3d(Vec3(offset)) * shake, noise::sample3d(Vec3(offset + 64)) * shake, noise::sample3d(Vec3(offset + 128)) * shake);
+				}
+			}
+
+			camera->rot = look_quat;
+			camera_setup_awk(entity(), camera, AWK_THIRD_PERSON_OFFSET);
+
+			// reticle
+			{
+				Vec3 trace_dir = look_quat * Vec3(0, 0, 1);
+				Vec3 trace_start = camera->pos + trace_dir * AWK_THIRD_PERSON_OFFSET;
+
+				reticle.type = ReticleType::None;
+
+				if (movement_enabled())
+				{
+					Vec3 trace_end = trace_start + trace_dir * (AWK_SNIPE_DISTANCE + AWK_THIRD_PERSON_OFFSET);
+					RaycastCallbackExcept ray_callback(trace_start, trace_end, entity());
+					Physics::raycast(&ray_callback, ~CollisionAwkIgnore & ~get<Awk>()->ally_containment_field_mask() & ~CollisionShield);
+
+					Vec3 center = get<Transform>()->absolute_pos();
+
+					if (ray_callback.hasHit())
 					{
-						if (get<Awk>()->direction_is_toward_attached_wall(detach_dir))
-							reticle.type = ReticleType::Dash;
-						else
+						reticle.pos = ray_callback.m_hitPointWorld;
+						reticle.normal = ray_callback.m_hitNormalWorld;
+						reticle.entity = &Entity::list[ray_callback.m_collisionObject->getUserIndex()];
+						Vec3 detach_dir = reticle.pos - center;
+						r32 distance = detach_dir.length();
+						detach_dir /= distance;
+						if (get<Awk>()->current_ability == Ability::None) // normal movement
+						{
+							if (get<Awk>()->direction_is_toward_attached_wall(detach_dir))
+								reticle.type = ReticleType::Dash;
+							else
+							{
+								Vec3 hit;
+								b8 hit_target;
+								if (get<Awk>()->can_shoot(detach_dir, &hit, &hit_target))
+								{
+									if ((hit - center).length() > distance - AWK_RADIUS)
+										reticle.type = hit_target ? ReticleType::Target : ReticleType::Normal;
+								}
+							}
+						}
+						else // spawning an ability
 						{
 							Vec3 hit;
 							b8 hit_target;
-							if (get<Awk>()->can_shoot(detach_dir, &hit, &hit_target))
+							if (get<Awk>()->can_spawn(get<Awk>()->current_ability, detach_dir, &hit, nullptr, nullptr, &hit_target))
 							{
-								if ((hit - center).length() > distance - AWK_RADIUS)
-									reticle.type = hit_target ? ReticleType::Target : ReticleType::Normal;
+								if (get<Awk>()->current_ability == Ability::Sniper && hit_target)
+									reticle.type = ReticleType::Target;
+								else if ((hit - Vec3(ray_callback.m_hitPointWorld)).length_squared() < AWK_RADIUS * AWK_RADIUS)
+									reticle.type = ReticleType::Normal;
 							}
 						}
 					}
-					else // spawning an ability
+					else
 					{
-						Vec3 hit;
-						b8 hit_target;
-						if (get<Awk>()->can_spawn(get<Awk>()->current_ability, detach_dir, &hit, nullptr, nullptr, &hit_target))
-						{
-							if (get<Awk>()->current_ability == Ability::Sniper && hit_target)
-								reticle.type = ReticleType::Target;
-							else if ((hit - Vec3(ray_callback.m_hitPointWorld)).length_squared() < AWK_RADIUS * AWK_RADIUS)
-								reticle.type = ReticleType::Normal;
-						}
+						reticle.pos = trace_end;
+						reticle.normal = -trace_dir;
+						reticle.entity = nullptr;
+						if (get<Awk>()->current_ability == Ability::None && get<Awk>()->direction_is_toward_attached_wall(reticle.pos - center))
+							reticle.type = ReticleType::Dash;
 					}
 				}
 				else
 				{
-					reticle.pos = trace_end;
+					reticle.pos = trace_start + trace_dir * AWK_THIRD_PERSON_OFFSET;
 					reticle.normal = -trace_dir;
 					reticle.entity = nullptr;
-					if (get<Awk>()->current_ability == Ability::None && get<Awk>()->direction_is_toward_attached_wall(reticle.pos - center))
-						reticle.type = ReticleType::Dash;
 				}
 			}
-			else
+
+			// collect target indicators
+			target_indicators.length = 0;
+
+			Vec3 me = get<Transform>()->absolute_pos();
+			AI::Team team = get<AIAgent>()->team;
+
+			// awk indicators
+			if (target_indicators.length < target_indicators.capacity())
 			{
-				reticle.pos = trace_start + trace_dir * AWK_THIRD_PERSON_OFFSET;
-				reticle.normal = -trace_dir;
-				reticle.entity = nullptr;
-			}
-		}
-
-		// collect target indicators
-		target_indicators.length = 0;
-
-		Vec3 me = get<Transform>()->absolute_pos();
-		AI::Team team = get<AIAgent>()->team;
-
-		// awk indicators
-		if (target_indicators.length < target_indicators.capacity())
-		{
-			for (auto other_player = PlayerCommon::list.iterator(); !other_player.is_last(); other_player.next())
-			{
-				if (other_player.item()->get<AIAgent>()->team != team)
+				for (auto other_player = PlayerCommon::list.iterator(); !other_player.is_last(); other_player.next())
 				{
-					b8 visible, tracking;
-					determine_visibility(get<PlayerCommon>(), other_player.item(), &visible, &tracking);
-
-					if (tracking || visible)
+					if (other_player.item()->get<AIAgent>()->team != team)
 					{
-						if (!add_target_indicator(other_player.item()->get<Target>(), tracking ? TargetIndicator::Type::AwkTracking : TargetIndicator::Type::AwkVisible))
+						b8 visible, tracking;
+						determine_visibility(get<PlayerCommon>(), other_player.item(), &visible, &tracking);
+
+						if (tracking || visible)
+						{
+							if (!add_target_indicator(other_player.item()->get<Target>(), tracking ? TargetIndicator::Type::AwkTracking : TargetIndicator::Type::AwkVisible))
+								break; // no more room for indicators
+						}
+					}
+				}
+			}
+
+			// headshot indicators
+			if (target_indicators.length < target_indicators.capacity())
+			{
+				for (auto i = MinionCommon::list.iterator(); !i.is_last(); i.next())
+				{
+					if (i.item()->get<AIAgent>()->team != team)
+					{
+						TargetIndicator::Type type = i.item()->get<MinionAI>()->goal.entity.ref() == entity() ? TargetIndicator::Type::MinionAttacking : TargetIndicator::Type::Minion;
+						if (!add_target_indicator(i.item()->get<Target>(), type))
 							break; // no more room for indicators
 					}
 				}
 			}
-		}
 
-		// headshot indicators
-		if (target_indicators.length < target_indicators.capacity())
-		{
-			for (auto i = MinionCommon::list.iterator(); !i.is_last(); i.next())
+			// health pickups
 			{
-				if (i.item()->get<AIAgent>()->team != team)
+				b8 full_health = get<Health>()->hp == get<Health>()->hp_max;
+				for (auto i = EnergyPickup::list.iterator(); !i.is_last(); i.next())
 				{
-					TargetIndicator::Type type = i.item()->get<MinionAI>()->goal.entity.ref() == entity() ? TargetIndicator::Type::MinionAttacking : TargetIndicator::Type::Minion;
-					if (!add_target_indicator(i.item()->get<Target>(), type))
-						break; // no more room for indicators
+					if (i.item()->team != team)
+					{
+						if (!add_target_indicator(i.item()->get<Target>(), TargetIndicator::Type::Energy))
+							break; // no more room for indicators
+					}
 				}
 			}
-		}
 
-		// health pickups
-		{
-			b8 full_health = get<Health>()->hp == get<Health>()->hp_max;
-			for (auto i = EnergyPickup::list.iterator(); !i.is_last(); i.next())
 			{
-				if (i.item()->team != team)
+				b8 primary_pressed = u.input->get(Controls::Primary, gamepad);
+				if (primary_pressed && !u.last_input->get(Controls::Primary, gamepad))
+					try_primary = true;
+				else if (!primary_pressed)
+					try_primary = false;
+			}
+
+			if (reticle.type == ReticleType::None || !get<Awk>()->cooldown_can_shoot())
+			{
+				// can't shoot
+				if (u.input->get(Controls::Primary, gamepad)) // player is mashing the fire button; give them some feedback
 				{
-					if (!add_target_indicator(i.item()->get<Target>(), TargetIndicator::Type::Energy))
-						break; // no more room for indicators
+					if (reticle.type == ReticleType::Dash)
+						reticle.type = ReticleType::DashError;
+					else
+						reticle.type = ReticleType::Error;
 				}
 			}
-		}
-
-		{
-			b8 primary_pressed = u.input->get(Controls::Primary, gamepad);
-			if (primary_pressed && !u.last_input->get(Controls::Primary, gamepad))
-				try_primary = true;
-			else if (!primary_pressed)
-				try_primary = false;
-		}
-
-		if (reticle.type == ReticleType::None || !get<Awk>()->cooldown_can_shoot())
-		{
-			// can't shoot
-			if (u.input->get(Controls::Primary, gamepad)) // player is mashing the fire button; give them some feedback
+			else
 			{
-				if (reticle.type == ReticleType::Dash)
-					reticle.type = ReticleType::DashError;
-				else
-					reticle.type = ReticleType::Error;
+				// we're aiming at something
+				if (try_primary)
+				{
+					Vec3 dir = reticle.pos - get<Transform>()->absolute_pos();
+					if (reticle.type == ReticleType::Dash)
+					{
+						if (get<Awk>()->dash_start(dir))
+						{
+							get<Audio>()->post_event(AK::EVENTS::PLAY_FLY);
+							try_primary = false;
+							try_secondary = false;
+						}
+					}
+					else
+					{
+						Ability ability = get<Awk>()->current_ability;
+						if (get<Awk>()->go(dir))
+						{
+							try_primary = false;
+							if (ability == Ability::None)
+							{
+								get<Audio>()->post_event(AK::EVENTS::PLAY_FLY);
+								try_secondary = false;
+							}
+							else
+								rumble = vi_max(rumble, 0.5f);
+						}
+					}
+				}
+			}
+
+			// rumble
+			if (rumble > 0.0f)
+			{
+				u.input->gamepads[gamepad].rumble = vi_min(1.0f, rumble);
+				rumble = vi_max(0.0f, rumble - u.time.delta);
 			}
 		}
 		else
 		{
-			// we're aiming at something
-			if (try_primary)
-			{
-				Vec3 dir = reticle.pos - get<Transform>()->absolute_pos();
-				if (reticle.type == ReticleType::Dash)
-				{
-					if (get<Awk>()->dash_start(dir))
-					{
-						get<Audio>()->post_event(AK::EVENTS::PLAY_FLY);
-						try_primary = false;
-						try_zoom = false;
-					}
-				}
-				else
-				{
-					Ability ability = get<Awk>()->current_ability;
-					if (get<Awk>()->go(dir))
-					{
-						try_primary = false;
-						if (ability == Ability::None)
-						{
-							get<Audio>()->post_event(AK::EVENTS::PLAY_FLY);
-							try_zoom = false;
-						}
-						else
-							rumble = vi_max(rumble, 0.5f);
-					}
-				}
-			}
-		}
-
-		// rumble
-		if (rumble > 0.0f)
-		{
-			u.input->gamepads[gamepad].rumble = vi_min(1.0f, rumble);
-			rumble = vi_max(0.0f, rumble - u.time.delta);
+			// remote control
 		}
 	}
 	else
 	{
-		// remote control
+		// parkour mode
+		if (player.ref()->local)
+		{
+			update_camera_input(u);
+		
+			Vec3 movement = get_movement(u, Quat::euler(0, get<PlayerCommon>()->angle_horizontal, 0));
+			Vec2 dir = Vec2(movement.x, movement.z);
+			get<Walker>()->dir = dir;
+
+			// parkour button
+			b8 parkour_pressed = movement_enabled() && u.input->get(Controls::Parkour, gamepad);
+
+			if (get<Parkour>()->fsm.current == Parkour::State::WallRun && !parkour_pressed)
+				get<Parkour>()->fsm.transition(Parkour::State::Normal);
+
+			if (parkour_pressed && !u.last_input->get(Controls::Parkour, gamepad))
+				try_secondary = true;
+			else if (!parkour_pressed)
+				try_secondary = false;
+
+			if (try_secondary)
+			{
+				if (get<Parkour>()->try_parkour())
+				{
+					try_secondary = false;
+					try_primary = false;
+					try_slide = false;
+				}
+			}
+
+			// jump button
+			b8 jump_pressed = movement_enabled() && u.input->get(Controls::Jump, gamepad);
+			if (jump_pressed && !u.last_input->get(Controls::Jump, gamepad))
+				try_primary = true;
+			else if (!jump_pressed)
+				try_primary = false;
+
+			if (jump_pressed)
+				get<Parkour>()->lessen_gravity(); // jump higher when the player holds the jump button
+
+			if (try_primary)
+			{
+				if (get<Parkour>()->try_jump(get<PlayerCommon>()->angle_horizontal))
+				{
+					try_secondary = false;
+					try_primary = false;
+					try_slide = false;
+				}
+			}
+
+			// slide button
+			b8 slide_pressed = movement_enabled() && u.input->get(Controls::Slide, gamepad);
+
+			get<Parkour>()->slide_continue = slide_pressed;
+
+			if (slide_pressed && !u.last_input->get(Controls::Slide, gamepad))
+				try_slide = true;
+			else if (!slide_pressed)
+				try_slide = false;
+
+			if (try_slide)
+			{
+				if (get<Parkour>()->try_slide())
+				{
+					try_secondary = false;
+					try_primary = false;
+					try_slide = false;
+				}
+			}
+
+			Parkour::State parkour_state = get<Parkour>()->fsm.current;
+
+			{
+				// if we're just running and not doing any parkour
+				// rotate arms to match the camera view
+				// blend smoothly between the two states (rotating and not rotating)
+
+				r32 arm_angle = LMath::clampf(get<PlayerCommon>()->angle_vertical * 0.5f, -PI * 0.15f, PI * 0.15f);
+
+				const r32 blend_time = 0.2f;
+				r32 blend;
+				if (parkour_state == Parkour::State::Normal)
+					blend = vi_min(1.0f, get<Parkour>()->fsm.time / blend_time);
+				else if (get<Parkour>()->fsm.last == Parkour::State::Normal)
+					blend = vi_max(0.0f, 1.0f - (get<Parkour>()->fsm.time / blend_time));
+				else
+					blend = 0.0f;
+				get<Animator>()->override_bone(Asset::Bone::character_upper_arm_L, Vec3::zero, Quat::euler(arm_angle * blend, 0, 0));
+				get<Animator>()->override_bone(Asset::Bone::character_upper_arm_R, Vec3::zero, Quat::euler(arm_angle * -blend, 0, 0));
+			}
+
+			r32 lean_target = 0.0f;
+
+			Quat look_quat = Quat::euler(get<Parkour>()->lean, get<PlayerCommon>()->angle_horizontal, get<PlayerCommon>()->angle_vertical);
+
+			if (parkour_state == Parkour::State::WallRun)
+			{
+				Parkour::WallRunState state = get<Parkour>()->wall_run_state;
+
+				Vec3 wall_normal = get<Parkour>()->last_support.ref()->get<Transform>()->to_world_normal(get<Parkour>()->relative_wall_run_normal);
+
+				Vec3 forward = look_quat * Vec3(0, 0, 1);
+
+				if (get<Parkour>()->wall_run_state == Parkour::WallRunState::Forward)
+					wall_normal *= -1.0f; // Make sure we're always facing the wall
+				else
+				{
+					// We're running along the wall
+					// Make sure we can't look backward
+					get<PlayerCommon>()->clamp_rotation(Quat::euler(0, get<Walker>()->target_rotation, 0) * Vec3(0, 0, 1));
+				}
+
+				get<PlayerCommon>()->clamp_rotation(wall_normal);
+			}
+			else if (parkour_state == Parkour::State::Slide || parkour_state == Parkour::State::Roll || parkour_state == Parkour::State::HardLanding || parkour_state == Parkour::State::Mantle)
+			{
+				get<PlayerCommon>()->clamp_rotation(Quat::euler(0, get<Walker>()->target_rotation, 0) * Vec3(0, 0, 1));
+			}
+			else
+			{
+				get<Walker>()->target_rotation = get<PlayerCommon>()->angle_horizontal;
+
+				// make sure our body is facing within 90 degrees of our target rotation
+				r32 delta = LMath::angle_to(get<Walker>()->rotation, get<PlayerCommon>()->angle_horizontal);
+				if (delta > PI * 0.5f)
+					get<Walker>()->rotation = LMath::angle_range(get<Walker>()->rotation + delta - PI * 0.5f);
+				else if (delta < PI * -0.5f)
+					get<Walker>()->rotation = LMath::angle_range(get<Walker>()->rotation + delta + PI * 0.5f);
+			}
+
+			Vec3 camera_pos;
+			/*
+			// todo: third-person
+			if (Game::state.third_person)
+				camera_pos = get<Transform>()->absolute_pos() + look_quat * Vec3(0, 1, -7);
+			else
+			*/
+			{
+				camera_pos = Vec3(0, 0, 0);
+				Quat q = Quat::identity;
+				get<Parkour>()->head_to_object_space(&camera_pos, &q);
+				camera_pos = get<Transform>()->to_world(camera_pos);
+
+				// camera bone affects rotation only
+				Quat camera_animation = Quat::euler(PI * -0.5f, 0, 0);
+				get<Animator>()->bone_transform(Asset::Bone::character_camera, nullptr, &camera_animation);
+				look_quat = Quat::euler(get<Parkour>()->lean, get<PlayerCommon>()->angle_horizontal, get<PlayerCommon>()->angle_vertical) * Quat::euler(0, PI * 0.5f, 0) * camera_animation * Quat::euler(0, PI * -0.5f, 0);
+			}
+
+			// wind sound and camera shake at high speed
+			{
+				r32 speed = get<RigidBody>()->btBody->getInterpolationLinearVelocity().length();
+				get<Audio>()->param(AK::GAME_PARAMETERS::FLY_VOLUME, LMath::clampf((speed - 8.0f) / 25.0f, 0, 1));
+				r32 shake = LMath::clampf((speed - 13.0f) / 30.0f, 0, 1);
+				rumble = vi_max(rumble, shake);
+				shake *= 0.2f;
+				r32 offset = Game::time.total * 10.0f;
+				look_quat = look_quat * Quat::euler(noise::sample3d(Vec3(offset)) * shake, noise::sample3d(Vec3(offset + 64)) * shake, noise::sample3d(Vec3(offset + 128)) * shake);
+			}
+
+			// camera setup
+			{
+				Camera* camera = player.ref()->camera;
+				r32 aspect = camera->viewport.size.y == 0 ? 1 : (r32)camera->viewport.size.x / (r32)camera->viewport.size.y;
+				camera->perspective(fov_default, aspect, 0.02f, Game::level.skybox.far_plane);
+				camera->wall_normal = Vec3(0, 0, 1);
+				camera->pos = camera_pos;
+				camera->cull_range = 0.0f;
+				camera->cull_behind_wall = false;
+				camera->colors = true;
+				camera->range = 0.0f;
+				camera->rot = look_quat;
+			}
+		}
 	}
 }
 
@@ -1805,10 +2089,10 @@ void PlayerControlHuman::draw(const RenderParams& p) const
 
 void PlayerControlHuman::draw_alpha(const RenderParams& params) const
 {
-	if (params.technique != RenderTechnique::Default || params.camera != player.ref()->camera)
-		return;
-
-	if (Team::game_over)
+	if (params.technique != RenderTechnique::Default
+		|| params.camera != player.ref()->camera
+		|| !has<Awk>()
+		|| Team::game_over)
 		return;
 
 	const Rect2& viewport = params.camera->viewport;

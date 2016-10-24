@@ -143,9 +143,11 @@ namespace tutorial
 	void player_spawned()
 	{
 		Entity* player = PlayerControlHuman::list.iterator().item()->entity();
-		player->get<Health>()->hp = 2;
-		player->get<Health>()->killed.link(&player_or_ai_killed);
-		player->get<Awk>()->ability_spawned.link(&ability_spawned);
+		if (player->has<Awk>())
+		{
+			player->get<Health>()->killed.link(&player_or_ai_killed);
+			player->get<Awk>()->ability_spawned.link(&ability_spawned);
+		}
 	}
 
 	void health_spotted(Entity* player)

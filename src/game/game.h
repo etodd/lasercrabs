@@ -40,6 +40,7 @@ struct Game
 	enum class Mode
 	{
 		Special,
+		Parkour,
 		Pvp,
 		count,
 	};

@@ -29,6 +29,7 @@ namespace Settings
 	b8 fullscreen;
 	b8 vsync;
 	b8 supersampling;
+	b8 volumetric_lighting;
 }
 
 Array<Loader::Entry<Mesh> > Loader::meshes;
@@ -188,6 +189,7 @@ void Loader::settings_load(s32 default_width, s32 default_height)
 	Settings::framerate_limit = vi_max(30, Json::get_s32(json, "framerate_limit", default_framerate_limit));
 	Settings::shadow_quality = (Settings::ShadowQuality)vi_max(0, vi_min(Json::get_s32(json, "shadow_quality", (s32)Settings::ShadowQuality::High), (s32)Settings::ShadowQuality::count - 1));
 	Settings::supersampling = (b8)Json::get_s32(json, "supersampling", 1);
+	Settings::volumetric_lighting = (b8)Json::get_s32(json, "volumetric_lighting", 1);
 
 	cJSON* gamepads = json ? cJSON_GetObjectItem(json, "gamepads") : nullptr;
 	cJSON* gamepad = gamepads ? gamepads->child : nullptr;
@@ -208,6 +210,9 @@ void Loader::settings_load(s32 default_width, s32 default_height)
 		bindings->bindings[(s32)Controls::TabLeft] = input_binding(gamepad, "tab_left", { KeyCode::Q, KeyCode::None, Gamepad::Btn::LeftShoulder });
 		bindings->bindings[(s32)Controls::TabRight] = input_binding(gamepad, "tab_right", { KeyCode::E, KeyCode::None, Gamepad::Btn::RightShoulder });
 		bindings->bindings[(s32)Controls::Scoreboard] = input_binding(gamepad, "scoreboard", { KeyCode::Tab, KeyCode::None, Gamepad::Btn::LeftShoulder });
+		bindings->bindings[(s32)Controls::Jump] = input_binding(gamepad, "jump", { KeyCode::Space, KeyCode::None, Gamepad::Btn::RightTrigger });
+		bindings->bindings[(s32)Controls::Parkour] = input_binding(gamepad, "parkour", { KeyCode::LShift, KeyCode::None, Gamepad::Btn::LeftTrigger });
+		bindings->bindings[(s32)Controls::Slide] = input_binding(gamepad, "slide", { KeyCode::MouseLeft, KeyCode::None, Gamepad::Btn::LeftShoulder });
 
 		// these bindings cannot be changed
 		bindings->bindings[(s32)Controls::Start] = { KeyCode::Space, KeyCode::None, Gamepad::Btn::Start };
@@ -235,6 +240,7 @@ void Loader::settings_save()
 	cJSON_AddNumberToObject(json, "framerate_limit", Settings::framerate_limit);
 	cJSON_AddNumberToObject(json, "shadow_quality", (s32)Settings::shadow_quality);
 	cJSON_AddNumberToObject(json, "supersampling", (s32)Settings::supersampling);
+	cJSON_AddNumberToObject(json, "volumetric_lighting", (s32)Settings::volumetric_lighting);
 
 	cJSON* gamepads = cJSON_CreateArray();
 	cJSON_AddItemToObject(json, "gamepads", gamepads);
@@ -257,6 +263,9 @@ void Loader::settings_save()
 		cJSON_AddItemToObject(gamepad, "tab_left", input_binding_json(bindings->bindings[(s32)Controls::TabLeft]));
 		cJSON_AddItemToObject(gamepad, "tab_right", input_binding_json(bindings->bindings[(s32)Controls::TabRight]));
 		cJSON_AddItemToObject(gamepad, "scoreboard", input_binding_json(bindings->bindings[(s32)Controls::Scoreboard]));
+		cJSON_AddItemToObject(gamepad, "jump", input_binding_json(bindings->bindings[(s32)Controls::Jump]));
+		cJSON_AddItemToObject(gamepad, "parkour", input_binding_json(bindings->bindings[(s32)Controls::Parkour]));
+		cJSON_AddItemToObject(gamepad, "slide", input_binding_json(bindings->bindings[(s32)Controls::Slide]));
 		cJSON_AddItemToObject(gamepad, "invert_y", cJSON_CreateNumber(bindings->invert_y));
 		cJSON_AddItemToObject(gamepad, "sensitivity", cJSON_CreateNumber(bindings->sensitivity));
 		cJSON_AddItemToArray(gamepads, gamepad);

@@ -577,10 +577,7 @@ template<typename Stream> b8 serialize_init_packet(Stream* p)
 	serialize_r32_range(p, Game::level.skybox.player_light.x, 0.0f, 1.0f, 8);
 	serialize_r32_range(p, Game::level.skybox.player_light.y, 0.0f, 1.0f, 8);
 	serialize_r32_range(p, Game::level.skybox.player_light.z, 0.0f, 1.0f, 8);
-	serialize_r32(p, Game::level.skybox.sky_decal_fog_start);
-	serialize_r32(p, Game::level.skybox.fog_start);
 	serialize_enum(p, Game::Type, Game::level.type);
-	serialize_enum(p, Game::Mode, Game::level.mode);
 	return true;
 }
 

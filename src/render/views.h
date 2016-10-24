@@ -50,12 +50,10 @@ struct Skybox
 		AssetID texture;
 		AssetID mesh;
 		AssetID shader;
-		r32 fog_start;
-		r32 sky_decal_fog_start;
 		b8 valid() const;
 	};
 
-	static void draw_alpha(const RenderParams&, const Config&);
+	static void draw_alpha(const RenderParams&);
 };
 
 struct SkyDecal : ComponentType<SkyDecal>
@@ -64,7 +62,7 @@ struct SkyDecal : ComponentType<SkyDecal>
 	r32 scale;
 	AssetID texture;
 
-	static void draw_alpha(const RenderParams&, const Skybox::Config&);
+	static void draw_alpha(const RenderParams&);
 
 	void awake() {}
 };

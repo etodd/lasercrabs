@@ -47,10 +47,10 @@ struct Camera
 		r32 x, y, w, h;
 	};
 
-	static ViewportBlueprint one_player_viewports[1];
-	static ViewportBlueprint two_player_viewports[2];
-	static ViewportBlueprint three_player_viewports[3];
-	static ViewportBlueprint four_player_viewports[4];
+	static ViewportBlueprint viewports_one_player[1];
+	static ViewportBlueprint viewports_two_player[2];
+	static ViewportBlueprint viewports_three_player[3];
+	static ViewportBlueprint viewports_four_player[4];
 
 	static ViewportBlueprint* viewport_blueprints[4];
 
@@ -58,23 +58,23 @@ struct Camera
 
 	static s32 active_count();
 
-	b8 active;
 	Mat4 projection;
 	Mat4 projection_inverse;
-	r32 near_plane;
-	r32 far_plane;
-	b8 fog;
-	r32 range;
-	Vec3 range_center;
-	r32 cull_range;
-	b8 cull_behind_wall;
-	Vec3 pos;
 	Quat rot;
 	Rect2 viewport;
 	Plane frustum[4];
 	Vec3 frustum_rays[4];
 	Vec3 wall_normal;
+	Vec3 pos;
+	Vec3 range_center;
+	r32 cull_range;
+	r32 near_plane;
+	r32 far_plane;
+	r32 range;
 	u8 team;
+	b8 active;
+	b8 cull_behind_wall;
+	b8 colors;
 
 	Camera();
 

@@ -49,8 +49,9 @@ Linux quickstart
 to build the Linux soundbanks.
 2. If necessary, copy the generated `Wwise_IDs.h` file into `src/asset`
 3. Copy the soundbanks into `assets/audio/GeneratedSoundBanks/Linux`
-4. Run `./setup`
-5. Run `./yearning` from the `build` folder
+4. If you are on Debian/Ubuntu, run `./setup-debian-deps`. Otherwise you'll need to install these dependencies yourself.
+5. Run `./setup-linux`
+6. Run `./yearning` from the `build` folder
 
 Mac quickstart
 --------------

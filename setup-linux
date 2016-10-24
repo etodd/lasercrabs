@@ -2,14 +2,21 @@
 set -e
 set -o pipefail
 
+blender=0
 if which blender >/dev/null; then
-    echo "Good news, Blender is set up correctly on the path!"
-else
-	echo "Please install Blender 2.75a or higher and make sure it's on the system path!"
-    exit 1
+	blender_version="$(blender --version)"
+	blender_version_extracted="${blender_version:8:4}"
+	if (( $(echo "$blender_version_extracted > 2.75" | bc -l) )); then
+		blender=1
+		echo "Good news, Blender is set up correctly on the path!"
+	fi
 fi
 
-sudo apt-get install clang lldb-3.5 cmake make libx11-dev libxi-dev libgl1-mesa-dev libglu1-mesa-dev libxrandr-dev libxext-dev libXmu-dev libxinerama-dev libxcursor-dev
+if [ $blender -eq 0 ]; then
+	echo "Please install Blender 2.75 or higher and make sure it is available on the path."
+	exit 1
+fi
+
 git submodule update --init --recursive
 mkdir -p build
 cd build

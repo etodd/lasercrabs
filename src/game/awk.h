@@ -6,6 +6,7 @@
 #include "data/import_common.h"
 #include "ai.h"
 #include "team.h"
+#include "net.h"
 
 namespace VI
 {
@@ -14,11 +15,6 @@ struct Transform;
 struct Rope;
 struct View;
 struct DamageEvent;
-
-namespace Net
-{
-	struct StreamRead;
-}
 
 #define AWK_SHIELD 1
 #define AWK_HEALTH 1
@@ -52,8 +48,10 @@ struct Awk : public ComponentType<Awk>
 {
 	enum class NetMessage
 	{
-		DoneFlying,
-		DoneDashing,
+		FlyStart,
+		FlyDone,
+		DashStart,
+		DashDone,
 		count,
 	};
 
@@ -102,7 +100,7 @@ struct Awk : public ComponentType<Awk>
 	void awake();
 	~Awk();
 	
-	b8 msg(Net::StreamRead*);
+	b8 msg(Net::StreamRead*, Net::MessageSource);
 
 	r32 range() const;
 
@@ -138,9 +136,6 @@ struct Awk : public ComponentType<Awk>
 	void detach_teleport();
 	b8 go(const Vec3&);
 
-	void finish_flying_dashing_common();
-	void finish_flying();
-	void finish_dashing();
 	b8 direction_is_toward_attached_wall(const Vec3&) const;
 	b8 can_shoot(const Vec3&, Vec3* = nullptr, b8* = nullptr) const;
 	b8 can_shoot(const Target*, Vec3* = nullptr, r32 = AWK_FLY_SPEED) const;

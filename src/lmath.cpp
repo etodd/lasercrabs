@@ -126,15 +126,17 @@ namespace LMath
 		return false;
 	}
 
+	const r32 INTENSITY_COEFFICIENT = 0.25f;
+
 	Vec3 desaturate(const Vec3& c)
 	{
-		r32 intensity = c.x * 0.333333f + c.y * 0.333333f + c.z * 0.333333f;
+		r32 intensity = c.x * INTENSITY_COEFFICIENT + c.y * INTENSITY_COEFFICIENT + c.z * INTENSITY_COEFFICIENT;
 		return Vec3(intensity);
 	}
 
 	Vec4 desaturate(const Vec4& c)
 	{
-		r32 intensity = c.x * 0.333333f + c.y * 0.333333f + c.z * 0.333333f;
+		r32 intensity = c.x * INTENSITY_COEFFICIENT + c.y * INTENSITY_COEFFICIENT + c.z * INTENSITY_COEFFICIENT;
 		return Vec4(intensity, intensity, intensity, c.w);
 	}
 }

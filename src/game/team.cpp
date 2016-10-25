@@ -339,7 +339,7 @@ void Team::update_all(const Update& u)
 				total += i.item()->credits;
 				i.item()->credits_summary.add({ strings::leftover_energy, i.item()->credits });
 
-				if (!Game::session.multiplayer && i.item()->is_local() && i.item()->team.ref() == winner.ref())
+				if (Game::session.story_mode && i.item()->is_local() && i.item()->team.ref() == winner.ref())
 				{
 					// we're in story mode and this is a local player; increase their energy
 					Game::save.resources[(s32)Game::Resource::Energy] += total;
@@ -365,9 +365,7 @@ void Team::update_all(const Update& u)
 			if (winner.ref())
 			{
 				// somebody won
-				if (Game::session.multiplayer)
-					transition_next(Game::MatchResult::None);
-				else
+				if (Game::session.story_mode)
 				{
 					// if we're in story mode, only advance if the local team won
 					b8 won = false;
@@ -383,6 +381,8 @@ void Team::update_all(const Update& u)
 					if (!won)
 						transition_next(Game::MatchResult::Loss);
 				}
+				else
+					transition_next(Game::MatchResult::None);
 			}
 			else
 				transition_next(Game::MatchResult::Draw);

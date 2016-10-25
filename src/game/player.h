@@ -41,11 +41,11 @@ struct PlayerHuman : public ComponentType<PlayerHuman>
 	UIScroll score_summary_scroll;
 	UIText msg_text;
 	r32 msg_timer;
-	Menu::State menu_state;
 	r32 upgrade_animation_time;
 	r32 angle_horizontal;
 	r32 angle_vertical;
 	s32 spectate_index;
+	Menu::State menu_state;
 	Ref<Transform> map_view;
 	b8 msg_good;
 	b8 upgrade_menu_open;
@@ -77,6 +77,7 @@ struct PlayerCommon : public ComponentType<PlayerCommon>
 	void awake();
 
 	Vec3 look_dir() const;
+	Quat look() const;
 	r32 detect_danger() const;
 	void update(const Update&);
 	void awk_detached();
@@ -88,6 +89,14 @@ struct PlayerCommon : public ComponentType<PlayerCommon>
 
 struct PlayerControlHuman : public ComponentType<PlayerControlHuman>
 {
+	enum class NetMessage
+	{
+		Dash,
+		Fly,
+		Ability,
+		count,
+	};
+
 	enum class ReticleType
 	{
 		None,
@@ -122,25 +131,31 @@ struct PlayerControlHuman : public ComponentType<PlayerControlHuman>
 		Type type;
 	};
 
+	static s32 count_local();
+
 	Reticle reticle;
 	StaticArray<TargetIndicator, 32> target_indicators;
+	Quat remote_rot;
+	Vec3 remote_movement;
 	Vec3 last_pos;
+	Vec3 remote_pos;
 	r32 fov;
 	r32 damage_timer;
 	r32 rumble;
 	r32 last_gamepad_input_time;
 	r32 gamepad_rotation_speed;
+	Ref<Transform> remote_parent;
 	Ref<PlayerHuman> player;
-	u8 gamepad;
 	b8 try_secondary;
 	b8 try_primary;
 	b8 try_slide;
 
-	PlayerControlHuman();
+	PlayerControlHuman(PlayerHuman* = nullptr);
 	~PlayerControlHuman();
 	void awake();
 
 	r32 look_speed() const;
+	b8 local() const;
 
 	void awk_detached();
 	void awk_done_flying_or_dashing();

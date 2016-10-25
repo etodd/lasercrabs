@@ -534,9 +534,7 @@ void PlayerHuman::spawn()
 
 	get<PlayerManager>()->entity = spawned;
 
-	PlayerControlHuman* control = spawned->add<PlayerControlHuman>();
-	control->player = this;
-	control->gamepad = gamepad;
+	spawned->add<PlayerControlHuman>(this);
 
 	Net::finalize(spawned);
 }
@@ -1207,6 +1205,11 @@ Vec3 PlayerCommon::look_dir() const
 		return Quat::euler(0.0f, angle_horizontal, angle_vertical) * Vec3(0, 0, 1);
 }
 
+Quat PlayerCommon::look() const
+{
+	return Quat::euler(0, angle_horizontal, angle_vertical);
+}
+
 void PlayerCommon::clamp_rotation(const Vec3& direction, r32 dot_limit)
 {
 	Quat look_quat = Quat::euler(0.0f, angle_horizontal, angle_vertical);
@@ -1228,15 +1231,25 @@ s32 PlayerCommon::visibility_hash(const PlayerCommon* awk_a, const PlayerCommon*
 	return awk_a->id() * MAX_PLAYERS + awk_b->id();
 }
 
+s32 PlayerControlHuman::count_local()
+{
+	s32 count = 0;
+	for (auto i = list.iterator(); !i.is_last(); i.next())
+	{
+		if (i.item()->local())
+			count++;
+	}
+	return count;
+}
+
 void PlayerControlHuman::awk_done_flying_or_dashing()
 {
 	rumble = vi_max(rumble, 0.2f);
 	get<Audio>()->post_event(AK::EVENTS::STOP_FLY);
 }
 
-PlayerControlHuman::PlayerControlHuman()
-	: gamepad(),
-	fov(fov_default),
+PlayerControlHuman::PlayerControlHuman(PlayerHuman* p)
+	: fov(fov_default),
 	try_primary(),
 	try_secondary(),
 	try_slide(),
@@ -1244,7 +1257,9 @@ PlayerControlHuman::PlayerControlHuman()
 	rumble(),
 	target_indicators(),
 	last_gamepad_input_time(),
-	gamepad_rotation_speed()
+	gamepad_rotation_speed(),
+	remote_movement(),
+	player(p)
 {
 }
 
@@ -1255,6 +1270,13 @@ PlayerControlHuman::~PlayerControlHuman()
 
 void PlayerControlHuman::awake()
 {
+	if (player.ref()->local && !Game::session.local)
+	{
+		remote_pos = get<Transform>()->pos;
+		remote_rot = get<Transform>()->rot;
+		remote_parent = get<Transform>()->parent;
+	}
+
 	if (has<Awk>())
 	{
 		last_pos = get<Awk>()->center_lerped();
@@ -1346,6 +1368,7 @@ void PlayerControlHuman::update_camera_input(const Update& u, r32 gamepad_rotati
 {
 	if (input_enabled())
 	{
+		s32 gamepad = player.ref()->gamepad;
 		if (gamepad == 0)
 		{
 			r32 s = look_speed() * speed_mouse * Settings::gamepads[gamepad].effective_sensitivity() * Game::real_time.delta;
@@ -1389,21 +1412,27 @@ Vec3 PlayerControlHuman::get_movement(const Update& u, const Quat& rot)
 	Vec3 movement = Vec3::zero;
 	if (movement_enabled())
 	{
-		if (u.input->get(Controls::Forward, gamepad))
-			movement += Vec3(0, 0, 1);
-		if (u.input->get(Controls::Backward, gamepad))
-			movement += Vec3(0, 0, -1);
-		if (u.input->get(Controls::Right, gamepad))
-			movement += Vec3(-1, 0, 0);
-		if (u.input->get(Controls::Left, gamepad))
-			movement += Vec3(1, 0, 0);
-
-		if (u.input->gamepads[gamepad].active)
+		s32 gamepad = player.ref()->gamepad;
+		if (u.input->gamepads[gamepad].active && Game::is_gamepad)
 		{
 			Vec2 gamepad_movement(-u.input->gamepads[gamepad].left_x, -u.input->gamepads[gamepad].left_y);
 			Input::dead_zone(&gamepad_movement.x, &gamepad_movement.y);
-			movement.x += gamepad_movement.x;
-			movement.z += gamepad_movement.y;
+			movement.x = gamepad_movement.x;
+			movement.z = gamepad_movement.y;
+		}
+		else
+		{
+			if (u.input->get(Controls::Forward, gamepad))
+				movement += Vec3(0, 0, 1);
+			if (u.input->get(Controls::Backward, gamepad))
+				movement += Vec3(0, 0, -1);
+			if (u.input->get(Controls::Right, gamepad))
+				movement += Vec3(-1, 0, 0);
+			if (u.input->get(Controls::Left, gamepad))
+				movement += Vec3(1, 0, 0);
+			r32 length_squared = movement.length_squared();
+			if (length_squared > 0.0f)
+				movement /= sqrtf(length_squared);
 		}
 
 		movement = rot * movement;
@@ -1509,11 +1538,18 @@ void ability_update(const Update& u, PlayerControlHuman* control, Controls bindi
 	}
 }
 
+b8 PlayerControlHuman::local() const
+{
+	return player.ref()->local;
+}
+
 void PlayerControlHuman::update(const Update& u)
 {
+	s32 gamepad = player.ref()->gamepad;
+
 	if (has<Awk>())
 	{
-		if (player.ref()->local)
+		if (local())
 		{
 			Camera* camera = player.ref()->camera;
 			{
@@ -1633,7 +1669,7 @@ void PlayerControlHuman::update(const Update& u)
 
 				// crawling
 				{
-					Vec3 movement = get_movement(u, Quat::euler(0, get<PlayerCommon>()->angle_horizontal, get<PlayerCommon>()->angle_vertical));
+					Vec3 movement = get_movement(u, get<PlayerCommon>()->look());
 					get<Awk>()->crawl(movement, u);
 				}
 
@@ -1843,15 +1879,30 @@ void PlayerControlHuman::update(const Update& u)
 				rumble = vi_max(0.0f, rumble - u.time.delta);
 			}
 		}
-		else
+		else if (Game::session.local)
 		{
-			// remote control
+			// we are a server, but this Awk is being controlled by a client
+			get<Awk>()->crawl(remote_movement, u);
+			last_pos = get<Awk>()->center_lerped();
+
+			Vec3 abs_pos;
+			Quat abs_rot;
+			get<Transform>()->absolute(&abs_pos, &abs_rot);
+
+			Vec3 remote_abs_pos = remote_pos;
+			Quat remote_abs_rot = remote_rot;
+			if (remote_parent.ref())
+				remote_parent.ref()->to_world(&remote_abs_pos, &remote_abs_rot);
+			if ((remote_abs_pos - get<Transform>()->absolute_pos()).length_squared() < AWK_RADIUS * AWK_RADIUS)
+				get<Transform>()->absolute_pos(remote_abs_pos);
+			if (Quat::angle(abs_rot, remote_abs_rot) < PI * 0.05f)
+				get<Transform>()->absolute_rot(remote_abs_rot);
 		}
 	}
 	else
 	{
 		// parkour mode
-		if (player.ref()->local)
+		if (local())
 		{
 			update_camera_input(u);
 		
@@ -2024,6 +2075,10 @@ void PlayerControlHuman::update(const Update& u)
 				camera->rot = look_quat;
 			}
 		}
+		else
+		{
+			// remote control
+		}
 	}
 }
 
@@ -2094,6 +2149,16 @@ void PlayerControlHuman::draw_alpha(const RenderParams& params) const
 		|| !has<Awk>()
 		|| Team::game_over)
 		return;
+
+	if (!Game::session.local && player.ref()->local)
+	{
+		Vec3 p;
+		if (remote_parent.ref())
+			p = remote_parent.ref()->to_world(remote_pos);
+		else
+			p = remote_pos;
+		UI::indicator(params, p, UI::color_default, true);
+	}
 
 	const Rect2& viewport = params.camera->viewport;
 

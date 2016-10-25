@@ -72,8 +72,13 @@ Game::Session Game::session;
 b8 Game::cancel_event_eaten[] = {};
 
 Game::Session::Session()
-	: local_player_config{ 0, AI::TeamNone, AI::TeamNone, AI::TeamNone },
-	multiplayer(),
+	:
+#if SERVER
+	local_player_config{ AI::TeamNone, AI::TeamNone, AI::TeamNone, AI::TeamNone },
+#else
+	local_player_config{ 0, AI::TeamNone, AI::TeamNone, AI::TeamNone },
+#endif
+	story_mode(),
 	time_scale(1.0f),
 	network_timer(),
 	network_time(),
@@ -118,7 +123,9 @@ s32 Game::Session::local_player_count() const
 
 s32 Game::Session::team_count() const
 {
-	if (multiplayer)
+	if (story_mode)
+		return 2;
+	else
 	{
 		s32 team_counts[MAX_PLAYERS] = {};
 		for (s32 i = 0; i < MAX_GAMEPADS; i++)
@@ -135,8 +142,6 @@ s32 Game::Session::team_count() const
 		}
 		return count;
 	}
-	else
-		return 2;
 }
 
 void Game::Session::reset()
@@ -268,7 +273,7 @@ void Game::update(const Update& update_in)
 	u.time = time;
 
 	// lag simulation
-	if (level.mode == Mode::Pvp && session.local && !session.multiplayer && session.network_quality != NetworkQuality::Perfect)
+	if (level.mode == Mode::Pvp && session.local && session.story_mode && session.network_quality != NetworkQuality::Perfect)
 	{
 		session.network_timer -= real_time.delta;
 		if (session.network_timer < 0.0f)
@@ -417,7 +422,7 @@ void Game::update(const Update& update_in)
 			i.item()->update(u);
 		for (auto i = Awk::list.iterator(); !i.is_last(); i.next())
 		{
-			if (session.local)
+			if (session.local || (i.item()->has<PlayerControlHuman>() && i.item()->get<PlayerControlHuman>()->local()))
 				i.item()->update_server(u);
 			i.item()->update_client(u);
 		}
@@ -943,7 +948,7 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 	session.network_state = NetworkState::Normal;
 	session.network_timer = session.network_time = 0.0f;
 
-	if (level.mode == Mode::Pvp && session.local && !session.multiplayer)
+	if (level.mode == Mode::Pvp && session.local && session.story_mode)
 	{
 		// choose network quality
 		r32 random = mersenne::randf_cc();
@@ -1101,7 +1106,7 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 						{
 							e->add<PlayerHuman>(true, i); // local = true
 
-							if (session.local && session.multiplayer)
+							if (session.local && !session.story_mode)
 								sprintf(manager->username, _(strings::player), i + 1);
 							else
 							{
@@ -1249,7 +1254,7 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 		else if (cJSON_GetObjectItem(element, "AIPlayer"))
 		{
 			// only add an AI player if we are in online pvp mode
-			if (level.mode == Mode::Pvp && !session.multiplayer)
+			if (level.mode == Mode::Pvp && session.story_mode)
 			{
 				AI::Team team = team_lookup(teams, Json::get_s32(element, "team", 1));
 

@@ -33,6 +33,13 @@ enum class MessageType
 	count,
 };
 
+enum class MessageSource
+{
+	Remote,
+	Loopback,
+	count,
+};
+
 #define MAX_PACKET_SIZE 2000
 
 b8 init();
@@ -73,9 +80,10 @@ namespace Client
 
 void term();
 
+StreamWrite* msg_new();
 StreamWrite* msg_new(MessageType);
 b8 msg_finalize(StreamWrite*);
-StreamWrite* msg_awk(Awk*);
+void msg_awk(StreamWrite*, Awk*);
 
 }
 

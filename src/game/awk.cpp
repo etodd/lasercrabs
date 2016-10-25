@@ -76,6 +76,90 @@ btScalar AwkRaycastCallback::addSingleResult(btCollisionWorld::LocalRayResult& r
 	return ray_result.m_hitFraction;
 }
 
+namespace AwkNet
+{
+
+void finish_flying_dashing_common(Awk* a)
+{
+	a->lerped_pos = a->get<Transform>()->pos;
+
+	a->get<Animator>()->layers[0].animation = AssetNull;
+
+	a->get<Audio>()->post_event(a->has<PlayerControlHuman>() && a->get<PlayerControlHuman>()->local() ? AK::EVENTS::PLAY_LAND_PLAYER : AK::EVENTS::PLAY_LAND);
+	a->attach_time = Game::time.total;
+
+	a->velocity = Vec3::zero;
+}
+
+b8 serialize_message_type(Net::StreamWrite* p, Awk::NetMessage t)
+{
+	using Stream = Net::StreamWrite;
+	serialize_enum(p, Awk::NetMessage, t);
+	return true;
+}
+
+Net::StreamWrite local_packet;
+Net::StreamWrite* msg_new(Awk* a, Awk::NetMessage t)
+{
+	using Stream = Net::StreamWrite;
+
+	Net::StreamWrite* p;
+	if (Game::session.local)
+	{
+		// we're the server; send out this message
+		p = Net::msg_new();
+	}
+	else
+	{
+		// we're a client
+		// so just process this message locally; don't send it
+		local_packet = Stream();
+		p = &local_packet;
+	}
+
+	Net::msg_awk(p, a);
+
+	serialize_message_type(p, t);
+
+	return p;
+}
+
+b8 start_flying(Awk* a, Vec3 dir)
+{
+	using Stream = Net::StreamWrite;
+	Net::StreamWrite* p = msg_new(a, Awk::NetMessage::FlyStart);
+	serialize_r32(p, dir.x);
+	serialize_r32(p, dir.y);
+	serialize_r32(p, dir.z);
+	Net::msg_finalize(p);
+	return true;
+}
+
+b8 start_dashing(Awk* a, Vec3 dir)
+{
+	using Stream = Net::StreamWrite;
+	Net::StreamWrite* p = msg_new(a, Awk::NetMessage::DashStart);
+	serialize_r32(p, dir.x);
+	serialize_r32(p, dir.y);
+	serialize_r32(p, dir.z);
+	Net::msg_finalize(p);
+	return true;
+}
+
+void finish_flying(Awk* a)
+{
+	Net::StreamWrite* p = msg_new(a, Awk::NetMessage::FlyDone);
+	Net::msg_finalize(p);
+}
+
+void finish_dashing(Awk* a)
+{
+	Net::StreamWrite* p = msg_new(a, Awk::NetMessage::DashDone);
+	Net::msg_finalize(p);
+}
+
+}
+
 Awk* Awk::closest(AI::TeamMask mask, const Vec3& pos, r32* distance)
 {
 	Awk* closest = nullptr;
@@ -589,8 +673,11 @@ b8 Awk::can_spawn(Ability a, const Vec3& dir, Vec3* final_pos, Vec3* final_norma
 
 void Awk::cooldown_setup()
 {
-	vi_assert(charges > 0);
-	charges--;
+	if (Game::session.local)
+	{
+		vi_assert(charges > 0);
+		charges--;
+	}
 	cooldown = AWK_COOLDOWN;
 }
 
@@ -620,24 +707,7 @@ b8 Awk::dash_start(const Vec3& dir)
 	if (!direction_is_toward_attached_wall(dir))
 		return false;
 
-	velocity = Vec3::normalize(dir) * AWK_DASH_SPEED;
-	dash_timer = AWK_DASH_TIME;
-
-	hit_targets.length = 0;
-
-	attach_time = Game::time.total;
-	cooldown_setup();
-
-	for (s32 i = 0; i < AWK_LEGS; i++)
-		footing[i].parent = nullptr;
-	get<Animator>()->reset_overrides();
-	get<Animator>()->layers[0].animation = Asset::Animation::awk_dash;
-
-	particle_accumulator = 0;
-
-	get<Audio>()->post_event(has<PlayerControlHuman>() ? AK::EVENTS::PLAY_LAUNCH_PLAYER : AK::EVENTS::PLAY_LAUNCH);
-
-	dashed.fire();
+	AwkNet::start_dashing(this, dir);
 
 	return true;
 }
@@ -678,19 +748,11 @@ b8 Awk::go(const Vec3& dir)
 	Vec3 dir_normalized = Vec3::normalize(dir);
 
 	if (current_ability == Ability::None)
-	{
-		velocity = dir_normalized * AWK_FLY_SPEED;
-		get<Transform>()->absolute_pos(get<Transform>()->absolute_pos() + dir_normalized * AWK_RADIUS * 0.5f);
-		get<Transform>()->absolute_rot(Quat::look(dir_normalized));
-
-		get<Audio>()->post_event(has<PlayerControlHuman>() ? AK::EVENTS::PLAY_LAUNCH_PLAYER : AK::EVENTS::PLAY_LAUNCH);
-
-		cooldown_setup();
-		detach_teleport();
-	}
+		AwkNet::start_flying(this, dir_normalized);
 	else
 	{
 		// ability spawn
+		// todo: net sync
 
 		PlayerManager* manager = get<PlayerCommon>()->manager.ref();
 
@@ -1194,54 +1256,88 @@ void Awk::stealth(b8 enable)
 	}
 }
 
-void Awk::finish_flying_dashing_common()
-{
-	lerped_pos = get<Transform>()->pos;
-
-	get<Animator>()->layers[0].animation = AssetNull;
-
-	get<Audio>()->post_event(has<PlayerControlHuman>() ? AK::EVENTS::PLAY_LAND_PLAYER : AK::EVENTS::PLAY_LAND);
-	attach_time = Game::time.total;
-
-	velocity = Vec3::zero;
-}
-
-b8 msg_send(Awk* a, Awk::NetMessage t)
-{
-	using Stream = Net::StreamWrite;
-	Net::StreamWrite* p = Net::msg_awk(a);
-	serialize_enum(p, Awk::NetMessage, t);
-	Net::msg_finalize(p);
-	return true;
-}
-
-void Awk::finish_flying()
-{
-	msg_send(this, NetMessage::DoneFlying);
-}
-
-void Awk::finish_dashing()
-{
-	msg_send(this, NetMessage::DoneDashing);
-}
-
-b8 Awk::msg(Net::StreamRead* p)
+b8 Awk::msg(Net::StreamRead* p, Net::MessageSource src)
 {
 	using Stream = Net::StreamRead;
 	NetMessage type;
 	serialize_enum(p, NetMessage, type);
+
+	// should we actually pay attention to this message?
+	// if it's a message from a remote, but we are a local entity, then ignore the message.
+	b8 apply_msg = src == Net::MessageSource::Loopback || !has<PlayerControlHuman>() || !get<PlayerControlHuman>()->local();
+
 	switch (type)
 	{
-		case NetMessage::DoneDashing:
+		case NetMessage::FlyStart:
 		{
-			finish_flying_dashing_common();
-			done_dashing.fire();
+			Vec3 dir;
+			serialize_r32(p, dir.x);
+			serialize_r32(p, dir.y);
+			serialize_r32(p, dir.z);
+
+			if (apply_msg)
+			{
+				Vec3 dir_normalized = Vec3::normalize(dir);
+
+				velocity = dir_normalized * AWK_FLY_SPEED;
+				get<Transform>()->absolute_pos(get<Transform>()->absolute_pos() + dir_normalized * AWK_RADIUS * 0.5f);
+				get<Transform>()->absolute_rot(Quat::look(dir_normalized));
+
+				get<Audio>()->post_event(has<PlayerControlHuman>() ? AK::EVENTS::PLAY_LAUNCH_PLAYER : AK::EVENTS::PLAY_LAUNCH);
+
+				cooldown_setup();
+				detach_teleport();
+			}
+
 			break;
 		}
-		case NetMessage::DoneFlying:
+		case NetMessage::DashStart:
 		{
-			finish_flying_dashing_common();
-			done_flying.fire();
+			Vec3 dir;
+			serialize_r32(p, dir.x);
+			serialize_r32(p, dir.y);
+			serialize_r32(p, dir.z);
+
+			if (apply_msg)
+			{
+				velocity = Vec3::normalize(dir) * AWK_DASH_SPEED;
+				dash_timer = AWK_DASH_TIME;
+
+				hit_targets.length = 0;
+
+				attach_time = Game::time.total;
+				cooldown_setup();
+
+				for (s32 i = 0; i < AWK_LEGS; i++)
+					footing[i].parent = nullptr;
+				get<Animator>()->reset_overrides();
+				get<Animator>()->layers[0].animation = Asset::Animation::awk_dash;
+
+				particle_accumulator = 0;
+
+				get<Audio>()->post_event(has<PlayerControlHuman>() ? AK::EVENTS::PLAY_LAUNCH_PLAYER : AK::EVENTS::PLAY_LAUNCH);
+
+				dashed.fire();
+			}
+
+			break;
+		}
+		case NetMessage::DashDone:
+		{
+			if (apply_msg)
+			{
+				AwkNet::finish_flying_dashing_common(this);
+				done_dashing.fire();
+			}
+			break;
+		}
+		case NetMessage::FlyDone:
+		{
+			if (apply_msg)
+			{
+				AwkNet::finish_flying_dashing_common(this);
+				done_flying.fire();
+			}
 			break;
 		}
 		default:
@@ -1295,7 +1391,7 @@ void Awk::update_server(const Update& u)
 			dash_timer -= u.time.delta;
 			if (dash_timer <= 0.0f)
 			{
-				finish_dashing();
+				AwkNet::finish_dashing(this);
 				return;
 			}
 			else
@@ -1600,7 +1696,7 @@ r32 Awk::movement_raycast(const Vec3& ray_start, const Vec3& ray_end)
 				get<Transform>()->parent = entity->get<Transform>();
 				get<Transform>()->absolute(point + normal * AWK_RADIUS, Quat::look(ray_callback.m_hitNormalWorld[i]));
 
-				finish_flying();
+				AwkNet::finish_flying(this);
 			}
 		}
 	}

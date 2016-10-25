@@ -104,7 +104,7 @@ struct Game
 		r32 network_time;
 		r32 network_timer;
 		r32 time_scale;
-		b8 multiplayer;
+		b8 story_mode;
 		b8 local;
 
 		Session();

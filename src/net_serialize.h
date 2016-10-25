@@ -92,7 +92,7 @@ struct StreamRead
 	s32 bytes_read() const;
 	void resize_bytes(s32);
 	void reset();
-	void rewind();
+	void rewind(s32 = 0);
 };
 
 union Double
@@ -108,7 +108,7 @@ union Single
 };
 
 #if DEBUG
-#define net_error() { vi_debug_break(); return false; }
+#define net_error() { vi_debug_break(); }
 #else
 #define net_error() { return false; }
 #endif

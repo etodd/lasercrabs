@@ -188,11 +188,20 @@ void StreamRead::reset()
 	rewind();
 }
 
-void StreamRead::rewind()
+void StreamRead::rewind(s32 position)
 {
-	scratch = 0;
-	scratch_bits = 0;
-	bits_read = 0;
+	vi_assert(position <= data.length * 32);
+	bits_read = position;
+	if (bits_read < data.length * 32)
+	{
+		scratch_bits = 32 - (bits_read % 32);
+		scratch = u64(data[bits_read / 32]) >> (bits_read % 32);
+	}
+	else
+	{
+		scratch_bits = 0;
+		scratch = 0;
+	}
 }
 
 b8 StreamRead::read_checksum()

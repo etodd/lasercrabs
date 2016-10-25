@@ -111,14 +111,14 @@ void title_menu(const Update& u, u8 gamepad, UIMenu* menu, State* state)
 			{
 				Game::save = Game::Save();
 				Game::session.reset();
-				Game::session.multiplayer = true;
+				Game::session.story_mode = false;
 				Terminal::show();
 			}
 			if (menu->item(u, _(strings::online)))
 			{
 				Game::save = Game::Save();
 				Game::session.reset();
-				Game::session.multiplayer = true;
+				Game::session.story_mode = false;
 				Game::session.local = false;
 				Game::unload_level();
 				Net::Client::connect("127.0.0.1", 3494);

@@ -7,6 +7,7 @@
 #include "ai.h"
 #include "menu.h"
 #include "team.h"
+#include "net.h"
 
 namespace VI
 {
@@ -49,10 +50,10 @@ struct PlayerHuman : public ComponentType<PlayerHuman>
 	Ref<Transform> map_view;
 	b8 msg_good;
 	b8 upgrade_menu_open;
-	u8 gamepad;
+	s8 gamepad;
 	b8 local;
 	
-	PlayerHuman(b8 = false, u8 = 0);
+	PlayerHuman(b8 = false, s8 = 0);
 	void awake();
 
 	void msg(const char*, b8);
@@ -89,14 +90,6 @@ struct PlayerCommon : public ComponentType<PlayerCommon>
 
 struct PlayerControlHuman : public ComponentType<PlayerControlHuman>
 {
-	enum class NetMessage
-	{
-		Dash,
-		Fly,
-		Ability,
-		count,
-	};
-
 	enum class ReticleType
 	{
 		None,
@@ -131,6 +124,7 @@ struct PlayerControlHuman : public ComponentType<PlayerControlHuman>
 		Type type;
 	};
 
+	static b8 net_msg(Net::StreamRead*, Net::MessageSource);
 	static s32 count_local();
 
 	Reticle reticle;

@@ -54,7 +54,7 @@ enum class Ability
 struct AbilityInfo
 {
 	AssetID icon;
-	u16 spawn_cost;
+	s16 spawn_cost;
 	static AbilityInfo list[(s32)Ability::count];
 };
 
@@ -76,7 +76,7 @@ struct UpgradeInfo
 	AssetID name;
 	AssetID description;
 	AssetID icon;
-	u16 cost;
+	s16 cost;
 	static UpgradeInfo list[(s32)Upgrade::count];
 };
 
@@ -92,10 +92,10 @@ struct Team : public ComponentType<Team>
 	struct SensorTrackHistory
 	{
 		Vec3 pos;
-		u8 hp;
-		u8 hp_max;
-		u8 shield;
-		u8 shield_max;
+		s8 hp;
+		s8 hp_max;
+		s8 shield;
+		s8 shield_max;
 	};
 
 	static const Vec4 ui_color_enemy;
@@ -134,7 +134,7 @@ struct Team : public ComponentType<Team>
 	b8 has_player() const;
 	void track(PlayerManager*);
 	s32 control_point_count() const;
-	u16 kills() const;
+	s16 kills() const;
 
 	inline AI::Team team() const
 	{
@@ -168,7 +168,7 @@ struct PlayerManager : public ComponentType<PlayerManager>
 	r32 credits_flash_timer;
 	r32 particle_accumulator;
 	r32 state_timer;
-	u32 upgrades;
+	s32 upgrades;
 	StaticArray<SummaryItem, 1> credits_summary;
 	Ability abilities[MAX_ABILITIES];
 	Upgrade current_upgrade;
@@ -177,9 +177,9 @@ struct PlayerManager : public ComponentType<PlayerManager>
 	LinkArg<b8> control_point_capture_completed;
 	Ref<Team> team;
 	Ref<Entity> entity;
-	u16 credits;
-	u16 kills;
-	u16 respawns;
+	s16 credits;
+	s16 kills;
+	s16 respawns;
 	char username[MAX_USERNAME + 1]; // +1 for null terminator
 	b8 score_accepted;
 
@@ -198,13 +198,13 @@ struct PlayerManager : public ComponentType<PlayerManager>
 	b8 capture_start();
 	void capture_complete();
 	b8 upgrade_available(Upgrade = Upgrade::None) const;
-	u16 upgrade_cost(Upgrade) const;
+	s16 upgrade_cost(Upgrade) const;
 	s32 add_credits(s32);
 	void add_kills(s32);
 	b8 at_upgrade_point() const;
 	ControlPoint* at_control_point() const;
 	b8 friendly_control_point(const ControlPoint*) const;
-	u16 increment() const;
+	s16 increment() const;
 	void update_server(const Update&);
 	void update_client(const Update&);
 };

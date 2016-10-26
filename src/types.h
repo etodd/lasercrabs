@@ -40,12 +40,12 @@ struct Update
 	GameTime time;
 };
 
-typedef u16 RenderMask;
+typedef s16 RenderMask;
 
-typedef u16 AssetID;
+typedef s16 AssetID;
 const AssetID AssetNull = AssetID(-1);
 
-typedef u16 ID;
+typedef s16 ID;
 const ID IDNull = ID(MAX_ENTITIES);
 
 

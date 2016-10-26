@@ -147,8 +147,8 @@ struct Game
 		std::unordered_map<AssetID, AssetID> variables; // todo: kill STL
 		ZoneState zones[MAX_ZONES];
 		Group group;
-		u16 story_index;
-		u16 resources[(s32)Resource::count];
+		s16 story_index;
+		s16 resources[(s32)Resource::count];
 		char username[MAX_USERNAME + 1];
 		b8 cora_called;
 
@@ -166,8 +166,8 @@ struct Game
 		AssetID id = AssetNull;
 		b8 lock_teams;
 		b8 continue_match_after_death;
-		u16 respawns;
-		u16 kill_limit;
+		s16 respawns;
+		s16 kill_limit;
 
 		b8 has_feature(FeatureLevel) const;
 	};

@@ -114,8 +114,8 @@ struct GLData
 	struct Texture
 	{
 		GLuint handle;
-		u32 width;
-		u32 height;
+		s32 width;
+		s32 height;
 		RenderDynamicTextureType type;
 		RenderTextureWrap wrap;
 		RenderTextureFilter filter;
@@ -545,8 +545,8 @@ void render(RenderSync* sync)
 			case RenderOp::DynamicTexture:
 			{
 				AssetID id = *(sync->read<AssetID>());
-				u32 width = *(sync->read<u32>());
-				u32 height = *(sync->read<u32>());
+				s32 width = *(sync->read<s32>());
+				s32 height = *(sync->read<s32>());
 				RenderDynamicTextureType type = *(sync->read<RenderDynamicTextureType>());
 				RenderTextureWrap wrap = *(sync->read<RenderTextureWrap>());
 				RenderTextureFilter filter = *(sync->read<RenderTextureFilter>());

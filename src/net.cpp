@@ -78,39 +78,32 @@ struct MessageFrame // container for the amount of messages that can come in a s
 	~MessageFrame() {}
 };
 
-enum class Resolution
-{
-	Low,
-	High,
-	count,
-};
-
 struct TransformState
 {
 	Vec3 pos;
 	Quat rot;
 	Resolution resolution;
 	Ref<Transform> parent;
-	u16 revision;
+	s16 revision;
 };
 
 struct PlayerManagerState
 {
 	r32 spawn_timer;
 	r32 state_timer;
-	u32 upgrades;
+	s32 upgrades;
 	Ability abilities[MAX_ABILITIES] = { Ability::None, Ability::None, Ability::None };
 	Upgrade current_upgrade = Upgrade::None;
 	Ref<Entity> entity;
-	u16 credits;
-	u16 kills;
-	u16 respawns;
+	s16 credits;
+	s16 kills;
+	s16 respawns;
 	b8 active;
 };
 
 struct AwkState
 {
-	u8 charges;
+	s8 charges;
 	b8 active;
 };
 
@@ -124,7 +117,7 @@ struct StateFrame
 	SequenceID sequence_id;
 };
 
-struct TransformHistory
+struct StateHistory
 {
 	StaticArray<StateFrame, 256> frames;
 	s32 current_index;
@@ -189,11 +182,11 @@ template<typename Stream, typename View> b8 serialize_view_skinnedmodel(Stream* 
 	serialize_r32_range(p, v->color.y, 0.0f, 1.0f, 8);
 	serialize_r32_range(p, v->color.z, 0.0f, 1.0f, 8);
 	serialize_r32_range(p, v->color.w, 0.0f, 1.0f, 8);
-	serialize_u16(p, v->mask);
-	serialize_u16(p, v->mesh);
+	serialize_s16(p, v->mask);
+	serialize_s16(p, v->mesh);
 	serialize_asset(p, v->shader, Loader::shader_count);
 	serialize_asset(p, v->texture, Loader::static_texture_count);
-	serialize_u8(p, v->team);
+	serialize_s8(p, v->team);
 	{
 		AlphaMode m;
 		if (Stream::IsWriting)
@@ -248,7 +241,7 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 	}
 	else
 		serialize_u64(p, e->component_mask);
-	serialize_u16(p, e->revision);
+	serialize_s16(p, e->revision);
 
 #if DEBUG_ENTITY
 	{
@@ -268,7 +261,7 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 			Revision r;
 			if (Stream::IsWriting)
 				r = World::component_pools[i]->revision(component_id);
-			serialize_u16(p, r);
+			serialize_s16(p, r);
 			if (Stream::IsReading)
 				World::component_pools[i]->net_add(component_id, e->id(), r);
 		}
@@ -332,7 +325,7 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 	if (e->has<AIAgent>())
 	{
 		AIAgent* a = e->get<AIAgent>();
-		serialize_u8(p, a->team);
+		serialize_s8(p, a->team);
 		serialize_bool(p, a->stealth);
 	}
 
@@ -342,7 +335,7 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 		serialize_r32_range(p, a->cooldown, 0, AWK_COOLDOWN, 8);
 		serialize_int(p, Ability, a->current_ability, 0, s32(Ability::count) + 1);
 		serialize_ref(p, a->shield);
-		serialize_int(p, u8, a->charges, 0, AWK_CHARGES);
+		serialize_int(p, s8, a->charges, 0, AWK_CHARGES);
 	}
 
 	if (e->has<MinionCommon>())
@@ -353,10 +346,10 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 	{
 		Health* h = e->get<Health>();
 		serialize_r32_range(p, h->regen_timer, 0, 10, 8);
-		serialize_u8(p, h->shield);
-		serialize_u8(p, h->shield_max);
-		serialize_u8(p, h->hp);
-		serialize_u8(p, h->hp_max);
+		serialize_s8(p, h->shield);
+		serialize_s8(p, h->shield_max);
+		serialize_s8(p, h->hp);
+		serialize_s8(p, h->hp_max);
 	}
 
 	if (e->has<PointLight>())
@@ -370,8 +363,8 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 		serialize_r32_range(p, l->offset.z, -5, 5, 8);
 		serialize_r32_range(p, l->radius, 0, 50, 8);
 		serialize_enum(p, PointLight::Type, l->type);
-		serialize_u16(p, l->mask);
-		serialize_u8(p, l->team);
+		serialize_s16(p, l->mask);
+		serialize_s8(p, l->team);
 	}
 
 	if (e->has<SpotLight>())
@@ -382,14 +375,14 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 		serialize_r32_range(p, l->color.z, 0, 1, 8);
 		serialize_r32_range(p, l->radius, 0, 50, 8);
 		serialize_r32_range(p, l->fov, 0, PI, 8);
-		serialize_u16(p, l->mask);
-		serialize_u8(p, l->team);
+		serialize_s16(p, l->mask);
+		serialize_s8(p, l->team);
 	}
 
 	if (e->has<ControlPoint>())
 	{
 		ControlPoint* c = e->get<ControlPoint>();
-		serialize_u8(p, c->team);
+		serialize_s8(p, c->team);
 	}
 
 	if (e->has<Shockwave>())
@@ -442,14 +435,14 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 	if (e->has<EnergyPickup>())
 	{
 		EnergyPickup* h = e->get<EnergyPickup>();
-		serialize_u8(p, h->team);
+		serialize_s8(p, h->team);
 	}
 
 	if (e->has<Sensor>())
 	{
 		Sensor* s = e->get<Sensor>();
 		serialize_ref(p, s->owner);
-		serialize_u8(p, s->team);
+		serialize_s8(p, s->team);
 	}
 
 	if (e->has<Rocket>())
@@ -457,7 +450,7 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 		Rocket* r = e->get<Rocket>();
 		serialize_ref(p, r->target);
 		serialize_ref(p, r->owner);
-		serialize_u8(p, r->team);
+		serialize_s8(p, r->team);
 	}
 
 	if (e->has<ContainmentField>())
@@ -466,13 +459,13 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 		serialize_r32(p, c->remaining_lifetime);
 		serialize_ref(p, c->field);
 		serialize_ref(p, c->owner);
-		serialize_u8(p, c->team);
+		serialize_s8(p, c->team);
 	}
 
 	if (e->has<Teleporter>())
 	{
 		Teleporter* t = e->get<Teleporter>();
-		serialize_u8(p, t->team);
+		serialize_s8(p, t->team);
 	}
 
 	if (e->has<Water>())
@@ -484,7 +477,7 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 		serialize_r32_range(p, w->color.w, 0, 1.0f, 8);
 		serialize_r32_range(p, w->displacement_horizontal, 0, 10, 8);
 		serialize_r32_range(p, w->displacement_vertical, 0, 10, 8);
-		serialize_u16(p, w->mesh);
+		serialize_s16(p, w->mesh);
 		serialize_asset(p, w->texture, Loader::static_texture_count);
 	}
 
@@ -527,7 +520,7 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 				if (ph->uuid == Game::session.local_player_uuids[i])
 				{
 					ph->local = true;
-					ph->gamepad = u8(i);
+					ph->gamepad = s8(i);
 					break;
 				}
 			}
@@ -537,14 +530,14 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 	if (e->has<PlayerManager>())
 	{
 		PlayerManager* m = e->get<PlayerManager>();
-		serialize_u32(p, m->upgrades);
+		serialize_s32(p, m->upgrades);
 		for (s32 i = 0; i < MAX_ABILITIES; i++)
 			serialize_int(p, Ability, m->abilities[i], 0, s32(Ability::count) + 1);
 		serialize_ref(p, m->team);
 		serialize_ref(p, m->entity);
-		serialize_u16(p, m->credits);
-		serialize_u16(p, m->kills);
-		serialize_u16(p, m->respawns);
+		serialize_s16(p, m->credits);
+		serialize_s16(p, m->kills);
+		serialize_s16(p, m->respawns);
 		s32 username_length;
 		if (Stream::IsWriting)
 			username_length = strlen(m->username);
@@ -579,7 +572,7 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 
 template<typename Stream> b8 serialize_init_packet(Stream* p)
 {
-	serialize_u16(p, Game::level.id);
+	serialize_s16(p, Game::level.id);
 	serialize_enum(p, Game::FeatureLevel, Game::level.feature_level);
 	serialize_r32(p, Game::level.skybox.far_plane);
 	serialize_asset(p, Game::level.skybox.texture, Loader::static_texture_count);
@@ -594,6 +587,7 @@ template<typename Stream> b8 serialize_init_packet(Stream* p)
 	serialize_r32_range(p, Game::level.skybox.player_light.x, 0.0f, 1.0f, 8);
 	serialize_r32_range(p, Game::level.skybox.player_light.y, 0.0f, 1.0f, 8);
 	serialize_r32_range(p, Game::level.skybox.player_light.z, 0.0f, 1.0f, 8);
+	serialize_enum(p, Game::Mode, Game::level.mode);
 	serialize_enum(p, Game::Type, Game::level.type);
 	return true;
 }
@@ -719,11 +713,14 @@ Ack msg_history_ack(const MessageHistory& history)
 	return ack;
 }
 
+// server/client data
 MessageHistory msgs_out_history;
 StaticArray<StreamWrite, MESSAGE_BUFFER> msgs_out;
 r32 tick_timer;
 Sock::Handle sock;
 SequenceID local_sequence_id = 1;
+StateHistory state_history;
+StateFrame state_frame_restore;
 
 void packet_init(StreamWrite* p)
 {
@@ -1078,33 +1075,6 @@ template<typename Stream> b8 serialize_quat(Stream* p, Quat* rot)
 	return true;
 }
 
-template<typename Stream> b8 serialize_position(Stream* p, Vec3* pos, Resolution r)
-{
-	switch (r)
-	{
-		case Resolution::Low:
-		{
-			serialize_r32_range(p, pos->x, -256, 256, 16);
-			serialize_r32_range(p, pos->y, -32, 128, 12);
-			serialize_r32_range(p, pos->z, -256, 256, 16);
-			break;
-		}
-		case Resolution::High:
-		{
-			serialize_r32(p, pos->x);
-			serialize_r32(p, pos->y);
-			serialize_r32(p, pos->z);
-			break;
-		}
-		default:
-		{
-			vi_assert(false);
-			break;
-		}
-	}
-	return true;
-}
-
 template<typename Stream> b8 serialize_transform(Stream* p, TransformState* transform)
 {
 	serialize_enum(p, Resolution, transform->resolution);
@@ -1135,7 +1105,7 @@ template<typename Stream> b8 serialize_player_manager(Stream* p, PlayerManagerSt
 		b = !old || state->upgrades != old->upgrades;
 	serialize_bool(p, b);
 	if (b)
-		serialize_u32(p, state->upgrades);
+		serialize_s32(p, state->upgrades);
 
 	for (s32 i = 0; i < MAX_ABILITIES; i++)
 	{
@@ -1162,19 +1132,19 @@ template<typename Stream> b8 serialize_player_manager(Stream* p, PlayerManagerSt
 		b = !old || state->credits != old->credits;
 	serialize_bool(p, b);
 	if (b)
-		serialize_u16(p, state->credits);
+		serialize_s16(p, state->credits);
 
 	if (Stream::IsWriting)
 		b = !old || state->kills != old->kills;
 	serialize_bool(p, b);
 	if (b)
-		serialize_u16(p, state->kills);
+		serialize_s16(p, state->kills);
 
 	if (Stream::IsWriting)
 		b = !old || state->respawns != old->respawns;
 	serialize_bool(p, b);
 	if (b)
-		serialize_u16(p, state->respawns);
+		serialize_s16(p, state->respawns);
 
 	return true;
 }
@@ -1187,7 +1157,7 @@ template<typename Stream> b8 serialize_awk(Stream* p, AwkState* state, const Awk
 		b = old && state->charges != old->charges;
 	serialize_bool(p, b);
 	if (b)
-		serialize_int(p, u8, state->charges, 0, AWK_CHARGES);
+		serialize_int(p, s8, state->charges, 0, AWK_CHARGES);
 	return true;
 }
 
@@ -1277,7 +1247,7 @@ b8 state_frame_write(StreamWrite* p, StateFrame* frame, const StateFrame* base)
 				b8 revision_changed = base && frame->transforms[index].revision != base->transforms[index].revision;
 				serialize_bool(p, revision_changed);
 				if (revision_changed)
-					serialize_u16(p, frame->transforms[index].revision);
+					serialize_s16(p, frame->transforms[index].revision);
 				b8 parent_changed = base && !frame->transforms[index].parent.equals(base->transforms[index].parent);
 				serialize_bool(p, parent_changed);
 				if (parent_changed)
@@ -1344,7 +1314,7 @@ b8 state_frame_read(StreamRead* p, StateFrame* frame, const StateFrame* base)
 			b8 revision_changed;
 			serialize_bool(p, revision_changed);
 			if (revision_changed)
-				serialize_u16(p, frame->transforms[index].revision);
+				serialize_s16(p, frame->transforms[index].revision);
 			b8 parent_changed;
 			serialize_bool(p, parent_changed);
 			if (parent_changed)
@@ -1545,7 +1515,68 @@ void state_frame_interpolate(const StateFrame& a, const StateFrame& b, StateFram
 	memcpy(result->awks, b.awks, sizeof(result->awks));
 }
 
-StateFrame* state_frame_add(TransformHistory* history)
+void state_frame_apply(const StateFrame& frame)
+{
+	// transforms
+	s32 index = frame.transforms_active.start;
+	while (index <= frame.transforms_active.end)
+	{
+		Transform* t = &Transform::list[index];
+		const TransformState& s = frame.transforms[index];
+		if (t->revision == s.revision)
+		{
+			if (t->has<PlayerControlHuman>() && t->get<PlayerControlHuman>()->player.ref()->local)
+			{
+				// this is a local player; we don't want to immediately overwrite its position with the server's data
+				// let the PlayerControlHuman deal with it
+				PlayerControlHuman* c = t->get<PlayerControlHuman>();
+				c->remote_pos = s.pos;
+				c->remote_rot = s.rot;
+				c->remote_parent = s.parent;
+			}
+			else
+			{
+				t->pos = s.pos;
+				t->rot = s.rot;
+				t->parent = s.parent;
+			}
+		}
+
+		index = frame.transforms_active.next(index);
+	}
+
+	// players
+	for (s32 i = 0; i < MAX_PLAYERS; i++)
+	{
+		const PlayerManagerState& state = frame.players[i];
+		if (state.active)
+		{
+			PlayerManager* s = &PlayerManager::list[i];
+			s->spawn_timer = state.spawn_timer;
+			s->state_timer = state.state_timer;
+			s->upgrades = state.upgrades;
+			memcpy(s->abilities, state.abilities, sizeof(s->abilities));
+			s->current_upgrade = state.current_upgrade;
+			s->entity = state.entity;
+			s->credits = state.credits;
+			s->kills = state.kills;
+			s->respawns = state.respawns;
+		}
+	}
+
+	// Awks
+	for (s32 i = 0; i < MAX_PLAYERS; i++)
+	{
+		const AwkState& state = frame.awks[i];
+		if (state.active)
+		{
+			Awk* a = &Awk::list[i];
+			a->charges = state.charges;
+		}
+	}
+}
+
+StateFrame* state_frame_add(StateHistory* history)
 {
 	StateFrame* frame;
 	if (history->frames.length < history->frames.capacity())
@@ -1563,7 +1594,7 @@ StateFrame* state_frame_add(TransformHistory* history)
 	return frame;
 }
 
-const StateFrame* state_frame_by_sequence(const TransformHistory& history, SequenceID sequence_id)
+const StateFrame* state_frame_by_sequence(const StateHistory& history, SequenceID sequence_id)
 {
 	if (history.frames.length > 0)
 	{
@@ -1583,7 +1614,7 @@ const StateFrame* state_frame_by_sequence(const TransformHistory& history, Seque
 	return nullptr;
 }
 
-const StateFrame* state_frame_by_timestamp(const TransformHistory& history, r32 timestamp)
+const StateFrame* state_frame_by_timestamp(const StateHistory& history, r32 timestamp)
 {
 	if (history.frames.length > 0)
 	{
@@ -1604,7 +1635,7 @@ const StateFrame* state_frame_by_timestamp(const TransformHistory& history, r32 
 	return nullptr;
 }
 
-const StateFrame* state_frame_next(const TransformHistory& history, const StateFrame& frame)
+const StateFrame* state_frame_next(const StateHistory& history, const StateFrame& frame)
 {
 	if (history.frames.length > 1)
 	{
@@ -1641,7 +1672,6 @@ Array<Client> clients;
 r32 tick_timer;
 Mode mode;
 s32 expected_clients = 1;
-TransformHistory transform_history;
 
 s32 connected_clients()
 {
@@ -1716,7 +1746,7 @@ b8 build_packet_update(StreamWrite* p, Client* client, StateFrame* frame)
 	msgs_write(p, msgs_out_history, client->ack, &client->recently_resent, client->rtt);
 
 	serialize_int(p, SequenceID, client->ack.sequence_id, 0, SEQUENCE_COUNT - 1);
-	const StateFrame* base = state_frame_by_sequence(transform_history, client->ack.sequence_id);
+	const StateFrame* base = state_frame_by_sequence(state_history, client->ack.sequence_id);
 	state_frame_write(p, frame, base);
 
 	packet_finalize(p);
@@ -1757,7 +1787,7 @@ void tick(const Update& u)
 	if (mode == Mode::Active)
 		msgs_out_consolidate();
 
-	StateFrame* frame = state_frame_add(&transform_history);
+	StateFrame* frame = state_frame_add(&state_history);
 	state_frame_build(frame);
 
 	StreamWrite p;
@@ -1866,8 +1896,8 @@ b8 packet_handle(const Update& u, StreamRead* p, const Sock::Address& address)
 					{
 						AI::Team team;
 						serialize_int(p, AI::Team, team, 0, MAX_PLAYERS - 1);
-						u8 gamepad;
-						serialize_int(p, u8, gamepad, 0, MAX_GAMEPADS - 1);
+						s8 gamepad;
+						serialize_int(p, s8, gamepad, 0, MAX_GAMEPADS - 1);
 
 						Entity* e = World::create<ContainerEntity>();
 						PlayerManager* manager = e->add<PlayerManager>(&Team::list[(s32)team]);
@@ -1980,6 +2010,11 @@ b8 msg_process(StreamRead* p, Client* client)
 		{
 			break;
 		}
+		case MessageType::PlayerControlHuman:
+		{
+			PlayerControlHuman::net_msg(p, MessageSource::Remote);
+			break;
+		}
 		default:
 		{
 			net_error();
@@ -2007,7 +2042,6 @@ Ack server_ack = { u32(-1), 0 }; // most recent ack we've received from the serv
 SequenceHistory server_recently_resent; // sequences we recently resent to the server
 r32 server_rtt = 0.5f;
 SequenceID server_processed_sequence_id; // most recent sequence ID we've processed from the server
-TransformHistory transform_history;
 
 b8 init()
 {
@@ -2106,10 +2140,10 @@ void update(const Update& u)
 
 	r32 interpolation_time = Game::real_time.total - INTERPOLATION_DELAY;
 
-	const StateFrame* frame = state_frame_by_timestamp(transform_history, interpolation_time);
+	const StateFrame* frame = state_frame_by_timestamp(state_history, interpolation_time);
 	if (frame)
 	{
-		const StateFrame* frame_next = state_frame_next(transform_history, *frame);
+		const StateFrame* frame_next = state_frame_next(state_history, *frame);
 		const StateFrame* frame_final;
 		StateFrame interpolated;
 		if (frame_next)
@@ -2121,62 +2155,7 @@ void update(const Update& u)
 			frame_final = frame;
 
 		// apply frame_final to world
-
-		// transforms
-		s32 index = frame_final->transforms_active.start;
-		while (index <= frame_final->transforms_active.end)
-		{
-			Transform* t = &Transform::list[index];
-			const TransformState& s = frame_final->transforms[index];
-
-			if (t->has<PlayerControlHuman>() && t->get<PlayerControlHuman>()->player.ref()->local)
-			{
-				// this is a local player; we don't want to immediately overwrite its position with the server's data
-				// let the PlayerControlHuman deal with it
-				PlayerControlHuman* c = t->get<PlayerControlHuman>();
-				c->remote_pos = s.pos;
-				c->remote_rot = s.rot;
-				c->remote_parent = s.parent;
-			}
-			else
-			{
-				t->pos = s.pos;
-				t->rot = s.rot;
-				t->parent = s.parent;
-			}
-
-			index = frame_final->transforms_active.next(index);
-		}
-
-		// players
-		for (s32 i = 0; i < MAX_PLAYERS; i++)
-		{
-			const PlayerManagerState& state = frame_final->players[i];
-			if (state.active)
-			{
-				PlayerManager* s = &PlayerManager::list[i];
-				s->spawn_timer = state.spawn_timer;
-				s->state_timer = state.state_timer;
-				s->upgrades = state.upgrades;
-				memcpy(s->abilities, state.abilities, sizeof(s->abilities));
-				s->current_upgrade = state.current_upgrade;
-				s->entity = state.entity;
-				s->credits = state.credits;
-				s->kills = state.kills;
-				s->respawns = state.respawns;
-			}
-		}
-
-		// Awks
-		for (s32 i = 0; i < MAX_PLAYERS; i++)
-		{
-			const AwkState& state = frame_final->awks[i];
-			if (state.active)
-			{
-				Awk* a = &Awk::list[i];
-				a->charges = state.charges;
-			}
-		}
+		state_frame_apply(*frame_final);
 	}
 
 	while (MessageFrame* frame = msg_frame_advance(&msgs_in_history, &server_processed_sequence_id, interpolation_time))
@@ -2301,12 +2280,12 @@ b8 packet_handle(const Update& u, StreamRead* p, const Sock::Address& address)
 			{
 				SequenceID base_sequence_id;
 				serialize_int(p, SequenceID, base_sequence_id, 0, SEQUENCE_COUNT - 1);
-				const StateFrame* base = state_frame_by_sequence(transform_history, base_sequence_id);
+				const StateFrame* base = state_frame_by_sequence(state_history, base_sequence_id);
 				StateFrame frame;
 				state_frame_read(p, &frame, base);
 				// only insert the frame into the history if it is more recent
-				if (transform_history.frames.length == 0 || sequence_more_recent(frame.sequence_id, transform_history.frames[transform_history.current_index].sequence_id))
-					memcpy(state_frame_add(&transform_history), &frame, sizeof(StateFrame));
+				if (state_history.frames.length == 0 || sequence_more_recent(frame.sequence_id, state_history.frames[state_history.current_index].sequence_id))
+					memcpy(state_frame_add(&state_history), &frame, sizeof(StateFrame));
 			}
 
 			timeout = 0.0f; // reset connection timeout
@@ -2505,13 +2484,6 @@ b8 msg_serialize_type(StreamWrite* p, MessageType t)
 	return true;
 }
 
-StreamWrite* msg_new()
-{
-	StreamWrite* result = msgs_out.add();
-	result->reset();
-	return result;
-}
-
 StreamWrite* msg_new(MessageType t)
 {
 	StreamWrite* result = msgs_out.add();
@@ -2520,18 +2492,27 @@ StreamWrite* msg_new(MessageType t)
 	return result;
 }
 
+StreamWrite local_packet;
+StreamWrite* msg_new_local(MessageType t)
+{
+#if SERVER
+	// we're the server; send out this message
+	return msg_new(t);
+#else
+	// we're a client
+	// so just process this message locally; don't send it
+	local_packet.reset();
+	msg_serialize_type(&local_packet, t);
+	return &local_packet;
+#endif
+}
+
 template<typename T> b8 msg_serialize_ref(StreamWrite* p, T* t)
 {
 	using Stream = StreamWrite;
 	Ref<T> r = t;
 	serialize_ref(p, r);
 	return true;
-}
-
-void msg_awk(StreamWrite* p, Awk* a)
-{
-	msg_serialize_type(p, MessageType::Awk);
-	msg_serialize_ref(p, a);
 }
 
 // common message processing on both client and server
@@ -2548,12 +2529,12 @@ b8 msg_process(StreamRead* p, MessageSource src)
 	{
 		case MessageType::Awk:
 		{
-			Ref<Awk> ref;
-			serialize_ref(p, ref);
-			// if this is a loopback message (from ourselves), then process it
-			// or if it's an entity controlled by someone else, then process it
-			// if it's a message from someone else, and we own the entity, then ignore it
-			ref.ref()->msg(p, src);
+			Awk::net_msg(p, src);
+			break;
+		}
+		case MessageType::PlayerControlHuman:
+		{
+			PlayerControlHuman::net_msg(p, src);
 			break;
 		}
 		default:
@@ -2588,6 +2569,48 @@ b8 msg_finalize(StreamWrite* p)
 		msg_process(&r, MessageSource::Loopback);
 	}
 	return true;
+}
+
+r32 rtt(const PlayerHuman* p)
+{
+	if (p->local)
+		return 0.0f;
+
+#if SERVER
+	const Server::Client* client = nullptr;
+	for (s32 i = 0; i < Server::clients.length; i++)
+	{
+		const Server::Client& c = Server::clients[i];
+		for (s32 j = 0; j < c.players.length; j++)
+		{
+			if (c.players[j].ref() == p)
+			{
+				client = &c;
+				break;
+			}
+		}
+		if (client)
+			break;
+	}
+
+	vi_assert(client);
+	return client->rtt;
+#else
+	return Client::server_rtt;
+#endif
+}
+
+void state_rewind_to(r32 timestamp)
+{
+	state_frame_build(&state_frame_restore);
+	const StateFrame* frame = state_frame_by_timestamp(state_history, timestamp);
+	if (frame)
+		state_frame_apply(*frame);
+}
+
+void state_restore()
+{
+	state_frame_apply(state_frame_restore);
 }
 
 

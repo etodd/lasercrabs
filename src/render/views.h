@@ -19,7 +19,7 @@ struct View : public ComponentType<View>
 	AssetID mesh;
 	AssetID shader;
 	AssetID texture;
-	u8 team;
+	s8 team;
 
 	static void draw_opaque(const RenderParams&);
 	static void draw_alpha(const RenderParams&);

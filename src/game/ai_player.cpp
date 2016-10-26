@@ -153,8 +153,8 @@ void PlayerAI::spawn()
 // save up priority ranges from -2 to 3
 s32 PlayerAI::save_up_priority() const
 {
-	u16 increment = manager.ref()->increment();
-	u16 credits = manager.ref()->credits;
+	s16 increment = manager.ref()->increment();
+	s16 credits = manager.ref()->credits;
 	for (s32 i = 0; i < (s32)Upgrade::count; i++)
 	{
 		Upgrade upgrade = config.upgrade_priority[i];
@@ -218,7 +218,7 @@ void PlayerControlAI::awake()
 {
 #if DEBUG_AI_CONTROL
 	camera->fog = false;
-	camera->team = (u8)get<AIAgent>()->team;
+	camera->team = (s8)get<AIAgent>()->team;
 	camera->mask = 1 << camera->team;
 	camera->range = AWK_MAX_DISTANCE;
 #endif
@@ -879,8 +879,8 @@ b8 awk_find_filter(const PlayerControlAI* control, const Entity* e)
 	if (!default_filter(control, e))
 		return false;
 
-	u16 my_hp = control->get<Health>()->hp;
-	u16 enemy_hp = e->get<Health>()->hp;
+	s16 my_hp = control->get<Health>()->hp;
+	s16 enemy_hp = e->get<Health>()->hp;
 	return e->get<AIAgent>()->team != control->get<AIAgent>()->team
 		&& !e->get<AIAgent>()->stealth
 		&& (e->get<Awk>()->invincible_timer == 0.0f || (enemy_hp == 1 && my_hp > enemy_hp + 1))

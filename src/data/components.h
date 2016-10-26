@@ -55,7 +55,7 @@ struct PointLight : public ComponentType<PointLight>
 	r32 radius;
 	Type type;
 	RenderMask mask;
-	u8 team;
+	s8 team;
 
 	PointLight();
 	void awake() {}
@@ -67,7 +67,7 @@ struct SpotLight : public ComponentType<SpotLight>
 	r32 radius;
 	r32 fov;
 	RenderMask mask;
-	u8 team;
+	s8 team;
 
 	SpotLight();
 

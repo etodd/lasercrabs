@@ -255,7 +255,7 @@ namespace VI
 
 			sync->input.focus = has_focus;
 
-			u32 mouse_buttons = SDL_GetRelativeMouseState(&sync->input.cursor_x, &sync->input.cursor_y);
+			s32 mouse_buttons = SDL_GetRelativeMouseState(&sync->input.cursor_x, &sync->input.cursor_y);
 
 			sync->input.keys[(s32)KeyCode::MouseLeft] = mouse_buttons & (1 << 0);
 			sync->input.keys[(s32)KeyCode::MouseMiddle] = mouse_buttons & (1 << 1);

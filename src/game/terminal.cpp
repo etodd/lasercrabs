@@ -59,9 +59,9 @@ struct ZoneNode
 {
 	AssetID id;
 	Ref<Transform> pos;
-	u16 rewards[(s32)Game::Resource::count];
-	u8 size;
-	u8 max_teams;
+	s16 rewards[(s32)Game::Resource::count];
+	s8 size;
+	s8 max_teams;
 };
 
 enum class State
@@ -129,8 +129,8 @@ struct Data
 		r32 timer_buy;
 		Game::Resource resource_selected;
 		Mode mode;
-		u16 buy_quantity;
-		u16 resources_last[(s32)Game::Resource::count];
+		s16 buy_quantity;
+		s16 resources_last[(s32)Game::Resource::count];
 	};
 
 	struct Map
@@ -514,7 +514,7 @@ void zone_node_children(const ZoneNode& node, StaticArray<Ref<Transform>, ZONE_M
 	children->add(node.pos.ref());
 }
 
-b8 resource_spend(Game::Resource res, u16 amount)
+b8 resource_spend(Game::Resource res, s16 amount)
 {
 	if (Game::save.resources[(s32)res] >= amount)
 	{
@@ -540,14 +540,14 @@ void deploy_start()
 	data.timer_deploy = DEPLOY_TIME_LOCAL;
 }
 
-u16 energy_increment_zone(const ZoneNode& zone)
+s16 energy_increment_zone(const ZoneNode& zone)
 {
 	return zone.size * (zone.max_teams == MAX_PLAYERS ? 200 : 10);
 }
 
-u16 energy_increment_total()
+s16 energy_increment_total()
 {
-	u16 result = 0;
+	s16 result = 0;
 	for (s32 i = 0; i < data.zones.length; i++)
 	{
 		const ZoneNode& zone = data.zones[i];
@@ -1490,7 +1490,7 @@ void tab_map_update(const Update& u)
 					Game::ZoneState zone_state = Game::save.zones[data.zone_selected];
 					if (zone_state == Game::ZoneState::Locked)
 					{
-						u16 cost = zone_node_get(data.zone_selected)->size;
+						s16 cost = zone_node_get(data.zone_selected)->size;
 						if (Game::save.resources[(s32)Game::Resource::HackKits] < cost)
 							dialog(&dialog_no_action, _(strings::insufficient_resource), cost, _(strings::hack_kits));
 						else
@@ -1552,7 +1552,7 @@ struct ResourceInfo
 {
 	AssetID icon;
 	AssetID description;
-	u16 cost;
+	s16 cost;
 };
 
 ResourceInfo resource_info[(s32)Game::Resource::count] =
@@ -2786,12 +2786,12 @@ void init(const Update& u, const EntityFinder& entities)
 						level_id,
 						view->get<Transform>(),
 						{
-							(u16)Json::get_s32(entry.properties, "energy", 0),
-							(u16)Json::get_s32(entry.properties, "hack_kits", 0),
-							(u16)Json::get_s32(entry.properties, "drones", 0),
+							(s16)Json::get_s32(entry.properties, "energy", 0),
+							(s16)Json::get_s32(entry.properties, "hack_kits", 0),
+							(s16)Json::get_s32(entry.properties, "drones", 0),
 						},
-						(u8)Json::get_s32(entry.properties, "size", 1),
-						(u8)Json::get_s32(entry.properties, "max_teams", 2),
+						(s8)Json::get_s32(entry.properties, "size", 1),
+						(s8)Json::get_s32(entry.properties, "max_teams", 2),
 					};
 				}
 			}
@@ -2825,7 +2825,7 @@ void init(const Update& u, const EntityFinder& entities)
 			message_add(strings::contact_albert, strings::msg_albert_intro_2, platform::timestamp() - (86400.0 * 1.5));
 			Game::save.resources[(s32)Game::Resource::HackKits] = 1;
 			Game::save.resources[(s32)Game::Resource::Drones] = 4;
-			Game::save.resources[(s32)Game::Resource::Energy] = (u16)(CREDITS_INITIAL * 3.5f);
+			Game::save.resources[(s32)Game::Resource::Energy] = (s16)(CREDITS_INITIAL * 3.5f);
 			Game::save.zones[Asset::Level::Safe_Zone] = Game::ZoneState::Locked;
 		}
 

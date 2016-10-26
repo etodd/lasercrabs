@@ -40,7 +40,7 @@ Minion::Minion(const Vec3& pos, const Quat& quat, AI::Team team, PlayerManager* 
 
 	model->shader = Asset::Shader::armature;
 	model->mesh = Asset::Mesh::character;
-	model->team = (u8)team;
+	model->team = (s8)team;
 	model->color.w = MATERIAL_NO_OVERRIDE;
 
 	create<Audio>();

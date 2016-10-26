@@ -25,7 +25,7 @@ struct SkinnedModel : public ComponentType<SkinnedModel>
 	AssetID shader;
 	AssetID texture;
 	RenderMask mask;
-	u8 team;
+	s8 team;
 
 	SkinnedModel();
 	void awake();

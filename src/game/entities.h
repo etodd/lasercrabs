@@ -26,7 +26,7 @@ struct AwkEntity : public Entity
 struct DamageEvent
 {
 	Entity* damager;
-	u16 amount;
+	s16 amount;
 };
 
 struct Health : public ComponentType<Health>
@@ -35,21 +35,21 @@ struct Health : public ComponentType<Health>
 	LinkArg<const DamageEvent&> damaged;
 	LinkArg<Entity*> killed;
 	Link added;
-	u8 shield;
-	u8 shield_max;
-	u8 hp;
-	u8 hp_max;
+	s8 shield;
+	s8 shield_max;
+	s8 hp;
+	s8 hp_max;
 
-	Health(u8 = 0, u8 = 0, u8 = 0, u8 = 0);
+	Health(s8 = 0, s8 = 0, s8 = 0, s8 = 0);
 
 	void update(const Update&);
 	void awake() {}
-	void damage(Entity*, u8);
+	void damage(Entity*, s8);
 	void take_shield();
-	void take_health(Entity*, u8);
+	void take_health(Entity*, s8);
 	void kill(Entity*);
-	void add(u8);
-	u8 total() const;
+	void add(s8);
+	s8 total() const;
 };
 
 #define HEALTH_PICKUP_RADIUS 0.55f
@@ -329,6 +329,7 @@ struct Target : public ComponentType<Target>
 	Vec3 absolute_pos() const;
 	void hit(Entity*);
 	b8 predict_intersection(const Vec3&, r32, Vec3*) const;
+	r32 radius() const;
 };
 
 struct PlayerTrigger : public ComponentType<PlayerTrigger>

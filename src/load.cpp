@@ -647,8 +647,8 @@ void Loader::texture(AssetID id, RenderTextureWrap wrap, RenderTextureFilter fil
 		sync->write<AssetID>(id);
 		sync->write(wrap);
 		sync->write(filter);
-		sync->write<u32>(width);
-		sync->write<u32>(height);
+		sync->write<s32>(width);
+		sync->write<s32>(height);
 		sync->write<u32>((u32*)buffer, width * height);
 		free(buffer);
 	}
@@ -698,8 +698,8 @@ AssetID Loader::dynamic_texture(s32 width, s32 height, RenderDynamicTextureType 
 	sync->write<AssetID>(index);
 	sync->write(RenderOp::DynamicTexture);
 	sync->write<AssetID>(index);
-	sync->write<u32>(width);
-	sync->write<u32>(height);
+	sync->write<s32>(width);
+	sync->write<s32>(height);
 	sync->write<RenderDynamicTextureType>(type);
 	sync->write<RenderTextureWrap>(wrap);
 	sync->write<RenderTextureFilter>(filter);

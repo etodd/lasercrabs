@@ -154,7 +154,7 @@ b8 Team::has_player() const
 	for (auto j = PlayerManager::list.iterator(); !j.is_last(); j.next())
 	{
 		if (j.item()->team.ref() == this
-			&& (j.item()->respawns > 0 || j.item()->entity.ref()))
+			&& (j.item()->respawns != 0 || j.item()->entity.ref()))
 			return true;
 	}
 	return false;
@@ -223,9 +223,9 @@ s32 Team::control_point_count() const
 	return count;
 }
 
-u16 Team::kills() const
+s16 Team::kills() const
 {
-	u16 kills = 0;
+	s16 kills = 0;
 	for (auto i = PlayerManager::list.iterator(); !i.is_last(); i.next())
 	{
 		if (i.item()->team.ref() == this)
@@ -236,11 +236,11 @@ u16 Team::kills() const
 
 Team* Team::with_most_kills()
 {
-	u16 highest_kills = 0;
+	s16 highest_kills = 0;
 	Team* result = nullptr;
 	for (auto i = list.iterator(); !i.is_last(); i.next())
 	{
-		u16 kills = i.item()->kills();
+		s16 kills = i.item()->kills();
 		if (kills == highest_kills)
 			result = nullptr;
 		else if (kills > highest_kills)
@@ -615,7 +615,7 @@ void Team::update_all(const Update& u)
 
 b8 PlayerManager::has_upgrade(Upgrade u) const
 {
-	return upgrades & (1 << (u32)u);
+	return upgrades & (1 << (s32)u);
 }
 
 b8 PlayerManager::ability_valid(Ability ability) const
@@ -661,7 +661,7 @@ PlayerManager::PlayerManager(Team* team)
 
 b8 PlayerManager::upgrade_start(Upgrade u)
 {
-	u16 cost = upgrade_cost(u);
+	s16 cost = upgrade_cost(u);
 	if (can_transition_state()
 		&& upgrade_available(u)
 		&& credits >= cost
@@ -685,7 +685,7 @@ void PlayerManager::upgrade_complete()
 	if (!entity.ref())
 		return;
 
-	upgrades |= 1 << u32(u);
+	upgrades |= 1 << s32(u);
 
 	if (s32(u) < s32(Ability::count))
 	{
@@ -742,7 +742,7 @@ void PlayerManager::capture_complete()
 	control_point_capture_completed.fire(success);
 }
 
-u16 PlayerManager::upgrade_cost(Upgrade u) const
+s16 PlayerManager::upgrade_cost(Upgrade u) const
 {
 	vi_assert(u != Upgrade::None);
 	const UpgradeInfo& info = UpgradeInfo::list[(s32)u];
@@ -787,7 +787,7 @@ s32 PlayerManager::add_credits(s32 c)
 	if (c != 0)
 	{
 		s32 old_credits = credits;
-		credits = (u16)vi_max(0, (s32)credits + c);
+		credits = (s16)vi_max(0, (s32)credits + c);
 		credits_flash_timer = CREDITS_FLASH_TIME;
 		return credits - old_credits;
 	}
@@ -852,7 +852,7 @@ b8 PlayerManager::can_transition_state() const
 	return e->get<Awk>()->state() == Awk::State::Crawl;
 }
 
-u16 PlayerManager::increment() const
+s16 PlayerManager::increment() const
 {
 	return CREDITS_DEFAULT_INCREMENT
 		+ ControlPoint::count(1 << team.ref()->team()) * CREDITS_CONTROL_POINT
@@ -893,7 +893,7 @@ void PlayerManager::update_server(const Update& u)
 	if (!entity.ref()
 		&& spawn_timer > 0.0f
 		&& team.ref()->player_spawn.ref()
-		&& respawns > 0
+		&& respawns != 0
 		&& !Game::level.continue_match_after_death)
 	{
 		spawn_timer -= u.time.delta;
@@ -901,7 +901,7 @@ void PlayerManager::update_server(const Update& u)
 		{
 			if (Game::level.type != Game::Type::Deathmatch)
 				respawns--;
-			if (respawns > 0)
+			if (respawns != 0)
 				spawn_timer = PLAYER_SPAWN_DELAY;
 			spawn.fire();
 		}

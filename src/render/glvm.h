@@ -113,7 +113,7 @@ enum class RenderFillMode
 	Point,
 };
 
-typedef u8 RenderColorMask;
+typedef s8 RenderColorMask;
 #define RENDER_COLOR_MASK_DEFAULT 31
 
 struct RenderSync : public SyncBuffer

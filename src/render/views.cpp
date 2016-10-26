@@ -22,7 +22,7 @@ View::View(AssetID m)
 	offset(Mat4::identity),
 	color(-1, -1, -1, -1),
 	mask(RENDER_MASK_DEFAULT),
-	team((u8)AI::TeamNone)
+	team((s8)AI::TeamNone)
 {
 }
 
@@ -187,7 +187,7 @@ void View::draw(const RenderParams& params) const
 	sync->write(RenderDataType::Vec4);
 	sync->write<s32>(1);
 
-	if (team == (u8)AI::TeamNone)
+	if (team == (s8)AI::TeamNone)
 	{
 		if (params.camera->colors)
 			sync->write<Vec4>(color);
@@ -538,7 +538,7 @@ void SkyPattern::draw_opaque(const RenderParams& p)
 	RenderSync* sync = p.sync;
 
 	sync->write(RenderOp::ColorMask);
-	sync->write<u8>(0);
+	sync->write<s8>(0);
 
 	sync->write(RenderOp::Shader);
 	sync->write(Asset::Shader::standard_flat);
@@ -565,7 +565,7 @@ void SkyPattern::draw_opaque(const RenderParams& p)
 	sync->write(Asset::Mesh::sky_pattern);
 
 	sync->write(RenderOp::ColorMask);
-	sync->write<u8>(RENDER_COLOR_MASK_DEFAULT);
+	sync->write<s8>(RENDER_COLOR_MASK_DEFAULT);
 }
 
 void SkyPattern::draw_alpha(const RenderParams& p)

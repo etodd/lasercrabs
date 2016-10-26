@@ -289,7 +289,7 @@ struct Gamepad
 	r32 left_trigger;
 	r32 right_trigger;
 	r32 rumble;
-	u32 btns;
+	s32 btns;
 };
 
 #define MAX_GAMEPADS 4

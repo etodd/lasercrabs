@@ -78,8 +78,8 @@ namespace AI
 		u32 id;
 	};
 	
-	typedef u8 Team;
-	typedef u32 TeamMask;
+	typedef s8 Team;
+	typedef s32 TeamMask;
 
 	const Team TeamNone = 255;
 

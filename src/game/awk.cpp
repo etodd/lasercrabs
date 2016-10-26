@@ -79,55 +79,27 @@ btScalar AwkRaycastCallback::addSingleResult(btCollisionWorld::LocalRayResult& r
 namespace AwkNet
 {
 
-void finish_flying_dashing_common(Awk* a)
+enum class Message
 {
-	a->lerped_pos = a->get<Transform>()->pos;
-
-	a->get<Animator>()->layers[0].animation = AssetNull;
-
-	a->get<Audio>()->post_event(a->has<PlayerControlHuman>() && a->get<PlayerControlHuman>()->local() ? AK::EVENTS::PLAY_LAND_PLAYER : AK::EVENTS::PLAY_LAND);
-	a->attach_time = Game::time.total;
-
-	a->velocity = Vec3::zero;
-}
-
-b8 serialize_message_type(Net::StreamWrite* p, Awk::NetMessage t)
-{
-	using Stream = Net::StreamWrite;
-	serialize_enum(p, Awk::NetMessage, t);
-	return true;
-}
-
-Net::StreamWrite local_packet;
-Net::StreamWrite* msg_new(Awk* a, Awk::NetMessage t)
-{
-	using Stream = Net::StreamWrite;
-
-	Net::StreamWrite* p;
-	if (Game::session.local)
-	{
-		// we're the server; send out this message
-		p = Net::msg_new();
-	}
-	else
-	{
-		// we're a client
-		// so just process this message locally; don't send it
-		local_packet = Stream();
-		p = &local_packet;
-	}
-
-	Net::msg_awk(p, a);
-
-	serialize_message_type(p, t);
-
-	return p;
-}
+	FlyStart,
+	FlyDone,
+	DashStart,
+	DashDone,
+	count,
+};
 
 b8 start_flying(Awk* a, Vec3 dir)
 {
 	using Stream = Net::StreamWrite;
-	Net::StreamWrite* p = msg_new(a, Awk::NetMessage::FlyStart);
+	Net::StreamWrite* p = Net::msg_new_local(Net::MessageType::Awk);
+	{
+		Ref<Awk> ref = a;
+		serialize_ref(p, ref);
+	}
+	{
+		Message t = Message::FlyStart;
+		serialize_enum(p, Message, t);
+	}
 	serialize_r32(p, dir.x);
 	serialize_r32(p, dir.y);
 	serialize_r32(p, dir.z);
@@ -138,7 +110,15 @@ b8 start_flying(Awk* a, Vec3 dir)
 b8 start_dashing(Awk* a, Vec3 dir)
 {
 	using Stream = Net::StreamWrite;
-	Net::StreamWrite* p = msg_new(a, Awk::NetMessage::DashStart);
+	Net::StreamWrite* p = Net::msg_new_local(Net::MessageType::Awk);
+	{
+		Ref<Awk> ref = a;
+		serialize_ref(p, ref);
+	}
+	{
+		Message t = Message::DashStart;
+		serialize_enum(p, Message, t);
+	}
 	serialize_r32(p, dir.x);
 	serialize_r32(p, dir.y);
 	serialize_r32(p, dir.z);
@@ -146,18 +126,151 @@ b8 start_dashing(Awk* a, Vec3 dir)
 	return true;
 }
 
-void finish_flying(Awk* a)
+b8 finish_flying(Awk* a)
 {
-	Net::StreamWrite* p = msg_new(a, Awk::NetMessage::FlyDone);
+	using Stream = Net::StreamWrite;
+	Net::StreamWrite* p = Net::msg_new_local(Net::MessageType::Awk);
+	{
+		Ref<Awk> ref = a;
+		serialize_ref(p, ref);
+	}
+	{
+		Message t = Message::FlyDone;
+		serialize_enum(p, Message, t);
+	}
 	Net::msg_finalize(p);
+	return true;
 }
 
-void finish_dashing(Awk* a)
+b8 finish_dashing(Awk* a)
 {
-	Net::StreamWrite* p = msg_new(a, Awk::NetMessage::DashDone);
+	using Stream = Net::StreamWrite;
+	Net::StreamWrite* p = Net::msg_new_local(Net::MessageType::Awk);
+	{
+		Ref<Awk> ref = a;
+		serialize_ref(p, ref);
+	}
+	{
+		Message t = Message::DashDone;
+		serialize_enum(p, Message, t);
+	}
 	Net::msg_finalize(p);
+	return true;
 }
 
+}
+
+b8 Awk::net_msg(Net::StreamRead* p, Net::MessageSource src)
+{
+	using Stream = Net::StreamRead;
+
+	Awk* awk;
+	{
+		Ref<Awk> ref;
+		serialize_ref(p, ref);
+		awk = ref.ref();
+	}
+
+	AwkNet::Message type;
+	serialize_enum(p, AwkNet::Message, type);
+
+	// should we actually pay attention to this message?
+	// if it's a message from a remote, but we are a local entity, then ignore the message.
+	b8 apply_msg = src == Net::MessageSource::Loopback || !awk->has<PlayerControlHuman>() || !awk->get<PlayerControlHuman>()->local();
+
+	switch (type)
+	{
+		case AwkNet::Message::FlyStart:
+		{
+			Vec3 dir;
+			serialize_r32(p, dir.x);
+			serialize_r32(p, dir.y);
+			serialize_r32(p, dir.z);
+
+			if (apply_msg)
+			{
+				Vec3 dir_normalized = Vec3::normalize(dir);
+
+				awk->velocity = dir_normalized * AWK_FLY_SPEED;
+				awk->get<Transform>()->absolute_pos(awk->get<Transform>()->absolute_pos() + dir_normalized * AWK_RADIUS * 0.5f);
+				awk->get<Transform>()->absolute_rot(Quat::look(dir_normalized));
+
+				awk->get<Audio>()->post_event(awk->has<PlayerControlHuman>() ? AK::EVENTS::PLAY_LAUNCH_PLAYER : AK::EVENTS::PLAY_LAUNCH);
+
+				awk->cooldown_setup();
+				awk->detach_teleport();
+			}
+
+			break;
+		}
+		case AwkNet::Message::DashStart:
+		{
+			Vec3 dir;
+			serialize_r32(p, dir.x);
+			serialize_r32(p, dir.y);
+			serialize_r32(p, dir.z);
+
+			if (apply_msg)
+			{
+				awk->velocity = Vec3::normalize(dir) * AWK_DASH_SPEED;
+				awk->dash_timer = AWK_DASH_TIME;
+
+				awk->hit_targets.length = 0;
+
+				awk->attach_time = Game::time.total;
+				awk->cooldown_setup();
+
+				for (s32 i = 0; i < AWK_LEGS; i++)
+					awk->footing[i].parent = nullptr;
+				awk->get<Animator>()->reset_overrides();
+				awk->get<Animator>()->layers[0].animation = Asset::Animation::awk_dash;
+
+				awk->particle_accumulator = 0;
+
+				awk->get<Audio>()->post_event(awk->has<PlayerControlHuman>() && awk->get<PlayerControlHuman>()->local() ? AK::EVENTS::PLAY_LAUNCH_PLAYER : AK::EVENTS::PLAY_LAUNCH);
+
+				awk->dashed.fire();
+			}
+
+			break;
+		}
+		case AwkNet::Message::DashDone:
+		{
+			if (apply_msg)
+			{
+				awk->finish_flying_dashing_common();
+				awk->done_dashing.fire();
+			}
+			break;
+		}
+		case AwkNet::Message::FlyDone:
+		{
+			if (apply_msg)
+			{
+				awk->finish_flying_dashing_common();
+				awk->done_flying.fire();
+			}
+			break;
+		}
+		default:
+		{
+			vi_assert(false);
+			break;
+		}
+	}
+	return true;
+}
+
+void Awk::finish_flying_dashing_common()
+{
+	lerped_pos = get<Transform>()->pos;
+
+	get<Animator>()->layers[0].animation = AssetNull;
+
+	get<Audio>()->post_event(has<PlayerControlHuman>() && get<PlayerControlHuman>()->local() ? AK::EVENTS::PLAY_LAND_PLAYER : AK::EVENTS::PLAY_LAND);
+	attach_time = Game::time.total;
+
+	velocity = Vec3::zero;
 }
 
 Awk* Awk::closest(AI::TeamMask mask, const Vec3& pos, r32* distance)
@@ -225,7 +338,7 @@ void Awk::awake()
 		shield = shield_entity;
 
 		View* s = shield_entity->add<View>();
-		s->team = (u8)get<AIAgent>()->team;
+		s->team = (s8)get<AIAgent>()->team;
 		s->mesh = Asset::Mesh::sphere_highres;
 		s->offset.scale(Vec3(AWK_SHIELD_RADIUS));
 		s->shader = Asset::Shader::fresnel;
@@ -342,8 +455,11 @@ void Awk::hit_by(const TargetEvent& e)
 		e.hit_by->get<PlayerControlHuman>()->player.ref()->msg(_(strings::no_effect), false);
 }
 
-void Awk::hit_target(Entity* target, const Vec3& hit_pos)
+void Awk::hit_target(Entity* target)
 {
+	if (!Game::session.local) // target hit events are synced across the network
+		return;
+
 	for (s32 i = 0; i < hit_targets.length; i++)
 	{
 		if (hit_targets[i].ref() == target)
@@ -351,6 +467,8 @@ void Awk::hit_target(Entity* target, const Vec3& hit_pos)
 	}
 	if (hit_targets.length < hit_targets.capacity())
 		hit_targets.add(target);
+
+	Vec3 hit_pos = target->get<Target>()->absolute_pos();
 
 	// particles
 	{
@@ -807,7 +925,7 @@ b8 Awk::go(const Vec3& dir)
 				Entity* base = World::create<Prop>(Asset::Mesh::rocket_base);
 				base->get<Transform>()->absolute(pos, rot);
 				base->get<Transform>()->reparent(parent->get<Transform>());
-				base->get<View>()->team = u8(get<AIAgent>()->team);
+				base->get<View>()->team = s8(get<AIAgent>()->team);
 				Net::finalize(base);
 				break;
 			}
@@ -1256,99 +1374,6 @@ void Awk::stealth(b8 enable)
 	}
 }
 
-b8 Awk::msg(Net::StreamRead* p, Net::MessageSource src)
-{
-	using Stream = Net::StreamRead;
-	NetMessage type;
-	serialize_enum(p, NetMessage, type);
-
-	// should we actually pay attention to this message?
-	// if it's a message from a remote, but we are a local entity, then ignore the message.
-	b8 apply_msg = src == Net::MessageSource::Loopback || !has<PlayerControlHuman>() || !get<PlayerControlHuman>()->local();
-
-	switch (type)
-	{
-		case NetMessage::FlyStart:
-		{
-			Vec3 dir;
-			serialize_r32(p, dir.x);
-			serialize_r32(p, dir.y);
-			serialize_r32(p, dir.z);
-
-			if (apply_msg)
-			{
-				Vec3 dir_normalized = Vec3::normalize(dir);
-
-				velocity = dir_normalized * AWK_FLY_SPEED;
-				get<Transform>()->absolute_pos(get<Transform>()->absolute_pos() + dir_normalized * AWK_RADIUS * 0.5f);
-				get<Transform>()->absolute_rot(Quat::look(dir_normalized));
-
-				get<Audio>()->post_event(has<PlayerControlHuman>() ? AK::EVENTS::PLAY_LAUNCH_PLAYER : AK::EVENTS::PLAY_LAUNCH);
-
-				cooldown_setup();
-				detach_teleport();
-			}
-
-			break;
-		}
-		case NetMessage::DashStart:
-		{
-			Vec3 dir;
-			serialize_r32(p, dir.x);
-			serialize_r32(p, dir.y);
-			serialize_r32(p, dir.z);
-
-			if (apply_msg)
-			{
-				velocity = Vec3::normalize(dir) * AWK_DASH_SPEED;
-				dash_timer = AWK_DASH_TIME;
-
-				hit_targets.length = 0;
-
-				attach_time = Game::time.total;
-				cooldown_setup();
-
-				for (s32 i = 0; i < AWK_LEGS; i++)
-					footing[i].parent = nullptr;
-				get<Animator>()->reset_overrides();
-				get<Animator>()->layers[0].animation = Asset::Animation::awk_dash;
-
-				particle_accumulator = 0;
-
-				get<Audio>()->post_event(has<PlayerControlHuman>() ? AK::EVENTS::PLAY_LAUNCH_PLAYER : AK::EVENTS::PLAY_LAUNCH);
-
-				dashed.fire();
-			}
-
-			break;
-		}
-		case NetMessage::DashDone:
-		{
-			if (apply_msg)
-			{
-				AwkNet::finish_flying_dashing_common(this);
-				done_dashing.fire();
-			}
-			break;
-		}
-		case NetMessage::FlyDone:
-		{
-			if (apply_msg)
-			{
-				AwkNet::finish_flying_dashing_common(this);
-				done_flying.fire();
-			}
-			break;
-		}
-		default:
-		{
-			vi_assert(false);
-			break;
-		}
-	}
-	return true;
-}
-
 void Awk::update_lerped_pos(r32 speed_multiplier, const Update& u)
 {
 	{
@@ -1585,53 +1610,95 @@ void Awk::update_client(const Update& u)
 
 r32 Awk::movement_raycast(const Vec3& ray_start, const Vec3& ray_end)
 {
-	btCollisionWorld::AllHitsRayResultCallback ray_callback(ray_start, ray_end);
-	ray_callback.m_flags = btTriangleRaycastCallback::EFlags::kF_FilterBackfaces
-		| btTriangleRaycastCallback::EFlags::kF_KeepUnflippedNormal;
-	ray_callback.m_collisionFilterMask = ray_callback.m_collisionFilterGroup = btBroadphaseProxy::AllFilter;
+	struct Hit
+	{
+		enum class Type
+		{
+			Environment,
+			EnemyContainmentField,
+			Awk,
+			Target,
+			count,
+		};
 
-	Physics::btWorld->rayTest(ray_start, ray_end, ray_callback);
+		Vec3 pos;
+		Vec3 normal;
+		r32 fraction;
+		Type type;
+		Ref<Entity> entity;
+	};
 
-	// determine which ray collision is the one we stop at
+	StaticArray<Hit, 32> hits;
+
+	r32 distance_total = (ray_end - ray_start).length();
+
+	// check environment
+	{
+		btCollisionWorld::ClosestRayResultCallback ray_callback(ray_start, ray_end);
+		Physics::raycast(&ray_callback, btBroadphaseProxy::StaticFilter | CollisionAllTeamsContainmentField);
+
+		if (ray_callback.hasHit())
+		{
+			b8 is_enemy_containment_field = ray_callback.m_collisionObject->getBroadphaseHandle()->m_collisionFilterGroup & (CollisionInaccessible | (CollisionAllTeamsContainmentField & ~ally_containment_field_mask()));
+			hits.add(
+			{
+				ray_callback.m_hitPointWorld,
+				ray_callback.m_hitNormalWorld,
+				(ray_callback.m_hitPointWorld - ray_start).length() / distance_total,
+				is_enemy_containment_field ? Hit::Type::EnemyContainmentField : Hit::Type::Environment,
+				&Entity::list[ray_callback.m_collisionObject->getUserIndex()],
+			});
+		}
+	}
+
+	// check targets
+	for (auto i = Target::list.iterator(); !i.is_last(); i.next())
+	{
+		if (i.item() == get<Target>())
+			continue;
+
+		Vec3 p = i.item()->absolute_pos();
+		Vec3 intersection;
+		if (LMath::ray_sphere_intersect(ray_start, ray_end, p, i.item()->radius(), &intersection))
+		{
+			hits.add(
+			{
+				intersection,
+				Vec3::normalize(intersection - p),
+				(intersection - ray_start).length() / distance_total,
+				i.item()->has<Awk>() ? Hit::Type::Awk : Hit::Type::Target,
+				i.item()->entity(),
+			});
+		}
+	}
+
+	// determine which collision is the one we stop at
 	r32 fraction_end = 2.0f;
 	s32 index_end = -1;
-	for (s32 i = 0; i < ray_callback.m_collisionObjects.size(); i++)
+	for (s32 i = 0; i < hits.length; i++)
 	{
-		if (ray_callback.m_hitFractions[i] < fraction_end)
+		const Hit& hit = hits[i];
+		if (hit.fraction < fraction_end)
 		{
-			s16 group = ray_callback.m_collisionObjects[i]->getBroadphaseHandle()->m_collisionFilterGroup;
-			Entity* entity = &Entity::list[ray_callback.m_collisionObjects[i]->getUserIndex()];
-
 			b8 stop = false;
-			if ((entity->has<Awk>() && (group & CollisionShield))) // it's an AWK shield
+			if (hit.type == Hit::Type::Awk)
 			{
-				if (entity->get<Awk>()->state() != Awk::State::Crawl) // it's flying or dashing; always bounce off
+				if (hit.entity.ref()->get<Awk>()->state() != Awk::State::Crawl) // it's flying or dashing; always bounce off
 					stop = true;
-				else if (entity->get<Health>()->hp > 1)
-					stop = true; // they have shield to spare; we'll bounce off the shield
+				else if (hit.entity.ref()->get<Health>()->total() > 1)
+					stop = true; // they have health or shield to spare; we'll bounce off
 			}
-			else if (!(group & (AWK_PERMEABLE_MASK | CollisionWalker | ally_containment_field_mask())))
+			else if (hit.type == Hit::Type::Target)
 			{
-				stop = true; // we can't go through it
-				if (current_ability == Ability::Sniper) // we just shot at a wall; spawn some particles
-				{
-					Quat rot = Quat::look(ray_callback.m_hitNormalWorld[i]);
-					for (s32 j = 0; j < 50; j++)
-					{
-						Particles::sparks.add
-						(
-							ray_callback.m_hitPointWorld[i],
-							rot * Vec3(mersenne::randf_oo() * 2.0f - 1.0f, mersenne::randf_oo() * 2.0f - 1.0f, mersenne::randf_oo()) * 10.0f,
-							Vec4(1, 1, 1, 1)
-						);
-					}
-				}
+				// go through it, don't stop
 			}
+			else
+				stop = true; // we can't go through it
 
 			if (stop)
 			{
 				// stop raycast here
-				fraction_end = ray_callback.m_hitFractions[i];
+				fraction_end = hit.fraction;
 				index_end = i;
 			}
 		}
@@ -1639,69 +1706,72 @@ r32 Awk::movement_raycast(const Vec3& ray_start, const Vec3& ray_end)
 
 	State s = state();
 
-	for (s32 i = 0; i < ray_callback.m_collisionObjects.size(); i++)
+	// handle collisions
+	for (s32 i = 0; i < hits.length; i++)
 	{
-		if (i == index_end || ray_callback.m_hitFractions[i] < fraction_end)
+		const Hit& hit = hits[i];
+		if (i == index_end || hit.fraction < fraction_end)
 		{
-			s16 group = ray_callback.m_collisionObjects[i]->getBroadphaseHandle()->m_collisionFilterGroup;
-			if (group & CollisionWalker)
+			if (hit.type == Hit::Type::Target)
+				hit_target(hit.entity.ref());
+			else if (hit.type == Hit::Type::Awk)
 			{
-				Entity* t = &Entity::list[ray_callback.m_collisionObjects[i]->getUserIndex()];
-				if (t->has<MinionCommon>() && t->get<MinionCommon>()->headshot_test(ray_start, ray_end))
-					hit_target(t, t->get<MinionCommon>()->head_pos());
+				hit_target(hit.entity.ref());
+				// if we didn't destroy them, then bounce off
+				if (s != State::Crawl && hit.entity.ref() && hit.entity.ref()->get<Health>()->total() > 0)
+					reflect(hit.pos, hit.normal);
 			}
-			else if (group & (CollisionInaccessible | (CollisionAllTeamsContainmentField & ~ally_containment_field_mask())))
+			else if (hit.type == Hit::Type::EnemyContainmentField)
 			{
-				// this shouldn't happen, but if it does, bounce off
+				if (s == State::Fly) // this shouldn't normally happen, but if it does, bounce off
+					reflect(hit.pos, hit.normal);
+			}
+			else if (hit.type == Hit::Type::Environment)
+			{
 				if (s == State::Fly)
-					reflect(ray_callback.m_hitPointWorld[i], ray_callback.m_hitNormalWorld[i]);
-			}
-			else if (group & (CollisionTarget | CollisionShield))
-			{
-				Ref<Entity> hit = &Entity::list[ray_callback.m_collisionObjects[i]->getUserIndex()];
-				if (hit.ref() != entity())
 				{
-					hit_target(hit.ref(), hit.ref()->get<Transform>()->absolute_pos());
-					if (group & CollisionShield)
+					// we hit a normal surface; attach to it
+
+					Vec3 point = hit.pos;
+					// check for obstacles
 					{
-						// if we didn't destroy the shield, then bounce off it
-						if (s != State::Crawl && hit.ref() && hit.ref()->get<Health>()->hp > 0)
-							reflect(ray_callback.m_hitPointWorld[i], ray_callback.m_hitNormalWorld[i]);
+						btCollisionWorld::ClosestRayResultCallback obstacle_ray_callback(hit.pos, hit.pos + hit.normal * (AWK_RADIUS * 1.1f));
+						Physics::raycast(&obstacle_ray_callback, ~AWK_PERMEABLE_MASK & ~CollisionAwk & ~ally_containment_field_mask());
+						if (obstacle_ray_callback.hasHit())
+						{
+							// push us away from the obstacle
+							Vec3 obstacle_normal_flattened = obstacle_ray_callback.m_hitNormalWorld - hit.normal * hit.normal.dot(obstacle_ray_callback.m_hitNormalWorld);
+							point += obstacle_normal_flattened * AWK_RADIUS;
+						}
 					}
+
+					get<Transform>()->parent = hit.entity.ref()->get<Transform>();
+					get<Transform>()->absolute(point + hit.normal * AWK_RADIUS, Quat::look(hit.normal));
+
+					AwkNet::finish_flying(this);
 				}
 			}
-			else if (group & (CollisionAllTeamsContainmentField | CollisionAwkIgnore))
-			{
-				// ignore
-			}
-			else if (s == State::Fly)
-			{
-				// we hit a normal surface; attach to it
-				Vec3 point = ray_callback.m_hitPointWorld[i];
-				Vec3 normal = ray_callback.m_hitNormalWorld[i];
 
-				// check for obstacles
+			if (current_ability == Ability::Sniper
+				&& i == index_end
+				&& (hit.type == Hit::Type::Environment || hit.type == Hit::Type::EnemyContainmentField))
+			{
+				// we just shot at a wall; spawn some particles
+				Quat rot = Quat::look(hit.normal);
+				for (s32 j = 0; j < 50; j++)
 				{
-					btCollisionWorld::ClosestRayResultCallback obstacle_ray_callback(point, point + normal * (AWK_RADIUS * 1.1f));
-					Physics::raycast(&obstacle_ray_callback, ~AWK_PERMEABLE_MASK & ~CollisionAwk & ~ally_containment_field_mask());
-					if (obstacle_ray_callback.hasHit())
-					{
-						// push us away from the obstacle
-						Vec3 obstacle_normal_flattened = obstacle_ray_callback.m_hitNormalWorld - normal * normal.dot(obstacle_ray_callback.m_hitNormalWorld);
-						point += obstacle_normal_flattened * AWK_RADIUS;
-					}
+					Particles::sparks.add
+					(
+						hit.pos,
+						rot * Vec3(mersenne::randf_oo() * 2.0f - 1.0f, mersenne::randf_oo() * 2.0f - 1.0f, mersenne::randf_oo()) * 10.0f,
+						Vec4(1, 1, 1, 1)
+					);
 				}
-
-				Entity* entity = &Entity::list[ray_callback.m_collisionObjects[i]->getUserIndex()];
-				get<Transform>()->parent = entity->get<Transform>();
-				get<Transform>()->absolute(point + normal * AWK_RADIUS, Quat::look(ray_callback.m_hitNormalWorld[i]));
-
-				AwkNet::finish_flying(this);
 			}
 		}
 	}
 
-	return fraction_end * (ray_end - ray_start).length();
+	return fraction_end * distance_total;
 }
 
 }

@@ -7,9 +7,9 @@
 namespace VI
 {
 
-typedef u8 Family;
-typedef u16 Revision;
-typedef u64 ComponentMask;
+typedef s8 Family;
+typedef s16 Revision;
+typedef s64 ComponentMask;
 
 const Family MAX_FAMILIES = sizeof(ComponentMask) * 8;
 

@@ -34,6 +34,7 @@
 #include "scripts.h"
 #include "cora.h"
 #include "net.h"
+#include "net_serialize.h"
 
 namespace VI
 {
@@ -56,11 +57,12 @@ namespace VI
 #define damage_shake_time 0.7f
 #define score_summary_delay 2.0f
 #define score_summary_accept_delay 3.0f
+#define NET_SYNC_TOLERANCE AWK_RADIUS
 
 #define HP_BOX_SIZE (Vec2(text_size) * UI::scale)
 #define HP_BOX_SPACING (8.0f * UI::scale)
 
-r32 hp_width(u8 hp, u8 shield, r32 scale = 1.0f)
+r32 hp_width(u8 hp, s8 shield, r32 scale = 1.0f)
 {
 	const Vec2 box_size = HP_BOX_SIZE;
 	return scale * ((shield + (hp - 1)) * (box_size.x + HP_BOX_SPACING) - HP_BOX_SPACING);
@@ -95,7 +97,7 @@ s32 PlayerHuman::count_local()
 	return count;
 }
 
-PlayerHuman::PlayerHuman(b8 local, u8 g)
+PlayerHuman::PlayerHuman(b8 local, s8 g)
 	: gamepad(g),
 	camera(),
 	msg_text(),
@@ -236,7 +238,7 @@ void PlayerHuman::update(const Update& u)
 	if (!camera)
 	{
 		camera = Camera::add();
-		camera->team = (u8)get<PlayerManager>()->team.ref()->team();
+		camera->team = (s8)get<PlayerManager>()->team.ref()->team();
 		camera->mask = 1 << camera->team;
 		s32 player_count;
 #if DEBUG_AI_CONTROL
@@ -378,7 +380,7 @@ void PlayerHuman::update(const Update& u)
 			{
 				b8 upgrade_in_progress = !get<PlayerManager>()->can_transition_state();
 
-				u8 last_selected = menu.selected;
+				s8 last_selected = menu.selected;
 
 				menu.start(u, gamepad);
 
@@ -562,7 +564,7 @@ void ability_draw(const RenderParams& params, const PlayerHuman* player, const V
 {
 	char string[255];
 
-	u16 cost = AbilityInfo::list[(s32)ability].spawn_cost;
+	s16 cost = AbilityInfo::list[(s32)ability].spawn_cost;
 	sprintf(string, "%s", control_binding);
 	const Vec4* color;
 	PlayerManager* manager = player->get<PlayerManager>();
@@ -791,7 +793,7 @@ void PlayerHuman::draw_alpha(const RenderParams& params) const
 				text.anchor_x = UIText::Anchor::Min;
 				text.anchor_y = UIText::Anchor::Max;
 				text.wrap_width = MENU_ITEM_WIDTH - padding * 2.0f;
-				u16 cost = get<PlayerManager>()->upgrade_cost(upgrade);
+				s16 cost = get<PlayerManager>()->upgrade_cost(upgrade);
 				text.text(_(strings::upgrade_description), cost, _(info.description));
 				UIMenu::text_clip(&text, upgrade_animation_time, 150.0f);
 
@@ -943,7 +945,7 @@ void PlayerHuman::draw_alpha(const RenderParams& params) const
 			{
 				r32 total_time;
 				AssetID string;
-				u16 cost;
+				s16 cost;
 
 				switch (manager_state)
 				{
@@ -1231,6 +1233,122 @@ s32 PlayerCommon::visibility_hash(const PlayerCommon* awk_a, const PlayerCommon*
 	return awk_a->id() * MAX_PLAYERS + awk_b->id();
 }
 
+namespace PlayerControlHumanNet
+{
+
+struct Message
+{
+	enum class Type
+	{
+		Dash,
+		Go,
+		count,
+	};
+
+	Vec3 pos;
+	Vec3 dir;
+	Ability ability = Ability::None;
+	Type type;
+	Ref<PlayerControlHuman> ref;
+};
+
+template<typename Stream> b8 serialize_msg(Stream* p, Message* msg)
+{
+	serialize_ref(p, msg->ref);
+	serialize_enum(p, Message::Type, msg->type);
+	serialize_position(p, &msg->pos, Net::Resolution::High);
+	serialize_r32_range(p, msg->dir.x, -1.0f, 1.0f, 16);
+	serialize_r32_range(p, msg->dir.y, -1.0f, 1.0f, 16);
+	serialize_r32_range(p, msg->dir.z, -1.0f, 1.0f, 16);
+	if (msg->type == Message::Type::Go)
+	{
+		serialize_int(p, Ability, msg->ability, 0, s32(Ability::count) + 1);
+	}
+	else if (Stream::IsReading)
+		msg->ability = Ability::None;
+	return true;
+}
+
+b8 send(Message* msg)
+{
+	Net::StreamWrite* p = Net::msg_new(Net::MessageType::PlayerControlHuman);
+	if (!serialize_msg(p, msg))
+		net_error();
+	Net::msg_finalize(p);
+	return true;
+}
+
+}
+
+b8 PlayerControlHuman::net_msg(Net::StreamRead* p, Net::MessageSource src)
+{
+	using Stream = Net::StreamRead;
+
+	PlayerControlHumanNet::Message msg;
+	if (!serialize_msg(p, &msg))
+		net_error();
+
+	// todo: make sure whoever sent this message actually has control over the player
+
+	if (src != Net::MessageSource::Loopback && !Game::session.local) // these messages only go from client to server
+		net_error();
+
+	PlayerControlHuman* c = msg.ref.ref();
+	if (!c
+		|| msg.dir.length_squared() == 0.0f
+		|| (msg.ability != Ability::None && !c->player.ref()->get<PlayerManager>()->has_upgrade(Upgrade(msg.ability)))
+		|| (msg.ability != Ability::None && msg.type != PlayerControlHumanNet::Message::Type::Go))
+		return false;
+
+	if (src == Net::MessageSource::Remote)
+	{
+		// make sure we are where the remote thinks we are when we start processing this message
+		r32 dist_sq = (c->get<Transform>()->absolute_pos() - msg.pos).length_squared();
+		if (dist_sq < NET_SYNC_TOLERANCE * NET_SYNC_TOLERANCE)
+			c->get<Transform>()->absolute_pos(msg.pos);
+	}
+
+	switch (msg.type)
+	{
+		case PlayerControlHumanNet::Message::Type::Dash:
+		{
+			c->get<Awk>()->current_ability = Ability::None;
+			if (c->get<Awk>()->dash_start(msg.dir))
+			{
+				c->get<Audio>()->post_event(AK::EVENTS::PLAY_FLY);
+				c->try_primary = false;
+				c->try_secondary = false;
+			}
+			break;
+		}
+		case PlayerControlHumanNet::Message::Type::Go:
+		{
+			c->get<Awk>()->current_ability = msg.ability;
+			if (c->get<Awk>()->go(msg.dir))
+			{
+				c->try_primary = false;
+				if (msg.ability == Ability::None)
+				{
+					c->get<Audio>()->post_event(AK::EVENTS::PLAY_FLY);
+					c->try_secondary = false;
+				}
+				else
+					c->rumble = vi_max(c->rumble, 0.5f);
+			}
+			else
+
+			break;
+		}
+		default:
+		{
+			vi_assert(false);
+			break;
+		}
+	}
+
+	return true;
+}
+
 s32 PlayerControlHuman::count_local()
 {
 	s32 count = 0;
@@ -1490,7 +1608,7 @@ void ability_cancel(Awk* awk)
 	awk->current_ability = Ability::None;
 }
 
-void ability_update(const Update& u, PlayerControlHuman* control, Controls binding, u8 gamepad, s32 index)
+void ability_update(const Update& u, PlayerControlHuman* control, Controls binding, s8 gamepad, s32 index)
 {
 	PlayerHuman* player = control->player.ref();
 	PlayerManager* manager = player->get<PlayerManager>();
@@ -1844,30 +1962,20 @@ void PlayerControlHuman::update(const Update& u)
 				// we're aiming at something
 				if (try_primary)
 				{
-					Vec3 dir = reticle.pos - get<Transform>()->absolute_pos();
+					PlayerControlHumanNet::Message msg;
+					msg.ref = this;
+					msg.dir = Vec3::normalize(reticle.pos - get<Transform>()->absolute_pos());
+					msg.pos = get<Transform>()->absolute_pos();
 					if (reticle.type == ReticleType::Dash)
 					{
-						if (get<Awk>()->dash_start(dir))
-						{
-							get<Audio>()->post_event(AK::EVENTS::PLAY_FLY);
-							try_primary = false;
-							try_secondary = false;
-						}
+						msg.type = PlayerControlHumanNet::Message::Type::Dash;
+						PlayerControlHumanNet::send(&msg);
 					}
 					else
 					{
-						Ability ability = get<Awk>()->current_ability;
-						if (get<Awk>()->go(dir))
-						{
-							try_primary = false;
-							if (ability == Ability::None)
-							{
-								get<Audio>()->post_event(AK::EVENTS::PLAY_FLY);
-								try_secondary = false;
-							}
-							else
-								rumble = vi_max(rumble, 0.5f);
-						}
+						msg.type = PlayerControlHumanNet::Message::Type::Go;
+						msg.ability = get<Awk>()->current_ability;
+						PlayerControlHumanNet::send(&msg);
 					}
 				}
 			}
@@ -1893,7 +2001,7 @@ void PlayerControlHuman::update(const Update& u)
 			Quat remote_abs_rot = remote_rot;
 			if (remote_parent.ref())
 				remote_parent.ref()->to_world(&remote_abs_pos, &remote_abs_rot);
-			if ((remote_abs_pos - get<Transform>()->absolute_pos()).length_squared() < AWK_RADIUS * AWK_RADIUS)
+			if ((remote_abs_pos - get<Transform>()->absolute_pos()).length_squared() < NET_SYNC_TOLERANCE * NET_SYNC_TOLERANCE)
 				get<Transform>()->absolute_pos(remote_abs_pos);
 			if (Quat::angle(abs_rot, remote_abs_rot) < PI * 0.05f)
 				get<Transform>()->absolute_rot(remote_abs_rot);

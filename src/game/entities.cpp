@@ -57,7 +57,7 @@ AwkEntity::AwkEntity(AI::Team team)
 	SkinnedModel* model = create<SkinnedModel>();
 	model->mesh = Asset::Mesh::awk;
 	model->shader = Asset::Shader::armature;
-	model->team = (u8)team;
+	model->team = s8(team);
 
 	Animator* anim = create<Animator>();
 	anim->armature = Asset::Armature::awk;
@@ -67,7 +67,7 @@ AwkEntity::AwkEntity(AI::Team team)
 	create<RigidBody>(RigidBody::Type::Sphere, Vec3(AWK_RADIUS), 0.0f, CollisionAwk | CollisionTarget, CollisionDefault & ~CollisionTarget & ~CollisionAwkIgnore);
 }
 
-Health::Health(u8 hp, u8 hp_max, u8 shield, u8 shield_max)
+Health::Health(s8 hp, s8 hp_max, s8 shield, s8 shield_max)
 	: hp(hp),
 	hp_max(hp_max),
 	shield(shield),
@@ -100,11 +100,11 @@ void Health::update(const Update& u)
 	}
 }
 
-void Health::damage(Entity* e, u8 damage)
+void Health::damage(Entity* e, s8 damage)
 {
 	if (hp > 0 && damage > 0)
 	{
-		u8 damage_accumulator = damage;
+		s8 damage_accumulator = damage;
 		if (damage_accumulator > shield)
 		{
 			damage_accumulator -= shield;
@@ -134,7 +134,7 @@ void Health::take_shield()
 	damage(nullptr, shield);
 }
 
-void Health::take_health(Entity* e, u8 amount)
+void Health::take_health(Entity* e, s8 amount)
 {
 	// an enemy has stolen one of our health pickups
 	if (amount > hp)
@@ -152,15 +152,15 @@ void Health::kill(Entity* e)
 	damage(e, hp_max + shield_max);
 }
 
-void Health::add(u8 amount)
+void Health::add(s8 amount)
 {
-	u16 old_hp = hp;
-	hp = vi_min((u8)(hp + amount), hp_max);
+	s16 old_hp = hp;
+	hp = vi_min((s8)(hp + amount), hp_max);
 	if (hp > old_hp)
 		added.fire();
 }
 
-u8 Health::total() const
+s8 Health::total() const
 {
 	return hp + shield;
 }
@@ -276,8 +276,8 @@ b8 EnergyPickup::set_team(AI::Team t, Entity* caused_by)
 	if (t != team)
 	{
 		team = t;
-		get<View>()->team = (u8)t;
-		get<PointLight>()->team = (u8)t;
+		get<View>()->team = (s8)t;
+		get<PointLight>()->team = (s8)t;
 		if (caused_by)
 			caused_by->get<PlayerCommon>()->manager.ref()->add_credits(CREDITS_CAPTURE_ENERGY_PICKUP);
 		return true;
@@ -390,14 +390,14 @@ PlayerSpawnEntity::PlayerSpawnEntity(AI::Team team)
 	View* view = create<View>();
 	view->mesh = Asset::Mesh::spawn;
 	view->shader = Asset::Shader::culled;
-	view->team = u8(team);
+	view->team = s8(team);
 
 	create<PlayerTrigger>()->radius = CONTROL_POINT_RADIUS;
 
 	PointLight* light = create<PointLight>();
 	light->offset.z = 2.0f;
 	light->radius = 12.0f;
-	light->team = u8(team);
+	light->team = s8(team);
 
 	create<PlayerSpawn>()->team = team;
 }
@@ -428,8 +428,8 @@ ControlPoint::~ControlPoint()
 void ControlPoint::set_team(AI::Team t)
 {
 	team = t;
-	get<PointLight>()->team = (u8)team;
-	get<View>()->team = (u8)team;
+	get<PointLight>()->team = (s8)team;
+	get<View>()->team = (s8)team;
 }
 
 void ControlPoint::capture_start(AI::Team t)
@@ -531,7 +531,7 @@ SensorEntity::SensorEntity(PlayerManager* owner, const Vec3& abs_pos, const Quat
 
 	View* model = create<View>();
 	model->mesh = Asset::Mesh::sphere;
-	model->team = (u8)team;
+	model->team = (s8)team;
 	model->shader = Asset::Shader::standard;
 	model->offset.scale(Vec3(SENSOR_RADIUS * 1.2f)); // a little bigger for aesthetic reasons
 
@@ -539,7 +539,7 @@ SensorEntity::SensorEntity(PlayerManager* owner, const Vec3& abs_pos, const Quat
 
 	PointLight* light = create<PointLight>();
 	light->type = PointLight::Type::Override;
-	light->team = (u8)team;
+	light->team = (s8)team;
 	light->radius = SENSOR_RANGE;
 
 	create<Sensor>(team, owner);
@@ -871,7 +871,7 @@ RocketEntity::RocketEntity(Entity* owner, Transform* parent, const Vec3& pos, co
 
 	View* model = create<View>();
 	model->mesh = Asset::Mesh::rocket_pod;
-	model->team = (u8)team;
+	model->team = (s8)team;
 	model->shader = Asset::Shader::standard;
 
 	create<RigidBody>(RigidBody::Type::CapsuleZ, Vec3(0.1f, 0.3f, 0.3f), 0.0f, CollisionAwkIgnore, btBroadphaseProxy::AllFilter);
@@ -892,7 +892,7 @@ DecoyEntity::DecoyEntity(PlayerManager* owner, Transform* parent, const Vec3& po
 	SkinnedModel* model = create<SkinnedModel>();
 	model->mesh = Asset::Mesh::awk;
 	model->shader = Asset::Shader::armature;
-	model->team = u8(team);
+	model->team = s8(team);
 
 	Animator* anim = create<Animator>();
 	anim->armature = Asset::Armature::awk;
@@ -1080,13 +1080,13 @@ ContainmentFieldEntity::ContainmentFieldEntity(Transform* parent, const Vec3& ab
 	}
 
 	View* model = create<View>();
-	model->team = (u8)m->team.ref()->team();
+	model->team = (s8)m->team.ref()->team();
 	model->mesh = Asset::Mesh::containment_field_base;
 	model->shader = Asset::Shader::standard;
 
 	create<Target>();
 	create<Health>(SENSOR_HEALTH, SENSOR_HEALTH);
-	create<RigidBody>(RigidBody::Type::Sphere, Vec3(CONTAINMENT_FIELD_BASE_RADIUS), 0.0f, CollisionAwkIgnore | CollisionTarget, ~CollisionAwk & ~CollisionShield);
+	create<RigidBody>(RigidBody::Type::Sphere, Vec3(CONTAINMENT_FIELD_BASE_RADIUS), 0.0f, btBroadphaseProxy::StaticFilter | CollisionAwkIgnore | CollisionTarget, ~btBroadphaseProxy::StaticFilter & ~CollisionAwk & ~CollisionShield);
 
 	ContainmentField* field = create<ContainmentField>();
 	field->team = team;
@@ -1096,7 +1096,7 @@ ContainmentFieldEntity::ContainmentFieldEntity(Transform* parent, const Vec3& ab
 	f->get<Transform>()->absolute_pos(abs_pos);
 
 	View* view = f->add<View>();
-	view->team = (u8)team;
+	view->team = (s8)team;
 	view->mesh = Asset::Mesh::containment_field_sphere;
 	view->shader = Asset::Shader::fresnel;
 	view->alpha();
@@ -1122,7 +1122,7 @@ TeleporterEntity::TeleporterEntity(Transform* parent, const Vec3& pos, const Qua
 
 	View* model = create<View>();
 	model->mesh = Asset::Mesh::teleporter;
-	model->team = (u8)team;
+	model->team = (s8)team;
 	model->shader = Asset::Shader::standard;
 
 	create<Health>(SENSOR_HEALTH, SENSOR_HEALTH);
@@ -1312,6 +1312,16 @@ b8 Target::predict_intersection(const Vec3& from, r32 speed, Vec3* intersection)
 	}
 	else
 		return false;
+}
+
+r32 Target::radius() const
+{
+	if (has<Awk>())
+		return AWK_SHIELD_RADIUS;
+	else if (has<MinionCommon>())
+		return MINION_HEAD_RADIUS;
+	else
+		return get<RigidBody>()->size.x;
 }
 
 void Target::hit(Entity* hit_by)

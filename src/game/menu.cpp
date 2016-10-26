@@ -33,8 +33,8 @@ void draw(const RenderParams&) {}
 void title() {}
 void show() {}
 void refresh_variables() {}
-void pause_menu(const Update&, u8, UIMenu*, State*) {}
-b8 options(const Update&, u8, UIMenu*) { return true; }
+void pause_menu(const Update&, s8, UIMenu*, State*) {}
+b8 options(const Update&, s8, UIMenu*) { return true; }
 
 #else
 
@@ -88,7 +88,7 @@ void clear()
 }
 
 
-void title_menu(const Update& u, u8 gamepad, UIMenu* menu, State* state)
+void title_menu(const Update& u, s8 gamepad, UIMenu* menu, State* state)
 {
 	if (*state == State::Hidden)
 	{
@@ -150,7 +150,7 @@ void title_menu(const Update& u, u8 gamepad, UIMenu* menu, State* state)
 	}
 }
 
-void pause_menu(const Update& u, u8 gamepad, UIMenu* menu, State* state)
+void pause_menu(const Update& u, s8 gamepad, UIMenu* menu, State* state)
 {
 	if (*state == State::Hidden)
 	{
@@ -269,7 +269,7 @@ void draw(const RenderParams& params)
 }
 
 // returns true if options menu is still open
-b8 options(const Update& u, u8 gamepad, UIMenu* menu)
+b8 options(const Update& u, s8 gamepad, UIMenu* menu)
 {
 	menu->start(u, gamepad);
 	b8 exit = menu->item(u, _(strings::back)) || (!u.input->get(Controls::Cancel, gamepad) && u.last_input->get(Controls::Cancel, gamepad));
@@ -354,7 +354,7 @@ void UIMenu::animate()
 	animation_time = Game::real_time.total;
 }
 
-void UIMenu::start(const Update& u, u8 g, b8 input)
+void UIMenu::start(const Update& u, s8 g, b8 input)
 {
 	clear();
 
@@ -468,7 +468,7 @@ void UIMenu::end()
 
 r32 UIMenu::height() const
 {
-	return (vi_min(items.length, (u16)UI_SCROLL_MAX) * MENU_ITEM_HEIGHT) - MENU_ITEM_PADDING * 2.0f;
+	return (vi_min(items.length, u16(UI_SCROLL_MAX)) * MENU_ITEM_HEIGHT) - MENU_ITEM_PADDING * 2.0f;
 }
 
 void UIMenu::text_clip(UIText* text, r32 start_time, r32 speed)

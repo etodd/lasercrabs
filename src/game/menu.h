@@ -41,7 +41,7 @@ struct UIMenu
 
 	char selected;
 	StaticArray<Item, 10> items;
-	u8 gamepad;
+	s8 gamepad;
 	r32 animation_time;
 	UIScroll scroll;
 
@@ -49,7 +49,7 @@ struct UIMenu
 	void clear();
 	void animate();
 	r32 height() const;
-	void start(const Update&, u8, b8 = true);
+	void start(const Update&, s8, b8 = true);
 	const Item* last_visible_item() const;
 	b8 add_item(b8, const char*, const char* = nullptr, b8 = false, AssetID = AssetNull);
 	b8 item(const Update&, const char*, const char* = nullptr, b8 = false, AssetID = AssetNull);
@@ -77,8 +77,8 @@ void draw(const RenderParams&);
 void title();
 void show();
 void refresh_variables();
-void pause_menu(const Update&, u8, UIMenu*, State*);
-b8 options(const Update&, u8, UIMenu*);
+void pause_menu(const Update&, s8, UIMenu*, State*);
+b8 options(const Update&, s8, UIMenu*);
 
 }
 

@@ -46,15 +46,6 @@ struct Target;
 
 struct Awk : public ComponentType<Awk>
 {
-	enum class NetMessage
-	{
-		FlyStart,
-		FlyDone,
-		DashStart,
-		DashDone,
-		count,
-	};
-
 	enum class State
 	{
 		Crawl,
@@ -94,13 +85,13 @@ struct Awk : public ComponentType<Awk>
 	Link done_dashing;
 	Link detached;
 	Link dashed;
-	u8 charges;
+	s8 charges;
 
 	Awk();
 	void awake();
 	~Awk();
 	
-	b8 msg(Net::StreamRead*, Net::MessageSource);
+	static b8 net_msg(Net::StreamRead*, Net::MessageSource);
 
 	r32 range() const;
 
@@ -109,7 +100,7 @@ struct Awk : public ComponentType<Awk>
 	b8 dash_start(const Vec3&);
 	b8 cooldown_can_shoot() const; // can we go?
 	void hit_by(const TargetEvent&); // called when we get hit
-	void hit_target(Entity*, const Vec3&); // called when we hit a target
+	void hit_target(Entity*); // called when we hit a target
 	void damaged(const DamageEvent&);
 	void killed(Entity*);
 	Entity* incoming_attacker() const;
@@ -134,6 +125,7 @@ struct Awk : public ComponentType<Awk>
 	Vec3 attach_point(r32 = 0.0f) const;
 
 	void detach_teleport();
+	void finish_flying_dashing_common();
 	b8 go(const Vec3&);
 
 	b8 direction_is_toward_attached_wall(const Vec3&) const;

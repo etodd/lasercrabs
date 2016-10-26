@@ -71,7 +71,7 @@ struct Camera
 	r32 near_plane;
 	r32 far_plane;
 	r32 range;
-	u8 team;
+	s8 team;
 	b8 active;
 	b8 cull_behind_wall;
 	b8 colors;

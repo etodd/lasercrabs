@@ -243,12 +243,12 @@ AwkNavMeshNode awk_closest_point(Team team, const Vec3& p, const Vec3& normal)
 								if (ignore_normals || normal.dot(vertex_normal) > 0.8f) // make sure it's roughly facing the right way
 								{
 									closest_distance = distance;
-									closest = { (u16)chunk_index, (u16)vertex_index };
+									closest = { s16(chunk_index), s16(vertex_index) };
 									found = true;
 								}
 								else if (!found) // the normal is wrong, but we'll use it in an emergency
 								{
-									closest = { (u16)chunk_index, (u16)vertex_index };
+									closest = { s16(chunk_index), s16(vertex_index) };
 									found = true;
 								}
 							}
@@ -561,7 +561,7 @@ void pathfind(const Vec3& a, const Vec3& b, dtPolyRef start_poly, dtPolyRef end_
 			(r32*)path->data, path_straight_flags,
 			path_straight_polys, &path_length, MAX_PATH_LENGTH, 0
 		);
-		path->length = (u16)path_length;
+		path->length = u16(path_length);
 
 		if (path->length > 1)
 			path->remove_ordered(0);
@@ -571,7 +571,7 @@ void pathfind(const Vec3& a, const Vec3& b, dtPolyRef start_poly, dtPolyRef end_
 void loop()
 {
 	nav_mesh_query = dtAllocNavMeshQuery();
-	default_query_filter.setIncludeFlags((u16)-1);
+	default_query_filter.setIncludeFlags(u16(-1));
 	default_query_filter.setExcludeFlags(0);
 
 	Array<u32> obstacle_recast_ids;

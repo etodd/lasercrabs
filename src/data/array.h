@@ -28,14 +28,14 @@ struct StaticArray
 	{
 	}
 
-	StaticArray(u16 l)
-		: _nil(), length(l)
+	StaticArray(s32 l)
+		: _nil(), length(u16(l))
 	{
 	}
 	
-	u16 capacity() const
+	s32 capacity() const
 	{
-		return size;
+		return s32(size);
 	}
 
 	const StaticArray& operator=(const StaticArray& other)

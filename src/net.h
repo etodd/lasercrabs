@@ -9,6 +9,7 @@ namespace VI
 
 struct Entity;
 struct Awk;
+struct PlayerHuman;
 
 namespace Sock
 {
@@ -30,6 +31,7 @@ enum class MessageType
 	EntityRemove,
 	InitDone,
 	Awk,
+	PlayerControlHuman,
 	count,
 };
 
@@ -80,10 +82,12 @@ namespace Client
 
 void term();
 
-StreamWrite* msg_new();
 StreamWrite* msg_new(MessageType);
+StreamWrite* msg_new_local(MessageType);
 b8 msg_finalize(StreamWrite*);
-void msg_awk(StreamWrite*, Awk*);
+r32 rtt(const PlayerHuman*);
+void state_rewind_to(r32);
+void state_restore();
 
 }
 

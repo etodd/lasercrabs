@@ -78,7 +78,7 @@ Game::Session::Session()
 #else
 	local_player_config{ 0, AI::TeamNone, AI::TeamNone, AI::TeamNone },
 #endif
-	story_mode(),
+	story_mode(true),
 	time_scale(1.0f),
 	network_timer(),
 	network_time(),
@@ -797,7 +797,7 @@ void Game::execute(const Update& u, const char* cmd)
 		{
 			if (i.item()->entity.ref())
 			{
-				u16 credits = i.item()->credits;
+				s16 credits = i.item()->credits;
 				i.item()->credits = 10000;
 				for (s32 upgrade = 0; upgrade < (s32)Upgrade::count; upgrade++)
 				{
@@ -1021,7 +1021,7 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 		}
 		case Type::Deathmatch:
 		{
-			level.respawns = u8(-1);
+			level.respawns = -1;
 			level.kill_limit = 10;
 			level.time_limit = (60.0f * 10.0f) + PLAYER_SPAWN_DELAY;
 			break;

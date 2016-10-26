@@ -7,6 +7,7 @@
 namespace VI
 {
 
+struct Vec3;
 
 namespace Net
 {
@@ -159,7 +160,7 @@ inline int bits_required(u32 min, u32 max)
 
 #define serialize_int(stream, type, value, _min, _max)\
 {\
-	vi_assert(_min < _max);\
+	vi_assert(s64(_min) < s64(_max));\
 	u32 _b = Net::bits_required(_min, _max);\
 	u32 _u;\
 	if (Stream::IsWriting)\
@@ -196,8 +197,23 @@ inline int bits_required(u32 min, u32 max)
 
 #define serialize_enum(stream, type, value) serialize_int(stream, type, value, 0, s32(type::count) - 1)
 #define serialize_u8(stream, value) serialize_int(stream, u8, value, 0, 255)
+#define serialize_s8(stream, value) serialize_int(stream, s8, value, -128, 127)
 #define serialize_u16(stream, value) serialize_int(stream, u16, value, 0, 65535)
+#define serialize_s16(stream, value) serialize_int(stream, s16, value, -32768, 32767)
 #define serialize_u32(stream, value) serialize_bits(stream, value, 32)
+#define serialize_s32(stream, value)\
+{\
+	u32 _u;\
+	if (Stream::IsWriting)\
+	{\
+		if ((stream)->would_overflow(32))\
+			net_error();\
+		_u = u32(value);\
+	}\
+	(stream)->bits(_u, 32);\
+	if (Stream::IsReading)\
+		value = s32(_u);\
+}
 
 #define serialize_bool(stream, value)\
 {\
@@ -314,6 +330,40 @@ inline int bits_required(u32 min, u32 max)
 	}\
 	else if (Stream::IsReading)\
 		value = AssetNull;\
+}
+
+enum class Resolution
+{
+	Low,
+	High,
+	count,
+};
+
+template<typename Stream> b8 serialize_position(Stream* p, Vec3* pos, Resolution r)
+{
+	switch (r)
+	{
+		case Resolution::Low:
+		{
+			serialize_r32_range(p, pos->x, -256, 256, 16);
+			serialize_r32_range(p, pos->y, -32, 128, 12);
+			serialize_r32_range(p, pos->z, -256, 256, 16);
+			break;
+		}
+		case Resolution::High:
+		{
+			serialize_r32(p, pos->x);
+			serialize_r32(p, pos->y);
+			serialize_r32(p, pos->z);
+			break;
+		}
+		default:
+		{
+			vi_assert(false);
+			break;
+		}
+	}
+	return true;
 }
 		
 

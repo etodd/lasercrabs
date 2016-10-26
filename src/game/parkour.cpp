@@ -43,7 +43,7 @@ Traceur::Traceur(const Vec3& pos, const Quat& quat, AI::Team team)
 
 	model->shader = Asset::Shader::armature;
 	model->mesh = Asset::Mesh::character;
-	model->team = (u8)team;
+	model->team = (s8)team;
 
 	create<Audio>();
 	

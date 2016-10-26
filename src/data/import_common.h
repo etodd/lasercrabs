@@ -279,8 +279,8 @@ template<typename T> struct Chunks
 #define AWK_NAV_MESH_ADJACENCY 48 // must be <= 64 because flags is a u64
 struct AwkNavMeshNode
 {
-	u16 chunk;
-	u16 vertex;
+	s16 chunk;
+	s16 vertex;
 
 	inline b8 equals(const AwkNavMeshNode& other) const
 	{
@@ -288,7 +288,7 @@ struct AwkNavMeshNode
 	}
 };
 
-#define AWK_NAV_MESH_NODE_NONE { (u16)-1, (u16)-1 }
+#define AWK_NAV_MESH_NODE_NONE { -1, -1 }
 
 struct AwkNavMeshAdjacency
 {

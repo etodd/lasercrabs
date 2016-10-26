@@ -1335,7 +1335,6 @@ b8 PlayerControlHuman::net_msg(Net::StreamRead* p, Net::MessageSource src)
 				else
 					c->rumble = vi_max(c->rumble, 0.5f);
 			}
-			else
 
 			break;
 		}

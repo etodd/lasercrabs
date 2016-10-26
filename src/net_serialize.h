@@ -3,11 +3,10 @@
 #include "types.h"
 #include "data/array.h"
 #include "vi_assert.h"
+#include "lmath.h"
 
 namespace VI
 {
-
-struct Vec3;
 
 namespace Net
 {

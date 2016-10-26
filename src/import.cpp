@@ -927,7 +927,7 @@ b8 load_anim(const Armature& armature, const aiAnimation* in, Animation* out, co
 {
 	out->duration = (r32)(in->mDuration / in->mTicksPerSecond);
 	out->channels.reserve(in->mNumChannels);
-	for (u32 i = 0; i < in->mNumChannels; i++)
+	for (s32 i = 0; i < in->mNumChannels; i++)
 	{
 		aiNodeAnim* in_channel = in->mChannels[i];
 		auto bone_index_entry = bone_map.find(in_channel->mNodeName.C_Str());
@@ -939,7 +939,7 @@ b8 load_anim(const Armature& armature, const aiAnimation* in, Animation* out, co
 
 			out_channel->positions.resize(in_channel->mNumPositionKeys);
 
-			for (u32 j = 0; j < in_channel->mNumPositionKeys; j++)
+			for (s32 j = 0; j < in_channel->mNumPositionKeys; j++)
 			{
 				out_channel->positions[j].time = (r32)(in_channel->mPositionKeys[j].mTime / in->mTicksPerSecond);
 				aiVector3D value = in_channel->mPositionKeys[j].mValue;
@@ -947,7 +947,7 @@ b8 load_anim(const Armature& armature, const aiAnimation* in, Animation* out, co
 			}
 
 			out_channel->rotations.resize(in_channel->mNumRotationKeys);
-			for (u32 j = 0; j < in_channel->mNumRotationKeys; j++)
+			for (s32 j = 0; j < in_channel->mNumRotationKeys; j++)
 			{
 				out_channel->rotations[j].time = (r32)(in_channel->mRotationKeys[j].mTime / in->mTicksPerSecond);
 				aiQuaternion value = in_channel->mRotationKeys[j].mValue;
@@ -961,7 +961,7 @@ b8 load_anim(const Armature& armature, const aiAnimation* in, Animation* out, co
 			}
 
 			out_channel->scales.resize(in_channel->mNumScalingKeys);
-			for (u32 j = 0; j < in_channel->mNumScalingKeys; j++)
+			for (s32 j = 0; j < in_channel->mNumScalingKeys; j++)
 			{
 				out_channel->scales[j].time = (r32)(in_channel->mScalingKeys[j].mTime / in->mTicksPerSecond);
 				aiVector3D value = in_channel->mScalingKeys[j].mValue;
@@ -974,7 +974,7 @@ b8 load_anim(const Armature& armature, const aiAnimation* in, Animation* out, co
 
 const aiScene* load_fbx(Assimp::Importer& importer, const std::string& path, b8 tangents)
 {
-	u32 flags =
+	s32 flags =
 		aiProcess_JoinIdenticalVertices
 		| aiProcess_Triangulate
 		| aiProcess_GenNormals
@@ -994,7 +994,7 @@ b8 load_mesh(const aiMesh* mesh, Mesh* out)
 	out->bounds_radius = 0.0f;
 	// Fill vertices positions
 	out->vertices.reserve(mesh->mNumVertices);
-	for (u32 i = 0; i < mesh->mNumVertices; i++)
+	for (s32 i = 0; i < mesh->mNumVertices; i++)
 	{
 		aiVector3D pos = mesh->mVertices[i];
 		Vec3 v = Vec3(pos.y, pos.z, pos.x);
@@ -1013,7 +1013,7 @@ b8 load_mesh(const aiMesh* mesh, Mesh* out)
 	if (mesh->HasNormals())
 	{
 		out->normals.reserve(mesh->mNumVertices);
-		for (u32 i = 0; i < mesh->mNumVertices; i++)
+		for (s32 i = 0; i < mesh->mNumVertices; i++)
 		{
 			aiVector3D n = mesh->mNormals[i];
 			Vec3 v = Vec3(n.y, n.z, n.x);
@@ -1028,7 +1028,7 @@ b8 load_mesh(const aiMesh* mesh, Mesh* out)
 
 	// Fill face indices
 	out->indices.reserve(3 * mesh->mNumFaces);
-	for (u32 i = 0; i < mesh->mNumFaces; i++)
+	for (s32 i = 0; i < mesh->mNumFaces; i++)
 	{
 		// Assume the mesh has only triangles.
 		s32 j = mesh->mFaces[i].mIndices[0];
@@ -1109,7 +1109,7 @@ b8 build_armature(Armature& armature, Map<s32>& bone_map, aiNode* node, s32 pare
 		counter++;
 	}
 
-	for (u32 i = 0; i < node->mNumChildren; i++)
+	for (s32 i = 0; i < node->mNumChildren; i++)
 	{
 		if (!build_armature(armature, bone_map, node->mChildren[i], current_bone_index, counter))
 			return false;
@@ -1126,7 +1126,7 @@ b8 build_armature_skinned(const aiScene* scene, const aiMesh* ai_mesh, Mesh& mes
 		// Build the bone hierarchy.
 		// First we fill the bone map with all the bones,
 		// so that build_armature can tell which nodes are bones.
-		for (u32 bone_index = 0; bone_index < ai_mesh->mNumBones; bone_index++)
+		for (s32 bone_index = 0; bone_index < ai_mesh->mNumBones; bone_index++)
 		{
 			aiBone* bone = ai_mesh->mBones[bone_index];
 			bone_map[bone->mName.C_Str()] = -1;
@@ -1138,7 +1138,7 @@ b8 build_armature_skinned(const aiScene* scene, const aiMesh* ai_mesh, Mesh& mes
 		if (!build_armature(armature, bone_map, scene->mRootNode, -1, node_hierarchy_counter))
 			return false;
 
-		for (u32 i = 0; i < ai_mesh->mNumBones; i++)
+		for (s32 i = 0; i < ai_mesh->mNumBones; i++)
 		{
 			aiBone* bone = ai_mesh->mBones[i];
 			s32 bone_index = bone_map[bone->mName.C_Str()];
@@ -1352,7 +1352,7 @@ b8 import_meshes(ImporterState& state, const std::string& asset_in_path, const s
 					{
 						Array<Vec2>* uvs = uv_layers.add();
 						uvs->reserve(ai_mesh->mNumVertices);
-						for (u32 k = 0; k < ai_mesh->mNumVertices; k++)
+						for (s32 k = 0; k < ai_mesh->mNumVertices; k++)
 						{
 							aiVector3D UVW = ai_mesh->mTextureCoords[j][k];
 							uvs->add(Vec2(UVW.x, 1.0f - UVW.y));
@@ -1366,14 +1366,14 @@ b8 import_meshes(ImporterState& state, const std::string& asset_in_path, const s
 				if (ai_mesh->HasTangentsAndBitangents())
 				{
 					tangents.resize(ai_mesh->mNumVertices);
-					for (u32 i = 0; i < ai_mesh->mNumVertices; i++)
+					for (s32 i = 0; i < ai_mesh->mNumVertices; i++)
 					{
 						aiVector3D n = ai_mesh->mTangents[i];
 						tangents[i] = Vec3(n.y, n.z, n.x);
 					}
 
 					bitangents.resize(ai_mesh->mNumVertices);
-					for (u32 i = 0; i < ai_mesh->mNumVertices; i++)
+					for (s32 i = 0; i < ai_mesh->mNumVertices; i++)
 					{
 						aiVector3D n = ai_mesh->mBitangents[i];
 						bitangents[i] = Vec3(n.y, n.z, n.x);
@@ -1404,11 +1404,11 @@ b8 import_meshes(ImporterState& state, const std::string& asset_in_path, const s
 					bone_weights.resize(ai_mesh->mNumVertices);
 					bone_indices.resize(ai_mesh->mNumVertices);
 
-					for (u32 i = 0; i < ai_mesh->mNumBones; i++)
+					for (s32 i = 0; i < ai_mesh->mNumBones; i++)
 					{
 						aiBone* bone = ai_mesh->mBones[i];
 						s32 bone_index = bone_map[bone->mName.C_Str()];
-						for (u32 bone_weight_index = 0; bone_weight_index < bone->mNumWeights; bone_weight_index++)
+						for (s32 bone_weight_index = 0; bone_weight_index < bone->mNumWeights; bone_weight_index++)
 						{
 							s32 vertex_id = bone->mWeights[bone_weight_index].mVertexId;
 							r32 weight = bone->mWeights[bone_weight_index].mWeight;
@@ -1453,7 +1453,7 @@ b8 import_meshes(ImporterState& state, const std::string& asset_in_path, const s
 			}
 		}
 
-		for (u32 j = 0; j < scene->mNumAnimations; j++)
+		for (s32 j = 0; j < scene->mNumAnimations; j++)
 		{
 			aiAnimation* ai_anim = scene->mAnimations[j];
 			Animation anim;
@@ -1479,7 +1479,7 @@ b8 import_meshes(ImporterState& state, const std::string& asset_in_path, const s
 					{
 						fwrite(&anim.duration, sizeof(r32), 1, f);
 						fwrite(&anim.channels.length, sizeof(s32), 1, f);
-						for (u32 i = 0; i < anim.channels.length; i++)
+						for (s32 i = 0; i < anim.channels.length; i++)
 						{
 							Channel* channel = &anim.channels[i];
 							fwrite(&channel->bone_index, sizeof(s32), 1, f);
@@ -1568,7 +1568,7 @@ b8 import_level_meshes(ImporterState& state, const std::string& asset_in_path, c
 					{
 						Array<Vec2>* uvs = uv_layers.add();
 						uvs->reserve(ai_mesh->mNumVertices);
-						for (u32 k = 0; k < ai_mesh->mNumVertices; k++)
+						for (s32 k = 0; k < ai_mesh->mNumVertices; k++)
 						{
 							aiVector3D UVW = ai_mesh->mTextureCoords[j][k];
 							uvs->add(Vec2(1.0f - UVW.x, 1.0f - UVW.y));
@@ -1582,14 +1582,14 @@ b8 import_level_meshes(ImporterState& state, const std::string& asset_in_path, c
 				if (ai_mesh->HasTangentsAndBitangents())
 				{
 					tangents.resize(ai_mesh->mNumVertices);
-					for (u32 i = 0; i < ai_mesh->mNumVertices; i++)
+					for (s32 i = 0; i < ai_mesh->mNumVertices; i++)
 					{
 						aiVector3D n = ai_mesh->mTangents[i];
 						tangents[i] = Vec3(n.y, n.z, n.x);
 					}
 
 					bitangents.resize(ai_mesh->mNumVertices);
-					for (u32 i = 0; i < ai_mesh->mNumVertices; i++)
+					for (s32 i = 0; i < ai_mesh->mNumVertices; i++)
 					{
 						aiVector3D n = ai_mesh->mBitangents[i];
 						bitangents[i] = Vec3(n.y, n.z, n.x);
@@ -2339,7 +2339,7 @@ void build_awk_nav_mesh(Map<Mesh>& meshes, cJSON* json, AwkNavMesh* out, s32* ad
 
 			for (s32 vertex_index = 0; vertex_index < chunk->vertices.length; vertex_index++)
 			{
-				AwkNavMeshNode vertex_node = { (u16)chunk_index, (u16)vertex_index };
+				AwkNavMeshNode vertex_node = { s16(chunk_index), s16(vertex_index) };
 				const Vec3& vertex_normal = chunk->normals[vertex_index];
 				const Vec3 vertex_surface = chunk->vertices[vertex_index];
 				const Vec3 a = vertex_surface + vertex_normal * 0.001f;
@@ -2375,7 +2375,7 @@ void build_awk_nav_mesh(Map<Mesh>& meshes, cJSON* json, AwkNavMesh* out, s32* ad
 
 		for (s32 vertex_index = 0; vertex_index < chunk->vertices.length; vertex_index++)
 		{
-			AwkNavMeshNode vertex_node = { (u16)chunk_index, (u16)vertex_index };
+			AwkNavMeshNode vertex_node = { s16(chunk_index), s16(vertex_index) };
 			const Vec3& vertex_normal = chunk->normals[vertex_index];
 			const Vec3 vertex_surface = chunk->vertices[vertex_index];
 			const Vec3 vertex = vertex_surface + vertex_normal * AWK_RADIUS;
@@ -2400,7 +2400,7 @@ void build_awk_nav_mesh(Map<Mesh>& meshes, cJSON* json, AwkNavMesh* out, s32* ad
 
 						for (s32 neighbor_index = 0; neighbor_index < neighbor_chunk->vertices.length; neighbor_index++)
 						{
-							AwkNavMeshNode neighbor_node = { (u16)neighbor_chunk_index, (u16)neighbor_index };
+							AwkNavMeshNode neighbor_node = { s16(neighbor_chunk_index), s16(neighbor_index) };
 							if (vertex_node.equals(neighbor_node)) // don't connect this vertex to itself
 								continue;
 
@@ -2868,12 +2868,12 @@ b8 load_font(const aiScene* scene, Font& font)
 
 	const r32 scale = 1.2f;
 
-	for (u32 i = 0; i < scene->mNumMeshes; i++)
+	for (s32 i = 0; i < scene->mNumMeshes; i++)
 	{
 		aiMesh* ai_mesh = scene->mMeshes[i];
 		font.vertices.reserve(current_mesh_vertex + ai_mesh->mNumVertices);
 		Vec2 min_vertex(FLT_MAX, FLT_MAX), max_vertex(FLT_MIN, FLT_MIN);
-		for (u32 j = 0; j < ai_mesh->mNumVertices; j++)
+		for (s32 j = 0; j < ai_mesh->mNumVertices; j++)
 		{
 			aiVector3D pos = ai_mesh->mVertices[j];
 			Vec3 p = Vec3(pos.x, pos.y, pos.z);
@@ -2886,7 +2886,7 @@ b8 load_font(const aiScene* scene, Font& font)
 		}
 
 		font.indices.reserve(current_mesh_index + ai_mesh->mNumFaces * 3);
-		for (u32 j = 0; j < ai_mesh->mNumFaces; j++)
+		for (s32 j = 0; j < ai_mesh->mNumFaces; j++)
 		{
 			// Assume the model has only triangles.
 			font.indices.add(current_mesh_vertex + ai_mesh->mFaces[j].mIndices[0]);

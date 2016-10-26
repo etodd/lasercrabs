@@ -26,12 +26,12 @@ namespace VI
 			return (u64)t;
 		}
 
-		double time()
+		r64 time()
 		{
-			return (r64)std::chrono::high_resolution_clock::now().time_since_epoch().count() / 1000000000.0;
+			return r64(std::chrono::high_resolution_clock::now().time_since_epoch().count()) / 1000000000.0;
 		}
 
-		void sleep(float time)
+		void sleep(r32 time)
 		{
 			std::this_thread::sleep_for(std::chrono::milliseconds((s64)(time * 1000.0f)));
 		}
@@ -63,13 +63,14 @@ namespace VI
 
 		LoopSync* sync = render_swapper.get();
 
-		r64 last_time = platform::time();
+		r64 start_time = platform::time();
+		r64 last_time = start_time;
 
 		while (true)
 		{
 			r64 time = platform::time();
-			sync->time.total = (r32)time;
-			sync->time.delta = vi_min((r32)(time - last_time), 0.25f);
+			sync->time.total = (r32)(time - start_time);
+			sync->time.delta = vi_min(r32(time - last_time), 0.25f);
 			last_time = time;
 
 			b8 quit = sync->quit;

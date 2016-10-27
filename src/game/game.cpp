@@ -323,7 +323,7 @@ void Game::update(const Update& update_in)
 		}
 	}
 
-	Net::update(u);
+	Net::update_start(u);
 
 #if !SERVER
 	// determine whether to display gamepad or keyboard bindings
@@ -469,6 +469,8 @@ void Game::update(const Update& update_in)
 		if (!u.input->get(Controls::Cancel, i) && !u.last_input->get(Controls::Cancel, i))
 			cancel_event_eaten[i] = false;
 	}
+
+	Net::update_end(u);
 }
 
 void Game::term()
@@ -842,6 +844,10 @@ void Game::execute(const Update& u, const char* cmd)
 				schedule_load_level(level, Mode::Pvp);
 			}
 		}
+	}
+	else if (strcmp(cmd, "netstat") == 0)
+	{
+		Net::show_stats = !Net::show_stats;
 	}
 	else if (strstr(cmd, "loadp ") == cmd)
 	{

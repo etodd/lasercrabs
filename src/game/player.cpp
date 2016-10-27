@@ -57,7 +57,6 @@ namespace VI
 #define damage_shake_time 0.7f
 #define score_summary_delay 2.0f
 #define score_summary_accept_delay 3.0f
-#define NET_SYNC_TOLERANCE AWK_RADIUS
 
 #define HP_BOX_SIZE (Vec2(text_size) * UI::scale)
 #define HP_BOX_SPACING (8.0f * UI::scale)
@@ -70,7 +69,7 @@ r32 hp_width(u8 hp, s8 shield, r32 scale = 1.0f)
 
 void camera_setup_awk(Entity* e, Camera* camera, r32 offset)
 {
-	Vec3 abs_wall_normal = (e->get<Transform>()->absolute_rot() * e->get<Awk>()->lerped_rotation) * Vec3(0, 0, 1);
+	Vec3 abs_wall_normal = e->get<Awk>()->lerped_rotation * Vec3(0, 0, 1);
 	camera->wall_normal = camera->rot.inverse() * abs_wall_normal;
 	camera->pos = e->get<Awk>()->center_lerped() + camera->rot * Vec3(0, 0, -offset);
 	if (e->get<Transform>()->parent.ref())
@@ -1262,7 +1261,16 @@ template<typename Stream> b8 serialize_msg(Stream* p, Message* msg)
 	serialize_r32_range(p, msg->dir.z, -1.0f, 1.0f, 16);
 	if (msg->type == Message::Type::Go)
 	{
-		serialize_int(p, Ability, msg->ability, 0, s32(Ability::count) + 1);
+		b8 has_ability;
+		if (Stream::IsWriting)
+			has_ability = msg->ability != Ability::None;
+		serialize_bool(p, has_ability);
+		if (has_ability)
+		{
+			serialize_enum(p, Ability, msg->ability);
+		}
+		else if (Stream::IsReading)
+			msg->ability = Ability::None;
 	}
 	else if (Stream::IsReading)
 		msg->ability = Ability::None;
@@ -1298,13 +1306,16 @@ b8 PlayerControlHuman::net_msg(Net::StreamRead* p, Net::MessageSource src)
 		|| msg.dir.length_squared() == 0.0f
 		|| (msg.ability != Ability::None && !c->player.ref()->get<PlayerManager>()->has_upgrade(Upgrade(msg.ability)))
 		|| (msg.ability != Ability::None && msg.type != PlayerControlHumanNet::Message::Type::Go))
+	{
+		vi_debug_break();
 		return false;
+	}
 
 	if (src == Net::MessageSource::Remote)
 	{
 		// make sure we are where the remote thinks we are when we start processing this message
 		r32 dist_sq = (c->get<Transform>()->absolute_pos() - msg.pos).length_squared();
-		if (dist_sq < NET_SYNC_TOLERANCE * NET_SYNC_TOLERANCE)
+		if (dist_sq < NET_SYNC_TOLERANCE_POS * NET_SYNC_TOLERANCE_POS)
 			c->get<Transform>()->absolute_pos(msg.pos);
 	}
 
@@ -1375,8 +1386,9 @@ PlayerControlHuman::PlayerControlHuman(PlayerHuman* p)
 	target_indicators(),
 	last_gamepad_input_time(),
 	gamepad_rotation_speed(),
-	remote_movement(),
-	player(p)
+	remote_control(),
+	player(p),
+	position_history()
 {
 }
 
@@ -1389,9 +1401,10 @@ void PlayerControlHuman::awake()
 {
 	if (player.ref()->local && !Game::session.local)
 	{
-		remote_pos = get<Transform>()->pos;
-		remote_rot = get<Transform>()->rot;
-		remote_parent = get<Transform>()->parent;
+		Transform* t = get<Transform>();
+		remote_control.pos = t->pos;
+		remote_control.rot = t->rot;
+		remote_control.parent = t->parent;
 	}
 
 	if (has<Awk>())
@@ -1660,6 +1673,30 @@ b8 PlayerControlHuman::local() const
 	return player.ref()->local;
 }
 
+void PlayerControlHuman::remote_control_handle(const PlayerControlHuman::RemoteControl& control)
+{
+#if !SERVER
+	vi_assert(false); // this should only get called on the server
+#endif
+
+	remote_control = control;
+
+	// if the remote position is close to what we think it is, snap to it
+	Transform* t = get<Transform>();
+	Vec3 abs_pos;
+	Quat abs_rot;
+	t->absolute(&abs_pos, &abs_rot);
+
+	Vec3 remote_abs_pos = remote_control.pos;
+	Quat remote_abs_rot = remote_control.rot;
+	if (remote_control.parent.ref())
+		remote_control.parent.ref()->to_world(&remote_abs_pos, &remote_abs_rot);
+	if ((remote_abs_pos - abs_pos).length_squared() < NET_SYNC_TOLERANCE_POS * NET_SYNC_TOLERANCE_POS)
+		t->absolute_pos(remote_abs_pos);
+	if (Quat::angle(remote_abs_rot, abs_rot) < NET_SYNC_TOLERANCE_ROT)
+		t->absolute_rot(remote_abs_rot);
+}
+
 void PlayerControlHuman::update(const Update& u)
 {
 	s32 gamepad = player.ref()->gamepad;
@@ -1668,6 +1705,77 @@ void PlayerControlHuman::update(const Update& u)
 	{
 		if (local())
 		{
+			if (!Game::session.local)
+			{
+				// we are a client and this is a local player
+				if (position_history.length == 0 || Game::real_time.total > position_history[position_history.length - 1].timestamp + NET_TICK_RATE)
+				{
+					// save our position history
+					if (position_history.length == position_history.capacity())
+						position_history.remove_ordered(0);
+					Transform* t = get<Transform>();
+					Vec3 abs_pos;
+					Quat abs_rot;
+					t->absolute(&abs_pos, &abs_rot);
+					position_history.add(
+					{
+						abs_rot,
+						abs_pos,
+						Game::real_time.total,
+					});
+				}
+
+				// make sure we never get too far from where the server says we should be
+				r32 rtt = Net::rtt(player.ref());
+				vi_assert(rtt > 0.0f);
+
+				// get the position entry at this time in the history
+				r32 timestamp = Game::real_time.total - (rtt * 1.25f);
+				const PositionEntry* position = nullptr;
+				r32 tolerance_pos = NET_SYNC_TOLERANCE_POS;
+				r32 tolerance_rot = NET_SYNC_TOLERANCE_ROT;
+				for (s32 i = position_history.length - 1; i >= 0; i--)
+				{
+					const PositionEntry& entry = position_history[i];
+					if (entry.timestamp < timestamp)
+					{
+						position = &entry;
+						// calculate tolerance based on velocity
+						if (i < position_history.length - 1)
+						{
+							tolerance_pos += (position_history[i + 1].pos - entry.pos).length();
+							tolerance_rot += Quat::angle(position_history[i + 1].rot, entry.rot);
+						}
+						if (i > 0)
+						{
+							tolerance_pos += (position_history[i - 1].pos - entry.pos).length();
+							tolerance_rot += Quat::angle(position_history[i - 1].rot, entry.rot);
+						}
+						break;
+					}
+				}
+
+				// make sure we're not too far from it
+				if (position)
+				{
+					Vec3 remote_abs_pos = remote_control.pos;
+					Quat remote_abs_rot = remote_control.rot;
+					if (remote_control.parent.ref())
+						remote_control.parent.ref()->to_world(&remote_abs_pos, &remote_abs_rot);
+
+					if ((position->pos - remote_abs_pos).length_squared() > tolerance_pos * tolerance_pos
+						|| Quat::angle(position->rot, remote_abs_rot) > tolerance_rot)
+					{
+						// snap our position to the server's position
+						position_history.length = 0;
+						Transform* t = get<Transform>();
+						t->pos = remote_control.pos;
+						t->rot = remote_control.rot;
+						t->parent = remote_control.parent;
+					}
+				}
+			}
+
 			Camera* camera = player.ref()->camera;
 			{
 				// zoom
@@ -1989,21 +2097,13 @@ void PlayerControlHuman::update(const Update& u)
 		else if (Game::session.local)
 		{
 			// we are a server, but this Awk is being controlled by a client
-			get<Awk>()->crawl(remote_movement, u);
+			get<Awk>()->crawl(remote_control.movement, u);
 			last_pos = get<Awk>()->center_lerped();
-
-			Vec3 abs_pos;
-			Quat abs_rot;
-			get<Transform>()->absolute(&abs_pos, &abs_rot);
-
-			Vec3 remote_abs_pos = remote_pos;
-			Quat remote_abs_rot = remote_rot;
-			if (remote_parent.ref())
-				remote_parent.ref()->to_world(&remote_abs_pos, &remote_abs_rot);
-			if ((remote_abs_pos - get<Transform>()->absolute_pos()).length_squared() < NET_SYNC_TOLERANCE * NET_SYNC_TOLERANCE)
-				get<Transform>()->absolute_pos(remote_abs_pos);
-			if (Quat::angle(abs_rot, remote_abs_rot) < PI * 0.05f)
-				get<Transform>()->absolute_rot(remote_abs_rot);
+		}
+		else
+		{
+			// we are a client and this Awk is not local
+			// do nothing
 		}
 	}
 	else
@@ -2260,10 +2360,10 @@ void PlayerControlHuman::draw_alpha(const RenderParams& params) const
 	if (!Game::session.local && player.ref()->local)
 	{
 		Vec3 p;
-		if (remote_parent.ref())
-			p = remote_parent.ref()->to_world(remote_pos);
+		if (remote_control.parent.ref())
+			p = remote_control.parent.ref()->to_world(remote_control.pos);
 		else
-			p = remote_pos;
+			p = remote_control.pos;
 		UI::indicator(params, p, UI::color_default, true);
 	}
 

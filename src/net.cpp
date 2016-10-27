@@ -21,6 +21,7 @@
 #include "game/ai_player.h"
 #include "game/player.h"
 #include "assimp/contrib/zlib/zlib.h"
+#include "console.h"
 
 #define DEBUG_MSG 0
 #define DEBUG_ENTITY 0
@@ -36,16 +37,16 @@ namespace Net
 
 // borrows heavily from https://github.com/networkprotocol/libyojimbo
 
+b8 show_stats;
+
 typedef u8 SequenceID;
 
 #define TIMEOUT 1.0f
-#define TICK_RATE (1.0f / 60.0f)
 #define SEQUENCE_BITS 8
 #define SEQUENCE_COUNT (1 << SEQUENCE_BITS)
 
 #define MESSAGE_BUFFER 256
 #define MAX_MESSAGES_SIZE (MAX_PACKET_SIZE / 2)
-#define INTERPOLATION_DELAY ((TICK_RATE * 5.0f) + 0.02f)
 
 enum class ClientPacket
 {
@@ -198,6 +199,26 @@ template<typename Stream, typename View> b8 serialize_view_skinnedmodel(Stream* 
 	return true;
 }
 
+template<typename Stream> b8 serialize_player_control(Stream* p, PlayerControlHuman::RemoteControl* control)
+{
+	b8 moving;
+	if (Stream::IsWriting)
+		moving = control->movement.length_squared() > 0.0f;
+	serialize_bool(p, moving);
+	if (moving)
+	{
+		serialize_r32_range(p, control->movement.x, -1.0f, 1.0f, 16);
+		serialize_r32_range(p, control->movement.y, -1.0f, 1.0f, 16);
+		serialize_r32_range(p, control->movement.z, -1.0f, 1.0f, 16);
+	}
+	else if (Stream::IsReading)
+		control->movement = Vec3::zero;
+	serialize_ref(p, control->parent);
+	serialize_position(p, &control->pos, Resolution::High);
+	serialize_quat(p, &control->rot, Resolution::High);
+	return true;
+}
+
 template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 {
 	const ComponentMask mask = Transform::component_mask
@@ -270,13 +291,8 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 	if (e->has<Transform>())
 	{
 		Transform* t = e->get<Transform>();
-		serialize_r32(p, t->pos.x);
-		serialize_r32(p, t->pos.y);
-		serialize_r32(p, t->pos.z);
-		serialize_r32(p, t->rot.x);
-		serialize_r32(p, t->rot.y);
-		serialize_r32(p, t->rot.z);
-		serialize_r32(p, t->rot.w);
+		serialize_position(p, &t->pos, Resolution::High);
+		serialize_quat(p, &t->rot, Resolution::High);
 		serialize_ref(p, t->parent);
 	}
 
@@ -550,7 +566,7 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 	if (e->has<PlayerCommon>())
 	{
 		PlayerCommon* pc = e->get<PlayerCommon>();
-		serialize_quat(p, &pc->attach_quat);
+		serialize_quat(p, &pc->attach_quat, Resolution::High);
 		serialize_r32_range(p, pc->angle_horizontal, PI * -2.0f, PI * 2.0f, 16);
 		serialize_r32_range(p, pc->angle_vertical, -PI, PI, 16);
 		serialize_ref(p, pc->manager);
@@ -770,7 +786,7 @@ void packet_finalize(StreamWrite* p)
 void packet_decompress(StreamRead* p, s32 bytes)
 {
 	StreamRead decompressed;
-	decompressed.resize_bytes(bytes);
+	decompressed.resize_bytes(MAX_PACKET_SIZE);
 	
 	z_stream z;
 	z.zalloc = nullptr;
@@ -859,7 +875,7 @@ MessageFrame* msg_frame_advance(MessageHistory* history, SequenceID* id, r32 tim
 		for (s32 i = 0; i < 64; i++)
 		{
 			MessageFrame* msg = &history->msgs[index];
-			if (msg->sequence_id == next_sequence && msg->timestamp < timestamp)
+			if (msg->sequence_id == next_sequence && msg->timestamp <= timestamp)
 			{
 				*id = next_sequence;
 				return msg;
@@ -1024,7 +1040,7 @@ b8 msgs_read(StreamRead* p, MessageHistory* history, Ack* ack)
 	return true;
 }
 
-template<typename Stream> b8 serialize_quat(Stream* p, Quat* rot)
+template<typename Stream> b8 serialize_quat(Stream* p, Quat* rot, Resolution r)
 {
 	Quat q;
 	s32 largest_index;
@@ -1060,9 +1076,10 @@ template<typename Stream> b8 serialize_quat(Stream* p, Quat* rot)
 			}
 		}
 	}
-	serialize_r32_range(p, q[indices[0]], -0.707107f, 0.707107f, 9);
-	serialize_r32_range(p, q[indices[1]], -0.707107f, 0.707107f, 9);
-	serialize_r32_range(p, q[indices[2]], -0.707107f, 0.707107f, 9);
+	s32 bits = r == Resolution::High ? 16 : 9;
+	serialize_r32_range(p, q[indices[0]], -0.707107f, 0.707107f, bits);
+	serialize_r32_range(p, q[indices[1]], -0.707107f, 0.707107f, bits);
+	serialize_r32_range(p, q[indices[2]], -0.707107f, 0.707107f, bits);
 
 	if (Stream::IsReading)
 	{
@@ -1080,7 +1097,7 @@ template<typename Stream> b8 serialize_transform(Stream* p, TransformState* tran
 	serialize_enum(p, Resolution, transform->resolution);
 	if (!serialize_position(p, &transform->pos, transform->resolution))
 		net_error();
-	if (!serialize_quat(p, &transform->rot))
+	if (!serialize_quat(p, &transform->rot, transform->resolution))
 		net_error();
 	return true;
 }
@@ -1163,11 +1180,20 @@ template<typename Stream> b8 serialize_awk(Stream* p, AwkState* state, const Awk
 
 b8 equal_states_transform(const TransformState& a, const TransformState& b)
 {
+	Resolution r = Resolution::Low;
+	r32 tolerance_pos_sq = 0.005f * 0.005f;
+	r32 tolerance_rot = 0.001f;
+	if (a.resolution == Resolution::High || b.resolution == Resolution::High)
+	{
+		tolerance_pos_sq = 0.001f * 0.001f;
+		tolerance_rot = 0.0001f;
+	}
+
 	return a.revision == b.revision
 		&& a.resolution == b.resolution
 		&& a.parent.equals(b.parent)
-		&& (a.pos - b.pos).length_squared() < 0.005f * 0.005f
-		&& Quat::angle(a.rot, b.rot) < 0.001f;
+		&& (a.pos - b.pos).length_squared() < tolerance_pos_sq
+		&& Quat::angle(a.rot, b.rot) < tolerance_rot;
 }
 
 b8 equal_states_transform(const StateFrame* a, const StateFrame* b, s32 index)
@@ -1381,7 +1407,7 @@ void state_frame_build(StateFrame* frame)
 			transform->pos = i.item()->pos;
 			transform->rot = i.item()->rot;
 			transform->parent = i.item()->parent.ref(); // ID must come out to IDNull if it's null; don't rely on revision to null the reference
-			transform->resolution = i.item()->has<Awk>() ? Resolution::High : Resolution::Low;
+			transform->resolution = i.item()->has<PlayerControlHuman>() ? Resolution::High : Resolution::Low;
 		}
 		else
 			frame->transforms_active.set(i.index, false);
@@ -1529,10 +1555,6 @@ void state_frame_apply(const StateFrame& frame)
 			{
 				// this is a local player; we don't want to immediately overwrite its position with the server's data
 				// let the PlayerControlHuman deal with it
-				PlayerControlHuman* c = t->get<PlayerControlHuman>();
-				c->remote_pos = s.pos;
-				c->remote_rot = s.rot;
-				c->remote_parent = s.parent;
 			}
 			else
 			{
@@ -1780,10 +1802,13 @@ void update(const Update& u)
 		vi_assert(World::create_queue[i].ref()->finalized);
 	World::create_queue.length = 0;
 #endif
+
 }
 
 void tick(const Update& u)
 {
+	// send out packets
+
 	if (mode == Mode::Active)
 		msgs_out_consolidate();
 
@@ -1951,35 +1976,12 @@ b8 packet_handle(const Update& u, StreamRead* p, const Sock::Address& address)
 
 				PlayerControlHuman* c = &PlayerControlHuman::list[id];
 
-				Vec3 remote_movement;
-				Ref<Transform> remote_parent;
-				Vec3 remote_pos;
-				Quat remote_rot;
+				PlayerControlHuman::RemoteControl control;
 
-				b8 moving;
-				serialize_bool(p, moving);
-				if (moving)
-				{
-					serialize_r32_range(p, remote_movement.x, -1.0f, 1.0f, 16);
-					serialize_r32_range(p, remote_movement.y, -1.0f, 1.0f, 16);
-					serialize_r32_range(p, remote_movement.z, -1.0f, 1.0f, 16);
-					serialize_ref(p, remote_parent);
-					serialize_position(p, &remote_pos, Resolution::High);
-					serialize_quat(p, &remote_rot);
-				}
+				serialize_player_control(p, &control);
 
 				if (client_owns(client, c->entity()))
-				{
-					if (moving)
-					{
-						c->remote_movement = remote_movement;
-						c->remote_parent = remote_parent;
-						c->remote_pos = remote_pos;
-						c->remote_rot = remote_rot;
-					}
-					else
-						c->remote_movement = Vec3::zero;
-				}
+					c->remote_control_handle(control);
 			}
 
 			break;
@@ -2113,19 +2115,13 @@ b8 build_packet_update(StreamWrite* p, const Update& u)
 		if (i.item()->local())
 		{
 			serialize_int(p, ID, i.index, 0, MAX_PLAYERS - 1);
-			Vec3 movement = i.item()->get_movement(u, i.item()->get<PlayerCommon>()->look());
-			b8 moving = movement.length_squared() > 0.0f;
-			serialize_bool(p, moving);
-			if (moving)
-			{
-				serialize_r32_range(p, movement.x, -1.0f, 1.0f, 16);
-				serialize_r32_range(p, movement.y, -1.0f, 1.0f, 16);
-				serialize_r32_range(p, movement.z, -1.0f, 1.0f, 16);
-				Transform* t = i.item()->get<Transform>();
-				serialize_ref(p, t->parent);
-				serialize_position(p, &t->pos, Resolution::High);
-				serialize_quat(p, &t->rot);
-			}
+			PlayerControlHuman::RemoteControl control;
+			control.movement = i.item()->get_movement(u, i.item()->get<PlayerCommon>()->look());
+			Transform* t = i.item()->get<Transform>();
+			control.pos = t->pos;
+			control.rot = t->rot;
+			control.parent = t->parent;
+			serialize_player_control(p, &control);
 		}
 	}
 
@@ -2138,7 +2134,7 @@ void update(const Update& u)
 	if (Game::session.local)
 		return;
 
-	r32 interpolation_time = Game::real_time.total - INTERPOLATION_DELAY;
+	r32 interpolation_time = Game::real_time.total - NET_INTERPOLATION_DELAY;
 
 	const StateFrame* frame = state_frame_by_timestamp(state_history, interpolation_time);
 	if (frame)
@@ -2171,6 +2167,9 @@ void update(const Update& u)
 				break;
 		}
 	}
+
+	if (show_stats)
+		Console::debug("Ping: %dms", s32(server_rtt * 1000.0f));
 }
 
 void tick(const Update& u)
@@ -2285,7 +2284,23 @@ b8 packet_handle(const Update& u, StreamRead* p, const Sock::Address& address)
 				state_frame_read(p, &frame, base);
 				// only insert the frame into the history if it is more recent
 				if (state_history.frames.length == 0 || sequence_more_recent(frame.sequence_id, state_history.frames[state_history.current_index].sequence_id))
+				{
 					memcpy(state_frame_add(&state_history), &frame, sizeof(StateFrame));
+
+					// let players know where the server thinks they are immediately, with no interpolation
+					for (auto i = PlayerControlHuman::list.iterator(); !i.is_last(); i.next())
+					{
+						Transform* t = i.item()->get<Transform>();
+						const TransformState& transform_state = frame.transforms[t->id()];
+						if (transform_state.revision == t->revision)
+						{
+							PlayerControlHuman::RemoteControl* control = &i.item()->remote_control;
+							control->parent = transform_state.parent;
+							control->pos = transform_state.pos;
+							control->rot = transform_state.rot;
+						}
+					}
+				}
 			}
 
 			timeout = 0.0f; // reset connection timeout
@@ -2413,7 +2428,7 @@ b8 remove(Entity* e)
 	return true;
 }
 
-void update(const Update& u)
+void update_start(const Update& u)
 {
 	while (true)
 	{
@@ -2442,24 +2457,30 @@ void update(const Update& u)
 		else
 			break;
 	}
-
 #if SERVER
 	Server::update(u);
 #else
 	Client::update(u);
 #endif
+}
 
-	tick_timer += Game::real_time.delta;
-	if (tick_timer > TICK_RATE)
-	{
-		tick_timer = 0.0f;
-
+void update_end(const Update& u)
+{
 #if SERVER
-		Server::tick(u);
+	// server always runs at 60 FPS
+	Server::tick(u);
 #else
+	tick_timer += Game::real_time.delta;
+	if (tick_timer > NET_TICK_RATE)
+	{
+		tick_timer -= NET_TICK_RATE;
+
 		Client::tick(u);
-#endif
 	}
+	// we're not going to send more than one packet per frame
+	// so make sure the tick timer never gets out of control
+	tick_timer = fmod(tick_timer, NET_TICK_RATE);
+#endif
 }
 
 void term()
@@ -2573,7 +2594,7 @@ b8 msg_finalize(StreamWrite* p)
 
 r32 rtt(const PlayerHuman* p)
 {
-	if (p->local)
+	if (Game::session.local && p->local)
 		return 0.0f;
 
 #if SERVER
@@ -2598,19 +2619,6 @@ r32 rtt(const PlayerHuman* p)
 #else
 	return Client::server_rtt;
 #endif
-}
-
-void state_rewind_to(r32 timestamp)
-{
-	state_frame_build(&state_frame_restore);
-	const StateFrame* frame = state_frame_by_timestamp(state_history, timestamp);
-	if (frame)
-		state_frame_apply(*frame);
-}
-
-void state_restore()
-{
-	state_frame_apply(state_frame_restore);
 }
 
 

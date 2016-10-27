@@ -100,9 +100,10 @@ b8 start_flying(Awk* a, Vec3 dir)
 		Message t = Message::FlyStart;
 		serialize_enum(p, Message, t);
 	}
-	serialize_r32(p, dir.x);
-	serialize_r32(p, dir.y);
-	serialize_r32(p, dir.z);
+	dir.normalize();
+	serialize_r32_range(p, dir.x, -1.0f, 1.0f, 16);
+	serialize_r32_range(p, dir.y, -1.0f, 1.0f, 16);
+	serialize_r32_range(p, dir.z, -1.0f, 1.0f, 16);
 	Net::msg_finalize(p);
 	return true;
 }
@@ -119,9 +120,10 @@ b8 start_dashing(Awk* a, Vec3 dir)
 		Message t = Message::DashStart;
 		serialize_enum(p, Message, t);
 	}
-	serialize_r32(p, dir.x);
-	serialize_r32(p, dir.y);
-	serialize_r32(p, dir.z);
+	dir.normalize();
+	serialize_r32_range(p, dir.x, -1.0f, 1.0f, 16);
+	serialize_r32_range(p, dir.y, -1.0f, 1.0f, 16);
+	serialize_r32_range(p, dir.z, -1.0f, 1.0f, 16);
 	Net::msg_finalize(p);
 	return true;
 }
@@ -183,17 +185,15 @@ b8 Awk::net_msg(Net::StreamRead* p, Net::MessageSource src)
 		case AwkNet::Message::FlyStart:
 		{
 			Vec3 dir;
-			serialize_r32(p, dir.x);
-			serialize_r32(p, dir.y);
-			serialize_r32(p, dir.z);
+			serialize_r32_range(p, dir.x, -1.0f, 1.0f, 16);
+			serialize_r32_range(p, dir.y, -1.0f, 1.0f, 16);
+			serialize_r32_range(p, dir.z, -1.0f, 1.0f, 16);
 
 			if (apply_msg)
 			{
-				Vec3 dir_normalized = Vec3::normalize(dir);
-
-				awk->velocity = dir_normalized * AWK_FLY_SPEED;
-				awk->get<Transform>()->absolute_pos(awk->get<Transform>()->absolute_pos() + dir_normalized * AWK_RADIUS * 0.5f);
-				awk->get<Transform>()->absolute_rot(Quat::look(dir_normalized));
+				awk->velocity = dir * AWK_FLY_SPEED;
+				awk->get<Transform>()->absolute_pos(awk->get<Transform>()->absolute_pos() + dir * AWK_RADIUS * 0.5f);
+				awk->get<Transform>()->absolute_rot(Quat::look(dir));
 
 				awk->get<Audio>()->post_event(awk->has<PlayerControlHuman>() ? AK::EVENTS::PLAY_LAUNCH_PLAYER : AK::EVENTS::PLAY_LAUNCH);
 
@@ -206,13 +206,13 @@ b8 Awk::net_msg(Net::StreamRead* p, Net::MessageSource src)
 		case AwkNet::Message::DashStart:
 		{
 			Vec3 dir;
-			serialize_r32(p, dir.x);
-			serialize_r32(p, dir.y);
-			serialize_r32(p, dir.z);
+			serialize_r32_range(p, dir.x, -1.0f, 1.0f, 16);
+			serialize_r32_range(p, dir.y, -1.0f, 1.0f, 16);
+			serialize_r32_range(p, dir.z, -1.0f, 1.0f, 16);
 
 			if (apply_msg)
 			{
-				awk->velocity = Vec3::normalize(dir) * AWK_DASH_SPEED;
+				awk->velocity = dir * AWK_DASH_SPEED;
 				awk->dash_timer = AWK_DASH_TIME;
 
 				awk->hit_targets.length = 0;
@@ -238,6 +238,7 @@ b8 Awk::net_msg(Net::StreamRead* p, Net::MessageSource src)
 		{
 			if (apply_msg)
 			{
+				Vec3 p = awk->get<Transform>()->absolute_pos();
 				awk->finish_flying_dashing_common();
 				awk->done_dashing.fire();
 			}
@@ -263,14 +264,15 @@ b8 Awk::net_msg(Net::StreamRead* p, Net::MessageSource src)
 
 void Awk::finish_flying_dashing_common()
 {
-	lerped_pos = get<Transform>()->pos;
-
 	get<Animator>()->layers[0].animation = AssetNull;
 
 	get<Audio>()->post_event(has<PlayerControlHuman>() && get<PlayerControlHuman>()->local() ? AK::EVENTS::PLAY_LAND_PLAYER : AK::EVENTS::PLAY_LAND);
 	attach_time = Game::time.total;
 
 	velocity = Vec3::zero;
+	last_speed = 0.0f;
+	get<Transform>()->absolute(&lerped_pos, &lerped_rotation);
+	last_pos = lerped_pos;
 }
 
 Awk* Awk::closest(AI::TeamMask mask, const Vec3& pos, r32* distance)
@@ -372,7 +374,7 @@ s16 Awk::ally_containment_field_mask() const
 
 Vec3 Awk::center_lerped() const
 {
-	return get<Transform>()->to_world((get<SkinnedModel>()->offset * Vec4(0, 0, 0, 1)).xyz());
+	return lerped_pos;
 }
 
 Vec3 Awk::attach_point(r32 offset) const
@@ -819,7 +821,7 @@ void Awk::detach_teleport()
 
 b8 Awk::dash_start(const Vec3& dir)
 {
-	if (state() != State::Crawl || current_ability == Ability::Sniper)
+	if (state() != State::Crawl || current_ability != Ability::None)
 		return false;
 
 	if (!direction_is_toward_attached_wall(dir))
@@ -1156,22 +1158,10 @@ b8 Awk::transfer_wall(const Vec3& dir, const btCollisionWorld::ClosestRayResultC
 
 void Awk::move(const Vec3& new_pos, const Quat& new_rotation, const ID entity_id)
 {
-	if ((new_pos - get<Transform>()->absolute_pos()).length() > 5.0f)
-		vi_debug_break();
-	lerped_rotation = new_rotation.inverse() * get<Transform>()->absolute_rot() * lerped_rotation;
 	get<Transform>()->absolute(new_pos, new_rotation);
 	Entity* entity = &Entity::list[entity_id];
 	if (entity->get<Transform>() != get<Transform>()->parent.ref())
-	{
-		if (state() == State::Crawl)
-		{
-			Vec3 abs_lerped_pos = get<Transform>()->parent.ref()->to_world(lerped_pos);
-			lerped_pos = entity->get<Transform>()->to_local(abs_lerped_pos);
-		}
-		else
-			lerped_pos = entity->get<Transform>()->to_local(get<Transform>()->pos);
 		get<Transform>()->reparent(entity->get<Transform>());
-	}
 	update_offset();
 }
 
@@ -1344,12 +1334,12 @@ void Awk::set_footing(const s32 index, const Transform* parent, const Vec3& pos)
 
 void Awk::update_offset()
 {
-	get<SkinnedModel>()->offset.rotation(lerped_rotation);
+	Quat offset_rot = lerped_rotation;
+	Vec3 offset_pos = lerped_pos;
+	get<Transform>()->to_local(&offset_pos, &offset_rot);
+	get<SkinnedModel>()->offset.rotation(offset_rot);
 	if (state() == State::Crawl)
-	{
-		Vec3 abs_lerped_pos = get<Transform>()->parent.ref()->to_world(lerped_pos);
-		get<SkinnedModel>()->offset.translation(get<Transform>()->to_local(abs_lerped_pos));
-	}
+		get<SkinnedModel>()->offset.translation(offset_pos);
 	else
 		get<SkinnedModel>()->offset.translation(Vec3::zero);
 }
@@ -1374,22 +1364,6 @@ void Awk::stealth(b8 enable)
 	}
 }
 
-void Awk::update_lerped_pos(r32 speed_multiplier, const Update& u)
-{
-	{
-		r32 angle = Quat::angle(lerped_rotation, Quat::identity);
-		if (angle > 0)
-			lerped_rotation = Quat::slerp(vi_min(1.0f, (speed_multiplier * LERP_ROTATION_SPEED / angle) * u.time.delta), lerped_rotation, Quat::identity);
-	}
-
-	{
-		Vec3 to_transform = get<Transform>()->pos - lerped_pos;
-		r32 distance = to_transform.length();
-		if (distance > 0.0f)
-			lerped_pos = Vec3::lerp(vi_min(1.0f, (speed_multiplier * LERP_TRANSLATION_SPEED / distance) * u.time.delta), lerped_pos, get<Transform>()->pos);
-	}
-}
-
 void Awk::update_server(const Update& u)
 {
 	State s = state();
@@ -1399,7 +1373,7 @@ void Awk::update_server(const Update& u)
 	if (cooldown > 0.0f)
 	{
 		cooldown = vi_max(0.0f, cooldown - u.time.delta);
-		if (cooldown == 0.0f)
+		if (cooldown == 0.0f && Game::session.local)
 			charges = AWK_CHARGES;
 	}
 
@@ -1457,7 +1431,46 @@ void Awk::update_client(const Update& u)
 
 	if (s == Awk::State::Crawl)
 	{
-		update_lerped_pos(1.0f, u);
+		if (get<Animator>()->layers[0].animation != AssetNull)
+		{
+			// this means that we were flying or dashing, but we were interrupted. the animation is still playing.
+			// this probably happened because the server never started flying or dashing in the first place, while we did
+			// and now we're snapping back to the server's state
+			finish_flying_dashing_common();
+		}
+
+		{
+			// update lerped pos so we crawl smoothly
+			Quat abs_rot;
+			Vec3 abs_pos;
+			get<Transform>()->absolute(&abs_pos, &abs_rot);
+			{
+				r32 angle = Quat::angle(lerped_rotation, abs_rot);
+				if (angle > 0)
+				{
+					const r32 tolerance = PI * 0.7f;
+					while (angle > tolerance)
+					{
+						lerped_rotation = Quat::slerp(0.5f / angle, lerped_rotation, abs_rot);
+						angle = Quat::angle(lerped_rotation, abs_rot);
+					}
+					lerped_rotation = Quat::slerp(vi_min(1.0f, (LERP_ROTATION_SPEED / angle) * u.time.delta), lerped_rotation, abs_rot);
+				}
+			}
+
+			{
+				Vec3 to_transform = abs_pos - lerped_pos;
+				r32 distance = to_transform.length();
+				if (distance > 0.0f)
+				{
+					const r32 tolerance = AWK_SHIELD_RADIUS;
+					if (distance < tolerance)
+						lerped_pos = Vec3::lerp(vi_min(1.0f, (LERP_TRANSLATION_SPEED / distance) * u.time.delta), lerped_pos, abs_pos);
+					else
+						lerped_pos += to_transform * (distance - tolerance);
+				}
+			}
+		}
 		update_offset();
 
 		// update footing
@@ -1572,11 +1585,14 @@ void Awk::update_client(const Update& u)
 	else
 	{
 		// flying or dashing
-		if (s == State::Dash)
-		{
-			update_lerped_pos(5.0f, u);
-			update_offset();
-		}
+
+		Quat rot;
+		Vec3 pos;
+		get<Transform>()->absolute(&pos, &rot);
+
+		lerped_pos = pos;
+		lerped_rotation = rot;
+		update_offset();
 
 		// emit particles
 		// but don't start until the awk has cleared the camera radius
@@ -1584,7 +1600,6 @@ void Awk::update_client(const Update& u)
 		r32 particle_start_delay = AWK_THIRD_PERSON_OFFSET / velocity.length();
 		if (u.time.total > attach_time + particle_start_delay)
 		{
-			Vec3 pos = get<Transform>()->absolute_pos();
 			const r32 particle_interval = 0.05f;
 			particle_accumulator += u.time.delta;
 			while (particle_accumulator > particle_interval)
@@ -1602,7 +1617,7 @@ void Awk::update_client(const Update& u)
 
 	{
 		Vec3 pos = get<Transform>()->absolute_pos();
-		if (s != State::Fly)
+		if (s == State::Crawl)
 			velocity = velocity * 0.75f + ((pos - last_pos) / u.time.delta) * 0.25f;
 		last_pos = pos;
 	}

@@ -90,6 +90,21 @@ struct PlayerCommon : public ComponentType<PlayerCommon>
 
 struct PlayerControlHuman : public ComponentType<PlayerControlHuman>
 {
+	struct PositionEntry // absolute, not relative
+	{
+		Quat rot;
+		Vec3 pos;
+		r32 timestamp;
+	};
+	
+	struct RemoteControl
+	{
+		Quat rot;
+		Vec3 pos;
+		Vec3 movement;
+		Ref<Transform> parent;
+	};
+
 	enum class ReticleType
 	{
 		None,
@@ -129,16 +144,14 @@ struct PlayerControlHuman : public ComponentType<PlayerControlHuman>
 
 	Reticle reticle;
 	StaticArray<TargetIndicator, 32> target_indicators;
-	Quat remote_rot;
-	Vec3 remote_movement;
+	StaticArray<PositionEntry, 60> position_history;
+	RemoteControl remote_control;
 	Vec3 last_pos;
-	Vec3 remote_pos;
 	r32 fov;
 	r32 damage_timer;
 	r32 rumble;
 	r32 last_gamepad_input_time;
 	r32 gamepad_rotation_speed;
-	Ref<Transform> remote_parent;
 	Ref<PlayerHuman> player;
 	b8 try_secondary;
 	b8 try_primary;
@@ -157,6 +170,7 @@ struct PlayerControlHuman : public ComponentType<PlayerControlHuman>
 	void hit_target(Entity*);
 	void hit_by(const TargetEvent&);
 	b8 add_target_indicator(Target*, TargetIndicator::Type);
+	void remote_control_handle(const RemoteControl&);
 
 	void update(const Update&);
 	void draw(const RenderParams&) const;

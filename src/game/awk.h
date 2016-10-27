@@ -117,7 +117,6 @@ struct Awk : public ComponentType<Awk>
 	void move(const Vec3&, const Quat&, const ID);
 	void crawl(const Vec3&, const Update&);
 	void update_offset();
-	void update_lerped_pos(r32, const Update&);
 
 	void set_footing(s32, const Transform*, const Vec3&);
 

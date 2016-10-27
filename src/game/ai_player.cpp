@@ -1554,7 +1554,7 @@ void PlayerControlAI::update(const Update& u)
 	camera->perspective((80.0f * PI * 0.5f / 180.0f), aspect, 0.02f, Game::level.skybox.far_plane);
 	camera->rot = Quat::euler(0.0f, get<PlayerCommon>()->angle_horizontal, get<PlayerCommon>()->angle_vertical);
 	camera->range = get<Awk>()->range();
-	Vec3 abs_wall_normal = ((get<Transform>()->absolute_rot() * get<Awk>()->lerped_rotation) * Vec3(0, 0, 1));;
+	Vec3 abs_wall_normal = get<Awk>()->lerped_rotation * Vec3(0, 0, 1);
 	const r32 third_person_offset = 2.0f;
 	camera->pos = get<Awk>()->center_lerped() + camera->rot * Vec3(0, 0, -third_person_offset);
 	if (get<Transform>()->parent.ref())

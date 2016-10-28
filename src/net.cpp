@@ -1154,8 +1154,6 @@ template<typename Stream> b8 serialize_player_manager(Stream* p, PlayerManagerSt
 	if (b)
 		serialize_s16(p, state->respawns);
 
-	vi_debug("ID %d rev %d", state->entity.id, state->entity.revision);
-
 	return true;
 }
 

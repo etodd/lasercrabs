@@ -100,7 +100,7 @@ struct Awk : public ComponentType<Awk>
 	b8 dash_start(const Vec3&);
 	b8 cooldown_can_shoot() const; // can we go?
 	void hit_by(const TargetEvent&); // called when we get hit
-	void hit_target(Entity*); // called when we hit a target
+	b8 hit_target(Entity*); // called when we hit a target
 	void damaged(const DamageEvent&);
 	void killed(Entity*);
 	Entity* incoming_attacker() const;

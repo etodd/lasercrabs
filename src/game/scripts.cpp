@@ -192,6 +192,7 @@ namespace tutorial
 	void init(const Update& u, const EntityFinder& entities)
 	{
 		Game::level.feature_level = Game::FeatureLevel::EnergyPickups;
+		Game::level.kill_limit = 1;
 
 		data = new Data();
 		Game::updates.add(&update);

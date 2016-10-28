@@ -457,15 +457,15 @@ void Awk::hit_by(const TargetEvent& e)
 		e.hit_by->get<PlayerControlHuman>()->player.ref()->msg(_(strings::no_effect), false);
 }
 
-void Awk::hit_target(Entity* target)
+b8 Awk::hit_target(Entity* target)
 {
 	if (!Game::level.local) // target hit events are synced across the network
-		return;
+		return false;
 
 	for (s32 i = 0; i < hit_targets.length; i++)
 	{
 		if (hit_targets[i].ref() == target)
-			return; // we've already hit this target once during this flight
+			return false; // we've already hit this target once during this flight
 	}
 	if (hit_targets.length < hit_targets.capacity())
 		hit_targets.add(target);
@@ -533,6 +533,8 @@ void Awk::hit_target(Entity* target)
 	}
 
 	hit.fire(target);
+
+	return true;
 }
 
 b8 Awk::predict_intersection(const Target* target, Vec3* intersection, r32 speed) const
@@ -1772,9 +1774,10 @@ r32 Awk::movement_raycast(const Vec3& ray_start, const Vec3& ray_end)
 				hit_target(hit.entity.ref());
 			else if (hit.type == Hit::Type::Awk)
 			{
-				hit_target(hit.entity.ref());
-				// if we didn't destroy them, then bounce off
-				if (s != State::Crawl && hit.entity.ref() && hit.entity.ref()->get<Health>()->total() > 0)
+				if (hit_target(hit.entity.ref()) // go through them if we've already hit them once on this flight
+					&& s != State::Crawl
+					&& hit.entity.ref()
+					&& hit.entity.ref()->get<Health>()->total() > 0) // if we didn't destroy them, then bounce off
 					reflect(hit.pos, hit.normal);
 			}
 			else if (hit.type == Hit::Type::EnemyContainmentField)

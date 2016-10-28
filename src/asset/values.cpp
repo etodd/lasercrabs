@@ -176,6 +176,9 @@ const char* AssetLookup::Mesh::values[] =
 	"assets/lvl/terminal_Cube_044.msh",
 	"assets/lvl/terminal_Pyramid.msh",
 	"assets/lvl/terminal_water.msh",
+	"assets/lvl/title_buildings.msh",
+	"assets/lvl/title_mountain.msh",
+	"assets/lvl/title_water.msh",
 	0,
 };
 
@@ -352,6 +355,9 @@ const char* AssetLookup::Mesh::names[] =
 	"terminal_Cube_044",
 	"terminal_Pyramid",
 	"terminal_water",
+	"title_buildings",
+	"title_mountain",
+	"title_water",
 	0,
 };
 

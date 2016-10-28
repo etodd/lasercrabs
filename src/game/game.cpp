@@ -1099,6 +1099,7 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 			}
 
 			level.skybox.far_plane = Json::get_r32(element, "far_plane", 100.0f);
+			level.skybox.fog_start = Json::get_r32(element, "fog_start", level.skybox.far_plane * 0.25f);
 			level.skybox.texture = Loader::find(Json::get_string(element, "skybox_texture"), AssetLookup::Texture::names);
 			level.skybox.shader = Asset::Shader::skybox;
 			level.skybox.mesh = Asset::Mesh::skybox;
@@ -1395,6 +1396,14 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 					// View
 					entity->get<View>()->texture = texture;
 					entity->get<View>()->shader = shader;
+					if (cJSON_HasObjectItem(element, "r"))
+						entity->get<View>()->color.x = Json::get_r32(element, "r");
+					if (cJSON_HasObjectItem(element, "g"))
+						entity->get<View>()->color.y = Json::get_r32(element, "g");
+					if (cJSON_HasObjectItem(element, "b"))
+						entity->get<View>()->color.z = Json::get_r32(element, "b");
+					if (cJSON_HasObjectItem(element, "a"))
+						entity->get<View>()->color.w = Json::get_r32(element, "a");
 					if (!alpha && !additive)
 					{
 						const Mesh* mesh = Loader::mesh(mesh_id);
@@ -1412,6 +1421,14 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 					// SkinnedModel
 					entity->get<SkinnedModel>()->texture = texture;
 					entity->get<SkinnedModel>()->shader = shader;
+					if (cJSON_HasObjectItem(element, "r"))
+						entity->get<SkinnedModel>()->color.x = Json::get_r32(element, "r");
+					if (cJSON_HasObjectItem(element, "g"))
+						entity->get<SkinnedModel>()->color.y = Json::get_r32(element, "g");
+					if (cJSON_HasObjectItem(element, "b"))
+						entity->get<SkinnedModel>()->color.z = Json::get_r32(element, "b");
+					if (cJSON_HasObjectItem(element, "a"))
+						entity->get<SkinnedModel>()->color.w = Json::get_r32(element, "a");
 					if (!alpha && !additive)
 					{
 						const Mesh* mesh = Loader::mesh(mesh_id);
@@ -1443,6 +1460,14 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 
 					m->get<View>()->texture = texture;
 					m->get<View>()->shader = shader;
+					if (cJSON_HasObjectItem(element, "r"))
+						m->get<View>()->color.x = Json::get_r32(element, "r");
+					if (cJSON_HasObjectItem(element, "g"))
+						m->get<View>()->color.y = Json::get_r32(element, "g");
+					if (cJSON_HasObjectItem(element, "b"))
+						m->get<View>()->color.z = Json::get_r32(element, "b");
+					if (cJSON_HasObjectItem(element, "a"))
+						m->get<View>()->color.w = Json::get_r32(element, "a");
 					if (!alpha && !additive)
 					{
 						const Mesh* mesh = Loader::mesh(mesh_id);

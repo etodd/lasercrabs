@@ -59,7 +59,7 @@ void main()
 {
 	vec3 p = pos_viewspace - cull_center;
 
-	if (dot(p, wall_normal) > -AWK_RADIUS + 0.01f) // is the pixel in front of the wall?
+	if (dot(p, wall_normal) > -AWK_RADIUS) // is the pixel in front of the wall?
 	{
 		// in front of wall
 		discard;

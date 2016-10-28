@@ -123,9 +123,9 @@
 
 	"tut_start": "[{{Zoom}}] to zoom.\n[{{Primary}}] to shoot.",
 	"tut_minion": "Minions are only vulnerable to headshots.",
-	"tut_health": "Capture the hanging battery to gain +1 armor. You can capture up to 4.",
-	"tut_upgrade": "Batteries give you energy over time. Find a control point and use your energy to buy an upgrade.",
-	"tut_ability": "Hold [{{Ability1}}] to use your new ability.",
+	"tut_health": "Capture the hanging battery to gain energy.",
+	"tut_upgrade": "Batteries give you energy over time. Return to base and use your energy to buy an upgrade.",
+	"tut_ability": "Press [{{Ability1}}] to activate, then [{{Primary}}] to use your new ability.",
 	"tut_kill_player": "Now find and destroy the test dummy.",
 
 	"left_joystick": "Left joystick",

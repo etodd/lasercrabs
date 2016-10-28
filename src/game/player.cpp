@@ -559,16 +559,16 @@ void draw_icon_text(const RenderParams& params, const Vec2& pos, AssetID icon, c
 	text.draw(params, pos + Vec2(total_width * -0.5f + icon_size + padding, 0));
 }
 
-void ability_draw(const RenderParams& params, const PlayerHuman* player, const Vec2& pos, Ability ability, AssetID icon, const char* control_binding)
+void ability_draw(const RenderParams& params, const PlayerHuman* player, const Vec2& pos, Ability ability, AssetID icon, s8 gamepad, Controls binding)
 {
 	char string[255];
 
 	s16 cost = AbilityInfo::list[(s32)ability].spawn_cost;
-	sprintf(string, "%s", control_binding);
+	sprintf(string, "%s", Settings::gamepads[gamepad].bindings[(s32)binding].string(Game::is_gamepad));
 	const Vec4* color;
 	PlayerManager* manager = player->get<PlayerManager>();
 	if (!manager->ability_valid(ability))
-		color = &UI::color_alert;
+		color = params.sync->input.get(binding, gamepad) ? &UI::color_disabled : &UI::color_alert;
 	else if (manager->entity.ref()->get<Awk>()->current_ability == ability)
 		color = &UI::color_default;
 	else
@@ -729,16 +729,13 @@ void PlayerHuman::draw_alpha(const RenderParams& params) const
 		{
 			// draw abilities
 
-			b8 is_gamepad = gamepad > 0 || Game::is_gamepad;
-
 			// ability 1
 			{
 				Ability ability = get<PlayerManager>()->abilities[0];
 				if (ability != Ability::None)
 				{
-					const char* binding = Settings::gamepads[gamepad].bindings[(s32)Controls::Ability1].string(is_gamepad);
 					const AbilityInfo& info = AbilityInfo::list[(s32)ability];
-					ability_draw(params, this, center + Vec2(-radius, 0), ability, info.icon, binding);
+					ability_draw(params, this, center + Vec2(-radius, 0), ability, info.icon, gamepad, Controls::Ability1);
 				}
 			}
 
@@ -747,9 +744,8 @@ void PlayerHuman::draw_alpha(const RenderParams& params) const
 				Ability ability = get<PlayerManager>()->abilities[1];
 				if (ability != Ability::None)
 				{
-					const char* binding = Settings::gamepads[gamepad].bindings[(s32)Controls::Ability2].string(is_gamepad);
 					const AbilityInfo& info = AbilityInfo::list[(s32)ability];
-					ability_draw(params, this, center + Vec2(0, radius * 0.5f), ability, info.icon, binding);
+					ability_draw(params, this, center + Vec2(0, radius * 0.5f), ability, info.icon, gamepad, Controls::Ability2);
 				}
 			}
 
@@ -758,9 +754,8 @@ void PlayerHuman::draw_alpha(const RenderParams& params) const
 				Ability ability = get<PlayerManager>()->abilities[2];
 				if (ability != Ability::None)
 				{
-					const char* binding = Settings::gamepads[gamepad].bindings[(s32)Controls::Ability3].string(is_gamepad);
 					const AbilityInfo& info = AbilityInfo::list[(s32)ability];
-					ability_draw(params, this, center + Vec2(radius, 0), ability, info.icon, binding);
+					ability_draw(params, this, center + Vec2(radius, 0), ability, info.icon, gamepad, Controls::Ability3);
 				}
 			}
 		}
@@ -2299,9 +2294,15 @@ void PlayerControlHuman::draw(const RenderParams& p) const
 	if (p.technique != RenderTechnique::Default
 		|| p.camera != player.ref()->camera
 		|| p.camera->cull_range <= 0.0f
-		|| !p.camera->cull_behind_wall
 		|| !get<Transform>()->parent.ref())
 		return;
+
+	// only draw the cylinder if the camera is inside or very close to the wall
+	{
+		Vec3 abs_wall_normal = get<Awk>()->lerped_rotation * Vec3(0, 0, 1);
+		if (abs_wall_normal.dot(p.camera->pos - get<Awk>()->attach_point()) > 0.02f)
+			return;
+	}
 
 	Loader::mesh_permanent(Asset::Mesh::cylinder_inside);
 	Loader::shader_permanent(Asset::Shader::cylinder_inside);
@@ -2361,16 +2362,6 @@ void PlayerControlHuman::draw_alpha(const RenderParams& params) const
 		|| !has<Awk>()
 		|| Team::game_over)
 		return;
-
-	if (!Game::level.local && player.ref()->local)
-	{
-		Vec3 p;
-		if (remote_control.parent.ref())
-			p = remote_control.parent.ref()->to_world(remote_control.pos);
-		else
-			p = remote_control.pos;
-		UI::indicator(params, p, UI::color_default, true);
-	}
 
 	const Rect2& viewport = params.camera->viewport;
 

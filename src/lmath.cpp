@@ -126,7 +126,7 @@ namespace LMath
 		return false;
 	}
 
-	const r32 INTENSITY_COEFFICIENT = 0.25f;
+	const r32 INTENSITY_COEFFICIENT = 0.2f;
 
 	Vec3 desaturate(const Vec3& c)
 	{

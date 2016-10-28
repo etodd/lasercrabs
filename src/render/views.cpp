@@ -139,6 +139,9 @@ void View::alpha_mode(AlphaMode m)
 	}
 }
 
+#define PVP_ACCESSIBLE Vec4(0.7f, 0.7f, 0.7f, 1.0f)
+#define PVP_INACCESSIBLE Vec4(0.0f, 0.0f, 0.0f, MATERIAL_NO_OVERRIDE)
+
 void View::draw(const RenderParams& params) const
 {
 	if (mesh == AssetNull || shader == AssetNull)
@@ -191,16 +194,10 @@ void View::draw(const RenderParams& params) const
 	{
 		if (params.camera->colors)
 			sync->write<Vec4>(color);
+		else if (color.w == MATERIAL_NO_OVERRIDE)
+			sync->write<Vec4>(PVP_INACCESSIBLE);
 		else
-		{
-			const Vec4 pvp_accessible(0.7f, 0.7f, 0.7f, 1.0f);
-			const Vec4 pvp_inaccessible(0.0f, 0.0f, 0.0f, MATERIAL_NO_OVERRIDE);
-
-			if (color.w == MATERIAL_NO_OVERRIDE)
-				sync->write<Vec4>(pvp_inaccessible);
-			else
-				sync->write<Vec4>(pvp_accessible);
-		}
+			sync->write<Vec4>(PVP_ACCESSIBLE);
 	}
 	else
 	{
@@ -272,7 +269,7 @@ void View::awake()
 
 r32 fog_start(const RenderParams& p)
 {
-	return Game::level.skybox.far_plane * (p.camera->colors ? 0.25f : 1.0f);
+	return Game::level.skybox.fog_start;
 }
 
 void SkyDecal::draw_alpha(const RenderParams& p)
@@ -693,7 +690,10 @@ void Water::draw_opaque(const RenderParams& params)
 	sync->write(Asset::Uniform::diffuse_color);
 	sync->write(RenderDataType::Vec4);
 	sync->write<s32>(1);
-	sync->write<Vec4>(color);
+	if (params.camera->colors)
+		sync->write<Vec4>(color);
+	else
+		sync->write<Vec4>(PVP_INACCESSIBLE);
 
 	sync->write(RenderOp::Mesh);
 	sync->write(RenderPrimitiveMode::Triangles);

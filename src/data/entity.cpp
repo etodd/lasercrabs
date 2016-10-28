@@ -113,7 +113,7 @@ void World::net_remove(Entity* e)
 
 void World::remove(Entity* e)
 {
-	if (Game::session.local) // if we're a client, all entity removals are handled by the server
+	if (Game::level.local) // if we're a client, all entity removals are handled by the server
 	{
 		b8 actually_removed = internal_remove(e);
 		vi_assert(actually_removed);

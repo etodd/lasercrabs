@@ -1,10 +1,11 @@
 {
 	"connecting": "Connecting...",
+	"acking": "Confirming connection...",
 	"calling": "Calling...",
 	"hacking": "Hacking...",
 	"losing": "Losing",
 	"buying": "Buying...",
-	"loading_offline": "Loading...",
+	"loading": "Loading...",
 	"match_searching": "Searching...\n(%d players)",
 	"match_starting": "Connecting in %d...",
 	"play": "Story mode",

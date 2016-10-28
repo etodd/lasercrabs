@@ -38,10 +38,7 @@ namespace Net
 // borrows heavily from https://github.com/networkprotocol/libyojimbo
 
 b8 show_stats;
-s32 bandwidth_in;
-s32 bandwidth_out;
-s32 bandwidth_in_counter;
-s32 bandwidth_out_counter;
+Sock::Handle sock;
 
 #define TIMEOUT 1.0f
 #define SEQUENCE_BITS 8
@@ -55,6 +52,7 @@ enum class ClientPacket
 	Connect,
 	Update,
 	AckInit,
+	Disconnect,
 	count,
 };
 
@@ -63,6 +61,7 @@ enum class ServerPacket
 	Init,
 	Keepalive,
 	Update,
+	Disconnect,
 	count,
 };
 
@@ -542,7 +541,7 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 	}
 
 #if !SERVER
-	if (Stream::IsReading && Client::mode == Client::Mode::Connected)
+	if (Stream::IsReading && Client::state_client.mode == Client::Mode::Connected)
 		World::awake(e);
 #endif
 
@@ -693,13 +692,19 @@ Ack msg_history_ack(const MessageHistory& history)
 }
 
 // server/client data
-MessageHistory msgs_out_history;
-StaticArray<StreamWrite, MESSAGE_BUFFER> msgs_out;
-r32 tick_timer;
-Sock::Handle sock;
-SequenceID local_sequence_id = 1;
-StateHistory state_history;
-StateFrame state_frame_restore;
+struct StateCommon
+{
+	MessageHistory msgs_out_history;
+	StaticArray<StreamWrite, MESSAGE_BUFFER> msgs_out;
+	SequenceID local_sequence_id = 1;
+	StateHistory state_history;
+	StateFrame state_frame_restore;
+	s32 bandwidth_in;
+	s32 bandwidth_out;
+	s32 bandwidth_in_counter;
+	s32 bandwidth_out_counter;
+};
+StateCommon state_common;
 
 void packet_init(StreamWrite* p)
 {
@@ -785,7 +790,7 @@ void packet_send(const StreamWrite& p, const Sock::Address& address)
 	vi_debug("Outgoing packet size: %dB", p.bytes_written());
 #endif
 	Sock::udp_send(&sock, address, p.data.data, p.bytes_written());
-	bandwidth_out_counter += p.bytes_written();
+	state_common.bandwidth_out_counter += p.bytes_written();
 }
 
 // consolidate msgs_out into msgs_out_history
@@ -793,23 +798,23 @@ b8 msgs_out_consolidate()
 {
 	using Stream = StreamWrite;
 
-	if (msgs_out.length == 0)
+	if (state_common.msgs_out.length == 0)
 		msg_finalize(msg_new(MessageType::Noop)); // we have to send SOMETHING every sequence
 
 	s32 bytes = 0;
 	s32 msgs = 0;
-	for (s32 i = 0; i < msgs_out.length; i++)
+	for (s32 i = 0; i < state_common.msgs_out.length; i++)
 	{
-		s32 msg_bytes = msgs_out[i].bytes_written();
+		s32 msg_bytes = state_common.msgs_out[i].bytes_written();
 		if (64 + bytes + msg_bytes > MAX_MESSAGES_SIZE)
 			break;
 		bytes += msg_bytes;
 		msgs++;
 	}
 
-	MessageFrame* frame = msg_history_add(&msgs_out_history, Game::real_time.total, bytes);
+	MessageFrame* frame = msg_history_add(&state_common.msgs_out_history, Game::real_time.total, bytes);
 
-	frame->sequence_id = local_sequence_id;
+	frame->sequence_id = state_common.local_sequence_id;
 
 	serialize_int(&frame->write, s32, bytes, 0, MAX_MESSAGES_SIZE); // message frame size
 	if (bytes > 0)
@@ -817,7 +822,7 @@ b8 msgs_out_consolidate()
 		serialize_int(&frame->write, SequenceID, frame->sequence_id, 0, SEQUENCE_COUNT - 1);
 		for (s32 i = 0; i < msgs; i++)
 		{
-			serialize_bytes(&frame->write, (u8*)msgs_out[i].data.data, msgs_out[i].bytes_written());
+			serialize_bytes(&frame->write, (u8*)state_common.msgs_out[i].data.data, state_common.msgs_out[i].bytes_written());
 			serialize_align(&frame->write);
 		}
 	}
@@ -825,7 +830,7 @@ b8 msgs_out_consolidate()
 	frame->write.flush();
 	
 	for (s32 i = msgs - 1; i >= 0; i--)
-		msgs_out.remove_ordered(i);
+		state_common.msgs_out.remove_ordered(i);
 
 	return true;
 }
@@ -1360,7 +1365,7 @@ b8 transform_filter(const Transform* t)
 
 void state_frame_build(StateFrame* frame)
 {
-	frame->sequence_id = local_sequence_id;
+	frame->sequence_id = state_common.local_sequence_id;
 	frame->transforms_active = Transform::list.mask;
 	for (auto i = Transform::list.iterator(); !i.is_last(); i.next())
 	{
@@ -1654,17 +1659,20 @@ struct Client
 
 b8 msg_process(StreamRead*, Client*);
 
-Array<Client> clients;
-r32 tick_timer;
-Mode mode;
-s32 expected_clients = 1;
+struct StateServer
+{
+	Array<Client> clients;
+	Mode mode;
+	s32 expected_clients = 1;
+};
+StateServer state_server;
 
 s32 connected_clients()
 {
 	s32 result = 0;
-	for (s32 i = 0; i < clients.length; i++)
+	for (s32 i = 0; i < state_server.clients.length; i++)
 	{
-		if (clients[i].connected)
+		if (state_server.clients[i].connected)
 			result++;
 	}
 	return result;
@@ -1701,11 +1709,21 @@ b8 init()
 
 b8 build_packet_init(StreamWrite* p)
 {
-	packet_init(p);
 	using Stream = StreamWrite;
+	packet_init(p);
 	ServerPacket type = ServerPacket::Init;
 	serialize_enum(p, ServerPacket, type);
 	serialize_init_packet(p);
+	packet_finalize(p);
+	return true;
+}
+
+b8 build_packet_disconnect(StreamWrite* p)
+{
+	using Stream = StreamWrite;
+	packet_init(p);
+	ServerPacket type = ServerPacket::Disconnect;
+	serialize_enum(p, ServerPacket, type);
 	packet_finalize(p);
 	return true;
 }
@@ -1729,10 +1747,10 @@ b8 build_packet_update(StreamWrite* p, Client* client, StateFrame* frame)
 	Ack ack = msg_history_ack(client->msgs_in_history);
 	serialize_int(p, SequenceID, ack.sequence_id, 0, SEQUENCE_COUNT - 1);
 	serialize_u32(p, ack.previous_sequences);
-	msgs_write(p, msgs_out_history, client->ack, &client->recently_resent, client->rtt);
+	msgs_write(p, state_common.msgs_out_history, client->ack, &client->recently_resent, client->rtt);
 
 	serialize_int(p, SequenceID, client->ack.sequence_id, 0, SEQUENCE_COUNT - 1);
-	const StateFrame* base = state_frame_by_sequence(state_history, client->ack.sequence_id);
+	const StateFrame* base = state_frame_by_sequence(state_common.state_history, client->ack.sequence_id);
 	state_frame_write(p, frame, base);
 
 	packet_finalize(p);
@@ -1741,9 +1759,9 @@ b8 build_packet_update(StreamWrite* p, Client* client, StateFrame* frame)
 
 void update(const Update& u)
 {
-	for (s32 i = 0; i < clients.length; i++)
+	for (s32 i = 0; i < state_server.clients.length; i++)
 	{
-		Client* client = &clients[i];
+		Client* client = &state_server.clients[i];
 		if (client->connected)
 		{
 			while (MessageFrame* frame = msg_frame_advance(&client->msgs_in_history, &client->processed_sequence_id, Game::real_time.total))
@@ -1761,6 +1779,8 @@ void update(const Update& u)
 			}
 		}
 	}
+
+	// ensure everything is being finalized properly
 #if DEBUG
 	for (s32 i = 0; i < World::create_queue.length; i++)
 		vi_assert(World::create_queue[i].ref()->finalized);
@@ -1773,47 +1793,49 @@ void tick(const Update& u)
 {
 	// send out packets
 
-	if (mode == Mode::Active)
+	if (state_server.mode == Mode::Active)
 		msgs_out_consolidate();
 
-	StateFrame* frame = state_frame_add(&state_history);
+	StateFrame* frame = state_frame_add(&state_common.state_history);
 	state_frame_build(frame);
 
 	StreamWrite p;
-	for (s32 i = 0; i < clients.length; i++)
+	for (s32 i = 0; i < state_server.clients.length; i++)
 	{
-		Client* client = &clients[i];
+		Client* client = &state_server.clients[i];
 		client->timeout += Game::real_time.delta;
 		if (client->timeout > TIMEOUT)
 		{
 			vi_debug("Client %s:%hd timed out.", Sock::host_to_str(client->address.host), client->address.port);
-			clients.remove(i);
+			state_server.clients.remove(i);
 			i--;
 		}
 		else if (client->connected)
 		{
 			p.reset();
 			build_packet_update(&p, client, frame);
-			packet_send(p, clients[i].address);
+			packet_send(p, state_server.clients[i].address);
 		}
 	}
 
-	if (mode == Mode::Active)
+	if (state_server.mode == Mode::Active)
 	{
-		local_sequence_id++;
-		if (local_sequence_id == SEQUENCE_COUNT)
-			local_sequence_id = 0;
+		state_common.local_sequence_id++;
+		if (state_common.local_sequence_id == SEQUENCE_COUNT)
+			state_common.local_sequence_id = 0;
 	}
 }
 
 b8 packet_handle(const Update& u, StreamRead* p, const Sock::Address& address)
 {
 	Client* client = nullptr;
-	for (s32 i = 0; i < clients.length; i++)
+	s32 client_index = -1;
+	for (s32 i = 0; i < state_server.clients.length; i++)
 	{
-		if (address.equals(clients[i].address))
+		if (address.equals(state_server.clients[i].address))
 		{
-			client = &clients[i];
+			client = &state_server.clients[i];
+			client_index = i;
 			break;
 		}
 	}
@@ -1827,21 +1849,12 @@ b8 packet_handle(const Update& u, StreamRead* p, const Sock::Address& address)
 	{
 		case ClientPacket::Connect:
 		{
-			if (clients.length < expected_clients)
+			if (state_server.clients.length < state_server.expected_clients)
 			{
-				Client* client = nullptr;
-				for (s32 i = 0; i < clients.length; i++)
-				{
-					if (clients[i].address.equals(address))
-					{
-						client = &clients[i];
-						break;
-					}
-				}
-
 				if (!client)
 				{
-					client = clients.add();
+					client = state_server.clients.add();
+					client_index = state_server.clients.length - 1;
 					new (client) Client();
 					client->address = address;
 				}
@@ -1856,16 +1869,6 @@ b8 packet_handle(const Update& u, StreamRead* p, const Sock::Address& address)
 		}
 		case ClientPacket::AckInit:
 		{
-			Client* client = nullptr;
-			for (s32 i = 0; i < clients.length; i++)
-			{
-				if (clients[i].address.equals(address))
-				{
-					client = &clients[i];
-					break;
-				}
-			}
-
 			if (client && !client->connected)
 			{
 				vi_debug("Client %s:%hd connected.", Sock::host_to_str(address.host), address.port);
@@ -1901,9 +1904,9 @@ b8 packet_handle(const Update& u, StreamRead* p, const Sock::Address& address)
 					}
 				}
 
-				if (connected_clients() == expected_clients)
+				if (connected_clients() == state_server.expected_clients)
 				{
-					mode = Mode::Active;
+					state_server.mode = Mode::Active;
 					using Stream = StreamWrite;
 					for (auto i = Entity::list.iterator(); !i.is_last(); i.next())
 					{
@@ -1922,13 +1925,13 @@ b8 packet_handle(const Update& u, StreamRead* p, const Sock::Address& address)
 			if (!client)
 			{
 				vi_debug("%s", "Discarding packet from unknown client.");
-				net_error();
+				return false;
 			}
 
 			if (!msgs_read(p, &client->msgs_in_history, &client->ack))
 				net_error();
 
-			calculate_rtt(Game::real_time.total, client->ack, msgs_out_history, &client->rtt);
+			calculate_rtt(Game::real_time.total, client->ack, state_common.msgs_out_history, &client->rtt);
 
 			client->timeout = 0.0f;
 
@@ -1951,6 +1954,18 @@ b8 packet_handle(const Update& u, StreamRead* p, const Sock::Address& address)
 
 			break;
 		}
+		case ClientPacket::Disconnect:
+		{
+			if (!client)
+			{
+				vi_debug("%s", "Discarding packet from unknown client.");
+				return false;
+			}
+			vi_debug("Client %s:%hd disconnected.", Sock::host_to_str(address.host), address.port);
+			state_server.clients.remove(client_index);
+
+			break;
+		}
 		default:
 		{
 			vi_debug("%s", "Discarding packet due to invalid packet type.");
@@ -1965,6 +1980,7 @@ b8 packet_handle(const Update& u, StreamRead* p, const Sock::Address& address)
 b8 msg_process(StreamRead* p, Client* client)
 {
 	using Stream = StreamRead;
+	vi_assert(client);
 	MessageType type;
 	serialize_enum(p, MessageType, type);
 #if DEBUG_MSG
@@ -1996,6 +2012,21 @@ b8 msg_process(StreamRead* p, Client* client)
 	return true;
 }
 
+Mode mode()
+{
+	return state_server.mode;
+}
+
+void reset()
+{
+	StreamWrite p;
+	build_packet_disconnect(&p);
+	for (s32 i = 0; i < state_server.clients.length; i++)
+		packet_send(p, state_server.clients[i].address);
+
+	new (&Server::state_server) Server::StateServer();
+}
+
 }
 
 #else
@@ -2005,14 +2036,20 @@ namespace Client
 
 b8 msg_process(StreamRead*);
 
-Sock::Address server_address;
-Mode mode;
-r32 timeout;
-MessageHistory msgs_in_history; // messages we've received from the server
-Ack server_ack = { u32(-1), 0 }; // most recent ack we've received from the server
-SequenceHistory server_recently_resent; // sequences we recently resent to the server
-r32 server_rtt = 0.5f;
-SequenceID server_processed_sequence_id; // most recent sequence ID we've processed from the server
+struct StateClient
+{
+	Camera* camera_connecting;
+	r32 timeout;
+	r32 tick_timer;
+	r32 server_rtt = 0.5f;
+	Mode mode;
+	MessageHistory msgs_in_history; // messages we've received from the server
+	Ack server_ack = { u32(-1), 0 }; // most recent ack we've received from the server
+	Sock::Address server_address;
+	SequenceHistory server_recently_resent; // sequences we recently resent to the server
+	SequenceID server_processed_sequence_id; // most recent sequence ID we've processed from the server
+};
+StateClient state_client;
 
 b8 init()
 {
@@ -2033,6 +2070,16 @@ b8 build_packet_connect(StreamWrite* p)
 	packet_init(p);
 	using Stream = StreamWrite;
 	ClientPacket type = ClientPacket::Connect;
+	serialize_enum(p, ClientPacket, type);
+	packet_finalize(p);
+	return true;
+}
+
+b8 build_packet_disconnect(StreamWrite* p)
+{
+	using Stream = StreamWrite;
+	packet_init(p);
+	ClientPacket type = ClientPacket::Disconnect;
 	serialize_enum(p, ClientPacket, type);
 	packet_finalize(p);
 	return true;
@@ -2070,11 +2117,11 @@ b8 build_packet_update(StreamWrite* p, const Update& u)
 	serialize_enum(p, ClientPacket, type);
 
 	// ack received messages
-	Ack ack = msg_history_ack(msgs_in_history);
+	Ack ack = msg_history_ack(state_client.msgs_in_history);
 	serialize_int(p, SequenceID, ack.sequence_id, 0, SEQUENCE_COUNT - 1);
 	serialize_u32(p, ack.previous_sequences);
 
-	msgs_write(p, msgs_out_history, server_ack, &server_recently_resent, server_rtt);
+	msgs_write(p, state_common.msgs_out_history, state_client.server_ack, &state_client.server_recently_resent, state_client.server_rtt);
 
 	// player control
 	s32 count = PlayerControlHuman::count_local();
@@ -2100,15 +2147,39 @@ b8 build_packet_update(StreamWrite* p, const Update& u)
 
 void update(const Update& u)
 {
-	if (Game::session.local)
+	// "connecting..." camera
+	{
+		b8 camera_needed = state_client.mode == Mode::Connecting
+			|| state_client.mode == Mode::Acking
+			|| state_client.mode == Mode::Loading;
+		if (camera_needed && !state_client.camera_connecting)
+		{
+			state_client.camera_connecting = Camera::add();
+			state_client.camera_connecting->mask = 0; // don't display anything; entities will be popping in over the network
+			state_client.camera_connecting->viewport =
+			{
+				Vec2::zero,
+				Vec2(u.input->width, u.input->height),
+			};
+			r32 aspect = state_client.camera_connecting->viewport.size.y == 0 ? 1 : (r32)state_client.camera_connecting->viewport.size.x / (r32)state_client.camera_connecting->viewport.size.y;
+			state_client.camera_connecting->perspective((60.0f * PI * 0.5f / 180.0f), aspect, 0.1f, 2.0f);
+		}
+		else if (!camera_needed && state_client.camera_connecting)
+		{
+			state_client.camera_connecting->remove();
+			state_client.camera_connecting = nullptr;
+		}
+	}
+
+	if (Game::level.local)
 		return;
 
 	r32 interpolation_time = Game::real_time.total - NET_INTERPOLATION_DELAY;
 
-	const StateFrame* frame = state_frame_by_timestamp(state_history, interpolation_time);
+	const StateFrame* frame = state_frame_by_timestamp(state_common.state_history, interpolation_time);
 	if (frame)
 	{
-		const StateFrame* frame_next = state_frame_next(state_history, *frame);
+		const StateFrame* frame_next = state_frame_next(state_common.state_history, *frame);
 		const StateFrame* frame_final;
 		StateFrame interpolated;
 		if (frame_next)
@@ -2123,7 +2194,7 @@ void update(const Update& u)
 		state_frame_apply(*frame_final);
 	}
 
-	while (MessageFrame* frame = msg_frame_advance(&msgs_in_history, &server_processed_sequence_id, interpolation_time))
+	while (MessageFrame* frame = msg_frame_advance(&state_client.msgs_in_history, &state_client.server_processed_sequence_id, interpolation_time))
 	{
 		frame->read.rewind();
 #if DEBUG_MSG
@@ -2138,13 +2209,13 @@ void update(const Update& u)
 	}
 
 	if (show_stats) // bandwidth counters are updated every half second
-		Console::debug("%.0fkbps down | %.0fkbps up | %.0fms", bandwidth_in * 8.0f / 500.0f, bandwidth_out * 8.0f / 500.0f, server_rtt * 1000.0f);
+		Console::debug("%.0fkbps down | %.0fkbps up | %.0fms", state_common.bandwidth_in * 8.0f / 500.0f, state_common.bandwidth_out * 8.0f / 500.0f, state_client.server_rtt * 1000.0f);
 }
 
 void tick(const Update& u)
 {
-	timeout += Game::real_time.delta;
-	switch (mode)
+	state_client.timeout += Game::real_time.delta;
+	switch (state_client.mode)
 	{
 		case Mode::Disconnected:
 		{
@@ -2152,35 +2223,35 @@ void tick(const Update& u)
 		}
 		case Mode::Connecting:
 		{
-			if (timeout > 0.25f)
+			if (state_client.timeout > 0.25f)
 			{
-				timeout = 0.0f;
-				vi_debug("Connecting to %s:%hd...", Sock::host_to_str(server_address.host), server_address.port);
+				state_client.timeout = 0.0f;
+				vi_debug("Connecting to %s:%hd...", Sock::host_to_str(state_client.server_address.host), state_client.server_address.port);
 				StreamWrite p;
 				build_packet_connect(&p);
-				packet_send(p, server_address);
+				packet_send(p, state_client.server_address);
 			}
 			break;
 		}
 		case Mode::Acking:
 		{
-			if (timeout > 0.25f)
+			if (state_client.timeout > 0.25f)
 			{
-				timeout = 0.0f;
-				vi_debug("Confirming connection to %s:%hd...", Sock::host_to_str(server_address.host), server_address.port);
+				state_client.timeout = 0.0f;
+				vi_debug("Confirming connection to %s:%hd...", Sock::host_to_str(state_client.server_address.host), state_client.server_address.port);
 				StreamWrite p;
 				build_packet_ack_init(&p);
-				packet_send(p, server_address);
+				packet_send(p, state_client.server_address);
 			}
 			break;
 		}
 		case Mode::Loading:
 		case Mode::Connected:
 		{
-			if (timeout > TIMEOUT)
+			if (state_client.timeout > TIMEOUT)
 			{
-				vi_debug("Lost connection to %s:%hd.", Sock::host_to_str(server_address.host), server_address.port);
-				mode = Mode::Disconnected;
+				vi_debug("Lost connection to %s:%hd.", Sock::host_to_str(state_client.server_address.host), state_client.server_address.port);
+				state_client.mode = Mode::Disconnected;
 			}
 			else
 			{
@@ -2188,11 +2259,11 @@ void tick(const Update& u)
 
 				StreamWrite p;
 				build_packet_update(&p, u);
-				packet_send(p, server_address);
+				packet_send(p, state_client.server_address);
 
-				local_sequence_id++;
-				if (local_sequence_id == SEQUENCE_COUNT)
-					local_sequence_id = 0;
+				state_common.local_sequence_id++;
+				if (state_common.local_sequence_id == SEQUENCE_COUNT)
+					state_common.local_sequence_id = 0;
 			}
 			break;
 		}
@@ -2206,17 +2277,23 @@ void tick(const Update& u)
 
 void connect(const char* ip, u16 port)
 {
-	Sock::get_address(&server_address, ip, port);
-	mode = Mode::Connecting;
+	Game::level.local = false;
+	Sock::get_address(&state_client.server_address, ip, port);
+	state_client.mode = Mode::Connecting;
+}
+
+Mode mode()
+{
+	return state_client.mode;
 }
 
 b8 packet_handle(const Update& u, StreamRead* p, const Sock::Address& address)
 {
 	using Stream = StreamRead;
-	if (!address.equals(server_address))
+	if (!address.equals(state_client.server_address))
 	{
 		vi_debug("%s", "Discarding packet from unexpected host.");
-		net_error();
+		return false;
 	}
 	ServerPacket type;
 	serialize_enum(p, ServerPacket, type);
@@ -2224,37 +2301,38 @@ b8 packet_handle(const Update& u, StreamRead* p, const Sock::Address& address)
 	{
 		case ServerPacket::Init:
 		{
-			if (mode == Mode::Connecting && serialize_init_packet(p))
-				mode = Mode::Acking; // acknowledge the init packet
+			if (state_client.mode == Mode::Connecting && serialize_init_packet(p))
+				state_client.mode = Mode::Acking; // acknowledge the init packet
 			break;
 		}
 		case ServerPacket::Keepalive:
 		{
-			timeout = 0.0f; // reset connection timeout
+			state_client.timeout = 0.0f; // reset connection timeout
 			break;
 		}
 		case ServerPacket::Update:
 		{
-			if (mode == Mode::Acking)
+			if (state_client.mode == Mode::Acking)
 			{
-				vi_debug("Connected to %s:%hd.", Sock::host_to_str(server_address.host), server_address.port);
-				mode = Mode::Loading;
+				vi_debug("Connected to %s:%hd.", Sock::host_to_str(state_client.server_address.host), state_client.server_address.port);
+				state_client.mode = Mode::Loading;
 			}
 
-			if (!msgs_read(p, &msgs_in_history, &server_ack))
+			if (!msgs_read(p, &state_client.msgs_in_history, &state_client.server_ack))
 				net_error();
-			calculate_rtt(Game::real_time.total, server_ack, msgs_out_history, &server_rtt);
+
+			calculate_rtt(Game::real_time.total, state_client.server_ack, state_common.msgs_out_history, &state_client.server_rtt);
 
 			{
 				SequenceID base_sequence_id;
 				serialize_int(p, SequenceID, base_sequence_id, 0, SEQUENCE_COUNT - 1);
-				const StateFrame* base = state_frame_by_sequence(state_history, base_sequence_id);
+				const StateFrame* base = state_frame_by_sequence(state_common.state_history, base_sequence_id);
 				StateFrame frame;
 				state_frame_read(p, &frame, base);
 				// only insert the frame into the history if it is more recent
-				if (state_history.frames.length == 0 || sequence_more_recent(frame.sequence_id, state_history.frames[state_history.current_index].sequence_id))
+				if (state_common.state_history.frames.length == 0 || sequence_more_recent(frame.sequence_id, state_common.state_history.frames[state_common.state_history.current_index].sequence_id))
 				{
-					memcpy(state_frame_add(&state_history), &frame, sizeof(StateFrame));
+					memcpy(state_frame_add(&state_common.state_history), &frame, sizeof(StateFrame));
 
 					// let players know where the server thinks they are immediately, with no interpolation
 					for (auto i = PlayerControlHuman::list.iterator(); !i.is_last(); i.next())
@@ -2272,7 +2350,13 @@ b8 packet_handle(const Update& u, StreamRead* p, const Sock::Address& address)
 				}
 			}
 
-			timeout = 0.0f; // reset connection timeout
+			state_client.timeout = 0.0f; // reset connection timeout
+			break;
+		}
+		case ServerPacket::Disconnect:
+		{
+			vi_debug("Connection closed by %s:%hd.", Sock::host_to_str(state_client.server_address.host), state_client.server_address.port);
+			state_client.mode = Mode::Disconnected;
 			break;
 		}
 		default:
@@ -2320,10 +2404,10 @@ b8 msg_process(StreamRead* p)
 		}
 		case MessageType::InitDone:
 		{
-			vi_assert(Client::mode == Client::Mode::Loading);
+			vi_assert(state_client.mode == Mode::Loading);
 			for (auto i = Entity::list.iterator(); !i.is_last(); i.next())
 				World::awake(i.item());
-			Client::mode = Client::Mode::Connected;
+			state_client.mode = Mode::Connected;
 			break;
 		}
 		case MessageType::Noop:
@@ -2342,6 +2426,17 @@ b8 msg_process(StreamRead* p)
 	return true;
 }
 
+void reset()
+{
+	if (state_client.mode == Mode::Connected)
+	{
+		StreamWrite p;
+		build_packet_disconnect(&p);
+		packet_send(p, state_client.server_address);
+	}
+
+	new (&state_client) StateClient();
+}
 
 }
 
@@ -2362,7 +2457,7 @@ b8 init()
 b8 finalize(Entity* e)
 {
 #if SERVER
-	if (Server::mode == Server::Mode::Active)
+	if (Server::state_server.mode == Server::Mode::Active)
 	{
 		using Stream = StreamWrite;
 		StreamWrite* p = msg_new(MessageType::EntityCreate);
@@ -2376,7 +2471,7 @@ b8 finalize(Entity* e)
 #endif
 #else
 	// client
-	vi_assert(Game::session.local); // client can't spawn entities if it is connected to a server
+	vi_assert(Game::level.local); // client can't spawn entities if it is connected to a server
 #endif
 	return true;
 }
@@ -2408,11 +2503,12 @@ void update_start(const Update& u)
 		{
 			//if (mersenne::randf_co() < 0.75f) // packet loss simulation
 			{
+				state_common.bandwidth_in_counter += bytes_received;
+
 				incoming_packet.resize_bytes(bytes_received);
 
 				if (incoming_packet.read_checksum())
 				{
-					bandwidth_in_counter += bytes_received;
 					packet_decompress(&incoming_packet, bytes_received);
 #if SERVER
 					Server::packet_handle(u, &incoming_packet, address);
@@ -2436,10 +2532,10 @@ void update_start(const Update& u)
 	// update bandwidth every half second
 	if (s32(Game::real_time.total * 2.0f) > s32((Game::real_time.total - Game::real_time.delta) * 2.0f))
 	{
-		bandwidth_in = bandwidth_in_counter;
-		bandwidth_out = bandwidth_out_counter;
-		bandwidth_in_counter = 0;
-		bandwidth_out_counter = 0;
+		state_common.bandwidth_in = state_common.bandwidth_in_counter;
+		state_common.bandwidth_out = state_common.bandwidth_out_counter;
+		state_common.bandwidth_in_counter = 0;
+		state_common.bandwidth_out_counter = 0;
 	}
 }
 
@@ -2449,22 +2545,39 @@ void update_end(const Update& u)
 	// server always runs at 60 FPS
 	Server::tick(u);
 #else
-	tick_timer += Game::real_time.delta;
-	if (tick_timer > NET_TICK_RATE)
+	Client::state_client.tick_timer += Game::real_time.delta;
+	if (Client::state_client.tick_timer > NET_TICK_RATE)
 	{
-		tick_timer -= NET_TICK_RATE;
+		Client::state_client.tick_timer -= NET_TICK_RATE;
 
 		Client::tick(u);
 	}
 	// we're not going to send more than one packet per frame
 	// so make sure the tick timer never gets out of control
-	tick_timer = fmod(tick_timer, NET_TICK_RATE);
+	Client::state_client.tick_timer = fmod(Client::state_client.tick_timer, NET_TICK_RATE);
 #endif
 }
 
 void term()
 {
+	reset();
 	Sock::close(&sock);
+}
+
+// unload net state (for example when switching levels)
+void reset()
+{
+	// send disconnect packet
+#if SERVER
+	Server::reset();
+#else
+	Client::reset();
+#endif
+
+	new (&state_common) StateCommon();
+#if SERVER
+#else
+#endif
 }
 
 
@@ -2479,14 +2592,14 @@ b8 msg_serialize_type(StreamWrite* p, MessageType t)
 	serialize_enum(p, MessageType, t);
 #if DEBUG_MSG
 	if (t != MessageType::Noop)
-		vi_debug("Seq %d: building message type %d", s32(local_sequence_id), s32(t));
+		vi_debug("Seq %d: building message type %d", s32(state_common.local_sequence_id), s32(t));
 #endif
 	return true;
 }
 
 StreamWrite* msg_new(MessageType t)
 {
-	StreamWrite* result = msgs_out.add();
+	StreamWrite* result = state_common.msgs_out.add();
 	result->reset();
 	msg_serialize_type(result, t);
 	return result;
@@ -2535,6 +2648,7 @@ b8 msg_process(StreamRead* p, MessageSource src)
 		}
 		case MessageType::PlayerControlHuman:
 		{
+			vi_assert(src == MessageSource::Loopback);
 			Ref<PlayerControlHuman> c;
 			serialize_ref(p, c);
 			if (!PlayerControlHuman::net_msg(p, c.ref(), src))
@@ -2577,14 +2691,14 @@ b8 msg_finalize(StreamWrite* p)
 
 r32 rtt(const PlayerHuman* p)
 {
-	if (Game::session.local && p->local)
+	if (Game::level.local && p->local)
 		return 0.0f;
 
 #if SERVER
 	const Server::Client* client = nullptr;
-	for (s32 i = 0; i < Server::clients.length; i++)
+	for (s32 i = 0; i < Server::state_server.clients.length; i++)
 	{
-		const Server::Client& c = Server::clients[i];
+		const Server::Client& c = Server::state_server.clients[i];
 		for (s32 j = 0; j < c.players.length; j++)
 		{
 			if (c.players[j].ref() == p)
@@ -2597,16 +2711,18 @@ r32 rtt(const PlayerHuman* p)
 			break;
 	}
 
-	vi_assert(client);
-	return client->rtt;
+	if (client)
+		return client->rtt;
+	else
+		return 0.0f;
 #else
-	return Client::server_rtt;
+	return Client::state_client.server_rtt;
 #endif
 }
 
 const StateFrame* state_frame_by_timestamp(r32 timestamp)
 {
-	return state_frame_by_timestamp(state_history, timestamp);
+	return state_frame_by_timestamp(state_common.state_history, timestamp);
 }
 
 

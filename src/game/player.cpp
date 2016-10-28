@@ -1295,7 +1295,7 @@ b8 PlayerControlHuman::net_msg(Net::StreamRead* p, PlayerControlHuman* c, Net::M
 	if (!serialize_msg(p, &msg))
 		net_error();
 
-	if (src != Net::MessageSource::Loopback && !Game::session.local) // these messages only go from client to server
+	if (src != Net::MessageSource::Loopback && !Game::level.local) // these messages only go from client to server
 		net_error();
 
 	if (!c)
@@ -1401,7 +1401,7 @@ PlayerControlHuman::~PlayerControlHuman()
 
 void PlayerControlHuman::awake()
 {
-	if (player.ref()->local && !Game::session.local)
+	if (player.ref()->local && !Game::level.local)
 	{
 		Transform* t = get<Transform>();
 		remote_control.pos = t->pos;
@@ -1707,7 +1707,7 @@ void PlayerControlHuman::update(const Update& u)
 	{
 		if (local())
 		{
-			if (!Game::session.local)
+			if (!Game::level.local)
 			{
 				// we are a client and this is a local player
 				if (position_history.length == 0 || Game::real_time.total > position_history[position_history.length - 1].timestamp + NET_TICK_RATE)
@@ -2095,7 +2095,7 @@ void PlayerControlHuman::update(const Update& u)
 				rumble = vi_max(0.0f, rumble - u.time.delta);
 			}
 		}
-		else if (Game::session.local)
+		else if (Game::level.local)
 		{
 			// we are a server, but this Awk is being controlled by a client
 			get<Awk>()->crawl(remote_control.movement, u);
@@ -2358,7 +2358,7 @@ void PlayerControlHuman::draw_alpha(const RenderParams& params) const
 		|| Team::game_over)
 		return;
 
-	if (!Game::session.local && player.ref()->local)
+	if (!Game::level.local && player.ref()->local)
 	{
 		Vec3 p;
 		if (remote_control.parent.ref())

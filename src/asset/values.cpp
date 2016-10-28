@@ -680,6 +680,7 @@ const char* AssetLookup::String::names[] =
 {
 	"_default",
 	"ability_spawn_cost",
+	"acking",
 	"attack",
 	"auto_capture_fail_insufficient_resource",
 	"auto_capture_fail_prompt",
@@ -972,7 +973,7 @@ const char* AssetLookup::String::names[] =
 	"keyboard_movement",
 	"left_joystick",
 	"leftover_energy",
-	"loading_offline",
+	"loading",
 	"losing",
 	"main_menu",
 	"match_searching",

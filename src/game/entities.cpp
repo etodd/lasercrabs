@@ -411,7 +411,7 @@ ControlPoint::ControlPoint(AI::Team t)
 void ControlPoint::awake()
 {
 	set_team(team);
-	if (Game::session.local && obstacle_id == u32(-1))
+	if (Game::level.local && obstacle_id == u32(-1))
 	{
 		Vec3 pos = get<Transform>()->absolute_pos();
 		pos.y -= 1.5f;

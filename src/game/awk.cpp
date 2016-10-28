@@ -332,7 +332,7 @@ void Awk::awake()
 	link_arg<Entity*, &Awk::killed>(get<Health>()->killed);
 	link_arg<const DamageEvent&, &Awk::damaged>(get<Health>()->damaged);
 	link_arg<const TargetEvent&, &Awk::hit_by>(get<Target>()->target_hit);
-	if (Game::session.local && !shield.ref())
+	if (Game::level.local && !shield.ref())
 	{
 		Entity* shield_entity = World::create<Empty>();
 		shield_entity->get<Transform>()->parent = get<Transform>();
@@ -459,7 +459,7 @@ void Awk::hit_by(const TargetEvent& e)
 
 void Awk::hit_target(Entity* target)
 {
-	if (!Game::session.local) // target hit events are synced across the network
+	if (!Game::level.local) // target hit events are synced across the network
 		return;
 
 	for (s32 i = 0; i < hit_targets.length; i++)
@@ -793,7 +793,7 @@ b8 Awk::can_spawn(Ability a, const Vec3& dir, Vec3* final_pos, Vec3* final_norma
 
 void Awk::cooldown_setup()
 {
-	if (Game::session.local)
+	if (Game::level.local)
 	{
 		vi_assert(charges > 0);
 		charges--;
@@ -1373,7 +1373,7 @@ void Awk::update_server(const Update& u)
 	if (cooldown > 0.0f)
 	{
 		cooldown = vi_max(0.0f, cooldown - u.time.delta);
-		if (cooldown == 0.0f && Game::session.local)
+		if (cooldown == 0.0f && Game::level.local)
 			charges = AWK_CHARGES;
 	}
 

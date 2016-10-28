@@ -887,61 +887,12 @@ void deploy_update(const Update& u)
 		go(data.zone_selected);
 }
 
-void progress_spinner(const RenderParams& params, const Vec2& pos, r32 size = 20.0f)
-{
-	UI::triangle_border(params, { pos, Vec2(size * UI::scale) }, 9, UI::color_accent, Game::real_time.total * -12.0f);
-}
-
-void progress_bar(const RenderParams& params, const char* label, r32 percentage, const Vec2& pos)
-{
-	UIText text;
-	text.color = UI::color_background;
-	text.anchor_x = UIText::Anchor::Center;
-	text.anchor_y = UIText::Anchor::Center;
-	text.text(label);
-
-	Rect2 bar = text.rect(pos).outset(PADDING);
-	UI::box(params, bar, UI::color_background);
-	UI::border(params, bar, 2, UI::color_accent);
-	UI::box(params, { bar.pos, Vec2(bar.size.x * percentage, bar.size.y) }, UI::color_accent);
-
-	text.draw(params, bar.pos + bar.size * 0.5f);
-
-	Vec2 triangle_pos = Vec2
-	(
-		pos.x - text.bounds().x * 0.5f - 48.0f * UI::scale,
-		pos.y
-	);
-	progress_spinner(params, triangle_pos);
-}
-
-void progress_infinite(const RenderParams& params, const char* label, const Vec2& pos_overall)
-{
-	UIText text;
-	text.anchor_x = text.anchor_y = UIText::Anchor::Center;
-	text.color = UI::color_accent;
-	text.text(label);
-
-	Vec2 pos = pos_overall + Vec2(24 * UI::scale, 0);
-
-	UI::box(params, text.rect(pos).pad({ Vec2(64, 24) * UI::scale, Vec2(18, 24) * UI::scale }), UI::color_background);
-
-	text.draw(params, pos);
-
-	Vec2 triangle_pos = Vec2
-	(
-		pos.x - text.bounds().x * 0.5f - 32.0f * UI::scale,
-		pos.y
-	);
-	progress_spinner(params, triangle_pos);
-}
-
 void deploy_draw(const RenderParams& params)
 {
 	const ZoneNode* current_zone = zones_draw(params);
 
 	// show "loading..."
-	progress_infinite(params, _(Game::session.story_mode ? strings::connecting : strings::loading_offline), params.camera->viewport.size * Vec2(0.5f, 0.2f));
+	Menu::progress_infinite(params, _(Game::session.story_mode ? strings::connecting : strings::loading), params.camera->viewport.size * Vec2(0.5f, 0.2f));
 }
 
 b8 can_switch_tab()
@@ -2082,7 +2033,7 @@ void tab_messages_draw(const RenderParams& p, const Data::StoryMode& data, const
 				{
 					if (data.messages.timer_cora > 0.0f)
 					{
-						progress_infinite(p, _(strings::calling), rect.pos + rect.size * 0.5f);
+						Menu::progress_infinite(p, _(strings::calling), rect.pos + rect.size * 0.5f);
 
 						// cancel prompt
 						UIText text;
@@ -2305,9 +2256,9 @@ void tab_map_draw(const RenderParams& p, const Data::StoryMode& story, const Rec
 		}
 
 		if (story.map.timer_hack > 0.0f)
-			progress_bar(p, _(strings::hacking), 1.0f - (story.map.timer_hack / HACK_TIME), p.camera->viewport.size * Vec2(0.5f, 0.2f));
+			Menu::progress_bar(p, _(strings::hacking), 1.0f - (story.map.timer_hack / HACK_TIME), p.camera->viewport.size * Vec2(0.5f, 0.2f));
 		else if (story.map.timer_capture < story.map.timer_capture_total)
-			progress_bar(p, _(strings::auto_capturing), story.map.timer_capture / AUTO_CAPTURE_TIME, p.camera->viewport.size * Vec2(0.5f, 0.2f));
+			Menu::progress_bar(p, _(strings::auto_capturing), story.map.timer_capture / AUTO_CAPTURE_TIME, p.camera->viewport.size * Vec2(0.5f, 0.2f));
 	}
 }
 
@@ -2408,7 +2359,7 @@ void tab_inventory_draw(const RenderParams& p, const Data::StoryMode& data, cons
 	if (data.tab == Tab::Inventory && data.tab_timer > TAB_ANIMATION_TIME)
 	{
 		if (data.inventory.timer_buy > 0.0f)
-			progress_bar(p, _(strings::buying), 1.0f - (data.inventory.timer_buy / BUY_TIME), p.camera->viewport.size * Vec2(0.5f, 0.2f));
+			Menu::progress_bar(p, _(strings::buying), 1.0f - (data.inventory.timer_buy / BUY_TIME), p.camera->viewport.size * Vec2(0.5f, 0.2f));
 	}
 }
 
@@ -2419,7 +2370,7 @@ void story_mode_draw(const RenderParams& p)
 
 	if (Game::time.total < STORY_MODE_INIT_TIME)
 	{
-		progress_infinite(p, _(strings::connecting), p.camera->viewport.size * Vec2(0.5f, 0.2f));
+		Menu::progress_infinite(p, _(strings::connecting), p.camera->viewport.size * Vec2(0.5f, 0.2f));
 		return;
 	}
 
@@ -2480,7 +2431,7 @@ void story_mode_draw(const RenderParams& p)
 
 	// group queue
 	if (data.story.map.timer_group_queue > 0.0f)
-		progress_infinite(p, _(strings::in_group_queue), p.camera->viewport.size * Vec2(0.5f, 0.2f));
+		Menu::progress_infinite(p, _(strings::in_group_queue), p.camera->viewport.size * Vec2(0.5f, 0.2f));
 }
 
 b8 should_draw_zones()
@@ -2696,7 +2647,7 @@ void draw(const RenderParams& params)
 		text.anchor_x = UIText::Anchor::Min;
 		text.color = UI::color_accent;
 		text.clip = 0;
-		text.text(data.story.dialog_time_limit > 0.0f ? "%s (%d)" : "%s", _(strings::prompt_accept), (s32)(data.story.dialog_time_limit) + 1);
+		text.text(data.story.dialog_time_limit > 0.0f ? "%s (%d)" : "%s", _(strings::prompt_accept), s32(data.story.dialog_time_limit) + 1);
 		Vec2 prompt_pos = text_rect.pos + Vec2(padding, 0);
 		Rect2 prompt_rect = text.rect(prompt_pos).outset(padding);
 		prompt_rect.size.x = text_rect.size.x;

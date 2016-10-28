@@ -116,7 +116,7 @@ namespace Server
 		count,
 	};
 
-	extern Mode mode;
+	Mode mode();
 }
 #else
 namespace Client
@@ -130,13 +130,14 @@ namespace Client
 		Connected,
 	};
 
-	extern Mode mode;
+	Mode mode();
 
 	void connect(const char*, u16);
 }
 #endif
 
 void term();
+void reset();
 
 StreamWrite* msg_new(MessageType);
 StreamWrite* msg_new_local(MessageType);

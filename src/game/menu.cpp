@@ -35,8 +35,61 @@ void show() {}
 void refresh_variables() {}
 void pause_menu(const Update&, s8, UIMenu*, State*) {}
 b8 options(const Update&, s8, UIMenu*) { return true; }
+void progress_spinner(const RenderParams&, const Vec2&, r32) {}
+void progress_bar(const RenderParams&, const char*, r32, const Vec2&) {}
+void progress_infinite(const RenderParams&, const char*, const Vec2&) {}
 
 #else
+
+void progress_spinner(const RenderParams& params, const Vec2& pos, r32 size)
+{
+	UI::triangle_border(params, { pos, Vec2(size * UI::scale) }, 9, UI::color_accent, Game::real_time.total * -12.0f);
+}
+
+void progress_bar(const RenderParams& params, const char* label, r32 percentage, const Vec2& pos)
+{
+	UIText text;
+	text.color = UI::color_background;
+	text.anchor_x = UIText::Anchor::Center;
+	text.anchor_y = UIText::Anchor::Center;
+	text.text(label);
+
+	Rect2 bar = text.rect(pos).outset(16.0f * UI::scale);
+
+	UI::box(params, bar, UI::color_background);
+	UI::border(params, bar, 2, UI::color_accent);
+	UI::box(params, { bar.pos, Vec2(bar.size.x * percentage, bar.size.y) }, UI::color_accent);
+
+	text.draw(params, bar.pos + bar.size * 0.5f);
+
+	Vec2 triangle_pos = Vec2
+	(
+		pos.x - text.bounds().x * 0.5f - 48.0f * UI::scale,
+		pos.y
+	);
+	progress_spinner(params, triangle_pos);
+}
+
+void progress_infinite(const RenderParams& params, const char* label, const Vec2& pos_overall)
+{
+	UIText text;
+	text.anchor_x = text.anchor_y = UIText::Anchor::Center;
+	text.color = UI::color_accent;
+	text.text(label);
+
+	Vec2 pos = pos_overall + Vec2(24 * UI::scale, 0);
+
+	UI::box(params, text.rect(pos).pad({ Vec2(64, 24) * UI::scale, Vec2(18, 24) * UI::scale }), UI::color_background);
+
+	text.draw(params, pos);
+
+	Vec2 triangle_pos = Vec2
+	(
+		pos.x - text.bounds().x * 0.5f - 32.0f * UI::scale,
+		pos.y
+	);
+	progress_spinner(params, triangle_pos);
+}
 
 Game::Mode next_mode;
 UIMenu main_menu;
@@ -114,15 +167,11 @@ void title_menu(const Update& u, s8 gamepad, UIMenu* menu, State* state)
 				Game::session.story_mode = false;
 				Terminal::show();
 			}
+			/*
 			if (menu->item(u, _(strings::online)))
 			{
-				Game::save = Game::Save();
-				Game::session.reset();
-				Game::session.story_mode = false;
-				Game::session.local = false;
-				Game::unload_level();
-				Net::Client::connect("127.0.0.1", 3494);
 			}
+			*/
 			if (menu->item(u, _(strings::options)))
 			{
 				*state = State::Options;
@@ -173,7 +222,7 @@ void pause_menu(const Update& u, s8 gamepad, UIMenu* menu, State* state)
 			if (menu->item(u, _(strings::quit)))
 			{
 				if (Game::level.id == Asset::Level::terminal)
-					Menu::title();
+					title();
 				else
 					Terminal::show();
 			}
@@ -205,6 +254,18 @@ void update(const Update& u)
 
 	if (Console::visible)
 		return;
+
+#if !SERVER
+	if (!Game::level.local && Net::Client::mode() != Net::Client::Mode::Connected)
+	{
+		// we're connecting; return to main menu if the user cancels
+		if ((u.last_input->get(Controls::Cancel, 0) && !u.input->get(Controls::Cancel, 0))
+			|| (u.last_input->get(Controls::Pause, 0) && !u.input->get(Controls::Pause, 0)))
+		{
+			title();
+		}
+	}
+#endif
 
 	if (Game::level.id == Asset::Level::title)
 		title_menu(u, 0, &main_menu, &main_menu_state);
@@ -249,6 +310,7 @@ void draw(const RenderParams& params)
 		return;
 
 	const Rect2& viewport = params.camera->viewport;
+
 	if (Game::level.id == Asset::Level::title)
 	{
 		Vec2 logo_pos(viewport.size.x * 0.5f, viewport.size.y * 0.65f);
@@ -258,6 +320,39 @@ void draw(const RenderParams& params)
 		UI::mesh(params, Asset::Mesh::logo_mesh_1, logo_pos, Vec2(logo_size), UI::color_accent);
 		UI::mesh(params, Asset::Mesh::logo_mesh, logo_pos, Vec2(logo_size), UI::color_background);
 	}
+
+#if !SERVER
+	if (!Game::level.local && Net::Client::mode() != Net::Client::Mode::Connected)
+	{
+		// "connecting..."
+		AssetID str;
+		switch (Net::Client::mode())
+		{
+			case Net::Client::Mode::Connecting:
+			{
+				str = strings::connecting;
+				break;
+			}
+			case Net::Client::Mode::Acking:
+			{
+				str = strings::acking;
+				break;
+			}
+			case Net::Client::Mode::Loading:
+			{
+				str = strings::loading;
+				break;
+			}
+			default:
+			{
+				vi_assert(false);
+				str = AssetNull;
+				break;
+			}
+		}
+		progress_infinite(params, _(str), viewport.size * 0.5f);
+	}
+#endif
 
 	if (main_menu_state != State::Hidden)
 	{

@@ -84,8 +84,7 @@ Game::Session::Session()
 	network_time(),
 	network_state(),
 	network_quality(),
-	last_match(),
-	local(true)
+	last_match()
 {
 	for (s32 i = 0; i < MAX_PLAYERS; i++)
 		local_player_uuids[i] = mersenne::rand_u64();
@@ -258,9 +257,9 @@ void Game::update(const Update& update_in)
 {
 	b8 update_game;
 #if SERVER
-	update_game = Net::Server::mode == Net::Server::Mode::Active;
+	update_game = Net::Server::mode() == Net::Server::Mode::Active;
 #else
-	update_game = session.local || Net::Client::mode == Net::Client::Mode::Connected;
+	update_game = level.local || Net::Client::mode() == Net::Client::Mode::Connected;
 #endif
 
 	real_time = update_in.time;
@@ -273,7 +272,7 @@ void Game::update(const Update& update_in)
 	u.time = time;
 
 	// lag simulation
-	if (level.mode == Mode::Pvp && session.local && session.story_mode && session.network_quality != NetworkQuality::Perfect)
+	if (level.mode == Mode::Pvp && level.local && session.story_mode && session.network_quality != NetworkQuality::Perfect)
 	{
 		session.network_timer -= real_time.delta;
 		if (session.network_timer < 0.0f)
@@ -422,7 +421,7 @@ void Game::update(const Update& update_in)
 			i.item()->update(u);
 		for (auto i = Awk::list.iterator(); !i.is_last(); i.next())
 		{
-			if (session.local || (i.item()->has<PlayerControlHuman>() && i.item()->get<PlayerControlHuman>()->local()))
+			if (level.local || (i.item()->has<PlayerControlHuman>() && i.item()->get<PlayerControlHuman>()->local()))
 				i.item()->update_server(u);
 			i.item()->update_client(u);
 		}
@@ -864,6 +863,24 @@ void Game::execute(const Update& u, const char* cmd)
 			}
 		}
 	}
+	else if (strstr(cmd, "conn") == cmd)
+	{
+#if !SERVER
+		// connect to server
+		const char* delimiter = strchr(cmd, ' ');
+		const char* host;
+		if (delimiter)
+			host = delimiter + 1;
+		else
+			host = "127.0.0.1";
+
+		Game::save = Game::Save();
+		Game::session.reset();
+		Game::session.story_mode = false;
+		Game::unload_level();
+		Net::Client::connect(host, 3494);
+#endif
+	}
 	else if (level.id == Asset::Level::terminal)
 		Terminal::execute(cmd);
 }
@@ -911,6 +928,8 @@ void Game::unload_level()
 		if (Camera::list[i].active)
 			Camera::list[i].remove();
 	}
+
+	Net::reset();
 }
 
 Entity* EntityFinder::find(const char* name) const
@@ -950,11 +969,12 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 	Menu::clear();
 
 	level.mode = m;
+	level.local = true;
 
 	session.network_state = NetworkState::Normal;
 	session.network_timer = session.network_time = 0.0f;
 
-	if (level.mode == Mode::Pvp && session.local && session.story_mode)
+	if (level.mode == Mode::Pvp && level.local && session.story_mode)
 	{
 		// choose network quality
 		r32 random = mersenne::randf_cc();
@@ -1112,7 +1132,7 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 						{
 							e->add<PlayerHuman>(true, i); // local = true
 
-							if (session.local && !session.story_mode)
+							if (level.local && !session.story_mode)
 								sprintf(manager->username, _(strings::player), i + 1);
 							else
 							{

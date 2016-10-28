@@ -280,7 +280,7 @@ b8 visibility_check(Entity* i, Entity* j, r32* distance)
 
 void Team::update_all(const Update& u)
 {
-	if (Game::level.mode != Game::Mode::Pvp || !Game::session.local)
+	if (Game::level.mode != Game::Mode::Pvp || !Game::level.local)
 		return;
 
 	if (!game_over)
@@ -862,7 +862,7 @@ s16 PlayerManager::increment() const
 r32 PlayerManager::timer = CONTROL_POINT_INTERVAL;
 void PlayerManager::update_all(const Update& u)
 {
-	if (Game::session.local)
+	if (Game::level.local)
 	{
 		if (Game::level.mode == Game::Mode::Pvp
 			&& Game::level.has_feature(Game::FeatureLevel::EnergyPickups)
@@ -882,7 +882,7 @@ void PlayerManager::update_all(const Update& u)
 
 	for (auto i = list.iterator(); !i.is_last(); i.next())
 	{
-		if (Game::session.local)
+		if (Game::level.local)
 			i.item()->update_server(u);
 		i.item()->update_client(u);
 	}

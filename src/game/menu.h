@@ -79,6 +79,9 @@ void show();
 void refresh_variables();
 void pause_menu(const Update&, s8, UIMenu*, State*);
 b8 options(const Update&, s8, UIMenu*);
+void progress_spinner(const RenderParams&, const Vec2&, r32 = 20.0f);
+void progress_bar(const RenderParams&, const char*, r32, const Vec2&);
+void progress_infinite(const RenderParams&, const char*, const Vec2&);
 
 }
 

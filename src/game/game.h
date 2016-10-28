@@ -105,7 +105,6 @@ struct Game
 		r32 network_timer;
 		r32 time_scale;
 		b8 story_mode;
-		b8 local;
 
 		Session();
 		void reset();
@@ -164,10 +163,11 @@ struct Game
 		Mode mode;
 		Skybox::Config skybox;
 		AssetID id = AssetNull;
-		b8 lock_teams;
-		b8 continue_match_after_death;
 		s16 respawns;
 		s16 kill_limit;
+		b8 local = true;
+		b8 lock_teams;
+		b8 continue_match_after_death;
 
 		b8 has_feature(FeatureLevel) const;
 	};

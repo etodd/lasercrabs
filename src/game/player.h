@@ -139,7 +139,7 @@ struct PlayerControlHuman : public ComponentType<PlayerControlHuman>
 		Type type;
 	};
 
-	static b8 net_msg(Net::StreamRead*, Net::MessageSource);
+	static b8 net_msg(Net::StreamRead*, PlayerControlHuman*, Net::MessageSource);
 	static s32 count_local();
 
 	Reticle reticle;

@@ -20,7 +20,7 @@ struct Console
 	static Array<Log> logs;
 	static b8 visible;
 	static UIText text;
-	static UIText fps_text;
+	static char fps_text[255];
 	static UIText debug_text;
 	static UIText log_text;
 	static s32 fps_count;

@@ -38,15 +38,17 @@ namespace Net
 // borrows heavily from https://github.com/networkprotocol/libyojimbo
 
 b8 show_stats;
-
-typedef u8 SequenceID;
+s32 bandwidth_in;
+s32 bandwidth_out;
+s32 bandwidth_in_counter;
+s32 bandwidth_out_counter;
 
 #define TIMEOUT 1.0f
 #define SEQUENCE_BITS 8
 #define SEQUENCE_COUNT (1 << SEQUENCE_BITS)
 
 #define MESSAGE_BUFFER 256
-#define MAX_MESSAGES_SIZE (MAX_PACKET_SIZE / 2)
+#define MAX_MESSAGES_SIZE (NET_MAX_PACKET_SIZE / 2)
 
 enum class ClientPacket
 {
@@ -77,45 +79,6 @@ struct MessageFrame // container for the amount of messages that can come in a s
 
 	MessageFrame(r32 t, s32 bytes) : read(), sequence_id(), timestamp(t), bytes(bytes) {}
 	~MessageFrame() {}
-};
-
-struct TransformState
-{
-	Vec3 pos;
-	Quat rot;
-	Resolution resolution;
-	Ref<Transform> parent;
-	s16 revision;
-};
-
-struct PlayerManagerState
-{
-	r32 spawn_timer;
-	r32 state_timer;
-	s32 upgrades;
-	Ability abilities[MAX_ABILITIES] = { Ability::None, Ability::None, Ability::None };
-	Upgrade current_upgrade = Upgrade::None;
-	Ref<Entity> entity;
-	s16 credits;
-	s16 kills;
-	s16 respawns;
-	b8 active;
-};
-
-struct AwkState
-{
-	s8 charges;
-	b8 active;
-};
-
-struct StateFrame
-{
-	TransformState transforms[MAX_ENTITIES];
-	PlayerManagerState players[MAX_PLAYERS];
-	r32 timestamp;
-	Bitmask<MAX_ENTITIES> transforms_active;
-	AwkState awks[MAX_PLAYERS];
-	SequenceID sequence_id;
 };
 
 struct StateHistory
@@ -750,13 +713,13 @@ void packet_finalize(StreamWrite* p)
 
 	// compress everything but the protocol ID
 	StreamWrite compressed;
-	compressed.resize_bytes(MAX_PACKET_SIZE);
+	compressed.resize_bytes(NET_MAX_PACKET_SIZE);
 	z_stream z;
 	z.zalloc = nullptr;
 	z.zfree = nullptr;
 	z.opaque = nullptr;
 	z.next_out = (Bytef*)&compressed.data[1];
-	z.avail_out = MAX_PACKET_SIZE - sizeof(u32);
+	z.avail_out = NET_MAX_PACKET_SIZE - sizeof(u32);
 	z.next_in = (Bytef*)&p->data[1];
 	z.avail_in = p->bytes_written() - sizeof(u32);
 
@@ -771,10 +734,10 @@ void packet_finalize(StreamWrite* p)
 	vi_assert(result == Z_OK);
 
 	p->reset();
-	p->resize_bytes(sizeof(u32) + MAX_PACKET_SIZE - z.avail_out); // include one u32 for the CRC32
+	p->resize_bytes(sizeof(u32) + NET_MAX_PACKET_SIZE - z.avail_out); // include one u32 for the CRC32
 	vi_assert(p->data.length > 0);
 	p->data[p->data.length - 1] = 0; // make sure everything gets zeroed out so the CRC32 comes out right
-	memcpy(&p->data[1], &compressed.data[1], MAX_PACKET_SIZE - z.avail_out);
+	memcpy(&p->data[1], &compressed.data[1], NET_MAX_PACKET_SIZE - z.avail_out);
 
 	// replace protocol ID with CRC32
 	u32 checksum = crc32((const u8*)&p->data[0], sizeof(u32));
@@ -786,7 +749,7 @@ void packet_finalize(StreamWrite* p)
 void packet_decompress(StreamRead* p, s32 bytes)
 {
 	StreamRead decompressed;
-	decompressed.resize_bytes(MAX_PACKET_SIZE);
+	decompressed.resize_bytes(NET_MAX_PACKET_SIZE);
 	
 	z_stream z;
 	z.zalloc = nullptr;
@@ -795,7 +758,7 @@ void packet_decompress(StreamRead* p, s32 bytes)
 	z.next_in = (Bytef*)&p->data[1];
 	z.avail_in = bytes - sizeof(u32);
 	z.next_out = (Bytef*)&decompressed.data[1];
-	z.avail_out = MAX_PACKET_SIZE - sizeof(u32);
+	z.avail_out = NET_MAX_PACKET_SIZE - sizeof(u32);
 
 	s32 result = inflateInit(&z);
 	vi_assert(result == Z_OK);
@@ -807,11 +770,11 @@ void packet_decompress(StreamRead* p, s32 bytes)
 	vi_assert(result == Z_OK);
 
 	p->reset();
-	p->resize_bytes(sizeof(u32) + MAX_PACKET_SIZE - z.avail_out);
+	p->resize_bytes(sizeof(u32) + NET_MAX_PACKET_SIZE - z.avail_out);
 	vi_assert(p->data.length > 0);
 
 	p->data[p->data.length - 1] = 0; // make sure everything is zeroed out so the CRC32 comes out right
-	memcpy(&p->data[1], &decompressed.data[1], MAX_PACKET_SIZE - z.avail_out);
+	memcpy(&p->data[1], &decompressed.data[1], NET_MAX_PACKET_SIZE - z.avail_out);
 
 	p->bits_read = 32; // skip past the CRC32
 }
@@ -822,6 +785,7 @@ void packet_send(const StreamWrite& p, const Sock::Address& address)
 	vi_debug("Outgoing packet size: %dB", p.bytes_written());
 #endif
 	Sock::udp_send(&sock, address, p.data.data, p.bytes_written());
+	bandwidth_out_counter += p.bytes_written();
 }
 
 // consolidate msgs_out into msgs_out_history
@@ -1963,6 +1927,7 @@ b8 packet_handle(const Update& u, StreamRead* p, const Sock::Address& address)
 
 			if (!msgs_read(p, &client->msgs_in_history, &client->ack))
 				net_error();
+
 			calculate_rtt(Game::real_time.total, client->ack, msgs_out_history, &client->rtt);
 
 			client->timeout = 0.0f;
@@ -2014,7 +1979,11 @@ b8 msg_process(StreamRead* p, Client* client)
 		}
 		case MessageType::PlayerControlHuman:
 		{
-			PlayerControlHuman::net_msg(p, MessageSource::Remote);
+			Ref<PlayerControlHuman> c;
+			serialize_ref(p, c);
+			b8 valid = c.ref() && client_owns(client, c.ref()->entity());
+			if (!PlayerControlHuman::net_msg(p, c.ref(), valid ? MessageSource::Remote : MessageSource::Invalid))
+				net_error();
 			break;
 		}
 		default:
@@ -2168,8 +2137,8 @@ void update(const Update& u)
 		}
 	}
 
-	if (show_stats)
-		Console::debug("Ping: %dms", s32(server_rtt * 1000.0f));
+	if (show_stats) // bandwidth counters are updated every half second
+		Console::debug("%.0fkbps down | %.0fkbps up | %.0fms", bandwidth_in * 8.0f / 500.0f, bandwidth_out * 8.0f / 500.0f, server_rtt * 1000.0f);
 }
 
 void tick(const Update& u)
@@ -2434,7 +2403,7 @@ void update_start(const Update& u)
 	{
 		Sock::Address address;
 		StreamRead incoming_packet;
-		s32 bytes_received = Sock::udp_receive(&sock, &address, incoming_packet.data.data, MAX_PACKET_SIZE);
+		s32 bytes_received = Sock::udp_receive(&sock, &address, incoming_packet.data.data, NET_MAX_PACKET_SIZE);
 		if (bytes_received > 0)
 		{
 			//if (mersenne::randf_co() < 0.75f) // packet loss simulation
@@ -2443,6 +2412,7 @@ void update_start(const Update& u)
 
 				if (incoming_packet.read_checksum())
 				{
+					bandwidth_in_counter += bytes_received;
 					packet_decompress(&incoming_packet, bytes_received);
 #if SERVER
 					Server::packet_handle(u, &incoming_packet, address);
@@ -2462,6 +2432,15 @@ void update_start(const Update& u)
 #else
 	Client::update(u);
 #endif
+	
+	// update bandwidth every half second
+	if (s32(Game::real_time.total * 2.0f) > s32((Game::real_time.total - Game::real_time.delta) * 2.0f))
+	{
+		bandwidth_in = bandwidth_in_counter;
+		bandwidth_out = bandwidth_out_counter;
+		bandwidth_in_counter = 0;
+		bandwidth_out_counter = 0;
+	}
 }
 
 void update_end(const Update& u)
@@ -2550,12 +2529,16 @@ b8 msg_process(StreamRead* p, MessageSource src)
 	{
 		case MessageType::Awk:
 		{
-			Awk::net_msg(p, src);
+			if (!Awk::net_msg(p, src))
+				net_error();
 			break;
 		}
 		case MessageType::PlayerControlHuman:
 		{
-			PlayerControlHuman::net_msg(p, src);
+			Ref<PlayerControlHuman> c;
+			serialize_ref(p, c);
+			if (!PlayerControlHuman::net_msg(p, c.ref(), src))
+				net_error();
 			break;
 		}
 		default:
@@ -2619,6 +2602,11 @@ r32 rtt(const PlayerHuman* p)
 #else
 	return Client::server_rtt;
 #endif
+}
+
+const StateFrame* state_frame_by_timestamp(r32 timestamp)
+{
+	return state_frame_by_timestamp(state_history, timestamp);
 }
 
 

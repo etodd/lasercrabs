@@ -1248,12 +1248,10 @@ struct Message
 	Vec3 dir;
 	Ability ability = Ability::None;
 	Type type;
-	Ref<PlayerControlHuman> ref;
 };
 
 template<typename Stream> b8 serialize_msg(Stream* p, Message* msg)
 {
-	serialize_ref(p, msg->ref);
 	serialize_enum(p, Message::Type, msg->type);
 	serialize_position(p, &msg->pos, Net::Resolution::High);
 	serialize_r32_range(p, msg->dir.x, -1.0f, 1.0f, 16);
@@ -1266,9 +1264,7 @@ template<typename Stream> b8 serialize_msg(Stream* p, Message* msg)
 			has_ability = msg->ability != Ability::None;
 		serialize_bool(p, has_ability);
 		if (has_ability)
-		{
 			serialize_enum(p, Ability, msg->ability);
-		}
 		else if (Stream::IsReading)
 			msg->ability = Ability::None;
 	}
@@ -1277,9 +1273,12 @@ template<typename Stream> b8 serialize_msg(Stream* p, Message* msg)
 	return true;
 }
 
-b8 send(Message* msg)
+b8 send(PlayerControlHuman* c, Message* msg)
 {
+	using Stream = Net::StreamWrite;
 	Net::StreamWrite* p = Net::msg_new(Net::MessageType::PlayerControlHuman);
+	Ref<PlayerControlHuman> ref = c;
+	serialize_ref(p, ref);
 	if (!serialize_msg(p, msg))
 		net_error();
 	Net::msg_finalize(p);
@@ -1288,7 +1287,7 @@ b8 send(Message* msg)
 
 }
 
-b8 PlayerControlHuman::net_msg(Net::StreamRead* p, Net::MessageSource src)
+b8 PlayerControlHuman::net_msg(Net::StreamRead* p, PlayerControlHuman* c, Net::MessageSource src)
 {
 	using Stream = Net::StreamRead;
 
@@ -1296,19 +1295,22 @@ b8 PlayerControlHuman::net_msg(Net::StreamRead* p, Net::MessageSource src)
 	if (!serialize_msg(p, &msg))
 		net_error();
 
-	// todo: make sure whoever sent this message actually has control over the player
-
 	if (src != Net::MessageSource::Loopback && !Game::session.local) // these messages only go from client to server
 		net_error();
 
-	PlayerControlHuman* c = msg.ref.ref();
-	if (!c
+	if (!c)
+	{
+		// ignore, we're probably just receiving this message from the client after the player has already been destroyed
+		return true;
+	}
+
+	if (src == Net::MessageSource::Invalid // message is from a client who doesn't actually own this player
 		|| msg.dir.length_squared() == 0.0f
 		|| (msg.ability != Ability::None && !c->player.ref()->get<PlayerManager>()->has_upgrade(Upgrade(msg.ability)))
 		|| (msg.ability != Ability::None && msg.type != PlayerControlHumanNet::Message::Type::Go))
 	{
-		vi_debug_break();
-		return false;
+		// malformed message, ignore
+		net_error();
 	}
 
 	if (src == Net::MessageSource::Remote)
@@ -1730,7 +1732,7 @@ void PlayerControlHuman::update(const Update& u)
 				vi_assert(rtt > 0.0f);
 
 				// get the position entry at this time in the history
-				r32 timestamp = Game::real_time.total - (rtt * 1.25f);
+				r32 timestamp = Game::real_time.total - rtt;
 				const PositionEntry* position = nullptr;
 				r32 tolerance_pos = NET_SYNC_TOLERANCE_POS;
 				r32 tolerance_rot = NET_SYNC_TOLERANCE_ROT;
@@ -2070,19 +2072,18 @@ void PlayerControlHuman::update(const Update& u)
 				if (try_primary)
 				{
 					PlayerControlHumanNet::Message msg;
-					msg.ref = this;
 					msg.dir = Vec3::normalize(reticle.pos - get<Transform>()->absolute_pos());
 					msg.pos = get<Transform>()->absolute_pos();
 					if (reticle.type == ReticleType::Dash)
 					{
 						msg.type = PlayerControlHumanNet::Message::Type::Dash;
-						PlayerControlHumanNet::send(&msg);
+						PlayerControlHumanNet::send(this, &msg);
 					}
 					else
 					{
 						msg.type = PlayerControlHumanNet::Message::Type::Go;
 						msg.ability = get<Awk>()->current_ability;
-						PlayerControlHumanNet::send(&msg);
+						PlayerControlHumanNet::send(this, &msg);
 					}
 				}
 			}

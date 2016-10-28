@@ -1666,13 +1666,29 @@ r32 Awk::movement_raycast(const Vec3& ray_start, const Vec3& ray_end)
 		}
 	}
 
+	const Net::StateFrame* state_frame;
+	if (!has<PlayerControlHuman>() || get<PlayerControlHuman>()->local()) // local player; no need to deal with net nonsense
+		state_frame = nullptr;
+	else // this Awk is being controlled remotely; we need to rewind the world state to what it looks like from their side
+		state_frame = Net::state_frame_by_timestamp(Game::real_time.total - Net::rtt(get<PlayerControlHuman>()->player.ref()) - NET_INTERPOLATION_DELAY);
+
 	// check targets
 	for (auto i = Target::list.iterator(); !i.is_last(); i.next())
 	{
 		if (i.item() == get<Target>())
 			continue;
 
-		Vec3 p = i.item()->absolute_pos();
+		Vec3 p;
+		if (state_frame)
+		{
+			Vec3 pos;
+			Quat rot;
+			Net::transform_absolute(*state_frame, i.item()->get<Transform>()->id(), &pos, &rot);
+			p = pos + (rot * i.item()->local_offset); // todo possibly: rewind local_offset as well?
+		}
+		else
+			p = i.item()->absolute_pos();
+
 		Vec3 intersection;
 		if (LMath::ray_sphere_intersect(ray_start, ray_end, p, i.item()->radius(), &intersection))
 		{

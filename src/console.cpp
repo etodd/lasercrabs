@@ -12,7 +12,7 @@ Array<char> Console::command;
 Array<char> Console::debug_buffer;
 Array<Console::Log> Console::logs;
 UIText Console::text;
-UIText Console::fps_text;
+char Console::fps_text[255];
 UIText Console::debug_text;
 UIText Console::log_text;
 b8 Console::fps_visible = false;
@@ -29,7 +29,7 @@ r32 Console::repeat_last_time = 0.0f;
 #define REPEAT_INTERVAL 0.03f
 #define LOG_TIME 8.0f
 
-#define font_asset Asset::Font::lowpoly
+#define font_asset Asset::Font::pt_sans
 
 void Console::init()
 {
@@ -37,8 +37,6 @@ void Console::init()
 	text.font = font_asset;
 	text.size = 18.0f;
 	text.anchor_y = UIText::Anchor::Max;
-	fps_text.font = font_asset;
-	fps_text.size = 18.0f;
 	debug_text.font = font_asset;
 	debug_text.size = 18.0f;
 	debug_text.anchor_y = UIText::Anchor::Max;
@@ -126,13 +124,12 @@ void Console::update(const Update& u)
 		longest_frame_time = vi_max(Game::real_time.delta, longest_frame_time);
 		if (fps_accumulator > 0.5f)
 		{
-			char fps_label[256];
-			sprintf(fps_label, "%.0f %.0fms", fps_count / fps_accumulator, longest_frame_time * 1000.0f);
-			fps_text.text(fps_label);
+			sprintf(fps_text, "%.0f fps | %.0fms", fps_count / fps_accumulator, longest_frame_time * 1000.0f);
 			fps_accumulator = 0.0f;
 			fps_count = 0;
 			longest_frame_time = 0;
 		}
+		debug("%s", fps_text);
 	}
 
 	if (visible)
@@ -326,8 +323,6 @@ void Console::draw(const RenderParams& p)
 		UI::box(p, { Vec2(0, vp.size.y - height), Vec2(vp.size.x, height) }, Vec4(0, 0, 0, 1));
 		text.draw(p, Vec2(padding, vp.size.y - padding));
 	}
-	if (fps_visible)
-		fps_text.draw(p, Vec2(0, 0));
 
 	debug_text.draw(p, Vec2(0, vp.size.y - (text.bounds().y + padding * 3.0f)));
 

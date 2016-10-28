@@ -4,6 +4,7 @@
 #include "data/array.h"
 #include "vi_assert.h"
 #include "lmath.h"
+#include "net.h"
 
 namespace VI
 {
@@ -13,7 +14,6 @@ namespace Net
 
 // borrows heavily from https://github.com/networkprotocol/libyojimbo
 
-#define MAX_PACKET_SIZE 2000
 #define NET_PROTOCOL_ID 0x6906c2fe
 
 u32 crc32(const u8*, memory_index, u32 value = 0);
@@ -57,7 +57,7 @@ struct StreamWrite
 
 	u64 scratch;
 	s32 scratch_bits; // number of bits we've used in the last u32
-	StaticArray<u32, MAX_PACKET_SIZE / sizeof(u32)> data;
+	StaticArray<u32, NET_MAX_PACKET_SIZE / sizeof(u32)> data;
 
 	StreamWrite();
 	b8 would_overflow(s32) const;
@@ -79,7 +79,7 @@ struct StreamRead
 
 	u64 scratch;
 	s32 scratch_bits;
-	StaticArray<u32, MAX_PACKET_SIZE / sizeof(u32)> data;
+	StaticArray<u32, NET_MAX_PACKET_SIZE / sizeof(u32)> data;
 	s32 bits_read;
 
 	StreamRead();
@@ -158,6 +158,7 @@ inline int bits_required(u32 min, u32 max)
 #endif // #ifdef __GNUC__
 
 #define serialize_int(stream, type, value, _min, _max)\
+do\
 {\
 	vi_assert(s64(_min) < s64(_max));\
 	u32 _b = Net::bits_required(_min, _max);\
@@ -177,22 +178,24 @@ inline int bits_required(u32 min, u32 max)
 			net_error();\
 		value = _s;\
 	}\
-}
+} while (0)
 
 #define serialize_align(stream)\
+do\
 {\
 	if (!(stream)->align())\
 		net_error();\
-}
+} while (0)
 
 #define serialize_bits(stream, value, count)\
+do\
 {\
 	vi_assert(count > 0);\
 	vi_assert(count <= 32);\
 	if (!Stream::IsWriting && (stream)->would_overflow(count))\
 		net_error();\
 	(stream)->bits(value, count);\
-}
+} while (0)
 
 #define serialize_enum(stream, type, value) serialize_int(stream, type, value, 0, s32(type::count) - 1)
 #define serialize_u8(stream, value) serialize_int(stream, u8, value, 0, 255)
@@ -201,6 +204,7 @@ inline int bits_required(u32 min, u32 max)
 #define serialize_s16(stream, value) serialize_int(stream, s16, value, -32768, 32767)
 #define serialize_u32(stream, value) serialize_bits(stream, value, 32)
 #define serialize_s32(stream, value)\
+do\
 {\
 	u32 _u;\
 	if (Stream::IsWriting)\
@@ -212,9 +216,10 @@ inline int bits_required(u32 min, u32 max)
 	(stream)->bits(_u, 32);\
 	if (Stream::IsReading)\
 		value = s32(_u);\
-}
+} while (0)
 
 #define serialize_bool(stream, value)\
+do\
 {\
 	u32 _u = 0;\
 	if (Stream::IsWriting)\
@@ -222,9 +227,10 @@ inline int bits_required(u32 min, u32 max)
 	serialize_bits(stream, _u, 1);\
 	if (Stream::IsReading)\
 		value = _u ? true : false;\
-}
+} while (0)
 
 #define serialize_u64(stream, value)\
+do\
 {\
 	u32 _hi, _lo;\
 	if (Stream::IsWriting)\
@@ -236,9 +242,10 @@ inline int bits_required(u32 min, u32 max)
 	serialize_bits(stream, _hi, 32);\
 	if (Stream::IsReading)\
 		value = (u64(_hi) << 32) | _lo;\
-}
+} while (0)
 
 #define serialize_r32(stream, value)\
+do\
 {\
 	Net::Single _s;\
 	if (Stream::IsWriting)\
@@ -248,9 +255,10 @@ inline int bits_required(u32 min, u32 max)
 	(stream)->bits(_s.value_u32, 32);\
 	if (Stream::IsReading)\
 		value = _s.value_r32;\
-}
+} while (0)
 
 #define serialize_r32_range(stream, value, _min, _max, _bits)\
+do\
 {\
 	vi_assert(_min < _max);\
 	vi_assert(_bits > 0 && _bits < 32);\
@@ -267,9 +275,10 @@ inline int bits_required(u32 min, u32 max)
 	(stream)->bits(_u, _bits);\
 	if (Stream::IsReading)\
 		value = _min + r32(_u) / _q;\
-}
+} while (0)
 
 #define serialize_r64(stream, value)\
+do\
 {\
 	Net::Double _d;\
 	if (Stream::IsWriting)\
@@ -277,18 +286,20 @@ inline int bits_required(u32 min, u32 max)
 	serialize_u64(stream, _d.value_u64);\
 	if (Stream::IsReading)\
 		value = _d.value_r64;\
-}
+} while (0)
 
 #define serialize_bytes(stream, data, len)\
+do\
 {\
 	if (!(stream)->align())\
 		net_error();\
 	if (Stream::IsReading && (stream)->would_overflow(len * 8))\
 		net_error();\
 	(stream)->bytes(data, len);\
-}
+} while (0)
 
 #define serialize_ref(stream, value)\
+do\
 {\
 	u16 _i;\
 	u32 _r;\
@@ -315,9 +326,10 @@ inline int bits_required(u32 min, u32 max)
 		else\
 			value.id = IDNull;\
 	}\
-}
+} while (0)
 
 #define serialize_asset(stream, value, _count)\
+do\
 {\
 	b8 _b;\
 	if (Stream::IsWriting)\
@@ -329,14 +341,7 @@ inline int bits_required(u32 min, u32 max)
 	}\
 	else if (Stream::IsReading)\
 		value = AssetNull;\
-}
-
-enum class Resolution
-{
-	Low,
-	High,
-	count,
-};
+} while (0)
 
 template<typename Stream> b8 serialize_position(Stream* p, Vec3* pos, Resolution r)
 {

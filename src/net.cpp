@@ -1161,6 +1161,9 @@ template<typename Stream> b8 serialize_awk(Stream* p, AwkState* state, const Awk
 {
 	b8 b;
 
+	if (Stream::IsReading)
+		state->active = true;
+
 	if (Stream::IsWriting)
 		b = old && state->charges != old->charges;
 	serialize_bool(p, b);
@@ -1648,7 +1651,7 @@ struct StateServer
 {
 	Array<Client> clients;
 	Mode mode;
-	s32 expected_clients = 2;
+	s32 expected_clients = 1;
 	SequenceID sequence_completed_loading;
 };
 StateServer state_server;
@@ -1698,7 +1701,7 @@ b8 init()
 	}
 
 	// todo: allow both multiplayer / story mode sessions
-	Game::session.story_mode = false;
+	Game::session.story_mode = true;
 	Game::load_level(Update(), Asset::Level::Ponos, Game::Mode::Pvp);
 
 	return true;

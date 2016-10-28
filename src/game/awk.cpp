@@ -189,7 +189,7 @@ b8 Awk::net_msg(Net::StreamRead* p, Net::MessageSource src)
 			serialize_r32_range(p, dir.y, -1.0f, 1.0f, 16);
 			serialize_r32_range(p, dir.z, -1.0f, 1.0f, 16);
 
-			if (apply_msg)
+			if (apply_msg && awk->charges > 0)
 			{
 				awk->velocity = dir * AWK_FLY_SPEED;
 				awk->get<Transform>()->absolute_pos(awk->get<Transform>()->absolute_pos() + dir * AWK_RADIUS * 0.5f);
@@ -210,7 +210,7 @@ b8 Awk::net_msg(Net::StreamRead* p, Net::MessageSource src)
 			serialize_r32_range(p, dir.y, -1.0f, 1.0f, 16);
 			serialize_r32_range(p, dir.z, -1.0f, 1.0f, 16);
 
-			if (apply_msg)
+			if (apply_msg && awk->charges > 0)
 			{
 				awk->velocity = dir * AWK_DASH_SPEED;
 				awk->dash_timer = AWK_DASH_TIME;
@@ -1009,6 +1009,31 @@ b8 Awk::go(const Vec3& dir)
 	return true;
 }
 
+#define REFLECTION_TRIES 20 // try 20 raycasts. if they all fail, just shoot off into space.
+Vec2 reflection_angles[REFLECTION_TRIES] =
+{
+	Vec2(0.190952f, 0.736239f),
+	Vec2(0.189025f, 0.562200f),
+	Vec2(0.789319f, 0.662547f),
+	Vec2(0.262385f, 0.185272f),
+	Vec2(0.129426f, 0.272626f),
+	Vec2(0.240692f, 0.235059f),
+	Vec2(0.619383f, 0.698697f),
+	Vec2(0.501038f, 0.036391f),
+	Vec2(0.052299f, 0.005119f),
+	Vec2(0.437537f, 0.568719f),
+	Vec2(0.079736f, 0.764056f),
+	Vec2(0.470466f, 0.241020f),
+	Vec2(0.424566f, 0.469034f),
+	Vec2(0.188084f, 0.757437f),
+	Vec2(0.915419f, 0.271688f),
+	Vec2(0.679743f, 0.694464f),
+	Vec2(0.693782f, 0.884511f),
+	Vec2(0.282588f, 0.337155f),
+	Vec2(0.175331f, 0.765014f),
+	Vec2(0.994534f, 0.367225f),
+};
+
 void Awk::reflect(const Vec3& hit, const Vec3& normal)
 {
 	if (btVector3(velocity).fuzzyZero())
@@ -1023,7 +1048,7 @@ void Awk::reflect(const Vec3& hit, const Vec3& normal)
 		get<Animator>()->layers[0].animation = Asset::Animation::awk_fly;
 	}
 
-	get<Transform>()->absolute_pos(hit + normal * AWK_RADIUS);
+	get<Transform>()->absolute_pos(hit + normal * AWK_RADIUS * 0.5f);
 
 	// our goal
 	Vec3 target_dir = Vec3::normalize(velocity.reflect(normal));
@@ -1059,12 +1084,12 @@ void Awk::reflect(const Vec3& hit, const Vec3& normal)
 		Quat target_quat = Quat::look(target_dir);
 
 		// make sure we have somewhere to land.
-		const s32 tries = 20; // try 20 raycasts. if they all fail, just shoot off into space.
 		r32 random_range = 0.0f;
 		r32 farthest_distance = 0;
-		for (s32 i = 0; i < tries; i++)
+		for (s32 i = 0; i < REFLECTION_TRIES; i++)
 		{
-			Vec3 candidate_velocity = target_quat * (Quat::euler(PI + (mersenne::randf_co() - 0.5f) * random_range, (PI * 0.5f) + (mersenne::randf_co() - 0.5f) * random_range, 0) * Vec3(AWK_DASH_SPEED, 0, 0));
+			const Vec2& angle = reflection_angles[i];
+			Vec3 candidate_velocity = target_quat * (Quat::euler(PI + (angle.x - 0.5f) * random_range, (PI * 0.5f) + (angle.y - 0.5f) * random_range, 0) * Vec3(AWK_DASH_SPEED, 0, 0));
 			Vec3 next_hit;
 			if (can_shoot(candidate_velocity, &next_hit))
 			{
@@ -1078,7 +1103,7 @@ void Awk::reflect(const Vec3& hit, const Vec3& normal)
 						break;
 				}
 			}
-			random_range += PI / (r32)tries;
+			random_range += PI / r32(REFLECTION_TRIES);
 		}
 	}
 

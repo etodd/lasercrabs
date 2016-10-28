@@ -1734,8 +1734,8 @@ void PlayerControlHuman::update(const Update& u)
 				// get the position entry at this time in the history
 				r32 timestamp = Game::real_time.total - rtt;
 				const PositionEntry* position = nullptr;
-				r32 tolerance_pos = NET_SYNC_TOLERANCE_POS;
-				r32 tolerance_rot = NET_SYNC_TOLERANCE_ROT;
+				r32 tolerance_pos = 0.0f;
+				r32 tolerance_rot = 0.0f;
 				for (s32 i = position_history.length - 1; i >= 0; i--)
 				{
 					const PositionEntry& entry = position_history[i];
@@ -1753,9 +1753,13 @@ void PlayerControlHuman::update(const Update& u)
 							tolerance_pos += (position_history[i - 1].pos - entry.pos).length();
 							tolerance_rot += Quat::angle(position_history[i - 1].rot, entry.rot);
 						}
+						tolerance_pos *= 1.5f;
+						tolerance_rot *= 1.5f;
 						break;
 					}
 				}
+				tolerance_pos += NET_SYNC_TOLERANCE_POS;
+				tolerance_rot += NET_SYNC_TOLERANCE_ROT;
 
 				// make sure we're not too far from it
 				if (position)

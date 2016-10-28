@@ -322,7 +322,7 @@ void draw(const RenderParams& params)
 	}
 
 #if !SERVER
-	if (!Game::level.local && Net::Client::mode() != Net::Client::Mode::Connected)
+	if (!Game::level.local)
 	{
 		// "connecting..."
 		AssetID str;
@@ -345,12 +345,12 @@ void draw(const RenderParams& params)
 			}
 			default:
 			{
-				vi_assert(false);
 				str = AssetNull;
 				break;
 			}
 		}
-		progress_infinite(params, _(str), viewport.size * 0.5f);
+		if (str != AssetNull)
+			progress_infinite(params, _(str), viewport.size * 0.5f);
 	}
 #endif
 

@@ -46,6 +46,7 @@ enum class MessageType
 	EntityCreate,
 	EntityRemove,
 	InitDone,
+	LoadingDone,
 	Awk,
 	PlayerControlHuman,
 	count,
@@ -65,7 +66,7 @@ struct TransformState
 	Quat rot;
 	Resolution resolution;
 	Ref<Transform> parent;
-	s16 revision;
+	Revision revision;
 };
 
 struct PlayerManagerState

@@ -793,6 +793,20 @@ void packet_send(const StreamWrite& p, const Sock::Address& address)
 	state_common.bandwidth_out_counter += p.bytes_written();
 }
 
+namespace Server
+{
+	b8 all_clients_loaded();
+}
+
+b8 allow_large_messages()
+{
+#if SERVER
+	return Server::all_clients_loaded();
+#else
+	return false;
+#endif
+}
+
 // consolidate msgs_out into msgs_out_history
 b8 msgs_out_consolidate()
 {
@@ -806,7 +820,12 @@ b8 msgs_out_consolidate()
 	for (s32 i = 0; i < state_common.msgs_out.length; i++)
 	{
 		s32 msg_bytes = state_common.msgs_out[i].bytes_written();
-		if (64 + bytes + msg_bytes > MAX_MESSAGES_SIZE)
+
+		// during loading, we can use the whole packet to send message
+		// because we don't send state frames
+		s32 max_messages_size = allow_large_messages() ? NET_MAX_PACKET_SIZE : MAX_MESSAGES_SIZE;
+
+		if (64 + bytes + msg_bytes > max_messages_size)
 			break;
 		bytes += msg_bytes;
 		msgs++;
@@ -1075,6 +1094,9 @@ template<typename Stream> b8 serialize_player_manager(Stream* p, PlayerManagerSt
 {
 	b8 b;
 
+	if (Stream::IsReading)
+		state->active = true;
+
 	if (Stream::IsWriting)
 		b = !old || state->spawn_timer != old->spawn_timer;
 	serialize_bool(p, b);
@@ -1131,6 +1153,8 @@ template<typename Stream> b8 serialize_player_manager(Stream* p, PlayerManagerSt
 	serialize_bool(p, b);
 	if (b)
 		serialize_s16(p, state->respawns);
+
+	vi_debug("ID %d rev %d", state->entity.id, state->entity.revision);
 
 	return true;
 }
@@ -1211,47 +1235,70 @@ b8 equal_states_awk(const AwkState& a, const AwkState& b)
 		&& a.charges == b.charges;
 }
 
-b8 state_frame_write(StreamWrite* p, StateFrame* frame, const StateFrame* base)
+template<typename Stream> b8 serialize_state_frame(Stream* p, StateFrame* frame, const StateFrame* base)
 {
-	using Stream = StreamWrite;
+	if (Stream::IsReading)
+	{
+		if (base)
+			memcpy(frame, base, sizeof(*frame));
+		else
+			new (frame) StateFrame();
+		frame->timestamp = Game::real_time.total;
+	}
+
 	serialize_int(p, SequenceID, frame->sequence_id, 0, SEQUENCE_COUNT - 1);
 
-	// count changed transforms
-	s32 changed_count = 0;
+	s32 changed_count;
+	if (Stream::IsWriting)
 	{
+		// count changed transforms
+		changed_count = 0;
 		s32 index = s32(frame->transforms_active.start);
 		while (index <= frame->transforms_active.end)
 		{
 			if (!equal_states_transform(frame, base, index))
 				changed_count++;
-			index = frame->transforms_active.next(index);
+			index++;
 		}
 	}
 	serialize_int(p, s32, changed_count, 0, MAX_ENTITIES - 1);
 
-	s32 index = s32(frame->transforms_active.start);
-	while (index <= frame->transforms_active.end)
+	s32 index;
+	if (Stream::IsWriting)
+		index = s32(frame->transforms_active.start);
+	for (s32 i = 0; i < changed_count; i++)
 	{
-		if (!equal_states_transform(frame, base, index))
+		if (Stream::IsWriting)
 		{
-			serialize_int(p, s32, index, 0, MAX_ENTITIES - 1);
-			b8 active = frame->transforms_active.get(index);
-			serialize_bool(p, active);
-			if (active)
-			{
-				b8 revision_changed = base && frame->transforms[index].revision != base->transforms[index].revision;
-				serialize_bool(p, revision_changed);
-				if (revision_changed)
-					serialize_s16(p, frame->transforms[index].revision);
-				b8 parent_changed = base && !frame->transforms[index].parent.equals(base->transforms[index].parent);
-				serialize_bool(p, parent_changed);
-				if (parent_changed)
-					serialize_ref(p, frame->transforms[index].parent);
-				if (!serialize_transform(p, &frame->transforms[index]))
-					net_error();
-			}
+			while (equal_states_transform(frame, base, index))
+				index++;
 		}
-		index = frame->transforms_active.next(index);
+
+		serialize_int(p, s32, index, 0, MAX_ENTITIES - 1);
+		b8 active;
+		if (Stream::IsWriting)
+			active = frame->transforms_active.get(index);
+		serialize_bool(p, active);
+		if (Stream::IsReading)
+			frame->transforms_active.set(index, active);
+		if (active)
+		{
+			b8 revision_changed;
+			if (Stream::IsWriting)
+				revision_changed = !base || frame->transforms[index].revision != base->transforms[index].revision;
+			serialize_bool(p, revision_changed);
+			if (revision_changed)
+				serialize_s16(p, frame->transforms[index].revision);
+			b8 parent_changed;
+			if (Stream::IsWriting)
+				parent_changed = !base || !frame->transforms[index].parent.equals(base->transforms[index].parent);
+			serialize_bool(p, parent_changed);
+			if (parent_changed)
+				serialize_ref(p, frame->transforms[index].parent);
+			if (!serialize_transform(p, &frame->transforms[index]))
+				net_error();
+		}
+		index++;
 	}
 #if DEBUG_TRANSFORMS
 	vi_debug("Wrote %d transforms", changed_count);
@@ -1261,7 +1308,9 @@ b8 state_frame_write(StreamWrite* p, StateFrame* frame, const StateFrame* base)
 	for (s32 i = 0; i < MAX_PLAYERS; i++)
 	{
 		PlayerManagerState* state = &frame->players[i];
-		b8 serialize = state->active && (!base || !equal_states_player(*state, base->players[i]));
+		b8 serialize;
+		if (Stream::IsWriting)
+			serialize = state->active && (!base || !equal_states_player(*state, base->players[i]));
 		serialize_bool(p, serialize);
 		if (serialize)
 		{
@@ -1274,76 +1323,12 @@ b8 state_frame_write(StreamWrite* p, StateFrame* frame, const StateFrame* base)
 	for (s32 i = 0; i < MAX_PLAYERS; i++)
 	{
 		AwkState* state = &frame->awks[i];
-		b8 serialize = state->active && base && !equal_states_awk(*state, base->awks[i]);
-		serialize_bool(p, serialize);
-		if (serialize)
-		{
-			if (!serialize_awk(p, state, base ? &base->awks[i] : nullptr))
-				net_error();
-		}
-	}
-
-	return true;
-}
-
-b8 state_frame_read(StreamRead* p, StateFrame* frame, const StateFrame* base)
-{
-	using Stream = StreamRead;
-	if (base)
-		memcpy(frame, base, sizeof(*frame));
-	else
-		new (frame) StateFrame();
-	frame->timestamp = Game::real_time.total;
-	serialize_int(p, SequenceID, frame->sequence_id, 0, SEQUENCE_COUNT - 1);
-	s32 changed_count;
-	serialize_int(p, s32, changed_count, 0, MAX_ENTITIES - 1);
-	for (s32 i = 0; i < changed_count; i++)
-	{
-		s32 index;
-		serialize_int(p, s32, index, 0, MAX_ENTITIES - 1);
-		b8 active;
-		serialize_bool(p, active);
-		frame->transforms_active.set(index, active);
-		if (active)
-		{
-			b8 revision_changed;
-			serialize_bool(p, revision_changed);
-			if (revision_changed)
-				serialize_s16(p, frame->transforms[index].revision);
-			b8 parent_changed;
-			serialize_bool(p, parent_changed);
-			if (parent_changed)
-				serialize_ref(p, frame->transforms[index].parent);
-			if (!serialize_transform(p, &frame->transforms[index]))
-				net_error();
-		}
-	}
-#if DEBUG_TRANSFORMS
-	vi_debug("Read %d transforms", changed_count);
-#endif
-
-	// players
-	for (s32 i = 0; i < MAX_PLAYERS; i++)
-	{
 		b8 serialize;
+		if (Stream::IsWriting)
+			serialize = state->active && base && !equal_states_awk(*state, base->awks[i]);
 		serialize_bool(p, serialize);
 		if (serialize)
 		{
-			frame->players[i].active = true;
-			if (!serialize_player_manager(p, &frame->players[i], base ? &base->players[i] : nullptr))
-				net_error();
-		}
-	}
-
-	// Awks
-	for (s32 i = 0; i < MAX_PLAYERS; i++)
-	{
-		AwkState* state = &frame->awks[i];
-		b8 serialize;
-		serialize_bool(p, serialize);
-		if (serialize)
-		{
-			state->active = true;
 			if (!serialize_awk(p, state, base ? &base->awks[i] : nullptr))
 				net_error();
 		}
@@ -1462,6 +1447,7 @@ void state_frame_interpolate(const StateFrame& a, const StateFrame& b, StateFram
 			const TransformState& next = b.transforms[index];
 
 			transform->parent = next.parent;
+			transform->revision = next.revision;
 
 			if (last.revision == next.revision)
 			{
@@ -1653,8 +1639,9 @@ struct Client
 	MessageHistory msgs_in_history; // messages we've received from the client
 	SequenceHistory recently_resent; // sequences we resent to the client recently
 	SequenceID processed_sequence_id; // most recent sequence ID we've processed from the client
-	b8 connected;
 	StaticArray<Ref<PlayerHuman>, MAX_GAMEPADS> players;
+	b8 connected;
+	b8 loading_done;
 };
 
 b8 msg_process(StreamRead*, Client*);
@@ -1664,6 +1651,7 @@ struct StateServer
 	Array<Client> clients;
 	Mode mode;
 	s32 expected_clients = 1;
+	SequenceID sequence_completed_loading;
 };
 StateServer state_server;
 
@@ -1676,6 +1664,17 @@ s32 connected_clients()
 			result++;
 	}
 	return result;
+}
+
+b8 all_clients_loaded()
+{
+	for (s32 i = 0; i < state_server.clients.length; i++)
+	{
+		const Client& client = state_server.clients[i];
+		if (!client.loading_done)
+			return false;
+	}
+	return true;
 }
 
 b8 client_owns(Client* c, Entity* e)
@@ -1749,9 +1748,12 @@ b8 build_packet_update(StreamWrite* p, Client* client, StateFrame* frame)
 	serialize_u32(p, ack.previous_sequences);
 	msgs_write(p, state_common.msgs_out_history, client->ack, &client->recently_resent, client->rtt);
 
-	serialize_int(p, SequenceID, client->ack.sequence_id, 0, SEQUENCE_COUNT - 1);
-	const StateFrame* base = state_frame_by_sequence(state_common.state_history, client->ack.sequence_id);
-	state_frame_write(p, frame, base);
+	if (frame)
+	{
+		serialize_int(p, SequenceID, client->ack.sequence_id, 0, SEQUENCE_COUNT - 1);
+		const StateFrame* base = state_frame_by_sequence(state_common.state_history, client->ack.sequence_id);
+		serialize_state_frame(p, frame, base);
+	}
 
 	packet_finalize(p);
 	return true;
@@ -1796,8 +1798,12 @@ void tick(const Update& u)
 	if (state_server.mode == Mode::Active)
 		msgs_out_consolidate();
 
-	StateFrame* frame = state_frame_add(&state_common.state_history);
-	state_frame_build(frame);
+	StateFrame* frame = nullptr;
+	if (all_clients_loaded()) // don't send state frames while loading, to make more room for messages
+	{
+		frame = state_frame_add(&state_common.state_history);
+		state_frame_build(frame);
+	}
 
 	StreamWrite p;
 	for (s32 i = 0; i < state_server.clients.length; i++)
@@ -1991,6 +1997,11 @@ b8 msg_process(StreamRead* p, Client* client)
 	{
 		case MessageType::Noop:
 		{
+			break;
+		}
+		case MessageType::LoadingDone:
+		{
+			client->loading_done = true;
 			break;
 		}
 		case MessageType::PlayerControlHuman:
@@ -2323,12 +2334,13 @@ b8 packet_handle(const Update& u, StreamRead* p, const Sock::Address& address)
 
 			calculate_rtt(Game::real_time.total, state_client.server_ack, state_common.msgs_out_history, &state_client.server_rtt);
 
+			if (p->bytes_read() < p->data.length * sizeof(u32)) // server doesn't always send state frames
 			{
 				SequenceID base_sequence_id;
 				serialize_int(p, SequenceID, base_sequence_id, 0, SEQUENCE_COUNT - 1);
 				const StateFrame* base = state_frame_by_sequence(state_common.state_history, base_sequence_id);
 				StateFrame frame;
-				state_frame_read(p, &frame, base);
+				serialize_state_frame(p, &frame, base);
 				// only insert the frame into the history if it is more recent
 				if (state_common.state_history.frames.length == 0 || sequence_more_recent(frame.sequence_id, state_common.state_history.frames[state_common.state_history.current_index].sequence_id))
 				{
@@ -2407,6 +2419,9 @@ b8 msg_process(StreamRead* p)
 			vi_assert(state_client.mode == Mode::Loading);
 			for (auto i = Entity::list.iterator(); !i.is_last(); i.next())
 				World::awake(i.item());
+
+			// let the server know we're done loading
+			msg_finalize(msg_new(MessageType::LoadingDone));
 			state_client.mode = Mode::Connected;
 			break;
 		}
@@ -2681,7 +2696,8 @@ b8 msg_finalize(StreamWrite* p)
 	if (type != MessageType::Noop
 		&& type != MessageType::EntityCreate
 		&& type != MessageType::EntityRemove
-		&& type != MessageType::InitDone)
+		&& type != MessageType::InitDone
+		&& type != MessageType::LoadingDone)
 	{
 		r.rewind();
 		msg_process(&r, MessageSource::Loopback);

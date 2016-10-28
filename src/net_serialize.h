@@ -187,47 +187,30 @@ do\
 		net_error();\
 } while (0)
 
-#define serialize_bits(stream, value, count)\
+#define serialize_bits(stream, type, value, count)\
 do\
 {\
 	vi_assert(count > 0);\
 	vi_assert(count <= 32);\
 	if (!Stream::IsWriting && (stream)->would_overflow(count))\
 		net_error();\
-	(stream)->bits(value, count);\
+	u32 _u;\
+	if (Stream::IsWriting)\
+		_u = u32(value);\
+	(stream)->bits(_u, count);\
+	if (Stream::IsReading)\
+		value = type(_u);\
 } while (0)
 
 #define serialize_enum(stream, type, value) serialize_int(stream, type, value, 0, s32(type::count) - 1)
-#define serialize_u8(stream, value) serialize_int(stream, u8, value, 0, 255)
-#define serialize_s8(stream, value) serialize_int(stream, s8, value, -128, 127)
-#define serialize_u16(stream, value) serialize_int(stream, u16, value, 0, 65535)
-#define serialize_s16(stream, value) serialize_int(stream, s16, value, -32768, 32767)
-#define serialize_u32(stream, value) serialize_bits(stream, value, 32)
-#define serialize_s32(stream, value)\
-do\
-{\
-	u32 _u;\
-	if (Stream::IsWriting)\
-	{\
-		if ((stream)->would_overflow(32))\
-			net_error();\
-		_u = u32(value);\
-	}\
-	(stream)->bits(_u, 32);\
-	if (Stream::IsReading)\
-		value = s32(_u);\
-} while (0)
+#define serialize_u8(stream, value) serialize_bits(stream, u8, value, 8)
+#define serialize_s8(stream, value) serialize_bits(stream, s8, value, 8)
+#define serialize_u16(stream, value) serialize_bits(stream, u16, value, 16)
+#define serialize_s16(stream, value) serialize_bits(stream, s16, value, 16)
+#define serialize_u32(stream, value) serialize_bits(stream, u32, value, 32)
+#define serialize_s32(stream, value) serialize_bits(stream, s32, value, 32)
 
-#define serialize_bool(stream, value)\
-do\
-{\
-	u32 _u = 0;\
-	if (Stream::IsWriting)\
-		_u = value ? 1 : 0;\
-	serialize_bits(stream, _u, 1);\
-	if (Stream::IsReading)\
-		value = _u ? true : false;\
-} while (0)
+#define serialize_bool(stream, value) serialize_bits(stream, b8, value, 1)
 
 #define serialize_u64(stream, value)\
 do\
@@ -238,8 +221,8 @@ do\
 		_lo = value & 0xFFFFFFFF;\
 		_hi = value >> 32;\
 	}\
-	serialize_bits(stream, _lo, 32);\
-	serialize_bits(stream, _hi, 32);\
+	serialize_bits(stream, u32, _lo, 32);\
+	serialize_bits(stream, u32, _hi, 32);\
 	if (Stream::IsReading)\
 		value = (u64(_hi) << 32) | _lo;\
 } while (0)
@@ -301,31 +284,17 @@ do\
 #define serialize_ref(stream, value)\
 do\
 {\
-	u16 _i;\
-	u32 _r;\
 	b8 _b;\
 	if (Stream::IsWriting)\
-	{\
-		_i = value.id;\
-		_r = value.revision;\
 		_b = value.id != IDNull;\
-	}\
 	serialize_bool(stream, _b);\
 	if (_b)\
 	{\
-		serialize_int(stream, u16, _i, 0, MAX_ENTITIES - 1);\
-		serialize_bits(stream, _r, 16);\
+		serialize_int(stream, ID, value.id, 0, MAX_ENTITIES - 1);\
+		serialize_bits(stream, Revision, value.revision, 16);\
 	}\
-	if (Stream::IsReading)\
-	{\
-		if (_b)\
-		{\
-			value.id = _i;\
-			value.revision = u16(_r);\
-		}\
-		else\
-			value.id = IDNull;\
-	}\
+	else if (Stream::IsReading)\
+		value.id = IDNull;\
 } while (0)
 
 #define serialize_asset(stream, value, _count)\
@@ -336,9 +305,7 @@ do\
 		_b = value == AssetNull ? false : true;\
 	serialize_bool(stream, _b);\
 	if (_b)\
-	{\
 		serialize_int(stream, AssetID, value, 0, _count - 1);\
-	}\
 	else if (Stream::IsReading)\
 		value = AssetNull;\
 } while (0)

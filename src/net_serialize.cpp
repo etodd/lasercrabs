@@ -70,7 +70,7 @@ void StreamWrite::bits(u32 value, s32 bits)
 {
 	vi_assert(bits > 0);
 	vi_assert(bits <= 32);
-	vi_assert((value & ((u64(1) << bits) - 1)) == value);
+	value &= (u64(1) << bits) - 1;
 
 	scratch |= u64(value) << scratch_bits;
 

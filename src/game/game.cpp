@@ -124,7 +124,7 @@ s32 Game::Session::team_count() const
 {
 	if (story_mode)
 		return 2;
-	else if (level.local)
+	else
 	{
 #if SERVER
 		return Net::Server::expected_clients();

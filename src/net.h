@@ -118,6 +118,7 @@ namespace Server
 	};
 
 	Mode mode();
+	s32 expected_clients();
 }
 #else
 namespace Client

@@ -1648,7 +1648,7 @@ struct StateServer
 {
 	Array<Client> clients;
 	Mode mode;
-	s32 expected_clients = 1;
+	s32 expected_clients = 2;
 	SequenceID sequence_completed_loading;
 };
 StateServer state_server;
@@ -1698,7 +1698,7 @@ b8 init()
 	}
 
 	// todo: allow both multiplayer / story mode sessions
-	Game::session.story_mode = true;
+	Game::session.story_mode = false;
 	Game::load_level(Update(), Asset::Level::Ponos, Game::Mode::Pvp);
 
 	return true;
@@ -2024,6 +2024,11 @@ b8 msg_process(StreamRead* p, Client* client)
 Mode mode()
 {
 	return state_server.mode;
+}
+
+s32 expected_clients()
+{
+	return state_server.expected_clients;
 }
 
 void reset()

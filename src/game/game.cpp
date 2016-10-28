@@ -124,8 +124,11 @@ s32 Game::Session::team_count() const
 {
 	if (story_mode)
 		return 2;
-	else
+	else if (level.local)
 	{
+#if SERVER
+		return Net::Server::expected_clients();
+#else
 		s32 team_counts[MAX_PLAYERS] = {};
 		for (s32 i = 0; i < MAX_GAMEPADS; i++)
 		{
@@ -140,6 +143,7 @@ s32 Game::Session::team_count() const
 				count++;
 		}
 		return count;
+#endif
 	}
 }
 

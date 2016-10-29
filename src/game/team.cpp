@@ -894,6 +894,7 @@ void PlayerManager::update_server(const Update& u)
 		&& spawn_timer > 0.0f
 		&& team.ref()->player_spawn.ref()
 		&& respawns != 0
+		&& !Team::game_over
 		&& !Game::level.continue_match_after_death)
 	{
 		spawn_timer -= u.time.delta;

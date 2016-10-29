@@ -211,7 +211,6 @@ void Audio::update()
 
 AkUniqueID Audio::get_id(const char* str)
 {
-	return 0;
 	return AK::SoundEngine::GetIDFromString(str);
 }
 

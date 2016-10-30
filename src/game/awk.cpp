@@ -31,6 +31,8 @@ namespace VI
 #define AWK_LEG_LENGTH (0.277f - 0.101f)
 #define AWK_LEG_BLEND_SPEED (1.0f / 0.03f)
 #define AWK_MIN_LEG_BLEND_SPEED (AWK_LEG_BLEND_SPEED * 0.1f)
+#define AWK_SHIELD_ALPHA 0.1f
+#define AWK_SHIELD_ANIM_TIME 0.35f
 
 AwkRaycastCallback::AwkRaycastCallback(const Vec3& a, const Vec3& b, const Entity* awk)
 	: btCollisionWorld::ClosestRayResultCallback(a, b)
@@ -310,17 +312,19 @@ Awk::Awk()
 	done_dashing(),
 	detached(),
 	dashed(),
+	shield_time(),
 	dash_timer(),
 	attach_time(Game::time.total),
 	footing(),
 	last_speed(),
 	last_footstep(),
 	shield(),
+	overshield(),
 	bounce(),
 	hit_targets(),
 	cooldown(),
 	charges(AWK_CHARGES),
-	invincible_timer(AWK_INVINCIBLE_TIME),
+	overshield_timer(AWK_OVERSHIELD_TIME),
 	particle_accumulator(),
 	current_ability(Ability::None),
 	ability_spawned()
@@ -330,31 +334,55 @@ Awk::Awk()
 void Awk::awake()
 {
 	link_arg<Entity*, &Awk::killed>(get<Health>()->killed);
-	link_arg<const DamageEvent&, &Awk::damaged>(get<Health>()->damaged);
+	link_arg<const HealthEvent&, &Awk::damaged>(get<Health>()->damaged);
+	link_arg<const HealthEvent&, &Awk::health_added>(get<Health>()->added);
 	link_arg<const TargetEvent&, &Awk::hit_by>(get<Target>()->target_hit);
 	if (Game::level.local && !shield.ref())
 	{
-		Entity* shield_entity = World::create<Empty>();
-		shield_entity->get<Transform>()->parent = get<Transform>();
-		shield_entity->add<RigidBody>(RigidBody::Type::Sphere, Vec3(AWK_SHIELD_RADIUS), 0.0f, CollisionShield, CollisionDefault, AssetNull, entity_id);
-		shield = shield_entity;
+		{
+			Entity* shield_entity = World::create<Empty>();
+			shield_entity->get<Transform>()->parent = get<Transform>();
+			shield_entity->add<RigidBody>(RigidBody::Type::Sphere, Vec3(AWK_SHIELD_RADIUS), 0.0f, CollisionShield, CollisionDefault, AssetNull, entity_id);
+			shield = shield_entity;
 
-		View* s = shield_entity->add<View>();
-		s->team = (s8)get<AIAgent>()->team;
-		s->mesh = Asset::Mesh::sphere_highres;
-		s->offset.scale(Vec3(AWK_SHIELD_RADIUS));
-		s->shader = Asset::Shader::fresnel;
-		s->alpha();
-		s->color.w = 0.35f;
+			View* s = shield_entity->add<View>();
+			s->team = (s8)get<AIAgent>()->team;
+			s->mesh = Asset::Mesh::sphere_highres;
+			s->offset.scale(Vec3(AWK_SHIELD_RADIUS));
+			s->shader = Asset::Shader::fresnel;
+			s->alpha();
+			s->color.w = AWK_SHIELD_ALPHA;
 
-		Net::finalize(shield_entity);
+			Net::finalize(shield_entity);
+		}
+
+		vi_assert(!overshield.ref());
+		{
+			// overshield
+			Entity* shield_entity = World::create<Empty>();
+			shield_entity->get<Transform>()->parent = get<Transform>();
+			overshield = shield_entity;
+
+			View* s = shield_entity->add<View>();
+			s->team = (s8)get<AIAgent>()->team;
+			s->mesh = Asset::Mesh::sphere_highres;
+			s->offset.scale(Vec3(AWK_SHIELD_RADIUS * 1.1f));
+			s->shader = Asset::Shader::fresnel;
+			s->alpha();
+			s->color.w = 0.75f;
+
+			Net::finalize(shield_entity);
+		}
 	}
+	shield_time = Game::time.total;
 }
 
 Awk::~Awk()
 {
 	if (shield.ref())
 		World::remove_deferred(shield.ref());
+	if (overshield.ref())
+		World::remove_deferred(overshield.ref());
 }
 
 Awk::State Awk::state() const
@@ -443,9 +471,9 @@ void Awk::hit_by(const TargetEvent& e)
 
 	b8 damaged = false;
 
-	// only take damage if we're attached to a wall and not invincible
+	// only take damage if we're attached to a wall and not overshield
 	if (state() == Awk::State::Crawl
-		&& invincible_timer == 0.0f
+		&& overshield_timer == 0.0f
 		&& (!e.hit_by->has<Awk>() || e.hit_by->get<AIAgent>()->team != get<AIAgent>()->team))
 	{
 		get<Health>()->damage(e.hit_by, 1);
@@ -484,6 +512,7 @@ b8 Awk::hit_target(Entity* target)
 				Vec4(1, 1, 1, 1)
 			);
 		}
+
 		Entity* shockwave = World::create<ShockwaveEntity>(8.0f, 1.5f);
 		shockwave->get<Transform>()->absolute_pos(hit_pos);
 		Net::finalize(shockwave);
@@ -515,8 +544,8 @@ b8 Awk::hit_target(Entity* target)
 			get<PlayerCommon>()->manager.ref()->add_credits(CREDITS_CONTAINMENT_FIELD_DESTROY);
 	}
 
-	if (current_ability == Ability::None && invincible_timer > 0.0f && target->has<Awk>())
-		invincible_timer = 0.0f; // damaging an Awk takes our shield down
+	if (current_ability == Ability::None && overshield_timer > 0.0f && target->has<Awk>())
+		overshield_timer = 0.0f; // damaging an Awk takes our shield down
 
 	if (target->has<Target>())
 	{
@@ -548,25 +577,28 @@ b8 Awk::predict_intersection(const Target* target, Vec3* intersection, r32 speed
 		return target->predict_intersection(get<Transform>()->absolute_pos(), speed, intersection);
 }
 
-void Awk::damaged(const DamageEvent& e)
+void Awk::damaged(const HealthEvent& e)
 {
+	if (e.shield != 0)
+		shield_time = Game::time.total;
+
 	if (get<Health>()->hp == 0)
 	{
 		// killed; notify everyone
-		if (e.damager)
+		if (e.source)
 		{
 			PlayerCommon* enemy = nullptr;
-			if (e.damager->has<PlayerCommon>())
-				enemy = e.damager->get<PlayerCommon>();
-			else if (e.damager->has<Projectile>())
+			if (e.source->has<PlayerCommon>())
+				enemy = e.source->get<PlayerCommon>();
+			else if (e.source->has<Projectile>())
 			{
-				Entity* owner = e.damager->get<Projectile>()->owner.ref();
+				Entity* owner = e.source->get<Projectile>()->owner.ref();
 				if (owner)
 					enemy = owner->get<PlayerCommon>();
 			}
-			else if (e.damager->has<Rocket>())
+			else if (e.source->has<Rocket>())
 			{
-				Entity* owner = e.damager->get<Rocket>()->owner.ref();
+				Entity* owner = e.source->get<Rocket>()->owner.ref();
 				if (owner)
 					enemy = owner->get<PlayerCommon>();
 			}
@@ -587,6 +619,12 @@ void Awk::damaged(const DamageEvent& e)
 			}
 		}
 	}
+}
+
+void Awk::health_added(const HealthEvent& e)
+{
+	if (e.shield != 0)
+		shield_time = Game::time.total;
 }
 
 void Awk::killed(Entity* e)
@@ -696,6 +734,7 @@ b8 Awk::can_shoot(const Vec3& dir, Vec3* final_pos, b8* hit_target) const
 	{
 		r32 r = range();
 		b8 can_shoot = false;
+		b8 hit_target_value = ray_callback.hit_target();
 		if (ray_callback.m_closestHitFraction * AWK_SNIPE_DISTANCE < r)
 			can_shoot = true;
 		else if ((ray_callback.closest_target_hit_group & (CollisionAwk | CollisionShield))
@@ -717,6 +756,7 @@ b8 Awk::can_shoot(const Vec3& dir, Vec3* final_pos, b8* hit_target) const
 							&& LMath::ray_sphere_intersect(trace_start, trace_end, intersection, AWK_SHIELD_RADIUS))
 						{
 							can_shoot = true;
+							hit_target_value = true;
 							break;
 						}
 					}
@@ -729,7 +769,7 @@ b8 Awk::can_shoot(const Vec3& dir, Vec3* final_pos, b8* hit_target) const
 			if (final_pos)
 				*final_pos = ray_callback.m_hitPointWorld;
 			if (hit_target)
-				*hit_target = ray_callback.hit_target();
+				*hit_target = hit_target_value;
 			return true;
 		}
 	}
@@ -751,19 +791,19 @@ b8 Awk::can_spawn(Ability a, const Vec3& dir, Vec3* final_pos, Vec3* final_norma
 	Vec3 trace_start = get<Transform>()->absolute_pos();
 	Vec3 trace_end = trace_start + trace_dir * range();
 
-	AwkRaycastCallback ray_callback(trace_start, trace_end, entity());
-	Physics::raycast(&ray_callback, ~CollisionAwkIgnore & ~ally_containment_field_mask());
-
 	if (a == Ability::Sniper)
 	{
+		RaycastCallbackExcept ray_callback(trace_start, trace_end, entity());
+		Physics::raycast(&ray_callback, ~CollisionAwkIgnore & ~ally_containment_field_mask());
 		if (ray_callback.hasHit())
 		{
+			Entity* e = &Entity::list[ray_callback.m_collisionObject->getUserIndex()];
 			if (final_pos)
 				*final_pos = ray_callback.m_hitPointWorld;
 			if (hit_target)
-				*hit_target = ray_callback.hit_target();
+				*hit_target = e->has<Target>();
 			if (hit_parent)
-				*hit_parent = Entity::list[ray_callback.m_collisionObject->getUserIndex()].get<RigidBody>();
+				*hit_parent = e->get<RigidBody>();
 		}
 		else
 		{
@@ -778,6 +818,9 @@ b8 Awk::can_spawn(Ability a, const Vec3& dir, Vec3* final_pos, Vec3* final_norma
 	}
 	else
 	{
+		AwkRaycastCallback ray_callback(trace_start, trace_end, entity());
+		Physics::raycast(&ray_callback, ~CollisionAwkIgnore & ~ally_containment_field_mask());
+
 		b8 can_spawn = ray_callback.hasHit()
 			&& !(ray_callback.m_collisionObject->getBroadphaseHandle()->m_collisionFilterGroup & AWK_INACCESSIBLE_MASK);
 		if (can_spawn)
@@ -897,6 +940,7 @@ b8 Awk::go(const Vec3& dir)
 		Vec3 me = get<Transform>()->absolute_pos();
 		particle_trail(me, dir_normalized, (pos - me).length());
 
+		if (current_ability != Ability::Sniper)
 		{
 			Entity* shockwave = World::create<ShockwaveEntity>(8.0f, 1.5f);
 			shockwave->get<Transform>()->absolute_pos(pos + rot * Vec3(0, 0, AWK_RADIUS));
@@ -1395,7 +1439,7 @@ void Awk::update_server(const Update& u)
 {
 	State s = state();
 
-	invincible_timer = vi_max(invincible_timer - u.time.delta, 0.0f);
+	overshield_timer = vi_max(overshield_timer - u.time.delta, 0.0f);
 
 	if (cooldown > 0.0f)
 	{
@@ -1446,15 +1490,50 @@ void Awk::update_client(const Update& u)
 {
 	State s = state();
 
-	if (invincible_timer > 0.0f || s != Awk::State::Crawl)
 	{
-		if (get<AIAgent>()->stealth)
-			shield.ref()->get<View>()->mask = 1 << (s32)get<AIAgent>()->team; // only display to fellow teammates
+		// shield
+		View* v = shield.ref()->get<View>();
+		if (get<Health>()->shield > 0 || u.time.total - shield_time < AWK_SHIELD_ANIM_TIME)
+		{
+			if (get<AIAgent>()->stealth)
+				v->mask = 1 << (s32)get<AIAgent>()->team; // only display to fellow teammates
+			else
+				v->mask = RENDER_MASK_DEFAULT; // everyone can see
+
+			r32 blend = Ease::cubic_in<r32>(vi_min((u.time.total - shield_time) / AWK_SHIELD_ANIM_TIME, 1.0f));
+			if (get<Health>()->shield > 0)
+			{
+				// shield is coming in; blend from large to small
+				if (blend < 0.5f)
+					v->color.w = LMath::lerpf(blend / 0.5f, 0.0f, 0.4f);
+				else
+					v->color.w = LMath::lerpf((blend - 0.5f) / 0.5f, 0.4f, AWK_SHIELD_ALPHA);
+				v->offset = Mat4::make_scale(Vec3(LMath::lerpf(blend, 8.0f, AWK_SHIELD_RADIUS)));
+			}
+			else
+			{
+				// we just lost our shield; blend to large and faded out
+				v->color.w = LMath::lerpf(blend, 0.75f, 0.0f);
+				v->offset = Mat4::make_scale(Vec3(LMath::lerpf(blend, AWK_SHIELD_RADIUS, 8.0f)));
+			}
+		}
 		else
-			shield.ref()->get<View>()->mask = RENDER_MASK_DEFAULT; // everyone can see
+			shield.ref()->get<View>()->mask = 0;
 	}
-	else
-		shield.ref()->get<View>()->mask = 0;
+
+	{
+		// overshield
+		View* v = overshield.ref()->get<View>();
+		if (overshield_timer > 0.0f || s != Awk::State::Crawl)
+		{
+			if (get<AIAgent>()->stealth)
+				v->mask = 1 << (s32)get<AIAgent>()->team; // only display to fellow teammates
+			else
+				v->mask = RENDER_MASK_DEFAULT; // everyone can see
+		}
+		else
+			v->mask = 0;
+	}
 
 	if (s == Awk::State::Crawl)
 	{
@@ -1493,8 +1572,8 @@ void Awk::update_client(const Update& u)
 					const r32 tolerance = AWK_SHIELD_RADIUS;
 					if (distance < tolerance)
 						lerped_pos = Vec3::lerp(vi_min(1.0f, (LERP_TRANSLATION_SPEED / distance) * u.time.delta), lerped_pos, abs_pos);
-					else
-						lerped_pos += to_transform * (distance - tolerance);
+					else // keep the lerped pos within tolerance of the absolute pos
+						lerped_pos += to_transform * (distance - (tolerance * 0.9f));
 				}
 			}
 		}
@@ -1676,8 +1755,8 @@ r32 Awk::movement_raycast(const Vec3& ray_start, const Vec3& ray_end)
 
 	// check environment
 	{
-		btCollisionWorld::ClosestRayResultCallback ray_callback(ray_start, ray_end);
-		Physics::raycast(&ray_callback, btBroadphaseProxy::StaticFilter | CollisionAllTeamsContainmentField);
+		RaycastCallbackExcept ray_callback(ray_start, ray_end, entity());
+		Physics::raycast(&ray_callback, (btBroadphaseProxy::StaticFilter | CollisionAllTeamsContainmentField) & ~ally_containment_field_mask());
 
 		if (ray_callback.hasHit())
 		{

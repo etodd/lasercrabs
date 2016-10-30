@@ -576,6 +576,70 @@ void ability_draw(const RenderParams& params, const PlayerHuman* player, const V
 	draw_icon_text(params, pos, icon, string, *color);
 }
 
+void battery_timer_draw(const RenderParams& params, const Vec2& pos)
+{
+	r32 remaining = vi_max(0.0f, Game::level.time_limit - Game::time.total);
+
+	const Vec2 box(text_size * 5 * UI::scale, text_size * UI::scale);
+	const r32 padding = 8.0f * UI::scale;
+
+	const Vec2 p = pos + Vec2(box.x * -0.5f, 0);
+		
+	UI::box(params, Rect2(p, box).outset(padding), UI::color_background);
+
+	Vec2 icon_pos = p + Vec2(0.75f, 0.5f) * text_size * UI::scale;
+
+	AssetID icon;
+	const Vec4* color;
+	if (remaining > Game::level.time_limit * 0.8f)
+	{
+		icon = Asset::Mesh::icon_battery_3;
+		color = &UI::color_default;
+	}
+	else if (remaining > Game::level.time_limit * 0.6f)
+	{
+		icon = Asset::Mesh::icon_battery_2;
+		color = &UI::color_default;
+	}
+	else if (remaining > Game::level.time_limit * 0.4f)
+	{
+		icon = Asset::Mesh::icon_battery_1;
+		color = &UI::color_accent;
+	}
+	else if (remaining > 60.0f)
+	{
+		icon = Asset::Mesh::icon_battery_1;
+		color = &UI::color_alert;
+	}
+	else
+	{
+		icon = Asset::Mesh::icon_battery_0;
+		color = &UI::color_alert;
+	}
+
+	{
+		b8 draw;
+		if (remaining > Game::level.time_limit * 0.4f)
+			draw = true;
+		else if (remaining > 60.0f)
+			draw = UI::flash_function_slow(Game::real_time.total);
+		else
+			draw = UI::flash_function(Game::real_time.total);
+		if (draw)
+			UI::mesh(params, icon, icon_pos, Vec2(text_size * UI::scale), *color);
+	}
+
+	s32 remaining_minutes = remaining / 60.0f;
+	s32 remaining_seconds = remaining - (remaining_minutes * 60.0f);
+
+	UIText text;
+	text.anchor_x = UIText::Anchor::Min;
+	text.anchor_y = UIText::Anchor::Center;
+	text.color = *color;
+	text.text(_(strings::timer), remaining_minutes, remaining_seconds);
+	text.draw(params, icon_pos + Vec2(text_size * UI::scale * 1.5f, 0));
+}
+
 void scoreboard_draw(const RenderParams& params, const PlayerManager* manager)
 {
 	const Rect2& vp = params.camera->viewport;
@@ -588,8 +652,11 @@ void scoreboard_draw(const RenderParams& params, const PlayerManager* manager)
 	text.anchor_y = UIText::Anchor::Max;
 	text.color = UI::color_default;
 
+	battery_timer_draw(params, p);
+	p.y -= text.bounds().y + MENU_ITEM_PADDING * 2.0f;
+
 	// "spawning..."
-	if (!manager->entity.ref() && manager->respawns > 0)
+	if (!manager->entity.ref() && manager->respawns != 0)
 	{
 		text.text(_(strings::deploy_timer), s32(manager->spawn_timer + 1));
 		UI::box(params, text.rect(p).outset(MENU_ITEM_PADDING), UI::color_background);
@@ -991,71 +1058,8 @@ void PlayerHuman::draw_alpha(const RenderParams& params) const
 			}
 		}
 
-		if (mode == UIMode::PvpDefault || mode == UIMode::Upgrading)
-		{
-			// draw battery/timer
-
-			r32 remaining = vi_max(0.0f, Game::level.time_limit - Game::time.total);
-
-			const Vec2 box(text_size * 5 * UI::scale, text_size * UI::scale);
-			const r32 padding = 8.0f * UI::scale;
-
-			Vec2 p = vp.size * Vec2(0.9f, 0.1f) + Vec2(-box.x, 0);
-
-			UI::box(params, Rect2(p, box).outset(padding), UI::color_background);
-
-			Vec2 icon_pos = p + Vec2(0.75f, 0.5f) * text_size * UI::scale;
-
-			AssetID icon;
-			const Vec4* color;
-			if (remaining > Game::level.time_limit * 0.8f)
-			{
-				icon = Asset::Mesh::icon_battery_3;
-				color = &UI::color_default;
-			}
-			else if (remaining > Game::level.time_limit * 0.6f)
-			{
-				icon = Asset::Mesh::icon_battery_2;
-				color = &UI::color_default;
-			}
-			else if (remaining > Game::level.time_limit * 0.4f)
-			{
-				icon = Asset::Mesh::icon_battery_1;
-				color = &UI::color_accent;
-			}
-			else if (remaining > 60.0f)
-			{
-				icon = Asset::Mesh::icon_battery_1;
-				color = &UI::color_alert;
-			}
-			else
-			{
-				icon = Asset::Mesh::icon_battery_0;
-				color = &UI::color_alert;
-			}
-
-			{
-				b8 draw;
-				if (remaining > Game::level.time_limit * 0.4f)
-					draw = true;
-				else if (remaining > 60.0f)
-					draw = UI::flash_function_slow(Game::real_time.total);
-				else
-					draw = UI::flash_function(Game::real_time.total);
-				if (draw)
-					UI::mesh(params, icon, icon_pos, Vec2(text_size * UI::scale), *color);
-			}
-
-			s32 remaining_minutes = remaining / 60.0f;
-			s32 remaining_seconds = remaining - (remaining_minutes * 60.0f);
-
-			UIText text;
-			text.anchor_x = UIText::Anchor::Min;
-			text.anchor_y = UIText::Anchor::Center;
-			text.color = *color;
-			text.text(_(strings::timer), remaining_minutes, remaining_seconds);
-			text.draw(params, icon_pos + Vec2(text_size * UI::scale * 1.5f, 0));
-		}
+		if (mode == UIMode::PvpDefault || mode == UIMode::Upgrading) // show game timer
+			battery_timer_draw(params, vp.size * Vec2(0.9f, 0.1f));
 
 		// network error icon
 		if (Game::session.network_state == Game::NetworkState::Lag && Game::session.network_time - Game::session.network_timer > 0.25f)
@@ -1628,39 +1632,21 @@ void ability_update(const Update& u, PlayerControlHuman* control, Controls bindi
 
 	Awk* awk = control->get<Awk>();
 
-	b8 current = u.input->get(binding, gamepad);
-	b8 last = u.last_input->get(binding, gamepad);
-	if (awk->current_ability == ability)
+	if (awk->current_ability == ability && !manager->ability_valid(ability))
+		ability_cancel(awk);
+
+	if (u.input->get(binding, gamepad) && !u.last_input->get(binding, gamepad))
 	{
-		// cancel current spawn ability
-		if (current && !last)
-			ability_cancel(awk);
-		else if (!Game::cancel_event_eaten[gamepad]
-			&& u.input->get(Controls::Cancel, gamepad) && !u.last_input->get(Controls::Cancel, gamepad))
+		if (awk->current_ability == ability)
 		{
-			Game::cancel_event_eaten[gamepad] = true;
+			// cancel current spawn ability
 			ability_cancel(awk);
 		}
-	}
-	else
-	{
-		// select new spawn ability
-		if (current && !last)
+		else if (manager->ability_valid(ability)) // select new spawn ability
 		{
-			if (manager->ability_valid(ability))
-			{
-				b8 ability_already_selected = awk->current_ability != Ability::None;
-				if (ability_already_selected)
-					ability_cancel(awk);
-				if (!ability_already_selected || !Settings::gamepads[gamepad].bindings[(s32)binding].overlaps(Settings::gamepads[gamepad].bindings[(s32)Controls::Cancel]))
-					ability_select(awk, ability);
-			}
-			else
-			{
-				// for whatever reason, this ability is invalid
-				if (awk->current_ability == ability)
-					ability_cancel(awk);
-			}
+			if (awk->current_ability != Ability::None)
+				ability_cancel(awk);
+			ability_select(awk, ability);
 		}
 	}
 }
@@ -1952,7 +1938,13 @@ void PlayerControlHuman::update(const Update& u)
 						if (get<Awk>()->current_ability == Ability::None) // normal movement
 						{
 							if (get<Awk>()->direction_is_toward_attached_wall(detach_dir))
-								reticle.type = ReticleType::Dash;
+							{
+								r32 dot_tolerance = distance < AWK_DASH_DISTANCE ? 0.3f : 0.1f;
+								Vec3 wall_normal = get<Transform>()->absolute_rot() * Vec3(0, 0, 1);
+								if (detach_dir.dot(wall_normal) > -dot_tolerance
+									&& reticle.normal.dot(wall_normal) > 1.0f - dot_tolerance)
+									reticle.type = ReticleType::Dash;
+							}
 							else
 							{
 								Vec3 hit;
@@ -1982,8 +1974,6 @@ void PlayerControlHuman::update(const Update& u)
 						reticle.pos = trace_end;
 						reticle.normal = -trace_dir;
 						reticle.entity = nullptr;
-						if (get<Awk>()->current_ability == Ability::None && get<Awk>()->direction_is_toward_attached_wall(reticle.pos - center))
-							reticle.type = ReticleType::Dash;
 					}
 				}
 				else
@@ -2007,12 +1997,16 @@ void PlayerControlHuman::update(const Update& u)
 				{
 					if (other_player.item()->get<AIAgent>()->team != team)
 					{
+						Entity* e = other_player.item()->manager.ref()->decoy();
+						if (!e)
+							e = other_player.item()->entity();
+
 						b8 visible, tracking;
-						determine_visibility(get<PlayerCommon>(), other_player.item(), &visible, &tracking);
+						determine_visibility(get<PlayerCommon>(), e->get<PlayerCommon>(), &visible, &tracking);
 
 						if (tracking || visible)
 						{
-							if (!add_target_indicator(other_player.item()->get<Target>(), tracking ? TargetIndicator::Type::AwkTracking : TargetIndicator::Type::AwkVisible))
+							if (!add_target_indicator(e->get<Target>(), tracking ? TargetIndicator::Type::AwkTracking : TargetIndicator::Type::AwkVisible))
 								break; // no more room for indicators
 						}
 					}
@@ -2614,7 +2608,14 @@ void PlayerControlHuman::draw_alpha(const RenderParams& params) const
 					// if we can see or track them, the indicator has already been added using add_target_indicator in the update function
 
 					Vec3 pos3d = history.pos + Vec3(0, AWK_RADIUS * 2.0f, 0);
-					draw = UI::project(params, pos3d, &p);
+					if (tracking)
+					{
+						// if we're tracking them, clamp their username to the screen
+						draw = true;
+						UI::is_onscreen(params, pos3d, &p);
+					}
+					else // if not tracking, only draw username if it's directly visible on screen
+						draw = UI::project(params, pos3d, &p);
 				}
 				else
 				{
@@ -2644,7 +2645,7 @@ void PlayerControlHuman::draw_alpha(const RenderParams& params) const
 
 	const Health* health = get<Health>();
 
-	b8 is_vulnerable = !get<AIAgent>()->stealth && get<Awk>()->invincible_timer == 0.0f && health->hp == 1 && health->shield == 0;
+	b8 is_vulnerable = !get<AIAgent>()->stealth && get<Awk>()->overshield_timer == 0.0f && health->hp == 1 && health->shield == 0;
 
 	// compass
 	{
@@ -2728,21 +2729,21 @@ void PlayerControlHuman::draw_alpha(const RenderParams& params) const
 
 	// invincibility indicator
 	{
-		r32 invincible_timer = get<Awk>()->invincible_timer;
-		if (invincible_timer > 0.0f)
+		r32 overshield_timer = get<Awk>()->overshield_timer;
+		if (overshield_timer > 0.0f)
 		{
 			Vec2 bar_size(180.0f * UI::scale, 32.0f * UI::scale);
 			Rect2 bar = { viewport.size * Vec2(0.5f, 0.75f) + bar_size * -0.5f, bar_size };
 			UI::box(params, bar, UI::color_background);
 			UI::border(params, bar, 2, UI::color_accent);
-			UI::box(params, { bar.pos, Vec2(bar.size.x * (invincible_timer / AWK_INVINCIBLE_TIME), bar.size.y) }, UI::color_accent);
+			UI::box(params, { bar.pos, Vec2(bar.size.x * (overshield_timer / AWK_OVERSHIELD_TIME), bar.size.y) }, UI::color_accent);
 
 			UIText text;
 			text.size = 18.0f;
 			text.color = UI::color_background;
 			text.anchor_x = UIText::Anchor::Center;
 			text.anchor_y = UIText::Anchor::Center;
-			text.text(_(strings::invincible));
+			text.text(_(strings::overshield));
 			text.draw(params, bar.pos + bar.size * 0.5f);
 		}
 	}
@@ -2838,14 +2839,27 @@ void PlayerControlHuman::draw_alpha(const RenderParams& params) const
 
 			if (get<Awk>()->current_ability != Ability::None)
 			{
+				Ability a = get<Awk>()->current_ability;
 				Vec2 p = pos + Vec2(0, -48.0f * UI::scale);
 				UI::centered_box(params, { p, Vec2(34.0f * UI::scale) }, UI::color_background);
-				UI::mesh(params, AbilityInfo::list[(s32)get<Awk>()->current_ability].icon, p, Vec2(18.0f * UI::scale), *color);
+				UI::mesh(params, AbilityInfo::list[(s32)a].icon, p, Vec2(18.0f * UI::scale), *color);
 
 				// cancel prompt
 				UIText text;
 				text.color = UI::color_accent;
-				text.text(_(strings::prompt_cancel));
+				Controls binding = Controls::count;
+				PlayerManager* manager = player.ref()->get<PlayerManager>();
+				for (s32 i = 0; i < manager->ability_count(); i++)
+				{
+					if (a == manager->abilities[i])
+					{
+						const Controls bindings[3] = { Controls::Ability1, Controls::Ability2, Controls::Ability3 };
+						binding = bindings[i];
+						break;
+					}
+				}
+				vi_assert(binding != Controls::count);
+				text.text(_(strings::prompt_cancel_ability), Settings::gamepads[player.ref()->gamepad].bindings[(s32)binding].string(Game::is_gamepad));
 				text.anchor_x = UIText::Anchor::Center;
 				text.anchor_y = UIText::Anchor::Max;
 				text.size = text_size;

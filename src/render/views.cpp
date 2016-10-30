@@ -140,6 +140,7 @@ void View::alpha_mode(AlphaMode m)
 }
 
 #define PVP_ACCESSIBLE Vec4(0.7f, 0.7f, 0.7f, 1.0f)
+#define PVP_ACCESSIBLE_NO_OVERRIDE Vec4(0.7f, 0.7f, 0.7f, MATERIAL_NO_OVERRIDE)
 #define PVP_INACCESSIBLE Vec4(0.0f, 0.0f, 0.0f, MATERIAL_NO_OVERRIDE)
 
 void View::draw(const RenderParams& params) const
@@ -194,8 +195,10 @@ void View::draw(const RenderParams& params) const
 	{
 		if (params.camera->colors)
 			sync->write<Vec4>(color);
-		else if (color.w == MATERIAL_NO_OVERRIDE)
+		else if (color.w == MATERIAL_INACCESSIBLE)
 			sync->write<Vec4>(PVP_INACCESSIBLE);
+		else if (color.w == MATERIAL_NO_OVERRIDE)
+			sync->write<Vec4>(PVP_ACCESSIBLE_NO_OVERRIDE);
 		else
 			sync->write<Vec4>(PVP_ACCESSIBLE);
 	}

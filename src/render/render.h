@@ -32,8 +32,7 @@ struct Frustum
 
 // material not affected by override lights
 #define MATERIAL_NO_OVERRIDE 0.0f
-// special alpha depth signal for edge detection shader
-#define MATERIAL_ALPHA_DEPTH 254.0f
+#define MATERIAL_INACCESSIBLE (1.0f / 255.0f)
 
 struct Camera
 {

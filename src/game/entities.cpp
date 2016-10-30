@@ -94,7 +94,13 @@ void Health::update(const Update& u)
 			if ((s32)(old_timer / regen_interval) != (s32)(regen_timer / regen_interval))
 			{
 				shield += 1;
-				added.fire();
+				added.fire(
+				{
+					nullptr,
+					1,
+					0,
+					1,
+				});
 			}
 		}
 	}
@@ -105,25 +111,41 @@ void Health::damage(Entity* e, s8 damage)
 	if (hp > 0 && damage > 0)
 	{
 		s8 damage_accumulator = damage;
+		s8 damage_shield;
 		if (damage_accumulator > shield)
 		{
+			damage_shield = shield;
 			damage_accumulator -= shield;
 			shield = 0;
 		}
 		else
 		{
+			damage_shield = damage_accumulator;
 			shield -= damage_accumulator;
 			damage_accumulator = 0;
 		}
 
+		s8 damage_hp;
 		if (damage_accumulator > hp)
+		{
+			damage_hp = hp;
 			hp = 0;
+		}
 		else
+		{
+			damage_hp = damage_accumulator;
 			hp -= damage_accumulator;
+		}
 
 		regen_timer = REGEN_TIME + REGEN_DELAY;
 
-		damaged.fire({ e, damage });
+		damaged.fire(
+		{
+			e,
+			-damage,
+			-damage_hp,
+			-damage_shield,
+		});
 		if (hp == 0)
 			killed.fire(e);
 	}
@@ -157,7 +179,15 @@ void Health::add(s8 amount)
 	s16 old_hp = hp;
 	hp = vi_min((s8)(hp + amount), hp_max);
 	if (hp > old_hp)
-		added.fire();
+	{
+		added.fire(
+		{
+			nullptr,
+			amount,
+			amount,
+			0,
+		});
+	}
 }
 
 s8 Health::total() const
@@ -265,7 +295,10 @@ void EnergyPickup::reset()
 
 void EnergyPickup::hit(const TargetEvent& e)
 {
-	set_team(e.hit_by->get<AIAgent>()->team, e.hit_by);
+	if (e.hit_by->has<Awk>() && e.hit_by->get<Awk>()->current_ability == Ability::Sniper)
+		set_team(AI::TeamNone, e.hit_by);
+	else
+		set_team(e.hit_by->get<AIAgent>()->team, e.hit_by);
 }
 
 // returns true if we were successfully captured
@@ -278,8 +311,12 @@ b8 EnergyPickup::set_team(AI::Team t, Entity* caused_by)
 		team = t;
 		get<View>()->team = (s8)t;
 		get<PointLight>()->team = (s8)t;
-		if (caused_by)
+		if (caused_by && t == caused_by->get<AIAgent>()->team)
+		{
 			caused_by->get<PlayerCommon>()->manager.ref()->add_credits(CREDITS_CAPTURE_ENERGY_PICKUP);
+			if (caused_by->has<PlayerControlHuman>())
+				caused_by->get<PlayerControlHuman>()->player.ref()->msg(_(strings::battery_captured), true);
+		}
 		return true;
 	}
 
@@ -1205,7 +1242,7 @@ void teleport(Entity* e, Teleporter* target)
 		e->get<Awk>()->detach_teleport();
 		e->get<Transform>()->absolute(pos + rot * Quat::euler(0, 0, e->get<Awk>()->id() * PI * 0.25f) * Vec3(0, 0, AWK_RADIUS * 4.0f), rot);
 		e->get<Awk>()->velocity = rot * Vec3(0.0f, 0.0f, -AWK_FLY_SPEED); // make sure it shoots into the wall
-		e->get<Awk>()->invincible_timer = AWK_INVINCIBLE_TIME;
+		e->get<Awk>()->overshield_timer = AWK_OVERSHIELD_TIME;
 	}
 	else
 		vi_assert(false);

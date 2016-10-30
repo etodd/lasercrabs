@@ -14,10 +14,7 @@ namespace VI
 
 struct RigidBody;
 struct Transform;
-struct PlayerControlHuman;
 struct PlayerManager;
-struct Health;
-struct DamageEvent;
 
 struct PlayerHuman : public ComponentType<PlayerHuman>
 {

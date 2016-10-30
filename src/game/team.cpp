@@ -586,8 +586,7 @@ void Team::update_all(const Update& u)
 				for (auto rocket = Rocket::list.iterator(); !rocket.is_last(); rocket.next())
 				{
 					if (rocket.item()->team == team->team() // it belongs to our team
-						&& rocket.item()->get<Transform>()->parent.ref() // it's waiting to be fired
-						)
+						&& rocket.item()->get<Transform>()->parent.ref()) // it's waiting to be fired
 					{
 						b8 visible = false; // we're tracking the player, or the owner is alive and can see the player
 						if (track->tracking)
@@ -599,12 +598,15 @@ void Team::update_all(const Update& u)
 								visible = true;
 						}
 
-						Vec3 rocket_pos = rocket.item()->get<Transform>()->absolute_pos();
-						if ((rocket_pos - player_pos).length_squared() < ROCKET_RANGE * ROCKET_RANGE // it's in range
-							&& ContainmentField::hash(team->team(), rocket_pos) == ContainmentField::hash(team->team(), player_pos)) // no containment fields in the way
+						if (visible)
 						{
-							rocket.item()->launch(player_or_decoy);
-							break;
+							Vec3 rocket_pos = rocket.item()->get<Transform>()->absolute_pos();
+							if ((rocket_pos - player_pos).length_squared() < ROCKET_RANGE * ROCKET_RANGE // it's in range
+								&& ContainmentField::hash(team->team(), rocket_pos) == ContainmentField::hash(team->team(), player_pos)) // no containment fields in the way
+							{
+								rocket.item()->launch(player_or_decoy);
+								break;
+							}
 						}
 					}
 				}

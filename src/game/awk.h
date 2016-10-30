@@ -14,7 +14,7 @@ namespace VI
 struct Transform;
 struct Rope;
 struct View;
-struct DamageEvent;
+struct HealthEvent;
 
 #define AWK_SHIELD 1
 #define AWK_HEALTH 1
@@ -22,7 +22,7 @@ struct DamageEvent;
 #define AWK_CRAWL_SPEED 2.5f
 #define AWK_COOLDOWN 3.0f
 #define AWK_LEGS 3
-#define AWK_INVINCIBLE_TIME 3.0f
+#define AWK_OVERSHIELD_TIME 3.0f
 #define AWK_SNIPE_DISTANCE 100.0f
 #define AWK_CHARGES 3
 #define AWK_THIRD_PERSON_OFFSET 2.0f
@@ -68,7 +68,8 @@ struct Awk : public ComponentType<Awk>
 	Vec3 lerped_pos;
 	Vec3 last_pos;
 	r32 attach_time;
-	r32 invincible_timer;
+	r32 overshield_timer;
+	r32 shield_time;
 	r32 cooldown; // remaining cooldown time
 	r32 last_speed;
 	r32 last_footstep;
@@ -77,6 +78,7 @@ struct Awk : public ComponentType<Awk>
 	Ability current_ability;
 	Footing footing[AWK_LEGS];
 	Ref<Entity> shield;
+	Ref<Entity> overshield;
 	StaticArray<Ref<Entity>, 4> hit_targets;
 	LinkArg<const Vec3&> bounce;
 	LinkArg<Entity*> hit;
@@ -101,7 +103,8 @@ struct Awk : public ComponentType<Awk>
 	b8 cooldown_can_shoot() const; // can we go?
 	void hit_by(const TargetEvent&); // called when we get hit
 	b8 hit_target(Entity*); // called when we hit a target
-	void damaged(const DamageEvent&);
+	void damaged(const HealthEvent&);
+	void health_added(const HealthEvent&);
 	void killed(Entity*);
 	Entity* incoming_attacker() const;
 

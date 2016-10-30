@@ -1052,8 +1052,8 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 		case Type::Deathmatch:
 		{
 			level.respawns = -1;
-			level.kill_limit = 10;
-			level.time_limit = (60.0f * 10.0f) + PLAYER_SPAWN_DELAY;
+			level.kill_limit = 5;
+			level.time_limit = (60.0f * 8.0f) + PLAYER_SPAWN_DELAY;
 			break;
 		}
 		default:
@@ -1185,7 +1185,7 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 							m = World::alloc<StaticGeom>(mesh_id, absolute_pos, absolute_rot, CollisionInaccessible, ~CollisionParkour & ~CollisionInaccessibleMask);
 						else
 							m = World::alloc<StaticGeom>(mesh_id, absolute_pos, absolute_rot, CollisionParkour | CollisionInaccessible, ~CollisionParkour & ~CollisionInaccessibleMask);
-						m->get<View>()->color.w = MATERIAL_NO_OVERRIDE;
+						m->get<View>()->color.w = MATERIAL_INACCESSIBLE;
 					}
 					else
 					{
@@ -1408,7 +1408,7 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 					{
 						const Mesh* mesh = Loader::mesh(mesh_id);
 						if (mesh->color.w < 0.5f)
-							entity->get<View>()->color.w = MATERIAL_NO_OVERRIDE;
+							entity->get<View>()->color.w = MATERIAL_INACCESSIBLE;
 					}
 					if (alpha)
 						entity->get<View>()->alpha();
@@ -1433,7 +1433,7 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 					{
 						const Mesh* mesh = Loader::mesh(mesh_id);
 						if (mesh->color.w < 0.5f)
-							entity->get<SkinnedModel>()->color.w = MATERIAL_NO_OVERRIDE;
+							entity->get<SkinnedModel>()->color.w = MATERIAL_INACCESSIBLE;
 					}
 					if (alpha)
 						entity->get<SkinnedModel>()->alpha();
@@ -1472,7 +1472,7 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 					{
 						const Mesh* mesh = Loader::mesh(mesh_id);
 						if (mesh->color.w < 0.5f)
-							m->get<View>()->color.w = MATERIAL_NO_OVERRIDE;
+							m->get<View>()->color.w = MATERIAL_INACCESSIBLE;
 					}
 
 					if (alpha)

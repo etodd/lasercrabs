@@ -38,7 +38,7 @@ Windows quickstart
    [available on the path](http://www.computerhope.com/issues/ch000549.htm)
 6. Ensure [Wwise](https://www.audiokinetic.com/) is installed and `WwiseCLI`
 is available on the path
-7. Run `setup.bat`
+7. Run `setup-win.bat`
 8. Open `build/yearning.sln` in Visual Studio
 9. Set the `yearning` project as the default startup project
 10. Hit F5 to run the game

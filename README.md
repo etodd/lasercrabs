@@ -30,41 +30,44 @@ It's alright. It uses templates too often. Otherwise not too bad.
 Windows quickstart
 ------------------
 
-1. Install [Visual Studio](https://www.visualstudio.com/en-us/downloads/download-visual-studio-vs.aspx)
-2. Install the [DirectX SDK](https://www.microsoft.com/en-us/download/confirmation.aspx?id=6812)
-3. Install [CMake](http://www.cmake.org/download/)
-4. Ensure [Blender](http://blender.org) is installed and
+1. Clone the repository and pull down the submodules. Don't worry about the `src/platforms/ps` submodule. You will need [Git LFS](https://git-lfs.github.com/).
+2. Install [Visual Studio](https://www.visualstudio.com/en-us/downloads/download-visual-studio-vs.aspx)
+3. Install the [DirectX SDK](https://www.microsoft.com/en-us/download/confirmation.aspx?id=6812)
+4. Install [CMake](http://www.cmake.org/download/)
+5. Ensure [Blender](http://blender.org) is installed and
    [available on the path](http://www.computerhope.com/issues/ch000549.htm)
-5. Ensure [Wwise](https://www.audiokinetic.com/) is installed and `WwiseCLI`
+6. Ensure [Wwise](https://www.audiokinetic.com/) is installed and `WwiseCLI`
 is available on the path
-6. Run `setup.bat`
-7. Open `build/yearning.sln` in Visual Studio
-8. Set the `yearning` project as the default startup project
-9. Hit F5 to run the game
+7. Run `setup.bat`
+8. Open `build/yearning.sln` in Visual Studio
+9. Set the `yearning` project as the default startup project
+10. Hit F5 to run the game
 
 Linux quickstart
 ----------------
 
-1. The Wwise authoring tool doesn't run on Linux. Use Wwise on another platform
+1. Clone the repository and pull down the submodules. Don't worry about the `src/platforms/ps` submodule. You will need [Git LFS](https://git-lfs.github.com/).
+2. The Wwise authoring tool doesn't run on Linux. Use Wwise on another platform
 to build the Linux soundbanks.
-2. If necessary, copy the generated `Wwise_IDs.h` file into `src/asset`
-3. Copy the soundbanks into `assets/audio/GeneratedSoundBanks/Linux`
-4. If you are on Debian/Ubuntu, run `./setup-debian-deps`. Otherwise you'll need to install these dependencies yourself.
-5. Run `./setup-linux`
-6. Run `./yearning` from the `build` folder
+3. If necessary, copy the generated `Wwise_IDs.h` file into `src/asset`
+4. Copy the soundbanks into `assets/audio/GeneratedSoundBanks/Linux`
+5. If you are on Debian/Ubuntu, run `./setup-debian-deps`. Otherwise you'll need to install these dependencies yourself.
+6. Run `./setup-linux`
+7. Run `./yearning` from the `build` folder
 
 Mac quickstart
 --------------
 
-1. Install [Homebrew](http://brew.sh/)
-2. Ensure [Blender](http://blender.org) is installed and
+1. Clone the repository and pull down the submodules. Don't worry about the `src/platforms/ps` submodule. You will need [Git LFS](https://git-lfs.github.com/).
+2. Install [Homebrew](http://brew.sh/)
+3. Ensure [Blender](http://blender.org) is installed and
    [available on the path](http://www.computerhope.com/issues/ch000549.htm)
-3. Ensure [Wwise](https://www.audiokinetic.com/) is installed and `WwiseCLI.sh`
+4. Ensure [Wwise](https://www.audiokinetic.com/) is installed and `WwiseCLI.sh`
 is available on the path
-4. Wwise might have trouble generating soundbanks the first time. You might
+5. Wwise might have trouble generating soundbanks the first time. You might
 need to delete any cache files and open the project manually in Wwise first.
-5. Run `./setup-mac`
-6. Run `./yearning` from the `build` folder
+6. Run `./setup-mac`
+7. Run `./yearning` from the `build` folder
 
 Asset license
 -------------

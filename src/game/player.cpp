@@ -1754,8 +1754,8 @@ void PlayerControlHuman::update(const Update& u)
 							tolerance_pos += (position_history[i - 1].pos - entry.pos).length();
 							tolerance_rot += Quat::angle(position_history[i - 1].rot, entry.rot);
 						}
-						tolerance_pos *= 2.0f;
-						tolerance_rot *= 1.5f;
+						tolerance_pos *= 3.0f;
+						tolerance_rot *= 3.0f;
 						break;
 					}
 				}

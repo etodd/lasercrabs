@@ -19,6 +19,7 @@
 #include "data/ragdoll.h"
 #include "game/minion.h"
 #include "game/ai_player.h"
+#include "game/team.h"
 #include "game/player.h"
 #include "assimp/contrib/zlib/zlib.h"
 #include "console.h"
@@ -237,7 +238,7 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 
 	for (s32 i = 0; i < MAX_FAMILIES; i++)
 	{
-		if (e->component_mask & (ComponentMask(1) << i) & mask)
+		if (e->component_mask & mask & (ComponentMask(1) << i))
 		{
 			serialize_int(p, ID, e->components[i], 0, MAX_ENTITIES - 1);
 			ID component_id = e->components[i];
@@ -313,6 +314,7 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 		serialize_r32_range(p, a->cooldown, 0, AWK_COOLDOWN, 8);
 		serialize_int(p, Ability, a->current_ability, 0, s32(Ability::count) + 1);
 		serialize_ref(p, a->shield);
+		serialize_ref(p, a->overshield);
 		serialize_int(p, s8, a->charges, 0, AWK_CHARGES);
 	}
 
@@ -412,14 +414,14 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 
 	if (e->has<EnergyPickup>())
 	{
-		EnergyPickup* h = e->get<EnergyPickup>();
-		serialize_s8(p, h->team);
+		EnergyPickup* b = e->get<EnergyPickup>();
+		serialize_s8(p, b->team);
+		serialize_ref(p, b->light);
 	}
 
 	if (e->has<Sensor>())
 	{
 		Sensor* s = e->get<Sensor>();
-		serialize_ref(p, s->owner);
 		serialize_s8(p, s->team);
 	}
 
@@ -1255,7 +1257,7 @@ template<typename Stream> b8 serialize_state_frame(Stream* p, StateFrame* frame,
 		// count changed transforms
 		changed_count = 0;
 		s32 index = s32(frame->transforms_active.start);
-		while (index <= frame->transforms_active.end)
+		while (index < frame->transforms_active.end)
 		{
 			if (!equal_states_transform(frame, base, index))
 				changed_count++;
@@ -1352,11 +1354,11 @@ b8 transform_filter(const Transform* t)
 void state_frame_build(StateFrame* frame)
 {
 	frame->sequence_id = state_common.local_sequence_id;
-	frame->transforms_active = Transform::list.mask;
 	for (auto i = Transform::list.iterator(); !i.is_last(); i.next())
 	{
 		if (transform_filter(i.item()))
 		{
+			frame->transforms_active.set(i.index, true);
 			TransformState* transform = &frame->transforms[i.index];
 			transform->revision = i.item()->revision;
 			transform->pos = i.item()->pos;
@@ -1364,8 +1366,6 @@ void state_frame_build(StateFrame* frame)
 			transform->parent = i.item()->parent.ref(); // ID must come out to IDNull if it's null; don't rely on revision to null the reference
 			transform->resolution = i.item()->has<PlayerControlHuman>() ? Resolution::High : Resolution::Low;
 		}
-		else
-			frame->transforms_active.set(i.index, false);
 	}
 
 	for (auto i = PlayerManager::list.iterator(); !i.is_last(); i.next())
@@ -1441,7 +1441,7 @@ void state_frame_interpolate(const StateFrame& a, const StateFrame& b, StateFram
 	// transforms
 	{
 		s32 index = s32(b.transforms_active.start);
-		while (index <= b.transforms_active.end)
+		while (index < b.transforms_active.end)
 		{
 			TransformState* transform = &result->transforms[index];
 			const TransformState& last = a.transforms[index];
@@ -1501,11 +1501,11 @@ void state_frame_apply(const StateFrame& frame)
 {
 	// transforms
 	s32 index = frame.transforms_active.start;
-	while (index <= frame.transforms_active.end)
+	while (index < frame.transforms_active.end)
 	{
 		Transform* t = &Transform::list[index];
 		const TransformState& s = frame.transforms[index];
-		if (t->revision == s.revision)
+		if (t->revision == s.revision && Transform::list.active(index))
 		{
 			if (t->has<PlayerControlHuman>() && t->get<PlayerControlHuman>()->player.ref()->local)
 			{
@@ -1899,7 +1899,7 @@ b8 packet_handle(const Update& u, StreamRead* p, const Sock::Address& address)
 						serialize_int(p, s8, gamepad, 0, MAX_GAMEPADS - 1);
 
 						Entity* e = World::create<ContainerEntity>();
-						PlayerManager* manager = e->add<PlayerManager>(&Team::list[(s32)team]);
+						PlayerManager* manager = e->add<PlayerManager>(&Team::list[Game::level.team_lookup[(s32)team]]);
 						if (gamepad == 0)
 							sprintf(manager->username, "%s", username);
 						else
@@ -2669,10 +2669,16 @@ b8 msg_process(StreamRead* p, MessageSource src)
 		}
 		case MessageType::PlayerControlHuman:
 		{
-			vi_assert(src == MessageSource::Loopback);
+			vi_assert(src == MessageSource::Loopback); // this is only executed on the client; Server::msg_process handles this on the server
 			Ref<PlayerControlHuman> c;
 			serialize_ref(p, c);
 			if (!PlayerControlHuman::net_msg(p, c.ref(), src))
+				net_error();
+			break;
+		}
+		case MessageType::EnergyPickup:
+		{
+			if (!EnergyPickup::net_msg(p))
 				net_error();
 			break;
 		}

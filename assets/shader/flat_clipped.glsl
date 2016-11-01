@@ -47,8 +47,7 @@ void main()
 #define AWK_RADIUS 0.2f
 
 uniform vec4 diffuse_color;
-uniform vec3 cull_center;
-uniform vec3 wall_normal;
+uniform vec4 plane;
 
 in vec3 pos_viewspace;
 
@@ -57,13 +56,8 @@ layout (location = 1) out vec4 out_normal;
 
 void main()
 {
-	vec3 p = pos_viewspace - cull_center;
-
-	if (dot(p, wall_normal) > -AWK_RADIUS) // is the pixel in front of the wall?
-	{
-		// in front of wall
+	if (dot(pos_viewspace, plane.xyz) > -plane.w)
 		discard;
-	}
 
 	out_color = diffuse_color;
 	out_normal = vec4(0, 0, 0, 1.0);

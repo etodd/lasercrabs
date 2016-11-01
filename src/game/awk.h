@@ -5,8 +5,7 @@
 #include "bullet/src/BulletCollision/CollisionDispatch/btCollisionWorld.h"
 #include "data/import_common.h"
 #include "ai.h"
-#include "team.h"
-#include "net.h"
+#include "constants.h"
 
 namespace VI
 {
@@ -15,18 +14,14 @@ struct Transform;
 struct Rope;
 struct View;
 struct HealthEvent;
+struct RigidBody;
+struct TargetEvent;
+struct Target;
 
-#define AWK_SHIELD 1
-#define AWK_HEALTH 1
-#define AWK_FLY_SPEED 35.0f
-#define AWK_CRAWL_SPEED 2.5f
-#define AWK_COOLDOWN 3.0f
-#define AWK_LEGS 3
-#define AWK_OVERSHIELD_TIME 3.0f
-#define AWK_SNIPE_DISTANCE 100.0f
-#define AWK_CHARGES 3
-#define AWK_THIRD_PERSON_OFFSET 2.0f
-#define AWK_SHIELD_RADIUS 0.6f
+namespace Net
+{
+	struct StreamRead;
+}
 
 // If we raycast through a Minion's head, keep going.
 struct AwkRaycastCallback : btCollisionWorld::ClosestRayResultCallback
@@ -40,9 +35,6 @@ struct AwkRaycastCallback : btCollisionWorld::ClosestRayResultCallback
 
 	btScalar addSingleResult(btCollisionWorld::LocalRayResult&, b8);
 };
-
-struct TargetEvent;
-struct Target;
 
 struct Awk : public ComponentType<Awk>
 {
@@ -103,8 +95,7 @@ struct Awk : public ComponentType<Awk>
 	b8 cooldown_can_shoot() const; // can we go?
 	void hit_by(const TargetEvent&); // called when we get hit
 	b8 hit_target(Entity*); // called when we hit a target
-	void damaged(const HealthEvent&);
-	void health_added(const HealthEvent&);
+	void health_changed(const HealthEvent&);
 	void killed(Entity*);
 	Entity* incoming_attacker() const;
 

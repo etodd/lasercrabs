@@ -278,6 +278,7 @@ set(SRC
 	src/game/awk.cpp
 	src/game/walker.h
 	src/game/walker.cpp
+	src/game/constants.h
 	src/game/game.h
 	src/game/game.cpp
 	src/game/audio.h
@@ -308,7 +309,7 @@ set(SRC
 	assets/shader/standard_flat.glsl
 	assets/shader/standard_instanced.glsl
 	assets/shader/culled.glsl
-	assets/shader/cylinder_inside.glsl
+	assets/shader/flat_clipped.glsl
 	assets/shader/ui.glsl
 	assets/shader/ui_texture.glsl
 	assets/shader/debug_depth.glsl
@@ -551,6 +552,7 @@ if (NOT PLAYSTATION)
 	endif()
 
 	add_executable(import
+		src/data/constants.h
 		src/data/import_common.h
 		src/data/import_common.cpp
 		src/render/glvm.h

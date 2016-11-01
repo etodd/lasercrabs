@@ -21,6 +21,7 @@
 #include "render/particles.h"
 #include "net.h"
 #include "net_serialize.h"
+#include "team.h"
 
 namespace VI
 {
@@ -31,7 +32,9 @@ namespace VI
 #define AWK_LEG_LENGTH (0.277f - 0.101f)
 #define AWK_LEG_BLEND_SPEED (1.0f / 0.03f)
 #define AWK_MIN_LEG_BLEND_SPEED (AWK_LEG_BLEND_SPEED * 0.1f)
-#define AWK_SHIELD_ALPHA 0.1f
+#define AWK_SHIELD_ALPHA 0.2f
+#define AWK_OVERSHIELD_ALPHA 0.75f
+#define AWK_OVERSHIELD_RADIUS (AWK_SHIELD_RADIUS * 1.1f)
 #define AWK_SHIELD_ANIM_TIME 0.35f
 
 AwkRaycastCallback::AwkRaycastCallback(const Vec3& a, const Vec3& b, const Entity* awk)
@@ -334,8 +337,7 @@ Awk::Awk()
 void Awk::awake()
 {
 	link_arg<Entity*, &Awk::killed>(get<Health>()->killed);
-	link_arg<const HealthEvent&, &Awk::damaged>(get<Health>()->damaged);
-	link_arg<const HealthEvent&, &Awk::health_added>(get<Health>()->added);
+	link_arg<const HealthEvent&, &Awk::health_changed>(get<Health>()->changed);
 	link_arg<const TargetEvent&, &Awk::hit_by>(get<Target>()->target_hit);
 	if (Game::level.local && !shield.ref())
 	{
@@ -366,10 +368,10 @@ void Awk::awake()
 			View* s = shield_entity->add<View>();
 			s->team = (s8)get<AIAgent>()->team;
 			s->mesh = Asset::Mesh::sphere_highres;
-			s->offset.scale(Vec3(AWK_SHIELD_RADIUS * 1.1f));
+			s->offset.scale(Vec3(AWK_OVERSHIELD_RADIUS));
 			s->shader = Asset::Shader::fresnel;
 			s->alpha();
-			s->color.w = 0.75f;
+			s->color.w = AWK_OVERSHIELD_ALPHA;
 
 			Net::finalize(shield_entity);
 		}
@@ -379,10 +381,13 @@ void Awk::awake()
 
 Awk::~Awk()
 {
-	if (shield.ref())
-		World::remove_deferred(shield.ref());
-	if (overshield.ref())
-		World::remove_deferred(overshield.ref());
+	if (Game::level.local)
+	{
+		if (shield.ref())
+			World::remove_deferred(shield.ref());
+		if (overshield.ref())
+			World::remove_deferred(overshield.ref());
+	}
 }
 
 Awk::State Awk::state() const
@@ -471,7 +476,7 @@ void Awk::hit_by(const TargetEvent& e)
 
 	b8 damaged = false;
 
-	// only take damage if we're attached to a wall and not overshield
+	// only take damage if we're attached to a wall and have no overshield
 	if (state() == Awk::State::Crawl
 		&& overshield_timer == 0.0f
 		&& (!e.hit_by->has<Awk>() || e.hit_by->get<AIAgent>()->team != get<AIAgent>()->team))
@@ -577,52 +582,54 @@ b8 Awk::predict_intersection(const Target* target, Vec3* intersection, r32 speed
 		return target->predict_intersection(get<Transform>()->absolute_pos(), speed, intersection);
 }
 
-void Awk::damaged(const HealthEvent& e)
+void Awk::health_changed(const HealthEvent& e)
 {
-	if (e.shield != 0)
-		shield_time = Game::time.total;
-
-	if (get<Health>()->hp == 0)
+	if (e.amount < 0)
 	{
-		// killed; notify everyone
-		if (e.source)
-		{
-			PlayerCommon* enemy = nullptr;
-			if (e.source->has<PlayerCommon>())
-				enemy = e.source->get<PlayerCommon>();
-			else if (e.source->has<Projectile>())
-			{
-				Entity* owner = e.source->get<Projectile>()->owner.ref();
-				if (owner)
-					enemy = owner->get<PlayerCommon>();
-			}
-			else if (e.source->has<Rocket>())
-			{
-				Entity* owner = e.source->get<Rocket>()->owner.ref();
-				if (owner)
-					enemy = owner->get<PlayerCommon>();
-			}
-			if (enemy)
-				enemy->manager.ref()->add_kills(1);
-		}
+		// damaged
 
-		AI::Team team = get<AIAgent>()->team;
-		PlayerManager* manager = get<PlayerCommon>()->manager.ref();
-		for (auto i = PlayerHuman::list.iterator(); !i.is_last(); i.next())
+		if (e.shield != 0)
+			shield_time = Game::time.total;
+
+		if (get<Health>()->hp == 0)
 		{
-			if (i.item()->get<PlayerManager>() != manager) // don't need to notify ourselves
+			// killed; notify everyone
+			if (e.source)
 			{
-				b8 friendly = i.item()->get<PlayerManager>()->team.ref()->team() == team;
-				char buffer[512];
-				sprintf(buffer, _(strings::player_killed), manager->username);
-				i.item()->msg(buffer, !friendly);
+				PlayerCommon* enemy = nullptr;
+				if (e.source->has<PlayerCommon>())
+					enemy = e.source->get<PlayerCommon>();
+				else if (e.source->has<Projectile>())
+				{
+					Entity* owner = e.source->get<Projectile>()->owner.ref();
+					if (owner)
+						enemy = owner->get<PlayerCommon>();
+				}
+				else if (e.source->has<Rocket>())
+				{
+					Entity* owner = e.source->get<Rocket>()->owner.ref();
+					if (owner)
+						enemy = owner->get<PlayerCommon>();
+				}
+				if (enemy)
+					enemy->manager.ref()->add_kills(1);
+			}
+
+			AI::Team team = get<AIAgent>()->team;
+			PlayerManager* manager = get<PlayerCommon>()->manager.ref();
+			for (auto i = PlayerHuman::list.iterator(); !i.is_last(); i.next())
+			{
+				if (i.item()->get<PlayerManager>() != manager) // don't need to notify ourselves
+				{
+					b8 friendly = i.item()->get<PlayerManager>()->team.ref()->team() == team;
+					char buffer[512];
+					sprintf(buffer, _(strings::player_killed), manager->username);
+					i.item()->msg(buffer, !friendly);
+				}
 			}
 		}
 	}
-}
 
-void Awk::health_added(const HealthEvent& e)
-{
 	if (e.shield != 0)
 		shield_time = Game::time.total;
 }
@@ -952,7 +959,7 @@ b8 Awk::go(const Vec3& dir)
 			case Ability::Sensor:
 			{
 				// place a proximity sensor
-				Entity* sensor = World::create<SensorEntity>(manager, pos + rot * Vec3(0, 0, (rope_segment_length * 2.0f) - rope_radius + SENSOR_RADIUS), rot);
+				Entity* sensor = World::create<SensorEntity>(manager->team.ref()->team(), pos + rot * Vec3(0, 0, (rope_segment_length * 2.0f) - rope_radius + SENSOR_RADIUS), rot);
 				Net::finalize(sensor);
 
 				Audio::post_global_event(AK::EVENTS::PLAY_SENSOR_SPAWN, pos);
@@ -1145,7 +1152,7 @@ void Awk::reflect(const Vec3& hit, const Vec3& normal)
 					new_velocity = candidate_velocity;
 					farthest_distance = distance_to_next_hit;
 
-					if (distance_to_next_hit > (AWK_MAX_DISTANCE * 0.5f * AWK_MAX_DISTANCE * 0.5f)) // try to bounce to a spot at least X units away
+					if (distance_to_next_hit > (AWK_MAX_DISTANCE * 0.25f * AWK_MAX_DISTANCE * 0.25f)) // try to bounce to a spot at least X units away
 						break;
 				}
 			}
@@ -1409,10 +1416,13 @@ void Awk::update_offset()
 	Vec3 offset_pos = lerped_pos;
 	get<Transform>()->to_local(&offset_pos, &offset_rot);
 	get<SkinnedModel>()->offset.rotation(offset_rot);
-	if (state() == State::Crawl)
-		get<SkinnedModel>()->offset.translation(offset_pos);
-	else
-		get<SkinnedModel>()->offset.translation(Vec3::zero);
+
+	if (state() != State::Crawl)
+		offset_pos = Vec3::zero;
+
+	get<SkinnedModel>()->offset.translation(offset_pos);
+	shield.ref()->get<View>()->offset.translation(offset_pos);
+	overshield.ref()->get<View>()->offset.translation(offset_pos);
 }
 
 void Awk::stealth(b8 enable)
@@ -1489,51 +1499,6 @@ void Awk::update_server(const Update& u)
 void Awk::update_client(const Update& u)
 {
 	State s = state();
-
-	{
-		// shield
-		View* v = shield.ref()->get<View>();
-		if (get<Health>()->shield > 0 || u.time.total - shield_time < AWK_SHIELD_ANIM_TIME)
-		{
-			if (get<AIAgent>()->stealth)
-				v->mask = 1 << (s32)get<AIAgent>()->team; // only display to fellow teammates
-			else
-				v->mask = RENDER_MASK_DEFAULT; // everyone can see
-
-			r32 blend = Ease::cubic_in<r32>(vi_min((u.time.total - shield_time) / AWK_SHIELD_ANIM_TIME, 1.0f));
-			if (get<Health>()->shield > 0)
-			{
-				// shield is coming in; blend from large to small
-				if (blend < 0.5f)
-					v->color.w = LMath::lerpf(blend / 0.5f, 0.0f, 0.4f);
-				else
-					v->color.w = LMath::lerpf((blend - 0.5f) / 0.5f, 0.4f, AWK_SHIELD_ALPHA);
-				v->offset = Mat4::make_scale(Vec3(LMath::lerpf(blend, 8.0f, AWK_SHIELD_RADIUS)));
-			}
-			else
-			{
-				// we just lost our shield; blend to large and faded out
-				v->color.w = LMath::lerpf(blend, 0.75f, 0.0f);
-				v->offset = Mat4::make_scale(Vec3(LMath::lerpf(blend, AWK_SHIELD_RADIUS, 8.0f)));
-			}
-		}
-		else
-			shield.ref()->get<View>()->mask = 0;
-	}
-
-	{
-		// overshield
-		View* v = overshield.ref()->get<View>();
-		if (overshield_timer > 0.0f || s != Awk::State::Crawl)
-		{
-			if (get<AIAgent>()->stealth)
-				v->mask = 1 << (s32)get<AIAgent>()->team; // only display to fellow teammates
-			else
-				v->mask = RENDER_MASK_DEFAULT; // everyone can see
-		}
-		else
-			v->mask = 0;
-	}
 
 	if (s == Awk::State::Crawl)
 	{
@@ -1721,6 +1686,60 @@ void Awk::update_client(const Update& u)
 		}
 	}
 
+	{
+		// shield
+		View* v = shield.ref()->get<View>();
+		if (get<Health>()->shield > 0 || u.time.total - shield_time < AWK_SHIELD_ANIM_TIME)
+		{
+			if (get<AIAgent>()->stealth)
+				v->mask = 1 << (s32)get<AIAgent>()->team; // only display to fellow teammates
+			else
+				v->mask = RENDER_MASK_DEFAULT; // everyone can see
+
+			r32 blend = vi_min((u.time.total - shield_time) / AWK_SHIELD_ANIM_TIME, 1.0f);
+			v->offset = get<SkinnedModel>()->offset;
+			if (get<Health>()->shield > 0)
+			{
+				// shield is coming in; blend from zero to normal size
+				blend = Ease::cubic_out<r32>(blend);
+				v->color.w = LMath::lerpf(blend, 0.0f, AWK_SHIELD_ALPHA);
+				v->offset.make_transform(v->offset.translation(), Vec3(LMath::lerpf(blend, 0.0f, AWK_SHIELD_RADIUS)), Quat::identity);
+			}
+			else
+			{
+				// we just lost our shield; blend from normal size to large and faded out
+				blend = Ease::cubic_in<r32>(blend);
+				v->color.w = LMath::lerpf(blend, 0.75f, 0.0f);
+				v->offset.make_transform(v->offset.translation(), Vec3(LMath::lerpf(blend, AWK_SHIELD_RADIUS, 8.0f)), Quat::identity);
+			}
+		}
+		else
+			v->mask = 0;
+	}
+
+	{
+		// overshield
+		View* v = overshield.ref()->get<View>();
+		if (overshield_timer > 0.0f)
+		{
+			const r32 anim_time = 0.25f;
+			r32 blend;
+			if (overshield_timer > AWK_OVERSHIELD_TIME - anim_time)
+				blend = Ease::cubic_out<r32>((AWK_OVERSHIELD_TIME - overshield_timer) / anim_time); // fade in from 0 to 1
+			else
+				blend = Ease::cubic_out<r32>(vi_min(1.0f, overshield_timer / anim_time)); // fade out from 1 to 0
+			v->offset.make_transform(v->offset.translation(), Vec3(LMath::lerpf(blend, AWK_SHIELD_RADIUS, AWK_OVERSHIELD_RADIUS)), Quat::identity);
+			v->color.w = blend * AWK_OVERSHIELD_ALPHA;
+			if (get<AIAgent>()->stealth)
+				v->mask = 1 << (s32)get<AIAgent>()->team; // only display to fellow teammates
+			else
+				v->mask = RENDER_MASK_DEFAULT; // everyone can see
+		}
+		else
+			v->mask = 0;
+	}
+
+	// update velocity
 	{
 		Vec3 pos = get<Transform>()->absolute_pos();
 		if (s == State::Crawl)

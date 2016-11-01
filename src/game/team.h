@@ -7,10 +7,6 @@
 #include "ai.h"
 #include "game.h"
 
-// NOTE: this is also the max number of teams
-// if you change this, make sure to allocate more physics categories for each team's containment field
-#define MAX_PLAYERS 4
-
 namespace VI
 {
 
@@ -21,54 +17,11 @@ struct Target;
 struct TargetEvent;
 struct PlayerManager;
 
-
-#define PLAYER_SPAWN_DELAY 3.0f
-#define GAME_BUY_PERIOD (10.0f + PLAYER_SPAWN_DELAY)
-#define CREDITS_INITIAL 60
-#define CREDITS_MINION_KILL 10
-#define CREDITS_SENSOR_DESTROY 10
-#define CREDITS_CONTAINMENT_FIELD_DESTROY 10
-#define CREDITS_DEFAULT_INCREMENT 5
-#define CREDITS_CONTROL_POINT 5
-#define CREDITS_ENERGY_PICKUP 5
-#define CREDITS_CAPTURE_CONTROL_POINT 10
-#define CREDITS_CAPTURE_ENERGY_PICKUP 10
-#define MAX_ABILITIES 3
-
-#define UPGRADE_TIME 1.5f
-#define CAPTURE_TIME 3.0f
-
-enum class Ability
-{
-	Sensor,
-	Minion,
-	Teleporter,
-	Rocket,
-	ContainmentField,
-	Sniper,
-	Decoy,
-	count,
-	None,
-};
-
 struct AbilityInfo
 {
 	AssetID icon;
 	s16 spawn_cost;
 	static AbilityInfo list[(s32)Ability::count];
-};
-
-enum class Upgrade
-{
-	Sensor,
-	Minion,
-	Teleporter,
-	Rocket,
-	ContainmentField,
-	Sniper,
-	Decoy,
-	count,
-	None = count,
 };
 
 struct UpgradeInfo

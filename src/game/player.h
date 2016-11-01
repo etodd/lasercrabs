@@ -6,8 +6,7 @@
 #include "render/ui.h"
 #include "ai.h"
 #include "menu.h"
-#include "team.h"
-#include "net.h"
+#include "constants.h"
 
 namespace VI
 {
@@ -15,6 +14,14 @@ namespace VI
 struct RigidBody;
 struct Transform;
 struct PlayerManager;
+
+namespace Net
+{
+	struct StreamRead;
+}
+
+struct TargetEvent;
+struct Target;
 
 struct PlayerHuman : public ComponentType<PlayerHuman>
 {
@@ -31,6 +38,7 @@ struct PlayerHuman : public ComponentType<PlayerHuman>
 
 	static void update_all(const Update&);
 	static s32 count_local();
+	static s32 count_local_before(PlayerHuman*);
 
 	u64 uuid;
 	Camera* camera;

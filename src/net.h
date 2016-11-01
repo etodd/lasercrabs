@@ -3,20 +3,16 @@
 #include "types.h"
 #include "data/array.h"
 #include "vi_assert.h"
-#include "game/team.h"
+#include "lmath.h"
+#include "data/entity.h"
 
 namespace VI
 {
 
-#define NET_TICK_RATE (1.0f / 60.0f)
-#define NET_SYNC_TOLERANCE_POS 0.2f
-#define NET_SYNC_TOLERANCE_ROT 0.1f
-#define NET_INTERPOLATION_DELAY ((NET_TICK_RATE * 5.0f) + 0.02f)
-#define NET_MAX_PACKET_SIZE 2000
-
 struct Entity;
 struct Awk;
 struct PlayerHuman;
+struct Transform;
 
 namespace Sock
 {
@@ -49,14 +45,7 @@ enum class MessageType
 	LoadingDone,
 	Awk,
 	PlayerControlHuman,
-	count,
-};
-
-enum class MessageSource
-{
-	Remote,
-	Loopback,
-	Invalid, // message is malicious or something; deserialize it but ignore
+	EnergyPickup,
 	count,
 };
 

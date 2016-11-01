@@ -210,28 +210,28 @@ Plane::Plane(const Plane& rhs)
 	d = rhs.d;
 }
 
-Plane::Plane (const Vec3& rkNormal, r32 fConstant)
+Plane::Plane(const Vec3& rkNormal, r32 fConstant)
 {
 	normal = rkNormal;
 	d = -fConstant;
 }
 
-Plane::Plane (r32 a, r32 b, r32 c, r32 _d)
+Plane::Plane(r32 a, r32 b, r32 c, r32 _d)
 	: normal(a, b, c), d(_d)
 {
 }
 
-Plane::Plane (const Vec3& rkNormal, const Vec3& rkPoint)
+Plane::Plane(const Vec3& rkNormal, const Vec3& rkPoint)
 {
 	redefine(rkNormal, rkPoint);
 }
 
-Plane::Plane (const Vec3& rkPoint0, const Vec3& rkPoint1, const Vec3& rkPoint2)
+Plane::Plane(const Vec3& rkPoint0, const Vec3& rkPoint1, const Vec3& rkPoint2)
 {
 	redefine(rkPoint0, rkPoint1, rkPoint2);
 }
 
-r32 Plane::distance (const Vec3& rkPoint) const
+r32 Plane::distance(const Vec3& rkPoint) const
 {
 	return normal.dot(rkPoint) + d;
 }
@@ -242,13 +242,13 @@ void Plane::redefine(const Vec3& rkPoint0, const Vec3& rkPoint1, const Vec3& rkP
 	Vec3 kEdge2 = rkPoint2 - rkPoint0;
 	normal = kEdge1.cross(kEdge2);
 	normal.normalize();
-	d = -normal.dot(rkPoint0);
+	d = -(normal.dot(rkPoint0));
 }
 
 void Plane::redefine(const Vec3& rkNormal, const Vec3& rkPoint)
 {
 	normal = rkNormal;
-	d = -rkNormal.dot(rkPoint);
+	d = -(rkNormal.dot(rkPoint));
 }
 
 Vec3 Plane::project(const Vec3& p) const

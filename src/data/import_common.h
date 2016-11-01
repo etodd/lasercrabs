@@ -5,6 +5,7 @@
 #include <array>
 #include "recast/DetourTileCache/Include/DetourTileCacheBuilder.h"
 #include "pin_array.h"
+#include "game/constants.h"
 
 struct cJSON;
 struct rcPolyMesh;
@@ -12,15 +13,6 @@ struct rcPolyMeshDetail;
 
 namespace VI
 {
-
-#define AWK_DASH_SPEED 20.0f
-#define AWK_DASH_TIME 0.3f
-#define AWK_DASH_DISTANCE (AWK_DASH_SPEED * AWK_DASH_TIME)
-#define AWK_MAX_DISTANCE 25.0f
-#define AWK_RADIUS 0.2f
-#define MAX_BONE_WEIGHTS 4
-#define AWK_VERTICAL_DOT_LIMIT 0.9998f
-#define AWK_VERTICAL_ANGLE_LIMIT ((PI * 0.5f) - 0.021f)
 
 namespace Json
 {

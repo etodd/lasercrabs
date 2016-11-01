@@ -2,8 +2,7 @@
 #include "data/entity.h"
 #include "ai.h"
 #include "data/behavior.h"
-#include "game.h"
-#include "team.h"
+#include "constants.h"
 #if DEBUG_AI_CONTROL
 #include <typeinfo>
 #endif

@@ -26,6 +26,7 @@
 #include "platform/util.h"
 #include "utf8/utf8.h"
 #include "noise.h"
+#include "team.h"
 
 namespace VI
 {

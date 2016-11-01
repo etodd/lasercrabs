@@ -8,7 +8,7 @@ namespace Asset
 {
 	namespace Uniform
 	{
-		const s32 count = 50;
+		const s32 count = 51;
 		const AssetID ambient_color = 0;
 		const AssetID bones = 1;
 		const AssetID buffer_size = 2;
@@ -44,21 +44,22 @@ namespace Asset
 		const AssetID normal_buffer = 32;
 		const AssetID normal_map = 33;
 		const AssetID p = 34;
-		const AssetID player_light = 35;
-		const AssetID range = 36;
-		const AssetID range_center = 37;
-		const AssetID scan_line_interval = 38;
-		const AssetID shadow_map = 39;
-		const AssetID size = 40;
-		const AssetID ssao_buffer = 41;
-		const AssetID time = 42;
-		const AssetID type = 43;
-		const AssetID uv_offset = 44;
-		const AssetID uv_scale = 45;
-		const AssetID v = 46;
-		const AssetID viewport_scale = 47;
-		const AssetID vp = 48;
-		const AssetID wall_normal = 49;
+		const AssetID plane = 35;
+		const AssetID player_light = 36;
+		const AssetID range = 37;
+		const AssetID range_center = 38;
+		const AssetID scan_line_interval = 39;
+		const AssetID shadow_map = 40;
+		const AssetID size = 41;
+		const AssetID ssao_buffer = 42;
+		const AssetID time = 43;
+		const AssetID type = 44;
+		const AssetID uv_offset = 45;
+		const AssetID uv_scale = 46;
+		const AssetID v = 47;
+		const AssetID viewport_scale = 48;
+		const AssetID vp = 49;
+		const AssetID wall_normal = 50;
 	}
 	namespace Shader
 	{
@@ -69,11 +70,11 @@ namespace Asset
 		const AssetID blur = 3;
 		const AssetID composite = 4;
 		const AssetID culled = 5;
-		const AssetID cylinder_inside = 6;
-		const AssetID debug_depth = 7;
-		const AssetID downsample = 8;
-		const AssetID edge_detect = 9;
-		const AssetID flat = 10;
+		const AssetID debug_depth = 6;
+		const AssetID downsample = 7;
+		const AssetID edge_detect = 8;
+		const AssetID flat = 9;
+		const AssetID flat_clipped = 10;
 		const AssetID flat_texture = 11;
 		const AssetID fresnel = 12;
 		const AssetID g_buffer_downsample = 13;

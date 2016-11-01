@@ -24,6 +24,8 @@
 #include "strings.h"
 #include "data/priority_queue.h"
 #include "net.h"
+#include "net_serialize.h"
+#include "team.h"
 
 namespace VI
 {
@@ -72,8 +74,7 @@ Health::Health(s8 hp, s8 hp_max, s8 shield, s8 shield_max)
 	hp_max(hp_max),
 	shield(shield),
 	shield_max(shield_max),
-	added(),
-	damaged(),
+	changed(),
 	killed(),
 	regen_timer()
 {
@@ -94,7 +95,7 @@ void Health::update(const Update& u)
 			if ((s32)(old_timer / regen_interval) != (s32)(regen_timer / regen_interval))
 			{
 				shield += 1;
-				added.fire(
+				changed.fire(
 				{
 					nullptr,
 					1,
@@ -139,7 +140,7 @@ void Health::damage(Entity* e, s8 damage)
 
 		regen_timer = REGEN_TIME + REGEN_DELAY;
 
-		damaged.fire(
+		changed.fire(
 		{
 			e,
 			-damage,
@@ -156,19 +157,6 @@ void Health::take_shield()
 	damage(nullptr, shield);
 }
 
-void Health::take_health(Entity* e, s8 amount)
-{
-	// an enemy has stolen one of our health pickups
-	if (amount > hp)
-		hp = 0;
-	else
-		hp -= amount;
-
-	damaged.fire({ e, amount });
-	if (hp == 0)
-		killed.fire(e);
-}
-
 void Health::kill(Entity* e)
 {
 	damage(e, hp_max + shield_max);
@@ -180,7 +168,7 @@ void Health::add(s8 amount)
 	hp = vi_min((s8)(hp + amount), hp_max);
 	if (hp > old_hp)
 	{
-		added.fire(
+		changed.fire(
 		{
 			nullptr,
 			amount,
@@ -206,7 +194,10 @@ EnergyPickupEntity::EnergyPickupEntity(const Vec3& p)
 	create<AICue>(AICue::Type::Sensor | AICue::Type::Rocket);
 
 	PointLight* light = create<PointLight>();
-	light->radius = 8.0f;
+	light->type = PointLight::Type::Override;
+	light->radius = 0.0f;
+
+	create<Sensor>();
 
 	Target* target = create<Target>();
 
@@ -217,6 +208,12 @@ EnergyPickupEntity::EnergyPickupEntity(const Vec3& p)
 	RigidBody* body = create<RigidBody>(RigidBody::Type::Sphere, Vec3(HEALTH_PICKUP_RADIUS), 0.1f, CollisionAwkIgnore | CollisionTarget, ~CollisionAwk & ~CollisionShield);
 	body->set_damping(0.5f, 0.5f);
 	body->set_ccd(true);
+
+	Entity* e = World::create<Empty>();
+	e->get<Transform>()->parent = get<Transform>();
+	e->add<PointLight>()->radius = 8.0f;
+	Net::finalize(e);
+	pickup->light = e;
 }
 
 r32 EnergyPickup::Key::priority(EnergyPickup* p)
@@ -285,7 +282,13 @@ void EnergyPickup::sort_all(const Vec3& pos, Array<Ref<EnergyPickup>>* result, b
 void EnergyPickup::awake()
 {
 	link_arg<const TargetEvent&, &EnergyPickup::hit>(get<Target>()->target_hit);
-	reset();
+	set_team(team);
+}
+
+EnergyPickup::~EnergyPickup()
+{
+	if (Game::level.local && light.ref())
+		World::remove_deferred(light.ref());
 }
 
 void EnergyPickup::reset()
@@ -301,6 +304,33 @@ void EnergyPickup::hit(const TargetEvent& e)
 		set_team(e.hit_by->get<AIAgent>()->team, e.hit_by);
 }
 
+b8 EnergyPickup::net_msg(Net::StreamRead* p)
+{
+	using Stream = Net::StreamRead;
+	Ref<EnergyPickup> ref;
+	serialize_ref(p, ref);
+	AI::Team t;
+	serialize_s8(p, t);
+	Ref<Entity> caused_by;
+	serialize_ref(p, caused_by);
+
+	EnergyPickup* pickup = ref.ref();
+	pickup->team = t;
+	pickup->get<View>()->team = (s8)t;
+	pickup->get<PointLight>()->team = (s8)t;
+	pickup->get<PointLight>()->radius = (t == AI::TeamNone) ? 0.0f : SENSOR_RANGE;
+	pickup->get<Sensor>()->team = t;
+	if (caused_by.ref() && t == caused_by.ref()->get<AIAgent>()->team)
+	{
+		if (Game::level.local)
+			caused_by.ref()->get<PlayerCommon>()->manager.ref()->add_credits(CREDITS_CAPTURE_ENERGY_PICKUP);
+		if (caused_by.ref()->has<PlayerControlHuman>())
+			caused_by.ref()->get<PlayerControlHuman>()->player.ref()->msg(_(strings::battery_captured), true);
+	}
+
+	return true;
+}
+
 // returns true if we were successfully captured
 // the second parameter is the entity that caused the ownership change
 b8 EnergyPickup::set_team(AI::Team t, Entity* caused_by)
@@ -308,15 +338,14 @@ b8 EnergyPickup::set_team(AI::Team t, Entity* caused_by)
 	// must be neutral or owned by an enemy
 	if (t != team)
 	{
-		team = t;
-		get<View>()->team = (s8)t;
-		get<PointLight>()->team = (s8)t;
-		if (caused_by && t == caused_by->get<AIAgent>()->team)
-		{
-			caused_by->get<PlayerCommon>()->manager.ref()->add_credits(CREDITS_CAPTURE_ENERGY_PICKUP);
-			if (caused_by->has<PlayerControlHuman>())
-				caused_by->get<PlayerControlHuman>()->player.ref()->msg(_(strings::battery_captured), true);
-		}
+		using Stream = Net::StreamWrite;
+		Net::StreamWrite* p = Net::msg_new(Net::MessageType::EnergyPickup);
+		Ref<EnergyPickup> ref = this;
+		serialize_ref(p, ref);
+		serialize_s8(p, t);
+		Ref<Entity> caused_by_ref = caused_by;
+		serialize_ref(p, caused_by_ref);
+		Net::msg_finalize(p);
 		return true;
 	}
 
@@ -558,13 +587,11 @@ ControlPoint* ControlPoint::closest(AI::TeamMask mask, const Vec3& pos, r32* dis
 	return closest;
 }
 
-SensorEntity::SensorEntity(PlayerManager* owner, const Vec3& abs_pos, const Quat& abs_rot)
+SensorEntity::SensorEntity(AI::Team team, const Vec3& abs_pos, const Quat& abs_rot)
 {
 	Transform* transform = create<Transform>();
 	transform->pos = abs_pos;
 	transform->rot = abs_rot;
-
-	AI::Team team = owner->team.ref()->team();
 
 	View* model = create<View>();
 	model->mesh = Asset::Mesh::sphere;
@@ -579,7 +606,7 @@ SensorEntity::SensorEntity(PlayerManager* owner, const Vec3& abs_pos, const Quat
 	light->team = (s8)team;
 	light->radius = SENSOR_RANGE;
 
-	create<Sensor>(team, owner);
+	create<Sensor>(team);
 
 	create<Target>();
 
@@ -587,41 +614,48 @@ SensorEntity::SensorEntity(PlayerManager* owner, const Vec3& abs_pos, const Quat
 	body->set_damping(0.5f, 0.5f);
 }
 
-Sensor::Sensor(AI::Team t, PlayerManager* m)
-	: team(t),
-	owner(m)
+Sensor::Sensor(AI::Team t)
+	: team(t)
 {
 }
 
 void Sensor::awake()
 {
-	link_arg<Entity*, &Sensor::killed_by>(get<Health>()->killed);
-	link_arg<const TargetEvent&, &Sensor::hit_by>(get<Target>()->target_hit);
+	if (!has<EnergyPickup>())
+	{
+		link_arg<Entity*, &Sensor::killed_by>(get<Health>()->killed);
+		link_arg<const TargetEvent&, &Sensor::hit_by>(get<Target>()->target_hit);
+	}
 }
 
 void Sensor::hit_by(const TargetEvent& e)
 {
+	vi_assert(!has<EnergyPickup>());
 	get<Health>()->damage(e.hit_by, get<Health>()->hp_max);
 }
 
 void Sensor::killed_by(Entity* e)
 {
+	vi_assert(!has<EnergyPickup>());
 	World::remove_deferred(entity());
 }
 
 #define sensor_shockwave_interval 3.0f
-void Sensor::update_all(const Update& u)
+void Sensor::update_all_server(const Update& u)
 {
 	r32 time = u.time.total;
 	r32 last_time = time - u.time.delta;
 	for (auto i = list.iterator(); !i.is_last(); i.next())
 	{
-		r32 offset = i.index * sensor_shockwave_interval * 0.3f;
-		if ((s32)((time + offset) / sensor_shockwave_interval) != (s32)((last_time + offset) / sensor_shockwave_interval))
+		if (i.item()->team != AI::TeamNone)
 		{
-			Entity* shockwave = World::create<ShockwaveEntity>(10.0f, 1.5f);
-			shockwave->get<Transform>()->absolute_pos(i.item()->get<Transform>()->absolute_pos());
-			Net::finalize(shockwave);
+			r32 offset = i.index * sensor_shockwave_interval * 0.3f;
+			if ((s32)((time + offset) / sensor_shockwave_interval) != (s32)((last_time + offset) / sensor_shockwave_interval))
+			{
+				Entity* shockwave = World::create<ShockwaveEntity>(10.0f, 1.5f);
+				shockwave->get<Transform>()->absolute_pos(i.item()->get<Transform>()->absolute_pos());
+				Net::finalize(shockwave);
+			}
 		}
 	}
 }
@@ -1014,7 +1048,7 @@ void ContainmentField::awake()
 
 ContainmentField::~ContainmentField()
 {
-	if (field.ref())
+	if (Game::level.local && field.ref())
 		World::remove_deferred(field.ref());
 }
 

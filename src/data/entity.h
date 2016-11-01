@@ -11,7 +11,7 @@ typedef s8 Family;
 typedef s16 Revision;
 typedef s64 ComponentMask;
 
-const Family MAX_FAMILIES = sizeof(ComponentMask) * 8;
+#define MAX_FAMILIES (sizeof(ComponentMask) * 8)
 
 struct ComponentPoolBase
 {

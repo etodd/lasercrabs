@@ -649,6 +649,7 @@ void UIMenu::draw_alpha(const RenderParams& params, const Vec2& origin, UIText::
 		}
 	}
 
+	Rect2 rect;
 	for (s32 i = 0; i < items.length; i++)
 	{
 		if (!scroll.item(i))
@@ -656,7 +657,6 @@ void UIMenu::draw_alpha(const RenderParams& params, const Vec2& origin, UIText::
 
 		const Item& item = items[i];
 
-		Rect2 rect;
 		{
 			Vec2 bounds = item.label.bounds();
 			rect.pos.x = pos.x - MENU_ITEM_PADDING_LEFT;
@@ -706,7 +706,8 @@ void UIMenu::draw_alpha(const RenderParams& params, const Vec2& origin, UIText::
 		pos.y -= MENU_ITEM_HEIGHT;
 	}
 
-	scroll.end(params, pos + Vec2(MENU_ITEM_WIDTH * 0.5f, MENU_ITEM_HEIGHT));
+	if (scroll_started)
+		scroll.end(params, rect.pos + Vec2(rect.size.x * 0.5f, 0));
 }
 
 

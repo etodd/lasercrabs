@@ -26,6 +26,7 @@ struct Frustum
 
 #define RENDER_MASK_SHADOW ((RenderMask)(1 << 15))
 #define RENDER_MASK_DEFAULT ((RenderMask)-1)
+#define RENDER_CLIP_PLANE_MAX 4
 
 // material indices
 // these are alpha values stored in the g-buffer
@@ -63,7 +64,7 @@ struct Camera
 	Rect2 viewport;
 	Plane frustum[4];
 	Vec3 frustum_rays[4];
-	Vec3 wall_normal;
+	Plane clip_planes[RENDER_CLIP_PLANE_MAX];
 	Vec3 pos;
 	Vec3 range_center;
 	r32 cull_range;
@@ -71,8 +72,8 @@ struct Camera
 	r32 far_plane;
 	r32 range;
 	s8 team;
-	b8 active;
 	b8 cull_behind_wall;
+	b8 active;
 	b8 colors;
 
 	Camera();

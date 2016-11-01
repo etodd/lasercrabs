@@ -35,6 +35,7 @@
 #include "cora.h"
 #include "net.h"
 #include "net_serialize.h"
+#include "team.h"
 
 namespace VI
 {
@@ -69,19 +70,24 @@ r32 hp_width(u8 hp, s8 shield, r32 scale = 1.0f)
 
 void camera_setup_awk(Entity* e, Camera* camera, r32 offset)
 {
-	Vec3 abs_wall_normal = e->get<Awk>()->lerped_rotation * Vec3(0, 0, 1);
-	camera->wall_normal = camera->rot.inverse() * abs_wall_normal;
-	camera->pos = e->get<Awk>()->center_lerped() + camera->rot * Vec3(0, 0, -offset);
+	Quat awk_rot = e->get<Awk>()->lerped_rotation;
+	Vec3 center = e->get<Awk>()->center_lerped();
+	camera->pos = center + camera->rot * Vec3(0, 0, -offset);
+	Vec3 abs_wall_normal = awk_rot * Vec3(0, 0, 1);
 	if (e->get<Transform>()->parent.ref())
 	{
 		camera->pos += abs_wall_normal * 0.5f;
 		camera->pos.y += 0.5f - vi_min((r32)fabs(abs_wall_normal.y), 0.5f);
 	}
 
+	Quat rot_inverse = camera->rot.inverse();
+
 	camera->range = e->get<Awk>()->range();
-	camera->range_center = camera->rot.inverse() * (e->get<Awk>()->center_lerped() - camera->pos);
+	camera->range_center = rot_inverse * (center - camera->pos);
+	Vec3 wall_normal_viewspace = rot_inverse * abs_wall_normal;
+	camera->clip_planes[0].redefine(wall_normal_viewspace, camera->range_center + wall_normal_viewspace * -AWK_RADIUS);
+	camera->cull_behind_wall = abs_wall_normal.dot(camera->pos - center) < -AWK_RADIUS + 0.02f; // camera is behind wall; set clip plane to wall
 	camera->cull_range = camera->range_center.length();
-	camera->cull_behind_wall = abs_wall_normal.dot(camera->pos - e->get<Awk>()->attach_point()) < 0.0f;
 	camera->colors = false;
 }
 
@@ -90,6 +96,19 @@ s32 PlayerHuman::count_local()
 	s32 count = 0;
 	for (auto i = list.iterator(); !i.is_last(); i.next())
 	{
+		if (i.item()->local)
+			count++;
+	}
+	return count;
+}
+
+s32 PlayerHuman::count_local_before(PlayerHuman* h)
+{
+	s32 count = 0;
+	for (auto i = list.iterator(); !i.is_last(); i.next())
+	{
+		if (i.item() == h)
+			break;
 		if (i.item()->local)
 			count++;
 	}
@@ -246,7 +265,7 @@ void PlayerHuman::update(const Update& u)
 		player_count = count_local();
 #endif
 		Camera::ViewportBlueprint* viewports = Camera::viewport_blueprints[player_count - 1];
-		Camera::ViewportBlueprint* blueprint = &viewports[id()];
+		Camera::ViewportBlueprint* blueprint = &viewports[count_local_before(this)];
 
 		camera->viewport =
 		{
@@ -858,7 +877,7 @@ void PlayerHuman::draw_alpha(const RenderParams& params) const
 				text.text(_(strings::upgrade_description), cost, _(info.description));
 				UIMenu::text_clip(&text, upgrade_animation_time, 150.0f);
 
-				Vec2 pos = upgrade_menu_pos + Vec2(MENU_ITEM_WIDTH * -0.5f + padding, menu.height() * -0.5f - padding * 3.0f);
+				Vec2 pos = upgrade_menu_pos + Vec2(MENU_ITEM_WIDTH * -0.5f + padding, menu.height() * -0.5f - padding * 7.0f);
 				UI::box(params, text.rect(pos).outset(padding), UI::color_background);
 				text.draw(params, pos);
 			}
@@ -1446,7 +1465,7 @@ void PlayerControlHuman::hit_target(Entity* target)
 		b8 is_enemy = target->get<AIAgent>()->team != get<AIAgent>()->team;
 		player.ref()->msg(_(strings::minion_killed), is_enemy);
 	}
-	else if (target->has<Sensor>())
+	else if (target->has<Sensor>() && !target->has<EnergyPickup>())
 	{
 		b8 is_enemy = target->get<Sensor>()->team != get<AIAgent>()->team;
 		player.ref()->msg(_(strings::sensor_destroyed), is_enemy);
@@ -2267,7 +2286,7 @@ void PlayerControlHuman::update(const Update& u)
 				Camera* camera = player.ref()->camera;
 				r32 aspect = camera->viewport.size.y == 0 ? 1 : (r32)camera->viewport.size.x / (r32)camera->viewport.size.y;
 				camera->perspective(fov_default, aspect, 0.02f, Game::level.skybox.far_plane);
-				camera->wall_normal = Vec3(0, 0, 1);
+				camera->clip_planes[0] = Plane();
 				camera->pos = camera_pos;
 				camera->cull_range = 0.0f;
 				camera->cull_behind_wall = false;
@@ -2283,31 +2302,13 @@ void PlayerControlHuman::update(const Update& u)
 	}
 }
 
-void PlayerControlHuman::draw(const RenderParams& p) const
+void draw_mesh_clipped(const RenderParams& p, AssetID mesh, const Mat4& m, const Plane& plane)
 {
-	if (p.technique != RenderTechnique::Default
-		|| p.camera != player.ref()->camera
-		|| p.camera->cull_range <= 0.0f
-		|| !get<Transform>()->parent.ref())
-		return;
-
-	// only draw the cylinder if the camera is inside or very close to the wall
-	{
-		Vec3 abs_wall_normal = get<Awk>()->lerped_rotation * Vec3(0, 0, 1);
-		if (abs_wall_normal.dot(p.camera->pos - get<Awk>()->attach_point()) > 0.02f)
-			return;
-	}
-
-	Loader::mesh_permanent(Asset::Mesh::cylinder_inside);
-	Loader::shader_permanent(Asset::Shader::cylinder_inside);
-
 	RenderSync* sync = p.sync;
 	sync->write(RenderOp::Shader);
-	sync->write(Asset::Shader::cylinder_inside);
+	sync->write(Asset::Shader::flat_clipped);
 	sync->write(p.technique);
 
-	Mat4 m;
-	m.make_transform(p.camera->pos, Vec3(p.camera->cull_range, p.camera->cull_range, 10), p.camera->rot);
 	Mat4 mvp = m * p.view_projection;
 
 	sync->write(RenderOp::Uniform);
@@ -2326,27 +2327,37 @@ void PlayerControlHuman::draw(const RenderParams& p) const
 	sync->write(Asset::Uniform::diffuse_color);
 	sync->write(RenderDataType::Vec4);
 	sync->write<s32>(1);
-	sync->write<Vec4>(Vec4(0, 0, 0, 1));
+	sync->write<Vec4>(Vec4(0, 0, 0, MATERIAL_NO_OVERRIDE));
 
-	{
-		// write culling info
-		sync->write(RenderOp::Uniform);
-		sync->write(Asset::Uniform::cull_center);
-		sync->write(RenderDataType::Vec3);
-		sync->write<s32>(1);
-		sync->write<Vec3>(p.camera->range_center);
-
-		sync->write(RenderOp::Uniform);
-		sync->write(Asset::Uniform::wall_normal);
-		sync->write(RenderDataType::Vec3);
-		sync->write<s32>(1);
-		sync->write<Vec3>(p.camera->wall_normal);
-	}
+	// write culling info
+	sync->write(RenderOp::Uniform);
+	sync->write(Asset::Uniform::plane);
+	sync->write(RenderDataType::Vec4);
+	sync->write<s32>(1);
+	sync->write<Plane>(plane);
 
 	sync->write(RenderOp::Mesh);
 	sync->write(RenderPrimitiveMode::Triangles);
-	sync->write(Asset::Mesh::cylinder_inside);
-	
+	sync->write(mesh);
+}
+
+void PlayerControlHuman::draw(const RenderParams& p) const
+{
+	if (p.technique != RenderTechnique::Default
+		|| p.camera != player.ref()->camera
+		|| p.camera->cull_range <= 0.0f
+		|| !get<Transform>()->parent.ref())
+		return;
+
+	Loader::mesh_permanent(Asset::Mesh::cylinder_inside);
+	Loader::shader_permanent(Asset::Shader::flat_clipped);
+
+	if (p.camera->cull_behind_wall) // primary wall
+	{
+		Mat4 m;
+		m.make_transform(p.camera->pos, Vec3(p.camera->cull_range, p.camera->cull_range, 10), p.camera->rot);
+		draw_mesh_clipped(p, Asset::Mesh::cylinder_inside, m, p.camera->clip_planes[0]);
+	}
 }
 
 void PlayerControlHuman::draw_alpha(const RenderParams& params) const
@@ -2886,7 +2897,7 @@ void PlayerControlHuman::draw_alpha(const RenderParams& params) const
 		text.anchor_x = UIText::Anchor::Center;
 		text.anchor_y = UIText::Anchor::Center;
 		text.size = text_size;
-		Vec2 pos = viewport.size * Vec2(0.5f, 0.25f);
+		Vec2 pos = viewport.size * Vec2(0.5f, 0.15f);
 		UI::box(params, text.rect(pos).outset(8.0f * UI::scale), UI::color_background);
 		text.draw(params, pos);
 	}

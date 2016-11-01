@@ -513,9 +513,9 @@ void UIScroll::start(const RenderParams& params, const Vec2& p) const
 {
 	if (pos > 0)
 	{
-		Vec2 pos = p + Vec2(0, 16.0f * UI::scale);
-		UI::centered_box(params, { pos, Vec2(32.0f * UI::scale) }, UI::color_background);
-		UI::triangle(params, { pos, Vec2(16.0f * UI::scale) }, UI::color_accent);
+		Vec2 p2 = p + Vec2(0, 16.0f * UI::scale);
+		UI::centered_box(params, { p2, Vec2(32.0f * UI::scale) }, UI::color_background);
+		UI::triangle(params, { p2, Vec2(16.0f * UI::scale) }, UI::color_accent);
 	}
 }
 
@@ -523,9 +523,9 @@ void UIScroll::end(const RenderParams& params, const Vec2& p) const
 {
 	if (pos + UI_SCROLL_MAX < count)
 	{
-		Vec2 pos = p + Vec2(0, -16.0f * UI::scale);
-		UI::centered_box(params, { pos, Vec2(32.0f * UI::scale) }, UI::color_background);
-		UI::triangle(params, { pos, Vec2(16.0f * UI::scale) }, UI::color_accent, PI);
+		Vec2 p2 = p + Vec2(0, -16.0f * UI::scale);
+		UI::centered_box(params, { p2, Vec2(32.0f * UI::scale) }, UI::color_background);
+		UI::triangle(params, { p2, Vec2(16.0f * UI::scale) }, UI::color_accent, PI);
 	}
 }
 

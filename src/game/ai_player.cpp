@@ -11,6 +11,7 @@
 #include "render/views.h"
 #endif
 #include "net.h"
+#include "team.h"
 
 namespace VI
 {
@@ -848,7 +849,7 @@ MemoryStatus minion_memory_filter(const PlayerControlAI* control, const Entity* 
 
 MemoryStatus sensor_memory_filter(const PlayerControlAI* control, const Entity* e)
 {
-	if (e->get<Sensor>()->team == control->get<AIAgent>()->team)
+	if (e->get<Sensor>()->team == control->get<AIAgent>()->team || e->has<EnergyPickup>())
 		return MemoryStatus::Forget;
 	else
 		return MemoryStatus::Update;

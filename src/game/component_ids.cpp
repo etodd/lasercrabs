@@ -13,6 +13,7 @@
 #include "minion.h"
 #include "ai_player.h"
 #include "parkour.h"
+#include "team.h"
 
 namespace VI
 {

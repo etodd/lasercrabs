@@ -1,11 +1,10 @@
 #pragma once
 #include <stdint.h>
 #include <cstddef>
+#include "game/constants.h"
 
 namespace VI
 {
-
-#define MAX_ENTITIES 2048
 
 typedef bool b8;
 
@@ -47,6 +46,43 @@ const AssetID AssetNull = AssetID(-1);
 
 typedef s16 ID;
 const ID IDNull = ID(MAX_ENTITIES);
+
+enum class Ability
+{
+	Sensor,
+	Minion,
+	Teleporter,
+	Rocket,
+	ContainmentField,
+	Sniper,
+	Decoy,
+	count,
+	None,
+};
+
+enum class Upgrade
+{
+	Sensor,
+	Minion,
+	Teleporter,
+	Rocket,
+	ContainmentField,
+	Sniper,
+	Decoy,
+	count,
+	None = count,
+};
+
+namespace Net
+{
+	enum class MessageSource // included here to prevent having to include net.h everywhere
+	{
+		Remote,
+		Loopback,
+		Invalid, // message is malicious or something; deserialize it but ignore
+		count,
+	};
+}
 
 
 }

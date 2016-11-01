@@ -230,7 +230,7 @@ void View::draw(const RenderParams& params) const
 		sync->write(Asset::Uniform::wall_normal);
 		sync->write(RenderDataType::Vec3);
 		sync->write<s32>(1);
-		sync->write<Vec3>(params.camera->wall_normal);
+		sync->write<Vec3>(params.camera->clip_planes[0].normal);
 
 		sync->write(RenderOp::Uniform);
 		sync->write(Asset::Uniform::cull_behind_wall);

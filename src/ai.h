@@ -12,7 +12,7 @@
 namespace VI
 {
 
-#define SENSOR_RANGE 20.0f
+#define SENSOR_RANGE 16.0f
 #define CONTAINMENT_FIELD_RADIUS 12.0f
 
 struct AIAgent;

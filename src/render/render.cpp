@@ -50,7 +50,7 @@ Camera::Camera()
 	near_plane(),
 	far_plane(),
 	mask(~RENDER_MASK_SHADOW),
-	wall_normal(0, 0, 0),
+	clip_planes(),
 	range(),
 	range_center(),
 	cull_range(),

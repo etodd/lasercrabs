@@ -66,22 +66,19 @@ layout (location = 1) out vec4 out_normal;
 void main()
 {
 	vec3 p = pos_viewspace - cull_center;
-
-	if (dot(pos_viewspace.xy, pos_viewspace.xy) < (cull_radius * cull_radius * 0.5f * 0.5f))
+				
+	if (dot(p, wall_normal) > -AWK_RADIUS + 0.01f) // is the pixel in front of the wall?
 	{
-		// inside cullable view cylinder
-		if (dot(p, wall_normal) > -AWK_RADIUS + 0.01f) // is the pixel in front of the wall?
-		{
-			// in front of wall
-			if (p.z < -AWK_RADIUS + 0.01f || dot(pos_viewspace, normal_viewspace) > 0.0f)
-				discard;
-		}
-		else
-		{
-			// behind wall
-			if (cull_behind_wall)
-				discard;
-		}
+		// in front of wall
+		if (p.z / length(p) < -0.707106781186547f) // inside view cone
+			discard;
+	}
+	else
+	{
+		// behind wall
+		if (cull_behind_wall
+			&& dot(pos_viewspace.xy, pos_viewspace.xy) < (cull_radius * cull_radius * 0.5f * 0.5f)) // inside view cylinder
+			discard;
 	}
 
 	out_color = diffuse_color;

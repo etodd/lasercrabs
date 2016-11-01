@@ -11,6 +11,7 @@
 #include "cora.h"
 #include "minion.h"
 #include "net.h"
+#include "team.h"
 
 namespace VI
 {

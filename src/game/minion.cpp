@@ -18,6 +18,7 @@
 #include "entities.h"
 #include "render/particles.h"
 #include "net.h"
+#include "team.h"
 
 #define WALK_SPEED 2.0f
 #define ROTATION_SPEED 4.0f
@@ -249,7 +250,7 @@ Entity* closest_target(MinionAI* me, AI::Team team, const Vec3& direction)
 	for (auto i = Sensor::list.iterator(); !i.is_last(); i.next())
 	{
 		Sensor* sensor = i.item();
-		if (sensor->team != team)
+		if (sensor->team != team && !sensor->has<EnergyPickup>())
 		{
 			if (me->can_see(sensor->entity()))
 				return sensor->entity();
@@ -362,7 +363,7 @@ Entity* visible_target(MinionAI* me, AI::Team team)
 	for (auto i = Sensor::list.iterator(); !i.is_last(); i.next())
 	{
 		Sensor* sensor = i.item();
-		if (sensor->team != team)
+		if (sensor->team != team && !sensor->has<EnergyPickup>())
 		{
 			if (me->can_see(sensor->entity()))
 				return sensor->entity();

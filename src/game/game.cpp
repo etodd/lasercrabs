@@ -44,6 +44,7 @@
 #include "cora.h"
 #include "net.h"
 #include "parkour.h"
+#include "team.h"
 
 #if DEBUG
 	#define DEBUG_NAV_MESH 0
@@ -439,7 +440,8 @@ void Game::update(const Update& update_in)
 		for (auto i = Walker::list.iterator(); !i.is_last(); i.next())
 			i.item()->update(u);
 		EnergyPickup::update_all(u);
-		Sensor::update_all(u);
+		if (level.local)
+			Sensor::update_all_server(u);
 		ContainmentField::update_all(u);
 		for (auto i = ControlPoint::list.iterator(); !i.is_last(); i.next())
 			i.item()->update(u);
@@ -933,6 +935,7 @@ void Game::unload_level()
 			Camera::list[i].remove();
 	}
 
+	time.total = 0;
 	Net::reset();
 }
 
@@ -1011,9 +1014,6 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 
 	EntityFinder finder;
 
-	// material override colors
-	AI::Team teams[MAX_PLAYERS];
-
 	cJSON* json = Loader::level(l);
 
 	level = Level();
@@ -1045,14 +1045,12 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 		case Type::Rush:
 		{
 			level.respawns = 5;
-			level.kill_limit = 0;
 			level.time_limit = (60.0f * 5.0f) + PLAYER_SPAWN_DELAY;
 			break;
 		}
 		case Type::Deathmatch:
 		{
 			level.respawns = -1;
-			level.kill_limit = 5;
 			level.time_limit = (60.0f * 8.0f) + PLAYER_SPAWN_DELAY;
 			break;
 		}
@@ -1087,15 +1085,15 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 			// World is guaranteed to be the first element in the entity list
 
 			level.feature_level = (FeatureLevel)Json::get_s32(element, "feature_level", (s32)FeatureLevel::All);
-			level.lock_teams = Json::get_s32(element, "lock_teams");
 
 			s32 team_count = session.team_count();
 
 			{
 				// shuffle teams and make sure they're packed in the array starting at 0
-				s32 offset = level.lock_teams ? 0 : mersenne::rand() % team_count;
+				b8 lock_teams = Json::get_s32(element, "lock_teams");
+				s32 offset = lock_teams ? 0 : mersenne::rand() % team_count;
 				for (s32 i = 0; i < MAX_PLAYERS; i++)
-					teams[i] = (AI::Team)((offset + i) % team_count);
+					level.team_lookup[i] = (AI::Team)((offset + i) % team_count);
 			}
 
 			level.skybox.far_plane = Json::get_r32(element, "far_plane", 100.0f);
@@ -1122,7 +1120,7 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 				{
 					if (session.local_player_config[i] != AI::TeamNone)
 					{
-						AI::Team team = team_lookup(teams, (s32)session.local_player_config[i]);
+						AI::Team team = team_lookup(level.team_lookup, (s32)session.local_player_config[i]);
 
 						Entity* e = World::create<ContainerEntity>();
 						PlayerManager* manager = e->add<PlayerManager>(&Team::list[(s32)team]);
@@ -1148,6 +1146,25 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 							}
 						}
 						Net::finalize(e);
+					}
+				}
+
+				switch (level.type)
+				{
+					case Type::Rush:
+					{
+						level.kill_limit = 0;
+						break;
+					}
+					case Type::Deathmatch:
+					{
+						level.kill_limit = PlayerManager::list.count() <= 2 ? 5 : 10;
+						break;
+					}
+					default:
+					{
+						vi_assert(false);
+						break;
 					}
 				}
 			}
@@ -1287,7 +1304,7 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 			// only add an AI player if we are in online pvp mode
 			if (level.mode == Mode::Pvp && session.story_mode)
 			{
-				AI::Team team = team_lookup(teams, Json::get_s32(element, "team", 1));
+				AI::Team team = team_lookup(level.team_lookup, Json::get_s32(element, "team", 1));
 
 				Entity* e = World::create<ContainerEntity>();
 				PlayerManager* manager = e->add<PlayerManager>(&Team::list[(s32)team]);

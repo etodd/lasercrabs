@@ -5,6 +5,7 @@
 #include "render/render.h"
 #include "render/views.h"
 #include <unordered_map>
+#include "constants.h"
 
 namespace VI
 {
@@ -31,9 +32,6 @@ struct EntityFinder
 #if DEBUG
 #define DEBUG_AI_CONTROL 0
 #endif
-
-#define MAX_ZONES 64
-#define MAX_USERNAME 255
 
 struct Game
 {
@@ -166,8 +164,8 @@ struct Game
 		s16 respawns;
 		s16 kill_limit;
 		b8 local = true;
-		b8 lock_teams;
 		b8 continue_match_after_death;
+		AI::Team team_lookup[MAX_PLAYERS];
 
 		b8 has_feature(FeatureLevel) const;
 	};

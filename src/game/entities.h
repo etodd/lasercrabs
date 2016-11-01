@@ -15,6 +15,10 @@
 namespace VI
 {
 
+namespace Net
+{
+	struct StreamRead;
+}
 
 void explosion(const Vec3&, const Quat&);
 
@@ -34,9 +38,8 @@ struct HealthEvent
 struct Health : public ComponentType<Health>
 {
 	r32 regen_timer;
-	LinkArg<const HealthEvent&> damaged;
+	LinkArg<const HealthEvent&> changed;
 	LinkArg<Entity*> killed;
-	LinkArg<const HealthEvent&> added;
 	s8 shield;
 	s8 shield_max;
 	s8 hp;
@@ -48,7 +51,6 @@ struct Health : public ComponentType<Health>
 	void awake() {}
 	void damage(Entity*, s8);
 	void take_shield();
-	void take_health(Entity*, s8);
 	void kill(Entity*);
 	void add(s8);
 	s8 total() const;
@@ -77,10 +79,13 @@ struct EnergyPickup : public ComponentType<EnergyPickup>
 	static void sort_all(const Vec3&, Array<Ref<EnergyPickup>>*, b8, AI::TeamMask);
 	static EnergyPickup* closest(AI::TeamMask, const Vec3&, r32* = nullptr);
 	static s32 count(AI::TeamMask);
+	static b8 net_msg(Net::StreamRead*);
 
-	AI::Team team;
+	Ref<Entity> light;
+	AI::Team team = AI::TeamNone;
 
 	void awake();
+	~EnergyPickup();
 	void hit(const TargetEvent&);
 	b8 set_team(AI::Team, Entity* = nullptr);
 	void reset();
@@ -127,7 +132,7 @@ struct ControlPoint : public ComponentType<ControlPoint>
 
 struct SensorEntity : public Entity
 {
-	SensorEntity(PlayerManager*, const Vec3&, const Quat&);
+	SensorEntity(AI::Team, const Vec3&, const Quat&);
 };
 
 #define SENSOR_TIME 1.0f
@@ -136,10 +141,9 @@ struct SensorEntity : public Entity
 #define SENSOR_HEALTH 2
 struct Sensor : public ComponentType<Sensor>
 {
-	Ref<PlayerManager> owner;
 	AI::Team team;
 
-	Sensor(AI::Team = AI::TeamNone, PlayerManager* = nullptr);
+	Sensor(AI::Team = AI::TeamNone);
 
 	void killed_by(Entity*);
 	void awake();
@@ -149,7 +153,7 @@ struct Sensor : public ComponentType<Sensor>
 	static b8 can_see(AI::Team, const Vec3&, const Vec3&);
 	static Sensor* closest(AI::TeamMask, const Vec3&, r32* = nullptr);
 
-	static void update_all(const Update&);
+	static void update_all_server(const Update&);
 };
 
 #define ROCKET_RANGE (AWK_MAX_DISTANCE * 1.5f)

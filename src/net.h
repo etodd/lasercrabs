@@ -27,7 +27,7 @@ struct StreamWrite;
 
 // borrows heavily from https://github.com/networkprotocol/libyojimbo
 
-typedef u8 SequenceID;
+typedef u16 SequenceID;
 
 enum class Resolution
 {

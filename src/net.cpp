@@ -76,7 +76,7 @@ struct MessageFrame // container for the amount of messages that can come in a s
 
 struct StateHistory
 {
-	StaticArray<StateFrame, 256> frames;
+	StaticArray<StateFrame, NET_HISTORY_SIZE> frames;
 	s32 current_index;
 };
 
@@ -88,18 +88,17 @@ struct Ack
 
 struct MessageHistory
 {
-	StaticArray<MessageFrame, 256> msgs;
+	StaticArray<MessageFrame, NET_HISTORY_SIZE> msgs;
 	s32 current_index;
 };
 
-#define SEQUENCE_RESEND_BUFFER 6
 struct SequenceHistoryEntry
 {
 	r32 timestamp;
 	SequenceID id;
 };
 
-typedef StaticArray<SequenceHistoryEntry, SEQUENCE_RESEND_BUFFER> SequenceHistory;
+typedef StaticArray<SequenceHistoryEntry, NET_SEQUENCE_RESEND_BUFFER> SequenceHistory;
 
 b8 msg_process(StreamRead*, MessageSource);
 

@@ -20,8 +20,8 @@ namespace VI
 PinArray<PlayerAI, MAX_PLAYERS> PlayerAI::list;
 
 PlayerAI::Config::Config()
-	: low_level(LowLevelLoop::Noop),
-	high_level(HighLevelLoop::Noop),
+	: low_level(LowLevelLoop::Default),
+	high_level(HighLevelLoop::Default),
 	interval_memory_update(0.2f),
 	interval_low_level(0.25f),
 	interval_high_level(0.5f),

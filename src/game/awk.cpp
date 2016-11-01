@@ -200,7 +200,7 @@ b8 Awk::net_msg(Net::StreamRead* p, Net::MessageSource src)
 				awk->get<Transform>()->absolute_pos(awk->get<Transform>()->absolute_pos() + dir * AWK_RADIUS * 0.5f);
 				awk->get<Transform>()->absolute_rot(Quat::look(dir));
 
-				awk->get<Audio>()->post_event(awk->has<PlayerControlHuman>() ? AK::EVENTS::PLAY_LAUNCH_PLAYER : AK::EVENTS::PLAY_LAUNCH);
+				awk->get<Audio>()->post_event(awk->has<PlayerControlHuman>() && awk->get<PlayerControlHuman>()->local() ? AK::EVENTS::PLAY_LAUNCH_PLAYER : AK::EVENTS::PLAY_LAUNCH);
 
 				awk->cooldown_setup();
 				awk->detach_teleport();
@@ -471,7 +471,7 @@ Entity* Awk::incoming_attacker() const
 
 void Awk::hit_by(const TargetEvent& e)
 {
-	get<Audio>()->post_event(has<PlayerControlHuman>() ? AK::EVENTS::PLAY_HURT_PLAYER : AK::EVENTS::PLAY_HURT);
+	get<Audio>()->post_event(has<PlayerControlHuman>() && get<PlayerControlHuman>()->local() ? AK::EVENTS::PLAY_HURT_PLAYER : AK::EVENTS::PLAY_HURT);
 
 	b8 damaged = false;
 
@@ -1702,7 +1702,7 @@ void Awk::update_client(const Update& u)
 					target_leg_space = Vec3::lerp(footing[i].blend, last_target_leg_space, target_leg_space);
 					if (footing[i].blend == 1.0f && Game::real_time.total - last_footstep > 0.07f)
 					{
-						get<Audio>()->post_event(has<PlayerControlHuman>() ? AK::EVENTS::PLAY_AWK_FOOTSTEP_PLAYER : AK::EVENTS::PLAY_AWK_FOOTSTEP);
+						get<Audio>()->post_event(has<PlayerControlHuman>() && get<PlayerControlHuman>()->local() ? AK::EVENTS::PLAY_AWK_FOOTSTEP_PLAYER : AK::EVENTS::PLAY_AWK_FOOTSTEP);
 						last_footstep = Game::real_time.total;
 					}
 				}

@@ -41,13 +41,6 @@ namespace Net
 b8 show_stats;
 Sock::Handle sock;
 
-#define TIMEOUT 1.0f
-#define SEQUENCE_BITS 8
-#define SEQUENCE_COUNT (1 << SEQUENCE_BITS)
-
-#define MESSAGE_BUFFER 256
-#define MAX_MESSAGES_SIZE (NET_MAX_PACKET_SIZE / 2)
-
 enum class ClientPacket
 {
 	Connect,
@@ -89,7 +82,7 @@ struct StateHistory
 
 struct Ack
 {
-	u32 previous_sequences;
+	u64 previous_sequences;
 	SequenceID sequence_id;
 };
 
@@ -575,8 +568,8 @@ template<typename Stream> b8 serialize_init_packet(Stream* p)
 // true if s1 > s2
 b8 sequence_more_recent(SequenceID s1, SequenceID s2)
 {
-	return ((s1 > s2) && (s1 - s2 <= SEQUENCE_COUNT / 2))
-		|| ((s2 > s1) && (s2 - s1 > SEQUENCE_COUNT / 2));
+	return ((s1 > s2) && (s1 - s2 <= NET_SEQUENCE_COUNT / 2))
+		|| ((s2 > s1) && (s2 - s1 > NET_SEQUENCE_COUNT / 2));
 }
 
 s32 sequence_relative_to(SequenceID s1, SequenceID s2)
@@ -584,7 +577,7 @@ s32 sequence_relative_to(SequenceID s1, SequenceID s2)
 	if (sequence_more_recent(s1, s2))
 	{
 		if (s1 < s2)
-			return (s32(s1) + SEQUENCE_COUNT) - s32(s2);
+			return (s32(s1) + NET_SEQUENCE_COUNT) - s32(s2);
 		else
 			return s32(s1) - s32(s2);
 	}
@@ -593,7 +586,7 @@ s32 sequence_relative_to(SequenceID s1, SequenceID s2)
 		if (s1 < s2)
 			return s32(s1) - s32(s2);
 		else
-			return s32(s1) - (s32(s2) + SEQUENCE_COUNT);
+			return s32(s1) - (s32(s2) + NET_SEQUENCE_COUNT);
 	}
 }
 
@@ -601,17 +594,17 @@ SequenceID sequence_advance(SequenceID start, s32 delta)
 {
 	s32 result = s32(start) + delta;
 	while (result < 0)
-		result += SEQUENCE_COUNT;
-	while (result >= SEQUENCE_COUNT)
-		result -= SEQUENCE_COUNT;
+		result += NET_SEQUENCE_COUNT;
+	while (result >= NET_SEQUENCE_COUNT)
+		result -= NET_SEQUENCE_COUNT;
 	return SequenceID(result);
 }
 
 #if DEBUG
 void ack_debug(const char* caption, const Ack& ack)
 {
-	char str[33] = {};
-	for (s32 i = 0; i < 32; i++)
+	char str[NET_ACK_PREVIOUS_SEQUENCES + 1] = {};
+	for (s32 i = 0; i < NET_ACK_PREVIOUS_SEQUENCES; i++)
 		str[i] = (ack.previous_sequences & (1 << i)) ? '1' : '0';
 	vi_debug("%s %d %s", caption, s32(ack.sequence_id), str);
 }
@@ -621,7 +614,7 @@ void msg_history_debug(const MessageHistory& history)
 	if (history.msgs.length > 0)
 	{
 		s32 index = history.current_index;
-		for (s32 i = 0; i < 64; i++)
+		for (s32 i = 0; i < NET_PREVIOUS_SEQUENCES_SEARCH; i++)
 		{
 			const MessageFrame& msg = history.msgs[index];
 			vi_debug("%d", s32(msg.sequence_id));
@@ -660,7 +653,7 @@ Ack msg_history_ack(const MessageHistory& history)
 		s32 index = history.current_index;
 		// find most recent sequence ID
 		ack.sequence_id = history.msgs[index].sequence_id;
-		for (s32 i = 0; i < 64; i++)
+		for (s32 i = 0; i < NET_PREVIOUS_SEQUENCES_SEARCH; i++)
 		{
 			// loop backward through most recently received frames
 			index = index > 0 ? index - 1 : history.msgs.length - 1;
@@ -673,7 +666,7 @@ Ack msg_history_ack(const MessageHistory& history)
 		}
 
 		index = history.current_index;
-		for (s32 i = 0; i < 64; i++)
+		for (s32 i = 0; i < NET_PREVIOUS_SEQUENCES_SEARCH; i++)
 		{
 			// loop backward through most recently received frames
 			index = index > 0 ? index - 1 : history.msgs.length - 1;
@@ -685,8 +678,8 @@ Ack msg_history_ack(const MessageHistory& history)
 			{
 				s32 sequence_id_relative_to_most_recent = sequence_relative_to(msg.sequence_id, ack.sequence_id);
 				vi_assert(sequence_id_relative_to_most_recent < 0);
-				if (sequence_id_relative_to_most_recent >= -32)
-					ack.previous_sequences |= 1 << (-sequence_id_relative_to_most_recent - 1);
+				if (sequence_id_relative_to_most_recent >= -NET_ACK_PREVIOUS_SEQUENCES)
+					ack.previous_sequences |= u64(1) << u64(-sequence_id_relative_to_most_recent - 1);
 			}
 		}
 	}
@@ -697,7 +690,7 @@ Ack msg_history_ack(const MessageHistory& history)
 struct StateCommon
 {
 	MessageHistory msgs_out_history;
-	StaticArray<StreamWrite, MESSAGE_BUFFER> msgs_out;
+	StaticArray<StreamWrite, NET_MESSAGE_BUFFER> msgs_out;
 	SequenceID local_sequence_id = 1;
 	StateHistory state_history;
 	StateFrame state_frame_restore;
@@ -815,7 +808,7 @@ b8 msgs_out_consolidate()
 		{
 			s32 msg_bytes = state_common.msgs_out[i].bytes_written();
 
-			if (64 + bytes + msg_bytes > MAX_MESSAGES_SIZE)
+			if (64 + bytes + msg_bytes > NET_MAX_MESSAGES_SIZE)
 				break;
 
 			bytes += msg_bytes;
@@ -827,10 +820,10 @@ b8 msgs_out_consolidate()
 
 	frame->sequence_id = state_common.local_sequence_id;
 
-	serialize_int(&frame->write, s32, bytes, 0, MAX_MESSAGES_SIZE); // message frame size
+	serialize_int(&frame->write, s32, bytes, 0, NET_MAX_MESSAGES_SIZE); // message frame size
 	if (bytes > 0)
 	{
-		serialize_int(&frame->write, SequenceID, frame->sequence_id, 0, SEQUENCE_COUNT - 1);
+		serialize_int(&frame->write, SequenceID, frame->sequence_id, 0, NET_SEQUENCE_COUNT - 1);
 		for (s32 i = 0; i < msgs; i++)
 		{
 			serialize_bytes(&frame->write, (u8*)state_common.msgs_out[i].data.data, state_common.msgs_out[i].bytes_written());
@@ -852,7 +845,7 @@ MessageFrame* msg_frame_advance(MessageHistory* history, SequenceID* id, r32 tim
 	{
 		s32 index = history->current_index;
 		SequenceID next_sequence = sequence_advance(*id, 1);
-		for (s32 i = 0; i < 64; i++)
+		for (s32 i = 0; i < NET_PREVIOUS_SEQUENCES_SEARCH; i++)
 		{
 			MessageFrame* msg = &history->msgs[index];
 			if (msg->sequence_id == next_sequence && msg->timestamp <= timestamp)
@@ -880,7 +873,7 @@ b8 ack_get(const Ack& ack, SequenceID sequence_id)
 	{
 		s32 relative = sequence_relative_to(sequence_id, ack.sequence_id);
 		vi_assert(relative < 0);
-		if (relative < -32)
+		if (relative < -NET_ACK_PREVIOUS_SEQUENCES)
 			return false;
 		else
 			return ack.previous_sequences & (1 << (-relative - 1));
@@ -914,9 +907,9 @@ b8 msgs_write(StreamWrite* p, const MessageHistory& history, const Ack& remote_a
 	{
 		// resend previous frames
 		{
-			// rewind to 64 frames previous
+			// rewind to a bunch of frames previous
 			s32 index = history.current_index;
-			for (s32 i = 0; i < 64; i++)
+			for (s32 i = 0; i < NET_PREVIOUS_SEQUENCES_SEARCH; i++)
 			{
 				s32 next_index = index > 0 ? index - 1 : history.msgs.length - 1;
 				if (next_index == history.current_index)
@@ -926,15 +919,15 @@ b8 msgs_write(StreamWrite* p, const MessageHistory& history, const Ack& remote_a
 
 			// start resending frames starting at that index
 			r32 timestamp_cutoff = Game::real_time.total - (rtt * 3.0f); // wait a certain period before trying to resend a sequence
-			for (s32 i = 0; i < 64 && index != history.current_index; i++)
+			for (s32 i = 0; i < NET_PREVIOUS_SEQUENCES_SEARCH && index != history.current_index; i++)
 			{
 				const MessageFrame& frame = history.msgs[index];
 				s32 relative_sequence = sequence_relative_to(frame.sequence_id, remote_ack.sequence_id);
 				if (relative_sequence < 0
-					&& relative_sequence >= -32
+					&& relative_sequence >= -NET_ACK_PREVIOUS_SEQUENCES
 					&& !ack_get(remote_ack, frame.sequence_id)
 					&& !sequence_history_contains_newer_than(*recently_resent, frame.sequence_id, timestamp_cutoff)
-					&& bytes + frame.write.bytes_written() <= MAX_MESSAGES_SIZE)
+					&& bytes + frame.write.bytes_written() <= NET_MAX_MESSAGES_SIZE)
 				{
 					vi_debug("Resending sequence %d", s32(frame.sequence_id));
 					bytes += frame.write.bytes_written();
@@ -950,7 +943,7 @@ b8 msgs_write(StreamWrite* p, const MessageHistory& history, const Ack& remote_a
 		// current frame
 		{
 			const MessageFrame& frame = history.msgs[history.current_index];
-			if (bytes + frame.write.bytes_written() <= MAX_MESSAGES_SIZE)
+			if (bytes + frame.write.bytes_written() <= NET_MAX_MESSAGES_SIZE)
 			{
 				serialize_align(p);
 				serialize_bytes(p, (u8*)frame.write.data.data, frame.write.bytes_written());
@@ -960,7 +953,7 @@ b8 msgs_write(StreamWrite* p, const MessageHistory& history, const Ack& remote_a
 
 	serialize_align(p);
 	bytes = 0;
-	serialize_int(p, s32, bytes, 0, MAX_MESSAGES_SIZE); // zero sized frame marks end of message frames
+	serialize_int(p, s32, bytes, 0, NET_MAX_MESSAGES_SIZE); // zero sized frame marks end of message frames
 
 	return true;
 }
@@ -971,7 +964,7 @@ void calculate_rtt(r32 timestamp, const Ack& ack, const MessageHistory& send_his
 	if (send_history.msgs.length > 0)
 	{
 		s32 index = send_history.current_index;
-		for (s32 i = 0; i < 64; i++)
+		for (s32 i = 0; i < NET_PREVIOUS_SEQUENCES_SEARCH; i++)
 		{
 			const MessageFrame& msg = send_history.msgs[index];
 			if (msg.sequence_id == ack.sequence_id)
@@ -995,8 +988,8 @@ b8 msgs_read(StreamRead* p, MessageHistory* history, Ack* ack)
 	using Stream = StreamRead;
 
 	Ack ack_candidate;
-	serialize_int(p, SequenceID, ack_candidate.sequence_id, 0, SEQUENCE_COUNT - 1);
-	serialize_u32(p, ack_candidate.previous_sequences);
+	serialize_int(p, SequenceID, ack_candidate.sequence_id, 0, NET_SEQUENCE_COUNT - 1);
+	serialize_u64(p, ack_candidate.previous_sequences);
 	if (sequence_more_recent(ack_candidate.sequence_id, ack->sequence_id))
 		*ack = ack_candidate;
 
@@ -1004,11 +997,11 @@ b8 msgs_read(StreamRead* p, MessageHistory* history, Ack* ack)
 	{
 		serialize_align(p);
 		s32 bytes;
-		serialize_int(p, s32, bytes, 0, MAX_MESSAGES_SIZE);
+		serialize_int(p, s32, bytes, 0, NET_MAX_MESSAGES_SIZE);
 		if (bytes)
 		{
 			MessageFrame* frame = msg_history_add(history, Game::real_time.total, bytes);
-			serialize_int(p, SequenceID, frame->sequence_id, 0, SEQUENCE_COUNT - 1);
+			serialize_int(p, SequenceID, frame->sequence_id, 0, NET_SEQUENCE_COUNT - 1);
 			frame->read.resize_bytes(bytes);
 			serialize_bytes(p, (u8*)frame->read.data.data, bytes);
 			serialize_align(p);
@@ -1249,7 +1242,7 @@ template<typename Stream> b8 serialize_state_frame(Stream* p, StateFrame* frame,
 		frame->timestamp = Game::real_time.total;
 	}
 
-	serialize_int(p, SequenceID, frame->sequence_id, 0, SEQUENCE_COUNT - 1);
+	serialize_int(p, SequenceID, frame->sequence_id, 0, NET_SEQUENCE_COUNT - 1);
 
 	s32 changed_count;
 	if (Stream::IsWriting)
@@ -1586,7 +1579,7 @@ const StateFrame* state_frame_by_sequence(const StateHistory& history, SequenceI
 	if (history.frames.length > 0)
 	{
 		s32 index = history.current_index;
-		for (s32 i = 0; i < 64; i++)
+		for (s32 i = 0; i < NET_PREVIOUS_SEQUENCES_SEARCH; i++)
 		{
 			const StateFrame* frame = &history.frames[index];
 			if (frame->sequence_id == sequence_id)
@@ -1606,7 +1599,7 @@ const StateFrame* state_frame_by_timestamp(const StateHistory& history, r32 time
 	if (history.frames.length > 0)
 	{
 		s32 index = history.current_index;
-		for (s32 i = 0; i < 64; i++)
+		for (s32 i = 0; i < NET_PREVIOUS_SEQUENCES_SEARCH; i++)
 		{
 			const StateFrame* frame = &history.frames[index];
 
@@ -1754,13 +1747,13 @@ b8 build_packet_update(StreamWrite* p, Client* client, StateFrame* frame)
 	ServerPacket type = ServerPacket::Update;
 	serialize_enum(p, ServerPacket, type);
 	Ack ack = msg_history_ack(client->msgs_in_history);
-	serialize_int(p, SequenceID, ack.sequence_id, 0, SEQUENCE_COUNT - 1);
-	serialize_u32(p, ack.previous_sequences);
+	serialize_int(p, SequenceID, ack.sequence_id, 0, NET_SEQUENCE_COUNT - 1);
+	serialize_u64(p, ack.previous_sequences);
 	msgs_write(p, state_common.msgs_out_history, client->ack, &client->recently_resent, client->rtt);
 
 	if (frame)
 	{
-		serialize_int(p, SequenceID, client->ack.sequence_id, 0, SEQUENCE_COUNT - 1);
+		serialize_int(p, SequenceID, client->ack.sequence_id, 0, NET_SEQUENCE_COUNT - 1);
 		const StateFrame* base = state_frame_by_sequence(state_common.state_history, client->ack.sequence_id);
 		serialize_state_frame(p, frame, base);
 	}
@@ -1779,9 +1772,6 @@ void update(const Update& u)
 			while (MessageFrame* frame = msg_frame_advance(&client->msgs_in_history, &client->processed_sequence_id, Game::real_time.total + 1.0f))
 			{
 				frame->read.rewind();
-#if DEBUG_MSG
-				vi_debug("Processing seq %d", frame->sequence_id);
-#endif
 				while (frame->read.bytes_read() < frame->bytes)
 				{
 					b8 success = msg_process(&frame->read, client);
@@ -1820,7 +1810,7 @@ void tick(const Update& u)
 	{
 		Client* client = &state_server.clients[i];
 		client->timeout += Game::real_time.delta;
-		if (client->timeout > TIMEOUT)
+		if (client->timeout > NET_TIMEOUT)
 		{
 			vi_debug("Client %s:%hd timed out.", Sock::host_to_str(client->address.host), client->address.port);
 			state_server.clients.remove(i);
@@ -1837,7 +1827,7 @@ void tick(const Update& u)
 	if (state_server.mode == Mode::Active)
 	{
 		state_common.local_sequence_id++;
-		if (state_common.local_sequence_id == SEQUENCE_COUNT)
+		if (state_common.local_sequence_id == NET_SEQUENCE_COUNT)
 			state_common.local_sequence_id = 0;
 	}
 }
@@ -2144,8 +2134,8 @@ b8 build_packet_update(StreamWrite* p, const Update& u)
 
 	// ack received messages
 	Ack ack = msg_history_ack(state_client.msgs_in_history);
-	serialize_int(p, SequenceID, ack.sequence_id, 0, SEQUENCE_COUNT - 1);
-	serialize_u32(p, ack.previous_sequences);
+	serialize_int(p, SequenceID, ack.sequence_id, 0, NET_SEQUENCE_COUNT - 1);
+	serialize_u64(p, ack.previous_sequences);
 
 	msgs_write(p, state_common.msgs_out_history, state_client.server_ack, &state_client.server_recently_resent, state_client.server_rtt);
 
@@ -2274,7 +2264,7 @@ void tick(const Update& u)
 		case Mode::Loading:
 		case Mode::Connected:
 		{
-			if (state_client.timeout > TIMEOUT)
+			if (state_client.timeout > NET_TIMEOUT)
 			{
 				vi_debug("Lost connection to %s:%hd.", Sock::host_to_str(state_client.server_address.host), state_client.server_address.port);
 				state_client.mode = Mode::Disconnected;
@@ -2288,7 +2278,7 @@ void tick(const Update& u)
 				packet_send(p, state_client.server_address);
 
 				state_common.local_sequence_id++;
-				if (state_common.local_sequence_id == SEQUENCE_COUNT)
+				if (state_common.local_sequence_id == NET_SEQUENCE_COUNT)
 					state_common.local_sequence_id = 0;
 			}
 			break;
@@ -2352,7 +2342,7 @@ b8 packet_handle(const Update& u, StreamRead* p, const Sock::Address& address)
 			if (p->bytes_read() < p->data.length * sizeof(u32)) // server doesn't always send state frames
 			{
 				SequenceID base_sequence_id;
-				serialize_int(p, SequenceID, base_sequence_id, 0, SEQUENCE_COUNT - 1);
+				serialize_int(p, SequenceID, base_sequence_id, 0, NET_SEQUENCE_COUNT - 1);
 				const StateFrame* base = state_frame_by_sequence(state_common.state_history, base_sequence_id);
 				StateFrame frame;
 				serialize_state_frame(p, &frame, base);

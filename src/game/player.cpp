@@ -721,10 +721,9 @@ void scoreboard_draw(const RenderParams& params, const PlayerManager* manager)
 void PlayerHuman::draw_alpha(const RenderParams& params) const
 {
 	if (params.camera != camera
-		|| Game::level.continue_match_after_death)
+		|| Game::level.continue_match_after_death
+		|| !local)
 		return;
-
-	vi_assert(local);
 
 	const r32 line_thickness = 2.0f * UI::scale;
 

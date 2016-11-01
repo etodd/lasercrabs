@@ -21,6 +21,7 @@ struct Target;
 namespace Net
 {
 	struct StreamRead;
+	struct StateFrame;
 }
 
 // If we raycast through a Minion's head, keep going.
@@ -130,7 +131,7 @@ struct Awk : public ComponentType<Awk>
 
 	void stealth(b8);
 
-	void reflect(Entity*, const Vec3&, const Vec3&);
+	void reflect(Entity*, const Vec3&, const Vec3&, const Net::StateFrame*);
 	void crawl_wall_edge(const Vec3&, const Vec3&, const Update&, r32);
 	b8 transfer_wall(const Vec3&, const btCollisionWorld::ClosestRayResultCallback&);
 	void move(const Vec3&, const Quat&, const ID);
@@ -153,7 +154,7 @@ struct Awk : public ComponentType<Awk>
 	b8 can_dash(const Target*, Vec3* = nullptr) const;
 	b8 can_hit(const Target*, Vec3* = nullptr) const; // shoot or dash
 
-	void raycast(const Vec3&, const Vec3&, Hits*) const;
+	void raycast(const Vec3&, const Vec3&, const Net::StateFrame*, Hits*) const;
 	r32 movement_raycast(const Vec3&, const Vec3&);
 
 	void update_server(const Update&);

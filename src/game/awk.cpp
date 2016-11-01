@@ -709,6 +709,14 @@ b8 Awk::direction_is_toward_attached_wall(const Vec3& dir) const
 	return dir.dot(wall_normal) < 0.0f;
 }
 
+b8 awk_state_frame(const Awk* a, Net::StateFrame* state_frame)
+{
+	if (a->has<PlayerControlHuman>() && !a->get<PlayerControlHuman>()->local()) // this Awk is being controlled remotely; we need to rewind the world state to what it looks like from their side
+		return Net::state_frame_by_timestamp(state_frame, Game::real_time.total - Net::rtt(a->get<PlayerControlHuman>()->player.ref()) - NET_INTERPOLATION_DELAY);
+	else
+		return false;
+}
+
 b8 Awk::can_shoot(const Vec3& dir, Vec3* final_pos, b8* hit_target) const
 {
 	Vec3 trace_dir = Vec3::normalize(dir);
@@ -728,8 +736,13 @@ b8 Awk::can_shoot(const Vec3& dir, Vec3* final_pos, b8* hit_target) const
 	Vec3 trace_start = get<Transform>()->absolute_pos();
 	Vec3 trace_end = trace_start + trace_dir * AWK_SNIPE_DISTANCE;
 
+	const Net::StateFrame* state_frame = nullptr;
+	Net::StateFrame state_frame_data;
+	if (awk_state_frame(this, &state_frame_data))
+		state_frame = &state_frame_data;
+
 	Hits hits;
-	raycast(trace_start, trace_end, &hits);
+	raycast(trace_start, trace_end, state_frame, &hits);
 
 	r32 r = range();
 	const Hit* environment_hit = nullptr;
@@ -1107,7 +1120,7 @@ Vec3 quantized_reflection_vectors[6] =
 	Vec3(0, 0, 1),
 };
 
-void Awk::reflect(Entity* entity, const Vec3& original_hit, const Vec3& original_normal)
+void Awk::reflect(Entity* entity, const Vec3& original_hit, const Vec3& original_normal, const Net::StateFrame* state_frame)
 {
 	if (btVector3(velocity).fuzzyZero())
 		return;
@@ -1126,7 +1139,14 @@ void Awk::reflect(Entity* entity, const Vec3& original_hit, const Vec3& original
 	if (entity->has<Awk>())
 	{
 		// quantize for better server/client synchronization
-		Vec3 p = entity->get<Transform>()->absolute_pos();
+		Vec3 p;
+		if (state_frame)
+		{
+			Quat rot;
+			Net::transform_absolute(*state_frame, entity->get<Transform>()->id(), &p, &rot);
+		}
+		else
+			p = entity->get<Transform>()->absolute_pos();
 		r32 closest_dot = 0.0f;
 		for (s32 i = 0; i < 6; i++)
 		{
@@ -1202,6 +1222,7 @@ void Awk::reflect(Entity* entity, const Vec3& original_hit, const Vec3& original
 	bounce.fire(new_velocity);
 	get<Transform>()->rot = Quat::look(Vec3::normalize(new_velocity));
 	velocity = new_velocity;
+	vi_debug("Hit: %f %f %f Normal: %f %f %f Velocity: %f %f %f", hit.x, hit.y, hit.z, normal.x, normal.y, normal.z, velocity.x, velocity.y, velocity.z);
 }
 
 void Awk::crawl_wall_edge(const Vec3& dir, const Vec3& other_wall_normal, const Update& u, r32 speed)
@@ -1787,7 +1808,7 @@ void Awk::update_client(const Update& u)
 	}
 }
 
-void Awk::raycast(const Vec3& ray_start, const Vec3& ray_end, Hits* result) const
+void Awk::raycast(const Vec3& ray_start, const Vec3& ray_end, const Net::StateFrame* state_frame, Hits* result) const
 {
 	r32 distance_total = (ray_end - ray_start).length();
 
@@ -1809,12 +1830,6 @@ void Awk::raycast(const Vec3& ray_start, const Vec3& ray_end, Hits* result) cons
 			});
 		}
 	}
-
-	const Net::StateFrame* state_frame;
-	if (!has<PlayerControlHuman>() || get<PlayerControlHuman>()->local()) // local player; no need to deal with net nonsense
-		state_frame = nullptr;
-	else // this Awk is being controlled remotely; we need to rewind the world state to what it looks like from their side
-		state_frame = Net::state_frame_by_timestamp(Game::real_time.total - Net::rtt(get<PlayerControlHuman>()->player.ref()) - NET_INTERPOLATION_DELAY);
 
 	// check targets
 	for (auto i = Target::list.iterator(); !i.is_last(); i.next())
@@ -1884,8 +1899,13 @@ r32 Awk::movement_raycast(const Vec3& ray_start, const Vec3& ray_end)
 {
 	State s = state();
 
+	const Net::StateFrame* state_frame = nullptr;
+	Net::StateFrame state_frame_data;
+	if (awk_state_frame(this, &state_frame_data))
+		state_frame = &state_frame_data;
+
 	Hits hits;
-	raycast(ray_start, ray_end, &hits);
+	raycast(ray_start, ray_end, state_frame, &hits);
 
 	// handle collisions
 	for (s32 i = 0; i < hits.hits.length; i++)
@@ -1927,12 +1947,12 @@ r32 Awk::movement_raycast(const Vec3& ray_start, const Vec3& ray_end)
 						&& hit.entity.ref()->get<Health>()->total() > 0; // if we didn't destroy them, then bounce off
 				}
 				if (do_reflect)
-					reflect(hit.entity.ref(), hit.pos, hit.normal);
+					reflect(hit.entity.ref(), hit.pos, hit.normal, state_frame);
 			}
 			else if (hit.type == Hit::Type::Inaccessible)
 			{
 				if (s == State::Fly) // this shouldn't normally happen, but if it does, bounce off
-					reflect(hit.entity.ref(), hit.pos, hit.normal);
+					reflect(hit.entity.ref(), hit.pos, hit.normal, state_frame);
 			}
 			else if (hit.type == Hit::Type::Environment)
 			{

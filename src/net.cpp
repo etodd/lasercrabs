@@ -1654,7 +1654,7 @@ struct StateServer
 {
 	Array<Client> clients;
 	Mode mode;
-	s32 expected_clients;
+	s32 expected_clients = 1;
 	SequenceID sequence_completed_loading;
 };
 StateServer state_server;
@@ -1704,7 +1704,6 @@ b8 init()
 	}
 
 	// todo: allow both multiplayer / story mode sessions
-	state_server.expected_clients = 1;
 	Game::session.story_mode = true;
 	Game::load_level(Update(), Asset::Level::Proci, Game::Mode::Pvp);
 
@@ -2752,9 +2751,19 @@ r32 rtt(const PlayerHuman* p)
 #endif
 }
 
-const StateFrame* state_frame_by_timestamp(r32 timestamp)
+b8 state_frame_by_timestamp(StateFrame* result, r32 timestamp)
 {
-	return state_frame_by_timestamp(state_common.state_history, timestamp);
+	const StateFrame* frame_a = state_frame_by_timestamp(state_common.state_history, timestamp);
+	if (frame_a)
+	{
+		const Net::StateFrame* frame_b = state_frame_next(state_common.state_history, *frame_a);
+		if (frame_b)
+			state_frame_interpolate(*frame_a, *frame_b, result, timestamp);
+		else
+			*result = *frame_a;
+		return true;
+	}
+	return false;
 }
 
 

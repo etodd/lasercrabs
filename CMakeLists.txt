@@ -552,7 +552,7 @@ if (NOT PLAYSTATION)
 	endif()
 
 	add_executable(import
-		src/data/constants.h
+		src/game/constants.h
 		src/data/import_common.h
 		src/data/import_common.cpp
 		src/render/glvm.h

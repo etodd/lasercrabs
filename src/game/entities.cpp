@@ -143,9 +143,9 @@ void Health::damage(Entity* e, s8 damage)
 		changed.fire(
 		{
 			e,
-			-damage,
-			-damage_hp,
-			-damage_shield,
+			s8(-damage),
+			s8(-damage_hp),
+			s8(-damage_shield),
 		});
 		if (hp == 0)
 			killed.fire(e);

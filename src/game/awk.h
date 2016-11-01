@@ -54,6 +54,31 @@ struct Awk : public ComponentType<Awk>
 		Ref<const Transform> parent;
 	};
 
+	struct Hit
+	{
+		enum class Type
+		{
+			Environment,
+			Inaccessible,
+			Awk,
+			Target,
+			count,
+		};
+
+		Vec3 pos;
+		Vec3 normal;
+		r32 fraction;
+		Type type;
+		Ref<Entity> entity;
+	};
+
+	struct Hits
+	{
+		StaticArray<Hit, 32> hits;
+		r32 fraction_end;
+		s32 index_end;
+	};
+
 	static Awk* closest(AI::TeamMask, const Vec3&, r32* = nullptr);
 
 	Quat lerped_rotation;
@@ -64,7 +89,6 @@ struct Awk : public ComponentType<Awk>
 	r32 overshield_timer;
 	r32 shield_time;
 	r32 cooldown; // remaining cooldown time
-	r32 last_speed;
 	r32 last_footstep;
 	r32 particle_accumulator;
 	r32 dash_timer;
@@ -106,7 +130,7 @@ struct Awk : public ComponentType<Awk>
 
 	void stealth(b8);
 
-	void reflect(const Vec3&, const Vec3&);
+	void reflect(Entity*, const Vec3&, const Vec3&);
 	void crawl_wall_edge(const Vec3&, const Vec3&, const Update&, r32);
 	b8 transfer_wall(const Vec3&, const btCollisionWorld::ClosestRayResultCallback&);
 	void move(const Vec3&, const Quat&, const ID);
@@ -129,6 +153,7 @@ struct Awk : public ComponentType<Awk>
 	b8 can_dash(const Target*, Vec3* = nullptr) const;
 	b8 can_hit(const Target*, Vec3* = nullptr) const; // shoot or dash
 
+	void raycast(const Vec3&, const Vec3&, Hits*) const;
 	r32 movement_raycast(const Vec3&, const Vec3&);
 
 	void update_server(const Update&);

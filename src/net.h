@@ -32,6 +32,7 @@ typedef u8 SequenceID;
 enum class Resolution
 {
 	Low,
+	Medium,
 	High,
 	count,
 };

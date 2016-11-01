@@ -490,7 +490,6 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 	if (e->has<PlayerHuman>())
 	{
 		PlayerHuman* ph = e->get<PlayerHuman>();
-		serialize_ref(p, ph->map_view);
 		serialize_u64(p, ph->uuid);
 		if (Stream::IsReading)
 		{
@@ -569,6 +568,7 @@ template<typename Stream> b8 serialize_init_packet(Stream* p)
 	serialize_r32_range(p, Game::level.skybox.player_light.z, 0.0f, 1.0f, 8);
 	serialize_enum(p, Game::Mode, Game::level.mode);
 	serialize_enum(p, Game::Type, Game::level.type);
+	serialize_ref(p, Game::level.map_view);
 	return true;
 }
 
@@ -987,7 +987,7 @@ void calculate_rtt(r32 timestamp, const Ack& ack, const MessageHistory& send_his
 	if (new_rtt == -1.0f || *rtt == -1.0f)
 		*rtt = new_rtt;
 	else
-		*rtt = (*rtt * 0.9f) + (new_rtt * 0.1f);
+		*rtt = (*rtt * 0.95f) + (new_rtt * 0.05f);
 }
 
 b8 msgs_read(StreamRead* p, MessageHistory* history, Ack* ack)
@@ -1166,9 +1166,13 @@ template<typename Stream> b8 serialize_awk(Stream* p, AwkState* state, const Awk
 
 b8 equal_states_transform(const TransformState& a, const TransformState& b)
 {
-	Resolution r = Resolution::Low;
-	r32 tolerance_pos_sq = 0.005f * 0.005f;
-	r32 tolerance_rot = 0.001f;
+	r32 tolerance_pos_sq = 0.008f * 0.008f;
+	r32 tolerance_rot = 0.002f;
+	if (a.resolution == Resolution::Medium || b.resolution == Resolution::Medium)
+	{
+		tolerance_pos_sq = 0.002f * 0.002f;
+		tolerance_rot = 0.001f;
+	}
 	if (a.resolution == Resolution::High || b.resolution == Resolution::High)
 	{
 		tolerance_pos_sq = 0.001f * 0.001f;
@@ -1341,6 +1345,15 @@ b8 transform_filter(const Transform* t)
 		|| t->has<Rope>();
 }
 
+Resolution transform_resolution(const Transform* t)
+{
+	if (t->has<Awk>())
+		return Resolution::High;
+	if (t->has<Rope>())
+		return Resolution::Low;
+	return Resolution::Medium;
+}
+
 void state_frame_build(StateFrame* frame)
 {
 	frame->sequence_id = state_common.local_sequence_id;
@@ -1354,7 +1367,7 @@ void state_frame_build(StateFrame* frame)
 			transform->pos = i.item()->pos;
 			transform->rot = i.item()->rot;
 			transform->parent = i.item()->parent.ref(); // ID must come out to IDNull if it's null; don't rely on revision to null the reference
-			transform->resolution = i.item()->has<PlayerControlHuman>() ? Resolution::High : Resolution::Low;
+			transform->resolution = transform_resolution(i.item());
 		}
 	}
 
@@ -1641,7 +1654,7 @@ struct StateServer
 {
 	Array<Client> clients;
 	Mode mode;
-	s32 expected_clients = 1;
+	s32 expected_clients;
 	SequenceID sequence_completed_loading;
 };
 StateServer state_server;
@@ -1691,6 +1704,7 @@ b8 init()
 	}
 
 	// todo: allow both multiplayer / story mode sessions
+	state_server.expected_clients = 1;
 	Game::session.story_mode = true;
 	Game::load_level(Update(), Asset::Level::Proci, Game::Mode::Pvp);
 

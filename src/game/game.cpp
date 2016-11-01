@@ -1566,14 +1566,9 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 		Rope::spawn(ropes[i].pos, ropes[i].rot * Vec3(0, 1, 0), ropes[i].max_distance, ropes[i].slack);
 
 	// Set map view for local players
-	{
-		Entity* map_view = finder.find("map_view");
-		if (map_view && map_view->has<Transform>())
-		{
-			for (auto i = PlayerHuman::list.iterator(); !i.is_last(); i.next())
-				i.item()->map_view = map_view->get<Transform>();
-		}
-	}
+	Entity* map_view = finder.find("map_view");
+	if (map_view && map_view->has<Transform>())
+		level.map_view = map_view->get<Transform>();
 
 	for (s32 i = 0; i < scripts.length; i++)
 		scripts[i]->function(u, finder);

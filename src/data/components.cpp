@@ -118,12 +118,10 @@ void Transform::absolute_pos(const Vec3& p)
 
 Vec3 Transform::to_world(const Vec3& p) const
 {
-	Quat abs_rot = Quat::identity;
 	Vec3 abs_pos = p;
 	Transform* t = const_cast<Transform*>(this);
 	while (t)
 	{ 
-		abs_rot = t->rot * abs_rot;
 		abs_pos = (t->rot * abs_pos) + t->pos;
 		t = t->parent.ref();
 	}

@@ -11,6 +11,7 @@ namespace VI
 {
 
 struct RenderParams;
+struct Transform;
 
 typedef void(*UpdateFunction)(const Update&);
 typedef void(*DrawFunction)(const RenderParams&);
@@ -161,6 +162,7 @@ struct Game
 		Mode mode;
 		Skybox::Config skybox;
 		AssetID id = AssetNull;
+		Ref<Transform> map_view;
 		s16 respawns;
 		s16 kill_limit;
 		b8 local = true;

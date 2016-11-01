@@ -52,7 +52,6 @@ struct PlayerHuman : public ComponentType<PlayerHuman>
 	r32 angle_vertical;
 	s32 spectate_index;
 	Menu::State menu_state;
-	Ref<Transform> map_view;
 	b8 msg_good;
 	b8 upgrade_menu_open;
 	s8 gamepad;

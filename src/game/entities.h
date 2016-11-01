@@ -288,9 +288,6 @@ struct WaterEntity : public Entity
 	WaterEntity(AssetID);
 };
 
-#define rope_segment_length 0.5f
-#define rope_radius 0.075f
-
 struct Rope : public ComponentType<Rope>
 {
 	static Array<Mat4> instances;

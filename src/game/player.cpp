@@ -174,6 +174,14 @@ void PlayerHuman::awake()
 	msg_text.size = text_size;
 	msg_text.anchor_x = UIText::Anchor::Center;
 	msg_text.anchor_y = UIText::Anchor::Center;
+
+	camera = Camera::add();
+	camera->team = (s8)get<PlayerManager>()->team.ref()->team();
+	camera->mask = 1 << camera->team;
+
+	Quat rot;
+	Game::level.map_view.ref()->absolute(&camera->pos, &rot);
+	camera->rot = Quat::look(rot * Vec3(0, -1, 0));
 }
 
 #define DANGER_RAMP_UP_TIME 2.0f
@@ -253,11 +261,8 @@ void PlayerHuman::update(const Update& u)
 	if (!local)
 		return;
 
-	if (!camera)
+	if (camera)
 	{
-		camera = Camera::add();
-		camera->team = (s8)get<PlayerManager>()->team.ref()->team();
-		camera->mask = 1 << camera->team;
 		s32 player_count;
 #if DEBUG_AI_CONTROL
 		player_count = count_local() + PlayerAI::list.count();
@@ -274,9 +279,6 @@ void PlayerHuman::update(const Update& u)
 		};
 		r32 aspect = camera->viewport.size.y == 0 ? 1 : (r32)camera->viewport.size.x / (r32)camera->viewport.size.y;
 		camera->perspective(fov_map_view, aspect, 1.0f, Game::level.skybox.far_plane);
-		Quat rot;
-		map_view.ref()->absolute(&camera->pos, &rot);
-		camera->rot = Quat::look(rot * Vec3(0, -1, 0));
 	}
 
 	{
@@ -1753,7 +1755,7 @@ void PlayerControlHuman::update(const Update& u)
 							tolerance_pos += (position_history[i - 1].pos - entry.pos).length();
 							tolerance_rot += Quat::angle(position_history[i - 1].rot, entry.rot);
 						}
-						tolerance_pos *= 1.5f;
+						tolerance_pos *= 2.0f;
 						tolerance_rot *= 1.5f;
 						break;
 					}
@@ -1969,10 +1971,7 @@ void PlayerControlHuman::update(const Update& u)
 								Vec3 hit;
 								b8 hit_target;
 								if (get<Awk>()->can_shoot(detach_dir, &hit, &hit_target))
-								{
-									if ((hit - center).length() > distance - AWK_RADIUS)
-										reticle.type = hit_target ? ReticleType::Target : ReticleType::Normal;
-								}
+									reticle.type = hit_target ? ReticleType::Target : ReticleType::Normal;
 							}
 						}
 						else // spawning an ability

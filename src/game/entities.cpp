@@ -1490,14 +1490,14 @@ void Rope::draw_opaque(const RenderParams& params)
 
 	// ropes
 	{
-		static Mat4 scale = Mat4::make_scale(Vec3(rope_radius, rope_radius, rope_segment_length * 0.5f));
+		static Mat4 scale = Mat4::make_scale(Vec3(ROPE_RADIUS, ROPE_RADIUS, ROPE_SEGMENT_LENGTH * 0.5f));
 
 		for (auto i = Rope::list.iterator(); !i.is_last(); i.next())
 		{
 			Mat4 m;
 			i.item()->get<Transform>()->mat(&m);
 
-			if (params.camera->visible_sphere(m.translation(), rope_segment_length * f_radius))
+			if (params.camera->visible_sphere(m.translation(), ROPE_SEGMENT_LENGTH * f_radius))
 				instances.add(scale * m);
 		}
 	}
@@ -1565,13 +1565,13 @@ RigidBody* rope_add(RigidBody* start, const Vec3& start_relative_pos, const Vec3
 			Vec3 last_segment_pos = last_segment->get<Transform>()->to_world(last_segment_relative_pos);
 			Vec3 diff = pos - last_segment_pos;
 			r32 length = diff.dot(forward);
-			r32 rope_interval = rope_segment_length / (1.0f + slack);
-			Vec3 scale = Vec3(rope_radius, rope_radius, rope_segment_length * 0.5f);
+			r32 rope_interval = ROPE_SEGMENT_LENGTH / (1.0f + slack);
+			Vec3 scale = Vec3(ROPE_RADIUS, ROPE_RADIUS, ROPE_SEGMENT_LENGTH * 0.5f);
 
 			if (length > rope_interval * 0.5f)
 			{
 				Vec3 spawn_pos = last_segment_pos + (diff / length) * rope_interval * 0.5f;
-				Entity* box = World::create<PhysicsEntity>(AssetNull, spawn_pos, rot, RigidBody::Type::CapsuleZ, Vec3(rope_radius, rope_segment_length - rope_radius * 2.0f, 0.0f), 0.05f, CollisionAwkIgnore, CollisionInaccessibleMask);
+				Entity* box = World::create<PhysicsEntity>(AssetNull, spawn_pos, rot, RigidBody::Type::CapsuleZ, Vec3(ROPE_RADIUS, ROPE_SEGMENT_LENGTH - ROPE_RADIUS * 2.0f, 0.0f), 0.05f, CollisionAwkIgnore, CollisionInaccessibleMask);
 				box->add<Rope>();
 
 				static Quat rotation_a = Quat::look(Vec3(0, 0, 1)) * Quat::euler(0, PI * -0.5f, 0);
@@ -1580,7 +1580,7 @@ RigidBody* rope_add(RigidBody* start, const Vec3& start_relative_pos, const Vec3
 				RigidBody::Constraint constraint;
 				constraint.type = constraint_type;
 				constraint.frame_a = btTransform(rotation_a, last_segment_relative_pos),
-				constraint.frame_b = btTransform(rotation_b, Vec3(0, 0, rope_segment_length * -0.5f));
+				constraint.frame_b = btTransform(rotation_b, Vec3(0, 0, ROPE_SEGMENT_LENGTH * -0.5f));
 				constraint.limits = Vec3(PI, PI, 0);
 				constraint.a = last_segment;
 				constraint.b = box->get<RigidBody>();
@@ -1589,7 +1589,7 @@ RigidBody* rope_add(RigidBody* start, const Vec3& start_relative_pos, const Vec3
 				box->get<RigidBody>()->set_ccd(true);
 				box->get<RigidBody>()->set_damping(0.5f, 0.5f);
 				last_segment = box->get<RigidBody>();
-				last_segment_relative_pos = Vec3(0, 0, rope_segment_length * 0.5f);
+				last_segment_relative_pos = Vec3(0, 0, ROPE_SEGMENT_LENGTH * 0.5f);
 				Net::finalize(box);
 			}
 			else
@@ -1613,18 +1613,18 @@ Rope* Rope::start(RigidBody* start, const Vec3& abs_pos, const Vec3& abs_normal,
 	Net::finalize(base);
 
 	// add the first rope segment
-	Vec3 p = abs_pos + abs_normal * rope_radius;
+	Vec3 p = abs_pos + abs_normal * ROPE_RADIUS;
 	Transform* start_trans = start->get<Transform>();
-	RigidBody* rope = rope_add(start, start_trans->to_local(p), p + abs_rot * Vec3(0, 0, rope_segment_length), abs_rot, slack, RigidBody::Constraint::Type::PointToPoint);
+	RigidBody* rope = rope_add(start, start_trans->to_local(p), p + abs_rot * Vec3(0, 0, ROPE_SEGMENT_LENGTH), abs_rot, slack, RigidBody::Constraint::Type::PointToPoint);
 	vi_assert(rope); // should never happen
 	return rope->get<Rope>();
 }
 
 void Rope::end(const Vec3& pos, const Vec3& normal, RigidBody* end, r32 slack)
 {
-	Vec3 abs_pos = pos + normal * rope_radius;
+	Vec3 abs_pos = pos + normal * ROPE_RADIUS;
 	RigidBody* start = get<RigidBody>();
-	Vec3 start_relative_pos = Vec3(0, 0, rope_segment_length * 0.5f);
+	Vec3 start_relative_pos = Vec3(0, 0, ROPE_SEGMENT_LENGTH * 0.5f);
 	RigidBody* last = rope_add(start, start_relative_pos, abs_pos, Quat::look(Vec3::normalize(abs_pos - get<Transform>()->to_world(start_relative_pos))), slack, RigidBody::Constraint::Type::ConeTwist);
 	if (!last) // we didn't need to add any rope segments; just attach ourselves to the end point
 		last = start;

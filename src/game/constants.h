@@ -53,3 +53,6 @@
 #define AWK_SHIELD_RADIUS 0.6f
 
 #define MAX_BONE_WEIGHTS 4
+
+#define ROPE_SEGMENT_LENGTH 0.75f
+#define ROPE_RADIUS 0.075f

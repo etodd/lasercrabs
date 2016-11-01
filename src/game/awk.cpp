@@ -276,7 +276,6 @@ void Awk::finish_flying_dashing_common()
 	dash_timer = 0.0f;
 
 	velocity = Vec3::zero;
-	last_speed = 0.0f;
 	get<Transform>()->absolute(&lerped_pos, &lerped_rotation);
 	last_pos = lerped_pos;
 }
@@ -320,7 +319,6 @@ Awk::Awk()
 	dash_timer(),
 	attach_time(Game::time.total),
 	footing(),
-	last_speed(),
 	last_footstep(),
 	shield(),
 	overshield(),
@@ -716,12 +714,8 @@ b8 Awk::can_shoot(const Vec3& dir, Vec3* final_pos, b8* hit_target) const
 	Vec3 trace_dir = Vec3::normalize(dir);
 
 	// if we're attached to a wall, make sure we're not shooting into the wall
-	State s = state();
-	if (s == Awk::State::Crawl)
-	{
-		if (direction_is_toward_attached_wall(trace_dir))
-			return false;
-	}
+	if (state() == Awk::State::Crawl && direction_is_toward_attached_wall(trace_dir))
+		return false;
 
 	// can't shoot straight up or straight down
 	// HACK: if it's a local player, let them do what they want because it's frustrating
@@ -734,25 +728,40 @@ b8 Awk::can_shoot(const Vec3& dir, Vec3* final_pos, b8* hit_target) const
 	Vec3 trace_start = get<Transform>()->absolute_pos();
 	Vec3 trace_end = trace_start + trace_dir * AWK_SNIPE_DISTANCE;
 
-	AwkRaycastCallback ray_callback(trace_start, trace_end, entity());
-	Physics::raycast(&ray_callback, ~CollisionAwkIgnore & ~ally_containment_field_mask());
+	Hits hits;
+	raycast(trace_start, trace_end, &hits);
 
-	if (ray_callback.hasHit()
-		&& !(ray_callback.m_collisionObject->getBroadphaseHandle()->m_collisionFilterGroup & (AWK_INACCESSIBLE_MASK & ~CollisionShield)))
+	r32 r = range();
+	const Hit* environment_hit = nullptr;
+	b8 allow_further_end = false; // allow awk to shoot if we're aiming at an enemy awk in range but the backing behind it is out of range
+	b8 hit_target_value = false;
+	for (s32 i = 0; i < hits.hits.length; i++)
 	{
-		r32 r = range();
-		b8 can_shoot = false;
-		b8 hit_target_value = ray_callback.hit_target();
-		if (ray_callback.m_closestHitFraction * AWK_SNIPE_DISTANCE < r)
-			can_shoot = true;
-		else if ((ray_callback.closest_target_hit_group & (CollisionAwk | CollisionShield))
-			&& ray_callback.closest_target_hit_fraction * AWK_SNIPE_DISTANCE < r)
+		const Hit& hit = hits.hits[i];
+		if (hit.type == Hit::Type::Environment)
+			environment_hit = &hit;
+		if (hit.fraction * AWK_SNIPE_DISTANCE < r)
 		{
-			can_shoot = true; // allow awk to shoot if we're aiming at an enemy awk in range but the backing behind it is out of range
+			if (hit.type == Hit::Type::Awk)
+			{
+				allow_further_end = true;
+				hit_target_value = true;
+			}
+			else if (hit.type == Hit::Type::Target)
+				hit_target_value = true;
 		}
+	}
+
+	if (environment_hit)
+	{
+		// need to check that the environment hit is within range
+		// however if we are shooting at an Awk, we can tolerate further environment hits
+		b8 can_shoot = false;
+		if (allow_further_end || environment_hit->fraction * AWK_SNIPE_DISTANCE < r)
+			can_shoot = true;
 		else
 		{
-			// check target predictions
+			// check awk target predictions
 			for (auto i = list.iterator(); !i.is_last(); i.next())
 			{
 				if (i.item() != this && (i.item()->get<Transform>()->absolute_pos() - trace_start).length_squared() > AWK_SHIELD_RADIUS * 2.0f * AWK_SHIELD_RADIUS * 2.0f)
@@ -775,7 +784,7 @@ b8 Awk::can_shoot(const Vec3& dir, Vec3* final_pos, b8* hit_target) const
 		if (can_shoot)
 		{
 			if (final_pos)
-				*final_pos = ray_callback.m_hitPointWorld;
+				*final_pos = hits.hits[hits.index_end].pos;
 			if (hit_target)
 				*hit_target = hit_target_value;
 			return true;
@@ -960,14 +969,14 @@ b8 Awk::go(const Vec3& dir)
 			case Ability::Sensor:
 			{
 				// place a proximity sensor
-				Entity* sensor = World::create<SensorEntity>(manager->team.ref()->team(), pos + rot * Vec3(0, 0, (rope_segment_length * 2.0f) - rope_radius + SENSOR_RADIUS), rot);
+				Entity* sensor = World::create<SensorEntity>(manager->team.ref()->team(), pos + rot * Vec3(0, 0, (ROPE_SEGMENT_LENGTH * 2.0f) - ROPE_RADIUS + SENSOR_RADIUS), rot);
 				Net::finalize(sensor);
 
 				Audio::post_global_event(AK::EVENTS::PLAY_SENSOR_SPAWN, pos);
 
 				// attach it to the wall
 				Rope* rope = Rope::start(parent, pos, rot * Vec3(0, 0, 1), rot);
-				rope->end(pos + rot * Vec3(0, 0, rope_segment_length * 2.0f), rot * Vec3(0, 0, -1), sensor->get<RigidBody>());
+				rope->end(pos + rot * Vec3(0, 0, ROPE_SEGMENT_LENGTH * 2.0f), rot * Vec3(0, 0, -1), sensor->get<RigidBody>());
 				break;
 			}
 			case Ability::Rocket:
@@ -1088,7 +1097,17 @@ Vec2 reflection_angles[REFLECTION_TRIES] =
 	Vec2(0.994534f, 0.367225f),
 };
 
-void Awk::reflect(const Vec3& hit, const Vec3& normal)
+Vec3 quantized_reflection_vectors[6] =
+{
+	Vec3(-1, 0, 0),
+	Vec3(1, 0, 0),
+	Vec3(0, -1, 0),
+	Vec3(0, 1, 0),
+	Vec3(0, 0, -1),
+	Vec3(0, 0, 1),
+};
+
+void Awk::reflect(Entity* entity, const Vec3& original_hit, const Vec3& original_normal)
 {
 	if (btVector3(velocity).fuzzyZero())
 		return;
@@ -1100,6 +1119,25 @@ void Awk::reflect(const Vec3& hit, const Vec3& normal)
 		get<Transform>()->reparent(nullptr);
 		dash_timer = 0.0f;
 		get<Animator>()->layers[0].animation = Asset::Animation::awk_fly;
+	}
+
+	Vec3 hit = original_normal;
+	Vec3 normal = original_hit;
+	if (entity->has<Awk>())
+	{
+		// quantize for better server/client synchronization
+		Vec3 p = entity->get<Transform>()->absolute_pos();
+		r32 closest_dot = 0.0f;
+		for (s32 i = 0; i < 6; i++)
+		{
+			r32 dot = quantized_reflection_vectors[i].dot(original_normal);
+			if (dot > closest_dot)
+			{
+				closest_dot = dot;
+				normal = quantized_reflection_vectors[i];
+			}
+		}
+		hit = p + normal * AWK_SHIELD_RADIUS;
 	}
 
 	get<Transform>()->absolute_pos(hit + normal * AWK_RADIUS * 0.5f);
@@ -1253,7 +1291,7 @@ void Awk::crawl(const Vec3& dir_raw, const Update& u)
 	{
 		Vec3 dir_normalized = dir_raw / dir_length;
 
-		r32 speed = last_speed = s == State::Dash ? AWK_DASH_SPEED : (vi_min(dir_length, 1.0f) * AWK_CRAWL_SPEED);
+		r32 speed = s == State::Dash ? AWK_DASH_SPEED : (vi_min(dir_length, 1.0f) * AWK_CRAWL_SPEED);
 
 		Vec3 wall_normal = get<Transform>()->absolute_rot() * Vec3(0, 0, 1);
 		Vec3 pos = get<Transform>()->absolute_pos();
@@ -1541,8 +1579,7 @@ void Awk::update_client(const Update& u)
 
 		Mat4 inverse_offset = get<SkinnedModel>()->offset.inverse();
 
-		r32 leg_blend_speed = vi_max(AWK_MIN_LEG_BLEND_SPEED, AWK_LEG_BLEND_SPEED * (last_speed / AWK_CRAWL_SPEED));
-		last_speed = 0.0f;
+		r32 leg_blend_speed = vi_max(AWK_MIN_LEG_BLEND_SPEED, AWK_LEG_BLEND_SPEED * (velocity.length() / AWK_CRAWL_SPEED));
 
 		const Armature* arm = Loader::armature(get<Animator>()->armature);
 		for (s32 i = 0; i < AWK_LEGS; i++)
@@ -1743,35 +1780,15 @@ void Awk::update_client(const Update& u)
 
 	// update velocity
 	{
-		Vec3 pos = get<Transform>()->absolute_pos();
+		Vec3 pos = lerped_pos;
 		if (s == State::Crawl)
-			velocity = velocity * 0.75f + ((pos - last_pos) / u.time.delta) * 0.25f;
+			velocity = velocity * 0.9f + ((pos - last_pos) / u.time.delta) * 0.1f;
 		last_pos = pos;
 	}
 }
 
-r32 Awk::movement_raycast(const Vec3& ray_start, const Vec3& ray_end)
+void Awk::raycast(const Vec3& ray_start, const Vec3& ray_end, Hits* result) const
 {
-	struct Hit
-	{
-		enum class Type
-		{
-			Environment,
-			EnemyContainmentField,
-			Awk,
-			Target,
-			count,
-		};
-
-		Vec3 pos;
-		Vec3 normal;
-		r32 fraction;
-		Type type;
-		Ref<Entity> entity;
-	};
-
-	StaticArray<Hit, 32> hits;
-
 	r32 distance_total = (ray_end - ray_start).length();
 
 	// check environment
@@ -1781,13 +1798,13 @@ r32 Awk::movement_raycast(const Vec3& ray_start, const Vec3& ray_end)
 
 		if (ray_callback.hasHit())
 		{
-			b8 is_enemy_containment_field = ray_callback.m_collisionObject->getBroadphaseHandle()->m_collisionFilterGroup & (CollisionInaccessible | (CollisionAllTeamsContainmentField & ~ally_containment_field_mask()));
-			hits.add(
+			b8 inaccessible = ray_callback.m_collisionObject->getBroadphaseHandle()->m_collisionFilterGroup & (CollisionInaccessible | (CollisionAllTeamsContainmentField & ~ally_containment_field_mask()));
+			result->hits.add(
 			{
 				ray_callback.m_hitPointWorld,
 				ray_callback.m_hitNormalWorld,
 				(ray_callback.m_hitPointWorld - ray_start).length() / distance_total,
-				is_enemy_containment_field ? Hit::Type::EnemyContainmentField : Hit::Type::Environment,
+				inaccessible ? Hit::Type::Inaccessible : Hit::Type::Environment,
 				&Entity::list[ray_callback.m_collisionObject->getUserIndex()],
 			});
 		}
@@ -1819,7 +1836,7 @@ r32 Awk::movement_raycast(const Vec3& ray_start, const Vec3& ray_end)
 		Vec3 intersection;
 		if (LMath::ray_sphere_intersect(ray_start, ray_end, p, i.item()->radius(), &intersection))
 		{
-			hits.add(
+			result->hits.add(
 			{
 				intersection,
 				Vec3::normalize(intersection - p),
@@ -1831,12 +1848,12 @@ r32 Awk::movement_raycast(const Vec3& ray_start, const Vec3& ray_end)
 	}
 
 	// determine which collision is the one we stop at
-	r32 fraction_end = 2.0f;
-	s32 index_end = -1;
-	for (s32 i = 0; i < hits.length; i++)
+	result->fraction_end = 2.0f;
+	result->index_end = -1;
+	for (s32 i = 0; i < result->hits.length; i++)
 	{
-		const Hit& hit = hits[i];
-		if (hit.fraction < fraction_end)
+		const Hit& hit = result->hits[i];
+		if (hit.fraction < result->fraction_end)
 		{
 			b8 stop = false;
 			if (hit.type == Hit::Type::Awk)
@@ -1856,34 +1873,66 @@ r32 Awk::movement_raycast(const Vec3& ray_start, const Vec3& ray_end)
 			if (stop)
 			{
 				// stop raycast here
-				fraction_end = hit.fraction;
-				index_end = i;
+				result->fraction_end = hit.fraction;
+				result->index_end = i;
 			}
 		}
 	}
+}
 
+r32 Awk::movement_raycast(const Vec3& ray_start, const Vec3& ray_end)
+{
 	State s = state();
 
+	Hits hits;
+	raycast(ray_start, ray_end, &hits);
+
 	// handle collisions
-	for (s32 i = 0; i < hits.length; i++)
+	for (s32 i = 0; i < hits.hits.length; i++)
 	{
-		const Hit& hit = hits[i];
-		if (i == index_end || hit.fraction < fraction_end)
+		const Hit& hit = hits.hits[i];
+		if (i == hits.index_end || hit.fraction < hits.fraction_end)
 		{
 			if (hit.type == Hit::Type::Target)
 				hit_target(hit.entity.ref());
 			else if (hit.type == Hit::Type::Awk)
 			{
-				if (hit_target(hit.entity.ref()) // go through them if we've already hit them once on this flight
-					&& s != State::Crawl
-					&& hit.entity.ref()
-					&& hit.entity.ref()->get<Health>()->total() > 0) // if we didn't destroy them, then bounce off
-					reflect(hit.pos, hit.normal);
+				b8 do_reflect;
+				if (!Game::level.local && has<PlayerControlHuman>() && get<PlayerControlHuman>()->local())
+				{
+					// client-side prediction
+					do_reflect = s != State::Crawl
+						&& hit.entity.ref()
+						&& hit.entity.ref()->get<Health>()->total() > 1;
+					if (do_reflect)
+					{
+						for (s32 i = 0; i < hit_targets.length; i++)
+						{
+							if (hit_targets[i].equals(hit.entity))
+							{
+								do_reflect = false;
+								break;
+							}
+						}
+					}
+					if (do_reflect)
+						hit_targets.add(hit.entity);
+				}
+				else
+				{
+					// server
+					do_reflect = hit_target(hit.entity.ref()) // go through them if we've already hit them once on this flight
+						&& s != State::Crawl
+						&& hit.entity.ref()
+						&& hit.entity.ref()->get<Health>()->total() > 0; // if we didn't destroy them, then bounce off
+				}
+				if (do_reflect)
+					reflect(hit.entity.ref(), hit.pos, hit.normal);
 			}
-			else if (hit.type == Hit::Type::EnemyContainmentField)
+			else if (hit.type == Hit::Type::Inaccessible)
 			{
 				if (s == State::Fly) // this shouldn't normally happen, but if it does, bounce off
-					reflect(hit.pos, hit.normal);
+					reflect(hit.entity.ref(), hit.pos, hit.normal);
 			}
 			else if (hit.type == Hit::Type::Environment)
 			{
@@ -1912,8 +1961,8 @@ r32 Awk::movement_raycast(const Vec3& ray_start, const Vec3& ray_end)
 			}
 
 			if (current_ability == Ability::Sniper
-				&& i == index_end
-				&& (hit.type == Hit::Type::Environment || hit.type == Hit::Type::EnemyContainmentField))
+				&& i == hits.index_end
+				&& (hit.type == Hit::Type::Environment || hit.type == Hit::Type::Inaccessible))
 			{
 				// we just shot at a wall; spawn some particles
 				Quat rot = Quat::look(hit.normal);
@@ -1930,7 +1979,7 @@ r32 Awk::movement_raycast(const Vec3& ray_start, const Vec3& ray_end)
 		}
 	}
 
-	return fraction_end * distance_total;
+	return hits.fraction_end * (ray_end - ray_start).length();
 }
 
 }

@@ -24,8 +24,8 @@
 #include "assimp/contrib/zlib/zlib.h"
 #include "console.h"
 
-#define DEBUG_MSG 0
-#define DEBUG_ENTITY 0
+#define DEBUG_MSG 1
+#define DEBUG_ENTITY 1
 #define DEBUG_TRANSFORMS 0
 #define DEBUG_BANDWIDTH 0
 
@@ -621,7 +621,7 @@ void msg_history_debug(const MessageHistory& history)
 
 			// loop backward through most recently received frames
 			index = index > 0 ? index - 1 : history.msgs.length - 1;
-			if (index == history.current_index) // we looped all the way around
+			if (index == history.current_index || history.msgs[index].timestamp < Game::real_time.total - NET_TIMEOUT) // hit the end
 				break;
 		}
 	}
@@ -657,10 +657,12 @@ Ack msg_history_ack(const MessageHistory& history)
 		{
 			// loop backward through most recently received frames
 			index = index > 0 ? index - 1 : history.msgs.length - 1;
-			if (index == history.current_index) // we looped all the way around
-				break;
 
 			const MessageFrame& msg = history.msgs[index];
+
+			if (index == history.current_index || msg.timestamp < Game::real_time.total - NET_TIMEOUT) // hit the end
+				break;
+
 			if (sequence_more_recent(msg.sequence_id, ack.sequence_id))
 				ack.sequence_id = msg.sequence_id;
 		}
@@ -670,14 +672,16 @@ Ack msg_history_ack(const MessageHistory& history)
 		{
 			// loop backward through most recently received frames
 			index = index > 0 ? index - 1 : history.msgs.length - 1;
-			if (index == history.current_index) // we looped all the way around
-				break;
 
 			const MessageFrame& msg = history.msgs[index];
+
+			if (index == history.current_index || msg.timestamp < Game::real_time.total - NET_TIMEOUT) // hit the end
+				break;
+
 			if (msg.sequence_id != ack.sequence_id) // ignore the ack
 			{
 				s32 sequence_id_relative_to_most_recent = sequence_relative_to(msg.sequence_id, ack.sequence_id);
-				vi_assert(sequence_id_relative_to_most_recent < 0);
+				vi_assert(sequence_id_relative_to_most_recent < 0); // ack.sequence_id should always be the most recent received message
 				if (sequence_id_relative_to_most_recent >= -NET_ACK_PREVIOUS_SEQUENCES)
 					ack.previous_sequences |= u64(1) << u64(-sequence_id_relative_to_most_recent - 1);
 			}
@@ -856,7 +860,7 @@ MessageFrame* msg_frame_advance(MessageHistory* history, SequenceID* id, r32 tim
 
 			// loop backward through most recently received frames
 			index = index > 0 ? index - 1 : history->msgs.length - 1;
-			if (index == history->current_index) // we looped all the way around
+			if (index == history->current_index || msg->timestamp < Game::real_time.total - NET_TIMEOUT) // hit the end
 				break;
 		}
 	}
@@ -912,7 +916,7 @@ b8 msgs_write(StreamWrite* p, const MessageHistory& history, const Ack& remote_a
 			for (s32 i = 0; i < NET_PREVIOUS_SEQUENCES_SEARCH; i++)
 			{
 				s32 next_index = index > 0 ? index - 1 : history.msgs.length - 1;
-				if (next_index == history.current_index)
+				if (index == history.current_index || history.msgs[next_index].timestamp < Game::real_time.total - NET_TIMEOUT) // hit the end
 					break;
 				index = next_index;
 			}
@@ -973,7 +977,7 @@ void calculate_rtt(r32 timestamp, const Ack& ack, const MessageHistory& send_his
 				break;
 			}
 			index = index > 0 ? index - 1 : send_history.msgs.length - 1;
-			if (index == send_history.current_index)
+			if (index == send_history.current_index || send_history.msgs[index].timestamp < Game::real_time.total - NET_TIMEOUT)
 				break;
 		}
 	}
@@ -1587,7 +1591,7 @@ const StateFrame* state_frame_by_sequence(const StateHistory& history, SequenceI
 
 			// loop backward through most recent frames
 			index = index > 0 ? index - 1 : history.frames.length - 1;
-			if (index == history.current_index) // we looped all the way around
+			if (index == history.current_index || history.frames[index].timestamp < Game::real_time.total - NET_TIMEOUT) // hit the end
 				break;
 		}
 	}
@@ -1608,7 +1612,7 @@ const StateFrame* state_frame_by_timestamp(const StateHistory& history, r32 time
 
 			// loop backward through most recent frames
 			index = index > 0 ? index - 1 : history.frames.length - 1;
-			if (index == history.current_index) // we looped all the way around
+			if (index == history.current_index || history.frames[index].timestamp < Game::real_time.total - NET_TIMEOUT) // hit the end
 				break;
 		}
 	}

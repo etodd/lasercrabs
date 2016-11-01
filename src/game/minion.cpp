@@ -640,7 +640,7 @@ void MinionAI::update(const Update& u)
 								&& !Team::game_over)
 							{
 								PlayerManager* owner = get<MinionCommon>()->owner.ref();
-								Net::finalize(World::create<ProjectileEntity>(owner ? owner->entity.ref() : nullptr, head_pos, aim_pos - head_pos));
+								Net::finalize(World::create<ProjectileEntity>(owner ? owner->instance.ref() : nullptr, head_pos, aim_pos - head_pos));
 								get<MinionCommon>()->attack_timer = MINION_ATTACK_TIME;
 							}
 						}

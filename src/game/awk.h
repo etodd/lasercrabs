@@ -148,8 +148,8 @@ struct Awk : public ComponentType<Awk>
 	b8 go(const Vec3&);
 
 	b8 direction_is_toward_attached_wall(const Vec3&) const;
-	b8 can_shoot(const Vec3&, Vec3* = nullptr, b8* = nullptr) const;
-	b8 can_shoot(const Target*, Vec3* = nullptr, r32 = AWK_FLY_SPEED) const;
+	b8 can_shoot(const Vec3&, Vec3* = nullptr, b8* = nullptr, const Net::StateFrame* = nullptr) const;
+	b8 can_shoot(const Target*, Vec3* = nullptr, r32 = AWK_FLY_SPEED, const Net::StateFrame* = nullptr) const;
 	b8 can_spawn(Ability, const Vec3&, Vec3* = nullptr, Vec3* = nullptr, RigidBody** = nullptr, b8* = nullptr) const;
 	b8 can_dash(const Target*, Vec3* = nullptr) const;
 	b8 can_hit(const Target*, Vec3* = nullptr) const; // shoot or dash

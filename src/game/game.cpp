@@ -765,7 +765,7 @@ void Game::execute(const Update& u, const char* cmd)
 		level.continue_match_after_death = true;
 		for (auto i = PlayerHuman::list.iterator(); !i.is_last(); i.next())
 		{
-			Entity* entity = i.item()->get<PlayerManager>()->entity.ref();
+			Entity* entity = i.item()->get<PlayerManager>()->instance.ref();
 			if (entity)
 				World::remove(entity);
 		}
@@ -806,7 +806,7 @@ void Game::execute(const Update& u, const char* cmd)
 	{
 		for (auto i = PlayerManager::list.iterator(); !i.is_last(); i.next())
 		{
-			if (i.item()->entity.ref())
+			if (i.item()->instance.ref())
 			{
 				s16 credits = i.item()->credits;
 				i.item()->credits = 10000;
@@ -1126,8 +1126,8 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 					{
 						AI::Team team = team_lookup(level.team_lookup, (s32)session.local_player_config[i]);
 
-						Entity* e = World::create<ContainerEntity>();
-						PlayerManager* manager = e->add<PlayerManager>(&Team::list[(s32)team]);
+						Entity* e = World::alloc<ContainerEntity>();
+						PlayerManager* manager = e->create<PlayerManager>(&Team::list[(s32)team]);
 
 						if (ai_test)
 						{
@@ -1137,7 +1137,7 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 						}
 						else
 						{
-							e->add<PlayerHuman>(true, i); // local = true
+							e->create<PlayerHuman>(true, i); // local = true
 
 							if (level.local && !session.story_mode)
 								sprintf(manager->username, _(strings::player), i + 1);
@@ -1149,7 +1149,7 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 									sprintf(manager->username, "%s [%d]", save.username, i + 1);
 							}
 						}
-						Net::finalize(e);
+						// container entity will be finalized later
 					}
 				}
 
@@ -1557,6 +1557,11 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 		*link.ref = finder.find(link.target_name)->get<Transform>();
 	}
 
+	// Set map view for local players
+	Entity* map_view = finder.find("map_view");
+	if (map_view && map_view->has<Transform>())
+		level.map_view = map_view->get<Transform>();
+
 	for (s32 i = 0; i < finder.map.length; i++)
 		World::awake(finder.map[i].entity.ref());
 
@@ -1565,17 +1570,17 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 	for (s32 i = 0; i < ropes.length; i++)
 		Rope::spawn(ropes[i].pos, ropes[i].rot * Vec3(0, 1, 0), ropes[i].max_distance, ropes[i].slack);
 
-	// Set map view for local players
-	Entity* map_view = finder.find("map_view");
-	if (map_view && map_view->has<Transform>())
-		level.map_view = map_view->get<Transform>();
-
 	for (s32 i = 0; i < scripts.length; i++)
 		scripts[i]->function(u, finder);
 
 	Terminal::init(u, finder);
 
 	Loader::level_free(json);
+
+	for (auto i = PlayerManager::list.iterator(); !i.is_last(); i.next())
+		World::awake(i.item()->entity());
+	for (auto i = PlayerManager::list.iterator(); !i.is_last(); i.next())
+		Net::finalize(i.item()->entity());
 
 	Team::awake_all();
 	for (auto i = Team::list.iterator(); !i.is_last(); i.next())

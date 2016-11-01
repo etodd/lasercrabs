@@ -66,7 +66,7 @@ struct PlayerManagerState
 	s32 upgrades;
 	Ability abilities[MAX_ABILITIES] = { Ability::None, Ability::None, Ability::None };
 	Upgrade current_upgrade = Upgrade::None;
-	Ref<Entity> entity;
+	Ref<Entity> instance;
 	s16 credits;
 	s16 kills;
 	s16 respawns;

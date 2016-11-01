@@ -154,7 +154,7 @@ b8 Team::has_player() const
 	for (auto j = PlayerManager::list.iterator(); !j.is_last(); j.next())
 	{
 		if (j.item()->team.ref() == this
-			&& (j.item()->respawns != 0 || j.item()->entity.ref()))
+			&& (j.item()->respawns != 0 || j.item()->instance.ref()))
 			return true;
 	}
 	return false;
@@ -164,7 +164,7 @@ void Team::extract_history(PlayerManager* manager, SensorTrackHistory* history)
 {
 	Entity* entity = manager->decoy();
 	if (!entity)
-		entity = manager->entity.ref();
+		entity = manager->instance.ref();
 
 	if (entity)
 	{
@@ -203,12 +203,12 @@ s16 Team::containment_field_mask(AI::Team t)
 void Team::track(PlayerManager* player)
 {
 	// enemy player has been detected by `tracked_by`
-	vi_assert(player->entity.ref());
+	vi_assert(player->instance.ref());
 	vi_assert(player->team.ref() != this);
 
 	SensorTrack* track = &player_tracks[player->id()];
 	track->tracking = true; // got em
-	track->entity = player->entity;
+	track->entity = player->instance;
 	track->timer = SENSOR_TIMEOUT;
 }
 
@@ -284,7 +284,7 @@ void update_visibility(const Update& u)
 	Sensor* visibility[MAX_PLAYERS][MAX_PLAYERS] = {};
 	for (auto player = PlayerManager::list.iterator(); !player.is_last(); player.next())
 	{
-		Entity* player_entity = player.item()->entity.ref();
+		Entity* player_entity = player.item()->instance.ref();
 
 		if (player_entity && player_entity->get<Awk>()->state() == Awk::State::Crawl)
 		{
@@ -311,7 +311,7 @@ void update_visibility(const Update& u)
 	// update stealth state
 	for (auto i = PlayerManager::list.iterator(); !i.is_last(); i.next())
 	{
-		Entity* i_entity = i.item()->entity.ref();
+		Entity* i_entity = i.item()->instance.ref();
 		if (!i_entity)
 			continue;
 
@@ -342,7 +342,7 @@ void update_visibility(const Update& u)
 	// update player visibility
 	for (auto i = PlayerManager::list.iterator(); !i.is_last(); i.next())
 	{
-		if (!i.item()->entity.ref())
+		if (!i.item()->instance.ref())
 			continue;
 
 		AI::Team team = i.item()->team.ref()->team();
@@ -353,8 +353,8 @@ void update_visibility(const Update& u)
 		j.next();
 		for (; !j.is_last(); j.next())
 		{
-			Entity* i_entity = i.item()->entity.ref();
-			Entity* j_entity = j.item()->entity.ref();
+			Entity* i_entity = i.item()->instance.ref();
+			Entity* j_entity = j.item()->instance.ref();
 
 			if (!j_entity)
 				continue;
@@ -416,7 +416,7 @@ void update_visibility(const Update& u)
 
 		for (auto player = PlayerManager::list.iterator(); !player.is_last(); player.next())
 		{
-			Entity* player_entity = player.item()->entity.ref();
+			Entity* player_entity = player.item()->instance.ref();
 
 			AI::Team player_team = player.item()->team.ref()->team();
 			if (team->team() == player_team)
@@ -591,7 +591,7 @@ void Team::update_all_server(const Update& u)
 
 		for (auto player = PlayerManager::list.iterator(); !player.is_last(); player.next())
 		{
-			Entity* player_entity = player.item()->entity.ref();
+			Entity* player_entity = player.item()->instance.ref();
 
 			AI::Team player_team = player.item()->team.ref()->team();
 			if (team->team() == player_team)
@@ -679,7 +679,7 @@ PlayerManager::PlayerManager(Team* team)
 	credits(Game::level.has_feature(Game::FeatureLevel::Abilities) ? CREDITS_INITIAL : 0),
 	upgrades(0),
 	abilities{ Ability::None, Ability::None, Ability::None },
-	entity(),
+	instance(),
 	spawn(),
 	current_upgrade(Upgrade::None),
 	state_timer(),
@@ -715,7 +715,7 @@ void PlayerManager::upgrade_complete()
 
 	vi_assert(!has_upgrade(u));
 
-	if (!entity.ref())
+	if (!instance.ref())
 		return;
 
 	upgrades |= 1 << s32(u);
@@ -735,7 +735,7 @@ b8 PlayerManager::capture_start()
 	if (can_transition_state() && control_point && !friendly_control_point(control_point))
 	{
 		vi_assert(current_upgrade == Upgrade::None);
-		entity.ref()->get<Awk>()->current_ability = Ability::None;
+		instance.ref()->get<Awk>()->current_ability = Ability::None;
 		state_timer = CAPTURE_TIME;
 		return true;
 	}
@@ -745,7 +745,7 @@ b8 PlayerManager::capture_start()
 // the capture is not actually complete; we've completed the process of *starting* to capture the point
 void PlayerManager::capture_complete()
 {
-	if (!entity.ref())
+	if (!instance.ref())
 		return;
 
 	b8 success = false;
@@ -834,12 +834,12 @@ void PlayerManager::add_kills(s32 k)
 
 b8 PlayerManager::at_upgrade_point() const
 {
-	return team.ref()->player_spawn.ref()->get<PlayerTrigger>()->is_triggered(entity.ref());
+	return team.ref()->player_spawn.ref()->get<PlayerTrigger>()->is_triggered(instance.ref());
 }
 
 ControlPoint* PlayerManager::at_control_point() const
 {
-	Entity* e = entity.ref();
+	Entity* e = instance.ref();
 	if (e && (!e->has<Awk>() || e->get<Awk>()->state() == Awk::State::Crawl))
 	{
 		for (auto i = ControlPoint::list.iterator(); !i.is_last(); i.next())
@@ -874,7 +874,7 @@ b8 PlayerManager::can_transition_state() const
 	if (!Game::level.has_feature(Game::FeatureLevel::Abilities))
 		return false;
 
-	Entity* e = entity.ref();
+	Entity* e = instance.ref();
 	if (!e)
 		return false;
 
@@ -923,7 +923,7 @@ void PlayerManager::update_all(const Update& u)
 
 void PlayerManager::update_server(const Update& u)
 {
-	if (!entity.ref()
+	if (!instance.ref()
 		&& spawn_timer > 0.0f
 		&& team.ref()->player_spawn.ref()
 		&& respawns != 0

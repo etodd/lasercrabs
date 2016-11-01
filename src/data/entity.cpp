@@ -138,6 +138,8 @@ void World::clear()
 		remove(i.item());
 
 	Entity::list.clear();
+	for (s32 i = 0; i < Entity::list.data.length; i++)
+		Entity::list.data[i].revision = 0;
 
 	for (Family i = 0; i < World::families; i++)
 		component_pools[i]->clear();

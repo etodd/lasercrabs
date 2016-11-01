@@ -144,7 +144,7 @@ void PlayerAI::spawn()
 
 	e->add<PlayerCommon>(manager.ref());
 
-	manager.ref()->entity = e;
+	manager.ref()->instance = e;
 
 	e->add<PlayerControlAI>(this);
 

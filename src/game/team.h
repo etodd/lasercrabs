@@ -130,7 +130,7 @@ struct PlayerManager : public ComponentType<PlayerManager>
 	LinkArg<Upgrade> upgrade_completed;
 	LinkArg<b8> control_point_capture_completed;
 	Ref<Team> team;
-	Ref<Entity> entity;
+	Ref<Entity> instance;
 	s16 credits;
 	s16 kills;
 	s16 respawns;

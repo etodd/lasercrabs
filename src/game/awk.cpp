@@ -665,7 +665,7 @@ b8 Awk::can_dash(const Target* target, Vec3* out_intersection) const
 	return false;
 }
 
-b8 Awk::can_shoot(const Target* target, Vec3* out_intersection, r32 speed) const
+b8 Awk::can_shoot(const Target* target, Vec3* out_intersection, r32 speed, const Net::StateFrame* state_frame) const
 {
 	Vec3 intersection;
 	if (predict_intersection(target, &intersection, speed))
@@ -677,7 +677,7 @@ b8 Awk::can_shoot(const Target* target, Vec3* out_intersection, r32 speed) const
 
 		Vec3 final_pos;
 		b8 hit_target;
-		if (can_shoot(to_intersection, &final_pos, &hit_target))
+		if (can_shoot(to_intersection, &final_pos, &hit_target, state_frame))
 		{
 			if (hit_target || (final_pos - me).length() > distance - AWK_RADIUS * 2.0f)
 			{
@@ -717,7 +717,7 @@ b8 awk_state_frame(const Awk* a, Net::StateFrame* state_frame)
 		return false;
 }
 
-b8 Awk::can_shoot(const Vec3& dir, Vec3* final_pos, b8* hit_target) const
+b8 Awk::can_shoot(const Vec3& dir, Vec3* final_pos, b8* hit_target, const Net::StateFrame* state_frame) const
 {
 	Vec3 trace_dir = Vec3::normalize(dir);
 
@@ -736,9 +736,8 @@ b8 Awk::can_shoot(const Vec3& dir, Vec3* final_pos, b8* hit_target) const
 	Vec3 trace_start = get<Transform>()->absolute_pos();
 	Vec3 trace_end = trace_start + trace_dir * AWK_SNIPE_DISTANCE;
 
-	const Net::StateFrame* state_frame = nullptr;
 	Net::StateFrame state_frame_data;
-	if (awk_state_frame(this, &state_frame_data))
+	if (!state_frame && awk_state_frame(this, &state_frame_data))
 		state_frame = &state_frame_data;
 
 	Hits hits;
@@ -758,9 +757,10 @@ b8 Awk::can_shoot(const Vec3& dir, Vec3* final_pos, b8* hit_target) const
 			if (hit.type == Hit::Type::Awk)
 			{
 				allow_further_end = true;
-				hit_target_value = true;
+				if (hit.fraction <= hits.fraction_end)
+					hit_target_value = true;
 			}
-			else if (hit.type == Hit::Type::Target)
+			else if (hit.type == Hit::Type::Target && hit.fraction <= hits.fraction_end)
 				hit_target_value = true;
 		}
 	}
@@ -775,6 +775,7 @@ b8 Awk::can_shoot(const Vec3& dir, Vec3* final_pos, b8* hit_target) const
 		else
 		{
 			// check awk target predictions
+			r32 end_distance_sq = hits.fraction_end * AWK_SNIPE_DISTANCE * hits.fraction_end * AWK_SNIPE_DISTANCE;
 			for (auto i = list.iterator(); !i.is_last(); i.next())
 			{
 				if (i.item() != this && (i.item()->get<Transform>()->absolute_pos() - trace_start).length_squared() > AWK_SHIELD_RADIUS * 2.0f * AWK_SHIELD_RADIUS * 2.0f)
@@ -782,7 +783,7 @@ b8 Awk::can_shoot(const Vec3& dir, Vec3* final_pos, b8* hit_target) const
 					Vec3 intersection;
 					if (predict_intersection(i.item()->get<Target>(), &intersection))
 					{
-						if ((intersection - trace_start).length_squared() < r * r
+						if ((intersection - trace_start).length_squared() <= end_distance_sq
 							&& LMath::ray_sphere_intersect(trace_start, trace_end, intersection, AWK_SHIELD_RADIUS))
 						{
 							can_shoot = true;
@@ -1110,7 +1111,8 @@ Vec2 reflection_angles[REFLECTION_TRIES] =
 	Vec2(0.994534f, 0.367225f),
 };
 
-Vec3 quantized_reflection_vectors[6] =
+#define QUANTIZED_REFLECTION_VECTOR_COUNT 18
+Vec3 quantized_reflection_vectors[QUANTIZED_REFLECTION_VECTOR_COUNT] =
 {
 	Vec3(-1, 0, 0),
 	Vec3(1, 0, 0),
@@ -1118,12 +1120,23 @@ Vec3 quantized_reflection_vectors[6] =
 	Vec3(0, 1, 0),
 	Vec3(0, 0, -1),
 	Vec3(0, 0, 1),
+	Vec3(-0.70710678f, 0, -0.70710678f),
+	Vec3(0.70710678f, 0, -0.70710678f),
+	Vec3(-0.70710678f, 0, 0.70710678f),
+	Vec3(0.70710678f, 0, 0.70710678f),
+	Vec3(-0.57735026f, -0.57735026f, -0.57735026f),
+	Vec3(0.57735026f, -0.57735026f, -0.57735026f),
+	Vec3(-0.57735026f, -0.57735026f, 0.57735026f),
+	Vec3(0.57735026f, -0.57735026f, 0.57735026f),
+	Vec3(-0.57735026f, 0.57735026f, -0.57735026f),
+	Vec3(0.57735026f, 0.57735026f, -0.57735026f),
+	Vec3(-0.57735026f, 0.57735026f, 0.57735026f),
+	Vec3(0.57735026f, 0.57735026f, 0.57735026f),
 };
 
 void Awk::reflect(Entity* entity, const Vec3& original_hit, const Vec3& original_normal, const Net::StateFrame* state_frame)
 {
-	if (btVector3(velocity).fuzzyZero())
-		return;
+	vi_debug("Original hit: %f %f %f at %f", original_hit.x, original_hit.y, original_hit.z, Game::time.total);
 
 	// it's possible to reflect off a shield while we are dashing (still parented to an object)
 	// so we need to make sure we're not dashing anymore
@@ -1134,8 +1147,8 @@ void Awk::reflect(Entity* entity, const Vec3& original_hit, const Vec3& original
 		get<Animator>()->layers[0].animation = Asset::Animation::awk_fly;
 	}
 
-	Vec3 hit = original_normal;
-	Vec3 normal = original_hit;
+	Vec3 hit = original_hit;
+	Vec3 normal = original_normal;
 	if (entity->has<Awk>())
 	{
 		// quantize for better server/client synchronization
@@ -1148,13 +1161,16 @@ void Awk::reflect(Entity* entity, const Vec3& original_hit, const Vec3& original
 		else
 			p = entity->get<Transform>()->absolute_pos();
 		r32 closest_dot = 0.0f;
-		for (s32 i = 0; i < 6; i++)
+		for (s32 i = 0; i < QUANTIZED_REFLECTION_VECTOR_COUNT; i++)
 		{
-			r32 dot = quantized_reflection_vectors[i].dot(original_normal);
-			if (dot > closest_dot)
+			if (quantized_reflection_vectors[i].dot(velocity) < 0.0f)
 			{
-				closest_dot = dot;
-				normal = quantized_reflection_vectors[i];
+				r32 dot = quantized_reflection_vectors[i].dot(original_normal);
+				if (dot > closest_dot)
+				{
+					closest_dot = dot;
+					normal = quantized_reflection_vectors[i];
+				}
 			}
 		}
 		hit = p + normal * AWK_SHIELD_RADIUS;
@@ -1178,7 +1194,8 @@ void Awk::reflect(Entity* entity, const Vec3& original_hit, const Vec3& original
 		if (((i.item()->has<EnergyPickup>() && i.item()->get<EnergyPickup>()->team != team)
 			|| (i.item()->has<ContainmentField>() && i.item()->get<ContainmentField>()->team != team)
 			|| (i.item()->has<AIAgent>() && i.item()->get<AIAgent>()->team != team))
-			&& can_shoot(i.item(), &intersection, AWK_DASH_SPEED))
+			&& i.item()->entity() != entity
+			&& can_shoot(i.item(), &intersection, AWK_DASH_SPEED, state_frame))
 		{
 			Vec3 to_target = Vec3::normalize(intersection - get<Transform>()->absolute_pos());
 			if (target_dir.dot(to_target) > 0.9f)
@@ -1197,22 +1214,29 @@ void Awk::reflect(Entity* entity, const Vec3& original_hit, const Vec3& original
 
 		// make sure we have somewhere to land.
 		r32 random_range = 0.0f;
-		r32 farthest_distance = 0;
+		r32 best_score = AWK_MAX_DISTANCE;
+		const r32 goal_distance = AWK_MAX_DISTANCE * 0.25f;
 		for (s32 i = 0; i < REFLECTION_TRIES; i++)
 		{
 			const Vec2& angle = reflection_angles[i];
 			Vec3 candidate_velocity = target_quat * (Quat::euler(PI + (angle.x - 0.5f) * random_range, (PI * 0.5f) + (angle.y - 0.5f) * random_range, 0) * Vec3(AWK_DASH_SPEED, 0, 0));
 			Vec3 next_hit;
-			if (can_shoot(candidate_velocity, &next_hit))
+			if (can_shoot(candidate_velocity, &next_hit, nullptr, state_frame))
 			{
-				r32 distance_to_next_hit = (next_hit - hit).length_squared();
-				if (distance_to_next_hit > farthest_distance)
+				r32 distance = (next_hit - hit).length();
+				r32 score = fabs(distance - goal_distance);
+
+				if (score < best_score)
 				{
 					new_velocity = candidate_velocity;
-					farthest_distance = distance_to_next_hit;
+					best_score = score;
+				}
 
-					if (distance_to_next_hit > (AWK_MAX_DISTANCE * 0.25f * AWK_MAX_DISTANCE * 0.25f)) // try to bounce to a spot at least X units away
-						break;
+				if (distance > goal_distance && score < AWK_MAX_DISTANCE * 0.4f)
+				{
+					new_velocity = candidate_velocity;
+					best_score = score;
+					break;
 				}
 			}
 			random_range += PI / r32(REFLECTION_TRIES);
@@ -1582,15 +1606,14 @@ void Awk::update_client(const Update& u)
 			}
 
 			{
-				Vec3 to_transform = abs_pos - lerped_pos;
-				r32 distance = to_transform.length();
+				r32 distance = (abs_pos - lerped_pos).length();
 				if (distance > 0.0f)
 				{
 					const r32 tolerance = AWK_SHIELD_RADIUS;
 					if (distance < tolerance)
 						lerped_pos = Vec3::lerp(vi_min(1.0f, (LERP_TRANSLATION_SPEED / distance) * u.time.delta), lerped_pos, abs_pos);
 					else // keep the lerped pos within tolerance of the absolute pos
-						lerped_pos += to_transform * (distance - (tolerance * 0.9f));
+						lerped_pos = Vec3::lerp(vi_min(1.0f, (tolerance * 0.9f) / distance), lerped_pos, abs_pos);
 				}
 			}
 		}
@@ -1924,18 +1947,20 @@ r32 Awk::movement_raycast(const Vec3& ray_start, const Vec3& ray_end)
 					do_reflect = s != State::Crawl
 						&& hit.entity.ref()
 						&& hit.entity.ref()->get<Health>()->total() > 1;
+					b8 already_hit = false;
 					if (do_reflect)
 					{
 						for (s32 i = 0; i < hit_targets.length; i++)
 						{
 							if (hit_targets[i].equals(hit.entity))
 							{
+								already_hit = true;
 								do_reflect = false;
 								break;
 							}
 						}
 					}
-					if (do_reflect)
+					if (!already_hit)
 						hit_targets.add(hit.entity);
 				}
 				else

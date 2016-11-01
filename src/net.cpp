@@ -513,7 +513,7 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 		for (s32 i = 0; i < MAX_ABILITIES; i++)
 			serialize_int(p, Ability, m->abilities[i], 0, s32(Ability::count) + 1);
 		serialize_ref(p, m->team);
-		serialize_ref(p, m->entity);
+		serialize_ref(p, m->instance);
 		serialize_s16(p, m->credits);
 		serialize_s16(p, m->kills);
 		serialize_s16(p, m->respawns);
@@ -1123,10 +1123,10 @@ template<typename Stream> b8 serialize_player_manager(Stream* p, PlayerManagerSt
 		serialize_int(p, Upgrade, state->current_upgrade, 0, s32(Upgrade::count) + 1); // necessary because Upgrade::None = Upgrade::count
 
 	if (Stream::IsWriting)
-		b = !old || !state->entity.equals(old->entity);
+		b = !old || !state->instance.equals(old->instance);
 	serialize_bool(p, b);
 	if (b)
-		serialize_ref(p, state->entity);
+		serialize_ref(p, state->instance);
 
 	if (Stream::IsWriting)
 		b = !old || state->credits != old->credits;
@@ -1166,24 +1166,30 @@ template<typename Stream> b8 serialize_awk(Stream* p, AwkState* state, const Awk
 
 b8 equal_states_transform(const TransformState& a, const TransformState& b)
 {
-	r32 tolerance_pos_sq = 0.008f * 0.008f;
+	r32 tolerance_pos = 0.008f;
 	r32 tolerance_rot = 0.002f;
 	if (a.resolution == Resolution::Medium || b.resolution == Resolution::Medium)
 	{
-		tolerance_pos_sq = 0.002f * 0.002f;
+		tolerance_pos = 0.002f;
 		tolerance_rot = 0.001f;
 	}
 	if (a.resolution == Resolution::High || b.resolution == Resolution::High)
 	{
-		tolerance_pos_sq = 0.001f * 0.001f;
+		tolerance_pos = 0.001f;
 		tolerance_rot = 0.0001f;
 	}
 
-	return a.revision == b.revision
+	if (a.revision == b.revision
 		&& a.resolution == b.resolution
 		&& a.parent.equals(b.parent)
-		&& (a.pos - b.pos).length_squared() < tolerance_pos_sq
-		&& Quat::angle(a.rot, b.rot) < tolerance_rot;
+		&& Quat::angle(a.rot, b.rot) < tolerance_rot)
+	{
+		return s32(a.pos.x / tolerance_pos) == s32(b.pos.x / tolerance_pos)
+			&& s32(a.pos.y / tolerance_pos) == s32(b.pos.y / tolerance_pos)
+			&& s32(a.pos.z / tolerance_pos) == s32(b.pos.z / tolerance_pos);
+	}
+
+	return false;
 }
 
 b8 equal_states_transform(const StateFrame* a, const StateFrame* b, s32 index)
@@ -1209,7 +1215,7 @@ b8 equal_states_player(const PlayerManagerState& a, const PlayerManagerState& b)
 		|| a.state_timer != b.state_timer
 		|| a.upgrades != b.upgrades
 		|| a.current_upgrade != b.current_upgrade
-		|| !a.entity.equals(b.entity)
+		|| !a.instance.equals(b.instance)
 		|| a.credits != b.credits
 		|| a.kills != b.kills
 		|| a.respawns != b.respawns
@@ -1379,7 +1385,7 @@ void state_frame_build(StateFrame* frame)
 		state->upgrades = i.item()->upgrades;
 		memcpy(state->abilities, i.item()->abilities, sizeof(state->abilities));
 		state->current_upgrade = i.item()->current_upgrade;
-		state->entity = i.item()->entity;
+		state->instance = i.item()->instance;
 		state->credits = i.item()->credits;
 		state->kills = i.item()->kills;
 		state->respawns = i.item()->respawns;
@@ -1538,7 +1544,7 @@ void state_frame_apply(const StateFrame& frame)
 			s->upgrades = state.upgrades;
 			memcpy(s->abilities, state.abilities, sizeof(s->abilities));
 			s->current_upgrade = state.current_upgrade;
-			s->entity = state.entity;
+			s->instance = state.instance;
 			s->credits = state.credits;
 			s->kills = state.kills;
 			s->respawns = state.respawns;
@@ -1770,7 +1776,7 @@ void update(const Update& u)
 		Client* client = &state_server.clients[i];
 		if (client->connected)
 		{
-			while (MessageFrame* frame = msg_frame_advance(&client->msgs_in_history, &client->processed_sequence_id, Game::real_time.total))
+			while (MessageFrame* frame = msg_frame_advance(&client->msgs_in_history, &client->processed_sequence_id, Game::real_time.total + 1.0f))
 			{
 				frame->read.rewind();
 #if DEBUG_MSG

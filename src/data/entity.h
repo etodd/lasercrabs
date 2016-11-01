@@ -102,6 +102,8 @@ struct ComponentPool : public ComponentPoolBase
 	virtual void clear()
 	{
 		T::list.clear();
+		for (s32 i = 0; i < T::list.data.length; i++)
+			T::list.data[i].revision = 0;
 	}
 
 	virtual Revision revision(ID id)

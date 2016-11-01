@@ -122,8 +122,6 @@ struct Entity
 
 	template<typename T, typename... Args> T* create(Args... args);
 	template<typename T, typename... Args> T* add(Args... args);
-	template<typename T> void attach(T*);
-	template<typename T> void detach();
 	template<typename T> void remove();
 	template<typename T> inline b8 has() const;
 	template<typename T> inline T* get() const;
@@ -149,6 +147,7 @@ struct World
 	template<typename T, typename... Args> static T* alloc(Args... args)
 	{
 		Entity* e = Entity::list.add();
+		e->revision++;
 #if SERVER && DEBUG
 		create_queue.add(e);
 #endif
@@ -159,6 +158,7 @@ struct World
 	template<typename T, typename... Args> static T* create(Args... args)
 	{
 		Entity* e = Entity::list.add();
+		e->revision++;
 		new (e) T(args...);
 		awake(e);
 		return (T*)e;
@@ -179,6 +179,7 @@ template<typename T, typename... Args> T* Entity::create(Args... args)
 	T* item = T::pool.add();
 	component_mask |= T::component_mask;
 	components[T::family] = item->id();
+	item->revision++;
 	new (item) T(args...);
 	item->entity_id = id();
 	return item;
@@ -190,20 +191,6 @@ template<typename T, typename... Args> T* Entity::add(Args... args)
 	T* component = create<T>(args...);
 	component->awake();
 	return component;
-}
-
-template<typename T> void Entity::attach(T* t)
-{
-	vi_assert(!has<T>());
-	component_mask |= T::component_mask;
-	components[T::family] = t->id();
-	t->entity_id = id();
-}
-
-template<typename T> void Entity::detach()
-{
-	get<T>()->entity_id = IDNull;
-	component_mask &= ~T::component_mask;
 }
 
 template<typename T> void Entity::remove()

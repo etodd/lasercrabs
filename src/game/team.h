@@ -64,7 +64,8 @@ struct Team : public ComponentType<Team>
 	static void extract_history(PlayerManager*, SensorTrackHistory*);
 	static void transition_next(Game::MatchResult);
 	static s16 containment_field_mask(AI::Team);
-	static void update_all(const Update&);
+	static void update_all_server(const Update&);
+	static void update_all_client_only(const Update&);
 	static s32 teams_with_players();
 	static Team* with_most_kills();
 

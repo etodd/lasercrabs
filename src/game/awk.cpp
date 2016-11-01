@@ -273,6 +273,7 @@ void Awk::finish_flying_dashing_common()
 
 	get<Audio>()->post_event(has<PlayerControlHuman>() && get<PlayerControlHuman>()->local() ? AK::EVENTS::PLAY_LAND_PLAYER : AK::EVENTS::PLAY_LAND);
 	attach_time = Game::time.total;
+	dash_timer = 0.0f;
 
 	velocity = Vec3::zero;
 	last_speed = 0.0f;
@@ -1502,14 +1503,6 @@ void Awk::update_client(const Update& u)
 
 	if (s == Awk::State::Crawl)
 	{
-		if (get<Animator>()->layers[0].animation != AssetNull)
-		{
-			// this means that we were flying or dashing, but we were interrupted. the animation is still playing.
-			// this probably happened because the server never started flying or dashing in the first place, while we did
-			// and now we're snapping back to the server's state
-			finish_flying_dashing_common();
-		}
-
 		{
 			// update lerped pos so we crawl smoothly
 			Quat abs_rot;
@@ -1651,6 +1644,15 @@ void Awk::update_client(const Update& u)
 				get<Animator>()->override_bone(awk_legs[i], Vec3::zero, Quat::euler(0, PI * -0.1f, 0));
 				get<Animator>()->override_bone(awk_outer_legs[i], Vec3::zero, Quat::euler(0, PI * 0.75f * awk_outer_leg_rotation[i], 0));
 			}
+		}
+
+		if (get<Animator>()->layers[0].animation != AssetNull)
+		{
+			// this means that we were flying or dashing, but we were interrupted. the animation is still playing.
+			// this probably happened because the server never started flying or dashing in the first place, while we did
+			// and now we're snapping back to the server's state
+			finish_flying_dashing_common();
+			done_dashing.fire();
 		}
 	}
 	else

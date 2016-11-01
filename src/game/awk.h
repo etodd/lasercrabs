@@ -43,6 +43,7 @@ struct Awk : public ComponentType<Awk>
 		Crawl,
 		Dash,
 		Fly,
+		count,
 	};
 
 	struct Footing

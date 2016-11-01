@@ -800,15 +800,6 @@ namespace Server
 	b8 all_clients_loaded();
 }
 
-b8 allow_large_messages()
-{
-#if SERVER
-	return Server::all_clients_loaded();
-#else
-	return false;
-#endif
-}
-
 // consolidate msgs_out into msgs_out_history
 b8 msgs_out_consolidate()
 {
@@ -819,18 +810,17 @@ b8 msgs_out_consolidate()
 
 	s32 bytes = 0;
 	s32 msgs = 0;
-	for (s32 i = 0; i < state_common.msgs_out.length; i++)
 	{
-		s32 msg_bytes = state_common.msgs_out[i].bytes_written();
+		for (s32 i = 0; i < state_common.msgs_out.length; i++)
+		{
+			s32 msg_bytes = state_common.msgs_out[i].bytes_written();
 
-		// during loading, we can use the whole packet to send message
-		// because we don't send state frames
-		s32 max_messages_size = allow_large_messages() ? NET_MAX_PACKET_SIZE : MAX_MESSAGES_SIZE;
+			if (64 + bytes + msg_bytes > MAX_MESSAGES_SIZE)
+				break;
 
-		if (64 + bytes + msg_bytes > max_messages_size)
-			break;
-		bytes += msg_bytes;
-		msgs++;
+			bytes += msg_bytes;
+			msgs++;
+		}
 	}
 
 	MessageFrame* frame = msg_history_add(&state_common.msgs_out_history, Game::real_time.total, bytes);
@@ -1702,7 +1692,7 @@ b8 init()
 
 	// todo: allow both multiplayer / story mode sessions
 	Game::session.story_mode = true;
-	Game::load_level(Update(), Asset::Level::Ponos, Game::Mode::Pvp);
+	Game::load_level(Update(), Asset::Level::Proci, Game::Mode::Pvp);
 
 	return true;
 }

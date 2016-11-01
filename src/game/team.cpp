@@ -278,16 +278,209 @@ b8 visibility_check(Entity* i, Entity* j, r32* distance)
 	return false;
 }
 
-void Team::update_all(const Update& u)
+void update_visibility(const Update& u)
 {
-	if (Game::level.mode != Game::Mode::Pvp || !Game::level.local)
+	// determine which Awks are seen by which teams
+	Sensor* visibility[MAX_PLAYERS][MAX_PLAYERS] = {};
+	for (auto player = PlayerManager::list.iterator(); !player.is_last(); player.next())
+	{
+		Entity* player_entity = player.item()->entity.ref();
+
+		if (player_entity && player_entity->get<Awk>()->state() == Awk::State::Crawl)
+		{
+			// we're on a wall and can thus be detected
+			AI::Team player_team = player.item()->team.ref()->team();
+			Quat player_rot;
+			Vec3 player_pos;
+			player_entity->get<Transform>()->absolute(&player_pos, &player_rot);
+			player_pos += player_rot * Vec3(0, 0, -AWK_RADIUS);
+			for (auto sensor = Sensor::list.iterator(); !sensor.is_last(); sensor.next())
+			{
+				Sensor** sensor_visibility = &visibility[player.index][(s32)sensor.item()->team];
+				if (!(*sensor_visibility))
+				{
+					Vec3 to_sensor = sensor.item()->get<Transform>()->absolute_pos() - player_pos;
+					if (to_sensor.length_squared() < SENSOR_RANGE * SENSOR_RANGE
+						&& to_sensor.dot(player_rot * Vec3(0, 0, 1)) > 0.0f)
+						*sensor_visibility = sensor.item();
+				}
+			}
+		}
+	}
+
+	// update stealth state
+	for (auto i = PlayerManager::list.iterator(); !i.is_last(); i.next())
+	{
+		Entity* i_entity = i.item()->entity.ref();
+		if (!i_entity)
+			continue;
+
+		AI::Team team = i.item()->team.ref()->team();
+
+		// if we are within range of their own sensors
+		// and not detected by enemy sensors
+		// then we should be stealthed
+		b8 stealth_enabled = true;
+		if (!visibility[i.index][(s32)team])
+			stealth_enabled = false;
+		else
+		{
+			// check if any enemy sensors can see us
+			for (auto t = Team::list.iterator(); !t.is_last(); t.next())
+			{
+				if (t.item()->team() != team
+					&& (visibility[i.index][t.index] || t.item()->player_tracks[i.index].tracking))
+				{
+					stealth_enabled = false;
+					break;
+				}
+			}
+		}
+		i_entity->get<Awk>()->stealth(stealth_enabled);
+	}
+
+	// update player visibility
+	for (auto i = PlayerManager::list.iterator(); !i.is_last(); i.next())
+	{
+		if (!i.item()->entity.ref())
+			continue;
+
+		AI::Team team = i.item()->team.ref()->team();
+
+		Team* i_team = i.item()->team.ref();
+
+		auto j = i;
+		j.next();
+		for (; !j.is_last(); j.next())
+		{
+			Entity* i_entity = i.item()->entity.ref();
+			Entity* j_entity = j.item()->entity.ref();
+
+			if (!j_entity)
+				continue;
+
+			Team* j_team = j.item()->team.ref();
+
+			if (team == j_team->team())
+				continue;
+
+			Entity* i_decoy = j_team->player_tracks[i.index].tracking ? nullptr : i.item()->decoy();
+			Entity* j_decoy = i_team->player_tracks[j.index].tracking ? nullptr : j.item()->decoy();
+
+			b8 i_can_see_j;
+			b8 j_can_see_i;
+
+			if (i_decoy || j_decoy)
+			{
+				// decoys involved; two raycasts necessary
+				{
+					r32 distance;
+					i_can_see_j = visibility_check(i_entity, j_decoy ? j_decoy : j_entity, &distance)
+						&& !j_entity->get<AIAgent>()->stealth
+						&& distance < i_entity->get<Awk>()->range();
+				}
+				{
+					r32 distance;
+					j_can_see_i = visibility_check(j_entity, i_decoy ? i_decoy : i_entity, &distance)
+						&& !i_entity->get<AIAgent>()->stealth
+						&& distance < j_entity->get<Awk>()->range();
+				}
+			}
+			else
+			{
+				// no decoys; only one raycast needed
+				r32 distance;
+				b8 visible = visibility_check(i_entity, j_entity, &distance);
+				r32 i_range = i_entity->get<Awk>()->range();
+				i_can_see_j = visible && !j_entity->get<AIAgent>()->stealth && distance < i_range;
+				r32 j_range = j_entity->get<Awk>()->range();
+				j_can_see_i = visible && !i_entity->get<AIAgent>()->stealth && distance < j_range;
+			}
+
+			PlayerCommon::visibility.set(PlayerCommon::visibility_hash(i_entity->get<PlayerCommon>(), j_entity->get<PlayerCommon>()), i_can_see_j);
+			PlayerCommon::visibility.set(PlayerCommon::visibility_hash(j_entity->get<PlayerCommon>(), i_entity->get<PlayerCommon>()), j_can_see_i);
+
+			// update history
+			if (i_can_see_j || i_team->player_tracks[j.index].tracking)
+				Team::extract_history(j.item(), &i_team->player_track_history[j.index]);
+			if (j_can_see_i || j_team->player_tracks[i.index].tracking)
+				Team::extract_history(i.item(), &j_team->player_track_history[i.index]);
+		}
+	}
+
+	for (auto t = Team::list.iterator(); !t.is_last(); t.next())
+	{
+		Team* team = t.item();
+
+		// update tracking timers
+
+		for (auto player = PlayerManager::list.iterator(); !player.is_last(); player.next())
+		{
+			Entity* player_entity = player.item()->entity.ref();
+
+			AI::Team player_team = player.item()->team.ref()->team();
+			if (team->team() == player_team)
+				continue;
+
+			Sensor* sensor = visibility[player.index][team->id()];
+			Team::SensorTrack* track = &team->player_tracks[player.index];
+			if (sensor)
+			{
+				// team's sensors are picking up the Awk
+
+				if (track->entity.ref() == player_entity)
+				{
+					// already tracking
+					if (track->tracking) // already alerted
+						track->timer = SENSOR_TIMEOUT;
+					else
+					{
+						// tracking but not yet alerted
+						track->timer += u.time.delta;
+						if (track->timer >= SENSOR_TIME)
+							team->track(player.item());
+					}
+				}
+				else if (player_entity->get<Awk>()->state() == Awk::State::Crawl)
+				{
+					// not tracking yet; insert new track entry
+					// (only start tracking if the Awk is attached to a wall; don't start tracking if Awk is mid-air)
+
+					new (track) Team::SensorTrack();
+					track->entity = player_entity;
+				}
+			}
+			else
+			{
+				// team's sensors don't see the Awk
+				// remove the Awk's track, if any
+				if (track->entity.ref() == player_entity)
+				{
+					if (track->tracking && track->timer > 0.0f) // track remains active for SENSOR_TIMEOUT seconds
+						track->timer -= u.time.delta;
+					else
+					{
+						// done tracking
+						track->entity = nullptr;
+						track->tracking = false;
+					}
+				}
+			}
+
+		}
+	}
+}
+
+void Team::update_all_server(const Update& u)
+{
+	if (Game::level.mode != Game::Mode::Pvp)
 		return;
 
 	if (!game_over)
 	{
 		Team* team_with_most_kills = Game::level.type == Game::Type::Deathmatch ? with_most_kills() : nullptr;
 		if (!Game::level.continue_match_after_death
-		&& ((Game::time.total > Game::level.time_limit && (Game::level.type != Game::Type::Rush || ControlPoint::count_capturing() == 0))
+			&& ((Game::time.total > Game::level.time_limit && (Game::level.type != Game::Type::Rush || ControlPoint::count_capturing() == 0))
 			|| (PlayerManager::list.count() > 1 && Team::teams_with_players() <= 1)
 			|| (Game::level.type == Game::Type::Rush && list[1].control_point_count() > 0)
 			|| (Game::level.type == Game::Type::Deathmatch && team_with_most_kills && team_with_most_kills->kills() >= Game::level.kill_limit)))
@@ -389,139 +582,12 @@ void Team::update_all(const Update& u)
 		}
 	}
 
-	// determine which Awks are seen by which teams
-	Sensor* visibility[MAX_PLAYERS][MAX_PLAYERS] = {};
-	for (auto player = PlayerManager::list.iterator(); !player.is_last(); player.next())
-	{
-		Entity* player_entity = player.item()->entity.ref();
+	update_visibility(u);
 
-		if (player_entity && player_entity->get<Awk>()->state() == Awk::State::Crawl)
-		{
-			// we're on a wall and can thus be detected
-			AI::Team player_team = player.item()->team.ref()->team();
-			Quat player_rot;
-			Vec3 player_pos;
-			player_entity->get<Transform>()->absolute(&player_pos, &player_rot);
-			player_pos += player_rot * Vec3(0, 0, -AWK_RADIUS);
-			for (auto sensor = Sensor::list.iterator(); !sensor.is_last(); sensor.next())
-			{
-				Sensor** sensor_visibility = &visibility[player.index][(s32)sensor.item()->team];
-				if (!(*sensor_visibility))
-				{
-					Vec3 to_sensor = sensor.item()->get<Transform>()->absolute_pos() - player_pos;
-					if (to_sensor.length_squared() < SENSOR_RANGE * SENSOR_RANGE
-						&& to_sensor.dot(player_rot * Vec3(0, 0, 1)) > 0.0f)
-						*sensor_visibility = sensor.item();
-				}
-			}
-		}
-	}
-
-	// update stealth state
-	for (auto i = PlayerManager::list.iterator(); !i.is_last(); i.next())
-	{
-		Entity* i_entity = i.item()->entity.ref();
-		if (!i_entity)
-			continue;
-
-		AI::Team team = i.item()->team.ref()->team();
-
-		// if we are within range of their own sensors
-		// and not detected by enemy sensors
-		// then we should be stealthed
-		b8 stealth_enabled = true;
-		if (!visibility[i.index][(s32)team])
-			stealth_enabled = false;
-		else
-		{
-			// check if any enemy sensors can see us
-			for (auto t = list.iterator(); !t.is_last(); t.next())
-			{
-				if (t.item()->team() != team
-					&& (visibility[i.index][t.index] || t.item()->player_tracks[i.index].tracking))
-				{
-					stealth_enabled = false;
-					break;
-				}
-			}
-		}
-		i_entity->get<Awk>()->stealth(stealth_enabled);
-	}
-
-	// update player visibility
-	for (auto i = PlayerManager::list.iterator(); !i.is_last(); i.next())
-	{
-		if (!i.item()->entity.ref())
-			continue;
-
-		AI::Team team = i.item()->team.ref()->team();
-
-		Team* i_team = i.item()->team.ref();
-
-		auto j = i;
-		j.next();
-		for (; !j.is_last(); j.next())
-		{
-			Entity* i_entity = i.item()->entity.ref();
-			Entity* j_entity = j.item()->entity.ref();
-
-			if (!j_entity)
-				continue;
-
-			Team* j_team = j.item()->team.ref();
-
-			if (team == j_team->team())
-				continue;
-
-			Entity* i_decoy = j_team->player_tracks[i.index].tracking ? nullptr : i.item()->decoy();
-			Entity* j_decoy = i_team->player_tracks[j.index].tracking ? nullptr : j.item()->decoy();
-
-			b8 i_can_see_j;
-			b8 j_can_see_i;
-
-			if (i_decoy || j_decoy)
-			{
-				// decoys involved; two raycasts necessary
-				{
-					r32 distance;
-					i_can_see_j = visibility_check(i_entity, j_decoy ? j_decoy : j_entity, &distance)
-						&& !j_entity->get<AIAgent>()->stealth
-						&& distance < i_entity->get<Awk>()->range();
-				}
-				{
-					r32 distance;
-					j_can_see_i = visibility_check(j_entity, i_decoy ? i_decoy : i_entity, &distance)
-						&& !i_entity->get<AIAgent>()->stealth
-						&& distance < j_entity->get<Awk>()->range();
-				}
-			}
-			else
-			{
-				// no decoys; only one raycast needed
-				r32 distance;
-				b8 visible = visibility_check(i_entity, j_entity, &distance);
-				r32 i_range = i_entity->get<Awk>()->range();
-				i_can_see_j = visible && !j_entity->get<AIAgent>()->stealth && distance < i_range;
-				r32 j_range = j_entity->get<Awk>()->range();
-				j_can_see_i = visible && !i_entity->get<AIAgent>()->stealth && distance < j_range;
-			}
-
-			PlayerCommon::visibility.set(PlayerCommon::visibility_hash(i_entity->get<PlayerCommon>(), j_entity->get<PlayerCommon>()), i_can_see_j);
-			PlayerCommon::visibility.set(PlayerCommon::visibility_hash(j_entity->get<PlayerCommon>(), i_entity->get<PlayerCommon>()), j_can_see_i);
-
-			// update history
-			if (i_can_see_j || i_team->player_tracks[j.index].tracking)
-				extract_history(j.item(), &i_team->player_track_history[j.index]);
-			if (j_can_see_i || j_team->player_tracks[i.index].tracking)
-				extract_history(i.item(), &j_team->player_track_history[i.index]);
-		}
-	}
-
-	for (auto t = list.iterator(); !t.is_last(); t.next())
+	// rockets
+	for (auto t = Team::list.iterator(); !t.is_last(); t.next())
 	{
 		Team* team = t.item();
-
-		// update tracking timers
 
 		for (auto player = PlayerManager::list.iterator(); !player.is_last(); player.next())
 		{
@@ -531,50 +597,7 @@ void Team::update_all(const Update& u)
 			if (team->team() == player_team)
 				continue;
 
-			Sensor* sensor = visibility[player.index][team->id()];
-			SensorTrack* track = &team->player_tracks[player.index];
-			if (sensor)
-			{
-				// team's sensors are picking up the Awk
-
-				if (track->entity.ref() == player_entity)
-				{
-					// already tracking
-					if (track->tracking) // already alerted
-						track->timer = SENSOR_TIMEOUT;
-					else
-					{
-						// tracking but not yet alerted
-						track->timer += u.time.delta;
-						if (track->timer >= SENSOR_TIME)
-							team->track(player.item());
-					}
-				}
-				else if (player_entity->get<Awk>()->state() == Awk::State::Crawl)
-				{
-					// not tracking yet; insert new track entry
-					// (only start tracking if the Awk is attached to a wall; don't start tracking if Awk is mid-air)
-
-					new (track) SensorTrack();
-					track->entity = player_entity;
-				}
-			}
-			else
-			{
-				// team's sensors don't see the Awk
-				// remove the Awk's track, if any
-				if (track->entity.ref() == player_entity)
-				{
-					if (track->tracking && track->timer > 0.0f) // track remains active for SENSOR_TIMEOUT seconds
-						track->timer -= u.time.delta;
-					else
-					{
-						// done tracking
-						track->entity = nullptr;
-						track->tracking = false;
-					}
-				}
-			}
+			Team::SensorTrack* track = &team->player_tracks[player.index];
 
 			// launch a rocket at this player if the conditions are right
 			Entity* player_or_decoy = player.item()->decoy();
@@ -613,6 +636,14 @@ void Team::update_all(const Update& u)
 			}
 		}
 	}
+}
+
+void Team::update_all_client_only(const Update& u)
+{
+	if (Game::level.mode != Game::Mode::Pvp)
+		return;
+
+	update_visibility(u);
 }
 
 b8 PlayerManager::has_upgrade(Upgrade u) const

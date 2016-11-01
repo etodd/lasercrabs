@@ -417,7 +417,11 @@ void Game::update(const Update& update_in)
 
 		AI::update(u);
 
-		Team::update_all(u);
+		if (level.local)
+			Team::update_all_server(u);
+		else
+			Team::update_all_client_only(u);
+
 		PlayerManager::update_all(u);
 		PlayerHuman::update_all(u);
 		for (auto i = Health::list.iterator(); !i.is_last(); i.next())

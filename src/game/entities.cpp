@@ -1286,11 +1286,11 @@ void teleport(Entity* e, Teleporter* target)
 #define PROJECTILE_THICKNESS 0.05f
 #define PROJECTILE_MAX_LIFETIME 10.0f
 #define PROJECTILE_DAMAGE 1
-ProjectileEntity::ProjectileEntity(Entity* owner, const Vec3& pos, const Vec3& velocity)
+ProjectileEntity::ProjectileEntity(Entity* owner, const Vec3& abs_pos, const Vec3& velocity)
 {
 	Vec3 dir = Vec3::normalize(velocity);
 	Transform* transform = create<Transform>();
-	transform->absolute_pos(pos);
+	transform->absolute_pos(abs_pos);
 	transform->absolute_rot(Quat::look(dir));
 
 	PointLight* light = create<PointLight>();
@@ -1364,6 +1364,66 @@ void Projectile::update(const Update& u)
 	}
 	else
 		get<Transform>()->absolute_pos(next_pos);
+}
+
+GrenadeEntity::GrenadeEntity(Entity* owner, const Vec3& abs_pos, const Vec3& velocity)
+{
+	AI::Team team = owner->get<AIAgent>()->team;
+	Transform* transform = create<Transform>();
+	transform->absolute_pos(abs_pos);
+
+	create<Audio>();
+
+	Grenade* p = create<Grenade>();
+	p->owner = owner;
+
+	Vec3 dir = Vec3::normalize(velocity);
+	RigidBody* body = create<RigidBody>(RigidBody::Type::Sphere, Vec3(GRENADE_RADIUS), 1.0f, CollisionAwkIgnore | CollisionTarget, ~CollisionAwk & ~CollisionShield);
+	body->set_damping(0.5f, 0.5f);
+	body->set_ccd(true);
+	body->set_restitution(1.0f);
+	body->rebuild();
+	body->btBody->setLinearVelocity(dir * GRENADE_LAUNCH_SPEED);
+
+	View* model = create<View>();
+	model->mesh = Asset::Mesh::cube;
+	model->team = s8(team);
+	model->shader = Asset::Shader::standard;
+	model->offset.scale(Vec3(GRENADE_RADIUS * 0.577350269189626f));
+
+	create<Health>(SENSOR_HEALTH, SENSOR_HEALTH);
+
+	create<Target>();
+}
+
+void Grenade::update_server(const Update& u)
+{
+}
+
+void Grenade::update_client(const Update& u)
+{
+	Vec3 pos = get<Transform>()->absolute_pos();
+	if ((pos - last_particle).length_squared() > 0.5f * 0.5f)
+	{
+		Particles::tracers.add(pos, Vec3::zero, 0);
+		last_particle = pos;
+	}
+}
+
+void Grenade::awake()
+{
+	link_arg<Entity*, &Grenade::killed_by>(get<Health>()->killed);
+	link_arg<const TargetEvent&, &Grenade::hit_by>(get<Target>()->target_hit);
+}
+
+void Grenade::hit_by(const TargetEvent& e)
+{
+	get<Health>()->damage(e.hit_by, get<Health>()->hp_max);
+}
+
+void Grenade::killed_by(Entity* e)
+{
+	World::remove_deferred(entity());
 }
 
 b8 Target::predict_intersection(const Vec3& from, r32 speed, Vec3* intersection) const

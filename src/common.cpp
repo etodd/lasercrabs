@@ -61,6 +61,7 @@ StaticGeom::StaticGeom(AssetID mesh_id, const Vec3& absolute_pos, const Quat& ab
 
 	get<Transform>()->absolute(absolute_pos, absolute_rot);
 	RigidBody* body = create<RigidBody>(RigidBody::Type::Mesh, Vec3::zero, 0.0f, btBroadphaseProxy::StaticFilter | group, ~btBroadphaseProxy::StaticFilter & mask, mesh_id);
+	body->set_restitution(0.75f);
 }
 
 PhysicsEntity::PhysicsEntity(AssetID mesh, const Vec3& pos, const Quat& quat, RigidBody::Type type, const Vec3& scale, r32 mass, short filter_group, short filter_mask)

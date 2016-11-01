@@ -298,6 +298,23 @@ Entity* closest_target(MinionAI* me, AI::Team team, const Vec3& direction)
 		}
 	}
 
+	for (auto i = Grenade::list.iterator(); !i.is_last(); i.next())
+	{
+		Grenade* grenade = i.item();
+		if (!grenade->owner.ref() || grenade->owner.ref()->get<AIAgent>()->team != team)
+		{
+			if (me->can_see(grenade->entity()))
+				return grenade->entity();
+			Vec3 to_grenade = grenade->get<Transform>()->absolute_pos() - pos;
+			r32 total_distance = to_grenade.length_squared() + (to_grenade.dot(direction) < 0.0f ? direction_cost : 0.0f);
+			if (total_distance < closest_distance)
+			{
+				closest = grenade->entity();
+				closest_distance = total_distance;
+			}
+		}
+	}
+
 	for (auto i = Teleporter::list.iterator(); !i.is_last(); i.next())
 	{
 		Teleporter* teleporter = i.item();
@@ -357,6 +374,16 @@ Entity* visible_target(MinionAI* me, AI::Team team)
 		{
 			if (me->can_see(field->entity()))
 				return field->entity();
+		}
+	}
+
+	for (auto i = Grenade::list.iterator(); !i.is_last(); i.next())
+	{
+		Grenade* grenade = i.item();
+		if (!grenade->owner.ref() || grenade->owner.ref()->get<AIAgent>()->team != team)
+		{
+			if (me->can_see(grenade->entity()))
+				return grenade->entity();
 		}
 	}
 

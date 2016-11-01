@@ -92,6 +92,7 @@ RigidBody::RigidBody(Type type, const Vec3& size, r32 mass, s16 group, s16 mask,
 	btMesh(),
 	btShape(),
 	mesh_id(mesh_id),
+	restitution(),
 	ccd()
 {
 }
@@ -107,12 +108,16 @@ RigidBody::RigidBody()
 	btMesh(),
 	btShape(),
 	mesh_id(IDNull),
+	restitution(),
 	ccd()
 {
 }
 
 void RigidBody::awake()
 {
+	if (btBody) // already initialized
+		return;
+
 	switch (type)
 	{
 		case Type::Box:
@@ -160,10 +165,18 @@ void RigidBody::awake()
 		btBody->setCollisionFlags(btCollisionObject::CF_STATIC_OBJECT | btCollisionObject::CF_KINEMATIC_OBJECT);
 
 	btBody->setUserIndex(linked_entity == IDNull ? entity()->id() : linked_entity);
+	btBody->setRestitution(restitution);
 	btBody->setDamping(damping.x, damping.y);
 	set_ccd(ccd);
 
 	Physics::btWorld->addRigidBody(btBody, collision_group, collision_filter);
+}
+
+void RigidBody::set_restitution(r32 r)
+{
+	restitution = r;
+	if (btBody)
+		btBody->setRestitution(restitution);
 }
 
 void RigidBody::set_ccd(b8 c)
@@ -207,12 +220,17 @@ void RigidBody::rebuild()
 	}
 
 	// delete body
-	Physics::btWorld->removeRigidBody(btBody);
-	delete btBody;
-	delete btShape;
-	if (btMesh)
-		delete btMesh;
-	btMesh = nullptr;
+	if (btBody)
+	{
+		Physics::btWorld->removeRigidBody(btBody);
+		delete btBody;
+		delete btShape;
+		if (btMesh)
+			delete btMesh;
+		btMesh = nullptr;
+		btBody = nullptr;
+		btShape = nullptr;
+	}
 
 	awake(); // rebuild body
 

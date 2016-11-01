@@ -56,6 +56,7 @@ enum class Ability
 	ContainmentField,
 	Sniper,
 	Decoy,
+	Grenade,
 	count,
 	None,
 };
@@ -69,6 +70,7 @@ enum class Upgrade
 	ContainmentField,
 	Sniper,
 	Decoy,
+	Grenade,
 	count,
 	None = count,
 };

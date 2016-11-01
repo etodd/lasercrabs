@@ -822,7 +822,7 @@ b8 Awk::can_spawn(Ability a, const Vec3& dir, Vec3* final_pos, Vec3* final_norma
 	Vec3 trace_start = get<Transform>()->absolute_pos();
 	Vec3 trace_end = trace_start + trace_dir * range();
 
-	if (a == Ability::Sniper)
+	if (AbilityInfo::list[s32(a)].type == AbilityInfo::Type::Shoot)
 	{
 		RaycastCallbackExcept ray_callback(trace_start, trace_end, entity());
 		Physics::raycast(&ray_callback, ~CollisionAwkIgnore & ~ally_containment_field_mask());
@@ -845,7 +845,7 @@ b8 Awk::can_spawn(Ability a, const Vec3& dir, Vec3* final_pos, Vec3* final_norma
 			if (hit_parent)
 				*hit_parent = nullptr;
 		}
-		return true; // we can always snipe, even if the bullet goes into space
+		return true; // we can always spawn these abilities, even if we're aiming into space
 	}
 	else
 	{
@@ -968,15 +968,9 @@ b8 Awk::go(const Vec3& dir)
 		const AbilityInfo& info = AbilityInfo::list[(s32)current_ability];
 		manager->add_credits(-info.spawn_cost);
 
-		Vec3 me = get<Transform>()->absolute_pos();
-		particle_trail(me, dir_normalized, (pos - me).length());
-
-		if (current_ability != Ability::Sniper)
-		{
-			Entity* shockwave = World::create<ShockwaveEntity>(8.0f, 1.5f);
-			shockwave->get<Transform>()->absolute_pos(pos + rot * Vec3(0, 0, AWK_RADIUS));
-			Net::finalize(shockwave);
-		}
+		Vec3 my_pos;
+		Quat my_rot;
+		get<Transform>()->absolute(&my_pos, &my_rot);
 
 		switch (current_ability)
 		{
@@ -991,6 +985,13 @@ b8 Awk::go(const Vec3& dir)
 				// attach it to the wall
 				Rope* rope = Rope::start(parent, pos, rot * Vec3(0, 0, 1), rot);
 				rope->end(pos + rot * Vec3(0, 0, ROPE_SEGMENT_LENGTH * 2.0f), rot * Vec3(0, 0, -1), sensor->get<RigidBody>());
+
+				// effects
+				particle_trail(my_pos, dir_normalized, (pos - my_pos).length());
+				Entity* shockwave = World::create<ShockwaveEntity>(8.0f, 1.5f);
+				shockwave->get<Transform>()->absolute_pos(pos + rot * Vec3(0, 0, AWK_RADIUS));
+				Net::finalize(shockwave);
+
 				break;
 			}
 			case Ability::Rocket:
@@ -1006,6 +1007,13 @@ b8 Awk::go(const Vec3& dir)
 				base->get<Transform>()->reparent(parent->get<Transform>());
 				base->get<View>()->team = s8(get<AIAgent>()->team);
 				Net::finalize(base);
+
+				// effects
+				particle_trail(my_pos, dir_normalized, (pos - my_pos).length());
+				Entity* shockwave = World::create<ShockwaveEntity>(8.0f, 1.5f);
+				shockwave->get<Transform>()->absolute_pos(pos + rot * Vec3(0, 0, AWK_RADIUS));
+				Net::finalize(shockwave);
+
 				break;
 			}
 			case Ability::Minion:
@@ -1021,6 +1029,12 @@ b8 Awk::go(const Vec3& dir)
 					angle = get<PlayerCommon>()->angle_horizontal;
 				Net::finalize(World::create<Minion>(npos, Quat::euler(0, angle, 0), get<AIAgent>()->team, manager));
 
+				// effects
+				particle_trail(my_pos, dir_normalized, (pos - my_pos).length());
+				Entity* shockwave = World::create<ShockwaveEntity>(8.0f, 1.5f);
+				shockwave->get<Transform>()->absolute_pos(pos + rot * Vec3(0, 0, AWK_RADIUS));
+				Net::finalize(shockwave);
+
 				Audio::post_global_event(AK::EVENTS::PLAY_MINION_SPAWN, npos);
 				break;
 			}
@@ -1032,6 +1046,13 @@ b8 Awk::go(const Vec3& dir)
 				Audio::post_global_event(AK::EVENTS::PLAY_SENSOR_SPAWN, npos);
 
 				Net::finalize(World::create<ContainmentFieldEntity>(parent->get<Transform>(), npos, rot, manager));
+
+				// effects
+				particle_trail(my_pos, dir_normalized, (pos - my_pos).length());
+				Entity* shockwave = World::create<ShockwaveEntity>(8.0f, 1.5f);
+				shockwave->get<Transform>()->absolute_pos(pos + rot * Vec3(0, 0, AWK_RADIUS));
+				Net::finalize(shockwave);
+
 				break;
 			}
 			case Ability::Sniper:
@@ -1044,6 +1065,7 @@ b8 Awk::go(const Vec3& dir)
 				velocity = dir_normalized * AWK_FLY_SPEED;
 				r32 distance = movement_raycast(ray_start, ray_end);
 
+				// effects
 				particle_trail(ray_start, dir_normalized, distance);
 
 				// everyone instantly knows where we are
@@ -1061,6 +1083,13 @@ b8 Awk::go(const Vec3& dir)
 				Entity* teleporter = World::create<TeleporterEntity>(parent->get<Transform>(), pos, rot, get<AIAgent>()->team);
 				Net::finalize(teleporter);
 				teleport(entity(), teleporter->get<Teleporter>());
+
+				// effects
+				particle_trail(my_pos, dir_normalized, (pos - my_pos).length());
+				Entity* shockwave = World::create<ShockwaveEntity>(8.0f, 1.5f);
+				shockwave->get<Transform>()->absolute_pos(pos + rot * Vec3(0, 0, AWK_RADIUS));
+				Net::finalize(shockwave);
+
 				break;
 			}
 			case Ability::Decoy:
@@ -1069,6 +1098,21 @@ b8 Awk::go(const Vec3& dir)
 				if (existing_decoy)
 					existing_decoy->get<Decoy>()->destroy();
 				Net::finalize(World::create<DecoyEntity>(manager, parent->get<Transform>(), pos, rot));
+
+				// effects
+				particle_trail(my_pos, dir_normalized, (pos - my_pos).length());
+				Entity* shockwave = World::create<ShockwaveEntity>(8.0f, 1.5f);
+				shockwave->get<Transform>()->absolute_pos(pos + rot * Vec3(0, 0, AWK_RADIUS));
+				Net::finalize(shockwave);
+
+				break;
+			}
+			case Ability::Grenade:
+			{
+				Vec3 dir_adjusted = dir_normalized;
+				if ((my_rot * Vec3(0, 0, 1)).y > -0.05f)
+					dir_adjusted.y += 0.35f;
+				Net::finalize(World::create<GrenadeEntity>(entity(), my_pos + dir_adjusted * (AWK_SHIELD_RADIUS + GRENADE_RADIUS + 0.01f), dir_adjusted));
 				break;
 			}
 			default:

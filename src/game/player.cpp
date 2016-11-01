@@ -1941,21 +1941,23 @@ void PlayerControlHuman::update(const Update& u)
 
 					Vec3 center = get<Transform>()->absolute_pos();
 
+					Ability ability = get<Awk>()->current_ability;
+
 					if (ray_callback.hasHit())
 					{
 						reticle.pos = ray_callback.m_hitPointWorld;
 						reticle.normal = ray_callback.m_hitNormalWorld;
-						reticle.entity = &Entity::list[ray_callback.m_collisionObject->getUserIndex()];
+						Entity* hit_entity = &Entity::list[ray_callback.m_collisionObject->getUserIndex()];
 						Vec3 detach_dir = reticle.pos - center;
 						r32 distance = detach_dir.length();
 						detach_dir /= distance;
-						if (get<Awk>()->current_ability == Ability::None) // normal movement
+						if (ability == Ability::None) // normal movement
 						{
 							if (get<Awk>()->direction_is_toward_attached_wall(detach_dir))
 							{
 								r32 dot_tolerance = distance < AWK_DASH_DISTANCE ? 0.3f : 0.1f;
 								Vec3 wall_normal = get<Transform>()->absolute_rot() * Vec3(0, 0, 1);
-								if (reticle.entity.ref()->has<Awk>()
+								if (hit_entity->has<Awk>()
 									|| (detach_dir.dot(wall_normal) > -dot_tolerance && reticle.normal.dot(wall_normal) > 1.0f - dot_tolerance))
 								{
 									reticle.type = ReticleType::Dash;
@@ -1978,10 +1980,14 @@ void PlayerControlHuman::update(const Update& u)
 						{
 							Vec3 hit;
 							b8 hit_target;
-							if (get<Awk>()->can_spawn(get<Awk>()->current_ability, detach_dir, &hit, nullptr, nullptr, &hit_target))
+							if (get<Awk>()->can_spawn(ability, detach_dir, &hit, nullptr, nullptr, &hit_target))
 							{
-								if (get<Awk>()->current_ability == Ability::Sniper && hit_target)
-									reticle.type = ReticleType::Target;
+								if (AbilityInfo::list[s32(ability)].type == AbilityInfo::Type::Shoot)
+								{
+									reticle.type = ReticleType::Normal;
+									if (hit_target)
+										reticle.type = ReticleType::Target;
+								}
 								else if ((hit - Vec3(ray_callback.m_hitPointWorld)).length_squared() < AWK_RADIUS * AWK_RADIUS)
 									reticle.type = ReticleType::Normal;
 							}
@@ -1991,14 +1997,17 @@ void PlayerControlHuman::update(const Update& u)
 					{
 						reticle.pos = trace_end;
 						reticle.normal = -trace_dir;
-						reticle.entity = nullptr;
+						if (ability != Ability::None
+							&& get<Awk>()->can_spawn(ability, trace_dir)) // spawning an ability
+						{
+							reticle.type = ReticleType::Normal;
+						}
 					}
 				}
 				else
 				{
 					reticle.pos = trace_start + trace_dir * AWK_THIRD_PERSON_OFFSET;
 					reticle.normal = -trace_dir;
-					reticle.entity = nullptr;
 				}
 			}
 

@@ -124,7 +124,6 @@ struct PlayerControlHuman : public ComponentType<PlayerControlHuman>
 		Vec3 pos;
 		Vec3 normal;
 		ReticleType type;
-		Ref<Entity> entity;
 	};
 
 	struct TargetIndicator

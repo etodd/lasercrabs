@@ -261,6 +261,7 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 		serialize_r32_range(p, r->damping.y, 0, 1.0f, 2);
 		serialize_enum(p, RigidBody::Type, r->type);
 		serialize_r32_range(p, r->mass, 0, 1, 1);
+		serialize_r32_range(p, r->restitution, 0, 1, 4);
 		serialize_int(p, ID, r->linked_entity, 0, MAX_ENTITIES);
 		serialize_asset(p, r->mesh_id, Loader::static_mesh_count);
 		serialize_int(p, s16, r->collision_group, -32767, 32767);
@@ -1344,7 +1345,8 @@ b8 transform_filter(const Transform* t)
 		|| t->has<Rocket>()
 		|| t->has<Walker>()
 		|| t->has<Sensor>()
-		|| t->has<Rope>();
+		|| t->has<Rope>()
+		|| t->has<Grenade>();
 }
 
 Resolution transform_resolution(const Transform* t)

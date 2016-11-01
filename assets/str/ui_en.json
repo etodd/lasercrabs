@@ -105,6 +105,8 @@
 	"description_teleporter": "Instantly teleport with increased range. Provides a temporary shield. Minions can also use teleporters.",
 	"decoy": "Decoy",
 	"description_decoy": "Decoys distract enemy minions and rockets.",
+	"grenade": "Grenade",
+	"description_grenade": "Area of effect weapon. Useful for crowd control. Can also function as a mine.",
 
 	"tip": "Tip: %s",
 	"tip_0": "Capture energy ports to strengthen your armor and receive +5 energy every 15 seconds.",

@@ -453,6 +453,12 @@ void Game::update(const Update& update_in)
 			i.item()->update(u);
 		for (auto i = Projectile::list.iterator(); !i.is_last(); i.next())
 			i.item()->update(u);
+		for (auto i = Grenade::list.iterator(); !i.is_last(); i.next())
+		{
+			if (Game::level.local)
+				i.item()->update_server(u);
+			i.item()->update_client(u);
+		}
 		for (auto i = Rocket::list.iterator(); !i.is_last(); i.next())
 			i.item()->update(u);
 		for (auto i = Parkour::list.iterator(); !i.is_last(); i.next())
@@ -893,6 +899,8 @@ void Game::execute(const Update& u, const char* cmd)
 	}
 	else if (level.id == Asset::Level::terminal)
 		Terminal::execute(cmd);
+	else if (strcmp(cmd, "skip") == 0)
+		Game::time.total = PLAYER_SPAWN_DELAY + GAME_BUY_PERIOD;
 }
 
 void Game::schedule_load_level(AssetID level_id, Mode m)

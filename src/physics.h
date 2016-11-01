@@ -110,6 +110,7 @@ struct RigidBody : public ComponentType<RigidBody>
 	Vec2 damping; // use set_damping to ensure the btBody will be updated
 	Type type;
 	r32 mass;
+	r32 restitution;
 	ID linked_entity; // set the rigid body's user index to this. if IDNull, it's "this" entity's ID.
 	AssetID mesh_id;
 	s16 collision_group;
@@ -119,6 +120,7 @@ struct RigidBody : public ComponentType<RigidBody>
 	void rebuild(); // rebuild bullet objects from our settings
 
 	void set_damping(r32, r32);
+	void set_restitution(r32);
 	void set_ccd(b8);
 
 	RigidBody(Type, const Vec3&, r32, s16, s16, AssetID = AssetNull, ID = IDNull);

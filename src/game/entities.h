@@ -317,6 +317,28 @@ struct Projectile : public ComponentType<Projectile>
 	void update(const Update&);
 };
 
+#define GRENADE_LAUNCH_SPEED 24.0f
+#define GRENADE_RADIUS 0.125f
+struct GrenadeEntity : public Entity
+{
+	GrenadeEntity(Entity*, const Vec3&, const Vec3&);
+};
+
+struct Grenade : public ComponentType<Grenade>
+{
+	Ref<Entity> owner;
+	r32 timer;
+	Vec3 last_particle;
+
+	void awake();
+
+	void hit_by(const TargetEvent&);
+	void killed_by(Entity*);
+
+	void update_server(const Update&);
+	void update_client(const Update&);
+};
+
 struct TargetEvent
 {
 	Entity* hit_by;

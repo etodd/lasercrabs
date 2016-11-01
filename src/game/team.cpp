@@ -37,33 +37,45 @@ Ref<Team> Team::winner;
 AbilityInfo AbilityInfo::list[(s32)Ability::count] =
 {
 	{
+		AbilityInfo::Type::Build,
 		Asset::Mesh::icon_sensor,
 		15,
 	},
 	{
+		AbilityInfo::Type::Build,
 		Asset::Mesh::icon_minion,
 		15,
 	},
 	{
+		AbilityInfo::Type::Build,
 		Asset::Mesh::icon_teleporter,
 		10,
 	},
 	{
+		AbilityInfo::Type::Build,
 		Asset::Mesh::icon_rocket,
 		10,
 	},
 	{
+		AbilityInfo::Type::Build,
 		Asset::Mesh::icon_containment_field,
 		20,
 	},
 	{
+		AbilityInfo::Type::Shoot,
 		Asset::Mesh::icon_sniper,
 		10,
 	},
 	{
+		AbilityInfo::Type::Build,
 		Asset::Mesh::icon_drone,
 		20,
 	},
+	{
+		AbilityInfo::Type::Shoot,
+		Asset::Mesh::icon_grenade,
+		20,
+	}
 };
 
 UpgradeInfo UpgradeInfo::list[(s32)Upgrade::count] =
@@ -109,6 +121,12 @@ UpgradeInfo UpgradeInfo::list[(s32)Upgrade::count] =
 		strings::description_decoy,
 		Asset::Mesh::icon_drone,
 		50,
+	},
+	{
+		strings::grenade,
+		strings::description_grenade,
+		Asset::Mesh::icon_grenade,
+		120,
 	},
 };
 

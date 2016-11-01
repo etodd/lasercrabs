@@ -19,6 +19,12 @@ struct PlayerManager;
 
 struct AbilityInfo
 {
+	enum class Type
+	{
+		Build,
+		Shoot,
+	};
+	Type type;
 	AssetID icon;
 	s16 spawn_cost;
 	static AbilityInfo list[(s32)Ability::count];

@@ -61,20 +61,6 @@ struct Game
 		count,
 	};
 
-	enum class NetworkQuality
-	{
-		Perfect,
-		Okay,
-		Bad,
-	};
-
-	enum class NetworkState
-	{
-		Normal,
-		Lag,
-		Recover,
-	};
-
 	enum class MatchResult
 	{
 		None,
@@ -97,8 +83,6 @@ struct Game
 	{
 		AI::Team local_player_config[MAX_GAMEPADS];
 		u64 local_player_uuids[MAX_GAMEPADS];
-		NetworkQuality network_quality;
-		NetworkState network_state;
 		MatchResult last_match;
 		r32 network_time;
 		r32 network_timer;

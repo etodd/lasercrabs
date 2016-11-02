@@ -60,7 +60,7 @@ StaticGeom::StaticGeom(AssetID mesh_id, const Vec3& absolute_pos, const Quat& ab
 	const Mesh* mesh = Loader::mesh(model->mesh);
 
 	get<Transform>()->absolute(absolute_pos, absolute_rot);
-	RigidBody* body = create<RigidBody>(RigidBody::Type::Mesh, Vec3::zero, 0.0f, btBroadphaseProxy::StaticFilter | group, ~btBroadphaseProxy::StaticFilter & mask, mesh_id);
+	RigidBody* body = create<RigidBody>(RigidBody::Type::Mesh, Vec3::zero, 0.0f, CollisionStatic | group, ~CollisionStatic & mask, mesh_id);
 	body->set_restitution(0.75f);
 }
 

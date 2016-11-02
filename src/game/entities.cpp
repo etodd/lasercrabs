@@ -446,7 +446,7 @@ ControlPointEntity::ControlPointEntity(AI::Team team, const Vec3& pos)
 
 	create<ControlPoint>(team);
 
-	create<RigidBody>(RigidBody::Type::Mesh, Vec3::zero, 0.0f, btBroadphaseProxy::StaticFilter, ~btBroadphaseProxy::StaticFilter, Asset::Mesh::control_point);
+	create<RigidBody>(RigidBody::Type::Mesh, Vec3::zero, 0.0f, CollisionStatic, ~CollisionStatic, Asset::Mesh::control_point);
 }
 
 PlayerSpawnEntity::PlayerSpawnEntity(AI::Team team)
@@ -782,7 +782,7 @@ Rocket* Rocket::closest(AI::TeamMask mask, const Vec3& pos, r32* distance)
 
 	for (auto i = list.iterator(); !i.is_last(); i.next())
 	{
-		if (AI::match(i.item()->team, mask))
+		if (AI::match(i.item()->team(), mask))
 		{
 			r32 d = (i.item()->get<Transform>()->absolute_pos() - pos).length_squared();
 			if (d < closest_distance)
@@ -805,12 +805,16 @@ Rocket* Rocket::closest(AI::TeamMask mask, const Vec3& pos, r32* distance)
 }
 
 Rocket::Rocket()
-	: team(),
-	target(),
+	: target(),
 	owner(),
 	particle_accumulator(),
 	remaining_lifetime(15.0f)
 {
+}
+
+AI::Team Rocket::team() const
+{
+	return owner.ref() ? owner.ref()->team.ref()->team() : AI::TeamNone;
 }
 
 void Rocket::explode()
@@ -896,7 +900,7 @@ void Rocket::update(const Update& u)
 		{
 			// we hit something
 			Entity* hit = &Entity::list[ray_callback.m_collisionObject->getUserIndex()];
-			if (!hit->has<AIAgent>() || hit->get<AIAgent>()->team != team) // fly through friendlies
+			if (!hit->has<AIAgent>() || hit->get<AIAgent>()->team != team()) // fly through friendlies
 			{
 				// kaboom
 
@@ -928,14 +932,13 @@ void Rocket::update(const Update& u)
 	}
 }
 
-RocketEntity::RocketEntity(Entity* owner, Transform* parent, const Vec3& pos, const Quat& rot, AI::Team team)
+RocketEntity::RocketEntity(PlayerManager* owner, Transform* parent, const Vec3& pos, const Quat& rot, AI::Team team)
 {
 	Transform* transform = create<Transform>();
 	transform->parent = parent;
 	transform->absolute(pos + rot * Vec3(0, 0, 0.11f), rot);
 
 	Rocket* rocket = create<Rocket>();
-	rocket->team = team;
 	rocket->owner = owner;
 
 	create<Health>(SENSOR_HEALTH, SENSOR_HEALTH);
@@ -981,6 +984,11 @@ void Decoy::awake()
 {
 	link_arg<const TargetEvent&, &Decoy::hit_by>(get<Target>()->target_hit);
 	link_arg<Entity*, &Decoy::killed>(get<Health>()->killed);
+}
+
+AI::Team Decoy::team() const
+{
+	return owner.ref() ? owner.ref()->team.ref()->team() : AI::TeamNone;
 }
 
 void Decoy::killed(Entity*)
@@ -1157,7 +1165,7 @@ ContainmentFieldEntity::ContainmentFieldEntity(Transform* parent, const Vec3& ab
 
 	create<Target>();
 	create<Health>(SENSOR_HEALTH, SENSOR_HEALTH);
-	create<RigidBody>(RigidBody::Type::Sphere, Vec3(CONTAINMENT_FIELD_BASE_RADIUS), 0.0f, btBroadphaseProxy::StaticFilter | CollisionAwkIgnore | CollisionTarget, ~btBroadphaseProxy::StaticFilter & ~CollisionAwk & ~CollisionShield);
+	create<RigidBody>(RigidBody::Type::Sphere, Vec3(CONTAINMENT_FIELD_BASE_RADIUS), 0.0f, CollisionStatic | CollisionAwkIgnore | CollisionTarget, ~CollisionStatic & ~CollisionAwk & ~CollisionShield);
 
 	ContainmentField* field = create<ContainmentField>();
 	field->team = team;
@@ -1286,7 +1294,7 @@ void teleport(Entity* e, Teleporter* target)
 #define PROJECTILE_THICKNESS 0.05f
 #define PROJECTILE_MAX_LIFETIME 10.0f
 #define PROJECTILE_DAMAGE 1
-ProjectileEntity::ProjectileEntity(Entity* owner, const Vec3& abs_pos, const Vec3& velocity)
+ProjectileEntity::ProjectileEntity(PlayerManager* owner, const Vec3& abs_pos, const Vec3& velocity)
 {
 	Vec3 dir = Vec3::normalize(velocity);
 	Transform* transform = create<Transform>();
@@ -1328,7 +1336,7 @@ void Projectile::update(const Update& u)
 	if (ray_callback.hasHit())
 	{
 		Entity* hit_object = &Entity::list[ray_callback.m_collisionObject->getUserIndex()];
-		if (hit_object != owner.ref())
+		if (hit_object != owner.ref()->instance.ref())
 		{
 			Vec3 basis;
 			if (hit_object->has<Awk>())
@@ -1339,7 +1347,7 @@ void Projectile::update(const Update& u)
 			else if (hit_object->has<Health>())
 			{
 				basis = Vec3::normalize(velocity);
-				hit_object->get<Health>()->damage(owner.ref(), PROJECTILE_DAMAGE);
+				hit_object->get<Health>()->damage(owner.ref()->instance.ref(), PROJECTILE_DAMAGE);
 			}
 			else
 				basis = ray_callback.m_hitNormalWorld;
@@ -1366,30 +1374,24 @@ void Projectile::update(const Update& u)
 		get<Transform>()->absolute_pos(next_pos);
 }
 
-GrenadeEntity::GrenadeEntity(Entity* owner, const Vec3& abs_pos, const Vec3& velocity)
+GrenadeEntity::GrenadeEntity(PlayerManager* owner, const Vec3& abs_pos, const Vec3& velocity)
 {
-	AI::Team team = owner->get<AIAgent>()->team;
 	Transform* transform = create<Transform>();
 	transform->absolute_pos(abs_pos);
 
 	create<Audio>();
 
-	Grenade* p = create<Grenade>();
-	p->owner = owner;
+	Grenade* g = create<Grenade>();
+	g->owner = owner;
+	g->velocity = Vec3::normalize(velocity) * GRENADE_LAUNCH_SPEED;
 
-	Vec3 dir = Vec3::normalize(velocity);
-	RigidBody* body = create<RigidBody>(RigidBody::Type::Sphere, Vec3(GRENADE_RADIUS), 1.0f, CollisionAwkIgnore | CollisionTarget, ~CollisionAwk & ~CollisionShield);
-	body->set_damping(0.5f, 0.5f);
-	body->set_ccd(true);
-	body->set_restitution(1.0f);
-	body->rebuild();
-	body->btBody->setLinearVelocity(dir * GRENADE_LAUNCH_SPEED);
+	create<RigidBody>(RigidBody::Type::Sphere, Vec3(GRENADE_RADIUS), 0.0f, CollisionAwkIgnore | CollisionTarget, ~CollisionAwk & ~CollisionShield);
 
 	View* model = create<View>();
-	model->mesh = Asset::Mesh::cube;
-	model->team = s8(team);
+	model->mesh = Asset::Mesh::grenade;
+	model->team = s8(owner->team.ref()->team());
 	model->shader = Asset::Shader::standard;
-	model->offset.scale(Vec3(GRENADE_RADIUS * 0.577350269189626f));
+	model->offset.scale(Vec3(GRENADE_RADIUS));
 
 	create<Health>(SENSOR_HEALTH, SENSOR_HEALTH);
 
@@ -1398,15 +1400,83 @@ GrenadeEntity::GrenadeEntity(Entity* owner, const Vec3& abs_pos, const Vec3& vel
 
 void Grenade::update_server(const Update& u)
 {
+	Transform* t = get<Transform>();
+	if (!t->parent.ref())
+	{
+		Vec3 pos = t->absolute_pos();
+		velocity += Physics::btWorld->getGravity() * u.time.delta;
+		Vec3 next_pos = pos + velocity * u.time.delta;
+		if (next_pos.y < Game::level.min_y)
+		{
+			World::remove_deferred(entity());
+			return;
+		}
+
+		if (!btVector3(next_pos - pos).fuzzyZero())
+		{
+			btCollisionWorld::ClosestRayResultCallback ray_callback(pos, next_pos);
+			Physics::raycast(&ray_callback, ~Team::containment_field_mask(team()));
+			if (ray_callback.hasHit())
+			{
+				active = true;
+				Entity* e = &Entity::list[ray_callback.m_collisionObject->getUserIndex()];
+				if ((e->has<AIAgent>() && e->get<AIAgent>()->team != team())
+					|| (e->has<ContainmentField>() && e->get<ContainmentField>()->team != team())
+					|| (e->has<Rocket>() && e->get<Rocket>()->team() != team())
+					|| (e->has<Teleporter>() && e->get<Teleporter>()->team != team())
+					|| (e->has<Sensor>() && e->get<Sensor>()->team != team())
+					|| (e->has<Decoy>() && !e->get<Decoy>()->team() != team()))
+				{
+					explode();
+				}
+				else
+				{
+					const r32 attach_velocity_threshold = 1.0f; // attach to static surfaces if moving slower than this
+					if (ray_callback.m_collisionObject->getBroadphaseHandle()->m_collisionFilterGroup & CollisionStatic
+						&& velocity.length_squared() < attach_velocity_threshold * attach_velocity_threshold)
+					{
+						// attach
+						t->parent = e->get<Transform>();
+						t->absolute(ray_callback.m_hitPointWorld, Quat::look(ray_callback.m_hitNormalWorld));
+					}
+					else
+					{
+						// bounce
+						velocity = velocity.reflect(ray_callback.m_hitNormalWorld) * 0.75f;
+					}
+				}
+			}
+		}
+		t->absolute_pos(next_pos);
+	}
 }
 
-void Grenade::update_client(const Update& u)
+void Grenade::explode()
 {
-	Vec3 pos = get<Transform>()->absolute_pos();
-	if ((pos - last_particle).length_squared() > 0.5f * 0.5f)
+
+}
+
+AI::Team Grenade::team() const
+{
+	return owner.ref() ? owner.ref()->team.ref()->team() : AI::TeamNone;
+}
+
+r32 Grenade::particle_timer;
+r32 Grenade::particle_accumulator;
+void Grenade::update_client_all(const Update& u)
+{
+	// normal particles
+	const r32 interval = 0.1f;
+	particle_accumulator += u.time.delta;
+	while (particle_accumulator > interval)
 	{
-		Particles::tracers.add(pos, Vec3::zero, 0);
-		last_particle = pos;
+		particle_accumulator -= interval;
+		for (auto i = list.iterator(); !i.is_last(); i.next())
+		{
+			Transform* t = i.item()->get<Transform>();
+			if (!t->parent.ref())
+				Particles::tracers.add(t->absolute_pos(), Vec3::zero, 0);
+		}
 	}
 }
 

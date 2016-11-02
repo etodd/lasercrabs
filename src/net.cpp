@@ -24,8 +24,8 @@
 #include "assimp/contrib/zlib/zlib.h"
 #include "console.h"
 
-#define DEBUG_MSG 1
-#define DEBUG_ENTITY 1
+#define DEBUG_MSG 0
+#define DEBUG_ENTITY 0
 #define DEBUG_TRANSFORMS 0
 #define DEBUG_BANDWIDTH 0
 
@@ -88,7 +88,7 @@ struct Ack
 
 struct MessageHistory
 {
-	StaticArray<MessageFrame, NET_HISTORY_SIZE> msgs;
+	StaticArray<MessageFrame, NET_HISTORY_SIZE> msg_frames;
 	s32 current_index;
 };
 
@@ -195,6 +195,7 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 		| PlayerTrigger::component_mask
 		| SkinnedModel::component_mask
 		| Projectile::component_mask
+		| Grenade::component_mask
 		| EnergyPickup::component_mask
 		| Sensor::component_mask
 		| Rocket::component_mask
@@ -207,7 +208,7 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 		| PlayerManager::component_mask
 		| PlayerCommon::component_mask
 		| PlayerControlHuman::component_mask;
-		//| MinionCommon::component_mask
+	//| MinionCommon::component_mask
 
 	if (Stream::IsWriting)
 	{
@@ -405,6 +406,13 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 		serialize_r32(p, x->lifetime);
 	}
 
+	if (e->has<Grenade>())
+	{
+		Grenade* g = e->get<Grenade>();
+		serialize_ref(p, g->owner);
+		serialize_bool(p, g->active);
+	}
+
 	if (e->has<EnergyPickup>())
 	{
 		EnergyPickup* b = e->get<EnergyPickup>();
@@ -423,7 +431,6 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 		Rocket* r = e->get<Rocket>();
 		serialize_ref(p, r->target);
 		serialize_ref(p, r->owner);
-		serialize_s8(p, r->team);
 	}
 
 	if (e->has<ContainmentField>())
@@ -592,6 +599,7 @@ s32 sequence_relative_to(SequenceID s1, SequenceID s2)
 
 SequenceID sequence_advance(SequenceID start, s32 delta)
 {
+	vi_assert(start >= 0 && start < NET_SEQUENCE_COUNT);
 	s32 result = s32(start) + delta;
 	while (result < 0)
 		result += NET_SEQUENCE_COUNT;
@@ -611,17 +619,17 @@ void ack_debug(const char* caption, const Ack& ack)
 
 void msg_history_debug(const MessageHistory& history)
 {
-	if (history.msgs.length > 0)
+	if (history.msg_frames.length > 0)
 	{
 		s32 index = history.current_index;
 		for (s32 i = 0; i < NET_PREVIOUS_SEQUENCES_SEARCH; i++)
 		{
-			const MessageFrame& msg = history.msgs[index];
+			const MessageFrame& msg = history.msg_frames[index];
 			vi_debug("%d", s32(msg.sequence_id));
 
 			// loop backward through most recently received frames
-			index = index > 0 ? index - 1 : history.msgs.length - 1;
-			if (index == history.current_index || history.msgs[index].timestamp < Game::real_time.total - NET_TIMEOUT) // hit the end
+			index = index > 0 ? index - 1 : history.msg_frames.length - 1;
+			if (index == history.current_index || history.msg_frames[index].timestamp < Game::real_time.total - NET_TIMEOUT) // hit the end
 				break;
 		}
 	}
@@ -631,49 +639,58 @@ void msg_history_debug(const MessageHistory& history)
 MessageFrame* msg_history_add(MessageHistory* history, r32 timestamp, s32 bytes)
 {
 	MessageFrame* frame;
-	if (history->msgs.length < history->msgs.capacity())
+	if (history->msg_frames.length < history->msg_frames.capacity())
 	{
-		frame = history->msgs.add();
-		history->current_index = history->msgs.length - 1;
+		frame = history->msg_frames.add();
+		history->current_index = history->msg_frames.length - 1;
 	}
 	else
 	{
-		history->current_index = (history->current_index + 1) % history->msgs.capacity();
-		frame = &history->msgs[history->current_index];
+		history->current_index = (history->current_index + 1) % history->msg_frames.capacity();
+		frame = &history->msg_frames[history->current_index];
 	}
 	new (frame) MessageFrame(timestamp, bytes);
 	return frame;
 }
 
+SequenceID msg_history_most_recent_sequence(const MessageHistory& history)
+{
+	// find most recent sequence ID we've received
+	if (history.msg_frames.length == 0)
+		return NET_SEQUENCE_INVALID;
+
+	s32 index = history.current_index;
+	SequenceID result = history.msg_frames[index].sequence_id;
+	for (s32 i = 0; i < NET_PREVIOUS_SEQUENCES_SEARCH; i++)
+	{
+		// loop backward through most recently received frames
+		index = index > 0 ? index - 1 : history.msg_frames.length - 1;
+
+		const MessageFrame& msg = history.msg_frames[index];
+
+		if (index == history.current_index || msg.timestamp < Game::real_time.total - NET_TIMEOUT) // hit the end
+			break;
+
+		if (sequence_more_recent(msg.sequence_id, result))
+			result = msg.sequence_id;
+	}
+	return result;
+}
+
 Ack msg_history_ack(const MessageHistory& history)
 {
 	Ack ack = {};
-	if (history.msgs.length > 0)
+	if (history.msg_frames.length > 0)
 	{
+		ack.sequence_id = msg_history_most_recent_sequence(history);
+
 		s32 index = history.current_index;
-		// find most recent sequence ID
-		ack.sequence_id = history.msgs[index].sequence_id;
 		for (s32 i = 0; i < NET_PREVIOUS_SEQUENCES_SEARCH; i++)
 		{
 			// loop backward through most recently received frames
-			index = index > 0 ? index - 1 : history.msgs.length - 1;
+			index = index > 0 ? index - 1 : history.msg_frames.length - 1;
 
-			const MessageFrame& msg = history.msgs[index];
-
-			if (index == history.current_index || msg.timestamp < Game::real_time.total - NET_TIMEOUT) // hit the end
-				break;
-
-			if (sequence_more_recent(msg.sequence_id, ack.sequence_id))
-				ack.sequence_id = msg.sequence_id;
-		}
-
-		index = history.current_index;
-		for (s32 i = 0; i < NET_PREVIOUS_SEQUENCES_SEARCH; i++)
-		{
-			// loop backward through most recently received frames
-			index = index > 0 ? index - 1 : history.msgs.length - 1;
-
-			const MessageFrame& msg = history.msgs[index];
+			const MessageFrame& msg = history.msg_frames[index];
 
 			if (index == history.current_index || msg.timestamp < Game::real_time.total - NET_TIMEOUT) // hit the end
 				break;
@@ -695,7 +712,7 @@ struct StateCommon
 {
 	MessageHistory msgs_out_history;
 	StaticArray<StreamWrite, NET_MESSAGE_BUFFER> msgs_out;
-	SequenceID local_sequence_id = 1;
+	SequenceID local_sequence_id;
 	StateHistory state_history;
 	StateFrame state_frame_restore;
 	s32 bandwidth_in;
@@ -843,25 +860,40 @@ b8 msgs_out_consolidate()
 	return true;
 }
 
-MessageFrame* msg_frame_advance(MessageHistory* history, SequenceID* id, r32 timestamp)
+MessageFrame* msg_frame_by_sequence(MessageHistory* history, SequenceID sequence_id)
 {
-	if (history->msgs.length > 0)
+	if (history->msg_frames.length > 0)
 	{
 		s32 index = history->current_index;
-		SequenceID next_sequence = sequence_advance(*id, 1);
 		for (s32 i = 0; i < NET_PREVIOUS_SEQUENCES_SEARCH; i++)
 		{
-			MessageFrame* msg = &history->msgs[index];
-			if (msg->sequence_id == next_sequence && msg->timestamp <= timestamp)
-			{
-				*id = next_sequence;
+			MessageFrame* msg = &history->msg_frames[index];
+			if (msg->sequence_id == sequence_id)
 				return msg;
-			}
 
 			// loop backward through most recently received frames
-			index = index > 0 ? index - 1 : history->msgs.length - 1;
+			index = index > 0 ? index - 1 : history->msg_frames.length - 1;
 			if (index == history->current_index || msg->timestamp < Game::real_time.total - NET_TIMEOUT) // hit the end
 				break;
+		}
+	}
+	return nullptr;
+}
+
+MessageFrame* msg_frame_advance(MessageHistory* history, SequenceID* id, r32 timestamp)
+{
+	// sequence starts out at NET_SEQUENCE_INVALID, meaning we haven't received anything yet
+	// we won't find an existing frame. but we do need to accept the next frame anyway.
+	MessageFrame* frame = msg_frame_by_sequence(history, *id);
+	if (frame || *id == NET_SEQUENCE_INVALID)
+	{
+		SequenceID next_sequence = *id == NET_SEQUENCE_INVALID ? 0 : sequence_advance(*id, 1);
+		MessageFrame* next_frame = msg_frame_by_sequence(history, next_sequence);
+		if (next_frame
+			&& ((*id == NET_SEQUENCE_INVALID || frame->timestamp <= timestamp - NET_TICK_RATE) || next_frame->timestamp <= timestamp))
+		{
+			*id = next_sequence;
+			return next_frame;
 		}
 	}
 	return nullptr;
@@ -907,7 +939,7 @@ b8 msgs_write(StreamWrite* p, const MessageHistory& history, const Ack& remote_a
 	using Stream = StreamWrite;
 	s32 bytes = 0;
 
-	if (history.msgs.length > 0)
+	if (history.msg_frames.length > 0)
 	{
 		// resend previous frames
 		{
@@ -915,8 +947,8 @@ b8 msgs_write(StreamWrite* p, const MessageHistory& history, const Ack& remote_a
 			s32 index = history.current_index;
 			for (s32 i = 0; i < NET_PREVIOUS_SEQUENCES_SEARCH; i++)
 			{
-				s32 next_index = index > 0 ? index - 1 : history.msgs.length - 1;
-				if (index == history.current_index || history.msgs[next_index].timestamp < Game::real_time.total - NET_TIMEOUT) // hit the end
+				s32 next_index = index > 0 ? index - 1 : history.msg_frames.length - 1;
+				if (index == history.current_index || history.msg_frames[next_index].timestamp < Game::real_time.total - NET_TIMEOUT) // hit the end
 					break;
 				index = next_index;
 			}
@@ -925,7 +957,7 @@ b8 msgs_write(StreamWrite* p, const MessageHistory& history, const Ack& remote_a
 			r32 timestamp_cutoff = Game::real_time.total - (rtt * 3.0f); // wait a certain period before trying to resend a sequence
 			for (s32 i = 0; i < NET_PREVIOUS_SEQUENCES_SEARCH && index != history.current_index; i++)
 			{
-				const MessageFrame& frame = history.msgs[index];
+				const MessageFrame& frame = history.msg_frames[index];
 				s32 relative_sequence = sequence_relative_to(frame.sequence_id, remote_ack.sequence_id);
 				if (relative_sequence < 0
 					&& relative_sequence >= -NET_ACK_PREVIOUS_SEQUENCES
@@ -940,13 +972,13 @@ b8 msgs_write(StreamWrite* p, const MessageHistory& history, const Ack& remote_a
 					sequence_history_add(recently_resent, frame.sequence_id, Game::real_time.total);
 				}
 
-				index = index < history.msgs.length - 1 ? index + 1 : 0;
+				index = index < history.msg_frames.length - 1 ? index + 1 : 0;
 			}
 		}
 
 		// current frame
 		{
-			const MessageFrame& frame = history.msgs[history.current_index];
+			const MessageFrame& frame = history.msg_frames[history.current_index];
 			if (bytes + frame.write.bytes_written() <= NET_MAX_MESSAGES_SIZE)
 			{
 				serialize_align(p);
@@ -965,19 +997,19 @@ b8 msgs_write(StreamWrite* p, const MessageHistory& history, const Ack& remote_a
 void calculate_rtt(r32 timestamp, const Ack& ack, const MessageHistory& send_history, r32* rtt)
 {
 	r32 new_rtt = -1.0f;
-	if (send_history.msgs.length > 0)
+	if (send_history.msg_frames.length > 0)
 	{
 		s32 index = send_history.current_index;
 		for (s32 i = 0; i < NET_PREVIOUS_SEQUENCES_SEARCH; i++)
 		{
-			const MessageFrame& msg = send_history.msgs[index];
+			const MessageFrame& msg = send_history.msg_frames[index];
 			if (msg.sequence_id == ack.sequence_id)
 			{
 				new_rtt = timestamp - msg.timestamp;
 				break;
 			}
-			index = index > 0 ? index - 1 : send_history.msgs.length - 1;
-			if (index == send_history.current_index || send_history.msgs[index].timestamp < Game::real_time.total - NET_TIMEOUT)
+			index = index > 0 ? index - 1 : send_history.msg_frames.length - 1;
+			if (index == send_history.current_index || send_history.msg_frames[index].timestamp < Game::real_time.total - NET_TIMEOUT)
 				break;
 		}
 	}
@@ -987,7 +1019,7 @@ void calculate_rtt(r32 timestamp, const Ack& ack, const MessageHistory& send_his
 		*rtt = (*rtt * 0.95f) + (new_rtt * 0.05f);
 }
 
-b8 msgs_read(StreamRead* p, MessageHistory* history, Ack* ack)
+b8 msgs_read(StreamRead* p, MessageHistory* history, Ack* ack, SequenceID* most_recent_sequence)
 {
 	using Stream = StreamRead;
 
@@ -997,6 +1029,7 @@ b8 msgs_read(StreamRead* p, MessageHistory* history, Ack* ack)
 	if (sequence_more_recent(ack_candidate.sequence_id, ack->sequence_id))
 		*ack = ack_candidate;
 
+	b8 first_frame = true;
 	while (true)
 	{
 		serialize_align(p);
@@ -1006,9 +1039,12 @@ b8 msgs_read(StreamRead* p, MessageHistory* history, Ack* ack)
 		{
 			MessageFrame* frame = msg_history_add(history, Game::real_time.total, bytes);
 			serialize_int(p, SequenceID, frame->sequence_id, 0, NET_SEQUENCE_COUNT - 1);
+			if (most_recent_sequence && (first_frame || frame->sequence_id > *most_recent_sequence))
+				*most_recent_sequence = frame->sequence_id;
 			frame->read.resize_bytes(bytes);
 			serialize_bytes(p, (u8*)frame->read.data.data, bytes);
 			serialize_align(p);
+			first_frame = false;
 		}
 		else
 			break;
@@ -1235,7 +1271,7 @@ b8 equal_states_awk(const AwkState& a, const AwkState& b)
 		&& a.charges == b.charges;
 }
 
-template<typename Stream> b8 serialize_state_frame(Stream* p, StateFrame* frame, const StateFrame* base)
+template<typename Stream> b8 serialize_state_frame(Stream* p, StateFrame* frame, SequenceID sequence_id, const StateFrame* base)
 {
 	if (Stream::IsReading)
 	{
@@ -1244,9 +1280,8 @@ template<typename Stream> b8 serialize_state_frame(Stream* p, StateFrame* frame,
 		else
 			new (frame) StateFrame();
 		frame->timestamp = Game::real_time.total;
+		frame->sequence_id = sequence_id;
 	}
-
-	serialize_int(p, SequenceID, frame->sequence_id, 0, NET_SEQUENCE_COUNT - 1);
 
 	s32 changed_count;
 	if (Stream::IsWriting)
@@ -1646,7 +1681,7 @@ struct Client
 	Ack ack = { u32(-1), 0 }; // most recent ack we've received from the client
 	MessageHistory msgs_in_history; // messages we've received from the client
 	SequenceHistory recently_resent; // sequences we resent to the client recently
-	SequenceID processed_sequence_id; // most recent sequence ID we've processed from the client
+	SequenceID processed_sequence_id = NET_SEQUENCE_INVALID; // most recent sequence ID we've processed from the client
 	StaticArray<Ref<PlayerHuman>, MAX_GAMEPADS> players;
 	b8 connected;
 	b8 loading_done;
@@ -1760,7 +1795,7 @@ b8 build_packet_update(StreamWrite* p, Client* client, StateFrame* frame)
 	{
 		serialize_int(p, SequenceID, client->ack.sequence_id, 0, NET_SEQUENCE_COUNT - 1);
 		const StateFrame* base = state_frame_by_sequence(state_common.state_history, client->ack.sequence_id);
-		serialize_state_frame(p, frame, base);
+		serialize_state_frame(p, frame, state_common.local_sequence_id, base);
 	}
 
 	packet_finalize(p);
@@ -1939,12 +1974,15 @@ b8 packet_handle(const Update& u, StreamRead* p, const Sock::Address& address)
 				return false;
 			}
 
-			if (!msgs_read(p, &client->msgs_in_history, &client->ack))
+			SequenceID sequence_id;
+			if (!msgs_read(p, &client->msgs_in_history, &client->ack, &sequence_id))
 				net_error();
 
 			calculate_rtt(Game::real_time.total, client->ack, state_common.msgs_out_history, &client->rtt);
 
 			client->timeout = 0.0f;
+
+			b8 most_recent = sequence_id == msg_history_most_recent_sequence(client->msgs_in_history);
 
 			s32 count;
 			serialize_int(p, ID, count, 0, MAX_GAMEPADS);
@@ -1959,7 +1997,7 @@ b8 packet_handle(const Update& u, StreamRead* p, const Sock::Address& address)
 
 				serialize_player_control(p, &control);
 
-				if (client_owns(client, c->entity()))
+				if (most_recent && client_owns(client, c->entity()))
 					c->remote_control_handle(control);
 			}
 
@@ -2068,7 +2106,7 @@ struct StateClient
 	Ack server_ack = { u32(-1), 0 }; // most recent ack we've received from the server
 	Sock::Address server_address;
 	SequenceHistory server_recently_resent; // sequences we recently resent to the server
-	SequenceID server_processed_sequence_id; // most recent sequence ID we've processed from the server
+	SequenceID server_processed_sequence_id = NET_SEQUENCE_INVALID; // most recent sequence ID we've processed from the server
 };
 StateClient state_client;
 
@@ -2339,7 +2377,8 @@ b8 packet_handle(const Update& u, StreamRead* p, const Sock::Address& address)
 				state_client.mode = Mode::Loading;
 			}
 
-			if (!msgs_read(p, &state_client.msgs_in_history, &state_client.server_ack))
+			SequenceID sequence_id;
+			if (!msgs_read(p, &state_client.msgs_in_history, &state_client.server_ack, &sequence_id))
 				net_error();
 
 			calculate_rtt(Game::real_time.total, state_client.server_ack, state_common.msgs_out_history, &state_client.server_rtt);
@@ -2350,7 +2389,7 @@ b8 packet_handle(const Update& u, StreamRead* p, const Sock::Address& address)
 				serialize_int(p, SequenceID, base_sequence_id, 0, NET_SEQUENCE_COUNT - 1);
 				const StateFrame* base = state_frame_by_sequence(state_common.state_history, base_sequence_id);
 				StateFrame frame;
-				serialize_state_frame(p, &frame, base);
+				serialize_state_frame(p, &frame, sequence_id, base);
 				// only insert the frame into the history if it is more recent
 				if (state_common.state_history.frames.length == 0 || sequence_more_recent(frame.sequence_id, state_common.state_history.frames[state_common.state_history.current_index].sequence_id))
 				{
@@ -2462,6 +2501,13 @@ void reset()
 
 	new (&state_client) StateClient();
 }
+
+b8 lagging()
+{
+	return state_client.mode == Mode::Disconnected
+		|| (state_client.msgs_in_history.msg_frames.length > 0 && Game::real_time.total - state_client.msgs_in_history.msg_frames[state_client.msgs_in_history.current_index].timestamp > NET_TICK_RATE * 5.0f);
+}
+
 
 }
 

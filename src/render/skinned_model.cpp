@@ -220,7 +220,12 @@ void SkinnedModel::draw(const RenderParams& params)
 	sync->write(RenderDataType::Vec4);
 	sync->write<s32>(1);
 	if (team == (s8)AI::TeamNone)
-		sync->write<Vec4>(color);
+	{
+		if (params.camera->colors)
+			sync->write<Vec4>(color);
+		else
+			sync->write<Vec4>(LMath::desaturate(color));
+	}
 	else
 	{
 		const Vec4& team_color = Team::color((AI::Team)team, (AI::Team)params.camera->team);

@@ -284,7 +284,7 @@ Entity* closest_target(MinionAI* me, AI::Team team, const Vec3& direction)
 	for (auto i = Rocket::list.iterator(); !i.is_last(); i.next())
 	{
 		Rocket* rocket = i.item();
-		if (rocket->team != team && rocket->get<Transform>()->parent.ref())
+		if (rocket->get<Transform>()->parent.ref() && rocket->team() != team)
 		{
 			if (me->can_see(rocket->entity()))
 				return rocket->entity();
@@ -301,7 +301,7 @@ Entity* closest_target(MinionAI* me, AI::Team team, const Vec3& direction)
 	for (auto i = Grenade::list.iterator(); !i.is_last(); i.next())
 	{
 		Grenade* grenade = i.item();
-		if (!grenade->owner.ref() || grenade->owner.ref()->get<AIAgent>()->team != team)
+		if (grenade->team() != team)
 		{
 			if (me->can_see(grenade->entity()))
 				return grenade->entity();
@@ -380,7 +380,7 @@ Entity* visible_target(MinionAI* me, AI::Team team)
 	for (auto i = Grenade::list.iterator(); !i.is_last(); i.next())
 	{
 		Grenade* grenade = i.item();
-		if (!grenade->owner.ref() || grenade->owner.ref()->get<AIAgent>()->team != team)
+		if (grenade->team() != team)
 		{
 			if (me->can_see(grenade->entity()))
 				return grenade->entity();
@@ -400,7 +400,7 @@ Entity* visible_target(MinionAI* me, AI::Team team)
 	for (auto i = Rocket::list.iterator(); !i.is_last(); i.next())
 	{
 		Rocket* rocket = i.item();
-		if (rocket->team != team && rocket->get<Transform>()->parent.ref())
+		if (rocket->get<Transform>()->parent.ref() && rocket->team() != team)
 		{
 			if (me->can_see(rocket->entity()))
 				return rocket->entity();
@@ -462,7 +462,7 @@ b8 MinionAI::can_see(Entity* target, b8 limit_vision_cone) const
 		if (!limit_vision_cone || diff.dot(get<Walker>()->forward()) > 0.707f)
 		{
 			btCollisionWorld::ClosestRayResultCallback ray_callback(pos, target_pos);
-			Physics::raycast(&ray_callback, (btBroadphaseProxy::StaticFilter | CollisionInaccessible | CollisionAllTeamsContainmentField) & ~Team::containment_field_mask(get<AIAgent>()->team));
+			Physics::raycast(&ray_callback, (CollisionStatic | CollisionInaccessible | CollisionAllTeamsContainmentField) & ~Team::containment_field_mask(get<AIAgent>()->team));
 			if (!ray_callback.hasHit())
 				return true;
 		}
@@ -666,8 +666,7 @@ void MinionAI::update(const Update& u)
 								&& target_timer > MINION_ATTACK_TIME * 0.5f // give some reaction time
 								&& !Team::game_over)
 							{
-								PlayerManager* owner = get<MinionCommon>()->owner.ref();
-								Net::finalize(World::create<ProjectileEntity>(owner ? owner->instance.ref() : nullptr, head_pos, aim_pos - head_pos));
+								Net::finalize(World::create<ProjectileEntity>(get<MinionCommon>()->owner.ref(), head_pos, aim_pos - head_pos));
 								get<MinionCommon>()->attack_timer = MINION_ATTACK_TIME;
 							}
 						}

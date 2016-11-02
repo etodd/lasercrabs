@@ -40,6 +40,9 @@ PlayerAI::Config PlayerAI::generate_config()
 {
 	Config config;
 
+	for (s32 i = 0; i < s32(Upgrade::count); i++)
+		config.upgrade_strategies[i] = UpgradeStrategy::Ignore;
+
 	switch (mersenne::rand() % 5)
 	{
 		case 0:
@@ -50,9 +53,6 @@ PlayerAI::Config PlayerAI::generate_config()
 			config.upgrade_strategies[1] = UpgradeStrategy::IfAvailable;
 			config.upgrade_priority[2] = Upgrade::Rocket;
 			config.upgrade_strategies[2] = UpgradeStrategy::SaveUp;
-			config.upgrade_priority[3] = Upgrade::None;
-			config.upgrade_priority[4] = Upgrade::None;
-			config.upgrade_priority[5] = Upgrade::None;
 			break;
 		}
 		case 1:
@@ -63,9 +63,6 @@ PlayerAI::Config PlayerAI::generate_config()
 			config.upgrade_strategies[1] = UpgradeStrategy::IfAvailable;
 			config.upgrade_priority[2] = Upgrade::Sniper;
 			config.upgrade_strategies[2] = UpgradeStrategy::IfAvailable;
-			config.upgrade_priority[3] = Upgrade::None;
-			config.upgrade_priority[4] = Upgrade::None;
-			config.upgrade_priority[5] = Upgrade::None;
 			break;
 		}
 		case 2:
@@ -76,9 +73,6 @@ PlayerAI::Config PlayerAI::generate_config()
 			config.upgrade_strategies[1] = UpgradeStrategy::IfAvailable;
 			config.upgrade_priority[2] = Upgrade::Rocket;
 			config.upgrade_strategies[2] = UpgradeStrategy::IfAvailable;
-			config.upgrade_priority[3] = Upgrade::None;
-			config.upgrade_priority[4] = Upgrade::None;
-			config.upgrade_priority[5] = Upgrade::None;
 			break;
 		}
 		case 3:
@@ -89,9 +83,6 @@ PlayerAI::Config PlayerAI::generate_config()
 			config.upgrade_strategies[1] = UpgradeStrategy::SaveUp;
 			config.upgrade_priority[2] = Upgrade::Teleporter;
 			config.upgrade_strategies[2] = UpgradeStrategy::IfAvailable;
-			config.upgrade_priority[3] = Upgrade::None;
-			config.upgrade_priority[4] = Upgrade::None;
-			config.upgrade_priority[5] = Upgrade::None;
 			break;
 		}
 		case 4:
@@ -102,9 +93,6 @@ PlayerAI::Config PlayerAI::generate_config()
 			config.upgrade_strategies[1] = UpgradeStrategy::IfAvailable;
 			config.upgrade_priority[2] = Upgrade::Rocket;
 			config.upgrade_strategies[2] = UpgradeStrategy::IfAvailable;
-			config.upgrade_priority[3] = Upgrade::None;
-			config.upgrade_priority[4] = Upgrade::None;
-			config.upgrade_priority[5] = Upgrade::None;
 			break;
 		}
 		default:
@@ -1160,7 +1148,7 @@ s32 team_density(AI::TeamMask mask, const Vec3& pos, r32 radius)
 
 	for (auto i = Rocket::list.iterator(); !i.is_last(); i.next())
 	{
-		if (AI::match(i.item()->team, mask)
+		if (AI::match(i.item()->team(), mask)
 			&& (i.item()->get<Transform>()->absolute_pos() - pos).length_squared() < radius_sq)
 		{
 			score += 1;

@@ -125,6 +125,8 @@ namespace Client
 	Mode mode();
 
 	void connect(const char*, u16);
+
+	b8 lagging();
 }
 #endif
 

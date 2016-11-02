@@ -56,7 +56,8 @@ Camera::Camera()
 	cull_range(),
 	cull_behind_wall(),
 	team(-1),
-	colors(true)
+	colors(true),
+	fog(true)
 {
 }
 

@@ -75,6 +75,7 @@ struct Camera
 	b8 cull_behind_wall;
 	b8 active;
 	b8 colors;
+	b8 fog;
 
 	Camera();
 

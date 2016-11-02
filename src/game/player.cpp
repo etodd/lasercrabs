@@ -89,6 +89,7 @@ void camera_setup_awk(Entity* e, Camera* camera, r32 offset)
 	camera->cull_behind_wall = abs_wall_normal.dot(camera->pos - center) < -AWK_RADIUS + 0.02f; // camera is behind wall; set clip plane to wall
 	camera->cull_range = camera->range_center.length();
 	camera->colors = false;
+	camera->fog = false;
 }
 
 s32 PlayerHuman::count_local()
@@ -178,6 +179,8 @@ void PlayerHuman::awake()
 	camera = Camera::add();
 	camera->team = (s8)get<PlayerManager>()->team.ref()->team();
 	camera->mask = 1 << camera->team;
+	camera->colors = false;
+	camera->fog = true;
 
 	Quat rot;
 	Game::level.map_view.ref()->absolute(&camera->pos, &rot);
@@ -341,8 +344,7 @@ void PlayerHuman::update(const Update& u)
 			&& !Game::cancel_event_eaten[gamepad]
 			&& !upgrade_menu_open
 			&& (menu_state == Menu::State::Hidden || menu_state == Menu::State::Visible)
-			&& !Cora::has_focus()
-			&& (!get<PlayerManager>()->instance.ref() || !get<PlayerManager>()->instance.ref()->has<Awk>() || get<PlayerManager>()->instance.ref()->get<Awk>()->current_ability == Ability::None)) // HACK because cancel and pause are on the same dang key
+			&& !Cora::has_focus())
 		{
 			Game::cancel_event_eaten[gamepad] = true;
 			menu_state = (menu_state == Menu::State::Hidden) ? Menu::State::Visible : Menu::State::Hidden;
@@ -591,7 +593,7 @@ void ability_draw(const RenderParams& params, const PlayerHuman* player, const V
 	sprintf(string, "%s", Settings::gamepads[gamepad].bindings[(s32)binding].string(Game::is_gamepad));
 	const Vec4* color;
 	PlayerManager* manager = player->get<PlayerManager>();
-	if (!manager->ability_valid(ability))
+	if (!manager->ability_valid(ability) || !manager->instance.ref()->get<PlayerCommon>()->movement_enabled())
 		color = params.sync->input.get(binding, gamepad) ? &UI::color_disabled : &UI::color_alert;
 	else if (manager->instance.ref()->get<Awk>()->current_ability == ability)
 		color = &UI::color_default;
@@ -1085,8 +1087,10 @@ void PlayerHuman::draw_alpha(const RenderParams& params) const
 			battery_timer_draw(params, vp.size * Vec2(0.9f, 0.1f));
 
 		// network error icon
-		if (Game::session.network_state == Game::NetworkState::Lag && Game::session.network_time - Game::session.network_timer > 0.25f)
+#if !SERVER
+		if (!Game::level.local && Net::Client::lagging())
 			UI::mesh(params, Asset::Mesh::icon_network_error, vp.size * Vec2(0.9f, 0.5f), Vec2(text_size * 2.0f * UI::scale), UI::color_alert);
+#endif
 	}
 
 	// message
@@ -2299,6 +2303,7 @@ void PlayerControlHuman::update(const Update& u)
 				camera->cull_range = 0.0f;
 				camera->cull_behind_wall = false;
 				camera->colors = true;
+				camera->fog = true;
 				camera->range = 0.0f;
 				camera->rot = look_quat;
 			}

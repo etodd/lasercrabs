@@ -401,7 +401,7 @@ void Skybox::draw_alpha(const RenderParams& p)
 	sync->write(RenderOp::Shader);
 	sync->write(Game::level.skybox.shader);
 
-	b8 volumetric_lighting = p.shadow_buffer != AssetNull && p.camera->colors;
+	b8 volumetric_lighting = p.shadow_buffer != AssetNull && p.camera->fog;
 
 	if (volumetric_lighting)
 		sync->write(RenderTechnique::Shadow);
@@ -422,7 +422,10 @@ void Skybox::draw_alpha(const RenderParams& p)
 	sync->write(Asset::Uniform::diffuse_color);
 	sync->write(RenderDataType::Vec3);
 	sync->write<s32>(1);
-	sync->write<Vec3>(Game::level.skybox.color);
+	if (p.camera->colors)
+		sync->write<Vec3>(Game::level.skybox.color);
+	else
+		sync->write<Vec3>(LMath::desaturate(Game::level.skybox.color));
 
 	sync->write(RenderOp::Uniform);
 	sync->write(Asset::Uniform::p);
@@ -458,7 +461,7 @@ void Skybox::draw_alpha(const RenderParams& p)
 	sync->write(Asset::Uniform::fog);
 	sync->write(RenderDataType::S32);
 	sync->write<s32>(1);
-	sync->write<s32>(p.camera->colors);
+	sync->write<s32>(p.camera->fog);
 
 	Vec2 inv_buffer_size = Vec2(1.0f / (r32)p.sync->input.width, 1.0f / (r32)p.sync->input.height);
 

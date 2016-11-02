@@ -27,7 +27,7 @@ struct Prop : public Entity
 
 struct StaticGeom : public Entity
 {
-	StaticGeom(AssetID, const Vec3&, const Quat&, short = btBroadphaseProxy::StaticFilter, short = ~btBroadphaseProxy::StaticFilter);
+	StaticGeom(AssetID, const Vec3&, const Quat&, short = CollisionStatic, short = ~CollisionStatic);
 };
 
 struct PhysicsEntity : public Entity

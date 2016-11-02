@@ -83,8 +83,6 @@ Game::Session::Session()
 	time_scale(1.0f),
 	network_timer(),
 	network_time(),
-	network_state(),
-	network_quality(),
 	last_match()
 {
 	for (s32 i = 0; i < MAX_PLAYERS; i++)
@@ -93,21 +91,7 @@ Game::Session::Session()
 
 r32 Game::Session::effective_time_scale() const
 {
-	switch (network_state)
-	{
-		case NetworkState::Lag:
-		{
-			return 0.0f;
-		}
-		case NetworkState::Recover:
-		{
-			return time_scale * 3.0f;
-		}
-		default:
-		{
-			return time_scale;
-		}
-	}
+	return time_scale;
 }
 
 s32 Game::Session::local_player_count() const
@@ -276,57 +260,6 @@ void Game::update(const Update& update_in)
 	Update u = update_in;
 	u.time = time;
 
-	// lag simulation
-	if (level.mode == Mode::Pvp && level.local && session.story_mode && session.network_quality != NetworkQuality::Perfect)
-	{
-		session.network_timer -= real_time.delta;
-		if (session.network_timer < 0.0f)
-		{
-			switch (session.network_state)
-			{
-				case NetworkState::Normal:
-				{
-					session.network_state = NetworkState::Lag;
-					if (session.network_quality == NetworkQuality::Bad)
-						session.network_time = 0.2f + mersenne::randf_cc() * (mersenne::randf_cc() < 0.1f ? 4.0f : 0.3f);
-					else
-						session.network_time = 0.05f + mersenne::randf_cc() * 1.0f;
-					break;
-				}
-				case NetworkState::Lag:
-				{
-					session.network_state = NetworkState::Recover;
-					if (session.network_time > 0.5f)
-						session.network_time = session.network_time * 0.5f + mersenne::randf_cc() * 0.3f; // recovery time is proportional to lag time
-					else
-						session.network_time = 0.05f + mersenne::randf_cc() * 0.2f;
-					break;
-				}
-				case NetworkState::Recover:
-				{
-					session.network_state = NetworkState::Normal;
-					if (mersenne::randf_cc() < (session.network_quality == NetworkQuality::Bad ? 0.5f : 0.2f))
-						session.network_time = 0.05f + mersenne::randf_cc() * 0.15f; // go right back into lag state
-					else
-					{
-						// some time before next lag
-						if (session.network_quality == NetworkQuality::Bad)
-							session.network_time = 2.0f + mersenne::randf_cc() * 8.0f;
-						else
-							session.network_time = 20.0f + mersenne::randf_cc() * 50.0f;
-					}
-					break;
-				}
-			}
-			session.network_timer = session.network_time;
-		}
-		else
-		{
-			if (session.network_state == NetworkState::Lag && session.network_time - session.network_timer > 3.5f)
-				Team::transition_next(MatchResult::NetworkError); // disconnect
-		}
-	}
-
 	Net::update_start(u);
 
 #if !SERVER
@@ -453,12 +386,12 @@ void Game::update(const Update& update_in)
 			i.item()->update(u);
 		for (auto i = Projectile::list.iterator(); !i.is_last(); i.next())
 			i.item()->update(u);
-		for (auto i = Grenade::list.iterator(); !i.is_last(); i.next())
+		if (level.local)
 		{
-			if (Game::level.local)
+			for (auto i = Grenade::list.iterator(); !i.is_last(); i.next())
 				i.item()->update_server(u);
-			i.item()->update_client(u);
 		}
+		Grenade::update_client_all(u);
 		for (auto i = Rocket::list.iterator(); !i.is_last(); i.next())
 			i.item()->update(u);
 		for (auto i = Parkour::list.iterator(); !i.is_last(); i.next())
@@ -546,7 +479,7 @@ void Game::draw_alpha(const RenderParams& render_params)
 	for (auto i = Water::list.iterator(); !i.is_last(); i.next())
 		i.item()->draw_alpha(render_params);
 
-	if (render_params.camera->colors)
+	if (render_params.camera->fog)
 		Skybox::draw_alpha(render_params);
 	SkyDecal::draw_alpha(render_params);
 	SkyPattern::draw_alpha(render_params);
@@ -989,23 +922,6 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 
 	level.mode = m;
 	level.local = true;
-
-	session.network_state = NetworkState::Normal;
-	session.network_timer = session.network_time = 0.0f;
-
-	if (level.mode == Mode::Pvp && level.local && session.story_mode)
-	{
-		// choose network quality
-		r32 random = mersenne::randf_cc();
-		if (random < 0.95f)
-			session.network_quality = NetworkQuality::Perfect;
-		else if (random < 0.99f)
-			session.network_quality = NetworkQuality::Okay;
-		else
-			session.network_quality = NetworkQuality::Bad;
-	}
-	else
-		session.network_quality = NetworkQuality::Perfect;
 
 	scheduled_load_level = AssetNull;
 

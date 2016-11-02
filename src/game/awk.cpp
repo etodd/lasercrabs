@@ -595,23 +595,15 @@ void Awk::health_changed(const HealthEvent& e)
 			// killed; notify everyone
 			if (e.source)
 			{
-				PlayerCommon* enemy = nullptr;
+				PlayerManager* enemy = nullptr;
 				if (e.source->has<PlayerCommon>())
-					enemy = e.source->get<PlayerCommon>();
+					enemy = e.source->get<PlayerCommon>()->manager.ref();
 				else if (e.source->has<Projectile>())
-				{
-					Entity* owner = e.source->get<Projectile>()->owner.ref();
-					if (owner)
-						enemy = owner->get<PlayerCommon>();
-				}
+					enemy = e.source->get<Projectile>()->owner.ref();
 				else if (e.source->has<Rocket>())
-				{
-					Entity* owner = e.source->get<Rocket>()->owner.ref();
-					if (owner)
-						enemy = owner->get<PlayerCommon>();
-				}
+					enemy = e.source->get<Rocket>()->owner.ref();
 				if (enemy)
-					enemy->manager.ref()->add_kills(1);
+					enemy->add_kills(1);
 			}
 
 			AI::Team team = get<AIAgent>()->team;
@@ -948,7 +940,7 @@ b8 Awk::go(const Vec3& dir)
 	else
 	{
 		// ability spawn
-		// todo: net sync
+		// todo: sync effects across network
 
 		PlayerManager* manager = get<PlayerCommon>()->manager.ref();
 
@@ -997,7 +989,7 @@ b8 Awk::go(const Vec3& dir)
 			case Ability::Rocket:
 			{
 				// spawn a rocket pod
-				Net::finalize(World::create<RocketEntity>(entity(), parent->get<Transform>(), pos, rot, get<AIAgent>()->team));
+				Net::finalize(World::create<RocketEntity>(manager, parent->get<Transform>(), pos, rot, get<AIAgent>()->team));
 
 				Audio::post_global_event(AK::EVENTS::PLAY_SENSOR_SPAWN, pos);
 
@@ -1112,7 +1104,7 @@ b8 Awk::go(const Vec3& dir)
 				Vec3 dir_adjusted = dir_normalized;
 				if ((my_rot * Vec3(0, 0, 1)).y > -0.05f)
 					dir_adjusted.y += 0.35f;
-				Net::finalize(World::create<GrenadeEntity>(entity(), my_pos + dir_adjusted * (AWK_SHIELD_RADIUS + GRENADE_RADIUS + 0.01f), dir_adjusted));
+				Net::finalize(World::create<GrenadeEntity>(manager, my_pos + dir_adjusted * (AWK_SHIELD_RADIUS + GRENADE_RADIUS + 0.01f), dir_adjusted));
 				break;
 			}
 			default:
@@ -1882,7 +1874,7 @@ void Awk::raycast(const Vec3& ray_start, const Vec3& ray_end, const Net::StateFr
 	// check environment
 	{
 		RaycastCallbackExcept ray_callback(ray_start, ray_end, entity());
-		Physics::raycast(&ray_callback, (btBroadphaseProxy::StaticFilter | CollisionAllTeamsContainmentField) & ~ally_containment_field_mask());
+		Physics::raycast(&ray_callback, (CollisionStatic | CollisionAllTeamsContainmentField) & ~ally_containment_field_mask());
 
 		if (ray_callback.hasHit())
 		{

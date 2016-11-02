@@ -162,17 +162,16 @@ struct Rocket : public ComponentType<Rocket>
 	r32 particle_accumulator;
 	r32 remaining_lifetime;
 	Ref<Entity> target;
-	Ref<Entity> owner;
-	AI::Team team;
+	Ref<PlayerManager> owner;
 
 	static Rocket* inbound(Entity*);
 	static Rocket* closest(AI::TeamMask, const Vec3&, r32* = nullptr);
 
 	Rocket();
+	void awake();
 
 	void explode();
-
-	void awake();
+	AI::Team team() const;
 	void killed(Entity*);
 	void update(const Update&);
 	void launch(Entity*);
@@ -180,7 +179,7 @@ struct Rocket : public ComponentType<Rocket>
 
 struct RocketEntity : public Entity
 {
-	RocketEntity(Entity*, Transform*, const Vec3&, const Quat&, AI::Team);
+	RocketEntity(PlayerManager*, Transform*, const Vec3&, const Quat&, AI::Team);
 };
 
 struct Decoy : public ComponentType<Decoy>
@@ -190,6 +189,7 @@ struct Decoy : public ComponentType<Decoy>
 	void hit_by(const TargetEvent&);
 	void killed(Entity*);
 	void destroy();
+	AI::Team team() const;
 };
 
 struct DecoyEntity : public Entity
@@ -302,15 +302,15 @@ struct Rope : public ComponentType<Rope>
 
 struct ProjectileEntity : public Entity
 {
-	ProjectileEntity(Entity*, const Vec3&, const Vec3&);
+	ProjectileEntity(PlayerManager*, const Vec3&, const Vec3&);
 };
 
 #define PROJECTILE_SPEED 20.0f
 struct Projectile : public ComponentType<Projectile>
 {
-	Ref<Entity> owner;
 	Vec3 velocity;
 	r32 lifetime;
+	Ref<PlayerManager> owner;
 
 	void awake();
 
@@ -321,22 +321,28 @@ struct Projectile : public ComponentType<Projectile>
 #define GRENADE_RADIUS 0.125f
 struct GrenadeEntity : public Entity
 {
-	GrenadeEntity(Entity*, const Vec3&, const Vec3&);
+	GrenadeEntity(PlayerManager*, const Vec3&, const Vec3&);
 };
 
 struct Grenade : public ComponentType<Grenade>
 {
-	Ref<Entity> owner;
+	static r32 particle_timer;
+	static r32 particle_accumulator;
+
+	Vec3 velocity;
 	r32 timer;
-	Vec3 last_particle;
+	Ref<PlayerManager> owner;
+	b8 active;
 
 	void awake();
 
 	void hit_by(const TargetEvent&);
 	void killed_by(Entity*);
+	AI::Team team() const;
+	void explode();
 
 	void update_server(const Update&);
-	void update_client(const Update&);
+	static void update_client_all(const Update&);
 };
 
 struct TargetEvent

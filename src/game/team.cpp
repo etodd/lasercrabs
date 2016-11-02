@@ -285,7 +285,7 @@ b8 visibility_check(Entity* i, Entity* j, r32* distance)
 	else
 	{
 		btCollisionWorld::ClosestRayResultCallback ray_callback(start, end);
-		Physics::raycast(&ray_callback, btBroadphaseProxy::StaticFilter | CollisionInaccessible);
+		Physics::raycast(&ray_callback, CollisionStatic | CollisionInaccessible);
 		if (!ray_callback.hasHit())
 		{
 			*distance = sqrtf(dist_sq);
@@ -507,7 +507,7 @@ void Team::update_all_server(const Update& u)
 			game_over_real_time = Game::real_time.total;
 			vi_debug("Game over. Time: %f\n", Game::time.total);
 
-			// remove in-flight projectiles
+			// remove active projectiles and dangerous stuff
 			{
 				for (auto i = Projectile::list.iterator(); !i.is_last(); i.next())
 					World::remove_deferred(i.item()->entity());
@@ -517,6 +517,9 @@ void Team::update_all_server(const Update& u)
 					if (!i.item()->get<Transform>()->parent.ref()) // it's in flight
 						World::remove_deferred(i.item()->entity());
 				}
+
+				for (auto i = Grenade::list.iterator(); !i.is_last(); i.next())
+					World::remove_deferred(i.item()->entity());
 			}
 
 			// determine the winner, if any
@@ -626,7 +629,7 @@ void Team::update_all_server(const Update& u)
 				Vec3 player_pos = player_or_decoy->get<Transform>()->absolute_pos();
 				for (auto rocket = Rocket::list.iterator(); !rocket.is_last(); rocket.next())
 				{
-					if (rocket.item()->team == team->team() // it belongs to our team
+					if (rocket.item()->team() == team->team() // it belongs to our team
 						&& rocket.item()->get<Transform>()->parent.ref()) // it's waiting to be fired
 					{
 						b8 visible = false; // we're tracking the player, or the owner is alive and can see the player
@@ -634,7 +637,7 @@ void Team::update_all_server(const Update& u)
 							visible = true;
 						else
 						{
-							Entity* owner = rocket.item()->owner.ref();
+							Entity* owner = rocket.item()->owner.ref()->instance.ref();
 							if (owner && PlayerCommon::visibility.get(PlayerCommon::visibility_hash(owner->get<PlayerCommon>(), player_entity->get<PlayerCommon>())))
 								visible = true;
 						}

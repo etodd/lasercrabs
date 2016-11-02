@@ -127,7 +127,7 @@ struct Awk : public ComponentType<Awk>
 
 	s16 ally_containment_field_mask() const;
 
-	b8 predict_intersection(const Target*, Vec3*, r32 = AWK_FLY_SPEED) const;
+	b8 predict_intersection(const Target*, const Net::StateFrame*, Vec3*, r32 = AWK_FLY_SPEED) const;
 
 	void stealth(b8);
 

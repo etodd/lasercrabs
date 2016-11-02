@@ -18,6 +18,7 @@ namespace VI
 namespace Net
 {
 	struct StreamRead;
+	struct StateFrame;
 }
 
 void explosion(const Vec3&, const Quat&);
@@ -359,7 +360,7 @@ struct Target : public ComponentType<Target>
 	void awake() {}
 	Vec3 absolute_pos() const;
 	void hit(Entity*);
-	b8 predict_intersection(const Vec3&, r32, Vec3*) const;
+	b8 predict_intersection(const Vec3&, r32, const Net::StateFrame*, Vec3*) const;
 	r32 radius() const;
 };
 

@@ -1437,7 +1437,8 @@ void state_frame_build(StateFrame* frame)
 // get the absolute pos and rot of the given transform
 void transform_absolute(const StateFrame& frame, s32 index, Vec3* abs_pos, Quat* abs_rot)
 {
-	*abs_rot = Quat::identity;
+	if (abs_rot)
+		*abs_rot = Quat::identity;
 	*abs_pos = Vec3::zero;
 	while (index != IDNull)
 	{ 
@@ -1445,7 +1446,8 @@ void transform_absolute(const StateFrame& frame, s32 index, Vec3* abs_pos, Quat*
 		{
 			// this transform is being tracked with the dynamic transform system
 			const TransformState* transform = &frame.transforms[index];
-			*abs_rot = transform->rot * *abs_rot;
+			if (abs_rot)
+				*abs_rot = transform->rot * *abs_rot;
 			*abs_pos = (transform->rot * *abs_pos) + transform->pos;
 			index = transform->parent.id;
 		}
@@ -1453,7 +1455,8 @@ void transform_absolute(const StateFrame& frame, s32 index, Vec3* abs_pos, Quat*
 		{
 			// this transform is not being tracked in our system; get its info from the game state
 			Transform* transform = &Transform::list[index];
-			*abs_rot = transform->rot * *abs_rot;
+			if (abs_rot)
+				*abs_rot = transform->rot * *abs_rot;
 			*abs_pos = (transform->rot * *abs_pos) + transform->pos;
 			index = transform->parent.ref() ? transform->parent.id : IDNull;
 		}
@@ -1693,7 +1696,7 @@ struct StateServer
 {
 	Array<Client> clients;
 	Mode mode;
-	s32 expected_clients = 1;
+	s32 expected_clients = 2;
 	SequenceID sequence_completed_loading;
 };
 StateServer state_server;
@@ -1743,7 +1746,7 @@ b8 init()
 	}
 
 	// todo: allow both multiplayer / story mode sessions
-	Game::session.story_mode = true;
+	Game::session.story_mode = false;
 	Game::load_level(Update(), Asset::Level::Proci, Game::Mode::Pvp);
 
 	return true;

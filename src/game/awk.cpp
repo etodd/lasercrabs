@@ -570,7 +570,7 @@ b8 Awk::hit_target(Entity* target)
 	return true;
 }
 
-b8 Awk::predict_intersection(const Target* target, Vec3* intersection, r32 speed) const
+b8 Awk::predict_intersection(const Target* target, const Net::StateFrame* state_frame, Vec3* intersection, r32 speed) const
 {
 	if (current_ability == Ability::Sniper) // instant bullet travel time
 	{
@@ -578,7 +578,14 @@ b8 Awk::predict_intersection(const Target* target, Vec3* intersection, r32 speed
 		return true;
 	}
 	else
-		return target->predict_intersection(get<Transform>()->absolute_pos(), speed, intersection);
+	{
+		Vec3 me;
+		if (state_frame)
+			Net::transform_absolute(*state_frame, get<Transform>()->id(), &me);
+		else
+			me = get<Transform>()->absolute_pos();
+		return target->predict_intersection(me, speed, state_frame, intersection);
+	}
 }
 
 void Awk::health_changed(const HealthEvent& e)
@@ -634,7 +641,7 @@ void Awk::killed(Entity* e)
 b8 Awk::can_dash(const Target* target, Vec3* out_intersection) const
 {
 	Vec3 intersection;
-	if (predict_intersection(target, &intersection, AWK_DASH_SPEED))
+	if (predict_intersection(target, nullptr, &intersection, AWK_DASH_SPEED))
 	{
 		// the Target is situated at the base of the enemy Awk, where it attaches to the surface.
 		// we need to calculate the vector starting from our own base attach point, otherwise the dot product will be messed up.
@@ -660,7 +667,7 @@ b8 Awk::can_dash(const Target* target, Vec3* out_intersection) const
 b8 Awk::can_shoot(const Target* target, Vec3* out_intersection, r32 speed, const Net::StateFrame* state_frame) const
 {
 	Vec3 intersection;
-	if (predict_intersection(target, &intersection, speed))
+	if (predict_intersection(target, state_frame, &intersection, speed))
 	{
 		Vec3 me = get<Transform>()->absolute_pos();
 		Vec3 to_intersection = intersection - me;
@@ -773,7 +780,7 @@ b8 Awk::can_shoot(const Vec3& dir, Vec3* final_pos, b8* hit_target, const Net::S
 				if (i.item() != this && (i.item()->get<Transform>()->absolute_pos() - trace_start).length_squared() > AWK_SHIELD_RADIUS * 2.0f * AWK_SHIELD_RADIUS * 2.0f)
 				{
 					Vec3 intersection;
-					if (predict_intersection(i.item()->get<Target>(), &intersection))
+					if (predict_intersection(i.item()->get<Target>(), state_frame, &intersection))
 					{
 						if ((intersection - trace_start).length_squared() <= end_distance_sq
 							&& LMath::ray_sphere_intersect(trace_start, trace_end, intersection, AWK_SHIELD_RADIUS))
@@ -1190,10 +1197,7 @@ void Awk::reflect(Entity* entity, const Vec3& original_hit, const Vec3& original
 		// quantize for better server/client synchronization
 		Vec3 p;
 		if (state_frame)
-		{
-			Quat rot;
-			Net::transform_absolute(*state_frame, entity->get<Transform>()->id(), &p, &rot);
-		}
+			Net::transform_absolute(*state_frame, entity->get<Transform>()->id(), &p);
 		else
 			p = entity->get<Transform>()->absolute_pos();
 		r32 closest_dot = 0.0f;
@@ -1222,30 +1226,10 @@ void Awk::reflect(Entity* entity, const Vec3& original_hit, const Vec3& original
 
 	b8 found_new_velocity = false;
 
-	// first check for nearby targets
-	AI::Team team = get<AIAgent>()->team;
-	for (auto i = Target::list.iterator(); !i.is_last(); i.next())
-	{
-		Vec3 intersection;
-		if (((i.item()->has<EnergyPickup>() && i.item()->get<EnergyPickup>()->team != team)
-			|| (i.item()->has<ContainmentField>() && i.item()->get<ContainmentField>()->team != team)
-			|| (i.item()->has<AIAgent>() && i.item()->get<AIAgent>()->team != team))
-			&& i.item()->entity() != entity
-			&& can_shoot(i.item(), &intersection, AWK_DASH_SPEED, state_frame))
-		{
-			Vec3 to_target = Vec3::normalize(intersection - get<Transform>()->absolute_pos());
-			if (target_dir.dot(to_target) > 0.9f)
-			{
-				new_velocity = to_target * AWK_DASH_SPEED;
-				found_new_velocity = true;
-			}
-		}
-	}
-
+	s32 reflection_index = 0;
 	if (!found_new_velocity)
 	{
 		// couldn't find a target to hit
-
 		Quat target_quat = Quat::look(target_dir);
 
 		// make sure we have somewhere to land.
@@ -1264,12 +1248,14 @@ void Awk::reflect(Entity* entity, const Vec3& original_hit, const Vec3& original
 
 				if (score < best_score)
 				{
+					reflection_index = i;
 					new_velocity = candidate_velocity;
 					best_score = score;
 				}
 
 				if (distance > goal_distance && score < AWK_MAX_DISTANCE * 0.4f)
 				{
+					reflection_index = i;
 					new_velocity = candidate_velocity;
 					best_score = score;
 					break;
@@ -1282,7 +1268,7 @@ void Awk::reflect(Entity* entity, const Vec3& original_hit, const Vec3& original
 	bounce.fire(new_velocity);
 	get<Transform>()->rot = Quat::look(Vec3::normalize(new_velocity));
 	velocity = new_velocity;
-	vi_debug("Hit: %f %f %f Normal: %f %f %f Velocity: %f %f %f", hit.x, hit.y, hit.z, normal.x, normal.y, normal.z, velocity.x, velocity.y, velocity.z);
+	vi_debug("Hit: %f %f %f Normal: %f %f %f Velocity: %f %f %f Reflection index: %d", hit.x, hit.y, hit.z, normal.x, normal.y, normal.z, velocity.x, velocity.y, velocity.z, reflection_index);
 }
 
 void Awk::crawl_wall_edge(const Vec3& dir, const Vec3& other_wall_normal, const Update& u, r32 speed)

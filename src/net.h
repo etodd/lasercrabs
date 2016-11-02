@@ -138,7 +138,7 @@ StreamWrite* msg_new_local(MessageType);
 b8 msg_finalize(StreamWrite*);
 r32 rtt(const PlayerHuman*);
 b8 state_frame_by_timestamp(StateFrame*, r32);
-void transform_absolute(const StateFrame&, s32, Vec3*, Quat*);
+void transform_absolute(const StateFrame&, s32, Vec3*, Quat* = nullptr);
 
 }
 

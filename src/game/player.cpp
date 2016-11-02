@@ -1617,7 +1617,7 @@ b8 PlayerControlHuman::add_target_indicator(Target* target, TargetIndicator::Typ
 	{
 		// calculate target intersection trajectory
 		Vec3 intersection;
-		if (get<Awk>()->predict_intersection(target, &intersection))
+		if (get<Awk>()->predict_intersection(target, nullptr, &intersection))
 		{
 			target_indicators.add({ intersection, target->get<RigidBody>()->btBody->getInterpolationLinearVelocity(), type });
 			if (target_indicators.length == target_indicators.capacity())

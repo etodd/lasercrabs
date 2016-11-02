@@ -1425,7 +1425,7 @@ void Grenade::update_server(const Update& u)
 					|| (e->has<Rocket>() && e->get<Rocket>()->team() != team())
 					|| (e->has<Teleporter>() && e->get<Teleporter>()->team != team())
 					|| (e->has<Sensor>() && e->get<Sensor>()->team != team())
-					|| (e->has<Decoy>() && !e->get<Decoy>()->team() != team()))
+					|| (e->has<Decoy>() && e->get<Decoy>()->team() != team()))
 				{
 					explode();
 				}
@@ -1496,14 +1496,29 @@ void Grenade::killed_by(Entity* e)
 	World::remove_deferred(entity());
 }
 
-b8 Target::predict_intersection(const Vec3& from, r32 speed, Vec3* intersection) const
+b8 Target::predict_intersection(const Vec3& from, r32 speed, const Net::StateFrame* state_frame, Vec3* intersection) const
 {
+	Vec3 pos;
 	Vec3 velocity;
-	if (has<Awk>())
-		velocity = get<Awk>()->velocity;
+	if (state_frame)
+	{
+		Net::transform_absolute(*state_frame, get<Transform>()->id(), &pos);
+
+		Net::StateFrame state_frame_last;
+		Net::state_frame_by_timestamp(&state_frame_last, state_frame->timestamp - NET_TICK_RATE);
+		Vec3 pos_last;
+		Net::transform_absolute(state_frame_last, get<Transform>()->id(), &pos_last);
+
+		velocity = (pos - pos_last) / NET_TICK_RATE;
+	}
 	else
-		velocity = get<RigidBody>()->btBody->getInterpolationLinearVelocity();
-	Vec3 pos = absolute_pos();
+	{
+		if (has<Awk>())
+			velocity = get<Awk>()->velocity;
+		else
+			velocity = get<RigidBody>()->btBody->getInterpolationLinearVelocity();
+		pos = absolute_pos();
+	}
 	Vec3 to_target = pos - from;
 	r32 intersect_time_squared = to_target.dot(to_target) / ((speed * speed) - 2.0f * to_target.dot(velocity) - velocity.dot(velocity));
 	if (intersect_time_squared > 0.0f)

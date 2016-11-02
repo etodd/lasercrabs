@@ -945,14 +945,14 @@ b8 msgs_write(StreamWrite* p, const MessageHistory& history, const Ack& remote_a
 			for (s32 i = 0; i < NET_PREVIOUS_SEQUENCES_SEARCH; i++)
 			{
 				s32 next_index = index > 0 ? index - 1 : history.msg_frames.length - 1;
-				if (index == history.current_index || history.msg_frames[next_index].timestamp < Game::real_time.total - NET_TIMEOUT) // hit the end
+				if (next_index == history.current_index || history.msg_frames[next_index].timestamp < Game::real_time.total - NET_TIMEOUT) // hit the end
 					break;
 				index = next_index;
 			}
 
 			// start resending frames starting at that index
-			r32 timestamp_cutoff = Game::real_time.total - vi_min(NET_TIMEOUT * 0.5f, rtt * 2.5f); // wait a certain period before trying to resend a sequence
-			for (s32 i = 0; i < NET_PREVIOUS_SEQUENCES_SEARCH && index != history.current_index; i++)
+			r32 timestamp_cutoff = Game::real_time.total - vi_min(0.35f, rtt * 2.0f); // wait a certain period before trying to resend a sequence
+			for (s32 i = 0; i < NET_PREVIOUS_SEQUENCES_SEARCH; i++)
 			{
 				const MessageFrame& frame = history.msg_frames[index];
 				s32 relative_sequence = sequence_relative_to(frame.sequence_id, remote_ack.sequence_id);
@@ -1693,7 +1693,7 @@ struct StateServer
 {
 	Array<Client> clients;
 	Mode mode;
-	s32 expected_clients = 1;
+	s32 expected_clients = 2;
 	SequenceID sequence_completed_loading;
 };
 StateServer state_server;
@@ -1743,7 +1743,7 @@ b8 init()
 	}
 
 	// todo: allow both multiplayer / story mode sessions
-	Game::session.story_mode = true;
+	Game::session.story_mode = false;
 	Game::load_level(Update(), Asset::Level::Proci, Game::Mode::Pvp);
 
 	return true;

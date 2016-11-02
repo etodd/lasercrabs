@@ -706,11 +706,6 @@ Ack msg_history_ack(const MessageHistory& history)
 	return ack;
 }
 
-b8 msg_history_unrecoverable(const MessageHistory& history)
-{
-	return history.msg_frames.length > NET_ACK_PREVIOUS_SEQUENCES && !(msg_history_ack(history).previous_sequences & (u64(1) << (NET_ACK_PREVIOUS_SEQUENCES - 1)));
-}
-
 // server/client data
 struct StateCommon
 {
@@ -1983,8 +1978,9 @@ b8 packet_handle(const Update& u, StreamRead* p, const Sock::Address& address)
 			if (!msgs_read(p, &client->msgs_in_history, &client->ack, &sequence_id))
 				net_error();
 
-			if (msg_history_unrecoverable(client->msgs_in_history))
+			if (sequence_relative_to(sequence_id, client->processed_sequence_id) > NET_ACK_PREVIOUS_SEQUENCES)
 			{
+				// we missed a packet that we'll never be able to recover
 				vi_debug("Client %s:%hd timed out.", Sock::host_to_str(client->address.host), client->address.port);
 				state_server.clients.remove(client_index);
 				return false;
@@ -2399,8 +2395,9 @@ b8 packet_handle(const Update& u, StreamRead* p, const Sock::Address& address)
 			if (!msgs_read(p, &state_client.msgs_in_history, &state_client.server_ack, &sequence_id))
 				net_error();
 
-			if (msg_history_unrecoverable(state_client.msgs_in_history))
+			if (sequence_relative_to(state_client.server_processed_sequence_id, sequence_id) > NET_ACK_PREVIOUS_SEQUENCES)
 			{
+				// we missed a packet that we'll never be able to recover
 				vi_debug("Lost connection to %s:%hd.", Sock::host_to_str(state_client.server_address.host), state_client.server_address.port);
 				state_client.mode = Mode::Disconnected;
 				return false;

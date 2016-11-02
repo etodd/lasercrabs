@@ -1268,7 +1268,7 @@ void Awk::reflect(Entity* entity, const Vec3& original_hit, const Vec3& original
 	bounce.fire(new_velocity);
 	get<Transform>()->rot = Quat::look(Vec3::normalize(new_velocity));
 	velocity = new_velocity;
-	vi_debug("Hit: %f %f %f Normal: %f %f %f Velocity: %f %f %f Reflection index: %d", hit.x, hit.y, hit.z, normal.x, normal.y, normal.z, velocity.x, velocity.y, velocity.z, reflection_index);
+	vi_debug("Hit: %f %f %f Normal: %f %f %f Target dir: %f %f %f Reflection index: %d", hit.x, hit.y, hit.z, normal.x, normal.y, normal.z, target_dir.x, target_dir.y, target_dir.z, reflection_index);
 }
 
 void Awk::crawl_wall_edge(const Vec3& dir, const Vec3& other_wall_normal, const Update& u, r32 speed)

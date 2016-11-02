@@ -24,10 +24,9 @@
 #include "assimp/contrib/zlib/zlib.h"
 #include "console.h"
 
-#define DEBUG_MSG 0
-#define DEBUG_ENTITY 0
+#define DEBUG_MSG 1
+#define DEBUG_ENTITY 1
 #define DEBUG_TRANSFORMS 0
-#define DEBUG_BANDWIDTH 0
 
 namespace VI
 {
@@ -613,7 +612,7 @@ void ack_debug(const char* caption, const Ack& ack)
 {
 	char str[NET_ACK_PREVIOUS_SEQUENCES + 1] = {};
 	for (s32 i = 0; i < NET_ACK_PREVIOUS_SEQUENCES; i++)
-		str[i] = (ack.previous_sequences & (1 << i)) ? '1' : '0';
+		str[i] = (ack.previous_sequences & (u64(1) << i)) ? '1' : '0';
 	vi_debug("%s %d %s", caption, s32(ack.sequence_id), str);
 }
 
@@ -625,7 +624,7 @@ void msg_history_debug(const MessageHistory& history)
 		for (s32 i = 0; i < NET_PREVIOUS_SEQUENCES_SEARCH; i++)
 		{
 			const MessageFrame& msg = history.msg_frames[index];
-			vi_debug("%d", s32(msg.sequence_id));
+			vi_debug("%d %f", s32(msg.sequence_id), msg.timestamp);
 
 			// loop backward through most recently received frames
 			index = index > 0 ? index - 1 : history.msg_frames.length - 1;
@@ -700,11 +699,16 @@ Ack msg_history_ack(const MessageHistory& history)
 				s32 sequence_id_relative_to_most_recent = sequence_relative_to(msg.sequence_id, ack.sequence_id);
 				vi_assert(sequence_id_relative_to_most_recent < 0); // ack.sequence_id should always be the most recent received message
 				if (sequence_id_relative_to_most_recent >= -NET_ACK_PREVIOUS_SEQUENCES)
-					ack.previous_sequences |= u64(1) << u64(-sequence_id_relative_to_most_recent - 1);
+					ack.previous_sequences |= u64(1) << (-sequence_id_relative_to_most_recent - 1);
 			}
 		}
 	}
 	return ack;
+}
+
+b8 msg_history_unrecoverable(const MessageHistory& history)
+{
+	return history.msg_frames.length > NET_ACK_PREVIOUS_SEQUENCES && !(msg_history_ack(history).previous_sequences & (u64(1) << (NET_ACK_PREVIOUS_SEQUENCES - 1)));
 }
 
 // server/client data
@@ -802,9 +806,6 @@ void packet_decompress(StreamRead* p, s32 bytes)
 
 void packet_send(const StreamWrite& p, const Sock::Address& address)
 {
-#if DEBUG_BANDWIDTH
-	vi_debug("Outgoing packet size: %dB", p.bytes_written());
-#endif
 	Sock::udp_send(&sock, address, p.data.data, p.bytes_written());
 	state_common.bandwidth_out_counter += p.bytes_written();
 }
@@ -912,7 +913,7 @@ b8 ack_get(const Ack& ack, SequenceID sequence_id)
 		if (relative < -NET_ACK_PREVIOUS_SEQUENCES)
 			return false;
 		else
-			return ack.previous_sequences & (1 << (-relative - 1));
+			return ack.previous_sequences & (u64(1) << (-relative - 1));
 	}
 }
 
@@ -923,6 +924,7 @@ void sequence_history_add(SequenceHistory* history, SequenceID id, r32 timestamp
 	*history->insert(0) = { timestamp, id };
 }
 
+// returns true if the sequence history contains the given ID and it has a timestamp greater than the given cutoff
 b8 sequence_history_contains_newer_than(const SequenceHistory& history, SequenceID id, r32 timestamp_cutoff)
 {
 	for (s32 i = 0; i < history.length; i++)
@@ -954,7 +956,7 @@ b8 msgs_write(StreamWrite* p, const MessageHistory& history, const Ack& remote_a
 			}
 
 			// start resending frames starting at that index
-			r32 timestamp_cutoff = Game::real_time.total - (rtt * 3.0f); // wait a certain period before trying to resend a sequence
+			r32 timestamp_cutoff = Game::real_time.total - vi_min(NET_TIMEOUT * 0.5f, rtt * 2.5f); // wait a certain period before trying to resend a sequence
 			for (s32 i = 0; i < NET_PREVIOUS_SEQUENCES_SEARCH && index != history.current_index; i++)
 			{
 				const MessageFrame& frame = history.msg_frames[index];
@@ -1019,7 +1021,7 @@ void calculate_rtt(r32 timestamp, const Ack& ack, const MessageHistory& send_his
 		*rtt = (*rtt * 0.95f) + (new_rtt * 0.05f);
 }
 
-b8 msgs_read(StreamRead* p, MessageHistory* history, Ack* ack, SequenceID* most_recent_sequence)
+b8 msgs_read(StreamRead* p, MessageHistory* history, Ack* ack, SequenceID* received_sequence)
 {
 	using Stream = StreamRead;
 
@@ -1039,8 +1041,8 @@ b8 msgs_read(StreamRead* p, MessageHistory* history, Ack* ack, SequenceID* most_
 		{
 			MessageFrame* frame = msg_history_add(history, Game::real_time.total, bytes);
 			serialize_int(p, SequenceID, frame->sequence_id, 0, NET_SEQUENCE_COUNT - 1);
-			if (most_recent_sequence && (first_frame || frame->sequence_id > *most_recent_sequence))
-				*most_recent_sequence = frame->sequence_id;
+			if (received_sequence && (first_frame || frame->sequence_id > *received_sequence))
+				*received_sequence = frame->sequence_id;
 			frame->read.resize_bytes(bytes);
 			serialize_bytes(p, (u8*)frame->read.data.data, bytes);
 			serialize_align(p);
@@ -1696,7 +1698,7 @@ struct StateServer
 {
 	Array<Client> clients;
 	Mode mode;
-	s32 expected_clients = 2;
+	s32 expected_clients = 1;
 	SequenceID sequence_completed_loading;
 };
 StateServer state_server;
@@ -1746,7 +1748,7 @@ b8 init()
 	}
 
 	// todo: allow both multiplayer / story mode sessions
-	Game::session.story_mode = false;
+	Game::session.story_mode = true;
 	Game::load_level(Update(), Asset::Level::Proci, Game::Mode::Pvp);
 
 	return true;
@@ -1980,6 +1982,13 @@ b8 packet_handle(const Update& u, StreamRead* p, const Sock::Address& address)
 			SequenceID sequence_id;
 			if (!msgs_read(p, &client->msgs_in_history, &client->ack, &sequence_id))
 				net_error();
+
+			if (msg_history_unrecoverable(client->msgs_in_history))
+			{
+				vi_debug("Client %s:%hd timed out.", Sock::host_to_str(client->address.host), client->address.port);
+				state_server.clients.remove(client_index);
+				return false;
+			}
 
 			calculate_rtt(Game::real_time.total, client->ack, state_common.msgs_out_history, &client->rtt);
 
@@ -2260,7 +2269,8 @@ void update(const Update& u)
 	{
 		frame->read.rewind();
 #if DEBUG_MSG
-		vi_debug("Processing seq %d", frame->sequence_id);
+		if (frame->bytes > 1)
+			vi_debug("Processing seq %d", frame->sequence_id);
 #endif
 		while (frame->read.bytes_read() < frame->bytes)
 		{
@@ -2271,7 +2281,12 @@ void update(const Update& u)
 	}
 
 	if (show_stats) // bandwidth counters are updated every half second
-		Console::debug("%.0fkbps down | %.0fkbps up | %.0fms", state_common.bandwidth_in * 8.0f / 500.0f, state_common.bandwidth_out * 8.0f / 500.0f, state_client.server_rtt * 1000.0f);
+	{
+		if (state_client.mode == Mode::Disconnected)
+			Console::debug("%s", "Disconnected");
+		else
+			Console::debug("%.0fkbps down | %.0fkbps up | %.0fms", state_common.bandwidth_in * 8.0f / 500.0f, state_common.bandwidth_out * 8.0f / 500.0f, state_client.server_rtt * 1000.0f);
+	}
 }
 
 void tick(const Update& u)
@@ -2383,6 +2398,13 @@ b8 packet_handle(const Update& u, StreamRead* p, const Sock::Address& address)
 			SequenceID sequence_id;
 			if (!msgs_read(p, &state_client.msgs_in_history, &state_client.server_ack, &sequence_id))
 				net_error();
+
+			if (msg_history_unrecoverable(state_client.msgs_in_history))
+			{
+				vi_debug("Lost connection to %s:%hd.", Sock::host_to_str(state_client.server_address.host), state_client.server_address.port);
+				state_client.mode = Mode::Disconnected;
+				return false;
+			}
 
 			calculate_rtt(Game::real_time.total, state_client.server_ack, state_common.msgs_out_history, &state_client.server_rtt);
 

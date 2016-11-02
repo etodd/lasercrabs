@@ -77,7 +77,7 @@ Game::Session::Session()
 #if SERVER
 	local_player_config{ AI::TeamNone, AI::TeamNone, AI::TeamNone, AI::TeamNone },
 #else
-	local_player_config{ 0, AI::TeamNone, AI::TeamNone, AI::TeamNone },
+	local_player_config{ 1, AI::TeamNone, AI::TeamNone, AI::TeamNone },
 #endif
 	story_mode(true),
 	time_scale(1.0f),

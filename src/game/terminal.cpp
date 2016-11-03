@@ -982,7 +982,7 @@ void message_statistics(s32* unread_count, r64* most_recent)
 void message_read(Game::Message* msg)
 {
 	msg->read = true;
-	if (msg->text == strings::msg_albert_intro_2)
+	if (msg->text == strings::msg_aldus_intro)
 		message_schedule(strings::contact_cora, strings::msg_cora_intro, 1.0);
 }
 
@@ -1315,13 +1315,13 @@ void story_zone_done(AssetID zone, Game::MatchResult result)
 	{
 		Game::save.story_index++;
 		if (Game::save.cora_called)
-			message_schedule(strings::contact_albert, strings::msg_albert_keep_trying, 3.0);
+			message_schedule(strings::contact_aldus, strings::msg_aldus_keep_trying, 3.0);
 	}
 	else if (Game::save.story_index == 1 && zone == Asset::Level::Medias_Res)
 	{
 		Game::save.story_index++; // cora's ready to talk
 		if (Game::save.cora_called)
-			message_schedule(strings::contact_albert, strings::msg_albert_keep_trying, 3.0);
+			message_schedule(strings::contact_aldus, strings::msg_aldus_keep_trying, 3.0);
 	}
 }
 
@@ -2772,9 +2772,8 @@ void init(const Update& u, const EntityFinder& entities)
 
 		if (Game::save.messages.length == 0) // initial messages
 		{
-			message_add(strings::contact_ivory_corp, strings::msg_ivory_corp_intro, platform::timestamp() - (86400.0 * 1.9));
-			message_add(strings::contact_albert, strings::msg_albert_intro, platform::timestamp() - (86400.0 * 1.6));
-			message_add(strings::contact_albert, strings::msg_albert_intro_2, platform::timestamp() - (86400.0 * 1.5));
+			message_add(strings::contact_ivory, strings::msg_ivory_intro, platform::timestamp() - (86400.0 * 1.9));
+			message_add(strings::contact_aldus, strings::msg_aldus_intro, platform::timestamp() - (86400.0 * 1.6));
 			Game::save.resources[(s32)Game::Resource::HackKits] = 1;
 			Game::save.resources[(s32)Game::Resource::Drones] = 4;
 			Game::save.resources[(s32)Game::Resource::Energy] = (s16)(CREDITS_INITIAL * 3.5f);

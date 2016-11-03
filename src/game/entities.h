@@ -315,6 +315,7 @@ struct Projectile : public ComponentType<Projectile>
 
 	void awake();
 
+	AI::Team team() const;
 	void update(const Update&);
 };
 

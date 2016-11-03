@@ -1218,21 +1218,21 @@ void Awk::reflect(Entity* entity, const Vec3& original_hit, const Vec3& original
 
 	get<Transform>()->absolute_pos(hit + normal * AWK_RADIUS * 0.5f);
 
-	// our goal
-	Vec3 target_dir = Vec3::normalize(velocity.reflect(normal));
-
 	// the actual direction we end up going
-	Vec3 new_velocity = target_dir * AWK_DASH_SPEED;
-
-	b8 found_new_velocity = false;
+	Vec3 new_velocity;
 
 	s32 reflection_index = 0;
-	if (!found_new_velocity)
+
 	{
-		// couldn't find a target to hit
+		// make sure we have somewhere to land.
+
+		// our goal
+		Vec3 target_dir = Vec3::normalize(velocity.reflect(normal));
+
+		new_velocity = target_dir * AWK_DASH_SPEED;
+
 		Quat target_quat = Quat::look(target_dir);
 
-		// make sure we have somewhere to land.
 		r32 random_range = 0.0f;
 		r32 best_score = AWK_MAX_DISTANCE;
 		const r32 goal_distance = AWK_MAX_DISTANCE * 0.25f;
@@ -1263,12 +1263,12 @@ void Awk::reflect(Entity* entity, const Vec3& original_hit, const Vec3& original
 			}
 			random_range += PI / r32(REFLECTION_TRIES);
 		}
+		vi_debug("Hit: %f %f %f Normal: %f %f %f Target dir: %f %f %f Reflection index: %d", hit.x, hit.y, hit.z, normal.x, normal.y, normal.z, target_dir.x, target_dir.y, target_dir.z, reflection_index);
 	}
 
 	bounce.fire(new_velocity);
 	get<Transform>()->rot = Quat::look(Vec3::normalize(new_velocity));
 	velocity = new_velocity;
-	vi_debug("Hit: %f %f %f Normal: %f %f %f Target dir: %f %f %f Reflection index: %d", hit.x, hit.y, hit.z, normal.x, normal.y, normal.z, target_dir.x, target_dir.y, target_dir.z, reflection_index);
 }
 
 void Awk::crawl_wall_edge(const Vec3& dir, const Vec3& other_wall_normal, const Update& u, r32 speed)

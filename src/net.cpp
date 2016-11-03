@@ -24,8 +24,8 @@
 #include "assimp/contrib/zlib/zlib.h"
 #include "console.h"
 
-#define DEBUG_MSG 1
-#define DEBUG_ENTITY 1
+#define DEBUG_MSG 0
+#define DEBUG_ENTITY 0
 #define DEBUG_TRANSFORMS 0
 
 namespace VI
@@ -1693,7 +1693,7 @@ struct StateServer
 {
 	Array<Client> clients;
 	Mode mode;
-	s32 expected_clients = 2;
+	s32 expected_clients = 1;
 	SequenceID sequence_completed_loading;
 };
 StateServer state_server;
@@ -1743,7 +1743,7 @@ b8 init()
 	}
 
 	// todo: allow both multiplayer / story mode sessions
-	Game::session.story_mode = false;
+	Game::session.story_mode = true;
 	Game::load_level(Update(), Asset::Level::Proci, Game::Mode::Pvp);
 
 	return true;

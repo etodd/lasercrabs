@@ -1317,6 +1317,11 @@ void Projectile::awake()
 	get<Audio>()->post_event(AK::EVENTS::PLAY_LASER);
 }
 
+AI::Team Projectile::team() const
+{
+	return owner.ref() ? owner.ref()->team.ref()->team() : AI::TeamNone;
+}
+
 void Projectile::update(const Update& u)
 {
 	lifetime += u.time.delta;
@@ -1331,7 +1336,7 @@ void Projectile::update(const Update& u)
 	btCollisionWorld::ClosestRayResultCallback ray_callback(pos, next_pos + Vec3::normalize(velocity) * PROJECTILE_LENGTH);
 
 	// if we have an owner, we can go through their team's force fields. otherwise, collide with everything.
-	s16 mask = owner.ref() ? ~Team::containment_field_mask(owner.ref()->get<AIAgent>()->team) : -1;
+	s16 mask = ~Team::containment_field_mask(team());
 	Physics::raycast(&ray_callback, mask);
 	if (ray_callback.hasHit())
 	{

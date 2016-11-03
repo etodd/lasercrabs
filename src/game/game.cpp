@@ -1086,7 +1086,7 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 					}
 					case Type::Deathmatch:
 					{
-						level.kill_limit = PlayerManager::list.count() <= 2 ? 5 : 10;
+						level.kill_limit = PlayerManager::list.count() <= 2 ? 5 : 25;
 						break;
 					}
 					default:
@@ -1494,13 +1494,6 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 	for (s32 i = 0; i < ropes.length; i++)
 		Rope::spawn(ropes[i].pos, ropes[i].rot * Vec3(0, 1, 0), ropes[i].max_distance, ropes[i].slack);
 
-	for (s32 i = 0; i < scripts.length; i++)
-		scripts[i]->function(u, finder);
-
-	Terminal::init(u, finder);
-
-	Loader::level_free(json);
-
 	for (auto i = PlayerManager::list.iterator(); !i.is_last(); i.next())
 		World::awake(i.item()->entity());
 	for (auto i = PlayerManager::list.iterator(); !i.is_last(); i.next())
@@ -1509,6 +1502,13 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 	Team::awake_all();
 	for (auto i = Team::list.iterator(); !i.is_last(); i.next())
 		Net::finalize(i.item()->entity());
+
+	for (s32 i = 0; i < scripts.length; i++)
+		scripts[i]->function(u, finder);
+
+	Terminal::init(u, finder);
+
+	Loader::level_free(json);
 }
 
 }

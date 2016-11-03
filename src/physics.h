@@ -19,11 +19,10 @@ enum CollisionGroup
 	CollisionTarget = 1 << 4,
 	CollisionShield = 1 << 5,
 	CollisionAwkIgnore = 1 << 6,
-	CollisionAwk = 1 << 7,
-	CollisionTeamAContainmentField = 1 << 8,
-	CollisionTeamBContainmentField = 1 << 9,
-	CollisionTeamCContainmentField = 1 << 10,
-	CollisionTeamDContainmentField = 1 << 11,
+	CollisionTeamAContainmentField = 1 << 7,
+	CollisionTeamBContainmentField = 1 << 8,
+	CollisionTeamCContainmentField = 1 << 9,
+	CollisionTeamDContainmentField = 1 << 10,
 	CollisionInaccessibleMask = ~CollisionInaccessible,
 	CollisionAllTeamsContainmentField =
 	(
@@ -111,7 +110,6 @@ struct RigidBody : public ComponentType<RigidBody>
 	Type type;
 	r32 mass;
 	r32 restitution;
-	ID linked_entity; // set the rigid body's user index to this. if IDNull, it's "this" entity's ID.
 	AssetID mesh_id;
 	s16 collision_group;
 	s16 collision_filter;
@@ -123,7 +121,7 @@ struct RigidBody : public ComponentType<RigidBody>
 	void set_restitution(r32);
 	void set_ccd(b8);
 
-	RigidBody(Type, const Vec3&, r32, s16, s16, AssetID = AssetNull, ID = IDNull);
+	RigidBody(Type, const Vec3&, r32, s16, s16, AssetID = AssetNull);
 	RigidBody();
 	~RigidBody();
 	void awake();

@@ -55,7 +55,7 @@ namespace VI
 #define rotation_speed 20.0f
 #define msg_time 0.75f
 #define text_size 16.0f
-#define damage_shake_time 0.7f
+#define camera_shake_time 0.7f
 #define score_summary_delay 2.0f
 #define score_summary_accept_delay 3.0f
 
@@ -1102,7 +1102,7 @@ void PlayerHuman::draw_alpha(const RenderParams& params) const
 		if (flash)
 		{
 			Vec2 pos = params.camera->viewport.size * Vec2(0.5f, 0.6f);
-			Rect2 box = msg_text.rect(pos).outset(6 * UI::scale);
+			Rect2 box = msg_text.rect(pos).outset(MENU_ITEM_PADDING);
 			UI::box(params, box, UI::color_background);
 			msg_text.draw(params, pos);
 			if (!last_flash)
@@ -1409,7 +1409,7 @@ PlayerControlHuman::PlayerControlHuman(PlayerHuman* p)
 	try_primary(),
 	try_secondary(),
 	try_slide(),
-	damage_timer(),
+	camera_shake_timer(),
 	rumble(),
 	target_indicators(),
 	last_gamepad_input_time(),
@@ -1488,16 +1488,21 @@ void PlayerControlHuman::hit_target(Entity* target)
 void PlayerControlHuman::hit_by(const TargetEvent& e)
 {
 	// we were physically hit by something; shake the camera
-	if (get<Awk>()->state() == Awk::State::Crawl) // don't shake the screen if we reflect off something in the air
-	{
-		damage_timer = damage_shake_time;
-		rumble = vi_max(rumble, 1.0f);
-	}
+	camera_shake(1.0f);
 }
 
 void PlayerControlHuman::awk_detached()
 {
-	damage_timer = 0.0f; // stop screen shake
+	camera_shake_timer = 0.0f; // stop screen shake
+}
+
+void PlayerControlHuman::camera_shake(r32 amount) // amount ranges from 0 to 1
+{
+	if (get<Awk>()->state() == Awk::State::Crawl) // don't shake the screen if we reflect off something in the air
+	{
+		camera_shake_timer = vi_max(camera_shake_timer, camera_shake_time * amount);
+		rumble = vi_max(rumble, amount);
+	}
 }
 
 b8 PlayerControlHuman::input_enabled() const
@@ -1619,7 +1624,12 @@ b8 PlayerControlHuman::add_target_indicator(Target* target, TargetIndicator::Typ
 		Vec3 intersection;
 		if (get<Awk>()->predict_intersection(target, nullptr, &intersection))
 		{
-			target_indicators.add({ intersection, target->get<RigidBody>()->btBody->getInterpolationLinearVelocity(), type });
+			Vec3 v;
+			if (target->has<Awk>())
+				v = target->get<Awk>()->velocity;
+			else
+				v = target->get<RigidBody>()->btBody->getInterpolationLinearVelocity();
+			target_indicators.add({ intersection, v, type });
 			if (target_indicators.length == target_indicators.capacity())
 				return false;
 		}
@@ -1917,12 +1927,12 @@ void PlayerControlHuman::update(const Update& u)
 			}
 
 			// camera shake
-			if (damage_timer > 0.0f)
+			if (camera_shake_timer > 0.0f)
 			{
-				damage_timer -= u.time.delta;
+				camera_shake_timer -= u.time.delta;
 				if (get<Awk>()->state() == Awk::State::Crawl)
 				{
-					r32 shake = (damage_timer / damage_shake_time) * 0.3f;
+					r32 shake = (camera_shake_timer / camera_shake_time) * 0.3f;
 					r32 offset = Game::time.total * 10.0f;
 					camera->rot = camera->rot * Quat::euler(noise::sample3d(Vec3(offset)) * shake, noise::sample3d(Vec3(offset + 64)) * shake, noise::sample3d(Vec3(offset + 128)) * shake);
 				}
@@ -1941,9 +1951,9 @@ void PlayerControlHuman::update(const Update& u)
 				{
 					Vec3 trace_end = trace_start + trace_dir * (AWK_SNIPE_DISTANCE + AWK_THIRD_PERSON_OFFSET);
 					RaycastCallbackExcept ray_callback(trace_start, trace_end, entity());
-					Physics::raycast(&ray_callback, ~CollisionAwkIgnore & ~get<Awk>()->ally_containment_field_mask() & ~CollisionShield);
+					Physics::raycast(&ray_callback, ~CollisionAwkIgnore & ~get<Awk>()->ally_containment_field_mask());
 
-					Vec3 center = get<Transform>()->absolute_pos();
+					Vec3 me = get<Transform>()->absolute_pos();
 
 					Ability ability = get<Awk>()->current_ability;
 
@@ -1952,16 +1962,16 @@ void PlayerControlHuman::update(const Update& u)
 						reticle.pos = ray_callback.m_hitPointWorld;
 						reticle.normal = ray_callback.m_hitNormalWorld;
 						Entity* hit_entity = &Entity::list[ray_callback.m_collisionObject->getUserIndex()];
-						Vec3 detach_dir = reticle.pos - center;
+						Vec3 detach_dir = reticle.pos - me;
 						r32 distance = detach_dir.length();
 						detach_dir /= distance;
+						r32 dot_tolerance = distance < AWK_DASH_DISTANCE ? 0.3f : 0.1f;
 						if (ability == Ability::None) // normal movement
 						{
 							if (get<Awk>()->direction_is_toward_attached_wall(detach_dir))
 							{
-								r32 dot_tolerance = distance < AWK_DASH_DISTANCE ? 0.3f : 0.1f;
 								Vec3 wall_normal = get<Transform>()->absolute_rot() * Vec3(0, 0, 1);
-								if (hit_entity->has<Awk>()
+								if (hit_entity->has<Target>()
 									|| (detach_dir.dot(wall_normal) > -dot_tolerance && reticle.normal.dot(wall_normal) > 1.0f - dot_tolerance))
 								{
 									reticle.type = ReticleType::Dash;
@@ -1977,6 +1987,28 @@ void PlayerControlHuman::update(const Update& u)
 										reticle.type = ReticleType::Target;
 									else if ((reticle.pos - hit).length_squared() < AWK_RADIUS * AWK_RADIUS)
 										reticle.type = ReticleType::Normal;
+								}
+								else
+								{
+									// when you're aiming at a target that is attached to the same surface you are,
+									// sometimes the point you're aiming at is actually away from the wall,
+									// so it registers as a shot rather than a dash.
+									// and sometimes that shot can't actually be taken.
+									// so we need to check for this case and turn it into a dash if we can.
+
+									if (distance < AWK_DASH_DISTANCE && hit_entity->has<Target>() && hit_entity->get<Transform>()->parent.ref())
+									{
+										Quat my_rot = get<Transform>()->absolute_rot();
+										Vec3 target_pos;
+										Quat target_rot;
+										hit_entity->get<Transform>()->absolute(&target_pos, &target_rot);
+										Vec3 my_normal = my_rot * Vec3(0, 0, 1);
+										if (my_normal.dot(target_rot * Vec3(0, 0, 1)) > 1.0f - dot_tolerance
+											&& fabs(my_normal.dot(target_pos - me)) < dot_tolerance)
+										{
+											reticle.type = ReticleType::Dash;
+										}
+									}
 								}
 							}
 						}
@@ -2776,39 +2808,36 @@ void PlayerControlHuman::draw_alpha(const RenderParams& params) const
 	{
 		r32 detect_danger = get<PlayerCommon>()->detect_danger();
 		Vec2 pos = params.camera->viewport.size * Vec2(0.5f, 0.3f) + Vec2(0.0f, -32.0f * UI::scale);
-		if (detect_danger == 1.0f)
+		if (detect_danger > 0.0f)
 		{
 			UIText text;
 			text.size = 18.0f;
-			text.color = UI::color_alert;
 			text.anchor_x = UIText::Anchor::Center;
 			text.anchor_y = UIText::Anchor::Center;
-
 			text.text(_(strings::enemy_tracking));
+			if (detect_danger == 1.0f)
+			{
+				Rect2 box = text.rect(pos).outset(MENU_ITEM_PADDING);
+				UI::box(params, box, UI::color_background);
+				if (UI::flash_function_slow(Game::real_time.total))
+				{
+					text.color = UI::color_alert;
+					text.draw(params, pos);
+				}
+			}
+			else
+			{
+				// draw bar
+				Rect2 box = text.rect(pos).outset(MENU_ITEM_PADDING);
+				UI::box(params, box, UI::color_background);
+				UI::border(params, box, 2, UI::color_alert);
+				UI::box(params, { box.pos, Vec2(box.size.x * detect_danger, box.size.y) }, UI::color_alert);
 
-			Rect2 box = text.rect(pos).outset(6 * UI::scale);
-			UI::box(params, box, UI::color_background);
-			if (UI::flash_function_slow(Game::real_time.total))
+				text.color = UI::color_background;
 				text.draw(params, pos);
-		}
-		else if (detect_danger > 0.0f)
-		{
-			// draw bar
-			Vec2 bar_size(180.0f * UI::scale, 32.0f * UI::scale);
-			Rect2 bar = { pos + bar_size * -0.5f, bar_size };
-			UI::box(params, bar, UI::color_background);
-			UI::border(params, bar, 2, UI::color_alert);
-			UI::box(params, { bar.pos, Vec2(bar.size.x * detect_danger, bar.size.y) }, UI::color_alert);
 
-			UIText text;
-			text.size = 18.0f;
-			text.color = UI::color_background;
-			text.anchor_x = UIText::Anchor::Center;
-			text.anchor_y = UIText::Anchor::Center;
-			text.text(_(strings::enemy_tracking));
-			text.draw(params, bar.pos + bar.size * 0.5f);
-
-			// todo: sound
+				// todo: sound
+			}
 		}
 	}
 

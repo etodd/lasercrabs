@@ -319,8 +319,10 @@ struct Projectile : public ComponentType<Projectile>
 	void update(const Update&);
 };
 
-#define GRENADE_LAUNCH_SPEED 24.0f
+#define GRENADE_LAUNCH_SPEED 20.0f
 #define GRENADE_RADIUS 0.125f
+#define GRENADE_RANGE 14.0f
+#define GRENADE_DELAY 1.5f
 struct GrenadeEntity : public Entity
 {
 	GrenadeEntity(PlayerManager*, const Vec3&, const Vec3&);

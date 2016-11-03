@@ -64,9 +64,8 @@ AwkEntity::AwkEntity(AI::Team team)
 	Animator* anim = create<Animator>();
 	anim->armature = Asset::Armature::awk;
 
-	create<Target>()->local_offset = Vec3(0, 0, AWK_RADIUS * -1.1f);
-
-	create<RigidBody>(RigidBody::Type::Sphere, Vec3(AWK_RADIUS), 0.0f, CollisionAwk | CollisionTarget, CollisionDefault & ~CollisionTarget & ~CollisionAwkIgnore);
+	create<Target>();
+	create<RigidBody>(RigidBody::Type::Sphere, Vec3(AWK_SHIELD_RADIUS), 0.0f, CollisionShield, CollisionDefault, AssetNull);
 }
 
 Health::Health(s8 hp, s8 hp_max, s8 shield, s8 shield_max)
@@ -205,7 +204,7 @@ EnergyPickupEntity::EnergyPickupEntity(const Vec3& p)
 
 	model->offset.scale(Vec3(HEALTH_PICKUP_RADIUS - 0.2f));
 
-	RigidBody* body = create<RigidBody>(RigidBody::Type::Sphere, Vec3(HEALTH_PICKUP_RADIUS), 0.1f, CollisionAwkIgnore | CollisionTarget, ~CollisionAwk & ~CollisionShield);
+	RigidBody* body = create<RigidBody>(RigidBody::Type::Sphere, Vec3(HEALTH_PICKUP_RADIUS), 0.1f, CollisionAwkIgnore | CollisionTarget, ~CollisionShield);
 	body->set_damping(0.5f, 0.5f);
 	body->set_ccd(true);
 
@@ -610,7 +609,7 @@ SensorEntity::SensorEntity(AI::Team team, const Vec3& abs_pos, const Quat& abs_r
 
 	create<Target>();
 
-	RigidBody* body = create<RigidBody>(RigidBody::Type::Sphere, Vec3(SENSOR_RADIUS), 1.0f, CollisionAwkIgnore | CollisionTarget, ~CollisionAwk & ~CollisionShield);
+	RigidBody* body = create<RigidBody>(RigidBody::Type::Sphere, Vec3(SENSOR_RADIUS), 1.0f, CollisionAwkIgnore | CollisionTarget, ~CollisionShield);
 	body->set_damping(0.5f, 0.5f);
 }
 
@@ -640,11 +639,11 @@ void Sensor::killed_by(Entity* e)
 	World::remove_deferred(entity());
 }
 
-#define sensor_shockwave_interval 3.0f
 void Sensor::update_all_server(const Update& u)
 {
 	r32 time = u.time.total;
 	r32 last_time = time - u.time.delta;
+	const r32 sensor_shockwave_interval = 3.0f;
 	for (auto i = list.iterator(); !i.is_last(); i.next())
 	{
 		if (i.item()->team != AI::TeamNone)
@@ -973,7 +972,7 @@ DecoyEntity::DecoyEntity(PlayerManager* owner, Transform* parent, const Vec3& po
 	anim->layers[0].loop = true;
 	anim->layers[0].play(Asset::Animation::awk_dash);
 
-	create<Target>()->local_offset = Vec3(0, 0, AWK_RADIUS * -1.1f);
+	create<Target>();
 
 	create<RigidBody>(RigidBody::Type::Sphere, Vec3(AWK_SHIELD_RADIUS), 0.0f, CollisionShield, CollisionDefault);
 
@@ -1165,7 +1164,7 @@ ContainmentFieldEntity::ContainmentFieldEntity(Transform* parent, const Vec3& ab
 
 	create<Target>();
 	create<Health>(SENSOR_HEALTH, SENSOR_HEALTH);
-	create<RigidBody>(RigidBody::Type::Sphere, Vec3(CONTAINMENT_FIELD_BASE_RADIUS), 0.0f, CollisionStatic | CollisionAwkIgnore | CollisionTarget, ~CollisionStatic & ~CollisionAwk & ~CollisionShield);
+	create<RigidBody>(RigidBody::Type::Sphere, Vec3(CONTAINMENT_FIELD_BASE_RADIUS), 0.0f, CollisionStatic | CollisionAwkIgnore | CollisionTarget, ~CollisionStatic & ~CollisionShield);
 
 	ContainmentField* field = create<ContainmentField>();
 	field->team = team;
@@ -1390,10 +1389,10 @@ GrenadeEntity::GrenadeEntity(PlayerManager* owner, const Vec3& abs_pos, const Ve
 	g->owner = owner;
 	g->velocity = Vec3::normalize(velocity) * GRENADE_LAUNCH_SPEED;
 
-	create<RigidBody>(RigidBody::Type::Sphere, Vec3(GRENADE_RADIUS), 0.0f, CollisionAwkIgnore | CollisionTarget, ~CollisionAwk & ~CollisionShield);
+	create<RigidBody>(RigidBody::Type::Sphere, Vec3(GRENADE_RADIUS), 0.0f, CollisionAwkIgnore | CollisionTarget, ~CollisionShield);
 
 	View* model = create<View>();
-	model->mesh = Asset::Mesh::grenade;
+	model->mesh = Asset::Mesh::sphere_highres;
 	model->team = s8(owner->team.ref()->team());
 	model->shader = Asset::Shader::standard;
 	model->offset.scale(Vec3(GRENADE_RADIUS));
@@ -1401,6 +1400,16 @@ GrenadeEntity::GrenadeEntity(PlayerManager* owner, const Vec3& abs_pos, const Ve
 	create<Health>(SENSOR_HEALTH, SENSOR_HEALTH);
 
 	create<Target>();
+}
+
+template<typename T> b8 grenade_trigger_filter(T* e, AI::Team team)
+{
+	return (e->has<AIAgent>() && e->get<AIAgent>()->team != team && !e->get<AIAgent>()->stealth)
+		|| (e->has<ContainmentField>() && e->get<ContainmentField>()->team != team)
+		|| (e->has<Rocket>() && e->get<Rocket>()->team() != team)
+		|| (e->has<Teleporter>() && e->get<Teleporter>()->team != team)
+		|| (e->has<Sensor>() && !e->has<EnergyPickup>() && e->get<Sensor>()->team != team)
+		|| (e->has<Decoy>() && e->get<Decoy>()->team() != team);
 }
 
 void Grenade::update_server(const Update& u)
@@ -1419,46 +1428,99 @@ void Grenade::update_server(const Update& u)
 
 		if (!btVector3(next_pos - pos).fuzzyZero())
 		{
-			btCollisionWorld::ClosestRayResultCallback ray_callback(pos, next_pos);
+			Vec3 v = velocity;
+			if (v.length_squared() > 0.0f)
+				v.normalize();
+			btCollisionWorld::ClosestRayResultCallback ray_callback(pos, next_pos + v * GRENADE_RADIUS);
 			Physics::raycast(&ray_callback, ~Team::containment_field_mask(team()));
 			if (ray_callback.hasHit())
 			{
 				active = true;
 				Entity* e = &Entity::list[ray_callback.m_collisionObject->getUserIndex()];
-				if ((e->has<AIAgent>() && e->get<AIAgent>()->team != team())
-					|| (e->has<ContainmentField>() && e->get<ContainmentField>()->team != team())
-					|| (e->has<Rocket>() && e->get<Rocket>()->team() != team())
-					|| (e->has<Teleporter>() && e->get<Teleporter>()->team != team())
-					|| (e->has<Sensor>() && e->get<Sensor>()->team != team())
-					|| (e->has<Decoy>() && e->get<Decoy>()->team() != team()))
-				{
+				if (grenade_trigger_filter(e, team()))
 					explode();
-				}
 				else
 				{
-					const r32 attach_velocity_threshold = 1.0f; // attach to static surfaces if moving slower than this
+					const r32 attach_velocity_threshold = 10.0f; // attach to static surfaces if moving slower than this
 					if (ray_callback.m_collisionObject->getBroadphaseHandle()->m_collisionFilterGroup & CollisionStatic
 						&& velocity.length_squared() < attach_velocity_threshold * attach_velocity_threshold)
 					{
 						// attach
+						velocity = Vec3::zero;
 						t->parent = e->get<Transform>();
-						t->absolute(ray_callback.m_hitPointWorld, Quat::look(ray_callback.m_hitNormalWorld));
+						next_pos = ray_callback.m_hitPointWorld + ray_callback.m_hitNormalWorld * GRENADE_RADIUS * 1.1f;
+						t->absolute_rot(Quat::look(ray_callback.m_hitNormalWorld));
 					}
 					else
 					{
 						// bounce
-						velocity = velocity.reflect(ray_callback.m_hitNormalWorld) * 0.75f;
+						velocity = velocity.reflect(ray_callback.m_hitNormalWorld) * 0.5f;
 					}
 				}
 			}
 		}
 		t->absolute_pos(next_pos);
 	}
+
+	if (active)
+	{
+		if (timer > GRENADE_DELAY)
+			explode();
+		else
+		{
+			const r32 interval = 3.0f;
+			if (s32(Game::time.total / interval) != s32((Game::time.total - u.time.delta) / interval))
+			{
+				Entity* shockwave = World::create<ShockwaveEntity>(GRENADE_RANGE, 1.5f);
+				shockwave->get<Transform>()->absolute_pos(get<Transform>()->absolute_pos());
+				Net::finalize(shockwave);
+			}
+		}
+	}
 }
 
 void Grenade::explode()
 {
+	// todo: netcode
+	get<Audio>()->post_event(AK::EVENTS::PLAY_EXPLOSION);
+	Vec3 me = get<Transform>()->absolute_pos();
+	for (s32 i = 0; i < 6; i++)
+	{
+		Quat rot = Quat::euler(0.0f, mersenne::randf_co() * PI * 2.0f, (mersenne::randf_co() - 0.5f) * PI);
+		explosion(me + rot * Vec3(0, 0, 3), rot);
+	}
 
+	for (auto i = Health::list.iterator(); !i.is_last(); i.next())
+	{
+		Vec3 to_item = i.item()->get<Transform>()->absolute_pos() - me;
+		r32 distance = to_item.length();
+		to_item /= distance;
+		if (i.item()->has<Awk>())
+		{
+			if (distance < GRENADE_RANGE * 0.66f)
+				i.item()->damage(entity(), 1);
+		}
+		else if (distance < GRENADE_RANGE)
+		{
+			i.item()->damage(entity(), distance < GRENADE_RANGE * 0.5f ? 3 : (distance < GRENADE_RANGE * 0.75f ? 2 : 1));
+
+			if (i.item()->has<RigidBody>())
+			{
+				RigidBody* body = i.item()->get<RigidBody>();
+				body->btBody->applyImpulse(to_item * LMath::lerpf(distance / GRENADE_RANGE, 1.0f, 0.0f) * 10.0f, Vec3::zero);
+				body->btBody->activate(true);
+			}
+		}
+	}
+
+	for (auto i = PlayerControlHuman::list.iterator(); !i.is_last(); i.next())
+	{
+		r32 distance = (i.item()->get<Transform>()->absolute_pos() - me).length();
+		if (distance < GRENADE_RANGE * 1.5f)
+			i.item()->camera_shake(LMath::lerpf(vi_max(0.0f, (distance - (GRENADE_RANGE * 0.66f)) / (GRENADE_RANGE * (1.5f - 0.66f))), 1.0f, 0.0f));
+	}
+
+	World::remove_deferred(entity());
 }
 
 AI::Team Grenade::team() const
@@ -1479,8 +1541,45 @@ void Grenade::update_client_all(const Update& u)
 		for (auto i = list.iterator(); !i.is_last(); i.next())
 		{
 			Transform* t = i.item()->get<Transform>();
-			if (!t->parent.ref())
+			if (t->parent.ref())
+			{
+				View* v = i.item()->get<View>();
+				if (v->mesh != Asset::Mesh::grenade_attached)
+				{
+					v->mesh = Asset::Mesh::grenade_attached;
+					i.item()->get<Audio>()->post_event(AK::EVENTS::PLAY_BEEP_GRENADE);
+				}
+			}
+			else
 				Particles::tracers.add(t->absolute_pos(), Vec3::zero, 0);
+		}
+	}
+
+	for (auto i = list.iterator(); !i.is_last(); i.next())
+	{
+		if (i.item()->active)
+		{
+			Vec3 me = i.item()->get<Transform>()->absolute_pos();
+			AI::Team my_team = i.item()->team();
+			b8 countdown = false;
+			for (auto i = Health::list.iterator(); !i.is_last(); i.next())
+			{
+				if (grenade_trigger_filter(i.item(), my_team)
+					&& (i.item()->get<Transform>()->absolute_pos() - me).length_squared() < GRENADE_RANGE * GRENADE_RANGE)
+				{
+					countdown = true;
+					break;
+				}
+			}
+			if (countdown)
+			{
+				i.item()->timer += u.time.delta;
+				r32 interval = LMath::lerpf(vi_min(1.0f, i.item()->timer / GRENADE_DELAY), 0.35f, 0.05f);
+				if (s32(i.item()->timer / interval) != s32((i.item()->timer - u.time.delta) / interval))
+					i.item()->get<Audio>()->post_event(AK::EVENTS::PLAY_BEEP_GRENADE);
+			}
+			else
+				i.item()->timer = 0.0f;
 		}
 	}
 }
@@ -1507,12 +1606,16 @@ b8 Target::predict_intersection(const Vec3& from, r32 speed, const Net::StateFra
 	Vec3 velocity;
 	if (state_frame)
 	{
-		Net::transform_absolute(*state_frame, get<Transform>()->id(), &pos);
+		Quat rot;
+		Net::transform_absolute(*state_frame, get<Transform>()->id(), &pos, &rot);
+		pos += rot * local_offset; // todo possibly: rewind local_offset as well?
 
 		Net::StateFrame state_frame_last;
 		Net::state_frame_by_timestamp(&state_frame_last, state_frame->timestamp - NET_TICK_RATE);
 		Vec3 pos_last;
-		Net::transform_absolute(state_frame_last, get<Transform>()->id(), &pos_last);
+		Quat rot_last;
+		Net::transform_absolute(state_frame_last, get<Transform>()->id(), &pos_last, &rot_last);
+		pos_last += rot_last * local_offset;
 
 		velocity = (pos - pos_last) / NET_TICK_RATE;
 	}
@@ -1537,9 +1640,7 @@ b8 Target::predict_intersection(const Vec3& from, r32 speed, const Net::StateFra
 
 r32 Target::radius() const
 {
-	if (has<Awk>())
-		return AWK_SHIELD_RADIUS;
-	else if (has<MinionCommon>())
+	if (has<MinionCommon>())
 		return MINION_HEAD_RADIUS;
 	else
 		return get<RigidBody>()->size.x;

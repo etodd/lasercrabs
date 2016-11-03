@@ -81,13 +81,12 @@ void Physics::raycast(btCollisionWorld::ClosestRayResultCallback* ray_callback, 
 
 PinArray<RigidBody::Constraint, MAX_ENTITIES> RigidBody::global_constraints;
 
-RigidBody::RigidBody(Type type, const Vec3& size, r32 mass, s16 group, s16 mask, AssetID mesh_id, ID linked_entity)
+RigidBody::RigidBody(Type type, const Vec3& size, r32 mass, s16 group, s16 mask, AssetID mesh_id)
 	: type(type),
 	size(size),
 	mass(mass),
 	collision_group(group),
 	collision_filter(mask),
-	linked_entity(linked_entity),
 	btBody(),
 	btMesh(),
 	btShape(),
@@ -103,7 +102,6 @@ RigidBody::RigidBody()
 	mass(),
 	collision_group(),
 	collision_filter(),
-	linked_entity(),
 	btBody(),
 	btMesh(),
 	btShape(),
@@ -164,7 +162,7 @@ void RigidBody::awake()
 	if (mass == 0.0f)
 		btBody->setCollisionFlags(btCollisionObject::CF_STATIC_OBJECT | btCollisionObject::CF_KINEMATIC_OBJECT);
 
-	btBody->setUserIndex(linked_entity == IDNull ? entity()->id() : linked_entity);
+	btBody->setUserIndex(entity_id);
 	btBody->setRestitution(restitution);
 	btBody->setDamping(damping.x, damping.y);
 	set_ccd(ccd);

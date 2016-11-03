@@ -333,6 +333,28 @@
 								</Action>
 							</ChildrenList>
 						</Event>
+						<Event Name="Play_Beep_Grenade" ID="{2D163793-8E81-472D-99EB-864FE68A88A5}">
+							<ChildrenList>
+								<Action Name="Play" ID="{0CAAECA9-637F-4061-9DC0-833E128006B1}" ShortID="325039185" Type="Play" Scope="One" Global="false">
+									<ElementList>
+										<Element ID="{6EE513DA-B21B-4802-B6D0-2459A2A0094A}" Global="false">
+											<ObjectRef Name="Beep_Grenade" ID="{628C690A-1CE9-46C3-A5B4-1EE9975C34DD}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+										</Element>
+									</ElementList>
+								</Action>
+							</ChildrenList>
+						</Event>
+						<Event Name="Play_Explosion" ID="{527C0270-0656-4C99-8937-752F298C4DD1}">
+							<ChildrenList>
+								<Action Name="Play" ID="{FEB5926A-B1C7-4D42-AC7B-A8C18F4948AF}" ShortID="896838193" Type="Play" Scope="One" Global="false">
+									<ElementList>
+										<Element ID="{C34EA6C7-9244-406B-AD61-3A185D2E770C}" Global="false">
+											<ObjectRef Name="Explosions" ID="{C6C242DC-96E5-4994-90AB-F2C88D1EA10A}" WorkUnitID="{821DC5AC-395E-4B92-9ADA-9EF4303CB7BE}"/>
+										</Element>
+									</ElementList>
+								</Action>
+							</ChildrenList>
+						</Event>
 					</ChildrenList>
 				</Folder>
 				<Folder Name="cora" ID="{04E54C47-F0F5-451B-8777-7B7C24045653}" ShortID="896672305">

@@ -1075,7 +1075,7 @@ void conversation_finished()
 	Game::save.story_index++;
 	messages_transition(Data::Messages::Mode::Messages);
 	if (Game::save.story_index == 3)
-		group_join(Game::Group::SissyFoos); // you are now part of sissy foos
+		group_join(Game::Group::Futifs); // you are now part of sissy foos
 }
 
 void tab_messages_update(const Update& u)
@@ -2064,11 +2064,11 @@ void tab_messages_draw(const RenderParams& p, const Data::StoryMode& data, const
 	}
 }
 
-const char* group_name[(s32)Game::Group::count] =
+AssetID group_name[(s32)Game::Group::count] =
 {
-	"None",
-	"Sissy Foos",
-	"Ephyra",
+	strings::none,
+	strings::futifs,
+	strings::zodiak,
 };
 
 Rect2 zone_stat_draw(const RenderParams& p, const Rect2& rect, UIText::Anchor anchor_x, s32 index, const char* label, const Vec4& color)
@@ -2122,7 +2122,7 @@ void tab_map_draw(const RenderParams& p, const Data::StoryMode& story, const Rec
 		{
 			const char* label;
 			if (story.tab == Tab::Map)
-				label = _(Game::save.group == Game::Group::None ? strings::energy_generation : strings::energy_generation_group);
+				label = _(Game::save.group == Game::Group::None ? strings::energy_generation_total : strings::energy_generation_group);
 			else
 				label = "+%d";
 			sprintf(buffer, label, (s32)energy_increment_total());
@@ -2142,7 +2142,7 @@ void tab_map_draw(const RenderParams& p, const Data::StoryMode& story, const Rec
 		}
 
 		// member of group "x"
-		sprintf(buffer, _(strings::member_of_group), group_name[(s32)Game::save.group]);
+		sprintf(buffer, _(strings::member_of_group), _(group_name[(s32)Game::save.group]));
 		zone_stat_draw(p, rect, UIText::Anchor::Max, story.tab == Tab::Map ? 2 : 1, buffer, UI::color_accent);
 
 		if (story.tab != Tab::Map)
@@ -2684,7 +2684,7 @@ void execute(const char* cmd)
 		const char* group_string = delimiter + 1;
 		for (s32 i = 0; i < (s32)Game::Group::count; i++)
 		{
-			if (utf8cmp(group_string, group_name[i]) == 0)
+			if (utf8cmp(group_string, _(group_name[i])) == 0)
 			{
 				group_join((Game::Group)i);
 				break;

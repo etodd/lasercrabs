@@ -151,7 +151,7 @@ struct PlayerControlHuman : public ComponentType<PlayerControlHuman>
 	RemoteControl remote_control;
 	Vec3 last_pos;
 	r32 fov;
-	r32 damage_timer;
+	r32 camera_shake_timer;
 	r32 rumble;
 	r32 last_gamepad_input_time;
 	r32 gamepad_rotation_speed;
@@ -166,6 +166,7 @@ struct PlayerControlHuman : public ComponentType<PlayerControlHuman>
 
 	r32 look_speed() const;
 	b8 local() const;
+	void camera_shake(r32);
 
 	void awk_detached();
 	void awk_done_flying_or_dashing();

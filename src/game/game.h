@@ -47,8 +47,8 @@ struct Game
 	enum class Group
 	{
 		None,
-		SissyFoos,
-		Ephyra,
+		Futifs,
+		Zodiak,
 		count,
 	};
 

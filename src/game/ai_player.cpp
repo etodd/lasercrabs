@@ -968,7 +968,7 @@ s32 geometry_query(const PlayerControlAI* control, r32 range, r32 angle_range, s
 	Quat rot;
 	control->get<Transform>()->absolute(&pos, &rot);
 
-	s16 mask = ~AWK_PERMEABLE_MASK & ~CollisionAwk & ~control->get<Awk>()->ally_containment_field_mask();
+	s16 mask = ~AWK_PERMEABLE_MASK & ~control->get<Awk>()->ally_containment_field_mask();
 	s32 result = 0;
 	for (s32 i = 0; i < count; i++)
 	{
@@ -1228,7 +1228,7 @@ b8 should_spawn_minion(const PlayerControlAI* control)
 			// make sure the minion has a reasonably close surface to stand on
 			Vec3 ray_start = my_pos + my_rot * Vec3(0, 0, 1);
 			btCollisionWorld::ClosestRayResultCallback ray_callback(ray_start, ray_start + Vec3(0, -5, 0));
-			Physics::raycast(&ray_callback, ~AWK_PERMEABLE_MASK & ~CollisionAwk & ~control->get<Awk>()->ally_containment_field_mask());
+			Physics::raycast(&ray_callback, ~AWK_PERMEABLE_MASK & ~control->get<Awk>()->ally_containment_field_mask());
 			if (ray_callback.hasHit())
 				return true;
 		}

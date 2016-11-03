@@ -1602,6 +1602,140 @@
 						</Sound>
 					</ChildrenList>
 				</RandomSequenceContainer>
+				<RandomSequenceContainer Name="Beep_Grenade" ID="{628C690A-1CE9-46C3-A5B4-1EE9975C34DD}" ShortID="923854923">
+					<PropertyList>
+						<Property Name="PositioningType" Type="int16" Value="1"/>
+					</PropertyList>
+					<ReferenceList>
+						<Reference Name="Attenuation">
+							<ObjectRef Name="Atten30" ID="{6F58F60C-C349-44FF-8AE4-906CDE2FB457}" WorkUnitID="{72C8C2E4-3270-4A07-BDC9-07B2BCDB21E4}"/>
+						</Reference>
+						<Reference Name="Conversion">
+							<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+						</Reference>
+						<Reference Name="OutputBus">
+							<ObjectRef Name="SFX" ID="{D8C4DCF4-CECB-4719-A133-EE443EDE0A5B}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+						</Reference>
+					</ReferenceList>
+					<ChildrenList>
+						<Sound Name="Lock" ID="{3641AE59-6489-4B3F-9C79-5D8AEB9BC6F5}" ShortID="911628432" Type="SoundFX">
+							<ReferenceList>
+								<Reference Name="Conversion">
+									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+								</Reference>
+								<Reference Name="OutputBus">
+									<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+								</Reference>
+							</ReferenceList>
+							<ChildrenList>
+								<AudioFileSource Name="lock" ID="{4B97A09F-604A-4098-808D-3667D364E8E9}" ShortID="533573162">
+									<Language>SFX</Language>
+									<AudioFile>lock.wav</AudioFile>
+									<ConvertedFileIDList>
+										<File ID="744747221"/>
+									</ConvertedFileIDList>
+								</AudioFileSource>
+							</ChildrenList>
+							<ActiveSourceList>
+								<ActiveSource Name="lock" ID="{4B97A09F-604A-4098-808D-3667D364E8E9}" Platform="Linked"/>
+							</ActiveSourceList>
+						</Sound>
+					</ChildrenList>
+				</RandomSequenceContainer>
+				<RandomSequenceContainer Name="Explosions" ID="{C6C242DC-96E5-4994-90AB-F2C88D1EA10A}" ShortID="263932939">
+					<PropertyList>
+						<Property Name="PositioningType" Type="int16" Value="1"/>
+					</PropertyList>
+					<ReferenceList>
+						<Reference Name="Attenuation">
+							<ObjectRef Name="Atten30" ID="{6F58F60C-C349-44FF-8AE4-906CDE2FB457}" WorkUnitID="{72C8C2E4-3270-4A07-BDC9-07B2BCDB21E4}"/>
+						</Reference>
+						<Reference Name="Conversion">
+							<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+						</Reference>
+						<Reference Name="OutputBus">
+							<ObjectRef Name="SFX" ID="{D8C4DCF4-CECB-4719-A133-EE443EDE0A5B}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+						</Reference>
+					</ReferenceList>
+					<ChildrenList>
+						<Sound Name="Explosions_01" ID="{AF806CDF-44D7-417B-80D4-2FD6EB7AE666}" ShortID="263480615" Type="SoundFX">
+							<ReferenceList>
+								<Reference Name="Conversion">
+									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+								</Reference>
+								<Reference Name="OutputBus">
+									<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+								</Reference>
+							</ReferenceList>
+							<ChildrenList>
+								<AudioFileSource Name="Explosions_01" ID="{4CB7854B-5012-416A-9C23-341EDC06BF7B}" ShortID="329617389">
+									<Language>SFX</Language>
+									<AudioFile>Explosions_01.wav</AudioFile>
+								</AudioFileSource>
+							</ChildrenList>
+							<ActiveSourceList>
+								<ActiveSource Name="Explosions_01" ID="{4CB7854B-5012-416A-9C23-341EDC06BF7B}" Platform="Linked"/>
+							</ActiveSourceList>
+						</Sound>
+						<Sound Name="Explosions_02" ID="{74AA0B9E-4297-4D9D-8154-5A62F7B91838}" ShortID="63600075" Type="SoundFX">
+							<ReferenceList>
+								<Reference Name="Conversion">
+									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+								</Reference>
+								<Reference Name="OutputBus">
+									<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+								</Reference>
+							</ReferenceList>
+							<ChildrenList>
+								<AudioFileSource Name="Explosions_02" ID="{8C89F6DD-56C2-45F7-8FB1-D9825A14D4B2}" ShortID="860008914">
+									<Language>SFX</Language>
+									<AudioFile>Explosions_02.wav</AudioFile>
+								</AudioFileSource>
+							</ChildrenList>
+							<ActiveSourceList>
+								<ActiveSource Name="Explosions_02" ID="{8C89F6DD-56C2-45F7-8FB1-D9825A14D4B2}" Platform="Linked"/>
+							</ActiveSourceList>
+						</Sound>
+						<Sound Name="Explosions_03" ID="{CF7BA5B8-97A2-4231-965A-7E3FA242CE91}" ShortID="1002265183" Type="SoundFX">
+							<ReferenceList>
+								<Reference Name="Conversion">
+									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+								</Reference>
+								<Reference Name="OutputBus">
+									<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+								</Reference>
+							</ReferenceList>
+							<ChildrenList>
+								<AudioFileSource Name="Explosions_03" ID="{BDAB005E-F398-4AF1-A64A-10D4634A7171}" ShortID="400110037">
+									<Language>SFX</Language>
+									<AudioFile>Explosions_03.wav</AudioFile>
+								</AudioFileSource>
+							</ChildrenList>
+							<ActiveSourceList>
+								<ActiveSource Name="Explosions_03" ID="{BDAB005E-F398-4AF1-A64A-10D4634A7171}" Platform="Linked"/>
+							</ActiveSourceList>
+						</Sound>
+						<Sound Name="Explosions_04" ID="{5A3CEF4B-13C2-4D96-B3C1-16A4BEDB944C}" ShortID="867461576" Type="SoundFX">
+							<ReferenceList>
+								<Reference Name="Conversion">
+									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
+								</Reference>
+								<Reference Name="OutputBus">
+									<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
+								</Reference>
+							</ReferenceList>
+							<ChildrenList>
+								<AudioFileSource Name="Explosions_04" ID="{A5E1876F-B781-4759-9EA1-6D02CA996D37}" ShortID="437727213">
+									<Language>SFX</Language>
+									<AudioFile>Explosions_04.wav</AudioFile>
+								</AudioFileSource>
+							</ChildrenList>
+							<ActiveSourceList>
+								<ActiveSource Name="Explosions_04" ID="{A5E1876F-B781-4759-9EA1-6D02CA996D37}" Platform="Linked"/>
+							</ActiveSourceList>
+						</Sound>
+					</ChildrenList>
+				</RandomSequenceContainer>
 			</ChildrenList>
 		</WorkUnit>
 	</AudioObjects>

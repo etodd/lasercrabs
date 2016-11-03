@@ -262,7 +262,6 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 		serialize_enum(p, RigidBody::Type, r->type);
 		serialize_r32_range(p, r->mass, 0, 1, 1);
 		serialize_r32_range(p, r->restitution, 0, 1, 4);
-		serialize_int(p, ID, r->linked_entity, 0, MAX_ENTITIES);
 		serialize_asset(p, r->mesh_id, Loader::static_mesh_count);
 		serialize_int(p, s16, r->collision_group, -32767, 32767);
 		serialize_int(p, s16, r->collision_filter, -32767, 32767);
@@ -378,9 +377,9 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 	if (e->has<Target>())
 	{
 		Target* t = e->get<Target>();
-		serialize_r32_range(p, t->local_offset.x, -10, 10, 16);
-		serialize_r32_range(p, t->local_offset.y, -10, 10, 16);
-		serialize_r32_range(p, t->local_offset.z, -10, 10, 16);
+		serialize_r32_range(p, t->local_offset.x, -5, 5, 16);
+		serialize_r32_range(p, t->local_offset.y, -5, 5, 16);
+		serialize_r32_range(p, t->local_offset.z, -5, 5, 16);
 	}
 
 	if (e->has<PlayerTrigger>())
@@ -2638,16 +2637,21 @@ void update_end(const Update& u)
 	// server always runs at 60 FPS
 	Server::tick(u);
 #else
-	Client::state_client.tick_timer += Game::real_time.delta;
-	if (Client::state_client.tick_timer > NET_TICK_RATE)
+	if (Game::level.local)
+		state_common.msgs_out.length = 0; // clear out message queue because we're never going to send these
+	else
 	{
-		Client::state_client.tick_timer -= NET_TICK_RATE;
+		Client::state_client.tick_timer += Game::real_time.delta;
+		if (Client::state_client.tick_timer > NET_TICK_RATE)
+		{
+			Client::state_client.tick_timer -= NET_TICK_RATE;
 
-		Client::tick(u);
+			Client::tick(u);
+		}
+		// we're not going to send more than one packet per frame
+		// so make sure the tick timer never gets out of control
+		Client::state_client.tick_timer = fmod(Client::state_client.tick_timer, NET_TICK_RATE);
 	}
-	// we're not going to send more than one packet per frame
-	// so make sure the tick timer never gets out of control
-	Client::state_client.tick_timer = fmod(Client::state_client.tick_timer, NET_TICK_RATE);
 #endif
 }
 

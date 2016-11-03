@@ -14,9 +14,9 @@
 	"invert_y": "Reversen Up Axis",
 	"splitscreen": "Quik batail",
 	"online": "Online",
-	"prompt_splitscreen": "Chesen thrums",
+	"prompt_splitscreen": "Thrums",
 	"prompt_splitscreen_ready": "P1: [{{Interact}}] to commencen",
-	"prompt_join_group_queue": "[{{InteractSecondary}}] Joinen group queue",
+	"prompt_join_group_queue": "[{{InteractSecondary}}] Joinen thrum queue",
 	"in_group_queue": "In thrum abiden...",
 	"member_of_group": "Thrum: %s",
 	"team_a": "Thrum A",
@@ -46,7 +46,8 @@
 	"prompt_buy_more": "[{{Interact}}] Buye mor",
 	"confirm_hack": "Spenden %d hakken tols to unloken territorie?",
 	"confirm_capture": "Spenden %d dronnes to captiven territorie?",
-	"energy_generation": "Total Vigour Colleccioun: +%d",
+	"energy_generation": "Vigour: +%d",
+	"energy_generation_total": "Total Vigour Colleccioun: +%d",
 	"energy_generation_group": "Shared Vigour Colleccioun: +%d",
 	"auto_capture_fail_prompt": "Enemie interrupten auto-captiven. Spenden %d vigour to fitten manual overriden?",
 	"auto_capture_fail_insufficient_resource": "Enemie interrupten auto-captiven. %d %s neden to fitten manual overriden.",
@@ -390,11 +391,14 @@
 	"contact_cora": "Cora",
 	"contact_aldus": "Aldus",
 	"contact_ivory": "Ivory",
+	"none": "Non",
+	"futifs": "Futifs",
+	"zodiak": "Zodiak",
 	
 	"msg_cora_intro": "Felaue adden. [{{InteractSecondary}}] to calle.",
 	"msg_aldus_intro": "I leven informacioun of an intelligence shal help. Tellen hir I yow sente.",
 	"msg_aldus_keep_trying": "Cora may nat answeren as first. Conteinen.",
 	"msg_ivory_intro": "Youre receite was maked. Hit plese chaungen wacche-word.
 
-Notisen - long on the recent crouden of client, Ivory wol accepten socour requeste no lenger."
+Notisen - long on the recent crouden of client, Ivory wol accepten socour requestes no lenger."
 }

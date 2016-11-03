@@ -56,7 +56,7 @@ btScalar AwkRaycastCallback::addSingleResult(btCollisionWorld::LocalRayResult& r
 		return m_closestHitFraction; // keep going
 
 	s16 filter_group = ray_result.m_collisionObject->getBroadphaseHandle()->m_collisionFilterGroup;
-	if (filter_group & (CollisionWalker | CollisionShield | CollisionTarget | CollisionAwk))
+	if (filter_group & (CollisionWalker | CollisionShield | CollisionTarget))
 	{
 		Entity* entity = &Entity::list[collision_entity_id];
 		// if it's a minion, do an extra headshot test
@@ -343,7 +343,6 @@ void Awk::awake()
 		{
 			Entity* shield_entity = World::create<Empty>();
 			shield_entity->get<Transform>()->parent = get<Transform>();
-			shield_entity->add<RigidBody>(RigidBody::Type::Sphere, Vec3(AWK_SHIELD_RADIUS), 0.0f, CollisionShield, CollisionDefault, AssetNull, entity_id);
 			shield = shield_entity;
 
 			View* s = shield_entity->add<View>();
@@ -446,7 +445,7 @@ Entity* Awk::incoming_attacker() const
 		{
 			// only worry about it if it can actually see us
 			btCollisionWorld::ClosestRayResultCallback ray_callback(me, projectile_pos);
-			Physics::raycast(&ray_callback, ~CollisionAwk & ~CollisionAwkIgnore & ~CollisionShield);
+			Physics::raycast(&ray_callback, ~CollisionAwkIgnore & ~CollisionShield);
 			if (!ray_callback.hasHit())
 				return i.item()->entity();
 		}
@@ -460,7 +459,7 @@ Entity* Awk::incoming_attacker() const
 		{
 			// only worry about it if the rocket can actually see us
 			btCollisionWorld::ClosestRayResultCallback ray_callback(me, rocket->get<Transform>()->absolute_pos());
-			Physics::raycast(&ray_callback, ~CollisionAwk & ~CollisionAwkIgnore & ~CollisionShield);
+			Physics::raycast(&ray_callback, ~CollisionAwkIgnore & ~CollisionShield);
 			if (!ray_callback.hasHit())
 				return rocket->entity();
 		}
@@ -476,9 +475,7 @@ void Awk::hit_by(const TargetEvent& e)
 	b8 damaged = false;
 
 	// only take damage if we're attached to a wall and have no overshield
-	if (state() == Awk::State::Crawl
-		&& overshield_timer == 0.0f
-		&& (!e.hit_by->has<Awk>() || e.hit_by->get<AIAgent>()->team != get<AIAgent>()->team))
+	if (state() == Awk::State::Crawl && overshield_timer == 0.0f)
 	{
 		get<Health>()->damage(e.hit_by, 1);
 		damaged = true;
@@ -899,9 +896,6 @@ b8 Awk::dash_start(const Vec3& dir)
 	if (state() != State::Crawl || current_ability != Ability::None)
 		return false;
 
-	if (!direction_is_toward_attached_wall(dir))
-		return false;
-
 	AwkNet::start_dashing(this, dir);
 
 	return true;
@@ -1109,7 +1103,7 @@ b8 Awk::go(const Vec3& dir)
 			case Ability::Grenade:
 			{
 				Vec3 dir_adjusted = dir_normalized;
-				if ((my_rot * Vec3(0, 0, 1)).y > -0.05f)
+				if (dir_adjusted.y > -0.25f)
 					dir_adjusted.y += 0.35f;
 				Net::finalize(World::create<GrenadeEntity>(manager, my_pos + dir_adjusted * (AWK_SHIELD_RADIUS + GRENADE_RADIUS + 0.01f), dir_adjusted));
 				break;
@@ -1289,13 +1283,13 @@ void Awk::crawl_wall_edge(const Vec3& dir, const Vec3& other_wall_normal, const 
 		Vec3 wall_ray_end = next_pos + wall_normal * AWK_RADIUS * -2.0f;
 
 		btCollisionWorld::ClosestRayResultCallback ray_callback(wall_ray_start, wall_ray_end);
-		Physics::raycast(&ray_callback, ~AWK_INACCESSIBLE_MASK & ~CollisionAwk & ~ally_containment_field_mask());
+		Physics::raycast(&ray_callback, ~AWK_INACCESSIBLE_MASK & ~ally_containment_field_mask());
 
 		if (ray_callback.hasHit())
 		{
 			// check for obstacles
 			btCollisionWorld::ClosestRayResultCallback ray_callback2(pos, next_pos + dir_flattened * AWK_RADIUS);
-			Physics::raycast(&ray_callback2, ~AWK_PERMEABLE_MASK & ~CollisionAwk & ~ally_containment_field_mask());
+			Physics::raycast(&ray_callback2, ~AWK_PERMEABLE_MASK & ~ally_containment_field_mask());
 			if (!ray_callback2.hasHit())
 			{
 				// all good, go ahead
@@ -1325,7 +1319,7 @@ b8 Awk::transfer_wall(const Vec3& dir, const btCollisionWorld::ClosestRayResultC
 	{
 		// check for obstacles
 		btCollisionWorld::ClosestRayResultCallback obstacle_ray_callback(ray_callback.m_hitPointWorld, ray_callback.m_hitPointWorld + ray_callback.m_hitNormalWorld * (AWK_RADIUS * 1.1f));
-		Physics::raycast(&obstacle_ray_callback, ~AWK_PERMEABLE_MASK & ~CollisionAwk & ~ally_containment_field_mask());
+		Physics::raycast(&obstacle_ray_callback, ~AWK_PERMEABLE_MASK & ~ally_containment_field_mask());
 		if (!obstacle_ray_callback.hasHit())
 		{
 			move
@@ -1371,7 +1365,7 @@ void Awk::crawl(const Vec3& dir_raw, const Update& u)
 			// Check for obstacles
 			Vec3 ray_end = next_pos + (dir_normalized * AWK_RADIUS * 1.5f);
 			btCollisionWorld::ClosestRayResultCallback ray_callback(pos, ray_end);
-			Physics::raycast(&ray_callback, ~AWK_PERMEABLE_MASK & ~CollisionAwk & ~ally_containment_field_mask());
+			Physics::raycast(&ray_callback, ~AWK_PERMEABLE_MASK & ~ally_containment_field_mask());
 
 			if (ray_callback.hasHit())
 			{
@@ -1393,7 +1387,7 @@ void Awk::crawl(const Vec3& dir_raw, const Update& u)
 		{
 			Vec3 ray_end = next_pos + (dir_flattened * AWK_RADIUS);
 			btCollisionWorld::ClosestRayResultCallback ray_callback(pos, ray_end);
-			Physics::raycast(&ray_callback, ~AWK_PERMEABLE_MASK & ~CollisionAwk & ~ally_containment_field_mask());
+			Physics::raycast(&ray_callback, ~AWK_PERMEABLE_MASK & ~ally_containment_field_mask());
 
 			if (ray_callback.hasHit())
 			{
@@ -1412,7 +1406,7 @@ void Awk::crawl(const Vec3& dir_raw, const Update& u)
 		Vec3 wall_ray_end = next_pos + wall_normal * AWK_RADIUS * -2.0f;
 
 		btCollisionWorld::ClosestRayResultCallback ray_callback(wall_ray_start, wall_ray_end);
-		Physics::raycast(&ray_callback, ~AWK_PERMEABLE_MASK & ~CollisionAwk & ~ally_containment_field_mask());
+		Physics::raycast(&ray_callback, ~AWK_PERMEABLE_MASK & ~ally_containment_field_mask());
 
 		if (ray_callback.hasHit())
 		{
@@ -1453,7 +1447,7 @@ void Awk::crawl(const Vec3& dir_raw, const Update& u)
 			Vec3 wall_ray2_end = wall_ray2_start + dir_flattened * AWK_RADIUS * -2.0f;
 
 			btCollisionWorld::ClosestRayResultCallback ray_callback(wall_ray2_start, wall_ray2_end);
-			Physics::raycast(&ray_callback, ~AWK_PERMEABLE_MASK & ~CollisionAwk & ~ally_containment_field_mask());
+			Physics::raycast(&ray_callback, ~AWK_PERMEABLE_MASK & ~ally_containment_field_mask());
 
 			if (ray_callback.hasHit())
 			{
@@ -1693,7 +1687,7 @@ void Awk::update_client(const Update& u)
 				Vec3 ray_start = get<Transform>()->to_world((bind_pose_mat * Vec4(0, 0, AWK_LEG_LENGTH * 1.75f, 1)).xyz());
 				Vec3 ray_end = get<Transform>()->to_world((bind_pose_mat * Vec4(find_footing_offset + Vec3(0, 0, AWK_LEG_LENGTH * -1.0f), 1)).xyz());
 				btCollisionWorld::ClosestRayResultCallback ray_callback(ray_start, ray_end);
-				Physics::raycast(&ray_callback, ~AWK_PERMEABLE_MASK & ~CollisionAwk & ~ally_containment_field_mask());
+				Physics::raycast(&ray_callback, ~AWK_PERMEABLE_MASK & ~ally_containment_field_mask());
 				if (ray_callback.hasHit())
 					set_footing(i, Entity::list[ray_callback.m_collisionObject->getUserIndex()].get<Transform>(), ray_callback.m_hitPointWorld);
 				else
@@ -1701,7 +1695,7 @@ void Awk::update_client(const Update& u)
 					Vec3 new_ray_start = get<Transform>()->to_world((bind_pose_mat * Vec4(AWK_LEG_LENGTH * 1.5f, 0, 0, 1)).xyz());
 					Vec3 new_ray_end = get<Transform>()->to_world((bind_pose_mat * Vec4(AWK_LEG_LENGTH * -1.0f, find_footing_offset.y, AWK_LEG_LENGTH * -1.0f, 1)).xyz());
 					btCollisionWorld::ClosestRayResultCallback ray_callback(new_ray_start, new_ray_end);
-					Physics::raycast(&ray_callback, ~AWK_PERMEABLE_MASK & ~CollisionAwk & ~ally_containment_field_mask());
+					Physics::raycast(&ray_callback, ~AWK_PERMEABLE_MASK & ~ally_containment_field_mask());
 					if (ray_callback.hasHit())
 						set_footing(i, Entity::list[ray_callback.m_collisionObject->getUserIndex()].get<Transform>(), ray_callback.m_hitPointWorld);
 					else
@@ -2011,7 +2005,7 @@ r32 Awk::movement_raycast(const Vec3& ray_start, const Vec3& ray_end)
 					// check for obstacles
 					{
 						btCollisionWorld::ClosestRayResultCallback obstacle_ray_callback(hit.pos, hit.pos + hit.normal * (AWK_RADIUS * 1.1f));
-						Physics::raycast(&obstacle_ray_callback, ~AWK_PERMEABLE_MASK & ~CollisionAwk & ~ally_containment_field_mask());
+						Physics::raycast(&obstacle_ray_callback, ~AWK_PERMEABLE_MASK & ~ally_containment_field_mask());
 						if (obstacle_ray_callback.hasHit())
 						{
 							// push us away from the obstacle

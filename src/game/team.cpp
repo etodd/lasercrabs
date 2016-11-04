@@ -142,7 +142,7 @@ void Team::awake_all()
 	game_over = false;
 	game_over_real_time = 0.0f;
 	winner = nullptr;
-	PlayerManager::timer = CONTROL_POINT_INTERVAL;
+	PlayerManager::timer = ENERGY_INCREMENT_INTERVAL;
 	Game::session.last_match = Game::MatchResult::Forfeit;
 
 	for (auto i = list.iterator(); !i.is_last(); i.next())
@@ -913,7 +913,7 @@ s16 PlayerManager::increment() const
 		+ EnergyPickup::count(1 << team.ref()->team()) * CREDITS_ENERGY_PICKUP;
 }
 
-r32 PlayerManager::timer = CONTROL_POINT_INTERVAL;
+r32 PlayerManager::timer = ENERGY_INCREMENT_INTERVAL;
 void PlayerManager::update_all(const Update& u)
 {
 	if (Game::level.local)
@@ -929,7 +929,7 @@ void PlayerManager::update_all(const Update& u)
 				for (auto i = list.iterator(); !i.is_last(); i.next())
 					i.item()->add_credits(i.item()->increment());
 
-				timer += CONTROL_POINT_INTERVAL;
+				timer += ENERGY_INCREMENT_INTERVAL;
 			}
 		}
 	}

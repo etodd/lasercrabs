@@ -57,13 +57,11 @@ struct Health : public ComponentType<Health>
 	s8 total() const;
 };
 
-#define HEALTH_PICKUP_RADIUS 0.55f
 struct EnergyPickupEntity : public Entity
 {
 	EnergyPickupEntity(const Vec3&);
 };
 
-#define CONTROL_POINT_INTERVAL 15.0f
 struct EnergyPickup : public ComponentType<EnergyPickup>
 {
 	struct Key
@@ -108,8 +106,6 @@ struct PlayerSpawn : public ComponentType<PlayerSpawn>
 	void awake() {}
 };
 
-#define CONTROL_POINT_RADIUS 3.0f
-#define CONTROL_POINT_CAPTURE_TIME 45.0f
 struct ControlPoint : public ComponentType<ControlPoint>
 {
 	static ControlPoint* closest(AI::TeamMask, const Vec3&, r32* = nullptr);
@@ -136,10 +132,6 @@ struct SensorEntity : public Entity
 	SensorEntity(AI::Team, const Vec3&, const Quat&);
 };
 
-#define SENSOR_TIME 1.0f
-#define SENSOR_TIMEOUT 5.0f
-#define SENSOR_RADIUS 0.15f
-#define SENSOR_HEALTH 2
 struct Sensor : public ComponentType<Sensor>
 {
 	AI::Team team;
@@ -157,7 +149,6 @@ struct Sensor : public ComponentType<Sensor>
 	static void update_all_server(const Update&);
 };
 
-#define ROCKET_RANGE (AWK_MAX_DISTANCE * 1.5f)
 struct Rocket : public ComponentType<Rocket>
 {
 	r32 particle_accumulator;
@@ -198,8 +189,6 @@ struct DecoyEntity : public Entity
 	DecoyEntity(PlayerManager*, Transform*, const Vec3&, const Quat&);
 };
 
-#define CONTAINMENT_FIELD_BASE_OFFSET 0.95f
-#define CONTAINMENT_FIELD_LIFETIME 15.0f
 struct ContainmentField : public ComponentType<ContainmentField>
 {
 	static r32 particle_accumulator;
@@ -306,7 +295,6 @@ struct ProjectileEntity : public Entity
 	ProjectileEntity(PlayerManager*, const Vec3&, const Vec3&);
 };
 
-#define PROJECTILE_SPEED 20.0f
 struct Projectile : public ComponentType<Projectile>
 {
 	Vec3 velocity;
@@ -319,10 +307,6 @@ struct Projectile : public ComponentType<Projectile>
 	void update(const Update&);
 };
 
-#define GRENADE_LAUNCH_SPEED 20.0f
-#define GRENADE_RADIUS 0.125f
-#define GRENADE_RANGE 14.0f
-#define GRENADE_DELAY 1.5f
 struct GrenadeEntity : public Entity
 {
 	GrenadeEntity(PlayerManager*, const Vec3&, const Vec3&);

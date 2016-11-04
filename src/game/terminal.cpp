@@ -50,7 +50,6 @@ namespace Terminal
 #define HACK_TIME 2.0f
 #define BUY_TIME 1.0f
 #define DEPLOY_COST_DRONES 1
-#define ENERGY_INCREMENT_INTERVAL 30
 #define AUTO_CAPTURE_TIME 30.0f
 #define ZONE_MAX_CHILDREN 12
 #define EVENT_INTERVAL_PER_ZONE (60.0f * 45.0f)
@@ -2791,7 +2790,7 @@ void init(const Update& u, const EntityFinder& entities)
 
 			// energy increment
 			// this must be done before story_zone_done changes the energy increment amount
-			Game::save.resources[(s32)Game::Resource::Energy] += vi_min(4 * 60 * 60 / ENERGY_INCREMENT_INTERVAL, (s32)(elapsed_time / (r64)ENERGY_INCREMENT_INTERVAL)) * energy_increment_total();
+			Game::save.resources[(s32)Game::Resource::Energy] += vi_min(s32(4 * 60 * 60 / ENERGY_INCREMENT_INTERVAL), (s32)(elapsed_time / (r64)ENERGY_INCREMENT_INTERVAL)) * energy_increment_total();
 		}
 
 		if (data.zone_last != Asset::Level::terminal)

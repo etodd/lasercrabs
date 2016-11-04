@@ -775,7 +775,7 @@ void PlayerHuman::draw_alpha(const RenderParams& params) const
 			(
 				params,
 				{ pos + Vec2(total_width * -0.5f + icon_size - padding, 3.0f * UI::scale), Vec2(icon_size * 1.25f) },
-				1.0f - (PlayerManager::timer / CONTROL_POINT_INTERVAL),
+				1.0f - (PlayerManager::timer / ENERGY_INCREMENT_INTERVAL),
 				text.color,
 				PI
 			);

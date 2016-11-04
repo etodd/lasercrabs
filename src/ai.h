@@ -4,6 +4,7 @@
 #include "lmath.h"
 #include "data/import_common.h"
 #include "sync.h"
+#include "game/constants.h"
 
 #include "recast/Detour/Include/DetourNavMesh.h"
 #include "recast/Detour/Include/DetourNavMeshQuery.h"
@@ -11,9 +12,6 @@
 
 namespace VI
 {
-
-#define SENSOR_RANGE 16.0f
-#define CONTAINMENT_FIELD_RADIUS 12.0f
 
 struct AIAgent;
 struct RenderParams;

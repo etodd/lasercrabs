@@ -202,9 +202,9 @@ EnergyPickupEntity::EnergyPickupEntity(const Vec3& p)
 
 	EnergyPickup* pickup = create<EnergyPickup>();
 
-	model->offset.scale(Vec3(HEALTH_PICKUP_RADIUS - 0.2f));
+	model->offset.scale(Vec3(ENERGY_PICKUP_RADIUS - 0.2f));
 
-	RigidBody* body = create<RigidBody>(RigidBody::Type::Sphere, Vec3(HEALTH_PICKUP_RADIUS), 0.1f, CollisionAwkIgnore | CollisionTarget, ~CollisionShield);
+	RigidBody* body = create<RigidBody>(RigidBody::Type::Sphere, Vec3(ENERGY_PICKUP_RADIUS), 0.1f, CollisionAwkIgnore | CollisionTarget, ~CollisionShield);
 	body->set_damping(0.5f, 0.5f);
 	body->set_ccd(true);
 

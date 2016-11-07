@@ -69,7 +69,7 @@
 
 #define MAX_BONE_WEIGHTS 4
 
-#define ROPE_SEGMENT_LENGTH 0.75f
+#define ROPE_SEGMENT_LENGTH 1.0f
 #define ROPE_RADIUS 0.075f
 
 #define SENSOR_TIME 1.0f

@@ -805,10 +805,10 @@ b8 Awk::can_shoot(const Vec3& dir, Vec3* final_pos, b8* hit_target, const Net::S
 		else
 		{
 			// check awk target predictions
-			r32 end_distance_sq = hits.fraction_end * AWK_SNIPE_DISTANCE * hits.fraction_end * AWK_SNIPE_DISTANCE;
+			r32 end_distance_sq = vi_min(r * r, hits.fraction_end * AWK_SNIPE_DISTANCE * hits.fraction_end * AWK_SNIPE_DISTANCE);
 			for (auto i = list.iterator(); !i.is_last(); i.next())
 			{
-				if (i.item() != this && (i.item()->get<Transform>()->absolute_pos() - trace_start).length_squared() > AWK_SHIELD_RADIUS * 2.0f * AWK_SHIELD_RADIUS * 2.0f)
+				if (i.item() != this && (i.item()->get<Target>()->absolute_pos() - trace_start).length_squared() > AWK_SHIELD_RADIUS * 2.0f * AWK_SHIELD_RADIUS * 2.0f)
 				{
 					Vec3 intersection;
 					if (predict_intersection(i.item()->get<Target>(), state_frame, &intersection))
@@ -1567,8 +1567,6 @@ void Awk::update_server(const Update& u)
 {
 	State s = state();
 
-	overshield_timer = vi_max(overshield_timer - u.time.delta, 0.0f);
-
 	if (cooldown > 0.0f)
 	{
 		cooldown = vi_max(0.0f, cooldown - u.time.delta);
@@ -1617,6 +1615,8 @@ void Awk::update_server(const Update& u)
 void Awk::update_client(const Update& u)
 {
 	State s = state();
+
+	overshield_timer = vi_max(overshield_timer - u.time.delta, 0.0f);
 
 	if (remote_reflection_timer > 0.0f)
 	{
@@ -1994,8 +1994,9 @@ r32 Awk::movement_raycast(const Vec3& ray_start, const Vec3& ray_end)
 				{
 					// client-side prediction
 					do_reflect = s != State::Crawl
-						&& hit.entity.ref()
-						&& hit.entity.ref()->get<Health>()->total() > 1;
+						&& (hit.entity.ref()->get<Health>()->total() > 1 // will they still be alive after we hit them? if so, reflect
+							|| hit.entity.ref()->get<Awk>()->state() != State::Crawl
+							|| hit.entity.ref()->get<Awk>()->overshield_timer > 0.0f);
 					b8 already_hit = false;
 					if (do_reflect)
 					{

@@ -8,7 +8,7 @@ namespace Asset
 {
 	namespace String
 	{
-		const s32 count = 391;
+		const s32 count = 392;
 		const AssetID _default = 0;
 		const AssetID ability_spawn_cost = 1;
 		const AssetID acking = 2;
@@ -365,41 +365,42 @@ namespace Asset
 		const AssetID tab_inventory = 353;
 		const AssetID tab_map = 354;
 		const AssetID tab_messages = 355;
-		const AssetID team_a = 356;
-		const AssetID team_b = 357;
-		const AssetID team_c = 358;
-		const AssetID team_d = 359;
-		const AssetID teleporter = 360;
-		const AssetID timer = 361;
-		const AssetID tip = 362;
-		const AssetID tip_0 = 363;
-		const AssetID tip_1 = 364;
-		const AssetID tip_10 = 365;
-		const AssetID tip_11 = 366;
-		const AssetID tip_2 = 367;
-		const AssetID tip_3 = 368;
-		const AssetID tip_4 = 369;
-		const AssetID tip_5 = 370;
-		const AssetID tip_7 = 371;
-		const AssetID tip_8 = 372;
-		const AssetID tip_9 = 373;
-		const AssetID tut_ability = 374;
-		const AssetID tut_health = 375;
-		const AssetID tut_kill_player = 376;
-		const AssetID tut_minion = 377;
-		const AssetID tut_start = 378;
-		const AssetID tut_upgrade = 379;
-		const AssetID unknown = 380;
-		const AssetID upgrade_description = 381;
-		const AssetID upgrade_notification = 382;
-		const AssetID upgrading = 383;
-		const AssetID victory = 384;
-		const AssetID waiting = 385;
-		const AssetID yes = 386;
-		const AssetID zodiak = 387;
-		const AssetID zones_captured = 388;
-		const AssetID zones_hostile = 389;
-		const AssetID zones_locked = 390;
+		const AssetID target_shield_down = 356;
+		const AssetID team_a = 357;
+		const AssetID team_b = 358;
+		const AssetID team_c = 359;
+		const AssetID team_d = 360;
+		const AssetID teleporter = 361;
+		const AssetID timer = 362;
+		const AssetID tip = 363;
+		const AssetID tip_0 = 364;
+		const AssetID tip_1 = 365;
+		const AssetID tip_10 = 366;
+		const AssetID tip_11 = 367;
+		const AssetID tip_2 = 368;
+		const AssetID tip_3 = 369;
+		const AssetID tip_4 = 370;
+		const AssetID tip_5 = 371;
+		const AssetID tip_7 = 372;
+		const AssetID tip_8 = 373;
+		const AssetID tip_9 = 374;
+		const AssetID tut_ability = 375;
+		const AssetID tut_health = 376;
+		const AssetID tut_kill_player = 377;
+		const AssetID tut_minion = 378;
+		const AssetID tut_start = 379;
+		const AssetID tut_upgrade = 380;
+		const AssetID unknown = 381;
+		const AssetID upgrade_description = 382;
+		const AssetID upgrade_notification = 383;
+		const AssetID upgrading = 384;
+		const AssetID victory = 385;
+		const AssetID waiting = 386;
+		const AssetID yes = 387;
+		const AssetID zodiak = 388;
+		const AssetID zones_captured = 389;
+		const AssetID zones_hostile = 390;
+		const AssetID zones_locked = 391;
 	}
 }
 

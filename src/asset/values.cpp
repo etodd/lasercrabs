@@ -1047,6 +1047,7 @@ const char* AssetLookup::String::names[] =
 	"tab_inventory",
 	"tab_map",
 	"tab_messages",
+	"target_shield_down",
 	"team_a",
 	"team_b",
 	"team_c",

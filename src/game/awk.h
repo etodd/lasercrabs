@@ -86,6 +86,8 @@ struct Awk : public ComponentType<Awk>
 	Vec3 velocity;
 	Vec3 lerped_pos;
 	Vec3 last_pos;
+	Vec3 remote_reflection_pos;
+	Vec3 remote_reflection_dir;
 	r32 attach_time;
 	r32 overshield_timer;
 	r32 shield_time;
@@ -93,12 +95,13 @@ struct Awk : public ComponentType<Awk>
 	r32 last_footstep;
 	r32 particle_accumulator;
 	r32 dash_timer;
+	r32 remote_reflection_timer;
 	Ability current_ability;
 	Footing footing[AWK_LEGS];
 	Ref<Entity> shield;
 	Ref<Entity> overshield;
-	StaticArray<Ref<Entity>, 4> hit_targets;
-	LinkArg<const Vec3&> bounce;
+	StaticArray<Ref<Entity>, 8> hit_targets;
+	LinkArg<const Vec3&> reflecting;
 	LinkArg<Entity*> hit;
 	LinkArg<Ability> ability_spawned;
 	Link done_flying;
@@ -119,7 +122,6 @@ struct Awk : public ComponentType<Awk>
 	State state() const;
 	b8 dash_start(const Vec3&);
 	b8 cooldown_can_shoot() const; // can we go?
-	void hit_by(const TargetEvent&); // called when we get hit
 	b8 hit_target(Entity*); // called when we hit a target
 	void health_changed(const HealthEvent&);
 	void killed(Entity*);
@@ -137,6 +139,8 @@ struct Awk : public ComponentType<Awk>
 	void move(const Vec3&, const Quat&, const ID);
 	void crawl(const Vec3&, const Update&);
 	void update_offset();
+
+	void handle_remote_reflection(const Vec3&, const Vec3&);
 
 	void set_footing(s32, const Transform*, const Vec3&);
 

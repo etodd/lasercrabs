@@ -46,6 +46,7 @@ enum class MessageType
 	LoadingDone,
 	Awk,
 	PlayerControlHuman,
+	Health,
 	EnergyPickup,
 	count,
 };
@@ -139,6 +140,7 @@ b8 msg_finalize(StreamWrite*);
 r32 rtt(const PlayerHuman*);
 b8 state_frame_by_timestamp(StateFrame*, r32);
 void transform_absolute(const StateFrame&, s32, Vec3*, Quat* = nullptr);
+r32 timestamp();
 
 }
 

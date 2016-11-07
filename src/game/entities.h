@@ -30,14 +30,15 @@ struct AwkEntity : public Entity
 
 struct HealthEvent
 {
-	Entity* source;
-	s8 amount;
+	Ref<Entity> source;
 	s8 hp;
 	s8 shield;
 };
 
 struct Health : public ComponentType<Health>
 {
+	static b8 net_msg(Net::StreamRead*);
+
 	r32 regen_timer;
 	LinkArg<const HealthEvent&> changed;
 	LinkArg<Entity*> killed;
@@ -146,7 +147,7 @@ struct Sensor : public ComponentType<Sensor>
 	static b8 can_see(AI::Team, const Vec3&, const Vec3&);
 	static Sensor* closest(AI::TeamMask, const Vec3&, r32* = nullptr);
 
-	static void update_all_server(const Update&);
+	static void update_all_client(const Update&);
 };
 
 struct Rocket : public ComponentType<Rocket>
@@ -256,21 +257,25 @@ struct AICue : public ComponentType<AICue>
 	void awake() {}
 };
 
-struct ShockwaveEntity : public Entity
+struct Shockwave
 {
-	ShockwaveEntity(r32, r32);
-};
+	static PinArray<Shockwave, MAX_ENTITIES> list;
 
-struct Shockwave : public ComponentType<Shockwave>
-{
+	static void add(const Vec3&, r32, r32);
+
+	Vec3 pos;
 	r32 max_radius;
 	r32 timer;
 	r32 duration;
 
-	void awake() {}
-
 	r32 radius() const;
+	Vec3 color() const;
 	void update(const Update&);
+
+	inline ID id() const
+	{
+		return this - &list[0];
+	}
 };
 
 struct WaterEntity : public Entity

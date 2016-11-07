@@ -357,8 +357,11 @@ void Game::update(const Update& update_in)
 
 		PlayerManager::update_all(u);
 		PlayerHuman::update_all(u);
-		for (auto i = Health::list.iterator(); !i.is_last(); i.next())
-			i.item()->update(u);
+		if (level.local)
+		{
+			for (auto i = Health::list.iterator(); !i.is_last(); i.next())
+				i.item()->update(u);
+		}
 		for (auto i = PlayerAI::list.iterator(); !i.is_last(); i.next())
 			i.item()->update(u);
 		for (auto i = Awk::list.iterator(); !i.is_last(); i.next())
@@ -377,8 +380,7 @@ void Game::update(const Update& update_in)
 		for (auto i = Walker::list.iterator(); !i.is_last(); i.next())
 			i.item()->update(u);
 		EnergyPickup::update_all(u);
-		if (level.local)
-			Sensor::update_all_server(u);
+		Sensor::update_all_client(u);
 		ContainmentField::update_all(u);
 		for (auto i = ControlPoint::list.iterator(); !i.is_last(); i.next())
 			i.item()->update(u);

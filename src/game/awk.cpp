@@ -36,6 +36,7 @@ namespace VI
 #define AWK_OVERSHIELD_ALPHA 0.75f
 #define AWK_OVERSHIELD_RADIUS (AWK_SHIELD_RADIUS * 1.1f)
 #define AWK_SHIELD_ANIM_TIME 0.35f
+#define AWK_REFLECTION_TIME_TOLERANCE 0.2f
 
 AwkRaycastCallback::AwkRaycastCallback(const Vec3& a, const Vec3& b, const Entity* awk)
 	: btCollisionWorld::ClosestRayResultCallback(a, b)
@@ -90,6 +91,7 @@ enum class Message
 	FlyDone,
 	DashStart,
 	DashDone,
+	HitTarget,
 	count,
 };
 
@@ -165,6 +167,24 @@ b8 finish_dashing(Awk* a)
 	return true;
 }
 
+b8 hit_target(Awk* a, Entity* target)
+{
+	using Stream = Net::StreamWrite;
+	Net::StreamWrite* p = Net::msg_new_local(Net::MessageType::Awk);
+	{
+		Ref<Awk> ref = a;
+		serialize_ref(p, ref);
+	}
+	{
+		Message t = Message::HitTarget;
+		serialize_enum(p, Message, t);
+		Ref<Entity> ref = target;
+		serialize_ref(p, ref);
+	}
+	Net::msg_finalize(p);
+	return true;
+}
+
 }
 
 b8 Awk::net_msg(Net::StreamRead* p, Net::MessageSource src)
@@ -221,6 +241,7 @@ b8 Awk::net_msg(Net::StreamRead* p, Net::MessageSource src)
 				awk->dash_timer = AWK_DASH_TIME;
 
 				awk->hit_targets.length = 0;
+				awk->remote_reflection_timer = 0.0f;
 
 				awk->attach_time = Game::time.total;
 				awk->cooldown_setup();
@@ -258,6 +279,53 @@ b8 Awk::net_msg(Net::StreamRead* p, Net::MessageSource src)
 			}
 			break;
 		}
+		case AwkNet::Message::HitTarget:
+		{
+			Ref<Entity> target;
+			serialize_ref(p, target);
+
+			Vec3 hit_pos = target.ref()->get<Target>()->absolute_pos();
+
+			// particles
+			{
+				Quat rot = Quat::look(Vec3::normalize(awk->velocity));
+				for (s32 i = 0; i < 50; i++)
+				{
+					Particles::sparks.add
+					(
+						hit_pos,
+						rot * Vec3(mersenne::randf_oo() * 2.0f - 1.0f, mersenne::randf_oo() * 2.0f - 1.0f, mersenne::randf_oo()) * 10.0f,
+						Vec4(1, 1, 1, 1)
+					);
+				}
+
+				Shockwave::add(hit_pos, 8.0f, 1.5f);
+			}
+
+			b8 damaged = false;
+
+			if (target.ref()->has<Awk>())
+			{
+				target.ref()->get<Audio>()->post_event(target.ref()->has<PlayerControlHuman>() && target.ref()->get<PlayerControlHuman>()->local() ? AK::EVENTS::PLAY_HURT_PLAYER : AK::EVENTS::PLAY_HURT);
+
+				// only take damage if we're attached to a wall and have no overshield
+				Awk* target_awk = target.ref()->get<Awk>();
+				if (target_awk->state() == Awk::State::Crawl && target_awk->overshield_timer == 0.0f)
+				{
+					if (Game::level.local) // if we're a client, this has already been handled by the server
+						target.ref()->get<Health>()->damage(awk->entity(), 1);
+					damaged = true;
+				}
+
+				if (target_awk->has<PlayerControlHuman>())
+					target_awk->get<PlayerControlHuman>()->camera_shake(1.0f);
+			}
+
+			if (!damaged && target.ref()->has<PlayerControlHuman>()) // we didn't hurt them
+				target.ref()->get<PlayerControlHuman>()->player.ref()->msg(_(strings::no_effect), false);
+
+			break;
+		}
 		default:
 		{
 			vi_assert(false);
@@ -274,6 +342,8 @@ void Awk::finish_flying_dashing_common()
 	get<Audio>()->post_event(has<PlayerControlHuman>() && get<PlayerControlHuman>()->local() ? AK::EVENTS::PLAY_LAND_PLAYER : AK::EVENTS::PLAY_LAND);
 	attach_time = Game::time.total;
 	dash_timer = 0.0f;
+
+	remote_reflection_timer = 0.0f;
 
 	velocity = Vec3::zero;
 	get<Transform>()->absolute(&lerped_pos, &lerped_rotation);
@@ -322,14 +392,15 @@ Awk::Awk()
 	last_footstep(),
 	shield(),
 	overshield(),
-	bounce(),
+	reflecting(),
 	hit_targets(),
 	cooldown(),
 	charges(AWK_CHARGES),
 	overshield_timer(AWK_OVERSHIELD_TIME),
 	particle_accumulator(),
 	current_ability(Ability::None),
-	ability_spawned()
+	ability_spawned(),
+	remote_reflection_timer()
 {
 }
 
@@ -337,7 +408,6 @@ void Awk::awake()
 {
 	link_arg<Entity*, &Awk::killed>(get<Health>()->killed);
 	link_arg<const HealthEvent&, &Awk::health_changed>(get<Health>()->changed);
-	link_arg<const TargetEvent&, &Awk::hit_by>(get<Target>()->target_hit);
 	if (Game::level.local && !shield.ref())
 	{
 		{
@@ -468,24 +538,6 @@ Entity* Awk::incoming_attacker() const
 	return nullptr;
 }
 
-void Awk::hit_by(const TargetEvent& e)
-{
-	get<Audio>()->post_event(has<PlayerControlHuman>() && get<PlayerControlHuman>()->local() ? AK::EVENTS::PLAY_HURT_PLAYER : AK::EVENTS::PLAY_HURT);
-
-	b8 damaged = false;
-
-	// only take damage if we're attached to a wall and have no overshield
-	if (state() == Awk::State::Crawl && overshield_timer == 0.0f)
-	{
-		get<Health>()->damage(e.hit_by, 1);
-		damaged = true;
-	}
-
-	// let them know they didn't hurt us
-	if (!damaged && e.hit_by->has<PlayerControlHuman>())
-		e.hit_by->get<PlayerControlHuman>()->player.ref()->msg(_(strings::no_effect), false);
-}
-
 b8 Awk::hit_target(Entity* target)
 {
 	if (!Game::level.local) // target hit events are synced across the network
@@ -499,25 +551,7 @@ b8 Awk::hit_target(Entity* target)
 	if (hit_targets.length < hit_targets.capacity())
 		hit_targets.add(target);
 
-	Vec3 hit_pos = target->get<Target>()->absolute_pos();
-
-	// particles
-	{
-		Quat rot = Quat::look(Vec3::normalize(velocity));
-		for (s32 i = 0; i < 50; i++)
-		{
-			Particles::sparks.add
-			(
-				hit_pos,
-				rot * Vec3(mersenne::randf_oo() * 2.0f - 1.0f, mersenne::randf_oo() * 2.0f - 1.0f, mersenne::randf_oo()) * 10.0f,
-				Vec4(1, 1, 1, 1)
-			);
-		}
-
-		Entity* shockwave = World::create<ShockwaveEntity>(8.0f, 1.5f);
-		shockwave->get<Transform>()->absolute_pos(hit_pos);
-		Net::finalize(shockwave);
-	}
+	AwkNet::hit_target(this, target);
 
 	// award credits for hitting stuff
 	if (target->has<MinionAI>())
@@ -587,7 +621,7 @@ b8 Awk::predict_intersection(const Target* target, const Net::StateFrame* state_
 
 void Awk::health_changed(const HealthEvent& e)
 {
-	if (e.amount < 0)
+	if (e.hp + e.shield < 0)
 	{
 		// damaged
 
@@ -597,15 +631,15 @@ void Awk::health_changed(const HealthEvent& e)
 		if (get<Health>()->hp == 0)
 		{
 			// killed; notify everyone
-			if (e.source)
+			if (e.source.ref())
 			{
 				PlayerManager* enemy = nullptr;
-				if (e.source->has<PlayerCommon>())
-					enemy = e.source->get<PlayerCommon>()->manager.ref();
-				else if (e.source->has<Projectile>())
-					enemy = e.source->get<Projectile>()->owner.ref();
-				else if (e.source->has<Rocket>())
-					enemy = e.source->get<Rocket>()->owner.ref();
+				if (e.source.ref()->has<PlayerCommon>())
+					enemy = e.source.ref()->get<PlayerCommon>()->manager.ref();
+				else if (e.source.ref()->has<Projectile>())
+					enemy = e.source.ref()->get<Projectile>()->owner.ref();
+				else if (e.source.ref()->has<Rocket>())
+					enemy = e.source.ref()->get<Rocket>()->owner.ref();
 				if (enemy)
 					enemy->add_kills(1);
 			}
@@ -707,8 +741,8 @@ b8 Awk::direction_is_toward_attached_wall(const Vec3& dir) const
 
 b8 awk_state_frame(const Awk* a, Net::StateFrame* state_frame)
 {
-	if (a->has<PlayerControlHuman>() && !a->get<PlayerControlHuman>()->local()) // this Awk is being controlled remotely; we need to rewind the world state to what it looks like from their side
-		return Net::state_frame_by_timestamp(state_frame, Game::real_time.total - Net::rtt(a->get<PlayerControlHuman>()->player.ref()) - NET_INTERPOLATION_DELAY);
+	if (Game::level.local && a->has<PlayerControlHuman>() && !a->get<PlayerControlHuman>()->local()) // this Awk is being controlled remotely; we need to rewind the world state to what it looks like from their side
+		return Net::state_frame_by_timestamp(state_frame, Net::timestamp() - (Net::rtt(a->get<PlayerControlHuman>()->player.ref()) + NET_INTERPOLATION_DELAY));
 	else
 		return false;
 }
@@ -876,6 +910,7 @@ void Awk::cooldown_setup()
 void Awk::detach_teleport()
 {
 	hit_targets.length = 0;
+	remote_reflection_timer = 0.0f;
 
 	attach_time = Game::time.total;
 
@@ -981,9 +1016,7 @@ b8 Awk::go(const Vec3& dir)
 
 				// effects
 				particle_trail(my_pos, dir_normalized, (pos - my_pos).length());
-				Entity* shockwave = World::create<ShockwaveEntity>(8.0f, 1.5f);
-				shockwave->get<Transform>()->absolute_pos(pos + rot * Vec3(0, 0, AWK_RADIUS));
-				Net::finalize(shockwave);
+				Shockwave::add(pos + rot * Vec3(0, 0, AWK_RADIUS), 8.0f, 1.5f);
 
 				break;
 			}
@@ -1003,9 +1036,7 @@ b8 Awk::go(const Vec3& dir)
 
 				// effects
 				particle_trail(my_pos, dir_normalized, (pos - my_pos).length());
-				Entity* shockwave = World::create<ShockwaveEntity>(8.0f, 1.5f);
-				shockwave->get<Transform>()->absolute_pos(pos + rot * Vec3(0, 0, AWK_RADIUS));
-				Net::finalize(shockwave);
+				Shockwave::add(pos + rot * Vec3(0, 0, AWK_RADIUS), 8.0f, 1.5f);
 
 				break;
 			}
@@ -1024,9 +1055,7 @@ b8 Awk::go(const Vec3& dir)
 
 				// effects
 				particle_trail(my_pos, dir_normalized, (pos - my_pos).length());
-				Entity* shockwave = World::create<ShockwaveEntity>(8.0f, 1.5f);
-				shockwave->get<Transform>()->absolute_pos(pos + rot * Vec3(0, 0, AWK_RADIUS));
-				Net::finalize(shockwave);
+				Shockwave::add(pos + rot * Vec3(0, 0, AWK_RADIUS), 8.0f, 1.5f);
 
 				Audio::post_global_event(AK::EVENTS::PLAY_MINION_SPAWN, npos);
 				break;
@@ -1042,9 +1071,7 @@ b8 Awk::go(const Vec3& dir)
 
 				// effects
 				particle_trail(my_pos, dir_normalized, (pos - my_pos).length());
-				Entity* shockwave = World::create<ShockwaveEntity>(8.0f, 1.5f);
-				shockwave->get<Transform>()->absolute_pos(pos + rot * Vec3(0, 0, AWK_RADIUS));
-				Net::finalize(shockwave);
+				Shockwave::add(pos + rot * Vec3(0, 0, AWK_RADIUS), 8.0f, 1.5f);
 
 				break;
 			}
@@ -1079,9 +1106,7 @@ b8 Awk::go(const Vec3& dir)
 
 				// effects
 				particle_trail(my_pos, dir_normalized, (pos - my_pos).length());
-				Entity* shockwave = World::create<ShockwaveEntity>(8.0f, 1.5f);
-				shockwave->get<Transform>()->absolute_pos(pos + rot * Vec3(0, 0, AWK_RADIUS));
-				Net::finalize(shockwave);
+				Shockwave::add(pos + rot * Vec3(0, 0, AWK_RADIUS), 8.0f, 1.5f);
 
 				break;
 			}
@@ -1094,9 +1119,7 @@ b8 Awk::go(const Vec3& dir)
 
 				// effects
 				particle_trail(my_pos, dir_normalized, (pos - my_pos).length());
-				Entity* shockwave = World::create<ShockwaveEntity>(8.0f, 1.5f);
-				shockwave->get<Transform>()->absolute_pos(pos + rot * Vec3(0, 0, AWK_RADIUS));
-				Net::finalize(shockwave);
+				Shockwave::add(pos + rot * Vec3(0, 0, AWK_RADIUS), 8.0f, 1.5f);
 
 				break;
 			}
@@ -1124,98 +1147,32 @@ b8 Awk::go(const Vec3& dir)
 }
 
 #define REFLECTION_TRIES 20 // try 20 raycasts. if they all fail, just shoot off into space.
-Vec2 reflection_angles[REFLECTION_TRIES] =
-{
-	Vec2(0.190952f, 0.736239f),
-	Vec2(0.189025f, 0.562200f),
-	Vec2(0.789319f, 0.662547f),
-	Vec2(0.262385f, 0.185272f),
-	Vec2(0.129426f, 0.272626f),
-	Vec2(0.240692f, 0.235059f),
-	Vec2(0.619383f, 0.698697f),
-	Vec2(0.501038f, 0.036391f),
-	Vec2(0.052299f, 0.005119f),
-	Vec2(0.437537f, 0.568719f),
-	Vec2(0.079736f, 0.764056f),
-	Vec2(0.470466f, 0.241020f),
-	Vec2(0.424566f, 0.469034f),
-	Vec2(0.188084f, 0.757437f),
-	Vec2(0.915419f, 0.271688f),
-	Vec2(0.679743f, 0.694464f),
-	Vec2(0.693782f, 0.884511f),
-	Vec2(0.282588f, 0.337155f),
-	Vec2(0.175331f, 0.765014f),
-	Vec2(0.994534f, 0.367225f),
-};
 
-#define QUANTIZED_REFLECTION_VECTOR_COUNT 18
-Vec3 quantized_reflection_vectors[QUANTIZED_REFLECTION_VECTOR_COUNT] =
+void awk_reflection_execute(Awk* a, const Vec3& dir)
 {
-	Vec3(-1, 0, 0),
-	Vec3(1, 0, 0),
-	Vec3(0, -1, 0),
-	Vec3(0, 1, 0),
-	Vec3(0, 0, -1),
-	Vec3(0, 0, 1),
-	Vec3(-0.70710678f, 0, -0.70710678f),
-	Vec3(0.70710678f, 0, -0.70710678f),
-	Vec3(-0.70710678f, 0, 0.70710678f),
-	Vec3(0.70710678f, 0, 0.70710678f),
-	Vec3(-0.57735026f, -0.57735026f, -0.57735026f),
-	Vec3(0.57735026f, -0.57735026f, -0.57735026f),
-	Vec3(-0.57735026f, -0.57735026f, 0.57735026f),
-	Vec3(0.57735026f, -0.57735026f, 0.57735026f),
-	Vec3(-0.57735026f, 0.57735026f, -0.57735026f),
-	Vec3(0.57735026f, 0.57735026f, -0.57735026f),
-	Vec3(-0.57735026f, 0.57735026f, 0.57735026f),
-	Vec3(0.57735026f, 0.57735026f, 0.57735026f),
-};
+	if (a->get<Transform>()->parent.ref())
+	{
+		a->get<Transform>()->reparent(nullptr);
+		a->dash_timer = 0.0f;
+		a->get<Animator>()->layers[0].animation = Asset::Animation::awk_fly;
+	}
 
-void Awk::reflect(Entity* entity, const Vec3& original_hit, const Vec3& original_normal, const Net::StateFrame* state_frame)
+	Vec3 new_velocity = dir * AWK_DASH_SPEED;
+	a->reflecting.fire(new_velocity);
+	a->get<Transform>()->rot = Quat::look(Vec3::normalize(new_velocity));
+	a->velocity = new_velocity;
+	a->remote_reflection_timer = 0.0f;
+}
+
+void Awk::reflect(Entity* entity, const Vec3& hit, const Vec3& normal, const Net::StateFrame* state_frame)
 {
-	vi_debug("Original hit: %f %f %f at %f", original_hit.x, original_hit.y, original_hit.z, Game::time.total);
-
 	// it's possible to reflect off a shield while we are dashing (still parented to an object)
 	// so we need to make sure we're not dashing anymore
-	if (get<Transform>()->parent.ref())
-	{
-		get<Transform>()->reparent(nullptr);
-		dash_timer = 0.0f;
-		get<Animator>()->layers[0].animation = Asset::Animation::awk_fly;
-	}
-
-	Vec3 hit = original_hit;
-	Vec3 normal = original_normal;
-	if (entity->has<Awk>())
-	{
-		// quantize for better server/client synchronization
-		Vec3 p;
-		if (state_frame)
-			Net::transform_absolute(*state_frame, entity->get<Transform>()->id(), &p);
-		else
-			p = entity->get<Transform>()->absolute_pos();
-		r32 closest_dot = 0.0f;
-		for (s32 i = 0; i < QUANTIZED_REFLECTION_VECTOR_COUNT; i++)
-		{
-			if (quantized_reflection_vectors[i].dot(velocity) < 0.0f)
-			{
-				r32 dot = quantized_reflection_vectors[i].dot(original_normal);
-				if (dot > closest_dot)
-				{
-					closest_dot = dot;
-					normal = quantized_reflection_vectors[i];
-				}
-			}
-		}
-		hit = p + normal * AWK_SHIELD_RADIUS;
-	}
-
-	get<Transform>()->absolute_pos(hit + normal * AWK_RADIUS * 0.5f);
+	Vec3 reflection_pos = hit + normal * AWK_RADIUS * 0.5f;
+	get<Transform>()->absolute_pos(reflection_pos);
 
 	// the actual direction we end up going
-	Vec3 new_velocity;
-
-	s32 reflection_index = 0;
+	Vec3 new_dir;
 
 	{
 		// make sure we have somewhere to land.
@@ -1223,7 +1180,7 @@ void Awk::reflect(Entity* entity, const Vec3& original_hit, const Vec3& original
 		// our goal
 		Vec3 target_dir = Vec3::normalize(velocity.reflect(normal));
 
-		new_velocity = target_dir * AWK_DASH_SPEED;
+		new_dir = target_dir;
 
 		Quat target_quat = Quat::look(target_dir);
 
@@ -1232,37 +1189,98 @@ void Awk::reflect(Entity* entity, const Vec3& original_hit, const Vec3& original
 		const r32 goal_distance = AWK_MAX_DISTANCE * 0.25f;
 		for (s32 i = 0; i < REFLECTION_TRIES; i++)
 		{
-			const Vec2& angle = reflection_angles[i];
-			Vec3 candidate_velocity = target_quat * (Quat::euler(PI + (angle.x - 0.5f) * random_range, (PI * 0.5f) + (angle.y - 0.5f) * random_range, 0) * Vec3(AWK_DASH_SPEED, 0, 0));
+			Vec3 candidate_dir = target_quat * (Quat::euler(PI + (mersenne::randf_co() - 0.5f) * random_range, (PI * 0.5f) + (mersenne::randf_co() - 0.5f) * random_range, 0) * Vec3(1, 0, 0));
 			Vec3 next_hit;
-			if (can_shoot(candidate_velocity, &next_hit, nullptr, state_frame))
+			if (can_shoot(candidate_dir, &next_hit, nullptr, state_frame))
 			{
 				r32 distance = (next_hit - hit).length();
 				r32 score = fabs(distance - goal_distance);
 
 				if (score < best_score)
 				{
-					reflection_index = i;
-					new_velocity = candidate_velocity;
+					new_dir = candidate_dir;
 					best_score = score;
 				}
 
 				if (distance > goal_distance && score < AWK_MAX_DISTANCE * 0.4f)
 				{
-					reflection_index = i;
-					new_velocity = candidate_velocity;
+					new_dir = candidate_dir;
 					best_score = score;
 					break;
 				}
 			}
 			random_range += PI / r32(REFLECTION_TRIES);
 		}
-		vi_debug("Hit: %f %f %f Normal: %f %f %f Target dir: %f %f %f Reflection index: %d", hit.x, hit.y, hit.z, normal.x, normal.y, normal.z, target_dir.x, target_dir.y, target_dir.z, reflection_index);
 	}
 
-	bounce.fire(new_velocity);
-	get<Transform>()->rot = Quat::look(Vec3::normalize(new_velocity));
-	velocity = new_velocity;
+	if (state_frame)
+	{
+		// this awk is being controlled by a remote
+
+		if (remote_reflection_timer > 0.0f)
+		{
+			// the remote already told us about the reflection
+			// so go the direction they told us to
+			get<Transform>()->absolute_pos(remote_reflection_pos);
+			awk_reflection_execute(this, remote_reflection_dir);
+		}
+		else
+		{
+			// store our reflection result and wait for the remote to tell us which way to go
+			// if we don't hear from them in a certain amount of time, head toward the direction we calculated
+			remote_reflection_dir = new_dir;
+			remote_reflection_pos = reflection_pos;
+			remote_reflection_timer = AWK_REFLECTION_TIME_TOLERANCE;
+			velocity = Vec3::zero;
+		}
+	}
+	else
+	{
+		// locally controlled; bounce instantly
+		awk_reflection_execute(this, new_dir);
+	}
+}
+
+void Awk::handle_remote_reflection(const Vec3& reflection_pos, const Vec3& reflection_dir)
+{
+	if (reflection_dir.length() == 0.0f)
+		return;
+
+	Vec3 me = get<Transform>()->absolute_pos();
+	Vec3 dir = reflection_pos - me;
+	r32 distance = dir.length();
+	b8 do_reflection = false;
+	if (distance == 0.0f)
+		do_reflection = true;
+	else if (velocity.length() == 0.0f)
+		do_reflection = distance < AWK_SHIELD_RADIUS * 3.0f;
+	else
+	{
+		Vec3 velocity_normalized = Vec3::normalize(velocity);
+		if (fabs(velocity_normalized.dot(dir)) < AWK_SHIELD_RADIUS * 3.0f)
+		{
+			dir /= distance;
+			if (velocity_normalized.dot(dir) > 0.99f)
+				do_reflection = true;
+		}
+	}
+
+	if (do_reflection)
+	{
+		Vec3 reflection_dir_normalized = Vec3::normalize(reflection_dir);
+		if (remote_reflection_timer == 0.0f)
+		{
+			// we haven't reflected off anything on the server yet; save this info and wait for us to hit something
+			remote_reflection_dir = reflection_dir_normalized;
+			remote_reflection_pos = reflection_pos;
+			remote_reflection_timer = AWK_REFLECTION_TIME_TOLERANCE; // we'll wait up to a certain amount of time before reflecting anyway
+		}
+		else
+		{
+			// we HAVE already detected a reflection off something; let's do it now
+			awk_reflection_execute(this, reflection_dir_normalized);
+		}
+	}
 }
 
 void Awk::crawl_wall_edge(const Vec3& dir, const Vec3& other_wall_normal, const Update& u, r32 speed)
@@ -1561,7 +1579,7 @@ void Awk::update_server(const Update& u)
 	if (s != Awk::State::Crawl)
 	{
 		// flying or dashing
-		if (u.time.total - attach_time > MAX_FLIGHT_TIME)
+		if (Game::level.local && u.time.total - attach_time > MAX_FLIGHT_TIME)
 			get<Health>()->kill(entity()); // Kill self
 
 		Vec3 position = get<Transform>()->absolute_pos();
@@ -1599,6 +1617,21 @@ void Awk::update_server(const Update& u)
 void Awk::update_client(const Update& u)
 {
 	State s = state();
+
+	if (remote_reflection_timer > 0.0f)
+	{
+		if (s == Awk::State::Crawl)
+			remote_reflection_timer = 0.0f; // cancel
+		else
+		{
+			remote_reflection_timer = vi_max(0.0f, remote_reflection_timer - u.time.delta);
+			if (remote_reflection_timer == 0.0f)
+			{
+				get<Transform>()->absolute_pos(remote_reflection_pos);
+				awk_reflection_execute(this, remote_reflection_dir);
+			}
+		}
+	}
 
 	if (s == Awk::State::Crawl)
 	{
@@ -1976,7 +2009,7 @@ r32 Awk::movement_raycast(const Vec3& ray_start, const Vec3& ray_end)
 							}
 						}
 					}
-					if (!already_hit)
+					if (!already_hit && hit.entity.ref())
 						hit_targets.add(hit.entity);
 				}
 				else

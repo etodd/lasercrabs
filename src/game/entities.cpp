@@ -42,9 +42,7 @@ void explosion(const Vec3& pos, const Quat& rot)
 			Vec4(1, 1, 1, 1)
 		);
 	}
-	Entity* shockwave = World::create<ShockwaveEntity>(8.0f, 1.5f);
-	shockwave->get<Transform>()->absolute_pos(pos);
-	Net::finalize(shockwave);
+	Shockwave::add(pos, 8.0f, 1.5f);
 }
 
 AwkEntity::AwkEntity(AI::Team team)
@@ -79,9 +77,61 @@ Health::Health(s8 hp, s8 hp_max, s8 shield, s8 shield_max)
 {
 }
 
+template<typename Stream> b8 serialize_health_event(Stream* p, Health* h, HealthEvent* e)
+{
+	serialize_ref(p, e->source);
+	if (h->hp_max > 0)
+		serialize_int(p, s8, e->hp, -h->hp_max, h->hp_max);
+	else if (Stream::IsReading)
+		e->hp = 0;
+	if (h->shield_max > 0)
+		serialize_int(p, s8, e->shield, -h->shield_max, h->shield_max);
+	else if (Stream::IsReading)
+		h->shield = 0;
+	return true;
+}
+
+b8 Health::net_msg(Net::StreamRead* p)
+{
+	using Stream = Net::StreamRead;
+	Ref<Health> ref;
+	serialize_ref(p, ref);
+
+	HealthEvent e;
+	if (!serialize_health_event(p, ref.ref(), &e))
+		net_error();
+
+	Health* h = ref.ref();
+	h->hp += e.hp;
+	h->shield += e.shield;
+	h->changed.fire(e);
+	if (h->hp == 0)
+		h->killed.fire(e.source.ref());
+
+	return true;
+}
+
+// only called on server
+b8 send_health_event(Health* h, HealthEvent* e)
+{
+	using Stream = Net::StreamWrite;
+	Net::StreamWrite* p = Net::msg_new(Net::MessageType::Health);
+
+	Ref<Health> ref = h;
+	serialize_ref(p, ref);
+
+	if (!serialize_health_event(p, ref.ref(), e))
+		net_error();
+
+	Net::msg_finalize(p);
+
+	return true;
+}
+
 #define REGEN_DELAY 9.0f
 #define REGEN_TIME 1.0f
 
+// only called on server
 void Health::update(const Update& u)
 {
 	if (shield < shield_max)
@@ -93,14 +143,13 @@ void Health::update(const Update& u)
 			const r32 regen_interval = REGEN_TIME / shield_max;
 			if ((s32)(old_timer / regen_interval) != (s32)(regen_timer / regen_interval))
 			{
-				shield += 1;
-				changed.fire(
+				HealthEvent e =
 				{
 					nullptr,
-					1,
 					0,
 					1,
-				});
+				};
+				send_health_event(this, &e);
 			}
 		}
 	}
@@ -108,6 +157,7 @@ void Health::update(const Update& u)
 
 void Health::damage(Entity* e, s8 damage)
 {
+	vi_assert(Game::level.local);
 	if (hp > 0 && damage > 0)
 	{
 		s8 damage_accumulator = damage;
@@ -116,38 +166,28 @@ void Health::damage(Entity* e, s8 damage)
 		{
 			damage_shield = shield;
 			damage_accumulator -= shield;
-			shield = 0;
 		}
 		else
 		{
 			damage_shield = damage_accumulator;
-			shield -= damage_accumulator;
 			damage_accumulator = 0;
 		}
 
 		s8 damage_hp;
 		if (damage_accumulator > hp)
-		{
 			damage_hp = hp;
-			hp = 0;
-		}
 		else
-		{
 			damage_hp = damage_accumulator;
-			hp -= damage_accumulator;
-		}
 
 		regen_timer = REGEN_TIME + REGEN_DELAY;
 
-		changed.fire(
+		HealthEvent ev =
 		{
 			e,
-			s8(-damage),
 			s8(-damage_hp),
 			s8(-damage_shield),
-		});
-		if (hp == 0)
-			killed.fire(e);
+		};
+		send_health_event(this, &ev);
 	}
 }
 
@@ -163,17 +203,17 @@ void Health::kill(Entity* e)
 
 void Health::add(s8 amount)
 {
-	s16 old_hp = hp;
-	hp = vi_min((s8)(hp + amount), hp_max);
-	if (hp > old_hp)
+	vi_assert(Game::level.local);
+	amount = vi_min(amount, s8(hp_max - hp));
+	if (amount > 0)
 	{
-		changed.fire(
+		HealthEvent e =
 		{
 			nullptr,
 			amount,
-			amount,
 			0,
-		});
+		};
+		send_health_event(this, &e);
 	}
 }
 
@@ -639,7 +679,7 @@ void Sensor::killed_by(Entity* e)
 	World::remove_deferred(entity());
 }
 
-void Sensor::update_all_server(const Update& u)
+void Sensor::update_all_client(const Update& u)
 {
 	r32 time = u.time.total;
 	r32 last_time = time - u.time.delta;
@@ -650,11 +690,7 @@ void Sensor::update_all_server(const Update& u)
 		{
 			r32 offset = i.index * sensor_shockwave_interval * 0.3f;
 			if ((s32)((time + offset) / sensor_shockwave_interval) != (s32)((last_time + offset) / sensor_shockwave_interval))
-			{
-				Entity* shockwave = World::create<ShockwaveEntity>(10.0f, 1.5f);
-				shockwave->get<Transform>()->absolute_pos(i.item()->get<Transform>()->absolute_pos());
-				Net::finalize(shockwave);
-			}
+				Shockwave::add(i.item()->get<Transform>()->absolute_pos(), 10.0f, 1.5f);
 		}
 	}
 }
@@ -1164,7 +1200,7 @@ ContainmentFieldEntity::ContainmentFieldEntity(Transform* parent, const Vec3& ab
 
 	create<Target>();
 	create<Health>(SENSOR_HEALTH, SENSOR_HEALTH);
-	create<RigidBody>(RigidBody::Type::Sphere, Vec3(CONTAINMENT_FIELD_BASE_RADIUS), 0.0f, CollisionStatic | CollisionAwkIgnore | CollisionTarget, ~CollisionStatic & ~CollisionShield);
+	create<RigidBody>(RigidBody::Type::Sphere, Vec3(CONTAINMENT_FIELD_BASE_RADIUS), 0.0f, CollisionAwkIgnore | CollisionTarget, ~CollisionStatic & ~CollisionShield);
 
 	ContainmentField* field = create<ContainmentField>();
 	field->team = team;
@@ -1256,11 +1292,7 @@ void Teleporter::destroy()
 
 void teleport(Entity* e, Teleporter* target)
 {
-	{
-		Entity* shockwave = World::create<ShockwaveEntity>(8.0f, 1.5f);
-		shockwave->get<Transform>()->absolute_pos(e->get<Transform>()->absolute_pos());
-		Net::finalize(shockwave);
-	}
+	Shockwave::add(e->get<Transform>()->absolute_pos(), 8.0f, 1.5f);
 
 	Vec3 pos;
 	Quat rot;
@@ -1272,11 +1304,7 @@ void teleport(Entity* e, Teleporter* target)
 		Vec3 teleport_pos = pos + rot * Quat::euler(0, 0, e->get<Walker>()->id() * PI * 0.25f) * Vec3(1, 0, 1);
 		teleport_pos.y = vi_max(teleport_pos.y, pos.y + 1.0f);
 		e->get<Walker>()->absolute_pos(teleport_pos);
-		{
-			Entity* shockwave = World::create<ShockwaveEntity>(8.0f, 1.5f);
-			shockwave->get<Transform>()->absolute_pos(pos);
-			Net::finalize(shockwave);
-		}
+		Shockwave::add(pos, 8.0f, 1.5f);
 	}
 	else if (e->has<Awk>())
 	{
@@ -1366,11 +1394,7 @@ void Projectile::update(const Update& u)
 					Vec4(1, 1, 1, 1)
 				);
 			}
-			{
-				Entity* shockwave = World::create<ShockwaveEntity>(8.0f, 1.5f);
-				shockwave->get<Transform>()->absolute_pos(ray_callback.m_hitPointWorld);
-				Net::finalize(shockwave);
-			}
+			Shockwave::add(ray_callback.m_hitPointWorld, GRENADE_RANGE, 1.5f);
 			World::remove(entity());
 		}
 	}
@@ -1462,21 +1486,8 @@ void Grenade::update_server(const Update& u)
 		t->absolute_pos(next_pos);
 	}
 
-	if (active)
-	{
-		if (timer > GRENADE_DELAY)
-			explode();
-		else
-		{
-			const r32 interval = 3.0f;
-			if (s32(Game::time.total / interval) != s32((Game::time.total - u.time.delta) / interval))
-			{
-				Entity* shockwave = World::create<ShockwaveEntity>(GRENADE_RANGE, 1.5f);
-				shockwave->get<Transform>()->absolute_pos(get<Transform>()->absolute_pos());
-				Net::finalize(shockwave);
-			}
-		}
-	}
+	if (active && timer > GRENADE_DELAY)
+		explode();
 }
 
 void Grenade::explode()
@@ -1560,6 +1571,9 @@ void Grenade::update_client_all(const Update& u)
 		if (i.item()->active)
 		{
 			Vec3 me = i.item()->get<Transform>()->absolute_pos();
+			const r32 interval = 3.0f;
+			if (s32(Game::time.total / interval) != s32((Game::time.total - u.time.delta) / interval))
+				Shockwave::add(me, GRENADE_RANGE, 1.5f);
 			AI::Team my_team = i.item()->team();
 			b8 countdown = false;
 			for (auto i = Health::list.iterator(); !i.is_last(); i.next())
@@ -1924,37 +1938,34 @@ WaterEntity::WaterEntity(AssetID mesh_id)
 	create<Water>(mesh_id);
 }
 
-ShockwaveEntity::ShockwaveEntity(r32 max_radius, r32 duration)
+PinArray<Shockwave, MAX_ENTITIES> Shockwave::list;
+
+void Shockwave::add(const Vec3& pos, r32 radius, r32 duration)
 {
-	create<Transform>();
-
-	PointLight* light = create<PointLight>();
-	light->radius = 0.0f;
-	light->type = PointLight::Type::Shockwave;
-
-	Shockwave* shockwave = create<Shockwave>();
-	shockwave->max_radius = max_radius;
-	shockwave->duration = duration;
+	Shockwave* s = list.add();
+	new (s) Shockwave();
+	s->pos = pos;
+	s->max_radius = radius;
+	s->duration = duration;
 }
 
 r32 Shockwave::radius() const
 {
-	return get<PointLight>()->radius;
+	return Ease::cubic_out(timer / duration, 0.0f, max_radius);
+}
+
+Vec3 Shockwave::color() const
+{
+	r32 fade_radius = max_radius * (2.0f / 15.0f);
+	r32 fade = 1.0f - vi_max(0.0f, ((radius() - (max_radius - fade_radius)) / fade_radius));
+	return Vec3(fade * 0.8f);
 }
 
 void Shockwave::update(const Update& u)
 {
 	timer += u.time.delta;
 	if (timer > duration)
-		World::remove(entity());
-	else
-	{
-		PointLight* light = get<PointLight>();
-		r32 fade_radius = max_radius * (2.0f / 15.0f);
-		light->radius = Ease::cubic_out(timer / duration, 0.0f, max_radius);
-		r32 fade = 1.0f - vi_max(0.0f, ((light->radius - (max_radius - fade_radius)) / fade_radius));
-		light->color = Vec3(fade * 0.8f);
-	}
+		list.remove(id());
 }
 
 

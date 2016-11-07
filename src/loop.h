@@ -17,6 +17,7 @@
 #include "noise.h"
 #include "settings.h"
 #include "game/team.h"
+#include "game/entities.h"
 
 #if DEBUG
 	#define DEBUG_RENDER 0
@@ -115,6 +116,59 @@ void render_shadows(LoopSync* sync, s32 fbo, const Camera& main_camera, const Ca
 	Game::draw_opaque(shadow_render_params);
 }
 
+void render_point_light(const RenderParams& render_params, const Vec3& pos, r32 radius, PointLight::Type type, const Vec3& color, s8 team)
+{
+	if (!render_params.camera->visible_sphere(pos, radius))
+		return;
+	
+	RenderSync* sync = render_params.sync;
+
+	Mat4 light_transform = Mat4::make_translation(pos);
+	light_transform.scale(Vec3(radius));
+
+	sync->write(RenderOp::Uniform);
+	sync->write(Asset::Uniform::light_pos);
+	sync->write(RenderDataType::Vec3);
+	sync->write<s32>(1);
+	sync->write<Vec3>((render_params.view * Vec4(pos, 1)).xyz());
+
+	sync->write(RenderOp::Uniform);
+	sync->write(Asset::Uniform::mvp);
+	sync->write(RenderDataType::Mat4);
+	sync->write<s32>(1);
+	sync->write<Mat4>(light_transform * render_params.view_projection);
+
+	sync->write(RenderOp::Uniform);
+	sync->write(Asset::Uniform::type);
+	sync->write(RenderDataType::S32);
+	sync->write<s32>(1);
+	sync->write<s32>(s32(type));
+
+	sync->write(RenderOp::Uniform);
+	sync->write(Asset::Uniform::light_color);
+	sync->write(RenderDataType::Vec3);
+	sync->write<s32>(1);
+	if (team == (s8)AI::TeamNone)
+	{
+		if (render_params.camera->colors)
+			sync->write<Vec3>(color);
+		else
+			sync->write<Vec3>(LMath::desaturate(color));
+	}
+	else
+		sync->write<Vec3>(Team::color(AI::Team(render_params.camera->team), AI::Team(team)).xyz());
+
+	sync->write(RenderOp::Uniform);
+	sync->write(Asset::Uniform::light_radius);
+	sync->write(RenderDataType::R32);
+	sync->write<s32>(1);
+	sync->write<r32>(radius);
+
+	sync->write(RenderOp::Mesh);
+	sync->write(RenderPrimitiveMode::Triangles);
+	sync->write(Asset::Mesh::sphere);
+}
+
 void render_point_lights(const RenderParams& render_params, s32 type_mask, const Vec2& inv_buffer_size, s16 team_mask)
 {
 	LoopSync* sync = render_params.sync;
@@ -173,55 +227,13 @@ void render_point_lights(const RenderParams& render_params, s32 type_mask, const
 		if (light->team != (s8)AI::TeamNone && !((1 << light->team) & team_mask))
 			continue;
 
-		Vec3 light_pos = light->get<Transform>()->to_world(light->offset);
+		render_point_light(render_params, light->get<Transform>()->to_world(light->offset), light->radius, light->type, light->color, light->team);
+	}
 
-		if (!render_params.camera->visible_sphere(light_pos, light->radius))
-			continue;
-
-		Mat4 light_transform = Mat4::make_translation(light_pos);
-		light_transform.scale(Vec3(light->radius));
-
-		sync->write(RenderOp::Uniform);
-		sync->write(Asset::Uniform::light_pos);
-		sync->write(RenderDataType::Vec3);
-		sync->write<s32>(1);
-		sync->write<Vec3>((render_params.view * Vec4(light_pos, 1)).xyz());
-
-		sync->write(RenderOp::Uniform);
-		sync->write(Asset::Uniform::mvp);
-		sync->write(RenderDataType::Mat4);
-		sync->write<s32>(1);
-		sync->write<Mat4>(light_transform * render_params.view_projection);
-
-		sync->write(RenderOp::Uniform);
-		sync->write(Asset::Uniform::type);
-		sync->write(RenderDataType::S32);
-		sync->write<s32>(1);
-		sync->write<s32>((s32)light->type);
-
-		sync->write(RenderOp::Uniform);
-		sync->write(Asset::Uniform::light_color);
-		sync->write(RenderDataType::Vec3);
-		sync->write<s32>(1);
-		if (light->team == (s8)AI::TeamNone)
-		{
-			if (render_params.camera->colors)
-				sync->write<Vec3>(light->color);
-			else
-				sync->write<Vec3>(LMath::desaturate(light->color));
-		}
-		else
-			sync->write<Vec3>(Team::color((AI::Team)render_params.camera->team, (AI::Team)light->team).xyz());
-
-		sync->write(RenderOp::Uniform);
-		sync->write(Asset::Uniform::light_radius);
-		sync->write(RenderDataType::R32);
-		sync->write<s32>(1);
-		sync->write<r32>(light->radius);
-
-		sync->write(RenderOp::Mesh);
-		sync->write(RenderPrimitiveMode::Triangles);
-		sync->write(Asset::Mesh::sphere);
+	if ((s32(PointLight::Type::Shockwave) & type_mask) && (RENDER_MASK_DEFAULT & render_params.camera->mask))
+	{
+		for (auto i = Shockwave::list.iterator(); !i.is_last(); i.next())
+			render_point_light(render_params, i.item()->pos, i.item()->radius(), PointLight::Type::Shockwave, i.item()->color(), AI::TeamNone);
 	}
 }
 
@@ -543,7 +555,7 @@ void draw(LoopSync* sync, const Camera* camera)
 		if (camera->team == (s8)-1)
 		{
 			// render all override lights
-			render_point_lights(render_params, (s32)PointLight::Type::Override, inv_buffer_size, -1);
+			render_point_lights(render_params, s32(PointLight::Type::Override), inv_buffer_size, -1);
 		}
 		else
 		{
@@ -768,7 +780,7 @@ void draw(LoopSync* sync, const Camera* camera)
 			sync->write<RenderOp>(RenderOp::BlendMode);
 			sync->write<RenderBlendMode>(RenderBlendMode::Additive);
 
-			render_point_lights(render_params, (s32)PointLight::Type::Normal | (s32)PointLight::Type::Shockwave, inv_buffer_size, -1);
+			render_point_lights(render_params, (s32)PointLight::Type::Normal | s32(PointLight::Type::Shockwave), inv_buffer_size, -1);
 		}
 
 		{

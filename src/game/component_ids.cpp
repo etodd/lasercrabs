@@ -36,31 +36,30 @@ COMPONENT_TYPE(13, PointLight) \
 COMPONENT_TYPE(14, SpotLight) \
 COMPONENT_TYPE(15, ControlPoint) \
 COMPONENT_TYPE(16, PlayerSpawn) \
-COMPONENT_TYPE(17, Shockwave) \
-COMPONENT_TYPE(18, Rope) \
-COMPONENT_TYPE(19, Walker) \
-COMPONENT_TYPE(20, Ragdoll) \
-COMPONENT_TYPE(21, Target) \
-COMPONENT_TYPE(22, PlayerTrigger) \
-COMPONENT_TYPE(23, SkinnedModel) \
-COMPONENT_TYPE(24, Projectile) \
-COMPONENT_TYPE(25, Grenade) \
-COMPONENT_TYPE(26, EnergyPickup) \
-COMPONENT_TYPE(27, Sensor) \
-COMPONENT_TYPE(28, Rocket) \
-COMPONENT_TYPE(29, Decoy) \
-COMPONENT_TYPE(30, ContainmentField) \
-COMPONENT_TYPE(31, Teleporter) \
-COMPONENT_TYPE(32, AICue) \
-COMPONENT_TYPE(33, Water) \
-COMPONENT_TYPE(34, DirectionalLight) \
-COMPONENT_TYPE(35, SkyDecal) \
-COMPONENT_TYPE(36, Team) \
-COMPONENT_TYPE(37, PlayerManager) \
-COMPONENT_TYPE(38, PlayerHuman) \
-COMPONENT_TYPE(39, Parkour) \
+COMPONENT_TYPE(17, Rope) \
+COMPONENT_TYPE(18, Walker) \
+COMPONENT_TYPE(19, Ragdoll) \
+COMPONENT_TYPE(20, Target) \
+COMPONENT_TYPE(21, PlayerTrigger) \
+COMPONENT_TYPE(22, SkinnedModel) \
+COMPONENT_TYPE(23, Projectile) \
+COMPONENT_TYPE(24, Grenade) \
+COMPONENT_TYPE(25, EnergyPickup) \
+COMPONENT_TYPE(26, Sensor) \
+COMPONENT_TYPE(27, Rocket) \
+COMPONENT_TYPE(28, Decoy) \
+COMPONENT_TYPE(29, ContainmentField) \
+COMPONENT_TYPE(30, Teleporter) \
+COMPONENT_TYPE(31, AICue) \
+COMPONENT_TYPE(32, Water) \
+COMPONENT_TYPE(33, DirectionalLight) \
+COMPONENT_TYPE(34, SkyDecal) \
+COMPONENT_TYPE(35, Team) \
+COMPONENT_TYPE(36, PlayerManager) \
+COMPONENT_TYPE(37, PlayerHuman) \
+COMPONENT_TYPE(38, Parkour) \
 
-Family World::families = 40;
+Family World::families = 39;
 
 #define COMPONENT_TYPE(INDEX, TYPE) \
 template<> Family ComponentType<TYPE>::family = (INDEX); \

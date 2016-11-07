@@ -4,6 +4,8 @@
 // if you change this, make sure to allocate more physics categories for each team's containment field
 #define MAX_PLAYERS 4
 
+#define GAME_VERSION 1
+
 #define MAX_USERNAME 255
 
 #define PLAYER_SPAWN_DELAY 3.0f

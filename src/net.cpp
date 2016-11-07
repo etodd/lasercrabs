@@ -99,6 +99,22 @@ struct SequenceHistoryEntry
 
 typedef StaticArray<SequenceHistoryEntry, NET_SEQUENCE_RESEND_BUFFER> SequenceHistory;
 
+// server/client data
+struct StateCommon
+{
+	MessageHistory msgs_out_history;
+	StaticArray<StreamWrite, NET_MESSAGE_BUFFER> msgs_out;
+	SequenceID local_sequence_id;
+	StateHistory state_history;
+	StateFrame state_frame_restore;
+	s32 bandwidth_in;
+	s32 bandwidth_out;
+	s32 bandwidth_in_counter;
+	s32 bandwidth_out_counter;
+	r32 timestamp;
+};
+StateCommon state_common;
+
 b8 msg_process(StreamRead*, MessageSource);
 
 template<typename Stream, typename View> b8 serialize_view_skinnedmodel(Stream* p, View* v)
@@ -187,7 +203,6 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 		| PointLight::component_mask
 		| SpotLight::component_mask
 		| ControlPoint::component_mask
-		| Shockwave::component_mask
 		| Walker::component_mask
 		| Ragdoll::component_mask
 		| Target::component_mask
@@ -355,13 +370,6 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 	{
 		ControlPoint* c = e->get<ControlPoint>();
 		serialize_s8(p, c->team);
-	}
-
-	if (e->has<Shockwave>())
-	{
-		Shockwave* s = e->get<Shockwave>();
-		serialize_r32_range(p, s->max_radius, 0, 50, 8);
-		serialize_r32_range(p, s->duration, 0, 5, 8);
 	}
 
 	if (e->has<Walker>())
@@ -627,7 +635,7 @@ void msg_history_debug(const MessageHistory& history)
 
 			// loop backward through most recently received frames
 			index = index > 0 ? index - 1 : history.msg_frames.length - 1;
-			if (index == history.current_index || history.msg_frames[index].timestamp < Game::real_time.total - NET_TIMEOUT) // hit the end
+			if (index == history.current_index || history.msg_frames[index].timestamp < state_common.timestamp - NET_TIMEOUT) // hit the end
 				break;
 		}
 	}
@@ -666,7 +674,7 @@ SequenceID msg_history_most_recent_sequence(const MessageHistory& history)
 
 		const MessageFrame& msg = history.msg_frames[index];
 
-		if (index == history.current_index || msg.timestamp < Game::real_time.total - NET_TIMEOUT) // hit the end
+		if (index == history.current_index || msg.timestamp < state_common.timestamp - NET_TIMEOUT) // hit the end
 			break;
 
 		if (sequence_more_recent(msg.sequence_id, result))
@@ -690,7 +698,7 @@ Ack msg_history_ack(const MessageHistory& history)
 
 			const MessageFrame& msg = history.msg_frames[index];
 
-			if (index == history.current_index || msg.timestamp < Game::real_time.total - NET_TIMEOUT) // hit the end
+			if (index == history.current_index || msg.timestamp < state_common.timestamp - NET_TIMEOUT) // hit the end
 				break;
 
 			if (msg.sequence_id != ack.sequence_id) // ignore the ack
@@ -704,21 +712,6 @@ Ack msg_history_ack(const MessageHistory& history)
 	}
 	return ack;
 }
-
-// server/client data
-struct StateCommon
-{
-	MessageHistory msgs_out_history;
-	StaticArray<StreamWrite, NET_MESSAGE_BUFFER> msgs_out;
-	SequenceID local_sequence_id;
-	StateHistory state_history;
-	StateFrame state_frame_restore;
-	s32 bandwidth_in;
-	s32 bandwidth_out;
-	s32 bandwidth_in_counter;
-	s32 bandwidth_out_counter;
-};
-StateCommon state_common;
 
 void packet_init(StreamWrite* p)
 {
@@ -832,7 +825,7 @@ b8 msgs_out_consolidate()
 		}
 	}
 
-	MessageFrame* frame = msg_history_add(&state_common.msgs_out_history, Game::real_time.total, bytes);
+	MessageFrame* frame = msg_history_add(&state_common.msgs_out_history, state_common.timestamp, bytes);
 
 	frame->sequence_id = state_common.local_sequence_id;
 
@@ -868,7 +861,7 @@ MessageFrame* msg_frame_by_sequence(MessageHistory* history, SequenceID sequence
 
 			// loop backward through most recently received frames
 			index = index > 0 ? index - 1 : history->msg_frames.length - 1;
-			if (index == history->current_index || msg->timestamp < Game::real_time.total - NET_TIMEOUT) // hit the end
+			if (index == history->current_index || msg->timestamp < state_common.timestamp - NET_TIMEOUT) // hit the end
 				break;
 		}
 	}
@@ -944,13 +937,13 @@ b8 msgs_write(StreamWrite* p, const MessageHistory& history, const Ack& remote_a
 			for (s32 i = 0; i < NET_PREVIOUS_SEQUENCES_SEARCH; i++)
 			{
 				s32 next_index = index > 0 ? index - 1 : history.msg_frames.length - 1;
-				if (next_index == history.current_index || history.msg_frames[next_index].timestamp < Game::real_time.total - NET_TIMEOUT) // hit the end
+				if (next_index == history.current_index || history.msg_frames[next_index].timestamp < state_common.timestamp - NET_TIMEOUT) // hit the end
 					break;
 				index = next_index;
 			}
 
 			// start resending frames starting at that index
-			r32 timestamp_cutoff = Game::real_time.total - vi_min(0.35f, rtt * 2.0f); // wait a certain period before trying to resend a sequence
+			r32 timestamp_cutoff = state_common.timestamp - vi_min(0.35f, rtt * 2.0f); // wait a certain period before trying to resend a sequence
 			for (s32 i = 0; i < NET_PREVIOUS_SEQUENCES_SEARCH; i++)
 			{
 				const MessageFrame& frame = history.msg_frames[index];
@@ -965,7 +958,7 @@ b8 msgs_write(StreamWrite* p, const MessageHistory& history, const Ack& remote_a
 					bytes += frame.write.bytes_written();
 					serialize_align(p);
 					serialize_bytes(p, (u8*)frame.write.data.data, frame.write.bytes_written());
-					sequence_history_add(recently_resent, frame.sequence_id, Game::real_time.total);
+					sequence_history_add(recently_resent, frame.sequence_id, state_common.timestamp);
 				}
 
 				index = index < history.msg_frames.length - 1 ? index + 1 : 0;
@@ -1005,7 +998,7 @@ void calculate_rtt(r32 timestamp, const Ack& ack, const MessageHistory& send_his
 				break;
 			}
 			index = index > 0 ? index - 1 : send_history.msg_frames.length - 1;
-			if (index == send_history.current_index || send_history.msg_frames[index].timestamp < Game::real_time.total - NET_TIMEOUT)
+			if (index == send_history.current_index || send_history.msg_frames[index].timestamp < state_common.timestamp - NET_TIMEOUT)
 				break;
 		}
 	}
@@ -1033,7 +1026,7 @@ b8 msgs_read(StreamRead* p, MessageHistory* history, Ack* ack, SequenceID* recei
 		serialize_int(p, s32, bytes, 0, NET_MAX_MESSAGES_SIZE);
 		if (bytes)
 		{
-			MessageFrame* frame = msg_history_add(history, Game::real_time.total, bytes);
+			MessageFrame* frame = msg_history_add(history, state_common.timestamp, bytes);
 			serialize_int(p, SequenceID, frame->sequence_id, 0, NET_SEQUENCE_COUNT - 1);
 			if (received_sequence && (first_frame || frame->sequence_id > *received_sequence))
 				*received_sequence = frame->sequence_id;
@@ -1275,7 +1268,7 @@ template<typename Stream> b8 serialize_state_frame(Stream* p, StateFrame* frame,
 			memcpy(frame, base, sizeof(*frame));
 		else
 			new (frame) StateFrame();
-		frame->timestamp = Game::real_time.total;
+		frame->timestamp = state_common.timestamp;
 		frame->sequence_id = sequence_id;
 	}
 
@@ -1609,7 +1602,7 @@ StateFrame* state_frame_add(StateHistory* history)
 		frame = &history->frames[history->current_index];
 	}
 	new (frame) StateFrame();
-	frame->timestamp = Game::real_time.total;
+	frame->timestamp = state_common.timestamp;
 	return frame;
 }
 
@@ -1626,7 +1619,7 @@ const StateFrame* state_frame_by_sequence(const StateHistory& history, SequenceI
 
 			// loop backward through most recent frames
 			index = index > 0 ? index - 1 : history.frames.length - 1;
-			if (index == history.current_index || history.frames[index].timestamp < Game::real_time.total - NET_TIMEOUT) // hit the end
+			if (index == history.current_index || history.frames[index].timestamp < state_common.timestamp - NET_TIMEOUT) // hit the end
 				break;
 		}
 	}
@@ -1647,7 +1640,7 @@ const StateFrame* state_frame_by_timestamp(const StateHistory& history, r32 time
 
 			// loop backward through most recent frames
 			index = index > 0 ? index - 1 : history.frames.length - 1;
-			if (index == history.current_index || history.frames[index].timestamp < Game::real_time.total - NET_TIMEOUT) // hit the end
+			if (index == history.current_index || history.frames[index].timestamp < state_common.timestamp - NET_TIMEOUT) // hit the end
 				break;
 		}
 	}
@@ -1801,14 +1794,14 @@ b8 build_packet_update(StreamWrite* p, Client* client, StateFrame* frame)
 	return true;
 }
 
-void update(const Update& u)
+void update(const Update& u, r32 dt)
 {
 	for (s32 i = 0; i < state_server.clients.length; i++)
 	{
 		Client* client = &state_server.clients[i];
 		if (client->connected)
 		{
-			while (MessageFrame* frame = msg_frame_advance(&client->msgs_in_history, &client->processed_sequence_id, Game::real_time.total + 1.0f))
+			while (MessageFrame* frame = msg_frame_advance(&client->msgs_in_history, &client->processed_sequence_id, state_common.timestamp + 1.0f))
 			{
 				frame->read.rewind();
 				while (frame->read.bytes_read() < frame->bytes)
@@ -1830,7 +1823,7 @@ void update(const Update& u)
 
 }
 
-void tick(const Update& u)
+void tick(const Update& u, r32 dt)
 {
 	// send out packets
 
@@ -1848,7 +1841,7 @@ void tick(const Update& u)
 	for (s32 i = 0; i < state_server.clients.length; i++)
 	{
 		Client* client = &state_server.clients[i];
-		client->timeout += Game::real_time.delta;
+		client->timeout += dt;
 		if (client->timeout > NET_TIMEOUT)
 		{
 			vi_debug("Client %s:%hd timed out.", Sock::host_to_str(client->address.host), client->address.port);
@@ -1896,17 +1889,29 @@ b8 packet_handle(const Update& u, StreamRead* p, const Sock::Address& address)
 		{
 			if (state_server.clients.length < state_server.expected_clients)
 			{
-				if (!client)
+				s16 game_version;
+				serialize_s16(p, game_version);
+				if (game_version == GAME_VERSION)
 				{
-					client = state_server.clients.add();
-					client_index = state_server.clients.length - 1;
-					new (client) Client();
-					client->address = address;
-				}
+					if (!client)
+					{
+						client = state_server.clients.add();
+						client_index = state_server.clients.length - 1;
+						new (client) Client();
+						client->address = address;
+					}
 
+					{
+						StreamWrite p;
+						build_packet_init(&p);
+						packet_send(p, address);
+					}
+				}
+				else
 				{
+					// wrong version
 					StreamWrite p;
-					build_packet_init(&p);
+					build_packet_disconnect(&p);
 					packet_send(p, address);
 				}
 			}
@@ -1985,7 +1990,7 @@ b8 packet_handle(const Update& u, StreamRead* p, const Sock::Address& address)
 				return false;
 			}
 
-			calculate_rtt(Game::real_time.total, client->ack, state_common.msgs_out_history, &client->rtt);
+			calculate_rtt(state_common.timestamp, client->ack, state_common.msgs_out_history, &client->rtt);
 
 			client->timeout = 0.0f;
 
@@ -2137,6 +2142,8 @@ b8 build_packet_connect(StreamWrite* p)
 	using Stream = StreamWrite;
 	ClientPacket type = ClientPacket::Connect;
 	serialize_enum(p, ClientPacket, type);
+	s16 version = GAME_VERSION;
+	serialize_s16(p, version);
 	packet_finalize(p);
 	return true;
 }
@@ -2211,7 +2218,7 @@ b8 build_packet_update(StreamWrite* p, const Update& u)
 	return true;
 }
 
-void update(const Update& u)
+void update(const Update& u, r32 dt)
 {
 	// "connecting..." camera
 	{
@@ -2240,7 +2247,7 @@ void update(const Update& u)
 	if (Game::level.local)
 		return;
 
-	r32 interpolation_time = Game::real_time.total - NET_INTERPOLATION_DELAY;
+	r32 interpolation_time = state_common.timestamp - NET_INTERPOLATION_DELAY;
 
 	const StateFrame* frame = state_frame_by_timestamp(state_common.state_history, interpolation_time);
 	if (frame)
@@ -2284,9 +2291,9 @@ void update(const Update& u)
 	}
 }
 
-void tick(const Update& u)
+void tick(const Update& u, r32 dt)
 {
-	state_client.timeout += Game::real_time.delta;
+	state_client.timeout += dt;
 	switch (state_client.mode)
 	{
 		case Mode::Disconnected:
@@ -2402,7 +2409,7 @@ b8 packet_handle(const Update& u, StreamRead* p, const Sock::Address& address)
 				return false;
 			}
 
-			calculate_rtt(Game::real_time.total, state_client.server_ack, state_common.msgs_out_history, &state_client.server_rtt);
+			calculate_rtt(state_common.timestamp, state_client.server_ack, state_common.msgs_out_history, &state_client.server_rtt);
 
 			if (p->bytes_read() < p->data.length * sizeof(u32)) // server doesn't always send state frames
 			{
@@ -2526,7 +2533,7 @@ void reset()
 b8 lagging()
 {
 	return state_client.mode == Mode::Disconnected
-		|| (state_client.msgs_in_history.msg_frames.length > 0 && Game::real_time.total - state_client.msgs_in_history.msg_frames[state_client.msgs_in_history.current_index].timestamp > NET_TICK_RATE * 5.0f);
+		|| (state_client.msgs_in_history.msg_frames.length > 0 && state_common.timestamp - state_client.msgs_in_history.msg_frames[state_client.msgs_in_history.current_index].timestamp > NET_TICK_RATE * 5.0f);
 }
 
 
@@ -2584,8 +2591,12 @@ b8 remove(Entity* e)
 	return true;
 }
 
+#define NET_MAX_FRAME_TIME 0.2f
+
 void update_start(const Update& u)
 {
+	r32 dt = vi_min(Game::real_time.delta, NET_MAX_FRAME_TIME);
+	state_common.timestamp += dt;
 	while (true)
 	{
 		Sock::Address address;
@@ -2616,13 +2627,13 @@ void update_start(const Update& u)
 			break;
 	}
 #if SERVER
-	Server::update(u);
+	Server::update(u, dt);
 #else
-	Client::update(u);
+	Client::update(u, dt);
 #endif
 	
 	// update bandwidth every half second
-	if (s32(Game::real_time.total * 2.0f) > s32((Game::real_time.total - Game::real_time.delta) * 2.0f))
+	if (s32(state_common.timestamp * 2.0f) > s32((state_common.timestamp - dt) * 2.0f))
 	{
 		state_common.bandwidth_in = state_common.bandwidth_in_counter;
 		state_common.bandwidth_out = state_common.bandwidth_out_counter;
@@ -2633,20 +2644,21 @@ void update_start(const Update& u)
 
 void update_end(const Update& u)
 {
+	r32 dt = vi_min(Game::real_time.delta, NET_MAX_FRAME_TIME);
 #if SERVER
 	// server always runs at 60 FPS
-	Server::tick(u);
+	Server::tick(u, dt);
 #else
 	if (Game::level.local)
 		state_common.msgs_out.length = 0; // clear out message queue because we're never going to send these
 	else
 	{
-		Client::state_client.tick_timer += Game::real_time.delta;
+		Client::state_client.tick_timer += dt;
 		if (Client::state_client.tick_timer > NET_TICK_RATE)
 		{
 			Client::state_client.tick_timer -= NET_TICK_RATE;
 
-			Client::tick(u);
+			Client::tick(u, dt);
 		}
 		// we're not going to send more than one packet per frame
 		// so make sure the tick timer never gets out of control
@@ -2758,6 +2770,12 @@ b8 msg_process(StreamRead* p, MessageSource src)
 				net_error();
 			break;
 		}
+		case MessageType::Health:
+		{
+			if (!Health::net_msg(p))
+				net_error();
+			break;
+		}
 		default:
 		{
 			vi_debug("Unknown message type: %d", s32(type));
@@ -2837,6 +2855,11 @@ b8 state_frame_by_timestamp(StateFrame* result, r32 timestamp)
 		return true;
 	}
 	return false;
+}
+
+r32 timestamp()
+{
+	return state_common.timestamp;
 }
 
 

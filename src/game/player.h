@@ -87,7 +87,7 @@ struct PlayerCommon : public ComponentType<PlayerCommon>
 	void update(const Update&);
 	void awk_detached();
 	void awk_done_flying();
-	void awk_bounce(const Vec3&);
+	void awk_reflecting(const Vec3&);
 	void clamp_rotation(const Vec3&, r32 = 0.0f);
 	b8 movement_enabled() const;
 };
@@ -170,9 +170,9 @@ struct PlayerControlHuman : public ComponentType<PlayerControlHuman>
 
 	void awk_detached();
 	void awk_done_flying_or_dashing();
+	void awk_reflecting(const Vec3&);
 	void parkour_landed(r32);
 	void hit_target(Entity*);
-	void hit_by(const TargetEvent&);
 	b8 add_target_indicator(Target*, TargetIndicator::Type);
 	void remote_control_handle(const RemoteControl&);
 

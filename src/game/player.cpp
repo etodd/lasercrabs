@@ -1129,7 +1129,7 @@ void PlayerCommon::awake()
 		get<Health>()->hp_max = AWK_HEALTH;
 		link<&PlayerCommon::awk_done_flying>(get<Awk>()->done_flying);
 		link<&PlayerCommon::awk_detached>(get<Awk>()->detached);
-		link_arg<const Vec3&, &PlayerCommon::awk_bounce>(get<Awk>()->bounce);
+		link_arg<const Vec3&, &PlayerCommon::awk_reflecting>(get<Awk>()->reflecting);
 	}
 }
 
@@ -1218,7 +1218,7 @@ void PlayerCommon::awk_detached()
 	attach_quat = Quat::look(direction);
 }
 
-void PlayerCommon::awk_bounce(const Vec3& new_velocity)
+void PlayerCommon::awk_reflecting(const Vec3& new_velocity)
 {
 	Vec3 direction = Vec3::normalize(new_velocity);
 	attach_quat = Quat::look(direction);
@@ -1267,6 +1267,7 @@ struct Message
 	{
 		Dash,
 		Go,
+		Reflect,
 		count,
 	};
 
@@ -1377,6 +1378,12 @@ b8 PlayerControlHuman::net_msg(Net::StreamRead* p, PlayerControlHuman* c, Net::M
 
 			break;
 		}
+		case PlayerControlHumanNet::Message::Type::Reflect:
+		{
+			if (src == Net::MessageSource::Remote)
+				c->get<Awk>()->handle_remote_reflection(msg.pos, msg.dir);
+			break;
+		}
 		default:
 		{
 			vi_assert(false);
@@ -1402,6 +1409,19 @@ void PlayerControlHuman::awk_done_flying_or_dashing()
 {
 	rumble = vi_max(rumble, 0.2f);
 	get<Audio>()->post_event(AK::EVENTS::STOP_FLY);
+}
+
+void PlayerControlHuman::awk_reflecting(const Vec3& new_velocity)
+{
+	// if we're a client
+	if (!Game::level.local && local())
+	{
+		PlayerControlHumanNet::Message msg;
+		msg.pos = get<Transform>()->absolute_pos();
+		msg.dir = Vec3::normalize(new_velocity);
+		msg.type = PlayerControlHumanNet::Message::Type::Reflect;
+		PlayerControlHumanNet::send(this, &msg);
+	}
 }
 
 PlayerControlHuman::PlayerControlHuman(PlayerHuman* p)
@@ -1441,8 +1461,8 @@ void PlayerControlHuman::awake()
 		link<&PlayerControlHuman::awk_detached>(get<Awk>()->detached);
 		link<&PlayerControlHuman::awk_done_flying_or_dashing>(get<Awk>()->done_flying);
 		link<&PlayerControlHuman::awk_done_flying_or_dashing>(get<Awk>()->done_dashing);
+		link_arg<const Vec3&, &PlayerControlHuman::awk_reflecting>(get<Awk>()->reflecting);
 		link_arg<Entity*, &PlayerControlHuman::hit_target>(get<Awk>()->hit);
-		link_arg<const TargetEvent&, &PlayerControlHuman::hit_by>(get<Target>()->target_hit);
 	}
 	else
 	{
@@ -1483,12 +1503,6 @@ void PlayerControlHuman::hit_target(Entity* target)
 		b8 is_enemy = target->get<ContainmentField>()->team != get<AIAgent>()->team;
 		player.ref()->msg(_(strings::containment_field_destroyed), is_enemy);
 	}
-}
-
-void PlayerControlHuman::hit_by(const TargetEvent& e)
-{
-	// we were physically hit by something; shake the camera
-	camera_shake(1.0f);
 }
 
 void PlayerControlHuman::awk_detached()

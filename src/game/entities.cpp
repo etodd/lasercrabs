@@ -1428,12 +1428,12 @@ GrenadeEntity::GrenadeEntity(PlayerManager* owner, const Vec3& abs_pos, const Ve
 
 template<typename T> b8 grenade_trigger_filter(T* e, AI::Team team)
 {
-	return (e->has<AIAgent>() && e->get<AIAgent>()->team != team && !e->get<AIAgent>()->stealth)
-		|| (e->has<ContainmentField>() && e->get<ContainmentField>()->team != team)
-		|| (e->has<Rocket>() && e->get<Rocket>()->team() != team)
-		|| (e->has<Teleporter>() && e->get<Teleporter>()->team != team)
-		|| (e->has<Sensor>() && !e->has<EnergyPickup>() && e->get<Sensor>()->team != team)
-		|| (e->has<Decoy>() && e->get<Decoy>()->team() != team);
+	return (e->template has<AIAgent>() && e->template get<AIAgent>()->team != team && !e->template get<AIAgent>()->stealth)
+		|| (e->template has<ContainmentField>() && e->template get<ContainmentField>()->team != team)
+		|| (e->template has<Rocket>() && e->template get<Rocket>()->team() != team)
+		|| (e->template has<Teleporter>() && e->template get<Teleporter>()->team != team)
+		|| (e->template has<Sensor>() && !e->template has<EnergyPickup>() && e->template get<Sensor>()->team != team)
+		|| (e->template has<Decoy>() && e->template get<Decoy>()->team() != team);
 }
 
 void Grenade::update_server(const Update& u)

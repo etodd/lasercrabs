@@ -16,6 +16,8 @@
 #include "mersenne/mersenne-twister.h"
 #include "cora.h"
 #include "render/particles.h"
+#include "net.h"
+#include "net_serialize.h"
 
 #define CREDITS_FLASH_TIME 0.5f
 
@@ -492,6 +494,19 @@ void update_visibility(const Update& u)
 	}
 }
 
+namespace TeamNet
+{
+	b8 send_game_over(Team* w)
+	{
+		using Stream = Net::StreamWrite;
+		Net::StreamWrite* p = Net::msg_new(Net::MessageType::Team);
+		Ref<Team> ref = w;
+		serialize_ref(p, ref);
+		Net::msg_finalize(p);
+		return true;
+	}
+}
+
 void Team::update_all_server(const Update& u)
 {
 	if (Game::level.mode != Game::Mode::Pvp)
@@ -506,10 +521,6 @@ void Team::update_all_server(const Update& u)
 			|| (Game::level.type == Game::Type::Rush && list[1].control_point_count() > 0)
 			|| (Game::level.type == Game::Type::Deathmatch && team_with_most_kills && team_with_most_kills->kills() >= Game::level.kill_limit)))
 		{
-			game_over = true;
-			game_over_real_time = Game::real_time.total;
-			vi_debug("Game over. Time: %f\n", Game::time.total);
-
 			// remove active projectiles and dangerous stuff
 			{
 				for (auto i = Projectile::list.iterator(); !i.is_last(); i.next())
@@ -526,6 +537,7 @@ void Team::update_all_server(const Update& u)
 			}
 
 			// determine the winner, if any
+			Team* w = nullptr;
 			Team* team_with_player = nullptr;
 			s32 teams_with_players = 0;
 			for (auto i = list.iterator(); !i.is_last(); i.next())
@@ -538,15 +550,15 @@ void Team::update_all_server(const Update& u)
 			}
 
 			if (teams_with_players == 1)
-				winner = team_with_player;
+				w = team_with_player;
 			else if (Game::level.type == Game::Type::Deathmatch)
-				winner = team_with_most_kills;
+				w = team_with_most_kills;
 			else if (Game::level.type == Game::Type::Rush)
 			{
 				if (list[1].control_point_count() > 0)
-					winner = &list[1]; // attackers win
+					w = &list[1]; // attackers win
 				else
-					winner = &list[0]; // defenders win
+					w = &list[0]; // defenders win
 			}
 
 			for (auto i = PlayerManager::list.iterator(); !i.is_last(); i.next())
@@ -562,6 +574,8 @@ void Team::update_all_server(const Update& u)
 					Game::save.resources[(s32)Game::Resource::Energy] += total;
 				}
 			}
+
+			TeamNet::send_game_over(w);
 		}
 	}
 
@@ -660,6 +674,18 @@ void Team::update_all_server(const Update& u)
 			}
 		}
 	}
+}
+
+b8 Team::net_msg(Net::StreamRead* p)
+{
+	using Stream = Net::StreamRead;
+
+	serialize_ref(p, winner);
+
+	game_over = true;
+	game_over_real_time = Game::real_time.total;
+
+	return true;
 }
 
 void Team::update_all_client_only(const Update& u)

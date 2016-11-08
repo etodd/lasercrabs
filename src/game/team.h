@@ -16,6 +16,10 @@ struct Transform;
 struct Target;
 struct TargetEvent;
 struct PlayerManager;
+namespace Net
+{
+	struct StreamRead;
+}
 
 struct AbilityInfo
 {
@@ -74,6 +78,7 @@ struct Team : public ComponentType<Team>
 	static void update_all_client_only(const Update&);
 	static s32 teams_with_players();
 	static Team* with_most_kills();
+	static b8 net_msg(Net::StreamRead*);
 
 	static inline const Vec4& ui_color(AI::Team me, AI::Team them)
 	{

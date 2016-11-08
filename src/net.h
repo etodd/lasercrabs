@@ -48,6 +48,7 @@ enum class MessageType
 	PlayerControlHuman,
 	Health,
 	EnergyPickup,
+	Team,
 	count,
 };
 

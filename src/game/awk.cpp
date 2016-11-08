@@ -92,6 +92,7 @@ enum class Message
 	DashStart,
 	DashDone,
 	HitTarget,
+	AbilitySpawn,
 	count,
 };
 
@@ -105,6 +106,26 @@ b8 start_flying(Awk* a, Vec3 dir)
 	}
 	{
 		Message t = Message::FlyStart;
+		serialize_enum(p, Message, t);
+	}
+	dir.normalize();
+	serialize_r32_range(p, dir.x, -1.0f, 1.0f, 16);
+	serialize_r32_range(p, dir.y, -1.0f, 1.0f, 16);
+	serialize_r32_range(p, dir.z, -1.0f, 1.0f, 16);
+	Net::msg_finalize(p);
+	return true;
+}
+
+b8 ability_spawn(Awk* a, Vec3 dir, Ability ability)
+{
+	using Stream = Net::StreamWrite;
+	Net::StreamWrite* p = Net::msg_new_local(Net::MessageType::Awk);
+	{
+		Ref<Awk> ref = a;
+		serialize_ref(p, ref);
+	}
+	{
+		Message t = Message::AbilitySpawn;
 		serialize_enum(p, Message, t);
 	}
 	dir.normalize();
@@ -185,6 +206,24 @@ b8 hit_target(Awk* a, Entity* target)
 	return true;
 }
 
+}
+
+void particle_trail(const Vec3& start, const Vec3& dir, r32 distance, r32 interval = 2.0f)
+{
+	s32 particle_count = distance / interval;
+	Vec3 interval_pos = dir * interval;
+	Vec3 pos = start;
+	for (s32 i = 0; i < particle_count; i++)
+	{
+		pos += interval_pos;
+		Particles::tracers.add
+		(
+			pos,
+			Vec3::zero,
+			0,
+			vi_min(0.25f, i * 0.05f)
+		);
+	}
 }
 
 b8 Awk::net_msg(Net::StreamRead* p, Net::MessageSource src)
@@ -324,6 +363,217 @@ b8 Awk::net_msg(Net::StreamRead* p, Net::MessageSource src)
 			if (!damaged && target.ref()->has<PlayerControlHuman>()) // we didn't hurt them
 				target.ref()->get<PlayerControlHuman>()->player.ref()->msg(_(strings::no_effect), false);
 
+			break;
+		}
+		case AwkNet::Message::AbilitySpawn:
+		{
+			Vec3 dir;
+			serialize_r32_range(p, dir.x, -1.0f, 1.0f, 16);
+			serialize_r32_range(p, dir.y, -1.0f, 1.0f, 16);
+			serialize_r32_range(p, dir.z, -1.0f, 1.0f, 16);
+			Ability ability;
+			serialize_enum(p, Ability, ability);
+
+			Vec3 dir_normalized;
+			{
+				r32 length = dir.length();
+				if (length == 0.0f)
+					net_error();
+				dir_normalized = dir / length;
+			}
+
+			PlayerManager* manager = awk->get<PlayerCommon>()->manager.ref();
+
+#if SERVER
+			if (!manager->ability_valid(ability))
+				return true;
+#endif
+
+			Vec3 pos;
+			Vec3 normal;
+			RigidBody* parent;
+			if (!awk->can_spawn(ability, dir_normalized, &pos, &normal, &parent))
+				return true;
+
+			Quat rot = Quat::look(normal);
+
+			awk->cooldown_setup();
+
+			const AbilityInfo& info = AbilityInfo::list[(s32)ability];
+			manager->add_credits(-info.spawn_cost);
+
+			Vec3 my_pos;
+			Quat my_rot;
+			awk->get<Transform>()->absolute(&my_pos, &my_rot);
+
+			switch (ability)
+			{
+				case Ability::Sensor:
+				{
+					// place a proximity sensor
+					if (Game::level.local)
+					{
+						Entity* sensor = World::create<SensorEntity>(manager->team.ref()->team(), pos + rot * Vec3(0, 0, (ROPE_SEGMENT_LENGTH * 2.0f) - ROPE_RADIUS + SENSOR_RADIUS), rot);
+						Net::finalize(sensor);
+
+						// attach it to the wall
+						Rope* rope = Rope::start(parent, pos, rot * Vec3(0, 0, 1), rot);
+						rope->end(pos + rot * Vec3(0, 0, ROPE_SEGMENT_LENGTH * 2.0f), rot * Vec3(0, 0, -1), sensor->get<RigidBody>());
+					}
+
+					Audio::post_global_event(AK::EVENTS::PLAY_SENSOR_SPAWN, pos);
+
+					// effects
+					particle_trail(my_pos, dir_normalized, (pos - my_pos).length());
+					Shockwave::add(pos + rot * Vec3(0, 0, AWK_RADIUS), 8.0f, 1.5f);
+
+					break;
+				}
+				case Ability::Rocket:
+				{
+					// spawn a rocket pod
+					if (Game::level.local)
+					{
+						Net::finalize(World::create<RocketEntity>(manager, parent->get<Transform>(), pos, rot, awk->get<AIAgent>()->team));
+
+						// rocket base
+						Entity* base = World::create<Prop>(Asset::Mesh::rocket_base);
+						base->get<Transform>()->absolute(pos, rot);
+						base->get<Transform>()->reparent(parent->get<Transform>());
+						base->get<View>()->team = s8(awk->get<AIAgent>()->team);
+						Net::finalize(base);
+					}
+
+					Audio::post_global_event(AK::EVENTS::PLAY_SENSOR_SPAWN, pos);
+
+					// effects
+					particle_trail(my_pos, dir_normalized, (pos - my_pos).length());
+					Shockwave::add(pos + rot * Vec3(0, 0, AWK_RADIUS), 8.0f, 1.5f);
+
+					break;
+				}
+				case Ability::Minion:
+				{
+					// spawn a minion
+					Vec3 forward = rot * Vec3(0, 0, 1.0f);
+					Vec3 npos = pos + forward;
+					forward.y = 0.0f;
+					r32 angle;
+					if (forward.length_squared() > 0.0f)
+						angle = atan2f(forward.x, forward.z);
+					else
+					{
+						Vec3 forward2 = dir_normalized;
+						forward2.y = 0.0f;
+						r32 length = forward2.length();
+						if (length > 0.0f)
+						{
+							forward2 /= length;
+							angle = atan2f(forward2.x, forward2.z);
+						}
+						else
+							angle = 0.0f;
+					}
+
+					if (Game::level.local)
+						Net::finalize(World::create<Minion>(npos, Quat::euler(0, angle, 0), awk->get<AIAgent>()->team, manager));
+
+					// effects
+					particle_trail(my_pos, dir_normalized, (pos - my_pos).length());
+					Shockwave::add(pos + rot * Vec3(0, 0, AWK_RADIUS), 8.0f, 1.5f);
+
+					Audio::post_global_event(AK::EVENTS::PLAY_MINION_SPAWN, npos);
+					break;
+				}
+				case Ability::ContainmentField:
+				{
+					// spawn a containment field
+					Vec3 npos = pos + rot * Vec3(0, 0, CONTAINMENT_FIELD_BASE_OFFSET);
+
+					Audio::post_global_event(AK::EVENTS::PLAY_SENSOR_SPAWN, npos);
+
+					if (Game::level.local)
+						Net::finalize(World::create<ContainmentFieldEntity>(parent->get<Transform>(), npos, rot, manager));
+
+					// effects
+					particle_trail(my_pos, dir_normalized, (pos - my_pos).length());
+					Shockwave::add(pos + rot * Vec3(0, 0, AWK_RADIUS), 8.0f, 1.5f);
+
+					break;
+				}
+				case Ability::Sniper:
+				{
+					awk->hit_targets.length = 0;
+
+					Vec3 pos = awk->get<Transform>()->absolute_pos();
+					Vec3 ray_start = pos + dir_normalized * -AWK_RADIUS;
+					Vec3 ray_end = pos + dir_normalized * awk->range();
+					awk->velocity = dir_normalized * AWK_FLY_SPEED;
+					r32 distance;
+					if (Game::level.local)
+						distance = awk->movement_raycast(ray_start, ray_end);
+					else
+					{
+						Awk::Hits hits;
+						awk->raycast(ray_start, ray_end, nullptr, &hits);
+						distance = hits.fraction_end * awk->range();
+					}
+
+					// effects
+					particle_trail(ray_start, dir_normalized, distance);
+
+					// everyone instantly knows where we are
+					AI::Team team = awk->get<AIAgent>()->team;
+					for (auto i = Team::list.iterator(); !i.is_last(); i.next())
+					{
+						if (i.item()->team() != team)
+							i.item()->track(awk->get<PlayerCommon>()->manager.ref());
+					}
+
+					break;
+				}
+				case Ability::Teleporter:
+				{
+					Entity* teleporter = World::create<TeleporterEntity>(parent->get<Transform>(), pos, rot, awk->get<AIAgent>()->team);
+					Net::finalize(teleporter);
+					teleport(awk->entity(), teleporter->get<Teleporter>());
+
+					// effects
+					particle_trail(my_pos, dir_normalized, (pos - my_pos).length());
+					Shockwave::add(pos + rot * Vec3(0, 0, AWK_RADIUS), 8.0f, 1.5f);
+
+					break;
+				}
+				case Ability::Decoy:
+				{
+					Entity* existing_decoy = manager->decoy();
+					if (existing_decoy)
+						existing_decoy->get<Decoy>()->destroy();
+					Net::finalize(World::create<DecoyEntity>(manager, parent->get<Transform>(), pos, rot));
+
+					// effects
+					particle_trail(my_pos, dir_normalized, (pos - my_pos).length());
+					Shockwave::add(pos + rot * Vec3(0, 0, AWK_RADIUS), 8.0f, 1.5f);
+
+					break;
+				}
+				case Ability::Grenade:
+				{
+					Vec3 dir_adjusted = dir_normalized;
+					if (dir_adjusted.y > -0.25f)
+						dir_adjusted.y += 0.35f;
+					Net::finalize(World::create<GrenadeEntity>(manager, my_pos + dir_adjusted * (AWK_SHIELD_RADIUS + GRENADE_RADIUS + 0.01f), dir_adjusted));
+					break;
+				}
+				default:
+				{
+					vi_assert(false);
+					break;
+				}
+			}
+
+			awk->current_ability = Ability::None;
+			awk->ability_spawned.fire(ability);
 			break;
 		}
 		default:
@@ -946,24 +1196,6 @@ r32 Awk::range() const
 	return (current_ability == Ability::Sniper || current_ability == Ability::Teleporter) ? AWK_SNIPE_DISTANCE : AWK_MAX_DISTANCE;
 }
 
-void particle_trail(const Vec3& start, const Vec3& dir, r32 distance, r32 interval = 2.0f)
-{
-	s32 particle_count = distance / interval;
-	Vec3 interval_pos = dir * interval;
-	Vec3 pos = start;
-	for (s32 i = 0; i < particle_count; i++)
-	{
-		pos += interval_pos;
-		Particles::tracers.add
-		(
-			pos,
-			Vec3::zero,
-			0,
-			vi_min(0.25f, i * 0.05f)
-		);
-	}
-}
-
 b8 Awk::go(const Vec3& dir)
 {
 	if (!cooldown_can_shoot())
@@ -984,172 +1216,14 @@ b8 Awk::go(const Vec3& dir)
 		AwkNet::start_flying(this, dir_normalized);
 	else
 	{
-		// ability spawn
-		// todo: sync effects across network
-
-		PlayerManager* manager = get<PlayerCommon>()->manager.ref();
-
-		if (!manager->ability_valid(current_ability))
+		if (!get<PlayerCommon>()->manager.ref()->ability_valid(current_ability))
 			return false;
 
-		Vec3 pos;
-		Vec3 normal;
-		RigidBody* parent;
-		if (!can_spawn(current_ability, dir_normalized, &pos, &normal, &parent))
+		if (!can_spawn(current_ability, dir_normalized))
 			return false;
 
-		Quat rot = Quat::look(normal);
-
-		cooldown_setup();
-
-		const AbilityInfo& info = AbilityInfo::list[(s32)current_ability];
-		manager->add_credits(-info.spawn_cost);
-
-		Vec3 my_pos;
-		Quat my_rot;
-		get<Transform>()->absolute(&my_pos, &my_rot);
-
-		switch (current_ability)
-		{
-			case Ability::Sensor:
-			{
-				// place a proximity sensor
-				Entity* sensor = World::create<SensorEntity>(manager->team.ref()->team(), pos + rot * Vec3(0, 0, (ROPE_SEGMENT_LENGTH * 2.0f) - ROPE_RADIUS + SENSOR_RADIUS), rot);
-				Net::finalize(sensor);
-
-				Audio::post_global_event(AK::EVENTS::PLAY_SENSOR_SPAWN, pos);
-
-				// attach it to the wall
-				Rope* rope = Rope::start(parent, pos, rot * Vec3(0, 0, 1), rot);
-				rope->end(pos + rot * Vec3(0, 0, ROPE_SEGMENT_LENGTH * 2.0f), rot * Vec3(0, 0, -1), sensor->get<RigidBody>());
-
-				// effects
-				particle_trail(my_pos, dir_normalized, (pos - my_pos).length());
-				Shockwave::add(pos + rot * Vec3(0, 0, AWK_RADIUS), 8.0f, 1.5f);
-
-				break;
-			}
-			case Ability::Rocket:
-			{
-				// spawn a rocket pod
-				Net::finalize(World::create<RocketEntity>(manager, parent->get<Transform>(), pos, rot, get<AIAgent>()->team));
-
-				Audio::post_global_event(AK::EVENTS::PLAY_SENSOR_SPAWN, pos);
-
-				// rocket base
-				Entity* base = World::create<Prop>(Asset::Mesh::rocket_base);
-				base->get<Transform>()->absolute(pos, rot);
-				base->get<Transform>()->reparent(parent->get<Transform>());
-				base->get<View>()->team = s8(get<AIAgent>()->team);
-				Net::finalize(base);
-
-				// effects
-				particle_trail(my_pos, dir_normalized, (pos - my_pos).length());
-				Shockwave::add(pos + rot * Vec3(0, 0, AWK_RADIUS), 8.0f, 1.5f);
-
-				break;
-			}
-			case Ability::Minion:
-			{
-				// spawn a minion
-				Vec3 forward = rot * Vec3(0, 0, 1.0f);
-				Vec3 npos = pos + forward;
-				forward.y = 0.0f;
-				r32 angle;
-				if (forward.length_squared() > 0.0f)
-					angle = atan2f(forward.x, forward.z);
-				else
-					angle = get<PlayerCommon>()->angle_horizontal;
-				Net::finalize(World::create<Minion>(npos, Quat::euler(0, angle, 0), get<AIAgent>()->team, manager));
-
-				// effects
-				particle_trail(my_pos, dir_normalized, (pos - my_pos).length());
-				Shockwave::add(pos + rot * Vec3(0, 0, AWK_RADIUS), 8.0f, 1.5f);
-
-				Audio::post_global_event(AK::EVENTS::PLAY_MINION_SPAWN, npos);
-				break;
-			}
-			case Ability::ContainmentField:
-			{
-				// spawn a containment field
-				Vec3 npos = pos + rot * Vec3(0, 0, CONTAINMENT_FIELD_BASE_OFFSET);
-
-				Audio::post_global_event(AK::EVENTS::PLAY_SENSOR_SPAWN, npos);
-
-				Net::finalize(World::create<ContainmentFieldEntity>(parent->get<Transform>(), npos, rot, manager));
-
-				// effects
-				particle_trail(my_pos, dir_normalized, (pos - my_pos).length());
-				Shockwave::add(pos + rot * Vec3(0, 0, AWK_RADIUS), 8.0f, 1.5f);
-
-				break;
-			}
-			case Ability::Sniper:
-			{
-				hit_targets.length = 0;
-
-				Vec3 pos = get<Transform>()->absolute_pos();
-				Vec3 ray_start = pos + dir_normalized * -AWK_RADIUS;
-				Vec3 ray_end = pos + dir_normalized * range();
-				velocity = dir_normalized * AWK_FLY_SPEED;
-				r32 distance = movement_raycast(ray_start, ray_end);
-
-				// effects
-				particle_trail(ray_start, dir_normalized, distance);
-
-				// everyone instantly knows where we are
-				AI::Team team = get<AIAgent>()->team;
-				for (auto i = Team::list.iterator(); !i.is_last(); i.next())
-				{
-					if (i.item()->team() != team)
-						i.item()->track(get<PlayerCommon>()->manager.ref());
-				}
-
-				break;
-			}
-			case Ability::Teleporter:
-			{
-				Entity* teleporter = World::create<TeleporterEntity>(parent->get<Transform>(), pos, rot, get<AIAgent>()->team);
-				Net::finalize(teleporter);
-				teleport(entity(), teleporter->get<Teleporter>());
-
-				// effects
-				particle_trail(my_pos, dir_normalized, (pos - my_pos).length());
-				Shockwave::add(pos + rot * Vec3(0, 0, AWK_RADIUS), 8.0f, 1.5f);
-
-				break;
-			}
-			case Ability::Decoy:
-			{
-				Entity* existing_decoy = manager->decoy();
-				if (existing_decoy)
-					existing_decoy->get<Decoy>()->destroy();
-				Net::finalize(World::create<DecoyEntity>(manager, parent->get<Transform>(), pos, rot));
-
-				// effects
-				particle_trail(my_pos, dir_normalized, (pos - my_pos).length());
-				Shockwave::add(pos + rot * Vec3(0, 0, AWK_RADIUS), 8.0f, 1.5f);
-
-				break;
-			}
-			case Ability::Grenade:
-			{
-				Vec3 dir_adjusted = dir_normalized;
-				if (dir_adjusted.y > -0.25f)
-					dir_adjusted.y += 0.35f;
-				Net::finalize(World::create<GrenadeEntity>(manager, my_pos + dir_adjusted * (AWK_SHIELD_RADIUS + GRENADE_RADIUS + 0.01f), dir_adjusted));
-				break;
-			}
-			default:
-			{
-				vi_assert(false);
-				break;
-			}
-		}
-
-		Ability a = current_ability;
-		current_ability = Ability::None;
-		ability_spawned.fire(a);
+		if (Game::level.local)
+			AwkNet::ability_spawn(this, dir_normalized, current_ability);
 	}
 
 	return true;
@@ -1959,7 +2033,7 @@ void Awk::raycast(const Vec3& ray_start, const Vec3& ray_end, const Net::StateFr
 	}
 
 	// determine which collision is the one we stop at
-	result->fraction_end = 2.0f;
+	result->fraction_end = 1.0f;
 	result->index_end = -1;
 	for (s32 i = 0; i < result->hits.length; i++)
 	{

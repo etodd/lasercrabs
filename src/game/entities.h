@@ -347,9 +347,11 @@ struct TargetEvent
 struct Target : public ComponentType<Target>
 {
 	Vec3 local_offset;
+	Vec3 net_velocity;
 	LinkArg<const TargetEvent&> target_hit;
 
 	void awake() {}
+	Vec3 velocity() const;
 	Vec3 absolute_pos() const;
 	void hit(Entity*);
 	b8 predict_intersection(const Vec3&, r32, const Net::StateFrame*, Vec3*) const;

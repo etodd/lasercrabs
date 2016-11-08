@@ -1127,7 +1127,7 @@ template<typename Stream> b8 serialize_player_manager(Stream* p, PlayerManagerSt
 		b = !old || state->upgrades != old->upgrades;
 	serialize_bool(p, b);
 	if (b)
-		serialize_s32(p, state->upgrades);
+		serialize_bits(p, s32, state->upgrades, s32(Upgrade::count));
 
 	for (s32 i = 0; i < MAX_ABILITIES; i++)
 	{
@@ -1531,7 +1531,7 @@ void state_frame_interpolate(const StateFrame& a, const StateFrame& b, StateFram
 	memcpy(result->awks, b.awks, sizeof(result->awks));
 }
 
-void state_frame_apply(const StateFrame& frame)
+void state_frame_apply(const StateFrame& frame, const StateFrame& frame_last, const StateFrame* frame_next)
 {
 	// transforms
 	s32 index = frame.transforms_active.start;
@@ -1551,6 +1551,15 @@ void state_frame_apply(const StateFrame& frame)
 				t->pos = s.pos;
 				t->rot = s.rot;
 				t->parent = s.parent;
+				if (frame_next && t->has<Target>())
+				{
+					Vec3 abs_pos_next;
+					Vec3 abs_pos_last;
+					transform_absolute(frame_last, index, &abs_pos_last);
+					transform_absolute(*frame_next, index, &abs_pos_next);
+					Target* target = t->get<Target>();
+					target->net_velocity = target->net_velocity * 0.9f + ((abs_pos_next - abs_pos_last) / NET_TICK_RATE) * 0.1f;
+				}
 			}
 		}
 
@@ -2264,7 +2273,7 @@ void update(const Update& u, r32 dt)
 			frame_final = frame;
 
 		// apply frame_final to world
-		state_frame_apply(*frame_final);
+		state_frame_apply(*frame_final, *frame, frame_next);
 	}
 
 	while (MessageFrame* frame = msg_frame_advance(&state_client.msgs_in_history, &state_client.server_processed_sequence_id, interpolation_time))
@@ -2773,6 +2782,12 @@ b8 msg_process(StreamRead* p, MessageSource src)
 		case MessageType::Health:
 		{
 			if (!Health::net_msg(p))
+				net_error();
+			break;
+		}
+		case MessageType::Team:
+		{
+			if (!Team::net_msg(p))
 				net_error();
 			break;
 		}

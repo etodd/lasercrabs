@@ -1614,10 +1614,20 @@ void Grenade::killed_by(Entity* e)
 	World::remove_deferred(entity());
 }
 
+Vec3 Target::velocity() const
+{
+	if (has<Awk>())
+		return get<Awk>()->velocity;
+	else if (Game::level.local)
+		return get<RigidBody>()->btBody->getInterpolationLinearVelocity();
+	else
+		return net_velocity;
+}
+
 b8 Target::predict_intersection(const Vec3& from, r32 speed, const Net::StateFrame* state_frame, Vec3* intersection) const
 {
 	Vec3 pos;
-	Vec3 velocity;
+	Vec3 v;
 	if (state_frame)
 	{
 		Quat rot;
@@ -1631,21 +1641,19 @@ b8 Target::predict_intersection(const Vec3& from, r32 speed, const Net::StateFra
 		Net::transform_absolute(state_frame_last, get<Transform>()->id(), &pos_last, &rot_last);
 		pos_last += rot_last * local_offset;
 
-		velocity = (pos - pos_last) / NET_TICK_RATE;
+		v = (pos - pos_last) / NET_TICK_RATE;
 	}
 	else
 	{
-		if (has<Awk>())
-			velocity = get<Awk>()->velocity;
-		else
-			velocity = get<RigidBody>()->btBody->getInterpolationLinearVelocity();
+		v = velocity();
 		pos = absolute_pos();
 	}
+
 	Vec3 to_target = pos - from;
-	r32 intersect_time_squared = to_target.dot(to_target) / ((speed * speed) - 2.0f * to_target.dot(velocity) - velocity.dot(velocity));
+	r32 intersect_time_squared = to_target.dot(to_target) / ((speed * speed) - 2.0f * to_target.dot(v) - v.dot(v));
 	if (intersect_time_squared > 0.0f)
 	{
-		*intersection = pos + velocity * sqrtf(intersect_time_squared);
+		*intersection = pos + v * sqrtf(intersect_time_squared);
 		return true;
 	}
 	else

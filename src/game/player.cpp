@@ -264,6 +264,70 @@ Entity* live_player_get(s32 index)
 	return nullptr;
 }
 
+namespace PlayerControlHumanNet
+{
+
+struct Message
+{
+	enum class Type
+	{
+		Dash,
+		Go,
+		Reflect,
+		UpgradeStart,
+		count,
+	};
+
+	Vec3 pos;
+	Vec3 dir;
+	Ability ability = Ability::None;
+	Upgrade upgrade = Upgrade::None;
+	Type type;
+};
+
+template<typename Stream> b8 serialize_msg(Stream* p, Message* msg)
+{
+	serialize_enum(p, Message::Type, msg->type);
+	serialize_position(p, &msg->pos, Net::Resolution::High);
+	serialize_r32_range(p, msg->dir.x, -1.0f, 1.0f, 16);
+	serialize_r32_range(p, msg->dir.y, -1.0f, 1.0f, 16);
+	serialize_r32_range(p, msg->dir.z, -1.0f, 1.0f, 16);
+	if (msg->type == Message::Type::Go)
+	{
+		b8 has_ability;
+		if (Stream::IsWriting)
+			has_ability = msg->ability != Ability::None;
+		serialize_bool(p, has_ability);
+		if (has_ability)
+			serialize_enum(p, Ability, msg->ability);
+		else if (Stream::IsReading)
+			msg->ability = Ability::None;
+	}
+	else if (Stream::IsReading)
+		msg->ability = Ability::None;
+
+	if (msg->type == Message::Type::UpgradeStart)
+		serialize_enum(p, Upgrade, msg->upgrade);
+	else if (Stream::IsReading)
+		msg->upgrade = Upgrade::None;
+
+	return true;
+}
+
+b8 send(PlayerControlHuman* c, Message* msg)
+{
+	using Stream = Net::StreamWrite;
+	Net::StreamWrite* p = Net::msg_new(Net::MessageType::PlayerControlHuman);
+	Ref<PlayerControlHuman> ref = c;
+	serialize_ref(p, ref);
+	if (!serialize_msg(p, msg))
+		net_error();
+	Net::msg_finalize(p);
+	return true;
+}
+
+}
+
 void PlayerHuman::update(const Update& u)
 {
 	if (!local)
@@ -425,7 +489,12 @@ void PlayerHuman::update(const Update& u)
 						&& get<PlayerManager>()->credits >= get<PlayerManager>()->upgrade_cost(upgrade);
 					const UpgradeInfo& info = UpgradeInfo::list[(s32)upgrade];
 					if (menu.item(u, _(info.name), nullptr, !can_upgrade, info.icon))
-						get<PlayerManager>()->upgrade_start(upgrade);
+					{
+						PlayerControlHumanNet::Message msg;
+						msg.type = PlayerControlHumanNet::Message::Type::UpgradeStart;
+						msg.upgrade = upgrade;
+						PlayerControlHumanNet::send(entity->get<PlayerControlHuman>(), &msg);
+					}
 				}
 
 				menu.end();
@@ -1263,62 +1332,6 @@ s32 PlayerCommon::visibility_hash(const PlayerCommon* awk_a, const PlayerCommon*
 	return awk_a->id() * MAX_PLAYERS + awk_b->id();
 }
 
-namespace PlayerControlHumanNet
-{
-
-struct Message
-{
-	enum class Type
-	{
-		Dash,
-		Go,
-		Reflect,
-		count,
-	};
-
-	Vec3 pos;
-	Vec3 dir;
-	Ability ability = Ability::None;
-	Type type;
-};
-
-template<typename Stream> b8 serialize_msg(Stream* p, Message* msg)
-{
-	serialize_enum(p, Message::Type, msg->type);
-	serialize_position(p, &msg->pos, Net::Resolution::High);
-	serialize_r32_range(p, msg->dir.x, -1.0f, 1.0f, 16);
-	serialize_r32_range(p, msg->dir.y, -1.0f, 1.0f, 16);
-	serialize_r32_range(p, msg->dir.z, -1.0f, 1.0f, 16);
-	if (msg->type == Message::Type::Go)
-	{
-		b8 has_ability;
-		if (Stream::IsWriting)
-			has_ability = msg->ability != Ability::None;
-		serialize_bool(p, has_ability);
-		if (has_ability)
-			serialize_enum(p, Ability, msg->ability);
-		else if (Stream::IsReading)
-			msg->ability = Ability::None;
-	}
-	else if (Stream::IsReading)
-		msg->ability = Ability::None;
-	return true;
-}
-
-b8 send(PlayerControlHuman* c, Message* msg)
-{
-	using Stream = Net::StreamWrite;
-	Net::StreamWrite* p = Net::msg_new(Net::MessageType::PlayerControlHuman);
-	Ref<PlayerControlHuman> ref = c;
-	serialize_ref(p, ref);
-	if (!serialize_msg(p, msg))
-		net_error();
-	Net::msg_finalize(p);
-	return true;
-}
-
-}
-
 b8 PlayerControlHuman::net_msg(Net::StreamRead* p, PlayerControlHuman* c, Net::MessageSource src)
 {
 	using Stream = Net::StreamRead;
@@ -1383,6 +1396,12 @@ b8 PlayerControlHuman::net_msg(Net::StreamRead* p, PlayerControlHuman* c, Net::M
 					c->rumble = vi_max(c->rumble, 0.5f);
 			}
 
+			break;
+		}
+		case PlayerControlHumanNet::Message::Type::UpgradeStart:
+		{
+			if (Game::level.local)
+				c->get<PlayerCommon>()->manager.ref()->upgrade_start(msg.upgrade);
 			break;
 		}
 		case PlayerControlHumanNet::Message::Type::Reflect:
@@ -1647,12 +1666,7 @@ b8 PlayerControlHuman::add_target_indicator(Target* target, TargetIndicator::Typ
 		Vec3 intersection;
 		if (get<Awk>()->predict_intersection(target, nullptr, &intersection))
 		{
-			Vec3 v;
-			if (target->has<Awk>())
-				v = target->get<Awk>()->velocity;
-			else
-				v = target->get<RigidBody>()->btBody->getInterpolationLinearVelocity();
-			target_indicators.add({ intersection, v, type });
+			target_indicators.add({ intersection, target->velocity(), type });
 			if (target_indicators.length == target_indicators.capacity())
 				return false;
 		}

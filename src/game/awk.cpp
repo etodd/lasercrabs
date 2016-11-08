@@ -1255,40 +1255,55 @@ void Awk::handle_remote_reflection(const Vec3& reflection_pos, const Vec3& refle
 	if (reflection_dir.length() == 0.0f)
 		return;
 
-	Vec3 me = get<Transform>()->absolute_pos();
-	Vec3 dir = reflection_pos - me;
-	r32 distance = dir.length();
-	b8 do_reflection = false;
-	if (distance == 0.0f)
-		do_reflection = true;
-	else if (velocity.length() == 0.0f)
-		do_reflection = distance < AWK_SHIELD_RADIUS * 3.0f;
-	else
-	{
-		Vec3 velocity_normalized = Vec3::normalize(velocity);
-		if (fabs(velocity_normalized.dot(dir)) < AWK_SHIELD_RADIUS * 3.0f)
-		{
-			dir /= distance;
-			if (velocity_normalized.dot(dir) > 0.99f)
-				do_reflection = true;
-		}
-	}
+	Vec3 reflection_dir_normalized = Vec3::normalize(reflection_dir);
 
-	if (do_reflection)
+	if (Game::level.local)
 	{
-		Vec3 reflection_dir_normalized = Vec3::normalize(reflection_dir);
-		if (remote_reflection_timer == 0.0f)
-		{
-			// we haven't reflected off anything on the server yet; save this info and wait for us to hit something
-			remote_reflection_dir = reflection_dir_normalized;
-			remote_reflection_pos = reflection_pos;
-			remote_reflection_timer = AWK_REFLECTION_TIME_TOLERANCE; // we'll wait up to a certain amount of time before reflecting anyway
-		}
+		// we're a server; the client is notifying us that it did a reflection
+		Vec3 me = get<Transform>()->absolute_pos();
+		Vec3 dir = reflection_pos - me;
+		r32 distance = dir.length();
+		b8 do_reflection = false;
+		if (distance == 0.0f)
+			do_reflection = true;
+		else if (velocity.length() == 0.0f)
+			do_reflection = distance < AWK_SHIELD_RADIUS * 3.0f;
 		else
 		{
-			// we HAVE already detected a reflection off something; let's do it now
-			awk_reflection_execute(this, reflection_dir_normalized);
+			Vec3 velocity_normalized = Vec3::normalize(velocity);
+			if (fabs(velocity_normalized.dot(dir)) < AWK_SHIELD_RADIUS * 3.0f)
+			{
+				dir /= distance;
+				if (velocity_normalized.dot(dir) > 0.99f)
+					do_reflection = true;
+			}
 		}
+
+		if (do_reflection)
+		{
+			if (remote_reflection_timer == 0.0f)
+			{
+				// we haven't reflected off anything on the server yet; save this info and wait for us to hit something
+				remote_reflection_dir = reflection_dir_normalized;
+				remote_reflection_pos = reflection_pos;
+				remote_reflection_timer = AWK_REFLECTION_TIME_TOLERANCE; // we'll wait up to a certain amount of time before reflecting anyway
+			}
+			else
+			{
+				// we HAVE already detected a reflection off something; let's do it now
+				awk_reflection_execute(this, reflection_dir_normalized);
+			}
+		}
+	}
+	else
+	{
+		// we're a client; the server is just sending this to us to let us know which direction it chose
+		if (state() == Awk::State::Fly)
+		{
+			velocity = Vec3::normalize(reflection_dir) * AWK_DASH_SPEED;
+			get<Transform>()->rot = Quat::look(reflection_dir_normalized);
+		}
+		remote_reflection_timer = 0.0f;
 	}
 }
 

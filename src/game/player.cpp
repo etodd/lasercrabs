@@ -1327,7 +1327,9 @@ b8 PlayerControlHuman::net_msg(Net::StreamRead* p, PlayerControlHuman* c, Net::M
 	if (!serialize_msg(p, &msg))
 		net_error();
 
-	if (src != Net::MessageSource::Loopback && !Game::level.local) // these messages only go from client to server
+	if (src != Net::MessageSource::Loopback // it's from remote
+		&& !Game::level.local // we are a client
+		&& msg.type != PlayerControlHumanNet::Message::Type::Reflect) // reflect messages can go both ways; all others go only from client to server
 		net_error();
 
 	if (!c)
@@ -1418,8 +1420,10 @@ void PlayerControlHuman::awk_done_flying_or_dashing()
 
 void PlayerControlHuman::awk_reflecting(const Vec3& new_velocity)
 {
-	// if we're a client
-	if (!Game::level.local && local())
+	// send message if we are a server or client in a network game. don't if it's an all-local game
+#if !SERVER
+	if (!Game::level.local)
+#endif
 	{
 		PlayerControlHumanNet::Message msg;
 		msg.pos = get<Transform>()->absolute_pos();

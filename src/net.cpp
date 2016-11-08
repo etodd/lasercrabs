@@ -2757,7 +2757,7 @@ b8 msg_process(StreamRead* p, MessageSource src)
 		}
 		case MessageType::PlayerControlHuman:
 		{
-			vi_assert(src == MessageSource::Loopback); // this is only executed on the client; Server::msg_process handles this on the server
+			vi_assert(src == MessageSource::Loopback || !Game::level.local); // Server::msg_process handles this on the server
 			Ref<PlayerControlHuman> c;
 			serialize_ref(p, c);
 			if (!PlayerControlHuman::net_msg(p, c.ref(), src))

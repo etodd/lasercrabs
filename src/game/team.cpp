@@ -169,6 +169,9 @@ s32 Team::teams_with_players()
 
 b8 Team::has_player() const
 {
+	if (Game::level.type == Game::Type::Deathmatch)
+		return true;
+
 	for (auto j = PlayerManager::list.iterator(); !j.is_last(); j.next())
 	{
 		if (j.item()->team.ref() == this

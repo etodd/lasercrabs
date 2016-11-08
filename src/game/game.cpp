@@ -1081,25 +1081,6 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 						// container entity will be finalized later
 					}
 				}
-
-				switch (level.type)
-				{
-					case Type::Rush:
-					{
-						level.kill_limit = 0;
-						break;
-					}
-					case Type::Deathmatch:
-					{
-						level.kill_limit = PlayerManager::list.count() <= 2 ? 5 : 25;
-						break;
-					}
-					default:
-					{
-						vi_assert(false);
-						break;
-					}
-				}
 			}
 		}
 		else if (Json::get_s32(element, "min_players") > PlayerManager::list.count()
@@ -1472,6 +1453,25 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 		}
 
 		element = element->next;
+	}
+
+	switch (level.type)
+	{
+		case Type::Rush:
+		{
+			level.kill_limit = 0;
+			break;
+		}
+		case Type::Deathmatch:
+		{
+			level.kill_limit = PlayerManager::list.count() <= 2 ? 5 : 15;
+			break;
+		}
+		default:
+		{
+			vi_assert(false);
+			break;
+		}
 	}
 
 	for (s32 i = 0; i < links.length; i++)

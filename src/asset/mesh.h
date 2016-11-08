@@ -8,7 +8,7 @@ namespace Asset
 {
 	namespace Mesh
 	{
-		const s32 count = 46;
+		const s32 count = 42;
 		const AssetID awk = 0;
 		const AssetID character = 1;
 		const AssetID compass = 2;
@@ -37,24 +37,20 @@ namespace Asset
 		const AssetID icon_sensor = 25;
 		const AssetID icon_sniper = 26;
 		const AssetID icon_teleporter = 27;
-		const AssetID logo_mesh = 28;
-		const AssetID logo_mesh_1 = 29;
-		const AssetID logo_mesh_2 = 30;
-		const AssetID logo_mesh_3 = 31;
-		const AssetID plane = 32;
-		const AssetID reticle_dash = 33;
-		const AssetID rocket_base = 34;
-		const AssetID rocket_pod = 35;
-		const AssetID rope_base = 36;
-		const AssetID sky_decal = 37;
-		const AssetID sky_pattern = 38;
-		const AssetID skybox = 39;
-		const AssetID spawn = 40;
-		const AssetID sphere = 41;
-		const AssetID sphere_highres = 42;
-		const AssetID target = 43;
-		const AssetID teleporter = 44;
-		const AssetID tri_tube = 45;
+		const AssetID plane = 28;
+		const AssetID reticle_dash = 29;
+		const AssetID rocket_base = 30;
+		const AssetID rocket_pod = 31;
+		const AssetID rope_base = 32;
+		const AssetID sky_decal = 33;
+		const AssetID sky_pattern = 34;
+		const AssetID skybox = 35;
+		const AssetID spawn = 36;
+		const AssetID sphere = 37;
+		const AssetID sphere_highres = 38;
+		const AssetID target = 39;
+		const AssetID teleporter = 40;
+		const AssetID tri_tube = 41;
 	}
 }
 

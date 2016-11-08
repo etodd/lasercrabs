@@ -311,16 +311,6 @@ void draw(const RenderParams& params)
 
 	const Rect2& viewport = params.camera->viewport;
 
-	if (Game::level.id == Asset::Level::title)
-	{
-		Vec2 logo_pos(viewport.size.x * 0.5f, viewport.size.y * 0.65f);
-		Vec2 logo_size(MENU_ITEM_WIDTH);
-		UI::mesh(params, Asset::Mesh::logo_mesh_3, logo_pos, Vec2(logo_size), UI::color_background);
-		UI::mesh(params, Asset::Mesh::logo_mesh_2, logo_pos, Vec2(logo_size), UI::color_default);
-		UI::mesh(params, Asset::Mesh::logo_mesh_1, logo_pos, Vec2(logo_size), UI::color_accent);
-		UI::mesh(params, Asset::Mesh::logo_mesh, logo_pos, Vec2(logo_size), UI::color_background);
-	}
-
 #if !SERVER
 	if (!Game::level.local)
 	{

@@ -2022,16 +2022,13 @@ r32 Awk::movement_raycast(const Vec3& ray_start, const Vec3& ray_end)
 							|| hit.entity.ref()->get<Awk>()->state() != State::Crawl
 							|| hit.entity.ref()->get<Awk>()->overshield_timer > 0.0f);
 					b8 already_hit = false;
-					if (do_reflect)
+					for (s32 i = 0; i < hit_targets.length; i++)
 					{
-						for (s32 i = 0; i < hit_targets.length; i++)
+						if (hit_targets[i].equals(hit.entity))
 						{
-							if (hit_targets[i].equals(hit.entity))
-							{
-								already_hit = true;
-								do_reflect = false;
-								break;
-							}
+							already_hit = true;
+							do_reflect = false;
+							break;
 						}
 					}
 					if (!already_hit && hit.entity.ref())

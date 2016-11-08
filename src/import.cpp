@@ -987,6 +987,29 @@ const aiScene* load_fbx(Assimp::Importer& importer, const std::string& path, b8 
 	return scene;
 }
 
+void edge_add(Array<s32>* indices, s32 a, s32 b)
+{
+	b8 found = false;
+	for (s32 j = 0; j < indices->length; j += 2)
+	{
+		s32 u = (*indices)[j];
+		s32 v = (*indices)[j + 1];
+		if ((u == a && v == b)
+			|| (u == b && v == a))
+		{
+			found = true;
+			indices->remove(j + 1);
+			indices->remove(j);
+			break;
+		}
+	}
+	if (!found)
+	{
+		indices->add(a);
+		indices->add(b);
+	}
+}
+
 b8 load_mesh(const aiMesh* mesh, Mesh* out)
 {
 	out->bounds_min = Vec3(FLT_MAX, FLT_MAX, FLT_MAX);
@@ -1031,12 +1054,15 @@ b8 load_mesh(const aiMesh* mesh, Mesh* out)
 	for (s32 i = 0; i < mesh->mNumFaces; i++)
 	{
 		// Assume the mesh has only triangles.
-		s32 j = mesh->mFaces[i].mIndices[0];
-		out->indices.add(j);
-		j = mesh->mFaces[i].mIndices[1];
-		out->indices.add(j);
-		j = mesh->mFaces[i].mIndices[2];
-		out->indices.add(j);
+		s32 a = mesh->mFaces[i].mIndices[0];
+		out->indices.add(a);
+		s32 b = mesh->mFaces[i].mIndices[1];
+		out->indices.add(b);
+		s32 c = mesh->mFaces[i].mIndices[2];
+		out->indices.add(c);
+		edge_add(&out->edge_indices, a, b);
+		edge_add(&out->edge_indices, b, c);
+		edge_add(&out->edge_indices, a, c);
 	}
 
 	return true;
@@ -1233,6 +1259,8 @@ b8 write_mesh(
 		fwrite(&mesh->bounds_radius, sizeof(r32), 1, f);
 		fwrite(&mesh->indices.length, sizeof(s32), 1, f);
 		fwrite(mesh->indices.data, sizeof(s32), mesh->indices.length, f);
+		fwrite(&mesh->edge_indices.length, sizeof(s32), 1, f);
+		fwrite(mesh->edge_indices.data, sizeof(s32), mesh->edge_indices.length, f);
 		fwrite(&mesh->vertices.length, sizeof(s32), 1, f);
 		fwrite(mesh->vertices.data, sizeof(Vec3), mesh->vertices.length, f);
 		fwrite(mesh->normals.data, sizeof(Vec3), mesh->vertices.length, f);

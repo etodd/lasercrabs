@@ -106,6 +106,7 @@ struct RenderParams
 	s32 depth_buffer;
 	s32 shadow_buffer;
 	Mat4 shadow_vp;
+	b8 edges;
 
 	RenderParams()
 		: camera(),
@@ -115,7 +116,8 @@ struct RenderParams
 		sync(),
 		depth_buffer(AssetNull),
 		shadow_buffer(AssetNull),
-		shadow_vp()
+		shadow_vp(),
+		edges()
 	{
 	}
 };

@@ -43,18 +43,18 @@ struct BodyEntry : Bone
 		Sphere,
 	};
 
-	s32 bone;
 	Vec3 size;
+	s32 bone;
 	Type type;
 };
 
 struct Armature
 {
-	Array<s32> hierarchy;
 	Array<Bone> bind_pose;
 	Array<Mat4> inverse_bind_pose;
 	Array<Mat4> abs_bind_pose;
 	Array<BodyEntry> bodies;
+	Array<s32> hierarchy;
 	Armature()
 		: hierarchy(), bind_pose(), inverse_bind_pose(), abs_bind_pose(), bodies()
 	{
@@ -64,18 +64,20 @@ struct Armature
 
 struct Mesh
 {
-	Array<s32> indices;
+	Armature armature;
 	Array<Vec3> vertices;
 	Array<Vec3> normals;
-	Armature armature;
+	Array<s32> indices;
+	Array<s32> edge_indices;
+	Vec4 color;
 	Vec3 bounds_min;
 	Vec3 bounds_max;
 	r32 bounds_radius;
-	Vec4 color;
 	b8 instanced;
 	void reset()
 	{
 		indices.length = 0;
+		edge_indices.length = 0;
 		vertices.length = 0;
 		normals.length = 0;
 		armature.hierarchy.length = 0;

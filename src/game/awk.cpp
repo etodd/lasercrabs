@@ -969,6 +969,15 @@ b8 Awk::go(const Vec3& dir)
 	if (!cooldown_can_shoot())
 		return false;
 
+	{
+		Net::StateFrame* state_frame = nullptr;
+		Net::StateFrame state_frame_data;
+		if (awk_state_frame(this, &state_frame_data))
+			state_frame = &state_frame_data;
+		if (!can_shoot(dir, nullptr, nullptr, state_frame))
+			return false;
+	}
+
 	Vec3 dir_normalized = Vec3::normalize(dir);
 
 	if (current_ability == Ability::None)

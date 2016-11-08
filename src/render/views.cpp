@@ -249,9 +249,17 @@ void View::draw(const RenderParams& params) const
 		sync->write<AssetID>(texture);
 	}
 
-	sync->write(RenderOp::Mesh);
-	sync->write(RenderPrimitiveMode::Triangles);
-	sync->write(mesh);
+	if (params.edges)
+	{
+		sync->write(RenderOp::MeshEdges);
+		sync->write(mesh);
+	}
+	else
+	{
+		sync->write(RenderOp::Mesh);
+		sync->write(RenderPrimitiveMode::Triangles);
+		sync->write(mesh);
+	}
 }
 
 void View::awake()
@@ -800,9 +808,17 @@ void Cube::draw(const RenderParams& params, const Vec3& pos, const b8 alpha, con
 	sync->write<s32>(1);
 	sync->write<Vec4>(color);
 
-	sync->write(RenderOp::Mesh);
-	sync->write(RenderPrimitiveMode::Triangles);
-	sync->write(Asset::Mesh::cube);
+	if (params.edges)
+	{
+		sync->write(RenderOp::MeshEdges);
+		sync->write(Asset::Mesh::cube);
+	}
+	else
+	{
+		sync->write(RenderOp::Mesh);
+		sync->write(RenderPrimitiveMode::Triangles);
+		sync->write(Asset::Mesh::cube);
+	}
 }
 
 ScreenQuad::ScreenQuad()

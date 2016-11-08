@@ -30,7 +30,6 @@ namespace Settings
 	extern s32 framerate_limit;
 	extern ShadowQuality shadow_quality;
 	extern b8 volumetric_lighting;
-	extern b8 supersampling;
 };
 
 

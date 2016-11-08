@@ -19,6 +19,7 @@ enum class RenderOp
 	UpdateAttribBuffer,
 	UpdateAttribSubBuffer,
 	UpdateIndexBuffer,
+	UpdateEdgesIndexBuffer,
 	AllocTexture,
 	DynamicTexture,
 	LoadTexture,
@@ -31,6 +32,7 @@ enum class RenderOp
 	Shader,
 	Uniform,
 	Mesh,
+	MeshEdges,
 	SubMesh,
 	Instances,
 	Clear,
@@ -70,6 +72,7 @@ enum class RenderDynamicTextureType
 	Color,
 	ColorMultisample,
 	Depth,
+	DepthMultisample,
 };
 
 enum class RenderTextureFilter

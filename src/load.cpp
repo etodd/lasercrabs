@@ -28,7 +28,6 @@ namespace Settings
 	u8 music;
 	b8 fullscreen;
 	b8 vsync;
-	b8 supersampling;
 	b8 volumetric_lighting;
 }
 
@@ -188,7 +187,6 @@ void Loader::settings_load(s32 default_width, s32 default_height)
 #endif
 	Settings::framerate_limit = vi_max(30, Json::get_s32(json, "framerate_limit", default_framerate_limit));
 	Settings::shadow_quality = (Settings::ShadowQuality)vi_max(0, vi_min(Json::get_s32(json, "shadow_quality", (s32)Settings::ShadowQuality::High), (s32)Settings::ShadowQuality::count - 1));
-	Settings::supersampling = (b8)Json::get_s32(json, "supersampling", 1);
 	Settings::volumetric_lighting = (b8)Json::get_s32(json, "volumetric_lighting", 1);
 
 	cJSON* gamepads = json ? cJSON_GetObjectItem(json, "gamepads") : nullptr;
@@ -239,7 +237,6 @@ void Loader::settings_save()
 	cJSON_AddNumberToObject(json, "music", Settings::music);
 	cJSON_AddNumberToObject(json, "framerate_limit", Settings::framerate_limit);
 	cJSON_AddNumberToObject(json, "shadow_quality", (s32)Settings::shadow_quality);
-	cJSON_AddNumberToObject(json, "supersampling", (s32)Settings::supersampling);
 	cJSON_AddNumberToObject(json, "volumetric_lighting", (s32)Settings::volumetric_lighting);
 
 	cJSON* gamepads = cJSON_CreateArray();
@@ -297,22 +294,30 @@ void read_mesh(Mesh* mesh, const char* path, Array<Attrib>* extra_attribs = null
 	fread(&mesh->bounds_max, sizeof(Vec3), 1, f);
 	fread(&mesh->bounds_radius, sizeof(r32), 1, f);
 
-	// Read indices
+	// read indices
 	s32 index_count;
 	fread(&index_count, sizeof(s32), 1, f);
 
-	// Fill face indices
+	// fill face indices
 	mesh->indices.resize(index_count);
 	fread(mesh->indices.data, sizeof(s32), index_count, f);
+
+	// read edge indices
+	s32 edge_index_count;
+	fread(&edge_index_count, sizeof(s32), 1, f);
+
+	// fill face indices
+	mesh->edge_indices.resize(edge_index_count);
+	fread(mesh->edge_indices.data, sizeof(s32), edge_index_count, f);
 
 	s32 vertex_count;
 	fread(&vertex_count, sizeof(s32), 1, f);
 
-	// Fill vertices positions
+	// fill vertices positions
 	mesh->vertices.resize(vertex_count);
 	fread(mesh->vertices.data, sizeof(Vec3), vertex_count, f);
 
-	// Fill normals
+	// fill normals
 	mesh->normals.resize(vertex_count);
 	fread(mesh->normals.data, sizeof(Vec3), vertex_count, f);
 
@@ -386,6 +391,11 @@ const Mesh* Loader::mesh(AssetID id)
 		sync->write<AssetID>(id);
 		sync->write<s32>(mesh->indices.length);
 		sync->write(mesh->indices.data, mesh->indices.length);
+
+		sync->write(RenderOp::UpdateEdgesIndexBuffer);
+		sync->write<AssetID>(id);
+		sync->write<s32>(mesh->edge_indices.length);
+		sync->write(mesh->edge_indices.data, mesh->edge_indices.length);
 
 		meshes[id].type = AssetTransient;
 	}

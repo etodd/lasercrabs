@@ -235,9 +235,17 @@ void SkinnedModel::draw(const RenderParams& params)
 			sync->write<Vec4>(team_color);
 	}
 
-	sync->write(RenderOp::Mesh);
-	sync->write(RenderPrimitiveMode::Triangles);
-	sync->write(mesh);
+	if (params.edges)
+	{
+		sync->write(RenderOp::MeshEdges);
+		sync->write(mesh);
+	}
+	else
+	{
+		sync->write(RenderOp::Mesh);
+		sync->write(RenderPrimitiveMode::Triangles);
+		sync->write(mesh);
+	}
 
 #if DEBUG_SKIN
 	for (s32 i = 0; i < bones.length; i++)

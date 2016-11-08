@@ -63,40 +63,39 @@ namespace Asset
 	}
 	namespace Shader
 	{
-		const s32 count = 33;
+		const s32 count = 32;
 		const AssetID armature = 0;
 		const AssetID blit = 1;
-		const AssetID bloom_downsample = 2;
-		const AssetID blur = 3;
-		const AssetID composite = 4;
-		const AssetID culled = 5;
-		const AssetID debug_depth = 6;
-		const AssetID downsample = 7;
-		const AssetID edge_detect = 8;
+		const AssetID blit_depth = 2;
+		const AssetID bloom_downsample = 3;
+		const AssetID blur = 4;
+		const AssetID composite = 5;
+		const AssetID culled = 6;
+		const AssetID debug_depth = 7;
+		const AssetID downsample = 8;
 		const AssetID flat = 9;
 		const AssetID flat_clipped = 10;
 		const AssetID flat_texture = 11;
 		const AssetID fresnel = 12;
-		const AssetID g_buffer_downsample = 13;
-		const AssetID global_light = 14;
-		const AssetID particle_eased = 15;
-		const AssetID particle_spark = 16;
-		const AssetID particle_standard = 17;
-		const AssetID particle_textured = 18;
-		const AssetID point_light = 19;
-		const AssetID scan_lines = 20;
-		const AssetID sky_decal = 21;
-		const AssetID skybox = 22;
-		const AssetID spot_light = 23;
-		const AssetID ssao = 24;
-		const AssetID ssao_blur = 25;
-		const AssetID ssao_downsample = 26;
-		const AssetID standard = 27;
-		const AssetID standard_flat = 28;
-		const AssetID standard_instanced = 29;
-		const AssetID ui = 30;
-		const AssetID ui_texture = 31;
-		const AssetID water = 32;
+		const AssetID global_light = 13;
+		const AssetID particle_eased = 14;
+		const AssetID particle_spark = 15;
+		const AssetID particle_standard = 16;
+		const AssetID particle_textured = 17;
+		const AssetID point_light = 18;
+		const AssetID scan_lines = 19;
+		const AssetID sky_decal = 20;
+		const AssetID skybox = 21;
+		const AssetID spot_light = 22;
+		const AssetID ssao = 23;
+		const AssetID ssao_blur = 24;
+		const AssetID ssao_downsample = 25;
+		const AssetID standard = 26;
+		const AssetID standard_flat = 27;
+		const AssetID standard_instanced = 28;
+		const AssetID ui = 29;
+		const AssetID ui_texture = 30;
+		const AssetID water = 31;
 	}
 }
 

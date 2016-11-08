@@ -90,17 +90,13 @@ struct GLData
 
 		Array<Attrib> attribs;
 		GLuint index_buffer;
+		GLuint edges_index_buffer;
 		GLuint vertex_array;
 		GLuint instance_array;
 		GLuint instance_buffer;
 		s32 index_count;
+		s32 edges_index_count;
 		b8 dynamic;
-
-		Mesh()
-			: attribs(), index_buffer(), vertex_array(), index_count(), instance_array(), instance_buffer()
-		{
-			
-		}
 	};
 
 	struct ShaderTechnique
@@ -178,6 +174,8 @@ void render_init()
 	glEnable(GL_DEPTH_TEST);
 	glDepthFunc(GL_LESS); 
 	glEnable(GL_CULL_FACE);
+	glEnable(GL_LINE_SMOOTH);
+	glHint(GL_LINE_SMOOTH_HINT, GL_NICEST);
 }
 
 void bind_attrib_pointers(Array<GLData::Mesh::Attrib>& attribs)
@@ -405,7 +403,8 @@ void render(RenderSync* sync)
 				bind_attrib_pointers(mesh->attribs);
 
 				glGenBuffers(1, &mesh->index_buffer);
-				glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh->index_buffer);
+
+				glGenBuffers(1, &mesh->edges_index_buffer);
 
 				debug_check();
 				break;
@@ -519,6 +518,20 @@ void render(RenderSync* sync)
 				debug_check();
 				break;
 			}
+			case RenderOp::UpdateEdgesIndexBuffer:
+			{
+				AssetID id = *(sync->read<AssetID>());
+				GLData::Mesh* mesh = &GLData::meshes[id];
+				s32 index_count = *(sync->read<s32>());
+				const s32* indices = sync->read<s32>(index_count);
+
+				glBindVertexArray(mesh->vertex_array);
+				glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh->edges_index_buffer);
+				glBufferData(GL_ELEMENT_ARRAY_BUFFER, index_count * sizeof(s32), indices, mesh->dynamic ? GL_DYNAMIC_DRAW : GL_STATIC_DRAW);
+				mesh->edges_index_count = index_count;
+				debug_check();
+				break;
+			}
 			case RenderOp::FreeMesh:
 			{
 				AssetID id = *(sync->read<AssetID>());
@@ -526,6 +539,7 @@ void render(RenderSync* sync)
 				for (s32 i = 0; i < mesh->attribs.length; i++)
 					glDeleteBuffers(1, &mesh->attribs.data[i].handle);
 				glDeleteBuffers(1, &mesh->index_buffer);
+				glDeleteBuffers(1, &mesh->edges_index_buffer);
 				glDeleteBuffers(1, &mesh->instance_buffer);
 				glDeleteVertexArrays(1, &mesh->instance_array);
 				glDeleteVertexArrays(1, &mesh->vertex_array);
@@ -558,7 +572,7 @@ void render(RenderSync* sync)
 					|| filter != GLData::textures[id].filter
 					|| compare != GLData::textures[id].compare)
 				{
-					glBindTexture(type == RenderDynamicTextureType::ColorMultisample ? GL_TEXTURE_2D_MULTISAMPLE : GL_TEXTURE_2D, GLData::textures[id].handle);
+					glBindTexture(type == RenderDynamicTextureType::ColorMultisample || type == RenderDynamicTextureType::DepthMultisample ? GL_TEXTURE_2D_MULTISAMPLE : GL_TEXTURE_2D, GLData::textures[id].handle);
 					GLData::textures[id].width = width;
 					GLData::textures[id].height = height;
 					GLData::textures[id].type = type;
@@ -575,6 +589,9 @@ void render(RenderSync* sync)
 							break;
 						case RenderDynamicTextureType::Depth:
 							glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT32F, width, height, 0, GL_DEPTH_COMPONENT, GL_FLOAT, 0);
+							break;
+						case RenderDynamicTextureType::DepthMultisample:
+							glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, 8, GL_DEPTH_COMPONENT, width, height, false);
 							break;
 						default:
 							vi_assert(false);
@@ -865,10 +882,30 @@ void render(RenderSync* sync)
 				GLData::Mesh* mesh = &GLData::meshes[id];
 
 				glBindVertexArray(mesh->vertex_array);
+				glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh->index_buffer);
 
 				glDrawElements(
 					gl_primitive_modes[(s32)primitive_mode], // mode
 					mesh->index_count, // count
+					GL_UNSIGNED_INT, // type
+					0 // element array buffer offset
+				);
+
+				debug_check();
+				break;
+			}
+			case RenderOp::MeshEdges:
+			{
+				AssetID id = *(sync->read<AssetID>());
+
+				GLData::Mesh* mesh = &GLData::meshes[id];
+
+				glBindVertexArray(mesh->vertex_array);
+				glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh->edges_index_buffer);
+
+				glDrawElements(
+					GL_LINES, // RenderPrimitiveMode::Lines
+					mesh->edges_index_count, // count
 					GL_UNSIGNED_INT, // type
 					0 // element array buffer offset
 				);
@@ -885,6 +922,7 @@ void render(RenderSync* sync)
 				s32 index_count = *(sync->read<s32>());
 
 				glBindVertexArray(mesh->vertex_array);
+				glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh->index_buffer);
 
 				glDrawElements(
 					GL_TRIANGLES, // mode
@@ -907,6 +945,7 @@ void render(RenderSync* sync)
 				glBufferData(GL_ARRAY_BUFFER, sizeof(Mat4) * count, sync->read<Mat4>(count), GL_DYNAMIC_DRAW);
 
 				glBindVertexArray(mesh->instance_array);
+				glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh->index_buffer);
 
 				glDrawElementsInstanced(
 					GL_TRIANGLES,       // mode
@@ -1045,6 +1084,7 @@ void render(RenderSync* sync)
 							gl_texture_type = GL_TEXTURE_2D;
 							break;
 						case RenderDynamicTextureType::ColorMultisample:
+						case RenderDynamicTextureType::DepthMultisample:
 							gl_texture_type = GL_TEXTURE_2D_MULTISAMPLE;
 							break;
 						default:

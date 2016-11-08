@@ -478,9 +478,6 @@ void Game::draw_override(const RenderParams& params)
 
 void Game::draw_alpha(const RenderParams& render_params)
 {
-	for (auto i = Water::list.iterator(); !i.is_last(); i.next())
-		i.item()->draw_alpha(render_params);
-
 	if (render_params.camera->fog)
 		Skybox::draw_alpha(render_params);
 	SkyDecal::draw_alpha(render_params);
@@ -647,6 +644,9 @@ void Game::draw_alpha(const RenderParams& render_params)
 		sync->write(RenderFillMode::Fill);
 	}
 #endif
+
+	for (auto i = Water::list.iterator(); !i.is_last(); i.next())
+		i.item()->draw_alpha(render_params);
 
 	SkinnedModel::draw_alpha(render_params);
 

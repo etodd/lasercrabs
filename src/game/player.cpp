@@ -48,7 +48,7 @@ namespace VI
 #define zoom_speed_multiplier 0.25f
 #define zoom_speed_multiplier_sniper 0.15f
 #define zoom_speed (1.0f / 0.1f)
-#define speed_mouse 0.1f
+#define speed_mouse (0.1f / 60.0f)
 #define speed_joystick 5.0f
 #define gamepad_rotation_acceleration (1.0f / 0.2f)
 #define attach_speed 5.0f
@@ -73,12 +73,15 @@ void camera_setup_awk(Entity* e, Camera* camera, r32 offset)
 	Quat awk_rot = e->get<Awk>()->lerped_rotation;
 	Vec3 center = e->get<Awk>()->center_lerped();
 	camera->pos = center + camera->rot * Vec3(0, 0, -offset);
-	Vec3 abs_wall_normal = awk_rot * Vec3(0, 0, 1);
+	Vec3 abs_wall_normal;
 	if (e->get<Transform>()->parent.ref())
 	{
 		camera->pos += abs_wall_normal * 0.5f;
 		camera->pos.y += 0.5f - vi_min((r32)fabs(abs_wall_normal.y), 0.5f);
+		abs_wall_normal = awk_rot * Vec3(0, 0, 1);
 	}
+	else
+		abs_wall_normal = camera->rot * Vec3(0, 0, 1);
 
 	Quat rot_inverse = camera->rot.inverse();
 
@@ -226,13 +229,15 @@ void PlayerHuman::update_all(const Update& u)
 
 void PlayerHuman::update_camera_rotation(const Update& u)
 {
-	r32 s = speed_mouse * Settings::gamepads[gamepad].effective_sensitivity() * Game::real_time.delta;
-	angle_horizontal -= (r32)u.input->cursor_x * s;
-	angle_vertical += (r32)u.input->cursor_y * s * (Settings::gamepads[gamepad].invert_y ? -1.0f : 1.0f);
+	{
+		r32 s = speed_mouse * Settings::gamepads[gamepad].effective_sensitivity() * Game::session.effective_time_scale();
+		angle_horizontal -= (r32)u.input->cursor_x * s;
+		angle_vertical += (r32)u.input->cursor_y * s * (Settings::gamepads[gamepad].invert_y ? -1.0f : 1.0f);
+	}
 
 	if (u.input->gamepads[gamepad].active)
 	{
-		r32 s = speed_joystick * Settings::gamepads[gamepad].effective_sensitivity() * Game::real_time.delta;
+		r32 s = speed_joystick * Settings::gamepads[gamepad].effective_sensitivity() * Game::time.delta;
 		Vec2 rotation(u.input->gamepads[gamepad].right_x, u.input->gamepads[gamepad].right_y);
 		Input::dead_zone(&rotation.x, &rotation.y);
 		angle_horizontal -= rotation.x * s;
@@ -1548,7 +1553,7 @@ void PlayerControlHuman::update_camera_input(const Update& u, r32 gamepad_rotati
 		s32 gamepad = player.ref()->gamepad;
 		if (gamepad == 0)
 		{
-			r32 s = look_speed() * speed_mouse * Settings::gamepads[gamepad].effective_sensitivity() * Game::real_time.delta;
+			r32 s = look_speed() * speed_mouse * Settings::gamepads[gamepad].effective_sensitivity();
 			get<PlayerCommon>()->angle_horizontal -= (r32)u.input->cursor_x * s;
 			get<PlayerCommon>()->angle_vertical += (r32)u.input->cursor_y * s * (Settings::gamepads[gamepad].invert_y ? -1.0f : 1.0f);
 		}
@@ -1561,7 +1566,7 @@ void PlayerControlHuman::update_camera_input(const Update& u, r32 gamepad_rotati
 				u.input->gamepads[gamepad].right_y * (Settings::gamepads[gamepad].invert_y ? -1.0f : 1.0f)
 			);
 			Input::dead_zone(&adjustment.x, &adjustment.y);
-			adjustment *= look_speed() * speed_joystick * Settings::gamepads[gamepad].effective_sensitivity() * Game::real_time.delta * gamepad_rotation_multiplier;
+			adjustment *= look_speed() * speed_joystick * Settings::gamepads[gamepad].effective_sensitivity() * Game::time.delta * gamepad_rotation_multiplier;
 			r32 adjustment_length = adjustment.length();
 			if (adjustment_length > 0.0f)
 			{

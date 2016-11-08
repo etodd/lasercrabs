@@ -703,12 +703,15 @@ void Game::execute(const Update& u, const char* cmd)
 	}
 	else if (utf8cmp(cmd, "noclip") == 0)
 	{
-		level.continue_match_after_death = true;
-		for (auto i = PlayerHuman::list.iterator(); !i.is_last(); i.next())
+		level.continue_match_after_death = !level.continue_match_after_death;
+		if (level.continue_match_after_death)
 		{
-			Entity* entity = i.item()->get<PlayerManager>()->instance.ref();
-			if (entity)
-				World::remove(entity);
+			for (auto i = PlayerHuman::list.iterator(); !i.is_last(); i.next())
+			{
+				Entity* entity = i.item()->get<PlayerManager>()->instance.ref();
+				if (entity)
+					World::remove(entity);
+			}
 		}
 	}
 	else if (strstr(cmd, "timescale ") == cmd)

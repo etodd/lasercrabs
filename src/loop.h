@@ -425,6 +425,30 @@ void render_spot_lights(const RenderParams& render_params, s32 fbo, RenderBlendM
 	}
 }
 
+void draw_edges(const RenderParams& render_params)
+{
+	RenderSync* sync = render_params.sync;
+	sync->write(RenderOp::FillMode);
+	sync->write(RenderFillMode::Line);
+
+	sync->write(RenderOp::LineWidth);
+	sync->write(2.5f * UI::scale);
+
+	{
+		RenderParams p = render_params;
+		p.technique = RenderTechnique::Shadow;
+		p.edges = true;
+		Game::draw_opaque(p);
+		Game::draw_alpha_depth(p);
+	}
+
+	sync->write(RenderOp::FillMode);
+	sync->write(RenderFillMode::Fill);
+
+	sync->write(RenderOp::DepthTest);
+	sync->write(false);
+}
+
 void draw(LoopSync* sync, const Camera* camera)
 {
 	RenderParams render_params;
@@ -1038,29 +1062,36 @@ void draw(LoopSync* sync, const Camera* camera)
 
 		sync->write<RenderOp>(RenderOp::BlendMode);
 		sync->write<RenderBlendMode>(RenderBlendMode::Opaque);
-
-		sync->write<RenderOp>(RenderOp::DepthTest);
-		sync->write<b8>(false);
 	}
 
 	// scene is in color2 at this point
 
 	// Edges and UI
 	{
+		if (!Settings::antialiasing)
+			draw_edges(render_params); // draw edges directly on scene
+
+		sync->write<RenderOp>(RenderOp::DepthTest);
+		sync->write<b8>(false);
+
 		// render into UI buffer, blit to color1, overlay on top of color2
 		sync->write(RenderOp::BindFramebuffer);
 		sync->write(ui_fbo);
 
-		sync->write(RenderOp::DepthTest);
-		sync->write(true);
-		sync->write(RenderOp::DepthMask);
-		sync->write(true);
+		if (Settings::antialiasing)
+		{
+			sync->write(RenderOp::DepthTest);
+			sync->write(true);
+			sync->write(RenderOp::DepthMask);
+			sync->write(true);
+		}
 
 		sync->write(RenderOp::Clear);
 		sync->write(true);
-		sync->write(true);
+		sync->write<b8>(Settings::antialiasing);
 
 		// copy depth buffer
+		if (Settings::antialiasing)
 		{
 			sync->write(RenderOp::ColorMask);
 			sync->write<RenderColorMask>(0);
@@ -1095,27 +1126,8 @@ void draw(LoopSync* sync, const Camera* camera)
 		sync->write<RenderOp>(RenderOp::BlendMode);
 		sync->write<RenderBlendMode>(RenderBlendMode::Alpha);
 
-		{
-			sync->write(RenderOp::FillMode);
-			sync->write(RenderFillMode::Line);
-
-			sync->write(RenderOp::LineWidth);
-			sync->write(2.5f * UI::scale);
-
-			{
-				RenderParams p = render_params;
-				p.technique = RenderTechnique::Shadow;
-				p.edges = true;
-				Game::draw_opaque(p);
-				Game::draw_alpha_depth(p);
-			}
-
-			sync->write(RenderOp::FillMode);
-			sync->write(RenderFillMode::Fill);
-
-			sync->write(RenderOp::DepthTest);
-			sync->write(false);
-		}
+		if (Settings::antialiasing)
+			draw_edges(render_params);
 
 		UI::draw(render_params);
 

@@ -69,7 +69,6 @@ void MinionCommon::awake()
 	link_arg<Entity*, &MinionCommon::killed>(get<Health>()->killed);
 
 	Animator* animator = get<Animator>();
-	animator->layers[1].loop = false;
 	link<&MinionCommon::footstep>(animator->trigger(Asset::Animation::character_walk, 0.3375f));
 	link<&MinionCommon::footstep>(animator->trigger(Asset::Animation::character_walk, 0.75f));
 }
@@ -122,23 +121,9 @@ b8 MinionCommon::headshot_test(const Vec3& ray_start, const Vec3& ray_end)
 }
 
 #define TELEPORT_TIME 0.75f
-void MinionCommon::update(const Update& u)
+void MinionCommon::update_server(const Update& u)
 {
 	attack_timer = vi_max(0.0f, attack_timer - u.time.delta);
-
-	// update head position
-	{
-		get<Target>()->local_offset = Vec3(0.1f, 0, 0);
-		Quat rot = Quat::identity;
-		get<Animator>()->to_local(Asset::Bone::character_head, &get<Target>()->local_offset, &rot);
-	}
-
-	get<SkinnedModel>()->offset.make_transform
-	(
-		Vec3(0, get<Walker>()->capsule_height() * -0.5f - get<Walker>()->support_height, 0),
-		Vec3(1.0f, 1.0f, 1.0f),
-		Quat::euler(0, get<Walker>()->rotation + PI * 0.5f, 0)
-	);
 
 	Animator::Layer* layer = &get<Animator>()->layers[0];
 
@@ -159,6 +144,23 @@ void MinionCommon::update(const Update& u)
 	layer->play(anim);
 }
 
+void MinionCommon::update_client(const Update& u)
+{
+	get<SkinnedModel>()->offset.make_transform
+	(
+		Vec3(0, get<Walker>()->capsule_height() * -0.5f - get<Walker>()->support_height, 0),
+		Vec3(1.0f, 1.0f, 1.0f),
+		Quat::euler(0, get<Walker>()->rotation + PI * 0.5f, 0)
+	);
+
+	// update head position
+	{
+		get<Target>()->local_offset = Vec3(0.1f, 0, 0);
+		Quat rot = Quat::identity;
+		get<Animator>()->to_local(Asset::Bone::character_head, &get<Target>()->local_offset, &rot);
+	}
+}
+
 void MinionCommon::hit_by(const TargetEvent& e)
 {
 	get<Health>()->damage(e.hit_by, get<Health>()->hp_max);
@@ -167,55 +169,58 @@ void MinionCommon::hit_by(const TargetEvent& e)
 void MinionCommon::killed(Entity* killer)
 {
 	get<Audio>()->post_event(AK::EVENTS::STOP);
-
-	Entity* ragdoll = World::create<Empty>();
-	ragdoll->get<Transform>()->absolute_pos(get<Transform>()->absolute_pos());
-
-	// Apply the SkinnedModel::offset rotation to the ragdoll transform to make everything work
-	ragdoll->get<Transform>()->absolute_rot(Quat::euler(0, get<Walker>()->rotation + PI * 0.5f, 0));
-
-	SkinnedModel* new_skin = ragdoll->add<SkinnedModel>();
-	SkinnedModel* old_skin = get<SkinnedModel>();
-	new_skin->mesh = old_skin->mesh;
-	new_skin->shader = old_skin->shader;
-	new_skin->texture = old_skin->texture;
-	new_skin->color = old_skin->color;
-	new_skin->team = old_skin->team;
-	new_skin->mask = old_skin->mask;
-
-	// No rotation
-	new_skin->offset.make_transform(
-		Vec3(0, -1.1f, 0),
-		Vec3(1.0f, 1.0f, 1.0f),
-		Quat::identity
-	);
-
-	Animator* new_anim = ragdoll->add<Animator>();
-	Animator* old_anim = get<Animator>();
-	new_anim->armature = old_anim->armature;
-	new_anim->bones.resize(old_anim->bones.length);
-	for (s32 i = 0; i < old_anim->bones.length; i++)
-		new_anim->bones[i] = old_anim->bones[i];
-
 	Audio::post_global_event(AK::EVENTS::PLAY_HEADSHOT, head_pos());
-	World::remove_deferred(entity());
 
-	Ragdoll* r = ragdoll->add<Ragdoll>();
-	btRigidBody* head = r->get_body(Asset::Bone::character_head)->btBody;
-
-	if (killer)
+	if (Game::level.local)
 	{
-		if (killer->has<Awk>())
-			head->applyImpulse(killer->get<Awk>()->velocity * 0.1f, Vec3::zero);
-		else
-		{
-			Vec3 killer_to_head = head->getWorldTransform().getOrigin() - killer->get<Transform>()->absolute_pos();
-			killer_to_head.normalize();
-			head->applyImpulse(killer_to_head * 10.0f, Vec3::zero);
-		}
-	}
+		Entity* ragdoll = World::create<Empty>();
+		ragdoll->get<Transform>()->absolute_pos(get<Transform>()->absolute_pos());
 
-	Net::finalize(ragdoll);
+		// Apply the SkinnedModel::offset rotation to the ragdoll transform to make everything work
+		ragdoll->get<Transform>()->absolute_rot(Quat::euler(0, get<Walker>()->rotation + PI * 0.5f, 0));
+
+		SkinnedModel* new_skin = ragdoll->add<SkinnedModel>();
+		SkinnedModel* old_skin = get<SkinnedModel>();
+		new_skin->mesh = old_skin->mesh;
+		new_skin->shader = old_skin->shader;
+		new_skin->texture = old_skin->texture;
+		new_skin->color = old_skin->color;
+		new_skin->team = old_skin->team;
+		new_skin->mask = old_skin->mask;
+
+		// No rotation
+		new_skin->offset.make_transform(
+			Vec3(0, -1.1f, 0),
+			Vec3(1.0f, 1.0f, 1.0f),
+			Quat::identity
+		);
+
+		Animator* new_anim = ragdoll->add<Animator>();
+		Animator* old_anim = get<Animator>();
+		new_anim->armature = old_anim->armature;
+		new_anim->bones.resize(old_anim->bones.length);
+		for (s32 i = 0; i < old_anim->bones.length; i++)
+			new_anim->bones[i] = old_anim->bones[i];
+
+		World::remove_deferred(entity());
+
+		Ragdoll* r = ragdoll->add<Ragdoll>();
+		btRigidBody* head = r->get_body(Asset::Bone::character_head)->btBody;
+
+		if (killer)
+		{
+			if (killer->has<Awk>())
+				head->applyImpulse(killer->get<Awk>()->velocity * 0.1f, Vec3::zero);
+			else
+			{
+				Vec3 killer_to_head = head->getWorldTransform().getOrigin() - killer->get<Transform>()->absolute_pos();
+				killer_to_head.normalize();
+				head->applyImpulse(killer_to_head * 10.0f, Vec3::zero);
+			}
+		}
+
+		Net::finalize(ragdoll);
+	}
 }
 
 // Minion AI

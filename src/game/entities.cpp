@@ -1843,6 +1843,9 @@ RigidBody* rope_add(RigidBody* start, const Vec3& start_relative_pos, const Vec3
 
 			if (length > rope_interval * 0.5f)
 			{
+				if (last_segment->has<Rope>())
+					Net::finalize(last_segment->entity());
+
 				Vec3 spawn_pos = last_segment_pos + (diff / length) * rope_interval * 0.5f;
 				Entity* box = World::create<PhysicsEntity>(AssetNull, spawn_pos, rot, RigidBody::Type::CapsuleZ, Vec3(ROPE_RADIUS, ROPE_SEGMENT_LENGTH - ROPE_RADIUS * 2.0f, 0.0f), 0.05f, CollisionAwkIgnore, CollisionInaccessibleMask);
 				box->add<Rope>();
@@ -1850,20 +1853,19 @@ RigidBody* rope_add(RigidBody* start, const Vec3& start_relative_pos, const Vec3
 				static Quat rotation_a = Quat::look(Vec3(0, 0, 1)) * Quat::euler(0, PI * -0.5f, 0);
 				static Quat rotation_b = Quat::look(Vec3(0, 0, -1)) * Quat::euler(PI, PI * -0.5f, 0);
 
-				RigidBody::Constraint constraint;
+				RigidBody::Constraint constraint = RigidBody::Constraint();
 				constraint.type = constraint_type;
-				constraint.frame_a = btTransform(rotation_a, last_segment_relative_pos),
-				constraint.frame_b = btTransform(rotation_b, Vec3(0, 0, ROPE_SEGMENT_LENGTH * -0.5f));
+				constraint.frame_a = btTransform(rotation_b, Vec3(0, 0, ROPE_SEGMENT_LENGTH * -0.5f));
+				constraint.frame_b = btTransform(rotation_a, last_segment_relative_pos),
 				constraint.limits = Vec3(PI, PI, 0);
-				constraint.a = last_segment;
-				constraint.b = box->get<RigidBody>();
+				constraint.a = box->get<RigidBody>(); // this must be constraint A in order for the netcode to pick up on the constraint
+				constraint.b = last_segment;
 				RigidBody::add_constraint(constraint);
 
 				box->get<RigidBody>()->set_ccd(true);
 				box->get<RigidBody>()->set_damping(0.5f, 0.5f);
 				last_segment = box->get<RigidBody>();
 				last_segment_relative_pos = Vec3(0, 0, ROPE_SEGMENT_LENGTH * 0.5f);
-				Net::finalize(box);
 			}
 			else
 				break;
@@ -1902,13 +1904,15 @@ void Rope::end(const Vec3& pos, const Vec3& normal, RigidBody* end, r32 slack)
 	if (!last) // we didn't need to add any rope segments; just attach ourselves to the end point
 		last = start;
 
-	RigidBody::Constraint constraint;
+	RigidBody::Constraint constraint = RigidBody::Constraint();
 	constraint.type = RigidBody::Constraint::Type::PointToPoint;
 	constraint.frame_a = btTransform(Quat::identity, start_relative_pos);
 	constraint.frame_b = btTransform(Quat::identity, end->get<Transform>()->to_local(abs_pos));
 	constraint.a = last;
-	constraint.b = end;
+	constraint.b = end; // this must be constraint A in order for the netcode to pick up on the constraint
 	RigidBody::add_constraint(constraint);
+
+	Net::finalize(last->entity());
 }
 
 void Rope::spawn(const Vec3& pos, const Vec3& dir, r32 max_distance, r32 slack)

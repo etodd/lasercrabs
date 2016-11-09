@@ -63,19 +63,19 @@ void Animator::Layer::play(AssetID a)
 	}
 }
 
-void Animator::Layer::update(const Update& u, const Animator& animator)
+void Animator::Layer::update(r32 dt, r32 dt_real, const Animator& animator)
 {
 	const Animation* anim = Loader::animation(animation);
 
 	if (blend_time == 0.0f)
 		blend = 1.0f;
 	else
-		blend = vi_min(1.0f, blend + u.time.delta / blend_time);
+		blend = vi_min(1.0f, blend + dt_real / blend_time);
 
 	if (anim)
 	{
 		r32 old_time = time;
-		time += u.time.delta * speed;
+		time += dt * speed;
 
 		b8 looped = false;
 		if (time > anim->duration)
@@ -185,10 +185,17 @@ void Animator::Layer::changed_animation()
 	last_animation = animation;
 }
 
-void Animator::update(const Update& u)
+void Animator::update_server(const Update& u)
 {
 	for (s32 i = 0; i < MAX_ANIMATIONS; i++)
-		layers[i].update(u, *this);
+		layers[i].update(u.time.delta, u.time.delta, *this);
+	update_world_transforms();
+}
+
+void Animator::update_client_only(const Update& u)
+{
+	for (s32 i = 0; i < MAX_ANIMATIONS; i++)
+		layers[i].update(0.0f, u.time.delta, *this);
 	update_world_transforms();
 }
 

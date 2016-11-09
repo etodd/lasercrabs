@@ -339,9 +339,18 @@ void Game::update(const Update& update_in)
 		Physics::sync_dynamic();
 
 		for (auto i = Ragdoll::list.iterator(); !i.is_last(); i.next())
-			i.item()->update(u);
+		{
+			if (Game::level.local)
+				i.item()->update_server(u);
+			i.item()->update_client(u);
+		}
 		for (auto i = Animator::list.iterator(); !i.is_last(); i.next())
-			i.item()->update(u);
+		{
+			if (Game::level.local || !i.item()->has<MinionCommon>()) // minion animations are synced over the network
+				i.item()->update_server(u);
+			else
+				i.item()->update_client_only(u);
+		}
 
 		LerpTo<Vec3>::update_active(u);
 		Delay::update_active(u);
@@ -377,9 +386,16 @@ void Game::update(const Update& update_in)
 		if (Game::level.local)
 			MinionAI::update_all(u);
 		for (auto i = MinionCommon::list.iterator(); !i.is_last(); i.next())
-			i.item()->update(u);
-		for (auto i = Walker::list.iterator(); !i.is_last(); i.next())
-			i.item()->update(u);
+		{
+			if (Game::level.local)
+				i.item()->update_server(u);
+			i.item()->update_client(u);
+		}
+		if (Game::level.local)
+		{
+			for (auto i = Walker::list.iterator(); !i.is_last(); i.next())
+				i.item()->update(u);
+		}
 		EnergyPickup::update_all(u);
 		Sensor::update_all_client(u);
 		ContainmentField::update_all(u);
@@ -548,6 +564,8 @@ void Game::draw_alpha(const RenderParams& render_params)
 		for (auto i = RigidBody::list.iterator(); !i.is_last(); i.next())
 		{
 			RigidBody* body = i.item();
+			if (!body->btBody)
+				continue;
 			btTransform transform = body->btBody->getWorldTransform();
 
 			Vec3 radius;

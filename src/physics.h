@@ -87,19 +87,21 @@ struct RigidBody : public ComponentType<RigidBody>
 		{
 			ConeTwist,
 			PointToPoint,
+			count,
 		};
-		Type type;
+		btTypedConstraint* btPointer;
 		btTransform frame_a;
 		btTransform frame_b;
 		Vec3 limits;
+		Type type;
 		Ref<RigidBody> a;
 		Ref<RigidBody> b;
-		btTypedConstraint* btPointer;
 	};
 
 	static PinArray<Constraint, MAX_ENTITIES> global_constraints;
-	static void instantiate_constraint(Constraint*);
-	static ID add_constraint(Constraint&);
+	static void instantiate_constraint(Constraint*, ID);
+	static ID add_constraint(const Constraint&);
+	static Constraint* net_add_constraint();
 	static void remove_constraint(ID);
 
 	btCollisionShape* btShape;

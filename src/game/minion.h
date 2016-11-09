@@ -33,7 +33,8 @@ struct MinionCommon : public ComponentType<MinionCommon>
 	void hit_by(const TargetEvent& e);
 	void killed(Entity*);
 	void footstep();
-	void update(const Update&);
+	void update_server(const Update&);
+	void update_client(const Update&);
 };
 
 struct MinionAI : public ComponentType<MinionAI>

@@ -5,6 +5,7 @@
 #include "load.h"
 #include "components.h"
 #include "net.h"
+#include "game/game.h"
 
 namespace VI
 {
@@ -16,11 +17,14 @@ Ragdoll::Ragdoll()
 
 Ragdoll::~Ragdoll()
 {
-	for (s32 i = 0; i < bodies.length; i++)
+	if (Game::level.local)
 	{
-		Transform* t = bodies[i].body.ref();
-		if (t)
-			World::remove(t->entity());
+		for (s32 i = 0; i < bodies.length; i++)
+		{
+			Transform* t = bodies[i].body.ref();
+			if (t)
+				World::remove(t->entity());
+		}
 	}
 }
 
@@ -128,7 +132,7 @@ void Ragdoll::awake()
 					if (Quat::angle(a, b) > 0.1f)
 						frame_b.setRotation(frame_b.getRotation() * Quat::euler(0, 0, PI));
 
-					RigidBody::Constraint constraint;
+					RigidBody::Constraint constraint = RigidBody::Constraint();
 					constraint.type = RigidBody::Constraint::Type::ConeTwist;
 					constraint.frame_a = frame_a;
 					constraint.frame_b = frame_b;
@@ -145,7 +149,7 @@ void Ragdoll::awake()
 		Net::finalize(bodies[i].body.ref()->entity());
 }
 
-RigidBody* Ragdoll::get_body(const AssetID bone)
+RigidBody* Ragdoll::get_body(AssetID bone)
 {
 	for (s32 i = 0; i < bodies.length; i++)
 	{
@@ -162,15 +166,15 @@ RigidBody* Ragdoll::get_body(const AssetID bone)
 	return nullptr;
 }
 
-void Ragdoll::update(const Update& u)
+void Ragdoll::update_server(const Update& u)
 {
 	timer -= u.time.delta;
 	if (timer < 0.0f)
-	{
-		World::remove(entity());
-		return;
-	}
+		World::remove_deferred(entity());
+}
 
+void Ragdoll::update_client(const Update& u)
+{
 	{
 		Quat rot;
 		Vec3 pos;

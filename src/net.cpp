@@ -13,16 +13,17 @@
 #include "data/animator.h"
 #include "physics.h"
 #include "game/awk.h"
-#include "game/walker.h"
+#include "game/minion.h"
 #include "game/audio.h"
 #include "game/player.h"
 #include "data/ragdoll.h"
-#include "game/minion.h"
+#include "game/walker.h"
 #include "game/ai_player.h"
 #include "game/team.h"
 #include "game/player.h"
 #include "assimp/contrib/zlib/zlib.h"
 #include "console.h"
+#include "asset/armature.h"
 
 #define DEBUG_MSG 0
 #define DEBUG_ENTITY 0
@@ -189,6 +190,36 @@ template<typename Stream> b8 serialize_player_control(Stream* p, PlayerControlHu
 	return true;
 }
 
+template<typename Stream> b8 serialize_constraint(Stream* p, RigidBody::Constraint* c)
+{
+	serialize_enum(p, RigidBody::Constraint::Type, c->type);
+	serialize_ref(p, c->b);
+
+	Vec3 pos;
+	if (Stream::IsWriting)
+		pos = c->frame_a.getOrigin();
+	serialize_position(p, &pos, Net::Resolution::High);
+	Quat rot;
+	if (Stream::IsWriting)
+		rot = c->frame_a.getRotation();
+	serialize_quat(p, &rot, Net::Resolution::High);
+	if (Stream::IsReading)
+		c->frame_a = btTransform(rot, pos);
+
+	if (Stream::IsWriting)
+		pos = c->frame_b.getOrigin();
+	serialize_position(p, &pos, Net::Resolution::High);
+	if (Stream::IsWriting)
+		rot = c->frame_b.getRotation();
+	serialize_quat(p, &rot, Net::Resolution::High);
+	if (Stream::IsReading)
+		c->frame_b = btTransform(rot, pos);
+
+	serialize_position(p, &c->limits, Net::Resolution::Medium);
+
+	return true;
+}
+
 template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 {
 	const ComponentMask mask = Transform::component_mask
@@ -275,12 +306,49 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 		serialize_r32_range(p, r->damping.x, 0, 1.0f, 2);
 		serialize_r32_range(p, r->damping.y, 0, 1.0f, 2);
 		serialize_enum(p, RigidBody::Type, r->type);
-		serialize_r32_range(p, r->mass, 0, 1, 1);
-		serialize_r32_range(p, r->restitution, 0, 1, 4);
+		if (!transform_filter(e))
+			serialize_r32_range(p, r->mass, 0, 50.0f, 16);
+		else if (Stream::IsReading) // objects that have their transforms synced over the network appear like kinematic objects to the physics engine
+			r->mass = 0.0f;
+		serialize_r32_range(p, r->restitution, 0, 1, 8);
 		serialize_asset(p, r->mesh_id, Loader::static_mesh_count);
 		serialize_int(p, s16, r->collision_group, -32767, 32767);
 		serialize_int(p, s16, r->collision_filter, -32767, 32767);
 		serialize_bool(p, r->ccd);
+
+		if (Stream::IsWriting)
+		{
+			b8 b = false;
+			for (auto i = RigidBody::global_constraints.iterator(); !i.is_last(); i.next())
+			{
+				RigidBody::Constraint* c = i.item();
+				if (c->a.ref() == r)
+				{
+					b = true;
+					serialize_bool(p, b);
+					if (!serialize_constraint(p, c))
+						net_error();
+				}
+			}
+			b = false;
+			serialize_bool(p, b);
+		}
+		else
+		{
+			b8 has_constraint;
+			serialize_bool(p, has_constraint);
+			while (has_constraint)
+			{
+				RigidBody::Constraint* c = RigidBody::net_add_constraint();
+				c->a = r;
+				c->btPointer = nullptr;
+
+				if (!serialize_constraint(p, c))
+					net_error();
+
+				serialize_bool(p, has_constraint);
+			}
+		}
 	}
 
 	if (e->has<View>())
@@ -382,7 +450,31 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 		serialize_r32_range(p, w->support_height, 0, 10, 16);
 		serialize_r32_range(p, w->radius, 0, 10, 16);
 		serialize_r32_range(p, w->mass, 0, 10, 16);
-		serialize_r32(p, w->rotation);
+		r32 r;
+		if (Stream::IsWriting)
+			r = LMath::angle_range(w->rotation);
+		serialize_r32_range(p, r, -PI, PI, 8);
+		if (Stream::IsReading)
+			w->rotation = r;
+	}
+
+	if (e->has<Ragdoll>())
+	{
+		Ragdoll* r = e->get<Ragdoll>();
+		s32 bone_count;
+		if (Stream::IsWriting)
+			bone_count = r->bodies.length;
+		serialize_int(p, s32, bone_count, 0, MAX_BONES);
+		if (Stream::IsReading)
+			r->bodies.resize(bone_count);
+		for (s32 i = 0; i < bone_count; i++)
+		{
+			Ragdoll::BoneBody* bone = &r->bodies[i];
+			serialize_ref(p, bone->body);
+			serialize_asset(p, bone->bone, Asset::Bone::count);
+			serialize_position(p, &bone->body_to_bone_pos, Net::Resolution::Medium);
+			serialize_quat(p, &bone->body_to_bone_rot, Net::Resolution::Medium);
+		}
 	}
 
 	if (e->has<Target>())
@@ -1112,11 +1204,12 @@ template<typename Stream> b8 serialize_transform(Stream* p, TransformState* tran
 	serialize_enum(p, Resolution, transform->resolution);
 	if (!serialize_position(p, &transform->pos, transform->resolution))
 		net_error();
-	b8 quat_changed;
+
+	b8 b;
 	if (Stream::IsWriting)
-		quat_changed = !base || !equal_states_quat(*transform, *base);
-	serialize_bool(p, quat_changed);
-	if (quat_changed)
+		b = !base || !equal_states_quat(*transform, *base);
+	serialize_bool(p, b);
+	if (b)
 	{
 		if (!serialize_quat(p, &transform->rot, transform->resolution))
 			net_error();
@@ -1124,18 +1217,36 @@ template<typename Stream> b8 serialize_transform(Stream* p, TransformState* tran
 	return true;
 }
 
-template<typename Stream> b8 serialize_walker(Stream* p, WalkerState* walker)
+template<typename Stream> b8 serialize_minion(Stream* p, MinionState* state, const MinionState* base)
 {
-	r32 r;
+	b8 b;
+
 	if (Stream::IsWriting)
-		r = LMath::angle_range(walker->rotation);
-	serialize_r32_range(p, r, 0, PI * 2.0f, 8);
-	if (Stream::IsReading)
-		walker->rotation = r;
+		b = !base || fabs(state->rotation - base->rotation) > PI * 2.0f / 256.0f;
+	serialize_bool(p, b);
+	if (b)
+		serialize_r32_range(p, state->rotation, -PI, PI, 8);
+
+	if (Stream::IsWriting)
+		b = !base || state->animation != base->animation;
+	serialize_bool(p, b);
+	if (b)
+		serialize_asset(p, state->animation, Loader::animation_count);
+
+	if (Stream::IsWriting)
+		b = !base || state->attack_timer > 0.0f;
+	serialize_bool(p, b);
+	if (b)
+		serialize_r32_range(p, state->attack_timer, 0, MINION_ATTACK_TIME, 8);
+	else if (Stream::IsReading)
+		state->attack_timer = 0.0f;
+
+	serialize_r32_range(p, state->animation_time, 0, 20.0f, 11);
+
 	return true;
 }
 
-template<typename Stream> b8 serialize_player_manager(Stream* p, PlayerManagerState* state, const PlayerManagerState* old)
+template<typename Stream> b8 serialize_player_manager(Stream* p, PlayerManagerState* state, const PlayerManagerState* base)
 {
 	b8 b;
 
@@ -1143,19 +1254,19 @@ template<typename Stream> b8 serialize_player_manager(Stream* p, PlayerManagerSt
 		state->active = true;
 
 	if (Stream::IsWriting)
-		b = !old || state->spawn_timer != old->spawn_timer;
+		b = !base || state->spawn_timer != base->spawn_timer;
 	serialize_bool(p, b);
 	if (b)
 		serialize_r32_range(p, state->spawn_timer, 0, PLAYER_SPAWN_DELAY, 8);
 
 	if (Stream::IsWriting)
-		b = !old || state->state_timer != old->state_timer;
+		b = !base || state->state_timer != base->state_timer;
 	serialize_bool(p, b);
 	if (b)
 		serialize_r32_range(p, state->state_timer, 0, 10.0f, 10);
 
 	if (Stream::IsWriting)
-		b = !old || state->upgrades != old->upgrades;
+		b = !base || state->upgrades != base->upgrades;
 	serialize_bool(p, b);
 	if (b)
 		serialize_bits(p, s32, state->upgrades, s32(Upgrade::count));
@@ -1163,38 +1274,38 @@ template<typename Stream> b8 serialize_player_manager(Stream* p, PlayerManagerSt
 	for (s32 i = 0; i < MAX_ABILITIES; i++)
 	{
 		if (Stream::IsWriting)
-			b = !old || state->abilities[i] != old->abilities[i];
+			b = !base || state->abilities[i] != base->abilities[i];
 		serialize_bool(p, b);
 		if (b)
 			serialize_int(p, Ability, state->abilities[i], 0, s32(Ability::count) + 1); // necessary because Ability::None = Ability::count
 	}
 
 	if (Stream::IsWriting)
-		b = !old || state->current_upgrade != old->current_upgrade;
+		b = !base || state->current_upgrade != base->current_upgrade;
 	serialize_bool(p, b);
 	if (b)
 		serialize_int(p, Upgrade, state->current_upgrade, 0, s32(Upgrade::count) + 1); // necessary because Upgrade::None = Upgrade::count
 
 	if (Stream::IsWriting)
-		b = !old || !state->instance.equals(old->instance);
+		b = !base || !state->instance.equals(base->instance);
 	serialize_bool(p, b);
 	if (b)
 		serialize_ref(p, state->instance);
 
 	if (Stream::IsWriting)
-		b = !old || state->credits != old->credits;
+		b = !base || state->credits != base->credits;
 	serialize_bool(p, b);
 	if (b)
 		serialize_s16(p, state->credits);
 
 	if (Stream::IsWriting)
-		b = !old || state->kills != old->kills;
+		b = !base || state->kills != base->kills;
 	serialize_bool(p, b);
 	if (b)
 		serialize_s16(p, state->kills);
 
 	if (Stream::IsWriting)
-		b = !old || state->respawns != old->respawns;
+		b = !base || state->respawns != base->respawns;
 	serialize_bool(p, b);
 	if (b)
 		serialize_s16(p, state->respawns);
@@ -1255,17 +1366,24 @@ b8 equal_states_transform(const StateFrame* a, const StateFrame* b, s32 index)
 	return false;
 }
 
-b8 equal_states_walker(const StateFrame* a, const StateFrame* b, s32 index)
+b8 equal_states_minion(const StateFrame* frame_a, const StateFrame* frame_b, s32 index)
 {
-	if (a && b)
+	if (frame_a && frame_b)
 	{
-		b8 a_active = a->walkers_active.get(index);
-		b8 b_active = b->walkers_active.get(index);
+		b8 a_active = frame_a->minions_active.get(index);
+		b8 b_active = frame_b->minions_active.get(index);
+		if (!a_active && !b_active)
+			return true;
+		const MinionState& a = frame_a->minions[index];
+		const MinionState& b = frame_b->minions[index];
 		return a_active == b_active
-			&& (!b_active || fabs(a->walkers[index].rotation - b->walkers[index].rotation) < 0.001f);
+			&& fabs(a.rotation - b.rotation) < PI * 2.0f / 256.0f
+			&& fabs(a.animation_time - b.animation_time) < 0.01f
+			&& a.attack_timer == 0.0f && b.attack_timer == 0.0f
+			&& a.animation == b.animation;
 	}
 	else
-		return !a && b->walkers_active.get(index);
+		return !frame_a && frame_b->minions_active.get(index);
 }
 
 b8 equal_states_player(const PlayerManagerState& a, const PlayerManagerState& b)
@@ -1398,17 +1516,17 @@ template<typename Stream> b8 serialize_state_frame(Stream* p, StateFrame* frame,
 		}
 	}
 
-	// walkers
+	// minions
 	{
 		s32 changed_count;
 		if (Stream::IsWriting)
 		{
-			// count changed walkers
+			// count changed minions
 			changed_count = 0;
-			s32 index = vi_min(s32(frame->walkers_active.start), base ? s32(base->walkers_active.start) : MAX_ENTITIES - 1);
-			while (index < vi_max(s32(frame->walkers_active.end), base ? s32(base->walkers_active.end) : 0))
+			s32 index = vi_min(s32(frame->minions_active.start), base ? s32(base->minions_active.start) : MAX_ENTITIES - 1);
+			while (index < vi_max(s32(frame->minions_active.end), base ? s32(base->minions_active.end) : 0))
 			{
-				if (!equal_states_walker(frame, base, index))
+				if (!equal_states_minion(frame, base, index))
 					changed_count++;
 				index++;
 			}
@@ -1417,25 +1535,25 @@ template<typename Stream> b8 serialize_state_frame(Stream* p, StateFrame* frame,
 
 		s32 index;
 		if (Stream::IsWriting)
-			index = vi_min(s32(frame->walkers_active.start), base ? s32(base->walkers_active.start) : MAX_ENTITIES - 1);
+			index = vi_min(s32(frame->minions_active.start), base ? s32(base->minions_active.start) : MAX_ENTITIES - 1);
 		for (s32 i = 0; i < changed_count; i++)
 		{
 			if (Stream::IsWriting)
 			{
-				while (equal_states_walker(frame, base, index))
+				while (equal_states_minion(frame, base, index))
 					index++;
 			}
 
 			serialize_int(p, s32, index, 0, MAX_ENTITIES - 1);
 			b8 active;
 			if (Stream::IsWriting)
-				active = frame->walkers_active.get(index);
+				active = frame->minions_active.get(index);
 			serialize_bool(p, active);
 			if (Stream::IsReading)
-				frame->walkers_active.set(index, active);
+				frame->minions_active.set(index, active);
 			if (active)
 			{
-				if (!serialize_walker(p, &frame->walkers[index]))
+				if (!serialize_minion(p, &frame->minions[index], base ? &base->minions[index] : nullptr))
 					net_error();
 			}
 			index++;
@@ -1445,15 +1563,14 @@ template<typename Stream> b8 serialize_state_frame(Stream* p, StateFrame* frame,
 	return true;
 }
 
-b8 transform_filter(const Transform* t)
+b8 transform_filter(const Entity* t)
 {
 	return t->has<Awk>()
 		|| t->has<EnergyPickup>()
 		|| t->has<Projectile>()
 		|| t->has<Rocket>()
-		|| t->has<Walker>()
+		|| t->has<MinionCommon>()
 		|| t->has<Sensor>()
-		|| t->has<Rope>()
 		|| t->has<Grenade>();
 }
 
@@ -1461,8 +1578,6 @@ Resolution transform_resolution(const Transform* t)
 {
 	if (t->has<Awk>())
 		return Resolution::High;
-	if (t->has<Rope>())
-		return Resolution::Low;
 	return Resolution::Medium;
 }
 
@@ -1471,7 +1586,7 @@ void state_frame_build(StateFrame* frame)
 	frame->sequence_id = state_common.local_sequence_id;
 	for (auto i = Transform::list.iterator(); !i.is_last(); i.next())
 	{
-		if (transform_filter(i.item()))
+		if (transform_filter(i.item()->entity()))
 		{
 			frame->transforms_active.set(i.index, true);
 			TransformState* transform = &frame->transforms[i.index];
@@ -1506,11 +1621,16 @@ void state_frame_build(StateFrame* frame)
 		state->charges = i.item()->charges;
 	}
 
-	for (auto i = Walker::list.iterator(); !i.is_last(); i.next())
+	for (auto i = MinionCommon::list.iterator(); !i.is_last(); i.next())
 	{
-		frame->walkers_active.set(i.index, true);
-		WalkerState* walker = &frame->walkers[i.index];
-		walker->rotation = i.item()->rotation;
+		frame->minions_active.set(i.index, true);
+		MinionState* minion = &frame->minions[i.index];
+		minion->rotation = LMath::angle_range(i.item()->get<Walker>()->rotation);
+		minion->attack_timer = i.item()->attack_timer;
+
+		const Animator::Layer& layer = i.item()->get<Animator>()->layers[0];
+		minion->animation = layer.animation;
+		minion->animation_time = layer.time;
 	}
 }
 
@@ -1561,11 +1681,10 @@ void state_frame_interpolate(const StateFrame& a, const StateFrame& b, StateFram
 	vi_assert(timestamp >= a.timestamp);
 	r32 blend = vi_min((timestamp - a.timestamp) / (b.timestamp - a.timestamp), 1.0f);
 	result->sequence_id = b.sequence_id;
-	result->transforms_active = b.transforms_active;
-	result->walkers_active = b.walkers_active;
 
 	// transforms
 	{
+		result->transforms_active = b.transforms_active;
 		s32 index = s32(b.transforms_active.start);
 		while (index < b.transforms_active.end)
 		{
@@ -1622,18 +1741,25 @@ void state_frame_interpolate(const StateFrame& a, const StateFrame& b, StateFram
 	// awks
 	memcpy(result->awks, b.awks, sizeof(result->awks));
 
-	// walkers
+	// minions
 	{
-		s32 index = s32(b.walkers_active.start);
-		while (index < b.walkers_active.end)
+		result->minions_active = b.minions_active;
+		s32 index = s32(b.minions_active.start);
+		while (index < b.minions_active.end)
 		{
-			WalkerState* walker = &result->walkers[index];
-			const WalkerState& last = a.walkers[index];
-			const WalkerState& next = b.walkers[index];
+			MinionState* minion = &result->minions[index];
+			const MinionState& last = a.minions[index];
+			const MinionState& next = b.minions[index];
 
-			walker->rotation = LMath::lerpf(blend, last.rotation, next.rotation);
+			minion->rotation = LMath::angle_range(LMath::lerpf(blend, last.rotation, LMath::closest_angle(last.rotation, next.rotation)));
+			minion->attack_timer = LMath::lerpf(blend, last.attack_timer, next.attack_timer);
+			minion->animation = last.animation;
+			if (last.animation == next.animation)
+				minion->animation_time = LMath::lerpf(blend, last.animation_time, next.animation_time);
+			else
+				minion->animation_time = last.animation_time + blend * NET_TICK_RATE;
 
-			index = b.walkers_active.next(index);
+			index = b.minions_active.next(index);
 		}
 	}
 }
@@ -1659,6 +1785,23 @@ void state_frame_apply(const StateFrame& frame, const StateFrame& frame_last, co
 					t->pos = s.pos;
 					t->rot = s.rot;
 					t->parent = s.parent;
+
+					if (t->has<RigidBody>())
+					{
+						btRigidBody* btBody = t->get<RigidBody>()->btBody;
+						if (btBody)
+						{
+							Vec3 abs_pos;
+							Quat abs_rot;
+							transform_absolute(frame, index, &abs_pos, &abs_rot);
+							btTransform world_transform(abs_rot, abs_pos);
+							btBody->setWorldTransform(world_transform);
+							btBody->setInterpolationWorldTransform(world_transform);
+							if (frame_next && !equal_states_transform(s, frame_next->transforms[index]))
+								btBody->activate(true);
+						}
+					}
+
 					if (frame_next && t->has<Target>())
 					{
 						Vec3 abs_pos_next;
@@ -1705,17 +1848,23 @@ void state_frame_apply(const StateFrame& frame, const StateFrame& frame_last, co
 		}
 	}
 
-	// walkers
+	// minions
 	{
-		s32 index = frame.walkers_active.start;
-		while (index < frame.walkers_active.end)
+		s32 index = frame.minions_active.start;
+		while (index < frame.minions_active.end)
 		{
-			Walker* w = &Walker::list[index];
-			const WalkerState& s = frame.walkers[index];
-			if (Walker::list.active(index))
-				w->rotation = s.rotation;
+			MinionCommon* m = &MinionCommon::list[index];
+			const MinionState& s = frame.minions[index];
+			if (MinionCommon::list.active(index))
+			{
+				m->get<Walker>()->rotation = s.rotation;
+				m->attack_timer = s.attack_timer;
+				Animator::Layer* layer = &m->get<Animator>()->layers[0];
+				layer->animation = s.animation;
+				layer->time = s.animation_time;
+			}
 
-			index = frame.walkers_active.next(index);
+			index = frame.minions_active.next(index);
 		}
 	}
 }

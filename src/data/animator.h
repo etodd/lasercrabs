@@ -42,7 +42,7 @@ struct Animator : public ComponentType<Animator>
 		AssetID animation;
 		AssetID last_animation;
 		b8 loop;
-		void update(const Update&, const Animator&);
+		void update(r32, r32, const Animator&);
 		void changed_animation();
 		void play(AssetID);
 	};
@@ -75,7 +75,8 @@ struct Animator : public ComponentType<Animator>
 	StaticArray<BindEntry, MAX_BONES> bindings;
 	StaticArray<TriggerEntry, MAX_BONES> triggers;
 
-	void update(const Update&);
+	void update_server(const Update&);
+	void update_client_only(const Update&);
 	void bind(const s32, Transform*);
 	void unbind(const Transform*);
 	void update_world_transforms();

@@ -340,13 +340,13 @@ void Game::update(const Update& update_in)
 
 		for (auto i = Ragdoll::list.iterator(); !i.is_last(); i.next())
 		{
-			if (Game::level.local)
+			if (level.local)
 				i.item()->update_server(u);
 			i.item()->update_client(u);
 		}
 		for (auto i = Animator::list.iterator(); !i.is_last(); i.next())
 		{
-			if (Game::level.local || !i.item()->has<MinionCommon>()) // minion animations are synced over the network
+			if (level.local || !i.item()->has<MinionCommon>()) // minion animations are synced over the network
 				i.item()->update_server(u);
 			else
 				i.item()->update_client_only(u);
@@ -383,18 +383,13 @@ void Game::update(const Update& update_in)
 			i.item()->update(u);
 		for (auto i = PlayerTrigger::list.iterator(); !i.is_last(); i.next())
 			i.item()->update(u);
-		if (Game::level.local)
+		if (level.local)
 			MinionAI::update_all(u);
 		for (auto i = MinionCommon::list.iterator(); !i.is_last(); i.next())
 		{
-			if (Game::level.local)
+			if (level.local)
 				i.item()->update_server(u);
 			i.item()->update_client(u);
-		}
-		if (Game::level.local)
-		{
-			for (auto i = Walker::list.iterator(); !i.is_last(); i.next())
-				i.item()->update(u);
 		}
 		EnergyPickup::update_all(u);
 		Sensor::update_all_client(u);
@@ -403,10 +398,12 @@ void Game::update(const Update& update_in)
 			i.item()->update(u);
 		for (auto i = Shockwave::list.iterator(); !i.is_last(); i.next())
 			i.item()->update(u);
-		for (auto i = Projectile::list.iterator(); !i.is_last(); i.next())
-			i.item()->update(u);
 		if (level.local)
 		{
+			for (auto i = Walker::list.iterator(); !i.is_last(); i.next())
+				i.item()->update(u);
+			for (auto i = Projectile::list.iterator(); !i.is_last(); i.next())
+				i.item()->update(u);
 			for (auto i = Grenade::list.iterator(); !i.is_last(); i.next())
 				i.item()->update_server(u);
 		}

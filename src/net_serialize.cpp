@@ -178,7 +178,8 @@ StreamRead::StreamRead()
 	: scratch(),
 	scratch_bits(),
 	data(),
-	bits_read()
+	bits_read(),
+	bytes_total()
 {
 }
 
@@ -303,6 +304,7 @@ s32 StreamRead::align_bits() const
 void StreamRead::resize_bytes(s32 b)
 {
 	data.resize((b / sizeof(u32)) + (b % sizeof(u32) == 0 ? 0 : 1));
+	bytes_total = b;
 }
 
 b8 StreamRead::align()

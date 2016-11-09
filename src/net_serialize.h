@@ -81,6 +81,7 @@ struct StreamRead
 	s32 scratch_bits;
 	StaticArray<u32, NET_MAX_PACKET_SIZE / sizeof(u32)> data;
 	s32 bits_read;
+	s32 bytes_total;
 
 	StreamRead();
 	b8 read_checksum();

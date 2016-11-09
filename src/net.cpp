@@ -221,8 +221,8 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 		| PlayerHuman::component_mask
 		| PlayerManager::component_mask
 		| PlayerCommon::component_mask
-		| PlayerControlHuman::component_mask;
-	//| MinionCommon::component_mask
+		| PlayerControlHuman::component_mask
+		| MinionCommon::component_mask;
 
 	if (Stream::IsWriting)
 	{
@@ -327,6 +327,9 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 
 	if (e->has<MinionCommon>())
 	{
+		MinionCommon* m = e->get<MinionCommon>();
+		serialize_r32_range(p, m->attack_timer, 0.0f, MINION_ATTACK_TIME, 8);
+		serialize_ref(p, m->owner);
 	}
 
 	if (e->has<Health>())
@@ -782,7 +785,7 @@ void packet_decompress(StreamRead* p, s32 bytes)
 	vi_assert(result == Z_OK);
 
 	p->reset();
-	p->resize_bytes(sizeof(u32) + NET_MAX_PACKET_SIZE - z.avail_out);
+	p->resize_bytes(sizeof(u32) + (NET_MAX_PACKET_SIZE - sizeof(u32)) - z.avail_out);
 	vi_assert(p->data.length > 0);
 
 	p->data[p->data.length - 1] = 0; // make sure everything is zeroed out so the CRC32 comes out right
@@ -952,9 +955,9 @@ b8 msgs_write(StreamWrite* p, const MessageHistory& history, const Ack& remote_a
 					&& relative_sequence >= -NET_ACK_PREVIOUS_SEQUENCES
 					&& !ack_get(remote_ack, frame.sequence_id)
 					&& !sequence_history_contains_newer_than(*recently_resent, frame.sequence_id, timestamp_cutoff)
-					&& bytes + frame.write.bytes_written() <= NET_MAX_MESSAGES_SIZE)
+					&& 64 + bytes + frame.write.bytes_written() <= NET_MAX_MESSAGES_SIZE)
 				{
-					vi_debug("Resending sequence %d", s32(frame.sequence_id));
+					vi_debug("Resending seq %d: %d bytes", s32(frame.sequence_id), frame.bytes);
 					bytes += frame.write.bytes_written();
 					serialize_align(p);
 					serialize_bytes(p, (u8*)frame.write.data.data, frame.write.bytes_written());
@@ -968,7 +971,7 @@ b8 msgs_write(StreamWrite* p, const MessageHistory& history, const Ack& remote_a
 		// current frame
 		{
 			const MessageFrame& frame = history.msg_frames[history.current_index];
-			if (bytes + frame.write.bytes_written() <= NET_MAX_MESSAGES_SIZE)
+			if (64 + bytes + frame.write.bytes_written() <= NET_MAX_MESSAGES_SIZE)
 			{
 				serialize_align(p);
 				serialize_bytes(p, (u8*)frame.write.data.data, frame.write.bytes_written());
@@ -1094,13 +1097,41 @@ template<typename Stream> b8 serialize_quat(Stream* p, Quat* rot, Resolution r)
 	return true;
 }
 
-template<typename Stream> b8 serialize_transform(Stream* p, TransformState* transform)
+b8 equal_states_quat(const TransformState& a, const TransformState& b)
+{
+	r32 tolerance_rot = 0.002f;
+	if (a.resolution == Resolution::Medium || b.resolution == Resolution::Medium)
+		tolerance_rot = 0.001f;
+	if (a.resolution == Resolution::High || b.resolution == Resolution::High)
+		tolerance_rot = 0.0001f;
+	return Quat::angle(a.rot, b.rot) < tolerance_rot;
+}
+
+template<typename Stream> b8 serialize_transform(Stream* p, TransformState* transform, const TransformState* base)
 {
 	serialize_enum(p, Resolution, transform->resolution);
 	if (!serialize_position(p, &transform->pos, transform->resolution))
 		net_error();
-	if (!serialize_quat(p, &transform->rot, transform->resolution))
-		net_error();
+	b8 quat_changed;
+	if (Stream::IsWriting)
+		quat_changed = !base || !equal_states_quat(*transform, *base);
+	serialize_bool(p, quat_changed);
+	if (quat_changed)
+	{
+		if (!serialize_quat(p, &transform->rot, transform->resolution))
+			net_error();
+	}
+	return true;
+}
+
+template<typename Stream> b8 serialize_walker(Stream* p, WalkerState* walker)
+{
+	r32 r;
+	if (Stream::IsWriting)
+		r = LMath::angle_range(walker->rotation);
+	serialize_r32_range(p, r, 0, PI * 2.0f, 8);
+	if (Stream::IsReading)
+		walker->rotation = r;
 	return true;
 }
 
@@ -1189,22 +1220,15 @@ template<typename Stream> b8 serialize_awk(Stream* p, AwkState* state, const Awk
 b8 equal_states_transform(const TransformState& a, const TransformState& b)
 {
 	r32 tolerance_pos = 0.008f;
-	r32 tolerance_rot = 0.002f;
 	if (a.resolution == Resolution::Medium || b.resolution == Resolution::Medium)
-	{
 		tolerance_pos = 0.002f;
-		tolerance_rot = 0.001f;
-	}
 	if (a.resolution == Resolution::High || b.resolution == Resolution::High)
-	{
 		tolerance_pos = 0.001f;
-		tolerance_rot = 0.0001f;
-	}
 
 	if (a.revision == b.revision
 		&& a.resolution == b.resolution
 		&& a.parent.equals(b.parent)
-		&& Quat::angle(a.rot, b.rot) < tolerance_rot)
+		&& equal_states_quat(a, b))
 	{
 		return s32(a.pos.x / tolerance_pos) == s32(b.pos.x / tolerance_pos)
 			&& s32(a.pos.y / tolerance_pos) == s32(b.pos.y / tolerance_pos)
@@ -1229,6 +1253,19 @@ b8 equal_states_transform(const StateFrame* a, const StateFrame* b, s32 index)
 		}
 	}
 	return false;
+}
+
+b8 equal_states_walker(const StateFrame* a, const StateFrame* b, s32 index)
+{
+	if (a && b)
+	{
+		b8 a_active = a->walkers_active.get(index);
+		b8 b_active = b->walkers_active.get(index);
+		return a_active == b_active
+			&& (!b_active || fabs(a->walkers[index].rotation - b->walkers[index].rotation) < 0.001f);
+	}
+	else
+		return !a && b->walkers_active.get(index);
 }
 
 b8 equal_states_player(const PlayerManagerState& a, const PlayerManagerState& b)
@@ -1272,61 +1309,64 @@ template<typename Stream> b8 serialize_state_frame(Stream* p, StateFrame* frame,
 		frame->sequence_id = sequence_id;
 	}
 
-	s32 changed_count;
-	if (Stream::IsWriting)
+	// transforms
 	{
-		// count changed transforms
-		changed_count = 0;
-		s32 index = s32(frame->transforms_active.start);
-		while (index < frame->transforms_active.end)
+		s32 changed_count;
+		if (Stream::IsWriting)
 		{
-			if (!equal_states_transform(frame, base, index))
-				changed_count++;
+			// count changed transforms
+			changed_count = 0;
+			s32 index = vi_min(s32(frame->transforms_active.start), base ? s32(base->transforms_active.start) : MAX_ENTITIES - 1);
+			while (index < vi_max(s32(frame->transforms_active.end), base ? s32(base->transforms_active.end) : 0))
+			{
+				if (!equal_states_transform(frame, base, index))
+					changed_count++;
+				index++;
+			}
+		}
+		serialize_int(p, s32, changed_count, 0, MAX_ENTITIES);
+
+		s32 index;
+		if (Stream::IsWriting)
+			index = vi_min(s32(frame->transforms_active.start), base ? s32(base->transforms_active.start) : MAX_ENTITIES - 1);
+		for (s32 i = 0; i < changed_count; i++)
+		{
+			if (Stream::IsWriting)
+			{
+				while (equal_states_transform(frame, base, index))
+					index++;
+			}
+
+			serialize_int(p, s32, index, 0, MAX_ENTITIES - 1);
+			b8 active;
+			if (Stream::IsWriting)
+				active = frame->transforms_active.get(index);
+			serialize_bool(p, active);
+			if (Stream::IsReading)
+				frame->transforms_active.set(index, active);
+			if (active)
+			{
+				b8 revision_changed;
+				if (Stream::IsWriting)
+					revision_changed = !base || frame->transforms[index].revision != base->transforms[index].revision;
+				serialize_bool(p, revision_changed);
+				if (revision_changed)
+					serialize_s16(p, frame->transforms[index].revision);
+				b8 parent_changed;
+				if (Stream::IsWriting)
+					parent_changed = !base || !frame->transforms[index].parent.equals(base->transforms[index].parent);
+				serialize_bool(p, parent_changed);
+				if (parent_changed)
+					serialize_ref(p, frame->transforms[index].parent);
+				if (!serialize_transform(p, &frame->transforms[index], base ? &base->transforms[index] : nullptr))
+					net_error();
+			}
 			index++;
 		}
-	}
-	serialize_int(p, s32, changed_count, 0, MAX_ENTITIES - 1);
-
-	s32 index;
-	if (Stream::IsWriting)
-		index = s32(frame->transforms_active.start);
-	for (s32 i = 0; i < changed_count; i++)
-	{
-		if (Stream::IsWriting)
-		{
-			while (equal_states_transform(frame, base, index))
-				index++;
-		}
-
-		serialize_int(p, s32, index, 0, MAX_ENTITIES - 1);
-		b8 active;
-		if (Stream::IsWriting)
-			active = frame->transforms_active.get(index);
-		serialize_bool(p, active);
-		if (Stream::IsReading)
-			frame->transforms_active.set(index, active);
-		if (active)
-		{
-			b8 revision_changed;
-			if (Stream::IsWriting)
-				revision_changed = !base || frame->transforms[index].revision != base->transforms[index].revision;
-			serialize_bool(p, revision_changed);
-			if (revision_changed)
-				serialize_s16(p, frame->transforms[index].revision);
-			b8 parent_changed;
-			if (Stream::IsWriting)
-				parent_changed = !base || !frame->transforms[index].parent.equals(base->transforms[index].parent);
-			serialize_bool(p, parent_changed);
-			if (parent_changed)
-				serialize_ref(p, frame->transforms[index].parent);
-			if (!serialize_transform(p, &frame->transforms[index]))
-				net_error();
-		}
-		index++;
-	}
 #if DEBUG_TRANSFORMS
-	vi_debug("Wrote %d transforms", changed_count);
+		vi_debug("Wrote %d transforms", changed_count);
 #endif
+	}
 
 	// players
 	for (s32 i = 0; i < MAX_PLAYERS; i++)
@@ -1343,7 +1383,7 @@ template<typename Stream> b8 serialize_state_frame(Stream* p, StateFrame* frame,
 		}
 	}
 
-	// Awks
+	// awks
 	for (s32 i = 0; i < MAX_PLAYERS; i++)
 	{
 		AwkState* state = &frame->awks[i];
@@ -1355,6 +1395,50 @@ template<typename Stream> b8 serialize_state_frame(Stream* p, StateFrame* frame,
 		{
 			if (!serialize_awk(p, state, base ? &base->awks[i] : nullptr))
 				net_error();
+		}
+	}
+
+	// walkers
+	{
+		s32 changed_count;
+		if (Stream::IsWriting)
+		{
+			// count changed walkers
+			changed_count = 0;
+			s32 index = vi_min(s32(frame->walkers_active.start), base ? s32(base->walkers_active.start) : MAX_ENTITIES - 1);
+			while (index < vi_max(s32(frame->walkers_active.end), base ? s32(base->walkers_active.end) : 0))
+			{
+				if (!equal_states_walker(frame, base, index))
+					changed_count++;
+				index++;
+			}
+		}
+		serialize_int(p, s32, changed_count, 0, MAX_ENTITIES);
+
+		s32 index;
+		if (Stream::IsWriting)
+			index = vi_min(s32(frame->walkers_active.start), base ? s32(base->walkers_active.start) : MAX_ENTITIES - 1);
+		for (s32 i = 0; i < changed_count; i++)
+		{
+			if (Stream::IsWriting)
+			{
+				while (equal_states_walker(frame, base, index))
+					index++;
+			}
+
+			serialize_int(p, s32, index, 0, MAX_ENTITIES - 1);
+			b8 active;
+			if (Stream::IsWriting)
+				active = frame->walkers_active.get(index);
+			serialize_bool(p, active);
+			if (Stream::IsReading)
+				frame->walkers_active.set(index, active);
+			if (active)
+			{
+				if (!serialize_walker(p, &frame->walkers[index]))
+					net_error();
+			}
+			index++;
 		}
 	}
 
@@ -1421,6 +1505,13 @@ void state_frame_build(StateFrame* frame)
 		state->active = true;
 		state->charges = i.item()->charges;
 	}
+
+	for (auto i = Walker::list.iterator(); !i.is_last(); i.next())
+	{
+		frame->walkers_active.set(i.index, true);
+		WalkerState* walker = &frame->walkers[i.index];
+		walker->rotation = i.item()->rotation;
+	}
 }
 
 // get the absolute pos and rot of the given transform
@@ -1471,6 +1562,7 @@ void state_frame_interpolate(const StateFrame& a, const StateFrame& b, StateFram
 	r32 blend = vi_min((timestamp - a.timestamp) / (b.timestamp - a.timestamp), 1.0f);
 	result->sequence_id = b.sequence_id;
 	result->transforms_active = b.transforms_active;
+	result->walkers_active = b.walkers_active;
 
 	// transforms
 	{
@@ -1529,41 +1621,58 @@ void state_frame_interpolate(const StateFrame& a, const StateFrame& b, StateFram
 
 	// awks
 	memcpy(result->awks, b.awks, sizeof(result->awks));
+
+	// walkers
+	{
+		s32 index = s32(b.walkers_active.start);
+		while (index < b.walkers_active.end)
+		{
+			WalkerState* walker = &result->walkers[index];
+			const WalkerState& last = a.walkers[index];
+			const WalkerState& next = b.walkers[index];
+
+			walker->rotation = LMath::lerpf(blend, last.rotation, next.rotation);
+
+			index = b.walkers_active.next(index);
+		}
+	}
 }
 
 void state_frame_apply(const StateFrame& frame, const StateFrame& frame_last, const StateFrame* frame_next)
 {
 	// transforms
-	s32 index = frame.transforms_active.start;
-	while (index < frame.transforms_active.end)
 	{
-		Transform* t = &Transform::list[index];
-		const TransformState& s = frame.transforms[index];
-		if (t->revision == s.revision && Transform::list.active(index))
+		s32 index = frame.transforms_active.start;
+		while (index < frame.transforms_active.end)
 		{
-			if (t->has<PlayerControlHuman>() && t->get<PlayerControlHuman>()->player.ref()->local)
+			Transform* t = &Transform::list[index];
+			const TransformState& s = frame.transforms[index];
+			if (t->revision == s.revision && Transform::list.active(index))
 			{
-				// this is a local player; we don't want to immediately overwrite its position with the server's data
-				// let the PlayerControlHuman deal with it
-			}
-			else
-			{
-				t->pos = s.pos;
-				t->rot = s.rot;
-				t->parent = s.parent;
-				if (frame_next && t->has<Target>())
+				if (t->has<PlayerControlHuman>() && t->get<PlayerControlHuman>()->player.ref()->local)
 				{
-					Vec3 abs_pos_next;
-					Vec3 abs_pos_last;
-					transform_absolute(frame_last, index, &abs_pos_last);
-					transform_absolute(*frame_next, index, &abs_pos_next);
-					Target* target = t->get<Target>();
-					target->net_velocity = target->net_velocity * 0.9f + ((abs_pos_next - abs_pos_last) / NET_TICK_RATE) * 0.1f;
+					// this is a local player; we don't want to immediately overwrite its position with the server's data
+					// let the PlayerControlHuman deal with it
+				}
+				else
+				{
+					t->pos = s.pos;
+					t->rot = s.rot;
+					t->parent = s.parent;
+					if (frame_next && t->has<Target>())
+					{
+						Vec3 abs_pos_next;
+						Vec3 abs_pos_last;
+						transform_absolute(frame_last, index, &abs_pos_last);
+						transform_absolute(*frame_next, index, &abs_pos_next);
+						Target* target = t->get<Target>();
+						target->net_velocity = target->net_velocity * 0.9f + ((abs_pos_next - abs_pos_last) / NET_TICK_RATE) * 0.1f;
+					}
 				}
 			}
-		}
 
-		index = frame.transforms_active.next(index);
+			index = frame.transforms_active.next(index);
+		}
 	}
 
 	// players
@@ -1585,7 +1694,7 @@ void state_frame_apply(const StateFrame& frame, const StateFrame& frame_last, co
 		}
 	}
 
-	// Awks
+	// awks
 	for (s32 i = 0; i < MAX_PLAYERS; i++)
 	{
 		const AwkState& state = frame.awks[i];
@@ -1593,6 +1702,20 @@ void state_frame_apply(const StateFrame& frame, const StateFrame& frame_last, co
 		{
 			Awk* a = &Awk::list[i];
 			a->charges = state.charges;
+		}
+	}
+
+	// walkers
+	{
+		s32 index = frame.walkers_active.start;
+		while (index < frame.walkers_active.end)
+		{
+			Walker* w = &Walker::list[index];
+			const WalkerState& s = frame.walkers[index];
+			if (Walker::list.active(index))
+				w->rotation = s.rotation;
+
+			index = frame.walkers_active.next(index);
 		}
 	}
 }
@@ -2420,7 +2543,7 @@ b8 packet_handle(const Update& u, StreamRead* p, const Sock::Address& address)
 
 			calculate_rtt(state_common.timestamp, state_client.server_ack, state_common.msgs_out_history, &state_client.server_rtt);
 
-			if (p->bytes_read() < p->data.length * sizeof(u32)) // server doesn't always send state frames
+			if (p->bytes_read() < p->bytes_total) // server doesn't always send state frames
 			{
 				SequenceID base_sequence_id;
 				serialize_int(p, SequenceID, base_sequence_id, 0, NET_SEQUENCE_COUNT - 1);

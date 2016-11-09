@@ -61,6 +61,11 @@ struct TransformState
 	Revision revision;
 };
 
+struct WalkerState
+{
+	r32 rotation;
+};
+
 struct PlayerManagerState
 {
 	r32 spawn_timer;
@@ -85,8 +90,10 @@ struct StateFrame
 {
 	TransformState transforms[MAX_ENTITIES];
 	PlayerManagerState players[MAX_PLAYERS];
+	WalkerState walkers[MAX_ENTITIES];
 	r32 timestamp;
 	Bitmask<MAX_ENTITIES> transforms_active;
+	Bitmask<MAX_ENTITIES> walkers_active;
 	AwkState awks[MAX_PLAYERS];
 	SequenceID sequence_id;
 };

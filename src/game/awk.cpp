@@ -132,6 +132,7 @@ b8 ability_spawn(Awk* a, Vec3 dir, Ability ability)
 	serialize_r32_range(p, dir.x, -1.0f, 1.0f, 16);
 	serialize_r32_range(p, dir.y, -1.0f, 1.0f, 16);
 	serialize_r32_range(p, dir.z, -1.0f, 1.0f, 16);
+	serialize_enum(p, Ability, ability);
 	Net::msg_finalize(p);
 	return true;
 }
@@ -413,12 +414,12 @@ b8 Awk::net_msg(Net::StreamRead* p, Net::MessageSource src)
 					// place a proximity sensor
 					if (Game::level.local)
 					{
-						Entity* sensor = World::create<SensorEntity>(manager->team.ref()->team(), pos + rot * Vec3(0, 0, (ROPE_SEGMENT_LENGTH * 2.0f) - ROPE_RADIUS + SENSOR_RADIUS), rot);
+						Entity* sensor = World::create<SensorEntity>(manager->team.ref()->team(), pos + rot * Vec3(0, 0, ROPE_SEGMENT_LENGTH - ROPE_RADIUS + SENSOR_RADIUS), rot);
 						Net::finalize(sensor);
 
 						// attach it to the wall
 						Rope* rope = Rope::start(parent, pos, rot * Vec3(0, 0, 1), rot);
-						rope->end(pos + rot * Vec3(0, 0, ROPE_SEGMENT_LENGTH * 2.0f), rot * Vec3(0, 0, -1), sensor->get<RigidBody>());
+						rope->end(pos + rot * Vec3(0, 0, ROPE_SEGMENT_LENGTH), rot * Vec3(0, 0, -1), sensor->get<RigidBody>());
 					}
 
 					Audio::post_global_event(AK::EVENTS::PLAY_SENSOR_SPAWN, pos);

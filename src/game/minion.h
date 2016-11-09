@@ -24,8 +24,8 @@ struct MinionCommon : public ComponentType<MinionCommon>
 	static MinionCommon* closest(AI::TeamMask, const Vec3&, r32* = nullptr);
 	static s32 count(AI::TeamMask);
 
-	Ref<PlayerManager> owner;
 	r32 attack_timer;
+	Ref<PlayerManager> owner;
 
 	void awake();
 	Vec3 head_pos();

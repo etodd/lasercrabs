@@ -288,10 +288,17 @@ struct Message
 template<typename Stream> b8 serialize_msg(Stream* p, Message* msg)
 {
 	serialize_enum(p, Message::Type, msg->type);
-	serialize_position(p, &msg->pos, Net::Resolution::High);
-	serialize_r32_range(p, msg->dir.x, -1.0f, 1.0f, 16);
-	serialize_r32_range(p, msg->dir.y, -1.0f, 1.0f, 16);
-	serialize_r32_range(p, msg->dir.z, -1.0f, 1.0f, 16);
+
+	// position/dir
+	if (msg->type != Message::Type::UpgradeStart)
+	{
+		serialize_position(p, &msg->pos, Net::Resolution::High);
+		serialize_r32_range(p, msg->dir.x, -1.0f, 1.0f, 16);
+		serialize_r32_range(p, msg->dir.y, -1.0f, 1.0f, 16);
+		serialize_r32_range(p, msg->dir.z, -1.0f, 1.0f, 16);
+	}
+
+	// ability
 	if (msg->type == Message::Type::Go)
 	{
 		b8 has_ability;
@@ -306,6 +313,7 @@ template<typename Stream> b8 serialize_msg(Stream* p, Message* msg)
 	else if (Stream::IsReading)
 		msg->ability = Ability::None;
 
+	// upgrade
 	if (msg->type == Message::Type::UpgradeStart)
 		serialize_enum(p, Upgrade, msg->upgrade);
 	else if (Stream::IsReading)
@@ -1352,7 +1360,7 @@ b8 PlayerControlHuman::net_msg(Net::StreamRead* p, PlayerControlHuman* c, Net::M
 	}
 
 	if (src == Net::MessageSource::Invalid // message is from a client who doesn't actually own this player
-		|| msg.dir.length_squared() == 0.0f
+		|| (msg.type != PlayerControlHumanNet::Message::Type::UpgradeStart && msg.dir.length_squared() == 0.0f)
 		|| (msg.ability != Ability::None && !c->player.ref()->get<PlayerManager>()->has_upgrade(Upgrade(msg.ability)))
 		|| (msg.ability != Ability::None && msg.type != PlayerControlHumanNet::Message::Type::Go))
 	{

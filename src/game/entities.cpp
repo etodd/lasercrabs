@@ -1160,7 +1160,7 @@ void ContainmentField::update_all(const Update& u)
 	for (auto i = list.iterator(); !i.is_last(); i.next())
 	{
 		i.item()->remaining_lifetime -= u.time.delta * (i.item()->powered ? 0.25f : 1.0f);
-		if (i.item()->remaining_lifetime < 0.0f)
+		if (Game::level.local && i.item()->remaining_lifetime < 0.0f)
 			i.item()->destroy();
 	}
 }

@@ -220,6 +220,17 @@ template<typename Stream> b8 serialize_constraint(Stream* p, RigidBody::Constrai
 	return true;
 }
 
+b8 transform_filter(const Entity* t)
+{
+	return t->has<Awk>()
+		|| t->has<EnergyPickup>()
+		|| t->has<Projectile>()
+		|| t->has<Rocket>()
+		|| t->has<MinionCommon>()
+		|| t->has<Sensor>()
+		|| t->has<Grenade>();
+}
+
 template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 {
 	const ComponentMask mask = Transform::component_mask
@@ -1584,17 +1595,6 @@ template<typename Stream> b8 serialize_state_frame(Stream* p, StateFrame* frame,
 	}
 
 	return true;
-}
-
-b8 transform_filter(const Entity* t)
-{
-	return t->has<Awk>()
-		|| t->has<EnergyPickup>()
-		|| t->has<Projectile>()
-		|| t->has<Rocket>()
-		|| t->has<MinionCommon>()
-		|| t->has<Sensor>()
-		|| t->has<Grenade>();
 }
 
 Resolution transform_resolution(const Transform* t)

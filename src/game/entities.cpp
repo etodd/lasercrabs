@@ -842,7 +842,6 @@ Rocket* Rocket::closest(AI::TeamMask mask, const Vec3& pos, r32* distance)
 Rocket::Rocket()
 	: target(),
 	owner(),
-	particle_accumulator(),
 	remaining_lifetime(15.0f)
 {
 }
@@ -862,7 +861,7 @@ void Rocket::explode()
 	World::remove_deferred(entity());
 }
 
-void Rocket::update(const Update& u)
+void Rocket::update_server(const Update& u)
 {
 	if (!get<Transform>()->parent.ref())
 	{
@@ -947,22 +946,30 @@ void Rocket::update(const Update& u)
 				return;
 			}
 		}
+		else // keep flying
+			get<Transform>()->pos = next_pos;
+	}
+}
 
-		// keep flying
+r32 Rocket::particle_accumulator;
+void Rocket::update_client_all(const Update& u)
+{
+	particle_accumulator += u.time.delta;
+	const r32 interval = 0.07f;
+	if (particle_accumulator > interval)
+	{
+		particle_accumulator = fmod(particle_accumulator, interval);
+		for (auto i = list.iterator(); !i.is_last(); i.next())
 		{
-			particle_accumulator += u.time.delta;
-			const r32 interval = 0.07f;
-			while (particle_accumulator > interval)
+			if (!i.item()->get<Transform>()->parent.ref())
 			{
-				particle_accumulator -= interval;
 				Particles::tracers.add
 				(
-					get<Transform>()->pos + velocity * particle_accumulator,
+					i.item()->get<Transform>()->pos,
 					Vec3::zero,
 					0
 				);
 			}
-			get<Transform>()->pos = next_pos;
 		}
 	}
 }

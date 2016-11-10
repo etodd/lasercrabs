@@ -416,7 +416,6 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 		MinionCommon* m = e->get<MinionCommon>();
 		serialize_r32_range(p, m->attack_timer, 0.0f, MINION_ATTACK_TIME, 8);
 		serialize_ref(p, m->owner);
-		Quat rot = e->get<Transform>()->rot;
 	}
 
 	if (e->has<Health>())
@@ -1645,7 +1644,6 @@ void state_frame_build(StateFrame* frame)
 		vi_assert(i.index < MAX_PLAYERS);
 		AwkState* state = &frame->awks[i.index];
 		state->revision = i.item()->revision;
-		state->hp = i.item()->get<Health>()->total();
 		state->active = true;
 		state->charges = i.item()->charges;
 	}
@@ -1769,7 +1767,7 @@ void state_frame_interpolate(const StateFrame& a, const StateFrame& b, StateFram
 	}
 
 	// awks
-	memcpy(result->awks, b.awks, sizeof(result->awks));
+	memcpy(result->awks, a.awks, sizeof(result->awks));
 
 	// minions
 	{

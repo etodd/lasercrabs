@@ -86,7 +86,6 @@ struct PlayerManagerState
 struct AwkState
 {
 	Revision revision; // not synced over network; only stored on server
-	s8 hp; // not synced over network; only stored on server
 	s8 charges;
 	b8 active;
 };

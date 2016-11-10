@@ -152,13 +152,14 @@ struct Sensor : public ComponentType<Sensor>
 
 struct Rocket : public ComponentType<Rocket>
 {
-	r32 particle_accumulator;
+	static r32 particle_accumulator;
 	r32 remaining_lifetime;
 	Ref<Entity> target;
 	Ref<PlayerManager> owner;
 
 	static Rocket* inbound(Entity*);
 	static Rocket* closest(AI::TeamMask, const Vec3&, r32* = nullptr);
+	static void update_client_all(const Update&);
 
 	Rocket();
 	void awake();
@@ -166,7 +167,7 @@ struct Rocket : public ComponentType<Rocket>
 	void explode();
 	AI::Team team() const;
 	void killed(Entity*);
-	void update(const Update&);
+	void update_server(const Update&);
 	void launch(Entity*);
 };
 

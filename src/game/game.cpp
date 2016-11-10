@@ -406,10 +406,11 @@ void Game::update(const Update& update_in)
 				i.item()->update(u);
 			for (auto i = Grenade::list.iterator(); !i.is_last(); i.next())
 				i.item()->update_server(u);
+			for (auto i = Rocket::list.iterator(); !i.is_last(); i.next())
+				i.item()->update_server(u);
 		}
 		Grenade::update_client_all(u);
-		for (auto i = Rocket::list.iterator(); !i.is_last(); i.next())
-			i.item()->update(u);
+		Rocket::update_client_all(u);
 		for (auto i = Parkour::list.iterator(); !i.is_last(); i.next())
 			i.item()->update(u);
 		for (auto i = PlayerCommon::list.iterator(); !i.is_last(); i.next())

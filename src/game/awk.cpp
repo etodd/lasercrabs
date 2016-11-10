@@ -36,7 +36,7 @@ namespace VI
 #define AWK_OVERSHIELD_ALPHA 0.75f
 #define AWK_OVERSHIELD_RADIUS (AWK_SHIELD_RADIUS * 1.1f)
 #define AWK_SHIELD_ANIM_TIME 0.35f
-#define AWK_REFLECTION_TIME_TOLERANCE 0.2f
+#define AWK_REFLECTION_TIME_TOLERANCE 0.1f
 
 AwkRaycastCallback::AwkRaycastCallback(const Vec3& a, const Vec3& b, const Entity* awk)
 	: btCollisionWorld::ClosestRayResultCallback(a, b)

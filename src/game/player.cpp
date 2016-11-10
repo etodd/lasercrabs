@@ -76,9 +76,9 @@ void camera_setup_awk(Entity* e, Camera* camera, r32 offset)
 	Vec3 abs_wall_normal;
 	if (e->get<Transform>()->parent.ref())
 	{
+		abs_wall_normal = awk_rot * Vec3(0, 0, 1);
 		camera->pos += abs_wall_normal * 0.5f;
 		camera->pos.y += 0.5f - vi_min((r32)fabs(abs_wall_normal.y), 0.5f);
-		abs_wall_normal = awk_rot * Vec3(0, 0, 1);
 	}
 	else
 		abs_wall_normal = camera->rot * Vec3(0, 0, 1);
@@ -1988,7 +1988,8 @@ void PlayerControlHuman::update(const Update& u)
 			// reticle
 			{
 				Vec3 trace_dir = camera->rot * Vec3(0, 0, 1);
-				Vec3 trace_start = camera->pos + trace_dir * AWK_THIRD_PERSON_OFFSET;
+				Vec3 me = get<Transform>()->absolute_pos();
+				Vec3 trace_start = camera->pos + trace_dir * trace_dir.dot(me - camera->pos);
 
 				reticle.type = ReticleType::None;
 
@@ -1997,8 +1998,6 @@ void PlayerControlHuman::update(const Update& u)
 					Vec3 trace_end = trace_start + trace_dir * (AWK_SNIPE_DISTANCE + AWK_THIRD_PERSON_OFFSET);
 					RaycastCallbackExcept ray_callback(trace_start, trace_end, entity());
 					Physics::raycast(&ray_callback, ~CollisionAwkIgnore & ~get<Awk>()->ally_containment_field_mask());
-
-					Vec3 me = get<Transform>()->absolute_pos();
 
 					Ability ability = get<Awk>()->current_ability;
 

@@ -293,7 +293,14 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 	{
 		Transform* t = e->get<Transform>();
 		serialize_position(p, &t->pos, Resolution::High);
-		serialize_quat(p, &t->rot, Resolution::High);
+		b8 is_identity_quat;
+		if (Stream::IsWriting)
+			is_identity_quat = Quat::angle(t->rot, Quat::identity) == 0.0f;
+		serialize_bool(p, is_identity_quat);
+		if (!is_identity_quat)
+			serialize_quat(p, &t->rot, Resolution::High);
+		else if (Stream::IsReading)
+			t->rot = Quat::identity;
 		serialize_ref(p, t->parent);
 	}
 
@@ -398,6 +405,7 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 		MinionCommon* m = e->get<MinionCommon>();
 		serialize_r32_range(p, m->attack_timer, 0.0f, MINION_ATTACK_TIME, 8);
 		serialize_ref(p, m->owner);
+		Quat rot = e->get<Transform>()->rot;
 	}
 
 	if (e->has<Health>())
@@ -1047,7 +1055,7 @@ b8 msgs_write(StreamWrite* p, const MessageHistory& history, const Ack& remote_a
 					&& relative_sequence >= -NET_ACK_PREVIOUS_SEQUENCES
 					&& !ack_get(remote_ack, frame.sequence_id)
 					&& !sequence_history_contains_newer_than(*recently_resent, frame.sequence_id, timestamp_cutoff)
-					&& 64 + bytes + frame.write.bytes_written() <= NET_MAX_MESSAGES_SIZE)
+					&& 32 + bytes + frame.write.bytes_written() <= NET_MAX_MESSAGES_SIZE)
 				{
 					vi_debug("Resending seq %d: %d bytes", s32(frame.sequence_id), frame.bytes);
 					bytes += frame.write.bytes_written();
@@ -1057,14 +1065,20 @@ b8 msgs_write(StreamWrite* p, const MessageHistory& history, const Ack& remote_a
 				}
 
 				index = index < history.msg_frames.length - 1 ? index + 1 : 0;
+				if (index == history.current_index)
+					break;
 			}
 		}
 
 		// current frame
 		{
 			const MessageFrame& frame = history.msg_frames[history.current_index];
-			if (64 + bytes + frame.write.bytes_written() <= NET_MAX_MESSAGES_SIZE)
+			if (32 + bytes + frame.write.bytes_written() <= NET_MAX_MESSAGES_SIZE)
 			{
+#if DEBUG_MSG
+				if (frame.bytes > 1)
+					vi_debug("Sending seq %d: %d bytes", s32(frame.sequence_id), s32(frame.bytes));
+#endif
 				serialize_align(p);
 				serialize_bytes(p, (u8*)frame.write.data.data, frame.write.bytes_written());
 			}
@@ -1074,6 +1088,44 @@ b8 msgs_write(StreamWrite* p, const MessageHistory& history, const Ack& remote_a
 	serialize_align(p);
 	bytes = 0;
 	serialize_int(p, s32, bytes, 0, NET_MAX_MESSAGES_SIZE); // zero sized frame marks end of message frames
+
+	return true;
+}
+
+b8 msgs_read(StreamRead* p, MessageHistory* history, Ack* ack, SequenceID* received_sequence)
+{
+	using Stream = StreamRead;
+
+	Ack ack_candidate;
+	serialize_int(p, SequenceID, ack_candidate.sequence_id, 0, NET_SEQUENCE_COUNT - 1);
+	serialize_u64(p, ack_candidate.previous_sequences);
+	if (sequence_more_recent(ack_candidate.sequence_id, ack->sequence_id))
+		*ack = ack_candidate;
+
+	b8 first_frame = true;
+	while (true)
+	{
+		serialize_align(p);
+		s32 bytes;
+		serialize_int(p, s32, bytes, 0, NET_MAX_MESSAGES_SIZE);
+		if (bytes)
+		{
+			MessageFrame* frame = msg_history_add(history, state_common.timestamp, bytes);
+			serialize_int(p, SequenceID, frame->sequence_id, 0, NET_SEQUENCE_COUNT - 1);
+#if DEBUG_MSG
+			if (bytes > 1)
+				vi_debug("Received seq %d: %d bytes", s32(frame->sequence_id), s32(bytes));
+#endif
+			if (received_sequence && (first_frame || frame->sequence_id > *received_sequence))
+				*received_sequence = frame->sequence_id;
+			frame->read.resize_bytes(bytes);
+			serialize_bytes(p, (u8*)frame->read.data.data, bytes);
+			serialize_align(p);
+			first_frame = false;
+		}
+		else
+			break;
+	}
 
 	return true;
 }
@@ -1101,40 +1153,6 @@ void calculate_rtt(r32 timestamp, const Ack& ack, const MessageHistory& send_his
 		*rtt = new_rtt;
 	else
 		*rtt = (*rtt * 0.95f) + (new_rtt * 0.05f);
-}
-
-b8 msgs_read(StreamRead* p, MessageHistory* history, Ack* ack, SequenceID* received_sequence)
-{
-	using Stream = StreamRead;
-
-	Ack ack_candidate;
-	serialize_int(p, SequenceID, ack_candidate.sequence_id, 0, NET_SEQUENCE_COUNT - 1);
-	serialize_u64(p, ack_candidate.previous_sequences);
-	if (sequence_more_recent(ack_candidate.sequence_id, ack->sequence_id))
-		*ack = ack_candidate;
-
-	b8 first_frame = true;
-	while (true)
-	{
-		serialize_align(p);
-		s32 bytes;
-		serialize_int(p, s32, bytes, 0, NET_MAX_MESSAGES_SIZE);
-		if (bytes)
-		{
-			MessageFrame* frame = msg_history_add(history, state_common.timestamp, bytes);
-			serialize_int(p, SequenceID, frame->sequence_id, 0, NET_SEQUENCE_COUNT - 1);
-			if (received_sequence && (first_frame || frame->sequence_id > *received_sequence))
-				*received_sequence = frame->sequence_id;
-			frame->read.resize_bytes(bytes);
-			serialize_bytes(p, (u8*)frame->read.data.data, bytes);
-			serialize_align(p);
-			first_frame = false;
-		}
-		else
-			break;
-	}
-
-	return true;
 }
 
 template<typename Stream> b8 serialize_quat(Stream* p, Quat* rot, Resolution r)
@@ -1411,7 +1429,8 @@ b8 equal_states_player(const PlayerManagerState& a, const PlayerManagerState& b)
 
 b8 equal_states_awk(const AwkState& a, const AwkState& b)
 {
-	return a.active == b.active
+	return a.revision == b.revision
+		&& a.active == b.active
 		&& a.charges == b.charges;
 }
 
@@ -1456,12 +1475,14 @@ template<typename Stream> b8 serialize_state_frame(Stream* p, StateFrame* frame,
 			}
 
 			serialize_int(p, s32, index, 0, MAX_ENTITIES - 1);
+
 			b8 active;
 			if (Stream::IsWriting)
 				active = frame->transforms_active.get(index);
 			serialize_bool(p, active);
 			if (Stream::IsReading)
 				frame->transforms_active.set(index, active);
+
 			if (active)
 			{
 				b8 revision_changed;
@@ -1472,14 +1493,16 @@ template<typename Stream> b8 serialize_state_frame(Stream* p, StateFrame* frame,
 					serialize_s16(p, frame->transforms[index].revision);
 				b8 parent_changed;
 				if (Stream::IsWriting)
-					parent_changed = !base || !frame->transforms[index].parent.equals(base->transforms[index].parent);
+					parent_changed = revision_changed || !base || !frame->transforms[index].parent.equals(base->transforms[index].parent);
 				serialize_bool(p, parent_changed);
 				if (parent_changed)
 					serialize_ref(p, frame->transforms[index].parent);
-				if (!serialize_transform(p, &frame->transforms[index], base ? &base->transforms[index] : nullptr))
+				if (!serialize_transform(p, &frame->transforms[index], base && !revision_changed ? &base->transforms[index] : nullptr))
 					net_error();
 			}
-			index++;
+
+			if (Stream::IsWriting)
+				index++;
 		}
 #if DEBUG_TRANSFORMS
 		vi_debug("Wrote %d transforms", changed_count);
@@ -1584,6 +1607,8 @@ Resolution transform_resolution(const Transform* t)
 void state_frame_build(StateFrame* frame)
 {
 	frame->sequence_id = state_common.local_sequence_id;
+
+	// transforms
 	for (auto i = Transform::list.iterator(); !i.is_last(); i.next())
 	{
 		if (transform_filter(i.item()->entity()))
@@ -1598,6 +1623,7 @@ void state_frame_build(StateFrame* frame)
 		}
 	}
 
+	// players
 	for (auto i = PlayerManager::list.iterator(); !i.is_last(); i.next())
 	{
 		PlayerManagerState* state = &frame->players[i.index];
@@ -1613,14 +1639,18 @@ void state_frame_build(StateFrame* frame)
 		state->active = true;
 	}
 
+	// awks
 	for (auto i = Awk::list.iterator(); !i.is_last(); i.next())
 	{
 		vi_assert(i.index < MAX_PLAYERS);
 		AwkState* state = &frame->awks[i.index];
+		state->revision = i.item()->revision;
+		state->hp = i.item()->get<Health>()->total();
 		state->active = true;
 		state->charges = i.item()->charges;
 	}
 
+	// minions
 	for (auto i = MinionCommon::list.iterator(); !i.is_last(); i.next())
 	{
 		frame->minions_active.set(i.index, true);
@@ -1752,9 +1782,12 @@ void state_frame_interpolate(const StateFrame& a, const StateFrame& b, StateFram
 			const MinionState& next = b.minions[index];
 
 			minion->rotation = LMath::angle_range(LMath::lerpf(blend, last.rotation, LMath::closest_angle(last.rotation, next.rotation)));
-			minion->attack_timer = LMath::lerpf(blend, last.attack_timer, next.attack_timer);
+			if (fabs(next.attack_timer - last.attack_timer) < NET_TICK_RATE * 10.0f)
+				minion->attack_timer = LMath::lerpf(blend, last.attack_timer, next.attack_timer);
+			else
+				minion->attack_timer = next.attack_timer;
 			minion->animation = last.animation;
-			if (last.animation == next.animation)
+			if (last.animation == next.animation && fabs(next.animation_time - last.animation_time) < NET_TICK_RATE * 10.0f)
 				minion->animation_time = LMath::lerpf(blend, last.animation_time, next.animation_time);
 			else
 				minion->animation_time = last.animation_time + blend * NET_TICK_RATE;
@@ -1967,7 +2000,6 @@ struct StateServer
 	Array<Client> clients;
 	Mode mode;
 	s32 expected_clients = 1;
-	SequenceID sequence_completed_loading;
 };
 StateServer state_server;
 
@@ -2108,14 +2140,16 @@ void tick(const Update& u, r32 dt)
 {
 	// send out packets
 
-	if (state_server.mode == Mode::Active)
-		msgs_out_consolidate();
-
 	StateFrame* frame = nullptr;
-	if (all_clients_loaded()) // don't send state frames while loading, to make more room for messages
+
+	if (state_server.mode == Mode::Active)
 	{
-		frame = state_frame_add(&state_common.state_history);
-		state_frame_build(frame);
+		msgs_out_consolidate();
+		if (all_clients_loaded()) // don't send state frames while loading, to make more room for messages
+		{
+			frame = state_frame_add(&state_common.state_history);
+			state_frame_build(frame);
+		}
 	}
 
 	StreamWrite p;
@@ -2243,7 +2277,8 @@ b8 packet_handle(const Update& u, StreamRead* p, const Sock::Address& address)
 					{
 						StreamWrite* p = msg_new(MessageType::EntityCreate);
 						serialize_int(p, ID, i.index, 0, MAX_ENTITIES - 1);
-						serialize_entity(p, i.item());
+						if (!serialize_entity(p, i.item()))
+							vi_assert(false);
 						msg_finalize(p);
 					}
 					msg_finalize(msg_new(MessageType::InitDone));
@@ -2843,7 +2878,8 @@ b8 finalize(Entity* e)
 		StreamWrite* p = msg_new(MessageType::EntityCreate);
 		ID id = e->id();
 		serialize_int(p, ID, id, 0, MAX_ENTITIES - 1);
-		serialize_entity(p, e);
+		if (!serialize_entity(p, e))
+			vi_assert(false);
 		msg_finalize(p);
 	}
 #if DEBUG

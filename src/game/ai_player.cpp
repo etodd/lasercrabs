@@ -414,7 +414,7 @@ void update_component_memory(PlayerControlAI* control, MemoryStatus (*filter)(co
 		{
 			MemoryStatus status = MemoryStatus::Keep;
 			Entity* entity = m->entity.ref();
-			if (entity && control->in_range(entity->get<Transform>()->absolute_pos(), range) && filter(control, entity) == MemoryStatus::Forget)
+			if (!entity || (control->in_range(entity->get<Transform>()->absolute_pos(), range) && filter(control, entity) == MemoryStatus::Forget))
 			{
 				component_memories->remove(i);
 				i--;
@@ -1402,6 +1402,9 @@ b8 PlayerControlAI::update_memory()
 	update_component_memory<ContainmentField>(this, &default_memory_filter);
 
 	// update memory of enemy AWK positions based on team sensor data
+
+	update_component_memory<Awk>(this, &awk_memory_filter);
+
 	const Team& team = Team::list[(s32)get<AIAgent>()->team];
 	for (s32 i = 0; i < MAX_PLAYERS; i++)
 	{
@@ -1409,8 +1412,6 @@ b8 PlayerControlAI::update_memory()
 		if (track.tracking && track.entity.ref())
 			add_memory(&memory[Awk::family], track.entity.ref(), track.entity.ref()->get<Transform>()->absolute_pos());
 	}
-
-	update_component_memory<Awk>(this, &awk_memory_filter);
 
 	return true; // this returns true so we can call this from an Execute behavior
 }

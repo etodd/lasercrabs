@@ -23,6 +23,17 @@ namespace Menu
 {
 
 State main_menu_state;
+b8 first_show = true;
+DialogCallback dialog_callback;
+DialogCallback dialog_callback_last;
+r32 dialog_time;
+char dialog_string[255];
+r32 dialog_time_limit;
+
+// default callback
+void dialog_no_action()
+{
+}
 
 #if SERVER
 
@@ -38,8 +49,47 @@ b8 options(const Update&, s8, UIMenu*) { return true; }
 void progress_spinner(const RenderParams&, const Vec2&, r32) {}
 void progress_bar(const RenderParams&, const char*, r32, const Vec2&) {}
 void progress_infinite(const RenderParams&, const char*, const Vec2&) {}
+void dialog(DialogCallback, const char*, ...) {}
+void dialog_with_time_limit(DialogCallback, r32, const char*, ...) {}
 
 #else
+
+void dialog(DialogCallback callback, const char* format, ...)
+{
+	va_list args;
+	va_start(args, format);
+
+	if (!format)
+		format = "";
+
+#if defined(_WIN32)
+	vsprintf_s(dialog_string, 254, format, args);
+#else
+	vsnprintf(dialog_string, 254, format, args);
+#endif
+
+	va_end(args);
+
+	dialog_callback = callback;
+	dialog_time = Game::real_time.total;
+	dialog_time_limit = 0.0f;
+}
+
+void dialog_with_time_limit(DialogCallback callback, r32 limit, const char* format, ...)
+{
+	va_list args;
+	va_start(args, format);
+	char string[1024];
+
+	if (!format)
+		format = "";
+
+	dialog(callback, format, args);
+
+	va_end(args);
+
+	dialog_time_limit = limit;
+}
 
 void progress_spinner(const RenderParams& params, const Vec2& pos, r32 size)
 {
@@ -138,18 +188,59 @@ void init()
 void clear()
 {
 	main_menu_state = State::Hidden;
+	dialog_callback = nullptr;
 }
 
+void exit()
+{
+	Game::quit = true;
+}
 
 void title_menu(const Update& u, s8 gamepad, UIMenu* menu, State* state)
 {
 	if (*state == State::Hidden)
 	{
-		*state = State::Visible;
-		menu->animate();
+		b8 show = false;
+		if (first_show) // wait for the user to hit a button before showing the menu
+		{
+			for (s32 i = 0; i < MAX_GAMEPADS; i++)
+			{
+				if (i == 0)
+				{
+					for (s32 j = 0; j < (s32)KeyCode::Count; j++)
+					{
+						if (u.last_input->keys[j] && !u.input->keys[j])
+						{
+							show = true;
+							break;
+						}
+					}
+				}
+				if (u.input->gamepads[i].btns)
+				{
+					show = true;
+					break;
+				}
+			}
+		}
+		else // we've seen this title screen before; show the menu right away
+			show = true;
+
+		if (show)
+		{
+			first_show = false;
+			*state = State::Visible;
+			menu->animate();
+			return; // wait one frame before doing anything, to prevent edge-triggered buttons from being pressed
+		}
 	}
+
 	switch (*state)
 	{
+		case State::Hidden:
+		{
+			break;
+		}
 		case State::Visible:
 		{
 			menu->start(u, 0);
@@ -178,7 +269,7 @@ void title_menu(const Update& u, s8 gamepad, UIMenu* menu, State* state)
 				menu->animate();
 			}
 			if (menu->item(u, _(strings::exit)))
-				Game::quit = true;
+				dialog(&exit, _(strings::confirm_quit));
 			menu->end();
 			break;
 		}
@@ -222,9 +313,9 @@ void pause_menu(const Update& u, s8 gamepad, UIMenu* menu, State* state)
 			if (menu->item(u, _(strings::quit)))
 			{
 				if (Game::level.id == Asset::Level::terminal)
-					title();
+					dialog(&title, _(strings::confirm_quit));
 				else
-					Terminal::show();
+					dialog(&Terminal::show, _(strings::confirm_quit));
 			}
 			menu->end();
 			break;
@@ -267,6 +358,33 @@ void update(const Update& u)
 	}
 #endif
 
+	// dialog
+	if (dialog_time_limit > 0.0f)
+	{
+		dialog_time_limit = vi_max(0.0f, dialog_time_limit - u.time.delta);
+		if (dialog_time_limit == 0.0f)
+			dialog_callback = nullptr; // cancel
+	}
+
+	// dialog buttons
+	if (dialog_callback && dialog_callback_last) // make sure we don't trigger the button on the first frame the dialog is shown
+	{
+		if (u.last_input->get(Controls::Interact, 0) && !u.input->get(Controls::Interact, 0))
+		{
+			// accept
+			DialogCallback callback = dialog_callback;
+			dialog_callback = nullptr;
+			callback();
+		}
+		else if (!Game::cancel_event_eaten[0] && u.last_input->get(Controls::Cancel, 0) && !u.input->get(Controls::Cancel, 0))
+		{
+			// cancel
+			dialog_callback = nullptr;
+			Game::cancel_event_eaten[0] = true;
+		}
+	}
+	dialog_callback_last = dialog_callback;
+
 	if (Game::level.id == Asset::Level::title)
 		title_menu(u, 0, &main_menu, &main_menu_state);
 	else if (Game::level.mode == Game::Mode::Special)
@@ -299,8 +417,6 @@ void title()
 {
 	clear();
 	Game::session.reset();
-	main_menu_state = State::Visible;
-	main_menu.animate();
 	Game::schedule_load_level(Asset::Level::title, Game::Mode::Special);
 }
 
@@ -351,13 +467,54 @@ void draw(const RenderParams& params)
 		else
 			main_menu.draw_alpha(params, Vec2(0, viewport.size.y * 0.5f), UIText::Anchor::Min, UIText::Anchor::Center);
 	}
+
+	// draw dialog box
+	if (dialog_callback)
+	{
+		const r32 padding = 16.0f * UI::scale;
+		UIText text;
+		text.color = UI::color_default;
+		text.wrap_width = MENU_ITEM_WIDTH;
+		text.anchor_x = text.anchor_y = UIText::Anchor::Center;
+		text.text(dialog_string);
+		UIMenu::text_clip(&text, dialog_time, 150.0f);
+		Vec2 pos = params.camera->viewport.size * 0.5f;
+		Rect2 text_rect = text.rect(pos).outset(padding);
+		UI::box(params, text_rect, UI::color_background);
+		text.draw(params, pos);
+
+		// accept
+		text.wrap_width = 0;
+		text.anchor_y = UIText::Anchor::Max;
+		text.anchor_x = UIText::Anchor::Min;
+		text.color = UI::color_accent;
+		text.clip = 0;
+		text.text(dialog_time_limit > 0.0f ? "%s (%d)" : "%s", _(strings::prompt_accept), s32(dialog_time_limit) + 1);
+		Vec2 prompt_pos = text_rect.pos + Vec2(padding, 0);
+		Rect2 prompt_rect = text.rect(prompt_pos).outset(padding);
+		prompt_rect.size.x = text_rect.size.x;
+		UI::box(params, prompt_rect, UI::color_background);
+		text.draw(params, prompt_pos);
+
+		if (dialog_callback != &dialog_no_action)
+		{
+			// cancel
+			text.anchor_x = UIText::Anchor::Max;
+			text.color = UI::color_alert;
+			text.clip = 0;
+			text.text(_(strings::prompt_cancel));
+			text.draw(params, prompt_pos + Vec2(text_rect.size.x + padding * -2.0f, 0));
+		}
+
+		UI::border(params, { prompt_rect.pos, prompt_rect.size + Vec2(0, text_rect.size.y - padding) }, 2.0f, UI::color_accent);
+	}
 }
 
 // returns true if options menu is still open
 b8 options(const Update& u, s8 gamepad, UIMenu* menu)
 {
 	menu->start(u, gamepad);
-	b8 exit = menu->item(u, _(strings::back)) || (!u.input->get(Controls::Cancel, gamepad) && u.last_input->get(Controls::Cancel, gamepad));
+	b8 exit = menu->item(u, _(strings::back)) || (!Game::cancel_event_eaten[gamepad] && !u.input->get(Controls::Cancel, gamepad) && u.last_input->get(Controls::Cancel, gamepad));
 
 	char str[128];
 	UIMenu::Delta delta;
@@ -406,6 +563,7 @@ b8 options(const Update& u, s8 gamepad, UIMenu* menu)
 
 	if (exit)
 	{
+		Game::cancel_event_eaten[gamepad] = true;
 		menu->end();
 		Loader::settings_save();
 		return false;

@@ -712,6 +712,7 @@ const char* AssetLookup::String::names[] =
 	"close",
 	"confirm_capture",
 	"confirm_hack",
+	"confirm_quit",
 	"connecting",
 	"contact_aldus",
 	"contact_cora",

@@ -46,6 +46,7 @@
 	"prompt_buy_more": "[{{Interact}}] Buy more",
 	"confirm_hack": "Spend %d hack kits to unlock this zone?",
 	"confirm_capture": "Spend %d drones to capture this zone?",
+	"confirm_quit": "Quit?",
 	"energy_generation": "Energy: +%d",
 	"energy_generation_total": "Total Energy Collection: +%d",
 	"energy_generation_group": "Shared Energy Collection: +%d",

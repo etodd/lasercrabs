@@ -93,8 +93,6 @@ enum class Tab
 	count,
 };
 
-typedef void(*DialogCallback)();
-
 #define DEPLOY_ANIMATION_TIME 1.0f
 
 struct Data
@@ -146,19 +144,15 @@ struct Data
 	struct StoryMode
 	{
 		r64 timestamp_last;
-		DialogCallback dialog_callback;
 		Tab tab = Tab::Map;
 		Tab tab_previous = Tab::Messages;
 		r32 tab_timer;
 		r32 mode_transition_time;
-		r32 dialog_time;
 		Messages messages;
 		Inventory inventory;
 		Map map;
 		Ref<Transform> camera_messages;
 		Ref<Transform> camera_inventory;
-		char dialog[255];
-		r32 dialog_time_limit;
 	};
 
 	Camera* camera;
@@ -238,32 +232,6 @@ void message_schedule(AssetID contact, AssetID text, r64 delay)
 	msg->text = text;
 	msg->timestamp = platform::timestamp() + delay;
 	msg->read = false;
-}
-
-// default callback
-void dialog_no_action()
-{
-}
-
-void dialog(DialogCallback callback, const char* format, ...)
-{
-	va_list args;
-	va_start(args, format);
-
-	if (!format)
-		format = "";
-
-#if defined(_WIN32)
-	vsprintf_s(data.story.dialog, 254, format, args);
-#else
-	vsnprintf(data.story.dialog, 254, format, args);
-#endif
-
-	va_end(args);
-
-	data.story.dialog_callback = callback;
-	data.story.dialog_time = Game::real_time.total;
-	data.story.dialog_time_limit = 0.0f;
 }
 
 void deploy_animation_start()
@@ -901,7 +869,7 @@ b8 can_switch_tab()
 	return story.map.timer_hack == 0.0f
 		&& story.map.timer_capture == story.map.timer_capture_total
 		&& story.inventory.timer_buy == 0.0f
-		&& !story.dialog_callback
+		&& !Menu::dialog_callback
 		&& (story.messages.mode != Data::Messages::Mode::Cora || story.messages.timer_cora > 0.0f);
 }
 
@@ -1219,7 +1187,7 @@ void tab_messages_update(const Update& u)
 							if (entry_point == AssetNull)
 							{
 								messages_transition(Data::Messages::Mode::Messages);
-								dialog(&dialog_no_action, _(strings::call_timed_out));
+								Menu::dialog(&Menu::dialog_no_action, _(strings::call_timed_out));
 							}
 							else
 								Cora::activate(entry_point);
@@ -1283,17 +1251,17 @@ void story_zone_done(AssetID zone, Game::MatchResult result)
 	b8 captured = false;
 	if (result == Game::MatchResult::Victory)
 	{
-		dialog(&dialog_no_action, _(strings::victory));
+		Menu::dialog(&Menu::dialog_no_action, _(strings::victory));
 		captured = true;
 	}
 	else if (result == Game::MatchResult::NetworkError)
 	{
-		dialog(&dialog_no_action, _(strings::forfeit_network_error));
+		Menu::dialog(&Menu::dialog_no_action, _(strings::forfeit_network_error));
 		captured = true;
 	}
 	else if (result == Game::MatchResult::OpponentQuit)
 	{
-		dialog(&dialog_no_action, _(strings::forfeit_opponent_quit));
+		Menu::dialog(&Menu::dialog_no_action, _(strings::forfeit_opponent_quit));
 		captured = true;
 	}
 
@@ -1419,12 +1387,9 @@ void tab_map_update(const Update& u)
 				else
 				{
 					if (Game::save.resources[(s32)Game::Resource::Energy] < CREDITS_INITIAL)
-						dialog(&dialog_no_action, _(strings::auto_capture_fail_insufficient_resource), CREDITS_INITIAL, _(strings::energy));
+						Menu::dialog(&Menu::dialog_no_action, _(strings::auto_capture_fail_insufficient_resource), CREDITS_INITIAL, _(strings::energy));
 					else
-					{
-						dialog(&auto_capture_fail_manual_deploy, _(strings::auto_capture_fail_prompt), CREDITS_INITIAL);
-						data.story.dialog_time_limit = 10.0f;
-					}
+						Menu::dialog_with_time_limit(&auto_capture_fail_manual_deploy, 10.0f, _(strings::auto_capture_fail_prompt), CREDITS_INITIAL);
 				}
 			}
 		}
@@ -1443,18 +1408,18 @@ void tab_map_update(const Update& u)
 					{
 						s16 cost = zone_node_get(data.zone_selected)->size;
 						if (Game::save.resources[(s32)Game::Resource::HackKits] < cost)
-							dialog(&dialog_no_action, _(strings::insufficient_resource), cost, _(strings::hack_kits));
+							Menu::dialog(&Menu::dialog_no_action, _(strings::insufficient_resource), cost, _(strings::hack_kits));
 						else
-							dialog(&hack_start, _(strings::confirm_hack), cost);
+							Menu::dialog(&hack_start, _(strings::confirm_hack), cost);
 					}
 					else
 					{
 						if (zone_state == Game::ZoneState::Hostile)
 						{
 							if (Game::save.resources[(s32)Game::Resource::Drones] < DEPLOY_COST_DRONES)
-								dialog(&dialog_no_action, _(strings::insufficient_resource), DEPLOY_COST_DRONES, _(strings::drones));
+								Menu::dialog(&Menu::dialog_no_action, _(strings::insufficient_resource), DEPLOY_COST_DRONES, _(strings::drones));
 							else
-								dialog(&capture_start, _(strings::confirm_capture), DEPLOY_COST_DRONES);
+								Menu::dialog(&capture_start, _(strings::confirm_capture), DEPLOY_COST_DRONES);
 						}
 					}
 				}
@@ -1580,9 +1545,9 @@ void tab_inventory_update(const Update& u)
 				{
 					const ResourceInfo& info = resource_info[(s32)inventory->resource_selected];
 					if (Game::save.resources[(s32)Game::Resource::Energy] >= info.cost * inventory->buy_quantity)
-						dialog(&resource_buy, _(strings::prompt_buy), inventory->buy_quantity * info.cost, inventory->buy_quantity, _(info.description));
+						Menu::dialog(&resource_buy, _(strings::prompt_buy), inventory->buy_quantity * info.cost, inventory->buy_quantity, _(info.description));
 					else
-						dialog(&dialog_no_action, _(strings::insufficient_resource), info.cost * inventory->buy_quantity, _(strings::energy));
+						Menu::dialog(&Menu::dialog_no_action, _(strings::insufficient_resource), info.cost * inventory->buy_quantity, _(strings::energy));
 				}
 				else if (u.last_input->get(Controls::Cancel, 0) && !u.input->get(Controls::Cancel, 0) && !Game::cancel_event_eaten[0])
 				{
@@ -1735,7 +1700,7 @@ Rect2 tab_draw(const RenderParams& p, const Data::StoryMode& data, Tab tab, cons
 	b8 draw = true;
 
 	const Vec4* color;
-	if (data.tab == tab && !data.dialog_callback)
+	if (data.tab == tab && !Menu::dialog_callback)
 	{
 		// flash the tab when it is selected
 		if (data.tab_timer < TAB_ANIMATION_TIME)
@@ -1800,7 +1765,7 @@ void contacts_draw(const RenderParams& p, const Data::StoryMode& data, const Rec
 			continue;
 
 		const ContactDetails& contact = contacts[i];
-		b8 selected = data.tab == Tab::Messages && contact.name == data.messages.contact_selected && !data.dialog_callback;
+		b8 selected = data.tab == Tab::Messages && contact.name == data.messages.contact_selected && !Menu::dialog_callback;
 
 		UI::box(p, { pos, panel_size }, UI::color_background);
 
@@ -1920,7 +1885,7 @@ void tab_messages_draw(const RenderParams& p, const Data::StoryMode& data, const
 							continue;
 
 						const Game::Message& msg = msg_list[i];
-						b8 selected = msg.text == data.messages.message_selected && !data.dialog_callback;
+						b8 selected = msg.text == data.messages.message_selected && !Menu::dialog_callback;
 
 						UI::box(p, { pos, panel_size }, UI::color_background);
 
@@ -2268,7 +2233,7 @@ void inventory_items_draw(const RenderParams& p, const Data::StoryMode& data, co
 	Vec2 pos = rect.pos + Vec2(0, rect.size.y - panel_size.y);
 	for (s32 i = 0; i < (s32)Game::Resource::count; i++)
 	{
-		b8 selected = data.tab == Tab::Inventory && data.inventory.resource_selected == (Game::Resource)i && !data.dialog_callback;
+		b8 selected = data.tab == Tab::Inventory && data.inventory.resource_selected == (Game::Resource)i && !Menu::dialog_callback;
 
 		UI::box(p, { pos, panel_size }, UI::color_background);
 		if (selected)
@@ -2457,7 +2422,7 @@ void splitscreen_select_zone_update(const Update& u)
 	select_zone_update(u, true);
 
 	// deploy button
-	if (u.last_input->get(Controls::Interact, 0) && !u.input->get(Controls::Interact, 0))
+	if (Menu::main_menu_state == Menu::State::Hidden && u.last_input->get(Controls::Interact, 0) && !u.input->get(Controls::Interact, 0))
 	{
 		const ZoneNode* zone = zone_node_get(data.zone_selected);
 		if (splitscreen_team_count() <= zone->max_teams)
@@ -2478,8 +2443,6 @@ void update(const Update& u)
 
 	if (Game::level.id == Asset::Level::terminal && !Console::visible)
 	{
-		DialogCallback dialog_callback_old = data.story.dialog_callback;
-
 		if (data.timer_deploy_animation > 0.0f)
 		{
 			if (data.timer_deploy_animation > 0.5f)
@@ -2542,33 +2505,6 @@ void update(const Update& u)
 			}
 		}
 
-		// dialog
-		if (data.story.dialog_time_limit > 0.0f)
-		{
-			data.story.dialog_time_limit = vi_max(0.0f, data.story.dialog_time_limit - u.time.delta);
-			if (data.story.dialog_time_limit == 0.0f)
-				data.story.dialog_callback = nullptr; // cancel
-		}
-
-		// dialog buttons
-		if (data.story.dialog_callback && dialog_callback_old // make sure we don't trigger the button on the first frame the dialog is shown
-			&& (!Game::session.story_mode || Game::time.total > STORY_MODE_INIT_TIME)) // don't show dialog until story mode is initialized
-		{
-			if (u.last_input->get(Controls::Interact, 0) && !u.input->get(Controls::Interact, 0))
-			{
-				// accept
-				DialogCallback callback = data.story.dialog_callback;
-				data.story.dialog_callback = nullptr;
-				callback();
-			}
-			else if (!Game::cancel_event_eaten[0] && u.last_input->get(Controls::Cancel, 0) && !u.input->get(Controls::Cancel, 0))
-			{
-				// cancel
-				data.story.dialog_callback = nullptr;
-				Game::cancel_event_eaten[0] = true;
-			}
-		}
-
 		// pause
 		if (!Game::cancel_event_eaten[0]
 			&& ((u.last_input->get(Controls::Cancel, 0) && !u.input->get(Controls::Cancel, 0))
@@ -2623,48 +2559,6 @@ void draw(const RenderParams& params)
 			vi_assert(false);
 			break;
 		}
-	}
-
-	// draw dialog box
-	if (data.story.dialog_callback
-		&& (!Game::session.story_mode || Game::time.total > STORY_MODE_INIT_TIME)) // don't show dialog until story mode is initialized
-	{
-		const r32 padding = 16.0f * UI::scale;
-		UIText text;
-		text.color = UI::color_default;
-		text.wrap_width = MENU_ITEM_WIDTH;
-		text.anchor_x = text.anchor_y = UIText::Anchor::Center;
-		text.text(data.story.dialog);
-		UIMenu::text_clip(&text, data.story.dialog_time, 150.0f);
-		Vec2 pos = params.camera->viewport.size * 0.5f;
-		Rect2 text_rect = text.rect(pos).outset(padding);
-		UI::box(params, text_rect, UI::color_background);
-		text.draw(params, pos);
-
-		// accept
-		text.wrap_width = 0;
-		text.anchor_y = UIText::Anchor::Max;
-		text.anchor_x = UIText::Anchor::Min;
-		text.color = UI::color_accent;
-		text.clip = 0;
-		text.text(data.story.dialog_time_limit > 0.0f ? "%s (%d)" : "%s", _(strings::prompt_accept), s32(data.story.dialog_time_limit) + 1);
-		Vec2 prompt_pos = text_rect.pos + Vec2(padding, 0);
-		Rect2 prompt_rect = text.rect(prompt_pos).outset(padding);
-		prompt_rect.size.x = text_rect.size.x;
-		UI::box(params, prompt_rect, UI::color_background);
-		text.draw(params, prompt_pos);
-
-		if (data.story.dialog_callback != &dialog_no_action)
-		{
-			// cancel
-			text.anchor_x = UIText::Anchor::Max;
-			text.color = UI::color_alert;
-			text.clip = 0;
-			text.text(_(strings::prompt_cancel));
-			text.draw(params, prompt_pos + Vec2(text_rect.size.x + padding * -2.0f, 0));
-		}
-
-		UI::border(params, { prompt_rect.pos, prompt_rect.size + Vec2(0, text_rect.size.y - padding) }, BORDER, UI::color_accent);
 	}
 }
 

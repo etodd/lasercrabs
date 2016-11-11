@@ -1500,7 +1500,7 @@ void PlayerControlHuman::awk_done_flying_or_dashing()
 	get<Audio>()->post_event(AK::EVENTS::STOP_FLY);
 }
 
-void PlayerControlHuman::parkour_health_changed(const HealthEvent& e)
+void PlayerControlHuman::health_changed(const HealthEvent& e)
 {
 	if (e.hp + e.shield < 0)
 		camera_shake();
@@ -1552,6 +1552,8 @@ void PlayerControlHuman::awake()
 		remote_control.parent = t->parent;
 	}
 
+	link_arg<const HealthEvent&, &PlayerControlHuman::health_changed>(get<Health>()->changed);
+
 	if (has<Awk>())
 	{
 		last_pos = get<Awk>()->center_lerped();
@@ -1564,7 +1566,6 @@ void PlayerControlHuman::awake()
 	else
 	{
 		link_arg<r32, &PlayerControlHuman::parkour_landed>(get<Walker>()->land);
-		link_arg<const HealthEvent&, &PlayerControlHuman::parkour_health_changed>(get<Health>()->changed);
 		get<Audio>()->post_event(AK::EVENTS::PLAY_FLY);
 		get<Audio>()->param(AK::GAME_PARAMETERS::FLY_VOLUME, 0.0f);
 	}

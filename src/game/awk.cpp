@@ -356,9 +356,6 @@ b8 Awk::net_msg(Net::StreamRead* p, Net::MessageSource src)
 						target.ref()->get<Health>()->damage(awk->entity(), 1);
 					damaged = true;
 				}
-
-				if (target_awk->has<PlayerControlHuman>())
-					target_awk->get<PlayerControlHuman>()->camera_shake(1.0f);
 			}
 
 			if (!damaged && target.ref()->has<PlayerControlHuman>()) // we didn't hurt them
@@ -719,6 +716,7 @@ void Awk::awake()
 
 Awk::~Awk()
 {
+	get<Audio>()->post_event(AK::EVENTS::STOP_FLY);
 	if (Game::level.local)
 	{
 		if (shield.ref())
@@ -883,8 +881,14 @@ void Awk::health_changed(const HealthEvent& e)
 
 void Awk::killed(Entity* e)
 {
-	get<Audio>()->post_event(AK::EVENTS::STOP_FLY);
-	World::remove_deferred(entity());
+	if (Game::level.local)
+	{
+		Vec3 pos;
+		Quat rot;
+		get<Transform>()->absolute(&pos, &rot);
+		ParticleEffect::spawn(ParticleEffect::Type::Explosion, pos, rot);
+		World::remove_deferred(entity());
+	}
 }
 
 b8 Awk::can_dash(const Target* target, Vec3* out_intersection) const

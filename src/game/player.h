@@ -168,7 +168,7 @@ struct PlayerControlHuman : public ComponentType<PlayerControlHuman>
 
 	r32 look_speed() const;
 	b8 local() const;
-	void parkour_health_changed(const HealthEvent&);
+	void health_changed(const HealthEvent&);
 	void camera_shake(r32 = 1.0f);
 	void camera_shake_update(const Update&, Camera*);
 

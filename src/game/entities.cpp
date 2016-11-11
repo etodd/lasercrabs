@@ -31,20 +31,6 @@ namespace VI
 {
 
 
-void explosion(const Vec3& pos, const Quat& rot)
-{
-	for (s32 i = 0; i < 50; i++)
-	{
-		Particles::sparks.add
-		(
-			pos,
-			rot * Vec3(mersenne::randf_oo() * 2.0f - 1.0f, mersenne::randf_oo() * 2.0f - 1.0f, mersenne::randf_oo()) * 10.0f,
-			Vec4(1, 1, 1, 1)
-		);
-	}
-	Shockwave::add(pos, 8.0f, 1.5f);
-}
-
 AwkEntity::AwkEntity(AI::Team team)
 {
 	create<Audio>();
@@ -678,7 +664,8 @@ void Sensor::hit_by(const TargetEvent& e)
 void Sensor::killed_by(Entity* e)
 {
 	vi_assert(!has<EnergyPickup>());
-	World::remove_deferred(entity());
+	if (Game::level.local)
+		World::remove_deferred(entity());
 }
 
 void Sensor::update_all_client(const Update& u)
@@ -784,7 +771,8 @@ void Rocket::awake()
 
 void Rocket::killed(Entity*)
 {
-	World::remove_deferred(entity());
+	if (Game::level.local)
+		World::remove_deferred(entity());
 }
 
 void Rocket::launch(Entity* t)
@@ -855,10 +843,11 @@ AI::Team Rocket::team() const
 
 void Rocket::explode()
 {
+	vi_assert(Game::level.local);
 	Vec3 pos;
 	Quat rot;
 	get<Transform>()->absolute(&pos, &rot);
-	explosion(pos, rot.inverse());
+	ParticleEffect::spawn(ParticleEffect::Type::Impact, pos, rot.inverse());
 
 	World::remove_deferred(entity());
 }
@@ -1037,15 +1026,17 @@ AI::Team Decoy::team() const
 
 void Decoy::killed(Entity*)
 {
-	destroy();
+	if (Game::level.local)
+		destroy();
 }
 
 void Decoy::destroy()
 {
+	vi_assert(Game::level.local);
 	Vec3 pos;
 	Quat rot;
 	get<Transform>()->absolute(&pos, &rot);
-	explosion(pos, rot);
+	ParticleEffect::spawn(ParticleEffect::Type::Explosion, pos, rot);
 	World::remove_deferred(entity());
 }
 
@@ -1111,7 +1102,8 @@ void ContainmentField::hit_by(const TargetEvent& e)
 
 void ContainmentField::killed(Entity*)
 {
-	World::remove_deferred(entity());
+	if (Game::level.local)
+		World::remove_deferred(entity());
 }
 
 ContainmentField* ContainmentField::closest(AI::TeamMask mask, const Vec3& pos, r32* distance)
@@ -1176,10 +1168,11 @@ void ContainmentField::update_all(const Update& u)
 
 void ContainmentField::destroy()
 {
+	vi_assert(Game::level.local);
 	Vec3 pos;
 	Quat rot;
 	get<Transform>()->absolute(&pos, &rot);
-	explosion(pos, rot);
+	ParticleEffect::spawn(ParticleEffect::Type::Explosion, pos, rot);
 	World::remove_deferred(entity());
 }
 
@@ -1287,15 +1280,17 @@ void Teleporter::awake()
 
 void Teleporter::killed(Entity*)
 {
-	destroy();
+	if (Game::level.local)
+		destroy();
 }
 
 void Teleporter::destroy()
 {
+	vi_assert(Game::level.local);
 	Vec3 pos;
 	Quat rot;
 	get<Transform>()->absolute(&pos, &rot);
-	explosion(pos, rot);
+	ParticleEffect::spawn(ParticleEffect::Type::Explosion, pos, rot);
 	World::remove_deferred(entity());
 }
 
@@ -1399,7 +1394,7 @@ void Projectile::update(const Update& u)
 			else
 				basis = ray_callback.m_hitNormalWorld;
 
-			ParticleEffect::spawn(ray_callback.m_hitPointWorld, Quat::look(basis));
+			ParticleEffect::spawn(ParticleEffect::Type::Impact, ray_callback.m_hitPointWorld, Quat::look(basis));
 			World::remove(entity());
 		}
 	}
@@ -1407,26 +1402,69 @@ void Projectile::update(const Update& u)
 		get<Transform>()->absolute_pos(next_pos);
 }
 
-void ParticleEffect::spawn(const Vec3& pos, const Quat& rot)
+void ParticleEffect::spawn(Type t, const Vec3& pos, const Quat& rot)
 {
+	if (!Game::level.local)
+		vi_debug_break();
 	using Stream = Net::StreamWrite;
 	Net::StreamWrite* p = Net::msg_new(Net::MessageType::ParticleEffect);
+
+	serialize_enum(p, Type, t);
 	Vec3 pos2 = pos;
 	Net::serialize_position(p, &pos2, Net::Resolution::Low);
 	Quat rot2 = rot;
 	Net::serialize_quat(p, &rot2, Net::Resolution::Low);
+
 	Net::msg_finalize(p);
 }
 
 b8 ParticleEffect::net_msg(Net::StreamRead* p)
 {
 	using Stream = Net::StreamRead;
+	Type t;
+	serialize_enum(p, Type, t);
+
 	Vec3 pos;
 	if (!Net::serialize_position(p, &pos, Net::Resolution::Low))
 		net_error();
 	Quat rot;
 	if (!Net::serialize_quat(p, &rot, Net::Resolution::Low))
 		net_error();
+
+	if (t == Type::Grenade || t == Type::Explosion)
+	{
+		Audio::post_global_event(AK::EVENTS::PLAY_EXPLOSION, pos);
+		Shockwave::add_alpha(pos, 8.0f, 0.35f);
+	}
+
+	if (t == Type::Grenade)
+	{
+		for (auto i = PlayerControlHuman::list.iterator(); !i.is_last(); i.next())
+		{
+			r32 distance = (i.item()->get<Transform>()->absolute_pos() - pos).length();
+			if (distance < GRENADE_RANGE * 1.5f)
+				i.item()->camera_shake(LMath::lerpf(vi_max(0.0f, (distance - (GRENADE_RANGE * 0.66f)) / (GRENADE_RANGE * (1.5f - 0.66f))), 1.0f, 0.0f));
+		}
+
+		for (auto i = Health::list.iterator(); !i.is_last(); i.next())
+		{
+			if (i.item()->has<RigidBody>())
+			{
+				Vec3 to_item = i.item()->get<Transform>()->absolute_pos() - pos;
+				r32 distance = to_item.length();
+				to_item /= distance;
+				if (distance < GRENADE_RANGE)
+				{
+					RigidBody* body = i.item()->get<RigidBody>();
+					body->btBody->applyImpulse(to_item * LMath::lerpf(distance / GRENADE_RANGE, 1.0f, 0.0f) * 10.0f, Vec3::zero);
+					body->btBody->activate(true);
+				}
+			}
+		}
+	}
+
+	if (t == Type::Impact)
+		Shockwave::add(pos, GRENADE_RANGE, 1.5f);
 
 	for (s32 i = 0; i < 50; i++)
 	{
@@ -1437,7 +1475,6 @@ b8 ParticleEffect::net_msg(Net::StreamRead* p)
 			Vec4(1, 1, 1, 1)
 		);
 	}
-	Shockwave::add(pos, GRENADE_RANGE, 1.5f);
 	return true;
 }
 
@@ -1531,14 +1568,9 @@ void Grenade::update_server(const Update& u)
 
 void Grenade::explode()
 {
-	// todo: netcode
-	get<Audio>()->post_event(AK::EVENTS::PLAY_EXPLOSION);
+	vi_assert(Game::level.local);
 	Vec3 me = get<Transform>()->absolute_pos();
-	for (s32 i = 0; i < 6; i++)
-	{
-		Quat rot = Quat::euler(0.0f, mersenne::randf_co() * PI * 2.0f, (mersenne::randf_co() - 0.5f) * PI);
-		explosion(me + rot * Vec3(0, 0, 3), rot);
-	}
+	ParticleEffect::spawn(ParticleEffect::Type::Grenade, me, Quat::look(Vec3(0, 1, 0)));
 
 	for (auto i = Health::list.iterator(); !i.is_last(); i.next())
 	{
@@ -1551,23 +1583,7 @@ void Grenade::explode()
 				i.item()->damage(entity(), 1);
 		}
 		else if (distance < GRENADE_RANGE)
-		{
 			i.item()->damage(entity(), distance < GRENADE_RANGE * 0.5f ? 3 : (distance < GRENADE_RANGE * 0.75f ? 2 : 1));
-
-			if (i.item()->has<RigidBody>())
-			{
-				RigidBody* body = i.item()->get<RigidBody>();
-				body->btBody->applyImpulse(to_item * LMath::lerpf(distance / GRENADE_RANGE, 1.0f, 0.0f) * 10.0f, Vec3::zero);
-				body->btBody->activate(true);
-			}
-		}
-	}
-
-	for (auto i = PlayerControlHuman::list.iterator(); !i.is_last(); i.next())
-	{
-		r32 distance = (i.item()->get<Transform>()->absolute_pos() - me).length();
-		if (distance < GRENADE_RANGE * 1.5f)
-			i.item()->camera_shake(LMath::lerpf(vi_max(0.0f, (distance - (GRENADE_RANGE * 0.66f)) / (GRENADE_RANGE * (1.5f - 0.66f))), 1.0f, 0.0f));
 	}
 
 	World::remove_deferred(entity());
@@ -1650,7 +1666,8 @@ void Grenade::hit_by(const TargetEvent& e)
 
 void Grenade::killed_by(Entity* e)
 {
-	World::remove_deferred(entity());
+	if (Game::level.local)
+		World::remove_deferred(entity());
 }
 
 Vec3 Target::velocity() const
@@ -1998,18 +2015,99 @@ void Shockwave::add(const Vec3& pos, r32 radius, r32 duration)
 	s->pos = pos;
 	s->max_radius = radius;
 	s->duration = duration;
+	s->type = Type::Light;
+}
+
+void Shockwave::add_alpha(const Vec3& pos, r32 radius, r32 duration)
+{
+	Shockwave* s = list.add();
+	new (s) Shockwave();
+	s->pos = pos;
+	s->max_radius = radius;
+	s->duration = duration;
+	s->type = Type::Alpha;
+}
+
+void Shockwave::draw_alpha(const RenderParams& params)
+{
+	const Mesh* mesh = Loader::mesh_permanent(Asset::Mesh::sphere_highres);
+	Loader::shader_permanent(Asset::Shader::fresnel);
+
+	RenderSync* sync = params.sync;
+	sync->write(RenderOp::Shader);
+	sync->write(Asset::Shader::fresnel);
+	sync->write(params.technique);
+
+	for (auto i = list.iterator(); !i.is_last(); i.next())
+	{
+		r32 radius = i.item()->radius();
+		if (i.item()->type != Type::Alpha || !params.camera->visible_sphere(i.item()->pos, radius))
+			continue;
+
+		Mat4 m;
+		m.make_transform(i.item()->pos, Vec3(radius), Quat::identity);
+		Mat4 mvp = m * params.view_projection;
+
+		sync->write(RenderOp::Uniform);
+		sync->write(Asset::Uniform::mvp);
+		sync->write(RenderDataType::Mat4);
+		sync->write<s32>(1);
+		sync->write<Mat4>(mvp);
+
+		sync->write(RenderOp::Uniform);
+		sync->write(Asset::Uniform::diffuse_color);
+		sync->write(RenderDataType::Vec4);
+		sync->write<s32>(1);
+		sync->write<Vec4>(Vec4(1, 1, 1, i.item()->opacity()));
+
+		sync->write(RenderOp::Mesh);
+		sync->write(RenderPrimitiveMode::Triangles);
+		sync->write(Asset::Mesh::sphere_highres);
+	}
 }
 
 r32 Shockwave::radius() const
 {
-	return Ease::cubic_out(timer / duration, 0.0f, max_radius);
+	switch (type)
+	{
+		case Type::Light:
+		{
+			return Ease::cubic_out(timer / duration, 0.0f, max_radius);
+		}
+		case Type::Alpha:
+		{
+			r32 blend = Ease::cubic_in<r32>(timer / duration);
+			return LMath::lerpf(blend, 0.0f, max_radius);
+		}
+		default:
+		{
+			vi_assert(false);
+			return 0.0f;
+		}
+	}
 }
 
-Vec3 Shockwave::color() const
+r32 Shockwave::opacity() const
 {
-	r32 fade_radius = max_radius * (2.0f / 15.0f);
-	r32 fade = 1.0f - vi_max(0.0f, ((radius() - (max_radius - fade_radius)) / fade_radius));
-	return Vec3(fade * 0.8f);
+	switch (type)
+	{
+		case Type::Light:
+		{
+			r32 fade_radius = max_radius * (2.0f / 15.0f);
+			r32 fade = 1.0f - vi_max(0.0f, ((radius() - (max_radius - fade_radius)) / fade_radius));
+			return fade * 0.8f;
+		}
+		case Type::Alpha:
+		{
+			r32 blend = Ease::cubic_in<r32>(timer / duration);
+			return LMath::lerpf(blend, 0.8f, 0.0f);
+		}
+		default:
+		{
+			vi_assert(false);
+			return 0.0f;
+		}
+	}
 }
 
 void Shockwave::update(const Update& u)

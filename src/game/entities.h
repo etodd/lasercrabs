@@ -260,17 +260,27 @@ struct AICue : public ComponentType<AICue>
 
 struct Shockwave
 {
+	enum class Type
+	{
+		Light,
+		Alpha,
+		count,
+	};
+
 	static PinArray<Shockwave, MAX_ENTITIES> list;
 
 	static void add(const Vec3&, r32, r32);
+	static void add_alpha(const Vec3&, r32, r32);
+	static void draw_alpha(const RenderParams&);
 
 	Vec3 pos;
 	r32 max_radius;
 	r32 timer;
 	r32 duration;
+	Type type;
 
 	r32 radius() const;
-	Vec3 color() const;
+	r32 opacity() const;
 	void update(const Update&);
 
 	inline ID id() const
@@ -315,7 +325,14 @@ struct Projectile : public ComponentType<Projectile>
 
 struct ParticleEffect
 {
-	static void spawn(const Vec3&, const Quat&);
+	enum class Type
+	{
+		Impact,
+		Explosion,
+		Grenade,
+		count,
+	};
+	static void spawn(Type, const Vec3&, const Quat&);
 	static b8 net_msg(Net::StreamRead*);
 };
 

@@ -663,6 +663,8 @@ void Game::draw_alpha(const RenderParams& render_params)
 
 	View::draw_alpha(render_params);
 
+	Shockwave::draw_alpha(render_params);
+
 	for (s32 i = 0; i < ParticleSystem::all.length; i++)
 		ParticleSystem::all[i]->draw(render_params);
 

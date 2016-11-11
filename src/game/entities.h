@@ -60,7 +60,7 @@ struct Health : public ComponentType<Health>
 
 struct EnergyPickupEntity : public Entity
 {
-	EnergyPickupEntity(const Vec3&);
+	EnergyPickupEntity(const Vec3&, AI::Team = AI::TeamNone);
 };
 
 struct EnergyPickup : public ComponentType<EnergyPickup>
@@ -288,7 +288,7 @@ struct Rope : public ComponentType<Rope>
 {
 	static Array<Mat4> instances;
 
-	static void draw_opaque(const RenderParams&);
+	static void draw_alpha(const RenderParams&);
 	static void spawn(const Vec3&, const Vec3&, r32, r32 = 0.0f);
 
 	void awake() {}
@@ -311,6 +311,12 @@ struct Projectile : public ComponentType<Projectile>
 
 	AI::Team team() const;
 	void update(const Update&);
+};
+
+struct ParticleEffect
+{
+	static void spawn(const Vec3&, const Quat&);
+	static b8 net_msg(Net::StreamRead*);
 };
 
 struct GrenadeEntity : public Entity

@@ -685,6 +685,7 @@ template<typename Stream> b8 serialize_init_packet(Stream* p)
 	serialize_r32_range(p, Game::level.skybox.player_light.x, 0.0f, 1.0f, 8);
 	serialize_r32_range(p, Game::level.skybox.player_light.y, 0.0f, 1.0f, 8);
 	serialize_r32_range(p, Game::level.skybox.player_light.z, 0.0f, 1.0f, 8);
+	serialize_bool(p, Game::session.story_mode);
 	serialize_enum(p, Game::Mode, Game::level.mode);
 	serialize_enum(p, Game::Type, Game::level.type);
 	serialize_ref(p, Game::level.map_view);
@@ -1163,58 +1164,6 @@ void calculate_rtt(r32 timestamp, const Ack& ack, const MessageHistory& send_his
 		*rtt = new_rtt;
 	else
 		*rtt = (*rtt * 0.95f) + (new_rtt * 0.05f);
-}
-
-template<typename Stream> b8 serialize_quat(Stream* p, Quat* rot, Resolution r)
-{
-	Quat q;
-	s32 largest_index;
-	if (Stream::IsWriting)
-	{
-		q = Quat::normalize(*rot);
-		largest_index = 0; // w
-		if (fabs(q.x) > fabs(q[largest_index]))
-			largest_index = 1;
-		if (fabs(q.y) > fabs(q[largest_index]))
-			largest_index = 2;
-		if (fabs(q.z) > fabs(q[largest_index]))
-			largest_index = 3;
-		if (q[largest_index] < 0.0f)
-		{
-			q.w *= -1.0f;
-			q.x *= -1.0f;
-			q.y *= -1.0f;
-			q.z *= -1.0f;
-		}
-	}
-	serialize_int(p, s32, largest_index, 0, 3);
-
-	s32 indices[3];
-	{
-		s32 index = 0;
-		for (s32 i = 0; i < 4; i++)
-		{
-			if (i != largest_index)
-			{
-				indices[index] = i;
-				index++;
-			}
-		}
-	}
-	s32 bits = r == Resolution::High ? 16 : 9;
-	serialize_r32_range(p, q[indices[0]], -0.707107f, 0.707107f, bits);
-	serialize_r32_range(p, q[indices[1]], -0.707107f, 0.707107f, bits);
-	serialize_r32_range(p, q[indices[2]], -0.707107f, 0.707107f, bits);
-
-	if (Stream::IsReading)
-	{
-		r32 a = q[indices[0]];
-		r32 b = q[indices[1]];
-		r32 c = q[indices[2]];
-		q[largest_index] = sqrtf(1.0f - (a * a) - (b * b) - (c * c));
-		*rot = q;
-	}
-	return true;
 }
 
 b8 equal_states_quat(const TransformState& a, const TransformState& b)
@@ -3094,6 +3043,12 @@ b8 msg_process(StreamRead* p, MessageSource src)
 		case MessageType::Team:
 		{
 			if (!Team::net_msg(p))
+				net_error();
+			break;
+		}
+		case MessageType::ParticleEffect:
+		{
+			if (!ParticleEffect::net_msg(p))
 				net_error();
 			break;
 		}

@@ -109,6 +109,8 @@
 	"description_decoy": "Decoys distract enemy minions and rockets.",
 	"grenade": "Grenade",
 	"description_grenade": "Area of effect weapon. Useful for crowd control. Can also function as a mine.",
+	"bolter": "Bolter",
+	"description_bolter": "Shoots rapid-fire slow-moving projectiles.",
 
 	"tip": "Tip: %s",
 	"tip_0": "Capture batteries to receive +5 energy every 15 seconds.",
@@ -367,6 +369,7 @@
 	"btn_B": "B",
 	"btn_X": "X",
 	"btn_Y": "Y",
+	"btn_Back": "Back",
 	"btn_Start": "Start",
 	"btn_LeftTrigger": "LT",
 	"btn_RightTrigger": "RT",

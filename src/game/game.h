@@ -84,8 +84,6 @@ struct Game
 		AI::Team local_player_config[MAX_GAMEPADS];
 		u64 local_player_uuids[MAX_GAMEPADS];
 		MatchResult last_match;
-		r32 network_time;
-		r32 network_timer;
 		r32 time_scale;
 		b8 story_mode;
 

@@ -125,11 +125,10 @@ struct Awk : public ComponentType<Awk>
 	b8 hit_target(Entity*); // called when we hit a target
 	void health_changed(const HealthEvent&);
 	void killed(Entity*);
-	Entity* incoming_attacker() const;
 
 	s16 ally_containment_field_mask() const;
 
-	b8 predict_intersection(const Target*, const Net::StateFrame*, Vec3*, r32 = AWK_FLY_SPEED) const;
+	b8 predict_intersection(const Target*, const Net::StateFrame*, Vec3*, r32) const;
 
 	void stealth(b8);
 

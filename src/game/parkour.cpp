@@ -56,6 +56,8 @@ Traceur::Traceur(const Vec3& pos, const Quat& quat, AI::Team team)
 
 	create<AIAgent>()->team = team;
 
+	create<Health>(AWK_HEALTH, AWK_HEALTH, AWK_SHIELD, AWK_SHIELD);
+
 	create<Parkour>();
 }
 

@@ -308,6 +308,7 @@ set(SRC
 	assets/shader/standard.glsl
 	assets/shader/standard_flat.glsl
 	assets/shader/standard_instanced.glsl
+	assets/shader/flat_instanced.glsl
 	assets/shader/culled.glsl
 	assets/shader/flat_clipped.glsl
 	assets/shader/ui.glsl

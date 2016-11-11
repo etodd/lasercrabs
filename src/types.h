@@ -57,6 +57,7 @@ enum class Ability
 	Sniper,
 	Decoy,
 	Grenade,
+	Bolter,
 	count,
 	None,
 };
@@ -71,6 +72,7 @@ enum class Upgrade
 	Sniper,
 	Decoy,
 	Grenade,
+	Bolter,
 	count,
 	None = count,
 };

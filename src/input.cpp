@@ -248,6 +248,7 @@ void load_strings()
 	btn_strings[(s32)Gamepad::Btn::B] = _(strings::btn_B);
 	btn_strings[(s32)Gamepad::Btn::X] = _(strings::btn_X);
 	btn_strings[(s32)Gamepad::Btn::Y] = _(strings::btn_Y);
+	btn_strings[(s32)Gamepad::Btn::Back] = _(strings::btn_Back);
 	btn_strings[(s32)Gamepad::Btn::Start] = _(strings::btn_Start);
 	btn_strings[(s32)Gamepad::Btn::LeftTrigger] = _(strings::btn_LeftTrigger);
 	btn_strings[(s32)Gamepad::Btn::RightTrigger] = _(strings::btn_RightTrigger);

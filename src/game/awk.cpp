@@ -398,10 +398,11 @@ b8 Awk::net_msg(Net::StreamRead* p, Net::MessageSource src)
 
 			Quat rot = Quat::look(normal);
 
-			awk->cooldown_setup();
-
 			const AbilityInfo& info = AbilityInfo::list[(s32)ability];
 			manager->add_credits(-info.spawn_cost);
+
+			if (!info.rapid_fire)
+				awk->cooldown_setup();
 
 			Vec3 my_pos;
 			Quat my_rot;
@@ -577,6 +578,12 @@ b8 Awk::net_msg(Net::StreamRead* p, Net::MessageSource src)
 					}
 					break;
 				}
+				case Ability::Bolter:
+				{
+					if (Game::level.local)
+						Net::finalize(World::create<ProjectileEntity>(manager, my_pos + dir_normalized * AWK_SHIELD_RADIUS, dir_normalized));
+					break;
+				}
 				default:
 				{
 					vi_assert(false);
@@ -584,7 +591,8 @@ b8 Awk::net_msg(Net::StreamRead* p, Net::MessageSource src)
 				}
 			}
 
-			awk->current_ability = Ability::None;
+			if (!info.rapid_fire)
+				awk->current_ability = Ability::None;
 			awk->ability_spawned.fire(ability);
 			break;
 		}
@@ -748,58 +756,6 @@ Vec3 Awk::attach_point(r32 offset) const
 	return pos + rot * Vec3(0, 0, offset + -AWK_RADIUS);
 }
 
-Entity* Awk::incoming_attacker() const
-{
-	Vec3 me = get<Transform>()->absolute_pos();
-
-	// check incoming Awks
-	for (auto i = PlayerCommon::list.iterator(); !i.is_last(); i.next())
-	{
-		if (PlayerCommon::visibility.get(PlayerCommon::visibility_hash(get<PlayerCommon>(), i.item())))
-		{
-			// determine if they're attacking us
-			if (i.item()->get<Awk>()->state() != Awk::State::Crawl
-				&& Vec3::normalize(i.item()->get<Awk>()->velocity).dot(Vec3::normalize(me - i.item()->get<Transform>()->absolute_pos())) > 0.98f)
-			{
-				return i.item()->entity();
-			}
-		}
-	}
-
-	// check incoming projectiles
-	for (auto i = Projectile::list.iterator(); !i.is_last(); i.next())
-	{
-		Vec3 velocity = Vec3::normalize(i.item()->velocity);
-		Vec3 projectile_pos = i.item()->get<Transform>()->absolute_pos();
-		Vec3 to_me = me - projectile_pos;
-		r32 dot = velocity.dot(to_me);
-		if (dot > 0.0f && dot < AWK_MAX_DISTANCE && velocity.dot(Vec3::normalize(to_me)) > 0.98f)
-		{
-			// only worry about it if it can actually see us
-			btCollisionWorld::ClosestRayResultCallback ray_callback(me, projectile_pos);
-			Physics::raycast(&ray_callback, ~CollisionAwkIgnore & ~CollisionShield);
-			if (!ray_callback.hasHit())
-				return i.item()->entity();
-		}
-	}
-
-	// check incoming rockets
-	if (!get<AIAgent>()->stealth)
-	{
-		Rocket* rocket = Rocket::inbound(entity());
-		if (rocket)
-		{
-			// only worry about it if the rocket can actually see us
-			btCollisionWorld::ClosestRayResultCallback ray_callback(me, rocket->get<Transform>()->absolute_pos());
-			Physics::raycast(&ray_callback, ~CollisionAwkIgnore & ~CollisionShield);
-			if (!ray_callback.hasHit())
-				return rocket->entity();
-		}
-	}
-
-	return nullptr;
-}
-
 b8 Awk::hit_target(Entity* target)
 {
 	if (!Game::level.local) // target hit events are synced across the network
@@ -865,7 +821,7 @@ b8 Awk::hit_target(Entity* target)
 
 b8 Awk::predict_intersection(const Target* target, const Net::StateFrame* state_frame, Vec3* intersection, r32 speed) const
 {
-	if (current_ability == Ability::Sniper) // instant bullet travel time
+	if (speed == 0.0f) // instant bullet travel time
 	{
 		*intersection = target->absolute_pos();
 		return true;
@@ -1073,7 +1029,7 @@ b8 Awk::can_shoot(const Vec3& dir, Vec3* final_pos, b8* hit_target, const Net::S
 				if (i.item() != this && (i.item()->get<Target>()->absolute_pos() - trace_start).length_squared() > AWK_SHIELD_RADIUS * 2.0f * AWK_SHIELD_RADIUS * 2.0f)
 				{
 					Vec3 intersection;
-					if (predict_intersection(i.item()->get<Target>(), state_frame, &intersection))
+					if (predict_intersection(i.item()->get<Target>(), state_frame, &intersection, AWK_FLY_SPEED))
 					{
 						if ((intersection - trace_start).length_squared() <= end_distance_sq
 							&& LMath::ray_sphere_intersect(trace_start, trace_end, intersection, AWK_SHIELD_RADIUS))

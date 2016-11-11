@@ -401,6 +401,7 @@ void PlayerHuman::update(const Update& u)
 	// flash message when the buy period expires
 	if (!Team::game_over
 		&& Game::level.mode == Game::Mode::Pvp
+		&& !Game::session.story_mode
 		&& Game::level.has_feature(Game::FeatureLevel::Abilities)
 		&& Game::time.total > GAME_BUY_PERIOD
 		&& Game::time.total - Game::time.delta <= GAME_BUY_PERIOD)
@@ -1223,10 +1224,62 @@ b8 PlayerCommon::movement_enabled() const
 	{
 		return get<Awk>()->state() == Awk::State::Crawl // must be attached to wall
 			&& manager.ref()->state() == PlayerManager::State::Default // can't move while upgrading and stuff
-			&& (Game::time.total > GAME_BUY_PERIOD || !Game::level.has_feature(Game::FeatureLevel::Abilities)); // or during the buy period
+			&& (Game::time.total > GAME_BUY_PERIOD || !Game::level.has_feature(Game::FeatureLevel::Abilities) || Game::session.story_mode); // or during the buy period
 	}
 	else
 		return true;
+}
+
+Entity* PlayerCommon::incoming_attacker() const
+{
+	Vec3 me = get<Transform>()->absolute_pos();
+
+	// check incoming Awks
+	for (auto i = PlayerCommon::list.iterator(); !i.is_last(); i.next())
+	{
+		if (PlayerCommon::visibility.get(PlayerCommon::visibility_hash(get<PlayerCommon>(), i.item())))
+		{
+			// determine if they're attacking us
+			if (i.item()->get<Awk>()->state() != Awk::State::Crawl
+				&& Vec3::normalize(i.item()->get<Awk>()->velocity).dot(Vec3::normalize(me - i.item()->get<Transform>()->absolute_pos())) > 0.98f)
+			{
+				return i.item()->entity();
+			}
+		}
+	}
+
+	// check incoming projectiles
+	for (auto i = Projectile::list.iterator(); !i.is_last(); i.next())
+	{
+		Vec3 velocity = Vec3::normalize(i.item()->velocity);
+		Vec3 projectile_pos = i.item()->get<Transform>()->absolute_pos();
+		Vec3 to_me = me - projectile_pos;
+		r32 dot = velocity.dot(to_me);
+		if (dot > 0.0f && dot < AWK_MAX_DISTANCE && velocity.dot(Vec3::normalize(to_me)) > 0.98f)
+		{
+			// only worry about it if it can actually see us
+			btCollisionWorld::ClosestRayResultCallback ray_callback(me, projectile_pos);
+			Physics::raycast(&ray_callback, ~CollisionAwkIgnore & ~CollisionShield);
+			if (!ray_callback.hasHit())
+				return i.item()->entity();
+		}
+	}
+
+	// check incoming rockets
+	if (!get<AIAgent>()->stealth)
+	{
+		Rocket* rocket = Rocket::inbound(entity());
+		if (rocket)
+		{
+			// only worry about it if the rocket can actually see us
+			btCollisionWorld::ClosestRayResultCallback ray_callback(me, rocket->get<Transform>()->absolute_pos());
+			Physics::raycast(&ray_callback, ~CollisionAwkIgnore & ~CollisionShield);
+			if (!ray_callback.hasHit())
+				return rocket->entity();
+		}
+	}
+
+	return nullptr;
 }
 
 void PlayerCommon::update(const Update& u)
@@ -1447,6 +1500,12 @@ void PlayerControlHuman::awk_done_flying_or_dashing()
 	get<Audio>()->post_event(AK::EVENTS::STOP_FLY);
 }
 
+void PlayerControlHuman::parkour_health_changed(const HealthEvent& e)
+{
+	if (e.hp + e.shield < 0)
+		camera_shake();
+}
+
 void PlayerControlHuman::awk_reflecting(const Vec3& new_velocity)
 {
 	// send message if we are a server or client in a network game. don't if it's an all-local game
@@ -1505,6 +1564,7 @@ void PlayerControlHuman::awake()
 	else
 	{
 		link_arg<r32, &PlayerControlHuman::parkour_landed>(get<Walker>()->land);
+		link_arg<const HealthEvent&, &PlayerControlHuman::parkour_health_changed>(get<Health>()->changed);
 		get<Audio>()->post_event(AK::EVENTS::PLAY_FLY);
 		get<Audio>()->param(AK::GAME_PARAMETERS::FLY_VOLUME, 0.0f);
 	}
@@ -1550,7 +1610,7 @@ void PlayerControlHuman::awk_detached()
 
 void PlayerControlHuman::camera_shake(r32 amount) // amount ranges from 0 to 1
 {
-	if (get<Awk>()->state() == Awk::State::Crawl) // don't shake the screen if we reflect off something in the air
+	if (!has<Awk>() || get<Awk>()->state() == Awk::State::Crawl) // don't shake the screen if we reflect off something in the air
 	{
 		camera_shake_timer = vi_max(camera_shake_timer, camera_shake_time * amount);
 		rumble = vi_max(rumble, amount);
@@ -1675,8 +1735,27 @@ b8 PlayerControlHuman::add_target_indicator(Target* target, TargetIndicator::Typ
 	if (show)
 	{
 		// calculate target intersection trajectory
+		r32 speed;
+		switch (get<Awk>()->current_ability)
+		{
+			case Ability::Sniper:
+			{
+				speed = 0.0f;
+				break;
+			}
+			case Ability::Bolter:
+			{
+				speed = PROJECTILE_SPEED;
+				break;
+			}
+			default:
+			{
+				speed = AWK_FLY_SPEED;
+				break;
+			}
+		}
 		Vec3 intersection;
-		if (get<Awk>()->predict_intersection(target, nullptr, &intersection))
+		if (get<Awk>()->predict_intersection(target, nullptr, &intersection, speed))
 		{
 			target_indicators.add({ intersection, target->velocity(), type });
 			if (target_indicators.length == target_indicators.capacity())
@@ -1715,9 +1794,6 @@ void ability_update(const Update& u, PlayerControlHuman* control, Controls bindi
 		return;
 
 	Awk* awk = control->get<Awk>();
-
-	if (awk->current_ability == ability && !manager->ability_valid(ability))
-		ability_cancel(awk);
 
 	if (u.input->get(binding, gamepad) && !u.last_input->get(binding, gamepad))
 	{
@@ -1762,6 +1838,20 @@ void PlayerControlHuman::remote_control_handle(const PlayerControlHuman::RemoteC
 		t->absolute_pos(remote_abs_pos);
 	if (Quat::angle(remote_abs_rot, abs_rot) < NET_SYNC_TOLERANCE_ROT)
 		t->absolute_rot(remote_abs_rot);
+}
+
+void PlayerControlHuman::camera_shake_update(const Update& u, Camera* camera)
+{
+	if (camera_shake_timer > 0.0f)
+	{
+		camera_shake_timer -= u.time.delta;
+		if (!has<Awk>() || get<Awk>()->state() == Awk::State::Crawl)
+		{
+			r32 shake = (camera_shake_timer / camera_shake_time) * 0.3f;
+			r32 offset = Game::time.total * 10.0f;
+			camera->rot = camera->rot * Quat::euler(noise::sample3d(Vec3(offset)) * shake, noise::sample3d(Vec3(offset + 64)) * shake, noise::sample3d(Vec3(offset + 128)) * shake);
+		}
+	}
 }
 
 void PlayerControlHuman::update(const Update& u)
@@ -1975,17 +2065,7 @@ void PlayerControlHuman::update(const Update& u)
 				ability_update(u, this, Controls::Ability3, gamepad, 2);
 			}
 
-			// camera shake
-			if (camera_shake_timer > 0.0f)
-			{
-				camera_shake_timer -= u.time.delta;
-				if (get<Awk>()->state() == Awk::State::Crawl)
-				{
-					r32 shake = (camera_shake_timer / camera_shake_time) * 0.3f;
-					r32 offset = Game::time.total * 10.0f;
-					camera->rot = camera->rot * Quat::euler(noise::sample3d(Vec3(offset)) * shake, noise::sample3d(Vec3(offset + 64)) * shake, noise::sample3d(Vec3(offset + 128)) * shake);
-				}
-			}
+			camera_shake_update(u, camera);
 
 			camera_setup_awk(entity(), camera, AWK_THIRD_PERSON_OFFSET);
 
@@ -2386,6 +2466,7 @@ void PlayerControlHuman::update(const Update& u)
 				camera->fog = true;
 				camera->range = 0.0f;
 				camera->rot = look_quat;
+				camera_shake_update(u, camera);
 			}
 		}
 		else
@@ -2457,13 +2538,12 @@ void PlayerControlHuman::draw_alpha(const RenderParams& params) const
 {
 	if (params.technique != RenderTechnique::Default
 		|| params.camera != player.ref()->camera
-		|| !has<Awk>()
 		|| Team::game_over)
 		return;
 
 	const Rect2& viewport = params.camera->viewport;
 
-	r32 range = get<Awk>()->range();
+	r32 range = has<Awk>() ? get<Awk>()->range() : AWK_MAX_DISTANCE;
 
 	AI::Team team = get<AIAgent>()->team;
 
@@ -2592,6 +2672,7 @@ void PlayerControlHuman::draw_alpha(const RenderParams& params) const
 
 	Vec3 me = get<Transform>()->absolute_pos();
 
+	if (has<Awk>())
 	{
 		PlayerManager* manager = player.ref()->get<PlayerManager>();
 
@@ -2749,12 +2830,12 @@ void PlayerControlHuman::draw_alpha(const RenderParams& params) const
 
 	const Health* health = get<Health>();
 
-	b8 is_vulnerable = !get<AIAgent>()->stealth && get<Awk>()->overshield_timer == 0.0f && health->hp == 1 && health->shield == 0;
+	b8 is_vulnerable = !get<AIAgent>()->stealth && (!has<Awk>() || get<Awk>()->overshield_timer == 0.0f) && health->hp == 1 && health->shield == 0;
 
 	// compass
 	{
 		Vec2 compass_size = Vec2(vi_min(viewport.size.x, viewport.size.y) * 0.3f);
-		if (is_vulnerable && get<Awk>()->incoming_attacker())
+		if (is_vulnerable && get<PlayerCommon>()->incoming_attacker())
 		{
 			// we're being attacked; flash the compass
 			b8 show = UI::flash_function(Game::real_time.total);
@@ -2769,9 +2850,9 @@ void PlayerControlHuman::draw_alpha(const RenderParams& params) const
 			UI::mesh(params, Asset::Mesh::compass, viewport.size * Vec2(0.5f, 0.5f), compass_size, UI::color_accent);
 	}
 
-	if (Game::level.has_feature(Game::FeatureLevel::EnergyPickups))
 	{
 		// danger indicator
+
 		b8 danger = enemy_visible && is_vulnerable;
 		if (danger)
 		{
@@ -2832,6 +2913,7 @@ void PlayerControlHuman::draw_alpha(const RenderParams& params) const
 	}
 
 	// invincibility indicator
+	if (has<Awk>())
 	{
 		r32 overshield_timer = get<Awk>()->overshield_timer;
 		if (overshield_timer > 0.0f)
@@ -2890,7 +2972,7 @@ void PlayerControlHuman::draw_alpha(const RenderParams& params) const
 	}
 
 	// reticle
-	if (movement_enabled())
+	if (has<Awk>() && movement_enabled())
 	{
 		Vec2 pos = viewport.size * Vec2(0.5f, 0.5f);
 		const r32 spoke_length = 10.0f;
@@ -2979,7 +3061,10 @@ void PlayerControlHuman::draw_alpha(const RenderParams& params) const
 	}
 
 	// buy period indicator
-	if (Game::level.has_feature(Game::FeatureLevel::Abilities) && Game::time.total < GAME_BUY_PERIOD)
+	if (Game::level.has_feature(Game::FeatureLevel::Abilities)
+		&& Game::level.mode == Game::Mode::Pvp
+		&& !Game::session.story_mode
+		&& Game::time.total < GAME_BUY_PERIOD)
 	{
 		UIText text;
 		text.color = UI::color_accent;

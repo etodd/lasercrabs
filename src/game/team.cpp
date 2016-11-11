@@ -42,41 +42,55 @@ AbilityInfo AbilityInfo::list[(s32)Ability::count] =
 		AbilityInfo::Type::Build,
 		Asset::Mesh::icon_sensor,
 		15,
+		false,
 	},
 	{
 		AbilityInfo::Type::Build,
 		Asset::Mesh::icon_minion,
 		15,
+		false,
 	},
 	{
 		AbilityInfo::Type::Build,
 		Asset::Mesh::icon_teleporter,
 		10,
+		false,
 	},
 	{
 		AbilityInfo::Type::Build,
 		Asset::Mesh::icon_rocket,
 		10,
+		false,
 	},
 	{
 		AbilityInfo::Type::Build,
 		Asset::Mesh::icon_containment_field,
 		20,
+		false,
 	},
 	{
 		AbilityInfo::Type::Shoot,
 		Asset::Mesh::icon_sniper,
 		10,
+		false,
 	},
 	{
 		AbilityInfo::Type::Build,
 		Asset::Mesh::icon_drone,
 		20,
+		false,
 	},
 	{
 		AbilityInfo::Type::Shoot,
 		Asset::Mesh::icon_grenade,
 		20,
+		false,
+	},
+	{
+		AbilityInfo::Type::Shoot,
+		Asset::Mesh::icon_bolter,
+		10,
+		true,
 	}
 };
 
@@ -128,6 +142,12 @@ UpgradeInfo UpgradeInfo::list[(s32)Upgrade::count] =
 		strings::grenade,
 		strings::description_grenade,
 		Asset::Mesh::icon_grenade,
+		120,
+	},
+	{
+		strings::bolter,
+		strings::description_bolter,
+		Asset::Mesh::icon_bolter,
 		120,
 	},
 };

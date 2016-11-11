@@ -31,6 +31,7 @@ struct AbilityInfo
 	Type type;
 	AssetID icon;
 	s16 spawn_cost;
+	b8 rapid_fire;
 	static AbilityInfo list[(s32)Ability::count];
 };
 

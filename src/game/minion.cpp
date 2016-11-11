@@ -352,13 +352,13 @@ Entity* visible_target(MinionAI* me, AI::Team team)
 		}
 	}
 
-	for (auto i = Awk::list.iterator(); !i.is_last(); i.next())
+	for (auto i = PlayerCommon::list.iterator(); !i.is_last(); i.next())
 	{
-		Awk* awk = i.item();
-		if (awk->get<AIAgent>()->team != team && !awk->get<PlayerCommon>()->manager.ref()->decoy())
+		PlayerCommon* player = i.item();
+		if (player->get<AIAgent>()->team != team && !player->get<PlayerCommon>()->manager.ref()->decoy())
 		{
-			if (me->can_see(awk->entity(), true))
-				return awk->entity();
+			if (me->can_see(player->entity(), true))
+				return player->entity();
 		}
 	}
 
@@ -680,7 +680,7 @@ void MinionAI::update(const Update& u)
 						}
 						else
 						{
-							if (goal.entity.ref()->has<Awk>() || goal.entity.ref()->has<Decoy>()) // if we can't see the Awk anymore, let them go
+							if (goal.entity.ref()->has<PlayerCommon>() || goal.entity.ref()->has<Decoy>()) // if we can't see the player anymore, let them go
 								new_goal();
 							else
 							{

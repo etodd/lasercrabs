@@ -49,6 +49,7 @@ enum class MessageType
 	Health,
 	EnergyPickup,
 	Team,
+	ParticleEffect,
 	count,
 };
 

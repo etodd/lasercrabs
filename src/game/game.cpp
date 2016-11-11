@@ -81,8 +81,6 @@ Game::Session::Session()
 #endif
 	story_mode(true),
 	time_scale(1.0f),
-	network_timer(),
-	network_time(),
 	last_match()
 {
 	for (s32 i = 0; i < MAX_PLAYERS; i++)
@@ -366,12 +364,6 @@ void Game::update(const Update& update_in)
 
 		PlayerManager::update_all(u);
 		PlayerHuman::update_all(u);
-		for (auto i = MinionCommon::list.iterator(); !i.is_last(); i.next())
-		{
-			if (level.local)
-				i.item()->update_server(u);
-			i.item()->update_client(u);
-		}
 		if (level.local)
 		{
 			for (auto i = Health::list.iterator(); !i.is_last(); i.next())
@@ -384,6 +376,13 @@ void Game::update(const Update& update_in)
 				i.item()->update_server(u);
 			for (auto i = Rocket::list.iterator(); !i.is_last(); i.next())
 				i.item()->update_server(u);
+			MinionAI::update_all(u);
+		}
+		for (auto i = MinionCommon::list.iterator(); !i.is_last(); i.next())
+		{
+			if (level.local)
+				i.item()->update_server(u);
+			i.item()->update_client(u);
 		}
 		Grenade::update_client_all(u);
 		Rocket::update_client_all(u);
@@ -475,7 +474,6 @@ void Game::draw_opaque(const RenderParams& render_params)
 	for (auto i = Water::list.iterator(); !i.is_last(); i.next())
 		i.item()->draw_opaque(render_params);
 
-	Rope::draw_opaque(render_params);
 	SkinnedModel::draw_opaque(render_params);
 
 	SkyPattern::draw_opaque(render_params);
@@ -488,6 +486,7 @@ void Game::draw_override(const RenderParams& params)
 
 void Game::draw_alpha(const RenderParams& render_params)
 {
+	Rope::draw_alpha(render_params);
 	if (render_params.camera->fog)
 		Skybox::draw_alpha(render_params);
 	SkyDecal::draw_alpha(render_params);
@@ -1170,11 +1169,14 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 		}
 		else if (cJSON_GetObjectItem(element, "Minion"))
 		{
-			AI::Team team = (AI::Team)Json::get_s32(element, "team");
-			entity = World::alloc<Minion>(absolute_pos, absolute_rot, team);
-			s32 health = Json::get_s32(element, "health");
-			if (health)
-				entity->get<Health>()->hp = health;
+			if (session.story_mode)
+			{
+				AI::Team team = team_lookup(level.team_lookup, Json::get_s32(element, "team", 1));
+				entity = World::alloc<Minion>(absolute_pos, absolute_rot, team);
+				s32 health = Json::get_s32(element, "health");
+				if (health)
+					entity->get<Health>()->hp = health;
+			}
 		}
 		else if (cJSON_GetObjectItem(element, "PlayerSpawn"))
 		{
@@ -1245,7 +1247,13 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 		{
 			if (level.has_feature(FeatureLevel::EnergyPickups))
 			{
-				entity = World::alloc<EnergyPickupEntity>(absolute_pos);
+				AI::Team team;
+				if (session.story_mode)
+					team = team_lookup(level.team_lookup, Json::get_s32(element, "team", 1));
+				else
+					team = AI::TeamNone;
+				entity = World::alloc<EnergyPickupEntity>(absolute_pos, team);
+
 				absolute_rot = Quat::identity;
 
 				RopeEntry* rope = ropes.add();

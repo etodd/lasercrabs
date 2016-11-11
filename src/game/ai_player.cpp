@@ -792,7 +792,7 @@ b8 minion_filter(const PlayerControlAI* control, const Entity* e)
 
 s32 danger(const PlayerControlAI* control)
 {
-	if (control->get<Awk>()->incoming_attacker())
+	if (control->get<PlayerCommon>()->incoming_attacker())
 		return 3;
 
 	r32 closest_awk;
@@ -959,7 +959,7 @@ b8 should_spawn_sensor(const PlayerControlAI* control)
 
 b8 attack_inbound(const PlayerControlAI* control)
 {
-	return control->get<Awk>()->incoming_attacker() != nullptr;
+	return control->get<PlayerCommon>()->incoming_attacker() != nullptr;
 }
 
 s32 geometry_query(const PlayerControlAI* control, r32 range, r32 angle_range, s32 count)

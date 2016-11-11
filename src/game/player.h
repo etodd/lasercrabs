@@ -21,6 +21,7 @@ namespace Net
 }
 
 struct TargetEvent;
+struct HealthEvent;
 struct Target;
 
 struct PlayerHuman : public ComponentType<PlayerHuman>
@@ -81,6 +82,7 @@ struct PlayerCommon : public ComponentType<PlayerCommon>
 	PlayerCommon(PlayerManager* = nullptr);
 	void awake();
 
+	Entity* incoming_attacker() const;
 	Vec3 look_dir() const;
 	Quat look() const;
 	r32 detect_danger() const;
@@ -166,7 +168,9 @@ struct PlayerControlHuman : public ComponentType<PlayerControlHuman>
 
 	r32 look_speed() const;
 	b8 local() const;
-	void camera_shake(r32);
+	void parkour_health_changed(const HealthEvent&);
+	void camera_shake(r32 = 1.0f);
+	void camera_shake_update(const Update&, Camera*);
 
 	void awk_detached();
 	void awk_done_flying_or_dashing();

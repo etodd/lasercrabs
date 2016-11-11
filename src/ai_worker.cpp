@@ -844,6 +844,23 @@ void loop()
 
 				break;
 			}
+			case Op::RandomWalkPoint:
+			{
+				LinkEntryArg<Path> callback;
+				sync_in.read(&callback);
+				sync_in.unlock();
+
+				Vec3 point;
+				dtPolyRef end_poly;
+				nav_mesh_query->findRandomPoint(&default_query_filter, mersenne::randf_co, &end_poly, (r32*)&point);
+
+				sync_out.lock();
+				sync_out.write(Callback::Point);
+				sync_out.write(callback);
+				sync_out.write(point);
+				sync_out.unlock();
+				break;
+			}
 			case Op::AwkPathfind:
 			{
 				AwkPathfind type;

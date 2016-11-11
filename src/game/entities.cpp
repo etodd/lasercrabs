@@ -51,8 +51,7 @@ AwkEntity::AwkEntity(AI::Team team)
 	create<Transform>();
 	create<Awk>();
 	create<AIAgent>()->team = team;
-
-	Health* health = create<Health>(1, AWK_HEALTH, AWK_SHIELD, AWK_SHIELD);
+	create<Health>(AWK_HEALTH, AWK_HEALTH, AWK_SHIELD, AWK_SHIELD);
 
 	SkinnedModel* model = create<SkinnedModel>();
 	model->mesh = Asset::Mesh::awk;
@@ -222,7 +221,7 @@ s8 Health::total() const
 	return hp + shield;
 }
 
-EnergyPickupEntity::EnergyPickupEntity(const Vec3& p)
+EnergyPickupEntity::EnergyPickupEntity(const Vec3& p, AI::Team team)
 {
 	create<Transform>()->pos = p;
 	View* model = create<View>();
@@ -234,13 +233,16 @@ EnergyPickupEntity::EnergyPickupEntity(const Vec3& p)
 
 	PointLight* light = create<PointLight>();
 	light->type = PointLight::Type::Override;
-	light->radius = 0.0f;
+	light->team = s8(team);
+	light->radius = (team == AI::TeamNone) ? 0.0f : SENSOR_RANGE;
 
-	create<Sensor>();
+	create<Sensor>()->team = team;
 
 	Target* target = create<Target>();
 
 	EnergyPickup* pickup = create<EnergyPickup>();
+	pickup->team = team;
+	model->team = s8(team);
 
 	model->offset.scale(Vec3(ENERGY_PICKUP_RADIUS - 0.2f));
 
@@ -355,8 +357,8 @@ b8 EnergyPickup::net_msg(Net::StreamRead* p)
 
 	EnergyPickup* pickup = ref.ref();
 	pickup->team = t;
-	pickup->get<View>()->team = (s8)t;
-	pickup->get<PointLight>()->team = (s8)t;
+	pickup->get<View>()->team = s8(t);
+	pickup->get<PointLight>()->team = s8(t);
 	pickup->get<PointLight>()->radius = (t == AI::TeamNone) ? 0.0f : SENSOR_RANGE;
 	pickup->get<Sensor>()->team = t;
 	if (caused_by.ref() && t == caused_by.ref()->get<AIAgent>()->team)
@@ -1371,38 +1373,72 @@ void Projectile::update(const Update& u)
 	if (ray_callback.hasHit())
 	{
 		Entity* hit_object = &Entity::list[ray_callback.m_collisionObject->getUserIndex()];
-		if (hit_object != owner.ref()->instance.ref())
+		if (!owner.ref() || hit_object != owner.ref()->instance.ref())
 		{
+			Entity* owner_instance = owner.ref() ? owner.ref()->instance.ref() : nullptr;
 			Vec3 basis;
-			if (hit_object->has<Awk>())
+			if (hit_object->has<EnergyPickup>())
 			{
 				basis = Vec3::normalize(velocity);
-				hit_object->get<Target>()->hit(entity());
+				hit_object->get<EnergyPickup>()->set_team(AI::TeamNone, owner_instance);
+				RigidBody* body = hit_object->get<RigidBody>();
+				body->btBody->applyImpulse(velocity * 0.1f, Vec3::zero);
+				body->btBody->activate(true);
 			}
 			else if (hit_object->has<Health>())
 			{
 				basis = Vec3::normalize(velocity);
-				hit_object->get<Health>()->damage(owner.ref()->instance.ref(), PROJECTILE_DAMAGE);
+				hit_object->get<Health>()->damage(owner_instance, PROJECTILE_DAMAGE);
+				if (hit_object->has<RigidBody>())
+				{
+					RigidBody* body = hit_object->get<RigidBody>();
+					body->btBody->applyImpulse(velocity * 0.1f, Vec3::zero);
+					body->btBody->activate(true);
+				}
 			}
 			else
 				basis = ray_callback.m_hitNormalWorld;
 
-			Quat rot = Quat::look(basis);
-			for (s32 i = 0; i < 50; i++)
-			{
-				Particles::sparks.add
-				(
-					ray_callback.m_hitPointWorld,
-					rot * Vec3(mersenne::randf_oo() * 2.0f - 1.0f, mersenne::randf_oo() * 2.0f - 1.0f, mersenne::randf_oo()) * 10.0f,
-					Vec4(1, 1, 1, 1)
-				);
-			}
-			Shockwave::add(ray_callback.m_hitPointWorld, GRENADE_RANGE, 1.5f);
+			ParticleEffect::spawn(ray_callback.m_hitPointWorld, Quat::look(basis));
 			World::remove(entity());
 		}
 	}
 	else
 		get<Transform>()->absolute_pos(next_pos);
+}
+
+void ParticleEffect::spawn(const Vec3& pos, const Quat& rot)
+{
+	using Stream = Net::StreamWrite;
+	Net::StreamWrite* p = Net::msg_new(Net::MessageType::ParticleEffect);
+	Vec3 pos2 = pos;
+	Net::serialize_position(p, &pos2, Net::Resolution::Low);
+	Quat rot2 = rot;
+	Net::serialize_quat(p, &rot2, Net::Resolution::Low);
+	Net::msg_finalize(p);
+}
+
+b8 ParticleEffect::net_msg(Net::StreamRead* p)
+{
+	using Stream = Net::StreamRead;
+	Vec3 pos;
+	if (!Net::serialize_position(p, &pos, Net::Resolution::Low))
+		net_error();
+	Quat rot;
+	if (!Net::serialize_quat(p, &rot, Net::Resolution::Low))
+		net_error();
+
+	for (s32 i = 0; i < 50; i++)
+	{
+		Particles::sparks.add
+		(
+			pos,
+			rot * Vec3(mersenne::randf_oo() * 2.0f - 1.0f, mersenne::randf_oo() * 2.0f - 1.0f, mersenne::randf_oo()) * 10.0f,
+			Vec4(1, 1, 1, 1)
+		);
+	}
+	Shockwave::add(pos, GRENADE_RANGE, 1.5f);
+	return true;
 }
 
 GrenadeEntity::GrenadeEntity(PlayerManager* owner, const Vec3& abs_pos, const Vec3& velocity)
@@ -1756,7 +1792,7 @@ s32 PlayerTrigger::count() const
 Array<Mat4> Rope::instances;
 
 // draw rope segments and projectiles
-void Rope::draw_opaque(const RenderParams& params)
+void Rope::draw_alpha(const RenderParams& params)
 {
 	instances.length = 0;
 
@@ -1796,11 +1832,11 @@ void Rope::draw_opaque(const RenderParams& params)
 	if (instances.length == 0)
 		return;
 
-	Loader::shader_permanent(Asset::Shader::standard_instanced);
+	Loader::shader_permanent(Asset::Shader::flat_instanced);
 
 	RenderSync* sync = params.sync;
 	sync->write(RenderOp::Shader);
-	sync->write(Asset::Shader::standard_instanced);
+	sync->write(Asset::Shader::flat_instanced);
 	sync->write(params.technique);
 
 	Mat4 vp = params.view_projection;
@@ -1821,7 +1857,7 @@ void Rope::draw_opaque(const RenderParams& params)
 	sync->write(Asset::Uniform::diffuse_color);
 	sync->write(RenderDataType::Vec4);
 	sync->write<s32>(1);
-	sync->write<Vec4>(Vec4(1, 1, 1, MATERIAL_NO_OVERRIDE));
+	sync->write<Vec4>(Vec4(1, 1, 1, 1));
 
 	sync->write(RenderOp::Instances);
 	sync->write(Asset::Mesh::tri_tube);

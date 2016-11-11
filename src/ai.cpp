@@ -93,6 +93,16 @@ void update(const Update& u)
 				(&link)->fire(result);
 				break;
 			}
+			case Callback::Point:
+			{
+				LinkEntryArg<const Vec3&> link;
+				sync_out.read(&link);
+				Vec3 result;
+				sync_out.read(&result);
+				callback_out_id++;
+				(&link)->fire(result);
+				break;
+			}
 			default:
 			{
 				vi_assert(false);
@@ -171,6 +181,19 @@ u32 random_path(const Vec3& pos, const LinkEntryArg<const Result&>& callback)
 	sync_in.lock();
 	sync_in.write(Op::RandomPath);
 	sync_in.write(pos);
+	sync_in.write(callback);
+	sync_in.unlock();
+
+	return id;
+}
+
+u32 random_walk_point(const Vec3& pos, const LinkEntryArg<const Vec3&>& callback)
+{
+	u32 id = callback_in_id;
+	callback_in_id++;
+
+	sync_in.lock();
+	sync_in.write(Op::RandomWalkPoint);
 	sync_in.write(callback);
 	sync_in.unlock();
 

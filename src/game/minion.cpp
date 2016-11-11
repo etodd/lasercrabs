@@ -617,7 +617,10 @@ void MinionAI::update(const Update& u)
 				Teleporter* teleporter = teleporter_candidate(this, goal);
 				if (teleporter)
 				{
-					teleport(entity(), teleporter);
+					Vec3 pos;
+					Quat rot;
+					teleporter->get<Transform>()->absolute(&pos, &rot);
+					teleport(entity(), pos, rot);
 					path.length = 0;
 				}
 				else

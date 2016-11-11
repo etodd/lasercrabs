@@ -19,11 +19,11 @@ namespace VI
 #define WALL_JUMP_RAYCAST_RADIUS_RATIO 1.5f
 #define WALL_RUN_DISTANCE_RATIO 1.1f
 
-#define RUN_SPEED 5.0f
-#define WALK_SPEED 2.5f
-#define MAX_SPEED 8.0f
+#define RUN_SPEED 4.0f
+#define WALK_SPEED 2.0f
+#define MAX_SPEED 6.0f
 #define MIN_WALLRUN_SPEED 2.0f
-#define JUMP_SPEED 6.0f
+#define JUMP_SPEED 5.0f
 
 #define JUMP_GRACE_PERIOD 0.3f
 
@@ -306,7 +306,7 @@ void Parkour::update(const Update& u)
 
 			// check if we need to transfer to a different wall
 			{
-				Vec3 ray_start = get<Walker>()->base_pos() + Vec3(0, get<Walker>()->support_height, 0);
+				Vec3 ray_start = get<Walker>()->base_pos() + Vec3(0, get<Walker>()->support_height + get<Walker>()->height * 0.25f, 0);
 
 				Vec3 wall_run_normal = last_support.ref()->get<Transform>()->to_world_normal(relative_wall_run_normal);
 
@@ -342,7 +342,7 @@ void Parkour::update(const Update& u)
 
 			// keep us glued to the wall
 
-			Vec3 ray_start = get<Walker>()->base_pos() + Vec3(0, get<Walker>()->support_height, 0);
+			Vec3 ray_start = get<Walker>()->base_pos() + Vec3(0, get<Walker>()->support_height + get<Walker>()->height * 0.25f, 0);
 
 			Vec3 wall_run_normal = last_support.ref()->get<Transform>()->to_world_normal(relative_wall_run_normal);
 
@@ -483,7 +483,7 @@ void Parkour::update(const Update& u)
 			// walking/running
 			r32 net_speed = vi_max(get<Walker>()->net_speed, WALK_SPEED * 0.5f);
 			layer0->play(net_speed > WALK_SPEED ? Asset::Animation::character_run : Asset::Animation::character_walk);
-			layer0->speed = net_speed > WALK_SPEED ? LMath::lerpf((net_speed - WALK_SPEED) / RUN_SPEED, 0.75f, 1.0f) : (net_speed / WALK_SPEED);
+			layer0->speed = 0.9f * (net_speed > WALK_SPEED ? LMath::lerpf((net_speed - WALK_SPEED) / RUN_SPEED, 0.75f, 1.0f) : (net_speed / WALK_SPEED));
 		}
 		else
 		{
@@ -735,13 +735,13 @@ void Parkour::wall_run_up_add_velocity(const Vec3& velocity, const Vec3& support
 	Vec3 horizontal_velocity = velocity - support_velocity;
 	r32 vertical_velocity = horizontal_velocity.y;
 	horizontal_velocity.y = 0.0f;
-	r32 speed = LMath::clampf(horizontal_velocity.length(), 0.0f, 5.0f);
-	get<RigidBody>()->btBody->setLinearVelocity(support_velocity + Vec3(0, 4.5f + speed + vertical_velocity - support_velocity.y, 0));
+	r32 speed = LMath::clampf(horizontal_velocity.length(), 0.0f, MAX_SPEED);
+	get<RigidBody>()->btBody->setLinearVelocity(support_velocity + Vec3(0, (RUN_SPEED * 0.5f) + speed + vertical_velocity - support_velocity.y, 0));
 }
 
 b8 Parkour::try_wall_run(WallRunState s, const Vec3& wall_direction)
 {
-	Vec3 ray_start = get<Walker>()->base_pos() + Vec3(0, get<Walker>()->support_height, 0);
+	Vec3 ray_start = get<Walker>()->base_pos() + Vec3(0, get<Walker>()->support_height + get<Walker>()->height * 0.25f, 0);
 	Vec3 ray_end = ray_start + wall_direction * get<Walker>()->radius * WALL_RUN_DISTANCE_RATIO * 2.0f;
 	btCollisionWorld::ClosestRayResultCallback ray_callback(ray_start, ray_end);
 	Physics::raycast(&ray_callback, CollisionParkour);

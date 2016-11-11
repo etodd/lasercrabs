@@ -1297,13 +1297,9 @@ void Teleporter::destroy()
 	World::remove_deferred(entity());
 }
 
-void teleport(Entity* e, Teleporter* target)
+void teleport(Entity* e, const Vec3& pos, const Quat& rot)
 {
 	Shockwave::add(e->get<Transform>()->absolute_pos(), 8.0f, 1.5f);
-
-	Vec3 pos;
-	Quat rot;
-	target->get<Transform>()->absolute(&pos, &rot);
 
 	if (e->has<Walker>())
 	{

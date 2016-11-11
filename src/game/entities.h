@@ -231,7 +231,7 @@ struct Teleporter : public ComponentType<Teleporter>
 	void destroy();
 };
 
-void teleport(Entity*, Teleporter*);
+void teleport(Entity*, const Vec3&, const Quat&);
 
 struct TeleporterEntity : public Entity
 {

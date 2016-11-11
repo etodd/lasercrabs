@@ -740,6 +740,7 @@ PlayerManager::PlayerManager(Team* team)
 	respawns(Game::level.respawns),
 	kills()
 {
+	credits_last = credits;
 }
 
 b8 PlayerManager::upgrade_start(Upgrade u)
@@ -869,9 +870,8 @@ s32 PlayerManager::add_credits(s32 c)
 {
 	if (c != 0)
 	{
-		s32 old_credits = credits;
-		credits = (s16)vi_max(0, (s32)credits + c);
-		credits_flash_timer = CREDITS_FLASH_TIME;
+		s16 old_credits = credits;
+		credits = s16(vi_max(0, s32(credits) + c));
 		return credits - old_credits;
 	}
 	return 0;
@@ -1022,6 +1022,11 @@ void PlayerManager::update_server(const Update& u)
 
 void PlayerManager::update_client(const Update& u)
 {
+	if (credits != credits_last)
+	{
+		credits_flash_timer = CREDITS_FLASH_TIME;
+		credits_last = credits;
+	}
 	credits_flash_timer = vi_max(0.0f, credits_flash_timer - Game::real_time.delta);
 }
 

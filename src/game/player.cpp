@@ -400,6 +400,7 @@ void PlayerHuman::update(const Update& u)
 
 	// flash message when the buy period expires
 	if (!Team::game_over
+		&& Game::level.mode == Game::Mode::Pvp
 		&& Game::level.has_feature(Game::FeatureLevel::Abilities)
 		&& Game::time.total > GAME_BUY_PERIOD
 		&& Game::time.total - Game::time.delta <= GAME_BUY_PERIOD)
@@ -760,7 +761,8 @@ void scoreboard_draw(const RenderParams& params, const PlayerManager* manager)
 	text.anchor_y = UIText::Anchor::Max;
 	text.color = UI::color_default;
 
-	battery_timer_draw(params, p);
+	if (Game::level.mode == Game::Mode::Pvp)
+		battery_timer_draw(params, p);
 	p.y -= text.bounds().y + MENU_ITEM_PADDING * 2.0f;
 
 	// "spawning..."
@@ -1626,14 +1628,15 @@ Vec3 PlayerControlHuman::get_movement(const Update& u, const Quat& rot)
 	if (movement_enabled())
 	{
 		s32 gamepad = player.ref()->gamepad;
-		if (u.input->gamepads[gamepad].active && Game::is_gamepad)
+		if (u.input->gamepads[gamepad].active)
 		{
 			Vec2 gamepad_movement(-u.input->gamepads[gamepad].left_x, -u.input->gamepads[gamepad].left_y);
 			Input::dead_zone(&gamepad_movement.x, &gamepad_movement.y);
 			movement.x = gamepad_movement.x;
 			movement.z = gamepad_movement.y;
 		}
-		else
+
+		if (gamepad == 0)
 		{
 			if (u.input->get(Controls::Forward, gamepad))
 				movement += Vec3(0, 0, 1);
@@ -1643,10 +1646,11 @@ Vec3 PlayerControlHuman::get_movement(const Update& u, const Quat& rot)
 				movement += Vec3(-1, 0, 0);
 			if (u.input->get(Controls::Left, gamepad))
 				movement += Vec3(1, 0, 0);
-			r32 length_squared = movement.length_squared();
-			if (length_squared > 0.0f)
-				movement /= sqrtf(length_squared);
 		}
+
+		r32 length_squared = movement.length_squared();
+		if (length_squared > 0.0f)
+			movement /= sqrtf(length_squared);
 
 		movement = rot * movement;
 	}

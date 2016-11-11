@@ -211,7 +211,7 @@ void Loader::settings_load(s32 default_width, s32 default_height)
 		bindings->bindings[(s32)Controls::InteractSecondary] = input_binding(gamepad, "interact_secondary", { KeyCode::F, KeyCode::None, Gamepad::Btn::X });
 		bindings->bindings[(s32)Controls::TabLeft] = input_binding(gamepad, "tab_left", { KeyCode::Q, KeyCode::None, Gamepad::Btn::LeftShoulder });
 		bindings->bindings[(s32)Controls::TabRight] = input_binding(gamepad, "tab_right", { KeyCode::E, KeyCode::None, Gamepad::Btn::RightShoulder });
-		bindings->bindings[(s32)Controls::Scoreboard] = input_binding(gamepad, "scoreboard", { KeyCode::Tab, KeyCode::None, Gamepad::Btn::LeftShoulder });
+		bindings->bindings[(s32)Controls::Scoreboard] = input_binding(gamepad, "scoreboard", { KeyCode::Tab, KeyCode::None, Gamepad::Btn::Back });
 		bindings->bindings[(s32)Controls::Jump] = input_binding(gamepad, "jump", { KeyCode::Space, KeyCode::None, Gamepad::Btn::RightTrigger });
 		bindings->bindings[(s32)Controls::Parkour] = input_binding(gamepad, "parkour", { KeyCode::LShift, KeyCode::None, Gamepad::Btn::LeftTrigger });
 		bindings->bindings[(s32)Controls::Slide] = input_binding(gamepad, "slide", { KeyCode::MouseLeft, KeyCode::None, Gamepad::Btn::LeftShoulder });

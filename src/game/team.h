@@ -143,6 +143,7 @@ struct PlayerManager : public ComponentType<PlayerManager>
 	Ref<Team> team;
 	Ref<Entity> instance;
 	s16 credits;
+	s16 credits_last;
 	s16 kills;
 	s16 respawns;
 	char username[MAX_USERNAME + 1]; // +1 for null terminator

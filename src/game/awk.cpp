@@ -426,7 +426,7 @@ b8 Awk::net_msg(Net::StreamRead* p, Net::MessageSource src)
 
 					// effects
 					particle_trail(my_pos, dir_normalized, (pos - my_pos).length());
-					Shockwave::add(pos + rot * Vec3(0, 0, AWK_RADIUS), 8.0f, 1.5f);
+					Shockwave::add(pos + rot * Vec3(0, 0, ROPE_SEGMENT_LENGTH), 8.0f, 1.5f);
 
 					break;
 				}
@@ -459,29 +459,31 @@ b8 Awk::net_msg(Net::StreamRead* p, Net::MessageSource src)
 					Vec3 forward = rot * Vec3(0, 0, 1.0f);
 					Vec3 npos = pos + forward;
 					forward.y = 0.0f;
-					r32 angle;
-					if (forward.length_squared() > 0.0f)
-						angle = atan2f(forward.x, forward.z);
-					else
-					{
-						Vec3 forward2 = dir_normalized;
-						forward2.y = 0.0f;
-						r32 length = forward2.length();
-						if (length > 0.0f)
-						{
-							forward2 /= length;
-							angle = atan2f(forward2.x, forward2.z);
-						}
-						else
-							angle = 0.0f;
-					}
 
 					if (Game::level.local)
+					{
+						r32 angle;
+						if (forward.length_squared() > 0.0f)
+							angle = atan2f(forward.x, forward.z);
+						else
+						{
+							Vec3 forward2 = dir_normalized;
+							forward2.y = 0.0f;
+							r32 length = forward2.length();
+							if (length > 0.0f)
+							{
+								forward2 /= length;
+								angle = atan2f(forward2.x, forward2.z);
+							}
+							else
+								angle = 0.0f;
+						}
 						Net::finalize(World::create<Minion>(npos, Quat::euler(0, angle, 0), awk->get<AIAgent>()->team, manager));
+					}
 
 					// effects
 					particle_trail(my_pos, dir_normalized, (pos - my_pos).length());
-					Shockwave::add(pos + rot * Vec3(0, 0, AWK_RADIUS), 8.0f, 1.5f);
+					Shockwave::add(npos, 8.0f, 1.5f);
 
 					Audio::post_global_event(AK::EVENTS::PLAY_MINION_SPAWN, npos);
 					break;
@@ -498,7 +500,7 @@ b8 Awk::net_msg(Net::StreamRead* p, Net::MessageSource src)
 
 					// effects
 					particle_trail(my_pos, dir_normalized, (pos - my_pos).length());
-					Shockwave::add(pos + rot * Vec3(0, 0, AWK_RADIUS), 8.0f, 1.5f);
+					Shockwave::add(npos, 8.0f, 1.5f);
 
 					break;
 				}
@@ -535,9 +537,12 @@ b8 Awk::net_msg(Net::StreamRead* p, Net::MessageSource src)
 				}
 				case Ability::Teleporter:
 				{
-					Entity* teleporter = World::create<TeleporterEntity>(parent->get<Transform>(), pos, rot, awk->get<AIAgent>()->team);
-					Net::finalize(teleporter);
-					teleport(awk->entity(), teleporter->get<Teleporter>());
+					if (Game::level.local)
+					{
+						Entity* teleporter = World::create<TeleporterEntity>(parent->get<Transform>(), pos, rot, awk->get<AIAgent>()->team);
+						Net::finalize(teleporter);
+					}
+					teleport(awk->entity(), pos, rot);
 
 					// effects
 					particle_trail(my_pos, dir_normalized, (pos - my_pos).length());
@@ -547,10 +552,13 @@ b8 Awk::net_msg(Net::StreamRead* p, Net::MessageSource src)
 				}
 				case Ability::Decoy:
 				{
-					Entity* existing_decoy = manager->decoy();
-					if (existing_decoy)
-						existing_decoy->get<Decoy>()->destroy();
-					Net::finalize(World::create<DecoyEntity>(manager, parent->get<Transform>(), pos, rot));
+					if (Game::level.local)
+					{
+						Entity* existing_decoy = manager->decoy();
+						if (existing_decoy)
+							existing_decoy->get<Decoy>()->destroy();
+						Net::finalize(World::create<DecoyEntity>(manager, parent->get<Transform>(), pos, rot));
+					}
 
 					// effects
 					particle_trail(my_pos, dir_normalized, (pos - my_pos).length());
@@ -560,10 +568,13 @@ b8 Awk::net_msg(Net::StreamRead* p, Net::MessageSource src)
 				}
 				case Ability::Grenade:
 				{
-					Vec3 dir_adjusted = dir_normalized;
-					if (dir_adjusted.y > -0.25f)
-						dir_adjusted.y += 0.35f;
-					Net::finalize(World::create<GrenadeEntity>(manager, my_pos + dir_adjusted * (AWK_SHIELD_RADIUS + GRENADE_RADIUS + 0.01f), dir_adjusted));
+					if (Game::level.local)
+					{
+						Vec3 dir_adjusted = dir_normalized;
+						if (dir_adjusted.y > -0.25f)
+							dir_adjusted.y += 0.35f;
+						Net::finalize(World::create<GrenadeEntity>(manager, my_pos + dir_adjusted * (AWK_SHIELD_RADIUS + GRENADE_RADIUS + 0.01f), dir_adjusted));
+					}
 					break;
 				}
 				default:
@@ -1202,19 +1213,20 @@ b8 Awk::go(const Vec3& dir)
 	if (!cooldown_can_shoot())
 		return false;
 
-	{
-		Net::StateFrame* state_frame = nullptr;
-		Net::StateFrame state_frame_data;
-		if (awk_state_frame(this, &state_frame_data))
-			state_frame = &state_frame_data;
-		if (!can_shoot(dir, nullptr, nullptr, state_frame))
-			return false;
-	}
-
 	Vec3 dir_normalized = Vec3::normalize(dir);
 
 	if (current_ability == Ability::None)
+	{
+		{
+			Net::StateFrame* state_frame = nullptr;
+			Net::StateFrame state_frame_data;
+			if (awk_state_frame(this, &state_frame_data))
+				state_frame = &state_frame_data;
+			if (!can_shoot(dir, nullptr, nullptr, state_frame))
+				return false;
+		}
 		AwkNet::start_flying(this, dir_normalized);
+	}
 	else
 	{
 		if (!get<PlayerCommon>()->manager.ref()->ability_valid(current_ability))

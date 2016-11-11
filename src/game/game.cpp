@@ -366,11 +366,27 @@ void Game::update(const Update& update_in)
 
 		PlayerManager::update_all(u);
 		PlayerHuman::update_all(u);
+		for (auto i = MinionCommon::list.iterator(); !i.is_last(); i.next())
+		{
+			if (level.local)
+				i.item()->update_server(u);
+			i.item()->update_client(u);
+		}
 		if (level.local)
 		{
 			for (auto i = Health::list.iterator(); !i.is_last(); i.next())
 				i.item()->update(u);
+			for (auto i = Walker::list.iterator(); !i.is_last(); i.next())
+				i.item()->update(u);
+			for (auto i = Projectile::list.iterator(); !i.is_last(); i.next())
+				i.item()->update(u);
+			for (auto i = Grenade::list.iterator(); !i.is_last(); i.next())
+				i.item()->update_server(u);
+			for (auto i = Rocket::list.iterator(); !i.is_last(); i.next())
+				i.item()->update_server(u);
 		}
+		Grenade::update_client_all(u);
+		Rocket::update_client_all(u);
 		for (auto i = PlayerAI::list.iterator(); !i.is_last(); i.next())
 			i.item()->update(u);
 		for (auto i = Awk::list.iterator(); !i.is_last(); i.next())
@@ -383,14 +399,6 @@ void Game::update(const Update& update_in)
 			i.item()->update(u);
 		for (auto i = PlayerTrigger::list.iterator(); !i.is_last(); i.next())
 			i.item()->update(u);
-		if (level.local)
-			MinionAI::update_all(u);
-		for (auto i = MinionCommon::list.iterator(); !i.is_last(); i.next())
-		{
-			if (level.local)
-				i.item()->update_server(u);
-			i.item()->update_client(u);
-		}
 		EnergyPickup::update_all(u);
 		Sensor::update_all_client(u);
 		ContainmentField::update_all(u);
@@ -398,19 +406,6 @@ void Game::update(const Update& update_in)
 			i.item()->update(u);
 		for (auto i = Shockwave::list.iterator(); !i.is_last(); i.next())
 			i.item()->update(u);
-		if (level.local)
-		{
-			for (auto i = Walker::list.iterator(); !i.is_last(); i.next())
-				i.item()->update(u);
-			for (auto i = Projectile::list.iterator(); !i.is_last(); i.next())
-				i.item()->update(u);
-			for (auto i = Grenade::list.iterator(); !i.is_last(); i.next())
-				i.item()->update_server(u);
-			for (auto i = Rocket::list.iterator(); !i.is_last(); i.next())
-				i.item()->update_server(u);
-		}
-		Grenade::update_client_all(u);
-		Rocket::update_client_all(u);
 		for (auto i = Parkour::list.iterator(); !i.is_last(); i.next())
 			i.item()->update(u);
 		for (auto i = PlayerCommon::list.iterator(); !i.is_last(); i.next())

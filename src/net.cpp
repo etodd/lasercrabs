@@ -256,7 +256,6 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 		| Sensor::component_mask
 		| Rocket::component_mask
 		| ContainmentField::component_mask
-		| Teleporter::component_mask
 		| Awk::component_mask
 		| Audio::component_mask
 		| Team::component_mask
@@ -559,12 +558,6 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 		serialize_ref(p, c->field);
 		serialize_ref(p, c->owner);
 		serialize_s8(p, c->team);
-	}
-
-	if (e->has<Teleporter>())
-	{
-		Teleporter* t = e->get<Teleporter>();
-		serialize_s8(p, t->team);
 	}
 
 	if (e->has<Water>())

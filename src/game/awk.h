@@ -130,7 +130,7 @@ struct Awk : public ComponentType<Awk>
 
 	b8 predict_intersection(const Target*, const Net::StateFrame*, Vec3*, r32) const;
 
-	void stealth(b8);
+	static void stealth(Entity*, b8);
 
 	void reflect(Entity*, const Vec3&, const Vec3&, const Net::StateFrame*);
 	void crawl_wall_edge(const Vec3&, const Vec3&, const Update&, r32);

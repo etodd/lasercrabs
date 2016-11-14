@@ -76,9 +76,6 @@ struct PlayerCommon : public ComponentType<PlayerCommon>
 	r32 angle_vertical;
 	Ref<PlayerManager> manager;
 
-	static s32 visibility_hash(const PlayerCommon*, const PlayerCommon*);
-	static Bitmask<MAX_PLAYERS * MAX_PLAYERS> visibility;
-
 	PlayerCommon(PlayerManager* = nullptr);
 	void awake();
 

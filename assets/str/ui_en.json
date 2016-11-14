@@ -103,8 +103,6 @@
 	"description_minion": "Minions attack enemy drones, sensors, and rocket pods.",
 	"containment_field": "Force Field",
 	"description_containment_field": "Force fields are impervious to enemy drones. Limited battery life unless powered by a friendly energy port.",
-	"teleporter": "Teleporter",
-	"description_teleporter": "Instantly teleport with increased range. Provides a temporary shield. Minions can also use teleporters.",
 	"decoy": "Decoy",
 	"description_decoy": "Decoys distract enemy minions and rockets.",
 	"grenade": "Grenade",

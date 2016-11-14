@@ -376,7 +376,6 @@ void Game::update(const Update& update_in)
 				i.item()->update_server(u);
 			for (auto i = Rocket::list.iterator(); !i.is_last(); i.next())
 				i.item()->update_server(u);
-			MinionAI::update_all(u);
 		}
 		for (auto i = MinionCommon::list.iterator(); !i.is_last(); i.next())
 		{

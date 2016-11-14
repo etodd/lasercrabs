@@ -66,6 +66,7 @@
 #define AWK_CHARGES 3
 #define AWK_THIRD_PERSON_OFFSET 2.0f
 #define AWK_SHIELD_RADIUS 0.6f
+#define AWK_SHIELD_ALPHA 0.2f
 
 #define MAX_BONE_WEIGHTS 4
 
@@ -73,7 +74,6 @@
 #define ROPE_RADIUS 0.075f
 
 #define SENSOR_TIME 1.0f
-#define SENSOR_TIMEOUT 2.0f
 #define SENSOR_RADIUS 0.15f
 #define SENSOR_HEALTH 2
 #define SENSOR_RANGE 16.0f

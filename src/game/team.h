@@ -53,15 +53,6 @@ struct Team : public ComponentType<Team>
 		b8 tracking;
 	};
 
-	struct SensorTrackHistory
-	{
-		Vec3 pos;
-		s8 hp;
-		s8 hp_max;
-		s8 shield;
-		s8 shield_max;
-	};
-
 	static const Vec4 ui_color_enemy;
 	static const Vec4 ui_color_friend;
 	static const Vec4 color_enemy;
@@ -72,7 +63,6 @@ struct Team : public ComponentType<Team>
 	static Ref<Team> winner;
 
 	static void awake_all();
-	static void extract_history(PlayerManager*, SensorTrackHistory*);
 	static void transition_next(Game::MatchResult);
 	static s16 containment_field_mask(AI::Team);
 	static void update_all_server(const Update&);
@@ -92,13 +82,12 @@ struct Team : public ComponentType<Team>
 	}
 
 	SensorTrack player_tracks[MAX_PLAYERS];
-	SensorTrackHistory player_track_history[MAX_PLAYERS];
 	Ref<Transform> player_spawn;
 
 	Team();
 	void awake() {}
 	b8 has_player() const;
-	void track(PlayerManager*);
+	void track(PlayerManager*, Entity*);
 	s32 control_point_count() const;
 	s16 kills() const;
 
@@ -127,6 +116,9 @@ struct PlayerManager : public ComponentType<PlayerManager>
 	};
 
 	static r32 timer;
+
+	static s32 visibility_hash(const PlayerManager*, const PlayerManager*);
+	static Ref<Entity> visibility[MAX_PLAYERS * MAX_PLAYERS];
 
 	static void update_all(const Update&);
 

@@ -1017,6 +1017,32 @@ void Decoy::awake()
 {
 	link_arg<const TargetEvent&, &Decoy::hit_by>(get<Target>()->target_hit);
 	link_arg<Entity*, &Decoy::killed>(get<Health>()->killed);
+
+	if (Game::level.local)
+	{
+		Entity* shield_entity = World::create<Empty>();
+		shield_entity->get<Transform>()->parent = get<Transform>();
+		shield = shield_entity;
+
+		View* s = shield_entity->add<View>();
+		s->team = (s8)get<AIAgent>()->team;
+		s->mesh = Asset::Mesh::sphere_highres;
+		s->offset.scale(Vec3(AWK_SHIELD_RADIUS));
+		s->shader = Asset::Shader::fresnel;
+		s->alpha();
+		s->color.w = AWK_SHIELD_ALPHA;
+
+		Net::finalize(shield_entity);
+	}
+}
+
+Decoy::~Decoy()
+{
+	if (Game::level.local)
+	{
+		if (shield.ref())
+			World::remove_deferred(shield.ref());
+	}
 }
 
 AI::Team Decoy::team() const
@@ -1228,95 +1254,6 @@ ContainmentFieldEntity::ContainmentFieldEntity(Transform* parent, const Vec3& ab
 }
 
 #define TELEPORTER_RADIUS 0.5f
-TeleporterEntity::TeleporterEntity(Transform* parent, const Vec3& pos, const Quat& rot, AI::Team team)
-{
-	Transform* transform = create<Transform>();
-	transform->parent = parent;
-	transform->absolute(pos, rot);
-	create<Teleporter>()->team = team;
-	create<RigidBody>(RigidBody::Type::Sphere, Vec3(TELEPORTER_RADIUS), 0.0f, CollisionAwkIgnore, CollisionAwkIgnore);
-
-	View* model = create<View>();
-	model->mesh = Asset::Mesh::teleporter;
-	model->team = (s8)team;
-	model->shader = Asset::Shader::standard;
-
-	create<Health>(SENSOR_HEALTH, SENSOR_HEALTH);
-}
-
-Teleporter* Teleporter::closest(AI::TeamMask mask, const Vec3& pos, r32* distance)
-{
-	r32 closest_distance = FLT_MAX;
-	Teleporter* closest = nullptr;
-	for (auto i = Teleporter::list.iterator(); !i.is_last(); i.next())
-	{
-		if (AI::match(i.item()->team, mask))
-		{
-			r32 distance = (pos - i.item()->get<Transform>()->absolute_pos()).length_squared();
-			if (distance < closest_distance)
-			{
-				closest = i.item();
-				closest_distance = distance;
-			}
-		}
-	}
-
-	if (distance)
-	{
-		if (closest)
-			*distance = sqrtf(closest_distance);
-		else
-			*distance = FLT_MAX;
-	}
-
-	return closest;
-}
-
-void Teleporter::awake()
-{
-	if (has<Health>())
-		link_arg<Entity*, &Teleporter::killed>(get<Health>()->killed);
-}
-
-void Teleporter::killed(Entity*)
-{
-	if (Game::level.local)
-		destroy();
-}
-
-void Teleporter::destroy()
-{
-	vi_assert(Game::level.local);
-	Vec3 pos;
-	Quat rot;
-	get<Transform>()->absolute(&pos, &rot);
-	ParticleEffect::spawn(ParticleEffect::Type::Explosion, pos, rot);
-	World::remove_deferred(entity());
-}
-
-void teleport(Entity* e, const Vec3& pos, const Quat& rot)
-{
-	Shockwave::add(e->get<Transform>()->absolute_pos(), 8.0f, 1.5f);
-
-	if (e->has<Walker>())
-	{
-		// space minions out around the teleporter
-		Vec3 teleport_pos = pos + rot * Quat::euler(0, 0, e->get<Walker>()->id() * PI * 0.25f) * Vec3(1, 0, 1);
-		teleport_pos.y = vi_max(teleport_pos.y, pos.y + 1.0f);
-		e->get<Walker>()->absolute_pos(teleport_pos);
-		Shockwave::add(pos, 8.0f, 1.5f);
-	}
-	else if (e->has<Awk>())
-	{
-		e->get<Awk>()->detach_teleport();
-		e->get<Transform>()->absolute(pos + rot * Quat::euler(0, 0, e->get<Awk>()->id() * PI * 0.25f) * Vec3(0, 0, AWK_RADIUS * 4.0f), rot);
-		e->get<Awk>()->velocity = rot * Vec3(0.0f, 0.0f, -AWK_FLY_SPEED); // make sure it shoots into the wall
-		e->get<Awk>()->overshield_timer = AWK_OVERSHIELD_TIME;
-	}
-	else
-		vi_assert(false);
-}
-
 #define PROJECTILE_LENGTH 0.5f
 #define PROJECTILE_THICKNESS 0.05f
 #define PROJECTILE_MAX_LIFETIME 10.0f
@@ -1507,7 +1444,6 @@ template<typename T> b8 grenade_trigger_filter(T* e, AI::Team team)
 	return (e->template has<AIAgent>() && e->template get<AIAgent>()->team != team && !e->template get<AIAgent>()->stealth)
 		|| (e->template has<ContainmentField>() && e->template get<ContainmentField>()->team != team)
 		|| (e->template has<Rocket>() && e->template get<Rocket>()->team() != team)
-		|| (e->template has<Teleporter>() && e->template get<Teleporter>()->team != team)
 		|| (e->template has<Sensor>() && !e->template has<EnergyPickup>() && e->template get<Sensor>()->team != team)
 		|| (e->template has<Decoy>() && e->template get<Decoy>()->team() != team);
 }

@@ -179,7 +179,10 @@ struct RocketEntity : public Entity
 struct Decoy : public ComponentType<Decoy>
 {
 	Ref<PlayerManager> owner;
+	Ref<Entity> shield;
+
 	void awake();
+	~Decoy();
 	void hit_by(const TargetEvent&);
 	void killed(Entity*);
 	void destroy();
@@ -218,24 +221,6 @@ struct ContainmentField : public ComponentType<ContainmentField>
 struct ContainmentFieldEntity : public Entity
 {
 	ContainmentFieldEntity(Transform*, const Vec3&, const Quat&, PlayerManager*);
-};
-
-struct Teleporter : public ComponentType<Teleporter>
-{
-	static Teleporter* closest(AI::TeamMask, const Vec3&, r32* = nullptr);
-
-	AI::Team team;
-
-	void awake();
-	void killed(Entity*);
-	void destroy();
-};
-
-void teleport(Entity*, const Vec3&, const Quat&);
-
-struct TeleporterEntity : public Entity
-{
-	TeleporterEntity(Transform*, const Vec3&, const Quat&, AI::Team);
 };
 
 struct AICue : public ComponentType<AICue>

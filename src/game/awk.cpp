@@ -32,7 +32,6 @@ namespace VI
 #define AWK_LEG_LENGTH (0.277f - 0.101f)
 #define AWK_LEG_BLEND_SPEED (1.0f / 0.03f)
 #define AWK_MIN_LEG_BLEND_SPEED (AWK_LEG_BLEND_SPEED * 0.1f)
-#define AWK_SHIELD_ALPHA 0.2f
 #define AWK_OVERSHIELD_ALPHA 0.75f
 #define AWK_OVERSHIELD_RADIUS (AWK_SHIELD_RADIUS * 1.1f)
 #define AWK_SHIELD_ANIM_TIME 0.35f
@@ -528,23 +527,8 @@ b8 Awk::net_msg(Net::StreamRead* p, Net::MessageSource src)
 					for (auto i = Team::list.iterator(); !i.is_last(); i.next())
 					{
 						if (i.item()->team() != team)
-							i.item()->track(awk->get<PlayerCommon>()->manager.ref());
+							i.item()->track(awk->get<PlayerCommon>()->manager.ref(), awk->entity());
 					}
-
-					break;
-				}
-				case Ability::Teleporter:
-				{
-					if (Game::level.local)
-					{
-						Entity* teleporter = World::create<TeleporterEntity>(parent->get<Transform>(), pos, rot, awk->get<AIAgent>()->team);
-						Net::finalize(teleporter);
-					}
-					teleport(awk->entity(), pos, rot);
-
-					// effects
-					particle_trail(my_pos, dir_normalized, (pos - my_pos).length());
-					Shockwave::add(pos + rot * Vec3(0, 0, AWK_RADIUS), 8.0f, 1.5f);
 
 					break;
 				}
@@ -777,7 +761,7 @@ b8 Awk::hit_target(Entity* target)
 			PlayerManager* owner = target->get<MinionCommon>()->owner.ref();
 			if (owner)
 			{
-				owner->team.ref()->track(get<PlayerCommon>()->manager.ref());
+				owner->team.ref()->track(get<PlayerCommon>()->manager.ref(), entity());
 				get<PlayerCommon>()->manager.ref()->add_credits(CREDITS_MINION_KILL);
 			}
 		}
@@ -1165,7 +1149,7 @@ b8 Awk::cooldown_can_shoot() const
 
 r32 Awk::range() const
 {
-	return (current_ability == Ability::Sniper || current_ability == Ability::Teleporter) ? AWK_SNIPE_DISTANCE : AWK_MAX_DISTANCE;
+	return current_ability == Ability::Sniper ? AWK_SNIPE_DISTANCE : AWK_MAX_DISTANCE;
 }
 
 b8 Awk::go(const Vec3& dir)
@@ -1206,12 +1190,9 @@ b8 Awk::go(const Vec3& dir)
 
 void awk_reflection_execute(Awk* a, const Vec3& dir)
 {
-	if (a->get<Transform>()->parent.ref())
-	{
-		a->get<Transform>()->reparent(nullptr);
-		a->dash_timer = 0.0f;
-		a->get<Animator>()->layers[0].animation = Asset::Animation::awk_fly;
-	}
+	a->get<Transform>()->reparent(nullptr);
+	a->dash_timer = 0.0f;
+	a->get<Animator>()->layers[0].animation = Asset::Animation::awk_fly;
 
 	Vec3 new_velocity = dir * AWK_DASH_SPEED;
 	a->reflecting.fire(new_velocity);
@@ -1225,6 +1206,7 @@ void Awk::reflect(Entity* entity, const Vec3& hit, const Vec3& normal, const Net
 	// it's possible to reflect off a shield while we are dashing (still parented to an object)
 	// so we need to make sure we're not dashing anymore
 	Vec3 reflection_pos = hit + normal * AWK_RADIUS * 0.5f;
+	get<Transform>()->parent = nullptr;
 	get<Transform>()->absolute_pos(reflection_pos);
 
 	// the actual direction we end up going
@@ -1614,22 +1596,22 @@ void Awk::update_offset()
 	overshield.ref()->get<View>()->offset.translation(offset_pos);
 }
 
-void Awk::stealth(b8 enable)
+void Awk::stealth(Entity* e, b8 enable)
 {
-	if (enable != get<AIAgent>()->stealth)
+	if (enable != e->get<AIAgent>()->stealth)
 	{
 		if (enable)
 		{
-			get<AIAgent>()->stealth = true;
-			get<SkinnedModel>()->alpha_depth();
-			get<SkinnedModel>()->mask = 1 << (s32)get<AIAgent>()->team; // only display to fellow teammates
+			e->get<AIAgent>()->stealth = true;
+			e->get<SkinnedModel>()->alpha_depth();
+			e->get<SkinnedModel>()->mask = 1 << (s32)e->get<AIAgent>()->team; // only display to fellow teammates
 		}
 		else
 		{
-			get<AIAgent>()->stealth = false;
-			get<SkinnedModel>()->alpha_disable();
-			get<SkinnedModel>()->color.w = MATERIAL_NO_OVERRIDE;
-			get<SkinnedModel>()->mask = RENDER_MASK_DEFAULT; // display to everyone
+			e->get<AIAgent>()->stealth = false;
+			e->get<SkinnedModel>()->alpha_disable();
+			e->get<SkinnedModel>()->color.w = MATERIAL_NO_OVERRIDE;
+			e->get<SkinnedModel>()->mask = RENDER_MASK_DEFAULT; // display to everyone
 		}
 	}
 }

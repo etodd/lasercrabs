@@ -51,7 +51,6 @@ enum class Ability
 {
 	Sensor,
 	Minion,
-	Teleporter,
 	Rocket,
 	ContainmentField,
 	Sniper,
@@ -66,7 +65,6 @@ enum class Upgrade
 {
 	Sensor,
 	Minion,
-	Teleporter,
 	Rocket,
 	ContainmentField,
 	Sniper,

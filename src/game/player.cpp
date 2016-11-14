@@ -204,10 +204,10 @@ void PlayerHuman::update_all(const Update& u)
 	b8 visible_enemy = false;
 	for (auto i = PlayerControlHuman::list.iterator(); !i.is_last(); i.next())
 	{
-		PlayerCommon* local_common = i.item()->get<PlayerCommon>();
+		PlayerManager* local_common = i.item()->get<PlayerCommon>()->manager.ref();
 		for (auto j = PlayerCommon::list.iterator(); !j.is_last(); j.next())
 		{
-			if (PlayerCommon::visibility.get(PlayerCommon::visibility_hash(local_common, j.item())))
+			if (PlayerManager::visibility[PlayerManager::visibility_hash(local_common, j.item()->manager.ref())].ref())
 			{
 				visible_enemy = true;
 				break;
@@ -1235,9 +1235,10 @@ Entity* PlayerCommon::incoming_attacker() const
 	Vec3 me = get<Transform>()->absolute_pos();
 
 	// check incoming Awks
+	PlayerManager* manager = get<PlayerCommon>()->manager.ref();
 	for (auto i = PlayerCommon::list.iterator(); !i.is_last(); i.next())
 	{
-		if (PlayerCommon::visibility.get(PlayerCommon::visibility_hash(get<PlayerCommon>(), i.item())))
+		if (PlayerManager::visibility[PlayerManager::visibility_hash(manager, i.item()->manager.ref())].ref())
 		{
 			// determine if they're attacking us
 			if (i.item()->get<Awk>()->state() != Awk::State::Crawl
@@ -1386,13 +1387,6 @@ void PlayerCommon::clamp_rotation(const Vec3& direction, r32 dot_limit)
 		angle_horizontal = atan2f(forward.x, forward.z);
 		angle_vertical = -asinf(forward.y);
 	}
-}
-
-Bitmask<MAX_PLAYERS * MAX_PLAYERS> PlayerCommon::visibility;
-
-s32 PlayerCommon::visibility_hash(const PlayerCommon* awk_a, const PlayerCommon* awk_b)
-{
-	return awk_a->id() * MAX_PLAYERS + awk_b->id();
 }
 
 b8 PlayerControlHuman::net_msg(Net::StreamRead* p, PlayerControlHuman* c, Net::MessageSource src)
@@ -1766,13 +1760,29 @@ b8 PlayerControlHuman::add_target_indicator(Target* target, TargetIndicator::Typ
 	return true;
 }
 
-void determine_visibility(PlayerCommon* me, PlayerCommon* other_player, b8* visible, b8* tracking)
+// returns the actual detected entity, if any. could be the original player, or a decoy.
+Entity* determine_visibility(PlayerCommon* me, PlayerCommon* other_player, b8* visible, b8* tracking)
 {
 	// make sure we can see this guy
 	AI::Team team = me->get<AIAgent>()->team;
-	*tracking = Team::list[(s32)team].player_tracks[other_player->manager.id].tracking;
-	*visible = other_player->get<AIAgent>()->team == team
-		|| PlayerCommon::visibility.get(PlayerCommon::visibility_hash(me, other_player));
+	const Team::SensorTrack track = Team::list[(s32)team].player_tracks[other_player->manager.id];
+	*tracking = track.tracking;
+
+	if (other_player->get<AIAgent>()->team == team)
+	{
+		*visible = true;
+		return other_player->entity();
+	}
+	else
+	{
+		Entity* visible_entity = PlayerManager::visibility[PlayerManager::visibility_hash(me->manager.ref(), other_player->manager.ref())].ref();
+		*visible = visible_entity != nullptr;
+
+		if (track.tracking)
+			return track.entity.ref();
+		else
+			return visible_entity;
+	}
 }
 
 void ability_select(Awk* awk, Ability a)
@@ -2189,16 +2199,13 @@ void PlayerControlHuman::update(const Update& u)
 				{
 					if (other_player.item()->get<AIAgent>()->team != team)
 					{
-						Entity* e = other_player.item()->manager.ref()->decoy();
-						if (!e)
-							e = other_player.item()->entity();
+						b8 tracking;
+						b8 visible;
+						Entity* detected_entity = determine_visibility(get<PlayerCommon>(), other_player.item(), &visible, &tracking);
 
-						b8 visible, tracking;
-						determine_visibility(get<PlayerCommon>(), e->get<PlayerCommon>(), &visible, &tracking);
-
-						if (tracking || visible)
+						if (visible)
 						{
-							if (!add_target_indicator(e->get<Target>(), tracking ? TargetIndicator::Type::AwkTracking : TargetIndicator::Type::AwkVisible))
+							if (!add_target_indicator(detected_entity->get<Target>(), tracking ? TargetIndicator::Type::AwkTracking : TargetIndicator::Type::AwkVisible))
 								break; // no more room for indicators
 						}
 					}
@@ -2753,17 +2760,16 @@ void PlayerControlHuman::draw_alpha(const RenderParams& params) const
 	{
 		if (other_player.item() != get<PlayerCommon>())
 		{
-			b8 visible;
 			b8 tracking;
-			determine_visibility(get<PlayerCommon>(), other_player.item(), &visible, &tracking);
+			b8 visible;
+			Entity* detected_entity = determine_visibility(get<PlayerCommon>(), other_player.item(), &visible, &tracking);
 
 			b8 friendly = other_player.item()->get<AIAgent>()->team == team;
 
-			if (!friendly)
+			if (visible && !friendly)
 			{
-				if (visible)
-					enemy_visible = true;
-				if ((other_player.item()->get<Transform>()->absolute_pos() - me).length_squared() < AWK_MAX_DISTANCE * AWK_MAX_DISTANCE)
+				enemy_visible = true;
+				if ((detected_entity->get<Transform>()->absolute_pos() - me).length_squared() < AWK_MAX_DISTANCE * AWK_MAX_DISTANCE)
 					enemy_close = true;
 			}
 
@@ -2771,29 +2777,26 @@ void PlayerControlHuman::draw_alpha(const RenderParams& params) const
 			Vec2 p;
 			const Vec4* color;
 
-			Team::SensorTrackHistory history;
 			if (friendly)
 			{
-				Team::extract_history(other_player.item()->manager.ref(), &history);
-				Vec3 pos3d = history.pos + Vec3(0, AWK_RADIUS * 2.0f, 0);
+				Vec3 pos3d = detected_entity->get<Transform>()->absolute_pos() + Vec3(0, AWK_RADIUS * 2.0f, 0);
 				draw = UI::project(params, pos3d, &p);
 				color = &Team::ui_color_friend;
 			}
 			else
 			{
-				history = Team::list[(s32)team].player_track_history[other_player.item()->manager.id];
-
 				// highlight the username and draw it even if it's offscreen
-				if (tracking || visible)
+				if (detected_entity)
 				{
-					if (team == other_player.item()->get<AIAgent>()->team) // friend
+					Vec3 pos3d = detected_entity->get<Transform>()->absolute_pos() + Vec3(0, AWK_RADIUS * 2.0f, 0);
+
+					if (friendly)
 						color = &Team::ui_color_friend;
-					else // enemy
+					else
 						color = &Team::ui_color_enemy;
 
 					// if we can see or track them, the indicator has already been added using add_target_indicator in the update function
 
-					Vec3 pos3d = history.pos + Vec3(0, AWK_RADIUS * 2.0f, 0);
 					if (tracking)
 					{
 						// if we're tracking them, clamp their username to the screen

@@ -49,7 +49,7 @@ PlayerAI::Config PlayerAI::generate_config()
 		{
 			config.upgrade_priority[0] = Upgrade::Minion;
 			config.upgrade_strategies[0] = UpgradeStrategy::SaveUp;
-			config.upgrade_priority[1] = Upgrade::Teleporter;
+			config.upgrade_priority[1] = Upgrade::Decoy;
 			config.upgrade_strategies[1] = UpgradeStrategy::IfAvailable;
 			config.upgrade_priority[2] = Upgrade::Rocket;
 			config.upgrade_strategies[2] = UpgradeStrategy::SaveUp;
@@ -59,7 +59,7 @@ PlayerAI::Config PlayerAI::generate_config()
 		{
 			config.upgrade_priority[0] = Upgrade::Sensor;
 			config.upgrade_strategies[0] = UpgradeStrategy::SaveUp;
-			config.upgrade_priority[1] = Upgrade::Teleporter;
+			config.upgrade_priority[1] = Upgrade::Bolter;
 			config.upgrade_strategies[1] = UpgradeStrategy::IfAvailable;
 			config.upgrade_priority[2] = Upgrade::Sniper;
 			config.upgrade_strategies[2] = UpgradeStrategy::IfAvailable;
@@ -81,13 +81,13 @@ PlayerAI::Config PlayerAI::generate_config()
 			config.upgrade_strategies[0] = UpgradeStrategy::SaveUp;
 			config.upgrade_priority[1] = Upgrade::Rocket;
 			config.upgrade_strategies[1] = UpgradeStrategy::SaveUp;
-			config.upgrade_priority[2] = Upgrade::Teleporter;
+			config.upgrade_priority[2] = Upgrade::ContainmentField;
 			config.upgrade_strategies[2] = UpgradeStrategy::IfAvailable;
 			break;
 		}
 		case 4:
 		{
-			config.upgrade_priority[0] = Upgrade::Teleporter;
+			config.upgrade_priority[0] = Upgrade::Sniper;
 			config.upgrade_strategies[0] = UpgradeStrategy::IfAvailable;
 			config.upgrade_priority[1] = Upgrade::Minion;
 			config.upgrade_strategies[1] = UpgradeStrategy::IfAvailable;
@@ -1164,32 +1164,7 @@ s32 team_density(AI::TeamMask mask, const Vec3& pos, r32 radius)
 		}
 	}
 
-	for (auto i = Teleporter::list.iterator(); !i.is_last(); i.next())
-	{
-		if (AI::match(i.item()->team, mask)
-			&& (i.item()->get<Transform>()->absolute_pos() - pos).length_squared() < radius_sq)
-		{
-			score += 1;
-		}
-	}
-
 	return score;
-}
-
-b8 should_teleport(const PlayerControlAI* control)
-{
-	if (control->get<Health>()->hp <= 2 && danger(control) > 1)
-		return true;
-
-	AI::Team team = control->get<AIAgent>()->team;
-	Vec3 pos = control->get<Transform>()->absolute_pos();
-
-	if (MinionCommon::count(1 << team) > 2
-		&& team_density(1 << team, pos, AWK_MAX_DISTANCE) < 5
-		&& team_density(~(1 << team), pos, AWK_MAX_DISTANCE) > 3)
-		return true;
-
-	return false;
 }
 
 b8 should_spawn_minion(const PlayerControlAI* control)
@@ -1742,9 +1717,7 @@ void AbilitySpawn::run()
 {
 	active(true);
 
-	if (try_spawn(5, Upgrade::Teleporter, Ability::Teleporter, &should_teleport))
-		done(true);
-	else if (try_spawn(4, Upgrade::Minion, Ability::Minion, &should_spawn_minion))
+	if (try_spawn(4, Upgrade::Minion, Ability::Minion, &should_spawn_minion))
 		done(true);
 	else if (try_spawn(4, Upgrade::Sensor, Ability::Sensor, &should_spawn_sensor))
 		done(true);

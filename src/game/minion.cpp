@@ -320,23 +320,6 @@ Entity* closest_target(MinionAI* me, AI::Team team, const Vec3& direction)
 		}
 	}
 
-	for (auto i = Teleporter::list.iterator(); !i.is_last(); i.next())
-	{
-		Teleporter* teleporter = i.item();
-		if (teleporter->team != team && !teleporter->has<ControlPoint>())
-		{
-			if (me->can_see(teleporter->entity()))
-				return teleporter->entity();
-			Vec3 to_teleporter = teleporter->get<Transform>()->absolute_pos() - pos;
-			r32 total_distance = to_teleporter.length_squared() + (to_teleporter.dot(direction) < 0.0f ? direction_cost : 0.0f);
-			if (total_distance < closest_distance)
-			{
-				closest = teleporter->entity();
-				closest_distance = total_distance;
-			}
-		}
-	}
-
 	return closest;
 }
 
@@ -355,7 +338,7 @@ Entity* visible_target(MinionAI* me, AI::Team team)
 	for (auto i = PlayerCommon::list.iterator(); !i.is_last(); i.next())
 	{
 		PlayerCommon* player = i.item();
-		if (player->get<AIAgent>()->team != team && !player->get<PlayerCommon>()->manager.ref()->decoy())
+		if (player->get<AIAgent>()->team != team)
 		{
 			if (me->can_see(player->entity(), true))
 				return player->entity();
@@ -409,16 +392,6 @@ Entity* visible_target(MinionAI* me, AI::Team team)
 		{
 			if (me->can_see(rocket->entity()))
 				return rocket->entity();
-		}
-	}
-
-	for (auto i = Teleporter::list.iterator(); !i.is_last(); i.next())
-	{
-		Teleporter* teleporter = i.item();
-		if (teleporter->team != team && !teleporter->has<ControlPoint>())
-		{
-			if (me->can_see(teleporter->entity()))
-				return teleporter->entity();
 		}
 	}
 
@@ -519,65 +492,6 @@ Vec3 goal_pos(const MinionAI::Goal& g)
 		return g.entity.ref()->get<Transform>()->absolute_pos();
 }
 
-Teleporter* teleporter_candidate(const MinionAI* minion, const MinionAI::Goal& g)
-{
-	// must have the upgrade in order for minions to teleport
-	PlayerManager* owner = minion->get<MinionCommon>()->owner.ref();
-	if (!owner || !owner->has_upgrade(Upgrade::Teleporter))
-		return nullptr;
-
-	Vec3 target = goal_pos(g);
-	r32 distance;
-	Teleporter* teleporter = Teleporter::closest(1 << minion->get<AIAgent>()->team, target, &distance);
-	if (teleporter && distance < (target - minion->get<Transform>()->absolute_pos()).length() - 5.0f)
-		return teleporter;
-	return nullptr;
-}
-
-r32 MinionAI::particle_accumulator = 0.0f;
-void MinionAI::update_all(const Update& u)
-{
-	particle_accumulator -= u.time.delta;
-
-	s32 count = 0;
-	while (particle_accumulator < 0.0f)
-	{
-		const r32 TELEPORT_PARTICLE_INTERVAL = 0.02f;
-		particle_accumulator += TELEPORT_PARTICLE_INTERVAL;
-		count++;
-	}
-
-	for (auto i = list.iterator(); !i.is_last(); i.next())
-	{
-		if (i.item()->teleport_timer > 0.0f)
-		{
-			Vec3 pos = i.item()->get<Walker>()->base_pos();
-			for (s32 j = 0; j < count; j++)
-			{
-				const r32 TELEPORT_PARTICLE_RADIUS = 0.5f;
-				const Vec3 particle_velocity(0, 10.0f, 0);
-				Particles::sparks.add
-				(
-					pos + Vec3((mersenne::randf_oo() * 2.0f - 1.0f) * TELEPORT_PARTICLE_RADIUS, -0.3f, (mersenne::randf_oo() * 2.0f - 1.0f) * TELEPORT_PARTICLE_RADIUS),
-					particle_velocity,
-					Vec4(1, 1, 1, 1)
-				);
-			}
-		}
-		i.item()->update(u);
-	}
-}
-
-// use this to set the intial value of teleport_timer such that
-// minions don't all teleport at the same time
-r32 MinionAI::teleport_time()
-{
-	r32 result = 0;
-	for (auto i = list.iterator(); !i.is_last(); i.next())
-		result = vi_max(result, i.item()->teleport_timer - TELEPORT_TIME);
-	return result + TELEPORT_TIME * 2.0f;
-}
-
 void MinionAI::update(const Update& u)
 {
 	target_timer += u.time.delta;
@@ -607,106 +521,73 @@ void MinionAI::update(const Update& u)
 			}
 		}
 
-		if (teleport_timer > 0.0f)
+		switch (goal.type)
 		{
-			r32 old_timer = teleport_timer;
-			teleport_timer = vi_max(0.0f, teleport_timer - u.time.delta);
-			if (teleport_timer < TELEPORT_TIME && old_timer >= TELEPORT_TIME)
+			case Goal::Type::Position:
 			{
-				path_timer = 0.0f;
-				Teleporter* teleporter = teleporter_candidate(this, goal);
-				if (teleporter)
-				{
-					Vec3 pos;
-					Quat rot;
-					teleporter->get<Transform>()->absolute(&pos, &rot);
-					teleport(entity(), pos, rot);
-					path.length = 0;
-				}
+				if (path.length == 0 || (path[path.length - 1] - pos).length_squared() < 3.0f * 3.0f)
+					new_goal();
 				else
-					teleport_timer = 0.0f;
-			}
-		}
-		else
-		{
-			switch (goal.type)
-			{
-				case Goal::Type::Position:
 				{
-					if (path.length == 0 || (path[path.length - 1] - pos).length_squared() < 3.0f * 3.0f)
-						new_goal();
-					else
+					if (recalc)
 					{
-						if (recalc)
+						// recalc path
+						path_request = PathRequest::Repath;
+						AI::pathfind(pos, goal.pos, ObjectLinkEntryArg<MinionAI, const AI::Result&, &MinionAI::set_path>(id()));
+					}
+				}
+				break;
+			}
+			case Goal::Type::Target:
+			{
+				Entity* g = goal.entity.ref();
+				if (g)
+				{
+					// we're going after the target
+					if (can_see(g))
+					{
+						// turn to and attack the target
+						Vec3 head_pos = get<MinionCommon>()->head_pos();
+						Vec3 aim_pos;
+						if (!g->has<Target>() || !g->get<Target>()->predict_intersection(head_pos, PROJECTILE_SPEED, nullptr, &aim_pos))
+							aim_pos = g->get<Transform>()->absolute_pos();
+						turn_to(aim_pos);
+						path.length = 0;
+
+						Vec3 to_target = aim_pos - head_pos;
+						to_target.y = 0.0f;
+						if (get<MinionCommon>()->attack_timer == 0.0f // make sure our cooldown is done
+							&& Vec3::normalize(to_target).dot(get<Walker>()->forward()) > 0.98f // make sure we're looking at the target
+							&& target_timer > MINION_ATTACK_TIME * 0.5f // give some reaction time
+							&& !Team::game_over)
 						{
-							// recalc path
-							if (teleporter_candidate(this, goal))
-								teleport_timer = teleport_time();
-							else
-							{
-								path_request = PathRequest::Repath;
-								AI::pathfind(pos, goal.pos, ObjectLinkEntryArg<MinionAI, const AI::Result&, &MinionAI::set_path>(id()));
-							}
+							Net::finalize(World::create<ProjectileEntity>(get<MinionCommon>()->owner.ref(), head_pos, aim_pos - head_pos));
+							get<MinionCommon>()->attack_timer = MINION_ATTACK_TIME;
 						}
 					}
-					break;
-				}
-				case Goal::Type::Target:
-				{
-					Entity* g = goal.entity.ref();
-					if (g)
+					else
 					{
-						// we're going after the target
-						if (can_see(g))
-						{
-							// turn to and attack the target
-							Vec3 head_pos = get<MinionCommon>()->head_pos();
-							Vec3 aim_pos;
-							if (!g->has<Target>() || !g->get<Target>()->predict_intersection(head_pos, PROJECTILE_SPEED, nullptr, &aim_pos))
-								aim_pos = g->get<Transform>()->absolute_pos();
-							turn_to(aim_pos);
-							path.length = 0;
-
-							Vec3 to_target = aim_pos - head_pos;
-							to_target.y = 0.0f;
-							if (get<MinionCommon>()->attack_timer == 0.0f // make sure our cooldown is done
-								&& Vec3::normalize(to_target).dot(get<Walker>()->forward()) > 0.98f // make sure we're looking at the target
-								&& target_timer > MINION_ATTACK_TIME * 0.5f // give some reaction time
-								&& !Team::game_over)
-							{
-								Net::finalize(World::create<ProjectileEntity>(get<MinionCommon>()->owner.ref(), head_pos, aim_pos - head_pos));
-								get<MinionCommon>()->attack_timer = MINION_ATTACK_TIME;
-							}
-						}
+						if (goal.entity.ref()->has<PlayerCommon>() || goal.entity.ref()->has<Decoy>()) // if we can't see the player anymore, let them go
+							new_goal();
 						else
 						{
-							if (goal.entity.ref()->has<PlayerCommon>() || goal.entity.ref()->has<Decoy>()) // if we can't see the player anymore, let them go
-								new_goal();
-							else
+							if (recalc)
 							{
-								if (recalc)
-								{
-									// recalc path
-									if (teleporter_candidate(this, goal))
-										teleport_timer = teleport_time();
-									else
-									{
-										path_request = PathRequest::Target;
-										AI::pathfind(pos, g->get<Transform>()->absolute_pos(), ObjectLinkEntryArg<MinionAI, const AI::Result&, &MinionAI::set_path>(id()));
-									}
-								}
+								// recalc path
+								path_request = PathRequest::Target;
+								AI::pathfind(pos, g->get<Transform>()->absolute_pos(), ObjectLinkEntryArg<MinionAI, const AI::Result&, &MinionAI::set_path>(id()));
 							}
 						}
 					}
-					else
-						new_goal();
-					break;
 				}
-				default:
-				{
-					vi_assert(false);
-					break;
-				}
+				else
+					new_goal();
+				break;
+			}
+			default:
+			{
+				vi_assert(false);
+				break;
 			}
 		}
 	}

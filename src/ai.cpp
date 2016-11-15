@@ -173,7 +173,7 @@ void load(const u8* data, s32 length)
 	render_meshes_dirty = true;
 }
 
-u32 random_path(const Vec3& pos, const LinkEntryArg<const Result&>& callback)
+u32 random_path(const Vec3& pos, const Vec3& patrol_point, r32 range, const LinkEntryArg<const Result&>& callback)
 {
 	u32 id = callback_in_id;
 	callback_in_id++;
@@ -181,19 +181,22 @@ u32 random_path(const Vec3& pos, const LinkEntryArg<const Result&>& callback)
 	sync_in.lock();
 	sync_in.write(Op::RandomPath);
 	sync_in.write(pos);
+	sync_in.write(patrol_point);
+	sync_in.write(range);
 	sync_in.write(callback);
 	sync_in.unlock();
 
 	return id;
 }
 
-u32 random_walk_point(const Vec3& pos, const LinkEntryArg<const Vec3&>& callback)
+u32 closest_walk_point(const Vec3& pos, const LinkEntryArg<const Vec3&>& callback)
 {
 	u32 id = callback_in_id;
 	callback_in_id++;
 
 	sync_in.lock();
-	sync_in.write(Op::RandomWalkPoint);
+	sync_in.write(Op::ClosestWalkPoint);
+	sync_in.write(pos);
 	sync_in.write(callback);
 	sync_in.unlock();
 

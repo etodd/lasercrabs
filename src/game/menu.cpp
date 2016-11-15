@@ -24,14 +24,14 @@ namespace Menu
 
 State main_menu_state;
 b8 first_show = true;
-DialogCallback dialog_callback;
-DialogCallback dialog_callback_last;
-r32 dialog_time;
-char dialog_string[255];
-r32 dialog_time_limit;
+DialogCallback dialog_callback[MAX_GAMEPADS];
+DialogCallback dialog_callback_last[MAX_GAMEPADS];
+r32 dialog_time[MAX_GAMEPADS];
+char dialog_string[MAX_GAMEPADS][255];
+r32 dialog_time_limit[MAX_GAMEPADS];
 
 // default callback
-void dialog_no_action()
+void dialog_no_action(s8 gamepad)
 {
 }
 
@@ -49,12 +49,22 @@ b8 options(const Update&, s8, UIMenu*) { return true; }
 void progress_spinner(const RenderParams&, const Vec2&, r32) {}
 void progress_bar(const RenderParams&, const char*, r32, const Vec2&) {}
 void progress_infinite(const RenderParams&, const char*, const Vec2&) {}
-void dialog(DialogCallback, const char*, ...) {}
-void dialog_with_time_limit(DialogCallback, r32, const char*, ...) {}
+void dialog(s8, DialogCallback, const char*, ...) {}
+void dialog_with_time_limit(s8, DialogCallback, r32, const char*, ...) {}
 
 #else
 
-void dialog(DialogCallback callback, const char* format, ...)
+void quit_to_terminal(s8 gamepad)
+{
+	Terminal::show();
+}
+
+void quit_to_title(s8 gamepad)
+{
+	title();
+}
+
+void dialog(s8 gamepad, DialogCallback callback, const char* format, ...)
 {
 	va_list args;
 	va_start(args, format);
@@ -63,32 +73,28 @@ void dialog(DialogCallback callback, const char* format, ...)
 		format = "";
 
 #if defined(_WIN32)
-	vsprintf_s(dialog_string, 254, format, args);
+	vsprintf_s(dialog_string[gamepad], 254, format, args);
 #else
-	vsnprintf(dialog_string, 254, format, args);
+	vsnprintf(dialog_string[gamepad], 254, format, args);
 #endif
 
 	va_end(args);
 
-	dialog_callback = callback;
-	dialog_time = Game::real_time.total;
-	dialog_time_limit = 0.0f;
+	dialog_callback[gamepad] = callback;
+	dialog_time[gamepad] = Game::real_time.total;
+	dialog_time_limit[gamepad] = 0.0f;
 }
 
-void dialog_with_time_limit(DialogCallback callback, r32 limit, const char* format, ...)
+void dialog_with_time_limit(s8 gamepad, DialogCallback callback, r32 limit, const char* format, ...)
 {
 	va_list args;
 	va_start(args, format);
-	char string[1024];
 
-	if (!format)
-		format = "";
-
-	dialog(callback, format, args);
+	dialog(gamepad, callback, format, args);
 
 	va_end(args);
 
-	dialog_time_limit = limit;
+	dialog_time_limit[gamepad] = limit;
 }
 
 void progress_spinner(const RenderParams& params, const Vec2& pos, r32 size)
@@ -188,10 +194,11 @@ void init()
 void clear()
 {
 	main_menu_state = State::Hidden;
-	dialog_callback = nullptr;
+	for (s32 i = 0; i < MAX_GAMEPADS; i++)
+		dialog_callback[i] = nullptr;
 }
 
-void exit()
+void exit(s8 gamepad)
 {
 	Game::quit = true;
 }
@@ -269,7 +276,7 @@ void title_menu(const Update& u, s8 gamepad, UIMenu* menu, State* state)
 				menu->animate();
 			}
 			if (menu->item(u, _(strings::exit)))
-				dialog(&exit, _(strings::confirm_quit));
+				dialog(0, &exit, _(strings::confirm_quit));
 			menu->end();
 			break;
 		}
@@ -313,9 +320,9 @@ void pause_menu(const Update& u, s8 gamepad, UIMenu* menu, State* state)
 			if (menu->item(u, _(strings::quit)))
 			{
 				if (Game::level.id == Asset::Level::terminal)
-					dialog(&title, _(strings::confirm_quit));
+					dialog(gamepad, &quit_to_title, _(strings::confirm_quit));
 				else
-					dialog(&Terminal::show, _(strings::confirm_quit));
+					dialog(gamepad, &quit_to_terminal, _(strings::confirm_quit));
 			}
 			menu->end();
 			break;
@@ -359,31 +366,34 @@ void update(const Update& u)
 #endif
 
 	// dialog
-	if (dialog_time_limit > 0.0f)
+	for (s32 i = 0; i < MAX_GAMEPADS; i++)
 	{
-		dialog_time_limit = vi_max(0.0f, dialog_time_limit - u.time.delta);
-		if (dialog_time_limit == 0.0f)
-			dialog_callback = nullptr; // cancel
-	}
+		if (dialog_time_limit[i] > 0.0f)
+		{
+			dialog_time_limit[i] = vi_max(0.0f, dialog_time_limit[i] - u.time.delta);
+			if (dialog_time_limit[i] == 0.0f)
+				dialog_callback[i] = nullptr; // cancel
+		}
 
-	// dialog buttons
-	if (dialog_callback && dialog_callback_last) // make sure we don't trigger the button on the first frame the dialog is shown
-	{
-		if (u.last_input->get(Controls::Interact, 0) && !u.input->get(Controls::Interact, 0))
+		// dialog buttons
+		if (dialog_callback[i] && dialog_callback_last[i]) // make sure we don't trigger the button on the first frame the dialog is shown
 		{
-			// accept
-			DialogCallback callback = dialog_callback;
-			dialog_callback = nullptr;
-			callback();
+			if (u.last_input->get(Controls::Interact, i) && !u.input->get(Controls::Interact, i))
+			{
+				// accept
+				DialogCallback callback = dialog_callback[i];
+				dialog_callback[i] = nullptr;
+				callback(s8(i));
+			}
+			else if (!Game::cancel_event_eaten[i] && u.last_input->get(Controls::Cancel, i) && !u.input->get(Controls::Cancel, i))
+			{
+				// cancel
+				dialog_callback[i] = nullptr;
+				Game::cancel_event_eaten[i] = true;
+			}
 		}
-		else if (!Game::cancel_event_eaten[0] && u.last_input->get(Controls::Cancel, 0) && !u.input->get(Controls::Cancel, 0))
-		{
-			// cancel
-			dialog_callback = nullptr;
-			Game::cancel_event_eaten[0] = true;
-		}
+		dialog_callback_last[i] = dialog_callback[i];
 	}
-	dialog_callback_last = dialog_callback;
 
 	if (Game::level.id == Asset::Level::title)
 		title_menu(u, 0, &main_menu, &main_menu_state);
@@ -469,15 +479,21 @@ void draw(const RenderParams& params)
 	}
 
 	// draw dialog box
-	if (dialog_callback)
+	s32 gamepad = 0;
+	{
+		PlayerHuman* player = PlayerHuman::player_for_camera(params.camera);
+		if (player)
+			gamepad = player->gamepad;
+	}
+	if (dialog_callback[gamepad])
 	{
 		const r32 padding = 16.0f * UI::scale;
 		UIText text;
 		text.color = UI::color_default;
 		text.wrap_width = MENU_ITEM_WIDTH;
 		text.anchor_x = text.anchor_y = UIText::Anchor::Center;
-		text.text(dialog_string);
-		UIMenu::text_clip(&text, dialog_time, 150.0f);
+		text.text(dialog_string[gamepad]);
+		UIMenu::text_clip(&text, dialog_time[gamepad], 150.0f);
 		Vec2 pos = params.camera->viewport.size * 0.5f;
 		Rect2 text_rect = text.rect(pos).outset(padding);
 		UI::box(params, text_rect, UI::color_background);
@@ -489,14 +505,14 @@ void draw(const RenderParams& params)
 		text.anchor_x = UIText::Anchor::Min;
 		text.color = UI::color_accent;
 		text.clip = 0;
-		text.text(dialog_time_limit > 0.0f ? "%s (%d)" : "%s", _(strings::prompt_accept), s32(dialog_time_limit) + 1);
+		text.text(dialog_time_limit[gamepad] > 0.0f ? "%s (%d)" : "%s", _(strings::prompt_accept), s32(dialog_time_limit[gamepad]) + 1);
 		Vec2 prompt_pos = text_rect.pos + Vec2(padding, 0);
 		Rect2 prompt_rect = text.rect(prompt_pos).outset(padding);
 		prompt_rect.size.x = text_rect.size.x;
 		UI::box(params, prompt_rect, UI::color_background);
 		text.draw(params, prompt_pos);
 
-		if (dialog_callback != &dialog_no_action)
+		if (dialog_callback[gamepad] != &dialog_no_action)
 		{
 			// cancel
 			text.anchor_x = UIText::Anchor::Max;

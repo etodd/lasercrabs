@@ -27,12 +27,13 @@ struct Walker : public ComponentType<Walker>
 		accel2,
 		accel_threshold,
 		deceleration,
-		net_speed;
+		net_speed,
+		net_speed_timer;
+	u32 obstacle_id;
 	Ref<RigidBody> support;
 	LinkArg<r32> land;
 	b8 auto_rotate;
 	b8 enabled;
-	u32 obstacle_id;
 	Walker(r32 = 0.0f);
 	~Walker();
 	void awake();

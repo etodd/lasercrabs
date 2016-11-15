@@ -49,28 +49,28 @@ const ID IDNull = ID(MAX_ENTITIES);
 
 enum class Ability
 {
-	Sensor,
 	Minion,
-	Rocket,
-	ContainmentField,
-	Sniper,
-	Decoy,
-	Grenade,
 	Bolter,
+	Sensor,
+	Decoy,
+	ContainmentField,
+	Rocket,
+	Sniper,
+	Grenade,
 	count,
 	None,
 };
 
 enum class Upgrade
 {
-	Sensor,
 	Minion,
-	Rocket,
-	ContainmentField,
-	Sniper,
-	Decoy,
-	Grenade,
 	Bolter,
+	Sensor,
+	Decoy,
+	ContainmentField,
+	Rocket,
+	Sniper,
+	Grenade,
 	count,
 	None = count,
 };

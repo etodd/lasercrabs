@@ -28,7 +28,8 @@ Walker::Walker(r32 rot)
 	accel_threshold(2.0f),
 	deceleration(30.0f),
 	obstacle_id((u32)-1),
-	land()
+	land(),
+	net_speed_timer()
 {
 }
 
@@ -115,11 +116,26 @@ btCollisionWorld::ClosestRayResultCallback Walker::check_support(r32 extra_dista
 	return btCollisionWorld::ClosestRayResultCallback(Vec3::zero, Vec3::zero);
 }
 
+void update_net_speed(const Update& u, Walker* w, const Vec3& v, const Vec3& support_velocity, const Vec3& z)
+{
+	r32 new_net_speed = vi_min(w->max_speed, v.dot(z) - support_velocity.dot(z));
+	if (new_net_speed > w->net_speed - 0.1f)
+	{
+		w->net_speed_timer = 0.0f;
+		if (new_net_speed > w->net_speed)
+			w->net_speed = new_net_speed;
+	}
+	else
+	{
+		w->net_speed_timer += u.time.delta;
+		if (w->net_speed_timer > 0.5f)
+			w->net_speed = new_net_speed;
+	}
+}
+
 void Walker::update(const Update& u)
 {
 	support = nullptr;
-
-	net_speed = 0.0f;
 
 	Vec3 pos = get<Transform>()->absolute_pos();
 	if (pos.y < Game::level.min_y)
@@ -202,13 +218,13 @@ void Walker::update(const Update& u)
 					// Calculate speed along desired movement direction
 					r32 z_speed = velocity.dot(z);
 					r32 support_z_speed = support_velocity.dot(z);
-					r32 net_z_speed = net_speed = z_speed - support_z_speed;
+					r32 net_z_speed = z_speed - support_z_speed;
 
 					// Makeshift acceleration curve
 					r32 acceleration = net_z_speed < accel_threshold ? accel1 : accel2;
 
 					// Increase acceleration if we're turning
-					acceleration += fabs(Vec2(x.x, x.z).dot(Vec2(velocity.x - support_velocity.x, velocity.z - support_velocity.z))) * accel2 * 2.0f;
+					acceleration += fabs(Vec2(x.x, x.z).dot(Vec2(velocity.x - support_velocity.x, velocity.z - support_velocity.z))) * accel2 * 4.0f;
 
 					// Increase acceleration if we're climbing
 					if (z.y > 0.0f)
@@ -223,8 +239,8 @@ void Walker::update(const Update& u)
 					}
 					else
 					{
-						// Accelerate net_speed up to speed
-						r32 target_speed = speed * movement_length;
+						// Accelerate net_z_speed up to speed
+						r32 target_speed = vi_max(net_speed, speed * movement_length);
 						if (net_z_speed < target_speed)
 						{
 							r32 z_speed_change = vi_min(u.time.delta * acceleration, target_speed - net_z_speed);
@@ -236,6 +252,9 @@ void Walker::update(const Update& u)
 
 					if (auto_rotate)
 						target_rotation = atan2f(movement.x, movement.y);
+
+					// calculate new net speed
+					update_net_speed(u, this, velocity + adjustment, support_velocity, z);
 				}
 				else
 				{
@@ -251,13 +270,14 @@ void Walker::update(const Update& u)
 					Vec3 horizontal_velocity = velocity - velocity.dot(support_normal) * support_normal;
 					Vec3 support_horizontal_velocity = support_velocity - support_normal_velocity * support_normal;
 					Vec3 relative_velocity = horizontal_velocity - support_horizontal_velocity;
-					r32 speed = net_speed = relative_velocity.length();
+					r32 speed = relative_velocity.length();
 					if (speed > 0)
 					{
 						Vec3 relative_velocity_normalized = relative_velocity / speed;
 						r32 velocity_change = vi_min(speed, decel);
 						adjustment -= velocity_change * relative_velocity_normalized;
 					}
+					update_net_speed(u, this, velocity + adjustment, support_velocity, Vec3::zero);
 				}
 
 				support = Entity::list[object->getUserIndex()].get<RigidBody>();
@@ -285,12 +305,12 @@ void Walker::update(const Update& u)
 		body->setLinearVelocity(velocity + adjustment);
 	}
 
-	if (net_speed > 0.01f && obstacle_id != (u32)-1)
+	if (net_speed > 0.05f && obstacle_id != (u32)-1)
 	{
 		AI::obstacle_remove(obstacle_id);
 		obstacle_id = (u32)-1;
 	}
-	else if (net_speed < 0.01f && obstacle_id == (u32)-1)
+	else if (net_speed < 0.05f && obstacle_id == (u32)-1)
 		obstacle_id = AI::obstacle_add(base_pos(), radius * 2.0f, capsule_height() + support_height);
 
 	// Handle rotation

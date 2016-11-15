@@ -1187,7 +1187,7 @@ void tab_messages_update(const Update& u)
 							if (entry_point == AssetNull)
 							{
 								messages_transition(Data::Messages::Mode::Messages);
-								Menu::dialog(&Menu::dialog_no_action, _(strings::call_timed_out));
+								Menu::dialog(0, &Menu::dialog_no_action, _(strings::call_timed_out));
 							}
 							else
 								Cora::activate(entry_point);
@@ -1217,12 +1217,12 @@ void tab_messages_update(const Update& u)
 	}
 }
 
-void hack_start()
+void hack_start(s8 gamepad)
 {
 	data.story.map.timer_hack = HACK_TIME;
 }
 
-void capture_start()
+void capture_start(s8 gamepad)
 {
 	if (resource_spend(Game::Resource::Drones, 1))
 	{
@@ -1240,7 +1240,7 @@ void capture_start()
 	}
 }
 
-void auto_capture_fail_manual_deploy()
+void auto_capture_fail_manual_deploy(s8 gamepad)
 {
 	if (resource_spend(Game::Resource::Energy, CREDITS_INITIAL))
 		deploy_start();
@@ -1251,17 +1251,17 @@ void story_zone_done(AssetID zone, Game::MatchResult result)
 	b8 captured = false;
 	if (result == Game::MatchResult::Victory)
 	{
-		Menu::dialog(&Menu::dialog_no_action, _(strings::victory));
+		Menu::dialog(0, &Menu::dialog_no_action, _(strings::victory));
 		captured = true;
 	}
 	else if (result == Game::MatchResult::NetworkError)
 	{
-		Menu::dialog(&Menu::dialog_no_action, _(strings::forfeit_network_error));
+		Menu::dialog(0, &Menu::dialog_no_action, _(strings::forfeit_network_error));
 		captured = true;
 	}
 	else if (result == Game::MatchResult::OpponentQuit)
 	{
-		Menu::dialog(&Menu::dialog_no_action, _(strings::forfeit_opponent_quit));
+		Menu::dialog(0, &Menu::dialog_no_action, _(strings::forfeit_opponent_quit));
 		captured = true;
 	}
 
@@ -1387,9 +1387,9 @@ void tab_map_update(const Update& u)
 				else
 				{
 					if (Game::save.resources[(s32)Game::Resource::Energy] < CREDITS_INITIAL)
-						Menu::dialog(&Menu::dialog_no_action, _(strings::auto_capture_fail_insufficient_resource), CREDITS_INITIAL, _(strings::energy));
+						Menu::dialog(0, &Menu::dialog_no_action, _(strings::auto_capture_fail_insufficient_resource), CREDITS_INITIAL, _(strings::energy));
 					else
-						Menu::dialog_with_time_limit(&auto_capture_fail_manual_deploy, 10.0f, _(strings::auto_capture_fail_prompt), CREDITS_INITIAL);
+						Menu::dialog_with_time_limit(0, &auto_capture_fail_manual_deploy, 10.0f, _(strings::auto_capture_fail_prompt), CREDITS_INITIAL);
 				}
 			}
 		}
@@ -1408,18 +1408,18 @@ void tab_map_update(const Update& u)
 					{
 						s16 cost = zone_node_get(data.zone_selected)->size;
 						if (Game::save.resources[(s32)Game::Resource::HackKits] < cost)
-							Menu::dialog(&Menu::dialog_no_action, _(strings::insufficient_resource), cost, _(strings::hack_kits));
+							Menu::dialog(0, &Menu::dialog_no_action, _(strings::insufficient_resource), cost, _(strings::hack_kits));
 						else
-							Menu::dialog(&hack_start, _(strings::confirm_hack), cost);
+							Menu::dialog(0, &hack_start, _(strings::confirm_hack), cost);
 					}
 					else
 					{
 						if (zone_state == Game::ZoneState::Hostile)
 						{
 							if (Game::save.resources[(s32)Game::Resource::Drones] < DEPLOY_COST_DRONES)
-								Menu::dialog(&Menu::dialog_no_action, _(strings::insufficient_resource), DEPLOY_COST_DRONES, _(strings::drones));
+								Menu::dialog(0, &Menu::dialog_no_action, _(strings::insufficient_resource), DEPLOY_COST_DRONES, _(strings::drones));
 							else
-								Menu::dialog(&capture_start, _(strings::confirm_capture), DEPLOY_COST_DRONES);
+								Menu::dialog(0, &capture_start, _(strings::confirm_capture), DEPLOY_COST_DRONES);
 						}
 					}
 				}
@@ -1490,7 +1490,7 @@ ResourceInfo resource_info[(s32)Game::Resource::count] =
 	},
 };
 
-void resource_buy()
+void resource_buy(s8 gamepad)
 {
 	data.story.inventory.timer_buy = BUY_TIME;
 }
@@ -1545,9 +1545,9 @@ void tab_inventory_update(const Update& u)
 				{
 					const ResourceInfo& info = resource_info[(s32)inventory->resource_selected];
 					if (Game::save.resources[(s32)Game::Resource::Energy] >= info.cost * inventory->buy_quantity)
-						Menu::dialog(&resource_buy, _(strings::prompt_buy), inventory->buy_quantity * info.cost, inventory->buy_quantity, _(info.description));
+						Menu::dialog(0, &resource_buy, _(strings::prompt_buy), inventory->buy_quantity * info.cost, inventory->buy_quantity, _(info.description));
 					else
-						Menu::dialog(&Menu::dialog_no_action, _(strings::insufficient_resource), info.cost * inventory->buy_quantity, _(strings::energy));
+						Menu::dialog(0, &Menu::dialog_no_action, _(strings::insufficient_resource), info.cost * inventory->buy_quantity, _(strings::energy));
 				}
 				else if (u.last_input->get(Controls::Cancel, 0) && !u.input->get(Controls::Cancel, 0) && !Game::cancel_event_eaten[0])
 				{

@@ -821,15 +821,20 @@ void loop()
 			{
 				Vec3 start;
 				sync_in.read(&start);
+				Vec3 patrol_point;
+				sync_in.read(&patrol_point);
+				r32 range;
+				sync_in.read(&range);
 				LinkEntryArg<Path> callback;
 				sync_in.read(&callback);
 				sync_in.unlock();
 
 				dtPolyRef start_poly = get_poly(start, default_search_extents);
+				dtPolyRef patrol_point_poly = get_poly(patrol_point, default_search_extents);
 
 				Vec3 end;
 				dtPolyRef end_poly;
-				nav_mesh_query->findRandomPoint(&default_query_filter, mersenne::randf_co, &end_poly, (r32*)&end);
+				nav_mesh_query->findRandomPointAroundCircle(patrol_point_poly, (r32*)&patrol_point, range * (0.5f + mersenne::randf_co() * 0.5f), &default_query_filter, mersenne::randf_co, &end_poly, (r32*)&end);
 
 				Path path;
 
@@ -844,20 +849,22 @@ void loop()
 
 				break;
 			}
-			case Op::RandomWalkPoint:
+			case Op::ClosestWalkPoint:
 			{
 				LinkEntryArg<Path> callback;
+				Vec3 pos;
+				sync_in.read(&pos);
 				sync_in.read(&callback);
 				sync_in.unlock();
 
-				Vec3 point;
-				dtPolyRef end_poly;
-				nav_mesh_query->findRandomPoint(&default_query_filter, mersenne::randf_co, &end_poly, (r32*)&point);
+				dtPolyRef poly = get_poly(pos, default_search_extents);
+				Vec3 closest;
+				nav_mesh_query->closestPointOnPoly(poly, (r32*)&pos, (r32*)&closest, 0);
 
 				sync_out.lock();
 				sync_out.write(Callback::Point);
 				sync_out.write(callback);
-				sync_out.write(point);
+				sync_out.write(closest);
 				sync_out.unlock();
 				break;
 			}

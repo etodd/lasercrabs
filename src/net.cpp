@@ -478,6 +478,10 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 	if (e->has<Ragdoll>())
 	{
 		Ragdoll* r = e->get<Ragdoll>();
+		serialize_enum(p, Ragdoll::Impulse, r->impulse_type);
+		serialize_r32_range(p, r->impulse.x, -15.0f, 15.0f, 8);
+		serialize_r32_range(p, r->impulse.y, -15.0f, 15.0f, 8);
+		serialize_r32_range(p, r->impulse.z, -15.0f, 15.0f, 8);
 		s32 bone_count;
 		if (Stream::IsWriting)
 			bone_count = r->bodies.length;

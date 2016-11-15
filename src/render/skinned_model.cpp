@@ -19,7 +19,8 @@ Bitmask<MAX_ENTITIES> SkinnedModel::list_additive;
 Bitmask<MAX_ENTITIES> SkinnedModel::list_alpha_depth;
 
 SkinnedModel::SkinnedModel()
-	: mesh(),
+	: mesh(AssetNull),
+	mesh_shadow(AssetNull),
 	shader(AssetNull),
 	texture(AssetNull),
 	offset(Mat4::identity),
@@ -172,7 +173,9 @@ void SkinnedModel::draw(const RenderParams& params)
 	
 	m = offset * m;
 
-	const Mesh* mesh_data = Loader::mesh(mesh);
+	AssetID mesh_actual = (params.technique != RenderTechnique::Shadow || params.edges) || mesh_shadow == AssetNull ? mesh : mesh_shadow;
+
+	const Mesh* mesh_data = Loader::mesh(mesh_actual);
 	{
 		Vec3 radius = (offset * Vec4(mesh_data->bounds_radius, mesh_data->bounds_radius, mesh_data->bounds_radius, 0)).xyz();
 		if (!params.camera->visible_sphere(m.translation(), vi_max(radius.x, vi_max(radius.y, radius.z))))
@@ -238,13 +241,13 @@ void SkinnedModel::draw(const RenderParams& params)
 	if (params.edges)
 	{
 		sync->write(RenderOp::MeshEdges);
-		sync->write(mesh);
+		sync->write(mesh_actual);
 	}
 	else
 	{
 		sync->write(RenderOp::Mesh);
 		sync->write(RenderPrimitiveMode::Triangles);
-		sync->write(mesh);
+		sync->write(mesh_actual);
 	}
 
 #if DEBUG_SKIN

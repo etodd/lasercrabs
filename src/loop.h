@@ -508,13 +508,14 @@ void draw(LoopSync* sync, const Camera* camera)
 		Game::draw_opaque(render_params);
 	}
 
-	sync->write(RenderOp::DepthTest);
-	sync->write<b8>(false);
-	sync->write(RenderOp::DepthMask);
-	sync->write<b8>(false);
-
 	// Render override lights
+	if (!render_params.camera->colors)
 	{
+		sync->write(RenderOp::DepthTest);
+		sync->write<b8>(false);
+		sync->write(RenderOp::DepthMask);
+		sync->write<b8>(false);
+
 		sync->write<RenderOp>(RenderOp::BindFramebuffer);
 		sync->write<AssetID>(g_albedo_fbo);
 

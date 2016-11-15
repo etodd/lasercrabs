@@ -19,8 +19,18 @@ struct Ragdoll : public ComponentType<Ragdoll>
 		AssetID bone;
 	};
 
+	enum Impulse
+	{
+		None,
+		Head,
+		Feet,
+		count,
+	};
+
 	Array<BoneBody> bodies;
+	Vec3 impulse;
 	r32 timer;
+	Impulse impulse_type;
 
 	Ragdoll();
 	~Ragdoll();
@@ -29,6 +39,7 @@ struct Ragdoll : public ComponentType<Ragdoll>
 	RigidBody* get_body(AssetID);
 	void update_server(const Update&);
 	void update_client(const Update&);
+	void apply_impulse(Impulse, const Vec3&);
 };
 
 }

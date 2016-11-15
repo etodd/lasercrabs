@@ -40,6 +40,7 @@ struct PlayerHuman : public ComponentType<PlayerHuman>
 	static void update_all(const Update&);
 	static s32 count_local();
 	static s32 count_local_before(PlayerHuman*);
+	static PlayerHuman* player_for_camera(const Camera*);
 
 	u64 uuid;
 	Camera* camera;

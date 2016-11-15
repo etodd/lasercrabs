@@ -106,6 +106,16 @@ s32 PlayerHuman::count_local()
 	return count;
 }
 
+PlayerHuman* PlayerHuman::player_for_camera(const Camera* camera)
+{
+	for (auto i = list.iterator(); !i.is_last(); i.next())
+	{
+		if (i.item()->camera == camera)
+			return i.item();
+	}
+	return nullptr;
+}
+
 s32 PlayerHuman::count_local_before(PlayerHuman* h)
 {
 	s32 count = 0;
@@ -2219,7 +2229,10 @@ void PlayerControlHuman::update(const Update& u)
 				{
 					if (i.item()->get<AIAgent>()->team != team)
 					{
-						TargetIndicator::Type type = i.item()->get<MinionAI>()->goal.entity.ref() == entity() ? TargetIndicator::Type::MinionAttacking : TargetIndicator::Type::Minion;
+						TargetIndicator::Type type =
+							i.item()->get<MinionAI>()->goal.entity.ref() == entity() && i.item()->get<MinionAI>()->can_see(entity())
+							? TargetIndicator::Type::MinionAttacking
+							: TargetIndicator::Type::Minion;
 						if (!add_target_indicator(i.item()->get<Target>(), type))
 							break; // no more room for indicators
 					}

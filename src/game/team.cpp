@@ -40,32 +40,20 @@ AbilityInfo AbilityInfo::list[(s32)Ability::count] =
 {
 	{
 		AbilityInfo::Type::Build,
-		Asset::Mesh::icon_sensor,
-		15,
-		false,
-	},
-	{
-		AbilityInfo::Type::Build,
 		Asset::Mesh::icon_minion,
-		15,
-		false,
-	},
-	{
-		AbilityInfo::Type::Build,
-		Asset::Mesh::icon_rocket,
-		10,
-		false,
-	},
-	{
-		AbilityInfo::Type::Build,
-		Asset::Mesh::icon_containment_field,
 		20,
 		false,
 	},
 	{
 		AbilityInfo::Type::Shoot,
-		Asset::Mesh::icon_sniper,
-		10,
+		Asset::Mesh::icon_bolter,
+		8,
+		true,
+	},
+	{
+		AbilityInfo::Type::Build,
+		Asset::Mesh::icon_sensor,
+		15,
 		false,
 	},
 	{
@@ -75,21 +63,45 @@ AbilityInfo AbilityInfo::list[(s32)Ability::count] =
 		false,
 	},
 	{
+		AbilityInfo::Type::Build,
+		Asset::Mesh::icon_containment_field,
+		20,
+		false,
+	},
+	{
+		AbilityInfo::Type::Build,
+		Asset::Mesh::icon_rocket,
+		10,
+		false,
+	},
+	{
+		AbilityInfo::Type::Shoot,
+		Asset::Mesh::icon_sniper,
+		10,
+		false,
+	},
+	{
 		AbilityInfo::Type::Shoot,
 		Asset::Mesh::icon_grenade,
 		20,
 		false,
 	},
-	{
-		AbilityInfo::Type::Shoot,
-		Asset::Mesh::icon_bolter,
-		10,
-		true,
-	}
 };
 
 UpgradeInfo UpgradeInfo::list[(s32)Upgrade::count] =
 {
+	{
+		strings::minion,
+		strings::description_minion,
+		Asset::Mesh::icon_minion,
+		40,
+	},
+	{
+		strings::bolter,
+		strings::description_bolter,
+		Asset::Mesh::icon_bolter,
+		40,
+	},
 	{
 		strings::sensor,
 		strings::description_sensor,
@@ -97,21 +109,21 @@ UpgradeInfo UpgradeInfo::list[(s32)Upgrade::count] =
 		50,
 	},
 	{
-		strings::minion,
-		strings::description_minion,
-		Asset::Mesh::icon_minion,
+		strings::decoy,
+		strings::description_decoy,
+		Asset::Mesh::icon_drone,
 		50,
-	},
-	{
-		strings::rocket,
-		strings::description_rocket,
-		Asset::Mesh::icon_rocket,
-		120,
 	},
 	{
 		strings::containment_field,
 		strings::description_containment_field,
 		Asset::Mesh::icon_containment_field,
+		120,
+	},
+	{
+		strings::rocket,
+		strings::description_rocket,
+		Asset::Mesh::icon_rocket,
 		120,
 	},
 	{
@@ -121,21 +133,9 @@ UpgradeInfo UpgradeInfo::list[(s32)Upgrade::count] =
 		120,
 	},
 	{
-		strings::decoy,
-		strings::description_decoy,
-		Asset::Mesh::icon_drone,
-		50,
-	},
-	{
 		strings::grenade,
 		strings::description_grenade,
 		Asset::Mesh::icon_grenade,
-		120,
-	},
-	{
-		strings::bolter,
-		strings::description_bolter,
-		Asset::Mesh::icon_bolter,
 		120,
 	},
 };

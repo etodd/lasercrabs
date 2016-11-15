@@ -27,7 +27,7 @@ namespace AI
 		AwkPathfind,
 		AwkMarkAdjacencyBad,
 		RandomPath,
-		RandomWalkPoint,
+		ClosestWalkPoint,
 		UpdateState,
 		Quit,
 	};
@@ -105,8 +105,8 @@ namespace AI
 	u32 pathfind(const Vec3&, const Vec3&, const LinkEntryArg<const Result&>&);
 	u32 awk_pathfind(AwkPathfind, AwkAllow, AI::Team, const Vec3&, const Vec3&, const Vec3&, const Vec3&, const LinkEntryArg<const AwkResult&>&);
 	void awk_mark_adjacency_bad(AwkNavMeshNode, AwkNavMeshNode);
-	u32 random_path(const Vec3&, const LinkEntryArg<const Result&>&);
-	u32 random_walk_point(const LinkEntryArg<const Vec3&>&);
+	u32 random_path(const Vec3&, const Vec3&, r32, const LinkEntryArg<const Result&>&);
+	u32 closest_walk_point(const Vec3&, const LinkEntryArg<const Vec3&>&);
 	u32 awk_random_path(AwkAllow, AI::Team, const Vec3&, const Vec3&, const LinkEntryArg<const AwkResult&>&);
 	void load(const u8*, s32);
 	void loop();

@@ -12,7 +12,7 @@ struct TargetEvent;
 struct PlayerManager;
 
 #define MINION_HEAD_RADIUS 0.4f
-#define MINION_ATTACK_TIME 3.0f
+#define MINION_ATTACK_TIME 2.0f
 
 struct Minion : public Entity
 {
@@ -47,9 +47,9 @@ struct MinionAI : public ComponentType<MinionAI>
 			Target,
 		};
 
+		Vec3 pos;
 		Type type;
 		Ref<Entity> entity;
-		Vec3 pos;
 	};
 
 	enum class PathRequest
@@ -59,14 +59,17 @@ struct MinionAI : public ComponentType<MinionAI>
 		Position,
 		Target,
 		Repath,
+		PointQuery,
 	};
 
 	PathRequest path_request;
 	Goal goal;
 	AI::Path path;
-	s8 path_index;
+	Vec3 patrol_point;
 	r32 path_timer;
 	r32 target_timer;
+	r32 target_scan_timer;
+	s8 path_index;
 
 	void awake();
 
@@ -74,6 +77,7 @@ struct MinionAI : public ComponentType<MinionAI>
 
 	void new_goal(const Vec3& = Vec3::zero);
 	void set_path(const AI::Result&);
+	void set_patrol_point(const Vec3&);
 	void update(const Update&);
 	void turn_to(const Vec3&);
 };

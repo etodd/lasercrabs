@@ -8,6 +8,7 @@ const char* AssetLookup::Mesh::values[] =
 {
 	"assets/awk.msh",
 	"assets/character.msh",
+	"assets/character_headless.msh",
 	"assets/compass.msh",
 	"assets/cone.msh",
 	"assets/containment_field_base.msh",
@@ -185,6 +186,7 @@ const char* AssetLookup::Mesh::names[] =
 {
 	"awk",
 	"character",
+	"character_headless",
 	"compass",
 	"cone",
 	"containment_field_base",
@@ -402,6 +404,7 @@ const char* AssetLookup::Armature::values[] =
 {
 	"assets/awk.arm",
 	"assets/character.arm",
+	"assets/character_headless.arm",
 	0,
 };
 
@@ -410,6 +413,7 @@ const char* AssetLookup::Armature::names[] =
 {
 	"awk",
 	"character",
+	"character_headless",
 	0,
 };
 

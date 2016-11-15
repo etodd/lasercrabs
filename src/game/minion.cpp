@@ -19,11 +19,15 @@
 #include "render/particles.h"
 #include "net.h"
 #include "team.h"
+#include "parkour.h"
 
-#define WALK_SPEED 2.0f
+#define WALK_SPEED 2.5f
 #define ROTATION_SPEED 4.0f
 #define MINION_HEARING_RANGE 7.0f
+#define MINION_VISION_RANGE 20.0f
 #define HEALTH 3
+#define PATH_RECALC_TIME 1.0f
+#define TARGET_SCAN_TIME 0.5f
 
 namespace VI
 {
@@ -51,7 +55,7 @@ Minion::Minion(const Vec3& pos, const Quat& quat, AI::Team team, PlayerManager* 
 	Vec3 forward = quat * Vec3(0, 0, 1);
 
 	Walker* walker = create<Walker>(atan2f(forward.x, forward.z));
-	walker->max_speed = WALK_SPEED;
+	walker->max_speed = walker->speed = WALK_SPEED;
 	walker->rotation_speed = ROTATION_SPEED;
 
 	create<MinionCommon>()->owner = manager;
@@ -60,7 +64,7 @@ Minion::Minion(const Vec3& pos, const Quat& quat, AI::Team team, PlayerManager* 
 
 	create<Target>();
 
-	create<MinionAI>();
+	create<MinionAI>()->patrol_point = pos;
 }
 
 void MinionCommon::awake()
@@ -205,17 +209,16 @@ void MinionCommon::killed(Entity* killer)
 		World::remove_deferred(entity());
 
 		Ragdoll* r = ragdoll->add<Ragdoll>();
-		btRigidBody* head = r->get_body(Asset::Bone::character_head)->btBody;
 
 		if (killer)
 		{
 			if (killer->has<Awk>())
-				head->applyImpulse(killer->get<Awk>()->velocity * 0.1f, Vec3::zero);
+				r->apply_impulse(Ragdoll::Impulse::Head, killer->get<Awk>()->velocity * 0.1f);
 			else
 			{
-				Vec3 killer_to_head = head->getWorldTransform().getOrigin() - killer->get<Transform>()->absolute_pos();
-				killer_to_head.normalize();
-				head->applyImpulse(killer_to_head * 10.0f, Vec3::zero);
+				Vec3 killer_to_us = get<Transform>()->absolute_pos() - killer->get<Transform>()->absolute_pos();
+				killer_to_us.normalize();
+				r->apply_impulse(killer->has<Parkour>() ? Ragdoll::Impulse::Feet : Ragdoll::Impulse::Head, killer_to_us * 10.0f);
 			}
 		}
 
@@ -240,9 +243,12 @@ Entity* closest_target(MinionAI* me, AI::Team team, const Vec3& direction)
 		ContainmentField* field = i.item();
 		if (field->team != team)
 		{
+			Vec3 item_pos = field->get<Transform>()->absolute_pos();
+			if ((item_pos - me->patrol_point).length_squared() > MINION_VISION_RANGE * MINION_VISION_RANGE)
+				continue;
 			if (me->can_see(field->entity()))
 				return field->entity();
-			Vec3 to_field = field->get<Transform>()->absolute_pos() - pos;
+			Vec3 to_field = item_pos - pos;
 			r32 total_distance = to_field.length_squared() + (to_field.dot(direction) < 0.0f ? direction_cost : 0.0f);
 			if (total_distance < closest_distance)
 			{
@@ -257,6 +263,9 @@ Entity* closest_target(MinionAI* me, AI::Team team, const Vec3& direction)
 		Sensor* sensor = i.item();
 		if (sensor->team != team && !sensor->has<EnergyPickup>())
 		{
+			Vec3 item_pos = sensor->get<Transform>()->absolute_pos();
+			if ((item_pos - me->patrol_point).length_squared() > MINION_VISION_RANGE * MINION_VISION_RANGE)
+				continue;
 			if (me->can_see(sensor->entity()))
 				return sensor->entity();
 			Vec3 to_sensor = sensor->get<Transform>()->absolute_pos() - pos;
@@ -274,6 +283,9 @@ Entity* closest_target(MinionAI* me, AI::Team team, const Vec3& direction)
 		MinionCommon* minion = i.item();
 		if (minion->get<AIAgent>()->team != team)
 		{
+			Vec3 item_pos = minion->get<Transform>()->absolute_pos();
+			if ((item_pos - me->patrol_point).length_squared() > MINION_VISION_RANGE * MINION_VISION_RANGE)
+				continue;
 			if (me->can_see(minion->entity()))
 				return minion->entity();
 			Vec3 to_minion = minion->get<Transform>()->absolute_pos() - pos;
@@ -291,6 +303,9 @@ Entity* closest_target(MinionAI* me, AI::Team team, const Vec3& direction)
 		Rocket* rocket = i.item();
 		if (rocket->get<Transform>()->parent.ref() && rocket->team() != team)
 		{
+			Vec3 item_pos = rocket->get<Transform>()->absolute_pos();
+			if ((item_pos - me->patrol_point).length_squared() > MINION_VISION_RANGE * MINION_VISION_RANGE)
+				continue;
 			if (me->can_see(rocket->entity()))
 				return rocket->entity();
 			Vec3 to_rocket = rocket->get<Transform>()->absolute_pos() - pos;
@@ -308,6 +323,9 @@ Entity* closest_target(MinionAI* me, AI::Team team, const Vec3& direction)
 		Grenade* grenade = i.item();
 		if (grenade->team() != team)
 		{
+			Vec3 item_pos = grenade->get<Transform>()->absolute_pos();
+			if ((item_pos - me->patrol_point).length_squared() > MINION_VISION_RANGE * MINION_VISION_RANGE)
+				continue;
 			if (me->can_see(grenade->entity()))
 				return grenade->entity();
 			Vec3 to_grenade = grenade->get<Transform>()->absolute_pos() - pos;
@@ -400,8 +418,9 @@ Entity* visible_target(MinionAI* me, AI::Team team)
 
 void MinionAI::awake()
 {
-	get<Walker>()->max_speed = get<Walker>()->speed;
-	new_goal(get<Walker>()->forward());
+	path_request = PathRequest::PointQuery;
+	auto callback = ObjectLinkEntryArg<MinionAI, const Vec3&, &MinionAI::set_patrol_point>(id());
+	AI::closest_walk_point(get<Transform>()->absolute_pos(), callback);
 }
 
 b8 MinionAI::can_see(Entity* target, b8 limit_vision_cone) const
@@ -434,7 +453,7 @@ b8 MinionAI::can_see(Entity* target, b8 limit_vision_cone) const
 	if (target->has<Decoy>())
 		limit_vision_cone = false;
 
-	if (distance_squared < SENSOR_RANGE * SENSOR_RANGE)
+	if (distance_squared < MINION_VISION_RANGE * MINION_VISION_RANGE)
 	{
 		diff.normalize();
 		if (!limit_vision_cone || diff.dot(get<Walker>()->forward()) > 0.707f)
@@ -447,8 +466,6 @@ b8 MinionAI::can_see(Entity* target, b8 limit_vision_cone) const
 	}
 	return false;
 }
-
-#define PATH_RECALC_TIME 1.0f
 
 void MinionAI::new_goal(const Vec3& direction)
 {
@@ -468,17 +485,8 @@ void MinionAI::new_goal(const Vec3& direction)
 	else
 	{
 		goal.type = Goal::Type::Position;
-		if (direction.length_squared() > 0.0f)
-		{
-			path_request = PathRequest::Position;
-			goal.pos = pos + direction * AWK_MAX_DISTANCE;
-			AI::pathfind(pos, goal.pos, path_callback);
-		}
-		else
-		{
-			path_request = PathRequest::Random;
-			AI::random_path(pos, path_callback);
-		}
+		path_request = PathRequest::Random;
+		AI::random_path(pos, patrol_point, MINION_VISION_RANGE, path_callback);
 	}
 	target_timer = 0.0f;
 	path_timer = PATH_RECALC_TIME;
@@ -500,16 +508,11 @@ void MinionAI::update(const Update& u)
 
 	if (path_request == PathRequest::None)
 	{
-		b8 recalc = false;
-		path_timer = vi_max(0.0f, path_timer - u.time.delta);
-		if (path_timer == 0.0f)
+		target_scan_timer = vi_max(0.0f, target_scan_timer - u.time.delta);
+		if (target_scan_timer == 0.0f)
 		{
-			path_timer = PATH_RECALC_TIME;
-			recalc = true;
-		}
+			target_scan_timer = TARGET_SCAN_TIME;
 
-		if (recalc)
-		{
 			Entity* target_candidate = visible_target(this, get<AIAgent>()->team);
 			if (target_candidate && target_candidate != goal.entity.ref())
 			{
@@ -519,6 +522,14 @@ void MinionAI::update(const Update& u)
 				goal.entity = target_candidate;
 				target_timer = 0;
 			}
+		}
+
+		b8 recalc = false;
+		path_timer = vi_max(0.0f, path_timer - u.time.delta);
+		if (path_timer == 0.0f)
+		{
+			path_timer = PATH_RECALC_TIME;
+			recalc = true;
 		}
 
 		switch (goal.type)
@@ -567,16 +578,15 @@ void MinionAI::update(const Update& u)
 					}
 					else
 					{
-						if (goal.entity.ref()->has<PlayerCommon>() || goal.entity.ref()->has<Decoy>()) // if we can't see the player anymore, let them go
-							new_goal();
-						else
+						if (recalc)
 						{
-							if (recalc)
-							{
-								// recalc path
-								path_request = PathRequest::Target;
-								AI::pathfind(pos, g->get<Transform>()->absolute_pos(), ObjectLinkEntryArg<MinionAI, const AI::Result&, &MinionAI::set_path>(id()));
-							}
+							// recalc path
+							path_request = PathRequest::Target;
+							Vec3 goal_pos = g->get<Transform>()->absolute_pos();
+							if ((goal_pos - patrol_point).length_squared() < MINION_VISION_RANGE * MINION_VISION_RANGE) // still in range; follow them
+								AI::pathfind(pos, goal_pos, ObjectLinkEntryArg<MinionAI, const AI::Result&, &MinionAI::set_path>(id()));
+							else // out of range
+								new_goal();
 						}
 					}
 				}
@@ -622,8 +632,23 @@ void MinionAI::update(const Update& u)
 		get<Walker>()->dir = Vec2::zero;
 }
 
+void MinionAI::set_patrol_point(const Vec3& p)
+{
+	patrol_point = p;
+	new_goal(get<Walker>()->forward());
+}
+
 void MinionAI::set_path(const AI::Result& result)
 {
+	for (s32 i = 0; i < result.path.length; i++)
+	{
+		if ((result.path[i] - patrol_point).length_squared() > MINION_VISION_RANGE * MINION_VISION_RANGE) // entire path must be in range
+		{
+			new_goal();
+			return;
+		}
+	}
+
 	path = result.path;
 	if (path_request != PathRequest::Repath)
 	{

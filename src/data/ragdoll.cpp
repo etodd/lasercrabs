@@ -6,6 +6,7 @@
 #include "components.h"
 #include "net.h"
 #include "game/game.h"
+#include "asset/armature.h"
 
 namespace VI
 {
@@ -28,12 +29,43 @@ Ragdoll::~Ragdoll()
 	}
 }
 
+void do_impulse(Ragdoll* ragdoll, Ragdoll::Impulse type, const Vec3& i)
+{
+	switch (type)
+	{
+		case Ragdoll::Impulse::None:
+		{
+			break;
+		}
+		case Ragdoll::Impulse::Head:
+		{
+			ragdoll->get_body(Asset::Bone::character_head)->btBody->applyImpulse(i, Vec3::zero);
+			break;
+		}
+		case Ragdoll::Impulse::Feet:
+		{
+			ragdoll->get_body(Asset::Bone::character_shin_L)->btBody->applyImpulse(i, Vec3::zero);
+			ragdoll->get_body(Asset::Bone::character_shin_R)->btBody->applyImpulse(i, Vec3::zero);
+			break;
+		}
+		default:
+		{
+			vi_assert(false);
+			break;
+		}
+	}
+}
+
 void Ragdoll::awake()
 {
 	get<Animator>()->override_mode = Animator::OverrideMode::Override;
 
-	if (bodies.length > 0)
-		return; // everything's already set up
+	if (!Game::level.local)
+	{
+		// we're a client; the bodies have already been set up
+		do_impulse(this, impulse_type, impulse);
+		return; 
+	}
 
 	Vec3 mesh_offset_scale;
 	Quat mesh_offset_rot;
@@ -147,6 +179,14 @@ void Ragdoll::awake()
 
 	for (s32 i = 0; i < bodies.length; i++)
 		Net::finalize(bodies[i].body.ref()->entity());
+}
+
+void Ragdoll::apply_impulse(Impulse type, const Vec3& i)
+{
+	impulse_type = type;
+	impulse = i;
+	if (Game::level.local)
+		do_impulse(this, type, i);
 }
 
 RigidBody* Ragdoll::get_body(AssetID bone)

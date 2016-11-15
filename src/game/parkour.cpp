@@ -11,6 +11,7 @@
 #include "audio.h"
 #include "BulletCollision/NarrowPhaseCollision/btRaycastCallback.h"
 #include "awk.h"
+#include "minion.h"
 
 namespace VI
 {
@@ -19,10 +20,11 @@ namespace VI
 #define WALL_JUMP_RAYCAST_RADIUS_RATIO 1.5f
 #define WALL_RUN_DISTANCE_RATIO 1.1f
 
-#define RUN_SPEED 4.0f
+#define RUN_SPEED 4.5f
 #define WALK_SPEED 2.0f
-#define MAX_SPEED 6.0f
+#define MAX_SPEED 7.0f
 #define MIN_WALLRUN_SPEED 2.0f
+#define MIN_ATTACK_SPEED 4.25f
 #define JUMP_SPEED 5.0f
 
 #define JUMP_GRACE_PERIOD 0.3f
@@ -42,7 +44,8 @@ Traceur::Traceur(const Vec3& pos, const Quat& quat, AI::Team team)
 	animator->armature = Asset::Armature::character;
 
 	model->shader = Asset::Shader::armature;
-	model->mesh = Asset::Mesh::character;
+	model->mesh_shadow = Asset::Mesh::character;
+	model->mesh = Asset::Mesh::character_headless;
 	model->team = (s8)team;
 
 	create<Audio>();
@@ -52,6 +55,8 @@ Traceur::Traceur(const Vec3& pos, const Quat& quat, AI::Team team)
 	Walker* walker = create<Walker>(atan2f(forward.x, forward.z));
 	walker->max_speed = MAX_SPEED;
 	walker->speed = RUN_SPEED;
+	walker->accel1 = 15.0f;
+	walker->accel2 = 1.5f;
 	walker->auto_rotate = false;
 
 	create<AIAgent>()->team = team;
@@ -228,9 +233,7 @@ void Parkour::update(const Update& u)
 	);
 
 	if (get<Walker>()->support.ref())
-	{
 		wall_run_state = WallRunState::None;
-	}
 
 	// animation layers
 	// layer 0 = running, walking, wall-running
@@ -457,6 +460,24 @@ void Parkour::update(const Update& u)
 			}
 
 			get<RigidBody>()->btBody->setLinearVelocity(support_velocity + relative_velocity);
+
+			// check for minions in front of us
+			if (relative_velocity.dot(forward) < MIN_ATTACK_SPEED)
+			{
+				Vec3 base_pos = get<Walker>()->base_pos();
+				r32 total_height = get<Walker>()->support_height + get<Walker>()->height;
+				for (auto i = MinionCommon::list.iterator(); !i.is_last(); i.next())
+				{
+					Vec3 minion_pos = i.item()->get<Walker>()->base_pos();
+					Vec3 to_minion = minion_pos - base_pos;
+					if (fabs(to_minion.y) < total_height
+						&& forward.dot(to_minion) < get<Walker>()->radius * 2.5f
+						&& forward.dot(Vec3::normalize(to_minion)) > 0.5f)
+					{
+						i.item()->get<Health>()->kill(entity());
+					}
+				}
+			}
 		}
 	}
 
@@ -502,6 +523,7 @@ void Parkour::update(const Update& u)
 	}
 
 	get<Walker>()->enabled = fsm.current == State::Normal || fsm.current == State::HardLanding;
+	vi_debug("%f", get<Walker>()->net_speed);
 }
 
 const s32 wall_jump_direction_count = 4;

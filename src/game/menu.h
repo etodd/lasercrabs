@@ -58,7 +58,7 @@ struct UIMenu
 	void end();
 };
 
-typedef void(*DialogCallback)();
+typedef void(*DialogCallback)(s8);
 
 namespace Menu
 {
@@ -71,7 +71,7 @@ enum class State
 };
 
 extern State main_menu_state;
-extern DialogCallback dialog_callback;
+extern DialogCallback dialog_callback[MAX_GAMEPADS];
 
 void init();
 void update(const Update&);
@@ -85,9 +85,9 @@ b8 options(const Update&, s8, UIMenu*);
 void progress_spinner(const RenderParams&, const Vec2&, r32 = 20.0f);
 void progress_bar(const RenderParams&, const char*, r32, const Vec2&);
 void progress_infinite(const RenderParams&, const char*, const Vec2&);
-void dialog(DialogCallback callback, const char* format, ...);
-void dialog_with_time_limit(DialogCallback callback, r32, const char* format, ...);
-void dialog_no_action();
+void dialog(s8, DialogCallback, const char*, ...);
+void dialog_with_time_limit(s8, DialogCallback, r32, const char*, ...);
+void dialog_no_action(s8);
 
 }
 

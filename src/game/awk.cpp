@@ -1847,6 +1847,12 @@ void Awk::update_client(const Update& u)
 	{
 		// flying or dashing
 
+		if (get<Animator>()->layers[0].animation == AssetNull)
+		{
+			// this means that we were crawling, but were interrupted.
+			detach_teleport();
+		}
+
 		Quat rot;
 		Vec3 pos;
 		get<Transform>()->absolute(&pos, &rot);

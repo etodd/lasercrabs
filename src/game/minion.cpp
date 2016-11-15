@@ -46,7 +46,7 @@ Minion::Minion(const Vec3& pos, const Quat& quat, AI::Team team, PlayerManager* 
 
 	create<Audio>();
 
-	Health* health = create<Health>(HEALTH, HEALTH);
+	create<Health>(HEALTH, HEALTH);
 	
 	Vec3 forward = quat * Vec3(0, 0, 1);
 

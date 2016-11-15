@@ -161,7 +161,7 @@ void View::draw(const RenderParams& params) const
 	}
 
 	// if allow_culled_shader is false, replace the culled shader with the standard shader.
-	b8 allow_culled_shader = params.camera->cull_range > 0.0f;
+	b8 allow_culled_shader = params.camera->cull_range > 0.0f && !params.edges;
 	AssetID actual_shader = allow_culled_shader || shader != Asset::Shader::culled ? shader : Asset::Shader::standard;
 
 	Loader::shader(actual_shader);

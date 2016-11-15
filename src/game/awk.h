@@ -109,6 +109,7 @@ struct Awk : public ComponentType<Awk>
 	Link detached;
 	Link dashed;
 	s8 charges;
+	b8 reflection_source_remote;
 
 	Awk();
 	void awake();

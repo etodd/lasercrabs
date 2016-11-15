@@ -651,7 +651,8 @@ Awk::Awk()
 	particle_accumulator(),
 	current_ability(Ability::None),
 	ability_spawned(),
-	remote_reflection_timer()
+	remote_reflection_timer(),
+	reflection_source_remote()
 {
 }
 
@@ -1265,10 +1266,11 @@ void Awk::reflect(Entity* entity, const Vec3& hit, const Vec3& normal, const Net
 		else
 		{
 			// store our reflection result and wait for the remote to tell us which way to go
-			// if we don't hear from them in a certain amount of time, head toward the direction we calculated
+			// if we don't hear from them in a certain amount of time, forget anything happened
 			remote_reflection_dir = new_dir;
 			remote_reflection_pos = reflection_pos;
 			remote_reflection_timer = AWK_REFLECTION_TIME_TOLERANCE;
+			reflection_source_remote = false; // this hit was detected locally
 			velocity = Vec3::zero;
 		}
 	}
@@ -1316,6 +1318,7 @@ void Awk::handle_remote_reflection(const Vec3& reflection_pos, const Vec3& refle
 				remote_reflection_dir = reflection_dir_normalized;
 				remote_reflection_pos = reflection_pos;
 				remote_reflection_timer = AWK_REFLECTION_TIME_TOLERANCE; // we'll wait up to a certain amount of time before reflecting anyway
+				reflection_source_remote = true; // this hit came from the remote
 			}
 			else
 			{
@@ -1663,14 +1666,8 @@ void Awk::update_server(const Update& u)
 			movement_raycast(ray_start, ray_end);
 		}
 	}
-}
 
-void Awk::update_client(const Update& u)
-{
-	State s = state();
-
-	overshield_timer = vi_max(overshield_timer - u.time.delta, 0.0f);
-
+#if SERVER
 	if (remote_reflection_timer > 0.0f)
 	{
 		if (s == Awk::State::Crawl)
@@ -1678,13 +1675,21 @@ void Awk::update_client(const Update& u)
 		else
 		{
 			remote_reflection_timer = vi_max(0.0f, remote_reflection_timer - u.time.delta);
-			if (remote_reflection_timer == 0.0f)
+			if (remote_reflection_timer == 0.0f && reflection_source_remote)
 			{
 				get<Transform>()->absolute_pos(remote_reflection_pos);
 				awk_reflection_execute(this, remote_reflection_dir);
 			}
 		}
 	}
+#endif
+}
+
+void Awk::update_client(const Update& u)
+{
+	State s = state();
+
+	overshield_timer = vi_max(overshield_timer - u.time.delta, 0.0f);
 
 	if (s == Awk::State::Crawl)
 	{

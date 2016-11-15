@@ -376,6 +376,8 @@ void Game::update(const Update& update_in)
 				i.item()->update_server(u);
 			for (auto i = Rocket::list.iterator(); !i.is_last(); i.next())
 				i.item()->update_server(u);
+			for (auto i = MinionAI::list.iterator(); !i.is_last(); i.next())
+				i.item()->update(u);
 		}
 		for (auto i = MinionCommon::list.iterator(); !i.is_last(); i.next())
 		{
@@ -485,11 +487,11 @@ void Game::draw_override(const RenderParams& params)
 
 void Game::draw_alpha(const RenderParams& render_params)
 {
-	Rope::draw_alpha(render_params);
 	if (render_params.camera->fog)
 		Skybox::draw_alpha(render_params);
 	SkyDecal::draw_alpha(render_params);
 	SkyPattern::draw_alpha(render_params);
+	Rope::draw_alpha(render_params);
 
 #if DEBUG_NAV_MESH
 	AI::debug_draw_nav_mesh(render_params);

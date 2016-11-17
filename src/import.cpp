@@ -1084,7 +1084,7 @@ b8 load_mesh(const aiMesh* mesh, Mesh* out)
 }
 
 // Build armature for skinned model
-b8 build_armature(Armature& armature, Map<s32>& bone_map, aiNode* node, s32 parent_index, s32& counter)
+b8 build_armature(Armature& armature, Map<s32>& bone_map, aiNode* node, s32 parent_index, s32* counter)
 {
 	s32 current_bone_index;
 	Map<s32>::iterator bone_index_entry = bone_map.find(node->mName.C_Str());
@@ -1108,7 +1108,7 @@ b8 build_armature(Armature& armature, Map<s32>& bone_map, aiNode* node, s32 pare
 			current_bone_index = -1;
 		else
 		{
-			current_bone_index = counter;
+			current_bone_index = *counter;
 
 			std::string name = node->mName.C_Str();
 			std::string parent_name = node->mParent->mName.C_Str();
@@ -1137,17 +1137,17 @@ b8 build_armature(Armature& armature, Map<s32>& bone_map, aiNode* node, s32 pare
 	}
 	else
 	{
-		bone_map[node->mName.C_Str()] = counter;
-		if (counter >= armature.hierarchy.length)
+		bone_map[node->mName.C_Str()] = *counter;
+		if (*counter >= armature.hierarchy.length)
 		{
-			armature.hierarchy.resize(counter + 1);
-			armature.bind_pose.resize(counter + 1);
+			armature.hierarchy.resize(*counter + 1);
+			armature.bind_pose.resize(*counter + 1);
 		}
-		armature.hierarchy[counter] = parent_index;
-		armature.bind_pose[counter].pos = pos;
-		armature.bind_pose[counter].rot = rot;
-		current_bone_index = counter;
-		counter++;
+		armature.hierarchy[*counter] = parent_index;
+		armature.bind_pose[*counter].pos = pos;
+		armature.bind_pose[*counter].rot = rot;
+		current_bone_index = *counter;
+		(*counter)++;
 	}
 
 	for (s32 i = 0; i < node->mNumChildren; i++)
@@ -1176,7 +1176,7 @@ b8 build_armature_skinned(const aiScene* scene, const aiMesh* ai_mesh, Mesh& mes
 		armature.bind_pose.resize(ai_mesh->mNumBones);
 		armature.inverse_bind_pose.resize(ai_mesh->mNumBones);
 		s32 node_hierarchy_counter = 0;
-		if (!build_armature(armature, bone_map, scene->mRootNode, -1, node_hierarchy_counter))
+		if (!build_armature(armature, bone_map, scene->mRootNode, -1, &node_hierarchy_counter))
 			return false;
 
 		for (s32 i = 0; i < ai_mesh->mNumBones; i++)

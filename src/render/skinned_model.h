@@ -18,7 +18,6 @@ struct SkinnedModel : public ComponentType<SkinnedModel>
 	static void draw_alpha_depth(const RenderParams&);
 	static void draw_additive(const RenderParams&);
 
-	StaticArray<Mat4, MAX_BONES> skin_transforms;
 	Mat4 offset;
 	Vec4 color;
 	AssetID mesh;

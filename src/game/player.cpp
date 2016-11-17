@@ -2452,7 +2452,7 @@ void PlayerControlHuman::update(const Update& u)
 			else
 			*/
 			{
-				camera_pos = Vec3(0, 0, 0);
+				camera_pos = Vec3(0, 0, 0.1f);
 				Quat q = Quat::identity;
 				get<Parkour>()->head_to_object_space(&camera_pos, &q);
 				camera_pos = get<Transform>()->to_world(camera_pos);

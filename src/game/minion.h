@@ -21,20 +21,24 @@ struct Minion : public Entity
 
 struct MinionCommon : public ComponentType<MinionCommon>
 {
+	static r32 particle_accumulator;
+
 	static MinionCommon* closest(AI::TeamMask, const Vec3&, r32* = nullptr);
 	static s32 count(AI::TeamMask);
+	static void update_client_all(const Update&);
 
 	r32 attack_timer;
 	Ref<PlayerManager> owner;
 
 	void awake();
-	Vec3 head_pos();
+	Vec3 head_pos() const;
+	Vec3 hand_pos() const;
 	b8 headshot_test(const Vec3&, const Vec3&);
 	void hit_by(const TargetEvent& e);
+	void fire(const Vec3&);
 	void killed(Entity*);
 	void footstep();
 	void update_server(const Update&);
-	void update_client(const Update&);
 };
 
 struct MinionAI : public ComponentType<MinionAI>

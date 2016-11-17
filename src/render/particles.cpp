@@ -351,8 +351,8 @@ StandardParticleSystem Particles::tracers
 StandardParticleSystem Particles::fast_tracers
 (
 	3, 3,
-	Vec2(0.05f),
-	Vec2(0.05f),
+	Vec2(0.3f),
+	Vec2(0.0f),
 	0.25f,
 	Vec3::zero,
 	Vec4(1, 1, 1, 1)

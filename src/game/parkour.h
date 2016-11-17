@@ -45,7 +45,6 @@ struct Parkour : public ComponentType<Parkour>
 	WallRunState wall_run_state;
 	FSM<State> fsm;
 	Ref<RigidBody> last_support;
-	//b8 can_double_jump;
 	b8 slide_continue;
 
 	b8 wallrun(const Update&, RigidBody*, const Vec3&, const Vec3&);

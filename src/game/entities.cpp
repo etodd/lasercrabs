@@ -26,6 +26,7 @@
 #include "net.h"
 #include "net_serialize.h"
 #include "team.h"
+#include "parkour.h"
 
 namespace VI
 {
@@ -1320,7 +1321,15 @@ void Projectile::update(const Update& u)
 			else if (hit_object->has<Health>())
 			{
 				basis = Vec3::normalize(velocity);
-				hit_object->get<Health>()->damage(owner_instance, PROJECTILE_DAMAGE);
+				b8 do_damage = true;
+				if (hit_object->has<Parkour>()) // player is invincible while rolling and sliding
+				{
+					Parkour::State state = hit_object->get<Parkour>()->fsm.current;
+					if (state == Parkour::State::Roll || state == Parkour::State::Slide)
+						do_damage = false;
+				}
+				if (do_damage)
+					hit_object->get<Health>()->damage(owner_instance, PROJECTILE_DAMAGE);
 				if (hit_object->has<RigidBody>())
 				{
 					RigidBody* body = hit_object->get<RigidBody>();

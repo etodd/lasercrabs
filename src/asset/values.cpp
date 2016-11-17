@@ -8,7 +8,6 @@ const char* AssetLookup::Mesh::values[] =
 {
 	"assets/awk.msh",
 	"assets/character.msh",
-	"assets/character_headless.msh",
 	"assets/compass.msh",
 	"assets/cone.msh",
 	"assets/containment_field_base.msh",
@@ -35,6 +34,8 @@ const char* AssetLookup::Mesh::values[] =
 	"assets/icon_select.msh",
 	"assets/icon_sensor.msh",
 	"assets/icon_sniper.msh",
+	"assets/parkour.msh",
+	"assets/parkour_headless.msh",
 	"assets/plane.msh",
 	"assets/reticle_dash.msh",
 	"assets/rocket_base.msh",
@@ -186,7 +187,6 @@ const char* AssetLookup::Mesh::names[] =
 {
 	"awk",
 	"character",
-	"character_headless",
 	"compass",
 	"cone",
 	"containment_field_base",
@@ -213,6 +213,8 @@ const char* AssetLookup::Mesh::names[] =
 	"icon_select",
 	"icon_sensor",
 	"icon_sniper",
+	"parkour",
+	"parkour_headless",
 	"plane",
 	"reticle_dash",
 	"rocket_base",
@@ -364,7 +366,9 @@ const char* AssetLookup::Animation::values[] =
 {
 	"assets/awk_dash.anm",
 	"assets/awk_fly.anm",
+	"assets/character_aim.anm",
 	"assets/character_fall.anm",
+	"assets/character_fire.anm",
 	"assets/character_idle.anm",
 	"assets/character_jump1.anm",
 	"assets/character_land.anm",
@@ -384,7 +388,9 @@ const char* AssetLookup::Animation::names[] =
 {
 	"awk_dash",
 	"awk_fly",
+	"character_aim",
 	"character_fall",
+	"character_fire",
 	"character_idle",
 	"character_jump1",
 	"character_land",
@@ -404,7 +410,8 @@ const char* AssetLookup::Armature::values[] =
 {
 	"assets/awk.arm",
 	"assets/character.arm",
-	"assets/character_headless.arm",
+	"assets/parkour.arm",
+	"assets/parkour_headless.arm",
 	0,
 };
 
@@ -413,7 +420,8 @@ const char* AssetLookup::Armature::names[] =
 {
 	"awk",
 	"character",
-	"character_headless",
+	"parkour",
+	"parkour_headless",
 	0,
 };
 

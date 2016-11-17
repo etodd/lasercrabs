@@ -21,15 +21,13 @@ namespace VI
 #define WALL_RUN_DISTANCE_RATIO 1.1f
 
 #define RUN_SPEED 4.5f
-#define WALK_SPEED 2.0f
+#define WALK_SPEED 2.25f
 #define MAX_SPEED 7.0f
-#define MIN_WALLRUN_SPEED 2.0f
-#define MIN_ATTACK_SPEED 4.25f
+#define MIN_WALLRUN_SPEED 3.0f
+#define MIN_ATTACK_SPEED 4.4f
 #define JUMP_SPEED 5.0f
 
 #define JUMP_GRACE_PERIOD 0.3f
-
-#define TILE_CREATE_RADIUS 4.5f
 
 #define MIN_SLIDE_TIME 0.5f
 
@@ -44,9 +42,9 @@ Traceur::Traceur(const Vec3& pos, const Quat& quat, AI::Team team)
 	animator->armature = Asset::Armature::character;
 
 	model->shader = Asset::Shader::armature;
-	model->mesh_shadow = Asset::Mesh::character;
-	model->mesh = Asset::Mesh::character_headless;
-	model->team = (s8)team;
+	model->mesh_shadow = Asset::Mesh::parkour;
+	model->mesh = Asset::Mesh::parkour_headless;
+	model->team = s8(team);
 
 	create<Audio>();
 	
@@ -55,8 +53,8 @@ Traceur::Traceur(const Vec3& pos, const Quat& quat, AI::Team team)
 	Walker* walker = create<Walker>(atan2f(forward.x, forward.z));
 	walker->max_speed = MAX_SPEED;
 	walker->speed = RUN_SPEED;
-	walker->accel1 = 15.0f;
-	walker->accel2 = 1.5f;
+	walker->accel1 = 12.0f;
+	walker->accel2 = 2.0f;
 	walker->auto_rotate = false;
 
 	create<AIAgent>()->team = team;
@@ -462,7 +460,7 @@ void Parkour::update(const Update& u)
 			get<RigidBody>()->btBody->setLinearVelocity(support_velocity + relative_velocity);
 
 			// check for minions in front of us
-			if (relative_velocity.dot(forward) < MIN_ATTACK_SPEED)
+			if (relative_velocity.dot(forward) > MIN_ATTACK_SPEED)
 			{
 				Vec3 base_pos = get<Walker>()->base_pos();
 				r32 total_height = get<Walker>()->support_height + get<Walker>()->height;
@@ -495,8 +493,8 @@ void Parkour::update(const Update& u)
 			layer0->play(Asset::Animation::character_wall_run_right);
 		else
 		{
-			layer0->play(Asset::Animation::character_run);
 			// todo: wall run straight animation
+			layer0->play(Asset::Animation::character_run);
 		}
 	}
 	else if (get<Walker>()->support.ref())
@@ -505,8 +503,15 @@ void Parkour::update(const Update& u)
 		{
 			// walking/running
 			r32 net_speed = vi_max(get<Walker>()->net_speed, WALK_SPEED * 0.5f);
-			layer0->play(net_speed > WALK_SPEED ? Asset::Animation::character_run : Asset::Animation::character_walk);
 			layer0->speed = 0.9f * (net_speed > WALK_SPEED ? LMath::lerpf((net_speed - WALK_SPEED) / RUN_SPEED, 0.75f, 1.0f) : (net_speed / WALK_SPEED));
+			AssetID new_anim = net_speed > WALK_SPEED ? Asset::Animation::character_run : Asset::Animation::character_walk;
+			if (new_anim != layer0->animation)
+			{
+				if (layer0->animation == Asset::Animation::character_run || layer0->animation == Asset::Animation::character_walk)
+					layer0->animation = new_anim; // seamless transition
+				else
+					layer0->play(new_anim); // start animation at random position
+			}
 		}
 		else
 		{
@@ -523,7 +528,6 @@ void Parkour::update(const Update& u)
 	}
 
 	get<Walker>()->enabled = fsm.current == State::Normal || fsm.current == State::HardLanding;
-	vi_debug("%f", get<Walker>()->net_speed);
 }
 
 const s32 wall_jump_direction_count = 4;

@@ -355,7 +355,10 @@ void Animator::to_local(const s32 index, Vec3* pos, Quat* rot)
 void Animator::to_world(const s32 index, Vec3* pos, Quat* rot)
 {
 	to_local(index, pos, rot);
-	get<Transform>()->to_world(pos, rot);
+	if (rot)
+		get<Transform>()->to_world(pos, rot);
+	else
+		*pos = get<Transform>()->to_world(*pos);
 }
 
 void Animator::from_bone_body(const s32 index, const Vec3& pos, const Quat& rot, const Vec3& body_to_bone_pos, const Quat& body_to_bone_rot)

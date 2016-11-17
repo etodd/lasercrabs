@@ -207,10 +207,11 @@ void SkinnedModel::draw(const RenderParams& params)
 	sync->write<AssetID>(texture);
 
 	const Armature* arm = Loader::armature(get<Animator>()->armature);
-	StaticArray<Mat4, MAX_BONES>& bones = get<Animator>()->bones;
-	skin_transforms.resize(bones.length);
-	for (s32 i = 0; i < bones.length; i++)
-		skin_transforms[i] = arm->inverse_bind_pose[i] * bones[i];
+	StaticArray<Mat4, MAX_BONES>* bones = &get<Animator>()->bones;
+	StaticArray<Mat4, MAX_BONES> skin_transforms;
+	skin_transforms.resize(bones->length);
+	for (s32 i = 0; i < bones->length; i++)
+		skin_transforms[i] = arm->inverse_bind_pose[i] * (*bones)[i];
 
 	sync->write(RenderOp::Uniform);
 	sync->write(Asset::Uniform::bones);

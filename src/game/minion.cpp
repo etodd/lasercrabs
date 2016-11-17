@@ -114,9 +114,16 @@ void MinionCommon::footstep()
 	Audio::post_global_event(AK::EVENTS::PLAY_FOOTSTEP, get<Walker>()->base_pos());
 }
 
-Vec3 MinionCommon::head_pos()
+Vec3 MinionCommon::head_pos() const
 {
 	return get<Target>()->absolute_pos();
+}
+
+Vec3 MinionCommon::hand_pos() const
+{
+	Vec3 p(0, 0, 0);
+	get<Animator>()->to_world(Asset::Bone::character_hand_R, &p);
+	return p;
 }
 
 b8 MinionCommon::headshot_test(const Vec3& ray_start, const Vec3& ray_end)
@@ -127,41 +134,90 @@ b8 MinionCommon::headshot_test(const Vec3& ray_start, const Vec3& ray_end)
 #define TELEPORT_TIME 0.75f
 void MinionCommon::update_server(const Update& u)
 {
-	attack_timer = vi_max(0.0f, attack_timer - u.time.delta);
-
 	Animator::Layer* layer = &get<Animator>()->layers[0];
 
 	// update animation
-	AssetID anim;
-	if (get<Walker>()->support.ref() && get<Walker>()->dir.length_squared() > 0.0f)
+	if (layer->animation != Asset::Animation::character_fire)
 	{
-		r32 net_speed = vi_max(get<Walker>()->net_speed, WALK_SPEED * 0.5f);
-		anim = Asset::Animation::character_walk;
-		layer->speed = net_speed / get<Walker>()->speed;
+		if (get<Walker>()->support.ref() && get<Walker>()->dir.length_squared() > 0.0f)
+		{
+			r32 net_speed = vi_max(get<Walker>()->net_speed, WALK_SPEED * 0.5f);
+			layer->speed = net_speed / get<Walker>()->speed;
+			layer->loop = true;
+			layer->play(Asset::Animation::character_walk);
+		}
+		else if (attack_timer > 0.0f)
+		{
+			if (layer->animation != Asset::Animation::character_aim)
+			{
+				layer->speed = 1.0f;
+				layer->loop = true;
+				layer->animation = Asset::Animation::character_aim;
+				layer->time = 0.0f;
+			}
+		}
+		else
+		{
+			layer->speed = 1.0f;
+			layer->loop = true;
+			layer->play(Asset::Animation::character_idle);
+		}
 	}
-	else
-	{
-		anim = Asset::Animation::character_idle;
-		layer->speed = 1.0f;
-	}
-
-	layer->play(anim);
 }
 
-void MinionCommon::update_client(const Update& u)
+void MinionCommon::fire(const Vec3& target)
 {
-	get<SkinnedModel>()->offset.make_transform
-	(
-		Vec3(0, get<Walker>()->capsule_height() * -0.5f - get<Walker>()->support_height, 0),
-		Vec3(1.0f, 1.0f, 1.0f),
-		Quat::euler(0, get<Walker>()->rotation + PI * 0.5f, 0)
-	);
+	vi_assert(Game::level.local);
+	Vec3 hand = hand_pos();
+	Net::finalize(World::create<ProjectileEntity>(owner.ref(), hand, target - hand));
 
-	// update head position
+	Animator::Layer* layer = &get<Animator>()->layers[0];
+	layer->speed = 1.0f;
+	layer->loop = false;
+	layer->play(Asset::Animation::character_fire);
+}
+
+r32 MinionCommon::particle_accumulator;
+void MinionCommon::update_client_all(const Update& u)
+{
+	const r32 interval = 0.02f;
+	particle_accumulator += u.time.delta;
+	while (particle_accumulator > interval)
 	{
-		get<Target>()->local_offset = Vec3(0.1f, 0, 0);
-		Quat rot = Quat::identity;
-		get<Animator>()->to_local(Asset::Bone::character_head, &get<Target>()->local_offset, &rot);
+		particle_accumulator -= interval;
+		for (auto i = list.iterator(); !i.is_last(); i.next())
+		{
+			if (i.item()->attack_timer > 0.0f)
+			{
+				Vec3 pos = i.item()->hand_pos();
+
+				// spawn particle effect
+				Vec3 offset = Quat::euler(0.0f, mersenne::randf_co() * PI * 2.0f, (mersenne::randf_co() - 0.5f) * PI) * Vec3(0, 0, 1.0f);
+				Particles::fast_tracers.add
+				(
+					pos + offset,
+					offset * -3.5f,
+					0
+				);
+			}
+		}
+	}
+
+	for (auto i = list.iterator(); !i.is_last(); i.next())
+	{
+		MinionCommon* m = i.item();
+		m->get<SkinnedModel>()->offset.make_transform
+		(
+			Vec3(0, m->get<Walker>()->capsule_height() * -0.5f - m->get<Walker>()->support_height, 0),
+			Vec3(1.0f, 1.0f, 1.0f),
+			Quat::euler(0, m->get<Walker>()->rotation + PI * 0.5f, 0)
+		);
+
+		// update head position
+		{
+			m->get<Target>()->local_offset = Vec3(0.1f, 0, 0);
+			m->get<Animator>()->to_local(Asset::Bone::character_head, &m->get<Target>()->local_offset);
+		}
 	}
 }
 
@@ -186,6 +242,7 @@ void MinionCommon::killed(Entity* killer)
 		SkinnedModel* new_skin = ragdoll->add<SkinnedModel>();
 		SkinnedModel* old_skin = get<SkinnedModel>();
 		new_skin->mesh = old_skin->mesh;
+		new_skin->mesh_shadow = old_skin->mesh_shadow;
 		new_skin->shader = old_skin->shader;
 		new_skin->texture = old_skin->texture;
 		new_skin->color = old_skin->color;
@@ -217,8 +274,7 @@ void MinionCommon::killed(Entity* killer)
 			else
 			{
 				Vec3 killer_to_us = get<Transform>()->absolute_pos() - killer->get<Transform>()->absolute_pos();
-				killer_to_us.normalize();
-				r->apply_impulse(killer->has<Parkour>() ? Ragdoll::Impulse::Feet : Ragdoll::Impulse::Head, killer_to_us * 10.0f);
+				r->apply_impulse(killer->has<Parkour>() && killer_to_us.y < get<Walker>()->capsule_height() ? Ragdoll::Impulse::Feet : Ragdoll::Impulse::Head, Vec3::normalize(killer_to_us) * 10.0f);
 			}
 		}
 
@@ -436,15 +492,22 @@ b8 MinionAI::can_see(Entity* target, b8 limit_vision_cone) const
 	// if we're targeting an awk that is flying or just flew recently,
 	// then don't limit detection to the minion's vision cone
 	// this essentially means the minion can hear the awk flying around
-	if (limit_vision_cone
-		&& target->has<Awk>())
+	if (limit_vision_cone)
 	{
-		if (distance_squared < MINION_HEARING_RANGE * MINION_HEARING_RANGE && Game::time.total - target->get<Awk>()->attach_time < 1.0f) // we can hear the awk
-			limit_vision_cone = false;
-		else
+		if (target->has<Awk>())
 		{
-			PlayerManager* manager = target->get<PlayerCommon>()->manager.ref();
-			if (Team::list[(s32)get<AIAgent>()->team].player_tracks[manager->id()].tracking)
+			if (distance_squared < MINION_HEARING_RANGE * MINION_HEARING_RANGE && Game::time.total - target->get<Awk>()->attach_time < 1.0f) // we can hear the awk
+				limit_vision_cone = false;
+			else
+			{
+				PlayerManager* manager = target->get<PlayerCommon>()->manager.ref();
+				if (Team::list[(s32)get<AIAgent>()->team].player_tracks[manager->id()].tracking)
+					limit_vision_cone = false;
+			}
+		}
+		else if (target->has<Parkour>())
+		{
+			if (distance_squared < MINION_HEARING_RANGE * MINION_HEARING_RANGE)
 				limit_vision_cone = false;
 		}
 	}
@@ -455,13 +518,15 @@ b8 MinionAI::can_see(Entity* target, b8 limit_vision_cone) const
 
 	if (distance_squared < MINION_VISION_RANGE * MINION_VISION_RANGE)
 	{
-		diff.normalize();
-		if (!limit_vision_cone || diff.dot(get<Walker>()->forward()) > 0.707f)
+		if (!limit_vision_cone || Vec3::normalize(diff).dot(get<Walker>()->forward()) > 0.707f)
 		{
-			btCollisionWorld::ClosestRayResultCallback ray_callback(pos, target_pos);
-			Physics::raycast(&ray_callback, (CollisionStatic | CollisionInaccessible | CollisionAllTeamsContainmentField) & ~Team::containment_field_mask(get<AIAgent>()->team));
-			if (!ray_callback.hasHit())
-				return true;
+			if (!target->has<Parkour>() || fabs(diff.y) < MINION_HEARING_RANGE)
+			{
+				btCollisionWorld::ClosestRayResultCallback ray_callback(pos, target_pos);
+				Physics::raycast(&ray_callback, (CollisionStatic | CollisionInaccessible | CollisionAllTeamsContainmentField) & ~Team::containment_field_mask(get<AIAgent>()->team));
+				if (!ray_callback.hasHit())
+					return true;
+			}
 		}
 	}
 	return false;
@@ -503,6 +568,13 @@ Vec3 goal_pos(const MinionAI::Goal& g)
 void MinionAI::update(const Update& u)
 {
 	target_timer += u.time.delta;
+
+	b8 can_attack = false;
+	if (get<MinionCommon>()->attack_timer > 0.0f)
+	{
+		get<MinionCommon>()->attack_timer = vi_max(0.0f, get<MinionCommon>()->attack_timer - u.time.delta);
+		can_attack = get<MinionCommon>()->attack_timer == 0.0f;
+	}
 
 	Vec3 pos = get<Transform>()->absolute_pos();
 
@@ -558,22 +630,21 @@ void MinionAI::update(const Update& u)
 					if (can_see(g))
 					{
 						// turn to and attack the target
-						Vec3 head_pos = get<MinionCommon>()->head_pos();
+						Vec3 hand_pos = get<MinionCommon>()->hand_pos();
 						Vec3 aim_pos;
-						if (!g->has<Target>() || !g->get<Target>()->predict_intersection(head_pos, PROJECTILE_SPEED, nullptr, &aim_pos))
+						if (!g->has<Target>() || !g->get<Target>()->predict_intersection(hand_pos, PROJECTILE_SPEED, nullptr, &aim_pos))
 							aim_pos = g->get<Transform>()->absolute_pos();
 						turn_to(aim_pos);
 						path.length = 0;
 
-						Vec3 to_target = aim_pos - head_pos;
-						to_target.y = 0.0f;
-						if (get<MinionCommon>()->attack_timer == 0.0f // make sure our cooldown is done
-							&& Vec3::normalize(to_target).dot(get<Walker>()->forward()) > 0.98f // make sure we're looking at the target
-							&& target_timer > MINION_ATTACK_TIME * 0.5f // give some reaction time
+						if (fabs(LMath::angle_to(get<Walker>()->target_rotation, get<Walker>()->rotation)) < PI * 0.05f // make sure we're looking at the target
+							&& target_timer > MINION_ATTACK_TIME * 0.25f // give some reaction time
 							&& !Team::game_over)
 						{
-							Net::finalize(World::create<ProjectileEntity>(get<MinionCommon>()->owner.ref(), head_pos, aim_pos - head_pos));
-							get<MinionCommon>()->attack_timer = MINION_ATTACK_TIME;
+							if (can_attack)
+								get<MinionCommon>()->fire(aim_pos);
+							else if (get<MinionCommon>()->attack_timer == 0.0f)
+								get<MinionCommon>()->attack_timer = MINION_ATTACK_TIME;
 						}
 					}
 					else
@@ -648,6 +719,8 @@ void MinionAI::set_path(const AI::Result& result)
 			return;
 		}
 	}
+
+	get<MinionCommon>()->attack_timer = 0.0f; // we're no longer attacking
 
 	path = result.path;
 	if (path_request != PathRequest::Repath)

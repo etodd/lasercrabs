@@ -85,7 +85,7 @@ struct Water : public ComponentType<Water>
 struct SkyPattern
 {
 	static void draw_opaque(const RenderParams&);
-	static void draw_alpha(const RenderParams&);
+	static void draw_alpha_depth(const RenderParams&);
 };
 
 struct Cube

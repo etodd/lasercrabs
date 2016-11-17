@@ -378,13 +378,10 @@ void Game::update(const Update& update_in)
 				i.item()->update_server(u);
 			for (auto i = MinionAI::list.iterator(); !i.is_last(); i.next())
 				i.item()->update(u);
-		}
-		for (auto i = MinionCommon::list.iterator(); !i.is_last(); i.next())
-		{
-			if (level.local)
+			for (auto i = MinionCommon::list.iterator(); !i.is_last(); i.next())
 				i.item()->update_server(u);
-			i.item()->update_client(u);
 		}
+		MinionCommon::update_client_all(u);
 		Grenade::update_client_all(u);
 		Rocket::update_client_all(u);
 		for (auto i = PlayerAI::list.iterator(); !i.is_last(); i.next())
@@ -490,7 +487,6 @@ void Game::draw_alpha(const RenderParams& render_params)
 	if (render_params.camera->fog)
 		Skybox::draw_alpha(render_params);
 	SkyDecal::draw_alpha(render_params);
-	SkyPattern::draw_alpha(render_params);
 	Rope::draw_alpha(render_params);
 
 #if DEBUG_NAV_MESH
@@ -685,6 +681,7 @@ void Game::draw_alpha(const RenderParams& render_params)
 
 void Game::draw_alpha_depth(const RenderParams& render_params)
 {
+	SkyPattern::draw_alpha_depth(render_params);
 	SkinnedModel::draw_alpha_depth(render_params);
 	View::draw_alpha_depth(render_params);
 }

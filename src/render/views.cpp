@@ -579,9 +579,9 @@ void SkyPattern::draw_opaque(const RenderParams& p)
 	sync->write<s8>(RENDER_COLOR_MASK_DEFAULT);
 }
 
-void SkyPattern::draw_alpha(const RenderParams& p)
+void SkyPattern::draw_alpha_depth(const RenderParams& p)
 {
-	if (p.technique != RenderTechnique::Default)
+	if (!p.edges)
 		return;
 
 	Loader::shader_permanent(Asset::Shader::flat);

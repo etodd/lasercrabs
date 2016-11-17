@@ -695,7 +695,6 @@ const char* AssetLookup::String::names[] =
 {
 	"_default",
 	"ability_spawn_cost",
-	"acking",
 	"attack",
 	"auto_capture_fail_insufficient_resource",
 	"auto_capture_fail_prompt",

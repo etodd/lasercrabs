@@ -40,6 +40,7 @@ enum class Resolution
 enum class MessageType
 {
 	Noop,
+	ClientSetup,
 	EntityCreate,
 	EntityRemove,
 	InitDone,
@@ -116,7 +117,6 @@ namespace Server
 	enum Mode
 	{
 		Waiting,
-		Loading,
 		Active,
 		count,
 	};
@@ -131,7 +131,6 @@ namespace Client
 	{
 		Disconnected,
 		Connecting,
-		Acking,
 		Loading,
 		Connected,
 	};

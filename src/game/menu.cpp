@@ -449,11 +449,6 @@ void draw(const RenderParams& params)
 				str = strings::connecting;
 				break;
 			}
-			case Net::Client::Mode::Acking:
-			{
-				str = strings::acking;
-				break;
-			}
 			case Net::Client::Mode::Loading:
 			{
 				str = strings::loading;

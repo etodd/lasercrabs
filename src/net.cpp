@@ -1095,7 +1095,7 @@ b8 msgs_write(StreamWrite* p, const MessageHistory& history, const Ack& remote_a
 			}
 
 			// start resending frames starting at that index
-			r32 timestamp_cutoff = state_common.timestamp - vi_min(0.35f, rtt * 2.0f); // wait a certain period before trying to resend a sequence
+			r32 timestamp_cutoff = state_common.timestamp - vi_min(NET_TICK_RATE * 1.5f, rtt * 2.0f); // wait a certain period before trying to resend a sequence
 			for (s32 i = 0; i < NET_PREVIOUS_SEQUENCES_SEARCH; i++)
 			{
 				const MessageFrame& frame = history.msg_frames[index];
@@ -1104,7 +1104,7 @@ b8 msgs_write(StreamWrite* p, const MessageHistory& history, const Ack& remote_a
 					&& relative_sequence >= -NET_ACK_PREVIOUS_SEQUENCES
 					&& !ack_get(remote_ack, frame.sequence_id)
 					&& !sequence_history_contains_newer_than(*recently_resent, frame.sequence_id, timestamp_cutoff)
-					&& 32 + bytes + frame.write.bytes_written() <= NET_MAX_MESSAGES_SIZE)
+					&& 8 + bytes + frame.write.bytes_written() <= NET_MAX_MESSAGES_SIZE)
 				{
 					vi_debug("Resending seq %d: %d bytes", s32(frame.sequence_id), frame.bytes);
 					bytes += frame.write.bytes_written();
@@ -1122,7 +1122,7 @@ b8 msgs_write(StreamWrite* p, const MessageHistory& history, const Ack& remote_a
 		// current frame
 		{
 			const MessageFrame& frame = history.msg_frames[history.current_index];
-			if (32 + bytes + frame.write.bytes_written() <= NET_MAX_MESSAGES_SIZE)
+			if (8 + bytes + frame.write.bytes_written() <= NET_MAX_MESSAGES_SIZE)
 			{
 #if DEBUG_MSG
 				if (frame.bytes > 1)
@@ -1159,12 +1159,12 @@ b8 msgs_read(StreamRead* p, MessageHistory* history, SequenceID* received_sequen
 			if (bytes > 1)
 				vi_debug("Received seq %d: %d bytes", s32(frame->sequence_id), s32(bytes));
 #endif
-			if (received_sequence && (first_frame || frame->sequence_id > *received_sequence))
+			if (received_sequence && (first_frame || sequence_more_recent(frame->sequence_id, *received_sequence)))
 				*received_sequence = frame->sequence_id;
+			first_frame = false;
 			frame->read.resize_bytes(bytes);
 			serialize_bytes(p, (u8*)frame->read.data.data, bytes);
 			serialize_align(p);
-			first_frame = false;
 		}
 		else
 			break;
@@ -1425,7 +1425,7 @@ b8 equal_states_awk(const AwkState& a, const AwkState& b)
 		&& a.charges == b.charges;
 }
 
-template<typename Stream> b8 serialize_state_frame(Stream* p, StateFrame* frame, SequenceID sequence_id, const StateFrame* base)
+template<typename Stream> b8 serialize_state_frame(Stream* p, StateFrame* frame, const StateFrame* base)
 {
 	if (Stream::IsReading)
 	{
@@ -1434,8 +1434,9 @@ template<typename Stream> b8 serialize_state_frame(Stream* p, StateFrame* frame,
 		else
 			new (frame) StateFrame();
 		frame->timestamp = state_common.timestamp;
-		frame->sequence_id = sequence_id;
 	}
+
+	serialize_int(p, SequenceID, frame->sequence_id, 0, NET_SEQUENCE_COUNT - 1);
 
 	// transforms
 	{
@@ -1964,8 +1965,9 @@ struct Client
 	r32 timeout;
 	r32 rtt = 0.5f;
 	Ack ack = { u32(-1), NET_SEQUENCE_INVALID }; // most recent ack we've received from the client
+	Ack ack_load = { u32(-1), NET_SEQUENCE_INVALID }; // most recent ack for load messages we've received from the client
 	MessageHistory msgs_in_history; // messages we've received from the client
-	MessageHistory msgs_out_load_history; // messages we've sent to this client to serialize map data
+	MessageHistory msgs_out_load_history; // messages we've sent to this client to serialize map data. NOTE: map data must fit within 64 sequences.
 	MessageBuffer msgs_out_load; // buffer of messages we need to send to serialize map data
 	SequenceHistory recently_resent; // sequences we resent to the client recently
 	SequenceHistory recently_resent_load; // sequences we resent to the client recently (load messages)
@@ -1990,12 +1992,12 @@ struct StateServer
 };
 StateServer state_server;
 
-s32 connected_clients()
+s32 clients_loaded()
 {
 	s32 result = 0;
 	for (s32 i = 0; i < state_server.clients.length; i++)
 	{
-		if (state_server.clients[i].connected)
+		if (state_server.clients[i].connected && state_server.clients[i].loading_done)
 			result++;
 	}
 	return result;
@@ -2032,16 +2034,13 @@ b8 init()
 	return true;
 }
 
-b8 packet_build_init(StreamWrite* p)
+b8 packet_build_init(StreamWrite* p, Client* client)
 {
 	using Stream = StreamWrite;
 	packet_init(p);
 	ServerPacket type = ServerPacket::Init;
 	serialize_enum(p, ServerPacket, type);
-	{
-		SequenceID sequence_id = sequence_advance(state_common.local_sequence_id, -1);
-		serialize_int(p, SequenceID, sequence_id, 0, NET_SEQUENCE_COUNT - 1);
-	}
+	serialize_int(p, SequenceID, client->first_load_sequence, 0, NET_SEQUENCE_COUNT - 1);
 	serialize_init_packet(p);
 	packet_finalize(p);
 	return true;
@@ -2084,23 +2083,33 @@ b8 packet_build_update(StreamWrite* p, Client* client, StateFrame* frame)
 	}
 
 	{
-		Ack msg_ack = client->ack;
-		if (msg_ack.sequence_id != NET_SEQUENCE_INVALID && client->msgs_out_load_history.msg_frames.length > 0)
+		Ack client_ack;
+		if (client->ack.sequence_id == NET_SEQUENCE_INVALID)
 		{
-			// we're somewhere in the initialization process
-			// make sure we don't resend sequences from before the client joined
-			s32 legitimate_sequences = sequence_relative_to(msg_ack.sequence_id, client->first_load_sequence);
-			vi_assert(legitimate_sequences >= 0);
-			for (s32 i = NET_ACK_PREVIOUS_SEQUENCES; i > legitimate_sequences; i--)
-				msg_ack.previous_sequences |= u64(1) << (i - 1);
+			// client hasn't acked anything yet; just assume they don't need us to resend anything yet
+			client_ack.sequence_id = sequence_advance(client->first_load_sequence, -1);
+			client_ack.previous_sequences = u64(-1);
 		}
-		msgs_write(p, state_common.msgs_out_history, msg_ack, &client->recently_resent, client->rtt);
+		else
+		{
+			client_ack = client->ack;
+			if (client->msgs_out_load_history.msg_frames.length > 0)
+			{
+				// we're somewhere in the initialization process
+				// make sure we don't resend sequences from before the client joined
+				s32 legitimate_sequences = sequence_relative_to(client_ack.sequence_id, client->first_load_sequence);
+				vi_assert(legitimate_sequences >= 0);
+				for (s32 i = NET_ACK_PREVIOUS_SEQUENCES; i > legitimate_sequences; i--)
+					client_ack.previous_sequences |= u64(1) << (i - 1);
+			}
+		}
+		msgs_write(p, state_common.msgs_out_history, client_ack, &client->recently_resent, client->rtt);
 	}
 
 	b8 has_load_msgs = !client->loading_done;
 	serialize_bool(p, has_load_msgs);
 	if (has_load_msgs)
-		msgs_write(p, client->msgs_out_load_history, client->ack, &client->recently_resent_load, client->rtt);
+		msgs_write(p, client->msgs_out_load_history, client->ack_load, &client->recently_resent_load, client->rtt);
 	else if (frame)
 	{
 		SequenceID last_acked_sequence = client->ack.sequence_id;
@@ -2112,17 +2121,15 @@ b8 packet_build_update(StreamWrite* p, Client* client, StateFrame* frame)
 		// first we need to determine whether the last acked sequence happened while the client was loading.
 		if (client->msgs_out_load_history.msg_frames.length > 0)
 		{
-			SequenceID last_loading_sequence = client->msgs_out_load_history.msg_frames[client->msgs_out_load_history.current_index].sequence_id;
-			// if the last loading sequence was too long ago, we can stop worrying and assume that all sequences have state frames now
-			if (sequence_relative_to(client->ack.sequence_id, last_loading_sequence) > NET_ACK_PREVIOUS_SEQUENCES)
-				client->msgs_out_load_history.msg_frames.length = 0; // fugeddaboudit
-			else if (msg_frame_by_sequence(&client->msgs_out_load_history, last_acked_sequence)) // check if the last acked sequence was a loading frame
-				last_acked_sequence = NET_SEQUENCE_INVALID; // it was; so it had no state frame, and therefore there's no basis to do delta compression against
+			if (msg_frame_by_sequence(&client->msgs_out_load_history, last_acked_sequence))
+				last_acked_sequence = NET_SEQUENCE_INVALID; // it did; so it had no state frame, and therefore there's no basis to do delta compression against
+			else if (sequence_relative_to(last_acked_sequence, client->first_load_sequence) > NET_ACK_PREVIOUS_SEQUENCES)
+				client->msgs_out_load_history.msg_frames.length = 0; // it's been long enough, we can stop worrying about this. all frames should have state frames by now
 		}
 
 		serialize_int(p, SequenceID, last_acked_sequence, 0, NET_SEQUENCE_COUNT); // not NET_SEQUENCE_COUNT - 1, because base_sequence_id might be NET_SEQUENCE_INVALID
 		const StateFrame* base = state_frame_by_sequence(state_common.state_history, last_acked_sequence);
-		serialize_state_frame(p, frame, state_common.local_sequence_id, base);
+		serialize_state_frame(p, frame, base);
 	}
 
 	packet_finalize(p);
@@ -2226,48 +2233,54 @@ b8 packet_handle(const Update& u, StreamRead* p, const Sock::Address& address)
 	{
 		case ClientPacket::Connect:
 		{
-			if (state_server.clients.length < state_server.expected_clients)
+			s16 game_version;
+			serialize_s16(p, game_version);
+			if (game_version == GAME_VERSION)
 			{
-				s16 game_version;
-				serialize_s16(p, game_version);
-				if (game_version == GAME_VERSION)
+				if (!client && state_server.clients.length < state_server.expected_clients)
 				{
-					if (!client)
-					{
-						client = state_server.clients.add();
-						client_index = state_server.clients.length - 1;
-						new (client) Client();
-						client->address = address;
-						client->first_load_sequence = state_common.local_sequence_id;
+					client = state_server.clients.add();
+					client_index = state_server.clients.length - 1;
+					new (client) Client();
+					client->address = address;
+					client->first_load_sequence = state_common.local_sequence_id;
+					vi_debug("Client %s:%hd starting on sequence %d", Sock::host_to_str(address.host), address.port, s32(client->first_load_sequence));
 
-						// serialize out map data
+					// serialize out map data
+					{
+						using Stream = StreamWrite;
+						for (auto j = Entity::list.iterator(); !j.is_last(); j.next())
 						{
-							using Stream = StreamWrite;
-							for (auto j = Entity::list.iterator(); !j.is_last(); j.next())
-							{
-								StreamWrite* p = msg_new(&client->msgs_out_load, MessageType::EntityCreate);
-								serialize_int(p, ID, j.index, 0, MAX_ENTITIES - 1);
-								if (!serialize_entity(p, j.item()))
-									vi_assert(false);
-								msg_finalize(p);
-							}
-							msg_finalize(msg_new(&client->msgs_out_load, MessageType::InitDone));
+							StreamWrite* p = msg_new(&client->msgs_out_load, MessageType::EntityCreate);
+							serialize_int(p, ID, j.index, 0, MAX_ENTITIES - 1);
+							if (!serialize_entity(p, j.item()))
+								vi_assert(false);
+							msg_finalize(p);
 						}
+						msg_finalize(msg_new(&client->msgs_out_load, MessageType::InitDone));
 					}
+				}
 
-					{
-						StreamWrite p;
-						packet_build_init(&p);
-						packet_send(p, address);
-					}
+				if (client)
+				{
+					StreamWrite p;
+					packet_build_init(&p, client);
+					packet_send(p, address);
 				}
 				else
 				{
-					// wrong version
+					// server is full
 					StreamWrite p;
 					packet_build_disconnect(&p);
 					packet_send(p, address);
 				}
+			}
+			else
+			{
+				// wrong version
+				StreamWrite p;
+				packet_build_disconnect(&p);
+				packet_send(p, address);
 			}
 			break;
 		}
@@ -2288,16 +2301,31 @@ b8 packet_handle(const Update& u, StreamRead* p, const Sock::Address& address)
 					client->ack = ack_candidate;
 			}
 
-			SequenceID sequence_id;
-			if (!msgs_read(p, &client->msgs_in_history, &sequence_id))
-				net_error();
-
-			if (sequence_relative_to(sequence_id, client->processed_msg_frame.sequence_id) > NET_ACK_PREVIOUS_SEQUENCES)
 			{
-				// we missed a packet that we'll never be able to recover
-				vi_debug("Client %s:%hd timed out.", Sock::host_to_str(client->address.host), client->address.port);
-				state_server.clients.remove(client_index);
-				return false;
+				SequenceID sequence_id; // TODO: calculate this differently because this packet might be missing the current message frame
+				if (!msgs_read(p, &client->msgs_in_history, &sequence_id))
+					net_error();
+
+				if (sequence_relative_to(sequence_id, client->processed_msg_frame.sequence_id) > NET_ACK_PREVIOUS_SEQUENCES)
+				{
+					// we missed a packet that we'll never be able to recover
+					vi_debug("Client %s:%hd timed out.", Sock::host_to_str(client->address.host), client->address.port);
+					state_server.clients.remove(client_index);
+					return false;
+				}
+			}
+
+			{
+				b8 has_ack_load;
+				serialize_bool(p, has_ack_load);
+				if (has_ack_load)
+				{
+					Ack ack_candidate;
+					serialize_int(p, SequenceID, ack_candidate.sequence_id, 0, NET_SEQUENCE_COUNT); // not NET_SEQUENCE_COUNT - 1, because it might be NET_SEQUENCE_INVALID
+					serialize_u64(p, ack_candidate.previous_sequences);
+					if (sequence_more_recent(ack_candidate.sequence_id, client->ack_load.sequence_id))
+						client->ack_load = ack_candidate;
+				}
 			}
 
 			calculate_rtt(state_common.timestamp, client->ack, state_common.msgs_out_history, &client->rtt);
@@ -2307,12 +2335,16 @@ b8 packet_handle(const Update& u, StreamRead* p, const Sock::Address& address)
 			{
 				vi_debug("Client %s:%hd connected.", Sock::host_to_str(client->address.host), client->address.port);
 				client->connected = true;
-
-				if (state_server.mode == Mode::Waiting && connected_clients() == state_server.expected_clients)
-					state_server.mode = Mode::Active;
 			}
 
-			b8 most_recent = sequence_id == msg_history_most_recent_sequence(client->msgs_in_history);
+			b8 most_recent;
+			{
+				// we must serialize the current sequence ID separately from the message system
+				// because perhaps msgs_write did not have enough room to serialize the message frame for the current sequence
+				SequenceID sequence_id;
+				serialize_int(p, SequenceID, sequence_id, 0, NET_SEQUENCE_COUNT - 1);
+				most_recent = sequence_id == msg_history_most_recent_sequence(client->msgs_in_history);
+			}
 
 			s32 count;
 			serialize_int(p, ID, count, 0, MAX_GAMEPADS);
@@ -2375,6 +2407,9 @@ b8 msg_process(StreamRead* p, Client* client)
 		case MessageType::LoadingDone:
 		{
 			client->loading_done = true;
+			vi_debug("Client %s:%hd finished loading.", Sock::host_to_str(client->address.host), client->address.port);
+			if (state_server.mode == Mode::Waiting && clients_loaded() == state_server.expected_clients)
+				state_server.mode = Mode::Active;
 			break;
 		}
 		case MessageType::PlayerControlHuman:
@@ -2514,17 +2549,36 @@ b8 packet_build_disconnect(StreamWrite* p)
 
 b8 packet_build_update(StreamWrite* p, const Update& u)
 {
-	packet_init(p);
 	using Stream = StreamWrite;
-	ClientPacket type = ClientPacket::Update;
-	serialize_enum(p, ClientPacket, type);
+	packet_init(p);
+	{
+		ClientPacket type = ClientPacket::Update;
+		serialize_enum(p, ClientPacket, type);
+	}
 
 	// ack received messages
-	Ack ack = msg_history_ack(state_client.msgs_in_history);
-	serialize_int(p, SequenceID, ack.sequence_id, 0, NET_SEQUENCE_COUNT); // not NET_SEQUENCE_COUNT - 1, because it might be NET_SEQUENCE_INVALID
-	serialize_u64(p, ack.previous_sequences);
+	{
+		Ack ack = msg_history_ack(state_client.msgs_in_history);
+		serialize_int(p, SequenceID, ack.sequence_id, 0, NET_SEQUENCE_COUNT); // not NET_SEQUENCE_COUNT - 1, because it might be NET_SEQUENCE_INVALID
+		serialize_u64(p, ack.previous_sequences);
+	}
 
 	msgs_write(p, state_common.msgs_out_history, state_client.server_ack, &state_client.server_recently_resent, state_client.server_rtt);
+
+	{
+		b8 has_ack_load = state_client.mode == Mode::Loading;
+		serialize_bool(p, has_ack_load);
+		if (has_ack_load)
+		{
+			Ack ack = msg_history_ack(state_client.msgs_in_load_history);
+			serialize_int(p, SequenceID, ack.sequence_id, 0, NET_SEQUENCE_COUNT); // not NET_SEQUENCE_COUNT - 1, because it might be NET_SEQUENCE_INVALID
+			serialize_u64(p, ack.previous_sequences);
+		}
+	}
+
+	// we must serialize the current sequence ID separately from the message system
+	// because perhaps msgs_write did not have enough room to serialize the message frame for the current sequence
+	serialize_int(p, SequenceID, state_common.local_sequence_id, 0, NET_SEQUENCE_COUNT - 1);
 
 	// player control
 	s32 count = PlayerControlHuman::count_local();
@@ -2633,14 +2687,10 @@ void tick(const Update& u, r32 dt)
 		}
 		case Mode::Connecting:
 		{
-			if (state_client.timeout > 0.25f)
-			{
-				state_client.timeout = 0.0f;
-				vi_debug("Connecting to %s:%hd...", Sock::host_to_str(state_client.server_address.host), state_client.server_address.port);
-				StreamWrite p;
-				packet_build_connect(&p);
-				packet_send(p, state_client.server_address);
-			}
+			vi_debug("Connecting to %s:%hd...", Sock::host_to_str(state_client.server_address.host), state_client.server_address.port);
+			StreamWrite p;
+			packet_build_connect(&p);
+			packet_send(p, state_client.server_address);
 			break;
 		}
 		case Mode::Loading:
@@ -2686,7 +2736,9 @@ Mode mode()
 b8 packet_handle(const Update& u, StreamRead* p, const Sock::Address& address)
 {
 	using Stream = StreamRead;
-	if (state_client.mode == Mode::Disconnected || !address.equals(state_client.server_address))
+	if (state_client.mode == Mode::Disconnected)
+		return false;
+	else if (!address.equals(state_client.server_address))
 	{
 		vi_debug("%s", "Discarding packet from unexpected host.");
 		return false;
@@ -2703,7 +2755,8 @@ b8 packet_handle(const Update& u, StreamRead* p, const Sock::Address& address)
 				serialize_int(p, SequenceID, seq, 0, NET_SEQUENCE_COUNT - 1);
 				if (serialize_init_packet(p))
 				{
-					state_client.server_processed_msg_frame = state_client.server_processed_load_msg_frame = { seq, true };
+					state_client.server_processed_msg_frame = state_client.server_processed_load_msg_frame = { sequence_advance(seq, -1), true };
+					vi_debug("Starting on sequence %d", s32(seq));
 					state_client.mode = Mode::Loading;
 
 					// send client setup message
@@ -2737,6 +2790,9 @@ b8 packet_handle(const Update& u, StreamRead* p, const Sock::Address& address)
 		}
 		case ServerPacket::Update:
 		{
+			if (state_client.mode == Mode::Connecting)
+				return false; // need the init packet first
+
 			// read ack
 			{
 				Ack ack_candidate;
@@ -2746,14 +2802,16 @@ b8 packet_handle(const Update& u, StreamRead* p, const Sock::Address& address)
 					state_client.server_ack = ack_candidate;
 			}
 
-			SequenceID sequence_id;
-			if (!msgs_read(p, &state_client.msgs_in_history, &sequence_id))
+			SequenceID msg_sequence_id;
+			if (!msgs_read(p, &state_client.msgs_in_history, &msg_sequence_id))
 				net_error();
 
 			calculate_rtt(state_common.timestamp, state_client.server_ack, state_common.msgs_out_history, &state_client.server_rtt);
 
 			b8 has_load_msgs;
 			serialize_bool(p, has_load_msgs);
+			if (state_client.mode == Mode::Loading)
+				vi_assert(has_load_msgs);
 			if (has_load_msgs)
 			{
 				if (!msgs_read(p, &state_client.msgs_in_load_history))
@@ -2762,10 +2820,10 @@ b8 packet_handle(const Update& u, StreamRead* p, const Sock::Address& address)
 
 			// check for large gaps in the sequence
 			const MessageFrameState& processed_msg_frame = state_client.mode == Mode::Loading ? state_client.server_processed_load_msg_frame : state_client.server_processed_msg_frame;
-			if (!processed_msg_frame.starting && sequence_relative_to(processed_msg_frame.sequence_id, sequence_id) > NET_ACK_PREVIOUS_SEQUENCES)
+			if (sequence_relative_to(processed_msg_frame.sequence_id, msg_sequence_id) > NET_ACK_PREVIOUS_SEQUENCES)
 			{
 				// we missed a packet that we'll never be able to recover
-				vi_debug("Lost connection to %s:%hd due to sequence break. Local seq: %d. Remote seq: %d.", Sock::host_to_str(state_client.server_address.host), state_client.server_address.port, s32(processed_msg_frame.sequence_id), s32(sequence_id));
+				vi_debug("Lost connection to %s:%hd due to sequence gap. Local seq: %d. Remote seq: %d.", Sock::host_to_str(state_client.server_address.host), state_client.server_address.port, s32(processed_msg_frame.sequence_id), s32(msg_sequence_id));
 				state_client.mode = Mode::Disconnected;
 				return false;
 			}
@@ -2776,7 +2834,8 @@ b8 packet_handle(const Update& u, StreamRead* p, const Sock::Address& address)
 				serialize_int(p, SequenceID, base_sequence_id, 0, NET_SEQUENCE_COUNT); // not NET_SEQUENCE_COUNT - 1, because base_sequence_id might be NET_SEQUENCE_INVALID
 				const StateFrame* base = state_frame_by_sequence(state_common.state_history, base_sequence_id);
 				StateFrame frame;
-				serialize_state_frame(p, &frame, sequence_id, base);
+				serialize_state_frame(p, &frame, base);
+				vi_assert((base_sequence_id == NET_SEQUENCE_INVALID) == (base == nullptr)); // make sure the server says we have a base state frame if and only if we actually have it
 				// only insert the frame into the history if it is more recent
 				if (state_common.state_history.frames.length == 0 || sequence_more_recent(frame.sequence_id, state_common.state_history.frames[state_common.state_history.current_index].sequence_id))
 				{
@@ -2857,6 +2916,7 @@ b8 msg_process(StreamRead* p)
 				World::awake(i.item());
 
 			// let the server know we're done loading
+			vi_debug("Finished loading.");
 			msg_finalize(msg_new(MessageType::LoadingDone));
 			state_client.mode = Mode::Connected;
 			break;

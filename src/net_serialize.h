@@ -163,14 +163,15 @@ do\
 {\
 	vi_assert(s64(_min) < s64(_max));\
 	u32 _b = Net::bits_required(_min, _max);\
+	if ((stream)->would_overflow(_b))\
+		net_error();\
 	u32 _u;\
 	if (Stream::IsWriting)\
 	{\
 		vi_assert(s64(value) >= s64(_min));\
 		vi_assert(s64(value) <= s64(_max));\
 		_u = u32(s64(value) - s64(_min));\
-	} else if ((stream)->would_overflow(_b))\
-		net_error();\
+	}\
 	(stream)->bits(_u, _b);\
 	if (Stream::IsReading)\
 	{\
@@ -193,7 +194,7 @@ do\
 {\
 	vi_assert(count > 0);\
 	vi_assert(count <= 32);\
-	if (!Stream::IsWriting && (stream)->would_overflow(count))\
+	if ((stream)->would_overflow(count))\
 		net_error();\
 	u32 _u;\
 	if (Stream::IsWriting)\
@@ -231,11 +232,11 @@ do\
 #define serialize_r32(stream, value)\
 do\
 {\
+	if ((stream)->would_overflow(32))\
+		net_error();\
 	Net::Single _s;\
 	if (Stream::IsWriting)\
 		_s.value_r32 = value;\
-	else if ((stream)->would_overflow(32))\
-		net_error();\
 	(stream)->bits(_s.value_u32, 32);\
 	if (Stream::IsReading)\
 		value = _s.value_r32;\
@@ -246,6 +247,8 @@ do\
 {\
 	vi_assert(_min < _max);\
 	vi_assert(_bits > 0 && _bits < 32);\
+	if ((stream)->would_overflow(_bits))\
+		net_error();\
 	u32 _u;\
 	u32 _umax = (1 << _bits) - 1;\
 	r32 _q = r32(_umax) / r32(_max - _min);\
@@ -254,8 +257,7 @@ do\
 		r32 _v = value < _min ? _min : value;\
 		_u = u32(r32(_v - _min) * _q);\
 		_u = _u < _umax ? _u : _umax;\
-	} else if ((stream)->would_overflow(_bits))\
-		net_error();\
+	}\
 	(stream)->bits(_u, _bits);\
 	if (Stream::IsReading)\
 		value = _min + r32(_u) / _q;\
@@ -277,7 +279,7 @@ do\
 {\
 	if (!(stream)->align())\
 		net_error();\
-	if (Stream::IsReading && (stream)->would_overflow(len * 8))\
+	if ((stream)->would_overflow(len * 8))\
 		net_error();\
 	(stream)->bytes(data, len);\
 } while (0)

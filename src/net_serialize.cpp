@@ -164,7 +164,7 @@ void StreamWrite::flush()
 
 b8 StreamWrite::would_overflow(s32 bits) const
 {
-	return false;
+	return bits_written() + bits > data.capacity() * 32;
 }
 
 void StreamWrite::resize_bytes(s32 b)

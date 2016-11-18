@@ -36,6 +36,7 @@ struct MinionCommon : public ComponentType<MinionCommon>
 	b8 headshot_test(const Vec3&, const Vec3&);
 	void hit_by(const TargetEvent& e);
 	void fire(const Vec3&);
+	void melee_damage();
 	void killed(Entity*);
 	void footstep();
 	void update_server(const Update&);

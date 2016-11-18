@@ -25,6 +25,7 @@
 #define ROTATION_SPEED 4.0f
 #define MINION_HEARING_RANGE 7.0f
 #define MINION_VISION_RANGE 20.0f
+#define MINION_MELEE_RANGE 2.5f
 #define HEALTH 3
 #define PATH_RECALC_TIME 1.0f
 #define TARGET_SCAN_TIME 0.5f
@@ -75,6 +76,8 @@ void MinionCommon::awake()
 	Animator* animator = get<Animator>();
 	link<&MinionCommon::footstep>(animator->trigger(Asset::Animation::character_walk, 0.3375f));
 	link<&MinionCommon::footstep>(animator->trigger(Asset::Animation::character_walk, 0.75f));
+	if (Game::level.local)
+		link<&MinionCommon::melee_damage>(animator->trigger(Asset::Animation::character_melee, 0.875f));
 }
 
 MinionCommon* MinionCommon::closest(AI::TeamMask mask, const Vec3& pos, r32* distance)
@@ -114,6 +117,25 @@ void MinionCommon::footstep()
 	Audio::post_global_event(AK::EVENTS::PLAY_FOOTSTEP, get<Walker>()->base_pos());
 }
 
+void MinionCommon::melee_damage()
+{
+	vi_assert(Game::level.local);
+	Vec3 me = get<Transform>()->absolute_pos();
+	Vec3 forward = get<Walker>()->forward();
+	for (auto i = Parkour::list.iterator(); !i.is_last(); i.next())
+	{
+		Parkour::State state = i.item()->fsm.current;
+		if (state == Parkour::State::Roll || state == Parkour::State::Slide)
+			continue;
+
+		Vec3 to_target = i.item()->get<Transform>()->absolute_pos() - me;
+		r32 distance = to_target.length();
+		if (distance < MINION_MELEE_RANGE
+			&& forward.dot(to_target / distance) > 0.707f)
+			i.item()->get<Health>()->damage(entity(), 1);
+	}
+}
+
 Vec3 MinionCommon::head_pos() const
 {
 	return get<Target>()->absolute_pos();
@@ -137,7 +159,8 @@ void MinionCommon::update_server(const Update& u)
 	Animator::Layer* layer = &get<Animator>()->layers[0];
 
 	// update animation
-	if (layer->animation != Asset::Animation::character_fire)
+	if (layer->animation != Asset::Animation::character_fire
+		&& layer->animation != Asset::Animation::character_melee)
 	{
 		if (get<Walker>()->support.ref() && get<Walker>()->dir.length_squared() > 0.0f)
 		{
@@ -637,11 +660,21 @@ void MinionAI::update(const Update& u)
 						turn_to(aim_pos);
 						path.length = 0;
 
+						Animator::Layer* anim_layer = &get<Animator>()->layers[0];
+
 						if (fabs(LMath::angle_to(get<Walker>()->target_rotation, get<Walker>()->rotation)) < PI * 0.05f // make sure we're looking at the target
 							&& target_timer > MINION_ATTACK_TIME * 0.25f // give some reaction time
+							&& anim_layer->animation != Asset::Animation::character_melee
 							&& !Team::game_over)
 						{
-							if (can_attack)
+							if ((aim_pos - hand_pos).length_squared() < MINION_MELEE_RANGE * MINION_MELEE_RANGE)
+							{
+								anim_layer->speed = 1.0f;
+								anim_layer->loop = false;
+								anim_layer->play(Asset::Animation::character_melee);
+								get<MinionCommon>()->attack_timer = 0.0f;
+							}
+							else if (can_attack)
 								get<MinionCommon>()->fire(aim_pos);
 							else if (get<MinionCommon>()->attack_timer == 0.0f)
 								get<MinionCommon>()->attack_timer = MINION_ATTACK_TIME;

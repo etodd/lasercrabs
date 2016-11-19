@@ -214,7 +214,7 @@ void Loader::settings_load(s32 default_width, s32 default_height)
 		bindings->bindings[(s32)Controls::Scoreboard] = input_binding(gamepad, "scoreboard", { KeyCode::Tab, KeyCode::None, Gamepad::Btn::Back });
 		bindings->bindings[(s32)Controls::Jump] = input_binding(gamepad, "jump", { KeyCode::Space, KeyCode::None, Gamepad::Btn::RightTrigger });
 		bindings->bindings[(s32)Controls::Parkour] = input_binding(gamepad, "parkour", { KeyCode::LShift, KeyCode::None, Gamepad::Btn::LeftTrigger });
-		bindings->bindings[(s32)Controls::Slide] = input_binding(gamepad, "slide", { KeyCode::MouseLeft, KeyCode::None, Gamepad::Btn::LeftShoulder });
+		bindings->bindings[(s32)Controls::Slide] = input_binding(gamepad, "slide", { KeyCode::MouseLeft, KeyCode::E, Gamepad::Btn::LeftShoulder });
 
 		// these bindings cannot be changed
 		bindings->bindings[(s32)Controls::Start] = { KeyCode::Space, KeyCode::None, Gamepad::Btn::Start };

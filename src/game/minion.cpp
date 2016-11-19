@@ -76,8 +76,7 @@ void MinionCommon::awake()
 	Animator* animator = get<Animator>();
 	link<&MinionCommon::footstep>(animator->trigger(Asset::Animation::character_walk, 0.3375f));
 	link<&MinionCommon::footstep>(animator->trigger(Asset::Animation::character_walk, 0.75f));
-	if (Game::level.local)
-		link<&MinionCommon::melee_damage>(animator->trigger(Asset::Animation::character_melee, 0.875f));
+	link<&MinionCommon::melee_damage>(animator->trigger(Asset::Animation::character_melee, 0.875f));
 }
 
 MinionCommon* MinionCommon::closest(AI::TeamMask mask, const Vec3& pos, r32* distance)
@@ -119,20 +118,45 @@ void MinionCommon::footstep()
 
 void MinionCommon::melee_damage()
 {
-	vi_assert(Game::level.local);
 	Vec3 me = get<Transform>()->absolute_pos();
 	Vec3 forward = get<Walker>()->forward();
+
+	b8 did_damage = false;
 	for (auto i = Parkour::list.iterator(); !i.is_last(); i.next())
 	{
-		Parkour::State state = i.item()->fsm.current;
-		if (state == Parkour::State::Roll || state == Parkour::State::Slide)
-			continue;
-
 		Vec3 to_target = i.item()->get<Transform>()->absolute_pos() - me;
 		r32 distance = to_target.length();
 		if (distance < MINION_MELEE_RANGE
 			&& forward.dot(to_target / distance) > 0.707f)
-			i.item()->get<Health>()->damage(entity(), 1);
+		{
+			did_damage = true;
+			Vec3 v = Vec3::normalize(to_target);
+			v.y = 0.6f;
+			i.item()->get<RigidBody>()->btBody->setLinearVelocity(v * 7.0f);
+			i.item()->last_support = i.item()->get<Walker>()->support = nullptr;
+			i.item()->last_support_time = Game::time.total;
+			i.item()->wall_run_state = Parkour::WallRunState::None;
+
+			Parkour::State state = i.item()->fsm.current;
+			if (Game::level.local && state != Parkour::State::Roll && state != Parkour::State::Slide)
+				i.item()->get<Health>()->damage(entity(), 1);
+		}
+	}
+
+	// spark effects
+	if (did_damage)
+	{
+		Vec3 p = hand_pos();
+		Quat rot = Quat::look(forward);
+		for (s32 i = 0; i < 50; i++)
+		{
+			Particles::sparks.add
+			(
+				p,
+				rot * Vec3(mersenne::randf_oo() * 2.0f - 1.0f, mersenne::randf_oo() * 2.0f - 1.0f, mersenne::randf_oo()) * 10.0f,
+				Vec4(1, 1, 1, 1)
+			);
+		}
 	}
 }
 

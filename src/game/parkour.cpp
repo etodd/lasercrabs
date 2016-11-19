@@ -12,6 +12,8 @@
 #include "BulletCollision/NarrowPhaseCollision/btRaycastCallback.h"
 #include "awk.h"
 #include "minion.h"
+#include "render/particles.h"
+#include "mersenne/mersenne-twister.h"
 
 namespace VI
 {
@@ -473,6 +475,19 @@ void Parkour::update(const Update& u)
 						&& forward.dot(Vec3::normalize(to_minion)) > 0.5f)
 					{
 						i.item()->get<Health>()->kill(entity());
+
+						// sparks
+						Vec3 p = base_pos + Vec3(0, total_height * 0.5f, 0);
+						Quat rot = Quat::look(to_minion);
+						for (s32 i = 0; i < 50; i++)
+						{
+							Particles::sparks.add
+							(
+								p,
+								rot * Vec3(mersenne::randf_oo() * 2.0f - 1.0f, mersenne::randf_oo() * 2.0f - 1.0f, mersenne::randf_oo()) * 10.0f,
+								Vec4(1, 1, 1, 1)
+							);
+						}
 					}
 				}
 			}

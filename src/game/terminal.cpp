@@ -101,6 +101,20 @@ enum class Tab
 
 #define DEPLOY_ANIMATION_TIME 1.0f
 
+struct PropEntry
+{
+	Quat rot;
+	Vec3 pos;
+	AssetID mesh;
+};
+
+struct WaterEntry
+{
+	Quat rot;
+	Vec3 pos;
+	Water::Config config;
+};
+
 struct Data
 {
 	struct Messages
@@ -157,19 +171,27 @@ struct Data
 		Messages messages;
 		Inventory inventory;
 		Map map;
-		Ref<Transform> camera_messages;
-		Ref<Transform> camera_inventory;
+		Vec3 camera_messages_pos;
+		Quat camera_messages_rot;
+		Vec3 camera_inventory_pos;
+		Quat camera_inventory_rot;
 	};
 
 	Camera* camera;
-	Array<ZoneNode> zones;
-	AssetID zone_last = AssetNull;
-	AssetID zone_selected = AssetNull;
-	State state;
+	Camera camera_restore_data;
+	StaticArray<ZoneNode, MAX_ZONES> zones;
+	Array<PropEntry> props;
+	Array<WaterEntry> waters;
+	Quat camera_rot;
+	Vec3 camera_pos;
 	r32 timer_deploy;
 	r32 timer_deploy_animation;
+	State state;
 	StoryMode story;
-	Ref<Transform> camera_offset;
+	AssetID zone_selected = AssetNull;
+	Vec3 camera_offset_pos;
+	Quat camera_offset_rot;
+	b8 active;
 };
 
 Data data = Data();
@@ -451,20 +473,14 @@ void go(AssetID zone)
 
 void focus_camera(const Update& u, const Vec3& target_pos, const Quat& target_rot)
 {
-	data.camera->pos += (target_pos - data.camera->pos) * vi_min(1.0f, 5.0f * Game::real_time.delta);
-	data.camera->rot = Quat::slerp(vi_min(1.0f, 5.0f * Game::real_time.delta), data.camera->rot, target_rot);
-}
-
-void focus_camera(const Update& u, const Transform* target)
-{
-	focus_camera(u, target->absolute_pos(), Quat::look(target->absolute_rot() * Vec3(0, -1, 0)));
+	data.camera_pos += (target_pos - data.camera_pos) * vi_min(1.0f, 5.0f * Game::real_time.delta);
+	data.camera_rot = Quat::slerp(vi_min(1.0f, 5.0f * Game::real_time.delta), data.camera_rot, target_rot);
 }
 
 void focus_camera(const Update& u, const ZoneNode& zone)
 {
-	Vec3 target_pos = zone.pos() + data.camera_offset.ref()->absolute_pos();
-	Quat target_rot = Quat::look(data.camera_offset.ref()->absolute_rot() * Vec3(0, -1, 0));
-	focus_camera(u, target_pos, target_rot);
+	Vec3 target_pos = zone.pos() + data.camera_offset_pos;
+	focus_camera(u, target_pos, data.camera_offset_rot);
 }
 
 const ZoneNode* zone_node_get(AssetID id)
@@ -580,7 +596,7 @@ void select_zone_update(const Update& u, b8 enable_movement)
 		{
 			// transitioning from one zone to another
 			movement /= movement_amount; // normalize
-			Vec3 movement3d = data.camera->rot * Vec3(-movement.x, 0, -movement.y);
+			Vec3 movement3d = data.camera_rot * Vec3(-movement.x, 0, -movement.y);
 			movement = Vec2(movement3d.x, movement3d.z);
 			const ZoneNode* closest = nullptr;
 			r32 closest_dot = FLT_MAX;
@@ -743,7 +759,7 @@ void zone_draw_mesh(const RenderParams& params, AssetID mesh, const Vec3& pos, c
 	sync->write(mesh);
 }
 
-#define BACKGROUND_COLOR Vec4(0.7f, 0.7f, 0.7f, 1)
+#define BACKGROUND_COLOR Vec4(0.8f, 0.8f, 0.8f, 1)
 void zones_draw_override(const RenderParams& params)
 {
 	struct SortKey
@@ -751,8 +767,8 @@ void zones_draw_override(const RenderParams& params)
 		r32 priority(const ZoneNode& n)
 		{
 			// sort farthest zones first
-			Vec3 camera_forward = data.camera->rot * Vec3(0, 0, 1);
-			return camera_forward.dot(n.pos() - data.camera->pos);
+			Vec3 camera_forward = data.camera_rot * Vec3(0, 0, 1);
+			return camera_forward.dot(n.pos() - data.camera_pos);
 		}
 	};
 
@@ -895,7 +911,7 @@ b8 can_switch_tab()
 	return story.map.timer_hack == 0.0f
 		&& story.map.timer_capture == story.map.timer_capture_total
 		&& story.inventory.timer_buy == 0.0f
-		&& !Menu::dialog_callback
+		&& !Menu::dialog_callback[0]
 		&& (story.messages.mode != Data::Messages::Mode::Cora || story.messages.timer_cora > 0.0f);
 }
 
@@ -1090,7 +1106,7 @@ void tab_messages_update(const Update& u)
 
 	if (story->tab == Tab::Messages && story->tab_timer > TAB_ANIMATION_TIME && can_switch_tab())
 	{
-		focus_camera(u, story->camera_messages.ref());
+		focus_camera(u, story->camera_messages_pos, story->camera_messages_rot);
 
 		// call cora
 		if (messages->mode != Data::Messages::Mode::Cora
@@ -1335,7 +1351,7 @@ b8 zone_filter_can_turn_hostile(AssetID zone_id)
 {
 	if (zone_id == Asset::Level::Safe_Zone)
 		return false;
-	else if (zone_id == data.zone_last)
+	else if (zone_id == Game::level.id)
 		return false;
 
 	return true;
@@ -1522,7 +1538,7 @@ void resource_buy(s8 gamepad)
 void tab_inventory_update(const Update& u)
 {
 	if (data.story.tab == Tab::Inventory && data.story.tab_timer > TAB_ANIMATION_TIME)
-		focus_camera(u, data.story.camera_inventory.ref());
+		focus_camera(u, data.story.camera_inventory_pos, data.story.camera_inventory_rot);
 
 	Data::Inventory* inventory = &data.story.inventory;
 
@@ -1724,7 +1740,7 @@ Rect2 tab_draw(const RenderParams& p, const Data::StoryMode& data, Tab tab, cons
 	b8 draw = true;
 
 	const Vec4* color;
-	if (data.tab == tab && !Menu::dialog_callback)
+	if (data.tab == tab && !Menu::dialog_callback[0])
 	{
 		// flash the tab when it is selected
 		if (data.tab_timer < TAB_ANIMATION_TIME)
@@ -1789,7 +1805,7 @@ void contacts_draw(const RenderParams& p, const Data::StoryMode& data, const Rec
 			continue;
 
 		const ContactDetails& contact = contacts[i];
-		b8 selected = data.tab == Tab::Messages && contact.name == data.messages.contact_selected && !Menu::dialog_callback;
+		b8 selected = data.tab == Tab::Messages && contact.name == data.messages.contact_selected && !Menu::dialog_callback[0];
 
 		UI::box(p, { pos, panel_size }, UI::color_background);
 
@@ -1909,7 +1925,7 @@ void tab_messages_draw(const RenderParams& p, const Data::StoryMode& data, const
 							continue;
 
 						const Game::Message& msg = msg_list[i];
-						b8 selected = msg.text == data.messages.message_selected && !Menu::dialog_callback;
+						b8 selected = msg.text == data.messages.message_selected && !Menu::dialog_callback[0];
 
 						UI::box(p, { pos, panel_size }, UI::color_background);
 
@@ -2257,7 +2273,7 @@ void inventory_items_draw(const RenderParams& p, const Data::StoryMode& data, co
 	Vec2 pos = rect.pos + Vec2(0, rect.size.y - panel_size.y);
 	for (s32 i = 0; i < (s32)Game::Resource::count; i++)
 	{
-		b8 selected = data.tab == Tab::Inventory && data.inventory.resource_selected == (Game::Resource)i && !Menu::dialog_callback;
+		b8 selected = data.tab == Tab::Inventory && data.inventory.resource_selected == (Game::Resource)i && !Menu::dialog_callback[0];
 
 		UI::box(p, { pos, panel_size }, UI::color_background);
 		if (selected)
@@ -2457,15 +2473,20 @@ void splitscreen_select_zone_update(const Update& u)
 r32 particle_accumulator = 0.0f;
 void update(const Update& u)
 {
-	if (data.zone_last == Asset::Level::terminal && Game::level.id != Asset::Level::terminal)
+	if (!data.active && Game::level.id == Asset::Level::terminal)
 	{
-		// cleanup
-		data.~Data();
-		data = Data();
-		data.zone_last = Asset::Level::terminal;
+		Camera* c = Camera::add();
+		c->viewport =
+		{
+			Vec2(0, 0),
+			Vec2(u.input->width, u.input->height),
+		};
+		r32 aspect = c->viewport.size.y == 0 ? 1 : (r32)c->viewport.size.x / (r32)c->viewport.size.y;
+		c->perspective((80.0f * PI * 0.5f / 180.0f), aspect, 0.1f, Game::level.skybox.far_plane);
+		show(c);
 	}
 
-	if (Game::level.id == Asset::Level::terminal && !Console::visible)
+	if (data.active && !Console::visible)
 	{
 		if (data.timer_deploy_animation > 0.0f)
 		{
@@ -2495,7 +2516,7 @@ void update(const Update& u)
 				data.timer_deploy_animation = vi_max(0.0f, data.timer_deploy_animation - u.time.delta);
 				r32 shake = (data.timer_deploy_animation / 0.5f) * 0.05f;
 				r32 offset = Game::time.total * 20.0f;
-				data.camera->pos += Vec3(noise::sample3d(Vec3(offset)) * shake, noise::sample3d(Vec3(offset + 64)) * shake, noise::sample3d(Vec3(offset + 128)) * shake);
+				data.camera_pos += Vec3(noise::sample3d(Vec3(offset)) * shake, noise::sample3d(Vec3(offset + 64)) * shake, noise::sample3d(Vec3(offset + 128)) * shake);
 			}
 		}
 
@@ -2537,22 +2558,53 @@ void update(const Update& u)
 			Game::cancel_event_eaten[0] = true;
 			Menu::show();
 		}
+
+		data.camera->pos = data.camera_pos;
+		data.camera->rot = data.camera_rot;
 	}
-	data.zone_last = Game::level.id;
+}
+
+void draw_opaque(const RenderParams& params)
+{
+	if (data.active)
+	{
+		for (s32 i = 0; i < data.props.length; i++)
+		{
+			const PropEntry& entry = data.props[i];
+			Mat4 m;
+			m.make_transform(entry.pos, Vec3(1), entry.rot);
+			View::draw_mesh(params, entry.mesh, Asset::Shader::standard, AssetNull, m, BACKGROUND_COLOR);
+		}
+
+		for (s32 i = 0; i < data.waters.length; i++)
+		{
+			const WaterEntry& entry = data.waters[i];
+			Water::draw_opaque(params, entry.config, entry.pos, entry.rot);
+		}
+	}
+}
+
+void draw_hollow(const RenderParams& params)
+{
+	if (data.active)
+	{
+		for (s32 i = 0; i < data.waters.length; i++)
+		{
+			const WaterEntry& entry = data.waters[i];
+			Water::draw_hollow(params, entry.config, entry.pos, entry.rot);
+		}
+	}
 }
 
 void draw_override(const RenderParams& params)
 {
-	if (params.technique != RenderTechnique::Default || Game::level.id != Asset::Level::terminal)
-		return;
-
-	if (should_draw_zones())
+	if (data.active && should_draw_zones())
 		zones_draw_override(params);
 }
 
-void draw(const RenderParams& params)
+void draw_ui(const RenderParams& params)
 {
-	if (params.technique != RenderTechnique::Default || Game::level.id != Asset::Level::terminal)
+	if (params.camera != data.camera || !data.active)
 		return;
 
 	switch (data.state)
@@ -2586,9 +2638,26 @@ void draw(const RenderParams& params)
 	}
 }
 
-void show()
+void show(Camera* camera)
 {
-	Game::schedule_load_level(Asset::Level::terminal, Game::Mode::Special);
+	data.active = true;
+	data.camera = camera;
+	data.camera_restore_data = *camera;
+	data.camera->colors = false;
+	data.camera->mask = 0;
+}
+
+b8 active()
+{
+	return data.active;
+}
+
+void clear()
+{
+	data.active = false;
+	if (data.camera)
+		memcpy(data.camera, &data.camera_restore_data, sizeof(Camera));
+	data.camera = nullptr;
 }
 
 void execute(const char* cmd)
@@ -2610,74 +2679,123 @@ void execute(const char* cmd)
 	}
 }
 
-void init(const Update& u, const EntityFinder& entities)
+cJSON* find_entity(cJSON* level, const char* name)
 {
-	if (Game::level.id != Asset::Level::terminal)
-		return;
-	if (data.zone_last == Asset::Level::title)
-		data.zone_last = Asset::Level::terminal;
-	if (data.zone_last == Asset::Level::terminal)
-		data.zone_selected = Game::session.story_mode ? Asset::Level::Safe_Zone : Asset::Level::Medias_Res;
-	else
-		data.zone_selected = data.zone_last;
-	data.camera = Camera::add();
-	data.camera->colors = false;
+	cJSON* element = level->child;
+	while (element)
+	{
+		const char* element_name = Json::get_string(element, "name");
+		if (element_name && strcmp(element_name, name) == 0)
+			return element;
+		element = element->next;
+	}
+	return nullptr;
+}
+
+void init(cJSON* level)
+{
+	data.zone_selected = Game::session.story_mode ? Asset::Level::Safe_Zone : Asset::Level::Medias_Res;
 
 	{
-		Entity* map_view_entity = entities.find("map_view");
-		Transform* map_view = map_view_entity->get<Transform>();
-		data.camera_offset = map_view;
+		cJSON* t = find_entity(level, "map_view");
+		data.camera_offset_pos = Json::get_vec3(t, "pos");
+		data.camera_offset_rot = Quat::look(Json::get_quat(t, "rot") * Vec3(0, -1, 0));
 
-		data.story.camera_messages = entities.find("camera_messages")->get<Transform>();
-		data.story.camera_inventory = entities.find("camera_inventory")->get<Transform>();
+		t = find_entity(level, "camera_messages");
+		data.story.camera_messages_pos = Json::get_vec3(t, "pos");
+		data.story.camera_messages_rot = Quat::look(Json::get_quat(t, "rot") * Vec3(0, -1, 0));
 
-		data.camera->pos = data.story.camera_messages.ref()->absolute_pos();
-		data.camera->rot = Quat::look(data.story.camera_messages.ref()->absolute_rot() * Vec3(0, -1, 0));
+		t = find_entity(level, "camera_inventory");
+		data.story.camera_inventory_pos = Json::get_vec3(t, "pos");
+		data.story.camera_inventory_rot = Quat::look(Json::get_quat(t, "rot") * Vec3(0, -1, 0));
+
+		data.camera_pos = data.story.camera_messages_pos;
+		data.camera_rot = data.story.camera_messages_rot;
 	}
 
 	{
-		for (s32 i = 0; i < entities.map.length; i++)
+		cJSON* element = level->child;
+		s32 element_id = 0;
+		while (element)
 		{
-			const EntityFinder::NameEntry& entry = entities.map[i];
-			const char* zone_name = Json::get_string(entry.properties, "Zone");
+			const char* zone_name = Json::get_string(element, "Zone");
 			if (zone_name)
 			{
-				View* view = entry.entity.ref()->get<View>();
-				view->mask = 0; // don't render this; we will render it manually in zones_draw_override()
-				view->shader = Asset::Shader::flat;
-
 				AssetID level_id = Loader::find_level(zone_name);
-				if (level_id != AssetNull
-					&& (level_id != Asset::Level::Safe_Zone || Game::session.story_mode)) // only show tutorial level in story mode
+				if (level_id != AssetNull)
 				{
 					ZoneNode* node = data.zones.add();
-					node->children.length = 0;
-					for (auto i = Transform::list.iterator(); !i.is_last(); i.next())
+
+					Vec3 zone_pos = Json::get_vec3(element, "pos");
 					{
-						if (i.item()->parent.ref() == view->get<Transform>())
-							node->children.add(i.item()->absolute_pos());
+						cJSON* element2 = level->child;
+						while (element2)
+						{
+							if (Json::get_s32(element2, "parent") == element_id)
+								node->children.add(zone_pos + Json::get_vec3(element2, "pos"));
+							element2 = element2->next;
+						}
 					}
-					node->children.add(view->get<Transform>()->absolute_pos());
+					node->children.add(zone_pos);
+
 					node->id = level_id;
-					node->mesh = view->mesh;
-					node->rewards[0] = (s16)Json::get_s32(entry.properties, "energy", 0);
-					node->rewards[1] = (s16)Json::get_s32(entry.properties, "hack_kits", 0);
-					node->rewards[2] = (s16)Json::get_s32(entry.properties, "drones", 0);
-					node->size = (s8)Json::get_s32(entry.properties, "size", 1);
-					node->max_teams = (s8)Json::get_s32(entry.properties, "max_teams", 2);
+
+					cJSON* meshes = cJSON_GetObjectItem(element, "meshes");
+					cJSON* mesh_json = meshes->child;
+					const char* mesh_ref = mesh_json->valuestring;
+					node->mesh = Loader::find_mesh(mesh_ref);
+
+					node->rewards[0] = (s16)Json::get_s32(element, "energy", 0);
+					node->rewards[1] = (s16)Json::get_s32(element, "hack_kits", 0);
+					node->rewards[2] = (s16)Json::get_s32(element, "drones", 0);
+					node->size = (s8)Json::get_s32(element, "size", 1);
+					node->max_teams = (s8)Json::get_s32(element, "max_teams", 2);
 				}
 			}
+			else if (cJSON_HasObjectItem(element, "Prop"))
+			{
+				cJSON* meshes = cJSON_GetObjectItem(element, "meshes");
+				cJSON* json_mesh = meshes->child;
+
+				Vec3 pos = Json::get_vec3(element, "pos");
+				Quat rot = Json::get_quat(element, "rot");
+
+				while (json_mesh)
+				{
+					const char* mesh_ref = json_mesh->valuestring;
+
+					PropEntry* entry = data.props.add();
+					entry->mesh = Loader::find_mesh(mesh_ref);
+					Loader::mesh_permanent(entry->mesh);
+					entry->pos = pos;
+					entry->rot = rot;
+
+					json_mesh = json_mesh->next;
+				}
+			}
+			else if (cJSON_HasObjectItem(element, "Water"))
+			{
+				cJSON* meshes = cJSON_GetObjectItem(element, "meshes");
+				cJSON* mesh_json = meshes->child;
+				const char* mesh_ref = mesh_json->valuestring;
+
+				WaterEntry* water = data.waters.add();
+				new (&water->config) Water::Config();
+				water->config.mesh = Loader::find_mesh(mesh_ref);
+				vi_assert(water->config.mesh != AssetNull);
+				Loader::mesh_permanent(water->config.mesh);
+				water->config.texture = Loader::find(Json::get_string(element, "texture", "water_normal"), AssetLookup::Texture::names);
+				water->config.displacement_horizontal = Json::get_r32(element, "displacement_horizontal", 2.0f);
+				water->config.displacement_vertical = Json::get_r32(element, "displacement_vertical", 0.75f);
+				water->config.color = Vec4(0, 0, 0, 1);
+				water->pos = Json::get_vec3(element, "pos");
+				water->rot = Json::get_quat(element, "rot");
+			}
+
+			element = element->next;
+			element_id++;
 		}
 	}
-
-	// set up camera
-	data.camera->viewport =
-	{
-		Vec2(0, 0),
-		Vec2(u.input->width, u.input->height),
-	};
-	r32 aspect = data.camera->viewport.size.y == 0 ? 1 : (r32)data.camera->viewport.size.x / (r32)data.camera->viewport.size.y;
-	data.camera->perspective((80.0f * PI * 0.5f / 180.0f), aspect, 0.1f, Game::level.skybox.far_plane);
 
 	if (!Game::session.story_mode)
 	{
@@ -2714,12 +2832,9 @@ void init(const Update& u, const EntityFinder& entities)
 			Game::save.resources[(s32)Game::Resource::Energy] += vi_min(s32(4 * 60 * 60 / ENERGY_INCREMENT_INTERVAL), (s32)(elapsed_time / (r64)ENERGY_INCREMENT_INTERVAL)) * energy_increment_total();
 		}
 
-		if (data.zone_last != Asset::Level::terminal)
-			story_zone_done(data.zone_last, Game::session.last_match);
+		// todo: handle zone completion
+		// story_zone_done(data.zone_last, Game::session.last_match);
 	}
-
-	Cora::init();
-	Cora::conversation_finished().link(&conversation_finished);
 }
 
 }

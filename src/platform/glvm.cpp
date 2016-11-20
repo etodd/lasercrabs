@@ -885,7 +885,7 @@ void render(RenderSync* sync)
 				glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh->index_buffer);
 
 				glDrawElements(
-					gl_primitive_modes[(s32)primitive_mode], // mode
+					gl_primitive_modes[s32(primitive_mode)], // mode
 					mesh->index_count, // count
 					GL_UNSIGNED_INT, // type
 					0 // element array buffer offset

@@ -56,7 +56,7 @@ void dialog_with_time_limit(s8, DialogCallback, r32, const char*, ...) {}
 
 void quit_to_terminal(s8 gamepad)
 {
-	Terminal::show();
+	Game::schedule_load_level(Asset::Level::terminal, Game::Mode::Special);
 }
 
 void quit_to_title(s8 gamepad)
@@ -90,10 +90,19 @@ void dialog_with_time_limit(s8 gamepad, DialogCallback callback, r32 limit, cons
 	va_list args;
 	va_start(args, format);
 
-	dialog(gamepad, callback, format, args);
+	if (!format)
+		format = "";
+
+#if defined(_WIN32)
+	vsprintf_s(dialog_string[gamepad], 254, format, args);
+#else
+	vsnprintf(dialog_string[gamepad], 254, format, args);
+#endif
 
 	va_end(args);
 
+	dialog_callback[gamepad] = callback;
+	dialog_time[gamepad] = Game::real_time.total;
 	dialog_time_limit[gamepad] = limit;
 }
 
@@ -255,7 +264,7 @@ void title_menu(const Update& u, s8 gamepad, UIMenu* menu, State* state)
 			{
 				Game::save = Game::Save();
 				Game::session.reset();
-				Terminal::show();
+				Game::schedule_load_level(Asset::Level::terminal, Game::Mode::Special);
 				return;
 			}
 			if (menu->item(u, _(strings::splitscreen)))
@@ -263,7 +272,7 @@ void title_menu(const Update& u, s8 gamepad, UIMenu* menu, State* state)
 				Game::save = Game::Save();
 				Game::session.reset();
 				Game::session.story_mode = false;
-				Terminal::show();
+				Game::schedule_load_level(Asset::Level::terminal, Game::Mode::Special);
 			}
 			/*
 			if (menu->item(u, _(strings::online)))

@@ -177,7 +177,8 @@ struct Game
 	static void unload_level();
 	static void load_level(const Update&, AssetID, Mode, b8 = false);
 	static void draw_opaque(const RenderParams&);
-	static void draw_alpha_depth(const RenderParams&);
+	static void draw_hollow(const RenderParams&);
+	static void draw_particles(const RenderParams&);
 	static void draw_alpha(const RenderParams&);
 	static void draw_additive(const RenderParams&);
 	static void draw_override(const RenderParams&);

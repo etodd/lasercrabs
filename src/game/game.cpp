@@ -237,6 +237,10 @@ b8 Game::init(LoopSync* sync)
 	Console::init();
 #endif
 
+	cJSON* terminal_level = Loader::level(Asset::Level::terminal);
+	Terminal::init(terminal_level);
+	Loader::level_free(terminal_level);
+
 	return true;
 }
 
@@ -438,25 +442,12 @@ void Game::term()
 
 #if SERVER
 
-void Game::draw_opaque(const RenderParams& render_params)
-{
-}
-
-void Game::draw_override(const RenderParams& params)
-{
-}
-
-void Game::draw_alpha(const RenderParams& params)
-{
-}
-
-void Game::draw_alpha_depth(const RenderParams& render_params)
-{
-}
-
-void Game::draw_additive(const RenderParams& render_params)
-{
-}
+void Game::draw_opaque(const RenderParams& render_params) { }
+void Game::draw_override(const RenderParams& params) { }
+void Game::draw_alpha(const RenderParams& params) { }
+void Game::draw_hollow(const RenderParams& render_params) { }
+void Game::draw_particles(const RenderParams& render_params) { }
+void Game::draw_additive(const RenderParams& render_params) { }
 
 #else
 
@@ -475,6 +466,8 @@ void Game::draw_opaque(const RenderParams& render_params)
 	SkinnedModel::draw_opaque(render_params);
 
 	SkyPattern::draw_opaque(render_params);
+
+	Terminal::draw_opaque(render_params);
 }
 
 void Game::draw_override(const RenderParams& params)
@@ -653,24 +646,18 @@ void Game::draw_alpha(const RenderParams& render_params)
 	}
 #endif
 
-	for (auto i = Water::list.iterator(); !i.is_last(); i.next())
-		i.item()->draw_alpha(render_params);
-
 	SkinnedModel::draw_alpha(render_params);
 
 	View::draw_alpha(render_params);
 
 	Shockwave::draw_alpha(render_params);
 
-	for (s32 i = 0; i < ParticleSystem::all.length; i++)
-		ParticleSystem::all[i]->draw(render_params);
-
 	for (auto i = PlayerControlHuman::list.iterator(); !i.is_last(); i.next())
 		i.item()->draw_alpha(render_params);
 	for (auto i = PlayerHuman::list.iterator(); !i.is_last(); i.next())
 		i.item()->draw_alpha(render_params);
 
-	Terminal::draw(render_params);
+	Terminal::draw_ui(render_params);
 	Menu::draw(render_params);
 
 	for (s32 i = 0; i < draws.length; i++)
@@ -679,11 +666,22 @@ void Game::draw_alpha(const RenderParams& render_params)
 	Console::draw(render_params);
 }
 
-void Game::draw_alpha_depth(const RenderParams& render_params)
+void Game::draw_hollow(const RenderParams& render_params)
 {
-	SkyPattern::draw_alpha_depth(render_params);
-	SkinnedModel::draw_alpha_depth(render_params);
-	View::draw_alpha_depth(render_params);
+	SkyPattern::draw_hollow(render_params);
+	SkinnedModel::draw_hollow(render_params);
+	View::draw_hollow(render_params);
+
+	Terminal::draw_hollow(render_params);
+
+	for (auto i = Water::list.iterator(); !i.is_last(); i.next())
+		i.item()->draw_hollow(render_params);
+}
+
+void Game::draw_particles(const RenderParams& render_params)
+{
+	for (s32 i = 0; i < ParticleSystem::all.length; i++)
+		ParticleSystem::all[i]->draw(render_params);
 }
 
 void Game::draw_additive(const RenderParams& render_params)
@@ -777,8 +775,6 @@ void Game::execute(const Update& u, const char* cmd)
 			}
 		}
 	}
-	else if (strstr(cmd, "terminal") == cmd)
-		Terminal::show();
 	else if (strstr(cmd, "loadai ") == cmd)
 	{
 		// AI test
@@ -860,6 +856,7 @@ void Game::schedule_load_level(AssetID level_id, Mode m)
 
 void Game::unload_level()
 {
+	Terminal::clear();
 	for (s32 i = 0; i < MAX_GAMEPADS; i++)
 		Audio::listener_disable(i);
 
@@ -1112,7 +1109,7 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 
 			while (json_mesh)
 			{
-				char* mesh_ref = json_mesh->valuestring;
+				const char* mesh_ref = json_mesh->valuestring;
 
 				AssetID mesh_id = Loader::find_mesh(mesh_ref);
 
@@ -1300,7 +1297,7 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 			cJSON* mesh_json = meshes->child;
 			vi_assert(mesh_json);
 
-			char* mesh_ref = mesh_json->valuestring;
+			const char* mesh_ref = mesh_json->valuestring;
 
 			AssetID mesh_id = Loader::find_mesh(mesh_ref);
 			vi_assert(mesh_id != AssetNull);
@@ -1309,9 +1306,9 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 
 			entity = World::alloc<WaterEntity>(mesh_id);
 			Water* water = entity->get<Water>();
-			water->texture = Loader::find(Json::get_string(element, "texture", "water_normal"), AssetLookup::Texture::names);
-			water->displacement_horizontal = Json::get_r32(element, "displacement_horizontal", 2.0f);
-			water->displacement_vertical = Json::get_r32(element, "displacement_vertical", 0.75f);
+			water->config.texture = Loader::find(Json::get_string(element, "texture", "water_normal"), AssetLookup::Texture::names);
+			water->config.displacement_horizontal = Json::get_r32(element, "displacement_horizontal", 2.0f);
+			water->config.displacement_vertical = Json::get_r32(element, "displacement_vertical", 0.75f);
 		}
 		else if (cJSON_GetObjectItem(element, "Prop"))
 		{
@@ -1403,7 +1400,7 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 				cJSON* mesh = meshes->child;
 				while (mesh)
 				{
-					char* mesh_ref = mesh->valuestring;
+					const char* mesh_ref = mesh->valuestring;
 
 					AssetID mesh_id = Loader::find_mesh(mesh_ref);
 
@@ -1531,9 +1528,10 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 	for (s32 i = 0; i < scripts.length; i++)
 		scripts[i]->function(u, finder);
 
-	Terminal::init(u, finder);
-
 	Loader::level_free(json);
+
+	Cora::init();
+	Cora::conversation_finished().link(&Terminal::conversation_finished);
 }
 
 }

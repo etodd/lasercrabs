@@ -821,6 +821,7 @@ void scoreboard_draw(const RenderParams& params, const PlayerManager* manager)
 void PlayerHuman::draw_alpha(const RenderParams& params) const
 {
 	if (params.camera != camera
+		|| Terminal::active()
 		|| Game::level.continue_match_after_death
 		|| !local)
 		return;
@@ -1626,6 +1627,7 @@ b8 PlayerControlHuman::input_enabled() const
 {
 	PlayerHuman::UIMode ui_mode = player.ref()->ui_mode();
 	return !Console::visible
+		&& !Terminal::active()
 		&& (ui_mode == PlayerHuman::UIMode::PvpDefault || ui_mode == PlayerHuman::UIMode::ParkourDefault)
 		&& !Cora::has_focus()
 		&& !Team::game_over;

@@ -574,14 +574,14 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 	if (e->has<Water>())
 	{
 		Water* w = e->get<Water>();
-		serialize_r32_range(p, w->color.x, 0, 1.0f, 8);
-		serialize_r32_range(p, w->color.y, 0, 1.0f, 8);
-		serialize_r32_range(p, w->color.z, 0, 1.0f, 8);
-		serialize_r32_range(p, w->color.w, 0, 1.0f, 8);
-		serialize_r32_range(p, w->displacement_horizontal, 0, 10, 8);
-		serialize_r32_range(p, w->displacement_vertical, 0, 10, 8);
-		serialize_s16(p, w->mesh);
-		serialize_asset(p, w->texture, Loader::static_texture_count);
+		serialize_r32_range(p, w->config.color.x, 0, 1.0f, 8);
+		serialize_r32_range(p, w->config.color.y, 0, 1.0f, 8);
+		serialize_r32_range(p, w->config.color.z, 0, 1.0f, 8);
+		serialize_r32_range(p, w->config.color.w, 0, 1.0f, 8);
+		serialize_r32_range(p, w->config.displacement_horizontal, 0, 10, 8);
+		serialize_r32_range(p, w->config.displacement_vertical, 0, 10, 8);
+		serialize_s16(p, w->config.mesh);
+		serialize_asset(p, w->config.texture, Loader::static_texture_count);
 	}
 
 	if (e->has<DirectionalLight>())

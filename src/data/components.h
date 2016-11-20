@@ -78,7 +78,6 @@ struct DirectionalLight : public ComponentType<DirectionalLight>
 {
 	Vec3 color;
 	b8 shadowed;
-	RenderMask mask;
 
 	DirectionalLight();
 

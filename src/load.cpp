@@ -80,15 +80,19 @@ void Loader::init(LoopSwapper* s)
 
 	while ((p = AssetLookup::Texture::names[static_texture_count]))
 		static_texture_count++;
+	textures.resize(static_texture_count);
 
 	while ((p = AssetLookup::Shader::names[shader_count]))
 		shader_count++;
+	shaders.resize(shader_count);
 
 	while ((p = AssetLookup::Armature::names[armature_count]))
 		armature_count++;
+	armatures.resize(armature_count);
 
 	while ((p = AssetLookup::Animation::names[animation_count]))
 		animation_count++;
+	animations.resize(animation_count);
 
 	while ((p = AssetLookup::Mesh::names[compiled_static_mesh_count]))
 		compiled_static_mesh_count++;
@@ -125,6 +129,8 @@ void Loader::init(LoopSwapper* s)
 		}
 		// don't free the json object; we'll read strings directly from it
 	}
+
+	meshes.resize(static_mesh_count);
 
 #if !SERVER
 	RenderSync* sync = swapper->get();
@@ -346,8 +352,10 @@ void read_mesh(Mesh* mesh, const char* path, Array<Attrib>* extra_attribs = null
 
 const Mesh* Loader::mesh(AssetID id)
 {
-	if (id == AssetNull || id >= static_mesh_count)
+	if (id == AssetNull)
 		return 0;
+
+	vi_assert(id < static_mesh_count);
 
 	if (id >= meshes.length)
 		meshes.resize(id + 1);

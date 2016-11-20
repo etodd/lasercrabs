@@ -1606,7 +1606,7 @@ void Awk::stealth(Entity* e, b8 enable)
 		if (enable)
 		{
 			e->get<AIAgent>()->stealth = true;
-			e->get<SkinnedModel>()->alpha_depth();
+			e->get<SkinnedModel>()->hollow();
 			e->get<SkinnedModel>()->mask = 1 << (s32)e->get<AIAgent>()->team; // only display to fellow teammates
 		}
 		else

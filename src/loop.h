@@ -431,6 +431,8 @@ void render_spot_lights(const RenderParams& render_params, s32 fbo, RenderBlendM
 void draw_edges(const RenderParams& render_params)
 {
 	RenderSync* sync = render_params.sync;
+	sync->write(RenderOp::CullMode);
+	sync->write(RenderCullMode::None);
 	sync->write(RenderOp::FillMode);
 	sync->write(RenderFillMode::Line);
 
@@ -442,11 +444,13 @@ void draw_edges(const RenderParams& render_params)
 		p.technique = RenderTechnique::Shadow;
 		p.edges = true;
 		Game::draw_opaque(p);
-		Game::draw_alpha_depth(p);
+		Game::draw_hollow(p);
 	}
 
 	sync->write(RenderOp::FillMode);
 	sync->write(RenderFillMode::Fill);
+
+	Game::draw_particles(render_params);
 
 	sync->write(RenderOp::DepthTest);
 	sync->write(false);
@@ -562,9 +566,6 @@ void draw(LoopSync* sync, const Camera* camera)
 			for (auto i = DirectionalLight::list.iterator(); !i.is_last(); i.next())
 			{
 				DirectionalLight* light = i.item();
-
-				if (!(light->mask & render_params.camera->mask))
-					continue;
 
 				colors[j] = render_params.camera->colors ? light->color : LMath::desaturate(light->color);
 				abs_directions[j] = light->get<Transform>()->absolute_rot() * Vec3(0, 1, 0);

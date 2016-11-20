@@ -16,7 +16,7 @@ namespace VI
 
 Bitmask<MAX_ENTITIES> SkinnedModel::list_alpha;
 Bitmask<MAX_ENTITIES> SkinnedModel::list_additive;
-Bitmask<MAX_ENTITIES> SkinnedModel::list_alpha_depth;
+Bitmask<MAX_ENTITIES> SkinnedModel::list_hollow;
 
 SkinnedModel::SkinnedModel()
 	: mesh(AssetNull),
@@ -57,7 +57,7 @@ void SkinnedModel::draw_opaque(const RenderParams& params)
 {
 	for (auto i = SkinnedModel::list.iterator(); !i.is_last(); i.next())
 	{
-		if (!list_alpha.get(i.index) && !list_additive.get(i.index) && !list_alpha_depth.get(i.index))
+		if (!list_alpha.get(i.index) && !list_additive.get(i.index) && !list_hollow.get(i.index))
 			i.item()->draw(params);
 	}
 }
@@ -80,11 +80,11 @@ void SkinnedModel::draw_alpha(const RenderParams& params)
 	}
 }
 
-void SkinnedModel::draw_alpha_depth(const RenderParams& params)
+void SkinnedModel::draw_hollow(const RenderParams& params)
 {
 	for (auto i = SkinnedModel::list.iterator(); !i.is_last(); i.next())
 	{
-		if (list_alpha_depth.get(i.index))
+		if (list_hollow.get(i.index))
 			i.item()->draw(params);
 	}
 }
@@ -93,28 +93,28 @@ void SkinnedModel::alpha()
 {
 	list_alpha.set(id(), true);
 	list_additive.set(id(), false);
-	list_alpha_depth.set(id(), false);
+	list_hollow.set(id(), false);
 }
 
 void SkinnedModel::additive()
 {
 	list_alpha.set(id(), false);
 	list_additive.set(id(), true);
-	list_alpha_depth.set(id(), false);
+	list_hollow.set(id(), false);
 }
 
-void SkinnedModel::alpha_depth()
+void SkinnedModel::hollow()
 {
 	list_alpha.set(id(), false);
 	list_additive.set(id(), false);
-	list_alpha_depth.set(id(), true);
+	list_hollow.set(id(), true);
 }
 
 void SkinnedModel::alpha_disable()
 {
 	list_alpha.set(id(), false);
 	list_additive.set(id(), false);
-	list_alpha_depth.set(id(), false);
+	list_hollow.set(id(), false);
 }
 
 AlphaMode SkinnedModel::alpha_mode() const
@@ -123,8 +123,8 @@ AlphaMode SkinnedModel::alpha_mode() const
 		return AlphaMode::Alpha;
 	else if (list_additive.get(id()))
 		return AlphaMode::Additive;
-	else if (list_alpha_depth.get(id()))
-		return AlphaMode::AlphaDepth;
+	else if (list_hollow.get(id()))
+		return AlphaMode::Hollow;
 	else
 		return AlphaMode::Opaque;
 }
@@ -148,9 +148,9 @@ void SkinnedModel::alpha_mode(AlphaMode m)
 			additive();
 			break;
 		}
-		case AlphaMode::AlphaDepth:
+		case AlphaMode::Hollow:
 		{
-			alpha_depth();
+			hollow();
 			break;
 		}
 		default:
@@ -233,7 +233,7 @@ void SkinnedModel::draw(const RenderParams& params)
 	else
 	{
 		const Vec4& team_color = Team::color((AI::Team)team, (AI::Team)params.camera->team);
-		if (list_alpha.get(id()) || list_additive.get(id()) || list_alpha_depth.get(id()))
+		if (list_alpha.get(id()) || list_additive.get(id()) || list_hollow.get(id()))
 			sync->write<Vec4>(Vec4(team_color.xyz(), color.w));
 		else
 			sync->write<Vec4>(team_color);

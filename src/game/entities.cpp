@@ -1463,8 +1463,13 @@ void Grenade::update_server(const Update& u)
 	if (!t->parent.ref())
 	{
 		Vec3 pos = t->absolute_pos();
-		velocity += Physics::btWorld->getGravity() * u.time.delta;
-		Vec3 next_pos = pos + velocity * u.time.delta;
+		Vec3 next_pos;
+		{
+			Vec3 half_accel = Physics::btWorld->getGravity() * u.time.delta * 0.5f;
+			velocity += half_accel;
+			next_pos = pos + velocity * u.time.delta;
+			velocity += half_accel;
+		}
 		if (next_pos.y < Game::level.min_y)
 		{
 			World::remove_deferred(entity());

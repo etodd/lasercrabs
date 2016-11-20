@@ -122,7 +122,7 @@ void MinionCommon::melee_damage()
 	Vec3 forward = get<Walker>()->forward();
 
 	b8 did_damage = false;
-	for (auto i = Parkour::list.iterator(); !i.is_last(); i.next())
+	for (auto i = PlayerCommon::list.iterator(); !i.is_last(); i.next())
 	{
 		Vec3 to_target = i.item()->get<Transform>()->absolute_pos() - me;
 		r32 distance = to_target.length();
@@ -130,16 +130,26 @@ void MinionCommon::melee_damage()
 			&& forward.dot(to_target / distance) > 0.707f)
 		{
 			did_damage = true;
-			Vec3 v = Vec3::normalize(to_target);
-			v.y = 0.6f;
-			i.item()->get<RigidBody>()->btBody->setLinearVelocity(v * 7.0f);
-			i.item()->last_support = i.item()->get<Walker>()->support = nullptr;
-			i.item()->last_support_time = Game::time.total;
-			i.item()->wall_run_state = Parkour::WallRunState::None;
+			if (i.item()->has<Parkour>())
+			{
+				Vec3 v = Vec3::normalize(to_target);
+				v.y = 0.6f;
+				i.item()->get<RigidBody>()->btBody->setLinearVelocity(v * 7.0f);
+				Parkour* parkour = i.item()->get<Parkour>();
+				parkour->last_support = i.item()->get<Walker>()->support = nullptr;
+				parkour->last_support_time = Game::time.total;
+				parkour->wall_run_state = Parkour::WallRunState::None;
 
-			Parkour::State state = i.item()->fsm.current;
-			if (Game::level.local && state != Parkour::State::Roll && state != Parkour::State::Slide)
-				i.item()->get<Health>()->damage(entity(), 1);
+				Parkour::State state = parkour->fsm.current;
+				if (Game::level.local && state != Parkour::State::Roll && state != Parkour::State::Slide)
+					i.item()->get<Health>()->damage(entity(), 1);
+			}
+			else
+			{
+				// awk
+				if (Game::level.local)
+					i.item()->get<Health>()->damage(entity(), 1);
+			}
 		}
 	}
 

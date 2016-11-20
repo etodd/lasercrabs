@@ -13,7 +13,7 @@ namespace VI
 
 Bitmask<MAX_ENTITIES> View::list_alpha;
 Bitmask<MAX_ENTITIES> View::list_additive;
-Bitmask<MAX_ENTITIES> View::list_alpha_depth;
+Bitmask<MAX_ENTITIES> View::list_hollow;
 
 View::View(AssetID m)
 	: mesh(m),
@@ -35,7 +35,7 @@ void View::draw_opaque(const RenderParams& params)
 {
 	for (auto i = View::list.iterator(); !i.is_last(); i.next())
 	{
-		if (!list_alpha.get(i.index) && !list_additive.get(i.index) && !list_alpha_depth.get(i.index) && (i.item()->mask & params.camera->mask))
+		if (!list_alpha.get(i.index) && !list_additive.get(i.index) && !list_hollow.get(i.index) && (i.item()->mask & params.camera->mask))
 			i.item()->draw(params);
 	}
 }
@@ -58,11 +58,11 @@ void View::draw_alpha(const RenderParams& params)
 	}
 }
 
-void View::draw_alpha_depth(const RenderParams& params)
+void View::draw_hollow(const RenderParams& params)
 {
 	for (auto i = View::list.iterator(); !i.is_last(); i.next())
 	{
-		if (list_alpha_depth.get(i.index) && (i.item()->mask & params.camera->mask))
+		if (list_hollow.get(i.index) && (i.item()->mask & params.camera->mask))
 			i.item()->draw(params);
 	}
 }
@@ -71,28 +71,28 @@ void View::alpha()
 {
 	list_alpha.set(id(), true);
 	list_additive.set(id(), false);
-	list_alpha_depth.set(id(), false);
+	list_hollow.set(id(), false);
 }
 
 void View::additive()
 {
 	list_alpha.set(id(), false);
 	list_additive.set(id(), true);
-	list_alpha_depth.set(id(), false);
+	list_hollow.set(id(), false);
 }
 
-void View::alpha_depth()
+void View::hollow()
 {
 	list_alpha.set(id(), false);
 	list_additive.set(id(), false);
-	list_alpha_depth.set(id(), true);
+	list_hollow.set(id(), true);
 }
 
 void View::alpha_disable()
 {
 	list_alpha.set(id(), false);
 	list_additive.set(id(), false);
-	list_alpha_depth.set(id(), false);
+	list_hollow.set(id(), false);
 }
 
 AlphaMode View::alpha_mode() const
@@ -101,8 +101,8 @@ AlphaMode View::alpha_mode() const
 		return AlphaMode::Alpha;
 	else if (list_additive.get(id()))
 		return AlphaMode::Additive;
-	else if (list_alpha_depth.get(id()))
-		return AlphaMode::AlphaDepth;
+	else if (list_hollow.get(id()))
+		return AlphaMode::Hollow;
 	else
 		return AlphaMode::Opaque;
 }
@@ -126,9 +126,9 @@ void View::alpha_mode(AlphaMode m)
 			additive();
 			break;
 		}
-		case AlphaMode::AlphaDepth:
+		case AlphaMode::Hollow:
 		{
-			alpha_depth();
+			hollow();
 			break;
 		}
 		default:
@@ -136,6 +136,72 @@ void View::alpha_mode(AlphaMode m)
 			vi_assert(false);
 			break;
 		}
+	}
+}
+
+void View::draw_mesh(const RenderParams& params, AssetID mesh, AssetID shader, AssetID texture, const Mat4& m, const Vec4& color)
+{
+	if (mesh == AssetNull || shader == AssetNull)
+		return;
+
+	const Mesh* mesh_data = Loader::mesh(mesh);
+
+	{
+		Mat3 scale;
+		m.extract_mat3(scale);
+		Vec3 radius = scale * Vec3(mesh_data->bounds_radius);
+		if (!params.camera->visible_sphere(m.translation(), vi_max(radius.x, vi_max(radius.y, radius.z))))
+			return;
+	}
+
+	Loader::shader(shader);
+	Loader::texture(texture);
+
+	RenderSync* sync = params.sync;
+	sync->write(RenderOp::Shader);
+	sync->write(shader);
+	sync->write(params.technique);
+
+	Mat4 mvp = m * params.view_projection;
+
+	sync->write(RenderOp::Uniform);
+	sync->write(Asset::Uniform::mvp);
+	sync->write(RenderDataType::Mat4);
+	sync->write<s32>(1);
+	sync->write<Mat4>(mvp);
+
+	sync->write(RenderOp::Uniform);
+	sync->write(Asset::Uniform::mv);
+	sync->write(RenderDataType::Mat4);
+	sync->write<s32>(1);
+	sync->write<Mat4>(m * params.view);
+
+	sync->write(RenderOp::Uniform);
+	sync->write(Asset::Uniform::diffuse_color);
+	sync->write(RenderDataType::Vec4);
+	sync->write<s32>(1);
+	sync->write<Vec4>(color);
+
+	if (texture != AssetNull)
+	{
+		sync->write(RenderOp::Uniform);
+		sync->write(Asset::Uniform::diffuse_map);
+		sync->write(RenderDataType::Texture);
+		sync->write<s32>(1);
+		sync->write<RenderTextureType>(RenderTextureType::Texture2D);
+		sync->write<AssetID>(texture);
+	}
+
+	if (params.edges)
+	{
+		sync->write(RenderOp::MeshEdges);
+		sync->write(mesh);
+	}
+	else
+	{
+		sync->write(RenderOp::Mesh);
+		sync->write(RenderPrimitiveMode::Triangles);
+		sync->write(mesh);
 	}
 }
 
@@ -205,7 +271,7 @@ void View::draw(const RenderParams& params) const
 	else
 	{
 		const Vec4& team_color = Team::color((AI::Team)team, (AI::Team)params.camera->team);
-		if (list_alpha.get(id()) || list_additive.get(id()) || list_alpha_depth.get(id()))
+		if (list_alpha.get(id()) || list_additive.get(id()) || list_hollow.get(id()))
 			sync->write<Vec4>(Vec4(team_color.xyz(), color.w));
 		else
 			sync->write<Vec4>(team_color);
@@ -579,7 +645,7 @@ void SkyPattern::draw_opaque(const RenderParams& p)
 	sync->write<s8>(RENDER_COLOR_MASK_DEFAULT);
 }
 
-void SkyPattern::draw_alpha_depth(const RenderParams& p)
+void SkyPattern::draw_hollow(const RenderParams& p)
 {
 	if (!p.edges)
 		return;
@@ -622,47 +688,53 @@ void SkyPattern::draw_alpha_depth(const RenderParams& p)
 	sync->write(RenderFillMode::Fill);
 }
 
-Water::Water(AssetID mesh_id)
+Water::Config::Config(AssetID mesh_id)
 	: mesh(mesh_id),
-	texture(Asset::Texture::water_normal),
 	color(-1, -1, -1, -1),
 	displacement_horizontal(2.0f),
-	displacement_vertical(0.75f)
+	displacement_vertical(0.75f),
+	texture(Asset::Texture::water_normal)
+{
+}
+
+Water::Water(AssetID mesh_id)
+	: config(mesh_id),
+	mask(RENDER_MASK_DEFAULT)
 {
 
 }
 
 void Water::awake()
 {
-	const Mesh* m = Loader::mesh(mesh);
+	const Mesh* m = Loader::mesh(config.mesh);
 	if (m)
 	{
-		if (color.x < 0.0f)
-			color.x = m->color.x;
-		if (color.y < 0.0f)
-			color.y = m->color.y;
-		if (color.z < 0.0f)
-			color.z = m->color.z;
-		if (color.w < 0.0f)
-			color.w = m->color.w;
+		if (config.color.x < 0.0f)
+			config.color.x = m->color.x;
+		if (config.color.y < 0.0f)
+			config.color.y = m->color.y;
+		if (config.color.z < 0.0f)
+			config.color.z = m->color.z;
+		if (config.color.w < 0.0f)
+			config.color.w = m->color.w;
 	}
 }
 
-void Water::draw_opaque(const RenderParams& params)
+void Water::draw_opaque(const RenderParams& params, const Config& cfg, const Vec3& pos, const Quat& rot)
 {
 	if (params.technique != RenderTechnique::Default)
 		return;
 
-	const Mesh* mesh_data = Loader::mesh(mesh);
+	const Mesh* mesh_data = Loader::mesh(cfg.mesh);
 
 	Mat4 m;
-	get<Transform>()->mat(&m);
+	m.make_transform(pos, Vec3(1), rot);
 
 	if (!params.camera->visible_sphere(m.translation(), mesh_data->bounds_radius))
 		return;
 
 	Loader::shader(Asset::Shader::water);
-	Loader::texture(texture);
+	Loader::texture(cfg.texture);
 
 	RenderSync* sync = params.sync;
 	sync->write(RenderOp::Shader);
@@ -691,42 +763,42 @@ void Water::draw_opaque(const RenderParams& params)
 	sync->write(Asset::Uniform::displacement);
 	sync->write(RenderDataType::Vec3);
 	sync->write<s32>(1);
-	sync->write<Vec3>(Vec3(displacement_horizontal, displacement_vertical, displacement_horizontal));
+	sync->write<Vec3>(Vec3(cfg.displacement_horizontal, cfg.displacement_vertical, cfg.displacement_horizontal));
 
 	sync->write(RenderOp::Uniform);
 	sync->write(Asset::Uniform::normal_map);
 	sync->write(RenderDataType::Texture);
 	sync->write<s32>(1);
 	sync->write<RenderTextureType>(RenderTextureType::Texture2D);
-	sync->write<AssetID>(Asset::Texture::water_normal);
+	sync->write<AssetID>(cfg.texture);
 
 	sync->write(RenderOp::Uniform);
 	sync->write(Asset::Uniform::diffuse_color);
 	sync->write(RenderDataType::Vec4);
 	sync->write<s32>(1);
 	if (params.camera->colors)
-		sync->write<Vec4>(color);
+		sync->write<Vec4>(cfg.color);
 	else
 		sync->write<Vec4>(PVP_INACCESSIBLE);
 
 	sync->write(RenderOp::Mesh);
 	sync->write(RenderPrimitiveMode::Triangles);
-	sync->write(mesh);
+	sync->write(cfg.mesh);
 }
 
-void Water::draw_alpha(const RenderParams& params)
+void Water::draw_hollow(const RenderParams& params, const Config& cfg, const Vec3& pos, const Quat& rot)
 {
-	const Mesh* mesh_data = Loader::mesh(mesh);
+	const Mesh* mesh_data = Loader::mesh(cfg.mesh);
 
 	Mat4 m;
-	get<Transform>()->mat(&m);
-	m.translate(Vec3(0, 0.02f, 0));
+	m.make_transform(pos, Vec3(1), rot);
 
-	if (!params.camera->visible_sphere(m.translation(), mesh_data->bounds_radius))
+
+	if (!params.camera->visible_sphere(pos, mesh_data->bounds_radius))
 		return;
 
 	Loader::shader(Asset::Shader::water);
-	Loader::texture(Asset::Texture::water_normal);
+	Loader::texture(cfg.texture);
 
 	RenderSync* sync = params.sync;
 	sync->write(RenderOp::Shader);
@@ -746,23 +818,23 @@ void Water::draw_alpha(const RenderParams& params)
 	sync->write<Mat4>(m * params.view);
 
 	sync->write(RenderOp::Uniform);
-	sync->write(Asset::Uniform::diffuse_color);
-	sync->write(RenderDataType::Vec4);
-	sync->write<s32>(1);
-	sync->write<Vec4>(Vec4(1));
-
-	sync->write(RenderOp::Uniform);
 	sync->write(Asset::Uniform::time);
 	sync->write(RenderDataType::R32);
 	sync->write<s32>(1);
 	sync->write<r32>(params.sync->time.total);
 
 	sync->write(RenderOp::Uniform);
+	sync->write(Asset::Uniform::displacement);
+	sync->write(RenderDataType::Vec3);
+	sync->write<s32>(1);
+	sync->write<Vec3>(Vec3(cfg.displacement_horizontal, cfg.displacement_vertical, cfg.displacement_horizontal));
+
+	sync->write(RenderOp::Uniform);
 	sync->write(Asset::Uniform::normal_map);
 	sync->write(RenderDataType::Texture);
 	sync->write<s32>(1);
 	sync->write<RenderTextureType>(RenderTextureType::Texture2D);
-	sync->write<AssetID>(Asset::Texture::water_normal);
+	sync->write<AssetID>(cfg.texture);
 
 	sync->write(RenderOp::FillMode);
 	sync->write(RenderFillMode::Point);
@@ -772,10 +844,32 @@ void Water::draw_alpha(const RenderParams& params)
 
 	sync->write(RenderOp::Mesh);
 	sync->write(RenderPrimitiveMode::Points);
-	sync->write(mesh);
+	sync->write(cfg.mesh);
 
 	sync->write(RenderOp::FillMode);
 	sync->write(RenderFillMode::Fill);
+}
+
+void Water::draw_opaque(const RenderParams& params)
+{
+	if (mask & params.camera->mask)
+	{
+		Vec3 pos;
+		Quat rot;
+		get<Transform>()->absolute(&pos, &rot);
+		draw_opaque(params, config, pos, rot);
+	}
+}
+
+void Water::draw_hollow(const RenderParams& params)
+{
+	if (mask & params.camera->mask)
+	{
+		Vec3 pos;
+		Quat rot;
+		get<Transform>()->absolute(&pos, &rot);
+		draw_hollow(params, config, pos, rot);
+	}
 }
 
 void Cube::draw(const RenderParams& params, const Vec3& pos, const b8 alpha, const Vec3& scale, const Quat& rot, const Vec4& color)

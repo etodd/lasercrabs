@@ -11,7 +11,7 @@ struct View : public ComponentType<View>
 {
 	static Bitmask<MAX_ENTITIES> list_alpha;
 	static Bitmask<MAX_ENTITIES> list_additive;
-	static Bitmask<MAX_ENTITIES> list_alpha_depth;
+	static Bitmask<MAX_ENTITIES> list_hollow;
 
 	Mat4 offset;
 	Vec4 color;
@@ -23,8 +23,10 @@ struct View : public ComponentType<View>
 
 	static void draw_opaque(const RenderParams&);
 	static void draw_alpha(const RenderParams&);
-	static void draw_alpha_depth(const RenderParams&);
+	static void draw_hollow(const RenderParams&);
 	static void draw_additive(const RenderParams&);
+
+	static void draw_mesh(const RenderParams&, AssetID, AssetID, AssetID, const Mat4&, const Vec4&);
 
 	View(AssetID = AssetNull);
 	void awake();
@@ -33,7 +35,7 @@ struct View : public ComponentType<View>
 	AlphaMode alpha_mode() const;
 	void alpha_mode(AlphaMode);
 	void alpha();
-	void alpha_depth();
+	void hollow();
 	void additive();
 	void alpha_disable();
 	void draw(const RenderParams&) const;
@@ -70,22 +72,32 @@ struct SkyDecal : ComponentType<SkyDecal>
 
 struct Water : public ComponentType<Water>
 {
-	Vec4 color;
-	r32 displacement_horizontal;
-	r32 displacement_vertical;
-	AssetID mesh;
-	AssetID texture;
+	struct Config
+	{
+		Vec4 color;
+		r32 displacement_horizontal;
+		r32 displacement_vertical;
+		AssetID texture;
+		AssetID mesh;
+
+		Config(AssetID = AssetNull);
+	};
+	Config config;
+	RenderMask mask;
+
+	static void draw_opaque(const RenderParams&, const Config&, const Vec3&, const Quat&);
+	static void draw_hollow(const RenderParams&, const Config&, const Vec3&, const Quat&);
 
 	Water(AssetID = AssetNull);
 	void awake();
 	void draw_opaque(const RenderParams&);
-	void draw_alpha(const RenderParams&);
+	void draw_hollow(const RenderParams&);
 };
 
 struct SkyPattern
 {
 	static void draw_opaque(const RenderParams&);
-	static void draw_alpha_depth(const RenderParams&);
+	static void draw_hollow(const RenderParams&);
 };
 
 struct Cube

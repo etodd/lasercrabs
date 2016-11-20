@@ -1,6 +1,7 @@
 #include "components.h"
 #include "physics.h"
 #include "ai.h"
+#include "render/render.h"
 
 namespace VI
 {
@@ -197,17 +198,17 @@ void Transform::reparent(Transform* p)
 }
 
 PointLight::PointLight()
-	: radius(), color(1, 1, 1), offset(), type(Type::Normal), mask(-1), team((s8)AI::TeamNone)
+	: radius(), color(1, 1, 1), offset(), type(Type::Normal), mask(RENDER_MASK_DEFAULT), team(s8(AI::TeamNone))
 {
 }
 
 SpotLight::SpotLight()
-	: radius(), color(1, 1, 1), fov(), mask(-1), team((s8)AI::TeamNone)
+	: radius(), color(1, 1, 1), fov(), mask(RENDER_MASK_DEFAULT), team(s8(AI::TeamNone))
 {
 }
 
 DirectionalLight::DirectionalLight()
-	: color(), shadowed(), mask(-1)
+	: color(), shadowed()
 {
 }
 

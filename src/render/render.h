@@ -15,7 +15,7 @@ enum class AlphaMode
 	Opaque,
 	Alpha,
 	Additive,
-	AlphaDepth,
+	Hollow,
 	count,
 };
 

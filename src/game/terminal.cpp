@@ -57,11 +57,17 @@ namespace Terminal
 
 struct ZoneNode
 {
+	StaticArray<Vec3, ZONE_MAX_CHILDREN> children;
 	AssetID id;
-	Ref<Transform> pos;
+	AssetID mesh;
 	s16 rewards[(s32)Game::Resource::count];
 	s8 size;
 	s8 max_teams;
+
+	inline Vec3 pos() const
+	{
+		return children[children.length - 1];
+	}
 };
 
 enum class State
@@ -456,7 +462,7 @@ void focus_camera(const Update& u, const Transform* target)
 
 void focus_camera(const Update& u, const ZoneNode& zone)
 {
-	Vec3 target_pos = zone.pos.ref()->absolute_pos() + data.camera_offset.ref()->absolute_pos();
+	Vec3 target_pos = zone.pos() + data.camera_offset.ref()->absolute_pos();
 	Quat target_rot = Quat::look(data.camera_offset.ref()->absolute_rot() * Vec3(0, -1, 0));
 	focus_camera(u, target_pos, target_rot);
 }
@@ -469,17 +475,6 @@ const ZoneNode* zone_node_get(AssetID id)
 			return &data.zones[i];
 	}
 	return nullptr;
-}
-
-void zone_node_children(const ZoneNode& node, StaticArray<Ref<Transform>, ZONE_MAX_CHILDREN>* children)
-{
-	children->length = 0;
-	for (auto i = Transform::list.iterator(); !i.is_last(); i.next())
-	{
-		if (i.item()->parent.ref() == node.pos.ref())
-			children->add(i.item());
-	}
-	children->add(node.pos.ref());
 }
 
 b8 resource_spend(Game::Resource res, s16 amount)
@@ -591,22 +586,18 @@ void select_zone_update(const Update& u, b8 enable_movement)
 			r32 closest_dot = FLT_MAX;
 			r32 closest_normalized_dot = 0.6f;
 
-			StaticArray<Ref<Transform>, ZONE_MAX_CHILDREN> children;
-			zone_node_children(*zone, &children);
-			for (s32 i = 0; i < children.length; i++)
+			for (s32 i = 0; i < zone->children.length; i++)
 			{
-				Vec3 zone_pos = children[i].ref()->absolute_pos();
+				const Vec3& zone_pos = zone->children[i];
 				for (s32 j = 0; j < data.zones.length; j++)
 				{
 					const ZoneNode& candidate = data.zones[j];
 					if (&candidate == zone)
 						continue;
 
-					StaticArray<Ref<Transform>, ZONE_MAX_CHILDREN> children2;
-					zone_node_children(candidate, &children2);
-					for (s32 k = 0; k < children2.length; k++)
+					for (s32 k = 0; k < candidate.children.length; k++)
 					{
-						Vec3 candidate_pos = children2[k].ref()->absolute_pos();
+						const Vec3& candidate_pos = candidate.children[k];
 						Vec3 to_candidate = (candidate_pos - zone_pos);
 						r32 dot = movement.dot(Vec2(to_candidate.x, to_candidate.z));
 						r32 normalized_dot = movement.dot(Vec2::normalize(Vec2(to_candidate.x, to_candidate.z)));
@@ -714,7 +705,45 @@ const Vec4& zone_ui_color(const ZoneNode& zone)
 	}
 }
 
-#define DEFAULT_ZONE_COLOR Vec3(0.4f)
+void zone_draw_mesh(const RenderParams& params, AssetID mesh, const Vec3& pos, const Vec4& color)
+{
+	const Mesh* mesh_data = Loader::mesh_permanent(mesh);
+
+	Loader::shader(Asset::Shader::standard_flat);
+
+	RenderSync* sync = params.sync;
+	sync->write(RenderOp::Shader);
+	sync->write(Asset::Shader::standard_flat);
+	sync->write(params.technique);
+
+	Mat4 m;
+	m.make_translate(pos);
+	Mat4 mvp = m * params.view_projection;
+
+	sync->write(RenderOp::Uniform);
+	sync->write(Asset::Uniform::mvp);
+	sync->write(RenderDataType::Mat4);
+	sync->write<s32>(1);
+	sync->write<Mat4>(mvp);
+
+	sync->write(RenderOp::Uniform);
+	sync->write(Asset::Uniform::mv);
+	sync->write(RenderDataType::Mat4);
+	sync->write<s32>(1);
+	sync->write<Mat4>(m * params.view);
+
+	sync->write(RenderOp::Uniform);
+	sync->write(Asset::Uniform::diffuse_color);
+	sync->write(RenderDataType::Vec4);
+	sync->write<s32>(1);
+	sync->write<Vec4>(color);
+
+	sync->write(RenderOp::Mesh);
+	sync->write(RenderPrimitiveMode::Triangles);
+	sync->write(mesh);
+}
+
+#define BACKGROUND_COLOR Vec4(0.7f, 0.7f, 0.7f, 1)
 void zones_draw_override(const RenderParams& params)
 {
 	struct SortKey
@@ -723,7 +752,7 @@ void zones_draw_override(const RenderParams& params)
 		{
 			// sort farthest zones first
 			Vec3 camera_forward = data.camera->rot * Vec3(0, 0, 1);
-			return camera_forward.dot(n.pos.ref()->absolute_pos() - data.camera->pos);
+			return camera_forward.dot(n.pos() - data.camera->pos);
 		}
 	};
 
@@ -752,13 +781,10 @@ void zones_draw_override(const RenderParams& params)
 		sync->write<RenderOp>(RenderOp::CullMode);
 		sync->write<RenderCullMode>(RenderCullMode::Back);
 		const ZoneNode& zone = zones.pop();
-		View* view = zone.pos.ref()->get<View>();
-		view->color = Vec4(zone_color(zone), 1.0f);
-		view->draw(params);
+		zone_draw_mesh(params, zone.mesh, zone.pos(), Vec4(zone_color(zone), 1.0f));
 		sync->write<RenderOp>(RenderOp::CullMode);
 		sync->write<RenderCullMode>(RenderCullMode::Front);
-		view->color = Vec4(DEFAULT_ZONE_COLOR, 1.0f);
-		view->draw(params);
+		zone_draw_mesh(params, zone.mesh, zone.pos(), BACKGROUND_COLOR);
 	}
 }
 
@@ -772,7 +798,7 @@ const ZoneNode* zones_draw(const RenderParams& params)
 	if (zone && data.timer_deploy == 0.0f)
 	{
 		Vec2 p;
-		if (UI::project(params, zone->pos.ref()->absolute_pos(), &p))
+		if (UI::project(params, zone->pos(), &p))
 		{
 			if (!Game::session.story_mode)
 			{
@@ -979,11 +1005,9 @@ void zone_states_update()
 			Game::ZoneState zone_state = Game::save.zones[zone.id];
 			if (zone_state == Game::ZoneState::Friendly || zone_state == Game::ZoneState::Owned)
 			{
-				StaticArray<Ref<Transform>, ZONE_MAX_CHILDREN> children;
-				zone_node_children(zone, &children);
-				for (s32 j = 0; j < children.length; j++)
+				for (s32 j = 0; j < zone.children.length; j++)
 				{
-					Vec3 zone_pos = children[j].ref()->absolute_pos();
+					Vec3 zone_pos = zone.children[j];
 					zone_pos.y = 0.0f;
 					for (s32 k = 0; k < data.zones.length; k++)
 					{
@@ -991,7 +1015,7 @@ void zone_states_update()
 						if (Game::save.zones[neighbor_zone.id] == Game::ZoneState::Inaccessible
 							&& (Game::save.group == Game::Group::None) == (neighbor_zone.max_teams < MAX_PLAYERS)) // must be the right size map
 						{
-							Vec3 neighbor_pos = neighbor_zone.pos.ref()->absolute_pos();
+							Vec3 neighbor_pos = neighbor_zone.pos();
 							neighbor_pos.y = 0.0f;
 							if ((neighbor_pos - zone_pos).length_squared() < 4.5f * 4.5f)
 							{
@@ -2458,7 +2482,7 @@ void update(const Update& u)
 					r32 particle_blend = (t - 0.5f) / 0.5f;
 					Particles::tracers.add
 					(
-						zone->pos.ref()->absolute_pos() + Vec3(0, -2.0f + particle_blend * 12.0f, 0),
+						zone->pos() + Vec3(0, -2.0f + particle_blend * 12.0f, 0),
 						Vec3::zero,
 						0
 					);
@@ -2597,6 +2621,7 @@ void init(const Update& u, const EntityFinder& entities)
 	else
 		data.zone_selected = data.zone_last;
 	data.camera = Camera::add();
+	data.camera->colors = false;
 
 	{
 		Entity* map_view_entity = entities.find("map_view");
@@ -2626,18 +2651,20 @@ void init(const Update& u, const EntityFinder& entities)
 					&& (level_id != Asset::Level::Safe_Zone || Game::session.story_mode)) // only show tutorial level in story mode
 				{
 					ZoneNode* node = data.zones.add();
-					*node =
+					node->children.length = 0;
+					for (auto i = Transform::list.iterator(); !i.is_last(); i.next())
 					{
-						level_id,
-						view->get<Transform>(),
-						{
-							(s16)Json::get_s32(entry.properties, "energy", 0),
-							(s16)Json::get_s32(entry.properties, "hack_kits", 0),
-							(s16)Json::get_s32(entry.properties, "drones", 0),
-						},
-						(s8)Json::get_s32(entry.properties, "size", 1),
-						(s8)Json::get_s32(entry.properties, "max_teams", 2),
-					};
+						if (i.item()->parent.ref() == view->get<Transform>())
+							node->children.add(i.item()->absolute_pos());
+					}
+					node->children.add(view->get<Transform>()->absolute_pos());
+					node->id = level_id;
+					node->mesh = view->mesh;
+					node->rewards[0] = (s16)Json::get_s32(entry.properties, "energy", 0);
+					node->rewards[1] = (s16)Json::get_s32(entry.properties, "hack_kits", 0);
+					node->rewards[2] = (s16)Json::get_s32(entry.properties, "drones", 0);
+					node->size = (s8)Json::get_s32(entry.properties, "size", 1);
+					node->max_teams = (s8)Json::get_s32(entry.properties, "max_teams", 2);
 				}
 			}
 		}

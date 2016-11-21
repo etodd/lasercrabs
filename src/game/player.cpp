@@ -193,7 +193,6 @@ void PlayerHuman::awake()
 	camera->team = (s8)get<PlayerManager>()->team.ref()->team();
 	camera->mask = 1 << camera->team;
 	camera->colors = false;
-	camera->fog = true;
 
 	Quat rot;
 	Game::level.map_view.ref()->absolute(&camera->pos, &rot);

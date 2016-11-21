@@ -12,6 +12,9 @@
 #include "minion.h"
 #include "net.h"
 #include "team.h"
+#include "asset/level.h"
+#include "asset/armature.h"
+#include "data/animator.h"
 
 namespace VI
 {
@@ -32,11 +35,14 @@ Script* Script::find(const char* name)
 	return nullptr;
 }
 
+namespace Scripts
+{
+
+
 namespace scene
 {
 	struct Data
 	{
-		UIText text;
 		Camera* camera;
 	};
 	
@@ -45,6 +51,8 @@ namespace scene
 	void cleanup()
 	{
 		data->camera->remove();
+		delete data;
+		data = nullptr;
 	}
 
 	void init(const Update& u, const EntityFinder& entities)
@@ -69,6 +77,141 @@ namespace scene
 
 			Game::cleanups.add(cleanup);
 		}
+	}
+}
+
+namespace title
+{
+	b8 first_show = true;
+
+	struct Data
+	{
+		Camera* camera;
+		Vec3 camera_start_pos;
+		r32 transition_timer;
+		Ref<Animator> character;
+	};
+	
+	static Data* data;
+
+	void cleanup()
+	{
+		if (data->camera)
+			data->camera->remove();
+		delete data;
+		data = nullptr;
+	}
+
+	void update(const Update& u)
+	{
+		if (data->transition_timer > 0.0f)
+		{
+			if (data->camera)
+			{
+				Vec3 head_pos = Vec3::zero;
+				data->character.ref()->to_world(Asset::Bone::character_head, &head_pos);
+				data->camera->pos = Vec3::lerp(1.0f - ((data->transition_timer / TRANSITION_TIME) - 0.5f) * 2.0f, data->camera_start_pos, head_pos);
+			}
+			r32 old_timer = data->transition_timer;
+			data->transition_timer = vi_max(0.0f, data->transition_timer - Game::real_time.delta);
+			if (data->transition_timer < TRANSITION_TIME * 0.5f && old_timer >= TRANSITION_TIME * 0.5f)
+			{
+				data->camera->remove();
+				data->camera = nullptr;
+				Game::level.mode = Game::Mode::Parkour;
+				for (auto i = PlayerHuman::list.iterator(); !i.is_last(); i.next())
+					i.item()->camera->active = true;
+			}
+		}
+		else
+		{
+			if (Game::level.mode == Game::Mode::Special && Menu::main_menu_state == Menu::State::Hidden)
+			{
+				b8 show = false;
+				if (first_show) // wait for the user to hit a button before showing the menu
+				{
+					for (s32 i = 0; i < MAX_GAMEPADS; i++)
+					{
+						if (i == 0)
+						{
+							for (s32 j = 0; j < (s32)KeyCode::Count; j++)
+							{
+								if (u.last_input->keys[j] && !u.input->keys[j])
+								{
+									show = true;
+									break;
+								}
+							}
+						}
+						if (u.input->gamepads[i].btns)
+						{
+							show = true;
+							break;
+						}
+					}
+				}
+				else // we've seen this title screen before; show the menu right away
+					show = true;
+
+				if (show)
+				{
+					first_show = false;
+					Menu::show();
+				}
+			}
+		}
+	}
+
+	void draw(const RenderParams& p)
+	{
+		if (data->transition_timer > 0.0f)
+			Menu::draw_letterbox(p, data->transition_timer, TRANSITION_TIME);
+	}
+
+	void init(const Update& u, const EntityFinder& entities)
+	{
+		if (Game::level.mode == Game::Mode::Special)
+		{
+			data = new Data();
+
+			data->camera = Camera::add();
+
+			data->camera->viewport =
+			{
+				Vec2(0, 0),
+				Vec2(u.input->width, u.input->height),
+			};
+			r32 aspect = data->camera->viewport.size.y == 0 ? 1 : (r32)data->camera->viewport.size.x / (r32)data->camera->viewport.size.y;
+			data->camera->perspective((40.0f * PI * 0.5f / 180.0f), aspect, 0.1f, Game::level.skybox.far_plane);
+
+			Quat rot;
+			entities.find("map_view")->get<Transform>()->absolute(&data->camera_start_pos, &rot);
+			data->camera->pos = data->camera_start_pos;
+			data->camera->rot = Quat::look(rot * Vec3(0, -1, 0));
+
+			data->character = entities.find("character")->get<Animator>();
+
+			Game::updates.add(update);
+			Game::draws.add(draw);
+			Game::cleanups.add(cleanup);
+
+			for (auto i = PlayerHuman::list.iterator(); !i.is_last(); i.next())
+				i.item()->camera->active = false;
+		}
+	}
+
+	void play()
+	{
+		Game::save = Game::Save();
+		Game::session.reset();
+		Terminal::message_add(strings::contact_ivory, strings::msg_ivory_intro, platform::timestamp() - (86400.0 * 1.9));
+		Terminal::message_add(strings::contact_aldus, strings::msg_aldus_intro, platform::timestamp() - (86400.0 * 1.6));
+		Game::save.resources[(s32)Game::Resource::HackKits] = 1;
+		Game::save.resources[(s32)Game::Resource::Drones] = 4;
+		Game::save.resources[(s32)Game::Resource::Energy] = (s16)(CREDITS_INITIAL * 3.5f);
+		Game::save.zones[Asset::Level::title] = Game::ZoneState::Locked;
+		Game::save.zones[Asset::Level::Safe_Zone] = Game::ZoneState::Locked;
+		data->transition_timer = TRANSITION_TIME;
 	}
 }
 
@@ -212,11 +355,11 @@ namespace tutorial
 		Net::finalize(e);
 
 		PlayerAI* ai_player = PlayerAI::list.add();
-		new (ai_player) PlayerAI(ai_manager, PlayerAI::generate_config());
+		new (ai_player) PlayerAI(ai_manager, PlayerAI::generate_config(1, 0.0f));
 
-		PlayerAI::Config* config = &ai_player->config;
-		config->high_level = PlayerAI::HighLevelLoop::Noop;
-		config->low_level = PlayerAI::LowLevelLoop::Noop;
+		AI::Config* config = &ai_player->config;
+		config->high_level = AI::HighLevelLoop::Noop;
+		config->low_level = AI::LowLevelLoop::Noop;
 
 		PlayerManager* player_manager = PlayerHuman::list.iterator().item()->get<PlayerManager>();
 		player_manager->spawn.link(&player_spawned);
@@ -227,10 +370,14 @@ namespace tutorial
 	}
 }
 
+
+}
+
 Script Script::all[] =
 {
-	{ "scene", scene::init },
-	{ "tutorial", tutorial::init },
+	{ "scene", Scripts::scene::init },
+	{ "tutorial", Scripts::tutorial::init },
+	{ "title", Scripts::title::init },
 	{ 0, 0, },
 };
 

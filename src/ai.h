@@ -78,11 +78,6 @@ namespace AI
 		u32 id;
 	};
 	
-	typedef s8 Team;
-	typedef s32 TeamMask;
-
-	const Team TeamNone = 255;
-
 	struct SensorState
 	{
 		Vec3 pos;

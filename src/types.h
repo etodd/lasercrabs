@@ -86,5 +86,50 @@ namespace Net
 	};
 }
 
+namespace AI
+{
+	typedef s8 Team;
+	typedef s32 TeamMask;
+
+	const Team TeamNone = 255;
+
+	enum class LowLevelLoop
+	{
+		Default,
+		Noop,
+	};
+
+	enum class HighLevelLoop
+	{
+		Default,
+		Noop,
+	};
+
+	enum class UpgradeStrategy
+	{
+		Ignore,
+		SaveUp,
+		IfAvailable,
+	};
+
+	struct Config
+	{
+		LowLevelLoop low_level;
+		HighLevelLoop high_level;
+		r32 interval_memory_update;
+		r32 interval_low_level;
+		r32 interval_high_level;
+		r32 inaccuracy_min;
+		r32 inaccuracy_range;
+		r32 aim_timeout;
+		r32 aim_speed;
+		r32 aim_min_delay;
+		r32 dodge_chance;
+		r32 spawn_timer;
+		Upgrade upgrade_priority[(s32)Upgrade::count];
+		UpgradeStrategy upgrade_strategies[(s32)Upgrade::count];
+		AI::Team team;
+	};
+}
 
 }

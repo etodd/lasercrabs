@@ -21,6 +21,8 @@ namespace Net
 	struct StateFrame;
 }
 
+struct PlayerManager;
+
 void explosion(const Vec3&, const Quat&);
 
 struct AwkEntity : public Entity

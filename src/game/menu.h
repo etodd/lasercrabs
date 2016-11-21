@@ -88,6 +88,7 @@ void progress_infinite(const RenderParams&, const char*, const Vec2&);
 void dialog(s8, DialogCallback, const char*, ...);
 void dialog_with_time_limit(s8, DialogCallback, r32, const char*, ...);
 void dialog_no_action(s8);
+void draw_letterbox(const RenderParams&, r32, r32);
 
 }
 

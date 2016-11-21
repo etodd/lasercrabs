@@ -49,13 +49,14 @@ struct Parkour : public ComponentType<Parkour>
 
 	b8 wallrun(const Update&, RigidBody*, const Vec3&, const Vec3&);
 
-	void lessen_gravity();
+	void awake();
+	void killed(Entity*);
 	void land(r32);
+	void lessen_gravity();
 	b8 try_slide();
 	b8 try_jump(r32);
 	void do_normal_jump();
 	b8 try_parkour(b8 = false);
-	void awake();
 	Vec3 head_pos() const;
 	void head_to_object_space(Vec3*, Quat*) const;
 	void footstep();

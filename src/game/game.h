@@ -85,7 +85,6 @@ struct Game
 		u64 local_player_uuids[MAX_GAMEPADS];
 		r32 time_scale;
 		MatchResult last_match;
-		AssetID last_level;
 		b8 story_mode;
 
 		Session();
@@ -130,6 +129,8 @@ struct Game
 		Group group;
 		s16 story_index;
 		s16 resources[(s32)Resource::count];
+		AssetID last_level;
+		AssetID terminal_zone;
 		char username[MAX_USERNAME + 1];
 		b8 cora_called;
 
@@ -143,6 +144,7 @@ struct Game
 		r32 min_y;
 		Type type;
 		Mode mode;
+		StaticArray<AI::Config, MAX_PLAYERS> ai_config;
 		Skybox::Config skybox;
 		AssetID id = AssetNull;
 		Ref<Transform> map_view;
@@ -167,6 +169,7 @@ struct Game
 	static r32 physics_timestep;
 	static AssetID scheduled_load_level;
 	static Mode scheduled_mode;
+	static r32 schedule_timer;
 	static b8 cancel_event_eaten[MAX_GAMEPADS];
 	static b8 is_gamepad;
 	static b8 quit;

@@ -24,50 +24,13 @@ struct PlayerAI
 {
 	static PinArray<PlayerAI, MAX_PLAYERS> list;
 
-	enum class LowLevelLoop
-	{
-		Default,
-		Noop,
-	};
-
-	enum class HighLevelLoop
-	{
-		Default,
-		Noop,
-	};
-
-	enum class UpgradeStrategy
-	{
-		Ignore,
-		SaveUp,
-		IfAvailable,
-	};
-
-	struct Config
-	{
-		LowLevelLoop low_level;
-		HighLevelLoop high_level;
-		r32 interval_memory_update;
-		r32 interval_low_level;
-		r32 interval_high_level;
-		r32 inaccuracy_min;
-		r32 inaccuracy_range;
-		r32 aim_timeout;
-		r32 aim_speed;
-		r32 aim_min_delay;
-		r32 dodge_chance;
-		Upgrade upgrade_priority[(s32)Upgrade::count];
-		UpgradeStrategy upgrade_strategies[(s32)Upgrade::count];
-		Config();
-	};
-
-	static Config generate_config();
+	static AI::Config generate_config(AI::Team, r32);
 
 	Ref<PlayerManager> manager;
 	Revision revision;
-	Config config;
+	AI::Config config;
 
-	PlayerAI(PlayerManager*, const Config&);
+	PlayerAI(PlayerManager*, const AI::Config&);
 	inline ID id() const
 	{
 		return this - &list[0];
@@ -129,7 +92,7 @@ struct PlayerControlAI : public ComponentType<PlayerControlAI>
 	void awk_hit(Entity*);
 	void awk_detached();
 	void update(const Update&);
-	const PlayerAI::Config& config() const;
+	const AI::Config& config() const;
 };
 
 namespace AIBehaviors

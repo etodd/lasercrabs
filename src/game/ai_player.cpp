@@ -19,80 +19,81 @@ namespace VI
 
 PinArray<PlayerAI, MAX_PLAYERS> PlayerAI::list;
 
-PlayerAI::Config::Config()
-	: low_level(LowLevelLoop::Default),
-	high_level(HighLevelLoop::Default),
-	interval_memory_update(0.2f),
-	interval_low_level(0.25f),
-	interval_high_level(0.5f),
-	inaccuracy_min(PI * 0.001f),
-	inaccuracy_range(PI * 0.01f),
-	aim_timeout(2.0f),
-	aim_speed(3.0f),
-	aim_min_delay(0.5f),
-	dodge_chance(0.2f),
-	upgrade_priority { },
-	upgrade_strategies { }
+AI::Config PlayerAI::generate_config(AI::Team team, r32 spawn_timer)
 {
-}
+	AI::Config config;
 
-PlayerAI::Config PlayerAI::generate_config()
-{
-	Config config;
+	config.team = team;
+	config.spawn_timer = spawn_timer;
+
+	config.low_level = AI::LowLevelLoop::Default;
+	config.high_level = AI::HighLevelLoop::Default;
+	config.interval_memory_update = 0.2f;
+	config.interval_low_level = 0.25f;
+	config.interval_high_level = 0.5f;
+	config.inaccuracy_min = PI * 0.001f;
+	config.inaccuracy_range = PI * 0.01f;
+	config.aim_timeout = 2.0f;
+	config.aim_speed = 3.0f;
+	config.aim_min_delay = 0.5f;
+	config.dodge_chance = 0.2f;
 
 	for (s32 i = 0; i < s32(Upgrade::count); i++)
-		config.upgrade_strategies[i] = UpgradeStrategy::Ignore;
+	{
+		config.upgrade_priority[i] = Upgrade::None;
+		config.upgrade_strategies[i] = AI::UpgradeStrategy::Ignore;
+	}
 
 	switch (mersenne::rand() % 5)
 	{
 		case 0:
 		{
 			config.upgrade_priority[0] = Upgrade::Minion;
-			config.upgrade_strategies[0] = UpgradeStrategy::SaveUp;
+			config.upgrade_strategies[0] = AI::UpgradeStrategy::SaveUp;
 			config.upgrade_priority[1] = Upgrade::Decoy;
-			config.upgrade_strategies[1] = UpgradeStrategy::IfAvailable;
+			config.upgrade_strategies[1] = AI::UpgradeStrategy::IfAvailable;
 			config.upgrade_priority[2] = Upgrade::Rocket;
-			config.upgrade_strategies[2] = UpgradeStrategy::SaveUp;
+			config.upgrade_strategies[2] = AI::UpgradeStrategy::SaveUp;
 			break;
 		}
 		case 1:
 		{
 			config.upgrade_priority[0] = Upgrade::Sensor;
-			config.upgrade_strategies[0] = UpgradeStrategy::SaveUp;
+			config.upgrade_strategies[0] = AI::UpgradeStrategy::SaveUp;
 			config.upgrade_priority[1] = Upgrade::Bolter;
-			config.upgrade_strategies[1] = UpgradeStrategy::IfAvailable;
+			config.upgrade_strategies[1] = AI::UpgradeStrategy::IfAvailable;
 			config.upgrade_priority[2] = Upgrade::Sniper;
-			config.upgrade_strategies[2] = UpgradeStrategy::IfAvailable;
+			config.upgrade_strategies[2] = AI::UpgradeStrategy::IfAvailable;
 			break;
 		}
 		case 2:
 		{
 			config.upgrade_priority[0] = Upgrade::ContainmentField;
-			config.upgrade_strategies[0] = UpgradeStrategy::SaveUp;
+			config.upgrade_strategies[0] = AI::UpgradeStrategy::SaveUp;
 			config.upgrade_priority[1] = Upgrade::Sniper;
-			config.upgrade_strategies[1] = UpgradeStrategy::IfAvailable;
+			config.upgrade_strategies[1] = AI::UpgradeStrategy::IfAvailable;
 			config.upgrade_priority[2] = Upgrade::Rocket;
-			config.upgrade_strategies[2] = UpgradeStrategy::IfAvailable;
+			config.upgrade_strategies[2] = AI::UpgradeStrategy::IfAvailable;
 			break;
 		}
 		case 3:
 		{
 			config.upgrade_priority[0] = Upgrade::Sensor;
-			config.upgrade_strategies[0] = UpgradeStrategy::SaveUp;
+			config.upgrade_strategies[0] = AI::UpgradeStrategy::SaveUp;
 			config.upgrade_priority[1] = Upgrade::Rocket;
-			config.upgrade_strategies[1] = UpgradeStrategy::SaveUp;
+			config.upgrade_strategies[1] = AI::UpgradeStrategy::SaveUp;
 			config.upgrade_priority[2] = Upgrade::ContainmentField;
-			config.upgrade_strategies[2] = UpgradeStrategy::IfAvailable;
+			config.upgrade_strategies[2] = AI::UpgradeStrategy::IfAvailable;
 			break;
 		}
 		case 4:
 		{
 			config.upgrade_priority[0] = Upgrade::Sniper;
-			config.upgrade_strategies[0] = UpgradeStrategy::IfAvailable;
+			config.upgrade_strategies[0] = AI::UpgradeStrategy::IfAvailable;
 			config.upgrade_priority[1] = Upgrade::Minion;
-			config.upgrade_strategies[1] = UpgradeStrategy::IfAvailable;
+			config.upgrade_strategies[1] = AI::UpgradeStrategy::IfAvailable;
 			config.upgrade_priority[2] = Upgrade::Rocket;
-			config.upgrade_strategies[2] = UpgradeStrategy::IfAvailable;
+			config.upgrade_strategies[2] = AI::UpgradeStrategy::IfAvailable;
 			break;
 		}
 		default:
@@ -104,7 +105,7 @@ PlayerAI::Config PlayerAI::generate_config()
 	return config;
 }
 
-PlayerAI::PlayerAI(PlayerManager* m, const Config& config)
+PlayerAI::PlayerAI(PlayerManager* m, const AI::Config& config)
 	: manager(m),
 	revision(),
 	config(config)
@@ -150,11 +151,11 @@ s32 PlayerAI::save_up_priority() const
 		if (upgrade != Upgrade::None
 			&& manager.ref()->upgrade_available(upgrade))
 		{
-			UpgradeStrategy strategy = config.upgrade_strategies[i];
+			AI::UpgradeStrategy strategy = config.upgrade_strategies[i];
 			s32 priority;
-			if (strategy == UpgradeStrategy::Ignore)
+			if (strategy == AI::UpgradeStrategy::Ignore)
 				continue;
-			else if (strategy == UpgradeStrategy::IfAvailable)
+			else if (strategy == AI::UpgradeStrategy::IfAvailable)
 				priority = 1;
 			else // save up
 				priority = 2;
@@ -200,8 +201,8 @@ PlayerControlAI::PlayerControlAI(PlayerAI* p)
 #endif
 }
 
-Repeat* make_high_level_loop(PlayerControlAI*, const PlayerAI::Config&);
-Repeat* make_low_level_loop(PlayerControlAI*, const PlayerAI::Config&);
+Repeat* make_high_level_loop(PlayerControlAI*, const AI::Config&);
+Repeat* make_low_level_loop(PlayerControlAI*, const AI::Config&);
 
 void PlayerControlAI::awake()
 {
@@ -218,7 +219,7 @@ void PlayerControlAI::awake()
 	link<&PlayerControlAI::awk_detached>(get<Awk>()->dashed);
 
 	// init behavior trees
-	const PlayerAI::Config& config = player.ref()->config;
+	const AI::Config& config = player.ref()->config;
 
 	loop_memory = Repeat::alloc // memory update loop
 	(
@@ -261,7 +262,7 @@ PlayerControlAI::~PlayerControlAI()
 
 void PlayerControlAI::awk_done_flying_or_dashing()
 {
-	const PlayerAI::Config& config = player.ref()->config;
+	const AI::Config& config = player.ref()->config;
 	inaccuracy = config.inaccuracy_min + (mersenne::randf_cc() * config.inaccuracy_range);
 	aim_timer = 0.0f;
 	if (path_index < path.length)
@@ -443,7 +444,7 @@ Vec2 PlayerControlAI::aim(const Update& u, const Vec3& to_target)
 	PlayerCommon* common = get<PlayerCommon>();
 	Vec3 wall_normal = common->attach_quat * Vec3(0, 0, 1);
 
-	const PlayerAI::Config& config = player.ref()->config;
+	const AI::Config& config = player.ref()->config;
 	r32 target_angle_horizontal;
 	{
 		target_angle_horizontal = LMath::closest_angle(atan2f(to_target.x, to_target.z), common->angle_horizontal);
@@ -555,7 +556,7 @@ b8 PlayerControlAI::aim_and_shoot_target(const Update& u, const Vec3& target, Ta
 	{
 		// shooting / dashing
 
-		const PlayerAI::Config& config = player.ref()->config;
+		const AI::Config& config = player.ref()->config;
 
 		b8 can_shoot = can_move && get<Awk>()->cooldown_can_shoot() && u.time.total - get<Awk>()->attach_time > config.aim_min_delay;
 
@@ -715,7 +716,7 @@ b8 PlayerControlAI::go(const Update& u, const AI::AwkPathNode& node_prev, const 
 	{
 		// aiming
 
-		const PlayerAI::Config& config = player.ref()->config;
+		const AI::Config& config = player.ref()->config;
 
 		b8 can_shoot = can_move && get<Awk>()->cooldown_can_shoot() && u.time.total - get<Awk>()->attach_time > config.aim_min_delay;
 
@@ -916,14 +917,14 @@ Upgrade want_available_upgrade(const PlayerControlAI* control)
 		return Upgrade::None;
 
 	PlayerManager* manager = control->player.ref()->manager.ref();
-	const PlayerAI::Config& config = control->config();
+	const AI::Config& config = control->config();
 	for (s32 i = 0; i < (s32)Upgrade::count; i++)
 	{
 		Upgrade upgrade = config.upgrade_priority[i];
 		if (upgrade != Upgrade::None
 			&& manager->upgrade_available(upgrade)
 			&& manager->credits > manager->upgrade_cost(upgrade)
-			&& config.upgrade_strategies[i] != PlayerAI::UpgradeStrategy::Ignore)
+			&& config.upgrade_strategies[i] != AI::UpgradeStrategy::Ignore)
 		{
 			return upgrade;
 		}
@@ -1211,12 +1212,12 @@ b8 should_spawn_minion(const PlayerControlAI* control)
 	return false;
 }
 
-Repeat* make_low_level_loop(PlayerControlAI* control, const PlayerAI::Config& config)
+Repeat* make_low_level_loop(PlayerControlAI* control, const AI::Config& config)
 {
 	Repeat* loop;
 	switch (config.low_level)
 	{
-		case PlayerAI::LowLevelLoop::Default:
+		case AI::LowLevelLoop::Default:
 		{
 			loop = Repeat::alloc
 			(
@@ -1286,7 +1287,7 @@ Repeat* make_low_level_loop(PlayerControlAI* control, const PlayerAI::Config& co
 			);
 			break;
 		}
-		case PlayerAI::LowLevelLoop::Noop:
+		case AI::LowLevelLoop::Noop:
 		{
 			loop = Repeat::alloc(Delay::alloc(1.0f));
 			break;
@@ -1301,12 +1302,12 @@ Repeat* make_low_level_loop(PlayerControlAI* control, const PlayerAI::Config& co
 	return loop;
 }
 
-Repeat* make_high_level_loop(PlayerControlAI* control, const PlayerAI::Config& config)
+Repeat* make_high_level_loop(PlayerControlAI* control, const AI::Config& config)
 {
 	Repeat* loop;
 	switch (config.high_level)
 	{
-		case PlayerAI::HighLevelLoop::Default:
+		case AI::HighLevelLoop::Default:
 		{
 			loop = Repeat::alloc
 			(
@@ -1352,7 +1353,7 @@ Repeat* make_high_level_loop(PlayerControlAI* control, const PlayerAI::Config& c
 			);
 			break;
 		}
-		case PlayerAI::HighLevelLoop::Noop:
+		case AI::HighLevelLoop::Noop:
 		{
 			loop = Repeat::alloc(Delay::alloc(1.0f));
 			break;
@@ -1402,7 +1403,7 @@ void PlayerControlAI::update(const Update& u)
 {
 	if (get<Awk>()->state() == Awk::State::Crawl && !Team::game_over)
 	{
-		const PlayerAI::Config& config = player.ref()->config;
+		const AI::Config& config = player.ref()->config;
 
 		// new random look direction
 		if ((s32)(u.time.total * config.aim_speed * 0.3f) != (s32)((u.time.total - u.time.delta) * config.aim_speed * 0.3f))
@@ -1535,7 +1536,7 @@ void PlayerControlAI::update(const Update& u)
 #endif
 }
 
-const PlayerAI::Config& PlayerControlAI::config() const
+const AI::Config& PlayerControlAI::config() const
 {
 	return player.ref()->config;
 }

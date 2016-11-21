@@ -82,6 +82,12 @@ void Parkour::awake()
 	link<&Parkour::footstep>(animator->trigger(Asset::Animation::character_wall_run_right, 0.216f));
 	link<&Parkour::footstep>(animator->trigger(Asset::Animation::character_wall_run_right, 0.476f));
 	link_arg<r32, &Parkour::land>(get<Walker>()->land);
+	link_arg<Entity*, &Parkour::killed>(get<Health>()->killed);
+}
+
+void Parkour::killed(Entity*)
+{
+	World::remove_deferred(entity());
 }
 
 void Parkour::land(r32 velocity_diff)

@@ -934,12 +934,13 @@ void PlayerManager::update_server(const Update& u)
 		&& team.ref()->player_spawn.ref()
 		&& respawns != 0
 		&& !Team::game_over
+		&& Game::level.mode != Game::Mode::Special
 		&& !Game::level.continue_match_after_death)
 	{
-		spawn_timer -= u.time.delta;
-		if (spawn_timer <= 0.0f)
+		spawn_timer = vi_max(0.0f, spawn_timer - u.time.delta);
+		if (spawn_timer == 0.0f)
 		{
-			if (Game::level.type != Game::Type::Deathmatch)
+			if (respawns != -1)
 				respawns--;
 			if (respawns != 0)
 				spawn_timer = PLAYER_SPAWN_DELAY;

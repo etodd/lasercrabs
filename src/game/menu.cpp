@@ -15,6 +15,7 @@
 #include "settings.h"
 #include "audio.h"
 #include "net.h"
+#include "scripts.h"
 
 namespace VI
 {
@@ -23,7 +24,6 @@ namespace Menu
 {
 
 State main_menu_state;
-b8 first_show = true;
 DialogCallback dialog_callback[MAX_GAMEPADS];
 DialogCallback dialog_callback_last[MAX_GAMEPADS];
 r32 dialog_time[MAX_GAMEPADS];
@@ -45,6 +45,7 @@ void title() {}
 void show() {}
 void refresh_variables() {}
 void pause_menu(const Update&, s8, UIMenu*, State*) {}
+void draw_letterbox(const RenderParams&, r32, r32) {}
 b8 options(const Update&, s8, UIMenu*) { return true; }
 void progress_spinner(const RenderParams&, const Vec2&, r32) {}
 void progress_bar(const RenderParams&, const char*, r32, const Vec2&) {}
@@ -214,43 +215,6 @@ void exit(s8 gamepad)
 
 void title_menu(const Update& u, s8 gamepad, UIMenu* menu, State* state)
 {
-	if (*state == State::Hidden)
-	{
-		b8 show = false;
-		if (first_show) // wait for the user to hit a button before showing the menu
-		{
-			for (s32 i = 0; i < MAX_GAMEPADS; i++)
-			{
-				if (i == 0)
-				{
-					for (s32 j = 0; j < (s32)KeyCode::Count; j++)
-					{
-						if (u.last_input->keys[j] && !u.input->keys[j])
-						{
-							show = true;
-							break;
-						}
-					}
-				}
-				if (u.input->gamepads[i].btns)
-				{
-					show = true;
-					break;
-				}
-			}
-		}
-		else // we've seen this title screen before; show the menu right away
-			show = true;
-
-		if (show)
-		{
-			first_show = false;
-			*state = State::Visible;
-			menu->animate();
-			return; // wait one frame before doing anything, to prevent edge-triggered buttons from being pressed
-		}
-	}
-
 	switch (*state)
 	{
 		case State::Hidden:
@@ -262,16 +226,8 @@ void title_menu(const Update& u, s8 gamepad, UIMenu* menu, State* state)
 			menu->start(u, 0);
 			if (menu->item(u, _(strings::play)))
 			{
-				Game::save = Game::Save();
-				Game::session.reset();
-				Terminal::message_add(strings::contact_ivory, strings::msg_ivory_intro, platform::timestamp() - (86400.0 * 1.9));
-				Terminal::message_add(strings::contact_aldus, strings::msg_aldus_intro, platform::timestamp() - (86400.0 * 1.6));
-				Game::save.resources[(s32)Game::Resource::HackKits] = 1;
-				Game::save.resources[(s32)Game::Resource::Drones] = 4;
-				Game::save.resources[(s32)Game::Resource::Energy] = (s16)(CREDITS_INITIAL * 3.5f);
-				Game::save.zones[Asset::Level::Safe_Zone] = Game::ZoneState::Locked;
-				Game::schedule_load_level(Asset::Level::Safe_Zone, Game::Mode::Parkour);
-				return;
+				Scripts::title::play();
+				clear();
 			}
 			if (menu->item(u, _(strings::splitscreen)))
 			{
@@ -279,6 +235,7 @@ void title_menu(const Update& u, s8 gamepad, UIMenu* menu, State* state)
 				Game::session.reset();
 				Game::session.story_mode = false;
 				Game::schedule_load_level(Asset::Level::terminal, Game::Mode::Special);
+				clear();
 			}
 			/*
 			if (menu->item(u, _(strings::online)))
@@ -410,7 +367,7 @@ void update(const Update& u)
 		dialog_callback_last[i] = dialog_callback[i];
 	}
 
-	if (Game::level.id == Asset::Level::title)
+	if (Game::level.id == Asset::Level::title && Game::level.mode == Game::Mode::Special)
 		title_menu(u, 0, &main_menu, &main_menu_state);
 	else if (Terminal::active())
 	{
@@ -480,7 +437,7 @@ void draw(const RenderParams& params)
 
 	if (main_menu_state != State::Hidden)
 	{
-		if (Game::level.id == Asset::Level::title)
+		if (Game::level.id == Asset::Level::title && Game::level.mode == Game::Mode::Special)
 			main_menu.draw_alpha(params, Vec2(viewport.size.x * 0.5f, viewport.size.y * 0.65f + MENU_ITEM_HEIGHT * -1.5f), UIText::Anchor::Center, UIText::Anchor::Max);
 		else
 			main_menu.draw_alpha(params, Vec2(0, viewport.size.y * 0.5f), UIText::Anchor::Min, UIText::Anchor::Center);
@@ -532,6 +489,17 @@ void draw(const RenderParams& params)
 
 		UI::border(params, { prompt_rect.pos, prompt_rect.size + Vec2(0, text_rect.size.y - padding) }, 2.0f, UI::color_accent);
 	}
+}
+
+void draw_letterbox(const RenderParams& params, r32 t, r32 total)
+{
+	const Rect2& vp = params.camera->viewport;
+	r32 blend = t > total * 0.5f
+		? Ease::cubic_out<r32>(1.0f - (t - (total * 0.5f)) / (total * 0.5f))
+		: Ease::cubic_in<r32>(t / (total * 0.5f));
+	r32 size = vp.size.y * 0.5f * blend;
+	UI::box(params, { Vec2::zero, Vec2(vp.size.x, size) }, UI::color_background);
+	UI::box(params, { Vec2(0, vp.size.y - size), Vec2(vp.size.x, size) }, UI::color_background);
 }
 
 // returns true if options menu is still open

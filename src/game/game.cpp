@@ -67,6 +67,7 @@ r32 Game::physics_timestep;
 
 AssetID Game::scheduled_load_level = AssetNull;
 Game::Mode Game::scheduled_mode = Game::Mode::Pvp;
+r32 Game::schedule_timer;
 Game::Save Game::save = Game::Save();
 Game::Level Game::level;
 Game::Session Game::session;
@@ -81,8 +82,7 @@ Game::Session::Session()
 #endif
 	story_mode(true),
 	time_scale(1.0f),
-	last_match(),
-	last_level(AssetNull)
+	last_match()
 {
 	for (s32 i = 0; i < MAX_PLAYERS; i++)
 		local_player_uuids[i] = mersenne::rand_u64();
@@ -145,7 +145,9 @@ Game::Save::Save()
 	messages_scheduled(),
 	username("etodd"),
 	group(),
-	cora_called()
+	cora_called(),
+	last_level(AssetNull),
+	terminal_zone(AssetNull)
 {
 }
 
@@ -332,8 +334,13 @@ void Game::update(const Update& update_in)
 	Terminal::update(u);
 #endif
 
-	if (scheduled_load_level != AssetNull)
-		load_level(u, scheduled_load_level, scheduled_mode);
+	if (schedule_timer > 0.0f)
+	{
+		r32 old_timer = schedule_timer;
+		schedule_timer = vi_max(0.0f, schedule_timer - real_time.delta);
+		if (scheduled_load_level != AssetNull && schedule_timer < TRANSITION_TIME * 0.5f && old_timer >= TRANSITION_TIME * 0.5f)
+			load_level(u, scheduled_load_level, scheduled_mode);
+	}
 
 	AI::update(u);
 
@@ -371,6 +378,29 @@ void Game::update(const Update& update_in)
 		PlayerHuman::update_all(u);
 		if (level.local)
 		{
+			if (session.story_mode && level.mode == Mode::Pvp)
+			{
+				// spawn AI players
+				for (s32 i = 0; i < level.ai_config.length; i++)
+				{
+					AI::Config* config = &level.ai_config[i];
+					if (config->spawn_timer > 0.0f)
+					{
+						config->spawn_timer = vi_max(0.0f, config->spawn_timer - u.time.delta);
+						if (config->spawn_timer == 0.0f)
+						{
+							Entity* e = World::create<ContainerEntity>();
+							PlayerManager* manager = e->add<PlayerManager>(&Team::list[(s32)config->team]);
+							utf8cpy(manager->username, Usernames::all[mersenne::rand_u32() % Usernames::count]);
+							Net::finalize(e);
+
+							PlayerAI* player = PlayerAI::list.add();
+							new (player) PlayerAI(manager, *config);
+						}
+					}
+				}
+			}
+
 			for (auto i = Health::list.iterator(); !i.is_last(); i.next())
 				i.item()->update(u);
 			for (auto i = Walker::list.iterator(); !i.is_last(); i.next())
@@ -663,6 +693,9 @@ void Game::draw_alpha(const RenderParams& render_params)
 	Terminal::draw_ui(render_params);
 	Menu::draw(render_params);
 
+	if (schedule_timer > 0.0f)
+		Menu::draw_letterbox(render_params, schedule_timer, TRANSITION_TIME);
+
 	Console::draw(render_params);
 }
 
@@ -849,6 +882,8 @@ void Game::execute(const Update& u, const char* cmd)
 	}
 	else if (strcmp(cmd, "skip") == 0)
 		Game::time.total = PLAYER_SPAWN_DELAY + GAME_BUY_PERIOD;
+	else if (!Terminal::active() && strcmp(cmd, "capture") == 0)
+		Game::save.zones[Game::level.id] = Game::ZoneState::Friendly;
 	else if (Terminal::active())
 		Terminal::execute(cmd);
 }
@@ -857,6 +892,7 @@ void Game::schedule_load_level(AssetID level_id, Mode m)
 {
 	scheduled_load_level = level_id;
 	scheduled_mode = m;
+	schedule_timer = TRANSITION_TIME;
 }
 
 void Game::unload_level()
@@ -902,7 +938,7 @@ void Game::unload_level()
 	time.total = 0;
 	Net::reset();
 
-	session.last_level = level.id;
+	save.last_level = level.id;
 	level.id = AssetNull;
 }
 
@@ -1058,7 +1094,7 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 			level.min_y = Json::get_r32(element, "min_y", -20.0f);
 
 			// initialize teams
-			if (m != Mode::Special)
+			if (m != Mode::Special || level.id == Asset::Level::title)
 			{
 				for (s32 i = 0; i < team_count; i++)
 				{
@@ -1070,7 +1106,7 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 				{
 					if (session.local_player_config[i] != AI::TeamNone)
 					{
-						AI::Team team = team_lookup(level.team_lookup, (s32)session.local_player_config[i]);
+						AI::Team team = team_lookup(level.team_lookup, s32(session.local_player_config[i]));
 
 						Entity* e = World::alloc<ContainerEntity>();
 						PlayerManager* manager = e->create<PlayerManager>(&Team::list[(s32)team]);
@@ -1078,7 +1114,7 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 						if (ai_test)
 						{
 							PlayerAI* player = PlayerAI::list.add();
-							new (player) PlayerAI(manager, PlayerAI::generate_config());
+							new (player) PlayerAI(manager, PlayerAI::generate_config(team, 0.0f));
 							utf8cpy(manager->username, Usernames::all[mersenne::rand_u32() % Usernames::count]);
 						}
 						else
@@ -1235,17 +1271,11 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 		else if (cJSON_GetObjectItem(element, "AIPlayer"))
 		{
 			// only add an AI player if we are in online pvp mode
-			if (level.mode == Mode::Pvp && session.story_mode)
+			if (session.story_mode)
 			{
 				AI::Team team = team_lookup(level.team_lookup, Json::get_s32(element, "team", 1));
-
-				Entity* e = World::create<ContainerEntity>();
-				PlayerManager* manager = e->add<PlayerManager>(&Team::list[(s32)team]);
-				utf8cpy(manager->username, Usernames::all[mersenne::rand_u32() % Usernames::count]);
-				Net::finalize(e);
-
-				PlayerAI* player = PlayerAI::list.add();
-				new (player) PlayerAI(manager, PlayerAI::generate_config());
+				r32 spawn_timer = 5.0f + mersenne::randf_cc() * CONTROL_POINT_CAPTURE_TIME * 3.0f;
+				level.ai_config.add(PlayerAI::generate_config(team, spawn_timer));
 			}
 		}
 		else if (cJSON_GetObjectItem(element, "EnergyPickup"))

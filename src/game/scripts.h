@@ -17,4 +17,14 @@ struct Script
 	ScriptFunction function;
 };
 
+namespace Scripts
+{
+
+namespace title
+{
+	void play();
+}
+
+}
+
 }

@@ -83,8 +83,9 @@ struct Game
 	{
 		AI::Team local_player_config[MAX_GAMEPADS];
 		u64 local_player_uuids[MAX_GAMEPADS];
-		MatchResult last_match;
 		r32 time_scale;
+		MatchResult last_match;
+		AssetID last_level;
 		b8 story_mode;
 
 		Session();
@@ -121,7 +122,7 @@ struct Game
 
 	struct Save
 	{
-		r64 terminal_last_opened;
+		r64 timestamp;
 		Array<Message> messages;
 		Array<Message> messages_scheduled;
 		std::unordered_map<AssetID, AssetID> variables; // todo: kill STL

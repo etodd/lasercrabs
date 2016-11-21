@@ -431,8 +431,6 @@ void render_spot_lights(const RenderParams& render_params, s32 fbo, RenderBlendM
 void draw_edges(const RenderParams& render_params)
 {
 	RenderSync* sync = render_params.sync;
-	sync->write(RenderOp::CullMode);
-	sync->write(RenderCullMode::None);
 	sync->write(RenderOp::FillMode);
 	sync->write(RenderFillMode::Line);
 
@@ -605,7 +603,10 @@ void draw(LoopSync* sync, const Camera* camera)
 				pos = Vec3((s32)(pos.x / interval), (s32)(pos.y / interval), (s32)(pos.z / interval)) * interval;
 				shadow_camera.pos = pos + (abs_directions[0] * size * -0.5f);
 				shadow_camera.rot = Quat::look(abs_directions[0]);
-				shadow_camera.mask = RENDER_MASK_SHADOW;
+				if (render_params.camera->mask == 0)
+					shadow_camera.mask = 0;
+				else
+					shadow_camera.mask = RENDER_MASK_SHADOW;
 
 				if (draw_far_shadow_cascade || Camera::active_count() > 1) // only draw far shadow cascade every other frame, if we can
 				{

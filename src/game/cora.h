@@ -18,6 +18,7 @@ namespace Cora
 
 	void global_init();
 	void init();
+	void cleanup();
 	void variable(AssetID, AssetID);
 	AssetID variable(AssetID);
 	void clear();

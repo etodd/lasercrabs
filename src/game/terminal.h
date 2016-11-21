@@ -24,6 +24,7 @@ void conversation_finished();
 void clear();
 void execute(const char*);
 b8 active();
+void message_add(AssetID, AssetID, r64 = -1.0);
 
 }
 

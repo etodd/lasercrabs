@@ -384,6 +384,7 @@ r32 EnergyPickup::power_particle_timer;
 r32 EnergyPickup::particle_accumulator;
 void EnergyPickup::update_all(const Update& u)
 {
+	if (!Terminal::active())
 	{
 		// normal particles
 		const r32 interval = 0.1f;
@@ -408,7 +409,7 @@ void EnergyPickup::update_all(const Update& u)
 	// power particles
 	const r32 particle_interval = 0.1f;
 	const r32 particle_reset = 2.0f;
-	b8 emit_particles = (s32)(power_particle_timer / particle_interval) < (s32)((power_particle_timer + u.time.delta) / particle_interval);
+	b8 emit_particles = !Terminal::active() && (s32)(power_particle_timer / particle_interval) < (s32)((power_particle_timer + u.time.delta) / particle_interval);
 	power_particle_timer += u.time.delta;
 	while (power_particle_timer > particle_reset)
 		power_particle_timer -= particle_reset;

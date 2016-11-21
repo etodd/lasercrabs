@@ -11,7 +11,7 @@ namespace VI
 #define ATTRIB_COUNT 5
 #define MAX_VERTICES (MAX_PARTICLES * vertices_per_particle)
 
-StaticArray<ParticleSystem*, ParticleSystem::MAX_PARTICLE_SYSTEMS> ParticleSystem::all;
+StaticArray<ParticleSystem*, ParticleSystem::MAX_PARTICLE_SYSTEMS> ParticleSystem::list;
 
 ParticleSystem::ParticleSystem(s32 vertices_per_particle, s32 indices_per_particle, r32 lifetime, AssetID shader, AssetID texture)
 	: lifetime(lifetime),
@@ -24,7 +24,7 @@ ParticleSystem::ParticleSystem(s32 vertices_per_particle, s32 indices_per_partic
 	births(MAX_VERTICES, MAX_VERTICES),
 	params(MAX_VERTICES, MAX_VERTICES)
 {
-	all.add(this);
+	list.add(this);
 }
 
 void ParticleSystem::init(LoopSync* sync)

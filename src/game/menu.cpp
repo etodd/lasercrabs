@@ -264,7 +264,13 @@ void title_menu(const Update& u, s8 gamepad, UIMenu* menu, State* state)
 			{
 				Game::save = Game::Save();
 				Game::session.reset();
-				Game::schedule_load_level(Asset::Level::terminal, Game::Mode::Special);
+				Terminal::message_add(strings::contact_ivory, strings::msg_ivory_intro, platform::timestamp() - (86400.0 * 1.9));
+				Terminal::message_add(strings::contact_aldus, strings::msg_aldus_intro, platform::timestamp() - (86400.0 * 1.6));
+				Game::save.resources[(s32)Game::Resource::HackKits] = 1;
+				Game::save.resources[(s32)Game::Resource::Drones] = 4;
+				Game::save.resources[(s32)Game::Resource::Energy] = (s16)(CREDITS_INITIAL * 3.5f);
+				Game::save.zones[Asset::Level::Safe_Zone] = Game::ZoneState::Locked;
+				Game::schedule_load_level(Asset::Level::Safe_Zone, Game::Mode::Parkour);
 				return;
 			}
 			if (menu->item(u, _(strings::splitscreen)))
@@ -328,7 +334,7 @@ void pause_menu(const Update& u, s8 gamepad, UIMenu* menu, State* state)
 			}
 			if (menu->item(u, _(strings::quit)))
 			{
-				if (Game::level.id == Asset::Level::terminal)
+				if (Game::session.story_mode)
 					dialog(gamepad, &quit_to_title, _(strings::confirm_quit));
 				else
 					dialog(gamepad, &quit_to_terminal, _(strings::confirm_quit));
@@ -406,7 +412,7 @@ void update(const Update& u)
 
 	if (Game::level.id == Asset::Level::title)
 		title_menu(u, 0, &main_menu, &main_menu_state);
-	else if (Game::level.mode == Game::Mode::Special)
+	else if (Terminal::active())
 	{
 		// do pause menu
 		if (main_menu_state == State::Visible
@@ -420,9 +426,7 @@ void update(const Update& u)
 			main_menu.clear();
 		}
 		else
-		{
 			pause_menu(u, 0, &main_menu, &main_menu_state);
-		}
 	}
 }
 

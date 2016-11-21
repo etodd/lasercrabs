@@ -81,7 +81,8 @@ Game::Session::Session()
 #endif
 	story_mode(true),
 	time_scale(1.0f),
-	last_match()
+	last_match(),
+	last_level(AssetNull)
 {
 	for (s32 i = 0; i < MAX_PLAYERS; i++)
 		local_player_uuids[i] = mersenne::rand_u64();
@@ -229,8 +230,8 @@ b8 Game::init(LoopSync* sync)
 
 	Menu::init();
 
-	for (s32 i = 0; i < ParticleSystem::all.length; i++)
-		ParticleSystem::all[i]->init(sync);
+	for (s32 i = 0; i < ParticleSystem::list.length; i++)
+		ParticleSystem::list[i]->init(sync);
 
 	UI::init(sync);
 
@@ -250,7 +251,7 @@ void Game::update(const Update& update_in)
 #if SERVER
 	update_game = Net::Server::mode() == Net::Server::Mode::Active;
 #else
-	update_game = level.local || Net::Client::mode() == Net::Client::Mode::Connected;
+	update_game = !Terminal::active() && (level.local || Net::Client::mode() == Net::Client::Mode::Connected);
 #endif
 
 	real_time = update_in.time;
@@ -480,7 +481,6 @@ void Game::draw_alpha(const RenderParams& render_params)
 	if (render_params.camera->fog)
 		Skybox::draw_alpha(render_params);
 	SkyDecal::draw_alpha(render_params);
-	Rope::draw_alpha(render_params);
 
 #if DEBUG_NAV_MESH
 	AI::debug_draw_nav_mesh(render_params);
@@ -657,11 +657,11 @@ void Game::draw_alpha(const RenderParams& render_params)
 	for (auto i = PlayerHuman::list.iterator(); !i.is_last(); i.next())
 		i.item()->draw_alpha(render_params);
 
-	Terminal::draw_ui(render_params);
-	Menu::draw(render_params);
-
 	for (s32 i = 0; i < draws.length; i++)
 		(*draws[i])(render_params);
+
+	Terminal::draw_ui(render_params);
+	Menu::draw(render_params);
 
 	Console::draw(render_params);
 }
@@ -680,8 +680,13 @@ void Game::draw_hollow(const RenderParams& render_params)
 
 void Game::draw_particles(const RenderParams& render_params)
 {
-	for (s32 i = 0; i < ParticleSystem::all.length; i++)
-		ParticleSystem::all[i]->draw(render_params);
+	if (render_params.camera->mask)
+		Rope::draw_alpha(render_params);
+
+	render_params.sync->write(RenderOp::CullMode);
+	render_params.sync->write(RenderCullMode::None);
+	for (s32 i = 0; i < ParticleSystem::list.length; i++)
+		ParticleSystem::list[i]->draw(render_params);
 }
 
 void Game::draw_additive(const RenderParams& render_params)
@@ -842,10 +847,10 @@ void Game::execute(const Update& u, const char* cmd)
 		Net::Client::connect(host, 3494);
 #endif
 	}
-	else if (level.id == Asset::Level::terminal)
-		Terminal::execute(cmd);
 	else if (strcmp(cmd, "skip") == 0)
 		Game::time.total = PLAYER_SPAWN_DELAY + GAME_BUY_PERIOD;
+	else if (Terminal::active())
+		Terminal::execute(cmd);
 }
 
 void Game::schedule_load_level(AssetID level_id, Mode m)
@@ -857,6 +862,7 @@ void Game::schedule_load_level(AssetID level_id, Mode m)
 void Game::unload_level()
 {
 	Terminal::clear();
+	Cora::cleanup();
 	for (s32 i = 0; i < MAX_GAMEPADS; i++)
 		Audio::listener_disable(i);
 
@@ -865,8 +871,8 @@ void Game::unload_level()
 	// PlayerAI is not part of the entity system
 	PlayerAI::list.clear();
 
-	for (s32 i = 0; i < ParticleSystem::all.length; i++)
-		ParticleSystem::all[i]->clear();
+	for (s32 i = 0; i < ParticleSystem::list.length; i++)
+		ParticleSystem::list[i]->clear();
 
 	Loader::transients_free();
 	updates.length = 0;
@@ -884,7 +890,7 @@ void Game::unload_level()
 	level.skybox.player_light = Vec3::zero;
 
 	Audio::post_global_event(AK::EVENTS::STOP_ALL);
-	level.id = AssetNull;
+
 	Menu::clear();
 
 	for (s32 i = 0; i < Camera::max_cameras; i++)
@@ -895,6 +901,9 @@ void Game::unload_level()
 
 	time.total = 0;
 	Net::reset();
+
+	session.last_level = level.id;
+	level.id = AssetNull;
 }
 
 Entity* EntityFinder::find(const char* name) const
@@ -929,6 +938,8 @@ AI::Team team_lookup(const AI::Team* table, s32 i)
 
 void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 {
+	unload_level();
+
 	time.total = 0.0f;
 
 	Menu::clear();
@@ -937,8 +948,6 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 	level.local = true;
 
 	scheduled_load_level = AssetNull;
-
-	unload_level();
 
 	Audio::post_global_event(AK::EVENTS::PLAY_START_SESSION);
 
@@ -1168,11 +1177,10 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 		{
 			if (session.story_mode)
 			{
-				AI::Team team = team_lookup(level.team_lookup, Json::get_s32(element, "team", 1));
+				// starts out owned by player if the zone is friendly
+				s32 default_team_index = Game::save.zones[Game::level.id] == Game::ZoneState::Friendly ? 0 : 1;
+				AI::Team team = team_lookup(level.team_lookup, Json::get_s32(element, "team", default_team_index));
 				entity = World::alloc<Minion>(absolute_pos, absolute_rot, team);
-				s32 health = Json::get_s32(element, "health");
-				if (health)
-					entity->get<Health>()->hp = health;
 			}
 		}
 		else if (cJSON_GetObjectItem(element, "PlayerSpawn"))
@@ -1246,7 +1254,11 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 			{
 				AI::Team team;
 				if (session.story_mode)
-					team = team_lookup(level.team_lookup, Json::get_s32(element, "team", 1));
+				{
+					// starts out owned by player if the zone is friendly
+					s32 default_team_index = Game::save.zones[Game::level.id] == Game::ZoneState::Friendly ? 0 : 1;
+					team = team_lookup(level.team_lookup, Json::get_s32(element, "team", default_team_index));
+				}
 				else
 					team = AI::TeamNone;
 				entity = World::alloc<EnergyPickupEntity>(absolute_pos, team);
@@ -1525,13 +1537,13 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 	for (auto i = Team::list.iterator(); !i.is_last(); i.next())
 		Net::finalize(i.item()->entity());
 
+	Cora::init();
+	Cora::conversation_finished().link(&Terminal::conversation_finished);
+
 	for (s32 i = 0; i < scripts.length; i++)
 		scripts[i]->function(u, finder);
 
 	Loader::level_free(json);
-
-	Cora::init();
-	Cora::conversation_finished().link(&Terminal::conversation_finished);
 }
 
 }

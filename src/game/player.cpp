@@ -2320,6 +2320,14 @@ void PlayerControlHuman::update(const Update& u)
 		if (local())
 		{
 			update_camera_input(u);
+
+			if (input_enabled() && u.last_input->get(Controls::Scoreboard, gamepad) && !u.input->get(Controls::Scoreboard, gamepad))
+			{
+				if (Game::save.zones[Game::level.id] == Game::ZoneState::Friendly)
+					Terminal::show(player.ref()->camera);
+				else
+					player.ref()->msg(_(strings::error_hostile_zone), false);
+			}
 		
 			Vec3 movement = get_movement(u, Quat::euler(0, get<PlayerCommon>()->angle_horizontal, 0));
 			Vec2 dir = Vec2(movement.x, movement.z);
@@ -2477,6 +2485,7 @@ void PlayerControlHuman::update(const Update& u)
 			}
 
 			// camera setup
+			if (!Terminal::active())
 			{
 				Camera* camera = player.ref()->camera;
 				r32 aspect = camera->viewport.size.y == 0 ? 1 : (r32)camera->viewport.size.x / (r32)camera->viewport.size.y;
@@ -2542,6 +2551,7 @@ void PlayerControlHuman::draw(const RenderParams& p) const
 {
 	if (p.technique != RenderTechnique::Default
 		|| p.camera != player.ref()->camera
+		|| Terminal::active()
 		|| p.camera->cull_range <= 0.0f
 		|| !get<Transform>()->parent.ref())
 		return;
@@ -2561,6 +2571,7 @@ void PlayerControlHuman::draw_alpha(const RenderParams& params) const
 {
 	if (params.technique != RenderTechnique::Default
 		|| params.camera != player.ref()->camera
+		|| Terminal::active()
 		|| Team::game_over)
 		return;
 
@@ -2571,42 +2582,40 @@ void PlayerControlHuman::draw_alpha(const RenderParams& params) const
 	AI::Team team = get<AIAgent>()->team;
 
 	// target indicators
+	for (s32 i = 0; i < target_indicators.length; i++)
 	{
-		for (s32 i = 0; i < target_indicators.length; i++)
+		const TargetIndicator& indicator = target_indicators[i];
+		switch (indicator.type)
 		{
-			const TargetIndicator& indicator = target_indicators[i];
-			switch (indicator.type)
+			case TargetIndicator::Type::AwkVisible:
 			{
-				case TargetIndicator::Type::AwkVisible:
+				UI::indicator(params, indicator.pos, UI::color_alert, false);
+				break;
+			}
+			case TargetIndicator::Type::AwkTracking:
+			{
+				UI::indicator(params, indicator.pos, UI::color_alert, true);
+				break;
+			}
+			case TargetIndicator::Type::Energy:
+			{
+				UI::indicator(params, indicator.pos, UI::color_accent, true, 1.0f, PI);
+				break;
+			}
+			case TargetIndicator::Type::Minion:
+			{
+				UI::indicator(params, indicator.pos, UI::color_alert, true);
+				break;
+			}
+			case TargetIndicator::Type::MinionAttacking:
+			{
+				if (UI::flash_function(Game::real_time.total))
 				{
-					UI::indicator(params, indicator.pos, UI::color_alert, false);
-					break;
-				}
-				case TargetIndicator::Type::AwkTracking:
-				{
+					if (!UI::flash_function(Game::real_time.total - Game::real_time.delta))
+						Audio::post_global_event(AK::EVENTS::PLAY_BEEP_BAD);
 					UI::indicator(params, indicator.pos, UI::color_alert, true);
-					break;
 				}
-				case TargetIndicator::Type::Energy:
-				{
-					UI::indicator(params, indicator.pos, UI::color_accent, true, 1.0f, PI);
-					break;
-				}
-				case TargetIndicator::Type::Minion:
-				{
-					UI::indicator(params, indicator.pos, UI::color_alert, true);
-					break;
-				}
-				case TargetIndicator::Type::MinionAttacking:
-				{
-					if (UI::flash_function(Game::real_time.total))
-					{
-						if (!UI::flash_function(Game::real_time.total - Game::real_time.delta))
-							Audio::post_global_event(AK::EVENTS::PLAY_BEEP_BAD);
-						UI::indicator(params, indicator.pos, UI::color_alert, true);
-					}
-					break;
-				}
+				break;
 			}
 		}
 	}

@@ -223,7 +223,6 @@ namespace tutorial
 		ai_manager->spawn.link(&ai_spawned);
 		data->test_dummy = ai_manager;
 
-		Cora::init(); // have to init manually since Cora normally isn't loaded in PvP mode
 		Cora::text_schedule(PLAYER_SPAWN_DELAY + 1.0f, _(strings::tut_start));
 	}
 }

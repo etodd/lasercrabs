@@ -26,7 +26,7 @@ namespace VI
 #define WALK_SPEED 2.25f
 #define MAX_SPEED 7.0f
 #define MIN_WALLRUN_SPEED 3.0f
-#define MIN_ATTACK_SPEED 4.4f
+#define MIN_ATTACK_SPEED 4.6f
 #define JUMP_SPEED 5.0f
 
 #define JUMP_GRACE_PERIOD 0.3f
@@ -402,7 +402,7 @@ void Parkour::update(const Update& u)
 	else if (fsm.current == State::Slide || fsm.current == State::Roll)
 	{
 		// check how fast we're going
-		Vec3 support_velocity = get_support_velocity(relative_support_pos, last_support.ref()->btBody);
+		Vec3 support_velocity = get_support_velocity(relative_support_pos, last_support.ref() ? last_support.ref()->btBody : nullptr);
 		Vec3 velocity = get<RigidBody>()->btBody->getLinearVelocity();
 		Vec3 relative_velocity = velocity - support_velocity;
 		Vec3 forward = Quat::euler(0, get<Walker>()->rotation, 0) * Vec3(0, 0, 1);
@@ -417,8 +417,6 @@ void Parkour::update(const Update& u)
 		else
 		{
 			// keep sliding/rolling
-			Transform* last_support_transform = last_support.ref()->get<Transform>();
-
 			if (fsm.current == State::Slide) // do damping
 				relative_velocity -= Vec3::normalize(relative_velocity) * u.time.delta * 3.0f;
 
@@ -433,6 +431,8 @@ void Parkour::update(const Update& u)
 					relative_wall_run_normal = last_support.ref()->get<Transform>()->to_local_normal(support_callback.m_hitNormalWorld);
 					last_support_time = Game::time.total;
 				}
+
+				Transform* last_support_transform = last_support.ref()->get<Transform>();
 
 				Vec3 base_pos = get<Transform>()->absolute_pos();
 				r32 base_offset = get<Walker>()->capsule_height() * 0.5f; // don't include support_height

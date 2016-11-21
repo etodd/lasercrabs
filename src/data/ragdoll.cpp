@@ -89,19 +89,19 @@ void Ragdoll::awake()
 		{
 			case BodyEntry::Type::Box:
 			{
-				entity = World::create<PhysicsEntity>(AssetNull, pos, rot, RigidBody::Type::Box, size, mass, CollisionTarget, btBroadphaseProxy::AllFilter);
+				entity = World::create<PhysicsEntity>(AssetNull, pos, rot, RigidBody::Type::Box, size, mass, CollisionWalker, btBroadphaseProxy::AllFilter);
 				break;
 			}
 			case BodyEntry::Type::Capsule:
 			{
 				r32 radius = vi_max(size.y, size.z);
-				entity = World::create<PhysicsEntity>(AssetNull, pos, rot, RigidBody::Type::CapsuleX, Vec3(radius, size.x * 2.0f - radius * 2.0f, 0), mass, CollisionTarget, btBroadphaseProxy::AllFilter);
+				entity = World::create<PhysicsEntity>(AssetNull, pos, rot, RigidBody::Type::CapsuleX, Vec3(radius, size.x * 2.0f - radius * 2.0f, 0), mass, CollisionWalker, btBroadphaseProxy::AllFilter);
 				break;
 			}
 			case BodyEntry::Type::Sphere:
 			{
 				r32 radius = vi_max(size.x, vi_max(size.y, size.z));
-				entity = World::create<PhysicsEntity>(AssetNull, pos, rot, RigidBody::Type::Sphere, Vec3(radius), mass, CollisionTarget, btBroadphaseProxy::AllFilter);
+				entity = World::create<PhysicsEntity>(AssetNull, pos, rot, RigidBody::Type::Sphere, Vec3(radius), mass, CollisionWalker, btBroadphaseProxy::AllFilter);
 				break;
 			}
 			default:

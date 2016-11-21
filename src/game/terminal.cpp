@@ -51,6 +51,7 @@ namespace Terminal
 #define BUY_TIME 1.0f
 #define DEPLOY_COST_DRONES 1
 #define AUTO_CAPTURE_TIME 30.0f
+#define TRANSITION_TIME 1.0f
 #define ZONE_MAX_CHILDREN 12
 #define EVENT_INTERVAL_PER_ZONE (60.0f * 45.0f)
 #define EVENT_ODDS_PER_ZONE (1.0f / EVENT_INTERVAL_PER_ZONE) // an event will happen on average every X minutes per zone you own
@@ -164,8 +165,8 @@ struct Data
 	struct StoryMode
 	{
 		r64 timestamp_last;
-		Tab tab = Tab::Map;
-		Tab tab_previous = Tab::Messages;
+		Tab tab;
+		Tab tab_previous;
 		r32 tab_timer;
 		r32 mode_transition_time;
 		Messages messages;
@@ -186,12 +187,14 @@ struct Data
 	Vec3 camera_pos;
 	r32 timer_deploy;
 	r32 timer_deploy_animation;
+	r32 timer_transition;
 	State state;
 	StoryMode story;
 	AssetID zone_selected = AssetNull;
 	Vec3 camera_offset_pos;
 	Quat camera_offset_rot;
 	b8 active;
+	b8 active_next;
 };
 
 Data data = Data();
@@ -230,7 +233,7 @@ Game::Message* message_get(AssetID msg)
 	return nullptr;
 }
 
-void message_add(AssetID contact, AssetID text, r64 timestamp = -1.0)
+void message_add(AssetID contact, AssetID text, r64 timestamp)
 {
 	if (message_get(text))
 		return; // already sent
@@ -487,7 +490,7 @@ const ZoneNode* zone_node_get(AssetID id)
 {
 	for (s32 i = 0; i < data.zones.length; i++)
 	{
-		if (data.zones[i].id == data.zone_selected)
+		if (data.zones[i].id == id)
 			return &data.zones[i];
 	}
 	return nullptr;
@@ -680,14 +683,7 @@ Vec3 zone_color(const ZoneNode& zone)
 
 const Vec4& zone_ui_color(const ZoneNode& zone)
 {
-	if (!Game::session.story_mode)
-	{
-		if (splitscreen_team_count() <= zone.max_teams)
-			return Team::ui_color_friend;
-		else
-			return UI::color_disabled;
-	}
-	else
+	if (Game::session.story_mode)
 	{
 		Game::ZoneState zone_state = Game::save.zones[zone.id];
 		switch (zone_state)
@@ -718,6 +714,13 @@ const Vec4& zone_ui_color(const ZoneNode& zone)
 				return UI::color_default;
 			}
 		}
+	}
+	else
+	{
+		if (splitscreen_team_count() <= zone.max_teams)
+			return Team::ui_color_friend;
+		else
+			return UI::color_disabled;
 	}
 }
 
@@ -807,6 +810,15 @@ void zones_draw_override(const RenderParams& params)
 // returns current zone node
 const ZoneNode* zones_draw(const RenderParams& params)
 {
+	if (Game::session.story_mode)
+	{
+		// "you are here"
+		const ZoneNode* current_zone = zone_node_get(Game::level.id);
+		Vec2 p;
+		if (current_zone && UI::project(params, current_zone->pos(), &p))
+			UI::triangle(params, { p, Vec2(16.0f * UI::scale) }, UI::color_accent, PI);
+	}
+
 	// highlight zone locations
 	const ZoneNode* zone = zone_node_get(data.zone_selected);
 
@@ -816,7 +828,9 @@ const ZoneNode* zones_draw(const RenderParams& params)
 		Vec2 p;
 		if (UI::project(params, zone->pos(), &p))
 		{
-			if (!Game::session.story_mode)
+			if (Game::session.story_mode)
+				UI::triangle_border(params, { p, Vec2(32.0f * UI::scale) }, BORDER * 2.0f, UI::color_accent, PI);
+			else
 			{
 				UIText text;
 				text.color = zone_ui_color(*zone);
@@ -826,8 +840,6 @@ const ZoneNode* zones_draw(const RenderParams& params)
 				UI::box(params, text.rect(p).outset(8.0f * UI::scale), UI::color_background);
 				text.draw(params, p);
 			}
-			else
-				UI::triangle_border(params, { p, Vec2(32.0f * UI::scale) }, BORDER * 2.0f, UI::color_accent);
 		}
 	}
 
@@ -902,13 +914,15 @@ void deploy_draw(const RenderParams& params)
 	const ZoneNode* current_zone = zones_draw(params);
 
 	// show "loading..."
-	Menu::progress_infinite(params, _(Game::session.story_mode ? strings::connecting : strings::loading), params.camera->viewport.size * Vec2(0.5f, 0.2f));
+	Menu::progress_infinite(params, _(strings::deploying), params.camera->viewport.size * Vec2(0.5f, 0.2f));
 }
 
 b8 can_switch_tab()
 {
 	const Data::StoryMode& story = data.story;
-	return story.map.timer_hack == 0.0f
+	return data.active
+		&& data.timer_transition == 0.0f
+		&& story.map.timer_hack == 0.0f
 		&& story.map.timer_capture == story.map.timer_capture_total
 		&& story.inventory.timer_buy == 0.0f
 		&& !Menu::dialog_callback[0]
@@ -1681,8 +1695,6 @@ void zone_randomize(r32 elapsed_time, s32 flags = ZoneRandomizeDefault)
 		zone_states_update();
 }
 
-#define STORY_MODE_INIT_TIME 2.0f
-
 void story_mode_update(const Update& u)
 {
 	// energy increment
@@ -1693,7 +1705,7 @@ void story_mode_update(const Update& u)
 		data.story.timestamp_last = t;
 	}
 
-	if (UIMenu::active[0] || Game::time.total < STORY_MODE_INIT_TIME)
+	if (UIMenu::active[0])
 		return;
 
 	data.story.tab_timer += u.time.delta;
@@ -2373,12 +2385,6 @@ void story_mode_draw(const RenderParams& p)
 	if (Menu::main_menu_state != Menu::State::Hidden)
 		return;
 
-	if (Game::time.total < STORY_MODE_INIT_TIME)
-	{
-		Menu::progress_infinite(p, _(strings::connecting), p.camera->viewport.size * Vec2(0.5f, 0.2f));
-		return;
-	}
-
 	const Rect2& vp = p.camera->viewport;
 
 	const Vec2 main_view_size = MAIN_VIEW_SIZE;
@@ -2470,10 +2476,19 @@ void splitscreen_select_zone_update(const Update& u)
 	}
 }
 
+void hide()
+{
+	if (data.timer_transition == 0.0f)
+	{
+		data.timer_transition = TRANSITION_TIME;
+		data.active_next = false;
+	}
+}
+
 r32 particle_accumulator = 0.0f;
 void update(const Update& u)
 {
-	if (!data.active && Game::level.id == Asset::Level::terminal)
+	if (Game::level.id == Asset::Level::terminal && Game::scheduled_load_level == AssetNull && !data.active && !data.active_next)
 	{
 		Camera* c = Camera::add();
 		c->viewport =
@@ -2483,7 +2498,53 @@ void update(const Update& u)
 		};
 		r32 aspect = c->viewport.size.y == 0 ? 1 : (r32)c->viewport.size.x / (r32)c->viewport.size.y;
 		c->perspective((80.0f * PI * 0.5f / 180.0f), aspect, 0.1f, Game::level.skybox.far_plane);
+		data.timer_transition = 0.0f;
 		show(c);
+		data.timer_transition = TRANSITION_TIME * 0.5f;
+	}
+
+	if (data.timer_transition > 0.0f)
+	{
+		r32 old_timer = data.timer_transition;
+		data.timer_transition = vi_max(0.0f, data.timer_transition - u.time.delta);
+		if (data.timer_transition < TRANSITION_TIME * 0.5f && old_timer >= TRANSITION_TIME * 0.5f)
+		{
+			if (data.active_next)
+			{
+				// showing
+				for (s32 i = 0; i < ParticleSystem::list.length; i++)
+					ParticleSystem::list[i]->clear();
+				data.active = true;
+				if (Game::session.story_mode)
+					data.zone_selected = Game::level.id;
+				else
+				{
+					data.zone_selected = (Game::session.last_level == Asset::Level::terminal || Game::session.last_level == Asset::Level::title)
+						? Asset::Level::Medias_Res
+						: Game::session.last_level;
+				}
+				data.story.tab = Tab::Map;
+				data.story.tab_previous = Tab::Messages;
+				data.story.tab_timer = 0.0f;
+				data.camera_restore_data = *data.camera;
+				data.camera->colors = false;
+				data.camera->mask = 0;
+				data.timer_deploy = data.timer_deploy_animation = 0.0f;
+				data.camera_pos = data.story.camera_messages_pos;
+				data.camera_rot = data.story.camera_messages_rot;
+				if (Game::session.story_mode)
+					data.state = State::StoryMode;
+				else if (Game::session.local_player_count() > 1)
+					data.state = State::SplitscreenSelectZone;
+				else
+					data.state = State::SplitscreenSelectTeams;
+			}
+			else
+			{
+				// hiding
+				clear();
+			}
+		}
 	}
 
 	if (data.active && !Console::visible)
@@ -2550,17 +2611,24 @@ void update(const Update& u)
 			}
 		}
 
-		// pause
-		if (!Game::cancel_event_eaten[0]
-			&& ((u.last_input->get(Controls::Cancel, 0) && !u.input->get(Controls::Cancel, 0))
-				|| (u.last_input->get(Controls::Pause, 0) && !u.input->get(Controls::Pause, 0))))
-		{
-			Game::cancel_event_eaten[0] = true;
-			Menu::show();
-		}
-
 		data.camera->pos = data.camera_pos;
 		data.camera->rot = data.camera_rot;
+
+		// pause
+		if (!Game::cancel_event_eaten[0])
+		{
+			if (Game::session.story_mode && (u.last_input->get(Controls::Cancel, 0) && !u.input->get(Controls::Cancel, 0))
+				|| (u.input->get(Controls::Scoreboard, 0) && !u.last_input->get(Controls::Scoreboard, 0)))
+			{
+				Game::cancel_event_eaten[0] = true;
+				hide();
+			}
+			else if (u.last_input->get(Controls::Pause, 0) && !u.input->get(Controls::Pause, 0))
+			{
+				Game::cancel_event_eaten[0] = true;
+				Menu::show();
+			}
+		}
 	}
 }
 
@@ -2604,7 +2672,20 @@ void draw_override(const RenderParams& params)
 
 void draw_ui(const RenderParams& params)
 {
-	if (params.camera != data.camera || !data.active)
+	if (data.timer_transition > 0.0f)
+	{
+		const Rect2& vp = params.camera->viewport;
+		r32 blend = data.timer_transition > TRANSITION_TIME * 0.5f
+			? Ease::cubic_out<r32>(1.0f - (data.timer_transition - (TRANSITION_TIME * 0.5f)) / (TRANSITION_TIME * 0.5f))
+			: Ease::cubic_in<r32>(data.timer_transition / (TRANSITION_TIME * 0.5f));
+		r32 size = vp.size.y * 0.5f * blend;
+		UI::box(params, { vp.pos, Vec2(vp.size.x, size) }, UI::color_background);
+		UI::box(params, { vp.pos + Vec2(0, vp.size.y - size), Vec2(vp.size.x, size) }, UI::color_background);
+		if (!data.active_next)
+			return; // don't draw UI if we're closing
+	}
+
+	if (!data.active || params.camera != data.camera)
 		return;
 
 	switch (data.state)
@@ -2640,11 +2721,12 @@ void draw_ui(const RenderParams& params)
 
 void show(Camera* camera)
 {
-	data.active = true;
-	data.camera = camera;
-	data.camera_restore_data = *camera;
-	data.camera->colors = false;
-	data.camera->mask = 0;
+	if (data.timer_transition == 0.0f)
+	{
+		data.camera = camera;
+		data.timer_transition = TRANSITION_TIME;
+		data.active_next = true;
+	}
 }
 
 b8 active()
@@ -2654,10 +2736,13 @@ b8 active()
 
 void clear()
 {
-	data.active = false;
 	if (data.camera)
+	{
 		memcpy(data.camera, &data.camera_restore_data, sizeof(Camera));
-	data.camera = nullptr;
+		data.camera = nullptr;
+	}
+	data.timer_transition = 0.0f;
+	data.active = data.active_next = false;
 }
 
 void execute(const char* cmd)
@@ -2694,8 +2779,6 @@ cJSON* find_entity(cJSON* level, const char* name)
 
 void init(cJSON* level)
 {
-	data.zone_selected = Game::session.story_mode ? Asset::Level::Safe_Zone : Asset::Level::Medias_Res;
-
 	{
 		cJSON* t = find_entity(level, "map_view");
 		data.camera_offset_pos = Json::get_vec3(t, "pos");
@@ -2708,9 +2791,6 @@ void init(cJSON* level)
 		t = find_entity(level, "camera_inventory");
 		data.story.camera_inventory_pos = Json::get_vec3(t, "pos");
 		data.story.camera_inventory_rot = Quat::look(Json::get_quat(t, "rot") * Vec3(0, -1, 0));
-
-		data.camera_pos = data.story.camera_messages_pos;
-		data.camera_rot = data.story.camera_messages_rot;
 	}
 
 	{
@@ -2808,20 +2888,9 @@ void init(cJSON* level)
 	{
 		data.state = State::StoryMode;
 
-		if (Game::save.messages.length == 0) // initial messages
-		{
-			message_add(strings::contact_ivory, strings::msg_ivory_intro, platform::timestamp() - (86400.0 * 1.9));
-			message_add(strings::contact_aldus, strings::msg_aldus_intro, platform::timestamp() - (86400.0 * 1.6));
-			Game::save.resources[(s32)Game::Resource::HackKits] = 1;
-			Game::save.resources[(s32)Game::Resource::Drones] = 4;
-			Game::save.resources[(s32)Game::Resource::Energy] = (s16)(CREDITS_INITIAL * 3.5f);
-			Game::save.zones[Asset::Level::Safe_Zone] = Game::ZoneState::Locked;
-		}
-
 		{
 			r64 t = platform::timestamp();
-			r64 elapsed_time = t - Game::save.terminal_last_opened;
-			Game::save.terminal_last_opened = t;
+			r64 elapsed_time = t - Game::save.timestamp;
 			data.story.timestamp_last = t;
 
 			// change zones while you're gone

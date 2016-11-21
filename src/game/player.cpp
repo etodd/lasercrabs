@@ -142,8 +142,7 @@ PlayerHuman::PlayerHuman(b8 local, s8 g)
 	upgrade_animation_time(),
 	score_summary_scroll(),
 	spectate_index(),
-	local(local),
-	last_supported()
+	local(local)
 {
 	if (local)
 		uuid = Game::session.local_player_uuids[gamepad];
@@ -376,35 +375,7 @@ void PlayerHuman::update(const Update& u)
 		}
 	}
 
-	if (entity && entity->has<Parkour>())
-	{
-		RigidBody* support = entity->get<Walker>()->support.ref();
-		if (support)
-		{
-			Vec3 relative_position = support->get<Transform>()->to_local(entity->get<Transform>()->absolute_pos());
-			b8 record_support = false;
-			if (last_supported.length == 0)
-				record_support = true;
-			else
-			{
-				const SupportEntry& last_entry = last_supported[last_supported.length - 1];
-				if (last_entry.support.ref() != support || (last_entry.relative_position - relative_position).length_squared() > 2.0f * 2.0f)
-					record_support = true;
-			}
-
-			if (record_support)
-			{
-				if (last_supported.length == last_supported.capacity())
-					last_supported.remove_ordered(0);
-				SupportEntry* entry = last_supported.add();
-				entry->support = support;
-				entry->relative_position = relative_position;
-				entry->rotation = entity->get<Walker>()->target_rotation;
-			}
-		}
-	}
-
-	if (Console::visible)
+	if (Console::visible || Terminal::active())
 		return;
 
 	// flash message when the buy period expires
@@ -427,6 +398,7 @@ void PlayerHuman::update(const Update& u)
 	// close/open pause menu if needed
 	{
 		if (Game::time.total > 0.5f
+			&& camera->active
 			&& u.last_input->get(Controls::Pause, gamepad)
 			&& !u.input->get(Controls::Pause, gamepad)
 			&& !Game::cancel_event_eaten[gamepad]
@@ -615,36 +587,28 @@ void PlayerHuman::update(const Update& u)
 void PlayerHuman::spawn()
 {
 	Vec3 pos;
-	Quat rot;
-	get<PlayerManager>()->team.ref()->player_spawn.ref()->absolute(&pos, &rot);
-	Vec3 dir = rot * Vec3(0, 1, 0);
-	r32 angle = atan2f(dir.x, dir.z);
-
+	r32 angle;
 	Entity* spawned;
 
-	// todo: revamp spawn code to work with new combined parkour/pvp system
 	if (Game::level.mode == Game::Mode::Pvp)
 	{
-		// Spawn AWK
+		// spawn AWK
+		Quat rot;
+		get<PlayerManager>()->team.ref()->player_spawn.ref()->absolute(&pos, &rot);
+		Vec3 dir = rot * Vec3(0, 1, 0);
+		angle = atan2f(dir.x, dir.z);
+
 		pos += Quat::euler(0, angle + (gamepad * PI * 0.5f), 0) * Vec3(0, 0, CONTROL_POINT_RADIUS * 0.5f); // spawn it around the edges
 		spawned = World::create<AwkEntity>(get<PlayerManager>()->team.ref()->team());
 	}
 	else
 	{
-		// Spawn traceur
-		if (last_supported.length > 1) // don't spawn at the last supported location, but the one before that
-			last_supported.remove_ordered(last_supported.length - 1);
-		while (last_supported.length > 0) // try to spawn at last supported location
-		{
-			SupportEntry entry = last_supported[last_supported.length - 1];
-			last_supported.remove_ordered(last_supported.length - 1);
-			if (entry.support.ref())
-			{
-				pos = entry.support.ref()->get<Transform>()->to_world(entry.relative_position);
-				angle = entry.rotation;
-				break;
-			}
-		}
+		// spawn traceur
+		Quat rot;
+		get<PlayerManager>()->team.ref()->player_spawn.ref()->absolute(&pos, &rot);
+		Vec3 dir = rot * Vec3(0, 1, 0);
+		angle = atan2f(dir.x, dir.z);
+
 		spawned = World::create<Traceur>(pos + Vec3(0, 2, 0), Quat::euler(0, angle, 0), get<PlayerManager>()->team.ref()->team());
 	}
 
@@ -986,39 +950,42 @@ void PlayerHuman::draw_alpha(const RenderParams& params) const
 	}
 	else if (mode == UIMode::Dead)
 	{
-		// if we haven't spawned yet, then show the player list
-		if (get<PlayerManager>()->spawn_timer > 0.0f)
-			scoreboard_draw(params, get<PlayerManager>());
-		else
+		if (Game::level.mode == Game::Mode::Pvp)
 		{
-			// we're dead but others still playing; spectate
-
-			Entity* spectating = live_player_get(spectate_index);
-			if (spectating)
+			// if we haven't spawned yet, then show the player list
+			if (get<PlayerManager>()->spawn_timer > 0.0f)
+				scoreboard_draw(params, get<PlayerManager>());
+			else
 			{
-				UIText text;
-				text.size = text_size;
-				text.anchor_x = UIText::Anchor::Center;
-				text.anchor_y = UIText::Anchor::Max;
+				// we're dead but others still playing; spectate
 
-				// username
-				text.color = Team::ui_color(get<PlayerManager>()->team.ref()->team(), spectating->get<AIAgent>()->team);
-				text.text_raw(spectating->get<PlayerCommon>()->manager.ref()->username);
-				Vec2 pos = vp.size * Vec2(0.5f, 0.2f);
-				UI::box(params, text.rect(pos).outset(MENU_ITEM_PADDING), UI::color_background);
-				text.draw(params, pos);
+				Entity* spectating = live_player_get(spectate_index);
+				if (spectating)
+				{
+					UIText text;
+					text.size = text_size;
+					text.anchor_x = UIText::Anchor::Center;
+					text.anchor_y = UIText::Anchor::Max;
 
-				// "spectating"
-				text.color = UI::color_accent;
-				text.text(_(strings::spectating));
-				pos = vp.size * Vec2(0.5f, 0.1f);
-				UI::box(params, text.rect(pos).outset(MENU_ITEM_PADDING), UI::color_background);
-				text.draw(params, pos);
+					// username
+					text.color = Team::ui_color(get<PlayerManager>()->team.ref()->team(), spectating->get<AIAgent>()->team);
+					text.text_raw(spectating->get<PlayerCommon>()->manager.ref()->username);
+					Vec2 pos = vp.size * Vec2(0.5f, 0.2f);
+					UI::box(params, text.rect(pos).outset(MENU_ITEM_PADDING), UI::color_background);
+					text.draw(params, pos);
+
+					// "spectating"
+					text.color = UI::color_accent;
+					text.text(_(strings::spectating));
+					pos = vp.size * Vec2(0.5f, 0.1f);
+					UI::box(params, text.rect(pos).outset(MENU_ITEM_PADDING), UI::color_background);
+					text.draw(params, pos);
+				}
 			}
 		}
 	}
 
-	if (mode == UIMode::GameOver)
+	if (mode == UIMode::GameOver && Game::level.mode == Game::Mode::Pvp)
 	{
 		// show victory/defeat/draw message
 		UIText text;

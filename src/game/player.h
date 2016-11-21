@@ -44,7 +44,6 @@ struct PlayerHuman : public ComponentType<PlayerHuman>
 
 	u64 uuid;
 	Camera* camera;
-	StaticArray<SupportEntry, 4> last_supported;
 	UIMenu menu;
 	UIScroll score_summary_scroll;
 	UIText msg_text;

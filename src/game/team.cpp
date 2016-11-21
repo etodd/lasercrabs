@@ -929,21 +929,32 @@ void PlayerManager::update_all(const Update& u)
 
 void PlayerManager::update_server(const Update& u)
 {
-	if (!instance.ref()
-		&& spawn_timer > 0.0f
-		&& team.ref()->player_spawn.ref()
-		&& respawns != 0
-		&& !Team::game_over
-		&& Game::level.mode != Game::Mode::Special
-		&& !Game::level.continue_match_after_death)
+	if (Game::level.mode == Game::Mode::Pvp)
 	{
-		spawn_timer = vi_max(0.0f, spawn_timer - u.time.delta);
-		if (spawn_timer == 0.0f)
+		if (!instance.ref()
+			&& spawn_timer > 0.0f
+			&& team.ref()->player_spawn.ref()
+			&& respawns != 0
+			&& !Team::game_over
+			&& !Game::level.continue_match_after_death)
 		{
-			if (respawns != -1)
-				respawns--;
-			if (respawns != 0)
-				spawn_timer = PLAYER_SPAWN_DELAY;
+			spawn_timer = vi_max(0.0f, spawn_timer - u.time.delta);
+			if (spawn_timer == 0.0f)
+			{
+				if (respawns != -1)
+					respawns--;
+				if (respawns != 0)
+					spawn_timer = PLAYER_SPAWN_DELAY;
+				spawn.fire();
+			}
+		}
+	}
+	else if (Game::level.mode == Game::Mode::Parkour)
+	{
+		if (!instance.ref()
+			&& !Team::game_over
+			&& !Game::level.continue_match_after_death)
+		{
 			spawn.fire();
 		}
 	}

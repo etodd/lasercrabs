@@ -146,7 +146,7 @@ Game::Save::Save()
 	username("etodd"),
 	group(),
 	cora_called(),
-	last_level(AssetNull),
+	last_level(Asset::Level::title),
 	terminal_zone(AssetNull)
 {
 }
@@ -693,7 +693,7 @@ void Game::draw_alpha(const RenderParams& render_params)
 	Terminal::draw_ui(render_params);
 	Menu::draw(render_params);
 
-	if (schedule_timer > 0.0f)
+	if (schedule_timer > 0.0f && schedule_timer < TRANSITION_TIME)
 		Menu::draw_letterbox(render_params, schedule_timer, TRANSITION_TIME);
 
 	Console::draw(render_params);
@@ -888,11 +888,11 @@ void Game::execute(const Update& u, const char* cmd)
 		Terminal::execute(cmd);
 }
 
-void Game::schedule_load_level(AssetID level_id, Mode m)
+void Game::schedule_load_level(AssetID level_id, Mode m, r32 delay)
 {
 	scheduled_load_level = level_id;
 	scheduled_mode = m;
-	schedule_timer = TRANSITION_TIME;
+	schedule_timer = TRANSITION_TIME + delay;
 }
 
 void Game::unload_level()

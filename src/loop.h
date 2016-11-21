@@ -599,9 +599,10 @@ void draw(LoopSync* sync, const Camera* camera)
 				Camera shadow_camera;
 				r32 size = vi_min(800.0f, render_params.camera->far_plane * 1.5f);
 				Vec3 pos = render_params.camera->pos;
-				const r32 interval = size * 0.025f;
+				const r32 interval = 5.0f;
 				pos = Vec3((s32)(pos.x / interval), (s32)(pos.y / interval), (s32)(pos.z / interval)) * interval;
-				shadow_camera.pos = pos + (abs_directions[0] * size * -0.5f);
+				r32 depth = vi_min(400.0f, size * 2.0f);
+				shadow_camera.pos = pos + (abs_directions[0] * depth * -0.25f);
 				shadow_camera.rot = Quat::look(abs_directions[0]);
 				if (render_params.camera->mask == 0)
 					shadow_camera.mask = 0;
@@ -615,7 +616,7 @@ void draw(LoopSync* sync, const Camera* camera)
 						Vec2(0, 0),
 						Vec2(shadow_map_size[(s32)Settings::shadow_quality][1], shadow_map_size[(s32)Settings::shadow_quality][1]),
 					};
-					shadow_camera.orthographic(size, size, 1.0f, size * 2.0f);
+					shadow_camera.orthographic(size, size, 1.0f, depth);
 					far_shadow_cascade_camera = shadow_camera;
 					render_shadows(sync, shadow_fbo[1], *render_params.camera, shadow_camera);
 				}
@@ -631,7 +632,7 @@ void draw(LoopSync* sync, const Camera* camera)
 					Vec2(0, 0),
 					Vec2(shadow_map_size[(s32)Settings::shadow_quality][0], shadow_map_size[(s32)Settings::shadow_quality][0]),
 				};
-				shadow_camera.orthographic(size * 0.15f, size * 0.15f, 1.0f, size * 2.0f);
+				shadow_camera.orthographic(20.0f, 20.0f, 1.0f, depth);
 
 				render_shadows(sync, shadow_fbo[0], *render_params.camera, shadow_camera);
 				detail_light_vp = relative_shadow_vp(*render_params.camera, shadow_camera);

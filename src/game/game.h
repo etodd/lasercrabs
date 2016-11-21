@@ -177,7 +177,7 @@ struct Game
 	static b8 init(LoopSync*);
 	static void execute(const Update&, const char*);
 	static void update(const Update&);
-	static void schedule_load_level(AssetID, Mode);
+	static void schedule_load_level(AssetID, Mode, r32 = 0.0f);
 	static void unload_level();
 	static void load_level(const Update&, AssetID, Mode, b8 = false);
 	static void draw_opaque(const RenderParams&);

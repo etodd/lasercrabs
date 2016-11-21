@@ -83,6 +83,9 @@ namespace scene
 namespace title
 {
 	b8 first_show = true;
+	const r32 start_fov = 40.0f * PI * 0.5f / 180.0f;
+	const r32 end_fov = 70.0f * PI * 0.5f / 180.0f;
+	const r32 total_transition = TRANSITION_TIME + 0.5f;
 
 	struct Data
 	{
@@ -110,7 +113,10 @@ namespace title
 			{
 				Vec3 head_pos = Vec3::zero;
 				data->character.ref()->to_world(Asset::Bone::character_head, &head_pos);
-				data->camera->pos = Vec3::lerp(1.0f - ((data->transition_timer / TRANSITION_TIME) - 0.5f) * 2.0f, data->camera_start_pos, head_pos);
+				r32 blend = vi_min(1.0f, total_transition - data->transition_timer);
+				data->camera->pos = Vec3::lerp(blend, data->camera_start_pos, head_pos);
+				r32 aspect = data->camera->viewport.size.y == 0 ? 1 : (r32)data->camera->viewport.size.x / (r32)data->camera->viewport.size.y;
+				data->camera->perspective(LMath::lerpf(blend * 0.5f, start_fov, end_fov), aspect, 0.1f, Game::level.skybox.far_plane);
 			}
 			r32 old_timer = data->transition_timer;
 			data->transition_timer = vi_max(0.0f, data->transition_timer - Game::real_time.delta);
@@ -118,6 +124,7 @@ namespace title
 			{
 				data->camera->remove();
 				data->camera = nullptr;
+				World::remove(data->character.ref()->entity());
 				Game::level.mode = Game::Mode::Parkour;
 				for (auto i = PlayerHuman::list.iterator(); !i.is_last(); i.next())
 					i.item()->camera->active = true;
@@ -164,7 +171,7 @@ namespace title
 
 	void draw(const RenderParams& p)
 	{
-		if (data->transition_timer > 0.0f)
+		if (data->transition_timer > 0.0f && data->transition_timer < TRANSITION_TIME)
 			Menu::draw_letterbox(p, data->transition_timer, TRANSITION_TIME);
 	}
 
@@ -182,7 +189,7 @@ namespace title
 				Vec2(u.input->width, u.input->height),
 			};
 			r32 aspect = data->camera->viewport.size.y == 0 ? 1 : (r32)data->camera->viewport.size.x / (r32)data->camera->viewport.size.y;
-			data->camera->perspective((40.0f * PI * 0.5f / 180.0f), aspect, 0.1f, Game::level.skybox.far_plane);
+			data->camera->perspective(start_fov, aspect, 0.1f, Game::level.skybox.far_plane);
 
 			Quat rot;
 			entities.find("map_view")->get<Transform>()->absolute(&data->camera_start_pos, &rot);
@@ -198,6 +205,8 @@ namespace title
 			for (auto i = PlayerHuman::list.iterator(); !i.is_last(); i.next())
 				i.item()->camera->active = false;
 		}
+		else
+			World::remove(entities.find("character"));
 	}
 
 	void play()
@@ -209,9 +218,11 @@ namespace title
 		Game::save.resources[(s32)Game::Resource::HackKits] = 1;
 		Game::save.resources[(s32)Game::Resource::Drones] = 4;
 		Game::save.resources[(s32)Game::Resource::Energy] = (s16)(CREDITS_INITIAL * 3.5f);
-		Game::save.zones[Asset::Level::title] = Game::ZoneState::Locked;
-		Game::save.zones[Asset::Level::Safe_Zone] = Game::ZoneState::Locked;
-		data->transition_timer = TRANSITION_TIME;
+		Game::save.zones[Asset::Level::title] = Game::ZoneState::Friendly;
+		Game::save.zones[Asset::Level::Safe_Zone] = Game::ZoneState::Friendly;
+		data->transition_timer = total_transition;
+
+		Cora::text_schedule(total_transition + 1.0f, _(strings::tut_start));
 	}
 }
 

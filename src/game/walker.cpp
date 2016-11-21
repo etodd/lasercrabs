@@ -140,7 +140,7 @@ void Walker::update(const Update& u)
 	Vec3 pos = get<Transform>()->absolute_pos();
 	if (pos.y < Game::level.min_y)
 	{
-		World::remove_deferred(entity());
+		get<Health>()->kill(nullptr);
 		return;
 	}
 

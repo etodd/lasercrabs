@@ -14,6 +14,7 @@
 #include "minion.h"
 #include "render/particles.h"
 #include "mersenne/mersenne-twister.h"
+#include "team.h"
 
 namespace VI
 {
@@ -87,7 +88,9 @@ void Parkour::awake()
 
 void Parkour::killed(Entity*)
 {
+	Team::game_over = true;
 	World::remove_deferred(entity());
+	Game::schedule_load_level(Game::save.last_level, Game::Mode::Parkour, 2.0f);
 }
 
 void Parkour::land(r32 velocity_diff)

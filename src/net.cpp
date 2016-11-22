@@ -2027,9 +2027,12 @@ b8 init()
 
 	// todo: allow both multiplayer / story mode sessions
 	Game::session.story_mode = true;
+	state_server.mode = Mode::Loading;
 	Game::load_level(Update(), Asset::Level::Proci, Game::Mode::Pvp);
 	if (Game::session.story_mode)
 		state_server.mode = Mode::Active;
+	else
+		state_server.mode = Mode::Waiting;
 
 	return true;
 }
@@ -2161,24 +2164,37 @@ void update(const Update& u, r32 dt)
 #endif
 }
 
+void handle_client_disconnect(Client* c)
+{
+	for (s32 i = 0; i < c->players.length; i++)
+	{
+		PlayerHuman* player = c->players[i].ref();
+		if (player)
+		{
+			Entity* instance = player->get<PlayerManager>()->instance.ref();
+			if (instance)
+				World::remove_deferred(instance);
+			World::remove_deferred(player->entity());
+		}
+	}
+	state_server.clients.remove(c - &state_server.clients[0]);
+}
+
 void tick(const Update& u, r32 dt)
 {
 	// send out packets
 
 	StateFrame* frame = nullptr;
 
-	if (state_server.mode == Mode::Active)
+	msgs_out_consolidate(&state_common.msgs_out, &state_common.msgs_out_history, state_common.local_sequence_id);
+	for (s32 i = 0; i < state_server.clients.length; i++)
 	{
-		msgs_out_consolidate(&state_common.msgs_out, &state_common.msgs_out_history, state_common.local_sequence_id);
-		for (s32 i = 0; i < state_server.clients.length; i++)
-		{
-			Client* client = &state_server.clients[i];
-			if (!client->loading_done)
-				msgs_out_consolidate(&client->msgs_out_load, &client->msgs_out_load_history, state_common.local_sequence_id);
-		}
-		frame = state_frame_add(&state_common.state_history);
-		state_frame_build(frame);
+		Client* client = &state_server.clients[i];
+		if (!client->loading_done)
+			msgs_out_consolidate(&client->msgs_out_load, &client->msgs_out_load_history, state_common.local_sequence_id);
 	}
+	frame = state_frame_add(&state_common.state_history);
+	state_frame_build(frame);
 
 	StreamWrite p;
 	for (s32 i = 0; i < state_server.clients.length; i++)
@@ -2188,7 +2204,7 @@ void tick(const Update& u, r32 dt)
 		if (client->timeout > NET_TIMEOUT)
 		{
 			vi_debug("Client %s:%hd timed out.", Sock::host_to_str(client->address.host), client->address.port);
-			state_server.clients.remove(i);
+			handle_client_disconnect(client);
 			i--;
 		}
 		else
@@ -2199,8 +2215,7 @@ void tick(const Update& u, r32 dt)
 		}
 	}
 
-	if (state_server.mode == Mode::Active)
-		state_common.local_sequence_id = sequence_advance(state_common.local_sequence_id, 1);
+	state_common.local_sequence_id = sequence_advance(state_common.local_sequence_id, 1);
 }
 
 b8 client_connected(StreamRead* p, Client* client)
@@ -2310,7 +2325,7 @@ b8 packet_handle(const Update& u, StreamRead* p, const Sock::Address& address)
 				{
 					// we missed a packet that we'll never be able to recover
 					vi_debug("Client %s:%hd timed out.", Sock::host_to_str(client->address.host), client->address.port);
-					state_server.clients.remove(client_index);
+					handle_client_disconnect(client);
 					return false;
 				}
 			}
@@ -2373,7 +2388,7 @@ b8 packet_handle(const Update& u, StreamRead* p, const Sock::Address& address)
 				return false;
 			}
 			vi_debug("Client %s:%hd disconnected.", Sock::host_to_str(address.host), address.port);
-			state_server.clients.remove(client_index);
+			handle_client_disconnect(client);
 
 			break;
 		}
@@ -2975,7 +2990,7 @@ b8 init()
 b8 finalize(Entity* e)
 {
 #if SERVER
-	if (Server::state_server.mode == Server::Mode::Active)
+	if (Server::state_server.mode != Server::Mode::Loading)
 	{
 		using Stream = StreamWrite;
 		StreamWrite* p = msg_new(MessageType::EntityCreate);

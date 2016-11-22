@@ -116,6 +116,7 @@ namespace Server
 {
 	enum Mode
 	{
+		Loading,
 		Waiting,
 		Active,
 		count,

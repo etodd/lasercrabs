@@ -1267,7 +1267,7 @@ void Awk::reflect(Entity* entity, const Vec3& hit, const Vec3& normal, const Net
 		{
 			// store our reflection result and wait for the remote to tell us which way to go
 			// if we don't hear from them in a certain amount of time, forget anything happened
-			remote_reflection_dir = new_dir;
+			remote_reflection_dir = velocity; // HACK: not normalized. this will be restored to the velocity variable if the client does not acknowledge the hit
 			remote_reflection_pos = reflection_pos;
 			remote_reflection_timer = AWK_REFLECTION_TIME_TOLERANCE;
 			reflection_source_remote = false; // this hit was detected locally
@@ -1675,10 +1675,20 @@ void Awk::update_server(const Update& u)
 		else
 		{
 			remote_reflection_timer = vi_max(0.0f, remote_reflection_timer - u.time.delta);
-			if (remote_reflection_timer == 0.0f && reflection_source_remote)
+			if (remote_reflection_timer == 0.0f)
 			{
-				get<Transform>()->absolute_pos(remote_reflection_pos);
-				awk_reflection_execute(this, remote_reflection_dir);
+				// time's up, we have to do something
+				if (reflection_source_remote)
+				{
+					// the remote told us about this reflection. go ahead and do it even though we never detected the hit locally
+					get<Transform>()->absolute_pos(remote_reflection_pos);
+					awk_reflection_execute(this, remote_reflection_dir);
+				}
+				else
+				{
+					// we detected the hit locally, but the client never acknowledged it. ignore the reflection and keep going straight.
+					velocity = remote_reflection_dir;
+				}
 			}
 		}
 	}

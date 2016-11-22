@@ -164,6 +164,12 @@ b8 Game::init(LoopSync* sync)
 {
 	World::init();
 
+#if !SERVER
+	cJSON* terminal_level = Loader::level(Asset::Level::terminal, false);
+	Terminal::init(terminal_level);
+	Loader::level_free(terminal_level);
+#endif
+
 	if (!Net::init())
 		return false;
 
@@ -239,10 +245,6 @@ b8 Game::init(LoopSync* sync)
 
 	Console::init();
 #endif
-
-	cJSON* terminal_level = Loader::level(Asset::Level::terminal);
-	Terminal::init(terminal_level);
-	Loader::level_free(terminal_level);
 
 	return true;
 }
@@ -881,7 +883,7 @@ void Game::execute(const Update& u, const char* cmd)
 #endif
 	}
 	else if (strcmp(cmd, "skip") == 0)
-		Game::time.total = PLAYER_SPAWN_DELAY + GAME_BUY_PERIOD;
+		Game::time.total += PLAYER_SPAWN_DELAY + GAME_BUY_PERIOD;
 	else if (!Terminal::active() && strcmp(cmd, "capture") == 0)
 		Game::save.zones[Game::level.id] = Game::ZoneState::Friendly;
 	else if (Terminal::active())
@@ -901,6 +903,9 @@ void Game::unload_level()
 	Cora::cleanup();
 	for (s32 i = 0; i < MAX_GAMEPADS; i++)
 		Audio::listener_disable(i);
+
+	level.local = true;
+	Net::reset();
 
 	World::clear(); // deletes all entities
 
@@ -936,7 +941,6 @@ void Game::unload_level()
 	}
 
 	time.total = 0;
-	Net::reset();
 
 	save.last_level = level.id;
 	level.id = AssetNull;
@@ -1000,7 +1004,7 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 
 	EntityFinder finder;
 
-	cJSON* json = Loader::level(l);
+	cJSON* json = Loader::level(l, true);
 
 	level = Level();
 	level.mode = m;

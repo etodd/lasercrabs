@@ -612,6 +612,9 @@ void loop()
 
 				s32 data_length;
 				sync_in.read(&data_length);
+#if DEBUG_AI
+				vi_debug("%d bytes", data_length);
+#endif
 				if (data_length > 0)
 				{
 					TileCacheData tiles;

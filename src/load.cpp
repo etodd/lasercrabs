@@ -978,7 +978,7 @@ const char* nav_mesh_path(AssetID id)
 		return mod_nav_paths[id - Loader::compiled_level_count];
 }
 
-cJSON* Loader::level(AssetID id)
+cJSON* Loader::level(AssetID id, b8 load_nav)
 {
 	if (id == AssetNull)
 	{
@@ -986,23 +986,28 @@ cJSON* Loader::level(AssetID id)
 		return 0;
 	}
 
-	const char* nav_path = nav_mesh_path(id);
-	FILE* f = fopen(nav_path, "rb");
-	if (!f)
+	if (load_nav)
 	{
-		fprintf(stderr, "Can't open nav file '%s'\n", nav_path);
-		return nullptr;
+		const char* nav_path = nav_mesh_path(id);
+		FILE* f = fopen(nav_path, "rb");
+		if (!f)
+		{
+			fprintf(stderr, "Can't open nav file '%s'\n", nav_path);
+			return nullptr;
+		}
+
+		fseek(f, 0, SEEK_END);
+		s32 fsize = ftell(f);
+		fseek(f, 0, SEEK_SET);
+
+		Array<u8> data(fsize, fsize);
+		fread(data.data, sizeof(u8), data.length, f);
+		fclose(f);
+
+		AI::load(data.data, data.length);
 	}
-
-	fseek(f, 0, SEEK_END);
-	s32 fsize = ftell(f);
-	fseek(f, 0, SEEK_SET);
-
-	Array<u8> data(fsize, fsize);
-	fread(data.data, sizeof(u8), data.length, f);
-	fclose(f);
-
-	AI::load(data.data, data.length);
+	else
+		AI::load(nullptr, 0);
 	
 	return Json::load(level_path(id));
 }

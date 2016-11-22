@@ -96,7 +96,6 @@ struct Game
 
 	enum class ZoneState
 	{
-		Inaccessible,
 		Locked,
 		Friendly,
 		Hostile,
@@ -130,7 +129,7 @@ struct Game
 		s16 story_index;
 		s16 resources[(s32)Resource::count];
 		AssetID last_level;
-		AssetID terminal_zone;
+		AssetID overworld_zone;
 		char username[MAX_USERNAME + 1];
 		b8 cora_called;
 
@@ -148,6 +147,7 @@ struct Game
 		Skybox::Config skybox;
 		AssetID id = AssetNull;
 		Ref<Transform> map_view;
+		Ref<Entity> terminal;
 		s16 respawns;
 		s16 kill_limit;
 		b8 local = true;

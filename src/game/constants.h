@@ -93,4 +93,4 @@
 
 #define ENERGY_PICKUP_RADIUS 0.55f
 
-#define TRANSITION_TIME 1.0f // time to transition between levels / terminal
+#define TRANSITION_TIME 1.0f // time to transition between levels / overworld

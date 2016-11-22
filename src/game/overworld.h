@@ -10,7 +10,7 @@ struct EntityFinder;
 struct RenderParams;
 struct Camera;
 
-namespace Terminal
+namespace Overworld
 {
 
 void init(cJSON*);

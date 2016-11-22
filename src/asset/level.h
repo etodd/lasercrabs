@@ -19,7 +19,7 @@ namespace Asset
 		const AssetID Safe_Zone = 7;
 		const AssetID Tyche = 8;
 		const AssetID Tyro = 9;
-		const AssetID terminal = 10;
+		const AssetID overworld = 10;
 		const AssetID title = 11;
 	}
 }

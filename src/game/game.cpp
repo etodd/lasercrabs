@@ -44,6 +44,7 @@
 #include "cora.h"
 #include "net.h"
 #include "parkour.h"
+#include "overworld.h"
 #include "team.h"
 
 #if DEBUG
@@ -147,7 +148,7 @@ Game::Save::Save()
 	group(),
 	cora_called(),
 	last_level(Asset::Level::title),
-	terminal_zone(AssetNull)
+	overworld_zone(AssetNull)
 {
 }
 
@@ -165,9 +166,9 @@ b8 Game::init(LoopSync* sync)
 	World::init();
 
 #if !SERVER
-	cJSON* terminal_level = Loader::level(Asset::Level::terminal, false);
-	Terminal::init(terminal_level);
-	Loader::level_free(terminal_level);
+	cJSON* overworld_level = Loader::level(Asset::Level::overworld, false);
+	Overworld::init(overworld_level);
+	Loader::level_free(overworld_level);
 #endif
 
 	if (!Net::init())
@@ -255,7 +256,7 @@ void Game::update(const Update& update_in)
 #if SERVER
 	update_game = Net::Server::mode() == Net::Server::Mode::Active;
 #else
-	update_game = !Terminal::active() && (level.local || Net::Client::mode() == Net::Client::Mode::Connected);
+	update_game = !Overworld::active() && (level.local || Net::Client::mode() == Net::Client::Mode::Connected);
 #endif
 
 	real_time = update_in.time;
@@ -333,7 +334,7 @@ void Game::update(const Update& update_in)
 	}
 
 	Menu::update(u);
-	Terminal::update(u);
+	Overworld::update(u);
 #endif
 
 	if (schedule_timer > 0.0f)
@@ -500,12 +501,12 @@ void Game::draw_opaque(const RenderParams& render_params)
 
 	SkyPattern::draw_opaque(render_params);
 
-	Terminal::draw_opaque(render_params);
+	Overworld::draw_opaque(render_params);
 }
 
 void Game::draw_override(const RenderParams& params)
 {
-	Terminal::draw_override(params);
+	Overworld::draw_override(params);
 }
 
 void Game::draw_alpha(const RenderParams& render_params)
@@ -692,7 +693,7 @@ void Game::draw_alpha(const RenderParams& render_params)
 	for (s32 i = 0; i < draws.length; i++)
 		(*draws[i])(render_params);
 
-	Terminal::draw_ui(render_params);
+	Overworld::draw_ui(render_params);
 	Menu::draw(render_params);
 
 	if (schedule_timer > 0.0f && schedule_timer < TRANSITION_TIME)
@@ -707,7 +708,7 @@ void Game::draw_hollow(const RenderParams& render_params)
 	SkinnedModel::draw_hollow(render_params);
 	View::draw_hollow(render_params);
 
-	Terminal::draw_hollow(render_params);
+	Overworld::draw_hollow(render_params);
 
 	for (auto i = Water::list.iterator(); !i.is_last(); i.next())
 		i.item()->draw_hollow(render_params);
@@ -785,7 +786,7 @@ void Game::execute(const Update& u, const char* cmd)
 			s32 value = (s32)std::strtol(number_string, &end, 10);
 			if (*end == '\0')
 			{
-				if (level.id == Asset::Level::terminal)
+				if (level.id == Asset::Level::overworld)
 					Game::save.resources[(s32)Game::Resource::Energy] += value;
 				else if (PlayerManager::list.count() > 0)
 				{
@@ -884,10 +885,10 @@ void Game::execute(const Update& u, const char* cmd)
 	}
 	else if (strcmp(cmd, "skip") == 0)
 		Game::time.total += PLAYER_SPAWN_DELAY + GAME_BUY_PERIOD;
-	else if (!Terminal::active() && strcmp(cmd, "capture") == 0)
+	else if (!Overworld::active() && strcmp(cmd, "capture") == 0)
 		Game::save.zones[Game::level.id] = Game::ZoneState::Friendly;
-	else if (Terminal::active())
-		Terminal::execute(cmd);
+	else if (Overworld::active())
+		Overworld::execute(cmd);
 }
 
 void Game::schedule_load_level(AssetID level_id, Mode m, r32 delay)
@@ -899,7 +900,7 @@ void Game::schedule_load_level(AssetID level_id, Mode m, r32 delay)
 
 void Game::unload_level()
 {
-	Terminal::clear();
+	Overworld::clear();
 	Cora::cleanup();
 	for (s32 i = 0; i < MAX_GAMEPADS; i++)
 		Audio::listener_disable(i);
@@ -1488,6 +1489,12 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 				}
 			}
 		}
+		else if (session.story_mode && strcmp(Json::get_string(element, "name"), "terminal") == 0)
+		{
+			entity = World::alloc<Prop>(Asset::Mesh::cube);
+			entity->get<View>()->color = Vec4(1, 1, 1, 1);
+			level.terminal = entity;
+		}
 		else
 			entity = World::alloc<Empty>();
 
@@ -1550,9 +1557,11 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 	}
 
 	// Set map view for local players
-	Entity* map_view = finder.find("map_view");
-	if (map_view && map_view->has<Transform>())
-		level.map_view = map_view->get<Transform>();
+	{
+		Entity* map_view = finder.find("map_view");
+		if (map_view && map_view->has<Transform>())
+			level.map_view = map_view->get<Transform>();
+	}
 
 	for (s32 i = 0; i < finder.map.length; i++)
 		World::awake(finder.map[i].entity.ref());
@@ -1572,7 +1581,7 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 		Net::finalize(i.item()->entity());
 
 	Cora::init();
-	Cora::conversation_finished().link(&Terminal::conversation_finished);
+	Cora::conversation_finished().link(&Overworld::conversation_finished);
 
 	for (s32 i = 0; i < scripts.length; i++)
 		scripts[i]->function(u, finder);

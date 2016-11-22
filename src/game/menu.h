@@ -4,7 +4,6 @@
 #include "data/array.h"
 #include "render/ui.h"
 #include "game.h"
-#include "terminal.h"
 
 namespace VI
 {

@@ -36,6 +36,7 @@
 #include "net.h"
 #include "net_serialize.h"
 #include "team.h"
+#include "overworld.h"
 
 namespace VI
 {
@@ -375,7 +376,7 @@ void PlayerHuman::update(const Update& u)
 		}
 	}
 
-	if (Console::visible || Terminal::active())
+	if (Console::visible || Overworld::active())
 		return;
 
 	// flash message when the buy period expires
@@ -784,7 +785,7 @@ void scoreboard_draw(const RenderParams& params, const PlayerManager* manager)
 void PlayerHuman::draw_alpha(const RenderParams& params) const
 {
 	if (params.camera != camera
-		|| Terminal::active()
+		|| Overworld::active()
 		|| Game::level.continue_match_after_death
 		|| !local)
 		return;
@@ -1593,7 +1594,7 @@ b8 PlayerControlHuman::input_enabled() const
 {
 	PlayerHuman::UIMode ui_mode = player.ref()->ui_mode();
 	return !Console::visible
-		&& !Terminal::active()
+		&& !Overworld::active()
 		&& (ui_mode == PlayerHuman::UIMode::PvpDefault || ui_mode == PlayerHuman::UIMode::ParkourDefault)
 		&& !Cora::has_focus()
 		&& !Team::game_over;
@@ -2290,7 +2291,7 @@ void PlayerControlHuman::update(const Update& u)
 			if (input_enabled() && u.last_input->get(Controls::Scoreboard, gamepad) && !u.input->get(Controls::Scoreboard, gamepad))
 			{
 				if (Game::save.zones[Game::level.id] == Game::ZoneState::Friendly)
-					Terminal::show(player.ref()->camera);
+					Overworld::show(player.ref()->camera);
 				else
 					player.ref()->msg(_(strings::error_hostile_zone), false);
 			}
@@ -2451,7 +2452,7 @@ void PlayerControlHuman::update(const Update& u)
 			}
 
 			// camera setup
-			if (!Terminal::active())
+			if (!Overworld::active())
 			{
 				Camera* camera = player.ref()->camera;
 				r32 aspect = camera->viewport.size.y == 0 ? 1 : (r32)camera->viewport.size.x / (r32)camera->viewport.size.y;
@@ -2517,7 +2518,7 @@ void PlayerControlHuman::draw(const RenderParams& p) const
 {
 	if (p.technique != RenderTechnique::Default
 		|| p.camera != player.ref()->camera
-		|| Terminal::active()
+		|| Overworld::active()
 		|| p.camera->cull_range <= 0.0f
 		|| !get<Transform>()->parent.ref())
 		return;
@@ -2537,7 +2538,7 @@ void PlayerControlHuman::draw_alpha(const RenderParams& params) const
 {
 	if (params.technique != RenderTechnique::Default
 		|| params.camera != player.ref()->camera
-		|| Terminal::active()
+		|| Overworld::active()
 		|| Team::game_over)
 		return;
 

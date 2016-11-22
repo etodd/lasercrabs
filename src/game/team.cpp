@@ -186,7 +186,7 @@ void Team::transition_next(Game::MatchResult result)
 	if (Game::level.id == Asset::Level::Safe_Zone && result == Game::MatchResult::Loss)
 		Game::schedule_load_level(Game::level.id, Game::Mode::Pvp); // retry tutorial automatically
 	else
-		Game::schedule_load_level(Asset::Level::terminal, Game::Mode::Special);
+		Game::schedule_load_level(Asset::Level::overworld, Game::Mode::Special);
 }
 
 s16 Team::containment_field_mask(AI::Team t)

@@ -15,6 +15,7 @@
 #include "asset/level.h"
 #include "asset/armature.h"
 #include "data/animator.h"
+#include "overworld.h"
 
 namespace VI
 {
@@ -213,8 +214,8 @@ namespace title
 	{
 		Game::save = Game::Save();
 		Game::session.reset();
-		Terminal::message_add(strings::contact_ivory, strings::msg_ivory_intro, platform::timestamp() - (86400.0 * 1.9));
-		Terminal::message_add(strings::contact_aldus, strings::msg_aldus_intro, platform::timestamp() - (86400.0 * 1.6));
+		Overworld::message_add(strings::contact_ivory, strings::msg_ivory_intro, platform::timestamp() - (86400.0 * 1.9));
+		Overworld::message_add(strings::contact_aldus, strings::msg_aldus_intro, platform::timestamp() - (86400.0 * 1.6));
 		Game::save.resources[(s32)Game::Resource::HackKits] = 1;
 		Game::save.resources[(s32)Game::Resource::Drones] = 4;
 		Game::save.resources[(s32)Game::Resource::Energy] = (s16)(CREDITS_INITIAL * 3.5f);

@@ -1,4 +1,4 @@
-#include "terminal.h"
+#include "overworld.h"
 #include "console.h"
 #include "game.h"
 #include "mersenne/mersenne-twister.h"
@@ -32,7 +32,7 @@ namespace VI
 {
 
 
-namespace Terminal
+namespace Overworld
 {
 
 #define DEPLOY_TIME_LOCAL 1.0f
@@ -84,7 +84,7 @@ AssetID cora_entry_points[] =
 	AssetNull, // 0 - safe zone yet to be completed
 	AssetNull, // 1 - medias res yet to be played
 	strings::intro, // 2 - cora's finally ready talk
-	AssetNull, // 3 - you've joined sissy foos
+	AssetNull, // 3 - you've joined a group
 	AssetNull,
 	AssetNull,
 	AssetNull,
@@ -658,7 +658,7 @@ Vec3 zone_color(const ZoneNode& zone)
 		{
 			case Game::ZoneState::Locked:
 			{
-				return Vec3(1.0f);
+				return Vec3(0.25f);
 			}
 			case Game::ZoneState::Friendly:
 			{
@@ -671,10 +671,6 @@ Vec3 zone_color(const ZoneNode& zone)
 			case Game::ZoneState::Owned:
 			{
 				return Team::color_friend.xyz();
-			}
-			case Game::ZoneState::Inaccessible:
-			{
-				return Vec3(0.25f);
 			}
 			default:
 			{
@@ -694,7 +690,7 @@ const Vec4& zone_ui_color(const ZoneNode& zone)
 		{
 			case Game::ZoneState::Locked:
 			{
-				return UI::color_default;
+				return UI::color_disabled;
 			}
 			case Game::ZoneState::Friendly:
 			{
@@ -707,10 +703,6 @@ const Vec4& zone_ui_color(const ZoneNode& zone)
 			case Game::ZoneState::Owned:
 			{
 				return Team::ui_color_friend;
-			}
-			case Game::ZoneState::Inaccessible:
-			{
-				return UI::color_disabled;
 			}
 			default:
 			{
@@ -1013,86 +1005,20 @@ void message_read(Game::Message* msg)
 		message_schedule(strings::contact_cora, strings::msg_cora_intro, 1.0);
 }
 
-// make sure inaccessible/locked zones are correct
-void zone_states_update()
-{
-	// reset
-	Game::ZoneState old_state[MAX_ZONES];
-	memcpy(old_state, Game::save.zones, sizeof(old_state));
-	for (s32 i = 0; i < global.zones.length; i++)
-	{
-		const ZoneNode& z = global.zones[i];
-		if (z.id != Asset::Level::Safe_Zone)
-		{
-			Game::ZoneState state = Game::save.zones[z.id];
-			if (state == Game::ZoneState::Locked || state == Game::ZoneState::Hostile)
-				Game::save.zones[z.id] = Game::ZoneState::Inaccessible;
-		}
-	}
-
-	// make zones adjacent to owned/friendly zones accessible (but possibly still locked)
-	for (s32 i = 0; i < global.zones.length; i++)
-	{
-		const ZoneNode& zone = global.zones[i];
-		if ((Game::save.group == Game::Group::None) == (zone.max_teams < MAX_PLAYERS)) // must be the right size map
-		{
-			Game::ZoneState zone_state = Game::save.zones[zone.id];
-			if (zone_state == Game::ZoneState::Friendly || zone_state == Game::ZoneState::Owned)
-			{
-				for (s32 j = 0; j < zone.children.length; j++)
-				{
-					Vec3 zone_pos = zone.children[j];
-					zone_pos.y = 0.0f;
-					for (s32 k = 0; k < global.zones.length; k++)
-					{
-						const ZoneNode& neighbor_zone = global.zones[k];
-						if (Game::save.zones[neighbor_zone.id] == Game::ZoneState::Inaccessible
-							&& (Game::save.group == Game::Group::None) == (neighbor_zone.max_teams < MAX_PLAYERS)) // must be the right size map
-						{
-							Vec3 neighbor_pos = neighbor_zone.pos();
-							neighbor_pos.y = 0.0f;
-							if ((neighbor_pos - zone_pos).length_squared() < 4.5f * 4.5f)
-							{
-								Game::ZoneState s = old_state[neighbor_zone.id];
-								if (s == Game::ZoneState::Inaccessible)
-									Game::save.zones[neighbor_zone.id] = Game::ZoneState::Locked; // if it was inaccessible before, make it accessible but locked
-								else
-									Game::save.zones[neighbor_zone.id] = s; // if it was something else before, restore it to that state
-							}
-						}
-					}
-				}
-			}
-		}
-		else
-			Game::save.zones[zone.id] = Game::ZoneState::Inaccessible; // wrong size map
-	}
-}
-
-
 void group_join(Game::Group g)
 {
 	Game::save.group = g;
 	for (s32 i = 0; i < global.zones.length; i++)
 	{
 		const ZoneNode& zone = global.zones[i];
-		if (g == Game::Group::None)
+		if (zone.max_teams > 2)
 		{
-			Game::save.zones[zone.id] = zone.id == Asset::Level::Safe_Zone || zone.id == Asset::Level::Medias_Res
-				? (mersenne::randf_cc() > 0.5f ? Game::ZoneState::Owned : Game::ZoneState::Hostile) : Game::ZoneState::Locked;
-		}
-		else
-		{
-			if (zone.max_teams < MAX_PLAYERS)
-				Game::save.zones[zone.id] = Game::ZoneState::Inaccessible;
+			if (g == Game::Group::None)
+				Game::save.zones[zone.id] = Game::ZoneState::Locked;
 			else
-			{
-				r32 r = mersenne::randf_cc();
-				Game::save.zones[zone.id] = r > 0.4f ? (r > 0.7f ? Game::ZoneState::Friendly : Game::ZoneState::Hostile) : Game::ZoneState::Inaccessible;
-			}
+				Game::save.zones[zone.id] = mersenne::randf_cc() > 0.7f ? Game::ZoneState::Friendly : Game::ZoneState::Hostile;
 		}
 	}
-	zone_states_update();
 }
 
 void conversation_finished()
@@ -1100,7 +1026,7 @@ void conversation_finished()
 	Game::save.story_index++;
 	messages_transition(Data::Messages::Mode::Messages);
 	if (Game::save.story_index == 3)
-		group_join(Game::Group::Futifs); // you are now part of sissy foos
+		group_join(Game::Group::Futifs);
 }
 
 void tab_messages_update(const Update& u)
@@ -1333,7 +1259,6 @@ void story_zone_done(AssetID zone, Game::MatchResult result)
 			Game::save.zones[zone] = Game::ZoneState::Owned;
 		else
 			Game::save.zones[zone] = Game::ZoneState::Friendly;
-		zone_states_update();
 	}
 
 	if (Game::save.story_index == 0 && zone == Asset::Level::Safe_Zone && captured)
@@ -1362,7 +1287,7 @@ b8 zone_filter_not_selected(AssetID zone_id)
 
 b8 zone_filter_accessible(AssetID zone_id)
 {
-	return Game::save.zones[zone_id] != Game::ZoneState::Inaccessible;
+	return Game::save.zones[zone_id] != Game::ZoneState::Locked;
 }
 
 b8 zone_filter_can_turn_hostile(AssetID zone_id)
@@ -1430,7 +1355,6 @@ void tab_map_update(const Update& u)
 					&& resource_spend(Game::Resource::HackKits, zone->size))
 				{
 					Game::save.zones[data.zone_selected] = Game::ZoneState::Hostile;
-					zone_states_update();
 				}
 			}
 		}
@@ -1665,7 +1589,6 @@ void zone_randomize(r32 elapsed_time, s32 flags = ZoneRandomizeDefault)
 	s32 locked;
 	zone_statistics(&captured, &hostile, &locked, &zone_filter_can_turn_hostile);
 
-	b8 update_needed = false;
 	r32 event_odds = elapsed_time * EVENT_ODDS_PER_ZONE * captured;
 
 	b8(*selection_filter)(AssetID) = (flags & ZoneRandomizeAllowSelectedZone) ? &zone_filter_default : &zone_filter_not_selected;
@@ -1693,10 +1616,7 @@ void zone_randomize(r32 elapsed_time, s32 flags = ZoneRandomizeDefault)
 				*state = Game::ZoneState::Hostile;
 		}
 		event_odds -= 1.0f;
-		update_needed = true;
 	}
-	if (update_needed)
-		zone_states_update();
 }
 
 void story_mode_update(const Update& u)
@@ -2520,7 +2440,7 @@ void show_complete()
 	data.camera->colors = false;
 	data.camera->mask = 0;
 	{
-		const ZoneNode* zone = zone_node_get(Game::save.terminal_zone);
+		const ZoneNode* zone = zone_node_get(Game::save.overworld_zone);
 		if (!zone)
 			zone = zone_node_get(Game::save.last_level);
 		if (zone)
@@ -2534,7 +2454,7 @@ void show_complete()
 			data.camera_rot = global.camera_messages_rot;
 		}
 	}
-	Game::save.terminal_zone = Game::level.id;
+	Game::save.overworld_zone = Game::level.id;
 	if (Game::session.story_mode)
 		data.state = State::StoryMode;
 	else if (Game::session.local_player_count() > 1)
@@ -2546,7 +2466,7 @@ void show_complete()
 r32 particle_accumulator = 0.0f;
 void update(const Update& u)
 {
-	if (Game::level.id == Asset::Level::terminal && Game::scheduled_load_level == AssetNull && !data.active && !data.active_next)
+	if (Game::level.id == Asset::Level::overworld && Game::scheduled_load_level == AssetNull && !data.active && !data.active_next)
 	{
 		Camera* c = Camera::add();
 		c->viewport =

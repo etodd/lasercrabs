@@ -16,6 +16,7 @@
 #include "audio.h"
 #include "net.h"
 #include "scripts.h"
+#include "overworld.h"
 
 namespace VI
 {
@@ -55,9 +56,9 @@ void dialog_with_time_limit(s8, DialogCallback, r32, const char*, ...) {}
 
 #else
 
-void quit_to_terminal(s8 gamepad)
+void quit_to_overworld(s8 gamepad)
 {
-	Game::schedule_load_level(Asset::Level::terminal, Game::Mode::Special);
+	Game::schedule_load_level(Asset::Level::overworld, Game::Mode::Special);
 }
 
 void quit_to_title(s8 gamepad)
@@ -234,7 +235,7 @@ void title_menu(const Update& u, s8 gamepad, UIMenu* menu, State* state)
 				Game::save = Game::Save();
 				Game::session.reset();
 				Game::session.story_mode = false;
-				Game::schedule_load_level(Asset::Level::terminal, Game::Mode::Special);
+				Game::schedule_load_level(Asset::Level::overworld, Game::Mode::Special);
 				clear();
 			}
 			/*
@@ -294,7 +295,7 @@ void pause_menu(const Update& u, s8 gamepad, UIMenu* menu, State* state)
 				if (Game::session.story_mode)
 					dialog(gamepad, &quit_to_title, _(strings::confirm_quit));
 				else
-					dialog(gamepad, &quit_to_terminal, _(strings::confirm_quit));
+					dialog(gamepad, &quit_to_overworld, _(strings::confirm_quit));
 			}
 			menu->end();
 			break;
@@ -369,7 +370,7 @@ void update(const Update& u)
 
 	if (Game::level.id == Asset::Level::title && Game::level.mode == Game::Mode::Special)
 		title_menu(u, 0, &main_menu, &main_menu_state);
-	else if (Terminal::active())
+	else if (Overworld::active())
 	{
 		// do pause menu
 		if (main_menu_state == State::Visible

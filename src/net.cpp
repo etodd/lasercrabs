@@ -2436,6 +2436,12 @@ b8 msg_process(StreamRead* p, Client* client)
 				net_error();
 			break;
 		}
+		case MessageType::Interactable:
+		{
+			if (!Interactable::net_msg(p, MessageSource::Remote))
+				net_error();
+			break;
+		}
 		case MessageType::ClientSetup:
 		{
 			// create players
@@ -3225,6 +3231,12 @@ b8 msg_process(StreamRead* p, MessageSource src)
 		case MessageType::ParticleEffect:
 		{
 			if (!ParticleEffect::net_msg(p))
+				net_error();
+			break;
+		}
+		case MessageType::Interactable:
+		{
+			if (!Interactable::net_msg(p, src))
 				net_error();
 			break;
 		}

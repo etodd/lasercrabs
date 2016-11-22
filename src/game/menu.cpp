@@ -596,7 +596,7 @@ void UIMenu::start(const Update& u, s8 g, b8 input)
 
 	gamepad = g;
 
-	if (Console::visible || !input)
+	if (Console::visible || !input || Menu::dialog_callback[gamepad])
 		return;
 
 	if (active[g])
@@ -643,7 +643,7 @@ b8 UIMenu::item(const Update& u, const char* string, const char* value, b8 disab
 	if (!add_item(false, string, value, disabled, icon))
 		return false;
 
-	if (Console::visible || active[gamepad] != this)
+	if (Console::visible || active[gamepad] != this || Menu::dialog_callback[gamepad])
 		return false;
 
 	if (selected == items.length - 1

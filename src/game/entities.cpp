@@ -2069,5 +2069,78 @@ void Shockwave::update(const Update& u)
 		list.remove(id());
 }
 
+Interactable* Interactable::closest(const Vec3& pos)
+{
+	r32 distance_sq = CONTROL_POINT_RADIUS * CONTROL_POINT_RADIUS;
+	Interactable* result = nullptr;
+	// find the closest interactable (we also must be in front of it)
+	for (auto i = list.iterator(); !i.is_last(); i.next())
+	{
+		Vec3 i_pos;
+		Quat i_rot;
+		i.item()->get<Transform>()->absolute(&i_pos, &i_rot);
+		Vec3 to_interactable = i_pos - pos;
+		r32 d = to_interactable.length_squared();
+		to_interactable.y = 0.0f;
+		{
+			r32 l = to_interactable.length();
+			if (l > 0.0f)
+				to_interactable /= l;
+		}
+		if (d < distance_sq && to_interactable.dot(i_rot * Vec3(0, 0, 1)) < -0.85f)
+		{
+			distance_sq = d;
+			result = i.item();
+		}
+	}
+	return result;
+}
+
+namespace InteractableNet
+{
+	b8 send_msg(Interactable* i)
+	{
+		using Stream = Net::StreamWrite;
+		Net::StreamWrite* p = Net::msg_new(Net::MessageType::Interactable);
+		{
+			Ref<Interactable> ref = i;
+			serialize_ref(p, ref);
+		}
+		Net::msg_finalize(p);
+		return true;
+	}
+}
+
+b8 Interactable::net_msg(Net::StreamRead* p, Net::MessageSource src)
+{
+	using Stream = Net::StreamRead;
+	Ref<Interactable> ref;
+	serialize_ref(p, ref);
+	Interactable* i = ref.ref();
+	if (i)
+	{
+		if (Game::level.local)
+		{
+			if (src == Net::MessageSource::Remote)
+				i->interact(); // need to send out this message to everyone
+			else if (src == Net::MessageSource::Loopback)
+				i->interacted.fire();
+			else
+				vi_assert(false);
+		}
+		else // client
+		{
+			if (src == Net::MessageSource::Remote) // wait to hear from the server
+				i->interacted.fire();
+		}
+	}
+	return true;
+}
+
+void Interactable::interact()
+{
+	InteractableNet::send_msg(this);
+}
+
 
 }

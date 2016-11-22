@@ -183,8 +183,13 @@ b8 Team::has_player() const
 void Team::transition_next(Game::MatchResult result)
 {
 	Game::session.last_match = result;
-	if (Game::level.id == Asset::Level::Safe_Zone && result == Game::MatchResult::Loss)
-		Game::schedule_load_level(Game::level.id, Game::Mode::Pvp); // retry tutorial automatically
+	if (Game::session.story_mode)
+	{
+		if (Game::level.id == Asset::Level::Safe_Zone && result == Game::MatchResult::Loss)
+			Game::schedule_load_level(Game::level.id, Game::Mode::Pvp); // retry tutorial automatically
+		else
+			transition_mode(Game::Mode::Parkour);
+	}
 	else
 		Game::schedule_load_level(Asset::Level::overworld, Game::Mode::Special);
 }
@@ -334,7 +339,7 @@ void update_visibility(const Update& u)
 		}
 
 		Entity* player_entity = player.item()->instance.ref();
-		if (player_entity)
+		if (player_entity && player_entity->has<Awk>())
 		{
 			if (player_entity->get<Awk>()->state() == Awk::State::Crawl) // we're on a wall and can thus be detected
 			{
@@ -351,7 +356,7 @@ void update_visibility(const Update& u)
 	{
 		Entity* i_entity = i.item()->instance.ref();
 
-		if (!i_entity)
+		if (!i_entity || !i_entity->has<Awk>())
 			continue;
 
 		Team* i_team = i.item()->team.ref();
@@ -451,15 +456,78 @@ void update_visibility(const Update& u)
 
 namespace TeamNet
 {
+	enum Message
+	{
+		GameOver,
+		TransitionMode,
+		count,
+	};
+
 	b8 send_game_over(Team* w)
 	{
 		using Stream = Net::StreamWrite;
 		Net::StreamWrite* p = Net::msg_new(Net::MessageType::Team);
-		Ref<Team> ref = w;
-		serialize_ref(p, ref);
+		{
+			Message type = Message::GameOver;
+			serialize_enum(p, Message, type);
+		}
+		{
+			Ref<Team> ref = w;
+			serialize_ref(p, ref);
+		}
 		Net::msg_finalize(p);
 		return true;
 	}
+
+	b8 send_transition_mode(Game::Mode m)
+	{
+		using Stream = Net::StreamWrite;
+		Net::StreamWrite* p = Net::msg_new(Net::MessageType::Team);
+		{
+			Message type = Message::TransitionMode;
+			serialize_enum(p, Message, type);
+		}
+		serialize_enum(p, Game::Mode, m);
+		Net::msg_finalize(p);
+		return true;
+	}
+}
+
+b8 Team::net_msg(Net::StreamRead* p)
+{
+	using Stream = Net::StreamRead;
+
+	TeamNet::Message type;
+	serialize_enum(p, TeamNet::Message, type);
+
+	switch (type)
+	{
+		case TeamNet::Message::GameOver:
+		{
+			serialize_ref(p, winner);
+			game_over = true;
+			game_over_real_time = Game::real_time.total;
+			break;
+		}
+		case TeamNet::Message::TransitionMode:
+		{
+			serialize_enum(p, Game::Mode, Game::level.mode);
+			game_over = false;
+			if (Game::level.local)
+			{
+				for (auto i = PlayerCommon::list.iterator(); !i.is_last(); i.next())
+					World::remove_deferred(i.item()->entity());
+			}
+			break;
+		}
+		default:
+		{
+			vi_assert(false);
+			break;
+		}
+	}
+
+	return true;
 }
 
 void team_rocket_launch(AI::Team team, PlayerManager* other_player, const Team::SensorTrack& track)
@@ -542,10 +610,13 @@ void Team::update_all_server(const Update& u)
 	{
 		// wait for all local players to accept scores
 		b8 score_accepted = true;
-		for (auto i = PlayerManager::list.iterator(); !i.is_last(); i.next())
+		for (auto i = PlayerHuman::list.iterator(); !i.is_last(); i.next())
 		{
-			if (i.item()->is_local() && !i.item()->score_accepted)
+			if (!i.item()->get<PlayerManager>()->score_accepted)
+			{
 				score_accepted = false;
+				break;
+			}
 		}
 
 		if (score_accepted)
@@ -625,16 +696,10 @@ void Team::update_all_server(const Update& u)
 	}
 }
 
-b8 Team::net_msg(Net::StreamRead* p)
+void Team::transition_mode(Game::Mode m)
 {
-	using Stream = Net::StreamRead;
-
-	serialize_ref(p, winner);
-
-	game_over = true;
-	game_over_real_time = Game::real_time.total;
-
-	return true;
+	vi_assert(Game::level.local);
+	TeamNet::send_transition_mode(m);
 }
 
 void Team::update_all_client_only(const Update& u)

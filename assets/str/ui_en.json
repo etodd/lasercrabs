@@ -39,6 +39,7 @@
 	"deploy_timer": "Deploying... %d",
 	"drones_remaining": "Drones remaining",
 	"prompt_deploy": "[{{Interact}}] Deploy",
+	"prompt_interact": "[{{InteractSecondary}}] Interact",
 	"prompt_hack": "[{{Interact}}] Crack",
 	"prompt_cancel_hack": "[{{Interact}}] Cancel Crack",
 	"prompt_call": "[{{InteractSecondary}}] Call",

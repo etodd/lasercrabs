@@ -388,5 +388,17 @@ struct PlayerTrigger : public ComponentType<PlayerTrigger>
 	s32 count() const;
 };
 
+struct Interactable : public ComponentType<Interactable>
+{
+	static Interactable* closest(const Vec3&);
+	static b8 net_msg(Net::StreamRead*, Net::MessageSource);
+
+	Link interacted;
+
+	void awake() {}
+
+	void interact();
+};
+
 
 }

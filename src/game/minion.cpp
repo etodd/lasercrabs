@@ -701,7 +701,7 @@ void MinionAI::update(const Update& u)
 							&& anim_layer->animation != Asset::Animation::character_melee
 							&& !Team::game_over)
 						{
-							if ((aim_pos - hand_pos).length_squared() < MINION_MELEE_RANGE * MINION_MELEE_RANGE)
+							if (g->has<Parkour>() && (aim_pos - hand_pos).length_squared() < MINION_MELEE_RANGE * MINION_MELEE_RANGE)
 							{
 								anim_layer->speed = 1.0f;
 								anim_layer->loop = false;

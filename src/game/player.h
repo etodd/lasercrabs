@@ -14,15 +14,15 @@ namespace VI
 struct RigidBody;
 struct Transform;
 struct PlayerManager;
+struct Interactable;
+struct TargetEvent;
+struct HealthEvent;
+struct Target;
 
 namespace Net
 {
 	struct StreamRead;
 }
-
-struct TargetEvent;
-struct HealthEvent;
-struct Target;
 
 struct PlayerHuman : public ComponentType<PlayerHuman>
 {
@@ -155,6 +155,7 @@ struct PlayerControlHuman : public ComponentType<PlayerControlHuman>
 	r32 last_gamepad_input_time;
 	r32 gamepad_rotation_speed;
 	Ref<PlayerHuman> player;
+	Ref<Interactable> interactable;
 	b8 try_secondary;
 	b8 try_primary;
 	b8 try_slide;
@@ -168,6 +169,7 @@ struct PlayerControlHuman : public ComponentType<PlayerControlHuman>
 	void health_changed(const HealthEvent&);
 	void camera_shake(r32 = 1.0f);
 	void camera_shake_update(const Update&, Camera*);
+	void interact_animation_callback();
 
 	void awk_detached();
 	void awk_done_flying_or_dashing();

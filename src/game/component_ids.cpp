@@ -57,8 +57,9 @@ COMPONENT_TYPE(34, Team) \
 COMPONENT_TYPE(35, PlayerManager) \
 COMPONENT_TYPE(36, PlayerHuman) \
 COMPONENT_TYPE(37, Parkour) \
+COMPONENT_TYPE(38, Interactable) \
 
-Family World::families = 38;
+Family World::families = 39;
 
 #define COMPONENT_TYPE(INDEX, TYPE) \
 template<> Family ComponentType<TYPE>::family = (INDEX); \

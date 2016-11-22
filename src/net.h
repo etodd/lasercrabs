@@ -51,6 +51,7 @@ enum class MessageType
 	EnergyPickup,
 	Team,
 	ParticleEffect,
+	Interactable,
 	count,
 };
 

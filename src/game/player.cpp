@@ -60,6 +60,10 @@ namespace VI
 #define score_summary_delay 2.0f
 #define score_summary_accept_delay 3.0f
 
+#define INTERACT_TIME 2.5f
+#define INTERACT_LERP_ROTATION_SPEED 5.0f
+#define INTERACT_LERP_TRANSLATION_SPEED 5.0f
+
 #define HP_BOX_SIZE (Vec2(text_size) * UI::scale)
 #define HP_BOX_SPACING (8.0f * UI::scale)
 
@@ -423,7 +427,10 @@ void PlayerHuman::update(const Update& u)
 
 	// reset camera range after the player dies
 	if (!get<PlayerManager>()->instance.ref())
+	{
 		camera->range = 0;
+		camera->colors = Game::level.mode == Game::Mode::Parkour;
+	}
 
 	switch (ui_mode())
 	{
@@ -1505,7 +1512,8 @@ PlayerControlHuman::PlayerControlHuman(PlayerHuman* p)
 	gamepad_rotation_speed(),
 	remote_control(),
 	player(p),
-	position_history()
+	position_history(),
+	interactable()
 {
 }
 
@@ -1538,6 +1546,7 @@ void PlayerControlHuman::awake()
 	else
 	{
 		link_arg<r32, &PlayerControlHuman::parkour_landed>(get<Walker>()->land);
+		link<&PlayerControlHuman::interact_animation_callback>(get<Animator>()->trigger(Asset::Animation::character_terminal_enter, 1.2f));
 		get<Audio>()->post_event(AK::EVENTS::PLAY_FLY);
 		get<Audio>()->param(AK::GAME_PARAMETERS::FLY_VOLUME, 0.0f);
 	}
@@ -1553,6 +1562,15 @@ void PlayerControlHuman::parkour_landed(r32 velocity_diff)
 			rumble = vi_max(rumble, 0.5f);
 		else
 			rumble = vi_max(rumble, 0.2f);
+	}
+}
+
+void PlayerControlHuman::interact_animation_callback()
+{
+	if (interactable.ref())
+	{
+		interactable.ref()->interact();
+		interactable = nullptr;
 	}
 }
 
@@ -1597,7 +1615,8 @@ b8 PlayerControlHuman::input_enabled() const
 		&& !Overworld::active()
 		&& (ui_mode == PlayerHuman::UIMode::PvpDefault || ui_mode == PlayerHuman::UIMode::ParkourDefault)
 		&& !Cora::has_focus()
-		&& !Team::game_over;
+		&& !Team::game_over
+		&& !interactable.ref();
 }
 
 b8 PlayerControlHuman::movement_enabled() const
@@ -2284,8 +2303,44 @@ void PlayerControlHuman::update(const Update& u)
 	else
 	{
 		// parkour mode
+
 		if (local())
 		{
+			if (input_enabled() && !u.input->get(Controls::InteractSecondary, gamepad) && u.last_input->get(Controls::InteractSecondary, gamepad))
+			{
+				interactable = Interactable::closest(get<Transform>()->absolute_pos());
+				if (interactable.ref())
+					get<Animator>()->layers[1].play(Asset::Animation::character_terminal_enter); // this animation will eventually trigger the interactable
+			}
+
+			if (interactable.ref())
+			{
+				// position player directly in front of the interactable
+
+				// desired rotation / position
+				r32 target_angle;
+				Vec3 target_pos;
+				{
+					Vec3 i_pos;
+					Quat i_rot;
+					interactable.ref()->get<Transform>()->absolute(&i_pos, &i_rot);
+					Vec3 dir = i_rot * Vec3(0, 0, -1);
+					dir.y = 0.0f;
+					dir.normalize();
+					target_angle = atan2f(dir.x, dir.z);
+					target_pos = i_pos + dir * Vec3(0, 0, -0.5f);
+					target_pos.y += (get<Walker>()->capsule_height() * 0.5f) + get<Walker>()->support_height;
+				}
+
+				r32 angle = fabs(LMath::angle_to(get<PlayerCommon>()->angle_horizontal, target_angle));
+				get<PlayerCommon>()->angle_horizontal = LMath::lerpf(vi_min(1.0f, (INTERACT_LERP_ROTATION_SPEED / angle) * u.time.delta), get<PlayerCommon>()->angle_horizontal, LMath::closest_angle(target_angle, get<PlayerCommon>()->angle_horizontal));
+
+				Vec3 abs_pos = get<Transform>()->absolute_pos();
+				r32 distance = (abs_pos - target_pos).length();
+				if (distance > 0.0f)
+					get<Walker>()->absolute_pos(Vec3::lerp(vi_min(1.0f, (INTERACT_LERP_TRANSLATION_SPEED / distance) * u.time.delta), abs_pos, target_pos));
+			}
+
 			update_camera_input(u);
 
 			if (input_enabled() && u.last_input->get(Controls::Scoreboard, gamepad) && !u.input->get(Controls::Scoreboard, gamepad))
@@ -2470,7 +2525,15 @@ void PlayerControlHuman::update(const Update& u)
 		}
 		else
 		{
-			// remote control
+			// remote control by a client
+			if (Game::level.local)
+			{
+				// just trust the client, it's k
+				get<Transform>()->pos = remote_control.pos;
+				get<Transform>()->rot = remote_control.rot;
+				get<Transform>()->parent = remote_control.parent;
+				last_pos = get<Transform>()->absolute_pos();
+			}
 		}
 	}
 }
@@ -2700,50 +2763,54 @@ void PlayerControlHuman::draw_alpha(const RenderParams& params) const
 		// highlight control points
 		for (auto i = ControlPoint::list.iterator(); !i.is_last(); i.next())
 		{
-			if (i.item()->capture_timer > 0.0f || i.item()->team == team || i.item()->team == AI::TeamNone)
+			Vec3 pos = i.item()->get<Transform>()->absolute_pos();
+			UI::indicator(params, pos, Team::ui_color(team, i.item()->team), i.item()->capture_timer > 0.0f);
+			if (i.item()->capture_timer > 0.0f)
 			{
-				Vec3 pos = i.item()->get<Transform>()->absolute_pos();
-				UI::indicator(params, pos, Team::ui_color(team, i.item()->team), i.item()->capture_timer > 0.0f);
-				if (i.item()->capture_timer > 0.0f)
+				// control point is being captured; show progress bar
+				Rect2 bar;
 				{
-					// control point is being captured; show progress bar
-					Rect2 bar;
+					Vec2 p;
+					UI::is_onscreen(params, pos, &p);
+					Vec2 bar_size(80.0f * UI::scale, (UI_TEXT_SIZE_DEFAULT + 12.0f) * UI::scale);
+					bar = { p + Vec2(0, 40.0f * UI::scale) + (bar_size * -0.5f), bar_size };
+					UI::box(params, bar, UI::color_background);
+					const Vec4* color;
+					r32 percentage;
+					if (i.item()->capture_timer > CONTROL_POINT_CAPTURE_TIME * 0.5f)
 					{
-						Vec2 p;
-						UI::is_onscreen(params, pos, &p);
-						Vec2 bar_size(80.0f * UI::scale, (UI_TEXT_SIZE_DEFAULT + 12.0f) * UI::scale);
-						bar = { p + Vec2(0, 40.0f * UI::scale) + (bar_size * -0.5f), bar_size };
-						UI::box(params, bar, UI::color_background);
-						const Vec4* color;
-						r32 percentage;
-						if (i.item()->capture_timer > CONTROL_POINT_CAPTURE_TIME * 0.5f)
-						{
-							color = &Team::ui_color(team, i.item()->team);
-							percentage = (i.item()->capture_timer / (CONTROL_POINT_CAPTURE_TIME * 0.5f)) - 1.0f;
-						}
-						else
-						{
-							color = &Team::ui_color(team, i.item()->team_next);
-							percentage = 1.0f - (i.item()->capture_timer / (CONTROL_POINT_CAPTURE_TIME * 0.5f));
-						}
-						UI::border(params, bar, 2, *color);
-						UI::box(params, { bar.pos, Vec2(bar.size.x * percentage, bar.size.y) }, *color);
+						color = &Team::ui_color(team, i.item()->team);
+						percentage = (i.item()->capture_timer / (CONTROL_POINT_CAPTURE_TIME * 0.5f)) - 1.0f;
 					}
-
+					else
 					{
-						UIText text;
-						text.anchor_x = UIText::Anchor::Center;
-						text.anchor_y = UIText::Anchor::Min;
-						text.color = i.item()->team_next == team ? UI::color_accent : UI::color_alert;
-						text.text(_(team == i.item()->team_next ? strings::hacking : strings::losing));
-
-						Vec2 p = bar.pos + Vec2(bar.size.x * 0.5f, bar.size.y + 10.0f * UI::scale);
-						UI::box(params, text.rect(p).outset(8.0f * UI::scale), UI::color_background);
-						text.draw(params, p);
+						color = &Team::ui_color(team, i.item()->team_next);
+						percentage = 1.0f - (i.item()->capture_timer / (CONTROL_POINT_CAPTURE_TIME * 0.5f));
 					}
+					UI::border(params, bar, 2, *color);
+					UI::box(params, { bar.pos, Vec2(bar.size.x * percentage, bar.size.y) }, *color);
+				}
+
+				{
+					UIText text;
+					text.anchor_x = UIText::Anchor::Center;
+					text.anchor_y = UIText::Anchor::Min;
+					text.color = i.item()->team_next == team ? UI::color_accent : UI::color_alert;
+					text.text(_(team == i.item()->team_next ? strings::hacking : strings::losing));
+
+					Vec2 p = bar.pos + Vec2(bar.size.x * 0.5f, bar.size.y + 10.0f * UI::scale);
+					UI::box(params, text.rect(p).outset(8.0f * UI::scale), UI::color_background);
+					text.draw(params, p);
 				}
 			}
 		}
+	}
+	else
+	{
+		// highlight terminal location
+		Entity* terminal = Game::level.terminal.ref();
+		if (terminal)
+			UI::indicator(params, terminal->get<Transform>()->absolute_pos(), UI::color_default, true);
 	}
 
 	// usernames directly over players' 3D positions
@@ -3064,6 +3131,20 @@ void PlayerControlHuman::draw_alpha(const RenderParams& params) const
 		UIText text;
 		text.color = UI::color_accent;
 		text.text(_(strings::buy_period), (s32)(GAME_BUY_PERIOD - Game::time.total) + 1);
+		text.anchor_x = UIText::Anchor::Center;
+		text.anchor_y = UIText::Anchor::Center;
+		text.size = text_size;
+		Vec2 pos = viewport.size * Vec2(0.5f, 0.15f);
+		UI::box(params, text.rect(pos).outset(8.0f * UI::scale), UI::color_background);
+		text.draw(params, pos);
+	}
+
+	if (has<Parkour>() && Interactable::closest(get<Transform>()->absolute_pos()))
+	{
+		// interact prompt
+		UIText text;
+		text.color = UI::color_accent;
+		text.text(_(strings::prompt_interact));
 		text.anchor_x = UIText::Anchor::Center;
 		text.anchor_y = UIText::Anchor::Center;
 		text.size = text_size;

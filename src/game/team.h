@@ -70,6 +70,7 @@ struct Team : public ComponentType<Team>
 	static s32 teams_with_players();
 	static Team* with_most_kills();
 	static b8 net_msg(Net::StreamRead*);
+	static void transition_mode(Game::Mode);
 
 	static inline const Vec4& ui_color(AI::Team me, AI::Team them)
 	{

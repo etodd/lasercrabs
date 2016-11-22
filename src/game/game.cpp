@@ -977,6 +977,13 @@ AI::Team team_lookup(const AI::Team* table, s32 i)
 	return table[vi_max(0, vi_min(MAX_PLAYERS, i))];
 }
 
+void terminal_reached()
+{
+	vi_assert(Game::level.local);
+	if (Game::level.mode == Game::Mode::Parkour)
+		Team::transition_mode(Game::Mode::Pvp);
+}
+
 void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 {
 	unload_level();
@@ -1015,17 +1022,17 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 	s32 control_point_set = 0;
 	if (level.type == Type::Rush)
 	{
-		s32 max_control_point_set = 0;
+		s32 max_control_point_set = -1;
 		cJSON* element = json->child;
 		while (element)
 		{
 			if (cJSON_GetObjectItem(element, "ControlPoint"))
-				max_control_point_set = vi_max(max_control_point_set, Json::get_s32(element, "set", -1));
+				max_control_point_set = vi_max(max_control_point_set, Json::get_s32(element, "set"));
 			element = element->next;
 		}
 
 		// pick a set of control points
-		if (max_control_point_set > 0)
+		if (max_control_point_set >= 0)
 			control_point_set = mersenne::rand() % (max_control_point_set + 1);
 		else if (level.type == Type::Rush) // no control points
 			level.type = Type::Deathmatch;
@@ -1079,10 +1086,17 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 
 			s32 team_count = session.team_count();
 
+			// fill team lookup table
 			{
-				// shuffle teams and make sure they're packed in the array starting at 0
-				b8 lock_teams = Json::get_s32(element, "lock_teams");
-				s32 offset = lock_teams ? 0 : mersenne::rand() % team_count;
+				s32 offset;
+				if (Game::session.story_mode)
+					offset = 1; // always put local player on team 1 (attackers)
+				else
+				{
+					// shuffle teams and make sure they're packed in the array starting at 0
+					b8 lock_teams = Json::get_s32(element, "lock_teams");
+					offset = lock_teams ? 0 : mersenne::rand() % team_count;
+				}
 				for (s32 i = 0; i < MAX_PLAYERS; i++)
 					level.team_lookup[i] = (AI::Team)((offset + i) % team_count);
 			}
@@ -1240,7 +1254,7 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 		{
 			if (level.type == Type::Rush && (!cJSON_GetObjectItem(element, "set") || Json::get_s32(element, "set") == control_point_set))
 			{
-				absolute_pos.y += 1.5f;
+				absolute_pos += absolute_rot * Vec3(0, 1.5f, 0);
 				entity = World::alloc<ControlPointEntity>(AI::Team(0), absolute_pos);
 			}
 		}
@@ -1493,6 +1507,7 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 		{
 			entity = World::alloc<Prop>(Asset::Mesh::cube);
 			entity->get<View>()->color = Vec4(1, 1, 1, 1);
+			entity->add<Interactable>()->interacted.link(&terminal_reached);
 			level.terminal = entity;
 		}
 		else

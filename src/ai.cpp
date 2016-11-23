@@ -24,6 +24,7 @@ SyncRingBuffer<SYNC_OUT_SIZE> sync_out;
 b8 render_meshes_dirty;
 u32 callback_in_id;
 u32 callback_out_id;
+AssetID worker_current_level = AssetNull;
 
 void loop()
 {
@@ -79,7 +80,8 @@ void update(const Update& u)
 				sync_out.read(&result.path);
 				result.id = callback_out_id;
 				callback_out_id++;
-				(&link)->fire(result);
+				if (worker_current_level == Game::level.id) // prevent entity ID/revision collisions
+					(&link)->fire(result);
 				break;
 			}
 			case Callback::AwkPath:
@@ -90,7 +92,8 @@ void update(const Update& u)
 				sync_out.read(&result.path);
 				result.id = callback_out_id;
 				callback_out_id++;
-				(&link)->fire(result);
+				if (worker_current_level == Game::level.id) // prevent entity ID/revision collisions
+					(&link)->fire(result);
 				break;
 			}
 			case Callback::Point:
@@ -100,7 +103,13 @@ void update(const Update& u)
 				Vec3 result;
 				sync_out.read(&result);
 				callback_out_id++;
-				(&link)->fire(result);
+				if (worker_current_level == Game::level.id) // prevent entity ID/revision collisions
+					(&link)->fire(result);
+				break;
+			}
+			case Callback::Load:
+			{
+				sync_out.read(&worker_current_level);
 				break;
 			}
 			default:
@@ -163,10 +172,11 @@ void obstacle_remove(u32 id)
 	sync_in.unlock();
 }
 
-void load(const u8* data, s32 length)
+void load(AssetID id, const u8* data, s32 length)
 {
 	sync_in.lock();
 	sync_in.write(Op::Load);
+	sync_in.write(id);
 	sync_in.write(length);
 	sync_in.write(data, length);
 	sync_in.unlock();

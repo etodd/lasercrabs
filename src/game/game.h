@@ -41,7 +41,8 @@ struct Game
 		Special,
 		Parkour,
 		Pvp,
-		count,
+		None,
+		count = None,
 	};
 
 	enum class Group
@@ -99,7 +100,6 @@ struct Game
 		Locked,
 		Friendly,
 		Hostile,
-		Owned,
 	};
 
 	enum class Resource
@@ -143,6 +143,7 @@ struct Game
 		r32 min_y;
 		Type type;
 		Mode mode;
+		s32 max_teams;
 		StaticArray<AI::Config, MAX_PLAYERS> ai_config;
 		Skybox::Config skybox;
 		AssetID id = AssetNull;

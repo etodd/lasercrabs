@@ -538,7 +538,7 @@ s16 energy_increment_total()
 	{
 		const ZoneNode& zone = global.zones[i];
 		Game::ZoneState zone_state = Game::save.zones[zone.id];
-		if (zone_state == Game::ZoneState::Friendly || zone_state == Game::ZoneState::Owned)
+		if (zone_state == Game::ZoneState::Friendly)
 			result += energy_increment_zone(zone);
 	}
 	if (Game::save.group != Game::Group::None)
@@ -662,15 +662,11 @@ Vec3 zone_color(const ZoneNode& zone)
 			}
 			case Game::ZoneState::Friendly:
 			{
-				return UI::color_accent.xyz();
+				return Team::color_friend.xyz();
 			}
 			case Game::ZoneState::Hostile:
 			{
 				return Team::color_enemy.xyz();
-			}
-			case Game::ZoneState::Owned:
-			{
-				return Team::color_friend.xyz();
 			}
 			default:
 			{
@@ -694,15 +690,11 @@ const Vec4& zone_ui_color(const ZoneNode& zone)
 			}
 			case Game::ZoneState::Friendly:
 			{
-				return UI::color_accent;
+				return Team::ui_color_friend;
 			}
 			case Game::ZoneState::Hostile:
 			{
 				return Team::ui_color_enemy;
-			}
-			case Game::ZoneState::Owned:
-			{
-				return Team::ui_color_friend;
 			}
 			default:
 			{
@@ -1254,11 +1246,7 @@ void story_zone_done(AssetID zone, Game::MatchResult result)
 		const ZoneNode* z = zone_node_get(zone);
 		for (s32 i = 0; i < (s32)Game::Resource::count; i++)
 			Game::save.resources[i] += z->rewards[i];
-
-		if (Game::save.group == Game::Group::None)
-			Game::save.zones[zone] = Game::ZoneState::Owned;
-		else
-			Game::save.zones[zone] = Game::ZoneState::Friendly;
+		Game::save.zones[zone] = Game::ZoneState::Friendly;
 	}
 
 	if (Game::save.story_index == 0 && zone == Asset::Level::Safe_Zone && captured)
@@ -1302,8 +1290,7 @@ b8 zone_filter_can_turn_hostile(AssetID zone_id)
 
 b8 zone_filter_captured(AssetID zone_id)
 {
-	Game::ZoneState state = Game::save.zones[zone_id];
-	return state == Game::ZoneState::Friendly || state == Game::ZoneState::Owned;
+	return Game::save.zones[zone_id] == Game::ZoneState::Friendly;
 }
 
 void zone_statistics(s32* captured, s32* hostile, s32* locked, b8 (*filter)(AssetID) = &zone_filter_default)
@@ -1317,7 +1304,7 @@ void zone_statistics(s32* captured, s32* hostile, s32* locked, b8 (*filter)(Asse
 		if (filter(zone.id))
 		{
 			Game::ZoneState state = Game::save.zones[zone.id];
-			if (state == Game::ZoneState::Owned || state == Game::ZoneState::Friendly)
+			if (state == Game::ZoneState::Friendly)
 				(*captured)++;
 			else if (state == Game::ZoneState::Hostile)
 				(*hostile)++;
@@ -2110,7 +2097,7 @@ void tab_map_draw(const RenderParams& p, const Data::StoryMode& story, const Rec
 
 		// show selected zone info
 		Game::ZoneState zone_state = Game::save.zones[data.zone_selected];
-		if (zone_state == Game::ZoneState::Hostile || zone_state == Game::ZoneState::Friendly || zone_state == Game::ZoneState::Owned)
+		if (zone_state == Game::ZoneState::Hostile || zone_state == Game::ZoneState::Friendly)
 		{
 			// show stats
 			const ZoneNode* zone = zone_node_get(data.zone_selected);

@@ -610,6 +610,9 @@ void loop()
 					sensors.length = 0;
 				}
 
+				AssetID level_id;
+				sync_in.read(&level_id);
+
 				s32 data_length;
 				sync_in.read(&data_length);
 #if DEBUG_AI
@@ -751,6 +754,11 @@ void loop()
 #if DEBUG_AI
 				vi_debug("Done in %fs.", (r32)(platform::time() - start_time));
 #endif
+
+				sync_out.lock();
+				sync_out.write(Callback::Load);
+				sync_out.write(level_id);
+				sync_out.unlock();
 
 				break;
 			}

@@ -108,6 +108,7 @@ AI::Config PlayerAI::generate_config(AI::Team team, r32 spawn_timer)
 PlayerAI::PlayerAI(PlayerManager* m, const AI::Config& config)
 	: manager(m),
 	revision(),
+	memory(),
 	config(config)
 {
 	m->spawn.link<PlayerAI, &PlayerAI::spawn>(this);
@@ -182,7 +183,6 @@ s32 PlayerAI::save_up_priority() const
 PlayerControlAI::PlayerControlAI(PlayerAI* p)
 	: path_index(),
 	player(p),
-	memory(),
 	active_behavior(),
 	path_priority(),
 	path(),
@@ -373,12 +373,12 @@ b8 PlayerControlAI::restore_loops()
 	return true;
 }
 
-void add_memory(PlayerControlAI::MemoryArray* component_memories, Entity* entity, const Vec3& pos)
+void add_memory(PlayerAI::MemoryArray* component_memories, Entity* entity, const Vec3& pos)
 {
 	b8 already_found = false;
 	for (s32 j = 0; j < component_memories->length; j++)
 	{
-		PlayerControlAI::Memory* m = &(*component_memories)[j];
+		PlayerAI::Memory* m = &(*component_memories)[j];
 		if (m->entity.ref() == entity)
 		{
 			m->pos = pos;
@@ -389,7 +389,7 @@ void add_memory(PlayerControlAI::MemoryArray* component_memories, Entity* entity
 
 	if (!already_found)
 	{
-		PlayerControlAI::Memory* m = component_memories->add();
+		PlayerAI::Memory* m = component_memories->add();
 		m->entity = entity;
 		m->pos = pos;
 	}
@@ -405,12 +405,12 @@ enum class MemoryStatus
 template<typename Component>
 void update_component_memory(PlayerControlAI* control, MemoryStatus (*filter)(const PlayerControlAI*, const Entity*))
 {
-	PlayerControlAI::MemoryArray* component_memories = &control->memory[Component::family];
+	PlayerAI::MemoryArray* component_memories = &control->player.ref()->memory[Component::family];
 	r32 range = control->get<Awk>()->range() * 1.5f;
 	// remove outdated memories
 	for (s32 i = 0; i < component_memories->length; i++)
 	{
-		PlayerControlAI::Memory* m = &(*component_memories)[i];
+		PlayerAI::Memory* m = &(*component_memories)[i];
 		if (control->in_range(m->pos, range))
 		{
 			MemoryStatus status = MemoryStatus::Keep;
@@ -1049,7 +1049,7 @@ b8 should_snipe(const PlayerControlAI* control)
 	{
 		b8 result = false;
 		{
-			const PlayerControlAI::MemoryArray& memory = control->memory[Awk::family];
+			const PlayerAI::MemoryArray& memory = control->player.ref()->memory[Awk::family];
 			for (s32 i = 0; i < memory.length; i++)
 			{
 				Vec3 to_awk = memory[i].pos - pos;
@@ -1061,7 +1061,7 @@ b8 should_snipe(const PlayerControlAI* control)
 		}
 
 		{
-			const PlayerControlAI::MemoryArray& memory = control->memory[MinionCommon::family];
+			const PlayerAI::MemoryArray& memory = control->player.ref()->memory[MinionCommon::family];
 			for (s32 i = 0; i < memory.length; i++)
 			{
 				Vec3 to_minion = memory[i].pos - pos;
@@ -1382,6 +1382,7 @@ b8 PlayerControlAI::update_memory()
 	update_component_memory<Awk>(this, &awk_memory_filter);
 
 	const Team& team = Team::list[(s32)get<AIAgent>()->team];
+	PlayerAI::MemoryArray* memory = player.ref()->memory;
 	for (s32 i = 0; i < MAX_PLAYERS; i++)
 	{
 		const Team::SensorTrack& track = team.player_tracks[i];
@@ -1555,8 +1556,8 @@ void Find::run()
 	active(true);
 	if (control->get<Awk>()->state() == Awk::State::Crawl && path_priority > control->path_priority)
 	{
-		const PlayerControlAI::MemoryArray& memory = control->memory[family];
-		const PlayerControlAI::Memory* closest = nullptr;
+		const PlayerAI::MemoryArray& memory = control->player.ref()->memory[family];
+		const PlayerAI::Memory* closest = nullptr;
 		Entity* closest_entity;
 		r32 closest_distance = FLT_MAX;
 		Vec3 pos = control->get<Transform>()->absolute_pos();
@@ -1749,7 +1750,7 @@ void ReactTarget::run()
 		r32 range = control->get<Awk>()->range();
 		r32 closest_distance = range * range;
 		Vec3 pos = control->get<Transform>()->absolute_pos();
-		const PlayerControlAI::MemoryArray& memory = control->memory[family];
+		const PlayerAI::MemoryArray& memory = control->player.ref()->memory[family];
 		for (s32 i = 0; i < memory.length; i++)
 		{
 			r32 distance = (memory[i].pos - pos).length_squared();
@@ -1799,7 +1800,7 @@ void RunAway::run()
 		Entity* closest = nullptr;
 		r32 range = control->get<Awk>()->range();
 		r32 closest_distance = range * range;
-		const PlayerControlAI::MemoryArray& memory = control->memory[family];
+		const PlayerAI::MemoryArray& memory = control->player.ref()->memory[family];
 		for (s32 i = 0; i < memory.length; i++)
 		{
 			r32 distance = (memory[i].pos - pos).length_squared();

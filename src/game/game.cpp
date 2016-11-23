@@ -393,8 +393,7 @@ void Game::update(const Update& update_in)
 						if (config->spawn_timer == 0.0f)
 						{
 							Entity* e = World::create<ContainerEntity>();
-							PlayerManager* manager = e->add<PlayerManager>(&Team::list[(s32)config->team]);
-							utf8cpy(manager->username, Usernames::all[mersenne::rand_u32() % Usernames::count]);
+							PlayerManager* manager = e->add<PlayerManager>(&Team::list[(s32)config->team], Usernames::all[mersenne::rand_u32() % Usernames::count]);
 							Net::finalize(e);
 
 							PlayerAI* player = PlayerAI::list.add();
@@ -687,13 +686,15 @@ void Game::draw_alpha(const RenderParams& render_params)
 
 	for (auto i = PlayerControlHuman::list.iterator(); !i.is_last(); i.next())
 		i.item()->draw_alpha(render_params);
-	for (auto i = PlayerHuman::list.iterator(); !i.is_last(); i.next())
-		i.item()->draw_alpha(render_params);
 
 	for (s32 i = 0; i < draws.length; i++)
 		(*draws[i])(render_params);
 
 	Overworld::draw_ui(render_params);
+
+	for (auto i = PlayerHuman::list.iterator(); !i.is_last(); i.next())
+		i.item()->draw_alpha(render_params);
+
 	Menu::draw(render_params);
 
 	if (schedule_timer > 0.0f && schedule_timer < TRANSITION_TIME)
@@ -723,6 +724,8 @@ void Game::draw_particles(const RenderParams& render_params)
 	render_params.sync->write(RenderCullMode::None);
 	for (s32 i = 0; i < ParticleSystem::list.length; i++)
 		ParticleSystem::list[i]->draw(render_params);
+	render_params.sync->write(RenderOp::CullMode);
+	render_params.sync->write(RenderCullMode::Back);
 }
 
 void Game::draw_additive(const RenderParams& render_params)
@@ -912,6 +915,8 @@ void Game::unload_level()
 
 	// PlayerAI is not part of the entity system
 	PlayerAI::list.clear();
+
+	PlayerHuman::clear(); // clear some random player-related stuff
 
 	for (s32 i = 0; i < ParticleSystem::list.length; i++)
 		ParticleSystem::list[i]->clear();
@@ -1127,29 +1132,32 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 					{
 						AI::Team team = team_lookup(level.team_lookup, s32(session.local_player_config[i]));
 
+						char username[MAX_USERNAME + 64] = {};
+						if (ai_test)
+							strncpy(username, Usernames::all[mersenne::rand_u32() % Usernames::count], MAX_USERNAME);
+						else
+						{
+							if (level.local && !session.story_mode)
+								sprintf(username, _(strings::player), i + 1);
+							else
+							{
+								if (i == 0)
+									sprintf(username, "%s", save.username);
+								else
+									sprintf(username, "%s [%d]", save.username, i + 1);
+							}
+						}
+
 						Entity* e = World::alloc<ContainerEntity>();
-						PlayerManager* manager = e->create<PlayerManager>(&Team::list[(s32)team]);
+						PlayerManager* manager = e->create<PlayerManager>(&Team::list[(s32)team], username);
 
 						if (ai_test)
 						{
 							PlayerAI* player = PlayerAI::list.add();
 							new (player) PlayerAI(manager, PlayerAI::generate_config(team, 0.0f));
-							utf8cpy(manager->username, Usernames::all[mersenne::rand_u32() % Usernames::count]);
 						}
 						else
-						{
 							e->create<PlayerHuman>(true, i); // local = true
-
-							if (level.local && !session.story_mode)
-								sprintf(manager->username, _(strings::player), i + 1);
-							else
-							{
-								if (i == 0)
-									sprintf(manager->username, "%s", save.username);
-								else
-									sprintf(manager->username, "%s [%d]", save.username, i + 1);
-							}
-						}
 						// container entity will be finalized later
 					}
 				}
@@ -1248,7 +1256,7 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 				Team::list[(s32)team].player_spawn = entity->get<Transform>();
 			}
 			else
-				entity = World::alloc<PlayerSpawnEntity>(AI::TeamNone);
+				entity = World::alloc<Empty>();
 		}
 		else if (cJSON_GetObjectItem(element, "ControlPoint"))
 		{
@@ -1293,7 +1301,7 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 			if (session.story_mode)
 			{
 				AI::Team team = team_lookup(level.team_lookup, Json::get_s32(element, "team", 1));
-				r32 spawn_timer = 5.0f + mersenne::randf_cc() * CONTROL_POINT_CAPTURE_TIME * 3.0f;
+				r32 spawn_timer = 5.0f + mersenne::randf_cc() * CONTROL_POINT_CAPTURE_TIME * 1.5f;
 				level.ai_config.add(PlayerAI::generate_config(team, spawn_timer));
 			}
 		}

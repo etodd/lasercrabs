@@ -982,7 +982,7 @@ cJSON* Loader::level(AssetID id, b8 load_nav)
 {
 	if (id == AssetNull)
 	{
-		AI::load(nullptr, 0);
+		AI::load(AssetNull, nullptr, 0);
 		return 0;
 	}
 
@@ -1004,10 +1004,10 @@ cJSON* Loader::level(AssetID id, b8 load_nav)
 		fread(data.data, sizeof(u8), data.length, f);
 		fclose(f);
 
-		AI::load(data.data, data.length);
+		AI::load(id, data.data, data.length);
 	}
 	else
-		AI::load(nullptr, 0);
+		AI::load(AssetNull, nullptr, 0);
 	
 	return Json::load(level_path(id));
 }

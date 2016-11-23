@@ -37,6 +37,7 @@
 #include "net_serialize.h"
 #include "team.h"
 #include "overworld.h"
+#include "utf8/utf8.h"
 
 namespace VI
 {
@@ -63,6 +64,7 @@ namespace VI
 #define INTERACT_TIME 2.5f
 #define INTERACT_LERP_ROTATION_SPEED 5.0f
 #define INTERACT_LERP_TRANSLATION_SPEED 5.0f
+#define LOG_TIME 5.0f
 
 #define HP_BOX_SIZE (Vec2(text_size) * UI::scale)
 #define HP_BOX_SPACING (8.0f * UI::scale)
@@ -207,6 +209,7 @@ void PlayerHuman::awake()
 #define DANGER_LINGER_TIME 3.0f
 #define DANGER_RAMP_DOWN_TIME 4.0f
 r32 PlayerHuman::danger;
+StaticArray<PlayerHuman::LogEntry, 4> PlayerHuman::logs;
 void PlayerHuman::update_all(const Update& u)
 {
 	for (auto i = PlayerHuman::list.iterator(); !i.is_last(); i.next())
@@ -236,9 +239,29 @@ void PlayerHuman::update_all(const Update& u)
 		danger = vi_max(0.0f, danger - Game::real_time.delta / DANGER_RAMP_DOWN_TIME);
 
 	Audio::global_param(AK::GAME_PARAMETERS::DANGER, vi_min(danger, 1.0f));
+
+	for (s32 i = logs.length - 1; i >= 0; i--)
+	{
+		if (logs[i].timestamp < Game::real_time.total - LOG_TIME)
+			logs.remove_ordered(i);
+	}
 }
 
-#define TUTORIAL_TIME 2.0f
+void PlayerHuman::log_add(const char* msg, AI::Team team)
+{
+	if (logs.length == logs.capacity())
+		logs.remove_ordered(0);
+	PlayerHuman::LogEntry* entry = logs.add();
+	entry->timestamp = Game::real_time.total;
+	entry->team = team;
+	strncpy(entry->text, msg, 511);
+}
+
+void PlayerHuman::clear()
+{
+	danger = 0.0f;
+	logs.length = 0;
+}
 
 void PlayerHuman::update_camera_rotation(const Update& u)
 {
@@ -1177,6 +1200,26 @@ void PlayerHuman::draw_alpha(const RenderParams& params) const
 			msg_text.draw(params, pos);
 			if (!last_flash)
 				Audio::post_global_event(msg_good ? AK::EVENTS::PLAY_BEEP_GOOD : AK::EVENTS::PLAY_BEEP_BAD);
+		}
+	}
+
+	// logs
+	{
+		UIText text;
+		text.anchor_x = UIText::Anchor::Max;
+		text.anchor_y = UIText::Anchor::Max;
+		text.wrap_width = MENU_ITEM_WIDTH - MENU_ITEM_PADDING * 2.0f;
+		Vec2 p = params.camera->viewport.size + Vec2(MENU_ITEM_PADDING * -5.0f);
+		AI::Team my_team = get<PlayerManager>()->team.ref()->team();
+		for (s32 i = 0; i < logs.length; i++)
+		{
+			const LogEntry& entry = logs[i];
+			text.color = Team::ui_color(my_team, entry.team);
+			text.text_raw(entry.text);
+			UI::box(params, text.rect(p).outset(MENU_ITEM_PADDING), UI::color_background);
+			UIMenu::text_clip(&text, entry.timestamp, 150.0f);
+			text.draw(params, p);
+			p -= (text.size * UI::scale) + MENU_ITEM_PADDING * 2.0f;
 		}
 	}
 
@@ -2310,7 +2353,21 @@ void PlayerControlHuman::update(const Update& u)
 			{
 				interactable = Interactable::closest(get<Transform>()->absolute_pos());
 				if (interactable.ref())
-					get<Animator>()->layers[1].play(Asset::Animation::character_terminal_enter); // this animation will eventually trigger the interactable
+				{
+					// start an animation that will eventually trigger the interactable
+					if (interactable.ref()->entity() == Game::level.terminal.ref())
+					{
+						if (Game::save.zones[Game::level.id] == Game::ZoneState::Hostile) // terminal is only enabled if it's unlocked and hostile
+						{
+							if (Game::level.max_teams <= 2 || Game::save.group != Game::Group::None) // if the map requires more than two players, you must be in a group
+								get<Animator>()->layers[1].play(Asset::Animation::character_terminal_enter);
+							else
+								player.ref()->msg(_(strings::group_required), false);
+						}
+					}
+					else
+						get<Animator>()->layers[1].play(Asset::Animation::character_interact);
+				}
 			}
 
 			if (interactable.ref())
@@ -2334,6 +2391,7 @@ void PlayerControlHuman::update(const Update& u)
 
 				r32 angle = fabs(LMath::angle_to(get<PlayerCommon>()->angle_horizontal, target_angle));
 				get<PlayerCommon>()->angle_horizontal = LMath::lerpf(vi_min(1.0f, (INTERACT_LERP_ROTATION_SPEED / angle) * u.time.delta), get<PlayerCommon>()->angle_horizontal, LMath::closest_angle(target_angle, get<PlayerCommon>()->angle_horizontal));
+				get<PlayerCommon>()->angle_vertical = LMath::lerpf(vi_min(1.0f, (INTERACT_LERP_ROTATION_SPEED / fabs(get<PlayerCommon>()->angle_vertical)) * u.time.delta), get<PlayerCommon>()->angle_vertical, 0);
 
 				Vec3 abs_pos = get<Transform>()->absolute_pos();
 				r32 distance = (abs_pos - target_pos).length();
@@ -2807,10 +2865,31 @@ void PlayerControlHuman::draw_alpha(const RenderParams& params) const
 	}
 	else
 	{
+		// parkour mode
+
+		// interact prompt
+		Interactable* i = Interactable::closest(get<Transform>()->absolute_pos());
+		// terminal is only enabled if it is unlocked and the zone is hostile
+		if (i && (i->entity() != Game::level.terminal.ref() || Game::save.zones[Game::level.id] == Game::ZoneState::Hostile))
+		{
+			UIText text;
+			text.color = UI::color_accent;
+			text.text(_(strings::prompt_interact));
+			text.anchor_x = UIText::Anchor::Center;
+			text.anchor_y = UIText::Anchor::Center;
+			text.size = text_size;
+			Vec2 pos = viewport.size * Vec2(0.5f, 0.15f);
+			UI::box(params, text.rect(pos).outset(8.0f * UI::scale), UI::color_background);
+			text.draw(params, pos);
+		}
+
 		// highlight terminal location
-		Entity* terminal = Game::level.terminal.ref();
-		if (terminal)
-			UI::indicator(params, terminal->get<Transform>()->absolute_pos(), UI::color_default, true);
+		if (!i && Game::save.zones[Game::level.id] == Game::ZoneState::Locked)
+		{
+			Entity* terminal = Game::level.terminal.ref();
+			if (terminal)
+				UI::indicator(params, terminal->get<Transform>()->absolute_pos(), UI::color_default, true);
+		}
 	}
 
 	// usernames directly over players' 3D positions
@@ -3131,20 +3210,6 @@ void PlayerControlHuman::draw_alpha(const RenderParams& params) const
 		UIText text;
 		text.color = UI::color_accent;
 		text.text(_(strings::buy_period), (s32)(GAME_BUY_PERIOD - Game::time.total) + 1);
-		text.anchor_x = UIText::Anchor::Center;
-		text.anchor_y = UIText::Anchor::Center;
-		text.size = text_size;
-		Vec2 pos = viewport.size * Vec2(0.5f, 0.15f);
-		UI::box(params, text.rect(pos).outset(8.0f * UI::scale), UI::color_background);
-		text.draw(params, pos);
-	}
-
-	if (has<Parkour>() && Interactable::closest(get<Transform>()->absolute_pos()))
-	{
-		// interact prompt
-		UIText text;
-		text.color = UI::color_accent;
-		text.text(_(strings::prompt_interact));
 		text.anchor_x = UIText::Anchor::Center;
 		text.anchor_y = UIText::Anchor::Center;
 		text.size = text_size;

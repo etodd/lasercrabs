@@ -18,6 +18,7 @@
 #include "render/particles.h"
 #include "net.h"
 #include "net_serialize.h"
+#include "ai_player.h"
 
 #define CREDITS_FLASH_TIME 0.5f
 
@@ -35,6 +36,7 @@ r32 Team::control_point_timer;
 r32 Team::game_over_real_time;
 b8 Team::game_over;
 Ref<Team> Team::winner;
+Game::Mode Team::transition_mode_scheduled = Game::Mode::None;
 
 AbilityInfo AbilityInfo::list[(s32)Ability::count] =
 {
@@ -507,6 +509,11 @@ b8 Team::net_msg(Net::StreamRead* p)
 			serialize_ref(p, winner);
 			game_over = true;
 			game_over_real_time = Game::real_time.total;
+			if (Game::session.story_mode)
+			{
+				if (winner.ref() == &Team::list[1])
+					Game::save.zones[Game::level.id] = Game::ZoneState::Friendly;
+			}
 			break;
 		}
 		case TeamNet::Message::TransitionMode:
@@ -516,7 +523,10 @@ b8 Team::net_msg(Net::StreamRead* p)
 			if (Game::level.local)
 			{
 				for (auto i = PlayerCommon::list.iterator(); !i.is_last(); i.next())
-					World::remove_deferred(i.item()->entity());
+					World::remove(i.item()->entity());
+				for (auto i = PlayerAI::list.iterator(); !i.is_last(); i.next())
+					World::remove(i.item()->manager.ref()->entity());
+				PlayerAI::list.clear();
 			}
 			break;
 		}
@@ -536,6 +546,13 @@ void team_rocket_launch(AI::Team team, PlayerManager* other_player, const Team::
 
 void Team::update_all_server(const Update& u)
 {
+	if (transition_mode_scheduled != Game::Mode::None)
+	{
+		Game::Mode m = transition_mode_scheduled;
+		transition_mode_scheduled = Game::Mode::None;
+		TeamNet::send_transition_mode(m);
+	}
+
 	if (Game::level.mode != Game::Mode::Pvp)
 		return;
 
@@ -699,7 +716,7 @@ void Team::update_all_server(const Update& u)
 void Team::transition_mode(Game::Mode m)
 {
 	vi_assert(Game::level.local);
-	TeamNet::send_transition_mode(m);
+	transition_mode_scheduled = m;
 }
 
 void Team::update_all_client_only(const Update& u)
@@ -743,7 +760,7 @@ s32 PlayerManager::visibility_hash(const PlayerManager* awk_a, const PlayerManag
 	return awk_a->id() * MAX_PLAYERS + awk_b->id();
 }
 
-PlayerManager::PlayerManager(Team* team)
+PlayerManager::PlayerManager(Team* team, const char* u)
 	: spawn_timer(PLAYER_SPAWN_DELAY),
 	score_accepted(),
 	team(team),
@@ -762,6 +779,30 @@ PlayerManager::PlayerManager(Team* team)
 	kills()
 {
 	credits_last = credits;
+	if (u)
+		strncpy(username, u, MAX_USERNAME);
+	else
+		username[0] = '\0';
+}
+
+void PlayerManager::awake()
+{
+	if ((!Game::level.local || Game::session.story_mode) && list.count() > 1)
+	{
+		char log[512];
+		sprintf(log, _(strings::player_joined), username);
+		PlayerHuman::log_add(log, team.ref()->team());
+	}
+}
+
+PlayerManager::~PlayerManager()
+{
+	if (!Game::level.local || Game::session.story_mode)
+	{
+		char log[512];
+		sprintf(log, _(strings::player_left), username);
+		PlayerHuman::log_add(log, team.ref()->team());
+	}
 }
 
 b8 PlayerManager::upgrade_start(Upgrade u)

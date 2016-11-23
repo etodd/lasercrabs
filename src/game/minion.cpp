@@ -371,6 +371,26 @@ Entity* closest_target(MinionAI* me, AI::Team team, const Vec3& direction)
 		}
 	}
 
+	for (auto i = EnergyPickup::list.iterator(); !i.is_last(); i.next())
+	{
+		EnergyPickup* pickup = i.item();
+		if (pickup->team != team && pickup->team != AI::TeamNone)
+		{
+			Vec3 item_pos = pickup->get<Transform>()->absolute_pos();
+			if ((item_pos - me->patrol_point).length_squared() > MINION_VISION_RANGE * MINION_VISION_RANGE)
+				continue;
+			if (me->can_see(pickup->entity()))
+				return pickup->entity();
+			Vec3 to_pickup = item_pos - pos;
+			r32 total_distance = to_pickup.length_squared() + (to_pickup.dot(direction) < 0.0f ? direction_cost : 0.0f);
+			if (total_distance < closest_distance)
+			{
+				closest = pickup->entity();
+				closest_distance = total_distance;
+			}
+		}
+	}
+
 	for (auto i = Sensor::list.iterator(); !i.is_last(); i.next())
 	{
 		Sensor* sensor = i.item();
@@ -486,6 +506,16 @@ Entity* visible_target(MinionAI* me, AI::Team team)
 		}
 	}
 
+	for (auto i = Grenade::list.iterator(); !i.is_last(); i.next())
+	{
+		Grenade* grenade = i.item();
+		if (grenade->team() != team)
+		{
+			if (me->can_see(grenade->entity()))
+				return grenade->entity();
+		}
+	}
+
 	for (auto i = ContainmentField::list.iterator(); !i.is_last(); i.next())
 	{
 		ContainmentField* field = i.item();
@@ -496,13 +526,13 @@ Entity* visible_target(MinionAI* me, AI::Team team)
 		}
 	}
 
-	for (auto i = Grenade::list.iterator(); !i.is_last(); i.next())
+	for (auto i = EnergyPickup::list.iterator(); !i.is_last(); i.next())
 	{
-		Grenade* grenade = i.item();
-		if (grenade->team() != team)
+		EnergyPickup* pickup = i.item();
+		if (pickup->team != team && pickup->team != AI::TeamNone)
 		{
-			if (me->can_see(grenade->entity()))
-				return grenade->entity();
+			if (me->can_see(pickup->entity()))
+				return pickup->entity();
 		}
 	}
 
@@ -643,14 +673,19 @@ void MinionAI::update(const Update& u)
 			target_scan_timer = TARGET_SCAN_TIME;
 
 			Entity* target_candidate = visible_target(this, get<AIAgent>()->team);
-			if (target_candidate && target_candidate != goal.entity.ref())
+			if (target_candidate)
 			{
-				// look, a shiny!
-				path.length = 0;
-				goal.type = Goal::Type::Target;
-				goal.entity = target_candidate;
-				target_timer = 0;
+				if (target_candidate != goal.entity.ref())
+				{
+					// look, a shiny!
+					path.length = 0;
+					goal.type = Goal::Type::Target;
+					goal.entity = target_candidate;
+					target_timer = 0;
+				}
 			}
+			else
+				goal.entity = nullptr; // our current target no longer matches our criteria
 		}
 
 		b8 recalc = false;
@@ -773,6 +808,7 @@ void MinionAI::update(const Update& u)
 void MinionAI::set_patrol_point(const Vec3& p)
 {
 	patrol_point = p;
+	path_request = PathRequest::None;
 	new_goal(get<Walker>()->forward());
 }
 

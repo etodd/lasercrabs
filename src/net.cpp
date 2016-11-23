@@ -693,6 +693,8 @@ template<typename Stream> b8 serialize_init_packet(Stream* p)
 	serialize_enum(p, Game::Mode, Game::level.mode);
 	serialize_enum(p, Game::Type, Game::level.type);
 	serialize_ref(p, Game::level.map_view);
+	serialize_ref(p, Game::level.terminal);
+	serialize_int(p, s32, Game::level.max_teams, 0, MAX_PLAYERS);
 	return true;
 }
 

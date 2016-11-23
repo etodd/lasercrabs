@@ -28,19 +28,22 @@ struct PlayerHuman : public ComponentType<PlayerHuman>
 {
 	enum class UIMode { PvpDefault, ParkourDefault, Pause, Dead, Upgrading, GameOver };
 
-	struct SupportEntry
+	struct LogEntry
 	{
-		Ref<RigidBody> support;
-		Vec3 relative_position;
-		r32 rotation;
+		r32 timestamp;
+		char text[512];
+		AI::Team team;
 	};
 
 	static r32 danger;
+	static StaticArray<LogEntry, 4> logs;
 
 	static void update_all(const Update&);
 	static s32 count_local();
 	static s32 count_local_before(PlayerHuman*);
 	static PlayerHuman* player_for_camera(const Camera*);
+	static void log_add(const char*, AI::Team = AI::TeamNone);
+	static void clear();
 
 	u64 uuid;
 	Camera* camera;

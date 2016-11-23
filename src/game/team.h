@@ -61,6 +61,7 @@ struct Team : public ComponentType<Team>
 	static r32 game_over_real_time;
 	static b8 game_over;
 	static Ref<Team> winner;
+	static Game::Mode transition_mode_scheduled;
 
 	static void awake_all();
 	static void transition_next(Game::MatchResult);
@@ -143,8 +144,9 @@ struct PlayerManager : public ComponentType<PlayerManager>
 	char username[MAX_USERNAME + 1]; // +1 for null terminator
 	b8 score_accepted;
 
-	PlayerManager(Team* = nullptr);
-	void awake() {}
+	PlayerManager(Team* = nullptr, const char* = nullptr);
+	void awake();
+	~PlayerManager();
 
 	Entity* decoy() const;
 	State state() const;

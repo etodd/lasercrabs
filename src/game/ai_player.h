@@ -20,12 +20,23 @@ struct Camera;
 struct Target;
 struct ControlPoint;
 
+#define MAX_MEMORY 8
+
 struct PlayerAI
 {
+	struct Memory
+	{
+		Vec3 pos;
+		Ref<Entity> entity;
+	};
+
+	typedef StaticArray<Memory, MAX_MEMORY> MemoryArray;
+
 	static PinArray<PlayerAI, MAX_PLAYERS> list;
 
 	static AI::Config generate_config(AI::Team, r32);
 
+	MemoryArray memory[MAX_FAMILIES];
 	Ref<PlayerManager> manager;
 	Revision revision;
 	AI::Config config;
@@ -40,18 +51,8 @@ struct PlayerAI
 	s32 save_up_priority() const;
 };
 
-#define MAX_MEMORY 8
-
 struct PlayerControlAI : public ComponentType<PlayerControlAI>
 {
-	struct Memory
-	{
-		Vec3 pos;
-		Ref<Entity> entity;
-	};
-
-	typedef StaticArray<PlayerControlAI::Memory, MAX_MEMORY> MemoryArray;
-
 #if DEBUG_AI_CONTROL
 	Camera* camera;
 #endif
@@ -65,7 +66,6 @@ struct PlayerControlAI : public ComponentType<PlayerControlAI>
 	r32 inaccuracy;
 	AI::AwkPath path;
 	s32 path_index;
-	MemoryArray memory[MAX_FAMILIES];
 	Ref<PlayerAI> player;
 	Ref<Entity> target;
 	b8 shot_at_target;

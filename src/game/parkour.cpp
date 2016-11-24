@@ -70,10 +70,12 @@ Traceur::Traceur(const Vec3& pos, const Quat& quat, AI::Team team)
 void Parkour::awake()
 {
 	Animator* animator = get<Animator>();
+	animator->layers[0].loop = true;
 	animator->layers[0].play(Asset::Animation::character_idle);
 	animator->layers[1].loop = false;
 	animator->layers[1].blend_time = 0.2f;
 	animator->layers[2].loop = true;
+	animator->layers[3].loop = false;
 	link<&Parkour::footstep>(animator->trigger(Asset::Animation::character_walk, 0.3375f));
 	link<&Parkour::footstep>(animator->trigger(Asset::Animation::character_walk, 0.75f));
 	link<&Parkour::footstep>(animator->trigger(Asset::Animation::character_run, 0.216f));

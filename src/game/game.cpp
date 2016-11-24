@@ -372,10 +372,7 @@ void Game::update(const Update& update_in)
 
 		AI::update(u);
 
-		if (level.local)
-			Team::update_all_server(u);
-		else
-			Team::update_all_client_only(u);
+		Team::update(u);
 
 		PlayerManager::update_all(u);
 		PlayerHuman::update_all(u);
@@ -695,6 +692,8 @@ void Game::draw_alpha(const RenderParams& render_params)
 	for (auto i = PlayerHuman::list.iterator(); !i.is_last(); i.next())
 		i.item()->draw_alpha(render_params);
 
+	Team::draw_ui(render_params);
+
 	Menu::draw(render_params);
 
 	if (schedule_timer > 0.0f && schedule_timer < TRANSITION_TIME)
@@ -980,13 +979,6 @@ struct RopeEntry
 AI::Team team_lookup(const AI::Team* table, s32 i)
 {
 	return table[vi_max(0, vi_min(MAX_PLAYERS, i))];
-}
-
-void terminal_reached()
-{
-	vi_assert(Game::level.local);
-	if (Game::level.mode == Game::Mode::Parkour)
-		Team::transition_mode(Game::Mode::Pvp);
 }
 
 void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
@@ -1513,9 +1505,7 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 		}
 		else if (session.story_mode && strcmp(Json::get_string(element, "name"), "terminal") == 0)
 		{
-			entity = World::alloc<Prop>(Asset::Mesh::cube);
-			entity->get<View>()->color = Vec4(1, 1, 1, 1);
-			entity->add<Interactable>()->interacted.link(&terminal_reached);
+			entity = World::alloc<TerminalEntity>();
 			level.terminal = entity;
 		}
 		else

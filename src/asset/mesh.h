@@ -8,7 +8,7 @@ namespace Asset
 {
 	namespace Mesh
 	{
-		const s32 count = 43;
+		const s32 count = 45;
 		const AssetID awk = 0;
 		const AssetID character = 1;
 		const AssetID compass = 2;
@@ -51,7 +51,9 @@ namespace Asset
 		const AssetID sphere = 39;
 		const AssetID sphere_highres = 40;
 		const AssetID target = 41;
-		const AssetID tri_tube = 42;
+		const AssetID terminal = 42;
+		const AssetID terminal_collision = 43;
+		const AssetID tri_tube = 44;
 	}
 }
 

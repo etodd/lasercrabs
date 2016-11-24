@@ -1589,7 +1589,8 @@ void PlayerControlHuman::awake()
 	else
 	{
 		link_arg<r32, &PlayerControlHuman::parkour_landed>(get<Walker>()->land);
-		link<&PlayerControlHuman::interact_animation_callback>(get<Animator>()->trigger(Asset::Animation::character_terminal_enter, 1.2f));
+		link<&PlayerControlHuman::interact_animation_callback>(get<Animator>()->trigger(Asset::Animation::character_terminal_enter, 1.0f));
+		link<&PlayerControlHuman::interact_animation_callback>(get<Animator>()->trigger(Asset::Animation::character_interact, 1.92f));
 		get<Audio>()->post_event(AK::EVENTS::PLAY_FLY);
 		get<Audio>()->param(AK::GAME_PARAMETERS::FLY_VOLUME, 0.0f);
 	}
@@ -2017,7 +2018,7 @@ void PlayerControlHuman::update(const Update& u)
 			// update camera projection
 			{
 				r32 aspect = camera->viewport.size.y == 0 ? 1 : (r32)camera->viewport.size.x / (r32)camera->viewport.size.y;
-				camera->perspective(fov, aspect, 0.02f, Game::level.skybox.far_plane);
+				camera->perspective(fov, aspect, 0.005f, Game::level.skybox.far_plane);
 			}
 
 			if (get<Transform>()->parent.ref())
@@ -2349,24 +2350,33 @@ void PlayerControlHuman::update(const Update& u)
 
 		if (local())
 		{
+			// start interaction
 			if (input_enabled() && !u.input->get(Controls::InteractSecondary, gamepad) && u.last_input->get(Controls::InteractSecondary, gamepad))
 			{
 				interactable = Interactable::closest(get<Transform>()->absolute_pos());
 				if (interactable.ref())
 				{
 					// start an animation that will eventually trigger the interactable
-					if (interactable.ref()->entity() == Game::level.terminal.ref())
+					if (interactable.ref()->entity() == Game::level.terminal.ref()) // special case for terminal
 					{
-						if (Game::save.zones[Game::level.id] == Game::ZoneState::Hostile) // terminal is only enabled if it's unlocked and hostile
+						Game::ZoneState zone_state = Game::save.zones[Game::level.id];
+						if (zone_state == Game::ZoneState::Hostile)
 						{
 							if (Game::level.max_teams <= 2 || Game::save.group != Game::Group::None) // if the map requires more than two players, you must be in a group
-								get<Animator>()->layers[1].play(Asset::Animation::character_terminal_enter);
+								get<Animator>()->layers[3].play(Asset::Animation::character_terminal_enter);
 							else
+							{
 								player.ref()->msg(_(strings::group_required), false);
+								interactable = nullptr;
+							}
 						}
+						else if (zone_state == Game::ZoneState::Locked)
+							get<Animator>()->layers[3].play(Asset::Animation::character_interact);
+						else
+							interactable = nullptr;
 					}
-					else
-						get<Animator>()->layers[1].play(Asset::Animation::character_interact);
+					else // regular old interactable
+						get<Animator>()->layers[3].play(Asset::Animation::character_interact);
 				}
 			}
 
@@ -2381,11 +2391,11 @@ void PlayerControlHuman::update(const Update& u)
 					Vec3 i_pos;
 					Quat i_rot;
 					interactable.ref()->get<Transform>()->absolute(&i_pos, &i_rot);
-					Vec3 dir = i_rot * Vec3(0, 0, -1);
+					Vec3 dir = i_rot * Vec3(-1, 0, 0);
 					dir.y = 0.0f;
 					dir.normalize();
 					target_angle = atan2f(dir.x, dir.z);
-					target_pos = i_pos + dir * Vec3(0, 0, -0.5f);
+					target_pos = i_pos + dir * Vec3(-2.0f, 0, 0);
 					target_pos.y += (get<Walker>()->capsule_height() * 0.5f) + get<Walker>()->support_height;
 				}
 
@@ -2869,8 +2879,7 @@ void PlayerControlHuman::draw_alpha(const RenderParams& params) const
 
 		// interact prompt
 		Interactable* i = Interactable::closest(get<Transform>()->absolute_pos());
-		// terminal is only enabled if it is unlocked and the zone is hostile
-		if (i && (i->entity() != Game::level.terminal.ref() || Game::save.zones[Game::level.id] == Game::ZoneState::Hostile))
+		if (i)
 		{
 			UIText text;
 			text.color = UI::color_accent;

@@ -48,6 +48,8 @@ const char* AssetLookup::Mesh::values[] =
 	"assets/sphere.msh",
 	"assets/sphere_highres.msh",
 	"assets/target.msh",
+	"assets/terminal.msh",
+	"assets/terminal_collision.msh",
 	"assets/tri_tube.msh",
 	"assets/lvl/Ioke_Cube.msh",
 	"assets/lvl/Ioke_Cube_002.msh",
@@ -229,6 +231,8 @@ const char* AssetLookup::Mesh::names[] =
 	"sphere",
 	"sphere_highres",
 	"target",
+	"terminal",
+	"terminal_collision",
 	"tri_tube",
 	"Ioke_Cube",
 	"Ioke_Cube_002",
@@ -387,6 +391,9 @@ const char* AssetLookup::Animation::values[] =
 	"assets/character_walk.anm",
 	"assets/character_wall_run_left.anm",
 	"assets/character_wall_run_right.anm",
+	"assets/terminal_close.anm",
+	"assets/terminal_open.anm",
+	"assets/terminal_opened.anm",
 	0,
 };
 
@@ -412,6 +419,9 @@ const char* AssetLookup::Animation::names[] =
 	"character_walk",
 	"character_wall_run_left",
 	"character_wall_run_right",
+	"terminal_close",
+	"terminal_open",
+	"terminal_opened",
 	0,
 };
 
@@ -422,6 +432,7 @@ const char* AssetLookup::Armature::values[] =
 	"assets/character.arm",
 	"assets/parkour.arm",
 	"assets/parkour_headless.arm",
+	"assets/terminal.arm",
 	0,
 };
 
@@ -432,6 +443,7 @@ const char* AssetLookup::Armature::names[] =
 	"character",
 	"parkour",
 	"parkour_headless",
+	"terminal",
 	0,
 };
 

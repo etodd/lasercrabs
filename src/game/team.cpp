@@ -37,6 +37,7 @@ r32 Team::game_over_real_time;
 b8 Team::game_over;
 Ref<Team> Team::winner;
 Game::Mode Team::transition_mode_scheduled = Game::Mode::None;
+r32 Team::transition_timer;
 
 AbilityInfo AbilityInfo::list[(s32)Ability::count] =
 {
@@ -520,6 +521,17 @@ b8 Team::net_msg(Net::StreamRead* p)
 		{
 			serialize_enum(p, Game::Mode, Game::level.mode);
 			game_over = false;
+			transition_timer = TRANSITION_TIME * 0.5f;
+			for (auto i = PlayerHuman::list.iterator(); !i.is_last(); i.next())
+			{
+				Camera* camera = i.item()->camera;
+				if (camera)
+				{
+					Quat rot;
+					Game::level.map_view.ref()->absolute(&camera->pos, &rot);
+					camera->rot = Quat::look(rot * Vec3(0, -1, 0));
+				}
+			}
 			if (Game::level.local)
 			{
 				for (auto i = PlayerCommon::list.iterator(); !i.is_last(); i.next())
@@ -717,6 +729,21 @@ void Team::transition_mode(Game::Mode m)
 {
 	vi_assert(Game::level.local);
 	transition_mode_scheduled = m;
+}
+
+void Team::draw_ui(const RenderParams& params)
+{
+	if (transition_timer > 0.0f)
+		Menu::draw_letterbox(params, transition_timer, TRANSITION_TIME);
+}
+
+void Team::update(const Update& u)
+{
+	transition_timer = vi_max(0.0f, transition_timer - Game::real_time.delta);
+	if (Game::level.local)
+		update_all_server(u);
+	else
+		update_all_client_only(u);
 }
 
 void Team::update_all_client_only(const Update& u)

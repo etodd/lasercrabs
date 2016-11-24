@@ -2087,7 +2087,7 @@ Interactable* Interactable::closest(const Vec3& pos)
 			if (l > 0.0f)
 				to_interactable /= l;
 		}
-		if (d < distance_sq && to_interactable.dot(i_rot * Vec3(0, 0, 1)) < -0.85f)
+		if (d < distance_sq && to_interactable.dot(i_rot * Vec3(1, 0, 0)) < -0.85f)
 		{
 			distance_sq = d;
 			result = i.item();
@@ -2124,14 +2124,14 @@ b8 Interactable::net_msg(Net::StreamRead* p, Net::MessageSource src)
 			if (src == Net::MessageSource::Remote)
 				i->interact(); // need to send out this message to everyone
 			else if (src == Net::MessageSource::Loopback)
-				i->interacted.fire();
+				i->interacted.fire(i);
 			else
 				vi_assert(false);
 		}
 		else // client
 		{
 			if (src == Net::MessageSource::Remote) // wait to hear from the server
-				i->interacted.fire();
+				i->interacted.fire(i);
 		}
 	}
 	return true;
@@ -2140,6 +2140,56 @@ b8 Interactable::net_msg(Net::StreamRead* p, Net::MessageSource src)
 void Interactable::interact()
 {
 	InteractableNet::send_msg(this);
+}
+
+void terminal_interacted(Interactable* term)
+{
+	vi_assert(Game::level.mode == Game::Mode::Parkour);
+
+	Animator* animator = term->get<Animator>();
+	if (animator->layers[1].animation == AssetNull) // make sure nothing's happening already
+	{
+		Game::ZoneState zone_state = Game::save.zones[Game::level.id];
+		if (zone_state == Game::ZoneState::Locked)
+		{
+			Game::save.zones[Game::level.id] = Game::ZoneState::Hostile;
+			animator->layers[0].play(Asset::Animation::terminal_opened);
+			animator->layers[1].play(Asset::Animation::terminal_open);
+		}
+		else if (zone_state == Game::ZoneState::Hostile)
+		{
+			animator->layers[0].animation = AssetNull;
+			animator->layers[1].play(Asset::Animation::terminal_close);
+		}
+	}
+}
+
+void terminal_closed()
+{
+	vi_assert(Game::level.mode == Game::Mode::Parkour);
+	if (Game::level.local)
+		Team::transition_mode(Game::Mode::Pvp);
+}
+
+TerminalEntity::TerminalEntity()
+{
+	Transform* transform = create<Transform>();
+
+	SkinnedModel* model = create<SkinnedModel>();
+	model->mesh = Asset::Mesh::terminal;
+	model->shader = Asset::Shader::armature;
+	model->color = Vec4(1, 1, 1, 1);
+
+	Animator* anim = create<Animator>();
+	anim->armature = Asset::Armature::terminal;
+	anim->layers[0].loop = true;
+	anim->layers[0].animation = Game::save.zones[Game::level.id] == Game::ZoneState::Locked ? AssetNull : Asset::Animation::terminal_opened;
+	anim->layers[1].loop = false;
+	anim->trigger(Asset::Animation::terminal_close, 1.33f).link(&terminal_closed);
+
+	RigidBody* body = create<RigidBody>(RigidBody::Type::Mesh, Vec3::zero, 0.0f, CollisionStatic | CollisionInaccessible, ~CollisionStatic & ~CollisionParkour & ~CollisionInaccessibleMask, Asset::Mesh::terminal_collision);
+	body->set_restitution(0.75f);
+	create<Interactable>()->interacted.link(&terminal_interacted);
 }
 
 

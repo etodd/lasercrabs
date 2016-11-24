@@ -59,6 +59,7 @@ struct Team : public ComponentType<Team>
 	static const Vec4 color_friend;
 	static r32 control_point_timer;
 	static r32 game_over_real_time;
+	static r32 transition_timer;
 	static b8 game_over;
 	static Ref<Team> winner;
 	static Game::Mode transition_mode_scheduled;
@@ -66,12 +67,14 @@ struct Team : public ComponentType<Team>
 	static void awake_all();
 	static void transition_next(Game::MatchResult);
 	static s16 containment_field_mask(AI::Team);
+	static void update(const Update&);
 	static void update_all_server(const Update&);
 	static void update_all_client_only(const Update&);
 	static s32 teams_with_players();
 	static Team* with_most_kills();
 	static b8 net_msg(Net::StreamRead*);
 	static void transition_mode(Game::Mode);
+	static void draw_ui(const RenderParams&);
 
 	static inline const Vec4& ui_color(AI::Team me, AI::Team them)
 	{

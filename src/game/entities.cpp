@@ -1350,7 +1350,7 @@ void Projectile::update(const Update& u)
 		get<Transform>()->absolute_pos(next_pos);
 }
 
-void ParticleEffect::spawn(Type t, const Vec3& pos, const Quat& rot)
+b8 ParticleEffect::spawn(Type t, const Vec3& pos, const Quat& rot)
 {
 	if (!Game::level.local)
 		vi_debug_break();
@@ -1364,6 +1364,8 @@ void ParticleEffect::spawn(Type t, const Vec3& pos, const Quat& rot)
 	Net::serialize_quat(p, &rot2, Net::Resolution::Low);
 
 	Net::msg_finalize(p);
+
+	return true;
 }
 
 b8 ParticleEffect::net_msg(Net::StreamRead* p)
@@ -2183,8 +2185,10 @@ TerminalEntity::TerminalEntity()
 	Animator* anim = create<Animator>();
 	anim->armature = Asset::Armature::terminal;
 	anim->layers[0].loop = true;
+	anim->layers[0].blend_time = 0.0f;
 	anim->layers[0].animation = Game::save.zones[Game::level.id] == Game::ZoneState::Locked ? AssetNull : Asset::Animation::terminal_opened;
 	anim->layers[1].loop = false;
+	anim->layers[1].blend_time = 0.0f;
 	anim->trigger(Asset::Animation::terminal_close, 1.33f).link(&terminal_closed);
 
 	RigidBody* body = create<RigidBody>(RigidBody::Type::Mesh, Vec3::zero, 0.0f, CollisionStatic | CollisionInaccessible, ~CollisionStatic & ~CollisionParkour & ~CollisionInaccessibleMask, Asset::Mesh::terminal_collision);

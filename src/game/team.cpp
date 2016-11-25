@@ -552,10 +552,6 @@ b8 Team::net_msg(Net::StreamRead* p)
 	return true;
 }
 
-void team_rocket_launch(AI::Team team, PlayerManager* other_player, const Team::SensorTrack& track)
-{
-}
-
 void Team::update_all_server(const Update& u)
 {
 	if (transition_mode_scheduled != Game::Mode::None)

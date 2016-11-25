@@ -319,7 +319,7 @@ struct ParticleEffect
 		Grenade,
 		count,
 	};
-	static void spawn(Type, const Vec3&, const Quat&);
+	static b8 spawn(Type, const Vec3&, const Quat&);
 	static b8 net_msg(Net::StreamRead*);
 };
 

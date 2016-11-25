@@ -1794,10 +1794,10 @@ def fbx_skeleton_from_armature(scene, settings, arm_obj, objects, data_meshes,
         # Always handled by an Armature modifier...
         found = False
         for mod in ob_obj.bdata.modifiers:
-            if mod.type not in {'ARMATURE'}:
+            if mod.type not in {'ARMATURE'} or not mod.object:
                 continue
             # We only support vertex groups binding method, not bone envelopes one!
-            if mod.object == arm_obj.bdata and mod.use_vertex_groups:
+            if mod.object in {arm_obj.bdata, arm_obj.bdata.proxy} and mod.use_vertex_groups:
                 found = True
                 break
 
@@ -1822,8 +1822,8 @@ def fbx_skeleton_from_armature(scene, settings, arm_obj, objects, data_meshes,
 
 def fbx_generate_leaf_bones(settings, data_bones):
     # find which bons have no children
-    child_count = {bo: 0 for bo, _bo_key in data_bones.items()}
-    for bo, _bo_key in data_bones.items():
+    child_count = {bo: 0 for bo in data_bones.keys()}
+    for bo in data_bones.keys():
         if bo.parent and bo.parent.is_bone:
             child_count[bo.parent] += 1
 
@@ -1835,8 +1835,9 @@ def fbx_generate_leaf_bones(settings, data_bones):
     for parent in leaf_parents:
         node_name = parent.name + "_end"
         parent_uuid = parent.fbx_uuid
-        node_uuid = get_fbx_uuid_from_key(node_name + "_node")
-        attr_uuid = get_fbx_uuid_from_key(node_name + "_nodeattr")
+        parent_key = parent.key
+        node_uuid = get_fbx_uuid_from_key(parent_key + "_end_node")
+        attr_uuid = get_fbx_uuid_from_key(parent_key + "_end_nodeattr")
 
         hide = parent.hide
         size = parent.bdata.head_radius * bone_radius_scale
@@ -1881,11 +1882,12 @@ def fbx_animations_do(scene_data, ref_id, f_start, f_end, start_zero, objects=No
     p_rots = {}
 
     for ob_obj in objects:
+        if ob_obj.parented_to_armature:
+            continue
         ACNW = AnimationCurveNodeWrapper
         loc, rot, scale, _m, _mr = ob_obj.fbx_object_tx(scene_data, rest = True)
         rot_deg = tuple(convert_rad_to_deg_iter(rot))
         force_key = (simplify_fac == 0.0) or (ob_obj.is_bone and force_keying)
-        print(force_key, simplify_fac)
         animdata_ob[ob_obj] = (ACNW(ob_obj.key, 'LCL_TRANSLATION', force_key, force_sek, loc),
                                ACNW(ob_obj.key, 'LCL_ROTATION', force_key, force_sek, rot_deg),
                                ACNW(ob_obj.key, 'LCL_SCALING', force_key, force_sek, scale))
@@ -1992,6 +1994,7 @@ def fbx_animations(scene_data):
     # Per-NLA strip animstacks.
     if scene_data.settings.bake_anim_use_nla_strips:
         strips = []
+        ob_actions = []
         for ob_obj in scene_data.objects:
             # NLA tracks only for objects, not bones!
             if not ob_obj.is_object:
@@ -1999,6 +2002,9 @@ def fbx_animations(scene_data):
             ob = ob_obj.bdata  # Back to real Blender Object.
             if not ob.animation_data:
                 continue
+            # We have to remove active action from objects, it overwrites strips actions otherwise...
+            ob_actions.append((ob, ob.animation_data.action))
+            ob.animation_data.action = None
             for track in ob.animation_data.nla_tracks:
                 if track.mute:
                     continue
@@ -2016,6 +2022,9 @@ def fbx_animations(scene_data):
 
         for strip in strips:
             strip.mute = False
+
+        for ob, ob_act in ob_actions:
+            ob.animation_data.action = ob_act
 
     # All actions.
     if scene_data.settings.bake_anim_use_all_actions:
@@ -2060,14 +2069,22 @@ def fbx_animations(scene_data):
             if not ob.animation_data:
                 continue  # Do not export animations for objects that are absolutely not animated, see T44386.
 
+            if ob.animation_data.is_property_readonly('action'):
+                continue  # Cannot re-assign 'active action' to this object (usually related to NLA usage, see T48089).
+
             # We can't play with animdata and actions and get back to org state easily.
             # So we have to add a temp copy of the object to the scene, animate it, and remove it... :/
             ob_copy = ob.copy()
+            # Great, have to handle bones as well if needed...
+            pbones_matrices = [pbo.matrix_basis.copy() for pbo in ob.pose.bones] if ob.type == 'ARMATURE' else ...
 
+            org_act = ob.animation_data.action
             path_resolve = ob.path_resolve
+
             for act in bpy.data.actions:
                 # For now, *all* paths in the action must be valid for the object, to validate the action.
-                if not validate_actions(act, path_resolve):
+                # Unless that action was already assigned to the object!
+                if act != org_act and not validate_actions(act, path_resolve):
                     continue
 
                 # Reset the object
@@ -2195,12 +2212,14 @@ def fbx_data_from_scene(scene, settings):
                 data_meshes[ob_obj] = data_meshes[org_ob_obj]
                 continue
 
-        if settings.use_mesh_modifiers or ob.type in BLENDER_OTHER_OBJECT_TYPES:
-            use_org_data = False
+        is_ob_material = any(ms.link == 'OBJECT' for ms in ob.material_slots)
+
+        if settings.use_mesh_modifiers or ob.type in BLENDER_OTHER_OBJECT_TYPES or is_ob_material:
+            # We cannot use default mesh in that case, or material would not be the right ones...
+            use_org_data = not is_ob_material
             tmp_mods = []
-            if ob.type == 'MESH':
+            if use_org_data and ob.type == 'MESH':
                 # No need to create a new mesh in this case, if no modifier is active!
-                use_org_data = True
                 for mod in ob.modifiers:
                     # For meshes, when armature export is enabled, disable Armature modifiers here!
                     if mod.type == 'ARMATURE' and 'ARMATURE' in settings.object_types:
@@ -2697,13 +2716,15 @@ def fbx_header_elements(root, scene_data, time=None):
 
     props = elem_properties(global_settings)
     up_axis, front_axis, coord_axis = RIGHT_HAND_AXES[scene_data.settings.to_axes]
+    # DO NOT take into account global scale here! That setting is applied to object transformations during export
+    # (in other words, this is pure blender-exporter feature, and has nothing to do with FBX data).
     if scene_data.settings.apply_unit_scale:
         # Unit scaling is applied to objects' scale, so our unit is effectively FBX one (centimeter).
         scale_factor_org = 1.0
-        scale_factor = scene_data.settings.global_scale / units_blender_to_fbx_factor(scene)
+        scale_factor = 1.0 / units_blender_to_fbx_factor(scene)
     else:
         scale_factor_org = units_blender_to_fbx_factor(scene)
-        scale_factor = scene_data.settings.global_scale * units_blender_to_fbx_factor(scene)
+        scale_factor = scale_factor_org
     elem_props_set(props, "p_integer", b"UpAxis", up_axis[0])
     elem_props_set(props, "p_integer", b"UpAxisSign", up_axis[1])
     elem_props_set(props, "p_integer", b"FrontAxis", front_axis[0])

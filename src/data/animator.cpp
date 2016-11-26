@@ -63,6 +63,68 @@ void Animator::Layer::play(AssetID a)
 	}
 }
 
+void extract_channels_from_anim(StaticArray<Animator::AnimatorChannel, MAX_BONES>* channels, const Animation* anim, r32 time)
+{
+	channels->resize(anim->channels.length);
+	for (s32 i = 0; i < anim->channels.length; i++)
+	{
+		const Channel* c = &anim->channels[i];
+
+		Vec3 position;
+		Vec3 scale;
+		Quat rotation;
+
+		s32 index;
+		r32 last_time;
+		r32 next_time;
+		r32 blend;
+
+		if (c->positions.length == 0)
+			position = Vec3::zero;
+		else if (c->positions.length == 1)
+			position = c->positions[0].value;
+		else
+		{
+			index = find_keyframe_index(c->positions, time);
+			last_time = c->positions[index].time;
+			next_time = c->positions[index + 1].time;
+			blend = vi_min(1.0f, (time - last_time) / (next_time - last_time));
+			position = Vec3::lerp(blend, c->positions[index].value, c->positions[index + 1].value);
+		}
+
+		if (c->scales.length == 0)
+			scale = Vec3(1, 1, 1);
+		else if (c->scales.length == 1)
+			scale = c->scales[0].value;
+		else
+		{
+			index = find_keyframe_index(c->scales, time);
+			last_time = c->scales[index].time;
+			next_time = c->scales[index + 1].time;
+			blend = vi_min(1.0f, (time - last_time) / (next_time - last_time));
+			scale = Vec3::lerp(blend, c->scales[index].value, c->scales[index + 1].value);
+		}
+
+		if (c->rotations.length == 0)
+			rotation = Quat::identity;
+		else if (c->rotations.length == 1)
+			rotation = c->rotations[0].value;
+		else
+		{
+			index = find_keyframe_index(c->rotations, time);
+			last_time = c->rotations[index].time;
+			next_time = c->rotations[index + 1].time;
+			blend = vi_min(1.0f, (time - last_time) / (next_time - last_time));
+			rotation = Quat::slerp(blend, c->rotations[index].value, c->rotations[index + 1].value);
+		}
+
+		(*channels)[i].bone = c->bone_index;
+		(*channels)[i].transform.pos = position;
+		(*channels)[i].transform.rot = rotation;
+		(*channels)[i].transform.scale = scale;
+	}
+}
+
 void Animator::Layer::update(r32 dt, r32 dt_real, const Animator& animator)
 {
 	const Animation* anim = Loader::animation(animation);
@@ -109,64 +171,7 @@ void Animator::Layer::update(r32 dt, r32 dt_real, const Animator& animator)
 			}
 		}
 
-		channels.resize(anim->channels.length);
-		for (s32 i = 0; i < anim->channels.length; i++)
-		{
-			const Channel* c = &anim->channels[i];
-
-			Vec3 position;
-			Vec3 scale;
-			Quat rotation;
-
-			s32 index;
-			r32 last_time;
-			r32 next_time;
-			r32 blend;
-
-			if (c->positions.length == 0)
-				position = Vec3::zero;
-			else if (c->positions.length == 1)
-				position = c->positions[0].value;
-			else
-			{
-				index = find_keyframe_index(c->positions, time);
-				last_time = c->positions[index].time;
-				next_time = c->positions[index + 1].time;
-				blend = vi_min(1.0f, (time - last_time) / (next_time - last_time));
-				position = Vec3::lerp(blend, c->positions[index].value, c->positions[index + 1].value);
-			}
-
-			if (c->scales.length == 0)
-				scale = Vec3(1, 1, 1);
-			else if (c->scales.length == 1)
-				scale = c->scales[0].value;
-			else
-			{
-				index = find_keyframe_index(c->scales, time);
-				last_time = c->scales[index].time;
-				next_time = c->scales[index + 1].time;
-				blend = vi_min(1.0f, (time - last_time) / (next_time - last_time));
-				scale = Vec3::lerp(blend, c->scales[index].value, c->scales[index + 1].value);
-			}
-
-			if (c->rotations.length == 0)
-				rotation = Quat::identity;
-			else if (c->rotations.length == 1)
-				rotation = c->rotations[0].value;
-			else
-			{
-				index = find_keyframe_index(c->rotations, time);
-				last_time = c->rotations[index].time;
-				next_time = c->rotations[index + 1].time;
-				blend = vi_min(1.0f, (time - last_time) / (next_time - last_time));
-				rotation = Quat::slerp(blend, c->rotations[index].value, c->rotations[index + 1].value);
-			}
-
-			channels[i].bone = c->bone_index;
-			channels[i].transform.pos = position;
-			channels[i].transform.rot = rotation;
-			channels[i].transform.scale = scale;
-		}
+		extract_channels_from_anim(&channels, anim, time);
 	}
 	else
 	{
@@ -174,6 +179,12 @@ void Animator::Layer::update(r32 dt, r32 dt_real, const Animator& animator)
 			changed_animation();
 		channels.resize(0);
 	}
+}
+
+void Animator::Layer::set(AssetID anim, r32 time)
+{
+	extract_channels_from_anim(&channels, Loader::animation(anim), time);
+	changed_animation();
 }
 
 void Animator::Layer::changed_animation()

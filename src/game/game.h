@@ -141,6 +141,7 @@ struct Game
 		FeatureLevel feature_level;
 		r32 time_limit;
 		r32 min_y;
+		r32 rotation;
 		Type type;
 		Mode mode;
 		s32 max_teams;
@@ -151,9 +152,10 @@ struct Game
 		Ref<Entity> terminal;
 		s16 respawns;
 		s16 kill_limit;
+		AI::Team team_lookup[MAX_PLAYERS];
 		b8 local = true;
 		b8 continue_match_after_death;
-		AI::Team team_lookup[MAX_PLAYERS];
+		b8 post_pvp; // true if we've already played a PvP match on this level
 
 		b8 has_feature(FeatureLevel) const;
 	};

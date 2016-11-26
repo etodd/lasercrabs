@@ -1548,7 +1548,6 @@ AI::Team Grenade::team() const
 	return owner.ref() ? owner.ref()->team.ref()->team() : AI::TeamNone;
 }
 
-r32 Grenade::particle_timer;
 r32 Grenade::particle_accumulator;
 void Grenade::update_client_all(const Update& u)
 {
@@ -2144,7 +2143,7 @@ void Interactable::interact()
 	InteractableNet::send_msg(this);
 }
 
-void terminal_interacted(Interactable* term)
+void TerminalEntity::interacted(Interactable* term)
 {
 	vi_assert(Game::level.mode == Game::Mode::Parkour);
 
@@ -2155,18 +2154,28 @@ void terminal_interacted(Interactable* term)
 		if (zone_state == Game::ZoneState::Locked)
 		{
 			Game::save.zones[Game::level.id] = Game::ZoneState::Hostile;
-			animator->layers[0].play(Asset::Animation::terminal_opened);
-			animator->layers[1].play(Asset::Animation::terminal_open);
+			open();
 		}
 		else if (zone_state == Game::ZoneState::Hostile)
-		{
-			animator->layers[0].animation = AssetNull;
-			animator->layers[1].play(Asset::Animation::terminal_close);
-		}
+			close();
 	}
 }
 
-void terminal_closed()
+void TerminalEntity::open()
+{
+	Animator* animator = Game::level.terminal.ref()->get<Animator>();
+	animator->layers[0].play(Asset::Animation::terminal_opened);
+	animator->layers[1].play(Asset::Animation::terminal_open);
+}
+
+void TerminalEntity::close()
+{
+	Animator* animator = Game::level.terminal.ref()->get<Animator>();
+	animator->layers[0].animation = AssetNull;
+	animator->layers[1].play(Asset::Animation::terminal_close);
+}
+
+void TerminalEntity::closed()
 {
 	vi_assert(Game::level.mode == Game::Mode::Parkour);
 	if (Game::level.local)
@@ -2189,12 +2198,81 @@ TerminalEntity::TerminalEntity()
 	anim->layers[0].animation = Game::save.zones[Game::level.id] == Game::ZoneState::Locked ? AssetNull : Asset::Animation::terminal_opened;
 	anim->layers[1].loop = false;
 	anim->layers[1].blend_time = 0.0f;
-	anim->trigger(Asset::Animation::terminal_close, 1.33f).link(&terminal_closed);
+	anim->trigger(Asset::Animation::terminal_close, 1.33f).link(&closed);
 
 	RigidBody* body = create<RigidBody>(RigidBody::Type::Mesh, Vec3::zero, 0.0f, CollisionStatic | CollisionInaccessible, ~CollisionStatic & ~CollisionParkour & ~CollisionInaccessibleMask, Asset::Mesh::terminal_collision);
 	body->set_restitution(0.75f);
-	create<Interactable>()->interacted.link(&terminal_interacted);
+	create<Interactable>()->interacted.link(&interacted);
 }
 
+
+Array<Ascensions::Entry> Ascensions::entries;
+r32 Ascensions::timer;
+r32 Ascensions::particle_accumulator;
+
+void Ascensions::update(const Update& u)
+{
+	const r32 total_time = 20.0f;
+	if (Game::level.mode != Game::Mode::Special)
+	{
+		timer -= Game::real_time.delta;
+		if (timer < 0.0f)
+		{
+			timer = 20.0f + mersenne::randf_co() * 100.0f;
+
+			Entry* e = entries.add();
+			e->timer = total_time;
+			e->username = Usernames::all[mersenne::rand_u32() % Usernames::count];
+		}
+	}
+
+	for (s32 i = 0; i < entries.length; i++)
+	{
+		Entry* e = &entries[i];
+		r32 old_timer = e->timer;
+		e->timer -= u.time.delta;
+		if (e->timer < 0.0f)
+		{
+			entries.remove(i);
+			i--;
+		}
+		else
+		{
+			
+			// only show notifications in parkour mode
+			if (Game::level.mode == Game::Mode::Parkour
+				&& old_timer >= total_time * 0.85f && e->timer < total_time * 0.85f)
+			{
+				char msg[512];
+				sprintf(msg, _(strings::player_ascended), e->username);
+				PlayerHuman::log_add(msg, AI::TeamNone);
+			}
+		}
+	}
+
+	// particles
+	const r32 interval = 0.5f;
+	particle_accumulator += u.time.delta;
+	while (particle_accumulator > interval)
+	{
+		particle_accumulator -= interval;
+		for (s32 i = 0; i < entries.length; i++)
+		{
+			const Entry& e = entries[i];
+			r32 blend = 1.0f - (e.timer / total_time);
+			Particles::tracers_skybox.add
+			(
+				Quat::euler(Ease::circ_out<r32>(blend) * PI * 0.45f, Game::level.rotation, 0) * Vec3(Game::level.skybox.far_plane * 0.9f, 0, 0), // position
+				(Game::level.skybox.far_plane / 100.0f) * LMath::lerpf(blend, 1.0f, 0.5f) // size scale
+			);
+		}
+	}
+}
+
+void Ascensions::clear()
+{
+	timer = 20.0f + mersenne::randf_co() * 100.0f;
+	entries.length = 0;
+}
 
 }

@@ -214,13 +214,6 @@ namespace title
 	{
 		Game::save = Game::Save();
 		Game::session.reset();
-		Overworld::message_add(strings::contact_ivory, strings::msg_ivory_intro, platform::timestamp() - (86400.0 * 1.9));
-		Overworld::message_add(strings::contact_aldus, strings::msg_aldus_intro, platform::timestamp() - (86400.0 * 1.6));
-		Game::save.resources[(s32)Game::Resource::HackKits] = 1;
-		Game::save.resources[(s32)Game::Resource::Drones] = 4;
-		Game::save.resources[(s32)Game::Resource::Energy] = (s16)(CREDITS_INITIAL * 3.5f);
-		Game::save.zones[Asset::Level::title] = Game::ZoneState::Friendly;
-		Game::save.zones[Asset::Level::Safe_Zone] = Game::ZoneState::Friendly;
 		data->transition_timer = total_transition;
 
 		Cora::text_schedule(total_transition + 1.0f, _(strings::tut_start));

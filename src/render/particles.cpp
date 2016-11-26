@@ -329,6 +329,48 @@ void Sparks::pre_draw(const RenderParams& params)
 	params.sync->write<Vec2>(size);
 }
 
+SkyboxParticleSystem::SkyboxParticleSystem(s32 vertices_per_particle, s32 indices_per_particle, const Vec2& start_size, const Vec2& end_size, r32 lifetime, const Vec3& gravity, const Vec4& color, AssetID shader, AssetID texture)
+	: StandardParticleSystem
+	(
+		vertices_per_particle,
+		indices_per_particle,
+		start_size,
+		end_size,
+		lifetime,
+		gravity,
+		color,
+		shader,
+		texture
+	)
+{
+}
+
+void SkyboxParticleSystem::pre_draw(const RenderParams& params)
+{
+	RenderSync* sync = params.sync;
+	Mat4 vp = params.view;
+	vp.translation(Vec3::zero);
+	vp = vp * params.camera->projection;
+	sync->write(RenderOp::Uniform);
+	sync->write(Asset::Uniform::mvp);
+	sync->write(RenderDataType::Mat4);
+	sync->write<s32>(1);
+	sync->write<Mat4>(vp);
+}
+
+void SkyboxParticleSystem::add(const Vec3& pos, r32 scale)
+{
+	r32 size_scale = mersenne::randf_co();
+	Vec4 param
+	(
+		0.0f, // rotation
+		scale * (start_size.x + size_scale * (start_size.y - start_size.x)), // start size
+		scale * (end_size.x + size_scale * (end_size.y - end_size.x)), // end size
+		0.0f // unused
+	);
+	add_raw(pos, Vec4::zero, param, 0.0f);
+}
+
 // Configurations
 
 Sparks Particles::sparks
@@ -344,6 +386,16 @@ StandardParticleSystem Particles::tracers
 	Vec2(0.15f),
 	Vec2(0.0f),
 	3.0f,
+	Vec3::zero,
+	Vec4(1, 1, 1, 1)
+);
+
+SkyboxParticleSystem Particles::tracers_skybox
+(
+	3, 3,
+	Vec2(1.5f),
+	Vec2(0.0f),
+	25.0f,
 	Vec3::zero,
 	Vec4(1, 1, 1, 1)
 );

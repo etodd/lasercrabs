@@ -22,6 +22,7 @@
 	"member_of_group": "Group: %s",
 	"player_joined": "%s connected.",
 	"player_left": "%s disconnected.",
+	"player_ascended": "%s ascended.",
 	"group_required": "Group membership required.",
 	"team_a": "Team A",
 	"team_b": "Team B",

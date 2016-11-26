@@ -623,7 +623,7 @@ void PlayerHuman::spawn()
 
 	if (Game::level.mode == Game::Mode::Pvp)
 	{
-		// spawn AWK
+		// spawn drone
 		Quat rot;
 		get<PlayerManager>()->team.ref()->player_spawn.ref()->absolute(&pos, &rot);
 		Vec3 dir = rot * Vec3(0, 1, 0);
@@ -635,12 +635,35 @@ void PlayerHuman::spawn()
 	else
 	{
 		// spawn traceur
-		Quat rot;
-		get<PlayerManager>()->team.ref()->player_spawn.ref()->absolute(&pos, &rot);
-		Vec3 dir = rot * Vec3(0, 1, 0);
-		angle = atan2f(dir.x, dir.z);
+		if (Game::level.post_pvp)
+		{
+			// we have already played a PvP match on this level; we must be exiting PvP mode.
+			// spawn the player at the terminal.
+			Vec3 term_pos;
+			Quat term_rot;
+			Game::level.terminal.ref()->get<Transform>()->absolute(&term_pos, &term_rot);
+			Vec3 dir = term_rot * Vec3(-1, 0, 0);
+			dir.y = 0.0f;
+			dir.normalize();
+			angle = atan2f(dir.x, dir.z);
+			pos = term_pos + dir * Vec3(-2.0f, 0, 0);
+		}
+		else
+		{
+			Quat rot;
+			get<PlayerManager>()->team.ref()->player_spawn.ref()->absolute(&pos, &rot);
+			Vec3 dir = rot * Vec3(0, 1, 0);
+			angle = atan2f(dir.x, dir.z);
+		}
 
 		spawned = World::create<Traceur>(pos + Vec3(0, 2, 0), Quat::euler(0, angle, 0), get<PlayerManager>()->team.ref()->team());
+
+		if (Game::level.post_pvp)
+		{
+			spawned->get<Animator>()->layers[3].set(Asset::Animation::character_terminal_exit, 0.0f); // bypass animation blending
+			spawned->get<Animator>()->layers[3].play(Asset::Animation::character_terminal_exit);
+			TerminalEntity::open();
+		}
 	}
 
 	spawned->get<Transform>()->absolute_pos(pos);
@@ -1217,7 +1240,7 @@ void PlayerHuman::draw_alpha(const RenderParams& params) const
 			text.color = Team::ui_color(my_team, entry.team);
 			text.text_raw(entry.text);
 			UI::box(params, text.rect(p).outset(MENU_ITEM_PADDING), UI::color_background);
-			UIMenu::text_clip(&text, entry.timestamp, 150.0f);
+			UIMenu::text_clip(&text, entry.timestamp, 80.0f);
 			text.draw(params, p);
 			p -= (text.size * UI::scale) + MENU_ITEM_PADDING * 2.0f;
 		}
@@ -1660,7 +1683,8 @@ b8 PlayerControlHuman::input_enabled() const
 		&& (ui_mode == PlayerHuman::UIMode::PvpDefault || ui_mode == PlayerHuman::UIMode::ParkourDefault)
 		&& !Cora::has_focus()
 		&& !Team::game_over
-		&& !interactable.ref();
+		&& !interactable.ref()
+		&& (!has<Parkour>() || get<Animator>()->layers[3].animation == AssetNull); // disable input if we're playing an animation on layer 3
 }
 
 b8 PlayerControlHuman::movement_enabled() const

@@ -522,6 +522,8 @@ b8 Team::net_msg(Net::StreamRead* p)
 			serialize_enum(p, Game::Mode, Game::level.mode);
 			game_over = false;
 			transition_timer = TRANSITION_TIME * 0.5f;
+			if (Game::level.mode == Game::Mode::Pvp)
+				Game::level.post_pvp = true; // we have played (or are playing) a PvP match on this level
 			for (auto i = PlayerHuman::list.iterator(); !i.is_last(); i.next())
 			{
 				Camera* camera = i.item()->camera;

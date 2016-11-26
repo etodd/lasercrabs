@@ -150,6 +150,14 @@ Game::Save::Save()
 	last_level(Asset::Level::title),
 	overworld_zone(AssetNull)
 {
+	zones[Asset::Level::title] = ZoneState::Friendly;
+	zones[Asset::Level::Safe_Zone] = ZoneState::Friendly;
+
+	Overworld::message_add(strings::contact_ivory, strings::msg_ivory_intro, platform::timestamp() - (86400.0 * 1.9));
+	Overworld::message_add(strings::contact_aldus, strings::msg_aldus_intro, platform::timestamp() - (86400.0 * 1.6));
+	resources[(s32)Resource::HackKits] = 1;
+	resources[(s32)Resource::Drones] = 4;
+	resources[(s32)Resource::Energy] = (s16)(CREDITS_INITIAL * 3.5f);
 }
 
 b8 Game::Level::has_feature(Game::FeatureLevel f) const
@@ -335,6 +343,7 @@ void Game::update(const Update& update_in)
 
 	Menu::update(u);
 	Overworld::update(u);
+	Ascensions::update(u);
 #endif
 
 	if (schedule_timer > 0.0f)
@@ -903,6 +912,7 @@ void Game::schedule_load_level(AssetID level_id, Mode m, r32 delay)
 void Game::unload_level()
 {
 	Overworld::clear();
+	Ascensions::clear();
 	Cora::cleanup();
 	for (s32 i = 0; i < MAX_GAMEPADS; i++)
 		Audio::listener_disable(i);
@@ -1086,8 +1096,13 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 			// fill team lookup table
 			{
 				s32 offset;
-				if (Game::session.story_mode)
-					offset = 1; // always put local player on team 1 (attackers)
+				if (session.story_mode)
+				{
+					if (save.zones[level.id] == ZoneState::Friendly)
+						offset = 0; // put local player on team 0 (defenders)
+					else
+						offset = 1; // put local player on team 1 (attackers)
+				}
 				else
 				{
 					// shuffle teams and make sure they're packed in the array starting at 0
@@ -1108,6 +1123,7 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 			level.skybox.player_light = Json::get_vec3(element, "zenith_color");
 
 			level.min_y = Json::get_r32(element, "min_y", -20.0f);
+			level.rotation = Json::get_r32(element, "rotation");
 
 			// initialize teams
 			if (m != Mode::Special || level.id == Asset::Level::title)
@@ -1240,7 +1256,7 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 		}
 		else if (cJSON_GetObjectItem(element, "PlayerSpawn"))
 		{
-			AI::Team team = (AI::Team)Json::get_s32(element, "team");
+			AI::Team team = AI::Team(Json::get_s32(element, "team"));
 
 			if (Team::list.count() > (s32)team)
 			{

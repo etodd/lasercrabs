@@ -616,4 +616,3 @@ if (NOT PLAYSTATION)
 		add_dependencies(yearningsrv assets)
 	endif()
 endif()
-

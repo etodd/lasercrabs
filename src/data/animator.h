@@ -45,6 +45,7 @@ struct Animator : public ComponentType<Animator>
 		void update(r32, r32, const Animator&);
 		void changed_animation();
 		void play(AssetID);
+		void set(AssetID, r32);
 	};
 
 	struct TriggerEntry

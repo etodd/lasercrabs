@@ -330,7 +330,6 @@ struct GrenadeEntity : public Entity
 
 struct Grenade : public ComponentType<Grenade>
 {
-	static r32 particle_timer;
 	static r32 particle_accumulator;
 
 	Vec3 velocity;
@@ -402,7 +401,28 @@ struct Interactable : public ComponentType<Interactable>
 
 struct TerminalEntity : public Entity
 {
+	static void open();
+	static void close();
+	static void closed();
+	static void interacted(Interactable*);
+
 	TerminalEntity();
+};
+
+struct Ascensions
+{
+	struct Entry
+	{
+		const char* username;
+		r32 timer;
+	};
+
+	static Array<Entry> entries;
+	static r32 timer;
+	static r32 particle_accumulator;
+
+	static void update(const Update&);
+	static void clear();
 };
 
 

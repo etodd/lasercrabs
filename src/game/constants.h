@@ -94,3 +94,7 @@
 #define ENERGY_PICKUP_RADIUS 0.55f
 
 #define TRANSITION_TIME 1.0f // time to transition between levels / overworld
+
+#define PVP_ACCESSIBLE Vec4(0.7f, 0.7f, 0.7f, 1.0f)
+#define PVP_ACCESSIBLE_NO_OVERRIDE Vec4(0.7f, 0.7f, 0.7f, MATERIAL_NO_OVERRIDE)
+#define PVP_INACCESSIBLE Vec4(0.0f, 0.0f, 0.0f, MATERIAL_NO_OVERRIDE)

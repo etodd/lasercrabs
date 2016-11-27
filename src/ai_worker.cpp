@@ -752,14 +752,8 @@ void loop()
 				sync_in.unlock();
 
 #if DEBUG_AI
-				vi_debug("Done in %fs.", (r32)(platform::time() - start_time));
+				vi_debug("Done in %fs.", r32(platform::time() - start_time));
 #endif
-
-				sync_out.lock();
-				sync_out.write(Callback::Load);
-				sync_out.write(level_id);
-				sync_out.unlock();
-
 				break;
 			}
 			case Op::ObstacleAdd:
@@ -803,6 +797,11 @@ void loop()
 			}
 			case Op::Pathfind:
 			{
+#if DEBUG_AI
+				r64 start_time = platform::time();
+				vi_debug("Walk pathfind...");
+#endif
+
 				Vec3 a;
 				Vec3 b;
 				LinkEntryArg<Path> callback;
@@ -826,10 +825,18 @@ void loop()
 				sync_out.write(path);
 				sync_out.unlock();
 
+#if DEBUG_AI
+				vi_debug("%d nodes in %fs", path.length, r32(platform::time() - start_time));
+#endif
+
 				break;
 			}
 			case Op::RandomPath:
 			{
+#if DEBUG_AI
+				r64 start_time = platform::time();
+				vi_debug("Walk random path...");
+#endif
 				Vec3 start;
 				sync_in.read(&start);
 				Vec3 patrol_point;
@@ -858,10 +865,18 @@ void loop()
 				sync_out.write(path);
 				sync_out.unlock();
 
+#if DEBUG_AI
+				vi_debug("%d nodes in %fs", path.length, r32(platform::time() - start_time));
+#endif
+
 				break;
 			}
 			case Op::ClosestWalkPoint:
 			{
+#if DEBUG_AI
+				r64 start_time = platform::time();
+				vi_debug("Walkable point query...");
+#endif
 				LinkEntryArg<Path> callback;
 				Vec3 pos;
 				sync_in.read(&pos);
@@ -877,6 +892,10 @@ void loop()
 				sync_out.write(callback);
 				sync_out.write(closest);
 				sync_out.unlock();
+
+#if DEBUG_AI
+				vi_debug("Done in %fs", r32(platform::time() - start_time));
+#endif
 				break;
 			}
 			case Op::AwkPathfind:

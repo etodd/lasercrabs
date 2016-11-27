@@ -135,7 +135,6 @@ struct PlayerControlHuman : public ComponentType<PlayerControlHuman>
 			AwkVisible,
 			AwkTracking,
 			Minion,
-			MinionAttacking,
 			Energy,
 		};
 

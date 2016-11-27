@@ -8,7 +8,6 @@
 #include "recast/DetourTileCache/Include/DetourTileCacheBuilder.h"
 #include "fastlz/fastlz.h"
 #include "utf8/utf8.h"
-#include "render/glvm.h"
 
 namespace VI
 {
@@ -234,6 +233,93 @@ void AwkNavMeshAdjacency::flag(s32 i, b8 value)
 		flags |= ((u64)1 << i);
 	else
 		flags &= ~((u64)1 << i);
+}
+
+Font::Font()
+	: characters(), indices(), vertices()
+{
+}
+
+Armature::Armature()
+	: hierarchy(), bind_pose(), inverse_bind_pose(), abs_bind_pose(), bodies()
+{
+
+}
+
+void Mesh::reset()
+{
+	indices.length = 0;
+	edge_indices.length = 0;
+	vertices.length = 0;
+	normals.length = 0;
+	armature.hierarchy.length = 0;
+	armature.bind_pose.length = 0;
+	armature.inverse_bind_pose.length = 0;
+	instanced = false;
+}
+
+void Mesh::read(Mesh* mesh, const char* path, Array<Attrib>* extra_attribs)
+{
+	new (mesh) Mesh();
+
+	FILE* f = fopen(path, "rb");
+	if (!f)
+	{
+		fprintf(stderr, "Can't open msh file '%s'\n", path);
+		return;
+	}
+
+	// Read color
+	fread(&mesh->color, sizeof(Vec4), 1, f);
+
+	// Read bounding box
+	fread(&mesh->bounds_min, sizeof(Vec3), 1, f);
+	fread(&mesh->bounds_max, sizeof(Vec3), 1, f);
+	fread(&mesh->bounds_radius, sizeof(r32), 1, f);
+
+	// read indices
+	s32 index_count;
+	fread(&index_count, sizeof(s32), 1, f);
+
+	// fill face indices
+	mesh->indices.resize(index_count);
+	fread(mesh->indices.data, sizeof(s32), index_count, f);
+
+	// read edge indices
+	s32 edge_index_count;
+	fread(&edge_index_count, sizeof(s32), 1, f);
+
+	// fill face indices
+	mesh->edge_indices.resize(edge_index_count);
+	fread(mesh->edge_indices.data, sizeof(s32), edge_index_count, f);
+
+	s32 vertex_count;
+	fread(&vertex_count, sizeof(s32), 1, f);
+
+	// fill vertices positions
+	mesh->vertices.resize(vertex_count);
+	fread(mesh->vertices.data, sizeof(Vec3), vertex_count, f);
+
+	// fill normals
+	mesh->normals.resize(vertex_count);
+	fread(mesh->normals.data, sizeof(Vec3), vertex_count, f);
+
+	if (extra_attribs)
+	{
+		s32 extra_attrib_count;
+		fread(&extra_attrib_count, sizeof(s32), 1, f);
+		extra_attribs->resize(extra_attrib_count);
+		for (s32 i = 0; i < extra_attribs->length; i++)
+		{
+			Attrib* a = &(*extra_attribs)[i];
+			fread(&a->type, sizeof(RenderDataType), 1, f);
+			fread(&a->count, sizeof(s32), 1, f);
+			a->data.resize(mesh->vertices.length * a->count * render_data_type_size(a->type));
+			fread(a->data.data, sizeof(char), a->data.length, f);
+		}
+	}
+
+	fclose(f);
 }
 
 

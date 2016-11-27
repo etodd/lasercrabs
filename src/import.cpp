@@ -1380,6 +1380,11 @@ b8 import_meshes(ImporterState& state, const std::string& asset_in_path, const s
 				aiColor4D color;
 				if (scene->mMaterials[ai_mesh->mMaterialIndex]->Get(AI_MATKEY_COLOR_DIFFUSE, color) == AI_SUCCESS)
 					mesh->color = Vec4(color.r, color.g, color.b, color.a);
+				r32 opacity;
+				if (scene->mMaterials[ai_mesh->mMaterialIndex]->Get(AI_MATKEY_OPACITY, opacity) == AI_SUCCESS)
+					mesh->color.w = opacity;
+				else
+					mesh->color.w = 1.0f;
 			}
 
 			if (load_mesh(ai_mesh, mesh))
@@ -1908,11 +1913,51 @@ b8 build_nav_mesh(const Mesh& input, TileCacheData* output_tiles)
 	return true;
 }
 
+void consolidate_nav_geometry_mesh(Mesh* result, const Mesh& mesh, const Mat4& mat)
+{
+	s32 current_index = result->vertices.length;
+	Vec3 min = mesh.bounds_min;
+	Vec3 max = mesh.bounds_max;
+
+	Vec4 corners[] =
+	{
+		mat * Vec4(min.x, min.y, min.z, 1),
+		mat * Vec4(min.x, min.y, max.z, 1),
+		mat * Vec4(min.x, max.y, min.z, 1),
+		mat * Vec4(min.x, max.y, max.z, 1),
+		mat * Vec4(max.x, min.y, min.z, 1),
+		mat * Vec4(max.x, min.y, max.z, 1),
+		mat * Vec4(max.x, max.y, min.z, 1),
+		mat * Vec4(max.x, max.y, max.z, 1),
+	};
+
+	for (s32 i = 0; i < 8; i++)
+	{
+		result->bounds_min.x = vi_min(corners[i].x, result->bounds_min.x);
+		result->bounds_min.y = vi_min(corners[i].y, result->bounds_min.y);
+		result->bounds_min.z = vi_min(corners[i].z, result->bounds_min.z);
+		result->bounds_max.x = vi_max(corners[i].x, result->bounds_max.x);
+		result->bounds_max.y = vi_max(corners[i].y, result->bounds_max.y);
+		result->bounds_max.z = vi_max(corners[i].z, result->bounds_max.z);
+	}
+
+	result->vertices.reserve(result->vertices.length + mesh.vertices.length);
+	result->indices.reserve(result->indices.length + mesh.indices.length);
+
+	for (s32 i = 0; i < mesh.vertices.length; i++)
+	{
+		Vec3 v = mesh.vertices[i];
+		Vec4 v2 = mat * Vec4(v.x, v.y, v.z, 1);
+		result->vertices.add(Vec3(v2.x, v2.y, v2.z));
+	}
+	for (s32 i = 0; i < mesh.indices.length; i++)
+		result->indices.add(current_index + mesh.indices[i]);
+}
+
 void consolidate_nav_geometry(Mesh* result, Map<Mesh>& meshes, cJSON* json, b8(*filter)(const Mesh*))
 {
 	result->bounds_min = Vec3(FLT_MAX, FLT_MAX, FLT_MAX);
 	result->bounds_max = Vec3(FLT_MIN, FLT_MIN, FLT_MIN);
-	s32 current_index = 0;
 
 	Array<Mat4> transforms;
 	cJSON* element = json->child;
@@ -1941,48 +1986,17 @@ void consolidate_nav_geometry(Mesh* result, Map<Mesh>& meshes, cJSON* json, b8(*
 				const Mesh& mesh = map_get(meshes, mesh_ref);
 
 				if (!filter || filter(&mesh))
-				{
-					Vec3 min = mesh.bounds_min;
-					Vec3 max = mesh.bounds_max;
-
-					Vec4 corners[] =
-					{
-						mat * Vec4(min.x, min.y, min.z, 1),
-						mat * Vec4(min.x, min.y, max.z, 1),
-						mat * Vec4(min.x, max.y, min.z, 1),
-						mat * Vec4(min.x, max.y, max.z, 1),
-						mat * Vec4(max.x, min.y, min.z, 1),
-						mat * Vec4(max.x, min.y, max.z, 1),
-						mat * Vec4(max.x, max.y, min.z, 1),
-						mat * Vec4(max.x, max.y, max.z, 1),
-					};
-
-					for (s32 i = 0; i < 8; i++)
-					{
-						result->bounds_min.x = vi_min(corners[i].x, result->bounds_min.x);
-						result->bounds_min.y = vi_min(corners[i].y, result->bounds_min.y);
-						result->bounds_min.z = vi_min(corners[i].z, result->bounds_min.z);
-						result->bounds_max.x = vi_max(corners[i].x, result->bounds_max.x);
-						result->bounds_max.y = vi_max(corners[i].y, result->bounds_max.y);
-						result->bounds_max.z = vi_max(corners[i].z, result->bounds_max.z);
-					}
-
-					result->vertices.reserve(result->vertices.length + mesh.vertices.length);
-					result->indices.reserve(result->indices.length + mesh.indices.length);
-
-					for (s32 i = 0; i < mesh.vertices.length; i++)
-					{
-						Vec3 v = mesh.vertices[i];
-						Vec4 v2 = mat * Vec4(v.x, v.y, v.z, 1);
-						result->vertices.add(Vec3(v2.x, v2.y, v2.z));
-					}
-					for (s32 i = 0; i < mesh.indices.length; i++)
-						result->indices.add(current_index + mesh.indices[i]);
-					current_index = result->vertices.length;
-				}
+					consolidate_nav_geometry_mesh(result, mesh, mat);
 
 				mesh_ref_json = mesh_ref_json->next;
 			}
+		}
+		else if (strcmp(Json::get_string(element, "name", ""), "terminal") == 0)
+		{
+			Mesh terminal_mesh;
+			Mesh::read(&terminal_mesh, ASSET_OUT_FOLDER"terminal_collision.msh");
+			if (!filter || filter(&terminal_mesh))
+				consolidate_nav_geometry_mesh(result, terminal_mesh, mat);
 		}
 
 		element = element->next;

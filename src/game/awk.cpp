@@ -668,7 +668,7 @@ void Awk::awake()
 			shield = shield_entity;
 
 			View* s = shield_entity->add<View>();
-			s->team = (s8)get<AIAgent>()->team;
+			s->team = s8(get<AIAgent>()->team);
 			s->mesh = Asset::Mesh::sphere_highres;
 			s->offset.scale(Vec3(AWK_SHIELD_RADIUS));
 			s->shader = Asset::Shader::fresnel;

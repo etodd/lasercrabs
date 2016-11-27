@@ -52,9 +52,7 @@ Prop::Prop(const AssetID mesh_id, const AssetID armature, const AssetID animatio
 StaticGeom::StaticGeom(AssetID mesh_id, const Vec3& absolute_pos, const Quat& absolute_rot, short group, short mask)
 {
 	Transform* transform = create<Transform>();
-	View* model = create<View>();
-
-	model->mesh = mesh_id;
+	View* model = create<View>(mesh_id);
 	model->shader = Asset::Shader::culled;
 
 	const Mesh* mesh = Loader::mesh(model->mesh);

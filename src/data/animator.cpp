@@ -18,6 +18,7 @@ Animator::Layer::Layer()
 	: channels(),
 	last_animation_channels(),
 	time(),
+	time_last(),
 	weight(1.0f),
 	blend(1.0f),
 	blend_time(0.25f),
@@ -60,6 +61,7 @@ void Animator::Layer::play(AssetID a)
 			time = mersenne::randf_co() * Loader::animation(a)->duration;
 		else
 			time = 0.0f;
+		time_last = time;
 	}
 }
 
@@ -136,7 +138,6 @@ void Animator::Layer::update(r32 dt, r32 dt_real, const Animator& animator)
 
 	if (anim)
 	{
-		r32 old_time = time;
 		time += dt * speed;
 
 		b8 looped = false;
@@ -162,7 +163,7 @@ void Animator::Layer::update(r32 dt, r32 dt_real, const Animator& animator)
 		for (s32 i = 0; i < animator.triggers.length; i++)
 		{
 			const TriggerEntry* trigger = &animator.triggers[i];
-			b8 trigger_after_old_time = old_time <= trigger->time;
+			b8 trigger_after_old_time = time_last <= trigger->time;
 			b8 trigger_before_new_time = time >= trigger->time;
 			if (animation == trigger->animation &&
 				(((looped || trigger_after_old_time) && trigger_before_new_time) || (trigger_after_old_time && (looped || trigger_before_new_time))))
@@ -172,6 +173,7 @@ void Animator::Layer::update(r32 dt, r32 dt_real, const Animator& animator)
 		}
 
 		extract_channels_from_anim(&channels, anim, time);
+		time_last = time;
 	}
 	else
 	{
@@ -194,6 +196,7 @@ void Animator::Layer::changed_animation()
 		memcpy(&last_animation_channels[0], &channels[0], sizeof(AnimatorChannel) * channels.length);
 	blend = 1.0f - blend;
 	last_animation = animation;
+	time_last = time;
 }
 
 void Animator::update_server(const Update& u)

@@ -542,6 +542,8 @@ b8 Team::net_msg(Net::StreamRead* p)
 					World::remove(i.item()->manager.ref()->entity());
 				PlayerAI::list.clear();
 			}
+			if (Game::level.post_pvp && Game::level.mode == Game::Mode::Parkour)
+				TerminalEntity::open();
 			break;
 		}
 		default:
@@ -1147,6 +1149,33 @@ Entity* PlayerManager::decoy() const
 			return i.item()->entity();
 	}
 	return nullptr;
+}
+
+namespace PlayerManagerNet
+{
+	b8 send_score_accept(PlayerManager* m)
+	{
+		using Stream = Net::StreamWrite;
+		Net::StreamWrite* p = Net::msg_new(Net::MessageType::PlayerManager);
+		{
+			Ref<PlayerManager> ref = m;
+			serialize_ref(p, ref);
+		}
+		Net::msg_finalize(p);
+		return true;
+	}
+}
+
+void PlayerManager::score_accept()
+{
+	PlayerManagerNet::send_score_accept(this);
+}
+
+b8 PlayerManager::net_msg(Net::StreamRead* p, PlayerManager* m, Net::MessageSource src)
+{
+	if (src != Net::MessageSource::Invalid)
+		m->score_accepted = true;
+	return true;
 }
 
 

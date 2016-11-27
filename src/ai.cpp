@@ -107,11 +107,6 @@ void update(const Update& u)
 					(&link)->fire(result);
 				break;
 			}
-			case Callback::Load:
-			{
-				sync_out.read(&worker_current_level);
-				break;
-			}
 			default:
 			{
 				vi_assert(false);
@@ -180,6 +175,7 @@ void load(AssetID id, const u8* data, s32 length)
 	sync_in.write(length);
 	sync_in.write(data, length);
 	sync_in.unlock();
+	worker_current_level = id;
 	render_meshes_dirty = true;
 }
 

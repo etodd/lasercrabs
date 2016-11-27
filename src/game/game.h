@@ -183,6 +183,7 @@ struct Game
 	static void schedule_load_level(AssetID, Mode, r32 = 0.0f);
 	static void unload_level();
 	static void load_level(const Update&, AssetID, Mode, b8 = false);
+	static void awake_all();
 	static void draw_opaque(const RenderParams&);
 	static void draw_hollow(const RenderParams&);
 	static void draw_particles(const RenderParams&);

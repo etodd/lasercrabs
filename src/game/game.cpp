@@ -446,8 +446,6 @@ void Game::update(const Update& update_in)
 			i.item()->update(u);
 		for (auto i = Shockwave::list.iterator(); !i.is_last(); i.next())
 			i.item()->update(u);
-		for (auto i = Parkour::list.iterator(); !i.is_last(); i.next())
-			i.item()->update(u);
 		for (auto i = PlayerCommon::list.iterator(); !i.is_last(); i.next())
 			i.item()->update(u);
 		for (auto i = PlayerControlHuman::list.iterator(); !i.is_last(); i.next())
@@ -455,6 +453,15 @@ void Game::update(const Update& update_in)
 
 		for (s32 i = 0; i < updates.length; i++)
 			(*updates[i])(u);
+	}
+
+	for (auto i = Parkour::list.iterator(); !i.is_last(); i.next())
+	{
+		if (i.item()->get<PlayerControlHuman>()->local())
+		{
+			i.item()->get<Walker>()->update(u);
+			i.item()->update(u);
+		}
 	}
 
 	Console::update(u);
@@ -1605,7 +1612,7 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 	for (auto i = PlayerManager::list.iterator(); !i.is_last(); i.next())
 		Net::finalize(i.item()->entity());
 
-	Team::awake_all();
+	awake_all();
 	for (auto i = Team::list.iterator(); !i.is_last(); i.next())
 		Net::finalize(i.item()->entity());
 
@@ -1616,6 +1623,13 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 		scripts[i]->function(u, finder);
 
 	Loader::level_free(json);
+}
+
+void Game::awake_all()
+{
+	Team::awake_all();
+	if (level.terminal.ref())
+		TerminalEntity::awake(level.terminal.ref());
 }
 
 }

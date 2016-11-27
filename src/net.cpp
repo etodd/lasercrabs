@@ -21,6 +21,7 @@
 #include "game/ai_player.h"
 #include "game/team.h"
 #include "game/player.h"
+#include "game/parkour.h"
 #include "assimp/contrib/zlib/zlib.h"
 #include "console.h"
 #include "asset/armature.h"
@@ -163,6 +164,7 @@ template<typename Stream, typename View> b8 serialize_view_skinnedmodel(Stream* 
 	serialize_r32_range(p, v->color.w, 0.0f, 1.0f, 8);
 	serialize_s16(p, v->mask);
 	serialize_s16(p, v->mesh);
+	serialize_s16(p, v->mesh_shadow);
 	serialize_asset(p, v->shader, Loader::shader_count);
 	serialize_asset(p, v->texture, Loader::static_texture_count);
 	serialize_s8(p, v->team);
@@ -270,7 +272,9 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 		| PlayerManager::component_mask
 		| PlayerCommon::component_mask
 		| PlayerControlHuman::component_mask
-		| MinionCommon::component_mask;
+		| MinionCommon::component_mask
+		| Parkour::component_mask
+		| Interactable::component_mask;
 
 	if (Stream::IsWriting)
 	{
@@ -2007,15 +2011,18 @@ s32 clients_loaded()
 
 b8 client_owns(Client* c, Entity* e)
 {
-	if (e->has<PlayerControlHuman>())
+	PlayerHuman* player = nullptr;
+	if (e->has<PlayerHuman>())
+		player = e->get<PlayerHuman>();
+	else if (e->has<PlayerControlHuman>())
+		player = e->get<PlayerControlHuman>()->player.ref();
+
+	for (s32 i = 0; i < c->players.length; i++)
 	{
-		PlayerHuman* player = e->get<PlayerControlHuman>()->player.ref();
-		for (s32 i = 0; i < c->players.length; i++)
-		{
-			if (c->players[i].ref() == player)
-				return true;
-		}
+		if (c->players[i].ref() == player)
+			return true;
 	}
+
 	return false;
 }
 
@@ -2030,7 +2037,7 @@ b8 init()
 	// todo: allow both multiplayer / story mode sessions
 	Game::session.story_mode = true;
 	state_server.mode = Mode::Loading;
-	Game::load_level(Update(), Asset::Level::Proci, Game::Mode::Pvp);
+	Game::load_level(Update(), Asset::Level::Moros, Game::Mode::Parkour);
 	if (Game::session.story_mode)
 		state_server.mode = Mode::Active;
 	else
@@ -2435,6 +2442,15 @@ b8 msg_process(StreamRead* p, Client* client)
 			serialize_ref(p, c);
 			b8 valid = c.ref() && client_owns(client, c.ref()->entity());
 			if (!PlayerControlHuman::net_msg(p, c.ref(), valid ? MessageSource::Remote : MessageSource::Invalid))
+				net_error();
+			break;
+		}
+		case MessageType::PlayerManager:
+		{
+			Ref<PlayerManager> m;
+			serialize_ref(p, m);
+			b8 valid = m.ref() && client_owns(client, m.ref()->entity());
+			if (!PlayerManager::net_msg(p, m.ref(), valid ? MessageSource::Remote : MessageSource::Invalid))
 				net_error();
 			break;
 		}
@@ -2937,6 +2953,7 @@ b8 msg_process(StreamRead* p)
 			vi_assert(state_client.mode == Mode::Loading);
 			for (auto i = Entity::list.iterator(); !i.is_last(); i.next())
 				World::awake(i.item());
+			Game::awake_all();
 
 			// let the server know we're done loading
 			vi_debug("Finished loading.");
@@ -3227,6 +3244,15 @@ b8 msg_process(StreamRead* p, MessageSource src)
 		case MessageType::Team:
 		{
 			if (!Team::net_msg(p))
+				net_error();
+			break;
+		}
+		case MessageType::PlayerManager:
+		{
+			vi_assert(src == MessageSource::Loopback || !Game::level.local); // Server::msg_process handles this on the server
+			Ref<PlayerManager> m;
+			serialize_ref(p, m);
+			if (!PlayerManager::net_msg(p, m.ref(), src))
 				net_error();
 			break;
 		}

@@ -6,6 +6,7 @@
 #include "recast/DetourTileCache/Include/DetourTileCacheBuilder.h"
 #include "pin_array.h"
 #include "game/constants.h"
+#include "render/glvm.h"
 
 struct cJSON;
 struct rcPolyMesh;
@@ -55,15 +56,19 @@ struct Armature
 	Array<Mat4> abs_bind_pose;
 	Array<BodyEntry> bodies;
 	Array<s32> hierarchy;
-	Armature()
-		: hierarchy(), bind_pose(), inverse_bind_pose(), abs_bind_pose(), bodies()
-	{
-
-	}
+	Armature();
 };
 
 struct Mesh
 {
+	struct Attrib
+	{
+		RenderDataType type;
+		s32 count;
+		Array<char> data;
+	};
+
+	static void read(Mesh*, const char*, Array<Attrib>* = nullptr);
 	Armature armature;
 	Array<Vec3> vertices;
 	Array<Vec3> normals;
@@ -74,17 +79,8 @@ struct Mesh
 	Vec3 bounds_max;
 	r32 bounds_radius;
 	b8 instanced;
-	void reset()
-	{
-		indices.length = 0;
-		edge_indices.length = 0;
-		vertices.length = 0;
-		normals.length = 0;
-		armature.hierarchy.length = 0;
-		armature.bind_pose.length = 0;
-		armature.inverse_bind_pose.length = 0;
-		instanced = false;
-	}
+
+	void reset();
 };
 
 template<typename T>
@@ -123,10 +119,7 @@ struct Font
 	Array<Character> characters;
 	Array<s32> indices;
 	Array<Vec3> vertices;
-	Font()
-		: characters(), indices(), vertices()
-	{
-	}
+	Font();
 
 	const Character& get(const void*) const;
 };

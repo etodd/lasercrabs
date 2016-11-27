@@ -227,8 +227,12 @@ void SkinnedModel::draw(const RenderParams& params)
 	{
 		if (params.camera->colors)
 			sync->write<Vec4>(color);
+		else if (color.w == MATERIAL_INACCESSIBLE)
+			sync->write<Vec4>(PVP_INACCESSIBLE);
+		else if (color.w == MATERIAL_NO_OVERRIDE)
+			sync->write<Vec4>(PVP_ACCESSIBLE_NO_OVERRIDE);
 		else
-			sync->write<Vec4>(LMath::desaturate(color));
+			sync->write<Vec4>(PVP_ACCESSIBLE);
 	}
 	else
 	{

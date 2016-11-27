@@ -53,13 +53,6 @@ s32 Loader::shader_count;
 s32 Loader::armature_count;
 s32 Loader::animation_count;
 
-struct Attrib
-{
-	RenderDataType type;
-	s32 count;
-	Array<char> data;
-};
-
 #define config_filename "config.txt"
 #define mod_manifest_filename "mod.json"
 
@@ -286,70 +279,6 @@ void Loader::settings_save()
 	Json::json_free(json);
 }
 
-void read_mesh(Mesh* mesh, const char* path, Array<Attrib>* extra_attribs = nullptr)
-{
-	new (mesh) Mesh();
-
-	FILE* f = fopen(path, "rb");
-	if (!f)
-	{
-		fprintf(stderr, "Can't open msh file '%s'\n", path);
-		return;
-	}
-
-	// Read color
-	fread(&mesh->color, sizeof(Vec4), 1, f);
-
-	// Read bounding box
-	fread(&mesh->bounds_min, sizeof(Vec3), 1, f);
-	fread(&mesh->bounds_max, sizeof(Vec3), 1, f);
-	fread(&mesh->bounds_radius, sizeof(r32), 1, f);
-
-	// read indices
-	s32 index_count;
-	fread(&index_count, sizeof(s32), 1, f);
-
-	// fill face indices
-	mesh->indices.resize(index_count);
-	fread(mesh->indices.data, sizeof(s32), index_count, f);
-
-	// read edge indices
-	s32 edge_index_count;
-	fread(&edge_index_count, sizeof(s32), 1, f);
-
-	// fill face indices
-	mesh->edge_indices.resize(edge_index_count);
-	fread(mesh->edge_indices.data, sizeof(s32), edge_index_count, f);
-
-	s32 vertex_count;
-	fread(&vertex_count, sizeof(s32), 1, f);
-
-	// fill vertices positions
-	mesh->vertices.resize(vertex_count);
-	fread(mesh->vertices.data, sizeof(Vec3), vertex_count, f);
-
-	// fill normals
-	mesh->normals.resize(vertex_count);
-	fread(mesh->normals.data, sizeof(Vec3), vertex_count, f);
-
-	if (extra_attribs)
-	{
-		s32 extra_attrib_count;
-		fread(&extra_attrib_count, sizeof(s32), 1, f);
-		extra_attribs->resize(extra_attrib_count);
-		for (s32 i = 0; i < extra_attribs->length; i++)
-		{
-			Attrib& a = (*extra_attribs)[i];
-			fread(&a.type, sizeof(RenderDataType), 1, f);
-			fread(&a.count, sizeof(s32), 1, f);
-			a.data.resize(mesh->vertices.length * a.count * render_data_type_size(a.type));
-			fread(a.data.data, sizeof(char), a.data.length, f);
-		}
-	}
-
-	fclose(f);
-}
-
 const Mesh* Loader::mesh(AssetID id)
 {
 	if (id == AssetNull)
@@ -361,9 +290,9 @@ const Mesh* Loader::mesh(AssetID id)
 		meshes.resize(id + 1);
 	if (meshes[id].type == AssetNone)
 	{
-		Array<Attrib> extra_attribs;
+		Array<Mesh::Attrib> extra_attribs;
 		Mesh* mesh = &meshes[id].data;
-		read_mesh(mesh, mesh_path(id), &extra_attribs);
+		Mesh::read(mesh, mesh_path(id), &extra_attribs);
 
 #if SERVER
 		for (s32 i = 0; i < extra_attribs.length; i++)
@@ -386,7 +315,7 @@ const Mesh* Loader::mesh(AssetID id)
 
 		for (s32 i = 0; i < extra_attribs.length; i++)
 		{
-			Attrib* a = &extra_attribs[i];
+			Mesh::Attrib* a = &extra_attribs[i];
 			sync->write<RenderDataType>(a->type);
 			sync->write<s32>(a->count);
 		}
@@ -400,7 +329,7 @@ const Mesh* Loader::mesh(AssetID id)
 
 		for (s32 i = 0; i < extra_attribs.length; i++)
 		{
-			Attrib* a = &extra_attribs[i];
+			Mesh::Attrib* a = &extra_attribs[i];
 			sync->write(a->data.data, a->data.length);
 			a->~Attrib(); // release data
 		}

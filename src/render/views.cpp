@@ -17,12 +17,25 @@ Bitmask<MAX_ENTITIES> View::list_hollow;
 
 View::View(AssetID m)
 	: mesh(m),
+	mesh_shadow(AssetNull),
 	shader(AssetNull),
 	texture(AssetNull),
 	offset(Mat4::identity),
 	color(-1, -1, -1, -1),
 	mask(RENDER_MASK_DEFAULT),
-	team((s8)AI::TeamNone)
+	team(s8(AI::TeamNone))
+{
+}
+
+View::View()
+	: mesh(AssetNull),
+	mesh_shadow(AssetNull),
+	shader(AssetNull),
+	texture(AssetNull),
+	offset(Mat4::identity),
+	color(-1, -1, -1, -1),
+	mask(RENDER_MASK_DEFAULT),
+	team(s8(AI::TeamNone))
 {
 }
 
@@ -205,16 +218,14 @@ void View::draw_mesh(const RenderParams& params, AssetID mesh, AssetID shader, A
 	}
 }
 
-#define PVP_ACCESSIBLE Vec4(0.7f, 0.7f, 0.7f, 1.0f)
-#define PVP_ACCESSIBLE_NO_OVERRIDE Vec4(0.7f, 0.7f, 0.7f, MATERIAL_NO_OVERRIDE)
-#define PVP_INACCESSIBLE Vec4(0.0f, 0.0f, 0.0f, MATERIAL_NO_OVERRIDE)
-
 void View::draw(const RenderParams& params) const
 {
-	if (mesh == AssetNull || shader == AssetNull)
+	AssetID mesh_actual = (params.technique != RenderTechnique::Shadow || params.edges || mesh_shadow == AssetNull) ? mesh : mesh_shadow;
+
+	if (mesh_actual == AssetNull || shader == AssetNull)
 		return;
 
-	const Mesh* mesh_data = Loader::mesh(mesh);
+	const Mesh* mesh_data = Loader::mesh(mesh_actual);
 
 	Mat4 m;
 	get<Transform>()->mat(&m);
@@ -228,14 +239,14 @@ void View::draw(const RenderParams& params) const
 
 	// if allow_culled_shader is false, replace the culled shader with the standard shader.
 	b8 allow_culled_shader = params.camera->cull_range > 0.0f && !params.edges;
-	AssetID actual_shader = allow_culled_shader || shader != Asset::Shader::culled ? shader : Asset::Shader::standard;
+	AssetID shader_actual = allow_culled_shader || shader != Asset::Shader::culled ? shader : Asset::Shader::standard;
 
-	Loader::shader(actual_shader);
+	Loader::shader(shader_actual);
 	Loader::texture(texture);
 
 	RenderSync* sync = params.sync;
 	sync->write(RenderOp::Shader);
-	sync->write(actual_shader);
+	sync->write(shader_actual);
 	sync->write(params.technique);
 
 	Mat4 mvp = m * params.view_projection;
@@ -277,7 +288,7 @@ void View::draw(const RenderParams& params) const
 			sync->write<Vec4>(team_color);
 	}
 
-	if (actual_shader == Asset::Shader::culled)
+	if (shader_actual == Asset::Shader::culled)
 	{
 		// write culling info
 		sync->write(RenderOp::Uniform);
@@ -318,13 +329,13 @@ void View::draw(const RenderParams& params) const
 	if (params.edges)
 	{
 		sync->write(RenderOp::MeshEdges);
-		sync->write(mesh);
+		sync->write(mesh_actual);
 	}
 	else
 	{
 		sync->write(RenderOp::Mesh);
 		sync->write(RenderPrimitiveMode::Triangles);
-		sync->write(mesh);
+		sync->write(mesh_actual);
 	}
 }
 

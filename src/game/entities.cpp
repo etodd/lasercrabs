@@ -2189,7 +2189,7 @@ TerminalEntity::TerminalEntity()
 	SkinnedModel* model = create<SkinnedModel>();
 	model->mesh = Asset::Mesh::terminal;
 	model->shader = Asset::Shader::armature;
-	model->color = Vec4(1, 1, 1, 1);
+	model->color = Vec4(1, 1, 1, MATERIAL_INACCESSIBLE);
 
 	Animator* anim = create<Animator>();
 	anim->armature = Asset::Armature::terminal;
@@ -2202,9 +2202,14 @@ TerminalEntity::TerminalEntity()
 
 	RigidBody* body = create<RigidBody>(RigidBody::Type::Mesh, Vec3::zero, 0.0f, CollisionStatic | CollisionInaccessible, ~CollisionStatic & ~CollisionParkour & ~CollisionInaccessibleMask, Asset::Mesh::terminal_collision);
 	body->set_restitution(0.75f);
-	create<Interactable>()->interacted.link(&interacted);
+
+	create<Interactable>();
 }
 
+void TerminalEntity::awake(Entity* e)
+{
+	e->get<Interactable>()->interacted.link(&interacted);
+}
 
 Array<Ascensions::Entry> Ascensions::entries;
 r32 Ascensions::timer;
@@ -2238,7 +2243,6 @@ void Ascensions::update(const Update& u)
 		}
 		else
 		{
-			
 			// only show notifications in parkour mode
 			if (Game::level.mode == Game::Mode::Parkour
 				&& old_timer >= total_time * 0.85f && e->timer < total_time * 0.85f)

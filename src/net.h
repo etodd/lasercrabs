@@ -50,6 +50,7 @@ enum class MessageType
 	Health,
 	EnergyPickup,
 	Team,
+	PlayerManager,
 	ParticleEffect,
 	Interactable,
 	count,

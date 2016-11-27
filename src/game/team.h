@@ -127,6 +127,8 @@ struct PlayerManager : public ComponentType<PlayerManager>
 
 	static void update_all(const Update&);
 
+	static b8 net_msg(Net::StreamRead*, PlayerManager*, Net::MessageSource);
+
 	r32 spawn_timer;
 	r32 credits_flash_timer;
 	r32 particle_accumulator;
@@ -172,6 +174,7 @@ struct PlayerManager : public ComponentType<PlayerManager>
 	s16 increment() const;
 	void update_server(const Update&);
 	void update_client(const Update&);
+	void score_accept();
 };
 
 

@@ -17,6 +17,7 @@ struct View : public ComponentType<View>
 	Vec4 color;
 	RenderMask mask;
 	AssetID mesh;
+	AssetID mesh_shadow;
 	AssetID shader;
 	AssetID texture;
 	s8 team;
@@ -28,7 +29,8 @@ struct View : public ComponentType<View>
 
 	static void draw_mesh(const RenderParams&, AssetID, AssetID, AssetID, const Mat4&, const Vec4&);
 
-	View(AssetID = AssetNull);
+	View();
+	View(AssetID);
 	void awake();
 	~View();
 

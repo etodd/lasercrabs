@@ -109,9 +109,9 @@ union Single
 };
 
 #if DEBUG
-#define net_error() { vi_debug_break(); }
+#define net_error() do { vi_debug_break(); } while (0)
 #else
-#define net_error() { return false; }
+#define net_error() do { return false; } while (0)
 #endif
 
 #define BITS_REQUIRED(min, max) Net::BitsRequired<min, max>::result

@@ -138,7 +138,7 @@ void Walker::update(const Update& u)
 	support = nullptr;
 
 	Vec3 pos = get<Transform>()->absolute_pos();
-	if (pos.y < Game::level.min_y)
+	if (Game::level.local && pos.y < Game::level.min_y)
 	{
 		get<Health>()->kill(nullptr);
 		return;

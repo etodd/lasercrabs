@@ -405,6 +405,7 @@ struct TerminalEntity : public Entity
 	static void close();
 	static void closed();
 	static void interacted(Interactable*);
+	static void awake(Entity*);
 
 	TerminalEntity();
 };

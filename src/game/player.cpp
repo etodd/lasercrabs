@@ -600,7 +600,7 @@ void PlayerHuman::update(const Update& u)
 				{
 					// accept score summary
 					if (!u.input->get(Controls::Interact, gamepad) && u.last_input->get(Controls::Interact, gamepad))
-						get<PlayerManager>()->score_accepted = true;
+						get<PlayerManager>()->score_accept();
 				}
 			}
 			break;
@@ -662,7 +662,6 @@ void PlayerHuman::spawn()
 		{
 			spawned->get<Animator>()->layers[3].set(Asset::Animation::character_terminal_exit, 0.0f); // bypass animation blending
 			spawned->get<Animator>()->layers[3].play(Asset::Animation::character_terminal_exit);
-			TerminalEntity::open();
 		}
 	}
 
@@ -1548,7 +1547,10 @@ void PlayerControlHuman::awk_done_flying_or_dashing()
 void PlayerControlHuman::health_changed(const HealthEvent& e)
 {
 	if (e.hp + e.shield < 0)
+	{
+		try_secondary = false; // de-scope when damaged
 		camera_shake();
+	}
 }
 
 void PlayerControlHuman::awk_reflecting(const Vec3& new_velocity)
@@ -2061,8 +2063,7 @@ void PlayerControlHuman::update(const Update& u)
 						if (indicator.type == TargetIndicator::Type::AwkVisible
 							|| indicator.type == TargetIndicator::Type::AwkTracking
 							|| indicator.type == TargetIndicator::Type::Energy
-							|| indicator.type == TargetIndicator::Type::Minion
-							|| indicator.type == TargetIndicator::Type::MinionAttacking)
+							|| indicator.type == TargetIndicator::Type::Minion)
 						{
 							Vec3 to_indicator = indicator.pos - camera->pos;
 							r32 indicator_distance = to_indicator.length();
@@ -2285,11 +2286,7 @@ void PlayerControlHuman::update(const Update& u)
 				{
 					if (i.item()->get<AIAgent>()->team != team)
 					{
-						TargetIndicator::Type type =
-							i.item()->get<MinionAI>()->goal.entity.ref() == entity() && i.item()->get<MinionAI>()->can_see(entity())
-							? TargetIndicator::Type::MinionAttacking
-							: TargetIndicator::Type::Minion;
-						if (!add_target_indicator(i.item()->get<Target>(), type))
+						if (!add_target_indicator(i.item()->get<Target>(), TargetIndicator::Type::Minion))
 							break; // no more room for indicators
 					}
 				}
@@ -2625,6 +2622,7 @@ void PlayerControlHuman::update(const Update& u)
 				get<Transform>()->rot = remote_control.rot;
 				get<Transform>()->parent = remote_control.parent;
 				last_pos = get<Transform>()->absolute_pos();
+				get<Walker>()->absolute_pos(last_pos); // force rigid body
 			}
 		}
 	}
@@ -2673,8 +2671,8 @@ void PlayerControlHuman::draw(const RenderParams& p) const
 {
 	if (p.technique != RenderTechnique::Default
 		|| p.camera != player.ref()->camera
-		|| Overworld::active()
 		|| p.camera->cull_range <= 0.0f
+		|| Overworld::active()
 		|| !get<Transform>()->parent.ref())
 		return;
 
@@ -2729,14 +2727,9 @@ void PlayerControlHuman::draw_alpha(const RenderParams& params) const
 				UI::indicator(params, indicator.pos, UI::color_alert, true);
 				break;
 			}
-			case TargetIndicator::Type::MinionAttacking:
+			default:
 			{
-				if (UI::flash_function(Game::real_time.total))
-				{
-					if (!UI::flash_function(Game::real_time.total - Game::real_time.delta))
-						Audio::post_global_event(AK::EVENTS::PLAY_BEEP_BAD);
-					UI::indicator(params, indicator.pos, UI::color_alert, true);
-				}
+				vi_assert(false);
 				break;
 			}
 		}

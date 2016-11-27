@@ -90,9 +90,12 @@ void Parkour::awake()
 
 void Parkour::killed(Entity*)
 {
-	Team::game_over = true;
-	World::remove_deferred(entity());
-	Game::schedule_load_level(Game::save.last_level, Game::Mode::Parkour, 2.0f);
+	if (Game::level.local)
+	{
+		Team::game_over = true;
+		World::remove_deferred(entity());
+		Game::schedule_load_level(Game::save.last_level, Game::Mode::Parkour, 2.0f);
+	}
 }
 
 void Parkour::land(r32 velocity_diff)
@@ -485,7 +488,8 @@ void Parkour::update(const Update& u)
 						&& forward.dot(to_minion) < get<Walker>()->radius * 2.5f
 						&& forward.dot(Vec3::normalize(to_minion)) > 0.5f)
 					{
-						i.item()->get<Health>()->kill(entity());
+						if (Game::level.local)
+							i.item()->get<Health>()->kill(entity());
 
 						// sparks
 						Vec3 p = base_pos + Vec3(0, total_height * 0.5f, 0);

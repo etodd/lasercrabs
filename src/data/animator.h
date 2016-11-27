@@ -36,6 +36,7 @@ struct Animator : public ComponentType<Animator>
 		r32 blend;
 		r32 blend_time;
 		r32 time;
+		r32 time_last;
 		r32 speed;
 		StaticArray<AnimatorChannel, MAX_BONES> last_animation_channels;
 		StaticArray<AnimatorChannel, MAX_BONES> channels;

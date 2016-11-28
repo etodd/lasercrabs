@@ -320,14 +320,14 @@ template<typename Stream> b8 serialize_position(Stream* p, Vec3* pos, Resolution
 		case Resolution::Low:
 		{
 			serialize_r32_range(p, pos->x, -256, 256, 16);
-			serialize_r32_range(p, pos->y, -32, 128, 12);
+			serialize_r32_range(p, pos->y, -128, 128, 12);
 			serialize_r32_range(p, pos->z, -256, 256, 16);
 			break;
 		}
 		case Resolution::Medium:
 		{
 			serialize_r32_range(p, pos->x, -256, 256, 18);
-			serialize_r32_range(p, pos->y, -32, 128, 14);
+			serialize_r32_range(p, pos->y, -128, 128, 14);
 			serialize_r32_range(p, pos->z, -256, 256, 18);
 			break;
 		}

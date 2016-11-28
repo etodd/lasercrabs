@@ -1491,11 +1491,11 @@ template<typename Stream> b8 serialize_state_frame(Stream* p, StateFrame* frame,
 					serialize_s16(p, frame->transforms[index].revision);
 				b8 parent_changed;
 				if (Stream::IsWriting)
-					parent_changed = revision_changed || !base || !frame->transforms[index].parent.equals(base->transforms[index].parent);
+					parent_changed = !base || !frame->transforms[index].parent.equals(base->transforms[index].parent);
 				serialize_bool(p, parent_changed);
 				if (parent_changed)
 					serialize_ref(p, frame->transforms[index].parent);
-				if (!serialize_transform(p, &frame->transforms[index], base && !revision_changed ? &base->transforms[index] : nullptr))
+				if (!serialize_transform(p, &frame->transforms[index], base ? &base->transforms[index] : nullptr))
 					net_error();
 			}
 

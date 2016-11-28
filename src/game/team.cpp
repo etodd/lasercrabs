@@ -851,6 +851,15 @@ b8 PlayerManager::upgrade_start(Upgrade u)
 	return false;
 }
 
+void PlayerManager::upgrade_cancel()
+{
+	if (state() == State::Upgrading)
+	{
+		current_upgrade = Upgrade::None;
+		state_timer = 0.0f;
+	}
+}
+
 void PlayerManager::upgrade_complete()
 {
 	Upgrade u = current_upgrade;
@@ -883,6 +892,15 @@ b8 PlayerManager::capture_start()
 		return true;
 	}
 	return false;
+}
+
+void PlayerManager::capture_cancel()
+{
+	if (state() == State::Capturing)
+	{
+		control_point_capture_completed.fire(false);
+		state_timer = 0.0f;
+	}
 }
 
 // the capture is not actually complete; we've completed the process of *starting* to capture the point
@@ -1004,10 +1022,10 @@ PlayerManager::State PlayerManager::state() const
 		return State::Default;
 	else
 	{
-		if (current_upgrade != Upgrade::None)
-			return State::Upgrading;
-		else
+		if (current_upgrade == Upgrade::None)
 			return State::Capturing;
+		else
+			return State::Upgrading;
 	}
 }
 
@@ -1097,25 +1115,51 @@ void PlayerManager::update_server(const Update& u)
 
 	if (state_timer > 0.0f)
 	{
-		state_timer = vi_max(0.0f, state_timer - u.time.delta);
-		if (state_timer == 0.0f)
+		// something is in progress
+		if (!instance.ref()) // we got killed; cancel whatever we were doing
 		{
 			switch (s)
 			{
 				case State::Capturing:
 				{
-					capture_complete();
+					capture_cancel();
 					break;
 				}
 				case State::Upgrading:
 				{
-					upgrade_complete();
+					upgrade_cancel();
 					break;
 				}
 				default:
 				{
 					vi_assert(false);
 					break;
+				}
+			}
+		}
+		else
+		{
+			// still alive
+			state_timer = vi_max(0.0f, state_timer - u.time.delta);
+			if (state_timer == 0.0f)
+			{
+				switch (s)
+				{
+					case State::Capturing:
+					{
+						capture_complete();
+						break;
+					}
+					case State::Upgrading:
+					{
+						upgrade_complete();
+						break;
+					}
+					default:
+					{
+						vi_assert(false);
+						break;
+					}
 				}
 			}
 		}

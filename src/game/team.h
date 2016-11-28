@@ -160,8 +160,10 @@ struct PlayerManager : public ComponentType<PlayerManager>
 	s32 ability_count() const;
 	b8 ability_valid(Ability) const;
 	b8 upgrade_start(Upgrade);
+	void upgrade_cancel();
 	void upgrade_complete();
 	b8 capture_start();
+	void capture_cancel();
 	void capture_complete();
 	b8 upgrade_available(Upgrade = Upgrade::None) const;
 	s16 upgrade_cost(Upgrade) const;

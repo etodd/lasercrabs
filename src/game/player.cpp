@@ -311,6 +311,8 @@ struct Message
 		Go,
 		Reflect,
 		UpgradeStart,
+		CaptureStart,
+		CaptureCancel,
 		count,
 	};
 
@@ -326,7 +328,9 @@ template<typename Stream> b8 serialize_msg(Stream* p, Message* msg)
 	serialize_enum(p, Message::Type, msg->type);
 
 	// position/dir
-	if (msg->type != Message::Type::UpgradeStart)
+	if (msg->type != Message::Type::UpgradeStart
+		&& msg->type != Message::Type::CaptureStart
+		&& msg->type != Message::Type::CaptureCancel)
 	{
 		serialize_position(p, &msg->pos, Net::Resolution::High);
 		serialize_r32_range(p, msg->dir.x, -1.0f, 1.0f, 16);
@@ -459,16 +463,28 @@ void PlayerHuman::update(const Update& u)
 	{
 		case UIMode::PvpDefault:
 		{
-			if (!u.input->get(Controls::Interact, gamepad) && u.last_input->get(Controls::Interact, gamepad))
+			if (get<PlayerManager>()->at_control_point()
+				&& !get<PlayerManager>()->friendly_control_point(get<PlayerManager>()->at_control_point()))
 			{
-				if (get<PlayerManager>()->at_control_point()
-					&& get<PlayerManager>()->can_transition_state()
-					&& !get<PlayerManager>()->friendly_control_point(get<PlayerManager>()->at_control_point()))
+				// enemy control point; capture
+				b8 pressed = u.input->get(Controls::Interact, gamepad);
+				b8 pressed_last = u.last_input->get(Controls::Interact, gamepad);
+				if (pressed && !pressed_last)
 				{
-					// enemy control point; capture
-					get<PlayerManager>()->capture_start();
+					PlayerControlHumanNet::Message msg;
+					msg.type = PlayerControlHumanNet::Message::Type::CaptureStart;
+					PlayerControlHumanNet::send(entity->get<PlayerControlHuman>(), &msg);
 				}
-				else if (get<PlayerManager>()->at_upgrade_point())
+				else if (pressed_last && !pressed)
+				{
+					PlayerControlHumanNet::Message msg;
+					msg.type = PlayerControlHumanNet::Message::Type::CaptureCancel;
+					PlayerControlHumanNet::send(entity->get<PlayerControlHuman>(), &msg);
+				}
+			}
+			else if (get<PlayerManager>()->at_upgrade_point())
+			{
+				if (!u.input->get(Controls::Interact, gamepad) && u.last_input->get(Controls::Interact, gamepad))
 				{
 					upgrade_menu_open = true;
 					menu.animate();
@@ -1181,20 +1197,18 @@ void PlayerHuman::draw_alpha(const RenderParams& params) const
 
 				// draw bar
 
-				Vec2 pos = params.camera->viewport.size * Vec2(0.5f, 0.2f);
-				Vec2 bar_size(200.0f * UI::scale, 32.0f * UI::scale);
-				Rect2 bar = { pos + bar_size * -0.5f, bar_size };
-				UI::box(params, bar, UI::color_background);
-				UI::border(params, bar, 2, UI::color_accent);
-				UI::box(params, { bar.pos, Vec2(bar.size.x * (1.0f - (get<PlayerManager>()->state_timer / total_time)), bar.size.y) }, UI::color_accent);
-
 				UIText text;
 				text.size = 18.0f;
 				text.color = UI::color_background;
 				text.anchor_x = UIText::Anchor::Center;
 				text.anchor_y = UIText::Anchor::Center;
 				text.text(_(string), (s32)cost);
-				text.draw(params, bar.pos + bar.size * 0.5f);
+				Vec2 pos = params.camera->viewport.size * Vec2(0.5f, 0.2f);
+				Rect2 bar = text.rect(pos).outset(MENU_ITEM_PADDING);
+				UI::box(params, bar, UI::color_background);
+				UI::border(params, bar, 2, UI::color_accent);
+				UI::box(params, { bar.pos, Vec2(bar.size.x * (1.0f - (get<PlayerManager>()->state_timer / total_time)), bar.size.y) }, UI::color_accent);
+				text.draw(params, pos);
 			}
 		}
 
@@ -1459,11 +1473,9 @@ b8 PlayerControlHuman::net_msg(Net::StreamRead* p, PlayerControlHuman* c, Net::M
 	}
 
 	if (src == Net::MessageSource::Invalid // message is from a client who doesn't actually own this player
-		|| (msg.type != PlayerControlHumanNet::Message::Type::UpgradeStart && msg.dir.length_squared() == 0.0f)
-		|| (msg.ability != Ability::None && !c->player.ref()->get<PlayerManager>()->has_upgrade(Upgrade(msg.ability)))
-		|| (msg.ability != Ability::None && msg.type != PlayerControlHumanNet::Message::Type::Go))
+		|| (msg.ability != Ability::None && !c->player.ref()->get<PlayerManager>()->has_upgrade(Upgrade(msg.ability)))) // don't have the upgrade for that ability
 	{
-		// malformed message, ignore
+		// invalid message, ignore
 		net_error();
 	}
 
@@ -1509,6 +1521,18 @@ b8 PlayerControlHuman::net_msg(Net::StreamRead* p, PlayerControlHuman* c, Net::M
 		{
 			if (Game::level.local)
 				c->get<PlayerCommon>()->manager.ref()->upgrade_start(msg.upgrade);
+			break;
+		}
+		case PlayerControlHumanNet::Message::Type::CaptureStart:
+		{
+			if (Game::level.local)
+				c->get<PlayerCommon>()->manager.ref()->capture_start();
+			break;
+		}
+		case PlayerControlHumanNet::Message::Type::CaptureCancel:
+		{
+			if (Game::level.local)
+				c->get<PlayerCommon>()->manager.ref()->capture_cancel();
 			break;
 		}
 		case PlayerControlHumanNet::Message::Type::Reflect:

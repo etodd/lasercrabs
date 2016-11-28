@@ -468,6 +468,8 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 	if (e->has<ControlPoint>())
 	{
 		ControlPoint* c = e->get<ControlPoint>();
+		serialize_r32_range(p, c->capture_timer, 0, CONTROL_POINT_CAPTURE_TIME, 16);
+		serialize_s8(p, c->team_next);
 		serialize_s8(p, c->team);
 	}
 
@@ -2042,9 +2044,9 @@ b8 init()
 	}
 
 	// todo: allow both multiplayer / story mode sessions
-	Game::session.story_mode = false;
+	Game::session.story_mode = true;
 	state_server.mode = Mode::Loading;
-	Game::load_level(Update(), Asset::Level::Moros, Game::Mode::Pvp);
+	Game::load_level(Update(), Asset::Level::Moros, Game::Mode::Parkour);
 	if (Game::session.story_mode)
 		state_server.mode = Mode::Active;
 	else

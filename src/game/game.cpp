@@ -1530,6 +1530,13 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 		{
 			entity = World::alloc<TerminalEntity>();
 			level.terminal = entity;
+
+			Entity* i = World::alloc<TerminalInteractable>();
+			i->get<Transform>()->parent = entity->get<Transform>();
+			i->get<Transform>()->pos = Vec3(1.0f, 0, 0);
+			World::awake(i);
+			level.terminal_interactable = i;
+			Net::finalize(i);
 		}
 		else
 			entity = World::alloc<Empty>();
@@ -1628,8 +1635,8 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 void Game::awake_all()
 {
 	Team::awake_all();
-	if (level.terminal.ref())
-		TerminalEntity::awake(level.terminal.ref());
+	if (level.terminal_interactable.ref())
+		TerminalInteractable::awake(level.terminal_interactable.ref());
 }
 
 }

@@ -171,6 +171,7 @@ struct PlayerControlHuman : public ComponentType<PlayerControlHuman>
 	void health_changed(const HealthEvent&);
 	void camera_shake(r32 = 1.0f);
 	void camera_shake_update(const Update&, Camera*);
+	void terminal_enter_animation_callback();
 	void interact_animation_callback();
 
 	void awk_detached();

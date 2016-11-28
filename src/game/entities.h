@@ -394,9 +394,10 @@ struct Interactable : public ComponentType<Interactable>
 
 	LinkArg<Interactable*> interacted;
 
-	void awake() {}
-
+	void awake();
 	void interact();
+	void animation_callback();
+	void animation_start();
 };
 
 struct TerminalEntity : public Entity
@@ -404,10 +405,16 @@ struct TerminalEntity : public Entity
 	static void open();
 	static void close();
 	static void closed();
-	static void interacted(Interactable*);
-	static void awake(Entity*);
 
 	TerminalEntity();
+};
+
+struct TerminalInteractable : public Entity
+{
+	static void awake(Entity*);
+	static void interacted(Interactable*);
+
+	TerminalInteractable();
 };
 
 struct Ascensions

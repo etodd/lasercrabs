@@ -150,6 +150,7 @@ struct Game
 		AssetID id = AssetNull;
 		Ref<Transform> map_view;
 		Ref<Entity> terminal;
+		Ref<Entity> terminal_interactable;
 		s16 respawns;
 		s16 kill_limit;
 		AI::Team team_lookup[MAX_PLAYERS];

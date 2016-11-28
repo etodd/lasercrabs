@@ -1614,8 +1614,8 @@ void PlayerControlHuman::awake()
 	else
 	{
 		link_arg<r32, &PlayerControlHuman::parkour_landed>(get<Walker>()->land);
-		link<&PlayerControlHuman::interact_animation_callback>(get<Animator>()->trigger(Asset::Animation::character_terminal_enter, 2.5f));
-		link<&PlayerControlHuman::interact_animation_callback>(get<Animator>()->trigger(Asset::Animation::character_interact, 1.9f));
+		link<&PlayerControlHuman::terminal_enter_animation_callback>(get<Animator>()->trigger(Asset::Animation::character_terminal_enter, 2.5f));
+		link<&PlayerControlHuman::interact_animation_callback>(get<Animator>()->trigger(Asset::Animation::character_interact, 3.8f));
 		get<Audio>()->post_event(AK::EVENTS::PLAY_FLY);
 		get<Audio>()->param(AK::GAME_PARAMETERS::FLY_VOLUME, 0.0f);
 	}
@@ -1634,13 +1634,14 @@ void PlayerControlHuman::parkour_landed(r32 velocity_diff)
 	}
 }
 
+void PlayerControlHuman::terminal_enter_animation_callback()
+{
+	TerminalEntity::close();
+}
+
 void PlayerControlHuman::interact_animation_callback()
 {
-	if (interactable.ref())
-	{
-		interactable.ref()->interact();
-		interactable = nullptr;
-	}
+	interactable = nullptr;
 }
 
 void PlayerControlHuman::hit_target(Entity* target)
@@ -2377,14 +2378,13 @@ void PlayerControlHuman::update(const Update& u)
 				interactable = Interactable::closest(get<Transform>()->absolute_pos());
 				if (interactable.ref())
 				{
-					// start an animation that will eventually trigger the interactable
-					if (interactable.ref()->entity() == Game::level.terminal.ref()) // special case for terminal
+					if (interactable.ref()->entity() == Game::level.terminal_interactable.ref()) // special case for terminal
 					{
 						Game::ZoneState zone_state = Game::save.zones[Game::level.id];
 						if (zone_state == Game::ZoneState::Hostile)
 						{
 							if (Game::level.max_teams <= 2 || Game::save.group != Game::Group::None) // if the map requires more than two players, you must be in a group
-								get<Animator>()->layers[3].play(Asset::Animation::character_terminal_enter);
+								get<Animator>()->layers[3].play(Asset::Animation::character_terminal_enter); // animation will eventually trigger the interactable
 							else
 							{
 								player.ref()->msg(_(strings::group_required), false);
@@ -2392,12 +2392,18 @@ void PlayerControlHuman::update(const Update& u)
 							}
 						}
 						else if (zone_state == Game::ZoneState::Locked)
+						{
+							interactable.ref()->interact();
 							get<Animator>()->layers[3].play(Asset::Animation::character_interact);
+						}
 						else
 							interactable = nullptr;
 					}
 					else // regular old interactable
+					{
+						interactable.ref()->interact();
 						get<Animator>()->layers[3].play(Asset::Animation::character_interact);
+					}
 				}
 			}
 
@@ -2416,7 +2422,7 @@ void PlayerControlHuman::update(const Update& u)
 					dir.y = 0.0f;
 					dir.normalize();
 					target_angle = atan2f(dir.x, dir.z);
-					target_pos = i_pos + dir * Vec3(-2.0f, 0, 0);
+					target_pos = i_pos + dir * -1.0f;
 					target_pos.y += (get<Walker>()->capsule_height() * 0.5f) + get<Walker>()->support_height;
 				}
 
@@ -2895,26 +2901,29 @@ void PlayerControlHuman::draw_alpha(const RenderParams& params) const
 		// parkour mode
 
 		// interact prompt
-		Interactable* i = Interactable::closest(get<Transform>()->absolute_pos());
-		if (i)
+		if (input_enabled())
 		{
-			UIText text;
-			text.color = UI::color_accent;
-			text.text(_(strings::prompt_interact));
-			text.anchor_x = UIText::Anchor::Center;
-			text.anchor_y = UIText::Anchor::Center;
-			text.size = text_size;
-			Vec2 pos = viewport.size * Vec2(0.5f, 0.15f);
-			UI::box(params, text.rect(pos).outset(8.0f * UI::scale), UI::color_background);
-			text.draw(params, pos);
-		}
+			Interactable* i = Interactable::closest(get<Transform>()->absolute_pos());
+			if (i)
+			{
+				UIText text;
+				text.color = UI::color_accent;
+				text.text(_(strings::prompt_interact));
+				text.anchor_x = UIText::Anchor::Center;
+				text.anchor_y = UIText::Anchor::Center;
+				text.size = text_size;
+				Vec2 pos = viewport.size * Vec2(0.5f, 0.15f);
+				UI::box(params, text.rect(pos).outset(8.0f * UI::scale), UI::color_background);
+				text.draw(params, pos);
+			}
 
-		// highlight terminal location
-		if (!i && Game::save.zones[Game::level.id] == Game::ZoneState::Locked)
-		{
-			Entity* terminal = Game::level.terminal.ref();
-			if (terminal)
-				UI::indicator(params, terminal->get<Transform>()->absolute_pos(), UI::color_default, true);
+			// highlight terminal location
+			if (!i && Game::save.zones[Game::level.id] == Game::ZoneState::Locked)
+			{
+				Entity* terminal = Game::level.terminal.ref();
+				if (terminal)
+					UI::indicator(params, terminal->get<Transform>()->absolute_pos(), UI::color_default, true);
+			}
 		}
 	}
 

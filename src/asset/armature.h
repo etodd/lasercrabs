@@ -8,16 +8,17 @@ namespace Asset
 {
 	namespace Armature
 	{
-		const s32 count = 5;
+		const s32 count = 6;
 		const AssetID awk = 0;
 		const AssetID character = 1;
-		const AssetID parkour = 2;
-		const AssetID parkour_headless = 3;
-		const AssetID terminal = 4;
+		const AssetID interactable = 2;
+		const AssetID parkour = 3;
+		const AssetID parkour_headless = 4;
+		const AssetID terminal = 5;
 	}
 	namespace Bone
 	{
-		const s32 count = 88;
+		const s32 count = 93;
 		const AssetID awk_a1 = 5;
 		const AssetID awk_a2 = 6;
 		const AssetID awk_b1 = 1;
@@ -49,6 +50,11 @@ namespace Asset
 		const AssetID character_thigh_R = 21;
 		const AssetID character_upper_arm_L = 6;
 		const AssetID character_upper_arm_R = 12;
+		const AssetID interactable_outer = 4;
+		const AssetID interactable_part1 = 1;
+		const AssetID interactable_part2 = 2;
+		const AssetID interactable_part3 = 3;
+		const AssetID interactable_root = 0;
 		const AssetID parkour_attach_point = 0;
 		const AssetID parkour_camera = 1;
 		const AssetID parkour_claw1_L = 9;

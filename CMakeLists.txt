@@ -14,6 +14,7 @@ set(IMPORT_INCLUDES
 	${SDL2_BINARY_DIR}/include
 	external/bullet/src
 	src
+	external/assimp/include
 )
 
 if (WIN32)
@@ -512,8 +513,12 @@ if (NOT PLAYSTATION)
 
 	set(GIT_COMMIT_HASH 0)
 	configure_file(
-	  external/assimp/revision.h.in
-	  ${CMAKE_SOURCE_DIR}/external/assimp/code/revision.h
+		external/assimp/revision.h.in
+		${CMAKE_SOURCE_DIR}/external/assimp/code/revision.h
+	)
+	configure_file(
+		external/assimp/include/assimp/config.h.in
+		${CMAKE_SOURCE_DIR}/external/assimp/include/assimp/config.h
 	)
 	add_subdirectory(external/assimp/code)
 

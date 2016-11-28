@@ -975,6 +975,8 @@ b8 load_anim(const Armature& armature, const aiAnimation* in, Animation* out, co
 const aiScene* load_fbx(Assimp::Importer& importer, const std::string& path, b8 tangents)
 {
 	s32 flags = aiProcess_Triangulate
+		| aiProcess_ImproveCacheLocality
+		| aiProcess_JoinIdenticalVertices
 		| aiProcess_GenNormals
 		| aiProcess_ValidateDataStructure;
 	if (tangents)

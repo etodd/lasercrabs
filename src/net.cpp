@@ -1246,7 +1246,7 @@ template<typename Stream> b8 serialize_minion(Stream* p, MinionState* state, con
 	b8 b;
 
 	if (Stream::IsWriting)
-		b = !base || fabs(state->rotation - base->rotation) > PI * 2.0f / 256.0f;
+		b = !base || fabsf(state->rotation - base->rotation) > PI * 2.0f / 256.0f;
 	serialize_bool(p, b);
 	if (b)
 		serialize_r32_range(p, state->rotation, -PI, PI, 8);
@@ -1401,8 +1401,8 @@ b8 equal_states_minion(const StateFrame* frame_a, const StateFrame* frame_b, s32
 		const MinionState& a = frame_a->minions[index];
 		const MinionState& b = frame_b->minions[index];
 		return a_active == b_active
-			&& fabs(a.rotation - b.rotation) < PI * 2.0f / 256.0f
-			&& fabs(a.animation_time - b.animation_time) < 0.01f
+			&& fabsf(a.rotation - b.rotation) < PI * 2.0f / 256.0f
+			&& fabsf(a.animation_time - b.animation_time) < 0.01f
 			&& a.attack_timer == 0.0f && b.attack_timer == 0.0f
 			&& a.animation == b.animation;
 	}
@@ -1758,8 +1758,14 @@ void state_frame_interpolate(const StateFrame& a, const StateFrame& b, StateFram
 		*player = last;
 		if (player->active)
 		{
-			player->spawn_timer = LMath::lerpf(blend, last.spawn_timer, next.spawn_timer);
-			player->state_timer = LMath::lerpf(blend, last.state_timer, next.state_timer);
+			if (fabsf(last.spawn_timer - next.spawn_timer) > NET_TICK_RATE * 5.0f)
+				player->spawn_timer = next.spawn_timer;
+			else
+				player->spawn_timer = LMath::lerpf(blend, last.spawn_timer, next.spawn_timer);
+			if (fabsf(last.state_timer - next.state_timer) > NET_TICK_RATE * 5.0f)
+				player->state_timer = next.state_timer;
+			else
+				player->state_timer = LMath::lerpf(blend, last.state_timer, next.state_timer);
 		}
 	}
 
@@ -1777,12 +1783,12 @@ void state_frame_interpolate(const StateFrame& a, const StateFrame& b, StateFram
 			const MinionState& next = b.minions[index];
 
 			minion->rotation = LMath::angle_range(LMath::lerpf(blend, last.rotation, LMath::closest_angle(last.rotation, next.rotation)));
-			if (fabs(next.attack_timer - last.attack_timer) < NET_TICK_RATE * 10.0f)
+			if (fabsf(next.attack_timer - last.attack_timer) < NET_TICK_RATE * 10.0f)
 				minion->attack_timer = LMath::lerpf(blend, last.attack_timer, next.attack_timer);
 			else
 				minion->attack_timer = next.attack_timer;
 			minion->animation = last.animation;
-			if (last.animation == next.animation && fabs(next.animation_time - last.animation_time) < NET_TICK_RATE * 10.0f)
+			if (last.animation == next.animation && fabsf(next.animation_time - last.animation_time) < NET_TICK_RATE * 10.0f)
 				minion->animation_time = LMath::lerpf(blend, last.animation_time, next.animation_time);
 			else
 				minion->animation_time = last.animation_time + blend * NET_TICK_RATE;
@@ -2290,11 +2296,7 @@ b8 packet_handle(const Update& u, StreamRead* p, const Sock::Address& address)
 								vi_assert(false);
 							msg_finalize(p);
 						}
-						{
-							StreamWrite* p = msg_new(&client->msgs_out_load, MessageType::InitDone);
-							serialize_r32(p, Team::match_time);
-							msg_finalize(p);
-						}
+						msg_finalize(msg_new(&client->msgs_out_load, MessageType::InitDone));
 					}
 				}
 
@@ -2447,6 +2449,12 @@ b8 msg_process(StreamRead* p, Client* client)
 			vi_debug("Client %s:%hd finished loading.", Sock::host_to_str(client->address.host), client->address.port);
 			if (state_server.mode == Mode::Waiting && clients_loaded() == state_server.expected_clients)
 				state_server.mode = Mode::Active;
+			{
+				using Stream = StreamWrite;
+				StreamWrite* p = msg_new(MessageType::TimeSync);
+				serialize_r32_range(p, Team::match_time, 0, Game::level.time_limit, 16);
+				msg_finalize(p);
+			}
 			break;
 		}
 		case MessageType::PlayerControlHuman:
@@ -2963,7 +2971,6 @@ b8 msg_process(StreamRead* p)
 		}
 		case MessageType::InitDone:
 		{
-			serialize_r32(p, Team::match_time);
 			vi_assert(state_client.mode == Mode::Loading);
 			for (auto i = Entity::list.iterator(); !i.is_last(); i.next())
 				World::awake(i.item());
@@ -2973,6 +2980,11 @@ b8 msg_process(StreamRead* p)
 			vi_debug("Finished loading.");
 			msg_finalize(msg_new(MessageType::LoadingDone));
 			state_client.mode = Mode::Connected;
+			break;
+		}
+		case MessageType::TimeSync:
+		{
+			serialize_r32_range(p, Team::match_time, 0, Game::level.time_limit, 16);
 			break;
 		}
 		case MessageType::Noop:
@@ -3261,6 +3273,12 @@ b8 msg_process(StreamRead* p, MessageSource src)
 				net_error();
 			break;
 		}
+		case MessageType::ControlPoint:
+		{
+			if (!ControlPoint::net_msg(p))
+				net_error();
+			break;
+		}
 		case MessageType::PlayerManager:
 		{
 			vi_assert(src == MessageSource::Loopback || !Game::level.local); // Server::msg_process handles this on the server
@@ -3310,7 +3328,8 @@ b8 msg_finalize(StreamWrite* p)
 		&& type != MessageType::EntityCreate
 		&& type != MessageType::EntityRemove
 		&& type != MessageType::InitDone
-		&& type != MessageType::LoadingDone)
+		&& type != MessageType::LoadingDone
+		&& type != MessageType::TimeSync)
 	{
 		r.rewind();
 		msg_process(&r, MessageSource::Loopback);

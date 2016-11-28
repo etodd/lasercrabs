@@ -345,7 +345,7 @@ void Parkour::update(const Update& u)
 						r32 forward_dot = forward.dot(ray_callback.m_hitNormalWorld);
 						if (ray_callback.hasHit()
 							&& wall_run_normal.dot(ray_callback.m_hitNormalWorld) < 0.99f
-							&& fabs(ray_callback.m_hitNormalWorld.getY()) < 0.25f
+							&& fabsf(ray_callback.m_hitNormalWorld.getY()) < 0.25f
 							&& forward_dot > -0.9f
 							&& forward_dot < 0.1f)
 						{
@@ -374,7 +374,7 @@ void Parkour::update(const Update& u)
 
 			if (ray_callback.hasHit()
 				&& wall_run_normal.dot(ray_callback.m_hitNormalWorld) > 0.5f
-				&& fabs(ray_callback.m_hitNormalWorld.getY()) < 0.25f
+				&& fabsf(ray_callback.m_hitNormalWorld.getY()) < 0.25f
 				&& forward.dot(ray_callback.m_hitNormalWorld) < 0.1f)
 			{
 				// Still on the wall
@@ -484,7 +484,7 @@ void Parkour::update(const Update& u)
 				{
 					Vec3 minion_pos = i.item()->get<Walker>()->base_pos();
 					Vec3 to_minion = minion_pos - base_pos;
-					if (fabs(to_minion.y) < total_height
+					if (fabsf(to_minion.y) < total_height
 						&& forward.dot(to_minion) < get<Walker>()->radius * 2.5f
 						&& forward.dot(Vec3::normalize(to_minion)) > 0.5f)
 					{
@@ -805,7 +805,7 @@ b8 Parkour::try_wall_run(WallRunState s, const Vec3& wall_direction)
 	Physics::raycast(&ray_callback, CollisionParkour);
 
 	if (ray_callback.hasHit()
-		&& fabs(ray_callback.m_hitNormalWorld.getY()) < 0.25f
+		&& fabsf(ray_callback.m_hitNormalWorld.getY()) < 0.25f
 		&& wall_direction.dot(ray_callback.m_hitNormalWorld) < -0.7f)
 	{
 		btRigidBody* body = get<RigidBody>()->btBody;

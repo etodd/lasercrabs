@@ -40,19 +40,21 @@ enum class Resolution
 enum class MessageType
 {
 	Noop,
-	ClientSetup,
 	EntityCreate,
 	EntityRemove,
-	InitDone,
-	LoadingDone,
 	Awk,
 	PlayerControlHuman,
 	Health,
 	EnergyPickup,
-	Team,
 	PlayerManager,
 	ParticleEffect,
+	ControlPoint,
+	Team,
 	Interactable,
+	ClientSetup,
+	InitDone,
+	LoadingDone,
+	TimeSync,
 	count,
 };
 

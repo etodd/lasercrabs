@@ -607,7 +607,7 @@ b8 MinionAI::can_see(Entity* target, b8 limit_vision_cone) const
 	{
 		if (!limit_vision_cone || Vec3::normalize(diff).dot(get<Walker>()->forward()) > 0.707f)
 		{
-			if (!target->has<Parkour>() || fabs(diff.y) < MINION_HEARING_RANGE)
+			if (!target->has<Parkour>() || fabsf(diff.y) < MINION_HEARING_RANGE)
 			{
 				btCollisionWorld::ClosestRayResultCallback ray_callback(pos, target_pos);
 				Physics::raycast(&ray_callback, (CollisionStatic | CollisionInaccessible | CollisionAllTeamsContainmentField) & ~Team::containment_field_mask(get<AIAgent>()->team));
@@ -731,7 +731,7 @@ void MinionAI::update(const Update& u)
 
 						Animator::Layer* anim_layer = &get<Animator>()->layers[0];
 
-						if (fabs(LMath::angle_to(get<Walker>()->target_rotation, get<Walker>()->rotation)) < PI * 0.05f // make sure we're looking at the target
+						if (fabsf(LMath::angle_to(get<Walker>()->target_rotation, get<Walker>()->rotation)) < PI * 0.05f // make sure we're looking at the target
 							&& target_timer > MINION_ATTACK_TIME * 0.25f // give some reaction time
 							&& anim_layer->animation != Asset::Animation::character_melee
 							&& !Team::game_over)

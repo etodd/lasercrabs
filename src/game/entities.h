@@ -114,6 +114,7 @@ struct ControlPoint : public ComponentType<ControlPoint>
 	static ControlPoint* closest(AI::TeamMask, const Vec3&, r32* = nullptr);
 	static s32 count(AI::TeamMask);
 	static s32 count_capturing();
+	static b8 net_msg(Net::StreamRead*);
 
 	r32 capture_timer;
 	AI::Team team;
@@ -124,7 +125,6 @@ struct ControlPoint : public ComponentType<ControlPoint>
 	~ControlPoint();
 	b8 owned_by(AI::Team) const;
 	void awake();
-	void set_team(AI::Team);
 	void capture_start(AI::Team);
 	void capture_cancel();
 	void update(const Update&);

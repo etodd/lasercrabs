@@ -506,7 +506,8 @@ ControlPoint::ControlPoint(AI::Team t)
 
 void ControlPoint::awake()
 {
-	set_team(team);
+	get<PointLight>()->team = s8(team);
+	get<View>()->team = s8(team);
 	if (Game::level.local && obstacle_id == u32(-1))
 	{
 		Vec3 pos = get<Transform>()->absolute_pos();
@@ -515,31 +516,65 @@ void ControlPoint::awake()
 	}
 }
 
+namespace ControlPointNet
+{
+	template<typename Stream> b8 serialize_update(Stream* p, ControlPoint* c)
+	{
+		serialize_r32_range(p, c->capture_timer, 0, CONTROL_POINT_CAPTURE_TIME, 16);
+		serialize_s8(p, c->team_next);
+		serialize_s8(p, c->team);
+		return true;
+	}
+
+	void send_update(ControlPoint* c)
+	{
+		using Stream = Net::StreamWrite;
+		Stream* p = Net::msg_new(Net::MessageType::ControlPoint);
+		{
+			Ref<ControlPoint> ref = c;
+			serialize_ref(p, ref);
+		}
+		if (!serialize_update(p, c))
+			vi_assert(false);
+		Net::msg_finalize(p);
+	}
+}
+
+b8 ControlPoint::net_msg(Net::StreamRead* p)
+{
+	using Stream = Net::StreamRead;
+	Ref<ControlPoint> ref;
+	serialize_ref(p, ref);
+	ControlPoint* c = ref.ref();
+	if (!c || !ControlPointNet::serialize_update(p, c))
+		net_error();
+	c->get<PointLight>()->team = s8(c->team);
+	c->get<View>()->team = s8(c->team);
+	return true;
+}
+
 ControlPoint::~ControlPoint()
 {
 	if (obstacle_id != u32(-1))
 		AI::obstacle_remove(obstacle_id);
 }
 
-void ControlPoint::set_team(AI::Team t)
-{
-	team = t;
-	get<PointLight>()->team = (s8)team;
-	get<View>()->team = (s8)team;
-}
-
 void ControlPoint::capture_start(AI::Team t)
 {
+	vi_assert(Game::level.local);
 	vi_assert(team_next == AI::TeamNone);
 	// no capture in progress; start capturing
 	team_next = t;
 	capture_timer = CONTROL_POINT_CAPTURE_TIME * (team == AI::TeamNone ? 0.5f : 1.0f);
+	ControlPointNet::send_update(this);
 }
 
 void ControlPoint::capture_cancel()
 {
+	vi_assert(Game::level.local);
 	team_next = AI::TeamNone;
 	capture_timer = 0.0f;
+	ControlPointNet::send_update(this);
 }
 
 b8 ControlPoint::owned_by(AI::Team t) const
@@ -552,16 +587,22 @@ void ControlPoint::update(const Update& u)
 	if (capture_timer > 0.0f)
 	{
 		capture_timer -= u.time.delta;
-		if (capture_timer <= 0.0f)
+		if (Game::level.local)
 		{
-			// capture complete
-			set_team(team_next);
-			capture_cancel();
-		}
-		else if (capture_timer < CONTROL_POINT_CAPTURE_TIME * 0.5f && capture_timer + u.time.delta >= CONTROL_POINT_CAPTURE_TIME * 0.5f)
-		{
-			// halfway point
-			set_team(AI::TeamNone);
+			if (capture_timer <= 0.0f)
+			{
+				// capture complete
+				team = team_next;
+				team_next = AI::TeamNone;
+				capture_timer = 0.0f;
+				ControlPointNet::send_update(this);
+			}
+			else if (capture_timer < CONTROL_POINT_CAPTURE_TIME * 0.5f && capture_timer + u.time.delta >= CONTROL_POINT_CAPTURE_TIME * 0.5f)
+			{
+				// halfway point
+				team = AI::TeamNone;
+				ControlPointNet::send_update(this);
+			}
 		}
 	}
 }

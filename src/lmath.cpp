@@ -448,7 +448,7 @@ b8 Mat3::inverse(Mat3& rkInverse, r32 fTolerance) const
 		m[0][1]*rkInverse[1][0]+
 		m[0][2]*rkInverse[2][0];
 
-	if (fabs(fDet) <= fTolerance)
+	if (fabsf(fDet) <= fTolerance)
 		return false;
 
 	r32 fInvDet = 1.0f/fDet;
@@ -1389,7 +1389,7 @@ Quat Quat::exp() const
 	Quat kResult;
 	kResult.w = cos(fAngle);
 
-	if (fabs(fSin) >= epsilon)
+	if (fabsf(fSin) >= epsilon)
 	{
 		r32 fCoeff = fSin/(fAngle);
 		kResult.x = fCoeff*x;
@@ -1415,11 +1415,11 @@ Quat Quat::log() const
 	Quat kResult;
 	kResult.w = 0.0;
 
-	if (fabs(w) < 1.0)
+	if (fabsf(w) < 1.0)
 	{
 		r32 fAngle (acos(w));
 		r32 fSin = sin(fAngle);
-		if (fabs(fSin) >= epsilon)
+		if (fabsf(fSin) >= epsilon)
 		{
 			r32 fCoeff = fAngle/fSin;
 			kResult.x = fCoeff*x;
@@ -1490,15 +1490,15 @@ r32 Quat::angle(const Quat& a, const Quat& b)
 	Vec3 axis;
 	c.to_angle_axis(angle, axis);
 	if (angle > PI)
-		angle = fabs(angle - (PI * 2.0f));
+		angle = fabsf(angle - (PI * 2.0f));
 	return angle;
 }
 
 Quat Quat::look(const Vec3& dir)
 {
-	if (fabs(dir.y - 1.0f) < epsilon)
+	if (fabsf(dir.y - 1.0f) < epsilon)
 		return Quat::euler(0, 0, PI * -0.5f);
-	else if (fabs(dir.y + 1.0f) < epsilon)
+	else if (fabsf(dir.y + 1.0f) < epsilon)
 		return Quat::euler(0, 0, PI * 0.5f);
 	else
 		return Quat::euler(0, atan2f(dir.x, dir.z), -asinf(dir.y));
@@ -1540,7 +1540,7 @@ Quat Quat::slerp_extra_spins(r32 fT, const Quat& rkP, const Quat& rkQ, s32 iExtr
 	r32 fCos = rkP.dot(rkQ);
 	r32 fAngle (acos(fCos));
 
-	if (fabs(fAngle) < epsilon)
+	if (fabsf(fAngle) < epsilon)
 		return rkP;
 
 	r32 fSin = sin(fAngle);

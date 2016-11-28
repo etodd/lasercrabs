@@ -508,7 +508,7 @@ b8 PlayerControlAI::aim_and_shoot_target(const Update& u, const Vec3& target, Ta
 		Vec3 to_target = diff / distance_to_target;
 
 		if (get<Awk>()->direction_is_toward_attached_wall(to_target)
-			|| (distance_to_target < AWK_DASH_DISTANCE && fabs(to_target.dot(get<Transform>()->absolute_rot() * Vec3(0, 0, 1))) < 0.1f))
+			|| (distance_to_target < AWK_DASH_DISTANCE && fabsf(to_target.dot(get<Transform>()->absolute_rot() * Vec3(0, 0, 1))) < 0.1f))
 			only_crawling_dashing = true;
 
 		// if we're shooting for a normal target (health or something), don't crawl
@@ -575,8 +575,8 @@ b8 PlayerControlAI::aim_and_shoot_target(const Update& u, const Vec3& target, Ta
 		{
 			// cooldown is done; we can shoot.
 			// check if we're done aiming
-			b8 lined_up = fabs(LMath::angle_to(common->angle_horizontal, target_angles.x)) < inaccuracy
-				&& fabs(LMath::angle_to(common->angle_vertical, target_angles.y)) < inaccuracy;
+			b8 lined_up = fabsf(LMath::angle_to(common->angle_horizontal, target_angles.x)) < inaccuracy
+				&& fabsf(LMath::angle_to(common->angle_vertical, target_angles.y)) < inaccuracy;
 
 			Vec3 look_dir = common->look_dir();
 			if (only_crawling_dashing)
@@ -741,7 +741,7 @@ b8 PlayerControlAI::go(const Update& u, const AI::AwkPathNode& node_prev, const 
 				if (only_crawling_dashing)
 				{
 					// don't dash around corners or anything; only dash toward coplanar points
-					if (fabs(look_dir.dot(get<Transform>()->absolute_rot() * Vec3(0, 0, 1))) < 0.1)
+					if (fabsf(look_dir.dot(get<Transform>()->absolute_rot() * Vec3(0, 0, 1))) < 0.1)
 					{
 						if (get<Awk>()->dash_start(look_dir))
 							return true;
@@ -1527,7 +1527,7 @@ void PlayerControlAI::update(const Update& u)
 	if (get<Transform>()->parent.ref())
 	{
 		camera->pos += abs_wall_normal * 0.5f;
-		camera->pos.y += 0.5f - vi_min((r32)fabs(abs_wall_normal.y), 0.5f);
+		camera->pos.y += 0.5f - vi_min((r32)fabsf(abs_wall_normal.y), 0.5f);
 	}
 	Quat inverse_rot = camera->rot.inverse();
 	camera->wall_normal = inverse_rot * abs_wall_normal;

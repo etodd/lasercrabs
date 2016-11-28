@@ -224,7 +224,7 @@ void Walker::update(const Update& u)
 					r32 acceleration = net_speed < accel_threshold ? accel1 : accel2;
 
 					// Increase acceleration if we're turning
-					acceleration += fabs(Vec2(x.x, x.z).dot(Vec2(velocity.x - support_velocity.x, velocity.z - support_velocity.z))) * accel2 * 4.0f;
+					acceleration += fabsf(Vec2(x.x, x.z).dot(Vec2(velocity.x - support_velocity.x, velocity.z - support_velocity.z))) * accel2 * 4.0f;
 
 					// Increase acceleration if we're climbing
 					if (z.y > 0.0f)

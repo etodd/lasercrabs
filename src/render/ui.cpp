@@ -433,7 +433,7 @@ s32 UI::input_delta_vertical(const Update& u, s32 gamepad)
 		{
 			Vec2 current_joystick(u.input->gamepads[gamepad].left_x, u.input->gamepads[gamepad].left_y);
 			Input::dead_zone(&current_joystick.x, &current_joystick.y, UI_JOYSTICK_DEAD_ZONE);
-			r32 threshold = fabs(current_joystick.x);
+			r32 threshold = fabsf(current_joystick.x);
 			if (current_joystick.y < -threshold)
 				result--;
 			else if (current_joystick.y > threshold)
@@ -463,7 +463,7 @@ s32 UI::input_delta_horizontal(const Update& u, s32 gamepad)
 		{
 			Vec2 current_joystick(u.input->gamepads[gamepad].left_x, u.input->gamepads[gamepad].left_y);
 			Input::dead_zone(&current_joystick.x, &current_joystick.y, UI_JOYSTICK_DEAD_ZONE);
-			r32 threshold = fabs(current_joystick.y);
+			r32 threshold = fabsf(current_joystick.y);
 			if (current_joystick.x < -threshold)
 				result--;
 			else if (current_joystick.x > threshold)

@@ -891,7 +891,7 @@ b8 Awk::can_dash(const Target* target, Vec3* out_intersection) const
 		{
 			Vec3 dash_to_intersection = intersection - me;
 			r32 dot = to_intersection.dot(get<Transform>()->absolute_rot() * Vec3(0, 0, 1));
-			if (fabs(dot) < 0.1f)
+			if (fabsf(dot) < 0.1f)
 			{
 				if (out_intersection)
 					*out_intersection = intersection;
@@ -967,7 +967,7 @@ b8 Awk::can_shoot(const Vec3& dir, Vec3* final_pos, b8* hit_target, const Net::S
 	// in certain cases where the drone won't let you go where you should be able to go
 	// due to the third-person camera offset
 	// the AI however needs to know whether it can hit actually hit a target
-	if (!has<PlayerControlHuman>() && fabs(trace_dir.y) > AWK_VERTICAL_DOT_LIMIT)
+	if (!has<PlayerControlHuman>() && fabsf(trace_dir.y) > AWK_VERTICAL_DOT_LIMIT)
 		return false;
 
 	Vec3 trace_start = get<Transform>()->absolute_pos();
@@ -1053,7 +1053,7 @@ b8 Awk::can_spawn(Ability a, const Vec3& dir, Vec3* final_pos, Vec3* final_norma
 	// in certain cases where the drone won't let you go where you should be able to go
 	// due to the third-person camera offset
 	// the AI however needs to know whether it can hit actually hit a target
-	if (!has<PlayerControlHuman>() && fabs(trace_dir.y) > AWK_VERTICAL_DOT_LIMIT)
+	if (!has<PlayerControlHuman>() && fabsf(trace_dir.y) > AWK_VERTICAL_DOT_LIMIT)
 		return false;
 
 	Vec3 trace_start = get<Transform>()->absolute_pos();
@@ -1233,7 +1233,7 @@ void Awk::reflect(Entity* entity, const Vec3& hit, const Vec3& normal, const Net
 			if (can_shoot(candidate_dir, &next_hit, nullptr, state_frame))
 			{
 				r32 distance = (next_hit - hit).length();
-				r32 score = fabs(distance - goal_distance);
+				r32 score = fabsf(distance - goal_distance);
 
 				if (score < best_score)
 				{
@@ -1302,7 +1302,7 @@ void Awk::handle_remote_reflection(const Vec3& reflection_pos, const Vec3& refle
 		else
 		{
 			Vec3 velocity_normalized = Vec3::normalize(velocity);
-			if (fabs(velocity_normalized.dot(dir)) < AWK_SHIELD_RADIUS * 3.0f)
+			if (fabsf(velocity_normalized.dot(dir)) < AWK_SHIELD_RADIUS * 3.0f)
 			{
 				dir /= distance;
 				if (velocity_normalized.dot(dir) > 0.99f)

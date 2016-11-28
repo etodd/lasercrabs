@@ -355,11 +355,11 @@ template<typename Stream> b8 serialize_quat(Stream* p, Quat* rot, Resolution r)
 	{
 		q = Quat::normalize(*rot);
 		largest_index = 0; // w
-		if (fabs(q.x) > fabs(q[largest_index]))
+		if (fabsf(q.x) > fabsf(q[largest_index]))
 			largest_index = 1;
-		if (fabs(q.y) > fabs(q[largest_index]))
+		if (fabsf(q.y) > fabsf(q[largest_index]))
 			largest_index = 2;
-		if (fabs(q.z) > fabs(q[largest_index]))
+		if (fabsf(q.z) > fabsf(q[largest_index]))
 			largest_index = 3;
 		if (q[largest_index] < 0.0f)
 		{

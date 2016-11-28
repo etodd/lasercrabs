@@ -85,7 +85,7 @@ void camera_setup_awk(Entity* e, Camera* camera, r32 offset)
 	{
 		abs_wall_normal = awk_rot * Vec3(0, 0, 1);
 		camera->pos += abs_wall_normal * 0.5f;
-		camera->pos.y += 0.5f - vi_min((r32)fabs(abs_wall_normal.y), 0.5f);
+		camera->pos.y += 0.5f - vi_min((r32)fabsf(abs_wall_normal.y), 0.5f);
 	}
 	else
 		abs_wall_normal = camera->rot * Vec3(0, 0, 1);
@@ -1395,7 +1395,7 @@ void PlayerCommon::awk_done_flying()
 		Vec3 right = direction.cross(up);
 
 		// make sure the up and right vector aren't switched
-		if (fabs(up.y) < fabs(right.y))
+		if (fabsf(up.y) < fabsf(right.y))
 		{
 			Vec3 tmp = right;
 			right = up;
@@ -1403,7 +1403,7 @@ void PlayerCommon::awk_done_flying()
 		}
 
 		// if the right vector is too vertical, force it to be more horizontal
-		const r32 threshold = fabs(wall_normal.y) + 0.25f;
+		const r32 threshold = fabsf(wall_normal.y) + 0.25f;
 		right.y = LMath::clampf(right.y, -threshold, threshold);
 		right.normalize();
 
@@ -2135,7 +2135,7 @@ void PlayerControlHuman::update(const Update& u)
 
 										Vec2 adjustment(LMath::angle_to(current_offset.x, predicted_offset.x), LMath::angle_to(current_offset.y, predicted_offset.y));
 										if (current_offset.x > 0 == adjustment.x > 0 // only adjust if it's an adjustment toward the target
-											&& fabs(get<PlayerCommon>()->angle_vertical) < PI * 0.4f) // only adjust if we're not looking straight up or down
+											&& fabsf(get<PlayerCommon>()->angle_vertical) < PI * 0.4f) // only adjust if we're not looking straight up or down
 											get<PlayerCommon>()->angle_horizontal = LMath::angle_range(get<PlayerCommon>()->angle_horizontal + adjustment.x);
 										if (current_offset.y > 0 == adjustment.y > 0) // only adjust if it's an adjustment toward the target
 											get<PlayerCommon>()->angle_vertical = LMath::angle_range(get<PlayerCommon>()->angle_vertical + adjustment.y);
@@ -2238,7 +2238,7 @@ void PlayerControlHuman::update(const Update& u)
 										hit_entity->get<Transform>()->absolute(&target_pos, &target_rot);
 										Vec3 my_normal = my_rot * Vec3(0, 0, 1);
 										if (my_normal.dot(target_rot * Vec3(0, 0, 1)) > 1.0f - dot_tolerance
-											&& fabs(my_normal.dot(target_pos - me)) < dot_tolerance)
+											&& fabsf(my_normal.dot(target_pos - me)) < dot_tolerance)
 										{
 											reticle.type = ReticleType::Dash;
 										}
@@ -2453,9 +2453,9 @@ void PlayerControlHuman::update(const Update& u)
 					target_pos.y += (get<Walker>()->capsule_height() * 0.5f) + get<Walker>()->support_height;
 				}
 
-				r32 angle = fabs(LMath::angle_to(get<PlayerCommon>()->angle_horizontal, target_angle));
+				r32 angle = fabsf(LMath::angle_to(get<PlayerCommon>()->angle_horizontal, target_angle));
 				get<PlayerCommon>()->angle_horizontal = LMath::lerpf(vi_min(1.0f, (INTERACT_LERP_ROTATION_SPEED / angle) * u.time.delta), get<PlayerCommon>()->angle_horizontal, LMath::closest_angle(target_angle, get<PlayerCommon>()->angle_horizontal));
-				get<PlayerCommon>()->angle_vertical = LMath::lerpf(vi_min(1.0f, (INTERACT_LERP_ROTATION_SPEED / fabs(get<PlayerCommon>()->angle_vertical)) * u.time.delta), get<PlayerCommon>()->angle_vertical, 0);
+				get<PlayerCommon>()->angle_vertical = LMath::lerpf(vi_min(1.0f, (INTERACT_LERP_ROTATION_SPEED / fabsf(get<PlayerCommon>()->angle_vertical)) * u.time.delta), get<PlayerCommon>()->angle_vertical, 0);
 
 				Vec3 abs_pos = get<Transform>()->absolute_pos();
 				r32 distance = (abs_pos - target_pos).length();

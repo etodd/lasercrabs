@@ -270,7 +270,10 @@ void Game::update(const Update& update_in)
 	real_time = update_in.time;
 	time.delta = update_in.time.delta * session.effective_time_scale();
 	if (update_game)
+	{
 		time.total += time.delta;
+		Team::match_time += time.delta;
+	}
 	physics_timestep = (1.0f / 60.0f) * session.effective_time_scale();
 
 	Update u = update_in;
@@ -1057,13 +1060,13 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 		case Type::Rush:
 		{
 			level.respawns = 5;
-			level.time_limit = (60.0f * 5.0f) + PLAYER_SPAWN_DELAY;
+			level.time_limit = 60.0f * 5.0f;
 			break;
 		}
 		case Type::Deathmatch:
 		{
 			level.respawns = -1;
-			level.time_limit = (60.0f * 8.0f) + PLAYER_SPAWN_DELAY;
+			level.time_limit = 60.0f * 8.0f;
 			break;
 		}
 		default:

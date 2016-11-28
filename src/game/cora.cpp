@@ -779,7 +779,7 @@ namespace Cora
 				// blink
 				const r32 blink_delay = 4.0f;
 				const r32 blink_time = 0.1f;
-				if (fmod(data->time, blink_delay) < blink_time)
+				if (fmodf(data->time, blink_delay) < blink_time)
 					face = Face::EyesClosed;
 			}
 

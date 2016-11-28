@@ -60,6 +60,7 @@ struct Team : public ComponentType<Team>
 	static r32 control_point_timer;
 	static r32 game_over_real_time;
 	static r32 transition_timer;
+	static r32 match_time;
 	static b8 game_over;
 	static Ref<Team> winner;
 	static Game::Mode transition_mode_scheduled;
@@ -119,8 +120,6 @@ struct PlayerManager : public ComponentType<PlayerManager>
 		Capturing,
 		count,
 	};
-
-	static r32 timer;
 
 	static s32 visibility_hash(const PlayerManager*, const PlayerManager*);
 	static Ref<Entity> visibility[MAX_PLAYERS * MAX_PLAYERS];

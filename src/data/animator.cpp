@@ -145,7 +145,7 @@ void Animator::Layer::update(r32 dt, r32 dt_real, const Animator& animator)
 		{
 			if (loop)
 			{
-				time = fmod(time, anim->duration);
+				time = fmodf(time, anim->duration);
 				looped = true;
 			}
 			else

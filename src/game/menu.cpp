@@ -56,14 +56,22 @@ void dialog_with_time_limit(s8, DialogCallback, r32, const char*, ...) {}
 
 #else
 
+State* quit_menu_state;
+
 void quit_to_overworld(s8 gamepad)
 {
 	Game::schedule_load_level(Asset::Level::overworld, Game::Mode::Special);
+	if (quit_menu_state)
+		*quit_menu_state = State::Hidden;
+	quit_menu_state = nullptr;
 }
 
 void quit_to_title(s8 gamepad)
 {
 	title();
+	if (quit_menu_state)
+		*quit_menu_state = State::Hidden;
+	quit_menu_state = nullptr;
 }
 
 void dialog(s8 gamepad, DialogCallback callback, const char* format, ...)
@@ -275,8 +283,11 @@ void pause_menu(const Update& u, s8 gamepad, UIMenu* menu, State* state)
 	if (*state == State::Hidden)
 	{
 		menu->clear();
+		quit_menu_state = nullptr;
 		return;
 	}
+
+	quit_menu_state = state;
 
 	switch (*state)
 	{

@@ -678,8 +678,10 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 
 template<typename Stream> b8 serialize_init_packet(Stream* p)
 {
-	serialize_s16(p, Game::level.id);
 	serialize_enum(p, Game::FeatureLevel, Game::level.feature_level);
+	serialize_r32(p, Game::level.time_limit);
+	serialize_r32_range(p, Game::level.rotation, -2.0f * PI, 2.0f * PI, 16);
+	serialize_r32_range(p, Game::level.min_y, -128, 128, 8);
 	serialize_r32(p, Game::level.skybox.far_plane);
 	serialize_asset(p, Game::level.skybox.texture, Loader::static_texture_count);
 	serialize_asset(p, Game::level.skybox.shader, Loader::shader_count);
@@ -693,11 +695,16 @@ template<typename Stream> b8 serialize_init_packet(Stream* p)
 	serialize_r32_range(p, Game::level.skybox.player_light.x, 0.0f, 1.0f, 8);
 	serialize_r32_range(p, Game::level.skybox.player_light.y, 0.0f, 1.0f, 8);
 	serialize_r32_range(p, Game::level.skybox.player_light.z, 0.0f, 1.0f, 8);
-	serialize_bool(p, Game::session.story_mode);
+	serialize_s16(p, Game::level.id);
+	serialize_s16(p, Game::level.kill_limit);
+	serialize_s16(p, Game::level.respawns);
 	serialize_enum(p, Game::Mode, Game::level.mode);
 	serialize_enum(p, Game::Type, Game::level.type);
+	serialize_bool(p, Game::session.story_mode);
+	serialize_bool(p, Game::level.post_pvp);
 	serialize_ref(p, Game::level.map_view);
 	serialize_ref(p, Game::level.terminal);
+	serialize_ref(p, Game::level.terminal_interactable);
 	serialize_int(p, s32, Game::level.max_teams, 0, MAX_PLAYERS);
 	return true;
 }
@@ -2035,9 +2042,9 @@ b8 init()
 	}
 
 	// todo: allow both multiplayer / story mode sessions
-	Game::session.story_mode = true;
+	Game::session.story_mode = false;
 	state_server.mode = Mode::Loading;
-	Game::load_level(Update(), Asset::Level::Moros, Game::Mode::Parkour);
+	Game::load_level(Update(), Asset::Level::Moros, Game::Mode::Pvp);
 	if (Game::session.story_mode)
 		state_server.mode = Mode::Active;
 	else
@@ -2281,7 +2288,11 @@ b8 packet_handle(const Update& u, StreamRead* p, const Sock::Address& address)
 								vi_assert(false);
 							msg_finalize(p);
 						}
-						msg_finalize(msg_new(&client->msgs_out_load, MessageType::InitDone));
+						{
+							StreamWrite* p = msg_new(&client->msgs_out_load, MessageType::InitDone);
+							serialize_r32(p, Team::match_time);
+							msg_finalize(p);
+						}
 					}
 				}
 
@@ -2538,7 +2549,7 @@ struct StateClient
 	Camera* camera_connecting;
 	r32 timeout;
 	r32 tick_timer;
-	r32 server_rtt = 0.5f;
+	r32 server_rtt = 0.15f;
 	Mode mode;
 	MessageHistory msgs_in_history; // messages we've received from the server
 	MessageHistory msgs_in_load_history; // load messages we've received from the server
@@ -2950,6 +2961,7 @@ b8 msg_process(StreamRead* p)
 		}
 		case MessageType::InitDone:
 		{
+			serialize_r32(p, Team::match_time);
 			vi_assert(state_client.mode == Mode::Loading);
 			for (auto i = Entity::list.iterator(); !i.is_last(); i.next())
 				World::awake(i.item());
@@ -3122,7 +3134,7 @@ void update_end(const Update& u)
 		}
 		// we're not going to send more than one packet per frame
 		// so make sure the tick timer never gets out of control
-		Client::state_client.tick_timer = fmod(Client::state_client.tick_timer, NET_TICK_RATE);
+		Client::state_client.tick_timer = fmodf(Client::state_client.tick_timer, NET_TICK_RATE);
 	}
 #endif
 }

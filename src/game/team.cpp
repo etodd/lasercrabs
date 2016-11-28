@@ -38,6 +38,7 @@ b8 Team::game_over;
 Ref<Team> Team::winner;
 Game::Mode Team::transition_mode_scheduled = Game::Mode::None;
 r32 Team::transition_timer;
+r32 Team::match_time;
 
 AbilityInfo AbilityInfo::list[(s32)Ability::count] =
 {
@@ -153,8 +154,9 @@ void Team::awake_all()
 {
 	game_over = false;
 	game_over_real_time = 0.0f;
+	if (Game::level.local) // if we're a client, the netcode manages this
+		match_time = 0.0f;
 	winner = nullptr;
-	PlayerManager::timer = ENERGY_INCREMENT_INTERVAL;
 	Game::session.last_match = Game::MatchResult::Forfeit;
 }
 
@@ -522,6 +524,7 @@ b8 Team::net_msg(Net::StreamRead* p)
 			serialize_enum(p, Game::Mode, Game::level.mode);
 			game_over = false;
 			transition_timer = TRANSITION_TIME * 0.5f;
+			match_time = 0.0f;
 			if (Game::level.mode == Game::Mode::Pvp)
 				Game::level.post_pvp = true; // we have played (or are playing) a PvP match on this level
 			for (auto i = PlayerHuman::list.iterator(); !i.is_last(); i.next())
@@ -572,7 +575,7 @@ void Team::update_all_server(const Update& u)
 	{
 		Team* team_with_most_kills = Game::level.type == Game::Type::Deathmatch ? with_most_kills() : nullptr;
 		if (!Game::level.continue_match_after_death
-			&& ((Game::time.total > Game::level.time_limit && (Game::level.type != Game::Type::Rush || ControlPoint::count_capturing() == 0))
+			&& ((match_time > Game::level.time_limit && (Game::level.type != Game::Type::Rush || ControlPoint::count_capturing() == 0))
 			|| (PlayerManager::list.count() > 1 && Team::teams_with_players() <= 1)
 			|| (Game::level.type == Game::Type::Rush && list[1].control_point_count() > 0)
 			|| (Game::level.type == Game::Type::Deathmatch && team_with_most_kills && team_with_most_kills->kills() >= Game::level.kill_limit)))
@@ -1031,23 +1034,21 @@ s16 PlayerManager::increment() const
 		+ EnergyPickup::count(1 << team.ref()->team()) * CREDITS_ENERGY_PICKUP;
 }
 
-r32 PlayerManager::timer = ENERGY_INCREMENT_INTERVAL;
 void PlayerManager::update_all(const Update& u)
 {
 	if (Game::level.local)
 	{
 		if (Game::level.mode == Game::Mode::Pvp
 			&& Game::level.has_feature(Game::FeatureLevel::EnergyPickups)
-			&& u.time.total > GAME_BUY_PERIOD)
+			&& Team::match_time > GAME_BUY_PERIOD)
 		{
-			timer -= u.time.delta;
-			if (timer < 0.0f)
+			s32 index = s32((Team::match_time - u.time.delta) / ENERGY_INCREMENT_INTERVAL);
+			while (index < s32(Team::match_time / ENERGY_INCREMENT_INTERVAL))
 			{
 				// give points to players based on how many control points they own
 				for (auto i = list.iterator(); !i.is_last(); i.next())
 					i.item()->add_credits(i.item()->increment());
-
-				timer += ENERGY_INCREMENT_INTERVAL;
+				index++;
 			}
 		}
 	}

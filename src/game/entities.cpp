@@ -952,7 +952,7 @@ void Rocket::update_client_all(const Update& u)
 	const r32 interval = 0.07f;
 	if (particle_accumulator > interval)
 	{
-		particle_accumulator = fmod(particle_accumulator, interval);
+		particle_accumulator = fmodf(particle_accumulator, interval);
 		for (auto i = list.iterator(); !i.is_last(); i.next())
 		{
 			if (!i.item()->get<Transform>()->parent.ref())
@@ -2117,24 +2117,27 @@ b8 Interactable::net_msg(Net::StreamRead* p, Net::MessageSource src)
 	Ref<Interactable> ref;
 	serialize_ref(p, ref);
 	Interactable* i = ref.ref();
-	if (i)
+	if (i && Game::level.mode == Game::Mode::Parkour)
 	{
 		if (Game::level.local)
 		{
 			if (src == Net::MessageSource::Remote)
-				i->interact(); // need to send out this message to everyone
+				InteractableNet::send_msg(i); // need to send out this message to everyone
 			else if (src == Net::MessageSource::Loopback)
-				i->animation_start();
+				i->interacted.fire(i);
 			else
 				vi_assert(false);
 		}
 		else // client
-			i->animation_start();
+		{
+			if (src == Net::MessageSource::Loopback)
+				i->interacted.fire(i);
+		}
 	}
 	return true;
 }
 
-void Interactable::animation_start()
+void Interactable::interact()
 {
 	Animator* anim = get<Animator>();
 	if (anim->layers[1].animation == AssetNull)
@@ -2144,14 +2147,14 @@ void Interactable::animation_start()
 	}
 }
 
-void Interactable::interact()
+void Interactable::interact_no_animation()
 {
 	InteractableNet::send_msg(this);
 }
 
 void Interactable::animation_callback()
 {
-	interacted.fire(this);
+	InteractableNet::send_msg(this);
 }
 
 void TerminalEntity::open()
@@ -2170,7 +2173,6 @@ void TerminalEntity::close()
 
 void TerminalEntity::closed()
 {
-	vi_assert(Game::level.mode == Game::Mode::Parkour);
 	if (Game::level.local)
 		Team::transition_mode(Game::Mode::Pvp);
 }

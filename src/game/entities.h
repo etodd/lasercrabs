@@ -396,8 +396,8 @@ struct Interactable : public ComponentType<Interactable>
 
 	void awake();
 	void interact();
+	void interact_no_animation();
 	void animation_callback();
-	void animation_start();
 };
 
 struct TerminalEntity : public Entity

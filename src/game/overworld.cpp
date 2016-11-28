@@ -2062,7 +2062,7 @@ void tab_map_draw(const RenderParams& p, const Data::StoryMode& story, const Rec
 			(
 				p,
 				{ zone_stat_rect.pos + Vec2(zone_stat_rect.size.x - icon_size * 0.5f, zone_stat_rect.size.y * 0.5f), Vec2(icon_size) },
-				fmod(t, ENERGY_INCREMENT_INTERVAL) / ENERGY_INCREMENT_INTERVAL,
+				fmodf(t, ENERGY_INCREMENT_INTERVAL) / ENERGY_INCREMENT_INTERVAL,
 				UI::color_default,
 				PI
 			);

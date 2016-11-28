@@ -411,8 +411,8 @@ void PlayerHuman::update(const Update& u)
 		&& Game::level.mode == Game::Mode::Pvp
 		&& !Game::session.story_mode
 		&& Game::level.has_feature(Game::FeatureLevel::Abilities)
-		&& Game::time.total > GAME_BUY_PERIOD
-		&& Game::time.total - Game::time.delta <= GAME_BUY_PERIOD)
+		&& Team::match_time > GAME_BUY_PERIOD
+		&& Team::match_time - Game::time.delta <= GAME_BUY_PERIOD)
 	{
 		if (Game::level.type == Game::Type::Rush)
 			msg(_(get<PlayerManager>()->team.ref()->team() == 0 ? strings::defend : strings::attack), true);
@@ -714,7 +714,7 @@ void ability_draw(const RenderParams& params, const PlayerHuman* player, const V
 
 void battery_timer_draw(const RenderParams& params, const Vec2& pos)
 {
-	r32 remaining = vi_max(0.0f, Game::level.time_limit - Game::time.total);
+	r32 remaining = vi_max(0.0f, Game::level.time_limit - Team::match_time);
 
 	const Vec2 box(text_size * 5 * UI::scale, text_size * UI::scale);
 	const r32 padding = 8.0f * UI::scale;
@@ -887,7 +887,7 @@ void PlayerHuman::draw_alpha(const RenderParams& params) const
 			(
 				params,
 				{ pos + Vec2(total_width * -0.5f + icon_size - padding, 3.0f * UI::scale), Vec2(icon_size * 1.25f) },
-				1.0f - (PlayerManager::timer / ENERGY_INCREMENT_INTERVAL),
+				fmodf(Team::match_time, ENERGY_INCREMENT_INTERVAL) / ENERGY_INCREMENT_INTERVAL,
 				text.color,
 				PI
 			);
@@ -1274,7 +1274,7 @@ b8 PlayerCommon::movement_enabled() const
 	{
 		return get<Awk>()->state() == Awk::State::Crawl // must be attached to wall
 			&& manager.ref()->state() == PlayerManager::State::Default // can't move while upgrading and stuff
-			&& (Game::time.total > GAME_BUY_PERIOD || !Game::level.has_feature(Game::FeatureLevel::Abilities) || Game::session.story_mode); // or during the buy period
+			&& (Team::match_time > GAME_BUY_PERIOD || !Game::level.has_feature(Game::FeatureLevel::Abilities) || Game::session.story_mode); // or during the buy period
 	}
 	else
 		return true;
@@ -1636,7 +1636,7 @@ void PlayerControlHuman::parkour_landed(r32 velocity_diff)
 
 void PlayerControlHuman::terminal_enter_animation_callback()
 {
-	TerminalEntity::close();
+	Game::level.terminal_interactable.ref()->get<Interactable>()->interact_no_animation();
 }
 
 void PlayerControlHuman::interact_animation_callback()
@@ -1904,20 +1904,23 @@ void PlayerControlHuman::remote_control_handle(const PlayerControlHuman::RemoteC
 
 	remote_control = control;
 
-	// if the remote position is close to what we think it is, snap to it
-	Transform* t = get<Transform>();
-	Vec3 abs_pos;
-	Quat abs_rot;
-	t->absolute(&abs_pos, &abs_rot);
+	if (input_enabled())
+	{
+		// if the remote position is close to what we think it is, snap to it
+		Transform* t = get<Transform>();
+		Vec3 abs_pos;
+		Quat abs_rot;
+		t->absolute(&abs_pos, &abs_rot);
 
-	Vec3 remote_abs_pos = remote_control.pos;
-	Quat remote_abs_rot = remote_control.rot;
-	if (remote_control.parent.ref())
-		remote_control.parent.ref()->to_world(&remote_abs_pos, &remote_abs_rot);
-	if ((remote_abs_pos - abs_pos).length_squared() < NET_SYNC_TOLERANCE_POS * NET_SYNC_TOLERANCE_POS)
-		t->absolute_pos(remote_abs_pos);
-	if (Quat::angle(remote_abs_rot, abs_rot) < NET_SYNC_TOLERANCE_ROT)
-		t->absolute_rot(remote_abs_rot);
+		Vec3 remote_abs_pos = remote_control.pos;
+		Quat remote_abs_rot = remote_control.rot;
+		if (remote_control.parent.ref())
+			remote_control.parent.ref()->to_world(&remote_abs_pos, &remote_abs_rot);
+		if ((remote_abs_pos - abs_pos).length_squared() < NET_SYNC_TOLERANCE_POS * NET_SYNC_TOLERANCE_POS)
+			t->absolute_pos(remote_abs_pos);
+		if (Quat::angle(remote_abs_rot, abs_rot) < NET_SYNC_TOLERANCE_ROT)
+			t->absolute_rot(remote_abs_rot);
+	}
 }
 
 void PlayerControlHuman::camera_shake_update(const Update& u, Camera* camera)
@@ -3240,11 +3243,11 @@ void PlayerControlHuman::draw_alpha(const RenderParams& params) const
 	if (Game::level.has_feature(Game::FeatureLevel::Abilities)
 		&& Game::level.mode == Game::Mode::Pvp
 		&& !Game::session.story_mode
-		&& Game::time.total < GAME_BUY_PERIOD)
+		&& Team::match_time < GAME_BUY_PERIOD)
 	{
 		UIText text;
 		text.color = UI::color_accent;
-		text.text(_(strings::buy_period), (s32)(GAME_BUY_PERIOD - Game::time.total) + 1);
+		text.text(_(strings::buy_period), (s32)(GAME_BUY_PERIOD - Team::match_time) + 1);
 		text.anchor_x = UIText::Anchor::Center;
 		text.anchor_y = UIText::Anchor::Center;
 		text.size = text_size;

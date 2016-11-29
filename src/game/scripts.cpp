@@ -133,7 +133,7 @@ namespace title
 		}
 		else
 		{
-			if (Game::level.mode == Game::Mode::Special && Menu::main_menu_state == Menu::State::Hidden)
+			if (Game::level.mode == Game::Mode::Special && Menu::main_menu_state == Menu::State::Hidden && Game::scheduled_load_level == AssetNull)
 			{
 				b8 show = false;
 				if (first_show) // wait for the user to hit a button before showing the menu

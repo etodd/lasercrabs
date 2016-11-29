@@ -40,6 +40,7 @@ struct MinionCommon : public ComponentType<MinionCommon>
 	void killed(Entity*);
 	void footstep();
 	void update_server(const Update&);
+	void team(AI::Team);
 };
 
 struct MinionAI : public ComponentType<MinionAI>
@@ -80,7 +81,7 @@ struct MinionAI : public ComponentType<MinionAI>
 
 	b8 can_see(Entity*, b8 = false) const;
 
-	void new_goal(const Vec3& = Vec3::zero);
+	void new_goal(const Vec3& = Vec3::zero, b8 = true);
 	void set_path(const AI::Result&);
 	void set_patrol_point(const Vec3&);
 	void update(const Update&);

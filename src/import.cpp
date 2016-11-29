@@ -59,7 +59,7 @@ namespace platform
 
 typedef Chunks<Array<Vec3>> ChunkedTris;
 
-const s32 version = 26;
+const s32 version = 27;
 
 const char* model_in_extension = ".blend";
 const char* model_intermediate_extension = ".fbx";
@@ -132,6 +132,22 @@ const char* script_ttf_to_fbx_path_build = ASSET_IN_FOLDER"script/ttf_to_fbx.py"
 const char* script_blend_to_fbx_path_mod = "script/blend_to_fbx.py";
 const char* script_blend_to_lvl_path_mod = "script/blend_to_lvl.py";
 const char* script_ttf_to_fbx_path_mod = "script/ttf_to_fbx.py";
+
+struct StaticMeshes
+{
+	Mesh terminal;
+	Mesh control_point;
+
+	void import()
+	{
+		if (terminal.vertices.length == 0)
+		{
+			Mesh::read(&terminal, ASSET_OUT_FOLDER"terminal_collision.msh");
+			Mesh::read(&control_point, ASSET_OUT_FOLDER"control_point.msh");
+		}
+	}
+};
+StaticMeshes static_meshes;
 
 template <typename T>
 T read(FILE* f)
@@ -1958,6 +1974,8 @@ void consolidate_nav_geometry_mesh(Mesh* result, const Mesh& mesh, const Mat4& m
 
 void consolidate_nav_geometry(Mesh* result, Map<Mesh>& meshes, cJSON* json, b8(*filter)(const Mesh*))
 {
+	static_meshes.import();
+
 	result->bounds_min = Vec3(FLT_MAX, FLT_MAX, FLT_MAX);
 	result->bounds_max = Vec3(FLT_MIN, FLT_MIN, FLT_MIN);
 
@@ -1976,7 +1994,7 @@ void consolidate_nav_geometry(Mesh* result, Map<Mesh>& meshes, cJSON* json, b8(*
 
 		transforms.add(mat);
 
-		if (cJSON_GetObjectItem(element, "StaticGeom") && !cJSON_GetObjectItem(element, "nonav"))
+		if (cJSON_HasObjectItem(element, "StaticGeom") && !cJSON_HasObjectItem(element, "nonav"))
 		{
 			cJSON* mesh_refs = cJSON_GetObjectItem(element, "meshes");
 			cJSON* mesh_ref_json = mesh_refs->child;
@@ -1995,10 +2013,13 @@ void consolidate_nav_geometry(Mesh* result, Map<Mesh>& meshes, cJSON* json, b8(*
 		}
 		else if (strcmp(Json::get_string(element, "name", ""), "terminal") == 0)
 		{
-			Mesh terminal_mesh;
-			Mesh::read(&terminal_mesh, ASSET_OUT_FOLDER"terminal_collision.msh");
-			if (!filter || filter(&terminal_mesh))
-				consolidate_nav_geometry_mesh(result, terminal_mesh, mat);
+			if (!filter || filter(&static_meshes.terminal))
+				consolidate_nav_geometry_mesh(result, static_meshes.terminal, mat);
+		}
+		else if (cJSON_HasObjectItem(element, "ControlPoint"))
+		{
+			if (!filter || filter(&static_meshes.control_point))
+				consolidate_nav_geometry_mesh(result, static_meshes.control_point, mat);
 		}
 
 		element = element->next;
@@ -2027,7 +2048,8 @@ b8 default_filter(const Mesh* m)
 	return true;
 }
 
-const r32 grid_spacing = 2.0f;
+// spacing of awk nav mesh points
+const r32 grid_spacing = 1.5f;
 const r32 inv_grid_spacing = 1.0f / grid_spacing;
 
 inline r32 sign(const Vec2& p1, const Vec2& p2, const Vec2& p3)

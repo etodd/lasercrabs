@@ -666,7 +666,8 @@ SensorEntity::SensorEntity(AI::Team team, const Vec3& abs_pos, const Quat& abs_r
 
 	View* model = create<View>();
 	model->mesh = Asset::Mesh::sphere;
-	model->team = (s8)team;
+	model->color = Team::color_enemy;
+	model->team = s8(team);
 	model->shader = Asset::Shader::standard;
 	model->offset.scale(Vec3(SENSOR_RADIUS * 1.2f)); // a little bigger for aesthetic reasons
 
@@ -674,7 +675,7 @@ SensorEntity::SensorEntity(AI::Team team, const Vec3& abs_pos, const Quat& abs_r
 
 	PointLight* light = create<PointLight>();
 	light->type = PointLight::Type::Override;
-	light->team = (s8)team;
+	light->team = s8(team);
 	light->radius = SENSOR_RANGE;
 
 	create<Sensor>(team);
@@ -726,6 +727,13 @@ void Sensor::update_all_client(const Update& u)
 				Shockwave::add(i.item()->get<Transform>()->absolute_pos(), 10.0f, 1.5f);
 		}
 	}
+}
+
+void Sensor::set_team(AI::Team t)
+{
+	// not synced over network
+	team = t;
+	get<PointLight>()->team = s8(t);
 }
 
 b8 Sensor::can_see(AI::Team team, const Vec3& pos, const Vec3& normal)
@@ -880,6 +888,13 @@ Rocket::Rocket()
 {
 }
 
+void Rocket::set_owner(PlayerManager* m)
+{
+	// not synced over network
+	owner = m;
+	get<View>()->team = m ? s8(m->team.ref()->team()) : AI::TeamNone;
+}
+
 AI::Team Rocket::team() const
 {
 	return owner.ref() ? owner.ref()->team.ref()->team() : AI::TeamNone;
@@ -1022,7 +1037,8 @@ RocketEntity::RocketEntity(PlayerManager* owner, Transform* parent, const Vec3& 
 
 	View* model = create<View>();
 	model->mesh = Asset::Mesh::rocket_pod;
-	model->team = (s8)team;
+	model->color = Team::color_enemy;
+	model->team = s8(team);
 	model->shader = Asset::Shader::standard;
 
 	create<RigidBody>(RigidBody::Type::CapsuleZ, Vec3(0.1f, 0.3f, 0.3f), 0.0f, CollisionAwkIgnore, btBroadphaseProxy::AllFilter);
@@ -1484,6 +1500,7 @@ GrenadeEntity::GrenadeEntity(PlayerManager* owner, const Vec3& abs_pos, const Ve
 
 	View* model = create<View>();
 	model->mesh = Asset::Mesh::sphere_highres;
+	model->color = Team::color_enemy;
 	model->team = s8(owner->team.ref()->team());
 	model->shader = Asset::Shader::standard;
 	model->offset.scale(Vec3(GRENADE_RADIUS));
@@ -1582,6 +1599,13 @@ void Grenade::explode()
 	}
 
 	World::remove_deferred(entity());
+}
+
+void Grenade::set_owner(PlayerManager* m)
+{
+	// not synced over network
+	owner = m;
+	get<View>()->team = m ? s8(m->team.ref()->team()) : AI::TeamNone;
 }
 
 AI::Team Grenade::team() const

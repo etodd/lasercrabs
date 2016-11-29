@@ -196,7 +196,7 @@ void PlayerHuman::awake()
 	msg_text.anchor_y = UIText::Anchor::Center;
 
 	camera = Camera::add();
-	camera->team = (s8)get<PlayerManager>()->team.ref()->team();
+	camera->team = s8(get<PlayerManager>()->team.ref()->team());
 	camera->mask = 1 << camera->team;
 	camera->colors = false;
 

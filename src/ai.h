@@ -86,7 +86,7 @@ namespace AI
 
 	typedef SensorState ContainmentFieldState;
 
-	static const s32 SYNC_IN_SIZE = 6 * 1024 * 1024;
+	static const s32 SYNC_IN_SIZE = 9 * 1024 * 1024;
 	static const s32 SYNC_OUT_SIZE = 1 * 1024 * 1024;
 	extern Array<b8> obstacles;
 	extern SyncRingBuffer<SYNC_IN_SIZE> sync_in;

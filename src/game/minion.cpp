@@ -46,7 +46,7 @@ Minion::Minion(const Vec3& pos, const Quat& quat, AI::Team team, PlayerManager* 
 
 	model->shader = Asset::Shader::armature;
 	model->mesh = Asset::Mesh::character;
-	model->team = (s8)team;
+	model->team = s8(team);
 	model->color.w = MATERIAL_NO_OVERRIDE;
 
 	create<Audio>();
@@ -77,6 +77,17 @@ void MinionCommon::awake()
 	link<&MinionCommon::footstep>(animator->trigger(Asset::Animation::character_walk, 0.3375f));
 	link<&MinionCommon::footstep>(animator->trigger(Asset::Animation::character_walk, 0.75f));
 	link<&MinionCommon::melee_damage>(animator->trigger(Asset::Animation::character_melee, 0.875f));
+}
+
+void MinionCommon::team(AI::Team t)
+{
+	// not synced over the network
+	if (t != get<AIAgent>()->team)
+	{
+		get<AIAgent>()->team = t;
+		get<SkinnedModel>()->team = s8(t);
+		get<MinionAI>()->new_goal(Vec3::zero, false); // don't allow entity targets; must be a random path
+	}
 }
 
 MinionCommon* MinionCommon::closest(AI::TeamMask mask, const Vec3& pos, r32* distance)
@@ -619,10 +630,10 @@ b8 MinionAI::can_see(Entity* target, b8 limit_vision_cone) const
 	return false;
 }
 
-void MinionAI::new_goal(const Vec3& direction)
+void MinionAI::new_goal(const Vec3& direction, b8 allow_entity_target)
 {
 	Vec3 pos = get<Transform>()->absolute_pos();
-	goal.entity = closest_target(this, get<AIAgent>()->team, direction);
+	goal.entity = allow_entity_target ? closest_target(this, get<AIAgent>()->team, direction) : nullptr;
 	auto path_callback = ObjectLinkEntryArg<MinionAI, const AI::Result&, &MinionAI::set_path>(id());
 	if (goal.entity.ref())
 	{

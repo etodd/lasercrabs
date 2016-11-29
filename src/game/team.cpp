@@ -545,8 +545,29 @@ b8 Team::net_msg(Net::StreamRead* p)
 					World::remove(i.item()->manager.ref()->entity());
 				PlayerAI::list.clear();
 			}
+
 			if (Game::level.post_pvp && Game::level.mode == Game::Mode::Parkour)
+			{
+				// exiting pvp mode
+				vi_assert(Game::session.story_mode);
+				AI::Team team_winner = winner.ref()->team();
+				// winner takes all
+				if (Game::level.local)
+				{
+					for (auto i = EnergyPickup::list.iterator(); !i.is_last(); i.next())
+						i.item()->set_team(team_winner); // these are synced over the network, so must do them only on the server
+				}
+				// teams are not synced over the network, so set them on both client and server
+				for (auto i = MinionCommon::list.iterator(); !i.is_last(); i.next())
+					i.item()->team(team_winner);
+				for (auto i = Grenade::list.iterator(); !i.is_last(); i.next())
+					i.item()->set_owner(nullptr);
+				for (auto i = Rocket::list.iterator(); !i.is_last(); i.next())
+					i.item()->set_owner(nullptr);
+				for (auto i = Sensor::list.iterator(); !i.is_last(); i.next())
+					i.item()->set_team(team_winner);
 				TerminalEntity::open();
+			}
 			break;
 		}
 		default:
@@ -580,21 +601,6 @@ void Team::update_all_server(const Update& u)
 			|| (Game::level.type == Game::Type::Rush && list[1].control_point_count() > 0)
 			|| (Game::level.type == Game::Type::Deathmatch && team_with_most_kills && team_with_most_kills->kills() >= Game::level.kill_limit)))
 		{
-			// remove active projectiles and dangerous stuff
-			{
-				for (auto i = Projectile::list.iterator(); !i.is_last(); i.next())
-					World::remove_deferred(i.item()->entity());
-
-				for (auto i = Rocket::list.iterator(); !i.is_last(); i.next())
-				{
-					if (!i.item()->get<Transform>()->parent.ref()) // it's in flight
-						World::remove_deferred(i.item()->entity());
-				}
-
-				for (auto i = Grenade::list.iterator(); !i.is_last(); i.next())
-					World::remove_deferred(i.item()->entity());
-			}
-
 			// determine the winner, if any
 			Team* w = nullptr;
 			Team* team_with_player = nullptr;
@@ -632,6 +638,32 @@ void Team::update_all_server(const Update& u)
 					// we're in story mode and this is a local player; increase their energy
 					Game::save.resources[(s32)Game::Resource::Energy] += total;
 				}
+			}
+
+			// remove entities
+			for (auto i = PlayerCommon::list.iterator(); !i.is_last(); i.next())
+			{
+				Vec3 pos;
+				Quat rot;
+				i.item()->get<Transform>()->absolute(&pos, &rot);
+				ParticleEffect::spawn(ParticleEffect::Type::Explosion, pos, rot);
+				World::remove_deferred(i.item()->entity());
+			}
+			for (auto i = ContainmentField::list.iterator(); !i.is_last(); i.next())
+			{
+				Vec3 pos;
+				Quat rot;
+				i.item()->get<Transform>()->absolute(&pos, &rot);
+				ParticleEffect::spawn(ParticleEffect::Type::Explosion, pos, rot);
+				World::remove_deferred(i.item()->entity());
+			}
+			for (auto i = Decoy::list.iterator(); !i.is_last(); i.next())
+			{
+				Vec3 pos;
+				Quat rot;
+				i.item()->get<Transform>()->absolute(&pos, &rot);
+				ParticleEffect::spawn(ParticleEffect::Type::Explosion, pos, rot);
+				World::remove_deferred(i.item()->entity());
 			}
 
 			TeamNet::send_game_over(w);

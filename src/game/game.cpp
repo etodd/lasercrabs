@@ -390,7 +390,7 @@ void Game::update(const Update& update_in)
 		PlayerHuman::update_all(u);
 		if (level.local)
 		{
-			if (session.story_mode && level.mode == Mode::Pvp)
+			if (session.story_mode && level.mode == Mode::Pvp && !Team::game_over)
 			{
 				// spawn AI players
 				for (s32 i = 0; i < level.ai_config.length; i++)
@@ -764,6 +764,23 @@ void Game::execute(const Update& u, const char* cmd)
 			health->damage(nullptr, health->hp_max + health->shield_max);
 		}
 	}
+	else if (strcmp(cmd, "win") == 0)
+	{
+		if (level.mode == Mode::Pvp)
+		{
+			PlayerManager* player = PlayerHuman::list.iterator().item()->get<PlayerManager>();
+			if (level.type == Type::Deathmatch)
+				player->kills = level.kill_limit;
+			else if (level.type == Type::Rush);
+			{
+				for (auto i = ControlPoint::list.iterator(); !i.is_last(); i.next())
+				{
+					i.item()->team = player->team.ref()->team();
+					i.item()->team_next = AI::TeamNone;
+				}
+			}
+		}
+	}
 	else if (utf8cmp(cmd, "die") == 0)
 	{
 		for (auto i = PlayerControlHuman::list.iterator(); !i.is_last(); i.next())
@@ -1009,9 +1026,6 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 
 	Menu::clear();
 
-	level.mode = m;
-	level.local = true;
-
 	scheduled_load_level = AssetNull;
 
 	Audio::post_global_event(AK::EVENTS::PLAY_START_SESSION);
@@ -1034,6 +1048,9 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 	level = Level();
 	level.mode = m;
 	level.id = l;
+	level.local = true;
+	if (m == Mode::Pvp)
+		level.post_pvp = true;
 
 	// count control point sets and pick one of them
 	s32 control_point_set = 0;
@@ -1055,18 +1072,17 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 			level.type = Type::Deathmatch;
 	}
 
+	level.time_limit = 60.0f * 8.0f;
 	switch (level.type)
 	{
 		case Type::Rush:
 		{
 			level.respawns = 5;
-			level.time_limit = 60.0f * 5.0f;
 			break;
 		}
 		case Type::Deathmatch:
 		{
 			level.respawns = -1;
-			level.time_limit = 60.0f * 8.0f;
 			break;
 		}
 		default:
@@ -1279,10 +1295,9 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 		else if (cJSON_GetObjectItem(element, "ControlPoint"))
 		{
 			if (level.type == Type::Rush && (!cJSON_GetObjectItem(element, "set") || Json::get_s32(element, "set") == control_point_set))
-			{
-				absolute_pos += absolute_rot * Vec3(0, 1.5f, 0);
 				entity = World::alloc<ControlPointEntity>(AI::Team(0), absolute_pos);
-			}
+			else
+				entity = World::alloc<StaticGeom>(Asset::Mesh::control_point, absolute_pos, absolute_rot);
 		}
 		else if (cJSON_GetObjectItem(element, "PlayerTrigger"))
 		{
@@ -1529,17 +1544,25 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 				}
 			}
 		}
-		else if (session.story_mode && strcmp(Json::get_string(element, "name"), "terminal") == 0)
+		else if (strcmp(Json::get_string(element, "name"), "terminal") == 0)
 		{
-			entity = World::alloc<TerminalEntity>();
-			level.terminal = entity;
+			if (session.story_mode)
+			{
+				entity = World::alloc<TerminalEntity>();
+				level.terminal = entity;
 
-			Entity* i = World::alloc<TerminalInteractable>();
-			i->get<Transform>()->parent = entity->get<Transform>();
-			i->get<Transform>()->pos = Vec3(1.0f, 0, 0);
-			World::awake(i);
-			level.terminal_interactable = i;
-			Net::finalize(i);
+				Entity* i = World::alloc<TerminalInteractable>();
+				i->get<Transform>()->parent = entity->get<Transform>();
+				i->get<Transform>()->pos = Vec3(1.0f, 0, 0);
+				World::awake(i);
+				level.terminal_interactable = i;
+				Net::finalize(i);
+			}
+			else
+			{
+				entity = World::alloc<StaticGeom>(Asset::Mesh::terminal_collision, absolute_pos, absolute_rot, CollisionInaccessible, ~CollisionParkour & ~CollisionInaccessibleMask);
+				entity->get<View>()->color.w = MATERIAL_INACCESSIBLE;
+			}
 		}
 		else
 			entity = World::alloc<Empty>();

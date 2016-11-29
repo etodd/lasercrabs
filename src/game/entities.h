@@ -145,6 +145,7 @@ struct Sensor : public ComponentType<Sensor>
 	void awake();
 
 	void hit_by(const TargetEvent&);
+	void set_team(AI::Team);
 
 	static b8 can_see(AI::Team, const Vec3&, const Vec3&);
 	static Sensor* closest(AI::TeamMask, const Vec3&, r32* = nullptr);
@@ -168,6 +169,7 @@ struct Rocket : public ComponentType<Rocket>
 
 	void explode();
 	AI::Team team() const;
+	void set_owner(PlayerManager*);
 	void killed(Entity*);
 	void update_server(const Update&);
 	void launch(Entity*);
@@ -343,6 +345,7 @@ struct Grenade : public ComponentType<Grenade>
 	void killed_by(Entity*);
 	AI::Team team() const;
 	void explode();
+	void set_owner(PlayerManager*);
 
 	void update_server(const Update&);
 	static void update_client_all(const Update&);

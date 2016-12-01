@@ -136,15 +136,27 @@ struct Game
 		Save();
 	};
 
+	struct TramTrack
+	{
+		struct Point
+		{
+			Vec3 pos;
+			r32 offset;
+		};
+		StaticArray<Point, 32> points;
+		AssetID level;
+	};
+
 	struct Level
 	{
-		FeatureLevel feature_level;
+		StaticArray<TramTrack, 3> tram_tracks;
 		r32 time_limit;
 		r32 min_y;
 		r32 rotation;
+		s32 max_teams;
+		FeatureLevel feature_level;
 		Type type;
 		Mode mode;
-		s32 max_teams;
 		StaticArray<AI::Config, MAX_PLAYERS> ai_config;
 		Skybox::Config skybox;
 		AssetID id = AssetNull;

@@ -426,6 +426,8 @@ void Game::update(const Update& update_in)
 				i.item()->update(u);
 			for (auto i = MinionCommon::list.iterator(); !i.is_last(); i.next())
 				i.item()->update_server(u);
+			for (auto i = TramRunner::list.iterator(); !i.is_last(); i.next())
+				i.item()->update(u);
 		}
 		MinionCommon::update_client_all(u);
 		Grenade::update_client_all(u);
@@ -1060,7 +1062,7 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 		cJSON* element = json->child;
 		while (element)
 		{
-			if (cJSON_GetObjectItem(element, "ControlPoint"))
+			if (cJSON_HasObjectItem(element, "ControlPoint"))
 				max_control_point_set = vi_max(max_control_point_set, Json::get_s32(element, "set"));
 			element = element->next;
 		}
@@ -1092,6 +1094,49 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 		}
 	}
 
+	struct TramTrackEntry
+	{
+		TramTrack* track;
+		const char* tram_name;
+	};
+	StaticArray<TramTrackEntry, 3> tram_track_entries;
+
+	{
+		// tram tracks
+		cJSON* element = json->child;
+		while (element)
+		{
+			if (cJSON_HasObjectItem(element, "TramTrack"))
+			{
+				cJSON* links = cJSON_GetObjectItem(element, "links");
+				const char* tram_name = links->child->valuestring;
+				TramTrackEntry* entry = nullptr;
+				for (s32 i = 0; i < tram_track_entries.length; i++)
+				{
+					if (strcmp(tram_track_entries[i].tram_name, tram_name) == 0)
+					{
+						entry = &tram_track_entries[i];
+						break;
+					}
+				}
+				if (!entry)
+				{
+					entry = tram_track_entries.add();
+					entry->tram_name = tram_name;
+					entry->track = level.tram_tracks.add();
+				}
+				TramTrack::Point* point = entry->track->points.add();
+				point->pos = Json::get_vec3(element, "pos");
+				if (entry->track->points.length > 1)
+				{
+					const TramTrack::Point& last_point = entry->track->points[entry->track->points.length - 2];
+					point->offset = last_point.offset + (point->pos - last_point.pos).length();
+				}
+			}
+			element = element->next;
+		}
+	}
+
 	cJSON* element = json->child;
 	while (element)
 	{
@@ -1111,7 +1156,7 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 				transforms[parent]->to_world(&absolute_pos, &absolute_rot);
 		}
 
-		if (cJSON_GetObjectItem(element, "World"))
+		if (cJSON_HasObjectItem(element, "World"))
 		{
 			// World is guaranteed to be the first element in the entity list
 
@@ -1203,7 +1248,7 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 			// not enough players or teams
 			// don't spawn the entity
 		}
-		else if (cJSON_GetObjectItem(element, "StaticGeom"))
+		else if (cJSON_HasObjectItem(element, "StaticGeom"))
 		{
 			b8 alpha = (b8)Json::get_s32(element, "alpha");
 			b8 additive = (b8)Json::get_s32(element, "additive");
@@ -1262,7 +1307,7 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 				json_mesh = json_mesh->next;
 			}
 		}
-		else if (cJSON_GetObjectItem(element, "Rope"))
+		else if (cJSON_HasObjectItem(element, "Rope"))
 		{
 			RopeEntry* rope = ropes.add();
 			rope->pos = absolute_pos;
@@ -1270,7 +1315,7 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 			rope->slack = Json::get_r32(element, "slack");
 			rope->max_distance = Json::get_r32(element, "max_distance", 100.0f);
 		}
-		else if (cJSON_GetObjectItem(element, "Minion"))
+		else if (cJSON_HasObjectItem(element, "Minion"))
 		{
 			if (session.story_mode)
 			{
@@ -1280,7 +1325,7 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 				entity = World::alloc<Minion>(absolute_pos, absolute_rot, team);
 			}
 		}
-		else if (cJSON_GetObjectItem(element, "PlayerSpawn"))
+		else if (cJSON_HasObjectItem(element, "PlayerSpawn"))
 		{
 			AI::Team team = AI::Team(Json::get_s32(element, "team"));
 
@@ -1292,27 +1337,27 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 			else
 				entity = World::alloc<Empty>();
 		}
-		else if (cJSON_GetObjectItem(element, "ControlPoint"))
+		else if (cJSON_HasObjectItem(element, "ControlPoint"))
 		{
-			if (level.type == Type::Rush && (!cJSON_GetObjectItem(element, "set") || Json::get_s32(element, "set") == control_point_set))
+			if (level.type == Type::Rush && (!cJSON_HasObjectItem(element, "set") || Json::get_s32(element, "set") == control_point_set))
 				entity = World::alloc<ControlPointEntity>(AI::Team(0), absolute_pos);
 			else
 				entity = World::alloc<StaticGeom>(Asset::Mesh::control_point, absolute_pos, absolute_rot);
 		}
-		else if (cJSON_GetObjectItem(element, "PlayerTrigger"))
+		else if (cJSON_HasObjectItem(element, "PlayerTrigger"))
 		{
 			entity = World::alloc<Empty>();
 			PlayerTrigger* trigger = entity->create<PlayerTrigger>();
 			trigger->radius = Json::get_r32(element, "scale", 1.0f);
 		}
-		else if (cJSON_GetObjectItem(element, "PointLight"))
+		else if (cJSON_HasObjectItem(element, "PointLight"))
 		{
 			entity = World::alloc<Empty>();
 			PointLight* light = entity->create<PointLight>();
 			light->color = Json::get_vec3(element, "color");
 			light->radius = Json::get_r32(element, "radius");
 		}
-		else if (cJSON_GetObjectItem(element, "SpotLight"))
+		else if (cJSON_HasObjectItem(element, "SpotLight"))
 		{
 			absolute_rot = absolute_rot * Quat::euler(0, 0, PI * 0.5f);
 			entity = World::alloc<Empty>();
@@ -1321,14 +1366,14 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 			light->radius = Json::get_r32(element, "radius");
 			light->fov = Json::get_r32(element, "fov");
 		}
-		else if (cJSON_GetObjectItem(element, "DirectionalLight"))
+		else if (cJSON_HasObjectItem(element, "DirectionalLight"))
 		{
 			entity = World::alloc<Empty>();
 			DirectionalLight* light = entity->create<DirectionalLight>();
 			light->color = Json::get_vec3(element, "color");
 			light->shadowed = Json::get_s32(element, "shadowed");
 		}
-		else if (cJSON_GetObjectItem(element, "AIPlayer"))
+		else if (cJSON_HasObjectItem(element, "AIPlayer"))
 		{
 			// only add an AI player if we are in online pvp mode
 			if (session.story_mode)
@@ -1338,7 +1383,7 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 				level.ai_config.add(PlayerAI::generate_config(team, spawn_timer));
 			}
 		}
-		else if (cJSON_GetObjectItem(element, "EnergyPickup"))
+		else if (cJSON_HasObjectItem(element, "EnergyPickup"))
 		{
 			if (level.has_feature(FeatureLevel::EnergyPickups))
 			{
@@ -1362,7 +1407,7 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 				rope->max_distance = 100.0f;
 			}
 		}
-		else if (cJSON_GetObjectItem(element, "AICue"))
+		else if (cJSON_HasObjectItem(element, "AICue"))
 		{
 			const char* type = Json::get_string(element, "AICue");
 			AICue::Type t;
@@ -1375,7 +1420,7 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 			entity = World::alloc<Empty>();
 			entity->create<AICue>(t);
 		}
-		else if (cJSON_GetObjectItem(element, "SkyDecal"))
+		else if (cJSON_HasObjectItem(element, "SkyDecal"))
 		{
 			entity = World::alloc<Empty>();
 
@@ -1384,14 +1429,14 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 			decal->scale = Json::get_r32(element, "scale", 1.0f);
 			decal->texture = Loader::find(Json::get_string(element, "SkyDecal"), AssetLookup::Texture::names);
 		}
-		else if (cJSON_GetObjectItem(element, "Script"))
+		else if (cJSON_HasObjectItem(element, "Script"))
 		{
 			const char* name = Json::get_string(element, "Script");
 			Script* script = Script::find(name);
 			vi_assert(script);
 			scripts.add(script);
 		}
-		else if (cJSON_GetObjectItem(element, "Water"))
+		else if (cJSON_HasObjectItem(element, "Water"))
 		{
 			cJSON* meshes = cJSON_GetObjectItem(element, "meshes");
 
@@ -1412,7 +1457,7 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 			water->config.displacement_horizontal = Json::get_r32(element, "displacement_horizontal", 2.0f);
 			water->config.displacement_vertical = Json::get_r32(element, "displacement_vertical", 0.75f);
 		}
-		else if (cJSON_GetObjectItem(element, "Prop"))
+		else if (cJSON_HasObjectItem(element, "Prop"))
 		{
 			const char* name = Json::get_string(element, "Prop");
 
@@ -1544,6 +1589,41 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 				}
 			}
 		}
+		else if (cJSON_HasObjectItem(element, "Tram"))
+		{
+			s32 track = -1;
+			for (s32 i = 0; i < tram_track_entries.length; i++)
+			{
+				if (strcmp(tram_track_entries[i].tram_name, Json::get_string(element, "name")) == 0)
+				{
+					track = i;
+					break;
+				}
+			}
+			vi_assert(track != -1);
+			Game::level.tram_tracks[track].level = Loader::find_level(Json::get_string(element, "level"));
+			Entity* runner_a = World::create<TramRunnerEntity>(track, false);
+			Net::finalize(runner_a);
+			Entity* runner_b = World::create<TramRunnerEntity>(track, true);
+			Net::finalize(runner_b);
+			entity = World::alloc<TramEntity>(runner_a->get<TramRunner>(), runner_b->get<TramRunner>());
+		}
+		else if (cJSON_HasObjectItem(element, "Interactable"))
+		{
+			cJSON* links = cJSON_GetObjectItem(element, "links");
+			const char* tram_name = links->child->valuestring;
+			s32 track = -1;
+			for (s32 i = 0; i < tram_track_entries.length; i++)
+			{
+				if (strcmp(tram_track_entries[i].tram_name, tram_name) == 0)
+				{
+					track = i;
+					break;
+				}
+			}
+			vi_assert(track != -1);
+			entity = World::alloc<TramInteractableEntity>(s8(track));
+		}
 		else if (strcmp(Json::get_string(element, "name"), "terminal") == 0)
 		{
 			if (session.story_mode)
@@ -1615,8 +1695,8 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 
 	for (s32 i = 0; i < links.length; i++)
 	{
-		LevelLink<Entity>& link = links[i];
-		*link.ref = finder.find(link.target_name);
+		LevelLink<Entity>* link = &links[i];
+		*link->ref = finder.find(link->target_name);
 	}
 
 	for (s32 i = 0; i < transform_links.length; i++)

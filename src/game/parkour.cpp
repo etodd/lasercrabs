@@ -143,7 +143,8 @@ void Parkour::footstep()
 
 		Audio::post_global_event(AK::EVENTS::PLAY_FOOTSTEP, base_pos);
 
-		Shockwave::add(base_pos, 1.0f, 5.0f);
+		RigidBody* support = get<Walker>()->support.ref();
+		Shockwave::add(base_pos, 1.0f, 5.0f, support ? support->get<Transform>() : nullptr);
 	}
 }
 

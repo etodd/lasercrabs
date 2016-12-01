@@ -97,6 +97,16 @@ b8 Walker::slide(Vec2* movement, const Vec3& wall_ray)
 		return false; // No wall. Continue in the old direction.
 }
 
+const btRigidBody* get_actual_support_body(const btRigidBody* object)
+{
+	Entity* e = &Entity::list[object->getUserIndex()];
+	Transform* parent = e->get<Transform>()->parent.ref();
+	if (parent)
+		return parent->get<RigidBody>()->btBody;
+	else
+		return object;
+}
+
 btCollisionWorld::ClosestRayResultCallback Walker::check_support(r32 extra_distance)
 {
 	Vec3 pos = get<Transform>()->absolute_pos();
@@ -109,7 +119,10 @@ btCollisionWorld::ClosestRayResultCallback Walker::check_support(r32 extra_dista
 		btCollisionWorld::ClosestRayResultCallback ray_callback(ray_start, ray_end);
 		Physics::raycast(&ray_callback, ~CollisionAwkIgnore & ~CollisionWalker & ~CollisionTarget & ~CollisionShield & ~CollisionAllTeamsContainmentField);
 		if (ray_callback.hasHit())
+		{
+			ray_callback.m_collisionObject = get_actual_support_body((const btRigidBody*)(ray_callback.m_collisionObject));
 			return ray_callback;
+		}
 	}
 
 	// no hits

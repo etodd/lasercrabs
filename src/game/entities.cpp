@@ -1969,7 +1969,7 @@ Rope* Rope::start(RigidBody* start, const Vec3& abs_pos, const Vec3& abs_normal,
 	return rope->get<Rope>();
 }
 
-void Rope::end(const Vec3& pos, const Vec3& normal, RigidBody* end, r32 slack)
+void Rope::end(const Vec3& pos, const Vec3& normal, RigidBody* end, r32 slack, b8 add_cap)
 {
 	Vec3 abs_pos = pos + normal * ROPE_RADIUS;
 	RigidBody* start = get<RigidBody>();
@@ -1977,6 +1977,14 @@ void Rope::end(const Vec3& pos, const Vec3& normal, RigidBody* end, r32 slack)
 	RigidBody* last = rope_add(start, start_relative_pos, abs_pos, Quat::look(Vec3::normalize(abs_pos - get<Transform>()->to_world(start_relative_pos))), slack, RigidBody::Constraint::Type::ConeTwist);
 	if (!last) // we didn't need to add any rope segments; just attach ourselves to the end point
 		last = start;
+
+	if (add_cap)
+	{
+		Entity* base = World::create<Prop>(Asset::Mesh::rope_base);
+		base->get<Transform>()->absolute(pos, Quat::look(normal));
+		base->get<Transform>()->reparent(end->get<Transform>());
+		Net::finalize(base);
+	}
 
 	RigidBody::Constraint constraint = RigidBody::Constraint();
 	constraint.type = RigidBody::Constraint::Type::PointToPoint;
@@ -2026,28 +2034,31 @@ WaterEntity::WaterEntity(AssetID mesh_id)
 
 PinArray<Shockwave, MAX_ENTITIES> Shockwave::list;
 
-void Shockwave::add(const Vec3& pos, r32 radius, r32 duration)
+void Shockwave::add(const Vec3& pos, r32 radius, r32 duration, Transform* parent)
 {
 	Shockwave* s = list.add();
 	new (s) Shockwave();
-	s->pos = pos;
+	s->pos = parent ? parent->to_local(pos) : pos;
 	s->max_radius = radius;
 	s->duration = duration;
 	s->type = Type::Light;
+	s->parent = parent;
 }
 
-void Shockwave::add_alpha(const Vec3& pos, r32 radius, r32 duration)
+void Shockwave::add_alpha(const Vec3& pos, r32 radius, r32 duration, Transform* parent)
 {
 	Shockwave* s = list.add();
 	new (s) Shockwave();
-	s->pos = pos;
+	s->pos = parent ? parent->to_local(pos) : pos;
 	s->max_radius = radius;
 	s->duration = duration;
 	s->type = Type::Alpha;
+	s->parent = parent;
 }
 
 void Shockwave::draw_alpha(const RenderParams& params)
 {
+	// "Light" type shockwaves get rendered in loop.h, not here
 	const Mesh* mesh = Loader::mesh_permanent(Asset::Mesh::sphere_highres);
 	Loader::shader_permanent(Asset::Shader::fresnel);
 
@@ -2059,11 +2070,12 @@ void Shockwave::draw_alpha(const RenderParams& params)
 	for (auto i = list.iterator(); !i.is_last(); i.next())
 	{
 		r32 radius = i.item()->radius();
-		if (i.item()->type != Type::Alpha || !params.camera->visible_sphere(i.item()->pos, radius))
+		Vec3 pos = i.item()->absolute_pos();
+		if (i.item()->type != Type::Alpha || !params.camera->visible_sphere(pos, radius))
 			continue;
 
 		Mat4 m;
-		m.make_transform(i.item()->pos, Vec3(radius), Quat::identity);
+		m.make_transform(pos, Vec3(radius), Quat::identity);
 		Mat4 mvp = m * params.view_projection;
 
 		sync->write(RenderOp::Uniform);
@@ -2126,6 +2138,12 @@ r32 Shockwave::opacity() const
 			return 0.0f;
 		}
 	}
+}
+
+Vec3 Shockwave::absolute_pos() const
+{
+	Transform* p = parent.ref();
+	return p ? p->to_world(pos) : pos;
 }
 
 void Shockwave::update(const Update& u)
@@ -2305,6 +2323,205 @@ void TerminalInteractable::interacted(Interactable*)
 		else if (zone_state == Game::ZoneState::Hostile)
 			TerminalEntity::close();
 	}
+}
+
+const r32 TRAM_LENGTH = 3.7f * 2.0f;
+const r32 TRAM_SPEED_MAX = 10.0f;
+
+TramRunnerEntity::TramRunnerEntity(s8 track, b8 is_front)
+{
+	create<Transform>();
+	View* model = create<View>(Asset::Mesh::tram_runner);
+	model->shader = Asset::Shader::standard;
+	RigidBody* body = create<RigidBody>(RigidBody::Type::Mesh, Vec3::zero, 0.0f, CollisionStatic | CollisionInaccessible, ~CollisionStatic & ~CollisionInaccessibleMask, Asset::Mesh::tram_runner);
+	body->set_restitution(0.75f);
+	TramRunner* r = create<TramRunner>();
+	r->track = track;
+	r->is_front = is_front;
+
+	const Game::TramTrack& t = Game::level.tram_tracks[track];
+	r32 offset;
+	if (Game::save.last_level == t.level)
+	{
+		offset = t.points[t.points.length - 1].offset - TRAM_LENGTH;
+		r->velocity = -TRAM_SPEED_MAX;
+		r->state = TramRunner::State::Entering;
+	}
+	else
+		offset = 0.0f;
+
+	if (is_front)
+	{
+		offset += TRAM_LENGTH;
+		r->target_offset += TRAM_LENGTH;
+	}
+	r->set(offset);
+}
+
+void TramRunner::set(r32 x)
+{
+	const Game::TramTrack& t = Game::level.tram_tracks[track];
+	while (true)
+	{
+		const Game::TramTrack::Point current = t.points[offset_index];
+		if (offset_index > 0 && x < current.offset)
+			offset_index--;
+		else if (offset_index < t.points.length - 2 && t.points[offset_index + 1].offset < x)
+			offset_index++;
+		else
+			break;
+	}
+
+	const Game::TramTrack::Point current = t.points[offset_index];
+	const Game::TramTrack::Point next = t.points[offset_index + 1];
+	r32 blend = (x - current.offset) / (next.offset - current.offset);
+	Transform* transform = get<Transform>();
+	transform->pos = Vec3::lerp(blend, current.pos, next.pos);
+	transform->rot = Quat::look(Vec3::normalize(next.pos - current.pos));
+	offset = x;
+}
+
+void TramRunner::go(s8 track, r32 x, State s)
+{
+	const Game::TramTrack& t = Game::level.tram_tracks[track];
+	for (auto i = list.iterator(); !i.is_last(); i.next())
+	{
+		if (i.item()->track == track)
+		{
+			i.item()->state = s;
+			i.item()->target_offset = x * (t.points[t.points.length - 1].offset - TRAM_LENGTH);
+			if (i.item()->is_front)
+				i.item()->target_offset += TRAM_LENGTH;
+		}
+	}
+}
+
+void TramRunner::update(const Update& u)
+{
+	const r32 ACCEL_TIME = 5.0f;
+	const r32 ACCEL_MAX = TRAM_SPEED_MAX / ACCEL_TIME;
+	const r32 ACCEL_DISTANCE = TRAM_SPEED_MAX * ACCEL_TIME - 0.5f * ACCEL_MAX * (ACCEL_TIME * ACCEL_TIME);
+
+	{
+		const Game::TramTrack& t = Game::level.tram_tracks[track];
+		if (is_front
+			&& state == State::Exiting
+			&& Game::scheduled_load_level == AssetNull
+			&& offset > t.points[t.points.length - 1].offset) // we hit our goal, we are the front runner, we're a local game, and we're exiting the level
+			Game::schedule_load_level(t.level, Game::Mode::Parkour);
+	}
+
+	r32 error = target_offset - offset;
+	r32 distance = fabsf(error);
+	r32 dv_half = ACCEL_MAX * u.time.delta * 0.5f;
+	if (state == State::Exiting || distance > ACCEL_DISTANCE) // accelerating to max speed
+	{
+		get<RigidBody>()->activate_linked();
+		if (error > 0.0f)
+			velocity = vi_min(TRAM_SPEED_MAX, velocity + dv_half);
+		else
+			velocity = vi_max(-TRAM_SPEED_MAX, velocity - dv_half);
+		set(offset + velocity * u.time.delta);
+		if (error > 0.0f)
+			velocity = vi_min(TRAM_SPEED_MAX, velocity + dv_half);
+		else
+			velocity = vi_max(-TRAM_SPEED_MAX, velocity - dv_half);
+	}
+	else if (distance == 0.0f) // stopped
+		get<RigidBody>()->btBody->setActivationState(ISLAND_SLEEPING);
+	else // decelerating
+	{
+		if (velocity > 0.0f)
+		{
+			velocity = vi_max(0.01f, velocity - dv_half);
+			set(vi_min(target_offset, offset + velocity * u.time.delta));
+		}
+		else
+		{
+			velocity = vi_min(-0.01f, velocity + dv_half);
+			set(vi_max(target_offset, offset + velocity * u.time.delta));
+		}
+		if (velocity > 0.0f)
+			velocity = vi_max(0.01f, velocity - dv_half);
+		else
+			velocity = vi_min(-0.01f, velocity + dv_half);
+	}
+}
+
+TramEntity::TramEntity(TramRunner* runner_a, TramRunner* runner_b)
+{
+	const r32 width = TRAM_LENGTH * 0.5f;
+	const r32 height = 2.54f;
+	const r32 rope_length = 4.0f;
+
+	Transform* transform = create<Transform>();
+
+	{
+		Vec3 pos_a = runner_a->get<Transform>()->pos;
+		Vec3 pos_b = runner_b->get<Transform>()->pos;
+		transform->pos = (pos_a + pos_b) * 0.5f;
+		transform->pos.y -= height + rope_length;
+		transform->rot = Quat::look(Vec3::normalize(pos_b - pos_a));
+	}
+
+	const Mesh* mesh = Loader::mesh(Asset::Mesh::tram);
+	RigidBody* body = create<RigidBody>(RigidBody::Type::Box, (mesh->bounds_max - mesh->bounds_min) * 0.5f, 5.0f, CollisionAwkIgnore, ~CollisionWalker);
+	body->set_restitution(0.75f);
+	body->set_damping(0.5f, 0.5f);
+	body->rebuild();
+
+	Tram* tram = create<Tram>();
+	tram->runner_a = runner_a->get<TramRunner>();
+	tram->runner_b = runner_b->get<TramRunner>();
+	if (tram->runner_b.ref()->state == TramRunner::State::Entering)
+		body->btBody->setLinearVelocity(transform->rot * Vec3(0, 0, width));
+
+	{
+		runner_a->get<RigidBody>()->rebuild();
+		Quat rot_a = runner_a->get<Transform>()->rot;
+		Rope* rope1 = Rope::start(runner_a->get<RigidBody>(), runner_a->get<Transform>()->pos + rot_a * Vec3(0, -0.37f, 0), rot_a * Vec3(0, -1, 0), Quat::look(rot_a * Vec3(0, -1, 0)));
+		if (rope1)
+			rope1->end(transform->to_world(Vec3(0, height, -width)), transform->rot * (Quat::euler(PI * (-30.0f / 180.0f), 0, 0) * Vec3(0, 1, 0)), body, 0.0f, true);
+	}
+	{
+		runner_b->get<RigidBody>()->rebuild();
+		Quat rot_b = runner_b->get<Transform>()->rot;
+		Rope* rope2 = Rope::start(runner_b->get<RigidBody>(), runner_b->get<Transform>()->pos + rot_b * Vec3(0, -0.37f, 0), rot_b * Vec3(0, -1, 0), Quat::look(rot_b * Vec3(0, -1, 0)));
+		if (rope2)
+			rope2->end(transform->to_world(Vec3(0, height, width)), rot_b * (Quat::euler(PI * (30.0f / 180.0f), 0, 0) * Vec3(0, 1, 0)), body, 0.0f, true);
+	}
+
+	Entity* child = World::create<StaticGeom>(Asset::Mesh::tram, Vec3::zero, Quat::identity, CollisionParkour | CollisionInaccessible, ~CollisionParkour & ~CollisionInaccessibleMask & ~CollisionAwkIgnore);
+	child->get<Transform>()->parent = transform;
+	child->get<View>()->color = Vec4(1, 1, 1, MATERIAL_INACCESSIBLE);
+	Net::finalize(child);
+}
+
+void TramInteractableEntity::interacted(Interactable* i)
+{
+	TramRunner::go(s8(i->user_data), 1.0f, TramRunner::State::Exiting);
+}
+
+TramInteractableEntity::TramInteractableEntity(s8 track)
+{
+	create<Transform>();
+
+	SkinnedModel* model = create<SkinnedModel>();
+	model->mesh = Asset::Mesh::interactable;
+	model->shader = Asset::Shader::armature;
+	model->hollow();
+
+	Animator* anim = create<Animator>();
+	anim->armature = Asset::Armature::interactable;
+	anim->layers[0].loop = true;
+	anim->layers[0].animation = Asset::Animation::interactable_enabled;
+	anim->layers[0].blend_time = 0.0f;
+	anim->layers[1].loop = false;
+	anim->layers[1].blend_time = 0.0f;
+
+	Interactable* i = create<Interactable>();
+	i->user_data = track;
+	i->interacted.link(&interacted);
 }
 
 Array<Ascensions::Entry> Ascensions::entries;

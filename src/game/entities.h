@@ -258,8 +258,8 @@ struct Shockwave
 
 	static PinArray<Shockwave, MAX_ENTITIES> list;
 
-	static void add(const Vec3&, r32, r32);
-	static void add_alpha(const Vec3&, r32, r32);
+	static void add(const Vec3&, r32, r32, Transform* = nullptr);
+	static void add_alpha(const Vec3&, r32, r32, Transform* = nullptr);
 	static void draw_alpha(const RenderParams&);
 
 	Vec3 pos;
@@ -267,9 +267,11 @@ struct Shockwave
 	r32 timer;
 	r32 duration;
 	Type type;
+	Ref<Transform> parent;
 
 	r32 radius() const;
 	r32 opacity() const;
+	Vec3 absolute_pos() const;
 	void update(const Update&);
 
 	inline ID id() const
@@ -292,7 +294,7 @@ struct Rope : public ComponentType<Rope>
 
 	void awake() {}
 	static Rope* start(RigidBody*, const Vec3&, const Vec3&, const Quat&, r32 = 0.0f);
-	void end(const Vec3&, const Vec3&, RigidBody*, r32 = 0.0f);
+	void end(const Vec3&, const Vec3&, RigidBody*, r32 = 0.0f, b8 = false);
 };
 
 struct ProjectileEntity : public Entity
@@ -395,6 +397,7 @@ struct Interactable : public ComponentType<Interactable>
 	static Interactable* closest(const Vec3&);
 	static b8 net_msg(Net::StreamRead*, Net::MessageSource);
 
+	s32 user_data;
 	LinkArg<Interactable*> interacted;
 
 	void awake();
@@ -418,6 +421,58 @@ struct TerminalInteractable : public Entity
 	static void interacted(Interactable*);
 
 	TerminalInteractable();
+};
+
+struct TramRunnerEntity : public Entity
+{
+	TramRunnerEntity(s8, b8);
+};
+
+struct TramRunner : public ComponentType<TramRunner>
+{
+	enum class State
+	{
+		Idle,
+		Entering,
+		Exiting,
+		count,
+	};
+
+	static void go(s8, r32, State);
+
+	r32 target_offset;
+	r32 offset;
+	r32 velocity;
+	s32 offset_index;
+	State state;
+	s8 track;
+	b8 is_front; // front is toward the exit
+
+	void awake() {}
+
+	void update(const Update&);
+
+	void set(r32);
+};
+
+struct TramEntity : public Entity
+{
+	TramEntity(TramRunner*, TramRunner*);
+};
+
+struct Tram : public ComponentType<Tram>
+{
+	Ref<TramRunner> runner_a;
+	Ref<TramRunner> runner_b;
+
+	void awake() {}
+};
+
+struct TramInteractableEntity : public Entity
+{
+	static void interacted(Interactable*);
+
+	TramInteractableEntity(s8);
 };
 
 struct Ascensions

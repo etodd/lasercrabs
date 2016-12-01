@@ -117,16 +117,18 @@ struct RigidBody : public ComponentType<RigidBody>
 	s16 collision_filter;
 	b8 ccd; // continuous collision detection
 
+	RigidBody(Type, const Vec3&, r32, s16, s16, AssetID = AssetNull);
+	RigidBody();
+	~RigidBody();
+	void awake();
+
 	void rebuild(); // rebuild bullet objects from our settings
 
 	void set_damping(r32, r32);
 	void set_restitution(r32);
 	void set_ccd(b8);
 
-	RigidBody(Type, const Vec3&, r32, s16, s16, AssetID = AssetNull);
-	RigidBody();
-	~RigidBody();
-	void awake();
+	void activate_linked();
 };
 
 }

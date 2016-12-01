@@ -231,7 +231,7 @@ void render_point_lights(const RenderParams& render_params, s32 type_mask, const
 		for (auto i = Shockwave::list.iterator(); !i.is_last(); i.next())
 		{
 			if (i.item()->type == Shockwave::Type::Light)
-				render_point_light(render_params, i.item()->pos, i.item()->radius(), PointLight::Type::Shockwave, Vec3(i.item()->opacity()), AI::TeamNone);
+				render_point_light(render_params, i.item()->absolute_pos(), i.item()->radius(), PointLight::Type::Shockwave, Vec3(i.item()->opacity()), AI::TeamNone);
 		}
 	}
 }

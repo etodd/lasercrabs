@@ -316,6 +316,19 @@ void RigidBody::remove_constraint(ID id)
 	global_constraints.remove(id);
 }
 
+void RigidBody::activate_linked()
+{
+	btBody->activate(true);
+	for (auto i = global_constraints.iterator(); !i.is_last(); i.next())
+	{
+		Constraint* constraint = i.item();
+		if (constraint->a.ref() == this)
+			constraint->b.ref()->btBody->activate(true);
+		else if (constraint->b.ref() == this)
+			constraint->a.ref()->btBody->activate(true);
+	}
+}
+
 RigidBody::~RigidBody()
 {
 	for (auto i = global_constraints.iterator(); !i.is_last(); i.next())

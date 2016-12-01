@@ -52,12 +52,12 @@ Prop::Prop(const AssetID mesh_id, const AssetID armature, const AssetID animatio
 StaticGeom::StaticGeom(AssetID mesh_id, const Vec3& absolute_pos, const Quat& absolute_rot, short group, short mask)
 {
 	Transform* transform = create<Transform>();
+	transform->absolute(absolute_pos, absolute_rot);
 	View* model = create<View>(mesh_id);
 	model->shader = Asset::Shader::culled;
 
 	const Mesh* mesh = Loader::mesh(model->mesh);
 
-	get<Transform>()->absolute(absolute_pos, absolute_rot);
 	RigidBody* body = create<RigidBody>(RigidBody::Type::Mesh, Vec3::zero, 0.0f, CollisionStatic | group, ~CollisionStatic & mask, mesh_id);
 	body->set_restitution(0.75f);
 }

@@ -231,13 +231,19 @@ template<typename Stream> b8 serialize_constraint(Stream* p, RigidBody::Constrai
 
 b8 transform_filter(const Entity* t)
 {
-	return t->has<Awk>()
-		|| t->has<EnergyPickup>()
-		|| t->has<Projectile>()
-		|| t->has<Rocket>()
-		|| t->has<MinionCommon>()
-		|| t->has<Sensor>()
-		|| t->has<Grenade>();
+	return t->component_mask
+		&
+		(
+			Awk::component_mask
+			| EnergyPickup::component_mask
+			| Projectile::component_mask
+			| Rocket::component_mask
+			| MinionCommon::component_mask
+			| Sensor::component_mask
+			| Grenade::component_mask
+			| Tram::component_mask
+			| TramRunner::component_mask
+		);
 }
 
 template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
@@ -274,7 +280,9 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 		| PlayerControlHuman::component_mask
 		| MinionCommon::component_mask
 		| Parkour::component_mask
-		| Interactable::component_mask;
+		| Interactable::component_mask
+		| Tram::component_mask
+		| TramRunner::component_mask;
 
 	if (Stream::IsWriting)
 	{
@@ -668,6 +676,26 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 	{
 		PlayerControlHuman* c = e->get<PlayerControlHuman>();
 		serialize_ref(p, c->player);
+	}
+
+	if (e->has<Interactable>())
+	{
+		Interactable* i = e->get<Interactable>();
+		serialize_s32(p, i->user_data);
+	}
+
+	if (e->has<Tram>())
+	{
+		Tram* t = e->get<Tram>();
+		serialize_ref(p, t->runner_a);
+		serialize_ref(p, t->runner_b);
+	}
+
+	if (e->has<TramRunner>())
+	{
+		TramRunner* r = e->get<TramRunner>();
+		serialize_s8(p, r->track);
+		serialize_bool(p, r->is_front);
 	}
 
 #if !SERVER
@@ -3142,13 +3170,11 @@ void update_end(const Update& u)
 		Client::state_client.tick_timer += dt;
 		if (Client::state_client.tick_timer > NET_TICK_RATE)
 		{
-			Client::state_client.tick_timer -= NET_TICK_RATE;
-
-			Client::tick(u, dt);
+			Client::tick(u, vi_max(dt, NET_TICK_RATE));
+			// we're not going to send more than one packet per frame
+			// so make sure the tick timer never gets out of control
+			Client::state_client.tick_timer = fmodf(Client::state_client.tick_timer, NET_TICK_RATE);
 		}
-		// we're not going to send more than one packet per frame
-		// so make sure the tick timer never gets out of control
-		Client::state_client.tick_timer = fmodf(Client::state_client.tick_timer, NET_TICK_RATE);
 	}
 #endif
 }

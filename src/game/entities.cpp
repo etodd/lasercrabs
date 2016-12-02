@@ -2428,7 +2428,15 @@ void TramRunner::update(const Update& u)
 			velocity = vi_max(-TRAM_SPEED_MAX, velocity - dv_half);
 	}
 	else if (distance == 0.0f) // stopped
+	{
+		if (state == State::Entering)
+		{
+			Tram::by_track(track)->doors_open(true);
+			state = State::Idle;
+		}
+
 		get<RigidBody>()->btBody->setActivationState(ISLAND_SLEEPING);
+	}
 	else // decelerating
 	{
 		if (velocity > 0.0f)
@@ -2464,42 +2472,150 @@ TramEntity::TramEntity(TramRunner* runner_a, TramRunner* runner_b)
 		transform->rot = Quat::look(Vec3::normalize(pos_b - pos_a));
 	}
 
-	const Mesh* mesh = Loader::mesh(Asset::Mesh::tram);
+	const Mesh* mesh = Loader::mesh(Asset::Mesh::tram_mesh);
 	RigidBody* body = create<RigidBody>(RigidBody::Type::Box, (mesh->bounds_max - mesh->bounds_min) * 0.5f, 5.0f, CollisionAwkIgnore, ~CollisionWalker);
 	body->set_restitution(0.75f);
 	body->set_damping(0.5f, 0.5f);
 	body->rebuild();
 
+	create<PlayerTrigger>()->radius = 1.3f; // trigger for entering
+
 	Tram* tram = create<Tram>();
 	tram->runner_a = runner_a->get<TramRunner>();
 	tram->runner_b = runner_b->get<TramRunner>();
 	if (tram->runner_b.ref()->state == TramRunner::State::Entering)
-		body->btBody->setLinearVelocity(transform->rot * Vec3(0, 0, width));
+		body->btBody->setLinearVelocity(transform->rot * Vec3(0, 0, -TRAM_SPEED_MAX));
+
+	View* view = create<View>();
+	view->mesh = Asset::Mesh::tram_mesh;
+	view->shader = Asset::Shader::standard;
+	view->color.w = MATERIAL_INACCESSIBLE;
+
+	{
+		Entity* child = World::alloc<StaticGeom>(Asset::Mesh::tram_collision, Vec3::zero, Quat::identity, CollisionInaccessible, ~CollisionAwkIgnore);
+		child->get<Transform>()->parent = transform;
+		child->get<View>()->mesh = Asset::Mesh::tram_mesh_1;
+		child->get<View>()->shader = Asset::Shader::flat;
+		child->get<View>()->alpha();
+		World::awake(child);
+		Net::finalize(child);
+	}
+
+	{
+		Entity* doors = World::alloc<Empty>();
+		doors->get<Transform>()->parent = transform;
+		doors->get<Transform>()->rot = Quat::identity;
+
+		SkinnedModel* model = doors->create<SkinnedModel>();
+		model->mesh = Asset::Mesh::tram_doors;
+		model->shader = Asset::Shader::armature;
+		model->color = Vec4(1, 1, 1, MATERIAL_INACCESSIBLE);
+
+		Animator* anim = doors->create<Animator>();
+		anim->armature = Asset::Armature::tram_doors;
+		anim->layers[0].loop = true;
+		anim->layers[0].blend_time = 0.0f;
+		anim->layers[1].loop = false;
+		anim->layers[1].blend_time = 0.0f;
+
+		RigidBody* body = doors->create<RigidBody>(RigidBody::Type::Mesh, Vec3::zero, 0.0f, CollisionInaccessible, ~CollisionAwkIgnore, Asset::Mesh::tram_collision_door);
+		body->set_restitution(0.75f);
+		
+		doors->create<PlayerTrigger>()->radius = 8.0f; // trigger for exiting
+
+		World::awake(doors);
+		Net::finalize(doors);
+
+		tram->doors = doors;
+	}
 
 	{
 		runner_a->get<RigidBody>()->rebuild();
 		Quat rot_a = runner_a->get<Transform>()->rot;
 		Rope* rope1 = Rope::start(runner_a->get<RigidBody>(), runner_a->get<Transform>()->pos + rot_a * Vec3(0, -0.37f, 0), rot_a * Vec3(0, -1, 0), Quat::look(rot_a * Vec3(0, -1, 0)));
 		if (rope1)
-			rope1->end(transform->to_world(Vec3(0, height, -width)), transform->rot * (Quat::euler(PI * (-30.0f / 180.0f), 0, 0) * Vec3(0, 1, 0)), body, 0.0f, true);
+			rope1->end(transform->to_world(Vec3(0, height, -width)), transform->rot * (Quat::euler(0, 0, PI * (30.0f / 180.0f)) * Vec3(0, 1, 0)), body, 0.0f, true);
 	}
 	{
 		runner_b->get<RigidBody>()->rebuild();
 		Quat rot_b = runner_b->get<Transform>()->rot;
 		Rope* rope2 = Rope::start(runner_b->get<RigidBody>(), runner_b->get<Transform>()->pos + rot_b * Vec3(0, -0.37f, 0), rot_b * Vec3(0, -1, 0), Quat::look(rot_b * Vec3(0, -1, 0)));
 		if (rope2)
-			rope2->end(transform->to_world(Vec3(0, height, width)), rot_b * (Quat::euler(PI * (30.0f / 180.0f), 0, 0) * Vec3(0, 1, 0)), body, 0.0f, true);
+			rope2->end(transform->to_world(Vec3(0, height, width)), rot_b * (Quat::euler(0, 0, PI * (-30.0f / 180.0f)) * Vec3(0, 1, 0)), body, 0.0f, true);
 	}
+}
 
-	Entity* child = World::create<StaticGeom>(Asset::Mesh::tram, Vec3::zero, Quat::identity, CollisionParkour | CollisionInaccessible, ~CollisionParkour & ~CollisionInaccessibleMask & ~CollisionAwkIgnore);
-	child->get<Transform>()->parent = transform;
-	child->get<View>()->color = Vec4(1, 1, 1, MATERIAL_INACCESSIBLE);
-	Net::finalize(child);
+void Tram::awake()
+{
+	link_arg<Entity*, &Tram::player_entered>(get<PlayerTrigger>()->entered);
+	link_arg<Entity*, &Tram::player_exited>(doors.ref()->get<PlayerTrigger>()->exited);
+}
+
+void Tram::player_entered(Entity*)
+{
+	if (doors_open() && exiting)
+	{
+		doors_open(false);
+		TramRunner::go(runner_b.ref()->track, 1.0f, TramRunner::State::Exiting);
+	}
+}
+
+void Tram::player_exited(Entity*)
+{
+	if (doors_open())
+	{
+		doors_open(false);
+		exiting = false;
+	}
+}
+
+Tram* Tram::by_track(s8 track)
+{
+	for (auto i = Tram::list.iterator(); !i.is_last(); i.next())
+	{
+		if (i.item()->runner_b.ref()->track == track)
+			return i.item();
+	}
+	return nullptr;
+}
+
+b8 Tram::doors_open() const
+{
+	return doors.ref()->get<RigidBody>()->collision_filter == 0;
+}
+
+void Tram::doors_open(b8 open)
+{
+	Animator* anim = doors.ref()->get<Animator>();
+	RigidBody* body = doors.ref()->get<RigidBody>();
+	if (open)
+	{
+		body->set_collision_masks(CollisionInaccessible, 0); // disable collision
+		anim->layers[0].play(Asset::Animation::tram_doors_opened);
+		anim->layers[1].play(Asset::Animation::tram_doors_open);
+	}
+	else
+	{
+		body->set_collision_masks(CollisionInaccessible, ~CollisionAwkIgnore); // enable collision
+		anim->layers[0].animation = AssetNull;
+		anim->layers[1].play(Asset::Animation::tram_doors_close);
+	}
 }
 
 void TramInteractableEntity::interacted(Interactable* i)
 {
-	TramRunner::go(s8(i->user_data), 1.0f, TramRunner::State::Exiting);
+	s8 track = s8(i->user_data);
+	Tram* tram = Tram::by_track(track);
+	if (tram->doors_open())
+	{
+		tram->exiting = false;
+		tram->doors_open(false);
+	}
+	else
+	{
+		tram->exiting = true;
+		tram->doors_open(true);
+	}
 }
 
 TramInteractableEntity::TramInteractableEntity(s8 track)

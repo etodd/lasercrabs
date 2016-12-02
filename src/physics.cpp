@@ -216,6 +216,17 @@ void RigidBody::set_ccd(b8 c)
 	}
 }
 
+void RigidBody::set_collision_masks(s16 group, s16 filter)
+{
+	collision_group = group;
+	collision_filter = filter;
+	if (btBody)
+	{
+		Physics::btWorld->removeRigidBody(btBody);
+		Physics::btWorld->addRigidBody(btBody, group, filter);
+	}
+}
+
 void RigidBody::rebuild()
 {
 	// delete constraints but leave them in the global array so we can rebuild them

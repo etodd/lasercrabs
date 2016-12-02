@@ -35,6 +35,7 @@ const char* AssetLookup::Mesh::values[] =
 	"assets/icon_sensor.msh",
 	"assets/icon_sniper.msh",
 	"assets/interactable.msh",
+	"assets/interactable_collision.msh",
 	"assets/parkour.msh",
 	"assets/parkour_headless.msh",
 	"assets/plane.msh",
@@ -51,9 +52,18 @@ const char* AssetLookup::Mesh::values[] =
 	"assets/target.msh",
 	"assets/terminal.msh",
 	"assets/terminal_collision.msh",
-	"assets/tram.msh",
+	"assets/tram_collision.msh",
+	"assets/tram_collision_door.msh",
+	"assets/tram_doors.msh",
+	"assets/tram_mesh.msh",
+	"assets/tram_mesh_1.msh",
 	"assets/tram_runner.msh",
 	"assets/tri_tube.msh",
+	"assets/lvl/Dock_buildings.msh",
+	"assets/lvl/Dock_buildings_001.msh",
+	"assets/lvl/Dock_buildings_002.msh",
+	"assets/lvl/Dock_mountain.msh",
+	"assets/lvl/Dock_water.msh",
 	"assets/lvl/Ioke_Cube.msh",
 	"assets/lvl/Ioke_Cube_002.msh",
 	"assets/lvl/Ioke_Cube_004.msh",
@@ -90,6 +100,7 @@ const char* AssetLookup::Mesh::values[] =
 	"assets/lvl/Medias_Res_Cube_003.msh",
 	"assets/lvl/Medias_Res_Cube_005.msh",
 	"assets/lvl/Medias_Res_Cube_1.msh",
+	"assets/lvl/Moros_Cube.msh",
 	"assets/lvl/Moros_plaza_groupmesh_12365.msh",
 	"assets/lvl/Moros_plaza_groupmesh_12365_1.msh",
 	"assets/lvl/Pistis_InteriorWater1.msh",
@@ -135,6 +146,7 @@ const char* AssetLookup::Mesh::values[] =
 	"assets/lvl/Tyro_storage_groupmesh_22666_002.msh",
 	"assets/lvl/Tyro_storage_groupmesh_22666_003.msh",
 	"assets/lvl/Tyro_storage_groupmesh_22666_1.msh",
+	"assets/lvl/overworld_Cube_000.msh",
 	"assets/lvl/overworld_Cube_001.msh",
 	"assets/lvl/overworld_Cube_002.msh",
 	"assets/lvl/overworld_Cube_003.msh",
@@ -181,11 +193,6 @@ const char* AssetLookup::Mesh::values[] =
 	"assets/lvl/overworld_Cube_044.msh",
 	"assets/lvl/overworld_Pyramid.msh",
 	"assets/lvl/overworld_water.msh",
-	"assets/lvl/title_buildings.msh",
-	"assets/lvl/title_buildings_001.msh",
-	"assets/lvl/title_buildings_002.msh",
-	"assets/lvl/title_mountain.msh",
-	"assets/lvl/title_water.msh",
 	0,
 };
 
@@ -221,6 +228,7 @@ const char* AssetLookup::Mesh::names[] =
 	"icon_sensor",
 	"icon_sniper",
 	"interactable",
+	"interactable_collision",
 	"parkour",
 	"parkour_headless",
 	"plane",
@@ -237,9 +245,18 @@ const char* AssetLookup::Mesh::names[] =
 	"target",
 	"terminal",
 	"terminal_collision",
-	"tram",
+	"tram_collision",
+	"tram_collision_door",
+	"tram_doors",
+	"tram_mesh",
+	"tram_mesh_1",
 	"tram_runner",
 	"tri_tube",
+	"Dock_buildings",
+	"Dock_buildings_001",
+	"Dock_buildings_002",
+	"Dock_mountain",
+	"Dock_water",
 	"Ioke_Cube",
 	"Ioke_Cube_002",
 	"Ioke_Cube_004",
@@ -276,6 +293,7 @@ const char* AssetLookup::Mesh::names[] =
 	"Medias_Res_Cube_003",
 	"Medias_Res_Cube_005",
 	"Medias_Res_Cube_1",
+	"Moros_Cube",
 	"Moros_plaza_groupmesh_12365",
 	"Moros_plaza_groupmesh_12365_1",
 	"Pistis_InteriorWater1",
@@ -321,6 +339,7 @@ const char* AssetLookup::Mesh::names[] =
 	"Tyro_storage_groupmesh_22666_002",
 	"Tyro_storage_groupmesh_22666_003",
 	"Tyro_storage_groupmesh_22666_1",
+	"overworld_Cube_000",
 	"overworld_Cube_001",
 	"overworld_Cube_002",
 	"overworld_Cube_003",
@@ -367,11 +386,6 @@ const char* AssetLookup::Mesh::names[] =
 	"overworld_Cube_044",
 	"overworld_Pyramid",
 	"overworld_water",
-	"title_buildings",
-	"title_buildings_001",
-	"title_buildings_002",
-	"title_mountain",
-	"title_water",
 	0,
 };
 
@@ -404,6 +418,9 @@ const char* AssetLookup::Animation::values[] =
 	"assets/terminal_close.anm",
 	"assets/terminal_open.anm",
 	"assets/terminal_opened.anm",
+	"assets/tram_doors_close.anm",
+	"assets/tram_doors_open.anm",
+	"assets/tram_doors_opened.anm",
 	0,
 };
 
@@ -436,6 +453,9 @@ const char* AssetLookup::Animation::names[] =
 	"terminal_close",
 	"terminal_open",
 	"terminal_opened",
+	"tram_doors_close",
+	"tram_doors_open",
+	"tram_doors_opened",
 	0,
 };
 
@@ -448,6 +468,7 @@ const char* AssetLookup::Armature::values[] =
 	"assets/parkour.arm",
 	"assets/parkour_headless.arm",
 	"assets/terminal.arm",
+	"assets/tram_doors.arm",
 	0,
 };
 
@@ -460,6 +481,7 @@ const char* AssetLookup::Armature::names[] =
 	"parkour",
 	"parkour_headless",
 	"terminal",
+	"tram_doors",
 	0,
 };
 
@@ -470,7 +492,6 @@ const char* AssetLookup::Texture::values[] =
 	"assets/flare.png",
 	"assets/gradient.png",
 	"assets/noise.png",
-	"assets/pattern.png",
 	"assets/skybox_horizon.png",
 	"assets/water_normal.png",
 	0,
@@ -483,7 +504,6 @@ const char* AssetLookup::Texture::names[] =
 	"flare",
 	"gradient",
 	"noise",
-	"pattern",
 	"skybox_horizon",
 	"water_normal",
 	0,
@@ -659,6 +679,7 @@ const char* AssetLookup::Font::names[] =
 
 const char* AssetLookup::Level::values[] =
 {
+	"assets/lvl/Dock.lvl",
 	"assets/lvl/Ioke.lvl",
 	"assets/lvl/Isthmus.lvl",
 	"assets/lvl/Medias_Res.lvl",
@@ -670,13 +691,13 @@ const char* AssetLookup::Level::values[] =
 	"assets/lvl/Tyche.lvl",
 	"assets/lvl/Tyro.lvl",
 	"assets/lvl/overworld.lvl",
-	"assets/lvl/title.lvl",
 	0,
 };
 
 
 const char* AssetLookup::Level::names[] =
 {
+	"Dock",
 	"Ioke",
 	"Isthmus",
 	"Medias Res",
@@ -688,13 +709,13 @@ const char* AssetLookup::Level::names[] =
 	"Tyche",
 	"Tyro",
 	"overworld",
-	"title",
 	0,
 };
 
 
 const char* AssetLookup::NavMesh::values[] =
 {
+	"assets/lvl/Dock.nav",
 	"assets/lvl/Ioke.nav",
 	"assets/lvl/Isthmus.nav",
 	"assets/lvl/Medias_Res.nav",
@@ -706,13 +727,13 @@ const char* AssetLookup::NavMesh::values[] =
 	"assets/lvl/Tyche.nav",
 	"assets/lvl/Tyro.nav",
 	"assets/lvl/overworld.nav",
-	"assets/lvl/title.nav",
 	0,
 };
 
 
 const char* AssetLookup::NavMesh::names[] =
 {
+	"Dock",
 	"Ioke",
 	"Isthmus",
 	"Medias Res",
@@ -724,7 +745,6 @@ const char* AssetLookup::NavMesh::names[] =
 	"Tyche",
 	"Tyro",
 	"overworld",
-	"title",
 	0,
 };
 

@@ -9,18 +9,18 @@ namespace Asset
 	namespace Level
 	{
 		const s32 count = 12;
-		const AssetID Ioke = 0;
-		const AssetID Isthmus = 1;
-		const AssetID Medias_Res = 2;
-		const AssetID Moros = 3;
-		const AssetID Pistis = 4;
-		const AssetID Ponos = 5;
-		const AssetID Proci = 6;
-		const AssetID Safe_Zone = 7;
-		const AssetID Tyche = 8;
-		const AssetID Tyro = 9;
-		const AssetID overworld = 10;
-		const AssetID title = 11;
+		const AssetID Dock = 0;
+		const AssetID Ioke = 1;
+		const AssetID Isthmus = 2;
+		const AssetID Medias_Res = 3;
+		const AssetID Moros = 4;
+		const AssetID Pistis = 5;
+		const AssetID Ponos = 6;
+		const AssetID Proci = 7;
+		const AssetID Safe_Zone = 8;
+		const AssetID Tyche = 9;
+		const AssetID Tyro = 10;
+		const AssetID overworld = 11;
 	}
 }
 

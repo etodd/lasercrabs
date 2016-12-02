@@ -147,10 +147,10 @@ Game::Save::Save()
 	username("etodd"),
 	group(),
 	cora_called(),
-	last_level(Asset::Level::title),
+	last_level(Asset::Level::Dock),
 	overworld_zone(AssetNull)
 {
-	zones[Asset::Level::title] = ZoneState::Friendly;
+	zones[Asset::Level::Dock] = ZoneState::Friendly;
 	zones[Asset::Level::Safe_Zone] = ZoneState::Friendly;
 
 	Overworld::message_add(strings::contact_ivory, strings::msg_ivory_intro, platform::timestamp() - (86400.0 * 1.9));
@@ -1197,7 +1197,7 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 			level.rotation = Json::get_r32(element, "rotation");
 
 			// initialize teams
-			if (m != Mode::Special || level.id == Asset::Level::title)
+			if (m != Mode::Special || level.id == Asset::Level::Dock)
 			{
 				for (s32 i = 0; i < team_count; i++)
 				{
@@ -1623,6 +1623,11 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 			}
 			vi_assert(track != -1);
 			entity = World::alloc<TramInteractableEntity>(s8(track));
+
+			{
+				Entity* collision = World::create<StaticGeom>(Asset::Mesh::interactable_collision, absolute_pos, absolute_rot, CollisionInaccessible, ~CollisionParkour & ~CollisionInaccessibleMask);
+				Net::finalize(collision);
+			}
 		}
 		else if (strcmp(Json::get_string(element, "name"), "terminal") == 0)
 		{

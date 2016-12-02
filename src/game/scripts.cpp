@@ -215,8 +215,6 @@ namespace title
 		Game::save = Game::Save();
 		Game::session.reset();
 		data->transition_timer = total_transition;
-
-		Cora::text_schedule(total_transition + 1.0f, _(strings::tut_start));
 	}
 }
 

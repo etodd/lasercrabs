@@ -462,10 +462,20 @@ struct TramEntity : public Entity
 
 struct Tram : public ComponentType<Tram>
 {
+	static Tram* by_track(s8);
+
 	Ref<TramRunner> runner_a;
 	Ref<TramRunner> runner_b;
+	Ref<Entity> doors;
+	b8 exiting;
 
-	void awake() {}
+	b8 doors_open() const;
+	void doors_open(b8);
+
+	void player_entered(Entity*);
+	void player_exited(Entity*);
+
+	void awake();
 };
 
 struct TramInteractableEntity : public Entity

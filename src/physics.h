@@ -127,6 +127,7 @@ struct RigidBody : public ComponentType<RigidBody>
 	void set_damping(r32, r32);
 	void set_restitution(r32);
 	void set_ccd(b8);
+	void set_collision_masks(s16, s16);
 
 	void activate_linked();
 };

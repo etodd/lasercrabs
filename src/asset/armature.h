@@ -8,17 +8,18 @@ namespace Asset
 {
 	namespace Armature
 	{
-		const s32 count = 6;
+		const s32 count = 7;
 		const AssetID awk = 0;
 		const AssetID character = 1;
 		const AssetID interactable = 2;
 		const AssetID parkour = 3;
 		const AssetID parkour_headless = 4;
 		const AssetID terminal = 5;
+		const AssetID tram_doors = 6;
 	}
 	namespace Bone
 	{
-		const s32 count = 93;
+		const s32 count = 99;
 		const AssetID awk_a1 = 5;
 		const AssetID awk_a2 = 6;
 		const AssetID awk_b1 = 1;
@@ -112,6 +113,12 @@ namespace Asset
 		const AssetID terminal_monitor_arm_2 = 7;
 		const AssetID terminal_root = 0;
 		const AssetID terminal_top = 5;
+		const AssetID tram_doors_door1 = 0;
+		const AssetID tram_doors_door2 = 1;
+		const AssetID tram_doors_door3 = 2;
+		const AssetID tram_doors_door4 = 3;
+		const AssetID tram_doors_door5 = 4;
+		const AssetID tram_doors_door6 = 5;
 	}
 }
 

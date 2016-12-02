@@ -597,9 +597,13 @@ b8 Parkour::try_jump(r32 rotation)
 	b8 did_jump = false;
 	if (fsm.current == State::Normal || fsm.current == State::Slide || fsm.current == State::WallRun)
 	{
-		if (get<Walker>()->support.ref()
+		if ((get<Walker>()->support.ref() && get<Walker>()->support.ref()->btBody->getBroadphaseProxy()->m_collisionFilterGroup & CollisionParkour)
 			|| fsm.current == State::Slide
-			|| (last_support.ref() && Game::time.total - last_support_time < JUMP_GRACE_PERIOD && wall_run_state == WallRunState::None))
+			|| (
+				wall_run_state == WallRunState::None
+				&& Game::time.total - last_support_time < JUMP_GRACE_PERIOD
+				&& last_support.ref() && last_support.ref()->btBody->getBroadphaseProxy()->m_collisionFilterGroup & CollisionParkour
+				))
 		{
 			do_normal_jump();
 			did_jump = true;

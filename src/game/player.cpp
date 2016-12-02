@@ -666,9 +666,38 @@ void PlayerHuman::spawn()
 		}
 		else
 		{
-			Quat rot;
-			get<PlayerManager>()->team.ref()->player_spawn.ref()->absolute(&pos, &rot);
-			Vec3 dir = rot * Vec3(0, 1, 0);
+			// we are entering a level. if we're entering by tram, spawn in the tram. otherwise spawn at the PlayerSpawn
+
+			s8 track = -1;
+			for (s32 i = 0; i < Game::level.tram_tracks.length; i++)
+			{
+				const Game::TramTrack& t = Game::level.tram_tracks[i];
+				if (t.level == Game::save.last_level)
+				{
+					track = s8(i);
+					break;
+				}
+			}
+
+			Tram* tram = Tram::by_track(track);
+
+			Vec3 dir;
+			if (tram)
+			{
+				// spawn in tram
+				Quat rot;
+				tram->get<Transform>()->absolute(&pos, &rot);
+				dir = rot * Vec3(0, 0, -1);
+			}
+			else
+			{
+				// spawn at PlayerSpawn
+				Quat rot;
+				get<PlayerManager>()->team.ref()->player_spawn.ref()->absolute(&pos, &rot);
+				dir = rot * Vec3(0, 1, 0);
+			}
+			dir.y = 0.0f;
+			dir.normalize();
 			angle = atan2f(dir.x, dir.z);
 		}
 

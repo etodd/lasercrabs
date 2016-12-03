@@ -37,6 +37,7 @@ namespace AI
 		Path,
 		AwkPath,
 		Point,
+		Load,
 	};
 
 	enum class AwkPathfind

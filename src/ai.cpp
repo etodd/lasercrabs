@@ -24,7 +24,8 @@ SyncRingBuffer<SYNC_OUT_SIZE> sync_out;
 b8 render_meshes_dirty;
 u32 callback_in_id;
 u32 callback_out_id;
-AssetID worker_current_level = AssetNull;
+Revision level_revision;
+Revision level_revision_worker;
 
 void loop()
 {
@@ -80,7 +81,7 @@ void update(const Update& u)
 				sync_out.read(&result.path);
 				result.id = callback_out_id;
 				callback_out_id++;
-				if (worker_current_level == Game::level.id) // prevent entity ID/revision collisions
+				if (level_revision == level_revision_worker) // prevent entity ID/revision collisions
 					(&link)->fire(result);
 				break;
 			}
@@ -92,7 +93,7 @@ void update(const Update& u)
 				sync_out.read(&result.path);
 				result.id = callback_out_id;
 				callback_out_id++;
-				if (worker_current_level == Game::level.id) // prevent entity ID/revision collisions
+				if (level_revision == level_revision_worker) // prevent entity ID/revision collisions
 					(&link)->fire(result);
 				break;
 			}
@@ -103,8 +104,13 @@ void update(const Update& u)
 				Vec3 result;
 				sync_out.read(&result);
 				callback_out_id++;
-				if (worker_current_level == Game::level.id) // prevent entity ID/revision collisions
+				if (level_revision == level_revision_worker) // prevent entity ID/revision collisions
 					(&link)->fire(result);
+				break;
+			}
+			case Callback::Load:
+			{
+				sync_out.read(&level_revision_worker);
 				break;
 			}
 			default:
@@ -175,7 +181,7 @@ void load(AssetID id, const u8* data, s32 length)
 	sync_in.write(length);
 	sync_in.write(data, length);
 	sync_in.unlock();
-	worker_current_level = id;
+	level_revision++;
 	render_meshes_dirty = true;
 }
 

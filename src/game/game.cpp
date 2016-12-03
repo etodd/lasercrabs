@@ -956,8 +956,7 @@ void Game::unload_level()
 
 	PlayerHuman::clear(); // clear some random player-related stuff
 
-	for (s32 i = 0; i < ParticleSystem::list.length; i++)
-		ParticleSystem::list[i]->clear();
+	Particles::clear();
 
 	Loader::transients_free();
 	updates.length = 0;

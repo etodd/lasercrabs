@@ -582,6 +582,14 @@ b8 ControlPoint::owned_by(AI::Team t) const
 	return (team == t && team_next == AI::TeamNone) || team_next == t;
 }
 
+b8 ControlPoint::can_be_captured_by(AI::Team t) const
+{
+	if (team_next == AI::TeamNone)
+		return team != t && (team != 1 || t != 0); // once attackers take a control point, defenders can't take it back
+	else
+		return team_next != t;
+}
+
 void ControlPoint::update(const Update& u)
 {
 	if (capture_timer > 0.0f)
@@ -2155,7 +2163,7 @@ void Shockwave::update(const Update& u)
 
 Interactable* Interactable::closest(const Vec3& pos)
 {
-	r32 distance_sq = CONTROL_POINT_RADIUS * CONTROL_POINT_RADIUS;
+	r32 distance_sq = CONTROL_POINT_RADIUS * 0.75f * CONTROL_POINT_RADIUS * 0.75f;
 	Interactable* result = nullptr;
 	// find the closest interactable
 	for (auto i = list.iterator(); !i.is_last(); i.next())

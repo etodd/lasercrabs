@@ -72,6 +72,8 @@ struct Particles
 	static SkyboxParticleSystem tracers_skybox;
 	static StandardParticleSystem fast_tracers;
 	static StandardParticleSystem eased_particles;
+
+	static void clear();
 };
 
 }

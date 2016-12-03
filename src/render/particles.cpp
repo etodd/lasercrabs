@@ -260,6 +260,12 @@ void ParticleSystem::clear()
 	first_free = first_active = first_new = 0;
 }
 
+void Particles::clear()
+{
+	for (s32 i = 0; i < ParticleSystem::list.length; i++)
+		ParticleSystem::list[i]->clear();
+}
+
 StandardParticleSystem::StandardParticleSystem(s32 vertices_per_particle, s32 indices_per_particle, const Vec2& start_size, const Vec2& end_size, r32 lifetime, const Vec3& gravity, const Vec4& color, AssetID shader, AssetID texture)
 	: ParticleSystem(vertices_per_particle, indices_per_particle, lifetime, shader == AssetNull ? (texture == AssetNull ? Asset::Shader::particle_standard : Asset::Shader::particle_textured) : shader, texture),
 	start_size(start_size),

@@ -598,7 +598,7 @@ void Team::update_all_server(const Update& u)
 		if (!Game::level.continue_match_after_death
 			&& ((match_time > Game::level.time_limit && (Game::level.type != Game::Type::Rush || ControlPoint::count_capturing() == 0))
 			|| (PlayerManager::list.count() > 1 && Team::teams_with_players() <= 1)
-			|| (Game::level.type == Game::Type::Rush && list[1].control_point_count() > 0)
+			|| (Game::level.type == Game::Type::Rush && list[1].control_point_count() == ControlPoint::list.count())
 			|| (Game::level.type == Game::Type::Deathmatch && team_with_most_kills && team_with_most_kills->kills() >= Game::level.kill_limit)))
 		{
 			// determine the winner, if any
@@ -916,7 +916,7 @@ void PlayerManager::upgrade_complete()
 b8 PlayerManager::capture_start()
 {
 	ControlPoint* control_point = at_control_point();
-	if (can_transition_state() && control_point && !friendly_control_point(control_point))
+	if (can_transition_state() && control_point && control_point->can_be_captured_by(team.ref()->team()))
 	{
 		vi_assert(current_upgrade == Upgrade::None);
 		instance.ref()->get<Awk>()->current_ability = Ability::None;

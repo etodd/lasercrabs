@@ -463,8 +463,8 @@ void PlayerHuman::update(const Update& u)
 	{
 		case UIMode::PvpDefault:
 		{
-			if (get<PlayerManager>()->at_control_point()
-				&& !get<PlayerManager>()->friendly_control_point(get<PlayerManager>()->at_control_point()))
+			ControlPoint* control_point = get<PlayerManager>()->at_control_point();
+			if (control_point && control_point->can_be_captured_by(get<PlayerManager>()->team.ref()->team()))
 			{
 				// enemy control point; capture
 				b8 pressed = u.input->get(Controls::Interact, gamepad);
@@ -946,7 +946,7 @@ void PlayerHuman::draw_alpha(const RenderParams& params) const
 		ControlPoint* control_point = get<PlayerManager>()->at_control_point();
 		if (mode == UIMode::PvpDefault
 			&& get<PlayerManager>()->can_transition_state()
-			&& ((control_point && !control_point->owned_by(get<PlayerManager>()->team.ref()->team()))
+			&& ((control_point && control_point->can_be_captured_by(get<PlayerManager>()->team.ref()->team()))
 				|| get<PlayerManager>()->at_upgrade_point()))
 		{
 			UIText text;
@@ -2910,44 +2910,47 @@ void PlayerControlHuman::draw_alpha(const RenderParams& params) const
 		// highlight control points
 		for (auto i = ControlPoint::list.iterator(); !i.is_last(); i.next())
 		{
-			Vec3 pos = i.item()->get<Transform>()->absolute_pos();
-			UI::indicator(params, pos, Team::ui_color(team, i.item()->team), i.item()->capture_timer > 0.0f);
-			if (i.item()->capture_timer > 0.0f)
+			if (i.item()->team == team || i.item()->can_be_captured_by(team))
 			{
-				// control point is being captured; show progress bar
-				Rect2 bar;
+				Vec3 pos = i.item()->get<Transform>()->absolute_pos();
+				UI::indicator(params, pos, Team::ui_color(team, i.item()->team), i.item()->capture_timer > 0.0f);
+				if (i.item()->capture_timer > 0.0f)
 				{
-					Vec2 p;
-					UI::is_onscreen(params, pos, &p);
-					Vec2 bar_size(80.0f * UI::scale, (UI_TEXT_SIZE_DEFAULT + 12.0f) * UI::scale);
-					bar = { p + Vec2(0, 40.0f * UI::scale) + (bar_size * -0.5f), bar_size };
-					UI::box(params, bar, UI::color_background);
-					const Vec4* color;
-					r32 percentage;
-					if (i.item()->capture_timer > CONTROL_POINT_CAPTURE_TIME * 0.5f)
+					// control point is being captured; show progress bar
+					Rect2 bar;
 					{
-						color = &Team::ui_color(team, i.item()->team);
-						percentage = (i.item()->capture_timer / (CONTROL_POINT_CAPTURE_TIME * 0.5f)) - 1.0f;
+						Vec2 p;
+						UI::is_onscreen(params, pos, &p);
+						Vec2 bar_size(80.0f * UI::scale, (UI_TEXT_SIZE_DEFAULT + 12.0f) * UI::scale);
+						bar = { p + Vec2(0, 40.0f * UI::scale) + (bar_size * -0.5f), bar_size };
+						UI::box(params, bar, UI::color_background);
+						const Vec4* color;
+						r32 percentage;
+						if (i.item()->capture_timer > CONTROL_POINT_CAPTURE_TIME * 0.5f)
+						{
+							color = &Team::ui_color(team, i.item()->team);
+							percentage = (i.item()->capture_timer / (CONTROL_POINT_CAPTURE_TIME * 0.5f)) - 1.0f;
+						}
+						else
+						{
+							color = &Team::ui_color(team, i.item()->team_next);
+							percentage = 1.0f - (i.item()->capture_timer / (CONTROL_POINT_CAPTURE_TIME * 0.5f));
+						}
+						UI::border(params, bar, 2, *color);
+						UI::box(params, { bar.pos, Vec2(bar.size.x * percentage, bar.size.y) }, *color);
 					}
-					else
+
 					{
-						color = &Team::ui_color(team, i.item()->team_next);
-						percentage = 1.0f - (i.item()->capture_timer / (CONTROL_POINT_CAPTURE_TIME * 0.5f));
+						UIText text;
+						text.anchor_x = UIText::Anchor::Center;
+						text.anchor_y = UIText::Anchor::Min;
+						text.color = i.item()->team_next == team ? UI::color_accent : UI::color_alert;
+						text.text(_(team == i.item()->team_next ? strings::hacking : strings::losing));
+
+						Vec2 p = bar.pos + Vec2(bar.size.x * 0.5f, bar.size.y + 10.0f * UI::scale);
+						UI::box(params, text.rect(p).outset(8.0f * UI::scale), UI::color_background);
+						text.draw(params, p);
 					}
-					UI::border(params, bar, 2, *color);
-					UI::box(params, { bar.pos, Vec2(bar.size.x * percentage, bar.size.y) }, *color);
-				}
-
-				{
-					UIText text;
-					text.anchor_x = UIText::Anchor::Center;
-					text.anchor_y = UIText::Anchor::Min;
-					text.color = i.item()->team_next == team ? UI::color_accent : UI::color_alert;
-					text.text(_(team == i.item()->team_next ? strings::hacking : strings::losing));
-
-					Vec2 p = bar.pos + Vec2(bar.size.x * 0.5f, bar.size.y + 10.0f * UI::scale);
-					UI::box(params, text.rect(p).outset(8.0f * UI::scale), UI::color_background);
-					text.draw(params, p);
 				}
 			}
 		}

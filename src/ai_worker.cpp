@@ -33,6 +33,7 @@ NavMeshProcess nav_tile_mesh_process;
 dtNavMeshQuery* nav_mesh_query = nullptr;
 dtQueryFilter default_query_filter = dtQueryFilter();
 const r32 default_search_extents[] = { 15, 30, 15 };
+Revision level_revision;
 
 dtPolyRef get_poly(const Vec3& pos, const r32* search_extents)
 {
@@ -754,6 +755,14 @@ void loop()
 #if DEBUG_AI
 				vi_debug("Done in %fs.", r32(platform::time() - start_time));
 #endif
+
+				{
+					level_revision++;
+					sync_out.lock();
+					sync_out.write(Callback::Load);
+					sync_out.write(level_revision);
+					sync_out.unlock();
+				}
 				break;
 			}
 			case Op::ObstacleAdd:

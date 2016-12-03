@@ -124,6 +124,7 @@ struct ControlPoint : public ComponentType<ControlPoint>
 	ControlPoint(AI::Team = AI::TeamNone);
 	~ControlPoint();
 	b8 owned_by(AI::Team) const;
+	b8 can_be_captured_by(AI::Team) const;
 	void awake();
 	void capture_start(AI::Team);
 	void capture_cancel();

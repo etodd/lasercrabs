@@ -2408,8 +2408,7 @@ void hide_complete()
 
 void show_complete()
 {
-	for (s32 i = 0; i < ParticleSystem::list.length; i++)
-		ParticleSystem::list[i]->clear();
+	Particles::clear();
 	{
 		Camera* c = data.camera;
 		r32 t = data.timer_transition;

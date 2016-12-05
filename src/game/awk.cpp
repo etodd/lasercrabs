@@ -226,6 +226,27 @@ void particle_trail(const Vec3& start, const Vec3& dir, r32 distance, r32 interv
 	}
 }
 
+void client_hit_effects(Awk* awk, Entity* target)
+{
+	Vec3 pos = target->get<Transform>()->absolute_pos();
+
+	Quat rot = Quat::look(Vec3::normalize(awk->velocity));
+	for (s32 i = 0; i < 50; i++)
+	{
+		Particles::sparks.add
+		(
+			pos,
+			rot * Vec3(mersenne::randf_oo() * 2.0f - 1.0f, mersenne::randf_oo() * 2.0f - 1.0f, mersenne::randf_oo()) * 10.0f,
+			Vec4(1, 1, 1, 1)
+		);
+	}
+
+	Shockwave::add(pos, 8.0f, 1.5f);
+
+	// controller vibration, etc.
+	awk->hit.fire(target);
+}
+
 b8 Awk::net_msg(Net::StreamRead* p, Net::MessageSource src)
 {
 	using Stream = Net::StreamRead;
@@ -323,22 +344,28 @@ b8 Awk::net_msg(Net::StreamRead* p, Net::MessageSource src)
 			Ref<Entity> target;
 			serialize_ref(p, target);
 
-			Vec3 hit_pos = target.ref()->get<Target>()->absolute_pos();
-
 			// particles
-			{
-				Quat rot = Quat::look(Vec3::normalize(awk->velocity));
-				for (s32 i = 0; i < 50; i++)
-				{
-					Particles::sparks.add
-					(
-						hit_pos,
-						rot * Vec3(mersenne::randf_oo() * 2.0f - 1.0f, mersenne::randf_oo() * 2.0f - 1.0f, mersenne::randf_oo()) * 10.0f,
-						Vec4(1, 1, 1, 1)
-					);
-				}
+			if (!awk->has<PlayerControlHuman>() || awk->get<PlayerControlHuman>()->local() == (src == Net::MessageSource::Loopback))
+				client_hit_effects(awk, target.ref());
 
-				Shockwave::add(hit_pos, 8.0f, 1.5f);
+			// damage messages
+			if (awk->has<PlayerControlHuman>())
+			{
+				if (target.ref()->has<MinionCommon>())
+				{
+					b8 is_enemy = target.ref()->get<AIAgent>()->team != awk->get<AIAgent>()->team;
+					awk->get<PlayerControlHuman>()->player.ref()->msg(_(strings::minion_killed), is_enemy);
+				}
+				else if (target.ref()->has<Sensor>() && !target.ref()->has<EnergyPickup>())
+				{
+					b8 is_enemy = target.ref()->get<Sensor>()->team != awk->get<AIAgent>()->team;
+					awk->get<PlayerControlHuman>()->player.ref()->msg(_(strings::sensor_destroyed), is_enemy);
+				}
+				else if (target.ref()->has<ContainmentField>())
+				{
+					b8 is_enemy = target.ref()->get<ContainmentField>()->team != awk->get<AIAgent>()->team;
+					awk->get<PlayerControlHuman>()->player.ref()->msg(_(strings::containment_field_destroyed), is_enemy);
+				}
 			}
 
 			b8 damaged = false;
@@ -741,9 +768,6 @@ Vec3 Awk::attach_point(r32 offset) const
 
 b8 Awk::hit_target(Entity* target)
 {
-	if (!Game::level.local) // target hit events are synced across the network
-		return false;
-
 	for (s32 i = 0; i < hit_targets.length; i++)
 	{
 		if (hit_targets[i].ref() == target)
@@ -751,6 +775,14 @@ b8 Awk::hit_target(Entity* target)
 	}
 	if (hit_targets.length < hit_targets.capacity())
 		hit_targets.add(target);
+
+	if (!Game::level.local) 
+	{
+		// target hit events are synced across the network
+		// so just spawn some particles if needed, but don't do anything else
+		client_hit_effects(this, target);
+		return false;
+	}
 
 	AwkNet::hit_target(this, target);
 
@@ -796,8 +828,6 @@ b8 Awk::hit_target(Entity* target)
 			body->btBody->activate(true);
 		}
 	}
-
-	hit.fire(target);
 
 	return true;
 }

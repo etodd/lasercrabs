@@ -689,6 +689,8 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 		Tram* t = e->get<Tram>();
 		serialize_ref(p, t->runner_a);
 		serialize_ref(p, t->runner_b);
+		serialize_ref(p, t->doors);
+		serialize_bool(p, t->exiting);
 	}
 
 	if (e->has<TramRunner>())
@@ -696,6 +698,7 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 		TramRunner* r = e->get<TramRunner>();
 		serialize_s8(p, r->track);
 		serialize_bool(p, r->is_front);
+		serialize_enum(p, TramRunner::State, r->state);
 	}
 
 #if !SERVER

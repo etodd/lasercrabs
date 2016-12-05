@@ -279,7 +279,8 @@ void splitscreen_select_teams_update(const Update& u)
 	if (UIMenu::active[0])
 		return;
 
-	if (u.last_input->get(Controls::Cancel, 0) && !u.input->get(Controls::Cancel, 0) && !Game::cancel_event_eaten[0])
+	if (u.last_input->get(Controls::Cancel, 0) && !u.input->get(Controls::Cancel, 0)
+		&& !Game::cancel_event_eaten[0] && Game::scheduled_load_level == AssetNull)
 	{
 		Menu::title();
 		return;

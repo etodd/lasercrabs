@@ -960,7 +960,7 @@ void PlayerHuman::draw_alpha(const RenderParams& params) const
 			{
 				// at control point; "capture!" prompt
 				text.color = UI::color_accent;
-				if (control_point->capture_timer > 0.0f)
+				if (get<PlayerManager>()->team.ref()->team() == 0) // defending
 					text.text(_(strings::prompt_cancel_hack));
 				else
 					text.text(_(strings::prompt_hack));
@@ -1208,8 +1208,7 @@ void PlayerHuman::draw_alpha(const RenderParams& params) const
 					case PlayerManager::State::Capturing:
 					{
 						// capturing a control point
-						ControlPoint* control_point = get<PlayerManager>()->at_control_point();
-						if (control_point && control_point->team_next != AI::TeamNone) // capture is already in progress
+						if (get<PlayerManager>()->team.ref()->team() == 0) // defending
 							string = strings::canceling_capture;
 						else
 							string = strings::starting_capture;
@@ -1700,21 +1699,6 @@ void PlayerControlHuman::interact_animation_callback()
 void PlayerControlHuman::hit_target(Entity* target)
 {
 	rumble = vi_max(rumble, 0.5f);
-	if (target->has<MinionCommon>())
-	{
-		b8 is_enemy = target->get<AIAgent>()->team != get<AIAgent>()->team;
-		player.ref()->msg(_(strings::minion_killed), is_enemy);
-	}
-	else if (target->has<Sensor>() && !target->has<EnergyPickup>())
-	{
-		b8 is_enemy = target->get<Sensor>()->team != get<AIAgent>()->team;
-		player.ref()->msg(_(strings::sensor_destroyed), is_enemy);
-	}
-	else if (target->has<ContainmentField>())
-	{
-		b8 is_enemy = target->get<ContainmentField>()->team != get<AIAgent>()->team;
-		player.ref()->msg(_(strings::containment_field_destroyed), is_enemy);
-	}
 }
 
 void PlayerControlHuman::awk_detached()
@@ -2910,10 +2894,10 @@ void PlayerControlHuman::draw_alpha(const RenderParams& params) const
 		// highlight control points
 		for (auto i = ControlPoint::list.iterator(); !i.is_last(); i.next())
 		{
-			if (i.item()->team == team || i.item()->can_be_captured_by(team))
+			if (i.item()->team == team || i.item()->team_next != AI::TeamNone || i.item()->can_be_captured_by(team))
 			{
 				Vec3 pos = i.item()->get<Transform>()->absolute_pos();
-				UI::indicator(params, pos, Team::ui_color(team, i.item()->team), i.item()->capture_timer > 0.0f);
+				UI::indicator(params, pos, Team::ui_color(team, i.item()->team), i.item()->capture_timer > 0.0f || team == 1);
 				if (i.item()->capture_timer > 0.0f)
 				{
 					// control point is being captured; show progress bar

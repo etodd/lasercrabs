@@ -526,7 +526,7 @@ namespace ControlPointNet
 		return true;
 	}
 
-	void send_update(ControlPoint* c)
+	b8 send_update(ControlPoint* c)
 	{
 		using Stream = Net::StreamWrite;
 		Stream* p = Net::msg_new(Net::MessageType::ControlPoint);
@@ -537,6 +537,7 @@ namespace ControlPointNet
 		if (!serialize_update(p, c))
 			vi_assert(false);
 		Net::msg_finalize(p);
+		return true;
 	}
 }
 

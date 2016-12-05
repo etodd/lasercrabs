@@ -1418,8 +1418,7 @@ void Projectile::update(const Update& u)
 
 b8 ParticleEffect::spawn(Type t, const Vec3& pos, const Quat& rot)
 {
-	if (!Game::level.local)
-		vi_debug_break();
+	vi_assert(Game::level.local);
 	using Stream = Net::StreamWrite;
 	Net::StreamWrite* p = Net::msg_new(Net::MessageType::ParticleEffect);
 
@@ -1603,7 +1602,7 @@ void Grenade::explode()
 			if (distance < GRENADE_RANGE * 0.66f)
 				i.item()->damage(entity(), 1);
 		}
-		else if (distance < GRENADE_RANGE)
+		else if (distance < GRENADE_RANGE && !i.item()->has<EnergyPickup>())
 			i.item()->damage(entity(), distance < GRENADE_RANGE * 0.5f ? 3 : (distance < GRENADE_RANGE * 0.75f ? 2 : 1));
 	}
 
@@ -2183,9 +2182,32 @@ Interactable* Interactable::closest(const Vec3& pos)
 	return result;
 }
 
+Interactable::Interactable(Type t)
+	: type(t), user_data(), interacted()
+{
+}
+
 void Interactable::awake()
 {
 	link<&Interactable::animation_callback>(get<Animator>()->trigger(Asset::Animation::interactable_interact, 1.916f));
+	switch (type)
+	{
+		case Type::Terminal:
+		{
+			interacted.link(&TerminalInteractable::interacted);
+			break;
+		}
+		case Type::Tram:
+		{
+			interacted.link(&TramInteractableEntity::interacted);
+			break;
+		}
+		default:
+		{
+			vi_assert(false);
+			break;
+		}
+	}
 }
 
 namespace InteractableNet
@@ -2308,12 +2330,7 @@ TerminalInteractable::TerminalInteractable()
 	anim->layers[1].loop = false;
 	anim->layers[1].blend_time = 0.0f;
 
-	create<Interactable>();
-}
-
-void TerminalInteractable::awake(Entity* e)
-{
-	e->get<Interactable>()->interacted.link(&interacted);
+	create<Interactable>(Interactable::Type::Terminal);
 }
 
 void TerminalInteractable::interacted(Interactable*)
@@ -2392,6 +2409,7 @@ void TramRunner::set(r32 x)
 
 void TramRunner::go(s8 track, r32 x, State s)
 {
+	vi_assert(Game::level.local);
 	const Game::TramTrack& t = Game::level.tram_tracks[track];
 	for (auto i = list.iterator(); !i.is_last(); i.next())
 	{
@@ -2404,6 +2422,19 @@ void TramRunner::go(s8 track, r32 x, State s)
 		}
 	}
 }
+
+namespace TramNet
+{
+	enum Message
+	{
+		Entered,
+		Exited,
+		DoorsOpen,
+		count,
+	};
+
+	b8 send(Tram*, Message);
+};
 
 void TramRunner::update(const Update& u)
 {
@@ -2440,7 +2471,8 @@ void TramRunner::update(const Update& u)
 	{
 		if (state == State::Entering)
 		{
-			Tram::by_track(track)->doors_open(true);
+			if (is_front)
+				TramNet::send(Tram::by_track(track), TramNet::Message::DoorsOpen);
 			state = State::Idle;
 		}
 
@@ -2560,22 +2592,85 @@ void Tram::awake()
 	link_arg<Entity*, &Tram::player_exited>(doors.ref()->get<PlayerTrigger>()->exited);
 }
 
-void Tram::player_entered(Entity*)
+namespace TramNet
 {
-	if (doors_open() && exiting)
+	b8 send(Tram* t, Message m)
 	{
-		doors_open(false);
-		TramRunner::go(runner_b.ref()->track, 1.0f, TramRunner::State::Exiting);
+		using Stream = Net::StreamWrite;
+		Stream* p = Net::msg_new(Net::MessageType::Tram);
+
+		{
+			Ref<Tram> ref = t;
+			serialize_ref(p, ref);
+		}
+
+		serialize_enum(p, Message, m);
+
+		Net::msg_finalize(p);
+
+		return true;
 	}
 }
 
-void Tram::player_exited(Entity*)
+b8 Tram::net_msg(Net::StreamRead* p, Net::MessageSource)
 {
-	if (doors_open())
+	using Stream = Net::StreamRead;
+
+	Ref<Tram> ref;
+	serialize_ref(p, ref);
+
+	TramNet::Message m;
+	serialize_enum(p, TramNet::Message, m);
+
+	if (Game::level.mode == Game::Mode::Parkour && ref.ref())
 	{
-		doors_open(false);
-		exiting = false;
+		switch (m)
+		{
+			case TramNet::Message::Entered:
+			{
+				if (ref.ref()->exiting && ref.ref()->doors_open())
+				{
+					ref.ref()->doors_open(false);
+					if (Game::level.local)
+						TramRunner::go(ref.ref()->track(), 1.0f, TramRunner::State::Exiting);
+				}
+				break;
+			}
+			case TramNet::Message::Exited:
+			{
+				if (ref.ref()->doors_open())
+				{
+					ref.ref()->doors_open(false);
+					ref.ref()->exiting = false;
+				}
+				break;
+			}
+			case TramNet::Message::DoorsOpen:
+			{
+				ref.ref()->doors_open(true);
+				break;
+			}
+			default:
+			{
+				vi_assert(false);
+				break;
+			}
+		}
 	}
+
+	return true;
+}
+
+void Tram::player_entered(Entity* e)
+{
+	if (e->get<PlayerControlHuman>()->local() && doors_open() && exiting)
+		TramNet::send(this, TramNet::Message::Entered);
+}
+
+void Tram::player_exited(Entity* e)
+{
+	if (e->get<PlayerControlHuman>()->local() && doors_open())
+		TramNet::send(this, TramNet::Message::Exited);
 }
 
 Tram* Tram::by_track(s8 track)
@@ -2586,6 +2681,11 @@ Tram* Tram::by_track(s8 track)
 			return i.item();
 	}
 	return nullptr;
+}
+
+s8 Tram::track() const
+{
+	return runner_b.ref()->track;
 }
 
 b8 Tram::doors_open() const
@@ -2644,9 +2744,8 @@ TramInteractableEntity::TramInteractableEntity(s8 track)
 	anim->layers[1].loop = false;
 	anim->layers[1].blend_time = 0.0f;
 
-	Interactable* i = create<Interactable>();
+	Interactable* i = create<Interactable>(Interactable::Type::Tram);
 	i->user_data = track;
-	i->interacted.link(&interacted);
 }
 
 Array<Ascensions::Entry> Ascensions::entries;

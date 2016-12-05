@@ -353,6 +353,10 @@ void Game::update(const Update& update_in)
 	{
 		r32 old_timer = schedule_timer;
 		schedule_timer = vi_max(0.0f, schedule_timer - real_time.delta);
+#if SERVER
+		if (schedule_timer < TRANSITION_TIME && old_timer >= TRANSITION_TIME)
+			Net::Server::transition_level(); // let clients know that we're switching levels
+#endif
 		if (scheduled_load_level != AssetNull && schedule_timer < TRANSITION_TIME * 0.5f && old_timer >= TRANSITION_TIME * 0.5f)
 			load_level(u, scheduled_load_level, scheduled_mode);
 	}
@@ -429,6 +433,7 @@ void Game::update(const Update& update_in)
 			for (auto i = TramRunner::list.iterator(); !i.is_last(); i.next())
 				i.item()->update(u);
 		}
+
 		MinionCommon::update_client_all(u);
 		Grenade::update_client_all(u);
 		Rocket::update_client_all(u);
@@ -451,6 +456,15 @@ void Game::update(const Update& update_in)
 			i.item()->update(u);
 		for (auto i = Shockwave::list.iterator(); !i.is_last(); i.next())
 			i.item()->update(u);
+		for (auto i = Parkour::list.iterator(); !i.is_last(); i.next())
+		{
+			if (i.item()->get<PlayerControlHuman>()->local())
+			{
+				if (!level.local)
+					i.item()->get<Walker>()->update(u); // walkers are normally only updated on the server
+				i.item()->update(u);
+			}
+		}
 		for (auto i = PlayerCommon::list.iterator(); !i.is_last(); i.next())
 			i.item()->update(u);
 		for (auto i = PlayerControlHuman::list.iterator(); !i.is_last(); i.next())
@@ -458,15 +472,6 @@ void Game::update(const Update& update_in)
 
 		for (s32 i = 0; i < updates.length; i++)
 			(*updates[i])(u);
-	}
-
-	for (auto i = Parkour::list.iterator(); !i.is_last(); i.next())
-	{
-		if (i.item()->get<PlayerControlHuman>()->local())
-		{
-			i.item()->get<Walker>()->update(u);
-			i.item()->update(u);
-		}
 	}
 
 	Console::update(u);
@@ -916,10 +921,10 @@ void Game::execute(const Update& u, const char* cmd)
 		else
 			host = "127.0.0.1";
 
-		Game::save = Game::Save();
-		Game::session.reset();
-		Game::session.story_mode = false;
-		Game::unload_level();
+		save = Save();
+		session.reset();
+		session.story_mode = false;
+		unload_level();
 		Net::Client::connect(host, 3494);
 #endif
 	}
@@ -940,6 +945,8 @@ void Game::schedule_load_level(AssetID level_id, Mode m, r32 delay)
 
 void Game::unload_level()
 {
+	Net::reset();
+
 	Overworld::clear();
 	Ascensions::clear();
 	Cora::cleanup();
@@ -947,7 +954,6 @@ void Game::unload_level()
 		Audio::listener_disable(i);
 
 	level.local = true;
-	Net::reset();
 
 	World::clear(); // deletes all entities
 
@@ -1022,6 +1028,10 @@ AI::Team team_lookup(const AI::Team* table, s32 i)
 void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 {
 	unload_level();
+
+#if SERVER
+	Net::Server::level_loading();
+#endif
 
 	time.total = 0.0f;
 
@@ -1729,7 +1739,7 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 	for (auto i = PlayerManager::list.iterator(); !i.is_last(); i.next())
 		Net::finalize(i.item()->entity());
 
-	awake_all();
+	Team::awake_all();
 	for (auto i = Team::list.iterator(); !i.is_last(); i.next())
 		Net::finalize(i.item()->entity());
 
@@ -1740,13 +1750,11 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 		scripts[i]->function(u, finder);
 
 	Loader::level_free(json);
+
+#if SERVER
+	Net::Server::level_loaded();
+#endif
 }
 
-void Game::awake_all()
-{
-	Team::awake_all();
-	if (level.terminal_interactable.ref())
-		TerminalInteractable::awake(level.terminal_interactable.ref());
-}
 
 }

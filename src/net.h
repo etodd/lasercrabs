@@ -55,6 +55,8 @@ enum class MessageType
 	InitDone,
 	LoadingDone,
 	TimeSync,
+	Tram,
+	TransitionLevel,
 	count,
 };
 
@@ -128,6 +130,9 @@ namespace Server
 
 	Mode mode();
 	s32 expected_clients();
+	void transition_level();
+	void level_loading();
+	void level_loaded();
 }
 #else
 namespace Client
@@ -142,15 +147,19 @@ namespace Client
 
 	Mode mode();
 
+	void connect(Sock::Address);
 	void connect(const char*, u16);
 
 	b8 lagging();
+
+	Sock::Address server_address();
 }
 #endif
 
 void term();
 void reset();
 
+b8 transform_filter(const Entity*);
 StreamWrite* msg_new(MessageType);
 StreamWrite* msg_new_local(MessageType);
 b8 msg_finalize(StreamWrite*);

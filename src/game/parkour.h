@@ -63,7 +63,6 @@ struct Parkour : public ComponentType<Parkour>
 	b8 try_wall_run(WallRunState, const Vec3&);
 	void wall_run_up_add_velocity(const Vec3&, const Vec3&);
 	void wall_jump(r32, const Vec3&, const btRigidBody*);
-	Vec3 get_support_velocity(const Vec3&, const btCollisionObject*) const;
 
 	void update(const Update&);
 };

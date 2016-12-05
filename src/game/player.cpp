@@ -687,6 +687,7 @@ void PlayerHuman::spawn()
 				// spawn in tram
 				Quat rot;
 				tram->get<Transform>()->absolute(&pos, &rot);
+				pos.y += 2.0f;
 				dir = rot * Vec3(0, 0, -1);
 			}
 			else
@@ -694,6 +695,7 @@ void PlayerHuman::spawn()
 				// spawn at PlayerSpawn
 				Quat rot;
 				get<PlayerManager>()->team.ref()->player_spawn.ref()->absolute(&pos, &rot);
+				pos.y += 2.0f;
 				dir = rot * Vec3(0, 1, 0);
 			}
 			dir.y = 0.0f;
@@ -701,7 +703,7 @@ void PlayerHuman::spawn()
 			angle = atan2f(dir.x, dir.z);
 		}
 
-		spawned = World::create<Traceur>(pos + Vec3(0, 2, 0), Quat::euler(0, angle, 0), get<PlayerManager>()->team.ref()->team());
+		spawned = World::create<Traceur>(pos, Quat::euler(0, angle, 0), get<PlayerManager>()->team.ref()->team());
 
 		if (Game::level.post_pvp)
 		{
@@ -1242,13 +1244,13 @@ void PlayerHuman::draw_alpha(const RenderParams& params) const
 
 		if (mode == UIMode::PvpDefault || mode == UIMode::Upgrading) // show game timer
 			battery_timer_draw(params, vp.size * Vec2(0.9f, 0.1f));
-
-		// network error icon
-#if !SERVER
-		if (!Game::level.local && Net::Client::lagging())
-			UI::mesh(params, Asset::Mesh::icon_network_error, vp.size * Vec2(0.9f, 0.5f), Vec2(text_size * 2.0f * UI::scale), UI::color_alert);
-#endif
 	}
+
+	// network error icon
+#if !SERVER
+	if (!Game::level.local && Net::Client::lagging())
+		UI::mesh(params, Asset::Mesh::icon_network_error, vp.size * Vec2(0.9f, 0.5f), Vec2(text_size * 2.0f * UI::scale), UI::color_alert);
+#endif
 
 	// message
 	if (msg_timer < msg_time)

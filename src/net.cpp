@@ -229,23 +229,6 @@ template<typename Stream> b8 serialize_constraint(Stream* p, RigidBody::Constrai
 	return true;
 }
 
-b8 transform_filter(const Entity* t)
-{
-	return t->component_mask
-		&
-		(
-			Awk::component_mask
-			| EnergyPickup::component_mask
-			| Projectile::component_mask
-			| Rocket::component_mask
-			| MinionCommon::component_mask
-			| Sensor::component_mask
-			| Grenade::component_mask
-			| Tram::component_mask
-			| TramRunner::component_mask
-		);
-}
-
 template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 {
 	const ComponentMask mask = Transform::component_mask
@@ -682,6 +665,7 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 	{
 		Interactable* i = e->get<Interactable>();
 		serialize_s32(p, i->user_data);
+		serialize_enum(p, Interactable::Type, i->type);
 	}
 
 	if (e->has<Tram>())
@@ -1531,11 +1515,11 @@ template<typename Stream> b8 serialize_state_frame(Stream* p, StateFrame* frame,
 					serialize_s16(p, frame->transforms[index].revision);
 				b8 parent_changed;
 				if (Stream::IsWriting)
-					parent_changed = !base || !frame->transforms[index].parent.equals(base->transforms[index].parent);
+					parent_changed = revision_changed || !base || !frame->transforms[index].parent.equals(base->transforms[index].parent);
 				serialize_bool(p, parent_changed);
 				if (parent_changed)
 					serialize_ref(p, frame->transforms[index].parent);
-				if (!serialize_transform(p, &frame->transforms[index], base ? &base->transforms[index] : nullptr))
+				if (!serialize_transform(p, &frame->transforms[index], (base && !revision_changed) ? &base->transforms[index] : nullptr))
 					net_error();
 			}
 
@@ -1853,7 +1837,8 @@ void state_frame_apply(const StateFrame& frame, const StateFrame& frame_last, co
 
 					if (t->has<RigidBody>())
 					{
-						btRigidBody* btBody = t->get<RigidBody>()->btBody;
+						RigidBody* body = t->get<RigidBody>();
+						btRigidBody* btBody = body->btBody;
 						if (btBody)
 						{
 							Vec3 abs_pos;
@@ -1863,18 +1848,24 @@ void state_frame_apply(const StateFrame& frame, const StateFrame& frame_last, co
 							btBody->setWorldTransform(world_transform);
 							btBody->setInterpolationWorldTransform(world_transform);
 							if (frame_next && !equal_states_transform(s, frame_next->transforms[index]))
-								btBody->activate(true);
+							{
+								if (btBody->isStaticOrKinematicObject())
+									body->activate_linked();
+								else
+									btBody->activate(true);
+							}
 						}
-					}
 
-					if (frame_next && t->has<Target>())
-					{
-						Vec3 abs_pos_next;
-						Vec3 abs_pos_last;
-						transform_absolute(frame_last, index, &abs_pos_last);
-						transform_absolute(*frame_next, index, &abs_pos_next);
-						Target* target = t->get<Target>();
-						target->net_velocity = target->net_velocity * 0.9f + ((abs_pos_next - abs_pos_last) / NET_TICK_RATE) * 0.1f;
+						if (frame_next && t->has<Target>())
+						{
+							Vec3 abs_pos_last;
+							Quat abs_rot_last;
+							transform_absolute(frame_last, index, &abs_pos_last, &abs_rot_last);
+							Vec3 abs_pos_next;
+							Quat abs_rot_next;
+							transform_absolute(*frame_next, index, &abs_pos_next, &abs_rot_next);
+							t->get<Target>()->net_velocity = t->get<Target>()->net_velocity * 0.8f + ((abs_pos_next - abs_pos_last) / NET_TICK_RATE) * 0.2f;
+						}
 					}
 				}
 			}
@@ -2082,14 +2073,31 @@ b8 init()
 
 	// todo: allow both multiplayer / story mode sessions
 	Game::session.story_mode = true;
-	state_server.mode = Mode::Loading;
 	Game::load_level(Update(), Asset::Level::Moros, Game::Mode::Parkour);
+
+	return true;
+}
+
+// let clients know we're about to switch levels
+void transition_level()
+{
+	msg_finalize(msg_new(MessageType::TransitionLevel));
+}
+
+// disable entity spawn messages while we're loading the level
+void level_loading()
+{
+	state_server.mode = Mode::Loading;
+}
+
+// enter normal operation after loading a level
+void level_loaded()
+{
+	vi_assert(state_server.mode == Mode::Loading);
 	if (Game::session.story_mode)
 		state_server.mode = Mode::Active;
 	else
 		state_server.mode = Mode::Waiting;
-
-	return true;
 }
 
 b8 packet_build_init(StreamWrite* p, Client* client)
@@ -2266,7 +2274,7 @@ void tick(const Update& u, r32 dt)
 		{
 			p.reset();
 			packet_build_update(&p, client, frame);
-			packet_send(p, state_server.clients[i].address);
+			packet_send(p, client->address);
 		}
 	}
 
@@ -2512,6 +2520,12 @@ b8 msg_process(StreamRead* p, Client* client)
 				net_error();
 			break;
 		}
+		case MessageType::Tram:
+		{
+			if (!Tram::net_msg(p, MessageSource::Remote))
+				net_error();
+			break;
+		}
 		case MessageType::ClientSetup:
 		{
 			// create players
@@ -2599,6 +2613,7 @@ struct StateClient
 	SequenceHistory server_recently_resent; // sequences we recently resent to the server
 	MessageFrameState server_processed_msg_frame = { NET_SEQUENCE_INVALID, false }; // most recent sequence ID we've processed from the server
 	MessageFrameState server_processed_load_msg_frame = { NET_SEQUENCE_INVALID, false }; // most recent sequence ID of load messages we've processed from the server
+	b8 reconnect;
 };
 StateClient state_client;
 
@@ -2767,9 +2782,19 @@ void update(const Update& u, r32 dt)
 	}
 }
 
+void handle_server_disconnect()
+{
+	state_client.mode = Mode::Disconnected;
+	if (state_client.reconnect)
+	{
+		Sock::Address addr = state_client.server_address;
+		Game::unload_level();
+		connect(addr);
+	}
+}
+
 void tick(const Update& u, r32 dt)
 {
-	state_client.timeout += dt;
 	switch (state_client.mode)
 	{
 		case Mode::Disconnected:
@@ -2778,6 +2803,7 @@ void tick(const Update& u, r32 dt)
 		}
 		case Mode::Connecting:
 		{
+			state_client.timeout += dt;
 			vi_debug("Connecting to %s:%hd...", Sock::host_to_str(state_client.server_address.host), state_client.server_address.port);
 			StreamWrite p;
 			packet_build_connect(&p);
@@ -2787,10 +2813,11 @@ void tick(const Update& u, r32 dt)
 		case Mode::Loading:
 		case Mode::Connected:
 		{
+			state_client.timeout += dt;
 			if (state_client.timeout > NET_TIMEOUT)
 			{
 				vi_debug("Connection to %s:%hd timed out.", Sock::host_to_str(state_client.server_address.host), state_client.server_address.port);
-				state_client.mode = Mode::Disconnected;
+				handle_server_disconnect();
 			}
 			else
 			{
@@ -2812,11 +2839,19 @@ void tick(const Update& u, r32 dt)
 	}
 }
 
-void connect(const char* ip, u16 port)
+void connect(Sock::Address addr)
 {
 	Game::level.local = false;
-	Sock::get_address(&state_client.server_address, ip, port);
+	Game::schedule_timer = 0.0f;
+	state_client.server_address = addr;
 	state_client.mode = Mode::Connecting;
+}
+
+void connect(const char* ip, u16 port)
+{
+	Sock::Address addr;
+	Sock::get_address(&addr, ip, port);
+	connect(addr);
 }
 
 Mode mode()
@@ -2915,7 +2950,7 @@ b8 packet_handle(const Update& u, StreamRead* p, const Sock::Address& address)
 			{
 				// we missed a packet that we'll never be able to recover
 				vi_debug("Lost connection to %s:%hd due to sequence gap. Local seq: %d. Remote seq: %d.", Sock::host_to_str(state_client.server_address.host), state_client.server_address.port, s32(processed_msg_frame.sequence_id), s32(msg_sequence_id));
-				state_client.mode = Mode::Disconnected;
+				handle_server_disconnect();
 				return false;
 			}
 
@@ -2954,7 +2989,7 @@ b8 packet_handle(const Update& u, StreamRead* p, const Sock::Address& address)
 		case ServerPacket::Disconnect:
 		{
 			vi_debug("Connection closed by %s:%hd.", Sock::host_to_str(state_client.server_address.host), state_client.server_address.port);
-			state_client.mode = Mode::Disconnected;
+			handle_server_disconnect();
 			break;
 		}
 		default:
@@ -3005,17 +3040,29 @@ b8 msg_process(StreamRead* p)
 			vi_assert(state_client.mode == Mode::Loading);
 			for (auto i = Entity::list.iterator(); !i.is_last(); i.next())
 				World::awake(i.item());
-			Game::awake_all();
+			Team::awake_all();
 
 			// let the server know we're done loading
 			vi_debug("Finished loading.");
 			msg_finalize(msg_new(MessageType::LoadingDone));
 			state_client.mode = Mode::Connected;
+
+			// letterbox effect
+			Game::schedule_timer = TRANSITION_TIME * 0.5f;
+
 			break;
 		}
 		case MessageType::TimeSync:
 		{
 			serialize_r32_range(p, Team::match_time, 0, Game::level.time_limit, 16);
+			break;
+		}
+		case MessageType::TransitionLevel:
+		{
+			// start letterbox animation
+			Game::schedule_timer = TRANSITION_TIME;
+			// wait for server to disconnect, then reconnect
+			state_client.reconnect = true;
 			break;
 		}
 		case MessageType::Noop:
@@ -3050,6 +3097,11 @@ b8 lagging()
 {
 	return state_client.mode == Mode::Disconnected
 		|| (state_client.msgs_in_history.msg_frames.length > 0 && state_common.timestamp - state_client.msgs_in_history.msg_frames[state_client.msgs_in_history.current_index].timestamp > NET_TICK_RATE * 5.0f);
+}
+
+Sock::Address server_address()
+{
+	return state_client.server_address;
 }
 
 
@@ -3095,15 +3147,18 @@ b8 finalize(Entity* e)
 b8 remove(Entity* e)
 {
 #if SERVER
-	vi_assert(Entity::list.active(e->id()));
-	using Stream = StreamWrite;
-	StreamWrite* p = msg_new(MessageType::EntityRemove);
-	ID id = e->id();
+	if (Server::state_server.mode != Server::Mode::Loading)
+	{
+		vi_assert(Entity::list.active(e->id()));
+		using Stream = StreamWrite;
+		StreamWrite* p = msg_new(MessageType::EntityRemove);
+		ID id = e->id();
 #if DEBUG_ENTITY
-	vi_debug("Deleting entity ID %d", s32(id));
+		vi_debug("Deleting entity ID %d", s32(id));
 #endif
-	serialize_int(p, ID, id, 0, MAX_ENTITIES - 1);
-	msg_finalize(p);
+		serialize_int(p, ID, id, 0, MAX_ENTITIES - 1);
+		msg_finalize(p);
+	}
 #endif
 	return true;
 }
@@ -3329,6 +3384,12 @@ b8 msg_process(StreamRead* p, MessageSource src)
 				net_error();
 			break;
 		}
+		case MessageType::Tram:
+		{
+			if (!Tram::net_msg(p, MessageSource::Remote))
+				net_error();
+			break;
+		}
 		default:
 		{
 			vi_debug("Unknown message type: %d", s32(type));
@@ -3358,12 +3419,29 @@ b8 msg_finalize(StreamWrite* p)
 		&& type != MessageType::EntityRemove
 		&& type != MessageType::InitDone
 		&& type != MessageType::LoadingDone
-		&& type != MessageType::TimeSync)
+		&& type != MessageType::TimeSync
+		&& type != MessageType::TransitionLevel)
 	{
 		r.rewind();
 		msg_process(&r, MessageSource::Loopback);
 	}
 	return true;
+}
+
+b8 transform_filter(const Entity* t)
+{
+	return t->component_mask
+		&
+		(
+			Awk::component_mask
+			| EnergyPickup::component_mask
+			| Projectile::component_mask
+			| Rocket::component_mask
+			| MinionCommon::component_mask
+			| Sensor::component_mask
+			| Grenade::component_mask
+			| TramRunner::component_mask
+		);
 }
 
 r32 rtt(const PlayerHuman* p)

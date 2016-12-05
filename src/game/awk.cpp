@@ -228,7 +228,11 @@ void particle_trail(const Vec3& start, const Vec3& dir, r32 distance, r32 interv
 
 void client_hit_effects(Awk* awk, Entity* target)
 {
-	Vec3 pos = target->get<Transform>()->absolute_pos();
+	Vec3 pos;
+	if (target)
+		pos = target->get<Transform>()->absolute_pos();
+	else
+		pos = awk->get<Transform>()->absolute_pos();
 
 	Quat rot = Quat::look(Vec3::normalize(awk->velocity));
 	for (s32 i = 0; i < 50; i++)
@@ -1230,6 +1234,8 @@ void awk_reflection_execute(Awk* a, const Vec3& dir)
 	a->get<Transform>()->rot = Quat::look(Vec3::normalize(new_velocity));
 	a->velocity = new_velocity;
 	a->remote_reflection_timer = 0.0f;
+
+	client_hit_effects(a, nullptr);
 }
 
 void Awk::reflect(Entity* entity, const Vec3& hit, const Vec3& normal, const Net::StateFrame* state_frame)

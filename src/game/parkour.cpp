@@ -179,10 +179,7 @@ b8 Parkour::wallrun(const Update& u, RigidBody* wall, const Vec3& relative_wall_
 
 	Vec3 support_velocity = Vec3::zero;
 	if (wall)
-	{
-		support_velocity = Vec3(wall->btBody->getLinearVelocity())
-			+ Vec3(wall->btBody->getAngularVelocity()).cross(absolute_wall_pos - Vec3(wall->btBody->getCenterOfMassPosition()));
-	}
+		support_velocity = Walker::get_support_velocity(absolute_wall_pos, wall->btBody);
 
 	Vec3 horizontal_velocity_diff = velocity - support_velocity;
 	r32 vertical_velocity_diff = horizontal_velocity_diff.y;
@@ -312,7 +309,7 @@ void Parkour::update(const Update& u)
 		// if so, stop wall-running
 		Vec3 support_velocity = Vec3::zero;
 		if (last_support.ref())
-			support_velocity = get_support_velocity(relative_support_pos, last_support.ref()->btBody);
+			support_velocity = Walker::get_support_velocity(relative_support_pos, last_support.ref()->btBody);
 		Vec3 velocity = get<RigidBody>()->btBody->getLinearVelocity();
 		if (fsm.time > 0.2f || velocity.y - support_velocity.y < 0.0f)
 		{
@@ -323,7 +320,6 @@ void Parkour::update(const Update& u)
 
 		if (!exit_wallrun)
 		{
-
 			// check if we need to transfer to a different wall
 			{
 				Vec3 ray_start = get<Walker>()->base_pos() + Vec3(0, get<Walker>()->support_height + get<Walker>()->height * 0.25f, 0);
@@ -417,7 +413,7 @@ void Parkour::update(const Update& u)
 	else if (fsm.current == State::Slide || fsm.current == State::Roll)
 	{
 		// check how fast we're going
-		Vec3 support_velocity = get_support_velocity(relative_support_pos, last_support.ref() ? last_support.ref()->btBody : nullptr);
+		Vec3 support_velocity = Walker::get_support_velocity(relative_support_pos, last_support.ref() ? last_support.ref()->btBody : nullptr);
 		Vec3 velocity = get<RigidBody>()->btBody->getLinearVelocity();
 		Vec3 relative_velocity = velocity - support_velocity;
 		Vec3 forward = Quat::euler(0, get<Walker>()->rotation, 0) * Vec3(0, 0, 1);
@@ -648,27 +644,10 @@ b8 Parkour::try_jump(r32 rotation)
 	return did_jump;
 }
 
-Vec3 Parkour::get_support_velocity(const Vec3& absolute_pos, const btCollisionObject* support) const
-{
-	Vec3 support_velocity = Vec3::zero;
-	if (support)
-	{
-		const btRigidBody* support_body = dynamic_cast<const btRigidBody*>(support);
-		support_velocity = Vec3(support_body->getLinearVelocity())
-			+ Vec3(support_body->getAngularVelocity()).cross(get<Walker>()->base_pos() - Vec3(support_body->getCenterOfMassPosition()));
-	}
-	return support_velocity;
-}
-
 void Parkour::wall_jump(r32 rotation, const Vec3& wall_normal, const btRigidBody* support_body)
 {
 	Vec3 pos = get<Walker>()->base_pos();
-	Vec3 support_velocity = Vec3::zero;
-	if (support_body)
-	{
-		support_velocity = Vec3(support_body->getLinearVelocity())
-			+ Vec3(support_body->getAngularVelocity()).cross(pos - Vec3(support_body->getCenterOfMassPosition()));
-	}
+	Vec3 support_velocity = Walker::get_support_velocity(pos, support_body);
 
 	RigidBody* body = get<RigidBody>();
 
@@ -706,7 +685,7 @@ b8 Parkour::try_slide()
 		{
 			Vec3 velocity = get<RigidBody>()->btBody->getLinearVelocity();
 			Vec3 forward = Quat::euler(0, get<Walker>()->rotation, 0) * Vec3(0, 0, 1);
-			Vec3 support_velocity = get_support_velocity(support_callback.m_hitPointWorld, support_callback.m_collisionObject);
+			Vec3 support_velocity = Walker::get_support_velocity(support_callback.m_hitPointWorld, support_callback.m_collisionObject);
 			Vec3 relative_velocity = velocity - support_velocity;
 
 			if (get<Walker>()->support.ref())
@@ -822,8 +801,7 @@ b8 Parkour::try_wall_run(WallRunState s, const Vec3& wall_direction)
 		Vec3 wall_normal = ray_callback.m_hitNormalWorld;
 
 		const btRigidBody* support_body = dynamic_cast<const btRigidBody*>(ray_callback.m_collisionObject);
-		Vec3 support_velocity = Vec3(support_body->getLinearVelocity())
-			+ Vec3(support_body->getAngularVelocity()).cross(ray_callback.m_hitPointWorld - Vec3(support_body->getCenterOfMassPosition()));
+		Vec3 support_velocity = Walker::get_support_velocity(ray_callback.m_hitPointWorld, support_body);
 
 		// if we are running on a new wall, we need to add velocity
 		// if it's the same wall we were running on before, we should not add any velocity

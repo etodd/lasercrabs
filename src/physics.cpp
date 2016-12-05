@@ -184,6 +184,21 @@ void RigidBody::awake()
 	}
 }
 
+RigidBody::~RigidBody()
+{
+	for (auto i = global_constraints.iterator(); !i.is_last(); i.next())
+	{
+		Constraint* constraint = i.item();
+		if (constraint->a.ref() == this || constraint->b.ref() == this)
+			remove_constraint(i.index);
+	}
+	Physics::btWorld->removeRigidBody(btBody);
+	delete btBody;
+	delete btShape;
+	if (btMesh)
+		delete btMesh;
+}
+
 void RigidBody::set_restitution(r32 r)
 {
 	restitution = r;
@@ -340,19 +355,5 @@ void RigidBody::activate_linked()
 	}
 }
 
-RigidBody::~RigidBody()
-{
-	for (auto i = global_constraints.iterator(); !i.is_last(); i.next())
-	{
-		Constraint* constraint = i.item();
-		if (constraint->a.ref() == this || constraint->b.ref() == this)
-			remove_constraint(i.index);
-	}
-	Physics::btWorld->removeRigidBody(btBody);
-	delete btBody;
-	delete btShape;
-	if (btMesh)
-		delete btMesh;
-}
 
 }

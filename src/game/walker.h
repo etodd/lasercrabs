@@ -11,6 +11,8 @@ struct RigidBody;
 
 struct Walker : public ComponentType<Walker>
 {
+	static Vec3 get_support_velocity(const Vec3&, const btCollisionObject*);
+
 	Vec2 dir;
 	r32 height,
 		support_height,

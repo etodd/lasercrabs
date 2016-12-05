@@ -395,11 +395,22 @@ struct PlayerTrigger : public ComponentType<PlayerTrigger>
 
 struct Interactable : public ComponentType<Interactable>
 {
+	enum Type
+	{
+		Terminal,
+		Tram,
+		Invalid,
+		count = Invalid,
+	};
+
 	static Interactable* closest(const Vec3&);
 	static b8 net_msg(Net::StreamRead*, Net::MessageSource);
 
 	s32 user_data;
+	Type type;
 	LinkArg<Interactable*> interacted;
+
+	Interactable(Type = Type::Invalid);
 
 	void awake();
 	void interact();
@@ -418,7 +429,6 @@ struct TerminalEntity : public Entity
 
 struct TerminalInteractable : public Entity
 {
-	static void awake(Entity*);
 	static void interacted(Interactable*);
 
 	TerminalInteractable();
@@ -464,6 +474,7 @@ struct TramEntity : public Entity
 struct Tram : public ComponentType<Tram>
 {
 	static Tram* by_track(s8);
+	static b8 net_msg(Net::StreamRead*, Net::MessageSource);
 
 	Ref<TramRunner> runner_a;
 	Ref<TramRunner> runner_b;
@@ -472,6 +483,7 @@ struct Tram : public ComponentType<Tram>
 
 	b8 doors_open() const;
 	void doors_open(b8);
+	s8 track() const;
 
 	void player_entered(Entity*);
 	void player_exited(Entity*);

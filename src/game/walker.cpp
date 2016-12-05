@@ -129,6 +129,19 @@ btCollisionWorld::ClosestRayResultCallback Walker::check_support(r32 extra_dista
 	return btCollisionWorld::ClosestRayResultCallback(Vec3::zero, Vec3::zero);
 }
 
+Vec3 Walker::get_support_velocity(const Vec3& absolute_pos, const btCollisionObject* support)
+{
+	Vec3 support_velocity = Vec3::zero;
+	if (support)
+	{
+		const btRigidBody* support_body = dynamic_cast<const btRigidBody*>(support);
+		support_velocity = support_body->getLinearVelocity()
+			+ Vec3(support_body->getAngularVelocity()).cross(absolute_pos - Vec3(support_body->getCenterOfMassPosition()));
+	}
+	return support_velocity;
+}
+
+
 void update_net_speed(const Update& u, Walker* w, const Vec3& v, const Vec3& support_velocity, const Vec3& z)
 {
 	r32 new_net_speed = vi_min(w->max_speed, v.dot(z) - support_velocity.dot(z));
@@ -171,8 +184,7 @@ void Walker::update(const Update& u)
 		{
 			const btRigidBody* object = (const btRigidBody*)(ray_callback.m_collisionObject);
 
-			support_velocity = Vec3(object->getLinearVelocity())
-				+ Vec3(object->getAngularVelocity()).cross(pos - Vec3(object->getCenterOfMassPosition()));
+			support_velocity = get_support_velocity(pos, object);
 
 			r32 velocity_diff = velocity.y - support_velocity.y;
 
@@ -185,7 +197,7 @@ void Walker::update(const Update& u)
 
 			r32 expected_vertical_speed = velocity_flattened.y;
 
-			if (velocity_diff < expected_vertical_speed + 0.5f)
+			if (velocity_diff < expected_vertical_speed + 3.5f)
 			{
 				if (velocity_diff < expected_vertical_speed - 0.5f)
 					land.fire(velocity_diff - expected_vertical_speed);

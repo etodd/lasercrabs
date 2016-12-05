@@ -2552,8 +2552,8 @@ void update(const Update& u)
 		// pause
 		if (!Game::cancel_event_eaten[0])
 		{
-			if (Game::session.story_mode && (u.last_input->get(Controls::Cancel, 0) && !u.input->get(Controls::Cancel, 0))
-				|| (u.input->get(Controls::Scoreboard, 0) && !u.last_input->get(Controls::Scoreboard, 0)))
+			if (Game::session.story_mode && ((u.last_input->get(Controls::Cancel, 0) && !u.input->get(Controls::Cancel, 0))
+				|| (u.input->get(Controls::Scoreboard, 0) && !u.last_input->get(Controls::Scoreboard, 0))))
 			{
 				Game::cancel_event_eaten[0] = true;
 				hide();

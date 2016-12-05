@@ -773,7 +773,7 @@ void Game::execute(const Update& u, const char* cmd)
 			PlayerManager* player = PlayerHuman::list.iterator().item()->get<PlayerManager>();
 			if (level.type == Type::Deathmatch)
 				player->kills = level.kill_limit;
-			else if (level.type == Type::Rush);
+			else if (level.type == Type::Rush)
 			{
 				for (auto i = ControlPoint::list.iterator(); !i.is_last(); i.next())
 				{

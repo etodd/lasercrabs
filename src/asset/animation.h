@@ -8,7 +8,7 @@ namespace Asset
 {
 	namespace Animation
 	{
-		const s32 count = 29;
+		const s32 count = 30;
 		const AssetID awk_dash = 0;
 		const AssetID awk_fly = 1;
 		const AssetID character_aim = 2;
@@ -32,12 +32,13 @@ namespace Asset
 		const AssetID interactable_disabled = 20;
 		const AssetID interactable_enabled = 21;
 		const AssetID interactable_interact = 22;
-		const AssetID terminal_close = 23;
-		const AssetID terminal_open = 24;
-		const AssetID terminal_opened = 25;
-		const AssetID tram_doors_close = 26;
-		const AssetID tram_doors_open = 27;
-		const AssetID tram_doors_opened = 28;
+		const AssetID interactable_interact_disable = 23;
+		const AssetID terminal_close = 24;
+		const AssetID terminal_open = 25;
+		const AssetID terminal_opened = 26;
+		const AssetID tram_doors_close = 27;
+		const AssetID tram_doors_open = 28;
+		const AssetID tram_doors_opened = 29;
 	}
 }
 

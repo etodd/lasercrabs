@@ -86,7 +86,8 @@ void MinionCommon::team(AI::Team t)
 	{
 		get<AIAgent>()->team = t;
 		get<SkinnedModel>()->team = s8(t);
-		get<MinionAI>()->new_goal(Vec3::zero, false); // don't allow entity targets; must be a random path
+		if (Game::level.local)
+			get<MinionAI>()->new_goal(Vec3::zero, false); // don't allow entity targets; must be a random path
 	}
 }
 

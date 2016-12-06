@@ -1681,10 +1681,7 @@ void PlayerControlHuman::parkour_landed(r32 velocity_diff)
 	if (velocity_diff < LANDING_VELOCITY_LIGHT
 		&& (parkour_state == Parkour::State::Normal || parkour_state == Parkour::State::HardLanding))
 	{
-		if (velocity_diff < LANDING_VELOCITY_HARD)
-			rumble = vi_max(rumble, 0.5f);
-		else
-			rumble = vi_max(rumble, 0.2f);
+		rumble = vi_max(rumble, velocity_diff < LANDING_VELOCITY_HARD ? 0.5f : 0.2f);
 	}
 }
 
@@ -2388,13 +2385,6 @@ void PlayerControlHuman::update(const Update& u)
 					}
 				}
 			}
-
-			// rumble
-			if (rumble > 0.0f)
-			{
-				u.input->gamepads[gamepad].rumble = vi_min(1.0f, rumble);
-				rumble = vi_max(0.0f, rumble - u.time.delta);
-			}
 		}
 		else if (Game::level.local)
 		{
@@ -2422,24 +2412,45 @@ void PlayerControlHuman::update(const Update& u)
 				{
 					if (interactable.ref()->entity() == Game::level.terminal_interactable.ref()) // special case for terminal
 					{
-						Game::ZoneState zone_state = Game::save.zones[Game::level.id];
-						if (zone_state == Game::ZoneState::Hostile)
+						switch (Game::save.zones[Game::level.id])
 						{
-							if (Game::level.max_teams <= 2 || Game::save.group != Game::Group::None) // if the map requires more than two players, you must be in a group
-								get<Animator>()->layers[3].play(Asset::Animation::character_terminal_enter); // animation will eventually trigger the interactable
-							else
+							case Game::ZoneState::Hostile:
 							{
-								player.ref()->msg(_(strings::group_required), false);
+								if (Game::level.post_pvp)
+								{
+									// terminal is temporarily locked, must leave and come back
+									player.ref()->msg(_(strings::terminal_locked), false);
+									interactable = nullptr;
+								}
+								else if (Game::level.max_teams <= 2 || Game::save.group != Game::Group::None) // if the map requires more than two players, you must be in a group
+									get<Animator>()->layers[3].play(Asset::Animation::character_terminal_enter); // animation will eventually trigger the interactable
+								else
+								{
+									// must be in a group
+									player.ref()->msg(_(strings::group_required), false);
+									interactable = nullptr;
+								}
+								break;
+							}
+							case Game::ZoneState::Locked:
+							{
+								interactable.ref()->interact();
+								get<Animator>()->layers[3].play(Asset::Animation::character_interact);
+								break;
+							}
+							case Game::ZoneState::Friendly:
+							{
+								// zone is already owned
+								player.ref()->msg(_(strings::zone_already_captured), false);
 								interactable = nullptr;
+								break;
+							}
+							default:
+							{
+								vi_assert(false);
+								break;
 							}
 						}
-						else if (zone_state == Game::ZoneState::Locked)
-						{
-							interactable.ref()->interact();
-							get<Animator>()->layers[3].play(Asset::Animation::character_interact);
-						}
-						else
-							interactable = nullptr;
 					}
 					else // regular old interactable
 					{
@@ -2674,6 +2685,13 @@ void PlayerControlHuman::update(const Update& u)
 			}
 		}
 	}
+
+	// rumble
+	if (local() && rumble > 0.0f)
+	{
+		u.input->gamepads[gamepad].rumble = vi_min(1.0f, rumble);
+		rumble = vi_max(0.0f, rumble - u.time.delta);
+	}
 }
 
 void draw_mesh_clipped(const RenderParams& p, AssetID mesh, const Mat4& m, const Plane& plane)
@@ -2896,7 +2914,7 @@ void PlayerControlHuman::draw_alpha(const RenderParams& params) const
 		// highlight control points
 		for (auto i = ControlPoint::list.iterator(); !i.is_last(); i.next())
 		{
-			if (i.item()->team == team || i.item()->team_next != AI::TeamNone || i.item()->can_be_captured_by(team))
+			if (i.item()->team == 0 || i.item()->team_next != AI::TeamNone || i.item()->can_be_captured_by(team))
 			{
 				Vec3 pos = i.item()->get<Transform>()->absolute_pos();
 				UI::indicator(params, pos, Team::ui_color(team, i.item()->team), i.item()->capture_timer > 0.0f || team == 1);

@@ -55,6 +55,7 @@ struct Health : public ComponentType<Health>
 	void awake() {}
 	void damage(Entity*, s8);
 	void take_shield();
+	void reset_hp();
 	void kill(Entity*);
 	void add(s8);
 	s8 total() const;
@@ -87,9 +88,11 @@ struct EnergyPickup : public ComponentType<EnergyPickup>
 	AI::Team team = AI::TeamNone;
 
 	void awake();
+	void killed(Entity*);
 	~EnergyPickup();
 	void hit(const TargetEvent&);
 	b8 set_team(AI::Team, Entity* = nullptr);
+	void set_team_client(AI::Team);
 	void reset();
 };
 

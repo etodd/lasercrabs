@@ -228,11 +228,7 @@ void particle_trail(const Vec3& start, const Vec3& dir, r32 distance, r32 interv
 
 void client_hit_effects(Awk* awk, Entity* target)
 {
-	Vec3 pos;
-	if (target)
-		pos = target->get<Transform>()->absolute_pos();
-	else
-		pos = awk->get<Transform>()->absolute_pos();
+	Vec3 pos = awk->get<Transform>()->absolute_pos();
 
 	Quat rot = Quat::look(Vec3::normalize(awk->velocity));
 	for (s32 i = 0; i < 50; i++)
@@ -780,7 +776,7 @@ b8 Awk::hit_target(Entity* target)
 	if (hit_targets.length < hit_targets.capacity())
 		hit_targets.add(target);
 
-	if (!Game::level.local) 
+	if (!Game::level.local) // we must be a local player on a client
 	{
 		// target hit events are synced across the network
 		// so just spawn some particles if needed, but don't do anything else

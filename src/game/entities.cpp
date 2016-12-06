@@ -183,6 +183,12 @@ void Health::take_shield()
 	damage(nullptr, shield);
 }
 
+void Health::reset_hp()
+{
+	if (hp < hp_max)
+		add(hp_max - hp);
+}
+
 void Health::kill(Entity* e)
 {
 	damage(e, hp_max + shield_max);
@@ -228,6 +234,8 @@ EnergyPickupEntity::EnergyPickupEntity(const Vec3& p, AI::Team team)
 
 	Target* target = create<Target>();
 
+	create<Health>(SENSOR_HEALTH, SENSOR_HEALTH);
+
 	EnergyPickup* pickup = create<EnergyPickup>();
 	pickup->team = team;
 	model->team = s8(team);
@@ -243,6 +251,12 @@ EnergyPickupEntity::EnergyPickupEntity(const Vec3& p, AI::Team team)
 	e->add<PointLight>()->radius = 8.0f;
 	Net::finalize(e);
 	pickup->light = e;
+}
+
+void EnergyPickup::killed(Entity* e)
+{
+	if (Game::level.local)
+		set_team(AI::TeamNone, e);
 }
 
 r32 EnergyPickup::Key::priority(EnergyPickup* p)
@@ -311,7 +325,8 @@ void EnergyPickup::sort_all(const Vec3& pos, Array<Ref<EnergyPickup>>* result, b
 void EnergyPickup::awake()
 {
 	link_arg<const TargetEvent&, &EnergyPickup::hit>(get<Target>()->target_hit);
-	set_team(team);
+	link_arg<Entity*, &EnergyPickup::killed>(get<Health>()->killed);
+	set_team_client(team);
 }
 
 EnergyPickup::~EnergyPickup()
@@ -333,6 +348,15 @@ void EnergyPickup::hit(const TargetEvent& e)
 		set_team(e.hit_by->get<AIAgent>()->team, e.hit_by);
 }
 
+void EnergyPickup::set_team_client(AI::Team t)
+{
+	team = t;
+	get<View>()->team = s8(t);
+	get<PointLight>()->team = s8(t);
+	get<PointLight>()->radius = (t == AI::TeamNone) ? 0.0f : SENSOR_RANGE;
+	get<Sensor>()->team = t;
+}
+
 b8 EnergyPickup::net_msg(Net::StreamRead* p)
 {
 	using Stream = Net::StreamRead;
@@ -344,11 +368,7 @@ b8 EnergyPickup::net_msg(Net::StreamRead* p)
 	serialize_ref(p, caused_by);
 
 	EnergyPickup* pickup = ref.ref();
-	pickup->team = t;
-	pickup->get<View>()->team = s8(t);
-	pickup->get<PointLight>()->team = s8(t);
-	pickup->get<PointLight>()->radius = (t == AI::TeamNone) ? 0.0f : SENSOR_RANGE;
-	pickup->get<Sensor>()->team = t;
+	pickup->set_team_client(t);
 	if (caused_by.ref() && t == caused_by.ref()->get<AIAgent>()->team)
 	{
 		if (Game::level.local)
@@ -364,9 +384,13 @@ b8 EnergyPickup::net_msg(Net::StreamRead* p)
 // the second parameter is the entity that caused the ownership change
 b8 EnergyPickup::set_team(AI::Team t, Entity* caused_by)
 {
+	vi_assert(Game::level.local);
+
 	// must be neutral or owned by an enemy
 	if (t != team)
 	{
+		get<Health>()->reset_hp();
+
 		using Stream = Net::StreamWrite;
 		Net::StreamWrite* p = Net::msg_new(Net::MessageType::EnergyPickup);
 		Ref<EnergyPickup> ref = this;
@@ -1378,15 +1402,7 @@ void Projectile::update(const Update& u)
 		{
 			Entity* owner_instance = owner.ref() ? owner.ref()->instance.ref() : nullptr;
 			Vec3 basis;
-			if (hit_object->has<EnergyPickup>())
-			{
-				basis = Vec3::normalize(velocity);
-				hit_object->get<EnergyPickup>()->set_team(AI::TeamNone, owner_instance);
-				RigidBody* body = hit_object->get<RigidBody>();
-				body->btBody->applyImpulse(velocity * 0.1f, Vec3::zero);
-				body->btBody->activate(true);
-			}
-			else if (hit_object->has<Health>())
+			if (hit_object->has<Health>())
 			{
 				basis = Vec3::normalize(velocity);
 				b8 do_damage = true;
@@ -2190,6 +2206,7 @@ Interactable::Interactable(Type t)
 void Interactable::awake()
 {
 	link<&Interactable::animation_callback>(get<Animator>()->trigger(Asset::Animation::interactable_interact, 1.916f));
+	link<&Interactable::animation_callback>(get<Animator>()->trigger(Asset::Animation::interactable_interact_disable, 1.916f));
 	switch (type)
 	{
 		case Type::Terminal:
@@ -2256,8 +2273,16 @@ void Interactable::interact()
 	Animator* anim = get<Animator>();
 	if (anim->layers[1].animation == AssetNull)
 	{
-		anim->layers[0].animation = Asset::Animation::interactable_disabled;
-		anim->layers[1].play(Asset::Animation::interactable_interact);
+		if (type == Type::Terminal)
+		{
+			anim->layers[0].animation = Asset::Animation::interactable_disabled;
+			anim->layers[1].play(Asset::Animation::interactable_interact_disable);
+		}
+		else
+		{
+			anim->layers[0].animation = Asset::Animation::interactable_enabled;
+			anim->layers[1].play(Asset::Animation::interactable_interact);
+		}
 	}
 }
 
@@ -2663,13 +2688,13 @@ b8 Tram::net_msg(Net::StreamRead* p, Net::MessageSource)
 
 void Tram::player_entered(Entity* e)
 {
-	if (e->get<PlayerControlHuman>()->local() && doors_open() && exiting)
+	if (e->has<Parkour>() && e->get<PlayerControlHuman>()->local() && doors_open() && exiting)
 		TramNet::send(this, TramNet::Message::Entered);
 }
 
 void Tram::player_exited(Entity* e)
 {
-	if (e->get<PlayerControlHuman>()->local() && doors_open())
+	if (e->has<Parkour>() && e->get<PlayerControlHuman>()->local() && doors_open())
 		TramNet::send(this, TramNet::Message::Exited);
 }
 

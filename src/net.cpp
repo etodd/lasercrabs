@@ -1864,7 +1864,7 @@ void state_frame_apply(const StateFrame& frame, const StateFrame& frame_last, co
 							Vec3 abs_pos_next;
 							Quat abs_rot_next;
 							transform_absolute(*frame_next, index, &abs_pos_next, &abs_rot_next);
-							t->get<Target>()->net_velocity = t->get<Target>()->net_velocity * 0.8f + ((abs_pos_next - abs_pos_last) / NET_TICK_RATE) * 0.2f;
+							t->get<Target>()->net_velocity = t->get<Target>()->net_velocity * 0.9f + ((abs_pos_next - abs_pos_last) / NET_TICK_RATE) * 0.1f;
 						}
 					}
 				}

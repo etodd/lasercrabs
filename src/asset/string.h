@@ -8,7 +8,7 @@ namespace Asset
 {
 	namespace String
 	{
-		const s32 count = 400;
+		const s32 count = 402;
 		const AssetID _default = 0;
 		const AssetID ability_spawn_cost = 1;
 		const AssetID attack = 2;
@@ -379,36 +379,38 @@ namespace Asset
 		const AssetID team_b = 367;
 		const AssetID team_c = 368;
 		const AssetID team_d = 369;
-		const AssetID timer = 370;
-		const AssetID tip = 371;
-		const AssetID tip_0 = 372;
-		const AssetID tip_1 = 373;
-		const AssetID tip_10 = 374;
-		const AssetID tip_11 = 375;
-		const AssetID tip_2 = 376;
-		const AssetID tip_3 = 377;
-		const AssetID tip_4 = 378;
-		const AssetID tip_5 = 379;
-		const AssetID tip_7 = 380;
-		const AssetID tip_8 = 381;
-		const AssetID tip_9 = 382;
-		const AssetID tut_ability = 383;
-		const AssetID tut_health = 384;
-		const AssetID tut_kill_player = 385;
-		const AssetID tut_minion = 386;
-		const AssetID tut_start = 387;
-		const AssetID tut_upgrade = 388;
-		const AssetID unknown = 389;
-		const AssetID upgrade_description = 390;
-		const AssetID upgrade_notification = 391;
-		const AssetID upgrading = 392;
-		const AssetID victory = 393;
-		const AssetID waiting = 394;
-		const AssetID yes = 395;
-		const AssetID zodiak = 396;
-		const AssetID zones_captured = 397;
-		const AssetID zones_hostile = 398;
-		const AssetID zones_locked = 399;
+		const AssetID terminal_locked = 370;
+		const AssetID timer = 371;
+		const AssetID tip = 372;
+		const AssetID tip_0 = 373;
+		const AssetID tip_1 = 374;
+		const AssetID tip_10 = 375;
+		const AssetID tip_11 = 376;
+		const AssetID tip_2 = 377;
+		const AssetID tip_3 = 378;
+		const AssetID tip_4 = 379;
+		const AssetID tip_5 = 380;
+		const AssetID tip_7 = 381;
+		const AssetID tip_8 = 382;
+		const AssetID tip_9 = 383;
+		const AssetID tut_ability = 384;
+		const AssetID tut_health = 385;
+		const AssetID tut_kill_player = 386;
+		const AssetID tut_minion = 387;
+		const AssetID tut_start = 388;
+		const AssetID tut_upgrade = 389;
+		const AssetID unknown = 390;
+		const AssetID upgrade_description = 391;
+		const AssetID upgrade_notification = 392;
+		const AssetID upgrading = 393;
+		const AssetID victory = 394;
+		const AssetID waiting = 395;
+		const AssetID yes = 396;
+		const AssetID zodiak = 397;
+		const AssetID zone_already_captured = 398;
+		const AssetID zones_captured = 399;
+		const AssetID zones_hostile = 400;
+		const AssetID zones_locked = 401;
 	}
 }
 

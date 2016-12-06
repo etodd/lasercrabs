@@ -2,7 +2,6 @@
 #include "load.h"
 #include "asset/shader.h"
 #include "asset/texture.h"
-#include "game/game.h"
 #include "mersenne/mersenne-twister.h"
 
 namespace VI
@@ -12,6 +11,7 @@ namespace VI
 #define MAX_VERTICES (MAX_PARTICLES * vertices_per_particle)
 
 StaticArray<ParticleSystem*, ParticleSystem::MAX_PARTICLE_SYSTEMS> ParticleSystem::list;
+r32 ParticleSystem::time;
 
 ParticleSystem::ParticleSystem(s32 vertices_per_particle, s32 indices_per_particle, r32 lifetime, AssetID shader, AssetID texture)
 	: lifetime(lifetime),
@@ -124,7 +124,6 @@ void ParticleSystem::upload_range(RenderSync* sync, s32 start, s32 count)
 void ParticleSystem::draw(const RenderParams& params)
 {
 	// free active particles
-	r32 time = Game::time.total;
 	while (first_active != first_free)
 	{
 		if (time - births[first_active * vertices_per_particle] < lifetime)
@@ -245,9 +244,9 @@ void ParticleSystem::add_raw(const Vec3& pos, const Vec4& velocity, const Vec4& 
 		positions[vertex_start + i] = pos;
 	for (s32 i = 0; i < vertices_per_particle; i++)
 		velocities[vertex_start + i] = velocity;
-	r32 time = Game::time.total + time_offset;
+	r32 t = time + time_offset;
 	for (s32 i = 0; i < vertices_per_particle; i++)
-		births[vertex_start + i] = time;
+		births[vertex_start + i] = t;
 	for (s32 i = 0; i < vertices_per_particle; i++)
 		params[vertex_start + i] = param;
 

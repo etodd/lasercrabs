@@ -402,20 +402,26 @@ enum class MemoryStatus
 	Forget, // ignore and delete any existing memory
 };
 
+enum UpdateMemoryFlags
+{
+	UpdateMemoryLimitRange = 1,
+};
+
 template<typename Component>
-void update_component_memory(PlayerControlAI* control, MemoryStatus (*filter)(const PlayerControlAI*, const Entity*))
+void update_component_memory(PlayerControlAI* control, MemoryStatus (*filter)(const PlayerControlAI*, const Entity*), UpdateMemoryFlags flags = UpdateMemoryLimitRange)
 {
 	PlayerAI::MemoryArray* component_memories = &control->player.ref()->memory[Component::family];
 	r32 range = control->get<Awk>()->range() * 1.5f;
+	b8 limit_range = flags & UpdateMemoryLimitRange;
 	// remove outdated memories
 	for (s32 i = 0; i < component_memories->length; i++)
 	{
 		PlayerAI::Memory* m = &(*component_memories)[i];
-		if (control->in_range(m->pos, range))
+		if (!limit_range || control->in_range(m->pos, range))
 		{
 			MemoryStatus status = MemoryStatus::Keep;
 			Entity* entity = m->entity.ref();
-			if (!entity || (control->in_range(entity->get<Transform>()->absolute_pos(), range) && filter(control, entity) == MemoryStatus::Forget))
+			if (!entity || ((!limit_range || control->in_range(entity->get<Transform>()->absolute_pos(), range)) && filter(control, entity) == MemoryStatus::Forget))
 			{
 				component_memories->remove(i);
 				i--;
@@ -429,7 +435,7 @@ void update_component_memory(PlayerControlAI* control, MemoryStatus (*filter)(co
 		for (auto i = Component::list.iterator(); !i.is_last(); i.next())
 		{
 			Vec3 pos = i.item()->template get<Transform>()->absolute_pos();
-			if (control->in_range(pos, range) && filter(control, i.item()->entity()) == MemoryStatus::Update)
+			if ((!limit_range || control->in_range(pos, range)) && filter(control, i.item()->entity()) == MemoryStatus::Update)
 			{
 				add_memory(component_memories, i.item()->entity(), pos);
 				if (component_memories->length == component_memories->capacity())
@@ -821,8 +827,12 @@ b8 enemy_control_point_filter(const PlayerControlAI* control, const Entity* e)
 	if (!control_point_filter(control, e))
 		return false;
 
-	return Game::level.has_feature(Game::FeatureLevel::Abilities)
-		&& e->get<ControlPoint>()->team != control->get<AIAgent>()->team;
+	AI::Team team = control->get<AIAgent>()->team;
+	ControlPoint* c = e->get<ControlPoint>();
+	if (team == 0) // defend
+		return c->team_next != AI::TeamNone && c->team_next != team;
+	else // attack
+		return c->team != team && c->team_next != team;
 }
 
 MemoryStatus minion_memory_filter(const PlayerControlAI* control, const Entity* e)
@@ -1265,7 +1275,6 @@ Repeat* make_low_level_loop(PlayerControlAI* control, const AI::Config& config)
 								Select::alloc
 								(
 									AIBehaviors::ReactTarget::alloc(Sensor::family, 3, 4, &default_filter),
-									AIBehaviors::AbilitySpawn::alloc(),
 									Sequence::alloc
 									(
 										AIBehaviors::ReactControlPoint::alloc(4, &enemy_control_point_filter),
@@ -1273,11 +1282,10 @@ Repeat* make_low_level_loop(PlayerControlAI* control, const AI::Config& config)
 									),
 									Sequence::alloc
 									(
-										AIBehaviors::Test::alloc(&want_upgrade_filter),
-										AIBehaviors::ReactControlPoint::alloc(5, &control_point_filter),
-										AIBehaviors::CaptureControlPoint::alloc(5),
+										AIBehaviors::ReactSpawn::alloc(5, &want_upgrade_filter),
 										AIBehaviors::DoUpgrade::alloc(4)
-									)
+									),
+									AIBehaviors::AbilitySpawn::alloc()
 								)
 							)
 						)
@@ -1321,18 +1329,10 @@ Repeat* make_high_level_loop(PlayerControlAI* control, const AI::Config& config)
 						(
 							Select::alloc
 							(
-								AIBehaviors::Find::alloc(EnergyPickup::family, 2, &energy_pickup_filter),
-								Sequence::alloc
-								(
-									AIBehaviors::Test::alloc(&want_upgrade_filter),
-									AIBehaviors::Find::alloc(ControlPoint::family, 3, &default_filter)
-								),
-								Sequence::alloc
-								(
-									AIBehaviors::Test::alloc(&really_want_upgrade_filter),
-									AIBehaviors::Find::alloc(ControlPoint::family, 4, &default_filter)
-								),
 								AIBehaviors::Find::alloc(ControlPoint::family, 2, &enemy_control_point_filter),
+								AIBehaviors::Find::alloc(EnergyPickup::family, 2, &energy_pickup_filter),
+								AIBehaviors::FindSpawn::alloc(3, &want_upgrade_filter),
+								AIBehaviors::FindSpawn::alloc(4, &really_want_upgrade_filter),
 								AIBehaviors::Find::alloc(MinionCommon::family, 2, &minion_filter),
 								AIBehaviors::Find::alloc(Sensor::family, 2, &default_filter)
 							),
@@ -1374,7 +1374,7 @@ b8 PlayerControlAI::update_memory()
 	update_component_memory<MinionCommon>(this, &minion_memory_filter);
 	update_component_memory<Sensor>(this, &sensor_memory_filter);
 	update_component_memory<AICue>(this, &default_memory_filter);
-	update_component_memory<ControlPoint>(this, &default_memory_filter);
+	update_component_memory<ControlPoint>(this, &default_memory_filter, UpdateMemoryFlags(0)); // unlimited range
 	update_component_memory<ContainmentField>(this, &default_memory_filter);
 
 	// update memory of enemy AWK positions based on team sensor data
@@ -1520,20 +1520,7 @@ void PlayerControlAI::update(const Update& u)
 	r32 aspect = camera->viewport.size.y == 0 ? 1 : (r32)camera->viewport.size.x / (r32)camera->viewport.size.y;
 	camera->perspective((80.0f * PI * 0.5f / 180.0f), aspect, 0.02f, Game::level.skybox.far_plane);
 	camera->rot = Quat::euler(0.0f, get<PlayerCommon>()->angle_horizontal, get<PlayerCommon>()->angle_vertical);
-	camera->range = get<Awk>()->range();
-	Vec3 abs_wall_normal = get<Awk>()->lerped_rotation * Vec3(0, 0, 1);
-	const r32 third_person_offset = 2.0f;
-	camera->pos = get<Awk>()->center_lerped() + camera->rot * Vec3(0, 0, -third_person_offset);
-	if (get<Transform>()->parent.ref())
-	{
-		camera->pos += abs_wall_normal * 0.5f;
-		camera->pos.y += 0.5f - vi_min((r32)fabsf(abs_wall_normal.y), 0.5f);
-	}
-	Quat inverse_rot = camera->rot.inverse();
-	camera->wall_normal = inverse_rot * abs_wall_normal;
-	camera->range_center = inverse_rot * (get<Awk>()->center_lerped() - camera->pos);
-	camera->cull_range = third_person_offset + 0.5f;
-	camera->cull_behind_wall = abs_wall_normal.dot(camera->pos - get<Awk>()->center_lerped()) < 0.0f;
+	PlayerHuman::camera_setup_awk(entity(), camera, AWK_THIRD_PERSON_OFFSET);
 #endif
 }
 
@@ -1578,6 +1565,25 @@ void Find::run()
 			pathfind(closest->pos, Vec3::zero, AI::AwkPathfind::LongRange);
 			return;
 		}
+	}
+	done(false);
+}
+
+FindSpawn::FindSpawn(s8 priority, b8(*filter)(const PlayerControlAI*))
+	: filter(filter)
+{
+	path_priority = priority;
+}
+
+void FindSpawn::run()
+{
+	active(true);
+	if (control->get<Awk>()->state() == Awk::State::Crawl
+		&& path_priority > control->path_priority
+		&& filter(control))
+	{
+		pathfind(control->get<PlayerCommon>()->manager.ref()->team.ref()->player_spawn.ref()->absolute_pos(), Vec3(0, 1, 0), AI::AwkPathfind::LongRange);
+		return;
 	}
 	done(false);
 }
@@ -1871,6 +1877,43 @@ void ReactControlPoint::run()
 						control->set_target(control_point->entity());
 						return;
 					}
+				}
+			}
+		}
+	}
+	done(false);
+}
+
+ReactSpawn::ReactSpawn(s8 priority, b8(*f)(const PlayerControlAI*))
+	: filter(f)
+{
+	path_priority = priority;
+}
+
+void ReactSpawn::run()
+{
+	active(true);
+	if (path_priority > control->path_priority && filter(control))
+	{
+		Vec3 me = control->get<Transform>()->absolute_pos();
+		Transform* spawn = control->player.ref()->manager.ref()->team.ref()->player_spawn.ref();
+		Vec3 target = spawn->absolute_pos();
+		r32 distance = (me - target).length_squared();
+		if (distance < CONTROL_POINT_RADIUS * CONTROL_POINT_RADIUS)
+		{
+			done(true);
+			return;
+		}
+		if (distance < AWK_MAX_DISTANCE * AWK_MAX_DISTANCE)
+		{
+			Vec3 hit;
+			if (control->get<Awk>()->can_shoot(target - me, &hit))
+			{
+				if ((hit - target).length_squared() < CONTROL_POINT_RADIUS * CONTROL_POINT_RADIUS)
+				{
+					control->behavior_start(this, path_priority);
+					control->set_target(spawn->entity());
+					return;
 				}
 			}
 		}

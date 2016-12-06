@@ -2884,6 +2884,7 @@ b8 packet_handle(const Update& u, StreamRead* p, const Sock::Address& address)
 					state_client.server_processed_msg_frame = state_client.server_processed_load_msg_frame = { sequence_advance(seq, -1), true };
 					vi_debug("Starting on sequence %d", s32(seq));
 					state_client.mode = Mode::Loading;
+					state_client.timeout = 0.0f;
 
 					// send client setup message
 					{

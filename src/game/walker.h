@@ -13,6 +13,9 @@ struct Walker : public ComponentType<Walker>
 {
 	static Vec3 get_support_velocity(const Vec3&, const btCollisionObject*);
 
+	static r32 default_capsule_height;
+	static r32 default_support_height;
+
 	Vec2 dir;
 	r32 height,
 		support_height,

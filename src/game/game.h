@@ -6,6 +6,7 @@
 #include "render/views.h"
 #include <unordered_map>
 #include "constants.h"
+#include "net_serialize.h"
 
 namespace VI
 {
@@ -62,17 +63,6 @@ struct Game
 		count,
 	};
 
-	enum class MatchResult
-	{
-		None,
-		Victory,
-		Loss,
-		Forfeit,
-		NetworkError,
-		OpponentQuit,
-		Draw,
-	};
-
 	enum class Type
 	{
 		Rush,
@@ -85,7 +75,6 @@ struct Game
 		AI::Team local_player_config[MAX_GAMEPADS];
 		u64 local_player_uuids[MAX_GAMEPADS];
 		r32 time_scale;
-		MatchResult last_match;
 		b8 story_mode;
 
 		Session();
@@ -124,14 +113,18 @@ struct Game
 		Array<Message> messages;
 		Array<Message> messages_scheduled;
 		std::unordered_map<AssetID, AssetID> variables; // todo: kill STL
+		Vec3 zone_current_restore_position;
+		r32 zone_current_restore_rotation;
 		ZoneState zones[MAX_ZONES];
 		Group group;
 		s16 story_index;
 		s16 resources[(s32)Resource::count];
-		AssetID last_level;
-		AssetID overworld_zone;
+		AssetID zone_last;
+		AssetID zone_current;
+		AssetID zone_overworld;
 		char username[MAX_USERNAME + 1];
 		b8 cora_called;
+		b8 zone_current_restore;
 
 		Save();
 	};

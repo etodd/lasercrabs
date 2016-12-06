@@ -19,6 +19,7 @@
 #include "net.h"
 #include "net_serialize.h"
 #include "ai_player.h"
+#include "overworld.h"
 
 #define CREDITS_FLASH_TIME 0.5f
 
@@ -157,7 +158,6 @@ void Team::awake_all()
 	if (Game::level.local) // if we're a client, the netcode manages this
 		match_time = 0.0f;
 	winner = nullptr;
-	Game::session.last_match = Game::MatchResult::Forfeit;
 }
 
 s32 Team::teams_with_players()
@@ -185,15 +185,19 @@ b8 Team::has_player() const
 	return false;
 }
 
-void Team::transition_next(Game::MatchResult result)
+void Team::transition_next()
 {
-	Game::session.last_match = result;
 	if (Game::session.story_mode)
 	{
-		if (Game::level.id == Asset::Level::Safe_Zone && result == Game::MatchResult::Loss)
-			Game::schedule_load_level(Game::level.id, Game::Mode::Pvp); // retry tutorial automatically
-		else
+		if (Game::level.id == Game::save.zone_current)
 			transition_mode(Game::Mode::Parkour);
+		else
+		{
+			// we're playing a different zone than the one the player is currently on
+			// that must mean that we need to restore the position in that zone
+			vi_assert(Game::save.zone_current_restore);
+			Game::schedule_load_level(Game::save.zone_current, Game::Mode::Parkour);
+		}
 	}
 	else
 		Game::schedule_load_level(Asset::Level::overworld, Game::Mode::Special);
@@ -567,6 +571,8 @@ b8 Team::net_msg(Net::StreamRead* p)
 				for (auto i = Sensor::list.iterator(); !i.is_last(); i.next())
 					i.item()->set_team(team_winner);
 				TerminalEntity::open();
+
+				Overworld::zone_done(Game::level.id);
 			}
 			break;
 		}
@@ -670,7 +676,7 @@ void Team::update_all_server(const Update& u)
 		}
 	}
 
-	if (game_over)
+	if (game_over && Game::scheduled_load_level == AssetNull && transition_mode_scheduled == Game::Mode::None)
 	{
 		// wait for all local players to accept scores
 		b8 score_accepted = true;
@@ -684,34 +690,7 @@ void Team::update_all_server(const Update& u)
 		}
 
 		if (score_accepted)
-		{
-			// time to get out of here
-
-			if (winner.ref())
-			{
-				// somebody won
-				if (Game::session.story_mode)
-				{
-					// if we're in story mode, only advance if the local team won
-					b8 won = false;
-					for (auto i = PlayerManager::list.iterator(); !i.is_last(); i.next())
-					{
-						if (i.item()->team.ref() == winner.ref() && i.item()->is_local())
-						{
-							transition_next(Game::MatchResult::Victory);
-							won = true;
-							break;
-						}
-					}
-					if (!won)
-						transition_next(Game::MatchResult::Loss);
-				}
-				else
-					transition_next(Game::MatchResult::None);
-			}
-			else
-				transition_next(Game::MatchResult::Draw);
-		}
+			transition_next(); // time to get out of here
 	}
 
 	update_visibility(u);

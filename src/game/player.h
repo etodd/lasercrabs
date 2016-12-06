@@ -44,6 +44,7 @@ struct PlayerHuman : public ComponentType<PlayerHuman>
 	static PlayerHuman* player_for_camera(const Camera*);
 	static void log_add(const char*, AI::Team = AI::TeamNone);
 	static void clear();
+	static void camera_setup_awk(Entity*, Camera*, r32);
 
 	u64 uuid;
 	Camera* camera;

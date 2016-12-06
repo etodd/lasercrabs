@@ -58,8 +58,6 @@
 	"energy_generation": "Energy: +%d",
 	"energy_generation_total": "Total Energy Collection: +%d",
 	"energy_generation_group": "Shared Energy Collection: +%d",
-	"auto_capture_fail_prompt": "Auto-capture interrupted by enemy. Spend %d energy to deploy manual override?",
-	"auto_capture_fail_insufficient_resource": "Auto-capture interrupted by enemy. %d %s needed to deploy manual override.",
 	"insufficient_resource": "%d %s needed.",
 	"main_menu": "Main menu",
 	"quit": "Quit",
@@ -78,7 +76,6 @@
 	"upgrading": "Upgrading...",
 	"starting_capture": "Starting crack...",
 	"canceling_capture": "Canceling crack...",
-	"auto_capturing": "Auto-capturing...",
 	"prompt_capture": "[{{Interact}}] Capture",
 	"zones_captured": "Captured: %d",
 	"zones_hostile": "Hostile: %d",
@@ -383,6 +380,7 @@
 
 	"call_timed_out": "Call timed out.",
 
+	"zone_unlocked": "Zone unlocked",
 	"victory": "Zone captured",
 	"leftover_energy": "Energy surplus",
 	"defeat": "Zone lost",

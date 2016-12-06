@@ -94,7 +94,7 @@ void Parkour::killed(Entity*)
 	{
 		Team::game_over = true;
 		World::remove_deferred(entity());
-		Game::schedule_load_level(Game::save.last_level, Game::Mode::Parkour, 2.0f);
+		Game::schedule_load_level(Game::level.id, Game::Mode::Parkour, 2.0f);
 	}
 }
 

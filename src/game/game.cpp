@@ -82,8 +82,7 @@ Game::Session::Session()
 	local_player_config{ 0, AI::TeamNone, AI::TeamNone, AI::TeamNone },
 #endif
 	story_mode(true),
-	time_scale(1.0f),
-	last_match()
+	time_scale(1.0f)
 {
 	for (s32 i = 0; i < MAX_PLAYERS; i++)
 		local_player_uuids[i] = mersenne::rand_u64();
@@ -134,6 +133,7 @@ s32 Game::Session::team_count() const
 
 void Game::Session::reset()
 {
+	this->~Session();
 	*this = Session();
 }
 
@@ -147,8 +147,12 @@ Game::Save::Save()
 	username("etodd"),
 	group(),
 	cora_called(),
-	last_level(Asset::Level::Dock),
-	overworld_zone(AssetNull)
+	zone_last(Asset::Level::Dock),
+	zone_current(Asset::Level::Dock),
+	zone_overworld(AssetNull),
+	zone_current_restore_position(),
+	zone_current_restore_rotation(),
+	zone_current_restore()
 {
 	zones[Asset::Level::Dock] = ZoneState::Friendly;
 	zones[Asset::Level::Safe_Zone] = ZoneState::Friendly;
@@ -273,7 +277,10 @@ void Game::update(const Update& update_in)
 	{
 		time.total += time.delta;
 		Team::match_time += time.delta;
+		ParticleSystem::time = time.total;
 	}
+	else if (Overworld::active()) // particles still work in overworld even though the rest of the world is paused
+		ParticleSystem::time += time.delta;
 	physics_timestep = (1.0f / 60.0f) * session.effective_time_scale();
 
 	Update u = update_in;
@@ -841,7 +848,7 @@ void Game::execute(const Update& u, const char* cmd)
 			}
 		}
 	}
-	else if (strstr(cmd, "unlock") == cmd)
+	else if (strstr(cmd, "upgrade") == cmd)
 	{
 		for (auto i = PlayerManager::list.iterator(); !i.is_last(); i.next())
 		{
@@ -872,6 +879,7 @@ void Game::execute(const Update& u, const char* cmd)
 			if (level != AssetNull)
 			{
 				save = Save();
+				save.zone_current = level;
 				load_level(u, level, Mode::Pvp, true);
 			}
 		}
@@ -887,6 +895,7 @@ void Game::execute(const Update& u, const char* cmd)
 			if (level != AssetNull)
 			{
 				save = Save();
+				save.zone_current = level;
 				schedule_load_level(level, Mode::Pvp);
 			}
 		}
@@ -906,6 +915,7 @@ void Game::execute(const Update& u, const char* cmd)
 			if (level != AssetNull)
 			{
 				save = Save();
+				save.zone_current = level;
 				schedule_load_level(level, Mode::Parkour);
 			}
 		}
@@ -932,6 +942,8 @@ void Game::execute(const Update& u, const char* cmd)
 		Game::time.total += PLAYER_SPAWN_DELAY + GAME_BUY_PERIOD;
 	else if (!Overworld::active() && strcmp(cmd, "capture") == 0)
 		Game::save.zones[Game::level.id] = Game::ZoneState::Friendly;
+	else if (!Overworld::active() && strcmp(cmd, "unlock") == 0)
+		Game::save.zones[Game::level.id] = Game::ZoneState::Hostile;
 	else if (Overworld::active())
 		Overworld::execute(cmd);
 }
@@ -991,7 +1003,6 @@ void Game::unload_level()
 
 	time.total = 0;
 
-	save.last_level = level.id;
 	level.id = AssetNull;
 }
 
@@ -1027,7 +1038,17 @@ AI::Team team_lookup(const AI::Team* table, s32 i)
 
 void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 {
+	AssetID last_level = level.id;
+	Mode last_mode = level.mode;
 	unload_level();
+
+	if (m == Mode::Parkour)
+	{
+		if (l != last_level && last_mode == Mode::Parkour)
+			save.zone_last = last_level;
+
+		save.zone_current = l;
+	}
 
 #if SERVER
 	Net::Server::level_loading();
@@ -1061,6 +1082,9 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 	level.id = l;
 	level.local = true;
 	if (m == Mode::Pvp)
+		level.post_pvp = true;
+
+	if (save.zone_current_restore) // we are restoring the player's position in this map; must have happened after a PvP match
 		level.post_pvp = true;
 
 	// count control point sets and pick one of them
@@ -1631,12 +1655,7 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 				}
 			}
 			vi_assert(track != -1);
-			entity = World::alloc<TramInteractableEntity>(s8(track));
-
-			{
-				Entity* collision = World::create<StaticGeom>(Asset::Mesh::interactable_collision, absolute_pos, absolute_rot, CollisionInaccessible, ~CollisionParkour & ~CollisionInaccessibleMask);
-				Net::finalize(collision);
-			}
+			entity = World::alloc<TramInteractableEntity>(absolute_pos, absolute_rot, s8(track));
 		}
 		else if (strcmp(Json::get_string(element, "name"), "terminal") == 0)
 		{

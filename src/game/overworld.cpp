@@ -167,10 +167,6 @@ struct Data
 
 	struct Map
 	{
-		r32 timer_hack;
-		r32 timer_capture; // counts up
-		r32 timer_capture_total; // if this is AUTO_CAPTURE_TIME, then the auto-capture succeeds. otherwise it gets cut off before it can finish
-		r32 timer_group_queue;
 		Game::ZoneState zones_last[MAX_ZONES];
 		r32 zones_change_time[MAX_ZONES];
 	};
@@ -192,7 +188,6 @@ struct Data
 	Quat camera_rot;
 	Vec3 camera_pos;
 	r32 timer_deploy;
-	r32 timer_deploy_animation;
 	r32 timer_transition;
 	State state;
 	StoryMode story;
@@ -267,11 +262,6 @@ void message_schedule(AssetID contact, AssetID text, r64 delay)
 	msg->text = text;
 	msg->timestamp = platform::timestamp() + delay;
 	msg->read = false;
-}
-
-void deploy_animation_start()
-{
-	data.timer_deploy_animation = DEPLOY_ANIMATION_TIME;
 }
 
 void splitscreen_select_teams_update(const Update& u)
@@ -476,6 +466,13 @@ void splitscreen_select_teams_draw(const RenderParams& params)
 
 void go(AssetID zone)
 {
+	if (Game::session.story_mode)
+	{
+		PlayerControlHuman* player = PlayerControlHuman::list.iterator().item();
+		Game::save.zone_current_restore = true;
+		Game::save.zone_current_restore_position = player->get<Transform>()->absolute_pos();
+		Game::save.zone_current_restore_rotation = player->get<PlayerCommon>()->angle_horizontal;
+	}
 	Game::schedule_load_level(zone, Game::Mode::Pvp);
 }
 
@@ -513,17 +510,7 @@ b8 resource_spend(Game::Resource res, s16 amount)
 
 void deploy_start()
 {
-	if (!Game::session.story_mode)
-	{
-		data.state = State::SplitscreenDeploying;
-		deploy_animation_start();
-	}
-	else
-	{
-		data.state = State::Deploying;
-		if (Game::save.group != Game::Group::None)
-			deploy_animation_start(); // if we're in a group, the deploy animation hasn't played yet
-	}
+	data.state = Game::session.story_mode ? State::Deploying : State::SplitscreenDeploying;
 	data.timer_deploy = DEPLOY_TIME_LOCAL;
 }
 
@@ -892,8 +879,37 @@ void deploy_update(const Update& u)
 	const ZoneNode& zone = *zone_node_get(data.zone_selected);
 	focus_camera(u, zone);
 
+	// must use Game::real_time because Game::time is paused when overworld is active
+
 	r32 old_timer = data.timer_deploy;
 	data.timer_deploy = vi_max(0.0f, data.timer_deploy - Game::real_time.delta);
+
+	if (data.timer_deploy > 0.5f)
+	{
+		// particles
+		r32 t = old_timer;
+		const r32 particle_interval = 0.015f;
+		const ZoneNode* zone = zone_node_get(data.zone_selected);
+		while ((s32)(t / particle_interval) > (s32)(data.timer_deploy / particle_interval))
+		{
+			r32 particle_blend = (t - 0.5f) / 0.5f;
+			Particles::tracers.add
+			(
+				zone->pos() + Vec3(0, -2.0f + particle_blend * 12.0f, 0),
+				Vec3::zero,
+				0
+			);
+			t -= particle_interval;
+		}
+	}
+	else
+	{
+		// screen shake
+		r32 shake = (data.timer_deploy / 0.5f) * 0.05f;
+		r32 offset = Game::real_time.total * 20.0f;
+		data.camera_pos += Vec3(noise::sample3d(Vec3(offset)) * shake, noise::sample3d(Vec3(offset + 64)) * shake, noise::sample3d(Vec3(offset + 128)) * shake);
+	}
+
 	if (data.timer_deploy == 0.0f && old_timer > 0.0f)
 		go(data.zone_selected);
 }
@@ -911,8 +927,7 @@ b8 can_switch_tab()
 	const Data::StoryMode& story = data.story;
 	return data.active
 		&& data.timer_transition == 0.0f
-		&& story.map.timer_hack == 0.0f
-		&& story.map.timer_capture == story.map.timer_capture_total
+		&& data.timer_deploy == 0.0f
 		&& story.inventory.timer_buy == 0.0f
 		&& !Menu::dialog_callback[0]
 		&& (story.messages.mode != Data::Messages::Mode::Cora || story.messages.timer_cora > 0.0f);
@@ -1194,60 +1209,21 @@ void tab_messages_update(const Update& u)
 	}
 }
 
-void hack_start(s8 gamepad)
-{
-	data.story.map.timer_hack = HACK_TIME;
-}
-
 void capture_start(s8 gamepad)
 {
 	if (resource_spend(Game::Resource::Drones, 1))
-	{
-		data.story.map.timer_capture = 0.0f;
-		if (data.zone_selected == Asset::Level::Safe_Zone)
-			data.story.map.timer_capture_total = 3.0f;
-		else
-		{
-			if (mersenne::randf_co() < 0.5f)
-				data.story.map.timer_capture_total = 3.0f + mersenne::randf_co() * 26.0f;
-			else
-				data.story.map.timer_capture_total = AUTO_CAPTURE_TIME;
-		}
-		deploy_animation_start();
-	}
-}
-
-void auto_capture_fail_manual_deploy(s8 gamepad)
-{
-	if (resource_spend(Game::Resource::Energy, CREDITS_INITIAL))
 		deploy_start();
 }
 
-void story_zone_done(AssetID zone, Game::MatchResult result)
+void zone_done(AssetID zone)
 {
-	b8 captured = false;
-	if (result == Game::MatchResult::Victory)
-	{
-		Menu::dialog(0, &Menu::dialog_no_action, _(strings::victory));
-		captured = true;
-	}
-	else if (result == Game::MatchResult::NetworkError)
-	{
-		Menu::dialog(0, &Menu::dialog_no_action, _(strings::forfeit_network_error));
-		captured = true;
-	}
-	else if (result == Game::MatchResult::OpponentQuit)
-	{
-		Menu::dialog(0, &Menu::dialog_no_action, _(strings::forfeit_opponent_quit));
-		captured = true;
-	}
+	b8 captured = Game::save.zones[zone] == Game::ZoneState::Friendly;
 
 	if (captured)
 	{
 		const ZoneNode* z = zone_node_get(zone);
 		for (s32 i = 0; i < (s32)Game::Resource::count; i++)
 			Game::save.resources[i] += z->rewards[i];
-		Game::save.zones[zone] = Game::ZoneState::Friendly;
 	}
 
 	if (Game::save.story_index == 0 && zone == Asset::Level::Safe_Zone && captured)
@@ -1315,6 +1291,14 @@ void zone_statistics(s32* captured, s32* hostile, s32* locked, b8 (*filter)(Asse
 	}
 }
 
+b8 zone_can_capture(AssetID zone_id)
+{
+	return can_switch_tab()
+		&& Game::save.group == Game::Group::None
+		&& Game::save.zones[zone_id] == Game::ZoneState::Hostile
+		&& zone_id != Game::level.id;
+}
+
 void tab_map_update(const Update& u)
 {
 	if (data.story.tab == Tab::Map && data.story.tab_timer > TAB_ANIMATION_TIME)
@@ -1332,104 +1316,15 @@ void tab_map_update(const Update& u)
 			}
 		}
 
-		if (data.story.map.timer_hack > 0.0f)
+		// capture button
+		if (enable_input
+			&& u.last_input->get(Controls::Interact, 0) && !u.input->get(Controls::Interact, 0)
+			&& zone_can_capture(data.zone_selected))
 		{
-			data.story.map.timer_hack = vi_max(0.0f, data.story.map.timer_hack - u.time.delta);
-			if (data.story.map.timer_hack == 0.0f)
-			{
-				// hack complete
-				const ZoneNode* zone = zone_node_get(data.zone_selected);
-				if (Game::save.zones[data.zone_selected] == Game::ZoneState::Locked
-					&& resource_spend(Game::Resource::HackKits, zone->size))
-				{
-					Game::save.zones[data.zone_selected] = Game::ZoneState::Hostile;
-				}
-			}
-		}
-		else if (data.story.map.timer_capture < data.story.map.timer_capture_total)
-		{
-			data.story.map.timer_capture = vi_min(data.story.map.timer_capture_total, data.story.map.timer_capture + u.time.delta);
-			if (data.story.map.timer_capture == data.story.map.timer_capture_total)
-			{
-				// capture complete
-				if (data.story.map.timer_capture_total == AUTO_CAPTURE_TIME) // auto-capture succeeded
-					story_zone_done(data.zone_selected, Game::MatchResult::Victory);
-				else
-				{
-					if (Game::save.resources[(s32)Game::Resource::Energy] < CREDITS_INITIAL)
-						Menu::dialog(0, &Menu::dialog_no_action, _(strings::auto_capture_fail_insufficient_resource), CREDITS_INITIAL, _(strings::energy));
-					else
-						Menu::dialog_with_time_limit(0, &auto_capture_fail_manual_deploy, 10.0f, _(strings::auto_capture_fail_prompt), CREDITS_INITIAL);
-				}
-			}
-		}
-		else if (enable_input)
-		{
-			// interact buttons
-			if (Game::save.group == Game::Group::None)
-			{
-				// no group
-
-				// hack / capture button
-				if (u.last_input->get(Controls::Interact, 0) && !u.input->get(Controls::Interact, 0))
-				{
-					Game::ZoneState zone_state = Game::save.zones[data.zone_selected];
-					if (zone_state == Game::ZoneState::Locked)
-					{
-						s16 cost = zone_node_get(data.zone_selected)->size;
-						if (Game::save.resources[(s32)Game::Resource::HackKits] < cost)
-							Menu::dialog(0, &Menu::dialog_no_action, _(strings::insufficient_resource), cost, _(strings::hack_kits));
-						else
-							Menu::dialog(0, &hack_start, _(strings::confirm_hack), cost);
-					}
-					else
-					{
-						if (zone_state == Game::ZoneState::Hostile)
-						{
-							if (Game::save.resources[(s32)Game::Resource::Drones] < DEPLOY_COST_DRONES)
-								Menu::dialog(0, &Menu::dialog_no_action, _(strings::insufficient_resource), DEPLOY_COST_DRONES, _(strings::drones));
-							else
-								Menu::dialog(0, &capture_start, _(strings::confirm_capture), DEPLOY_COST_DRONES);
-						}
-					}
-				}
-			}
+			if (Game::save.resources[(s32)Game::Resource::Drones] < DEPLOY_COST_DRONES)
+				Menu::dialog(0, &Menu::dialog_no_action, _(strings::insufficient_resource), DEPLOY_COST_DRONES, _(strings::drones));
 			else
-			{
-				// member of a group
-
-				// join/leave group queue
-				if (data.story.map.timer_group_queue > 0.0f)
-				{
-					if (u.last_input->get(Controls::Cancel, 0) && !u.input->get(Controls::Cancel, 0) && !Game::cancel_event_eaten[0])
-					{
-						data.story.map.timer_group_queue = 0.0f;
-						Game::cancel_event_eaten[0] = true;
-					}
-				}
-				else
-				{
-					if (u.last_input->get(Controls::InteractSecondary, 0) && !u.input->get(Controls::InteractSecondary, 0))
-						data.story.map.timer_group_queue = 3.0f + mersenne::randf_cc() * 20.0f;
-				}
-			}
-		}
-	}
-
-	if (data.story.map.timer_group_queue > 0.0f)
-	{
-		data.story.map.timer_group_queue = vi_max(0.0f, data.story.map.timer_group_queue - u.time.delta);
-		if (data.story.map.timer_group_queue == 0.0f)
-		{
-			// pick a random valid zone
-			StaticArray<AssetID, MAX_ZONES> valid_zones;
-			for (s32 i = 0; i < global.zones.length; i++)
-			{
-				if (global.zones[i].max_teams == MAX_PLAYERS)
-					valid_zones.add(global.zones[i].id);
-			}
-			data.zone_selected = valid_zones[(s32)(mersenne::randf_co() * valid_zones.length)];
-			deploy_start();
+				Menu::dialog(0, &capture_start, _(strings::confirm_capture), DEPLOY_COST_DRONES);
 		}
 	}
 }
@@ -2139,55 +2034,20 @@ void tab_map_draw(const RenderParams& p, const Data::StoryMode& story, const Rec
 		else
 			zone_stat_draw(p, rect, UIText::Anchor::Min, 0, _(strings::unknown), UI::color_disabled);
 
-		if (can_switch_tab())
+		// capture prompt
+		if (zone_can_capture(data.zone_selected))
 		{
-			// action prompt
-			if (Game::save.group == Game::Group::None)
-			{
-				AssetID prompt;
-				if (zone_state == Game::ZoneState::Hostile)
-					prompt = strings::prompt_capture;
-				else if (zone_state == Game::ZoneState::Locked)
-					prompt = strings::prompt_hack;
-				else
-					prompt = AssetNull;
+			UIText text;
+			text.anchor_x = text.anchor_y = UIText::Anchor::Center;
+			text.color = UI::color_accent;
+			text.text(_(strings::prompt_capture));
 
-				if (prompt != AssetNull)
-				{
-					UIText text;
-					text.anchor_x = text.anchor_y = UIText::Anchor::Center;
-					text.color = UI::color_accent;
-					text.text(_(prompt));
+			Vec2 pos = rect.pos + rect.size * Vec2(0.5f, 0.2f);
 
-					Vec2 pos = rect.pos + rect.size * Vec2(0.5f, 0.2f);
+			UI::box(p, text.rect(pos).outset(8 * UI::scale), UI::color_background);
 
-					UI::box(p, text.rect(pos).outset(8 * UI::scale), UI::color_background);
-
-					text.draw(p, pos);
-				}
-			}
-			else
-			{
-				{
-					// join/leave group queue
-					UIText text;
-					text.anchor_x = text.anchor_y = UIText::Anchor::Center;
-					text.color = UI::color_accent;
-					text.text(_(story.map.timer_group_queue > 0.0f ? strings::prompt_cancel : strings::prompt_join_group_queue));
-
-					Vec2 pos = rect.pos + rect.size * Vec2(0.5f, 0.3f);
-
-					UI::box(p, text.rect(pos).outset(8 * UI::scale), UI::color_background);
-
-					text.draw(p, pos);
-				}
-			}
+			text.draw(p, pos);
 		}
-
-		if (story.map.timer_hack > 0.0f)
-			Menu::progress_bar(p, _(strings::hacking), 1.0f - (story.map.timer_hack / HACK_TIME), p.camera->viewport.size * Vec2(0.5f, 0.2f));
-		else if (story.map.timer_capture < story.map.timer_capture_total)
-			Menu::progress_bar(p, _(strings::auto_capturing), story.map.timer_capture / AUTO_CAPTURE_TIME, p.camera->viewport.size * Vec2(0.5f, 0.2f));
 	}
 }
 
@@ -2351,10 +2211,6 @@ void story_mode_draw(const RenderParams& p)
 		UI::box(p, text.rect(pos).outset(PADDING), UI::color_background);
 		text.draw(p, pos);
 	}
-
-	// group queue
-	if (data.story.map.timer_group_queue > 0.0f)
-		Menu::progress_infinite(p, _(strings::in_group_queue), p.camera->viewport.size * Vec2(0.5f, 0.2f));
 }
 
 b8 should_draw_zones()
@@ -2399,6 +2255,7 @@ void hide()
 
 void hide_complete()
 {
+	Particles::clear();
 	if (data.camera)
 	{
 		memcpy(data.camera, &data.camera_restore_data, sizeof(Camera));
@@ -2422,14 +2279,14 @@ void show_complete()
 	if (Game::session.story_mode)
 		data.zone_selected = Game::level.id;
 	else
-		data.zone_selected = zone_node_get(Game::save.last_level) ? Game::save.last_level : Asset::Level::Medias_Res;
+		data.zone_selected = zone_node_get(Game::save.zone_last) ? Game::save.zone_last : Asset::Level::Medias_Res;
 	data.camera_restore_data = *data.camera;
 	data.camera->colors = false;
 	data.camera->mask = 0;
 	{
-		const ZoneNode* zone = zone_node_get(Game::save.overworld_zone);
+		const ZoneNode* zone = zone_node_get(Game::save.zone_overworld);
 		if (!zone)
-			zone = zone_node_get(Game::save.last_level);
+			zone = zone_node_get(Game::save.zone_last);
 		if (zone)
 		{
 			data.camera_pos = global.camera_offset_pos + zone->pos();
@@ -2441,7 +2298,7 @@ void show_complete()
 			data.camera_rot = global.camera_messages_rot;
 		}
 	}
-	Game::save.overworld_zone = Game::level.id;
+	Game::save.zone_last = Game::level.id;
 	if (Game::session.story_mode)
 		data.state = State::StoryMode;
 	else if (Game::session.local_player_count() > 1)
@@ -2484,38 +2341,6 @@ void update(const Update& u)
 
 	if (data.active && !Console::visible)
 	{
-		if (data.timer_deploy_animation > 0.0f)
-		{
-			if (data.timer_deploy_animation > 0.5f)
-			{
-				const ZoneNode* zone = zone_node_get(data.zone_selected);
-
-				r32 t = data.timer_deploy_animation;
-				data.timer_deploy_animation = vi_max(0.0f, data.timer_deploy_animation - u.time.delta);
-				// particles
-				const r32 particle_interval = 0.015f;
-				while ((s32)(t / particle_interval) > (s32)(data.timer_deploy_animation / particle_interval))
-				{
-					r32 particle_blend = (t - 0.5f) / 0.5f;
-					Particles::tracers.add
-					(
-						zone->pos() + Vec3(0, -2.0f + particle_blend * 12.0f, 0),
-						Vec3::zero,
-						0
-					);
-					t -= particle_interval;
-				}
-			}
-			else
-			{
-				// screen shake
-				data.timer_deploy_animation = vi_max(0.0f, data.timer_deploy_animation - u.time.delta);
-				r32 shake = (data.timer_deploy_animation / 0.5f) * 0.05f;
-				r32 offset = Game::time.total * 20.0f;
-				data.camera_pos += Vec3(noise::sample3d(Vec3(offset)) * shake, noise::sample3d(Vec3(offset + 64)) * shake, noise::sample3d(Vec3(offset + 128)) * shake);
-			}
-		}
-
 		switch (data.state)
 		{
 			case State::StoryMode:
@@ -2669,7 +2494,10 @@ void clear()
 void execute(const char* cmd)
 {
 	if (utf8cmp(cmd, "capture") == 0)
-		story_zone_done(data.zone_selected, Game::MatchResult::Victory);
+	{
+		Game::save.zones[data.zone_selected] = Game::ZoneState::Friendly;
+		zone_done(data.zone_selected);
+	}
 	else if (strstr(cmd, "join ") == cmd)
 	{
 		const char* delimiter = strchr(cmd, ' ');
@@ -2821,9 +2649,6 @@ void init(cJSON* level)
 			// this must be done before story_zone_done changes the energy increment amount
 			Game::save.resources[(s32)Game::Resource::Energy] += vi_min(s32(4 * 60 * 60 / ENERGY_INCREMENT_INTERVAL), (s32)(elapsed_time / (r64)ENERGY_INCREMENT_INTERVAL)) * energy_increment_total();
 		}
-
-		// todo: handle zone completion
-		// story_zone_done(data.zone_last, Game::session.last_match);
 	}
 }
 

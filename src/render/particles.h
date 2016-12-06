@@ -11,6 +11,7 @@ struct ParticleSystem
 	static const s32 MAX_PARTICLE_SYSTEMS = 500;
 	static const s32 MAX_PARTICLES = 5000;
 	static StaticArray<ParticleSystem*, MAX_PARTICLE_SYSTEMS> list;
+	static r32 time;
 
 	s32 vertices_per_particle;
 	s32 indices_per_particle;

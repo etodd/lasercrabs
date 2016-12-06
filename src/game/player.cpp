@@ -75,7 +75,7 @@ r32 hp_width(u8 hp, s8 shield, r32 scale = 1.0f)
 	return scale * ((shield + (hp - 1)) * (box_size.x + HP_BOX_SPACING) - HP_BOX_SPACING);
 }
 
-void camera_setup_awk(Entity* e, Camera* camera, r32 offset)
+void PlayerHuman::camera_setup_awk(Entity* e, Camera* camera, r32 offset)
 {
 	Quat awk_rot = e->get<Awk>()->lerped_rotation;
 	Vec3 center = e->get<Awk>()->center_lerped();
@@ -631,6 +631,20 @@ void PlayerHuman::update(const Update& u)
 	Audio::listener_update(gamepad, camera->pos, camera->rot);
 }
 
+void get_interactable_standing_position(Transform* i, Vec3* pos, r32* angle)
+{
+	Vec3 i_pos;
+	Quat i_rot;
+	i->absolute(&i_pos, &i_rot);
+	Vec3 dir = i_rot * Vec3(-1, 0, 0);
+	dir.y = 0.0f;
+	dir.normalize();
+	if (angle)
+		*angle = atan2f(dir.x, dir.z);
+	*pos = i_pos + dir * -1.0f;
+	pos->y += (Walker::default_capsule_height * 0.5f) + Walker::default_support_height;
+}
+
 void PlayerHuman::spawn()
 {
 	Vec3 pos;
@@ -651,18 +665,16 @@ void PlayerHuman::spawn()
 	else
 	{
 		// spawn traceur
-		if (Game::level.post_pvp)
+		if (Game::save.zone_current_restore)
+		{
+			angle = Game::save.zone_current_restore_rotation;
+			pos = Game::save.zone_current_restore_position;
+		}
+		else if (Game::level.post_pvp)
 		{
 			// we have already played a PvP match on this level; we must be exiting PvP mode.
 			// spawn the player at the terminal.
-			Vec3 term_pos;
-			Quat term_rot;
-			Game::level.terminal.ref()->get<Transform>()->absolute(&term_pos, &term_rot);
-			Vec3 dir = term_rot * Vec3(-1, 0, 0);
-			dir.y = 0.0f;
-			dir.normalize();
-			angle = atan2f(dir.x, dir.z);
-			pos = term_pos + dir * Vec3(-2.0f, 0, 0);
+			get_interactable_standing_position(Game::level.terminal_interactable.ref()->get<Transform>(), &pos, &angle);
 		}
 		else
 		{
@@ -672,7 +684,7 @@ void PlayerHuman::spawn()
 			for (s32 i = 0; i < Game::level.tram_tracks.length; i++)
 			{
 				const Game::TramTrack& t = Game::level.tram_tracks[i];
-				if (t.level == Game::save.last_level)
+				if (t.level == Game::save.zone_last)
 				{
 					track = s8(i);
 					break;
@@ -687,7 +699,7 @@ void PlayerHuman::spawn()
 				// spawn in tram
 				Quat rot;
 				tram->get<Transform>()->absolute(&pos, &rot);
-				pos.y += 2.0f;
+				pos.y -= 0.5f;
 				dir = rot * Vec3(0, 0, -1);
 			}
 			else
@@ -695,9 +707,9 @@ void PlayerHuman::spawn()
 				// spawn at PlayerSpawn
 				Quat rot;
 				get<PlayerManager>()->team.ref()->player_spawn.ref()->absolute(&pos, &rot);
-				pos.y += 2.0f;
 				dir = rot * Vec3(0, 1, 0);
 			}
+			pos.y += 1.0f;
 			dir.y = 0.0f;
 			dir.normalize();
 			angle = atan2f(dir.x, dir.z);
@@ -705,7 +717,7 @@ void PlayerHuman::spawn()
 
 		spawned = World::create<Traceur>(pos, Quat::euler(0, angle, 0), get<PlayerManager>()->team.ref()->team());
 
-		if (Game::level.post_pvp)
+		if (Game::level.post_pvp && !Game::save.zone_current_restore)
 		{
 			spawned->get<Animator>()->layers[3].set(Asset::Animation::character_terminal_exit, 0.0f); // bypass animation blending
 			spawned->get<Animator>()->layers[3].play(Asset::Animation::character_terminal_exit);
@@ -721,6 +733,8 @@ void PlayerHuman::spawn()
 	spawned->add<PlayerControlHuman>(this);
 
 	Net::finalize(spawned);
+
+	Game::save.zone_current_restore = false;
 }
 
 void draw_icon_text(const RenderParams& params, const Vec2& pos, AssetID icon, char* string, const Vec4& color)
@@ -1598,11 +1612,24 @@ void PlayerControlHuman::awk_done_flying_or_dashing()
 	get<Audio>()->post_event(AK::EVENTS::STOP_FLY);
 }
 
+void ability_select(Awk* awk, Ability a)
+{
+	awk->current_ability = a;
+}
+
+void ability_cancel(Awk* awk)
+{
+	awk->current_ability = Ability::None;
+}
+
 void PlayerControlHuman::health_changed(const HealthEvent& e)
 {
 	if (e.hp + e.shield < 0)
 	{
-		try_secondary = false; // de-scope when damaged
+		// de-scope when damaged
+		try_secondary = false;
+		if (has<Awk>() && get<Awk>()->current_ability != Ability::None)
+			ability_cancel(get<Awk>());
 		camera_shake();
 	}
 }
@@ -1890,16 +1917,6 @@ Entity* determine_visibility(PlayerCommon* me, PlayerCommon* other_player, b8* v
 	}
 }
 
-void ability_select(Awk* awk, Ability a)
-{
-	awk->current_ability = a;
-}
-
-void ability_cancel(Awk* awk)
-{
-	awk->current_ability = Ability::None;
-}
-
 void ability_update(const Update& u, PlayerControlHuman* control, Controls binding, s8 gamepad, s32 index)
 {
 	PlayerHuman* player = control->player.ref();
@@ -2185,7 +2202,7 @@ void PlayerControlHuman::update(const Update& u)
 
 			camera_shake_update(u, camera);
 
-			camera_setup_awk(entity(), camera, AWK_THIRD_PERSON_OFFSET);
+			PlayerHuman::camera_setup_awk(entity(), camera, AWK_THIRD_PERSON_OFFSET);
 
 			// reticle
 			{
@@ -2465,19 +2482,9 @@ void PlayerControlHuman::update(const Update& u)
 				// position player directly in front of the interactable
 
 				// desired rotation / position
-				r32 target_angle;
 				Vec3 target_pos;
-				{
-					Vec3 i_pos;
-					Quat i_rot;
-					interactable.ref()->get<Transform>()->absolute(&i_pos, &i_rot);
-					Vec3 dir = i_rot * Vec3(-1, 0, 0);
-					dir.y = 0.0f;
-					dir.normalize();
-					target_angle = atan2f(dir.x, dir.z);
-					target_pos = i_pos + dir * -1.0f;
-					target_pos.y += (get<Walker>()->capsule_height() * 0.5f) + get<Walker>()->support_height;
-				}
+				r32 target_angle;
+				get_interactable_standing_position(interactable.ref()->get<Transform>(), &target_pos, &target_angle);
 
 				r32 angle = fabsf(LMath::angle_to(get<PlayerCommon>()->angle_horizontal, target_angle));
 				get<PlayerCommon>()->angle_horizontal = LMath::lerpf(vi_min(1.0f, (INTERACT_LERP_ROTATION_SPEED / angle) * u.time.delta), get<PlayerCommon>()->angle_horizontal, LMath::closest_angle(target_angle, get<PlayerCommon>()->angle_horizontal));
@@ -2645,7 +2652,7 @@ void PlayerControlHuman::update(const Update& u)
 
 			// wind sound and camera shake at high speed
 			{
-				r32 speed = get<RigidBody>()->btBody->getInterpolationLinearVelocity().length();
+				r32 speed = get<Walker>()->support.ref() ? get<RigidBody>()->btBody->getInterpolationLinearVelocity().length() : 0.0f;
 				get<Audio>()->param(AK::GAME_PARAMETERS::FLY_VOLUME, LMath::clampf((speed - 8.0f) / 25.0f, 0, 1));
 				r32 shake = LMath::clampf((speed - 13.0f) / 30.0f, 0, 1);
 				rumble = vi_max(rumble, shake);

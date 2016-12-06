@@ -500,7 +500,7 @@ ControlPointEntity::ControlPointEntity(AI::Team team, const Vec3& pos)
 
 	create<ControlPoint>(team);
 
-	create<RigidBody>(RigidBody::Type::Mesh, Vec3::zero, 0.0f, CollisionStatic, ~CollisionStatic, Asset::Mesh::control_point);
+	create<RigidBody>(RigidBody::Type::Mesh, Vec3::zero, 0.0f, CollisionStatic | CollisionParkour, ~CollisionStatic, Asset::Mesh::control_point);
 }
 
 PlayerSpawnEntity::PlayerSpawnEntity(AI::Team team)
@@ -2179,7 +2179,7 @@ void Shockwave::update(const Update& u)
 
 Interactable* Interactable::closest(const Vec3& pos)
 {
-	r32 distance_sq = CONTROL_POINT_RADIUS * 0.75f * CONTROL_POINT_RADIUS * 0.75f;
+	r32 distance_sq = CONTROL_POINT_RADIUS * 0.5f * CONTROL_POINT_RADIUS * 0.5f;
 	Interactable* result = nullptr;
 	// find the closest interactable
 	for (auto i = list.iterator(); !i.is_last(); i.next())
@@ -2350,7 +2350,7 @@ TerminalInteractable::TerminalInteractable()
 	Animator* anim = create<Animator>();
 	anim->armature = Asset::Armature::interactable;
 	anim->layers[0].loop = true;
-	anim->layers[0].animation = Asset::Animation::interactable_enabled;
+	anim->layers[0].animation = Game::save.zones[Game::level.id] == Game::ZoneState::Locked ? Asset::Animation::interactable_enabled : Asset::Animation::interactable_disabled;
 	anim->layers[0].blend_time = 0.0f;
 	anim->layers[1].loop = false;
 	anim->layers[1].blend_time = 0.0f;
@@ -2369,6 +2369,8 @@ void TerminalInteractable::interacted(Interactable*)
 		if (zone_state == Game::ZoneState::Locked)
 		{
 			Game::save.zones[Game::level.id] = Game::ZoneState::Hostile;
+			for (auto i = PlayerHuman::list.iterator(); !i.is_last(); i.next())
+				i.item()->msg(_(strings::zone_unlocked), true);
 			TerminalEntity::open();
 		}
 		else if (zone_state == Game::ZoneState::Hostile)
@@ -2384,6 +2386,7 @@ TramRunnerEntity::TramRunnerEntity(s8 track, b8 is_front)
 	create<Transform>();
 	View* model = create<View>(Asset::Mesh::tram_runner);
 	model->shader = Asset::Shader::standard;
+	model->color.w = MATERIAL_INACCESSIBLE;
 	RigidBody* body = create<RigidBody>(RigidBody::Type::Mesh, Vec3::zero, 0.0f, CollisionStatic | CollisionInaccessible, ~CollisionStatic & ~CollisionInaccessibleMask, Asset::Mesh::tram_runner);
 	body->set_restitution(0.75f);
 	TramRunner* r = create<TramRunner>();
@@ -2392,7 +2395,7 @@ TramRunnerEntity::TramRunnerEntity(s8 track, b8 is_front)
 
 	const Game::TramTrack& t = Game::level.tram_tracks[track];
 	r32 offset;
-	if (Game::save.last_level == t.level)
+	if (Game::save.zone_last == t.level && !Game::save.zone_current_restore)
 	{
 		offset = t.points[t.points.length - 1].offset - TRAM_LENGTH;
 		r->velocity = -TRAM_SPEED_MAX;
@@ -2752,7 +2755,7 @@ void TramInteractableEntity::interacted(Interactable* i)
 	}
 }
 
-TramInteractableEntity::TramInteractableEntity(s8 track)
+TramInteractableEntity::TramInteractableEntity(const Vec3& absolute_pos, const Quat& absolute_rot, s8 track)
 {
 	create<Transform>();
 
@@ -2771,6 +2774,12 @@ TramInteractableEntity::TramInteractableEntity(s8 track)
 
 	Interactable* i = create<Interactable>(Interactable::Type::Tram);
 	i->user_data = track;
+
+	{
+		Entity* collision = World::create<StaticGeom>(Asset::Mesh::interactable_collision, absolute_pos, absolute_rot, CollisionInaccessible, ~CollisionParkour & ~CollisionInaccessibleMask);
+		collision->get<View>()->color.w = MATERIAL_INACCESSIBLE;
+		Net::finalize(collision);
+	}
 }
 
 Array<Ascensions::Entry> Ascensions::entries;
@@ -2779,13 +2788,13 @@ r32 Ascensions::particle_accumulator;
 
 void Ascensions::update(const Update& u)
 {
-	const r32 total_time = 20.0f;
+	const r32 total_time = 20.0f; // total duration of an individual ascension animation
 	if (Game::level.mode != Game::Mode::Special)
 	{
 		timer -= Game::real_time.delta;
 		if (timer < 0.0f)
 		{
-			timer = 20.0f + mersenne::randf_co() * 100.0f;
+			timer = 40.0f + mersenne::randf_co() * 200.0f;
 
 			Entry* e = entries.add();
 			e->timer = total_time;
@@ -2837,7 +2846,7 @@ void Ascensions::update(const Update& u)
 
 void Ascensions::clear()
 {
-	timer = 20.0f + mersenne::randf_co() * 100.0f;
+	timer = 40.0f + mersenne::randf_co() * 200.0f;
 	entries.length = 0;
 }
 

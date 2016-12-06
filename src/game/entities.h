@@ -498,7 +498,7 @@ struct TramInteractableEntity : public Entity
 {
 	static void interacted(Interactable*);
 
-	TramInteractableEntity(s8);
+	TramInteractableEntity(const Vec3&, const Quat&, s8);
 };
 
 struct Ascensions

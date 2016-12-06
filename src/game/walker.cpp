@@ -9,11 +9,18 @@
 namespace VI
 {
 
+#define WALKER_DEFAULT_SUPPORT_HEIGHT 0.35f
+#define WALKER_DEFAULT_HEIGHT 1.2f
+#define WALKER_DEFAULT_RADIUS 0.35f
+
+r32 Walker::default_capsule_height = WALKER_DEFAULT_HEIGHT + WALKER_DEFAULT_RADIUS * 2.0f;
+r32 Walker::default_support_height = WALKER_DEFAULT_SUPPORT_HEIGHT;
+
 Walker::Walker(r32 rot)
 	: dir(),
-	height(1.2f),
-	support_height(0.35f),
-	radius(0.35f),
+	height(WALKER_DEFAULT_HEIGHT),
+	support_height(WALKER_DEFAULT_SUPPORT_HEIGHT),
+	radius(WALKER_DEFAULT_RADIUS),
 	mass(1.0f),
 	speed(2.5f),
 	max_speed(5.0f),

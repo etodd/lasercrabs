@@ -214,6 +214,7 @@ namespace AIBehaviors
 	struct Test : Base<Test>
 	{
 		b8(*filter)(const PlayerControlAI*);
+
 		Test(b8(*)(const PlayerControlAI*));
 		void run();
 	};
@@ -225,6 +226,14 @@ namespace AIBehaviors
 		void set_context(void*);
 		void done_flying_or_dashing();
 		void upgrade_completed(Upgrade);
+		void run();
+	};
+
+	struct FindSpawn : Base<FindSpawn>
+	{
+		b8(*filter)(const PlayerControlAI*);
+
+		FindSpawn(s8, b8(*)(const PlayerControlAI*));
 		void run();
 	};
 
@@ -243,6 +252,13 @@ namespace AIBehaviors
 		Family family;
 		ReactTarget(Family, s8, s8, b8(*)(const PlayerControlAI*, const Entity*));
 
+		void run();
+	};
+
+	struct ReactSpawn : Base<ReactSpawn>
+	{
+		b8(*filter)(const PlayerControlAI*);
+		ReactSpawn(s8, b8(*)(const PlayerControlAI*));
 		void run();
 	};
 

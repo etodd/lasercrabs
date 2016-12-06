@@ -66,7 +66,7 @@ struct Team : public ComponentType<Team>
 	static Game::Mode transition_mode_scheduled;
 
 	static void awake_all();
-	static void transition_next(Game::MatchResult);
+	static void transition_next();
 	static s16 containment_field_mask(AI::Team);
 	static void update(const Update&);
 	static void update_all_server(const Update&);

@@ -642,7 +642,7 @@ void Team::update_all_server(const Update& u)
 				if (Game::session.story_mode && i.item()->is_local() && i.item()->team.ref() == winner.ref())
 				{
 					// we're in story mode and this is a local player; increase their energy
-					Game::save.resources[(s32)Game::Resource::Energy] += total;
+					Game::save.resources[(s32)Resource::Energy] += total;
 				}
 			}
 

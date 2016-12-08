@@ -2177,16 +2177,88 @@ void Shockwave::update(const Update& u)
 		list.remove(id());
 }
 
+CollectibleEntity::CollectibleEntity(Resource type)
+{
+	create<Transform>();
+	create<Collectible>()->type = type;
+	switch (type)
+	{
+		case Resource::HackKits:
+		case Resource::Energy:
+		{
+			// simple models
+			View* v = create<View>(type == Resource::HackKits ? Asset::Mesh::hack_kit : Asset::Mesh::energy);
+			v->shader = Asset::Shader::standard;
+			v->color = Vec4(1, 1, 1, MATERIAL_INACCESSIBLE);
+			break;
+		}
+		case Resource::Drones:
+		{
+			// animated model
+			SkinnedModel* model = create<SkinnedModel>();
+			model->mesh = Asset::Mesh::awk;
+			model->shader = Asset::Shader::armature;
+			model->color = Vec4(1, 1, 1, MATERIAL_INACCESSIBLE);
+			model->offset.translate(Vec3(0, 0, AWK_RADIUS));
+
+			Animator* anim = create<Animator>();
+			anim->armature = Asset::Armature::awk;
+			anim->layers[0].loop = true;
+			anim->layers[0].animation = Asset::Animation::awk_fly;
+			break;
+		}
+		default:
+		{
+			vi_assert(false);
+			break;
+		}
+	}
+}
+
+void Collectible::give_rewards()
+{
+	s32 amount;
+	switch (type)
+	{
+		case Resource::HackKits:
+		{
+			amount = 1;
+			break;
+		}
+		case Resource::Energy:
+		{
+			amount = 1000;
+			break;
+		}
+		case Resource::Drones:
+		{
+			amount = 10;
+			break;
+		}
+		default:
+		{
+			vi_assert(false);
+			break;
+		}
+	}
+	Game::save.resources[s32(type)] += amount;
+
+	char msg[512];
+	sprintf(msg, _(strings::resource_collected), amount, _(Overworld::resource_info[s32(type)].description));
+	for (auto i = PlayerHuman::list.iterator(); !i.is_last(); i.next())
+		i.item()->msg(msg, true);
+}
+
 Interactable* Interactable::closest(const Vec3& pos)
 {
-	r32 distance_sq = CONTROL_POINT_RADIUS * 0.5f * CONTROL_POINT_RADIUS * 0.5f;
+	r32 distance_sq = CONTROL_POINT_RADIUS * 0.35f * CONTROL_POINT_RADIUS * 0.35f;
 	Interactable* result = nullptr;
 	// find the closest interactable
 	for (auto i = list.iterator(); !i.is_last(); i.next())
 	{
-		Vec3 i_pos;
-		Quat i_rot;
-		i.item()->get<Transform>()->absolute(&i_pos, &i_rot);
+		Vec3 i_pos(0.4f, 1.1f, 0);
+		Quat i_rot = Quat::identity;
+		i.item()->get<Transform>()->to_world(&i_pos, &i_rot);
 		Vec3 to_interactable = i_pos - pos;
 		r32 d = to_interactable.length_squared();
 		if (d < distance_sq)

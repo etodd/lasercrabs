@@ -265,7 +265,8 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 		| Parkour::component_mask
 		| Interactable::component_mask
 		| Tram::component_mask
-		| TramRunner::component_mask;
+		| TramRunner::component_mask
+		| Collectible::component_mask;
 
 	if (Stream::IsWriting)
 	{
@@ -683,6 +684,12 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 		serialize_s8(p, r->track);
 		serialize_bool(p, r->is_front);
 		serialize_enum(p, TramRunner::State, r->state);
+	}
+
+	if (e->has<Collectible>())
+	{
+		Collectible* c = e->get<Collectible>();
+		serialize_enum(p, Resource, c->type);
 	}
 
 #if !SERVER
@@ -2520,6 +2527,12 @@ b8 msg_process(StreamRead* p, Client* client)
 				net_error();
 			break;
 		}
+		case MessageType::Parkour:
+		{
+			if (!Parkour::net_msg(p, MessageSource::Remote))
+				net_error();
+			break;
+		}
 		case MessageType::Tram:
 		{
 			if (!Tram::net_msg(p, MessageSource::Remote))
@@ -3382,6 +3395,12 @@ b8 msg_process(StreamRead* p, MessageSource src)
 		case MessageType::Interactable:
 		{
 			if (!Interactable::net_msg(p, src))
+				net_error();
+			break;
+		}
+		case MessageType::Parkour:
+		{
+			if (!Parkour::net_msg(p, MessageSource::Remote))
 				net_error();
 			break;
 		}

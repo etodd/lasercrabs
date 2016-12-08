@@ -15,7 +15,11 @@ struct Traceur : public Entity
 #define LANDING_VELOCITY_LIGHT 5.0f * -1.25f
 #define LANDING_VELOCITY_HARD 5.0f * -3.0f
 
-#define MAX_TILE_HISTORY 8
+namespace Net
+{
+	struct StreamRead;
+};
+
 struct Parkour : public ComponentType<Parkour>
 {
 	enum class State
@@ -35,6 +39,8 @@ struct Parkour : public ComponentType<Parkour>
 		Forward,
 		None,
 	};
+
+	static b8 net_msg(Net::StreamRead*, Net::MessageSource);
 
 	Vec3 relative_wall_run_normal;
 	Vec3 relative_support_pos;
@@ -63,6 +69,7 @@ struct Parkour : public ComponentType<Parkour>
 	b8 try_wall_run(WallRunState, const Vec3&);
 	void wall_run_up_add_velocity(const Vec3&, const Vec3&);
 	void wall_jump(r32, const Vec3&, const btRigidBody*);
+	void pickup_animation_complete();
 
 	void update(const Update&);
 };

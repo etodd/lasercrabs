@@ -26,6 +26,7 @@
 	"group_required": "Group membership required",
 	"terminal_locked": "Temporarily locked",
 	"zone_already_captured": "Zone already captured",
+	"resource_collected": "%d %s collected",
 	"team_a": "Team A",
 	"team_b": "Team B",
 	"team_c": "Team C",

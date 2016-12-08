@@ -505,12 +505,12 @@ void Game::term()
 
 #if SERVER
 
-void Game::draw_opaque(const RenderParams& render_params) { }
-void Game::draw_override(const RenderParams& params) { }
-void Game::draw_alpha(const RenderParams& params) { }
-void Game::draw_hollow(const RenderParams& render_params) { }
-void Game::draw_particles(const RenderParams& render_params) { }
-void Game::draw_additive(const RenderParams& render_params) { }
+void Game::draw_opaque(const RenderParams&) { }
+void Game::draw_override(const RenderParams&) { }
+void Game::draw_alpha(const RenderParams&) { }
+void Game::draw_hollow(const RenderParams&) { }
+void Game::draw_particles(const RenderParams&) { }
+void Game::draw_additive(const RenderParams&) { }
 
 #else
 
@@ -839,7 +839,7 @@ void Game::execute(const Update& u, const char* cmd)
 			if (*end == '\0')
 			{
 				if (level.id == Asset::Level::overworld)
-					Game::save.resources[(s32)Game::Resource::Energy] += value;
+					Game::save.resources[(s32)Resource::Energy] += value;
 				else if (PlayerManager::list.count() > 0)
 				{
 					for (auto i = PlayerManager::list.iterator(); !i.is_last(); i.next())
@@ -1656,6 +1656,21 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 			}
 			vi_assert(track != -1);
 			entity = World::alloc<TramInteractableEntity>(absolute_pos, absolute_rot, s8(track));
+		}
+		else if (cJSON_HasObjectItem(element, "Collectible"))
+		{
+			if (session.story_mode && save.zones[level.id] == ZoneState::Locked)
+			{
+				const char* type_str = Json::get_string(element, "Collectible");
+				Resource type;
+				if (strcmp(type_str, "HackKits") == 0)
+					type = Resource::HackKits;
+				else if (strcmp(type_str, "Drones") == 0)
+					type = Resource::Drones;
+				else
+					type = Resource::Energy;
+				entity = World::alloc<CollectibleEntity>(type);
+			}
 		}
 		else if (strcmp(Json::get_string(element, "name"), "terminal") == 0)
 		{

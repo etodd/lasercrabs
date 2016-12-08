@@ -50,6 +50,7 @@ enum class MessageType
 	ParticleEffect,
 	ControlPoint,
 	Team,
+	Parkour,
 	Interactable,
 	ClientSetup,
 	InitDone,

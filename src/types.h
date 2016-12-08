@@ -75,6 +75,14 @@ enum class Upgrade
 	None = count,
 };
 
+enum class Resource
+{
+	Energy,
+	HackKits,
+	Drones,
+	count,
+};
+
 namespace Net
 {
 	enum class MessageSource // included here to prevent having to include net.h everywhere

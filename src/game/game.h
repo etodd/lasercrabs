@@ -91,14 +91,6 @@ struct Game
 		Hostile,
 	};
 
-	enum class Resource
-	{
-		Energy,
-		HackKits,
-		Drones,
-		count,
-	};
-
 	struct Message
 	{
 		r64 timestamp;
@@ -118,7 +110,7 @@ struct Game
 		ZoneState zones[MAX_ZONES];
 		Group group;
 		s16 story_index;
-		s16 resources[(s32)Resource::count];
+		s16 resources[s32(Resource::count)];
 		AssetID zone_last;
 		AssetID zone_current;
 		AssetID zone_overworld;

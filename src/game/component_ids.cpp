@@ -60,8 +60,9 @@ COMPONENT_TYPE(37, Parkour) \
 COMPONENT_TYPE(38, Interactable) \
 COMPONENT_TYPE(39, TramRunner) \
 COMPONENT_TYPE(40, Tram) \
+COMPONENT_TYPE(41, Collectible) \
 
-Family World::families = 41;
+Family World::families = 42;
 
 #define COMPONENT_TYPE(INDEX, TYPE) \
 template<> Family ComponentType<TYPE>::family = (INDEX); \

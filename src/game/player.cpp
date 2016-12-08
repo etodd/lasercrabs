@@ -1744,13 +1744,21 @@ void PlayerControlHuman::camera_shake(r32 amount) // amount ranges from 0 to 1
 b8 PlayerControlHuman::input_enabled() const
 {
 	PlayerHuman::UIMode ui_mode = player.ref()->ui_mode();
+	if (has<Parkour>())
+	{
+		// disable input if we're playing an animation on layer 3
+		// however we can still move while picking things up
+		AssetID anim = get<Animator>()->layers[3].animation;
+		if (anim != AssetNull && anim != Asset::Animation::character_pickup)
+			return false;
+	}
+
 	return !Console::visible
 		&& !Overworld::active()
 		&& (ui_mode == PlayerHuman::UIMode::PvpDefault || ui_mode == PlayerHuman::UIMode::ParkourDefault)
 		&& !Cora::has_focus()
 		&& !Team::game_over
-		&& !interactable.ref()
-		&& (!has<Parkour>() || get<Animator>()->layers[3].animation == AssetNull); // disable input if we're playing an animation on layer 3
+		&& !interactable.ref();
 }
 
 b8 PlayerControlHuman::movement_enabled() const

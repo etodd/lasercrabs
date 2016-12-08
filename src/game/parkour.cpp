@@ -29,6 +29,7 @@ namespace VI
 #define MIN_WALLRUN_SPEED 3.0f
 #define MIN_ATTACK_SPEED 4.6f
 #define JUMP_SPEED 5.0f
+#define COLLECTIBLE_RADIUS 1.0f
 
 #define JUMP_GRACE_PERIOD 0.3f
 
@@ -84,6 +85,7 @@ void Parkour::awake()
 	link<&Parkour::footstep>(animator->trigger(Asset::Animation::character_wall_run_left, 0.476f));
 	link<&Parkour::footstep>(animator->trigger(Asset::Animation::character_wall_run_right, 0.216f));
 	link<&Parkour::footstep>(animator->trigger(Asset::Animation::character_wall_run_right, 0.476f));
+	link<&Parkour::pickup_animation_complete>(animator->trigger(Asset::Animation::character_pickup, 3.5f));
 	link_arg<r32, &Parkour::land>(get<Walker>()->land);
 	link_arg<Entity*, &Parkour::killed>(get<Health>()->killed);
 }
@@ -233,6 +235,49 @@ b8 Parkour::wallrun(const Update& u, RigidBody* wall, const Vec3& relative_wall_
 	}
 
 	return exit_wallrun;
+}
+
+namespace ParkourNet
+{
+	b8 pickup(Parkour* parkour, Collectible* collectible)
+	{
+		using Stream = Net::StreamWrite;
+		Stream* p = Net::msg_new(Net::MessageType::Parkour);
+		{
+			Ref<Parkour> ref = parkour;
+			serialize_ref(p, ref);
+		}
+		{
+			Ref<Collectible> ref = collectible;
+			serialize_ref(p, ref);
+		}
+		Net::msg_finalize(p);
+		return true;
+	}
+}
+
+b8 Parkour::net_msg(Net::StreamRead* p, Net::MessageSource src)
+{
+	using Stream = Net::StreamRead;
+	Ref<Parkour> parkour;
+	serialize_ref(p, parkour);
+	Ref<Collectible> collectible;
+	serialize_ref(p, collectible);
+	if (src == Net::MessageSource::Remote
+		&& parkour.ref()
+		&& collectible.ref()
+		&& (parkour.ref()->get<Walker>()->base_pos() - collectible.ref()->get<Transform>()->absolute_pos()).length_squared() < (COLLECTIBLE_RADIUS * 2.0f) * (COLLECTIBLE_RADIUS * 2.0f))
+	{
+		Animator::Layer* layer3 = &parkour.ref()->get<Animator>()->layers[3];
+		if (layer3->animation == AssetNull)
+		{
+			collectible.ref()->give_rewards();
+			collectible.ref()->get<Transform>()->reparent(parkour.ref()->get<Transform>());
+			layer3->set(Asset::Animation::character_pickup, 0.0f); // bypass animation blending
+			layer3->play(Asset::Animation::character_pickup);
+		}
+	}
+	return true;
 }
 
 void Parkour::update(const Update& u)
@@ -555,6 +600,41 @@ void Parkour::update(const Update& u)
 	}
 
 	get<Walker>()->enabled = fsm.current == State::Normal || fsm.current == State::HardLanding;
+
+	{
+		// handle collectibles
+		b8 pickup = fsm.current == State::Normal && get<Animator>()->layers[3].animation == AssetNull; // should we look for collectibles to pick up?
+		Vec3 me = get<Walker>()->base_pos();
+		for (auto i = Collectible::list.iterator(); !i.is_last(); i.next())
+		{
+			Transform* t = i.item()->get<Transform>();
+
+			if (pickup && (t->absolute_pos() - me).length_squared() < COLLECTIBLE_RADIUS * COLLECTIBLE_RADIUS)
+				ParkourNet::pickup(this, i.item()); // pick it up
+
+			if (t->parent.ref() == get<Transform>())
+			{
+				// glue it to our hand
+				t->pos = Vec3(0.04f, 0, 0);
+				t->rot = Quat::euler(0, PI * 0.5f, 0);
+				get<Animator>()->to_local(Asset::Bone::character_hand_R, &t->pos, &t->rot);
+				break;
+			}
+		}
+	}
+}
+
+void Parkour::pickup_animation_complete()
+{
+	// delete whatever we're holding
+	if (Game::level.local)
+	{
+		for (auto i = Collectible::list.iterator(); !i.is_last(); i.next())
+		{
+			if (i.item()->get<Transform>()->parent.ref() == get<Transform>())
+				World::remove_deferred(i.item()->entity());
+		}
+	}
 }
 
 const s32 wall_jump_direction_count = 4;

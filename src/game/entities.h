@@ -377,6 +377,19 @@ struct Target : public ComponentType<Target>
 	r32 radius() const;
 };
 
+struct Collectible : public ComponentType<Collectible>
+{
+	Resource type;
+	void awake() {}
+
+	void give_rewards();
+};
+
+struct CollectibleEntity : public Entity
+{
+	CollectibleEntity(Resource = Resource::count);
+};
+
 struct PlayerTrigger : public ComponentType<PlayerTrigger>
 {
 	const static s32 max_trigger = MAX_PLAYERS;

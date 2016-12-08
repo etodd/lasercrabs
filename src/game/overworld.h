@@ -13,6 +13,15 @@ struct Camera;
 namespace Overworld
 {
 
+struct ResourceInfo
+{
+	AssetID icon;
+	AssetID description;
+	s16 cost;
+};
+
+extern ResourceInfo resource_info[(s32)Resource::count];
+
 void init(cJSON*);
 void update(const Update&);
 void draw_opaque(const RenderParams&);

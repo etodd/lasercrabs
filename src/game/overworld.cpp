@@ -60,7 +60,7 @@ struct ZoneNode
 	StaticArray<Vec3, ZONE_MAX_CHILDREN> children;
 	AssetID id;
 	AssetID mesh;
-	s16 rewards[(s32)Game::Resource::count];
+	s16 rewards[(s32)Resource::count];
 	s8 size;
 	s8 max_teams;
 
@@ -157,12 +157,12 @@ struct Data
 			Buy,
 		};
 
-		r32 resources_blink_timer[(s32)Game::Resource::count];
+		r32 resources_blink_timer[(s32)Resource::count];
 		r32 timer_buy;
-		Game::Resource resource_selected;
+		Resource resource_selected;
 		Mode mode;
 		s16 buy_quantity;
-		s16 resources_last[(s32)Game::Resource::count];
+		s16 resources_last[(s32)Resource::count];
 	};
 
 	struct Map
@@ -498,7 +498,7 @@ const ZoneNode* zone_node_get(AssetID id)
 	return nullptr;
 }
 
-b8 resource_spend(Game::Resource res, s16 amount)
+b8 resource_spend(Resource res, s16 amount)
 {
 	if (Game::save.resources[(s32)res] >= amount)
 	{
@@ -1211,18 +1211,20 @@ void tab_messages_update(const Update& u)
 
 void capture_start(s8 gamepad)
 {
-	if (resource_spend(Game::Resource::Drones, 1))
+	if (resource_spend(Resource::Drones, 1))
 		deploy_start();
 }
 
 void zone_done(AssetID zone)
 {
+	// todo: make this work on server
+
 	b8 captured = Game::save.zones[zone] == Game::ZoneState::Friendly;
 
 	if (captured)
 	{
 		const ZoneNode* z = zone_node_get(zone);
-		for (s32 i = 0; i < (s32)Game::Resource::count; i++)
+		for (s32 i = 0; i < (s32)Resource::count; i++)
 			Game::save.resources[i] += z->rewards[i];
 	}
 
@@ -1321,7 +1323,7 @@ void tab_map_update(const Update& u)
 			&& u.last_input->get(Controls::Interact, 0) && !u.input->get(Controls::Interact, 0)
 			&& zone_can_capture(data.zone_selected))
 		{
-			if (Game::save.resources[(s32)Game::Resource::Drones] < DEPLOY_COST_DRONES)
+			if (Game::save.resources[(s32)Resource::Drones] < DEPLOY_COST_DRONES)
 				Menu::dialog(0, &Menu::dialog_no_action, _(strings::insufficient_resource), DEPLOY_COST_DRONES, _(strings::drones));
 			else
 				Menu::dialog(0, &capture_start, _(strings::confirm_capture), DEPLOY_COST_DRONES);
@@ -1329,14 +1331,7 @@ void tab_map_update(const Update& u)
 	}
 }
 
-struct ResourceInfo
-{
-	AssetID icon;
-	AssetID description;
-	s16 cost;
-};
-
-ResourceInfo resource_info[(s32)Game::Resource::count] =
+ResourceInfo resource_info[(s32)Resource::count] =
 {
 	{
 		Asset::Mesh::icon_energy,
@@ -1372,9 +1367,9 @@ void tab_inventory_update(const Update& u)
 		data.story.inventory.timer_buy = vi_max(0.0f, data.story.inventory.timer_buy - u.time.delta);
 		if (data.story.inventory.timer_buy == 0.0f)
 		{
-			Game::Resource resource = data.story.inventory.resource_selected;
+			Resource resource = data.story.inventory.resource_selected;
 			const ResourceInfo& info = resource_info[(s32)resource];
-			if (resource_spend(Game::Resource::Energy, info.cost * data.story.inventory.buy_quantity))
+			if (resource_spend(Resource::Energy, info.cost * data.story.inventory.buy_quantity))
 				Game::save.resources[(s32)resource] += data.story.inventory.buy_quantity;
 			data.story.inventory.mode = Data::Inventory::Mode::Normal;
 			data.story.inventory.buy_quantity = 1;
@@ -1389,8 +1384,8 @@ void tab_inventory_update(const Update& u)
 			case Data::Inventory::Mode::Normal:
 			{
 				s32 selected = (s32)inventory->resource_selected;
-				selected = vi_max(0, vi_min((s32)Game::Resource::count - 1, selected + UI::input_delta_vertical(u, 0)));
-				inventory->resource_selected = (Game::Resource)selected;
+				selected = vi_max(0, vi_min((s32)Resource::count - 1, selected + UI::input_delta_vertical(u, 0)));
+				inventory->resource_selected = (Resource)selected;
 
 				if (u.last_input->get(Controls::Interact, 0) && !u.input->get(Controls::Interact, 0))
 				{
@@ -1409,7 +1404,7 @@ void tab_inventory_update(const Update& u)
 				if (u.last_input->get(Controls::Interact, 0) && !u.input->get(Controls::Interact, 0))
 				{
 					const ResourceInfo& info = resource_info[(s32)inventory->resource_selected];
-					if (Game::save.resources[(s32)Game::Resource::Energy] >= info.cost * inventory->buy_quantity)
+					if (Game::save.resources[(s32)Resource::Energy] >= info.cost * inventory->buy_quantity)
 						Menu::dialog(0, &resource_buy, _(strings::prompt_buy), inventory->buy_quantity * info.cost, inventory->buy_quantity, _(info.description));
 					else
 						Menu::dialog(0, &Menu::dialog_no_action, _(strings::insufficient_resource), info.cost * inventory->buy_quantity, _(strings::energy));
@@ -1436,7 +1431,7 @@ void tab_inventory_update(const Update& u)
 		inventory->buy_quantity = 1;
 	}
 
-	for (s32 i = 0; i < (s32)Game::Resource::count; i++)
+	for (s32 i = 0; i < (s32)Resource::count; i++)
 	{
 		if (Game::save.resources[i] != inventory->resources_last[i])
 			inventory->resources_blink_timer[i] = 0.5f;
@@ -1508,7 +1503,7 @@ void story_mode_update(const Update& u)
 	{
 		r64 t = platform::timestamp();
 		if ((s32)(t / ENERGY_INCREMENT_INTERVAL) > (s32)(data.story.timestamp_last / ENERGY_INCREMENT_INTERVAL))
-			Game::save.resources[(s32)Game::Resource::Energy] += energy_increment_total();
+			Game::save.resources[(s32)Resource::Energy] += energy_increment_total();
 		data.story.timestamp_last = t;
 	}
 
@@ -1958,7 +1953,7 @@ void tab_map_draw(const RenderParams& p, const Data::StoryMode& story, const Rec
 			(
 				p,
 				{ zone_stat_rect.pos + Vec2(zone_stat_rect.size.x - icon_size * 0.5f, zone_stat_rect.size.y * 0.5f), Vec2(icon_size) },
-				fmodf(t, ENERGY_INCREMENT_INTERVAL) / ENERGY_INCREMENT_INTERVAL,
+				r32(fmod(t, ENERGY_INCREMENT_INTERVAL)) / ENERGY_INCREMENT_INTERVAL,
 				UI::color_default,
 				PI
 			);
@@ -2006,7 +2001,7 @@ void tab_map_draw(const RenderParams& p, const Data::StoryMode& story, const Rec
 			{
 				// show potential rewards
 				b8 has_rewards = false;
-				for (s32 i = 0; i < (s32)Game::Resource::count; i++)
+				for (s32 i = 0; i < (s32)Resource::count; i++)
 				{
 					if (zone->rewards[i] > 0)
 					{
@@ -2019,7 +2014,7 @@ void tab_map_draw(const RenderParams& p, const Data::StoryMode& story, const Rec
 				{
 					zone_stat_draw(p, rect, UIText::Anchor::Min, 2, _(strings::capture_bonus), UI::color_accent);
 					s32 index = 3;
-					for (s32 i = 0; i < (s32)Game::Resource::count; i++)
+					for (s32 i = 0; i < (s32)Resource::count; i++)
 					{
 						if (zone->rewards[i] > 0)
 						{
@@ -2055,9 +2050,9 @@ void inventory_items_draw(const RenderParams& p, const Data::StoryMode& data, co
 {
 	Vec2 panel_size = get_panel_size(rect);
 	Vec2 pos = rect.pos + Vec2(0, rect.size.y - panel_size.y);
-	for (s32 i = 0; i < (s32)Game::Resource::count; i++)
+	for (s32 i = 0; i < (s32)Resource::count; i++)
 	{
-		b8 selected = data.tab == Tab::Inventory && data.inventory.resource_selected == (Game::Resource)i && !Menu::dialog_callback[0];
+		b8 selected = data.tab == Tab::Inventory && data.inventory.resource_selected == (Resource)i && !Menu::dialog_callback[0];
 
 		UI::box(p, { pos, panel_size }, UI::color_background);
 		if (selected)
@@ -2073,7 +2068,7 @@ void inventory_items_draw(const RenderParams& p, const Data::StoryMode& data, co
 		const Vec4* color;
 		if (flash)
 			color = &UI::color_accent;
-		else if (selected && data.inventory.mode == Data::Inventory::Mode::Buy && Game::save.resources[(s32)Game::Resource::Energy] < data.inventory.buy_quantity * info.cost)
+		else if (selected && data.inventory.mode == Data::Inventory::Mode::Buy && Game::save.resources[(s32)Resource::Energy] < data.inventory.buy_quantity * info.cost)
 			color = &UI::color_alert; // not enough energy to buy
 		else if (selected)
 			color = &UI::color_accent;
@@ -2647,7 +2642,7 @@ void init(cJSON* level)
 
 			// energy increment
 			// this must be done before story_zone_done changes the energy increment amount
-			Game::save.resources[(s32)Game::Resource::Energy] += vi_min(s32(4 * 60 * 60 / ENERGY_INCREMENT_INTERVAL), (s32)(elapsed_time / (r64)ENERGY_INCREMENT_INTERVAL)) * energy_increment_total();
+			Game::save.resources[(s32)Resource::Energy] += vi_min(s32(4 * 60 * 60 / ENERGY_INCREMENT_INTERVAL), (s32)(elapsed_time / (r64)ENERGY_INCREMENT_INTERVAL)) * energy_increment_total();
 		}
 	}
 }

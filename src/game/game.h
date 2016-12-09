@@ -84,13 +84,6 @@ struct Game
 		s32 team_count() const;
 	};
 
-	enum class ZoneState
-	{
-		Locked,
-		Friendly,
-		Hostile,
-	};
-
 	struct Message
 	{
 		r64 timestamp;

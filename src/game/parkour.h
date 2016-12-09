@@ -20,6 +20,8 @@ namespace Net
 	struct StreamRead;
 };
 
+struct MinionCommon;
+
 struct Parkour : public ComponentType<Parkour>
 {
 	enum class State
@@ -30,6 +32,7 @@ struct Parkour : public ComponentType<Parkour>
 		WallRun,
 		Slide,
 		Roll,
+		count,
 	};
 
 	enum class WallRunState
@@ -51,7 +54,9 @@ struct Parkour : public ComponentType<Parkour>
 	WallRunState wall_run_state;
 	WallRunState last_support_wall_run_state;
 	FSM<State> fsm;
+	State last_frame_state;
 	Ref<RigidBody> last_support;
+	StaticArray<Ref<MinionCommon>, 4> damage_minions; // HACK; minions we're currently damaging
 	b8 slide_continue;
 
 	b8 wallrun(const Update&, RigidBody*, const Vec3&, const Vec3&);

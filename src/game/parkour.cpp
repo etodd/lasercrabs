@@ -233,10 +233,22 @@ b8 Parkour::wallrun(const Update& u, RigidBody* wall, const Vec3& relative_wall_
 
 namespace ParkourNet
 {
+	enum Message
+	{
+		Pickup,
+		StateSync,
+		Kill,
+		count,
+	};
+
 	b8 pickup(Parkour* parkour, Collectible* collectible)
 	{
 		using Stream = Net::StreamWrite;
 		Stream* p = Net::msg_new(Net::MessageType::Parkour);
+		{
+			Message m = Message::Pickup;
+			serialize_enum(p, Message, m);
+		}
 		{
 			Ref<Parkour> ref = parkour;
 			serialize_ref(p, ref);
@@ -248,27 +260,114 @@ namespace ParkourNet
 		Net::msg_finalize(p);
 		return true;
 	}
+
+	b8 sync_state(Parkour* parkour)
+	{
+		using Stream = Net::StreamWrite;
+		Stream* p = Net::msg_new(Net::MessageType::Parkour);
+		{
+			Message m = Message::StateSync;
+			serialize_enum(p, Message, m);
+		}
+		{
+			Ref<Parkour> ref = parkour;
+			serialize_ref(p, ref);
+		}
+		serialize_enum(p, Parkour::State, parkour->fsm.current);
+		Net::msg_finalize(p);
+		return true;
+	}
+
+	b8 kill(Parkour* parkour, MinionCommon* minion)
+	{
+		using Stream = Net::StreamWrite;
+		Stream* p = Net::msg_new(Net::MessageType::Parkour);
+		{
+			Message m = Message::Kill;
+			serialize_enum(p, Message, m);
+		}
+		{
+			Ref<Parkour> ref = parkour;
+			serialize_ref(p, ref);
+		}
+		{
+			Ref<MinionCommon> ref = minion;
+			serialize_ref(p, ref);
+		}
+		Net::msg_finalize(p);
+		return true;
+	}
+}
+
+b8 minion_in_front(Parkour* parkour, MinionCommon* minion, b8 forgiving)
+{
+	Vec3 minion_pos = minion->get<Walker>()->base_pos();
+	Vec3 to_minion = minion_pos - parkour->get<Walker>()->base_pos();
+	Vec3 forward = Quat::euler(0, parkour->get<Walker>()->target_rotation, 0) * Vec3(0, 0, 1);
+	r32 forgiveness = forgiving ? 2.0f : 0.0f;
+	return fabsf(to_minion.y) < WALKER_SUPPORT_HEIGHT + WALKER_DEFAULT_CAPSULE_HEIGHT + forgiveness
+		&& forward.dot(to_minion) < WALKER_RADIUS * 2.5f + forgiveness
+		&& (forgiving || forward.dot(Vec3::normalize(to_minion)) > 0.5f);
 }
 
 b8 Parkour::net_msg(Net::StreamRead* p, Net::MessageSource src)
 {
 	using Stream = Net::StreamRead;
+	ParkourNet::Message type;
+	serialize_enum(p, ParkourNet::Message, type);
 	Ref<Parkour> parkour;
 	serialize_ref(p, parkour);
-	Ref<Collectible> collectible;
-	serialize_ref(p, collectible);
 	if ((src == Net::MessageSource::Remote || Game::level.local)
-		&& parkour.ref()
-		&& collectible.ref()
-		&& (parkour.ref()->get<Walker>()->base_pos() - collectible.ref()->get<Transform>()->absolute_pos()).length_squared() < (COLLECTIBLE_RADIUS * 2.0f) * (COLLECTIBLE_RADIUS * 2.0f))
+		&& parkour.ref())
 	{
-		Animator::Layer* layer3 = &parkour.ref()->get<Animator>()->layers[3];
-		if (layer3->animation == AssetNull)
+		switch (type)
 		{
-			collectible.ref()->give_rewards();
-			collectible.ref()->get<Transform>()->reparent(parkour.ref()->get<Transform>());
-			layer3->set(Asset::Animation::character_pickup, 0.0f); // bypass animation blending
-			layer3->play(Asset::Animation::character_pickup);
+			case ParkourNet::Message::Pickup:
+			{
+				Ref<Collectible> collectible;
+				serialize_ref(p, collectible);
+				if (collectible.ref()
+					&& (parkour.ref()->get<Walker>()->base_pos() - collectible.ref()->get<Transform>()->absolute_pos()).length_squared() < (COLLECTIBLE_RADIUS * 2.0f) * (COLLECTIBLE_RADIUS * 2.0f))
+				{
+					Animator::Layer* layer3 = &parkour.ref()->get<Animator>()->layers[3];
+					if (layer3->animation == AssetNull)
+					{
+						collectible.ref()->give_rewards();
+						collectible.ref()->get<Transform>()->reparent(parkour.ref()->get<Transform>());
+						layer3->set(Asset::Animation::character_pickup, 0.0f); // bypass animation blending
+						layer3->play(Asset::Animation::character_pickup);
+					}
+				}
+				break;
+			}
+			case ParkourNet::Message::StateSync:
+			{
+				State old_value = parkour.ref()->fsm.current;
+				serialize_enum(p, State, parkour.ref()->fsm.current);
+				if (old_value != parkour.ref()->fsm.current)
+				{
+					parkour.ref()->fsm.last = old_value;
+					parkour.ref()->fsm.time = 0.0f;
+				}
+				break;
+			}
+			case ParkourNet::Message::Kill:
+			{
+				Ref<MinionCommon> minion;
+				serialize_ref(p, minion);
+				if (minion.ref()
+					&& (parkour.ref()->fsm.current == State::Slide || parkour.ref()->fsm.current == State::Roll)
+					&& minion_in_front(parkour.ref(), minion.ref(), true))
+				{
+					minion.ref()->get<Health>()->kill(parkour.ref()->entity());
+				}
+				break;
+			}
+			default:
+			{
+				vi_assert(false);
+				break;
+			}
 		}
 	}
 	return true;
@@ -517,22 +616,28 @@ void Parkour::update(const Update& u)
 			// check for minions in front of us
 			if (get<Walker>()->net_speed > MIN_ATTACK_SPEED)
 			{
-				Vec3 base_pos = get<Walker>()->base_pos();
-				r32 total_height = WALKER_SUPPORT_HEIGHT + WALKER_DEFAULT_CAPSULE_HEIGHT;
 				for (auto i = MinionCommon::list.iterator(); !i.is_last(); i.next())
 				{
-					Vec3 minion_pos = i.item()->get<Walker>()->base_pos();
-					Vec3 to_minion = minion_pos - base_pos;
-					if (fabsf(to_minion.y) < total_height
-						&& forward.dot(to_minion) < WALKER_RADIUS * 2.5f
-						&& forward.dot(Vec3::normalize(to_minion)) > 0.5f)
+					b8 already_damaged = false;
+					for (s32 j = 0; j < damage_minions.length; j++)
 					{
-						if (Game::level.local)
-							i.item()->get<Health>()->kill(entity());
+						if (i.item() == damage_minions[j].ref())
+						{
+							already_damaged = true;
+							break;
+						}
+					}
+
+					if (!already_damaged && minion_in_front(this, i.item(), false))
+					{
+						ParkourNet::kill(this, i.item());
+						damage_minions.add(i.item());
+
+						Vec3 base_pos = get<Walker>()->base_pos();
 
 						// sparks
-						Vec3 p = base_pos + Vec3(0, total_height * 0.5f, 0);
-						Quat rot = Quat::look(to_minion);
+						Vec3 p = base_pos + Vec3(0, (WALKER_SUPPORT_HEIGHT + WALKER_DEFAULT_CAPSULE_HEIGHT) * 0.5f, 0);
+						Quat rot = Quat::look(i.item()->get<Walker>()->base_pos() - base_pos);
 						for (s32 i = 0; i < 50; i++)
 						{
 							Particles::sparks.add
@@ -596,6 +701,17 @@ void Parkour::update(const Update& u)
 		layer0->speed = 1.0f;
 	}
 
+	{
+		// update collision filter
+		// don't collide with minions if we are sliding or rolling
+		RigidBody* body = get<RigidBody>();
+		b8 collide_with_minions = fsm.current != State::Roll && fsm.current != State::Slide;
+		if (collide_with_minions && !(body->collision_filter & CollisionWalker))
+			body->set_collision_masks(body->collision_group, body->collision_filter | CollisionWalker);
+		else if (!collide_with_minions && (body->collision_filter & CollisionWalker))
+			body->set_collision_masks(body->collision_group, body->collision_filter & ~CollisionWalker);
+	}
+
 	get<Walker>()->enabled = fsm.current == State::Normal || fsm.current == State::HardLanding;
 
 	{
@@ -618,6 +734,13 @@ void Parkour::update(const Update& u)
 				break;
 			}
 		}
+	}
+
+	if (!Game::level.local)
+	{
+		if (last_frame_state != fsm.current)
+			ParkourNet::sync_state(this);
+		last_frame_state = fsm.current;
 	}
 }
 
@@ -797,6 +920,7 @@ b8 Parkour::try_slide()
 
 			slide_continue = true;
 
+			damage_minions.length = 0;
 			return true;
 		}
 	}

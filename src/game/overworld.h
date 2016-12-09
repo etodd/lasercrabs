@@ -39,6 +39,7 @@ void conversation_finished();
 void clear();
 void execute(const char*);
 void zone_done(AssetID);
+void zone_change(AssetID, ZoneState);
 b8 active();
 void message_add(AssetID, AssetID, r64 = -1.0);
 

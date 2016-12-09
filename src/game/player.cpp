@@ -2435,7 +2435,7 @@ void PlayerControlHuman::update(const Update& u)
 					{
 						switch (Game::save.zones[Game::level.id])
 						{
-							case Game::ZoneState::Hostile:
+							case ZoneState::Hostile:
 							{
 								if (Game::level.post_pvp)
 								{
@@ -2453,13 +2453,13 @@ void PlayerControlHuman::update(const Update& u)
 								}
 								break;
 							}
-							case Game::ZoneState::Locked:
+							case ZoneState::Locked:
 							{
 								interactable.ref()->interact();
 								get<Animator>()->layers[3].play(Asset::Animation::character_interact);
 								break;
 							}
-							case Game::ZoneState::Friendly:
+							case ZoneState::Friendly:
 							{
 								// zone is already owned
 								player.ref()->msg(_(strings::zone_already_captured), false);
@@ -2504,7 +2504,7 @@ void PlayerControlHuman::update(const Update& u)
 
 			if (input_enabled() && u.last_input->get(Controls::Scoreboard, gamepad) && !u.input->get(Controls::Scoreboard, gamepad))
 			{
-				if (Game::save.zones[Game::level.id] == Game::ZoneState::Friendly)
+				if (Game::save.zones[Game::level.id] == ZoneState::Friendly)
 					Overworld::show(player.ref()->camera);
 				else
 					player.ref()->msg(_(strings::error_hostile_zone), false);
@@ -2994,7 +2994,7 @@ void PlayerControlHuman::draw_alpha(const RenderParams& params) const
 			}
 
 			// highlight terminal location
-			if (!i && Game::save.zones[Game::level.id] == Game::ZoneState::Locked)
+			if (!i && Game::save.zones[Game::level.id] == ZoneState::Locked)
 			{
 				Entity* terminal = Game::level.terminal.ref();
 				if (terminal)

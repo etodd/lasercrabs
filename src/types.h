@@ -83,6 +83,14 @@ enum class Resource
 	count,
 };
 
+enum class ZoneState
+{
+	Locked,
+	Friendly,
+	Hostile,
+	count,
+};
+
 namespace Net
 {
 	enum class MessageSource // included here to prevent having to include net.h everywhere

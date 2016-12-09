@@ -167,7 +167,7 @@ struct Data
 
 	struct Map
 	{
-		Game::ZoneState zones_last[MAX_ZONES];
+		ZoneState zones_last[MAX_ZONES];
 		r32 zones_change_time[MAX_ZONES];
 	};
 
@@ -526,8 +526,8 @@ s16 energy_increment_total()
 	for (s32 i = 0; i < global.zones.length; i++)
 	{
 		const ZoneNode& zone = global.zones[i];
-		Game::ZoneState zone_state = Game::save.zones[zone.id];
-		if (zone_state == Game::ZoneState::Friendly)
+		ZoneState zone_state = Game::save.zones[zone.id];
+		if (zone_state == ZoneState::Friendly)
 			result += energy_increment_zone(zone);
 	}
 	if (Game::save.group != Game::Group::None)
@@ -642,18 +642,18 @@ Vec3 zone_color(const ZoneNode& zone)
 	}
 	else
 	{
-		Game::ZoneState zone_state = Game::save.zones[zone.id];
+		ZoneState zone_state = Game::save.zones[zone.id];
 		switch (zone_state)
 		{
-			case Game::ZoneState::Locked:
+			case ZoneState::Locked:
 			{
 				return Vec3(0.25f);
 			}
-			case Game::ZoneState::Friendly:
+			case ZoneState::Friendly:
 			{
 				return Team::color_friend.xyz();
 			}
-			case Game::ZoneState::Hostile:
+			case ZoneState::Hostile:
 			{
 				return Team::color_enemy.xyz();
 			}
@@ -670,18 +670,18 @@ const Vec4& zone_ui_color(const ZoneNode& zone)
 {
 	if (Game::session.story_mode)
 	{
-		Game::ZoneState zone_state = Game::save.zones[zone.id];
+		ZoneState zone_state = Game::save.zones[zone.id];
 		switch (zone_state)
 		{
-			case Game::ZoneState::Locked:
+			case ZoneState::Locked:
 			{
 				return UI::color_disabled;
 			}
-			case Game::ZoneState::Friendly:
+			case ZoneState::Friendly:
 			{
 				return Team::ui_color_friend;
 			}
-			case Game::ZoneState::Hostile:
+			case ZoneState::Hostile:
 			{
 				return Team::ui_color_enemy;
 			}
@@ -877,11 +877,44 @@ void splitscreen_select_zone_draw(const RenderParams& params)
 
 namespace OverworldNet
 {
-	b8 capture(AssetID zone)
+	enum class Message
+	{
+		CaptureOrDefend,
+		ZoneUnderAttack,
+		ZoneChange,
+		count,
+	};
+
+	b8 capture_or_defend(AssetID zone)
 	{
 		using Stream = Net::StreamWrite;
 		Stream* p = Net::msg_new(Net::MessageType::Overworld);
+		Message m = Message::CaptureOrDefend;
+		serialize_enum(p, Message, m);
 		serialize_s16(p, zone);
+		Net::msg_finalize(p);
+		return true;
+	}
+
+	b8 zone_under_attack(AssetID zone)
+	{
+		using Stream = Net::StreamWrite;
+		Stream* p = Net::msg_new(Net::MessageType::Overworld);
+		Message m = Message::ZoneUnderAttack;
+		serialize_enum(p, Message, m);
+		serialize_s16(p, zone);
+		Net::msg_finalize(p);
+		return true;
+	}
+
+	b8 zone_change(AssetID zone, ZoneState state)
+	{
+		using Stream = Net::StreamWrite;
+		Stream* p = Net::msg_new(Net::MessageType::Overworld);
+		Message m = Message::ZoneChange;
+		serialize_enum(p, Message, m);
+		serialize_s16(p, zone);
+		serialize_enum(p, ZoneState, state);
 		Net::msg_finalize(p);
 		return true;
 	}
@@ -891,13 +924,42 @@ b8 net_msg(Net::StreamRead* p, Net::MessageSource src)
 {
 	using Stream = Net::StreamRead;
 
+	OverworldNet::Message type;
+	serialize_enum(p, OverworldNet::Message, type);
+
 	AssetID zone;
 	serialize_s16(p, zone);
 
-	if (Game::level.local)
+	switch (type)
 	{
-		if (zone_node_get(zone))
-			go(zone);
+		case OverworldNet::Message::CaptureOrDefend:
+		{
+			if (Game::level.local)
+			{
+				if (zone_node_get(zone))
+					go(zone);
+			}
+			break;
+		}
+		case OverworldNet::Message::ZoneUnderAttack:
+		{
+			
+			break;
+		}
+		case OverworldNet::Message::ZoneChange:
+		{
+			ZoneState state;
+			serialize_enum(p, ZoneState, state);
+			// server does not accept ZoneChange messages from client
+			if (Game::level.local == (src == Net::MessageSource::Loopback))
+				Game::save.zones[zone] = state;
+			break;
+		}
+		default:
+		{
+			vi_assert(false);
+			break;
+		}
 	}
 
 	return true;
@@ -944,7 +1006,7 @@ void deploy_update(const Update& u)
 		if (Game::level.local)
 			go(data.zone_selected);
 		else if (Game::session.story_mode)
-			OverworldNet::capture(data.zone_selected);
+			OverworldNet::capture_or_defend(data.zone_selected);
 		else
 			vi_assert(false); // todo: networked pvp matches
 	}
@@ -1051,6 +1113,7 @@ void message_read(Game::Message* msg)
 
 void group_join(Game::Group g)
 {
+	// todo: redo this whole thing
 	Game::save.group = g;
 	for (s32 i = 0; i < global.zones.length; i++)
 	{
@@ -1058,9 +1121,9 @@ void group_join(Game::Group g)
 		if (zone.max_teams > 2)
 		{
 			if (g == Game::Group::None)
-				Game::save.zones[zone.id] = Game::ZoneState::Locked;
+				Overworld::zone_change(zone.id, ZoneState::Locked);
 			else
-				Game::save.zones[zone.id] = mersenne::randf_cc() > 0.7f ? Game::ZoneState::Friendly : Game::ZoneState::Hostile;
+				Overworld::zone_change(zone.id, mersenne::randf_cc() > 0.7f ? ZoneState::Friendly : ZoneState::Hostile);
 		}
 	}
 }
@@ -1253,7 +1316,7 @@ void capture_start(s8 gamepad)
 
 void zone_done(AssetID zone)
 {
-	b8 captured = Game::save.zones[zone] == Game::ZoneState::Friendly;
+	b8 captured = Game::save.zones[zone] == ZoneState::Friendly;
 
 	if (captured)
 	{
@@ -1276,6 +1339,12 @@ void zone_done(AssetID zone)
 	}
 }
 
+void zone_change(AssetID zone, ZoneState state)
+{
+	vi_assert(Game::level.local);
+	OverworldNet::zone_change(zone, state);
+}
+
 b8 zone_filter_default(AssetID zone_id)
 {
 	return true;
@@ -1288,7 +1357,7 @@ b8 zone_filter_not_selected(AssetID zone_id)
 
 b8 zone_filter_accessible(AssetID zone_id)
 {
-	return Game::save.zones[zone_id] != Game::ZoneState::Locked;
+	return Game::save.zones[zone_id] != ZoneState::Locked;
 }
 
 b8 zone_filter_can_turn_hostile(AssetID zone_id)
@@ -1303,7 +1372,7 @@ b8 zone_filter_can_turn_hostile(AssetID zone_id)
 
 b8 zone_filter_captured(AssetID zone_id)
 {
-	return Game::save.zones[zone_id] == Game::ZoneState::Friendly;
+	return Game::save.zones[zone_id] == ZoneState::Friendly;
 }
 
 void zone_statistics(s32* captured, s32* hostile, s32* locked, b8 (*filter)(AssetID) = &zone_filter_default)
@@ -1316,12 +1385,12 @@ void zone_statistics(s32* captured, s32* hostile, s32* locked, b8 (*filter)(Asse
 		const ZoneNode& zone = global.zones[i];
 		if (filter(zone.id))
 		{
-			Game::ZoneState state = Game::save.zones[zone.id];
-			if (state == Game::ZoneState::Friendly)
+			ZoneState state = Game::save.zones[zone.id];
+			if (state == ZoneState::Friendly)
 				(*captured)++;
-			else if (state == Game::ZoneState::Hostile)
+			else if (state == ZoneState::Hostile)
 				(*hostile)++;
-			else if (state == Game::ZoneState::Locked)
+			else if (state == ZoneState::Locked)
 				(*locked)++;
 		}
 	}
@@ -1331,7 +1400,7 @@ b8 zone_can_capture(AssetID zone_id)
 {
 	return can_switch_tab()
 		&& Game::save.group == Game::Group::None
-		&& Game::save.zones[zone_id] == Game::ZoneState::Hostile
+		&& Game::save.zones[zone_id] == ZoneState::Hostile
 		&& zone_id != Game::level.id;
 }
 
@@ -1515,17 +1584,17 @@ void zone_randomize(r32 elapsed_time, s32 flags = ZoneRandomizeDefault)
 				// todo: incoming attack
 			}
 			else
-				Game::save.zones[zone_random(&zone_filter_captured, selection_filter)] = Game::ZoneState::Hostile;
+				Overworld::zone_change(zone_random(&zone_filter_captured, selection_filter), ZoneState::Hostile);
 		}
 		else
 		{
 			// flip a random zone
 			AssetID zone_id = zone_random(&zone_filter_accessible, selection_filter);
-			Game::ZoneState* state = &Game::save.zones[zone_id];
-			if (*state == Game::ZoneState::Hostile || *state == Game::ZoneState::Locked)
-				*state = Game::ZoneState::Friendly;
+			ZoneState* state = &Game::save.zones[zone_id];
+			if (*state == ZoneState::Hostile || *state == ZoneState::Locked)
+				*state = ZoneState::Friendly;
 			else
-				*state = Game::ZoneState::Hostile;
+				*state = ZoneState::Hostile;
 		}
 		event_odds -= 1.0f;
 	}
@@ -2021,8 +2090,8 @@ void tab_map_draw(const RenderParams& p, const Data::StoryMode& story, const Rec
 		zones_draw(p);
 
 		// show selected zone info
-		Game::ZoneState zone_state = Game::save.zones[data.zone_selected];
-		if (zone_state == Game::ZoneState::Hostile || zone_state == Game::ZoneState::Friendly)
+		ZoneState zone_state = Game::save.zones[data.zone_selected];
+		if (zone_state == ZoneState::Hostile || zone_state == ZoneState::Friendly)
 		{
 			// show stats
 			const ZoneNode* zone = zone_node_get(data.zone_selected);
@@ -2031,7 +2100,7 @@ void tab_map_draw(const RenderParams& p, const Data::StoryMode& story, const Rec
 			sprintf(buffer, _(strings::energy_generation), (s32)energy_increment_zone(*zone));
 			zone_stat_draw(p, rect, UIText::Anchor::Min, 1, buffer, UI::color_default);
 
-			if (zone_state == Game::ZoneState::Hostile)
+			if (zone_state == ZoneState::Hostile)
 			{
 				// show potential rewards
 				b8 has_rewards = false;
@@ -2524,7 +2593,7 @@ void execute(const char* cmd)
 {
 	if (utf8cmp(cmd, "capture") == 0)
 	{
-		Game::save.zones[data.zone_selected] = Game::ZoneState::Friendly;
+		Overworld::zone_change(data.zone_selected, ZoneState::Friendly);
 		zone_done(data.zone_selected);
 	}
 	else if (strstr(cmd, "join ") == cmd)
@@ -2666,11 +2735,12 @@ void init(cJSON* level)
 	{
 		data.state = State::StoryMode;
 
-		{
-			r64 t = platform::timestamp();
-			r64 elapsed_time = t - Game::save.timestamp;
-			data.story.timestamp_last = t;
+		r64 t = platform::timestamp();
+		r64 elapsed_time = t - Game::save.timestamp;
+		data.story.timestamp_last = t;
 
+		if (Game::level.local)
+		{
 			// change zones while you're gone
 			zone_randomize(vi_min((r32)elapsed_time, EVENT_INTERVAL_PER_ZONE * 0.5f));
 

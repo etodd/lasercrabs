@@ -953,9 +953,9 @@ void Game::execute(const char* cmd)
 	else if (strcmp(cmd, "skip") == 0)
 		Team::match_time += PLAYER_SPAWN_DELAY + GAME_BUY_PERIOD;
 	else if (!Overworld::active() && strcmp(cmd, "capture") == 0)
-		Game::save.zones[Game::level.id] = Game::ZoneState::Friendly;
+		Overworld::zone_change(Game::level.id, ZoneState::Friendly);
 	else if (!Overworld::active() && strcmp(cmd, "unlock") == 0)
-		Game::save.zones[Game::level.id] = Game::ZoneState::Hostile;
+		Overworld::zone_change(Game::level.id, ZoneState::Hostile);
 	else if (Overworld::active())
 		Overworld::execute(cmd);
 }
@@ -1364,7 +1364,7 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 			if (session.story_mode)
 			{
 				// starts out owned by player if the zone is friendly
-				s32 default_team_index = Game::save.zones[Game::level.id] == Game::ZoneState::Friendly ? 0 : 1;
+				s32 default_team_index = Game::save.zones[Game::level.id] == ZoneState::Friendly ? 0 : 1;
 				AI::Team team = team_lookup(level.team_lookup, Json::get_s32(element, "team", default_team_index));
 				entity = World::alloc<Minion>(absolute_pos, absolute_rot, team);
 			}
@@ -1435,7 +1435,7 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 				if (session.story_mode)
 				{
 					// starts out owned by player if the zone is friendly
-					s32 default_team_index = Game::save.zones[Game::level.id] == Game::ZoneState::Friendly ? 0 : 1;
+					s32 default_team_index = Game::save.zones[Game::level.id] == ZoneState::Friendly ? 0 : 1;
 					team = team_lookup(level.team_lookup, Json::get_s32(element, "team", default_team_index));
 				}
 				else

@@ -516,12 +516,6 @@ b8 Team::net_msg(Net::StreamRead* p)
 			serialize_ref(p, winner);
 			game_over = true;
 			game_over_real_time = Game::real_time.total;
-			if (Game::session.story_mode)
-			{
-				if (winner.ref() == &Team::list[1])
-					Game::save.zones[Game::level.id] = Game::ZoneState::Friendly;
-			}
-
 
 			for (auto i = PlayerManager::list.iterator(); !i.is_last(); i.next())
 			{
@@ -678,6 +672,12 @@ void Team::update_all_server(const Update& u)
 			}
 
 			TeamNet::send_game_over(w);
+
+			if (Game::session.story_mode
+				&& w == &Team::list[1])
+			{
+				Overworld::zone_change(Game::level.id, ZoneState::Friendly);
+			}
 		}
 	}
 

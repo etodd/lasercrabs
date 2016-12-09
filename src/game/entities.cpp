@@ -2396,7 +2396,7 @@ TerminalEntity::TerminalEntity()
 	anim->armature = Asset::Armature::terminal;
 	anim->layers[0].loop = true;
 	anim->layers[0].blend_time = 0.0f;
-	anim->layers[0].animation = Game::save.zones[Game::level.id] == Game::ZoneState::Locked ? AssetNull : Asset::Animation::terminal_opened;
+	anim->layers[0].animation = Game::save.zones[Game::level.id] == ZoneState::Locked ? AssetNull : Asset::Animation::terminal_opened;
 	anim->layers[1].loop = false;
 	anim->layers[1].blend_time = 0.0f;
 	anim->trigger(Asset::Animation::terminal_close, 1.33f).link(&closed);
@@ -2417,7 +2417,7 @@ TerminalInteractable::TerminalInteractable()
 	Animator* anim = create<Animator>();
 	anim->armature = Asset::Armature::interactable;
 	anim->layers[0].loop = true;
-	anim->layers[0].animation = Game::save.zones[Game::level.id] == Game::ZoneState::Locked ? Asset::Animation::interactable_enabled : Asset::Animation::interactable_disabled;
+	anim->layers[0].animation = Game::save.zones[Game::level.id] == ZoneState::Locked ? Asset::Animation::interactable_enabled : Asset::Animation::interactable_disabled;
 	anim->layers[0].blend_time = 0.0f;
 	anim->layers[1].loop = false;
 	anim->layers[1].blend_time = 0.0f;
@@ -2432,15 +2432,16 @@ void TerminalInteractable::interacted(Interactable*)
 	Animator* animator = Game::level.terminal.ref()->get<Animator>();
 	if (animator->layers[1].animation == AssetNull) // make sure nothing's happening already
 	{
-		Game::ZoneState zone_state = Game::save.zones[Game::level.id];
-		if (zone_state == Game::ZoneState::Locked)
+		ZoneState zone_state = Game::save.zones[Game::level.id];
+		if (zone_state == ZoneState::Locked)
 		{
-			Game::save.zones[Game::level.id] = Game::ZoneState::Hostile;
+			if (Game::level.local)
+				Overworld::zone_change(Game::level.id, ZoneState::Hostile);
 			for (auto i = PlayerHuman::list.iterator(); !i.is_last(); i.next())
 				i.item()->msg(_(strings::zone_unlocked), true);
 			TerminalEntity::open();
 		}
-		else if (zone_state == Game::ZoneState::Hostile)
+		else if (zone_state == ZoneState::Hostile)
 			TerminalEntity::close();
 	}
 }

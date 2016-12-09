@@ -93,7 +93,6 @@ struct EnergyPickup : public ComponentType<EnergyPickup>
 	void hit(const TargetEvent&);
 	b8 set_team(AI::Team, Entity* = nullptr);
 	void set_team_client(AI::Team);
-	void reset();
 };
 
 struct PlayerSpawnEntity : public Entity

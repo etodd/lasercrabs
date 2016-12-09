@@ -44,7 +44,7 @@ struct Animator : public ComponentType<Animator>
 		AssetID last_animation;
 		b8 loop;
 		void update(r32, r32, const Animator&);
-		void changed_animation();
+		void changed_animation(const Armature*);
 		void play(AssetID);
 		void set(AssetID, r32);
 	};

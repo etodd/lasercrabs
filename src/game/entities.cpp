@@ -335,11 +335,6 @@ EnergyPickup::~EnergyPickup()
 		World::remove_deferred(light.ref());
 }
 
-void EnergyPickup::reset()
-{
-	set_team(AI::TeamNone);
-}
-
 void EnergyPickup::hit(const TargetEvent& e)
 {
 	if (e.hit_by->has<Awk>() && e.hit_by->get<Awk>()->current_ability == Ability::Sniper)
@@ -987,7 +982,7 @@ void Rocket::update_server(const Update& u)
 				for (s32 i = 0; i < whisker_count; i++)
 				{
 					btCollisionWorld::ClosestRayResultCallback ray_callback(get<Transform>()->pos, get<Transform>()->pos + get<Transform>()->rot * whiskers[i]);
-					Physics::raycast(&ray_callback, ~CollisionTarget & ~CollisionAwkIgnore);
+					Physics::raycast(&ray_callback, ~CollisionTarget & ~CollisionAwkIgnore & ~CollisionShield);
 					if (ray_callback.hasHit())
 					{
 						// avoid the obstacle
@@ -1023,7 +1018,7 @@ void Rocket::update_server(const Update& u)
 
 				// do damage
 				if (hit->has<Awk>() || hit->has<Decoy>())
-					hit->get<Target>()->hit(entity());
+					hit->get<Health>()->damage(entity(), 1);
 
 				explode();
 				return;

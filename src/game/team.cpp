@@ -805,7 +805,6 @@ PlayerManager::PlayerManager(Team* team, const char* u)
 	: spawn_timer(PLAYER_SPAWN_DELAY),
 	score_accepted(),
 	team(team),
-	credits(Game::level.has_feature(Game::FeatureLevel::Abilities) ? CREDITS_INITIAL : 0),
 	upgrades(0),
 	abilities{ Ability::None, Ability::None, Ability::None },
 	instance(),
@@ -819,6 +818,14 @@ PlayerManager::PlayerManager(Team* team, const char* u)
 	respawns(Game::level.respawns),
 	kills()
 {
+	if (Game::level.has_feature(Game::FeatureLevel::Abilities))
+	{
+		credits = CREDITS_INITIAL;
+		if (Game::session.story_mode && Game::level.type == Game::Type::Rush && team->team() == 0)
+			credits += s32(Team::match_time / ENERGY_INCREMENT_INTERVAL) * (CREDITS_DEFAULT_INCREMENT * s32(EnergyPickup::list.count() * 0.75f));
+	}
+	else
+		credits = 0;
 	credits_last = credits;
 	if (u)
 		strncpy(username, u, MAX_USERNAME);
@@ -924,7 +931,6 @@ void PlayerManager::capture_complete()
 	ControlPoint* control_point = at_control_point();
 	if (control_point && !friendly_control_point(control_point))
 	{
-		add_credits(CREDITS_CAPTURE_CONTROL_POINT);
 		if (control_point->team_next == AI::TeamNone)
 		{
 			// no capture in progress; start capturing
@@ -1059,7 +1065,6 @@ b8 PlayerManager::can_transition_state() const
 s16 PlayerManager::increment() const
 {
 	return CREDITS_DEFAULT_INCREMENT
-		+ ControlPoint::count(1 << team.ref()->team()) * CREDITS_CONTROL_POINT
 		+ EnergyPickup::count(1 << team.ref()->team()) * CREDITS_ENERGY_PICKUP;
 }
 

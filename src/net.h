@@ -58,6 +58,10 @@ enum class MessageType
 	TimeSync,
 	Tram,
 	TransitionLevel,
+	Overworld,
+#if DEBUG
+	DebugCommand,
+#endif
 	count,
 };
 
@@ -154,6 +158,8 @@ namespace Client
 	b8 lagging();
 
 	Sock::Address server_address();
+
+	b8 execute(const char*);
 }
 #endif
 

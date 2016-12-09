@@ -27,7 +27,6 @@ struct Walker : public ComponentType<Walker>
 		target_rotation,
 		rotation_speed,
 		air_control_accel,
-		last_supported_speed,
 		accel1,
 		accel2,
 		accel_threshold,

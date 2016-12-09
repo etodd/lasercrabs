@@ -466,6 +466,7 @@ void splitscreen_select_teams_draw(const RenderParams& params)
 
 void go(AssetID zone)
 {
+	vi_assert(Game::level.local);
 	if (Game::session.story_mode)
 	{
 		PlayerControlHuman* player = PlayerControlHuman::list.iterator().item();
@@ -874,6 +875,34 @@ void splitscreen_select_zone_draw(const RenderParams& params)
 	}
 }
 
+namespace OverworldNet
+{
+	b8 capture(AssetID zone)
+	{
+		using Stream = Net::StreamWrite;
+		Stream* p = Net::msg_new(Net::MessageType::Overworld);
+		serialize_s16(p, zone);
+		Net::msg_finalize(p);
+		return true;
+	}
+}
+
+b8 net_msg(Net::StreamRead* p, Net::MessageSource src)
+{
+	using Stream = Net::StreamRead;
+
+	AssetID zone;
+	serialize_s16(p, zone);
+
+	if (Game::level.local)
+	{
+		if (zone_node_get(zone))
+			go(zone);
+	}
+
+	return true;
+}
+
 void deploy_update(const Update& u)
 {
 	const ZoneNode& zone = *zone_node_get(data.zone_selected);
@@ -911,7 +940,14 @@ void deploy_update(const Update& u)
 	}
 
 	if (data.timer_deploy == 0.0f && old_timer > 0.0f)
-		go(data.zone_selected);
+	{
+		if (Game::level.local)
+			go(data.zone_selected);
+		else if (Game::session.story_mode)
+			OverworldNet::capture(data.zone_selected);
+		else
+			vi_assert(false); // todo: networked pvp matches
+	}
 }
 
 void deploy_draw(const RenderParams& params)
@@ -1217,8 +1253,6 @@ void capture_start(s8 gamepad)
 
 void zone_done(AssetID zone)
 {
-	// todo: make this work on server
-
 	b8 captured = Game::save.zones[zone] == Game::ZoneState::Friendly;
 
 	if (captured)

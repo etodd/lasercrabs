@@ -61,6 +61,8 @@ namespace VI
 {
 
 b8 Game::quit = false;
+s32 Game::width;
+s32 Game::height;
 b8 Game::is_gamepad = false;
 GameTime Game::time;
 GameTime Game::real_time;
@@ -177,11 +179,11 @@ b8 Game::init(LoopSync* sync)
 {
 	World::init();
 
-#if !SERVER
-	cJSON* overworld_level = Loader::level(Asset::Level::overworld, false);
-	Overworld::init(overworld_level);
-	Loader::level_free(overworld_level);
-#endif
+	{
+		cJSON* overworld_level = Loader::level(Asset::Level::overworld, false);
+		Overworld::init(overworld_level);
+		Loader::level_free(overworld_level);
+	}
 
 	if (!Net::init())
 		return false;
@@ -264,6 +266,9 @@ b8 Game::init(LoopSync* sync)
 
 void Game::update(const Update& update_in)
 {
+	width = update_in.input->width;
+	height = update_in.input->height;
+
 	b8 update_game;
 #if SERVER
 	update_game = Net::Server::mode() == Net::Server::Mode::Active;
@@ -365,7 +370,7 @@ void Game::update(const Update& update_in)
 			Net::Server::transition_level(); // let clients know that we're switching levels
 #endif
 		if (scheduled_load_level != AssetNull && schedule_timer < TRANSITION_TIME * 0.5f && old_timer >= TRANSITION_TIME * 0.5f)
-			load_level(u, scheduled_load_level, scheduled_mode);
+			load_level(scheduled_load_level, scheduled_mode);
 	}
 
 	AI::update(u);
@@ -439,13 +444,13 @@ void Game::update(const Update& update_in)
 				i.item()->update_server(u);
 			for (auto i = TramRunner::list.iterator(); !i.is_last(); i.next())
 				i.item()->update(u);
+			for (auto i = PlayerAI::list.iterator(); !i.is_last(); i.next())
+				i.item()->update(u);
 		}
 
 		MinionCommon::update_client_all(u);
 		Grenade::update_client_all(u);
 		Rocket::update_client_all(u);
-		for (auto i = PlayerAI::list.iterator(); !i.is_last(); i.next())
-			i.item()->update(u);
 		for (auto i = Awk::list.iterator(); !i.is_last(); i.next())
 		{
 			if (level.local || (i.item()->has<PlayerControlHuman>() && i.item()->get<PlayerControlHuman>()->local()))
@@ -768,9 +773,38 @@ void Game::draw_additive(const RenderParams& render_params)
 
 #endif
 
-void Game::execute(const Update& u, const char* cmd)
+void Game::execute(const char* cmd)
 {
-	if (utf8cmp(cmd, "killai") == 0)
+	if (strcmp(cmd, "netstat") == 0)
+	{
+		Net::show_stats = !Net::show_stats;
+	}
+#if !SERVER
+	else if (strstr(cmd, "conn") == cmd)
+	{
+		// connect to server
+		const char* delimiter = strchr(cmd, ' ');
+		const char* host;
+		if (delimiter)
+			host = delimiter + 1;
+		else
+			host = "127.0.0.1";
+
+		save = Save();
+		session.reset();
+		session.story_mode = false;
+		unload_level();
+		Net::Client::connect(host, 3494);
+	}
+#endif
+#if DEBUG && !SERVER
+	else if (!level.local && Net::Client::mode() == Net::Client::Mode::Connected)
+	{
+		Net::Client::execute(cmd);
+		return;
+	}
+#endif
+	else if (utf8cmp(cmd, "killai") == 0)
 	{
 		for (auto i = PlayerControlAI::list.iterator(); !i.is_last(); i.next())
 		{
@@ -880,7 +914,7 @@ void Game::execute(const Update& u, const char* cmd)
 			{
 				save = Save();
 				save.zone_current = level;
-				load_level(u, level, Mode::Pvp, true);
+				load_level(level, Mode::Pvp, true);
 			}
 		}
 	}
@@ -900,10 +934,6 @@ void Game::execute(const Update& u, const char* cmd)
 			}
 		}
 	}
-	else if (strcmp(cmd, "netstat") == 0)
-	{
-		Net::show_stats = !Net::show_stats;
-	}
 	else if (strstr(cmd, "loadp ") == cmd)
 	{
 		// parkour mode
@@ -920,26 +950,8 @@ void Game::execute(const Update& u, const char* cmd)
 			}
 		}
 	}
-	else if (strstr(cmd, "conn") == cmd)
-	{
-#if !SERVER
-		// connect to server
-		const char* delimiter = strchr(cmd, ' ');
-		const char* host;
-		if (delimiter)
-			host = delimiter + 1;
-		else
-			host = "127.0.0.1";
-
-		save = Save();
-		session.reset();
-		session.story_mode = false;
-		unload_level();
-		Net::Client::connect(host, 3494);
-#endif
-	}
 	else if (strcmp(cmd, "skip") == 0)
-		Game::time.total += PLAYER_SPAWN_DELAY + GAME_BUY_PERIOD;
+		Team::match_time += PLAYER_SPAWN_DELAY + GAME_BUY_PERIOD;
 	else if (!Overworld::active() && strcmp(cmd, "capture") == 0)
 		Game::save.zones[Game::level.id] = Game::ZoneState::Friendly;
 	else if (!Overworld::active() && strcmp(cmd, "unlock") == 0)
@@ -961,7 +973,6 @@ void Game::unload_level()
 
 	Overworld::clear();
 	Ascensions::clear();
-	Cora::cleanup();
 	for (s32 i = 0; i < MAX_GAMEPADS; i++)
 		Audio::listener_disable(i);
 
@@ -1036,7 +1047,7 @@ AI::Team team_lookup(const AI::Team* table, s32 i)
 	return table[vi_max(0, vi_min(MAX_PLAYERS, i))];
 }
 
-void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
+void Game::load_level(AssetID l, Mode m, b8 ai_test)
 {
 	AssetID last_level = level.id;
 	Mode last_mode = level.mode;
@@ -1773,21 +1784,26 @@ void Game::load_level(const Update& u, AssetID l, Mode m, b8 ai_test)
 	for (auto i = PlayerManager::list.iterator(); !i.is_last(); i.next())
 		Net::finalize(i.item()->entity());
 
-	Team::awake_all();
+	awake_all();
 	for (auto i = Team::list.iterator(); !i.is_last(); i.next())
 		Net::finalize(i.item()->entity());
 
-	Cora::init();
-	Cora::conversation_finished().link(&Overworld::conversation_finished);
-
 	for (s32 i = 0; i < scripts.length; i++)
-		scripts[i]->function(u, finder);
+		scripts[i]->function(finder);
 
 	Loader::level_free(json);
 
 #if SERVER
 	Net::Server::level_loaded();
 #endif
+}
+
+void Game::awake_all()
+{
+	Cora::init();
+	Cora::conversation_finished().link(&Overworld::conversation_finished);
+
+	Team::awake_all();
 }
 
 

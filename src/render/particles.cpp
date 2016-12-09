@@ -263,6 +263,7 @@ void Particles::clear()
 {
 	for (s32 i = 0; i < ParticleSystem::list.length; i++)
 		ParticleSystem::list[i]->clear();
+	ParticleSystem::time = 0.0f;
 }
 
 StandardParticleSystem::StandardParticleSystem(s32 vertices_per_particle, s32 indices_per_particle, const Vec2& start_size, const Vec2& end_size, r32 lifetime, const Vec3& gravity, const Vec4& color, AssetID shader, AssetID texture)

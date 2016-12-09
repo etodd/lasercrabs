@@ -58,8 +58,6 @@ namespace VI
 #define msg_time 0.75f
 #define text_size 16.0f
 #define camera_shake_time 0.7f
-#define score_summary_delay 2.0f
-#define score_summary_accept_delay 3.0f
 
 #define INTERACT_TIME 2.5f
 #define INTERACT_LERP_ROTATION_SPEED 5.0f
@@ -604,7 +602,7 @@ void PlayerHuman::update(const Update& u)
 		case UIMode::GameOver:
 		{
 			camera->range = 0;
-			if (Game::real_time.total - Team::game_over_real_time > score_summary_delay)
+			if (Game::real_time.total - Team::game_over_real_time > SCORE_SUMMARY_DELAY)
 			{
 				// update score summary scroll
 				s32 score_summary_count = 0;
@@ -612,7 +610,7 @@ void PlayerHuman::update(const Update& u)
 					score_summary_count += 1 + player.item()->credits_summary.length;
 				score_summary_scroll.update(u, score_summary_count, gamepad);
 
-				if (Game::real_time.total - Team::game_over_real_time > score_summary_delay + score_summary_accept_delay)
+				if (Game::real_time.total - Team::game_over_real_time > SCORE_SUMMARY_DELAY + SCORE_SUMMARY_ACCEPT_DELAY)
 				{
 					// accept score summary
 					if (!u.input->get(Controls::Interact, gamepad) && u.last_input->get(Controls::Interact, gamepad))
@@ -718,10 +716,10 @@ void PlayerHuman::spawn()
 		spawned = World::create<Traceur>(pos, Quat::euler(0, angle, 0), get<PlayerManager>()->team.ref()->team());
 
 		if (Game::level.post_pvp && !Game::save.zone_current_restore)
-		{
 			spawned->get<Animator>()->layers[3].set(Asset::Animation::character_terminal_exit, 0.0f); // bypass animation blending
-			spawned->get<Animator>()->layers[3].play(Asset::Animation::character_terminal_exit);
-		}
+
+		Game::save.zone_current_restore = false;
+		Game::level.post_pvp = false;
 	}
 
 	spawned->get<Transform>()->absolute_pos(pos);
@@ -733,8 +731,6 @@ void PlayerHuman::spawn()
 	spawned->add<PlayerControlHuman>(this);
 
 	Net::finalize(spawned);
-
-	Game::save.zone_current_restore = false;
 }
 
 void draw_icon_text(const RenderParams& params, const Vec2& pos, AssetID icon, char* string, const Vec4& color)
@@ -1125,7 +1121,7 @@ void PlayerHuman::draw_alpha(const RenderParams& params) const
 		}
 		UIMenu::text_clip(&text, Team::game_over_real_time, 20.0f);
 
-		b8 show_score_summary = Game::real_time.total - Team::game_over_real_time > score_summary_delay;
+		b8 show_score_summary = Game::real_time.total - Team::game_over_real_time > SCORE_SUMMARY_DELAY;
 		Vec2 title_pos = show_score_summary
 			? vp.size * Vec2(0.5f, 1.0f) + Vec2(0, (text.size + 32) * -UI::scale)
 			: vp.size * Vec2(0.5f, 0.5f);
@@ -1158,7 +1154,7 @@ void PlayerHuman::draw_alpha(const RenderParams& params) const
 				if (score_summary_scroll.item(item_counter))
 				{
 					text.text(player.item()->username);
-					UIMenu::text_clip(&text, Team::game_over_real_time + score_summary_delay, 50.0f + (r32)vi_min(item_counter, 6) * -5.0f);
+					UIMenu::text_clip(&text, Team::game_over_real_time + SCORE_SUMMARY_DELAY, 50.0f + (r32)vi_min(item_counter, 6) * -5.0f);
 					UI::box(params, text.rect(p).outset(MENU_ITEM_PADDING), UI::color_background);
 					text.draw(params, p);
 					p.y -= text.bounds().y + MENU_ITEM_PADDING * 2.0f;
@@ -1172,7 +1168,7 @@ void PlayerHuman::draw_alpha(const RenderParams& params) const
 					if (score_summary_scroll.item(item_counter))
 					{
 						text.text(_(credits_summary[i].label));
-						UIMenu::text_clip(&text, Team::game_over_real_time + score_summary_delay, 50.0f + (r32)vi_min(item_counter, 6) * -5.0f);
+						UIMenu::text_clip(&text, Team::game_over_real_time + SCORE_SUMMARY_DELAY, 50.0f + (r32)vi_min(item_counter, 6) * -5.0f);
 						UI::box(params, text.rect(p).outset(MENU_ITEM_PADDING), UI::color_background);
 						text.draw(params, p);
 						amount.text("%d", credits_summary[i].amount);
@@ -1185,7 +1181,7 @@ void PlayerHuman::draw_alpha(const RenderParams& params) const
 			score_summary_scroll.end(params, p + Vec2(0, MENU_ITEM_PADDING));
 
 			// press x to continue
-			if (Game::real_time.total - Team::game_over_real_time > score_summary_delay + score_summary_accept_delay)
+			if (Game::real_time.total - Team::game_over_real_time > SCORE_SUMMARY_DELAY + SCORE_SUMMARY_ACCEPT_DELAY)
 			{
 				Vec2 p = vp.size * Vec2(0.5f, 0.2f);
 				text.wrap_width = 0;
@@ -2613,19 +2609,21 @@ void PlayerControlHuman::update(const Update& u)
 				Vec3 forward = look_quat * Vec3(0, 0, 1);
 
 				if (get<Parkour>()->wall_run_state == Parkour::WallRunState::Forward)
-					wall_normal *= -1.0f; // Make sure we're always facing the wall
+					get<PlayerCommon>()->clamp_rotation(-wall_normal); // Make sure we're always facing the wall
 				else
 				{
 					// We're running along the wall
 					// Make sure we can't look backward
-					get<PlayerCommon>()->clamp_rotation(Quat::euler(0, get<Walker>()->target_rotation, 0) * Vec3(0, 0, 1));
+					get<PlayerCommon>()->clamp_rotation(Quat::euler(0, get<Walker>()->rotation, 0) * Vec3(0, 0, 1));
+					if (get<Parkour>()->wall_run_state == Parkour::WallRunState::Left)
+						get<PlayerCommon>()->clamp_rotation(Quat::euler(0, get<Walker>()->rotation + PI * -0.5f, 0) * Vec3(0, 0, 1));
+					else
+						get<PlayerCommon>()->clamp_rotation(Quat::euler(0, get<Walker>()->rotation + PI * 0.5f, 0) * Vec3(0, 0, 1));
 				}
-
-				get<PlayerCommon>()->clamp_rotation(wall_normal);
 			}
 			else if (parkour_state == Parkour::State::Slide || parkour_state == Parkour::State::Roll || parkour_state == Parkour::State::HardLanding || parkour_state == Parkour::State::Mantle)
 			{
-				get<PlayerCommon>()->clamp_rotation(Quat::euler(0, get<Walker>()->target_rotation, 0) * Vec3(0, 0, 1));
+				get<PlayerCommon>()->clamp_rotation(Quat::euler(0, get<Walker>()->rotation, 0) * Vec3(0, 0, 1));
 			}
 			else
 			{
@@ -2660,7 +2658,7 @@ void PlayerControlHuman::update(const Update& u)
 
 			// wind sound and camera shake at high speed
 			{
-				r32 speed = get<Walker>()->support.ref() ? get<RigidBody>()->btBody->getInterpolationLinearVelocity().length() : 0.0f;
+				r32 speed = get<Walker>()->support.ref() ? 0.0f : get<RigidBody>()->btBody->getInterpolationLinearVelocity().length();
 				get<Audio>()->param(AK::GAME_PARAMETERS::FLY_VOLUME, LMath::clampf((speed - 8.0f) / 25.0f, 0, 1));
 				r32 shake = LMath::clampf((speed - 13.0f) / 30.0f, 0, 1);
 				rumble = vi_max(rumble, shake);

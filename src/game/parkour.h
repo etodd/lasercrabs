@@ -49,6 +49,7 @@ struct Parkour : public ComponentType<Parkour>
 	r32 last_angular_velocity;
 	r32 last_angle_horizontal;
 	WallRunState wall_run_state;
+	WallRunState last_support_wall_run_state;
 	FSM<State> fsm;
 	Ref<RigidBody> last_support;
 	b8 slide_continue;

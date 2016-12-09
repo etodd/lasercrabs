@@ -130,6 +130,7 @@ void extract_channels_from_anim(StaticArray<Animator::AnimatorChannel, MAX_BONES
 void Animator::Layer::update(r32 dt, r32 dt_real, const Animator& animator)
 {
 	const Animation* anim = Loader::animation(animation);
+	const Armature* arm = Loader::armature(animator.armature);
 
 	if (blend_time == 0.0f)
 		blend = 1.0f;
@@ -151,14 +152,14 @@ void Animator::Layer::update(r32 dt, r32 dt_real, const Animator& animator)
 			else
 			{
 				animation = AssetNull;
-				changed_animation();
+				changed_animation(arm);
 				channels.resize(0);
 				return;
 			}
 		}
 
 		if (animation != last_animation)
-			changed_animation();
+			changed_animation(arm);
 
 		for (s32 i = 0; i < animator.triggers.length; i++)
 		{
@@ -178,7 +179,7 @@ void Animator::Layer::update(r32 dt, r32 dt_real, const Animator& animator)
 	else
 	{
 		if (animation != last_animation)
-			changed_animation();
+			changed_animation(arm);
 		channels.resize(0);
 	}
 }
@@ -186,15 +187,77 @@ void Animator::Layer::update(r32 dt, r32 dt_real, const Animator& animator)
 void Animator::Layer::set(AssetID anim, r32 time)
 {
 	extract_channels_from_anim(&channels, Loader::animation(anim), time);
-	changed_animation();
+	animation = anim;
+	changed_animation(nullptr);
+	blend = 1.0f;
 }
 
-void Animator::Layer::changed_animation()
+void Animator::Layer::changed_animation(const Armature* arm)
 {
-	last_animation_channels.length = channels.length;
-	if (channels.length > 0)
-		memcpy(&last_animation_channels[0], &channels[0], sizeof(AnimatorChannel) * channels.length);
-	blend = 1.0f - blend;
+	r32 layer_blend = Ease::quad_out<r32>(blend);
+
+	// blend in last pose
+	if (arm && layer_blend < 1.0f)
+	{
+		// we're interrupting an existing blend; resolve the blended state and save it
+
+		for (s32 i = 0; i < last_animation_channels.length; i++)
+		{
+			AnimatorChannel* last_channel = &last_animation_channels[i];
+			const AnimatorChannel* new_channel = nullptr;
+			for (s32 j = 0; j < channels.length; j++)
+			{
+				if (channels[j].bone == last_channel->bone)
+				{
+					new_channel = &channels[j];
+					break;
+				}
+			}
+
+			if (!new_channel) // new animation did not have this channel; blend toward the bind pose
+			{
+				AnimatorTransform bind_pose;
+				bind_pose.pos = arm->bind_pose[last_channel->bone].pos;
+				bind_pose.rot = arm->bind_pose[last_channel->bone].rot;
+				bind_pose.scale = Vec3(1, 1, 1);
+				last_channel->transform.blend(blend, bind_pose);
+			}
+		}
+
+		for (s32 i = 0; i < channels.length; i++)
+		{
+			const AnimatorChannel& new_channel = channels[i];
+			AnimatorChannel* last_channel = nullptr;
+			for (s32 j = 0; j < last_animation_channels.length; j++)
+			{
+				if (last_animation_channels[j].bone == new_channel.bone)
+				{
+					last_channel = &last_animation_channels[j];
+					break;
+				}
+			}
+
+			if (!last_channel)
+			{
+				last_channel = last_animation_channels.add();
+				last_channel->bone = new_channel.bone;
+				last_channel->transform.pos = arm->bind_pose[last_channel->bone].pos;
+				last_channel->transform.rot = arm->bind_pose[last_channel->bone].rot;
+				last_channel->transform.scale = Vec3(1, 1, 1);
+			}
+
+			last_channel->transform.blend(layer_blend, new_channel.transform);
+		}
+	}
+	else
+	{
+		// no blend in progress; just save the current channels
+		last_animation_channels.length = channels.length;
+		if (channels.length > 0)
+			memcpy(last_animation_channels.data, channels.data, sizeof(AnimatorChannel) * channels.length);
+	}
+
+	blend = 0.0f;
 	last_animation = animation;
 	time_last = time;
 }

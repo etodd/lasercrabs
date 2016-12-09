@@ -174,13 +174,16 @@ struct Game
 	static b8 cancel_event_eaten[MAX_GAMEPADS];
 	static b8 is_gamepad;
 	static b8 quit;
+	static s32 width;
+	static s32 height;
 
 	static b8 init(LoopSync*);
-	static void execute(const Update&, const char*);
+	static void execute(const char*);
 	static void update(const Update&);
 	static void schedule_load_level(AssetID, Mode, r32 = 0.0f);
 	static void unload_level();
-	static void load_level(const Update&, AssetID, Mode, b8 = false);
+	static void load_level(AssetID, Mode, b8 = false);
+	static void awake_all();
 	static void draw_opaque(const RenderParams&);
 	static void draw_hollow(const RenderParams&);
 	static void draw_particles(const RenderParams&);

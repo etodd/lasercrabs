@@ -20,14 +20,14 @@ namespace VI
 {
 
 #define RAYCAST_RADIUS_RATIO 1.3f
-#define WALL_JUMP_RAYCAST_RADIUS_RATIO 1.5f
+#define WALL_JUMP_RAYCAST_RADIUS_RATIO 2.0f
 #define WALL_RUN_DISTANCE_RATIO 1.1f
 
-#define RUN_SPEED 4.5f
+#define RUN_SPEED 5.0f
 #define WALK_SPEED 2.25f
-#define MAX_SPEED 7.0f
+#define MAX_SPEED 6.0f
 #define MIN_WALLRUN_SPEED 3.0f
-#define MIN_ATTACK_SPEED 4.6f
+#define MIN_ATTACK_SPEED 4.0f
 #define JUMP_SPEED 5.0f
 #define COLLECTIBLE_RADIUS 1.0f
 
@@ -57,7 +57,8 @@ Traceur::Traceur(const Vec3& pos, const Quat& quat, AI::Team team)
 	Walker* walker = create<Walker>(atan2f(forward.x, forward.z));
 	walker->max_speed = MAX_SPEED;
 	walker->speed = RUN_SPEED;
-	walker->accel1 = 12.0f;
+	walker->accel1 = 15.0f;
+	walker->accel_threshold = 3.0f;
 	walker->accel2 = 2.0f;
 	walker->auto_rotate = false;
 
@@ -153,11 +154,6 @@ void Parkour::footstep()
 b8 Parkour::wallrun(const Update& u, RigidBody* wall, const Vec3& relative_wall_pos, const Vec3& relative_wall_normal)
 {
 	b8 exit_wallrun = false;
-	if (!wall)
-	{
-		exit_wallrun = true;
-		return exit_wallrun;
-	}
 
 	Vec3 absolute_wall_normal = wall->get<Transform>()->to_world_normal(relative_wall_normal);
 	Vec3 absolute_wall_pos = wall->get<Transform>()->to_world(relative_wall_pos);
@@ -199,6 +195,7 @@ b8 Parkour::wallrun(const Update& u, RigidBody* wall, const Vec3& relative_wall_
 		get<Walker>()->absolute_pos(pos + absolute_wall_normal * (-p.distance(pos) + wall_distance));
 
 		last_support = wall;
+		last_support_wall_run_state = wall_run_state;
 		relative_wall_run_normal = relative_wall_normal;
 
 		// Face the correct direction
@@ -263,7 +260,7 @@ b8 Parkour::net_msg(Net::StreamRead* p, Net::MessageSource src)
 	serialize_ref(p, parkour);
 	Ref<Collectible> collectible;
 	serialize_ref(p, collectible);
-	if (src == Net::MessageSource::Remote
+	if ((src == Net::MessageSource::Remote || Game::level.local)
 		&& parkour.ref()
 		&& collectible.ref()
 		&& (parkour.ref()->get<Walker>()->base_pos() - collectible.ref()->get<Transform>()->absolute_pos()).length_squared() < (COLLECTIBLE_RADIUS * 2.0f) * (COLLECTIBLE_RADIUS * 2.0f))
@@ -312,7 +309,7 @@ void Parkour::update(const Update& u)
 		if (fsm.time > mantle_time || !last_support.ref())
 		{
 			fsm.transition(State::Normal);
-			get<RigidBody>()->btBody->setLinearVelocity(Quat::euler(0, get<Walker>()->rotation, 0) * Vec3(0, 0, get<Walker>()->last_supported_speed));
+			get<RigidBody>()->btBody->setLinearVelocity(Quat::euler(0, get<Walker>()->target_rotation, 0) * Vec3(0, 0, get<Walker>()->net_speed));
 		}
 		else
 		{
@@ -371,7 +368,7 @@ void Parkour::update(const Update& u)
 
 				Vec3 wall_run_normal = last_support.ref()->get<Transform>()->to_world_normal(relative_wall_run_normal);
 
-				Quat rot = Quat::euler(0, get<Walker>()->rotation, 0);
+				Quat rot = Quat::euler(0, get<Walker>()->target_rotation, 0);
 				Vec3 forward = rot * Vec3(0, 0, 1);
 				if (wall_run_state == WallRunState::Left || wall_run_state == WallRunState::Right)
 				{
@@ -393,6 +390,7 @@ void Parkour::update(const Update& u)
 						{
 							// transition from one wall to another
 							last_support = Entity::list[ray_callback.m_collisionObject->getUserIndex()].get<RigidBody>();
+							last_support_wall_run_state = wall_run_state;
 							relative_support_pos = last_support.ref()->get<Transform>()->to_local(ray_callback.m_hitPointWorld);
 							wall_run_normal = ray_callback.m_hitNormalWorld;
 							relative_wall_run_normal = last_support.ref()->get<Transform>()->to_local_normal(wall_run_normal);
@@ -407,7 +405,7 @@ void Parkour::update(const Update& u)
 
 			Vec3 wall_run_normal = last_support.ref()->get<Transform>()->to_world_normal(relative_wall_run_normal);
 
-			Quat rot = Quat::euler(0, get<Walker>()->rotation, 0);
+			Quat rot = Quat::euler(0, get<Walker>()->target_rotation, 0);
 			Vec3 forward = rot * Vec3(0, 0, 1);
 
 			Vec3 ray_end = ray_start + wall_run_normal * get<Walker>()->radius * WALL_RUN_DISTANCE_RATIO * -2.0f;
@@ -451,8 +449,9 @@ void Parkour::update(const Update& u)
 				layer1->animation = AssetNull; // stop jump animations
 			last_support_time = Game::time.total;
 			last_support = get<Walker>()->support;
+			last_support_wall_run_state = WallRunState::None;
 			relative_support_pos = last_support.ref()->get<Transform>()->to_local(get<Walker>()->base_pos());
-			lean_target = get<Walker>()->net_speed * angular_velocity * (1.0f / 180.0f) / u.time.delta;
+			lean_target = get<Walker>()->net_speed * angular_velocity * (0.75f / 180.0f) / u.time.delta;
 		}
 	}
 	else if (fsm.current == State::Slide || fsm.current == State::Roll)
@@ -461,7 +460,7 @@ void Parkour::update(const Update& u)
 		Vec3 support_velocity = Walker::get_support_velocity(relative_support_pos, last_support.ref() ? last_support.ref()->btBody : nullptr);
 		Vec3 velocity = get<RigidBody>()->btBody->getLinearVelocity();
 		Vec3 relative_velocity = velocity - support_velocity;
-		Vec3 forward = Quat::euler(0, get<Walker>()->rotation, 0) * Vec3(0, 0, 1);
+		Vec3 forward = Quat::euler(0, get<Walker>()->target_rotation, 0) * Vec3(0, 0, 1);
 		b8 stop;
 		if (fsm.current == State::Slide)
 			stop = fsm.time > MIN_SLIDE_TIME && (!slide_continue || relative_velocity.dot(forward) < MIN_WALLRUN_SPEED);
@@ -483,6 +482,7 @@ void Parkour::update(const Update& u)
 				if (support_callback.hasHit())
 				{
 					last_support = Entity::list[support_callback.m_collisionObject->getUserIndex()].get<RigidBody>();
+					last_support_wall_run_state = WallRunState::None;
 					relative_support_pos = last_support.ref()->get<Transform>()->to_local(support_callback.m_hitPointWorld);
 					relative_wall_run_normal = last_support.ref()->get<Transform>()->to_local_normal(support_callback.m_hitNormalWorld);
 					last_support_time = Game::time.total;
@@ -518,7 +518,7 @@ void Parkour::update(const Update& u)
 			get<RigidBody>()->btBody->setLinearVelocity(support_velocity + relative_velocity);
 
 			// check for minions in front of us
-			if (relative_velocity.dot(forward) > MIN_ATTACK_SPEED)
+			if (get<Walker>()->net_speed > MIN_ATTACK_SPEED)
 			{
 				Vec3 base_pos = get<Walker>()->base_pos();
 				r32 total_height = get<Walker>()->support_height + get<Walker>()->height;
@@ -579,10 +579,10 @@ void Parkour::update(const Update& u)
 			AssetID new_anim = net_speed > WALK_SPEED ? Asset::Animation::character_run : Asset::Animation::character_walk;
 			if (new_anim != layer0->animation)
 			{
+				r32 time = layer0->time;
+				layer0->play(new_anim); // start animation at random position
 				if (layer0->animation == Asset::Animation::character_run || layer0->animation == Asset::Animation::character_walk)
-					layer0->animation = new_anim; // seamless transition
-				else
-					layer0->play(new_anim); // start animation at random position
+					layer0->time = time; // seamless transition
 			}
 		}
 		else
@@ -654,6 +654,7 @@ void Parkour::do_normal_jump()
 	new_velocity.y = vi_max(0.0f, new_velocity.y) + JUMP_SPEED;
 	body->setLinearVelocity(new_velocity);
 	last_support = get<Walker>()->support = nullptr;
+	last_support_wall_run_state = WallRunState::None;
 	last_support_time = Game::time.total;
 	wall_run_state = WallRunState::None;
 	get<Animator>()->layers[1].play(Asset::Animation::character_jump1);
@@ -676,7 +677,7 @@ b8 Parkour::try_jump(r32 rotation)
 		if ((get<Walker>()->support.ref() && get<Walker>()->support.ref()->btBody->getBroadphaseProxy()->m_collisionFilterGroup & CollisionParkour)
 			|| fsm.current == State::Slide
 			|| (
-				wall_run_state == WallRunState::None
+				last_support_wall_run_state == WallRunState::None
 				&& Game::time.total - last_support_time < JUMP_GRACE_PERIOD
 				&& last_support.ref() && last_support.ref()->btBody->getBroadphaseProxy()->m_collisionFilterGroup & CollisionParkour
 				))
@@ -687,7 +688,7 @@ b8 Parkour::try_jump(r32 rotation)
 		else
 		{
 			// try wall-jumping
-			if (last_support.ref() && Game::time.total - last_support_time < JUMP_GRACE_PERIOD && wall_run_state != WallRunState::None)
+			if (last_support.ref() && Game::time.total - last_support_time < JUMP_GRACE_PERIOD && last_support_wall_run_state != WallRunState::None)
 			{
 				wall_jump(rotation, last_support.ref()->get<Transform>()->to_world_normal(relative_wall_run_normal), last_support.ref()->btBody);
 				did_jump = true;
@@ -734,18 +735,21 @@ void Parkour::wall_jump(r32 rotation, const Vec3& wall_normal, const btRigidBody
 	Vec3 velocity = body->btBody->getLinearVelocity();
 	velocity.y = 0.0f;
 
-	r32 velocity_length = LMath::clampf((velocity - support_velocity).length(), 4.0f, 8.0f);
+	r32 velocity_length = LMath::clampf((velocity - support_velocity).length(), MIN_WALLRUN_SPEED, get<Walker>()->max_speed);
 	Vec3 velocity_reflected = Quat::euler(0, rotation, 0) * Vec3(0, 0, velocity_length);
 
 	if (velocity_reflected.dot(wall_normal) < 0.0f)
 		velocity_reflected = velocity_reflected.reflect(wall_normal);
 
-	Vec3 new_velocity = velocity_reflected + (wall_normal * velocity_length * 0.4f) + Vec3(0, velocity_length, 0);
+	Vec3 new_velocity = velocity_reflected + (wall_normal * velocity_length * 0.5f);
+	new_velocity.y = 0.0f;
+	new_velocity *= velocity_length / new_velocity.length();
+	new_velocity.y = velocity_length;
 	body->btBody->setLinearVelocity(new_velocity);
 
 	// Update our last supported speed so that air control will allow us to go the new speed
-	get<Walker>()->last_supported_speed = new_velocity.length();
 	last_support = nullptr;
+	last_support_wall_run_state = WallRunState::None;
 }
 
 const s32 mantle_sample_count = 3;
@@ -771,10 +775,10 @@ b8 Parkour::try_slide()
 			if (get<Walker>()->support.ref())
 			{
 				// already on ground
-				if (relative_velocity.dot(forward) < MIN_WALLRUN_SPEED)
+				if (get<Walker>()->net_speed < MIN_WALLRUN_SPEED)
 					return false; // too slow
 				fsm.transition(State::Slide);
-				velocity += forward * 2.0f;
+				velocity += forward * 3.0f;
 				get<Animator>()->layers[2].play(Asset::Animation::character_slide);
 			}
 			else
@@ -789,6 +793,7 @@ b8 Parkour::try_slide()
 			get<RigidBody>()->btBody->setLinearVelocity(velocity);
 
 			last_support = Entity::list[support_callback.m_collisionObject->getUserIndex()].get<RigidBody>();
+			last_support_wall_run_state = WallRunState::None;
 			relative_support_pos = last_support.ref()->get<Transform>()->to_local(support_callback.m_hitPointWorld);
 			relative_wall_run_normal = last_support.ref()->get<Transform>()->to_local_normal(support_callback.m_hitNormalWorld);
 			last_support_time = Game::time.total;
@@ -835,10 +840,10 @@ b8 Parkour::try_parkour(b8 force)
 
 			if (ray_callback.hasHit() && ray_callback.m_hitNormalWorld.getY() > 0.25f)
 			{
-				get<Walker>()->last_supported_speed = get<RigidBody>()->btBody->getLinearVelocity().length();
 				get<Animator>()->layers[1].play(Asset::Animation::character_mantle);
 				fsm.transition(State::Mantle);
 				last_support = Entity::list[ray_callback.m_collisionObject->getUserIndex()].get<RigidBody>();
+				last_support_wall_run_state = WallRunState::None;
 				relative_support_pos = last_support.ref()->get<Transform>()->to_local(ray_callback.m_hitPointWorld + Vec3(0, walker->support_height + walker->height * 0.6f, 0));
 				last_support_time = Game::time.total;
 
@@ -870,7 +875,7 @@ b8 Parkour::try_wall_run(WallRunState s, const Vec3& wall_direction)
 
 	if (ray_callback.hasHit()
 		&& fabsf(ray_callback.m_hitNormalWorld.getY()) < 0.25f
-		&& wall_direction.dot(ray_callback.m_hitNormalWorld) < -0.7f)
+		&& wall_direction.dot(ray_callback.m_hitNormalWorld) < -0.8f)
 	{
 		btRigidBody* body = get<RigidBody>()->btBody;
 
@@ -912,32 +917,26 @@ b8 Parkour::try_wall_run(WallRunState s, const Vec3& wall_direction)
 			velocity_flattened.y = 0.0f;
 
 			// Make sure we're facing the same way as we'll be moving
-			if (velocity_flattened.dot(Quat::euler(0, get<Walker>()->rotation, 0) * Vec3(0, 0, 1)) < 0.0f)
+			Vec3 forward = Quat::euler(0, get<Walker>()->rotation, 0) * Vec3(0, 0, 1);
+			if (velocity_flattened.dot(forward) < 0.0f)
 				return false;
 
-			r32 speed_flattened = velocity_flattened.length();
-			if (speed_flattened > MAX_SPEED)
-			{
-				velocity_flattened *= MAX_SPEED / speed_flattened;
-				speed_flattened = MAX_SPEED;
-			}
-			else if (speed_flattened < MIN_WALLRUN_SPEED + 1.0f)
-			{
-				velocity_flattened *= (MIN_WALLRUN_SPEED + 1.0f) / speed_flattened;
-				speed_flattened = MIN_WALLRUN_SPEED + 1.0f;
-			}
+			r32 speed = get<Walker>()->net_speed;
+			if (speed < MIN_WALLRUN_SPEED + 1.0f)
+				return false;
+
+			velocity_flattened *= (speed * 1.1f) / velocity_flattened.length();
 
 			if (add_velocity)
-				body->setLinearVelocity(velocity_flattened + Vec3(support_velocity.x, support_velocity.y + 3.0f + speed_flattened * 0.5f, support_velocity.z));
+				velocity_flattened.y = vi_max(flattened_vertical_speed, 0.0f) + 3.0f + speed * 0.5f;
 			else
-			{
 				velocity_flattened.y = flattened_vertical_speed;
-				body->setLinearVelocity(velocity_flattened);
-			}
+			body->setLinearVelocity(velocity_flattened);
 		}
 
 		wall_run_state = s;
 		last_support = Entity::list[ray_callback.m_collisionObject->getUserIndex()].get<RigidBody>();
+		last_support_wall_run_state = s;
 		relative_support_pos = last_support.ref()->get<Transform>()->to_local(ray_callback.m_hitPointWorld);
 		relative_wall_run_normal = last_support.ref()->get<Transform>()->to_local_normal(wall_normal);
 		fsm.transition(State::WallRun);
@@ -946,6 +945,22 @@ b8 Parkour::try_wall_run(WallRunState s, const Vec3& wall_direction)
 
 		Vec3 pos = get<Transform>()->absolute_pos();
 		get<Walker>()->absolute_pos(pos + wall_normal * (-p.distance(pos) + (get<Walker>()->radius * WALL_RUN_DISTANCE_RATIO)));
+
+		{
+			Vec3 forward;
+			if (wall_run_state == WallRunState::Forward)
+			{
+				forward = -wall_normal;
+				forward.normalize();
+			}
+			else
+			{
+				forward = body->getLinearVelocity();
+				forward.y = 0.0f;
+				forward.normalize();
+			}
+			get<Walker>()->target_rotation = atan2(forward.x, forward.z);
+		}
 
 		return true;
 	}

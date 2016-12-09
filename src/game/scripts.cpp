@@ -56,7 +56,7 @@ namespace scene
 		data = nullptr;
 	}
 
-	void init(const Update& u, const EntityFinder& entities)
+	void init(const EntityFinder& entities)
 	{
 		if (Game::level.mode == Game::Mode::Special)
 		{
@@ -67,7 +67,7 @@ namespace scene
 			data->camera->viewport =
 			{
 				Vec2(0, 0),
-				Vec2(u.input->width, u.input->height),
+				Vec2(Game::width, Game::height),
 			};
 			r32 aspect = data->camera->viewport.size.y == 0 ? 1 : (r32)data->camera->viewport.size.x / (r32)data->camera->viewport.size.y;
 			data->camera->perspective((40.0f * PI * 0.5f / 180.0f), aspect, 0.1f, Game::level.skybox.far_plane);
@@ -176,7 +176,7 @@ namespace title
 			Menu::draw_letterbox(p, data->transition_timer, TRANSITION_TIME);
 	}
 
-	void init(const Update& u, const EntityFinder& entities)
+	void init(const EntityFinder& entities)
 	{
 		if (Game::level.mode == Game::Mode::Special)
 		{
@@ -187,7 +187,7 @@ namespace title
 			data->camera->viewport =
 			{
 				Vec2(0, 0),
-				Vec2(u.input->width, u.input->height),
+				Vec2(Game::width, Game::height),
 			};
 			r32 aspect = data->camera->viewport.size.y == 0 ? 1 : (r32)data->camera->viewport.size.x / (r32)data->camera->viewport.size.y;
 			data->camera->perspective(start_fov, aspect, 0.1f, Game::level.skybox.far_plane);
@@ -336,7 +336,7 @@ namespace tutorial
 		Cora::draw(p, p.camera->viewport.size * Vec2(0.5f, 0.9f));
 	}
 
-	void init(const Update& u, const EntityFinder& entities)
+	void init(const EntityFinder& entities)
 	{
 		Game::level.feature_level = Game::FeatureLevel::EnergyPickups;
 		Game::level.kill_limit = 1;

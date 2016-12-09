@@ -5,7 +5,7 @@
 namespace VI
 {
 
-typedef void(*ScriptFunction)(const Update&, const EntityFinder&);
+typedef void(*ScriptFunction)(const EntityFinder&);
 
 struct Script
 {

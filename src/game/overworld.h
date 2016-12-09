@@ -10,6 +10,11 @@ struct EntityFinder;
 struct RenderParams;
 struct Camera;
 
+namespace Net
+{
+	struct StreamRead;
+}
+
 namespace Overworld
 {
 
@@ -22,6 +27,7 @@ struct ResourceInfo
 
 extern ResourceInfo resource_info[(s32)Resource::count];
 
+b8 net_msg(Net::StreamRead*, Net::MessageSource);
 void init(cJSON*);
 void update(const Update&);
 void draw_opaque(const RenderParams&);

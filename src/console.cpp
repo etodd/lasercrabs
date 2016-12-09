@@ -213,7 +213,7 @@ void Console::update(const Update& u)
 				fps_accumulator = 0.0f;
 			}
 			else
-				Game::execute(u, &command[1]);
+				Game::execute(&command[1]);
 
 			command.resize(2);
 			command[1] = '\0';

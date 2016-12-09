@@ -11,17 +11,18 @@
 #include "render/views.h"
 #include "render/skinned_model.h"
 #include "data/animator.h"
+#include "data/ragdoll.h"
 #include "physics.h"
 #include "game/awk.h"
 #include "game/minion.h"
 #include "game/audio.h"
 #include "game/player.h"
-#include "data/ragdoll.h"
 #include "game/walker.h"
 #include "game/ai_player.h"
 #include "game/team.h"
 #include "game/player.h"
 #include "game/parkour.h"
+#include "game/overworld.h"
 #include "assimp/contrib/zlib/zlib.h"
 #include "console.h"
 #include "asset/armature.h"
@@ -2080,7 +2081,7 @@ b8 init()
 
 	// todo: allow both multiplayer / story mode sessions
 	Game::session.story_mode = true;
-	Game::load_level(Update(), Asset::Level::Moros, Game::Mode::Parkour);
+	Game::load_level(Asset::Level::Moros, Game::Mode::Parkour);
 
 	return true;
 }
@@ -2573,6 +2574,23 @@ b8 msg_process(StreamRead* p, Client* client)
 			}
 			break;
 		}
+		case MessageType::Overworld:
+		{
+			if (!Overworld::net_msg(p, MessageSource::Remote))
+				net_error();
+			break;
+		}
+#if DEBUG
+		case MessageType::DebugCommand:
+		{
+			s32 len;
+			serialize_int(p, s32, len, 0, 512);
+			char buffer[513] = {};
+			serialize_bytes(p, (u8*)buffer, len);
+			Game::execute(buffer);
+			break;
+		}
+#endif
 		default:
 		{
 			net_error();
@@ -3054,7 +3072,7 @@ b8 msg_process(StreamRead* p)
 			vi_assert(state_client.mode == Mode::Loading);
 			for (auto i = Entity::list.iterator(); !i.is_last(); i.next())
 				World::awake(i.item());
-			Team::awake_all();
+			Game::awake_all();
 
 			// let the server know we're done loading
 			vi_debug("Finished loading.");
@@ -3116,6 +3134,19 @@ b8 lagging()
 Sock::Address server_address()
 {
 	return state_client.server_address;
+}
+
+b8 execute(const char* string)
+{
+#if DEBUG
+	using Stream = StreamWrite;
+	Stream* p = msg_new(MessageType::DebugCommand);
+	s32 len = strlen(string);
+	serialize_int(p, s32, len, 0, 512);
+	serialize_bytes(p, (u8*)string, len);
+	msg_finalize(p);
+#endif
+	return true;
 }
 
 
@@ -3400,16 +3431,29 @@ b8 msg_process(StreamRead* p, MessageSource src)
 		}
 		case MessageType::Parkour:
 		{
-			if (!Parkour::net_msg(p, MessageSource::Remote))
+			if (!Parkour::net_msg(p, src))
 				net_error();
 			break;
 		}
 		case MessageType::Tram:
 		{
-			if (!Tram::net_msg(p, MessageSource::Remote))
+			if (!Tram::net_msg(p, src))
 				net_error();
 			break;
 		}
+		case MessageType::Overworld:
+		{
+			if (!Overworld::net_msg(p, src))
+				net_error();
+			break;
+		}
+#if DEBUG
+		case MessageType::DebugCommand:
+		{
+			// handled by Server::msg_process
+			break;
+		}
+#endif
 		default:
 		{
 			vi_debug("Unknown message type: %d", s32(type));

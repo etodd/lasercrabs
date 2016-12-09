@@ -151,7 +151,7 @@ Vec3 Walker::get_support_velocity(const Vec3& absolute_pos, const btCollisionObj
 
 void update_net_speed(const Update& u, Walker* w, const Vec3& v, const Vec3& support_velocity, const Vec3& z)
 {
-	r32 new_net_speed = vi_min(w->max_speed, v.dot(z) - support_velocity.dot(z));
+	r32 new_net_speed = vi_min(w->max_speed, (v - support_velocity).dot(z));
 	if (new_net_speed > w->net_speed - 0.1f)
 	{
 		w->net_speed_timer = 0.0f;
@@ -217,12 +217,11 @@ void Walker::update(const Update& u)
 					absolute_pos(pos);
 				}
 
-				r32 normal_velocity = velocity.dot(Vec3(ray_callback.m_hitNormalWorld));
+				r32 normal_velocity = velocity.dot(support_normal);
 				r32 support_normal_velocity = support_velocity.dot(support_normal);
-				adjustment += (support_normal_velocity - normal_velocity) * Vec3(ray_callback.m_hitNormalWorld);
-				adjustment.y = vi_max(adjustment.y, 0.0f);
+				adjustment += (support_normal_velocity - normal_velocity) * support_normal;
 
-				b8 has_traction = support_normal.y > 0.5f;
+				b8 has_traction = support_normal.y > 0.7f;
 
 				Vec2 movement = dir;
 
@@ -248,9 +247,7 @@ void Walker::update(const Update& u)
 					adjustment -= x_speed_change * x;
 
 					// Calculate speed along desired movement direction
-					r32 z_speed = velocity.dot(z);
-					r32 support_z_speed = support_velocity.dot(z);
-					r32 net_z_speed = z_speed - support_z_speed;
+					r32 net_z_speed = (velocity - support_velocity).dot(z);
 
 					// Makeshift acceleration curve
 					r32 acceleration = net_speed < accel_threshold ? accel1 : accel2;
@@ -262,24 +259,20 @@ void Walker::update(const Update& u)
 					if (z.y > 0.0f)
 						acceleration += z.y * accel2 * 2.0f;
 
-					// Don't let net_speed get above max_speed
-					if (net_z_speed > movement_length * max_speed)
+					r32 target_speed = vi_max(net_speed, speed) * movement_length;
+					if (net_z_speed > target_speed)
 					{
 						// Decelerate
-						r32 z_speed_change = vi_min(u.time.delta * deceleration, net_z_speed - movement_length * max_speed);
-						adjustment -= z_speed_change * z;
+						r32 z_speed_change = vi_min(u.time.delta * deceleration, target_speed - net_z_speed);
+						adjustment += z_speed_change * z;
 					}
 					else
 					{
 						// Accelerate net_z_speed up to speed
-						r32 target_speed = vi_max(net_speed, speed * movement_length);
-						if (net_z_speed < target_speed)
-						{
-							r32 z_speed_change = vi_min(u.time.delta * acceleration, target_speed - net_z_speed);
-							adjustment += z_speed_change * z;
-							if (z.y > 0.0f)
-								adjustment.y += z.y * vi_min(u.time.delta * acceleration * 4.0f, target_speed - net_z_speed) * 2.0f;
-						}
+						r32 z_speed_change = vi_min(u.time.delta * acceleration, target_speed - net_z_speed);
+						adjustment += z_speed_change * z;
+						if (z.y > 0.0f)
+							adjustment.y += z.y * vi_min(u.time.delta * acceleration * 4.0f, target_speed - net_z_speed) * 2.0f;
 					}
 
 					if (auto_rotate)
@@ -288,16 +281,9 @@ void Walker::update(const Update& u)
 					// calculate new net speed
 					update_net_speed(u, this, velocity + adjustment, support_velocity, z);
 				}
-				else
+				else if (has_traction)
 				{
-					// Not moving or no traction; decelerate
-
-					r32 decel;
-					if (has_traction)
-						decel = u.time.delta * deceleration;
-					else
-						decel = u.time.delta * accel2;
-
+					// Not moving; decelerate
 					// Remove from the character a portion of velocity defined by the deceleration.
 					Vec3 horizontal_velocity = velocity - velocity.dot(support_normal) * support_normal;
 					Vec3 support_horizontal_velocity = support_velocity - support_normal_velocity * support_normal;
@@ -306,7 +292,7 @@ void Walker::update(const Update& u)
 					if (speed > 0)
 					{
 						Vec3 relative_velocity_normalized = relative_velocity / speed;
-						r32 velocity_change = vi_min(speed, decel);
+						r32 velocity_change = vi_min(speed, u.time.delta * deceleration);
 						adjustment -= velocity_change * relative_velocity_normalized;
 					}
 					update_net_speed(u, this, velocity + adjustment, support_velocity, Vec3::zero);
@@ -316,33 +302,26 @@ void Walker::update(const Update& u)
 			}
 		}
 
-		if (support.ref())
-		{
-			// Save last supported speed for jump calculation purposes
-			Vec3 v = velocity - support_velocity;
-			v.y = 0.0f;
-			last_supported_speed = v.length();
-		}
-		else
+		if (!support.ref())
 		{
 			// Air control
 			Vec2 accel = dir * air_control_accel * u.time.delta;
 			Vec3 accel3 = Vec3(accel.x, 0, accel.y);
 
 			// Don't allow the walker to go faster than the speed we were going when we last hit the ground
-			if (velocity.dot(accel3 / accel3.length()) < vi_max(speed * 0.25f, last_supported_speed))
+			if (velocity.dot(accel3 / accel3.length()) < vi_max(speed * 0.25f, net_speed))
 				adjustment += accel3;
 		}
 
 		body->setLinearVelocity(velocity + adjustment);
 	}
 
-	if (net_speed > 0.05f && obstacle_id != (u32)-1)
+	if (net_speed > 0.1f && obstacle_id != (u32)-1)
 	{
 		AI::obstacle_remove(obstacle_id);
 		obstacle_id = (u32)-1;
 	}
-	else if (net_speed < 0.05f && obstacle_id == (u32)-1)
+	else if (net_speed < 0.1f && obstacle_id == (u32)-1)
 		obstacle_id = AI::obstacle_add(base_pos(), radius * 2.0f, capsule_height() + support_height);
 
 	// Handle rotation

@@ -116,6 +116,14 @@ PlayerAI::PlayerAI(PlayerManager* m, const AI::Config& config)
 
 void PlayerAI::update(const Update& u)
 {
+	if (Team::game_over
+		&& Game::real_time.total - Team::game_over_real_time > SCORE_SUMMARY_DELAY + SCORE_SUMMARY_ACCEPT_DELAY
+		&& mersenne::randf_co() < u.time.delta / 6.0f)
+	{
+		// randomly disconnect
+		World::remove(manager.ref()->entity());
+		PlayerAI::list.remove(id());
+	}
 }
 
 void PlayerAI::spawn()

@@ -469,16 +469,19 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 	if (e->has<Walker>())
 	{
 		Walker* w = e->get<Walker>();
-		serialize_r32_range(p, w->height, 0, 10, 16);
-		serialize_r32_range(p, w->support_height, 0, 10, 16);
-		serialize_r32_range(p, w->radius, 0, 10, 16);
-		serialize_r32_range(p, w->mass, 0, 10, 16);
+		serialize_r32_range(p, w->speed, 0, 10, 16);
+		serialize_r32_range(p, w->max_speed, 0, 10, 16);
+		serialize_r32_range(p, w->rotation_speed, 0, 20.0f, 16);
+		serialize_bool(p, w->auto_rotate);
 		r32 r;
 		if (Stream::IsWriting)
 			r = LMath::angle_range(w->rotation);
 		serialize_r32_range(p, r, -PI, PI, 8);
 		if (Stream::IsReading)
+		{
 			w->rotation = r;
+			w->target_rotation = r;
+		}
 	}
 
 	if (e->has<Ragdoll>())
@@ -638,6 +641,7 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 		serialize_ref(p, m->instance);
 		serialize_s16(p, m->credits);
 		serialize_s16(p, m->kills);
+		serialize_s16(p, m->deaths);
 		serialize_s16(p, m->respawns);
 		s32 username_length;
 		if (Stream::IsWriting)
@@ -1352,6 +1356,12 @@ template<typename Stream> b8 serialize_player_manager(Stream* p, PlayerManagerSt
 		serialize_s16(p, state->kills);
 
 	if (Stream::IsWriting)
+		b = !base || state->deaths != base->deaths;
+	serialize_bool(p, b);
+	if (b)
+		serialize_s16(p, state->deaths);
+
+	if (Stream::IsWriting)
 		b = !base || state->respawns != base->respawns;
 	serialize_bool(p, b);
 	if (b)
@@ -1442,6 +1452,7 @@ b8 equal_states_player(const PlayerManagerState& a, const PlayerManagerState& b)
 		|| !a.instance.equals(b.instance)
 		|| a.credits != b.credits
 		|| a.kills != b.kills
+		|| a.deaths != b.deaths
 		|| a.respawns != b.respawns
 		|| a.active != b.active)
 		return false;
@@ -1654,6 +1665,7 @@ void state_frame_build(StateFrame* frame)
 		state->instance = i.item()->instance;
 		state->credits = i.item()->credits;
 		state->kills = i.item()->kills;
+		state->deaths = i.item()->deaths;
 		state->respawns = i.item()->respawns;
 		state->active = true;
 	}
@@ -1897,6 +1909,7 @@ void state_frame_apply(const StateFrame& frame, const StateFrame& frame_last, co
 			s->instance = state.instance;
 			s->credits = state.credits;
 			s->kills = state.kills;
+			s->deaths = state.deaths;
 			s->respawns = state.respawns;
 		}
 	}

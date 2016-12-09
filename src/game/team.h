@@ -133,7 +133,7 @@ struct PlayerManager : public ComponentType<PlayerManager>
 	r32 particle_accumulator;
 	r32 state_timer;
 	s32 upgrades;
-	StaticArray<SummaryItem, 1> credits_summary;
+	StaticArray<SummaryItem, 3> score_summary;
 	Ability abilities[MAX_ABILITIES];
 	Upgrade current_upgrade;
 	Link spawn;
@@ -144,6 +144,7 @@ struct PlayerManager : public ComponentType<PlayerManager>
 	s16 credits;
 	s16 credits_last;
 	s16 kills;
+	s16 deaths;
 	s16 respawns;
 	char username[MAX_USERNAME + 1]; // +1 for null terminator
 	b8 score_accepted;
@@ -169,6 +170,7 @@ struct PlayerManager : public ComponentType<PlayerManager>
 	s16 upgrade_cost(Upgrade) const;
 	s32 add_credits(s32);
 	void add_kills(s32);
+	void add_deaths(s32);
 	b8 at_upgrade_point() const;
 	ControlPoint* at_control_point() const;
 	b8 friendly_control_point(const ControlPoint*) const;

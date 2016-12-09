@@ -871,12 +871,14 @@ void Awk::health_changed(const HealthEvent& e)
 					enemy = e.source.ref()->get<Projectile>()->owner.ref();
 				else if (e.source.ref()->has<Rocket>())
 					enemy = e.source.ref()->get<Rocket>()->owner.ref();
-				if (enemy)
+				if (Game::level.local && enemy)
 					enemy->add_kills(1);
 			}
 
 			AI::Team team = get<AIAgent>()->team;
 			PlayerManager* manager = get<PlayerCommon>()->manager.ref();
+			if (Game::level.local)
+				manager->add_deaths(1);
 			for (auto i = PlayerHuman::list.iterator(); !i.is_last(); i.next())
 			{
 				if (i.item()->get<PlayerManager>() != manager) // don't need to notify ourselves

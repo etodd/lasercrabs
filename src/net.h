@@ -92,6 +92,7 @@ struct PlayerManagerState
 	Ref<Entity> instance;
 	s16 credits;
 	s16 kills;
+	s16 deaths;
 	s16 respawns;
 	b8 active;
 };

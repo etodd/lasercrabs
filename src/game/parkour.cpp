@@ -28,7 +28,7 @@ namespace VI
 #define MAX_SPEED 6.0f
 #define MIN_WALLRUN_SPEED 3.0f
 #define MIN_ATTACK_SPEED 4.0f
-#define JUMP_SPEED 5.0f
+#define JUMP_SPEED 5.5f
 #define COLLECTIBLE_RADIUS 1.0f
 
 #define JUMP_GRACE_PERIOD 0.3f
@@ -57,9 +57,6 @@ Traceur::Traceur(const Vec3& pos, const Quat& quat, AI::Team team)
 	Walker* walker = create<Walker>(atan2f(forward.x, forward.z));
 	walker->max_speed = MAX_SPEED;
 	walker->speed = RUN_SPEED;
-	walker->accel1 = 15.0f;
-	walker->accel_threshold = 3.0f;
-	walker->accel2 = 2.0f;
 	walker->auto_rotate = false;
 
 	create<AIAgent>()->team = team;
@@ -191,7 +188,7 @@ b8 Parkour::wallrun(const Update& u, RigidBody* wall, const Vec3& relative_wall_
 		Plane p(absolute_wall_normal, absolute_wall_pos);
 
 		Vec3 pos = get<Transform>()->absolute_pos();
-		r32 wall_distance = get<Walker>()->radius * WALL_RUN_DISTANCE_RATIO;
+		r32 wall_distance = WALKER_RADIUS * WALL_RUN_DISTANCE_RATIO;
 		get<Walker>()->absolute_pos(pos + absolute_wall_normal * (-p.distance(pos) + wall_distance));
 
 		last_support = wall;
@@ -281,7 +278,7 @@ void Parkour::update(const Update& u)
 {
 	fsm.time += u.time.delta;
 	get<SkinnedModel>()->offset.make_transform(
-		Vec3(0, get<Walker>()->capsule_height() * -0.5f - get<Walker>()->support_height, 0),
+		Vec3(0, get<Walker>()->capsule_height() * -0.5f - WALKER_SUPPORT_HEIGHT, 0),
 		Vec3(1.0f, 1.0f, 1.0f),
 		Quat::euler(0, get<Walker>()->rotation + PI * 0.5f, 0) * Quat::euler(0, 0, lean * -1.5f)
 	);
@@ -364,7 +361,7 @@ void Parkour::update(const Update& u)
 		{
 			// check if we need to transfer to a different wall
 			{
-				Vec3 ray_start = get<Walker>()->base_pos() + Vec3(0, get<Walker>()->support_height + get<Walker>()->height * 0.25f, 0);
+				Vec3 ray_start = get<Walker>()->base_pos() + Vec3(0, WALKER_SUPPORT_HEIGHT + WALKER_DEFAULT_CAPSULE_HEIGHT * 0.25f, 0);
 
 				Vec3 wall_run_normal = last_support.ref()->get<Transform>()->to_world_normal(relative_wall_run_normal);
 
@@ -377,7 +374,7 @@ void Parkour::update(const Update& u)
 					{
 						// check if we need to transfer between walls that are slightly angled
 						Vec3 ray_dir = rot * Vec3(wall_run_state == WallRunState::Left ? 1 : -1, 0, 1);
-						Vec3 ray_end = ray_start + ray_dir * (get<Walker>()->radius * WALL_RUN_DISTANCE_RATIO);
+						Vec3 ray_end = ray_start + ray_dir * (WALKER_RADIUS * WALL_RUN_DISTANCE_RATIO);
 						btCollisionWorld::ClosestRayResultCallback ray_callback(ray_start, ray_end);
 						Physics::raycast(&ray_callback, CollisionParkour);
 
@@ -401,14 +398,14 @@ void Parkour::update(const Update& u)
 
 			// keep us glued to the wall
 
-			Vec3 ray_start = get<Walker>()->base_pos() + Vec3(0, get<Walker>()->support_height + get<Walker>()->height * 0.25f, 0);
+			Vec3 ray_start = get<Walker>()->base_pos() + Vec3(0, WALKER_SUPPORT_HEIGHT + WALKER_DEFAULT_CAPSULE_HEIGHT * 0.25f, 0);
 
 			Vec3 wall_run_normal = last_support.ref()->get<Transform>()->to_world_normal(relative_wall_run_normal);
 
 			Quat rot = Quat::euler(0, get<Walker>()->target_rotation, 0);
 			Vec3 forward = rot * Vec3(0, 0, 1);
 
-			Vec3 ray_end = ray_start + wall_run_normal * get<Walker>()->radius * WALL_RUN_DISTANCE_RATIO * -2.0f;
+			Vec3 ray_end = ray_start + wall_run_normal * WALKER_RADIUS * WALL_RUN_DISTANCE_RATIO * -2.0f;
 			btCollisionWorld::ClosestRayResultCallback ray_callback(ray_start, ray_end);
 			Physics::raycast(&ray_callback, CollisionParkour);
 
@@ -473,7 +470,7 @@ void Parkour::update(const Update& u)
 		{
 			// keep sliding/rolling
 			if (fsm.current == State::Slide) // do damping
-				relative_velocity -= Vec3::normalize(relative_velocity) * u.time.delta * 3.0f;
+				relative_velocity -= Vec3::normalize(relative_velocity) * u.time.delta * 2.5f;
 
 			// handle support
 			{
@@ -491,7 +488,7 @@ void Parkour::update(const Update& u)
 				Transform* last_support_transform = last_support.ref()->get<Transform>();
 
 				Vec3 base_pos = get<Transform>()->absolute_pos();
-				r32 base_offset = get<Walker>()->capsule_height() * 0.5f; // don't include support_height
+				r32 base_offset = get<Walker>()->capsule_height() * 0.5f; // don't include support height
 				base_pos.y -= base_offset;
 				Vec3 absolute_support_pos = last_support_transform->to_world(relative_support_pos);
 
@@ -521,13 +518,13 @@ void Parkour::update(const Update& u)
 			if (get<Walker>()->net_speed > MIN_ATTACK_SPEED)
 			{
 				Vec3 base_pos = get<Walker>()->base_pos();
-				r32 total_height = get<Walker>()->support_height + get<Walker>()->height;
+				r32 total_height = WALKER_SUPPORT_HEIGHT + WALKER_DEFAULT_CAPSULE_HEIGHT;
 				for (auto i = MinionCommon::list.iterator(); !i.is_last(); i.next())
 				{
 					Vec3 minion_pos = i.item()->get<Walker>()->base_pos();
 					Vec3 to_minion = minion_pos - base_pos;
 					if (fabsf(to_minion.y) < total_height
-						&& forward.dot(to_minion) < get<Walker>()->radius * 2.5f
+						&& forward.dot(to_minion) < WALKER_RADIUS * 2.5f
 						&& forward.dot(Vec3::normalize(to_minion)) > 0.5f)
 					{
 						if (Game::level.local)
@@ -695,11 +692,11 @@ b8 Parkour::try_jump(r32 rotation)
 			}
 			else
 			{
-				Vec3 ray_start = get<Walker>()->base_pos() + Vec3(0, get<Walker>()->support_height, 0);
+				Vec3 ray_start = get<Walker>()->base_pos() + Vec3(0, WALKER_SUPPORT_HEIGHT, 0);
 
 				for (s32 i = 0; i < wall_jump_direction_count; i++)
 				{
-					Vec3 ray_end = ray_start + wall_directions[i] * get<Walker>()->radius * WALL_JUMP_RAYCAST_RADIUS_RATIO;
+					Vec3 ray_end = ray_start + wall_directions[i] * WALKER_RADIUS * WALL_JUMP_RAYCAST_RADIUS_RATIO;
 					btCollisionWorld::ClosestRayResultCallback ray_callback(ray_start, ray_end);
 					Physics::raycast(&ray_callback, CollisionParkour);
 
@@ -778,7 +775,6 @@ b8 Parkour::try_slide()
 				if (get<Walker>()->net_speed < MIN_WALLRUN_SPEED)
 					return false; // too slow
 				fsm.transition(State::Slide);
-				velocity += forward * 3.0f;
 				get<Animator>()->layers[2].play(Asset::Animation::character_slide);
 			}
 			else
@@ -786,9 +782,10 @@ b8 Parkour::try_slide()
 				if (relative_velocity.y > 1.0f)
 					return false; // need to be going down
 				fsm.transition(State::Roll);
-				velocity = support_velocity + (forward * vi_min(relative_velocity.length() + 2.0f, MAX_SPEED));
 				get<Animator>()->layers[1].play(Asset::Animation::character_roll);
 			}
+			velocity = support_velocity + (forward * (get<Walker>()->net_speed + 3.0f));
+			get<Walker>()->enabled = false;
 
 			get<RigidBody>()->btBody->setLinearVelocity(velocity);
 
@@ -830,10 +827,10 @@ b8 Parkour::try_parkour(b8 force)
 		Quat rot = Quat::euler(0, walker->rotation, 0);
 		for (s32 i = 0; i < mantle_sample_count; i++)
 		{
-			Vec3 dir_offset = rot * (mantle_samples[i] * walker->radius * RAYCAST_RADIUS_RATIO);
+			Vec3 dir_offset = rot * (mantle_samples[i] * WALKER_RADIUS * RAYCAST_RADIUS_RATIO);
 
-			Vec3 ray_start = pos + Vec3(dir_offset.x, walker->height * 0.7f, dir_offset.z);
-			Vec3 ray_end = pos + Vec3(dir_offset.x, walker->height * -0.5f + (force ? -walker->support_height - 0.5f : 0.0f), dir_offset.z);
+			Vec3 ray_start = pos + Vec3(dir_offset.x, WALKER_DEFAULT_CAPSULE_HEIGHT * 0.7f, dir_offset.z);
+			Vec3 ray_end = pos + Vec3(dir_offset.x, WALKER_DEFAULT_CAPSULE_HEIGHT * -0.5f + (force ? -WALKER_SUPPORT_HEIGHT - 0.5f : 0.0f), dir_offset.z);
 
 			btCollisionWorld::ClosestRayResultCallback ray_callback(ray_start, ray_end);
 			Physics::raycast(&ray_callback, CollisionParkour);
@@ -844,7 +841,7 @@ b8 Parkour::try_parkour(b8 force)
 				fsm.transition(State::Mantle);
 				last_support = Entity::list[ray_callback.m_collisionObject->getUserIndex()].get<RigidBody>();
 				last_support_wall_run_state = WallRunState::None;
-				relative_support_pos = last_support.ref()->get<Transform>()->to_local(ray_callback.m_hitPointWorld + Vec3(0, walker->support_height + walker->height * 0.6f, 0));
+				relative_support_pos = last_support.ref()->get<Transform>()->to_local(ray_callback.m_hitPointWorld + Vec3(0, WALKER_SUPPORT_HEIGHT + WALKER_DEFAULT_CAPSULE_HEIGHT * 0.6f, 0));
 				last_support_time = Game::time.total;
 
 				get<RigidBody>()->btBody->setLinearVelocity(Vec3::zero);
@@ -868,8 +865,8 @@ void Parkour::wall_run_up_add_velocity(const Vec3& velocity, const Vec3& support
 
 b8 Parkour::try_wall_run(WallRunState s, const Vec3& wall_direction)
 {
-	Vec3 ray_start = get<Walker>()->base_pos() + Vec3(0, get<Walker>()->support_height + get<Walker>()->height * 0.25f, 0);
-	Vec3 ray_end = ray_start + wall_direction * get<Walker>()->radius * WALL_RUN_DISTANCE_RATIO * 2.0f;
+	Vec3 ray_start = get<Walker>()->base_pos() + Vec3(0, WALKER_SUPPORT_HEIGHT + WALKER_DEFAULT_CAPSULE_HEIGHT * 0.25f, 0);
+	Vec3 ray_end = ray_start + wall_direction * WALKER_RADIUS * WALL_RUN_DISTANCE_RATIO * 2.0f;
 	btCollisionWorld::ClosestRayResultCallback ray_callback(ray_start, ray_end);
 	Physics::raycast(&ray_callback, CollisionParkour);
 
@@ -944,7 +941,7 @@ b8 Parkour::try_wall_run(WallRunState s, const Vec3& wall_direction)
 		Plane p(wall_normal, ray_callback.m_hitPointWorld);
 
 		Vec3 pos = get<Transform>()->absolute_pos();
-		get<Walker>()->absolute_pos(pos + wall_normal * (-p.distance(pos) + (get<Walker>()->radius * WALL_RUN_DISTANCE_RATIO)));
+		get<Walker>()->absolute_pos(pos + wall_normal * (-p.distance(pos) + (WALKER_RADIUS * WALL_RUN_DISTANCE_RATIO)));
 
 		{
 			Vec3 forward;

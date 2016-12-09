@@ -277,7 +277,7 @@ void MinionCommon::update_client_all(const Update& u)
 		MinionCommon* m = i.item();
 		m->get<SkinnedModel>()->offset.make_transform
 		(
-			Vec3(0, m->get<Walker>()->capsule_height() * -0.5f - m->get<Walker>()->support_height, 0),
+			Vec3(0, m->get<Walker>()->capsule_height() * -0.5f - WALKER_SUPPORT_HEIGHT, 0),
 			Vec3(1.0f, 1.0f, 1.0f),
 			Quat::euler(0, m->get<Walker>()->rotation + PI * 0.5f, 0)
 		);
@@ -633,7 +633,7 @@ b8 MinionAI::can_see(Entity* target, b8 limit_vision_cone) const
 
 void MinionAI::new_goal(const Vec3& direction, b8 allow_entity_target)
 {
-	Vec3 pos = get<Transform>()->absolute_pos();
+	Vec3 pos = get<Walker>()->base_pos();
 	goal.entity = allow_entity_target ? closest_target(this, get<AIAgent>()->team, direction) : nullptr;
 	auto path_callback = ObjectLinkEntryArg<MinionAI, const AI::Result&, &MinionAI::set_path>(id());
 	if (goal.entity.ref())
@@ -675,7 +675,7 @@ void MinionAI::update(const Update& u)
 		can_attack = get<MinionCommon>()->attack_timer == 0.0f;
 	}
 
-	Vec3 pos = get<Transform>()->absolute_pos();
+	Vec3 pos = get<Walker>()->base_pos();
 
 	if (path_request == PathRequest::None)
 	{
@@ -712,7 +712,7 @@ void MinionAI::update(const Update& u)
 		{
 			case Goal::Type::Position:
 			{
-				if (path.length == 0 || (path[path.length - 1] - pos).length_squared() < 3.0f * 3.0f)
+				if (path.length == 0 || (path[path.length - 1] - pos).length_squared() < 1.5f * 1.5f)
 					new_goal();
 				else
 				{
@@ -826,15 +826,6 @@ void MinionAI::set_patrol_point(const Vec3& p)
 
 void MinionAI::set_path(const AI::Result& result)
 {
-	for (s32 i = 0; i < result.path.length; i++)
-	{
-		if ((result.path[i] - patrol_point).length_squared() > MINION_VISION_RANGE * MINION_VISION_RANGE) // entire path must be in range
-		{
-			new_goal();
-			return;
-		}
-	}
-
 	get<MinionCommon>()->attack_timer = 0.0f; // we're no longer attacking
 
 	path = result.path;

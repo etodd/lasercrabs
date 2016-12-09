@@ -607,7 +607,7 @@ void PlayerHuman::update(const Update& u)
 				// update score summary scroll
 				s32 score_summary_count = 0;
 				for (auto player = PlayerManager::list.iterator(); !player.is_last(); player.next())
-					score_summary_count += 1 + player.item()->credits_summary.length;
+					score_summary_count += 1 + player.item()->score_summary.length;
 				score_summary_scroll.update(u, score_summary_count, gamepad);
 
 				if (Game::real_time.total - Team::game_over_real_time > SCORE_SUMMARY_DELAY + SCORE_SUMMARY_ACCEPT_DELAY)
@@ -640,7 +640,7 @@ void get_interactable_standing_position(Transform* i, Vec3* pos, r32* angle)
 	if (angle)
 		*angle = atan2f(dir.x, dir.z);
 	*pos = i_pos + dir * -1.0f;
-	pos->y += (Walker::default_capsule_height * 0.5f) + Walker::default_support_height;
+	pos->y += (WALKER_DEFAULT_CAPSULE_HEIGHT * 0.5f) + WALKER_SUPPORT_HEIGHT;
 }
 
 void PlayerHuman::spawn()
@@ -1162,16 +1162,16 @@ void PlayerHuman::draw_alpha(const RenderParams& params) const
 				item_counter++;
 
 				// score breakdown
-				const auto& credits_summary = player.item()->credits_summary;
-				for (s32 i = 0; i < credits_summary.length; i++)
+				const auto& score_summary = player.item()->score_summary;
+				for (s32 i = 0; i < score_summary.length; i++)
 				{
 					if (score_summary_scroll.item(item_counter))
 					{
-						text.text(_(credits_summary[i].label));
+						text.text(_(score_summary[i].label));
 						UIMenu::text_clip(&text, Team::game_over_real_time + SCORE_SUMMARY_DELAY, 50.0f + (r32)vi_min(item_counter, 6) * -5.0f);
 						UI::box(params, text.rect(p).outset(MENU_ITEM_PADDING), UI::color_background);
 						text.draw(params, p);
-						amount.text("%d", credits_summary[i].amount);
+						amount.text("%d", score_summary[i].amount);
 						amount.draw(params, p + Vec2(MENU_ITEM_WIDTH * 0.5f - MENU_ITEM_PADDING, 0));
 						p.y -= text.bounds().y + MENU_ITEM_PADDING * 2.0f;
 					}

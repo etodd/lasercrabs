@@ -152,20 +152,20 @@ struct TileCacheData
 	~TileCacheData();
 };
 
-const r32 nav_mesh_max_error = 2.0f;
+const r32 nav_mesh_max_error = 1.5f;
 const r32 nav_agent_height = 2.0f;
-const r32 nav_agent_max_climb = 0.5f;
+const r32 nav_agent_max_climb = 0.2f;
 const r32 nav_agent_radius = 0.4f;
-const r32 nav_edge_max_length = 12.0f;
+const r32 nav_edge_max_length = 20.0f;
 const r32 nav_min_region_size = 8.0f;
 const r32 nav_merged_region_size = 20.0f;
-const r32 nav_detail_sample_distance = 6.0f;
-const r32 nav_detail_sample_max_error = 1.0f;
+const r32 nav_detail_sample_distance = 8.0f;
+const r32 nav_detail_sample_max_error = 0.5f;
 const r32 nav_resolution = 0.2f;
 const r32 nav_walkable_slope = 45.0f; // degrees
 const r32 nav_tile_size = 20.0f;
 const s32 nav_max_layers = 32;
-const s32 nav_expected_layers_per_tile = 4; // how many layers (or "floors") each navmesh tile is expected to have
+const s32 nav_expected_layers_per_tile = 8; // how many layers (or "floors") each navmesh tile is expected to have
 const s32 nav_max_obstacles = 128;
 
 template<typename T> struct Chunks

@@ -9,31 +9,21 @@
 namespace VI
 {
 
-#define WALKER_DEFAULT_SUPPORT_HEIGHT 0.35f
-#define WALKER_DEFAULT_HEIGHT 1.2f
-#define WALKER_DEFAULT_RADIUS 0.35f
-
-r32 Walker::default_capsule_height = WALKER_DEFAULT_HEIGHT + WALKER_DEFAULT_RADIUS * 2.0f;
-r32 Walker::default_support_height = WALKER_DEFAULT_SUPPORT_HEIGHT;
+#define AIR_CONTROL_ACCEL 5.0f
+#define ACCEL1 15.0f
+#define ACCEL_THRESHOLD 3.0f
+#define ACCEL2 2.0f
+#define DECELERATION 30.0f
 
 Walker::Walker(r32 rot)
 	: dir(),
-	height(WALKER_DEFAULT_HEIGHT),
-	support_height(WALKER_DEFAULT_SUPPORT_HEIGHT),
-	radius(WALKER_DEFAULT_RADIUS),
-	mass(1.0f),
 	speed(2.5f),
 	max_speed(5.0f),
 	rotation(rot),
-	rotation_speed(8.0f),
 	target_rotation(rot),
+	rotation_speed(8.0f),
 	auto_rotate(true),
-	air_control_accel(5.0f),
 	enabled(true),
-	accel1(10.0f),
-	accel2(2.0f),
-	accel_threshold(2.0f),
-	deceleration(30.0f),
 	obstacle_id((u32)-1),
 	land(),
 	net_speed_timer()
@@ -49,7 +39,7 @@ void Walker::awake()
 	if (has<RigidBody>())
 		body = get<RigidBody>(); // RigidBody will already be awake because it comes first in the component list
 	else
-		body = entity()->add<RigidBody>(RigidBody::Type::CapsuleY, Vec3(radius, height, 0), mass, CollisionWalker, ~CollisionShield);
+		body = entity()->add<RigidBody>(RigidBody::Type::CapsuleY, Vec3(WALKER_RADIUS, WALKER_HEIGHT, 0), WALKER_HEIGHT, CollisionWalker, ~CollisionShield);
 
 	body->btBody->setFriction(0);
 	body->btBody->setRollingFriction(0);
@@ -78,7 +68,7 @@ const Vec3 corners[num_corners] =
 b8 Walker::slide(Vec2* movement, const Vec3& wall_ray)
 {
 	Vec3 ray_start = get<Transform>()->absolute_pos();
-	Vec3 ray_end = ray_start + wall_ray * (radius + 0.25f);
+	Vec3 ray_end = ray_start + wall_ray * (WALKER_RADIUS + 0.25f);
 	btCollisionWorld::ClosestRayResultCallback ray_callback(ray_start, ray_end);
 	Physics::raycast(&ray_callback, ~CollisionAwkIgnore & ~CollisionWalker & ~CollisionTarget & ~CollisionShield & ~CollisionAllTeamsContainmentField);
 	if (ray_callback.hasHit()
@@ -120,8 +110,8 @@ btCollisionWorld::ClosestRayResultCallback Walker::check_support(r32 extra_dista
 
 	for (s32 i = 0; i < num_corners; i++)
 	{
-		Vec3 ray_start = pos + (corners[i] * (radius * 0.75f));
-		Vec3 ray_end = ray_start + Vec3(0, (capsule_height() * -0.5f) + (support_height * -1.5f) - extra_distance, 0);
+		Vec3 ray_start = pos + (corners[i] * (WALKER_RADIUS * 0.75f));
+		Vec3 ray_end = ray_start + Vec3(0, (capsule_height() * -0.5f) + (WALKER_SUPPORT_HEIGHT * -1.5f) - extra_distance, 0);
 
 		btCollisionWorld::ClosestRayResultCallback ray_callback(ray_start, ray_end);
 		Physics::raycast(&ray_callback, ~CollisionAwkIgnore & ~CollisionWalker & ~CollisionTarget & ~CollisionShield & ~CollisionAllTeamsContainmentField);
@@ -210,7 +200,7 @@ void Walker::update(const Update& u)
 					land.fire(velocity_diff - expected_vertical_speed);
 
 				{
-					r32 target_y = ray_callback.m_hitPointWorld.y() + support_height + capsule_height() * 0.5f;
+					r32 target_y = ray_callback.m_hitPointWorld.y() + WALKER_SUPPORT_HEIGHT + capsule_height() * 0.5f;
 					r32 height_difference = target_y - pos.y;
 					const r32 max_adjustment_speed = 5.0f;
 					pos.y += vi_min(vi_max(height_difference, (support_velocity.y - max_adjustment_speed) * u.time.delta), (support_velocity.y + max_adjustment_speed) * u.time.delta);
@@ -243,27 +233,27 @@ void Walker::update(const Update& u)
 					// Remove velocity perpendicular to our desired movement
 					r32 x_speed = velocity.dot(x);
 					r32 support_x_speed = support_velocity.dot(x);
-					r32 x_speed_change = LMath::clampf(x_speed - support_x_speed, -u.time.delta * deceleration, u.time.delta * deceleration);
+					r32 x_speed_change = LMath::clampf(x_speed - support_x_speed, -u.time.delta * DECELERATION, u.time.delta * DECELERATION);
 					adjustment -= x_speed_change * x;
 
 					// Calculate speed along desired movement direction
 					r32 net_z_speed = (velocity - support_velocity).dot(z);
 
 					// Makeshift acceleration curve
-					r32 acceleration = net_speed < accel_threshold ? accel1 : accel2;
+					r32 acceleration = net_speed < ACCEL_THRESHOLD ? ACCEL1 : ACCEL2;
 
 					// Increase acceleration if we're turning
-					acceleration += fabsf(Vec2(x.x, x.z).dot(Vec2(velocity.x - support_velocity.x, velocity.z - support_velocity.z))) * accel2 * 4.0f;
+					acceleration += fabsf(Vec2(x.x, x.z).dot(Vec2(velocity.x - support_velocity.x, velocity.z - support_velocity.z))) * ACCEL2 * 4.0f;
 
 					// Increase acceleration if we're climbing
 					if (z.y > 0.0f)
-						acceleration += z.y * accel2 * 2.0f;
+						acceleration += z.y * ACCEL2 * 2.0f;
 
 					r32 target_speed = vi_max(net_speed, speed) * movement_length;
 					if (net_z_speed > target_speed)
 					{
 						// Decelerate
-						r32 z_speed_change = vi_min(u.time.delta * deceleration, target_speed - net_z_speed);
+						r32 z_speed_change = vi_min(u.time.delta * DECELERATION, target_speed - net_z_speed);
 						adjustment += z_speed_change * z;
 					}
 					else
@@ -284,7 +274,7 @@ void Walker::update(const Update& u)
 				else if (has_traction)
 				{
 					// Not moving; decelerate
-					// Remove from the character a portion of velocity defined by the deceleration.
+					// Remove from the character a portion of velocity defined by the DECELERATION.
 					Vec3 horizontal_velocity = velocity - velocity.dot(support_normal) * support_normal;
 					Vec3 support_horizontal_velocity = support_velocity - support_normal_velocity * support_normal;
 					Vec3 relative_velocity = horizontal_velocity - support_horizontal_velocity;
@@ -292,7 +282,7 @@ void Walker::update(const Update& u)
 					if (speed > 0)
 					{
 						Vec3 relative_velocity_normalized = relative_velocity / speed;
-						r32 velocity_change = vi_min(speed, u.time.delta * deceleration);
+						r32 velocity_change = vi_min(speed, u.time.delta * DECELERATION);
 						adjustment -= velocity_change * relative_velocity_normalized;
 					}
 					update_net_speed(u, this, velocity + adjustment, support_velocity, Vec3::zero);
@@ -305,7 +295,7 @@ void Walker::update(const Update& u)
 		if (!support.ref())
 		{
 			// Air control
-			Vec2 accel = dir * air_control_accel * u.time.delta;
+			Vec2 accel = dir * AIR_CONTROL_ACCEL * u.time.delta;
 			Vec3 accel3 = Vec3(accel.x, 0, accel.y);
 
 			// Don't allow the walker to go faster than the speed we were going when we last hit the ground
@@ -322,7 +312,7 @@ void Walker::update(const Update& u)
 		obstacle_id = (u32)-1;
 	}
 	else if (net_speed < 0.1f && obstacle_id == (u32)-1)
-		obstacle_id = AI::obstacle_add(base_pos(), radius * 2.0f, capsule_height() + support_height);
+		obstacle_id = AI::obstacle_add(base_pos(), WALKER_RADIUS * 2.0f, capsule_height() + WALKER_SUPPORT_HEIGHT);
 
 	// Handle rotation
 
@@ -343,7 +333,7 @@ void Walker::absolute_pos(const Vec3& p)
 
 Vec3 Walker::base_pos() const
 {
-	return get<Transform>()->to_world(Vec3(0, (capsule_height() * -0.5f) - support_height, 0));
+	return get<Transform>()->to_world(Vec3(0, (capsule_height() * -0.5f) - WALKER_SUPPORT_HEIGHT, 0));
 }
 
 Vec3 Walker::forward() const
@@ -353,7 +343,7 @@ Vec3 Walker::forward() const
 
 r32 Walker::capsule_height() const
 {
-	return height + radius * 2.0f;
+	return WALKER_HEIGHT + WALKER_RADIUS * 2.0f;
 }
 
 }

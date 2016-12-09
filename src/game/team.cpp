@@ -521,6 +521,25 @@ b8 Team::net_msg(Net::StreamRead* p)
 				if (winner.ref() == &Team::list[1])
 					Game::save.zones[Game::level.id] = Game::ZoneState::Friendly;
 			}
+
+
+			for (auto i = PlayerManager::list.iterator(); !i.is_last(); i.next())
+			{
+				s32 total = 0;
+
+				total += i.item()->credits;
+				i.item()->score_summary.add({ strings::kills, i.item()->kills });
+				if (Game::session.story_mode)
+					i.item()->score_summary.add({ strings::leftover_energy, i.item()->credits });
+				if (PlayerManager::list.count() > 2)
+					i.item()->score_summary.add({ strings::deaths, i.item()->deaths });
+
+				if (Game::session.story_mode && i.item()->has<PlayerHuman>() && i.item()->team.ref() == winner.ref())
+				{
+					// we're in story mode and this is the player; increase their energy
+					Game::save.resources[(s32)Resource::Energy] += total;
+				}
+			}
 			break;
 		}
 		case TeamNet::Message::TransitionMode:
@@ -560,13 +579,13 @@ b8 Team::net_msg(Net::StreamRead* p)
 				{
 					for (auto i = EnergyPickup::list.iterator(); !i.is_last(); i.next())
 						i.item()->set_team(team_winner); // these are synced over the network, so must do them only on the server
+					for (auto i = Rocket::list.iterator(); !i.is_last(); i.next())
+						World::remove_deferred(i.item()->entity());
 				}
 				// teams are not synced over the network, so set them on both client and server
 				for (auto i = MinionCommon::list.iterator(); !i.is_last(); i.next())
 					i.item()->team(team_winner);
 				for (auto i = Grenade::list.iterator(); !i.is_last(); i.next())
-					i.item()->set_owner(nullptr);
-				for (auto i = Rocket::list.iterator(); !i.is_last(); i.next())
 					i.item()->set_owner(nullptr);
 				for (auto i = Sensor::list.iterator(); !i.is_last(); i.next())
 					i.item()->set_team(team_winner);
@@ -630,20 +649,6 @@ void Team::update_all_server(const Update& u)
 					w = &list[1]; // attackers win
 				else
 					w = &list[0]; // defenders win
-			}
-
-			for (auto i = PlayerManager::list.iterator(); !i.is_last(); i.next())
-			{
-				s32 total = 0;
-
-				total += i.item()->credits;
-				i.item()->credits_summary.add({ strings::leftover_energy, i.item()->credits });
-
-				if (Game::session.story_mode && i.item()->is_local() && i.item()->team.ref() == winner.ref())
-				{
-					// we're in story mode and this is a local player; increase their energy
-					Game::save.resources[(s32)Resource::Energy] += total;
-				}
 			}
 
 			// remove entities
@@ -813,10 +818,11 @@ PlayerManager::PlayerManager(Team* team, const char* u)
 	state_timer(),
 	upgrade_completed(),
 	control_point_capture_completed(),
-	credits_summary(),
+	score_summary(),
 	particle_accumulator(),
 	respawns(Game::level.respawns),
-	kills()
+	kills(),
+	deaths()
 {
 	if (Game::level.has_feature(Game::FeatureLevel::Abilities))
 	{
@@ -884,9 +890,6 @@ void PlayerManager::upgrade_complete()
 	current_upgrade = Upgrade::None;
 
 	vi_assert(!has_upgrade(u));
-
-	if (!instance.ref())
-		return;
 
 	upgrades |= 1 << s32(u);
 
@@ -1007,6 +1010,11 @@ s32 PlayerManager::add_credits(s32 c)
 void PlayerManager::add_kills(s32 k)
 {
 	kills += k;
+}
+
+void PlayerManager::add_deaths(s32 d)
+{
+	deaths += d;
 }
 
 b8 PlayerManager::at_upgrade_point() const

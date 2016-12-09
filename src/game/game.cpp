@@ -1073,7 +1073,7 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 
 	Audio::post_global_event(AK::EVENTS::PLAY_START_SESSION);
 
-	Physics::btWorld->setGravity(btVector3(0, -12.0f, 0));
+	Physics::btWorld->setGravity(btVector3(0, -13.0f, 0));
 
 	Array<Transform*> transforms;
 

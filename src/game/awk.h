@@ -61,6 +61,7 @@ struct Awk : public ComponentType<Awk>
 		{
 			Environment,
 			Inaccessible,
+			ContainmentField,
 			Awk,
 			Target,
 			count,
@@ -114,7 +115,7 @@ struct Awk : public ComponentType<Awk>
 	Awk();
 	void awake();
 	~Awk();
-	
+
 	static b8 net_msg(Net::StreamRead*, Net::MessageSource);
 
 	r32 range() const;
@@ -158,7 +159,13 @@ struct Awk : public ComponentType<Awk>
 	b8 can_dash(const Target*, Vec3* = nullptr) const;
 	b8 can_hit(const Target*, Vec3* = nullptr) const; // shoot or dash
 
-	void raycast(const Vec3&, const Vec3&, const Net::StateFrame*, Hits*) const;
+	enum class RaycastMode
+	{
+		Default,
+		IgnoreContainmentFields,
+	};
+
+	void raycast(RaycastMode, const Vec3&, const Vec3&, const Net::StateFrame*, Hits*) const;
 	r32 movement_raycast(const Vec3&, const Vec3&);
 
 	void update_server(const Update&);

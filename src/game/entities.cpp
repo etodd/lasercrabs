@@ -961,7 +961,10 @@ void Rocket::update_server(const Update& u)
 			}
 
 			// aim toward target
-			Vec3 to_target = target.ref()->get<Transform>()->absolute_pos() - get<Transform>()->pos;
+			Vec3 target_pos;
+			if (!target.ref()->get<Target>()->predict_intersection(get<Transform>()->pos, ROCKET_SPEED, nullptr, &target_pos))
+				target_pos = target.ref()->get<Transform>()->absolute_pos();
+			Vec3 to_target = target_pos - get<Transform>()->pos;
 			r32 distance = to_target.length();
 			to_target /= distance;
 			Quat target_rot = Quat::look(to_target);
@@ -1003,7 +1006,7 @@ void Rocket::update_server(const Update& u)
 				get<Transform>()->rot = Quat::slerp(vi_min(1.0f, 5.0f * u.time.delta), get<Transform>()->rot, target_rot);
 		}
 
-		Vec3 velocity = get<Transform>()->rot * Vec3(0, 0, 15.0f);
+		Vec3 velocity = get<Transform>()->rot * Vec3(0, 0, ROCKET_SPEED);
 		Vec3 next_pos = get<Transform>()->pos + velocity * u.time.delta;
 
 		btCollisionWorld::ClosestRayResultCallback ray_callback(get<Transform>()->pos, next_pos + get<Transform>()->rot * Vec3(0, 0, 0.1f));
@@ -1566,15 +1569,12 @@ void Grenade::update_server(const Update& u)
 			Physics::raycast(&ray_callback, ~Team::containment_field_mask(team()));
 			if (ray_callback.hasHit())
 			{
-				active = true;
 				Entity* e = &Entity::list[ray_callback.m_collisionObject->getUserIndex()];
 				if (grenade_trigger_filter(e, team()))
 					explode();
 				else
 				{
-					const r32 attach_velocity_threshold = 10.0f; // attach to static surfaces if moving slower than this
-					if (ray_callback.m_collisionObject->getBroadphaseHandle()->m_collisionFilterGroup & CollisionStatic
-						&& velocity.length_squared() < attach_velocity_threshold * attach_velocity_threshold)
+					if (active)
 					{
 						// attach
 						velocity = Vec3::zero;
@@ -1587,6 +1587,7 @@ void Grenade::update_server(const Update& u)
 						// bounce
 						velocity = velocity.reflect(ray_callback.m_hitNormalWorld) * 0.5f;
 					}
+					active = true;
 				}
 			}
 		}
@@ -1785,6 +1786,16 @@ b8 PlayerTrigger::is_triggered(const Entity* e) const
 	for (s32 i = 0; i < max_trigger; i++)
 	{
 		if (e == triggered[i].ref())
+			return true;
+	}
+	return false;
+}
+
+b8 PlayerTrigger::is_triggered() const
+{
+	for (s32 i = 0; i < max_trigger; i++)
+	{
+		if (triggered[i].ref())
 			return true;
 	}
 	return false;
@@ -2771,12 +2782,23 @@ void Tram::player_exited(Entity* e)
 
 Tram* Tram::by_track(s8 track)
 {
-	for (auto i = Tram::list.iterator(); !i.is_last(); i.next())
+	for (auto i = list.iterator(); !i.is_last(); i.next())
 	{
 		if (i.item()->runner_b.ref()->track == track)
 			return i.item();
 	}
 	return nullptr;
+}
+
+b8 Tram::player_inside(Entity* player)
+{
+	Ref<RigidBody> support = player->get<Walker>()->support;
+	for (auto i = list.iterator(); !i.is_last(); i.next())
+	{
+		if (support.equals(i.item()->get<RigidBody>()))
+			return true;
+	}
+	return false;
 }
 
 s8 Tram::track() const
@@ -2818,8 +2840,17 @@ void TramInteractableEntity::interacted(Interactable* i)
 	}
 	else
 	{
-		tram->exiting = true;
-		tram->doors_open(true);
+		if (Game::save.zones[Game::level.id] != ZoneState::Locked
+			|| Game::save.zones[Game::level.tram_tracks[track].level] != ZoneState::Locked)
+		{
+			tram->exiting = true;
+			tram->doors_open(true);
+		}
+		else
+		{
+			for (auto i = PlayerHuman::list.iterator(); !i.is_last(); i.next())
+				i.item()->msg(_(strings::error_locked_zone), false);
+		}
 	}
 }
 

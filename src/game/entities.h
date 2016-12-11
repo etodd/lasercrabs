@@ -404,6 +404,7 @@ struct PlayerTrigger : public ComponentType<PlayerTrigger>
 	void update(const Update&);
 
 	b8 is_triggered(const Entity*) const;
+	b8 is_triggered() const;
 
 	s32 count() const;
 };
@@ -490,6 +491,7 @@ struct Tram : public ComponentType<Tram>
 {
 	static Tram* by_track(s8);
 	static b8 net_msg(Net::StreamRead*, Net::MessageSource);
+	static b8 player_inside(Entity*);
 
 	Ref<TramRunner> runner_a;
 	Ref<TramRunner> runner_b;

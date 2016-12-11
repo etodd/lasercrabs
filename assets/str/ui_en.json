@@ -3,6 +3,8 @@
 	"calling": "Calling...",
 	"hacking": "Cracking...",
 	"error_hostile_zone": "Error: hostile zone",
+	"error_locked_zone": "Error: unlock terminal first",
+	"error_inside_tram": "Error: map unavailable",
 	"losing": "Losing",
 	"buying": "Buying...",
 	"loading": "Loading...",

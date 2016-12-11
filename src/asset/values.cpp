@@ -825,6 +825,8 @@ const char* AssetLookup::String::names[] =
 	"energy_generation_group",
 	"energy_generation_total",
 	"error_hostile_zone",
+	"error_inside_tram",
+	"error_locked_zone",
 	"exit",
 	"forfeit_network_error",
 	"forfeit_opponent_quit",

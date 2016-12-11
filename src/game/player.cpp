@@ -147,6 +147,7 @@ PlayerHuman::PlayerHuman(b8 local, s8 g)
 	upgrade_animation_time(),
 	score_summary_scroll(),
 	spectate_index(),
+	try_capture(),
 	local(local)
 {
 	if (local)
@@ -461,19 +462,24 @@ void PlayerHuman::update(const Update& u)
 	{
 		case UIMode::PvpDefault:
 		{
+			b8 pressed = u.input->get(Controls::Interact, gamepad);
+			b8 pressed_last = u.last_input->get(Controls::Interact, gamepad);
+			if (pressed && !pressed_last)
+				try_capture = true;
+			else if (!pressed && pressed_last)
+				try_capture = false;
 			ControlPoint* control_point = get<PlayerManager>()->at_control_point();
 			if (control_point && control_point->can_be_captured_by(get<PlayerManager>()->team.ref()->team()))
 			{
 				// enemy control point; capture
-				b8 pressed = u.input->get(Controls::Interact, gamepad);
-				b8 pressed_last = u.last_input->get(Controls::Interact, gamepad);
-				if (pressed && !pressed_last)
+				if (try_capture)
 				{
 					PlayerControlHumanNet::Message msg;
 					msg.type = PlayerControlHumanNet::Message::Type::CaptureStart;
 					PlayerControlHumanNet::send(entity->get<PlayerControlHuman>(), &msg);
+					try_capture = false;
 				}
-				else if (pressed_last && !pressed)
+				else if (!pressed && pressed_last)
 				{
 					PlayerControlHumanNet::Message msg;
 					msg.type = PlayerControlHumanNet::Message::Type::CaptureCancel;
@@ -2238,7 +2244,7 @@ void PlayerControlHuman::update(const Update& u)
 				{
 					Vec3 trace_end = trace_start + trace_dir * (AWK_SNIPE_DISTANCE + AWK_THIRD_PERSON_OFFSET);
 					RaycastCallbackExcept ray_callback(trace_start, trace_end, entity());
-					Physics::raycast(&ray_callback, ~CollisionAwkIgnore & ~get<Awk>()->ally_containment_field_mask());
+					Physics::raycast(&ray_callback, ~CollisionAwkIgnore & ~CollisionAllTeamsContainmentField);
 
 					Ability ability = get<Awk>()->current_ability;
 
@@ -2523,7 +2529,14 @@ void PlayerControlHuman::update(const Update& u)
 			if (input_enabled() && u.last_input->get(Controls::Scoreboard, gamepad) && !u.input->get(Controls::Scoreboard, gamepad))
 			{
 				if (Game::save.zones[Game::level.id] == ZoneState::Friendly)
-					Overworld::show(player.ref()->camera);
+				{
+					// we're in a friendly zone; we should be able to pull up the overworld
+					// but don't do it if we're in a tram
+					if (Tram::player_inside(entity()))
+						player.ref()->msg(_(strings::error_inside_tram), false);
+					else
+						Overworld::show(player.ref()->camera);
+				}
 				else
 					player.ref()->msg(_(strings::error_hostile_zone), false);
 			}

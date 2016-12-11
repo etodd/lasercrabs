@@ -57,9 +57,10 @@ struct PlayerHuman : public ComponentType<PlayerHuman>
 	r32 angle_vertical;
 	s32 spectate_index;
 	Menu::State menu_state;
+	s8 gamepad;
 	b8 msg_good;
 	b8 upgrade_menu_open;
-	s8 gamepad;
+	b8 try_capture;
 	b8 local;
 	
 	PlayerHuman(b8 = false, s8 = 0);

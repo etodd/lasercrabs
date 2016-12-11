@@ -286,7 +286,11 @@ void Game::update(const Update& update_in)
 	}
 	else if (Overworld::active()) // particles still work in overworld even though the rest of the world is paused
 		ParticleSystem::time += time.delta;
-	physics_timestep = (1.0f / 60.0f) * session.effective_time_scale();
+
+	if (update_game)
+		physics_timestep = (1.0f / 60.0f) * session.effective_time_scale();
+	else
+		physics_timestep = 0.0f;
 
 	Update u = update_in;
 	u.time = time;
@@ -357,9 +361,10 @@ void Game::update(const Update& update_in)
 	}
 
 	Menu::update(u);
-	Overworld::update(u);
 	Ascensions::update(u);
 #endif
+
+	Overworld::update(u);
 
 	if (schedule_timer > 0.0f)
 	{
@@ -1422,13 +1427,22 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 			// only add an AI player if we are in online pvp mode
 			if (session.story_mode)
 			{
-				AI::Team team = team_lookup(level.team_lookup, Json::get_s32(element, "team", 1));
-				r32 spawn_timer;
-				if (Game::save.zones[level.id] == ZoneState::Friendly)
-					spawn_timer = 0.0f; // player is defending, enemy is already there
+				AI::Team team_original = Json::get_s32(element, "team", 1);
+				AI::Team team = team_lookup(level.team_lookup, team_original);
+				if (Overworld::zone_player_count(level.id) > 2)
+				{
+					if ((Game::save.zones[level.id] == ZoneState::Friendly && team_original == 1) || mersenne::randf_cc() < 0.5f)
+						level.ai_config.add(PlayerAI::generate_config(team, 0.0f)); // enemy is attacking; they're there from the beginning
+					else
+						level.ai_config.add(PlayerAI::generate_config(team, 5.0f + mersenne::randf_cc() * (ZONE_UNDER_ATTACK_THRESHOLD * 1.5f)));
+				}
 				else
-					spawn_timer = 5.0f + mersenne::randf_cc() * CONTROL_POINT_CAPTURE_TIME * 1.5f; // player is attacking; enemy spawns in later
-				level.ai_config.add(PlayerAI::generate_config(team, spawn_timer));
+				{
+					if (Game::save.zones[level.id] == ZoneState::Friendly)
+						level.ai_config.add(PlayerAI::generate_config(team, 0.0f)); // player is defending, enemy is already there
+					else if (mersenne::randf_cc() < 0.75f) // player is attacking, eventually enemy might come to defend
+						level.ai_config.add(PlayerAI::generate_config(team, 5.0f + mersenne::randf_cc() * (ZONE_UNDER_ATTACK_THRESHOLD * 1.5f)));
+				}
 			}
 		}
 		else if (cJSON_HasObjectItem(element, "EnergyPickup"))

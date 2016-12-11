@@ -52,7 +52,7 @@ namespace Overworld
 #define DEPLOY_COST_DRONES 1
 #define AUTO_CAPTURE_TIME 30.0f
 #define ZONE_MAX_CHILDREN 12
-#define EVENT_INTERVAL_PER_ZONE 5.0f //(60.0f * 45.0f)
+#define EVENT_INTERVAL_PER_ZONE (60.0f * 5.0f)
 #define EVENT_ODDS_PER_ZONE (1.0f / EVENT_INTERVAL_PER_ZONE) // an event will happen on average every X minutes per zone you own
 
 struct ZoneNode
@@ -534,6 +534,17 @@ s16 energy_increment_total()
 	return result;
 }
 
+b8 zone_can_select(AssetID z)
+{
+	if (Game::session.story_mode)
+		return true;
+	else
+	{
+		const ZoneNode* zone = zone_node_get(z);
+		return zone && splitscreen_team_count() <= zone->max_teams;
+	}
+}
+
 void select_zone_update(const Update& u, b8 enable_movement)
 {
 	if (UIMenu::active[0])
@@ -603,7 +614,7 @@ void select_zone_update(const Update& u, b8 enable_movement)
 				for (s32 j = 0; j < global.zones.length; j++)
 				{
 					const ZoneNode& candidate = global.zones[j];
-					if (&candidate == zone)
+					if (&candidate == zone || !zone_can_select(candidate.id))
 						continue;
 
 					for (s32 k = 0; k < candidate.children.length; k++)
@@ -786,7 +797,7 @@ void zones_draw_override(const RenderParams& params)
 // returns current zone node
 const ZoneNode* zones_draw(const RenderParams& params)
 {
-	if (data.timer_deploy > 0.0f)
+	if (data.timer_deploy > 0.0f || Game::scheduled_load_level != AssetNull)
 		return nullptr;
 
 	// highlight zone locations
@@ -833,6 +844,7 @@ const ZoneNode* zones_draw(const RenderParams& params)
 				text.text("%d", s32(ceilf(time)));
 			else
 				text.text(_(strings::zone_defense_expired));
+
 			{
 				Vec2 text_pos = p;
 				text_pos.y += 32.0f * UI::scale;
@@ -1021,8 +1033,11 @@ b8 net_msg(Net::StreamRead* p, Net::MessageSource src)
 		}
 		case OverworldNet::Message::ZoneUnderAttack:
 		{
-			Game::session.zone_under_attack = zone;
-			Game::session.zone_under_attack_timer = ZONE_UNDER_ATTACK_TIME;
+			if (Game::level.local == (src == Net::MessageSource::Loopback))
+			{
+				Game::session.zone_under_attack = zone;
+				Game::session.zone_under_attack_timer = ZONE_UNDER_ATTACK_TIME;
+			}
 			break;
 		}
 		case OverworldNet::Message::ZoneChange:
@@ -1614,49 +1629,24 @@ AssetID zone_random(b8(*filter1)(AssetID), b8(*filter2)(AssetID) = &zone_filter_
 		return AssetNull;
 }
 
-enum ZoneRandomizeFlags
+void zone_random_attack(r32 elapsed_time)
 {
-	ZoneRandomizeDefault = 0,
-	ZoneRandomizeLive = 1 << 0, // we're live and playing; let the player interfere
-};
-
-void zone_randomize(r32 elapsed_time, s32 flags = ZoneRandomizeDefault)
-{
-	s32 captured;
-	s32 hostile;
-	s32 locked;
-	zone_statistics(&captured, &hostile, &locked, &zone_filter_can_change);
-
-	r32 event_odds = elapsed_time * EVENT_ODDS_PER_ZONE * captured;
-
-	while (mersenne::randf_co() < event_odds)
+	if (zone_under_attack() == AssetNull)
 	{
-		if (Game::save.group == Game::Group::None)
+		s32 captured;
+		s32 hostile;
+		s32 locked;
+		zone_statistics(&captured, &hostile, &locked, &zone_filter_can_change);
+
+		r32 event_odds = elapsed_time * EVENT_ODDS_PER_ZONE * captured;
+
+		while (mersenne::randf_co() < event_odds)
 		{
-			// turn a captured zone hostile
-			if (flags & ZoneRandomizeLive)
-			{
-				if (zone_under_attack() == AssetNull)
-				{
-					Game::session.zone_under_attack = zone_random(&zone_filter_captured, &zone_filter_can_change); // live incoming attack
-					if (Game::session.zone_under_attack != AssetNull)
-						Game::session.zone_under_attack_timer = ZONE_UNDER_ATTACK_TIME;
-				}
-			}
-			else
-				Overworld::zone_change(zone_random(&zone_filter_captured, &zone_filter_can_change), ZoneState::Hostile);
+			AssetID z = zone_random(&zone_filter_captured, &zone_filter_can_change); // live incoming attack
+			if (z != AssetNull)
+				OverworldNet::zone_under_attack(z);
+			event_odds -= 1.0f;
 		}
-		else
-		{
-			// flip a random zone
-			AssetID zone_id = zone_random(&zone_filter_can_change);
-			ZoneState* state = &Game::save.zones[zone_id];
-			if (*state == ZoneState::Hostile || *state == ZoneState::Locked)
-				*state = ZoneState::Friendly;
-			else
-				*state = ZoneState::Hostile;
-		}
-		event_odds -= 1.0f;
 	}
 }
 
@@ -2397,11 +2387,7 @@ void splitscreen_select_zone_update(const Update& u)
 
 	// deploy button
 	if (Menu::main_menu_state == Menu::State::Hidden && u.last_input->get(Controls::Interact, 0) && !u.input->get(Controls::Interact, 0))
-	{
-		const ZoneNode* zone = zone_node_get(data.zone_selected);
-		if (splitscreen_team_count() <= zone->max_teams)
-			deploy_start();
-	}
+		deploy_start();
 }
 
 void hide()
@@ -2444,7 +2430,12 @@ void show_complete()
 			data.zone_selected = Game::session.zone_under_attack;
 	}
 	else
-		data.zone_selected = zone_node_get(Game::save.zone_last) ? Game::save.zone_last : Asset::Level::Medias_Res;
+	{
+		if (zone_can_select(Game::save.zone_last))
+			data.zone_selected = Game::save.zone_last;
+		else
+			data.zone_selected = Asset::Level::Medias_Res;
+	}
 	data.camera_restore_data = *data.camera;
 	data.camera->colors = false;
 	data.camera->mask = 0;
@@ -2470,6 +2461,11 @@ void show_complete()
 		data.state = State::SplitscreenSelectZone;
 	else
 		data.state = State::SplitscreenSelectTeams;
+}
+
+s32 zone_player_count(AssetID z)
+{
+	return zone_node_get(z)->max_teams;
 }
 
 r32 particle_accumulator = 0.0f;
@@ -2511,14 +2507,17 @@ void update(const Update& u)
 			Game::session.zone_under_attack_timer = vi_max(0.0f, Game::session.zone_under_attack_timer - Game::real_time.delta);
 			if (Game::session.zone_under_attack_timer == 0.0f)
 			{
-				if (Game::level.local)
+				if (Game::level.local
+					&& Game::level.id != Game::session.zone_under_attack
+					&& data.timer_deploy == 0.0f
+					&& Game::scheduled_load_level == AssetNull) // if the player is deploying to this zone to contest it, don't set it to hostile; wait for the match outcome
 					zone_change(Game::session.zone_under_attack, ZoneState::Hostile);
 				Game::session.zone_under_attack = AssetNull;
 			}
 		}
 
-		if (Game::level.local)
-			zone_randomize(Game::real_time.delta, ZoneRandomizeLive);
+		if (Game::level.local && Game::level.mode == Game::Mode::Pvp)
+			zone_random_attack(Game::real_time.delta);
 	}
 
 	if (data.active && !Console::visible)
@@ -2818,9 +2817,6 @@ void init(cJSON* level)
 
 		if (Game::level.local)
 		{
-			// change zones while you're gone
-			zone_randomize(vi_min((r32)elapsed_time, EVENT_INTERVAL_PER_ZONE * 0.5f));
-
 			// energy increment
 			// this must be done before story_zone_done changes the energy increment amount
 			Game::save.resources[s32(Resource::Energy)] += vi_min(s32(4 * 60 * 60 / ENERGY_INCREMENT_INTERVAL), s32(elapsed_time / (r64)ENERGY_INCREMENT_INTERVAL)) * energy_increment_total();

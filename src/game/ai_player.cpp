@@ -503,8 +503,7 @@ Vec2 PlayerControlAI::aim(const Update& u, const Vec3& to_target)
 	return Vec2(target_angle_horizontal, target_angle_vertical);
 }
 
-// if tolerance is greater than 0, we need to land within that distance of the given target point
-b8 PlayerControlAI::aim_and_shoot_target(const Update& u, const Vec3& target, Target* target_entity)
+void PlayerControlAI::aim_and_shoot_target(const Update& u, const Vec3& target, Target* target_entity)
 {
 	PlayerCommon* common = get<PlayerCommon>();
 
@@ -595,20 +594,20 @@ b8 PlayerControlAI::aim_and_shoot_target(const Update& u, const Vec3& target, Ta
 			Vec3 look_dir = common->look_dir();
 			if (only_crawling_dashing)
 			{
-				if ((lined_up || distance_to_target < AWK_SHIELD_RADIUS) && get<Awk>()->dash_start(look_dir))
-					return true;
+				if (lined_up || distance_to_target < AWK_SHIELD_RADIUS)
+					get<Awk>()->dash_start(look_dir);
 			}
 			else
 			{
-				if (lined_up && get<Awk>()->can_shoot(look_dir) && get<Awk>()->go(look_dir))
-					return true;
+				if (lined_up && get<Awk>()->can_shoot(look_dir))
+					get<Awk>()->go(look_dir);
 			}
 		}
 	}
-	
-	return false;
 }
 
+// if tolerance is greater than 0, we need to land within that distance of the given target point
+// returns true as long as it's possible for us to eventually hit the goal
 b8 PlayerControlAI::go(const Update& u, const AI::AwkPathNode& node_prev, const AI::AwkPathNode& node, r32 tolerance)
 {
 	PlayerCommon* common = get<PlayerCommon>();
@@ -617,10 +616,12 @@ b8 PlayerControlAI::go(const Update& u, const AI::AwkPathNode& node_prev, const 
 
 	b8 only_crawling_dashing = false;
 
+	Vec3 position_before_crawling = get<Transform>()->absolute_pos();
+
 	{
 		// crawling
 
-		Vec3 pos = get<Transform>()->absolute_pos();
+		Vec3 pos = position_before_crawling;
 		Vec3 diff = node.pos - pos;
 		r32 distance_to_target = diff.length();
 		if (distance_to_target < AWK_RADIUS * 1.2f)
@@ -721,9 +722,9 @@ b8 PlayerControlAI::go(const Update& u, const AI::AwkPathNode& node_prev, const 
 
 	// shooting / dashing
 
-	if (get<Awk>()->current_ability == Ability::Sniper)
+	if (get<Awk>()->current_ability != Ability::None)
 	{
-		// we're in sniper mode, we're not going to be shooting anything, just look around randomly
+		// we're not going to be shooting anything, just look around randomly
 		aim(u, random_look);
 	}
 	else
@@ -732,19 +733,40 @@ b8 PlayerControlAI::go(const Update& u, const AI::AwkPathNode& node_prev, const 
 
 		const AI::Config& config = player.ref()->config;
 
+		Vec3 pos = get<Transform>()->absolute_pos();
+		Vec3 to_target = Vec3::normalize(node.pos - pos);
+
+		// check if we can't hit the goal and return false immediately, don't wait to aim
+		if ((pos - position_before_crawling).length_squared() > 0.001f * 0.001f) // if we're still crawling, we may be able to hit it eventually
+		{
+			if (only_crawling_dashing)
+			{
+				// don't dash around corners or anything; only dash toward coplanar points
+				if (fabsf(to_target.dot(get<Transform>()->absolute_rot() * Vec3(0, 0, 1))) > 0.1f)
+					return false;
+			}
+			else
+			{
+				Vec3 hit;
+				if (get<Awk>()->can_shoot(to_target, &hit))
+				{
+					// make sure we're actually going to land at the right spot
+					if ((hit - node.pos).length_squared() > tolerance * tolerance) // check the tolerance
+						return false;
+				}
+				else
+					return false;
+			}
+		}
+
 		b8 can_shoot = can_move && get<Awk>()->cooldown_can_shoot() && u.time.total - get<Awk>()->attach_time > config.aim_min_delay;
 
 		if (can_shoot)
+		{
+			Vec2 target_angles = aim(u, to_target);
+
 			aim_timer += u.time.delta;
 
-		Vec3 pos = get<Transform>()->absolute_pos();
-		Vec3 to_target = Vec3::normalize(node.pos - pos);
-		Vec3 wall_normal = common->attach_quat * Vec3(0, 0, 1);
-
-		Vec2 target_angles = aim(u, to_target);
-
-		if (can_shoot)
-		{
 			// cooldown is done; we can shoot.
 			// check if we're done aiming
 			if (common->angle_horizontal == target_angles.x
@@ -755,11 +777,10 @@ b8 PlayerControlAI::go(const Update& u, const AI::AwkPathNode& node_prev, const 
 				if (only_crawling_dashing)
 				{
 					// don't dash around corners or anything; only dash toward coplanar points
-					if (fabsf(look_dir.dot(get<Transform>()->absolute_rot() * Vec3(0, 0, 1))) < 0.1)
-					{
-						if (get<Awk>()->dash_start(look_dir))
-							return true;
-					}
+					if (fabsf(look_dir.dot(get<Transform>()->absolute_rot() * Vec3(0, 0, 1))) < 0.1f)
+						get<Awk>()->dash_start(look_dir);
+					else
+						return false;
 				}
 				else
 				{
@@ -768,17 +789,18 @@ b8 PlayerControlAI::go(const Update& u, const AI::AwkPathNode& node_prev, const 
 					{
 						// make sure we're actually going to land at the right spot
 						if ((hit - node.pos).length_squared() < tolerance * tolerance) // check the tolerance
-						{
-							if (get<Awk>()->go(look_dir))
-								return true;
-						}
+							get<Awk>()->go(look_dir);
+						else
+							return false;
 					}
+					else
+						return false;
 				}
 			}
 		}
 	}
 	
-	return false;
+	return true;
 }
 
 b8 default_filter(const PlayerControlAI* control, const Entity* e)
@@ -1424,7 +1446,8 @@ void PlayerControlAI::update(const Update& u)
 			{
 				// trying to a hit a moving thingy
 				Vec3 intersection;
-				if (aim_timer < config.aim_timeout && get<Awk>()->can_hit(target.ref()->get<Target>(), &intersection))
+				if (aim_timer < config.aim_timeout
+					&& get<Awk>()->can_hit(target.ref()->get<Target>(), &intersection))
 					aim_and_shoot_target(u, intersection, target.ref()->get<Target>());
 				else
 					active_behavior->done(false); // we can't hit it
@@ -1444,7 +1467,8 @@ void PlayerControlAI::update(const Update& u)
 					target.pos = target_pos;
 					target.normal = target_rot * Vec3(0, 0, 1);
 					target.ref = AWK_NAV_MESH_NODE_NONE;
-					go(u, target, target, CONTROL_POINT_RADIUS); // assume the target is a control point
+					if (!go(u, target, target, CONTROL_POINT_RADIUS)) // assume the target is a control point
+						active_behavior->done(false); // can't hit it
 				}
 			}
 		}
@@ -1462,7 +1486,13 @@ void PlayerControlAI::update(const Update& u)
 				active_behavior->done(false); // active behavior failed
 			}
 			else
-				go(u, path[path_index - 1], path[path_index], AWK_RADIUS); // path_index starts at 1 so we're good here
+			{
+				if (!go(u, path[path_index - 1], path[path_index], AWK_RADIUS)) // path_index starts at 1 so we're good here
+				{
+					AI::awk_mark_adjacency_bad(path[path_index - 1].ref, path[path_index].ref);
+					active_behavior->done(false);
+				}
+			}
 		}
 		else
 		{

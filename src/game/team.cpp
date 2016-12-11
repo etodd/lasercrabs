@@ -70,7 +70,7 @@ AbilityInfo AbilityInfo::list[(s32)Ability::count] =
 	{
 		AbilityInfo::Type::Build,
 		Asset::Mesh::icon_containment_field,
-		20,
+		40,
 		false,
 	},
 	{

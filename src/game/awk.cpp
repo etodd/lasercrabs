@@ -542,7 +542,7 @@ b8 Awk::net_msg(Net::StreamRead* p, Net::MessageSource src)
 					else
 					{
 						Awk::Hits hits;
-						awk->raycast(ray_start, ray_end, nullptr, &hits);
+						awk->raycast(RaycastMode::Default, ray_start, ray_end, nullptr, &hits);
 						distance = hits.fraction_end * awk->range();
 					}
 
@@ -1010,7 +1010,7 @@ b8 Awk::can_shoot(const Vec3& dir, Vec3* final_pos, b8* hit_target, const Net::S
 		state_frame = &state_frame_data;
 
 	Hits hits;
-	raycast(trace_start, trace_end, state_frame, &hits);
+	raycast(RaycastMode::IgnoreContainmentFields, trace_start, trace_end, state_frame, &hits);
 
 	r32 r = range();
 	const Hit* environment_hit = nullptr;
@@ -1019,7 +1019,7 @@ b8 Awk::can_shoot(const Vec3& dir, Vec3* final_pos, b8* hit_target, const Net::S
 	for (s32 i = 0; i < hits.hits.length; i++)
 	{
 		const Hit& hit = hits.hits[i];
-		if (hit.type == Hit::Type::Environment)
+		if (hit.type == Hit::Type::Environment || hit.type == Hit::Type::ContainmentField)
 			environment_hit = &hit;
 		if (hit.fraction * AWK_SNIPE_DISTANCE < r)
 		{
@@ -1094,7 +1094,7 @@ b8 Awk::can_spawn(Ability a, const Vec3& dir, Vec3* final_pos, Vec3* final_norma
 	if (AbilityInfo::list[s32(a)].type == AbilityInfo::Type::Shoot)
 	{
 		RaycastCallbackExcept ray_callback(trace_start, trace_end, entity());
-		Physics::raycast(&ray_callback, ~CollisionAwkIgnore & ~ally_containment_field_mask());
+		Physics::raycast(&ray_callback, ~CollisionAwkIgnore & ~CollisionAllTeamsContainmentField);
 		if (ray_callback.hasHit())
 		{
 			Entity* e = &Entity::list[ray_callback.m_collisionObject->getUserIndex()];
@@ -1119,7 +1119,7 @@ b8 Awk::can_spawn(Ability a, const Vec3& dir, Vec3* final_pos, Vec3* final_norma
 	else
 	{
 		AwkRaycastCallback ray_callback(trace_start, trace_end, entity());
-		Physics::raycast(&ray_callback, ~CollisionAwkIgnore & ~ally_containment_field_mask());
+		Physics::raycast(&ray_callback, ~CollisionAwkIgnore & ~CollisionAllTeamsContainmentField);
 
 		b8 can_spawn = ray_callback.hasHit()
 			&& !(ray_callback.m_collisionObject->getBroadphaseHandle()->m_collisionFilterGroup & AWK_INACCESSIBLE_MASK);
@@ -1194,12 +1194,11 @@ b8 Awk::go(const Vec3& dir)
 
 	if (current_ability == Ability::None)
 	{
+		if (!has<PlayerControlHuman>() || get<PlayerControlHuman>()->local())
 		{
-			Net::StateFrame* state_frame = nullptr;
-			Net::StateFrame state_frame_data;
-			if (awk_state_frame(this, &state_frame_data))
-				state_frame = &state_frame_data;
-			if (!can_shoot(dir, nullptr, nullptr, state_frame))
+			// if this is a local player or bot, check to make sure we can actually do this
+			// if it's a remote player, just assume it's okay
+			if (!can_shoot(dir, nullptr, nullptr))
 				return false;
 		}
 		AwkNet::start_flying(this, dir_normalized);
@@ -1988,24 +1987,52 @@ void Awk::update_client(const Update& u)
 	}
 }
 
-void Awk::raycast(const Vec3& ray_start, const Vec3& ray_end, const Net::StateFrame* state_frame, Hits* result) const
+void Awk::raycast(RaycastMode mode, const Vec3& ray_start, const Vec3& ray_end, const Net::StateFrame* state_frame, Hits* result) const
 {
 	r32 distance_total = (ray_end - ray_start).length();
 
 	// check environment
 	{
 		RaycastCallbackExcept ray_callback(ray_start, ray_end, entity());
-		Physics::raycast(&ray_callback, (CollisionStatic | CollisionAllTeamsContainmentField) & ~ally_containment_field_mask());
+		{
+			s16 mask;
+			switch (mode)
+			{
+				case RaycastMode::Default:
+				{
+					mask = (CollisionStatic | CollisionAllTeamsContainmentField) & ~ally_containment_field_mask();
+					break;
+				}
+				case RaycastMode::IgnoreContainmentFields:
+				{
+					mask = CollisionStatic;
+					break;
+				}
+				default:
+				{
+					vi_assert(false);
+					break;
+				}
+			}
+			Physics::raycast(&ray_callback, mask);
+		}
 
 		if (ray_callback.hasHit())
 		{
-			b8 inaccessible = ray_callback.m_collisionObject->getBroadphaseHandle()->m_collisionFilterGroup & (CollisionInaccessible | (CollisionAllTeamsContainmentField & ~ally_containment_field_mask()));
+			Hit::Type type;
+			s16 group = ray_callback.m_collisionObject->getBroadphaseHandle()->m_collisionFilterGroup;
+			if (group & CollisionInaccessible)
+				type = Hit::Type::Inaccessible;
+			else if (group & CollisionAllTeamsContainmentField)
+				type = Hit::Type::ContainmentField;
+			else
+				type = Hit::Type::Environment;
 			result->hits.add(
 			{
 				ray_callback.m_hitPointWorld,
 				ray_callback.m_hitNormalWorld,
 				(ray_callback.m_hitPointWorld - ray_start).length() / distance_total,
-				inaccessible ? Hit::Type::Inaccessible : Hit::Type::Environment,
+				type,
 				&Entity::list[ray_callback.m_collisionObject->getUserIndex()],
 			});
 		}
@@ -2085,7 +2112,7 @@ r32 Awk::movement_raycast(const Vec3& ray_start, const Vec3& ray_end)
 		state_frame = &state_frame_data;
 
 	Hits hits;
-	raycast(ray_start, ray_end, state_frame, &hits);
+	raycast(RaycastMode::Default, ray_start, ray_end, state_frame, &hits);
 
 	// handle collisions
 	for (s32 i = 0; i < hits.hits.length; i++)
@@ -2129,9 +2156,9 @@ r32 Awk::movement_raycast(const Vec3& ray_start, const Vec3& ray_end)
 				if (do_reflect)
 					reflect(hit.entity.ref(), hit.pos, hit.normal, state_frame);
 			}
-			else if (hit.type == Hit::Type::Inaccessible)
+			else if (hit.type == Hit::Type::Inaccessible || hit.type == Hit::Type::ContainmentField)
 			{
-				if (s == State::Fly) // this shouldn't normally happen, but if it does, bounce off
+				if (s == State::Fly)
 					reflect(hit.entity.ref(), hit.pos, hit.normal, state_frame);
 			}
 			else if (hit.type == Hit::Type::Environment)
@@ -2162,7 +2189,7 @@ r32 Awk::movement_raycast(const Vec3& ray_start, const Vec3& ray_end)
 
 			if (current_ability == Ability::Sniper
 				&& i == hits.index_end
-				&& (hit.type == Hit::Type::Environment || hit.type == Hit::Type::Inaccessible))
+				&& (hit.type == Hit::Type::Environment || hit.type == Hit::Type::Inaccessible || hit.type == Hit::Type::ContainmentField))
 			{
 				// we just shot at a wall; spawn some particles
 				Quat rot = Quat::look(hit.normal);

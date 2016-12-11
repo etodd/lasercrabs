@@ -24,7 +24,7 @@ namespace AK
 {
 	void* AllocHook(size_t in_size)
 	{
-		return malloc(in_size);
+		return calloc(1, in_size);
 	}
 
 	void FreeHook(void* in_ptr)

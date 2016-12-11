@@ -412,18 +412,18 @@ void Game::update(const Update& update_in)
 				for (s32 i = 0; i < level.ai_config.length; i++)
 				{
 					AI::Config* config = &level.ai_config[i];
-					if (config->spawn_timer > 0.0f)
+					config->spawn_timer = vi_max(0.0f, config->spawn_timer - u.time.delta);
+					if (config->spawn_timer == 0.0f)
 					{
-						config->spawn_timer = vi_max(0.0f, config->spawn_timer - u.time.delta);
-						if (config->spawn_timer == 0.0f)
-						{
-							Entity* e = World::create<ContainerEntity>();
-							PlayerManager* manager = e->add<PlayerManager>(&Team::list[(s32)config->team], Usernames::all[mersenne::rand_u32() % Usernames::count]);
-							Net::finalize(e);
+						Entity* e = World::create<ContainerEntity>();
+						PlayerManager* manager = e->add<PlayerManager>(&Team::list[(s32)config->team], Usernames::all[mersenne::rand_u32() % Usernames::count]);
+						Net::finalize(e);
 
-							PlayerAI* player = PlayerAI::list.add();
-							new (player) PlayerAI(manager, *config);
-						}
+						PlayerAI* player = PlayerAI::list.add();
+						new (player) PlayerAI(manager, *config);
+
+						level.ai_config.remove(i);
+						i--;
 					}
 				}
 			}
@@ -1423,7 +1423,11 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 			if (session.story_mode)
 			{
 				AI::Team team = team_lookup(level.team_lookup, Json::get_s32(element, "team", 1));
-				r32 spawn_timer = 5.0f + mersenne::randf_cc() * CONTROL_POINT_CAPTURE_TIME * 1.5f;
+				r32 spawn_timer;
+				if (Game::save.zones[level.id] == ZoneState::Friendly)
+					spawn_timer = 0.0f; // player is defending, enemy is already there
+				else
+					spawn_timer = 5.0f + mersenne::randf_cc() * CONTROL_POINT_CAPTURE_TIME * 1.5f; // player is attacking; enemy spawns in later
 				level.ai_config.add(PlayerAI::generate_config(team, spawn_timer));
 			}
 		}

@@ -1299,6 +1299,24 @@ void PlayerHuman::draw_alpha(const RenderParams& params) const
 		}
 	}
 
+	// overworld notifications
+	if (Game::level.mode == Game::Mode::Parkour && Game::save.zones[Game::level.id] == ZoneState::Friendly)
+	{
+		r32 timer = Overworld::zone_under_attack_timer();
+		if (timer > 0.0f)
+		{
+			UIText text;
+			text.anchor_x = UIText::Anchor::Max;
+			text.anchor_y = UIText::Anchor::Min;
+			text.wrap_width = MENU_ITEM_WIDTH - MENU_ITEM_PADDING * 2.0f;
+			text.color = UI::color_alert;
+			text.text(_(strings::prompt_zone_defend), Loader::level_name(Overworld::zone_under_attack()), s32(ceilf(timer)));
+			Vec2 p = Vec2(params.camera->viewport.size.x, 0) + Vec2(MENU_ITEM_PADDING * -5.0f, MENU_ITEM_PADDING * 5.0f);
+			UI::box(params, text.rect(p).outset(MENU_ITEM_PADDING), UI::color_background);
+			text.draw(params, p);
+		}
+	}
+
 	if (mode == UIMode::Pause) // pause menu always drawn on top
 		menu.draw_alpha(params, Vec2(0, params.camera->viewport.size.y * 0.5f), UIText::Anchor::Min, UIText::Anchor::Center);
 }
@@ -2331,7 +2349,7 @@ void PlayerControlHuman::update(const Update& u)
 						b8 visible;
 						Entity* detected_entity = determine_visibility(get<PlayerCommon>(), other_player.item(), &visible, &tracking);
 
-						if (visible)
+						if (visible || tracking)
 						{
 							if (!add_target_indicator(detected_entity->get<Target>(), tracking ? TargetIndicator::Type::AwkTracking : TargetIndicator::Type::AwkVisible))
 								break; // no more room for indicators

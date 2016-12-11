@@ -1100,6 +1100,7 @@ const char* AssetLookup::String::names[] =
 	"prompt_cancel_ability",
 	"prompt_cancel_hack",
 	"prompt_capture",
+	"prompt_defend",
 	"prompt_deploy",
 	"prompt_hack",
 	"prompt_interact",
@@ -1107,6 +1108,7 @@ const char* AssetLookup::String::names[] =
 	"prompt_splitscreen",
 	"prompt_splitscreen_ready",
 	"prompt_upgrade",
+	"prompt_zone_defend",
 	"quit",
 	"resource_collected",
 	"right_joystick",
@@ -1160,10 +1162,12 @@ const char* AssetLookup::String::names[] =
 	"yes",
 	"zodiak",
 	"zone_already_captured",
+	"zone_defense_expired",
 	"zone_unlocked",
 	"zones_captured",
 	"zones_hostile",
 	"zones_locked",
+	"zones_under_attack",
 	0,
 };
 

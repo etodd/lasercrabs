@@ -32,7 +32,7 @@ namespace Json
 		long len = ftell(f);
 		fseek(f, 0, SEEK_SET);
 
-		char* data = (char*)malloc(len + 1);
+		char* data = (char*)calloc(sizeof(char), len + 1);
 		fread(data, 1, len, f);
 		data[len] = '\0';
 		fclose(f);

@@ -456,6 +456,7 @@ void PlayerHuman::update(const Update& u)
 	{
 		camera->range = 0;
 		camera->colors = Game::level.mode == Game::Mode::Parkour;
+		upgrade_menu_open = false;
 	}
 
 	switch (ui_mode())
@@ -611,10 +612,7 @@ void PlayerHuman::update(const Update& u)
 			if (Game::real_time.total - Team::game_over_real_time > SCORE_SUMMARY_DELAY)
 			{
 				// update score summary scroll
-				s32 score_summary_count = 0;
-				for (auto player = PlayerManager::list.iterator(); !player.is_last(); player.next())
-					score_summary_count += 1 + player.item()->score_summary.length;
-				score_summary_scroll.update(u, score_summary_count, gamepad);
+				score_summary_scroll.update(u, Team::score_summary.length, gamepad);
 
 				if (Game::real_time.total - Team::game_over_real_time > SCORE_SUMMARY_DELAY + SCORE_SUMMARY_ACCEPT_DELAY)
 				{
@@ -1147,41 +1145,28 @@ void PlayerHuman::draw_alpha(const RenderParams& params) const
 			Vec2 p = title_pos + Vec2(0, -2.0f * (MENU_ITEM_HEIGHT + MENU_ITEM_PADDING));
 
 			score_summary_scroll.start(params, p + Vec2(0, MENU_ITEM_PADDING));
-			s32 item_counter = 0;
-			for (auto player = PlayerManager::list.iterator(); !player.is_last(); player.next())
+			AI::Team team = get<PlayerManager>()->team.ref()->team();
+			for (s32 i = 0; i < Team::score_summary.length; i++)
 			{
-				text.color = player.item() == get<PlayerManager>() ? UI::color_accent : Team::ui_color(get<PlayerManager>()->team.ref()->team(), player.item()->team.ref()->team());
+				const Team::ScoreSummaryItem& item = Team::score_summary[i];
+				text.color = item.player.ref() == get<PlayerManager>() ? UI::color_accent : Team::ui_color(team, item.team);
 
 				UIText amount = text;
 				amount.anchor_x = UIText::Anchor::Max;
 				amount.wrap_width = 0;
 
-				// username
-				if (score_summary_scroll.item(item_counter))
+				if (score_summary_scroll.item(i))
 				{
-					text.text(player.item()->username);
-					UIMenu::text_clip(&text, Team::game_over_real_time + SCORE_SUMMARY_DELAY, 50.0f + (r32)vi_min(item_counter, 6) * -5.0f);
+					text.text_raw(item.label);
+					UIMenu::text_clip(&text, Team::game_over_real_time + SCORE_SUMMARY_DELAY, 50.0f + (r32)vi_min(i, 6) * -5.0f);
 					UI::box(params, text.rect(p).outset(MENU_ITEM_PADDING), UI::color_background);
 					text.draw(params, p);
-					p.y -= text.bounds().y + MENU_ITEM_PADDING * 2.0f;
-				}
-				item_counter++;
-
-				// score breakdown
-				const auto& score_summary = player.item()->score_summary;
-				for (s32 i = 0; i < score_summary.length; i++)
-				{
-					if (score_summary_scroll.item(item_counter))
+					if (item.amount != -1)
 					{
-						text.text(_(score_summary[i].label));
-						UIMenu::text_clip(&text, Team::game_over_real_time + SCORE_SUMMARY_DELAY, 50.0f + (r32)vi_min(item_counter, 6) * -5.0f);
-						UI::box(params, text.rect(p).outset(MENU_ITEM_PADDING), UI::color_background);
-						text.draw(params, p);
-						amount.text("%d", score_summary[i].amount);
+						amount.text("%d", item.amount);
 						amount.draw(params, p + Vec2(MENU_ITEM_WIDTH * 0.5f - MENU_ITEM_PADDING, 0));
 						p.y -= text.bounds().y + MENU_ITEM_PADDING * 2.0f;
 					}
-					item_counter++;
 				}
 			}
 			score_summary_scroll.end(params, p + Vec2(0, MENU_ITEM_PADDING));
@@ -1317,6 +1302,7 @@ void PlayerHuman::draw_alpha(const RenderParams& params) const
 			text.wrap_width = MENU_ITEM_WIDTH - MENU_ITEM_PADDING * 2.0f;
 			text.color = UI::color_alert;
 			text.text(_(strings::prompt_zone_defend), Loader::level_name(Overworld::zone_under_attack()), s32(ceilf(timer)));
+			UIMenu::text_clip_timer(&text, ZONE_UNDER_ATTACK_THRESHOLD - timer, 80.0f);
 			Vec2 p = Vec2(params.camera->viewport.size.x, 0) + Vec2(MENU_ITEM_PADDING * -5.0f, MENU_ITEM_PADDING * 5.0f);
 			UI::box(params, text.rect(p).outset(MENU_ITEM_PADDING), UI::color_background);
 			text.draw(params, p);
@@ -2145,61 +2131,55 @@ void PlayerControlHuman::update(const Update& u)
 					for (s32 i = 0; i < target_indicators.length; i++)
 					{
 						const TargetIndicator indicator = target_indicators[i];
-						if (indicator.type == TargetIndicator::Type::AwkVisible
-							|| indicator.type == TargetIndicator::Type::AwkTracking
-							|| indicator.type == TargetIndicator::Type::Energy
-							|| indicator.type == TargetIndicator::Type::Minion)
+						Vec3 to_indicator = indicator.pos - camera->pos;
+						r32 indicator_distance = to_indicator.length();
+						if (indicator_distance > AWK_THIRD_PERSON_OFFSET && indicator_distance < reticle_distance + 2.5f)
 						{
-							Vec3 to_indicator = indicator.pos - camera->pos;
-							r32 indicator_distance = to_indicator.length();
-							if (indicator_distance > AWK_THIRD_PERSON_OFFSET && indicator_distance < reticle_distance + 2.5f)
+							to_indicator /= indicator_distance;
+							if (to_indicator.dot(to_reticle) > 0.99f)
 							{
-								to_indicator /= indicator_distance;
-								if (to_indicator.dot(to_reticle) > 0.99f)
+								// slow down gamepad rotation if we're hovering over this target
+								gamepad_rotation_multiplier = 0.6f;
+
+								if (Game::real_time.total - last_gamepad_input_time < 0.25f)
 								{
-									// slow down gamepad rotation if we're hovering over this target
-									gamepad_rotation_multiplier = 0.6f;
-
-									if (Game::real_time.total - last_gamepad_input_time < 0.25f)
+									// adjust for relative velocity
+									Vec2 predicted_offset;
 									{
-										// adjust for relative velocity
-										Vec2 predicted_offset;
+										Vec3 me = get<Awk>()->center_lerped();
+										Vec3 my_velocity = get<Awk>()->center_lerped() - last_pos;
 										{
-											Vec3 me = get<Awk>()->center_lerped();
-											Vec3 my_velocity = get<Awk>()->center_lerped() - last_pos;
-											{
-												r32 my_speed = my_velocity.length_squared();
-												if (my_speed == 0.0f || my_speed > AWK_CRAWL_SPEED * 1.5f * AWK_CRAWL_SPEED * 1.5f) // don't adjust if we're going too fast or not moving
-													break;
-											}
-											Vec3 me_predicted = me + my_velocity;
-
-											if (indicator.velocity.length_squared() > AWK_CRAWL_SPEED * 1.5f * AWK_CRAWL_SPEED * 1.5f) // enemy moving too fast
+											r32 my_speed = my_velocity.length_squared();
+											if (my_speed == 0.0f || my_speed > AWK_CRAWL_SPEED * 1.5f * AWK_CRAWL_SPEED * 1.5f) // don't adjust if we're going too fast or not moving
 												break;
-
-											Vec3 target_predicted = indicator.pos + indicator.velocity * u.time.delta;
-											Vec3 predicted_ray = Vec3::normalize(target_predicted - me_predicted);
-											Vec2 predicted_angles(atan2f(predicted_ray.x, predicted_ray.z), -asinf(predicted_ray.y));
-											predicted_offset = Vec2(LMath::angle_to(get<PlayerCommon>()->angle_horizontal, predicted_angles.x), LMath::angle_to(get<PlayerCommon>()->angle_vertical, predicted_angles.y));
 										}
+										Vec3 me_predicted = me + my_velocity;
 
-										Vec2 current_offset;
-										{
-											Vec3 current_ray = Vec3::normalize(indicator.pos - get<Transform>()->absolute_pos());
-											Vec2 current_angles(atan2f(current_ray.x, current_ray.z), -asinf(current_ray.y));
-											current_offset = Vec2(LMath::angle_to(get<PlayerCommon>()->angle_horizontal, current_angles.x), LMath::angle_to(get<PlayerCommon>()->angle_vertical, current_angles.y));
-										}
+										if (indicator.velocity.length_squared() > AWK_CRAWL_SPEED * 1.5f * AWK_CRAWL_SPEED * 1.5f) // enemy moving too fast
+											break;
 
-										Vec2 adjustment(LMath::angle_to(current_offset.x, predicted_offset.x), LMath::angle_to(current_offset.y, predicted_offset.y));
-										if (current_offset.x > 0 == adjustment.x > 0 // only adjust if it's an adjustment toward the target
-											&& fabsf(get<PlayerCommon>()->angle_vertical) < PI * 0.4f) // only adjust if we're not looking straight up or down
-											get<PlayerCommon>()->angle_horizontal = LMath::angle_range(get<PlayerCommon>()->angle_horizontal + adjustment.x);
-										if (current_offset.y > 0 == adjustment.y > 0) // only adjust if it's an adjustment toward the target
-											get<PlayerCommon>()->angle_vertical = LMath::angle_range(get<PlayerCommon>()->angle_vertical + adjustment.y);
+										Vec3 target_predicted = indicator.pos + indicator.velocity * u.time.delta;
+										Vec3 predicted_ray = Vec3::normalize(target_predicted - me_predicted);
+										Vec2 predicted_angles(atan2f(predicted_ray.x, predicted_ray.z), -asinf(predicted_ray.y));
+										predicted_offset = Vec2(LMath::angle_to(get<PlayerCommon>()->angle_horizontal, predicted_angles.x), LMath::angle_to(get<PlayerCommon>()->angle_vertical, predicted_angles.y));
 									}
 
-									break;
+									Vec2 current_offset;
+									{
+										Vec3 current_ray = Vec3::normalize(indicator.pos - get<Transform>()->absolute_pos());
+										Vec2 current_angles(atan2f(current_ray.x, current_ray.z), -asinf(current_ray.y));
+										current_offset = Vec2(LMath::angle_to(get<PlayerCommon>()->angle_horizontal, current_angles.x), LMath::angle_to(get<PlayerCommon>()->angle_vertical, current_angles.y));
+									}
+
+									Vec2 adjustment(LMath::angle_to(current_offset.x, predicted_offset.x), LMath::angle_to(current_offset.y, predicted_offset.y));
+									if (current_offset.x > 0 == adjustment.x > 0 // only adjust if it's an adjustment toward the target
+										&& fabsf(get<PlayerCommon>()->angle_vertical) < PI * 0.4f) // only adjust if we're not looking straight up or down
+										get<PlayerCommon>()->angle_horizontal = LMath::angle_range(get<PlayerCommon>()->angle_horizontal + adjustment.x);
+									if (current_offset.y > 0 == adjustment.y > 0) // only adjust if it's an adjustment toward the target
+										get<PlayerCommon>()->angle_vertical = LMath::angle_range(get<PlayerCommon>()->angle_vertical + adjustment.y);
 								}
+
+								break;
 							}
 						}
 					}
@@ -2378,6 +2358,7 @@ void PlayerControlHuman::update(const Update& u)
 			}
 
 			// health pickups
+			if (target_indicators.length < target_indicators.capacity())
 			{
 				b8 full_health = get<Health>()->hp == get<Health>()->hp_max;
 				for (auto i = EnergyPickup::list.iterator(); !i.is_last(); i.next())
@@ -2385,6 +2366,32 @@ void PlayerControlHuman::update(const Update& u)
 					if (i.item()->team != team)
 					{
 						if (!add_target_indicator(i.item()->get<Target>(), TargetIndicator::Type::Energy))
+							break; // no more room for indicators
+					}
+				}
+			}
+
+			// sensors
+			if (target_indicators.length < target_indicators.capacity())
+			{
+				for (auto i = Sensor::list.iterator(); !i.is_last(); i.next())
+				{
+					if (i.item()->team != team)
+					{
+						if (!add_target_indicator(i.item()->get<Target>(), TargetIndicator::Type::Invisible))
+							break; // no more room for indicators
+					}
+				}
+			}
+
+			// containment fields
+			if (target_indicators.length < target_indicators.capacity())
+			{
+				for (auto i = ContainmentField::list.iterator(); !i.is_last(); i.next())
+				{
+					if (i.item()->team != team)
+					{
+						if (!add_target_indicator(i.item()->get<Target>(), TargetIndicator::Type::Invisible))
 							break; // no more room for indicators
 					}
 				}
@@ -2837,6 +2844,10 @@ void PlayerControlHuman::draw_alpha(const RenderParams& params) const
 				UI::indicator(params, indicator.pos, UI::color_alert, true);
 				break;
 			}
+			case TargetIndicator::Type::Invisible:
+			{
+				break;
+			}
 			default:
 			{
 				vi_assert(false);
@@ -3010,7 +3021,7 @@ void PlayerControlHuman::draw_alpha(const RenderParams& params) const
 		// interact prompt
 		if (input_enabled())
 		{
-			Interactable* i = Interactable::closest(get<Transform>()->absolute_pos());
+			Interactable* i = Interactable::closest(me);
 			if (i)
 			{
 				UIText text;
@@ -3024,12 +3035,66 @@ void PlayerControlHuman::draw_alpha(const RenderParams& params) const
 				text.draw(params, pos);
 			}
 
-			// highlight terminal location
-			if (!i && Game::save.zones[Game::level.id] == ZoneState::Locked)
+			if (Settings::waypoints)
 			{
-				Entity* terminal = Game::level.terminal.ref();
-				if (terminal)
-					UI::indicator(params, terminal->get<Transform>()->absolute_pos(), UI::color_default, true);
+				// highlight terminal location
+				if (!i && Game::save.zones[Game::level.id] == ZoneState::Locked)
+				{
+					Entity* terminal = Game::level.terminal.ref();
+					if (terminal)
+						UI::indicator(params, terminal->get<Transform>()->absolute_pos(), UI::color_default, true);
+				}
+
+				// highlight trams
+				Vec3 look_dir = params.camera->rot * Vec3(0, 0, 1);
+				for (auto i = Tram::list.iterator(); !i.is_last(); i.next())
+				{
+					Vec3 pos = i.item()->get<Transform>()->absolute_pos();
+					Vec3 to_tram = pos - params.camera->pos;
+					r32 distance = to_tram.length();
+					if (distance > 12.0f)
+					{
+						to_tram /= distance;
+						if (to_tram.dot(look_dir) > 0.92f)
+						{
+							Vec2 p;
+							if (UI::project(params, pos + Vec3(0, 3, 0), &p))
+							{
+								AssetID zone = Game::level.tram_tracks[i.item()->track()].level;
+								UIText text;
+								switch (Game::save.zones[zone])
+								{
+									case ZoneState::Friendly:
+									{
+										text.color = Team::ui_color_friend;
+										break;
+									}
+									case ZoneState::Hostile:
+									{
+										text.color = Team::ui_color_enemy;
+										break;
+									}
+									case ZoneState::Locked:
+									{
+										text.color = UI::color_disabled;
+										break;
+									}
+									default:
+									{
+										vi_assert(false);
+										break;
+									}
+								}
+								text.text(Loader::level_name(zone));
+								text.anchor_x = UIText::Anchor::Center;
+								text.anchor_y = UIText::Anchor::Center;
+								text.size = text_size * 0.75f;
+								UI::box(params, text.rect(p).outset(4.0f * UI::scale), UI::color_background);
+								text.draw(params, p);
+							}
+						}
+					}
+				}
 			}
 		}
 	}

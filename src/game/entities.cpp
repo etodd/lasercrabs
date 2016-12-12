@@ -761,6 +761,7 @@ void Sensor::set_team(AI::Team t)
 {
 	// not synced over network
 	team = t;
+	get<View>()->team = s8(t);
 	get<PointLight>()->team = s8(t);
 }
 
@@ -2735,7 +2736,8 @@ b8 Tram::net_msg(Net::StreamRead* p, Net::MessageSource)
 		{
 			case TramNet::Message::Entered:
 			{
-				if (ref.ref()->exiting && ref.ref()->doors_open())
+				if (ref.ref()->exiting
+					&& ref.ref()->doors_open())
 				{
 					ref.ref()->doors_open(false);
 					if (Game::level.local)
@@ -2770,8 +2772,16 @@ b8 Tram::net_msg(Net::StreamRead* p, Net::MessageSource)
 
 void Tram::player_entered(Entity* e)
 {
-	if (e->has<Parkour>() && e->get<PlayerControlHuman>()->local() && doors_open() && exiting)
-		TramNet::send(this, TramNet::Message::Entered);
+	if (exiting
+		&& doors_open()
+		&& e->has<Parkour>()
+		&& e->get<PlayerControlHuman>()->local())
+	{
+		if (Overworld::zone_under_attack() == Game::level.tram_tracks[track()].level) // can't go there if it's under attack
+			e->get<PlayerControlHuman>()->player.ref()->msg(_(strings::error_zone_under_attack), false);
+		else
+			TramNet::send(this, TramNet::Message::Entered);
+	}
 }
 
 void Tram::player_exited(Entity* e)

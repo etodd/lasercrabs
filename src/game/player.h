@@ -138,6 +138,7 @@ struct PlayerControlHuman : public ComponentType<PlayerControlHuman>
 			AwkTracking,
 			Minion,
 			Energy,
+			Invisible,
 		};
 
 		Vec3 pos;

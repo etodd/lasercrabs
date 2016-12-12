@@ -53,10 +53,19 @@ struct Team : public ComponentType<Team>
 		b8 tracking;
 	};
 
+	struct ScoreSummaryItem
+	{
+		s32 amount;
+		Ref<PlayerManager> player;
+		AI::Team team;
+		char label[512];
+	};
+
 	static const Vec4 ui_color_enemy;
 	static const Vec4 ui_color_friend;
 	static const Vec4 color_enemy;
 	static const Vec4 color_friend;
+	static StaticArray<ScoreSummaryItem, MAX_PLAYERS * 3> score_summary;
 	static r32 control_point_timer;
 	static r32 game_over_real_time;
 	static r32 transition_timer;
@@ -107,12 +116,6 @@ struct ControlPoint;
 
 struct PlayerManager : public ComponentType<PlayerManager>
 {
-	struct SummaryItem
-	{
-		AssetID label;
-		s32 amount;
-	};
-
 	enum State
 	{
 		Default,
@@ -133,7 +136,6 @@ struct PlayerManager : public ComponentType<PlayerManager>
 	r32 particle_accumulator;
 	r32 state_timer;
 	s32 upgrades;
-	StaticArray<SummaryItem, 3> score_summary;
 	Ability abilities[MAX_ABILITIES];
 	Upgrade current_upgrade;
 	Link spawn;

@@ -317,8 +317,7 @@ b8 Parkour::net_msg(Net::StreamRead* p, Net::MessageSource src)
 	serialize_enum(p, ParkourNet::Message, type);
 	Ref<Parkour> parkour;
 	serialize_ref(p, parkour);
-	if ((src == Net::MessageSource::Remote || Game::level.local)
-		&& parkour.ref())
+	if (parkour.ref())
 	{
 		switch (type)
 		{
@@ -327,7 +326,8 @@ b8 Parkour::net_msg(Net::StreamRead* p, Net::MessageSource src)
 				Ref<Collectible> collectible;
 				serialize_ref(p, collectible);
 				if (collectible.ref()
-					&& (parkour.ref()->get<Walker>()->base_pos() - collectible.ref()->get<Transform>()->absolute_pos()).length_squared() < (COLLECTIBLE_RADIUS * 2.0f) * (COLLECTIBLE_RADIUS * 2.0f))
+					&& (parkour.ref()->get<Walker>()->base_pos() - collectible.ref()->get<Transform>()->absolute_pos()).length_squared() < (COLLECTIBLE_RADIUS * 2.0f) * (COLLECTIBLE_RADIUS * 2.0f)
+					&& collectible.ref()->get<Transform>()->parent.ref() != parkour.ref()->get<Transform>())
 				{
 					Animator::Layer* layer3 = &parkour.ref()->get<Animator>()->layers[3];
 					if (layer3->animation == AssetNull)
@@ -335,7 +335,6 @@ b8 Parkour::net_msg(Net::StreamRead* p, Net::MessageSource src)
 						collectible.ref()->give_rewards();
 						collectible.ref()->get<Transform>()->reparent(parkour.ref()->get<Transform>());
 						layer3->set(Asset::Animation::character_pickup, 0.0f); // bypass animation blending
-						layer3->play(Asset::Animation::character_pickup);
 					}
 				}
 				break;
@@ -344,7 +343,7 @@ b8 Parkour::net_msg(Net::StreamRead* p, Net::MessageSource src)
 			{
 				State old_value = parkour.ref()->fsm.current;
 				serialize_enum(p, State, parkour.ref()->fsm.current);
-				if (old_value != parkour.ref()->fsm.current)
+				if ((src == Net::MessageSource::Remote || Game::level.local) && old_value != parkour.ref()->fsm.current)
 				{
 					parkour.ref()->fsm.last = old_value;
 					parkour.ref()->fsm.time = 0.0f;
@@ -356,6 +355,7 @@ b8 Parkour::net_msg(Net::StreamRead* p, Net::MessageSource src)
 				Ref<MinionCommon> minion;
 				serialize_ref(p, minion);
 				if (minion.ref()
+					&& (src == Net::MessageSource::Remote || Game::level.local)
 					&& (parkour.ref()->fsm.current == State::Slide || parkour.ref()->fsm.current == State::Roll)
 					&& minion_in_front(parkour.ref(), minion.ref(), true))
 				{
@@ -722,7 +722,7 @@ void Parkour::update(const Update& u)
 		{
 			Transform* t = i.item()->get<Transform>();
 
-			if (pickup && (t->absolute_pos() - me).length_squared() < COLLECTIBLE_RADIUS * COLLECTIBLE_RADIUS)
+			if (pickup && t->parent.ref() != get<Transform>() && (t->absolute_pos() - me).length_squared() < COLLECTIBLE_RADIUS * COLLECTIBLE_RADIUS)
 				ParkourNet::pickup(this, i.item()); // pick it up
 
 			if (t->parent.ref() == get<Transform>())

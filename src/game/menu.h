@@ -36,6 +36,7 @@ struct UIMenu
 		Down,
 	};
 
+	static void text_clip_timer(UIText*, r32, r32);
 	static void text_clip(UIText*, r32, r32);
 
 	char selected;

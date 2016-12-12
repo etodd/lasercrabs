@@ -30,6 +30,7 @@ namespace Settings
 	b8 vsync;
 	b8 volumetric_lighting;
 	b8 antialiasing;
+	b8 waypoints;
 }
 
 Array<Loader::Entry<Mesh> > Loader::meshes;
@@ -191,6 +192,7 @@ void Loader::settings_load(s32 default_width, s32 default_height)
 	Settings::shadow_quality = Settings::ShadowQuality(vi_max(0, vi_min(Json::get_s32(json, "shadow_quality", (s32)Settings::ShadowQuality::High), (s32)Settings::ShadowQuality::count - 1)));
 	Settings::volumetric_lighting = b8(Json::get_s32(json, "volumetric_lighting", 1));
 	Settings::antialiasing = b8(Json::get_s32(json, "antialiasing", 1));
+	Settings::waypoints = b8(Json::get_s32(json, "waypoints", 1));
 
 	cJSON* gamepads = json ? cJSON_GetObjectItem(json, "gamepads") : nullptr;
 	cJSON* gamepad = gamepads ? gamepads->child : nullptr;
@@ -239,9 +241,10 @@ void Loader::settings_save()
 	cJSON_AddNumberToObject(json, "sfx", Settings::sfx);
 	cJSON_AddNumberToObject(json, "music", Settings::music);
 	cJSON_AddNumberToObject(json, "framerate_limit", Settings::framerate_limit);
-	cJSON_AddNumberToObject(json, "shadow_quality", (s32)Settings::shadow_quality);
-	cJSON_AddNumberToObject(json, "volumetric_lighting", (s32)Settings::volumetric_lighting);
-	cJSON_AddNumberToObject(json, "antialiasing", (s32)Settings::antialiasing);
+	cJSON_AddNumberToObject(json, "shadow_quality", s32(Settings::shadow_quality));
+	cJSON_AddNumberToObject(json, "volumetric_lighting", s32(Settings::volumetric_lighting));
+	cJSON_AddNumberToObject(json, "antialiasing", s32(Settings::antialiasing));
+	cJSON_AddNumberToObject(json, "waypoints", s32(Settings::waypoints));
 
 	cJSON* gamepads = cJSON_CreateArray();
 	cJSON_AddItemToObject(json, "gamepads", gamepads);

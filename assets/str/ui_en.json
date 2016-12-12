@@ -5,6 +5,7 @@
 	"error_hostile_zone": "Error: hostile zone",
 	"error_locked_zone": "Error: unlock terminal first",
 	"error_inside_tram": "Error: map unavailable",
+	"error_zone_under_attack": "Error: zone under attack",
 	"losing": "Losing",
 	"buying": "Buying...",
 	"loading": "Loading...",

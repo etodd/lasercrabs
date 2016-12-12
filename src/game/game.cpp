@@ -392,10 +392,10 @@ void Game::update(const Update& update_in)
 		}
 		for (auto i = Animator::list.iterator(); !i.is_last(); i.next())
 		{
-			if (level.local || !i.item()->has<MinionCommon>()) // minion animations are synced over the network
-				i.item()->update_server(u);
+			if (!level.local && i.item()->has<MinionCommon>())
+				i.item()->update_client_only(u); // minion animations are synced over the network
 			else
-				i.item()->update_client_only(u);
+				i.item()->update_server(u);
 		}
 
 		LerpTo<Vec3>::update_active(u);
@@ -1440,7 +1440,7 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 				{
 					if (Game::save.zones[level.id] == ZoneState::Friendly)
 						level.ai_config.add(PlayerAI::generate_config(team, 0.0f)); // player is defending, enemy is already there
-					else if (mersenne::randf_cc() < 0.75f) // player is attacking, eventually enemy might come to defend
+					else // player is attacking, eventually enemy will come to defend
 						level.ai_config.add(PlayerAI::generate_config(team, 5.0f + mersenne::randf_cc() * (ZONE_UNDER_ATTACK_THRESHOLD * 1.5f)));
 				}
 			}

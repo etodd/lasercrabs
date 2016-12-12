@@ -38,6 +38,7 @@ r32 Team::game_over_real_time;
 b8 Team::game_over;
 Ref<Team> Team::winner;
 Game::Mode Team::transition_mode_scheduled = Game::Mode::None;
+StaticArray<Team::ScoreSummaryItem, MAX_PLAYERS * 3> Team::score_summary;
 r32 Team::transition_timer;
 r32 Team::match_time;
 
@@ -158,6 +159,7 @@ void Team::awake_all()
 	if (Game::level.local) // if we're a client, the netcode manages this
 		match_time = 0.0f;
 	winner = nullptr;
+	score_summary.length = 0;
 }
 
 s32 Team::teams_with_players()
@@ -502,6 +504,16 @@ namespace TeamNet
 	}
 }
 
+void team_add_score_summary_item(PlayerManager* player, const char* label, s32 amount = -1)
+{
+	Team::ScoreSummaryItem* item = Team::score_summary.add();
+	item->amount = amount;
+	item->player = player;
+	item->team = player->team.ref()->team();
+	strncpy(item->label, label, 512);
+	item->label[511] = '\0';
+}
+
 b8 Team::net_msg(Net::StreamRead* p)
 {
 	using Stream = Net::StreamRead;
@@ -517,16 +529,19 @@ b8 Team::net_msg(Net::StreamRead* p)
 			game_over = true;
 			game_over_real_time = Game::real_time.total;
 
+			score_summary.length = 0;
 			for (auto i = PlayerManager::list.iterator(); !i.is_last(); i.next())
 			{
 				s32 total = 0;
 
 				total += i.item()->credits;
-				i.item()->score_summary.add({ strings::kills, i.item()->kills });
+				AI::Team team = i.item()->team.ref()->team();
+				team_add_score_summary_item(i.item(), i.item()->username);
+				team_add_score_summary_item(i.item(), _(strings::kills), i.item()->kills);
 				if (Game::session.story_mode)
-					i.item()->score_summary.add({ strings::leftover_energy, i.item()->credits });
+					team_add_score_summary_item(i.item(), _(strings::leftover_energy), i.item()->credits);
 				if (PlayerManager::list.count() > 2)
-					i.item()->score_summary.add({ strings::deaths, i.item()->deaths });
+					team_add_score_summary_item(i.item(), _(strings::deaths), i.item()->deaths);
 
 				if (Game::session.story_mode && i.item()->has<PlayerHuman>() && i.item()->team.ref() == winner.ref())
 				{
@@ -818,7 +833,6 @@ PlayerManager::PlayerManager(Team* team, const char* u)
 	state_timer(),
 	upgrade_completed(),
 	control_point_capture_completed(),
-	score_summary(),
 	particle_accumulator(),
 	respawns(Game::level.respawns),
 	kills(),

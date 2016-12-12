@@ -718,14 +718,14 @@ r32 UIMenu::height() const
 	return (vi_min(items.length, u16(UI_SCROLL_MAX)) * MENU_ITEM_HEIGHT) - MENU_ITEM_PADDING * 2.0f;
 }
 
-void UIMenu::text_clip(UIText* text, r32 start_time, r32 speed)
+void UIMenu::text_clip_timer(UIText* text, r32 timer, r32 speed)
 {
-	r32 clip = (Game::real_time.total - start_time) * speed;
-	text->clip = vi_max(1, (s32)clip);
+	r32 clip = timer * speed;
+	text->clip = vi_max(1, s32(clip));
 		
 	s32 mod = speed < 40.0f ? 1 : (speed < 100.0f ? 2 : 3);
 	if (text->clip % mod == 0
-		&& (s32)(clip - Game::real_time.delta * speed) < (s32)clip
+		&& s32(clip - Game::real_time.delta * speed) < s32(clip)
 		&& text->clipped()
 		&& text->rendered_string[text->clip] != ' '
 		&& text->rendered_string[text->clip] != '\t'
@@ -733,6 +733,11 @@ void UIMenu::text_clip(UIText* text, r32 start_time, r32 speed)
 	{
 		Audio::post_global_event(AK::EVENTS::PLAY_CONSOLE_KEY);
 	}
+}
+
+void UIMenu::text_clip(UIText* text, r32 start_time, r32 speed)
+{
+	text_clip_timer(text, Game::real_time.total - start_time, speed);
 }
 
 const UIMenu::Item* UIMenu::last_visible_item() const

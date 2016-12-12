@@ -1631,7 +1631,10 @@ AssetID zone_random(b8(*filter1)(AssetID), b8(*filter2)(AssetID) = &zone_filter_
 
 void zone_random_attack(r32 elapsed_time)
 {
-	if (zone_under_attack() == AssetNull)
+	if (Game::level.local
+		&& Game::level.mode == Game::Mode::Parkour
+		&& zone_under_attack() == AssetNull
+		&& (PlayerControlHuman::list.count() == 0 || !Tram::player_inside(PlayerControlHuman::list.iterator().item()->entity())))
 	{
 		s32 captured;
 		s32 hostile;
@@ -2516,8 +2519,7 @@ void update(const Update& u)
 			}
 		}
 
-		if (Game::level.local && Game::level.mode == Game::Mode::Pvp)
-			zone_random_attack(Game::real_time.delta);
+		zone_random_attack(Game::real_time.delta);
 	}
 
 	if (data.active && !Console::visible)
@@ -2678,6 +2680,12 @@ void execute(const char* cmd)
 	{
 		Overworld::zone_change(data.zone_selected, ZoneState::Friendly);
 		zone_done(data.zone_selected);
+	}
+	else if (utf8cmp(cmd, "attack") == 0)
+	{
+		AssetID z = zone_random(&zone_filter_captured, &zone_filter_can_change); // live incoming attack
+		if (z != AssetNull)
+			OverworldNet::zone_under_attack(z);
 	}
 	else if (strstr(cmd, "join ") == cmd)
 	{

@@ -184,12 +184,14 @@ void Animator::Layer::update(r32 dt, r32 dt_real, const Animator& animator)
 	}
 }
 
-void Animator::Layer::set(AssetID anim, r32 time)
+void Animator::Layer::set(AssetID anim, r32 t)
 {
-	extract_channels_from_anim(&channels, Loader::animation(anim), time);
+	extract_channels_from_anim(&channels, Loader::animation(anim), t);
 	animation = anim;
-	changed_animation(nullptr);
+	if (anim != last_animation)
+		changed_animation(nullptr);
 	blend = 1.0f;
+	time = time_last = t;
 }
 
 void Animator::Layer::changed_animation(const Armature* arm)

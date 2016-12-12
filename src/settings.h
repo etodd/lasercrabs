@@ -31,6 +31,7 @@ namespace Settings
 	extern ShadowQuality shadow_quality;
 	extern b8 volumetric_lighting;
 	extern b8 antialiasing;
+	extern b8 waypoints;
 };
 
 

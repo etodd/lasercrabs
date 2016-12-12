@@ -827,6 +827,7 @@ const char* AssetLookup::String::names[] =
 	"error_hostile_zone",
 	"error_inside_tram",
 	"error_locked_zone",
+	"error_zone_under_attack",
 	"exit",
 	"forfeit_network_error",
 	"forfeit_opponent_quit",

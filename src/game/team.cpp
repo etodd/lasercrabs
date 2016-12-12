@@ -38,7 +38,7 @@ r32 Team::game_over_real_time;
 b8 Team::game_over;
 Ref<Team> Team::winner;
 Game::Mode Team::transition_mode_scheduled = Game::Mode::None;
-StaticArray<Team::ScoreSummaryItem, MAX_PLAYERS * 3> Team::score_summary;
+StaticArray<Team::ScoreSummaryItem, MAX_PLAYERS * PLAYER_SCORE_SUMMARY_ITEMS> Team::score_summary;
 r32 Team::transition_timer;
 r32 Team::match_time;
 

@@ -2126,6 +2126,15 @@ void level_loaded()
 		state_server.mode = Mode::Waiting;
 }
 
+b8 sync_time()
+{
+	using Stream = StreamWrite;
+	StreamWrite* p = msg_new(MessageType::TimeSync);
+	serialize_r32_range(p, Team::match_time, 0, Game::level.time_limit, 16);
+	msg_finalize(p);
+	return true;
+}
+
 b8 packet_build_init(StreamWrite* p, Client* client)
 {
 	using Stream = StreamWrite;
@@ -2515,10 +2524,7 @@ b8 msg_process(StreamRead* p, Client* client)
 			if (state_server.mode == Mode::Waiting && clients_loaded() == state_server.expected_clients)
 				state_server.mode = Mode::Active;
 			{
-				using Stream = StreamWrite;
-				StreamWrite* p = msg_new(MessageType::TimeSync);
-				serialize_r32_range(p, Team::match_time, 0, Game::level.time_limit, 16);
-				msg_finalize(p);
+				sync_time();
 			}
 			break;
 		}
@@ -2570,24 +2576,35 @@ b8 msg_process(StreamRead* p, Client* client)
 				username[username_length] = '\0';
 				s32 local_players;
 				serialize_int(p, s32, local_players, 1, MAX_GAMEPADS);
-				for (s32 i = 0; i < local_players; i++)
+				if (local_players <= MAX_PLAYERS - PlayerManager::list.count())
 				{
-					AI::Team team;
-					serialize_int(p, AI::Team, team, 0, MAX_PLAYERS - 1);
-					s8 gamepad;
-					serialize_int(p, s8, gamepad, 0, MAX_GAMEPADS - 1);
+					for (s32 i = 0; i < local_players; i++)
+					{
+						AI::Team team;
+						serialize_int(p, AI::Team, team, 0, MAX_PLAYERS - 1);
+						s8 gamepad;
+						serialize_int(p, s8, gamepad, 0, MAX_GAMEPADS - 1);
 
-					Entity* e = World::create<ContainerEntity>();
-					PlayerManager* manager = e->add<PlayerManager>(&Team::list[Game::level.team_lookup[(s32)team]]);
-					if (gamepad == 0)
-						sprintf(manager->username, "%s", username);
-					else
-						sprintf(manager->username, "%s [%d]", username, s32(gamepad + 1));
-					PlayerHuman* player = e->add<PlayerHuman>(false, gamepad);
-					serialize_u64(p, player->uuid);
-					player->local = false;
-					client->players.add(player);
-					finalize(e);
+						Entity* e = World::create<ContainerEntity>();
+						PlayerManager* manager = e->add<PlayerManager>(&Team::list[Game::level.team_lookup[s32(team)]]);
+						if (gamepad == 0)
+							sprintf(manager->username, "%s", username);
+						else
+							sprintf(manager->username, "%s [%d]", username, s32(gamepad + 1));
+						PlayerHuman* player = e->add<PlayerHuman>(false, gamepad);
+						serialize_u64(p, player->uuid);
+						player->local = false;
+						client->players.add(player);
+						finalize(e);
+					}
+				}
+				else
+				{
+					// server is full
+					StreamWrite p;
+					packet_build_disconnect(&p);
+					packet_send(p, client->address);
+					handle_client_disconnect(client);
 				}
 			}
 			break;

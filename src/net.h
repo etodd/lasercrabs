@@ -139,6 +139,7 @@ namespace Server
 	void transition_level();
 	void level_loading();
 	void level_loaded();
+	b8 sync_time();
 }
 #else
 namespace Client

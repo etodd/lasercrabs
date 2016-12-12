@@ -44,6 +44,8 @@ struct UpgradeInfo
 	static UpgradeInfo list[(s32)Upgrade::count];
 };
 
+#define PLAYER_SCORE_SUMMARY_ITEMS 4
+
 struct Team : public ComponentType<Team>
 {
 	struct SensorTrack
@@ -65,7 +67,7 @@ struct Team : public ComponentType<Team>
 	static const Vec4 ui_color_friend;
 	static const Vec4 color_enemy;
 	static const Vec4 color_friend;
-	static StaticArray<ScoreSummaryItem, MAX_PLAYERS * 3> score_summary;
+	static StaticArray<ScoreSummaryItem, MAX_PLAYERS * PLAYER_SCORE_SUMMARY_ITEMS> score_summary;
 	static r32 control_point_timer;
 	static r32 game_over_real_time;
 	static r32 transition_timer;

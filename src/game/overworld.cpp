@@ -2466,11 +2466,6 @@ void show_complete()
 		data.state = State::SplitscreenSelectTeams;
 }
 
-s32 zone_player_count(AssetID z)
-{
-	return zone_node_get(z)->max_teams;
-}
-
 r32 particle_accumulator = 0.0f;
 void update(const Update& u)
 {

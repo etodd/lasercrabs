@@ -113,7 +113,7 @@ s32 Game::Session::team_count() const
 	else
 	{
 #if SERVER
-		return Net::Server::expected_clients();
+		return Net::Server::expected_clients(); // HACK
 #else
 		s32 team_counts[MAX_PLAYERS] = {};
 		for (s32 i = 0; i < MAX_GAMEPADS; i++)
@@ -795,10 +795,8 @@ void Game::execute(const char* cmd)
 		else
 			host = "127.0.0.1";
 
-		save = Save();
-		session.reset();
-		session.story_mode = false;
 		unload_level();
+		save = Save();
 		Net::Client::connect(host, 3494);
 	}
 #endif
@@ -956,7 +954,12 @@ void Game::execute(const char* cmd)
 		}
 	}
 	else if (strcmp(cmd, "skip") == 0)
+	{
 		Team::match_time += PLAYER_SPAWN_DELAY + GAME_BUY_PERIOD;
+#if SERVER
+		Net::Server::sync_time();
+#endif
+	}
 	else if (!Overworld::active() && strcmp(cmd, "capture") == 0)
 		Overworld::zone_change(Game::level.id, ZoneState::Friendly);
 	else if (!Overworld::active() && strcmp(cmd, "unlock") == 0)
@@ -1123,6 +1126,18 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 			level.type = Type::Deathmatch;
 	}
 
+	// count AI players
+	s32 ai_player_count = 0;
+	{
+		cJSON* element = json->child;
+		while (element)
+		{
+			if (cJSON_HasObjectItem(element, "AIPlayer"))
+				ai_player_count++;
+			element = element->next;
+		}
+	}
+
 	level.time_limit = 60.0f * 8.0f;
 	switch (level.type)
 	{
@@ -1230,7 +1245,7 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 					offset = lock_teams ? 0 : mersenne::rand() % team_count;
 				}
 				for (s32 i = 0; i < MAX_PLAYERS; i++)
-					level.team_lookup[i] = (AI::Team)((offset + i) % team_count);
+					level.team_lookup[i] = AI::Team((offset + i) % team_count);
 			}
 
 			level.skybox.far_plane = Json::get_r32(element, "far_plane", 100.0f);
@@ -1429,19 +1444,19 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 			{
 				AI::Team team_original = Json::get_s32(element, "team", 1);
 				AI::Team team = team_lookup(level.team_lookup, team_original);
-				if (Overworld::zone_player_count(level.id) > 2)
+				if (ai_player_count > 1)
 				{
 					if ((Game::save.zones[level.id] == ZoneState::Friendly && team_original == 1) || mersenne::randf_cc() < 0.5f)
 						level.ai_config.add(PlayerAI::generate_config(team, 0.0f)); // enemy is attacking; they're there from the beginning
 					else
-						level.ai_config.add(PlayerAI::generate_config(team, 5.0f + mersenne::randf_cc() * (ZONE_UNDER_ATTACK_THRESHOLD * 1.5f)));
+						level.ai_config.add(PlayerAI::generate_config(team, 8.0f + mersenne::randf_cc() * (ZONE_UNDER_ATTACK_THRESHOLD * 1.5f)));
 				}
 				else
 				{
 					if (Game::save.zones[level.id] == ZoneState::Friendly)
 						level.ai_config.add(PlayerAI::generate_config(team, 0.0f)); // player is defending, enemy is already there
 					else // player is attacking, eventually enemy will come to defend
-						level.ai_config.add(PlayerAI::generate_config(team, 5.0f + mersenne::randf_cc() * (ZONE_UNDER_ATTACK_THRESHOLD * 1.5f)));
+						level.ai_config.add(PlayerAI::generate_config(team, 8.0f + mersenne::randf_cc() * (ZONE_UNDER_ATTACK_THRESHOLD * 1.5f)));
 				}
 			}
 		}
@@ -1760,7 +1775,7 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 		}
 		case Type::Deathmatch:
 		{
-			level.kill_limit = PlayerManager::list.count() <= 2 ? 5 : 15;
+			level.kill_limit = ai_player_count == 1 ? 5 : 15;
 			break;
 		}
 		default:

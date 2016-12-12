@@ -368,8 +368,6 @@ b8 Awk::net_msg(Net::StreamRead* p, Net::MessageSource src)
 				}
 			}
 
-			b8 damaged = false;
-
 			if (target.ref()->has<Awk>())
 			{
 				target.ref()->get<Audio>()->post_event(target.ref()->has<PlayerControlHuman>() && target.ref()->get<PlayerControlHuman>()->local() ? AK::EVENTS::PLAY_HURT_PLAYER : AK::EVENTS::PLAY_HURT);
@@ -380,12 +378,13 @@ b8 Awk::net_msg(Net::StreamRead* p, Net::MessageSource src)
 				{
 					if (Game::level.local) // if we're a client, this has already been handled by the server
 						target.ref()->get<Health>()->damage(awk->entity(), 1);
-					damaged = true;
+				}
+				else // we didn't hurt them
+				{
+					if (awk->has<PlayerControlHuman>())
+						awk->get<PlayerControlHuman>()->player.ref()->msg(_(strings::no_effect), false);
 				}
 			}
-
-			if (!damaged && target.ref()->has<PlayerControlHuman>()) // we didn't hurt them
-				target.ref()->get<PlayerControlHuman>()->player.ref()->msg(_(strings::no_effect), false);
 
 			break;
 		}
@@ -1288,7 +1287,6 @@ void Awk::reflect(Entity* entity, const Vec3& hit, const Vec3& normal, const Net
 	if (state_frame)
 	{
 		// this awk is being controlled by a remote
-
 		if (remote_reflection_timer > 0.0f)
 		{
 			// the remote already told us about the reflection
@@ -1324,40 +1322,28 @@ void Awk::handle_remote_reflection(const Vec3& reflection_pos, const Vec3& refle
 	if (Game::level.local)
 	{
 		// we're a server; the client is notifying us that it did a reflection
-		Vec3 me = get<Transform>()->absolute_pos();
-		Vec3 dir = reflection_pos - me;
-		r32 distance = dir.length();
-		b8 do_reflection = false;
-		if (distance == 0.0f)
-			do_reflection = true;
-		else if (velocity.length() == 0.0f)
-			do_reflection = distance < AWK_SHIELD_RADIUS * 3.0f;
-		else
-		{
-			Vec3 velocity_normalized = Vec3::normalize(velocity);
-			if (fabsf(velocity_normalized.dot(dir)) < AWK_SHIELD_RADIUS * 3.0f)
-			{
-				dir /= distance;
-				if (velocity_normalized.dot(dir) > 0.99f)
-					do_reflection = true;
-			}
-		}
 
-		if (do_reflection)
+		if ((get<Transform>()->absolute_pos() - reflection_pos).length() < AWK_SHIELD_RADIUS * 6.0f)
 		{
 			if (remote_reflection_timer == 0.0f)
 			{
 				// we haven't reflected off anything on the server yet; save this info and wait for us to hit something
 				remote_reflection_dir = reflection_dir_normalized;
 				remote_reflection_pos = reflection_pos;
-				remote_reflection_timer = AWK_REFLECTION_TIME_TOLERANCE; // we'll wait up to a certain amount of time before reflecting anyway
+				remote_reflection_timer = AWK_REFLECTION_TIME_TOLERANCE;
 				reflection_source_remote = true; // this hit came from the remote
 			}
 			else
 			{
 				// we HAVE already detected a reflection off something; let's do it now
+				get<Transform>()->absolute_pos(reflection_pos);
 				awk_reflection_execute(this, reflection_dir_normalized);
 			}
+		}
+		else
+		{
+			// if this happens, something went wrong or the player is hacking
+			vi_debug_break();
 		}
 	}
 	else

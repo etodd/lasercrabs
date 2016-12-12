@@ -1165,8 +1165,8 @@ void PlayerHuman::draw_alpha(const RenderParams& params) const
 					{
 						amount.text("%d", item.amount);
 						amount.draw(params, p + Vec2(MENU_ITEM_WIDTH * 0.5f - MENU_ITEM_PADDING, 0));
-						p.y -= text.bounds().y + MENU_ITEM_PADDING * 2.0f;
 					}
+					p.y -= text.bounds().y + MENU_ITEM_PADDING * 2.0f;
 				}
 			}
 			score_summary_scroll.end(params, p + Vec2(0, MENU_ITEM_PADDING));
@@ -1286,7 +1286,7 @@ void PlayerHuman::draw_alpha(const RenderParams& params) const
 			UI::box(params, text.rect(p).outset(MENU_ITEM_PADDING), UI::color_background);
 			UIMenu::text_clip(&text, entry.timestamp, 80.0f);
 			text.draw(params, p);
-			p -= (text.size * UI::scale) + MENU_ITEM_PADDING * 2.0f;
+			p.y -= (text.size * UI::scale) + MENU_ITEM_PADDING * 2.0f;
 		}
 	}
 
@@ -2015,7 +2015,7 @@ void PlayerControlHuman::update(const Update& u)
 			if (!Game::level.local)
 			{
 				// we are a client and this is a local player
-				if (position_history.length == 0 || Game::real_time.total > position_history[position_history.length - 1].timestamp + NET_TICK_RATE)
+				if (position_history.length == 0 || Game::real_time.total > position_history[position_history.length - 1].timestamp + NET_TICK_RATE * 0.5f)
 				{
 					// save our position history
 					if (position_history.length == position_history.capacity())
@@ -2033,11 +2033,9 @@ void PlayerControlHuman::update(const Update& u)
 				}
 
 				// make sure we never get too far from where the server says we should be
-				r32 rtt = Net::rtt(player.ref());
-				vi_assert(rtt > 0.0f);
 
 				// get the position entry at this time in the history
-				r32 timestamp = Game::real_time.total - rtt;
+				r32 timestamp = Game::real_time.total - Net::rtt(player.ref());
 				const PositionEntry* position = nullptr;
 				r32 tolerance_pos = 0.0f;
 				r32 tolerance_rot = 0.0f;
@@ -2049,10 +2047,13 @@ void PlayerControlHuman::update(const Update& u)
 						position = &entry;
 						// calculate tolerance based on velocity
 						const s32 radius = 3;
-						for (s32 j = vi_max(0, i - radius); j < vi_min(s32(position_history.length - 1), i + radius); j++)
+						for (s32 j = vi_max(0, i - radius); j < vi_min(s32(position_history.length), i + radius + 1); j++)
 						{
-							tolerance_pos = vi_max(tolerance_pos, (position_history[j].pos - position_history[j + 1].pos).length());
-							tolerance_rot = vi_max(tolerance_rot, Quat::angle(position_history[j].rot, position_history[j + 1].rot));
+							if (i != j)
+							{
+								tolerance_pos = vi_max(tolerance_pos, (position_history[i].pos - position_history[j].pos).length());
+								tolerance_rot = vi_max(tolerance_rot, Quat::angle(position_history[i].rot, position_history[j].rot));
+							}
 						}
 						tolerance_pos *= 6.0f;
 						tolerance_rot *= 6.0f;

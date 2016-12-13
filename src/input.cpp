@@ -272,12 +272,18 @@ void dead_zone(r32* x, r32* y, r32 threshold)
 	}
 }
 
-r32 dead_zone(r32 x)
+void dead_zone_cross(r32* x, r32* y, r32 threshold)
 {
-	if (fabsf(x) < UI_JOYSTICK_DEAD_ZONE)
+	*x = dead_zone(*x, threshold);
+	*y = dead_zone(*y, threshold);
+}
+
+r32 dead_zone(r32 x, r32 threshold)
+{
+	if (fabsf(x) < threshold)
 		return 0.0f;
 	else
-		return (x - UI_JOYSTICK_DEAD_ZONE) / (1.0f - UI_JOYSTICK_DEAD_ZONE);
+		return (x - threshold) / (1.0f - threshold);
 }
 
 }

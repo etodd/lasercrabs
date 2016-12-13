@@ -255,7 +255,8 @@ namespace Input
 	void load_strings();
 
 	void dead_zone(r32*, r32*, r32 = 0.1f);
-	r32 dead_zone(r32);
+	void dead_zone_cross(r32*, r32*, r32 = 0.1f);
+	r32 dead_zone(r32, r32 = UI_JOYSTICK_DEAD_ZONE);
 };
 
 struct Gamepad

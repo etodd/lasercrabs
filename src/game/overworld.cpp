@@ -1187,18 +1187,29 @@ void messages_transition(Data::Messages::Mode mode)
 	}
 }
 
-void message_statistics(s32* unread_count, r64* most_recent)
+void message_statistics(s32* unread_count, r64* most_recent = nullptr)
 {
 	*unread_count = 0;
-	*most_recent = 0;
+	if (most_recent)
+		*most_recent = 0;
 	for (s32 i = 0; i < Game::save.messages.length; i++)
 	{
 		const Game::Message& msg = Game::save.messages[i];
 		if (!msg.read)
 			(*unread_count)++;
-		if (msg.timestamp > *most_recent)
-			*most_recent = msg.timestamp;
+		if (most_recent)
+		{
+			if (msg.timestamp > *most_recent)
+				*most_recent = msg.timestamp;
+		}
 	}
+}
+
+s32 message_unread_count()
+{
+	s32 unread_count;
+	message_statistics(&unread_count);
+	return unread_count;
 }
 
 void message_read(Game::Message* msg)

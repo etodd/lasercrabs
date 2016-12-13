@@ -1294,6 +1294,7 @@ void PlayerHuman::draw_alpha(const RenderParams& params) const
 	if (Game::level.mode == Game::Mode::Parkour && Game::save.zones[Game::level.id] == ZoneState::Friendly)
 	{
 		r32 timer = Overworld::zone_under_attack_timer();
+		Vec2 p = Vec2(params.camera->viewport.size.x, 0) + Vec2(MENU_ITEM_PADDING * -5.0f, MENU_ITEM_PADDING * 5.0f);
 		if (timer > 0.0f)
 		{
 			UIText text;
@@ -1303,9 +1304,25 @@ void PlayerHuman::draw_alpha(const RenderParams& params) const
 			text.color = UI::color_alert;
 			text.text(_(strings::prompt_zone_defend), Loader::level_name(Overworld::zone_under_attack()), s32(ceilf(timer)));
 			UIMenu::text_clip_timer(&text, ZONE_UNDER_ATTACK_THRESHOLD - timer, 80.0f);
-			Vec2 p = Vec2(params.camera->viewport.size.x, 0) + Vec2(MENU_ITEM_PADDING * -5.0f, MENU_ITEM_PADDING * 5.0f);
 			UI::box(params, text.rect(p).outset(MENU_ITEM_PADDING), UI::color_background);
 			text.draw(params, p);
+			p.y += text.bounds().y + MENU_ITEM_PADDING;
+		}
+
+		if (Game::save.messages.length > 0)
+		{
+			const Game::Message& msg = Game::save.messages[0];
+			if (!msg.read && platform::timestamp() - msg.timestamp < 8.0)
+			{
+				UIText text;
+				text.anchor_x = UIText::Anchor::Max;
+				text.anchor_y = UIText::Anchor::Min;
+				text.wrap_width = MENU_ITEM_WIDTH - MENU_ITEM_PADDING * 2.0f;
+				text.color = UI::color_accent;
+				text.text(_(strings::incoming_message), Overworld::message_unread_count(), _(msg.contact));
+				UI::box(params, text.rect(p).outset(MENU_ITEM_PADDING), UI::color_background);
+				text.draw(params, p);
+			}
 		}
 	}
 
@@ -1832,7 +1849,10 @@ Vec3 PlayerControlHuman::get_movement(const Update& u, const Quat& rot)
 		if (u.input->gamepads[gamepad].active)
 		{
 			Vec2 gamepad_movement(-u.input->gamepads[gamepad].left_x, -u.input->gamepads[gamepad].left_y);
-			Input::dead_zone(&gamepad_movement.x, &gamepad_movement.y);
+			if (has<Awk>())
+				Input::dead_zone(&gamepad_movement.x, &gamepad_movement.y);
+			else
+				Input::dead_zone_cross(&gamepad_movement.x, &gamepad_movement.y);
 			movement.x = gamepad_movement.x;
 			movement.z = gamepad_movement.y;
 		}

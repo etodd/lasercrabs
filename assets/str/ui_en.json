@@ -136,6 +136,7 @@
 	"tip_11": "Firing a sniper bullet instantly alerts all enemies to your position.",
 
 	"tab_messages": "Inbox (%d)",
+	"incoming_message": "%d new messages (%s)",
 	"tab_map": "Map",
 	"tab_inventory": "Inventory",
 

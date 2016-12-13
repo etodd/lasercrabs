@@ -44,6 +44,7 @@ b8 active();
 void message_add(AssetID, AssetID, r64 = -1.0);
 AssetID zone_under_attack();
 r32 zone_under_attack_timer();
+s32 message_unread_count();
 
 }
 

@@ -8,7 +8,6 @@ namespace VI
 {
 
 
-#define UI_JOYSTICK_DEAD_ZONE 0.5f
 #define UI_TEXT_SIZE_DEFAULT 16.0f
 
 struct RenderParams;

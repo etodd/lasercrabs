@@ -648,6 +648,7 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 			username_length = strlen(m->username);
 		serialize_int(p, s32, username_length, 0, MAX_USERNAME);
 		serialize_bytes(p, (u8*)m->username, username_length);
+		serialize_bool(p, m->can_spawn);
 		if (Stream::IsReading)
 			m->username[username_length] = '\0';
 	}

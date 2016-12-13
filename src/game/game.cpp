@@ -1395,7 +1395,10 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 
 			if (Team::list.count() > (s32)team)
 			{
-				entity = World::alloc<PlayerSpawnEntity>(team);
+				if (Json::get_s32(element, "visible", 1))
+					entity = World::alloc<PlayerSpawnEntity>(team);
+				else
+					entity = World::alloc<Empty>();
 				Team::list[(s32)team].player_spawn = entity->get<Transform>();
 			}
 			else

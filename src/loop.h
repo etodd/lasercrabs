@@ -599,7 +599,7 @@ void draw(LoopSync* sync, const Camera* camera)
 				Camera shadow_camera;
 				r32 size = vi_min(800.0f, render_params.camera->far_plane * 1.5f);
 				Vec3 pos = render_params.camera->pos;
-				const r32 interval = 5.0f;
+				const r32 interval = 2.0f;
 				pos = Vec3((s32)(pos.x / interval), (s32)(pos.y / interval), (s32)(pos.z / interval)) * interval;
 				r32 depth = vi_min(400.0f, size * 2.0f);
 				shadow_camera.pos = pos + (abs_directions[0] * depth * -0.25f);

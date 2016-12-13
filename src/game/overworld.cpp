@@ -1644,6 +1644,7 @@ void zone_random_attack(r32 elapsed_time)
 {
 	if (Game::level.local
 		&& Game::level.mode == Game::Mode::Parkour
+		&& Game::save.zones[Game::level.id] == ZoneState::Friendly
 		&& zone_under_attack() == AssetNull
 		&& (PlayerControlHuman::list.count() == 0 || !Tram::player_inside(PlayerControlHuman::list.iterator().item()->entity())))
 	{

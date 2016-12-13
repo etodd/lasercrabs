@@ -152,6 +152,7 @@ struct PlayerManager : public ComponentType<PlayerManager>
 	s16 respawns;
 	char username[MAX_USERNAME + 1]; // +1 for null terminator
 	b8 score_accepted;
+	b8 can_spawn;
 
 	PlayerManager(Team* = nullptr, const char* = nullptr);
 	void awake();
@@ -182,6 +183,7 @@ struct PlayerManager : public ComponentType<PlayerManager>
 	void update_server(const Update&);
 	void update_client(const Update&);
 	void score_accept();
+	void set_can_spawn();
 };
 
 

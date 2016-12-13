@@ -568,6 +568,7 @@ b8 Team::net_msg(Net::StreamRead* p)
 					Game::level.map_view.ref()->absolute(&camera->pos, &rot);
 					camera->rot = Quat::look(rot * Vec3(0, -1, 0));
 				}
+				i.item()->get<PlayerManager>()->can_spawn = Game::level.mode == Game::Mode::Parkour;
 			}
 			if (Game::level.local)
 			{
@@ -829,6 +830,7 @@ PlayerManager::PlayerManager(Team* team, const char* u)
 	abilities{ Ability::None, Ability::None, Ability::None },
 	instance(),
 	spawn(),
+	can_spawn(Game::level.mode == Game::Mode::Parkour || !Game::session.story_mode || Game::save.zones[Game::level.id] == ZoneState::Friendly),
 	current_upgrade(Upgrade::None),
 	state_timer(),
 	upgrade_completed(),
@@ -1122,6 +1124,7 @@ void PlayerManager::update_server(const Update& u)
 	if (Game::level.mode == Game::Mode::Pvp)
 	{
 		if (!instance.ref()
+			&& can_spawn
 			&& spawn_timer > 0.0f
 			&& team.ref()->player_spawn.ref()
 			&& respawns != 0
@@ -1236,7 +1239,14 @@ Entity* PlayerManager::decoy() const
 
 namespace PlayerManagerNet
 {
-	b8 send_score_accept(PlayerManager* m)
+	enum class Message
+	{
+		CanSpawn,
+		ScoreAccept,
+		count,
+	};
+
+	b8 send(PlayerManager* m, Message msg)
 	{
 		using Stream = Net::StreamWrite;
 		Net::StreamWrite* p = Net::msg_new(Net::MessageType::PlayerManager);
@@ -1244,20 +1254,48 @@ namespace PlayerManagerNet
 			Ref<PlayerManager> ref = m;
 			serialize_ref(p, ref);
 		}
+		serialize_enum(p, Message, msg);
 		Net::msg_finalize(p);
 		return true;
 	}
 }
 
+void PlayerManager::set_can_spawn()
+{
+	PlayerManagerNet::send(this, PlayerManagerNet::Message::CanSpawn);
+}
+
 void PlayerManager::score_accept()
 {
-	PlayerManagerNet::send_score_accept(this);
+	PlayerManagerNet::send(this, PlayerManagerNet::Message::ScoreAccept);
 }
 
 b8 PlayerManager::net_msg(Net::StreamRead* p, PlayerManager* m, Net::MessageSource src)
 {
+	using Stream = Net::StreamRead;
+	PlayerManagerNet::Message msg;
+	serialize_enum(p, PlayerManagerNet::Message, msg);
 	if (src != Net::MessageSource::Invalid)
-		m->score_accepted = true;
+	{
+		switch (msg)
+		{
+			case PlayerManagerNet::Message::CanSpawn:
+			{
+				m->can_spawn = true;
+				break;
+			}
+			case PlayerManagerNet::Message::ScoreAccept:
+			{
+				m->score_accepted = true;
+				break;
+			}
+			default:
+			{
+				vi_assert(false);
+				break;
+			}
+		}
+	}
 	return true;
 }
 

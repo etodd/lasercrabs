@@ -581,6 +581,13 @@ void PlayerHuman::update(const Update& u)
 			else if (get<PlayerManager>()->spawn_timer > 0.0f)
 			{
 				// we're spawning
+				if (Game::level.mode == Game::Mode::Pvp && !get<PlayerManager>()->can_spawn)
+				{
+					// player can't spawn yet; needs to solve sudoku
+					sudoku.update(u, gamepad);
+					if (sudoku.complete())
+						get<PlayerManager>()->set_can_spawn();
+				}
 			}
 			else
 			{
@@ -1068,7 +1075,15 @@ void PlayerHuman::draw_alpha(const RenderParams& params) const
 		{
 			// if we haven't spawned yet, then show the player list
 			if (get<PlayerManager>()->spawn_timer > 0.0f)
-				scoreboard_draw(params, get<PlayerManager>());
+			{
+				if (!get<PlayerManager>()->can_spawn)
+				{
+					// player can't spawn yet; needs to solve sudoku
+					sudoku.draw(params, gamepad);
+				}
+				else
+					scoreboard_draw(params, get<PlayerManager>());
+			}
 			else
 			{
 				// we're dead but others still playing; spectate
@@ -2878,7 +2893,6 @@ void PlayerControlHuman::draw_alpha(const RenderParams& params) const
 	}
 
 	b8 enemy_visible = false;
-	b8 enemy_close = false;
 
 	{
 		Vec3 me = get<Transform>()->absolute_pos();
@@ -3132,11 +3146,7 @@ void PlayerControlHuman::draw_alpha(const RenderParams& params) const
 			b8 friendly = other_player.item()->get<AIAgent>()->team == team;
 
 			if (visible && !friendly)
-			{
 				enemy_visible = true;
-				if ((detected_entity->get<Transform>()->absolute_pos() - me).length_squared() < AWK_MAX_DISTANCE * AWK_MAX_DISTANCE)
-					enemy_close = true;
-			}
 
 			b8 draw;
 			Vec2 p;
@@ -3213,10 +3223,8 @@ void PlayerControlHuman::draw_alpha(const RenderParams& params) const
 			if (show && !UI::flash_function(Game::real_time.total - Game::real_time.delta))
 				Audio::post_global_event(AK::EVENTS::PLAY_BEEP_BAD);
 		}
-		else if (enemy_visible)
+		else if (enemy_visible && !get<AIAgent>()->stealth)
 			UI::mesh(params, Asset::Mesh::compass, viewport.size * Vec2(0.5f, 0.5f), compass_size, UI::color_alert);
-		else if (enemy_close)
-			UI::mesh(params, Asset::Mesh::compass, viewport.size * Vec2(0.5f, 0.5f), compass_size, UI::color_accent);
 	}
 
 	{

@@ -111,6 +111,7 @@ PlayerAI::PlayerAI(PlayerManager* m, const AI::Config& config)
 	memory(),
 	config(config)
 {
+	m->can_spawn = true;
 	m->spawn.link<PlayerAI, &PlayerAI::spawn>(this);
 }
 

@@ -828,7 +828,22 @@ void MinionAI::set_path(const AI::Result& result)
 {
 	get<MinionCommon>()->attack_timer = 0.0f; // we're no longer attacking
 
+	path_request = PathRequest::None;
 	path = result.path;
+	path_index = 0;
+	if (path.length > 1)
+	{
+		// sometimes the system returns an extra path point at the beginning, which actually puts us farther from the goal
+		// if we're close enough to the second path point, then skip that first one.
+		Vec3 flat_pos = get<Walker>()->base_pos();
+		flat_pos.y = 0.0f;
+		Vec3 p0 = path[0];
+		p0.y = 0.0f;
+		Vec3 p1 = path[1];
+		p1.y = 0.0f;
+		if ((p1 - flat_pos).length_squared() < 0.3f * 0.3f)
+			path_index = 1;
+	}
 	if (path_request != PathRequest::Repath)
 	{
 		if (path.length > 0)
@@ -836,8 +851,6 @@ void MinionAI::set_path(const AI::Result& result)
 		else
 			goal.pos = get<Transform>()->absolute_pos();
 	}
-	path_request = PathRequest::None;
-	path_index = 0;
 }
 
 void MinionAI::turn_to(const Vec3& target)

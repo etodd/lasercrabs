@@ -798,6 +798,7 @@ const char* AssetLookup::String::names[] =
 	"containment_field",
 	"containment_field_destroyed",
 	"control_point_captured",
+	"control_point_lost",
 	"conversation_done",
 	"danger",
 	"day",

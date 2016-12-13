@@ -90,6 +90,7 @@
 	"binding": "[%s]",
 	"sensor_destroyed": "Sensor destroyed",
 	"control_point_captured": "Control point captured",
+	"control_point_lost": "Control point lost",
 	"containment_field_destroyed": "Force field destroyed",
 	"shield_down": "Shield down",
 	"target_shield_down": "Target shield down",

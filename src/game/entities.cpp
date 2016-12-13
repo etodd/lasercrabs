@@ -242,7 +242,7 @@ EnergyPickupEntity::EnergyPickupEntity(const Vec3& p, AI::Team team)
 
 	model->offset.scale(Vec3(ENERGY_PICKUP_RADIUS - 0.2f));
 
-	RigidBody* body = create<RigidBody>(RigidBody::Type::Sphere, Vec3(ENERGY_PICKUP_RADIUS), 0.1f, CollisionAwkIgnore | CollisionTarget, ~CollisionShield);
+	RigidBody* body = create<RigidBody>(RigidBody::Type::Sphere, Vec3(ENERGY_PICKUP_RADIUS), 0.1f, CollisionAwkIgnore | CollisionTarget, ~CollisionShield & ~CollisionAllTeamsContainmentField);
 	body->set_damping(0.5f, 0.5f);
 	body->set_ccd(true);
 
@@ -560,14 +560,28 @@ namespace ControlPointNet
 	}
 }
 
+void control_point_notify_captured(ControlPoint* c)
+{
+	for (auto i = PlayerHuman::list.iterator(); !i.is_last(); i.next())
+	{
+		if (i.item()->get<PlayerManager>()->team.ref()->team() == c->team)
+			i.item()->msg(_(strings::control_point_captured), true);
+		else
+			i.item()->msg(_(strings::control_point_lost), false);
+	}
+}
+
 b8 ControlPoint::net_msg(Net::StreamRead* p)
 {
 	using Stream = Net::StreamRead;
 	Ref<ControlPoint> ref;
 	serialize_ref(p, ref);
 	ControlPoint* c = ref.ref();
+	AI::Team team_original = c->team;
 	if (!c || !ControlPointNet::serialize_update(p, c))
 		net_error();
+	if (!Game::level.local && c->team != team_original && c->team == 1) // captured by attackers
+		control_point_notify_captured(c);
 	c->get<PointLight>()->team = s8(c->team);
 	c->get<View>()->team = s8(c->team);
 	return true;
@@ -623,6 +637,8 @@ void ControlPoint::update(const Update& u)
 				team = team_next;
 				team_next = AI::TeamNone;
 				capture_timer = 0.0f;
+				if (team == 1)
+					control_point_notify_captured(this);
 				ControlPointNet::send_update(this);
 			}
 			else if (capture_timer < CONTROL_POINT_CAPTURE_TIME * 0.5f && capture_timer + u.time.delta >= CONTROL_POINT_CAPTURE_TIME * 0.5f)
@@ -1336,7 +1352,7 @@ ContainmentFieldEntity::ContainmentFieldEntity(Transform* parent, const Vec3& ab
 	view->alpha();
 	view->color.w = 0.35f;
 
-	CollisionGroup team_mask = (CollisionGroup)(1 << (8 + team));
+	CollisionGroup team_mask = CollisionGroup(1 << (8 + team));
 
 	f->add<RigidBody>(RigidBody::Type::Mesh, Vec3::zero, 0.0f, team_mask, CollisionAwkIgnore, view->mesh);
 
@@ -1952,7 +1968,7 @@ RigidBody* rope_add(RigidBody* start, const Vec3& start_relative_pos, const Vec3
 					Net::finalize(last_segment->entity());
 
 				Vec3 spawn_pos = last_segment_pos + (diff / length) * rope_interval * 0.5f;
-				Entity* box = World::create<PhysicsEntity>(AssetNull, spawn_pos, rot, RigidBody::Type::CapsuleZ, Vec3(ROPE_RADIUS, ROPE_SEGMENT_LENGTH - ROPE_RADIUS * 2.0f, 0.0f), 0.05f, CollisionAwkIgnore, CollisionInaccessibleMask);
+				Entity* box = World::create<PhysicsEntity>(AssetNull, spawn_pos, rot, RigidBody::Type::CapsuleZ, Vec3(ROPE_RADIUS, ROPE_SEGMENT_LENGTH - ROPE_RADIUS * 2.0f, 0.0f), 0.05f, CollisionAwkIgnore, CollisionInaccessibleMask & ~CollisionAllTeamsContainmentField);
 				box->add<Rope>();
 
 				static Quat rotation_a = Quat::look(Vec3(0, 0, 1)) * Quat::euler(0, PI * -0.5f, 0);

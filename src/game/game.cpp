@@ -1452,14 +1452,14 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 					if ((Game::save.zones[level.id] == ZoneState::Friendly && team_original == 1) || mersenne::randf_cc() < 0.5f)
 						level.ai_config.add(PlayerAI::generate_config(team, 0.0f)); // enemy is attacking; they're there from the beginning
 					else
-						level.ai_config.add(PlayerAI::generate_config(team, 8.0f + mersenne::randf_cc() * (ZONE_UNDER_ATTACK_THRESHOLD * 1.5f)));
+						level.ai_config.add(PlayerAI::generate_config(team, 20.0f + mersenne::randf_cc() * (ZONE_UNDER_ATTACK_THRESHOLD * 1.5f)));
 				}
 				else
 				{
 					if (Game::save.zones[level.id] == ZoneState::Friendly)
 						level.ai_config.add(PlayerAI::generate_config(team, 0.0f)); // player is defending, enemy is already there
 					else // player is attacking, eventually enemy will come to defend
-						level.ai_config.add(PlayerAI::generate_config(team, 8.0f + mersenne::randf_cc() * (ZONE_UNDER_ATTACK_THRESHOLD * 1.5f)));
+						level.ai_config.add(PlayerAI::generate_config(team, 20.0f + mersenne::randf_cc() * (ZONE_UNDER_ATTACK_THRESHOLD * 1.5f)));
 				}
 			}
 		}

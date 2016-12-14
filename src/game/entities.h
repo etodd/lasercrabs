@@ -460,8 +460,8 @@ struct TramRunner : public ComponentType<TramRunner>
 	enum class State
 	{
 		Idle,
-		Entering,
-		Exiting,
+		Arriving,
+		Departing,
 		count,
 	};
 
@@ -496,7 +496,7 @@ struct Tram : public ComponentType<Tram>
 	Ref<TramRunner> runner_a;
 	Ref<TramRunner> runner_b;
 	Ref<Entity> doors;
-	b8 exiting;
+	b8 departing;
 
 	b8 doors_open() const;
 	void doors_open(b8);

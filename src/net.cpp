@@ -681,7 +681,7 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 		serialize_ref(p, t->runner_a);
 		serialize_ref(p, t->runner_b);
 		serialize_ref(p, t->doors);
-		serialize_bool(p, t->exiting);
+		serialize_bool(p, t->departing);
 	}
 
 	if (e->has<TramRunner>())

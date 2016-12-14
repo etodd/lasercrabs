@@ -57,6 +57,7 @@ struct PlayerHuman : public ComponentType<PlayerHuman>
 	r32 angle_horizontal;
 	r32 angle_vertical;
 	s32 spectate_index;
+	r32 rumble;
 	Menu::State menu_state;
 	Sudoku sudoku;
 	s8 gamepad;
@@ -69,6 +70,7 @@ struct PlayerHuman : public ComponentType<PlayerHuman>
 	void awake();
 
 	void msg(const char*, b8);
+	void rumble_add(r32);
 	UIMode ui_mode() const;
 	void update(const Update&);
 	void update_camera_rotation(const Update&);
@@ -158,7 +160,6 @@ struct PlayerControlHuman : public ComponentType<PlayerControlHuman>
 	Vec3 last_pos;
 	r32 fov;
 	r32 camera_shake_timer;
-	r32 rumble;
 	r32 last_gamepad_input_time;
 	r32 gamepad_rotation_speed;
 	Ref<PlayerHuman> player;
@@ -166,6 +167,7 @@ struct PlayerControlHuman : public ComponentType<PlayerControlHuman>
 	b8 try_secondary;
 	b8 try_primary;
 	b8 try_slide;
+	b8 sudoku_active;
 
 	PlayerControlHuman(PlayerHuman* = nullptr);
 	~PlayerControlHuman();

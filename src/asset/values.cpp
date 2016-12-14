@@ -839,6 +839,7 @@ const char* AssetLookup::String::names[] =
 	"futifs",
 	"grenade",
 	"group_required",
+	"hack_complete",
 	"hack_kits",
 	"hacking",
 	"hour",

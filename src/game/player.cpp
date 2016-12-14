@@ -143,6 +143,7 @@ PlayerHuman::PlayerHuman(b8 local, s8 g)
 	angle_horizontal(),
 	angle_vertical(),
 	menu_state(),
+	rumble(),
 	upgrade_menu_open(),
 	upgrade_animation_time(),
 	score_summary_scroll(),
@@ -152,6 +153,11 @@ PlayerHuman::PlayerHuman(b8 local, s8 g)
 {
 	if (local)
 		uuid = Game::session.local_player_uuids[gamepad];
+}
+
+void PlayerHuman::rumble_add(r32 r)
+{
+	rumble = vi_max(rumble, r);
 }
 
 PlayerHuman::UIMode PlayerHuman::ui_mode() const
@@ -382,6 +388,13 @@ void PlayerHuman::update(const Update& u)
 
 	Entity* entity = get<PlayerManager>()->instance.ref();
 
+	// rumble
+	if (rumble > 0.0f)
+	{
+		u.input->gamepads[gamepad].rumble = vi_min(1.0f, rumble);
+		rumble = vi_max(0.0f, rumble - u.time.delta);
+	}
+
 	if (camera)
 	{
 		s32 player_count;
@@ -584,8 +597,8 @@ void PlayerHuman::update(const Update& u)
 				if (Game::level.mode == Game::Mode::Pvp && !get<PlayerManager>()->can_spawn)
 				{
 					// player can't spawn yet; needs to solve sudoku
-					sudoku.update(u, gamepad);
-					if (sudoku.complete())
+					sudoku.update(u, gamepad, this);
+					if (sudoku.complete() && sudoku.timer_animation == 0.0f)
 						get<PlayerManager>()->set_can_spawn();
 				}
 			}
@@ -1594,7 +1607,7 @@ b8 PlayerControlHuman::net_msg(Net::StreamRead* p, PlayerControlHuman* c, Net::M
 					c->try_secondary = false;
 				}
 				else
-					c->rumble = vi_max(c->rumble, 0.5f);
+					c->player.ref()->rumble_add(0.5f);
 			}
 
 			break;
@@ -1646,7 +1659,7 @@ s32 PlayerControlHuman::count_local()
 
 void PlayerControlHuman::awk_done_flying_or_dashing()
 {
-	rumble = vi_max(rumble, 0.2f);
+	player.ref()->rumble_add(0.2f);
 	get<Audio>()->post_event(AK::EVENTS::STOP_FLY);
 }
 
@@ -1693,14 +1706,14 @@ PlayerControlHuman::PlayerControlHuman(PlayerHuman* p)
 	try_secondary(),
 	try_slide(),
 	camera_shake_timer(),
-	rumble(),
 	target_indicators(),
 	last_gamepad_input_time(),
 	gamepad_rotation_speed(),
 	remote_control(),
 	player(p),
 	position_history(),
-	interactable()
+	interactable(),
+	sudoku_active()
 {
 }
 
@@ -1746,7 +1759,7 @@ void PlayerControlHuman::parkour_landed(r32 velocity_diff)
 	if (velocity_diff < LANDING_VELOCITY_LIGHT
 		&& (parkour_state == Parkour::State::Normal || parkour_state == Parkour::State::HardLanding))
 	{
-		rumble = vi_max(rumble, velocity_diff < LANDING_VELOCITY_HARD ? 0.5f : 0.2f);
+		player.ref()->rumble_add(velocity_diff < LANDING_VELOCITY_HARD ? 0.5f : 0.2f);
 	}
 }
 
@@ -1762,7 +1775,7 @@ void PlayerControlHuman::interact_animation_callback()
 
 void PlayerControlHuman::hit_target(Entity* target)
 {
-	rumble = vi_max(rumble, 0.5f);
+	player.ref()->rumble_add(0.5f);
 }
 
 void PlayerControlHuman::awk_detached()
@@ -1775,7 +1788,7 @@ void PlayerControlHuman::camera_shake(r32 amount) // amount ranges from 0 to 1
 	if (!has<Awk>() || get<Awk>()->state() == Awk::State::Crawl) // don't shake the screen if we reflect off something in the air
 	{
 		camera_shake_timer = vi_max(camera_shake_timer, camera_shake_time * amount);
-		rumble = vi_max(rumble, amount);
+		player.ref()->rumble_add(amount);
 	}
 }
 
@@ -2540,10 +2553,29 @@ void PlayerControlHuman::update(const Update& u)
 							}
 						}
 					}
-					else // regular old interactable
+					else // tram interactable
 					{
-						interactable.ref()->interact();
-						get<Animator>()->layers[3].play(Asset::Animation::character_interact);
+						s8 track = s8(interactable.ref()->user_data);
+						AssetID target_level = Game::level.tram_tracks[track].level;
+						if (Game::save.zones[Game::level.id] == ZoneState::Locked
+							&& Game::save.zones[target_level] == ZoneState::Locked)
+						{
+							// unlock terminal first
+							player.ref()->msg(_(strings::error_locked_zone), false);
+							interactable = nullptr;
+						}
+						else if (Tram::by_track(track)->doors_open() || Game::save.zones[target_level] != ZoneState::Locked)
+						{
+							// go right ahead
+							interactable.ref()->interact();
+							get<Animator>()->layers[3].play(Asset::Animation::character_interact);
+						}
+						else
+						{
+							// locked, need to hack first
+							player.ref()->sudoku.reset();
+							sudoku_active = true;
+						}
 					}
 				}
 			}
@@ -2565,6 +2597,17 @@ void PlayerControlHuman::update(const Update& u)
 				r32 distance = (abs_pos - target_pos).length();
 				if (distance > 0.0f)
 					get<Walker>()->absolute_pos(Vec3::lerp(vi_min(1.0f, (INTERACT_LERP_TRANSLATION_SPEED / distance) * u.time.delta), abs_pos, target_pos));
+
+				if (sudoku_active)
+				{
+					player.ref()->sudoku.update(u, gamepad, player.ref());
+					if (player.ref()->sudoku.complete() && player.ref()->sudoku.timer_animation == 0.0f)
+					{
+						interactable.ref()->interact();
+						get<Animator>()->layers[3].play(Asset::Animation::character_interact);
+						sudoku_active = false;
+					}
+				}
 			}
 
 			update_camera_input(u);
@@ -2735,7 +2778,7 @@ void PlayerControlHuman::update(const Update& u)
 				r32 speed = get<Walker>()->support.ref() ? 0.0f : get<RigidBody>()->btBody->getInterpolationLinearVelocity().length();
 				get<Audio>()->param(AK::GAME_PARAMETERS::FLY_VOLUME, LMath::clampf((speed - 8.0f) / 25.0f, 0, 1));
 				r32 shake = LMath::clampf((speed - 13.0f) / 30.0f, 0, 1);
-				rumble = vi_max(rumble, shake);
+				player.ref()->rumble_add(shake);
 				shake *= 0.2f;
 				r32 offset = Game::time.total * 10.0f;
 				look_quat = look_quat * Quat::euler(noise::sample3d(Vec3(offset)) * shake, noise::sample3d(Vec3(offset + 64)) * shake, noise::sample3d(Vec3(offset + 128)) * shake);
@@ -2771,13 +2814,6 @@ void PlayerControlHuman::update(const Update& u)
 				get<Walker>()->absolute_pos(last_pos); // force rigid body
 			}
 		}
-	}
-
-	// rumble
-	if (local() && rumble > 0.0f)
-	{
-		u.input->gamepads[gamepad].rumble = vi_min(1.0f, rumble);
-		rumble = vi_max(0.0f, rumble - u.time.delta);
 	}
 }
 
@@ -3053,9 +3089,11 @@ void PlayerControlHuman::draw_alpha(const RenderParams& params) const
 	{
 		// parkour mode
 
-		// interact prompt
-		if (input_enabled())
+		if (sudoku_active) // sudoku
+			player.ref()->sudoku.draw(params, player.ref()->gamepad);
+		else if (input_enabled())
 		{
+			// interact prompt
 			Interactable* i = Interactable::closest(me);
 			if (i)
 			{

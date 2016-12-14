@@ -5,6 +5,7 @@
 #include "team.h"
 #include "strings.h"
 #include "menu.h"
+#include "player.h"
 
 namespace VI
 {
@@ -77,7 +78,7 @@ void sudoku_generate(Sudoku* s)
 				s->state[i] = i % 4;
 
 			// shuffle
-			for (s32 i = 0; i < 16; i++)
+			for (s32 i = 0; i < 15; i++)
 			{
 				s32 swap_index = i + mersenne::rand() % (16 - i);
 				s8 swap_value = s->state[swap_index];
@@ -106,34 +107,98 @@ s8 sudoku_get_free_number(const Sudoku& s)
 		return s.state[indices[mersenne::rand() % indices.length]];
 }
 
+inline void sudoku_swap(s8* a, s8* b)
+{
+	s8 tmp = *a;
+	*a = *b;
+	*b = tmp;
+}
+
+#define SUDOKU_AUTO_SOLVE_TIME 4.0f
+#define SUDOKU_FLASH_TIME 0.2f
+#define SUDOKU_ANIMATION_TIME 0.5f
+
+void sudoku_mark_solved(Sudoku* s, s8 index, PlayerHuman* player)
+{
+	s->solved |= 1 << index;
+	s->timer = 0.0f;
+	s->flash_pos = index;
+	s->flash_timer = SUDOKU_FLASH_TIME;
+	if (s->complete())
+	{
+		s->timer_animation = SUDOKU_ANIMATION_TIME;
+		player->rumble_add(0.5f);
+	}
+}
+
 Sudoku::Sudoku()
 	: timer(),
-	solved(),
-	current_pos(5)
+	timer_animation(SUDOKU_ANIMATION_TIME),
+	flash_timer()
+{
+	reset();
+}
+
+void Sudoku::reset()
 {
 	memcpy(state, puzzles[mersenne::rand() % SUDOKU_PUZZLES], sizeof(state));
+
+	// replace numbers according to lookup table
+	s8 lookup[4] = { 0, 1, 2, 3 };
+	for (s32 i = 0; i < 3; i++)
+		sudoku_swap(&lookup[i], &lookup[i + mersenne::rand() % (4 - i)]);
+	for (s32 i = 0; i < 16; i++)
+		state[i] = lookup[state[i]];
+
+	if (mersenne::rand() % 2 == 0)
+	{
+		// flip horizontally
+		for (s32 i = 0; i < 4; i++)
+		{
+			sudoku_swap(&state[i * 4 + 0], &state[i * 4 + 3]);
+			sudoku_swap(&state[i * 4 + 1], &state[i * 4 + 2]);
+		}
+	}
+
+	if (mersenne::rand() % 2 == 0)
+	{
+		// flip vertically
+		for (s32 i = 0; i < 4; i++)
+		{
+			sudoku_swap(&state[i + 0], &state[i + 12]);
+			sudoku_swap(&state[i + 4], &state[i + 8]);
+		}
+	}
+
 	StaticArray<s32, 16> indices;
 	for (s32 i = 0; i < 16; i++)
 		indices.add(i);
-	for (s32 i = 0; i < 11; i++)
+	for (s32 i = 0; i < 12; i++)
 		indices.remove(mersenne::rand() % indices.length);
+	solved = 0;
 	for (s32 i = 0; i < indices.length; i++)
 		solved |= 1 << indices[i];
+	for (s32 i = 0; i < 16; i++)
+	{
+		if (!(solved & (1 << i)))
+		{
+			current_pos = i;
+			break;
+		}
+	}
 	current_value = sudoku_get_free_number(*this);
 }
 
-void Sudoku::solve()
+void Sudoku::update(const Update& u, s8 gamepad, PlayerHuman* player)
 {
-	solved = s16(-1);
-}
+	if (flash_timer > 0.0f)
+		flash_timer = vi_max(0.0f, flash_timer - Game::real_time.delta);
 
-#define SUDOKU_AUTO_SOLVE_TIME 8.0f
-
-void Sudoku::update(const Update& u, s8 gamepad)
-{
-	if (!complete())
+	if (timer_animation > 0.0f)
+		timer_animation = vi_max(0.0f, timer_animation - Game::real_time.delta);
+	else if (!complete())
 	{
-		timer += u.time.delta;
+		timer += Game::real_time.delta;
 		if (timer > SUDOKU_AUTO_SOLVE_TIME)
 		{
 			// solve one cell automatically
@@ -153,35 +218,33 @@ void Sudoku::update(const Update& u, s8 gamepad)
 			if (candidates.length == 0)
 			{
 				// we have to give the player a new number
-				solved |= 1 << second_tier_candidates[mersenne::rand() % second_tier_candidates.length];
+				sudoku_mark_solved(this, second_tier_candidates[mersenne::rand() % second_tier_candidates.length], player);
 				current_value = sudoku_get_free_number(*this);
 			}
 			else
 			{
 				// take one of the candidates; player can keep their number
-				solved |= 1 << candidates[mersenne::rand() % candidates.length];
+				sudoku_mark_solved(this, candidates[mersenne::rand() % candidates.length], player);
 			}
-
-			timer = 0.0f;
 		}
-	}
 
-	s32 x = current_pos % 4;
-	s32 y = current_pos / 4;
-	x += UI::input_delta_horizontal(u, gamepad);
-	y -= UI::input_delta_vertical(u, gamepad);
-	x = vi_max(0, vi_min(3, x));
-	y = vi_max(0, vi_min(3, y));
-	current_pos = x + y * 4;
+		s32 x = current_pos % 4;
+		s32 y = current_pos / 4;
+		x += UI::input_delta_horizontal(u, gamepad);
+		y += UI::input_delta_vertical(u, gamepad);
+		x = vi_max(0, vi_min(3, x));
+		y = vi_max(0, vi_min(3, y));
+		current_pos = x + y * 4;
 
-	if (!(solved & (1 << current_pos))
-		&& u.input->get(Controls::Interact, gamepad)
-		&& state[current_pos] == current_value)
-	{
-		// player got it right, insert it
-		solved |= 1 << current_pos;
-		current_value = sudoku_get_free_number(*this);
-		timer = 0.0f;
+		if (!(solved & (1 << current_pos))
+			&& u.input->get(Controls::Interact, gamepad)
+			&& state[current_pos] == current_value)
+		{
+			// player got it right, insert it
+			sudoku_mark_solved(this, current_pos, player);
+			current_value = sudoku_get_free_number(*this);
+			player->rumble_add(0.2f);
+		}
 	}
 }
 
@@ -211,59 +274,85 @@ void Sudoku::draw(const RenderParams& params, s8 gamepad) const
 {
 	UIText text;
 	text.anchor_x = text.anchor_y = UIText::Anchor::Center;
-	text.size = UI_TEXT_SIZE_DEFAULT * 2.0f;
 	const Vec2 cell_spacing(64.0f * UI::scale);
 	const Vec2 cell_size(48.0f * UI::scale);
 
 	// progress bar
 	{
-		text.text(_(strings::hacking));
-
 		Vec2 pos = params.camera->viewport.size * 0.5f + Vec2(0, cell_spacing.y * 3.0f);
-		Rect2 box = text.rect(pos).outset(MENU_ITEM_PADDING);
-		UI::box(params, box, UI::color_background);
-		UI::border(params, box, 2, UI::color_accent);
+		if (complete())
+		{
+			if (UI::flash_function(Game::real_time.total))
+			{
+				text.text(_(strings::hack_complete));
+				UI::box(params, text.rect(pos).outset(MENU_ITEM_PADDING), UI::color_background);
+				text.color = UI::color_accent;
+				text.draw(params, pos);
+			}
+		}
+		else if (timer_animation == 0.0f)
+		{
+			text.text(_(strings::hacking));
 
-		r32 progress = (r32(solved_count()) + (timer / SUDOKU_AUTO_SOLVE_TIME)) / 16.0f;
-		UI::box(params, { box.pos, Vec2(box.size.x * progress, box.size.y) }, UI::color_accent);
+			Rect2 box = text.rect(pos).outset(MENU_ITEM_PADDING);
+			UI::box(params, box, UI::color_background);
+			UI::border(params, box, 2, UI::color_accent);
 
-		text.color = UI::color_background;
-		text.draw(params, pos);
+			r32 progress = (r32(solved_count()) + (timer / SUDOKU_AUTO_SOLVE_TIME)) / 16.0f;
+			UI::box(params, { box.pos, Vec2(box.size.x * progress, box.size.y) }, UI::color_accent);
+
+			text.color = UI::color_background;
+			text.draw(params, pos);
+		}
 	}
 
+	text.size = UI_TEXT_SIZE_DEFAULT * 2.0f;
 	Vec2 offset = params.camera->viewport.size * 0.5f + cell_spacing * -1.5f;
-	for (s32 x = 0; x < 4; x++)
+	s32 clip_index = s32(15.0f * (timer_animation / SUDOKU_ANIMATION_TIME));
+	if (!complete())
+		clip_index = 15 - clip_index;
+	for (s32 y = 0; y < 4; y++)
 	{
-		for (s32 y = 0; y < 4; y++)
+		for (s32 x = 0; x < 4; x++)
 		{
-			Vec2 p = offset + Vec2(x, y) * cell_spacing;
-			UI::centered_box(params, { p, cell_size }, UI::color_background);
 			s32 index = y * 4 + x;
-			b8 hovering = !complete() && index == current_pos;
-			b8 already_solved = solved & (1 << index);
-			if (already_solved)
+			if (index > clip_index)
+				break;
+
+			Vec2 p = offset + Vec2(x, 3 - y) * cell_spacing;
+			UI::centered_box(params, { p, cell_size }, UI::color_background);
+			b8 hovering = !complete() && timer_animation == 0.0f && index == current_pos;
+
+			if (index == flash_pos && flash_timer > 0.0f)
 			{
-				// fade out number when player is hovering over it
-				text.color = hovering ? UI::color_disabled : UI::color_accent;
-				text.text("%d", s32(state[index]) + 1);
-				text.draw(params, p);
-			}
-
-			if (hovering)
-			{
-				b8 pressed = params.sync->input.get(Controls::Interact, gamepad)
-					&& (already_solved || state[current_pos] != current_value);
-
-				const Vec4* color;
-				if (pressed)
-					color = &UI::color_disabled;
-				else
-					color = already_solved ? &UI::color_alert : &UI::color_default;
-				UI::centered_border(params, { p, cell_size }, 4.0f, *color);
-
-				if (!pressed)
+				if (UI::flash_function(Game::real_time.total))
 				{
-					text.color = *color;
+					text.color = UI::color_accent;
+					text.text("%d", s32(state[index]) + 1);
+					text.draw(params, p);
+
+					UI::centered_border(params, { p, cell_size }, 4.0f, UI::color_accent);
+				}
+			}
+			else
+			{
+				b8 already_solved = solved & (1 << index);
+				if (already_solved)
+				{
+					// draw existing number
+					// fade out number when player is hovering over it
+					text.color = hovering ? UI::color_disabled : UI::color_accent;
+					text.text("%d", s32(state[index]) + 1);
+					text.draw(params, p);
+				}
+
+				if (hovering)
+				{
+					const Vec4& color = already_solved || params.sync->input.get(Controls::Interact, gamepad) ? UI::color_alert : UI::color_default;
+
+					UI::centered_border(params, { p, cell_size }, 4.0f, color);
+
+					text.color = color;
 					text.text("%d", s32(current_value) + 1);
 					text.draw(params, p);
 				}

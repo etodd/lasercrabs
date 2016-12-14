@@ -2294,7 +2294,9 @@ Interactable* Interactable::closest(const Vec3& pos)
 }
 
 Interactable::Interactable(Type t)
-	: type(t), user_data(), interacted()
+	: type(t),
+	user_data(),
+	interacted()
 {
 }
 
@@ -2495,7 +2497,7 @@ TramRunnerEntity::TramRunnerEntity(s8 track, b8 is_front)
 	{
 		offset = t.points[t.points.length - 1].offset - TRAM_LENGTH;
 		r->velocity = -TRAM_SPEED_MAX;
-		r->state = TramRunner::State::Entering;
+		r->state = TramRunner::State::Arriving;
 	}
 	else
 		offset = 0.0f;
@@ -2569,7 +2571,7 @@ void TramRunner::update(const Update& u)
 	{
 		const Game::TramTrack& t = Game::level.tram_tracks[track];
 		if (is_front
-			&& state == State::Exiting
+			&& state == State::Departing
 			&& Game::scheduled_load_level == AssetNull
 			&& offset > t.points[t.points.length - 1].offset) // we hit our goal, we are the front runner, we're a local game, and we're exiting the level
 			Game::schedule_load_level(t.level, Game::Mode::Parkour);
@@ -2578,7 +2580,7 @@ void TramRunner::update(const Update& u)
 	r32 error = target_offset - offset;
 	r32 distance = fabsf(error);
 	r32 dv_half = ACCEL_MAX * u.time.delta * 0.5f;
-	if (state == State::Exiting || distance > ACCEL_DISTANCE) // accelerating to max speed
+	if (state == State::Departing || distance > ACCEL_DISTANCE) // accelerating to max speed
 	{
 		get<RigidBody>()->activate_linked();
 		if (error > 0.0f)
@@ -2593,7 +2595,7 @@ void TramRunner::update(const Update& u)
 	}
 	else if (distance == 0.0f) // stopped
 	{
-		if (state == State::Entering)
+		if (state == State::Arriving)
 		{
 			if (is_front)
 				TramNet::send(Tram::by_track(track), TramNet::Message::DoorsOpen);
@@ -2648,7 +2650,7 @@ TramEntity::TramEntity(TramRunner* runner_a, TramRunner* runner_b)
 	Tram* tram = create<Tram>();
 	tram->runner_a = runner_a->get<TramRunner>();
 	tram->runner_b = runner_b->get<TramRunner>();
-	if (tram->runner_b.ref()->state == TramRunner::State::Entering)
+	if (tram->runner_b.ref()->state == TramRunner::State::Arriving)
 		body->btBody->setLinearVelocity(transform->rot * Vec3(0, 0, -TRAM_SPEED_MAX));
 
 	View* view = create<View>();
@@ -2752,12 +2754,12 @@ b8 Tram::net_msg(Net::StreamRead* p, Net::MessageSource)
 		{
 			case TramNet::Message::Entered:
 			{
-				if (ref.ref()->exiting
+				if (ref.ref()->departing
 					&& ref.ref()->doors_open())
 				{
 					ref.ref()->doors_open(false);
 					if (Game::level.local)
-						TramRunner::go(ref.ref()->track(), 1.0f, TramRunner::State::Exiting);
+						TramRunner::go(ref.ref()->track(), 1.0f, TramRunner::State::Departing);
 				}
 				break;
 			}
@@ -2766,7 +2768,7 @@ b8 Tram::net_msg(Net::StreamRead* p, Net::MessageSource)
 				if (ref.ref()->doors_open())
 				{
 					ref.ref()->doors_open(false);
-					ref.ref()->exiting = false;
+					ref.ref()->departing = false;
 				}
 				break;
 			}
@@ -2788,7 +2790,7 @@ b8 Tram::net_msg(Net::StreamRead* p, Net::MessageSource)
 
 void Tram::player_entered(Entity* e)
 {
-	if (exiting
+	if (departing
 		&& doors_open()
 		&& e->has<Parkour>()
 		&& e->get<PlayerControlHuman>()->local())
@@ -2802,8 +2804,13 @@ void Tram::player_entered(Entity* e)
 
 void Tram::player_exited(Entity* e)
 {
-	if (e->has<Parkour>() && e->get<PlayerControlHuman>()->local() && doors_open())
+	if (!departing
+		&& doors_open()
+		&& e->has<Parkour>()
+		&& e->get<PlayerControlHuman>()->local())
+	{
 		TramNet::send(this, TramNet::Message::Exited);
+	}
 }
 
 Tram* Tram::by_track(s8 track)
@@ -2861,7 +2868,7 @@ void TramInteractableEntity::interacted(Interactable* i)
 	Tram* tram = Tram::by_track(track);
 	if (tram->doors_open())
 	{
-		tram->exiting = false;
+		tram->departing = false;
 		tram->doors_open(false);
 	}
 	else
@@ -2869,7 +2876,7 @@ void TramInteractableEntity::interacted(Interactable* i)
 		if (Game::save.zones[Game::level.id] != ZoneState::Locked
 			|| Game::save.zones[Game::level.tram_tracks[track].level] != ZoneState::Locked)
 		{
-			tram->exiting = true;
+			tram->departing = true;
 			tram->doors_open(true);
 		}
 		else

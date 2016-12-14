@@ -930,7 +930,11 @@ void PlayerHuman::draw_alpha(const RenderParams& params) const
 	UIMode mode = ui_mode();
 
 	r32 radius = 64.0f * UI::scale;
-	Vec2 center = vp.size * Vec2(0.1f, 0.1f) + Vec2(radius, radius * 0.5f + (text_size * UI::scale * 0.5f));
+	Vec2 center;
+	if (Game::is_gamepad) // right side
+		center = vp.size * Vec2(0.9f, 0.1f) + Vec2(-radius, radius * 0.5f + (text_size * UI::scale * 0.5f));
+	else // left side
+		center = vp.size * Vec2(0.1f, 0.1f) + Vec2(radius, radius * 0.5f + (text_size * UI::scale * 0.5f));
 
 	// todo: revamp game mode system
 	if (Game::level.mode == Game::Mode::Pvp
@@ -1272,7 +1276,7 @@ void PlayerHuman::draw_alpha(const RenderParams& params) const
 		}
 
 		if (mode == UIMode::PvpDefault || mode == UIMode::Upgrading) // show game timer
-			battery_timer_draw(params, vp.size * Vec2(0.9f, 0.1f));
+			battery_timer_draw(params, vp.size * Vec2(Game::is_gamepad ? 0.1f : 0.9f, 0.1f));
 	}
 
 	// network error icon

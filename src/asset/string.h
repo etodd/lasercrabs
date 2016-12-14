@@ -358,9 +358,9 @@ namespace Asset
 		const AssetID prompt_deploy = 346;
 		const AssetID prompt_hack = 347;
 		const AssetID prompt_interact = 348;
-		const AssetID prompt_join_group_queue = 349;
-		const AssetID prompt_splitscreen = 350;
-		const AssetID prompt_splitscreen_ready = 351;
+		const AssetID prompt_splitscreen = 349;
+		const AssetID prompt_splitscreen_ready = 350;
+		const AssetID prompt_sudoku_place = 351;
 		const AssetID prompt_upgrade = 352;
 		const AssetID prompt_zone_defend = 353;
 		const AssetID quit = 354;

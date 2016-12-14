@@ -27,6 +27,7 @@ struct Sudoku
 	b8 complete() const;
 	s8 get(s32, s32) const;
 	s32 solved_count() const;
+	void solve(PlayerHuman*);
 
 	Sudoku();
 	void reset();

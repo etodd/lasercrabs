@@ -21,7 +21,7 @@
 	"online": "Online",
 	"prompt_splitscreen": "Choose teams",
 	"prompt_splitscreen_ready": "P1 press [{{Interact}}] to begin",
-	"prompt_join_group_queue": "[{{InteractSecondary}}] Join group queue",
+	"prompt_sudoku_place": "[{{Interact}}] Place",
 	"in_group_queue": "In group queue...",
 	"member_of_group": "Group: %s",
 	"player_joined": "%s connected.",

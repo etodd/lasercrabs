@@ -311,7 +311,7 @@ void Game::update(const Update& update_in)
 		if (is_gamepad)
 		{
 			// check if we need to clear the gamepad flag
-			if (gamepad_count <= 1
+			if ((session.story_mode || gamepad_count <= 1)
 				&& (!gamepad.active || update_in.input->cursor_x != 0 || update_in.input->cursor_y != 0))
 			{
 				is_gamepad = false;
@@ -321,7 +321,7 @@ void Game::update(const Update& update_in)
 		else
 		{
 			// check if we need to set the gamepad flag
-			if (gamepad_count > 1)
+			if (!session.story_mode && gamepad_count > 1)
 			{
 				is_gamepad = true;
 				refresh = true;
@@ -783,6 +783,11 @@ void Game::execute(const char* cmd)
 	if (strcmp(cmd, "netstat") == 0)
 	{
 		Net::show_stats = !Net::show_stats;
+	}
+	else if (strcmp(cmd, "solve") == 0)
+	{
+		for (auto i = PlayerHuman::list.iterator(); !i.is_last(); i.next())
+			i.item()->sudoku.solve(i.item());
 	}
 #if !SERVER
 	else if (strstr(cmd, "conn") == cmd)

@@ -248,6 +248,12 @@ void Sudoku::update(const Update& u, s8 gamepad, PlayerHuman* player)
 	}
 }
 
+void Sudoku::solve(PlayerHuman* player)
+{
+	for (s32 i = 0; i < 16; i++)
+		sudoku_mark_solved(this, i, player);
+}
+
 s8 Sudoku::get(s32 x, s32 y) const
 {
 	vi_assert(x >= 0 && x < 4 && y >= 0 && y < 4);
@@ -276,35 +282,6 @@ void Sudoku::draw(const RenderParams& params, s8 gamepad) const
 	text.anchor_x = text.anchor_y = UIText::Anchor::Center;
 	const Vec2 cell_spacing(64.0f * UI::scale);
 	const Vec2 cell_size(48.0f * UI::scale);
-
-	// progress bar
-	{
-		Vec2 pos = params.camera->viewport.size * 0.5f + Vec2(0, cell_spacing.y * 3.0f);
-		if (complete())
-		{
-			if (UI::flash_function(Game::real_time.total))
-			{
-				text.text(_(strings::hack_complete));
-				UI::box(params, text.rect(pos).outset(MENU_ITEM_PADDING), UI::color_background);
-				text.color = UI::color_accent;
-				text.draw(params, pos);
-			}
-		}
-		else if (timer_animation == 0.0f)
-		{
-			text.text(_(strings::hacking));
-
-			Rect2 box = text.rect(pos).outset(MENU_ITEM_PADDING);
-			UI::box(params, box, UI::color_background);
-			UI::border(params, box, 2, UI::color_accent);
-
-			r32 progress = (r32(solved_count()) + (timer / SUDOKU_AUTO_SOLVE_TIME)) / 16.0f;
-			UI::box(params, { box.pos, Vec2(box.size.x * progress, box.size.y) }, UI::color_accent);
-
-			text.color = UI::color_background;
-			text.draw(params, pos);
-		}
-	}
 
 	text.size = UI_TEXT_SIZE_DEFAULT * 2.0f;
 	Vec2 offset = params.camera->viewport.size * 0.5f + cell_spacing * -1.5f;
@@ -359,6 +336,44 @@ void Sudoku::draw(const RenderParams& params, s8 gamepad) const
 			}
 		}
 	}
+
+	// progress bar
+	{
+		text.size = UI_TEXT_SIZE_DEFAULT;
+		if (complete())
+		{
+			if (UI::flash_function(Game::real_time.total))
+			{
+				text.text(_(strings::hack_complete));
+				Vec2 pos = params.camera->viewport.size * 0.5f;
+				UI::box(params, text.rect(pos).outset(MENU_ITEM_PADDING), UI::color_background);
+				text.color = UI::color_accent;
+				text.draw(params, pos);
+			}
+		}
+		else if (timer_animation == 0.0f)
+		{
+			text.text(_(strings::hacking));
+
+			Vec2 pos = params.camera->viewport.size * 0.5f + Vec2(0, cell_spacing.y * 2.5f);
+			Rect2 box = text.rect(pos).outset(MENU_ITEM_PADDING);
+			UI::box(params, box, UI::color_background);
+			UI::border(params, box, 2, UI::color_accent);
+
+			r32 progress = (r32(solved_count()) + (timer / SUDOKU_AUTO_SOLVE_TIME)) / 16.0f;
+			UI::box(params, { box.pos, Vec2(box.size.x * progress, box.size.y) }, UI::color_accent);
+
+			text.color = UI::color_background;
+			text.draw(params, pos);
+
+			pos = params.camera->viewport.size * 0.5f + Vec2(0, cell_spacing.y * -2.5f);
+			text.text(_(strings::prompt_sudoku_place));
+			UI::box(params, text.rect(pos).outset(8.0f * UI::scale), UI::color_background);
+			text.color = UI::color_accent;
+			text.draw(params, pos);
+		}
+	}
+
 }
 
 s8 Sudoku::puzzles[64][16] =

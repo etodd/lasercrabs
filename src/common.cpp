@@ -64,6 +64,7 @@ StaticGeom::StaticGeom(AssetID mesh_id, const Vec3& absolute_pos, const Quat& ab
 
 PhysicsEntity::PhysicsEntity(AssetID mesh, const Vec3& pos, const Quat& quat, RigidBody::Type type, const Vec3& scale, r32 mass, short filter_group, short filter_mask)
 {
+	vi_assert(type != RigidBody::Type::Mesh);
 	Transform* transform = create<Transform>();
 	transform->pos = pos;
 	transform->rot = quat;
@@ -76,7 +77,7 @@ PhysicsEntity::PhysicsEntity(AssetID mesh, const Vec3& pos, const Quat& quat, Ri
 		model->shader = Asset::Shader::standard;
 	}
 	
-	create<RigidBody>(type, scale, mass, filter_group, filter_mask, mesh);
+	create<RigidBody>(type, scale, mass, filter_group, filter_mask, AssetNull);
 }
 
 

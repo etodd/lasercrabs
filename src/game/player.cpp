@@ -589,6 +589,15 @@ void PlayerHuman::update(const Update& u)
 						camera->pos += camera->rot * Vec3(-1, 0, 0) * u.time.delta * speed;
 					if (u.input->get(Controls::Left, gamepad))
 						camera->pos += camera->rot * Vec3(1, 0, 0) * u.time.delta * speed;
+
+#if DEBUG
+					if (Game::level.local && u.input->keys[s32(KeyCode::MouseLeft)] && !u.last_input->keys[s32(KeyCode::MouseLeft)])
+					{
+						Entity* box = World::create<PhysicsEntity>(Asset::Mesh::cube, camera->pos, camera->rot, RigidBody::Type::Box, Vec3(0.25f, 0.25f, 0.5f), 1.0f, CollisionDefault, ~CollisionAwkIgnore);
+						box->get<RigidBody>()->btBody->setLinearVelocity(camera->rot * Vec3(0, 0, 15));
+						Net::finalize(box);
+					}
+#endif
 				}
 			}
 			else if (get<PlayerManager>()->spawn_timer > 0.0f)

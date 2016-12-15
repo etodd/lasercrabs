@@ -23,7 +23,6 @@ enum CollisionGroup
 	CollisionTeamBContainmentField = 1 << 8,
 	CollisionTeamCContainmentField = 1 << 9,
 	CollisionTeamDContainmentField = 1 << 10,
-	CollisionInaccessibleMask = ~CollisionInaccessible,
 	CollisionAllTeamsContainmentField =
 	(
 		CollisionTeamAContainmentField

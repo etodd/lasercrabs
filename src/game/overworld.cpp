@@ -1433,7 +1433,7 @@ void zone_done(AssetID zone)
 			Game::save.resources[i] += z->rewards[i];
 	}
 
-	if (Game::save.story_index == 0 && zone == Asset::Level::Safe_Zone && captured)
+	if (Game::save.story_index == 0 && zone == Asset::Level::Port_District && captured)
 	{
 		Game::save.story_index++;
 		if (Game::save.cora_called)
@@ -1460,7 +1460,7 @@ b8 zone_filter_default(AssetID zone_id)
 
 b8 zone_filter_can_change(AssetID zone_id)
 {
-	if (zone_id == Asset::Level::Safe_Zone || zone_id == Asset::Level::Dock)
+	if (zone_id == Asset::Level::Port_District || zone_id == Asset::Level::Dock)
 		return false;
 	else if (zone_id == Game::level.id || (Game::session.story_mode && zone_id == Game::save.zone_current))
 		return false;

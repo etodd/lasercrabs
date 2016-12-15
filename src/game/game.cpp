@@ -157,7 +157,6 @@ Game::Save::Save()
 	zone_current_restore()
 {
 	zones[Asset::Level::Dock] = ZoneState::Friendly;
-	zones[Asset::Level::Safe_Zone] = ZoneState::Friendly;
 
 	Overworld::message_add(strings::contact_ivory, strings::msg_ivory_intro, platform::timestamp() - (86400.0 * 1.9));
 	Overworld::message_add(strings::contact_aldus, strings::msg_aldus_intro, platform::timestamp() - (86400.0 * 1.6));
@@ -401,6 +400,12 @@ void Game::update(const Update& update_in)
 		LerpTo<Vec3>::update_active(u);
 		Delay::update_active(u);
 
+		if (level.local)
+		{
+			for (auto i = TramRunner::list.iterator(); !i.is_last(); i.next())
+				i.item()->update(u);
+		}
+
 		Physics::sync_static();
 
 		AI::update(u);
@@ -447,8 +452,6 @@ void Game::update(const Update& update_in)
 				i.item()->update(u);
 			for (auto i = MinionCommon::list.iterator(); !i.is_last(); i.next())
 				i.item()->update_server(u);
-			for (auto i = TramRunner::list.iterator(); !i.is_last(); i.next())
-				i.item()->update(u);
 			for (auto i = PlayerAI::list.iterator(); !i.is_last(); i.next())
 				i.item()->update(u);
 		}
@@ -1341,9 +1344,9 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 					{
 						// inaccessible
 						if (no_parkour) // no parkour material
-							m = World::alloc<StaticGeom>(mesh_id, absolute_pos, absolute_rot, CollisionInaccessible, ~CollisionParkour & ~CollisionInaccessibleMask);
+							m = World::alloc<StaticGeom>(mesh_id, absolute_pos, absolute_rot, CollisionInaccessible, ~CollisionParkour & ~CollisionInaccessible);
 						else
-							m = World::alloc<StaticGeom>(mesh_id, absolute_pos, absolute_rot, CollisionParkour | CollisionInaccessible, ~CollisionParkour & ~CollisionInaccessibleMask);
+							m = World::alloc<StaticGeom>(mesh_id, absolute_pos, absolute_rot, CollisionParkour | CollisionInaccessible, ~CollisionParkour & ~CollisionInaccessible);
 						m->get<View>()->color.w = MATERIAL_INACCESSIBLE;
 					}
 					else
@@ -1352,7 +1355,7 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 						if (no_parkour) // no parkour material
 							m = World::alloc<StaticGeom>(mesh_id, absolute_pos, absolute_rot, 0, ~CollisionParkour & ~CollisionInaccessible);
 						else
-							m = World::alloc<StaticGeom>(mesh_id, absolute_pos, absolute_rot, CollisionParkour, ~CollisionParkour);
+							m = World::alloc<StaticGeom>(mesh_id, absolute_pos, absolute_rot, CollisionParkour, ~CollisionParkour & ~CollisionInaccessible);
 					}
 
 					m->get<View>()->texture = texture;
@@ -1740,7 +1743,7 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 			}
 			else
 			{
-				entity = World::alloc<StaticGeom>(Asset::Mesh::terminal_collision, absolute_pos, absolute_rot, CollisionInaccessible, ~CollisionParkour & ~CollisionInaccessibleMask);
+				entity = World::alloc<StaticGeom>(Asset::Mesh::terminal_collision, absolute_pos, absolute_rot, CollisionInaccessible, ~CollisionParkour & ~CollisionInaccessible);
 				entity->get<View>()->color.w = MATERIAL_INACCESSIBLE;
 			}
 		}

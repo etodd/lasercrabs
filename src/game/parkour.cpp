@@ -382,8 +382,11 @@ void Parkour::update(const Update& u)
 		Quat::euler(0, get<Walker>()->rotation + PI * 0.5f, 0) * Quat::euler(0, 0, lean * -1.5f)
 	);
 
-	if (get<Walker>()->support.ref())
+	if (fsm.current == State::WallRun && fsm.time > JUMP_GRACE_PERIOD && get<Walker>()->support.ref())
+	{
 		wall_run_state = WallRunState::None;
+		fsm.transition(State::Normal);
+	}
 
 	// animation layers
 	// layer 0 = running, walking, wall-running
@@ -632,6 +635,8 @@ void Parkour::update(const Update& u)
 					{
 						ParkourNet::kill(this, i.item());
 						damage_minions.add(i.item());
+
+						get<PlayerControlHuman>()->player.ref()->rumble_add(0.5f);
 
 						Vec3 base_pos = get<Walker>()->base_pos();
 
@@ -930,16 +935,16 @@ b8 Parkour::try_slide()
 // If force is true, we'll raycast farther downward when trying to mantle, to make sure we find something.
 b8 Parkour::try_parkour(b8 force)
 {
+	Quat rot = Quat::euler(0, get<Walker>()->rotation, 0);
+
 	if (fsm.current == State::Normal)
 	{
-		// Try to wall-run
-
-		Quat rot = Quat::euler(0, get<Walker>()->rotation, 0);
-		for (s32 i = 0; i < wall_run_direction_count; i++)
-		{
-			if (try_wall_run((WallRunState)i, rot * wall_directions[i]))
-				return true;
-		}
+		if (try_wall_run(WallRunState::Forward, rot * Vec3(0, 0, 1)))
+			return true;
+		if (try_wall_run(WallRunState::Left, rot * Vec3(1, 0, 0)))
+			return true;
+		if (try_wall_run(WallRunState::Right, rot * Vec3(-1, 0, 0)))
+			return true;
 	}
 
 	if (fsm.current == State::Normal || fsm.current == State::WallRun)
@@ -948,19 +953,30 @@ b8 Parkour::try_parkour(b8 force)
 		Vec3 pos = get<Transform>()->absolute_pos();
 		Walker* walker = get<Walker>();
 
-		Quat rot = Quat::euler(0, walker->rotation, 0);
 		for (s32 i = 0; i < mantle_sample_count; i++)
 		{
 			Vec3 dir_offset = rot * (mantle_samples[i] * WALKER_RADIUS * RAYCAST_RADIUS_RATIO);
 
 			Vec3 ray_start = pos + Vec3(dir_offset.x, WALKER_DEFAULT_CAPSULE_HEIGHT * 0.7f, dir_offset.z);
-			Vec3 ray_end = pos + Vec3(dir_offset.x, WALKER_DEFAULT_CAPSULE_HEIGHT * -0.5f + (force ? -WALKER_SUPPORT_HEIGHT - 0.5f : 0.0f), dir_offset.z);
+			Vec3 ray_end = pos + Vec3(dir_offset.x, WALKER_DEFAULT_CAPSULE_HEIGHT * -0.25f + (force ? -WALKER_SUPPORT_HEIGHT - 0.5f : 0.0f), dir_offset.z);
 
 			btCollisionWorld::ClosestRayResultCallback ray_callback(ray_start, ray_end);
 			Physics::raycast(&ray_callback, CollisionParkour);
 
 			if (ray_callback.hasHit() && ray_callback.m_hitNormalWorld.getY() > 0.25f)
 			{
+				// check for wall blocking the mantle
+				{
+					Vec3 wall_ray_start = pos;
+					pos.y = ray_callback.m_hitPointWorld.getY() + 0.1f;
+					Vec3 wall_ray_end = ray_callback.m_hitPointWorld;
+					wall_ray_end.y += 0.1f;
+					btCollisionWorld::ClosestRayResultCallback wall_ray_callback(wall_ray_start, wall_ray_end);
+					Physics::raycast(&wall_ray_callback, ~CollisionAwkIgnore);
+					if (wall_ray_callback.hasHit())
+						return false;
+				}
+
 				get<Animator>()->layers[1].play(Asset::Animation::character_mantle);
 				fsm.transition(State::Mantle);
 				last_support = Entity::list[ray_callback.m_collisionObject->getUserIndex()].get<RigidBody>();
@@ -1014,11 +1030,12 @@ b8 Parkour::try_wall_run(WallRunState s, const Vec3& wall_direction)
 		// this prevents the player from spamming the wall-run key to wall-run infinitely
 		b8 add_velocity = !last_support.ref()
 			|| last_support.ref()->entity_id != support_body->getUserIndex()
+			|| last_support_wall_run_state != s
 			|| wall_run_state != s;
 
 		if (s == WallRunState::Forward)
 		{
-			if (add_velocity && vertical_velocity - support_velocity.y > -2.0f)
+			if (add_velocity && vertical_velocity - support_velocity.y > -4.0f)
 			{
 				// Going up
 				wall_run_up_add_velocity(velocity, support_velocity);

@@ -8,7 +8,7 @@ namespace Asset
 {
 	namespace Mesh
 	{
-		const s32 count = 55;
+		const s32 count = 56;
 		const AssetID awk = 0;
 		const AssetID character = 1;
 		const AssetID compass = 2;
@@ -54,16 +54,17 @@ namespace Asset
 		const AssetID spawn = 42;
 		const AssetID sphere = 43;
 		const AssetID sphere_highres = 44;
-		const AssetID target = 45;
-		const AssetID terminal = 46;
-		const AssetID terminal_collision = 47;
-		const AssetID tram_collision = 48;
-		const AssetID tram_collision_door = 49;
-		const AssetID tram_doors = 50;
-		const AssetID tram_mesh = 51;
-		const AssetID tram_mesh_1 = 52;
-		const AssetID tram_runner = 53;
-		const AssetID tri_tube = 54;
+		const AssetID support = 45;
+		const AssetID target = 46;
+		const AssetID terminal = 47;
+		const AssetID terminal_collision = 48;
+		const AssetID tram_collision = 49;
+		const AssetID tram_collision_door = 50;
+		const AssetID tram_doors = 51;
+		const AssetID tram_mesh = 52;
+		const AssetID tram_mesh_1 = 53;
+		const AssetID tram_runner = 54;
+		const AssetID tri_tube = 55;
 	}
 }
 

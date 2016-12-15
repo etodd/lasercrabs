@@ -16,8 +16,8 @@ namespace Asset
 		const AssetID Moros = 4;
 		const AssetID Pistis = 5;
 		const AssetID Ponos = 6;
-		const AssetID Proci = 7;
-		const AssetID Safe_Zone = 8;
+		const AssetID Port_District = 7;
+		const AssetID Proci = 8;
 		const AssetID Tyche = 9;
 		const AssetID Tyro = 10;
 		const AssetID overworld = 11;

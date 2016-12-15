@@ -2158,7 +2158,7 @@ def fbx_data_from_scene(scene, settings):
     animated_object_snapshots = {}
 
     for ob in settings.context_objects:
-        if ob.type not in objtypes:
+        if ob.type not in objtypes or getattr(ob, 'proxy', None):
             continue
 
         ob_obj = ObjectWrapper(ob)

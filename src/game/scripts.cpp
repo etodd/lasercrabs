@@ -142,7 +142,7 @@ namespace title
 					{
 						if (i == 0)
 						{
-							for (s32 j = 0; j < (s32)KeyCode::Count; j++)
+							for (s32 j = 0; j < s32(KeyCode::Count); j++)
 							{
 								if (u.last_input->keys[j] && !u.input->keys[j])
 								{
@@ -189,7 +189,7 @@ namespace title
 				Vec2(0, 0),
 				Vec2(Game::width, Game::height),
 			};
-			r32 aspect = data->camera->viewport.size.y == 0 ? 1 : (r32)data->camera->viewport.size.x / (r32)data->camera->viewport.size.y;
+			r32 aspect = data->camera->viewport.size.y == 0 ? 1 : data->camera->viewport.size.x / data->camera->viewport.size.y;
 			data->camera->perspective(start_fov, aspect, 0.1f, Game::level.skybox.far_plane);
 
 			Quat rot;
@@ -222,68 +222,37 @@ namespace tutorial
 {
 	enum class TutorialState
 	{
-		Start, Health, Minion, Upgrade, Ability, KillPlayer, Done,
+		Start, Upgrade, Ability, Capture, Done,
 	};
 
 	struct Data
 	{
 		TutorialState state;
-		Ref<Transform> minion_location;
-		Ref<Transform> test_dummy_location;
-		Ref<PlayerManager> test_dummy;
-		r32 field_spawn_timer;
 	};
 
 	Data* data;
 
-	void minion_killed(Entity*)
-	{
-		data->state = TutorialState::Upgrade;
-		Cora::text_clear();
-		Cora::text_schedule(1.0f, _(strings::tut_upgrade));
-
-		Game::level.feature_level = Game::FeatureLevel::Abilities;
-		PlayerManager* manager = PlayerHuman::list.iterator().item()->get<PlayerManager>();
-		manager->credits = UpgradeInfo::list[(s32)Upgrade::Sensor].cost + AbilityInfo::list[(s32)Ability::Sensor].spawn_cost * 2;
-	}
-
 	void health_got(const TargetEvent& e)
 	{
-		if (data->state == TutorialState::Health)
+		if (data->state == TutorialState::Start)
 		{
-			// spawn minion
-			Vec3 pos = data->minion_location.ref()->absolute_pos();
-			Entity* minion = World::create<Minion>(pos, Quat::identity, data->test_dummy.ref()->team.ref()->team(), data->test_dummy.ref());
-			minion->get<Health>()->killed.link(&minion_killed);
-			Net::finalize(minion);
-
-			data->state = TutorialState::Minion;
+			data->state = TutorialState::Upgrade;
 			Cora::text_clear();
-			Cora::text_schedule(0.25f, _(strings::tut_minion));
+			Cora::text_schedule(1.0f, _(strings::tut_upgrade));
+
+			Game::level.feature_level = Game::FeatureLevel::Abilities;
+			PlayerManager* manager = PlayerHuman::list.iterator().item()->get<PlayerManager>();
+			manager->credits = UpgradeInfo::list[s32(Upgrade::Sensor)].cost + AbilityInfo::list[s32(Ability::Sensor)].spawn_cost * 2;
 		}
-	}
-
-	void player_or_ai_killed(Entity*)
-	{
-		data->state = TutorialState::Done;
-		Cora::clear();
-	}
-
-	void ai_spawned()
-	{
-		Entity* entity = PlayerControlAI::list.iterator().item()->entity();
-		entity->get<Transform>()->absolute_pos(data->test_dummy_location.ref()->absolute_pos());
-		LinkArg<Entity*>* link = &entity->get<Health>()->killed;
-		link->link(&player_or_ai_killed);
 	}
 
 	void ability_spawned(Ability)
 	{
 		if (data->state == TutorialState::Ability)
 		{
-			data->state = TutorialState::KillPlayer;
+			data->state = TutorialState::Capture;
 			Cora::text_clear();
-			Cora::text_schedule(1.0f, _(strings::tut_kill_player));
+			Cora::text_schedule(1.0f, _(strings::tut_capture));
 		}
 	}
 
@@ -292,18 +261,13 @@ namespace tutorial
 		Entity* player = PlayerControlHuman::list.iterator().item()->entity();
 		if (player->has<Awk>())
 		{
-			player->get<Health>()->killed.link(&player_or_ai_killed);
 			player->get<Awk>()->ability_spawned.link(&ability_spawned);
-		}
-	}
 
-	void health_spotted(Entity* player)
-	{
-		if (player->has<PlayerControlHuman>() && data->state == TutorialState::Start)
-		{
-			data->state = TutorialState::Health;
-			Cora::text_clear();
-			Cora::text_schedule(0.25f, _(strings::tut_health));
+			if (data->state == TutorialState::Start)
+			{
+				Cora::text_clear();
+				Cora::text_schedule(1.0f, _(strings::tut_start));
+			}
 		}
 	}
 
@@ -312,9 +276,9 @@ namespace tutorial
 		if (data->state == TutorialState::Upgrade)
 		{
 			PlayerManager* manager = PlayerHuman::list.iterator().item()->get<PlayerManager>();
-			for (s32 i = 0; i < (s32)Upgrade::count; i++)
+			for (s32 i = 0; i < s32(Upgrade::count); i++)
 			{
-				if (manager->has_upgrade((Upgrade)i))
+				if (manager->has_upgrade(Upgrade(i)))
 				{
 					data->state = TutorialState::Ability;
 					Cora::text_clear();
@@ -322,6 +286,11 @@ namespace tutorial
 					break;
 				}
 			}
+		}
+		else if (data->state != TutorialState::Done && Team::game_over)
+		{
+			data->state = TutorialState::Done;
+			Cora::text_clear();
 		}
 	}
 
@@ -339,37 +308,15 @@ namespace tutorial
 	void init(const EntityFinder& entities)
 	{
 		Game::level.feature_level = Game::FeatureLevel::EnergyPickups;
-		Game::level.kill_limit = 1;
+
+		entities.find("health")->get<Target>()->target_hit.link(&health_got);
+		PlayerManager* player_manager = PlayerHuman::list.iterator().item()->get<PlayerManager>();
+		player_manager->spawn.link(&player_spawned);
 
 		data = new Data();
 		Game::updates.add(&update);
 		Game::cleanups.add(&cleanup);
 		Game::draws.add(&draw);
-
-		data->minion_location = entities.find("minion")->get<Transform>();
-		data->test_dummy_location = entities.find("test_dummy")->get<Transform>();
-
-		entities.find("health_trigger")->get<PlayerTrigger>()->entered.link(&health_spotted);
-		entities.find("health")->get<Target>()->target_hit.link(&health_got);
-
-		Entity* e = World::create<ContainerEntity>();
-		PlayerManager* ai_manager = e->add<PlayerManager>(&Team::list[1]);
-		utf8cpy(ai_manager->username, _(strings::dummy));
-		Net::finalize(e);
-
-		PlayerAI* ai_player = PlayerAI::list.add();
-		new (ai_player) PlayerAI(ai_manager, PlayerAI::generate_config(1, 0.0f));
-
-		AI::Config* config = &ai_player->config;
-		config->high_level = AI::HighLevelLoop::Noop;
-		config->low_level = AI::LowLevelLoop::Noop;
-
-		PlayerManager* player_manager = PlayerHuman::list.iterator().item()->get<PlayerManager>();
-		player_manager->spawn.link(&player_spawned);
-		ai_manager->spawn.link(&ai_spawned);
-		data->test_dummy = ai_manager;
-
-		Cora::text_schedule(PLAYER_SPAWN_DELAY + 1.0f, _(strings::tut_start));
 	}
 }
 

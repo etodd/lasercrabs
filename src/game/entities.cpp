@@ -628,7 +628,10 @@ void ControlPoint::update(const Update& u)
 {
 	if (capture_timer > 0.0f)
 	{
-		capture_timer -= u.time.delta;
+		if (Game::level.feature_level != Game::FeatureLevel::All) // tutorial mode
+			capture_timer -= u.time.delta * 5.0f; // go faster
+		else
+			capture_timer -= u.time.delta;
 		if (Game::level.local)
 		{
 			if (capture_timer <= 0.0f)
@@ -1968,7 +1971,7 @@ RigidBody* rope_add(RigidBody* start, const Vec3& start_relative_pos, const Vec3
 					Net::finalize(last_segment->entity());
 
 				Vec3 spawn_pos = last_segment_pos + (diff / length) * rope_interval * 0.5f;
-				Entity* box = World::create<PhysicsEntity>(AssetNull, spawn_pos, rot, RigidBody::Type::CapsuleZ, Vec3(ROPE_RADIUS, ROPE_SEGMENT_LENGTH - ROPE_RADIUS * 2.0f, 0.0f), 0.05f, CollisionAwkIgnore, CollisionInaccessibleMask & ~CollisionAllTeamsContainmentField);
+				Entity* box = World::create<PhysicsEntity>(AssetNull, spawn_pos, rot, RigidBody::Type::CapsuleZ, Vec3(ROPE_RADIUS, ROPE_SEGMENT_LENGTH - ROPE_RADIUS * 2.0f, 0.0f), 0.05f, CollisionAwkIgnore, ~CollisionAllTeamsContainmentField);
 				box->add<Rope>();
 
 				static Quat rotation_a = Quat::look(Vec3(0, 0, 1)) * Quat::euler(0, PI * -0.5f, 0);
@@ -2431,7 +2434,7 @@ TerminalEntity::TerminalEntity()
 	anim->layers[1].blend_time = 0.0f;
 	anim->trigger(Asset::Animation::terminal_close, 1.33f).link(&closed);
 
-	RigidBody* body = create<RigidBody>(RigidBody::Type::Mesh, Vec3::zero, 0.0f, CollisionStatic | CollisionInaccessible, ~CollisionStatic & ~CollisionParkour & ~CollisionInaccessibleMask, Asset::Mesh::terminal_collision);
+	RigidBody* body = create<RigidBody>(RigidBody::Type::Mesh, Vec3::zero, 0.0f, CollisionStatic | CollisionInaccessible, ~CollisionStatic & ~CollisionParkour & ~CollisionInaccessible, Asset::Mesh::terminal_collision);
 	body->set_restitution(0.75f);
 }
 
@@ -2485,7 +2488,7 @@ TramRunnerEntity::TramRunnerEntity(s8 track, b8 is_front)
 	View* model = create<View>(Asset::Mesh::tram_runner);
 	model->shader = Asset::Shader::standard;
 	model->color.w = MATERIAL_INACCESSIBLE;
-	RigidBody* body = create<RigidBody>(RigidBody::Type::Mesh, Vec3::zero, 0.0f, CollisionStatic | CollisionInaccessible, ~CollisionStatic & ~CollisionInaccessibleMask, Asset::Mesh::tram_runner);
+	RigidBody* body = create<RigidBody>(RigidBody::Type::Mesh, Vec3::zero, 0.0f, CollisionStatic | CollisionInaccessible, ~CollisionStatic & ~CollisionInaccessible & ~CollisionParkour, Asset::Mesh::tram_runner);
 	body->set_restitution(0.75f);
 	TramRunner* r = create<TramRunner>();
 	r->track = track;
@@ -2659,7 +2662,7 @@ TramEntity::TramEntity(TramRunner* runner_a, TramRunner* runner_b)
 	view->color.w = MATERIAL_INACCESSIBLE;
 
 	{
-		Entity* child = World::alloc<StaticGeom>(Asset::Mesh::tram_collision, Vec3::zero, Quat::identity, CollisionInaccessible, ~CollisionAwkIgnore);
+		Entity* child = World::alloc<StaticGeom>(Asset::Mesh::tram_collision, Vec3::zero, Quat::identity, CollisionInaccessible, ~CollisionAwkIgnore & ~CollisionInaccessible & ~CollisionParkour);
 		child->get<Transform>()->parent = transform;
 		child->get<View>()->mesh = Asset::Mesh::tram_mesh_1;
 		child->get<View>()->shader = Asset::Shader::flat;
@@ -2685,7 +2688,7 @@ TramEntity::TramEntity(TramRunner* runner_a, TramRunner* runner_b)
 		anim->layers[1].loop = false;
 		anim->layers[1].blend_time = 0.0f;
 
-		RigidBody* body = doors->create<RigidBody>(RigidBody::Type::Mesh, Vec3::zero, 0.0f, CollisionInaccessible, ~CollisionAwkIgnore, Asset::Mesh::tram_collision_door);
+		RigidBody* body = doors->create<RigidBody>(RigidBody::Type::Mesh, Vec3::zero, 0.0f, CollisionStatic | CollisionInaccessible, ~CollisionStatic & ~CollisionAwkIgnore & ~CollisionInaccessible & ~CollisionParkour, Asset::Mesh::tram_collision_door);
 		body->set_restitution(0.75f);
 		
 		doors->create<PlayerTrigger>()->radius = 8.0f; // trigger for exiting
@@ -2850,13 +2853,13 @@ void Tram::doors_open(b8 open)
 	RigidBody* body = doors.ref()->get<RigidBody>();
 	if (open)
 	{
-		body->set_collision_masks(CollisionInaccessible, 0); // disable collision
+		body->set_collision_masks(CollisionStatic | CollisionInaccessible, 0); // disable collision
 		anim->layers[0].play(Asset::Animation::tram_doors_opened);
 		anim->layers[1].play(Asset::Animation::tram_doors_open);
 	}
 	else
 	{
-		body->set_collision_masks(CollisionInaccessible, ~CollisionAwkIgnore); // enable collision
+		body->set_collision_masks(CollisionStatic | CollisionInaccessible, ~CollisionStatic & ~CollisionAwkIgnore & ~CollisionParkour & ~CollisionInaccessible); // enable collision
 		anim->layers[0].animation = AssetNull;
 		anim->layers[1].play(Asset::Animation::tram_doors_close);
 	}
@@ -2908,7 +2911,7 @@ TramInteractableEntity::TramInteractableEntity(const Vec3& absolute_pos, const Q
 	i->user_data = track;
 
 	{
-		Entity* collision = World::create<StaticGeom>(Asset::Mesh::interactable_collision, absolute_pos, absolute_rot, CollisionInaccessible, ~CollisionParkour & ~CollisionInaccessibleMask);
+		Entity* collision = World::create<StaticGeom>(Asset::Mesh::interactable_collision, absolute_pos, absolute_rot, CollisionInaccessible, ~CollisionParkour & ~CollisionInaccessible);
 		collision->get<View>()->color.w = MATERIAL_INACCESSIBLE;
 		Net::finalize(collision);
 	}

@@ -6,6 +6,7 @@
 #include "strings.h"
 #include "menu.h"
 #include "player.h"
+#include "console.h"
 
 namespace VI
 {
@@ -230,13 +231,17 @@ void Sudoku::update(const Update& u, s8 gamepad, PlayerHuman* player)
 
 		s32 x = current_pos % 4;
 		s32 y = current_pos / 4;
-		x += UI::input_delta_horizontal(u, gamepad);
-		y += UI::input_delta_vertical(u, gamepad);
+		if (!Console::visible)
+		{
+			x += UI::input_delta_horizontal(u, gamepad);
+			y += UI::input_delta_vertical(u, gamepad);
+		}
 		x = vi_max(0, vi_min(3, x));
 		y = vi_max(0, vi_min(3, y));
 		current_pos = x + y * 4;
 
-		if (!(solved & (1 << current_pos))
+		if (!Console::visible
+			&& !(solved & (1 << current_pos))
 			&& u.input->get(Controls::Interact, gamepad)
 			&& state[current_pos] == current_value)
 		{
@@ -325,7 +330,8 @@ void Sudoku::draw(const RenderParams& params, s8 gamepad) const
 
 				if (hovering)
 				{
-					const Vec4& color = already_solved || params.sync->input.get(Controls::Interact, gamepad) ? UI::color_alert : UI::color_default;
+					b8 pressed = !Console::visible && params.sync->input.get(Controls::Interact, gamepad);
+					const Vec4& color = already_solved || pressed ? UI::color_alert : UI::color_default;
 
 					UI::centered_border(params, { p, cell_size }, 4.0f, color);
 

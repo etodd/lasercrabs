@@ -26,6 +26,7 @@ namespace Menu
 
 State main_menu_state;
 DialogCallback dialog_callback[MAX_GAMEPADS];
+DialogCallback dialog_cancel_callback[MAX_GAMEPADS];
 DialogCallback dialog_callback_last[MAX_GAMEPADS];
 r32 dialog_time[MAX_GAMEPADS];
 char dialog_string[MAX_GAMEPADS][255];
@@ -52,6 +53,7 @@ void progress_spinner(const RenderParams&, const Vec2&, r32) {}
 void progress_bar(const RenderParams&, const char*, r32, const Vec2&) {}
 void progress_infinite(const RenderParams&, const char*, const Vec2&) {}
 void dialog(s8, DialogCallback, const char*, ...) {}
+void dialog_with_cancel(s8, DialogCallback, DialogCallback, const char*, ...) {}
 void dialog_with_time_limit(s8, DialogCallback, r32, const char*, ...) {}
 
 #else
@@ -91,6 +93,29 @@ void dialog(s8 gamepad, DialogCallback callback, const char* format, ...)
 	va_end(args);
 
 	dialog_callback[gamepad] = callback;
+	dialog_cancel_callback[gamepad] = nullptr;
+	dialog_time[gamepad] = Game::real_time.total;
+	dialog_time_limit[gamepad] = 0.0f;
+}
+
+void dialog_with_cancel(s8 gamepad, DialogCallback callback, DialogCallback cancel_callback, const char* format, ...)
+{
+	va_list args;
+	va_start(args, format);
+
+	if (!format)
+		format = "";
+
+#if defined(_WIN32)
+	vsprintf_s(dialog_string[gamepad], 254, format, args);
+#else
+	vsnprintf(dialog_string[gamepad], 254, format, args);
+#endif
+
+	va_end(args);
+
+	dialog_callback[gamepad] = callback;
+	dialog_cancel_callback[gamepad] = cancel_callback;
 	dialog_time[gamepad] = Game::real_time.total;
 	dialog_time_limit[gamepad] = 0.0f;
 }
@@ -112,6 +137,7 @@ void dialog_with_time_limit(s8 gamepad, DialogCallback callback, r32 limit, cons
 	va_end(args);
 
 	dialog_callback[gamepad] = callback;
+	dialog_cancel_callback[gamepad] = nullptr;
 	dialog_time[gamepad] = Game::real_time.total;
 	dialog_time_limit[gamepad] = limit;
 }
@@ -201,6 +227,9 @@ void refresh_variables()
 	UIText::set_variable("TabLeft", gamepad.bindings[(s32)Controls::TabLeft].string(Game::is_gamepad));
 	UIText::set_variable("TabRight", gamepad.bindings[(s32)Controls::TabRight].string(Game::is_gamepad));
 	UIText::set_variable("Scoreboard", gamepad.bindings[(s32)Controls::Scoreboard].string(Game::is_gamepad));
+	UIText::set_variable("Jump", gamepad.bindings[(s32)Controls::Jump].string(Game::is_gamepad));
+	UIText::set_variable("Parkour", gamepad.bindings[(s32)Controls::Parkour].string(Game::is_gamepad));
+	UIText::set_variable("Slide", gamepad.bindings[(s32)Controls::Slide].string(Game::is_gamepad));
 }
 
 void init()
@@ -214,7 +243,10 @@ void clear()
 {
 	main_menu_state = State::Hidden;
 	for (s32 i = 0; i < MAX_GAMEPADS; i++)
+	{
 		dialog_callback[i] = nullptr;
+		dialog_cancel_callback[i] = nullptr;
+	}
 }
 
 void exit(s8 gamepad)
@@ -240,7 +272,7 @@ void title_menu(const Update& u, s8 gamepad, UIMenu* menu, State* state)
 			}
 			if (menu->item(u, _(strings::splitscreen)))
 			{
-				Game::save = Game::Save();
+				Game::save.reset();
 				Game::session.reset();
 				Game::session.story_mode = false;
 				Game::schedule_load_level(Asset::Level::overworld, Game::Mode::Special);
@@ -367,13 +399,18 @@ void update(const Update& u)
 				// accept
 				DialogCallback callback = dialog_callback[i];
 				dialog_callback[i] = nullptr;
+				dialog_cancel_callback[i] = nullptr;
 				callback(s8(i));
 			}
 			else if (!Game::cancel_event_eaten[i] && u.last_input->get(Controls::Cancel, i) && !u.input->get(Controls::Cancel, i))
 			{
 				// cancel
+				DialogCallback cancel_callback = dialog_cancel_callback[i];
 				dialog_callback[i] = nullptr;
+				dialog_cancel_callback[i] = nullptr;
 				Game::cancel_event_eaten[i] = true;
+				if (cancel_callback)
+					cancel_callback(s8(i));
 			}
 		}
 		dialog_callback_last[i] = dialog_callback[i];

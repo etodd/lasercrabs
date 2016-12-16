@@ -14,7 +14,12 @@ struct PlayerHuman;
 
 struct Sudoku
 {
-	static s8 puzzles[SUDOKU_PUZZLES][16];
+	struct Puzzle
+	{
+		s16 solved;
+		s8 state[16];
+	};
+	static Puzzle puzzles[SUDOKU_PUZZLES];
 	r32 timer;
 	r32 timer_animation;
 	r32 flash_timer;

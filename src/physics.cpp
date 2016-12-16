@@ -244,6 +244,13 @@ void RigidBody::set_collision_masks(s16 group, s16 filter)
 
 void RigidBody::rebuild()
 {
+	Vec3 velocity_angular = Vec3::zero;
+	Vec3 velocity_linear = Vec3::zero;
+	if (btBody)
+	{
+		velocity_angular = btBody->getAngularVelocity();
+		velocity_linear = btBody->getLinearVelocity();
+	}
 	// delete constraints but leave them in the global array so we can rebuild them
 	for (auto i = global_constraints.iterator(); !i.is_last(); i.next())
 	{
@@ -270,6 +277,10 @@ void RigidBody::rebuild()
 	}
 
 	awake(); // rebuild body
+	btBody->setLinearVelocity(velocity_linear);
+	btBody->setInterpolationLinearVelocity(velocity_linear);
+	btBody->setAngularVelocity(velocity_angular);
+	btBody->setInterpolationAngularVelocity(velocity_angular);
 }
 
 void RigidBody::set_damping(r32 linear, r32 angular)

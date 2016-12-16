@@ -1350,18 +1350,24 @@ void PlayerHuman::draw_alpha(const RenderParams& params) const
 			p.y += text.bounds().y + MENU_ITEM_PADDING;
 		}
 
-		if (Game::save.messages.length > 0)
+		if (Game::save.messages_unseen)
 		{
+			UIText text;
+			text.anchor_x = UIText::Anchor::Max;
+			text.anchor_y = UIText::Anchor::Min;
+			text.wrap_width = MENU_ITEM_WIDTH - MENU_ITEM_PADDING * 2.0f;
+			text.text(_(strings::incoming_message));
+			UI::box(params, text.rect(p).outset(MENU_ITEM_PADDING), UI::color_background);
 			const Game::Message& msg = Game::save.messages[0];
-			if (!msg.read && platform::timestamp() - msg.timestamp < 8.0)
+			if (platform::timestamp() - msg.timestamp <= 1.0)
 			{
-				UIText text;
-				text.anchor_x = UIText::Anchor::Max;
-				text.anchor_y = UIText::Anchor::Min;
-				text.wrap_width = MENU_ITEM_WIDTH - MENU_ITEM_PADDING * 2.0f;
+				text.color = UI::color_default;
+				if (UI::flash_function(Game::real_time.total))
+					text.draw(params, p);
+			}
+			else
+			{
 				text.color = UI::color_accent;
-				text.text(_(strings::incoming_message), Overworld::message_unread_count(), _(msg.contact));
-				UI::box(params, text.rect(p).outset(MENU_ITEM_PADDING), UI::color_background);
 				text.draw(params, p);
 			}
 		}
@@ -2065,6 +2071,34 @@ void PlayerControlHuman::camera_shake_update(const Update& u, Camera* camera)
 	}
 }
 
+void player_confirm_spend_hack_kit(s8 gamepad)
+{
+	for (auto i = PlayerControlHuman::list.iterator(); !i.is_last(); i.next())
+	{
+		PlayerHuman* player = i.item()->player.ref();
+		if (player->gamepad == gamepad)
+		{
+			vi_assert(Game::save.resources[s32(Resource::HackKits)] > 0);
+			player->sudoku.reset();
+			i.item()->sudoku_active = true;
+			Game::save.resources[s32(Resource::HackKits)]--;
+			break;
+		}
+	}
+}
+
+void player_cancel_spend_hack_kit(s8 gamepad)
+{
+	for (auto i = PlayerControlHuman::list.iterator(); !i.is_last(); i.next())
+	{
+		if (i.item()->player.ref()->gamepad == gamepad)
+		{
+			i.item()->interactable = nullptr;
+			break;
+		}
+	}
+}
+
 void PlayerControlHuman::update(const Update& u)
 {
 	s32 gamepad = player.ref()->gamepad;
@@ -2586,8 +2620,10 @@ void PlayerControlHuman::update(const Update& u)
 						else
 						{
 							// locked, need to hack first
-							player.ref()->sudoku.reset();
-							sudoku_active = true;
+							if (Game::save.resources[s32(Resource::HackKits)] > 0)
+								Menu::dialog_with_cancel(gamepad, &player_confirm_spend_hack_kit, &player_cancel_spend_hack_kit, _(strings::confirm_spend), 1, _(strings::hack_kits));
+							else // not enough
+								Menu::dialog(gamepad, &Menu::dialog_no_action, _(strings::insufficient_resource), 1, _(strings::hack_kits));
 						}
 					}
 				}
@@ -2804,13 +2840,13 @@ void PlayerControlHuman::update(const Update& u)
 				r32 aspect = camera->viewport.size.y == 0 ? 1 : (r32)camera->viewport.size.x / (r32)camera->viewport.size.y;
 				camera->perspective(fov_default, aspect, 0.02f, Game::level.skybox.far_plane);
 				camera->clip_planes[0] = Plane();
+				camera->rot = look_quat;
 				camera->pos = camera_pos;
 				camera->cull_range = 0.0f;
 				camera->cull_behind_wall = false;
 				camera->colors = true;
 				camera->fog = true;
 				camera->range = 0.0f;
-				camera->rot = look_quat;
 				camera_shake_update(u, camera);
 			}
 		}

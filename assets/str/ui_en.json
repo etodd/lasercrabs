@@ -1,11 +1,10 @@
 {
 	"connecting": "Connecting...",
-	"calling": "Calling...",
 	"hacking": "Cracking...",
 	"hack_complete": "Crack complete",
 	"error_hostile_zone": "Error: hostile zone",
 	"error_locked_zone": "Error: unlock terminal first",
-	"error_inside_tram": "Error: map unavailable",
+	"error_inside_tram": "Error: console unavailable",
 	"error_zone_under_attack": "Error: zone under attack",
 	"losing": "Losing",
 	"buying": "Buying...",
@@ -31,7 +30,7 @@
 	"terminal_locked": "Temporarily locked",
 	"zone_already_captured": "Zone already captured",
 	"zone_defense_expired": "Window expired",
-	"resource_collected": "%d %s collected",
+	"resource_collected": "%hd %s collected",
 	"team_a": "Team A",
 	"team_b": "Team B",
 	"team_c": "Team C",
@@ -54,12 +53,10 @@
 	"prompt_interact": "[{{InteractSecondary}}] Interact",
 	"prompt_hack": "[{{Interact}}] Crack",
 	"prompt_cancel_hack": "[{{Interact}}] Cancel Crack",
-	"prompt_call": "[{{InteractSecondary}}] Call",
 	"prompt_accept": "[{{Interact}}] Accept",
 	"prompt_buy": "Spend %d energy for %d %s?",
 	"prompt_buy_more": "[{{Interact}}] Buy more",
-	"confirm_hack": "Spend %d crack kits to unlock this zone?",
-	"confirm_capture": "Spend %d drones to capture this zone?",
+	"confirm_spend": "Spend %d %s?",
 	"confirm_quit": "Quit?",
 	"energy_generation": "Energy: +%d",
 	"energy_generation_total": "Total Energy Collection: +%d",
@@ -137,18 +134,26 @@
 	"tip_11": "Firing a sniper bullet instantly alerts all enemies to your position.",
 
 	"tab_messages": "Inbox (%d)",
-	"incoming_message": "%d new messages (%s)",
+	"incoming_message": "New messages. [{{Scoreboard}}] to read.",
 	"tab_map": "Map",
 	"tab_inventory": "Inventory",
 
-	"tut_start": "[{{Zoom}}] to zoom.\n[{{Primary}}] to shoot.
+	"tut_start": "[{{Zoom}}] to zoom.
+[{{Primary}}] to shoot.
 (1/4)",
 	"tut_upgrade": "Batteries give you energy over time. Return to base and use your energy to buy an upgrade.
 (2/4)",
-	"tut_ability": "Press [{{Ability1}}] to activate, then [{{Primary}}] to use your new ability.
+	"tut_ability": "Press [{{Ability1}}] to activate, then [{{Primary}}] to use the ability.
 (3/4)",
 	"tut_capture": "Crack both control points to capture this zone.
 (4/4)",
+
+	"tut_climb_jump": "[{{Jump}}] to jump.
+[{{Parkour}}] to climb.
+(1/2)",
+	"tut_wallrun": "Run alongside a wall and hold [{{Parkour}}] to wall-run.
+(2/2)",
+	"tut_slide": "Run and hold [{{Slide}}] to slide.",
 
 	"left_joystick": "Left joystick",
 	"right_joystick": "Right joystick",
@@ -389,9 +394,7 @@
 	"btn_RightTrigger": "RT",
 	"btn_None": "None",
 
-	"prompt_zone_defend": "[{{Scoreboard}}] %s under attack (%d)",
-
-	"call_timed_out": "Call timed out.",
+	"prompt_zone_defend": "%s under attack. [{{Scoreboard}}] to defend. (%d)",
 
 	"zone_unlocked": "Zone unlocked",
 	"victory": "Zone captured",
@@ -412,17 +415,15 @@
 	"hour": "h",
 	"day": "d",
 
-	"contact_cora": "Cora",
-	"contact_aldus": "Aldus",
-	"contact_ivory": "Ivory",
+	"contact_seven": "Seven",
+	"contact_meursault": "Meursault",
+	"contact_ivory": "Ivory Corp",
 	"none": "None",
 	"futifs": "Futifs",
 	"zodiak": "Zodiak",
 	
-	"msg_cora_intro": "Contact added. [{{InteractSecondary}}] to call.",
-	"msg_aldus_intro": "I leven informacioun of an intelligence shal help. Tellen hir I yow sente.",
-	"msg_aldus_keep_trying": "Cora may nat answeren as first. Conteinen.",
-	"msg_ivory_intro": "Youre receite was maked. Hit plese chaungen wacche-word.
+	"msg_meursault_intro": "Once you arrive, you'll need to crack the tram system. I had someone leave 2 crack kits for you in the cargo.",
+	"msg_ivory_intro": "Your account was successfully created. Please change your password.
 
-Notisen - long on the recent crouden of client, Ivory wol accepten socour requestes no lenger."
+Notice - due to the recent influx of clients, Ivory Corp no longer accepts support requests."
 }

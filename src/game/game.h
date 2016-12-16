@@ -99,21 +99,21 @@ namespace VI
 			r64 timestamp;
 			Array<Message> messages;
 			Array<Message> messages_scheduled;
-			std::unordered_map<AssetID, AssetID> variables; // todo: kill STL
 			Vec3 zone_current_restore_position;
 			r32 zone_current_restore_rotation;
 			ZoneState zones[MAX_ZONES];
 			Group group;
 			s16 story_index;
 			s16 resources[s32(Resource::count)];
-			AssetID zone_last = AssetNull;
-			AssetID zone_current = AssetNull;
-			AssetID zone_overworld = AssetNull;
+			AssetID zone_last;
+			AssetID zone_current;
+			AssetID zone_overworld;
 			char username[MAX_USERNAME + 1];
-			b8 cora_called;
 			b8 zone_current_restore;
+			b8 messages_unseen;
 
 			Save();
+			void reset();
 		};
 
 		struct TramTrack

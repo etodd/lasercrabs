@@ -718,6 +718,7 @@ void Parkour::update(const Update& u)
 	}
 
 	get<Walker>()->enabled = fsm.current == State::Normal || fsm.current == State::HardLanding;
+	get<Walker>()->crouch(fsm.current == State::Slide);
 
 	{
 		// handle collectibles
@@ -890,7 +891,7 @@ b8 Parkour::try_slide()
 	if (fsm.current == State::Normal)
 	{
 		btCollisionWorld::ClosestRayResultCallback support_callback = get<Walker>()->check_support(get<Walker>()->capsule_height() * 1.5f);
-		if (support_callback.hasHit())
+		if (support_callback.hasHit() && support_callback.m_collisionObject->getBroadphaseHandle()->m_collisionFilterGroup & CollisionParkour)
 		{
 			Vec3 velocity = get<RigidBody>()->btBody->getLinearVelocity();
 			Vec3 forward = Quat::euler(0, get<Walker>()->rotation, 0) * Vec3(0, 0, 1);

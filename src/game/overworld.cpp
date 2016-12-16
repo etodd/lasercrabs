@@ -21,7 +21,6 @@
 #include "vi_assert.h"
 #include "cjson/cJSON.h"
 #include "settings.h"
-#include "cora.h"
 #include "data/priority_queue.h"
 #include "platform/util.h"
 #include "utf8/utf8.h"
@@ -79,18 +78,6 @@ enum class State
 	Deploying,
 };
 
-AssetID cora_entry_points[] =
-{
-	AssetNull, // 0 - safe zone yet to be completed
-	AssetNull, // 1 - medias res yet to be played
-	strings::intro, // 2 - cora's finally ready talk
-	AssetNull, // 3 - you've joined a group
-	AssetNull,
-	AssetNull,
-	AssetNull,
-	AssetNull,
-};
-
 enum class Tab
 {
 	Messages,
@@ -138,7 +125,6 @@ struct Data
 			Contacts,
 			Messages,
 			Message,
-			Cora,
 		};
 
 		Mode mode;
@@ -146,7 +132,6 @@ struct Data
 		UIScroll message_scroll;
 		AssetID contact_selected = AssetNull;
 		AssetID message_selected = AssetNull;
-		r32 timer_cora;
 	};
 
 	struct Inventory
@@ -239,11 +224,9 @@ void message_add(AssetID contact, AssetID text, r64 timestamp)
 	Game::Message* msg = Game::save.messages.insert(0);
 	msg->contact = contact;
 	msg->text = text;
-	if (timestamp == -1.0)
-		msg->timestamp = platform::timestamp();
-	else
-		msg->timestamp = timestamp;
+	msg->timestamp = timestamp;
 	msg->read = false;
+	Game::save.messages_unseen = true;
 }
 
 void message_schedule(AssetID contact, AssetID text, r64 delay)
@@ -1124,8 +1107,7 @@ b8 can_switch_tab()
 		&& data.timer_transition == 0.0f
 		&& data.timer_deploy == 0.0f
 		&& story.inventory.timer_buy == 0.0f
-		&& !Menu::dialog_callback[0]
-		&& (story.messages.mode != Data::Messages::Mode::Cora || story.messages.timer_cora > 0.0f);
+		&& !Menu::dialog_callback[0];
 }
 
 #define TAB_ANIMATION_TIME 0.3f
@@ -1215,8 +1197,6 @@ s32 message_unread_count()
 void message_read(Game::Message* msg)
 {
 	msg->read = true;
-	if (msg->text == strings::msg_aldus_intro)
-		message_schedule(strings::contact_cora, strings::msg_cora_intro, 1.0);
 }
 
 void group_join(Game::Group g)
@@ -1249,36 +1229,9 @@ void tab_messages_update(const Update& u)
 	Data::StoryMode* story = &data.story;
 	Data::Messages* messages = &story->messages;
 
-	{
-		r64 time = platform::timestamp();
-		for (s32 i = 0; i < Game::save.messages_scheduled.length; i++)
-		{
-			const Game::Message& schedule = Game::save.messages_scheduled[i];
-			if (time > schedule.timestamp)
-			{
-				message_add(schedule.contact, schedule.text, schedule.timestamp);
-				Game::save.messages_scheduled.remove(i);
-				i--;
-			}
-		}
-	}
-
 	if (story->tab == Tab::Messages && story->tab_timer > TAB_ANIMATION_TIME && can_switch_tab())
 	{
 		focus_camera(u, global.camera_messages_pos, global.camera_messages_rot);
-
-		// call cora
-		if (messages->mode != Data::Messages::Mode::Cora
-			&& messages->contact_selected == strings::contact_cora
-			&& u.last_input->get(Controls::InteractSecondary, 0) && !u.input->get(Controls::InteractSecondary, 0))
-		{
-			messages_transition(Data::Messages::Mode::Cora);
-			Game::save.cora_called = true;
-			if (cora_entry_points[Game::save.story_index] == AssetNull)
-				messages->timer_cora = 10.0f;
-			else
-				messages->timer_cora = 3.0f;
-		}
 
 		switch (messages->mode)
 		{
@@ -1366,35 +1319,6 @@ void tab_messages_update(const Update& u)
 				}
 				break;
 			}
-			case Data::Messages::Mode::Cora:
-			{
-				if (messages->timer_cora > 0.0f)
-				{
-					if (!Game::cancel_event_eaten[0] && u.last_input->get(Controls::Cancel, 0) && !u.input->get(Controls::Cancel, 0))
-					{
-						// cancel
-						messages_transition(Data::Messages::Mode::Messages);
-						Game::cancel_event_eaten[0] = true;
-						messages->timer_cora = 0.0f;
-					}
-					else
-					{
-						messages->timer_cora = vi_max(0.0f, messages->timer_cora - Game::real_time.delta);
-						if (messages->timer_cora == 0.0f)
-						{
-							AssetID entry_point = cora_entry_points[Game::save.story_index];
-							if (entry_point == AssetNull)
-							{
-								messages_transition(Data::Messages::Mode::Messages);
-								Menu::dialog(0, &Menu::dialog_no_action, _(strings::call_timed_out));
-							}
-							else
-								Cora::activate(entry_point);
-						}
-					}
-				}
-				break;
-			}
 			default:
 			{
 				vi_assert(false);
@@ -1407,12 +1331,6 @@ void tab_messages_update(const Update& u)
 	{
 		// minimized view; reset scroll
 		messages->contact_scroll.pos = 0;
-		if (messages->mode == Data::Messages::Mode::Cora)
-		{
-			// cancel cora call
-			messages->timer_cora = 0.0f;
-			messages_transition(Data::Messages::Mode::Messages);
-		}
 	}
 }
 
@@ -1431,19 +1349,6 @@ void zone_done(AssetID zone)
 		const ZoneNode* z = zone_node_get(zone);
 		for (s32 i = 0; i < s32(Resource::count); i++)
 			Game::save.resources[i] += z->rewards[i];
-	}
-
-	if (Game::save.story_index == 0 && zone == Asset::Level::Port_District && captured)
-	{
-		Game::save.story_index++;
-		if (Game::save.cora_called)
-			message_schedule(strings::contact_aldus, strings::msg_aldus_keep_trying, 3.0);
-	}
-	else if (Game::save.story_index == 1 && zone == Asset::Level::Medias_Res)
-	{
-		Game::save.story_index++; // cora's ready to talk
-		if (Game::save.cora_called)
-			message_schedule(strings::contact_aldus, strings::msg_aldus_keep_trying, 3.0);
 	}
 }
 
@@ -1510,7 +1415,7 @@ void tab_map_update(const Update& u)
 			if (Game::save.resources[s32(Resource::Drones)] < DEPLOY_COST_DRONES)
 				Menu::dialog(0, &Menu::dialog_no_action, _(strings::insufficient_resource), DEPLOY_COST_DRONES, _(strings::drones));
 			else
-				Menu::dialog(0, &capture_start, _(strings::confirm_capture), DEPLOY_COST_DRONES);
+				Menu::dialog(0, &capture_start, _(strings::confirm_spend), DEPLOY_COST_DRONES, _(strings::drones));
 		}
 	}
 }
@@ -1667,14 +1572,6 @@ void zone_random_attack(r32 elapsed_time)
 
 void story_mode_update(const Update& u)
 {
-	// energy increment
-	{
-		r64 t = platform::timestamp();
-		if (s32(t / ENERGY_INCREMENT_INTERVAL) > s32(data.story.timestamp_last / ENERGY_INCREMENT_INTERVAL))
-			Game::save.resources[s32(Resource::Energy)] += energy_increment_total();
-		data.story.timestamp_last = t;
-	}
-
 	if (UIMenu::active[0])
 		return;
 
@@ -1885,10 +1782,7 @@ void tab_messages_draw(const RenderParams& p, const Data::StoryMode& data, const
 						text.text(_(data.messages.contact_selected));
 						text.draw(p, pos + Vec2(PADDING, top_bar_size.y * 0.5f));
 
-						if (data.messages.contact_selected == strings::contact_cora)
-							text.text("%s    %s", _(strings::prompt_call), _(strings::prompt_back));
-						else
-							text.text(_(strings::prompt_back));
+						text.text(_(strings::prompt_back));
 						text.color = UI::color_default;
 						text.anchor_x = UIText::Anchor::Max;
 						text.draw(p, pos + Vec2(top_bar_size.x - PADDING, top_bar_size.y * 0.5f));
@@ -1988,10 +1882,7 @@ void tab_messages_draw(const RenderParams& p, const Data::StoryMode& data, const
 					text.color = UI::color_alert;
 					text.draw(p, pos + Vec2(top_bar_size.x * 0.5f, top_bar_size.y * 0.5f));
 
-					if (data.messages.contact_selected == strings::contact_cora)
-						text.text("%s    %s", _(strings::prompt_call), _(strings::prompt_back));
-					else
-						text.text(_(strings::prompt_back));
+					text.text(_(strings::prompt_back));
 					text.color = UI::color_default;
 					text.anchor_x = UIText::Anchor::Max;
 					text.draw(p, pos + Vec2(top_bar_size.x - PADDING, top_bar_size.y * 0.5f));
@@ -2010,25 +1901,6 @@ void tab_messages_draw(const RenderParams& p, const Data::StoryMode& data, const
 					UI::box(p, text.rect(text_pos).outset(PADDING), UI::color_background);
 					text.draw(p, text_pos);
 
-					break;
-				}
-				case Data::Messages::Mode::Cora:
-				{
-					if (data.messages.timer_cora > 0.0f)
-					{
-						Menu::progress_infinite(p, _(strings::calling), rect.pos + rect.size * 0.5f);
-
-						// cancel prompt
-						UIText text;
-						text.anchor_x = text.anchor_y = UIText::Anchor::Center;
-						text.color = UI::color_accent;
-						text.text(_(strings::prompt_cancel));
-
-						Vec2 pos = rect.pos + rect.size * Vec2(0.5f, 0.2f);
-
-						UI::box(p, text.rect(pos).outset(8 * UI::scale), UI::color_background);
-						text.draw(p, pos);
-					}
 					break;
 				}
 				default:
@@ -2341,10 +2213,7 @@ void story_mode_draw(const RenderParams& p)
 		sprintf(message_label, _(strings::tab_messages), unread_count);
 		Rect2 rect = tab_draw(p, data.story, Tab::Messages, message_label, &pos, flash).outset(-PADDING);
 		if (data.story.tab_timer > TAB_ANIMATION_TIME)
-		{
 			tab_messages_draw(p, data.story, rect);
-			Cora::draw(p, rect.pos + rect.size * 0.5f);
-		}
 	}
 	{
 		Rect2 rect = tab_draw(p, data.story, Tab::Map, _(strings::tab_map), &pos).outset(-PADDING);
@@ -2435,12 +2304,35 @@ void show_complete()
 		new (&data) Data();
 		data.camera = c;
 		data.timer_transition = t;
+
+		data.camera_restore_data = *data.camera;
+		data.camera->colors = false;
+		data.camera->mask = 0;
 	}
+
 	data.active = data.active_next = true;
+
+	Game::save.zone_last = Game::level.id;
+
+	if (Game::session.story_mode)
+		data.state = State::StoryMode;
+	else if (Game::session.local_player_count() > 1)
+		data.state = State::SplitscreenSelectZone;
+	else
+		data.state = State::SplitscreenSelectTeams;
+
 	if (Game::session.story_mode)
 	{
 		if (Game::session.zone_under_attack == AssetNull)
+		{
 			data.zone_selected = Game::level.id;
+			if (Game::save.messages_unseen)
+			{
+				data.story.tab = Tab::Messages;
+				data.story.tab_previous = Tab::Map;
+				Game::save.messages_unseen = false;
+			}
+		}
 		else
 			data.zone_selected = Game::session.zone_under_attack;
 	}
@@ -2451,9 +2343,7 @@ void show_complete()
 		else
 			data.zone_selected = Asset::Level::Medias_Res;
 	}
-	data.camera_restore_data = *data.camera;
-	data.camera->colors = false;
-	data.camera->mask = 0;
+
 	{
 		const ZoneNode* zone = zone_node_get(Game::save.zone_overworld);
 		if (!zone)
@@ -2469,13 +2359,6 @@ void show_complete()
 			data.camera_rot = global.camera_messages_rot;
 		}
 	}
-	Game::save.zone_last = Game::level.id;
-	if (Game::session.story_mode)
-		data.state = State::StoryMode;
-	else if (Game::session.local_player_count() > 1)
-		data.state = State::SplitscreenSelectZone;
-	else
-		data.state = State::SplitscreenSelectTeams;
 }
 
 r32 particle_accumulator = 0.0f;
@@ -2512,21 +2395,46 @@ void update(const Update& u)
 
 	if (Game::session.story_mode)
 	{
-		if (Game::session.zone_under_attack_timer > 0.0f)
+		// random zone attacks
 		{
-			Game::session.zone_under_attack_timer = vi_max(0.0f, Game::session.zone_under_attack_timer - Game::real_time.delta);
-			if (Game::session.zone_under_attack_timer == 0.0f)
+			if (Game::session.zone_under_attack_timer > 0.0f)
 			{
-				if (Game::level.local
-					&& Game::level.id != Game::session.zone_under_attack
-					&& data.timer_deploy == 0.0f
-					&& Game::scheduled_load_level == AssetNull) // if the player is deploying to this zone to contest it, don't set it to hostile; wait for the match outcome
-					zone_change(Game::session.zone_under_attack, ZoneState::Hostile);
-				Game::session.zone_under_attack = AssetNull;
+				Game::session.zone_under_attack_timer = vi_max(0.0f, Game::session.zone_under_attack_timer - Game::real_time.delta);
+				if (Game::session.zone_under_attack_timer == 0.0f)
+				{
+					if (Game::level.local
+						&& Game::level.id != Game::session.zone_under_attack
+						&& data.timer_deploy == 0.0f
+						&& Game::scheduled_load_level == AssetNull) // if the player is deploying to this zone to contest it, don't set it to hostile; wait for the match outcome
+						zone_change(Game::session.zone_under_attack, ZoneState::Hostile);
+					Game::session.zone_under_attack = AssetNull;
+				}
 			}
+			zone_random_attack(Game::real_time.delta);
 		}
 
-		zone_random_attack(Game::real_time.delta);
+		// energy increment
+		{
+			r64 t = platform::timestamp();
+			if (s32(t / ENERGY_INCREMENT_INTERVAL) > s32(data.story.timestamp_last / ENERGY_INCREMENT_INTERVAL))
+				Game::save.resources[s32(Resource::Energy)] += energy_increment_total();
+			data.story.timestamp_last = t;
+		}
+
+		// scheduled messages
+		{
+			r64 time = platform::timestamp();
+			for (s32 i = 0; i < Game::save.messages_scheduled.length; i++)
+			{
+				const Game::Message& schedule = Game::save.messages_scheduled[i];
+				if (time > schedule.timestamp)
+				{
+					message_add(schedule.contact, schedule.text, schedule.timestamp);
+					Game::save.messages_scheduled.remove(i);
+					i--;
+				}
+			}
+		}
 	}
 
 	if (data.active && !Console::visible)
@@ -2791,7 +2699,9 @@ void init(cJSON* level)
 
 					PropEntry* entry = global.props.add();
 					entry->mesh = Loader::find_mesh(mesh_ref);
+#if !SERVER
 					Loader::mesh_permanent(entry->mesh);
+#endif
 					entry->pos = pos;
 					entry->rot = rot;
 
@@ -2808,7 +2718,9 @@ void init(cJSON* level)
 				new (&water->config) Water::Config();
 				water->config.mesh = Loader::find_mesh(mesh_ref);
 				vi_assert(water->config.mesh != AssetNull);
+#if !SERVER
 				Loader::mesh_permanent(water->config.mesh);
+#endif
 				water->config.texture = Loader::find(Json::get_string(element, "texture", "water_normal"), AssetLookup::Texture::names);
 				water->config.displacement_horizontal = Json::get_r32(element, "displacement_horizontal", 2.0f);
 				water->config.displacement_vertical = Json::get_r32(element, "displacement_vertical", 0.75f);

@@ -696,6 +696,7 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 	{
 		Collectible* c = e->get<Collectible>();
 		serialize_enum(p, Resource, c->type);
+		serialize_s16(p, c->amount);
 	}
 
 #if !SERVER

@@ -88,12 +88,26 @@ namespace title
 	const r32 end_fov = 70.0f * PI * 0.5f / 180.0f;
 	const r32 total_transition = TRANSITION_TIME + 0.5f;
 
+	enum class TutorialState
+	{
+		Start,
+		Message,
+		Climb,
+		ClimbDone,
+		WallRun,
+		WallRunDone,
+		count,
+	};
+
 	struct Data
 	{
 		Camera* camera;
 		Vec3 camera_start_pos;
 		r32 transition_timer;
 		Ref<Animator> character;
+		Ref<Transform> target_climb;
+		Ref<Transform> target_hack_kits;
+		TutorialState state;
 	};
 	
 	static Data* data;
@@ -104,6 +118,46 @@ namespace title
 			data->camera->remove();
 		delete data;
 		data = nullptr;
+	}
+
+	void climb_success(Entity*)
+	{
+		if (data->state == TutorialState::Start
+			|| data->state == TutorialState::Message
+			|| data->state == TutorialState::Climb)
+		{
+			Cora::text_clear();
+			data->state = TutorialState::ClimbDone;
+		}
+	}
+
+	void wallrun_start(Entity*)
+	{
+		if (data->state == TutorialState::ClimbDone)
+		{
+			Cora::text_clear();
+			Cora::text_schedule(0.0f, _(strings::tut_wallrun));
+			data->state = TutorialState::WallRun;
+		}
+	}
+
+	void wallrun_success()
+	{
+		if (data->state == TutorialState::ClimbDone || data->state == TutorialState::WallRun)
+		{
+			Cora::text_clear();
+			data->state = TutorialState::WallRunDone;
+		}
+	}
+
+	void message_success()
+	{
+		if (data->state == TutorialState::Message)
+		{
+			data->state = TutorialState::Climb;
+			Cora::text_clear();
+			Cora::text_schedule(0.0f, _(strings::tut_climb_jump));
+		}
 	}
 
 	void update(const Update& u)
@@ -168,10 +222,30 @@ namespace title
 				}
 			}
 		}
+
+		if (data->state == TutorialState::Start && Game::save.messages_unseen)
+			data->state = TutorialState::Message;
+		else if (data->state == TutorialState::Message && !Game::save.messages_unseen)
+			message_success();
+		else if ((data->state == TutorialState::ClimbDone || data->state == TutorialState::WallRun)
+			&& !data->target_hack_kits.ref())
+		{
+			// player got the hack kits; done with this bit
+			wallrun_success();
+		}
 	}
 
 	void draw(const RenderParams& p)
 	{
+		if (!Overworld::active())
+		{
+			if (data->state == TutorialState::Climb)
+				UI::indicator(p, data->target_climb.ref()->absolute_pos(), UI::color_accent, true);
+			else if (data->state == TutorialState::ClimbDone || data->state == TutorialState::WallRun)
+				UI::indicator(p, data->target_hack_kits.ref()->absolute_pos(), UI::color_accent, true);
+			Cora::draw(p, p.camera->viewport.size * Vec2(0.5f, 0.9f));
+		}
+
 		if (data->transition_timer > 0.0f && data->transition_timer < TRANSITION_TIME)
 			Menu::draw_letterbox(p, data->transition_timer, TRANSITION_TIME);
 	}
@@ -199,6 +273,13 @@ namespace title
 
 			data->character = entities.find("character")->get<Animator>();
 
+			data->target_climb = entities.find("target_climb")->get<Transform>();
+			data->target_hack_kits = entities.find("hack_kits")->get<Transform>();
+			data->target_hack_kits.ref()->get<Collectible>()->collected.link(&wallrun_success);
+			entities.find("climb_trigger1")->get<PlayerTrigger>()->entered.link(&climb_success);
+			entities.find("climb_trigger2")->get<PlayerTrigger>()->entered.link(&climb_success);
+			entities.find("wallrun_trigger")->get<PlayerTrigger>()->entered.link(&wallrun_start);
+
 			Game::updates.add(update);
 			Game::draws.add(draw);
 			Game::cleanups.add(cleanup);
@@ -212,9 +293,10 @@ namespace title
 
 	void play()
 	{
-		Game::save = Game::Save();
+		Game::save.reset();
 		Game::session.reset();
 		data->transition_timer = total_transition;
+		Overworld::message_schedule(strings::contact_meursault, strings::msg_meursault_intro, 7.0f);
 	}
 }
 
@@ -222,7 +304,7 @@ namespace tutorial
 {
 	enum class TutorialState
 	{
-		Start, Upgrade, Ability, Capture, Done,
+		ParkourStart, ParkourSlide, ParkourDone, Start, Upgrade, Ability, Capture, Done,
 	};
 
 	struct Data
@@ -243,7 +325,7 @@ namespace tutorial
 			Game::level.feature_level = Game::FeatureLevel::Abilities;
 			PlayerManager* manager = PlayerHuman::list.iterator().item()->get<PlayerManager>();
 			manager->credits = UpgradeInfo::list[s32(Upgrade::Sensor)].cost + AbilityInfo::list[s32(Ability::Sensor)].spawn_cost * 2;
-		}
+	}	
 	}
 
 	void ability_spawned(Ability)
@@ -305,15 +387,40 @@ namespace tutorial
 		Cora::draw(p, p.camera->viewport.size * Vec2(0.5f, 0.9f));
 	}
 
+	void slide_trigger(Entity* p)
+	{
+		if (Game::level.mode == Game::Mode::Parkour && data->state == TutorialState::ParkourStart)
+		{
+			data->state = TutorialState::ParkourSlide;
+			Cora::text_clear();
+			Cora::text_schedule(0.0f, _(strings::tut_slide));
+		}
+	}
+
+	void slide_success(Entity*)
+	{
+		if (Game::level.mode == Game::Mode::Parkour)
+		{
+			if (data->state == TutorialState::ParkourSlide)
+				Cora::text_clear();
+			data->state = TutorialState::ParkourDone;
+		}
+	}
+
 	void init(const EntityFinder& entities)
 	{
+		data = new Data();
+
 		Game::level.feature_level = Game::FeatureLevel::EnergyPickups;
 
 		entities.find("health")->get<Target>()->target_hit.link(&health_got);
 		PlayerManager* player_manager = PlayerHuman::list.iterator().item()->get<PlayerManager>();
 		player_manager->spawn.link(&player_spawned);
 
-		data = new Data();
+		entities.find("slide_trigger")->get<PlayerTrigger>()->entered.link(&slide_trigger);
+		entities.find("slide_success")->get<PlayerTrigger>()->entered.link(&slide_success);
+		data->state = Game::level.mode == Game::Mode::Parkour ? TutorialState::ParkourStart : TutorialState::Start;
+
 		Game::updates.add(&update);
 		Game::cleanups.add(&cleanup);
 		Game::draws.add(&draw);

@@ -41,10 +41,12 @@ void execute(const char*);
 void zone_done(AssetID);
 void zone_change(AssetID, ZoneState);
 b8 active();
-void message_add(AssetID, AssetID, r64 = -1.0);
+void message_add(AssetID, AssetID, r64);
+void message_schedule(AssetID, AssetID, r64 = 0.0);
 AssetID zone_under_attack();
 r32 zone_under_attack_timer();
 s32 message_unread_count();
+b8 has_unseen_messages();
 
 }
 

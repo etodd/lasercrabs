@@ -379,6 +379,9 @@ struct Target : public ComponentType<Target>
 struct Collectible : public ComponentType<Collectible>
 {
 	Resource type;
+	Link collected;
+	s16 amount;
+
 	void awake() {}
 
 	void give_rewards();
@@ -386,7 +389,7 @@ struct Collectible : public ComponentType<Collectible>
 
 struct CollectibleEntity : public Entity
 {
-	CollectibleEntity(Resource = Resource::count);
+	CollectibleEntity(Resource = Resource::count, s16 = 0);
 };
 
 struct PlayerTrigger : public ComponentType<PlayerTrigger>

@@ -789,7 +789,10 @@ void MinionAI::update(const Update& u)
 
 	// path following
 
-	if (path_index < path.length)
+	const Animator::Layer& layer = get<Animator>()->layers[0];
+	if (path_index < path.length
+		&& layer.animation != Asset::Animation::character_fire
+		&& layer.animation != Asset::Animation::character_melee)
 	{
 		Vec3 flat_pos = pos;
 		flat_pos.y = 0.0f;

@@ -1430,6 +1430,11 @@ void Projectile::update(const Update& u)
 					if (state == Parkour::State::Roll || state == Parkour::State::Slide)
 						do_damage = false;
 				}
+				if (hit_object->has<Awk>()) // player is invincible while flying or dashing
+				{
+					if (hit_object->get<Awk>()->state() != Awk::State::Crawl)
+						do_damage = false;
+				}
 				if (do_damage)
 					hit_object->get<Health>()->damage(owner_instance, PROJECTILE_DAMAGE);
 				if (hit_object->has<RigidBody>())
@@ -2203,10 +2208,12 @@ void Shockwave::update(const Update& u)
 		list.remove(id());
 }
 
-CollectibleEntity::CollectibleEntity(Resource type)
+CollectibleEntity::CollectibleEntity(Resource type, s16 amount)
 {
 	create<Transform>();
-	create<Collectible>()->type = type;
+	Collectible* c = create<Collectible>();
+	c->type = type;
+	c->amount = amount;
 	switch (type)
 	{
 		case Resource::HackKits:
@@ -2243,36 +2250,40 @@ CollectibleEntity::CollectibleEntity(Resource type)
 
 void Collectible::give_rewards()
 {
-	s32 amount;
-	switch (type)
+	s16 a = amount;
+	if (a == 0)
 	{
-		case Resource::HackKits:
+		switch (type)
 		{
-			amount = 1;
-			break;
-		}
-		case Resource::Energy:
-		{
-			amount = 1000;
-			break;
-		}
-		case Resource::Drones:
-		{
-			amount = 10;
-			break;
-		}
-		default:
-		{
-			vi_assert(false);
-			break;
+			case Resource::HackKits:
+			{
+				a = 1;
+				break;
+			}
+			case Resource::Energy:
+			{
+				a = 1000;
+				break;
+			}
+			case Resource::Drones:
+			{
+				a = 10;
+				break;
+			}
+			default:
+			{
+				vi_assert(false);
+				break;
+			}
 		}
 	}
-	Game::save.resources[s32(type)] += amount;
+	Game::save.resources[s32(type)] += a;
 
 	char msg[512];
-	sprintf(msg, _(strings::resource_collected), amount, _(Overworld::resource_info[s32(type)].description));
+	sprintf(msg, _(strings::resource_collected), a, _(Overworld::resource_info[s32(type)].description));
 	for (auto i = PlayerHuman::list.iterator(); !i.is_last(); i.next())
 		i.item()->msg(msg, true);
+	collected.fire();
 }
 
 Interactable* Interactable::closest(const Vec3& pos)
@@ -2643,7 +2654,7 @@ TramEntity::TramEntity(TramRunner* runner_a, TramRunner* runner_b)
 	}
 
 	const Mesh* mesh = Loader::mesh(Asset::Mesh::tram_mesh);
-	RigidBody* body = create<RigidBody>(RigidBody::Type::Box, (mesh->bounds_max - mesh->bounds_min) * 0.5f, 5.0f, CollisionAwkIgnore, ~CollisionWalker);
+	RigidBody* body = create<RigidBody>(RigidBody::Type::Box, (mesh->bounds_max - mesh->bounds_min) * 0.5f, 5.0f, CollisionAwkIgnore, ~CollisionWalker & ~CollisionInaccessible & ~CollisionParkour & ~CollisionStatic);
 	body->set_restitution(0.75f);
 	body->set_damping(0.5f, 0.5f);
 	body->rebuild();

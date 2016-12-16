@@ -15,6 +15,15 @@ namespace VI
 #define ACCEL2 2.0f
 #define DECELERATION 30.0f
 
+void walker_set_rigid_body_props(btRigidBody* btBody)
+{
+	btBody->setFriction(0);
+	btBody->setRollingFriction(0);
+	btBody->setInvInertiaDiagLocal(btVector3(0, 0, 0)); // Prevent rotation
+	btBody->setAngularFactor(0.0f); // Prevent rotation even harder
+	btBody->setActivationState(DISABLE_DEACTIVATION);
+}
+
 Walker::Walker(r32 rot)
 	: dir(),
 	speed(2.5f),
@@ -39,13 +48,8 @@ void Walker::awake()
 	if (has<RigidBody>())
 		body = get<RigidBody>(); // RigidBody will already be awake because it comes first in the component list
 	else
-		body = entity()->add<RigidBody>(RigidBody::Type::CapsuleY, Vec3(WALKER_RADIUS, WALKER_HEIGHT, 0), WALKER_HEIGHT, CollisionWalker, ~CollisionShield);
-
-	body->btBody->setFriction(0);
-	body->btBody->setRollingFriction(0);
-	body->btBody->setInvInertiaDiagLocal(btVector3(0, 0, 0)); // Prevent rotation
-	body->btBody->setAngularFactor(0.0f); // Prevent rotation even harder
-	body->btBody->setActivationState(DISABLE_DEACTIVATION);
+		body = entity()->add<RigidBody>(RigidBody::Type::CapsuleY, Vec3(WALKER_RADIUS, WALKER_HEIGHT, 0), 1.0f, CollisionWalker, ~CollisionShield);
+	walker_set_rigid_body_props(body->btBody);
 }
 
 Walker::~Walker()
@@ -343,7 +347,20 @@ Vec3 Walker::forward() const
 
 r32 Walker::capsule_height() const
 {
-	return WALKER_HEIGHT + WALKER_RADIUS * 2.0f;
+	const Vec3& size = get<RigidBody>()->size;
+	return size.y + size.x * 2.0f;
+}
+
+void Walker::crouch(b8 c)
+{
+	r32 desired_height = c ? WALKER_HEIGHT * 0.25f : WALKER_HEIGHT;
+	RigidBody* body = get<RigidBody>();
+	if (body->size.y != desired_height)
+	{
+		body->size.y = desired_height;
+		body->rebuild();
+		walker_set_rigid_body_props(body->btBody);
+	}
 }
 
 }

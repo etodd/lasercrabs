@@ -140,29 +140,27 @@ void Game::Session::reset()
 }
 
 Game::Save::Save()
-	: zones(),
-	story_index(),
-	variables(),
-	resources(),
-	messages(),
-	messages_scheduled(),
-	username("etodd"),
-	group(),
-	cora_called(),
-	zone_last(Asset::Level::Dock),
-	zone_current(Asset::Level::Dock),
-	zone_overworld(AssetNull),
-	zone_current_restore_position(),
-	zone_current_restore_rotation(),
-	zone_current_restore()
 {
+	reset();
+}
+
+void Game::Save::reset()
+{
+	this->~Save();
+
+	memset(this, 0, sizeof(*this));
+
+	zone_last = AssetNull;
+	zone_current = AssetNull;
+	zone_overworld = AssetNull;
+
+	strcpy(username, "etodd");
 	zones[Asset::Level::Dock] = ZoneState::Friendly;
 
-	Overworld::message_add(strings::contact_ivory, strings::msg_ivory_intro, platform::timestamp() - (86400.0 * 1.9));
-	Overworld::message_add(strings::contact_aldus, strings::msg_aldus_intro, platform::timestamp() - (86400.0 * 1.6));
-	resources[(s32)Resource::HackKits] = 1;
-	resources[(s32)Resource::Drones] = 4;
 	resources[(s32)Resource::Energy] = (s16)(CREDITS_INITIAL * 3.5f);
+
+	Overworld::message_add(strings::contact_ivory, strings::msg_ivory_intro, platform::timestamp() - (86400.0 * 1.9));
+	messages_unseen = false;
 }
 
 b8 Game::Level::has_feature(Game::FeatureLevel f) const
@@ -804,7 +802,7 @@ void Game::execute(const char* cmd)
 			host = "127.0.0.1";
 
 		unload_level();
-		save = Save();
+		save.reset();
 		Net::Client::connect(host, 3494);
 	}
 #endif
@@ -923,7 +921,7 @@ void Game::execute(const char* cmd)
 			AssetID level = Loader::find_level(level_name);
 			if (level != AssetNull)
 			{
-				save = Save();
+				save.reset();
 				save.zone_current = level;
 				load_level(level, Mode::Pvp, true);
 			}
@@ -939,7 +937,7 @@ void Game::execute(const char* cmd)
 			AssetID level = Loader::find_level(level_name);
 			if (level != AssetNull)
 			{
-				save = Save();
+				save.reset();
 				save.zone_current = level;
 				schedule_load_level(level, Mode::Pvp);
 			}
@@ -955,7 +953,7 @@ void Game::execute(const char* cmd)
 			AssetID level = Loader::find_level(level_name);
 			if (level != AssetNull)
 			{
-				save = Save();
+				save.reset();
 				save.zone_current = level;
 				schedule_load_level(level, Mode::Parkour);
 			}
@@ -1324,7 +1322,7 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 		{
 			b8 alpha = (b8)Json::get_s32(element, "alpha");
 			b8 additive = (b8)Json::get_s32(element, "additive");
-			b8 no_parkour = cJSON_HasObjectItem(element, "no_parkour");
+			b8 no_parkour = cJSON_HasObjectItem(element, "noparkour");
 			AssetID texture = (AssetID)Loader::find(Json::get_string(element, "texture"), AssetLookup::Texture::names);
 
 			cJSON* meshes = cJSON_GetObjectItem(element, "meshes");
@@ -1714,7 +1712,7 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 		}
 		else if (cJSON_HasObjectItem(element, "Collectible"))
 		{
-			if (session.story_mode && save.zones[level.id] == ZoneState::Locked)
+			if (session.story_mode && (save.zones[level.id] == ZoneState::Locked || level.id == Asset::Level::Dock))
 			{
 				const char* type_str = Json::get_string(element, "Collectible");
 				Resource type;
@@ -1724,7 +1722,7 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 					type = Resource::Drones;
 				else
 					type = Resource::Energy;
-				entity = World::alloc<CollectibleEntity>(type);
+				entity = World::alloc<CollectibleEntity>(type, s16(Json::get_s32(element, "amount")));
 			}
 		}
 		else if (strcmp(Json::get_string(element, "name"), "terminal") == 0)

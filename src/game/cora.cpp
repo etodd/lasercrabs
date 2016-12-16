@@ -509,16 +509,13 @@ namespace Cora
 
 	void variable(AssetID variable, AssetID value)
 	{
-		Game::save.variables[variable] = value;
+		vi_assert(false); // this is gone now
 	}
 
 	AssetID variable(AssetID variable)
 	{
-		auto i = Game::save.variables.find(variable);
-		if (i == Game::save.variables.end())
-			return AssetNull;
-		else
-			return i->second;
+		vi_assert(false); // this is gone now
+		return AssetNull;
 	}
 
 	void execute(ID node_id, r32 time = 0.0f)

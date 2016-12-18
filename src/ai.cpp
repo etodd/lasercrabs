@@ -9,7 +9,7 @@
 #include "recast/Detour/Include/DetourCommon.h"
 #include "data/priority_queue.h"
 #include "mersenne/mersenne-twister.h"
-
+#include "render/ui.h"
 #include "asset/shader.h"
 
 namespace VI

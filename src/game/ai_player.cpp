@@ -12,6 +12,7 @@
 #endif
 #include "net.h"
 #include "team.h"
+#include "player.h"
 
 namespace VI
 {

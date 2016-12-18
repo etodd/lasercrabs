@@ -17,7 +17,7 @@ void Physics::loop(PhysicsSwapper* swapper)
 	PhysicsSync* data = swapper->swap<SwapType_Read>();
 	while (!data->quit)
 	{
-		btWorld->stepSimulation(vi_min(data->time.delta, 0.1f), 2, data->timestep);
+		btWorld->stepSimulation(vi_min(data->time.delta, 0.1f), 3, data->timestep);
 		data = swapper->swap<SwapType_Read>();
 	}
 }
@@ -32,6 +32,7 @@ void Physics::sync_static()
 			btTransform transform;
 			i.item()->get<Transform>()->get_bullet(transform);
 			body->setWorldTransform(transform);
+			body->setInterpolationWorldTransform(transform);
 		}
 	}
 }
@@ -92,7 +93,8 @@ RigidBody::RigidBody(Type type, const Vec3& size, r32 mass, s16 group, s16 mask,
 	btShape(),
 	mesh_id(mesh_id),
 	restitution(),
-	ccd()
+	ccd(),
+	has_constraints()
 {
 }
 
@@ -107,7 +109,8 @@ RigidBody::RigidBody()
 	btShape(),
 	mesh_id(IDNull),
 	restitution(),
-	ccd()
+	ccd(),
+	has_constraints()
 {
 }
 
@@ -321,6 +324,9 @@ void RigidBody::instantiate_constraint(Constraint* constraint, ID id)
 
 	constraint->btPointer->setUserConstraintId(id);
 
+	constraint->a.ref()->has_constraints = true;
+	constraint->b.ref()->has_constraints = true;
+
 	Physics::btWorld->addConstraint(constraint->btPointer);
 }
 
@@ -356,13 +362,16 @@ void RigidBody::remove_constraint(ID id)
 void RigidBody::activate_linked()
 {
 	btBody->activate(true);
-	for (auto i = global_constraints.iterator(); !i.is_last(); i.next())
+	if (has_constraints)
 	{
-		Constraint* constraint = i.item();
-		if (constraint->a.ref() == this)
-			constraint->b.ref()->btBody->activate(true);
-		else if (constraint->b.ref() == this)
-			constraint->a.ref()->btBody->activate(true);
+		for (auto i = global_constraints.iterator(); !i.is_last(); i.next())
+		{
+			Constraint* constraint = i.item();
+			if (constraint->a.ref() == this)
+				constraint->b.ref()->btBody->activate(true);
+			else if (constraint->b.ref() == this)
+				constraint->a.ref()->btBody->activate(true);
+		}
 	}
 }
 

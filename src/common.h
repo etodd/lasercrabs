@@ -2,7 +2,6 @@
 
 #include "data/entity.h"
 #include "physics.h"
-#include <bullet/src/btBulletDynamicsCommon.h>
 #include "ai.h"
 
 namespace VI

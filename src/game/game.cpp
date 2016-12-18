@@ -46,6 +46,7 @@
 #include "parkour.h"
 #include "overworld.h"
 #include "team.h"
+#include "load.h"
 
 #if DEBUG
 	#define DEBUG_NAV_MESH 0
@@ -398,10 +399,11 @@ void Game::update(const Update& update_in)
 		LerpTo<Vec3>::update_active(u);
 		Delay::update_active(u);
 
-		if (level.local)
+		for (auto i = TramRunner::list.iterator(); !i.is_last(); i.next())
 		{
-			for (auto i = TramRunner::list.iterator(); !i.is_last(); i.next())
-				i.item()->update(u);
+			if (level.local)
+				i.item()->update_server(u);
+			i.item()->update_client(u);
 		}
 
 		Physics::sync_static();

@@ -1,16 +1,7 @@
 #pragma once
 
 #include "data/entity.h"
-#include "data/components.h"
-#include "load.h"
-#include "physics.h"
-#include "recast/Detour/Include/DetourNavMesh.h"
 #include "ai.h"
-#include <bullet/src/BulletDynamics/ConstraintSolver/btPoint2PointConstraint.h>
-#include "render/ui.h"
-#include "common.h"
-#include "ease.h"
-#include "player.h"
 
 namespace VI
 {
@@ -22,8 +13,10 @@ namespace Net
 }
 
 struct PlayerManager;
+struct Transform;
+struct RigidBody;
 
-void explosion(const Vec3&, const Quat&);
+void spawn_sparks(const Vec3&, const Quat&, Transform* = nullptr);
 
 struct AwkEntity : public Entity
 {
@@ -64,6 +57,12 @@ struct Health : public ComponentType<Health>
 struct EnergyPickupEntity : public Entity
 {
 	EnergyPickupEntity(const Vec3&, AI::Team = AI::TeamNone);
+};
+
+struct TargetEvent
+{
+	Entity* hit_by;
+	Entity* target;
 };
 
 struct EnergyPickup : public ComponentType<EnergyPickup>
@@ -255,14 +254,14 @@ struct Shockwave
 	enum class Type
 	{
 		Light,
+		Wave,
 		Alpha,
 		count,
 	};
 
 	static PinArray<Shockwave, MAX_ENTITIES> list;
 
-	static void add(const Vec3&, r32, r32, Transform* = nullptr);
-	static void add_alpha(const Vec3&, r32, r32, Transform* = nullptr);
+	static void add(const Vec3&, r32, r32, Type, Transform* = nullptr);
 	static void draw_alpha(const RenderParams&);
 
 	Vec3 pos;
@@ -354,12 +353,6 @@ struct Grenade : public ComponentType<Grenade>
 
 	void update_server(const Update&);
 	static void update_client_all(const Update&);
-};
-
-struct TargetEvent
-{
-	Entity* hit_by;
-	Entity* target;
 };
 
 struct Target : public ComponentType<Target>
@@ -480,7 +473,8 @@ struct TramRunner : public ComponentType<TramRunner>
 
 	void awake() {}
 
-	void update(const Update&);
+	void update_server(const Update&);
+	void update_client(const Update&);
 
 	void set(r32);
 };

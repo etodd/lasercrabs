@@ -15,6 +15,8 @@
 #include "render/particles.h"
 #include "mersenne/mersenne-twister.h"
 #include "team.h"
+#include "data/components.h"
+#include "player.h"
 
 namespace VI
 {
@@ -34,6 +36,7 @@ namespace VI
 #define JUMP_GRACE_PERIOD 0.3f
 
 #define MIN_SLIDE_TIME 0.5f
+#define ANIMATION_SPEED_MULTIPLIER 2.0f
 
 Traceur::Traceur(const Vec3& pos, const Quat& quat, AI::Team team)
 {
@@ -75,14 +78,14 @@ void Parkour::awake()
 	animator->layers[1].blend_time = 0.2f;
 	animator->layers[2].loop = true;
 	animator->layers[3].loop = false;
-	link<&Parkour::footstep>(animator->trigger(Asset::Animation::character_walk, 0.3375f));
-	link<&Parkour::footstep>(animator->trigger(Asset::Animation::character_walk, 0.75f));
-	link<&Parkour::footstep>(animator->trigger(Asset::Animation::character_run, 0.216f));
-	link<&Parkour::footstep>(animator->trigger(Asset::Animation::character_run, 0.476f));
-	link<&Parkour::footstep>(animator->trigger(Asset::Animation::character_wall_run_left, 0.216f));
-	link<&Parkour::footstep>(animator->trigger(Asset::Animation::character_wall_run_left, 0.476f));
-	link<&Parkour::footstep>(animator->trigger(Asset::Animation::character_wall_run_right, 0.216f));
-	link<&Parkour::footstep>(animator->trigger(Asset::Animation::character_wall_run_right, 0.476f));
+	link<&Parkour::footstep>(animator->trigger(Asset::Animation::character_walk, 0.0f));
+	link<&Parkour::footstep>(animator->trigger(Asset::Animation::character_walk, 0.5f));
+	link<&Parkour::footstep>(animator->trigger(Asset::Animation::character_run, 0.5f));
+	link<&Parkour::footstep>(animator->trigger(Asset::Animation::character_run, 0.0f));
+	link<&Parkour::footstep>(animator->trigger(Asset::Animation::character_wall_run_left, 0.5f));
+	link<&Parkour::footstep>(animator->trigger(Asset::Animation::character_wall_run_left, 0.0f));
+	link<&Parkour::footstep>(animator->trigger(Asset::Animation::character_wall_run_right, 0.5f));
+	link<&Parkour::footstep>(animator->trigger(Asset::Animation::character_wall_run_right, 0.0f));
 	link<&Parkour::pickup_animation_complete>(animator->trigger(Asset::Animation::character_pickup, 3.5f));
 	link_arg<r32, &Parkour::land>(get<Walker>()->land);
 	link_arg<Entity*, &Parkour::killed>(get<Health>()->killed);
@@ -144,7 +147,7 @@ void Parkour::footstep()
 		Audio::post_global_event(AK::EVENTS::PLAY_FOOTSTEP, base_pos);
 
 		RigidBody* support = get<Walker>()->support.ref();
-		Shockwave::add(base_pos, 1.0f, 5.0f, support ? support->get<Transform>() : nullptr);
+		Shockwave::add(base_pos, 1.0f, 5.0f, Shockwave::Type::Wave, support ? support->get<Transform>() : nullptr);
 	}
 }
 
@@ -214,9 +217,9 @@ b8 Parkour::wallrun(const Update& u, RigidBody* wall, const Vec3& relative_wall_
 		// Update animation speed
 		Animator::Layer* layer = &get<Animator>()->layers[0];
 		if (wall_run_state == WallRunState::Forward)
-			layer->speed = vi_max(0.0f, vertical_velocity_diff / get<Walker>()->speed);
+			layer->speed = vi_max(0.0f, ANIMATION_SPEED_MULTIPLIER * (vertical_velocity_diff / get<Walker>()->speed));
 		else
-			layer->speed = horizontal_velocity_diff.length() / get<Walker>()->speed;
+			layer->speed = ANIMATION_SPEED_MULTIPLIER * (horizontal_velocity_diff.length() / get<Walker>()->speed);
 
 		// Try to climb stuff while we're wall-running
 		if (try_parkour())
@@ -376,11 +379,6 @@ b8 Parkour::net_msg(Net::StreamRead* p, Net::MessageSource src)
 void Parkour::update(const Update& u)
 {
 	fsm.time += u.time.delta;
-	get<SkinnedModel>()->offset.make_transform(
-		Vec3(0, get<Walker>()->capsule_height() * -0.5f - WALKER_SUPPORT_HEIGHT, 0),
-		Vec3(1.0f, 1.0f, 1.0f),
-		Quat::euler(0, get<Walker>()->rotation + PI * 0.5f, 0) * Quat::euler(0, 0, lean * -1.5f)
-	);
 
 	if (fsm.current == State::WallRun && fsm.time > JUMP_GRACE_PERIOD && get<Walker>()->support.ref())
 	{
@@ -671,10 +669,7 @@ void Parkour::update(const Update& u)
 		else if (wall_run_state == WallRunState::Right)
 			layer0->play(Asset::Animation::character_wall_run_right);
 		else
-		{
-			// todo: wall run straight animation
-			layer0->play(Asset::Animation::character_run);
-		}
+			layer0->play(Asset::Animation::character_wall_run_straight);
 	}
 	else if (get<Walker>()->support.ref())
 	{
@@ -682,7 +677,7 @@ void Parkour::update(const Update& u)
 		{
 			// walking/running
 			r32 net_speed = vi_max(get<Walker>()->net_speed, WALK_SPEED * 0.5f);
-			layer0->speed = 0.9f * (net_speed > WALK_SPEED ? LMath::lerpf((net_speed - WALK_SPEED) / RUN_SPEED, 0.75f, 1.0f) : (net_speed / WALK_SPEED));
+			layer0->speed = ANIMATION_SPEED_MULTIPLIER * (net_speed > WALK_SPEED ? LMath::lerpf((net_speed - WALK_SPEED) / RUN_SPEED, 0.75f, 1.0f) : (net_speed / WALK_SPEED));
 			AssetID new_anim = net_speed > WALK_SPEED ? Asset::Animation::character_run : Asset::Animation::character_walk;
 			if (new_anim != layer0->animation)
 			{
@@ -748,6 +743,12 @@ void Parkour::update(const Update& u)
 			ParkourNet::sync_state(this);
 		last_frame_state = fsm.current;
 	}
+
+	get<SkinnedModel>()->offset.make_transform(
+		Vec3(0, get<Walker>()->capsule_height() * -0.5f - WALKER_SUPPORT_HEIGHT, 0),
+		Vec3(1.0f, 1.0f, 1.0f),
+		Quat::euler(0, get<Walker>()->rotation + PI * 0.5f, 0) * Quat::euler(0, 0, lean * -1.5f)
+	);
 }
 
 void Parkour::pickup_animation_complete()

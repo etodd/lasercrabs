@@ -20,6 +20,7 @@
 #include "net_serialize.h"
 #include "ai_player.h"
 #include "overworld.h"
+#include "player.h"
 
 #define CREDITS_FLASH_TIME 0.5f
 

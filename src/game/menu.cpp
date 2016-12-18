@@ -17,6 +17,7 @@
 #include "net.h"
 #include "scripts.h"
 #include "overworld.h"
+#include "ease.h"
 
 namespace VI
 {

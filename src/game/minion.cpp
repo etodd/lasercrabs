@@ -20,6 +20,8 @@
 #include "net.h"
 #include "team.h"
 #include "parkour.h"
+#include "data/components.h"
+#include "common.h"
 
 #define WALK_SPEED 2.5f
 #define ROTATION_SPEED 4.0f
@@ -74,8 +76,8 @@ void MinionCommon::awake()
 	link_arg<Entity*, &MinionCommon::killed>(get<Health>()->killed);
 
 	Animator* animator = get<Animator>();
-	link<&MinionCommon::footstep>(animator->trigger(Asset::Animation::character_walk, 0.3375f));
-	link<&MinionCommon::footstep>(animator->trigger(Asset::Animation::character_walk, 0.75f));
+	link<&MinionCommon::footstep>(animator->trigger(Asset::Animation::character_walk, 0.0f));
+	link<&MinionCommon::footstep>(animator->trigger(Asset::Animation::character_walk, 0.5f));
 	link<&MinionCommon::melee_damage>(animator->trigger(Asset::Animation::character_melee, 0.875f));
 }
 

@@ -26,6 +26,7 @@
 #include "assimp/contrib/zlib/zlib.h"
 #include "console.h"
 #include "asset/armature.h"
+#include "load.h"
 
 #define DEBUG_MSG 0
 #define DEBUG_ENTITY 0
@@ -1871,16 +1872,16 @@ void state_frame_apply(const StateFrame& frame, const StateFrame& frame_last, co
 							Vec3 abs_pos;
 							Quat abs_rot;
 							transform_absolute(frame, index, &abs_pos, &abs_rot);
+
 							btTransform world_transform(abs_rot, abs_pos);
+							btTransform old_transform = btBody->getWorldTransform();
 							btBody->setWorldTransform(world_transform);
 							btBody->setInterpolationWorldTransform(world_transform);
-							if (frame_next && !equal_states_transform(s, frame_next->transforms[index]))
-							{
-								if (btBody->isStaticOrKinematicObject())
-									body->activate_linked();
-								else
-									btBody->activate(true);
-							}
+							if ((world_transform.getOrigin() - old_transform.getOrigin()).length2() > 0.01f * 0.01f
+								|| Quat::angle(world_transform.getRotation(), old_transform.getRotation()) > 0.1f)
+								body->activate_linked();
+							else
+								body->btBody->setActivationState(ISLAND_SLEEPING);
 						}
 
 						if (frame_next && t->has<Target>())

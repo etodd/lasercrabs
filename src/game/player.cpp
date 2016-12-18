@@ -38,6 +38,7 @@
 #include "team.h"
 #include "overworld.h"
 #include "utf8/utf8.h"
+#include "load.h"
 
 namespace VI
 {
@@ -1828,6 +1829,7 @@ b8 PlayerControlHuman::input_enabled() const
 		&& (ui_mode == PlayerHuman::UIMode::PvpDefault || ui_mode == PlayerHuman::UIMode::ParkourDefault)
 		&& !Cora::has_focus()
 		&& !Team::game_over
+		&& !Menu::dialog_callback[player.ref()->gamepad]
 		&& !interactable.ref();
 }
 
@@ -2079,21 +2081,13 @@ void player_confirm_spend_hack_kit(s8 gamepad)
 		if (player->gamepad == gamepad)
 		{
 			vi_assert(Game::save.resources[s32(Resource::HackKits)] > 0);
-			player->sudoku.reset();
-			i.item()->sudoku_active = true;
-			Game::save.resources[s32(Resource::HackKits)]--;
-			break;
-		}
-	}
-}
-
-void player_cancel_spend_hack_kit(s8 gamepad)
-{
-	for (auto i = PlayerControlHuman::list.iterator(); !i.is_last(); i.next())
-	{
-		if (i.item()->player.ref()->gamepad == gamepad)
-		{
-			i.item()->interactable = nullptr;
+			i.item()->interactable = Interactable::closest(i.item()->get<Transform>()->absolute_pos());
+			if (i.item()->interactable.ref())
+			{
+				player->sudoku.reset();
+				i.item()->sudoku_active = true;
+				Game::save.resources[s32(Resource::HackKits)]--;
+			}
 			break;
 		}
 	}
@@ -2620,8 +2614,9 @@ void PlayerControlHuman::update(const Update& u)
 						else
 						{
 							// locked, need to hack first
+							interactable = nullptr;
 							if (Game::save.resources[s32(Resource::HackKits)] > 0)
-								Menu::dialog_with_cancel(gamepad, &player_confirm_spend_hack_kit, &player_cancel_spend_hack_kit, _(strings::confirm_spend), 1, _(strings::hack_kits));
+								Menu::dialog(gamepad, &player_confirm_spend_hack_kit, _(strings::confirm_spend), 1, _(strings::hack_kits));
 							else // not enough
 								Menu::dialog(gamepad, &Menu::dialog_no_action, _(strings::insufficient_resource), 1, _(strings::hack_kits));
 						}

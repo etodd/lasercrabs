@@ -357,6 +357,7 @@ void Walker::crouch(b8 c)
 	RigidBody* body = get<RigidBody>();
 	if (body->size.y != desired_height)
 	{
+		body->get<Transform>()->pos.y += (desired_height - body->size.y) * 0.5f;
 		body->size.y = desired_height;
 		body->rebuild();
 		walker_set_rigid_body_props(body->btBody);

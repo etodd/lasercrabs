@@ -226,11 +226,13 @@ void render_point_lights(const RenderParams& render_params, s32 type_mask, const
 		render_point_light(render_params, light->get<Transform>()->to_world(light->offset), light->radius, light->type, light->color, light->team);
 	}
 
-	if ((s32(PointLight::Type::Shockwave) & type_mask) && (RENDER_MASK_DEFAULT & render_params.camera->mask))
+	if (RENDER_MASK_DEFAULT & render_params.camera->mask)
 	{
 		for (auto i = Shockwave::list.iterator(); !i.is_last(); i.next())
 		{
-			if (i.item()->type == Shockwave::Type::Light)
+			if (i.item()->type == Shockwave::Type::Light && s32(PointLight::Type::Normal) & type_mask)
+				render_point_light(render_params, i.item()->absolute_pos(), i.item()->radius(), PointLight::Type::Normal, Vec3(i.item()->opacity()), AI::TeamNone);
+			else if (i.item()->type == Shockwave::Type::Wave && s32(PointLight::Type::Shockwave) & type_mask)
 				render_point_light(render_params, i.item()->absolute_pos(), i.item()->radius(), PointLight::Type::Shockwave, Vec3(i.item()->opacity()), AI::TeamNone);
 		}
 	}

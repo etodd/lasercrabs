@@ -115,6 +115,7 @@ struct RigidBody : public ComponentType<RigidBody>
 	s16 collision_group;
 	s16 collision_filter;
 	b8 ccd; // continuous collision detection
+	b8 has_constraints;
 
 	RigidBody(Type, const Vec3&, r32, s16, s16, AssetID = AssetNull);
 	RigidBody();

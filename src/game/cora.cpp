@@ -25,6 +25,7 @@
 #include <unordered_map>
 #include "utf8/utf8.h"
 #include "team.h"
+#include "ease.h"
 
 namespace VI
 {

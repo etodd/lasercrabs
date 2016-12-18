@@ -26,6 +26,9 @@
 #include "utf8/utf8.h"
 #include "noise.h"
 #include "team.h"
+#include "player.h"
+#include "data/components.h"
+#include "ease.h"
 
 namespace VI
 {

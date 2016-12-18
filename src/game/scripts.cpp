@@ -1,4 +1,5 @@
 #include "scripts.h"
+#include "mersenne/mersenne-twister.h"
 #include "entities.h"
 #include "common.h"
 #include "game.h"
@@ -16,6 +17,7 @@
 #include "asset/armature.h"
 #include "data/animator.h"
 #include "overworld.h"
+#include "player.h"
 
 namespace VI
 {
@@ -310,6 +312,7 @@ namespace tutorial
 	struct Data
 	{
 		TutorialState state;
+		Ref<Transform> sparks;
 	};
 
 	Data* data;
@@ -345,8 +348,9 @@ namespace tutorial
 		{
 			player->get<Awk>()->ability_spawned.link(&ability_spawned);
 
-			if (data->state == TutorialState::Start)
+			if (s32(data->state) <= s32(TutorialState::Start))
 			{
+				data->state = TutorialState::Start;
 				Cora::text_clear();
 				Cora::text_schedule(1.0f, _(strings::tut_start));
 			}
@@ -355,7 +359,16 @@ namespace tutorial
 
 	void update(const Update& u)
 	{
-		if (data->state == TutorialState::Upgrade)
+		// sparks on broken door
+		if (mersenne::randf_co() < u.time.delta / 0.5f)
+			spawn_sparks(data->sparks.ref()->to_world(Vec3(-1.5f + mersenne::randf_co() * 3.0f, 0, 0)), Quat::look(Vec3(0, -1, 0)));
+
+		if (data->state != TutorialState::Done && Team::game_over)
+		{
+			data->state = TutorialState::Done;
+			Cora::text_clear();
+		}
+		else if (data->state == TutorialState::Upgrade)
 		{
 			PlayerManager* manager = PlayerHuman::list.iterator().item()->get<PlayerManager>();
 			for (s32 i = 0; i < s32(Upgrade::count); i++)
@@ -368,11 +381,6 @@ namespace tutorial
 					break;
 				}
 			}
-		}
-		else if (data->state != TutorialState::Done && Team::game_over)
-		{
-			data->state = TutorialState::Done;
-			Cora::text_clear();
 		}
 	}
 
@@ -419,6 +427,7 @@ namespace tutorial
 
 		entities.find("slide_trigger")->get<PlayerTrigger>()->entered.link(&slide_trigger);
 		entities.find("slide_success")->get<PlayerTrigger>()->entered.link(&slide_success);
+		data->sparks = entities.find("sparks")->get<Transform>();
 		data->state = Game::level.mode == Game::Mode::Parkour ? TutorialState::ParkourStart : TutorialState::Start;
 
 		Game::updates.add(&update);

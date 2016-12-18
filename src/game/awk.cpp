@@ -22,6 +22,7 @@
 #include "net.h"
 #include "net_serialize.h"
 #include "team.h"
+#include "load.h"
 
 namespace VI
 {
@@ -241,7 +242,7 @@ void client_hit_effects(Awk* awk, Entity* target)
 		);
 	}
 
-	Shockwave::add(pos, 8.0f, 1.5f);
+	Shockwave::add(pos, 8.0f, 1.5f, Shockwave::Type::Wave);
 
 	// controller vibration, etc.
 	awk->hit.fire(target);
@@ -449,7 +450,7 @@ b8 Awk::net_msg(Net::StreamRead* p, Net::MessageSource src)
 
 					// effects
 					particle_trail(my_pos, dir_normalized, (pos - my_pos).length());
-					Shockwave::add(pos + rot * Vec3(0, 0, ROPE_SEGMENT_LENGTH), 8.0f, 1.5f);
+					Shockwave::add(pos + rot * Vec3(0, 0, ROPE_SEGMENT_LENGTH), 8.0f, 1.5f, Shockwave::Type::Wave);
 
 					break;
 				}
@@ -472,7 +473,7 @@ b8 Awk::net_msg(Net::StreamRead* p, Net::MessageSource src)
 
 					// effects
 					particle_trail(my_pos, dir_normalized, (pos - my_pos).length());
-					Shockwave::add(pos + rot * Vec3(0, 0, AWK_RADIUS), 8.0f, 1.5f);
+					Shockwave::add(pos + rot * Vec3(0, 0, AWK_RADIUS), 8.0f, 1.5f, Shockwave::Type::Wave);
 
 					break;
 				}
@@ -506,7 +507,7 @@ b8 Awk::net_msg(Net::StreamRead* p, Net::MessageSource src)
 
 					// effects
 					particle_trail(my_pos, dir_normalized, (pos - my_pos).length());
-					Shockwave::add(npos, 8.0f, 1.5f);
+					Shockwave::add(npos, 8.0f, 1.5f, Shockwave::Type::Wave);
 
 					Audio::post_global_event(AK::EVENTS::PLAY_MINION_SPAWN, npos);
 					break;
@@ -523,7 +524,7 @@ b8 Awk::net_msg(Net::StreamRead* p, Net::MessageSource src)
 
 					// effects
 					particle_trail(my_pos, dir_normalized, (pos - my_pos).length());
-					Shockwave::add(npos, 8.0f, 1.5f);
+					Shockwave::add(npos, 8.0f, 1.5f, Shockwave::Type::Wave);
 
 					break;
 				}
@@ -570,7 +571,7 @@ b8 Awk::net_msg(Net::StreamRead* p, Net::MessageSource src)
 
 					// effects
 					particle_trail(my_pos, dir_normalized, (pos - my_pos).length());
-					Shockwave::add(pos + rot * Vec3(0, 0, AWK_RADIUS), 8.0f, 1.5f);
+					Shockwave::add(pos + rot * Vec3(0, 0, AWK_RADIUS), 8.0f, 1.5f, Shockwave::Type::Wave);
 
 					break;
 				}
@@ -1193,11 +1194,12 @@ b8 Awk::go(const Vec3& dir)
 
 	if (current_ability == Ability::None)
 	{
-		if (!has<PlayerControlHuman>() || get<PlayerControlHuman>()->local())
 		{
-			// if this is a local player or bot, check to make sure we can actually do this
-			// if it's a remote player, just assume it's okay
-			if (!can_shoot(dir, nullptr, nullptr))
+			Net::StateFrame* state_frame = nullptr;
+			Net::StateFrame state_frame_data;
+			if (awk_state_frame(this, &state_frame_data))
+				state_frame = &state_frame_data;
+			if (!can_shoot(dir, nullptr, nullptr, state_frame))
 				return false;
 		}
 		AwkNet::start_flying(this, dir_normalized);

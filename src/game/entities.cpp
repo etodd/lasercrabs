@@ -1,5 +1,6 @@
 #include "entities.h"
 #include "data/animator.h"
+#include "data/components.h"
 #include "render/skinned_model.h"
 #include "walker.h"
 #include "asset/armature.h"
@@ -28,6 +29,9 @@
 #include "team.h"
 #include "parkour.h"
 #include "overworld.h"
+#include "common.h"
+#include "player.h"
+#include "load.h"
 
 namespace VI
 {
@@ -62,6 +66,21 @@ Health::Health(s8 hp, s8 hp_max, s8 shield, s8 shield_max)
 	killed(),
 	regen_timer()
 {
+}
+
+void spawn_sparks(const Vec3& pos, const Quat& rot, Transform* parent)
+{
+	for (s32 i = 0; i < 15; i++)
+	{
+		Particles::sparks.add
+		(
+			pos,
+			rot * Vec3(mersenne::randf_oo() * 2.0f - 1.0f, mersenne::randf_oo() * 2.0f - 1.0f, mersenne::randf_oo()) * 10.0f,
+			Vec4(1, 1, 1, 1)
+		);
+	}
+
+	Shockwave::add(pos, 3.0f, 0.25f, Shockwave::Type::Light, parent);
 }
 
 template<typename Stream> b8 serialize_health_event(Stream* p, Health* h, HealthEvent* e)
@@ -771,7 +790,7 @@ void Sensor::update_all_client(const Update& u)
 		{
 			r32 offset = i.index * sensor_shockwave_interval * 0.3f;
 			if ((s32)((time + offset) / sensor_shockwave_interval) != (s32)((last_time + offset) / sensor_shockwave_interval))
-				Shockwave::add(i.item()->get<Transform>()->absolute_pos(), 10.0f, 1.5f);
+				Shockwave::add(i.item()->get<Transform>()->absolute_pos(), 10.0f, 1.5f, Shockwave::Type::Wave);
 		}
 	}
 }
@@ -1488,7 +1507,7 @@ b8 ParticleEffect::net_msg(Net::StreamRead* p)
 	if (t == Type::Grenade || t == Type::Explosion)
 	{
 		Audio::post_global_event(AK::EVENTS::PLAY_EXPLOSION, pos);
-		Shockwave::add_alpha(pos, 8.0f, 0.35f);
+		Shockwave::add(pos, 8.0f, 0.35f, Shockwave::Type::Alpha);
 	}
 
 	if (t == Type::Grenade)
@@ -1518,7 +1537,7 @@ b8 ParticleEffect::net_msg(Net::StreamRead* p)
 	}
 
 	if (t == Type::Impact)
-		Shockwave::add(pos, GRENADE_RANGE, 1.5f);
+		Shockwave::add(pos, GRENADE_RANGE, 1.5f, Shockwave::Type::Wave);
 
 	for (s32 i = 0; i < 50; i++)
 	{
@@ -1691,7 +1710,7 @@ void Grenade::update_client_all(const Update& u)
 			Vec3 me = i.item()->get<Transform>()->absolute_pos();
 			const r32 interval = 3.0f;
 			if (s32(Game::time.total / interval) != s32((Game::time.total - u.time.delta) / interval))
-				Shockwave::add(me, GRENADE_RANGE, 1.5f);
+				Shockwave::add(me, GRENADE_RANGE, 1.5f, Shockwave::Type::Wave);
 			AI::Team my_team = i.item()->team();
 			b8 countdown = false;
 			for (auto i = Health::list.iterator(); !i.is_last(); i.next())
@@ -2089,31 +2108,20 @@ WaterEntity::WaterEntity(AssetID mesh_id)
 
 PinArray<Shockwave, MAX_ENTITIES> Shockwave::list;
 
-void Shockwave::add(const Vec3& pos, r32 radius, r32 duration, Transform* parent)
+void Shockwave::add(const Vec3& pos, r32 radius, r32 duration, Type t, Transform* parent)
 {
 	Shockwave* s = list.add();
 	new (s) Shockwave();
 	s->pos = parent ? parent->to_local(pos) : pos;
 	s->max_radius = radius;
 	s->duration = duration;
-	s->type = Type::Light;
-	s->parent = parent;
-}
-
-void Shockwave::add_alpha(const Vec3& pos, r32 radius, r32 duration, Transform* parent)
-{
-	Shockwave* s = list.add();
-	new (s) Shockwave();
-	s->pos = parent ? parent->to_local(pos) : pos;
-	s->max_radius = radius;
-	s->duration = duration;
-	s->type = Type::Alpha;
+	s->type = t;
 	s->parent = parent;
 }
 
 void Shockwave::draw_alpha(const RenderParams& params)
 {
-	// "Light" type shockwaves get rendered in loop.h, not here
+	// "Light" and "Wave" type shockwaves get rendered in loop.h, not here
 	const Mesh* mesh = Loader::mesh_permanent(Asset::Mesh::sphere_highres);
 	Loader::shader_permanent(Asset::Shader::fresnel);
 
@@ -2155,9 +2163,14 @@ r32 Shockwave::radius() const
 {
 	switch (type)
 	{
-		case Type::Light:
+		case Type::Wave:
 		{
 			return Ease::cubic_out(timer / duration, 0.0f, max_radius);
+		}
+		case Type::Light:
+		{
+			r32 blend = Ease::cubic_in<r32>(timer / duration);
+			return LMath::lerpf(blend, max_radius * 0.25f, max_radius);
 		}
 		case Type::Alpha:
 		{
@@ -2177,6 +2190,11 @@ r32 Shockwave::opacity() const
 	switch (type)
 	{
 		case Type::Light:
+		{
+			r32 blend = Ease::cubic_in<r32>(timer / duration);
+			return LMath::lerpf(blend, 1.0f, 0.0f);
+		}
+		case Type::Wave:
 		{
 			r32 fade_radius = max_radius * (2.0f / 15.0f);
 			r32 fade = 1.0f - vi_max(0.0f, ((radius() - (max_radius - fade_radius)) / fade_radius));
@@ -2576,7 +2594,7 @@ namespace TramNet
 	b8 send(Tram*, Message);
 };
 
-void TramRunner::update(const Update& u)
+void TramRunner::update_server(const Update& u)
 {
 	const r32 ACCEL_TIME = 5.0f;
 	const r32 ACCEL_MAX = TRAM_SPEED_MAX / ACCEL_TIME;
@@ -2634,6 +2652,28 @@ void TramRunner::update(const Update& u)
 			velocity = vi_max(0.01f, velocity - dv_half);
 		else
 			velocity = vi_min(-0.01f, velocity + dv_half);
+	}
+}
+
+void TramRunner::update_client(const Update& u)
+{
+	if (get<RigidBody>()->btBody->isActive() && mersenne::randf_co() < u.time.delta / 3.0f)
+	{
+		b8 left = mersenne::randf_co() < 0.5f;
+		Vec3 pos = get<Transform>()->to_world(Vec3(left ? -0.35f : 0.35f, 0.45f, 0));
+
+		Quat rot = get<Transform>()->absolute_rot() * Quat::euler(0, (left ? PI * -0.5f : PI * 0.5f), 0);
+		for (s32 i = 0; i < 15; i++)
+		{
+			Particles::sparks.add
+			(
+				pos,
+				rot * Vec3(mersenne::randf_oo() * 2.0f - 1.0f, mersenne::randf_oo() * 2.0f - 1.0f, mersenne::randf_oo()) * 10.0f,
+				Vec4(1, 1, 1, 1)
+			);
+		}
+
+		Shockwave::add(pos + Vec3(0, -0.2f, 0), 3.0f, 0.25f, Shockwave::Type::Light, get<Transform>());
 	}
 }
 

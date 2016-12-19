@@ -12,8 +12,6 @@ struct cJSON;
 namespace VI
 {
 
-#define max_user_data_path_length 1024
-
 struct Loader
 {
 	enum AssetType { AssetNone, AssetTransient, AssetPermanent };

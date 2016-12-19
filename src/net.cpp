@@ -392,7 +392,7 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 			serialize_r32_range(p, l->speed, 0, 8, 16);
 			serialize_asset(p, l->animation, Loader::animation_count);
 			serialize_asset(p, l->last_animation, Loader::animation_count);
-			serialize_bool(p, l->loop);
+			serialize_enum(p, Animator::Behavior, l->behavior);
 		}
 		serialize_asset(p, a->armature, Loader::armature_count);
 		serialize_enum(p, Animator::OverrideMode, a->override_mode);

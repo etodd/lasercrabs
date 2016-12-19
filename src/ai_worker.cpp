@@ -534,13 +534,13 @@ void NavMeshProcess::process(struct dtNavMeshCreateParams* params, u8* polyAreas
 
 void pathfind(const Vec3& a, const Vec3& b, dtPolyRef start_poly, dtPolyRef end_poly, Path* path)
 {
-	dtPolyRef path_polys[MAX_PATH_LENGTH];
-	dtPolyRef path_parents[MAX_PATH_LENGTH];
-	u8 path_straight_flags[MAX_PATH_LENGTH];
-	dtPolyRef path_straight_polys[MAX_PATH_LENGTH];
+	dtPolyRef path_polys[AI_MAX_PATH_LENGTH];
+	dtPolyRef path_parents[AI_MAX_PATH_LENGTH];
+	u8 path_straight_flags[AI_MAX_PATH_LENGTH];
+	dtPolyRef path_straight_polys[AI_MAX_PATH_LENGTH];
 	s32 path_poly_count;
 
-	nav_mesh_query->findPath(start_poly, end_poly, (r32*)&a, (r32*)&b, &default_query_filter, path_polys, &path_poly_count, MAX_PATH_LENGTH);
+	nav_mesh_query->findPath(start_poly, end_poly, (r32*)&a, (r32*)&b, &default_query_filter, path_polys, &path_poly_count, AI_MAX_PATH_LENGTH);
 	if (path_poly_count == 0)
 		path->length = 0;
 	else
@@ -560,7 +560,7 @@ void pathfind(const Vec3& a, const Vec3& b, dtPolyRef start_poly, dtPolyRef end_
 		(
 			(const r32*)&a, (const r32*)&end, path_polys, path_poly_count,
 			(r32*)path->data, path_straight_flags,
-			path_straight_polys, &path_length, MAX_PATH_LENGTH, 0
+			path_straight_polys, &path_length, AI_MAX_PATH_LENGTH, 0
 		);
 		path->length = u16(path_length);
 
@@ -614,33 +614,55 @@ void loop()
 				AssetID level_id;
 				sync_in.read(&level_id);
 
-				s32 data_length;
-				sync_in.read(&data_length);
-#if DEBUG_AI
-				vi_debug("%d bytes", data_length);
-#endif
+				FILE* f = nullptr;
+				s32 data_length = 0;
+				{
+					char path[MAX_PATH_LENGTH];
+					s32 path_length;
+					sync_in.read(&path_length);
+					vi_assert(path_length < MAX_PATH_LENGTH);
+					sync_in.read(path, path_length);
+					sync_in.unlock();
+					path[path_length] = '\0';
+
+					if (path_length > 0)
+					{
+						f = fopen(path, "rb");
+						if (!f)
+							fprintf(stderr, "Can't open nav file '%s'\n", path);
+
+						fseek(f, 0, SEEK_END);
+						data_length = ftell(f);
+						fseek(f, 0, SEEK_SET);
+					}
+				}
+
+
 				if (data_length > 0)
 				{
+#if DEBUG_AI
+					vi_debug("%d bytes", data_length);
+#endif
 					TileCacheData tiles;
 
 					{
 						// read tile data
-						sync_in.read(&tiles.min);
-						sync_in.read(&tiles.width);
-						sync_in.read(&tiles.height);
+						fread(&tiles.min, sizeof(Vec3), 1, f);
+						fread(&tiles.width, sizeof(s32), 1, f);
+						fread(&tiles.height, sizeof(s32), 1, f);
 						tiles.cells.resize(tiles.width * tiles.height);
 						for (s32 i = 0; i < tiles.cells.length; i++)
 						{
 							TileCacheCell& cell = tiles.cells[i];
 							s32 layer_count;
-							sync_in.read(&layer_count);
+							fread(&layer_count, sizeof(s32), 1, f);
 							cell.layers.resize(layer_count);
 							for (s32 j = 0; j < layer_count; j++)
 							{
 								TileCacheLayer& layer = cell.layers[j];
-								sync_in.read(&layer.data_size);
+								fread(&layer.data_size, sizeof(s32), 1, f);
 								layer.data = (u8*)dtAlloc(layer.data_size, dtAllocHint::DT_ALLOC_PERM);
-								sync_in.read<u8>(layer.data, layer.data_size);
+								fread(layer.data, sizeof(u8), layer.data_size, f);
 							}
 						}
 					}
@@ -721,25 +743,28 @@ void loop()
 
 					// Awk nav mesh
 					{
-						sync_in.read(&awk_nav_mesh.chunk_size);
-						sync_in.read(&awk_nav_mesh.vmin);
-						sync_in.read(&awk_nav_mesh.size);
+						fread(&awk_nav_mesh.chunk_size, sizeof(r32), 1, f);
+						fread(&awk_nav_mesh.vmin, sizeof(Vec3), 1, f);
+						fread(&awk_nav_mesh.size, sizeof(Chunks<AwkNavMeshChunk>::Coord), 1, f);
 						awk_nav_mesh.resize();
 
 						for (s32 i = 0; i < awk_nav_mesh.chunks.length; i++)
 						{
 							AwkNavMeshChunk* chunk = &awk_nav_mesh.chunks[i];
 							s32 vertex_count;
-							sync_in.read(&vertex_count);
+							fread(&vertex_count, sizeof(s32), 1, f);
 							chunk->vertices.resize(vertex_count);
-							sync_in.read(chunk->vertices.data, vertex_count);
+							fread(chunk->vertices.data, sizeof(Vec3), vertex_count, f);
 							chunk->normals.resize(vertex_count);
-							sync_in.read(chunk->normals.data, vertex_count);
+							fread(chunk->normals.data, sizeof(Vec3), vertex_count, f);
 							chunk->adjacency.resize(vertex_count);
-							sync_in.read(chunk->adjacency.data, vertex_count);
+							fread(chunk->adjacency.data, sizeof(AwkNavMeshAdjacency), vertex_count, f);
 						}
 					}
 				}
+
+				if (f)
+					fclose(f);
 
 				awk_nav_mesh_key.resize(awk_nav_mesh);
 				{
@@ -749,8 +774,6 @@ void loop()
 						vertex_count += awk_nav_mesh.chunks[i].adjacency.length;
 					astar_queue.reserve(vertex_count);
 				}
-
-				sync_in.unlock();
 
 #if DEBUG_AI
 				vi_debug("Done in %fs.", r32(platform::time() - start_time));

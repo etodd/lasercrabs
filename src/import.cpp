@@ -133,24 +133,6 @@ const char* script_blend_to_fbx_path_mod = "script/blend_to_fbx.py";
 const char* script_blend_to_lvl_path_mod = "script/blend_to_lvl.py";
 const char* script_ttf_to_fbx_path_mod = "script/ttf_to_fbx.py";
 
-struct StaticMeshes
-{
-	Mesh terminal;
-	Mesh control_point;
-	Mesh interactable;
-
-	void import()
-	{
-		if (terminal.vertices.length == 0)
-		{
-			Mesh::read(&terminal, ASSET_OUT_FOLDER"terminal_collision.msh");
-			Mesh::read(&control_point, ASSET_OUT_FOLDER"control_point.msh");
-			Mesh::read(&interactable, ASSET_OUT_FOLDER"interactable_collision.msh");
-		}
-	}
-};
-StaticMeshes static_meshes;
-
 template <typename T>
 T read(FILE* f)
 {
@@ -695,6 +677,39 @@ struct Manifest
 	Map2<std::string> dialogue_strings;
 	Map2<std::string> dynamic_strings;
 };
+
+struct StaticMeshes
+{
+	Mesh terminal;
+	Mesh control_point;
+	Mesh interactable;
+	Map<Mesh> meshes;
+
+	void import()
+	{
+		if (terminal.vertices.length == 0)
+		{
+			Mesh::read(&terminal, ASSET_OUT_FOLDER"terminal_collision.msh");
+			Mesh::read(&control_point, ASSET_OUT_FOLDER"control_point.msh");
+			Mesh::read(&interactable, ASSET_OUT_FOLDER"interactable_collision.msh");
+		}
+	}
+
+	const Mesh* get(Manifest& manifest, const char* name)
+	{
+		if (map_has(meshes, name))
+			return &map_get(meshes, name);
+		else
+		{
+			map_add(meshes, name, Mesh());
+			Mesh* mesh = &map_get(meshes, name);
+			const std::string& filename = map_get(manifest.meshes, std::string(name), std::string(name));
+			Mesh::read(mesh, filename.c_str());
+			return mesh;
+		}
+	}
+};
+StaticMeshes static_meshes;
 
 b8 manifest_requires_update(const Manifest& a, const Manifest& b)
 {
@@ -1974,7 +1989,7 @@ void consolidate_nav_geometry_mesh(Mesh* result, const Mesh& mesh, const Mat4& m
 		result->indices.add(current_index + mesh.indices[i]);
 }
 
-void consolidate_nav_geometry(Mesh* result, Map<Mesh>& meshes, cJSON* json, b8(*filter)(const Mesh*))
+void consolidate_nav_geometry(Mesh* result, Map<Mesh>& meshes, Manifest& manifest, cJSON* json, b8(*filter)(const Mesh*))
 {
 	static_meshes.import();
 
@@ -2004,11 +2019,16 @@ void consolidate_nav_geometry(Mesh* result, Map<Mesh>& meshes, cJSON* json, b8(*
 			{
 				char* mesh_ref = mesh_ref_json->valuestring;
 
-				vi_assert(map_has(meshes, mesh_ref));
-				const Mesh& mesh = map_get(meshes, mesh_ref);
+				const Mesh* mesh;
+				if (map_has(meshes, mesh_ref))
+					mesh = &map_get(meshes, mesh_ref);
+				else
+					mesh = static_meshes.get(manifest, mesh_ref);
 
-				if (!filter || filter(&mesh))
-					consolidate_nav_geometry_mesh(result, mesh, mat);
+				vi_assert(mesh);
+
+				if (!filter || filter(mesh))
+					consolidate_nav_geometry_mesh(result, *mesh, mat);
 
 				mesh_ref_json = mesh_ref_json->next;
 			}
@@ -2280,7 +2300,7 @@ b8 awk_raycast(const ChunkedTris& mesh, const Vec3& start, const Vec3& end, cons
 	return hit;
 }
 
-void build_awk_nav_mesh(Map<Mesh>& meshes, cJSON* json, AwkNavMesh* out, s32* adjacency_buffer_overflows, s32* orphans)
+void build_awk_nav_mesh(Map<Mesh>& meshes, Manifest& manifest, cJSON* json, AwkNavMesh* out, s32* adjacency_buffer_overflows, s32* orphans)
 {
 	r64 timer = platform::time();
 	const r32 chunk_size = 10.0f;
@@ -2290,7 +2310,7 @@ void build_awk_nav_mesh(Map<Mesh>& meshes, cJSON* json, AwkNavMesh* out, s32* ad
 
 	{
 		Mesh accessible;
-		consolidate_nav_geometry(&accessible, meshes, json, is_accessible);
+		consolidate_nav_geometry(&accessible, meshes, manifest, json, is_accessible);
 
 		printf("Consolidating accessible surfaces done: %fs\n", platform::time() - timer);
 		timer = platform::time();
@@ -2404,7 +2424,7 @@ void build_awk_nav_mesh(Map<Mesh>& meshes, cJSON* json, AwkNavMesh* out, s32* ad
 	ChunkedTris inaccessible_chunked;
 	{
 		Mesh inaccessible;
-		consolidate_nav_geometry(&inaccessible, meshes, json, is_inaccessible);
+		consolidate_nav_geometry(&inaccessible, meshes, manifest, json, is_inaccessible);
 
 		printf("Consolidating inaccessible surfaces done: %fs\n", platform::time() - timer);
 		timer = platform::time();
@@ -2778,7 +2798,7 @@ void import_level(ImporterState& state, const std::string& asset_in_path, const 
 		{
 			Mesh nav_mesh_input;
 
-			consolidate_nav_geometry(&nav_mesh_input, meshes, json, default_filter);
+			consolidate_nav_geometry(&nav_mesh_input, meshes, state.manifest, json, default_filter);
 
 			if (nav_mesh_input.vertices.length > 0)
 			{
@@ -2795,7 +2815,7 @@ void import_level(ImporterState& state, const std::string& asset_in_path, const 
 		AwkNavMesh awk_nav;
 		s32 awk_adjacency_buffer_overflows;
 		s32 awk_orphans;
-		build_awk_nav_mesh(meshes, json, &awk_nav, &awk_adjacency_buffer_overflows, &awk_orphans);
+		build_awk_nav_mesh(meshes, state.manifest, json, &awk_nav, &awk_adjacency_buffer_overflows, &awk_orphans);
 
 		// write file data
 

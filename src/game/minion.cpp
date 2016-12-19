@@ -214,7 +214,7 @@ void MinionCommon::update_server(const Update& u)
 		{
 			r32 net_speed = vi_max(get<Walker>()->net_speed, WALK_SPEED * 0.5f);
 			layer->speed = net_speed / get<Walker>()->speed;
-			layer->loop = true;
+			layer->behavior = Animator::Behavior::Loop;
 			layer->play(Asset::Animation::character_walk);
 		}
 		else if (attack_timer > 0.0f)
@@ -222,7 +222,7 @@ void MinionCommon::update_server(const Update& u)
 			if (layer->animation != Asset::Animation::character_aim)
 			{
 				layer->speed = 1.0f;
-				layer->loop = true;
+				layer->behavior = Animator::Behavior::Loop;
 				layer->animation = Asset::Animation::character_aim;
 				layer->time = 0.0f;
 			}
@@ -230,7 +230,7 @@ void MinionCommon::update_server(const Update& u)
 		else
 		{
 			layer->speed = 1.0f;
-			layer->loop = true;
+			layer->behavior = Animator::Behavior::Loop;
 			layer->play(Asset::Animation::character_idle);
 		}
 	}
@@ -244,7 +244,7 @@ void MinionCommon::fire(const Vec3& target)
 
 	Animator::Layer* layer = &get<Animator>()->layers[0];
 	layer->speed = 1.0f;
-	layer->loop = false;
+	layer->behavior = Animator::Behavior::Default;
 	layer->play(Asset::Animation::character_fire);
 }
 
@@ -753,7 +753,7 @@ void MinionAI::update(const Update& u)
 							if (g->has<Parkour>() && (aim_pos - hand_pos).length_squared() < MINION_MELEE_RANGE * MINION_MELEE_RANGE)
 							{
 								anim_layer->speed = 1.0f;
-								anim_layer->loop = false;
+								anim_layer->behavior = Animator::Behavior::Default;
 								anim_layer->play(Asset::Animation::character_melee);
 								get<MinionCommon>()->attack_timer = 0.0f;
 							}

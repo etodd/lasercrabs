@@ -55,8 +55,7 @@ namespace AI
 		All = Crawl | Shoot,
 	};
 
-	const s32 MAX_PATH_LENGTH = 32;
-	typedef StaticArray<Vec3, MAX_PATH_LENGTH> Path;
+	typedef StaticArray<Vec3, AI_MAX_PATH_LENGTH> Path;
 
 	struct AwkPathNode
 	{
@@ -65,7 +64,7 @@ namespace AI
 		AwkNavMeshNode ref;
 		b8 crawl;
 	};
-	typedef StaticArray<AwkPathNode, MAX_PATH_LENGTH> AwkPath;
+	typedef StaticArray<AwkPathNode, AI_MAX_PATH_LENGTH> AwkPath;
 
 	struct Result
 	{
@@ -87,8 +86,8 @@ namespace AI
 
 	typedef SensorState ContainmentFieldState;
 
-	static const s32 SYNC_IN_SIZE = 9 * 1024 * 1024;
-	static const s32 SYNC_OUT_SIZE = 1 * 1024 * 1024;
+	static const s32 SYNC_IN_SIZE = 512 * 1024;
+	static const s32 SYNC_OUT_SIZE = 512 * 1024;
 	extern Array<b8> obstacles;
 	extern SyncRingBuffer<SYNC_IN_SIZE> sync_in;
 	extern SyncRingBuffer<SYNC_OUT_SIZE> sync_out;
@@ -104,7 +103,7 @@ namespace AI
 	u32 random_path(const Vec3&, const Vec3&, r32, const LinkEntryArg<const Result&>&);
 	u32 closest_walk_point(const Vec3&, const LinkEntryArg<const Vec3&>&);
 	u32 awk_random_path(AwkAllow, AI::Team, const Vec3&, const Vec3&, const LinkEntryArg<const AwkResult&>&);
-	void load(AssetID, const u8*, s32);
+	void load(AssetID, const char*);
 	void loop();
 	void quit();
 	void update(const Update&);

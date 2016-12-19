@@ -968,6 +968,21 @@ void Game::execute(const char* cmd)
 		Net::Server::sync_time();
 #endif
 	}
+	else if (strstr(cmd, "resources ") == cmd)
+	{
+		const char* delimiter = strchr(cmd, ' ');
+		if (delimiter)
+		{
+			const char* number_string = delimiter + 1;
+			char* end;
+			r32 value = std::strtod(number_string, &end);
+			if (*end == '\0')
+			{
+				for (s32 i = 0; i < s32(Resource::count); i++)
+					save.resources[i] += value;
+			}
+		}
+	}
 	else if (!Overworld::active() && strcmp(cmd, "capture") == 0)
 		Overworld::zone_change(Game::level.id, ZoneState::Friendly);
 	else if (!Overworld::active() && strcmp(cmd, "unlock") == 0)

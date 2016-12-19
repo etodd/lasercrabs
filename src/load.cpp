@@ -172,7 +172,7 @@ cJSON* input_binding_json(const InputBinding& binding)
 
 void Loader::settings_load(s32 default_width, s32 default_height)
 {
-	char path[max_user_data_path_length];
+	char path[MAX_PATH_LENGTH];
 	user_data_path(path, config_filename);
 	cJSON* json = Json::load(path);
 
@@ -275,7 +275,7 @@ void Loader::settings_save()
 		cJSON_AddItemToArray(gamepads, gamepad);
 	}
 
-	char path[max_user_data_path_length];
+	char path[MAX_PATH_LENGTH];
 	user_data_path(path, config_filename);
 
 	Json::save(json, path);
@@ -914,32 +914,14 @@ cJSON* Loader::level(AssetID id, b8 load_nav)
 {
 	if (id == AssetNull)
 	{
-		AI::load(AssetNull, nullptr, 0);
+		AI::load(AssetNull, nullptr);
 		return 0;
 	}
 
 	if (load_nav)
-	{
-		const char* nav_path = nav_mesh_path(id);
-		FILE* f = fopen(nav_path, "rb");
-		if (!f)
-		{
-			fprintf(stderr, "Can't open nav file '%s'\n", nav_path);
-			return nullptr;
-		}
-
-		fseek(f, 0, SEEK_END);
-		s32 fsize = ftell(f);
-		fseek(f, 0, SEEK_SET);
-
-		Array<u8> data(fsize, fsize);
-		fread(data.data, sizeof(u8), data.length, f);
-		fclose(f);
-
-		AI::load(id, data.data, data.length);
-	}
+		AI::load(id, nav_mesh_path(id));
 	else
-		AI::load(AssetNull, nullptr, 0);
+		AI::load(AssetNull, nullptr);
 	
 	return Json::load(level_path(id));
 }
@@ -1144,7 +1126,7 @@ const char* Loader::mesh_path(AssetID mesh)
 
 void Loader::user_data_path(char* path, const char* filename)
 {
-	vi_assert(strlen(Loader::data_directory) + strlen(filename) < max_user_data_path_length);
+	vi_assert(strlen(Loader::data_directory) + strlen(filename) < MAX_PATH_LENGTH);
 	sprintf(path, "%s%s", Loader::data_directory, filename);
 }
 

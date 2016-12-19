@@ -26,7 +26,7 @@ namespace VI
 #define WALL_RUN_DISTANCE_RATIO 1.1f
 
 #define RUN_SPEED 5.0f
-#define WALK_SPEED 2.25f
+#define WALK_SPEED 3.0f
 #define MAX_SPEED 6.0f
 #define MIN_WALLRUN_SPEED 3.0f
 #define MIN_ATTACK_SPEED 4.0f
@@ -35,7 +35,7 @@ namespace VI
 
 #define JUMP_GRACE_PERIOD 0.3f
 
-#define MIN_SLIDE_TIME 0.5f
+#define MIN_SLIDE_TIME 0.6f
 #define ANIMATION_SPEED_MULTIPLIER 2.0f
 
 Traceur::Traceur(const Vec3& pos, const Quat& quat, AI::Team team)
@@ -72,12 +72,9 @@ Traceur::Traceur(const Vec3& pos, const Quat& quat, AI::Team team)
 void Parkour::awake()
 {
 	Animator* animator = get<Animator>();
-	animator->layers[0].loop = true;
+	animator->layers[0].behavior = Animator::Behavior::Loop;
 	animator->layers[0].play(Asset::Animation::character_idle);
-	animator->layers[1].loop = false;
 	animator->layers[1].blend_time = 0.2f;
-	animator->layers[2].loop = true;
-	animator->layers[3].loop = false;
 	link<&Parkour::footstep>(animator->trigger(Asset::Animation::character_walk, 0.0f));
 	link<&Parkour::footstep>(animator->trigger(Asset::Animation::character_walk, 0.5f));
 	link<&Parkour::footstep>(animator->trigger(Asset::Animation::character_run, 0.5f));
@@ -401,7 +398,6 @@ void Parkour::update(const Update& u)
 	if (fsm.current == State::Mantle)
 	{
 		get<Animator>()->layers[1].play(Asset::Animation::character_mantle);
-		get<Animator>()->layers[2].animation = AssetNull;
 		const r32 mantle_time = 0.5f;
 		if (fsm.time > mantle_time || !last_support.ref())
 		{
@@ -441,7 +437,6 @@ void Parkour::update(const Update& u)
 	else if (fsm.current == State::WallRun)
 	{
 		get<Animator>()->layers[1].animation = AssetNull;
-		get<Animator>()->layers[2].animation = AssetNull;
 		b8 exit_wallrun = false;
 
 		// under certain circumstances, check if we have ground beneath us
@@ -450,7 +445,7 @@ void Parkour::update(const Update& u)
 		if (last_support.ref())
 			support_velocity = Walker::get_support_velocity(relative_support_pos, last_support.ref()->btBody);
 		Vec3 velocity = get<RigidBody>()->btBody->getLinearVelocity();
-		if (fsm.time > 0.2f || velocity.y - support_velocity.y < 0.0f)
+		if (fsm.time > JUMP_GRACE_PERIOD || velocity.y - support_velocity.y < 0.0f)
 		{
 			btCollisionWorld::ClosestRayResultCallback support_callback = get<Walker>()->check_support();
 			if (support_callback.hasHit())
@@ -538,7 +533,6 @@ void Parkour::update(const Update& u)
 	{
 		get<Walker>()->max_speed = MAX_SPEED;
 		get<Walker>()->speed = RUN_SPEED;
-		get<Animator>()->layers[2].animation = AssetNull;
 		if (get<Walker>()->support.ref())
 		{
 			Animator::Layer* layer1 = &get<Animator>()->layers[1];
@@ -564,9 +558,7 @@ void Parkour::update(const Update& u)
 		else // rolling
 			stop = get<Animator>()->layers[1].animation != Asset::Animation::character_roll;
 
-		if (stop) // going too slow, or button no longer held
-			fsm.transition(State::Normal);
-		else
+		if (!stop)
 		{
 			// keep sliding/rolling
 			if (fsm.current == State::Slide) // do damping
@@ -608,8 +600,8 @@ void Parkour::update(const Update& u)
 					// update relative support pos
 					relative_support_pos = last_support_transform->to_local(projected_support);
 				}
-				else
-					fsm.transition(State::Normal);
+				else if (fsm.current == State::Slide)
+					stop = true;
 			}
 
 			get<RigidBody>()->btBody->setLinearVelocity(support_velocity + relative_velocity);
@@ -653,6 +645,16 @@ void Parkour::update(const Update& u)
 					}
 				}
 			}
+		}
+
+		if (stop)
+		{
+			if (fsm.current == State::Slide)
+			{
+				get<Animator>()->layers[2].behavior = Animator::Behavior::Default;
+				get<Animator>()->layers[2].play(Asset::Animation::character_slide_end);
+			}
+			fsm.transition(State::Normal);
 		}
 	}
 
@@ -799,10 +801,9 @@ void Parkour::lessen_gravity()
 b8 Parkour::try_jump(r32 rotation)
 {
 	b8 did_jump = false;
-	if (fsm.current == State::Normal || fsm.current == State::Slide || fsm.current == State::WallRun)
+	if (fsm.current == State::Normal || fsm.current == State::WallRun)
 	{
 		if ((get<Walker>()->support.ref() && get<Walker>()->support.ref()->btBody->getBroadphaseProxy()->m_collisionFilterGroup & CollisionParkour)
-			|| fsm.current == State::Slide
 			|| (
 				last_support_wall_run_state == WallRunState::None
 				&& Game::time.total - last_support_time < JUMP_GRACE_PERIOD
@@ -906,6 +907,7 @@ b8 Parkour::try_slide()
 					return false; // too slow
 				fsm.transition(State::Slide);
 				get<Animator>()->layers[2].play(Asset::Animation::character_slide);
+				get<Animator>()->layers[2].behavior = Animator::Behavior::Freeze;
 			}
 			else
 			{
@@ -999,10 +1001,10 @@ b8 Parkour::try_parkour(b8 force)
 void Parkour::wall_run_up_add_velocity(const Vec3& velocity, const Vec3& support_velocity)
 {
 	Vec3 horizontal_velocity = velocity - support_velocity;
-	r32 vertical_velocity = horizontal_velocity.y;
+	r32 vertical_velocity = vi_max(0.0f, horizontal_velocity.y);
 	horizontal_velocity.y = 0.0f;
-	r32 speed = LMath::clampf(horizontal_velocity.length(), 0.0f, MAX_SPEED);
-	get<RigidBody>()->btBody->setLinearVelocity(support_velocity + Vec3(0, (RUN_SPEED * 0.5f) + speed + vertical_velocity - support_velocity.y, 0));
+	r32 speed = LMath::clampf(horizontal_velocity.length(), 2.0f, MAX_SPEED);
+	get<RigidBody>()->btBody->setLinearVelocity(support_velocity + Vec3(0, 3.0f + speed + vertical_velocity, 0));
 }
 
 b8 Parkour::try_wall_run(WallRunState s, const Vec3& wall_direction)

@@ -24,7 +24,7 @@ Animator::Layer::Layer()
 	blend_time(0.25f),
 	animation(AssetNull),
 	last_animation(AssetNull),
-	loop(true),
+	behavior(),
 	speed(1.0f)
 {
 }
@@ -57,7 +57,7 @@ void Animator::Layer::play(AssetID a)
 	if (animation != a)
 	{
 		animation = a;
-		if (loop)
+		if (behavior == Behavior::Loop)
 			time = mersenne::randf_co() * Loader::animation(a)->duration;
 		else
 			time = 0.0f;
@@ -144,17 +144,31 @@ void Animator::Layer::update(r32 dt, r32 dt_real, const Animator& animator)
 		b8 looped = false;
 		if (time > anim->duration)
 		{
-			if (loop)
+			switch (behavior)
 			{
-				time = fmodf(time, anim->duration);
-				looped = true;
-			}
-			else
-			{
-				animation = AssetNull;
-				changed_animation(arm);
-				channels.resize(0);
-				return;
+				case Behavior::Default:
+				{
+					animation = AssetNull;
+					changed_animation(arm);
+					channels.resize(0);
+					return;
+				}
+				case Behavior::Loop:
+				{
+					time = fmodf(time, anim->duration);
+					looped = true;
+					break;
+				}
+				case Behavior::Freeze:
+				{
+					time = anim->duration;
+					break;
+				}
+				default:
+				{
+					vi_assert(false);
+					break;
+				}
 			}
 		}
 

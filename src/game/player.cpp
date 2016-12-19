@@ -59,6 +59,7 @@ namespace VI
 #define msg_time 0.75f
 #define text_size 16.0f
 #define camera_shake_time 0.7f
+#define arm_angle_offset -0.2f
 
 #define INTERACT_TIME 2.5f
 #define INTERACT_LERP_ROTATION_SPEED 5.0f
@@ -2635,7 +2636,7 @@ void PlayerControlHuman::update(const Update& u)
 
 				r32 angle = fabsf(LMath::angle_to(get<PlayerCommon>()->angle_horizontal, target_angle));
 				get<PlayerCommon>()->angle_horizontal = LMath::lerpf(vi_min(1.0f, (INTERACT_LERP_ROTATION_SPEED / angle) * u.time.delta), get<PlayerCommon>()->angle_horizontal, LMath::closest_angle(target_angle, get<PlayerCommon>()->angle_horizontal));
-				get<PlayerCommon>()->angle_vertical = LMath::lerpf(vi_min(1.0f, (INTERACT_LERP_ROTATION_SPEED / fabsf(get<PlayerCommon>()->angle_vertical)) * u.time.delta), get<PlayerCommon>()->angle_vertical, 0);
+				get<PlayerCommon>()->angle_vertical = LMath::lerpf(vi_min(1.0f, (INTERACT_LERP_ROTATION_SPEED / fabsf(get<PlayerCommon>()->angle_vertical)) * u.time.delta), get<PlayerCommon>()->angle_vertical, -arm_angle_offset);
 
 				Vec3 abs_pos = get<Transform>()->absolute_pos();
 				r32 distance = (abs_pos - target_pos).length();
@@ -2743,7 +2744,7 @@ void PlayerControlHuman::update(const Update& u)
 				// rotate arms to match the camera view
 				// blend smoothly between the two states (rotating and not rotating)
 
-				r32 arm_angle = LMath::clampf(get<PlayerCommon>()->angle_vertical * 0.5f, -PI * 0.15f, PI * 0.15f);
+				r32 arm_angle = LMath::clampf(get<PlayerCommon>()->angle_vertical * 0.75f + arm_angle_offset, -PI * 0.2f, PI * 0.25f);
 
 				const r32 blend_time = 0.2f;
 				r32 blend;

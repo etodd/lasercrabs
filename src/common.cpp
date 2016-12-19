@@ -46,6 +46,7 @@ Prop::Prop(const AssetID mesh_id, const AssetID armature, const AssetID animatio
 		Animator* anim = create<Animator>();
 		anim->armature = armature;
 		anim->layers[0].animation = animation;
+		anim->layers[0].behavior = Animator::Behavior::Loop;
 	}
 }
 

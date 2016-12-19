@@ -173,13 +173,16 @@ void obstacle_remove(u32 id)
 	sync_in.unlock();
 }
 
-void load(AssetID id, const u8* data, s32 length)
+void load(AssetID id, const char* filename)
 {
 	sync_in.lock();
 	sync_in.write(Op::Load);
 	sync_in.write(id);
+	s32 length = filename ? strlen(filename) : 0;
+	vi_assert(length < 512);
 	sync_in.write(length);
-	sync_in.write(data, length);
+	if (length > 0)
+		sync_in.write(filename, length);
 	sync_in.unlock();
 	level_revision++;
 	render_meshes_dirty = true;

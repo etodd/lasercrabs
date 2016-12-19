@@ -14,6 +14,14 @@ struct Armature;
 
 struct Animator : public ComponentType<Animator>
 {
+	enum class Behavior
+	{
+		Default,
+		Loop,
+		Freeze,
+		count,
+	};
+
 	struct AnimatorTransform
 	{
 		Vec3 pos;
@@ -42,7 +50,7 @@ struct Animator : public ComponentType<Animator>
 		StaticArray<AnimatorChannel, MAX_BONES> channels;
 		AssetID animation;
 		AssetID last_animation;
-		b8 loop;
+		Behavior behavior;
 		void update(r32, r32, const Animator&);
 		void changed_animation(const Armature*);
 		void play(AssetID);

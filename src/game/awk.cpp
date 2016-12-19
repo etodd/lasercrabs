@@ -685,6 +685,7 @@ Awk::Awk()
 
 void Awk::awake()
 {
+	get<Animator>()->layers[0].behavior = Animator::Behavior::Loop;
 	link_arg<Entity*, &Awk::killed>(get<Health>()->killed);
 	link_arg<const HealthEvent&, &Awk::health_changed>(get<Health>()->changed);
 	if (Game::level.local && !shield.ref())

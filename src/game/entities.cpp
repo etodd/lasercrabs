@@ -1133,7 +1133,7 @@ DecoyEntity::DecoyEntity(PlayerManager* owner, Transform* parent, const Vec3& po
 
 	Animator* anim = create<Animator>();
 	anim->armature = Asset::Armature::awk;
-	anim->layers[0].loop = true;
+	anim->layers[0].behavior = Animator::Behavior::Loop;
 	anim->layers[0].play(Asset::Animation::awk_dash);
 
 	create<Target>();
@@ -2254,7 +2254,7 @@ CollectibleEntity::CollectibleEntity(Resource type, s16 amount)
 
 			Animator* anim = create<Animator>();
 			anim->armature = Asset::Armature::awk;
-			anim->layers[0].loop = true;
+			anim->layers[0].behavior = Animator::Behavior::Loop;
 			anim->layers[0].animation = Asset::Animation::awk_fly;
 			break;
 		}
@@ -2456,10 +2456,9 @@ TerminalEntity::TerminalEntity()
 
 	Animator* anim = create<Animator>();
 	anim->armature = Asset::Armature::terminal;
-	anim->layers[0].loop = true;
+	anim->layers[0].behavior = Animator::Behavior::Loop;
 	anim->layers[0].blend_time = 0.0f;
 	anim->layers[0].animation = Game::save.zones[Game::level.id] == ZoneState::Locked ? AssetNull : Asset::Animation::terminal_opened;
-	anim->layers[1].loop = false;
 	anim->layers[1].blend_time = 0.0f;
 	anim->trigger(Asset::Animation::terminal_close, 1.33f).link(&closed);
 
@@ -2478,10 +2477,9 @@ TerminalInteractable::TerminalInteractable()
 
 	Animator* anim = create<Animator>();
 	anim->armature = Asset::Armature::interactable;
-	anim->layers[0].loop = true;
+	anim->layers[0].behavior = Animator::Behavior::Loop;
 	anim->layers[0].animation = Game::save.zones[Game::level.id] == ZoneState::Locked ? Asset::Animation::interactable_enabled : Asset::Animation::interactable_disabled;
 	anim->layers[0].blend_time = 0.0f;
-	anim->layers[1].loop = false;
 	anim->layers[1].blend_time = 0.0f;
 
 	create<Interactable>(Interactable::Type::Terminal);
@@ -2734,9 +2732,8 @@ TramEntity::TramEntity(TramRunner* runner_a, TramRunner* runner_b)
 
 		Animator* anim = doors->create<Animator>();
 		anim->armature = Asset::Armature::tram_doors;
-		anim->layers[0].loop = true;
+		anim->layers[0].behavior = Animator::Behavior::Loop;
 		anim->layers[0].blend_time = 0.0f;
-		anim->layers[1].loop = false;
 		anim->layers[1].blend_time = 0.0f;
 
 		RigidBody* body = doors->create<RigidBody>(RigidBody::Type::Mesh, Vec3::zero, 0.0f, CollisionStatic | CollisionInaccessible, ~CollisionStatic & ~CollisionAwkIgnore & ~CollisionInaccessible & ~CollisionParkour, Asset::Mesh::tram_collision_door);
@@ -2952,10 +2949,9 @@ TramInteractableEntity::TramInteractableEntity(const Vec3& absolute_pos, const Q
 
 	Animator* anim = create<Animator>();
 	anim->armature = Asset::Armature::interactable;
-	anim->layers[0].loop = true;
+	anim->layers[0].behavior = Animator::Behavior::Loop;
 	anim->layers[0].animation = Asset::Animation::interactable_enabled;
 	anim->layers[0].blend_time = 0.0f;
-	anim->layers[1].loop = false;
 	anim->layers[1].blend_time = 0.0f;
 
 	Interactable* i = create<Interactable>(Interactable::Type::Tram);

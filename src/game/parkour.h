@@ -1,8 +1,9 @@
 #pragma once
 
 #include "data/entity.h"
-#include "physics.h"
 #include "ai.h"
+
+class btRigidBody;
 
 namespace VI
 {
@@ -21,6 +22,8 @@ namespace Net
 };
 
 struct MinionCommon;
+struct Transform;
+struct RigidBody;
 
 struct Parkour : public ComponentType<Parkour>
 {
@@ -32,6 +35,7 @@ struct Parkour : public ComponentType<Parkour>
 		WallRun,
 		Slide,
 		Roll,
+		Climb,
 		count,
 	};
 
@@ -51,11 +55,14 @@ struct Parkour : public ComponentType<Parkour>
 	r32 lean;
 	r32 last_angular_velocity;
 	r32 last_angle_horizontal;
+	r32 climb_velocity;
+	FSM<State> fsm;
 	WallRunState wall_run_state;
 	WallRunState last_support_wall_run_state;
-	FSM<State> fsm;
 	State last_frame_state;
 	Ref<RigidBody> last_support;
+	Ref<Transform> rope;
+	ID rope_constraint = IDNull;
 	StaticArray<Ref<MinionCommon>, 4> damage_minions; // HACK; minions we're currently damaging
 	b8 slide_continue;
 

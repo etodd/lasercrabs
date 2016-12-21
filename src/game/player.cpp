@@ -1909,18 +1909,18 @@ Vec3 PlayerControlHuman::get_movement(const Update& u, const Quat& rot)
 
 		if (gamepad == 0)
 		{
-			if (u.input->get(Controls::Forward, gamepad))
+			if (u.input->get(Controls::Forward, 0))
 				movement += Vec3(0, 0, 1);
-			if (u.input->get(Controls::Backward, gamepad))
+			if (u.input->get(Controls::Backward, 0))
 				movement += Vec3(0, 0, -1);
-			if (u.input->get(Controls::Right, gamepad))
+			if (u.input->get(Controls::Right, 0))
 				movement += Vec3(-1, 0, 0);
-			if (u.input->get(Controls::Left, gamepad))
+			if (u.input->get(Controls::Left, 0))
 				movement += Vec3(1, 0, 0);
 		}
 
 		r32 length_squared = movement.length_squared();
-		if (length_squared > 0.0f)
+		if (length_squared > 1.0f)
 			movement /= sqrtf(length_squared);
 
 		movement = rot * movement;
@@ -2657,6 +2657,16 @@ void PlayerControlHuman::update(const Update& u)
 
 			update_camera_input(u);
 
+			if (get<Parkour>()->fsm.current == Parkour::State::Climb
+				&& input_enabled()
+				&& u.input->get(Controls::Parkour, gamepad))
+			{
+				Vec3 movement = get_movement(u, Quat::identity);
+				get<Parkour>()->climb_velocity = movement.z;
+			}
+			else
+				get<Parkour>()->climb_velocity = 0.0f;
+
 			if (input_enabled() && u.last_input->get(Controls::Scoreboard, gamepad) && !u.input->get(Controls::Scoreboard, gamepad))
 			{
 				if (Game::save.zones[Game::level.id] == ZoneState::Friendly)
@@ -2672,9 +2682,13 @@ void PlayerControlHuman::update(const Update& u)
 					player.ref()->msg(_(strings::error_hostile_zone), false);
 			}
 		
-			Vec3 movement = get_movement(u, Quat::euler(0, get<PlayerCommon>()->angle_horizontal, 0));
-			Vec2 dir = Vec2(movement.x, movement.z);
-			get<Walker>()->dir = dir;
+			// set movement unless we're climbing up and down
+			if (!(get<Parkour>()->fsm.current == Parkour::State::Climb && u.input->get(Controls::Parkour, gamepad)))
+			{
+				Vec3 movement = get_movement(u, Quat::euler(0, get<PlayerCommon>()->angle_horizontal, 0));
+				Vec2 dir = Vec2(movement.x, movement.z);
+				get<Walker>()->dir = dir;
+			}
 
 			// parkour button
 			b8 parkour_pressed = movement_enabled() && u.input->get(Controls::Parkour, gamepad);
@@ -2783,7 +2797,11 @@ void PlayerControlHuman::update(const Update& u)
 						get<PlayerCommon>()->clamp_rotation(Quat::euler(0, get<Walker>()->rotation + PI * 0.5f, 0) * Vec3(0, 0, 1));
 				}
 			}
-			else if (parkour_state == Parkour::State::Slide || parkour_state == Parkour::State::Roll || parkour_state == Parkour::State::HardLanding || parkour_state == Parkour::State::Mantle)
+			else if (parkour_state == Parkour::State::Slide
+				|| parkour_state == Parkour::State::Roll
+				|| parkour_state == Parkour::State::HardLanding
+				|| parkour_state == Parkour::State::Mantle
+				|| parkour_state == Parkour::State::Climb)
 			{
 				get<PlayerCommon>()->clamp_rotation(Quat::euler(0, get<Walker>()->rotation, 0) * Vec3(0, 0, 1));
 			}
@@ -3212,6 +3230,19 @@ void PlayerControlHuman::draw_alpha(const RenderParams& params) const
 							}
 						}
 					}
+				}
+
+				if (get<Parkour>()->fsm.current == Parkour::State::Climb)
+				{
+					// show climb controls
+					UIText text;
+					text.color = UI::color_accent;
+					text.text("{{ClimbingMovement}}");
+					text.anchor_x = UIText::Anchor::Center;
+					text.anchor_y = UIText::Anchor::Center;
+					Vec2 pos = params.camera->viewport.size * Vec2(0.5f, 0.1f);
+					UI::box(params, text.rect(pos).outset(8.0f * UI::scale), UI::color_background);
+					text.draw(params, pos);
 				}
 			}
 		}

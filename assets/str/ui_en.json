@@ -157,9 +157,8 @@
 
 	"left_joystick": "Left joystick",
 	"right_joystick": "Right joystick",
-	"keyboard_movement": "%s %s %s %s",
 	"key_None": "None",
-	"key_Return": "Return",
+	"key_Return": "Enter",
 	"key_Escape": "Esc",
 	"key_Backspace": "Backspace",
 	"key_Tab": "Tab",

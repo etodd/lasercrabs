@@ -31,6 +31,7 @@ namespace Settings
 	b8 volumetric_lighting;
 	b8 antialiasing;
 	b8 waypoints;
+	b8 scan_lines;
 }
 
 Array<Loader::Entry<Mesh> > Loader::meshes;
@@ -193,6 +194,7 @@ void Loader::settings_load(s32 default_width, s32 default_height)
 	Settings::volumetric_lighting = b8(Json::get_s32(json, "volumetric_lighting", 1));
 	Settings::antialiasing = b8(Json::get_s32(json, "antialiasing", 1));
 	Settings::waypoints = b8(Json::get_s32(json, "waypoints", 1));
+	Settings::scan_lines = b8(Json::get_s32(json, "scan_lines", 1));
 
 	cJSON* gamepads = json ? cJSON_GetObjectItem(json, "gamepads") : nullptr;
 	cJSON* gamepad = gamepads ? gamepads->child : nullptr;
@@ -218,7 +220,7 @@ void Loader::settings_load(s32 default_width, s32 default_height)
 		bindings->bindings[(s32)Controls::Slide] = input_binding(gamepad, "slide", { KeyCode::MouseLeft, KeyCode::E, Gamepad::Btn::LeftShoulder });
 
 		// these bindings cannot be changed
-		bindings->bindings[(s32)Controls::Start] = { KeyCode::Space, KeyCode::None, Gamepad::Btn::Start };
+		bindings->bindings[(s32)Controls::Start] = { KeyCode::Return, KeyCode::None, Gamepad::Btn::Start };
 		bindings->bindings[(s32)Controls::Cancel] = { KeyCode::Escape, KeyCode::None, Gamepad::Btn::B };
 		bindings->bindings[(s32)Controls::Pause] = { KeyCode::Escape, KeyCode::None, Gamepad::Btn::Start };
 
@@ -245,6 +247,7 @@ void Loader::settings_save()
 	cJSON_AddNumberToObject(json, "volumetric_lighting", s32(Settings::volumetric_lighting));
 	cJSON_AddNumberToObject(json, "antialiasing", s32(Settings::antialiasing));
 	cJSON_AddNumberToObject(json, "waypoints", s32(Settings::waypoints));
+	cJSON_AddNumberToObject(json, "scan_lines", s32(Settings::scan_lines));
 
 	cJSON* gamepads = cJSON_CreateArray();
 	cJSON_AddItemToObject(json, "gamepads", gamepads);

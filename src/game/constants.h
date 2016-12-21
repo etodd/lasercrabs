@@ -93,6 +93,8 @@
 
 #define ENERGY_PICKUP_RADIUS 0.55f
 
+#define AIR_CONTROL_ACCEL 5.0f
+
 #define TRANSITION_TIME 1.0f // time to transition between levels / overworld
 
 #define PVP_ACCESSIBLE Vec4(0.7f, 0.7f, 0.7f, 1.0f)

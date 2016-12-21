@@ -206,19 +206,39 @@ void refresh_variables()
 	UIText::set_variable("Primary", gamepad.bindings[(s32)Controls::Primary].string(Game::is_gamepad));
 	UIText::set_variable("Zoom", gamepad.bindings[(s32)Controls::Zoom].string(Game::is_gamepad));
 	if (Game::is_gamepad)
+	{
 		UIText::set_variable("Movement", _(strings::left_joystick));
+
+		char buffer[512];
+		sprintf
+		(
+			buffer, "[%s] + [%s]",
+			gamepad.bindings[s32(Controls::Parkour)].string(true),
+			_(strings::left_joystick)
+		);
+		UIText::set_variable("ClimbingMovement", buffer);
+	}
 	else
 	{
 		char buffer[512];
 		sprintf
 		(
-			buffer, _(strings::keyboard_movement),
-			gamepad.bindings[(s32)Controls::Forward].string(Game::is_gamepad),
-			gamepad.bindings[(s32)Controls::Left].string(Game::is_gamepad),
-			gamepad.bindings[(s32)Controls::Backward].string(Game::is_gamepad),
-			gamepad.bindings[(s32)Controls::Right].string(Game::is_gamepad)
+			buffer, "[%s %s %s %s]",
+			gamepad.bindings[s32(Controls::Forward)].string(false),
+			gamepad.bindings[s32(Controls::Left)].string(false),
+			gamepad.bindings[s32(Controls::Backward)].string(false),
+			gamepad.bindings[s32(Controls::Right)].string(false)
 		);
 		UIText::set_variable("Movement", buffer);
+
+		sprintf
+		(
+			buffer, "[%s] + [%s/%s]",
+			gamepad.bindings[s32(Controls::Parkour)].string(false),
+			gamepad.bindings[s32(Controls::Forward)].string(false),
+			gamepad.bindings[s32(Controls::Backward)].string(false)
+		);
+		UIText::set_variable("ClimbingMovement", buffer);
 	}
 	UIText::set_variable("Ability1", gamepad.bindings[(s32)Controls::Ability1].string(Game::is_gamepad));
 	UIText::set_variable("Ability2", gamepad.bindings[(s32)Controls::Ability2].string(Game::is_gamepad));

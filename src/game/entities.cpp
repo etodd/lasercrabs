@@ -1901,7 +1901,7 @@ s32 PlayerTrigger::count() const
 Array<Mat4> Rope::instances;
 
 // draw rope segments and projectiles
-void Rope::draw_alpha(const RenderParams& params)
+void Rope::draw(const RenderParams& params)
 {
 	instances.length = 0;
 
@@ -1995,7 +1995,7 @@ RigidBody* rope_add(RigidBody* start, const Vec3& start_relative_pos, const Vec3
 					Net::finalize(last_segment->entity());
 
 				Vec3 spawn_pos = last_segment_pos + (diff / length) * rope_interval * 0.5f;
-				Entity* box = World::create<PhysicsEntity>(AssetNull, spawn_pos, rot, RigidBody::Type::CapsuleZ, Vec3(ROPE_RADIUS, ROPE_SEGMENT_LENGTH - ROPE_RADIUS * 2.0f, 0.0f), 0.05f, CollisionAwkIgnore, ~CollisionAllTeamsContainmentField);
+				Entity* box = World::create<PhysicsEntity>(AssetNull, spawn_pos, rot, RigidBody::Type::CapsuleZ, Vec3(ROPE_RADIUS, ROPE_SEGMENT_LENGTH - ROPE_RADIUS * 2.0f, 0.0f), 0.05f, CollisionAwkIgnore, ~CollisionWalker & ~CollisionAllTeamsContainmentField);
 				box->add<Rope>();
 
 				static Quat rotation_a = Quat::look(Vec3(0, 0, 1)) * Quat::euler(0, PI * -0.5f, 0);
@@ -2071,7 +2071,7 @@ void Rope::end(const Vec3& pos, const Vec3& normal, RigidBody* end, r32 slack, b
 	Net::finalize(last->entity());
 }
 
-void Rope::spawn(const Vec3& pos, const Vec3& dir, r32 max_distance, r32 slack)
+void Rope::spawn(const Vec3& pos, const Vec3& dir, r32 max_distance, r32 slack, b8 attach_end)
 {
 	Vec3 dir_normalized = Vec3::normalize(dir);
 	Vec3 start_pos = pos;
@@ -2085,17 +2085,27 @@ void Rope::spawn(const Vec3& pos, const Vec3& dir, r32 max_distance, r32 slack)
 		btCollisionWorld::ClosestRayResultCallback ray_callback2(start_pos, end2);
 		Physics::raycast(&ray_callback2, btBroadphaseProxy::AllFilter);
 
-		if (ray_callback2.hasHit())
+		if (!attach_end || ray_callback2.hasHit())
 		{
 			RigidBody* a = Entity::list[ray_callback.m_collisionObject->getUserIndex()].get<RigidBody>();
-			RigidBody* b = Entity::list[ray_callback2.m_collisionObject->getUserIndex()].get<RigidBody>();
-
-			Transform* a_trans = a->get<Transform>();
-			Transform* b_trans = b->get<Transform>();
 
 			Rope* rope = Rope::start(a, ray_callback.m_hitPointWorld, ray_callback.m_hitNormalWorld, Quat::look(ray_callback.m_hitNormalWorld), slack);
+
 			if (rope)
-				rope->end(ray_callback2.m_hitPointWorld, ray_callback2.m_hitNormalWorld, b, slack);
+			{
+				if (attach_end && ray_callback2.hasHit())
+				{
+					// attach on both ends
+					RigidBody* b = Entity::list[ray_callback2.m_collisionObject->getUserIndex()].get<RigidBody>();
+					rope->end(ray_callback2.m_hitPointWorld, ray_callback2.m_hitNormalWorld, b, slack);
+				}
+				else
+				{
+					// only attached on one end
+					Vec3 start_relative_pos = Vec3(0, 0, ROPE_SEGMENT_LENGTH * 0.5f);
+					rope_add(rope->get<RigidBody>(), start_relative_pos, end2, Quat::look(Vec3::normalize(end2 - rope->get<Transform>()->to_world(start_relative_pos))), slack, RigidBody::Constraint::Type::ConeTwist);
+				}
+			}
 		}
 	}
 }

@@ -490,8 +490,11 @@ void Game::update(const Update& update_in)
 		for (auto i = PlayerControlHuman::list.iterator(); !i.is_last(); i.next())
 			i.item()->update(u);
 
-		for (s32 i = 0; i < updates.length; i++)
-			(*updates[i])(u);
+		if (level.local)
+		{
+			for (s32 i = 0; i < updates.length; i++)
+				(*updates[i])(u);
+		}
 	}
 
 	Console::update(u);
@@ -544,6 +547,9 @@ void Game::draw_opaque(const RenderParams& render_params)
 	SkyPattern::draw_opaque(render_params);
 
 	Overworld::draw_opaque(render_params);
+
+	if (render_params.technique == RenderTechnique::Shadow)
+		Rope::draw(render_params);
 }
 
 void Game::draw_override(const RenderParams& params)
@@ -763,7 +769,7 @@ void Game::draw_hollow(const RenderParams& render_params)
 void Game::draw_particles(const RenderParams& render_params)
 {
 	if (render_params.camera->mask)
-		Rope::draw_alpha(render_params);
+		Rope::draw(render_params);
 
 	render_params.sync->write(RenderOp::CullMode);
 	render_params.sync->write(RenderCullMode::None);
@@ -1067,10 +1073,11 @@ struct LevelLink
 
 struct RopeEntry
 {
-	Vec3 pos;
 	Quat rot;
+	Vec3 pos;
 	r32 max_distance;
 	r32 slack;
+	b8 attach_end;
 };
 
 AI::Team team_lookup(const AI::Team* table, s32 i)
@@ -1400,7 +1407,8 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 			rope->pos = absolute_pos;
 			rope->rot = absolute_rot;
 			rope->slack = Json::get_r32(element, "slack");
-			rope->max_distance = Json::get_r32(element, "max_distance", 100.0f);
+			rope->max_distance = Json::get_r32(element, "max_distance", 20.0f);
+			rope->attach_end = b8(Json::get_s32(element, "attach_end", 0));
 		}
 		else if (cJSON_HasObjectItem(element, "Minion"))
 		{
@@ -1508,6 +1516,7 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 				rope->rot = Quat::identity;
 				rope->slack = 0.0f;
 				rope->max_distance = 100.0f;
+				rope->attach_end = true;
 			}
 		}
 		else if (cJSON_HasObjectItem(element, "AICue"))
@@ -1836,7 +1845,7 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 	Physics::sync_static();
 
 	for (s32 i = 0; i < ropes.length; i++)
-		Rope::spawn(ropes[i].pos, ropes[i].rot * Vec3(0, 1, 0), ropes[i].max_distance, ropes[i].slack);
+		Rope::spawn(ropes[i].pos, ropes[i].rot * Vec3(0, 1, 0), ropes[i].max_distance, ropes[i].slack, ropes[i].attach_end);
 
 	for (auto i = PlayerManager::list.iterator(); !i.is_last(); i.next())
 		World::awake(i.item()->entity());

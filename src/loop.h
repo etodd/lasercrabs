@@ -1305,6 +1305,7 @@ void draw(LoopSync* sync, const Camera* camera)
 		sync->write(screen_quad.mesh);
 	}
 
+	if (Settings::scan_lines)
 	{
 		// scan lines
 		Loader::shader_permanent(Asset::Shader::scan_lines);

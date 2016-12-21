@@ -194,20 +194,17 @@ namespace title
 				b8 show = false;
 				if (first_show) // wait for the user to hit a button before showing the menu
 				{
+					for (s32 j = 0; j < s32(KeyCode::Count); j++)
+					{
+						if (u.last_input->keys[j] && !u.input->keys[j])
+						{
+							show = true;
+							break;
+						}
+					}
 					for (s32 i = 0; i < MAX_GAMEPADS; i++)
 					{
-						if (i == 0)
-						{
-							for (s32 j = 0; j < s32(KeyCode::Count); j++)
-							{
-								if (u.last_input->keys[j] && !u.input->keys[j])
-								{
-									show = true;
-									break;
-								}
-							}
-						}
-						if (u.input->gamepads[i].btns)
+						if (u.last_input->gamepads[i].btns && !u.input->gamepads[i].btns)
 						{
 							show = true;
 							break;
@@ -239,6 +236,18 @@ namespace title
 
 	void draw(const RenderParams& p)
 	{
+		if (Game::level.mode == Game::Mode::Special && Menu::main_menu_state == Menu::State::Hidden && Game::scheduled_load_level == AssetNull && data->transition_timer == 0.0f)
+		{
+			UIText text;
+			text.color = UI::color_accent;
+			text.text("[{{Start}}]");
+			text.anchor_x = UIText::Anchor::Center;
+			text.anchor_y = UIText::Anchor::Center;
+			Vec2 pos = p.camera->viewport.size * Vec2(0.5f, 0.1f);
+			UI::box(p, text.rect(pos).outset(8.0f * UI::scale), UI::color_background);
+			text.draw(p, pos);
+		}
+
 		if (!Overworld::active())
 		{
 			if (data->state == TutorialState::Climb)

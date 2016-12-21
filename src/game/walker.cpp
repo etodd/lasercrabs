@@ -9,7 +9,6 @@
 namespace VI
 {
 
-#define AIR_CONTROL_ACCEL 5.0f
 #define ACCEL1 15.0f
 #define ACCEL_THRESHOLD 3.0f
 #define ACCEL2 2.0f
@@ -48,7 +47,7 @@ void Walker::awake()
 	if (has<RigidBody>())
 		body = get<RigidBody>(); // RigidBody will already be awake because it comes first in the component list
 	else
-		body = entity()->add<RigidBody>(RigidBody::Type::CapsuleY, Vec3(WALKER_RADIUS, WALKER_HEIGHT, 0), 1.0f, CollisionWalker, ~CollisionShield);
+		body = entity()->add<RigidBody>(RigidBody::Type::CapsuleY, Vec3(WALKER_RADIUS, WALKER_HEIGHT, 0), 1.5f, CollisionWalker, ~CollisionShield);
 	walker_set_rigid_body_props(body->btBody);
 }
 
@@ -298,11 +297,11 @@ void Walker::update(const Update& u)
 
 		if (!support.ref())
 		{
-			// Air control
+			// air control
 			Vec2 accel = dir * AIR_CONTROL_ACCEL * u.time.delta;
 			Vec3 accel3 = Vec3(accel.x, 0, accel.y);
 
-			// Don't allow the walker to go faster than the speed we were going when we last hit the ground
+			// don't allow the walker to go faster than the speed we were going when we last hit the ground
 			if (velocity.dot(accel3 / accel3.length()) < vi_max(speed * 0.25f, net_speed))
 				adjustment += accel3;
 		}

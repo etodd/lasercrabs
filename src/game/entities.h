@@ -291,8 +291,8 @@ struct Rope : public ComponentType<Rope>
 {
 	static Array<Mat4> instances;
 
-	static void draw_alpha(const RenderParams&);
-	static void spawn(const Vec3&, const Vec3&, r32, r32 = 0.0f);
+	static void draw(const RenderParams&);
+	static void spawn(const Vec3&, const Vec3&, r32, r32 = 0.0f, b8 = true);
 
 	void awake() {}
 	static Rope* start(RigidBody*, const Vec3&, const Vec3&, const Quat&, r32 = 0.0f);

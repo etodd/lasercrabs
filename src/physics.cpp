@@ -189,12 +189,7 @@ void RigidBody::awake()
 
 RigidBody::~RigidBody()
 {
-	for (auto i = global_constraints.iterator(); !i.is_last(); i.next())
-	{
-		Constraint* constraint = i.item();
-		if (constraint->a.ref() == this || constraint->b.ref() == this)
-			remove_constraint(i.index);
-	}
+	remove_all_constraints();
 	Physics::btWorld->removeRigidBody(btBody);
 	delete btBody;
 	delete btShape;
@@ -299,6 +294,7 @@ void RigidBody::instantiate_constraint(Constraint* constraint, ID id)
 	switch (constraint->type)
 	{
 		case Constraint::Type::ConeTwist:
+		{
 			constraint->btPointer = new btConeTwistConstraint
 			(
 				*constraint->a.ref()->btBody,
@@ -308,7 +304,9 @@ void RigidBody::instantiate_constraint(Constraint* constraint, ID id)
 			);
 			((btConeTwistConstraint*)constraint->btPointer)->setLimit(constraint->limits.x, constraint->limits.y, constraint->limits.z);
 			break;
+		}
 		case Constraint::Type::PointToPoint:
+		{
 			constraint->btPointer = new btPoint2PointConstraint
 			(
 				*constraint->a.ref()->btBody,
@@ -317,6 +315,18 @@ void RigidBody::instantiate_constraint(Constraint* constraint, ID id)
 				constraint->frame_b.getOrigin()
 			);
 			break;
+		}
+		case Constraint::Type::Fixed:
+		{
+			constraint->btPointer = new btFixedConstraint
+			(
+				*constraint->a.ref()->btBody,
+				*constraint->b.ref()->btBody,
+				constraint->frame_a,
+				constraint->frame_b
+			);
+			break;
+		}
 		default:
 			vi_assert(false);
 			break;
@@ -328,6 +338,20 @@ void RigidBody::instantiate_constraint(Constraint* constraint, ID id)
 	constraint->b.ref()->has_constraints = true;
 
 	Physics::btWorld->addConstraint(constraint->btPointer);
+}
+
+void RigidBody::rebuild_constraint(ID id)
+{
+	Constraint* constraint = &global_constraints[id];
+	constraint->a.ref()->btBody->activate(true);
+	constraint->b.ref()->btBody->activate(true);
+
+	Physics::btWorld->removeConstraint(constraint->btPointer);
+
+	delete constraint->btPointer;
+	constraint->btPointer = nullptr;
+
+	instantiate_constraint(constraint, id);
 }
 
 ID RigidBody::add_constraint(const Constraint& constraint)
@@ -372,6 +396,20 @@ void RigidBody::activate_linked()
 			else if (constraint->b.ref() == this)
 				constraint->a.ref()->btBody->activate(true);
 		}
+	}
+}
+
+void RigidBody::remove_all_constraints()
+{
+	if (has_constraints)
+	{
+		for (auto i = global_constraints.iterator(); !i.is_last(); i.next())
+		{
+			Constraint* constraint = i.item();
+			if (constraint->a.ref() == this || constraint->b.ref() == this)
+				remove_constraint(i.index);
+		}
+		has_constraints = false;
 	}
 }
 

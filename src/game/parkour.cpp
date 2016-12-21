@@ -373,6 +373,67 @@ b8 Parkour::net_msg(Net::StreamRead* p, Net::MessageSource src)
 	return true;
 }
 
+void parkour_stop_climbing(Parkour* parkour)
+{
+	parkour->fsm.transition(Parkour::State::Normal);
+	parkour->rope = nullptr;
+	parkour->last_support = nullptr;
+	parkour->last_support_wall_run_state = Parkour::WallRunState::None;
+	parkour->last_support_time = Game::time.total;
+	RigidBody::remove_constraint(parkour->rope_constraint);
+	parkour->rope_constraint = IDNull;
+}
+
+enum class ParkourRopeSearch
+{
+	Any,
+	Above,
+	Below,
+	count,
+};
+
+Vec3 parkour_climb_offset(Parkour* parkour)
+{
+	return Quat::euler(0, parkour->get<Walker>()->target_rotation, 0) * Vec3(0, 0.8f, 0.27f);
+}
+
+Transform* parkour_get_rope(Parkour* parkour, ParkourRopeSearch search)
+{
+	Vec3 climb_attach_point = parkour->get<Transform>()->absolute_pos() + parkour_climb_offset(parkour);
+	for (auto i = Rope::list.iterator(); !i.is_last(); i.next())
+	{
+		Vec3 diff = i.item()->get<Transform>()->absolute_pos() - climb_attach_point;
+		if (diff.length_squared() < ROPE_SEGMENT_LENGTH * 0.75f * ROPE_SEGMENT_LENGTH * 0.75f)
+		{
+			switch (search)
+			{
+				case ParkourRopeSearch::Any:
+				{
+					break;
+				}
+				case ParkourRopeSearch::Above:
+				{
+					if (diff.y < ROPE_SEGMENT_LENGTH * 0.25f)
+						continue;
+					break;
+				}
+				case ParkourRopeSearch::Below:
+				{
+					if (diff.y > ROPE_SEGMENT_LENGTH * -0.25f)
+						continue;
+					break;
+				}
+				default:
+				{
+					vi_assert(false);
+				}
+			}
+			return i.item()->get<Transform>();
+		}
+	}
+	return nullptr;
+}
+
 void Parkour::update(const Update& u)
 {
 	fsm.time += u.time.delta;
@@ -673,6 +734,21 @@ void Parkour::update(const Update& u)
 		else
 			layer0->play(Asset::Animation::character_wall_run_straight);
 	}
+	else if (fsm.current == State::Climb)
+	{
+		if (climb_velocity == 0.0f)
+			layer0->play(Asset::Animation::character_hang);
+		else
+		{
+			AssetID anim = climb_velocity > 0.0f ? Asset::Animation::character_climb_up : Asset::Animation::character_climb_down;
+			if (layer0->animation != anim)
+			{
+				layer0->animation = anim;
+				layer0->time = 0.0f;
+			}
+			layer0->speed = fabsf(climb_velocity);
+		}
+	}
 	else if (get<Walker>()->support.ref())
 	{
 		if (get<Walker>()->dir.length_squared() > 0.0f)
@@ -739,6 +815,65 @@ void Parkour::update(const Update& u)
 		}
 	}
 
+	{
+		if (fsm.current == State::Normal && Game::time.total - last_support_time > JUMP_GRACE_PERIOD)
+		{
+			// check for stuff to climb
+			Transform* r = parkour_get_rope(this, ParkourRopeSearch::Any);
+			if (r)
+			{
+				fsm.transition(State::Climb);
+				rope = r;
+				Vec3 v = get<RigidBody>()->btBody->getLinearVelocity();
+				v.y = 0.0f;
+				RigidBody* rope_body = rope.ref()->get<RigidBody>();
+				rope_body->activate_linked();
+				rope_body->btBody->setLinearVelocity(v);
+
+				Vec3 climb_offset = parkour_climb_offset(this);
+
+				get<Walker>()->absolute_pos(rope.ref()->absolute_pos() - climb_offset);
+
+				RigidBody::Constraint constraint = RigidBody::Constraint();
+				constraint.type = RigidBody::Constraint::Type::PointToPoint;
+				constraint.frame_a = btTransform(btQuaternion::getIdentity(), climb_offset);
+				constraint.frame_b = btTransform(btQuaternion::getIdentity(), Vec3::zero),
+				constraint.a = get<RigidBody>();
+				constraint.b = rope_body;
+				rope_constraint = RigidBody::add_constraint(constraint);
+			}
+		}
+		else if (fsm.current == State::Climb)
+		{
+			RigidBody* body = get<RigidBody>();
+			Vec3 v = body->btBody->getLinearVelocity();
+			Vec2 accel = get<Walker>()->dir * AIR_CONTROL_ACCEL * u.time.delta;
+			body->btBody->setLinearVelocity(v + Vec3(accel.x, 0, accel.y));
+
+			if (climb_velocity != 0.0f)
+			{
+				RigidBody::Constraint* constraint = &RigidBody::global_constraints[rope_constraint];
+				Transform* new_rope = parkour_get_rope(this, climb_velocity > 0.0f ? ParkourRopeSearch::Above : ParkourRopeSearch::Below);
+				if (new_rope && new_rope != rope.ref())
+				{
+					// switch to new segment
+					RigidBody* new_rope_body = new_rope->get<RigidBody>();
+					constraint->b = new_rope_body;
+					constraint->frame_b.setOrigin(Vec3(0, 0, ROPE_SEGMENT_LENGTH * 0.75f * (climb_velocity > 0.0f ? 1.0f : -1.0f)));
+					rope = new_rope;
+				}
+				else
+				{
+					// keep climbing on current segment
+					Vec3 origin = constraint->frame_b.getOrigin();
+					origin.z = LMath::clampf(origin.z - climb_velocity * 1.5f * u.time.delta, ROPE_SEGMENT_LENGTH * -0.75f, ROPE_SEGMENT_LENGTH * 0.75f);
+					constraint->frame_b.setOrigin(origin);
+				}
+				RigidBody::rebuild_constraint(rope_constraint);
+			}
+		}
+	}
+
 	if (!Game::level.local)
 	{
 		if (last_frame_state != fsm.current)
@@ -801,7 +936,17 @@ void Parkour::lessen_gravity()
 b8 Parkour::try_jump(r32 rotation)
 {
 	b8 did_jump = false;
-	if (fsm.current == State::Normal || fsm.current == State::WallRun)
+	if (fsm.current == State::Climb)
+	{
+		parkour_stop_climbing(this);
+		RigidBody* body = get<RigidBody>();
+		Vec3 velocity = body->btBody->getLinearVelocity();
+		r32 velocity_length = velocity.length();
+		r32 speed = vi_max(MIN_WALLRUN_SPEED, velocity_length * 1.5f);
+		body->btBody->setLinearVelocity(velocity * (speed / velocity_length) + Vec3(0, JUMP_SPEED, 0));
+		did_jump = true;
+	}
+	else if (fsm.current == State::Normal || fsm.current == State::WallRun)
 	{
 		if ((get<Walker>()->support.ref() && get<Walker>()->support.ref()->btBody->getBroadphaseProxy()->m_collisionFilterGroup & CollisionParkour)
 			|| (
@@ -842,12 +987,12 @@ b8 Parkour::try_jump(r32 rotation)
 				}
 			}
 		}
+	}
 
-		if (did_jump)
-		{
-			get<Audio>()->post_event(has<PlayerControlHuman>() ? AK::EVENTS::PLAY_JUMP_PLAYER : AK::EVENTS::PLAY_JUMP);
-			fsm.transition(State::Normal);
-		}
+	if (did_jump)
+	{
+		get<Audio>()->post_event(has<PlayerControlHuman>() ? AK::EVENTS::PLAY_JUMP_PLAYER : AK::EVENTS::PLAY_JUMP);
+		fsm.transition(State::Normal);
 	}
 
 	return did_jump;
@@ -875,9 +1020,9 @@ void Parkour::wall_jump(r32 rotation, const Vec3& wall_normal, const btRigidBody
 	new_velocity.y = velocity_length;
 	body->btBody->setLinearVelocity(new_velocity);
 
-	// Update our last supported speed so that air control will allow us to go the new speed
 	last_support = nullptr;
 	last_support_wall_run_state = WallRunState::None;
+	last_support_time = Game::time.total;
 }
 
 const s32 mantle_sample_count = 3;

@@ -86,6 +86,7 @@ struct RigidBody : public ComponentType<RigidBody>
 		{
 			ConeTwist,
 			PointToPoint,
+			Fixed,
 			count,
 		};
 		btTypedConstraint* btPointer;
@@ -102,6 +103,7 @@ struct RigidBody : public ComponentType<RigidBody>
 	static ID add_constraint(const Constraint&);
 	static Constraint* net_add_constraint();
 	static void remove_constraint(ID);
+	static void rebuild_constraint(ID);
 
 	btCollisionShape* btShape;
 	btStridingMeshInterface* btMesh;
@@ -130,6 +132,7 @@ struct RigidBody : public ComponentType<RigidBody>
 	void set_collision_masks(s16, s16);
 
 	void activate_linked();
+	void remove_all_constraints();
 };
 
 }

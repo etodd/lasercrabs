@@ -42,6 +42,7 @@ void dialog_no_action(s8 gamepad)
 
 void init() {}
 void update(const Update&) {}
+void update_end(const Update&) {}
 void clear() {}
 void draw(const RenderParams&) {}
 void title() {}
@@ -56,6 +57,7 @@ void progress_infinite(const RenderParams&, const char*, const Vec2&) {}
 void dialog(s8, DialogCallback, const char*, ...) {}
 void dialog_with_cancel(s8, DialogCallback, DialogCallback, const char*, ...) {}
 void dialog_with_time_limit(s8, DialogCallback, r32, const char*, ...) {}
+b8 dialog_active(s8) { return false; }
 
 #else
 
@@ -75,6 +77,11 @@ void quit_to_title(s8 gamepad)
 	if (quit_menu_state)
 		*quit_menu_state = State::Hidden;
 	quit_menu_state = nullptr;
+}
+
+b8 dialog_active(s8 gamepad)
+{
+	return dialog_callback[gamepad] || dialog_callback_last[gamepad];
 }
 
 void dialog(s8 gamepad, DialogCallback callback, const char* format, ...)
@@ -434,7 +441,6 @@ void update(const Update& u)
 					cancel_callback(s8(i));
 			}
 		}
-		dialog_callback_last[i] = dialog_callback[i];
 	}
 
 	if (Game::level.id == Asset::Level::Dock && Game::level.mode == Game::Mode::Special)
@@ -454,6 +460,17 @@ void update(const Update& u)
 		}
 		else
 			pause_menu(u, 0, &main_menu, &main_menu_state);
+	}
+}
+
+void update_end(const Update& u)
+{
+	// reset cancel event eaten flags
+	for (s32 i = 0; i < MAX_GAMEPADS; i++)
+	{
+		dialog_callback_last[i] = dialog_callback[i];
+		if (!u.input->get(Controls::Cancel, i) && !u.last_input->get(Controls::Cancel, i))
+			Game::cancel_event_eaten[i] = false;
 	}
 }
 
@@ -665,7 +682,7 @@ void UIMenu::start(const Update& u, s8 g, b8 input)
 
 	gamepad = g;
 
-	if (Console::visible || !input || Menu::dialog_callback[gamepad])
+	if (Console::visible || !input || Menu::dialog_active(gamepad))
 		return;
 
 	if (active[g])
@@ -712,7 +729,7 @@ b8 UIMenu::item(const Update& u, const char* string, const char* value, b8 disab
 	if (!add_item(false, string, value, disabled, icon))
 		return false;
 
-	if (Console::visible || active[gamepad] != this || Menu::dialog_callback[gamepad])
+	if (Console::visible || active[gamepad] != this || Menu::dialog_active(gamepad))
 		return false;
 
 	if (selected == items.length - 1

@@ -34,7 +34,8 @@ Walker::Walker(r32 rot)
 	enabled(true),
 	obstacle_id((u32)-1),
 	land(),
-	net_speed_timer()
+	net_speed_timer(),
+	net_speed()
 {
 }
 

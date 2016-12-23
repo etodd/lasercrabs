@@ -76,6 +76,7 @@ extern DialogCallback dialog_cancel_callback[MAX_GAMEPADS];
 
 void init();
 void update(const Update&);
+void update_end(const Update&);
 void clear();
 void draw(const RenderParams&);
 void title();
@@ -91,6 +92,7 @@ void dialog_with_cancel(s8, DialogCallback, DialogCallback, const char*, ...);
 void dialog_with_time_limit(s8, DialogCallback, r32, const char*, ...);
 void dialog_no_action(s8);
 void draw_letterbox(const RenderParams&, r32, r32);
+b8 dialog_active(s8);
 
 }
 

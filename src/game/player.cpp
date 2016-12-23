@@ -39,6 +39,7 @@
 #include "overworld.h"
 #include "utf8/utf8.h"
 #include "load.h"
+#include "asset/level.h"
 
 namespace VI
 {
@@ -749,6 +750,7 @@ void PlayerHuman::spawn()
 		}
 
 		spawned = World::create<Traceur>(pos, Quat::euler(0, angle, 0), get<PlayerManager>()->team.ref()->team());
+		spawned->get<Parkour>()->last_angle_horizontal = angle;
 
 		if (Game::level.post_pvp && !Game::save.zone_current_restore)
 			spawned->get<Animator>()->layers[3].set(Asset::Animation::character_terminal_exit, 0.0f); // bypass animation blending
@@ -1830,7 +1832,7 @@ b8 PlayerControlHuman::input_enabled() const
 		&& (ui_mode == PlayerHuman::UIMode::PvpDefault || ui_mode == PlayerHuman::UIMode::ParkourDefault)
 		&& !Cora::has_focus()
 		&& !Team::game_over
-		&& !Menu::dialog_callback[player.ref()->gamepad]
+		&& !Menu::dialog_active(player.ref()->gamepad)
 		&& !interactable.ref();
 }
 
@@ -2074,7 +2076,7 @@ void PlayerControlHuman::camera_shake_update(const Update& u, Camera* camera)
 	}
 }
 
-void player_confirm_spend_hack_kit(s8 gamepad)
+void player_confirm_tram_interactable(s8 gamepad)
 {
 	for (auto i = PlayerControlHuman::list.iterator(); !i.is_last(); i.next())
 	{
@@ -2087,8 +2089,38 @@ void player_confirm_spend_hack_kit(s8 gamepad)
 			{
 				player->sudoku.reset();
 				i.item()->sudoku_active = true;
-				Game::save.resources[s32(Resource::HackKits)]--;
 			}
+			break;
+		}
+	}
+}
+
+void player_confirm_skip_tutorial(s8 gamepad)
+{
+	Menu::dialog(gamepad, &player_confirm_tram_interactable, _(strings::confirm_spend), 1, _(strings::hack_kits));
+}
+
+void player_confirm_terminal_interactable(s8 gamepad)
+{
+	for (auto i = PlayerControlHuman::list.iterator(); !i.is_last(); i.next())
+	{
+		PlayerHuman* player = i.item()->player.ref();
+		if (player->gamepad == gamepad)
+		{
+			i.item()->get<Animator>()->layers[3].play(Asset::Animation::character_terminal_enter); // animation will eventually trigger the interactable
+			break;
+		}
+	}
+}
+
+void player_cancel_interactable(s8 gamepad)
+{
+	for (auto i = PlayerControlHuman::list.iterator(); !i.is_last(); i.next())
+	{
+		PlayerHuman* player = i.item()->player.ref();
+		if (player->gamepad == gamepad)
+		{
+			i.item()->interactable = nullptr;
 			break;
 		}
 	}
@@ -2553,73 +2585,116 @@ void PlayerControlHuman::update(const Update& u)
 				interactable = Interactable::closest(get<Transform>()->absolute_pos());
 				if (interactable.ref())
 				{
-					if (interactable.ref()->entity() == Game::level.terminal_interactable.ref()) // special case for terminal
+					switch (interactable.ref()->type)
 					{
-						switch (Game::save.zones[Game::level.id])
+						case Interactable::Type::Terminal:
 						{
-							case ZoneState::Hostile:
+							switch (Game::save.zones[Game::level.id])
 							{
-								if (Game::level.post_pvp)
+								case ZoneState::Hostile:
 								{
-									// terminal is temporarily locked, must leave and come back
-									player.ref()->msg(_(strings::terminal_locked), false);
-									interactable = nullptr;
+									if (Game::level.post_pvp || platform::timestamp() - Game::save.zone_lost_times[Game::level.id] < ZONE_LOST_COOLDOWN)
+									{
+										// terminal is temporarily locked, must leave and come back
+										player.ref()->msg(_(strings::terminal_locked), false);
+										interactable = nullptr;
+									}
+									else if (Game::level.max_teams <= 2 || Game::save.group != Game::Group::None) // if the map requires more than two players, you must be in a group
+									{
+										if (Game::save.resources[s32(Resource::Drones)] < DEFAULT_RUSH_DRONES)
+										{
+											Menu::dialog(gamepad, &Menu::dialog_no_action, _(strings::insufficient_resource), DEFAULT_RUSH_DRONES, _(strings::drones));
+											interactable = nullptr;
+										}
+										else if (Game::save.resources[s32(Resource::HackKits)] < 1)
+										{
+											Menu::dialog(gamepad, &Menu::dialog_no_action, _(strings::insufficient_resource), 1, _(strings::hack_kits));
+											interactable = nullptr;
+										}
+										else
+											Menu::dialog_with_cancel(gamepad, &player_confirm_terminal_interactable, &player_cancel_interactable, _(strings::confirm_capture), DEFAULT_RUSH_DRONES, 1);
+									}
+									else
+									{
+										// must be in a group
+										player.ref()->msg(_(strings::group_required), false);
+										interactable = nullptr;
+									}
+									break;
 								}
-								else if (Game::level.max_teams <= 2 || Game::save.group != Game::Group::None) // if the map requires more than two players, you must be in a group
-									get<Animator>()->layers[3].play(Asset::Animation::character_terminal_enter); // animation will eventually trigger the interactable
-								else
+								case ZoneState::Locked:
 								{
-									// must be in a group
-									player.ref()->msg(_(strings::group_required), false);
-									interactable = nullptr;
+									interactable.ref()->interact();
+									get<Animator>()->layers[3].play(Asset::Animation::character_interact);
+									break;
 								}
-								break;
+								case ZoneState::Friendly:
+								{
+									// zone is already owned
+									player.ref()->msg(_(strings::zone_already_captured), false);
+									interactable = nullptr;
+									break;
+								}
+								default:
+								{
+									vi_assert(false);
+									break;
+								}
 							}
-							case ZoneState::Locked:
+							break;
+						}
+						case Interactable::Type::Tram: // tram interactable
+						{
+							s8 track = s8(interactable.ref()->user_data);
+							AssetID target_level = Game::level.tram_tracks[track].level;
+							Tram* tram = Tram::by_track(track);
+							if (tram->doors_open() || Game::save.zones[target_level] != ZoneState::Locked)
 							{
+								// go right ahead
 								interactable.ref()->interact();
 								get<Animator>()->layers[3].play(Asset::Animation::character_interact);
-								break;
 							}
-							case ZoneState::Friendly:
+							else if (Game::save.zones[Game::level.id] == ZoneState::Locked
+								&& Game::save.zones[target_level] == ZoneState::Locked)
 							{
-								// zone is already owned
-								player.ref()->msg(_(strings::zone_already_captured), false);
+								// unlock terminal first
+								player.ref()->msg(_(strings::error_locked_zone), false);
 								interactable = nullptr;
-								break;
 							}
-							default:
+							else
 							{
-								vi_assert(false);
-								break;
+								// zone is unlocked, but need to hack this tram first
+								if (Game::save.zones[target_level] == ZoneState::Friendly)
+								{
+									interactable.ref()->interact();
+									get<Animator>()->layers[3].play(Asset::Animation::character_interact);
+								}
+								else if (Game::save.resources[s32(Resource::HackKits)] > 0)
+								{
+									if (Game::level.id == Asset::Level::Port_District && !Game::level.post_pvp)
+									{
+										// player is about to skip tutorial
+										Menu::dialog(gamepad, &player_confirm_skip_tutorial, _(strings::confirm_skip_tutorial));
+										interactable = nullptr;
+									}
+									else
+									{
+										Menu::dialog(gamepad, &player_confirm_tram_interactable, _(strings::confirm_spend), 1, _(strings::hack_kits));
+										interactable = nullptr;
+									}
+								}
+								else // not enough
+								{
+									Menu::dialog(gamepad, &Menu::dialog_no_action, _(strings::insufficient_resource), 1, _(strings::hack_kits));
+									interactable = nullptr;
+								}
 							}
+							break;
 						}
-					}
-					else // tram interactable
-					{
-						s8 track = s8(interactable.ref()->user_data);
-						AssetID target_level = Game::level.tram_tracks[track].level;
-						if (Game::save.zones[Game::level.id] == ZoneState::Locked
-							&& Game::save.zones[target_level] == ZoneState::Locked)
+						default:
 						{
-							// unlock terminal first
-							player.ref()->msg(_(strings::error_locked_zone), false);
-							interactable = nullptr;
-						}
-						else if (Tram::by_track(track)->doors_open() || Game::save.zones[target_level] != ZoneState::Locked)
-						{
-							// go right ahead
-							interactable.ref()->interact();
-							get<Animator>()->layers[3].play(Asset::Animation::character_interact);
-						}
-						else
-						{
-							// locked, need to hack first
-							interactable = nullptr;
-							if (Game::save.resources[s32(Resource::HackKits)] > 0)
-								Menu::dialog(gamepad, &player_confirm_spend_hack_kit, _(strings::confirm_spend), 1, _(strings::hack_kits));
-							else // not enough
-								Menu::dialog(gamepad, &Menu::dialog_no_action, _(strings::insufficient_resource), 1, _(strings::hack_kits));
+							vi_assert(false); // invalid interactable type
+							break;
 						}
 					}
 				}

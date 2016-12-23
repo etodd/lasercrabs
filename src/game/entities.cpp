@@ -93,7 +93,7 @@ template<typename Stream> b8 serialize_health_event(Stream* p, Health* h, Health
 	if (h->shield_max > 0)
 		serialize_int(p, s8, e->shield, -h->shield_max, h->shield_max);
 	else if (Stream::IsReading)
-		h->shield = 0;
+		e->shield = 0;
 	return true;
 }
 
@@ -261,7 +261,7 @@ EnergyPickupEntity::EnergyPickupEntity(const Vec3& p, AI::Team team)
 
 	model->offset.scale(Vec3(ENERGY_PICKUP_RADIUS - 0.2f));
 
-	RigidBody* body = create<RigidBody>(RigidBody::Type::Sphere, Vec3(ENERGY_PICKUP_RADIUS), 0.1f, CollisionAwkIgnore | CollisionTarget, ~CollisionShield & ~CollisionAllTeamsContainmentField);
+	RigidBody* body = create<RigidBody>(RigidBody::Type::Sphere, Vec3(ENERGY_PICKUP_RADIUS), 0.1f, CollisionAwkIgnore | CollisionTarget, ~CollisionShield & ~CollisionAllTeamsContainmentField & ~CollisionWalker);
 	body->set_damping(0.5f, 0.5f);
 	body->set_ccd(true);
 
@@ -1610,7 +1610,7 @@ void Grenade::update_server(const Update& u)
 			if (v.length_squared() > 0.0f)
 				v.normalize();
 			btCollisionWorld::ClosestRayResultCallback ray_callback(pos, next_pos + v * GRENADE_RADIUS);
-			Physics::raycast(&ray_callback, ~Team::containment_field_mask(team()));
+			Physics::raycast(&ray_callback, ~Team::containment_field_mask(team()) & ~CollisionAwkIgnore & ~CollisionTarget);
 			if (ray_callback.hasHit())
 			{
 				Entity* e = &Entity::list[ray_callback.m_collisionObject->getUserIndex()];
@@ -2236,10 +2236,11 @@ void Shockwave::update(const Update& u)
 		list.remove(id());
 }
 
-CollectibleEntity::CollectibleEntity(Resource type, s16 amount)
+CollectibleEntity::CollectibleEntity(ID save_id, Resource type, s16 amount)
 {
 	create<Transform>();
 	Collectible* c = create<Collectible>();
+	c->save_id = save_id;
 	c->type = type;
 	c->amount = amount;
 	switch (type)
@@ -2305,7 +2306,10 @@ void Collectible::give_rewards()
 			}
 		}
 	}
-	Game::save.resources[s32(type)] += a;
+	if (Game::level.local)
+		Overworld::resource_change(type, a);
+
+	Game::save.collectibles.add({ Game::level.id, save_id });
 
 	char msg[512];
 	sprintf(msg, _(strings::resource_collected), a, _(Overworld::resource_info[s32(type)].description));
@@ -2512,7 +2516,14 @@ void TerminalInteractable::interacted(Interactable*)
 			TerminalEntity::open();
 		}
 		else if (zone_state == ZoneState::Hostile)
+		{
+			if (Game::level.local)
+			{
+				Overworld::resource_change(Resource::HackKits, -1);
+				Overworld::resource_change(Resource::Drones, -DEFAULT_RUSH_DRONES);
+			}
 			TerminalEntity::close();
+		}
 	}
 }
 
@@ -2934,9 +2945,12 @@ void TramInteractableEntity::interacted(Interactable* i)
 	}
 	else
 	{
+		AssetID target_level = Game::level.tram_tracks[track].level;
 		if (Game::save.zones[Game::level.id] != ZoneState::Locked
-			|| Game::save.zones[Game::level.tram_tracks[track].level] != ZoneState::Locked)
+			|| Game::save.zones[target_level] != ZoneState::Locked)
 		{
+			if (Game::level.local && Game::save.zones[target_level] != ZoneState::Friendly)
+				Overworld::resource_change(Resource::HackKits, -1);
 			tram->departing = true;
 			tram->doors_open(true);
 		}

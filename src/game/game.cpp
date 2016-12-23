@@ -503,12 +503,9 @@ void Game::update(const Update& update_in)
 
 	World::flush();
 
-	// reset cancel event eaten flags
-	for (s32 i = 0; i < MAX_GAMEPADS; i++)
-	{
-		if (!u.input->get(Controls::Cancel, i) && !u.last_input->get(Controls::Cancel, i))
-			cancel_event_eaten[i] = false;
-	}
+#if !SERVER
+	Menu::update_end(u);
+#endif
 
 	Net::update_end(u);
 }
@@ -517,6 +514,31 @@ void Game::term()
 {
 	Net::term();
 	Audio::term();
+}
+
+// return true if this entity's transform needs synced over the network
+b8 Game::net_transform_filter(const Entity* t, Mode mode)
+{
+	// energy pickups are not synced in parkour mode
+
+	if (t->has<Sensor>() && !t->has<EnergyPickup>())
+		return true;
+
+	const ComponentMask mask_parkour =
+	(
+		Awk::component_mask
+		| Projectile::component_mask
+		| Rocket::component_mask
+		| MinionCommon::component_mask
+		| Grenade::component_mask
+		| TramRunner::component_mask
+	);
+	const ComponentMask mask_pvp =
+	(
+		mask_parkour
+		| EnergyPickup::component_mask
+	);
+	return t->component_mask & (mode == Game::Mode::Pvp ? mask_pvp : mask_parkour);
 }
 
 #if SERVER
@@ -548,7 +570,7 @@ void Game::draw_opaque(const RenderParams& render_params)
 
 	Overworld::draw_opaque(render_params);
 
-	if (render_params.technique == RenderTechnique::Shadow)
+	if (render_params.technique == RenderTechnique::Shadow && !Overworld::active())
 		Rope::draw(render_params);
 }
 
@@ -768,7 +790,7 @@ void Game::draw_hollow(const RenderParams& render_params)
 
 void Game::draw_particles(const RenderParams& render_params)
 {
-	if (render_params.camera->mask)
+	if (render_params.camera->mask && !Overworld::active())
 		Rope::draw(render_params);
 
 	render_params.sync->write(RenderOp::CullMode);
@@ -786,6 +808,46 @@ void Game::draw_additive(const RenderParams& render_params)
 }
 
 #endif
+
+void game_end_cheat(b8 win)
+{
+	if (Game::level.mode == Game::Mode::Pvp && Game::session.story_mode)
+	{
+		PlayerManager* player = PlayerHuman::list.iterator().item()->get<PlayerManager>();
+		if (!win)
+		{
+			PlayerManager* enemy = nullptr;
+			for (auto i = PlayerAI::list.iterator(); !i.is_last(); i.next())
+			{
+				if (i.item()->manager.ref()->team.ref() != player->team.ref())
+				{
+					enemy = i.item()->manager.ref();
+					break;
+				}
+			}
+			if (enemy)
+				player = enemy;
+			else
+				return;
+		}
+
+		if (Game::level.type == Game::Type::Deathmatch)
+			player->kills = Game::level.kill_limit;
+		else if (Game::level.type == Game::Type::Rush)
+		{
+			if (player->team.ref()->team() == 0) // defending
+				Team::match_time = Game::level.time_limit;
+			else // attacking
+			{
+				for (auto i = ControlPoint::list.iterator(); !i.is_last(); i.next())
+				{
+					i.item()->team = player->team.ref()->team();
+					i.item()->team_next = AI::TeamNone;
+				}
+			}
+		}
+	}
+}
 
 void Game::execute(const char* cmd)
 {
@@ -830,22 +892,9 @@ void Game::execute(const char* cmd)
 		}
 	}
 	else if (strcmp(cmd, "win") == 0)
-	{
-		if (level.mode == Mode::Pvp)
-		{
-			PlayerManager* player = PlayerHuman::list.iterator().item()->get<PlayerManager>();
-			if (level.type == Type::Deathmatch)
-				player->kills = level.kill_limit;
-			else if (level.type == Type::Rush)
-			{
-				for (auto i = ControlPoint::list.iterator(); !i.is_last(); i.next())
-				{
-					i.item()->team = player->team.ref()->team();
-					i.item()->team_next = AI::TeamNone;
-				}
-			}
-		}
-	}
+		game_end_cheat(true);
+	else if (strcmp(cmd, "lose") == 0)
+		game_end_cheat(false);
 	else if (utf8cmp(cmd, "die") == 0)
 	{
 		for (auto i = PlayerControlHuman::list.iterator(); !i.is_last(); i.next())
@@ -889,8 +938,8 @@ void Game::execute(const char* cmd)
 			s32 value = (s32)std::strtol(number_string, &end, 10);
 			if (*end == '\0')
 			{
-				if (level.id == Asset::Level::overworld)
-					Game::save.resources[(s32)Resource::Energy] += value;
+				if (Overworld::active())
+					Overworld::resource_change(Resource::Energy, value);
 				else if (PlayerManager::list.count() > 0)
 				{
 					for (auto i = PlayerManager::list.iterator(); !i.is_last(); i.next())
@@ -985,7 +1034,7 @@ void Game::execute(const char* cmd)
 			if (*end == '\0')
 			{
 				for (s32 i = 0; i < s32(Resource::count); i++)
-					save.resources[i] += value;
+					Overworld::resource_change(Resource(i), value);
 			}
 		}
 	}
@@ -1173,7 +1222,7 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 	{
 		case Type::Rush:
 		{
-			level.respawns = 5;
+			level.respawns = DEFAULT_RUSH_DRONES;
 			break;
 		}
 		case Type::Deathmatch:
@@ -1738,17 +1787,31 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 		}
 		else if (cJSON_HasObjectItem(element, "Collectible"))
 		{
-			if (session.story_mode && (save.zones[level.id] == ZoneState::Locked || level.id == Asset::Level::Dock))
+			if (session.story_mode)
 			{
-				const char* type_str = Json::get_string(element, "Collectible");
-				Resource type;
-				if (strcmp(type_str, "HackKits") == 0)
-					type = Resource::HackKits;
-				else if (strcmp(type_str, "Drones") == 0)
-					type = Resource::Drones;
-				else
-					type = Resource::Energy;
-				entity = World::alloc<CollectibleEntity>(type, s16(Json::get_s32(element, "amount")));
+				b8 already_collected = false;
+				ID id = ID(transforms.length);
+				for (s32 i = 0; i < save.collectibles.length; i++)
+				{
+					const CollectibleEntry& entry = save.collectibles[i];
+					if (entry.zone == level.id && entry.id == id)
+					{
+						already_collected = true;
+						break;
+					}
+				}
+				if (!already_collected)
+				{
+					const char* type_str = Json::get_string(element, "Collectible");
+					Resource type;
+					if (strcmp(type_str, "HackKits") == 0)
+						type = Resource::HackKits;
+					else if (strcmp(type_str, "Drones") == 0)
+						type = Resource::Drones;
+					else
+						type = Resource::Energy;
+					entity = World::alloc<CollectibleEntity>(id, type, s16(Json::get_s32(element, "amount")));
+				}
 			}
 		}
 		else if (strcmp(Json::get_string(element, "name"), "terminal") == 0)

@@ -373,6 +373,7 @@ struct Collectible : public ComponentType<Collectible>
 {
 	Resource type;
 	Link collected;
+	ID save_id;
 	s16 amount;
 
 	void awake() {}
@@ -382,7 +383,7 @@ struct Collectible : public ComponentType<Collectible>
 
 struct CollectibleEntity : public Entity
 {
-	CollectibleEntity(Resource = Resource::count, s16 = 0);
+	CollectibleEntity(ID, Resource = Resource::count, s16 = 0);
 };
 
 struct PlayerTrigger : public ComponentType<PlayerTrigger>

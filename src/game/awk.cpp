@@ -1906,7 +1906,7 @@ void Awk::update_client(const Update& u)
 				particle_accumulator -= particle_interval;
 				Particles::tracers.add
 				(
-					Vec3::lerp((particle_accumulator - particle_start_delay) / u.time.delta, last_pos, pos),
+					Vec3::lerp((particle_accumulator - particle_start_delay) / vi_max(0.0001f, u.time.delta), last_pos, pos),
 					Vec3::zero,
 					0
 				);
@@ -1971,7 +1971,7 @@ void Awk::update_client(const Update& u)
 	{
 		Vec3 pos = lerped_pos;
 		if (s == State::Crawl)
-			velocity = velocity * 0.9f + ((pos - last_pos) / u.time.delta) * 0.1f;
+			velocity = velocity * 0.9f + ((pos - last_pos) / vi_max(0.0001f, u.time.delta)) * 0.1f;
 		last_pos = pos;
 	}
 }

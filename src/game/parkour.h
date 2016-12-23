@@ -51,6 +51,7 @@ struct Parkour : public ComponentType<Parkour>
 
 	Vec3 relative_wall_run_normal;
 	Vec3 relative_support_pos;
+	Vec3 relative_animation_start_pos;
 	r32 last_support_time;
 	r32 lean;
 	r32 last_angular_velocity;

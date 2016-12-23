@@ -458,30 +458,38 @@ void Parkour::update(const Update& u)
 
 	if (fsm.current == State::Mantle)
 	{
-		get<Animator>()->layers[1].play(Asset::Animation::character_mantle);
 		const r32 mantle_time = 0.5f;
 		if (fsm.time > mantle_time || !last_support.ref())
 		{
 			fsm.transition(State::Normal);
 			get<RigidBody>()->btBody->setLinearVelocity(Quat::euler(0, get<Walker>()->target_rotation, 0) * Vec3(0, 0, get<Walker>()->net_speed));
+			get<Animator>()->override_bone(Asset::Bone::character_hips, Vec3::zero, Quat::identity);
+			get<Animator>()->update_world_transforms();
 		}
 		else
 		{
-			Vec3 end = last_support.ref()->get<Transform>()->to_world(relative_support_pos);
 			Vec3 start = get<Transform>()->absolute_pos();
+			Vec3 end = last_support.ref()->get<Transform>()->to_world(relative_support_pos);
+
+			{
+				Vec3 animation_start_pos = last_support.ref()->get<Transform>()->to_world(relative_animation_start_pos);
+				get<Animator>()->override_bone(Asset::Bone::character_hips, animation_start_pos - start, Quat::identity);
+				get<Animator>()->update_world_transforms();
+			}
+
 			Vec3 diff = end - start;
 			r32 blend = fsm.time / mantle_time;
 			Vec3 adjustment;
 			if (blend < 0.5f)
 			{
-				// Move vertically
+				// move vertically
 				r32 distance = diff.y;
 				r32 time_left = (mantle_time * 0.5f) - fsm.time;
 				adjustment = Vec3(0, vi_min(distance, u.time.delta / time_left), 0);
 			}
 			else
 			{
-				// Move horizontally
+				// move horizontally
 				r32 distance = diff.length();
 				r32 time_left = mantle_time - fsm.time;
 				adjustment = diff * vi_min(1.0f, u.time.delta / time_left);
@@ -603,7 +611,7 @@ void Parkour::update(const Update& u)
 			last_support = get<Walker>()->support;
 			last_support_wall_run_state = WallRunState::None;
 			relative_support_pos = last_support.ref()->get<Transform>()->to_local(get<Walker>()->base_pos());
-			lean_target = get<Walker>()->net_speed * angular_velocity * (0.75f / 180.0f) / u.time.delta;
+			lean_target = get<Walker>()->net_speed * angular_velocity * (0.75f / 180.0f) / vi_max(0.0001f, u.time.delta);
 		}
 	}
 	else if (fsm.current == State::Slide || fsm.current == State::Roll)
@@ -736,6 +744,7 @@ void Parkour::update(const Update& u)
 	}
 	else if (fsm.current == State::Climb)
 	{
+		get<Animator>()->layers[1].animation = AssetNull;
 		if (climb_velocity == 0.0f)
 			layer0->play(Asset::Animation::character_hang);
 		else
@@ -1106,7 +1115,7 @@ b8 Parkour::try_parkour(b8 force)
 		{
 			Vec3 dir_offset = rot * (mantle_samples[i] * WALKER_RADIUS * RAYCAST_RADIUS_RATIO);
 
-			Vec3 ray_start = pos + Vec3(dir_offset.x, WALKER_DEFAULT_CAPSULE_HEIGHT * 0.7f, dir_offset.z);
+			Vec3 ray_start = pos + Vec3(dir_offset.x, WALKER_DEFAULT_CAPSULE_HEIGHT * 1.7f, dir_offset.z);
 			Vec3 ray_end = pos + Vec3(dir_offset.x, WALKER_DEFAULT_CAPSULE_HEIGHT * -0.25f + (force ? -WALKER_SUPPORT_HEIGHT - 0.5f : 0.0f), dir_offset.z);
 
 			btCollisionWorld::ClosestRayResultCallback ray_callback(ray_start, ray_end);
@@ -1126,11 +1135,12 @@ b8 Parkour::try_parkour(b8 force)
 						return false;
 				}
 
-				get<Animator>()->layers[1].play(Asset::Animation::character_mantle);
+				get<Animator>()->layers[1].play(Asset::Animation::character_top_out);
 				fsm.transition(State::Mantle);
 				last_support = Entity::list[ray_callback.m_collisionObject->getUserIndex()].get<RigidBody>();
 				last_support_wall_run_state = WallRunState::None;
 				relative_support_pos = last_support.ref()->get<Transform>()->to_local(ray_callback.m_hitPointWorld + Vec3(0, WALKER_SUPPORT_HEIGHT + WALKER_DEFAULT_CAPSULE_HEIGHT * 0.6f, 0));
+				relative_animation_start_pos = last_support.ref()->get<Transform>()->to_local(pos);
 				last_support_time = Game::time.total;
 
 				get<RigidBody>()->btBody->setLinearVelocity(Vec3::zero);

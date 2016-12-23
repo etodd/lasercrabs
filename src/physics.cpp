@@ -2,6 +2,7 @@
 #include "data/components.h"
 #include "load.h"
 #include "bullet/src/BulletCollision/NarrowPhaseCollision/btRaycastCallback.h"
+#include "game/game.h"
 
 namespace VI
 {
@@ -119,6 +120,13 @@ void RigidBody::awake()
 	if (btBody) // already initialized
 		return;
 
+	// rigid bodies controlled by the server appear as kinematic bodies to the client
+	r32 m;
+	if (!Game::level.local && Game::net_transform_filter(entity(), Game::level.mode))
+		m = 0.0f;
+	else
+		m = mass;
+
 	switch (type)
 	{
 		case Type::Box:
@@ -149,10 +157,10 @@ void RigidBody::awake()
 	}
 
 	btVector3 localInertia(0, 0, 0);
-	if (mass > 0.0f)
-		btShape->calculateLocalInertia(mass, localInertia);
+	if (m > 0.0f)
+		btShape->calculateLocalInertia(m, localInertia);
 
-	btRigidBody::btRigidBodyConstructionInfo info(mass, 0, btShape, localInertia);
+	btRigidBody::btRigidBodyConstructionInfo info(m, 0, btShape, localInertia);
 
 	Quat quat;
 	Vec3 pos;
@@ -162,7 +170,7 @@ void RigidBody::awake()
 	btBody = new btRigidBody(info);
 	btBody->setWorldTransform(btTransform(quat, pos));
 
-	if (mass == 0.0f)
+	if (m == 0.0f)
 		btBody->setCollisionFlags(btCollisionObject::CF_STATIC_OBJECT | btCollisionObject::CF_KINEMATIC_OBJECT);
 
 	btBody->setUserIndex(entity_id);

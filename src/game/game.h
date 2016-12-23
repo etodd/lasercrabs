@@ -94,11 +94,19 @@ namespace VI
 			b8 read;
 		};
 
+		struct CollectibleEntry
+		{
+			AssetID zone;
+			ID id;
+		};
+
 		struct Save
 		{
 			r64 timestamp;
+			r64 zone_lost_times[MAX_ZONES];
 			Array<Message> messages;
 			Array<Message> messages_scheduled;
+			Array<CollectibleEntry> collectibles;
 			Vec3 zone_current_restore_position;
 			r32 zone_current_restore_rotation;
 			ZoneState zones[MAX_ZONES];
@@ -186,6 +194,8 @@ namespace VI
 		static void draw_additive(const RenderParams&);
 		static void draw_override(const RenderParams&);
 		static void term();
+
+		static b8 net_transform_filter(const Entity*, Mode);
 	};
 
 }

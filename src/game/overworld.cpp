@@ -51,7 +51,6 @@ namespace Overworld
 #define STRING_BUFFER_SIZE 256
 #define HACK_TIME 2.0f
 #define BUY_TIME 1.0f
-#define DEPLOY_COST_DRONES 1
 #define AUTO_CAPTURE_TIME 30.0f
 #define ZONE_MAX_CHILDREN 12
 #define EVENT_INTERVAL_PER_ZONE (60.0f * 5.0f)
@@ -484,16 +483,6 @@ const ZoneNode* zone_node_get(AssetID id)
 	return nullptr;
 }
 
-b8 resource_spend(Resource res, s16 amount)
-{
-	if (Game::save.resources[s32(res)] >= amount)
-	{
-		Game::save.resources[s32(res)] -= amount;
-		return true;
-	}
-	return false;
-}
-
 void deploy_start()
 {
 	data.state = Game::session.story_mode ? State::Deploying : State::SplitscreenDeploying;
@@ -803,6 +792,29 @@ const ZoneNode* zones_draw(const RenderParams& params)
 			Vec2 p;
 			if (UI::project(params, selected_zone->pos(), &p))
 				UI::triangle_border(params, { p, Vec2(48.0f * UI::scale) }, BORDER * 2.0f, UI::color_accent, PI);
+
+			// cooldown timer
+			r64 lost_timer = ZONE_LOST_COOLDOWN - (platform::timestamp() - Game::save.zone_lost_times[selected_zone->id]);
+			if (lost_timer > 0.0f)
+			{
+				UIText text;
+				text.color = UI::color_alert;
+				text.anchor_x = UIText::Anchor::Center;
+				text.anchor_y = UIText::Anchor::Min;
+
+				{
+					s32 remaining_minutes = lost_timer / 60.0;
+					s32 remaining_seconds = lost_timer - (remaining_minutes * 60.0);
+					text.text(_(strings::timer), remaining_minutes, remaining_seconds);
+				}
+
+				{
+					Vec2 text_pos = p;
+					text_pos.y += 32.0f * UI::scale;
+					UI::box(params, text.rect(text_pos).outset(8.0f * UI::scale), UI::color_background);
+					text.draw(params, text_pos);
+				}
+			}
 		}
 
 		// zone under attack
@@ -924,6 +936,7 @@ b8 zone_can_capture(AssetID zone_id)
 	{
 		case ZoneState::Friendly:
 		{
+			// tolerate time differences on the server
 #if SERVER
 			return zone_id == zone_under_attack();
 #else
@@ -932,7 +945,12 @@ b8 zone_can_capture(AssetID zone_id)
 		}
 		case ZoneState::Hostile:
 		{
+			// tolerate time differences on the server
+#if SERVER
 			return true;
+#else
+			return platform::timestamp() - Game::save.zone_lost_times[zone_id] > ZONE_LOST_COOLDOWN;
+#endif
 		}
 		default:
 		{
@@ -948,6 +966,8 @@ namespace OverworldNet
 		CaptureOrDefend,
 		ZoneUnderAttack,
 		ZoneChange,
+		ResourceChange,
+		Buy,
 		count,
 	};
 
@@ -984,6 +1004,40 @@ namespace OverworldNet
 		Net::msg_finalize(p);
 		return true;
 	}
+
+	b8 resource_change(Resource r, s16 delta)
+	{
+		vi_assert(Game::level.local);
+		if (delta != 0)
+		{
+			using Stream = Net::StreamWrite;
+			Stream* p = Net::msg_new(Net::MessageType::Overworld);
+			Message m = Message::ResourceChange;
+			serialize_enum(p, Message, m);
+			serialize_enum(p, Resource, r);
+			serialize_s16(p, delta);
+			Net::msg_finalize(p);
+		}
+		return true;
+	}
+
+	b8 buy(Resource r, s16 quantity)
+	{
+		vi_assert(quantity != 0);
+		using Stream = Net::StreamWrite;
+		Stream* p = Net::msg_new(Net::MessageType::Overworld);
+		Message m = Message::Buy;
+		serialize_enum(p, Message, m);
+		serialize_enum(p, Resource, r);
+		serialize_s16(p, quantity);
+		Net::msg_finalize(p);
+		return true;
+	}
+}
+
+void resource_change(Resource r, s16 delta)
+{
+	OverworldNet::resource_change(r, delta);
 }
 
 AssetID zone_under_attack()
@@ -1003,22 +1057,34 @@ b8 net_msg(Net::StreamRead* p, Net::MessageSource src)
 	OverworldNet::Message type;
 	serialize_enum(p, OverworldNet::Message, type);
 
-	AssetID zone;
-	serialize_s16(p, zone);
-
 	switch (type)
 	{
 		case OverworldNet::Message::CaptureOrDefend:
 		{
-			if (Game::level.local)
+			AssetID zone;
+			serialize_s16(p, zone);
+
+			if (Game::level.local && Game::session.story_mode)
 			{
 				if (zone_node_get(zone) && zone_can_capture(zone))
-					go(zone);
+				{
+					if (Game::save.resources[s32(Resource::Drones)] >= DEFAULT_RUSH_DRONES
+						&& (Game::save.zones[zone] == ZoneState::Friendly || Game::save.resources[s32(Resource::HackKits)] > 0))
+					{
+						resource_change(Resource::Drones, -DEFAULT_RUSH_DRONES);
+						if (Game::save.zones[zone] != ZoneState::Friendly)
+							resource_change(Resource::HackKits, -1);
+						go(zone);
+					}
+				}
 			}
 			break;
 		}
 		case OverworldNet::Message::ZoneUnderAttack:
 		{
+			AssetID zone;
+			serialize_s16(p, zone);
+
 			if (Game::level.local == (src == Net::MessageSource::Loopback))
 			{
 				Game::session.zone_under_attack = zone;
@@ -1028,6 +1094,9 @@ b8 net_msg(Net::StreamRead* p, Net::MessageSource src)
 		}
 		case OverworldNet::Message::ZoneChange:
 		{
+			AssetID zone;
+			serialize_s16(p, zone);
+
 			ZoneState state;
 			serialize_enum(p, ZoneState, state);
 			// server does not accept ZoneChange messages from client
@@ -1035,6 +1104,20 @@ b8 net_msg(Net::StreamRead* p, Net::MessageSource src)
 			{
 				Game::save.zones[zone] = state;
 				data.story.map.zones_change_time[zone] = Game::real_time.total;
+			}
+			break;
+		}
+		case OverworldNet::Message::ResourceChange:
+		{
+			Resource r;
+			serialize_enum(p, Resource, r);
+			s16 delta;
+			serialize_s16(p, delta);
+			// server does not accept ResourceChange messages from client
+			if (Game::level.local == (src == Net::MessageSource::Loopback))
+			{
+				Game::save.resources[s32(r)] += delta;
+				vi_assert(Game::save.resources[s32(r)] >= 0);
 			}
 			break;
 		}
@@ -1110,7 +1193,7 @@ b8 can_switch_tab()
 		&& data.timer_transition == 0.0f
 		&& data.timer_deploy == 0.0f
 		&& story.inventory.timer_buy == 0.0f
-		&& !Menu::dialog_callback[0];
+		&& !Menu::dialog_active(0);
 }
 
 #define TAB_ANIMATION_TIME 0.3f
@@ -1212,9 +1295,9 @@ void group_join(Game::Group g)
 		if (zone.max_teams > 2)
 		{
 			if (g == Game::Group::None)
-				Overworld::zone_change(zone.id, ZoneState::Locked);
+				zone_change(zone.id, ZoneState::Locked);
 			else
-				Overworld::zone_change(zone.id, mersenne::randf_cc() > 0.7f ? ZoneState::Friendly : ZoneState::Hostile);
+				zone_change(zone.id, mersenne::randf_cc() > 0.7f ? ZoneState::Friendly : ZoneState::Hostile);
 		}
 	}
 }
@@ -1339,19 +1422,31 @@ void tab_messages_update(const Update& u)
 
 void capture_start(s8 gamepad)
 {
-	if (zone_can_capture(data.zone_selected) && resource_spend(Resource::Drones, 1))
-		deploy_start();
+	if (zone_can_capture(data.zone_selected)
+		&& Game::save.resources[s32(Resource::Drones)] >= DEFAULT_RUSH_DRONES)
+	{
+		// one hack kit needed if we're attacking
+		if (Game::save.zones[data.zone_selected] == ZoneState::Friendly || Game::save.resources[s32(Resource::HackKits)] > 0)
+			deploy_start();
+	}
 }
 
 void zone_done(AssetID zone)
 {
-	b8 captured = Game::save.zones[zone] == ZoneState::Friendly;
-
-	if (captured)
+	if (Game::save.zones[zone] == ZoneState::Friendly)
 	{
-		const ZoneNode* z = zone_node_get(zone);
-		for (s32 i = 0; i < s32(Resource::count); i++)
-			Game::save.resources[i] += z->rewards[i];
+		// we won
+		if (Game::level.local)
+		{
+			const ZoneNode* z = zone_node_get(zone);
+			for (s32 i = 0; i < s32(Resource::count); i++)
+				resource_change(Resource(i), z->rewards[i]);
+		}
+	}
+	else
+	{
+		// we lost
+		Game::save.zone_lost_times[zone] = platform::timestamp();
 	}
 }
 
@@ -1415,10 +1510,21 @@ void tab_map_update(const Update& u)
 			&& can_switch_tab()
 			&& zone_can_capture(data.zone_selected))
 		{
-			if (Game::save.resources[s32(Resource::Drones)] < DEPLOY_COST_DRONES)
-				Menu::dialog(0, &Menu::dialog_no_action, _(strings::insufficient_resource), DEPLOY_COST_DRONES, _(strings::drones));
+			if (Game::save.resources[s32(Resource::Drones)] >= DEFAULT_RUSH_DRONES)
+			{
+				if (Game::save.zones[data.zone_selected] == ZoneState::Friendly) // defending
+					Menu::dialog(0, &capture_start, _(strings::confirm_defend), DEFAULT_RUSH_DRONES);
+				else
+				{
+					// attacking
+					if (Game::save.resources[s32(Resource::HackKits)] > 0)
+						Menu::dialog(0, &capture_start, _(strings::confirm_capture), DEFAULT_RUSH_DRONES, 1);
+					else
+						Menu::dialog(0, &Menu::dialog_no_action, _(strings::insufficient_resource), 1, _(strings::hack_kits));
+				}
+			}
 			else
-				Menu::dialog(0, &capture_start, _(strings::confirm_spend), DEPLOY_COST_DRONES, _(strings::drones));
+				Menu::dialog(0, &Menu::dialog_no_action, _(strings::insufficient_resource), DEFAULT_RUSH_DRONES, _(strings::drones));
 		}
 	}
 }
@@ -1461,8 +1567,9 @@ void tab_inventory_update(const Update& u)
 		{
 			Resource resource = data.story.inventory.resource_selected;
 			const ResourceInfo& info = resource_info[s32(resource)];
-			if (resource_spend(Resource::Energy, info.cost * data.story.inventory.buy_quantity))
-				Game::save.resources[s32(resource)] += data.story.inventory.buy_quantity;
+			s16 total_cost = info.cost * s16(data.story.inventory.buy_quantity);
+			if (Game::save.resources[s32(Resource::Energy)] >= total_cost)
+				OverworldNet::buy(resource, data.story.inventory.buy_quantity);
 			data.story.inventory.mode = Data::Inventory::Mode::Normal;
 			data.story.inventory.buy_quantity = 1;
 		}
@@ -1683,7 +1790,7 @@ void contacts_draw(const RenderParams& p, const Data::StoryMode& data, const Rec
 			continue;
 
 		const ContactDetails& contact = contacts[i];
-		b8 selected = data.tab == Tab::Messages && contact.name == data.messages.contact_selected && !Menu::dialog_callback[0];
+		b8 selected = data.tab == Tab::Messages && contact.name == data.messages.contact_selected && !Menu::dialog_active(0);
 
 		UI::box(p, { pos, panel_size }, UI::color_background);
 
@@ -1800,7 +1907,7 @@ void tab_messages_draw(const RenderParams& p, const Data::StoryMode& data, const
 							continue;
 
 						const Game::Message& msg = msg_list[i];
-						b8 selected = msg.text == data.messages.message_selected && !Menu::dialog_callback[0];
+						b8 selected = msg.text == data.messages.message_selected && !Menu::dialog_active(0);
 
 						UI::box(p, { pos, panel_size }, UI::color_background);
 
@@ -2097,7 +2204,7 @@ void inventory_items_draw(const RenderParams& p, const Data::StoryMode& data, co
 	Vec2 pos = rect.pos + Vec2(0, rect.size.y - panel_size.y);
 	for (s32 i = 0; i < s32(Resource::count); i++)
 	{
-		b8 selected = data.tab == Tab::Inventory && data.inventory.resource_selected == (Resource)i && !Menu::dialog_callback[0];
+		b8 selected = data.tab == Tab::Inventory && data.inventory.resource_selected == (Resource)i && !Menu::dialog_active(0);
 
 		UI::box(p, { pos, panel_size }, UI::color_background);
 		if (selected)
@@ -2596,7 +2703,7 @@ void execute(const char* cmd)
 {
 	if (utf8cmp(cmd, "capture") == 0)
 	{
-		Overworld::zone_change(data.zone_selected, ZoneState::Friendly);
+		zone_change(data.zone_selected, ZoneState::Friendly);
 		zone_done(data.zone_selected);
 	}
 	else if (utf8cmp(cmd, "attack") == 0)
@@ -2749,7 +2856,7 @@ void init(cJSON* level)
 		{
 			// energy increment
 			// this must be done before story_zone_done changes the energy increment amount
-			Game::save.resources[s32(Resource::Energy)] += vi_min(s32(4 * 60 * 60 / ENERGY_INCREMENT_INTERVAL), s32(elapsed_time / (r64)ENERGY_INCREMENT_INTERVAL)) * energy_increment_total();
+			resource_change(Resource::Energy, vi_min(s32(4 * 60 * 60 / ENERGY_INCREMENT_INTERVAL), s32(elapsed_time / (r64)ENERGY_INCREMENT_INTERVAL)) * energy_increment_total());
 		}
 	}
 	else

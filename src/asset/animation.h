@@ -8,7 +8,7 @@ namespace Asset
 {
 	namespace Animation
 	{
-		const s32 count = 36;
+		const s32 count = 37;
 		const AssetID awk_dash = 0;
 		const AssetID awk_fly = 1;
 		const AssetID character_aim = 2;
@@ -31,20 +31,21 @@ namespace Asset
 		const AssetID character_slide_end = 19;
 		const AssetID character_terminal_enter = 20;
 		const AssetID character_terminal_exit = 21;
-		const AssetID character_walk = 22;
-		const AssetID character_wall_run_left = 23;
-		const AssetID character_wall_run_right = 24;
-		const AssetID character_wall_run_straight = 25;
-		const AssetID interactable_disabled = 26;
-		const AssetID interactable_enabled = 27;
-		const AssetID interactable_interact = 28;
-		const AssetID interactable_interact_disable = 29;
-		const AssetID terminal_close = 30;
-		const AssetID terminal_open = 31;
-		const AssetID terminal_opened = 32;
-		const AssetID tram_doors_close = 33;
-		const AssetID tram_doors_open = 34;
-		const AssetID tram_doors_opened = 35;
+		const AssetID character_top_out = 22;
+		const AssetID character_walk = 23;
+		const AssetID character_wall_run_left = 24;
+		const AssetID character_wall_run_right = 25;
+		const AssetID character_wall_run_straight = 26;
+		const AssetID interactable_disabled = 27;
+		const AssetID interactable_enabled = 28;
+		const AssetID interactable_interact = 29;
+		const AssetID interactable_interact_disable = 30;
+		const AssetID terminal_close = 31;
+		const AssetID terminal_open = 32;
+		const AssetID terminal_opened = 33;
+		const AssetID tram_doors_close = 34;
+		const AssetID tram_doors_open = 35;
+		const AssetID tram_doors_opened = 36;
 	}
 }
 

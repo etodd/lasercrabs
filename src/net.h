@@ -168,7 +168,6 @@ namespace Client
 void term();
 void reset();
 
-b8 transform_filter(const Entity*);
 StreamWrite* msg_new(MessageType);
 StreamWrite* msg_new_local(MessageType);
 b8 msg_finalize(StreamWrite*);

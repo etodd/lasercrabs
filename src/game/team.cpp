@@ -533,9 +533,6 @@ b8 Team::net_msg(Net::StreamRead* p)
 			score_summary.length = 0;
 			for (auto i = PlayerManager::list.iterator(); !i.is_last(); i.next())
 			{
-				s32 total = 0;
-
-				total += i.item()->credits;
 				AI::Team team = i.item()->team.ref()->team();
 				team_add_score_summary_item(i.item(), i.item()->username);
 				team_add_score_summary_item(i.item(), _(strings::kills), i.item()->kills);
@@ -543,17 +540,12 @@ b8 Team::net_msg(Net::StreamRead* p)
 					team_add_score_summary_item(i.item(), _(strings::leftover_energy), i.item()->credits);
 				if (PlayerManager::list.count() > 2)
 					team_add_score_summary_item(i.item(), _(strings::deaths), i.item()->deaths);
-
-				if (Game::session.story_mode && i.item()->has<PlayerHuman>() && i.item()->team.ref() == winner.ref())
-				{
-					// we're in story mode and this is the player; increase their energy
-					Game::save.resources[(s32)Resource::Energy] += total;
-				}
 			}
 			break;
 		}
 		case TeamNet::Message::TransitionMode:
 		{
+			Game::Mode mode_old = Game::level.mode;
 			serialize_enum(p, Game::Mode, Game::level.mode);
 			game_over = false;
 			transition_timer = TRANSITION_TIME * 0.5f;
@@ -578,6 +570,20 @@ b8 Team::net_msg(Net::StreamRead* p)
 				for (auto i = PlayerAI::list.iterator(); !i.is_last(); i.next())
 					World::remove(i.item()->manager.ref()->entity());
 				PlayerAI::list.clear();
+			}
+			else
+			{
+				// some physics entities change between dynamic/kinematic depending on whether they are controlled by the server or not
+				// which changes depending on the game mode
+				// so rebuild the entities that changed to make sure they're set up right
+				Bitmask<MAX_ENTITIES> transform_filter_before;
+				for (auto i = RigidBody::list.iterator(); !i.is_last(); i.next())
+					transform_filter_before.set(i.index, Game::net_transform_filter(i.item()->entity(), mode_old));
+				for (auto i = RigidBody::list.iterator(); !i.is_last(); i.next())
+				{
+					if (Game::net_transform_filter(i.item()->entity(), Game::level.mode) != transform_filter_before.get(i.index))
+						i.item()->rebuild();
+				}
 			}
 
 			if (Game::level.post_pvp && Game::level.mode == Game::Mode::Parkour)
@@ -690,10 +696,22 @@ void Team::update_all_server(const Update& u)
 
 			TeamNet::send_game_over(w);
 
-			if (Game::session.story_mode
-				&& w == &Team::list[1])
+			if (Game::session.story_mode)
 			{
-				Overworld::zone_change(Game::level.id, ZoneState::Friendly);
+				{
+					// we're in story mode, give the player whatever stuff they have leftover
+					PlayerManager* player = PlayerHuman::list.iterator().item()->get<PlayerManager>();
+					Overworld::resource_change(Resource::Energy, player->credits);
+					Overworld::resource_change(Resource::Drones, player->respawns);
+				}
+
+				if (w == &Team::list[1]) // attackers won; the zone is going to change owners
+				{
+					if (Game::save.zones[Game::level.id] == ZoneState::Friendly) // player was defending
+						Overworld::zone_change(Game::level.id, ZoneState::Hostile);
+					else // player was attacking
+						Overworld::zone_change(Game::level.id, ZoneState::Friendly);
+				}
 			}
 		}
 	}

@@ -46,7 +46,7 @@ void message_schedule(AssetID, AssetID, r64 = 0.0);
 AssetID zone_under_attack();
 r32 zone_under_attack_timer();
 s32 message_unread_count();
-b8 has_unseen_messages();
+void resource_change(Resource, s16);
 
 }
 

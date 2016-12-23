@@ -328,14 +328,11 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 		serialize_r32_range(p, r->damping.x, 0, 1.0f, 2);
 		serialize_r32_range(p, r->damping.y, 0, 1.0f, 2);
 		serialize_enum(p, RigidBody::Type, r->type);
-		if (!transform_filter(e))
-			serialize_r32_range(p, r->mass, 0, 50.0f, 16);
-		else if (Stream::IsReading) // objects that have their transforms synced over the network appear like kinematic objects to the physics engine
-			r->mass = 0.0f;
+		serialize_r32_range(p, r->mass, 0, 20.0f, 16);
 		serialize_r32_range(p, r->restitution, 0, 1, 8);
 		serialize_asset(p, r->mesh_id, Loader::static_mesh_count);
-		serialize_int(p, s16, r->collision_group, -32767, 32767);
-		serialize_int(p, s16, r->collision_filter, -32767, 32767);
+		serialize_s16(p, r->collision_group);
+		serialize_s16(p, r->collision_filter);
 		serialize_bool(p, r->ccd);
 
 		if (Stream::IsWriting)
@@ -696,6 +693,7 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 	if (e->has<Collectible>())
 	{
 		Collectible* c = e->get<Collectible>();
+		serialize_s16(p, c->save_id);
 		serialize_enum(p, Resource, c->type);
 		serialize_s16(p, c->amount);
 	}
@@ -1649,7 +1647,7 @@ void state_frame_build(StateFrame* frame)
 	// transforms
 	for (auto i = Transform::list.iterator(); !i.is_last(); i.next())
 	{
-		if (transform_filter(i.item()->entity()))
+		if (Game::net_transform_filter(i.item()->entity(), Game::level.mode))
 		{
 			frame->transforms_active.set(i.index, true);
 			TransformState* transform = &frame->transforms[i.index];
@@ -3528,22 +3526,6 @@ b8 msg_finalize(StreamWrite* p)
 		msg_process(&r, MessageSource::Loopback);
 	}
 	return true;
-}
-
-b8 transform_filter(const Entity* t)
-{
-	return t->component_mask
-		&
-		(
-			Awk::component_mask
-			| EnergyPickup::component_mask
-			| Projectile::component_mask
-			| Rocket::component_mask
-			| MinionCommon::component_mask
-			| Sensor::component_mask
-			| Grenade::component_mask
-			| TramRunner::component_mask
-		);
 }
 
 r32 rtt(const PlayerHuman* p)

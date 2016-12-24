@@ -26,7 +26,7 @@ out vec4 out_color;
 
 void main()
 {
-	float y = time * 16.0 + uv.y * buffer_size.y;
+	float y = time * 8.0 + uv.y * buffer_size.y;
 	int y_pixel = int(y);
 	float line1 = float(y_pixel % scan_line_interval == 0);
 	float line2 = float((y_pixel + 1) % scan_line_interval == 0);

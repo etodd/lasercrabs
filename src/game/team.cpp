@@ -702,7 +702,7 @@ void Team::update_all_server(const Update& u)
 					// we're in story mode, give the player whatever stuff they have leftover
 					PlayerManager* player = PlayerHuman::list.iterator().item()->get<PlayerManager>();
 					Overworld::resource_change(Resource::Energy, player->credits);
-					Overworld::resource_change(Resource::Drones, player->respawns);
+					Overworld::resource_change(Resource::Drones, vi_max(s16(0), player->respawns));
 				}
 
 				if (w == &Team::list[1]) // attackers won; the zone is going to change owners

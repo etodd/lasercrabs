@@ -2926,7 +2926,7 @@ void PlayerControlHuman::update(const Update& u)
 			if (!Overworld::active())
 			{
 				Camera* camera = player.ref()->camera;
-				r32 aspect = camera->viewport.size.y == 0 ? 1 : (r32)camera->viewport.size.x / (r32)camera->viewport.size.y;
+				r32 aspect = camera->viewport.size.y == 0 ? 1 : camera->viewport.size.x / camera->viewport.size.y;
 				camera->perspective(fov_default, aspect, 0.02f, Game::level.skybox.far_plane);
 				camera->clip_planes[0] = Plane();
 				camera->rot = look_quat;

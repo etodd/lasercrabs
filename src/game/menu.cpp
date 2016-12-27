@@ -484,6 +484,7 @@ void title()
 {
 	clear();
 	Game::session.reset();
+	Game::save.reset();
 	Game::schedule_load_level(Asset::Level::Dock, Game::Mode::Special);
 }
 

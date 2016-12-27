@@ -458,24 +458,18 @@ void Parkour::update(const Update& u)
 
 	if (fsm.current == State::Mantle)
 	{
-		const r32 mantle_time = 0.5f;
+		// top-out animation is slower
+		const r32 mantle_time = get<Animator>()->layers[1].animation == Asset::Animation::character_mantle ? 0.4f : 1.2f;
+
 		if (fsm.time > mantle_time || !last_support.ref())
 		{
 			fsm.transition(State::Normal);
 			get<RigidBody>()->btBody->setLinearVelocity(Quat::euler(0, get<Walker>()->target_rotation, 0) * Vec3(0, 0, get<Walker>()->net_speed));
-			get<Animator>()->override_bone(Asset::Bone::character_hips, Vec3::zero, Quat::identity);
-			get<Animator>()->update_world_transforms();
 		}
 		else
 		{
 			Vec3 start = get<Transform>()->absolute_pos();
 			Vec3 end = last_support.ref()->get<Transform>()->to_world(relative_support_pos);
-
-			{
-				Vec3 animation_start_pos = last_support.ref()->get<Transform>()->to_world(relative_animation_start_pos);
-				get<Animator>()->override_bone(Asset::Bone::character_hips, animation_start_pos - start, Quat::identity);
-				get<Animator>()->update_world_transforms();
-			}
 
 			Vec3 diff = end - start;
 			r32 blend = fsm.time / mantle_time;
@@ -890,8 +884,28 @@ void Parkour::update(const Update& u)
 		last_frame_state = fsm.current;
 	}
 
+	// mantle animation stuff
+	Vec3 model_offset(0, get<Walker>()->capsule_height() * -0.5f - WALKER_SUPPORT_HEIGHT, 0);
+	{
+		Animator::Layer* layer1 = &get<Animator>()->layers[1];
+
+		if (animation_start_support.ref())
+		{
+			Vec3 offset = animation_start_support.ref()->get<Transform>()->to_world(relative_animation_start_pos) - get<Transform>()->absolute_pos();
+			if (layer1->animation == Asset::Animation::character_top_out || layer1->animation == Asset::Animation::character_mantle)
+				model_offset += offset * Ease::quad_out<r32>(layer1->blend);
+			else if (layer1->last_animation == Asset::Animation::character_top_out || layer1->last_animation == Asset::Animation::character_mantle)
+				model_offset += offset * (1.0f - Ease::quad_out<r32>(layer1->blend));
+		}
+
+		if ((layer1->animation == Asset::Animation::character_top_out || layer1->animation == Asset::Animation::character_mantle)
+			&& fsm.current != State::Mantle
+			&& fsm.time > 0.2f)
+			layer1->animation = AssetNull;
+	}
+
 	get<SkinnedModel>()->offset.make_transform(
-		Vec3(0, get<Walker>()->capsule_height() * -0.5f - WALKER_SUPPORT_HEIGHT, 0),
+		model_offset,
 		Vec3(1.0f, 1.0f, 1.0f),
 		Quat::euler(0, get<Walker>()->rotation + PI * 0.5f, 0) * Quat::euler(0, 0, lean * -1.5f)
 	);
@@ -1115,7 +1129,7 @@ b8 Parkour::try_parkour(b8 force)
 		{
 			Vec3 dir_offset = rot * (mantle_samples[i] * WALKER_RADIUS * RAYCAST_RADIUS_RATIO);
 
-			Vec3 ray_start = pos + Vec3(dir_offset.x, WALKER_DEFAULT_CAPSULE_HEIGHT * 1.7f, dir_offset.z);
+			Vec3 ray_start = pos + Vec3(dir_offset.x, 1.3f, dir_offset.z);
 			Vec3 ray_end = pos + Vec3(dir_offset.x, WALKER_DEFAULT_CAPSULE_HEIGHT * -0.25f + (force ? -WALKER_SUPPORT_HEIGHT - 0.5f : 0.0f), dir_offset.z);
 
 			btCollisionWorld::ClosestRayResultCallback ray_callback(ray_start, ray_end);
@@ -1126,7 +1140,7 @@ b8 Parkour::try_parkour(b8 force)
 				// check for wall blocking the mantle
 				{
 					Vec3 wall_ray_start = pos;
-					pos.y = ray_callback.m_hitPointWorld.getY() + 0.1f;
+					wall_ray_start.y = ray_callback.m_hitPointWorld.getY() + 0.1f;
 					Vec3 wall_ray_end = ray_callback.m_hitPointWorld;
 					wall_ray_end.y += 0.1f;
 					btCollisionWorld::ClosestRayResultCallback wall_ray_callback(wall_ray_start, wall_ray_end);
@@ -1135,12 +1149,18 @@ b8 Parkour::try_parkour(b8 force)
 						return false;
 				}
 
-				get<Animator>()->layers[1].play(Asset::Animation::character_top_out);
+				b8 top_out = ray_callback.m_hitPointWorld.getY() > pos.y + 0.2f;
+
+				get<Animator>()->layers[1].play(top_out ? Asset::Animation::character_top_out : Asset::Animation::character_mantle);
 				fsm.transition(State::Mantle);
 				last_support = Entity::list[ray_callback.m_collisionObject->getUserIndex()].get<RigidBody>();
 				last_support_wall_run_state = WallRunState::None;
 				relative_support_pos = last_support.ref()->get<Transform>()->to_local(ray_callback.m_hitPointWorld + Vec3(0, WALKER_SUPPORT_HEIGHT + WALKER_DEFAULT_CAPSULE_HEIGHT * 0.6f, 0));
-				relative_animation_start_pos = last_support.ref()->get<Transform>()->to_local(pos);
+				relative_animation_start_pos = pos;
+				relative_animation_start_pos.y = ray_callback.m_hitPointWorld.getY();
+				relative_animation_start_pos += rot * (top_out ? Vec3(0, -0.65f, 0) : Vec3(0, 0, -0.35f));
+				animation_start_support = last_support.ref()->get<Transform>();
+				relative_animation_start_pos = animation_start_support.ref()->to_local(relative_animation_start_pos);
 				last_support_time = Game::time.total;
 
 				get<RigidBody>()->btBody->setLinearVelocity(Vec3::zero);

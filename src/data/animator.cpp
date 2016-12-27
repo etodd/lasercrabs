@@ -24,6 +24,7 @@ Animator::Layer::Layer()
 	blend_time(0.25f),
 	animation(AssetNull),
 	last_animation(AssetNull),
+	last_frame_animation(AssetNull),
 	behavior(),
 	speed(1.0f)
 {
@@ -172,7 +173,7 @@ void Animator::Layer::update(r32 dt, r32 dt_real, const Animator& animator)
 			}
 		}
 
-		if (animation != last_animation)
+		if (animation != last_frame_animation)
 			changed_animation(arm);
 
 		for (s32 i = 0; i < animator.triggers.length; i++)
@@ -192,7 +193,7 @@ void Animator::Layer::update(r32 dt, r32 dt_real, const Animator& animator)
 	}
 	else
 	{
-		if (animation != last_animation)
+		if (animation != last_frame_animation)
 			changed_animation(arm);
 		channels.resize(0);
 	}
@@ -202,7 +203,7 @@ void Animator::Layer::set(AssetID anim, r32 t)
 {
 	extract_channels_from_anim(&channels, Loader::animation(anim), t);
 	animation = anim;
-	if (anim != last_animation)
+	if (anim != last_frame_animation)
 		changed_animation(nullptr);
 	blend = 1.0f;
 	time = time_last = t;
@@ -274,7 +275,8 @@ void Animator::Layer::changed_animation(const Armature* arm)
 	}
 
 	blend = 0.0f;
-	last_animation = animation;
+	last_animation = last_frame_animation;
+	last_frame_animation = animation;
 	time_last = time;
 }
 

@@ -50,6 +50,7 @@ struct Animator : public ComponentType<Animator>
 		StaticArray<AnimatorChannel, MAX_BONES> channels;
 		AssetID animation;
 		AssetID last_animation;
+		AssetID last_frame_animation;
 		Behavior behavior;
 		void update(r32, r32, const Animator&);
 		void changed_animation(const Armature*);

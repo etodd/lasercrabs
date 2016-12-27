@@ -63,6 +63,7 @@ struct Parkour : public ComponentType<Parkour>
 	State last_frame_state;
 	Ref<RigidBody> last_support;
 	Ref<Transform> rope;
+	Ref<Transform> animation_start_support;
 	ID rope_constraint = IDNull;
 	StaticArray<Ref<MinionCommon>, 4> damage_minions; // HACK; minions we're currently damaging
 	b8 slide_continue;

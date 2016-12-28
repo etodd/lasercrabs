@@ -337,7 +337,7 @@ namespace tutorial
 			Game::level.feature_level = Game::FeatureLevel::Abilities;
 			PlayerManager* manager = PlayerHuman::list.iterator().item()->get<PlayerManager>();
 			manager->credits = UpgradeInfo::list[s32(Upgrade::Sensor)].cost + AbilityInfo::list[s32(Ability::Sensor)].spawn_cost * 2;
-	}	
+		}	
 	}
 
 	void ability_spawned(Ability)
@@ -345,6 +345,7 @@ namespace tutorial
 		if (data->state == TutorialState::Ability)
 		{
 			data->state = TutorialState::Capture;
+			Game::level.feature_level = Game::FeatureLevel::TutorialAll;
 			Cora::text_clear();
 			Cora::text_schedule(1.0f, _(strings::tut_capture));
 		}
@@ -362,6 +363,7 @@ namespace tutorial
 				data->state = TutorialState::Start;
 				Cora::text_clear();
 				Cora::text_schedule(1.0f, _(strings::tut_start));
+				Game::level.feature_level = Game::FeatureLevel::EnergyPickups;
 			}
 		}
 	}
@@ -427,8 +429,6 @@ namespace tutorial
 	void init(const EntityFinder& entities)
 	{
 		data = new Data();
-
-		Game::level.feature_level = Game::FeatureLevel::EnergyPickups;
 
 		entities.find("health")->get<Target>()->target_hit.link(&health_got);
 		PlayerManager* player_manager = PlayerHuman::list.iterator().item()->get<PlayerManager>();

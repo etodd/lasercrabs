@@ -146,8 +146,9 @@ void sudoku_mark_solved(Sudoku* s, s8 index, PlayerHuman* player)
 	s->timer = 0.0f;
 	s->flash_pos = index;
 	s->flash_timer = SUDOKU_FLASH_TIME;
-	if (s->complete())
+	if (s->solved_count() >= 15)
 	{
+		s->solved = s16(-1); // solve the last number automatically
 		s->timer_animation = SUDOKU_ANIMATION_TIME;
 		player->rumble_add(0.5f);
 	}
@@ -258,13 +259,29 @@ void Sudoku::update(const Update& u, s8 gamepad, PlayerHuman* player)
 
 		if (!Console::visible
 			&& !(solved & (1 << current_pos))
-			&& u.input->get(Controls::Interact, gamepad)
-			&& state[current_pos] == current_value)
+			&& u.input->get(Controls::Interact, gamepad) && !u.last_input->get(Controls::Interact, gamepad))
 		{
-			// player got it right, insert it
-			sudoku_mark_solved(this, current_pos, player);
-			current_value = sudoku_get_free_number(*this);
-			player->rumble_add(0.2f);
+			if (state[current_pos] == current_value)
+			{
+				// player got it right, insert it
+				sudoku_mark_solved(this, current_pos, player);
+				current_value = sudoku_get_free_number(*this);
+				player->rumble_add(0.2f);
+			}
+			else
+			{
+				// player got it wrong; maybe take away a number
+				if (mersenne::randf_co() > 0.5f && solved != 0)
+				{
+					StaticArray<s32, 16> indices;
+					for (s32 i = 0; i < 16; i++)
+					{
+						if (solved & (1 << i))
+							indices.add(i);
+					}
+					solved &= ~(1 << indices[mersenne::rand() % indices.length]);
+				}
+			}
 		}
 	}
 }

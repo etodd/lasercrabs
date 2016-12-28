@@ -624,7 +624,7 @@ b8 MinionAI::can_see(Entity* target, b8 limit_vision_cone) const
 			if (!target->has<Parkour>() || fabsf(diff.y) < MINION_HEARING_RANGE)
 			{
 				btCollisionWorld::ClosestRayResultCallback ray_callback(pos, target_pos);
-				Physics::raycast(&ray_callback, (CollisionStatic | CollisionInaccessible | CollisionAllTeamsContainmentField) & ~Team::containment_field_mask(get<AIAgent>()->team));
+				Physics::raycast(&ray_callback, (CollisionStatic | CollisionInaccessible | CollisionElectric | CollisionAllTeamsContainmentField) & ~Team::containment_field_mask(get<AIAgent>()->team));
 				if (!ray_callback.hasHit())
 					return true;
 			}

@@ -57,7 +57,7 @@
 	"prompt_buy": "Spend %d energy for %d %s?",
 	"prompt_buy_more": "[{{Interact}}] Buy more",
 	"confirm_spend": "Spend %d %s?",
-	"confirm_capture": "Spend %d drones and %d hack kits to capture this zone?",
+	"confirm_capture": "Spend %d drones and %d crack kits to capture this zone?",
 	"confirm_defend": "Spend %d drones to defend this zone?",
 	"confirm_skip_tutorial": "You have not yet captured this zone. Move on without completing the tutorial?",
 	"confirm_quit": "Quit?",
@@ -143,10 +143,11 @@
 
 	"tut_start": "[{{Zoom}}] to zoom.
 [{{Primary}}] to shoot.
+Capture the hanging battery.
 (1/4)",
 	"tut_upgrade": "Batteries give you energy over time. Return to base and use your energy to buy an upgrade.
 (2/4)",
-	"tut_ability": "Press [{{Ability1}}] to activate, then [{{Primary}}] to use the ability.
+	"tut_ability": "Press [{{Ability1}}] to select the ability, then [{{Primary}}] to use it.
 (3/4)",
 	"tut_capture": "Crack both control points to capture this zone.
 (4/4)",

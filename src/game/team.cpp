@@ -276,7 +276,7 @@ b8 visibility_check(Entity* i, Entity* j, r32* distance)
 	else
 	{
 		btCollisionWorld::ClosestRayResultCallback ray_callback(start, end);
-		Physics::raycast(&ray_callback, CollisionStatic | CollisionInaccessible);
+		Physics::raycast(&ray_callback, CollisionStatic | CollisionInaccessible | CollisionParkour | CollisionElectric);
 		if (!ray_callback.hasHit())
 		{
 			*distance = sqrtf(dist_sq);

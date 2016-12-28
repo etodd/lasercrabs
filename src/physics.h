@@ -31,10 +31,11 @@ enum CollisionGroup
 		| CollisionTeamDContainmentField
 	),
 	CollisionParkour = 1 << 12,
+	CollisionElectric = 1 << 13,
 };
 
 #define AWK_PERMEABLE_MASK (CollisionTarget | CollisionShield | CollisionAwkIgnore)
-#define AWK_INACCESSIBLE_MASK (CollisionInaccessible | CollisionWalker | AWK_PERMEABLE_MASK | CollisionAllTeamsContainmentField)
+#define AWK_INACCESSIBLE_MASK (CollisionInaccessible | CollisionElectric | CollisionWalker | AWK_PERMEABLE_MASK | CollisionAllTeamsContainmentField)
 
 struct RaycastCallbackExcept : btCollisionWorld::ClosestRayResultCallback
 {

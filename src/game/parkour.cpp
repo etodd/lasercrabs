@@ -598,6 +598,9 @@ void Parkour::update(const Update& u)
 		get<Walker>()->speed = RUN_SPEED;
 		if (get<Walker>()->support.ref())
 		{
+			if (get<Walker>()->support.ref()->get<RigidBody>()->collision_group & CollisionElectric)
+				get<Health>()->kill(nullptr); // electrocuted
+
 			Animator::Layer* layer1 = &get<Animator>()->layers[1];
 			if (layer1->animation == Asset::Animation::character_jump1)
 				layer1->animation = AssetNull; // stop jump animations

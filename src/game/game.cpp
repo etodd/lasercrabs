@@ -1385,7 +1385,7 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 				}
 			}
 		}
-		else if (Json::get_s32(element, "min_players") > PlayerManager::list.count()
+		else if (Json::get_s32(element, "min_players") > PlayerManager::list.count() + level.ai_config.length
 			|| Json::get_s32(element, "min_teams") > Team::list.count())
 		{
 			// not enough players or teams
@@ -1397,6 +1397,7 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 			b8 additive = (b8)Json::get_s32(element, "additive");
 			b8 no_parkour = cJSON_HasObjectItem(element, "noparkour");
 			AssetID texture = (AssetID)Loader::find(Json::get_string(element, "texture"), AssetLookup::Texture::names);
+			s16 extra_flags = cJSON_HasObjectItem(element, "electric") ? CollisionElectric : 0;
 
 			cJSON* meshes = cJSON_GetObjectItem(element, "meshes");
 			cJSON* json_mesh = meshes->child;
@@ -1415,18 +1416,18 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 					{
 						// inaccessible
 						if (no_parkour) // no parkour material
-							m = World::alloc<StaticGeom>(mesh_id, absolute_pos, absolute_rot, CollisionInaccessible, ~CollisionParkour & ~CollisionInaccessible);
+							m = World::alloc<StaticGeom>(mesh_id, absolute_pos, absolute_rot, CollisionInaccessible | extra_flags, ~CollisionParkour & ~CollisionInaccessible & ~CollisionElectric);
 						else
-							m = World::alloc<StaticGeom>(mesh_id, absolute_pos, absolute_rot, CollisionParkour | CollisionInaccessible, ~CollisionParkour & ~CollisionInaccessible);
+							m = World::alloc<StaticGeom>(mesh_id, absolute_pos, absolute_rot, CollisionParkour | CollisionInaccessible | extra_flags, ~CollisionParkour & ~CollisionInaccessible & ~CollisionElectric);
 						m->get<View>()->color.w = MATERIAL_INACCESSIBLE;
 					}
 					else
 					{
 						// accessible
 						if (no_parkour) // no parkour material
-							m = World::alloc<StaticGeom>(mesh_id, absolute_pos, absolute_rot, 0, ~CollisionParkour & ~CollisionInaccessible);
+							m = World::alloc<StaticGeom>(mesh_id, absolute_pos, absolute_rot, extra_flags, ~CollisionParkour & ~CollisionInaccessible & ~CollisionElectric);
 						else
-							m = World::alloc<StaticGeom>(mesh_id, absolute_pos, absolute_rot, CollisionParkour, ~CollisionParkour & ~CollisionInaccessible);
+							m = World::alloc<StaticGeom>(mesh_id, absolute_pos, absolute_rot, CollisionParkour | extra_flags, ~CollisionParkour & ~CollisionInaccessible & ~CollisionElectric);
 					}
 
 					m->get<View>()->texture = texture;
@@ -1830,7 +1831,7 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 			}
 			else
 			{
-				entity = World::alloc<StaticGeom>(Asset::Mesh::terminal_collision, absolute_pos, absolute_rot, CollisionInaccessible, ~CollisionParkour & ~CollisionInaccessible);
+				entity = World::alloc<StaticGeom>(Asset::Mesh::terminal_collision, absolute_pos, absolute_rot, CollisionInaccessible, ~CollisionParkour & ~CollisionInaccessible & ~CollisionElectric);
 				entity->get<View>()->color.w = MATERIAL_INACCESSIBLE;
 			}
 		}

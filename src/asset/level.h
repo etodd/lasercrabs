@@ -8,7 +8,7 @@ namespace Asset
 {
 	namespace Level
 	{
-		const s32 count = 12;
+		const s32 count = 13;
 		const AssetID Dock = 0;
 		const AssetID Ioke = 1;
 		const AssetID Isthmus = 2;
@@ -18,9 +18,10 @@ namespace Asset
 		const AssetID Ponos = 6;
 		const AssetID Port_District = 7;
 		const AssetID Proci = 8;
-		const AssetID Tyche = 9;
-		const AssetID Tyro = 10;
-		const AssetID overworld = 11;
+		const AssetID Qualia = 9;
+		const AssetID Tyche = 10;
+		const AssetID Tyro = 11;
+		const AssetID overworld = 12;
 	}
 }
 

@@ -485,7 +485,7 @@ void PlayerHuman::update(const Update& u)
 				try_capture = true;
 			else if (!pressed && pressed_last)
 				try_capture = false;
-			ControlPoint* control_point = get<PlayerManager>()->at_control_point();
+			ControlPoint* control_point = Game::level.has_feature(Game::FeatureLevel::TutorialAll) ? get<PlayerManager>()->at_control_point() : nullptr;
 			if (control_point && control_point->can_be_captured_by(get<PlayerManager>()->team.ref()->team()))
 			{
 				// enemy control point; capture
@@ -996,34 +996,39 @@ void PlayerHuman::draw_alpha(const RenderParams& params) const
 	// draw abilities
 	if (Game::level.has_feature(Game::FeatureLevel::Abilities))
 	{
-		ControlPoint* control_point = get<PlayerManager>()->at_control_point();
 		if (mode == UIMode::PvpDefault
-			&& get<PlayerManager>()->can_transition_state()
-			&& ((control_point && control_point->can_be_captured_by(get<PlayerManager>()->team.ref()->team()))
-				|| get<PlayerManager>()->at_upgrade_point()))
+			&& get<PlayerManager>()->can_transition_state())
 		{
-			UIText text;
-			if (get<PlayerManager>()->at_upgrade_point())
-			{
-				// "upgrade!" prompt
-				text.color = get<PlayerManager>()->upgrade_available() ? UI::color_accent : UI::color_disabled;
-				text.text(_(strings::prompt_upgrade));
-			}
-			else
+			ControlPoint* control_point = Game::level.has_feature(Game::FeatureLevel::TutorialAll) ? get<PlayerManager>()->at_control_point() : nullptr;
+			if (control_point && control_point->can_be_captured_by(get<PlayerManager>()->team.ref()->team()))
 			{
 				// at control point; "capture!" prompt
+				UIText text;
 				text.color = UI::color_accent;
 				if (get<PlayerManager>()->team.ref()->team() == 0) // defending
 					text.text(_(strings::prompt_cancel_hack));
 				else
 					text.text(_(strings::prompt_hack));
+				text.anchor_x = UIText::Anchor::Center;
+				text.anchor_y = UIText::Anchor::Center;
+				text.size = text_size;
+				Vec2 pos = vp.size * Vec2(0.5f, 0.55f);
+				UI::box(params, text.rect(pos).outset(8.0f * UI::scale), UI::color_background);
+				text.draw(params, pos);
 			}
-			text.anchor_x = UIText::Anchor::Center;
-			text.anchor_y = UIText::Anchor::Center;
-			text.size = text_size;
-			Vec2 pos = vp.size * Vec2(0.5f, 0.55f);
-			UI::box(params, text.rect(pos).outset(8.0f * UI::scale), UI::color_background);
-			text.draw(params, pos);
+			else if (get<PlayerManager>()->at_upgrade_point())
+			{
+				// "upgrade!" prompt
+				UIText text;
+				text.color = get<PlayerManager>()->upgrade_available() ? UI::color_accent : UI::color_disabled;
+				text.text(_(strings::prompt_upgrade));
+				text.anchor_x = UIText::Anchor::Center;
+				text.anchor_y = UIText::Anchor::Center;
+				text.size = text_size;
+				Vec2 pos = vp.size * Vec2(0.5f, 0.55f);
+				UI::box(params, text.rect(pos).outset(8.0f * UI::scale), UI::color_background);
+				text.draw(params, pos);
+			}
 		}
 
 		if ((mode == UIMode::PvpDefault || mode == UIMode::Upgrading)
@@ -2671,7 +2676,7 @@ void PlayerControlHuman::update(const Update& u)
 								}
 								else if (Game::save.resources[s32(Resource::HackKits)] > 0)
 								{
-									if (Game::level.id == Asset::Level::Port_District && !Game::level.post_pvp)
+									if (Game::level.id == Asset::Level::Port_District && Game::level.feature_level == Game::FeatureLevel::All)
 									{
 										// player is about to skip tutorial
 										Menu::dialog(gamepad, &player_confirm_skip_tutorial, _(strings::confirm_skip_tutorial));
@@ -3176,48 +3181,51 @@ void PlayerControlHuman::draw_alpha(const RenderParams& params) const
 		}
 
 		// highlight control points
-		for (auto i = ControlPoint::list.iterator(); !i.is_last(); i.next())
+		if (Game::level.has_feature(Game::FeatureLevel::TutorialAll))
 		{
-			if (i.item()->team == 0 || i.item()->team_next != AI::TeamNone || i.item()->can_be_captured_by(team))
+			for (auto i = ControlPoint::list.iterator(); !i.is_last(); i.next())
 			{
-				Vec3 pos = i.item()->get<Transform>()->absolute_pos();
-				UI::indicator(params, pos, Team::ui_color(team, i.item()->team), i.item()->capture_timer > 0.0f || team == 1);
-				if (i.item()->capture_timer > 0.0f)
+				if (i.item()->team == 0 || i.item()->team_next != AI::TeamNone || i.item()->can_be_captured_by(team))
 				{
-					// control point is being captured; show progress bar
-					Rect2 bar;
+					Vec3 pos = i.item()->get<Transform>()->absolute_pos();
+					UI::indicator(params, pos, Team::ui_color(team, i.item()->team), i.item()->capture_timer > 0.0f || team == 1);
+					if (i.item()->capture_timer > 0.0f)
 					{
-						Vec2 p;
-						UI::is_onscreen(params, pos, &p);
-						Vec2 bar_size(80.0f * UI::scale, (UI_TEXT_SIZE_DEFAULT + 12.0f) * UI::scale);
-						bar = { p + Vec2(0, 40.0f * UI::scale) + (bar_size * -0.5f), bar_size };
-						UI::box(params, bar, UI::color_background);
-						const Vec4* color;
-						r32 percentage;
-						if (i.item()->capture_timer > CONTROL_POINT_CAPTURE_TIME * 0.5f)
+						// control point is being captured; show progress bar
+						Rect2 bar;
 						{
-							color = &Team::ui_color(team, i.item()->team);
-							percentage = (i.item()->capture_timer / (CONTROL_POINT_CAPTURE_TIME * 0.5f)) - 1.0f;
+							Vec2 p;
+							UI::is_onscreen(params, pos, &p);
+							Vec2 bar_size(80.0f * UI::scale, (UI_TEXT_SIZE_DEFAULT + 12.0f) * UI::scale);
+							bar = { p + Vec2(0, 40.0f * UI::scale) + (bar_size * -0.5f), bar_size };
+							UI::box(params, bar, UI::color_background);
+							const Vec4* color;
+							r32 percentage;
+							if (i.item()->capture_timer > CONTROL_POINT_CAPTURE_TIME * 0.5f)
+							{
+								color = &Team::ui_color(team, i.item()->team);
+								percentage = (i.item()->capture_timer / (CONTROL_POINT_CAPTURE_TIME * 0.5f)) - 1.0f;
+							}
+							else
+							{
+								color = &Team::ui_color(team, i.item()->team_next);
+								percentage = 1.0f - (i.item()->capture_timer / (CONTROL_POINT_CAPTURE_TIME * 0.5f));
+							}
+							UI::border(params, bar, 2, *color);
+							UI::box(params, { bar.pos, Vec2(bar.size.x * percentage, bar.size.y) }, *color);
 						}
-						else
+
 						{
-							color = &Team::ui_color(team, i.item()->team_next);
-							percentage = 1.0f - (i.item()->capture_timer / (CONTROL_POINT_CAPTURE_TIME * 0.5f));
+							UIText text;
+							text.anchor_x = UIText::Anchor::Center;
+							text.anchor_y = UIText::Anchor::Min;
+							text.color = i.item()->team_next == team ? UI::color_accent : UI::color_alert;
+							text.text(_(team == i.item()->team_next ? strings::hacking : strings::losing));
+
+							Vec2 p = bar.pos + Vec2(bar.size.x * 0.5f, bar.size.y + 10.0f * UI::scale);
+							UI::box(params, text.rect(p).outset(8.0f * UI::scale), UI::color_background);
+							text.draw(params, p);
 						}
-						UI::border(params, bar, 2, *color);
-						UI::box(params, { bar.pos, Vec2(bar.size.x * percentage, bar.size.y) }, *color);
-					}
-
-					{
-						UIText text;
-						text.anchor_x = UIText::Anchor::Center;
-						text.anchor_y = UIText::Anchor::Min;
-						text.color = i.item()->team_next == team ? UI::color_accent : UI::color_alert;
-						text.text(_(team == i.item()->team_next ? strings::hacking : strings::losing));
-
-						Vec2 p = bar.pos + Vec2(bar.size.x * 0.5f, bar.size.y + 10.0f * UI::scale);
-						UI::box(params, text.rect(p).outset(8.0f * UI::scale), UI::color_background);
-						text.draw(params, p);
 					}
 				}
 			}

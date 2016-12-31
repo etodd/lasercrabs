@@ -221,7 +221,7 @@ void Audio::post_global_event(AkUniqueID event_id)
 
 b8 Audio::post_dialogue_event(AkUniqueID event_id)
 {
-	AkPlayingID id = AK::SoundEngine::PostEvent(event_id, MAX_ENTITIES, AkCallbackType::AK_EndOfEvent, &dialogue_done_callback);
+	AkPlayingID id = AK::SoundEngine::PostEvent(event_id, entity_id, AkCallbackType::AK_EndOfEvent, &dialogue_done_callback);
 	return id != 0;
 }
 

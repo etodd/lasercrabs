@@ -14,7 +14,6 @@
 #include "asset/level.h"
 #include "walker.h"
 #include "mersenne/mersenne-twister.h"
-#include "cora.h"
 #include "render/particles.h"
 #include "net.h"
 #include "net_serialize.h"
@@ -662,10 +661,10 @@ void Team::update_all_server(const Update& u)
 				w = team_with_most_kills;
 			else if (Game::level.type == Game::Type::Rush)
 			{
-				if (list[1].control_point_count() > 0)
-					w = &list[1]; // attackers win
-				else
+				if (list[0].control_point_count() > 0)
 					w = &list[0]; // defenders win
+				else
+					w = &list[1]; // attackers win
 			}
 
 			// remove entities
@@ -695,6 +694,9 @@ void Team::update_all_server(const Update& u)
 			}
 
 			TeamNet::send_game_over(w);
+
+			for (auto i = ControlPoint::list.iterator(); !i.is_last(); i.next())
+				i.item()->set_team(w->team());
 
 			if (Game::session.story_mode)
 			{

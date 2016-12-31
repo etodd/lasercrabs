@@ -130,6 +130,7 @@ struct ControlPoint : public ComponentType<ControlPoint>
 	void capture_start(AI::Team);
 	void capture_cancel();
 	void update(const Update&);
+	void set_team(AI::Team);
 };
 
 struct SensorEntity : public Entity

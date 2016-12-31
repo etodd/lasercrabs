@@ -17,6 +17,7 @@
 #include "team.h"
 #include "data/components.h"
 #include "player.h"
+#include "render/skinned_model.h"
 
 namespace VI
 {

@@ -2,7 +2,6 @@
 
 #include "data/entity.h"
 #include "render.h"
-#define MAX_BONES 100
 
 namespace VI
 {

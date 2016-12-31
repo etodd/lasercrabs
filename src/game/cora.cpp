@@ -695,6 +695,7 @@ namespace Cora
 		if (data->callbacks.update(u, data->time))
 			data->callbacks.current()(u);
 
+		/*
 		if (data->audio_events.update(u, data->time))
 		{
 #if DEBUG
@@ -705,6 +706,7 @@ namespace Cora
 			Audio::post_dialogue_event(data->audio_events.current());
 #endif
 		}
+		*/
 
 		UIMenu::text_clip(&data->text, data->text_animation_time, 80.0f);
 

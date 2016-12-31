@@ -41,7 +41,6 @@
 #include "ai_player.h"
 #include "usernames.h"
 #include "utf8/utf8.h"
-#include "cora.h"
 #include "net.h"
 #include "parkour.h"
 #include "overworld.h"
@@ -204,10 +203,6 @@ b8 Game::init(LoopSync* sync)
 		const char* language = Json::get_string(json_language, "language", "en");
 		char ui_string_file[255];
 		sprintf(ui_string_file, "assets/str/ui_%s.json", language);
-		char dialogue_string_file[255];
-		sprintf(dialogue_string_file, "assets/str/dialogue_%s.json", language);
-		char misc_file[255];
-		sprintf(misc_file, "assets/str/misc_%s.json", language);
 
 		// UI
 		{
@@ -220,34 +215,10 @@ b8 Game::init(LoopSync* sync)
 			}
 		}
 
-		// dialogue strings
-		{
-			cJSON* json = Json::load(dialogue_string_file);
-			cJSON* element = json->child;
-			while (element)
-			{
-				strings_add_dynamic(element->string, element->valuestring);
-				element = element->next;
-			}
-		}
-
-		// misc strings
-		{
-			cJSON* json = Json::load(misc_file);
-			cJSON* element = json->child;
-			while (element)
-			{
-				strings_add_dynamic(element->string, element->valuestring);
-				element = element->next;
-			}
-		}
-
 		Input::load_strings(); // loads localized strings for input bindings
 
 		// don't free the JSON objects; we'll read strings directly from them
 	}
-
-	Cora::global_init();
 
 	Menu::init();
 
@@ -1396,6 +1367,7 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 			b8 alpha = (b8)Json::get_s32(element, "alpha");
 			b8 additive = (b8)Json::get_s32(element, "additive");
 			b8 no_parkour = cJSON_HasObjectItem(element, "noparkour");
+			b8 invisible = cJSON_HasObjectItem(element, "invisible");
 			AssetID texture = (AssetID)Loader::find(Json::get_string(element, "texture"), AssetLookup::Texture::names);
 			s16 extra_flags = cJSON_HasObjectItem(element, "electric") ? CollisionElectric : 0;
 
@@ -1437,6 +1409,8 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 						m->get<View>()->alpha();
 					if (additive)
 						m->get<View>()->additive();
+					if (invisible)
+						m->get<View>()->mask = 0;
 
 					if (entity)
 					{
@@ -1932,9 +1906,6 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 
 void Game::awake_all()
 {
-	Cora::init();
-	Cora::conversation_finished().link(&Overworld::conversation_finished);
-
 	Team::awake_all();
 }
 

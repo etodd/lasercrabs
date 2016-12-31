@@ -566,6 +566,7 @@ namespace ControlPointNet
 
 	b8 send_update(ControlPoint* c)
 	{
+		vi_assert(Game::level.local);
 		using Stream = Net::StreamWrite;
 		Stream* p = Net::msg_new(Net::MessageType::ControlPoint);
 		{
@@ -671,6 +672,14 @@ void ControlPoint::update(const Update& u)
 			}
 		}
 	}
+}
+
+void ControlPoint::set_team(AI::Team t)
+{
+	team = t;
+	team_next = AI::TeamNone;
+	capture_timer = 0.0f;
+	ControlPointNet::send_update(this);
 }
 
 s32 ControlPoint::count(AI::TeamMask mask)

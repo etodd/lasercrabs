@@ -35,7 +35,6 @@ configure_file(.exrc.in ${CMAKE_CURRENT_SOURCE_DIR}/.exrc)
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/assets)
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/assets/lvl)
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/assets/str)
-file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/assets/dl)
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/assets/shader)
 
 if (APPLE)
@@ -227,7 +226,6 @@ set(SRC
 	src/asset/soundbank.h
 	src/asset/Wwise_IDs.h
 	src/asset/string.h
-	src/asset/dialogue.h
 	src/platform/util.h
 	src/platform/sock.h
 	src/platform/sock.cpp
@@ -271,8 +269,6 @@ set(SRC
 	src/game/team.cpp
 	src/game/overworld.h
 	src/game/overworld.cpp
-	src/game/cora.h
-	src/game/cora.cpp
 	src/game/ai_player.h
 	src/game/ai_player.cpp
 	src/game/awk.h

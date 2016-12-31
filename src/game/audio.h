@@ -37,7 +37,6 @@ struct Audio : ComponentType<Audio>
 	static void term();
 	static void update();
 	static void post_global_event(AkUniqueID);
-	static b8 post_dialogue_event(AkUniqueID);
 	static void post_global_event(AkUniqueID, const Vec3&);
 	static void post_global_event(AkUniqueID, const Vec3&, const Quat&);
 	static void global_param(AkRtpcID, AkRtpcValue);
@@ -51,6 +50,7 @@ struct Audio : ComponentType<Audio>
 	void awake();
 	~Audio();
 	void post_event(AkUniqueID);
+	b8 post_dialogue_event(AkUniqueID);
 	void param(AkRtpcID, AkRtpcValue);
 };
 

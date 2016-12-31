@@ -9,18 +9,240 @@
 #include "console.h"
 #include <unordered_map>
 #include <string>
-#include "cora.h"
 #include "minion.h"
 #include "net.h"
 #include "team.h"
 #include "asset/level.h"
 #include "asset/armature.h"
+#include "asset/Wwise_IDs.h"
+#include "asset/font.h"
+#include "asset/animation.h"
 #include "data/animator.h"
 #include "overworld.h"
 #include "player.h"
+#include "audio.h"
+#include "load.h"
 
 namespace VI
 {
+
+namespace Actor
+{
+
+// animated, voiced, scripted character
+
+typedef void (*Callback)();
+
+struct Cue
+{
+	Callback callback;
+	r32 delay;
+	AkUniqueID sound = AK_InvalidID;
+	AssetID animation = AssetNull;
+	AssetID text = AssetNull;
+	b8 loop;
+};
+
+struct Data
+{
+	StaticArray<Cue, 16> cues;
+	r32 last_cue_real_time;
+	AssetID text = AssetNull;
+	AssetID head_bone;
+	Ref<Animator> model;
+	b8 active;
+	b8 sound_done;
+	AssetID text_tut = AssetNull;
+	r32 text_tut_real_time;
+};
+
+static Data* data;
+
+void cleanup()
+{
+	delete data;
+	data = nullptr;
+
+	Audio::post_global_event(AK::EVENTS::STOP_DIALOGUE);
+	Audio::dialogue_done = false;
+}
+
+void tut_clear()
+{
+	data->text_tut = AssetNull;
+}
+
+void tut(AssetID text, r32 delay = 1.0f)
+{
+	tut_clear();
+	data->text_tut = text;
+	data->text_tut_real_time = Game::real_time.total + delay;
+}
+
+void update(const Update& u)
+{
+	if (!data)
+		return;
+
+	if (Audio::dialogue_done)
+	{
+		data->sound_done = true;
+		data->text = AssetNull;
+		Audio::dialogue_done = false;
+	}
+
+	if (data->active)
+	{
+		Animator::Layer* layer = &data->model.ref()->layers[0];
+		if ((layer->time == Loader::animation(layer->animation)->duration || layer->behavior == Animator::Behavior::Loop)
+			&& data->sound_done
+			&& data->cues.length > 0)
+		{
+			data->active = true;
+			Cue* cue = &data->cues[0];
+			if (cue->delay > 0.0f)
+				cue->delay -= u.time.delta;
+			else
+			{
+				if (cue->callback)
+					cue->callback();
+				else
+				{
+					data->last_cue_real_time = Game::real_time.total;
+					data->text = cue->text;
+					layer->behavior = cue->loop ? Animator::Behavior::Loop : Animator::Behavior::Freeze;
+					layer->play(cue->animation);
+
+					if (cue->sound == AK_InvalidID)
+						data->sound_done = true;
+					else
+					{
+						data->model.ref()->get<Audio>()->post_dialogue_event(cue->sound);
+						data->sound_done = false;
+					}
+				}
+
+				if (data) // callback might have called cleanup()
+					data->cues.remove_ordered(0);
+			}
+		}
+	}
+}
+
+void draw(const RenderParams& params)
+{
+	if (!data)
+		return;
+
+	if (data->active)
+	{
+		// direct the player toward the actor only if they're looking the wrong way
+		Vec3 head_pos = Vec3::zero;
+		data->model.ref()->to_world(data->head_bone, &head_pos);
+		Vec2 p;
+		Vec2 offset;
+		if (!UI::is_onscreen(params, head_pos, &p, &offset))
+			UI::triangle(params, { p, Vec2(24 * UI::scale) }, UI::color_default, atan2f(offset.y, offset.x) + PI * -0.5f);
+
+		if (data->text != AssetNull)
+		{
+			UIText text;
+			text.font = Asset::Font::pt_sans;
+			text.wrap_width = MENU_ITEM_WIDTH;
+			text.anchor_x = UIText::Anchor::Center;
+			text.anchor_y = UIText::Anchor::Min;
+			text.color = UI::color_default;
+			text.text(_(data->text));
+			UIMenu::text_clip(&text, data->last_cue_real_time, 80.0f);
+
+			{
+				Vec2 p = params.camera->viewport.size * Vec2(0.5f, 0.1f);
+				UI::box(params, text.rect(p).outset(MENU_ITEM_PADDING), UI::color_background);
+				text.draw(params, p);
+			}
+		}
+	}
+
+	if (data->text_tut != AssetNull && Game::real_time.total > data->text_tut_real_time)
+	{
+		UIText text;
+		text.wrap_width = MENU_ITEM_WIDTH;
+		text.anchor_x = UIText::Anchor::Center;
+		text.anchor_y = UIText::Anchor::Max;
+		text.color = UI::color_accent;
+		text.text(_(data->text_tut));
+		UIMenu::text_clip(&text, data->text_tut_real_time, 80.0f);
+
+		{
+			Vec2 p = params.camera->viewport.size * Vec2(0.5f, 0.9f);
+			UI::box(params, text.rect(p).outset(MENU_ITEM_PADDING), UI::color_background);
+			text.draw(params, p);
+		}
+	}
+}
+
+void init(Entity* model = nullptr, AssetID head_bone = AssetNull)
+{
+	Audio::dialogue_done = false;
+
+	vi_assert(!data);
+	data = new Data();
+	if (model)
+	{
+		model->add<Audio>();
+		data->model = model->get<Animator>();
+	}
+	data->head_bone = head_bone;
+	data->sound_done = true;
+
+	b8 already_registered = false;
+	for (s32 i = 0; i < Game::cleanups.length; i++)
+	{
+		if (Game::cleanups[i] == cleanup)
+		{
+			already_registered = true;
+			break;
+		}
+	}
+
+	if (!already_registered)
+	{
+		Game::cleanups.add(cleanup);
+		Game::updates.add(update);
+		Game::draws.add(draw);
+	}
+}
+
+void cue(AkUniqueID sound, AssetID animation, AssetID text = AssetNull, b8 loop = true, r32 delay = 0.3f)
+{
+	Cue* c = data->cues.add();
+	new (c) Cue();
+	c->sound = sound;
+	c->animation = animation;
+	c->delay = delay;
+	c->loop = loop;
+	c->text = text;
+}
+
+void cue(Callback callback, r32 delay = 0.3f)
+{
+	Cue* c = data->cues.add();
+	new (c) Cue();
+	c->callback = callback;
+	c->delay = delay;
+}
+
+void active(b8 a)
+{
+	data->active = a;
+}
+
+void done()
+{
+	active(false);
+}
+
+}
 
 Script* Script::find(const char* name)
 {
@@ -71,7 +293,7 @@ namespace scene
 				Vec2(0, 0),
 				Vec2(Game::width, Game::height),
 			};
-			r32 aspect = data->camera->viewport.size.y == 0 ? 1 : (r32)data->camera->viewport.size.x / (r32)data->camera->viewport.size.y;
+			r32 aspect = data->camera->viewport.size.y == 0 ? 1 : r32(data->camera->viewport.size.x) / r32(data->camera->viewport.size.y);
 			data->camera->perspective((40.0f * PI * 0.5f / 180.0f), aspect, 0.1f, Game::level.skybox.far_plane);
 
 			Quat rot;
@@ -93,7 +315,8 @@ namespace title
 	enum class TutorialState
 	{
 		Start,
-		Message,
+		SailorSpotted,
+		SailorTalking,
 		Climb,
 		ClimbDone,
 		WallRun,
@@ -125,10 +348,11 @@ namespace title
 	void climb_success(Entity*)
 	{
 		if (data->state == TutorialState::Start
-			|| data->state == TutorialState::Message
+			|| data->state == TutorialState::SailorSpotted
+			|| data->state == TutorialState::SailorTalking
 			|| data->state == TutorialState::Climb)
 		{
-			Cora::text_clear();
+			Actor::tut_clear();
 			data->state = TutorialState::ClimbDone;
 		}
 	}
@@ -137,8 +361,7 @@ namespace title
 	{
 		if (data->state == TutorialState::ClimbDone)
 		{
-			Cora::text_clear();
-			Cora::text_schedule(0.0f, _(strings::tut_wallrun));
+			Actor::tut(strings::tut_wallrun);
 			data->state = TutorialState::WallRun;
 		}
 	}
@@ -147,18 +370,39 @@ namespace title
 	{
 		if (data->state == TutorialState::ClimbDone || data->state == TutorialState::WallRun)
 		{
-			Cora::text_clear();
+			Actor::tut_clear();
 			data->state = TutorialState::WallRunDone;
 		}
 	}
 
-	void message_success()
+	void sailor_spotted(Entity*)
 	{
-		if (data->state == TutorialState::Message)
+		if (data->state == TutorialState::Start)
+		{
+			data->state = TutorialState::SailorSpotted;
+			Actor::cue(AK::EVENTS::PLAY_SAILOR_COME_HERE, Asset::Animation::sailor_wait, strings::sailor_come_here);
+		}
+	}
+
+	void sailor_done()
+	{
+		if (data->state == TutorialState::SailorTalking)
 		{
 			data->state = TutorialState::Climb;
-			Cora::text_clear();
-			Cora::text_schedule(0.0f, _(strings::tut_climb_jump));
+			Actor::tut(strings::tut_climb_jump);
+		}
+	}
+
+	void sailor_talk(Entity*)
+	{
+		if (data->state == TutorialState::SailorSpotted)
+		{
+			data->state = TutorialState::SailorTalking;
+			Actor::cue(AK::EVENTS::PLAY_SAILOR_SPEECH_1, Asset::Animation::sailor_talk, strings::sailor_speech_1);
+			Actor::cue(AK::EVENTS::PLAY_SAILOR_SPEECH_2, Asset::Animation::sailor_talk, strings::sailor_speech_2);
+			Actor::cue(AK_InvalidID, Asset::Animation::sailor_close_door, AssetNull, false);
+			Actor::cue(&sailor_done);
+			Actor::cue(&Actor::done, 0.0f);
 		}
 	}
 
@@ -172,7 +416,7 @@ namespace title
 				data->character.ref()->to_world(Asset::Bone::character_head, &head_pos);
 				r32 blend = vi_min(1.0f, total_transition - data->transition_timer);
 				data->camera->pos = Vec3::lerp(blend, data->camera_start_pos, head_pos);
-				r32 aspect = data->camera->viewport.size.y == 0 ? 1 : (r32)data->camera->viewport.size.x / (r32)data->camera->viewport.size.y;
+				r32 aspect = data->camera->viewport.size.y == 0 ? 1 : r32(data->camera->viewport.size.x) / r32(data->camera->viewport.size.y);
 				data->camera->perspective(LMath::lerpf(blend * 0.5f, start_fov, end_fov), aspect, 0.1f, Game::level.skybox.far_plane);
 			}
 			r32 old_timer = data->transition_timer;
@@ -222,11 +466,7 @@ namespace title
 			}
 		}
 
-		if (data->state == TutorialState::Start && Game::save.messages_unseen)
-			data->state = TutorialState::Message;
-		else if (data->state == TutorialState::Message && !Game::save.messages_unseen)
-			message_success();
-		else if ((data->state == TutorialState::ClimbDone || data->state == TutorialState::WallRun)
+		if ((data->state == TutorialState::ClimbDone || data->state == TutorialState::WallRun)
 			&& !data->target_hack_kits.ref())
 		{
 			// player got the hack kits; done with this bit
@@ -254,7 +494,6 @@ namespace title
 				UI::indicator(p, data->target_climb.ref()->absolute_pos(), UI::color_accent, true);
 			else if (data->state == TutorialState::ClimbDone || data->state == TutorialState::WallRun)
 				UI::indicator(p, data->target_hack_kits.ref()->absolute_pos(), UI::color_accent, true);
-			Cora::draw(p, p.camera->viewport.size * Vec2(0.5f, 0.9f));
 		}
 
 		if (data->transition_timer > 0.0f && data->transition_timer < TRANSITION_TIME)
@@ -263,10 +502,12 @@ namespace title
 
 	void init(const EntityFinder& entities)
 	{
+		Actor::init(entities.find("sailor"), Asset::Bone::sailor_head);
+
+		data = new Data();
+
 		if (Game::level.mode == Game::Mode::Special)
 		{
-			data = new Data();
-
 			data->camera = Camera::add();
 
 			data->camera->viewport =
@@ -284,22 +525,24 @@ namespace title
 
 			data->character = entities.find("character")->get<Animator>();
 
-			data->target_climb = entities.find("target_climb")->get<Transform>();
-			data->target_hack_kits = entities.find("hack_kits")->get<Transform>();
-			data->target_hack_kits.ref()->get<Collectible>()->collected.link(&wallrun_success);
-			entities.find("climb_trigger1")->get<PlayerTrigger>()->entered.link(&climb_success);
-			entities.find("climb_trigger2")->get<PlayerTrigger>()->entered.link(&climb_success);
-			entities.find("wallrun_trigger")->get<PlayerTrigger>()->entered.link(&wallrun_start);
-
-			Game::updates.add(update);
-			Game::draws.add(draw);
-			Game::cleanups.add(cleanup);
-
 			for (auto i = PlayerHuman::list.iterator(); !i.is_last(); i.next())
 				i.item()->camera->active = false;
 		}
 		else
 			World::remove(entities.find("character"));
+
+		data->target_climb = entities.find("target_climb")->get<Transform>();
+		data->target_hack_kits = entities.find("hack_kits")->get<Transform>();
+		data->target_hack_kits.ref()->get<Collectible>()->collected.link(&wallrun_success);
+		entities.find("climb_trigger1")->get<PlayerTrigger>()->entered.link(&climb_success);
+		entities.find("climb_trigger2")->get<PlayerTrigger>()->entered.link(&climb_success);
+		entities.find("wallrun_trigger")->get<PlayerTrigger>()->entered.link(&wallrun_start);
+		entities.find("sailor_spotted_trigger")->get<PlayerTrigger>()->entered.link(&sailor_spotted);
+		entities.find("sailor_talk_trigger")->get<PlayerTrigger>()->entered.link(&sailor_talk);
+
+		Game::updates.add(update);
+		Game::draws.add(draw);
+		Game::cleanups.add(cleanup);
 	}
 
 	void play()
@@ -307,7 +550,7 @@ namespace title
 		Game::save.reset();
 		Game::session.reset();
 		data->transition_timer = total_transition;
-		Overworld::message_schedule(strings::contact_meursault, strings::msg_meursault_intro, 7.0f);
+		Actor::active(true);
 	}
 }
 
@@ -331,8 +574,7 @@ namespace tutorial
 		if (data->state == TutorialState::Start)
 		{
 			data->state = TutorialState::Upgrade;
-			Cora::text_clear();
-			Cora::text_schedule(1.0f, _(strings::tut_upgrade));
+			Actor::tut(strings::tut_upgrade);
 
 			Game::level.feature_level = Game::FeatureLevel::Abilities;
 			PlayerManager* manager = PlayerHuman::list.iterator().item()->get<PlayerManager>();
@@ -346,8 +588,7 @@ namespace tutorial
 		{
 			data->state = TutorialState::Capture;
 			Game::level.feature_level = Game::FeatureLevel::TutorialAll;
-			Cora::text_clear();
-			Cora::text_schedule(1.0f, _(strings::tut_capture));
+			Actor::tut(strings::tut_capture);
 		}
 	}
 
@@ -361,8 +602,7 @@ namespace tutorial
 			if (s32(data->state) <= s32(TutorialState::Start))
 			{
 				data->state = TutorialState::Start;
-				Cora::text_clear();
-				Cora::text_schedule(1.0f, _(strings::tut_start));
+				Actor::tut(strings::tut_start);
 				Game::level.feature_level = Game::FeatureLevel::EnergyPickups;
 			}
 		}
@@ -377,7 +617,7 @@ namespace tutorial
 		if (data->state != TutorialState::Done && Team::game_over)
 		{
 			data->state = TutorialState::Done;
-			Cora::text_clear();
+			Actor::tut_clear();
 		}
 		else if (data->state == TutorialState::Upgrade)
 		{
@@ -387,8 +627,7 @@ namespace tutorial
 				if (manager->has_upgrade(Upgrade(i)))
 				{
 					data->state = TutorialState::Ability;
-					Cora::text_clear();
-					Cora::text_schedule(1.0f, _(strings::tut_ability));
+					Actor::tut(strings::tut_ability);
 					break;
 				}
 			}
@@ -401,18 +640,12 @@ namespace tutorial
 		data = nullptr;
 	}
 
-	void draw(const RenderParams& p)
-	{
-		Cora::draw(p, p.camera->viewport.size * Vec2(0.5f, 0.9f));
-	}
-
 	void slide_trigger(Entity* p)
 	{
 		if (Game::level.mode == Game::Mode::Parkour && data->state == TutorialState::ParkourStart)
 		{
 			data->state = TutorialState::ParkourSlide;
-			Cora::text_clear();
-			Cora::text_schedule(0.0f, _(strings::tut_slide));
+			Actor::tut(strings::tut_slide, 0.0f);
 		}
 	}
 
@@ -421,13 +654,15 @@ namespace tutorial
 		if (Game::level.mode == Game::Mode::Parkour)
 		{
 			if (data->state == TutorialState::ParkourSlide)
-				Cora::text_clear();
+				Actor::tut_clear();
 			data->state = TutorialState::ParkourDone;
 		}
 	}
 
 	void init(const EntityFinder& entities)
 	{
+		Actor::init();
+
 		data = new Data();
 
 		entities.find("health")->get<Target>()->target_hit.link(&health_got);
@@ -441,7 +676,6 @@ namespace tutorial
 
 		Game::updates.add(&update);
 		Game::cleanups.add(&cleanup);
-		Game::draws.add(&draw);
 	}
 }
 

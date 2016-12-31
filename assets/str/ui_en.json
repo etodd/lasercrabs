@@ -408,6 +408,10 @@ Capture the hanging battery.
 	"draw": "Battery Expired",
 	"timer": "%d:%02d",
 
+	"sailor_come_here": "Hey! Over here.",
+	"sailor_speech_1": "Now look, once you're ashore, you need to crack the tram system.",
+	"sailor_speech_2": "I had someone leave a crack kit for you in the cargo. Go!",
+
 	"yes": "Yes",
 	"no": "No",
 
@@ -425,7 +429,7 @@ Capture the hanging battery.
 	"futifs": "Futifs",
 	"zodiak": "Zodiak",
 	
-	"msg_meursault_intro": "Once you arrive, you'll need to crack the tram system. I had someone leave 2 crack kits for you in the cargo.",
+	"msg_meursault_intro": "",
 	"msg_ivory_intro": "Your account was successfully created. Please change your password.
 
 Notice - due to the recent influx of clients, Ivory Corp no longer accepts support requests."

@@ -93,9 +93,6 @@ struct Loader
 	static cJSON* level(AssetID, b8);
 	static void level_free(cJSON*);
 
-	static cJSON* dialogue_tree(AssetID);
-	static void dialogue_tree_free(cJSON*);
-
 	static b8 soundbank(AssetID);
 	static b8 soundbank_permanent(AssetID);
 	static void soundbank_free(AssetID);

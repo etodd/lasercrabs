@@ -934,19 +934,6 @@ void Loader::level_free(cJSON* json)
 	Json::json_free((cJSON*)json);
 }
 
-cJSON* Loader::dialogue_tree(AssetID id)
-{
-	if (id == AssetNull)
-		return 0;
-
-	return Json::load(AssetLookup::DialogueTree::values[id]);
-}
-
-void Loader::dialogue_tree_free(cJSON* json)
-{
-	Json::json_free(json);
-}
-
 b8 Loader::soundbank(AssetID id)
 {
 #if SERVER

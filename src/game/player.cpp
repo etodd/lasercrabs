@@ -32,7 +32,6 @@
 #include "ai_player.h"
 #endif
 #include "scripts.h"
-#include "cora.h"
 #include "net.h"
 #include "net_serialize.h"
 #include "team.h"
@@ -450,8 +449,7 @@ void PlayerHuman::update(const Update& u)
 			&& !u.input->get(Controls::Pause, gamepad)
 			&& !Game::cancel_event_eaten[gamepad]
 			&& !upgrade_menu_open
-			&& (menu_state == Menu::State::Hidden || menu_state == Menu::State::Visible)
-			&& !Cora::has_focus())
+			&& (menu_state == Menu::State::Hidden || menu_state == Menu::State::Visible))
 		{
 			Game::cancel_event_eaten[gamepad] = true;
 			menu_state = (menu_state == Menu::State::Hidden) ? Menu::State::Visible : Menu::State::Hidden;
@@ -1835,7 +1833,6 @@ b8 PlayerControlHuman::input_enabled() const
 	return !Console::visible
 		&& !Overworld::active()
 		&& (ui_mode == PlayerHuman::UIMode::PvpDefault || ui_mode == PlayerHuman::UIMode::ParkourDefault)
-		&& !Cora::has_focus()
 		&& !Team::game_over
 		&& !Menu::dialog_active(player.ref()->gamepad)
 		&& !interactable.ref();

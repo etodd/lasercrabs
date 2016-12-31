@@ -1325,7 +1325,10 @@
 						</Sound>
 					</ChildrenList>
 				</RandomSequenceContainer>
-				<ActorMixer Name="cora" ID="{268C5A9B-FE0E-4CCA-8A21-B0D3CC20AED4}" ShortID="544240620">
+				<ActorMixer Name="dialogue" ID="{268C5A9B-FE0E-4CCA-8A21-B0D3CC20AED4}" ShortID="544240620">
+					<PropertyList>
+						<Property Name="PositioningType" Type="int16" Value="1"/>
+					</PropertyList>
 					<ReferenceList>
 						<Reference Name="Conversion">
 							<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
@@ -1335,7 +1338,7 @@
 						</Reference>
 					</ReferenceList>
 					<ChildrenList>
-						<Sound Name="9e8f17e1a058341be597a4032d80c01bf566d167" ID="{BFAD7A30-FCB9-45D5-AB8E-FE02ED2B3683}" ShortID="305934056" Type="SoundFX">
+						<Sound Name="sailor_come_here" ID="{69317E16-58C3-4C9A-9958-55545F7A58F9}" ShortID="451144538" Type="SoundFX">
 							<ReferenceList>
 								<Reference Name="Conversion">
 									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
@@ -1345,16 +1348,16 @@
 								</Reference>
 							</ReferenceList>
 							<ChildrenList>
-								<AudioFileSource Name="9e8f17e1a058341be597a4032d80c01bf566d167" ID="{A2AB74E6-4A4B-406A-96D7-A7508C6FCF14}" ShortID="170756267">
+								<AudioFileSource Name="sailor_come_here" ID="{AD8D3330-9FE6-4A1E-8B10-BEC871B819F1}" ShortID="591679914">
 									<Language>SFX</Language>
-									<AudioFile>cora\9e8f17e1a058341be597a4032d80c01bf566d167.wav</AudioFile>
+									<AudioFile>sailor_come_here.wav</AudioFile>
 								</AudioFileSource>
 							</ChildrenList>
 							<ActiveSourceList>
-								<ActiveSource Name="9e8f17e1a058341be597a4032d80c01bf566d167" ID="{A2AB74E6-4A4B-406A-96D7-A7508C6FCF14}" Platform="Linked"/>
+								<ActiveSource Name="sailor_come_here" ID="{AD8D3330-9FE6-4A1E-8B10-BEC871B819F1}" Platform="Linked"/>
 							</ActiveSourceList>
 						</Sound>
-						<Sound Name="83a0af6d13c797192492af53b034f50c2acd028c" ID="{EAE27699-BC0B-40E5-AD24-59960279473F}" ShortID="1064972467" Type="SoundFX">
+						<Sound Name="sailor_speech_1" ID="{70257F28-180F-47F9-ACBB-B023E29C77CE}" ShortID="813251664" Type="SoundFX">
 							<ReferenceList>
 								<Reference Name="Conversion">
 									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
@@ -1364,16 +1367,16 @@
 								</Reference>
 							</ReferenceList>
 							<ChildrenList>
-								<AudioFileSource Name="83a0af6d13c797192492af53b034f50c2acd028c" ID="{C9840D42-2A43-4416-A630-3F21EE271B53}" ShortID="885480767">
+								<AudioFileSource Name="sailor_speech_1" ID="{4B0179A6-DEAA-43C9-A9F4-71001AA100FE}" ShortID="38551102">
 									<Language>SFX</Language>
-									<AudioFile>cora\83a0af6d13c797192492af53b034f50c2acd028c.wav</AudioFile>
+									<AudioFile>sailor_speech_1.wav</AudioFile>
 								</AudioFileSource>
 							</ChildrenList>
 							<ActiveSourceList>
-								<ActiveSource Name="83a0af6d13c797192492af53b034f50c2acd028c" ID="{C9840D42-2A43-4416-A630-3F21EE271B53}" Platform="Linked"/>
+								<ActiveSource Name="sailor_speech_1" ID="{4B0179A6-DEAA-43C9-A9F4-71001AA100FE}" Platform="Linked"/>
 							</ActiveSourceList>
 						</Sound>
-						<Sound Name="b991ec604b396296fb9aa9d173a6bdb7b0fad8d1" ID="{AD3B8A7C-2C16-4660-AEA7-E0E7931A5C02}" ShortID="498649653" Type="SoundFX">
+						<Sound Name="sailor_speech_2" ID="{48FA60BF-D9A4-4E28-9992-0416B82F9810}" ShortID="516561070" Type="SoundFX">
 							<ReferenceList>
 								<Reference Name="Conversion">
 									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
@@ -1383,184 +1386,13 @@
 								</Reference>
 							</ReferenceList>
 							<ChildrenList>
-								<AudioFileSource Name="b991ec604b396296fb9aa9d173a6bdb7b0fad8d1" ID="{820316BC-6BA8-4B79-B0F5-89A21F6126F2}" ShortID="482066422">
+								<AudioFileSource Name="sailor_speech_2" ID="{20E19837-617D-4864-AD69-07C0C6C45883}" ShortID="493075335">
 									<Language>SFX</Language>
-									<AudioFile>cora\b991ec604b396296fb9aa9d173a6bdb7b0fad8d1.wav</AudioFile>
+									<AudioFile>sailor_speech_2.wav</AudioFile>
 								</AudioFileSource>
 							</ChildrenList>
 							<ActiveSourceList>
-								<ActiveSource Name="b991ec604b396296fb9aa9d173a6bdb7b0fad8d1" ID="{820316BC-6BA8-4B79-B0F5-89A21F6126F2}" Platform="Linked"/>
-							</ActiveSourceList>
-						</Sound>
-						<Sound Name="bb5ba98e9b74d6551b05a5f927119cf463946670" ID="{3CFF17DC-670D-445D-83B1-3B0732D5DEB3}" ShortID="579349433" Type="SoundFX">
-							<ReferenceList>
-								<Reference Name="Conversion">
-									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
-								</Reference>
-								<Reference Name="OutputBus">
-									<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
-								</Reference>
-							</ReferenceList>
-							<ChildrenList>
-								<AudioFileSource Name="bb5ba98e9b74d6551b05a5f927119cf463946670" ID="{D1F40AE9-62B5-419C-9161-BE4B140BC703}" ShortID="233773267">
-									<Language>SFX</Language>
-									<AudioFile>cora\bb5ba98e9b74d6551b05a5f927119cf463946670.wav</AudioFile>
-								</AudioFileSource>
-							</ChildrenList>
-							<ActiveSourceList>
-								<ActiveSource Name="bb5ba98e9b74d6551b05a5f927119cf463946670" ID="{D1F40AE9-62B5-419C-9161-BE4B140BC703}" Platform="Linked"/>
-							</ActiveSourceList>
-						</Sound>
-						<Sound Name="c31613f2c78bdf4073f558def86370a50132005f" ID="{9B655846-E680-4D4A-B131-8B0675A5A079}" ShortID="367069870" Type="SoundFX">
-							<ReferenceList>
-								<Reference Name="Conversion">
-									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
-								</Reference>
-								<Reference Name="OutputBus">
-									<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
-								</Reference>
-							</ReferenceList>
-							<ChildrenList>
-								<AudioFileSource Name="c31613f2c78bdf4073f558def86370a50132005f" ID="{C66841D3-65A0-4B57-BCAC-E6A9D3CB0110}" ShortID="547820476">
-									<Language>SFX</Language>
-									<AudioFile>cora\c31613f2c78bdf4073f558def86370a50132005f.wav</AudioFile>
-								</AudioFileSource>
-							</ChildrenList>
-							<ActiveSourceList>
-								<ActiveSource Name="c31613f2c78bdf4073f558def86370a50132005f" ID="{C66841D3-65A0-4B57-BCAC-E6A9D3CB0110}" Platform="Linked"/>
-							</ActiveSourceList>
-						</Sound>
-						<Sound Name="fb063afb85a0cf338463766ad183f7b78895dd58" ID="{E0F35D23-B68C-454F-B727-0A38B068B3BD}" ShortID="711834364" Type="SoundFX">
-							<ReferenceList>
-								<Reference Name="Conversion">
-									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
-								</Reference>
-								<Reference Name="OutputBus">
-									<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
-								</Reference>
-							</ReferenceList>
-							<ChildrenList>
-								<AudioFileSource Name="fb063afb85a0cf338463766ad183f7b78895dd58" ID="{6F869E38-581D-4122-BE1D-1A49AA010696}" ShortID="199466208">
-									<Language>SFX</Language>
-									<AudioFile>cora\fb063afb85a0cf338463766ad183f7b78895dd58.wav</AudioFile>
-								</AudioFileSource>
-							</ChildrenList>
-							<ActiveSourceList>
-								<ActiveSource Name="fb063afb85a0cf338463766ad183f7b78895dd58" ID="{6F869E38-581D-4122-BE1D-1A49AA010696}" Platform="Linked"/>
-							</ActiveSourceList>
-						</Sound>
-						<Sound Name="591ac01bf443af5c7a719227802e6d8d10bb1267" ID="{866D88C0-18B7-4352-9CC8-57B775F53D24}" ShortID="138395085" Type="SoundFX">
-							<ReferenceList>
-								<Reference Name="Conversion">
-									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
-								</Reference>
-								<Reference Name="OutputBus">
-									<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
-								</Reference>
-							</ReferenceList>
-							<ChildrenList>
-								<AudioFileSource Name="591ac01bf443af5c7a719227802e6d8d10bb1267" ID="{AAA201F7-814A-47EC-BDE0-1A9A4DD36B0C}" ShortID="858210895">
-									<Language>SFX</Language>
-									<AudioFile>cora\591ac01bf443af5c7a719227802e6d8d10bb1267.wav</AudioFile>
-								</AudioFileSource>
-							</ChildrenList>
-							<ActiveSourceList>
-								<ActiveSource Name="591ac01bf443af5c7a719227802e6d8d10bb1267" ID="{AAA201F7-814A-47EC-BDE0-1A9A4DD36B0C}" Platform="Linked"/>
-							</ActiveSourceList>
-						</Sound>
-						<Sound Name="a1fff9f7a340a8f4c1bd254960c7ddd1c3b296ea" ID="{2749BE36-E025-4951-BBC9-F64E540FB88A}" ShortID="816498951" Type="SoundFX">
-							<ReferenceList>
-								<Reference Name="Conversion">
-									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
-								</Reference>
-								<Reference Name="OutputBus">
-									<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
-								</Reference>
-							</ReferenceList>
-							<ChildrenList>
-								<AudioFileSource Name="a1fff9f7a340a8f4c1bd254960c7ddd1c3b296ea" ID="{BDAA04C2-1B7D-4009-BC18-90650F2F8850}" ShortID="722437974">
-									<Language>SFX</Language>
-									<AudioFile>cora\a1fff9f7a340a8f4c1bd254960c7ddd1c3b296ea.wav</AudioFile>
-								</AudioFileSource>
-							</ChildrenList>
-							<ActiveSourceList>
-								<ActiveSource Name="a1fff9f7a340a8f4c1bd254960c7ddd1c3b296ea" ID="{BDAA04C2-1B7D-4009-BC18-90650F2F8850}" Platform="Linked"/>
-							</ActiveSourceList>
-						</Sound>
-						<Sound Name="b9a0f4bac93f51c109c6864e0ed826f7b07fb434" ID="{B41D5D93-314F-4B02-A961-F18748B501D6}" ShortID="213788490" Type="SoundFX">
-							<ReferenceList>
-								<Reference Name="Conversion">
-									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
-								</Reference>
-								<Reference Name="OutputBus">
-									<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
-								</Reference>
-							</ReferenceList>
-							<ChildrenList>
-								<AudioFileSource Name="b9a0f4bac93f51c109c6864e0ed826f7b07fb434" ID="{2460E529-3648-474F-A32E-43496CAC10A1}" ShortID="965347245">
-									<Language>SFX</Language>
-									<AudioFile>cora\b9a0f4bac93f51c109c6864e0ed826f7b07fb434.wav</AudioFile>
-								</AudioFileSource>
-							</ChildrenList>
-							<ActiveSourceList>
-								<ActiveSource Name="b9a0f4bac93f51c109c6864e0ed826f7b07fb434" ID="{2460E529-3648-474F-A32E-43496CAC10A1}" Platform="Linked"/>
-							</ActiveSourceList>
-						</Sound>
-						<Sound Name="beadc12c37e6457c0cd64fdbbd064bccedcb9990" ID="{3383322A-B7C4-4FE2-9AFD-3781B449963D}" ShortID="840406599" Type="SoundFX">
-							<ReferenceList>
-								<Reference Name="Conversion">
-									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
-								</Reference>
-								<Reference Name="OutputBus">
-									<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
-								</Reference>
-							</ReferenceList>
-							<ChildrenList>
-								<AudioFileSource Name="beadc12c37e6457c0cd64fdbbd064bccedcb9990" ID="{6D1B4982-51A7-4912-94DA-2B59D287CADA}" ShortID="614574242">
-									<Language>SFX</Language>
-									<AudioFile>cora\beadc12c37e6457c0cd64fdbbd064bccedcb9990.wav</AudioFile>
-								</AudioFileSource>
-							</ChildrenList>
-							<ActiveSourceList>
-								<ActiveSource Name="beadc12c37e6457c0cd64fdbbd064bccedcb9990" ID="{6D1B4982-51A7-4912-94DA-2B59D287CADA}" Platform="Linked"/>
-							</ActiveSourceList>
-						</Sound>
-						<Sound Name="c2cc8ed06a32a7ef7c4ec5309252021c2272852a" ID="{3A630E52-8D0D-4665-A15E-9A4F5296CB84}" ShortID="345612884" Type="SoundFX">
-							<ReferenceList>
-								<Reference Name="Conversion">
-									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
-								</Reference>
-								<Reference Name="OutputBus">
-									<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
-								</Reference>
-							</ReferenceList>
-							<ChildrenList>
-								<AudioFileSource Name="c2cc8ed06a32a7ef7c4ec5309252021c2272852a" ID="{DA799902-2F00-47EA-983C-C47277B242E2}" ShortID="976846336">
-									<Language>SFX</Language>
-									<AudioFile>cora\c2cc8ed06a32a7ef7c4ec5309252021c2272852a.wav</AudioFile>
-								</AudioFileSource>
-							</ChildrenList>
-							<ActiveSourceList>
-								<ActiveSource Name="c2cc8ed06a32a7ef7c4ec5309252021c2272852a" ID="{DA799902-2F00-47EA-983C-C47277B242E2}" Platform="Linked"/>
-							</ActiveSourceList>
-						</Sound>
-						<Sound Name="d5ea95df7b0cc631bbbf660aec1c669a07b18e1e" ID="{9B94FA8E-8C15-4BFB-AAAE-9565DF230919}" ShortID="661528193" Type="SoundFX">
-							<ReferenceList>
-								<Reference Name="Conversion">
-									<ObjectRef Name="Default Conversion Settings" ID="{6D1B890C-9826-4384-BF07-C15223E9FB56}" WorkUnitID="{1940E187-7122-4FA2-B452-0DE7A9856B8B}"/>
-								</Reference>
-								<Reference Name="OutputBus">
-									<ObjectRef Name="Master Audio Bus" ID="{1514A4D8-1DA6-412A-A17E-75CA0C2149F3}" WorkUnitID="{37E3DD22-F89F-4902-BC8A-52458C2521D7}"/>
-								</Reference>
-							</ReferenceList>
-							<ChildrenList>
-								<AudioFileSource Name="d5ea95df7b0cc631bbbf660aec1c669a07b18e1e" ID="{0F975D27-747D-4BF6-9191-973F228B20F5}" ShortID="672807816">
-									<Language>SFX</Language>
-									<AudioFile>cora\d5ea95df7b0cc631bbbf660aec1c669a07b18e1e.wav</AudioFile>
-								</AudioFileSource>
-							</ChildrenList>
-							<ActiveSourceList>
-								<ActiveSource Name="d5ea95df7b0cc631bbbf660aec1c669a07b18e1e" ID="{0F975D27-747D-4BF6-9191-973F228B20F5}" Platform="Linked"/>
+								<ActiveSource Name="sailor_speech_2" ID="{20E19837-617D-4864-AD69-07C0C6C45883}" Platform="Linked"/>
 							</ActiveSourceList>
 						</Sound>
 					</ChildrenList>

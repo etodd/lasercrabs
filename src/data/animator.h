@@ -1,7 +1,6 @@
 #pragma once
 
 #include "entity.h"
-#include "render/skinned_model.h"
 #include "lmath.h"
 
 namespace VI
@@ -39,21 +38,24 @@ struct Animator : public ComponentType<Animator>
 
 	struct Layer
 	{
-		Layer();
-		r32 weight;
+		Array<AnimatorChannel> last_animation_channels;
+		Array<AnimatorChannel> channels;
+		Bitmask<MAX_BONES> channel_overlap;
 		r32 blend;
 		r32 blend_time;
 		r32 time;
 		r32 time_last;
 		r32 speed;
-		StaticArray<AnimatorChannel, MAX_BONES> last_animation_channels;
-		StaticArray<AnimatorChannel, MAX_BONES> channels;
 		AssetID animation;
 		AssetID last_animation;
 		AssetID last_frame_animation;
 		Behavior behavior;
+
+		Layer();
+
 		void update(r32, r32, const Animator&);
-		void changed_animation(const Armature*);
+		void changing_animation(const Armature*);
+		void changed_animation();
 		void play(AssetID);
 		void set(AssetID, r32);
 	};
@@ -78,13 +80,16 @@ struct Animator : public ComponentType<Animator>
 		count,
 	};
 
-	OverrideMode override_mode;
+	Array<Mat4> offsets;
+	Array<Mat4> bones;
+	Array<BindEntry> bindings;
+	Array<TriggerEntry> triggers;
 	Layer layers[MAX_ANIMATIONS];
+	OverrideMode override_mode;
 	AssetID armature;
-	StaticArray<Mat4, MAX_BONES> offsets;
-	StaticArray<Mat4, MAX_BONES> bones;
-	StaticArray<BindEntry, MAX_BONES> bindings;
-	StaticArray<TriggerEntry, MAX_BONES> triggers;
+
+	Animator();
+	void awake();
 
 	void update_server(const Update&);
 	void update_client_only(const Update&);
@@ -97,9 +102,7 @@ struct Animator : public ComponentType<Animator>
 	void from_bone_body(const s32, const Vec3&, const Quat&, const Vec3&, const Quat&);
 	void override_bone(const s32, const Vec3&, const Quat&);
 	void reset_overrides();
-	void awake();
 	Link& trigger(const AssetID, r32);
-	Animator();
 };
 
 }

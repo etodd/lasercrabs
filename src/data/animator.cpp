@@ -3,6 +3,7 @@
 #include "components.h"
 #include "ease.h"
 #include "mersenne/mersenne-twister.h"
+#include "render/skinned_model.h"
 
 namespace VI
 {
@@ -19,12 +20,12 @@ Animator::Layer::Layer()
 	last_animation_channels(),
 	time(),
 	time_last(),
-	weight(1.0f),
 	blend(1.0f),
 	blend_time(0.25f),
 	animation(AssetNull),
 	last_animation(AssetNull),
 	last_frame_animation(AssetNull),
+	channel_overlap(),
 	behavior(),
 	speed(1.0f)
 {
@@ -39,6 +40,11 @@ Animator::Animator()
 	override_mode(),
 	bones()
 {
+}
+
+void Animator::awake()
+{
+	Loader::armature(armature);
 }
 
 template<typename T>
@@ -66,7 +72,7 @@ void Animator::Layer::play(AssetID a)
 	}
 }
 
-void extract_channels_from_anim(StaticArray<Animator::AnimatorChannel, MAX_BONES>* channels, const Animation* anim, r32 time)
+void extract_channels_from_anim(Array<Animator::AnimatorChannel>* channels, const Animation* anim, r32 time)
 {
 	channels->resize(anim->channels.length);
 	for (s32 i = 0; i < anim->channels.length; i++)
@@ -150,8 +156,9 @@ void Animator::Layer::update(r32 dt, r32 dt_real, const Animator& animator)
 				case Behavior::Default:
 				{
 					animation = AssetNull;
-					changed_animation(arm);
+					changing_animation(arm);
 					channels.resize(0);
+					changed_animation();
 					return;
 				}
 				case Behavior::Loop:
@@ -174,7 +181,7 @@ void Animator::Layer::update(r32 dt, r32 dt_real, const Animator& animator)
 		}
 
 		if (animation != last_frame_animation)
-			changed_animation(arm);
+			changing_animation(arm);
 
 		for (s32 i = 0; i < animator.triggers.length; i++)
 		{
@@ -194,9 +201,14 @@ void Animator::Layer::update(r32 dt, r32 dt_real, const Animator& animator)
 	else
 	{
 		if (animation != last_frame_animation)
-			changed_animation(arm);
+			changing_animation(arm);
 		channels.resize(0);
 	}
+
+	
+	if (animation != last_frame_animation)
+		changed_animation();
+	last_frame_animation = animation;
 }
 
 void Animator::Layer::set(AssetID anim, r32 t)
@@ -204,12 +216,16 @@ void Animator::Layer::set(AssetID anim, r32 t)
 	extract_channels_from_anim(&channels, Loader::animation(anim), t);
 	animation = anim;
 	if (anim != last_frame_animation)
-		changed_animation(nullptr);
+	{
+		changing_animation(nullptr);
+		changed_animation();
+	}
+	last_frame_animation = anim;
 	blend = 1.0f;
 	time = time_last = t;
 }
 
-void Animator::Layer::changed_animation(const Armature* arm)
+void Animator::Layer::changing_animation(const Armature* arm)
 {
 	r32 layer_blend = Ease::quad_out<r32>(blend);
 
@@ -254,7 +270,9 @@ void Animator::Layer::changed_animation(const Armature* arm)
 				}
 			}
 
-			if (!last_channel)
+			if (last_channel)
+				channel_overlap.set(new_channel.bone, true);
+			else
 			{
 				last_channel = last_animation_channels.add();
 				last_channel->bone = new_channel.bone;
@@ -269,15 +287,33 @@ void Animator::Layer::changed_animation(const Armature* arm)
 	else
 	{
 		// no blend in progress; just save the current channels
-		last_animation_channels.length = channels.length;
+		last_animation_channels.resize(channels.length);
 		if (channels.length > 0)
 			memcpy(last_animation_channels.data, channels.data, sizeof(AnimatorChannel) * channels.length);
 	}
 
 	blend = 0.0f;
 	last_animation = last_frame_animation;
-	last_frame_animation = animation;
 	time_last = time;
+}
+
+void Animator::Layer::changed_animation()
+{
+	// calculate which channels overlap between last and current animation
+	channel_overlap.clear();
+	for (s32 i = 0; i < channels.length; i++)
+	{
+		const AnimatorChannel& new_channel = channels[i];
+		AnimatorChannel* last_channel = nullptr;
+		for (s32 j = 0; j < last_animation_channels.length; j++)
+		{
+			if (last_animation_channels[j].bone == new_channel.bone)
+			{
+				channel_overlap.set(new_channel.bone, true);
+				break;
+			}
+		}
+	}
 }
 
 void Animator::update_server(const Update& u)
@@ -301,7 +337,7 @@ void Animator::update_world_transforms()
 	if (offsets.length < arm->hierarchy.length)
 	{
 		s32 old_length = offsets.length;
-		offsets.length = arm->hierarchy.length;
+		offsets.resize(arm->hierarchy.length);
 		for (s32 i = old_length; i < offsets.length; i++)
 		{
 			if (override_mode == OverrideMode::Offset)
@@ -314,6 +350,7 @@ void Animator::update_world_transforms()
 	if (override_mode == OverrideMode::Offset)
 	{
 		AnimatorTransform bone_channels[MAX_BONES];
+
 		for (s32 i = 0; i < bones.length; i++)
 		{
 			bone_channels[i].pos = arm->bind_pose[i].pos;
@@ -330,21 +367,22 @@ void Animator::update_world_transforms()
 			// blend in last pose
 			if (layer_blend < 1.0f)
 			{
-				r32 blend = layer.weight * (1.0f - layer_blend);
 				for (s32 i = 0; i < layer.last_animation_channels.length; i++)
 				{
 					AnimatorChannel& channel = layer.last_animation_channels[i];
-					bone_channels[channel.bone].blend(blend, channel.transform);
+					if (layer.channel_overlap.get(channel.bone))
+						bone_channels[channel.bone] = channel.transform;
+					else
+						bone_channels[channel.bone].blend(1.0f - layer_blend, channel.transform);
 				}
 			}
 
 			// blend in current pose
 			{
-				r32 blend = layer.weight * layer_blend;
 				for (s32 i = 0; i < layer.channels.length; i++)
 				{
 					AnimatorChannel& channel = layer.channels[i];
-					bone_channels[channel.bone].blend(blend, channel.transform);
+					bone_channels[channel.bone].blend(layer_blend, channel.transform);
 				}
 			}
 		}
@@ -504,11 +542,6 @@ void Animator::reset_overrides()
 		for (s32 i = 0; i < offsets.length; i++)
 			offsets[i].make_transform(arm->bind_pose[i].pos, Vec3(1, 1, 1), arm->bind_pose[i].rot);
 	}
-}
-
-void Animator::awake()
-{
-	Loader::armature(armature);
 }
 
 Link& Animator::trigger(const AssetID anim, const r32 time)

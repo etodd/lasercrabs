@@ -45,6 +45,7 @@ const char* AssetLookup::Mesh::values[] =
 	"assets/rocket_base.msh",
 	"assets/rocket_pod.msh",
 	"assets/rope_base.msh",
+	"assets/sailor.msh",
 	"assets/sky_decal.msh",
 	"assets/sky_pattern.msh",
 	"assets/skybox.msh",
@@ -65,6 +66,7 @@ const char* AssetLookup::Mesh::values[] =
 	"assets/tri_tube.msh",
 	"assets/lvl/Dock_Cube.msh",
 	"assets/lvl/Dock_Cube_002.msh",
+	"assets/lvl/Dock_Cylinder.msh",
 	"assets/lvl/Dock_buildings.msh",
 	"assets/lvl/Dock_buildings_001.msh",
 	"assets/lvl/Dock_buildings_002.msh",
@@ -281,6 +283,7 @@ const char* AssetLookup::Mesh::names[] =
 	"rocket_base",
 	"rocket_pod",
 	"rope_base",
+	"sailor",
 	"sky_decal",
 	"sky_pattern",
 	"skybox",
@@ -301,6 +304,7 @@ const char* AssetLookup::Mesh::names[] =
 	"tri_tube",
 	"Dock_Cube",
 	"Dock_Cube_002",
+	"Dock_Cylinder",
 	"Dock_buildings",
 	"Dock_buildings_001",
 	"Dock_buildings_002",
@@ -509,6 +513,9 @@ const char* AssetLookup::Animation::values[] =
 	"assets/interactable_enabled.anm",
 	"assets/interactable_interact.anm",
 	"assets/interactable_interact_disable.anm",
+	"assets/sailor_close_door.anm",
+	"assets/sailor_talk.anm",
+	"assets/sailor_wait.anm",
 	"assets/terminal_close.anm",
 	"assets/terminal_open.anm",
 	"assets/terminal_opened.anm",
@@ -552,6 +559,9 @@ const char* AssetLookup::Animation::names[] =
 	"interactable_enabled",
 	"interactable_interact",
 	"interactable_interact_disable",
+	"sailor_close_door",
+	"sailor_talk",
+	"sailor_wait",
 	"terminal_close",
 	"terminal_open",
 	"terminal_opened",
@@ -569,6 +579,7 @@ const char* AssetLookup::Armature::values[] =
 	"assets/interactable.arm",
 	"assets/parkour.arm",
 	"assets/parkour_headless.arm",
+	"assets/sailor.arm",
 	"assets/terminal.arm",
 	"assets/tram_doors.arm",
 	0,
@@ -582,6 +593,7 @@ const char* AssetLookup::Armature::names[] =
 	"interactable",
 	"parkour",
 	"parkour_headless",
+	"sailor",
 	"terminal",
 	"tram_doors",
 	0,
@@ -591,7 +603,6 @@ const char* AssetLookup::Armature::names[] =
 const char* AssetLookup::Texture::values[] =
 {
 	"assets/blank.png",
-	"assets/cora.png",
 	"assets/flare.png",
 	"assets/noise.png",
 	"assets/skybox_horizon.png",
@@ -603,7 +614,6 @@ const char* AssetLookup::Texture::values[] =
 const char* AssetLookup::Texture::names[] =
 {
 	"blank",
-	"cora",
 	"flare",
 	"noise",
 	"skybox_horizon",
@@ -895,7 +905,6 @@ const char* AssetLookup::String::names[] =
 	"containment_field_destroyed",
 	"control_point_captured",
 	"control_point_lost",
-	"conversation_done",
 	"danger",
 	"day",
 	"deaths",
@@ -937,7 +946,6 @@ const char* AssetLookup::String::names[] =
 	"in_group_queue",
 	"incoming_message",
 	"insufficient_resource",
-	"intro",
 	"invert_y",
 	"key_A",
 	"key_ACBack",
@@ -1211,6 +1219,9 @@ const char* AssetLookup::String::names[] =
 	"right_joystick",
 	"rocket",
 	"rocket_incoming",
+	"sailor_come_here",
+	"sailor_speech_1",
+	"sailor_speech_2",
 	"sensitivity",
 	"sensor",
 	"sensor_destroyed",
@@ -1266,20 +1277,6 @@ const char* AssetLookup::String::names[] =
 	"zones_hostile",
 	"zones_locked",
 	"zones_under_attack",
-	0,
-};
-
-
-const char* AssetLookup::DialogueTree::values[] =
-{
-	"assets/dl/intro.dlz",
-	0,
-};
-
-
-const char* AssetLookup::DialogueTree::names[] =
-{
-	"intro",
 	0,
 };
 

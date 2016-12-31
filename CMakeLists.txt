@@ -326,7 +326,6 @@ set(SRC
 	assets/shader/sky_decal.glsl
 	assets/script/blend_to_fbx.py
 	assets/script/blend_to_lvl.py
-	assets/script/text_to_speech.py
 	assets/script/ttf_to_fbx.py
 	assets/str/ui_en.json
 )

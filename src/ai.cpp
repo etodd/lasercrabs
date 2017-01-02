@@ -253,7 +253,8 @@ u32 awk_pathfind(AwkPathfind type, AwkAllow rule, Team team, const Vec3& a, cons
 	sync_in.write(a_normal);
 	if (type != AwkPathfind::Random)
 	{
-		sync_in.write(b);
+		if (type != AwkPathfind::Spawn)
+			sync_in.write(b);
 		if (type != AwkPathfind::Target)
 			sync_in.write(b_normal);
 	}

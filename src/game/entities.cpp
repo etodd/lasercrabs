@@ -2312,7 +2312,7 @@ void Collectible::give_rewards()
 			}
 			case Resource::Drones:
 			{
-				a = 10;
+				a = 8;
 				break;
 			}
 			default:

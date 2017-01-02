@@ -6,7 +6,7 @@
 #include "data/priority_queue.h"
 #include "mersenne/mersenne-twister.h"
 
-#define DEBUG_AI 0
+#define DEBUG_AI 1
 
 #if DEBUG_AI
 #include "platform/util.h"
@@ -47,6 +47,7 @@ dtPolyRef get_poly(const Vec3& pos, const r32* search_extents)
 struct AstarScorer
 {
 	// calculate heuristic score for nav mesh vertex
+	// higher score = worse
 	virtual r32 score(const Vec3&) = 0;
 	// did we find what we're looking for?
 	virtual b8 done(AwkNavMeshNode, const AwkNavMeshNodeData&) = 0;
@@ -107,10 +108,10 @@ struct AwayScorer : AstarScorer
 
 struct RandomScorer : AstarScorer
 {
-	AwkNavMeshNode start_vertex;
 	Vec3 start_pos;
 	Vec3 goal;
 	r32 minimum_distance;
+	AwkNavMeshNode start_vertex;
 
 	virtual r32 score(const Vec3& pos)
 	{
@@ -121,6 +122,24 @@ struct RandomScorer : AstarScorer
 	{
 		return awk_nav_mesh.chunks[v.chunk].adjacency[v.vertex].neighbors.length == AWK_NAV_MESH_ADJACENCY // end goal must be a highly accessible location
 			&& (start_pos - awk_nav_mesh.chunks[v.chunk].vertices[v.vertex]).length_squared() > (minimum_distance * minimum_distance);
+	}
+};
+
+struct SpawnScorer : AstarScorer
+{
+	Vec3 start_pos;
+	Vec3 dir;
+	AwkNavMeshNode start_vertex;
+
+	virtual r32 score(const Vec3& pos)
+	{
+		// want a vertex that is in the desired direction from the start position
+		return 5.0f * (1.0f - dir.dot(pos - start_pos));
+	}
+
+	virtual b8 done(AwkNavMeshNode v, const AwkNavMeshNodeData& data)
+	{
+		return !v.equals(start_vertex);
 	}
 };
 
@@ -965,6 +984,21 @@ void loop()
 						sync_in.read(&end);
 						sync_in.unlock();
 						awk_pathfind_hit(rule, team, start, start_normal, end, &path);
+						break;
+					}
+					case AwkPathfind::Spawn:
+					{
+						Vec3 dir;
+						sync_in.read(&dir);
+						sync_in.unlock();
+
+						SpawnScorer scorer;
+						scorer.dir = dir;
+						scorer.start_pos = start;
+						scorer.start_vertex = awk_closest_point(team, start, start_normal);
+
+						awk_astar(rule, team, scorer.start_vertex, &scorer, &path);
+						
 						break;
 					}
 					case AwkPathfind::Random:

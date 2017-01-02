@@ -737,6 +737,11 @@ template<typename Stream> b8 serialize_init_packet(Stream* p)
 	serialize_int(p, s32, Game::level.tram_tracks.length, 0, Game::level.tram_tracks.capacity());
 	for (s32 i = 0; i < Game::level.tram_tracks.length; i++)
 		serialize_s16(p, Game::level.tram_tracks[i].level);
+	return true;
+}
+
+template<typename Stream> b8 serialize_save(Stream* p)
+{
 	for (s32 i = 0; i < MAX_ZONES; i++)
 		serialize_enum(p, ZoneState, Game::save.zones[i]);
 	return true;
@@ -2704,6 +2709,7 @@ b8 packet_build_connect(StreamWrite* p)
 	serialize_enum(p, ClientPacket, type);
 	s16 version = GAME_VERSION;
 	serialize_s16(p, version);
+
 	packet_finalize(p);
 	return true;
 }

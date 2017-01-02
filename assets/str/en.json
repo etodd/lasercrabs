@@ -2,7 +2,6 @@
 	"connecting": "Connecting...",
 	"hacking": "Cracking...",
 	"hack_complete": "Crack complete",
-	"error_hostile_zone": "Error: hostile zone",
 	"error_locked_zone": "Error: unlock terminal first",
 	"error_inside_tram": "Error: console unavailable",
 	"error_zone_under_attack": "Error: zone under attack",
@@ -408,29 +407,14 @@ Capture the hanging battery.
 	"draw": "Battery Expired",
 	"timer": "%d:%02d",
 
-	"sailor_come_here": "Hey! Over here.",
-	"sailor_speech_1": "Now look, once you're ashore, you need to crack the tram system.",
-	"sailor_speech_2": "I had someone leave a crack kit for you in the cargo. Go!",
+	"sailor_come_here": "[Dada] Hey! Over here.",
+	"sailor_speech_1": "[Dada] Now look, once you're ashore, you need to crack the tram system.",
+	"sailor_speech_2": "[Dada] I had someone leave a crack kit for you in the cargo. Go!",
 
 	"yes": "Yes",
 	"no": "No",
 
-	"_default": null,
-
-	"now": "Now",
-	"minute": "m",
-	"hour": "h",
-	"day": "d",
-
-	"contact_seven": "Seven",
-	"contact_meursault": "Meursault",
-	"contact_ivory": "Ivory Corp",
 	"none": "None",
 	"futifs": "Futifs",
-	"zodiak": "Zodiak",
-	
-	"msg_meursault_intro": "",
-	"msg_ivory_intro": "Your account was successfully created. Please change your password.
-
-Notice - due to the recent influx of clients, Ivory Corp no longer accepts support requests."
+	"zodiak": "Zodiak"
 }

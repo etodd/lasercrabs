@@ -42,7 +42,7 @@ namespace Overworld
 #define SCALE_MULTIPLIER (UI::scale < 1.0f ? 0.5f : 1.0f)
 #define PADDING (16.0f * UI::scale * SCALE_MULTIPLIER)
 #define TAB_SIZE Vec2(160.0f * UI::scale, UI_TEXT_SIZE_DEFAULT * UI::scale + PADDING * 2.0f)
-#define MAIN_VIEW_SIZE (Vec2(768.0f, 512.0f) * (SCALE_MULTIPLIER * UI::scale))
+#define MAIN_VIEW_SIZE (Vec2(800.0f, 512.0f) * (SCALE_MULTIPLIER * UI::scale))
 #define TEXT_SIZE (UI_TEXT_SIZE_DEFAULT * SCALE_MULTIPLIER)
 #define MESSAGE_TRUNCATE_LONG (72 * SCALE_MULTIPLIER)
 #define MESSAGE_TRUNCATE_SHORT (48 * SCALE_MULTIPLIER)
@@ -82,7 +82,6 @@ enum class State
 
 enum class Tab
 {
-	Messages,
 	Map,
 	Inventory,
 	count,
@@ -111,8 +110,6 @@ struct DataGlobal
 	Array<WaterEntry> waters;
 	Vec3 camera_offset_pos;
 	Quat camera_offset_rot;
-	Vec3 camera_messages_pos;
-	Quat camera_messages_rot;
 	Vec3 camera_inventory_pos;
 	Quat camera_inventory_rot;
 };
@@ -120,22 +117,6 @@ DataGlobal global;
 
 struct Data
 {
-	struct Messages
-	{
-		enum class Mode
-		{
-			Contacts,
-			Messages,
-			Message,
-		};
-
-		Mode mode;
-		UIScroll contact_scroll;
-		UIScroll message_scroll;
-		AssetID contact_selected = AssetNull;
-		AssetID message_selected = AssetNull;
-	};
-
 	struct Inventory
 	{
 		enum class Mode
@@ -161,10 +142,9 @@ struct Data
 	{
 		r64 timestamp_last;
 		Tab tab = Tab::Map;
-		Tab tab_previous = Tab::Messages;
+		Tab tab_previous = Tab::Inventory;
 		r32 tab_timer;
 		r32 mode_transition_time;
-		Messages messages;
 		Inventory inventory;
 		Map map;
 	};
@@ -206,46 +186,6 @@ s32 splitscreen_team_count()
 b8 splitscreen_teams_are_valid()
 {
 	return splitscreen_team_count() > 1;
-}
-
-Game::Message* message_get(AssetID msg)
-{
-	for (s32 i = 0; i < Game::save.messages.length; i++)
-	{
-		if (Game::save.messages[i].text == msg)
-			return &Game::save.messages[i];
-	}
-	return nullptr;
-}
-
-void message_add(AssetID contact, AssetID text, r64 timestamp)
-{
-	if (message_get(text))
-		return; // already sent
-
-	Game::Message* msg = Game::save.messages.insert(0);
-	msg->contact = contact;
-	msg->text = text;
-	msg->timestamp = timestamp;
-	msg->read = false;
-	Game::save.messages_unseen = true;
-}
-
-void message_schedule(AssetID contact, AssetID text, r64 delay)
-{
-	if (message_get(text))
-		return; // already sent
-	for (s32 i = 0; i < Game::save.messages_scheduled.length; i++)
-	{
-		if (Game::save.messages_scheduled[i].text == text)
-			return; // already scheduled
-	}
-
-	Game::Message* msg = Game::save.messages_scheduled.add();
-	msg->contact = contact;
-	msg->text = text;
-	msg->timestamp = platform::timestamp() + delay;
-	msg->read = false;
 }
 
 void splitscreen_select_teams_update(const Update& u)
@@ -1198,93 +1138,6 @@ b8 can_switch_tab()
 
 #define TAB_ANIMATION_TIME 0.3f
 
-#define MAX_CONTACTS 16
-
-struct ContactDetails
-{
-	r64 last_message_timestamp;
-	AssetID last_message_text;
-	AssetID name;
-	s32 unread;
-};
-
-void collect_contacts(StaticArray<ContactDetails, MAX_CONTACTS>* contacts)
-{
-	for (s32 i = 0; i < Game::save.messages.length; i++)
-	{
-		const Game::Message& msg = Game::save.messages[i];
-		ContactDetails* existing_contact = nullptr;
-		for (s32 j = 0; j < contacts->length; j++)
-		{
-			if (msg.contact == (*contacts)[j].name)
-			{
-				existing_contact = &((*contacts)[j]);
-				break;
-			}
-		}
-
-		if (!existing_contact)
-		{
-			existing_contact = contacts->add();
-			existing_contact->name = msg.contact;
-			existing_contact->last_message_timestamp = msg.timestamp;
-			existing_contact->last_message_text = msg.text;
-		}
-
-		if (!msg.read)
-			existing_contact->unread++;
-	}
-}
-
-void collect_messages(Array<Game::Message>* messages, AssetID contact)
-{
-	for (s32 i = 0; i < Game::save.messages.length; i++)
-	{
-		const Game::Message& msg = Game::save.messages[i];
-		if (msg.contact == contact)
-			messages->add(msg);
-	}
-}
-
-void messages_transition(Data::Messages::Mode mode)
-{
-	if (data.story.messages.mode != mode)
-	{
-		data.story.messages.mode = mode;
-		data.story.mode_transition_time = Game::real_time.total;
-	}
-}
-
-void message_statistics(s32* unread_count, r64* most_recent = nullptr)
-{
-	*unread_count = 0;
-	if (most_recent)
-		*most_recent = 0;
-	for (s32 i = 0; i < Game::save.messages.length; i++)
-	{
-		const Game::Message& msg = Game::save.messages[i];
-		if (!msg.read)
-			(*unread_count)++;
-		if (most_recent)
-		{
-			if (msg.timestamp > *most_recent)
-				*most_recent = msg.timestamp;
-		}
-	}
-}
-
-s32 message_unread_count()
-{
-	s32 unread_count;
-	message_statistics(&unread_count);
-	return unread_count;
-}
-
-void message_read(Game::Message* msg)
-{
-	msg->read = true;
-}
-
 void group_join(Game::Group g)
 {
 	// todo: redo this whole thing
@@ -1299,124 +1152,6 @@ void group_join(Game::Group g)
 			else
 				zone_change(zone.id, mersenne::randf_cc() > 0.7f ? ZoneState::Friendly : ZoneState::Hostile);
 		}
-	}
-}
-
-void conversation_finished()
-{
-	Game::save.story_index++;
-	messages_transition(Data::Messages::Mode::Messages);
-	if (Game::save.story_index == 3)
-		group_join(Game::Group::Futifs);
-}
-
-void tab_messages_update(const Update& u)
-{
-	Data::StoryMode* story = &data.story;
-	Data::Messages* messages = &story->messages;
-
-	if (story->tab == Tab::Messages && story->tab_timer > TAB_ANIMATION_TIME && can_switch_tab())
-	{
-		focus_camera(u, global.camera_messages_pos, global.camera_messages_rot);
-
-		switch (messages->mode)
-		{
-			case Data::Messages::Mode::Contacts:
-			{
-				StaticArray<ContactDetails, MAX_CONTACTS> contacts;
-				collect_contacts(&contacts);
-
-				messages->contact_scroll.update_menu(contacts.length);
-				if (contacts.length == 0)
-					messages->contact_selected = AssetNull;
-				else
-				{
-					s32 contact_index = 0;
-					for (s32 i = 0; i < contacts.length; i++)
-					{
-						if (contacts[i].name == messages->contact_selected)
-						{
-							contact_index = i;
-							break;
-						}
-					}
-					contact_index += UI::input_delta_vertical(u, 0);
-					contact_index = vi_max(0, vi_min(contact_index, s32(contacts.length) - 1));
-					messages->contact_selected = contacts[contact_index].name;
-					messages->contact_scroll.scroll_into_view(contact_index);
-				}
-
-				if (messages->contact_selected != AssetNull && u.last_input->get(Controls::Interact, 0) && !u.input->get(Controls::Interact, 0))
-				{
-					messages->message_selected = AssetNull;
-					messages_transition(Data::Messages::Mode::Messages);
-				}
-				break;
-			}
-			case Data::Messages::Mode::Messages:
-			{
-				Array<Game::Message> msg_list;
-				collect_messages(&msg_list, messages->contact_selected);
-				messages->message_scroll.update_menu(msg_list.length);
-				if (msg_list.length == 0)
-					messages->message_selected = AssetNull;
-				else
-				{
-					s32 msg_index = 0;
-					for (s32 i = 0; i < msg_list.length; i++)
-					{
-						if (msg_list[i].text == messages->message_selected)
-						{
-							msg_index = i;
-							break;
-						}
-					}
-					msg_index += UI::input_delta_vertical(u, 0);
-					msg_index = vi_max(0, vi_min(msg_index, s32(msg_list.length) - 1));
-					messages->message_selected = msg_list[msg_index].text;
-					messages->message_scroll.scroll_into_view(msg_index);
-
-					Game::Message* message_selected = message_get(messages->message_selected);
-					if (!message_selected->read && utf8len(_(message_selected->text)) < MESSAGE_TRUNCATE_LONG)
-						message_read(message_selected); // automatically mark read
-
-					if (u.last_input->get(Controls::Interact, 0) && !u.input->get(Controls::Interact, 0))
-					{
-						if (!message_selected->read)
-							message_read(message_selected);
-						messages_transition(Data::Messages::Mode::Message);
-					}
-				}
-
-				if (!Game::cancel_event_eaten[0] && u.last_input->get(Controls::Cancel, 0) && !u.input->get(Controls::Cancel, 0))
-				{
-					messages->message_selected = AssetNull;
-					messages_transition(Data::Messages::Mode::Contacts);
-					Game::cancel_event_eaten[0] = true;
-				}
-				break;
-			}
-			case Data::Messages::Mode::Message:
-			{
-				if (!Game::cancel_event_eaten[0] && u.last_input->get(Controls::Cancel, 0) && !u.input->get(Controls::Cancel, 0))
-				{
-					messages_transition(Data::Messages::Mode::Messages);
-					Game::cancel_event_eaten[0] = true;
-				}
-				break;
-			}
-			default:
-			{
-				vi_assert(false);
-				break;
-			}
-		}
-	}
-
-	if (story->tab != Tab::Messages)
-	{
-		// minimized view; reset scroll
-		messages->contact_scroll.pos = 0;
 	}
 }
 
@@ -1461,7 +1196,7 @@ b8 zone_filter_default(AssetID zone_id)
 	return true;
 }
 
-b8 zone_filter_can_change(AssetID zone_id)
+b8 zone_filter_can_be_attacked(AssetID zone_id)
 {
 	if (zone_id == Asset::Level::Port_District || zone_id == Asset::Level::Dock)
 		return false;
@@ -1659,20 +1394,19 @@ void zone_random_attack(r32 elapsed_time)
 {
 	if (Game::level.local
 		&& Game::level.mode == Game::Mode::Parkour
-		&& Game::save.zones[Game::level.id] == ZoneState::Friendly
 		&& zone_under_attack() == AssetNull
 		&& (PlayerControlHuman::list.count() == 0 || !Tram::player_inside(PlayerControlHuman::list.iterator().item()->entity())))
 	{
 		s32 captured;
 		s32 hostile;
 		s32 locked;
-		zone_statistics(&captured, &hostile, &locked, &zone_filter_can_change);
+		zone_statistics(&captured, &hostile, &locked, &zone_filter_can_be_attacked);
 
 		r32 event_odds = elapsed_time * EVENT_ODDS_PER_ZONE * captured;
 
 		while (mersenne::randf_co() < event_odds)
 		{
-			AssetID z = zone_random(&zone_filter_captured, &zone_filter_can_change); // live incoming attack
+			AssetID z = zone_random(&zone_filter_captured, &zone_filter_can_be_attacked); // live incoming attack
 			if (z != AssetNull)
 				OverworldNet::zone_under_attack(z);
 			event_odds -= 1.0f;
@@ -1709,7 +1443,6 @@ void story_mode_update(const Update& u)
 		}
 	}
 
-	tab_messages_update(u);
 	tab_map_update(u);
 	tab_inventory_update(u);
 }
@@ -1763,269 +1496,6 @@ Rect2 tab_draw(const RenderParams& p, const Data::StoryMode& data, Tab tab, cons
 	pos->x += width + PADDING;
 
 	return result;
-}
-
-void timestamp_string(r64 timestamp, char* str)
-{
-	r64 diff = platform::timestamp() - timestamp;
-	if (diff < 60.0f)
-		sprintf(str, "%s", _(strings::now));
-	else if (diff < 3600.0f)
-		sprintf(str, "%d%s", s32(diff / 60.0f), _(strings::minute));
-	else if (diff < 86400)
-		sprintf(str, "%d%s", s32(diff / 3600.0f), _(strings::hour));
-	else
-		sprintf(str, "%d%s", s32(diff / 86400), _(strings::day));
-}
-
-void contacts_draw(const RenderParams& p, const Data::StoryMode& data, const Rect2& rect, const StaticArray<ContactDetails, MAX_CONTACTS>& contacts)
-{
-	Vec2 panel_size = get_panel_size(rect);
-	Vec2 pos = rect.pos + Vec2(0, rect.size.y - panel_size.y);
-	r64 time = platform::timestamp();
-	data.messages.contact_scroll.start(p, pos + Vec2(panel_size.x * 0.5f, panel_size.y));
-	for (s32 i = 0; i < contacts.length; i++)
-	{
-		if (!data.messages.contact_scroll.item(i))
-			continue;
-
-		const ContactDetails& contact = contacts[i];
-		b8 selected = data.tab == Tab::Messages && contact.name == data.messages.contact_selected && !Menu::dialog_active(0);
-
-		UI::box(p, { pos, panel_size }, UI::color_background);
-
-		if (time - contact.last_message_timestamp > 0.5f || UI::flash_function(Game::real_time.total)) // flash new messages
-		{
-			if (selected)
-				UI::border(p, Rect2(pos, panel_size).outset(-BORDER * UI::scale), BORDER, UI::color_accent);
-
-			UIText text;
-			text.size = TEXT_SIZE * (data.tab == Tab::Messages ? 1.0f : 0.75f);
-			text.anchor_x = UIText::Anchor::Min;
-			text.anchor_y = UIText::Anchor::Center;
-			if (data.tab == Tab::Messages)
-			{
-				text.color = selected ? UI::color_accent : Team::ui_color_friend;
-				UIMenu::text_clip(&text, data.mode_transition_time + (i - data.messages.contact_scroll.pos) * 0.05f, 100.0f);
-			}
-			else
-				text.color = UI::color_default;
-			text.text("%s (%d)", _(contact.name), contact.unread);
-			text.draw(p, pos + Vec2(PADDING, panel_size.y * 0.5f));
-
-			if (data.tab == Tab::Messages)
-			{
-				text.color = selected ? UI::color_accent : UI::color_default;
-				char buffer[STRING_BUFFER_SIZE];
-				{
-					// truncate if necessary
-					const char* msg_text = _(contact.last_message_text);
-					memory_index len = utf8len(msg_text);
-					const s32 truncate = MESSAGE_TRUNCATE_SHORT;
-					if (len > truncate)
-					{
-						char buffer2[STRING_BUFFER_SIZE];
-						utf8ncpy(buffer2, msg_text, truncate - 3);
-						buffer2[truncate - 3] = '\0';
-						sprintf(buffer, "%s...", buffer2);
-					}
-					else
-						utf8cpy(buffer, msg_text);
-				}
-				text.font = Asset::Font::pt_sans;
-				text.text_raw(buffer, UITextFlagSingleLine);
-				text.draw(p, pos + Vec2(panel_size.x * 0.35f, panel_size.y * 0.5f));
-
-				text.color = selected ? UI::color_accent : UI::color_alert;
-				text.font = Asset::Font::lowpoly;
-				timestamp_string(contact.last_message_timestamp, buffer);
-				text.anchor_x = UIText::Anchor::Max;
-				text.text(buffer);
-				text.draw(p, pos + Vec2(panel_size.x - PADDING, panel_size.y * 0.5f));
-			}
-		}
-			
-		pos.y -= panel_size.y;
-	}
-	data.messages.contact_scroll.end(p, pos + Vec2(panel_size.x * 0.5f, panel_size.y));
-}
-
-void tab_messages_draw(const RenderParams& p, const Data::StoryMode& data, const Rect2& rect)
-{
-	Vec2 panel_size = get_panel_size(rect);
-
-	Vec2 top_bar_size(rect.size.x, panel_size.y * 1.5f);
-
-	StaticArray<ContactDetails, MAX_CONTACTS> contacts;
-	collect_contacts(&contacts);
-
-	if (data.tab == Tab::Messages)
-	{
-		// full view
-		if (contacts.length > 0)
-		{
-			switch (data.messages.mode)
-			{
-				case Data::Messages::Mode::Contacts:
-				{
-					contacts_draw(p, data, rect, contacts);
-					break;
-				}
-				case Data::Messages::Mode::Messages:
-				{
-					Array<Game::Message> msg_list;
-					collect_messages(&msg_list, data.messages.contact_selected);
-
-					r64 time = platform::timestamp();
-					Vec2 pos = rect.pos + Vec2(0, rect.size.y - top_bar_size.y);
-
-					// top bar
-					{
-						UI::box(p, { pos, top_bar_size }, UI::color_background);
-
-						UIText text;
-						text.size = TEXT_SIZE;
-						text.anchor_x = UIText::Anchor::Min;
-						text.anchor_y = UIText::Anchor::Center;
-						text.color = Team::ui_color_friend;
-						UIMenu::text_clip(&text, data.mode_transition_time, 80.0f);
-						text.text(_(data.messages.contact_selected));
-						text.draw(p, pos + Vec2(PADDING, top_bar_size.y * 0.5f));
-
-						text.text(_(strings::prompt_back));
-						text.color = UI::color_default;
-						text.anchor_x = UIText::Anchor::Max;
-						text.draw(p, pos + Vec2(top_bar_size.x - PADDING, top_bar_size.y * 0.5f));
-
-						pos.y -= panel_size.y + PADDING * 2.0f;
-					}
-
-					data.messages.message_scroll.start(p, pos + Vec2(panel_size.x * 0.5f, panel_size.y));
-					for (s32 i = 0; i < msg_list.length; i++)
-					{
-						if (!data.messages.message_scroll.item(i))
-							continue;
-
-						const Game::Message& msg = msg_list[i];
-						b8 selected = msg.text == data.messages.message_selected && !Menu::dialog_active(0);
-
-						UI::box(p, { pos, panel_size }, UI::color_background);
-
-						if (time - msg.timestamp > 0.5f || UI::flash_function(Game::real_time.total)) // flash new messages
-						{
-							if (selected)
-								UI::border(p, Rect2(pos, panel_size).outset(-2.0f * UI::scale), 2.0f, UI::color_accent);
-
-							UIText text;
-							text.size = TEXT_SIZE;
-							text.anchor_x = UIText::Anchor::Min;
-							text.anchor_y = UIText::Anchor::Center;
-							text.color = selected ? UI::color_accent : UI::color_alert;
-							UIMenu::text_clip(&text, data.mode_transition_time + (i - data.messages.message_scroll.pos) * 0.05f, 100.0f);
-
-							if (!msg.read)
-								UI::triangle(p, { pos + Vec2(panel_size.x * 0.05f, panel_size.y * 0.5f), Vec2(12.0f * UI::scale) }, UI::color_alert, PI * -0.5f);
-
-							char buffer[STRING_BUFFER_SIZE];
-							{
-								// truncate if necessary
-								const char* msg_text = _(msg.text);
-								memory_index len = utf8len(msg_text);
-								const s32 truncate = MESSAGE_TRUNCATE_LONG;
-								if (len > truncate)
-								{
-									char buffer2[STRING_BUFFER_SIZE];
-									utf8ncpy(buffer2, msg_text, truncate - 3);
-									buffer2[truncate - 3] = '\0';
-									sprintf(buffer, "%s...", buffer2);
-								}
-								else
-									utf8cpy(buffer, msg_text);
-							}
-							text.font = Asset::Font::pt_sans;
-							text.text_raw(buffer, UITextFlagSingleLine);
-							text.color = selected ? UI::color_accent : UI::color_default;
-							text.draw(p, pos + Vec2(panel_size.x * 0.1f, panel_size.y * 0.5f));
-
-							timestamp_string(msg.timestamp, buffer);
-							text.font = Asset::Font::lowpoly;
-							text.color = UI::color_alert;
-							text.text(buffer);
-							text.anchor_x = UIText::Anchor::Max;
-							text.draw(p, pos + Vec2(panel_size.x - PADDING, panel_size.y * 0.5f));
-						}
-
-						pos.y -= panel_size.y;
-					}
-					data.messages.message_scroll.end(p, pos + Vec2(panel_size.x * 0.5f, panel_size.y));
-					break;
-				}
-				case Data::Messages::Mode::Message:
-				{
-					Vec2 pos = rect.pos + Vec2(0, rect.size.y - top_bar_size.y);
-
-					// top bar
-					UI::box(p, { pos, top_bar_size }, UI::color_background);
-
-					Game::Message* msg;
-					for (s32 i = 0; i < Game::save.messages.length; i++)
-					{
-						if (Game::save.messages[i].text == data.messages.message_selected)
-						{
-							msg = &Game::save.messages[i];
-							break;
-						}
-					}
-
-					UIText text;
-					text.size = TEXT_SIZE;
-					text.anchor_x = UIText::Anchor::Min;
-					text.anchor_y = UIText::Anchor::Center;
-					text.color = Team::ui_color_friend;
-					UIMenu::text_clip(&text, data.mode_transition_time, 80.0f);
-					text.text(_(data.messages.contact_selected));
-					text.draw(p, pos + Vec2(PADDING, top_bar_size.y * 0.5f));
-
-					char buffer[64];
-					timestamp_string(msg->timestamp, buffer);
-					text.text(buffer);
-					text.color = UI::color_alert;
-					text.draw(p, pos + Vec2(top_bar_size.x * 0.5f, top_bar_size.y * 0.5f));
-
-					text.text(_(strings::prompt_back));
-					text.color = UI::color_default;
-					text.anchor_x = UIText::Anchor::Max;
-					text.draw(p, pos + Vec2(top_bar_size.x - PADDING, top_bar_size.y * 0.5f));
-
-					pos.y -= PADDING;
-
-					// main body
-
-					text.anchor_y = UIText::Anchor::Max;
-					text.anchor_x = UIText::Anchor::Min;
-					text.wrap_width = panel_size.x + PADDING * -2.0f;
-					text.font = Asset::Font::pt_sans;
-					UIMenu::text_clip(&text, data.mode_transition_time, 150.0f);
-					text.text(_(msg->text));
-					Vec2 text_pos = pos + Vec2(PADDING, -PADDING);
-					UI::box(p, text.rect(text_pos).outset(PADDING), UI::color_background);
-					text.draw(p, text_pos);
-
-					break;
-				}
-				default:
-				{
-					vi_assert(false);
-					break;
-				}
-			}
-		}
-	}
-	else
-	{
-		// minimized view
-		contacts_draw(p, data, rect, contacts);
-	}
 }
 
 AssetID group_name[s32(Game::Group::count)] =
@@ -2310,21 +1780,10 @@ void story_mode_draw(const RenderParams& p)
 	const Vec2 tab_size = TAB_SIZE;
 
 	Vec2 center = vp.size * 0.5f;
-	Vec2 total_size = Vec2(main_view_size.x + (tab_size.x + PADDING) * 2.0f, main_view_size.y);
+	Vec2 total_size = Vec2(main_view_size.x + (tab_size.x + PADDING), main_view_size.y);
 	Vec2 bottom_left = center + total_size * -0.5f + Vec2(0, -tab_size.y);
 
 	Vec2 pos = bottom_left;
-	{
-		s32 unread_count;
-		r64 most_recent_message;
-		message_statistics(&unread_count, &most_recent_message);
-		b8 flash = platform::timestamp() - most_recent_message < 0.5f;
-		char message_label[64];
-		sprintf(message_label, _(strings::tab_messages), unread_count);
-		Rect2 rect = tab_draw(p, data.story, Tab::Messages, message_label, &pos, flash).outset(-PADDING);
-		if (data.story.tab_timer > TAB_ANIMATION_TIME)
-			tab_messages_draw(p, data.story, rect);
-	}
 	{
 		Rect2 rect = tab_draw(p, data.story, Tab::Map, _(strings::tab_map), &pos).outset(-PADDING);
 		if (data.story.tab_timer > TAB_ANIMATION_TIME)
@@ -2434,15 +1893,7 @@ void show_complete()
 	if (Game::session.story_mode)
 	{
 		if (Game::session.zone_under_attack == AssetNull)
-		{
 			data.zone_selected = Game::level.id;
-			if (Game::save.messages_unseen)
-			{
-				data.story.tab = Tab::Messages;
-				data.story.tab_previous = Tab::Map;
-				Game::save.messages_unseen = false;
-			}
-		}
 		else
 			data.zone_selected = Game::session.zone_under_attack;
 	}
@@ -2454,20 +1905,15 @@ void show_complete()
 			data.zone_selected = Asset::Level::Medias_Res;
 	}
 
+	data.camera_pos = global.camera_offset_pos;
+	data.camera_rot = global.camera_offset_rot;
+
 	{
 		const ZoneNode* zone = zone_node_get(Game::save.zone_overworld);
 		if (!zone)
 			zone = zone_node_get(Game::save.zone_last);
 		if (zone)
-		{
-			data.camera_pos = global.camera_offset_pos + zone->pos();
-			data.camera_rot = global.camera_offset_rot;
-		}
-		else
-		{
-			data.camera_pos = global.camera_messages_pos;
-			data.camera_rot = global.camera_messages_rot;
-		}
+			data.camera_pos += zone->pos();
 	}
 }
 
@@ -2529,21 +1975,6 @@ void update(const Update& u)
 			if (s32(t / ENERGY_INCREMENT_INTERVAL) > s32(data.story.timestamp_last / ENERGY_INCREMENT_INTERVAL))
 				Game::save.resources[s32(Resource::Energy)] += energy_increment_total();
 			data.story.timestamp_last = t;
-		}
-
-		// scheduled messages
-		{
-			r64 time = platform::timestamp();
-			for (s32 i = 0; i < Game::save.messages_scheduled.length; i++)
-			{
-				const Game::Message& schedule = Game::save.messages_scheduled[i];
-				if (time > schedule.timestamp)
-				{
-					message_add(schedule.contact, schedule.text, schedule.timestamp);
-					Game::save.messages_scheduled.remove(i);
-					i--;
-				}
-			}
 		}
 	}
 
@@ -2708,7 +2139,7 @@ void execute(const char* cmd)
 	}
 	else if (utf8cmp(cmd, "attack") == 0)
 	{
-		AssetID z = zone_random(&zone_filter_captured, &zone_filter_can_change); // live incoming attack
+		AssetID z = zone_random(&zone_filter_captured, &zone_filter_can_be_attacked); // live incoming attack
 		if (z != AssetNull)
 			OverworldNet::zone_under_attack(z);
 	}
@@ -2746,10 +2177,6 @@ void init(cJSON* level)
 		cJSON* t = find_entity(level, "map_view");
 		global.camera_offset_pos = Json::get_vec3(t, "pos");
 		global.camera_offset_rot = Quat::look(Json::get_quat(t, "rot") * Vec3(0, -1, 0));
-
-		t = find_entity(level, "camera_messages");
-		global.camera_messages_pos = Json::get_vec3(t, "pos");
-		global.camera_messages_rot = Quat::look(Json::get_quat(t, "rot") * Vec3(0, -1, 0));
 
 		t = find_entity(level, "camera_inventory");
 		global.camera_inventory_pos = Json::get_vec3(t, "pos");

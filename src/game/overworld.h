@@ -35,17 +35,13 @@ void draw_hollow(const RenderParams&);
 void draw_override(const RenderParams&);
 void draw_ui(const RenderParams&);
 void show(Camera*);
-void conversation_finished();
 void clear();
 void execute(const char*);
 void zone_done(AssetID);
 void zone_change(AssetID, ZoneState);
 b8 active();
-void message_add(AssetID, AssetID, r64);
-void message_schedule(AssetID, AssetID, r64 = 0.0);
 AssetID zone_under_attack();
 r32 zone_under_attack_timer();
-s32 message_unread_count();
 void resource_change(Resource, s16);
 
 }

@@ -8,7 +8,7 @@ from etodd_blender_fbx import export_fbx_bin
 class DummyOperator(object):
 	def __init__(self):
 		self.report = None
-	 
+
 try:
 	argv = sys.argv
 	argv = argv[argv.index('--') + 1:] # get all args after "--"

@@ -175,15 +175,19 @@ s32 Team::teams_with_players()
 
 b8 Team::has_player() const
 {
-	if (Game::level.type == Game::Type::Deathmatch)
-		return true;
-
-	for (auto j = PlayerManager::list.iterator(); !j.is_last(); j.next())
+	for (s32 i = 0; i < Game::level.ai_config.length; i++)
 	{
-		if (j.item()->team.ref() == this
-			&& (j.item()->respawns != 0 || j.item()->instance.ref()))
+		if (Game::level.ai_config[i].team == team())
 			return true;
 	}
+
+	for (auto i = PlayerManager::list.iterator(); !i.is_last(); i.next())
+	{
+		if (i.item()->team.ref() == this
+			&& (i.item()->respawns != 0 || i.item()->instance.ref()))
+			return true;
+	}
+
 	return false;
 }
 
@@ -638,7 +642,7 @@ void Team::update_all_server(const Update& u)
 		Team* team_with_most_kills = Game::level.type == Game::Type::Deathmatch ? with_most_kills() : nullptr;
 		if (!Game::level.continue_match_after_death
 			&& ((match_time > Game::level.time_limit && (Game::level.type != Game::Type::Rush || ControlPoint::count_capturing() == 0))
-			|| (PlayerManager::list.count() > 1 && Team::teams_with_players() <= 1)
+			|| Team::teams_with_players() <= 1
 			|| (Game::level.type == Game::Type::Rush && list[1].control_point_count() == ControlPoint::list.count())
 			|| (Game::level.type == Game::Type::Deathmatch && team_with_most_kills && team_with_most_kills->kills() >= Game::level.kill_limit)))
 		{
@@ -700,8 +704,9 @@ void Team::update_all_server(const Update& u)
 
 			if (Game::session.story_mode)
 			{
+				// we're in story mode, give the player whatever stuff they have leftover
+				if (PlayerHuman::list.count() > 0)
 				{
-					// we're in story mode, give the player whatever stuff they have leftover
 					PlayerManager* player = PlayerHuman::list.iterator().item()->get<PlayerManager>();
 					Overworld::resource_change(Resource::Energy, player->credits);
 					Overworld::resource_change(Resource::Drones, vi_max(s16(0), player->respawns));

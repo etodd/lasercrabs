@@ -327,7 +327,7 @@ set(SRC
 	assets/script/blend_to_fbx.py
 	assets/script/blend_to_lvl.py
 	assets/script/ttf_to_fbx.py
-	assets/str/ui_en.json
+	assets/str/en.json
 )
 
 # stolen from https://cheind.wordpress.com/2009/12/10/reducing-compilation-time-unity-builds/

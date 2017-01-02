@@ -17,6 +17,7 @@ try:
 	argv = sys.argv[sys.argv.index("--") + 1:] # get all args after "--"
 
 	ttf_input = argv[0]
+	fnt = bpy.data.fonts.load(os.path.join(os.getcwd(), ttf_input))
 	fbx_output = argv[1]
 
 	characters = [
@@ -46,25 +47,25 @@ try:
 
 	for character in characters:
 		bpy.ops.object.text_add(
-		location=(0, 0, 0),
-		rotation=(0, 0, 0)
+			location = (0, 0, 0),
+			rotation = (0, 0, 0)
 		)
 		ob = bpy.context.object
 		# TextCurve attributes
 		ob.data.name = 'TextData{}'.format(ord(character))
 		ob.data.body = character
-		fnt = bpy.data.fonts.load(os.path.join(os.getcwd(), ttf_input))
 		ob.data.font = fnt
 		ob.data.size = 1
 		ob.data.resolution_u = 2
 		# Inherited Curve attributes
-		bpy.ops.object.convert(target='MESH', keep_original=False)
+		bpy.ops.object.convert(target = 'MESH', keep_original = False)
 		bpy.context.object.data.name = character
 
-	export_fbx_bin.save(DummyOperator(), bpy.context, filepath=fbx_output,
+	export_fbx_bin.save(DummyOperator(), bpy.context,
+		filepath = fbx_output,
 		axis_forward = '-Z',
 		axis_up = 'Y',
-		object_types = {'EMPTY', 'CAMERA', 'LAMP', 'ARMATURE', 'MESH', 'OTHER'},
+		object_types = { 'EMPTY', 'CAMERA', 'LAMP', 'ARMATURE', 'MESH', 'OTHER' },
 		bake_anim = True,
 		bake_anim_use_all_bones = False,
 		use_armature_deform_only = False,

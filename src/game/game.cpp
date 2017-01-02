@@ -158,9 +158,6 @@ void Game::Save::reset()
 	zones[Asset::Level::Dock] = ZoneState::Friendly;
 
 	resources[(s32)Resource::Energy] = (s16)(CREDITS_INITIAL * 3.5f);
-
-	Overworld::message_add(strings::contact_ivory, strings::msg_ivory_intro, platform::timestamp() - (86400.0 * 1.9));
-	messages_unseen = false;
 }
 
 b8 Game::Level::has_feature(Game::FeatureLevel f) const
@@ -201,12 +198,12 @@ b8 Game::init(LoopSync* sync)
 		const char* language_file = "language.txt";
 		cJSON* json_language = Json::load(language_file);
 		const char* language = Json::get_string(json_language, "language", "en");
-		char ui_string_file[255];
-		sprintf(ui_string_file, "assets/str/ui_%s.json", language);
+		char string_file[255];
+		sprintf(string_file, "assets/str/%s.json", language);
 
 		// UI
 		{
-			cJSON* json = Json::load(ui_string_file);
+			cJSON* json = Json::load(string_file);
 			for (s32 i = 0; i < Asset::String::count; i++)
 			{
 				const char* name = AssetLookup::String::names[i];

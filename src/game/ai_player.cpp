@@ -34,10 +34,10 @@ AI::Config PlayerAI::generate_config(AI::Team team, r32 spawn_timer)
 	config.interval_high_level = 0.5f;
 	config.inaccuracy_min = PI * 0.001f;
 	config.inaccuracy_range = PI * 0.01f;
+	config.aim_min_delay = 0.5f;
 	config.aim_timeout = 2.0f;
 	config.aim_speed = 3.0f;
-	config.aim_min_delay = 0.5f;
-	config.dodge_chance = 0.2f;
+	config.dodge_chance = 0.1f;
 
 	for (s32 i = 0; i < s32(Upgrade::count); i++)
 	{
@@ -204,6 +204,9 @@ PlayerControlAI::PlayerControlAI(PlayerAI* p)
 	shot_at_target(),
 	hit_target(),
 	panic(),
+	aim_timer(),
+	aim_timeout(),
+	inaccuracy(),
 	random_look(0, 0, 1)
 {
 #if DEBUG_AI_CONTROL
@@ -275,6 +278,7 @@ void PlayerControlAI::awk_done_flying_or_dashing()
 	const AI::Config& config = player.ref()->config;
 	inaccuracy = config.inaccuracy_min + (mersenne::randf_cc() * config.inaccuracy_range);
 	aim_timer = 0.0f;
+	aim_timeout = 0.0f;
 	if (path_index < path.length)
 		path_index++;
 }
@@ -284,6 +288,7 @@ void PlayerControlAI::awk_detached()
 	shot_at_target = true;
 	hit_target = false;
 	aim_timer = 0.0f;
+	aim_timeout = 0.0f;
 }
 
 void PlayerControlAI::awk_hit(Entity* e)
@@ -294,6 +299,7 @@ void PlayerControlAI::awk_hit(Entity* e)
 void PlayerControlAI::set_target(Entity* t)
 {
 	aim_timer = 0.0f;
+	aim_timeout = 0.0f;
 	target = t;
 	hit_target = false;
 	path.length = 0;
@@ -304,6 +310,7 @@ void PlayerControlAI::set_path(const AI::AwkPath& p)
 	path = p;
 	path_index = 1; // first point is the starting point, should be roughly where we are already
 	aim_timer = 0.0f;
+	aim_timeout = 0.0f;
 	target = nullptr;
 	hit_target = false;
 }
@@ -573,10 +580,15 @@ void PlayerControlAI::aim_and_shoot_target(const Update& u, const Vec3& target, 
 
 		const AI::Config& config = player.ref()->config;
 
-		b8 can_shoot = can_move && get<Awk>()->cooldown_can_shoot() && u.time.total - get<Awk>()->attach_time > config.aim_min_delay;
+		b8 can_shoot = false;
 
-		if (can_shoot)
-			aim_timer += u.time.delta;
+		aim_timer += u.time.delta;
+		if (can_move && get<Awk>()->cooldown_can_shoot())
+		{
+			aim_timeout += u.time.delta;
+			if (aim_timer > config.aim_min_delay)
+				can_shoot = true;
+		}
 
 		Vec3 pos = get<Transform>()->absolute_pos();
 		Vec3 to_target = target - pos;
@@ -635,7 +647,7 @@ b8 PlayerControlAI::go(const Update& u, const AI::AwkPathNode& node_prev, const 
 
 		Vec3 to_target = diff / distance_to_target;
 
-		if (node.crawl || get<Awk>()->direction_is_toward_attached_wall(to_target))
+		if (get<Awk>()->current_ability == Ability::None && (node.crawl || get<Awk>()->direction_is_toward_attached_wall(to_target)))
 			only_crawling_dashing = true;
 
 		// crawling
@@ -724,80 +736,81 @@ b8 PlayerControlAI::go(const Update& u, const AI::AwkPathNode& node_prev, const 
 
 	// shooting / dashing
 
-	if (get<Awk>()->current_ability != Ability::None)
+	// aiming
+
+	const AI::Config& config = player.ref()->config;
+
+	Vec3 pos = get<Transform>()->absolute_pos();
+	Vec3 to_target = Vec3::normalize(node.pos - pos);
+
+	// check if we can't hit the goal and return false immediately, don't wait to aim
+	if ((pos - position_before_crawling).length_squared() > 0.001f * 0.001f) // if we're still crawling, we may be able to hit it eventually
 	{
-		// we're not going to be shooting anything, just look around randomly
-		aim(u, random_look);
-	}
-	else
-	{
-		// aiming
-
-		const AI::Config& config = player.ref()->config;
-
-		Vec3 pos = get<Transform>()->absolute_pos();
-		Vec3 to_target = Vec3::normalize(node.pos - pos);
-
-		// check if we can't hit the goal and return false immediately, don't wait to aim
-		if ((pos - position_before_crawling).length_squared() > 0.001f * 0.001f) // if we're still crawling, we may be able to hit it eventually
+		if (only_crawling_dashing)
 		{
+			// don't dash around corners or anything; only dash toward coplanar points
+			if (fabsf(to_target.dot(get<Transform>()->absolute_rot() * Vec3(0, 0, 1))) > 0.1f)
+				return false;
+		}
+		else
+		{
+			Vec3 hit;
+			if (get<Awk>()->can_shoot(to_target, &hit))
+			{
+				// make sure we're actually going to land at the right spot
+				if ((hit - node.pos).length_squared() > tolerance * tolerance) // check the tolerance
+					return false;
+			}
+			else
+				return false;
+		}
+	}
+
+	b8 can_shoot = false;
+
+	aim_timer += u.time.delta;
+	if (can_move && get<Awk>()->cooldown_can_shoot())
+	{
+		aim_timeout += u.time.delta;
+		if (aim_timer > config.aim_min_delay)
+			can_shoot = true;
+	}
+
+	if (can_shoot)
+	{
+		Vec2 target_angles = aim(u, to_target);
+
+		// cooldown is done; we can shoot.
+		// check if we're done aiming
+		if (common->angle_horizontal == target_angles.x
+			&& common->angle_vertical == target_angles.y)
+		{
+			// aim is lined up
+			Vec3 look_dir = common->look_dir();
 			if (only_crawling_dashing)
 			{
 				// don't dash around corners or anything; only dash toward coplanar points
-				if (fabsf(to_target.dot(get<Transform>()->absolute_rot() * Vec3(0, 0, 1))) > 0.1f)
+				if (fabsf(look_dir.dot(get<Transform>()->absolute_rot() * Vec3(0, 0, 1))) < 0.1f)
+				{
+					if (!get<Awk>()->dash_start(look_dir))
+						return false;
+				}
+				else
 					return false;
 			}
 			else
 			{
 				Vec3 hit;
-				if (get<Awk>()->can_shoot(to_target, &hit))
+				if (get<Awk>()->can_shoot(look_dir, &hit))
 				{
 					// make sure we're actually going to land at the right spot
-					if ((hit - node.pos).length_squared() > tolerance * tolerance) // check the tolerance
+					if ((hit - node.pos).length_squared() < tolerance * tolerance) // check the tolerance
+						get<Awk>()->go(look_dir);
+					else
 						return false;
 				}
 				else
 					return false;
-			}
-		}
-
-		b8 can_shoot = can_move && get<Awk>()->cooldown_can_shoot() && u.time.total - get<Awk>()->attach_time > config.aim_min_delay;
-
-		if (can_shoot)
-		{
-			Vec2 target_angles = aim(u, to_target);
-
-			aim_timer += u.time.delta;
-
-			// cooldown is done; we can shoot.
-			// check if we're done aiming
-			if (common->angle_horizontal == target_angles.x
-				&& common->angle_vertical == target_angles.y)
-			{
-				// aim is lined up
-				Vec3 look_dir = common->look_dir();
-				if (only_crawling_dashing)
-				{
-					// don't dash around corners or anything; only dash toward coplanar points
-					if (fabsf(look_dir.dot(get<Transform>()->absolute_rot() * Vec3(0, 0, 1))) < 0.1f)
-						get<Awk>()->dash_start(look_dir);
-					else
-						return false;
-				}
-				else
-				{
-					Vec3 hit;
-					if (get<Awk>()->can_shoot(look_dir, &hit))
-					{
-						// make sure we're actually going to land at the right spot
-						if ((hit - node.pos).length_squared() < tolerance * tolerance) // check the tolerance
-							get<Awk>()->go(look_dir);
-						else
-							return false;
-					}
-					else
-						return false;
-				}
 			}
 		}
 	}
@@ -924,7 +937,8 @@ b8 awk_react_filter(const PlayerControlAI* control, const Entity* e)
 	if (!awk_find_filter(control, e))
 		return false;
 
-	return e->get<Awk>()->state() == Awk::State::Crawl;
+	Awk* a = e->get<Awk>();
+	return a->state() == Awk::State::Crawl && a->overshield_timer == 0.0f;
 }
 
 b8 containment_field_filter(const PlayerControlAI* control, const Entity* e)
@@ -1062,9 +1076,10 @@ b8 should_spawn_rocket(const PlayerControlAI* control)
 	return geometry_query(control, AWK_MAX_DISTANCE * 0.4f, PI * 0.35f, 8) < 4;
 }
 
-b8 sniping(const PlayerControlAI* control)
+b8 sniping_or_bolter(const PlayerControlAI* control)
 {
-	return control->get<Awk>()->current_ability == Ability::Sniper;
+	Ability ability = control->get<Awk>()->current_ability;
+	return ability == Ability::Sniper || ability == Ability::Bolter;
 }
 
 b8 should_snipe(const PlayerControlAI* control)
@@ -1278,18 +1293,19 @@ Repeat* make_low_level_loop(PlayerControlAI* control, const AI::Config& config)
 									Sequence::alloc
 									(
 										// sniper mode
-										AIBehaviors::Test::alloc(&sniping),
+										AIBehaviors::Test::alloc(&sniping_or_bolter),
 										Select::alloc
 										(
 											AIBehaviors::ReactTarget::alloc(Awk::family, 0, 6, &awk_react_filter),
 											AIBehaviors::ReactTarget::alloc(MinionCommon::family, 0, 5, &default_filter),
+											AIBehaviors::ReactTarget::alloc(EnergyPickup::family, 0, 4, &energy_pickup_filter),
 											AIBehaviors::RandomPath::alloc(4),
 											Sequence::alloc
 											(
 												AIBehaviors::Chance::alloc(0.05f),
-												Execute::alloc()->method<PlayerControlAI, &PlayerControlAI::snipe_stop>(control)
+												Execute::alloc()->method<PlayerControlAI, &PlayerControlAI::sniper_or_bolter_cancel>(control)
 											),
-											Succeed::alloc() // make sure we never hit minions or anything
+											Succeed::alloc() // make sure we never get to the rest of the Select
 										)
 									),
 									Sequence::alloc
@@ -1425,9 +1441,10 @@ b8 PlayerControlAI::update_memory()
 	return true; // this returns true so we can call this from an Execute behavior
 }
 
-b8 PlayerControlAI::snipe_stop()
+b8 PlayerControlAI::sniper_or_bolter_cancel()
 {
-	if (get<Awk>()->current_ability == Ability::Sniper)
+	Ability a = get<Awk>()->current_ability;
+	if (a == Ability::Sniper || a == Ability::Bolter)
 		get<Awk>()->current_ability = Ability::None;
 	return true; // this returns true so we can call this from an Execute behavior
 }
@@ -1448,7 +1465,7 @@ void PlayerControlAI::update(const Update& u)
 			{
 				// trying to a hit a moving thingy
 				Vec3 intersection;
-				if (aim_timer < config.aim_timeout
+				if (aim_timeout < config.aim_timeout
 					&& get<Awk>()->can_hit(target.ref()->get<Target>(), &intersection))
 					aim_and_shoot_target(u, intersection, target.ref()->get<Target>());
 				else
@@ -1457,7 +1474,7 @@ void PlayerControlAI::update(const Update& u)
 			else
 			{
 				// just trying to go to a certain spot (probably our spawn)
-				if (aim_timer > config.aim_timeout)
+				if (aim_timeout > config.aim_timeout)
 					active_behavior->done(false); // something went wrong
 				else
 				{
@@ -1477,7 +1494,7 @@ void PlayerControlAI::update(const Update& u)
 		else if (path_index < path.length)
 		{
 			// look at next target
-			if (aim_timer > config.aim_timeout)
+			if (aim_timeout > config.aim_timeout)
 			{
 				// timeout; we can't hit it
 				// mark path bad
@@ -1491,6 +1508,9 @@ void PlayerControlAI::update(const Update& u)
 			{
 				if (!go(u, path[path_index - 1], path[path_index], AWK_RADIUS)) // path_index starts at 1 so we're good here
 				{
+#if DEBUG_AI_CONTROL
+					vi_debug("Marking bad Awk adjacency");
+#endif
 					AI::awk_mark_adjacency_bad(path[path_index - 1].ref, path[path_index].ref);
 					active_behavior->done(false);
 				}
@@ -1699,7 +1719,7 @@ void Panic::run()
 	if (!control->panic && path_priority > control->path_priority)
 	{
 		control->panic = true;
-		control->snipe_stop();
+		control->sniper_or_bolter_cancel();
 		control->behavior_start(this, 127); // if we're panicking, nothing can interrupt us
 	}
 	else
@@ -1749,14 +1769,10 @@ b8 AbilitySpawn::try_spawn(s8 priority, Upgrade required_upgrade, Ability a, Abi
 		&& manager->credits > info.spawn_cost
 		&& filter(control))
 	{
-		control->get<Awk>()->current_ability = a;
-		if (control->get<Awk>()->go(control->get<PlayerCommon>()->look_dir()))
-		{
-			path_priority = priority;
-			return true;
-		}
-		else
-			control->get<Awk>()->current_ability = Ability::None;
+		path_priority = priority;
+		ability = a;
+		pathfind(Vec3::zero, control->get<PlayerCommon>()->look_dir(), AI::AwkPathfind::Spawn);
+		return true;
 	}
 	return false;
 }
@@ -1765,18 +1781,31 @@ void AbilitySpawn::run()
 {
 	active(true);
 
-	if (try_spawn(4, Upgrade::Minion, Ability::Minion, &should_spawn_minion))
-		done(true);
-	else if (try_spawn(4, Upgrade::Sensor, Ability::Sensor, &should_spawn_sensor))
-		done(true);
-	else if (try_spawn(4, Upgrade::Rocket, Ability::Rocket, &should_spawn_rocket))
-		done(true);
-	else if (try_spawn(4, Upgrade::ContainmentField, Ability::ContainmentField, &should_spawn_containment_field))
-		done(true);
-	else if (try_spawn(4, Upgrade::Sniper, Ability::Sniper, &should_snipe))
-		done(true);
-	else
+	if (!try_spawn(4, Upgrade::Minion, Ability::Minion, &should_spawn_minion)
+		&& !try_spawn(4, Upgrade::Sensor, Ability::Sensor, &should_spawn_sensor)
+		&& !try_spawn(4, Upgrade::Rocket, Ability::Rocket, &should_spawn_rocket)
+		&& !try_spawn(4, Upgrade::ContainmentField, Ability::ContainmentField, &should_spawn_containment_field)
+		&& !try_spawn(4, Upgrade::Sniper, Ability::Sniper, &should_snipe))
 		done(false);
+}
+
+void AbilitySpawn::path_request_succeeded()
+{
+	control->get<Awk>()->current_ability = ability;
+}
+
+void AbilitySpawn::abort()
+{
+	if (control->active_behavior == this)
+		control->get<Awk>()->current_ability = Ability::None;
+	Base<AbilitySpawn>::abort();
+}
+
+void AbilitySpawn::done(b8 success)
+{
+	if (control->active_behavior == this)
+		control->get<Awk>()->current_ability = Ability::None;
+	Base<AbilitySpawn>::done(success);
 }
 
 ReactTarget::ReactTarget(Family fam, s8 priority_path, s8 react_priority, b8(*filter)(const PlayerControlAI*, const Entity*))

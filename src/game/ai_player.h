@@ -3,6 +3,7 @@
 #include "ai.h"
 #include "data/behavior.h"
 #include "constants.h"
+#include "game.h"
 #if DEBUG_AI_CONTROL
 #include <typeinfo>
 #endif
@@ -62,7 +63,8 @@ struct PlayerControlAI : public ComponentType<PlayerControlAI>
 	Repeat* loop_memory;
 	Behavior* active_behavior;
 	Vec3 random_look;
-	r32 aim_timer;
+	r32 aim_timeout; // time we've been able to shoot but haven't due to aiming
+	r32 aim_timer; // total aim time including cooldowns etc.
 	r32 inaccuracy;
 	AI::AwkPath path;
 	s32 path_index;
@@ -81,7 +83,7 @@ struct PlayerControlAI : public ComponentType<PlayerControlAI>
 	void behavior_start(Behavior*, s8);
 	void behavior_clear();
 	b8 restore_loops();
-	b8 snipe_stop();
+	b8 sniper_or_bolter_cancel();
 	Vec2 aim(const Update&, const Vec3&);
 	void aim_and_shoot_target(const Update&, const Vec3&, Target*);
 	b8 go(const Update&, const AI::AwkPathNode&, const AI::AwkPathNode&, r32);
@@ -106,15 +108,22 @@ namespace AIBehaviors
 			this->control = (PlayerControlAI*)ctx;
 		}
 
+		virtual void path_request_succeeded()
+		{
+		}
+
 		void path_callback(const AI::AwkResult& result)
 		{
 			if (this->active())
 			{
-				if (result.path.length > 1 && this->control->template get<Awk>()->state() == Awk::State::Crawl && this->path_priority > this->control->path_priority)
+				if (result.path.length > 1
+					&& this->control->template get<Awk>()->state() == Awk::State::Crawl
+					&& this->path_priority > this->control->path_priority)
 				{
 					vi_assert(this->control->active_behavior != this);
 					this->control->behavior_start(this, this->path_priority);
 					this->control->set_path(result.path);
+					this->path_request_succeeded();
 				}
 				else
 					this->done(false);
@@ -240,9 +249,14 @@ namespace AIBehaviors
 	typedef b8(*AbilitySpawnFilter)(const PlayerControlAI*);
 	struct AbilitySpawn : Base<AbilitySpawn>
 	{
+		Ability ability;
+
 		AbilitySpawn();
 		b8 try_spawn(s8, Upgrade, Ability, AbilitySpawnFilter);
 		void run();
+		void abort();
+		void done(b8);
+		void path_request_succeeded();
 	};
 
 	struct ReactTarget : Base<ReactTarget>

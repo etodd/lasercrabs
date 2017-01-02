@@ -46,6 +46,7 @@ namespace AI
 		Target,
 		Away,
 		Random,
+		Spawn,
 	};
 
 	enum class AwkAllow

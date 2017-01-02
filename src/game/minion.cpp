@@ -715,7 +715,10 @@ void MinionAI::update(const Update& u)
 			case Goal::Type::Position:
 			{
 				if (path.length == 0 || (path[path.length - 1] - pos).length_squared() < 1.5f * 1.5f)
-					new_goal();
+				{
+					if (target_timer > 2.0f)
+						new_goal();
+				}
 				else
 				{
 					if (recalc)

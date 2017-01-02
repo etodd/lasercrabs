@@ -76,7 +76,7 @@ const char* shader_extension = ".glsl";
 const char* level_out_extension = ".lvl";
 const char* string_extension = ".json";
 
-const char* ui_string_asset_name = "ui_en";
+const char* string_asset_name = "en";
 
 #define ASSET_IN_FOLDER "../assets/"
 #define ASSET_OUT_FOLDER "assets/"
@@ -100,7 +100,6 @@ const char* soundbank_in_folder = ASSET_IN_FOLDER"audio/GeneratedSoundBanks/Linu
 #endif
 
 const char* wwise_project_path = ASSET_IN_FOLDER"audio/audio.wproj";
-const char* dynamic_strings_out_path = ASSET_OUT_FOLDER"str/misc_en.json";
 
 const char* manifest_path = ".manifest";
 
@@ -668,7 +667,6 @@ struct Manifest
 	Map<std::string> nav_meshes;
 	Map<std::string> string_files;
 	Map2<std::string> strings;
-	Map2<std::string> dynamic_strings;
 };
 
 struct StaticMeshes
@@ -719,8 +717,7 @@ b8 manifest_requires_update(const Manifest& a, const Manifest& b)
 		|| !maps_equal(a.levels, b.levels)
 		|| !maps_equal(a.nav_meshes, b.nav_meshes)
 		|| !maps_equal(a.string_files, b.string_files)
-		|| !maps_equal2(a.strings, b.strings)
-		|| !maps_equal2(a.dynamic_strings, b.dynamic_strings);
+		|| !maps_equal2(a.strings, b.strings);
 }
 
 template<typename T>
@@ -811,7 +808,6 @@ b8 manifest_read(const char* path, Manifest& manifest)
 			map_read(f, manifest.nav_meshes);
 			map_read(f, manifest.string_files);
 			map_read(f, manifest.strings);
-			map_read(f, manifest.dynamic_strings);
 			fclose(f);
 			return true;
 		}
@@ -843,7 +839,6 @@ b8 manifest_write(Manifest& manifest, const char* path)
 	map_write(manifest.nav_meshes, f);
 	map_write(manifest.string_files, f);
 	map_write(manifest.strings, f);
-	map_write(manifest.dynamic_strings, f);
 	fclose(f);
 	return true;
 }
@@ -3068,7 +3063,7 @@ void import_strings(ImporterState& state, const std::string& asset_in_path, cons
 {
 	std::string asset_name = get_asset_name(asset_in_path);
 	b8 modified = import_copy(state, state.manifest.string_files, asset_in_path, out_folder, string_extension);
-	if (asset_name == std::string(ui_string_asset_name))
+	if (asset_name == std::string(string_asset_name))
 	{
 		if (modified)
 		{
@@ -3603,22 +3598,6 @@ s32 proc(s32 argc, char* argv[])
 			
 			write_asset_header(f, "String", flattened_strings);
 			close_asset_header(f);
-		}
-
-		if (state.rebuild || update_manifest || filemtime(dynamic_strings_out_path) == 0)
-		{
-			// collect all dynamic strings into a single file
-			printf("%s\n", dynamic_strings_out_path);
-			Map<std::string> flattened_dynamic_strings;
-			map_flatten(state.manifest.dynamic_strings, flattened_dynamic_strings);
-			cJSON* dynamic = cJSON_CreateObject();
-			for (auto i = flattened_dynamic_strings.begin(); i != flattened_dynamic_strings.end(); i++)
-			{
-				cJSON* value = cJSON_CreateString(i->second.c_str());
-				cJSON_AddItemToObject(dynamic, i->first.c_str(), value);
-			}
-			Json::save(dynamic, dynamic_strings_out_path);
-			Json::json_free(dynamic);
 		}
 
 #if !LINUX

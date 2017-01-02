@@ -1339,7 +1339,7 @@ void PlayerHuman::draw_alpha(const RenderParams& params) const
 	}
 
 	// overworld notifications
-	if (Game::level.mode == Game::Mode::Parkour && Game::save.zones[Game::level.id] == ZoneState::Friendly)
+	if (Game::level.mode == Game::Mode::Parkour)
 	{
 		r32 timer = Overworld::zone_under_attack_timer();
 		Vec2 p = Vec2(params.camera->viewport.size.x, 0) + Vec2(MENU_ITEM_PADDING * -5.0f, MENU_ITEM_PADDING * 5.0f);
@@ -1355,28 +1355,6 @@ void PlayerHuman::draw_alpha(const RenderParams& params) const
 			UI::box(params, text.rect(p).outset(MENU_ITEM_PADDING), UI::color_background);
 			text.draw(params, p);
 			p.y += text.bounds().y + MENU_ITEM_PADDING;
-		}
-
-		if (Game::save.messages_unseen)
-		{
-			UIText text;
-			text.anchor_x = UIText::Anchor::Max;
-			text.anchor_y = UIText::Anchor::Min;
-			text.wrap_width = MENU_ITEM_WIDTH - MENU_ITEM_PADDING * 2.0f;
-			text.text(_(strings::incoming_message));
-			UI::box(params, text.rect(p).outset(MENU_ITEM_PADDING), UI::color_background);
-			const Game::Message& msg = Game::save.messages[0];
-			if (platform::timestamp() - msg.timestamp <= 1.0)
-			{
-				text.color = UI::color_default;
-				if (UI::flash_function(Game::real_time.total))
-					text.draw(params, p);
-			}
-			else
-			{
-				text.color = UI::color_accent;
-				text.draw(params, p);
-			}
 		}
 	}
 
@@ -2746,17 +2724,10 @@ void PlayerControlHuman::update(const Update& u)
 
 			if (input_enabled() && u.last_input->get(Controls::Scoreboard, gamepad) && !u.input->get(Controls::Scoreboard, gamepad))
 			{
-				if (Game::save.zones[Game::level.id] == ZoneState::Friendly)
-				{
-					// we're in a friendly zone; we should be able to pull up the overworld
-					// but don't do it if we're in a tram
-					if (Tram::player_inside(entity()))
-						player.ref()->msg(_(strings::error_inside_tram), false);
-					else
-						Overworld::show(player.ref()->camera);
-				}
+				if (Tram::player_inside(entity()))
+					player.ref()->msg(_(strings::error_inside_tram), false);
 				else
-					player.ref()->msg(_(strings::error_hostile_zone), false);
+					Overworld::show(player.ref()->camera);
 			}
 		
 			// set movement unless we're climbing up and down
@@ -2915,7 +2886,9 @@ void PlayerControlHuman::update(const Update& u)
 
 			// wind sound and camera shake at high speed
 			{
-				r32 speed = get<Walker>()->support.ref() ? 0.0f : get<RigidBody>()->btBody->getInterpolationLinearVelocity().length();
+				r32 speed = get<Parkour>()->fsm.current == Parkour::State::Mantle || get<Walker>()->support.ref()
+					? 0.0f
+					: get<RigidBody>()->btBody->getInterpolationLinearVelocity().length();
 				get<Audio>()->param(AK::GAME_PARAMETERS::FLY_VOLUME, LMath::clampf((speed - 8.0f) / 25.0f, 0, 1));
 				r32 shake = LMath::clampf((speed - 13.0f) / 30.0f, 0, 1);
 				player.ref()->rumble_add(shake);

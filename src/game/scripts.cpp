@@ -134,7 +134,7 @@ void draw(const RenderParams& params)
 	if (!data)
 		return;
 
-	if (data->active)
+	if (data->active && !Overworld::active())
 	{
 		// direct the player toward the actor only if they're looking the wrong way
 		Vec3 head_pos = Vec3::zero;
@@ -502,8 +502,6 @@ namespace title
 
 	void init(const EntityFinder& entities)
 	{
-		Actor::init(entities.find("sailor"), Asset::Bone::sailor_head);
-
 		data = new Data();
 
 		if (Game::level.mode == Game::Mode::Special)
@@ -543,6 +541,8 @@ namespace title
 		Game::updates.add(update);
 		Game::draws.add(draw);
 		Game::cleanups.add(cleanup);
+
+		Actor::init(entities.find("sailor"), Asset::Bone::sailor_head);
 	}
 
 	void play()

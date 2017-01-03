@@ -1704,6 +1704,8 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 					if (!alpha && !additive)
 					{
 						const Mesh* mesh = Loader::mesh(mesh_id);
+						if (!mesh)
+							vi_debug("Invalid mesh: %s", mesh_ref);
 						if (mesh->color.w < 0.5f)
 							m->get<View>()->color.w = MATERIAL_INACCESSIBLE;
 					}

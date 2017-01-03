@@ -148,6 +148,7 @@ void draw(const RenderParams& params)
 		{
 			UIText text;
 			text.font = Asset::Font::pt_sans;
+			text.size = 18.0f;
 			text.wrap_width = MENU_ITEM_WIDTH;
 			text.anchor_x = UIText::Anchor::Center;
 			text.anchor_y = UIText::Anchor::Min;
@@ -156,7 +157,7 @@ void draw(const RenderParams& params)
 			UIMenu::text_clip(&text, data->last_cue_real_time, 80.0f);
 
 			{
-				Vec2 p = params.camera->viewport.size * Vec2(0.5f, 0.1f);
+				Vec2 p = params.camera->viewport.size * Vec2(0.5f, 0.2f);
 				UI::box(params, text.rect(p).outset(MENU_ITEM_PADDING), UI::color_background);
 				text.draw(params, p);
 			}
@@ -503,6 +504,7 @@ namespace title
 	void init(const EntityFinder& entities)
 	{
 		data = new Data();
+		Game::cleanups.add(cleanup);
 
 		if (Game::level.mode == Game::Mode::Special)
 		{
@@ -529,20 +531,31 @@ namespace title
 		else
 			World::remove(entities.find("character"));
 
-		data->target_climb = entities.find("target_climb")->get<Transform>();
-		data->target_hack_kits = entities.find("hack_kits")->get<Transform>();
-		data->target_hack_kits.ref()->get<Collectible>()->collected.link(&wallrun_success);
-		entities.find("climb_trigger1")->get<PlayerTrigger>()->entered.link(&climb_success);
-		entities.find("climb_trigger2")->get<PlayerTrigger>()->entered.link(&climb_success);
-		entities.find("wallrun_trigger")->get<PlayerTrigger>()->entered.link(&wallrun_start);
-		entities.find("sailor_spotted_trigger")->get<PlayerTrigger>()->entered.link(&sailor_spotted);
-		entities.find("sailor_talk_trigger")->get<PlayerTrigger>()->entered.link(&sailor_talk);
+		if ((Game::save.zone_last == AssetNull || Game::save.zone_last == Asset::Level::Dock)
+			&& entities.find("hack_kits"))
+		{
+			data->target_climb = entities.find("target_climb")->get<Transform>();
+			data->target_hack_kits = entities.find("hack_kits")->get<Transform>();
+			data->target_hack_kits.ref()->get<Collectible>()->collected.link(&wallrun_success);
+			entities.find("climb_trigger1")->get<PlayerTrigger>()->entered.link(&climb_success);
+			entities.find("climb_trigger2")->get<PlayerTrigger>()->entered.link(&climb_success);
+			entities.find("wallrun_trigger")->get<PlayerTrigger>()->entered.link(&wallrun_start);
+			entities.find("sailor_spotted_trigger")->get<PlayerTrigger>()->entered.link(&sailor_spotted);
+			entities.find("sailor_talk_trigger")->get<PlayerTrigger>()->entered.link(&sailor_talk);
 
-		Game::updates.add(update);
-		Game::draws.add(draw);
-		Game::cleanups.add(cleanup);
+			Game::updates.add(update);
+			Game::draws.add(draw);
 
-		Actor::init(entities.find("sailor"), Asset::Bone::sailor_head);
+			Actor::init(entities.find("sailor"), Asset::Bone::sailor_head);
+			if (Game::level.mode != Game::Mode::Special)
+				Actor::active(true);
+		}
+		else
+		{
+			Animator* sailor = entities.find("sailor")->get<Animator>();
+			sailor->layers[0].behavior = Animator::Behavior::Freeze;
+			sailor->layers[0].play(Asset::Animation::sailor_close_door);
+		}
 	}
 
 	void play()

@@ -226,7 +226,7 @@ r32 sensor_cost(Team team, const AwkNavMeshNode& node)
 	return sensor_cost + containment_field_cost;
 }
 
-AwkNavMeshNode awk_closest_point(Team team, const Vec3& p, const Vec3& normal)
+AwkNavMeshNode awk_closest_point(Team team, const Vec3& p, const Vec3& normal = Vec3::zero)
 {
 	AwkNavMesh::Coord chunk_coord = awk_nav_mesh.coord(p);
 	r32 closest_distance = FLT_MAX;
@@ -1056,6 +1056,36 @@ void loop()
 				sync_out.write(Callback::AwkPath);
 				sync_out.write(callback);
 				sync_out.write(path);
+				sync_out.unlock();
+				break;
+			}
+			case Op::AwkClosestPoint:
+			{
+				LinkEntryArg<AwkPathNode> callback;
+				sync_in.read(&callback);
+				AI::Team team;
+				sync_in.read(&team);
+				Vec3 search_pos;
+				sync_in.read(&search_pos);
+				sync_in.unlock();
+
+				AwkPathNode result;
+				result.ref = awk_closest_point(team, search_pos);
+				if (result.ref.equals(AWK_NAV_MESH_NODE_NONE))
+				{
+					result.pos = search_pos;
+					result.normal = Vec3(0, 1, 0);
+				}
+				else
+				{
+					result.pos = awk_nav_mesh.chunks[result.ref.chunk].vertices[result.ref.vertex];
+					result.normal = awk_nav_mesh.chunks[result.ref.chunk].normals[result.ref.vertex];
+				}
+
+				sync_out.lock();
+				sync_out.write(Callback::AwkPoint);
+				sync_out.write(callback);
+				sync_out.write(result);
 				sync_out.unlock();
 				break;
 			}

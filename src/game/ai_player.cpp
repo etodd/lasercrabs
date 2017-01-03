@@ -20,12 +20,12 @@ namespace VI
 
 PinArray<PlayerAI, MAX_PLAYERS> PlayerAI::list;
 
-AI::Config PlayerAI::generate_config(AI::Team team, r32 spawn_timer)
+AI::Config PlayerAI::generate_config(AI::Team team, r32 spawn_time)
 {
 	AI::Config config;
 
 	config.team = team;
-	config.spawn_timer = spawn_timer;
+	config.spawn_time = spawn_time;
 
 	config.low_level = AI::LowLevelLoop::Default;
 	config.high_level = AI::HighLevelLoop::Default;
@@ -110,7 +110,8 @@ PlayerAI::PlayerAI(PlayerManager* m, const AI::Config& config)
 	: manager(m),
 	revision(),
 	memory(),
-	config(config)
+	config(config),
+	spawning()
 {
 	m->can_spawn = true;
 	m->spawn.link<PlayerAI, &PlayerAI::spawn>(this);
@@ -128,27 +129,63 @@ void PlayerAI::update(const Update& u)
 	}
 }
 
-void PlayerAI::spawn()
+void ai_player_spawn(const Vec3& pos, const Quat& rot, PlayerAI* player)
 {
 	// HACK: clear links so we can respawn the entity and have room for more links
-	manager.ref()->control_point_capture_completed.entries.length = 0;
-	manager.ref()->upgrade_completed.entries.length = 0;
+	player->manager.ref()->control_point_capture_completed.entries.length = 0;
+	player->manager.ref()->upgrade_completed.entries.length = 0;
 
-	Entity* e = World::create<AwkEntity>(manager.ref()->team.ref()->team());
+	Entity* e = World::create<AwkEntity>(player->manager.ref()->team.ref()->team());
 
-	Vec3 pos;
-	Quat rot;
-	manager.ref()->team.ref()->player_spawn.ref()->absolute(&pos, &rot);
-	pos += Quat::euler(0, (id() * PI * 0.5f), 0) * Vec3(0, 0, CONTROL_POINT_RADIUS * 0.5f); // spawn it around the edges
 	e->get<Transform>()->absolute(pos, rot);
+	e->get<Awk>()->velocity = rot * Vec3(0, 0, AWK_FLY_SPEED);
 
-	e->add<PlayerCommon>(manager.ref());
+	e->add<PlayerCommon>(player->manager.ref());
 
-	manager.ref()->instance = e;
+	player->manager.ref()->instance = e;
 
-	e->add<PlayerControlAI>(this);
+	e->add<PlayerControlAI>(player);
 
 	Net::finalize(e);
+}
+
+void PlayerAI::spawn_callback(const AI::AwkPathNode& node)
+{
+	spawning = false;
+	ai_player_spawn(node.pos, Quat::look(-node.normal), this);
+}
+
+void PlayerAI::spawn()
+{
+	if (!spawning)
+	{
+		AI::TeamMask team_mask = 1 << manager.ref()->team.ref()->team();
+		if (config.spawn_time == 0.0f && Game::session.story_mode && EnergyPickup::count(team_mask) > 0)
+		{
+			Array<Ref<EnergyPickup>> pickups;
+			for (auto i = EnergyPickup::list.iterator(); !i.is_last(); i.next())
+			{
+				if (AI::match(i.item()->team, team_mask))
+					pickups.add(i.item());
+			}
+
+			spawning = true;
+			AI::awk_closest_point
+			(
+				pickups[mersenne::rand() % pickups.length].ref()->get<Transform>()->absolute_pos(),
+				manager.ref()->team.ref()->team(),
+				ObjectLinkEntryArg<PlayerAI, const AI::AwkPathNode&, &PlayerAI::spawn_callback>(id())
+			);
+		}
+		else
+		{
+			Vec3 pos;
+			Quat rot;
+			manager.ref()->team.ref()->player_spawn.ref()->absolute(&pos, &rot);
+			pos += Quat::euler(0, (id() * PI * 0.5f), 0) * Vec3(0, 0, CONTROL_POINT_RADIUS * 0.5f); // spawn it around the edges
+			ai_player_spawn(pos, rot, this);
+		}
+	}
 }
 
 // save up priority ranges from -2 to 3

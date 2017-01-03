@@ -108,6 +108,17 @@ void update(const Update& u)
 					(&link)->fire(result);
 				break;
 			}
+			case Callback::AwkPoint:
+			{
+				LinkEntryArg<const AwkPathNode&> link;
+				sync_out.read(&link);
+				AwkPathNode result;
+				sync_out.read(&result);
+				callback_out_id++;
+				if (level_revision == level_revision_worker) // prevent entity ID/revision collisions
+					(&link)->fire(result);
+				break;
+			}
 			case Callback::Load:
 			{
 				sync_out.read(&level_revision_worker);
@@ -258,6 +269,21 @@ u32 awk_pathfind(AwkPathfind type, AwkAllow rule, Team team, const Vec3& a, cons
 		if (type != AwkPathfind::Target)
 			sync_in.write(b_normal);
 	}
+	sync_in.unlock();
+	
+	return id;
+}
+
+u32 awk_closest_point(const Vec3& pos, AI::Team team, const LinkEntryArg<const AwkPathNode&>& callback)
+{
+	u32 id = callback_in_id;
+	callback_in_id++;
+
+	sync_in.lock();
+	sync_in.write(Op::AwkClosestPoint);
+	sync_in.write(callback);
+	sync_in.write(team);
+	sync_in.write(pos);
 	sync_in.unlock();
 	
 	return id;

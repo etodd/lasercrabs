@@ -41,6 +41,7 @@ struct PlayerAI
 	Ref<PlayerManager> manager;
 	Revision revision;
 	AI::Config config;
+	b8 spawning;
 
 	PlayerAI(PlayerManager*, const AI::Config&);
 	inline ID id() const
@@ -49,6 +50,7 @@ struct PlayerAI
 	}
 	void update(const Update&);
 	void spawn();
+	void spawn_callback(const AI::AwkPathNode&);
 	s32 save_up_priority() const;
 };
 

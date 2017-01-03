@@ -390,11 +390,12 @@ void Game::update(const Update& update_in)
 				for (s32 i = 0; i < level.ai_config.length; i++)
 				{
 					AI::Config* config = &level.ai_config[i];
-					config->spawn_timer = vi_max(0.0f, config->spawn_timer - u.time.delta);
-					if (config->spawn_timer == 0.0f)
+					if (Team::match_time > config->spawn_time)
 					{
 						Entity* e = World::create<ContainerEntity>();
 						PlayerManager* manager = e->add<PlayerManager>(&Team::list[(s32)config->team], Usernames::all[mersenne::rand_u32() % Usernames::count]);
+						if (config->spawn_time == 0.0f)
+							manager->spawn_timer = 0.01f; // spawn instantly
 						Net::finalize(e);
 
 						PlayerAI* player = PlayerAI::list.add();
@@ -1523,7 +1524,11 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 				if (session.story_mode)
 				{
 					// starts out owned by player if the zone is friendly
-					s32 default_team_index = Game::save.zones[Game::level.id] == ZoneState::Friendly ? 0 : 1;
+					s32 default_team_index;
+					if (Game::save.zones[Game::level.id] == ZoneState::Friendly)
+						default_team_index = mersenne::randf_cc() < 0.8f ? 0 : 1;
+					else
+						default_team_index = 1;
 					team = team_lookup(level.team_lookup, Json::get_s32(element, "team", default_team_index));
 				}
 				else

@@ -323,6 +323,7 @@ set(SRC
 	assets/shader/bloom_downsample.glsl
 	assets/shader/blur.glsl
 	assets/shader/skybox.glsl
+	assets/shader/underwater.glsl
 	assets/shader/sky_decal.glsl
 	assets/script/blend_to_fbx.py
 	assets/script/blend_to_lvl.py

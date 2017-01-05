@@ -31,8 +31,6 @@ namespace VI
 namespace Loop
 {
 
-ScreenQuad screen_quad = ScreenQuad();
-
 #define SHADOW_MAP_CASCADES 2
 
 const s32 shadow_map_size[(s32)Settings::ShadowQuality::count][SHADOW_MAP_CASCADES] =
@@ -487,7 +485,7 @@ void draw(LoopSync* sync, const Camera* camera)
 		camera->viewport.pos / Vec2(sync->input.width, sync->input.height),
 		camera->viewport.size / Vec2(sync->input.width, sync->input.height),
 	};
-	screen_quad.set
+	Game::screen_quad.set
 	(
 		sync,
 		{ Vec2(-1, -1), Vec2(2, 2) },
@@ -747,7 +745,7 @@ void draw(LoopSync* sync, const Camera* camera)
 
 			sync->write(RenderOp::Mesh);
 			sync->write(RenderPrimitiveMode::Triangles);
-			sync->write(screen_quad.mesh);
+			sync->write(Game::screen_quad.mesh);
 		}
 
 		{
@@ -808,7 +806,7 @@ void draw(LoopSync* sync, const Camera* camera)
 
 			sync->write(RenderOp::Mesh);
 			sync->write(RenderPrimitiveMode::Triangles);
-			sync->write(screen_quad.mesh);
+			sync->write(Game::screen_quad.mesh);
 		}
 
 		// SSAO
@@ -881,7 +879,7 @@ void draw(LoopSync* sync, const Camera* camera)
 
 			sync->write(RenderOp::Mesh);
 			sync->write(RenderPrimitiveMode::Triangles);
-			sync->write(screen_quad.mesh);
+			sync->write(Game::screen_quad.mesh);
 		}
 
 		sync->write(RenderOp::DepthMask);
@@ -921,7 +919,7 @@ void draw(LoopSync* sync, const Camera* camera)
 
 			sync->write(RenderOp::Mesh);
 			sync->write(RenderPrimitiveMode::Triangles);
-			sync->write(screen_quad.mesh);
+			sync->write(Game::screen_quad.mesh);
 		}
 
 		// Vertical blur
@@ -944,7 +942,7 @@ void draw(LoopSync* sync, const Camera* camera)
 
 			sync->write(RenderOp::Mesh);
 			sync->write(RenderPrimitiveMode::Triangles);
-			sync->write(screen_quad.mesh);
+			sync->write(Game::screen_quad.mesh);
 		}
 	}
 
@@ -1040,7 +1038,7 @@ void draw(LoopSync* sync, const Camera* camera)
 
 		sync->write(RenderOp::Mesh);
 		sync->write(RenderPrimitiveMode::Triangles);
-		sync->write(screen_quad.mesh);
+		sync->write(Game::screen_quad.mesh);
 	}
 
 	// Alpha components
@@ -1124,7 +1122,7 @@ void draw(LoopSync* sync, const Camera* camera)
 
 			sync->write(RenderOp::Mesh);
 			sync->write(RenderPrimitiveMode::Triangles);
-			sync->write(screen_quad.mesh);
+			sync->write(Game::screen_quad.mesh);
 
 			sync->write(RenderOp::ColorMask);
 			sync->write<RenderColorMask>(RENDER_COLOR_MASK_DEFAULT);
@@ -1171,9 +1169,11 @@ void draw(LoopSync* sync, const Camera* camera)
 
 			sync->write(RenderOp::Mesh);
 			sync->write(RenderPrimitiveMode::Triangles);
-			sync->write(screen_quad.mesh);
+			sync->write(Game::screen_quad.mesh);
 		}
 	}
+
+	Game::draw_alpha_late(render_params);
 
 	// scene is in color2
 
@@ -1209,7 +1209,7 @@ void draw(LoopSync* sync, const Camera* camera)
 
 		sync->write(RenderOp::Mesh);
 		sync->write(RenderPrimitiveMode::Triangles);
-		sync->write(screen_quad.mesh);
+		sync->write(Game::screen_quad.mesh);
 
 		// Blur x
 		sync->write<RenderOp>(RenderOp::BindFramebuffer);
@@ -1235,7 +1235,7 @@ void draw(LoopSync* sync, const Camera* camera)
 
 		sync->write(RenderOp::Mesh);
 		sync->write(RenderPrimitiveMode::Triangles);
-		sync->write(screen_quad.mesh);
+		sync->write(Game::screen_quad.mesh);
 
 		// Blur y
 		sync->write<RenderOp>(RenderOp::BindFramebuffer);
@@ -1256,7 +1256,7 @@ void draw(LoopSync* sync, const Camera* camera)
 
 		sync->write(RenderOp::Mesh);
 		sync->write(RenderPrimitiveMode::Triangles);
-		sync->write(screen_quad.mesh);
+		sync->write(Game::screen_quad.mesh);
 	}
 
 	sync->write(RenderOp::BindFramebuffer);
@@ -1281,7 +1281,7 @@ void draw(LoopSync* sync, const Camera* camera)
 
 		sync->write(RenderOp::Mesh);
 		sync->write(RenderPrimitiveMode::Triangles);
-		sync->write(screen_quad.mesh);
+		sync->write(Game::screen_quad.mesh);
 	}
 
 	// Composite bloom
@@ -1302,7 +1302,7 @@ void draw(LoopSync* sync, const Camera* camera)
 
 		sync->write(RenderOp::Mesh);
 		sync->write(RenderPrimitiveMode::Triangles);
-		sync->write(screen_quad.mesh);
+		sync->write(Game::screen_quad.mesh);
 	}
 
 	if (Settings::scan_lines)
@@ -1360,7 +1360,7 @@ void draw(LoopSync* sync, const Camera* camera)
 
 		sync->write(RenderOp::Mesh);
 		sync->write(RenderPrimitiveMode::Triangles);
-		sync->write(screen_quad.mesh);
+		sync->write(Game::screen_quad.mesh);
 	}
 
 	sync->write<RenderOp>(RenderOp::BlendMode);
@@ -1458,7 +1458,7 @@ void loop(LoopSwapper* swapper_render, PhysicsSwapper* swapper_physics)
 	half_fbo3 = Loader::framebuffer_permanent(1);
 	Loader::framebuffer_attach(RenderFramebufferAttachment::Color0, half_buffer1);
 
-	screen_quad.init(sync_render);
+	Game::screen_quad.init(sync_render);
 
 	InputState last_input;
 

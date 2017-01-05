@@ -474,8 +474,8 @@ void Skybox::draw_alpha(const RenderParams& p)
 	if (Game::level.skybox.mesh == AssetNull || p.technique != RenderTechnique::Default)
 		return;
 
-	Loader::shader(Game::level.skybox.shader);
-	Loader::mesh(Game::level.skybox.mesh);
+	Loader::shader_permanent(Game::level.skybox.shader);
+	Loader::mesh_permanent(Game::level.skybox.mesh);
 	Loader::texture(Game::level.skybox.texture);
 
 	RenderSync* sync = p.sync;
@@ -717,6 +717,26 @@ Water::Water(AssetID mesh_id)
 
 }
 
+Water* Water::underwater(const Vec3& pos)
+{
+	for (auto i = list.iterator(); !i.is_last(); i.next())
+	{
+		if (i.item()->contains(pos))
+			return i.item();
+	}
+	return nullptr;
+}
+
+b8 Water::contains(const Vec3& pos) const
+{
+	const Mesh* m = Loader::mesh(config.mesh);
+	Vec3 water_pos = get<Transform>()->absolute_pos();
+	Vec3 bmin = water_pos + m->bounds_min;
+	Vec3 bmax = water_pos + m->bounds_max;
+	return pos.x > bmin.x && pos.z > bmin.z
+		&& pos.x < bmax.x && pos.y < bmax.y && pos.z < bmax.z;
+}
+
 void Water::awake()
 {
 	const Mesh* m = Loader::mesh(config.mesh);
@@ -746,7 +766,7 @@ void Water::draw_opaque(const RenderParams& params, const Config& cfg, const Vec
 	if (!params.camera->visible_sphere(m.translation(), mesh_data->bounds_radius))
 		return;
 
-	Loader::shader(Asset::Shader::water);
+	Loader::shader_permanent(Asset::Shader::water);
 	Loader::texture(cfg.texture);
 
 	RenderSync* sync = params.sync;
@@ -810,7 +830,7 @@ void Water::draw_hollow(const RenderParams& params, const Config& cfg, const Vec
 	if (!params.camera->visible_sphere(pos, mesh_data->bounds_radius))
 		return;
 
-	Loader::shader(Asset::Shader::water);
+	Loader::shader_permanent(Asset::Shader::water);
 	Loader::texture(cfg.texture);
 
 	RenderSync* sync = params.sync;
@@ -863,14 +883,65 @@ void Water::draw_hollow(const RenderParams& params, const Config& cfg, const Vec
 	sync->write(RenderFillMode::Fill);
 }
 
+void Water::draw_alpha_late(const RenderParams& p)
+{
+	if (p.technique != RenderTechnique::Default)
+		return;
+
+	Water* w = underwater(p.camera->pos);
+	if (w)
+	{
+		Loader::shader_permanent(Asset::Shader::underwater);
+
+		RenderSync* sync = p.sync;
+
+		sync->write(RenderOp::Shader);
+		sync->write(Asset::Shader::underwater);
+		sync->write(p.technique);
+
+		sync->write(RenderOp::Uniform);
+		sync->write(Asset::Uniform::diffuse_color);
+		sync->write(RenderDataType::Vec3);
+		sync->write<s32>(1);
+		sync->write<Vec3>(p.camera->colors ? w->config.color.xyz() : Vec3(0.0f));
+
+		sync->write(RenderOp::Uniform);
+		sync->write(Asset::Uniform::p);
+		sync->write(RenderDataType::Mat4);
+		sync->write<s32>(1);
+		sync->write<Mat4>(p.camera->projection);
+
+		sync->write(RenderOp::Uniform);
+		sync->write(Asset::Uniform::depth_buffer);
+		sync->write(RenderDataType::Texture);
+		sync->write<s32>(1);
+		sync->write<RenderTextureType>(RenderTextureType::Texture2D);
+		sync->write<AssetID>(p.depth_buffer);
+
+		sync->write(RenderOp::Mesh);
+		sync->write(RenderPrimitiveMode::Triangles);
+		sync->write<AssetID>(Game::screen_quad.mesh);
+	}
+}
+
 void Water::draw_opaque(const RenderParams& params)
 {
-	if (mask & params.camera->mask)
+	if (params.technique == RenderTechnique::Default && list.count() > 0)
 	{
-		Vec3 pos;
-		Quat rot;
-		get<Transform>()->absolute(&pos, &rot);
-		draw_opaque(params, config, pos, rot);
+		params.sync->write(RenderOp::CullMode);
+		params.sync->write(RenderCullMode::None);
+		for (auto i = list.iterator(); !i.is_last(); i.next())
+		{
+			if (i.item()->mask & params.camera->mask)
+			{
+				Vec3 pos;
+				Quat rot;
+				i.item()->get<Transform>()->absolute(&pos, &rot);
+				draw_opaque(params, i.item()->config, pos, rot);
+			}
+		}
+		params.sync->write(RenderOp::CullMode);
+		params.sync->write(RenderCullMode::Back);
 	}
 }
 

@@ -642,7 +642,7 @@ void Team::update_all_server(const Update& u)
 		Team* team_with_most_kills = Game::level.type == Game::Type::Deathmatch ? with_most_kills() : nullptr;
 		if (!Game::level.continue_match_after_death
 			&& ((match_time > Game::level.time_limit && (Game::level.type != Game::Type::Rush || ControlPoint::count_capturing() == 0))
-			|| Team::teams_with_players() <= 1
+			|| (Game::level.has_feature(Game::FeatureLevel::All) && Team::teams_with_players() <= 1)
 			|| (Game::level.type == Game::Type::Rush && list[1].control_point_count() == ControlPoint::list.count())
 			|| (Game::level.type == Game::Type::Deathmatch && team_with_most_kills && team_with_most_kills->kills() >= Game::level.kill_limit)))
 		{

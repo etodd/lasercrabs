@@ -54,7 +54,7 @@ struct UIMenu
 	b8 add_item(b8, const char*, const char* = nullptr, b8 = false, AssetID = AssetNull);
 	b8 item(const Update&, const char*, const char* = nullptr, b8 = false, AssetID = AssetNull);
 	Delta slider_item(const Update&, const char*, const char*, b8 = false, AssetID = AssetNull);
-	void draw_alpha(const RenderParams&, const Vec2&, UIText::Anchor, UIText::Anchor) const;
+	void draw_ui(const RenderParams&, const Vec2&, UIText::Anchor, UIText::Anchor) const;
 	void end();
 };
 

@@ -1,17 +1,14 @@
 #ifdef VERTEX
 
-// Input vertex data, different for all executions of this shader.
 layout(location = 0) in vec3 in_position;
 layout(location = 1) in vec3 in_ray;
 layout(location = 2) in vec2 in_uv;
 
-// Output data ; will be interpolated for each fragment.
 out vec2 uv;
 out vec3 view_ray;
 
 void main()
 {
-	// Output position of the vertex, in clip space : MVP * position
 	gl_Position = vec4(in_position, 1);
 
 	uv = in_uv;
@@ -21,7 +18,6 @@ void main()
 
 #else
 
-// Interpolated values from the vertex shaders
 in vec2 uv;
 in vec3 view_ray;
 uniform vec2 inv_buffer_size;
@@ -41,7 +37,7 @@ uniform vec2 inv_uv_scale;
 const float max_distance_threshold = 2.0;
 const float const_filter_radius = 4.0;
 const int sample_count = 16;
-// These are the Poisson Disk Samples
+// these are the Poisson Disk Samples
 const vec2 poisson[sample_count] = vec2[sample_count]
 (
 	vec2(-0.94201624, -0.39906216) * const_filter_radius,

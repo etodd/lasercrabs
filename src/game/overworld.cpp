@@ -125,12 +125,11 @@ struct Data
 			Buy,
 		};
 
-		r32 resources_blink_timer[s32(Resource::count)];
+		r32 resource_change_time[s32(Resource::count)];
 		r32 timer_buy;
 		Resource resource_selected;
 		Mode mode;
 		s16 buy_quantity;
-		s16 resources_last[s32(Resource::count)];
 	};
 
 	struct Map
@@ -924,6 +923,7 @@ namespace OverworldNet
 
 	b8 zone_under_attack(AssetID zone)
 	{
+		vi_assert(Game::level.local);
 		using Stream = Net::StreamWrite;
 		Stream* p = Net::msg_new(Net::MessageType::Overworld);
 		Message m = Message::ZoneUnderAttack;
@@ -935,6 +935,7 @@ namespace OverworldNet
 
 	b8 zone_change(AssetID zone, ZoneState state)
 	{
+		vi_assert(Game::level.local);
 		using Stream = Net::StreamWrite;
 		Stream* p = Net::msg_new(Net::MessageType::Overworld);
 		Message m = Message::ZoneChange;
@@ -1058,6 +1059,7 @@ b8 net_msg(Net::StreamRead* p, Net::MessageSource src)
 			{
 				Game::save.resources[s32(r)] += delta;
 				vi_assert(Game::save.resources[s32(r)] >= 0);
+				data.story.inventory.resource_change_time[s32(r)] = Game::real_time.total;
 			}
 			break;
 		}
@@ -1364,15 +1366,6 @@ void tab_inventory_update(const Update& u)
 		inventory->mode = Data::Inventory::Mode::Normal;
 		inventory->buy_quantity = 1;
 	}
-
-	for (s32 i = 0; i < s32(Resource::count); i++)
-	{
-		if (Game::save.resources[i] != inventory->resources_last[i])
-			inventory->resources_blink_timer[i] = 0.5f;
-		else if (data.story.tab_timer > TAB_ANIMATION_TIME)
-			inventory->resources_blink_timer[i] = vi_max(0.0f, inventory->resources_blink_timer[i] - u.time.delta);
-		inventory->resources_last[i] = Game::save.resources[i];
-	}
 }
 
 AssetID zone_random(b8(*filter1)(AssetID), b8(*filter2)(AssetID) = &zone_filter_default)
@@ -1668,6 +1661,11 @@ void tab_map_draw(const RenderParams& p, const Data::StoryMode& story, const Rec
 	}
 }
 
+r32 resource_change_time(Resource r)
+{
+	return data.story.inventory.resource_change_time[s32(r)];
+}
+
 void inventory_items_draw(const RenderParams& p, const Data::StoryMode& data, const Rect2& rect)
 {
 	Vec2 panel_size = get_panel_size(rect);
@@ -1682,7 +1680,7 @@ void inventory_items_draw(const RenderParams& p, const Data::StoryMode& data, co
 
 		r32 icon_size = 18.0f * SCALE_MULTIPLIER * UI::scale;
 
-		b8 flash = data.inventory.resources_blink_timer[i] > 0.0f;
+		b8 flash = Game::real_time.total - data.inventory.resource_change_time[i] < 0.5f;
 		b8 draw = !flash || UI::flash_function(Game::real_time.total);
 		
 		const ResourceInfo& info = resource_info[i];
@@ -1949,7 +1947,7 @@ void update(const Update& u)
 		}
 	}
 
-	if (Game::session.story_mode)
+	if (Game::level.local && Game::session.story_mode)
 	{
 		// random zone attacks
 		{
@@ -1973,7 +1971,7 @@ void update(const Update& u)
 		{
 			r64 t = platform::timestamp();
 			if (s32(t / ENERGY_INCREMENT_INTERVAL) > s32(data.story.timestamp_last / ENERGY_INCREMENT_INTERVAL))
-				Game::save.resources[s32(Resource::Energy)] += energy_increment_total();
+				resource_change(Resource::Energy, energy_increment_total());
 			data.story.timestamp_last = t;
 		}
 	}

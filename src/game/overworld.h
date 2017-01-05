@@ -43,6 +43,7 @@ b8 active();
 AssetID zone_under_attack();
 r32 zone_under_attack_timer();
 void resource_change(Resource, s16);
+r32 resource_change_time(Resource);
 
 }
 

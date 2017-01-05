@@ -26,7 +26,7 @@ SkinnedModel::SkinnedModel()
 	offset(Mat4::identity),
 	color(-1, -1, -1, -1),
 	mask(RENDER_MASK_DEFAULT),
-	team((s8)AI::TeamNone)
+	team(s8(AI::TeamNone))
 {
 }
 
@@ -207,11 +207,11 @@ void SkinnedModel::draw(const RenderParams& params)
 	sync->write<AssetID>(texture);
 
 	const Armature* arm = Loader::armature(get<Animator>()->armature);
-	Array<Mat4>* bones = &get<Animator>()->bones;
+	const Array<Mat4>& bones = get<Animator>()->bones;
 	StaticArray<Mat4, MAX_BONES> skin_transforms;
-	skin_transforms.resize(bones->length);
-	for (s32 i = 0; i < bones->length; i++)
-		skin_transforms[i] = arm->inverse_bind_pose[i] * (*bones)[i];
+	skin_transforms.resize(bones.length);
+	for (s32 i = 0; i < bones.length; i++)
+		skin_transforms[i] = arm->inverse_bind_pose[i] * bones[i];
 
 	sync->write(RenderOp::Uniform);
 	sync->write(Asset::Uniform::bones);

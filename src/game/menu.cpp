@@ -526,9 +526,9 @@ void draw(const RenderParams& params)
 	if (main_menu_state != State::Hidden)
 	{
 		if (Game::level.id == Asset::Level::Dock && Game::level.mode == Game::Mode::Special)
-			main_menu.draw_alpha(params, Vec2(viewport.size.x * 0.5f, viewport.size.y * 0.65f + MENU_ITEM_HEIGHT * -1.5f), UIText::Anchor::Center, UIText::Anchor::Max);
+			main_menu.draw_ui(params, Vec2(viewport.size.x * 0.5f, viewport.size.y * 0.65f + MENU_ITEM_HEIGHT * -1.5f), UIText::Anchor::Center, UIText::Anchor::Max);
 		else
-			main_menu.draw_alpha(params, Vec2(0, viewport.size.y * 0.5f), UIText::Anchor::Min, UIText::Anchor::Center);
+			main_menu.draw_ui(params, Vec2(0, viewport.size.y * 0.5f), UIText::Anchor::Min, UIText::Anchor::Center);
 	}
 
 	// draw dialog box
@@ -826,7 +826,7 @@ const UIMenu::Item* UIMenu::last_visible_item() const
 	return nullptr;
 }
 
-void UIMenu::draw_alpha(const RenderParams& params, const Vec2& origin, UIText::Anchor anchor_x, UIText::Anchor anchor_y) const
+void UIMenu::draw_ui(const RenderParams& params, const Vec2& origin, UIText::Anchor anchor_x, UIText::Anchor anchor_y) const
 {
 	if (items.length == 0)
 		return;

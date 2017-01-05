@@ -84,16 +84,20 @@ struct Water : public ComponentType<Water>
 
 		Config(AssetID = AssetNull);
 	};
+
+	static Water* underwater(const Vec3&);
+	static void draw_opaque(const RenderParams&, const Config&, const Vec3&, const Quat&);
+	static void draw_hollow(const RenderParams&, const Config&, const Vec3&, const Quat&);
+	static void draw_opaque(const RenderParams&);
+	static void draw_alpha_late(const RenderParams&);
+
 	Config config;
 	RenderMask mask;
 
-	static void draw_opaque(const RenderParams&, const Config&, const Vec3&, const Quat&);
-	static void draw_hollow(const RenderParams&, const Config&, const Vec3&, const Quat&);
-
 	Water(AssetID = AssetNull);
 	void awake();
-	void draw_opaque(const RenderParams&);
 	void draw_hollow(const RenderParams&);
+	b8 contains(const Vec3&) const;
 };
 
 struct SkyPattern

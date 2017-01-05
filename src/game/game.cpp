@@ -75,6 +75,7 @@ Game::Save Game::save = Game::Save();
 Game::Level Game::level;
 Game::Session Game::session;
 b8 Game::cancel_event_eaten[] = {};
+ScreenQuad Game::screen_quad;
 
 Game::Session::Session()
 	:
@@ -518,6 +519,7 @@ void Game::draw_alpha(const RenderParams&) { }
 void Game::draw_hollow(const RenderParams&) { }
 void Game::draw_particles(const RenderParams&) { }
 void Game::draw_additive(const RenderParams&) { }
+void Game::draw_alpha_late(const RenderParams&) { }
 
 #else
 
@@ -530,8 +532,7 @@ void Game::draw_opaque(const RenderParams& render_params)
 
 	View::draw_opaque(render_params);
 
-	for (auto i = Water::list.iterator(); !i.is_last(); i.next())
-		i.item()->draw_opaque(render_params);
+	Water::draw_opaque(render_params);
 
 	SkinnedModel::draw_opaque(render_params);
 
@@ -725,7 +726,7 @@ void Game::draw_alpha(const RenderParams& render_params)
 	Shockwave::draw_alpha(render_params);
 
 	for (auto i = PlayerControlHuman::list.iterator(); !i.is_last(); i.next())
-		i.item()->draw_alpha(render_params);
+		i.item()->draw_ui(render_params);
 
 	for (s32 i = 0; i < draws.length; i++)
 		(*draws[i])(render_params);
@@ -733,7 +734,7 @@ void Game::draw_alpha(const RenderParams& render_params)
 	Overworld::draw_ui(render_params);
 
 	for (auto i = PlayerHuman::list.iterator(); !i.is_last(); i.next())
-		i.item()->draw_alpha(render_params);
+		i.item()->draw_ui(render_params);
 
 	Team::draw_ui(render_params);
 
@@ -774,6 +775,11 @@ void Game::draw_additive(const RenderParams& render_params)
 {
 	View::draw_additive(render_params);
 	SkinnedModel::draw_additive(render_params);
+}
+
+void Game::draw_alpha_late(const RenderParams& render_params)
+{
+	Water::draw_alpha_late(render_params);
 }
 
 #endif
@@ -1622,7 +1628,12 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 			if (name)
 			{
 				AssetID mesh_id = Loader::find_mesh(name);
-				entity = World::create<Prop>(mesh_id, Loader::find(armature, AssetLookup::Armature::names), Loader::find(animation, AssetLookup::Animation::names));
+				vi_assert(mesh_id != AssetNull);
+				AssetID armature_id = Loader::find(armature, AssetLookup::Armature::names);
+				vi_assert((armature_id == AssetNull) == (armature == nullptr));
+				AssetID animation_id = Loader::find(animation, AssetLookup::Animation::names);
+				vi_assert((animation_id == AssetNull) == (animation == nullptr));
+				entity = World::create<Prop>(mesh_id, armature_id, animation_id);
 				// todo: clean this up
 				if (entity->has<View>())
 				{

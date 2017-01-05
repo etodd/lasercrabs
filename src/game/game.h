@@ -156,6 +156,7 @@ namespace VI
 
 		static GameTime time;
 		static GameTime real_time;
+		static ScreenQuad screen_quad;
 		static Array<UpdateFunction> updates;
 		static Array<DrawFunction> draws;
 		static Array<CleanupFunction> cleanups;
@@ -180,6 +181,7 @@ namespace VI
 		static void draw_hollow(const RenderParams&);
 		static void draw_particles(const RenderParams&);
 		static void draw_alpha(const RenderParams&);
+		static void draw_alpha_late(const RenderParams&);
 		static void draw_additive(const RenderParams&);
 		static void draw_override(const RenderParams&);
 		static void term();

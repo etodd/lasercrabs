@@ -63,7 +63,7 @@ namespace Asset
 	}
 	namespace Shader
 	{
-		const s32 count = 33;
+		const s32 count = 34;
 		const AssetID armature = 0;
 		const AssetID blit = 1;
 		const AssetID blit_depth = 2;
@@ -96,7 +96,8 @@ namespace Asset
 		const AssetID standard_instanced = 29;
 		const AssetID ui = 30;
 		const AssetID ui_texture = 31;
-		const AssetID water = 32;
+		const AssetID underwater = 32;
+		const AssetID water = 33;
 	}
 }
 

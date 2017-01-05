@@ -50,7 +50,7 @@ struct Data
 	AssetID text = AssetNull;
 	AssetID head_bone;
 	Ref<Animator> model;
-	b8 active;
+	b8 highlight;
 	b8 sound_done;
 	AssetID text_tut = AssetNull;
 	r32 text_tut_real_time;
@@ -91,14 +91,13 @@ void update(const Update& u)
 		Audio::dialogue_done = false;
 	}
 
-	if (data->active)
+	if (data->model.ref())
 	{
 		Animator::Layer* layer = &data->model.ref()->layers[0];
 		if ((layer->time == Loader::animation(layer->animation)->duration || layer->behavior == Animator::Behavior::Loop)
 			&& data->sound_done
 			&& data->cues.length > 0)
 		{
-			data->active = true;
 			Cue* cue = &data->cues[0];
 			if (cue->delay > 0.0f)
 				cue->delay -= u.time.delta;
@@ -134,7 +133,7 @@ void draw(const RenderParams& params)
 	if (!data)
 		return;
 
-	if (data->active && !Overworld::active())
+	if (data->highlight && !Overworld::active())
 	{
 		// direct the player toward the actor only if they're looking the wrong way
 		Vec3 head_pos = Vec3::zero;
@@ -233,14 +232,14 @@ void cue(Callback callback, r32 delay = 0.3f)
 	c->delay = delay;
 }
 
-void active(b8 a)
+void highlight(b8 a)
 {
-	data->active = a;
+	data->highlight = a;
 }
 
 void done()
 {
-	active(false);
+	highlight(false);
 }
 
 }
@@ -548,7 +547,7 @@ namespace title
 
 			Actor::init(entities.find("sailor"), Asset::Bone::sailor_head);
 			if (Game::level.mode != Game::Mode::Special)
-				Actor::active(true);
+				Actor::highlight(true);
 		}
 		else
 		{
@@ -563,7 +562,7 @@ namespace title
 		Game::save.reset();
 		Game::session.reset();
 		data->transition_timer = total_transition;
-		Actor::active(true);
+		Actor::highlight(true);
 	}
 }
 
@@ -685,7 +684,14 @@ namespace tutorial
 		entities.find("slide_trigger")->get<PlayerTrigger>()->entered.link(&slide_trigger);
 		entities.find("slide_success")->get<PlayerTrigger>()->entered.link(&slide_success);
 		data->sparks = entities.find("sparks")->get<Transform>();
-		data->state = Game::level.mode == Game::Mode::Parkour ? TutorialState::ParkourStart : TutorialState::Start;
+
+		if (Game::level.mode == Game::Mode::Pvp)
+		{
+			Game::level.feature_level = Game::FeatureLevel::EnergyPickups;
+			data->state = TutorialState::Start;
+		}
+		else
+			data->state = TutorialState::ParkourStart;
 
 		Game::updates.add(&update);
 		Game::cleanups.add(&cleanup);

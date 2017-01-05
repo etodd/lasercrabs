@@ -926,7 +926,7 @@ void scoreboard_draw(const RenderParams& params, const PlayerManager* manager)
 	}
 }
 
-void PlayerHuman::draw_alpha(const RenderParams& params) const
+void PlayerHuman::draw_ui(const RenderParams& params) const
 {
 	if (params.camera != camera
 		|| Overworld::active()
@@ -1074,7 +1074,7 @@ void PlayerHuman::draw_alpha(const RenderParams& params) const
 	else if (mode == UIMode::Upgrading)
 	{
 		Vec2 upgrade_menu_pos = vp.size * Vec2(0.5f, 0.6f);
-		menu.draw_alpha(params, upgrade_menu_pos, UIText::Anchor::Center, UIText::Anchor::Center);
+		menu.draw_ui(params, upgrade_menu_pos, UIText::Anchor::Center, UIText::Anchor::Center);
 
 		if (menu.selected > 0)
 		{
@@ -1359,7 +1359,7 @@ void PlayerHuman::draw_alpha(const RenderParams& params) const
 	}
 
 	if (mode == UIMode::Pause) // pause menu always drawn on top
-		menu.draw_alpha(params, Vec2(0, params.camera->viewport.size.y * 0.5f), UIText::Anchor::Min, UIText::Anchor::Center);
+		menu.draw_ui(params, Vec2(0, params.camera->viewport.size.y * 0.5f), UIText::Anchor::Min, UIText::Anchor::Center);
 }
 
 PlayerCommon::PlayerCommon(PlayerManager* m)
@@ -2989,7 +2989,7 @@ void PlayerControlHuman::draw(const RenderParams& p) const
 	}
 }
 
-void PlayerControlHuman::draw_alpha(const RenderParams& params) const
+void PlayerControlHuman::draw_ui(const RenderParams& params) const
 {
 	if (params.technique != RenderTechnique::Default
 		|| params.camera != player.ref()->camera
@@ -3009,35 +3009,35 @@ void PlayerControlHuman::draw_alpha(const RenderParams& params) const
 		const TargetIndicator& indicator = target_indicators[i];
 		switch (indicator.type)
 		{
-			case TargetIndicator::Type::AwkVisible:
-			{
-				UI::indicator(params, indicator.pos, UI::color_alert, false);
-				break;
-			}
-			case TargetIndicator::Type::AwkTracking:
-			{
-				UI::indicator(params, indicator.pos, UI::color_alert, true);
-				break;
-			}
-			case TargetIndicator::Type::Energy:
-			{
-				UI::indicator(params, indicator.pos, UI::color_accent, true, 1.0f, PI);
-				break;
-			}
-			case TargetIndicator::Type::Minion:
-			{
-				UI::indicator(params, indicator.pos, UI::color_alert, true);
-				break;
-			}
-			case TargetIndicator::Type::Invisible:
-			{
-				break;
-			}
-			default:
-			{
-				vi_assert(false);
-				break;
-			}
+		case TargetIndicator::Type::AwkVisible:
+		{
+			UI::indicator(params, indicator.pos, UI::color_alert, false);
+			break;
+		}
+		case TargetIndicator::Type::AwkTracking:
+		{
+			UI::indicator(params, indicator.pos, UI::color_alert, true);
+			break;
+		}
+		case TargetIndicator::Type::Energy:
+		{
+			UI::indicator(params, indicator.pos, UI::color_accent, true, 1.0f, PI);
+			break;
+		}
+		case TargetIndicator::Type::Minion:
+		{
+			UI::indicator(params, indicator.pos, UI::color_alert, true);
+			break;
+		}
+		case TargetIndicator::Type::Invisible:
+		{
+			break;
+		}
+		default:
+		{
+			vi_assert(false);
+			break;
+		}
 		}
 	}
 
@@ -3200,6 +3200,22 @@ void PlayerControlHuman::draw_alpha(const RenderParams& params) const
 				}
 			}
 		}
+
+		// buy period indicator
+		if (Game::level.has_feature(Game::FeatureLevel::Abilities)
+			&& !Game::session.story_mode
+			&& Team::match_time < GAME_BUY_PERIOD)
+		{
+			UIText text;
+			text.color = UI::color_accent;
+			text.text(_(strings::buy_period), (s32)(GAME_BUY_PERIOD - Team::match_time) + 1);
+			text.anchor_x = UIText::Anchor::Center;
+			text.anchor_y = UIText::Anchor::Center;
+			text.size = text_size;
+			Vec2 pos = viewport.size * Vec2(0.5f, 0.15f);
+			UI::box(params, text.rect(pos).outset(8.0f * UI::scale), UI::color_background);
+			text.draw(params, pos);
+		}
 	}
 	else
 	{
@@ -3207,52 +3223,90 @@ void PlayerControlHuman::draw_alpha(const RenderParams& params) const
 
 		if (sudoku_active) // sudoku
 			player.ref()->sudoku.draw(params, player.ref()->gamepad);
-		else if (input_enabled())
+		else
 		{
-			// interact prompt
-			Interactable* i = Interactable::closest(me);
-			if (i)
+			Interactable* closest_interactable = Interactable::closest(me);
+
+			if (closest_interactable || get<Animator>()->layers[3].animation == Asset::Animation::character_pickup)
 			{
+				// draw resources
+				const Vec2 panel_size(MENU_ITEM_WIDTH * 0.3f, MENU_ITEM_PADDING * 2.0f + UI_TEXT_SIZE_DEFAULT * UI::scale);
+				Vec2 pos(viewport.size.x * 0.9f, viewport.size.y * 0.1f);
 				UIText text;
-				text.color = UI::color_accent;
-				text.text(_(strings::prompt_interact));
-				text.anchor_x = UIText::Anchor::Center;
 				text.anchor_y = UIText::Anchor::Center;
-				text.size = text_size;
-				Vec2 pos = viewport.size * Vec2(0.5f, 0.15f);
-				UI::box(params, text.rect(pos).outset(8.0f * UI::scale), UI::color_background);
-				text.draw(params, pos);
+				text.anchor_x = UIText::Anchor::Max;
+				text.size = UI_TEXT_SIZE_DEFAULT;
+				for (s32 i = s32(Resource::count) - 1; i >= 0; i--)
+				{
+					UI::box(params, { pos + Vec2(-panel_size.x, 0), panel_size }, UI::color_background);
+
+					r32 icon_size = (UI_TEXT_SIZE_DEFAULT + 2.0f) * UI::scale;
+
+					const Overworld::ResourceInfo& info = Overworld::resource_info[i];
+
+					b8 blink = Game::real_time.total - Overworld::resource_change_time(Resource(i)) < 0.5f;
+					b8 draw = !blink || UI::flash_function(Game::real_time.total);
+
+					if (draw)
+					{
+						const Vec4& color = blink
+							?  UI::color_default
+							: (Game::save.resources[i] == 0 ? UI::color_alert : UI::color_accent);
+						UI::mesh(params, info.icon, pos + Vec2(-panel_size.x + MENU_ITEM_PADDING + icon_size * 0.5f, panel_size.y * 0.5f), Vec2(icon_size), color);
+						text.color = color;
+						text.text("%d", Game::save.resources[i]);
+						text.draw(params, pos + Vec2(-MENU_ITEM_PADDING, panel_size.y * 0.5f));
+					}
+
+					pos.y += panel_size.y;
+				}
 			}
 
-			if (Settings::waypoints)
+			if (input_enabled())
 			{
-				// highlight terminal location
-				if (!i && Game::save.zones[Game::level.id] == ZoneState::Locked)
+				// interact prompt
+				if (closest_interactable)
 				{
-					Entity* terminal = Game::level.terminal.ref();
-					if (terminal)
-						UI::indicator(params, terminal->get<Transform>()->absolute_pos(), UI::color_default, true);
+					UIText text;
+					text.color = UI::color_accent;
+					text.text(_(strings::prompt_interact));
+					text.anchor_x = UIText::Anchor::Center;
+					text.anchor_y = UIText::Anchor::Center;
+					text.size = text_size;
+					Vec2 pos = viewport.size * Vec2(0.5f, 0.15f);
+					UI::box(params, text.rect(pos).outset(8.0f * UI::scale), UI::color_background);
+					text.draw(params, pos);
 				}
 
-				// highlight trams
-				Vec3 look_dir = params.camera->rot * Vec3(0, 0, 1);
-				for (auto i = Tram::list.iterator(); !i.is_last(); i.next())
+				if (Settings::waypoints)
 				{
-					Vec3 pos = i.item()->get<Transform>()->absolute_pos();
-					Vec3 to_tram = pos - params.camera->pos;
-					r32 distance = to_tram.length();
-					if (distance > 12.0f)
+					// highlight terminal location
+					if (!closest_interactable && Game::save.zones[Game::level.id] == ZoneState::Locked)
 					{
-						to_tram /= distance;
-						if (to_tram.dot(look_dir) > 0.92f)
+						Entity* terminal = Game::level.terminal.ref();
+						if (terminal)
+							UI::indicator(params, terminal->get<Transform>()->absolute_pos(), UI::color_default, true);
+					}
+
+					// highlight trams
+					Vec3 look_dir = params.camera->rot * Vec3(0, 0, 1);
+					for (auto i = Tram::list.iterator(); !i.is_last(); i.next())
+					{
+						Vec3 pos = i.item()->get<Transform>()->absolute_pos();
+						Vec3 to_tram = pos - params.camera->pos;
+						r32 distance = to_tram.length();
+						if (distance > 12.0f)
 						{
-							Vec2 p;
-							if (UI::project(params, pos + Vec3(0, 3, 0), &p))
+							to_tram /= distance;
+							if (to_tram.dot(look_dir) > 0.92f)
 							{
-								AssetID zone = Game::level.tram_tracks[i.item()->track()].level;
-								UIText text;
-								switch (Game::save.zones[zone])
+								Vec2 p;
+								if (UI::project(params, pos + Vec3(0, 3, 0), &p))
 								{
+									AssetID zone = Game::level.tram_tracks[i.item()->track()].level;
+									UIText text;
+									switch (Game::save.zones[zone])
+									{
 									case ZoneState::Friendly:
 									{
 										text.color = Team::ui_color_friend;
@@ -3273,352 +3327,338 @@ void PlayerControlHuman::draw_alpha(const RenderParams& params) const
 										vi_assert(false);
 										break;
 									}
+									}
+									text.text(Loader::level_name(zone));
+									text.anchor_x = UIText::Anchor::Center;
+									text.anchor_y = UIText::Anchor::Center;
+									text.size = text_size * 0.75f;
+									UI::box(params, text.rect(p).outset(4.0f * UI::scale), UI::color_background);
+									text.draw(params, p);
 								}
-								text.text(Loader::level_name(zone));
-								text.anchor_x = UIText::Anchor::Center;
-								text.anchor_y = UIText::Anchor::Center;
-								text.size = text_size * 0.75f;
-								UI::box(params, text.rect(p).outset(4.0f * UI::scale), UI::color_background);
-								text.draw(params, p);
 							}
 						}
 					}
-				}
 
-				if (get<Parkour>()->fsm.current == Parkour::State::Climb)
-				{
-					// show climb controls
-					UIText text;
-					text.color = UI::color_accent;
-					text.text("{{ClimbingMovement}}");
-					text.anchor_x = UIText::Anchor::Center;
-					text.anchor_y = UIText::Anchor::Center;
-					Vec2 pos = params.camera->viewport.size * Vec2(0.5f, 0.1f);
-					UI::box(params, text.rect(pos).outset(8.0f * UI::scale), UI::color_background);
-					text.draw(params, pos);
+					if (get<Parkour>()->fsm.current == Parkour::State::Climb)
+					{
+						// show climb controls
+						UIText text;
+						text.color = UI::color_accent;
+						text.text("{{ClimbingMovement}}");
+						text.anchor_x = UIText::Anchor::Center;
+						text.anchor_y = UIText::Anchor::Center;
+						Vec2 pos = params.camera->viewport.size * Vec2(0.5f, 0.1f);
+						UI::box(params, text.rect(pos).outset(8.0f * UI::scale), UI::color_background);
+						text.draw(params, pos);
+					}
 				}
 			}
 		}
-	}
 
-	// usernames directly over players' 3D positions
-	for (auto other_player = PlayerCommon::list.iterator(); !other_player.is_last(); other_player.next())
-	{
-		if (other_player.item() != get<PlayerCommon>())
+		// usernames directly over players' 3D positions
+		for (auto other_player = PlayerCommon::list.iterator(); !other_player.is_last(); other_player.next())
 		{
-			b8 tracking;
-			b8 visible;
-			Entity* detected_entity = determine_visibility(get<PlayerCommon>(), other_player.item(), &visible, &tracking);
-
-			b8 friendly = other_player.item()->get<AIAgent>()->team == team;
-
-			if (visible && !friendly)
-				enemy_visible = true;
-
-			b8 draw;
-			Vec2 p;
-			const Vec4* color;
-
-			if (friendly)
+			if (other_player.item() != get<PlayerCommon>())
 			{
-				Vec3 pos3d = detected_entity->get<Transform>()->absolute_pos() + Vec3(0, AWK_RADIUS * 2.0f, 0);
-				draw = UI::project(params, pos3d, &p);
-				color = &Team::ui_color_friend;
-			}
-			else
-			{
-				// highlight the username and draw it even if it's offscreen
-				if (detected_entity)
+				b8 tracking;
+				b8 visible;
+				Entity* detected_entity = determine_visibility(get<PlayerCommon>(), other_player.item(), &visible, &tracking);
+
+				b8 friendly = other_player.item()->get<AIAgent>()->team == team;
+
+				if (visible && !friendly)
+					enemy_visible = true;
+
+				b8 draw;
+				Vec2 p;
+				const Vec4* color;
+
+				if (friendly)
 				{
 					Vec3 pos3d = detected_entity->get<Transform>()->absolute_pos() + Vec3(0, AWK_RADIUS * 2.0f, 0);
-
-					if (friendly)
-						color = &Team::ui_color_friend;
-					else
-						color = &Team::ui_color_enemy;
-
-					// if we can see or track them, the indicator has already been added using add_target_indicator in the update function
-
-					if (tracking)
-					{
-						// if we're tracking them, clamp their username to the screen
-						draw = true;
-						UI::is_onscreen(params, pos3d, &p);
-					}
-					else // if not tracking, only draw username if it's directly visible on screen
-						draw = UI::project(params, pos3d, &p);
+					draw = UI::project(params, pos3d, &p);
+					color = &Team::ui_color_friend;
 				}
 				else
 				{
-					// not visible or tracking right now
-					draw = false;
+					// highlight the username and draw it even if it's offscreen
+					if (detected_entity)
+					{
+						Vec3 pos3d = detected_entity->get<Transform>()->absolute_pos() + Vec3(0, AWK_RADIUS * 2.0f, 0);
+
+						if (friendly)
+							color = &Team::ui_color_friend;
+						else
+							color = &Team::ui_color_enemy;
+
+						// if we can see or track them, the indicator has already been added using add_target_indicator in the update function
+
+						if (tracking)
+						{
+							// if we're tracking them, clamp their username to the screen
+							draw = true;
+							UI::is_onscreen(params, pos3d, &p);
+						}
+						else // if not tracking, only draw username if it's directly visible on screen
+							draw = UI::project(params, pos3d, &p);
+					}
+					else
+					{
+						// not visible or tracking right now
+						draw = false;
+					}
+				}
+
+				if (draw)
+				{
+					Vec2 username_pos = p;
+					username_pos.y += text_size * UI::scale;
+
+					UIText username;
+					username.size = text_size;
+					username.anchor_x = UIText::Anchor::Center;
+					username.anchor_y = UIText::Anchor::Min;
+					username.color = *color;
+					username.text(other_player.item()->manager.ref()->username);
+
+					UI::box(params, username.rect(username_pos).outset(HP_BOX_SPACING), UI::color_background);
+
+					username.draw(params, username_pos);
 				}
 			}
+		}
 
-			if (draw)
+		// common UI for both parkour and PvP modes
+
+		const Health* health = get<Health>();
+
+		b8 is_vulnerable = !get<AIAgent>()->stealth && (!has<Awk>() || get<Awk>()->overshield_timer == 0.0f) && health->hp == 1 && health->shield == 0;
+
+		// compass
+		{
+			Vec2 compass_size = Vec2(vi_min(viewport.size.x, viewport.size.y) * 0.3f);
+			if (is_vulnerable && get<PlayerCommon>()->incoming_attacker())
 			{
-				Vec2 username_pos = p;
-				username_pos.y += text_size * UI::scale;
-
-				UIText username;
-				username.size = text_size;
-				username.anchor_x = UIText::Anchor::Center;
-				username.anchor_y = UIText::Anchor::Min;
-				username.color = *color;
-				username.text(other_player.item()->manager.ref()->username);
-
-				UI::box(params, username.rect(username_pos).outset(HP_BOX_SPACING), UI::color_background);
-
-				username.draw(params, username_pos);
+				// we're being attacked; flash the compass
+				b8 show = UI::flash_function(Game::real_time.total);
+				if (show)
+					UI::mesh(params, Asset::Mesh::compass, viewport.size * Vec2(0.5f, 0.5f), compass_size, UI::color_alert);
+				if (show && !UI::flash_function(Game::real_time.total - Game::real_time.delta))
+					Audio::post_global_event(AK::EVENTS::PLAY_BEEP_BAD);
 			}
-		}
-	}
-
-	const Health* health = get<Health>();
-
-	b8 is_vulnerable = !get<AIAgent>()->stealth && (!has<Awk>() || get<Awk>()->overshield_timer == 0.0f) && health->hp == 1 && health->shield == 0;
-
-	// compass
-	{
-		Vec2 compass_size = Vec2(vi_min(viewport.size.x, viewport.size.y) * 0.3f);
-		if (is_vulnerable && get<PlayerCommon>()->incoming_attacker())
-		{
-			// we're being attacked; flash the compass
-			b8 show = UI::flash_function(Game::real_time.total);
-			if (show)
+			else if (enemy_visible && !get<AIAgent>()->stealth)
 				UI::mesh(params, Asset::Mesh::compass, viewport.size * Vec2(0.5f, 0.5f), compass_size, UI::color_alert);
-			if (show && !UI::flash_function(Game::real_time.total - Game::real_time.delta))
-				Audio::post_global_event(AK::EVENTS::PLAY_BEEP_BAD);
-		}
-		else if (enemy_visible && !get<AIAgent>()->stealth)
-			UI::mesh(params, Asset::Mesh::compass, viewport.size * Vec2(0.5f, 0.5f), compass_size, UI::color_alert);
-	}
-
-	{
-		// danger indicator
-
-		b8 danger = enemy_visible && is_vulnerable;
-		if (danger)
-		{
-			UIText text;
-			text.size = 24.0f;
-			text.color = UI::color_alert;
-			text.anchor_x = UIText::Anchor::Center;
-			text.anchor_y = UIText::Anchor::Min;
-
-			text.text(_(strings::danger));
-
-			Vec2 pos = viewport.size * Vec2(0.5f, 0.2f);
-
-			Rect2 box = text.rect(pos).outset(8 * UI::scale);
-			UI::box(params, box, UI::color_background);
-			if (UI::flash_function(Game::real_time.total))
-				text.draw(params, pos);
 		}
 
-		// shield indicator
-		if (is_vulnerable)
 		{
-			UIText text;
-			text.color = UI::color_alert;
-			text.anchor_x = UIText::Anchor::Center;
-			text.anchor_y = UIText::Anchor::Min;
-			text.text(_(strings::shield_down));
+			// danger indicator
 
-			Vec2 pos = viewport.size * Vec2(0.5f, 0.1f);
-
-			Rect2 box = text.rect(pos).outset(8 * UI::scale);
-			UI::box(params, box, UI::color_background);
+			b8 danger = enemy_visible && is_vulnerable;
 			if (danger)
 			{
+				UIText text;
+				text.size = 24.0f;
+				text.color = UI::color_alert;
+				text.anchor_x = UIText::Anchor::Center;
+				text.anchor_y = UIText::Anchor::Min;
+
+				text.text(_(strings::danger));
+
+				Vec2 pos = viewport.size * Vec2(0.5f, 0.2f);
+
+				Rect2 box = text.rect(pos).outset(8 * UI::scale);
+				UI::box(params, box, UI::color_background);
 				if (UI::flash_function(Game::real_time.total))
 					text.draw(params, pos);
 			}
-			else
+
+			// shield indicator
+			if (is_vulnerable)
 			{
-				if (UI::flash_function_slow(Game::real_time.total))
-					text.draw(params, pos);
-			}
-		}
-	}
-
-	// stealth indicator
-	if (get<AIAgent>()->stealth)
-	{
-		UIText text;
-		text.color = UI::color_accent;
-		text.text(_(strings::stealth));
-		text.anchor_x = UIText::Anchor::Center;
-		text.anchor_y = UIText::Anchor::Center;
-		text.size = text_size;
-		Vec2 pos = viewport.size * Vec2(0.5f, 0.7f);
-		UI::box(params, text.rect(pos).outset(8.0f * UI::scale), UI::color_background);
-		text.draw(params, pos);
-	}
-
-	// invincibility indicator
-	if (has<Awk>())
-	{
-		r32 overshield_timer = get<Awk>()->overshield_timer;
-		if (overshield_timer > 0.0f)
-		{
-			Vec2 bar_size(180.0f * UI::scale, 32.0f * UI::scale);
-			Rect2 bar = { viewport.size * Vec2(0.5f, 0.75f) + bar_size * -0.5f, bar_size };
-			UI::box(params, bar, UI::color_background);
-			UI::border(params, bar, 2, UI::color_accent);
-			UI::box(params, { bar.pos, Vec2(bar.size.x * (overshield_timer / AWK_OVERSHIELD_TIME), bar.size.y) }, UI::color_accent);
-
-			UIText text;
-			text.size = 18.0f;
-			text.color = UI::color_background;
-			text.anchor_x = UIText::Anchor::Center;
-			text.anchor_y = UIText::Anchor::Center;
-			text.text(_(strings::overshield));
-			text.draw(params, bar.pos + bar.size * 0.5f);
-		}
-	}
-
-	// detect danger
-	{
-		r32 detect_danger = get<PlayerCommon>()->detect_danger();
-		Vec2 pos = params.camera->viewport.size * Vec2(0.5f, 0.3f) + Vec2(0.0f, -32.0f * UI::scale);
-		if (detect_danger > 0.0f)
-		{
-			UIText text;
-			text.size = 18.0f;
-			text.anchor_x = UIText::Anchor::Center;
-			text.anchor_y = UIText::Anchor::Center;
-			text.text(_(strings::enemy_tracking));
-			if (detect_danger == 1.0f)
-			{
-				Rect2 box = text.rect(pos).outset(MENU_ITEM_PADDING);
-				UI::box(params, box, UI::color_background);
-				if (UI::flash_function_slow(Game::real_time.total))
-				{
-					text.color = UI::color_alert;
-					text.draw(params, pos);
-				}
-			}
-			else
-			{
-				// draw bar
-				Rect2 box = text.rect(pos).outset(MENU_ITEM_PADDING);
-				UI::box(params, box, UI::color_background);
-				UI::border(params, box, 2, UI::color_alert);
-				UI::box(params, { box.pos, Vec2(box.size.x * detect_danger, box.size.y) }, UI::color_alert);
-
-				text.color = UI::color_background;
-				text.draw(params, pos);
-
-				// todo: sound
-			}
-		}
-	}
-
-	// reticle
-	if (has<Awk>() && movement_enabled())
-	{
-		Vec2 pos = viewport.size * Vec2(0.5f, 0.5f);
-		const r32 spoke_length = 10.0f;
-		const r32 spoke_width = 3.0f;
-		const r32 start_radius = 8.0f + spoke_length * 0.5f;
-
-		b8 cooldown_can_go = get<Awk>()->cooldown_can_shoot();
-
-		const Vec4* color;
-		if (reticle.type == ReticleType::Error || reticle.type == ReticleType::DashError)
-			color = &UI::color_disabled;
-		else if (reticle.type != ReticleType::None
-			&& cooldown_can_go
-			&& (get<Awk>()->current_ability == Ability::None || player.ref()->get<PlayerManager>()->ability_valid(get<Awk>()->current_ability)))
-			color = &UI::color_accent;
-		else
-			color = &UI::color_alert;
-
-		// cooldown indicator
-		{
-			s32 charges = get<Awk>()->charges;
-			if (charges == 0)
-				UI::triangle_border(params, { pos, Vec2((start_radius + spoke_length) * (2.5f + 5.0f * (get<Awk>()->cooldown / AWK_COOLDOWN)) * UI::scale) }, spoke_width, UI::color_alert, PI);
-			else if (get<Awk>()->current_ability == Ability::None)
-			{
-				const Vec2 box_size = Vec2(10.0f) * UI::scale;
-				for (s32 i = 0; i < charges; i++)
-				{
-					Vec2 p = pos + Vec2(0.0f, -36.0f + i * -16.0f) * UI::scale;
-					UI::triangle(params, { p, box_size }, *color, PI);
-				}
-			}
-		}
-
-		if (reticle.type == ReticleType::Dash || reticle.type == ReticleType::DashError)
-		{
-			Vec2 a;
-			if (UI::project(params, reticle.pos, &a))
-				UI::mesh(params, Asset::Mesh::reticle_dash, a, Vec2(10.0f * UI::scale), *color);
-		}
-		else
-		{
-			const r32 ratio = 0.8660254037844386f;
-			UI::centered_box(params, { pos + Vec2(ratio, 0.5f) * UI::scale * start_radius, Vec2(spoke_length, spoke_width) * UI::scale }, *color, PI * 0.5f * 0.33f);
-			UI::centered_box(params, { pos + Vec2(-ratio, 0.5f) * UI::scale * start_radius, Vec2(spoke_length, spoke_width) * UI::scale }, *color, PI * 0.5f * -0.33f);
-			UI::centered_box(params, { pos + Vec2(0, -1.0f) * UI::scale * start_radius, Vec2(spoke_width, spoke_length) * UI::scale }, *color);
-
-			if (get<Awk>()->current_ability != Ability::None)
-			{
-				Ability a = get<Awk>()->current_ability;
-				Vec2 p = pos + Vec2(0, -48.0f * UI::scale);
-				UI::centered_box(params, { p, Vec2(34.0f * UI::scale) }, UI::color_background);
-				UI::mesh(params, AbilityInfo::list[(s32)a].icon, p, Vec2(18.0f * UI::scale), *color);
-
-				// cancel prompt
 				UIText text;
-				text.color = UI::color_accent;
-				Controls binding = Controls::count;
-				PlayerManager* manager = player.ref()->get<PlayerManager>();
-				for (s32 i = 0; i < manager->ability_count(); i++)
+				text.color = UI::color_alert;
+				text.anchor_x = UIText::Anchor::Center;
+				text.anchor_y = UIText::Anchor::Min;
+				text.text(_(strings::shield_down));
+
+				Vec2 pos = viewport.size * Vec2(0.5f, 0.1f);
+
+				Rect2 box = text.rect(pos).outset(8 * UI::scale);
+				UI::box(params, box, UI::color_background);
+				if (danger)
 				{
-					if (a == manager->abilities[i])
+					if (UI::flash_function(Game::real_time.total))
+						text.draw(params, pos);
+				}
+				else
+				{
+					if (UI::flash_function_slow(Game::real_time.total))
+						text.draw(params, pos);
+				}
+			}
+		}
+
+		// stealth indicator
+		if (get<AIAgent>()->stealth)
+		{
+			UIText text;
+			text.color = UI::color_accent;
+			text.text(_(strings::stealth));
+			text.anchor_x = UIText::Anchor::Center;
+			text.anchor_y = UIText::Anchor::Center;
+			text.size = text_size;
+			Vec2 pos = viewport.size * Vec2(0.5f, 0.7f);
+			UI::box(params, text.rect(pos).outset(8.0f * UI::scale), UI::color_background);
+			text.draw(params, pos);
+		}
+
+		// invincibility indicator
+		if (has<Awk>())
+		{
+			r32 overshield_timer = get<Awk>()->overshield_timer;
+			if (overshield_timer > 0.0f)
+			{
+				Vec2 bar_size(180.0f * UI::scale, 32.0f * UI::scale);
+				Rect2 bar = { viewport.size * Vec2(0.5f, 0.75f) + bar_size * -0.5f, bar_size };
+				UI::box(params, bar, UI::color_background);
+				UI::border(params, bar, 2, UI::color_accent);
+				UI::box(params, { bar.pos, Vec2(bar.size.x * (overshield_timer / AWK_OVERSHIELD_TIME), bar.size.y) }, UI::color_accent);
+
+				UIText text;
+				text.size = 18.0f;
+				text.color = UI::color_background;
+				text.anchor_x = UIText::Anchor::Center;
+				text.anchor_y = UIText::Anchor::Center;
+				text.text(_(strings::overshield));
+				text.draw(params, bar.pos + bar.size * 0.5f);
+			}
+		}
+
+		// detect danger
+		{
+			r32 detect_danger = get<PlayerCommon>()->detect_danger();
+			Vec2 pos = params.camera->viewport.size * Vec2(0.5f, 0.3f) + Vec2(0.0f, -32.0f * UI::scale);
+			if (detect_danger > 0.0f)
+			{
+				UIText text;
+				text.size = 18.0f;
+				text.anchor_x = UIText::Anchor::Center;
+				text.anchor_y = UIText::Anchor::Center;
+				text.text(_(strings::enemy_tracking));
+				if (detect_danger == 1.0f)
+				{
+					Rect2 box = text.rect(pos).outset(MENU_ITEM_PADDING);
+					UI::box(params, box, UI::color_background);
+					if (UI::flash_function_slow(Game::real_time.total))
 					{
-						const Controls bindings[3] = { Controls::Ability1, Controls::Ability2, Controls::Ability3 };
-						binding = bindings[i];
-						break;
+						text.color = UI::color_alert;
+						text.draw(params, pos);
 					}
 				}
-				vi_assert(binding != Controls::count);
-				text.text(_(strings::prompt_cancel_ability), Settings::gamepads[player.ref()->gamepad].bindings[(s32)binding].string(Game::is_gamepad));
-				text.anchor_x = UIText::Anchor::Center;
-				text.anchor_y = UIText::Anchor::Max;
-				text.size = text_size;
-				p = pos + Vec2(0, -96.0f * UI::scale);
-				UI::box(params, text.rect(p).outset(8.0f * UI::scale), UI::color_background);
-				text.draw(params, p);
+				else
+				{
+					// draw bar
+					Rect2 box = text.rect(pos).outset(MENU_ITEM_PADDING);
+					UI::box(params, box, UI::color_background);
+					UI::border(params, box, 2, UI::color_alert);
+					UI::box(params, { box.pos, Vec2(box.size.x * detect_danger, box.size.y) }, UI::color_alert);
+
+					text.color = UI::color_background;
+					text.draw(params, pos);
+
+					// todo: sound
+				}
+			}
+		}
+
+		// reticle
+		if (has<Awk>() && movement_enabled())
+		{
+			Vec2 pos = viewport.size * Vec2(0.5f, 0.5f);
+			const r32 spoke_length = 10.0f;
+			const r32 spoke_width = 3.0f;
+			const r32 start_radius = 8.0f + spoke_length * 0.5f;
+
+			b8 cooldown_can_go = get<Awk>()->cooldown_can_shoot();
+
+			const Vec4* color;
+			if (reticle.type == ReticleType::Error || reticle.type == ReticleType::DashError)
+				color = &UI::color_disabled;
+			else if (reticle.type != ReticleType::None
+				&& cooldown_can_go
+				&& (get<Awk>()->current_ability == Ability::None || player.ref()->get<PlayerManager>()->ability_valid(get<Awk>()->current_ability)))
+				color = &UI::color_accent;
+			else
+				color = &UI::color_alert;
+
+			// cooldown indicator
+			{
+				s32 charges = get<Awk>()->charges;
+				if (charges == 0)
+					UI::triangle_border(params, { pos, Vec2((start_radius + spoke_length) * (2.5f + 5.0f * (get<Awk>()->cooldown / AWK_COOLDOWN)) * UI::scale) }, spoke_width, UI::color_alert, PI);
+				else if (get<Awk>()->current_ability == Ability::None)
+				{
+					const Vec2 box_size = Vec2(10.0f) * UI::scale;
+					for (s32 i = 0; i < charges; i++)
+					{
+						Vec2 p = pos + Vec2(0.0f, -36.0f + i * -16.0f) * UI::scale;
+						UI::triangle(params, { p, box_size }, *color, PI);
+					}
+				}
 			}
 
-			if (reticle.type == ReticleType::Normal || reticle.type == ReticleType::Target)
+			if (reticle.type == ReticleType::Dash || reticle.type == ReticleType::DashError)
 			{
 				Vec2 a;
 				if (UI::project(params, reticle.pos, &a))
-					UI::triangle(params, { a, Vec2(10.0f * UI::scale) }, reticle.type == ReticleType::Target ? UI::color_alert : *color, PI);
+					UI::mesh(params, Asset::Mesh::reticle_dash, a, Vec2(10.0f * UI::scale), *color);
+			}
+			else
+			{
+				const r32 ratio = 0.8660254037844386f;
+				UI::centered_box(params, { pos + Vec2(ratio, 0.5f) * UI::scale * start_radius, Vec2(spoke_length, spoke_width) * UI::scale }, *color, PI * 0.5f * 0.33f);
+				UI::centered_box(params, { pos + Vec2(-ratio, 0.5f) * UI::scale * start_radius, Vec2(spoke_length, spoke_width) * UI::scale }, *color, PI * 0.5f * -0.33f);
+				UI::centered_box(params, { pos + Vec2(0, -1.0f) * UI::scale * start_radius, Vec2(spoke_width, spoke_length) * UI::scale }, *color);
+
+				if (get<Awk>()->current_ability != Ability::None)
+				{
+					Ability a = get<Awk>()->current_ability;
+					Vec2 p = pos + Vec2(0, -48.0f * UI::scale);
+					UI::centered_box(params, { p, Vec2(34.0f * UI::scale) }, UI::color_background);
+					UI::mesh(params, AbilityInfo::list[(s32)a].icon, p, Vec2(18.0f * UI::scale), *color);
+
+					// cancel prompt
+					UIText text;
+					text.color = UI::color_accent;
+					Controls binding = Controls::count;
+					PlayerManager* manager = player.ref()->get<PlayerManager>();
+					for (s32 i = 0; i < manager->ability_count(); i++)
+					{
+						if (a == manager->abilities[i])
+						{
+							const Controls bindings[3] = { Controls::Ability1, Controls::Ability2, Controls::Ability3 };
+							binding = bindings[i];
+							break;
+						}
+					}
+					vi_assert(binding != Controls::count);
+					text.text(_(strings::prompt_cancel_ability), Settings::gamepads[player.ref()->gamepad].bindings[(s32)binding].string(Game::is_gamepad));
+					text.anchor_x = UIText::Anchor::Center;
+					text.anchor_y = UIText::Anchor::Max;
+					text.size = text_size;
+					p = pos + Vec2(0, -96.0f * UI::scale);
+					UI::box(params, text.rect(p).outset(8.0f * UI::scale), UI::color_background);
+					text.draw(params, p);
+				}
+
+				if (reticle.type == ReticleType::Normal || reticle.type == ReticleType::Target)
+				{
+					Vec2 a;
+					if (UI::project(params, reticle.pos, &a))
+						UI::triangle(params, { a, Vec2(10.0f * UI::scale) }, reticle.type == ReticleType::Target ? UI::color_alert : *color, PI);
+				}
 			}
 		}
-	}
-
-	// buy period indicator
-	if (Game::level.has_feature(Game::FeatureLevel::Abilities)
-		&& Game::level.mode == Game::Mode::Pvp
-		&& !Game::session.story_mode
-		&& Team::match_time < GAME_BUY_PERIOD)
-	{
-		UIText text;
-		text.color = UI::color_accent;
-		text.text(_(strings::buy_period), (s32)(GAME_BUY_PERIOD - Team::match_time) + 1);
-		text.anchor_x = UIText::Anchor::Center;
-		text.anchor_y = UIText::Anchor::Center;
-		text.size = text_size;
-		Vec2 pos = viewport.size * Vec2(0.5f, 0.15f);
-		UI::box(params, text.rect(pos).outset(8.0f * UI::scale), UI::color_background);
-		text.draw(params, pos);
 	}
 }
 

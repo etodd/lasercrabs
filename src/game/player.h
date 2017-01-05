@@ -74,7 +74,7 @@ struct PlayerHuman : public ComponentType<PlayerHuman>
 	UIMode ui_mode() const;
 	void update(const Update&);
 	void update_camera_rotation(const Update&);
-	void draw_alpha(const RenderParams&) const;
+	void draw_ui(const RenderParams&) const;
 	void spawn();
 };
 
@@ -191,7 +191,7 @@ struct PlayerControlHuman : public ComponentType<PlayerControlHuman>
 
 	void update(const Update&);
 	void draw(const RenderParams&) const;
-	void draw_alpha(const RenderParams&) const;
+	void draw_ui(const RenderParams&) const;
 
 	void update_camera_input(const Update&, r32 = 1.0f);
 	Vec3 get_movement(const Update&, const Quat&);

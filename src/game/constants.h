@@ -8,7 +8,7 @@
 
 #define MAX_USERNAME 255
 
-#define MAX_BONES 100
+#define MAX_BONES 72
 
 #define UI_JOYSTICK_DEAD_ZONE 0.5f
 #define PLAYER_SPAWN_DELAY 3.0f

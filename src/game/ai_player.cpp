@@ -46,7 +46,6 @@ AI::Config PlayerAI::generate_config(AI::Team team, r32 spawn_time)
 		config.upgrade_strategies[i] = AI::UpgradeStrategy::Ignore;
 	}
 
-	/*
 	switch (mersenne::rand() % 5)
 	{
 		case 0:
@@ -105,9 +104,6 @@ AI::Config PlayerAI::generate_config(AI::Team team, r32 spawn_time)
 			break;
 		}
 	}
-	*/
-	config.upgrade_priority[0] = Upgrade::Sniper;
-	config.upgrade_strategies[0] = AI::UpgradeStrategy::SaveUp;
 	return config;
 }
 

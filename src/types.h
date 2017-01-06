@@ -141,6 +141,7 @@ namespace AI
 		r32 aim_speed;
 		r32 aim_min_delay;
 		r32 dodge_chance;
+		r32 projectile_preference;
 		r32 spawn_time;
 		Upgrade upgrade_priority[(s32)Upgrade::count];
 		UpgradeStrategy upgrade_strategies[(s32)Upgrade::count];

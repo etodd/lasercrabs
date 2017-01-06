@@ -38,6 +38,7 @@ AI::Config PlayerAI::generate_config(AI::Team team, r32 spawn_time)
 	config.aim_timeout = 2.0f;
 	config.aim_speed = 3.0f;
 	config.dodge_chance = 0.1f;
+	config.projectile_preference = 0.75f;
 
 	for (s32 i = 0; i < s32(Upgrade::count); i++)
 	{
@@ -45,6 +46,7 @@ AI::Config PlayerAI::generate_config(AI::Team team, r32 spawn_time)
 		config.upgrade_strategies[i] = AI::UpgradeStrategy::Ignore;
 	}
 
+	/*
 	switch (mersenne::rand() % 5)
 	{
 		case 0:
@@ -103,6 +105,9 @@ AI::Config PlayerAI::generate_config(AI::Team team, r32 spawn_time)
 			break;
 		}
 	}
+	*/
+	config.upgrade_priority[0] = Upgrade::Sniper;
+	config.upgrade_strategies[0] = AI::UpgradeStrategy::SaveUp;
 	return config;
 }
 
@@ -179,11 +184,9 @@ void PlayerAI::spawn()
 		}
 		else
 		{
-			Vec3 pos;
-			Quat rot;
-			manager.ref()->team.ref()->player_spawn.ref()->absolute(&pos, &rot);
+			Vec3 pos = manager.ref()->team.ref()->player_spawn.ref()->absolute_pos();
 			pos += Quat::euler(0, (id() * PI * 0.5f), 0) * Vec3(0, 0, CONTROL_POINT_RADIUS * 0.5f); // spawn it around the edges
-			ai_player_spawn(pos, rot, this);
+			ai_player_spawn(pos, Quat::look(Vec3(0, -1, 0)), this);
 		}
 	}
 }
@@ -333,10 +336,9 @@ void PlayerControlAI::awk_hit(Entity* e)
 	hit_target = true;
 }
 
-void PlayerControlAI::set_target(Entity* t)
+void PlayerControlAI::set_target(Entity* t, r32 delay)
 {
-	aim_timer = 0.0f;
-	aim_timeout = 0.0f;
+	aim_timer = aim_timeout = -delay;
 	target = t;
 	hit_target = false;
 	path.length = 0;
@@ -651,7 +653,15 @@ void PlayerControlAI::aim_and_shoot_target(const Update& u, const Vec3& target, 
 			else
 			{
 				if (lined_up && get<Awk>()->can_shoot(look_dir))
+				{
+					shot_at_target = true;
+
+					// reset timer for rapid-fire bolter shots
+					// if we are actually moving, awk_detached() will overwrite this to 0
+					aim_timer = config.aim_min_delay - (0.2f + mersenne::randf_co() * 0.1f);
+
 					get<Awk>()->go(look_dir);
+				}
 			}
 		}
 	}
@@ -860,6 +870,15 @@ b8 default_filter(const PlayerControlAI* control, const Entity* e)
 	AI::Team team = control->get<AIAgent>()->team;
 	return ContainmentField::hash(team, control->get<Transform>()->absolute_pos())
 		== ContainmentField::hash(team, e->get<Transform>()->absolute_pos());
+}
+
+b8 energy_pickup_enemy_filter(const PlayerControlAI* control, const Entity* e)
+{
+	if (!default_filter(control, e))
+		return false;
+
+	AI::Team team = e->get<EnergyPickup>()->team;
+	return team != AI::TeamNone && team != control->get<AIAgent>()->team;
 }
 
 b8 energy_pickup_filter(const PlayerControlAI* control, const Entity* e)
@@ -1113,13 +1132,13 @@ b8 should_spawn_rocket(const PlayerControlAI* control)
 	return geometry_query(control, AWK_MAX_DISTANCE * 0.4f, PI * 0.35f, 8) < 4;
 }
 
-b8 sniping_or_bolter(const PlayerControlAI* control)
+b8 sniping_or_bolting(const PlayerControlAI* control)
 {
 	Ability ability = control->get<Awk>()->current_ability;
 	return ability == Ability::Sniper || ability == Ability::Bolter;
 }
 
-b8 should_snipe(const PlayerControlAI* control)
+b8 should_snipe_or_bolt(const PlayerControlAI* control, Ability ability)
 {
 	Vec3 pos;
 	Quat rot;
@@ -1147,7 +1166,7 @@ b8 should_snipe(const PlayerControlAI* control)
 			for (s32 i = 0; i < memory.length; i++)
 			{
 				Vec3 to_awk = memory[i].pos - pos;
-				if (to_awk.length_squared() < AWK_MAX_DISTANCE * 0.6f * AWK_MAX_DISTANCE * 0.6f)
+				if (ability == Ability::Sniper && to_awk.length_squared() < AWK_MAX_DISTANCE * 0.6f * AWK_MAX_DISTANCE * 0.6f)
 					return false; // too close
 				if (!control->get<Awk>()->direction_is_toward_attached_wall(to_awk))
 					result = true; // the awk is at the right distance and it's in front of us
@@ -1161,7 +1180,7 @@ b8 should_snipe(const PlayerControlAI* control)
 				Vec3 to_minion = memory[i].pos - pos;
 				if (!control->get<Awk>()->direction_is_toward_attached_wall(to_minion))
 				{
-					if (to_minion.length_squared() < AWK_MAX_DISTANCE * 0.6f * AWK_MAX_DISTANCE * 0.6f)
+					if (ability == Ability::Sniper && to_minion.length_squared() < AWK_MAX_DISTANCE * 0.6f * AWK_MAX_DISTANCE * 0.6f)
 						return false; // too close
 					result = true; // the minion is at the right distance and it's in front of us
 				}
@@ -1172,6 +1191,16 @@ b8 should_snipe(const PlayerControlAI* control)
 	}
 
 	return false;
+}
+
+b8 should_snipe(const PlayerControlAI* control)
+{
+	return should_snipe_or_bolt(control, Ability::Sniper);
+}
+
+b8 should_bolt(const PlayerControlAI* control)
+{
+	return should_snipe_or_bolt(control, Ability::Bolter);
 }
 
 b8 should_spawn_containment_field(const PlayerControlAI* control)
@@ -1330,12 +1359,13 @@ Repeat* make_low_level_loop(PlayerControlAI* control, const AI::Config& config)
 									Sequence::alloc
 									(
 										// sniper mode
-										AIBehaviors::Test::alloc(&sniping_or_bolter),
+										AIBehaviors::Test::alloc(&sniping_or_bolting),
 										Select::alloc
 										(
 											AIBehaviors::ReactTarget::alloc(Awk::family, 0, 6, &awk_react_filter),
 											AIBehaviors::ReactTarget::alloc(MinionCommon::family, 0, 5, &default_filter),
-											AIBehaviors::ReactTarget::alloc(EnergyPickup::family, 0, 4, &energy_pickup_filter),
+											AIBehaviors::ReactTarget::alloc(EnergyPickup::family, 0, 4, &energy_pickup_enemy_filter),
+											AIBehaviors::ReactTarget::alloc(Sensor::family, 0, 4, &default_filter),
 											AIBehaviors::RandomPath::alloc(4),
 											Sequence::alloc
 											(
@@ -1501,9 +1531,28 @@ void PlayerControlAI::update(const Update& u)
 			if (target.ref()->has<Target>())
 			{
 				// trying to a hit a moving thingy
+				r32 speed;
+				switch (get<Awk>()->current_ability)
+				{
+					case Ability::Bolter:
+					{
+						speed = PROJECTILE_SPEED;
+						break;
+					}
+					case Ability::Sniper:
+					{
+						speed = 0.0f; // instant
+						break;
+					}
+					default:
+					{
+						speed = AWK_FLY_SPEED;
+						break;
+					}
+				}
 				Vec3 intersection;
 				if (aim_timeout < config.aim_timeout
-					&& get<Awk>()->can_hit(target.ref()->get<Target>(), &intersection))
+					&& get<Awk>()->can_hit(target.ref()->get<Target>(), &intersection, speed))
 					aim_and_shoot_target(u, intersection, target.ref()->get<Target>());
 				else
 					active_behavior->done(false); // we can't hit it
@@ -1530,6 +1579,9 @@ void PlayerControlAI::update(const Update& u)
 		}
 		else if (path_index < path.length)
 		{
+			if (AbilityInfo::list[s32(get<Awk>()->current_ability)].type == AbilityInfo::Type::Shoot)
+				sniper_or_bolter_cancel();
+
 			// look at next target
 			if (aim_timeout > config.aim_timeout)
 			{
@@ -1584,7 +1636,10 @@ void PlayerControlAI::update(const Update& u)
 				if (target.ref()->has<Target>())
 				{
 					if (shot_at_target)
-						active_behavior->done(hit_target); // call it success if we hit our target, or if there was nothing to hit
+					{
+						if (get<Awk>()->current_ability != Ability::Bolter)
+							active_behavior->done(hit_target); // call it success if we hit our target, or if there was nothing to hit
+					}
 				}
 				else
 				{
@@ -1699,10 +1754,10 @@ void RandomPath::run()
 		Quat rot;
 		control->get<Transform>()->absolute(&pos, &rot);
 		AI::AwkAllow rule;
-		if (control->get<Awk>()->current_ability == Ability::Sniper)
-			rule = AI::AwkAllow::Crawl;
-		else
+		if (control->get<Awk>()->current_ability == Ability::None)
 			rule = AI::AwkAllow::All;
+		else
+			rule = AI::AwkAllow::Crawl;
 		AI::awk_random_path(rule, control->get<AIAgent>()->team, pos, rot * Vec3(0, 0, 1), ObjectLinkEntryArg<Base<RandomPath>, const AI::AwkResult&, &Base<RandomPath>::path_callback>(id()));
 	}
 	else
@@ -1808,7 +1863,25 @@ b8 AbilitySpawn::try_spawn(s8 priority, Upgrade required_upgrade, Ability a, Abi
 	{
 		path_priority = priority;
 		ability = a;
-		pathfind(Vec3::zero, control->get<PlayerCommon>()->look_dir(), AI::AwkPathfind::Spawn);
+		const AbilityInfo& info = AbilityInfo::list[s32(a)];
+		switch (info.type)
+		{
+			case AbilityInfo::Type::Shoot:
+			{
+				pathfind(Vec3::zero, control->get<PlayerCommon>()->look_dir(), AI::AwkPathfind::Spawn);
+				break;
+			}
+			case AbilityInfo::Type::Build:
+			{
+				done(true);
+				break;
+			}
+			default:
+			{
+				vi_assert(false);
+				break;
+			}
+		}
 		return true;
 	}
 	return false;
@@ -1822,7 +1895,8 @@ void AbilitySpawn::run()
 		&& !try_spawn(4, Upgrade::Sensor, Ability::Sensor, &should_spawn_sensor)
 		&& !try_spawn(4, Upgrade::Rocket, Ability::Rocket, &should_spawn_rocket)
 		&& !try_spawn(4, Upgrade::ContainmentField, Ability::ContainmentField, &should_spawn_containment_field)
-		&& !try_spawn(4, Upgrade::Sniper, Ability::Sniper, &should_snipe))
+		&& !try_spawn(4, Upgrade::Sniper, Ability::Sniper, &should_snipe)
+		&& !try_spawn(4, Upgrade::Bolter, Ability::Bolter, &should_bolt))
 		done(false);
 }
 
@@ -1880,8 +1954,25 @@ void ReactTarget::run()
 		{
 			if (can_react && control->get<Awk>()->can_hit(closest->get<Target>()))
 			{
+				b8 selected_ability = false;
+				if (control->get<Awk>()->current_ability == Ability::None
+					&& mersenne::randf_co() < control->config().projectile_preference
+					&& control->player.ref()->save_up_priority() < 1)
+				{
+					PlayerManager* player = control->player.ref()->manager.ref();
+					for (s32 i = 0; i < s32(Ability::count); i++)
+					{
+						const AbilityInfo& info = AbilityInfo::list[i];
+						if (info.type == AbilityInfo::Type::Shoot && player->ability_valid(Ability(i)))
+						{
+							control->get<Awk>()->current_ability = Ability(i);
+							selected_ability = true;
+							break;
+						}
+					}
+				}
 				control->behavior_start(this, react_priority);
-				control->set_target(closest);
+				control->set_target(closest, selected_ability ? 0.2f : 0.0f); // add delay for selecting ability
 				return;
 			}
 			else if (can_path)

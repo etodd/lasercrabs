@@ -960,14 +960,14 @@ b8 Awk::can_shoot(const Target* target, Vec3* out_intersection, r32 speed, const
 	return false;
 }
 
-b8 Awk::can_hit(const Target* target, Vec3* out_intersection) const
+b8 Awk::can_hit(const Target* target, Vec3* out_intersection, r32 speed) const
 {
 	// first try to dash there
 	if (can_dash(target, out_intersection))
 		return true;
 
 	// now try to fly there
-	if (can_shoot(target, out_intersection))
+	if (can_shoot(target, out_intersection, speed))
 		return true;
 
 	return false;

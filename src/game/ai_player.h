@@ -90,7 +90,7 @@ struct PlayerControlAI : public ComponentType<PlayerControlAI>
 	void aim_and_shoot_target(const Update&, const Vec3&, Target*);
 	b8 go(const Update&, const AI::AwkPathNode&, const AI::AwkPathNode&, r32);
 	b8 in_range(const Vec3&, r32) const;
-	void set_target(Entity*);
+	void set_target(Entity*, r32 = 0.0f);
 	void set_path(const AI::AwkPath&);
 	void awk_done_flying_or_dashing();
 	void awk_hit(Entity*);

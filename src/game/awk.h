@@ -157,7 +157,7 @@ struct Awk : public ComponentType<Awk>
 	b8 can_shoot(const Target*, Vec3* = nullptr, r32 = AWK_FLY_SPEED, const Net::StateFrame* = nullptr) const;
 	b8 can_spawn(Ability, const Vec3&, Vec3* = nullptr, Vec3* = nullptr, RigidBody** = nullptr, b8* = nullptr) const;
 	b8 can_dash(const Target*, Vec3* = nullptr) const;
-	b8 can_hit(const Target*, Vec3* = nullptr) const; // shoot or dash
+	b8 can_hit(const Target*, Vec3* = nullptr, r32 = AWK_FLY_SPEED) const; // shoot or dash
 
 	enum class RaycastMode
 	{

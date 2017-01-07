@@ -17,6 +17,7 @@
 #include "asset/Wwise_IDs.h"
 #include "asset/font.h"
 #include "asset/animation.h"
+#include "asset/mesh.h"
 #include "data/animator.h"
 #include "overworld.h"
 #include "player.h"
@@ -577,6 +578,7 @@ namespace tutorial
 	{
 		TutorialState state;
 		Ref<Transform> sparks;
+		Ref<Entity> hobo;
 	};
 
 	Data* data;
@@ -591,7 +593,7 @@ namespace tutorial
 			Game::level.feature_level = Game::FeatureLevel::Abilities;
 			PlayerManager* manager = PlayerHuman::list.iterator().item()->get<PlayerManager>();
 			manager->credits = UpgradeInfo::list[s32(Upgrade::Sensor)].cost + AbilityInfo::list[s32(Ability::Sensor)].spawn_cost * 2;
-		}	
+		}
 	}
 
 	void ability_spawned(Ability)
@@ -625,6 +627,12 @@ namespace tutorial
 		// sparks on broken door
 		if (mersenne::randf_co() < u.time.delta / 0.5f)
 			spawn_sparks(data->sparks.ref()->to_world(Vec3(-1.5f + mersenne::randf_co() * 3.0f, 0, 0)), Quat::look(Vec3(0, -1, 0)));
+
+		if (Game::level.mode == Game::Mode::Pvp && data->hobo.ref())
+		{
+			World::remove(data->hobo.ref());
+			data->hobo = nullptr;
+		}
 
 		if (data->state != TutorialState::Done && Team::game_over)
 		{
@@ -684,14 +692,17 @@ namespace tutorial
 		entities.find("slide_trigger")->get<PlayerTrigger>()->entered.link(&slide_trigger);
 		entities.find("slide_success")->get<PlayerTrigger>()->entered.link(&slide_success);
 		data->sparks = entities.find("sparks")->get<Transform>();
+		data->hobo = entities.find("hobo");
 
 		if (Game::level.mode == Game::Mode::Pvp)
-		{
-			Game::level.feature_level = Game::FeatureLevel::EnergyPickups;
 			data->state = TutorialState::Start;
-		}
 		else
+		{
 			data->state = TutorialState::ParkourStart;
+			data->hobo.ref()->add<RigidBody>(RigidBody::Type::Mesh, Vec3::zero, 0.0f, CollisionStatic | CollisionInaccessible, ~CollisionStatic & ~CollisionParkour & ~CollisionInaccessible & ~CollisionElectric, Asset::Mesh::actor_collision);
+		}
+
+		Game::level.feature_level = Game::FeatureLevel::EnergyPickups;
 
 		Game::updates.add(&update);
 		Game::cleanups.add(&cleanup);

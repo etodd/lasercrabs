@@ -6,6 +6,7 @@ namespace VI
 
 const char* AssetLookup::Mesh::values[] =
 {
+	"assets/actor_collision.msh",
 	"assets/awk.msh",
 	"assets/character.msh",
 	"assets/compass.msh",
@@ -74,7 +75,6 @@ const char* AssetLookup::Mesh::values[] =
 	"assets/lvl/Dock_Cube_005.msh",
 	"assets/lvl/Dock_Cube_006.msh",
 	"assets/lvl/Dock_Cube_007.msh",
-	"assets/lvl/Dock_Cylinder.msh",
 	"assets/lvl/Dock_buildings.msh",
 	"assets/lvl/Dock_buildings_001.msh",
 	"assets/lvl/Dock_buildings_002.msh",
@@ -265,6 +265,7 @@ const char* AssetLookup::Mesh::values[] =
 
 const char* AssetLookup::Mesh::names[] =
 {
+	"actor_collision",
 	"awk",
 	"character",
 	"compass",
@@ -333,7 +334,6 @@ const char* AssetLookup::Mesh::names[] =
 	"Dock_Cube_005",
 	"Dock_Cube_006",
 	"Dock_Cube_007",
-	"Dock_Cylinder",
 	"Dock_buildings",
 	"Dock_buildings_001",
 	"Dock_buildings_002",

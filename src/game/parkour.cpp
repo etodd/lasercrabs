@@ -65,6 +65,7 @@ Traceur::Traceur(const Vec3& pos, const Quat& quat, AI::Team team)
 
 	create<AIAgent>()->team = team;
 
+	create<Target>();
 	create<Health>(AWK_HEALTH, AWK_HEALTH, AWK_SHIELD, AWK_SHIELD);
 
 	create<Parkour>();
@@ -300,15 +301,81 @@ namespace ParkourNet
 	}
 }
 
-b8 minion_in_front(Parkour* parkour, MinionCommon* minion, b8 forgiving)
+b8 minion_in_front_strict(Parkour* parkour, MinionCommon* minion)
 {
 	Vec3 minion_pos = minion->get<Walker>()->base_pos();
 	Vec3 to_minion = minion_pos - parkour->get<Walker>()->base_pos();
 	Vec3 forward = Quat::euler(0, parkour->get<Walker>()->target_rotation, 0) * Vec3(0, 0, 1);
-	r32 forgiveness = forgiving ? 2.0f : 0.0f;
-	return fabsf(to_minion.y) < WALKER_SUPPORT_HEIGHT + WALKER_DEFAULT_CAPSULE_HEIGHT + forgiveness
-		&& forward.dot(to_minion) < WALKER_RADIUS * 2.5f + forgiveness
-		&& (forgiving || forward.dot(Vec3::normalize(to_minion)) > 0.5f);
+	return fabsf(to_minion.y) < WALKER_SUPPORT_HEIGHT + WALKER_DEFAULT_CAPSULE_HEIGHT
+		&& forward.dot(to_minion) < WALKER_RADIUS * 2.5f
+		&& forward.dot(Vec3::normalize(to_minion)) > 0.5f;
+}
+
+// check on the server if we can damage this minion
+// this check is very forgiving to prevent player frustration
+b8 minion_can_damage_forgiving(Parkour* parkour, MinionCommon* minion)
+{
+	Vec3 minion_pos = minion->get<Walker>()->base_pos();
+	Vec3 to_minion = minion_pos - parkour->get<Walker>()->base_pos();
+	const r32 radius = (WALKER_SUPPORT_HEIGHT + WALKER_DEFAULT_CAPSULE_HEIGHT) * 3.0f;
+	return to_minion.length_squared() < radius * radius;
+}
+
+b8 minion_below(Parkour* parkour, MinionCommon* minion)
+{
+	Vec3 minion_pos = minion->get<Walker>()->base_pos();
+	Vec3 to_minion = minion_pos - parkour->get<Walker>()->base_pos();
+	if (to_minion.y < 0.0f && to_minion.y > -2.0f * (WALKER_SUPPORT_HEIGHT + WALKER_DEFAULT_CAPSULE_HEIGHT))
+	{
+		to_minion.y = 0.0f;
+		const r32 radius = WALKER_RADIUS * 2.5f;
+		if (to_minion.length_squared() < radius * radius)
+			return true;
+	}
+	return false;
+}
+
+b8 minions_do_damage(Parkour* parkour, b8(*minion_filter)(Parkour*, MinionCommon*))
+{
+	b8 did_damage = false;
+	for (auto i = MinionCommon::list.iterator(); !i.is_last(); i.next())
+	{
+		b8 already_damaged = false;
+		for (s32 j = 0; j < parkour->damage_minions.length; j++)
+		{
+			if (i.item() == parkour->damage_minions[j].ref())
+			{
+				already_damaged = true;
+				break;
+			}
+		}
+
+		if (!already_damaged && minion_filter(parkour, i.item()))
+		{
+			ParkourNet::kill(parkour, i.item());
+			parkour->damage_minions.add(i.item());
+
+			parkour->get<PlayerControlHuman>()->player.ref()->rumble_add(0.5f);
+
+			Vec3 base_pos = parkour->get<Walker>()->base_pos();
+
+			// sparks
+			Vec3 p = base_pos + Vec3(0, (WALKER_SUPPORT_HEIGHT + WALKER_DEFAULT_CAPSULE_HEIGHT) * 0.5f, 0);
+			Quat rot = Quat::look(i.item()->get<Walker>()->base_pos() - base_pos);
+			for (s32 i = 0; i < 50; i++)
+			{
+				Particles::sparks.add
+				(
+					p,
+					rot * Vec3(mersenne::randf_oo() * 2.0f - 1.0f, mersenne::randf_oo() * 2.0f - 1.0f, mersenne::randf_oo()) * 10.0f,
+					Vec4(1, 1, 1, 1)
+				);
+			}
+
+			did_damage = true;
+		}
+	}
+	return did_damage;
 }
 
 b8 Parkour::net_msg(Net::StreamRead* p, Net::MessageSource src)
@@ -357,8 +424,7 @@ b8 Parkour::net_msg(Net::StreamRead* p, Net::MessageSource src)
 				serialize_ref(p, minion);
 				if (minion.ref()
 					&& (src == Net::MessageSource::Remote || Game::level.local)
-					&& (parkour.ref()->fsm.current == State::Slide || parkour.ref()->fsm.current == State::Roll)
-					&& minion_in_front(parkour.ref(), minion.ref(), true))
+					&& minion_can_damage_forgiving(parkour.ref(), minion.ref()))
 				{
 					minion.ref()->get<Health>()->kill(parkour.ref()->entity());
 				}
@@ -459,16 +525,26 @@ void Parkour::update(const Update& u)
 
 	if (fsm.current == State::Mantle)
 	{
-		// top-out animation is slower
+		// top-out animation is slower than mantle animation
 		const r32 mantle_time = get<Animator>()->layers[1].animation == Asset::Animation::character_mantle ? 0.4f : 1.2f;
 
 		if (fsm.time > mantle_time || !last_support.ref())
 		{
+			// done
 			fsm.transition(State::Normal);
 			get<RigidBody>()->btBody->setLinearVelocity(Quat::euler(0, get<Walker>()->target_rotation, 0) * Vec3(0, 0, get<Walker>()->net_speed));
 		}
 		else
 		{
+			// still going
+
+			if (get<Animator>()->layers[1].animation == Asset::Animation::character_top_out)
+			{
+				// bring camera back level if we're looking up
+				if (get<PlayerCommon>()->angle_vertical < 0.0f)
+					get<PlayerCommon>()->angle_vertical = vi_min(0.0f, get<PlayerCommon>()->angle_vertical + u.time.delta);
+			}
+
 			Vec3 start = get<Transform>()->absolute_pos();
 			Vec3 end = last_support.ref()->get<Transform>()->to_world(relative_support_pos);
 
@@ -611,6 +687,23 @@ void Parkour::update(const Update& u)
 			relative_support_pos = last_support.ref()->get<Transform>()->to_local(get<Walker>()->base_pos());
 			lean_target = get<Walker>()->net_speed * angular_velocity * (0.75f / 180.0f) / vi_max(0.0001f, u.time.delta);
 		}
+		else
+		{
+			// we're falling
+			// check if there are any minions to squish
+			if (slide_continue // player must be holding the slide button
+				&& get<RigidBody>()->btBody->getLinearVelocity().getY() < LANDING_VELOCITY_LIGHT)
+			{
+				if (minions_do_damage(this, &minion_below))
+				{
+					// hard landing
+					fsm.transition(State::HardLanding);
+					get<Walker>()->max_speed = 0.0f;
+					get<Walker>()->speed = 0.0f;
+					get<Animator>()->layers[1].play(Asset::Animation::character_land_hard);
+				}
+			}
+		}
 	}
 	else if (fsm.current == State::Slide || fsm.current == State::Roll)
 	{
@@ -675,43 +768,7 @@ void Parkour::update(const Update& u)
 
 			// check for minions in front of us
 			if (get<Walker>()->net_speed > MIN_ATTACK_SPEED)
-			{
-				for (auto i = MinionCommon::list.iterator(); !i.is_last(); i.next())
-				{
-					b8 already_damaged = false;
-					for (s32 j = 0; j < damage_minions.length; j++)
-					{
-						if (i.item() == damage_minions[j].ref())
-						{
-							already_damaged = true;
-							break;
-						}
-					}
-
-					if (!already_damaged && minion_in_front(this, i.item(), false))
-					{
-						ParkourNet::kill(this, i.item());
-						damage_minions.add(i.item());
-
-						get<PlayerControlHuman>()->player.ref()->rumble_add(0.5f);
-
-						Vec3 base_pos = get<Walker>()->base_pos();
-
-						// sparks
-						Vec3 p = base_pos + Vec3(0, (WALKER_SUPPORT_HEIGHT + WALKER_DEFAULT_CAPSULE_HEIGHT) * 0.5f, 0);
-						Quat rot = Quat::look(i.item()->get<Walker>()->base_pos() - base_pos);
-						for (s32 i = 0; i < 50; i++)
-						{
-							Particles::sparks.add
-							(
-								p,
-								rot * Vec3(mersenne::randf_oo() * 2.0f - 1.0f, mersenne::randf_oo() * 2.0f - 1.0f, mersenne::randf_oo()) * 10.0f,
-								Vec4(1, 1, 1, 1)
-							);
-						}
-					}
-				}
-			}
+				minions_do_damage(this, minion_in_front_strict);
 		}
 
 		if (stop)
@@ -761,14 +818,52 @@ void Parkour::update(const Update& u)
 		if (get<Walker>()->dir.length_squared() > 0.0f)
 		{
 			// walking/running
+
+			// set animation speed
 			r32 net_speed = vi_max(get<Walker>()->net_speed, WALK_SPEED * 0.5f);
 			layer0->speed = ANIMATION_SPEED_MULTIPLIER * (net_speed > WALK_SPEED ? LMath::lerpf((net_speed - WALK_SPEED) / RUN_SPEED, 0.75f, 1.0f) : (net_speed / WALK_SPEED));
-			AssetID new_anim = net_speed > WALK_SPEED ? Asset::Animation::character_run : Asset::Animation::character_walk;
+
+			// choose animation
+			r32 angle = LMath::angle_range(LMath::angle_to(get<Walker>()->target_rotation, atan2f(get<Walker>()->dir.x, get<Walker>()->dir.y)));
+			s32 dir = s32(roundf(angle / (PI * 0.5f)));
+			if (dir < 0)
+				dir += 4;
+			AssetID new_anim;
+			if (net_speed > WALK_SPEED)
+			{
+				const AssetID animations[] =
+				{
+					Asset::Animation::character_run,
+					Asset::Animation::character_run_left,
+					Asset::Animation::character_run_backward,
+					Asset::Animation::character_run_right,
+				};
+				new_anim = animations[dir];
+			}
+			else
+			{
+				const AssetID animations[] =
+				{
+					Asset::Animation::character_walk,
+					Asset::Animation::character_walk_left,
+					Asset::Animation::character_walk_backward,
+					Asset::Animation::character_walk_right,
+				};
+				new_anim = animations[dir];
+			}
+
 			if (new_anim != layer0->animation)
 			{
 				r32 time = layer0->time;
 				layer0->play(new_anim); // start animation at random position
-				if (layer0->animation == Asset::Animation::character_run || layer0->animation == Asset::Animation::character_walk)
+				if (layer0->animation == Asset::Animation::character_run
+					|| layer0->animation == Asset::Animation::character_run_left
+					|| layer0->animation == Asset::Animation::character_run_right
+					|| layer0->animation == Asset::Animation::character_run_backward
+					|| layer0->animation == Asset::Animation::character_walk
+					|| layer0->animation == Asset::Animation::character_walk_left
+					|| layer0->animation == Asset::Animation::character_walk_right
+					|| layer0->animation == Asset::Animation::character_walk_backward)
 					layer0->time = time; // seamless transition
 			}
 		}
@@ -1064,7 +1159,7 @@ b8 Parkour::try_slide()
 {
 	if (fsm.current == State::Normal)
 	{
-		btCollisionWorld::ClosestRayResultCallback support_callback = get<Walker>()->check_support(get<Walker>()->capsule_height() * 1.5f);
+		btCollisionWorld::ClosestRayResultCallback support_callback = get<Walker>()->check_support(get<Walker>()->capsule_height() * 0.75f);
 		if (support_callback.hasHit() && support_callback.m_collisionObject->getBroadphaseHandle()->m_collisionFilterGroup & CollisionParkour)
 		{
 			Vec3 velocity = get<RigidBody>()->btBody->getLinearVelocity();

@@ -93,6 +93,7 @@ struct ComponentPool : public ComponentPoolBase
 
 	virtual void remove(ID id)
 	{
+		vi_assert(T::list.active(id));
 		T* item = &T::list[id];
 		item->~T();
 		item->revision++;

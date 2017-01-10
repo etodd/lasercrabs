@@ -53,6 +53,7 @@ enum class MessageType
 	Parkour,
 	Interactable,
 	ClientSetup,
+	EntityName,
 	InitDone,
 	LoadingDone,
 	TimeSync,

@@ -397,7 +397,7 @@ void Sudoku::draw(const RenderParams& params, s8 gamepad) const
 			Vec2 pos = params.camera->viewport.size * 0.5f + Vec2(0, cell_spacing.y * 2.5f);
 			Rect2 box = text.rect(pos).outset(MENU_ITEM_PADDING);
 			UI::box(params, box, UI::color_background);
-			UI::border(params, box, 2, UI::color_accent);
+			UI::border(params, box, 4, UI::color_accent);
 
 			r32 progress = (r32(solved_count()) + (timer / SUDOKU_AUTO_SOLVE_TIME)) / 16.0f;
 			UI::box(params, { box.pos, Vec2(box.size.x * progress, box.size.y) }, UI::color_accent);

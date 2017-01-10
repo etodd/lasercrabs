@@ -32,7 +32,7 @@ struct Audio : ComponentType<Audio>
 #endif
 
 	static r32 dialogue_volume;
-	static b8 dialogue_done;
+	static StaticArray<ID, 32> dialogue_callbacks; // poll this and empty it every frame; ID is entity ID
 	static b8 init();
 	static void term();
 	static void update();

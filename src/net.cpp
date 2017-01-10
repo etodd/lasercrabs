@@ -23,6 +23,7 @@
 #include "game/player.h"
 #include "game/parkour.h"
 #include "game/overworld.h"
+#include "game/scripts.h"
 #include "assimp/contrib/zlib/zlib.h"
 #include "console.h"
 #include "asset/armature.h"
@@ -268,7 +269,8 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 		| Interactable::component_mask
 		| Tram::component_mask
 		| TramRunner::component_mask
-		| Collectible::component_mask;
+		| Collectible::component_mask
+		| Water::component_mask;
 
 	if (Stream::IsWriting)
 	{
@@ -737,6 +739,10 @@ template<typename Stream> b8 serialize_init_packet(Stream* p)
 	serialize_int(p, s32, Game::level.tram_tracks.length, 0, Game::level.tram_tracks.capacity());
 	for (s32 i = 0; i < Game::level.tram_tracks.length; i++)
 		serialize_s16(p, Game::level.tram_tracks[i].level);
+	serialize_int(p, u16, Game::level.scripts.length, 0, Game::level.scripts.capacity());
+	for (s32 i = 0; i < Game::level.scripts.length; i++)
+		serialize_int(p, AssetID, Game::level.scripts[i], 0, Script::count);
+	new (&Game::level.finder) EntityFinder();
 	return true;
 }
 
@@ -1022,10 +1028,7 @@ b8 msgs_out_consolidate(MessageBuffer* buffer, MessageHistory* history, Sequence
 	{
 		serialize_int(&frame->write, SequenceID, frame->sequence_id, 0, NET_SEQUENCE_COUNT - 1);
 		for (s32 i = 0; i < msgs; i++)
-		{
 			serialize_bytes(&frame->write, (u8*)((*buffer)[i].data.data), (*buffer)[i].bytes_written());
-			serialize_align(&frame->write);
-		}
 	}
 
 	frame->write.flush();
@@ -1126,6 +1129,9 @@ b8 sequence_history_contains_newer_than(const SequenceHistory& history, Sequence
 b8 msgs_write(StreamWrite* p, const MessageHistory& history, const Ack& remote_ack, SequenceHistory* recently_resent, r32 rtt)
 {
 	using Stream = StreamWrite;
+
+	serialize_align(p);
+
 	s32 bytes = 0;
 
 	if (history.msg_frames.length > 0)
@@ -1159,7 +1165,6 @@ b8 msgs_write(StreamWrite* p, const MessageHistory& history, const Ack& remote_a
 				{
 					vi_debug("Resending seq %d: %d bytes", s32(frame.sequence_id), frame.bytes);
 					bytes += frame.write.bytes_written();
-					serialize_align(p);
 					serialize_bytes(p, (u8*)frame.write.data.data, frame.write.bytes_written());
 					sequence_history_add(recently_resent, frame.sequence_id, state_common.timestamp);
 				}
@@ -1179,13 +1184,11 @@ b8 msgs_write(StreamWrite* p, const MessageHistory& history, const Ack& remote_a
 				if (frame.bytes > 1)
 					vi_debug("Sending seq %d: %d bytes", s32(frame.sequence_id), s32(frame.bytes));
 #endif
-				serialize_align(p);
 				serialize_bytes(p, (u8*)frame.write.data.data, frame.write.bytes_written());
 			}
 		}
 	}
 
-	serialize_align(p);
 	bytes = 0;
 	serialize_int(p, s32, bytes, 0, NET_MAX_MESSAGES_SIZE); // zero sized frame marks end of message frames
 
@@ -1196,10 +1199,11 @@ b8 msgs_read(StreamRead* p, MessageHistory* history, SequenceID* received_sequen
 {
 	using Stream = StreamRead;
 
+	serialize_align(p);
+
 	b8 first_frame = true;
 	while (true)
 	{
-		serialize_align(p);
 		s32 bytes;
 		serialize_int(p, s32, bytes, 0, NET_MAX_MESSAGES_SIZE);
 		if (bytes)
@@ -1215,7 +1219,6 @@ b8 msgs_read(StreamRead* p, MessageHistory* history, SequenceID* received_sequen
 			first_frame = false;
 			frame->read.resize_bytes(bytes);
 			serialize_bytes(p, (u8*)frame->read.data.data, bytes);
-			serialize_align(p);
 		}
 		else
 			break;
@@ -2061,6 +2064,7 @@ struct StateServer
 {
 	Array<Client> clients;
 	Mode mode;
+	r32 time_sync_timer;
 	s32 expected_clients = 1;
 };
 StateServer state_server;
@@ -2103,7 +2107,7 @@ b8 init()
 
 	// todo: allow both multiplayer / story mode sessions
 	Game::session.story_mode = true;
-	Game::load_level(Asset::Level::Moros, Game::Mode::Parkour);
+	Game::load_level(Asset::Level::Port_District, Game::Mode::Parkour);
 
 	return true;
 }
@@ -2135,7 +2139,17 @@ b8 sync_time()
 	using Stream = StreamWrite;
 	StreamWrite* p = msg_new(MessageType::TimeSync);
 	serialize_r32_range(p, Team::match_time, 0, Game::level.time_limit, 16);
+	s32 players = PlayerHuman::list.count();
+	serialize_int(p, s32, players, 0, MAX_PLAYERS);
+	for (auto i = PlayerHuman::list.iterator(); !i.is_last(); i.next())
+	{
+		serialize_int(p, ID, i.index, 0, MAX_PLAYERS - 1);
+		r32 r = rtt(i.item());
+		serialize_r32_range(p, r, 0, 1.024f, 10);
+	}
 	msg_finalize(p);
+
+	state_server.time_sync_timer = 0.0f;
 	return true;
 }
 
@@ -2285,6 +2299,12 @@ void handle_client_disconnect(Client* c)
 void tick(const Update& u, r32 dt)
 {
 	// send out packets
+	if (state_server.mode == Mode::Active)
+	{
+		state_server.time_sync_timer += dt;
+		if (state_server.time_sync_timer > 5.0f)
+			sync_time();
+	}
 
 	StateFrame* frame = nullptr;
 
@@ -2366,6 +2386,8 @@ b8 packet_handle(const Update& u, StreamRead* p, const Sock::Address& address)
 					// serialize out map data
 					{
 						using Stream = StreamWrite;
+
+						// entity data
 						for (auto j = Entity::list.iterator(); !j.is_last(); j.next())
 						{
 							StreamWrite* p = msg_new(&client->msgs_out_load, MessageType::EntityCreate);
@@ -2374,6 +2396,23 @@ b8 packet_handle(const Update& u, StreamRead* p, const Sock::Address& address)
 								vi_assert(false);
 							msg_finalize(p);
 						}
+
+						// entity names
+						for (s32 i = 0; i < Game::level.finder.map.length; i++)
+						{
+							EntityFinder::NameEntry* entry = &Game::level.finder.map[i];
+							if (entry->entity.ref())
+							{
+								StreamWrite* p = msg_new(&client->msgs_out_load, MessageType::EntityName);
+								s32 length = strlen(entry->name);
+								serialize_int(p, s32, length, 0, 255);
+								serialize_bytes(p, (u8*)entry->name, length);
+								serialize_ref(p, entry->entity);
+								msg_finalize(p);
+							}
+						}
+
+						// done
 						msg_finalize(msg_new(&client->msgs_out_load, MessageType::InitDone));
 					}
 				}
@@ -2675,6 +2714,7 @@ struct StateClient
 	r32 timeout;
 	r32 tick_timer;
 	r32 server_rtt = 0.15f;
+	r32 rtts[MAX_PLAYERS];
 	Mode mode;
 	MessageHistory msgs_in_history; // messages we've received from the server
 	MessageHistory msgs_in_load_history; // load messages we've received from the server
@@ -3107,6 +3147,16 @@ b8 msg_process(StreamRead* p)
 			World::net_remove(&Entity::list[id]);
 			break;
 		}
+		case MessageType::EntityName:
+		{
+			s32 length;
+			serialize_int(p, s32, length, 0, 255);
+			EntityFinder::NameEntry* entry = Game::level.finder.map.add();
+			serialize_bytes(p, (u8*)entry->name, length);
+			entry->name[length] = '\0';
+			serialize_ref(p, entry->entity);
+			break;
+		}
 		case MessageType::InitDone:
 		{
 			vi_assert(state_client.mode == Mode::Loading);
@@ -3127,6 +3177,14 @@ b8 msg_process(StreamRead* p)
 		case MessageType::TimeSync:
 		{
 			serialize_r32_range(p, Team::match_time, 0, Game::level.time_limit, 16);
+			s32 player_count;
+			serialize_int(p, s32, player_count, 0, MAX_PLAYERS);
+			for (s32 i = 0; i < player_count; i++)
+			{
+				ID id;
+				serialize_int(p, ID, id, 0, MAX_PLAYERS - 1);
+				serialize_r32_range(p, state_client.rtts[id], 0, 1.024f, 10);
+			}
 			break;
 		}
 		case MessageType::TransitionLevel:
@@ -3339,9 +3397,6 @@ void reset()
 #endif
 
 	new (&state_common) StateCommon();
-#if SERVER
-#else
-#endif
 }
 
 
@@ -3501,13 +3556,13 @@ b8 msg_process(StreamRead* p, MessageSource src)
 			break;
 		}
 	}
+	serialize_align(p);
 	return true;
 }
 
 
-// after the server builds a message to send out, it also processes it locally
-// Noop, EntityCreate, and EntityRemove messages are NOT processed locally, they
-// only apply to the client
+// after a server or client builds a message to send out, it also processes it locally
+// certain special messages are NOT processed locally, they only apply to the remote
 b8 msg_finalize(StreamWrite* p)
 {
 	using Stream = StreamRead;
@@ -3521,9 +3576,13 @@ b8 msg_finalize(StreamWrite* p)
 		&& type != MessageType::ClientSetup
 		&& type != MessageType::EntityCreate
 		&& type != MessageType::EntityRemove
+		&& type != MessageType::EntityName
 		&& type != MessageType::InitDone
 		&& type != MessageType::LoadingDone
 		&& type != MessageType::TimeSync
+#if DEBUG
+		&& type != MessageType::DebugCommand
+#endif
 		&& type != MessageType::TransitionLevel)
 	{
 		r.rewind();
@@ -3559,7 +3618,10 @@ r32 rtt(const PlayerHuman* p)
 	else
 		return 0.0f;
 #else
-	return Client::state_client.server_rtt;
+	if (p->local)
+		return Client::state_client.server_rtt;
+	else
+		return Client::state_client.rtts[p->id()];
 #endif
 }
 

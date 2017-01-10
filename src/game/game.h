@@ -22,9 +22,8 @@ namespace VI
 	{
 		struct NameEntry
 		{
-			const char* name;
 			Ref<Entity> entity;
-			cJSON* properties;
+			char name[256];
 		};
 
 		Array<NameEntry> map;
@@ -126,7 +125,9 @@ namespace VI
 
 		struct Level
 		{
+			EntityFinder finder;
 			StaticArray<TramTrack, 3> tram_tracks;
+			StaticArray<AI::Config, MAX_PLAYERS> ai_config;
 			r32 time_limit;
 			r32 min_y;
 			r32 rotation;
@@ -134,8 +135,8 @@ namespace VI
 			FeatureLevel feature_level;
 			Type type;
 			Mode mode;
-			StaticArray<AI::Config, MAX_PLAYERS> ai_config;
 			Skybox::Config skybox;
+			StaticArray<AssetID, 8> scripts;
 			AssetID id = AssetNull;
 			Ref<Transform> map_view;
 			Ref<Entity> terminal;

@@ -316,7 +316,10 @@ b8 StreamRead::align()
 		bits(value, 8 - remainder_bits);
 		vi_assert(bits_read % 8 == 0);
 		if (value != 0)
+		{
+			vi_debug("Packet alignment: aligning %d bits, expected 0, got 0x%x", 8 - remainder_bits, value);
 			return false;
+		}
 	}
 	return true;
 }

@@ -109,7 +109,7 @@ union Single
 };
 
 #if DEBUG
-#define net_error() do { vi_debug_break(); } while (0)
+#define net_error() do { vi_debug_break(); return false; } while (0)
 #else
 #define net_error() do { return false; } while (0)
 #endif

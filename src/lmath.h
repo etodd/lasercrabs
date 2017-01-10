@@ -1129,6 +1129,7 @@ struct Quat
 	Quat operator- (const Quat& rkQ) const;
 	Quat operator* (const Quat& rkQ) const;
 	Quat operator* (r32 fScalar) const;
+	Quat& operator *= (const Quat&);
 	friend Quat operator* (r32 fScalar, const Quat& rkQ);
 	Quat operator- () const;
 

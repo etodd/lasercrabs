@@ -848,6 +848,8 @@ s32 PlayerManager::visibility_hash(const PlayerManager* awk_a, const PlayerManag
 	return awk_a->id() * MAX_PLAYERS + awk_b->id();
 }
 
+LinkArg<PlayerManager*> PlayerManager::added;
+
 PlayerManager::PlayerManager(Team* team, const char* u)
 	: spawn_timer(PLAYER_SPAWN_DELAY),
 	score_accepted(),
@@ -889,6 +891,7 @@ void PlayerManager::awake()
 		sprintf(log, _(strings::player_joined), username);
 		PlayerHuman::log_add(log, team.ref()->team());
 	}
+	added.fire(this);
 }
 
 PlayerManager::~PlayerManager()

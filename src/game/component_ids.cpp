@@ -54,8 +54,8 @@ COMPONENT_TYPE(31, Water) \
 COMPONENT_TYPE(32, DirectionalLight) \
 COMPONENT_TYPE(33, SkyDecal) \
 COMPONENT_TYPE(34, Team) \
-COMPONENT_TYPE(35, PlayerManager) \
-COMPONENT_TYPE(36, PlayerHuman) \
+COMPONENT_TYPE(35, PlayerHuman) \
+COMPONENT_TYPE(36, PlayerManager) \
 COMPONENT_TYPE(37, Parkour) \
 COMPONENT_TYPE(38, Interactable) \
 COMPONENT_TYPE(39, TramRunner) \

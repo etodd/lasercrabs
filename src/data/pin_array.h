@@ -86,16 +86,16 @@ template<u16 size> struct Bitmask
 	}
 };
 
-template<typename T, s32 size>
+template<typename T, u16 size>
 struct PinArray
 {
 	StaticArray<T, size> data;
 	Bitmask<size> mask;
-	StaticArray<s32, size> free_list;
+	StaticArray<ID, size> free_list;
 
 	struct Iterator
 	{
-		s32 index;
+		ID index;
 		PinArray<T, size>* array;
 
 		inline void next()
@@ -121,7 +121,7 @@ struct PinArray
 		data.length = size;
 		free_list.length = size;
 		for (s32 i = 0; i < size; i++)
-			free_list[i] = (size - 1) - i;
+			free_list[i] = ID((size - 1) - i);
 	}
 
 	inline b8 active(s32 i) const
@@ -177,11 +177,11 @@ struct PinArray
 		return &data[index];
 	}
 
-	s32 add(const T& t)
+	ID add(const T& t)
 	{
 		T* i = add();
 		*i = t;
-		return ((char*)i - (char*)&data[0]) / sizeof(T);
+		return ID(((char*)i - (char*)&data[0]) / sizeof(T));
 	}
 
 	void remove(s32 i)

@@ -407,9 +407,21 @@ Capture the hanging battery.
 	"draw": "Battery Expired",
 	"timer": "%d:%02d",
 
+	"alarm": "Alarm",
+
 	"sailor_come_here": "[Dada] Hey! Over here.",
 	"sailor_speech_1": "[Dada] Now look, once you're ashore, you need to crack the tram system.",
 	"sailor_speech_2": "[Dada] I had someone leave a crack kit for you in the cargo. Go!",
+
+	"hobo1": "[Hobo] No escape. No escape. No escape.",
+	"hobo2": "[Hobo] Inevitable. Inevitable. I was there. I saw it coming.",
+	"hobo3": "[Hobo] Too late. Don't give up. It's too late!",
+	"hobo4": "[Hobo] Not enough. Never enough. Please, it's all I have!",
+	"hobo5": "[Hobo] And it goes up. Just keeps going up. Faster and faster. It's all I have, there's no more.",
+
+	"ivory_ad1": "[Ad] Ivory Corporation: proudly celebrating 50 years of interplanetary service.",
+	"ivory_ad2": "[Ad] Our colonies on Caligula provide the most advanced, cost-effective safety solution in today's difficult climate.",
+	"ivory_ad3": "[Ad] Due to limited supply, prices have recently been raised 10%%. Hurry in today and reserve your launch vehicle while this incredible deal lasts.",
 
 	"yes": "Yes",
 	"no": "No",

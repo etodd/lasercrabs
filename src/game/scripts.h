@@ -9,9 +9,10 @@ typedef void(*ScriptFunction)(const EntityFinder&);
 
 struct Script
 {
-	static Script all[];
+	static Script list[];
+	static s32 count;
 
-	static Script* find(const char*);
+	static AssetID find(const char*);
 
 	const char* name;
 	ScriptFunction function;

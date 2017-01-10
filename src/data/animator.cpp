@@ -64,7 +64,7 @@ void Animator::Layer::play(AssetID a)
 	if (animation != a)
 	{
 		animation = a;
-		if (behavior == Behavior::Loop)
+		if (behavior == Behavior::Loop && a != AssetNull)
 			time = mersenne::randf_co() * Loader::animation(a)->duration;
 		else
 			time = 0.0f;

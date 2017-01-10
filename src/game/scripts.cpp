@@ -32,7 +32,9 @@ namespace Actor
 
 // animated, voiced, scripted character
 
-typedef void (*Callback)();
+struct Instance;
+
+typedef void (*Callback)(Instance*);
 
 struct Cue
 {
@@ -44,17 +46,55 @@ struct Cue
 	b8 loop;
 };
 
-struct Data
+struct Instance
 {
-	StaticArray<Cue, 16> cues;
+	StaticArray<Cue, 32> cues;
 	r32 last_cue_real_time;
+	Ref<Entity> model;
+	Ref<Transform> collision;
 	AssetID text = AssetNull;
 	AssetID head_bone;
-	Ref<Animator> model;
 	b8 highlight;
 	b8 sound_done;
-	AssetID text_tut = AssetNull;
+
+	void cue(AkUniqueID sound, AssetID animation, AssetID text = AssetNull, b8 loop = true, r32 delay = 0.3f)
+	{
+		Cue* c = cues.add();
+		new (c) Cue();
+		c->sound = sound;
+		c->animation = animation;
+		c->delay = delay;
+		c->loop = loop;
+		c->text = text;
+	}
+
+	void cue(Callback callback, r32 delay = 0.3f)
+	{
+		Cue* c = cues.add();
+		new (c) Cue();
+		c->callback = callback;
+		c->delay = delay;
+	}
+
+	Vec3 collision_offset() const
+	{
+		if (model.ref()->has<Animator>())
+		{
+			Vec3 pos(0.0f);
+			model.ref()->get<Animator>()->to_local(head_bone, &pos);
+			pos.y -= 1.5f;
+			return pos;
+		}
+		else
+			return Vec3::zero;
+	}
+};
+
+struct Data
+{
+	StaticArray<Instance, 8> instances;
 	r32 text_tut_real_time;
+	AssetID text_tut = AssetNull;
 };
 
 static Data* data;
@@ -65,7 +105,7 @@ void cleanup()
 	data = nullptr;
 
 	Audio::post_global_event(AK::EVENTS::STOP_DIALOGUE);
-	Audio::dialogue_done = false;
+	Audio::dialogue_callbacks.length = 0;
 }
 
 void tut_clear()
@@ -80,53 +120,92 @@ void tut(AssetID text, r32 delay = 1.0f)
 	data->text_tut_real_time = Game::real_time.total + delay;
 }
 
+void done(Instance* i)
+{
+	i->highlight = false;
+}
+
+void remove(Instance*);
+
 void update(const Update& u)
 {
 	if (!data)
 		return;
 
-	if (Audio::dialogue_done)
+	for (s32 i = 0; i < data->instances.length; i++)
 	{
-		data->sound_done = true;
-		data->text = AssetNull;
-		Audio::dialogue_done = false;
-	}
+		Instance* instance = &data->instances[i];
 
-	if (data->model.ref())
-	{
-		Animator::Layer* layer = &data->model.ref()->layers[0];
-		if ((layer->time == Loader::animation(layer->animation)->duration || layer->behavior == Animator::Behavior::Loop)
-			&& data->sound_done
-			&& data->cues.length > 0)
+		if (instance->model.ref())
 		{
-			Cue* cue = &data->cues[0];
-			if (cue->delay > 0.0f)
-				cue->delay -= u.time.delta;
-			else
+			if (!instance->sound_done)
 			{
-				if (cue->callback)
-					cue->callback();
-				else
+				for (s32 j = 0; j < Audio::dialogue_callbacks.length; j++)
 				{
-					data->last_cue_real_time = Game::real_time.total;
-					data->text = cue->text;
-					layer->behavior = cue->loop ? Animator::Behavior::Loop : Animator::Behavior::Freeze;
-					layer->play(cue->animation);
-
-					if (cue->sound == AK_InvalidID)
-						data->sound_done = true;
-					else
+					ID callback_entity_id = Audio::dialogue_callbacks[j];
+					if (instance->model.id == callback_entity_id)
 					{
-						data->model.ref()->get<Audio>()->post_dialogue_event(cue->sound);
-						data->sound_done = false;
+						instance->sound_done = true;
+						instance->text = AssetNull;
 					}
 				}
-
-				if (data) // callback might have called cleanup()
-					data->cues.remove_ordered(0);
 			}
+
+			Animator::Layer* layer;
+			if (instance->model.ref()->has<Animator>())
+				layer = &instance->model.ref()->get<Animator>()->layers[0];
+			else
+				layer = nullptr;
+
+			if ((!layer || layer->animation == AssetNull || layer->behavior == Animator::Behavior::Loop || layer->time == Loader::animation(layer->animation)->duration)
+				&& instance->sound_done
+				&& instance->cues.length > 0)
+			{
+				Cue* cue = &instance->cues[0];
+				if (cue->delay > 0.0f)
+					cue->delay -= u.time.delta;
+				else
+				{
+					if (cue->callback)
+						cue->callback(instance);
+					else
+					{
+						instance->last_cue_real_time = Game::real_time.total;
+						instance->text = cue->text;
+						if (layer)
+						{
+							layer->behavior = cue->loop ? Animator::Behavior::Loop : Animator::Behavior::Freeze;
+							layer->play(cue->animation);
+						}
+						else
+							vi_assert(cue->animation == AssetNull);
+
+						if (cue->sound == AK_InvalidID)
+							instance->sound_done = true;
+						else
+						{
+							instance->model.ref()->get<Audio>()->post_dialogue_event(cue->sound);
+							instance->sound_done = false;
+						}
+					}
+
+					if (data) // callback might have called cleanup()
+						instance->cues.remove_ordered(0);
+				}
+			}
+
+			if (layer)
+				instance->collision.ref()->pos = instance->collision_offset();
+		}
+		else
+		{
+			// model has been removed
+			remove(instance);
+			i--;
 		}
 	}
+
+	Audio::dialogue_callbacks.length = 0;
 }
 
 void draw(const RenderParams& params)
@@ -134,32 +213,48 @@ void draw(const RenderParams& params)
 	if (!data)
 		return;
 
-	if (data->highlight && !Overworld::active())
+	if (!Overworld::active())
 	{
-		// direct the player toward the actor only if they're looking the wrong way
-		Vec3 head_pos = Vec3::zero;
-		data->model.ref()->to_world(data->head_bone, &head_pos);
-		Vec2 p;
-		Vec2 offset;
-		if (!UI::is_onscreen(params, head_pos, &p, &offset))
-			UI::triangle(params, { p, Vec2(24 * UI::scale) }, UI::color_default, atan2f(offset.y, offset.x) + PI * -0.5f);
-
-		if (data->text != AssetNull)
+		for (s32 i = 0; i < data->instances.length; i++)
 		{
-			UIText text;
-			text.font = Asset::Font::pt_sans;
-			text.size = 18.0f;
-			text.wrap_width = MENU_ITEM_WIDTH;
-			text.anchor_x = UIText::Anchor::Center;
-			text.anchor_y = UIText::Anchor::Min;
-			text.color = UI::color_default;
-			text.text(_(data->text));
-			UIMenu::text_clip(&text, data->last_cue_real_time, 80.0f);
+			const Instance& instance = data->instances[i];
 
+			if (!instance.model.ref())
+				continue;
+
+			Vec3 actor_pos = Vec3::zero;
+			if (instance.head_bone == AssetNull)
+				actor_pos = instance.model.ref()->get<Transform>()->absolute_pos();
+			else
+				instance.model.ref()->get<Animator>()->to_world(instance.head_bone, &actor_pos);
+
+			if (instance.highlight)
 			{
-				Vec2 p = params.camera->viewport.size * Vec2(0.5f, 0.2f);
-				UI::box(params, text.rect(p).outset(MENU_ITEM_PADDING), UI::color_background);
-				text.draw(params, p);
+				// direct the player toward the actor only if they're looking the wrong way
+				Vec2 p;
+				Vec2 offset;
+				if (!UI::is_onscreen(params, actor_pos, &p, &offset))
+					UI::triangle(params, { p, Vec2(24 * UI::scale) }, UI::color_default, atan2f(offset.y, offset.x) + PI * -0.5f);
+			}
+
+			if (instance.text != AssetNull
+				&& (instance.highlight || (actor_pos - params.camera->pos).length_squared() < 8.0f * 8.0f))
+			{
+				UIText text;
+				text.font = Asset::Font::pt_sans;
+				text.size = 18.0f;
+				text.wrap_width = MENU_ITEM_WIDTH;
+				text.anchor_x = UIText::Anchor::Center;
+				text.anchor_y = UIText::Anchor::Min;
+				text.color = UI::color_default;
+				text.text(_(instance.text));
+				UIMenu::text_clip(&text, instance.last_cue_real_time, 80.0f);
+
+				{
+					Vec2 p = params.camera->viewport.size * Vec2(0.5f, 0.2f);
+					UI::box(params, text.rect(p).outset(MENU_ITEM_PADDING), UI::color_background);
+					text.draw(params, p);
+				}
 			}
 		}
 	}
@@ -182,83 +277,92 @@ void draw(const RenderParams& params)
 	}
 }
 
-void init(Entity* model = nullptr, AssetID head_bone = AssetNull)
+void init()
 {
-	Audio::dialogue_done = false;
-
-	vi_assert(!data);
-	data = new Data();
-	if (model)
+	if (!data)
 	{
-		model->add<Audio>();
-		data->model = model->get<Animator>();
-	}
-	data->head_bone = head_bone;
-	data->sound_done = true;
-
-	b8 already_registered = false;
-	for (s32 i = 0; i < Game::cleanups.length; i++)
-	{
-		if (Game::cleanups[i] == cleanup)
-		{
-			already_registered = true;
-			break;
-		}
-	}
-
-	if (!already_registered)
-	{
+		Audio::dialogue_callbacks.length = 0;
+		data = new Data();
 		Game::cleanups.add(cleanup);
 		Game::updates.add(update);
 		Game::draws.add(draw);
 	}
 }
 
-void cue(AkUniqueID sound, AssetID animation, AssetID text = AssetNull, b8 loop = true, r32 delay = 0.3f)
+Instance* add(Entity* model, AssetID head_bone = AssetNull)
 {
-	Cue* c = data->cues.add();
-	new (c) Cue();
-	c->sound = sound;
-	c->animation = animation;
-	c->delay = delay;
-	c->loop = loop;
-	c->text = text;
+	init();
+
+	Instance* i = data->instances.add();
+	new (i) Instance();
+
+	i->model = model;
+	i->head_bone = head_bone;
+	i->sound_done = true;
+
+	if (Game::level.local)
+	{
+		if (!model->has<Audio>())
+			model->add<Audio>();
+
+		// animated actors have collision volumes that are synced up with their bodies
+		if (model->has<Animator>())
+		{
+			Entity* collision = World::create<StaticGeom>(Asset::Mesh::actor_collision, model->get<Transform>()->absolute_pos() + i->collision_offset(), Quat::identity, CollisionInaccessible, ~CollisionParkour & ~CollisionInaccessible & ~CollisionElectric);
+			collision->get<Transform>()->reparent(model->get<Transform>());
+			collision->get<View>()->mask = 0;
+			i->collision = collision->get<Transform>();
+			Net::finalize(collision);
+		}
+	}
+	else
+	{
+		// we're a client
+		// find the collision body assigned by the server, if any
+		if (model->has<Animator>())
+		{
+			for (auto j = Transform::list.iterator(); !j.is_last(); j.next())
+			{
+				if (j.item()->parent.ref() == model->get<Transform>())
+				{
+					i->collision = j.item();
+					break;
+				}
+			}
+		}
+	}
+
+	return i;
 }
 
-void cue(Callback callback, r32 delay = 0.3f)
+void remove(Instance* i)
 {
-	Cue* c = data->cues.add();
-	new (c) Cue();
-	c->callback = callback;
-	c->delay = delay;
-}
-
-void highlight(b8 a)
-{
-	data->highlight = a;
-}
-
-void done()
-{
-	highlight(false);
+	if (Game::level.local)
+	{
+		if (i->model.ref())
+			World::remove(i->model.ref());
+		if (i->collision.ref())
+			World::remove(i->collision.ref()->entity());
+	}
+	data->instances.remove(i - &data->instances[0]);
 }
 
 }
 
-Script* Script::find(const char* name)
+AssetID Script::find(const char* name)
 {
-	s32 i = 0;
+	AssetID i = 0;
 	while (true)
 	{
-		if (!Script::all[i].name)
+		if (!Script::list[i].name)
 			break;
 
-		if (utf8cmp(Script::all[i].name, name) == 0)
-			return &Script::all[i];
+		if (utf8cmp(Script::list[i].name, name) == 0)
+			return i;
 
 		i++;
 	}
-	return nullptr;
+	return AssetNull;
 }
 
 namespace Scripts
@@ -328,6 +432,7 @@ namespace title
 	struct Data
 	{
 		Camera* camera;
+		Actor::Instance* sailor;
 		Vec3 camera_start_pos;
 		r32 transition_timer;
 		Ref<Animator> character;
@@ -381,11 +486,11 @@ namespace title
 		if (data->state == TutorialState::Start)
 		{
 			data->state = TutorialState::SailorSpotted;
-			Actor::cue(AK::EVENTS::PLAY_SAILOR_COME_HERE, Asset::Animation::sailor_wait, strings::sailor_come_here);
+			data->sailor->cue(AK::EVENTS::PLAY_SAILOR_COME_HERE, Asset::Animation::sailor_wait, strings::sailor_come_here);
 		}
 	}
 
-	void sailor_done()
+	void sailor_done(Actor::Instance*)
 	{
 		if (data->state == TutorialState::SailorTalking)
 		{
@@ -399,11 +504,11 @@ namespace title
 		if (data->state == TutorialState::SailorSpotted)
 		{
 			data->state = TutorialState::SailorTalking;
-			Actor::cue(AK::EVENTS::PLAY_SAILOR_SPEECH_1, Asset::Animation::sailor_talk, strings::sailor_speech_1);
-			Actor::cue(AK::EVENTS::PLAY_SAILOR_SPEECH_2, Asset::Animation::sailor_talk, strings::sailor_speech_2);
-			Actor::cue(AK_InvalidID, Asset::Animation::sailor_close_door, AssetNull, false);
-			Actor::cue(&sailor_done);
-			Actor::cue(&Actor::done, 0.0f);
+			data->sailor->cue(AK::EVENTS::PLAY_SAILOR_SPEECH_1, Asset::Animation::sailor_talk, strings::sailor_speech_1);
+			data->sailor->cue(AK::EVENTS::PLAY_SAILOR_SPEECH_2, Asset::Animation::sailor_talk, strings::sailor_speech_2);
+			data->sailor->cue(AK_InvalidID, Asset::Animation::sailor_close_door, AssetNull, false);
+			data->sailor->cue(&sailor_done);
+			data->sailor->cue(&Actor::done, 0.0f);
 		}
 	}
 
@@ -546,9 +651,9 @@ namespace title
 			Game::updates.add(update);
 			Game::draws.add(draw);
 
-			Actor::init(entities.find("sailor"), Asset::Bone::sailor_head);
+			data->sailor = Actor::add(entities.find("sailor"), Asset::Bone::sailor_head);
 			if (Game::level.mode != Game::Mode::Special)
-				Actor::highlight(true);
+				data->sailor->highlight = true;
 		}
 		else
 		{
@@ -563,7 +668,7 @@ namespace title
 		Game::save.reset();
 		Game::session.reset();
 		data->transition_timer = total_transition;
-		Actor::highlight(true);
+		data->sailor->highlight = true;
 	}
 }
 
@@ -576,8 +681,10 @@ namespace tutorial
 
 	struct Data
 	{
+		Actor::Instance* ivory_ad_actor;
 		TutorialState state;
 		Ref<Transform> sparks;
+		Ref<Transform> ivory_ad_text;
 		Ref<Entity> hobo;
 	};
 
@@ -622,13 +729,32 @@ namespace tutorial
 		}
 	}
 
+	void player_added(PlayerManager* p)
+	{
+		if (p->has<PlayerHuman>())
+			p->spawn.link(&player_spawned);
+	}
+
+	void hobo_done(Actor::Instance* hobo)
+	{
+		hobo->cue(AK::EVENTS::PLAY_HOBO1, Asset::Animation::hobo_idle, strings::hobo1);
+		hobo->cue(AK::EVENTS::PLAY_HOBO2, Asset::Animation::hobo_idle, strings::hobo2);
+		hobo->cue(AK::EVENTS::PLAY_HOBO3, Asset::Animation::hobo_idle, strings::hobo3);
+		hobo->cue(AK::EVENTS::PLAY_HOBO4, Asset::Animation::hobo_idle, strings::hobo4);
+		hobo->cue(AK::EVENTS::PLAY_HOBO5, Asset::Animation::hobo_idle, strings::hobo5);
+		hobo->cue(&hobo_done);
+	}
+
 	void update(const Update& u)
 	{
 		// sparks on broken door
 		if (mersenne::randf_co() < u.time.delta / 0.5f)
 			spawn_sparks(data->sparks.ref()->to_world(Vec3(-1.5f + mersenne::randf_co() * 3.0f, 0, 0)), Quat::look(Vec3(0, -1, 0)));
 
-		if (Game::level.mode == Game::Mode::Pvp && data->hobo.ref())
+		// ivory ad text
+		data->ivory_ad_text.ref()->rot *= Quat::euler(0, u.time.delta * 0.2f, 0);
+
+		if (Game::level.local && Game::level.mode == Game::Mode::Pvp && data->hobo.ref())
 		{
 			World::remove(data->hobo.ref());
 			data->hobo = nullptr;
@@ -679,6 +805,16 @@ namespace tutorial
 		}
 	}
 
+	void ivory_ad_play(Entity*)
+	{
+		if (data->ivory_ad_actor->cues.length == 0)
+		{
+			data->ivory_ad_actor->cue(AK::EVENTS::PLAY_IVORY_AD1, AssetNull, strings::ivory_ad1);
+			data->ivory_ad_actor->cue(AK::EVENTS::PLAY_IVORY_AD2, AssetNull, strings::ivory_ad2);
+			data->ivory_ad_actor->cue(AK::EVENTS::PLAY_IVORY_AD3, AssetNull, strings::ivory_ad3);
+		}
+	}
+
 	void init(const EntityFinder& entities)
 	{
 		Actor::init();
@@ -686,21 +822,23 @@ namespace tutorial
 		data = new Data();
 
 		entities.find("health")->get<Target>()->target_hit.link(&health_got);
-		PlayerManager* player_manager = PlayerHuman::list.iterator().item()->get<PlayerManager>();
-		player_manager->spawn.link(&player_spawned);
 
 		entities.find("slide_trigger")->get<PlayerTrigger>()->entered.link(&slide_trigger);
 		entities.find("slide_success")->get<PlayerTrigger>()->entered.link(&slide_success);
+		entities.find("ivory_ad_trigger")->get<PlayerTrigger>()->entered.link(&ivory_ad_play);
 		data->sparks = entities.find("sparks")->get<Transform>();
+		data->ivory_ad_text = entities.find("ivory_ad_text")->get<Transform>();
 		data->hobo = entities.find("hobo");
+
+		Actor::Instance* hobo = Actor::add(data->hobo.ref(), Asset::Bone::hobo_head);
+		hobo_done(hobo);
+
+		data->ivory_ad_actor = Actor::add(entities.find("ivory_ad"));
 
 		if (Game::level.mode == Game::Mode::Pvp)
 			data->state = TutorialState::Start;
 		else
-		{
 			data->state = TutorialState::ParkourStart;
-			data->hobo.ref()->add<RigidBody>(RigidBody::Type::Mesh, Vec3::zero, 0.0f, CollisionStatic | CollisionInaccessible, ~CollisionStatic & ~CollisionParkour & ~CollisionInaccessible & ~CollisionElectric, Asset::Mesh::actor_collision);
-		}
 
 		Game::level.feature_level = Game::FeatureLevel::EnergyPickups;
 
@@ -712,12 +850,13 @@ namespace tutorial
 
 }
 
-Script Script::all[] =
+Script Script::list[] =
 {
 	{ "scene", Scripts::scene::init },
 	{ "tutorial", Scripts::tutorial::init },
 	{ "title", Scripts::title::init },
 	{ 0, 0, },
 };
+s32 Script::count; // set in Game::init
 
 }

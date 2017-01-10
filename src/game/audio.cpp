@@ -57,8 +57,8 @@ namespace AK
 namespace VI
 {
 
-b8 Audio::dialogue_done = true;
-r32 Audio::dialogue_volume = 0.0f;
+StaticArray<ID, 32> Audio::dialogue_callbacks;
+r32 Audio::dialogue_volume;
 
 #if SERVER
 b8 Audio::init() { return true; }
@@ -171,7 +171,12 @@ void Audio::dialogue_volume_callback(AK::IAkMetering* metering, AkChannelConfig 
 
 void Audio::dialogue_done_callback(AkCallbackType type, AkCallbackInfo* info)
 {
-	dialogue_done = true;
+	// anyone paying attention to these should be polling them every frame;
+	// if they're not, we don't care which ones get dropped
+	if (dialogue_callbacks.length == dialogue_callbacks.capacity())
+		dialogue_callbacks.length--;
+
+	dialogue_callbacks.add(ID(info->gameObjID));
 }
 
 void Audio::term()

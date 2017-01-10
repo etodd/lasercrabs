@@ -40,7 +40,6 @@
 #include "render/particles.h"
 #include "ai_player.h"
 #include "usernames.h"
-#include "utf8/utf8.h"
 #include "net.h"
 #include "parkour.h"
 #include "overworld.h"
@@ -172,6 +171,15 @@ Array<CleanupFunction> Game::cleanups;
 
 b8 Game::init(LoopSync* sync)
 {
+	// count scripts
+	while (true)
+	{
+		if (Script::list[Script::count].name)
+			Script::count++;
+		else
+			break;
+	}
+
 	World::init();
 
 	{
@@ -460,11 +468,8 @@ void Game::update(const Update& update_in)
 		for (auto i = PlayerControlHuman::list.iterator(); !i.is_last(); i.next())
 			i.item()->update(u);
 
-		if (level.local)
-		{
-			for (s32 i = 0; i < updates.length; i++)
-				(*updates[i])(u);
-		}
+		for (s32 i = 0; i < updates.length; i++)
+			(*updates[i])(u);
 	}
 
 	Console::update(u);
@@ -858,7 +863,7 @@ void Game::execute(const char* cmd)
 		return;
 	}
 #endif
-	else if (utf8cmp(cmd, "killai") == 0)
+	else if (strcmp(cmd, "killai") == 0)
 	{
 		for (auto i = PlayerControlAI::list.iterator(); !i.is_last(); i.next())
 		{
@@ -870,7 +875,7 @@ void Game::execute(const char* cmd)
 		game_end_cheat(true);
 	else if (strcmp(cmd, "lose") == 0)
 		game_end_cheat(false);
-	else if (utf8cmp(cmd, "die") == 0)
+	else if (strcmp(cmd, "die") == 0)
 	{
 		for (auto i = PlayerControlHuman::list.iterator(); !i.is_last(); i.next())
 		{
@@ -878,7 +883,7 @@ void Game::execute(const char* cmd)
 			health->damage(nullptr, health->hp_max + health->shield_max);
 		}
 	}
-	else if (utf8cmp(cmd, "noclip") == 0)
+	else if (strcmp(cmd, "noclip") == 0)
 	{
 		level.continue_match_after_death = !level.continue_match_after_death;
 		if (level.continue_match_after_death)
@@ -1037,6 +1042,8 @@ void Game::unload_level()
 	for (s32 i = 0; i < MAX_GAMEPADS; i++)
 		Audio::listener_disable(i);
 
+	level.~Level();
+
 	level.local = true;
 
 	World::clear(); // deletes all entities
@@ -1082,7 +1089,7 @@ Entity* EntityFinder::find(const char* name) const
 {
 	for (s32 j = 0; j < map.length; j++)
 	{
-		if (utf8cmp(map[j].name, name) == 0)
+		if (strcmp(map[j].name, name) == 0)
 			return map[j].entity.ref();
 	}
 	return nullptr;
@@ -1141,12 +1148,8 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 
 	Array<RopeEntry> ropes;
 
-	Array<Script*> scripts;
-
 	Array<LevelLink<Entity>> links;
 	Array<LevelLink<Transform>> transform_links;
-
-	EntityFinder finder;
 
 	cJSON* json = Loader::level(l, true);
 
@@ -1576,9 +1579,9 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 		else if (cJSON_HasObjectItem(element, "Script"))
 		{
 			const char* name = Json::get_string(element, "Script");
-			Script* script = Script::find(name);
-			vi_assert(script);
-			scripts.add(script);
+			AssetID script = Script::find(name);
+			vi_assert(script != AssetNull);
+			level.scripts.add(script);
 		}
 		else if (cJSON_HasObjectItem(element, "Water"))
 		{
@@ -1843,10 +1846,9 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 
 		if (entity)
 		{
-			EntityFinder::NameEntry* entry = finder.map.add();
-			entry->name = Json::get_string(element, "name");
+			EntityFinder::NameEntry* entry = level.finder.map.add();
+			strncpy(entry->name, Json::get_string(element, "name"), 255);
 			entry->entity = entity;
-			entry->properties = element;
 
 			Net::finalize(entity);
 		}
@@ -1876,24 +1878,24 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 	for (s32 i = 0; i < links.length; i++)
 	{
 		LevelLink<Entity>* link = &links[i];
-		*link->ref = finder.find(link->target_name);
+		*link->ref = level.finder.find(link->target_name);
 	}
 
 	for (s32 i = 0; i < transform_links.length; i++)
 	{
 		LevelLink<Transform>& link = transform_links[i];
-		*link.ref = finder.find(link.target_name)->get<Transform>();
+		*link.ref = level.finder.find(link.target_name)->get<Transform>();
 	}
 
 	// Set map view for local players
 	{
-		Entity* map_view = finder.find("map_view");
+		Entity* map_view = level.finder.find("map_view");
 		if (map_view && map_view->has<Transform>())
 			level.map_view = map_view->get<Transform>();
 	}
 
-	for (s32 i = 0; i < finder.map.length; i++)
-		World::awake(finder.map[i].entity.ref());
+	for (s32 i = 0; i < level.finder.map.length; i++)
+		World::awake(level.finder.map[i].entity.ref());
 
 	Physics::sync_static();
 
@@ -1909,9 +1911,6 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 	for (auto i = Team::list.iterator(); !i.is_last(); i.next())
 		Net::finalize(i.item()->entity());
 
-	for (s32 i = 0; i < scripts.length; i++)
-		scripts[i]->function(finder);
-
 	Loader::level_free(json);
 
 #if SERVER
@@ -1921,6 +1920,9 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 
 void Game::awake_all()
 {
+	for (s32 i = 0; i < level.scripts.length; i++)
+		Script::list[level.scripts[i]].function(level.finder);
+
 	Team::awake_all();
 }
 

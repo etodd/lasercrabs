@@ -1112,6 +1112,23 @@ void PlayerHuman::draw_ui(const RenderParams& params) const
 				if (!get<PlayerManager>()->can_spawn)
 				{
 					// player can't spawn yet; needs to solve sudoku
+					if (UI::flash_function_slow(Game::real_time.total))
+					{
+						// alarm!
+
+						UIText text;
+						text.size = text_size * 1.5f;
+						text.anchor_x = UIText::Anchor::Center;
+						text.anchor_y = UIText::Anchor::Min;
+						text.color = UI::color_alert;
+						text.text(_(strings::alarm));
+
+						Vec2 pos = vp.size * Vec2(0.5f, 0.8f);
+						Rect2 rect = text.rect(pos).outset(MENU_ITEM_PADDING * 2.0f);
+						UI::box(params, rect, UI::color_background);
+						text.draw(params, pos);
+						UI::border(params, rect, 4.0f, UI::color_alert);
+					}
 					sudoku.draw(params, gamepad);
 				}
 				else

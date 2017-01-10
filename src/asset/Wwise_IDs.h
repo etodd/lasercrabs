@@ -25,8 +25,16 @@ namespace AK
         static const AkUniqueID PLAY_FLY = 2941622701U;
         static const AkUniqueID PLAY_FOOTSTEP = 1602358412U;
         static const AkUniqueID PLAY_HEADSHOT = 2628165376U;
+        static const AkUniqueID PLAY_HOBO1 = 1792555033U;
+        static const AkUniqueID PLAY_HOBO2 = 1792555034U;
+        static const AkUniqueID PLAY_HOBO3 = 1792555035U;
+        static const AkUniqueID PLAY_HOBO4 = 1792555036U;
+        static const AkUniqueID PLAY_HOBO5 = 1792555037U;
         static const AkUniqueID PLAY_HURT = 2955259529U;
         static const AkUniqueID PLAY_HURT_PLAYER = 3836213995U;
+        static const AkUniqueID PLAY_IVORY_AD1 = 3957159968U;
+        static const AkUniqueID PLAY_IVORY_AD2 = 3957159971U;
+        static const AkUniqueID PLAY_IVORY_AD3 = 3957159970U;
         static const AkUniqueID PLAY_JUMP = 3689126666U;
         static const AkUniqueID PLAY_JUMP_PLAYER = 270644822U;
         static const AkUniqueID PLAY_LAND = 4285282925U;

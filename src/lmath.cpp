@@ -1330,6 +1330,21 @@ Quat Quat::operator* (const Quat& rkQ) const
 	);
 }
 
+Quat& Quat::operator*= (const Quat& rkQ)
+{
+	r32 _x = x;
+	r32 _y = y;
+	r32 _z = z;
+	r32 _w = w;
+
+	w = _w * rkQ.w - _x * rkQ.x - _y * rkQ.y - _z * rkQ.z;
+	x = _w * rkQ.x + _x * rkQ.w + _y * rkQ.z - _z * rkQ.y;
+	y = _w * rkQ.y + _y * rkQ.w + _z * rkQ.x - _x * rkQ.z;
+	z = _w * rkQ.z + _z * rkQ.w + _x * rkQ.y - _y * rkQ.x;
+
+	return *this;
+}
+
 Quat Quat::operator* (r32 fScalar) const
 {
 	return Quat(fScalar*w,fScalar*x,fScalar*y,fScalar*z);

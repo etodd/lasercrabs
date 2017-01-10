@@ -30,8 +30,7 @@ namespace Asset
 		const AssetID awk_c1 = 3;
 		const AssetID awk_c2 = 4;
 		const AssetID awk_root = 0;
-		const AssetID character_attach_point = 0;
-		const AssetID character_camera = 1;
+		const AssetID character_camera = 0;
 		const AssetID character_claw1_L = 9;
 		const AssetID character_claw1_R = 15;
 		const AssetID character_claw2_L = 11;
@@ -46,6 +45,7 @@ namespace Asset
 		const AssetID character_hand_R = 14;
 		const AssetID character_head = 5;
 		const AssetID character_hips = 2;
+		const AssetID character_master = 1;
 		const AssetID character_neck = 4;
 		const AssetID character_shin_L = 19;
 		const AssetID character_shin_R = 22;

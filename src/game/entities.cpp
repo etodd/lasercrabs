@@ -1120,7 +1120,7 @@ RocketEntity::RocketEntity(PlayerManager* owner, Transform* parent, const Vec3& 
 	model->team = s8(team);
 	model->shader = Asset::Shader::standard;
 
-	create<RigidBody>(RigidBody::Type::CapsuleZ, Vec3(0.1f, 0.3f, 0.3f), 0.0f, CollisionAwkIgnore, btBroadphaseProxy::AllFilter);
+	create<RigidBody>(RigidBody::Type::CapsuleZ, Vec3(0.1f, 0.3f, 0.3f), 0.0f, CollisionAwkIgnore, CollisionDefault);
 }
 
 DecoyEntity::DecoyEntity(PlayerManager* owner, Transform* parent, const Vec3& pos, const Quat& rot)

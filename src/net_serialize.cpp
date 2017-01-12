@@ -1,4 +1,5 @@
 #include "net_serialize.h"
+#include <cstdio>
 
 namespace VI
 {

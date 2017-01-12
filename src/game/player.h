@@ -19,6 +19,7 @@ struct Interactable;
 struct TargetEvent;
 struct HealthEvent;
 struct Target;
+struct AwkReflectEvent;
 
 namespace Net
 {
@@ -95,7 +96,7 @@ struct PlayerCommon : public ComponentType<PlayerCommon>
 	void update(const Update&);
 	void awk_detached();
 	void awk_done_flying();
-	void awk_reflecting(const Vec3&);
+	void awk_reflecting(const AwkReflectEvent&);
 	void clamp_rotation(const Vec3&, r32 = 0.0f);
 	b8 movement_enabled() const;
 };
@@ -183,13 +184,14 @@ struct PlayerControlHuman : public ComponentType<PlayerControlHuman>
 
 	void awk_detached();
 	void awk_done_flying_or_dashing();
-	void awk_reflecting(const Vec3&);
+	void awk_reflecting(const AwkReflectEvent&);
 	void parkour_landed(r32);
 	void hit_target(Entity*);
 	b8 add_target_indicator(Target*, TargetIndicator::Type);
 	void remote_control_handle(const RemoteControl&);
 
 	void update(const Update&);
+	void update_late(const Update&);
 	void draw(const RenderParams&) const;
 	void draw_ui(const RenderParams&) const;
 

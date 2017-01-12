@@ -346,7 +346,7 @@ b8 Awk::net_msg(Net::StreamRead* p, Net::MessageSource src)
 			serialize_ref(p, target);
 
 			// particles
-			if (!awk->has<PlayerControlHuman>() || awk->get<PlayerControlHuman>()->local() == (src == Net::MessageSource::Loopback))
+			if (Game::level.local || !awk->has<PlayerControlHuman>() || !awk->get<PlayerControlHuman>()->local())
 				client_hit_effects(awk, target.ref());
 
 			// damage messages
@@ -373,7 +373,7 @@ b8 Awk::net_msg(Net::StreamRead* p, Net::MessageSource src)
 			{
 				target.ref()->get<Audio>()->post_event(target.ref()->has<PlayerControlHuman>() && target.ref()->get<PlayerControlHuman>()->local() ? AK::EVENTS::PLAY_HURT_PLAYER : AK::EVENTS::PLAY_HURT);
 
-				// only take damage if we're attached to a wall and have no overshield
+				// only do damage if they're attached to a wall and have no overshield
 				Awk* target_awk = target.ref()->get<Awk>();
 				if (target_awk->state() == Awk::State::Crawl && target_awk->overshield_timer == 0.0f)
 				{
@@ -679,7 +679,8 @@ Awk::Awk()
 	current_ability(Ability::None),
 	ability_spawned(),
 	remote_reflection_timer(),
-	reflection_source_remote()
+	reflection_source_remote(),
+	remote_reflection_entity()
 {
 }
 
@@ -777,7 +778,7 @@ b8 Awk::hit_target(Entity* target)
 	if (hit_targets.length < hit_targets.capacity())
 		hit_targets.add(target);
 
-	if (!Game::level.local) // we must be a local player on a client
+	if (!Game::level.local) // then we are a local player on a client
 	{
 		// target hit events are synced across the network
 		// so just spawn some particles if needed, but don't do anything else
@@ -1222,19 +1223,27 @@ b8 Awk::go(const Vec3& dir)
 
 #define REFLECTION_TRIES 20 // try 20 raycasts. if they all fail, just shoot off into space.
 
-void awk_reflection_execute(Awk* a, const Vec3& dir)
+void awk_reflection_execute(Awk* a, Entity* reflected_off, const Vec3& dir)
 {
+	{
+		r32 l = dir.length_squared();
+		vi_assert(l > 0.98f * 0.98f && l < 1.02f * 1.02f);
+	}
 	a->get<Transform>()->reparent(nullptr);
 	a->dash_timer = 0.0f;
 	a->get<Animator>()->layers[0].animation = Asset::Animation::awk_fly;
 
-	Vec3 new_velocity = dir * AWK_DASH_SPEED;
-	a->reflecting.fire(new_velocity);
-	a->get<Transform>()->rot = Quat::look(Vec3::normalize(new_velocity));
-	a->velocity = new_velocity;
-	a->remote_reflection_timer = 0.0f;
+	if ((a->has<PlayerControlHuman>() && a->get<PlayerControlHuman>()->local()) // local particle effects show up instantly no matter what
+		|| !reflected_off || !reflected_off->has<Awk>()) // if this awk is owned by a remote, and we're reflecting off another awk, those particle effects will be handled by the target hit system
+		client_hit_effects(a, nullptr);
 
-	client_hit_effects(a, nullptr);
+	AwkReflectEvent e;
+	e.entity = reflected_off;
+	e.new_velocity = dir * AWK_DASH_SPEED;
+	a->reflecting.fire(e);
+	a->get<Transform>()->rot = Quat::look(Vec3::normalize(e.new_velocity));
+	a->velocity = e.new_velocity;
+	a->remote_reflection_timer = 0.0f;
 }
 
 void Awk::reflect(Entity* entity, const Vec3& hit, const Vec3& normal, const Net::StateFrame* state_frame)
@@ -1295,7 +1304,7 @@ void Awk::reflect(Entity* entity, const Vec3& hit, const Vec3& normal, const Net
 			// the remote already told us about the reflection
 			// so go the direction they told us to
 			get<Transform>()->absolute_pos(remote_reflection_pos);
-			awk_reflection_execute(this, remote_reflection_dir);
+			awk_reflection_execute(this, entity, remote_reflection_dir);
 		}
 		else
 		{
@@ -1304,6 +1313,7 @@ void Awk::reflect(Entity* entity, const Vec3& hit, const Vec3& normal, const Net
 			remote_reflection_dir = velocity; // HACK: not normalized. this will be restored to the velocity variable if the client does not acknowledge the hit
 			remote_reflection_pos = reflection_pos;
 			remote_reflection_timer = AWK_REFLECTION_TIME_TOLERANCE;
+			remote_reflection_entity = entity;
 			reflection_source_remote = false; // this hit was detected locally
 			velocity = Vec3::zero;
 		}
@@ -1311,11 +1321,11 @@ void Awk::reflect(Entity* entity, const Vec3& hit, const Vec3& normal, const Net
 	else
 	{
 		// locally controlled; bounce instantly
-		awk_reflection_execute(this, new_dir);
+		awk_reflection_execute(this, entity, new_dir);
 	}
 }
 
-void Awk::handle_remote_reflection(const Vec3& reflection_pos, const Vec3& reflection_dir)
+void Awk::handle_remote_reflection(Entity* entity, const Vec3& reflection_pos, const Vec3& reflection_dir)
 {
 	if (reflection_dir.length() == 0.0f)
 		return;
@@ -1334,19 +1344,20 @@ void Awk::handle_remote_reflection(const Vec3& reflection_pos, const Vec3& refle
 				remote_reflection_dir = reflection_dir_normalized;
 				remote_reflection_pos = reflection_pos;
 				remote_reflection_timer = AWK_REFLECTION_TIME_TOLERANCE;
+				remote_reflection_entity = entity;
 				reflection_source_remote = true; // this hit came from the remote
 			}
 			else
 			{
 				// we HAVE already detected a reflection off something; let's do it now
 				get<Transform>()->absolute_pos(reflection_pos);
-				awk_reflection_execute(this, reflection_dir_normalized);
+				awk_reflection_execute(this, remote_reflection_entity.ref(), reflection_dir_normalized);
 			}
 		}
 		else
 		{
 			// if this happens, something went wrong or the player is hacking
-			vi_debug_break();
+			vi_assert(false); // do nothing in release mode
 		}
 	}
 	else
@@ -1704,7 +1715,7 @@ void Awk::update_server(const Update& u)
 				{
 					// the remote told us about this reflection. go ahead and do it even though we never detected the hit locally
 					get<Transform>()->absolute_pos(remote_reflection_pos);
-					awk_reflection_execute(this, remote_reflection_dir);
+					awk_reflection_execute(this, remote_reflection_entity.ref(), remote_reflection_dir);
 				}
 				else
 				{

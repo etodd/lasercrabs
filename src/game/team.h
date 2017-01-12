@@ -128,7 +128,6 @@ struct PlayerManager : public ComponentType<PlayerManager>
 
 	static s32 visibility_hash(const PlayerManager*, const PlayerManager*);
 	static Ref<Entity> visibility[MAX_PLAYERS * MAX_PLAYERS];
-	static LinkArg<PlayerManager*> added;
 
 	static void update_all(const Update&);
 

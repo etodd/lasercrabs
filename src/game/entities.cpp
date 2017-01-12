@@ -1768,7 +1768,12 @@ Vec3 Target::velocity() const
 	if (has<Awk>())
 		return get<Awk>()->velocity;
 	else if (Game::level.local)
-		return get<RigidBody>()->btBody->getInterpolationLinearVelocity();
+	{
+		if (has<Parkour>() && !get<PlayerControlHuman>()->local())
+			return net_velocity;
+		else
+			return get<RigidBody>()->btBody->getInterpolationLinearVelocity();
+	}
 	else
 		return net_velocity;
 }

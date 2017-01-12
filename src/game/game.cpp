@@ -369,7 +369,7 @@ void Game::update(const Update& update_in)
 		{
 			if (!level.local && i.item()->has<MinionCommon>())
 				i.item()->update_client_only(u); // minion animations are synced over the network
-			else
+			else if (!i.item()->has<Parkour>()) // Parkour component updates the Animator on its own terms
 				i.item()->update_server(u);
 		}
 
@@ -454,6 +454,10 @@ void Game::update(const Update& update_in)
 			i.item()->update(u);
 		for (auto i = Shockwave::list.iterator(); !i.is_last(); i.next())
 			i.item()->update(u);
+		for (auto i = PlayerCommon::list.iterator(); !i.is_last(); i.next())
+			i.item()->update(u);
+		for (auto i = PlayerControlHuman::list.iterator(); !i.is_last(); i.next())
+			i.item()->update(u);
 		for (auto i = Parkour::list.iterator(); !i.is_last(); i.next())
 		{
 			if (i.item()->get<PlayerControlHuman>()->local())
@@ -463,10 +467,8 @@ void Game::update(const Update& update_in)
 				i.item()->update(u);
 			}
 		}
-		for (auto i = PlayerCommon::list.iterator(); !i.is_last(); i.next())
-			i.item()->update(u);
 		for (auto i = PlayerControlHuman::list.iterator(); !i.is_last(); i.next())
-			i.item()->update(u);
+			i.item()->update_late(u);
 
 		for (s32 i = 0; i < updates.length; i++)
 			(*updates[i])(u);
@@ -1043,6 +1045,7 @@ void Game::unload_level()
 		Audio::listener_disable(i);
 
 	level.~Level();
+	new (&level) Level();
 
 	level.local = true;
 
@@ -1153,7 +1156,7 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 
 	cJSON* json = Loader::level(l, true);
 
-	level = Level();
+	new (&level) Level();
 	level.mode = m;
 	level.id = l;
 	level.local = true;

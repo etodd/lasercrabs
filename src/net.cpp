@@ -742,7 +742,8 @@ template<typename Stream> b8 serialize_init_packet(Stream* p)
 	serialize_int(p, u16, Game::level.scripts.length, 0, Game::level.scripts.capacity());
 	for (s32 i = 0; i < Game::level.scripts.length; i++)
 		serialize_int(p, AssetID, Game::level.scripts[i], 0, Script::count);
-	new (&Game::level.finder) EntityFinder();
+	if (Stream::IsReading)
+		Game::level.finder.map.length = 0;
 	return true;
 }
 
@@ -1446,8 +1447,8 @@ b8 equal_states_minion(const StateFrame* frame_a, const StateFrame* frame_b, s32
 		const MinionState& a = frame_a->minions[index];
 		const MinionState& b = frame_b->minions[index];
 		return a_active == b_active
-			&& fabsf(a.rotation - b.rotation) < PI * 2.0f / 256.0f
-			&& fabsf(a.animation_time - b.animation_time) < 0.01f
+			&& fabsf(a.rotation - b.rotation) < 0.001f
+			&& fabsf(a.animation_time - b.animation_time) < 0.001f
 			&& a.attack_timer == 0.0f && b.attack_timer == 0.0f
 			&& a.animation == b.animation;
 	}

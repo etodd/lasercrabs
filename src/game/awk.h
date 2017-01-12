@@ -37,6 +37,12 @@ struct AwkRaycastCallback : btCollisionWorld::ClosestRayResultCallback
 	btScalar addSingleResult(btCollisionWorld::LocalRayResult&, b8);
 };
 
+struct AwkReflectEvent
+{
+	Entity* entity;
+	Vec3 new_velocity;
+};
+
 struct Awk : public ComponentType<Awk>
 {
 	enum class State
@@ -101,8 +107,9 @@ struct Awk : public ComponentType<Awk>
 	Footing footing[AWK_LEGS];
 	Ref<Entity> shield;
 	Ref<Entity> overshield;
+	Ref<Entity> remote_reflection_entity;
 	StaticArray<Ref<Entity>, 8> hit_targets;
-	LinkArg<const Vec3&> reflecting;
+	LinkArg<const AwkReflectEvent&> reflecting;
 	LinkArg<Entity*> hit;
 	LinkArg<Ability> ability_spawned;
 	Link done_flying;
@@ -141,7 +148,7 @@ struct Awk : public ComponentType<Awk>
 	void crawl(const Vec3&, const Update&);
 	void update_offset();
 
-	void handle_remote_reflection(const Vec3&, const Vec3&);
+	void handle_remote_reflection(Entity*, const Vec3&, const Vec3&);
 
 	void set_footing(s32, const Transform*, const Vec3&);
 

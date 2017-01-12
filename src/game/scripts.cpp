@@ -184,8 +184,8 @@ void update(const Update& u)
 							instance->sound_done = true;
 						else
 						{
-							instance->model.ref()->get<Audio>()->post_dialogue_event(cue->sound);
 							instance->sound_done = false;
+							instance->model.ref()->get<Audio>()->post_dialogue_event(cue->sound);
 						}
 					}
 
@@ -686,13 +686,15 @@ namespace tutorial
 		Ref<Transform> sparks;
 		Ref<Transform> ivory_ad_text;
 		Ref<Entity> hobo;
+		Ref<Entity> player;
+		Ref<Entity> battery;
 	};
 
 	Data* data;
 
-	void health_got(const TargetEvent& e)
+	void awk_target_hit(Entity* e)
 	{
-		if (data->state == TutorialState::Start)
+		if (data->state == TutorialState::Start && e == data->battery.ref())
 		{
 			data->state = TutorialState::Upgrade;
 			Actor::tut(strings::tut_upgrade);
@@ -713,28 +715,6 @@ namespace tutorial
 		}
 	}
 
-	void player_spawned()
-	{
-		Entity* player = PlayerControlHuman::list.iterator().item()->entity();
-		if (player->has<Awk>())
-		{
-			player->get<Awk>()->ability_spawned.link(&ability_spawned);
-
-			if (s32(data->state) <= s32(TutorialState::Start))
-			{
-				data->state = TutorialState::Start;
-				Actor::tut(strings::tut_start);
-				Game::level.feature_level = Game::FeatureLevel::EnergyPickups;
-			}
-		}
-	}
-
-	void player_added(PlayerManager* p)
-	{
-		if (p->has<PlayerHuman>())
-			p->spawn.link(&player_spawned);
-	}
-
 	void hobo_done(Actor::Instance* hobo)
 	{
 		hobo->cue(AK::EVENTS::PLAY_HOBO1, Asset::Animation::hobo_idle, strings::hobo1);
@@ -750,6 +730,25 @@ namespace tutorial
 		// sparks on broken door
 		if (mersenne::randf_co() < u.time.delta / 0.5f)
 			spawn_sparks(data->sparks.ref()->to_world(Vec3(-1.5f + mersenne::randf_co() * 3.0f, 0, 0)), Quat::look(Vec3(0, -1, 0)));
+
+		// check if the player has spawned
+		if (!data->player.ref() && PlayerControlHuman::list.count() > 0)
+		{
+			Entity* player = PlayerControlHuman::list.iterator().item()->entity();
+			if (player->has<Awk>())
+			{
+				data->player = player;
+				player->get<Awk>()->ability_spawned.link(&ability_spawned);
+				player->get<Awk>()->hit.link(&awk_target_hit);
+
+				if (s32(data->state) <= s32(TutorialState::Start))
+				{
+					data->state = TutorialState::Start;
+					Actor::tut(strings::tut_start);
+					Game::level.feature_level = Game::FeatureLevel::EnergyPickups;
+				}
+			}
+		}
 
 		// ivory ad text
 		data->ivory_ad_text.ref()->rot *= Quat::euler(0, u.time.delta * 0.2f, 0);
@@ -767,14 +766,17 @@ namespace tutorial
 		}
 		else if (data->state == TutorialState::Upgrade)
 		{
-			PlayerManager* manager = PlayerHuman::list.iterator().item()->get<PlayerManager>();
-			for (s32 i = 0; i < s32(Upgrade::count); i++)
+			if (PlayerHuman::list.count() > 0)
 			{
-				if (manager->has_upgrade(Upgrade(i)))
+				PlayerManager* manager = PlayerHuman::list.iterator().item()->get<PlayerManager>();
+				for (s32 i = 0; i < s32(Upgrade::count); i++)
 				{
-					data->state = TutorialState::Ability;
-					Actor::tut(strings::tut_ability);
-					break;
+					if (manager->has_upgrade(Upgrade(i)))
+					{
+						data->state = TutorialState::Ability;
+						Actor::tut(strings::tut_ability);
+						break;
+					}
 				}
 			}
 		}
@@ -821,14 +823,13 @@ namespace tutorial
 
 		data = new Data();
 
-		entities.find("health")->get<Target>()->target_hit.link(&health_got);
-
 		entities.find("slide_trigger")->get<PlayerTrigger>()->entered.link(&slide_trigger);
 		entities.find("slide_success")->get<PlayerTrigger>()->entered.link(&slide_success);
 		entities.find("ivory_ad_trigger")->get<PlayerTrigger>()->entered.link(&ivory_ad_play);
 		data->sparks = entities.find("sparks")->get<Transform>();
 		data->ivory_ad_text = entities.find("ivory_ad_text")->get<Transform>();
 		data->hobo = entities.find("hobo");
+		data->battery = entities.find("health");
 
 		Actor::Instance* hobo = Actor::add(data->hobo.ref(), Asset::Bone::hobo_head);
 		hobo_done(hobo);

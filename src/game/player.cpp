@@ -328,6 +328,7 @@ struct Message
 	Ability ability = Ability::None;
 	Upgrade upgrade = Upgrade::None;
 	Type type;
+	Ref<Entity> entity;
 };
 
 template<typename Stream> b8 serialize_msg(Stream* p, Message* msg)
@@ -365,6 +366,12 @@ template<typename Stream> b8 serialize_msg(Stream* p, Message* msg)
 		serialize_enum(p, Upgrade, msg->upgrade);
 	else if (Stream::IsReading)
 		msg->upgrade = Upgrade::None;
+
+	// what did we reflect off of
+	if (msg->type == Message::Type::Reflect)
+		serialize_ref(p, msg->entity);
+	else
+		msg->entity = nullptr;
 
 	return true;
 }
@@ -1394,7 +1401,7 @@ void PlayerCommon::awake()
 		get<Health>()->hp_max = AWK_HEALTH;
 		link<&PlayerCommon::awk_done_flying>(get<Awk>()->done_flying);
 		link<&PlayerCommon::awk_detached>(get<Awk>()->detached);
-		link_arg<const Vec3&, &PlayerCommon::awk_reflecting>(get<Awk>()->reflecting);
+		link_arg<const AwkReflectEvent&, &PlayerCommon::awk_reflecting>(get<Awk>()->reflecting);
 	}
 }
 
@@ -1465,10 +1472,13 @@ Entity* PlayerCommon::incoming_attacker() const
 
 void PlayerCommon::update(const Update& u)
 {
-	Quat rot = get<Transform>()->absolute_rot();
-	r32 angle = Quat::angle(attach_quat, rot);
-	if (angle > 0)
-		attach_quat = Quat::slerp(vi_min(1.0f, rotation_speed * u.time.delta), attach_quat, rot);
+	if (has<Awk>())
+	{
+		Quat rot = get<Transform>()->absolute_rot();
+		r32 angle = Quat::angle(attach_quat, rot);
+		if (angle > 0)
+			attach_quat = Quat::slerp(vi_min(1.0f, rotation_speed * u.time.delta), attach_quat, rot);
+	}
 }
 
 r32 PlayerCommon::detect_danger() const
@@ -1536,10 +1546,9 @@ void PlayerCommon::awk_detached()
 	attach_quat = Quat::look(direction);
 }
 
-void PlayerCommon::awk_reflecting(const Vec3& new_velocity)
+void PlayerCommon::awk_reflecting(const AwkReflectEvent& e)
 {
-	Vec3 direction = Vec3::normalize(new_velocity);
-	attach_quat = Quat::look(direction);
+	attach_quat = Quat::look(Vec3::normalize(e.new_velocity));
 }
 
 Vec3 PlayerCommon::look_dir() const
@@ -1654,7 +1663,7 @@ b8 PlayerControlHuman::net_msg(Net::StreamRead* p, PlayerControlHuman* c, Net::M
 		case PlayerControlHumanNet::Message::Type::Reflect:
 		{
 			if (src == Net::MessageSource::Remote)
-				c->get<Awk>()->handle_remote_reflection(msg.pos, msg.dir);
+				c->get<Awk>()->handle_remote_reflection(msg.entity.ref(), msg.pos, msg.dir);
 			break;
 		}
 		default:
@@ -1706,7 +1715,7 @@ void PlayerControlHuman::health_changed(const HealthEvent& e)
 	}
 }
 
-void PlayerControlHuman::awk_reflecting(const Vec3& new_velocity)
+void PlayerControlHuman::awk_reflecting(const AwkReflectEvent& e)
 {
 	// send message if we are a server or client in a network game. don't if it's an all-local game
 #if !SERVER
@@ -1715,7 +1724,8 @@ void PlayerControlHuman::awk_reflecting(const Vec3& new_velocity)
 	{
 		PlayerControlHumanNet::Message msg;
 		msg.pos = get<Transform>()->absolute_pos();
-		msg.dir = Vec3::normalize(new_velocity);
+		msg.dir = Vec3::normalize(e.new_velocity);
+		msg.entity = e.entity;
 		msg.type = PlayerControlHumanNet::Message::Type::Reflect;
 		PlayerControlHumanNet::send(this, &msg);
 	}
@@ -1761,11 +1771,12 @@ void PlayerControlHuman::awake()
 		link<&PlayerControlHuman::awk_detached>(get<Awk>()->detached);
 		link<&PlayerControlHuman::awk_done_flying_or_dashing>(get<Awk>()->done_flying);
 		link<&PlayerControlHuman::awk_done_flying_or_dashing>(get<Awk>()->done_dashing);
-		link_arg<const Vec3&, &PlayerControlHuman::awk_reflecting>(get<Awk>()->reflecting);
+		link_arg<const AwkReflectEvent&, &PlayerControlHuman::awk_reflecting>(get<Awk>()->reflecting);
 		link_arg<Entity*, &PlayerControlHuman::hit_target>(get<Awk>()->hit);
 	}
 	else
 	{
+		last_pos = get<Transform>()->absolute_pos();
 		link_arg<r32, &PlayerControlHuman::parkour_landed>(get<Walker>()->land);
 		link<&PlayerControlHuman::terminal_enter_animation_callback>(get<Animator>()->trigger(Asset::Animation::character_terminal_enter, 2.5f));
 		link<&PlayerControlHuman::interact_animation_callback>(get<Animator>()->trigger(Asset::Animation::character_interact, 3.8f));
@@ -2040,7 +2051,19 @@ void PlayerControlHuman::remote_control_handle(const PlayerControlHuman::RemoteC
 
 	remote_control = control;
 
-	if (input_enabled())
+	if (has<Parkour>())
+	{
+		// remote control by a client
+		// just trust the client, it's k
+		Vec3 abs_pos_last = last_pos;
+		get<Transform>()->pos = remote_control.pos;
+		get<Transform>()->rot = remote_control.rot;
+		get<Transform>()->parent = remote_control.parent;
+		last_pos = get<Transform>()->absolute_pos();
+		get<Walker>()->absolute_pos(last_pos); // force rigid body
+		get<Target>()->net_velocity = get<Target>()->net_velocity * 0.7f + ((last_pos - abs_pos_last) / NET_TICK_RATE) * 0.3f;
+	}
+	else if (input_enabled())
 	{
 		// if the remote position is close to what we think it is, snap to it
 		Transform* t = get<Transform>();
@@ -2668,7 +2691,7 @@ void PlayerControlHuman::update(const Update& u)
 								}
 								else if (Game::save.resources[s32(Resource::HackKits)] > 0)
 								{
-									if (Game::level.id == Asset::Level::Port_District && Game::level.feature_level == Game::FeatureLevel::All)
+									if (Game::level.id == Asset::Level::Port_District && s32(Game::level.feature_level) < s32(Game::FeatureLevel::TutorialAll))
 									{
 										// player is about to skip tutorial
 										Menu::dialog(gamepad, &player_confirm_skip_tutorial, _(strings::confirm_skip_tutorial));
@@ -2839,15 +2862,13 @@ void PlayerControlHuman::update(const Update& u)
 
 			r32 lean_target = 0.0f;
 
-			Quat look_quat = Quat::euler(get<Parkour>()->lean, get<PlayerCommon>()->angle_horizontal, get<PlayerCommon>()->angle_vertical);
-
 			if (parkour_state == Parkour::State::WallRun)
 			{
 				Parkour::WallRunState state = get<Parkour>()->wall_run_state;
 
 				Vec3 wall_normal = get<Parkour>()->last_support.ref()->get<Transform>()->to_world_normal(get<Parkour>()->relative_wall_run_normal);
 
-				Vec3 forward = look_quat * Vec3(0, 0, 1);
+				Vec3 forward = Quat::euler(get<Parkour>()->lean, get<PlayerCommon>()->angle_horizontal, get<PlayerCommon>()->angle_vertical) * Vec3(0, 0, 1);
 
 				if (get<Parkour>()->wall_run_state == Parkour::WallRunState::Forward)
 					get<PlayerCommon>()->clamp_rotation(-wall_normal); // Make sure we're always facing the wall
@@ -2881,69 +2902,61 @@ void PlayerControlHuman::update(const Update& u)
 				else if (delta < PI * -0.5f)
 					get<Walker>()->rotation = LMath::angle_range(get<Walker>()->rotation + delta + PI * 0.5f);
 			}
-
-			Vec3 camera_pos;
-			/*
-			// todo: third-person
-			if (Game::state.third_person)
-				camera_pos = get<Transform>()->absolute_pos() + look_quat * Vec3(0, 1, -7);
-			else
-			*/
-			{
-				camera_pos = Vec3(0, 0, 0.1f);
-				Quat q = Quat::identity;
-				get<Parkour>()->head_to_object_space(&camera_pos, &q);
-				camera_pos = get<Transform>()->to_world(camera_pos);
-
-				// camera bone affects rotation only
-				Quat camera_animation = Quat::euler(PI * -0.5f, 0, 0);
-				get<Animator>()->bone_transform(Asset::Bone::character_camera, nullptr, &camera_animation);
-				look_quat = Quat::euler(get<Parkour>()->lean, get<PlayerCommon>()->angle_horizontal, get<PlayerCommon>()->angle_vertical) * Quat::euler(0, PI * 0.5f, 0) * camera_animation * Quat::euler(0, PI * -0.5f, 0);
-			}
-
-			// wind sound and camera shake at high speed
-			{
-				r32 speed = get<Parkour>()->fsm.current == Parkour::State::Mantle || get<Walker>()->support.ref()
-					? 0.0f
-					: get<RigidBody>()->btBody->getInterpolationLinearVelocity().length();
-				get<Audio>()->param(AK::GAME_PARAMETERS::FLY_VOLUME, LMath::clampf((speed - 8.0f) / 25.0f, 0, 1));
-				r32 shake = LMath::clampf((speed - 13.0f) / 30.0f, 0, 1);
-				player.ref()->rumble_add(shake);
-				shake *= 0.2f;
-				r32 offset = Game::time.total * 10.0f;
-				look_quat = look_quat * Quat::euler(noise::sample3d(Vec3(offset)) * shake, noise::sample3d(Vec3(offset + 64)) * shake, noise::sample3d(Vec3(offset + 128)) * shake);
-			}
-
-			// camera setup
-			if (!Overworld::active())
-			{
-				Camera* camera = player.ref()->camera;
-				r32 aspect = camera->viewport.size.y == 0 ? 1 : camera->viewport.size.x / camera->viewport.size.y;
-				camera->perspective(fov_default, aspect, 0.02f, Game::level.skybox.far_plane);
-				camera->clip_planes[0] = Plane();
-				camera->rot = look_quat;
-				camera->pos = camera_pos;
-				camera->cull_range = 0.0f;
-				camera->cull_behind_wall = false;
-				camera->colors = true;
-				camera->fog = true;
-				camera->range = 0.0f;
-				camera_shake_update(u, camera);
-			}
 		}
-		else
+	}
+}
+
+void PlayerControlHuman::update_late(const Update& u)
+{
+	if (has<Parkour>()
+		&& !Overworld::active()
+		&& local())
+	{
+		Camera* camera = player.ref()->camera;
+
 		{
-			// remote control by a client
-			if (Game::level.local)
-			{
-				// just trust the client, it's k
-				get<Transform>()->pos = remote_control.pos;
-				get<Transform>()->rot = remote_control.rot;
-				get<Transform>()->parent = remote_control.parent;
-				last_pos = get<Transform>()->absolute_pos();
-				get<Walker>()->absolute_pos(last_pos); // force rigid body
-			}
+			r32 aspect = camera->viewport.size.y == 0 ? 1 : camera->viewport.size.x / camera->viewport.size.y;
+			camera->perspective(fov_default, aspect, 0.02f, Game::level.skybox.far_plane);
+			camera->clip_planes[0] = Plane();
+			camera->cull_range = 0.0f;
+			camera->cull_behind_wall = false;
+			camera->colors = true;
+			camera->fog = true;
+			camera->range = 0.0f;
 		}
+
+		/*
+		// todo: third-person
+		if (Game::state.third_person)
+			camera_pos = get<Transform>()->absolute_pos() + look_quat * Vec3(0, 1, -7);
+		else
+		*/
+		{
+			camera->pos = Vec3(0, 0, 0.1f);
+			Quat q = Quat::identity;
+			get<Parkour>()->head_to_object_space(&camera->pos, &q);
+			camera->pos = get<Transform>()->to_world(camera->pos);
+
+			// camera bone affects rotation only
+			Quat camera_animation = Quat::euler(PI * -0.5f, 0, 0);
+			get<Animator>()->bone_transform(Asset::Bone::character_camera, nullptr, &camera_animation);
+			camera->rot = Quat::euler(get<Parkour>()->lean, get<PlayerCommon>()->angle_horizontal, get<PlayerCommon>()->angle_vertical) * Quat::euler(0, PI * 0.5f, 0) * camera_animation * Quat::euler(0, PI * -0.5f, 0);
+		}
+
+		// wind sound and camera shake at high speed
+		{
+			r32 speed = get<Parkour>()->fsm.current == Parkour::State::Mantle || get<Walker>()->support.ref()
+				? 0.0f
+				: get<RigidBody>()->btBody->getInterpolationLinearVelocity().length();
+			get<Audio>()->param(AK::GAME_PARAMETERS::FLY_VOLUME, LMath::clampf((speed - 8.0f) / 25.0f, 0, 1));
+			r32 shake = LMath::clampf((speed - 13.0f) / 30.0f, 0, 1);
+			player.ref()->rumble_add(shake);
+			shake *= 0.2f;
+			r32 offset = Game::time.total * 10.0f;
+			camera->rot = camera->rot * Quat::euler(noise::sample3d(Vec3(offset)) * shake, noise::sample3d(Vec3(offset + 64)) * shake, noise::sample3d(Vec3(offset + 128)) * shake);
+		}
+
+		camera_shake_update(u, camera);
 	}
 }
 
@@ -3371,82 +3384,82 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 				}
 			}
 		}
-
-		// usernames directly over players' 3D positions
-		for (auto other_player = PlayerCommon::list.iterator(); !other_player.is_last(); other_player.next())
-		{
-			if (other_player.item() != get<PlayerCommon>())
-			{
-				b8 tracking;
-				b8 visible;
-				Entity* detected_entity = determine_visibility(get<PlayerCommon>(), other_player.item(), &visible, &tracking);
-
-				b8 friendly = other_player.item()->get<AIAgent>()->team == team;
-
-				if (visible && !friendly)
-					enemy_visible = true;
-
-				b8 draw;
-				Vec2 p;
-				const Vec4* color;
-
-				if (friendly)
-				{
-					Vec3 pos3d = detected_entity->get<Transform>()->absolute_pos() + Vec3(0, AWK_RADIUS * 2.0f, 0);
-					draw = UI::project(params, pos3d, &p);
-					color = &Team::ui_color_friend;
-				}
-				else
-				{
-					// highlight the username and draw it even if it's offscreen
-					if (detected_entity)
-					{
-						Vec3 pos3d = detected_entity->get<Transform>()->absolute_pos() + Vec3(0, AWK_RADIUS * 2.0f, 0);
-
-						if (friendly)
-							color = &Team::ui_color_friend;
-						else
-							color = &Team::ui_color_enemy;
-
-						// if we can see or track them, the indicator has already been added using add_target_indicator in the update function
-
-						if (tracking)
-						{
-							// if we're tracking them, clamp their username to the screen
-							draw = true;
-							UI::is_onscreen(params, pos3d, &p);
-						}
-						else // if not tracking, only draw username if it's directly visible on screen
-							draw = UI::project(params, pos3d, &p);
-					}
-					else
-					{
-						// not visible or tracking right now
-						draw = false;
-					}
-				}
-
-				if (draw)
-				{
-					Vec2 username_pos = p;
-					username_pos.y += text_size * UI::scale;
-
-					UIText username;
-					username.size = text_size;
-					username.anchor_x = UIText::Anchor::Center;
-					username.anchor_y = UIText::Anchor::Min;
-					username.color = *color;
-					username.text(other_player.item()->manager.ref()->username);
-
-					UI::box(params, username.rect(username_pos).outset(HP_BOX_SPACING), UI::color_background);
-
-					username.draw(params, username_pos);
-				}
-			}
-		}
 	}
 
 	// common UI for both parkour and PvP modes
+
+	// usernames directly over players' 3D positions
+	for (auto other_player = PlayerCommon::list.iterator(); !other_player.is_last(); other_player.next())
+	{
+		if (other_player.item() != get<PlayerCommon>())
+		{
+			b8 tracking;
+			b8 visible;
+			Entity* detected_entity = determine_visibility(get<PlayerCommon>(), other_player.item(), &visible, &tracking);
+
+			b8 friendly = other_player.item()->get<AIAgent>()->team == team;
+
+			if (visible && !friendly)
+				enemy_visible = true;
+
+			b8 draw;
+			Vec2 p;
+			const Vec4* color;
+
+			if (friendly)
+			{
+				Vec3 pos3d = detected_entity->get<Transform>()->absolute_pos() + Vec3(0, AWK_RADIUS * 2.0f, 0);
+				draw = UI::project(params, pos3d, &p);
+				color = &Team::ui_color_friend;
+			}
+			else
+			{
+				// highlight the username and draw it even if it's offscreen
+				if (detected_entity)
+				{
+					Vec3 pos3d = detected_entity->get<Transform>()->absolute_pos() + Vec3(0, AWK_RADIUS * 2.0f, 0);
+
+					if (friendly)
+						color = &Team::ui_color_friend;
+					else
+						color = &Team::ui_color_enemy;
+
+					// if we can see or track them, the indicator has already been added using add_target_indicator in the update function
+
+					if (tracking)
+					{
+						// if we're tracking them, clamp their username to the screen
+						draw = true;
+						UI::is_onscreen(params, pos3d, &p);
+					}
+					else // if not tracking, only draw username if it's directly visible on screen
+						draw = UI::project(params, pos3d, &p);
+				}
+				else
+				{
+					// not visible or tracking right now
+					draw = false;
+				}
+			}
+
+			if (draw)
+			{
+				Vec2 username_pos = p;
+				username_pos.y += text_size * UI::scale;
+
+				UIText username;
+				username.size = text_size;
+				username.anchor_x = UIText::Anchor::Center;
+				username.anchor_y = UIText::Anchor::Min;
+				username.color = *color;
+				username.text(other_player.item()->manager.ref()->username);
+
+				UI::box(params, username.rect(username_pos).outset(HP_BOX_SPACING), UI::color_background);
+
+				username.draw(params, username_pos);
+			}
+		}
+	}
 
 	const Health* health = get<Health>();
 

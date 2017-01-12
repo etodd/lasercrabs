@@ -691,8 +691,8 @@ void Parkour::update(const Update& u)
 		{
 			// we're falling
 			// check if there are any minions to squish
-			if (slide_continue // player must be holding the slide button
-				&& get<RigidBody>()->btBody->getLinearVelocity().getY() < LANDING_VELOCITY_LIGHT)
+			// if the player is holding the slide button, they don't have to be falling very fast at all to do damage
+			if (get<RigidBody>()->btBody->getLinearVelocity().getY() < slide_continue ? LANDING_VELOCITY_LIGHT : LANDING_VELOCITY_HARD)
 			{
 				if (minions_do_damage(this, &minion_below))
 				{
@@ -984,30 +984,38 @@ void Parkour::update(const Update& u)
 	}
 
 	// mantle animation stuff
-	Vec3 model_offset(0, get<Walker>()->capsule_height() * -0.5f - WALKER_SUPPORT_HEIGHT, 0);
+
 	{
 		Animator::Layer* layer1 = &get<Animator>()->layers[1];
-
-		if (animation_start_support.ref())
-		{
-			Vec3 offset = animation_start_support.ref()->get<Transform>()->to_world(relative_animation_start_pos) - get<Transform>()->absolute_pos();
-			if (layer1->animation == Asset::Animation::character_top_out || layer1->animation == Asset::Animation::character_mantle)
-				model_offset += offset * Ease::quad_out<r32>(layer1->blend);
-			else if (layer1->last_animation == Asset::Animation::character_top_out || layer1->last_animation == Asset::Animation::character_mantle)
-				model_offset += offset * (1.0f - Ease::quad_out<r32>(layer1->blend));
-		}
-
 		if ((layer1->animation == Asset::Animation::character_top_out || layer1->animation == Asset::Animation::character_mantle)
 			&& fsm.current != State::Mantle
 			&& fsm.time > 0.2f)
 			layer1->animation = AssetNull;
 	}
 
-	get<SkinnedModel>()->offset.make_transform(
-		model_offset,
-		Vec3(1.0f, 1.0f, 1.0f),
-		Quat::euler(0, get<Walker>()->rotation + PI * 0.5f, 0) * Quat::euler(0, 0, lean * -1.5f)
-	);
+	// update model offset
+	{
+		get<Animator>()->update_server(u);
+		Vec3 model_offset(0, get<Walker>()->capsule_height() * -0.5f - WALKER_SUPPORT_HEIGHT, 0);
+		{
+			Animator::Layer* layer1 = &get<Animator>()->layers[1];
+
+			if (animation_start_support.ref())
+			{
+				Vec3 offset = animation_start_support.ref()->get<Transform>()->to_world(relative_animation_start_pos) - get<Transform>()->absolute_pos();
+				if (layer1->animation == Asset::Animation::character_top_out || layer1->animation == Asset::Animation::character_mantle)
+					model_offset += offset * Ease::quad_out<r32>(layer1->blend);
+				else if (layer1->last_animation == Asset::Animation::character_top_out || layer1->last_animation == Asset::Animation::character_mantle)
+					model_offset += offset * (1.0f - Ease::quad_out<r32>(layer1->blend));
+			}
+		}
+
+		get<SkinnedModel>()->offset.make_transform(
+			model_offset,
+			Vec3(1.0f, 1.0f, 1.0f),
+			Quat::euler(0, get<Walker>()->rotation + PI * 0.5f, 0) * Quat::euler(0, 0, lean * -1.5f)
+		);
+	}
 }
 
 void Parkour::pickup_animation_complete()

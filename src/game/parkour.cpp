@@ -90,6 +90,18 @@ void Parkour::awake()
 	link_arg<Entity*, &Parkour::killed>(get<Health>()->killed);
 }
 
+Parkour::~Parkour()
+{
+	// drop collectibles we were in the process of picking up
+	// collectible transforms are not synced over the network, so we need to do this on both client and server
+	for (auto i = Collectible::list.iterator(); !i.is_last(); i.next())
+	{
+		Transform* t = i.item()->get<Transform>();
+		if (t->parent.ref() == get<Transform>())
+			t->reparent(nullptr);
+	}
+}
+
 void Parkour::killed(Entity*)
 {
 	if (Game::level.local)

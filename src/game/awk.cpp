@@ -93,6 +93,7 @@ enum class Message
 	DashDone,
 	HitTarget,
 	AbilitySpawn,
+	ReflectionEffects,
 	count,
 };
 
@@ -200,7 +201,29 @@ b8 hit_target(Awk* a, Entity* target)
 	{
 		Message t = Message::HitTarget;
 		serialize_enum(p, Message, t);
+	}
+	{
 		Ref<Entity> ref = target;
+		serialize_ref(p, ref);
+	}
+	Net::msg_finalize(p);
+	return true;
+}
+
+b8 reflection_effects(Awk* a, Entity* reflected_off)
+{
+	using Stream = Net::StreamWrite;
+	Net::StreamWrite* p = Net::msg_new_local(Net::MessageType::Awk);
+	{
+		Ref<Awk> ref = a;
+		serialize_ref(p, ref);
+	}
+	{
+		Message t = Message::ReflectionEffects;
+		serialize_enum(p, Message, t);
+	}
+	{
+		Ref<Entity> ref = reflected_off;
 		serialize_ref(p, ref);
 	}
 	Net::msg_finalize(p);
@@ -345,8 +368,7 @@ b8 Awk::net_msg(Net::StreamRead* p, Net::MessageSource src)
 			Ref<Entity> target;
 			serialize_ref(p, target);
 
-			// particles
-			if (Game::level.local || !awk->has<PlayerControlHuman>() || !awk->get<PlayerControlHuman>()->local())
+			if (apply_msg)
 				client_hit_effects(awk, target.ref());
 
 			// damage messages
@@ -604,6 +626,14 @@ b8 Awk::net_msg(Net::StreamRead* p, Net::MessageSource src)
 			awk->ability_spawned.fire(ability);
 			break;
 		}
+		case AwkNet::Message::ReflectionEffects:
+		{
+			Ref<Entity> reflected_off;
+			serialize_ref(p, reflected_off);
+			if (!awk->has<PlayerControlHuman>() || !awk->get<PlayerControlHuman>()->local())
+				client_hit_effects(awk, reflected_off.ref());
+			break;
+		}
 		default:
 		{
 			vi_assert(false);
@@ -768,6 +798,7 @@ Vec3 Awk::attach_point(r32 offset) const
 	return pos + rot * Vec3(0, 0, offset + -AWK_RADIUS);
 }
 
+// returns true if it's a valid hit
 b8 Awk::hit_target(Entity* target)
 {
 	for (s32 i = 0; i < hit_targets.length; i++)
@@ -783,7 +814,7 @@ b8 Awk::hit_target(Entity* target)
 		// target hit events are synced across the network
 		// so just spawn some particles if needed, but don't do anything else
 		client_hit_effects(this, target);
-		return false;
+		return true;
 	}
 
 	AwkNet::hit_target(this, target);
@@ -1230,9 +1261,8 @@ void awk_reflection_execute(Awk* a, Entity* reflected_off, const Vec3& dir)
 	a->dash_timer = 0.0f;
 	a->get<Animator>()->layers[0].animation = Asset::Animation::awk_fly;
 
-	if ((a->has<PlayerControlHuman>() && a->get<PlayerControlHuman>()->local()) // local particle effects show up instantly no matter what
-		|| !reflected_off || (!reflected_off->has<Awk>() && !reflected_off->has<Decoy>())) // if this awk is owned by a remote, and we're reflecting off another awk, those particle effects will be handled by the target hit system
-		client_hit_effects(a, nullptr);
+	if (Game::level.local && !reflected_off || !reflected_off->has<Target>()) // target hit effects are handled separately
+		AwkNet::reflection_effects(a, reflected_off);
 
 	AwkReflectEvent e;
 	e.entity = reflected_off;
@@ -2127,27 +2157,16 @@ r32 Awk::movement_raycast(const Vec3& ray_start, const Vec3& ray_end)
 				{
 					// client-side prediction
 					do_reflect = s != State::Crawl
+						&& hit_target(hit.entity.ref())
 						&& (hit.entity.ref()->get<Health>()->total() > 1 // will they still be alive after we hit them? if so, reflect
 							|| (hit.entity.ref()->has<Awk>()
 								&& (hit.entity.ref()->get<Awk>()->state() != State::Crawl || hit.entity.ref()->get<Awk>()->overshield_timer > 0.0f)));
-					b8 already_hit = false;
-					for (s32 i = 0; i < hit_targets.length; i++)
-					{
-						if (hit_targets[i].equals(hit.entity))
-						{
-							already_hit = true;
-							do_reflect = false;
-							break;
-						}
-					}
-					if (!already_hit && hit.entity.ref())
-						hit_targets.add(hit.entity);
 				}
 				else
 				{
 					// server
-					do_reflect = hit_target(hit.entity.ref()) // go through them if we've already hit them once on this flight
-						&& s != State::Crawl
+					do_reflect = s != State::Crawl
+						&& hit_target(hit.entity.ref()) // go through them if we've already hit them once on this flight
 						&& hit.entity.ref()
 						&& hit.entity.ref()->get<Health>()->total() > 0; // if we didn't destroy them, then bounce off
 				}

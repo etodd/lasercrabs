@@ -2074,7 +2074,7 @@ struct StateServer
 	Array<Client> clients;
 	Mode mode;
 	r32 time_sync_timer;
-	s32 expected_clients = 2;
+	s32 expected_clients = 1;
 };
 StateServer state_server;
 
@@ -2115,8 +2115,8 @@ b8 init()
 	}
 
 	// todo: allow both multiplayer / story mode sessions
-	Game::session.story_mode = false;
-	Game::load_level(Asset::Level::Medias_Res, Game::Mode::Pvp);
+	Game::session.story_mode = true;
+	Game::load_level(Asset::Level::Medias_Res, Game::Mode::Parkour);
 
 	return true;
 }

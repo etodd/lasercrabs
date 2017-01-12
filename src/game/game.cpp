@@ -468,6 +468,8 @@ void Game::update(const Update& update_in)
 					i.item()->get<Walker>()->update(u); // walkers are normally only updated on the server
 				i.item()->update(u);
 			}
+			else if (Game::level.local) // server needs to manually update the animator because it's normally updated by the Parkour component
+				i.item()->get<Animator>()->update_server(u);
 		}
 		for (auto i = PlayerControlHuman::list.iterator(); !i.is_last(); i.next())
 			i.item()->update_late(u);

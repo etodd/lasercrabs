@@ -121,11 +121,25 @@ void RigidBody::awake()
 		return;
 
 	// rigid bodies controlled by the server appear as kinematic bodies to the client
+	short actual_collision_filter;
 	r32 m;
 	if (!Game::level.local && Game::net_transform_filter(entity(), Game::level.mode))
+	{
 		m = 0.0f;
+		actual_collision_filter = collision_filter // prevent static-static collisions
+		& ~(
+			CollisionStatic
+			| CollisionInaccessible
+			| CollisionAllTeamsContainmentField
+			| CollisionParkour
+			| CollisionElectric
+		);
+	}
 	else
+	{
 		m = mass;
+		actual_collision_filter = collision_filter;
+	}
 
 	switch (type)
 	{
@@ -178,7 +192,7 @@ void RigidBody::awake()
 	btBody->setDamping(damping.x, damping.y);
 	set_ccd(ccd);
 
-	Physics::btWorld->addRigidBody(btBody, collision_group, collision_filter);
+	Physics::btWorld->addRigidBody(btBody, collision_group, actual_collision_filter);
 
 	// rebuild constraints
 

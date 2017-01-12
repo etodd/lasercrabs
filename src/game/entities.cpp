@@ -1379,7 +1379,7 @@ ContainmentFieldEntity::ContainmentFieldEntity(Transform* parent, const Vec3& ab
 
 	create<Target>();
 	create<Health>(SENSOR_HEALTH, SENSOR_HEALTH);
-	create<RigidBody>(RigidBody::Type::Sphere, Vec3(CONTAINMENT_FIELD_BASE_RADIUS), 0.0f, CollisionAwkIgnore | CollisionTarget, ~CollisionStatic & ~CollisionShield);
+	create<RigidBody>(RigidBody::Type::Sphere, Vec3(CONTAINMENT_FIELD_BASE_RADIUS), 0.0f, CollisionAwkIgnore | CollisionTarget, ~CollisionStatic & ~CollisionShield & ~CollisionParkour & ~CollisionInaccessible & ~CollisionAllTeamsContainmentField & ~CollisionElectric);
 
 	ContainmentField* field = create<ContainmentField>();
 	field->team = team;
@@ -1395,9 +1395,9 @@ ContainmentFieldEntity::ContainmentFieldEntity(Transform* parent, const Vec3& ab
 	view->alpha();
 	view->color.w = 0.35f;
 
-	CollisionGroup team_mask = CollisionGroup(1 << (8 + team));
+	CollisionGroup team_group = CollisionGroup(1 << (8 + team));
 
-	f->add<RigidBody>(RigidBody::Type::Mesh, Vec3::zero, 0.0f, team_mask, CollisionAwkIgnore, view->mesh);
+	f->add<RigidBody>(RigidBody::Type::Mesh, Vec3::zero, 0.0f, team_group, CollisionAwkIgnore, view->mesh);
 
 	Net::finalize(f);
 

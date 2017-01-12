@@ -92,14 +92,7 @@ void Parkour::awake()
 
 Parkour::~Parkour()
 {
-	// drop collectibles we were in the process of picking up
-	// collectible transforms are not synced over the network, so we need to do this on both client and server
-	for (auto i = Collectible::list.iterator(); !i.is_last(); i.next())
-	{
-		Transform* t = i.item()->get<Transform>();
-		if (t->parent.ref() == get<Transform>())
-			t->reparent(nullptr);
-	}
+	pickup_animation_complete(); // delete anything we're holding
 }
 
 void Parkour::killed(Entity*)
@@ -390,6 +383,13 @@ b8 minions_do_damage(Parkour* parkour, b8(*minion_filter)(Parkour*, MinionCommon
 	return did_damage;
 }
 
+void parkour_set_collectible_position(Animator* parkour, Transform* collectible)
+{
+	collectible->pos = Vec3(0.04f, 0, 0);
+	collectible->rot = Quat::euler(0, PI * 0.5f, 0);
+	parkour->to_local(Asset::Bone::character_hand_R, &collectible->pos, &collectible->rot);
+}
+
 b8 Parkour::net_msg(Net::StreamRead* p, Net::MessageSource src)
 {
 	using Stream = Net::StreamRead;
@@ -413,8 +413,10 @@ b8 Parkour::net_msg(Net::StreamRead* p, Net::MessageSource src)
 					if (layer3->animation == AssetNull)
 					{
 						collectible.ref()->give_rewards();
-						collectible.ref()->get<Transform>()->reparent(parkour.ref()->get<Transform>());
+						collectible.ref()->get<Transform>()->parent = parkour.ref()->get<Transform>();
 						layer3->set(Asset::Animation::character_pickup, 0.0f); // bypass animation blending
+						parkour.ref()->get<Animator>()->update_world_transforms();
+						parkour_set_collectible_position(parkour.ref()->get<Animator>(), collectible.ref()->get<Transform>());
 					}
 				}
 				break;
@@ -1021,9 +1023,7 @@ void Parkour::update(const Update& u)
 			if (t->parent.ref() == get<Transform>())
 			{
 				// glue it to our hand
-				t->pos = Vec3(0.04f, 0, 0);
-				t->rot = Quat::euler(0, PI * 0.5f, 0);
-				get<Animator>()->to_local(Asset::Bone::character_hand_R, &t->pos, &t->rot);
+				parkour_set_collectible_position(get<Animator>(), t);
 				break;
 			}
 		}
@@ -1037,7 +1037,8 @@ void Parkour::pickup_animation_complete()
 	{
 		for (auto i = Collectible::list.iterator(); !i.is_last(); i.next())
 		{
-			if (i.item()->get<Transform>()->parent.ref() == get<Transform>())
+			// compare IDs rather than refs because we're tearing down this entity and the revision of our Transform has already been incremented
+			if (i.item()->get<Transform>()->parent.id == get<Transform>()->id())
 				World::remove_deferred(i.item()->entity());
 		}
 	}

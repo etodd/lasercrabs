@@ -630,7 +630,7 @@ b8 Awk::net_msg(Net::StreamRead* p, Net::MessageSource src)
 		{
 			Ref<Entity> reflected_off;
 			serialize_ref(p, reflected_off);
-			if (!awk->has<PlayerControlHuman>() || !awk->get<PlayerControlHuman>()->local())
+			if (apply_msg)
 				client_hit_effects(awk, reflected_off.ref());
 			break;
 		}
@@ -1261,8 +1261,17 @@ void awk_reflection_execute(Awk* a, Entity* reflected_off, const Vec3& dir)
 	a->dash_timer = 0.0f;
 	a->get<Animator>()->layers[0].animation = Asset::Animation::awk_fly;
 
-	if (Game::level.local && !reflected_off || !reflected_off->has<Target>()) // target hit effects are handled separately
-		AwkNet::reflection_effects(a, reflected_off);
+	if (!reflected_off || !reflected_off->has<Target>()) // target hit effects are handled separately
+	{
+		if (Game::level.local)
+			AwkNet::reflection_effects(a, reflected_off); // let everyone know we're doing reflection effects
+		else
+		{
+			// client-side prediction
+			vi_assert(a->has<PlayerControlHuman>() && a->get<PlayerControlHuman>()->local());
+			client_hit_effects(a, reflected_off);
+		}
+	}
 
 	AwkReflectEvent e;
 	e.entity = reflected_off;

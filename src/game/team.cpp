@@ -290,6 +290,7 @@ b8 visibility_check(Entity* i, Entity* j, r32* distance)
 	return false;
 }
 
+// determine which sensors can see the given player
 void update_visibility_sensor(Entity* visibility[][MAX_PLAYERS], PlayerManager* player, Entity* player_entity)
 {
 	Quat player_rot;
@@ -378,6 +379,8 @@ void update_visibility(const Update& u)
 
 		r32 i_range = i_entity->get<Awk>()->range();
 
+		Entity* i_decoy = i.item()->decoy();
+
 		for (auto j = PlayerManager::list.iterator(); !j.is_last(); j.next())
 		{
 			Team* j_team = j.item()->team.ref();
@@ -387,25 +390,32 @@ void update_visibility(const Update& u)
 
 			Entity* detected_entity = nullptr; // the entity i detected, if any
 
+			// if j_decoy is at all visible, it will be detected first
+			// i_decoy is also able to detect j_actual_entity and j_decoy
+
 			Entity* j_decoy = j.item()->decoy();
-			if (j_decoy)
+			if (j_decoy && !j_decoy->get<AIAgent>()->stealth)
 			{
 				r32 distance;
-				if (!j_decoy->get<AIAgent>()->stealth
-					&& visibility_check(i_entity, j_decoy, &distance)
+				if ((visibility_check(i_entity, j_decoy, &distance)
 					&& distance < i_range)
-						detected_entity = j_decoy;
+					|| (i_decoy
+						&& visibility_check(i_decoy, j_decoy, &distance)
+						&& distance < AWK_MAX_DISTANCE))
+					detected_entity = j_decoy;
 			}
 
 			if (!detected_entity)
 			{
 				Entity* j_actual_entity = j.item()->instance.ref();
-				if (j_actual_entity)
+				if (j_actual_entity && !j_actual_entity->get<AIAgent>()->stealth)
 				{
 					r32 distance;
-					if (!j_actual_entity->get<AIAgent>()->stealth
-						&& visibility_check(i_entity, j_actual_entity, &distance)
+					if ((visibility_check(i_entity, j_actual_entity, &distance)
 						&& distance < i_range)
+						|| (i_decoy
+							&& visibility_check(i_decoy, j_actual_entity, &distance)
+							&& distance < AWK_MAX_DISTANCE))
 						detected_entity = j_actual_entity;
 				}
 			}
@@ -418,7 +428,7 @@ void update_visibility(const Update& u)
 	{
 		Team* team = t.item();
 
-		// update tracking timers
+		// update tracking timers.
 
 		for (auto player = PlayerManager::list.iterator(); !player.is_last(); player.next())
 		{

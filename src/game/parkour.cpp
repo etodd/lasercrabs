@@ -692,7 +692,7 @@ void Parkour::update(const Update& u)
 			// we're falling
 			// check if there are any minions to squish
 			// if the player is holding the slide button, they don't have to be falling very fast at all to do damage
-			if (get<RigidBody>()->btBody->getLinearVelocity().getY() < slide_continue ? LANDING_VELOCITY_LIGHT : LANDING_VELOCITY_HARD)
+			if (get<RigidBody>()->btBody->getLinearVelocity().getY() < (slide_continue ? LANDING_VELOCITY_LIGHT : LANDING_VELOCITY_HARD))
 			{
 				if (minions_do_damage(this, &minion_below))
 				{
@@ -896,28 +896,6 @@ void Parkour::update(const Update& u)
 	get<Walker>()->crouch(fsm.current == State::Slide);
 
 	{
-		// handle collectibles
-		b8 pickup = fsm.current == State::Normal && get<Animator>()->layers[3].animation == AssetNull; // should we look for collectibles to pick up?
-		Vec3 me = get<Walker>()->base_pos();
-		for (auto i = Collectible::list.iterator(); !i.is_last(); i.next())
-		{
-			Transform* t = i.item()->get<Transform>();
-
-			if (pickup && t->parent.ref() != get<Transform>() && (t->absolute_pos() - me).length_squared() < COLLECTIBLE_RADIUS * COLLECTIBLE_RADIUS)
-				ParkourNet::pickup(this, i.item()); // pick it up
-
-			if (t->parent.ref() == get<Transform>())
-			{
-				// glue it to our hand
-				t->pos = Vec3(0.04f, 0, 0);
-				t->rot = Quat::euler(0, PI * 0.5f, 0);
-				get<Animator>()->to_local(Asset::Bone::character_hand_R, &t->pos, &t->rot);
-				break;
-			}
-		}
-	}
-
-	{
 		if (fsm.current == State::Normal && Game::time.total - last_support_time > JUMP_GRACE_PERIOD)
 		{
 			// check for stuff to climb
@@ -1015,6 +993,28 @@ void Parkour::update(const Update& u)
 			Vec3(1.0f, 1.0f, 1.0f),
 			Quat::euler(0, get<Walker>()->rotation + PI * 0.5f, 0) * Quat::euler(0, 0, lean * -1.5f)
 		);
+	}
+
+	// handle collectibles
+	{
+		b8 pickup = fsm.current == State::Normal && get<Animator>()->layers[3].animation == AssetNull; // should we look for collectibles to pick up?
+		Vec3 me = get<Walker>()->base_pos();
+		for (auto i = Collectible::list.iterator(); !i.is_last(); i.next())
+		{
+			Transform* t = i.item()->get<Transform>();
+
+			if (pickup && t->parent.ref() != get<Transform>() && (t->absolute_pos() - me).length_squared() < COLLECTIBLE_RADIUS * COLLECTIBLE_RADIUS)
+				ParkourNet::pickup(this, i.item()); // pick it up
+
+			if (t->parent.ref() == get<Transform>())
+			{
+				// glue it to our hand
+				t->pos = Vec3(0.04f, 0, 0);
+				t->rot = Quat::euler(0, PI * 0.5f, 0);
+				get<Animator>()->to_local(Asset::Bone::character_hand_R, &t->pos, &t->rot);
+				break;
+			}
+		}
 	}
 }
 

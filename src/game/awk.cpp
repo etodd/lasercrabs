@@ -814,7 +814,7 @@ b8 Awk::hit_target(Entity* target)
 			get<PlayerCommon>()->manager.ref()->add_credits(CREDITS_CONTAINMENT_FIELD_DESTROY);
 	}
 
-	if (current_ability == Ability::None && overshield_timer > 0.0f && target->has<Awk>())
+	if (current_ability == Ability::None && overshield_timer > 0.0f && (target->has<Awk>() || target->has<Decoy>()))
 		overshield_timer = 0.0f; // damaging an Awk takes our shield down
 
 	if (target->has<Target>())
@@ -857,9 +857,6 @@ void Awk::health_changed(const HealthEvent& e)
 	if (e.hp + e.shield < 0)
 	{
 		// damaged
-
-		if (e.shield != 0)
-			shield_time = Game::time.total;
 
 		if (get<Health>()->hp == 0)
 		{
@@ -1234,7 +1231,7 @@ void awk_reflection_execute(Awk* a, Entity* reflected_off, const Vec3& dir)
 	a->get<Animator>()->layers[0].animation = Asset::Animation::awk_fly;
 
 	if ((a->has<PlayerControlHuman>() && a->get<PlayerControlHuman>()->local()) // local particle effects show up instantly no matter what
-		|| !reflected_off || !reflected_off->has<Awk>()) // if this awk is owned by a remote, and we're reflecting off another awk, those particle effects will be handled by the target hit system
+		|| !reflected_off || (!reflected_off->has<Awk>() && !reflected_off->has<Decoy>())) // if this awk is owned by a remote, and we're reflecting off another awk, those particle effects will be handled by the target hit system
 		client_hit_effects(a, nullptr);
 
 	AwkReflectEvent e;
@@ -1728,6 +1725,36 @@ void Awk::update_server(const Update& u)
 #endif
 }
 
+void Awk::update_shield_view(const Update& u, Entity* e, View* v, r32 shield_time)
+{
+	if (e->get<Health>()->shield > 0 || u.time.total - shield_time < AWK_SHIELD_ANIM_TIME)
+	{
+		if (e->get<AIAgent>()->stealth)
+			v->mask = 1 << s32(e->get<AIAgent>()->team); // only display to fellow teammates
+		else
+			v->mask = RENDER_MASK_DEFAULT; // everyone can see
+
+		r32 blend = vi_min((u.time.total - shield_time) / AWK_SHIELD_ANIM_TIME, 1.0f);
+		v->offset = e->get<SkinnedModel>()->offset;
+		if (e->get<Health>()->shield > 0)
+		{
+			// shield is coming in; blend from zero to normal size
+			blend = Ease::cubic_out<r32>(blend);
+			v->color.w = LMath::lerpf(blend, 0.0f, AWK_SHIELD_ALPHA);
+			v->offset.make_transform(v->offset.translation(), Vec3(LMath::lerpf(blend, 0.0f, AWK_SHIELD_RADIUS)), Quat::identity);
+		}
+		else
+		{
+			// we just lost our shield; blend from normal size to large and faded out
+			blend = Ease::cubic_in<r32>(blend);
+			v->color.w = LMath::lerpf(blend, 0.75f, 0.0f);
+			v->offset.make_transform(v->offset.translation(), Vec3(LMath::lerpf(blend, AWK_SHIELD_RADIUS, 8.0f)), Quat::identity);
+		}
+	}
+	else
+		v->mask = 0;
+}
+
 void Awk::update_client(const Update& u)
 {
 	State s = state();
@@ -1925,36 +1952,7 @@ void Awk::update_client(const Update& u)
 		}
 	}
 
-	{
-		// shield
-		View* v = shield.ref()->get<View>();
-		if (get<Health>()->shield > 0 || u.time.total - shield_time < AWK_SHIELD_ANIM_TIME)
-		{
-			if (get<AIAgent>()->stealth)
-				v->mask = 1 << (s32)get<AIAgent>()->team; // only display to fellow teammates
-			else
-				v->mask = RENDER_MASK_DEFAULT; // everyone can see
-
-			r32 blend = vi_min((u.time.total - shield_time) / AWK_SHIELD_ANIM_TIME, 1.0f);
-			v->offset = get<SkinnedModel>()->offset;
-			if (get<Health>()->shield > 0)
-			{
-				// shield is coming in; blend from zero to normal size
-				blend = Ease::cubic_out<r32>(blend);
-				v->color.w = LMath::lerpf(blend, 0.0f, AWK_SHIELD_ALPHA);
-				v->offset.make_transform(v->offset.translation(), Vec3(LMath::lerpf(blend, 0.0f, AWK_SHIELD_RADIUS)), Quat::identity);
-			}
-			else
-			{
-				// we just lost our shield; blend from normal size to large and faded out
-				blend = Ease::cubic_in<r32>(blend);
-				v->color.w = LMath::lerpf(blend, 0.75f, 0.0f);
-				v->offset.make_transform(v->offset.translation(), Vec3(LMath::lerpf(blend, AWK_SHIELD_RADIUS, 8.0f)), Quat::identity);
-			}
-		}
-		else
-			v->mask = 0;
-	}
+	update_shield_view(u, entity(), shield.ref()->get<View>(), shield_time);
 
 	{
 		// overshield
@@ -2063,7 +2061,7 @@ void Awk::raycast(RaycastMode mode, const Vec3& ray_start, const Vec3& ray_end, 
 				intersection,
 				Vec3::normalize(intersection - p),
 				(intersection - ray_start).length() / distance_total,
-				i.item()->has<Awk>() ? Hit::Type::Awk : Hit::Type::Target,
+				(i.item()->has<Awk>() || i.item()->has<Decoy>()) ? Hit::Type::Awk : Hit::Type::Target,
 				i.item()->entity(),
 			});
 		}
@@ -2080,7 +2078,7 @@ void Awk::raycast(RaycastMode mode, const Vec3& ray_start, const Vec3& ray_end, 
 			b8 stop = false;
 			if (hit.type == Hit::Type::Awk)
 			{
-				if (hit.entity.ref()->get<Awk>()->state() != Awk::State::Crawl) // it's flying or dashing; always bounce off
+				if (hit.entity.ref()->has<Awk>() && hit.entity.ref()->get<Awk>()->state() != Awk::State::Crawl) // it's flying or dashing; always bounce off
 					stop = true;
 				else if (hit.entity.ref()->get<Health>()->total() > 1)
 					stop = true; // they have health or shield to spare; we'll bounce off

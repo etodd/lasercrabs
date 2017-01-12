@@ -980,7 +980,7 @@ b8 awk_find_filter(const PlayerControlAI* control, const Entity* e)
 	s16 enemy_hp = e->get<Health>()->hp;
 	return e->get<AIAgent>()->team != control->get<AIAgent>()->team
 		&& !e->get<AIAgent>()->stealth
-		&& (e->get<Awk>()->overshield_timer == 0.0f || (enemy_hp == 1 && my_hp > enemy_hp + 1))
+		&& (e->has<Decoy>() || e->get<Awk>()->overshield_timer == 0.0f || (enemy_hp == 1 && my_hp > enemy_hp + 1))
 		&& (enemy_hp <= my_hp || (my_hp > 1 && control->get<Awk>()->overshield_timer > 0.0f));
 }
 
@@ -989,8 +989,13 @@ b8 awk_react_filter(const PlayerControlAI* control, const Entity* e)
 	if (!awk_find_filter(control, e))
 		return false;
 
-	Awk* a = e->get<Awk>();
-	return a->state() == Awk::State::Crawl && a->overshield_timer == 0.0f;
+	if (e->has<Decoy>())
+		return true;
+	else
+	{
+		Awk* a = e->get<Awk>();
+		return a->state() == Awk::State::Crawl && a->overshield_timer == 0.0f;
+	}
 }
 
 b8 containment_field_filter(const PlayerControlAI* control, const Entity* e)

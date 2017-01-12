@@ -87,7 +87,16 @@ struct Awk : public ComponentType<Awk>
 		s32 index_end;
 	};
 
+	enum class RaycastMode
+	{
+		Default,
+		IgnoreContainmentFields,
+	};
+
 	static Awk* closest(AI::TeamMask, const Vec3&, r32* = nullptr);
+	static void update_shield_view(const Update&, Entity*, View*, r32);
+	static b8 net_msg(Net::StreamRead*, Net::MessageSource);
+	static void stealth(Entity*, b8);
 
 	Quat lerped_rotation;
 	Vec3 velocity;
@@ -123,8 +132,6 @@ struct Awk : public ComponentType<Awk>
 	void awake();
 	~Awk();
 
-	static b8 net_msg(Net::StreamRead*, Net::MessageSource);
-
 	r32 range() const;
 
 	void cooldown_setup();
@@ -138,8 +145,6 @@ struct Awk : public ComponentType<Awk>
 	s16 ally_containment_field_mask() const;
 
 	b8 predict_intersection(const Target*, const Net::StateFrame*, Vec3*, r32) const;
-
-	static void stealth(Entity*, b8);
 
 	void reflect(Entity*, const Vec3&, const Vec3&, const Net::StateFrame*);
 	void crawl_wall_edge(const Vec3&, const Vec3&, const Update&, r32);
@@ -165,12 +170,6 @@ struct Awk : public ComponentType<Awk>
 	b8 can_spawn(Ability, const Vec3&, Vec3* = nullptr, Vec3* = nullptr, RigidBody** = nullptr, b8* = nullptr) const;
 	b8 can_dash(const Target*, Vec3* = nullptr) const;
 	b8 can_hit(const Target*, Vec3* = nullptr, r32 = AWK_FLY_SPEED) const; // shoot or dash
-
-	enum class RaycastMode
-	{
-		Default,
-		IgnoreContainmentFields,
-	};
 
 	void raycast(RaycastMode, const Vec3&, const Vec3&, const Net::StateFrame*, Hits*) const;
 	r32 movement_raycast(const Vec3&, const Vec3&);

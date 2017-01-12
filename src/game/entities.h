@@ -185,15 +185,19 @@ struct RocketEntity : public Entity
 
 struct Decoy : public ComponentType<Decoy>
 {
+	r32 shield_time;
 	Ref<PlayerManager> owner;
 	Ref<Entity> shield;
 
 	void awake();
 	~Decoy();
+
 	void hit_by(const TargetEvent&);
 	void killed(Entity*);
 	void destroy();
 	AI::Team team() const;
+	void health_changed(const HealthEvent&);
+	void update(const Update&);
 };
 
 struct DecoyEntity : public Entity

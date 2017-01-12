@@ -116,7 +116,7 @@
 	"containment_field": "Force Field",
 	"description_containment_field": "Force fields are impervious to enemy drones. Limited battery life unless powered by a friendly energy port.",
 	"decoy": "Decoy",
-	"description_decoy": "Decoys distract enemy minions and rockets.",
+	"description_decoy": "Decoys distract enemy minions and rockets, and can also detect enemy drones.",
 	"grenade": "Grenade",
 	"description_grenade": "Area of effect weapon. Useful for crowd control. Can also function as a mine.",
 	"bolter": "Bolter",

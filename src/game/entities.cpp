@@ -1156,6 +1156,7 @@ void Decoy::awake()
 {
 	link_arg<const TargetEvent&, &Decoy::hit_by>(get<Target>()->target_hit);
 	link_arg<Entity*, &Decoy::killed>(get<Health>()->killed);
+	link_arg<const HealthEvent&, &Decoy::health_changed>(get<Health>()->changed);
 
 	if (Game::level.local)
 	{
@@ -1193,6 +1194,17 @@ void Decoy::killed(Entity*)
 {
 	if (Game::level.local)
 		destroy();
+}
+
+void Decoy::health_changed(const HealthEvent& e)
+{
+	if (e.shield != 0)
+		shield_time = Game::time.total;
+}
+
+void Decoy::update(const Update& u)
+{
+	Awk::update_shield_view(u, entity(), shield.ref()->get<View>(), shield_time);
 }
 
 void Decoy::destroy()

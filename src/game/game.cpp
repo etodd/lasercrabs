@@ -454,6 +454,8 @@ void Game::update(const Update& update_in)
 			i.item()->update(u);
 		for (auto i = Shockwave::list.iterator(); !i.is_last(); i.next())
 			i.item()->update(u);
+		for (auto i = Decoy::list.iterator(); !i.is_last(); i.next())
+			i.item()->update(u);
 		for (auto i = PlayerCommon::list.iterator(); !i.is_last(); i.next())
 			i.item()->update(u);
 		for (auto i = PlayerControlHuman::list.iterator(); !i.is_last(); i.next())

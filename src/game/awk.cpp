@@ -2128,8 +2128,8 @@ r32 Awk::movement_raycast(const Vec3& ray_start, const Vec3& ray_end)
 					// client-side prediction
 					do_reflect = s != State::Crawl
 						&& (hit.entity.ref()->get<Health>()->total() > 1 // will they still be alive after we hit them? if so, reflect
-							|| hit.entity.ref()->get<Awk>()->state() != State::Crawl
-							|| hit.entity.ref()->get<Awk>()->overshield_timer > 0.0f);
+							|| (hit.entity.ref()->has<Awk>()
+								&& (hit.entity.ref()->get<Awk>()->state() != State::Crawl || hit.entity.ref()->get<Awk>()->overshield_timer > 0.0f)));
 					b8 already_hit = false;
 					for (s32 i = 0; i < hit_targets.length; i++)
 					{

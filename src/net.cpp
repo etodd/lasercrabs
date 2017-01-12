@@ -258,6 +258,7 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 		| Rocket::component_mask
 		| ContainmentField::component_mask
 		| Awk::component_mask
+		| Decoy::component_mask
 		| Audio::component_mask
 		| Team::component_mask
 		| PlayerHuman::component_mask
@@ -410,6 +411,13 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 		serialize_ref(p, a->shield);
 		serialize_ref(p, a->overshield);
 		serialize_int(p, s8, a->charges, 0, AWK_CHARGES);
+	}
+
+	if (e->has<Decoy>())
+	{
+		Decoy* d = e->get<Decoy>();
+		serialize_ref(p, d->owner);
+		serialize_ref(p, d->shield);
 	}
 
 	if (e->has<MinionCommon>())
@@ -2066,7 +2074,7 @@ struct StateServer
 	Array<Client> clients;
 	Mode mode;
 	r32 time_sync_timer;
-	s32 expected_clients = 1;
+	s32 expected_clients = 2;
 };
 StateServer state_server;
 
@@ -2107,8 +2115,8 @@ b8 init()
 	}
 
 	// todo: allow both multiplayer / story mode sessions
-	Game::session.story_mode = true;
-	Game::load_level(Asset::Level::Port_District, Game::Mode::Parkour);
+	Game::session.story_mode = false;
+	Game::load_level(Asset::Level::Medias_Res, Game::Mode::Pvp);
 
 	return true;
 }

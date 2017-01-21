@@ -2527,6 +2527,19 @@ void PlayerControlHuman::update(const Update& u)
 				}
 			}
 
+			// rockets
+			if (target_indicators.length < target_indicators.capacity())
+			{
+				for (auto i = Rocket::list.iterator(); !i.is_last(); i.next())
+				{
+					if (i.item()->team() != team)
+					{
+						if (!add_target_indicator(i.item()->get<Target>(), TargetIndicator::Type::Invisible))
+							break; // no more room for indicators
+					}
+				}
+			}
+
 			// containment fields
 			if (target_indicators.length < target_indicators.capacity())
 			{

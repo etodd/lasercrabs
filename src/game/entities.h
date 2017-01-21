@@ -171,6 +171,7 @@ struct Rocket : public ComponentType<Rocket>
 	void awake();
 
 	void explode();
+	const Vec3& velocity() const;
 	AI::Team team() const;
 	void set_owner(PlayerManager*);
 	void killed(Entity*);

@@ -1284,6 +1284,7 @@ const char* AssetLookup::String::names[] =
 	"resource_collected",
 	"right_joystick",
 	"rocket",
+	"rocket_destroyed",
 	"rocket_incoming",
 	"sailor_come_here",
 	"sailor_speech_1",

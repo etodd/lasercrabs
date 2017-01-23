@@ -895,12 +895,18 @@ AICue* AICue::in_range(AICue::TypeMask mask, const Vec3& pos, r32 radius, s32* c
 void Rocket::awake()
 {
 	get<Health>()->killed.link<Rocket, Entity*, &Rocket::killed>(this);
+	get<Target>()->target_hit.link<Rocket, const TargetEvent&, &Rocket::hit_by>(this);
 }
 
 void Rocket::killed(Entity*)
 {
 	if (Game::level.local)
-		World::remove_deferred(entity());
+		explode();
+}
+
+void Rocket::hit_by(const TargetEvent& e)
+{
+	get<Health>()->damage(e.hit_by, get<Health>()->hp_max);
 }
 
 void Rocket::launch(Entity* t)
@@ -987,7 +993,7 @@ void Rocket::explode()
 	World::remove_deferred(entity());
 }
 
-const Vec3& Rocket::velocity() const
+Vec3 Rocket::velocity() const
 {
 	return get<Transform>()->rot * Vec3(0, 0, ROCKET_SPEED);
 }

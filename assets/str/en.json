@@ -91,6 +91,7 @@
 	"control_point_captured": "Control point captured",
 	"control_point_lost": "Control point lost",
 	"containment_field_destroyed": "Force field destroyed",
+	"rocket_destroyed": "Rocket destroyed",
 	"shield_down": "Shield down",
 	"target_shield_down": "Target shield down",
 	"minion_killed": "Minion killed",

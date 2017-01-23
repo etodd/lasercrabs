@@ -389,6 +389,11 @@ b8 Awk::net_msg(Net::StreamRead* p, Net::MessageSource src)
 					b8 is_enemy = target.ref()->get<ContainmentField>()->team != awk->get<AIAgent>()->team;
 					awk->get<PlayerControlHuman>()->player.ref()->msg(_(strings::containment_field_destroyed), is_enemy);
 				}
+				else if (target.ref()->has<Rocket>())
+				{
+					b8 is_enemy = target.ref()->get<Rocket>()->team() != awk->get<AIAgent>()->team;
+					awk->get<PlayerControlHuman>()->player.ref()->msg(_(strings::rocket_destroyed), is_enemy);
+				}
 			}
 
 			if (target.ref()->has<Awk>())
@@ -843,6 +848,12 @@ b8 Awk::hit_target(Entity* target)
 		b8 is_enemy = target->get<ContainmentField>()->team != get<AIAgent>()->team;
 		if (is_enemy)
 			get<PlayerCommon>()->manager.ref()->add_credits(CREDITS_CONTAINMENT_FIELD_DESTROY);
+	}
+	else if (target->has<Rocket>())
+	{
+		b8 is_enemy = target->get<Rocket>()->team() != get<AIAgent>()->team;
+		if (is_enemy)
+			get<PlayerCommon>()->manager.ref()->add_credits(CREDITS_ROCKET_DESTROY);
 	}
 
 	if (current_ability == Ability::None && overshield_timer > 0.0f && (target->has<Awk>() || target->has<Decoy>()))

@@ -1182,7 +1182,7 @@ class ObjectWrapper(metaclass=MetaObjectWrapper):
         if self.parent == arm_obj and self.bdata.parent_type == 'ARMATURE':
             return True
         for mod in self.bdata.modifiers:
-            if mod.type == 'ARMATURE' and mod.object == arm_obj.bdata:
+            if mod.type == 'ARMATURE' and mod.object in {arm_obj.bdata, arm_obj.bdata.proxy}:
                 return True
 
     # #### Duplis...

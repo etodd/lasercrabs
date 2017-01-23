@@ -577,6 +577,10 @@ Vec3 zone_color(const ZoneNode& zone)
 			{
 				return Team::color_friend.xyz();
 			}
+			case ZoneState::GroupOwned:
+			{
+				return Vec3(1.0f);
+			}
 			case ZoneState::Hostile:
 			{
 				return Team::color_enemy.xyz();
@@ -604,6 +608,10 @@ const Vec4& zone_ui_color(const ZoneNode& zone)
 			case ZoneState::Friendly:
 			{
 				return Team::ui_color_friend;
+			}
+			case ZoneState::GroupOwned:
+			{
+				return UI::color_default;
 			}
 			case ZoneState::Hostile:
 			{
@@ -1200,7 +1208,7 @@ b8 zone_filter_default(AssetID zone_id)
 
 b8 zone_filter_can_be_attacked(AssetID zone_id)
 {
-	if (zone_id == Asset::Level::Port_District || zone_id == Asset::Level::Dock)
+	if (zone_id == Asset::Level::Port_District)
 		return false;
 	else if (zone_id == Game::level.id || (Game::session.story_mode && zone_id == Game::save.zone_current))
 		return false;

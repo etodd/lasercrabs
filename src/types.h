@@ -87,6 +87,7 @@ enum class ZoneState
 {
 	Locked,
 	Friendly,
+	GroupOwned,
 	Hostile,
 	count,
 };

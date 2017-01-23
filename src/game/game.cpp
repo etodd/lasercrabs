@@ -155,7 +155,8 @@ void Game::Save::reset()
 	zone_overworld = AssetNull;
 
 	strcpy(username, "etodd");
-	zones[Asset::Level::Dock] = ZoneState::Friendly;
+	zones[Asset::Level::Dock] = ZoneState::GroupOwned;
+	zones[Asset::Level::Moros] = ZoneState::GroupOwned;
 
 	resources[(s32)Resource::Energy] = (s16)(CREDITS_INITIAL * 3.5f);
 }
@@ -1297,7 +1298,7 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 				s32 offset;
 				if (session.story_mode)
 				{
-					if (save.zones[level.id] == ZoneState::Friendly)
+					if (save.zones[level.id] == ZoneState::Friendly || save.zones[level.id] == ZoneState::GroupOwned)
 						offset = 0; // put local player on team 0 (defenders)
 					else
 						offset = 1; // put local player on team 1 (attackers)
@@ -1453,7 +1454,7 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 			if (session.story_mode)
 			{
 				// starts out owned by player if the zone is friendly
-				s32 default_team_index = Game::save.zones[Game::level.id] == ZoneState::Friendly ? 0 : 1;
+				s32 default_team_index = (save.zones[level.id] == ZoneState::Friendly || save.zones[level.id] == ZoneState::GroupOwned) ? 0 : 1;
 				AI::Team team = team_lookup(level.team_lookup, Json::get_s32(element, "team", default_team_index));
 				entity = World::alloc<Minion>(absolute_pos, absolute_rot, team);
 			}
@@ -1518,14 +1519,14 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 				AI::Team team = team_lookup(level.team_lookup, team_original);
 				if (ai_player_count > 1)
 				{
-					if ((Game::save.zones[level.id] == ZoneState::Friendly && team_original == 1) || mersenne::randf_cc() < 0.5f)
+					if (((save.zones[Game::level.id] == ZoneState::Friendly || save.zones[level.id] == ZoneState::GroupOwned) && team_original == 1) || mersenne::randf_cc() < 0.5f)
 						level.ai_config.add(PlayerAI::generate_config(team, 0.0f)); // enemy is attacking; they're there from the beginning
 					else
 						level.ai_config.add(PlayerAI::generate_config(team, 20.0f + mersenne::randf_cc() * (ZONE_UNDER_ATTACK_THRESHOLD * 1.5f)));
 				}
 				else
 				{
-					if (Game::save.zones[level.id] == ZoneState::Friendly)
+					if (save.zones[Game::level.id] == ZoneState::Friendly || save.zones[level.id] == ZoneState::GroupOwned)
 						level.ai_config.add(PlayerAI::generate_config(team, 0.0f)); // player is defending, enemy is already there
 					else // player is attacking, eventually enemy will come to defend
 						level.ai_config.add(PlayerAI::generate_config(team, 20.0f + mersenne::randf_cc() * (ZONE_UNDER_ATTACK_THRESHOLD * 1.5f)));
@@ -1541,7 +1542,7 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 				{
 					// starts out owned by player if the zone is friendly
 					s32 default_team_index;
-					if (Game::save.zones[Game::level.id] == ZoneState::Friendly)
+					if (save.zones[Game::level.id] == ZoneState::Friendly || save.zones[level.id] == ZoneState::GroupOwned)
 						default_team_index = mersenne::randf_cc() < 0.8f ? 0 : 1;
 					else
 						default_team_index = 1;

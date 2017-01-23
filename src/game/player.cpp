@@ -2649,6 +2649,7 @@ void PlayerControlHuman::update(const Update& u)
 									break;
 								}
 								case ZoneState::Friendly:
+								case ZoneState::GroupOwned:
 								{
 									// zone is already owned
 									player.ref()->msg(_(strings::zone_already_captured), false);
@@ -2668,14 +2669,14 @@ void PlayerControlHuman::update(const Update& u)
 							s8 track = s8(interactable.ref()->user_data);
 							AssetID target_level = Game::level.tram_tracks[track].level;
 							Tram* tram = Tram::by_track(track);
-							if (tram->doors_open() || Game::save.zones[target_level] != ZoneState::Locked)
+							if (tram->doors_open() || Game::save.zones[target_level] == ZoneState::Friendly || Game::save.zones[target_level] == ZoneState::Hostile)
 							{
 								// go right ahead
 								interactable.ref()->interact();
 								get<Animator>()->layers[3].play(Asset::Animation::character_interact);
 							}
 							else if (Game::save.zones[Game::level.id] == ZoneState::Locked
-								&& Game::save.zones[target_level] == ZoneState::Locked)
+								&& (Game::save.zones[target_level] == ZoneState::Locked || Game::save.zones[target_level] == ZoneState::GroupOwned))
 							{
 								// unlock terminal first
 								player.ref()->msg(_(strings::error_locked_zone), false);
@@ -2683,13 +2684,12 @@ void PlayerControlHuman::update(const Update& u)
 							}
 							else
 							{
-								// zone is unlocked, but need to hack this tram first
-								if (Game::save.zones[target_level] == ZoneState::Friendly)
+								if (Game::save.zones[target_level] == ZoneState::Friendly || Game::save.zones[target_level] == ZoneState::GroupOwned)
 								{
 									interactable.ref()->interact();
 									get<Animator>()->layers[3].play(Asset::Animation::character_interact);
 								}
-								else if (Game::save.resources[s32(Resource::HackKits)] > 0)
+								else if (Game::save.resources[s32(Resource::HackKits)] > 0) // zone is unlocked, but need to hack this tram first
 								{
 									if (Game::level.id == Asset::Level::Port_District && s32(Game::level.feature_level) < s32(Game::FeatureLevel::TutorialAll))
 									{
@@ -3325,7 +3325,7 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 						Vec3 pos = i.item()->get<Transform>()->absolute_pos();
 						Vec3 to_tram = pos - params.camera->pos;
 						r32 distance = to_tram.length();
-						if (distance > 12.0f)
+						if (distance > 8.0f)
 						{
 							to_tram /= distance;
 							if (to_tram.dot(look_dir) > 0.92f)
@@ -3337,26 +3337,31 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 									UIText text;
 									switch (Game::save.zones[zone])
 									{
-									case ZoneState::Friendly:
-									{
-										text.color = Team::ui_color_friend;
-										break;
-									}
-									case ZoneState::Hostile:
-									{
-										text.color = Team::ui_color_enemy;
-										break;
-									}
-									case ZoneState::Locked:
-									{
-										text.color = UI::color_disabled;
-										break;
-									}
-									default:
-									{
-										vi_assert(false);
-										break;
-									}
+										case ZoneState::Friendly:
+										{
+											text.color = Team::ui_color_friend;
+											break;
+										}
+										case ZoneState::GroupOwned:
+										{
+											text.color = UI::color_default;
+											break;
+										}
+										case ZoneState::Hostile:
+										{
+											text.color = Team::ui_color_enemy;
+											break;
+										}
+										case ZoneState::Locked:
+										{
+											text.color = UI::color_disabled;
+											break;
+										}
+										default:
+										{
+											vi_assert(false);
+											break;
+										}
 									}
 									text.text(Loader::level_name(zone));
 									text.anchor_x = UIText::Anchor::Center;

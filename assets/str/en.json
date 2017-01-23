@@ -413,11 +413,11 @@ Capture the hanging battery.
 	"sailor_speech_1": "[Dada] Now look, once you're ashore, you need to crack the tram system.",
 	"sailor_speech_2": "[Dada] I had someone leave a crack kit for you in the cargo. Go!",
 
-	"hobo1": "[Hobo] No escape. No escape. No escape.",
-	"hobo2": "[Hobo] Inevitable. Inevitable. I was there. I saw it coming.",
-	"hobo3": "[Hobo] Too late. Don't give up. It's too late!",
-	"hobo4": "[Hobo] Not enough. Never enough. Please, it's all I have!",
-	"hobo5": "[Hobo] And it goes up. Just keeps going up. Faster and faster. It's all I have, there's no more.",
+	"hobo1": "[Hobo] Inevitable. I saw it coming. What could I do? Inevitable!",
+	"hobo2": "[Hobo] Too late. No, don't give up. Is it too late?",
+	"hobo3": "[Hobo] It's not enough. Never enough. Please, it's all I have!",
+	"hobo4": "[Hobo] And it goes up. Just keeps going up. Why can't it ever be enough?",
+	"hobo5": "[Hobo] No hope? I won't give up. Oh, easy for you to say!",
 
 	"ivory_ad1": "[Ad] Ivory Corporation: proudly celebrating 50 years of interplanetary service.",
 	"ivory_ad2": "[Ad] Our colonies on Caligula provide the most advanced, cost-effective safety solution in today's difficult climate.",

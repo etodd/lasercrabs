@@ -987,6 +987,11 @@ void Rocket::explode()
 	World::remove_deferred(entity());
 }
 
+const Vec3& Rocket::velocity() const
+{
+	return get<Transform>()->rot * Vec3(0, 0, ROCKET_SPEED);
+}
+
 void Rocket::update_server(const Update& u)
 {
 	if (!get<Transform>()->parent.ref())
@@ -1054,8 +1059,7 @@ void Rocket::update_server(const Update& u)
 				get<Transform>()->rot = Quat::slerp(vi_min(1.0f, 5.0f * u.time.delta), get<Transform>()->rot, target_rot);
 		}
 
-		Vec3 velocity = get<Transform>()->rot * Vec3(0, 0, ROCKET_SPEED);
-		Vec3 next_pos = get<Transform>()->pos + velocity * u.time.delta;
+		Vec3 next_pos = get<Transform>()->pos + velocity() * u.time.delta;
 
 		btCollisionWorld::ClosestRayResultCallback ray_callback(get<Transform>()->pos, next_pos + get<Transform>()->rot * Vec3(0, 0, 0.1f));
 		Physics::raycast(&ray_callback, ~CollisionTarget & ~CollisionAwkIgnore);
@@ -1121,6 +1125,8 @@ RocketEntity::RocketEntity(PlayerManager* owner, Transform* parent, const Vec3& 
 	model->shader = Asset::Shader::standard;
 
 	create<RigidBody>(RigidBody::Type::CapsuleZ, Vec3(0.1f, 0.3f, 0.3f), 0.0f, CollisionAwkIgnore, CollisionDefault);
+
+	create<Target>();
 }
 
 DecoyEntity::DecoyEntity(PlayerManager* owner, Transform* parent, const Vec3& pos, const Quat& rot)
@@ -1779,6 +1785,8 @@ Vec3 Target::velocity() const
 {
 	if (has<Awk>())
 		return get<Awk>()->velocity;
+	else if (has<Rocket>())
+		return get<Rocket>()->velocity();
 	else if (Game::level.local)
 	{
 		if (has<Parkour>() && !get<PlayerControlHuman>()->local())
@@ -1828,10 +1836,10 @@ b8 Target::predict_intersection(const Vec3& from, r32 speed, const Net::StateFra
 
 r32 Target::radius() const
 {
-	if (has<MinionCommon>())
+	if (has<Walker>())
 		return MINION_HEAD_RADIUS;
 	else
-		return get<RigidBody>()->size.x;
+		return get<RigidBody>()->size.y;
 }
 
 void Target::hit(Entity* hit_by)

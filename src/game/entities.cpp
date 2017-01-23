@@ -988,7 +988,7 @@ void Rocket::explode()
 	Vec3 pos;
 	Quat rot;
 	get<Transform>()->absolute(&pos, &rot);
-	ParticleEffect::spawn(ParticleEffect::Type::Impact, pos, rot.inverse());
+	ParticleEffect::spawn(ParticleEffect::Type::Impact, pos, get<Transform>()->parent.ref() ? rot : rot.inverse());
 
 	World::remove_deferred(entity());
 }

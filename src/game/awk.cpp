@@ -271,6 +271,24 @@ void client_hit_effects(Awk* awk, Entity* target)
 	awk->hit.fire(target);
 }
 
+void sniper_hit_effects(const Awk::Hit& hit)
+{
+	if (hit.type == Awk::Hit::Type::Environment || hit.type == Awk::Hit::Type::Inaccessible || hit.type == Awk::Hit::Type::ContainmentField)
+	{
+		// we just shot at a wall; spawn some particles
+		Quat rot = Quat::look(hit.normal);
+		for (s32 j = 0; j < 50; j++)
+		{
+			Particles::sparks.add
+			(
+				hit.pos,
+				rot * Vec3(mersenne::randf_oo() * 2.0f - 1.0f, mersenne::randf_oo() * 2.0f - 1.0f, mersenne::randf_oo()) * 10.0f,
+				Vec4(1, 1, 1, 1)
+			);
+		}
+	}
+}
+
 b8 Awk::net_msg(Net::StreamRead* p, Net::MessageSource src)
 {
 	using Stream = Net::StreamRead;
@@ -571,6 +589,8 @@ b8 Awk::net_msg(Net::StreamRead* p, Net::MessageSource src)
 						Awk::Hits hits;
 						awk->raycast(RaycastMode::Default, ray_start, ray_end, nullptr, &hits);
 						distance = hits.fraction_end * awk->range();
+						if (hits.index_end != -1)
+							sniper_hit_effects(hits.hits[hits.index_end]);
 					}
 
 					// effects
@@ -2168,6 +2188,9 @@ r32 Awk::movement_raycast(const Vec3& ray_start, const Vec3& ray_end)
 		const Hit& hit = hits.hits[i];
 		if (i == hits.index_end || hit.fraction < hits.fraction_end)
 		{
+			if (current_ability == Ability::Sniper)
+				sniper_hit_effects(hit);
+
 			if (hit.type == Hit::Type::Target)
 				hit_target(hit.entity.ref());
 			else if (hit.type == Hit::Type::Awk)
@@ -2221,23 +2244,6 @@ r32 Awk::movement_raycast(const Vec3& ray_start, const Vec3& ray_end)
 					get<Transform>()->absolute(point + hit.normal * AWK_RADIUS, Quat::look(hit.normal));
 
 					AwkNet::finish_flying(this);
-				}
-			}
-
-			if (current_ability == Ability::Sniper
-				&& i == hits.index_end
-				&& (hit.type == Hit::Type::Environment || hit.type == Hit::Type::Inaccessible || hit.type == Hit::Type::ContainmentField))
-			{
-				// we just shot at a wall; spawn some particles
-				Quat rot = Quat::look(hit.normal);
-				for (s32 j = 0; j < 50; j++)
-				{
-					Particles::sparks.add
-					(
-						hit.pos,
-						rot * Vec3(mersenne::randf_oo() * 2.0f - 1.0f, mersenne::randf_oo() * 2.0f - 1.0f, mersenne::randf_oo()) * 10.0f,
-						Vec4(1, 1, 1, 1)
-					);
 				}
 			}
 		}

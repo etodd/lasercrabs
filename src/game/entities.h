@@ -313,6 +313,8 @@ struct ProjectileEntity : public Entity
 
 struct Projectile : public ComponentType<Projectile>
 {
+	static s16 raycast_mask(AI::Team);
+	
 	Vec3 velocity;
 	r32 lifetime;
 	Ref<PlayerManager> owner;
@@ -321,6 +323,7 @@ struct Projectile : public ComponentType<Projectile>
 
 	AI::Team team() const;
 	void update(const Update&);
+	void hit_entity(Entity*, const Vec3&, const Vec3&);
 };
 
 struct ParticleEffect
@@ -419,11 +422,13 @@ struct Interactable : public ComponentType<Interactable>
 	{
 		Terminal,
 		Tram,
+		Shop,
 		Invalid,
 		count = Invalid,
 	};
 
 	static Interactable* closest(const Vec3&);
+	static b8 is_present(Type);
 	static b8 net_msg(Net::StreamRead*, Net::MessageSource);
 
 	s32 user_data;
@@ -452,6 +457,18 @@ struct TerminalInteractable : public Entity
 	static void interacted(Interactable*);
 
 	TerminalInteractable();
+};
+
+struct ShopEntity : public Entity
+{
+	ShopEntity();
+};
+
+struct ShopInteractable : public Entity
+{
+	static void interacted(Interactable*);
+
+	ShopInteractable();
 };
 
 struct TramRunnerEntity : public Entity

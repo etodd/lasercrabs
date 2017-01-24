@@ -74,7 +74,6 @@
 	"danger": "Danger",
 	"rocket_incoming": "Rocket",
 	"shield": "Shield",
-	"overshield": "Overshield",
 	"upgrade_notification": "Upgrade",
 	"prompt_upgrade": "[{{Interact}}] Upgrade",
 	"upgrading": "Upgrading...",

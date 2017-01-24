@@ -423,7 +423,7 @@ r32 EnergyPickup::power_particle_timer;
 r32 EnergyPickup::particle_accumulator;
 void EnergyPickup::update_all(const Update& u)
 {
-	if (!Overworld::active())
+	if (!Overworld::modal())
 	{
 		// normal particles
 		const r32 interval = 0.1f;
@@ -448,7 +448,7 @@ void EnergyPickup::update_all(const Update& u)
 	// power particles
 	const r32 particle_interval = 0.1f;
 	const r32 particle_reset = 2.0f;
-	b8 emit_particles = !Overworld::active() && (s32)(power_particle_timer / particle_interval) < (s32)((power_particle_timer + u.time.delta) / particle_interval);
+	b8 emit_particles = !Overworld::modal() && (s32)(power_particle_timer / particle_interval) < (s32)((power_particle_timer + u.time.delta) / particle_interval);
 	power_particle_timer += u.time.delta;
 	while (power_particle_timer > particle_reset)
 		power_particle_timer -= particle_reset;
@@ -1417,7 +1417,6 @@ ContainmentFieldEntity::ContainmentFieldEntity(Transform* parent, const Vec3& ab
 }
 
 #define TELEPORTER_RADIUS 0.5f
-#define PROJECTILE_LENGTH 0.5f
 #define PROJECTILE_THICKNESS 0.05f
 #define PROJECTILE_MAX_LIFETIME 10.0f
 #define PROJECTILE_DAMAGE 1
@@ -1463,48 +1462,54 @@ void Projectile::update(const Update& u)
 	btCollisionWorld::ClosestRayResultCallback ray_callback(pos, next_pos + Vec3::normalize(velocity) * PROJECTILE_LENGTH);
 
 	// if we have an owner, we can go through their team's force fields. otherwise, collide with everything.
-	s16 mask = ~Team::containment_field_mask(team());
-	Physics::raycast(&ray_callback, mask);
+	Physics::raycast(&ray_callback, raycast_mask(team()));
 	if (ray_callback.hasHit())
-	{
-		Entity* hit_object = &Entity::list[ray_callback.m_collisionObject->getUserIndex()];
-		if (!owner.ref() || hit_object != owner.ref()->instance.ref())
-		{
-			Entity* owner_instance = owner.ref() ? owner.ref()->instance.ref() : nullptr;
-			Vec3 basis;
-			if (hit_object->has<Health>())
-			{
-				basis = Vec3::normalize(velocity);
-				b8 do_damage = true;
-				if (hit_object->has<Parkour>()) // player is invincible while rolling and sliding
-				{
-					Parkour::State state = hit_object->get<Parkour>()->fsm.current;
-					if (state == Parkour::State::Roll || state == Parkour::State::Slide)
-						do_damage = false;
-				}
-				if (hit_object->has<Awk>()) // player is invincible while flying or dashing
-				{
-					if (hit_object->get<Awk>()->state() != Awk::State::Crawl)
-						do_damage = false;
-				}
-				if (do_damage)
-					hit_object->get<Health>()->damage(owner_instance, PROJECTILE_DAMAGE);
-				if (hit_object->has<RigidBody>())
-				{
-					RigidBody* body = hit_object->get<RigidBody>();
-					body->btBody->applyImpulse(velocity * 0.1f, Vec3::zero);
-					body->btBody->activate(true);
-				}
-			}
-			else
-				basis = ray_callback.m_hitNormalWorld;
-
-			ParticleEffect::spawn(ParticleEffect::Type::Impact, ray_callback.m_hitPointWorld, Quat::look(basis));
-			World::remove(entity());
-		}
-	}
+		hit_entity(&Entity::list[ray_callback.m_collisionObject->getUserIndex()], ray_callback.m_hitPointWorld, ray_callback.m_hitNormalWorld);
 	else
 		get<Transform>()->absolute_pos(next_pos);
+}
+
+s16 Projectile::raycast_mask(AI::Team team)
+{
+	return ~Team::containment_field_mask(team);
+}
+
+void Projectile::hit_entity(Entity* hit_object, const Vec3& hit, const Vec3& normal)
+{
+	if (!owner.ref() || hit_object != owner.ref()->instance.ref())
+	{
+		Entity* owner_instance = owner.ref() ? owner.ref()->instance.ref() : nullptr;
+		Vec3 basis;
+		if (hit_object->has<Health>())
+		{
+			basis = Vec3::normalize(velocity);
+			b8 do_damage = true;
+			if (hit_object->has<Parkour>()) // player is invincible while rolling and sliding
+			{
+				Parkour::State state = hit_object->get<Parkour>()->fsm.current;
+				if (state == Parkour::State::Roll || state == Parkour::State::Slide)
+					do_damage = false;
+			}
+			if (hit_object->has<Awk>()) // player is invincible while flying or dashing
+			{
+				if (hit_object->get<Awk>()->state() != Awk::State::Crawl)
+					do_damage = false;
+			}
+			if (do_damage)
+				hit_object->get<Health>()->damage(owner_instance, PROJECTILE_DAMAGE);
+			if (hit_object->has<RigidBody>())
+			{
+				RigidBody* body = hit_object->get<RigidBody>();
+				body->btBody->applyImpulse(velocity * 0.1f, Vec3::zero);
+				body->btBody->activate(true);
+			}
+		}
+		else
+			basis = normal;
+
+		ParticleEffect::spawn(ParticleEffect::Type::Impact, hit, Quat::look(basis));
+		World::remove(entity());
+	}
 }
 
 b8 ParticleEffect::spawn(Type t, const Vec3& pos, const Quat& rot)
@@ -2395,8 +2400,11 @@ Interactable::Interactable(Type t)
 
 void Interactable::awake()
 {
-	link<&Interactable::animation_callback>(get<Animator>()->trigger(Asset::Animation::interactable_interact, 1.916f));
-	link<&Interactable::animation_callback>(get<Animator>()->trigger(Asset::Animation::interactable_interact_disable, 1.916f));
+	if (has<Animator>())
+	{
+		link<&Interactable::animation_callback>(get<Animator>()->trigger(Asset::Animation::interactable_interact, 1.916f));
+		link<&Interactable::animation_callback>(get<Animator>()->trigger(Asset::Animation::interactable_interact_disable, 1.916f));
+	}
 	switch (type)
 	{
 		case Type::Terminal:
@@ -2407,6 +2415,11 @@ void Interactable::awake()
 		case Type::Tram:
 		{
 			interacted.link(&TramInteractableEntity::interacted);
+			break;
+		}
+		case Type::Shop:
+		{
+			interacted.link(&ShopInteractable::interacted);
 			break;
 		}
 		default:
@@ -2484,6 +2497,39 @@ void Interactable::interact_no_animation()
 void Interactable::animation_callback()
 {
 	InteractableNet::send_msg(this);
+}
+
+b8 Interactable::is_present(Type t)
+{
+	for (auto i = list.iterator(); !i.is_last(); i.next())
+	{
+		if (i.item()->type == t)
+			return true;
+	}
+	return false;
+}
+
+ShopEntity::ShopEntity()
+{
+	create<Transform>();
+
+	View* model = create<View>();
+	model->mesh = Asset::Mesh::shop;
+	model->shader = Asset::Shader::standard;
+	model->color = Vec4(1, 1, 1, MATERIAL_INACCESSIBLE);
+
+	RigidBody* body = create<RigidBody>(RigidBody::Type::Mesh, Vec3::zero, 0.0f, CollisionStatic | CollisionInaccessible, ~CollisionStatic & ~CollisionParkour & ~CollisionInaccessible & ~CollisionElectric, Asset::Mesh::shop_collision);
+	body->set_restitution(0.75f);
+}
+
+ShopInteractable::ShopInteractable()
+{
+	create<Transform>();
+	create<Interactable>(Interactable::Type::Shop);
+}
+
+void ShopInteractable::interacted(Interactable*)
+{
 }
 
 void TerminalEntity::open()

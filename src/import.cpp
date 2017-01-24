@@ -1016,7 +1016,7 @@ void edge_add(const Array<Vec3>& vertices, Array<s32>* indices, s32 a, s32 b)
 			indices->remove(j);
 			break;
 		}
-		else
+		else if (!found)
 		{
 			const Vec3& vu = vertices[u];
 			const Vec3& vv = vertices[v];
@@ -1040,7 +1040,7 @@ b8 load_mesh(const aiMesh* mesh, Mesh* out)
 	out->bounds_min = Vec3(FLT_MAX, FLT_MAX, FLT_MAX);
 	out->bounds_max = Vec3(FLT_MIN, FLT_MIN, FLT_MIN);
 	out->bounds_radius = 0.0f;
-	// Fill vertices positions
+	// fill vertex positions
 	out->vertices.reserve(mesh->mNumVertices);
 	for (s32 i = 0; i < mesh->mNumVertices; i++)
 	{
@@ -1057,7 +1057,7 @@ b8 load_mesh(const aiMesh* mesh, Mesh* out)
 	}
 	out->bounds_radius = sqrtf(out->bounds_radius);
 
-	// Fill normals, binormals, tangents
+	// fill normals, binormals, tangents
 	if (mesh->HasNormals())
 	{
 		out->normals.reserve(mesh->mNumVertices);
@@ -1074,11 +1074,11 @@ b8 load_mesh(const aiMesh* mesh, Mesh* out)
 		return false;
 	}
 
-	// Fill face indices
+	// fill face indices
 	out->indices.reserve(3 * mesh->mNumFaces);
 	for (s32 i = 0; i < mesh->mNumFaces; i++)
 	{
-		// Assume the mesh has only triangles.
+		// assume the mesh has only triangles.
 		s32 a = mesh->mFaces[i].mIndices[0];
 		out->indices.add(a);
 		s32 b = mesh->mFaces[i].mIndices[1];
@@ -1093,7 +1093,7 @@ b8 load_mesh(const aiMesh* mesh, Mesh* out)
 	return true;
 }
 
-// Build armature for skinned model
+// build armature for skinned model
 b8 build_armature(Armature& armature, Map<s32>& bone_map, aiNode* node, s32 parent_index, s32* counter)
 {
 	s32 current_bone_index;

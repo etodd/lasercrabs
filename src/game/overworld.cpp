@@ -71,22 +71,6 @@ struct ZoneNode
 	}
 };
 
-enum class State
-{
-	SplitscreenSelectTeams,
-	SplitscreenSelectZone,
-	SplitscreenDeploying,
-	StoryMode,
-	Deploying,
-};
-
-enum class Tab
-{
-	Map,
-	Inventory,
-	count,
-};
-
 #define DEPLOY_ANIMATION_TIME 1.0f
 
 struct PropEntry
@@ -110,8 +94,6 @@ struct DataGlobal
 	Array<WaterEntry> waters;
 	Vec3 camera_offset_pos;
 	Quat camera_offset_rot;
-	Vec3 camera_inventory_pos;
-	Quat camera_inventory_rot;
 };
 DataGlobal global;
 
@@ -140,8 +122,8 @@ struct Data
 	struct StoryMode
 	{
 		r64 timestamp_last;
-		Tab tab = Tab::Map;
-		Tab tab_previous = Tab::Inventory;
+		Tab tab;
+		Tab tab_previous;
 		r32 tab_timer;
 		r32 mode_transition_time;
 		Inventory inventory;
@@ -155,10 +137,9 @@ struct Data
 	r32 timer_deploy;
 	r32 timer_transition;
 	State state;
+	State state_next;
 	StoryMode story;
 	AssetID zone_selected = AssetNull;
-	b8 active;
-	b8 active_next;
 };
 
 Data data = Data();
@@ -1013,6 +994,7 @@ b8 net_msg(Net::StreamRead* p, Net::MessageSource src)
 			AssetID zone;
 			serialize_s16(p, zone);
 
+			// only server accepts CaptureOrDefend messages
 			if (Game::level.local && Game::session.story_mode)
 			{
 				if (zone_node_get(zone) && zone_can_capture(zone))
@@ -1034,6 +1016,7 @@ b8 net_msg(Net::StreamRead* p, Net::MessageSource src)
 			AssetID zone;
 			serialize_s16(p, zone);
 
+			// server does not accept ZoneUnderAttack messages from client
 			if (Game::level.local == (src == Net::MessageSource::Loopback))
 			{
 				Game::session.zone_under_attack = zone;
@@ -1068,6 +1051,24 @@ b8 net_msg(Net::StreamRead* p, Net::MessageSource src)
 				Game::save.resources[s32(r)] += delta;
 				vi_assert(Game::save.resources[s32(r)] >= 0);
 				data.story.inventory.resource_change_time[s32(r)] = Game::real_time.total;
+			}
+			break;
+		}
+		case OverworldNet::Message::Buy:
+		{
+			Resource r;
+			serialize_enum(p, Resource, r);
+			s16 amount;
+			serialize_s16(p, amount);
+			// only server accepts Buy messages
+			if (Game::level.local && Game::session.story_mode && amount > 0 && Interactable::is_present(Interactable::Type::Shop))
+			{
+				s32 cost = s32(amount) * s32(resource_info[s32(r)].cost);
+				if (cost <= Game::save.resources[s32(Resource::Energy)])
+				{
+					resource_change(r, amount);
+					resource_change(Resource::Energy, -cost);
+				}
 			}
 			break;
 		}
@@ -1136,10 +1137,10 @@ void deploy_draw(const RenderParams& params)
 	Menu::progress_infinite(params, _(strings::deploying), params.camera->viewport.size * Vec2(0.5f, 0.2f));
 }
 
-b8 can_switch_tab()
+b8 enable_input()
 {
 	const Data::StoryMode& story = data.story;
-	return data.active
+	return data.state != State::Hidden
 		&& data.timer_transition == 0.0f
 		&& data.timer_deploy == 0.0f
 		&& story.inventory.timer_buy == 0.0f
@@ -1246,13 +1247,11 @@ void tab_map_update(const Update& u)
 {
 	if (data.story.tab == Tab::Map && data.story.tab_timer > TAB_ANIMATION_TIME)
 	{
-		b8 enable_input = can_switch_tab();
-		select_zone_update(u, enable_input); // only enable movement if can_switch_tab()
+		select_zone_update(u, enable_input()); // only enable movement if enable_input()
 
 		// capture button
-		if (enable_input
+		if (enable_input()
 			&& u.last_input->get(Controls::Interact, 0) && !u.input->get(Controls::Interact, 0)
-			&& can_switch_tab()
 			&& zone_can_capture(data.zone_selected))
 		{
 			if (Game::save.resources[s32(Resource::Drones)] >= DEFAULT_RUSH_DRONES)
@@ -1300,9 +1299,6 @@ void resource_buy(s8 gamepad)
 
 void tab_inventory_update(const Update& u)
 {
-	if (data.story.tab == Tab::Inventory && data.story.tab_timer > TAB_ANIMATION_TIME)
-		focus_camera(u, global.camera_inventory_pos, global.camera_inventory_rot);
-
 	Data::Inventory* inventory = &data.story.inventory;
 
 	if (data.story.inventory.timer_buy > 0.0f)
@@ -1320,7 +1316,7 @@ void tab_inventory_update(const Update& u)
 		}
 	}
 
-	if (data.story.tab == Tab::Inventory && can_switch_tab())
+	if (data.story.tab == Tab::Inventory && enable_input())
 	{
 		// handle input
 		switch (inventory->mode)
@@ -1425,24 +1421,6 @@ void story_mode_update(const Update& u)
 	// start the mode transition animation when we first open any tab
 	if (data.story.tab_timer > TAB_ANIMATION_TIME && data.story.tab_timer - Game::real_time.delta <= TAB_ANIMATION_TIME)
 		data.story.mode_transition_time = Game::real_time.total;
-
-	if (can_switch_tab())
-	{
-		if (u.last_input->get(Controls::TabLeft, 0) && !u.input->get(Controls::TabLeft, 0))
-		{
-			data.story.tab_previous = data.story.tab;
-			data.story.tab = (Tab)(vi_max(0, s32(data.story.tab) - 1));
-			if (data.story.tab != data.story.tab_previous)
-				data.story.tab_timer = 0.0f;
-		}
-		if (u.last_input->get(Controls::TabRight, 0) && !u.input->get(Controls::TabRight, 0))
-		{
-			data.story.tab_previous = data.story.tab;
-			data.story.tab = (Tab)(vi_min(s32(Tab::count) - 1, s32(data.story.tab) + 1));
-			if (data.story.tab != data.story.tab_previous)
-				data.story.tab_timer = 0.0f;
-		}
-	}
 
 	tab_map_update(u);
 	tab_inventory_update(u);
@@ -1653,7 +1631,7 @@ void tab_map_draw(const RenderParams& p, const Data::StoryMode& story, const Rec
 		}
 
 		// capture prompt
-		if (can_switch_tab() && zone_can_capture(data.zone_selected))
+		if (enable_input() && zone_can_capture(data.zone_selected))
 		{
 			UIText text;
 			text.anchor_x = text.anchor_y = UIText::Anchor::Center;
@@ -1800,26 +1778,6 @@ void story_mode_draw(const RenderParams& p)
 		if (data.story.tab_timer > TAB_ANIMATION_TIME)
 			tab_inventory_draw(p, data.story, rect);
 	}
-
-	// left/right tab control prompt
-	if (can_switch_tab())
-	{
-		UIText text;
-		text.size = TEXT_SIZE;
-		text.anchor_x = UIText::Anchor::Center;
-		text.anchor_y = UIText::Anchor::Min;
-		text.color = UI::color_default;
-		text.text("[{{TabLeft}}]");
-
-		Vec2 pos = bottom_left + Vec2(tab_size.x * 0.5f, main_view_size.y + tab_size.y * 1.5f);
-		UI::box(p, text.rect(pos).outset(PADDING), UI::color_background);
-		text.draw(p, pos);
-
-		pos.x += total_size.x - tab_size.x;
-		text.text("[{{TabRight}}]");
-		UI::box(p, text.rect(pos).outset(PADDING), UI::color_background);
-		text.draw(p, pos);
-	}
 }
 
 b8 should_draw_zones()
@@ -1854,7 +1812,7 @@ void hide()
 	if (data.timer_transition == 0.0f)
 	{
 		data.timer_transition = TRANSITION_TIME;
-		data.active_next = false;
+		data.state_next = State::Hidden;
 	}
 }
 
@@ -1866,11 +1824,14 @@ void hide_complete()
 		memcpy(data.camera, &data.camera_restore_data, sizeof(Camera));
 		data.camera = nullptr;
 	}
-	data.active = data.active_next = false;
+	data.state = data.state_next = State::Hidden;
 }
 
 void show_complete()
 {
+	State state_next = data.state_next;
+	Tab tab_next = data.story.tab;
+
 	Particles::clear();
 	{
 		Camera* c = data.camera;
@@ -1881,20 +1842,18 @@ void show_complete()
 		data.timer_transition = t;
 
 		data.camera_restore_data = *data.camera;
-		data.camera->colors = false;
-		data.camera->mask = 0;
+
+		if (state_next != State::StoryModeOverlay) // if we're going to be modal, we need to mess with the camera.
+		{
+			data.camera->colors = false;
+			data.camera->mask = 0;
+		}
 	}
 
-	data.active = data.active_next = true;
+	data.state = state_next;
+	data.story.tab = tab_next;
 
 	Game::save.zone_last = Game::level.id;
-
-	if (Game::session.story_mode)
-		data.state = State::StoryMode;
-	else if (Game::session.local_player_count() > 1)
-		data.state = State::SplitscreenSelectZone;
-	else
-		data.state = State::SplitscreenSelectTeams;
 
 	if (Game::session.story_mode)
 	{
@@ -1902,6 +1861,8 @@ void show_complete()
 			data.zone_selected = Game::level.id;
 		else
 			data.zone_selected = Game::session.zone_under_attack;
+
+		data.story.tab_previous = Tab((s32(data.story.tab) + 1) % s32(Tab::count));
 	}
 	else
 	{
@@ -1926,7 +1887,7 @@ void show_complete()
 r32 particle_accumulator = 0.0f;
 void update(const Update& u)
 {
-	if (Game::level.id == Asset::Level::overworld && Game::scheduled_load_level == AssetNull && !data.active && !data.active_next)
+	if (Game::level.id == Asset::Level::overworld && Game::scheduled_load_level == AssetNull && data.state == State::Hidden && data.state_next == State::Hidden)
 	{
 		Camera* c = Camera::add();
 		c->viewport =
@@ -1937,7 +1898,15 @@ void update(const Update& u)
 		r32 aspect = c->viewport.size.y == 0 ? 1 : (r32)c->viewport.size.x / (r32)c->viewport.size.y;
 		c->perspective((80.0f * PI * 0.5f / 180.0f), aspect, 0.1f, Game::level.skybox.far_plane);
 		data.timer_transition = 0.0f;
-		show(c);
+
+
+		if (Game::session.story_mode)
+			vi_assert(false);
+		else if (Game::session.local_player_count() > 1)
+			show(c, State::SplitscreenSelectZone);
+		else
+			show(c, State::SplitscreenSelectTeams);
+
 		show_complete();
 		data.timer_transition = 0.0f;
 	}
@@ -1948,10 +1917,10 @@ void update(const Update& u)
 		data.timer_transition = vi_max(0.0f, data.timer_transition - u.time.delta);
 		if (data.timer_transition < TRANSITION_TIME * 0.5f && old_timer >= TRANSITION_TIME * 0.5f)
 		{
-			if (data.active_next)
-				show_complete();
-			else
+			if (data.state_next == State::Hidden)
 				hide_complete();
+			else
+				show_complete();
 		}
 	}
 
@@ -1984,11 +1953,12 @@ void update(const Update& u)
 		}
 	}
 
-	if (data.active && !Console::visible)
+	if (data.state != State::Hidden && !Console::visible)
 	{
 		switch (data.state)
 		{
 			case State::StoryMode:
+			case State::StoryModeOverlay:
 			{
 				story_mode_update(u);
 				break;
@@ -2016,8 +1986,11 @@ void update(const Update& u)
 			}
 		}
 
-		data.camera->pos = data.camera_pos;
-		data.camera->rot = data.camera_rot;
+		if (modal())
+		{
+			data.camera->pos = data.camera_pos;
+			data.camera->rot = data.camera_rot;
+		}
 
 		// pause
 		if (!Game::cancel_event_eaten[0])
@@ -2039,7 +2012,7 @@ void update(const Update& u)
 
 void draw_opaque(const RenderParams& params)
 {
-	if (data.active)
+	if (modal())
 	{
 		for (s32 i = 0; i < global.props.length; i++)
 		{
@@ -2059,7 +2032,7 @@ void draw_opaque(const RenderParams& params)
 
 void draw_hollow(const RenderParams& params)
 {
-	if (data.active)
+	if (modal())
 	{
 		for (s32 i = 0; i < global.waters.length; i++)
 		{
@@ -2071,13 +2044,13 @@ void draw_hollow(const RenderParams& params)
 
 void draw_override(const RenderParams& params)
 {
-	if (data.active && should_draw_zones())
+	if (modal() && should_draw_zones())
 		zones_draw_override(params);
 }
 
 void draw_ui(const RenderParams& params)
 {
-	if (data.active && params.camera == data.camera)
+	if (active() && params.camera == data.camera)
 	{
 		switch (data.state)
 		{
@@ -2087,6 +2060,7 @@ void draw_ui(const RenderParams& params)
 				break;
 			}
 			case State::StoryMode:
+			case State::StoryModeOverlay:
 			{
 				story_mode_draw(params);
 				break;
@@ -2115,19 +2089,35 @@ void draw_ui(const RenderParams& params)
 		Menu::draw_letterbox(params, data.timer_transition, TRANSITION_TIME);
 }
 
-void show(Camera* camera)
+void show(Camera* camera, State state, Tab tab)
 {
 	if (data.timer_transition == 0.0f)
 	{
 		data.camera = camera;
 		data.timer_transition = TRANSITION_TIME;
-		data.active_next = true;
+		data.state_next = state;
+		data.story.tab = tab;
+		if (state == State::StoryModeOverlay)
+		{
+			data.timer_transition = 0.0f;
+			show_complete();
+		}
+		else if (state == State::Hidden && data.state == State::StoryModeOverlay)
+		{
+			data.timer_transition = 0.0f;
+			hide_complete();
+		}
 	}
 }
 
 b8 active()
 {
-	return data.active;
+	return data.state != State::Hidden;
+}
+
+b8 modal()
+{
+	return active() && data.state != State::StoryModeOverlay;
 }
 
 void clear()
@@ -2183,10 +2173,6 @@ void init(cJSON* level)
 		cJSON* t = find_entity(level, "map_view");
 		global.camera_offset_pos = Json::get_vec3(t, "pos");
 		global.camera_offset_rot = Quat::look(Json::get_quat(t, "rot") * Vec3(0, -1, 0));
-
-		t = find_entity(level, "camera_inventory");
-		global.camera_inventory_pos = Json::get_vec3(t, "pos");
-		global.camera_inventory_rot = Quat::look(Json::get_quat(t, "rot") * Vec3(0, -1, 0));
 	}
 
 	{
@@ -2279,8 +2265,6 @@ void init(cJSON* level)
 
 	if (Game::session.story_mode)
 	{
-		data.state = State::StoryMode;
-
 		r64 t = platform::timestamp();
 		r64 elapsed_time = t - Game::save.timestamp;
 		data.story.timestamp_last = t;

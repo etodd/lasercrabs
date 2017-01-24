@@ -636,7 +636,92 @@ b8 Awk::net_msg(Net::StreamRead* p, Net::MessageSource src)
 				case Ability::Bolter:
 				{
 					if (Game::level.local)
-						Net::finalize(World::create<ProjectileEntity>(manager, my_pos + dir_normalized * AWK_SHIELD_RADIUS, dir_normalized));
+					{
+						if (manager->has<PlayerHuman>() && !manager->get<PlayerHuman>()->local)
+						{
+							// step 1. rewind the world to the point where the remote player fired
+							// step 2. step forward in increments of 1/60th of a second until we reach the present,
+							// checking for obstacles along the way.
+							// step 3. spawn the bolt at the final position
+							// step 4. if a target was hit, delete the bolt and apply any damage effects
+
+							Vec3 pos_bolt = my_pos + dir_normalized * AWK_SHIELD_RADIUS;
+							r32 timestamp = Net::timestamp() - Net::rtt(manager->get<PlayerHuman>());
+
+							Entity* closest_hit_entity = nullptr;
+							Vec3 closest_hit;
+							Vec3 closest_hit_normal;
+
+							while (true)
+							{
+								Net::StateFrame state_frame;
+								Net::state_frame_by_timestamp(&state_frame, timestamp);
+								const r32 SIMULATION_STEP = 1.0f / 60.0f;
+								Vec3 pos_bolt_next = pos_bolt + dir_normalized * (PROJECTILE_SPEED * SIMULATION_STEP);
+								Vec3 pos_bolt_next_ray = pos_bolt_next + dir_normalized * PROJECTILE_LENGTH;
+
+								r32 closest_hit_distance_sq = FLT_MAX;
+
+								// check environment collisions
+								{
+									btCollisionWorld::ClosestRayResultCallback ray_callback(pos_bolt, pos_bolt_next_ray);
+									Physics::raycast(&ray_callback, Projectile::raycast_mask(awk->get<AIAgent>()->team));
+									if (ray_callback.hasHit())
+									{
+										closest_hit = ray_callback.m_hitPointWorld;
+										closest_hit_normal = ray_callback.m_hitNormalWorld;
+										closest_hit_entity = &Entity::list[ray_callback.m_collisionObject->getUserIndex()];
+										closest_hit_distance_sq = (closest_hit - pos_bolt).length_squared();
+									}
+								}
+
+								// check target collisions
+								for (auto i = Target::list.iterator(); !i.is_last(); i.next())
+								{
+									if (i.item() == awk->get<Target>())
+										continue;
+
+									Vec3 p;
+									{
+										Vec3 pos;
+										Quat rot;
+										Net::transform_absolute(state_frame, i.item()->get<Transform>()->id(), &pos, &rot);
+										p = pos + (rot * i.item()->local_offset); // todo possibly: rewind local_offset as well?
+									}
+
+									Vec3 intersection;
+									if (LMath::ray_sphere_intersect(pos_bolt, pos_bolt_next_ray, p, i.item()->radius(), &intersection))
+									{
+										r32 distance_sq = (intersection - pos_bolt).length_squared();
+										if (distance_sq < closest_hit_distance_sq)
+										{
+											closest_hit = intersection;
+											closest_hit_normal = Vec3::normalize(intersection - p);
+											closest_hit_entity = i.item()->entity();
+											closest_hit_distance_sq = distance_sq;
+										}
+									}
+								}
+								pos_bolt = pos_bolt_next;
+
+								timestamp += SIMULATION_STEP;
+
+								// if we hit something or we've simulated up to the present time, then stop
+								if (closest_hit_entity || timestamp > Net::timestamp())
+									break;
+							}
+
+							Entity* bolt = World::create<ProjectileEntity>(manager, pos_bolt, dir_normalized);
+							Net::finalize(bolt);
+							if (closest_hit_entity) // we hit something, register it instantly
+								bolt->get<Projectile>()->hit_entity(closest_hit_entity, closest_hit, closest_hit_normal);
+						}
+						else
+						{
+							// not a remote player; no lag compensation needed
+							Net::finalize(World::create<ProjectileEntity>(manager, my_pos + dir_normalized * AWK_SHIELD_RADIUS, dir_normalized));
+						}
+					}
 					break;
 				}
 				default:

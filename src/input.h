@@ -321,8 +321,6 @@ enum class Controls
 	Pause,
 	Interact,
 	InteractSecondary,
-	TabLeft,
-	TabRight,
 	Scoreboard,
 	Jump,
 	Parkour,

@@ -32,6 +32,10 @@
 #define DEBUG_MSG 0
 #define DEBUG_ENTITY 0
 #define DEBUG_TRANSFORMS 0
+#define DEBUG_LAG 0
+#define DEBUG_LAG_AMOUNT 0.15f
+#define DEBUG_PACKET_LOSS 0
+#define DEBUG_PACKET_LOSS_AMOUNT 0.25f
 
 namespace VI
 {
@@ -3317,39 +3321,76 @@ b8 remove(Entity* e)
 
 #define NET_MAX_FRAME_TIME 0.2f
 
+struct PacketEntry
+{
+	r32 timestamp;
+	StreamRead packet;
+	Sock::Address address;
+	PacketEntry(r32 t) : timestamp(t), packet(), address() {}
+};
+
+#if DEBUG_LAG
+Array<PacketEntry> lag_buffer;
+#endif
+
+void packet_read(const Update& u, PacketEntry* entry)
+{
+#if DEBUG_PACKET_LOSS
+	if (mersenne::randf_co() < 1.0f - DEBUG_PACKET_LOSS_AMOUNT) // packet loss simulation
+		return;
+#endif
+
+	state_common.bandwidth_in_counter += entry->packet.bytes_total;
+
+	if (entry->packet.bytes_total > 0 && entry->packet.read_checksum())
+	{
+		packet_decompress(&entry->packet, entry->packet.bytes_total);
+#if SERVER
+		Server::packet_handle(u, &entry->packet, entry->address);
+#else
+		Client::packet_handle(u, &entry->packet, entry->address);
+#endif
+	}
+	else
+		vi_debug("%s", "Discarding packet due to invalid checksum.");
+}
+
 void update_start(const Update& u)
 {
 	r32 dt = vi_min(Game::real_time.delta, NET_MAX_FRAME_TIME);
 	state_common.timestamp += dt;
+
 	while (true)
 	{
-		Sock::Address address;
-		StreamRead incoming_packet;
-		s32 bytes_received = Sock::udp_receive(&sock, &address, incoming_packet.data.data, NET_MAX_PACKET_SIZE);
+		PacketEntry entry(state_common.timestamp);
+		s32 bytes_received = Sock::udp_receive(&sock, &entry.address, entry.packet.data.data, NET_MAX_PACKET_SIZE);
+		entry.packet.resize_bytes(bytes_received);
 		if (bytes_received > 0)
 		{
-			//if (mersenne::randf_co() < 0.75f) // packet loss simulation
-			{
-				state_common.bandwidth_in_counter += bytes_received;
-
-				incoming_packet.resize_bytes(bytes_received);
-
-				if (incoming_packet.read_checksum())
-				{
-					packet_decompress(&incoming_packet, bytes_received);
-#if SERVER
-					Server::packet_handle(u, &incoming_packet, address);
+#if DEBUG_LAG
+			lag_buffer.add(entry); // save for later
 #else
-					Client::packet_handle(u, &incoming_packet, address);
+			packet_read(u, &entry); // read packet instantly
 #endif
-				}
-				else
-					vi_debug("%s", "Discarding packet due to invalid checksum.");
-			}
 		}
 		else
 			break;
 	}
+
+#if DEBUG_LAG
+	// wait DEBUG_LAG_AMOUNT before reading packet
+	for (s32 i = 0; i < lag_buffer.length; i++)
+	{
+		PacketEntry* entry = &lag_buffer[i];
+		if (entry->timestamp < state_common.timestamp - DEBUG_LAG_AMOUNT)
+		{
+			packet_read(u, entry);
+			lag_buffer.remove_ordered(i);
+			i--;
+		}
+	}
+#endif
+
 #if SERVER
 	Server::update(u, dt);
 #else

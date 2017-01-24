@@ -252,8 +252,6 @@ void refresh_variables()
 	UIText::set_variable("Ability3", gamepad.bindings[(s32)Controls::Ability3].string(Game::is_gamepad));
 	UIText::set_variable("Interact", gamepad.bindings[(s32)Controls::Interact].string(Game::is_gamepad));
 	UIText::set_variable("InteractSecondary", gamepad.bindings[(s32)Controls::InteractSecondary].string(Game::is_gamepad));
-	UIText::set_variable("TabLeft", gamepad.bindings[(s32)Controls::TabLeft].string(Game::is_gamepad));
-	UIText::set_variable("TabRight", gamepad.bindings[(s32)Controls::TabRight].string(Game::is_gamepad));
 	UIText::set_variable("Scoreboard", gamepad.bindings[(s32)Controls::Scoreboard].string(Game::is_gamepad));
 	UIText::set_variable("Jump", gamepad.bindings[(s32)Controls::Jump].string(Game::is_gamepad));
 	UIText::set_variable("Parkour", gamepad.bindings[(s32)Controls::Parkour].string(Game::is_gamepad));
@@ -450,9 +448,9 @@ void update(const Update& u)
 		// do pause menu
 		if (main_menu_state == State::Visible
 			&& !Game::cancel_event_eaten[0]
+			&& Game::time.total > 0.0f
 			&& ((u.last_input->get(Controls::Pause, 0) && !u.input->get(Controls::Pause, 0))
-				|| (u.input->get(Controls::Cancel, 0) && !u.last_input->get(Controls::Cancel, 0)))
-			&& Game::time.total > 0.0f)
+				|| (u.input->get(Controls::Cancel, 0) && !u.last_input->get(Controls::Cancel, 0))))
 		{
 			Game::cancel_event_eaten[0] = true;
 			main_menu_state = State::Hidden;

@@ -156,7 +156,7 @@ void Game::Save::reset()
 
 	strcpy(username, "etodd");
 	zones[Asset::Level::Dock] = ZoneState::GroupOwned;
-	zones[Asset::Level::Moros] = ZoneState::GroupOwned;
+	zones[Asset::Level::Qualia] = ZoneState::GroupOwned;
 
 	resources[(s32)Resource::Energy] = (s16)(CREDITS_INITIAL * 3.5f);
 }
@@ -249,7 +249,7 @@ void Game::update(const Update& update_in)
 #if SERVER
 	update_game = Net::Server::mode() == Net::Server::Mode::Active;
 #else
-	update_game = !Overworld::active() && (level.local || Net::Client::mode() == Net::Client::Mode::Connected);
+	update_game = !Overworld::modal() && (level.local || Net::Client::mode() == Net::Client::Mode::Connected);
 #endif
 
 	real_time = update_in.time;
@@ -260,7 +260,7 @@ void Game::update(const Update& update_in)
 		Team::match_time += time.delta;
 		ParticleSystem::time = time.total;
 	}
-	else if (Overworld::active()) // particles still work in overworld even though the rest of the world is paused
+	else if (Overworld::modal()) // particles still work in overworld even though the rest of the world is paused
 		ParticleSystem::time += time.delta;
 
 	if (update_game)
@@ -552,7 +552,7 @@ void Game::draw_opaque(const RenderParams& render_params)
 
 	Overworld::draw_opaque(render_params);
 
-	if (render_params.technique == RenderTechnique::Shadow && !Overworld::active())
+	if (render_params.technique == RenderTechnique::Shadow && !Overworld::modal())
 		Rope::draw(render_params);
 }
 
@@ -772,7 +772,7 @@ void Game::draw_hollow(const RenderParams& render_params)
 
 void Game::draw_particles(const RenderParams& render_params)
 {
-	if (render_params.camera->mask && !Overworld::active())
+	if (render_params.camera->mask && !Overworld::modal())
 		Rope::draw(render_params);
 
 	render_params.sync->write(RenderOp::CullMode);
@@ -925,7 +925,7 @@ void Game::execute(const char* cmd)
 			s32 value = (s32)std::strtol(number_string, &end, 10);
 			if (*end == '\0')
 			{
-				if (Overworld::active())
+				if (level.mode == Mode::Parkour)
 					Overworld::resource_change(Resource::Energy, value);
 				else if (PlayerManager::list.count() > 0)
 				{
@@ -1813,6 +1813,24 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 						type = Resource::Energy;
 					entity = World::alloc<CollectibleEntity>(id, type, s16(Json::get_s32(element, "amount")));
 				}
+			}
+		}
+		else if (cJSON_HasObjectItem(element, "Shop"))
+		{
+			if (session.story_mode)
+			{
+				entity = World::alloc<ShopEntity>();
+
+				Entity* i = World::alloc<ShopInteractable>();
+				i->get<Transform>()->parent = entity->get<Transform>();
+				i->get<Transform>()->pos = Vec3(-2.5f, 0, 0);
+				World::awake(i);
+				Net::finalize(i);
+			}
+			else
+			{
+				entity = World::alloc<StaticGeom>(Asset::Mesh::shop, absolute_pos, absolute_rot, CollisionInaccessible, ~CollisionParkour & ~CollisionInaccessible & ~CollisionElectric);
+				entity->get<View>()->color.w = MATERIAL_INACCESSIBLE;
 			}
 		}
 		else if (strcmp(Json::get_string(element, "name"), "terminal") == 0)

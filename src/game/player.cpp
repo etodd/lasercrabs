@@ -756,12 +756,6 @@ void PlayerHuman::spawn()
 
 		spawned = World::create<Traceur>(pos, Quat::euler(0, angle, 0), get<PlayerManager>()->team.ref()->team());
 		spawned->get<Parkour>()->last_angle_horizontal = angle;
-
-		if (Game::level.post_pvp && !Game::save.zone_current_restore)
-			spawned->get<Animator>()->layers[3].set(Asset::Animation::character_terminal_exit, 0.0f); // bypass animation blending
-
-		Game::save.zone_current_restore = false;
-		Game::level.post_pvp = false;
 	}
 
 	spawned->get<Transform>()->absolute_pos(pos);
@@ -771,6 +765,19 @@ void PlayerHuman::spawn()
 	get<PlayerManager>()->instance = spawned;
 
 	spawned->add<PlayerControlHuman>(this);
+
+	if (Game::level.mode == Game::Mode::Parkour)
+	{
+		if (Game::level.post_pvp && !Game::save.zone_current_restore)
+		{
+			// player is getting out of the terminal
+			spawned->get<Animator>()->layers[3].set(Asset::Animation::character_terminal_exit, 0.0f); // bypass animation blending
+			spawned->get<PlayerControlHuman>()->interactable = Game::level.terminal_interactable.ref()->get<Interactable>();
+		}
+
+		Game::save.zone_current_restore = false;
+		Game::level.post_pvp = false;
+	}
 
 	Net::finalize(spawned);
 }
@@ -1780,6 +1787,7 @@ void PlayerControlHuman::awake()
 		link_arg<r32, &PlayerControlHuman::parkour_landed>(get<Walker>()->land);
 		link<&PlayerControlHuman::terminal_enter_animation_callback>(get<Animator>()->trigger(Asset::Animation::character_terminal_enter, 2.5f));
 		link<&PlayerControlHuman::interact_animation_callback>(get<Animator>()->trigger(Asset::Animation::character_interact, 3.8f));
+		link<&PlayerControlHuman::interact_animation_callback>(get<Animator>()->trigger(Asset::Animation::character_terminal_exit, 4.0f));
 		get<Audio>()->post_event(AK::EVENTS::PLAY_FLY);
 		get<Audio>()->param(AK::GAME_PARAMETERS::FLY_VOLUME, 0.0f);
 	}
@@ -2724,6 +2732,12 @@ void PlayerControlHuman::update(const Update& u)
 							}
 							break;
 						}
+						case Interactable::Type::Shop:
+						{
+							Overworld::show(player.ref()->camera, Overworld::State::StoryModeOverlay, Overworld::Tab::Inventory);
+							interactable = nullptr;
+							break;
+						}
 						default:
 						{
 							vi_assert(false); // invalid interactable type
@@ -2780,7 +2794,7 @@ void PlayerControlHuman::update(const Update& u)
 				if (Tram::player_inside(entity()))
 					player.ref()->msg(_(strings::error_inside_tram), false);
 				else
-					Overworld::show(player.ref()->camera);
+					Overworld::show(player.ref()->camera, Overworld::State::StoryMode);
 			}
 		
 			// set movement unless we're climbing up and down
@@ -3559,28 +3573,6 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 		Vec2 pos = viewport.size * Vec2(0.5f, 0.7f);
 		UI::box(params, text.rect(pos).outset(8.0f * UI::scale), UI::color_background);
 		text.draw(params, pos);
-	}
-
-	// invincibility indicator
-	if (has<Awk>())
-	{
-		r32 overshield_timer = get<Awk>()->overshield_timer;
-		if (overshield_timer > 0.0f)
-		{
-			Vec2 bar_size(180.0f * UI::scale, 32.0f * UI::scale);
-			Rect2 bar = { viewport.size * Vec2(0.5f, 0.75f) + bar_size * -0.5f, bar_size };
-			UI::box(params, bar, UI::color_background);
-			UI::border(params, bar, 2, UI::color_accent);
-			UI::box(params, { bar.pos, Vec2(bar.size.x * (overshield_timer / AWK_OVERSHIELD_TIME), bar.size.y) }, UI::color_accent);
-
-			UIText text;
-			text.size = 18.0f;
-			text.color = UI::color_background;
-			text.anchor_x = UIText::Anchor::Center;
-			text.anchor_y = UIText::Anchor::Center;
-			text.text(_(strings::overshield));
-			text.draw(params, bar.pos + bar.size * 0.5f);
-		}
 	}
 
 	// detect danger

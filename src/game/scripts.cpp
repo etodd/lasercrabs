@@ -439,6 +439,7 @@ namespace title
 		Ref<Transform> target_climb;
 		Ref<Transform> target_hack_kits;
 		TutorialState state;
+		b8 sailor_talked;
 	};
 	
 	static Data* data;
@@ -502,8 +503,11 @@ namespace title
 	void sailor_talk(Entity*)
 	{
 		if (data->state == TutorialState::SailorSpotted)
-		{
 			data->state = TutorialState::SailorTalking;
+
+		if (!data->sailor_talked)
+		{
+			data->sailor_talked = true;
 			data->sailor->cue(AK::EVENTS::PLAY_SAILOR_SPEECH_1, Asset::Animation::sailor_talk, strings::sailor_speech_1);
 			data->sailor->cue(AK::EVENTS::PLAY_SAILOR_SPEECH_2, Asset::Animation::sailor_talk, strings::sailor_speech_2);
 			data->sailor->cue(AK_InvalidID, Asset::Animation::sailor_close_door, AssetNull, false);

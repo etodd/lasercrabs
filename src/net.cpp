@@ -2110,6 +2110,20 @@ b8 client_owns(Client* c, Entity* e)
 	return false;
 }
 
+Client* client_for_player(const PlayerHuman* player)
+{
+	for (s32 i = 0; i < state_server.clients.length; i++)
+	{
+		Client* c = &state_server.clients[i];
+		for (s32 j = 0; j < c->players.length; j++)
+		{
+			if (c->players[j].ref() == player)
+				return c;
+		}
+	}
+	return nullptr;
+}
+
 b8 init()
 {
 	if (Sock::udp_open(&sock, 3494, true))
@@ -2157,7 +2171,8 @@ b8 sync_time()
 	for (auto i = PlayerHuman::list.iterator(); !i.is_last(); i.next())
 	{
 		serialize_int(p, ID, i.index, 0, MAX_PLAYERS - 1);
-		r32 r = rtt(i.item());
+		const Client* client = client_for_player(i.item());
+		r32 r = client ? client->rtt : 0.0f;
 		serialize_r32_range(p, r, 0, 1.024f, 10);
 	}
 	msg_finalize(p);
@@ -3641,30 +3656,19 @@ b8 msg_finalize(StreamWrite* p)
 	return true;
 }
 
+// this is meant for external consumption in the game code.
+// on the server, it includes NET_INTERPOLATION_DELAY so the server can now exactly what the client's state is
+// don't use this inside net.cpp, because NET_INTERPOLATION_DELAY should not normally be included in RTT
 r32 rtt(const PlayerHuman* p)
 {
 	if (Game::level.local && p->local)
 		return 0.0f;
 
 #if SERVER
-	const Server::Client* client = nullptr;
-	for (s32 i = 0; i < Server::state_server.clients.length; i++)
-	{
-		const Server::Client& c = Server::state_server.clients[i];
-		for (s32 j = 0; j < c.players.length; j++)
-		{
-			if (c.players[j].ref() == p)
-			{
-				client = &c;
-				break;
-			}
-		}
-		if (client)
-			break;
-	}
+	const Server::Client* client = Server::client_for_player(p);
 
 	if (client)
-		return client->rtt;
+		return client->rtt + NET_INTERPOLATION_DELAY;
 	else
 		return 0.0f;
 #else

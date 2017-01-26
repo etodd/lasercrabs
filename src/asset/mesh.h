@@ -8,7 +8,7 @@ namespace Asset
 {
 	namespace Mesh
 	{
-		const s32 count = 64;
+		const s32 count = 65;
 		const AssetID actor_collision = 0;
 		const AssetID awk = 1;
 		const AssetID character = 2;
@@ -44,35 +44,36 @@ namespace Asset
 		const AssetID interactable = 32;
 		const AssetID interactable_collision = 33;
 		const AssetID ivory_ad = 34;
-		const AssetID meursault = 35;
-		const AssetID parkour = 36;
-		const AssetID parkour_headless = 37;
-		const AssetID plane = 38;
-		const AssetID reticle_dash = 39;
-		const AssetID rocket_base = 40;
-		const AssetID rocket_pod = 41;
-		const AssetID rope_base = 42;
-		const AssetID sailor = 43;
-		const AssetID shop = 44;
-		const AssetID shop_collision = 45;
-		const AssetID sky_decal = 46;
-		const AssetID sky_pattern = 47;
-		const AssetID skybox = 48;
-		const AssetID spawn = 49;
-		const AssetID sphere = 50;
-		const AssetID sphere_highres = 51;
-		const AssetID support = 52;
-		const AssetID support2 = 53;
-		const AssetID target = 54;
-		const AssetID terminal = 55;
-		const AssetID terminal_collision = 56;
-		const AssetID tram_collision = 57;
-		const AssetID tram_collision_door = 58;
-		const AssetID tram_doors = 59;
-		const AssetID tram_mesh = 60;
-		const AssetID tram_mesh_1 = 61;
-		const AssetID tram_runner = 62;
-		const AssetID tri_tube = 63;
+		const AssetID locke = 35;
+		const AssetID meursault = 36;
+		const AssetID parkour = 37;
+		const AssetID parkour_headless = 38;
+		const AssetID plane = 39;
+		const AssetID reticle_dash = 40;
+		const AssetID rocket_base = 41;
+		const AssetID rocket_pod = 42;
+		const AssetID rope_base = 43;
+		const AssetID sailor = 44;
+		const AssetID shop = 45;
+		const AssetID shop_collision = 46;
+		const AssetID sky_decal = 47;
+		const AssetID sky_pattern = 48;
+		const AssetID skybox = 49;
+		const AssetID spawn = 50;
+		const AssetID sphere = 51;
+		const AssetID sphere_highres = 52;
+		const AssetID support = 53;
+		const AssetID support2 = 54;
+		const AssetID target = 55;
+		const AssetID terminal = 56;
+		const AssetID terminal_collision = 57;
+		const AssetID tram_collision = 58;
+		const AssetID tram_collision_door = 59;
+		const AssetID tram_doors = 60;
+		const AssetID tram_mesh = 61;
+		const AssetID tram_mesh_1 = 62;
+		const AssetID tram_runner = 63;
+		const AssetID tri_tube = 64;
 	}
 }
 

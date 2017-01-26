@@ -265,7 +265,7 @@ void client_hit_effects(Awk* awk, Entity* target)
 		);
 	}
 
-	Shockwave::add(pos, 8.0f, 1.5f, Shockwave::Type::Wave);
+	EffectLight::add(pos, 8.0f, 1.5f, EffectLight::Type::Shockwave);
 
 	// controller vibration, etc.
 	awk->hit.fire(target);
@@ -495,7 +495,7 @@ b8 Awk::net_msg(Net::StreamRead* p, Net::MessageSource src)
 
 					// effects
 					particle_trail(my_pos, dir_normalized, (pos - my_pos).length());
-					Shockwave::add(pos + rot * Vec3(0, 0, ROPE_SEGMENT_LENGTH), 8.0f, 1.5f, Shockwave::Type::Wave);
+					EffectLight::add(pos + rot * Vec3(0, 0, ROPE_SEGMENT_LENGTH), 8.0f, 1.5f, EffectLight::Type::Shockwave);
 
 					break;
 				}
@@ -518,7 +518,7 @@ b8 Awk::net_msg(Net::StreamRead* p, Net::MessageSource src)
 
 					// effects
 					particle_trail(my_pos, dir_normalized, (pos - my_pos).length());
-					Shockwave::add(pos + rot * Vec3(0, 0, AWK_RADIUS), 8.0f, 1.5f, Shockwave::Type::Wave);
+					EffectLight::add(pos + rot * Vec3(0, 0, AWK_RADIUS), 8.0f, 1.5f, EffectLight::Type::Shockwave);
 
 					break;
 				}
@@ -552,7 +552,7 @@ b8 Awk::net_msg(Net::StreamRead* p, Net::MessageSource src)
 
 					// effects
 					particle_trail(my_pos, dir_normalized, (pos - my_pos).length());
-					Shockwave::add(npos, 8.0f, 1.5f, Shockwave::Type::Wave);
+					EffectLight::add(npos, 8.0f, 1.5f, EffectLight::Type::Shockwave);
 
 					Audio::post_global_event(AK::EVENTS::PLAY_MINION_SPAWN, npos);
 					break;
@@ -569,7 +569,7 @@ b8 Awk::net_msg(Net::StreamRead* p, Net::MessageSource src)
 
 					// effects
 					particle_trail(my_pos, dir_normalized, (pos - my_pos).length());
-					Shockwave::add(npos, 8.0f, 1.5f, Shockwave::Type::Wave);
+					EffectLight::add(npos, 8.0f, 1.5f, EffectLight::Type::Shockwave);
 
 					break;
 				}
@@ -618,7 +618,7 @@ b8 Awk::net_msg(Net::StreamRead* p, Net::MessageSource src)
 
 					// effects
 					particle_trail(my_pos, dir_normalized, (pos - my_pos).length());
-					Shockwave::add(pos + rot * Vec3(0, 0, AWK_RADIUS), 8.0f, 1.5f, Shockwave::Type::Wave);
+					EffectLight::add(pos + rot * Vec3(0, 0, AWK_RADIUS), 8.0f, 1.5f, EffectLight::Type::Shockwave);
 
 					break;
 				}
@@ -652,11 +652,11 @@ b8 Awk::net_msg(Net::StreamRead* p, Net::MessageSource src)
 							Vec3 closest_hit;
 							Vec3 closest_hit_normal;
 
-							while (true)
+							while (timestamp < Net::timestamp())
 							{
+								const r32 SIMULATION_STEP = 1.0f / 60.0f;
 								Net::StateFrame state_frame;
 								Net::state_frame_by_timestamp(&state_frame, timestamp);
-								const r32 SIMULATION_STEP = 1.0f / 60.0f;
 								Vec3 pos_bolt_next = pos_bolt + dir_normalized * (PROJECTILE_SPEED * SIMULATION_STEP);
 								Vec3 pos_bolt_next_ray = pos_bolt_next + dir_normalized * PROJECTILE_LENGTH;
 
@@ -706,8 +706,7 @@ b8 Awk::net_msg(Net::StreamRead* p, Net::MessageSource src)
 
 								timestamp += SIMULATION_STEP;
 
-								// if we hit something or we've simulated up to the present time, then stop
-								if (closest_hit_entity || timestamp > Net::timestamp())
+								if (closest_hit_entity) // we hit something; stop simulating
 									break;
 							}
 
@@ -720,6 +719,18 @@ b8 Awk::net_msg(Net::StreamRead* p, Net::MessageSource src)
 						{
 							// not a remote player; no lag compensation needed
 							Net::finalize(World::create<ProjectileEntity>(manager, my_pos + dir_normalized * AWK_SHIELD_RADIUS, dir_normalized));
+						}
+					}
+					else
+					{
+						// we're a client; if this is a local player who has already spawned a fake projectile for client-side prediction,
+						// we need to delete that fake projectile, since the server has spawned a real one.
+						if (awk->fake_projectiles.length > 0)
+						{
+							EffectLight* projectile = awk->fake_projectiles[0].ref();
+							if (projectile) // might have already been removed
+								EffectLight::remove(projectile);
+							awk->fake_projectiles.remove_ordered(0);
 						}
 					}
 					break;
@@ -817,6 +828,7 @@ Awk::Awk()
 	overshield_timer(AWK_OVERSHIELD_TIME),
 	particle_accumulator(),
 	current_ability(Ability::None),
+	fake_projectiles(),
 	ability_spawned(),
 	remote_reflection_timer(),
 	reflection_source_remote(),
@@ -1360,6 +1372,29 @@ b8 Awk::go(const Vec3& dir)
 
 		if (Game::level.local)
 			AwkNet::ability_spawn(this, dir_normalized, current_ability);
+		else if (current_ability == Ability::Bolter)
+		{
+			// client-side prediction; create fake bolt
+			if (fake_projectiles.length == fake_projectiles.capacity())
+			{
+				EffectLight* projectile = fake_projectiles[0].ref();
+				if (projectile) // might have already been removed
+					EffectLight::remove(projectile);
+				fake_projectiles.remove_ordered(0);
+			}
+			fake_projectiles.add
+			(
+				EffectLight::add
+				(
+					get<Transform>()->absolute_pos() + dir_normalized * AWK_SHIELD_RADIUS,
+					PROJECTILE_LIGHT_RADIUS,
+					0.5f,
+					EffectLight::Type::Projectile,
+					nullptr,
+					Quat::look(dir_normalized)
+				)
+			);
+		}
 	}
 
 	return true;

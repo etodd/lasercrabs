@@ -17,6 +17,7 @@ struct HealthEvent;
 struct RigidBody;
 struct TargetEvent;
 struct Target;
+struct EffectLight;
 
 namespace Net
 {
@@ -118,6 +119,7 @@ struct Awk : public ComponentType<Awk>
 	Ref<Entity> overshield;
 	Ref<Entity> remote_reflection_entity;
 	StaticArray<Ref<Entity>, 8> hit_targets;
+	StaticArray<Ref<EffectLight>, 4> fake_projectiles;
 	LinkArg<const AwkReflectEvent&> reflecting;
 	LinkArg<Entity*> hit;
 	LinkArg<Ability> ability_spawned;

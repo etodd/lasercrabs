@@ -453,7 +453,7 @@ void Game::update(const Update& update_in)
 		ContainmentField::update_all(u);
 		for (auto i = ControlPoint::list.iterator(); !i.is_last(); i.next())
 			i.item()->update(u);
-		for (auto i = Shockwave::list.iterator(); !i.is_last(); i.next())
+		for (auto i = EffectLight::list.iterator(); !i.is_last(); i.next())
 			i.item()->update(u);
 		for (auto i = Decoy::list.iterator(); !i.is_last(); i.next())
 			i.item()->update(u);
@@ -735,7 +735,7 @@ void Game::draw_alpha(const RenderParams& render_params)
 
 	View::draw_alpha(render_params);
 
-	Shockwave::draw_alpha(render_params);
+	EffectLight::draw_alpha(render_params);
 
 	for (auto i = PlayerControlHuman::list.iterator(); !i.is_last(); i.next())
 		i.item()->draw_ui(render_params);

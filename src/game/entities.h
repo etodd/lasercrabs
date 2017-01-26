@@ -256,27 +256,31 @@ struct AICue : public ComponentType<AICue>
 	void awake() {}
 };
 
-struct Shockwave
+struct EffectLight
 {
 	enum class Type
 	{
-		Light,
-		Wave,
+		Projectile,
+		Spark,
+		Shockwave,
 		Alpha,
 		count,
 	};
 
-	static PinArray<Shockwave, MAX_ENTITIES> list;
+	static PinArray<EffectLight, MAX_ENTITIES> list;
 
-	static void add(const Vec3&, r32, r32, Type, Transform* = nullptr);
+	static EffectLight* add(const Vec3&, r32, r32, Type, Transform* = nullptr, Quat = Quat::identity);
+	static void remove(EffectLight*);
 	static void draw_alpha(const RenderParams&);
 
+	Quat rot;
 	Vec3 pos;
 	r32 max_radius;
 	r32 timer;
 	r32 duration;
 	Type type;
 	Ref<Transform> parent;
+	Revision revision;
 
 	r32 radius() const;
 	r32 opacity() const;

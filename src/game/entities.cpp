@@ -80,7 +80,7 @@ void spawn_sparks(const Vec3& pos, const Quat& rot, Transform* parent)
 		);
 	}
 
-	Shockwave::add(pos, 3.0f, 0.25f, Shockwave::Type::Light, parent);
+	EffectLight::add(pos, 3.0f, 0.25f, EffectLight::Type::Spark, parent);
 }
 
 template<typename Stream> b8 serialize_health_event(Stream* p, Health* h, HealthEvent* e)
@@ -799,7 +799,7 @@ void Sensor::update_all_client(const Update& u)
 		{
 			r32 offset = i.index * sensor_shockwave_interval * 0.3f;
 			if ((s32)((time + offset) / sensor_shockwave_interval) != (s32)((last_time + offset) / sensor_shockwave_interval))
-				Shockwave::add(i.item()->get<Transform>()->absolute_pos(), 10.0f, 1.5f, Shockwave::Type::Wave);
+				EffectLight::add(i.item()->get<Transform>()->absolute_pos(), 10.0f, 1.5f, EffectLight::Type::Shockwave);
 		}
 	}
 }
@@ -1428,7 +1428,7 @@ ProjectileEntity::ProjectileEntity(PlayerManager* owner, const Vec3& abs_pos, co
 	transform->absolute_rot(Quat::look(dir));
 
 	PointLight* light = create<PointLight>();
-	light->radius = 10.0f;
+	light->radius = PROJECTILE_LIGHT_RADIUS;
 	light->color = Vec3(1, 1, 1);
 
 	create<Audio>();
@@ -1545,7 +1545,7 @@ b8 ParticleEffect::net_msg(Net::StreamRead* p)
 	if (t == Type::Grenade || t == Type::Explosion)
 	{
 		Audio::post_global_event(AK::EVENTS::PLAY_EXPLOSION, pos);
-		Shockwave::add(pos, 8.0f, 0.35f, Shockwave::Type::Alpha);
+		EffectLight::add(pos, 8.0f, 0.35f, EffectLight::Type::Alpha);
 	}
 
 	if (t == Type::Grenade)
@@ -1575,7 +1575,7 @@ b8 ParticleEffect::net_msg(Net::StreamRead* p)
 	}
 
 	if (t == Type::Impact)
-		Shockwave::add(pos, GRENADE_RANGE, 1.5f, Shockwave::Type::Wave);
+		EffectLight::add(pos, GRENADE_RANGE, 1.5f, EffectLight::Type::Shockwave);
 
 	for (s32 i = 0; i < 50; i++)
 	{
@@ -1750,7 +1750,7 @@ void Grenade::update_client_all(const Update& u)
 			Vec3 me = i.item()->get<Transform>()->absolute_pos();
 			const r32 interval = 3.0f;
 			if (s32(Game::time.total / interval) != s32((Game::time.total - u.time.delta) / interval))
-				Shockwave::add(me, GRENADE_RANGE, 1.5f, Shockwave::Type::Wave);
+				EffectLight::add(me, GRENADE_RANGE, 1.5f, EffectLight::Type::Shockwave);
 			AI::Team my_team = i.item()->team();
 			b8 countdown = false;
 			for (auto i = Health::list.iterator(); !i.is_last(); i.next())
@@ -1958,7 +1958,7 @@ void Rope::draw(const RenderParams& params)
 
 	// ropes
 	{
-		static Mat4 scale = Mat4::make_scale(Vec3(ROPE_RADIUS, ROPE_RADIUS, ROPE_SEGMENT_LENGTH * 0.5f));
+		static const Vec3 scale = Vec3(ROPE_RADIUS, ROPE_RADIUS, ROPE_SEGMENT_LENGTH * 0.5f);
 
 		for (auto i = Rope::list.iterator(); !i.is_last(); i.next())
 		{
@@ -1966,22 +1966,41 @@ void Rope::draw(const RenderParams& params)
 			i.item()->get<Transform>()->mat(&m);
 
 			if (params.camera->visible_sphere(m.translation(), ROPE_SEGMENT_LENGTH * f_radius))
-				instances.add(scale * m);
+			{
+				m.scale(scale);
+				instances.add(m);
+			}
 		}
 	}
 
 	// projectiles
 	if (!(params.camera->mask & RENDER_MASK_SHADOW)) // projectiles don't cast shadows
 	{
-		static Mat4 scale = Mat4::make_scale(Vec3(PROJECTILE_THICKNESS, PROJECTILE_THICKNESS, PROJECTILE_LENGTH * 0.5f));
-		static Mat4 offset = Mat4::make_translation(0, 0, PROJECTILE_LENGTH * 0.5f);
+		static const Vec3 scale = Vec3(PROJECTILE_THICKNESS, PROJECTILE_THICKNESS, PROJECTILE_LENGTH * 0.5f);
+		static const Mat4 offset = Mat4::make_translation(0, 0, PROJECTILE_LENGTH * 0.5f);
 		for (auto i = Projectile::list.iterator(); !i.is_last(); i.next())
 		{
 			Mat4 m;
 			i.item()->get<Transform>()->mat(&m);
 			m = offset * m;
 			if (params.camera->visible_sphere(m.translation(), PROJECTILE_LENGTH * f_radius))
-				instances.add(scale * m);
+			{
+				m.scale(scale);
+				instances.add(m);
+			}
+		}
+
+		// fake projectiles
+		for (auto i = EffectLight::list.iterator(); !i.is_last(); i.next())
+		{
+			if (i.item()->type == EffectLight::Type::Projectile)
+			{
+				Mat4 m;
+				m.make_transform(i.item()->pos, scale, i.item()->rot);
+				m = offset * m;
+				if (params.camera->visible_sphere(m.translation(), PROJECTILE_LENGTH * f_radius))
+					instances.add(m);
+			}
 		}
 	}
 
@@ -2163,20 +2182,29 @@ WaterEntity::WaterEntity(AssetID mesh_id)
 	create<Water>(mesh_id);
 }
 
-PinArray<Shockwave, MAX_ENTITIES> Shockwave::list;
+PinArray<EffectLight, MAX_ENTITIES> EffectLight::list;
 
-void Shockwave::add(const Vec3& pos, r32 radius, r32 duration, Type t, Transform* parent)
+EffectLight* EffectLight::add(const Vec3& pos, r32 radius, r32 duration, Type t, Transform* parent, Quat rot)
 {
-	Shockwave* s = list.add();
-	new (s) Shockwave();
+	EffectLight* s = list.add();
+	s->rot = rot;
 	s->pos = parent ? parent->to_local(pos) : pos;
 	s->max_radius = radius;
 	s->duration = duration;
 	s->type = t;
 	s->parent = parent;
+	s->revision++;
+	s->timer = 0.0f;
+	return s;
 }
 
-void Shockwave::draw_alpha(const RenderParams& params)
+void EffectLight::remove(EffectLight* s)
+{
+	s->revision++;
+	list.remove(s->id());
+}
+
+void EffectLight::draw_alpha(const RenderParams& params)
 {
 	// "Light" and "Wave" type shockwaves get rendered in loop.h, not here
 	const Mesh* mesh = Loader::mesh_permanent(Asset::Mesh::sphere_highres);
@@ -2216,15 +2244,19 @@ void Shockwave::draw_alpha(const RenderParams& params)
 	}
 }
 
-r32 Shockwave::radius() const
+r32 EffectLight::radius() const
 {
 	switch (type)
 	{
-		case Type::Wave:
+		case Type::Projectile:
+		{
+			return max_radius;
+		}
+		case Type::Shockwave:
 		{
 			return Ease::cubic_out(timer / duration, 0.0f, max_radius);
 		}
-		case Type::Light:
+		case Type::Spark:
 		{
 			r32 blend = Ease::cubic_in<r32>(timer / duration);
 			return LMath::lerpf(blend, max_radius * 0.25f, max_radius);
@@ -2242,16 +2274,20 @@ r32 Shockwave::radius() const
 	}
 }
 
-r32 Shockwave::opacity() const
+r32 EffectLight::opacity() const
 {
 	switch (type)
 	{
-		case Type::Light:
+		case Type::Projectile:
+		{
+			return 1.0f;
+		}
+		case Type::Spark:
 		{
 			r32 blend = Ease::cubic_in<r32>(timer / duration);
 			return LMath::lerpf(blend, 1.0f, 0.0f);
 		}
-		case Type::Wave:
+		case Type::Shockwave:
 		{
 			r32 fade_radius = max_radius * (2.0f / 15.0f);
 			r32 fade = 1.0f - vi_max(0.0f, ((radius() - (max_radius - fade_radius)) / fade_radius));
@@ -2270,17 +2306,19 @@ r32 Shockwave::opacity() const
 	}
 }
 
-Vec3 Shockwave::absolute_pos() const
+Vec3 EffectLight::absolute_pos() const
 {
 	Transform* p = parent.ref();
 	return p ? p->to_world(pos) : pos;
 }
 
-void Shockwave::update(const Update& u)
+void EffectLight::update(const Update& u)
 {
 	timer += u.time.delta;
 	if (timer > duration)
-		list.remove(id());
+		remove(this);
+	else if (type == Type::Projectile)
+		pos += rot * Vec3(0, 0, u.time.delta * PROJECTILE_SPEED);
 }
 
 CollectibleEntity::CollectibleEntity(ID save_id, Resource type, s16 amount)
@@ -2785,7 +2823,7 @@ void TramRunner::update_client(const Update& u)
 			);
 		}
 
-		Shockwave::add(pos + Vec3(0, -0.2f, 0), 3.0f, 0.25f, Shockwave::Type::Light, get<Transform>());
+		EffectLight::add(pos + Vec3(0, -0.2f, 0), 3.0f, 0.25f, EffectLight::Type::Spark, get<Transform>());
 	}
 }
 

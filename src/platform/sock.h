@@ -15,9 +15,11 @@ struct Address
 	b8 equals(const Address&) const;
 };
 
+typedef u64 TCPClient;
+
 struct Handle
 {
-	s32 handle;
+	u64 handle;
 	s32 non_blocking;
 	s32 ready;
 };
@@ -25,14 +27,22 @@ struct Handle
 const char* get_error(void);
 s32 init(void);
 void netshutdown(void);
-s32 get_address(Address* address, const char* host, u16 port);
-const char* host_to_str(u32 host);
+s32 get_address(Address*, const char*, u16);
+const char* host_to_str(u32);
 
-void close(Handle* socket);
+void close(Handle*);
 
-int udp_open(Handle* socket, u32 port, u32 non_blocking);
-int udp_send(Handle* socket, Address destination, const void* data, s32 size);
-int udp_receive(Handle* socket, Address* sender, void* data, s32 size);
+s32 udp_open(Handle*, u32, u32);
+s32 udp_send(Handle*, Address, const void*, s32);
+s32 udp_receive(Handle*, Address*, void*, s32);
+
+s32 tcp_listen(Handle*, u16, u32);
+s32 tcp_connect(Handle*, Address, u32);
+TCPClient tcp_accept(Handle*);
+s32 tcp_send(Handle*, const void*, s32);
+s32 tcp_send(Handle*, TCPClient, const void*, s32);
+s32 tcp_receive(Handle*, void*, s32);
+s32 tcp_receive(Handle*, TCPClient*, void*, s32);
 
 
 }

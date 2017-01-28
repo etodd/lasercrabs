@@ -141,6 +141,108 @@ s32 udp_open(Handle* sock, u32 port, u32 non_blocking)
 	return 0;
 }
 
+s32 tcp_listen(Handle* sock, u16 port, u32 non_blocking)
+{
+	if (!sock)
+		return error("Socket is NULL");
+
+	// Create the socket
+	sock->handle = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+	if (sock->handle <= 0)
+	{
+		close(sock);
+		return error("Failed to create socket");
+	}
+
+	// Bind the socket to the port
+	struct sockaddr_in address;
+	address.sin_family = AF_INET;
+	address.sin_addr.s_addr = INADDR_ANY;
+	address.sin_port = htons(port);
+
+	if (bind(sock->handle, (const struct sockaddr*)&address, sizeof(struct sockaddr_in)) != 0)
+	{
+		close(sock);
+		return error("Failed to bind socket");
+	}
+
+	listen(sock->handle, 5); // backlog of 5 for reasons
+
+	// Set the socket to non-blocking if neccessary
+	if (non_blocking)
+	{
+#ifdef _WIN32
+		if (ioctlsocket(sock->handle, FIONBIO, (unsigned long*)&non_blocking) != 0)
+		{
+			close(sock);
+			return error("Failed to set socket to non-blocking");
+		}
+#else
+		if (fcntl(sock->handle, F_SETFL, O_NONBLOCK, non_blocking) != 0)
+		{
+			close(sock);
+			return error("Failed to set socket to non-blocking");
+		}
+#endif
+	}
+
+	sock->non_blocking = non_blocking;
+
+	return 0;
+}
+
+TCPClient tcp_accept(Handle* sock)
+{
+	return accept(sock->handle, nullptr, nullptr);
+}
+
+s32 tcp_connect(Handle* sock, Address address, u32 non_blocking)
+{
+	if (!sock)
+		return error("Socket is NULL");
+
+	// create the socket
+	sock->handle = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+	if (sock->handle <= 0)
+	{
+		close(sock);
+		return error("Failed to create socket");
+	}
+
+	struct sockaddr_in server_address;
+	server_address.sin_family = AF_INET;
+	server_address.sin_addr.s_addr = address.host;
+	server_address.sin_port = htons(address.port);
+
+	if (connect(sock->handle, (const struct sockaddr*)&address, sizeof(struct sockaddr_in)) != 0)
+	{
+		close(sock);
+		return error("Failed to bind socket");
+	}
+
+	// Set the socket to non-blocking if neccessary
+	if (non_blocking)
+	{
+#ifdef _WIN32
+		if (ioctlsocket(sock->handle, FIONBIO, (unsigned long*)&non_blocking) != 0)
+		{
+			close(sock);
+			return error("Failed to set socket to non-blocking");
+		}
+#else
+		if (fcntl(sock->handle, F_SETFL, O_NONBLOCK, non_blocking) != 0)
+		{
+			close(sock);
+			return error("Failed to set socket to non-blocking");
+		}
+#endif
+	}
+
+	sock->non_blocking = non_blocking;
+
+	return 0;
+}
+
 void close(Handle* socket)
 {
 	if (!socket)
@@ -195,6 +297,26 @@ s32 udp_receive(Handle* socket, Address* sender, void* data, s32 size)
 	return received_bytes;
 }
 
+s32 tcp_send(Handle* sock, const void* data, s32 size)
+{
+	return send(sock->handle, (char*)data, size, 0);
+}
+
+s32 tcp_send(Handle* sock, TCPClient client, const void* data, s32 size)
+{
+	return send(client, (char*)data, size, 0);
+}
+
+s32 tcp_receive(Handle* sock, void* data, s32 size)
+{
+	return recv(sock->handle, (char*)data, size, 0);
+}
+
+s32 tcp_receive(Handle*, TCPClient*, void*, s32)
+{
+	// TODO
+	return 0;
+}
 
 }
 

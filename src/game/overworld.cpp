@@ -1480,8 +1480,8 @@ Rect2 tab_draw(const RenderParams& p, const Data::StoryMode& data, Tab tab, cons
 AssetID group_name[s32(Game::Group::count)] =
 {
 	strings::none,
-	strings::futifs,
-	strings::zodiak,
+	strings::wu_gang,
+	strings::ephyra,
 };
 
 Rect2 zone_stat_draw(const RenderParams& p, const Rect2& rect, UIText::Anchor anchor_x, s32 index, const char* label, const Vec4& color, b8 draw_text = true)

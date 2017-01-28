@@ -102,7 +102,7 @@ const btRigidBody* get_actual_support_body(const btRigidBody* object)
 {
 	Entity* e = &Entity::list[object->getUserIndex()];
 	Transform* parent = e->get<Transform>()->parent.ref();
-	if (parent)
+	if (parent && parent->has<RigidBody>())
 		return parent->get<RigidBody>()->btBody;
 	else
 		return object;

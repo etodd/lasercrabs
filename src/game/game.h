@@ -28,6 +28,7 @@ namespace VI
 
 		Array<NameEntry> map;
 		Entity* find(const char*) const;
+		void add(const char*, Entity*);
 	};
 
 #if DEBUG
@@ -48,8 +49,8 @@ namespace VI
 		enum class Group
 		{
 			None,
-			Futifs,
-			Zodiak,
+			WuGang,
+			Ephyra,
 			count,
 		};
 
@@ -99,6 +100,7 @@ namespace VI
 			Array<CollectibleEntry> collectibles;
 			Vec3 zone_current_restore_position;
 			r32 zone_current_restore_rotation;
+			s32 locke_index;
 			ZoneState zones[MAX_ZONES];
 			Group group;
 			s16 resources[s32(Resource::count)];
@@ -107,6 +109,7 @@ namespace VI
 			AssetID zone_overworld;
 			char username[MAX_USERNAME + 1];
 			b8 zone_current_restore;
+			b8 locke_spoken;
 
 			Save();
 			void reset();

@@ -423,10 +423,35 @@ Capture the hanging battery.
 	"ivory_ad2": "[Ad] Our colonies on Caligula provide the most advanced, cost-effective safety solution in today's difficult climate.",
 	"ivory_ad3": "[Ad] Due to limited supply, prices have recently been raised 10%%. Hurry in today and reserve your launch vehicle while this incredible deal lasts.",
 
+	"locke1a": "[Locke] Welcome to my humble emporium, weary traveller.",
+	"locke1b": "[Locke] I've got everything your heart desires, for the discreet customer who doesn't keep sound financial records.",
+	"locke2a": "[Locke] Man, those Ivory bastards really know what they're doing.",
+	"locke2b": "[Locke] You wanna talk about trickle-down! You wanna talk about supply-side!",
+	"locke2c": "[Locke] I wonder if they read my resume yet.",
+	"locke3a": "[Locke] Can't believe we ditched basic income.",
+	"locke3b": "[Locke] It would have worked in a couple more years!",
+	"locke3c": "[Locke] We would all be on the way to Caligula right now.",
+	"locke3d": "[Locke] Y'all just have no hustle.",
+	"locke4a": "[Locke] Listen, people be spreading lies that I had a subsidized education.",
+	"locke4b": "[Locke] Don't you believe it for a second.",
+	"locke4c": "[Locke] The internet raised me.",
+	"locke5a": "[Locke] You know I hear some of these whiners complain about monopolies...",
+	"locke5b": "[Locke] \"It's not right\"... \"It's not fair\"...",
+	"locke5c": "[Locke] \"It's not conducive to the proper functioning of a free market\"...",
+	"locke5d": "[Locke] And to those people I say, there is such a thing as a natural monopoly.",
+	"locke5e": "[Locke] Look it up.",
+	"locke6a": "[Locke] Oh thank God it's you.",
+	"locke6b": "[Locke] The last guy tried to convert me to Marxism.",
+	"locke6c": "[Locke] Participate in the global economy, asshole!",
+	"locke7a": "[Locke] Welcome back!",
+	"locke7b": "[Locke] I'll sell you anything that isn't nailed down.",
+	"locke7c": "[Locke] Except for the Mises bust.",
+	"locke7d": "[Locke] My grandma gave me that.",
+
 	"yes": "Yes",
 	"no": "No",
 
 	"none": "None",
-	"futifs": "Futifs",
-	"zodiak": "Zodiak"
+	"wu_gang": "Wu Gang",
+	"ephyra": "Ephyra"
 }

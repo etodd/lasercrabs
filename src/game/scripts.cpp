@@ -852,6 +852,113 @@ namespace tutorial
 	}
 }
 
+namespace locke
+{
+	struct Data
+	{
+		Actor::Instance* locke;
+		b8 spoken;
+	};
+
+	Data* data;
+	
+	void update(const Update& u)
+	{
+	}
+
+	void trigger(Entity*)
+	{
+		if (Game::level.mode == Game::Mode::Parkour
+			&& !data->spoken)
+		{
+			if (!Game::save.locke_spoken)
+			{
+				Game::save.locke_index++; // locke_index starts at -1
+				if (Game::save.locke_index == 7)
+					Game::save.locke_index = 1; // skip the first one, which is the intro to Locke
+			}
+			Game::save.locke_spoken = true;
+			data->spoken = true;
+			switch (Game::save.locke_index)
+			{
+				case 0:
+				{
+					data->locke->cue(AK::EVENTS::PLAY_LOCKE1A, Asset::Animation::locke_idle, strings::locke1a);
+					data->locke->cue(AK::EVENTS::PLAY_LOCKE1B, Asset::Animation::locke_idle, strings::locke1b);
+					break;
+				}
+				case 1:
+				{
+					data->locke->cue(AK::EVENTS::PLAY_LOCKE2A, Asset::Animation::locke_idle, strings::locke2a);
+					data->locke->cue(AK::EVENTS::PLAY_LOCKE2B, Asset::Animation::locke_idle, strings::locke2b);
+					data->locke->cue(AK::EVENTS::PLAY_LOCKE2C, Asset::Animation::locke_idle, strings::locke2c);
+					break;
+				}
+				case 2:
+				{
+					data->locke->cue(AK::EVENTS::PLAY_LOCKE3A, Asset::Animation::locke_idle, strings::locke3a);
+					data->locke->cue(AK::EVENTS::PLAY_LOCKE3B, Asset::Animation::locke_idle, strings::locke3b);
+					data->locke->cue(AK::EVENTS::PLAY_LOCKE3C, Asset::Animation::locke_idle, strings::locke3c);
+					data->locke->cue(AK::EVENTS::PLAY_LOCKE3D, Asset::Animation::locke_idle, strings::locke3d);
+					break;
+				}
+				case 3:
+				{
+					data->locke->cue(AK::EVENTS::PLAY_LOCKE4A, Asset::Animation::locke_idle, strings::locke4a);
+					data->locke->cue(AK::EVENTS::PLAY_LOCKE4B, Asset::Animation::locke_idle, strings::locke4b);
+					data->locke->cue(AK::EVENTS::PLAY_LOCKE4C, Asset::Animation::locke_idle, strings::locke4c);
+					break;
+				}
+				case 4:
+				{
+					data->locke->cue(AK::EVENTS::PLAY_LOCKE5A, Asset::Animation::locke_idle, strings::locke5a);
+					data->locke->cue(AK::EVENTS::PLAY_LOCKE5B, Asset::Animation::locke_idle, strings::locke5b);
+					data->locke->cue(AK::EVENTS::PLAY_LOCKE5C, Asset::Animation::locke_idle, strings::locke5c);
+					data->locke->cue(AK::EVENTS::PLAY_LOCKE5D, Asset::Animation::locke_idle, strings::locke5d);
+					break;
+				}
+				case 5:
+				{
+					data->locke->cue(AK::EVENTS::PLAY_LOCKE6A, Asset::Animation::locke_idle, strings::locke6a);
+					data->locke->cue(AK::EVENTS::PLAY_LOCKE6B, Asset::Animation::locke_idle, strings::locke6b);
+					data->locke->cue(AK::EVENTS::PLAY_LOCKE6C, Asset::Animation::locke_idle, strings::locke6c);
+					break;
+				}
+				case 6:
+				{
+					data->locke->cue(AK::EVENTS::PLAY_LOCKE7A, Asset::Animation::locke_idle, strings::locke7a);
+					data->locke->cue(AK::EVENTS::PLAY_LOCKE7B, Asset::Animation::locke_idle, strings::locke7b);
+					data->locke->cue(AK::EVENTS::PLAY_LOCKE7C, Asset::Animation::locke_idle, strings::locke7c);
+					data->locke->cue(AK::EVENTS::PLAY_LOCKE7D, Asset::Animation::locke_idle, strings::locke7d);
+					break;
+				}
+				default:
+				{
+					vi_assert(false);
+					break;
+				}
+			}
+		}
+	}
+
+	void cleanup()
+	{
+		delete data;
+		data = nullptr;
+	}
+
+	void init(const EntityFinder& entities)
+	{
+		vi_assert(!data);
+		data = new Data();
+		Entity* locke = entities.find("locke");
+		locke->get<PlayerTrigger>()->entered.link(&trigger);
+		data->locke = Actor::add(locke, Asset::Bone::locke_head);
+		Game::updates.add(&update);
+		Game::cleanups.add(&cleanup);
+	}
+}
+
 
 }
 
@@ -860,6 +967,7 @@ Script Script::list[] =
 	{ "scene", Scripts::scene::init },
 	{ "tutorial", Scripts::tutorial::init },
 	{ "title", Scripts::title::init },
+	{ "locke", Scripts::locke::init },
 	{ 0, 0, },
 };
 s32 Script::count; // set in Game::init

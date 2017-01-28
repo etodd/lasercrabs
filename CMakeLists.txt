@@ -357,9 +357,32 @@ if (SERVER)
 	#enable_unity_build(yearningsrv SRC_SERVER)
 	add_executable(yearningsrv ${SRC_SERVER})
 
+	# master
+	set(SRC_MASTER
+		src/data/array.h
+		src/data/pin_array.h
+		src/data/priority_queue.h
+		src/net_serialize.h
+		src/net_serialize.cpp
+		src/vi_assert.h
+		src/types.h
+		src/platform/sock.h
+		src/platform/sock.cpp
+		src/platform/util.h
+		src/platform/master.cpp
+	)
+	#enable_unity_build(yearningmaster SRC_MASTER)
+	add_executable(yearningmaster
+		${SRC_MASTER}
+	)
+
 	target_include_directories(yearningsrv PRIVATE
 		${ALL_INCLUDES}
 		external/wwise
+	)
+
+	target_include_directories(yearningmaster PRIVATE
+		${ALL_INCLUDES}
 	)
 
 	target_link_libraries(yearningsrv

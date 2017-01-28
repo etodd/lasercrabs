@@ -25,6 +25,7 @@
 #include "asset/font.h"
 #include "asset/Wwise_IDs.h"
 #include "asset/level.h"
+#include "asset/animation.h"
 #include "strings.h"
 #include "input.h"
 #include "mersenne/mersenne-twister.h"
@@ -153,6 +154,7 @@ void Game::Save::reset()
 	zone_last = AssetNull;
 	zone_current = AssetNull;
 	zone_overworld = AssetNull;
+	locke_index = -1;
 
 	strcpy(username, "etodd");
 	zones[Asset::Level::Dock] = ZoneState::GroupOwned;
@@ -1103,6 +1105,13 @@ Entity* EntityFinder::find(const char* name) const
 	return nullptr;
 }
 
+void EntityFinder::add(const char* name, Entity* entity)
+{
+	NameEntry* entry = map.add();
+	strncpy(entry->name, name, 255);
+	entry->entity = entity;
+}
+
 template<typename T>
 struct LevelLink
 {
@@ -1133,7 +1142,11 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 	if (m == Mode::Parkour)
 	{
 		if (l != last_level && last_mode == Mode::Parkour)
+		{
 			save.zone_last = last_level;
+			if (!save.zone_current_restore)
+				save.locke_spoken = false;
+		}
 
 		save.zone_current = l;
 	}
@@ -1383,7 +1396,7 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 			b8 additive = (b8)Json::get_s32(element, "additive");
 			b8 no_parkour = cJSON_HasObjectItem(element, "noparkour");
 			b8 invisible = cJSON_HasObjectItem(element, "invisible");
-			AssetID texture = (AssetID)Loader::find(Json::get_string(element, "texture"), AssetLookup::Texture::names);
+			AssetID texture = Loader::find(Json::get_string(element, "texture"), AssetLookup::Texture::names);
 			s16 extra_flags = cJSON_HasObjectItem(element, "electric") ? CollisionElectric : 0;
 
 			cJSON* meshes = cJSON_GetObjectItem(element, "meshes");
@@ -1821,11 +1834,23 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 			{
 				entity = World::alloc<ShopEntity>();
 
-				Entity* i = World::alloc<ShopInteractable>();
-				i->get<Transform>()->parent = entity->get<Transform>();
-				i->get<Transform>()->pos = Vec3(-2.5f, 0, 0);
-				World::awake(i);
-				Net::finalize(i);
+				{
+					Entity* i = World::alloc<ShopInteractable>();
+					i->get<Transform>()->parent = entity->get<Transform>();
+					i->get<Transform>()->pos = Vec3(-3.0f, 0, 0);
+					World::awake(i);
+					Net::finalize(i);
+				}
+
+				{
+					Entity* locke = World::create<Prop>(Asset::Mesh::locke, Asset::Armature::locke, Asset::Animation::locke_idle);
+					locke->get<Transform>()->pos = absolute_pos + absolute_rot * Vec3(-1.25f, 0, 0);
+					locke->get<Transform>()->rot = absolute_rot;
+					locke->add<PlayerTrigger>()->radius = 7.0f;
+					Net::finalize(locke);
+					level.finder.add("locke", locke);
+					level.scripts.add(Script::find("locke"));
+				}
 			}
 			else
 			{
@@ -1872,10 +1897,7 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 
 		if (entity)
 		{
-			EntityFinder::NameEntry* entry = level.finder.map.add();
-			strncpy(entry->name, Json::get_string(element, "name"), 255);
-			entry->entity = entity;
-
+			level.finder.add(Json::get_string(element, "name"), entity);
 			Net::finalize(entity);
 		}
 

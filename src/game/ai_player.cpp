@@ -980,8 +980,8 @@ b8 awk_find_filter(const PlayerControlAI* control, const Entity* e)
 	s16 enemy_hp = e->get<Health>()->hp;
 	return e->get<AIAgent>()->team != control->get<AIAgent>()->team
 		&& !e->get<AIAgent>()->stealth
-		&& (e->has<Decoy>() || e->get<Awk>()->overshield_timer == 0.0f || (enemy_hp == 1 && my_hp > enemy_hp + 1))
-		&& (enemy_hp <= my_hp || (my_hp > 1 && control->get<Awk>()->overshield_timer > 0.0f));
+		&& (e->has<Decoy>() || e->get<Awk>()->invincible_timer == 0.0f || (enemy_hp == 1 && my_hp > enemy_hp + 1))
+		&& (enemy_hp <= my_hp || (my_hp > 1 && control->get<Awk>()->invincible_timer > 0.0f));
 }
 
 b8 awk_react_filter(const PlayerControlAI* control, const Entity* e)
@@ -994,7 +994,7 @@ b8 awk_react_filter(const PlayerControlAI* control, const Entity* e)
 	else
 	{
 		Awk* a = e->get<Awk>();
-		return a->state() == Awk::State::Crawl && a->overshield_timer == 0.0f;
+		return a->state() == Awk::State::Crawl && a->invincible_timer == 0.0f;
 	}
 }
 
@@ -1998,7 +1998,7 @@ void RunAway::run()
 	Vec3 pos = control->get<Transform>()->absolute_pos();
 	if (control->get<Awk>()->state() == Awk::State::Crawl
 		&& !control->get<AIAgent>()->stealth // if we're stealthed, no need to run away
-		&& control->get<Awk>()->overshield_timer == 0.0f // if we're overshield, no need to run away
+		&& control->get<Awk>()->invincible_timer == 0.0f // if we're invincible, no need to run away
 		&& path_priority > control->path_priority)
 	{
 		Entity* closest = nullptr;

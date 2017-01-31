@@ -4,6 +4,7 @@
 #include "game/game.h"
 #if SERVER
 #include "asset/level.h"
+#include "game/master.h"
 #endif
 #include "mersenne/mersenne-twister.h"
 #include "common.h"
@@ -394,6 +395,11 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 			serialize_r32(p, l->time);
 			serialize_r32_range(p, l->speed, 0, 8, 16);
 			serialize_asset(p, l->animation, Loader::animation_count);
+			if (Stream::IsReading)
+			{
+				l->last_animation = l->last_frame_animation = l->animation;
+				l->time_last = l->time;
+			}
 			serialize_enum(p, Animator::Behavior, l->behavior);
 		}
 		serialize_asset(p, a->armature, Loader::armature_count);
@@ -676,6 +682,7 @@ template<typename Stream> b8 serialize_entity(Stream* p, Entity* e)
 	{
 		PlayerControlHuman* c = e->get<PlayerControlHuman>();
 		serialize_ref(p, c->player);
+		serialize_ref(p, c->interactable);
 	}
 
 	if (e->has<Interactable>())
@@ -2082,6 +2089,14 @@ struct StateServer
 };
 StateServer state_server;
 
+struct StateMaster
+{
+	Sock::Address addr;
+	SequenceID sequence_id_remote;
+	SequenceID sequence_id_local;
+};
+StateMaster state_master;
+
 s32 clients_loaded()
 {
 	s32 result = 0;
@@ -2131,6 +2146,8 @@ b8 init()
 		printf("%s\n", Sock::get_error());
 		return false;
 	}
+
+	Sock::get_address(&state_master.addr, "127.0.0.1", 3497);
 
 	// todo: allow both multiplayer / story mode sessions
 	Game::session.story_mode = true;
@@ -2326,7 +2343,6 @@ void handle_client_disconnect(Client* c)
 
 void tick(const Update& u, r32 dt)
 {
-	// send out packets
 	if (state_server.mode == Mode::Active)
 	{
 		state_server.time_sync_timer += dt;

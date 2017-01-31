@@ -61,6 +61,7 @@ Health::Health(s8 hp, s8 hp_max, s8 shield, s8 shield_max)
 	: hp(hp),
 	hp_max(hp_max),
 	shield(shield),
+	shield_last(shield),
 	shield_max(shield_max),
 	changed(),
 	killed(),
@@ -109,6 +110,7 @@ b8 Health::net_msg(Net::StreamRead* p)
 
 	Health* h = ref.ref();
 	h->hp += e.hp;
+	h->shield_last = h->shield;
 	h->shield += e.shield;
 	h->changed.fire(e);
 	if (h->hp == 0)
@@ -134,9 +136,6 @@ b8 send_health_event(Health* h, HealthEvent* e)
 	return true;
 }
 
-#define REGEN_DELAY 9.0f
-#define REGEN_TIME 1.0f
-
 // only called on server
 void Health::update(const Update& u)
 {
@@ -144,9 +143,9 @@ void Health::update(const Update& u)
 	{
 		r32 old_timer = regen_timer;
 		regen_timer -= u.time.delta;
-		if (regen_timer < REGEN_TIME)
+		if (regen_timer < SHIELD_REGEN_TIME)
 		{
-			const r32 regen_interval = REGEN_TIME / shield_max;
+			const r32 regen_interval = SHIELD_REGEN_TIME / r32(shield_max);
 			if ((s32)(old_timer / regen_interval) != (s32)(regen_timer / regen_interval))
 			{
 				HealthEvent e =
@@ -185,7 +184,7 @@ void Health::damage(Entity* e, s8 damage)
 		else
 			damage_hp = damage_accumulator;
 
-		regen_timer = REGEN_TIME + REGEN_DELAY;
+		regen_timer = SHIELD_REGEN_TIME + SHIELD_REGEN_DELAY;
 
 		HealthEvent ev =
 		{
@@ -1172,19 +1171,35 @@ void Decoy::awake()
 
 	if (Game::level.local)
 	{
-		Entity* shield_entity = World::create<Empty>();
-		shield_entity->get<Transform>()->parent = get<Transform>();
-		shield = shield_entity;
+		{
+			Entity* shield_entity = World::create<Empty>();
+			shield_entity->get<Transform>()->parent = get<Transform>();
+			shield = shield_entity;
 
-		View* s = shield_entity->add<View>();
-		s->team = (s8)get<AIAgent>()->team;
-		s->mesh = Asset::Mesh::sphere_highres;
-		s->offset.scale(Vec3(AWK_SHIELD_RADIUS));
-		s->shader = Asset::Shader::fresnel;
-		s->alpha();
-		s->color.w = AWK_SHIELD_ALPHA;
+			View* s = shield_entity->add<View>();
+			s->team = (s8)get<AIAgent>()->team;
+			s->mesh = Asset::Mesh::sphere_highres;
+			s->offset.scale(Vec3(AWK_SHIELD_RADIUS * AWK_SHIELD_VIEW_RATIO));
+			s->shader = Asset::Shader::fresnel;
+			s->alpha();
+			s->color.w = AWK_SHIELD_ALPHA;
 
-		Net::finalize(shield_entity);
+			Net::finalize(shield_entity);
+		}
+
+		{
+			Entity* overshield_entity = World::create<Empty>();
+			overshield_entity->get<Transform>()->parent = get<Transform>();
+			overshield = overshield_entity;
+
+			View* s = overshield_entity->add<View>();
+			s->team = (s8)get<AIAgent>()->team;
+			s->mesh = Asset::Mesh::sphere_highres;
+			s->offset.scale(Vec3(AWK_OVERSHIELD_RADIUS * AWK_SHIELD_VIEW_RATIO));
+			s->shader = Asset::Shader::fresnel;
+			s->alpha();
+			s->color.w = AWK_OVERSHIELD_ALPHA;
+		}
 	}
 }
 
@@ -1216,7 +1231,7 @@ void Decoy::health_changed(const HealthEvent& e)
 
 void Decoy::update(const Update& u)
 {
-	Awk::update_shield_view(u, entity(), shield.ref()->get<View>(), shield_time);
+	Awk::update_shield_view(u, entity(), shield.ref()->get<View>(), overshield.ref()->get<View>(), shield_time);
 }
 
 void Decoy::destroy()

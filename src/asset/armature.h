@@ -8,7 +8,7 @@ namespace Asset
 {
 	namespace Armature
 	{
-		const s32 count = 11;
+		const s32 count = 12;
 		const AssetID awk = 0;
 		const AssetID character = 1;
 		const AssetID hobo = 2;
@@ -18,12 +18,13 @@ namespace Asset
 		const AssetID parkour = 6;
 		const AssetID parkour_headless = 7;
 		const AssetID sailor = 8;
-		const AssetID terminal = 9;
-		const AssetID tram_doors = 10;
+		const AssetID seven = 9;
+		const AssetID terminal = 10;
+		const AssetID tram_doors = 11;
 	}
 	namespace Bone
 	{
-		const s32 count = 310;
+		const s32 count = 363;
 		const AssetID awk_a1 = 5;
 		const AssetID awk_a2 = 6;
 		const AssetID awk_b1 = 1;
@@ -319,6 +320,59 @@ namespace Asset
 		const AssetID sailor_thumb_03_r = 43;
 		const AssetID sailor_upperarm_l = 7;
 		const AssetID sailor_upperarm_r = 26;
+		const AssetID seven_ball_l = 48;
+		const AssetID seven_ball_r = 52;
+		const AssetID seven_calf_l = 46;
+		const AssetID seven_calf_r = 50;
+		const AssetID seven_clavicle_l = 5;
+		const AssetID seven_clavicle_r = 24;
+		const AssetID seven_foot_l = 47;
+		const AssetID seven_foot_r = 51;
+		const AssetID seven_hand_l = 8;
+		const AssetID seven_hand_r = 27;
+		const AssetID seven_head = 44;
+		const AssetID seven_index_01_l = 9;
+		const AssetID seven_index_01_r = 28;
+		const AssetID seven_index_02_l = 10;
+		const AssetID seven_index_02_r = 29;
+		const AssetID seven_index_03_l = 11;
+		const AssetID seven_index_03_r = 30;
+		const AssetID seven_lowerarm_l = 7;
+		const AssetID seven_lowerarm_r = 26;
+		const AssetID seven_middle_01_l = 12;
+		const AssetID seven_middle_01_r = 31;
+		const AssetID seven_middle_02_l = 13;
+		const AssetID seven_middle_02_r = 32;
+		const AssetID seven_middle_03_l = 14;
+		const AssetID seven_middle_03_r = 33;
+		const AssetID seven_neck_01 = 43;
+		const AssetID seven_pelvis = 1;
+		const AssetID seven_pinky_01_l = 15;
+		const AssetID seven_pinky_01_r = 34;
+		const AssetID seven_pinky_02_l = 16;
+		const AssetID seven_pinky_02_r = 35;
+		const AssetID seven_pinky_03_l = 17;
+		const AssetID seven_pinky_03_r = 36;
+		const AssetID seven_ring_01_l = 18;
+		const AssetID seven_ring_01_r = 37;
+		const AssetID seven_ring_02_l = 19;
+		const AssetID seven_ring_02_r = 38;
+		const AssetID seven_ring_03_l = 20;
+		const AssetID seven_ring_03_r = 39;
+		const AssetID seven_root = 0;
+		const AssetID seven_spine_01 = 2;
+		const AssetID seven_spine_02 = 3;
+		const AssetID seven_spine_03 = 4;
+		const AssetID seven_thigh_l = 45;
+		const AssetID seven_thigh_r = 49;
+		const AssetID seven_thumb_01_l = 21;
+		const AssetID seven_thumb_01_r = 40;
+		const AssetID seven_thumb_02_l = 22;
+		const AssetID seven_thumb_02_r = 41;
+		const AssetID seven_thumb_03_l = 23;
+		const AssetID seven_thumb_03_r = 42;
+		const AssetID seven_upperarm_l = 6;
+		const AssetID seven_upperarm_r = 25;
 		const AssetID terminal_bottom_L = 1;
 		const AssetID terminal_bottom_R = 2;
 		const AssetID terminal_middle_L = 3;

@@ -1843,10 +1843,11 @@ void Game::load_level(AssetID l, Mode m, b8 ai_test)
 				}
 
 				{
-					Entity* locke = World::create<Prop>(Asset::Mesh::locke, Asset::Armature::locke, Asset::Animation::locke_idle);
+					Entity* locke = World::create<Prop>(Asset::Mesh::locke, Asset::Armature::locke);
 					locke->get<Transform>()->pos = absolute_pos + absolute_rot * Vec3(-1.25f, 0, 0);
 					locke->get<Transform>()->rot = absolute_rot;
-					locke->add<PlayerTrigger>()->radius = 7.0f;
+					locke->add<PlayerTrigger>()->radius = 5.0f;
+					locke->get<Animator>()->layers[0].behavior = Animator::Behavior::Freeze;
 					Net::finalize(locke);
 					level.finder.add("locke", locke);
 					level.scripts.add(Script::find("locke"));

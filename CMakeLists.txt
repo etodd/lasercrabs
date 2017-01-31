@@ -352,6 +352,7 @@ if (SERVER)
 	# server
 	set(SRC_SERVER
 		${SRC}
+		src/game/master.h
 		src/platform/server.cpp
 	)
 	#enable_unity_build(yearningsrv SRC_SERVER)
@@ -369,6 +370,7 @@ if (SERVER)
 		src/platform/sock.h
 		src/platform/sock.cpp
 		src/platform/util.h
+		src/game/master.h
 		src/platform/master.cpp
 	)
 	#enable_unity_build(yearningmaster SRC_MASTER)

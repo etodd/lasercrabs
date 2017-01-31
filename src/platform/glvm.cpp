@@ -428,10 +428,10 @@ void render(RenderSync* sync)
 				glGenBuffers(1, &mesh->instance_buffer);
 				glBindBuffer(GL_ARRAY_BUFFER, mesh->instance_buffer);
 
-				glEnableVertexAttribArray(mesh->attribs.length + 0); 
-				glEnableVertexAttribArray(mesh->attribs.length + 1); 
-				glEnableVertexAttribArray(mesh->attribs.length + 2); 
-				glEnableVertexAttribArray(mesh->attribs.length + 3); 
+				glEnableVertexAttribArray(mesh->attribs.length + 0);
+				glEnableVertexAttribArray(mesh->attribs.length + 1);
+				glEnableVertexAttribArray(mesh->attribs.length + 2);
+				glEnableVertexAttribArray(mesh->attribs.length + 3);
 				glVertexAttribPointer(mesh->attribs.length + 0, 4, GL_FLOAT, GL_FALSE, 4 * sizeof(Vec4), (GLvoid*)(sizeof(Vec4) * 0));
 				glVertexAttribPointer(mesh->attribs.length + 1, 4, GL_FLOAT, GL_FALSE, 4 * sizeof(Vec4), (GLvoid*)(sizeof(Vec4) * 1));
 				glVertexAttribPointer(mesh->attribs.length + 2, 4, GL_FLOAT, GL_FALSE, 4 * sizeof(Vec4), (GLvoid*)(sizeof(Vec4) * 2));

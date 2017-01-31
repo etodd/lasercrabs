@@ -10,7 +10,7 @@ namespace VI
 
 struct Traceur : public Entity
 {
-	Traceur(const Vec3&, const Quat&, AI::Team);
+	Traceur(const Vec3&, r32, AI::Team);
 };
 
 #define LANDING_VELOCITY_LIGHT 5.0f * -1.25f

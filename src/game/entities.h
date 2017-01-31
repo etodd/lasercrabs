@@ -38,6 +38,7 @@ struct Health : public ComponentType<Health>
 	LinkArg<const HealthEvent&> changed;
 	LinkArg<Entity*> killed;
 	s8 shield;
+	s8 shield_last;
 	s8 shield_max;
 	s8 hp;
 	s8 hp_max;
@@ -190,6 +191,7 @@ struct Decoy : public ComponentType<Decoy>
 	r32 shield_time;
 	Ref<PlayerManager> owner;
 	Ref<Entity> shield;
+	Ref<Entity> overshield;
 
 	void awake();
 	~Decoy();

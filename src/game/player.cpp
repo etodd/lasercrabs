@@ -754,8 +754,7 @@ void PlayerHuman::spawn()
 			angle = atan2f(dir.x, dir.z);
 		}
 
-		spawned = World::create<Traceur>(pos, Quat::euler(0, angle, 0), get<PlayerManager>()->team.ref()->team());
-		spawned->get<Parkour>()->last_angle_horizontal = angle;
+		spawned = World::create<Traceur>(pos, angle, get<PlayerManager>()->team.ref()->team());
 	}
 
 	spawned->get<Transform>()->absolute_pos(pos);
@@ -1503,7 +1502,7 @@ r32 PlayerCommon::detect_danger() const
 			if (track->tracking)
 				return 1.0f;
 			else
-				return track->timer / SENSOR_TIME;
+				return track->timer / SENSOR_TRACK_TIME;
 		}
 	}
 	return 0.0f;
@@ -1716,8 +1715,6 @@ void PlayerControlHuman::health_changed(const HealthEvent& e)
 	{
 		// de-scope when damaged
 		try_secondary = false;
-		if (has<Awk>() && get<Awk>()->current_ability != Ability::None)
-			ability_cancel(get<Awk>());
 		camera_shake();
 	}
 }
@@ -2025,7 +2022,7 @@ void ability_update(const Update& u, PlayerControlHuman* control, Controls bindi
 	PlayerManager* manager = player->get<PlayerManager>();
 	Ability ability = manager->abilities[index];
 
-	if (ability == Ability::None || !control->movement_enabled())
+	if (ability == Ability::None || !control->input_enabled())
 		return;
 
 	Awk* awk = control->get<Awk>();
@@ -2037,7 +2034,7 @@ void ability_update(const Update& u, PlayerControlHuman* control, Controls bindi
 			// cancel current spawn ability
 			ability_cancel(awk);
 		}
-		else if (manager->ability_valid(ability)) // select new spawn ability
+		else
 		{
 			if (awk->current_ability != Ability::None)
 				ability_cancel(awk);
@@ -3495,7 +3492,7 @@ void PlayerControlHuman::draw_ui(const RenderParams& params) const
 
 	const Health* health = get<Health>();
 
-	b8 is_vulnerable = !get<AIAgent>()->stealth && (!has<Awk>() || get<Awk>()->overshield_timer == 0.0f) && health->hp == 1 && health->shield == 0;
+	b8 is_vulnerable = !get<AIAgent>()->stealth && (!has<Awk>() || get<Awk>()->invincible_timer == 0.0f) && health->hp == 1 && health->shield == 0;
 
 	// compass
 	{

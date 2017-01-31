@@ -39,7 +39,7 @@ namespace VI
 #define MIN_SLIDE_TIME 0.6f
 #define ANIMATION_SPEED_MULTIPLIER 2.0f
 
-Traceur::Traceur(const Vec3& pos, const Quat& quat, AI::Team team)
+Traceur::Traceur(const Vec3& pos, r32 rot, AI::Team team)
 {
 	Transform* transform = create<Transform>();
 	transform->pos = pos;
@@ -56,9 +56,7 @@ Traceur::Traceur(const Vec3& pos, const Quat& quat, AI::Team team)
 
 	create<Audio>();
 	
-	Vec3 forward = quat * Vec3(0, 0, 1);
-
-	Walker* walker = create<Walker>(atan2f(forward.x, forward.z));
+	Walker* walker = create<Walker>(rot);
 	walker->max_speed = MAX_SPEED;
 	walker->speed = RUN_SPEED;
 	walker->auto_rotate = false;
@@ -66,7 +64,7 @@ Traceur::Traceur(const Vec3& pos, const Quat& quat, AI::Team team)
 	create<AIAgent>()->team = team;
 
 	create<Target>();
-	create<Health>(AWK_HEALTH, AWK_HEALTH, AWK_SHIELD, AWK_SHIELD);
+	create<Health>(AWK_HEALTH, AWK_HEALTH, PARKOUR_SHIELD, PARKOUR_SHIELD);
 
 	create<Parkour>();
 }
@@ -100,6 +98,7 @@ void Parkour::awake()
 	link<&Parkour::pickup_animation_complete>(animator->trigger(Asset::Animation::character_pickup, 3.5f));
 	link_arg<r32, &Parkour::land>(get<Walker>()->land);
 	link_arg<Entity*, &Parkour::killed>(get<Health>()->killed);
+	last_angle_horizontal = get<Walker>()->rotation;
 }
 
 Parkour::~Parkour()

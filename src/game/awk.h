@@ -95,7 +95,7 @@ struct Awk : public ComponentType<Awk>
 	};
 
 	static Awk* closest(AI::TeamMask, const Vec3&, r32* = nullptr);
-	static void update_shield_view(const Update&, Entity*, View*, r32);
+	static void update_shield_view(const Update&, Entity*, View*, View*, r32);
 	static b8 net_msg(Net::StreamRead*, Net::MessageSource);
 	static void stealth(Entity*, b8);
 
@@ -106,9 +106,10 @@ struct Awk : public ComponentType<Awk>
 	Vec3 remote_reflection_pos;
 	Vec3 remote_reflection_dir;
 	r32 attach_time;
-	r32 overshield_timer;
+	r32 invincible_timer;
 	r32 shield_time;
 	r32 cooldown; // remaining cooldown time
+	r32 stun_timer;
 	r32 last_footstep;
 	r32 particle_accumulator;
 	r32 dash_timer;

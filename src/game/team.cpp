@@ -444,12 +444,12 @@ void update_visibility(const Update& u)
 				if (track->entity.ref() == detected_entity)
 				{
 					if (track->tracking)
-						track->timer = SENSOR_TIME; // this is how much time we'll continue to track them after we can no longer detect them
+						track->timer = SENSOR_LINGER_TIME; // this is how much time we'll continue to track them after we can no longer detect them
 					else
 					{
 						// tracking but not yet alerted
 						track->timer += u.time.delta;
-						if (track->timer >= SENSOR_TIME)
+						if (track->timer >= SENSOR_TRACK_TIME)
 							team->track(player.item(), detected_entity);
 					}
 				}
@@ -466,7 +466,7 @@ void update_visibility(const Update& u)
 			{
 				// team's sensors don't see the Awk
 				// done tracking
-				if (track->tracking && track->entity.ref() && track->timer > 0.0f) // track still remains active for SENSOR_TIME seconds
+				if (track->tracking && track->entity.ref() && track->timer > 0.0f) // track still remains active for SENSOR_LINGER_TIME seconds
 					track->timer -= u.time.delta;
 				else
 				{

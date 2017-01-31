@@ -864,6 +864,22 @@ namespace locke
 	
 	void update(const Update& u)
 	{
+		if (data->locke->cues.length == 0)
+		{
+			Animator::Layer* layer0 = &data->locke->model.ref()->get<Animator>()->layers[0];
+			if (layer0->animation == AssetNull || layer0->time == Loader::animation(layer0->animation)->duration)
+			{
+				const s32 idle_anim_count = 1;
+				const AssetID idle_anims[idle_anim_count] =
+				{
+					Asset::Animation::locke_shift_weight,
+				};
+				if (mersenne::rand() % 4 == 0)
+					layer0->play(idle_anims[mersenne::rand() % idle_anim_count]);
+				else
+					layer0->play(Asset::Animation::locke_idle);
+			}
+		}
 	}
 
 	void trigger(Entity*)
@@ -883,8 +899,8 @@ namespace locke
 			{
 				case 0:
 				{
-					data->locke->cue(AK::EVENTS::PLAY_LOCKE1A, Asset::Animation::locke_idle, strings::locke1a);
-					data->locke->cue(AK::EVENTS::PLAY_LOCKE1B, Asset::Animation::locke_idle, strings::locke1b);
+					data->locke->cue(AK::EVENTS::PLAY_LOCKE1A, Asset::Animation::locke_gesture_one_hand_short, strings::locke1a, false);
+					data->locke->cue(AK::EVENTS::PLAY_LOCKE1B, Asset::Animation::locke_shift_weight, strings::locke1b, false);
 					break;
 				}
 				case 1:

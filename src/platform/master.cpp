@@ -1,6 +1,6 @@
 #define _AMD64_
 
-#include "types.h"
+#include "game/master.h"
 
 #include <thread>
 #if _WIN32
@@ -8,6 +8,8 @@
 #endif
 #include <time.h>
 #include <chrono>
+#include "sock.h"
+#include "net_serialize.h"
 
 namespace VI
 {
@@ -19,7 +21,7 @@ namespace VI
 		{
 			time_t t;
 			::time(&t);
-			return (u64)t;
+			return u64(t);
 		}
 
 		r64 time()
@@ -29,17 +31,13 @@ namespace VI
 
 		void sleep(r32 time)
 		{
-			std::this_thread::sleep_for(std::chrono::milliseconds((s64)(time * 1000.0f)));
+			std::this_thread::sleep_for(std::chrono::milliseconds(s64(time * 1000.0f)));
 		}
 
 	}
 
 	s32 proc()
 	{
-		while (true)
-		{
-		}
-
 		return 0;
 	}
 
